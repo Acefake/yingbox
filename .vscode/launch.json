@@ -1,0 +1,61 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Debug Main Process",
+      "type": "node",
+      "request": "launch",
+      "cwd": "${workspaceFolder}",
+      "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron",
+      "windows": {
+        "runtimeExecutable": "${workspaceFolder}/node_modules/.bin/electron.cmd"
+      },
+      "args": ["."],
+      "outputCapture": "std",
+      "console": "integratedTerminal",
+      "protocol": "inspector",
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "preLaunchTask": "npm: build"
+    },
+    {
+      "name": "Debug Renderer Process",
+      "type": "chrome",
+      "request": "attach",
+      "port": 9222,
+      "webRoot": "${workspaceFolder}/src/renderer",
+      "timeout": 30000,
+      "sourceMaps": true,
+      "sourceMapPathOverrides": {
+        "webpack:///./*": "${webRoot}/*",
+        "webpack:///src/*": "${webRoot}/*",
+        "webpack:///*": "*",
+        "webpack:///./~/*": "${webRoot}/node_modules/*"
+      }
+    },
+    {
+      "name": "Debug Preload Script",
+      "type": "node",
+      "request": "launch",
+      "program": "${workspaceFolder}/src/preload/index.ts",
+      "outFiles": [
+        "${workspaceFolder}/out/preload/**/*.js"
+      ],
+      "skipFiles": [
+        "<node_internals>/**"
+      ],
+      "console": "integratedTerminal"
+    }
+  ],
+  "compounds": [
+    {
+      "name": "Debug Electron App",
+      "configurations": [
+        "Debug Main Process",
+        "Debug Renderer Process"
+      ],
+      "stopAll": true
+    }
+  ]
+}
