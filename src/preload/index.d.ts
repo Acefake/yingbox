@@ -48,13 +48,28 @@ interface API {
     extname: (filePath: string) => Promise<string>
   }
   dialog: {
-      openDirectory: () => Promise<{success: boolean, canceled: boolean, filePaths: string[], error?: string}>
-      openFile: (options?: Electron.OpenDialogOptions) => Promise<{success: boolean, canceled: boolean, filePaths: string[], error?: string}>
-      saveFile: (options?: Electron.SaveDialogOptions) => Promise<{success: boolean, canceled: boolean, filePath: string, error?: string}>
-    }
-    app: {
-      getVersion: () => Promise<FileOperationResult>
-    }
+    openDirectory: () => Promise<{
+      success: boolean
+      canceled: boolean
+      filePaths: string[]
+      error?: string
+    }>
+    openFile: (options?: Electron.OpenDialogOptions) => Promise<{
+      success: boolean
+      canceled: boolean
+      filePaths: string[]
+      error?: string
+    }>
+    saveFile: (options?: Electron.SaveDialogOptions) => Promise<{
+      success: boolean
+      canceled: boolean
+      filePath: string
+      error?: string
+    }>
+  }
+  app: {
+    getVersion: () => Promise<FileOperationResult>
+  }
 }
 
 declare global {

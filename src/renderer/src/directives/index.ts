@@ -5,12 +5,12 @@ import vContextMenu from './contextMenu'
 // 所有自定义指令
 const directives = {
   rightClick: vRightClick,
-  contextMenu: vContextMenu
+  contextMenu: vContextMenu,
 }
 
 // 批量注册指令的函数
 export function setupDirectives(app: App): void {
-  Object.keys(directives).forEach((key) => {
+  Object.keys(directives).forEach(key => {
     app.directive(key, directives[key as keyof typeof directives])
   })
 }

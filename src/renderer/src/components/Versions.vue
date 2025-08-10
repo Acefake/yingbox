@@ -1,24 +1,27 @@
 <script setup lang="ts">
-import { reactive, onMounted } from "vue";
+import { onMounted, reactive } from 'vue'
 
-const appInfo = reactive({
-  version: "Unknown",
-});
+const appInfo = reactive<{
+  version: string,
+}>({
+  version: 'Unknown',
+})
 
 onMounted(async () => {
   try {
     if (window.api && window.api.app) {
-      const result = await window.api.app.getVersion();
+      const result = await window.api.app.getVersion()
+
       if (result.success && result.data) {
-        appInfo.version = result.data.version;
+        appInfo.version = result.data.version
       }
     } else {
-      console.warn("API not available");
+      console.warn('API not available')
     }
   } catch (error) {
-    console.error("获取应用版本信息失败:", error);
+    console.error('获取应用版本信息失败:', error)
   }
-});
+})
 </script>
 
 <template>

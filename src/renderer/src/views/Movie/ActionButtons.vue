@@ -8,12 +8,7 @@
         :disabled="dirLoading"
         @click="$emit('refresh')"
       >
-        <svg
-          class="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -47,12 +42,7 @@
             d="M12 6v6m0 0v6m0-6h6m-6 0H6"
           ></path>
         </svg>
-        <svg
-          v-else
-          class="w-5 h-5 animate-spin"
-          fill="none"
-          viewBox="0 0 24 24"
-        >
+        <svg v-else class="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
           <circle
             class="opacity-25"
             cx="12"
@@ -78,12 +68,7 @@
         title="清除缓存"
         @click="handleClearCache"
       >
-        <svg
-          class="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -102,12 +87,7 @@
         title="刮削队列管理"
         @click="$emit('showQueue')"
       >
-        <svg
-          class="w-5 h-5"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
+        <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
           <path
             stroke-linecap="round"
             stroke-linejoin="round"
@@ -135,24 +115,24 @@
 
 <script setup lang="ts">
 interface Props {
-  dirLoading: boolean;
-  scrapeQueueCount?: number;
-  isProcessingQueue?: boolean;
+  dirLoading: boolean
+  scrapeQueueCount?: number
+  isProcessingQueue?: boolean
 }
 
-defineProps<Props>();
+defineProps<Props>()
 
 const emit = defineEmits<{
-  refresh: [];
-  addFolder: [];
-  clearCache: [];
-  showQueue: [];
-}>();
+  refresh: []
+  addFolder: []
+  clearCache: []
+  showQueue: []
+}>()
 
 /**
  * 处理清除缓存按钮点击
  */
 const handleClearCache = (): void => {
-  emit("clearCache");
-};
+  emit('clearCache')
+}
 </script>

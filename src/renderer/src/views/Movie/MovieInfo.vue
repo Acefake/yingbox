@@ -9,22 +9,16 @@
             <div v-if="movieInfo.year" class="text-gray-300">
               <span class="text-gray-400">年份:</span> {{ movieInfo.year }}
             </div>
-            <div
-              v-if="movieInfo.genre && movieInfo.genre.length > 0"
-              class="text-gray-300"
-            >
+            <div v-if="movieInfo.genre && movieInfo.genre.length > 0" class="text-gray-300">
               <span class="text-gray-400">类型:</span>
-              {{ movieInfo.genre.join(", ") }}
+              {{ movieInfo.genre.join(', ') }}
             </div>
             <div v-if="movieInfo.director" class="text-gray-300">
               <span class="text-gray-400">导演:</span> {{ movieInfo.director }}
             </div>
-            <div
-              v-if="movieInfo.actor && movieInfo.actor.length > 0"
-              class="text-gray-300"
-            >
+            <div v-if="movieInfo.actor && movieInfo.actor.length > 0" class="text-gray-300">
               <span class="text-gray-400">演员:</span>
-              {{ movieInfo.actor.join(", ") }}
+              {{ movieInfo.actor.join(', ') }}
             </div>
             <div v-if="movieInfo.rating" class="text-gray-300">
               <span class="text-gray-400">评分:</span> {{ movieInfo.rating }}
@@ -56,29 +50,29 @@
 
 <script setup lang="ts">
 interface MovieInfoType {
-  title?: string;
-  originaltitle?: string;
-  year?: string;
-  plot?: string;
-  genre?: string[];
-  director?: string;
-  actor?: string[];
-  rating?: string;
-  runtime?: string;
-  country?: string;
-  studio?: string;
-  premiered?: string;
+  title?: string
+  originaltitle?: string
+  year?: string
+  plot?: string
+  genre?: string[]
+  director?: string
+  actor?: string[]
+  rating?: string
+  runtime?: string
+  country?: string
+  studio?: string
+  premiered?: string
 }
 
 interface Props {
-  movieInfo: MovieInfoType;
-  posterUrl: string;
-  loading: boolean;
+  movieInfo: MovieInfoType
+  posterUrl: string
+  loading: boolean
 }
 
-defineProps<Props>();
+defineProps<Props>()
 
 defineEmits<{
-  downloadPoster: [];
-}>();
+  downloadPoster: []
+}>()
 </script>

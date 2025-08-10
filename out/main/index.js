@@ -1,11 +1,11 @@
 "use strict";
-const electron = require("electron");
-const path = require("path");
 const utils = require("@electron-toolkit/utils");
-const fs = require("fs/promises");
+const electron = require("electron");
 const fsSync = require("fs");
-const https = require("https");
+const fs = require("fs/promises");
 const http = require("http");
+const https = require("https");
+const path = require("path");
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
   if (e) {
@@ -22,11 +22,11 @@ function _interopNamespaceDefault(e) {
   n.default = e;
   return Object.freeze(n);
 }
-const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
-const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
 const fsSync__namespace = /* @__PURE__ */ _interopNamespaceDefault(fsSync);
-const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
+const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
 const http__namespace = /* @__PURE__ */ _interopNamespaceDefault(http);
+const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
+const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 const icon = path.join(__dirname, "../../resources/icon.png");
 function createWindow() {
   const mainWindow = new electron.BrowserWindow({
@@ -45,9 +45,7 @@ function createWindow() {
   electron.ipcMain.handle("app:getVersion", async () => {
     try {
       const packageJsonPath = path__namespace.join(__dirname, "../../package.json");
-      const packageJson = JSON.parse(
-        await fs__namespace.readFile(packageJsonPath, "utf-8")
-      );
+      const packageJson = JSON.parse(await fs__namespace.readFile(packageJsonPath, "utf-8"));
       return {
         success: true,
         data: {

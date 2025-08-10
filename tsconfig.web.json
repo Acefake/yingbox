@@ -1,36 +1,5 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
-  "include": [
-    "src/renderer/src/env.d.ts",
-    "src/renderer/src/**/*",
-    "src/renderer/src/**/*.vue",
-    "src/preload/*.d.ts"
-  ],
-  "compilerOptions": {
-    "composite": true,
-    "baseUrl": ".",
-    "noImplicitAny": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false,
-    "paths": {
-      "@renderer/*": [
-        "src/renderer/src/*"
-      ],
-      "@api/*": [
-        "src/api/*"
-      ],
-      "@types/*": [
-        "src/types/*"
-      ],
-      "@components/*": [
-        "src/renderer/src/components/*"
-      ],
-      "@assets/*": [
-        "src/renderer/src/assets/*"
-      ],
-      "@views/*": [
-        "src/renderer/src/views/*"
-      ]
-    }
-  }
+  // === 排除文件 ===
+  "exclude": ["src/main/**/*", "node_modules", "dist", "out"]
 }

@@ -21,12 +21,8 @@
 
         <!-- 基本信息 -->
         <div class="mb-4">
-          <div class="text-sm text-gray-300 mb-2">
-            名称: {{ selectedItem.name }}
-          </div>
-          <div class="text-sm text-gray-300 mb-2">
-            路径: {{ selectedItem.path }}
-          </div>
+          <div class="text-sm text-gray-300 mb-2">名称: {{ selectedItem.name }}</div>
+          <div class="text-sm text-gray-300 mb-2">路径: {{ selectedItem.path }}</div>
           <div v-if="selectedItem.fileCount" class="text-sm text-gray-300 mb-2">
             文件数量: {{ selectedItem.fileCount }}
           </div>
@@ -54,12 +50,8 @@
         <h3 class="text-lg font-semibold text-white mb-4">视频文件详情</h3>
 
         <div class="mb-4">
-          <div class="text-sm text-gray-300 mb-2">
-            名称: {{ selectedItem.name }}
-          </div>
-          <div class="text-sm text-gray-300 mb-2">
-            路径: {{ selectedItem.path }}
-          </div>
+          <div class="text-sm text-gray-300 mb-2">名称: {{ selectedItem.name }}</div>
+          <div class="text-sm text-gray-300 mb-2">路径: {{ selectedItem.path }}</div>
           <div v-if="selectedItem.size" class="text-sm text-gray-300 mb-2">
             大小: {{ formatFileSize(selectedItem.size) }}
           </div>
@@ -70,62 +62,66 @@
 </template>
 
 <script setup lang="ts">
-import { ref } from "vue";
-import MovieInfo from "./MovieInfo.vue";
-import FileList from "./FileList.vue";
+import { ref } from 'vue'
+import MovieInfo from './MovieInfo.vue'
+import FileList from './FileList.vue'
 
 interface FileItem {
-  name: string;
-  path: string;
-  size: number;
-  isDirectory: boolean;
-  isFile: boolean;
+  name: string
+  path: string
+  size: number
+  isDirectory: boolean
+  isFile: boolean
 }
 
 interface ProcessedItem {
-  name: string;
-  path: string;
-  type: "folder" | "video";
-  size?: number;
-  fileCount?: number;
-  files?: FileItem[];
+  name: string
+  path: string
+  type: 'folder' | 'video'
+  size?: number
+  fileCount?: number
+  files?: FileItem[]
 }
 
 interface MovieInfoType {
-  title: string;
-  year?: string;
-  plot?: string;
-  genre?: string;
-  director?: string;
-  actors?: string;
-  rating?: string;
-  runtime?: string;
+  title: string
+  year?: string
+  plot?: string
+  genre?: string
+  director?: string
+  actors?: string
+  rating?: string
+  runtime?: string
 }
 
 interface Props {
-  selectedItem: ProcessedItem | null;
-  rightPanelWidth: number;
-  minPanelWidth: number;
-  menuBackgroundColor: string;
-  movieInfo: MovieInfoType | null;
-  posterUrl: string;
-  loading: boolean;
+  selectedItem: ProcessedItem | null
+  rightPanelWidth: number
+  minPanelWidth: number
+  menuBackgroundColor: string
+  movieInfo: MovieInfoType | null
+  posterUrl: string
+  loading: boolean
 }
 
-defineProps<Props>();
+defineProps<Props>()
 
 defineEmits<{
-  downloadPoster: [];
-}>();
+  downloadPoster: []
+}>()
 
-const rightPanel = ref<HTMLElement | null>(null);
+const rightPanel = ref<HTMLElement | null>(null)
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
+  if (bytes === 0) return '0 Bytes'
+
+  const k = 1024
+
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
 </script>

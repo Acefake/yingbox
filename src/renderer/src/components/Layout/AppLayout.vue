@@ -41,15 +41,36 @@
           <span class="logo-text">PosterScraper</span>
         </div>
 
+        <!-- 中间导航 -->
+        <div class="navigation-section">
+          <nav class="nav-tabs">
+            <button 
+              class="nav-tab" 
+              :class="{ active: route.name === 'Movie' }"
+              @click="navigateTo('/')"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v2a1 1 0 01-1 1h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 3v1h6V3H9zm-2 5v11h10V8H7z"/>
+              </svg>
+              <span>电影</span>
+            </button>
+            <button 
+              class="nav-tab" 
+              :class="{ active: route.name === 'TV' }"
+              @click="navigateTo('/tv')"
+            >
+              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              </svg>
+              <span>电视剧</span>
+            </button>
+          </nav>
+        </div>
+
         <!-- 右侧设置 -->
         <div class="settings-section">
           <button class="settings-btn" @click="openSettings">
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
+            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -76,44 +97,56 @@
 </template>
 
 <script setup lang="ts">
-import { ref, provide } from "vue";
-import logo from "@assets/imgs/logo.svg";
-import bgImg from "@assets/imgs/home-bg.jpg";
+import { provide, ref } from 'vue'
+import { useRouter, useRoute } from 'vue-router'
+import logo from '@assets/imgs/logo.svg'
+import bgImg from '@assets/imgs/home-bg.jpg'
 
-const globalBackgroundImage = ref<string>("");
-const globalMenuBackgroundColor = ref<string>("");
+const router = useRouter()
+const route = useRoute()
+
+const globalBackgroundImage = ref<string>('')
+
+const globalMenuBackgroundColor = ref<string>('')
 
 /**
  * 设置全局背景图片和菜单背景色
  * @param backgroundImage - 背景图片URL
  * @param menuBackgroundColor - 菜单背景色
  */
-const setGlobalBackground = (
-  backgroundImage: string,
-  menuBackgroundColor: string,
-): void => {
-  globalBackgroundImage.value = backgroundImage;
-  globalMenuBackgroundColor.value = menuBackgroundColor;
-};
+const setGlobalBackground = (backgroundImage: string, menuBackgroundColor: string): void => {
+  globalBackgroundImage.value = backgroundImage
+  globalMenuBackgroundColor.value = menuBackgroundColor
+}
 
 /**
  * 清除全局背景
  */
 const clearGlobalBackground = (): void => {
-  globalBackgroundImage.value = "";
-  globalMenuBackgroundColor.value = "";
-};
+  globalBackgroundImage.value = ''
+  globalMenuBackgroundColor.value = ''
+}
 
 // 向子组件提供背景控制方法
-provide("appLayoutMethods", {
+provide('appLayoutMethods', {
   setGlobalBackground,
   clearGlobalBackground,
-});
+})
 
-// 设置按钮点击处理
+/**
+ * 导航到指定路由
+ * @param path - 目标路由路径
+ */
+const navigateTo = (path: string): void => {
+  router.push(path)
+}
+
+/**
+ * 设置按钮点击处理
+ */
 const openSettings = (): void => {
-  console.log("打开设置面板");
-};
+  console.log('打开设置面板')
+}
 </script>
 
 <style scoped>
@@ -164,6 +197,56 @@ const openSettings = (): void => {
   font-weight: 600;
   color: white;
   letter-spacing: -0.025em;
+}
+
+/* 导航区域 */
+.navigation-section {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  flex: 1;
+}
+
+.nav-tabs {
+  display: flex;
+  gap: 8px;
+  background: rgba(0, 0, 0, 0.3);
+  border-radius: 12px;
+  padding: 4px;
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+.nav-tab {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 8px 16px;
+  background: transparent;
+  border: none;
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 14px;
+  font-weight: 500;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  min-width: 80px;
+  justify-content: center;
+}
+
+.nav-tab:hover {
+  background: rgba(255, 255, 255, 0.1);
+  color: rgba(255, 255, 255, 0.9);
+  transform: translateY(-1px);
+}
+
+.nav-tab.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: white;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+}
+
+.nav-tab.active:hover {
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* 设置区域 */

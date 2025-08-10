@@ -184,10 +184,10 @@
         :is-multi-select-mode="isMultiSelectMode"
         :is-selected="selectedItems?.has(index) || false"
         @select="$emit('selectItem', item, index)"
-        @refresh="(targetPath) => $emit('refresh', targetPath)"
-        @show-search-modal="(movies) => $emit('showSearchModal', movies)"
-        @manual-scrape="(item) => $emit('manualScrape', item)"
-        @auto-scrape="(item) => $emit('autoScrape', item)"
+        @refresh="targetPath => $emit('refresh', targetPath)"
+        @show-search-modal="movies => $emit('showSearchModal', movies)"
+        @manual-scrape="item => $emit('manualScrape', item)"
+        @auto-scrape="item => $emit('autoScrape', item)"
         @toggle-selection="$emit('toggleSelection', item, index)"
       />
     </div>
@@ -195,7 +195,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from "vue";
+import { computed, ref } from "vue";
 import ActionButtons from "./ActionButtons.vue";
 import FileTreeItem from "./FileTreeItem.vue";
 import type { Movie } from "@tdanks2000/tmdb-wrapper";
@@ -234,17 +234,29 @@ interface Props {
 const props = defineProps<Props>();
 
 defineEmits<{
+  /** 刷新指定路径的文件树 */
   refresh: [targetPath?: string];
+  /** 添加文件夹 */
   addFolder: [];
+  /** 清除缓存 */
   clearCache: [];
+  /** 选择项目 */
   selectItem: [item: ProcessedItem, index: number];
+  /** 显示搜索模态框 */
   showSearchModal: [movies: Movie[]];
+  /** 手动刮削 */
   manualScrape: [item: ProcessedItem];
+  /** 自动刮削 */
   autoScrape: [item: ProcessedItem];
+  /** 显示队列 */
   showQueue: [];
+  /** 切换多选模式 */
   toggleMultiSelect: [];
+  /** 切换全选 */
   toggleSelectAll: [];
+  /** 批量添加到队列 */ 
   addSelectedToQueue: [];
+  /** 切换选择 */
   toggleSelection: [item: ProcessedItem, index: number];
 }>();
 
@@ -277,7 +289,8 @@ const filteredItems = computed(() => {
   }
 
   const query = searchQuery.value.toLowerCase().trim();
-  return props.processedItems.filter((item) => {
+
+  return props.processedItems.filter(item => {
     // 按名称搜索
     if (item.name.toLowerCase().includes(query)) {
       return true;
@@ -290,7 +303,7 @@ const filteredItems = computed(() => {
 
     // 如果是文件夹，搜索其中的文件
     if (item.type === "folder" && item.files) {
-      return item.files.some((file) => file.name.toLowerCase().includes(query));
+      return item.files.some(file => file.name.toLowerCase().includes(query));
     }
 
     return false;

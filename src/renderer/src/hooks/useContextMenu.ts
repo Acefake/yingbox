@@ -1,4 +1,4 @@
-import { ref, type Ref } from 'vue'
+import { type Ref, ref } from 'vue'
 
 // 菜单项接口
 export interface MenuItem {
@@ -11,21 +11,52 @@ export interface MenuItem {
   divider?: boolean
 }
 
-// 右键菜单组合式函数
+/**
+ * 右键菜单组合式函数
+ * @returns 右键菜单状态和方法
+ * @example
+ * const { menuVisible, menuX, menuY, currentMenuItems, showMenu, hideMenu, handleMenuItemClick } = useContextMenu()
+ */
 export function useContextMenu(): {
+  /** 菜单是否可见 */
   menuVisible: Ref<boolean>
+  /** 菜单 X 坐标 */
   menuX: Ref<number>
+  /** 菜单 Y 坐标 */
   menuY: Ref<number>
+  /** 当前菜单项 */
   currentMenuItems: Ref<MenuItem[]>
+  /** 显示菜单 */
   showMenu: (event: MouseEvent, menuItems: MenuItem[]) => void
+  /** 隐藏菜单 */
   hideMenu: () => void
+  /** 处理菜单项点击 */
+  /**
+   * 处理菜单项点击
+   * @param item 点击的菜单项
+   */
   handleMenuItemClick: (item: MenuItem) => void
+  /**
+   * 创建菜单项
+   * @param id 菜单项 ID
+   * @param label 菜单项标签
+   * @param options 菜单项选项
+   * @returns 菜单项
+   */
   createMenuItem: (
     id: string,
     label: string,
     options?: Partial<Omit<MenuItem, 'id' | 'label'>>
   ) => MenuItem
+  /**
+   * 创建分割线
+   * @param id 分割线 ID
+   * @returns 分割线
+   */
   createDivider: (id: string) => MenuItem
+  /**
+   * 创建常用菜单项
+   */
   commonMenuItems: {
     open: (action?: () => void) => MenuItem
     rename: (action?: () => void) => MenuItem
@@ -41,18 +72,28 @@ export function useContextMenu(): {
     properties: (action?: () => void) => MenuItem
   }
 } {
-  // 菜单状态
+  /** 菜单是否可见 */
   const menuVisible = ref(false)
+
+  /** 菜单 X 坐标 */
   const menuX = ref(0)
+
+  /** 菜单 Y 坐标 */
   const menuY = ref(0)
+
+  /** 当前菜单项 */
   const currentMenuItems = ref<MenuItem[]>([])
 
   // 显示菜单
   const showMenu = (event: MouseEvent, menuItems: MenuItem[]): void => {
     event.preventDefault()
+    /** 菜单 X 坐标 */
     menuX.value = event.clientX
+    /** 菜单 Y 坐标 */
     menuY.value = event.clientY
+    /** 菜单当前菜单项 */
     currentMenuItems.value = menuItems
+    /** 菜单是否可见 */
     menuVisible.value = true
   }
 
@@ -81,7 +122,7 @@ export function useContextMenu(): {
     return {
       id,
       label,
-      ...options
+      ...options,
     }
   }
 
@@ -90,7 +131,7 @@ export function useContextMenu(): {
     return {
       id,
       label: '',
-      divider: true
+      divider: true,
     }
   }
 
@@ -101,84 +142,84 @@ export function useContextMenu(): {
       createMenuItem('open', '打开', {
         icon: 'fas fa-folder-open',
         shortcut: 'Enter',
-        action
+        action,
       }),
 
     rename: (action?: () => void) =>
       createMenuItem('rename', '重命名', {
         icon: 'fas fa-edit',
         shortcut: 'F2',
-        action
+        action,
       }),
 
     copy: (action?: () => void) =>
       createMenuItem('copy', '复制', {
         icon: 'fas fa-copy',
         shortcut: 'Ctrl+C',
-        action
+        action,
       }),
 
     cut: (action?: () => void) =>
       createMenuItem('cut', '剪切', {
         icon: 'fas fa-cut',
         shortcut: 'Ctrl+X',
-        action
+        action,
       }),
 
     paste: (action?: () => void) =>
       createMenuItem('paste', '粘贴', {
         icon: 'fas fa-paste',
         shortcut: 'Ctrl+V',
-        action
+        action,
       }),
 
     delete: (action?: () => void) =>
       createMenuItem('delete', '删除', {
         icon: 'fas fa-trash',
         shortcut: 'Delete',
-        action
+        action,
       }),
 
     // 查看操作
     view: (action?: () => void) =>
       createMenuItem('view', '查看详情', {
         icon: 'fas fa-eye',
-        action
+        action,
       }),
 
     preview: (action?: () => void) =>
       createMenuItem('preview', '预览', {
         icon: 'fas fa-search-plus',
-        action
+        action,
       }),
 
     // 编辑操作
     edit: (action?: () => void) =>
       createMenuItem('edit', '编辑', {
         icon: 'fas fa-edit',
-        action
+        action,
       }),
 
     // 下载操作
     download: (action?: () => void) =>
       createMenuItem('download', '下载', {
         icon: 'fas fa-download',
-        action
+        action,
       }),
 
     // 分享操作
     share: (action?: () => void) =>
       createMenuItem('share', '分享', {
         icon: 'fas fa-share',
-        action
+        action,
       }),
 
     // 属性
     properties: (action?: () => void) =>
       createMenuItem('properties', '属性', {
         icon: 'fas fa-cog',
-        action
-      })
+        action,
+      }),
   }
 
   return {
@@ -196,7 +237,7 @@ export function useContextMenu(): {
     createDivider,
 
     // 预定义菜单项
-    commonMenuItems
+    commonMenuItems,
   }
 }
 
@@ -236,13 +277,13 @@ export function useFileContextMenu(): ReturnType<typeof useContextMenu> & {
       contextMenu.createDivider('divider2'),
       contextMenu.commonMenuItems.delete(callbacks.onDelete),
       contextMenu.createDivider('divider3'),
-      contextMenu.commonMenuItems.properties(callbacks.onProperties)
+      contextMenu.commonMenuItems.properties(callbacks.onProperties),
     ]
   }
 
   return {
     ...contextMenu,
-    createFileMenu
+    createFileMenu,
   }
 }
 
@@ -275,15 +316,15 @@ export function useTableContextMenu(): ReturnType<typeof useContextMenu> & {
       contextMenu.createDivider('divider1'),
       contextMenu.createMenuItem('toggle-status', item.status === 'active' ? '停用' : '激活', {
         icon: item.status === 'active' ? 'fas fa-pause' : 'fas fa-play',
-        action: callbacks.onToggleStatus
+        action: callbacks.onToggleStatus,
       }),
       contextMenu.createDivider('divider2'),
-      contextMenu.commonMenuItems.delete(callbacks.onDelete)
+      contextMenu.commonMenuItems.delete(callbacks.onDelete),
     ]
   }
 
   return {
     ...contextMenu,
-    createTableRowMenu
+    createTableRowMenu,
   }
 }

@@ -3,10 +3,41 @@
   "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*"],
   "compilerOptions": {
     "composite": true,
-    "types": ["electron-vite/node"],
-    "moduleResolution": "bundler",
-    "noImplicitAny": false,
-    "noUnusedLocals": false,
-    "noUnusedParameters": false
-  }
+
+    // === Node.js 主进程特定配置 ===
+    /** 目标环境为 Node.js */
+    "target": "ES2022",
+    /** 模块系统 */
+    "module": "CommonJS",
+    /** 模块解析策略 */
+    "moduleResolution": "node",
+    /** Node.js 相关库 */
+    "lib": ["ES2023"],
+
+    // === Electron 主进程特定配置 ===
+    /** 允许导入 JSON 模块 */
+    "resolveJsonModule": true,
+    /** 启用 ES 模块互操作 */
+    "esModuleInterop": true,
+    /** 允许合成默认导入 */
+    "allowSyntheticDefaultImports": true,
+
+    // === 类型定义 ===
+    "types": ["electron-vite/node", "node", "electron"],
+
+    // === 路径映射 ===
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@main/*": ["src/main/*"],
+      "@preload/*": ["src/preload/*"],
+      "@shared/*": ["src/shared/*"]
+    }
+  },
+
+  // === 包含文件 ===
+  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"],
+
+  // === 排除文件 ===
+  "exclude": ["src/renderer/**/*", "node_modules", "dist", "out"]
 }

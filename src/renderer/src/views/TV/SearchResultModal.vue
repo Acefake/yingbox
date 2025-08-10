@@ -2,7 +2,7 @@
   <!-- 搜索结果弹窗 -->
   <a-modal
     :open="visible"
-    :title="`搜索结果 (${movies.length}部电影)`"
+    :title="`搜索结果 (${tvShows.length}部电视剧)`"
     :width="1000"
     :footer="null"
     :centered="true"
@@ -12,7 +12,7 @@
     <div class="max-h-[80vh] overflow-y-auto">
       <div class="grid grid-cols-6 gap-5 my-5">
         <div
-          v-for="(item, index) in movies"
+          v-for="(item, index) in tvShows"
           :key="index"
           class="p-2 bg-gray-100 rounded-lg overflow-hidden hover:bg-gray-50 transition-all transform hover:scale-102 hover:shadow-xl"
         >
@@ -21,7 +21,7 @@
             <img
               v-if="item.poster_path"
               :src="item.poster_path"
-              :alt="item.title"
+              :alt="item.name"
               class="h-48 w-full"
               @error="handleImageError"
             />
@@ -30,20 +30,14 @@
           <!-- 电影信息 -->
           <div class="p-2 w-full">
             <h4 class="text-gray-800 font-medium text-sm mb-2 line-clamp-2">
-              {{ item.title }}
+              {{ item.name }}
             </h4>
-            <div
-              class="flex items-center justify-between text-xs text-gray-500"
-            >
-              <span v-if="item.release_date">
-                {{ new Date(item.release_date).getFullYear() }}
+            <div class="flex items-center justify-between text-xs text-gray-500">
+              <span v-if="item.first_air_date">
+                {{ new Date(item.first_air_date).getFullYear() }}
               </span>
               <span v-if="item.vote_average" class="flex items-center gap-1">
-                <svg
-                  class="w-3 h-3 text-yellow-400"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
+                <svg class="w-3 h-3 text-yellow-400" fill="currentColor" viewBox="0 0 20 20">
                   <path
                     d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
                   ></path>
@@ -60,9 +54,7 @@
 
             <div class="pt-2 flex gap-2">
               <div class="w-full">
-                <a-button block @click="$emit('scrape', item)">
-                  添加到队列
-                </a-button>
+                <a-button block @click="$emit('scrape', item)"> 添加到队列 </a-button>
               </div>
             </div>
           </div>
@@ -73,36 +65,37 @@
 </template>
 
 <script setup lang="ts">
-import { Modal as AModal, Button as AButton } from "ant-design-vue";
-import type { Movie } from "@tdanks2000/tmdb-wrapper";
+import { Button as AButton, Modal as AModal } from 'ant-design-vue'
+import type { TVShow } from '@tdanks2000/tmdb-wrapper'
 
 /**
  * 组件属性接口
  */
 interface Props {
-  visible: boolean;
-  movies: Movie[];
+  visible: boolean
+  tvShows: TVShow[]
 }
 
-defineProps<Props>();
+defineProps<Props>()
 
 /**
  * 组件事件定义
  */
 defineEmits<{
-  close: [];
-  scrape: [movie: Movie];
-}>();
+  close: []
+  scrape: [tvShow: TVShow]
+}>()
 
 /**
  * 处理图片加载错误
  */
 const handleImageError = (event: Event): void => {
-  const target = event.target as HTMLImageElement | null;
+  const target = event.target as HTMLImageElement | null
+
   if (target) {
-    target.style.display = "none";
+    target.style.display = 'none'
   }
-};
+}
 </script>
 
 <style scoped>

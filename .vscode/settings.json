@@ -1,100 +1,73 @@
 {
-  "cSpell.words": [
-    "fanart",
-    "tdanks",
-    "TMDB",
-    "posterscraper",
-    "vite",
-    "pinia",
-    "antd"
-  ],
-  "editor.codeActionsOnSave": {
-    "source.fixAll.eslint": "explicit",
-    "source.organizeImports": "explicit"
-  },
-  "editor.defaultFormatter": "esbenp.prettier-vscode",
-  "editor.formatOnSave": true,
-  "eslint.validate": [
-    "javascript",
-    "javascriptreact",
-    "typescript",
-    "typescriptreact",
-    "vue"
-  ],
-  // TypeScript 配置优化
-  "typescript.preferences.includePackageJsonAutoImports": "on",
-  "typescript.suggest.autoImports": true,
-  "typescript.suggest.completeFunctionCalls": true,
-  "typescript.suggest.includeAutomaticOptionalChainCompletions": true,
-  "typescript.inlayHints.enumMemberValues.enabled": true,
-  "typescript.inlayHints.functionLikeReturnTypes.enabled": true,
-  "typescript.inlayHints.parameterNames.enabled": "literals",
-  "typescript.inlayHints.parameterTypes.enabled": true,
-  "typescript.inlayHints.propertyDeclarationTypes.enabled": true,
-  "typescript.inlayHints.variableTypes.enabled": false,
-  "typescript.updateImportsOnFileMove.enabled": "always",
-  "typescript.workspaceSymbols.scope": "allOpenProjects",
-  "typescript.preferences.quoteStyle": "single",
-  "typescript.preferences.importModuleSpecifier": "relative",
-  "typescript.format.semicolons": "remove",
-  // Vue 配置优化
-  "vetur.validation.template": false,
-  "vetur.validation.script": false,
-  "vetur.validation.style": false,
-  "volar.takeOverMode.enabled": true,
-  "vue.inlayHints.missingProps": true,
-  "vue.inlayHints.optionsWrapper": true,
-  "vue.inlayHints.inlineHandlerLeading": true,
-  "vue.codeActions.enabled": true,
-  "vue.complete.casing.tags": "kebab",
-  "vue.complete.casing.props": "camel",
-  // 文件关联
-  "files.associations": {
-    "*.vue": "vue"
-  },
-  // 智能提示优化
-  "editor.suggest.insertMode": "replace",
-  "editor.acceptSuggestionOnCommitCharacter": false,
-  "editor.acceptSuggestionOnEnter": "on",
-  "editor.suggestSelection": "first",
-  "editor.tabCompletion": "on",
-  "editor.wordBasedSuggestions": "matchingDocuments",
-  "editor.quickSuggestions": {
-    "other": "on",
-    "comments": "off",
-    "strings": "on"
-  },
-  // 路径智能提示
-  "path-intellisense.mappings": {
-    "@renderer": "${workspaceRoot}/src/renderer/src",
-    "@api": "${workspaceRoot}/src/api",
-    "@types": "${workspaceRoot}/src/types",
-    "@components": "${workspaceRoot}/src/renderer/src/components",
-    "@assets": "${workspaceRoot}/src/renderer/src/assets",
-    "@views": "${workspaceRoot}/src/renderer/src/views"
-  },
-  // 错误和警告显示
-  "problems.decorations.enabled": true,
-  "typescript.reportStyleChecksAsWarnings": true,
-  "typescript.validate.enable": true,
-  "javascript.validate.enable": false,
-  // 自动导入优化
-  "typescript.suggest.includeCompletionsForModuleExports": true,
-  "typescript.suggest.includeCompletionsWithSnippetText": true,
-  "typescript.preferences.includePackageJsonAutoImports": "on",
-  // 代码折叠
-  "editor.foldingStrategy": "indentation",
-  "editor.showFoldingControls": "always",
-  // 括号配对
+  /** 平滑滚动 */
+  "editor.smoothScrolling": true,
+  /** 光标闪烁 */
+  "editor.cursorBlinking": "expand",
+  /** 光标平滑动画 */
+  "editor.cursorSmoothCaretAnimation": "on",
+  /** 列表平滑滚动 */
+  "workbench.list.smoothScrolling": true,
+  /** 括号对颜色化 */
+  "editor.guides.bracketPairs": true,
+  /** 括号对颜色化 */
   "editor.bracketPairColorization.enabled": true,
-  "editor.guides.bracketPairs": "active",
-  // Electron 特定配置
-  "emmet.includeLanguages": {
-    "vue-html": "html",
-    "vue": "html"
+  /** 每个括号类型独立颜色池 */
+  "editor.bracketPairColorization.independentColorPoolPerBracketType": true,
+  // 控制活动代码段是否阻止快速建议
+  "editor.suggest.snippetsPreventQuickSuggestions": false,
+  // 除了 `Tab` 键以外， `Enter` 键是否同样可以接受建议
+  "editor.acceptSuggestionOnEnter": "smart",
+  // 代码补全列表中，优先选择最近的建议
+  "editor.suggestSelection": "recentlyUsedByPrefix",
+  // 当你选择一个建议时，是否直接替换当前的文本，而不是插入建议
+  "editor.suggest.insertMode": "replace",
+  // 自动关闭括号
+  "editor.autoClosingBrackets": "beforeWhitespace",
+  // 自动关闭引号
+  "editor.autoClosingQuotes": "beforeWhitespace",
+  // 自动删除引号
+  "editor.autoClosingDelete": "always",
+  // 自动覆盖引号
+  "editor.autoClosingOvertype": "always",
+  // 自动添加空格
+  "javascript.format.semicolons": "remove",
+  "typescript.format.semicolons": "remove",
+  "editor.formatOnSave": false,
+
+  "editor.tabSize": 2,
+  // 中文语言
+  "typescript.locale": "zh-CN",
+  //===类型提示
+  "javascript.inlayHints.functionLikeReturnTypes.enabled": false,
+  "javascript.inlayHints.parameterNames.enabled": "none",
+  "typescript.inlayHints.enumMemberValues.enabled": true,
+  "typescript.preferences.preferTypeOnlyAutoImports": true,
+  "typescript.updateImportsOnFileMove.enabled": "always",
+  "typescript.preferences.includePackageJsonAutoImports": "on",
+  "javascript.updateImportsOnFileMove.enabled": "always",
+  "javascript.preferences.quoteStyle": "single",
+  "typescript.preferences.quoteStyle": "single",
+  "javascript.suggest.autoImports": true,
+  "typescript.suggest.autoImports": true,
+  // 开启vue3的类型提示
+  "vue.inlayHints.missingProps": true,
+  // 开启vue3的属性提示
+  "vue.autoInsert.dotValue": true,
+  "editor.stickyScroll.enabled": true,
+  // index 替换成 目录名
+  "workbench.editor.customLabels.patterns": {
+    "**/index.vue": "${dirname}.vue",
+    "**/index.js": "${dirname}.js",
+    "**/index.ts": "${dirname}.ts",
+    "**/index.jsx": "${dirname}.jsx",
+    "**/index.tsx": "${dirname}.tsx"
   },
-  // 终端配置
-  "terminal.integrated.env.osx": {
-    "NODE_ENV": "development"
+  "editor.quickSuggestions": {
+    "other": true,
+    "comments": true,
+    "strings": true
+  },
+  "editor.codeActionsOnSave": {
+    "source.fixAll.eslint": "explicit"
   }
 }

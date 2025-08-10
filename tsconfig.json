@@ -1,10 +1,32 @@
 {
   "files": [],
-  "references": [{ "path": "./tsconfig.node.json" }, { "path": "./tsconfig.web.json" }],
+  "references": [
+    {
+      "path": "./tsconfig.node.json"
+    },
+    {
+      "path": "./tsconfig.web.json"
+    }
+  ],
   "compilerOptions": {
+    /** 检查未使用的局部变量 */
     "noUnusedLocals": false,
+    /** 检查未使用的参数 */
     "noUnusedParameters": false,
+    /** 允许未使用的标签 */
     "allowUnusedLabels": true,
-    "noImplicitAny": false
-  }
+    /** 不允许隐式的 any 类型 */
+    "noImplicitAny": false,
+    "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/*"],
+      "@renderer/*": ["src/renderer/src/*"],
+      "@main/*": ["src/main/*"],
+      "@preload/*": ["src/preload/*"],
+      "@shared/*": ["src/shared/*"]
+    }
+  },
+  "include": ["src/**/*", "*.config.*", "**/*.vue"],
+  "exclude": ["node_modules", "dist", "out", "**/*.js", "coverage"]
 }

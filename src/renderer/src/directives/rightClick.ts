@@ -17,7 +17,7 @@ export const vRightClick = {
   unmounted(el: HTMLElement) {
     // 清理事件监听器
     el.removeEventListener('contextmenu', () => {})
-  }
+  },
 }
 
 // 导出默认指令

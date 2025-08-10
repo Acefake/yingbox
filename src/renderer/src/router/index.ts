@@ -2,8 +2,8 @@
  * Vue Router 配置
  * 定义应用的路由规则和导航逻辑
  */
-import { createRouter, createWebHashHistory } from "vue-router";
-import { routes } from "./routers";
+import { createRouter, createWebHashHistory } from 'vue-router'
+import { routes } from './routers'
 
 /**
  * 创建路由实例
@@ -16,12 +16,12 @@ const router = createRouter({
   // 滚动行为配置
   scrollBehavior(to, from, savedPosition) {
     if (savedPosition) {
-      return savedPosition;
+      return savedPosition
     } else {
-      return { top: 0 };
+      return { top: 0 }
     }
   },
-});
+})
 
 /**
  * 全局前置守卫
@@ -30,18 +30,18 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   // 设置页面标题
   if (to.meta?.title) {
-    document.title = `PosterScraper - ${to.meta.title}`;
+    document.title = `PosterScraper - ${to.meta.title}`
   }
-  next();
-});
+  next()
+})
 
 /**
  * 全局后置钩子
  * 在每次路由跳转后执行
  */
-router.afterEach((to) => {
+router.afterEach(to => {
   // 可以在这里添加页面访问统计等逻辑
-  console.log(`导航到: ${to.path}`);
-});
+  console.log(`导航到: ${to.path}`)
+})
 
-export default router;
+export default router

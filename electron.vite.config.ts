@@ -1,6 +1,6 @@
-import { resolve } from "path";
-import { defineConfig, externalizeDepsPlugin } from "electron-vite";
-import vue from "@vitejs/plugin-vue";
+import { resolve } from 'path'
+import { defineConfig, externalizeDepsPlugin } from 'electron-vite'
+import vue from '@vitejs/plugin-vue'
 
 export default defineConfig({
   main: {
@@ -12,23 +12,23 @@ export default defineConfig({
   renderer: {
     resolve: {
       alias: {
-        "@renderer": resolve("src/renderer/src"),
-        "@api": resolve("src/renderer/src/api"),
-        "@components": resolve("src/renderer/src/components"),
-        "@assets": resolve("src/renderer/src/assets"),
-        "@views": resolve("src/renderer/src/views"),
+        '@renderer': resolve('src/renderer/src'),
+        '@api': resolve('src/renderer/src/api'),
+        '@components': resolve('src/renderer/src/components'),
+        '@assets': resolve('src/renderer/src/assets'),
+        '@views': resolve('src/renderer/src/views'),
       },
     },
     plugins: [vue()],
     server: {
       proxy: {
-        "/api": {
-          target: "https://api.themoviedb.org/3",
+        '/api': {
+          target: 'https://api.themoviedb.org/3',
           changeOrigin: true,
           secure: false,
-          rewrite: (path) => path.replace(/^\/api/, ""),
+          rewrite: path => path.replace(/^\/api/, ''),
         },
       },
     },
   },
-});
+})

@@ -16,9 +16,7 @@
             fill="currentColor"
             viewBox="0 0 20 20"
           >
-            <path
-              d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
-            ></path>
+            <path d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"></path>
           </svg>
 
           <svg
@@ -60,12 +58,7 @@
             ></path>
           </svg>
 
-          <svg
-            v-else
-            class="w-4 h-4 text-gray-400"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
+          <svg v-else class="w-4 h-4 text-gray-400" fill="currentColor" viewBox="0 0 20 20">
             <path
               fill-rule="evenodd"
               d="M4 4a2 2 0 012-2h4.586A2 2 0 0112 2.586L15.414 6A2 2 0 0116 7.414V16a2 2 0 01-2 2H6a2 2 0 01-2-2V4z"
@@ -116,98 +109,91 @@
 
 <script setup lang="ts">
 interface FileItem {
-  name: string;
-  path: string;
-  size: number;
-  isDirectory: boolean;
-  isFile: boolean;
+  name: string
+  path: string
+  size: number
+  isDirectory: boolean
+  isFile: boolean
 }
 
 interface ProcessedItem {
-  name: string;
-  path: string;
-  type: "folder" | "video";
-  size?: number;
-  fileCount?: number;
-  files?: FileItem[];
+  name: string
+  path: string
+  type: 'folder' | 'video'
+  size?: number
+  fileCount?: number
+  files?: FileItem[]
 }
 
 interface Props {
-  files: FileItem[];
-  selectedItem: ProcessedItem;
+  files: FileItem[]
+  selectedItem: ProcessedItem
 }
 
-defineProps<Props>();
+defineProps<Props>()
 
 // 检查是否为视频文件
 const isVideoFile = (fileName: string): boolean => {
-  const videoExtensions = [
-    ".mp4",
-    ".avi",
-    ".mkv",
-    ".mov",
-    ".wmv",
-    ".flv",
-    ".webm",
-    ".m4v",
-  ];
-  return videoExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
-};
+  const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v']
+
+  return videoExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+}
 
 // 检查是否为图片文件
 const isImageFile = (fileName: string): boolean => {
-  const imageExtensions = [
-    ".jpg",
-    ".jpeg",
-    ".png",
-    ".gif",
-    ".bmp",
-    ".webp",
-    ".svg",
-  ];
-  return imageExtensions.some((ext) => fileName.toLowerCase().endsWith(ext));
-};
+  const imageExtensions = ['.jpg', '.jpeg', '.png', '.gif', '.bmp', '.webp', '.svg']
+
+  return imageExtensions.some(ext => fileName.toLowerCase().endsWith(ext))
+}
 
 // 检查是否为NFO文件
 const isNfoFile = (fileName: string): boolean => {
-  return fileName.toLowerCase().endsWith(".nfo");
-};
+  return fileName.toLowerCase().endsWith('.nfo')
+}
 
 // 检查是否为海报文件
 const isPosterFile = (fileName: string): boolean => {
-  const fileName_lower = fileName.toLowerCase();
-  const posterExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+  const fileName_lower = fileName.toLowerCase()
+
+  const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+
   return (
-    posterExtensions.some((ext) => fileName_lower.endsWith(ext)) &&
-    (fileName_lower.includes("poster") ||
-      fileName_lower.includes("cover") ||
-      fileName_lower.includes("folder") ||
-      fileName_lower.includes("thumb") ||
-      fileName_lower === "poster.jpg" ||
-      fileName_lower === "folder.jpg" ||
-      fileName_lower === "movie.jpg" ||
-      fileName_lower === "cover.jpg")
-  );
-};
+    posterExtensions.some(ext => fileName_lower.endsWith(ext)) &&
+    (fileName_lower.includes('poster') ||
+      fileName_lower.includes('cover') ||
+      fileName_lower.includes('folder') ||
+      fileName_lower.includes('thumb') ||
+      fileName_lower === 'poster.jpg' ||
+      fileName_lower === 'folder.jpg' ||
+      fileName_lower === 'movie.jpg' ||
+      fileName_lower === 'cover.jpg')
+  )
+}
 
 // 检查是否为艺术图文件
 const isFanartFile = (fileName: string): boolean => {
-  const fileName_lower = fileName.toLowerCase();
-  const fanartExtensions = [".jpg", ".jpeg", ".png", ".webp"];
+  const fileName_lower = fileName.toLowerCase()
+
+  const fanartExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+
   return (
-    fanartExtensions.some((ext) => fileName_lower.endsWith(ext)) &&
-    (fileName_lower.includes("fanart") ||
-      fileName_lower.includes("backdrop") ||
-      fileName_lower === "fanart.jpg")
-  );
-};
+    fanartExtensions.some(ext => fileName_lower.endsWith(ext)) &&
+    (fileName_lower.includes('fanart') ||
+      fileName_lower.includes('backdrop') ||
+      fileName_lower === 'fanart.jpg')
+  )
+}
 
 // 格式化文件大小
 const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return "0 Bytes";
-  const k = 1024;
-  const sizes = ["Bytes", "KB", "MB", "GB", "TB"];
-  const i = Math.floor(Math.log(bytes) / Math.log(k));
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + " " + sizes[i];
-};
+  if (bytes === 0) return '0 Bytes'
+
+  const k = 1024
+
+  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
+
+  const i = Math.floor(Math.log(bytes) / Math.log(k))
+
+  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+}
 </script>

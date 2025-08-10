@@ -1,6 +1,6 @@
 "use strict";
-const electron = require("electron");
 const preload = require("@electron-toolkit/preload");
+const electron = require("electron");
 const api = {
   file: {
     // Read file content
