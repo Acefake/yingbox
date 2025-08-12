@@ -6,8 +6,6 @@
         :processed-items="processedItems"
         :selected-index="selectedIndex"
         :left-panel-width="leftPanelWidth"
-        :min-panel-width="minPanelWidth"
-        :menu-background-color="'rgba(17, 24, 39, 0.3)'"
         :dir-loading="dirLoading"
         :scrape-queue-count="scrapeQueue.length"
         :is-processing-queue="isProcessingQueue"
@@ -115,179 +113,41 @@
     />
 
     <!-- 手动匹配弹窗 -->
-    <Modal
-      v-model:open="showManualScrapeModal"
-      title="手动匹配电影"
-      :width="500"
-      ok-text="搜索"
-      cancel-text="取消"
-      @ok="performManualSearch"
-      @cancel="handleCancelManualScrape"
-    >
-      <div class="space-y-4">
-        <div>
-          <label class="block text-sm font-medium text-gray-700 mb-2"> 电影名称 </label>
-          <Input
-            v-model:value="manualScrapeInput"
-            placeholder="请输入电影名称进行搜索"
-            class="w-full"
-            @press-enter="performManualSearch"
-          />
-        </div>
-        <div v-if="currentScrapeItem" class="text-sm text-gray-500">
-          <p>当前项目: {{ currentScrapeItem.name }}</p>
-          <p class="text-xs mt-1">提示：您可以修改上面的名称来获得更准确的搜索结果</p>
-        </div>
-      </div>
-    </Modal>
+    <ManualScrapeModal
+      v-model:visible="showManualScrapeModal"
+      :current-item="currentScrapeItem"
+      @search="handleManualSearch"
+      @close="handleCancelManualScrape"
+    />
 
     <!-- 刮削队列管理模态框 -->
-    <Modal
-      v-model:open="showQueueModal"
-      title="刮削队列"
-      width="800px"
-      :mask-closable="true"
-      :closable="true"
-      @cancel="handleQueueModalClose"
-    >
-      <div class="space-y-4 bg-gray-50 rounded-lg">
-        <!-- 队列状态 -->
-        <div class="flex text-gray-600 items-center justify-between p-4 rounded-lg">
-          <div>
-            <p class="text-sm">
-              共 {{ scrapeQueue.length }} 个任务
-              <span v-if="isProcessingQueue" class="text-blue-600">
-                (正在处理第 {{ currentQueueIndex + 1 }} 个)
-              </span>
-            </p>
-          </div>
-        </div>
-
-        <!-- 队列列表 -->
-        <div v-if="scrapeQueue.length > 0" class="max-h-96 overflow-y-auto">
-          <div
-            v-for="(task, index) in scrapeQueue"
-            :key="task.item.path"
-            class="flex mx-2 items-center justify-between p-3 border border-gray-200 rounded-lg mb-2"
-            :class="{
-              'bg-blue-50 border-blue-200': isProcessingQueue && index === currentQueueIndex,
-              'bg-gray-50': !isProcessingQueue || index !== currentQueueIndex,
-            }"
-          >
-            <div class="flex-1">
-              <div class="flex items-center space-x-2">
-                <span class="text-sm font-medium text-gray-900">
-                  {{ task.movie.title }}
-                </span>
-                <span
-                  v-if="isProcessingQueue && index === currentQueueIndex"
-                  class="text-xs text-blue-600"
-                >
-                  处理中...
-                </span>
-                <span
-                  v-else-if="isProcessingQueue && index < currentQueueIndex"
-                  class="text-xs text-green-600"
-                >
-                  已完成
-                </span>
-              </div>
-              <div class="text-xs text-gray-500 mt-1">
-                文件夹: {{ task.item.name }} | 年份:
-                {{ task.movie.release_date?.split('-')[0] || '未知' }}
-              </div>
-            </div>
-            <div class="flex space-x-2">
-              <!-- 重新匹配按钮 -->
-              <Button
-                v-if="!isProcessingQueue || index !== currentQueueIndex"
-                size="small"
-                type="default"
-                :disabled="isProcessingQueue && index < currentQueueIndex"
-                @click="rematchMovie(task, index)"
-              >
-                重新匹配
-              </Button>
-              <!-- 移除按钮 -->
-              <Button
-                v-if="!isProcessingQueue || index !== currentQueueIndex"
-                size="small"
-                danger
-                :disabled="isProcessingQueue && index < currentQueueIndex"
-                @click="removeFromQueue(index)"
-              >
-                移除
-              </Button>
-              <span
-                v-else-if="isProcessingQueue && index === currentQueueIndex"
-                class="text-xs text-blue-600 px-2 py-1"
-              >
-                处理中
-              </span>
-            </div>
-          </div>
-        </div>
-
-        <!-- 空队列提示 -->
-        <div v-else class="text-center py-8 text-gray-500">
-          <p>队列为空</p>
-          <p class="text-sm mt-1">选择文件并搜索电影后，可以添加到队列中</p>
-        </div>
-      </div>
-      <template #footer>
-        <div class="flex justify-between items-center">
-          <div class="flex space-x-2">
-            <Button :disabled="isProcessingQueue" danger @click="clearScrapeQueue">
-              清空队列
-            </Button>
-
-            <!-- <Button
-              :disabled="isProcessingQueue || scrapeQueue.length > 0"
-              type="default"
-              @click="refreshDirectory"
-            >
-              刷新目录
-            </Button> -->
-            <Button v-if="isProcessingQueue" type="default" @click="stopProcessingQueue">
-              停止处理
-            </Button>
-          </div>
-          <div class="flex space-x-2">
-            <Button @click="handleQueueModalClose">关闭</Button>
-            <Button
-              v-if="!isProcessingQueue && scrapeQueue.length > 0"
-              type="primary"
-              @click="startProcessingQueue"
-            >
-              开始处理
-            </Button>
-            <Button v-else-if="isProcessingQueue" type="primary" disabled>
-              处理中... ({{ currentQueueIndex + 1 }}/{{ scrapeQueue.length }})
-            </Button>
-          </div>
-        </div>
-      </template>
-    </Modal>
+    <QueueManagementModal
+      v-model:visible="showQueueModal"
+      v-model:queue="scrapeQueue"
+      v-model:is-processing="isProcessingQueue"
+      v-model:current-index="currentQueueIndex"
+      @start-processing="startProcessingQueue"
+      @stop-processing="stopProcessingQueue"
+      @clear-queue="clearScrapeQueue"
+      @rematch="rematchMovie"
+      @close="handleQueueModalClose"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { Button, Input, Modal, message } from 'ant-design-vue'
-import LeftPanel from './LeftPanel.vue'
+import LeftPanel from '@components/LeftPanel.vue'
 import MovieInfo from './MovieInfo.vue'
-import FileList from './FileList.vue'
-import SearchResultModal from './SearchResultModal.vue'
-import { TMDB_IMG_URL, tmdb } from '../../api/tmdb'
+import FileList from '@components/FileList.vue'
+import SearchResultModal from '@components/SearchResultModal.vue'
+import ManualScrapeModal from '@components/ManualScrapeModal.vue'
+import QueueManagementModal from '@components/QueueManagementModal.vue'
+import { TMDB_IMG_URL, tmdb } from '@api/tmdb'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 
-// 注入 AppLayout 提供的背景控制方法
-const appLayoutMethods = inject('appLayoutMethods') as
-  | {
-      setGlobalBackground: (backgroundImage: string, menuBackgroundColor: string) => void
-      clearGlobalBackground: () => void
-    }
-  | undefined
+const appLayoutMethods = inject('appLayoutMethods')
 
 // 接口定义
 interface FileItem {
@@ -322,13 +182,7 @@ interface MovieInfoType {
   premiered?: string
 }
 
-// 可以在需要时添加emits
-// const emit = defineEmits<{
-//   openItem: [item: ProcessedItem]
-//   showDetails: [item: ProcessedItem]
-// }>()
 
-// 响应式数据
 const fileData = ref<FileItem[]>([])
 
 const currentDirectoryPath = ref<string>('')
@@ -1186,18 +1040,21 @@ const handleManualScrape = (item: ProcessedItem): void => {
 }
 
 /**
- * 执行手动搜索
+ * 处理手动搜索事件
  */
-const performManualSearch = async (): Promise<void> => {
-  if (!manualScrapeInput.value.trim()) {
+const handleManualSearch = async (searchQuery: string): Promise<void> => {
+  if (!searchQuery.trim()) {
     message.error('请输入电影名称')
     return
   }
 
-  try {
-    const cleanName = handleSearchParams(manualScrapeInput.value)
+  // 设置输入值以保持状态同步
+  manualScrapeInput.value = searchQuery
 
-    console.log('原始输入:', manualScrapeInput.value)
+  try {
+    const cleanName = handleSearchParams(searchQuery)
+
+    console.log('原始输入:', searchQuery)
     console.log('清理后名称:', cleanName)
 
     if (!cleanName) {
@@ -1555,8 +1412,9 @@ interface ScrapeTask {
 /**
  * 重新匹配队列中的电影
  * @param task 队列任务
+ * @param index 任务索引（可选）
  */
-const rematchMovie = async (task: ScrapeTask): Promise<void> => {
+const rematchMovie = async (task: ScrapeTask, index?: number): Promise<void> => {
   if (isProcessingQueue.value) {
     message.warning('队列处理中，无法重新匹配')
     return
@@ -1585,9 +1443,7 @@ const rematchMovie = async (task: ScrapeTask): Promise<void> => {
   }
 }
 
-/**
- * 刷新目录 - 使用节流机制刷新媒体目录
- */
+
 /**
  * 刷新目录
  * @param targetPath 可选的目标路径，如果提供则只刷新该路径，否则刷新当前目录
@@ -1854,10 +1710,7 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
  * @param movie 电影数据
  */
 const handleScrapeMovie = async (movie: Movie): Promise<void> => {
-  // 添加到刮削队列
   addToScrapeQueue(movie)
-  // 开始处理队列
-  // await startProcessingQueue();
 }
 
 /**
@@ -2076,10 +1929,6 @@ const createNfoContent = (movieData: Movie): string => {
 </movie>`
 }
 
-const downloadPoster = async (): Promise<void> => {
-  // 下载海报的逻辑
-  message.info('下载海报功能待实现')
-}
 
 // 缓存相关方法
 const saveToCache = (): void => {
@@ -2116,30 +1965,6 @@ const clearCache = (): void => {
     console.error('清除缓存失败:', error)
   }
 }
-
-// 拖拽调整大小
-// const startResize = (event: MouseEvent): void => {
-//   event.preventDefault();
-//   const startX = event.clientX;
-//   const startWidth = leftPanelWidth.value;
-
-//   const handleMouseMove = (e: MouseEvent): void => {
-//     const deltaX = e.clientX - startX;
-//     const newWidth = Math.max(
-//       minPanelWidth.value,
-//       Math.min(600, startWidth + deltaX),
-//     );
-//     leftPanelWidth.value = newWidth;
-//   };
-
-//   const handleMouseUp = (): void => {
-//     document.removeEventListener("mousemove", handleMouseMove);
-//     document.removeEventListener("mouseup", handleMouseUp);
-//   };
-
-//   document.addEventListener("mousemove", handleMouseMove);
-//   document.addEventListener("mouseup", handleMouseUp);
-// };
 
 // 图片和NFO加载相关方法
 const loadPosterImage = async (): Promise<void> => {
@@ -2309,18 +2134,6 @@ onMounted(() => {
   }
 })
 
-// 组件卸载时清理定时器
-
-// 导出函数供外部组件使用
-defineExpose({
-  addBatchToScrapeQueue,
-  addToScrapeQueue,
-  refreshFiles,
-  refreshDirectory,
-  toggleMultiSelectMode,
-  toggleSelectAll,
-  addSelectedToScrapeQueue,
-})
 </script>
 
 <style scoped>

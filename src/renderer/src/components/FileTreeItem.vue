@@ -127,7 +127,7 @@
 <script setup lang="ts">
 import { MenuItem } from '../../hooks/useContextMenu'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
-import { TMDB_IMG_URL } from '../../api/tmdb'
+import { TMDB_IMG_URL } from '@api/tmdb'
 import type { ProcessedItem } from '../../type'
 
 // 本地Props接口定义
@@ -139,14 +139,6 @@ interface Props {
   isMultiSelectMode?: boolean
   isSelected?: boolean
 }
-
-// 处理图片加载错误
-// const handleImageError = (event: Event): void => {
-//   const target = event.target as HTMLImageElement | null;
-//   if (target) {
-//     target.style.display = "none";
-//   }
-// };
 
 // 检查视频文件是否有对应的NFO文件
 const hasVideoNfoFile = (item: ProcessedItem): boolean => {
@@ -407,7 +399,6 @@ const folderMenuItems: MenuItem[] = [
 ]
 
 const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
-  console.log(action.id)
   if (action.id === 'view') {
     console.log(item.name)
     // 自动刮削功能 - 发送事件到父组件处理
@@ -440,7 +431,6 @@ const getParentFolderPath = (item: ProcessedItem): string => {
   }
 }
 
-// 刮削功能已移至父组件处理
 
 /**
  * 创建NFO文件内容

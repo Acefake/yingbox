@@ -3,14 +3,13 @@
     ref="leftPanel"
     :style="{
       width: leftPanelWidth + 'px',
-      minWidth: minPanelWidth + 'px',
-      backgroundColor: menuBackgroundColor,
+      minWidth: 300 + 'px',
+      backgroundColor: 'rgba(17, 24, 39, 0.3)',
       backdropFilter: 'blur(20px)',
       WebkitBackdropFilter: 'blur(20px)',
     }"
     class="border border-white border-opacity-20 overflow-y-auto flex-shrink-0 relative rounded-xl glass-panel-floating shadow-2xl h-full"
   >
-    <!-- 头部操作区域 -->
     <div
       class="flex gap-2 flex-col justify-between p-4 border-b border-gray-700"
     >
@@ -266,13 +265,6 @@ const leftPanel = ref<HTMLElement | null>(null);
 const searchQuery = ref("");
 
 /**
- * 处理搜索输入
- */
-const handleSearch = (): void => {
-  // 搜索逻辑在计算属性中处理
-};
-
-/**
  * 清除搜索
  */
 const clearSearch = (): void => {
@@ -309,4 +301,5 @@ const filteredItems = computed(() => {
     return false;
   });
 });
+
 </script>
