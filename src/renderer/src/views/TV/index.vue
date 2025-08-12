@@ -1,57 +1,11 @@
 <template>
   <div class="tv-page h-full flex">
-    <!-- 左侧面板 -->
-    <LeftPanel
-      :left-panel-width="leftPanelWidth"
-      :min-panel-width="minPanelWidth"
-      :menu-background-color="menuBackgroundColor"
-      :processed-items="processedItems"
-      :selected-index="selectedIndex"
-      :is-multi-select-mode="isMultiSelectMode"
-      :selected-items="selectedItemsSet"
-      :selected-items-count="selectedIndices.length"
-      :dir-loading="loading"
-      @selectItem="handleSelectItem"
-      @toggleMultiSelect="handleToggleMultiSelect"
-      @toggleSelection="handleMultiSelectItem"
-      @toggleSelectAll="handleToggleSelectAll"
-      @addSelectedToQueue="handleAddSelectedToQueue"
-      @refresh="handleRefresh"
-      @showQueue="handleShowQueue"
-      @manualScrape="handleManualScrape"
-      @autoScrape="handleAutoScrape"
-      @search-t-v="handleSearchTV"
-    />
-
-    <!-- 右侧面板 -->
-    <RightPanel
-      :selected-item="selectedItem"
-      :right-panel-width="rightPanelWidth"
-      :min-panel-width="minPanelWidth"
-      :menu-background-color="menuBackgroundColor"
-      :tv-info="tvInfo"
-      :poster-url="posterUrl"
-      :loading="loading"
-      @download-poster="handleDownloadPoster"
-    />
-
-    <!-- 搜索结果弹窗 -->
-    <SearchResultModal
-      v-if="showSearchModal"
-      :search-results="searchResults"
-      :loading="searchLoading"
-      @close="handleCloseSearchModal"
-      @select="handleSelectSearchResult"
-    />
+   111
   </div>
 </template>
 
 <script setup lang="ts">
 import { ref, computed, onMounted, inject } from 'vue'
-import LeftPanel from './LeftPanel.vue'
-import RightPanel from './RightPanel.vue'
-import SearchResultModal from './SearchResultModal.vue'
-
 /**
  * 文件项接口
  */
