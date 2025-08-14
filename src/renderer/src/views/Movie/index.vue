@@ -18,7 +18,7 @@
         @select-item="selectItem"
         @show-search-modal="handleShowSearchModal"
         @manual-scrape="handleManualScrape"
-        @auto-scrape="handleAutoScrape"
+        @auto-scrape="searchMovieInfo"
         @show-queue="handleShowQueueModal"
         @toggle-multi-select="toggleMultiSelectMode"
         @toggle-select-all="toggleSelectAll"
@@ -28,8 +28,14 @@
     </div>
 
     <!-- 右侧内容区域 -->
-    <div class="absolute inset-0 z-10" :style="{ paddingLeft: leftPanelWidth + 32 + 'px' }">
-      <div v-if="!selectedItem" class="flex items-center justify-center h-full text-gray-300">
+    <div
+      class="absolute inset-0 z-10"
+      :style="{ paddingLeft: leftPanelWidth + 32 + 'px' }"
+    >
+      <div
+        v-if="!selectedItem"
+        class="flex items-center justify-center h-full text-gray-300"
+      >
         <div class="flex flex-col items-center">
           <svg
             xmlns="http://www.w3.org/2000/svg"
@@ -95,52 +101,23 @@
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { Button, Input, Modal, message } from 'ant-design-vue'
 import RightPanel from './RightPanel.vue'
-import LeftPanel from '@components/LeftPanel.vue'
-import SearchResultModal from '@components/SearchResultModal.vue'
-import ManualScrapeModal from '@components/ManualScrapeModal.vue'
-import QueueManagementModal from '@components/QueueManagementModal.vue'
-import { TMDB_IMG_URL, tmdb } from '@api/tmdb'
+import LeftPanel from '@/components/LeftPanel.vue'
+import SearchResultModal from '@/components/SearchResultModal.vue'
+import ManualScrapeModal from '@/components/ManualScrapeModal.vue'
+import QueueManagementModal from '@/components/QueueManagementModal.vue'
+import { TMDB_IMG_URL, tmdb } from '@/api/tmdb'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { useScraping } from '../../hooks/useScraping'
+import type { MovieInfoType } from '@/types'
 const appLayoutMethods = inject('appLayoutMethods')
 
 // 刮削hook
-const { cleanOldMovieFiles, handleSearchParams,scrapeMovieInFolder } = useScraping()
-
-
-// 接口定义
-interface FileItem {
-  name: string
-  path: string
-  size: number
-  isDirectory: boolean
-  isFile: boolean
-}
-
-interface ProcessedItem {
-  name: string
-  path: string
-  type: 'folder' | 'video'
-  size?: number
-  fileCount?: number
-  files?: FileItem[]
-}
-
-interface MovieInfoType {
-  title?: string
-  originaltitle?: string
-  year?: string
-  plot?: string
-  genre?: string[]
-  director?: string
-  actor?: string[]
-  rating?: string
-  runtime?: string
-  country?: string
-  studio?: string
-  premiered?: string
-}
-
+const {
+  cleanOldMovieFiles,
+  handleSearchParams,
+  scrapeMovieInFolder,
+  searchMovieInfo,
+} = useScraping()
 
 const fileData = ref<FileItem[]>([])
 
@@ -230,7 +207,9 @@ const posterImagePath = computed(() => {
     return posterFile ? posterFile.path : null
   } else if (selectedItem.value.type === 'video') {
     // 视频文件的海报检测
-    const videoBaseName = selectedItem.value.name.replace(/\.[^/.]+$/, '').toLowerCase()
+    const videoBaseName = selectedItem.value.name
+      .replace(/\.[^/.]+$/, '')
+      .toLowerCase()
 
     const posterFile = selectedItem.value.files.find(file => {
       const fileName = file.name.toLowerCase()
@@ -269,24 +248,28 @@ const fanartImagePath = computed(() => {
         (fileName.includes('fanart') ||
           fileName.includes('backdrop') ||
           fileName === 'fanart.jpg' ||
-          (fileName.includes(folderName.split('(')[0].trim()) && fileName.includes('fanart')) ||
-          (fileName.includes(folderName.split('(')[0].trim()) && fileName.includes('backdrop')))
+          (fileName.includes(folderName.split('(')[0].trim()) &&
+            fileName.includes('fanart')) ||
+          (fileName.includes(folderName.split('(')[0].trim()) &&
+            fileName.includes('backdrop')))
       )
     })
 
     return fanartFile ? fanartFile.path : null
   } else if (selectedItem.value.type === 'video') {
     // 视频文件的艺术图检测
-    const videoBaseName = selectedItem.value.name.replace(/\.[^/.]+$/, '').toLowerCase()
+    const videoBaseName = selectedItem.value.name
+      .replace(/\.[^/.]+$/, '')
+      .toLowerCase()
 
     const fanartFile = selectedItem.value.files.find(file => {
       const fileName = file.name.toLowerCase()
 
       return (
         fanartExtensions.some(ext => fileName.endsWith(ext)) &&
-        (fileName === `${videoBaseName}-fanart.jpg` || 
+        (fileName === `${videoBaseName}-fanart.jpg` ||
           fileName === 'fanart.jpg')
-      ) 
+      )
     })
 
     return fanartFile ? fanartFile.path : null
@@ -301,7 +284,9 @@ const nfoFilePath = computed(() => {
   }
 
   if (selectedItem.value.type === 'folder') {
-    const nfoFile = selectedItem.value.files.find(file => file.name.toLowerCase().endsWith('.nfo'))
+    const nfoFile = selectedItem.value.files.find(file =>
+      file.name.toLowerCase().endsWith('.nfo')
+    )
 
     return nfoFile ? nfoFile.path : null
   } else if (selectedItem.value.type === 'video') {
@@ -319,7 +304,16 @@ const nfoFilePath = computed(() => {
 })
 
 // 视频文件扩展名
-const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v']
+const videoExtensions = [
+  '.mp4',
+  '.avi',
+  '.mkv',
+  '.mov',
+  '.wmv',
+  '.flv',
+  '.webm',
+  '.m4v',
+]
 
 // 工具函数
 const isVideoFile = (fileName: string): boolean => {
@@ -347,13 +341,16 @@ const processedItems = computed((): ProcessedItem[] => {
   const topLevelFolders = allFolders.filter(folder => {
     return !allFolders.some(
       otherFolder =>
-        otherFolder.path !== folder.path && folder.path.startsWith(otherFolder.path + '/')
+        otherFolder.path !== folder.path &&
+        folder.path.startsWith(otherFolder.path + '/')
     )
   })
 
   // 处理顶级文件夹
   topLevelFolders.forEach(folder => {
-    const folderFiles = visibleFiles.filter(f => f.isFile && f.path.startsWith(folder.path + '/'))
+    const folderFiles = visibleFiles.filter(
+      f => f.isFile && f.path.startsWith(folder.path + '/')
+    )
 
     const hasVideoFiles = folderFiles.some(file => isVideoFile(file.name))
 
@@ -374,7 +371,8 @@ const processedItems = computed((): ProcessedItem[] => {
 
   // 处理独立的视频文件
   const independentVideoFiles = visibleFiles.filter(
-    file => file.isFile && isVideoFile(file.name) && !processedPaths.has(file.path)
+    file =>
+      file.isFile && isVideoFile(file.name) && !processedPaths.has(file.path)
   )
 
   independentVideoFiles.forEach(video => {
@@ -417,7 +415,10 @@ const selectItem = (item: ProcessedItem, index: number): void => {
  * @param item - 项目对象（可选，用于事件处理）
  * @param index - 项目索引
  */
-const toggleItemSelection = (item: ProcessedItem | number, index?: number): void => {
+const toggleItemSelection = (
+  item: ProcessedItem | number,
+  index?: number
+): void => {
   // 处理两种调用方式：toggleItemSelection(index) 和 toggleItemSelection(item, index)
   const targetIndex = typeof item === 'number' ? item : index!
 
@@ -472,7 +473,9 @@ const toggleSelectAll = (): void => {
  * @param movieName 电影名称
  * @returns 搜索结果中的第一个电影，如果没有结果则返回null
  */
-const searchMovieForBatch = async (movieName: string): Promise<Movie | null> => {
+const searchMovieForBatch = async (
+  movieName: string
+): Promise<Movie | null> => {
   try {
     // 清理电影名称
     const cleanName = movieName
@@ -528,7 +531,9 @@ const searchMovieForBatch = async (movieName: string): Promise<Movie | null> => 
 
     return {
       ...firstMovie,
-      poster_path: firstMovie.poster_path ? TMDB_IMG_URL + firstMovie.poster_path : null,
+      poster_path: firstMovie.poster_path
+        ? TMDB_IMG_URL + firstMovie.poster_path
+        : null,
       id: firstMovie.id as number,
     }
   } catch (error) {
@@ -561,7 +566,10 @@ const addSelectedToScrapeQueue = async (): Promise<void> => {
 
       // 更新加载消息
       loadingMessage()
-      message.loading(`正在批量搜索电影信息... (${i + 1}/${selectedItemsData.value.length})`, 0)
+      message.loading(
+        `正在批量搜索电影信息... (${i + 1}/${selectedItemsData.value.length})`,
+        0
+      )
 
       // 从文件名提取电影名称
       const movieName = item.name
@@ -600,7 +608,9 @@ const addSelectedToScrapeQueue = async (): Promise<void> => {
       }
 
       // 检查是否已经在队列中
-      const existingIndex = scrapeQueue.value.findIndex(task => task.item.path === item.path)
+      const existingIndex = scrapeQueue.value.findIndex(
+        task => task.item.path === item.path
+      )
 
       if (existingIndex >= 0) {
         // 如果已存在，更新电影信息
@@ -620,9 +630,13 @@ const addSelectedToScrapeQueue = async (): Promise<void> => {
     message.destroy()
 
     if (successCount > 0 && failedCount > 0) {
-      message.success(`批量添加完成：成功匹配 ${successCount} 个，未匹配 ${failedCount} 个项目`)
+      message.success(
+        `批量添加完成：成功匹配 ${successCount} 个，未匹配 ${failedCount} 个项目`
+      )
     } else if (successCount > 0) {
-      message.success(`已批量添加 ${successCount} 个项目到刮削队列，全部匹配成功`)
+      message.success(
+        `已批量添加 ${successCount} 个项目到刮削队列，全部匹配成功`
+      )
     } else {
       message.warning(
         `已添加 ${selectedItemsData.value.length} 个项目到队列，但未找到匹配的电影信息`
@@ -645,7 +659,12 @@ const readDir = async (): Promise<void> => {
 
     const result = await window.api.dialog.openDirectory()
 
-    if (result.success && !result.canceled && result.filePaths && result.filePaths.length > 0) {
+    if (
+      result.success &&
+      !result.canceled &&
+      result.filePaths &&
+      result.filePaths.length > 0
+    ) {
       const selectedPath = result.filePaths[0]
 
       currentDirectoryPath.value = selectedPath
@@ -712,7 +731,9 @@ const refreshFiles = async (): Promise<void> => {
       }
 
       saveToCache()
-      message.success(`刷新完成：找到 ${(files.data as FileItem[]).length} 个文件`)
+      message.success(
+        `刷新完成：找到 ${(files.data as FileItem[]).length} 个文件`
+      )
     } else {
       message.error('刷新失败: ' + (files.error || '未知错误'))
     }
@@ -750,116 +771,6 @@ const handleCloseSearchModal = (): void => {
 }
 
 /**
- * 处理自动刮削功能
- * @param item 要刮削的项目（文件夹或视频文件）
- */
-const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
-  try {
-    // 设置当前刮削项目
-    currentScrapeItem.value = item
-
-    let searchName = ''
-
-    // 根据item类型提取搜索关键词
-    if (item.type === 'folder') {
-      // 对于文件夹，使用文件夹名称
-      searchName = item.name
-    } else {
-      // 对于视频文件，使用文件名（不包含扩展名）
-      searchName = item.name.replace(/\.[^.]*$/, '')
-    }
-
-    console.log('自动刮削项目:', item.name, '类型:', item.type)
-    console.log('原始搜索名称:', searchName)
-
-    // 清理搜索名称
-    const cleanName = handleSearchParams(searchName)
-
-    console.log('清理后名称:', cleanName)
-
-    if (!cleanName) {
-      message.error('无法解析电影名称')
-      return
-    }
-
-    // 提取年份信息
-    const yearMatch = cleanName.match(/\b(19|20)\d{2}\b/)
-
-    const year = yearMatch ? parseInt(yearMatch[0]) : undefined
-
-    const nameWithoutYear = cleanName.replace(/\b(19|20)\d{2}\b/g, '').trim()
-
-    console.log('提取的年份:', year)
-    console.log('无年份名称:', nameWithoutYear)
-
-    // 显示加载提示
-    const loadingMessage = message.loading('正在搜索电影信息...', 0)
-
-    try {
-      // 首次搜索：使用清理后的完整名称和年份
-      let res = await tmdb.search.movies({
-        query: nameWithoutYear || cleanName,
-        language: 'zh-CN',
-        ...(year && { year }),
-      })
-
-      // 只有在没有结果时才进行后续搜索
-      if (res.results.length === 0) {
-        // 如果有年份，尝试不使用年份搜索
-        if (year) {
-          console.log('尝试无年份搜索:', nameWithoutYear)
-          res = await tmdb.search.movies({
-            query: nameWithoutYear,
-            language: 'zh-CN',
-          })
-        }
-
-        // 如果还是没有结果，尝试英文搜索
-        if (res.results.length === 0) {
-          console.log('尝试英文搜索:', nameWithoutYear || cleanName)
-          res = await tmdb.search.movies({
-            query: nameWithoutYear || cleanName,
-            language: 'en-US',
-            ...(year && { year }),
-          })
-        }
-      }
-
-      loadingMessage()
-
-      if (res.results.length === 0) {
-        message.error('未找到该电影')
-        return
-      }
-
-      // 处理搜索结果
-      const movies = res.results.map((movie: Movie) => ({
-        ...movie,
-        poster_path: movie.poster_path ? TMDB_IMG_URL + movie.poster_path : null,
-        id: movie.id as number,
-      }))
-
-      console.log('搜索结果:', movies)
-
-      // 显示搜索结果弹窗
-      handleShowSearchModal(movies)
-      message.success(`找到 ${movies.length} 个匹配结果`)
-    } catch (searchError) {
-      loadingMessage()
-      console.error('搜索电影时出错:', searchError)
-      message.error('搜索电影时出错')
-      // 清空当前刮削项目
-      currentScrapeItem.value = null
-    }
-  } catch (error) {
-    console.error('自动刮削时出错:', error)
-    message.error('自动刮削时出错')
-    // 清空当前刮削项目
-    currentScrapeItem.value = null
-  }
-}
-
-/**
  * 显示清除缓存确认对话框
  */
 const handleShowClearCacheDialog = (): void => {
@@ -874,8 +785,6 @@ const handleShowClearCacheDialog = (): void => {
     },
   })
 }
-
-
 
 /**
  * 处理手动匹配事件
@@ -1029,7 +938,10 @@ const addToScrapeQueue = (movie: Movie): void => {
  * @param items 要添加的项目数组
  * @param defaultMovie 默认电影数据（用于所有项目）
  */
-const addBatchToScrapeQueue = (items: ProcessedItem[], defaultMovie: Movie): void => {
+const addBatchToScrapeQueue = (
+  items: ProcessedItem[],
+  defaultMovie: Movie
+): void => {
   if (!items || items.length === 0) {
     message.error('没有选中的项目')
     return
@@ -1045,7 +957,9 @@ const addBatchToScrapeQueue = (items: ProcessedItem[], defaultMovie: Movie): voi
 
   items.forEach(item => {
     // 检查是否已经在队列中
-    const existingIndex = scrapeQueue.value.findIndex(task => task.item.path === item.path)
+    const existingIndex = scrapeQueue.value.findIndex(
+      task => task.item.path === item.path
+    )
 
     if (existingIndex >= 0) {
       // 如果已存在，更新电影信息
@@ -1063,14 +977,18 @@ const addBatchToScrapeQueue = (items: ProcessedItem[], defaultMovie: Movie): voi
 
   // 显示批量操作结果
   if (addedCount > 0 && updatedCount > 0) {
-    message.success(`批量操作完成：新增 ${addedCount} 个，更新 ${updatedCount} 个任务`)
+    message.success(
+      `批量操作完成：新增 ${addedCount} 个，更新 ${updatedCount} 个任务`
+    )
   } else if (addedCount > 0) {
     message.success(`已批量添加 ${addedCount} 个任务到刮削队列`)
   } else if (updatedCount > 0) {
     message.success(`已批量更新 ${updatedCount} 个队列中的任务`)
   }
 
-  console.log(`[DEBUG] 批量添加完成 - 新增: ${addedCount}, 更新: ${updatedCount}`)
+  console.log(
+    `[DEBUG] 批量添加完成 - 新增: ${addedCount}, 更新: ${updatedCount}`
+  )
 }
 
 /**
@@ -1091,14 +1009,19 @@ const startProcessingQueue = async (): Promise<void> => {
     isProcessingQueue.value = true
     currentQueueIndex.value = 0
 
-    message.loading(`开始处理刮削队列，共 ${scrapeQueue.value.length} 个任务...`, 0)
+    message.loading(
+      `开始处理刮削队列，共 ${scrapeQueue.value.length} 个任务...`,
+      0
+    )
 
     // 逐个处理队列中的任务
     await processNextQueueItem()
   } catch (error) {
     message.destroy()
     console.error('处理队列失败:', error)
-    message.error(`处理队列失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    message.error(
+      `处理队列失败: ${error instanceof Error ? error.message : '未知错误'}`
+    )
   } finally {
     isProcessingQueue.value = false
     currentScrapeItem.value = null
@@ -1262,7 +1185,10 @@ interface ScrapeTask {
  * @param task 队列任务
  * @param index 任务索引（可选）
  */
-const rematchMovie = async (task: ScrapeTask, index?: number): Promise<void> => {
+const rematchMovie = async (
+  task: ScrapeTask,
+  index?: number
+): Promise<void> => {
   if (isProcessingQueue.value) {
     message.warning('队列处理中，无法重新匹配')
     return
@@ -1290,7 +1216,6 @@ const rematchMovie = async (task: ScrapeTask, index?: number): Promise<void> => 
     message.error('重新匹配失败')
   }
 }
-
 
 /**
  * 刷新目录
@@ -1408,9 +1333,20 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
   try {
     message.loading('正在处理电影文件...', 0)
 
-    const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v']
+    const videoExtensions = [
+      '.mp4',
+      '.avi',
+      '.mkv',
+      '.mov',
+      '.wmv',
+      '.flv',
+      '.webm',
+      '.m4v',
+    ]
 
-    let videoFile: { name: string; isDirectory: boolean; isFile: boolean } | undefined
+    let videoFile:
+      | { name: string; isDirectory: boolean; isFile: boolean }
+      | undefined
     let searchPath: string
     let isAlreadyScraped = false
 
@@ -1451,7 +1387,9 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
     }
 
     // 获取视频文件扩展名
-    const videoExtension = videoFile.name.substring(videoFile.name.lastIndexOf('.'))
+    const videoExtension = videoFile.name.substring(
+      videoFile.name.lastIndexOf('.')
+    )
 
     // 清理电影名称，移除特殊字符以确保文件名安全
     const cleanMovieName = movie.title
@@ -1479,9 +1417,15 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
         // 需要重命名文件夹
         const parentPath = await window.api.path.dirname(searchPath)
 
-        const newFolderPath = await window.api.path.join(parentPath, movieFolderName)
+        const newFolderPath = await window.api.path.join(
+          parentPath,
+          movieFolderName
+        )
 
-        const renameFolderResult = await window.api.file.move(searchPath, newFolderPath)
+        const renameFolderResult = await window.api.file.move(
+          searchPath,
+          newFolderPath
+        )
 
         if (!renameFolderResult.success) {
           throw new Error(`重命名文件夹失败: ${renameFolderResult.error}`)
@@ -1493,28 +1437,48 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
         movieFolderPath = searchPath
       }
 
-      currentVideoPath = await window.api.path.join(movieFolderPath, videoFile.name)
+      currentVideoPath = await window.api.path.join(
+        movieFolderPath,
+        videoFile.name
+      )
 
       // 检查视频文件是否需要重命名
       if (videoFile.name !== expectedVideoFileName) {
         // 需要重命名视频文件
-        newVideoPath = await window.api.path.join(movieFolderPath, expectedVideoFileName)
+        newVideoPath = await window.api.path.join(
+          movieFolderPath,
+          expectedVideoFileName
+        )
 
-        const moveResult = await window.api.file.move(currentVideoPath, newVideoPath)
+        const moveResult = await window.api.file.move(
+          currentVideoPath,
+          newVideoPath
+        )
 
         if (!moveResult.success) {
           throw new Error(`重命名视频文件失败: ${moveResult.error}`)
         }
-        console.log(`视频文件已重命名: ${videoFile.name} → ${expectedVideoFileName}`)
+        console.log(
+          `视频文件已重命名: ${videoFile.name} → ${expectedVideoFileName}`
+        )
       } else {
         // 文件名已经正确，无需移动
         newVideoPath = currentVideoPath
       }
     } else {
       // 如果是新刮削，按原有逻辑处理
-      currentVideoPath = await window.api.path.join(currentDirectoryPath.value, videoFile.name)
-      movieFolderPath = await window.api.path.join(currentDirectoryPath.value, movieFolderName)
-      newVideoPath = await window.api.path.join(movieFolderPath, newVideoFileName)
+      currentVideoPath = await window.api.path.join(
+        currentDirectoryPath.value,
+        videoFile.name
+      )
+      movieFolderPath = await window.api.path.join(
+        currentDirectoryPath.value,
+        movieFolderName
+      )
+      newVideoPath = await window.api.path.join(
+        movieFolderPath,
+        newVideoFileName
+      )
 
       // 检查电影文件夹是否已存在，如果不存在则创建
       const folderExists = await window.api.file.exists(movieFolderPath)
@@ -1528,7 +1492,10 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
       }
 
       // 重命名并移动视频文件到新文件夹
-      const moveResult = await window.api.file.move(currentVideoPath, newVideoPath)
+      const moveResult = await window.api.file.move(
+        currentVideoPath,
+        newVideoPath
+      )
 
       if (!moveResult.success) {
         throw new Error(`移动视频文件失败: ${moveResult.error}`)
@@ -1549,7 +1516,9 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
   } catch (error) {
     message.destroy()
     console.error('处理电影文件失败:', error)
-    message.error(`处理失败: ${error instanceof Error ? error.message : '未知错误'}`)
+    message.error(
+      `处理失败: ${error instanceof Error ? error.message : '未知错误'}`
+    )
     // 即使失败也要清空当前刮削项目
     currentScrapeItem.value = null
   }
@@ -1563,61 +1532,17 @@ const handleScrapeMovie = async (movie: Movie): Promise<void> => {
   addToScrapeQueue(movie)
 }
 
-
-
-
-
-/**
- * 创建NFO文件内容
- * @param movieData 电影数据
- * @returns NFO XML内容
- */
-const createNfoContent = (movieData: Movie): string => {
-  const releaseYear = movieData.release_date ? new Date(movieData.release_date).getFullYear() : ''
-
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<movie>
-  <title>${movieData.title || ''}</title>
-  <originaltitle>${movieData.original_title || movieData.title || ''}</originaltitle>
-  <year>${releaseYear}</year>
-  <plot>${movieData.overview || ''}</plot>
-  <runtime>${movieData.runtime || ''}</runtime>
-  <mpaa></mpaa>
-  <id>${movieData.id || ''}</id>
-  <tmdbid>${movieData.id || ''}</tmdbid>
-  <premiered>${movieData.release_date || ''}</premiered>
-  <releasedate>${movieData.release_date || ''}</releasedate>
-  <rating>${movieData.vote_average || ''}</rating>
-  <votes>${movieData.vote_count || ''}</votes>
-  <genre>${movieData.genres ? movieData.genres.map(g => g.name).join(' / ') : ''}</genre>
-  <country></country>
-  <studio></studio>
-  <trailer></trailer>
-  <fileinfo>
-    <streamdetails>
-      <video>
-        <codec></codec>
-        <aspect></aspect>
-        <width></width>
-        <height></height>
-        <durationinseconds></durationinseconds>
-      </video>
-      <audio>
-        <codec></codec>
-        <language></language>
-        <channels></channels>
-      </audio>
-    </streamdetails>
-  </fileinfo>
-</movie>`
-}
-
-
 // 缓存相关方法
 const saveToCache = (): void => {
   try {
-    localStorage.setItem('folderContent_fileData', JSON.stringify(fileData.value))
-    localStorage.setItem('folderContent_currentPath', currentDirectoryPath.value)
+    localStorage.setItem(
+      'folderContent_fileData',
+      JSON.stringify(fileData.value)
+    )
+    localStorage.setItem(
+      'folderContent_currentPath',
+      currentDirectoryPath.value
+    )
   } catch (error) {
     console.error('保存缓存失败:', error)
   }
@@ -1711,7 +1636,9 @@ const parseNfoContent = (content: string): void => {
     if (titleMatch) info.title = titleMatch[1].trim()
 
     // 提取原始标题
-    const originalTitleMatch = content.match(/<originaltitle>([^<]+)<\/originaltitle>/i)
+    const originalTitleMatch = content.match(
+      /<originaltitle>([^<]+)<\/originaltitle>/i
+    )
 
     if (originalTitleMatch) info.originaltitle = originalTitleMatch[1].trim()
 
@@ -1729,7 +1656,9 @@ const parseNfoContent = (content: string): void => {
     const genreMatches = content.match(/<genre>([^<]+)<\/genre>/gi)
 
     if (genreMatches) {
-      info.genre = genreMatches.map(match => match.replace(/<\/?genre>/gi, '').trim())
+      info.genre = genreMatches.map(match =>
+        match.replace(/<\/?genre>/gi, '').trim()
+      )
     }
 
     // 提取导演
@@ -1776,6 +1705,8 @@ const parseNfoContent = (content: string): void => {
     if (premieredMatch) info.premiered = premieredMatch[1].trim()
 
     movieInfo.value = info
+
+    console.log(movieInfo.value)
   } catch (error) {
     console.error('解析NFO内容失败:', error)
   }
@@ -1797,7 +1728,7 @@ watch(
         // 设置全局背景艺术图
         appLayoutMethods.setGlobalBackground(
           newFanartImageDataUrl,
-          'rgba(17, 24, 39, 0.2)' // 更透明的菜单背景色
+          'rgba(17, 24, 39, 0.2)'
         )
       } else {
         // 清除全局背景
@@ -1808,7 +1739,6 @@ watch(
   { immediate: true }
 )
 
-// 生命周期
 onMounted(() => {
   const loaded = loadFromCache()
 
@@ -1816,7 +1746,6 @@ onMounted(() => {
     console.log('组件启动时已从缓存加载数据')
   }
 })
-
 </script>
 
 <style scoped>

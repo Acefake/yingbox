@@ -99,8 +99,8 @@
 <script setup lang="ts">
 import { provide, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
-import logo from '@assets/imgs/logo.svg'
-import bgImg from '@assets/imgs/home-bg.jpg'
+import logo from '@/assets/imgs/logo.svg'
+import bgImg from '@/assets/imgs/home-bg.jpg'
 
 const router = useRouter()
 const route = useRoute()

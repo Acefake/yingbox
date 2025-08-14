@@ -127,7 +127,7 @@
 <script setup lang="ts">
 import { MenuItem } from '../../hooks/useContextMenu'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
-import { TMDB_IMG_URL } from '@api/tmdb'
+import { TMDB_IMG_URL } from '@/api/tmdb'
 import type { ProcessedItem } from '../../type'
 
 // 本地Props接口定义

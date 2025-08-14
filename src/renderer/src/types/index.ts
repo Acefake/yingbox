@@ -1,121 +1,51 @@
 /**
- * 类型定义统一导出文件
- * 
- * 提供项目中所有类型定义的统一入口
- * 支持按模块导入或全量导入
+ * 处理后的项目接口
  */
+export interface ProcessedItem {
+  /** 项目名称 */
+  name: string
+  /** 项目路径 */
+  path: string
+  /** 项目类型 */
+  type: 'folder' | 'video'
+  /** 项目大小（字节） */
+  size?: number
+  /** 子文件数量 */
+  fileCount?: number
+  /** 子文件列表 */
+  files?: FileItem[]
+}
 
-// 通用类型
-export type {
-  FileItem,
-  ProcessedItem,
-  Props,
-  ApiResponse,
-  PaginationParams,
-  PaginatedResponse,
-  SearchParams,
-  ImageInfo,
-  Genre,
-  ProductionCompany,
-  ProductionCountry,
-  SpokenLanguage,
-  ExternalIds,
-  AppConfig,
-  AppError
-} from './common'
+/**
+ * 文件项接口
+ */
+export interface FileItem {
+  /** 文件名 */
+  name: string
+  /** 完整路径 */
+  path: string
+  /** 文件大小（字节） */
+  size: number
+  /** 是否为目录 */
+  isDirectory: boolean
+  /** 是否为文件 */ 
+  isFile: boolean
+}
 
-export { ErrorType } from './common'
-
-// 电影相关类型
-export type {
-  MovieInfoType,
-  CastMember,
-  CrewMember,
-  VideoInfo,
-  MovieSearchResult,
-  MovieSearchResponse,
-  MovieCollection,
-  MovieNFOData,
-  MovieScrapeConfig
-} from './movie'
-
-export { MovieStatus } from './movie'
-
-// 电视剧相关类型
-export type {
-  TVInfoType,
-  CreatedBy,
-  Network,
-  SeasonInfo,
-  EpisodeInfo,
-  TVSearchResult,
-  TVSearchResponse,
-  TVShowNFOData,
-  SeasonNFOData,
-  EpisodeNFOData,
-  TVScrapeConfig,
-  TVFileParseResult
-} from './tv'
-
-export { TVStatus, TVType } from './tv'
-
-// API相关类型
-export type {
-  TMDBConfig,
-  TMDBResponse,
-  TMDBConfigurationResponse,
-  MovieSearchParams,
-  TVSearchParams,
-  MovieDetailsParams,
-  TVDetailsParams,
-  SeasonDetailsParams,
-  EpisodeDetailsParams,
-  ImagesParams,
-  VideosParams,
-  CreditsParams,
-  ExternalIdsParams,
-  LocalApiResponse,
-  FileOperationParams,
-  DirectoryScanParams,
-  ScrapeTaskParams,
-  ScrapeTaskResponse,
-  BatchScrapeParams,
-  BatchScrapeResponse,
-  CacheParams,
-  CacheResponse,
-  SystemInfoResponse,
-  ApiErrorResponse,
-  ApiRequestConfig
-} from './api'
-
-// 队列相关类型
-export type {
-  ScrapeQueueItem,
-  ScrapeConfig,
-  ScrapeResult,
-  DownloadedFile,
-  QueueStats,
-  QueueConfig,
-  QueueEvent,
-  QueueFilter,
-  QueueSortOptions,
-  BatchOperationParams,
-  BatchOperationResult,
-  QueueExportOptions,
-  QueueImportOptions
-} from './queue'
-
-export {
-  QueueItemStatus,
-  QueuePriority,
-  MediaType,
-  QueueEventType,
-  BatchOperationType
-} from './queue'
-
-// 模块化导出（按功能分组）
-export * as CommonTypes from './common'
-export * as MovieTypes from './movie'
-export * as TVTypes from './tv'
-export * as ApiTypes from './api'
-export * as QueueTypes from './queue'
+/**
+ * 电影信息接口
+ */
+export interface MovieInfoType {
+  title?: string
+  originaltitle?: string
+  year?: string
+  plot?: string
+  genre?: string[]
+  director?: string
+  actor?: string[]
+  rating?: string
+  runtime?: string
+  country?: string
+  studio?: string
+  premiered?: string
+}

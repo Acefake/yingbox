@@ -75,7 +75,7 @@
 <script setup lang="ts">
 import { ref, watch } from 'vue'
 import MovieInfo from './MovieInfo.vue'
-import FileList from '@components/FileList.vue'
+import FileList from '@/components/FileList.vue'
 
 const props = defineProps({
   selectedItem: {

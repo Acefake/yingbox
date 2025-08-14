@@ -1,15 +1,174 @@
-import { TMDB_IMG_URL } from "../api/tmdb";
-import { message } from "ant-design-vue";
+import { TMDB_IMG_URL, tmdb } from '../api/tmdb'
+import { message } from 'ant-design-vue'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
+import { ref } from 'vue'
+import { ProcessedItem } from '../types'
 
 export const useScraping = () => {
+  const currentScrapeItem = ref<ProcessedItem>()
+
+  /**
+   * 搜索电影
+   * @param item 要刮削的项目（文件夹或视频文件）
+   */
+  const searchMovieInfo = async (item: ProcessedItem): Promise<void> => {
+    try {
+      // 设置当前刮削项目
+      currentScrapeItem.value = item
+
+      let searchName = ''
+
+      // 根据item类型提取搜索关键词
+      if (item.type === 'folder') {
+        // 对于文件夹，使用文件夹名称
+        searchName = item.name
+      } else {
+        // 对于视频文件，使用文件名（不包含扩展名）
+        searchName = item.name.replace(/\.[^.]*$/, '')
+      }
+
+      console.log('自动刮削项目:', item.name, '类型:', item.type)
+      console.log('原始搜索名称:', searchName)
+
+      // 清理搜索名称
+      const cleanName = handleSearchParams(searchName)
+
+      console.log('清理后名称:', cleanName)
+
+      if (!cleanName) {
+        message.error('无法解析电影名称')
+        return
+      }
+
+      // 提取年份信息
+      const yearMatch = cleanName.match(/\b(19|20)\d{2}\b/)
+
+      const year = yearMatch ? parseInt(yearMatch[0]) : undefined
+
+      const nameWithoutYear = cleanName.replace(/\b(19|20)\d{2}\b/g, '').trim()
+
+      console.log('提取的年份:', year)
+      console.log('无年份名称:', nameWithoutYear)
+
+      // 显示加载提示
+      const loadingMessage = message.loading('正在搜索电影信息...', 0)
+
+      try {
+        // 首次搜索：使用清理后的完整名称和年份
+        let res = await tmdb.search.movies({
+          query: nameWithoutYear || cleanName,
+          language: 'zh-CN',
+          ...(year && { year }),
+        })
+
+        // 只有在没有结果时才进行后续搜索
+        if (res.results.length === 0) {
+          // 如果有年份，尝试不使用年份搜索
+          if (year) {
+            console.log('尝试无年份搜索:', nameWithoutYear)
+            res = await tmdb.search.movies({
+              query: nameWithoutYear,
+              language: 'zh-CN',
+            })
+          }
+
+          // 如果还是没有结果，尝试英文搜索
+          if (res.results.length === 0) {
+            console.log('尝试英文搜索:', nameWithoutYear || cleanName)
+            res = await tmdb.search.movies({
+              query: nameWithoutYear || cleanName,
+              language: 'en-US',
+              ...(year && { year }),
+            })
+          }
+        }
+
+        loadingMessage()
+
+        if (res.results.length === 0) {
+          message.error('未找到该电影')
+          return
+        }
+
+        // 处理搜索结果
+        const movies = res.results.map((movie: Movie) => ({
+          ...movie,
+          poster_path: movie.poster_path
+            ? TMDB_IMG_URL + movie.poster_path
+            : null,
+          id: movie.id as number,
+        }))
+
+        if (movies.length > 0) {
+          
+          try {
+            // 使用 Promise.allSettled 并行处理所有电影，避免单个失败影响整体
+            const results = await Promise.allSettled(
+              movies.map(async (movie, index) => {
+                try {
+                  // 获取电影详情
+                  const detail = await tmdb.movies.details(movie.id, undefined, 'zh-CN')
+                  Object.assign(movie, detail)
+
+                  // 并行获取图片和演员信息
+                  const [images, credits] = await Promise.allSettled([
+                    tmdb.movies.images(movie.id),
+                    tmdb.movies.credits(movie.id)
+                  ])
+
+                  // 合并图片数据
+                  if (images.status === 'fulfilled' && images.value) {
+                    Object.assign(movie, images.value)
+                  }
+
+                  // 合并演员数据
+                  if (credits.status === 'fulfilled' && credits.value) {
+                    Object.assign(movie, credits.value)
+                  }
+
+                  return { success: true, movie: movie.title }
+                } catch (error) {
+                  console.error(`获取电影详情失败 (${movie.title}):`, error)
+                  return { success: false, movie: movie.title, error }
+                }
+              })
+            )
+
+
+            // 统计处理结果
+            const successful = results.filter(r => r.status === 'fulfilled' && r.value.success)
+            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success))
+
+            // 显示结果消息
+            if (failed.length > 0) {
+              message.warning(`处理完成：成功 ${successful.length} 个，失败 ${failed.length} 个`)
+            } else {
+              message.success(`成功获取 ${successful.length} 个匹配结果`)
+            }
+
+            console.log(`movie`, movies)
+          } catch (error) {
+            console.error('获取电影数据时出错:', error)
+            message.error('获取电影数据时出错')
+          }
+        }
+
+      } catch (searchError) {
+        loadingMessage()
+        console.error('搜索电影时出错:', searchError)
+        message.error('搜索电影时出错')
+      }
+    } catch (error) {
+      console.error('自动刮削时出错:', error)
+      message.error('自动刮削时出错')
+    }
+  }
+
   /**
    * 清理文件夹中的旧电影相关文件（海报、艺术图、NFO文件）
    * @param folderPath 文件夹路径
    */
   const cleanOldMovieFiles = async (folderPath: string): Promise<void> => {
-    console.log('[DEBUG]开始清理')
-
     try {
       // 获取文件夹中的所有文件
       const folderFiles = (await window.api.file.readdir(folderPath)) as {
@@ -305,6 +464,8 @@ export const useScraping = () => {
    * @returns NFO XML内容
    */
   const createNfoContent = (movieData: Movie): string => {
+    console.log(movieData)
+
     const releaseYear = movieData.release_date
       ? new Date(movieData.release_date).getFullYear()
       : ''
@@ -1043,5 +1204,6 @@ export const useScraping = () => {
     scrapeMovieInFolder,
     cleanOldMovieFiles,
     handleSearchParams,
+    searchMovieInfo,
   }
 }
