@@ -51,56 +51,12 @@
       </div>
 
       <div v-else class="p-6 h-full overflow-y-auto">
-        <!-- 详情头部 -->
-        <div class="flex items-start gap-6 mb-6">
-          <!-- 海报/缩略图 -->
-          <div
-            class="w-48 h-72 bg-gray-800 bg-opacity-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden poster-3d backdrop-blur-sm"
-          >
-            <img
-              v-if="posterImageDataUrl"
-              :src="posterImageDataUrl"
-              alt="海报"
-              class="w-full h-full object-cover rounded-lg transition-transform duration-300"
-              @error="handleImageError"
-            />
-            <svg v-else class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-              <path
-                fill-rule="evenodd"
-                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                clip-rule="evenodd"
-              ></path>
-            </svg>
-          </div>
-
-          <!-- 基本信息 -->
-          <div class="flex-1">
-            <h1 class="text-3xl font-bold text-white mb-2 drop-shadow-lg">
-              {{ selectedItem.name }}
-            </h1>
-            <div class="py-2 rounded text-xs text-gray-300 font-mono mb-4">
-              {{ selectedItem.path }}
-            </div>
-
-            <!-- 电影信息 -->
-            <div>
-              <MovieInfo
-                v-if="movieInfo"
-                :movie-info="movieInfo"
-                :poster-url="posterImageDataUrl"
-                :loading="false"
-                @download-poster="downloadPoster"
-              />
-
-              <!-- 文件列表（如果是文件夹） -->
-              <FileList
-                v-if="selectedItem.type === 'folder' && selectedItem.files"
-                :files="selectedItem.files"
-                :selected-item="selectedItem"
-              />
-            </div>
-          </div>
-        </div>
+        <RightPanel
+          :selected-item="selectedItem"
+          :poster-image-data-url="posterImageDataUrl"
+          :movie-info="movieInfo"
+          :fanart-image-data-url="fanartImageDataUrl"
+        />
       </div>
     </div>
 
@@ -138,16 +94,19 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { Button, Input, Modal, message } from 'ant-design-vue'
+import RightPanel from './RightPanel.vue'
 import LeftPanel from '@components/LeftPanel.vue'
-import MovieInfo from './MovieInfo.vue'
-import FileList from '@components/FileList.vue'
 import SearchResultModal from '@components/SearchResultModal.vue'
 import ManualScrapeModal from '@components/ManualScrapeModal.vue'
 import QueueManagementModal from '@components/QueueManagementModal.vue'
 import { TMDB_IMG_URL, tmdb } from '@api/tmdb'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
-
+import { useScraping } from '../../hooks/useScraping'
 const appLayoutMethods = inject('appLayoutMethods')
+
+// 刮削hook
+const { cleanOldMovieFiles, handleSearchParams,scrapeMovieInFolder } = useScraping()
+
 
 // 接口定义
 interface FileItem {
@@ -371,12 +330,6 @@ const isHiddenFile = (fileName: string): boolean => {
   return fileName.startsWith('.') || fileName.startsWith('__')
 }
 
-const handleImageError = (event: Event): void => {
-  const target = event.target as HTMLImageElement
-
-  if (target) target.style.display = 'none'
-}
-
 // 处理文件列表，按照规则分组
 const processedItems = computed((): ProcessedItem[] => {
   if (!fileData.value || fileData.value.length === 0) return []
@@ -447,7 +400,7 @@ const processedItems = computed((): ProcessedItem[] => {
   return result
 })
 
-// 方法
+// 选择
 const selectItem = (item: ProcessedItem, index: number): void => {
   if (isMultiSelectMode.value) {
     // 多选模式
@@ -922,112 +875,7 @@ const handleShowClearCacheDialog = (): void => {
   })
 }
 
-/**
- * 清理电影名称，移除不必要的字符和信息
- * @param movieName 原始电影名称
- * @returns 清理后的电影名称
- */
-const handleSearchParams = (movieName: string): string => {
-  let cleanName = movieName
 
-  // 1. 移除文件扩展名
-  cleanName = cleanName.replace(/\.[^.]*$/, '')
-
-  // 2. 移除常见的视频质量标识
-  const qualityPatterns = [
-    /\b(4K|2160p|1080p|720p|480p|360p)\b/gi,
-    /\b(UHD|HD|SD|CAM|TS|TC|SCR|R5|DVDRip|BRRip|BluRay|WEBRip|HDTV)\b/gi,
-    /\b(x264|x265|H264|H265|HEVC|AVC)\b/gi,
-    /\b(AAC|AC3|DTS|MP3|FLAC)\b/gi,
-    /\b(5\.1|7\.1|2\.0)\b/gi,
-  ]
-
-  qualityPatterns.forEach(pattern => {
-    cleanName = cleanName.replace(pattern, ' ')
-  })
-
-  // 3. 移除发布组信息（通常在方括号或圆括号中）
-  cleanName = cleanName.replace(/\[[^\]]*\]/g, ' ')
-  cleanName = cleanName.replace(/\([^)]*(?:rip|cam|ts|tc|scr|r5|web|hdtv)[^)]*\)/gi, ' ')
-
-  // 4. 移除常见的分隔符和替换为空格
-  cleanName = cleanName.replace(/[._-]/g, ' ')
-
-  // 5. 移除多余的空格
-  cleanName = cleanName.replace(/\s+/g, ' ').trim()
-
-  // 6. 提取年份（保留用于后续处理）
-  const yearMatch = cleanName.match(/\b(19|20)\d{2}\b/)
-
-  const year = yearMatch ? yearMatch[0] : ''
-
-  // 7. 移除年份周围的括号
-  cleanName = cleanName.replace(/\(\s*(19|20)\d{2}\s*\)/g, ` ${year} `)
-
-  // 8. 移除常见的无用词汇
-  const uselessWords = [
-    'complete',
-    'proper',
-    'repack',
-    'internal',
-    'limited',
-    'festival',
-    'retail',
-    'extended',
-    'unrated',
-    'directors',
-    'cut',
-    'edition',
-    'version',
-    'remastered',
-    'criterion',
-    'collection',
-    'anthology',
-    'series',
-    'season',
-    'episode',
-    'disc',
-    'cd1',
-    'cd2',
-    'part1',
-    'part2',
-    'pt1',
-    'pt2',
-  ]
-
-  const uselessPattern = new RegExp(`\\b(${uselessWords.join('|')})\\b`, 'gi')
-
-  cleanName = cleanName.replace(uselessPattern, ' ')
-
-  // 9. 移除数字序列（如果不是年份）
-  cleanName = cleanName.replace(/\b\d{3,}(?!\d*\b(19|20)\d{2}\b)\b/g, ' ')
-
-  // 10. 移除单独的数字和字母
-  cleanName = cleanName.replace(/\b[a-zA-Z]\b/g, ' ')
-  cleanName = cleanName.replace(/\b\d{1,2}\b(?!\d)/g, ' ')
-
-  // 11. 再次提取年份（可能在清理过程中位置发生变化）
-  const finalYearMatch = cleanName.match(/\b(19|20)\d{2}\b/)
-
-  const finalYear = finalYearMatch ? finalYearMatch[0] : ''
-
-  // 12. 将点号替换为空格（常见于英文电影文件名）
-  cleanName = cleanName.replace(/\./g, ' ')
-
-  // 13. 移除特殊字符，保留字母、数字、空格和中文
-  cleanName = cleanName.replace(/[^a-zA-Z0-9\s\u4e00-\u9fa5]/g, ' ')
-
-  // 14. 清理多余空格
-  cleanName = cleanName.replace(/\s+/g, ' ').trim()
-
-  // 15. 如果有年份，确保年份在末尾
-  if (finalYear) {
-    cleanName = cleanName.replace(new RegExp(`\\b${finalYear}\\b`, 'g'), '').trim()
-    cleanName += ` ${finalYear}`
-  }
-
-  return cleanName || movieName // 如果清理后为空，返回原始名称
-}
 
 /**
  * 处理手动匹配事件
@@ -1518,10 +1366,12 @@ const checkQueueStateConsistency = (): void => {
     currentScrapeItem.value = null
   }
 
-  // 如果当前队列索引超出范围，重置索引
+  // 如果当前队列索引超出范围，重置索引和处理状态
   if (currentQueueIndex.value >= scrapeQueue.value.length) {
-    console.warn('检测到队列索引超出范围，正在重置索引')
+    console.warn('检测到队列索引超出范围，正在重置状态')
     currentQueueIndex.value = 0
+    isProcessingQueue.value = false
+    currentScrapeItem.value = null
   }
 }
 
@@ -1713,176 +1563,9 @@ const handleScrapeMovie = async (movie: Movie): Promise<void> => {
   addToScrapeQueue(movie)
 }
 
-/**
- * 在指定文件夹中刮削电影信息（下载海报和创建NFO文件）
- * @param movieData 电影数据
- * @param folderPath 文件夹路径
- * @param videoBaseName 视频文件基础名称（不含扩展名）
- */
-const scrapeMovieInFolder = async (
-  movieData: Movie,
-  folderPath: string,
-  videoBaseName: string
-): Promise<void> => {
-  try {
-    message.loading('正在清理旧文件并下载电影信息...', 0)
 
-    // const TMDB_IMG_URL = 'https://image.tmdb.org/t/p/w500'
 
-    // 首先清理文件夹中的旧海报、艺术图和NFO文件
-    await cleanOldMovieFiles(folderPath)
 
-    // 构建文件路径
-    const nfoFileName = `${videoBaseName}.nfo`
-
-    const posterFileNames = [
-      `${videoBaseName}-poster.jpg`,
-      `${videoBaseName}-movie.jpg`,
-      `${videoBaseName}-folder.jpg`,
-    ]
-
-    const fanartFileNames = [`${videoBaseName}-fanart.jpg`]
-
-    const nfoPath = await window.api.path.join(folderPath, nfoFileName)
-
-    // 创建海报路径
-    const posterPaths: { fileName: string; path: string }[] = []
-
-    for (const fileName of posterFileNames) {
-      const path = await window.api.path.join(folderPath, fileName)
-
-      posterPaths.push({ fileName, path })
-    }
-
-    // 创建艺术图路径
-    const fanartPaths: { fileName: string; path: string }[] = []
-
-    for (const fileName of fanartFileNames) {
-      const path = await window.api.path.join(folderPath, fileName)
-
-      fanartPaths.push({ fileName, path })
-    }
-
-    // 创建NFO文件内容
-    const nfoContent = createNfoContent(movieData)
-
-    // 写入NFO文件
-    const nfoResult = await window.api.file.write(nfoPath, nfoContent)
-
-    if (!nfoResult.success) {
-      throw new Error(`创建NFO文件失败: ${nfoResult.error}`)
-    }
-
-    // 下载海报
-    if (movieData.poster_path) {
-      const posterUrl = movieData.poster_path.startsWith('http')
-        ? movieData.poster_path
-        : `${TMDB_IMG_URL}${movieData.poster_path}`
-
-      for (const { fileName, path } of posterPaths) {
-        const posterResult = await window.api.http.download(posterUrl, path)
-
-        if (!posterResult.success) {
-          console.error(`下载 ${fileName} 失败: ${posterResult.error}`)
-        }
-      }
-    }
-
-    // 下载背景图
-    if (movieData.backdrop_path) {
-      const fanartUrl = `${TMDB_IMG_URL}${movieData.backdrop_path}`
-
-      console.log(fanartUrl,'fanartUrl');
-      
-      for (const { fileName, path } of fanartPaths) {
-        const fanartResult = await window.api.http.download(fanartUrl, path)
-
-        if (!fanartResult.success) {
-          console.error(`下载 ${fileName} 失败: ${fanartResult.error}`)
-        }
-      }
-    }
-
-    message.destroy()
-    message.success('电影信息刮削完成！')
-  } catch (error) {
-    message.destroy()
-    console.error('刮削电影信息失败:', error)
-    message.error(`刮削失败: ${error instanceof Error ? error.message : '未知错误'}`)
-  }
-}
-
-/**
- * 清理文件夹中的旧电影相关文件（海报、艺术图、NFO文件）
- * @param folderPath 文件夹路径
- */
-const cleanOldMovieFiles = async (folderPath: string): Promise<void> => {
-  try {
-    // 获取文件夹中的所有文件
-    const folderFiles = await window.api.file.readdir(folderPath)
-
-    const files = folderFiles.data as Array<{
-      name: string
-      isDirectory: boolean
-      isFile: boolean
-    }>
-
-    // 定义需要清理的文件类型
-    const filesToDelete: string[] = []
-
-    for (const file of files) {
-      if (file.isFile) {
-        const fileName = file.name.toLowerCase()
-
-        // 检查是否是需要清理的文件类型
-        const shouldDelete =
-          // NFO 文件
-          fileName.endsWith('.nfo') ||
-          // 海报文件
-          fileName.includes('poster') ||
-          fileName.includes('movie') ||
-          fileName.includes('folder') ||
-          // 艺术图文件
-          fileName.includes('fanart') ||
-          fileName.includes('backdrop') ||
-          // 常见的图片文件（但排除视频缩略图）
-          ((fileName.endsWith('.jpg') ||
-            fileName.endsWith('.jpeg') ||
-            fileName.endsWith('.png') ||
-            fileName.endsWith('.webp')) &&
-            !fileName.includes('thumb'))
-
-        if (shouldDelete) {
-          const filePath = await window.api.path.join(folderPath, file.name)
-
-          filesToDelete.push(filePath)
-        }
-      }
-    }
-
-    // 删除旧文件
-    for (const filePath of filesToDelete) {
-      try {
-        const deleteResult = await window.api.file.delete(filePath)
-
-        if (deleteResult.success) {
-          console.log(`已删除旧文件: ${await window.api.path.basename(filePath)}`)
-        } else {
-          console.warn(`删除文件失败: ${filePath}, 错误: ${deleteResult.error}`)
-        }
-      } catch (error) {
-        console.warn(`删除文件时出错: ${filePath}`, error)
-      }
-    }
-
-    if (filesToDelete.length > 0) {
-      console.log(`已清理 ${filesToDelete.length} 个旧文件`)
-    }
-  } catch (error) {
-    console.warn('清理旧文件时出错:', error)
-    // 不抛出错误，继续执行后续操作
-  }
-}
 
 /**
  * 创建NFO文件内容

@@ -21,10 +21,18 @@
     "baseUrl": ".",
     "paths": {
       "@/*": ["src/*"],
-      "@renderer/*": ["src/renderer/src/*"],
+      "@/renderer/*": ["src/renderer/src/*"],
       "@main/*": ["src/main/*"],
       "@preload/*": ["src/preload/*"],
-      "@shared/*": ["src/shared/*"]
+      "@shared/*": ["src/shared/*"],
+      "@/constant/*": ["src/constant/*"],
+      "@/utils/*": ["src/utils/*"],
+      "@/views/*": ["src/views/*"],
+      "@/hooks/*": ["src/hooks/*"],
+      "@/types/*": ["src/types/*"],
+      "@/enum/*": ["src/constant/enum/*"],
+      "@/components/*": ["src/components/*"],
+      "@/assets/*": ["src/assets/*"],
     }
   },
   "include": ["src/**/*", "*.config.*", "**/*.vue"],

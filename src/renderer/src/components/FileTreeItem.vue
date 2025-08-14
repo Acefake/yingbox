@@ -135,7 +135,6 @@ interface Props {
   item: ProcessedItem
   index: number
   selectedIndex: number
-  menuBackgroundColor: string
   isMultiSelectMode?: boolean
   isSelected?: boolean
 }
@@ -144,8 +143,6 @@ interface Props {
 const hasVideoNfoFile = (item: ProcessedItem): boolean => {
   if (item.type !== 'video' || !item.files) return false
 
-  // 检查同目录下是否有任何NFO文件
-  // 对于视频文件，只要同目录下有NFO文件就认为有对应的NFO
   return item.files.some(file => {
     const fileName = file.name.toLowerCase()
 

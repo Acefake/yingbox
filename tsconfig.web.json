@@ -1,5 +1,8 @@
 {
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
-  // === 排除文件 ===
+  "compilerOptions": {
+    "types": ["node"]
+  },
+  "include": ["src/renderer/**/*", "src/preload/index.d.ts"],
   "exclude": ["src/main/**/*", "node_modules", "dist", "out"]
 }

@@ -1,127 +1,111 @@
 <template>
-  <div
-    ref="rightPanel"
-    :style="{
-      width: rightPanelWidth + 'px',
-      minWidth: minPanelWidth + 'px',
-      backgroundColor: menuBackgroundColor,
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
-    }"
-    class="border-l border-gray-700 overflow-y-auto flex-shrink-0 relative rounded-md glass-panel"
-  >
-    <div v-if="!selectedItem" class="p-4 text-gray-400 text-center">
-      <div class="text-sm">请选择一个文件夹或视频文件</div>
-    </div>
+        <!-- 详情头部 -->
+        <div class="flex items-start gap-6 mb-6">
+         <div class="flex flex-col items-center">
+          <!-- 海报/缩略图 -->
+          <div
+            class="w-48 h-72 bg-gray-800 bg-opacity-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden poster-3d backdrop-blur-sm"
+          >
+            <img
+              v-if="posterImageDataUrl"
+              :src="posterImageDataUrl"
+              alt="海报"
+              class="w-full object-cover rounded-lg transition-transform duration-300"
+              @error="handleImageError"
+            />
+            <svg v-else class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                clip-rule="evenodd"
+              ></path>
+            </svg>
+          </div>
 
-    <div v-else class="p-4">
-      <!-- 文件夹详情 -->
-      <div v-if="selectedItem.type === 'folder'">
-        <h3 class="text-lg font-semibold text-white mb-4">文件夹详情</h3>
-
-        <!-- 基本信息 -->
-        <div class="mb-4">
-          <div class="text-sm text-gray-300 mb-2">名称: {{ selectedItem.name }}</div>
-          <div class="text-sm text-gray-300 mb-2">路径: {{ selectedItem.path }}</div>
-          <div v-if="selectedItem.fileCount" class="text-sm text-gray-300 mb-2">
-            文件数量: {{ selectedItem.fileCount }}
+          <!-- 横幅图容器 -->
+          <div class="mt-10 w-48 flex items-center justify-center">
+            <img
+              v-if="fanartImageDataUrl"
+              :src="fanartImageDataUrl"
+              alt="横幅图"
+              class="w-full rounded-lg"
+              @error="handleImageError"
+            />
+            <svg v-else class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
+              <path
+                fill-rule="evenodd"
+                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+                clip-rule="evenodd"
+              ></path>
+            </svg>
           </div>
         </div>
 
-        <!-- 电影信息 -->
-        <MovieInfo
-          v-if="movieInfo"
-          :movie-info="movieInfo"
-          :poster-url="posterUrl"
-          :loading="loading"
-          @download-poster="$emit('downloadPoster')"
-        />
 
-        <!-- 文件列表 -->
-        <FileList
-          v-if="selectedItem.files && selectedItem.files.length > 0"
-          :files="selectedItem.files"
-          :selected-item="selectedItem"
-        />
-      </div>
+          <!-- 基本信息 -->
+          <div class="flex-1">
+            <h1 class="text-3xl font-bold text-white mb-2 drop-shadow-lg">
+              {{ selectedItem.name }}
+            </h1>
 
-      <!-- 视频文件详情 -->
-      <div v-else-if="selectedItem.type === 'video'">
-        <h3 class="text-lg font-semibold text-white mb-4">视频文件详情</h3>
+            <h2 class="text-m font-bold mb-2 drop-shadow-lg">
+              rngsahsjdhjakhsdjkhdksj
+            </h2>
 
-        <div class="mb-4">
-          <div class="text-sm text-gray-300 mb-2">名称: {{ selectedItem.name }}</div>
-          <div class="text-sm text-gray-300 mb-2">路径: {{ selectedItem.path }}</div>
-          <div v-if="selectedItem.size" class="text-sm text-gray-300 mb-2">
-            大小: {{ formatFileSize(selectedItem.size) }}
+            <!-- 电影信息 -->
+            <div>
+              <MovieInfo
+                v-if="movieInfo"
+                :movie-info="movieInfo"
+                :poster-url="posterImageDataUrl"
+                :loading="false"
+              />
+
+              <!-- 文件列表（如果是文件夹） -->
+              <!-- <FileList
+                v-if="selectedItem.type === 'folder' && selectedItem.files"
+                :files="selectedItem.files"
+                :selected-item="selectedItem"
+              /> -->
+            </div>
           </div>
         </div>
-      </div>
-    </div>
-  </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { ref, watch } from 'vue'
 import MovieInfo from './MovieInfo.vue'
-import FileList from './FileList.vue'
+import FileList from '@components/FileList.vue'
 
-interface FileItem {
-  name: string
-  path: string
-  size: number
-  isDirectory: boolean
-  isFile: boolean
-}
+const props = defineProps({
+  selectedItem: {
+    type: Object,
+    default: () => ({})
+  },
+  posterImageDataUrl: {
+    type: String,
+    default: ''
+  },
+  movieInfo: {
+    type: Object,
+    default: () => ({})
+  },
+  fanartImageDataUrl: {
+    type: String,
+    default: ''
+  }
+})
 
-interface ProcessedItem {
-  name: string
-  path: string
-  type: 'folder' | 'video'
-  size?: number
-  fileCount?: number
-  files?: FileItem[]
-}
+watch(() => props.selectedItem, (newVal) => {
+  console.log(newVal);
+}, {
+  immediate: true
+})
 
-interface MovieInfoType {
-  title: string
-  year?: string
-  plot?: string
-  genre?: string
-  director?: string
-  actors?: string
-  rating?: string
-  runtime?: string
-}
 
-interface Props {
-  selectedItem: ProcessedItem | null
-  rightPanelWidth: number
-  minPanelWidth: number
-  menuBackgroundColor: string
-  movieInfo: MovieInfoType | null
-  posterUrl: string
-  loading: boolean
-}
+const handleImageError = (event: Event): void => {
+  const target = event.target as HTMLImageElement
 
-defineProps<Props>()
-
-defineEmits<{
-  downloadPoster: []
-}>()
-
-const rightPanel = ref<HTMLElement | null>(null)
-
-// 格式化文件大小
-const formatFileSize = (bytes: number): string => {
-  if (bytes === 0) return '0 Bytes'
-
-  const k = 1024
-
-  const sizes = ['Bytes', 'KB', 'MB', 'GB', 'TB']
-
-  const i = Math.floor(Math.log(bytes) / Math.log(k))
-
-  return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i]
+  if (target) target.style.display = 'none'
 }
 </script>

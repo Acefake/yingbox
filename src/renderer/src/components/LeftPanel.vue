@@ -179,7 +179,6 @@
         :item="item"
         :index="index"
         :selected-index="selectedIndex"
-        :menu-background-color="menuBackgroundColor"
         :is-multi-select-mode="isMultiSelectMode"
         :is-selected="selectedItems?.has(index) || false"
         @select="$emit('selectItem', item, index)"
@@ -220,8 +219,8 @@ interface Props {
   processedItems: ProcessedItem[];
   selectedIndex: number;
   leftPanelWidth: number;
-  minPanelWidth: number;
-  menuBackgroundColor: string;
+  minPanelWidth?: number;
+  menuBackgroundColor?: string;
   dirLoading: boolean;
   scrapeQueueCount?: number;
   isProcessingQueue?: boolean;
