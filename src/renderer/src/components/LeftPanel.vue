@@ -2,7 +2,7 @@
   <div
     ref="leftPanel"
     :style="{
-      width: leftPanelWidth + 'px',
+      width: 300 + 'px',
       minWidth: 300 + 'px',
       backgroundColor: 'rgba(17, 24, 39, 0.3)',
       backdropFilter: 'blur(20px)',
@@ -197,30 +197,10 @@ import { computed, ref } from "vue";
 import ActionButtons from "./ActionButtons.vue";
 import FileTreeItem from "./FileTreeItem.vue";
 import type { Movie } from "@tdanks2000/tmdb-wrapper";
-
-interface FileItem {
-  name: string;
-  path: string;
-  size: number;
-  isDirectory: boolean;
-  isFile: boolean;
-}
-
-interface ProcessedItem {
-  name: string;
-  path: string;
-  type: "folder" | "video";
-  size?: number;
-  fileCount?: number;
-  files?: FileItem[];
-}
-
+import { ProcessedItem, } from '../types';
 interface Props {
   processedItems: ProcessedItem[];
   selectedIndex: number;
-  leftPanelWidth: number;
-  minPanelWidth?: number;
-  menuBackgroundColor?: string;
   dirLoading: boolean;
   scrapeQueueCount?: number;
   isProcessingQueue?: boolean;
@@ -262,6 +242,14 @@ const leftPanel = ref<HTMLElement | null>(null);
 
 // 搜索相关状态
 const searchQuery = ref("");
+
+/**
+ * 搜索关键词
+ */
+const handleSearch = (e): void => {
+  const query = e.target.value;
+  searchQuery.value = query;
+};
 
 /**
  * 清除搜索
