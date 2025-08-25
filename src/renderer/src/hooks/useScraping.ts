@@ -10,8 +10,9 @@ export const useScraping = () => {
   /**
    * 搜索电影
    * @param item 要刮削的项目（文件夹或视频文件）
+   * @returns 搜索结果数组
    */
-  const searchMovieInfo = async (item: ProcessedItem): Promise<void> => {
+  const searchMovieInfo = async (item: ProcessedItem): Promise<Movie[]> => {
     try {
       // 设置当前刮削项目
       currentScrapeItem.value = item
@@ -37,7 +38,7 @@ export const useScraping = () => {
 
       if (!cleanName) {
         message.error('无法解析电影名称')
-        return
+        return []
       }
 
       // 提取年份信息
@@ -87,7 +88,7 @@ export const useScraping = () => {
 
         if (res.results.length === 0) {
           message.error('未找到该电影')
-          return
+          return []
         }
 
         // 处理搜索结果
@@ -95,72 +96,22 @@ export const useScraping = () => {
           ...movie,
           poster_path: movie.poster_path
             ? TMDB_IMG_URL + movie.poster_path
-            : null,
+            : '',
           id: movie.id as number,
-        }))
+        })) as Movie[]
 
-        if (movies.length > 0) {
-          
-          try {
-            // 使用 Promise.allSettled 并行处理所有电影，避免单个失败影响整体
-            const results = await Promise.allSettled(
-              movies.map(async (movie, index) => {
-                try {
-                  // 获取电影详情
-                  const detail = await tmdb.movies.details(movie.id, undefined, 'zh-CN')
-                  Object.assign(movie, detail)
-
-                  // 并行获取图片和演员信息
-                  const [images, credits] = await Promise.allSettled([
-                    tmdb.movies.images(movie.id),
-                    tmdb.movies.credits(movie.id)
-                  ])
-
-                  // 合并图片数据
-                  if (images.status === 'fulfilled' && images.value) {
-                    Object.assign(movie, images.value)
-                  }
-
-                  // 合并演员数据
-                  if (credits.status === 'fulfilled' && credits.value) {
-                    Object.assign(movie, credits.value)
-                  }
-
-                  return { success: true, movie: movie.title }
-                } catch (error) {
-                  console.error(`获取电影详情失败 (${movie.title}):`, error)
-                  return { success: false, movie: movie.title, error }
-                }
-              })
-            )
-
-
-            // 统计处理结果
-            const successful = results.filter(r => r.status === 'fulfilled' && r.value.success)
-            const failed = results.filter(r => r.status === 'rejected' || (r.status === 'fulfilled' && !r.value.success))
-
-            // 显示结果消息
-            if (failed.length > 0) {
-              message.warning(`处理完成：成功 ${successful.length} 个，失败 ${failed.length} 个`)
-            } else {
-              message.success(`成功获取 ${successful.length} 个匹配结果`)
-            }
-
-            console.log(`movie`, movies)
-          } catch (error) {
-            console.error('获取电影数据时出错:', error)
-            message.error('获取电影数据时出错')
-          }
-        }
-
+        // 返回搜索结果，让主页面处理显示弹窗
+        return movies
       } catch (searchError) {
         loadingMessage()
         console.error('搜索电影时出错:', searchError)
         message.error('搜索电影时出错')
+        return []
       }
     } catch (error) {
       console.error('自动刮削时出错:', error)
       message.error('自动刮削时出错')
+      return []
     }
   }
 

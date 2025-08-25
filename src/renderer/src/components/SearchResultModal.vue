@@ -1,16 +1,20 @@
 <template>
   <!-- 搜索结果弹窗 -->
-  <a-modal
+  <AModal
     :open="visible"
     :title="`搜索结果 (${movies.length}部电影)`"
     :width="1000"
     :footer="null"
     :centered="true"
     :destroy-on-close="true"
+    :z-index="9999"
     @cancel="$emit('close')"
   >
     <div class="max-h-[80vh] overflow-y-auto">
-      <div class="grid grid-cols-6 gap-5 my-5">
+      <div v-if="movies.length === 0" class="text-center py-8 text-gray-500">
+        <p>没有搜索结果</p>
+      </div>
+      <div v-else class="grid grid-cols-6 gap-5 my-5">
         <div
           v-for="(item, index) in movies"
           :key="index"
@@ -22,9 +26,12 @@
               v-if="item.poster_path"
               :src="item.poster_path"
               :alt="item.title"
-              class="h-48 w-full"
+              class="h-48 w-full object-cover"
               @error="handleImageError"
             />
+            <div v-else class="h-48 w-full bg-gray-200 flex items-center justify-center">
+              <span class="text-gray-500 text-sm">无海报</span>
+            </div>
           </div>
 
           <!-- 电影信息 -->
@@ -32,7 +39,7 @@
             <h4 class="text-gray-800 font-medium text-sm mb-2 line-clamp-2">
               {{ item.title }}
             </h4>
-            <div class="flex items-center justify-between text-xs text-gray-500">
+            <div class="flex items-center justify-between text-xs text-gray-500 mb-2">
               <span v-if="item.release_date">
                 {{ new Date(item.release_date).getFullYear() }}
               </span>
@@ -45,28 +52,28 @@
                 {{ item.vote_average.toFixed(1) }}
               </span>
             </div>
-            <!-- <p
-              v-if="item.overview"
-              class="text-gray-600 text-xs mt-2 line-clamp-3"
-            >
-              {{ item.overview }}
-            </p> -->
 
-            <div class="pt-2 flex gap-2">
-              <div class="w-full">
-                <a-button block @click="$emit('scrape', item)"> 添加到队列 </a-button>
-              </div>
+            <div class="pt-2">
+              <AButton 
+                type="primary" 
+                block 
+                @click="handleAddToQueue(item)"
+                :loading="addingToQueue === item.id"
+              >
+                {{ addingToQueue === item.id ? '添加中...' : '添加到队列' }}
+              </AButton>
             </div>
           </div>
         </div>
       </div>
     </div>
-  </a-modal>
+  </AModal>
 </template>
 
 <script setup lang="ts">
-import { Button as AButton, Modal as AModal } from 'ant-design-vue'
+import { Button as AButton, Modal as AModal, message } from 'ant-design-vue'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
+import { ref } from 'vue'
 
 /**
  * 组件属性接口
@@ -76,22 +83,44 @@ interface Props {
   movies: Movie[]
 }
 
-defineProps<Props>()
+const props = defineProps<Props>()
 
 /**
  * 组件事件定义
  */
-defineEmits<{
+const emit = defineEmits<{
   close: []
   scrape: [movie: Movie]
 }>()
+
+// 添加状态管理
+const addingToQueue = ref<number | null>(null)
+
+/**
+ * 处理添加到队列
+ */
+const handleAddToQueue = async (movie: Movie): Promise<void> => {
+  try {
+    addingToQueue.value = movie.id
+    console.log('正在添加电影到队列:', movie.title)
+    
+    // 触发父组件的scrape事件
+    emit('scrape', movie)
+    
+    message.success(`已添加 "${movie.title}" 到刮削队列`)
+  } catch (error) {
+    console.error('添加到队列失败:', error)
+    message.error('添加到队列失败，请重试')
+  } finally {
+    addingToQueue.value = null
+  }
+}
 
 /**
  * 处理图片加载错误
  */
 const handleImageError = (event: Event): void => {
   const target = event.target as HTMLImageElement | null
-
   if (target) {
     target.style.display = 'none'
   }
@@ -111,5 +140,15 @@ const handleImageError = (event: Event): void => {
   -webkit-line-clamp: 3;
   -webkit-box-orient: vertical;
   overflow: hidden;
+}
+
+/* 优化按钮样式 */
+.ant-btn {
+  transition: all 0.3s ease;
+}
+
+.ant-btn:hover {
+  transform: translateY(-1px);
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.15);
 }
 </style>
