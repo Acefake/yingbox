@@ -9,14 +9,20 @@
             <div v-if="movieInfo.year" class="text-gray-300">
               <span class="text-gray-400">年份:</span> {{ movieInfo.year }}
             </div>
-            <div v-if="movieInfo.genre && movieInfo.genre.length > 0" class="text-gray-300">
+            <div
+              v-if="movieInfo.genre && movieInfo.genre.length > 0"
+              class="text-gray-300"
+            >
               <span class="text-gray-400">类型:</span>
               {{ movieInfo.genre.join(', ') }}
             </div>
             <div v-if="movieInfo.director" class="text-gray-300">
               <span class="text-gray-400">导演:</span> {{ movieInfo.director }}
             </div>
-            <div v-if="movieInfo.actor && movieInfo.actor.length > 0" class="text-gray-300">
+            <div
+              v-if="movieInfo.actor && movieInfo.actor.length > 0"
+              class="text-gray-300"
+            >
               <span class="text-gray-400">演员:</span>
               {{ movieInfo.actor.join(', ') }}
             </div>

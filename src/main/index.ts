@@ -1,5 +1,13 @@
 import { electronApp, is, optimizer } from '@electron-toolkit/utils'
-import { BrowserWindow, app, dialog, ipcMain, shell } from 'electron'
+import {
+  BrowserWindow,
+  Menu,
+  app,
+  dialog,
+  globalShortcut,
+  ipcMain,
+  shell,
+} from 'electron'
 import * as fsSync from 'fs'
 import * as fs from 'fs/promises'
 import * as http from 'http'
@@ -8,8 +16,12 @@ import * as path from 'path'
 import { join } from 'path'
 import icon from '../../resources/icon.png?asset'
 
+Menu.setApplicationMenu(null)
+
+let mainWindow: BrowserWindow | null = null
+
 function createWindow(): void {
-  const mainWindow = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 900,
     minWidth: 1200,
@@ -28,7 +40,9 @@ function createWindow(): void {
     try {
       const packageJsonPath = path.join(__dirname, '../../package.json')
 
-      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'))
+      const packageJson = JSON.parse(
+        await fs.readFile(packageJsonPath, 'utf-8')
+      )
 
       return {
         success: true,
@@ -307,7 +321,11 @@ app.whenReady().then(() => {
   // HTTP下载文件
   ipcMain.handle(
     'http:download',
-    async (event: Electron.IpcMainInvokeEvent, url: string, filePath: string) => {
+    async (
+      event: Electron.IpcMainInvokeEvent,
+      url: string,
+      filePath: string
+    ) => {
       try {
         const protocol = url.startsWith('https:') ? https : http
 
@@ -409,12 +427,36 @@ app.whenReady().then(() => {
 
   createWindow()
 
+  // 注册 DevTools 快捷键
+  const registerDevToolsShortcut = () => {
+    // F12 切换 DevTools
+    globalShortcut.register('F12', () => {
+      if (mainWindow) {
+        mainWindow.webContents.toggleDevTools()
+      }
+    })
+
+    // Ctrl+Shift+I (Windows/Linux) 或 Cmd+Opt+I (macOS) 切换 DevTools
+    const accelerator =
+      process.platform === 'darwin' ? 'Command+Option+I' : 'Control+Shift+I'
+    globalShortcut.register(accelerator, () => {
+      if (mainWindow) {
+        mainWindow.webContents.toggleDevTools()
+      }
+    })
+  }
+
+  registerDevToolsShortcut()
+
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
   })
 })
 
 app.on('window-all-closed', () => {
+  // 注销所有快捷键
+  globalShortcut.unregisterAll()
+
   if (process.platform !== 'darwin') {
     app.quit()
   }

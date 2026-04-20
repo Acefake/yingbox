@@ -10,29 +10,21 @@
   ],
   "compilerOptions": {
     /** 检查未使用的局部变量 */
-    "noUnusedLocals": false,
+    "noUnusedLocals": true,
     /** 检查未使用的参数 */
-    "noUnusedParameters": false,
+    "noUnusedParameters": true,
     /** 允许未使用的标签 */
-    "allowUnusedLabels": true,
+    "allowUnusedLabels": false,
     /** 不允许隐式的 any 类型 */
-    "noImplicitAny": false,
+    "noImplicitAny": true,
     "lib": ["ES2023", "DOM", "DOM.Iterable", "WebWorker"],
     "baseUrl": ".",
     "paths": {
-      "@/*": ["src/*"],
-      "@/renderer/*": ["src/renderer/src/*"],
+      "@/*": ["src/renderer/src/*"],
+      "@renderer/*": ["src/renderer/src/*"],
       "@main/*": ["src/main/*"],
       "@preload/*": ["src/preload/*"],
-      "@shared/*": ["src/shared/*"],
-      "@/constant/*": ["src/constant/*"],
-      "@/utils/*": ["src/utils/*"],
-      "@/views/*": ["src/views/*"],
-      "@/hooks/*": ["src/hooks/*"],
-      "@/types/*": ["src/types/*"],
-      "@/enum/*": ["src/constant/enum/*"],
-      "@/components/*": ["src/components/*"],
-      "@/assets/*": ["src/assets/*"],
+      "@shared/*": ["src/shared/*"]
     }
   },
   "include": ["src/**/*", "*.config.*", "**/*.vue"],

@@ -1,308 +1,289 @@
 <template>
-  <div class="tv-page h-full flex">
-   111
+  <div class="folder-content relative h-full text-white overflow-hidden">
+    <!-- 左侧悬浮面板 -->
+    <div class="absolute left-4 top-4 bottom-4 z-20 flex flex-col">
+      <LeftPanel
+        :processed-items="fileData"
+        :selected-index="selectedIndex"
+        :selected-path="selectedItem?.path"
+        :dir-loading="dirLoading"
+        :directory-paths="directoryPaths"
+        :scan-progress="scanProgress"
+        mode="tv"
+        @refresh="refreshFiles"
+        @add-folder="handleReadDirectory"
+        @remove-directory="removeDirectory"
+        @select-item="selectItem"
+        @preload="handlePreload"
+      />
+    </div>
+
+    <!-- 右侧内容区域 -->
+    <div
+      class="absolute inset-0 z-10"
+      :style="{ paddingLeft: '272px' }"
+    >
+      <div
+        v-if="!selectedItem"
+        class="flex items-center justify-center h-full text-gray-300"
+      >
+        <div class="flex flex-col items-center">
+          <svg
+            xmlns="http://www.w3.org/2000/svg"
+            fill="none"
+            viewBox="0 0 24 24"
+            stroke-width="2"
+            stroke="currentColor"
+            class="size-20"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              d="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z"
+            />
+          </svg>
+          <p class="text-2xl mb-2">欢迎使用本项目</p>
+          <p class="text-sm">请先添加文件夹，点击[+添加]按钮添加文件夹</p>
+        </div>
+      </div>
+
+      <div v-else class="p-6 h-full overflow-y-auto">
+        <TVRightPanel
+          :selected-item="selectedItem"
+          :current-tv-show="selectedTVShow"
+          :tv-info="tvInfo"
+          :poster-url="posterUrl"
+          :season-posters="seasonPosters"
+          :episode-thumbs="episodeThumbs"
+          @search-tv="searchTV"
+        />
+      </div>
+    </div>
+
+    <!-- 搜索结果弹窗 -->
+    <MediaSearchModal
+      type="tv"
+      :results="searchResults"
+      :loading-id="scrapingId"
+      :visible="searchModalVisible"
+      :initial-query="pendingScrapeShowItem?.name"
+      @close="searchModalVisible = false"
+      @scrape="handleScrapeChoice"
+      @research="handleResearch"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, inject } from 'vue'
-/**
- * 文件项接口
- */
-interface FileItem {
-  name: string
-  path: string
-  size: number
-  isDirectory: boolean
-  isFile: boolean
+import { ref, onMounted, inject, watch, onUnmounted, shallowRef } from 'vue'
+import { useTVFileManagement } from './composables/use-tv-file-management'
+import { useTVScraping } from './composables/use-tv-scraping'
+import LeftPanel from '@/views/movie/components/LeftPanel.vue'
+import TVRightPanel from './components/TVRightPanel.vue'
+import MediaSearchModal from '@/components/MediaSearchModal.vue'
+import type { MediaResult } from '@/components/MediaSearchModal.vue'
+import type { ProcessedItem, TVShowInfoType } from '@/types'
+import { message } from 'ant-design-vue'
+
+interface AppLayoutMethods {
+  setGlobalBackground: (imageUrl: string, overlayColor: string) => void
+  clearGlobalBackground: () => void
 }
 
-/**
- * 处理后的项目接口
- */
-interface ProcessedItem {
-  name: string
-  path: string
-  type: 'folder' | 'video'
-  size?: number
-  fileCount?: number
-  files?: FileItem[]
+const appLayoutMethods = inject('appLayoutMethods') as AppLayoutMethods | undefined
+
+const {
+  fileData,
+  directoryPaths,
+  scanProgress,
+  dirLoading,
+  readDirectory,
+  removeDirectory,
+  refreshFiles,
+  loadFromCache,
+  organizeFilesIntoSeasons,
+} = useTVFileManagement()
+
+// 包装 readDirectory 以在添加目录后自动组织文件
+const handleReadDirectory = async (): Promise<void> => {
+  const previousLength = fileData.value.length
+  await readDirectory()
+  // 如果添加了新目录，检查是否需要自动组织文件
+  if (fileData.value.length > previousLength) {
+    const newItems = fileData.value.slice(previousLength)
+    for (const item of newItems) {
+      if (item.type === 'folder' && !item.isSeasonFolder) {
+        // 检查是否没有季文件夹
+        const hasSeasons = item.children?.some(child => child.isSeasonFolder)
+        if (!hasSeasons) {
+          await organizeFilesIntoSeasons(item.path)
+        }
+      }
+    }
+  }
 }
 
-/**
- * 季信息接口
- */
-interface Season {
-  number: number
-  title?: string
-  episodeCount?: number
-  year?: string
-  plot?: string
-}
+const {
+  searchTVInfo,
+  getTVDetails,
+  getAllSeasons,
+  convertToTVShowInfo,
+  scrapeTVShow,
+  loadLocalTVInfo,
+  loadEpisodeThumbs,
+  preloadShowImages,
+} = useTVScraping()
 
-/**
- * 电视剧信息接口
- */
-interface TVInfoType {
-  title: string
-  year?: string
-  plot?: string
-  genre?: string[]
-  director?: string
-  actors?: string[]
-  rating?: string
-  runtime?: string
-  country?: string
-  studio?: string
-  premiered?: string
-  seasons?: Season[]
-}
-
-/**
- * 搜索结果接口
- */
-interface SearchResult {
-  id: number
-  title: string
-  year?: string
-  overview?: string
-  poster_path?: string
-}
-
-// 响应式数据
-const leftPanelWidth = ref(400)
-const rightPanelWidth = ref(500)
-const minPanelWidth = ref(300)
-const menuBackgroundColor = ref('rgba(0, 0, 0, 0.8)')
-
-const processedItems = ref<ProcessedItem[]>([])
 const selectedIndex = ref<number>(-1)
-const isMultiSelectMode = ref(false)
-const selectedIndices = ref<number[]>([])
-
-const tvInfo = ref<TVInfoType | null>(null)
-const posterUrl = ref('')
+const tvInfo = shallowRef<TVShowInfoType | null>(null)
 const loading = ref(false)
 
-const showSearchModal = ref(false)
-const searchResults = ref<SearchResult[]>([])
-const searchLoading = ref(false)
+const selectedItem = ref<ProcessedItem | null>(null)
+/** 总是指向 TV show 根节点（点击季时也保持为剧集根）*/
+const selectedTVShow = ref<ProcessedItem | null>(null)
+const posterUrl = ref('')
+const fanartUrl = ref('')
+const seasonPosters = shallowRef<Record<string, string>>({})
+const episodeThumbs = shallowRef<Record<string, string>>({})
 
-// 计算属性
-const selectedItem = computed(() => {
-  if (selectedIndex.value >= 0 && selectedIndex.value < processedItems.value.length) {
-    return processedItems.value[selectedIndex.value]
+/** 搜索弹窗状态 */
+const searchResults = ref<MediaResult[]>([])
+const searchModalVisible = ref(false)
+const scrapingId = ref<number | null>(null)
+/** 正在刮削的 TV show 根（弹窗确认后用） */
+const pendingScrapeShowItem = ref<ProcessedItem | null>(null)
+
+/**
+ * selectItem: 优化性能
+ * - 同剧切季：跳过 show 级别重载
+ * - 点季：懒加载该季的集缩略图
+ * - 批量更新状态减少重渲染
+ */
+const selectItem = async (item: ProcessedItem, rootItem: ProcessedItem | number): Promise<void> => {
+  const showRoot = typeof rootItem === 'object' ? rootItem : item
+  const isSameShow = selectedTVShow.value?.path === showRoot.path
+
+  // 批量更新状态
+  selectedItem.value = item
+  selectedTVShow.value = showRoot
+  selectedIndex.value = -1
+
+  // 切换到不同剧集：重载所有数据
+  if (!isSameShow) {
+    const local = await loadLocalTVInfo(showRoot)
+    // 批量更新所有状态
+    tvInfo.value = local.tvInfo
+    posterUrl.value = local.posterDataUrl
+    fanartUrl.value = local.fanartDataUrl
+    seasonPosters.value = local.seasonPosters
+    episodeThumbs.value = {}
   }
-  return null
-})
 
-const selectedItemsSet = computed(() => {
-  return new Set(selectedIndices.value)
-})
-
-// 注入布局方法
-const appLayoutMethods = inject('appLayoutMethods') as {
-  setGlobalBackground: (backgroundImage: string, menuBackgroundColor: string) => void
-  clearGlobalBackground: () => void
-} | null
-
-/**
- * 处理选择项目
- * @param item - 选中的项目
- * @param index - 项目索引
- */
-const handleSelectItem = (item: ProcessedItem, index: number): void => {
-  selectedIndex.value = index
-  // TODO: 加载电视剧信息
-  loadTVInfo()
-}
-
-/**
- * 处理切换多选模式
- */
-const handleToggleMultiSelect = (): void => {
-  isMultiSelectMode.value = !isMultiSelectMode.value
-  if (!isMultiSelectMode.value) {
-    selectedIndices.value = []
-  }
-}
-
-/**
- * 处理多选项目
- * @param item - 选中的项目
- * @param index - 项目索引
- */
-const handleMultiSelectItem = (item: ProcessedItem, index: number): void => {
-  const existingIndex = selectedIndices.value.indexOf(index)
-  if (existingIndex > -1) {
-    selectedIndices.value.splice(existingIndex, 1)
-  } else {
-    selectedIndices.value.push(index)
+  // 点击季文件夹：懒加载该季的集缩略图
+  if (item.isSeasonFolder) {
+    episodeThumbs.value = await loadEpisodeThumbs(item)
+  } else if (!isSameShow) {
+    episodeThumbs.value = {}
   }
 }
 
-/**
- * 处理搜索电视剧
- * @param query 搜索关键词
- */
-const handleSearchTV = (query: string): void => {
-  console.log('搜索电视剧:', query)
-  // TODO: 实现电视剧搜索逻辑
-  searchResults.value = []
-  showSearchModal.value = true
-}
-
-/**
- * 处理关闭搜索弹窗
- */
-const handleCloseSearchModal = (): void => {
-  showSearchModal.value = false
-  searchResults.value = []
-}
-
-/**
- * 处理选择搜索结果
- * @param result - 搜索结果
- */
-const handleSelectSearchResult = (result: SearchResult): void => {
-  console.log('选择搜索结果:', result)
-  // TODO: 处理选择的搜索结果
-  handleCloseSearchModal()
-}
-
-/**
- * 处理下载海报
- */
-const handleDownloadPoster = (): void => {
-  console.log('下载海报')
-  // TODO: 实现海报下载逻辑
-}
-
-/**
- * 加载电视剧信息
- */
-const loadTVInfo = (): void => {
-  if (!selectedItem.value) return
-  
-  loading.value = true
-  // TODO: 实现电视剧信息加载逻辑
-  
-  // 模拟加载
-  setTimeout(() => {
-    tvInfo.value = {
-      title: selectedItem.value?.name || '未知电视剧',
-      year: '2023',
-      plot: '这是一个示例电视剧的剧情描述...',
-      genre: ['剧情', '科幻'],
-      director: '示例导演',
-      actors: ['演员A', '演员B', '演员C'],
-      rating: '8.5',
-      runtime: '45分钟',
-      country: '美国',
-      studio: '示例制片公司',
-      premiered: '2023-01-01',
-      seasons: [
-        {
-          number: 1,
-          title: '第一季',
-          episodeCount: 10,
-          year: '2023',
-          plot: '第一季的剧情描述...'
-        },
-        {
-          number: 2,
-          title: '第二季',
-          episodeCount: 12,
-          year: '2024',
-          plot: '第二季的剧情描述...'
-        }
-      ]
-    }
+/** 第一步：搜索 → 弹窗展示结果列表 */
+const searchTV = async (showItem: ProcessedItem, query?: string): Promise<void> => {
+  try {
+    loading.value = true
+    const results = await searchTVInfo(query ? { ...showItem, name: query } : showItem)
+    searchResults.value = results
+    pendingScrapeShowItem.value = showItem
+    searchModalVisible.value = true
+  } catch (error) {
+    console.error('搜索电视剧失败:', error)
+    message.error('搜索电视剧失败')
+  } finally {
     loading.value = false
-  }, 1000)
-}
-
-/**
- * 处理全选/取消全选
- */
-const handleToggleSelectAll = (): void => {
-  if (selectedIndices.value.length === processedItems.value.length) {
-    // 当前全选状态，取消全选
-    selectedIndices.value = []
-  } else {
-    // 当前非全选状态，执行全选
-    selectedIndices.value = processedItems.value.map((_, index) => index)
   }
 }
 
-/**
- * 处理添加选中项到队列
- */
-const handleAddSelectedToQueue = (): void => {
-  console.log('添加选中项到队列:', selectedIndices.value)
-  // TODO: 实现添加到队列逻辑
+/** 第二步：用户在弹窗中选择 → 拉取详情 → 刮削 */
+const handlePreload = async (item: ProcessedItem): Promise<void> => {
+  await preloadShowImages(item)
 }
 
-/**
- * 处理刷新
- * @param targetPath - 目标路径
- */
-const handleRefresh = (targetPath?: string): void => {
-  console.log('刷新:', targetPath)
-  // TODO: 实现刷新逻辑
-  initializeData()
+/** 用户手动修改搜索关键词重新搜索 */
+const handleResearch = async (query: string): Promise<void> => {
+  const showItem = pendingScrapeShowItem.value
+  if (!showItem) return
+  await searchTV(showItem, query)
 }
 
-/**
- * 处理显示队列
- */
-const handleShowQueue = (): void => {
-  console.log('显示队列')
-  // TODO: 实现显示队列逻辑
-}
+const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
+  const showItem = pendingScrapeShowItem.value
+  if (!showItem) return
+  scrapingId.value = selected.id
+  try {
+    const tvDetails = await getTVDetails(selected.id)
+    if (tvDetails) {
+      const seasons = await getAllSeasons(tvDetails.id)
+      tvInfo.value = { ...convertToTVShowInfo(tvDetails), seasons }
+      await scrapeTVShow(showItem, tvDetails, seasons)
+      const local = await loadLocalTVInfo(showItem)
+      if (local.posterDataUrl) posterUrl.value = local.posterDataUrl
+      if (local.fanartDataUrl) fanartUrl.value = local.fanartDataUrl
+      if (local.seasonPosters) seasonPosters.value = local.seasonPosters
 
-/**
- * 处理手动抓取
- * @param item - 项目
- */
-const handleManualScrape = (item: ProcessedItem): void => {
-  console.log('手动抓取:', item)
-  // TODO: 实现手动抓取逻辑
-}
-
-/**
- * 处理自动抓取
- * @param item - 项目
- */
-const handleAutoScrape = (item: ProcessedItem): void => {
-  console.log('自动抓取:', item)
-  // TODO: 实现自动抓取逻辑
-}
-
-/**
- * 初始化数据
- */
-const initializeData = (): void => {
-  // TODO: 加载文件列表
-  processedItems.value = [
-    {
-      name: '示例电视剧文件夹',
-      path: '/path/to/tv/show',
-      type: 'folder',
-      fileCount: 24,
-      files: []
+      // 强制刷新 selectedItem 引用，使模板读取被 scrapeTVShow 修改后的 children
+      if (selectedItem.value) {
+        selectedItem.value = { ...selectedItem.value }
+      }
     }
-  ]
+    searchModalVisible.value = false
+  } catch (error) {
+    console.error('刮削失败:', error)
+    message.error('刮削失败')
+  } finally {
+    scrapingId.value = null
+  }
 }
 
-// 组件挂载完成后执行
+// 监听 fanart 变化，设置全局背景
+watch(
+  fanartUrl,
+  (newFanartUrl) => {
+    if (appLayoutMethods) {
+      if (newFanartUrl) {
+        appLayoutMethods.setGlobalBackground(newFanartUrl, 'rgba(17, 24, 39, 0.2)')
+      } else {
+        appLayoutMethods.clearGlobalBackground()
+      }
+    }
+  }
+)
+
+// 离开 TV 页面时清除全局背景
+onUnmounted(() => {
+  if (appLayoutMethods) {
+    appLayoutMethods.clearGlobalBackground()
+  }
+})
+
 onMounted(() => {
-  initializeData()
+  if (fileData.value.length === 0) {
+    loadFromCache()
+  }
 })
 </script>
 
 <style scoped>
-.tv-page {
+.custom-scroll::-webkit-scrollbar {
+  width: 6px;
+}
+.custom-scroll::-webkit-scrollbar-track {
   background: transparent;
+}
+.custom-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.05);
+  border-radius: 10px;
+}
+.custom-scroll::-webkit-scrollbar-thumb:hover {
+  background: rgba(59, 130, 246, 0.3);
 }
 </style>

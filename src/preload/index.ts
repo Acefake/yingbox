@@ -61,20 +61,24 @@ const api = {
   },
   path: {
     // Join path segments
-    join: (...paths: string[]): Promise<string> => ipcRenderer.invoke('path:join', ...paths),
+    join: (...paths: string[]): Promise<string> =>
+      ipcRenderer.invoke('path:join', ...paths),
 
     // Resolve path
-    resolve: (...paths: string[]): Promise<string> => ipcRenderer.invoke('path:resolve', ...paths),
+    resolve: (...paths: string[]): Promise<string> =>
+      ipcRenderer.invoke('path:resolve', ...paths),
 
     // Get directory name
-    dirname: (filePath: string): Promise<string> => ipcRenderer.invoke('path:dirname', filePath),
+    dirname: (filePath: string): Promise<string> =>
+      ipcRenderer.invoke('path:dirname', filePath),
 
     // Get base name
     basename: (filePath: string, ext?: string): Promise<string> =>
       ipcRenderer.invoke('path:basename', filePath, ext),
 
     // Get file extension
-    extname: (filePath: string): Promise<string> => ipcRenderer.invoke('path:extname', filePath),
+    extname: (filePath: string): Promise<string> =>
+      ipcRenderer.invoke('path:extname', filePath),
   },
 
   // Dialog operations
@@ -108,7 +112,8 @@ const api = {
   },
   app: {
     // Get app version info from package.json
-    getVersion: (): Promise<FileOperationResult> => ipcRenderer.invoke('app:getVersion'),
+    getVersion: (): Promise<FileOperationResult> =>
+      ipcRenderer.invoke('app:getVersion'),
   },
 }
 

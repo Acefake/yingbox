@@ -2,7 +2,7 @@
 import { onMounted, reactive } from 'vue'
 
 const appInfo = reactive<{
-  version: string,
+  version: string
 }>({
   version: 'Unknown',
 })

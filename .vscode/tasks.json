@@ -17,10 +17,7 @@
         "showReuseMessage": true,
         "clear": false
       },
-      "problemMatcher": [
-        "$tsc",
-        "$eslint-stylish"
-      ]
+      "problemMatcher": ["$tsc", "$eslint-stylish"]
     },
     {
       "label": "npm: dev",

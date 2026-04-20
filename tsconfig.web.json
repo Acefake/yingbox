@@ -2,7 +2,11 @@
   "extends": "@electron-toolkit/tsconfig/tsconfig.web.json",
   "compilerOptions": {
     "composite": true,
-    "types": ["node"]
+    "types": ["node"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/src/*"]
+    }
   },
   "include": ["src/renderer/**/*", "src/preload/index.d.ts"],
   "exclude": ["src/main/**/*", "node_modules", "dist", "out"]

@@ -1,6 +1,6 @@
 import { App } from 'vue'
-import { vRightClick } from './rightClick'
-import vContextMenu from './contextMenu'
+import { vRightClick } from '@/directives/right-click'
+import vContextMenu from '@/directives/context-menu'
 
 // 所有自定义指令
 const directives = {

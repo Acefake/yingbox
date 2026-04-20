@@ -2,3 +2,12 @@ node_modules
 .DS_Store
 dist
 dist-renderer
+*.log
+*.local
+.env
+.env.*
+Thumbs.db
+coverage
+*.tsbuildinfo
+out
+.eslintcache

@@ -3,7 +3,7 @@
  * 定义应用的路由规则和导航逻辑
  */
 import { createRouter, createWebHashHistory } from 'vue-router'
-import { routes } from './routers'
+import { routes } from '@/router/routers'
 
 /**
  * 创建路由实例

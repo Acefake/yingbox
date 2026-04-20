@@ -36,7 +36,12 @@
   },
 
   // === 包含文件 ===
-  "include": ["electron.vite.config.*", "src/main/**/*", "src/preload/**/*", "src/shared/**/*"],
+  "include": [
+    "electron.vite.config.*",
+    "src/main/**/*",
+    "src/preload/**/*",
+    "src/shared/**/*"
+  ],
 
   // === 排除文件 ===
   "exclude": ["src/renderer/**/*", "node_modules", "dist", "out"]

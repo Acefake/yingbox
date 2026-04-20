@@ -4,7 +4,10 @@
  * @param delay 延迟时间(ms)
  * @returns 节流后的函数
  */
-export function throttle<T extends (...args: any[]) => any>(fn: T, delay: number): (...args: Parameters<T>) => void {
+export function throttle<T extends (...args: any[]) => any>(
+  fn: T,
+  delay: number
+): (...args: Parameters<T>) => void {
   let lastTime = 0
   let timer: NodeJS.Timeout | null = null
 

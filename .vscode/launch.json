@@ -14,9 +14,7 @@
       "outputCapture": "std",
       "console": "integratedTerminal",
       "protocol": "inspector",
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "skipFiles": ["<node_internals>/**"],
       "preLaunchTask": "npm: build"
     },
     {
@@ -39,22 +37,15 @@
       "type": "node",
       "request": "launch",
       "program": "${workspaceFolder}/src/preload/index.ts",
-      "outFiles": [
-        "${workspaceFolder}/out/preload/**/*.js"
-      ],
-      "skipFiles": [
-        "<node_internals>/**"
-      ],
+      "outFiles": ["${workspaceFolder}/out/preload/**/*.js"],
+      "skipFiles": ["<node_internals>/**"],
       "console": "integratedTerminal"
     }
   ],
   "compounds": [
     {
       "name": "Debug Electron App",
-      "configurations": [
-        "Debug Main Process",
-        "Debug Renderer Process"
-      ],
+      "configurations": ["Debug Main Process", "Debug Renderer Process"],
       "stopAll": true
     }
   ]

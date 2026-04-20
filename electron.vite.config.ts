@@ -5,26 +5,32 @@ import vue from '@vitejs/plugin-vue'
 export default defineConfig({
   main: {
     plugins: [externalizeDepsPlugin()],
+    build: {
+      watch: {},
+    },
   },
   preload: {
     plugins: [externalizeDepsPlugin()],
+    build: {
+      watch: {},
+    },
   },
   renderer: {
     resolve: {
       alias: {
         '@renderer': resolve('src/renderer/src'),
-        '@/api': resolve('src/renderer/src/api'),
-        '@/components': resolve('src/renderer/src/components'),
-        '@/assets': resolve('src/renderer/src/assets'),
-        '@/views': resolve('src/renderer/src/views'),
-        '@/utils': resolve('src/renderer/src/utils'),
-        '@/constant': resolve('src/renderer/src/constant'),
-        '@/hooks': resolve('src/renderer/src/hooks'),
-        '@/types': resolve('src/renderer/src/types'),
+        '@': resolve('src/renderer/src'),
       },
     },
     plugins: [vue()],
     server: {
+      host: '127.0.0.1',
+      port: 3000,
+      strictPort: false,
+      hmr: true,
+      watch: {
+        usePolling: true,
+      },
       proxy: {
         '/api': {
           target: 'https://api.themoviedb.org/3',

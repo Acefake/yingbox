@@ -28,8 +28,10 @@ const http__namespace = /* @__PURE__ */ _interopNamespaceDefault(http);
 const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
 const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 const icon = path.join(__dirname, "../../resources/icon.png");
+electron.Menu.setApplicationMenu(null);
+let mainWindow = null;
 function createWindow() {
-  const mainWindow = new electron.BrowserWindow({
+  mainWindow = new electron.BrowserWindow({
     width: 1200,
     height: 900,
     minWidth: 1200,
@@ -45,7 +47,9 @@ function createWindow() {
   electron.ipcMain.handle("app:getVersion", async () => {
     try {
       const packageJsonPath = path__namespace.join(__dirname, "../../package.json");
-      const packageJson = JSON.parse(await fs__namespace.readFile(packageJsonPath, "utf-8"));
+      const packageJson = JSON.parse(
+        await fs__namespace.readFile(packageJsonPath, "utf-8")
+      );
       return {
         success: true,
         data: {
@@ -357,11 +361,26 @@ electron.app.whenReady().then(() => {
     }
   );
   createWindow();
+  const registerDevToolsShortcut = () => {
+    electron.globalShortcut.register("F12", () => {
+      if (mainWindow) {
+        mainWindow.webContents.toggleDevTools();
+      }
+    });
+    const accelerator = process.platform === "darwin" ? "Command+Option+I" : "Control+Shift+I";
+    electron.globalShortcut.register(accelerator, () => {
+      if (mainWindow) {
+        mainWindow.webContents.toggleDevTools();
+      }
+    });
+  };
+  registerDevToolsShortcut();
   electron.app.on("activate", function() {
     if (electron.BrowserWindow.getAllWindows().length === 0) createWindow();
   });
 });
 electron.app.on("window-all-closed", () => {
+  electron.globalShortcut.unregisterAll();
   if (process.platform !== "darwin") {
     electron.app.quit();
   }

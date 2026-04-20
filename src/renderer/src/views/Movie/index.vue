@@ -7,23 +7,26 @@
         :selected-index="selectedIndex"
         :left-panel-width="leftPanelWidth"
         :dir-loading="dirLoading"
+        :scan-progress="scanProgress"
         :scrape-queue-count="scrapeQueue.length"
         :is-processing-queue="isProcessingQueue"
         :is-multi-select-mode="isMultiSelectMode"
         :selected-items="selectedItems"
         :selected-items-count="selectedItemsData.length"
         @refresh="targetPath => refreshDirectory(targetPath)"
-                 @add-folder="readDirectory"
+        @add-folder="readDirectory"
         @clear-cache="handleShowClearCacheDialog"
         @select-item="selectItem"
         @show-search-modal="handleShowSearchModal"
         @manual-scrape="handleManualScrape"
         @auto-scrape="handleAutoScrape"
+        @direct-scrape="handleDirectScrape"
         @show-queue="handleShowQueueModal"
         @toggle-multi-select="toggleMultiSelectMode"
         @toggle-select-all="toggleSelectAll"
         @add-selected-to-queue="addSelectedToScrapeQueue"
         @toggle-selection="toggleItemSelection"
+        @preload="handlePreload"
       />
     </div>
 
@@ -70,8 +73,10 @@
     <SearchResultModal
       :visible="showSearchModal"
       :movies="searchMovies"
+      :initial-query="currentScrapeItem?.name"
       @close="handleCloseSearchModal"
       @scrape="handleScrapeMovie"
+      @research="handleResearch"
     />
 
     <!-- 手动匹配弹窗 -->
@@ -100,29 +105,29 @@
 <script setup lang="ts">
 import { computed, inject, onMounted, ref, watch } from 'vue'
 import { Modal, message } from 'ant-design-vue'
-import { ProcessedItem } from '../../types'
-import RightPanel from './RightPanel.vue'
-import LeftPanel from '../../components/LeftPanel.vue'
-import SearchResultModal from '../../components/SearchResultModal.vue'
-import ManualScrapeModal from '../../components/ManualScrapeModal.vue'
-import QueueManagementModal from '../../components/QueueManagementModal.vue'
+import { ProcessedItem } from '@/types'
+import RightPanel from '@/views/movie/RightPanel.vue'
+import LeftPanel from '@/views/movie/components/LeftPanel.vue'
+import SearchResultModal from '@/views/movie/components/SearchResultModal.vue'
+import ManualScrapeModal from '@/views/movie/components/ManualScrapeModal.vue'
+import QueueManagementModal from '@/views/movie/components/QueueManagementModal.vue'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
-import { useScraping } from '../../hooks/useScraping'
-import { useFileManagement } from '../../hooks/useFileManagement'
-import { useScrapingQueue } from '../../hooks/useScrapingQueue'
-import { useMediaProcessing } from '../../hooks/useMediaProcessing'
-import { useScrapingTask } from '../../hooks/useScrapingTask'
+import { useScraping } from '@/views/movie/composables/use-scraping'
+import { useFileManagement } from '@/views/movie/composables/use-file-management'
+import { useScrapingQueue } from '@/views/movie/composables/use-scraping-queue'
+import { useMediaProcessing } from '@/views/movie/composables/use-media-processing'
+import { useScrapingTask } from '@/views/movie/composables/use-scraping-task'
 
 interface AppLayoutMethods {
   setGlobalBackground: (imageUrl: string, overlayColor: string) => void
   clearGlobalBackground: () => void
 }
 
-const appLayoutMethods = inject('appLayoutMethods') as AppLayoutMethods | undefined
+const appLayoutMethods = inject('appLayoutMethods') as
+  | AppLayoutMethods
+  | undefined
 
-const {
-  searchMovieInfo,
-} = useScraping()
+const { searchMovieInfo } = useScraping()
 
 // 弹窗状态管理
 const showSearchModal = ref(false)
@@ -143,9 +148,12 @@ const {
   fileData,
   currentDirectoryPath,
   dirLoading,
+  scanProgress,
   processFiles,
   readDirectory,
   refreshFiles,
+  refreshFilesIncremental,
+  refreshSpecificDirectory,
   loadFromCache,
   clearCacheAndData,
 } = useFileManagement()
@@ -165,16 +173,18 @@ const {
 const selectedItem = ref<ProcessedItem | null>(null)
 
 // 媒体处理相关状态
-const {
-  posterImageDataUrl,
-  fanartImageDataUrl,
-  movieInfo,
-} = useMediaProcessing(selectedItem)
+const { posterImageDataUrl, fanartImageDataUrl, movieInfo, preloadMovieImages } =
+  useMediaProcessing(selectedItem)
 
 // 计算属性
 const processedItems = computed((): ProcessedItem[] => {
   return processFiles(fileData.value)
 })
+
+// 鼠标悬停预加载
+const handlePreload = async (item: ProcessedItem): Promise<void> => {
+  await preloadMovieImages(item)
+}
 
 // 弹窗管理方法 - 直接写在组件内部，逻辑简单清晰
 const handleShowSearchModal = (movies: Movie[], item?: ProcessedItem): void => {
@@ -188,6 +198,19 @@ const handleShowSearchModal = (movies: Movie[], item?: ProcessedItem): void => {
 const handleCloseSearchModal = (): void => {
   showSearchModal.value = false
   searchMovies.value = []
+}
+
+/** 用户手动修改搜索关键词重新搜索 */
+const handleResearch = async (query: string): Promise<void> => {
+  const item = currentScrapeItem.value
+  if (!item) return
+  try {
+    const movies = await searchMovieInfo({ ...item, name: query })
+    searchMovies.value = movies
+  } catch (error) {
+    console.error('重新搜索电影失败:', error)
+    message.error('重新搜索电影失败')
+  }
 }
 
 const handleShowManualScrapeModal = (item: ProcessedItem): void => {
@@ -390,18 +413,21 @@ const refreshDirectory = (targetPath?: string): void => {
  */
 const refreshSpecificPath = async (targetPath: string): Promise<void> => {
   try {
+    // 统一路径分隔符为正斜杠
+    const normalizedTargetPath = targetPath.replace(/\\/g, '/')
+    const normalizedCurrentPath = currentDirectoryPath.value.replace(/\\/g, '/')
+
     // 检查目标路径是否是当前目录或其子目录
-    if (targetPath === currentDirectoryPath.value) {
+    if (normalizedTargetPath === normalizedCurrentPath) {
       // 如果是当前目录，直接刷新整个目录
       refreshFiles()
       return
     }
 
     // 检查目标路径是否在当前目录下
-    if (targetPath.startsWith(currentDirectoryPath.value)) {
-      // 如果是子目录，刷新整个当前目录以更新文件列表
-      refreshFiles()
-      message.success(`已刷新路径: ${targetPath}`)
+    if (normalizedTargetPath.startsWith(normalizedCurrentPath + '/')) {
+      // 如果是子目录，只刷新该目录（非递归）
+      await refreshSpecificDirectory(targetPath)
     } else {
       // 如果不在当前目录下，提示用户
       message.info(`目标路径不在当前目录下: ${targetPath}`)
@@ -538,9 +564,9 @@ const processNextQueueItem = async (): Promise<void> => {
     // 关闭队列界面
     handleCloseQueueModal()
 
-    // 队列完成后延迟5秒刷新目录
+    // 队列完成后延迟5秒增量刷新目录
     setTimeout(() => {
-      refreshFiles()
+      refreshFilesIncremental()
     }, 5000) // 延迟5秒执行刷新
     return
   }
@@ -608,9 +634,7 @@ const stopProcessingQueue = (): void => {
  * 重新匹配队列中的电影 - 重新匹配逻辑直接写在组件里
  * @param task 队列任务
  */
-const rematchMovie = async (
-  task: any
-): Promise<void> => {
+const rematchMovie = async (task: any): Promise<void> => {
   if (isProcessingQueue.value) {
     message.warning('队列处理中，无法重新匹配')
     return
@@ -638,8 +662,6 @@ const handleQueueModalClose = (): void => {
   }
 }
 
-
-
 /**
  * 处理电影刮削：添加到队列或立即处理 - 刮削处理逻辑直接写在组件里
  * @param movie 电影数据
@@ -656,7 +678,7 @@ const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
   try {
     // 调用useScraping中的searchMovieInfo函数
     const movies = await searchMovieInfo(item)
-    
+
     if (movies && movies.length > 0) {
       // 显示搜索结果弹窗，并传递当前项目
       handleShowSearchModal(movies, item)
@@ -667,6 +689,50 @@ const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
   } catch (error) {
     console.error('自动刮削失败:', error)
     message.error('自动刮削失败')
+  }
+}
+
+/**
+ * 处理直接刮削 - 不加入队列，直接刮削
+ * @param item 要刮削的项目
+ */
+const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
+  try {
+    console.log('=== 开始直接刮削 ===')
+    console.log('刮削项目:', item.name)
+
+    // 设置当前刮削项目
+    currentScrapeItem.value = item
+
+    // 调用useScraping中的searchMovieInfo函数
+    const movies = await searchMovieInfo(item)
+
+    if (movies && movies.length > 0) {
+      // 如果只有一个匹配结果，直接刮削
+      if (movies.length === 1) {
+        console.log('找到唯一匹配结果，直接刮削')
+        message.loading('正在刮削电影信息...', 0)
+        
+        // 直接调用刮削任务
+        const { processSingleScrapeTask: processTask } = useScrapingTask()
+        await processTask(movies[0], item)
+        
+        message.destroy()
+        // 刮削完成，静默刷新，不显示成功提示
+        console.log('刮削完成，增量刷新文件列表...')
+        await refreshFilesIncremental()
+      } else {
+        // 如果有多个匹配结果，显示搜索结果弹窗让用户选择
+        console.log('找到多个匹配结果，显示选择弹窗')
+        handleShowSearchModal(movies, item)
+        message.success(`找到 ${movies.length} 个匹配结果，请选择`)
+      }
+    } else {
+      message.warning('未找到匹配的电影信息')
+    }
+  } catch (error) {
+    console.error('直接刮削失败:', error)
+    message.error('直接刮削失败')
   }
 }
 
@@ -686,6 +752,10 @@ const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
 
     message.destroy()
     message.success('刮削任务完成')
+
+    // 刷新文件列表以更新 ProcessedItem 类型
+    console.log('刮削完成，刷新文件列表...')
+    await refreshFiles()
   } catch (error) {
     message.destroy()
     message.error(
@@ -809,4 +879,3 @@ onMounted(() => {
     0 0 0 1px rgba(255, 255, 255, 0.1);
 }
 </style>
-

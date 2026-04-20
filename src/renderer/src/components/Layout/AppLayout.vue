@@ -44,23 +44,43 @@
         <!-- 中间导航 -->
         <div class="navigation-section">
           <nav class="nav-tabs">
-            <button 
-              class="nav-tab" 
+            <button
+              class="nav-tab"
               :class="{ active: route.name === 'Movie' }"
               @click="navigateTo('/')"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v2a1 1 0 01-1 1h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 3v1h6V3H9zm-2 5v11h10V8H7z"/>
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v2a1 1 0 01-1 1h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 3v1h6V3H9zm-2 5v11h10V8H7z"
+                />
               </svg>
               <span>电影</span>
             </button>
-            <button 
-              class="nav-tab" 
+            <button
+              class="nav-tab"
               :class="{ active: route.name === 'TV' }"
               @click="navigateTo('/tv')"
             >
-              <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"/>
+              <svg
+                class="w-5 h-5"
+                fill="none"
+                stroke="currentColor"
+                viewBox="0 0 24 24"
+              >
+                <path
+                  stroke-linecap="round"
+                  stroke-linejoin="round"
+                  stroke-width="2"
+                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
+                />
               </svg>
               <span>电视剧</span>
             </button>
@@ -70,7 +90,12 @@
         <!-- 右侧设置 -->
         <div class="settings-section">
           <button class="settings-btn" @click="openSettings">
-            <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <svg
+              class="w-5 h-5"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
@@ -114,7 +139,10 @@ const globalMenuBackgroundColor = ref<string>('')
  * @param backgroundImage - 背景图片URL
  * @param menuBackgroundColor - 菜单背景色
  */
-const setGlobalBackground = (backgroundImage: string, menuBackgroundColor: string): void => {
+const setGlobalBackground = (
+  backgroundImage: string,
+  menuBackgroundColor: string
+): void => {
   globalBackgroundImage.value = backgroundImage
   globalMenuBackgroundColor.value = menuBackgroundColor
 }
