@@ -1,34 +1,7 @@
 <template>
   <!-- 应用主布局容器 -->
   <div class="app-layout h-screen w-screen overflow-hidden bg-gray-900">
-    <!-- 默认背景图 -->
-    <img
-      :src="bgImg"
-      class="w-full h-full object-cover opacity-50 transition-opacity duration-300 fixed inset-0 z-0"
-      alt="背景图片"
-    />
 
-    <!-- 全屏背景艺术图 -->
-    <div
-      v-if="globalBackgroundImage"
-      class="fixed inset-0 z-0 transition-opacity duration-500"
-      :style="{
-        backgroundImage: `
-          linear-gradient(
-            to bottom,
-            rgba(0,0,0,0.2) 0%,
-            rgba(0,0,0,0.4) 30%,
-            rgba(0,0,0,0.7) 70%,
-            rgba(17,24,39,0.95) 100%
-          ),
-          url(${globalBackgroundImage})
-        `,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        backdropFilter: 'blur(8px)',
-      }"
-    ></div>
 
     <!-- 顶部毛玻璃菜单栏 -->
     <header class="top-menu">
@@ -44,72 +17,46 @@
         <!-- 中间导航 -->
         <div class="navigation-section">
           <nav class="nav-tabs">
-            <button
-              class="nav-tab"
-              :class="{ active: route.name === 'Movie' }"
-              @click="navigateTo('/')"
-            >
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M7 4V2a1 1 0 011-1h8a1 1 0 011 1v2h4a1 1 0 011 1v2a1 1 0 01-1 1h-1v12a2 2 0 01-2 2H6a2 2 0 01-2-2V8H3a1 1 0 01-1-1V5a1 1 0 011-1h4zM9 3v1h6V3H9zm-2 5v11h10V8H7z"
-                />
-              </svg>
-              <span>电影</span>
-            </button>
-            <button
-              class="nav-tab"
-              :class="{ active: route.name === 'TV' }"
-              @click="navigateTo('/tv')"
-            >
-              <svg
-                class="w-5 h-5"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
-              >
-                <path
-                  stroke-linecap="round"
-                  stroke-linejoin="round"
-                  stroke-width="2"
-                  d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z"
-                />
-              </svg>
-              <span>电视剧</span>
-            </button>
+            <button class="nav-tab" :class="{ active: route.name === 'Online' }"
+              @click="navigateTo('/')">在线观看</button>
+
+            <!-- 刮削服务下拉 -->
+            <div class="nav-dropdown"
+              @mouseenter="openScraper"
+              @mouseleave="scheduleScraper">
+              <button class="nav-tab" :class="{ active: route.name === 'Movie' || route.name === 'TV' }">刮削服务
+                <svg viewBox="0 0 10 6" width="10" height="6" style="margin-left:4px;opacity:0.6">
+                  <path d="M0 0l5 6 5-6z" fill="currentColor" />
+                </svg>
+              </button>
+              <Transition name="dropdown-fade">
+                <div v-if="scraperOpen" class="dropdown-menu"
+                  @mouseenter="openScraper"
+                  @mouseleave="scheduleScraper">
+                  <button class="dropdown-item" :class="{ active: route.name === 'Movie' }" @click="navigateTo('/movie')">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="3" width="20" height="14" rx="2" />
+                      <path d="M8 21h8M12 17v4" />
+                    </svg>
+                    电影
+                  </button>
+                  <button class="dropdown-item" :class="{ active: route.name === 'TV' }" @click="navigateTo('/tv')">
+                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                      <rect x="2" y="7" width="20" height="14" rx="2" />
+                      <path d="M16 3l-4 4-4-4" />
+                    </svg>
+                    电视剧
+                  </button>
+                </div>
+              </Transition>
+            </div>
           </nav>
         </div>
 
-        <!-- 右侧设置 -->
+        <!-- 右侧：队列 + 窗口控制（含设置） -->
         <div class="settings-section">
-          <button class="settings-btn" @click="openSettings">
-            <svg
-              class="w-5 h-5"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"
-              />
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"
-              />
-            </svg>
-          </button>
+          <QueueWidget />
+          <WinControls :show-settings="true" @open-settings="openSettings" />
         </div>
       </div>
     </header>
@@ -118,19 +65,48 @@
     <main class="main-content">
       <slot />
     </main>
+
+    <!-- 全局设置面板 -->
+    <SettingsPanel :visible="settingsVisible" @close="settingsVisible = false" />
+
+    <!-- 默认背景图 -->
+    <img :src="bgImg" class="w-full h-full object-cover opacity-20 transition-opacity duration-300 fixed inset-0 "
+      alt="背景图片" />
+
+    <!-- 全屏背景艺术图 -->
+    <div v-if="globalBackgroundImage" class="fixed inset-0 transition-opacity duration-500" :style="{
+      backgroundImage: `
+          linear-gradient(
+            to bottom,
+            rgba(0,0,0,0.2) 0%,
+            rgba(0,0,0,0.4) 30%,
+            rgba(0,0,0,0.7) 70%,
+            rgba(17,24,39,0.95) 100%
+          ),
+          url(${globalBackgroundImage})
+        `,
+      backgroundSize: 'cover',
+      backgroundPosition: 'center',
+      backgroundRepeat: 'no-repeat',
+      backdropFilter: 'blur(8px)',
+    }"></div>
   </div>
 </template>
 
 <script setup lang="ts">
 import { provide, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
+import WinControls from '@/components/WinControls.vue'
 import logo from '@/assets/imgs/logo.svg'
 import bgImg from '@/assets/imgs/home-bg.jpg'
+import QueueWidget from '@/components/QueueWidget.vue'
+import SettingsPanel from '@/components/SettingsPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
 
 const globalBackgroundImage = ref<string>('')
+const settingsVisible = ref(false)
 
 const globalMenuBackgroundColor = ref<string>('')
 
@@ -173,8 +149,20 @@ const navigateTo = (path: string): void => {
  * 设置按钮点击处理
  */
 const openSettings = (): void => {
-  console.log('打开设置面板')
+  settingsVisible.value = true
 }
+
+const scraperOpen = ref(false)
+let scraperTimer: ReturnType<typeof setTimeout> | null = null
+
+const openScraper = () => {
+  if (scraperTimer) { clearTimeout(scraperTimer); scraperTimer = null }
+  scraperOpen.value = true
+}
+const scheduleScraper = () => {
+  scraperTimer = setTimeout(() => { scraperOpen.value = false }, 120)
+}
+
 </script>
 
 <style scoped>
@@ -192,6 +180,7 @@ const openSettings = (): void => {
   right: 0;
   height: 80px;
   z-index: 1000;
+  -webkit-app-region: drag;
 }
 
 .menu-content {
@@ -208,6 +197,7 @@ const openSettings = (): void => {
   display: flex;
   align-items: center;
   gap: 12px;
+  -webkit-app-region: no-drag;
 }
 
 .logo-icon {
@@ -233,83 +223,127 @@ const openSettings = (): void => {
   align-items: center;
   justify-content: center;
   flex: 1;
+  -webkit-app-region: no-drag;
 }
 
 .nav-tabs {
   display: flex;
-  gap: 8px;
+  gap: 4px;
   background: rgba(0, 0, 0, 0.3);
-  border-radius: 12px;
+  border-radius: 100px;
   padding: 4px;
   border: 1px solid rgba(255, 255, 255, 0.1);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
 }
 
 .nav-tab {
   display: flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  justify-content: center;
+  height: 32px;
+  padding: 0 18px;
   background: transparent;
   border: none;
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.7);
+  border-radius: 100px;
+  color: rgba(255, 255, 255, 0.6);
   font-size: 14px;
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s ease;
-  min-width: 80px;
-  justify-content: center;
 }
 
 .nav-tab:hover {
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.9);
-  transform: translateY(-1px);
+  background: rgba(255, 255, 255, 0.08);
+  color: rgba(255, 255, 255, 0.85);
 }
 
 .nav-tab.active {
-  background: rgba(255, 255, 255, 0.15);
+  background: rgba(255, 255, 255, 0.2);
   color: white;
-  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.2);
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  box-shadow:
+    0 4px 6px -1px rgba(0, 0, 0, 0.1),
+    0 2px 4px -1px rgba(0, 0, 0, 0.06);
 }
 
 .nav-tab.active:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: rgba(255, 255, 255, 0.25);
+}
+
+/* 刃削下拉菜单 */
+.nav-dropdown {
+  position: relative;
+}
+
+.dropdown-menu {
+  position: absolute;
+  top: calc(100% + 6px);
+  left: 50%;
+  transform: translateX(-50%);
+  background: rgba(10, 12, 20, 0.96);
+  backdrop-filter: blur(16px);
+  -webkit-backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 10px;
+  padding: 4px;
+  min-width: 120px;
+  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
+  z-index: 200;
+}
+
+.dropdown-item {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  padding: 8px 12px;
+  background: transparent;
+  border: none;
+  color: rgba(255, 255, 255, 0.65);
+  font-size: 13px;
+  border-radius: 7px;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+
+.dropdown-item:hover {
+  background: rgba(255, 255, 255, 0.08);
+  color: #fff;
+}
+
+.dropdown-item.active {
+  background: rgba(255, 255, 255, 0.15);
+  color: #fff;
+  font-weight: 500;
+}
+
+.dropdown-fade-enter-active,
+.dropdown-fade-leave-active {
+  transition: opacity 0.15s, transform 0.15s;
+}
+
+.dropdown-fade-enter-from,
+.dropdown-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(-4px);
 }
 
 /* 设置区域 */
 .settings-section {
   display: flex;
   align-items: center;
-}
-
-.settings-btn {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 40px;
-  height: 40px;
-  background: rgba(0, 0, 0, 0.5);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 8px;
-  color: rgba(255, 255, 255, 0.8);
-  transition: all 0.2s ease;
-  cursor: pointer;
-}
-
-.settings-btn:hover {
-  transform: translateY(-1px);
-}
-
-.settings-btn:active {
-  transform: translateY(0);
+  gap: 8px;
+  -webkit-app-region: no-drag;
 }
 
 /* 主内容区域 */
 .main-content {
   flex: 1;
-  margin-top: 60px; /* 为顶部菜单留出空间 */
-  height: calc(100vh - 60px);
+  margin-top: 80px;
+  /* 为顶部菜单留出空间 */
+  height: calc(100vh - 80px);
   overflow: hidden;
 }
 </style>

@@ -52,7 +52,7 @@
     </div>
 
     <!-- 基本信息 -->
-    <div class="flex-1">
+    <div class="flex-1 min-w-0">
       <h1 class="text-3xl font-bold text-white mb-2 drop-shadow-lg">
         {{ selectedItem.name }}
       </h1>
@@ -66,42 +66,55 @@
           :loading="false"
         />
       </div>
+
+      <!-- 演员列表 -->
+      <div v-if="actors && actors.length" class="mt-4">
+        <p class="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">演员</p>
+        <div class="actor-scroll flex gap-3 overflow-x-auto pb-1">
+          <div
+            v-for="actor in actors"
+            :key="actor.name"
+            class="flex flex-col items-center flex-shrink-0 w-14"
+          >
+            <div class="w-11 h-11 rounded-full overflow-hidden bg-gray-700/60 ring-1 ring-white/10 flex items-center justify-center">
+              <img
+                v-if="actor.photoDataUrl"
+                :src="actor.photoDataUrl"
+                :alt="actor.name"
+                class="w-full h-full object-cover"
+              />
+              <svg v-else class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+              </svg>
+            </div>
+            <span class="text-[9px] text-gray-400 mt-1 text-center w-full truncate leading-tight">{{ actor.name }}</span>
+            <span v-if="actor.role" class="text-[8px] text-gray-600 text-center w-full truncate leading-tight">{{ actor.role }}</span>
+          </div>
+        </div>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import MovieInfo from '@/views/movie/MovieInfo.vue'
+import type { ActorInfo } from '@/types'
 
-const props = defineProps({
-  selectedItem: {
-    type: Object,
-    default: () => ({}),
-  },
-  posterImageDataUrl: {
-    type: String,
-    default: '',
-  },
-  movieInfo: {
-    type: Object,
-    default: () => ({}),
-  },
-  fanartImageDataUrl: {
-    type: String,
-    default: '',
-  },
+interface Props {
+  selectedItem?: Record<string, any>
+  posterImageDataUrl?: string
+  movieInfo?: Record<string, any> | null
+  fanartImageDataUrl?: string
+  actors?: ActorInfo[]
+}
+
+const props = withDefaults(defineProps<Props>(), {
+  selectedItem: () => ({}),
+  posterImageDataUrl: '',
+  movieInfo: null,
+  fanartImageDataUrl: '',
+  actors: () => [],
 })
-
-watch(
-  () => props.selectedItem,
-  newVal => {
-    console.log(newVal)
-  },
-  {
-    immediate: true,
-  }
-)
 
 const handleImageError = (event: Event): void => {
   const target = event.target as HTMLImageElement
@@ -109,3 +122,20 @@ const handleImageError = (event: Event): void => {
   if (target) target.style.display = 'none'
 }
 </script>
+
+<style scoped>
+.actor-scroll {
+  scrollbar-width: thin;
+  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
+}
+.actor-scroll::-webkit-scrollbar {
+  height: 3px;
+}
+.actor-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
+.actor-scroll::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.15);
+  border-radius: 3px;
+}
+</style>

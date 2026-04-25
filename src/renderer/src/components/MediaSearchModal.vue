@@ -61,6 +61,7 @@
             <h4 class="text-white font-medium text-sm mb-1 line-clamp-2 leading-snug">
               {{ getTitle(item) }}
             </h4>
+            <div v-if="getOriginalTitle(item) && getOriginalTitle(item) !== getTitle(item)" class="text-[10px] text-gray-500 -mt-0.5 mb-1 truncate">{{ getOriginalTitle(item) }}</div>
             <div v-if="getYear(item)" class="text-[11px] text-gray-400 mb-2">{{ getYear(item) }}</div>
             <p v-if="item.overview" class="text-[11px] text-gray-400/80 line-clamp-2 mb-3 leading-relaxed">{{ item.overview }}</p>
 
@@ -90,9 +91,11 @@ export interface MediaResult {
   overview?: string
   // movie
   title?: string
+  original_title?: string
   release_date?: string
   // tv
   name?: string
+  original_name?: string
   first_air_date?: string
 }
 
@@ -147,6 +150,7 @@ const handlePick = (item: MediaResult): void => {
 }
 
 const getTitle = (item: MediaResult): string => item.title ?? item.name ?? ''
+const getOriginalTitle = (item: MediaResult): string => item.original_title ?? item.original_name ?? ''
 
 const getYear = (item: MediaResult): string => {
   const d = item.release_date ?? item.first_air_date

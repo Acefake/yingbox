@@ -41,7 +41,7 @@
           <div class="relative overflow-hidden rounded-md">
             <img
               v-if="item.poster_path"
-              :src="item.poster_path"
+              :src="proxiedPosters[(item as any)._metatube?.id ?? item.id] || item.poster_path"
               :alt="item.title"
               class="h-48 w-full object-cover"
               @error="handleImageError"
@@ -100,6 +100,7 @@
 import { Button as AButton, Modal as AModal, Input as AInput, message } from 'ant-design-vue'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { ref, watch } from 'vue'
+import { proxyImageUrl } from '@/api/metatube'
 
 /**
  * 组件属性接口
@@ -129,10 +130,23 @@ const emit = defineEmits<{
 const addingToQueue = ref<number | null>(null)
 const searchQuery = ref(props.initialQuery)
 const isSearching = ref(false)
+const proxiedPosters = ref<Record<number | string, string>>({})
 
 watch(() => props.initialQuery, (newVal) => {
   searchQuery.value = newVal
 })
+
+watch(() => props.movies, (movies) => {
+  proxiedPosters.value = {}
+  movies.forEach(m => {
+    const key = (m as any)._metatube?.id ?? m.id
+    const url = m.poster_path || ''
+    if (!url) return
+    proxyImageUrl(url).then(proxied => {
+      proxiedPosters.value = { ...proxiedPosters.value, [key]: proxied }
+    })
+  })
+}, { immediate: true })
 
 const handleResearch = (): void => {
   if (!searchQuery.value.trim()) return

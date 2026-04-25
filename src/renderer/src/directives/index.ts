@@ -1,11 +1,13 @@
 import { App } from 'vue'
 import { vRightClick } from '@/directives/right-click'
 import vContextMenu from '@/directives/context-menu'
+import { vScrollX } from '@/directives/scroll-x'
 
 // 所有自定义指令
 const directives = {
   rightClick: vRightClick,
   contextMenu: vContextMenu,
+  scrollX: vScrollX,
 }
 
 // 批量注册指令的函数

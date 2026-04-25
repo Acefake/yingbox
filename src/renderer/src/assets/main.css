@@ -1,1 +1,88 @@
 @import 'tailwindcss';
+
+.ant-modal-content {
+  background: rgba(15, 18, 28, 0.92) !important;
+  backdrop-filter: blur(24px) !important;
+  -webkit-backdrop-filter: blur(24px) !important;
+  border: 1px solid rgba(255, 255, 255, 0.1) !important;
+  border-radius: 16px !important;
+  box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6) !important;
+  color: rgba(255, 255, 255, 0.9) !important;
+  padding: 0 !important;
+}
+
+.ant-modal-header {
+  background: transparent !important;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 16px 16px 0 0 !important;
+  padding: 16px 20px !important;
+  margin-bottom: 0 !important;
+}
+
+.ant-modal-title {
+  color: rgba(255, 255, 255, 0.92) !important;
+  font-size: 14px !important;
+  font-weight: 600 !important;
+}
+
+.ant-modal-body {
+  padding: 20px !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+}
+
+.ant-modal-footer {
+  background: transparent !important;
+  border-top: 1px solid rgba(255, 255, 255, 0.08) !important;
+  border-radius: 0 0 16px 16px !important;
+  padding: 12px 20px !important;
+}
+
+.ant-modal-close {
+  color: rgba(255, 255, 255, 0.5) !important;
+  top: 12px !important;
+  right: 12px !important;
+}
+
+.ant-modal-close:hover {
+  color: rgba(255, 255, 255, 0.9) !important;
+  background: rgba(255, 255, 255, 0.1) !important;
+  border-radius: 6px !important;
+}
+
+.ant-modal-mask {
+  background: rgba(0, 0, 0, 0.55) !important;
+  backdrop-filter: blur(4px) !important;
+  -webkit-backdrop-filter: blur(4px) !important;
+}
+
+.ant-modal-footer .ant-btn-default {
+  background: rgba(255, 255, 255, 0.08) !important;
+  border-color: rgba(255, 255, 255, 0.15) !important;
+  color: rgba(255, 255, 255, 0.8) !important;
+  border-radius: 8px !important;
+}
+
+.ant-modal-footer .ant-btn-default:hover {
+  background: rgba(255, 255, 255, 0.15) !important;
+  border-color: rgba(255, 255, 255, 0.25) !important;
+  color: #fff !important;
+}
+
+.ant-modal-footer .ant-btn-primary {
+  background: rgba(59, 130, 246, 0.8) !important;
+  border-color: rgba(59, 130, 246, 0.6) !important;
+  border-radius: 8px !important;
+}
+
+.ant-modal-footer .ant-btn-primary:hover {
+  background: rgba(59, 130, 246, 1) !important;
+}
+
+/* Confirm 弹窗图标颜色 */
+.ant-modal-confirm-title {
+  color: rgba(255, 255, 255, 0.92) !important;
+}
+
+.ant-modal-confirm-content {
+  color: rgba(255, 255, 255, 0.65) !important;
+}

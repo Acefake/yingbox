@@ -5,6 +5,20 @@ import App from '@/App.vue'
 import router from '@/router/index'
 import { setupDirectives } from '@/directives'
 
+// 初始化默认设置（仅首次运行时写入，不覆盖已有值）
+const defaults: Record<string, string> = {
+  metadataLanguage: 'zh-CN',
+  imageDownloadSize_poster: 'original',
+  imageDownloadSize_backdrop: 'original',
+  imageDownloadSize_actor: 'original',
+  videoPlayer: 'builtin',
+}
+for (const [key, val] of Object.entries(defaults)) {
+  if (localStorage.getItem(key) === null) {
+    localStorage.setItem(key, val)
+  }
+}
+
 console.log('=== 应用开始启动 ===')
 console.log('Vue 版本:', '3.x')
 console.log('当前时间:', new Date().toISOString())

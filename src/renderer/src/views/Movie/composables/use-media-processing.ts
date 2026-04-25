@@ -1,21 +1,39 @@
-import { ref, computed, watch } from 'vue'
-import type { ProcessedItem, MovieInfoType } from '@/types'
+import { ref, computed, watch, shallowRef } from 'vue'
+import type { ProcessedItem, MovieInfoType, ActorInfo } from '@/types'
 import { useErrorHandler } from '@/composables/use-error-handler'
 
-/** 模块级图片缓存：path → dataUrl */
-const imageCache = new Map<string, string>()
+/** 模块级 NFO 缓存：path → content */
+const nfoCache = new Map<string, string>()
 
-/** 带缓存的 readImage */
-const cachedReadImage = async (filePath: string): Promise<string> => {
-  const cached = imageCache.get(filePath)
-  if (cached) return cached
-  const result = await window.api.file.readImage(filePath)
-  if (result.success && result.data) {
-    const dataUrl = result.data as string
-    imageCache.set(filePath, dataUrl)
-    return dataUrl
+/**
+ * 将 Windows 本地路径转为 local:// URL（供 <img src> 直接使用，零 IPC）
+ * e.g. "F:\\foo\\poster.jpg" → "local://f/foo/poster.jpg"
+ */
+function toLocalUrl(filePath: string): string {
+  if (!filePath) return ''
+  const normalized = filePath.replace(/\\/g, '/')
+  // Windows 绝对路径 "F:/..." → host=drive letter, path=rest
+  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/)
+  if (driveMatch) {
+    return `local://${driveMatch[1].toLowerCase()}/${driveMatch[2]}`
   }
-  return ''
+  return `local:///${normalized}`
+}
+
+/** 刮削版本号：每次刮削完成后递增，使图片 URL 失效强制浏览器重新请求 */
+let scrapeVersion = 0
+export const bumpScrapeVersion = (): void => {
+  scrapeVersion++
+  nfoCache.clear()
+}
+
+/** 预加载缓存（仅用于 hover 预热，确保图片在浏览器缓存里） */
+const preloadCache = new Set<string>()
+const preloadImage = (url: string): void => {
+  if (!url || preloadCache.has(url)) return
+  preloadCache.add(url)
+  const img = new Image()
+  img.src = url
 }
 
 /**
@@ -27,7 +45,8 @@ export const useMediaProcessing = (selectedItem: any) => {
   const posterImageDataUrl = ref('')
   const fanartImageDataUrl = ref('')
   const nfoContent = ref('')
-  const movieInfo = ref<MovieInfoType | null>(null)
+  const movieInfo = shallowRef<MovieInfoType | null>(null)
+  const actors = shallowRef<ActorInfo[]>([])
 
   // 图片扩展名
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
@@ -167,102 +186,64 @@ export const useMediaProcessing = (selectedItem: any) => {
     return null
   })
 
-  /**
-   * 加载海报图片（带缓存）
-   */
+  /** 通过 IPC 读取图片为 base64 data URL */
   const loadPosterImage = async (): Promise<void> => {
-    posterImageDataUrl.value = ''
-    if (!posterImagePath.value) return
-
-    await safeExecute(async () => {
-      const dataUrl = await cachedReadImage(posterImagePath.value!)
-      if (!dataUrl) {
-        throw new Error('读取海报图片失败')
-      }
-      posterImageDataUrl.value = dataUrl
-      return dataUrl
-    }, '加载海报图片失败')
+    if (!posterImagePath.value) {
+      posterImageDataUrl.value = ''
+      return
+    }
+    const result = await window.api.file.readImage(posterImagePath.value).catch(() => ({ success: false, data: null } as any))
+    posterImageDataUrl.value = result.success && result.data ? (result.data as string) : ''
   }
 
-  /**
-   * 加载艺术图片（带缓存）
-   */
   const loadFanartImage = async (): Promise<void> => {
-    fanartImageDataUrl.value = ''
-    if (!fanartImagePath.value) return
-
-    await safeExecute(async () => {
-      const dataUrl = await cachedReadImage(fanartImagePath.value!)
-      if (!dataUrl) {
-        throw new Error('读取艺术图片失败')
-      }
-      fanartImageDataUrl.value = dataUrl
-      return dataUrl
-    }, '加载艺术图片失败')
+    if (!fanartImagePath.value) {
+      fanartImageDataUrl.value = ''
+      return
+    }
+    const result = await window.api.file.readImage(fanartImagePath.value).catch(() => ({ success: false, data: null } as any))
+    fanartImageDataUrl.value = result.success && result.data ? (result.data as string) : ''
   }
 
   /**
-   * 预加载电影的 poster 和 fanart（仅填充缓存，不更新状态）
-   * 用于 hover 时预加载，实现无卡顿切换
+   * 预加载电影图片到浏览器缓存（hover 时触发，让 Image 提前请求 local://）
    */
-  const preloadMovieImages = async (item: ProcessedItem): Promise<void> => {
+  const preloadMovieImages = (item: ProcessedItem): void => {
     if (!item?.files) return
-
-    const posterFile = item.files.find((f: any) => {
-      const fileName = f.name.toLowerCase()
-      return (
-        imageExtensions.some(ext => fileName.endsWith(ext)) &&
-        !fileName.includes('fanart') &&
-        !fileName.includes('backdrop') &&
-        (fileName.includes('poster') ||
-          fileName.includes('cover') ||
-          fileName.includes('folder') ||
-          fileName.includes('thumb') ||
-          fileName === 'poster.jpg' ||
-          fileName === 'folder.jpg' ||
-          fileName === 'movie.jpg' ||
-          fileName === 'cover.jpg')
-      )
-    })
-
-    const fanartFile = item.files.find((f: any) => {
-      const fileName = f.name.toLowerCase()
-      return (
-        imageExtensions.some(ext => fileName.endsWith(ext)) &&
-        (fileName.includes('fanart') ||
-          fileName.includes('backdrop') ||
-          fileName === 'fanart.jpg')
-      )
-    })
-
-    const tasks: Promise<void>[] = []
-    if (posterFile) {
-      tasks.push(cachedReadImage(posterFile.path).then(() => {}).catch(() => {}))
+    for (const f of item.files) {
+      const fn = f.name.toLowerCase()
+      if (imageExtensions.some(ext => fn.endsWith(ext))) {
+        preloadImage(toLocalUrl(f.path))
+      }
     }
-    if (fanartFile) {
-      tasks.push(cachedReadImage(fanartFile.path).then(() => {}).catch(() => {}))
-    }
-    await Promise.all(tasks)
   }
 
   /**
-   * 加载NFO文件内容
+   * 加载NFO文件内容（带缓存）
    */
   const loadNfoContent = async (): Promise<void> => {
     nfoContent.value = ''
     movieInfo.value = null
     if (!nfoFilePath.value) return
 
-    await safeExecute(async () => {
-      const result = await window.api.file.read(nfoFilePath.value!)
+    const path = nfoFilePath.value
+    if (nfoCache.has(path)) {
+      const cached = nfoCache.get(path)!
+      nfoContent.value = cached
+      parseNfoContent(cached)
+      return
+    }
 
+    await safeExecute(async () => {
+      const result = await window.api.file.read(path)
       if (!result.success || !result.data) {
         throw new Error(result.error || '读取NFO文件失败')
       }
-
-      nfoContent.value = result.data as string
-      parseNfoContent(result.data as string)
-      return result.data
+      const content = result.data as string
+      nfoCache.set(path, content)
+      nfoContent.value = content
+      parseNfoContent(content)
+      return content
     }, '加载NFO文件失败')
   }
 
@@ -294,28 +275,40 @@ export const useMediaProcessing = (selectedItem: any) => {
       const plotMatch = content.match(/<plot>([^<]+)<\/plot>/i)
       if (plotMatch) info.plot = plotMatch[1].trim()
 
-      // 提取类型
+      // 提取类型（支持多个）
       const genreMatches = content.match(/<genre>([^<]+)<\/genre>/gi)
       if (genreMatches) {
-        info.genre = genreMatches.map(match =>
-          match.replace(/<\/?genre>/gi, '').trim()
-        )
+        info.genre = genreMatches
+          .map(m => m.replace(/<\/?genre>/gi, '').trim())
+          .filter(Boolean)
       }
 
-      // 提取导演
-      const directorMatch = content.match(/<director>([^<]+)<\/director>/i)
-      if (directorMatch) info.director = directorMatch[1].trim()
+      // 提取导演（支持多个）
+      const directorMatches = content.match(/<director>([^<]+)<\/director>/gi)
+      if (directorMatches) {
+        info.director = directorMatches
+          .map(m => m.replace(/<\/?director>/gi, '').trim())
+          .filter(Boolean)
+          .join(', ')
+      }
 
-      // 提取演员
-      const actorMatches = content.match(/<actor>\s*<name>([^<]+)<\/name>/gi)
-      if (actorMatches) {
-        info.actor = actorMatches
-          .map(match => {
-            const nameMatch = match.match(/<name>([^<]+)<\/name>/i)
-            return nameMatch ? nameMatch[1].trim() : ''
+      // 提取演员完整块（名字 + 角色）
+      const actorBlockRegex = /<actor>([\s\S]*?)<\/actor>/gi
+      const parsedActors: ActorInfo[] = []
+      let actorBlock: RegExpExecArray | null
+      while ((actorBlock = actorBlockRegex.exec(content)) !== null) {
+        const block = actorBlock[1]
+        const nameM = block.match(/<name>([^<]+)<\/name>/i)
+        const roleM = block.match(/<role>([^<]+)<\/role>/i)
+        if (nameM) {
+          parsedActors.push({
+            name: nameM[1].trim(),
+            role: roleM ? roleM[1].trim() : undefined,
           })
-          .filter(name => name)
+        }
       }
+      info.actors = parsedActors
+      info.actor = parsedActors.map(a => a.name)
 
       // 提取评分
       const ratingMatch = content.match(/<rating>([^<]+)<\/rating>/i)
@@ -325,13 +318,23 @@ export const useMediaProcessing = (selectedItem: any) => {
       const runtimeMatch = content.match(/<runtime>([^<]+)<\/runtime>/i)
       if (runtimeMatch) info.runtime = runtimeMatch[1].trim()
 
-      // 提取国家
-      const countryMatch = content.match(/<country>([^<]+)<\/country>/i)
-      if (countryMatch) info.country = countryMatch[1].trim()
+      // 提取国家（支持多个）
+      const countryMatches = content.match(/<country>([^<]+)<\/country>/gi)
+      if (countryMatches) {
+        info.country = countryMatches
+          .map(m => m.replace(/<\/?country>/gi, '').trim())
+          .filter(Boolean)
+          .join(', ')
+      }
 
-      // 提取制片公司
-      const studioMatch = content.match(/<studio>([^<]+)<\/studio>/i)
-      if (studioMatch) info.studio = studioMatch[1].trim()
+      // 提取制片公司（支持多个）
+      const studioMatches = content.match(/<studio>([^<]+)<\/studio>/gi)
+      if (studioMatches) {
+        info.studio = studioMatches
+          .map(m => m.replace(/<\/?studio>/gi, '').trim())
+          .filter(Boolean)
+          .join(', ')
+      }
 
       // 提取首映日期
       const premieredMatch = content.match(/<premiered>([^<]+)<\/premiered>/i)
@@ -343,10 +346,49 @@ export const useMediaProcessing = (selectedItem: any) => {
     }
   }
 
-  // 监听器
+  /**
+   * 从 .actors 文件夹加载演员照片（并行）
+   */
+  const loadActorPhotos = async (): Promise<void> => {
+    actors.value = []
+    const info = movieInfo.value
+    if (!info?.actors?.length) return
+
+    const item = selectedItem.value
+    if (!item) return
+
+    const sep = item.path.includes('\\') ? '\\' : '/'
+    const basePath = item.type === 'folder'
+      ? item.path
+      : item.path.substring(0, item.path.lastIndexOf(sep))
+    const actorsDir = basePath + sep + '.actors'
+
+    const dirExists = await window.api.file.exists(actorsDir).catch(() => ({ success: false, exists: false }))
+    if (!dirExists.success || !dirExists.exists) return
+
+    const results = await Promise.all(info.actors.map(async (actor) => {
+      const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
+      const photoPath = actorsDir + sep + safeActorName + '.jpg'
+      const exists = await window.api.file.exists(photoPath).catch(() => ({ success: false, exists: false }))
+      return { name: actor.name, role: actor.role, photoDataUrl: exists.success && exists.exists ? toLocalUrl(photoPath) : undefined }
+    }))
+    actors.value = results
+  }
+
+  // 图片路径变化时同步更新（无 IPC，无需 debounce）
   watch(posterImagePath, loadPosterImage, { immediate: true })
   watch(fanartImagePath, loadFanartImage, { immediate: true })
-  watch(nfoFilePath, loadNfoContent, { immediate: true })
+  // NFO 和演员照片走 debounce（仍需 IPC 读文件）
+  let debounceTimer: ReturnType<typeof setTimeout> | null = null
+  watch(
+    () => selectedItem.value,
+    () => {
+      if (debounceTimer) clearTimeout(debounceTimer)
+      debounceTimer = setTimeout(() => loadNfoContent(), 80)
+    },
+    { immediate: true }
+  )
+  watch(movieInfo, loadActorPhotos)
 
   return {
     // 状态
@@ -354,6 +396,7 @@ export const useMediaProcessing = (selectedItem: any) => {
     fanartImageDataUrl,
     nfoContent,
     movieInfo,
+    actors,
 
     // 计算属性
     posterImagePath,
@@ -365,5 +408,45 @@ export const useMediaProcessing = (selectedItem: any) => {
     loadFanartImage,
     loadNfoContent,
     preloadMovieImages,
+    loadActorPhotos,
+    warmNfoCache,
+  }
+}
+
+/**
+ * 目录加载完成后，利用浏览器空闲时间批量预读所有 NFO 到 nfoCache
+ * 这样切换时 loadNfoContent 直接命中缓存，零 IPC
+ */
+export function warmNfoCache(items: any[]): void {
+  const nfoPaths: string[] = []
+  for (const item of items) {
+    if (!item.files) continue
+    const nfo = item.files.find((f: any) => f.name.toLowerCase().endsWith('.nfo'))
+    if (nfo && !nfoCache.has(nfo.path)) nfoPaths.push(nfo.path)
+  }
+  if (!nfoPaths.length) return
+
+  let i = 0
+  const next = (deadline?: IdleDeadline) => {
+    while (i < nfoPaths.length && (!deadline || deadline.timeRemaining() > 2)) {
+      const p = nfoPaths[i++]
+      if (nfoCache.has(p)) continue
+      window.api.file.read(p).then(r => {
+        if (r.success && r.data) nfoCache.set(p, r.data as string)
+      }).catch(() => {})
+    }
+    if (i < nfoPaths.length) {
+      if (typeof requestIdleCallback !== 'undefined') {
+        requestIdleCallback(next, { timeout: 2000 })
+      } else {
+        setTimeout(() => next(), 50)
+      }
+    }
+  }
+
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(next, { timeout: 2000 })
+  } else {
+    setTimeout(() => next(), 200)
   }
 }

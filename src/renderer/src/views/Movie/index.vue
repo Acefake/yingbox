@@ -5,28 +5,29 @@
       <LeftPanel
         :processed-items="processedItems"
         :selected-index="selectedIndex"
-        :left-panel-width="leftPanelWidth"
         :dir-loading="dirLoading"
         :scan-progress="scanProgress"
-        :scrape-queue-count="scrapeQueue.length"
-        :is-processing-queue="isProcessingQueue"
         :is-multi-select-mode="isMultiSelectMode"
         :selected-items="selectedItems"
-        :selected-items-count="selectedItemsData.length"
-        @refresh="targetPath => refreshDirectory(targetPath)"
-        @add-folder="readDirectory"
+        :selected-items-count="selectedItems.size"
+        :directory-paths="currentDirectoryPath ? [currentDirectoryPath] : []"
+        @refresh="refreshFiles"
+        @remove-directory="clearCacheAndData"
+        @add-folder="handleReadDirectory"
         @clear-cache="handleShowClearCacheDialog"
         @select-item="selectItem"
-        @show-search-modal="handleShowSearchModal"
+        @show-search-modal="handleAutoScrape"
         @manual-scrape="handleManualScrape"
         @auto-scrape="handleAutoScrape"
         @direct-scrape="handleDirectScrape"
-        @show-queue="handleShowQueueModal"
         @toggle-multi-select="toggleMultiSelectMode"
         @toggle-select-all="toggleSelectAll"
         @add-selected-to-queue="addSelectedToScrapeQueue"
         @toggle-selection="toggleItemSelection"
-        @preload="handlePreload"
+        @play-video="handlePlayVideo"
+        @local-scrape="handleLocalScrape"
+        @download-video="handleDownloadVideo"
+        @fetch-meta="handleFetchMeta"
       />
     </div>
 
@@ -35,29 +36,7 @@
       class="absolute inset-0 z-10"
       :style="{ paddingLeft: leftPanelWidth + 32 + 'px' }"
     >
-      <div
-        v-if="!selectedItem"
-        class="flex items-center justify-center h-full text-gray-300"
-      >
-        <div class="flex flex-col items-center">
-          <svg
-            xmlns="http://www.w3.org/2000/svg"
-            fill="none"
-            viewBox="0 0 24 24"
-            stroke-width="2"
-            stroke="currentColor"
-            class="size-20"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              d="m15.75 10.5 4.72-4.72a.75.75 0 0 1 1.28.53v11.38a.75.75 0 0 1-1.28.53l-4.72-4.72M4.5 18.75h9a2.25 2.25 0 0 0 2.25-2.25v-9a2.25 2.25 0 0 0-2.25-2.25h-9A2.25 2.25 0 0 0 2.25 7.5v9a2.25 2.25 0 0 0 2.25 2.25Z"
-            />
-          </svg>
-          <p class="text-2xl mb-2">欢迎使用本项目</p>
-          <p class="text-sm">请先添加文件夹，点击[+添加]按钮添加文件夹</p>
-        </div>
-      </div>
+      <EmptyPlaceholder v-if="!selectedItem" />
 
       <div v-else class="p-6 h-full overflow-y-auto">
         <RightPanel
@@ -65,14 +44,16 @@
           :poster-image-data-url="posterImageDataUrl"
           :movie-info="movieInfo"
           :fanart-image-data-url="fanartImageDataUrl"
+          :actors="actors"
         />
       </div>
     </div>
 
     <!-- 搜索结果弹窗 -->
-    <SearchResultModal
+    <MediaSearchModal
       :visible="showSearchModal"
-      :movies="searchMovies"
+      :results="searchMovies"
+      type="movie"
       :initial-query="currentScrapeItem?.name"
       @close="handleCloseSearchModal"
       @scrape="handleScrapeMovie"
@@ -83,39 +64,56 @@
     <ManualScrapeModal
       v-model:visible="showManualScrapeModal"
       :current-item="currentScrapeItem"
-      @search-results="handleManualSearch"
-      @close="handleCancelManualScrape"
+      @search="handleManualSearch"
+      @cancel="handleCancelManualScrape"
     />
 
-    <!-- 刮削队列管理模态框 -->
-    <QueueManagementModal
-      v-model:visible="showQueueModal"
-      v-model:queue="scrapeQueue"
-      v-model:is-processing="isProcessingQueue"
-      v-model:current-index="currentQueueIndex"
-      @start-processing="startProcessingQueue"
-      @stop-processing="stopProcessingQueue"
-      @clear-queue="clearScrapeQueue"
-      @rematch="rematchMovie"
-      @close="handleQueueModalClose"
+    <!-- 元数据预览弹窗 -->
+    <MetaPreviewModal
+      :visible="showMetaPreviewModal"
+      :avid="metaPreviewAvid"
+      @close="showMetaPreviewModal = false"
     />
+
+    <!-- 下载弹窗 -->
+    <DownloadModal
+      :visible="showDownloadModal"
+      :avid="downloadAvid"
+      :sites="downloaderSites"
+      @cancel="showDownloadModal = false"
+      @done="handleDownloadDone"
+    />
+
+    <!-- 本地刮削状态提示 -->
+    <Transition name="toast-fade">
+      <div
+        v-if="localScrapeToast"
+        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[999] px-4 py-2 rounded-lg text-sm text-white"
+        style="background: rgba(20,20,28,0.95); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(12px);"
+      >{{ localScrapeToast }}</div>
+    </Transition>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, ref, watch } from 'vue'
-import { Modal, message } from 'ant-design-vue'
+import { inject, onMounted, ref, watch, onUnmounted } from 'vue'
+import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
+import { backend } from '@/api/backend'
+import { Modal } from 'ant-design-vue'
 import { ProcessedItem } from '@/types'
 import RightPanel from '@/views/movie/RightPanel.vue'
 import LeftPanel from '@/views/movie/components/LeftPanel.vue'
-import SearchResultModal from '@/views/movie/components/SearchResultModal.vue'
+import MediaSearchModal from '@/components/MediaSearchModal.vue'
+import type { MediaResult } from '@/components/MediaSearchModal.vue'
 import ManualScrapeModal from '@/views/movie/components/ManualScrapeModal.vue'
-import QueueManagementModal from '@/views/movie/components/QueueManagementModal.vue'
+import DownloadModal from '@/views/movie/components/DownloadModal.vue'
+import MetaPreviewModal from '@/views/movie/components/MetaPreviewModal.vue'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { useScraping } from '@/views/movie/composables/use-scraping'
 import { useFileManagement } from '@/views/movie/composables/use-file-management'
 import { useScrapingQueue } from '@/views/movie/composables/use-scraping-queue'
-import { useMediaProcessing } from '@/views/movie/composables/use-media-processing'
+import { useMediaProcessing, bumpScrapeVersion } from '@/views/movie/composables/use-media-processing'
 import { useScrapingTask } from '@/views/movie/composables/use-scraping-task'
 
 interface AppLayoutMethods {
@@ -131,16 +129,43 @@ const { searchMovieInfo } = useScraping()
 
 // 弹窗状态管理
 const showSearchModal = ref(false)
-const searchMovies = ref<Movie[]>([])
+const searchMovies = ref<MediaResult[]>([])
 const showManualScrapeModal = ref(false)
 const currentScrapeItem = ref<ProcessedItem | null>(null)
-const showQueueModal = ref(false)
+
+// 下载弹窗状态
+const showDownloadModal = ref(false)
+const downloadAvid = ref('')
+
+// 元数据预览弹窗状态
+const showMetaPreviewModal = ref(false)
+const metaPreviewAvid = ref('')
+const localScrapeToast = ref('')
+let toastTimer: ReturnType<typeof setTimeout> | null = null
+
+const downloaderSites = [
+  { downloaderName: 'MissAV', domain: 'missav.ai', weight: 1000 },
+  { downloaderName: 'Jable', domain: 'jable.tv', weight: 1500 },
+  { downloaderName: 'HohoJ', domain: 'hohoj.tv', weight: 400 },
+  { downloaderName: 'Memo', domain: 'memojav.com', weight: 600 },
+  { downloaderName: 'KanAV', domain: 'kanav.info', weight: 490 },
+]
+
+// 视频播放
+const handlePlayVideo = (path: string): void => {
+  const player = localStorage.getItem('videoPlayer') || 'builtin'
+  if (player === 'system') {
+    window.api.shell.openPath(path)
+  } else {
+    window.api.player.open(path)
+  }
+}
 
 // 左侧边栏状态
 const selectedIndex = ref(-1)
-const leftPanelWidth = ref(300)
+const leftPanelWidth = ref(280)
 const isMultiSelectMode = ref(false)
-const selectedItems = ref<Set<number>>(new Set())
+const selectedItems = ref<Set<string>>(new Set())
 const selectedItemsData = ref<ProcessedItem[]>([])
 
 // 文件管理相关状态和方法
@@ -152,8 +177,7 @@ const {
   processFiles,
   readDirectory,
   refreshFiles,
-  refreshFilesIncremental,
-  refreshSpecificDirectory,
+  refreshAfterScrape,
   loadFromCache,
   clearCacheAndData,
 } = useFileManagement()
@@ -164,30 +188,42 @@ const {
   isProcessingQueue,
   currentQueueIndex,
   addToQueue,
-  clearQueue,
-  stopProcessing,
-  checkQueueStateConsistency,
 } = useScrapingQueue()
 
 // 基础状态
 const selectedItem = ref<ProcessedItem | null>(null)
 
 // 媒体处理相关状态
-const { posterImageDataUrl, fanartImageDataUrl, movieInfo, preloadMovieImages } =
+const { posterImageDataUrl, fanartImageDataUrl, movieInfo, actors, warmNfoCache } =
   useMediaProcessing(selectedItem)
 
-// 计算属性
-const processedItems = computed((): ProcessedItem[] => {
-  return processFiles(fileData.value)
-})
+// 计算属性改为 ref，支持直接修改
+const processedItems = ref<ProcessedItem[]>([])
 
-// 鼠标悬停预加载
-const handlePreload = async (item: ProcessedItem): Promise<void> => {
-  await preloadMovieImages(item)
+// 初始化 processedItems
+const updateProcessedItems = (): void => {
+  processedItems.value = processFiles(fileData.value)
+}
+
+// fileData 变化时自动同步（覆盖所有刷新路径，包括队列处理器）
+watch(fileData, () => {
+  updateProcessedItems()
+  // 刷新后把 selectedItem 指向新扫描对象，使 fanartImagePath 能读到最新 files
+  if (selectedItem.value) {
+    const refreshed = processedItems.value.find(i => i.path === selectedItem.value!.path)
+    if (refreshed) selectedItem.value = refreshed
+  }
+}, { deep: true })
+
+// 包装 readDirectory，读取后更新 processedItems
+const handleReadDirectory = async (): Promise<void> => {
+  await readDirectory()
+  updateProcessedItems()
+  warmNfoCache(processedItems.value)
 }
 
 // 弹窗管理方法 - 直接写在组件内部，逻辑简单清晰
-const handleShowSearchModal = (movies: Movie[], item?: ProcessedItem): void => {
+const handleShowSearchModal = (movies: MediaResult[], item?: ProcessedItem): void => {
   searchMovies.value = movies
   if (item) {
     currentScrapeItem.value = item
@@ -209,7 +245,6 @@ const handleResearch = async (query: string): Promise<void> => {
     searchMovies.value = movies
   } catch (error) {
     console.error('重新搜索电影失败:', error)
-    message.error('重新搜索电影失败')
   }
 }
 
@@ -220,14 +255,6 @@ const handleShowManualScrapeModal = (item: ProcessedItem): void => {
 
 const handleCloseManualScrapeModal = (): void => {
   showManualScrapeModal.value = false
-}
-
-const handleShowQueueModal = (): void => {
-  showQueueModal.value = true
-}
-
-const handleCloseQueueModal = (): void => {
-  showQueueModal.value = false
 }
 
 // 刮削项目状态管理 - 简单的状态操作直接写在组件里
@@ -243,7 +270,7 @@ const setCurrentScrapeItem = (item: ProcessedItem | null): void => {
 const selectItem = (item: ProcessedItem, index: number): void => {
   if (isMultiSelectMode.value) {
     // 多选模式
-    toggleItemSelection(item, index)
+    toggleItemSelection(item)
   } else {
     // 单选模式
     selectedItem.value = item
@@ -251,20 +278,18 @@ const selectItem = (item: ProcessedItem, index: number): void => {
   }
 }
 
-const toggleItemSelection = (_item: ProcessedItem, index: number): void => {
-  if (selectedItems.value.has(index)) {
-    selectedItems.value.delete(index)
+const toggleItemSelection = (item: ProcessedItem): void => {
+  if (selectedItems.value.has(item.path)) {
+    selectedItems.value.delete(item.path)
   } else {
-    selectedItems.value.add(index)
+    selectedItems.value.add(item.path)
   }
   updateSelectedItemsData()
 }
 
 const updateSelectedItemsData = (): void => {
-  const data = Array.from(selectedItems.value)
-    .map(index => processedItems.value[index])
-    .filter(Boolean)
-  selectedItemsData.value = data
+  const pathSet = selectedItems.value
+  selectedItemsData.value = processedItems.value.filter(item => pathSet.has(item.path))
 }
 
 const toggleMultiSelectMode = (): void => {
@@ -283,8 +308,8 @@ const toggleSelectAll = (): void => {
   } else {
     // 执行全选
     selectedItems.value.clear()
-    processedItems.value.forEach((_, index) => {
-      selectedItems.value.add(index)
+    processedItems.value.forEach(item => {
+      selectedItems.value.add(item.path)
     })
   }
   updateSelectedItemsData()
@@ -295,14 +320,8 @@ const toggleSelectAll = (): void => {
  */
 const addSelectedToScrapeQueue = async (): Promise<void> => {
   if (selectedItemsData.value.length === 0) {
-    message.warning('请先选择要添加到队列的项目')
     return
   }
-
-  const loadingMessage = message.loading(
-    `正在批量搜索电影信息... (0/${selectedItemsData.value.length})`,
-    0
-  )
 
   let successCount = 0
   let failedCount = 0
@@ -311,13 +330,6 @@ const addSelectedToScrapeQueue = async (): Promise<void> => {
     // 为每个选中的项目搜索电影信息
     for (let i = 0; i < selectedItemsData.value.length; i++) {
       const item = selectedItemsData.value[i]
-
-      // 更新加载消息
-      loadingMessage()
-      message.loading(
-        `正在批量搜索电影信息... (${i + 1}/${selectedItemsData.value.length})`,
-        0
-      )
 
       // 从文件名提取电影名称
       const movieName = item.name
@@ -362,78 +374,11 @@ const addSelectedToScrapeQueue = async (): Promise<void> => {
       await new Promise(resolve => setTimeout(resolve, 300))
     }
 
-    message.destroy()
-
-    if (successCount > 0 && failedCount > 0) {
-      message.success(
-        `批量添加完成：成功匹配 ${successCount} 个，未匹配 ${failedCount} 个项目`
-      )
-    } else if (successCount > 0) {
-      message.success(
-        `已批量添加 ${successCount} 个项目到刮削队列，全部匹配成功`
-      )
-    } else {
-      message.warning(
-        `已添加 ${selectedItemsData.value.length} 个项目到队列，但未找到匹配的电影信息`
-      )
-    }
-
     // 清空选择
     selectedItems.value.clear()
     selectedItemsData.value = []
   } catch (error) {
-    message.destroy()
-    message.error('批量添加失败，请重试')
-  }
-}
-
-/**
- * 刷新目录 - 文件管理逻辑直接写在组件里，逻辑简单明了
- * @param targetPath 可选的目标路径，如果提供则只刷新该路径，否则刷新当前目录
- */
-const refreshDirectory = (targetPath?: string): void => {
-  // 检查是否有队列正在处理或有未处理任务
-  if (isProcessingQueue.value || scrapeQueue.value.length > 0) {
-    message.warning('刮削队列处理中，将在队列完成后自动刷新目录')
-    return
-  }
-
-  if (targetPath) {
-    // 如果提供了目标路径，刷新特定路径
-    refreshSpecificPath(targetPath)
-  } else {
-    // 否则刷新当前目录
-    refreshFiles()
-  }
-}
-
-/**
- * 刷新特定路径 - 路径处理逻辑直接写在组件里
- * @param targetPath 目标路径
- */
-const refreshSpecificPath = async (targetPath: string): Promise<void> => {
-  try {
-    // 统一路径分隔符为正斜杠
-    const normalizedTargetPath = targetPath.replace(/\\/g, '/')
-    const normalizedCurrentPath = currentDirectoryPath.value.replace(/\\/g, '/')
-
-    // 检查目标路径是否是当前目录或其子目录
-    if (normalizedTargetPath === normalizedCurrentPath) {
-      // 如果是当前目录，直接刷新整个目录
-      refreshFiles()
-      return
-    }
-
-    // 检查目标路径是否在当前目录下
-    if (normalizedTargetPath.startsWith(normalizedCurrentPath + '/')) {
-      // 如果是子目录，只刷新该目录（非递归）
-      await refreshSpecificDirectory(targetPath)
-    } else {
-      // 如果不在当前目录下，提示用户
-      message.info(`目标路径不在当前目录下: ${targetPath}`)
-    }
-  } catch (error) {
-    message.error('刷新失败')
+    console.error('批量添加失败:', error)
   }
 }
 
@@ -462,23 +407,22 @@ const handleManualScrape = (item: ProcessedItem): void => {
 }
 
 /**
- * 处理手动搜索事件 - 搜索处理逻辑直接写在组件里
+ * 处理手动搜索事件 - 用用户输入的关键词走 provider 搜索逻辑
  */
-const handleManualSearch = async (movies: Movie[]): Promise<void> => {
-  if (!movies || movies.length === 0) {
-    message.error('没有搜索结果')
-    return
-  }
-
-  // 关闭手动匹配弹窗
-  handleCloseManualScrapeModal()
-
-  // 显示搜索结果弹窗，传递当前项目
-  if (currentScrapeItem.value) {
-    handleShowSearchModal(movies, currentScrapeItem.value)
-    message.success(`找到 ${movies.length} 个匹配结果`)
-  } else {
-    message.error('当前刮削项目状态异常')
+const handleManualSearch = async (query: string): Promise<void> => {
+  const item = currentScrapeItem.value
+  if (!item) return
+  try {
+    const movies = await searchMovieInfo({ ...item, name: query })
+    if (movies && movies.length > 0) {
+      searchMovies.value = movies
+      showSearchModal.value = true
+    } else {
+      showManualScrapeModal.value = true
+    }
+  } catch (error) {
+    console.error('手动搜索失败:', error)
+    showManualScrapeModal.value = true
   }
 }
 
@@ -493,9 +437,8 @@ const handleCancelManualScrape = (): void => {
  * 添加刮削任务到队列 - 队列管理逻辑直接写在组件里
  * @param movie 电影数据
  */
-const addToScrapeQueue = (movie: Movie): void => {
+const addToScrapeQueue = async (movie: Movie): Promise<void> => {
   if (!currentScrapeItem.value) {
-    message.error('没有选中的刮削项目')
     return
   }
 
@@ -505,8 +448,8 @@ const addToScrapeQueue = (movie: Movie): void => {
   // 关闭搜索模态框
   handleCloseSearchModal()
 
-  // 清空当前刮削项目
-  clearCurrentScrapeItem()
+  // 立即开始处理（currentScrapeItem 保持有效，处理完再清空）
+  await startProcessingQueue()
 }
 
 /**
@@ -514,12 +457,10 @@ const addToScrapeQueue = (movie: Movie): void => {
  */
 const startProcessingQueue = async (): Promise<void> => {
   if (scrapeQueue.value.length === 0) {
-    message.info('队列为空')
     return
   }
 
   if (isProcessingQueue.value) {
-    message.info('队列正在处理中')
     return
   }
 
@@ -527,18 +468,10 @@ const startProcessingQueue = async (): Promise<void> => {
     isProcessingQueue.value = true
     currentQueueIndex.value = 0
 
-    message.loading(
-      `开始处理刮削队列，共 ${scrapeQueue.value.length} 个任务...`,
-      0
-    )
-
     // 逐个处理队列中的任务
     await processNextQueueItem()
   } catch (error) {
-    message.destroy()
-    message.error(
-      `处理队列失败: ${error instanceof Error ? error.message : '未知错误'}`
-    )
+    console.error('处理队列失败:', error)
   } finally {
     isProcessingQueue.value = false
     clearCurrentScrapeItem()
@@ -551,23 +484,13 @@ const startProcessingQueue = async (): Promise<void> => {
 const processNextQueueItem = async (): Promise<void> => {
   // 检查是否还有待处理的任务
   if (currentQueueIndex.value >= scrapeQueue.value.length) {
-    // 所有任务处理完成
-    message.destroy()
-    message.success(`队列处理完成！共处理了 ${scrapeQueue.value.length} 个任务`)
-
     // 清空队列
     scrapeQueue.value = []
     currentQueueIndex.value = 0
     isProcessingQueue.value = false
     clearCurrentScrapeItem()
 
-    // 关闭队列界面
-    handleCloseQueueModal()
-
-    // 队列完成后延迟5秒增量刷新目录
-    setTimeout(() => {
-      refreshFilesIncremental()
-    }, 5000) // 延迟5秒执行刷新
+    // 队列处理完成，无需额外全量刷新（每个任务完成时已定向刷新）
     return
   }
 
@@ -579,16 +502,10 @@ const processNextQueueItem = async (): Promise<void> => {
   const task = scrapeQueue.value[currentQueueIndex.value]
 
   try {
-    message.destroy()
-    message.loading(
-      `正在处理 ${task.movie.title} (${currentQueueIndex.value + 1}/${scrapeQueue.value.length})...`,
-      0
-    )
-
     // 设置当前刮削项目
     setCurrentScrapeItem(task.item)
 
-    // 执行刮削
+    // 执行刮削（refreshSpecificDirectory 已在 processSingleScrapeTask 内部调用）
     await processSingleScrapeTask(task.movie)
 
     // 移动到下一个任务
@@ -600,10 +517,7 @@ const processNextQueueItem = async (): Promise<void> => {
     // 递归处理下一个任务
     await processNextQueueItem()
   } catch (error) {
-    message.destroy()
-    message.error(
-      `处理 ${task.movie.title} 失败: ${error instanceof Error ? error.message : '未知错误'}`
-    )
+    console.error(`处理 ${task.movie.title} 失败:`, error)
 
     // 即使当前任务失败，也继续处理下一个
     currentQueueIndex.value++
@@ -612,62 +526,11 @@ const processNextQueueItem = async (): Promise<void> => {
 }
 
 /**
- * 清空刮削队列 - 队列管理逻辑直接写在组件里
- */
-const clearScrapeQueue = (): void => {
-  if (isProcessingQueue.value) {
-    message.warning('请先停止处理再清空队列')
-    return
-  }
-
-  clearQueue()
-}
-
-/**
- * 停止处理队列 - 队列控制逻辑直接写在组件里
- */
-const stopProcessingQueue = (): void => {
-  stopProcessing()
-}
-
-/**
- * 重新匹配队列中的电影 - 重新匹配逻辑直接写在组件里
- * @param task 队列任务
- */
-const rematchMovie = async (task: any): Promise<void> => {
-  if (isProcessingQueue.value) {
-    message.warning('队列处理中，无法重新匹配')
-    return
-  }
-
-  try {
-    // 显示手动匹配弹窗
-    handleShowManualScrapeModal(task.item)
-    message.info(`正在为 "${task.item.name}" 重新匹配电影`)
-  } catch (error) {
-    message.error('重新匹配失败')
-  }
-}
-
-/**
- * 处理队列模态框关闭事件 - 模态框事件处理逻辑直接写在组件里
- */
-const handleQueueModalClose = (): void => {
-  // 允许在任何时候关闭模态框
-  handleCloseQueueModal()
-
-  // 如果正在处理队列，给用户提示
-  if (isProcessingQueue.value) {
-    message.info('队列仍在后台处理中，您可以随时重新打开查看进度')
-  }
-}
-
-/**
  * 处理电影刮削：添加到队列或立即处理 - 刮削处理逻辑直接写在组件里
  * @param movie 电影数据
  */
-const handleScrapeMovie = async (movie: Movie): Promise<void> => {
-  addToScrapeQueue(movie)
+const handleScrapeMovie = async (movie: MediaResult): Promise<void> => {
+  addToScrapeQueue(movie as unknown as Movie)
 }
 
 /**
@@ -682,13 +545,14 @@ const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
     if (movies && movies.length > 0) {
       // 显示搜索结果弹窗，并传递当前项目
       handleShowSearchModal(movies, item)
-      message.success(`找到 ${movies.length} 个匹配结果`)
     } else {
-      message.warning('未找到匹配的电影信息')
+      // 没找到自动匹配结果，打开手动匹配弹窗
+      handleShowManualScrapeModal(item)
     }
   } catch (error) {
     console.error('自动刮削失败:', error)
-    message.error('自动刮削失败')
+    // 请求出错也打开手动匹配弹窗
+    handleShowManualScrapeModal(item)
   }
 }
 
@@ -698,9 +562,6 @@ const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
  */
 const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
   try {
-    console.log('=== 开始直接刮削 ===')
-    console.log('刮削项目:', item.name)
-
     // 设置当前刮削项目
     currentScrapeItem.value = item
 
@@ -710,57 +571,44 @@ const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
     if (movies && movies.length > 0) {
       // 如果只有一个匹配结果，直接刮削
       if (movies.length === 1) {
-        console.log('找到唯一匹配结果，直接刮削')
-        message.loading('正在刮削电影信息...', 0)
-        
         // 直接调用刮削任务
         const { processSingleScrapeTask: processTask } = useScrapingTask()
-        await processTask(movies[0], item)
-        
-        message.destroy()
-        // 刮削完成，静默刷新，不显示成功提示
-        console.log('刮削完成，增量刷新文件列表...')
-        await refreshFilesIncremental()
+        const folderPath = await processTask(movies[0], item)
+
+        // 刮削完成，重新扫描父目录更新 UI
+        if (folderPath) {
+          bumpScrapeVersion()
+          await refreshAfterScrape(folderPath)
+        }
       } else {
-        // 如果有多个匹配结果，显示搜索结果弹窗让用户选择
-        console.log('找到多个匹配结果，显示选择弹窗')
         handleShowSearchModal(movies, item)
-        message.success(`找到 ${movies.length} 个匹配结果，请选择`)
       }
-    } else {
-      message.warning('未找到匹配的电影信息')
     }
   } catch (error) {
     console.error('直接刮削失败:', error)
-    message.error('直接刮削失败')
   }
 }
 
 // 处理单个刮削任务 - 刮削任务处理逻辑直接写在组件里，逻辑清晰
-const processSingleScrapeTask = async (movie: Movie): Promise<void> => {
+const processSingleScrapeTask = async (movie: Movie): Promise<string | null> => {
   if (!currentScrapeItem.value) {
-    message.error('没有选中的刮削项目')
-    return
+    return null
   }
 
   try {
-    message.loading('正在处理电影文件...', 0)
-
     // 使用useScrapingTask中的方法
     const { processSingleScrapeTask: processTask } = useScrapingTask()
-    await processTask(movie, currentScrapeItem.value)
+    const folderPath = await processTask(movie, currentScrapeItem.value!)
 
-    message.destroy()
-    message.success('刮削任务完成')
-
-    // 刷新文件列表以更新 ProcessedItem 类型
-    console.log('刮削完成，刷新文件列表...')
-    await refreshFiles()
+    // 刮削完成，重新扫描父目录更新 UI
+    if (folderPath) {
+      bumpScrapeVersion()
+      await refreshAfterScrape(folderPath)
+    }
+    return folderPath
   } catch (error) {
-    message.destroy()
-    message.error(
-      `处理失败: ${error instanceof Error ? error.message : '未知错误'}`
-    )
+    console.error('处理失败:', error)
+    return null
   }
 }
 
@@ -786,11 +634,69 @@ watch(
   { immediate: true }
 )
 
+// 本地刮削
+const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
+  const avid = item.name
+    .replace(/\.[^/.]+$/, '')      // 去扩展名
+    .replace(/\s*\(\d{4}\)\s*$/, '') // 去年份后缀 (2020)
+    .trim()
+    .toUpperCase()
+  showToast(`正在刮削 ${avid}...`)
+  try {
+    const meta = await backend.scrape(avid)
+    if (meta.error) {
+      showToast(`刮削失败: ${meta.error}`)
+      console.error(`[scrape:${avid}] error:`, meta.error)
+      return
+    }
+    showToast(`刮削完成: ${meta.title || avid}`)
+    bumpScrapeVersion()
+    await refreshAfterScrape(item.type === 'folder' ? item.path : item.path.replace(/[\\/][^\\/]+$/, ''))
+  } catch (e) {
+    console.error('[scrape] exception:', e)
+    showToast('刮削异常，请检查 Go 后端日志')
+  }
+}
+
+// 下载视频
+const handleDownloadVideo = (item: ProcessedItem): void => {
+  const avid = item.name
+    .replace(/\.[^/.]+$/, '')
+    .replace(/\s*\(\d{4}\)\s*$/, '')
+    .trim()
+    .toUpperCase()
+  downloadAvid.value = avid
+  showDownloadModal.value = true
+}
+
+const handleFetchMeta = (item: ProcessedItem): void => {
+  const avid = item.name
+    .replace(/\.[^/.]+$/, '')
+    .replace(/\s*\(\d{4}\)\s*$/, '')
+    .trim()
+    .toUpperCase()
+  metaPreviewAvid.value = avid
+  showMetaPreviewModal.value = true
+}
+
+const handleDownloadDone = (_avid: string, msg: string): void => {
+  showToast(msg || '已提交下载任务')
+}
+
+const showToast = (msg: string): void => {
+  localScrapeToast.value = msg
+  if (toastTimer) clearTimeout(toastTimer)
+  toastTimer = setTimeout(() => { localScrapeToast.value = '' }, 3000)
+}
+
+onUnmounted(() => { if (toastTimer) clearTimeout(toastTimer) })
+
 onMounted(() => {
   const loaded = loadFromCache()
 
   if (loaded) {
-    // 组件启动时已从缓存加载数据
+    // 组件启动时已从缓存加载数据，初始化 processedItems
+    updateProcessedItems()
   }
 })
 </script>
@@ -809,6 +715,16 @@ onMounted(() => {
   display: flex;
   align-items: center;
   justify-content: center;
+}
+
+.toast-fade-enter-active,
+.toast-fade-leave-active {
+  transition: opacity 0.3s ease, transform 0.3s ease;
+}
+.toast-fade-enter-from,
+.toast-fade-leave-to {
+  opacity: 0;
+  transform: translateX(-50%) translateY(8px);
 }
 
 .glass-panel {

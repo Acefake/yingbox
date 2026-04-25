@@ -1,8 +1,69 @@
-import { TMDB_IMG_URL, tmdb } from '@/api/tmdb'
-import { message } from 'ant-design-vue'
+import { getImageBaseUrl, getTmdb } from '@/api/tmdb'
+import { searchMetatubeMovie, getMetatubeMovieDetail } from '@/api/metatube'
+import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
+import { backend } from '@/api/backend'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { ref } from 'vue'
 import { ProcessedItem } from '@/types'
+
+const getMetaLang = (): string =>
+  (typeof window !== 'undefined' && localStorage.getItem('metadataLanguage')) || 'zh-CN'
+
+/**
+ * 带重试的下载函数
+ * @param url 下载URL
+ * @param path 保存路径
+ * @param maxRetries 最大重试次数
+ * @param retryDelay 重试延迟(ms)
+ */
+const downloadWithRetry = async (
+  url: string,
+  path: string,
+  maxRetries: number = 3,
+  retryDelay: number = 1000
+): Promise<{ success: boolean; error?: string }> => {
+  for (let attempt = 1; attempt <= maxRetries; attempt++) {
+    try {
+      const result = await window.api.http.download(url, path)
+      if (result.success) {
+        return result
+      }
+      if (attempt === maxRetries) {
+        console.warn(`下载失败（已重试 ${maxRetries} 次）: ${path}`)
+        return result
+      }
+      const errorMsg = result.error?.toLowerCase() || ''
+      // 权限错误不重试
+      if (errorMsg.includes('eperm') || errorMsg.includes('permission')) {
+        console.error(`下载失败（权限错误）: ${path}`)
+        return result
+      }
+      // 网络错误重试
+      if (errorMsg.includes('econnreset') || errorMsg.includes('etimedout') || errorMsg.includes('network')) {
+        console.warn(`下载失败（网络错误），${retryDelay}ms 后重试 (${attempt}/${maxRetries}): ${path}`)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        continue
+      }
+      return result
+    } catch (e) {
+      const errorMsg = e instanceof Error ? e.message.toLowerCase() : ''
+      // 权限错误不重试
+      if (errorMsg.includes('eperm') || errorMsg.includes('permission')) {
+        console.error(`下载失败（权限错误）: ${path}`, e)
+        return { success: false, error: e instanceof Error ? e.message : '未知错误' }
+      }
+      // 网络错误重试
+      if (attempt < maxRetries && (errorMsg.includes('econnreset') || errorMsg.includes('etimedout'))) {
+        console.warn(`下载异常，${retryDelay}ms 后重试 (${attempt}/${maxRetries}): ${path}`)
+        await new Promise(resolve => setTimeout(resolve, retryDelay))
+        continue
+      }
+      console.error(`下载失败: ${path}`, e)
+      return { success: false, error: e instanceof Error ? e.message : '未知错误' }
+    }
+  }
+  return { success: false, error: '下载失败' }
+}
 
 export const useScraping = () => {
   const currentScrapeItem = ref<ProcessedItem>()
@@ -46,7 +107,6 @@ export const useScraping = () => {
             }
 
             console.log('从 NFO 生成的电影数据:', movieFromNfo)
-            message.success('已从本地 NFO 加载电影信息')
             return [movieFromNfo]
           }
         }
@@ -61,40 +121,95 @@ export const useScraping = () => {
         searchName = item.name.replace(/\.[^.]*$/, '')
       }
 
-      const cleanName = handleSearchParams(searchName)
+      const provider = getScrapeProviderConfig().provider
 
-      if (!cleanName) {
-        console.error('清理后的名称为空')
-        message.error('无法解析电影名称')
-        return []
+      // JavBus Go 服务：直接用 fetchMeta，返回单个结果作为候选
+      if (provider === 'javbus') {
+        const avid = searchName.replace(/\.[^/.]+$/, '').replace(/\s*\(\d{4}\)\s*$/, '').trim().toUpperCase()
+        try {
+          const meta = await backend.fetchMeta(avid)
+          if (meta.error) return []
+          return [{
+            id: avid as any,
+            title: meta.title || avid,
+            original_title: meta.avid,
+            overview: meta.description || '',
+            release_date: meta.release_date || '',
+            vote_average: 0,
+            vote_count: 0,
+            poster_path: meta.cover || '',
+            backdrop_path: meta.fanarts?.[0] || '',
+            adult: false,
+            genre_ids: [],
+            original_language: 'ja',
+            popularity: 0,
+            video: false,
+            _javbus: meta,
+          } as any]
+        } catch (e) {
+          console.error('JavBus 获取元数据失败:', e)
+          return []
+        }
       }
 
+      // MetaTube 搜索路径：番号不需要 handleSearchParams 清理，直接用原始名称
+      if (provider === 'metatube') {
+        try {
+          const results = await searchMetatubeMovie(searchName)
+          console.log('MetaTube 搜索结果数量:', results.length)
+          if (results.length === 0) return []
+          return results.map(r => ({
+            id: r.id as any,
+            title: r.title,
+            original_title: r.number || r.title,
+            overview: '',
+            release_date: r.release_date || '',
+            vote_average: r.score || 0,
+            vote_count: 0,
+            poster_path: r.thumb_url || '',
+            backdrop_path: r.cover_url || '',
+            adult: false,
+            genre_ids: [],
+            original_language: 'ja',
+            popularity: 0,
+            video: false,
+            _metatube: { id: r.id, provider: r.provider },
+          } as any as Movie))
+        } catch (e) {
+          console.error('MetaTube 搜索失败:', e)
+          return []
+        }
+      }
+
+      // TMDB 搜索路径
+      const cleanName = handleSearchParams(searchName)
+      if (!cleanName) {
+        console.error('清理后的名称为空')
+        return []
+      }
       // 提取年份信息
       const yearMatch = cleanName.match(/\b(19|20)\d{2}\b/)
       const year = yearMatch ? parseInt(yearMatch[0]) : undefined
       const nameWithoutYear = cleanName.replace(/\b(19|20)\d{2}\b/g, '').trim()
 
       // 显示加载提示
-      const loadingMessage = message.loading('正在搜索电影信息...', 0)
-
       try {
-        let res = await tmdb.search.movies({
+        let res = await getTmdb().search.movies({
           query: nameWithoutYear || cleanName,
-          language: 'zh-CN',
+          language: getMetaLang(),
           ...(year && { year }),
         })
-        console.log('搜索结果数量:', res.results.length)
 
         if (res.results.length === 0) {
           if (year) {
-            res = await tmdb.search.movies({
+            res = await getTmdb().search.movies({
               query: nameWithoutYear,
-              language: 'zh-CN',
+              language: getMetaLang(),
             })
           }
 
           if (res.results.length === 0) {
-            res = await tmdb.search.movies({
+            res = await getTmdb().search.movies({
               query: nameWithoutYear || cleanName,
               language: 'en-US',
               ...(year && { year }),
@@ -102,34 +217,28 @@ export const useScraping = () => {
           }
         }
 
-        loadingMessage()
-
         if (res.results.length === 0) {
           console.error('所有搜索策略均无结果')
-          message.error('未找到该电影')
           return []
         }
         const movies = res.results.map((movie: Movie) => ({
           ...movie,
           poster_path: movie.poster_path
-            ? TMDB_IMG_URL + movie.poster_path
+            ? getImageBaseUrl('poster') + movie.poster_path
             : '',
           backdrop_path: movie.backdrop_path
-            ? TMDB_IMG_URL + movie.backdrop_path
+            ? getImageBaseUrl('backdrop') + movie.backdrop_path
             : '',
           id: movie.id as number,
         })) as Movie[]
         console.log('处理后的电影列表:', movies.map(m => ({ title: m.title, id: m.id, hasBackdrop: !!m.backdrop_path })))
         return movies
       } catch (searchError) {
-        loadingMessage()
         console.error('搜索电影时出错:', searchError)
-        message.error('搜索电影时出错')
         return []
       }
     } catch (error) {
       console.error('自动刮削时出错:', error)
-      message.error('自动刮削时出错')
       return []
     }
   }
@@ -202,6 +311,32 @@ export const useScraping = () => {
       if (filesToDelete.length > 0) {
         console.log(`已清理 ${filesToDelete.length} 个旧文件`)
       }
+
+      // 清理 .actors 文件夹（非关键操作，失败静默处理）
+      const actorsDir = await window.api.path.join(folderPath, '.actors')
+      const actorsDirExists = await window.api.file.exists(actorsDir)
+      if (actorsDirExists.exists) {
+        try {
+          // 先删除文件夹内的所有文件
+          const actorsFiles = await window.api.file.readdir(actorsDir)
+          if (actorsFiles.success && actorsFiles.data) {
+            const files = actorsFiles.data as Array<{ name: string; isFile: boolean }>
+            for (const file of files) {
+              if (file.isFile) {
+                const filePath = await window.api.path.join(actorsDir, file.name)
+                const deleteResult = await window.api.file.delete(filePath)
+                if (!deleteResult.success) {
+                  // 静默失败，不影响主流程
+                }
+              }
+            }
+          }
+          // 然后删除空文件夹
+          await window.api.file.delete(actorsDir)
+        } catch (e) {
+          // 静默失败，不影响刮削流程
+        }
+      }
     } catch (error) {
       console.error('清理旧文件时出错:', error)
       console.warn('清理旧文件时出错:', error)
@@ -225,18 +360,23 @@ export const useScraping = () => {
       .replace(/\b(1080[pi]|720p|480p|2160p|4K|UHD|576p)\b/gi, '')
       // 移除 HDR 标记
       .replace(/\b(HDR\d*|DV|Dolby[\s.]?Vision|HLG|SDR|10bit|12bit|8bit)\b/gi, '')
+      // 移除流媒体平台标记
+      .replace(/\b(MAX|NF|AMZN|DSNP|HULU|iTUNES|ATVP|PCOK|STAN|CRAV|BCORE|iP)\b/gi, '')
       // 移除来源标记
-      .replace(/\b(BluRay|Blu-?Ray|BDRip|BDRemux|REMUX|WEB-?DL|WEBRip|WEB|HDTV|DVDRip|DVD|HDDVD|NF|AMZN|DSNP|HULU|iTUNES)\b/gi, '')
+      .replace(/\b(BluRay|Blu-?Ray|BDRip|BDRemux|REMUX|WEB-?DL|WEBRip|WEB|HDTV|DVDRip|DVD|HDDVD)\b/gi, '')
       // 移除编码标记
       .replace(/\b(x264|x265|H[\s.]?264|H[\s.]?265|HEVC|AVC|VP9|AV1)\b/gi, '')
       // 移除音频标记
-      .replace(/\b(AAC|DTS[\s-]?HD|DTS|TrueHD|Atmos|FLAC|AC3|EAC3|DD[\s.]?[257][\s.]?\d|DDP[\s.]?[257][\s.]?\d|MA[\s.]?[257][\s.]?\d)\b/gi, '')
+      .replace(/\b(AAC|DTS[\s-]?HD|DTS|TrueHD|Atmos|FLAC|AC3|EAC3|DDP?[\s.]?\d[\s.]?\d|MA[\s.]?\d[\s.]?\d)\b/gi, '')
       // 移除发布组 -GROUP 和 @GROUP
-      .replace(/-[A-Za-z0-9@]+$/i, '')
+      .replace(/-[A-Za-z0-9]+$/i, '')
       .replace(/@[A-Za-z0-9]+$/i, '')
       // 移除其它常见标记
-      .replace(/\b(PROPER|REPACK|COMPLETE|V\d|DUBBED|SUBBED|MULTI|EXTENDED|UNCUT|REMASTERED|DIRECTORS[\s.]?CUT|LIMITED|INTERNAL|NFO|READNFO)\b/gi, '')
-      // 清理多余空格
+      .replace(/\b(PROPER|REPACK|COMPLETE|DUBBED|SUBBED|MULTI|EXTENDED|UNCUT|REMASTERED|DIRECTORS[\s.]?CUT|LIMITED|INTERNAL)\b/gi, '')
+      // 移除孤立数字（如 DDP5.1 点换空格后残留的 "1"、"5" 等）
+      .replace(/(?<!\w)\d{1,2}(?!\w)/g, '')
+      // 清理多余空格和尾部连字符
+      .replace(/[-\s]+$/, '')
       .replace(/\s+/g, ' ')
       .trim()
 
@@ -248,11 +388,13 @@ export const useScraping = () => {
    * @param movieData 电影数据
    * @param folderPath 文件夹路径
    * @param videoBaseName 视频文件基础名称（不含扩展名）
+   * @param progressCallback 进度回调 (step: string, stepIndex: number) => void
    */
   const scrapeMovieInFolder = async (
     movieData: Movie,
     folderPath: string,
-    videoBaseName: string
+    videoBaseName: string,
+    progressCallback?: (step: string, stepIndex: number) => void
   ): Promise<void> => {
     try {
       const existingResources = await checkExistingResources(folderPath, videoBaseName)
@@ -287,13 +429,13 @@ export const useScraping = () => {
         }
       }
 
-      message.loading('正在清理旧文件并下载电影信息...', 0)
-
+      console.log('开始清理旧文件并下载电影信息')
       await cleanOldMovieFiles(folderPath)
 
       // 构建文件路径
       const nfoFileName = `${videoBaseName}.nfo`
 
+      // 直接使用接口返回的名称，不做清理
       const posterFileNames = [
         `${videoBaseName}-poster.jpg`,
         `${videoBaseName}-movie.jpg`,
@@ -318,14 +460,153 @@ export const useScraping = () => {
         fanartPaths.push({ fileName, path })
       }
 
-      const { directors, cast } = await getMovieCredits(movieData.id)
-      console.log('演职员信息:', { directors, cast })
+      // JavBus: 直接使用 _javbus 元数据写入 NFO + 下载图片
+      const javbusMeta = (movieData as any)._javbus
+      if (javbusMeta) {
+        progressCallback?.('正在写入 NFO 文件...', 1)
+        const releaseYear = javbusMeta.release_date ? new Date(javbusMeta.release_date).getFullYear() : ''
+        const keywords = (javbusMeta.keywords || []).map((k: string) => `  <genre>${k}</genre>`).join('\n')
+        const actressXml = Object.keys(javbusMeta.actress || {}).map((name: string) =>
+          `  <actor>\n    <name>${name}</name>\n  </actor>`
+        ).join('\n')
+        const nfoContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
+<movie>
+  <title>${javbusMeta.title || movieData.title || ''}</title>
+  <originaltitle>${javbusMeta.avid || ''}</originaltitle>
+  <year>${releaseYear}</year>
+  <plot>${javbusMeta.description || ''}</plot>
+  <outline>${javbusMeta.description || ''}</outline>
+  <runtime>${javbusMeta.duration || ''}</runtime>
+${keywords}
+  <premiered>${javbusMeta.release_date || ''}</premiered>
+${actressXml}
+</movie>`
+        await window.api.file.write(nfoPath, nfoContent)
 
-      // 将导演和演员信息添加到 movieData
-      ;(movieData as any).directors = directors
-      ;(movieData as any).cast = cast
+        if (javbusMeta.cover) {
+          progressCallback?.('正在下载封面...', 2)
+          const coverUrl = backend.proxyUrl(javbusMeta.cover)
+          for (const { path } of posterPaths) {
+            await downloadWithRetry(coverUrl, path)
+          }
+        }
 
+        if (javbusMeta.fanarts?.length) {
+          progressCallback?.('正在下载预览图...', 3)
+          for (let i = 0; i < javbusMeta.fanarts.length; i++) {
+            const fanartUrl = backend.proxyUrl(javbusMeta.fanarts[i])
+            const fanartName = i === 0 ? `${videoBaseName}-fanart.jpg` : `${videoBaseName}-fanart-${i}.jpg`
+            const fanartPath = await window.api.path.join(folderPath, fanartName)
+            await downloadWithRetry(fanartUrl, fanartPath)
+          }
+        }
+
+        if (Object.keys(javbusMeta.actress || {}).length) {
+          progressCallback?.('正在下载演员照片...', 4)
+          const actorsDir = await window.api.path.join(folderPath, '.actors')
+          await window.api.file.mkdir(actorsDir)
+          for (const [name, imgUrl] of Object.entries(javbusMeta.actress as Record<string, string>)) {
+            if (imgUrl) {
+              const safeActorName = name.replace(/[<>:"/\\|?*]/g, '').trim()
+              const photoPath = await window.api.path.join(actorsDir, `${safeActorName}.jpg`)
+              await downloadWithRetry(backend.proxyUrl(imgUrl), photoPath)
+            }
+          }
+        }
+
+        console.log('JavBus 刮削完成')
+        return
+      }
+
+      // MetaTube: 获取完整详情（包含演员/导演等）
+      const metaInfo = (movieData as any)._metatube as { id: string; provider: string } | undefined
+      console.log('[scrapeMovieInFolder] _metatube:', metaInfo, '| movie.id:', movieData.id, '| title:', movieData.title)
+      if (metaInfo) {
+        progressCallback?.('正在获取 MetaTube 电影详情...', 0)
+        try {
+          const detail = await getMetatubeMovieDetail(metaInfo.provider, metaInfo.id)
+          if (detail) {
+            if (detail.thumb_url && !movieData.poster_path) movieData.poster_path = detail.thumb_url
+            if (detail.cover_url && !movieData.backdrop_path) movieData.backdrop_path = detail.cover_url
+            ;(movieData as any).genres = (detail.genres || []).map((g: string) => ({ id: 0, name: g }))
+            ;(movieData as any).runtime = detail.runtime || 0
+            ;(movieData as any).production_companies = detail.studio ? [{ name: detail.studio }] : []
+            ;(movieData as any).directors = detail.director ? [{ name: detail.director, profile_path: '' }] : []
+            ;(movieData as any).cast = (detail.actors || []).map((a: any) => ({
+              name: typeof a === 'string' ? a : (a.name || String(a)),
+              profile_path: typeof a === 'string' ? '' : (a.thumb_url || ''),
+            }))
+            if (!movieData.overview && detail.summary) movieData.overview = detail.summary
+            console.log('MetaTube 详情获取成功')
+          }
+        } catch (e) {
+          console.warn('MetaTube 详情获取失败:', e)
+        }
+        // MetaTube 演员照片下载（如有）
+        const cast = (movieData as any).cast || []
+        if (cast.length > 0) {
+          progressCallback?.('正在下载演员照片...', 4)
+          const actorsDir = await window.api.path.join(folderPath, '.actors')
+          await window.api.file.mkdir(actorsDir)
+          for (const actor of cast) {
+            if (actor.profile_path) {
+              const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
+              const photoPath = await window.api.path.join(actorsDir, `${safeActorName}.jpg`)
+              await downloadWithRetry(actor.profile_path, photoPath)
+            }
+          }
+        }
+      } else {
+        // TMDB: 获取完整电影详情（类型名称/时长/制片国家/制片公司/背景图）
+        if (movieData.id) {
+          progressCallback?.('正在获取电影详情...', 0)
+          try {
+            const details = await getTmdb().movies.details(movieData.id as number) as any
+            if (details.backdrop_path && !movieData.backdrop_path) {
+              movieData.backdrop_path = `${getImageBaseUrl('backdrop')}${details.backdrop_path}`
+            }
+            ;(movieData as any).genres = details.genres || []
+            ;(movieData as any).runtime = details.runtime || 0
+            ;(movieData as any).production_countries = details.production_countries || []
+            ;(movieData as any).production_companies = details.production_companies || []
+            console.log('获取电影详情成功', { genres: details.genres, runtime: details.runtime })
+          } catch (e) {
+            console.warn('获取电影详情失败:', e)
+          }
+        }
+
+        const { directors, cast } = await getMovieCredits(movieData.id)
+        console.log('演职员信息:', { directors, cast })
+
+        ;(movieData as any).directors = directors
+        ;(movieData as any).cast = cast
+
+        // 下载演员照片到 .actors 文件夹
+        if (cast.length > 0) {
+          progressCallback?.('正在下载演员照片...', 4)
+          const actorsDir = await window.api.path.join(folderPath, '.actors')
+          await window.api.file.mkdir(actorsDir)
+          for (const actor of cast) {
+            if (actor.profile_path) {
+              const photoUrl = actor.profile_path.startsWith('http')
+                ? actor.profile_path
+                : `${getImageBaseUrl('actor')}${actor.profile_path}`
+              const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
+              const photoPath = await window.api.path.join(actorsDir, `${safeActorName}.jpg`)
+              const result = await downloadWithRetry(photoUrl, photoPath)
+              if (result.success) {
+                console.log(`演员照片下载成功: ${actor.name}`)
+              } else {
+                console.warn(`演员照片下载失败: ${actor.name}`)
+              }
+            }
+          }
+        }
+      }
+
+      // 共用：写入 NFO、下载海报和背景图
       const nfoContent = createNfoContent(movieData)
+      progressCallback?.('正在写入NFO文件...', 1)
       const nfoResult = await window.api.file.write(nfoPath, nfoContent)
       console.log('NFO写入结果:', nfoResult)
 
@@ -336,10 +617,11 @@ export const useScraping = () => {
       if (movieData.poster_path) {
         const posterUrl = movieData.poster_path.startsWith('http')
           ? movieData.poster_path
-          : `${TMDB_IMG_URL}${movieData.poster_path}`
+          : `${getImageBaseUrl('poster')}${movieData.poster_path}`
 
+        progressCallback?.('正在下载海报...', 2)
         for (const { fileName, path } of posterPaths) {
-          const posterResult = await window.api.http.download(posterUrl, path)
+          const posterResult = await downloadWithRetry(posterUrl, path)
           console.log(`海报 ${fileName} 下载结果:`, posterResult)
 
           if (!posterResult.success) {
@@ -351,10 +633,11 @@ export const useScraping = () => {
       if (movieData.backdrop_path) {
         const fanartUrl = movieData.backdrop_path.startsWith('http')
           ? movieData.backdrop_path
-          : `${TMDB_IMG_URL}${movieData.backdrop_path}`
+          : `${getImageBaseUrl('backdrop')}${movieData.backdrop_path}`
 
+        progressCallback?.('正在下载背景图...', 3)
         for (const { fileName, path } of fanartPaths) {
-          const fanartResult = await window.api.http.download(fanartUrl, path)
+          const fanartResult = await downloadWithRetry(fanartUrl, path)
           console.log(`背景图 ${fileName} 下载结果:`, fanartResult)
 
           if (!fanartResult.success) {
@@ -363,14 +646,9 @@ export const useScraping = () => {
         }
       }
 
-      message.destroy()
-      message.success('电影信息刮削完成！')
+      console.log('电影信息刮削完成')
     } catch (error) {
-      message.destroy()
       console.error('刮削电影信息失败:', error)
-      message.error(
-        `刮削失败: ${error instanceof Error ? error.message : '未知错误'}`
-      )
     }
   }
 
@@ -383,7 +661,7 @@ export const useScraping = () => {
     movieId: number
   ): Promise<{ directors: any[]; cast: any[] }> => {
     try {
-      const credits = await tmdb.movies.credits(movieId)
+      const credits = await getTmdb().movies.credits(movieId)
       console.log('演职员信息:', credits)
 
       // 提取导演信息
@@ -426,17 +704,29 @@ export const useScraping = () => {
     // 获取导演和演员信息
     const directors = (movieData as any).directors || []
     const cast = (movieData as any).cast || []
+    const genres: any[] = (movieData as any).genres || []
+    const runtime: number = (movieData as any).runtime || 0
+    const productionCountries: any[] = (movieData as any).production_countries || []
+    const productionCompanies: any[] = (movieData as any).production_companies || []
 
-    // 生成导演 XML
+    // 生成类型 XML（Kodi 标准平展格式）
+    const genresXml = genres
+      .map((g: any) => `  <genre>${g.name}</genre>`)
+      .join('\n')
+
+    // 生成导演 XML（Kodi 标准平展格式）
     const directorsXml = directors
-      .map(
-        (director: any) => `  <director>
-    <name>${director.name}</name>
-    ${director.profile_path ? `<thumb>${TMDB_IMG_URL}${director.profile_path}</thumb>` : ''}
-    <profile>https://www.themoviedb.org/person/${director.id}</profile>
-    <tmdbid>${director.id}</tmdbid>
-  </director>`
-      )
+      .map((d: any) => `  <director>${d.name}</director>`)
+      .join('\n')
+
+    // 生成制片国家 XML
+    const countriesXml = productionCountries
+      .map((c: any) => `  <country>${c.name}</country>`)
+      .join('\n')
+
+    // 生成制片公司 XML
+    const studiosXml = productionCompanies
+      .map((s: any) => `  <studio>${s.name}</studio>`)
       .join('\n')
 
     // 生成演员 XML
@@ -445,7 +735,7 @@ export const useScraping = () => {
         (actor: any) => `  <actor>
     <name>${actor.name}</name>
     ${actor.character ? `<role>${actor.character}</role>` : ''}
-    ${actor.profile_path ? `<thumb>${TMDB_IMG_URL}${actor.profile_path}</thumb>` : ''}
+    ${actor.profile_path ? `<thumb>${getImageBaseUrl('actor')}${actor.profile_path}</thumb>` : ''}
     <profile>https://www.themoviedb.org/person/${actor.id}</profile>
     <tmdbid>${actor.id}</tmdbid>
   </actor>`
@@ -465,6 +755,10 @@ export const useScraping = () => {
   </ratings>
   <plot>${movieData.overview || ''}</plot>
   <outline>${movieData.overview || ''}</outline>
+${runtime ? `  <runtime>${runtime}</runtime>` : ''}
+${genresXml}
+${countriesXml}
+${studiosXml}
   <thumb aspect="poster">${movieData.poster_path || ''}</thumb>
   <thumb aspect="backdrop">${movieData.backdrop_path || ''}</thumb>
   <tmdbid>${movieData.id || 0}</tmdbid>
@@ -472,8 +766,6 @@ export const useScraping = () => {
   <language>${movieData.original_language || ''}</language>
   <popularity>${movieData.popularity || 0}</popularity>
   <adult>${movieData.adult ? 'true' : 'false'}</adult>
-  <video>${movieData.video ? 'true' : 'false'}</video>
-  <genreids>${(movieData.genre_ids || []).join(',')}</genreids>
 ${directorsXml}
 ${castXml}
 </movie>`

@@ -378,6 +378,91 @@ export const useTVFileManagement = () => {
   }
 
   /**
+   * 从文件夹名中提取基础剧名（去掉末尾的季标识）
+   * e.g. "某剧 S1" → "某剧"、"某剧 Season 2" → "某剧"、"某剧 第一季" → "某剧"
+   */
+  const extractSeriesBaseName = (folderName: string): string | null => {
+    const patterns = [
+      /^(.+?)\s*[Ss]\d+\s*$/,
+      /^(.+?)\s*[Ss]eason\s*\d+\s*$/i,
+      /^(.+?)\s*第\s*[一二三四五六七八九十百\d]+\s*季\s*$/,
+    ]
+    for (const p of patterns) {
+      const m = folderName.match(p)
+      if (m) return m[1].trim()
+    }
+    return null
+  }
+
+  /**
+   * 检测并合并散落的同名系列季文件夹
+   * e.g. 某剧S1\ 某剧S2\ → 某剧\Season 1\ 某剧\Season 2\
+   * @param parentDirPath 包含这些季文件夹的父目录路径
+   * @returns 是否执行了合并
+   */
+  const mergeSeriesSeasons = async (parentDirPath: string): Promise<boolean> => {
+    try {
+      const result = await window.api.file.readdir(parentDirPath)
+      if (!result.success || !result.data) return false
+
+      const sep = parentDirPath.includes('\\') ? '\\' : '/'
+      const items = result.data as Array<{ name: string; isDirectory: boolean }>
+      const dirs = items.filter(i => i.isDirectory)
+
+      // 按基础剧名分组
+      const groups: Record<string, Array<{ name: string; seasonNum: number }>> = {}
+      for (const dir of dirs) {
+        const base = extractSeriesBaseName(dir.name)
+        if (!base) continue
+        const sNum = extractSeasonNumber(dir.name)
+        if (!groups[base]) groups[base] = []
+        groups[base].push({ name: dir.name, seasonNum: sNum })
+      }
+
+      // 只处理有2个及以上季文件夹的分组
+      const toMerge = Object.entries(groups).filter(([, seasons]) => seasons.length >= 2)
+      if (toMerge.length === 0) return false
+
+      let merged = false
+      for (const [baseName, seasons] of toMerge) {
+        const parentFolder = parentDirPath + sep + baseName
+
+        // 创建父文件夹
+        const existsCheck = await window.api.file.exists(parentFolder)
+        if (!existsCheck.success || !existsCheck.exists) {
+          const mkResult = await window.api.file.mkdir(parentFolder)
+          if (!mkResult.success) {
+            console.error(`创建父文件夹失败: ${parentFolder}`)
+            continue
+          }
+        }
+
+        // 移动每个季文件夹到父文件夹，并重命名为 Season N
+        for (const season of seasons) {
+          const srcPath = parentDirPath + sep + season.name
+          const destName = `Season ${season.seasonNum || 1}`
+          const destPath = parentFolder + sep + destName
+          const moveResult = await window.api.file.move(srcPath, destPath)
+          if (moveResult.success) {
+            console.log(`合并季: ${season.name} → ${baseName}/${destName}`)
+          } else {
+            console.error(`移动季文件夹失败: ${season.name}`, moveResult)
+          }
+        }
+        merged = true
+      }
+
+      if (merged) {
+        message.success(`已自动合并同名季文件夹`)
+      }
+      return merged
+    } catch (error) {
+      console.error('合并季文件夹失败:', error)
+      return false
+    }
+  }
+
+  /**
    * 从所有已添加目录重新读取（内部用）
    */
   const refreshAllDirectories = async (): Promise<void> => {
@@ -530,5 +615,6 @@ export const useTVFileManagement = () => {
     selectAll,
     clearSelection,
     organizeFilesIntoSeasons,
+    mergeSeriesSeasons,
   }
 }

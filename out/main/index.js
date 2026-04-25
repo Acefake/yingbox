@@ -1,6 +1,7 @@
 "use strict";
 const utils = require("@electron-toolkit/utils");
 const electron = require("electron");
+const child_process = require("child_process");
 const fsSync = require("fs");
 const fs = require("fs/promises");
 const http = require("http");
@@ -29,6 +30,12 @@ const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
 const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 const icon = path.join(__dirname, "../../resources/icon.png");
 electron.Menu.setApplicationMenu(null);
+electron.app.commandLine.appendSwitch("enable-features", "EnableDrDc,CanvasOopRasterization");
+electron.app.commandLine.appendSwitch("force-color-profile", "hdr");
+electron.app.commandLine.appendSwitch("enable-hdr");
+electron.protocol.registerSchemesAsPrivileged([
+  { scheme: "local", privileges: { secure: true, standard: true, stream: true, bypassCSP: true } }
+]);
 let mainWindow = null;
 function createWindow() {
   mainWindow = new electron.BrowserWindow({
@@ -37,12 +44,29 @@ function createWindow() {
     minWidth: 1200,
     minHeight: 900,
     show: false,
+    frame: false,
     autoHideMenuBar: true,
     ...process.platform === "linux" ? { icon } : {},
     webPreferences: {
       preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: false
+      sandbox: false,
+      webSecurity: false
     }
+  });
+  electron.ipcMain.handle("win:minimize", (event) => {
+    electron.BrowserWindow.fromWebContents(event.sender)?.minimize();
+  });
+  electron.ipcMain.handle("win:maximize", (event) => {
+    const win = electron.BrowserWindow.fromWebContents(event.sender);
+    if (!win) return;
+    if (win.isMaximized()) win.unmaximize();
+    else win.maximize();
+  });
+  electron.ipcMain.handle("win:close", (event) => {
+    electron.BrowserWindow.fromWebContents(event.sender)?.close();
+  });
+  electron.ipcMain.handle("win:isMaximized", (event) => {
+    return electron.BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
   });
   electron.ipcMain.handle("app:getVersion", async () => {
     try {
@@ -82,6 +106,47 @@ function createWindow() {
 }
 electron.app.whenReady().then(() => {
   utils.electronApp.setAppUserModelId("com.electron");
+  electron.session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders };
+    headers["Content-Security-Policy"] = [
+      "default-src * 'unsafe-inline' 'unsafe-eval' blob: data:; media-src * blob: data:; img-src * blob: data:; connect-src *"
+    ];
+    callback({ responseHeaders: headers });
+  });
+  electron.protocol.handle("local", async (request) => {
+    const url = new URL(request.url);
+    const host = url.host;
+    const pathname = decodeURIComponent(url.pathname);
+    const filePath = host ? `${host.toUpperCase()}:${pathname}` : pathname.replace(/^\//, "");
+    const ext = path__namespace.extname(filePath).toLowerCase();
+    const mimeMap = {
+      ".mp4": "video/mp4",
+      ".webm": "video/webm",
+      ".mkv": "video/x-matroska",
+      ".avi": "video/x-msvideo",
+      ".mov": "video/quicktime",
+      ".m4v": "video/mp4",
+      ".wmv": "video/x-ms-wmv",
+      ".flv": "video/x-flv",
+      ".jpg": "image/jpeg",
+      ".jpeg": "image/jpeg",
+      ".png": "image/png",
+      ".webp": "image/webp",
+      ".gif": "image/gif"
+    };
+    const mime = mimeMap[ext] || "application/octet-stream";
+    try {
+      await fs__namespace.access(filePath);
+    } catch {
+      return new Response(null, { status: 404 });
+    }
+    return new Response(fsSync__namespace.createReadStream(filePath), {
+      headers: {
+        "Content-Type": mime,
+        "Cache-Control": "public, max-age=86400"
+      }
+    });
+  });
   electron.app.on("browser-window-created", (_, window) => {
     utils.optimizer.watchWindowShortcuts(window);
   });
@@ -285,12 +350,101 @@ electron.app.whenReady().then(() => {
     }
   });
   electron.ipcMain.handle(
-    "http:download",
-    async (event, url, filePath) => {
+    "http:fetch",
+    async (_event, url, options = {}) => {
       try {
-        const protocol = url.startsWith("https:") ? https__namespace : http__namespace;
+        const protocol2 = url.startsWith("https:") ? https__namespace : http__namespace;
+        const timeout = options.timeoutMs ?? 3e4;
         return new Promise((resolve) => {
-          const request = protocol.get(url, (response) => {
+          const urlObj = new URL(url);
+          const reqOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port,
+            path: urlObj.pathname + urlObj.search,
+            method: options.method ?? "GET",
+            headers: options.headers ?? {}
+          };
+          const req = protocol2.request(reqOptions, (res) => {
+            let data = "";
+            res.setEncoding("utf-8");
+            res.on("data", (chunk) => {
+              data += chunk;
+            });
+            res.on("end", () => {
+              try {
+                const json = JSON.parse(data);
+                resolve({ success: true, status: res.statusCode, data: json });
+              } catch {
+                resolve({ success: true, status: res.statusCode, data, raw: true });
+              }
+            });
+          });
+          req.setTimeout(timeout, () => {
+            req.destroy();
+            resolve({ success: false, error: "请求超时" });
+          });
+          req.on("error", (err) => {
+            resolve({ success: false, error: err.message });
+          });
+          if (options.body) req.write(options.body);
+          req.end();
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+  );
+  electron.ipcMain.handle(
+    "http:fetchImage",
+    async (_event, url, referer) => {
+      try {
+        const protocol2 = url.startsWith("https:") ? https__namespace : http__namespace;
+        return new Promise((resolve) => {
+          const urlObj = new URL(url);
+          const reqOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port || (url.startsWith("https:") ? 443 : 80),
+            path: urlObj.pathname + urlObj.search,
+            method: "GET",
+            headers: {
+              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
+              "Referer": referer || `${urlObj.protocol}//${urlObj.hostname}/`,
+              "Accept": "image/webp,image/apng,image/*,*/*;q=0.8"
+            }
+          };
+          const req = protocol2.request(reqOptions, (res) => {
+            const chunks = [];
+            res.on("data", (chunk) => chunks.push(chunk));
+            res.on("end", () => {
+              if (res.statusCode && res.statusCode >= 400) {
+                resolve({ success: false, error: `HTTP ${res.statusCode}` });
+                return;
+              }
+              const buffer = Buffer.concat(chunks);
+              const contentType = res.headers["content-type"] || "image/jpeg";
+              const base64 = buffer.toString("base64");
+              resolve({ success: true, data: `data:${contentType};base64,${base64}` });
+            });
+          });
+          req.setTimeout(15e3, () => {
+            req.destroy();
+            resolve({ success: false, error: "超时" });
+          });
+          req.on("error", (err) => resolve({ success: false, error: err.message }));
+          req.end();
+        });
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
+    }
+  );
+  electron.ipcMain.handle(
+    "http:download",
+    async (_event, url, filePath) => {
+      try {
+        const protocol2 = url.startsWith("https:") ? https__namespace : http__namespace;
+        return new Promise((resolve) => {
+          const request = protocol2.get(url, (response) => {
             if (response.statusCode === 200) {
               const fileStream = fsSync__namespace.createWriteStream(filePath);
               response.pipe(fileStream);
@@ -323,7 +477,7 @@ electron.app.whenReady().then(() => {
   );
   electron.ipcMain.handle(
     "file:readdirRecursive",
-    async (event, dirPath) => {
+    async (_event, dirPath) => {
       try {
         const allItems = [];
         async function scanDirectory(currentPath) {
@@ -360,6 +514,172 @@ electron.app.whenReady().then(() => {
       }
     }
   );
+  const bdPath = path.join(__dirname, "../../bd");
+  const goExe = path.join(bdPath, "backend", process.platform === "win32" ? "main.exe" : "main");
+  let goProc = null;
+  if (fsSync__namespace.existsSync(goExe)) {
+    goProc = child_process.spawn(goExe, [], { cwd: path.join(bdPath, "backend") });
+    goProc.stdout?.on("data", (d) => console.log("[Go]", d.toString().trim()));
+    goProc.stderr?.on("data", (d) => console.error("[Go]", d.toString().trim()));
+    goProc.on("exit", (code) => console.log("[Go] exited with code", code));
+  } else {
+    console.warn("[Go] backend exe not found:", goExe);
+  }
+  electron.app.on("will-quit", () => {
+    goProc?.kill();
+  });
+  electron.ipcMain.handle("scraper:scrape", async (_, avid) => {
+    return new Promise((resolve) => {
+      const proc = child_process.spawn("python", ["tools/scrape.py", avid], {
+        cwd: bdPath,
+        env: { ...process.env }
+      });
+      let out = "";
+      let err = "";
+      proc.stdout.on("data", (d) => out += d.toString());
+      proc.stderr.on("data", (d) => err += d.toString());
+      proc.on("close", () => {
+        try {
+          const lines = out.trim().split("\n");
+          const jsonLine = lines.filter((l) => l.startsWith("{")).pop() || "";
+          const parsed = JSON.parse(jsonLine);
+          parsed._log = err;
+          resolve(parsed);
+        } catch {
+          resolve({ error: "parse failed", _log: err + "\n" + out });
+        }
+      });
+    });
+  });
+  electron.ipcMain.handle("scraper:fetchMeta", async (_, avid) => {
+    return new Promise((resolve) => {
+      const proc = child_process.spawn("python", ["tools/fetch_meta.py", avid], {
+        cwd: bdPath,
+        env: { ...process.env }
+      });
+      let out = "";
+      let err = "";
+      proc.stdout.on("data", (d) => out += d.toString());
+      proc.stderr.on("data", (d) => err += d.toString());
+      proc.on("close", (_code) => {
+        try {
+          const lines = out.trim().split("\n");
+          const jsonLine = lines.filter((l) => l.startsWith("{")).pop() || "";
+          resolve(JSON.parse(jsonLine));
+        } catch {
+          resolve({ error: err || "parse failed", raw: out });
+        }
+      });
+    });
+  });
+  const downloaderProcs = /* @__PURE__ */ new Map();
+  electron.ipcMain.on("downloader:start", (event, avid) => {
+    if (downloaderProcs.has(avid)) {
+      event.sender.send("downloader:log", { avid, text: "[already running]" });
+      return;
+    }
+    const proc = child_process.spawn("python", ["main.py", avid], {
+      cwd: bdPath,
+      env: { ...process.env }
+    });
+    downloaderProcs.set(avid, proc);
+    proc.stdout.on(
+      "data",
+      (d) => event.sender.send("downloader:log", { avid, text: d.toString() })
+    );
+    proc.stderr.on(
+      "data",
+      (d) => event.sender.send("downloader:log", { avid, text: d.toString() })
+    );
+    proc.on("close", (code) => {
+      downloaderProcs.delete(avid);
+      event.sender.send("downloader:done", { avid, code });
+    });
+  });
+  electron.ipcMain.on("downloader:cancel", (_, avid) => {
+    const proc = downloaderProcs.get(avid);
+    if (proc) {
+      proc.kill();
+      downloaderProcs.delete(avid);
+    }
+  });
+  electron.ipcMain.handle("shell:openPath", async (_, filePath) => {
+    const error = await electron.shell.openPath(filePath);
+    return { success: !error, error: error || void 0 };
+  });
+  let pendingDetailData = null;
+  let detailWin = null;
+  electron.ipcMain.handle("detail:open", async (_, itemData) => {
+    pendingDetailData = itemData;
+    if (detailWin && !detailWin.isDestroyed()) {
+      detailWin.webContents.send("detail:update", itemData);
+      if (detailWin.isMinimized()) detailWin.restore();
+      detailWin.focus();
+      return { success: true };
+    }
+    detailWin = new electron.BrowserWindow({
+      width: 1100,
+      height: 800,
+      minWidth: 800,
+      minHeight: 600,
+      frame: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: path.join(__dirname, "../preload/index.js"),
+        sandbox: false,
+        webSecurity: false
+      }
+    });
+    detailWin.on("closed", () => {
+      detailWin = null;
+      pendingDetailData = null;
+    });
+    if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+      detailWin.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/online-detail");
+      detailWin.webContents.openDevTools();
+    } else {
+      detailWin.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "/online-detail" });
+    }
+    return { success: true };
+  });
+  electron.ipcMain.handle("detail:getData", () => pendingDetailData);
+  electron.ipcMain.handle("player:open", async (_, filePath) => {
+    const fileUrl = "file:///" + filePath.replace(/\\/g, "/");
+    const title = path__namespace.basename(filePath);
+    const playerHtml = path.join(__dirname, "../../resources/player.html");
+    const playerPreload = path.join(__dirname, "../../resources/player-preload.js");
+    const win = new electron.BrowserWindow({
+      width: 1280,
+      height: 760,
+      minWidth: 640,
+      minHeight: 400,
+      backgroundColor: "#000000",
+      title,
+      frame: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        webSecurity: false,
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: playerPreload
+      }
+    });
+    const onMin = (_e) => {
+      if (_e.sender === win.webContents) win.minimize();
+    };
+    const onClose = (_e) => {
+      if (_e.sender === win.webContents) win.close();
+    };
+    electron.ipcMain.on("player-win:minimize", onMin);
+    electron.ipcMain.on("player-win:close", onClose);
+    win.on("closed", () => {
+      electron.ipcMain.off("player-win:minimize", onMin);
+      electron.ipcMain.off("player-win:close", onClose);
+    });
+    const query = "?src=" + encodeURIComponent(fileUrl) + "&title=" + encodeURIComponent(title);
+    win.loadFile(playerHtml, { search: query });
+    return { success: true };
+  });
   createWindow();
   const registerDevToolsShortcut = () => {
     electron.globalShortcut.register("F12", () => {

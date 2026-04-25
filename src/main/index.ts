@@ -6,8 +6,11 @@ import {
   dialog,
   globalShortcut,
   ipcMain,
+  protocol,
+  session,
   shell,
 } from 'electron'
+import { spawn, ChildProcess } from 'child_process'
 import * as fsSync from 'fs'
 import * as fs from 'fs/promises'
 import * as http from 'http'
@@ -18,6 +21,14 @@ import icon from '../../resources/icon.png?asset'
 
 Menu.setApplicationMenu(null)
 
+app.commandLine.appendSwitch('enable-features', 'EnableDrDc,CanvasOopRasterization')
+app.commandLine.appendSwitch('force-color-profile', 'hdr')
+app.commandLine.appendSwitch('enable-hdr')
+
+protocol.registerSchemesAsPrivileged([
+  { scheme: 'local', privileges: { secure: true, standard: true, stream: true, bypassCSP: true } },
+])
+
 let mainWindow: BrowserWindow | null = null
 
 function createWindow(): void {
@@ -27,12 +38,30 @@ function createWindow(): void {
     minWidth: 1200,
     minHeight: 900,
     show: false,
+    frame: false,
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: false,
+      webSecurity: false,
     },
+  })
+
+  ipcMain.handle('win:minimize', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  })
+  ipcMain.handle('win:maximize', (event) => {
+    const win = BrowserWindow.fromWebContents(event.sender)
+    if (!win) return
+    if (win.isMaximized()) win.unmaximize()
+    else win.maximize()
+  })
+  ipcMain.handle('win:close', (event) => {
+    BrowserWindow.fromWebContents(event.sender)?.close()
+  })
+  ipcMain.handle('win:isMaximized', (event) => {
+    return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
   })
 
   // 获取package.json版本信息
@@ -63,7 +92,7 @@ function createWindow(): void {
   })
 
   mainWindow.on('ready-to-show', () => {
-    mainWindow.show()
+    mainWindow!.show()
   })
 
   mainWindow.webContents.setWindowOpenHandler(details => {
@@ -81,6 +110,43 @@ function createWindow(): void {
 app.whenReady().then(() => {
   // Set app user model id for windows
   electronApp.setAppUserModelId('com.electron')
+
+  // 覆盖 CSP，允许外部媒体（m3u8/mp4）和 blob URL 加载
+  session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+    const headers = { ...details.responseHeaders }
+    headers['Content-Security-Policy'] = [
+      "default-src * 'unsafe-inline' 'unsafe-eval' blob: data:; media-src * blob: data:; img-src * blob: data:; connect-src *"
+    ]
+    callback({ responseHeaders: headers })
+  })
+
+  // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
+  protocol.handle('local', async (request) => {
+    const url = new URL(request.url)
+    const host = url.host
+    const pathname = decodeURIComponent(url.pathname)
+    const filePath = host ? `${host.toUpperCase()}:${pathname}` : pathname.replace(/^\//, '')
+    const ext = path.extname(filePath).toLowerCase()
+    const mimeMap: Record<string, string> = {
+      '.mp4': 'video/mp4', '.webm': 'video/webm', '.mkv': 'video/x-matroska',
+      '.avi': 'video/x-msvideo', '.mov': 'video/quicktime', '.m4v': 'video/mp4',
+      '.wmv': 'video/x-ms-wmv', '.flv': 'video/x-flv',
+      '.jpg': 'image/jpeg', '.jpeg': 'image/jpeg', '.png': 'image/png',
+      '.webp': 'image/webp', '.gif': 'image/gif',
+    }
+    const mime = mimeMap[ext] || 'application/octet-stream'
+    try {
+      await fs.access(filePath)
+    } catch {
+      return new Response(null, { status: 404 })
+    }
+    return new Response(fsSync.createReadStream(filePath) as any, {
+      headers: {
+        'Content-Type': mime,
+        'Cache-Control': 'public, max-age=86400',
+      },
+    })
+  })
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -318,11 +384,108 @@ app.whenReady().then(() => {
     }
   })
 
+  // HTTP JSON 请求（用于 MetaTube 等自部署服务）
+  ipcMain.handle(
+    'http:fetch',
+    async (
+      _event: Electron.IpcMainInvokeEvent,
+      url: string,
+      options: { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number } = {}
+    ) => {
+      try {
+        const protocol = url.startsWith('https:') ? https : http
+        const timeout = options.timeoutMs ?? 30000
+
+        return new Promise(resolve => {
+          const urlObj = new URL(url)
+          const reqOptions: http.RequestOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port,
+            path: urlObj.pathname + urlObj.search,
+            method: options.method ?? 'GET',
+            headers: options.headers ?? {},
+          }
+
+          const req = protocol.request(reqOptions, res => {
+            let data = ''
+            res.setEncoding('utf-8')
+            res.on('data', chunk => { data += chunk })
+            res.on('end', () => {
+              try {
+                const json = JSON.parse(data)
+                resolve({ success: true, status: res.statusCode, data: json })
+              } catch {
+                resolve({ success: true, status: res.statusCode, data, raw: true })
+              }
+            })
+          })
+
+          req.setTimeout(timeout, () => {
+            req.destroy()
+            resolve({ success: false, error: '请求超时' })
+          })
+
+          req.on('error', (err: Error) => {
+            resolve({ success: false, error: err.message })
+          })
+
+          if (options.body) req.write(options.body)
+          req.end()
+        })
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
+  // 通过主进程代理加载图片（绕过防盗链）
+  ipcMain.handle(
+    'http:fetchImage',
+    async (_event: Electron.IpcMainInvokeEvent, url: string, referer?: string) => {
+      try {
+        const protocol = url.startsWith('https:') ? https : http
+        return new Promise(resolve => {
+          const urlObj = new URL(url)
+          const reqOptions: http.RequestOptions = {
+            hostname: urlObj.hostname,
+            port: urlObj.port || (url.startsWith('https:') ? 443 : 80),
+            path: urlObj.pathname + urlObj.search,
+            method: 'GET',
+            headers: {
+              'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+              'Referer': referer || `${urlObj.protocol}//${urlObj.hostname}/`,
+              'Accept': 'image/webp,image/apng,image/*,*/*;q=0.8',
+            },
+          }
+          const req = protocol.request(reqOptions, res => {
+            const chunks: Buffer[] = []
+            res.on('data', (chunk: Buffer) => chunks.push(chunk))
+            res.on('end', () => {
+              if (res.statusCode && res.statusCode >= 400) {
+                resolve({ success: false, error: `HTTP ${res.statusCode}` })
+                return
+              }
+              const buffer = Buffer.concat(chunks)
+              const contentType = res.headers['content-type'] || 'image/jpeg'
+              const base64 = buffer.toString('base64')
+              resolve({ success: true, data: `data:${contentType};base64,${base64}` })
+            })
+          })
+          req.setTimeout(15000, () => { req.destroy(); resolve({ success: false, error: '超时' }) })
+          req.on('error', (err: Error) => resolve({ success: false, error: err.message }))
+          req.end()
+        })
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
+
   // HTTP下载文件
   ipcMain.handle(
     'http:download',
     async (
-      event: Electron.IpcMainInvokeEvent,
+      _event: Electron.IpcMainInvokeEvent,
       url: string,
       filePath: string
     ) => {
@@ -370,7 +533,7 @@ app.whenReady().then(() => {
   // 递归读取目录
   ipcMain.handle(
     'file:readdirRecursive',
-    async (event: Electron.IpcMainInvokeEvent, dirPath: string) => {
+    async (_event: Electron.IpcMainInvokeEvent, dirPath: string) => {
       try {
         const allItems: Array<{
           name: string
@@ -424,6 +587,187 @@ app.whenReady().then(() => {
       }
     }
   )
+
+  // ── Go 后端 ───────────────────────────────────────────────
+  const bdPath = join(__dirname, '../../bd')
+  const goExe = join(bdPath, 'backend', process.platform === 'win32' ? 'main.exe' : 'main')
+  let goProc: ReturnType<typeof spawn> | null = null
+
+  if (fsSync.existsSync(goExe)) {
+    goProc = spawn(goExe, [], { cwd: join(bdPath, 'backend') })
+    goProc.stdout?.on('data', (d: Buffer) => console.log('[Go]', d.toString().trim()))
+    goProc.stderr?.on('data', (d: Buffer) => console.error('[Go]', d.toString().trim()))
+    goProc.on('exit', (code) => console.log('[Go] exited with code', code))
+  } else {
+    console.warn('[Go] backend exe not found:', goExe)
+  }
+
+  app.on('will-quit', () => {
+    goProc?.kill()
+  })
+
+  // ── Python 刮削 / 下载 ──────────────────────────────────
+
+  ipcMain.handle('scraper:scrape', async (_, avid: string) => {
+    return new Promise((resolve) => {
+      const proc = spawn('python', ['tools/scrape.py', avid], {
+        cwd: bdPath,
+        env: { ...process.env },
+      })
+      let out = ''
+      let err = ''
+      proc.stdout.on('data', (d: Buffer) => (out += d.toString()))
+      proc.stderr.on('data', (d: Buffer) => (err += d.toString()))
+      proc.on('close', () => {
+        try {
+          const lines = out.trim().split('\n')
+          const jsonLine = lines.filter((l) => l.startsWith('{')).pop() || ''
+          const parsed = JSON.parse(jsonLine)
+          parsed._log = err  // 把 stderr 带回去方便前端显示
+          resolve(parsed)
+        } catch {
+          resolve({ error: 'parse failed', _log: err + '\n' + out })
+        }
+      })
+    })
+  })
+
+  ipcMain.handle('scraper:fetchMeta', async (_, avid: string) => {
+    return new Promise((resolve) => {
+      const proc = spawn('python', ['tools/fetch_meta.py', avid], {
+        cwd: bdPath,
+        env: { ...process.env },
+      })
+      let out = ''
+      let err = ''
+      proc.stdout.on('data', (d: Buffer) => (out += d.toString()))
+      proc.stderr.on('data', (d: Buffer) => (err += d.toString()))
+      proc.on('close', (_code: number) => {
+        try {
+          // stdout 最后一行才是 JSON，前面可能有 loguru 日志
+          const lines = out.trim().split('\n')
+          const jsonLine = lines.filter((l) => l.startsWith('{')).pop() || ''
+          resolve(JSON.parse(jsonLine))
+        } catch {
+          resolve({ error: err || 'parse failed', raw: out })
+        }
+      })
+    })
+  })
+
+  const downloaderProcs = new Map<string, ChildProcess>()
+
+  ipcMain.on('downloader:start', (event, avid: string) => {
+    if (downloaderProcs.has(avid)) {
+      event.sender.send('downloader:log', { avid, text: '[already running]' })
+      return
+    }
+    const proc = spawn('python', ['main.py', avid], {
+      cwd: bdPath,
+      env: { ...process.env },
+    })
+    downloaderProcs.set(avid, proc)
+    proc.stdout.on('data', (d: Buffer) =>
+      event.sender.send('downloader:log', { avid, text: d.toString() })
+    )
+    proc.stderr.on('data', (d: Buffer) =>
+      event.sender.send('downloader:log', { avid, text: d.toString() })
+    )
+    proc.on('close', (code: number) => {
+      downloaderProcs.delete(avid)
+      event.sender.send('downloader:done', { avid, code })
+    })
+  })
+
+  ipcMain.on('downloader:cancel', (_, avid: string) => {
+    const proc = downloaderProcs.get(avid)
+    if (proc) {
+      proc.kill()
+      downloaderProcs.delete(avid)
+    }
+  })
+
+  ipcMain.handle('shell:openPath', async (_, filePath: string) => {
+    const error = await shell.openPath(filePath)
+    return { success: !error, error: error || undefined }
+  })
+
+  // 详情窗口：单例 + 待传数据
+  let pendingDetailData: unknown = null
+  let detailWin: BrowserWindow | null = null
+
+  ipcMain.handle('detail:open', async (_, itemData: unknown) => {
+    pendingDetailData = itemData
+
+    // 已有窗口：推送新数据后聚焦，不重新创建
+    if (detailWin && !detailWin.isDestroyed()) {
+      detailWin.webContents.send('detail:update', itemData)
+      if (detailWin.isMinimized()) detailWin.restore()
+      detailWin.focus()
+      return { success: true }
+    }
+
+    detailWin = new BrowserWindow({
+      width: 1100,
+      height: 800,
+      minWidth: 800,
+      minHeight: 600,
+      frame: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        preload: join(__dirname, '../preload/index.js'),
+        sandbox: false,
+        webSecurity: false,
+      },
+    })
+    detailWin.on('closed', () => {
+      detailWin = null
+      pendingDetailData = null
+    })
+    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
+      detailWin.loadURL(process.env['ELECTRON_RENDERER_URL'] + '#/online-detail')
+      detailWin.webContents.openDevTools()
+    } else {
+      detailWin.loadFile(join(__dirname, '../renderer/index.html'), { hash: '/online-detail' })
+    }
+    return { success: true }
+  })
+
+  ipcMain.handle('detail:getData', () => pendingDetailData)
+
+  ipcMain.handle('player:open', async (_, filePath: string) => {
+    const fileUrl = 'file:///' + filePath.replace(/\\/g, '/')
+    const title = path.basename(filePath)
+    const playerHtml = join(__dirname, '../../resources/player.html')
+    const playerPreload = join(__dirname, '../../resources/player-preload.js')
+    const win = new BrowserWindow({
+      width: 1280,
+      height: 760,
+      minWidth: 640,
+      minHeight: 400,
+      backgroundColor: '#000000',
+      title,
+      frame: false,
+      autoHideMenuBar: true,
+      webPreferences: {
+        webSecurity: false,
+        nodeIntegration: false,
+        contextIsolation: true,
+        preload: playerPreload,
+      },
+    })
+    const onMin = (_e: Electron.IpcMainEvent) => { if (_e.sender === win.webContents) win.minimize() }
+    const onClose = (_e: Electron.IpcMainEvent) => { if (_e.sender === win.webContents) win.close() }
+    ipcMain.on('player-win:minimize', onMin)
+    ipcMain.on('player-win:close', onClose)
+    win.on('closed', () => {
+      ipcMain.off('player-win:minimize', onMin)
+      ipcMain.off('player-win:close', onClose)
+    })
+    const query = '?src=' + encodeURIComponent(fileUrl) + '&title=' + encodeURIComponent(title)
+    win.loadFile(playerHtml, { search: query })
+    return { success: true }
+  })
 
   createWindow()
 

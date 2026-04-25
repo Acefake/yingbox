@@ -7,7 +7,7 @@
       onBeforeShow: handleRightClick,
     }"
     :class="[
-      'flex items-center p-2 rounded cursor-pointer transition-all duration-300 mb-1',
+      'flex items-center py-1 px-2 rounded cursor-pointer transition-all duration-300 mb-0.5',
       selectedIndex === index ? 'selected-item' : 'hover:bg-gray-700',
       isSelected && isMultiSelectMode ? 'bg-blue-600 bg-opacity-30' : 'hover:bg-gray-700',
     ]"
@@ -48,40 +48,20 @@
       </div>
     </div>
 
-    <div class="flex-1 min-w-0">
-      <div class="text-xs font-medium text-white truncate flex items-center">
+    <div class="flex-1 min-w-0 flex items-center gap-1">
+      <div class="text-xs font-medium text-white truncate flex-1">
         {{ item.name }}
       </div>
-      <div class="flex gap-1 mt-1">
+      <div class="flex gap-0.5 flex-shrink-0">
         <span
-          v-if="
-            (item.type === 'folder' && hasNfoFile(item)) ||
-            (item.type === 'video' && hasVideoNfoFile(item))
-          "
-          :style="{ fontSize: '10px' }"
-          class="px-1 py-0.5 bg-yellow-600 text-yellow-100 rounded"
-          >NFO</span
-        >
+          v-if="(item.type === 'folder' && hasNfoFile(item)) || (item.type === 'video' && hasVideoNfoFile(item))"
+          class="tag bg-yellow-600 text-yellow-100">N</span>
         <span
-          v-if="
-            (item.type === 'folder' && hasPosterFile(item)) ||
-            (item.type === 'video' && hasVideoPosterFile(item))
-          "
-          :style="{ fontSize: '10px' }"
-          class="px-1 py-0.5 bg-green-600 text-green-100 rounded"
-        >
-          海报
-        </span>
+          v-if="(item.type === 'folder' && hasPosterFile(item)) || (item.type === 'video' && hasVideoPosterFile(item))"
+          class="tag bg-green-600 text-green-100">P</span>
         <span
-          v-if="
-            (item.type === 'folder' && hasFanartFile(item)) ||
-            (item.type === 'video' && hasVideoFanartFile(item))
-          "
-          :style="{ fontSize: '10px' }"
-          class="px-1 py-0.5 bg-blue-600 text-blue-100 rounded"
-        >
-          艺术图
-        </span>
+          v-if="(item.type === 'folder' && hasFanartFile(item)) || (item.type === 'video' && hasVideoFanartFile(item))"
+          class="tag bg-blue-600 text-blue-100">A</span>
       </div>
     </div>
   </div>
@@ -119,7 +99,9 @@ const hasVideoPosterFile = (item: ProcessedItem): boolean => {
   if (item.type !== 'video' || !item.files) return false
 
   // 获取视频文件的基础名称（不含扩展名）
-  const videoBaseName = item.name.replace(/\.[^/.]+$/, '').toLowerCase()
+  const videoBaseName = item.name
+    .replace(/\.[^/.]+$/, '')
+    .toLowerCase()
 
   const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
 
@@ -146,7 +128,9 @@ const hasVideoFanartFile = (item: ProcessedItem): boolean => {
   if (item.type !== 'video' || !item.files) return false
 
   // 获取视频文件的基础名称（不含扩展名）
-  const videoBaseName = item.name.replace(/\.[^/.]+$/, '').toLowerCase()
+  const videoBaseName = item.name
+    .replace(/\.[^/.]+$/, '')
+    .toLowerCase()
 
   const fanartExtensions = ['.jpg', '.jpeg', '.png', '.webp']
 
@@ -196,7 +180,7 @@ const getPosterPath = (item: ProcessedItem): string | null => {
   
   // 将 Windows 路径转换为 file:// 协议格式
   const path = posterFile.path.replace(/\\/g, '/')
-  console.log('海报路径:', path)
+  // console.log('海报路径:', path)
   return path
 }
 
@@ -214,7 +198,7 @@ const loadPoster = async (): Promise<void> => {
       return
     }
     
-    console.log('读取海报文件:', path)
+    // console.log('读取海报文件:', path)
     const result = await window.api.file.read(path)
     
     if (result.success && result.data) {
@@ -242,13 +226,16 @@ watch(() => props.item, () => {
 }, { immediate: true })
 const emit = defineEmits<{
   select: [item: ProcessedItem, index: number]
-  refresh: [targetPath?: string]
   showSearchModal: [item: ProcessedItem]
   autoScrape: [item: ProcessedItem]
   directScrape: [item: ProcessedItem]
   toggleSelection: [item: ProcessedItem, index: number]
   manualScrape: [item: ProcessedItem]
   preload: [item: ProcessedItem]
+  playVideo: [path: string]
+  localScrape: [item: ProcessedItem]
+  downloadVideo: [item: ProcessedItem]
+  fetchMeta: [item: ProcessedItem]
 }>()
 
 /**
@@ -283,7 +270,6 @@ const handleRightClick = (): void => {
 const handleMouseEnter = (): void => {
   // 仅对文件夹预加载
   if (props.item.type === 'folder') {
-    console.log('[FileTreeItem] Preloading:', props.item.name)
     emit('preload', props.item)
   }
 }
@@ -462,45 +448,43 @@ const handleImageError = (event: Event): void => {
   img.style.display = 'none'
 }
 
+const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v']
+
+const playItem = (item: ProcessedItem): void => {
+  let videoPath: string | undefined
+  if (item.type === 'video') {
+    videoPath = item.path
+  } else if (item.type === 'folder' && item.files) {
+    const videoFile = item.files.find(f =>
+      videoExtensions.some(ext => f.name.toLowerCase().endsWith(ext))
+    )
+    if (videoFile) videoPath = videoFile.path
+  }
+  if (videoPath) {
+    emit('playVideo', videoPath)
+  }
+}
+
 // 静态图片菜单
 const folderMenuItems: MenuItem[] = [
-  { id: 'direct_scrape', label: '直接刮削', icon: 'fas fa-bolt' },
   { id: 'view', label: '刮削', icon: 'fas fa-eye' },
-  { id: 'manual_scrape', label: '手动匹配', icon: 'fas fa-keyboard' },
-  { id: 'refresh', label: '刷新', icon: 'fas fa-sync-alt' },
+  { id: 'local-scrape', label: '本地刮削' },
+  { id: 'fetch-meta', label: '预览元数据' },
+  { id: 'download', label: '下载视频' },
+  { id: 'play', label: '播放', icon: 'fas fa-play' },
 ]
 
 const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
-  console.log('=== FileTreeItem handleFileAction ===')
-  console.log('操作ID:', action.id)
-  console.log('项目名称:', item.name)
-  console.log('项目路径:', item.path)
-  console.log('项目类型:', item.type)
-  
-  if (action.id === 'direct_scrape') {
-    console.log('触发直接刮削功能')
-    console.log('发送 directScrape 事件到父组件')
-    console.log('发送的项目数据:', item)
-    // 直接刮削功能 - 发送事件到父组件处理
-    emit('directScrape', item)
-    console.log('directScrape 事件已发送')
-  } else if (action.id === 'view') {
-    console.log('触发自动刮削功能')
-    console.log('发送 autoScrape 事件到父组件')
-    console.log('发送的项目数据:', item)
-    // 自动刮削功能 - 发送事件到父组件处理
+  if (action.id === 'view') {
     emit('autoScrape', item)
-    console.log('autoScrape 事件已发送')
-  } else if (action.id === 'manual_scrape') {
-    console.log('触发手动匹配功能')
-    // 手动匹配
-    emit('manualScrape', item)
-  } else if (action.id === 'refresh') {
-    console.log('触发刷新功能')
-    // 刷新当前文件夹
-    const folderPath = getParentFolderPath(item)
-    console.log('刷新路径:', folderPath)
-    emit('refresh', folderPath)
+  } else if (action.id === 'local-scrape') {
+    emit('localScrape', item)
+  } else if (action.id === 'fetch-meta') {
+    emit('fetchMeta', item)
+  } else if (action.id === 'download') {
+    emit('downloadVideo', item)
+  } else if (action.id === 'play') {
+    playItem(item)
   }
 }
 
@@ -513,11 +497,15 @@ const getParentFolderPath = (item: ProcessedItem): string => {
   if (item.type === 'folder') {
     return item.path
   } else {
-    // 如果是视频文件，返回其父目录路径（通过字符串操作获取）
-    const pathParts = item.path.split('/')
-
-    pathParts.pop() // 移除文件名
-    return pathParts.join('/')
+    // 如果是视频文件，返回其父目录路径（支持 Windows 和 Unix 路径）
+    const lastSlashIndex = Math.max(
+      item.path.lastIndexOf('/'),
+      item.path.lastIndexOf('\\')
+    )
+    if (lastSlashIndex === -1) {
+      return item.path
+    }
+    return item.path.substring(0, lastSlashIndex)
   }
 }
 
@@ -577,6 +565,14 @@ const escapeXml = (text: string): string => {
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
   transition: all 0.3s ease;
+}
+
+.tag {
+  font-size: 9px;
+  padding: 1px 3px;
+  border-radius: 2px;
+  line-height: 1;
+  flex-shrink: 0;
 }
 
 .line-clamp-2 {

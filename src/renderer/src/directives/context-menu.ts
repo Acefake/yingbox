@@ -122,7 +122,6 @@ class ContextMenuManager {
       `
 
       menuItem.innerHTML = `
-        ${item.icon ? `<i class="${item.icon}" style="width: 14px; height: 14px; margin-right: 8px; flex-shrink: 0;"></i>` : ''}
         <span style="flex: 1;">${item.label}</span>
         ${item.shortcut ? `<span style="font-size: 11px; color: #a0aec0; margin-left: 8px;">${item.shortcut}</span>` : ''}
       `
@@ -220,8 +219,18 @@ const contextMenu: ObjectDirective<HTMLElement, ContextMenuConfig> = {
     ).__contextMenuHandler = handleContextMenu
   },
 
-  updated(): void {
-    // 配置更新时不需要重新绑定事件，只需要更新配置
+  updated(el: HTMLElement, binding: DirectiveBinding<ContextMenuConfig>) {
+    const handler = (el as HTMLElement & { __contextMenuHandler?: (event: MouseEvent) => void }).__contextMenuHandler
+    if (handler) {
+      el.removeEventListener('contextmenu', handler)
+    }
+    const handleContextMenu = (event: MouseEvent): void => {
+      event.preventDefault()
+      event.stopPropagation()
+      ContextMenuManager.getInstance().showMenu(event.clientX, event.clientY, binding.value)
+    }
+    el.addEventListener('contextmenu', handleContextMenu)
+    ;(el as HTMLElement & { __contextMenuHandler?: (event: MouseEvent) => void }).__contextMenuHandler = handleContextMenu
   },
 
   unmounted(el: HTMLElement) {

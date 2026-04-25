@@ -4,6 +4,7 @@
     "composite": true,
     "types": ["node"],
     "baseUrl": ".",
+    "resolveJsonModule": true,
     "paths": {
       "@/*": ["src/renderer/src/*"]
     }

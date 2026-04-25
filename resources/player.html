@@ -1,0 +1,515 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8"/>
+<title>播放器</title>
+<style>
+*{margin:0;padding:0;box-sizing:border-box}
+html,body{width:100%;height:100%;background:#000;overflow:hidden;font-family:system-ui,sans-serif;color:#fff}
+body{display:flex;flex-direction:column}
+
+/* 顶栏 */
+#topbar{
+  display:flex;align-items:center;gap:8px;
+  padding:4px 8px 4px 12px;
+  background:linear-gradient(180deg,rgba(0,0,0,.85) 0%,transparent 100%);
+  position:absolute;top:0;left:0;right:0;z-index:10;
+  -webkit-app-region:drag;
+  transition:opacity .3s;
+}
+#topbar.hidden{opacity:0;pointer-events:none}
+#topbar-title{flex:1;font-size:12px;color:#ccc;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.tb-btn{
+  -webkit-app-region:no-drag;background:none;border:none;cursor:pointer;
+  width:28px;height:28px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  color:rgba(255,255,255,.6);transition:all .15s;flex-shrink:0;
+}
+.tb-btn:hover{background:rgba(255,255,255,.12);color:#fff}
+#tb-close:hover{background:rgba(220,38,38,.7);color:#fff}
+
+/* 视频 */
+#video-wrap{flex:1;display:flex;align-items:center;justify-content:center;position:relative;cursor:none}
+#video-wrap.show-cursor{cursor:default}
+video{width:100%;height:100%;object-fit:contain;background:#000;outline:none}
+
+/* 底部控制栏 */
+#controls{
+  position:absolute;bottom:0;left:0;right:0;z-index:10;
+  background:linear-gradient(0deg,rgba(0,0,0,.9) 0%,transparent 100%);
+  padding:12px 14px 10px;
+  transition:opacity .3s;
+}
+#controls.hidden{opacity:0;pointer-events:none}
+
+/* 进度条 */
+#progress-wrap{position:relative;height:18px;display:flex;align-items:center;cursor:pointer;margin-bottom:6px}
+#progress-bg{width:100%;height:3px;background:rgba(255,255,255,.2);border-radius:2px;position:relative;transition:height .15s}
+#progress-wrap:hover #progress-bg{height:5px}
+#progress-buf{height:100%;background:rgba(255,255,255,.3);border-radius:2px;position:absolute;left:0;top:0}
+#progress-fill{height:100%;background:#e50914;border-radius:2px;position:absolute;left:0;top:0;transition:width .1s linear}
+#progress-thumb{
+  width:12px;height:12px;border-radius:50%;background:#fff;
+  position:absolute;top:50%;transform:translate(-50%,-50%);
+  opacity:0;transition:opacity .15s;pointer-events:none;
+}
+#progress-wrap:hover #progress-thumb{opacity:1}
+
+/* 控制按钮行 */
+#ctrl-row{display:flex;align-items:center;gap:8px}
+.ctrl-btn{
+  background:none;border:none;cursor:pointer;color:#fff;
+  padding:6px;border-radius:6px;display:flex;align-items:center;justify-content:center;
+  opacity:.9;transition:opacity .15s,background .15s;-webkit-app-region:no-drag;
+}
+.ctrl-btn:hover{opacity:1;background:rgba(255,255,255,.18)}
+.ctrl-btn svg{width:22px;height:22px;fill:currentColor}
+.ctrl-btn.small svg{width:18px;height:18px}
+#time{font-size:12px;color:#ccc;white-space:nowrap;margin:0 6px}
+#spacer{flex:1}
+#vol-wrap{display:flex;align-items:center;gap:6px;-webkit-app-region:no-drag}
+#vol-slider{-webkit-appearance:none;appearance:none;width:80px;height:4px;border-radius:2px;background:rgba(255,255,255,.3);outline:none;cursor:pointer}
+#vol-slider::-webkit-slider-thumb{-webkit-appearance:none;appearance:none;width:14px;height:14px;border-radius:50%;background:#fff}
+#speed-btn{font-size:13px;font-weight:700;min-width:40px;text-align:center}
+
+/* 增强面板 */
+#enhance-panel{
+  position:absolute;bottom:70px;right:14px;z-index:20;
+  background:rgba(20,20,28,.95);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:14px 16px;min-width:220px;
+  display:none;
+}
+#enhance-panel.open{display:block}
+#enhance-panel h3{font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.ep-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.ep-label{font-size:11px;color:#ccc;width:48px;flex-shrink:0}
+.ep-slider{-webkit-appearance:none;flex:1;height:3px;border-radius:2px;background:rgba(255,255,255,.25);outline:none;cursor:pointer}
+.ep-slider::-webkit-slider-thumb{-webkit-appearance:none;width:12px;height:12px;border-radius:50%;background:#e50914}
+.ep-val{font-size:10px;color:#888;width:32px;text-align:right}
+.ep-reset{font-size:10px;color:#888;cursor:pointer;margin-top:2px;text-align:right}
+.ep-reset:hover{color:#ccc}
+
+
+/* 历史记录面板 */
+#history-panel{
+  position:absolute;bottom:70px;left:14px;z-index:20;
+  background:rgba(20,20,28,.95);border:1px solid rgba(255,255,255,.12);
+  border-radius:10px;padding:14px 16px;width:280px;max-height:320px;
+  display:none;overflow-y:auto;
+}
+#history-panel.open{display:block}
+#history-panel h3{font-size:11px;font-weight:700;color:#aaa;text-transform:uppercase;letter-spacing:.06em;margin-bottom:10px}
+.hi-item{
+  display:flex;align-items:center;gap:8px;padding:6px 8px;border-radius:6px;cursor:pointer;
+  transition:background .15s;
+}
+.hi-item:hover{background:rgba(255,255,255,.08)}
+.hi-info{flex:1;min-width:0}
+.hi-name{font-size:12px;color:#ddd;overflow:hidden;text-overflow:ellipsis;white-space:nowrap}
+.hi-meta{font-size:10px;color:#666;margin-top:2px}
+.hi-prog{width:100%;height:2px;background:rgba(255,255,255,.15);border-radius:1px;margin-top:4px}
+.hi-prog-fill{height:100%;background:#e50914;border-radius:1px}
+.hi-empty{font-size:12px;color:#555;text-align:center;padding:16px 0}
+
+/* OSD提示 */
+#osd{
+  position:absolute;top:50%;left:50%;transform:translate(-50%,-50%);
+  background:rgba(0,0,0,.6);border-radius:8px;padding:8px 18px;
+  font-size:18px;font-weight:700;pointer-events:none;
+  opacity:0;transition:opacity .2s;
+}
+#osd.show{opacity:1}
+</style>
+</head>
+<body>
+
+<div id="video-wrap">
+  <div id="topbar">
+    <span id="topbar-title">播放器</span>
+    <button class="tb-btn" id="tb-min" title="最小化">
+      <svg viewBox="0 0 10 1" width="10" height="1"><rect width="10" height="1" fill="currentColor"/></svg>
+    </button>
+    <button class="tb-btn" id="tb-close" title="关闭">
+      <svg viewBox="0 0 10 10" width="10" height="10"><line x1="0" y1="0" x2="10" y2="10" stroke="currentColor" stroke-width="1.4"/><line x1="10" y1="0" x2="0" y2="10" stroke="currentColor" stroke-width="1.4"/></svg>
+    </button>
+  </div>
+  <video id="video" preload="auto"></video>
+  <div id="osd"></div>
+  <div id="controls">
+  <div id="progress-wrap">
+    <div id="progress-bg">
+      <div id="progress-buf"></div>
+      <div id="progress-fill"></div>
+      <div id="progress-thumb"></div>
+    </div>
+  </div>
+  <div id="ctrl-row">
+    <!-- 后退10s -->
+    <button class="ctrl-btn small" id="btn-back" title="后退10秒(←)">
+      <svg viewBox="0 0 24 24"><path d="M12.5 3a9 9 0 1 0 9 9h-2a7 7 0 1 1-7-7V7l4-4-4-4v3c-.17 0-.33.01-.5.01z"/><text x="7" y="15.5" font-size="5.5" font-weight="700" font-family="sans-serif">10</text></svg>
+    </button>
+    <!-- 播放/暂停 -->
+    <button class="ctrl-btn" id="btn-play" title="播放/暂停(空格)">
+      <svg id="icon-play" viewBox="0 0 24 24"><path d="M8 5v14l11-7z"/></svg>
+      <svg id="icon-pause" viewBox="0 0 24 24" style="display:none"><path d="M6 19h4V5H6v14zm8-14v14h4V5h-4z"/></svg>
+    </button>
+    <!-- 前进10s -->
+    <button class="ctrl-btn small" id="btn-fwd" title="前进10秒(→)">
+      <svg viewBox="0 0 24 24"><path d="M11.5 3v2.01A7 7 0 1 1 4.5 12h-2a9 9 0 1 0 9-9z"/><text x="7" y="15.5" font-size="5.5" font-weight="700" font-family="sans-serif">10</text></svg>
+    </button>
+    <!-- 音量 -->
+    <button class="ctrl-btn small" id="btn-mute" title="静音(M)">
+      <svg id="icon-vol" viewBox="0 0 24 24"><path d="M3 9v6h4l5 5V4L7 9H3zm13.5 3c0-1.77-1.02-3.29-2.5-4.03v8.05c1.48-.73 2.5-2.25 2.5-4.02zM14 3.23v2.06c2.89.86 5 3.54 5 6.71s-2.11 5.85-5 6.71v2.06c4.01-.91 7-4.49 7-8.77s-2.99-7.86-7-8.77z"/></svg>
+      <svg id="icon-mute" viewBox="0 0 24 24" style="display:none"><path d="M16.5 12c0-1.77-1.02-3.29-2.5-4.03v2.21l2.45 2.45c.03-.2.05-.41.05-.63zm2.5 0c0 .94-.2 1.82-.54 2.64l1.51 1.51C20.63 14.91 21 13.5 21 12c0-4.28-2.99-7.86-7-8.77v2.06c2.89.86 5 3.54 5 6.71zM4.27 3L3 4.27 7.73 9H3v6h4l5 5v-6.73l4.25 4.25c-.67.52-1.42.93-2.25 1.18v2.06c1.38-.31 2.63-.95 3.69-1.81L19.73 21 21 19.73l-9-9L4.27 3zM12 4L9.91 6.09 12 8.18V4z"/></svg>
+    </button>
+    <input id="vol-slider" type="range" min="0" max="1" step="0.02" value="1" title="音量"/>
+    <span id="time">0:00 / 0:00</span>
+    <div id="spacer"></div>
+    <!-- 历史 -->
+    <button class="ctrl-btn small" id="btn-history" title="播放历史">
+      <svg viewBox="0 0 24 24"><path d="M13 3a9 9 0 0 0-9 9H1l3.89 3.89.07.14L9 12H6c0-3.87 3.13-7 7-7s7 3.13 7 7-3.13 7-7 7c-1.93 0-3.68-.79-4.95-2.05L6.64 18.36A8.955 8.955 0 0 0 13 21a9 9 0 0 0 0-18zm-1 5v5l4.28 2.54.72-1.21-3.5-2.08V8H12z"/></svg>
+    </button>
+    <!-- 画质增强 -->
+    <button class="ctrl-btn small" id="btn-enhance" title="画质增强">
+      <svg viewBox="0 0 24 24"><path d="M15.5 14h-.79l-.28-.27A6.471 6.471 0 0 0 16 9.5 6.5 6.5 0 1 0 9.5 16c1.61 0 3.09-.59 4.23-1.57l.27.28v.79l5 4.99L20.49 19l-4.99-5zm-6 0C7.01 14 5 11.99 5 9.5S7.01 5 9.5 5 14 7.01 14 9.5 11.99 14 9.5 14z"/><path d="M12 10h-2v2H9v-2H7V9h2V7h1v2h2v1z"/></svg>
+    </button>
+    <!-- 速度 -->
+    <button class="ctrl-btn small" id="speed-btn" title="播放速度">1×</button>
+    <!-- 全屏 -->
+    <button class="ctrl-btn small" id="btn-fs" title="全屏(F)">
+      <svg id="icon-fs" viewBox="0 0 24 24"><path d="M7 14H5v5h5v-2H7v-3zm-2-4h2V7h3V5H5v5zm12 7h-3v2h5v-5h-2v3zM14 5v2h3v3h2V5h-5z"/></svg>
+    </button>
+  </div>
+  </div><!-- /#controls -->
+
+  <!-- 画质增强面板 -->
+  <div id="enhance-panel">
+    <h3>画质增强</h3>
+    <div class="ep-row"><span class="ep-label">亮度</span><input class="ep-slider" id="sl-brightness" type="range" min="50" max="200" value="100"/><span class="ep-val" id="v-brightness">100%</span></div>
+    <div class="ep-row"><span class="ep-label">对比度</span><input class="ep-slider" id="sl-contrast" type="range" min="50" max="200" value="100"/><span class="ep-val" id="v-contrast">100%</span></div>
+    <div class="ep-row"><span class="ep-label">饱和度</span><input class="ep-slider" id="sl-saturation" type="range" min="0" max="300" value="100"/><span class="ep-val" id="v-saturation">100%</span></div>
+    <div class="ep-row"><span class="ep-label">锐化</span><input class="ep-slider" id="sl-sharpen" type="range" min="0" max="5" step="0.1" value="0"/><span class="ep-val" id="v-sharpen">0</span></div>
+    <div class="ep-reset" id="ep-reset">重置</div>
+  </div>
+
+  <!-- 历史记录面板 -->
+  <div id="history-panel">
+    <h3>播放历史</h3>
+    <div id="history-list"></div>
+  </div>
+
+</div><!-- /#video-wrap -->
+
+<script>
+const video = document.getElementById('video')
+const wrap = document.getElementById('video-wrap')
+const topbar = document.getElementById('topbar')
+const controls = document.getElementById('controls')
+const osd = document.getElementById('osd')
+const STORAGE_KEY = 'ps_player_history'
+const ENHANCE_KEY = 'ps_player_enhance'
+const VOL_KEY = 'ps_player_vol'
+const SPEED_KEY = 'ps_player_speed'
+const SPEEDS = [0.5, 0.75, 1, 1.25, 1.5, 2]
+
+let hideTimer = null
+let osdTimer = null
+let currentFile = ''
+let speedIdx = 2
+
+// ── 从 URL 参数拿到文件路径 ──────────────────────────────
+const params = new URLSearchParams(location.search)
+const src = params.get('src')
+const title = params.get('title') || '播放器'
+document.title = title
+document.getElementById('topbar-title').textContent = title
+
+if (src) {
+  currentFile = src
+  video.src = src
+  restoreProgress()
+  video.addEventListener('canplay', () => video.play().catch(() => {}), { once: true })
+}
+
+// ── 历史记录 ─────────────────────────────────────────────
+function getHistory() {
+  try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]') } catch { return [] }
+}
+function saveHistory(list) { localStorage.setItem(STORAGE_KEY, JSON.stringify(list)) }
+function addHistory(file, titleStr, duration, currentTime) {
+  if (!file) return
+  let list = getHistory().filter(h => h.file !== file)
+  list.unshift({ file, title: titleStr, duration, currentTime, date: Date.now() })
+  if (list.length > 50) list = list.slice(0, 50)
+  saveHistory(list)
+}
+function restoreProgress() {
+  const list = getHistory()
+  const h = list.find(x => x.file === currentFile)
+  if (h && h.currentTime > 5) {
+    video.addEventListener('loadedmetadata', () => {
+      video.currentTime = h.currentTime
+    }, { once: true })
+  }
+}
+
+// ── OSD ─────────────────────────────────────────────────
+function showOsd(text) {
+  osd.textContent = text
+  osd.classList.add('show')
+  clearTimeout(osdTimer)
+  osdTimer = setTimeout(() => osd.classList.remove('show'), 800)
+}
+
+// ── 控制栏显隐 ───────────────────────────────────────────
+let overControls = false
+
+function scheduleHide() {
+  clearTimeout(hideTimer)
+  if (!video.paused && !overControls) {
+    hideTimer = setTimeout(() => {
+      if (!overControls) {
+        topbar.classList.add('hidden')
+        controls.classList.add('hidden')
+        wrap.classList.remove('show-cursor')
+      }
+    }, 3000)
+  }
+}
+
+function showControls() {
+  topbar.classList.remove('hidden')
+  controls.classList.remove('hidden')
+  wrap.classList.add('show-cursor')
+  scheduleHide()
+}
+
+controls.addEventListener('mouseenter', () => { overControls = true; clearTimeout(hideTimer) })
+controls.addEventListener('mouseleave', () => { overControls = false; scheduleHide() })
+wrap.addEventListener('mousemove', showControls)
+wrap.addEventListener('mouseleave', () => {
+  if (!video.paused && !overControls) {
+    topbar.classList.add('hidden')
+    controls.classList.add('hidden')
+    wrap.classList.remove('show-cursor')
+  }
+})
+
+// ── 进度条 ───────────────────────────────────────────────
+const progressWrap = document.getElementById('progress-wrap')
+const progressFill = document.getElementById('progress-fill')
+const progressBuf = document.getElementById('progress-buf')
+const progressThumb = document.getElementById('progress-thumb')
+
+function fmt(s) {
+  s = Math.floor(s || 0)
+  const h = Math.floor(s / 3600), m = Math.floor((s % 3600) / 60), sec = s % 60
+  return h ? `${h}:${String(m).padStart(2,'0')}:${String(sec).padStart(2,'0')}` : `${m}:${String(sec).padStart(2,'0')}`
+}
+
+video.addEventListener('timeupdate', () => {
+  const pct = video.duration ? video.currentTime / video.duration * 100 : 0
+  progressFill.style.width = pct + '%'
+  progressThumb.style.left = pct + '%'
+  document.getElementById('time').textContent = fmt(video.currentTime) + ' / ' + fmt(video.duration)
+  if (currentFile && video.duration) addHistory(currentFile, title, video.duration, video.currentTime)
+})
+
+video.addEventListener('progress', () => {
+  if (video.buffered.length && video.duration) {
+    const end = video.buffered.end(video.buffered.length - 1)
+    progressBuf.style.width = (end / video.duration * 100) + '%'
+  }
+})
+
+let dragging = false
+function seekTo(e) {
+  const rect = progressWrap.getBoundingClientRect()
+  const pct = Math.max(0, Math.min(1, (e.clientX - rect.left) / rect.width))
+  video.currentTime = pct * video.duration
+}
+progressWrap.addEventListener('mousedown', e => {
+  dragging = true
+  overControls = true
+  clearTimeout(hideTimer)
+  seekTo(e)
+})
+document.addEventListener('mousemove', e => { if (dragging) seekTo(e) })
+document.addEventListener('mouseup', () => {
+  dragging = false
+  overControls = false
+  scheduleHide()
+})
+
+// ── 播放/暂停 ────────────────────────────────────────────
+const btnPlay = document.getElementById('btn-play')
+const iconPlay = document.getElementById('icon-play')
+const iconPause = document.getElementById('icon-pause')
+
+function updatePlayIcon() {
+  iconPlay.style.display = video.paused ? '' : 'none'
+  iconPause.style.display = video.paused ? 'none' : ''
+}
+video.addEventListener('play', updatePlayIcon)
+video.addEventListener('pause', () => { updatePlayIcon(); showControls() })
+btnPlay.addEventListener('click', () => video.paused ? video.play() : video.pause())
+wrap.addEventListener('dblclick', () => toggleFs())
+wrap.addEventListener('click', e => {
+  if (e.target === video || e.target === wrap) {
+    video.paused ? video.play() : video.pause()
+    showOsd(video.paused ? '⏸' : '▶')
+  }
+})
+
+// ── 音量 ────────────────────────────────────────────────
+const volSlider = document.getElementById('vol-slider')
+const btnMute = document.getElementById('btn-mute')
+const iconVol = document.getElementById('icon-vol')
+const iconMute = document.getElementById('icon-mute')
+volSlider.value = parseFloat(localStorage.getItem(VOL_KEY) || '1')
+video.volume = parseFloat(volSlider.value)
+
+function updateVolIcon() {
+  iconVol.style.display = video.muted || video.volume === 0 ? 'none' : ''
+  iconMute.style.display = video.muted || video.volume === 0 ? '' : 'none'
+}
+volSlider.addEventListener('input', () => {
+  video.volume = parseFloat(volSlider.value)
+  video.muted = false
+  localStorage.setItem(VOL_KEY, volSlider.value)
+  updateVolIcon()
+})
+btnMute.addEventListener('click', () => {
+  video.muted = !video.muted
+  updateVolIcon()
+})
+
+// ── 速度 ────────────────────────────────────────────────
+const speedBtn = document.getElementById('speed-btn')
+speedIdx = parseInt(localStorage.getItem(SPEED_KEY) || '2')
+video.playbackRate = SPEEDS[speedIdx]
+speedBtn.textContent = SPEEDS[speedIdx] + '×'
+speedBtn.addEventListener('click', () => {
+  speedIdx = (speedIdx + 1) % SPEEDS.length
+  video.playbackRate = SPEEDS[speedIdx]
+  speedBtn.textContent = SPEEDS[speedIdx] + '×'
+  localStorage.setItem(SPEED_KEY, speedIdx)
+  showOsd(SPEEDS[speedIdx] + '×')
+})
+
+// ── 前进/后退 ────────────────────────────────────────────
+document.getElementById('btn-back').addEventListener('click', () => { video.currentTime -= 10; showOsd('← 10s') })
+document.getElementById('btn-fwd').addEventListener('click', () => { video.currentTime += 10; showOsd('→ 10s') })
+
+// ── 全屏 ────────────────────────────────────────────────
+function toggleFs() {
+  document.fullscreenElement ? document.exitFullscreen() : document.documentElement.requestFullscreen()
+}
+document.getElementById('btn-fs').addEventListener('click', toggleFs)
+
+// ── 键盘 ────────────────────────────────────────────────
+document.addEventListener('keydown', e => {
+  if (e.target.tagName === 'INPUT') return
+  switch(e.key) {
+    case ' ': case 'k': e.preventDefault(); video.paused ? video.play() : video.pause(); showOsd(video.paused ? '⏸' : '▶'); break
+    case 'ArrowLeft': e.preventDefault(); video.currentTime -= 10; showOsd('← 10s'); break
+    case 'ArrowRight': e.preventDefault(); video.currentTime += 10; showOsd('→ 10s'); break
+    case 'ArrowUp': e.preventDefault(); video.volume = Math.min(1, video.volume + 0.1); volSlider.value = video.volume; localStorage.setItem(VOL_KEY, video.volume); showOsd('音量 ' + Math.round(video.volume*100) + '%'); updateVolIcon(); break
+    case 'ArrowDown': e.preventDefault(); video.volume = Math.max(0, video.volume - 0.1); volSlider.value = video.volume; localStorage.setItem(VOL_KEY, video.volume); showOsd('音量 ' + Math.round(video.volume*100) + '%'); updateVolIcon(); break
+    case 'm': case 'M': video.muted = !video.muted; updateVolIcon(); break
+    case 'f': case 'F': toggleFs(); break
+  }
+  showControls()
+})
+
+// ── 画质增强 ─────────────────────────────────────────────
+let enhance = JSON.parse(localStorage.getItem(ENHANCE_KEY) || '{"brightness":100,"contrast":100,"saturation":100,"sharpen":0}')
+function applyEnhance() {
+  const sharpPx = enhance.sharpen > 0 ? ` url("data:image/svg+xml,<svg xmlns='http://www.w3.org/2000/svg'><filter id='s'><feConvolveMatrix order='3' kernelMatrix='-${enhance.sharpen} -${enhance.sharpen} -${enhance.sharpen} -${enhance.sharpen} ${1+8*enhance.sharpen} -${enhance.sharpen} -${enhance.sharpen} -${enhance.sharpen} -${enhance.sharpen}'/></filter></svg>#s")` : ''
+  video.style.filter = `brightness(${enhance.brightness}%) contrast(${enhance.contrast}%) saturate(${enhance.saturation}%)${sharpPx}`
+  localStorage.setItem(ENHANCE_KEY, JSON.stringify(enhance))
+}
+function setupSlider(id, valId, key) {
+  const sl = document.getElementById(id)
+  const vl = document.getElementById(valId)
+  sl.value = enhance[key]
+  vl.textContent = key === 'sharpen' ? enhance[key] : enhance[key] + '%'
+  sl.addEventListener('input', () => {
+    enhance[key] = parseFloat(sl.value)
+    vl.textContent = key === 'sharpen' ? enhance[key] : enhance[key] + '%'
+    applyEnhance()
+  })
+}
+setupSlider('sl-brightness','v-brightness','brightness')
+setupSlider('sl-contrast','v-contrast','contrast')
+setupSlider('sl-saturation','v-saturation','saturation')
+setupSlider('sl-sharpen','v-sharpen','sharpen')
+document.getElementById('ep-reset').addEventListener('click', () => {
+  enhance = {brightness:100,contrast:100,saturation:100,sharpen:0}
+  applyEnhance()
+  setupSlider('sl-brightness','v-brightness','brightness')
+  setupSlider('sl-contrast','v-contrast','contrast')
+  setupSlider('sl-saturation','v-saturation','saturation')
+  setupSlider('sl-sharpen','v-sharpen','sharpen')
+})
+applyEnhance()
+
+const enhancePanel = document.getElementById('enhance-panel')
+document.getElementById('btn-enhance').addEventListener('click', e => {
+  e.stopPropagation()
+  historyPanel.classList.remove('open')
+  enhancePanel.classList.toggle('open')
+})
+
+// ── 历史记录面板 ──────────────────────────────────────────
+const historyPanel = document.getElementById('history-panel')
+function renderHistory() {
+  const list = getHistory()
+  const el = document.getElementById('history-list')
+  if (!list.length) { el.innerHTML = '<div class="hi-empty">暂无记录</div>'; return }
+  el.innerHTML = list.map((h,i) => {
+    const pct = h.duration ? Math.round(h.currentTime / h.duration * 100) : 0
+    const date = new Date(h.date)
+    const dateStr = `${date.getMonth()+1}/${date.getDate()} ${String(date.getHours()).padStart(2,'0')}:${String(date.getMinutes()).padStart(2,'0')}`
+    return `<div class="hi-item" data-idx="${i}">
+      <div class="hi-info">
+        <div class="hi-name" title="${h.title}">${h.title}</div>
+        <div class="hi-meta">${dateStr} · ${pct}%</div>
+        <div class="hi-prog"><div class="hi-prog-fill" style="width:${pct}%"></div></div>
+      </div>
+    </div>`
+  }).join('')
+  el.querySelectorAll('.hi-item').forEach(item => {
+    item.addEventListener('click', () => {
+      const h = list[parseInt(item.dataset.idx)]
+      if (h.file !== currentFile) {
+        currentFile = h.file
+        video.src = h.file
+        document.title = h.title
+        document.getElementById('topbar-title').textContent = h.title
+        video.addEventListener('loadedmetadata', () => { video.currentTime = h.currentTime }, { once: true })
+        video.play()
+      } else {
+        video.currentTime = h.currentTime
+      }
+      historyPanel.classList.remove('open')
+    })
+  })
+}
+document.getElementById('btn-history').addEventListener('click', e => {
+  e.stopPropagation()
+  enhancePanel.classList.remove('open')
+  historyPanel.classList.toggle('open')
+  if (historyPanel.classList.contains('open')) renderHistory()
+})
+
+// 点击其他地方关闭面板
+document.addEventListener('click', () => {
+  enhancePanel.classList.remove('open')
+  historyPanel.classList.remove('open')
+})
+
+document.getElementById('tb-min').addEventListener('click', () => window.playerWin?.minimize())
+document.getElementById('tb-close').addEventListener('click', () => window.playerWin?.close())
+</script>
+</body>
+</html>

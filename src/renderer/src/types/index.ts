@@ -47,6 +47,15 @@ export interface FileItem {
 }
 
 /**
+ * 演员信息接口
+ */
+export interface ActorInfo {
+  name: string
+  role?: string
+  photoDataUrl?: string
+}
+
+/**
  * 电影信息接口
  */
 export interface MovieInfoType {
@@ -57,6 +66,7 @@ export interface MovieInfoType {
   genre?: string[]
   director?: string
   actor?: string[]
+  actors?: ActorInfo[]
   rating?: string
   runtime?: string
   country?: string

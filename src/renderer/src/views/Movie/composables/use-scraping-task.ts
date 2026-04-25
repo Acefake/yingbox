@@ -1,9 +1,8 @@
-import { ref } from 'vue'
-import { message } from 'ant-design-vue'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import type { ProcessedItem } from '@/types'
 import { useErrorHandler } from '@/composables/use-error-handler'
 import { useScraping } from '@/views/movie/composables/use-scraping'
+import { useGlobalQueue } from '@/composables/use-global-queue'
 
 /**
  * 刮削任务处理hook
@@ -11,6 +10,7 @@ import { useScraping } from '@/views/movie/composables/use-scraping'
 export const useScrapingTask = () => {
   const { safeExecute } = useErrorHandler()
   const { scrapeMovieInFolder } = useScraping()
+  const { addItem, setProcessing, setDone, setError, setStep } = useGlobalQueue()
 
   /**
    * 处理单个刮削任务
@@ -18,21 +18,22 @@ export const useScrapingTask = () => {
   const processSingleScrapeTask = async (
     movie: Movie,
     currentScrapeItem: ProcessedItem
-  ): Promise<void> => {
+  ): Promise<string | null> => {
     console.log('=== 开始处理单个刮削任务 ===')
     console.log('电影数据:', movie)
     console.log('当前刮削项目:', currentScrapeItem)
     
     if (!currentScrapeItem) {
       console.error('没有选中的刮削项目')
-      message.error('没有选中的刮削项目')
-      return
+      return null
     }
 
-    await safeExecute(
+    const queueId = addItem(currentScrapeItem.name, 'movie')
+    setProcessing(queueId)
+
+    const taskResult = await safeExecute(
       async () => {
-        message.loading('正在处理电影文件...', 0)
-        console.log('显示加载提示')
+        console.log('开始处理电影文件')
 
         const videoExtensions = [
           '.mp4',
@@ -54,8 +55,22 @@ export const useScrapingTask = () => {
           searchPath = currentScrapeItem.path
           isAlreadyScraped = true
           console.log('项目类型为文件夹，已刮削过')
+
+          // 获取文件夹中的文件列表
+          const folderFiles = await window.api.file.readdir(searchPath)
+          if (!folderFiles.success || !folderFiles.data) {
+            throw new Error(folderFiles.error || '读取目录失败')
+          }
+          const files = folderFiles.data as Array<{ name: string; isDirectory: boolean; isFile: boolean }>
+          videoFile = files.find(file =>
+            videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+          )
+          if (!videoFile) {
+            throw new Error('文件夹中未找到视频文件')
+          }
+          console.log('找到视频文件:', videoFile.name)
         } else {
-          // 如果是视频文件类型，在当前目录中查找（支持 Windows 和 Unix 路径）
+          // 如果是视频文件类型，直接使用 currentScrapeItem.path 对应的文件
           const lastSlashIndex = Math.max(
             currentScrapeItem.path.lastIndexOf('/'),
             currentScrapeItem.path.lastIndexOf('\\')
@@ -63,54 +78,15 @@ export const useScrapingTask = () => {
           searchPath = currentScrapeItem.path.substring(0, lastSlashIndex)
           isAlreadyScraped = false
           console.log('项目类型为视频文件，新刮削')
+
+          // 直接从路径提取文件名，不扫描目录，避免选中错误的视频文件
+          const videoFileName = currentScrapeItem.path.substring(lastSlashIndex + 1)
+          videoFile = { name: videoFileName, isDirectory: false, isFile: true }
+          console.log('使用当前选中的视频文件:', videoFile.name)
         }
         
         console.log('搜索路径:', searchPath)
         console.log('是否已刮削:', isAlreadyScraped)
-
-        // 获取指定路径中的文件
-        console.log('开始读取目录文件...')
-        const folderFiles = await window.api.file.readdir(searchPath)
-        console.log('目录读取结果:', folderFiles)
-
-        if (!folderFiles.success || !folderFiles.data) {
-          console.error('读取目录失败:', folderFiles.error)
-          throw new Error(folderFiles.error || '读取目录失败')
-        }
-
-        const files = folderFiles.data as Array<{
-          name: string
-          isDirectory: boolean
-          isFile: boolean
-        }>
-
-        console.log('目录中的文件:', files.map(f => f.name))
-
-        // 如果是视频文件类型，检查该目录是否已经包含刮削资源（NFO 或海报）
-        if (currentScrapeItem.type !== 'folder') {
-          const hasNfo = files.some(f => f.name.toLowerCase().endsWith('.nfo'))
-          const hasPoster = files.some(f =>
-            f.name.toLowerCase().includes('poster') ||
-            f.name.toLowerCase() === 'poster.jpg'
-          )
-          
-          // 如果目录中已有 NFO 或海报，认为已经刮削过
-          if (hasNfo || hasPoster) {
-            isAlreadyScraped = true
-            console.log('目录中已有刮削资源（NFO或海报），视为已刮削')
-          }
-        }
-
-        videoFile = files.find(file =>
-          videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-        )
-
-        if (!videoFile) {
-          console.error('未找到视频文件')
-          throw new Error('未找到视频文件')
-        }
-        
-        console.log('找到视频文件:', videoFile.name)
 
         // 获取视频文件扩展名
         const videoExtension = videoFile.name.substring(
@@ -118,18 +94,17 @@ export const useScrapingTask = () => {
         )
         console.log('视频文件扩展名:', videoExtension)
 
-        // 清理电影名称，移除特殊字符以确保文件名安全
-        console.log('开始清理电影名称...')
-        const cleanMovieName = movie.title
-          .replace(/[<>:"/\\|?*]/g, '') // 移除Windows不允许的字符
-          .replace(/\s+/g, ' ') // 合并多个空格
-          .trim()
-        console.log('清理后的电影名称:', cleanMovieName)
+        // MetaTube 用 number 作为文件名，TMDB 用 title
+        const isMetatube = !!(movie as any)._metatube
+        const baseName = isMetatube ? (movie.original_title || movie.title) : movie.title
+        console.log('使用文件名:', baseName, '| isMetatube:', isMetatube)
 
-        // 构建新的文件名和文件夹名
-        const newVideoFileName = `${cleanMovieName}${videoExtension}`
-        const movieFolderName = cleanMovieName
+        // 构建新的文件名和文件夹名（文件夹包含年份，视频文件不包含年份）
+        const year = movie.release_date ? movie.release_date.substring(0, 4) : ''
+        const movieFolderName = year ? `${baseName} (${year})` : baseName
+        const newVideoFileName = `${baseName}${videoExtension}`
         
+        console.log('年份:', year)
         console.log('新视频文件名:', newVideoFileName)
         console.log('电影文件夹名:', movieFolderName)
 
@@ -139,9 +114,32 @@ export const useScrapingTask = () => {
 
         if (isAlreadyScraped) {
           console.log('=== 处理已刮削的项目 ===')
-          // 如果已经刮削过，检查是否需要重命名文件夹和视频文件
+          // 先在原文件夹中刮削（避免路径混乱）
+          movieFolderPath = searchPath
+          currentVideoPath = await window.api.path.join(movieFolderPath, videoFile.name)
+          console.log('当前文件夹路径:', movieFolderPath)
+          console.log('当前视频路径:', currentVideoPath)
+
+          // 在原位置刮削
+          await scrapeMovieInFolder(movie, movieFolderPath, baseName, (step: string, stepIndex: number) => {
+            const steps = [
+              { name: '获取详情', done: false },
+              { name: '下载NFO', done: false },
+              { name: '下载海报', done: false },
+              { name: '下载背景图', done: false },
+              { name: '下载演员照片', done: false },
+            ]
+            if (stepIndex >= 0 && stepIndex < steps.length) {
+              for (let i = 0; i <= stepIndex; i++) {
+                steps[i].done = true
+              }
+            }
+            setStep(queueId, step, steps)
+          })
+
+          // 刮削完成后，检查是否需要重命名文件夹和视频文件
           const currentFolderName = await window.api.path.basename(searchPath)
-          const expectedVideoFileName = `${cleanMovieName}${videoExtension}`
+          const expectedVideoFileName = `${movie.title}${videoExtension}`
           
           console.log('当前文件夹名:', currentFolderName)
           console.log('期望的视频文件名:', expectedVideoFileName)
@@ -149,132 +147,100 @@ export const useScrapingTask = () => {
           // 检查文件夹名是否需要更新
           if (currentFolderName !== movieFolderName) {
             console.log('需要重命名文件夹')
-            // 需要重命名文件夹
             const parentPath = await window.api.path.dirname(searchPath)
-            const newFolderPath = await window.api.path.join(
-              parentPath,
-              movieFolderName
-            )
-
+            const newFolderPath = await window.api.path.join(parentPath, movieFolderName)
             console.log('新文件夹路径:', newFolderPath)
-            const renameFolderResult = await window.api.file.move(
-              searchPath,
-              newFolderPath
-            )
+            const renameFolderResult = await window.api.file.move(searchPath, newFolderPath)
             console.log('文件夹重命名结果:', renameFolderResult)
-
             if (!renameFolderResult.success) {
               throw new Error(`重命名文件夹失败: ${renameFolderResult.error}`)
             }
-
             movieFolderPath = newFolderPath
-          } else {
-            console.log('文件夹名无需更改')
-            movieFolderPath = searchPath
           }
 
-          currentVideoPath = await window.api.path.join(
-            movieFolderPath,
-            videoFile.name
-          )
-          console.log('当前视频路径:', currentVideoPath)
-
+          // 更新视频路径（文件夹可能已改名）
+          currentVideoPath = await window.api.path.join(movieFolderPath, videoFile.name)
+          
           // 检查视频文件是否需要重命名
           if (videoFile.name !== expectedVideoFileName) {
             console.log('需要重命名视频文件')
-            // 需要重命名视频文件
-            newVideoPath = await window.api.path.join(
-              movieFolderPath,
-              expectedVideoFileName
-            )
+            newVideoPath = await window.api.path.join(movieFolderPath, expectedVideoFileName)
             console.log('新视频路径:', newVideoPath)
-
-            const moveResult = await window.api.file.move(
-              currentVideoPath,
-              newVideoPath
-            )
+            const moveResult = await window.api.file.move(currentVideoPath, newVideoPath)
             console.log('视频文件重命名结果:', moveResult)
-
             if (!moveResult.success) {
               throw new Error(`重命名视频文件失败: ${moveResult.error}`)
             }
-          } else {
-            console.log('视频文件名无需更改')
-            // 文件名已经正确，无需移动
-            newVideoPath = currentVideoPath
           }
         } else {
           console.log('=== 处理新刮削的项目 ===')
-          // 如果是新刮削，按原有逻辑处理
-          currentVideoPath = await window.api.path.join(
-            searchPath,
-            videoFile.name
-          )
-          movieFolderPath = await window.api.path.join(
-            searchPath,
-            movieFolderName
-          )
-          newVideoPath = await window.api.path.join(
-            movieFolderPath,
-            newVideoFileName
-          )
-          
+          currentVideoPath = await window.api.path.join(searchPath, videoFile.name)
           console.log('当前视频路径:', currentVideoPath)
-          console.log('电影文件夹路径:', movieFolderPath)
-          console.log('新视频路径:', newVideoPath)
 
-          // 检查电影文件夹是否已存在，如果不存在则创建
-          const folderExists = await window.api.file.exists(movieFolderPath)
-          console.log('文件夹存在检查:', folderExists)
-
-          if (!folderExists.exists) {
-            console.log('文件夹不存在，创建文件夹')
-            const createResult = await window.api.file.mkdir(movieFolderPath)
-            console.log('文件夹创建结果:', createResult)
-
-            if (!createResult.success) {
-              throw new Error(`创建文件夹失败: ${createResult.error}`)
+          const progressCb = (step: string, stepIndex: number) => {
+            const steps = [
+              { name: '获取详情', done: false },
+              { name: '下载NFO', done: false },
+              { name: '下载海报', done: false },
+              { name: '下载背景图', done: false },
+              { name: '下载演员照片', done: false },
+            ]
+            if (stepIndex >= 0 && stepIndex < steps.length) {
+              for (let i = 0; i <= stepIndex; i++) steps[i].done = true
             }
+            setStep(queueId, step, steps)
+          }
+
+          // 防止循环嵌套：若searchPath本身已经是目标文件夹，直接原地刮削，不新建子文件夹
+          const currentBaseName = await window.api.path.basename(searchPath)
+          if (currentBaseName === movieFolderName) {
+            console.log('searchPath 已是目标文件夹，原地刮削，不新建子文件夹')
+            movieFolderPath = searchPath
+            await scrapeMovieInFolder(movie, movieFolderPath, baseName, progressCb)
           } else {
-            console.log('文件夹已存在')
-          }
+            // 检查目标文件夹是否已存在
+            movieFolderPath = await window.api.path.join(searchPath, movieFolderName)
+            const folderExists = await window.api.file.exists(movieFolderPath)
+            console.log('目标文件夹存在检查:', { path: movieFolderPath, exists: folderExists.exists })
 
-          // 重命名并移动视频文件到新文件夹
-          console.log('开始移动视频文件...')
-          const moveResult = await window.api.file.move(
-            currentVideoPath,
-            newVideoPath
-          )
-          console.log('视频文件移动结果:', moveResult)
+            if (!folderExists.exists) {
+              console.log('目标文件夹不存在，创建新文件夹')
+              const createResult = await window.api.file.mkdir(movieFolderPath)
+              console.log('文件夹创建结果:', createResult)
+              if (!createResult.success) {
+                throw new Error(`创建文件夹失败: ${createResult.error}`)
+              }
+            } else {
+              console.log('目标文件夹已存在，直接使用')
+            }
 
-          if (!moveResult.success) {
-            throw new Error(`移动视频文件失败: ${moveResult.error}`)
+            // 先移动视频到目标文件夹，再在目标文件夹内刮削
+            newVideoPath = await window.api.path.join(movieFolderPath, newVideoFileName)
+            console.log('移动视频到目标文件夹:', newVideoPath)
+            const moveResult = await window.api.file.move(currentVideoPath, newVideoPath)
+            console.log('视频文件移动结果:', moveResult)
+            if (!moveResult.success) {
+              throw new Error(`移动视频文件失败: ${moveResult.error}`)
+            }
+
+            // 在目标文件夹内刮削（所有资源都写到目标文件夹）
+            await scrapeMovieInFolder(movie, movieFolderPath, baseName, progressCb)
           }
         }
 
-        message.destroy()
-        console.log('隐藏加载提示')
+        console.log(isAlreadyScraped ? '电影信息已更新' : `文件已重命名为: ${newVideoFileName}`)
 
-        if (isAlreadyScraped) {
-          message.success('电影信息已更新')
-          console.log('电影信息已更新')
-        } else {
-          message.success(`文件已重命名为: ${newVideoFileName}`)
-          console.log('文件已重命名:', newVideoFileName)
-        }
-
-        // 现在调用现有的刮削逻辑来下载海报和NFO文件
-        console.log('=== 开始调用刮削逻辑 ===')
-        console.log('电影文件夹路径:', movieFolderPath)
-        console.log('清理后的电影名称:', cleanMovieName)
-        await scrapeMovieInFolder(movie, movieFolderPath, cleanMovieName)
-        console.log('刮削逻辑调用完成')
-
-        return true
+        return movieFolderPath
       },
-      '处理电影文件失败',
-      '刮削任务完成'
+      '处理电影文件失败'
     )
+
+    if (taskResult) {
+      setDone(queueId)
+    } else {
+      setError(queueId)
+    }
+    return taskResult || null
   }
 
   return {

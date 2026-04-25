@@ -28,7 +28,11 @@ const api = {
   },
   http: {
     // Download file from URL
-    download: (url, filePath) => electron.ipcRenderer.invoke("http:download", url, filePath)
+    download: (url, filePath) => electron.ipcRenderer.invoke("http:download", url, filePath),
+    // JSON request (GET/POST) via main process Node.js http/https
+    fetch: (url, options) => electron.ipcRenderer.invoke("http:fetch", url, options ?? {}),
+    // Fetch image as base64 data URL via main process (bypasses hotlink protection)
+    fetchImage: (url, referer) => electron.ipcRenderer.invoke("http:fetchImage", url, referer)
   },
   path: {
     // Join path segments
@@ -53,6 +57,40 @@ const api = {
   app: {
     // Get app version info from package.json
     getVersion: () => electron.ipcRenderer.invoke("app:getVersion")
+  },
+  shell: {
+    openPath: (filePath) => electron.ipcRenderer.invoke("shell:openPath", filePath)
+  },
+  player: {
+    open: (filePath) => electron.ipcRenderer.invoke("player:open", filePath)
+  },
+  win: {
+    minimize: () => electron.ipcRenderer.invoke("win:minimize"),
+    maximize: () => electron.ipcRenderer.invoke("win:maximize"),
+    close: () => electron.ipcRenderer.invoke("win:close"),
+    isMaximized: () => electron.ipcRenderer.invoke("win:isMaximized")
+  },
+  detail: {
+    open: (itemData) => electron.ipcRenderer.invoke("detail:open", itemData),
+    getData: () => electron.ipcRenderer.invoke("detail:getData"),
+    onUpdate: (cb) => electron.ipcRenderer.on("detail:update", (_e, data) => cb(data)),
+    offUpdate: () => electron.ipcRenderer.removeAllListeners("detail:update")
+  },
+  scraper: {
+    fetchMeta: (avid) => electron.ipcRenderer.invoke("scraper:fetchMeta", avid),
+    scrape: (avid) => electron.ipcRenderer.invoke("scraper:scrape", avid)
+  },
+  downloader: {
+    start: (avid) => electron.ipcRenderer.send("downloader:start", avid),
+    cancel: (avid) => electron.ipcRenderer.send("downloader:cancel", avid),
+    onLog: (cb) => {
+      electron.ipcRenderer.on("downloader:log", (_e, data) => cb(data));
+    },
+    onDone: (cb) => {
+      electron.ipcRenderer.on("downloader:done", (_e, data) => cb(data));
+    },
+    offLog: () => electron.ipcRenderer.removeAllListeners("downloader:log"),
+    offDone: () => electron.ipcRenderer.removeAllListeners("downloader:done")
   }
 };
 if (process.contextIsolated) {

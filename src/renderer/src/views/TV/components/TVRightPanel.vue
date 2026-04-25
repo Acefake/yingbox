@@ -22,7 +22,7 @@
             </div>
           </div>
           <button
-            @click="$emit('search-tv', scrapeTarget)"
+            @click="emit('scrape-season', selectedItem)"
             class="glass-btn mt-3 w-full"
           >
             刮削这季
@@ -74,6 +74,10 @@
             <div class="text-[10px] text-gray-500 mt-0.5">第 {{ ep.episodeNumber ?? '?' }} 集</div>
           </div>
           <span v-if="ep.hasNfo" class="text-[9px] bg-emerald-500/15 text-emerald-400 px-1.5 py-0.5 rounded-md font-bold flex-shrink-0">NFO</span>
+          <button
+            class="flex-shrink-0 text-[10px] px-2 py-1 rounded-lg bg-blue-500/20 text-blue-400 hover:bg-blue-500/40 transition-colors"
+            @click.stop="emit('scrape-episode', selectedItem, ep)"
+          >刮削</button>
         </div>
         <div v-if="episodeList.length === 0" class="text-xs text-gray-500 text-center py-6">
           未找到视频文件
@@ -184,6 +188,10 @@ const props = defineProps<Props>()
 const emit = defineEmits<{
   /** 始终传入 TV show 根节点，而非季节点 */
   'search-tv': [item: ProcessedItem]
+  /** 刮削整季（静默，从 tvshow.nfo 读 tmdbid） */
+  'scrape-season': [seasonFolder: ProcessedItem]
+  /** 刮削单集：seasonFolder + videoItem */
+  'scrape-episode': [seasonFolder: ProcessedItem, videoItem: ProcessedItem]
 }>()
 
 /** 刮削目标：总是 TV show 根，不管当前选中的是 show 还是 season */

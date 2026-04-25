@@ -2,14 +2,27 @@
   <div class="tv-file-tree-item">
     <!-- 当前项展示（剧、季、或集） -->
     <div
+      v-context-menu="depth === 0 ? { menuItems: tvMenuItems, data: item, onItemClick: handleTVAction, onBeforeShow: handleRightClick } : undefined"
       @click="handleItemClick"
       @mouseenter="handleMouseEnter"
       :class="[
-        'flex items-center p-2 rounded cursor-pointer transition-all duration-200 mb-1 group',
-        isSelected ? 'bg-blue-600 bg-opacity-30' : 'hover:bg-gray-700'
+        'flex items-center py-1 px-2 rounded cursor-pointer transition-all duration-200 mb-0.5 group',
+        isMultiSelectedItem ? 'bg-blue-600 bg-opacity-30' : isSelected ? 'bg-white bg-opacity-10' : 'hover:bg-gray-700'
       ]"
       :style="{ paddingLeft: depth * 12 + 8 + 'px' }"
     >
+      <!-- 多选复选框（仅根节点显示）-->
+      <div v-if="isMultiSelectMode && depth === 0" class="mr-1.5 flex-shrink-0" @click.stop="handleToggleSelection">
+        <div
+          class="w-3.5 h-3.5 rounded border flex items-center justify-center transition-all"
+          :class="isMultiSelectedItem ? 'bg-blue-600 border-blue-600' : 'border-gray-500 hover:border-blue-400'"
+        >
+          <svg v-if="isMultiSelectedItem" class="w-2.5 h-2.5 text-white" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="3" d="M5 13l4 4L19 7" />
+          </svg>
+        </div>
+      </div>
+
       <!-- 展开图标（仅当有子项目时显示） -->
       <div class="w-4 h-4 mr-1 flex items-center justify-center">
         <svg
@@ -67,6 +80,7 @@
         :selected-path="selectedPath"
         :root-item="rootItem ?? item"
         @select="(i, root) => $emit('select', i, root)"
+        @preload="(i) => $emit('preload', i)"
       />
     </div>
   </div>
@@ -75,6 +89,7 @@
 <script setup lang="ts">
 import { ref, computed } from 'vue'
 import type { ProcessedItem } from '@/types'
+import type { MenuItem } from '@/composables/use-context-menu'
 
 interface Props {
   item: ProcessedItem
@@ -84,6 +99,8 @@ interface Props {
   selectedPath?: string
   /** 根节点（TV show），子节点递归时由父传入，用于刮削时定位show根 */
   rootItem?: ProcessedItem
+  isMultiSelectMode?: boolean
+  isSelected?: boolean
 }
 
 const props = withDefaults(defineProps<Props>(), {
@@ -95,6 +112,14 @@ const emit = defineEmits<{
   select: [item: ProcessedItem, rootItem: ProcessedItem]
   /** 预加载事件 */
   preload: [item: ProcessedItem]
+  /** 多选切换（仅根节点）*/
+  toggleSelection: [item: ProcessedItem]
+  /** 自动刮削 */
+  autoScrape: [item: ProcessedItem]
+  /** 直接刮削 */
+  directScrape: [item: ProcessedItem]
+  /** 手动匹配 */
+  manualScrape: [item: ProcessedItem]
 }>()
 
 const isExpanded = ref(props.depth === 0)
@@ -109,19 +134,49 @@ const folderChildren = computed(() =>
 )
 
 const isSelected = computed(() => props.selectedPath === props.item.path)
+const isMultiSelectedItem = computed(() => props.isSelected ?? false)
 
 const handleItemClick = (): void => {
+  if (props.isMultiSelectMode && props.depth === 0) {
+    handleToggleSelection()
+    return
+  }
   if (hasChildren.value) {
     isExpanded.value = !isExpanded.value
   }
-  // 总是把 TV show 根节点一起传出去
   emit('select', props.item, props.rootItem ?? props.item)
+}
+
+const handleToggleSelection = (): void => {
+  emit('toggleSelection', props.rootItem ?? props.item)
+}
+
+const handleRightClick = (): void => {
+  if (!isSelected.value) {
+    emit('select', props.item, props.rootItem ?? props.item)
+  }
+}
+
+const tvMenuItems: MenuItem[] = [
+  { id: 'direct_scrape', label: '直接刮削', icon: 'fas fa-bolt' },
+  { id: 'auto_scrape', label: '刮削（选择匹配）', icon: 'fas fa-search' },
+  { id: 'manual_scrape', label: '手动匹配', icon: 'fas fa-keyboard' },
+]
+
+const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
+  const root = props.rootItem ?? props.item
+  if (action.id === 'direct_scrape') {
+    emit('directScrape', root)
+  } else if (action.id === 'auto_scrape') {
+    emit('autoScrape', root)
+  } else if (action.id === 'manual_scrape') {
+    emit('manualScrape', root)
+  }
 }
 
 const handleMouseEnter = (): void => {
   // 仅对 TV show 根文件夹预加载
   if (props.item.type === 'folder' && props.depth === 0) {
-    console.log('[TVFileTreeItem] Preloading:', props.item.name)
     emit('preload', props.item)
   }
 }
