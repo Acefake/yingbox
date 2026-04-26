@@ -1,0 +1,12 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(rm -rf py)",
+      "Bash(mkdir -p py/tools py/src/downloader py/cfg py/db)",
+      "Bash(cp ../main.py py/)",
+      "Bash(cp ../metadata.py py/)",
+      "Bash(cp ../requirements.txt py/)",
+      "Bash(go vet *)"
+    ]
+  }
+}

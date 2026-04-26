@@ -10,7 +10,7 @@ import {
   session,
   shell,
 } from 'electron'
-import { spawn, ChildProcess } from 'child_process'
+import { spawn } from 'child_process'
 import * as fsSync from 'fs'
 import * as fs from 'fs/promises'
 import * as http from 'http'
@@ -22,8 +22,6 @@ import icon from '../../resources/icon.png?asset'
 Menu.setApplicationMenu(null)
 
 app.commandLine.appendSwitch('enable-features', 'EnableDrDc,CanvasOopRasterization')
-app.commandLine.appendSwitch('force-color-profile', 'hdr')
-app.commandLine.appendSwitch('enable-hdr')
 
 protocol.registerSchemesAsPrivileged([
   { scheme: 'local', privileges: { secure: true, standard: true, stream: true, bypassCSP: true } },
@@ -589,12 +587,19 @@ app.whenReady().then(() => {
   )
 
   // ── Go 后端 ───────────────────────────────────────────────
-  const bdPath = join(__dirname, '../../bd')
-  const goExe = join(bdPath, 'backend', process.platform === 'win32' ? 'main.exe' : 'main')
+  // 开发环境: packages/services/backend/main.exe
+  // 打包后: resources/backend/main.exe
+  const isDev = is.dev
+  const goExe = isDev
+    ? join(process.cwd(), 'packages/services/backend', process.platform === 'win32' ? 'main.exe' : 'main')
+    : join(process.resourcesPath, 'backend', process.platform === 'win32' ? 'main.exe' : 'main')
+  const goCwd = isDev
+    ? join(process.cwd(), 'packages/services/backend')
+    : join(process.resourcesPath, 'backend')
   let goProc: ReturnType<typeof spawn> | null = null
 
   if (fsSync.existsSync(goExe)) {
-    goProc = spawn(goExe, [], { cwd: join(bdPath, 'backend') })
+    goProc = spawn(goExe, [], { cwd: goCwd })
     goProc.stdout?.on('data', (d: Buffer) => console.log('[Go]', d.toString().trim()))
     goProc.stderr?.on('data', (d: Buffer) => console.error('[Go]', d.toString().trim()))
     goProc.on('exit', (code) => console.log('[Go] exited with code', code))
@@ -608,84 +613,7 @@ app.whenReady().then(() => {
 
   // ── Python 刮削 / 下载 ──────────────────────────────────
 
-  ipcMain.handle('scraper:scrape', async (_, avid: string) => {
-    return new Promise((resolve) => {
-      const proc = spawn('python', ['tools/scrape.py', avid], {
-        cwd: bdPath,
-        env: { ...process.env },
-      })
-      let out = ''
-      let err = ''
-      proc.stdout.on('data', (d: Buffer) => (out += d.toString()))
-      proc.stderr.on('data', (d: Buffer) => (err += d.toString()))
-      proc.on('close', () => {
-        try {
-          const lines = out.trim().split('\n')
-          const jsonLine = lines.filter((l) => l.startsWith('{')).pop() || ''
-          const parsed = JSON.parse(jsonLine)
-          parsed._log = err  // 把 stderr 带回去方便前端显示
-          resolve(parsed)
-        } catch {
-          resolve({ error: 'parse failed', _log: err + '\n' + out })
-        }
-      })
-    })
-  })
-
-  ipcMain.handle('scraper:fetchMeta', async (_, avid: string) => {
-    return new Promise((resolve) => {
-      const proc = spawn('python', ['tools/fetch_meta.py', avid], {
-        cwd: bdPath,
-        env: { ...process.env },
-      })
-      let out = ''
-      let err = ''
-      proc.stdout.on('data', (d: Buffer) => (out += d.toString()))
-      proc.stderr.on('data', (d: Buffer) => (err += d.toString()))
-      proc.on('close', (_code: number) => {
-        try {
-          // stdout 最后一行才是 JSON，前面可能有 loguru 日志
-          const lines = out.trim().split('\n')
-          const jsonLine = lines.filter((l) => l.startsWith('{')).pop() || ''
-          resolve(JSON.parse(jsonLine))
-        } catch {
-          resolve({ error: err || 'parse failed', raw: out })
-        }
-      })
-    })
-  })
-
-  const downloaderProcs = new Map<string, ChildProcess>()
-
-  ipcMain.on('downloader:start', (event, avid: string) => {
-    if (downloaderProcs.has(avid)) {
-      event.sender.send('downloader:log', { avid, text: '[already running]' })
-      return
-    }
-    const proc = spawn('python', ['main.py', avid], {
-      cwd: bdPath,
-      env: { ...process.env },
-    })
-    downloaderProcs.set(avid, proc)
-    proc.stdout.on('data', (d: Buffer) =>
-      event.sender.send('downloader:log', { avid, text: d.toString() })
-    )
-    proc.stderr.on('data', (d: Buffer) =>
-      event.sender.send('downloader:log', { avid, text: d.toString() })
-    )
-    proc.on('close', (code: number) => {
-      downloaderProcs.delete(avid)
-      event.sender.send('downloader:done', { avid, code })
-    })
-  })
-
-  ipcMain.on('downloader:cancel', (_, avid: string) => {
-    const proc = downloaderProcs.get(avid)
-    if (proc) {
-      proc.kill()
-      downloaderProcs.delete(avid)
-    }
-  })
+  // Python 刮削/下载已迁移到 Go 后端
 
   ipcMain.handle('shell:openPath', async (_, filePath: string) => {
     const error = await shell.openPath(filePath)

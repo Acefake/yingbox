@@ -76,22 +76,8 @@ const api = {
     onUpdate: (cb) => electron.ipcRenderer.on("detail:update", (_e, data) => cb(data)),
     offUpdate: () => electron.ipcRenderer.removeAllListeners("detail:update")
   },
-  scraper: {
-    fetchMeta: (avid) => electron.ipcRenderer.invoke("scraper:fetchMeta", avid),
-    scrape: (avid) => electron.ipcRenderer.invoke("scraper:scrape", avid)
-  },
-  downloader: {
-    start: (avid) => electron.ipcRenderer.send("downloader:start", avid),
-    cancel: (avid) => electron.ipcRenderer.send("downloader:cancel", avid),
-    onLog: (cb) => {
-      electron.ipcRenderer.on("downloader:log", (_e, data) => cb(data));
-    },
-    onDone: (cb) => {
-      electron.ipcRenderer.on("downloader:done", (_e, data) => cb(data));
-    },
-    offLog: () => electron.ipcRenderer.removeAllListeners("downloader:log"),
-    offDone: () => electron.ipcRenderer.removeAllListeners("downloader:done")
-  }
+  scraper: {},
+  downloader: {}
 };
 if (process.contextIsolated) {
   try {

@@ -1,29 +1,5 @@
 import { ElectronAPI } from '@electron-toolkit/preload'
 
-// File operation result interface
-interface AVMetadata {
-  avid: string
-  title: string
-  cover: string
-  release_date: string
-  duration: string
-  description: string
-  keywords: string[]
-  actress: Record<string, string>
-  fanarts: string[]
-  error?: string
-}
-
-interface DownloaderLogData {
-  avid: string
-  text: string
-}
-
-interface DownloaderDoneData {
-  avid: string
-  code: number
-}
-
 interface FileOperationResult {
   success: boolean
   data?: unknown
@@ -114,18 +90,8 @@ interface API {
     open: (itemData: unknown) => Promise<{ success: boolean }>
     getData: () => Promise<unknown>
   }
-  scraper: {
-    fetchMeta: (avid: string) => Promise<AVMetadata>
-    scrape: (avid: string) => Promise<AVMetadata & { _log?: string }>
-  }
-  downloader: {
-    start: (avid: string) => void
-    cancel: (avid: string) => void
-    onLog: (cb: (data: DownloaderLogData) => void) => void
-    onDone: (cb: (data: DownloaderDoneData) => void) => void
-    offLog: () => void
-    offDone: () => void
-  }
+  scraper: {}
+  downloader: {}
 }
 
 declare global {

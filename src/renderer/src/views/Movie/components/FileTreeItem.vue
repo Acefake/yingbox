@@ -232,7 +232,6 @@ const emit = defineEmits<{
   toggleSelection: [item: ProcessedItem, index: number]
   manualScrape: [item: ProcessedItem]
   preload: [item: ProcessedItem]
-  playVideo: [path: string]
   localScrape: [item: ProcessedItem]
   downloadVideo: [item: ProcessedItem]
   fetchMeta: [item: ProcessedItem]
@@ -448,30 +447,12 @@ const handleImageError = (event: Event): void => {
   img.style.display = 'none'
 }
 
-const videoExtensions = ['.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v']
-
-const playItem = (item: ProcessedItem): void => {
-  let videoPath: string | undefined
-  if (item.type === 'video') {
-    videoPath = item.path
-  } else if (item.type === 'folder' && item.files) {
-    const videoFile = item.files.find(f =>
-      videoExtensions.some(ext => f.name.toLowerCase().endsWith(ext))
-    )
-    if (videoFile) videoPath = videoFile.path
-  }
-  if (videoPath) {
-    emit('playVideo', videoPath)
-  }
-}
-
 // 静态图片菜单
 const folderMenuItems: MenuItem[] = [
   { id: 'view', label: '刮削', icon: 'fas fa-eye' },
   { id: 'local-scrape', label: '本地刮削' },
   { id: 'fetch-meta', label: '预览元数据' },
   { id: 'download', label: '下载视频' },
-  { id: 'play', label: '播放', icon: 'fas fa-play' },
 ]
 
 const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
@@ -483,8 +464,6 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
     emit('fetchMeta', item)
   } else if (action.id === 'download') {
     emit('downloadVideo', item)
-  } else if (action.id === 'play') {
-    playItem(item)
   }
 }
 

@@ -105,7 +105,17 @@
     <!-- 播放源选择面板（居中弹窗） -->
     <Transition name="sheet-fade">
       <div v-if="showPlaySheet" class="sheet-mask" @click.self="showPlaySheet = false">
+      
         <div class="play-sheet">
+          <div v-if="currentUrl" class="player-wrap">
+            <video
+              ref="videoEl"
+              class="hls-player"
+              controls
+              autoplay
+              :poster="tmdbDetail?.backdrop_path ? `https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}` : ''"
+            />
+          </div>
           <div class="sheet-header">
             <span class="sheet-title">选择播放源</span>
             <button class="sheet-close" @click="showPlaySheet = false">✕</button>
@@ -122,9 +132,6 @@
               <button v-for="ep in episodeGroups[activeGroup]?.episodes" :key="ep.url" class="ep-btn"
                 :class="{ playing: currentUrl === ep.url }" @click="playEp(ep.url)">{{ ep.name }}</button>
             </div>
-          </div>
-          <div v-if="currentUrl" class="player-wrap">
-            <video ref="videoEl" class="hls-player" controls autoplay />
           </div>
         </div>
       </div>

@@ -31,8 +31,6 @@ const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
 const icon = path.join(__dirname, "../../resources/icon.png");
 electron.Menu.setApplicationMenu(null);
 electron.app.commandLine.appendSwitch("enable-features", "EnableDrDc,CanvasOopRasterization");
-electron.app.commandLine.appendSwitch("force-color-profile", "hdr");
-electron.app.commandLine.appendSwitch("enable-hdr");
 electron.protocol.registerSchemesAsPrivileged([
   { scheme: "local", privileges: { secure: true, standard: true, stream: true, bypassCSP: true } }
 ]);
@@ -527,81 +525,6 @@ electron.app.whenReady().then(() => {
   }
   electron.app.on("will-quit", () => {
     goProc?.kill();
-  });
-  electron.ipcMain.handle("scraper:scrape", async (_, avid) => {
-    return new Promise((resolve) => {
-      const proc = child_process.spawn("python", ["tools/scrape.py", avid], {
-        cwd: bdPath,
-        env: { ...process.env }
-      });
-      let out = "";
-      let err = "";
-      proc.stdout.on("data", (d) => out += d.toString());
-      proc.stderr.on("data", (d) => err += d.toString());
-      proc.on("close", () => {
-        try {
-          const lines = out.trim().split("\n");
-          const jsonLine = lines.filter((l) => l.startsWith("{")).pop() || "";
-          const parsed = JSON.parse(jsonLine);
-          parsed._log = err;
-          resolve(parsed);
-        } catch {
-          resolve({ error: "parse failed", _log: err + "\n" + out });
-        }
-      });
-    });
-  });
-  electron.ipcMain.handle("scraper:fetchMeta", async (_, avid) => {
-    return new Promise((resolve) => {
-      const proc = child_process.spawn("python", ["tools/fetch_meta.py", avid], {
-        cwd: bdPath,
-        env: { ...process.env }
-      });
-      let out = "";
-      let err = "";
-      proc.stdout.on("data", (d) => out += d.toString());
-      proc.stderr.on("data", (d) => err += d.toString());
-      proc.on("close", (_code) => {
-        try {
-          const lines = out.trim().split("\n");
-          const jsonLine = lines.filter((l) => l.startsWith("{")).pop() || "";
-          resolve(JSON.parse(jsonLine));
-        } catch {
-          resolve({ error: err || "parse failed", raw: out });
-        }
-      });
-    });
-  });
-  const downloaderProcs = /* @__PURE__ */ new Map();
-  electron.ipcMain.on("downloader:start", (event, avid) => {
-    if (downloaderProcs.has(avid)) {
-      event.sender.send("downloader:log", { avid, text: "[already running]" });
-      return;
-    }
-    const proc = child_process.spawn("python", ["main.py", avid], {
-      cwd: bdPath,
-      env: { ...process.env }
-    });
-    downloaderProcs.set(avid, proc);
-    proc.stdout.on(
-      "data",
-      (d) => event.sender.send("downloader:log", { avid, text: d.toString() })
-    );
-    proc.stderr.on(
-      "data",
-      (d) => event.sender.send("downloader:log", { avid, text: d.toString() })
-    );
-    proc.on("close", (code) => {
-      downloaderProcs.delete(avid);
-      event.sender.send("downloader:done", { avid, code });
-    });
-  });
-  electron.ipcMain.on("downloader:cancel", (_, avid) => {
-    const proc = downloaderProcs.get(avid);
-    if (proc) {
-      proc.kill();
-      downloaderProcs.delete(avid);
-    }
   });
   electron.ipcMain.handle("shell:openPath", async (_, filePath) => {
     const error = await electron.shell.openPath(filePath);

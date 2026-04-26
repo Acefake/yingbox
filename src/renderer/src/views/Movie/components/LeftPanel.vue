@@ -133,7 +133,6 @@
           @auto-scrape="(item: ProcessedItem) => $emit('autoScrape', item)"
           @direct-scrape="(item: ProcessedItem) => $emit('directScrape', item)"
           @manual-scrape="(item: ProcessedItem) => $emit('manualScrape', item)"
-          @play-video="(path: string) => $emit('playVideo', path)"
         />
       </template>
 
@@ -153,7 +152,6 @@
           @direct-scrape="item => $emit('directScrape', item)"
           @toggle-selection="(item: ProcessedItem) => $emit('toggleSelection', item)"
           @preload="(item: ProcessedItem) => $emit('preload', item)"
-          @play-video="(path: string) => $emit('playVideo', path)"
           @local-scrape="(item: ProcessedItem) => $emit('localScrape', item)"
           @download-video="(item: ProcessedItem) => $emit('downloadVideo', item)"
           @fetch-meta="(item: ProcessedItem) => $emit('fetchMeta', item)"
@@ -218,8 +216,6 @@ defineEmits<{
   toggleSelection: [item: ProcessedItem]
   /** 鼠标悬停预加载 */
   preload: [item: ProcessedItem]
-  /** 播放视频 */
-  playVideo: [path: string]
   /** 本地刮削 */
   localScrape: [item: ProcessedItem]
   /** 下载视频 */

@@ -38,8 +38,8 @@
         <div v-else-if="meta" class="flex-1 overflow-y-auto p-6 space-y-6">
             <img
               :src="proxyUrl(meta.cover)"
-              class="w-auto flex-shrink-0 rounded-lg object-cover"
-              style="aspect-ratio: 2/3; max-width: 100%;"
+              class="w-full flex-shrink-0 rounded-lg object-cover"
+              style="aspect-ratio: 16/9;"
               @error="(e) => (e.target as HTMLImageElement).style.display='none'"
             />
           <!-- 主信息区 -->

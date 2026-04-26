@@ -17,8 +17,9 @@
     "build:nocheck": "electron-vite build",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
-    "build:unpack": "npm run build:nocheck && electron-builder --dir",
-    "build:win": "npm run build:nocheck && electron-builder --win",
+    "build:backend": "cd packages/services/backend && go build -o main.exe .",
+    "build:unpack": "npm run build:nocheck && npm run build:backend && electron-builder --dir",
+    "build:win": "npm run build:nocheck && npm run build:backend && electron-builder --win",
     "build:mac": "npm run build:nocheck && electron-builder --mac",
     "build:linux": "npm run build:nocheck && electron-builder --linux"
   },
@@ -36,6 +37,21 @@
     "hls.js": "^1.6.16",
     "pinia": "^3.0.3",
     "vue-router": "^4.5.1"
+  },
+  "build": {
+    "win": {
+      "target": ["portable", "zip"]
+    },
+    "extraResources": [
+      {
+        "from": "packages/services/backend/main.exe",
+        "to": "backend/main.exe"
+      },
+      {
+        "from": "packages/services/backend/py",
+        "to": "backend/py"
+      }
+    ]
   },
   "devDependencies": {
     "@egoist/tailwindcss-icons": "^1.9.0",

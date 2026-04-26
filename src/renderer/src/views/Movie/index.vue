@@ -24,7 +24,6 @@
         @toggle-select-all="toggleSelectAll"
         @add-selected-to-queue="addSelectedToScrapeQueue"
         @toggle-selection="toggleItemSelection"
-        @play-video="handlePlayVideo"
         @local-scrape="handleLocalScrape"
         @download-video="handleDownloadVideo"
         @fetch-meta="handleFetchMeta"
@@ -75,6 +74,17 @@
       @close="showMetaPreviewModal = false"
     />
 
+    <!-- JavBus 刮削弹窗 -->
+    <JavBusScrapeModal
+      ref="javBusScrapeModal"
+      :visible="showJavBusScrapeModal"
+      :avid="javBusScrapeAvid"
+      :item="javBusScrapeItem"
+      @close="showJavBusScrapeModal = false"
+      @scrape="handleJavBusScrape"
+      @add-to-queue="handleJavBusAddToQueue"
+    />
+
     <!-- 下载弹窗 -->
     <DownloadModal
       :visible="showDownloadModal"
@@ -109,6 +119,8 @@ import type { MediaResult } from '@/components/MediaSearchModal.vue'
 import ManualScrapeModal from '@/views/movie/components/ManualScrapeModal.vue'
 import DownloadModal from '@/views/movie/components/DownloadModal.vue'
 import MetaPreviewModal from '@/views/movie/components/MetaPreviewModal.vue'
+import JavBusScrapeModal from '@/views/movie/components/JavBusScrapeModal.vue'
+import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { useScraping } from '@/views/movie/composables/use-scraping'
 import { useFileManagement } from '@/views/movie/composables/use-file-management'
@@ -140,6 +152,12 @@ const downloadAvid = ref('')
 // 元数据预览弹窗状态
 const showMetaPreviewModal = ref(false)
 const metaPreviewAvid = ref('')
+
+// JavBus 刮削弹窗状态
+const showJavBusScrapeModal = ref(false)
+const javBusScrapeAvid = ref('')
+const javBusScrapeItem = ref<ProcessedItem | null>(null)
+const javBusScrapeModal = ref<InstanceType<typeof JavBusScrapeModal> | null>(null)
 const localScrapeToast = ref('')
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -150,16 +168,6 @@ const downloaderSites = [
   { downloaderName: 'Memo', domain: 'memojav.com', weight: 600 },
   { downloaderName: 'KanAV', domain: 'kanav.info', weight: 490 },
 ]
-
-// 视频播放
-const handlePlayVideo = (path: string): void => {
-  const player = localStorage.getItem('videoPlayer') || 'builtin'
-  if (player === 'system') {
-    window.api.shell.openPath(path)
-  } else {
-    window.api.player.open(path)
-  }
-}
 
 // 左侧边栏状态
 const selectedIndex = ref(-1)
@@ -272,9 +280,14 @@ const selectItem = (item: ProcessedItem, index: number): void => {
     // 多选模式
     toggleItemSelection(item)
   } else {
-    // 单选模式
-    selectedItem.value = item
-    selectedIndex.value = index
+    // 单选模式 - 如果点击已选中的项目，则取消选择
+    if (selectedItem.value?.path === item.path) {
+      selectedItem.value = null
+      selectedIndex.value = -1
+    } else {
+      selectedItem.value = item
+      selectedIndex.value = index
+    }
   }
 }
 
@@ -538,22 +551,87 @@ const handleScrapeMovie = async (movie: MediaResult): Promise<void> => {
  * @param item 要刮削的项目
  */
 const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
+  const provider = getScrapeProviderConfig().provider
+
+  // JavBus：使用独立刮削预览弹窗
+  if (provider === 'javbus') {
+    const avid = item.name
+      .replace(/\.[^/.]+$/, '')
+      .replace(/\s*\(\d{4}\)\s*$/, '')
+      .trim()
+      .toUpperCase()
+    javBusScrapeAvid.value = avid
+    javBusScrapeItem.value = item
+    showJavBusScrapeModal.value = true
+    return
+  }
+
   try {
-    // 调用useScraping中的searchMovieInfo函数
     const movies = await searchMovieInfo(item)
 
     if (movies && movies.length > 0) {
-      // 显示搜索结果弹窗，并传递当前项目
       handleShowSearchModal(movies, item)
     } else {
-      // 没找到自动匹配结果，打开手动匹配弹窗
       handleShowManualScrapeModal(item)
     }
   } catch (error) {
     console.error('自动刮削失败:', error)
-    // 请求出错也打开手动匹配弹窗
     handleShowManualScrapeModal(item)
   }
+}
+
+/**
+ * JavBus 直接刮削 - 从预览弹窗触发
+ */
+const handleJavBusScrape = async (meta: any, item: ProcessedItem): Promise<void> => {
+  currentScrapeItem.value = item
+  const movie: Movie = {
+    id: meta.avid as any,
+    title: meta.title || meta.avid,
+    original_title: meta.avid,
+    overview: meta.description || '',
+    release_date: meta.release_date || '',
+    vote_average: 0,
+    vote_count: 0,
+    poster_path: meta.cover || '',
+    backdrop_path: meta.fanarts?.[0] || '',
+    adult: false,
+    genre_ids: [],
+    original_language: 'ja',
+    popularity: 0,
+    video: false,
+    _javbus: meta,
+  } as any as Movie
+
+  try {
+    await processSingleScrapeTask(movie)
+    javBusScrapeModal.value?.setResult(`✅ 刮削完成`)
+  } catch (e) {
+    javBusScrapeModal.value?.setScrapeError(`刮削失败: ${e instanceof Error ? e.message : '未知错误'}`)
+  }
+}
+
+/**
+ * JavBus 加入队列 - 从预览弹窗触发
+ */
+const handleJavBusAddToQueue = async (movie: Movie, item: ProcessedItem): Promise<void> => {
+  currentScrapeItem.value = item
+  addToQueue(item, movie)
+  handleCloseSearchModal()
+
+  // 立即开始处理队列
+  if (!isProcessingQueue.value) {
+    try {
+      isProcessingQueue.value = true
+      currentQueueIndex.value = 0
+      await processNextQueueItem()
+    } finally {
+      isProcessingQueue.value = false
+      clearCurrentScrapeItem()
+    }
+  }
+
+  javBusScrapeModal.value?.setResult('✅ 刮削完成', false)
 }
 
 /**

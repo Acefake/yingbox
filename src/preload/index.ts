@@ -151,22 +151,8 @@ const api = {
     offUpdate: () =>
       ipcRenderer.removeAllListeners('detail:update'),
   },
-  scraper: {
-    fetchMeta: (avid: string) => ipcRenderer.invoke('scraper:fetchMeta', avid),
-    scrape: (avid: string) => ipcRenderer.invoke('scraper:scrape', avid),
-  },
-  downloader: {
-    start: (avid: string): void => ipcRenderer.send('downloader:start', avid),
-    cancel: (avid: string): void => ipcRenderer.send('downloader:cancel', avid),
-    onLog: (cb: (data: { avid: string; text: string }) => void) => {
-      ipcRenderer.on('downloader:log', (_e, data) => cb(data))
-    },
-    onDone: (cb: (data: { avid: string; code: number }) => void) => {
-      ipcRenderer.on('downloader:done', (_e, data) => cb(data))
-    },
-    offLog: () => ipcRenderer.removeAllListeners('downloader:log'),
-    offDone: () => ipcRenderer.removeAllListeners('downloader:done'),
-  },
+  scraper: {},
+  downloader: {},
 }
 
 if (process.contextIsolated) {

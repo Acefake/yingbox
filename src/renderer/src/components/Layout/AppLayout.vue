@@ -11,7 +11,7 @@
           <div class="logo-icon">
             <img :src="logo" alt="logo" />
           </div>
-          <span class="logo-text">PosterScraper</span>
+          <span class="logo-text">Scraper</span>
         </div>
 
         <!-- 中间导航 -->
