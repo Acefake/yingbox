@@ -8,7 +8,9 @@
   >
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-300 mb-2">图片下载分辨率</label>
+        <label class="block text-sm font-medium text-gray-300 mb-2"
+          >图片下载分辨率</label
+        >
         <div class="space-y-2">
           <div
             v-for="option in sizeOptions"
@@ -22,8 +24,12 @@
             @click="selectedSize = option.value"
           >
             <div class="flex-1">
-              <div class="text-sm font-medium text-white">{{ option.label }}</div>
-              <div class="text-xs text-gray-400 mt-0.5">{{ option.description }}</div>
+              <div class="text-sm font-medium text-white">
+                {{ option.label }}
+              </div>
+              <div class="text-xs text-gray-400 mt-0.5">
+                {{ option.description }}
+              </div>
             </div>
             <div
               class="w-5 h-5 rounded-full border-2 flex items-center justify-center transition-all"
@@ -81,18 +87,18 @@ const sizeOptions = [
   {
     value: 'w342',
     label: '小 (w342)',
-    description: '342px 宽度，适合小屏幕显示，下载速度快'
+    description: '342px 宽度，适合小屏幕显示，下载速度快',
   },
   {
     value: 'w780',
     label: '中 (w780)',
-    description: '780px 宽度，平衡质量和文件大小'
+    description: '780px 宽度，平衡质量和文件大小',
   },
   {
     value: 'original',
     label: '最大 (原始分辨率)',
-    description: '最高分辨率，质量最佳但文件较大'
-  }
+    description: '最高分辨率，质量最佳但文件较大',
+  },
 ]
 
 const selectedSize = ref('original')
@@ -105,11 +111,14 @@ const loadSettings = () => {
   }
 }
 
-watch(() => props.visible, (visible) => {
-  if (visible) {
-    loadSettings()
+watch(
+  () => props.visible,
+  visible => {
+    if (visible) {
+      loadSettings()
+    }
   }
-})
+)
 
 const handleClose = () => {
   emit('close')

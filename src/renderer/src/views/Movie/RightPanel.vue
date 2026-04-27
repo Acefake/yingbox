@@ -69,26 +69,48 @@
 
       <!-- 演员列表 -->
       <div v-if="actors && actors.length" class="mt-4">
-        <p class="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">演员</p>
+        <p
+          class="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2"
+        >
+          演员
+        </p>
         <div class="actor-scroll flex gap-3 overflow-x-auto pb-1">
           <div
             v-for="actor in actors"
             :key="actor.name"
             class="flex flex-col items-center flex-shrink-0 w-14"
           >
-            <div class="w-11 h-11 rounded-full overflow-hidden bg-gray-700/60 ring-1 ring-white/10 flex items-center justify-center">
+            <div
+              class="w-11 h-11 rounded-full overflow-hidden bg-gray-700/60 ring-1 ring-white/10 flex items-center justify-center"
+            >
               <img
                 v-if="actor.photoDataUrl"
                 :src="actor.photoDataUrl"
                 :alt="actor.name"
                 class="w-full h-full object-cover"
               />
-              <svg v-else class="w-5 h-5 text-gray-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd" />
+              <svg
+                v-else
+                class="w-5 h-5 text-gray-500"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                  clip-rule="evenodd"
+                />
               </svg>
             </div>
-            <span class="text-[9px] text-gray-400 mt-1 text-center w-full truncate leading-tight">{{ actor.name }}</span>
-            <span v-if="actor.role" class="text-[8px] text-gray-600 text-center w-full truncate leading-tight">{{ actor.role }}</span>
+            <span
+              class="text-[9px] text-gray-400 mt-1 text-center w-full truncate leading-tight"
+              >{{ actor.name }}</span
+            >
+            <span
+              v-if="actor.role"
+              class="text-[8px] text-gray-600 text-center w-full truncate leading-tight"
+              >{{ actor.role }}</span
+            >
           </div>
         </div>
       </div>

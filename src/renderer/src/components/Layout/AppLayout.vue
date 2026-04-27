@@ -1,8 +1,6 @@
 <template>
   <!-- 应用主布局容器 -->
   <div class="app-layout h-screen w-screen overflow-hidden bg-gray-900">
-
-
     <!-- 顶部毛玻璃菜单栏 -->
     <header class="top-menu">
       <div class="menu-content">
@@ -17,31 +15,74 @@
         <!-- 中间导航 -->
         <div class="navigation-section">
           <nav class="nav-tabs">
-            <button class="nav-tab" :class="{ active: route.name === 'Online' }"
-              @click="navigateTo('/')">在线观看</button>
+            <button
+              class="nav-tab"
+              :class="{ active: route.name === 'Online' }"
+              @click="navigateTo('/')"
+            >
+              在线观看
+            </button>
 
             <!-- 刮削服务下拉 -->
-            <div class="nav-dropdown"
+            <div
+              class="nav-dropdown"
               @mouseenter="openScraper"
-              @mouseleave="scheduleScraper">
-              <button class="nav-tab" :class="{ active: route.name === 'Movie' || route.name === 'TV' }">刮削服务
-                <svg viewBox="0 0 10 6" width="10" height="6" style="margin-left:4px;opacity:0.6">
+              @mouseleave="scheduleScraper"
+            >
+              <button
+                class="nav-tab"
+                :class="{
+                  active: route.name === 'Movie' || route.name === 'TV',
+                }"
+              >
+                刮削服务
+                <svg
+                  viewBox="0 0 10 6"
+                  width="10"
+                  height="6"
+                  style="margin-left: 4px; opacity: 0.6"
+                >
                   <path d="M0 0l5 6 5-6z" fill="currentColor" />
                 </svg>
               </button>
               <Transition name="dropdown-fade">
-                <div v-if="scraperOpen" class="dropdown-menu"
+                <div
+                  v-if="scraperOpen"
+                  class="dropdown-menu"
                   @mouseenter="openScraper"
-                  @mouseleave="scheduleScraper">
-                  <button class="dropdown-item" :class="{ active: route.name === 'Movie' }" @click="navigateTo('/movie')">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  @mouseleave="scheduleScraper"
+                >
+                  <button
+                    class="dropdown-item"
+                    :class="{ active: route.name === 'Movie' }"
+                    @click="navigateTo('/movie')"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <rect x="2" y="3" width="20" height="14" rx="2" />
                       <path d="M8 21h8M12 17v4" />
                     </svg>
                     电影
                   </button>
-                  <button class="dropdown-item" :class="{ active: route.name === 'TV' }" @click="navigateTo('/tv')">
-                    <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+                  <button
+                    class="dropdown-item"
+                    :class="{ active: route.name === 'TV' }"
+                    @click="navigateTo('/tv')"
+                  >
+                    <svg
+                      viewBox="0 0 24 24"
+                      width="14"
+                      height="14"
+                      fill="none"
+                      stroke="currentColor"
+                      stroke-width="2"
+                    >
                       <rect x="2" y="7" width="20" height="14" rx="2" />
                       <path d="M16 3l-4 4-4-4" />
                     </svg>
@@ -67,15 +108,24 @@
     </main>
 
     <!-- 全局设置面板 -->
-    <SettingsPanel :visible="settingsVisible" @close="settingsVisible = false" />
+    <SettingsPanel
+      :visible="settingsVisible"
+      @close="settingsVisible = false"
+    />
 
     <!-- 默认背景图 -->
-    <img :src="bgImg" class="w-full h-full object-cover opacity-20 transition-opacity duration-300 fixed inset-0 "
-      alt="背景图片" />
+    <img
+      :src="bgImg"
+      class="w-full h-full object-cover opacity-20 transition-opacity duration-300 fixed inset-0"
+      alt="背景图片"
+    />
 
     <!-- 全屏背景艺术图 -->
-    <div v-if="globalBackgroundImage" class="fixed inset-0 transition-opacity duration-500" :style="{
-      backgroundImage: `
+    <div
+      v-if="globalBackgroundImage"
+      class="fixed inset-0 transition-opacity duration-500"
+      :style="{
+        backgroundImage: `
           linear-gradient(
             to bottom,
             rgba(0,0,0,0.2) 0%,
@@ -85,11 +135,12 @@
           ),
           url(${globalBackgroundImage})
         `,
-      backgroundSize: 'cover',
-      backgroundPosition: 'center',
-      backgroundRepeat: 'no-repeat',
-      backdropFilter: 'blur(8px)',
-    }"></div>
+        backgroundSize: 'cover',
+        backgroundPosition: 'center',
+        backgroundRepeat: 'no-repeat',
+        backdropFilter: 'blur(8px)',
+      }"
+    ></div>
   </div>
 </template>
 
@@ -156,13 +207,17 @@ const scraperOpen = ref(false)
 let scraperTimer: ReturnType<typeof setTimeout> | null = null
 
 const openScraper = () => {
-  if (scraperTimer) { clearTimeout(scraperTimer); scraperTimer = null }
+  if (scraperTimer) {
+    clearTimeout(scraperTimer)
+    scraperTimer = null
+  }
   scraperOpen.value = true
 }
 const scheduleScraper = () => {
-  scraperTimer = setTimeout(() => { scraperOpen.value = false }, 120)
+  scraperTimer = setTimeout(() => {
+    scraperOpen.value = false
+  }, 120)
 }
-
 </script>
 
 <style scoped>
@@ -321,7 +376,9 @@ const scheduleScraper = () => {
 
 .dropdown-fade-enter-active,
 .dropdown-fade-leave-active {
-  transition: opacity 0.15s, transform 0.15s;
+  transition:
+    opacity 0.15s,
+    transform 0.15s;
 }
 
 .dropdown-fade-enter-from,

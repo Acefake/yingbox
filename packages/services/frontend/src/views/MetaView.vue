@@ -10,23 +10,39 @@
           <h2>{{ meta.title }}</h2>
           <div class="meta-tags">
             <span class="tag">{{ meta.avid }}</span>
-            <span class="tag" v-if="meta.release_date">{{ meta.release_date }}</span>
+            <span class="tag" v-if="meta.release_date">{{
+              meta.release_date
+            }}</span>
             <span class="tag" v-if="meta.duration">{{ meta.duration }}</span>
           </div>
-          <p class="meta-desc" v-if="meta.description">{{ meta.description }}</p>
+          <p class="meta-desc" v-if="meta.description">
+            {{ meta.description }}
+          </p>
 
-          <div class="meta-actresses" v-if="meta.actress && Object.keys(meta.actress).length">
+          <div
+            class="meta-actresses"
+            v-if="meta.actress && Object.keys(meta.actress).length"
+          >
             <h4>演员</h4>
             <div class="actress-list">
-              <div class="actress-item" v-for="(img, name) in meta.actress" :key="name">
+              <div
+                class="actress-item"
+                v-for="(img, name) in meta.actress"
+                :key="name"
+              >
                 <img :src="proxyImg(img)" :alt="name" />
                 <span>{{ name }}</span>
               </div>
             </div>
           </div>
 
-          <div class="meta-keywords" v-if="meta.keywords && meta.keywords.length">
-            <span class="kw" v-for="kw in meta.keywords" :key="kw">{{ kw }}</span>
+          <div
+            class="meta-keywords"
+            v-if="meta.keywords && meta.keywords.length"
+          >
+            <span class="kw" v-for="kw in meta.keywords" :key="kw">{{
+              kw
+            }}</span>
           </div>
 
           <button class="add-btn" @click="addVideo" :disabled="adding">
@@ -67,7 +83,7 @@ export default {
       loading: false,
       error: null,
       adding: false,
-      previewImg: null
+      previewImg: null,
     }
   },
   async created() {
@@ -94,8 +110,8 @@ export default {
       } finally {
         this.adding = false
       }
-    }
-  }
+    },
+  },
 }
 </script>
 
@@ -111,7 +127,9 @@ export default {
   padding: 4rem 0;
   font-size: 1rem;
 }
-.status-tip.error { color: #ff6b8b; }
+.status-tip.error {
+  color: #ff6b8b;
+}
 
 .meta-hero {
   display: flex;
@@ -119,7 +137,7 @@ export default {
   background: white;
   border-radius: 16px;
   padding: 2rem;
-  box-shadow: 0 4px 20px rgba(255,107,139,0.08);
+  box-shadow: 0 4px 20px rgba(255, 107, 139, 0.08);
   margin-bottom: 2rem;
 }
 
@@ -128,7 +146,7 @@ export default {
   flex-shrink: 0;
   border-radius: 10px;
   object-fit: cover;
-  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  box-shadow: 0 4px 15px rgba(0, 0, 0, 0.1);
 }
 
 .meta-info {
@@ -210,7 +228,11 @@ export default {
 }
 
 .add-btn {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  background: linear-gradient(
+    135deg,
+    var(--primary-color),
+    var(--secondary-color)
+  );
   color: white;
   border: none;
   padding: 10px 28px;
@@ -221,7 +243,10 @@ export default {
   transition: opacity 0.2s;
 }
 
-.add-btn:disabled { opacity: 0.6; cursor: not-allowed; }
+.add-btn:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
 
 .fanart-grid h3 {
   color: var(--text-color);
@@ -243,12 +268,14 @@ export default {
   transition: transform 0.2s;
 }
 
-.fanart-list img:hover { transform: scale(1.03); }
+.fanart-list img:hover {
+  transform: scale(1.03);
+}
 
 .preview-mask {
   position: fixed;
   inset: 0;
-  background: rgba(0,0,0,0.85);
+  background: rgba(0, 0, 0, 0.85);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -263,7 +290,11 @@ export default {
 }
 
 @media (max-width: 600px) {
-  .meta-hero { flex-direction: column; }
-  .meta-cover { width: 100%; }
+  .meta-hero {
+    flex-direction: column;
+  }
+  .meta-cover {
+    width: 100%;
+  }
 }
 </style>

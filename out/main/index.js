@@ -28,11 +28,17 @@ const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
 const http__namespace = /* @__PURE__ */ _interopNamespaceDefault(http);
 const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
 const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
-const icon = path.join(__dirname, "../../resources/icon.png");
+const icon = path.join(__dirname, "../../resources/icon.svg");
 electron.Menu.setApplicationMenu(null);
-electron.app.commandLine.appendSwitch("enable-features", "EnableDrDc,CanvasOopRasterization");
+electron.app.commandLine.appendSwitch(
+  "enable-features",
+  "EnableDrDc,CanvasOopRasterization"
+);
 electron.protocol.registerSchemesAsPrivileged([
-  { scheme: "local", privileges: { secure: true, standard: true, stream: true, bypassCSP: true } }
+  {
+    scheme: "local",
+    privileges: { secure: true, standard: true, stream: true, bypassCSP: true }
+  }
 ]);
 let mainWindow = null;
 function createWindow() {
@@ -373,7 +379,12 @@ electron.app.whenReady().then(() => {
                 const json = JSON.parse(data);
                 resolve({ success: true, status: res.statusCode, data: json });
               } catch {
-                resolve({ success: true, status: res.statusCode, data, raw: true });
+                resolve({
+                  success: true,
+                  status: res.statusCode,
+                  data,
+                  raw: true
+                });
               }
             });
           });
@@ -406,8 +417,8 @@ electron.app.whenReady().then(() => {
             method: "GET",
             headers: {
               "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              "Referer": referer || `${urlObj.protocol}//${urlObj.hostname}/`,
-              "Accept": "image/webp,image/apng,image/*,*/*;q=0.8"
+              Referer: referer || `${urlObj.protocol}//${urlObj.hostname}/`,
+              Accept: "image/webp,image/apng,image/*,*/*;q=0.8"
             }
           };
           const req = protocol2.request(reqOptions, (res) => {
@@ -421,14 +432,20 @@ electron.app.whenReady().then(() => {
               const buffer = Buffer.concat(chunks);
               const contentType = res.headers["content-type"] || "image/jpeg";
               const base64 = buffer.toString("base64");
-              resolve({ success: true, data: `data:${contentType};base64,${base64}` });
+              resolve({
+                success: true,
+                data: `data:${contentType};base64,${base64}`
+              });
             });
           });
           req.setTimeout(15e3, () => {
             req.destroy();
             resolve({ success: false, error: "超时" });
           });
-          req.on("error", (err) => resolve({ success: false, error: err.message }));
+          req.on(
+            "error",
+            (err) => resolve({ success: false, error: err.message })
+          );
           req.end();
         });
       } catch (error) {
@@ -512,20 +529,36 @@ electron.app.whenReady().then(() => {
       }
     }
   );
-  const bdPath = path.join(__dirname, "../../bd");
-  const goExe = path.join(bdPath, "backend", process.platform === "win32" ? "main.exe" : "main");
-  let goProc = null;
-  if (fsSync__namespace.existsSync(goExe)) {
-    goProc = child_process.spawn(goExe, [], { cwd: path.join(bdPath, "backend") });
-    goProc.stdout?.on("data", (d) => console.log("[Go]", d.toString().trim()));
-    goProc.stderr?.on("data", (d) => console.error("[Go]", d.toString().trim()));
-    goProc.on("exit", (code) => console.log("[Go] exited with code", code));
+  const isDev = utils.is.dev;
+  if (isDev) {
+    console.log("[Go] Development mode: backend should be started by pnpm dev:backend");
+    console.log("[Go] Skipping backend spawn in development");
   } else {
-    console.warn("[Go] backend exe not found:", goExe);
+    const goExe = path.join(
+      process.resourcesPath,
+      "backend",
+      process.platform === "win32" ? "main.exe" : "main"
+    );
+    const goCwd = path.join(process.resourcesPath, "backend");
+    let goProc = null;
+    if (fsSync__namespace.existsSync(goExe)) {
+      goProc = child_process.spawn(goExe, [], { cwd: goCwd });
+      goProc.stdout?.on(
+        "data",
+        (d) => console.log("[Go]", d.toString().trim())
+      );
+      goProc.stderr?.on(
+        "data",
+        (d) => console.error("[Go]", d.toString().trim())
+      );
+      goProc.on("exit", (code) => console.log("[Go] exited with code", code));
+    } else {
+      console.warn("[Go] backend exe not found:", goExe);
+    }
+    electron.app.on("will-quit", () => {
+      goProc?.kill();
+    });
   }
-  electron.app.on("will-quit", () => {
-    goProc?.kill();
-  });
   electron.ipcMain.handle("shell:openPath", async (_, filePath) => {
     const error = await electron.shell.openPath(filePath);
     return { success: !error, error: error || void 0 };
@@ -558,10 +591,14 @@ electron.app.whenReady().then(() => {
       pendingDetailData = null;
     });
     if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-      detailWin.loadURL(process.env["ELECTRON_RENDERER_URL"] + "#/online-detail");
+      detailWin.loadURL(
+        process.env["ELECTRON_RENDERER_URL"] + "#/online-detail"
+      );
       detailWin.webContents.openDevTools();
     } else {
-      detailWin.loadFile(path.join(__dirname, "../renderer/index.html"), { hash: "/online-detail" });
+      detailWin.loadFile(path.join(__dirname, "../renderer/index.html"), {
+        hash: "/online-detail"
+      });
     }
     return { success: true };
   });

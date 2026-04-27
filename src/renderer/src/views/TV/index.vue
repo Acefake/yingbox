@@ -29,12 +29,11 @@
     </div>
 
     <!-- 右侧内容区域 -->
-    <div
-      class="absolute inset-0 z-10"
-      :style="{ paddingLeft: '312px' }"
-    >
-      <EmptyPlaceholder v-if="!selectedItem"
-        icon-path="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z" />
+    <div class="absolute inset-0 z-10" :style="{ paddingLeft: '312px' }">
+      <EmptyPlaceholder
+        v-if="!selectedItem"
+        icon-path="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z"
+      />
 
       <div v-else class="p-6 h-full overflow-y-auto">
         <TVRightPanel
@@ -83,7 +82,9 @@ interface AppLayoutMethods {
   clearGlobalBackground: () => void
 }
 
-const appLayoutMethods = inject('appLayoutMethods') as AppLayoutMethods | undefined
+const appLayoutMethods = inject('appLayoutMethods') as
+  | AppLayoutMethods
+  | undefined
 
 const {
   fileData,
@@ -150,7 +151,12 @@ const {
 } = useTVScraping()
 
 const selectedIndex = ref<number>(-1)
-const { addItem: addQueueItem, setProcessing: setQueueProcessing, setDone: setQueueDone, setError: setQueueError } = useGlobalQueue()
+const {
+  addItem: addQueueItem,
+  setProcessing: setQueueProcessing,
+  setDone: setQueueDone,
+  setError: setQueueError,
+} = useGlobalQueue()
 
 /** 多选状态 */
 const isMultiSelectMode = ref(false)
@@ -179,7 +185,9 @@ const toggleTVSelection = (item: ProcessedItem): void => {
 }
 
 const batchScrapeSelected = async (): Promise<void> => {
-  const items = fileData.value.filter(item => selectedPaths.value.has(item.path))
+  const items = fileData.value.filter(item =>
+    selectedPaths.value.has(item.path)
+  )
   if (items.length === 0) {
     message.warning('请先选择要刮削的电视剧')
     return
@@ -214,7 +222,10 @@ const pendingScrapeShowItem = ref<ProcessedItem | null>(null)
  * - 点季：懒加载该季的集缩略图
  * - 批量更新状态减少重渲染
  */
-const selectItem = async (item: ProcessedItem, rootItem: ProcessedItem | number): Promise<void> => {
+const selectItem = async (
+  item: ProcessedItem,
+  rootItem: ProcessedItem | number
+): Promise<void> => {
   const showRoot = typeof rootItem === 'object' ? rootItem : item
   const isSameShow = selectedTVShow.value?.path === showRoot.path
 
@@ -243,10 +254,15 @@ const selectItem = async (item: ProcessedItem, rootItem: ProcessedItem | number)
 }
 
 /** 第一步：搜索 → 弹窗展示结果列表 */
-const searchTV = async (showItem: ProcessedItem, query?: string): Promise<void> => {
+const searchTV = async (
+  showItem: ProcessedItem,
+  query?: string
+): Promise<void> => {
   try {
     loading.value = true
-    const results = await searchTVInfo(query ? { ...showItem, name: query } : showItem)
+    const results = await searchTVInfo(
+      query ? { ...showItem, name: query } : showItem
+    )
     searchResults.value = results
     pendingScrapeShowItem.value = showItem
     searchModalVisible.value = true
@@ -264,12 +280,20 @@ const handlePreload = async (item: ProcessedItem): Promise<void> => {
 }
 
 /** 刮削当前季 */
-const handleScrapeSeason = async (seasonFolder: ProcessedItem): Promise<void> => {
+const handleScrapeSeason = async (
+  seasonFolder: ProcessedItem
+): Promise<void> => {
   const showRoot = selectedTVShow.value ?? selectedItem.value
   if (!showRoot) return
-  const { seasonPosterDataUrl, thumbs } = await scrapeSeason(showRoot, seasonFolder)
+  const { seasonPosterDataUrl, thumbs } = await scrapeSeason(
+    showRoot,
+    seasonFolder
+  )
   if (seasonPosterDataUrl) {
-    seasonPosters.value = { ...seasonPosters.value, [seasonFolder.path]: seasonPosterDataUrl }
+    seasonPosters.value = {
+      ...seasonPosters.value,
+      [seasonFolder.path]: seasonPosterDataUrl,
+    }
   }
   if (Object.keys(thumbs).length) {
     episodeThumbs.value = { ...episodeThumbs.value, ...thumbs }
@@ -280,12 +304,18 @@ const handleScrapeSeason = async (seasonFolder: ProcessedItem): Promise<void> =>
 }
 
 /** 刮削单集 */
-const handleScrapeEpisode = async (seasonFolder: ProcessedItem, videoItem: ProcessedItem): Promise<void> => {
+const handleScrapeEpisode = async (
+  seasonFolder: ProcessedItem,
+  videoItem: ProcessedItem
+): Promise<void> => {
   const showRoot = selectedTVShow.value ?? selectedItem.value
   if (!showRoot) return
   const thumbDataUrl = await scrapeEpisode(showRoot, seasonFolder, videoItem)
   if (thumbDataUrl) {
-    episodeThumbs.value = { ...episodeThumbs.value, [videoItem.path]: thumbDataUrl }
+    episodeThumbs.value = {
+      ...episodeThumbs.value,
+      [videoItem.path]: thumbDataUrl,
+    }
   }
   // 强制刷新 selectedItem 使 episodeList 重新渲染（文件可能已重命名）
   if (selectedItem.value) {
@@ -315,7 +345,10 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
 
       // 刮削完成后，检查父目录是否有同名系列季文件夹需要合并
       const sep = showItem.path.includes('\\') ? '\\' : '/'
-      const parentDir = showItem.path.substring(0, showItem.path.lastIndexOf(sep))
+      const parentDir = showItem.path.substring(
+        0,
+        showItem.path.lastIndexOf(sep)
+      )
       if (parentDir) {
         const merged = await mergeSeriesSeasons(parentDir)
         if (merged) await refreshFiles()
@@ -343,18 +376,18 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
 }
 
 // 监听 fanart 变化，设置全局背景
-watch(
-  fanartUrl,
-  (newFanartUrl) => {
-    if (appLayoutMethods) {
-      if (newFanartUrl) {
-        appLayoutMethods.setGlobalBackground(newFanartUrl, 'rgba(17, 24, 39, 0.2)')
-      } else {
-        appLayoutMethods.clearGlobalBackground()
-      }
+watch(fanartUrl, newFanartUrl => {
+  if (appLayoutMethods) {
+    if (newFanartUrl) {
+      appLayoutMethods.setGlobalBackground(
+        newFanartUrl,
+        'rgba(17, 24, 39, 0.2)'
+      )
+    } else {
+      appLayoutMethods.clearGlobalBackground()
     }
   }
-)
+})
 
 // 离开 TV 页面时清除全局背景
 onUnmounted(() => {

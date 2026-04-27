@@ -192,8 +192,11 @@ export const useMediaProcessing = (selectedItem: any) => {
       posterImageDataUrl.value = ''
       return
     }
-    const result = await window.api.file.readImage(posterImagePath.value).catch(() => ({ success: false, data: null } as any))
-    posterImageDataUrl.value = result.success && result.data ? (result.data as string) : ''
+    const result = await window.api.file
+      .readImage(posterImagePath.value)
+      .catch(() => ({ success: false, data: null }) as any)
+    posterImageDataUrl.value =
+      result.success && result.data ? (result.data as string) : ''
   }
 
   const loadFanartImage = async (): Promise<void> => {
@@ -201,8 +204,11 @@ export const useMediaProcessing = (selectedItem: any) => {
       fanartImageDataUrl.value = ''
       return
     }
-    const result = await window.api.file.readImage(fanartImagePath.value).catch(() => ({ success: false, data: null } as any))
-    fanartImageDataUrl.value = result.success && result.data ? (result.data as string) : ''
+    const result = await window.api.file
+      .readImage(fanartImagePath.value)
+      .catch(() => ({ success: false, data: null }) as any)
+    fanartImageDataUrl.value =
+      result.success && result.data ? (result.data as string) : ''
   }
 
   /**
@@ -358,20 +364,32 @@ export const useMediaProcessing = (selectedItem: any) => {
     if (!item) return
 
     const sep = item.path.includes('\\') ? '\\' : '/'
-    const basePath = item.type === 'folder'
-      ? item.path
-      : item.path.substring(0, item.path.lastIndexOf(sep))
+    const basePath =
+      item.type === 'folder'
+        ? item.path
+        : item.path.substring(0, item.path.lastIndexOf(sep))
     const actorsDir = basePath + sep + '.actors'
 
-    const dirExists = await window.api.file.exists(actorsDir).catch(() => ({ success: false, exists: false }))
+    const dirExists = await window.api.file
+      .exists(actorsDir)
+      .catch(() => ({ success: false, exists: false }))
     if (!dirExists.success || !dirExists.exists) return
 
-    const results = await Promise.all(info.actors.map(async (actor) => {
-      const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
-      const photoPath = actorsDir + sep + safeActorName + '.jpg'
-      const exists = await window.api.file.exists(photoPath).catch(() => ({ success: false, exists: false }))
-      return { name: actor.name, role: actor.role, photoDataUrl: exists.success && exists.exists ? toLocalUrl(photoPath) : undefined }
-    }))
+    const results = await Promise.all(
+      info.actors.map(async actor => {
+        const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
+        const photoPath = actorsDir + sep + safeActorName + '.jpg'
+        const exists = await window.api.file
+          .exists(photoPath)
+          .catch(() => ({ success: false, exists: false }))
+        return {
+          name: actor.name,
+          role: actor.role,
+          photoDataUrl:
+            exists.success && exists.exists ? toLocalUrl(photoPath) : undefined,
+        }
+      })
+    )
     actors.value = results
   }
 
@@ -421,7 +439,9 @@ export function warmNfoCache(items: any[]): void {
   const nfoPaths: string[] = []
   for (const item of items) {
     if (!item.files) continue
-    const nfo = item.files.find((f: any) => f.name.toLowerCase().endsWith('.nfo'))
+    const nfo = item.files.find((f: any) =>
+      f.name.toLowerCase().endsWith('.nfo')
+    )
     if (nfo && !nfoCache.has(nfo.path)) nfoPaths.push(nfo.path)
   }
   if (!nfoPaths.length) return
@@ -431,9 +451,12 @@ export function warmNfoCache(items: any[]): void {
     while (i < nfoPaths.length && (!deadline || deadline.timeRemaining() > 2)) {
       const p = nfoPaths[i++]
       if (nfoCache.has(p)) continue
-      window.api.file.read(p).then(r => {
-        if (r.success && r.data) nfoCache.set(p, r.data as string)
-      }).catch(() => {})
+      window.api.file
+        .read(p)
+        .then(r => {
+          if (r.success && r.data) nfoCache.set(p, r.data as string)
+        })
+        .catch(() => {})
     }
     if (i < nfoPaths.length) {
       if (typeof requestIdleCallback !== 'undefined') {

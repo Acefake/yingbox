@@ -58,7 +58,9 @@ export const getScrapeProviderConfig = (): ScrapeProviderConfig => {
 /**
  * 保存配置
  */
-export const saveScrapeProviderConfig = (config: Partial<ScrapeProviderConfig>): void => {
+export const saveScrapeProviderConfig = (
+  config: Partial<ScrapeProviderConfig>
+): void => {
   const current = getScrapeProviderConfig()
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...config }))
 }

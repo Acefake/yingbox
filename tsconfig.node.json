@@ -35,11 +35,7 @@
   },
 
   // === 包含文件 ===
-  "include": [
-    "src/main/**/*",
-    "src/preload/**/*",
-    "src/shared/**/*"
-  ],
+  "include": ["src/main/**/*", "src/preload/**/*", "src/shared/**/*"],
 
   // === 排除文件 ===
   "exclude": ["src/renderer/**/*", "node_modules", "dist", "out"]

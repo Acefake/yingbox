@@ -47,6 +47,7 @@ src/renderer/        → Vue 3 SPA (out/renderer/)
 ```
 
 **Main process** ([src/main/index.ts](src/main/index.ts)) handles:
+
 - Window management (frameless, min/max/close via IPC)
 - File operations (read/write/delete/mkdir/readdir/stat/copy/move/readImage/readdirRecursive)
 - Path utilities (join/dirname/basename/extname)
@@ -62,12 +63,14 @@ src/renderer/        → Vue 3 SPA (out/renderer/)
 ### Renderer: Vue 3 SPA
 
 Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/routers.ts)):
+
 - `/` → Online search & streaming ([views/online/Index.vue](src/renderer/src/views/online/Index.vue))
 - `/movie` → Movie file management & scraping ([views/movie/Index.vue](src/renderer/src/views/movie/Index.vue))
 - `/tv` → TV show file management & scraping ([views/tv/Index.vue](src/renderer/src/views/tv/Index.vue))
 - `/online-detail` → Detail popup window singleton
 
 Key directories under `src/renderer/src/`:
+
 - `api/` — API clients: TMDB wrapper (`@tdanks2000/tmdb-wrapper`), Go backend (localhost:31471), MetaTube
 - `services/` — Business logic: `FileService`, `NfoService`, `ScrapeService`
 - `stores/` — Pinia stores: `file-store` (file tree + cache), `scrape-queue-store` (batch scraping queue), `selection-store`, `ui-store`, `scrape-provider-store` (provider config + tokens persisted in localStorage)
@@ -78,6 +81,7 @@ Key directories under `src/renderer/src/`:
 ### Go backend ([packages/services/backend/main.go](packages/services/backend/main.go))
 
 A self-contained HTTP server on port **31471** that:
+
 - Scans `F:/新建文件夹` for MissAV video directories (IDs as folder names)
 - Serves `/api/videos` (cached list sorted by mtime), `/api/videos/<id>` (detail with NFO parsing + fanart discovery), `/api/meta/<avid>` (JavBus metadata via Python), `/api/addvideo/<avid>` (download trigger via Python)
 - Serves local image/video files via `/file/<videoID>/<filename>` and proxies external images via `/proxy?url=...`
@@ -87,6 +91,7 @@ A self-contained HTTP server on port **31471** that:
 ### Python scripts
 
 The main process can spawn Python scripts from three contexts:
+
 - `scraper:scrape` → `python tools/scrape.py <avid>` (full scrape: images + NFO, returns JSON)
 - `scraper:fetchMeta` → `python tools/fetch_meta.py <avid>` (metadata only, returns JSON)
 - `downloader:start` → `python main.py <avid>` (full download, streams log output via IPC)
@@ -96,6 +101,7 @@ These scripts run from a `bd/` directory (bundled with the built app, not in sou
 ### App settings
 
 User settings are stored in `localStorage` (renderer side). Key keys:
+
 - `scrapeProviderConfig` — provider type, TMDB token, Go backend URL, MetaTube config
 - `imageDownloadSize_poster` / `imageDownloadSize_backdrop` / `imageDownloadSize_actor`
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
@@ -108,12 +114,12 @@ User settings are stored in `localStorage` (renderer side). Key keys:
 
 ### Tech stack summary
 
-| Layer | Technology |
-|-------|-----------|
-| Desktop shell | Electron 37 |
-| Build tooling | electron-vite 4, Vite 7 |
-| Renderer | Vue 3.5, TypeScript 5.9, Pinia 3 |
-| UI kit | Ant Design Vue 4.x, Tailwind CSS 4 |
-| Metadata | @tdanks2000/tmdb-wrapper, cheerio (scraping) |
-| Go backend | Go 1.22, modernc.org/sqlite (no CGo needed) |
+| Layer          | Technology                                         |
+| -------------- | -------------------------------------------------- |
+| Desktop shell  | Electron 37                                        |
+| Build tooling  | electron-vite 4, Vite 7                            |
+| Renderer       | Vue 3.5, TypeScript 5.9, Pinia 3                   |
+| UI kit         | Ant Design Vue 4.x, Tailwind CSS 4                 |
+| Metadata       | @tdanks2000/tmdb-wrapper, cheerio (scraping)       |
+| Go backend     | Go 1.22, modernc.org/sqlite (no CGo needed)        |
 | Python scripts | Called as child processes for scraping/downloading |

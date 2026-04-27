@@ -27,7 +27,7 @@ export default {
   data() {
     return {
       queue: [],
-      loading: false
+      loading: false,
     }
   },
   mounted() {
@@ -47,8 +47,8 @@ export default {
       } finally {
         this.loading = false
       }
-    }
-  }
+    },
+  },
 }
 </script>
 

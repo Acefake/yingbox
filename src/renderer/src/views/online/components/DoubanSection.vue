@@ -3,28 +3,56 @@
     <div class="section-header">
       <span class="section-title">豆瓣热门</span>
       <div class="douban-type-btns">
-        <button :class="['type-btn', doubanType === 'movie' ? 'active' : '']"
-          @click="switchType('movie')">电影</button>
-        <button :class="['type-btn', doubanType === 'tv' ? 'active' : '']"
-          @click="switchType('tv')">电视剧</button>
+        <button
+          :class="['type-btn', doubanType === 'movie' ? 'active' : '']"
+          @click="switchType('movie')"
+        >
+          电影
+        </button>
+        <button
+          :class="['type-btn', doubanType === 'tv' ? 'active' : '']"
+          @click="switchType('tv')"
+        >
+          电视剧
+        </button>
       </div>
       <button class="clear-btn" @click="nextPage">换一批</button>
     </div>
 
     <div class="douban-tags">
-      <button v-for="tag in currentTags" :key="tag"
+      <button
+        v-for="tag in currentTags"
+        :key="tag"
         :class="['dtag', doubanTag === tag ? 'active' : '']"
-        @click="switchTag(tag)">{{ tag }}</button>
+        @click="switchTag(tag)"
+      >
+        {{ tag }}
+      </button>
     </div>
 
     <div v-if="doubanLoading" class="db-loading">加载中...</div>
-    <div v-else-if="doubanError" class="db-error">⚠ 豆瓣数据加载失败，请稍后重试</div>
+    <div v-else-if="doubanError" class="db-error">
+      ⚠ 豆瓣数据加载失败，请稍后重试
+    </div>
     <div v-else class="result-grid">
-      <div v-for="item in doubanItems" :key="item.url" class="result-card" @click="emit('open', item)">
+      <div
+        v-for="item in doubanItems"
+        :key="item.url"
+        class="result-card"
+        @click="emit('open', item)"
+      >
         <div class="card-poster">
-          <img :src="item.cover" :alt="item.title" loading="lazy" referrerpolicy="no-referrer" @error="onImgError" />
+          <img
+            :src="item.cover"
+            :alt="item.title"
+            loading="lazy"
+            referrerpolicy="no-referrer"
+            @error="onImgError"
+          />
           <div class="card-overlay">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="white"><path d="M8 5v14l11-7z" /></svg>
+            <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
+              <path d="M8 5v14l11-7z" />
+            </svg>
           </div>
           <div class="rate-badge">★ {{ item.rate }}</div>
         </div>
@@ -34,7 +62,9 @@
             <span v-if="item.year" class="card-year">{{ item.year }}</span>
             <span v-if="item.type" class="card-type">{{ item.type }}</span>
           </div>
-          <div v-if="item.overview" class="card-overview">{{ item.overview }}</div>
+          <div v-if="item.overview" class="card-overview">
+            {{ item.overview }}
+          </div>
         </div>
       </div>
     </div>
@@ -62,8 +92,35 @@ export interface DoubanItem {
 const emit = defineEmits<{ (e: 'open', item: DoubanItem): void }>()
 
 type DoubanType = 'movie' | 'tv'
-const MOVIE_TAGS = ['热门', '最新', '经典', '豆瓣高分', '冷门佳片', '华语', '欧美', '韩国', '日本', '动作', '喜剧', '爱情', '科幻', '悬疑', '恐怖']
-const TV_TAGS = ['热门', '美剧', '英剧', '韩剧', '日剧', '国产剧', '港剧', '日本动画', '综艺', '纪录片']
+const MOVIE_TAGS = [
+  '热门',
+  '最新',
+  '经典',
+  '豆瓣高分',
+  '冷门佳片',
+  '华语',
+  '欧美',
+  '韩国',
+  '日本',
+  '动作',
+  '喜剧',
+  '爱情',
+  '科幻',
+  '悬疑',
+  '恐怖',
+]
+const TV_TAGS = [
+  '热门',
+  '美剧',
+  '英剧',
+  '韩剧',
+  '日剧',
+  '国产剧',
+  '港剧',
+  '日本动画',
+  '综艺',
+  '纪录片',
+]
 const PAGE_SIZE = 16
 
 const doubanType = ref<DoubanType>('movie')
@@ -73,10 +130,13 @@ const doubanLoading = ref(false)
 const doubanError = ref(false)
 const doubanPage = ref(0)
 
-const currentTags = computed(() => doubanType.value === 'movie' ? MOVIE_TAGS : TV_TAGS)
+const currentTags = computed(() =>
+  doubanType.value === 'movie' ? MOVIE_TAGS : TV_TAGS
+)
 
 const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
+  ;(e.target as HTMLImageElement).src =
+    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
 }
 
 const fetchDouban = async () => {
@@ -87,13 +147,25 @@ const fetchDouban = async () => {
   type RawSubject = { title: string; cover: string; rate: string; url: string }
 
   const stripSeason = (t: string) =>
-    t.replace(/\s*(第[一二三四五六七八九十百\d]+季|Season\s*\d+|[Ss]\d+)\s*/g, '').trim()
+    t
+      .replace(
+        /\s*(第[一二三四五六七八九十百\d]+季|Season\s*\d+|[Ss]\d+)\s*/g,
+        ''
+      )
+      .trim()
 
   const parseSubjects = (data: { subjects?: RawSubject[] }) => {
     doubanItems.value = (data.subjects || []).map(s => ({
-      title: s.title, searchTitle: s.title, original_title: '',
-      cover: '', coverSrc: s.cover, rate: s.rate || '暂无',
-      url: s.url, year: '', type: '', overview: '',
+      title: s.title,
+      searchTitle: s.title,
+      original_title: '',
+      cover: '',
+      coverSrc: s.cover,
+      rate: s.rate || '暂无',
+      url: s.url,
+      year: '',
+      type: '',
+      overview: '',
     }))
     loadCoversViaTmdb()
   }
@@ -106,7 +178,18 @@ const fetchDouban = async () => {
     const isTv = doubanType.value === 'tv'
 
     const extractNum = (t: string): string | null => {
-      const zh: Record<string, string> = { '一':'1','二':'2','三':'3','四':'4','五':'5','六':'6','七':'7','八':'8','九':'9','十':'10' }
+      const zh: Record<string, string> = {
+        一: '1',
+        二: '2',
+        三: '3',
+        四: '4',
+        五: '5',
+        六: '6',
+        七: '7',
+        八: '8',
+        九: '9',
+        十: '10',
+      }
       let m = t.match(/第([一二三四五六七八九十\d]+)季/)
       if (m) return zh[m[1]] ?? m[1]
       m = t.match(/[Ss](?:eason\s*)?0*(\d+)/)
@@ -129,7 +212,11 @@ const fetchDouban = async () => {
       const endpoint = isTv
         ? 'https://api.themoviedb.org/3/search/tv'
         : 'https://api.themoviedb.org/3/search/movie'
-      const res = await axios.get(endpoint, { params: { query: q, language: 'zh-CN', page: 1 }, headers, timeout: 8000 })
+      const res = await axios.get(endpoint, {
+        params: { query: q, language: 'zh-CN', page: 1 },
+        headers,
+        timeout: 8000,
+      })
       return res.data?.results?.[0] ?? null
     }
 
@@ -139,7 +226,9 @@ const fetchDouban = async () => {
         if (r) return r
       }
       const res = await axios.get('https://api.themoviedb.org/3/search/multi', {
-        params: { query: stripSeason(title), language: 'zh-CN', page: 1 }, headers, timeout: 8000,
+        params: { query: stripSeason(title), language: 'zh-CN', page: 1 },
+        headers,
+        timeout: 8000,
       })
       return res.data?.results?.[0] ?? null
     }
@@ -152,14 +241,24 @@ const fetchDouban = async () => {
         const item = items[i]
         try {
           const first = await searchTmdb(item.title)
-          items[i].cover = first?.poster_path ? imgBase + first.poster_path : item.coverSrc
+          items[i].cover = first?.poster_path
+            ? imgBase + first.poster_path
+            : item.coverSrc
           if (first) {
             const date = first.release_date || first.first_air_date || ''
             items[i].year = date ? date.slice(0, 4) : ''
             const mt = first.media_type
-            items[i].type = mt === 'tv' ? '剧集' : mt === 'movie' ? '电影' : isTv ? '剧集' : '电影'
+            items[i].type =
+              mt === 'tv'
+                ? '剧集'
+                : mt === 'movie'
+                  ? '电影'
+                  : isTv
+                    ? '剧集'
+                    : '电影'
             items[i].overview = first.overview || ''
-            items[i].original_title = first.original_title || first.original_name || ''
+            items[i].original_title =
+              first.original_title || first.original_name || ''
             const tmdbName = first.name || first.title || ''
             if (tmdbName) items[i].searchTitle = tmdbName
           }
@@ -233,9 +332,14 @@ onMounted(fetchDouban)
   cursor: pointer;
 }
 
-.clear-btn:hover { color: rgba(255, 255, 255, 0.8); }
+.clear-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
 
-.douban-type-btns { display: flex; gap: 4px; }
+.douban-type-btns {
+  display: flex;
+  gap: 4px;
+}
 
 .type-btn {
   font-size: 12px;
@@ -309,7 +413,9 @@ onMounted(fetchDouban)
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
-  transition: transform 0.2s, border-color 0.2s;
+  transition:
+    transform 0.2s,
+    border-color 0.2s;
 }
 
 .result-card:hover {
@@ -324,7 +430,11 @@ onMounted(fetchDouban)
   background: #1f2937;
 }
 
-.card-poster img { width: 100%; height: 100%; object-fit: cover; }
+.card-poster img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
 
 .card-overlay {
   position: absolute;
@@ -337,7 +447,9 @@ onMounted(fetchDouban)
   transition: opacity 0.2s;
 }
 
-.result-card:hover .card-overlay { opacity: 1; }
+.result-card:hover .card-overlay {
+  opacity: 1;
+}
 
 .rate-badge {
   position: absolute;
@@ -350,7 +462,9 @@ onMounted(fetchDouban)
   border-radius: 4px;
 }
 
-.card-info { padding: 8px; }
+.card-info {
+  padding: 8px;
+}
 
 .card-title {
   font-size: 13px;
@@ -361,7 +475,12 @@ onMounted(fetchDouban)
   margin-bottom: 4px;
 }
 
-.card-meta { display: flex; flex-wrap: wrap; gap: 4px; margin: 3px 0; }
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 4px;
+  margin: 3px 0;
+}
 
 .card-year {
   font-size: 10px;

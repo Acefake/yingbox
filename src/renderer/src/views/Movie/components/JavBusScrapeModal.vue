@@ -1,36 +1,66 @@
 <template>
   <Transition name="modal-fade">
-    <div v-if="visible" class="fixed inset-0 z-[960] flex items-center justify-center">
-      <div class="absolute inset-0 bg-black/60 backdrop-blur-sm" @click="$emit('close')" />
+    <div
+      v-if="visible"
+      class="fixed inset-0 z-[960] flex items-center justify-center"
+    >
+      <div
+        class="absolute inset-0 bg-black/60 backdrop-blur-sm"
+        @click="$emit('close')"
+      />
 
       <div
         class="relative w-[780px] max-h-[88vh] rounded-2xl flex flex-col overflow-hidden"
-        style="background: rgba(10,12,18,0.97); border: 1px solid rgba(255,255,255,0.1); box-shadow: 0 24px 64px rgba(0,0,0,0.8);"
+        style="
+          background: rgba(10, 12, 18, 0.97);
+          border: 1px solid rgba(255, 255, 255, 0.1);
+          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
+        "
         @click.stop
       >
         <!-- 头部 -->
-        <div class="flex items-center justify-between px-6 py-4 border-b border-white/8 flex-shrink-0">
+        <div
+          class="flex items-center justify-between px-6 py-4 border-b border-white/8 flex-shrink-0"
+        >
           <div>
-            <div class="text-sm font-semibold text-white/90">JavBus 刮削预览</div>
+            <div class="text-sm font-semibold text-white/90">
+              JavBus 刮削预览
+            </div>
             <div class="text-xs text-gray-500 mt-0.5">{{ avid }}</div>
           </div>
           <button
             @click="$emit('close')"
             class="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all"
           >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         <!-- loading -->
-        <div v-if="loading" class="flex-1 flex items-center justify-center py-16 text-gray-400 text-sm">
+        <div
+          v-if="loading"
+          class="flex-1 flex items-center justify-center py-16 text-gray-400 text-sm"
+        >
           正在从 JavBus 获取数据...
         </div>
 
         <!-- error -->
-        <div v-else-if="error" class="flex-1 flex items-center justify-center py-16 text-red-400 text-sm px-6">
+        <div
+          v-else-if="error"
+          class="flex-1 flex items-center justify-center py-16 text-red-400 text-sm px-6"
+        >
           {{ error }}
         </div>
 
@@ -40,25 +70,50 @@
           <img
             :src="proxyUrl(meta.cover)"
             class="w-full flex-shrink-0 rounded-lg object-cover"
-            style="aspect-ratio: 16/9;"
-            @error="(e) => (e.target as HTMLImageElement).style.display='none'"
+            style="aspect-ratio: 16/9"
+            @error="
+              e => ((e.target as HTMLImageElement).style.display = 'none')
+            "
           />
 
           <!-- 主信息区 -->
           <div class="flex gap-5">
             <div class="flex-1 min-w-0 space-y-3">
-              <h2 class="text-white font-semibold text-base leading-snug">{{ meta.title }}</h2>
+              <h2 class="text-white font-semibold text-base leading-snug">
+                {{ meta.title }}
+              </h2>
               <!-- 标签 -->
               <div class="flex flex-wrap gap-1.5">
-                <span class="px-2 py-0.5 rounded-full text-[11px] bg-blue-900/60 text-blue-300">{{ meta.avid }}</span>
-                <span v-if="meta.release_date" class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400">{{ meta.release_date }}</span>
-                <span v-if="meta.duration" class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400">{{ meta.duration }}</span>
+                <span
+                  class="px-2 py-0.5 rounded-full text-[11px] bg-blue-900/60 text-blue-300"
+                  >{{ meta.avid }}</span
+                >
+                <span
+                  v-if="meta.release_date"
+                  class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400"
+                  >{{ meta.release_date }}</span
+                >
+                <span
+                  v-if="meta.duration"
+                  class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400"
+                  >{{ meta.duration }}</span
+                >
               </div>
               <!-- 简介 -->
-              <p v-if="meta.description" class="text-gray-400 text-[12px] leading-relaxed line-clamp-4">{{ meta.description }}</p>
+              <p
+                v-if="meta.description"
+                class="text-gray-400 text-[12px] leading-relaxed line-clamp-4"
+              >
+                {{ meta.description }}
+              </p>
               <!-- 关键词 -->
               <div v-if="meta.keywords?.length" class="flex flex-wrap gap-1">
-                <span v-for="kw in meta.keywords" :key="kw" class="px-1.5 py-0.5 rounded text-[10px] bg-white/5 text-gray-500">{{ kw }}</span>
+                <span
+                  v-for="kw in meta.keywords"
+                  :key="kw"
+                  class="px-1.5 py-0.5 rounded text-[10px] bg-white/5 text-gray-500"
+                  >{{ kw }}</span
+                >
               </div>
               <!-- 操作按钮 -->
               <div class="flex gap-2 pt-1">
@@ -66,26 +121,56 @@
                   @click="handleDirectScrape"
                   :disabled="processing"
                   class="h-9 px-5 rounded-lg text-sm font-medium transition-all"
-                  :class="processing ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'"
+                  :class="
+                    processing
+                      ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                      : 'bg-blue-600 hover:bg-blue-500 text-white'
+                  "
                 >
-                  {{ processing && actionType === 'scrape' ? '刮削中...' : '直接刮削' }}
+                  {{
+                    processing && actionType === 'scrape'
+                      ? '刮削中...'
+                      : '直接刮削'
+                  }}
                 </button>
                 <button
                   @click="handleAddToQueue"
                   :disabled="processing"
                   class="h-9 px-5 rounded-lg text-sm font-medium transition-all"
-                  :class="processing ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-white/10 hover:bg-white/15 text-gray-300'"
+                  :class="
+                    processing
+                      ? 'bg-white/5 text-gray-500 cursor-not-allowed'
+                      : 'bg-white/10 hover:bg-white/15 text-gray-300'
+                  "
                 >
-                  {{ processing && actionType === 'queue' ? '添加中...' : '加入队列' }}
+                  {{
+                    processing && actionType === 'queue'
+                      ? '添加中...'
+                      : '加入队列'
+                  }}
                 </button>
               </div>
-              <div v-if="actionMsg" class="text-[11px] font-mono" :class="actionMsg.startsWith('❌') || actionMsg.startsWith('刮削失败') ? 'text-red-400' : 'text-green-400'">{{ actionMsg }}</div>
+              <div
+                v-if="actionMsg"
+                class="text-[11px] font-mono"
+                :class="
+                  actionMsg.startsWith('❌') || actionMsg.startsWith('刮削失败')
+                    ? 'text-red-400'
+                    : 'text-green-400'
+                "
+              >
+                {{ actionMsg }}
+              </div>
             </div>
           </div>
 
           <!-- 演员 -->
           <div v-if="meta.actress && Object.keys(meta.actress).length">
-            <h3 class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2">演员</h3>
+            <h3
+              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
+            >
+              演员
+            </h3>
             <div class="flex gap-3 flex-wrap">
               <div
                 v-for="(img, name) in meta.actress"
@@ -96,52 +181,105 @@
                   :src="proxyUrl(img)"
                   :alt="String(name)"
                   class="w-12 h-12 rounded-full object-cover border border-white/10"
-                  @error="(e) => (e.target as HTMLImageElement).style.display='none'"
+                  @error="
+                    e => ((e.target as HTMLImageElement).style.display = 'none')
+                  "
                 />
-                <span class="text-[10px] text-gray-400 max-w-[48px] truncate text-center">{{ name }}</span>
+                <span
+                  class="text-[10px] text-gray-400 max-w-[48px] truncate text-center"
+                  >{{ name }}</span
+                >
               </div>
             </div>
           </div>
 
           <!-- Fanart -->
           <div v-if="meta.fanarts?.length">
-            <h3 class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2">预览图</h3>
+            <h3
+              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
+            >
+              预览图
+            </h3>
             <div class="grid grid-cols-3 gap-2">
               <img
                 v-for="(img, i) in meta.fanarts"
                 :key="i"
                 :src="proxyUrl(img)"
                 class="w-full rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                style="aspect-ratio:16/9"
+                style="aspect-ratio: 16/9"
                 @click="previewImg = proxyUrl(img)"
-                @error="(e) => (e.target as HTMLImageElement).style.display='none'"
+                @error="
+                  e => ((e.target as HTMLImageElement).style.display = 'none')
+                "
               />
             </div>
           </div>
 
           <!-- 磁力链接 -->
           <div v-if="meta.magnets?.length">
-            <h3 class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2">磁力链接 ({{ meta.magnets.length }})</h3>
+            <h3
+              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
+            >
+              磁力链接 ({{ meta.magnets.length }})
+            </h3>
             <div class="space-y-1.5">
               <div
                 v-for="(m, i) in meta.magnets"
                 :key="i"
                 class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/8 transition-colors group"
               >
-                <span class="text-[10px] text-gray-600 w-4 flex-shrink-0">{{ i + 1 }}</span>
-                <span class="text-[11px] text-gray-300 flex-1 truncate font-mono" :title="m.name">{{ m.name || m.magnet.slice(20, 40) + '...' }}</span>
-                <span class="text-[10px] text-gray-500 flex-shrink-0 w-16 text-right">{{ m.size }}</span>
-                <span class="text-[10px] text-gray-600 flex-shrink-0 w-20 text-right">{{ m.date }}</span>
+                <span class="text-[10px] text-gray-600 w-4 flex-shrink-0">{{
+                  i + 1
+                }}</span>
+                <span
+                  class="text-[11px] text-gray-300 flex-1 truncate font-mono"
+                  :title="m.name"
+                  >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span
+                >
+                <span
+                  class="text-[10px] text-gray-500 flex-shrink-0 w-16 text-right"
+                  >{{ m.size }}</span
+                >
+                <span
+                  class="text-[10px] text-gray-600 flex-shrink-0 w-20 text-right"
+                  >{{ m.date }}</span
+                >
                 <button
                   @click="copyMagnet(m.magnet, i)"
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
-                  :class="copiedIndex === i ? 'bg-green-600/30 text-green-400' : 'bg-white/8 text-gray-400 hover:bg-blue-600/30 hover:text-blue-300'"
+                  :class="
+                    copiedIndex === i
+                      ? 'bg-green-600/30 text-green-400'
+                      : 'bg-white/8 text-gray-400 hover:bg-blue-600/30 hover:text-blue-300'
+                  "
                 >
-                  <svg v-if="copiedIndex !== i" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"/>
+                  <svg
+                    v-if="copiedIndex !== i"
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"
+                    />
                   </svg>
-                  <svg v-else class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"/>
+                  <svg
+                    v-else
+                    class="w-3 h-3"
+                    fill="none"
+                    stroke="currentColor"
+                    viewBox="0 0 24 24"
+                  >
+                    <path
+                      stroke-linecap="round"
+                      stroke-linejoin="round"
+                      stroke-width="2"
+                      d="M5 13l4 4L19 7"
+                    />
                   </svg>
                   {{ copiedIndex === i ? '已复制' : '复制' }}
                 </button>
@@ -153,8 +291,15 @@
 
       <!-- 图片全屏预览 -->
       <Teleport to="body">
-        <div v-if="previewImg" class="fixed inset-0 z-[999] bg-black/90 flex items-center justify-center" @click="previewImg = null">
-          <img :src="previewImg" class="max-w-[90vw] max-h-[90vh] rounded-lg object-contain" />
+        <div
+          v-if="previewImg"
+          class="fixed inset-0 z-[999] bg-black/90 flex items-center justify-center"
+          @click="previewImg = null"
+        >
+          <img
+            :src="previewImg"
+            class="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+          />
         </div>
       </Teleport>
     </div>
@@ -192,7 +337,9 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
   try {
     await navigator.clipboard.writeText(magnet)
     copiedIndex.value = index
-    setTimeout(() => { copiedIndex.value = null }, 2000)
+    setTimeout(() => {
+      copiedIndex.value = null
+    }, 2000)
   } catch {
     const el = document.createElement('textarea')
     el.value = magnet
@@ -201,30 +348,40 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
     document.execCommand('copy')
     document.body.removeChild(el)
     copiedIndex.value = index
-    setTimeout(() => { copiedIndex.value = null }, 2000)
+    setTimeout(() => {
+      copiedIndex.value = null
+    }, 2000)
   }
 }
 
-const proxyUrl = (url: string) => url ? backend.proxyUrl(url) : ''
+const proxyUrl = (url: string) => (url ? backend.proxyUrl(url) : '')
 
-watch(() => props.visible, async (v) => {
-  if (!v) { meta.value = null; error.value = ''; actionMsg.value = ''; return }
-  loading.value = true
-  error.value = ''
-  meta.value = null
-  try {
-    const data = await backend.fetchMeta(props.avid)
-    if (data.error) {
-      error.value = `获取失败: ${data.error}`
-    } else {
-      meta.value = data
+watch(
+  () => props.visible,
+  async v => {
+    if (!v) {
+      meta.value = null
+      error.value = ''
+      actionMsg.value = ''
+      return
     }
-  } catch (e: unknown) {
-    error.value = `请求失败: ${e instanceof Error ? e.message : String(e)}`
-  } finally {
-    loading.value = false
+    loading.value = true
+    error.value = ''
+    meta.value = null
+    try {
+      const data = await backend.fetchMeta(props.avid)
+      if (data.error) {
+        error.value = `获取失败: ${data.error}`
+      } else {
+        meta.value = data
+      }
+    } catch (e: unknown) {
+      error.value = `请求失败: ${e instanceof Error ? e.message : String(e)}`
+    } finally {
+      loading.value = false
+    }
   }
-})
+)
 
 function buildMovieFromMeta(meta: BackendMeta): Movie {
   return {
@@ -267,7 +424,9 @@ function setResult(msg: string, isError: boolean = false) {
   actionMsg.value = msg
   processing.value = false
   if (!isError) {
-    setTimeout(() => { actionMsg.value = '' }, 3000)
+    setTimeout(() => {
+      actionMsg.value = ''
+    }, 3000)
   }
 }
 

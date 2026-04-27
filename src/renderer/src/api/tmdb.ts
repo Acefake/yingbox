@@ -13,9 +13,12 @@ export const getTmdb = (): InstanceType<typeof TMDB> => {
 const tmdb = new TMDB(getTmdbAccessToken())
 
 // 动态获取图片基础URL（每次调用时从 localStorage 读取最新设置）
-export const getImageBaseUrl = (type?: 'poster' | 'backdrop' | 'actor'): string => {
+export const getImageBaseUrl = (
+  type?: 'poster' | 'backdrop' | 'actor'
+): string => {
   const key = type ? `imageDownloadSize_${type}` : 'imageDownloadSize'
-  const size = (typeof window !== 'undefined' && localStorage.getItem(key)) || 'original'
+  const size =
+    (typeof window !== 'undefined' && localStorage.getItem(key)) || 'original'
   return `https://images.tmdb.org/t/p/${size}`
 }
 

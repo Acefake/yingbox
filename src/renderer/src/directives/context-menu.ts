@@ -220,17 +220,25 @@ const contextMenu: ObjectDirective<HTMLElement, ContextMenuConfig> = {
   },
 
   updated(el: HTMLElement, binding: DirectiveBinding<ContextMenuConfig>) {
-    const handler = (el as HTMLElement & { __contextMenuHandler?: (event: MouseEvent) => void }).__contextMenuHandler
+    const handler = (
+      el as HTMLElement & { __contextMenuHandler?: (event: MouseEvent) => void }
+    ).__contextMenuHandler
     if (handler) {
       el.removeEventListener('contextmenu', handler)
     }
     const handleContextMenu = (event: MouseEvent): void => {
       event.preventDefault()
       event.stopPropagation()
-      ContextMenuManager.getInstance().showMenu(event.clientX, event.clientY, binding.value)
+      ContextMenuManager.getInstance().showMenu(
+        event.clientX,
+        event.clientY,
+        binding.value
+      )
     }
     el.addEventListener('contextmenu', handleContextMenu)
-    ;(el as HTMLElement & { __contextMenuHandler?: (event: MouseEvent) => void }).__contextMenuHandler = handleContextMenu
+    ;(
+      el as HTMLElement & { __contextMenuHandler?: (event: MouseEvent) => void }
+    ).__contextMenuHandler = handleContextMenu
   },
 
   unmounted(el: HTMLElement) {

@@ -4,7 +4,11 @@ const DEFAULT_BASE = 'http://localhost:31471'
 const API_KEY = 'IBHUSDBWQHJEJOBDSW'
 
 const getBase = (): string => {
-  try { return getGoBackendUrl() || DEFAULT_BASE } catch { return DEFAULT_BASE }
+  try {
+    return getGoBackendUrl() || DEFAULT_BASE
+  } catch {
+    return DEFAULT_BASE
+  }
 }
 
 function authHeader() {
@@ -39,7 +43,10 @@ export interface BackendMeta {
   error?: string
 }
 
-async function get<T>(path: string, extraHeaders?: Record<string, string>): Promise<T> {
+async function get<T>(
+  path: string,
+  extraHeaders?: Record<string, string>
+): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json', ...extraHeaders },
@@ -52,7 +59,10 @@ async function get<T>(path: string, extraHeaders?: Record<string, string>): Prom
   return data as T
 }
 
-async function getText(path: string, extraHeaders?: Record<string, string>): Promise<string> {
+async function getText(
+  path: string,
+  extraHeaders?: Record<string, string>
+): Promise<string> {
   const res = await fetch(`${getBase()}${path}`, {
     method: 'GET',
     headers: { ...extraHeaders },
@@ -107,6 +117,8 @@ export const backend = {
     try {
       const res = await fetch(`${getBase()}/api/videos`, { method: 'GET' })
       return res.ok
-    } catch { return false }
+    } catch {
+      return false
+    }
   },
 }

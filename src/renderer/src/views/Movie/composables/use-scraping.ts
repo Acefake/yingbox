@@ -7,7 +7,8 @@ import { ref } from 'vue'
 import { ProcessedItem } from '@/types'
 
 const getMetaLang = (): string =>
-  (typeof window !== 'undefined' && localStorage.getItem('metadataLanguage')) || 'zh-CN'
+  (typeof window !== 'undefined' && localStorage.getItem('metadataLanguage')) ||
+  'zh-CN'
 
 /**
  * 带重试的下载函数
@@ -39,8 +40,14 @@ const downloadWithRetry = async (
         return result
       }
       // 网络错误重试
-      if (errorMsg.includes('econnreset') || errorMsg.includes('etimedout') || errorMsg.includes('network')) {
-        console.warn(`下载失败（网络错误），${retryDelay}ms 后重试 (${attempt}/${maxRetries}): ${path}`)
+      if (
+        errorMsg.includes('econnreset') ||
+        errorMsg.includes('etimedout') ||
+        errorMsg.includes('network')
+      ) {
+        console.warn(
+          `下载失败（网络错误），${retryDelay}ms 后重试 (${attempt}/${maxRetries}): ${path}`
+        )
         await new Promise(resolve => setTimeout(resolve, retryDelay))
         continue
       }
@@ -50,16 +57,27 @@ const downloadWithRetry = async (
       // 权限错误不重试
       if (errorMsg.includes('eperm') || errorMsg.includes('permission')) {
         console.error(`下载失败（权限错误）: ${path}`, e)
-        return { success: false, error: e instanceof Error ? e.message : '未知错误' }
+        return {
+          success: false,
+          error: e instanceof Error ? e.message : '未知错误',
+        }
       }
       // 网络错误重试
-      if (attempt < maxRetries && (errorMsg.includes('econnreset') || errorMsg.includes('etimedout'))) {
-        console.warn(`下载异常，${retryDelay}ms 后重试 (${attempt}/${maxRetries}): ${path}`)
+      if (
+        attempt < maxRetries &&
+        (errorMsg.includes('econnreset') || errorMsg.includes('etimedout'))
+      ) {
+        console.warn(
+          `下载异常，${retryDelay}ms 后重试 (${attempt}/${maxRetries}): ${path}`
+        )
         await new Promise(resolve => setTimeout(resolve, retryDelay))
         continue
       }
       console.error(`下载失败: ${path}`, e)
-      return { success: false, error: e instanceof Error ? e.message : '未知错误' }
+      return {
+        success: false,
+        error: e instanceof Error ? e.message : '未知错误',
+      }
     }
   }
   return { success: false, error: '下载失败' }
@@ -80,7 +98,9 @@ export const useScraping = () => {
 
       // 检查是否已有本地 NFO 文件
       if (item.hasNfo && item.files) {
-        const nfoFile = item.files.find(file => file.name.toLowerCase().endsWith('.nfo'))
+        const nfoFile = item.files.find(file =>
+          file.name.toLowerCase().endsWith('.nfo')
+        )
         if (nfoFile) {
           const readResult = await window.api.file.read(nfoFile.path)
 
@@ -125,27 +145,33 @@ export const useScraping = () => {
 
       // JavBus Go 服务：直接用 fetchMeta，返回单个结果作为候选
       if (provider === 'javbus') {
-        const avid = searchName.replace(/\.[^/.]+$/, '').replace(/\s*\(\d{4}\)\s*$/, '').trim().toUpperCase()
+        const avid = searchName
+          .replace(/\.[^/.]+$/, '')
+          .replace(/\s*\(\d{4}\)\s*$/, '')
+          .trim()
+          .toUpperCase()
         try {
           const meta = await backend.fetchMeta(avid)
           if (meta.error) return []
-          return [{
-            id: avid as any,
-            title: meta.title || avid,
-            original_title: meta.avid,
-            overview: meta.description || '',
-            release_date: meta.release_date || '',
-            vote_average: 0,
-            vote_count: 0,
-            poster_path: meta.cover || '',
-            backdrop_path: meta.fanarts?.[0] || '',
-            adult: false,
-            genre_ids: [],
-            original_language: 'ja',
-            popularity: 0,
-            video: false,
-            _javbus: meta,
-          } as any]
+          return [
+            {
+              id: avid as any,
+              title: meta.title || avid,
+              original_title: meta.avid,
+              overview: meta.description || '',
+              release_date: meta.release_date || '',
+              vote_average: 0,
+              vote_count: 0,
+              poster_path: meta.cover || '',
+              backdrop_path: meta.fanarts?.[0] || '',
+              adult: false,
+              genre_ids: [],
+              original_language: 'ja',
+              popularity: 0,
+              video: false,
+              _javbus: meta,
+            } as any,
+          ]
         } catch (e) {
           console.error('JavBus 获取元数据失败:', e)
           return []
@@ -158,23 +184,26 @@ export const useScraping = () => {
           const results = await searchMetatubeMovie(searchName)
           console.log('MetaTube 搜索结果数量:', results.length)
           if (results.length === 0) return []
-          return results.map(r => ({
-            id: r.id as any,
-            title: r.title,
-            original_title: r.number || r.title,
-            overview: '',
-            release_date: r.release_date || '',
-            vote_average: r.score || 0,
-            vote_count: 0,
-            poster_path: r.thumb_url || '',
-            backdrop_path: r.cover_url || '',
-            adult: false,
-            genre_ids: [],
-            original_language: 'ja',
-            popularity: 0,
-            video: false,
-            _metatube: { id: r.id, provider: r.provider },
-          } as any as Movie))
+          return results.map(
+            r =>
+              ({
+                id: r.id as any,
+                title: r.title,
+                original_title: r.number || r.title,
+                overview: '',
+                release_date: r.release_date || '',
+                vote_average: r.score || 0,
+                vote_count: 0,
+                poster_path: r.thumb_url || '',
+                backdrop_path: r.cover_url || '',
+                adult: false,
+                genre_ids: [],
+                original_language: 'ja',
+                popularity: 0,
+                video: false,
+                _metatube: { id: r.id, provider: r.provider },
+              }) as any as Movie
+          )
         } catch (e) {
           console.error('MetaTube 搜索失败:', e)
           return []
@@ -231,7 +260,14 @@ export const useScraping = () => {
             : '',
           id: movie.id as number,
         })) as Movie[]
-        console.log('处理后的电影列表:', movies.map(m => ({ title: m.title, id: m.id, hasBackdrop: !!m.backdrop_path })))
+        console.log(
+          '处理后的电影列表:',
+          movies.map(m => ({
+            title: m.title,
+            id: m.id,
+            hasBackdrop: !!m.backdrop_path,
+          }))
+        )
         return movies
       } catch (searchError) {
         console.error('搜索电影时出错:', searchError)
@@ -299,9 +335,13 @@ export const useScraping = () => {
           const deleteResult = await window.api.file.delete(filePath)
 
           if (deleteResult.success) {
-            console.log(`已删除旧文件: ${await window.api.path.basename(filePath)}`)
+            console.log(
+              `已删除旧文件: ${await window.api.path.basename(filePath)}`
+            )
           } else {
-            console.error(`删除文件失败: ${await window.api.path.basename(filePath)}`)
+            console.error(
+              `删除文件失败: ${await window.api.path.basename(filePath)}`
+            )
           }
         } catch (error) {
           console.error(`删除文件时出错: ${error}`)
@@ -320,10 +360,16 @@ export const useScraping = () => {
           // 先删除文件夹内的所有文件
           const actorsFiles = await window.api.file.readdir(actorsDir)
           if (actorsFiles.success && actorsFiles.data) {
-            const files = actorsFiles.data as Array<{ name: string; isFile: boolean }>
+            const files = actorsFiles.data as Array<{
+              name: string
+              isFile: boolean
+            }>
             for (const file of files) {
               if (file.isFile) {
-                const filePath = await window.api.path.join(actorsDir, file.name)
+                const filePath = await window.api.path.join(
+                  actorsDir,
+                  file.name
+                )
                 const deleteResult = await window.api.file.delete(filePath)
                 if (!deleteResult.success) {
                   // 静默失败，不影响主流程
@@ -359,20 +405,35 @@ export const useScraping = () => {
       // 移除分辨率
       .replace(/\b(1080[pi]|720p|480p|2160p|4K|UHD|576p)\b/gi, '')
       // 移除 HDR 标记
-      .replace(/\b(HDR\d*|DV|Dolby[\s.]?Vision|HLG|SDR|10bit|12bit|8bit)\b/gi, '')
+      .replace(
+        /\b(HDR\d*|DV|Dolby[\s.]?Vision|HLG|SDR|10bit|12bit|8bit)\b/gi,
+        ''
+      )
       // 移除流媒体平台标记
-      .replace(/\b(MAX|NF|AMZN|DSNP|HULU|iTUNES|ATVP|PCOK|STAN|CRAV|BCORE|iP)\b/gi, '')
+      .replace(
+        /\b(MAX|NF|AMZN|DSNP|HULU|iTUNES|ATVP|PCOK|STAN|CRAV|BCORE|iP)\b/gi,
+        ''
+      )
       // 移除来源标记
-      .replace(/\b(BluRay|Blu-?Ray|BDRip|BDRemux|REMUX|WEB-?DL|WEBRip|WEB|HDTV|DVDRip|DVD|HDDVD)\b/gi, '')
+      .replace(
+        /\b(BluRay|Blu-?Ray|BDRip|BDRemux|REMUX|WEB-?DL|WEBRip|WEB|HDTV|DVDRip|DVD|HDDVD)\b/gi,
+        ''
+      )
       // 移除编码标记
       .replace(/\b(x264|x265|H[\s.]?264|H[\s.]?265|HEVC|AVC|VP9|AV1)\b/gi, '')
       // 移除音频标记
-      .replace(/\b(AAC|DTS[\s-]?HD|DTS|TrueHD|Atmos|FLAC|AC3|EAC3|DDP?[\s.]?\d[\s.]?\d|MA[\s.]?\d[\s.]?\d)\b/gi, '')
+      .replace(
+        /\b(AAC|DTS[\s-]?HD|DTS|TrueHD|Atmos|FLAC|AC3|EAC3|DDP?[\s.]?\d[\s.]?\d|MA[\s.]?\d[\s.]?\d)\b/gi,
+        ''
+      )
       // 移除发布组 -GROUP 和 @GROUP
       .replace(/-[A-Za-z0-9]+$/i, '')
       .replace(/@[A-Za-z0-9]+$/i, '')
       // 移除其它常见标记
-      .replace(/\b(PROPER|REPACK|COMPLETE|DUBBED|SUBBED|MULTI|EXTENDED|UNCUT|REMASTERED|DIRECTORS[\s.]?CUT|LIMITED|INTERNAL)\b/gi, '')
+      .replace(
+        /\b(PROPER|REPACK|COMPLETE|DUBBED|SUBBED|MULTI|EXTENDED|UNCUT|REMASTERED|DIRECTORS[\s.]?CUT|LIMITED|INTERNAL)\b/gi,
+        ''
+      )
       // 移除孤立数字（如 DDP5.1 点换空格后残留的 "1"、"5" 等）
       .replace(/(?<!\w)\d{1,2}(?!\w)/g, '')
       // 清理多余空格和尾部连字符
@@ -397,11 +458,14 @@ export const useScraping = () => {
     progressCallback?: (step: string, stepIndex: number) => void
   ): Promise<void> => {
     try {
-      const existingResources = await checkExistingResources(folderPath, videoBaseName)
+      const existingResources = await checkExistingResources(
+        folderPath,
+        videoBaseName
+      )
 
       if (existingResources.hasNfo && existingResources.nfoContent) {
         const nfoMovieInfo = parseNfoContent(existingResources.nfoContent)
-        
+
         // 合并 NFO 中的信息到 movieData
         if (nfoMovieInfo.title && !movieData.title) {
           movieData.title = nfoMovieInfo.title
@@ -464,11 +528,17 @@ export const useScraping = () => {
       const javbusMeta = (movieData as any)._javbus
       if (javbusMeta) {
         progressCallback?.('正在写入 NFO 文件...', 1)
-        const releaseYear = javbusMeta.release_date ? new Date(javbusMeta.release_date).getFullYear() : ''
-        const keywords = (javbusMeta.keywords || []).map((k: string) => `  <genre>${k}</genre>`).join('\n')
-        const actressXml = Object.keys(javbusMeta.actress || {}).map((name: string) =>
-          `  <actor>\n    <name>${name}</name>\n  </actor>`
-        ).join('\n')
+        const releaseYear = javbusMeta.release_date
+          ? new Date(javbusMeta.release_date).getFullYear()
+          : ''
+        const keywords = (javbusMeta.keywords || [])
+          .map((k: string) => `  <genre>${k}</genre>`)
+          .join('\n')
+        const actressXml = Object.keys(javbusMeta.actress || {})
+          .map(
+            (name: string) => `  <actor>\n    <name>${name}</name>\n  </actor>`
+          )
+          .join('\n')
         const nfoContent = `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
 <movie>
   <title>${javbusMeta.title || movieData.title || ''}</title>
@@ -495,8 +565,14 @@ ${actressXml}
           progressCallback?.('正在下载预览图...', 3)
           for (let i = 0; i < javbusMeta.fanarts.length; i++) {
             const fanartUrl = backend.proxyUrl(javbusMeta.fanarts[i])
-            const fanartName = i === 0 ? `${videoBaseName}-fanart.jpg` : `${videoBaseName}-fanart-${i}.jpg`
-            const fanartPath = await window.api.path.join(folderPath, fanartName)
+            const fanartName =
+              i === 0
+                ? `${videoBaseName}-fanart.jpg`
+                : `${videoBaseName}-fanart-${i}.jpg`
+            const fanartPath = await window.api.path.join(
+              folderPath,
+              fanartName
+            )
             await downloadWithRetry(fanartUrl, fanartPath)
           }
         }
@@ -505,10 +581,15 @@ ${actressXml}
           progressCallback?.('正在下载演员照片...', 4)
           const actorsDir = await window.api.path.join(folderPath, '.actors')
           await window.api.file.mkdir(actorsDir)
-          for (const [name, imgUrl] of Object.entries(javbusMeta.actress as Record<string, string>)) {
+          for (const [name, imgUrl] of Object.entries(
+            javbusMeta.actress as Record<string, string>
+          )) {
             if (imgUrl) {
               const safeActorName = name.replace(/[<>:"/\\|?*]/g, '').trim()
-              const photoPath = await window.api.path.join(actorsDir, `${safeActorName}.jpg`)
+              const photoPath = await window.api.path.join(
+                actorsDir,
+                `${safeActorName}.jpg`
+              )
               await downloadWithRetry(backend.proxyUrl(imgUrl), photoPath)
             }
           }
@@ -519,24 +600,45 @@ ${actressXml}
       }
 
       // MetaTube: 获取完整详情（包含演员/导演等）
-      const metaInfo = (movieData as any)._metatube as { id: string; provider: string } | undefined
-      console.log('[scrapeMovieInFolder] _metatube:', metaInfo, '| movie.id:', movieData.id, '| title:', movieData.title)
+      const metaInfo = (movieData as any)._metatube as
+        | { id: string; provider: string }
+        | undefined
+      console.log(
+        '[scrapeMovieInFolder] _metatube:',
+        metaInfo,
+        '| movie.id:',
+        movieData.id,
+        '| title:',
+        movieData.title
+      )
       if (metaInfo) {
         progressCallback?.('正在获取 MetaTube 电影详情...', 0)
         try {
-          const detail = await getMetatubeMovieDetail(metaInfo.provider, metaInfo.id)
+          const detail = await getMetatubeMovieDetail(
+            metaInfo.provider,
+            metaInfo.id
+          )
           if (detail) {
-            if (detail.thumb_url && !movieData.poster_path) movieData.poster_path = detail.thumb_url
-            if (detail.cover_url && !movieData.backdrop_path) movieData.backdrop_path = detail.cover_url
-            ;(movieData as any).genres = (detail.genres || []).map((g: string) => ({ id: 0, name: g }))
+            if (detail.thumb_url && !movieData.poster_path)
+              movieData.poster_path = detail.thumb_url
+            if (detail.cover_url && !movieData.backdrop_path)
+              movieData.backdrop_path = detail.cover_url
+            ;(movieData as any).genres = (detail.genres || []).map(
+              (g: string) => ({ id: 0, name: g })
+            )
             ;(movieData as any).runtime = detail.runtime || 0
-            ;(movieData as any).production_companies = detail.studio ? [{ name: detail.studio }] : []
-            ;(movieData as any).directors = detail.director ? [{ name: detail.director, profile_path: '' }] : []
+            ;(movieData as any).production_companies = detail.studio
+              ? [{ name: detail.studio }]
+              : []
+            ;(movieData as any).directors = detail.director
+              ? [{ name: detail.director, profile_path: '' }]
+              : []
             ;(movieData as any).cast = (detail.actors || []).map((a: any) => ({
-              name: typeof a === 'string' ? a : (a.name || String(a)),
-              profile_path: typeof a === 'string' ? '' : (a.thumb_url || ''),
+              name: typeof a === 'string' ? a : a.name || String(a),
+              profile_path: typeof a === 'string' ? '' : a.thumb_url || '',
             }))
-            if (!movieData.overview && detail.summary) movieData.overview = detail.summary
+            if (!movieData.overview && detail.summary)
+              movieData.overview = detail.summary
             console.log('MetaTube 详情获取成功')
           }
         } catch (e) {
@@ -550,8 +652,13 @@ ${actressXml}
           await window.api.file.mkdir(actorsDir)
           for (const actor of cast) {
             if (actor.profile_path) {
-              const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
-              const photoPath = await window.api.path.join(actorsDir, `${safeActorName}.jpg`)
+              const safeActorName = actor.name
+                .replace(/[<>:"/\\|?*]/g, '')
+                .trim()
+              const photoPath = await window.api.path.join(
+                actorsDir,
+                `${safeActorName}.jpg`
+              )
               await downloadWithRetry(actor.profile_path, photoPath)
             }
           }
@@ -561,15 +668,22 @@ ${actressXml}
         if (movieData.id) {
           progressCallback?.('正在获取电影详情...', 0)
           try {
-            const details = await getTmdb().movies.details(movieData.id as number) as any
+            const details = (await getTmdb().movies.details(
+              movieData.id as number
+            )) as any
             if (details.backdrop_path && !movieData.backdrop_path) {
               movieData.backdrop_path = `${getImageBaseUrl('backdrop')}${details.backdrop_path}`
             }
             ;(movieData as any).genres = details.genres || []
             ;(movieData as any).runtime = details.runtime || 0
-            ;(movieData as any).production_countries = details.production_countries || []
-            ;(movieData as any).production_companies = details.production_companies || []
-            console.log('获取电影详情成功', { genres: details.genres, runtime: details.runtime })
+            ;(movieData as any).production_countries =
+              details.production_countries || []
+            ;(movieData as any).production_companies =
+              details.production_companies || []
+            console.log('获取电影详情成功', {
+              genres: details.genres,
+              runtime: details.runtime,
+            })
           } catch (e) {
             console.warn('获取电影详情失败:', e)
           }
@@ -577,7 +691,6 @@ ${actressXml}
 
         const { directors, cast } = await getMovieCredits(movieData.id)
         console.log('演职员信息:', { directors, cast })
-
         ;(movieData as any).directors = directors
         ;(movieData as any).cast = cast
 
@@ -591,8 +704,13 @@ ${actressXml}
               const photoUrl = actor.profile_path.startsWith('http')
                 ? actor.profile_path
                 : `${getImageBaseUrl('actor')}${actor.profile_path}`
-              const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
-              const photoPath = await window.api.path.join(actorsDir, `${safeActorName}.jpg`)
+              const safeActorName = actor.name
+                .replace(/[<>:"/\\|?*]/g, '')
+                .trim()
+              const photoPath = await window.api.path.join(
+                actorsDir,
+                `${safeActorName}.jpg`
+              )
               const result = await downloadWithRetry(photoUrl, photoPath)
               if (result.success) {
                 console.log(`演员照片下载成功: ${actor.name}`)
@@ -706,8 +824,10 @@ ${actressXml}
     const cast = (movieData as any).cast || []
     const genres: any[] = (movieData as any).genres || []
     const runtime: number = (movieData as any).runtime || 0
-    const productionCountries: any[] = (movieData as any).production_countries || []
-    const productionCompanies: any[] = (movieData as any).production_companies || []
+    const productionCountries: any[] =
+      (movieData as any).production_countries || []
+    const productionCompanies: any[] =
+      (movieData as any).production_companies || []
 
     // 生成类型 XML（Kodi 标准平展格式）
     const genresXml = genres
@@ -801,7 +921,7 @@ ${castXml}
       // 检查传入的路径是文件还是文件夹
       // 通过检查路径是否有文件扩展名来判断
       const hasExtension = /\.[^.]+$/.test(folderPath)
-      
+
       let actualFolderPath = folderPath
 
       if (hasExtension) {
@@ -823,10 +943,15 @@ ${castXml}
 
       // 检查 NFO 文件
       const nfoFileName = `${videoBaseName}.nfo`
-      const nfoFile = files.find(f => f.name.toLowerCase() === nfoFileName.toLowerCase())
+      const nfoFile = files.find(
+        f => f.name.toLowerCase() === nfoFileName.toLowerCase()
+      )
 
       if (nfoFile) {
-        const nfoPath = await window.api.path.join(actualFolderPath, nfoFile.name)
+        const nfoPath = await window.api.path.join(
+          actualFolderPath,
+          nfoFile.name
+        )
         const nfoResult = await window.api.file.read(nfoPath)
 
         if (nfoResult.success && nfoResult.data) {
@@ -851,7 +976,10 @@ ${castXml}
         )
         if (posterFile) {
           result.hasPoster = true
-          result.posterPath = await window.api.path.join(actualFolderPath, posterFile.name)
+          result.posterPath = await window.api.path.join(
+            actualFolderPath,
+            posterFile.name
+          )
           break
         }
       }
@@ -870,7 +998,10 @@ ${castXml}
         )
         if (fanartFile) {
           result.hasFanart = true
-          result.fanartPath = await window.api.path.join(actualFolderPath, fanartFile.name)
+          result.fanartPath = await window.api.path.join(
+            actualFolderPath,
+            fanartFile.name
+          )
           break
         }
       }
@@ -903,7 +1034,9 @@ ${castXml}
       const titleMatch = nfoContent.match(/<title>(.*?)<\/title>/)
       if (titleMatch) movieInfo.title = titleMatch[1]
 
-      const originalTitleMatch = nfoContent.match(/<originaltitle>(.*?)<\/originaltitle>/)
+      const originalTitleMatch = nfoContent.match(
+        /<originaltitle>(.*?)<\/originaltitle>/
+      )
       if (originalTitleMatch) movieInfo.original_title = originalTitleMatch[1]
 
       const plotMatch = nfoContent.match(/<plot>(.*?)<\/plot>/s)
@@ -923,12 +1056,15 @@ ${castXml}
         movieInfo.id = parseInt(tmdbIdMatch[1])
       }
 
-      const thumbMatch = nfoContent.match(/<thumb aspect="poster"[^>]*>(.*?)<\/thumb>/s)
+      const thumbMatch = nfoContent.match(
+        /<thumb aspect="poster"[^>]*>(.*?)<\/thumb>/s
+      )
       if (thumbMatch) movieInfo.poster_path = thumbMatch[1]
 
-      const fanartMatch = nfoContent.match(/<thumb aspect="backdrop"[^>]*>(.*?)<\/thumb>/s)
+      const fanartMatch = nfoContent.match(
+        /<thumb aspect="backdrop"[^>]*>(.*?)<\/thumb>/s
+      )
       if (fanartMatch) movieInfo.backdrop_path = fanartMatch[1]
-
     } catch (error) {
       console.error('解析 NFO 内容时出错:', error)
     }

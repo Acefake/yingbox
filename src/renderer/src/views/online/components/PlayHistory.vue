@@ -5,7 +5,12 @@
       <button class="clear-btn" @click="emit('clear')">清空</button>
     </div>
     <div v-scroll-x class="play-history-list">
-      <div v-for="rec in history" :key="rec.url" class="play-record-card" @click="emit('open', rec)">
+      <div
+        v-for="rec in history"
+        :key="rec.url"
+        class="play-record-card"
+        @click="emit('open', rec)"
+      >
         <img :src="rec.vod_pic" class="rec-poster" @error="onImgError" />
         <div class="rec-info">
           <div class="rec-title">{{ rec.vod_name }}</div>
@@ -37,7 +42,8 @@ const emit = defineEmits<{
 }>()
 
 const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
+  ;(e.target as HTMLImageElement).src =
+    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
 }
 
 const formatTime = (ts: number) => {
@@ -77,7 +83,9 @@ const formatTime = (ts: number) => {
   cursor: pointer;
 }
 
-.clear-btn:hover { color: rgba(255, 255, 255, 0.8); }
+.clear-btn:hover {
+  color: rgba(255, 255, 255, 0.8);
+}
 
 .play-history-list {
   display: flex;
@@ -86,7 +94,9 @@ const formatTime = (ts: number) => {
   padding-bottom: 4px;
 }
 
-.play-history-list::-webkit-scrollbar { height: 3px; }
+.play-history-list::-webkit-scrollbar {
+  height: 3px;
+}
 .play-history-list::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.15);
   border-radius: 2px;
@@ -120,7 +130,9 @@ const formatTime = (ts: number) => {
   flex-shrink: 0;
 }
 
-.rec-info { overflow: hidden; }
+.rec-info {
+  overflow: hidden;
+}
 
 .rec-title {
   font-size: 12px;

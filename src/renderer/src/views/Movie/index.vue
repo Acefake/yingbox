@@ -99,10 +99,15 @@
       <div
         v-if="localScrapeToast"
         class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[999] px-4 py-2 rounded-lg text-sm text-white"
-        style="background: rgba(20,20,28,0.95); border: 1px solid rgba(255,255,255,0.12); backdrop-filter: blur(12px);"
-      >{{ localScrapeToast }}</div>
+        style="
+          background: rgba(20, 20, 28, 0.95);
+          border: 1px solid rgba(255, 255, 255, 0.12);
+          backdrop-filter: blur(12px);
+        "
+      >
+        {{ localScrapeToast }}
+      </div>
     </Transition>
-
   </div>
 </template>
 
@@ -125,7 +130,10 @@ import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { useScraping } from '@/views/movie/composables/use-scraping'
 import { useFileManagement } from '@/views/movie/composables/use-file-management'
 import { useScrapingQueue } from '@/views/movie/composables/use-scraping-queue'
-import { useMediaProcessing, bumpScrapeVersion } from '@/views/movie/composables/use-media-processing'
+import {
+  useMediaProcessing,
+  bumpScrapeVersion,
+} from '@/views/movie/composables/use-media-processing'
 import { useScrapingTask } from '@/views/movie/composables/use-scraping-task'
 
 interface AppLayoutMethods {
@@ -157,7 +165,9 @@ const metaPreviewAvid = ref('')
 const showJavBusScrapeModal = ref(false)
 const javBusScrapeAvid = ref('')
 const javBusScrapeItem = ref<ProcessedItem | null>(null)
-const javBusScrapeModal = ref<InstanceType<typeof JavBusScrapeModal> | null>(null)
+const javBusScrapeModal = ref<InstanceType<typeof JavBusScrapeModal> | null>(
+  null
+)
 const localScrapeToast = ref('')
 let toastTimer: ReturnType<typeof setTimeout> | null = null
 
@@ -191,19 +201,20 @@ const {
 } = useFileManagement()
 
 // 刮削队列相关状态和方法
-const {
-  scrapeQueue,
-  isProcessingQueue,
-  currentQueueIndex,
-  addToQueue,
-} = useScrapingQueue()
+const { scrapeQueue, isProcessingQueue, currentQueueIndex, addToQueue } =
+  useScrapingQueue()
 
 // 基础状态
 const selectedItem = ref<ProcessedItem | null>(null)
 
 // 媒体处理相关状态
-const { posterImageDataUrl, fanartImageDataUrl, movieInfo, actors, warmNfoCache } =
-  useMediaProcessing(selectedItem)
+const {
+  posterImageDataUrl,
+  fanartImageDataUrl,
+  movieInfo,
+  actors,
+  warmNfoCache,
+} = useMediaProcessing(selectedItem)
 
 // 计算属性改为 ref，支持直接修改
 const processedItems = ref<ProcessedItem[]>([])
@@ -214,14 +225,20 @@ const updateProcessedItems = (): void => {
 }
 
 // fileData 变化时自动同步（覆盖所有刷新路径，包括队列处理器）
-watch(fileData, () => {
-  updateProcessedItems()
-  // 刷新后把 selectedItem 指向新扫描对象，使 fanartImagePath 能读到最新 files
-  if (selectedItem.value) {
-    const refreshed = processedItems.value.find(i => i.path === selectedItem.value!.path)
-    if (refreshed) selectedItem.value = refreshed
-  }
-}, { deep: true })
+watch(
+  fileData,
+  () => {
+    updateProcessedItems()
+    // 刷新后把 selectedItem 指向新扫描对象，使 fanartImagePath 能读到最新 files
+    if (selectedItem.value) {
+      const refreshed = processedItems.value.find(
+        i => i.path === selectedItem.value!.path
+      )
+      if (refreshed) selectedItem.value = refreshed
+    }
+  },
+  { deep: true }
+)
 
 // 包装 readDirectory，读取后更新 processedItems
 const handleReadDirectory = async (): Promise<void> => {
@@ -231,7 +248,10 @@ const handleReadDirectory = async (): Promise<void> => {
 }
 
 // 弹窗管理方法 - 直接写在组件内部，逻辑简单清晰
-const handleShowSearchModal = (movies: MediaResult[], item?: ProcessedItem): void => {
+const handleShowSearchModal = (
+  movies: MediaResult[],
+  item?: ProcessedItem
+): void => {
   searchMovies.value = movies
   if (item) {
     currentScrapeItem.value = item
@@ -302,7 +322,9 @@ const toggleItemSelection = (item: ProcessedItem): void => {
 
 const updateSelectedItemsData = (): void => {
   const pathSet = selectedItems.value
-  selectedItemsData.value = processedItems.value.filter(item => pathSet.has(item.path))
+  selectedItemsData.value = processedItems.value.filter(item =>
+    pathSet.has(item.path)
+  )
 }
 
 const toggleMultiSelectMode = (): void => {
@@ -583,7 +605,10 @@ const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
 /**
  * JavBus 直接刮削 - 从预览弹窗触发
  */
-const handleJavBusScrape = async (meta: any, item: ProcessedItem): Promise<void> => {
+const handleJavBusScrape = async (
+  meta: any,
+  item: ProcessedItem
+): Promise<void> => {
   currentScrapeItem.value = item
   const movie: Movie = {
     id: meta.avid as any,
@@ -607,14 +632,19 @@ const handleJavBusScrape = async (meta: any, item: ProcessedItem): Promise<void>
     await processSingleScrapeTask(movie)
     javBusScrapeModal.value?.setResult(`✅ 刮削完成`)
   } catch (e) {
-    javBusScrapeModal.value?.setScrapeError(`刮削失败: ${e instanceof Error ? e.message : '未知错误'}`)
+    javBusScrapeModal.value?.setScrapeError(
+      `刮削失败: ${e instanceof Error ? e.message : '未知错误'}`
+    )
   }
 }
 
 /**
  * JavBus 加入队列 - 从预览弹窗触发
  */
-const handleJavBusAddToQueue = async (movie: Movie, item: ProcessedItem): Promise<void> => {
+const handleJavBusAddToQueue = async (
+  movie: Movie,
+  item: ProcessedItem
+): Promise<void> => {
   currentScrapeItem.value = item
   addToQueue(item, movie)
   handleCloseSearchModal()
@@ -668,7 +698,9 @@ const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
 }
 
 // 处理单个刮削任务 - 刮削任务处理逻辑直接写在组件里，逻辑清晰
-const processSingleScrapeTask = async (movie: Movie): Promise<string | null> => {
+const processSingleScrapeTask = async (
+  movie: Movie
+): Promise<string | null> => {
   if (!currentScrapeItem.value) {
     return null
   }
@@ -715,7 +747,7 @@ watch(
 // 本地刮削
 const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
   const avid = item.name
-    .replace(/\.[^/.]+$/, '')      // 去扩展名
+    .replace(/\.[^/.]+$/, '') // 去扩展名
     .replace(/\s*\(\d{4}\)\s*$/, '') // 去年份后缀 (2020)
     .trim()
     .toUpperCase()
@@ -729,7 +761,11 @@ const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
     }
     showToast(`刮削完成: ${meta.title || avid}`)
     bumpScrapeVersion()
-    await refreshAfterScrape(item.type === 'folder' ? item.path : item.path.replace(/[\\/][^\\/]+$/, ''))
+    await refreshAfterScrape(
+      item.type === 'folder'
+        ? item.path
+        : item.path.replace(/[\\/][^\\/]+$/, '')
+    )
   } catch (e) {
     console.error('[scrape] exception:', e)
     showToast('刮削异常，请检查 Go 后端日志')
@@ -764,10 +800,14 @@ const handleDownloadDone = (_avid: string, msg: string): void => {
 const showToast = (msg: string): void => {
   localScrapeToast.value = msg
   if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => { localScrapeToast.value = '' }, 3000)
+  toastTimer = setTimeout(() => {
+    localScrapeToast.value = ''
+  }, 3000)
 }
 
-onUnmounted(() => { if (toastTimer) clearTimeout(toastTimer) })
+onUnmounted(() => {
+  if (toastTimer) clearTimeout(toastTimer)
+})
 
 onMounted(() => {
   const loaded = loadFromCache()
@@ -797,7 +837,9 @@ onMounted(() => {
 
 .toast-fade-enter-active,
 .toast-fade-leave-active {
-  transition: opacity 0.3s ease, transform 0.3s ease;
+  transition:
+    opacity 0.3s ease,
+    transform 0.3s ease;
 }
 .toast-fade-enter-from,
 .toast-fade-leave-to {

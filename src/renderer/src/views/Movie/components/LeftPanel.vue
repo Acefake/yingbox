@@ -10,7 +10,7 @@
     }"
     :class="[
       'flex flex-col flex-shrink-0 relative rounded-xl glass-panel-floating shadow-2xl h-full',
-      mode !== 'tv' ? 'border border-white border-opacity-20' : ''
+      mode !== 'tv' ? 'border border-white border-opacity-20' : '',
     ]"
   >
     <!-- 顶部置顶操作区 -->
@@ -21,7 +21,10 @@
           {{ mode === 'tv' ? '电视剧库' : '媒体库' }}
         </h2>
         <div class="flex items-center gap-2">
-          <div v-if="processedItems.length" class="text-[10px] font-bold bg-white bg-opacity-10 px-2 py-0.5 rounded-full text-gray-400">
+          <div
+            v-if="processedItems.length"
+            class="text-[10px] font-bold bg-white bg-opacity-10 px-2 py-0.5 rounded-full text-gray-400"
+          >
             {{ processedItems.length }} {{ mode === 'tv' ? '剧集' : '项目' }}
           </div>
         </div>
@@ -30,12 +33,19 @@
       <!-- 扫描进度条（两种模式通用）-->
       <div v-if="dirLoading" class="mb-2 px-1">
         <div class="flex items-center gap-1.5 text-[10px] text-blue-400 mb-1">
-          <span class="inline-block w-2 h-2 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"></span>
-          <span v-if="scanProgress?.active">正在扫描... 已找到 {{ scanProgress.found }} 项</span>
+          <span
+            class="inline-block w-2 h-2 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"
+          ></span>
+          <span v-if="scanProgress?.active"
+            >正在扫描... 已找到 {{ scanProgress.found }} 项</span
+          >
           <span v-else>正在加载...</span>
         </div>
         <div class="h-0.5 bg-white bg-opacity-10 rounded overflow-hidden">
-          <div class="h-full bg-blue-400 bg-opacity-60 rounded animate-pulse" style="width:60%"></div>
+          <div
+            class="h-full bg-blue-400 bg-opacity-60 rounded animate-pulse"
+            style="width: 60%"
+          ></div>
         </div>
       </div>
 
@@ -46,12 +56,16 @@
             @click="$emit('addFolder')"
             :disabled="dirLoading"
             class="flex-1 py-1.5 bg-blue-600 bg-opacity-60 hover:bg-opacity-80 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50"
-          >+ 添加</button>
+          >
+            + 添加
+          </button>
           <button
             @click="$emit('refresh')"
             :disabled="dirLoading"
             class="flex-1 py-1.5 bg-gray-700/60 hover:bg-gray-600/70 text-gray-100 text-[11px] font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50"
-          >{{ dirLoading ? '刷新中...' : '刷新' }}</button>
+          >
+            {{ dirLoading ? '刷新中...' : '刷新' }}
+          </button>
         </div>
 
         <!-- 搜索框（两种模式）-->
@@ -59,61 +73,114 @@
           <input
             v-model="searchQuery"
             type="text"
-            :placeholder="mode === 'tv' ? '搜索电视剧...' : '搜索文件或文件夹...'"
+            :placeholder="
+              mode === 'tv' ? '搜索电视剧...' : '搜索文件或文件夹...'
+            "
             class="w-full py-1.5 pl-7 pr-6 rounded-lg bg-black bg-opacity-30 text-white placeholder-gray-500 border border-white border-opacity-10 focus:border-blue-500 focus:outline-none text-xs"
           />
-          <svg class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z" />
+          <svg
+            class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none"
+            fill="none"
+            stroke="currentColor"
+            viewBox="0 0 24 24"
+          >
+            <path
+              stroke-linecap="round"
+              stroke-linejoin="round"
+              stroke-width="2"
+              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
+            />
           </svg>
-          <button v-if="searchQuery" @click="searchQuery = ''" class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white">
-            <svg class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          <button
+            v-if="searchQuery"
+            @click="searchQuery = ''"
+            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
+          >
+            <svg
+              class="w-3 h-3"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
 
         <!-- 已添加目录列表（两种模式）-->
-        <div v-if="directoryPaths?.length" class="space-y-1 max-h-16 overflow-y-auto">
+        <div
+          v-if="directoryPaths?.length"
+          class="space-y-1 max-h-16 overflow-y-auto"
+        >
           <div
             v-for="(dir, i) in directoryPaths"
             :key="dir"
             class="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-5 rounded-md text-[10px] text-gray-400 group"
           >
-            <span class="flex-1 truncate" :title="dir">{{ dir.split(/[/\\]/).pop() }}</span>
-            <button @click="$emit('removeDirectory', i)" class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all flex-shrink-0">✕</button>
+            <span class="flex-1 truncate" :title="dir">{{
+              dir.split(/[/\\]/).pop()
+            }}</span>
+            <button
+              @click="$emit('removeDirectory', i)"
+              class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all flex-shrink-0"
+            >
+              ✕
+            </button>
           </div>
         </div>
 
         <!-- 多选模式按钮 -->
         <button
           class="w-full py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95"
-          :class="isMultiSelectMode
-            ? 'bg-orange-500/70 hover:bg-orange-500/90 text-white'
-            : 'bg-gray-700/60 hover:bg-gray-600/70 text-gray-100'"
+          :class="
+            isMultiSelectMode
+              ? 'bg-orange-500/70 hover:bg-orange-500/90 text-white'
+              : 'bg-gray-700/60 hover:bg-gray-600/70 text-gray-100'
+          "
           @click="$emit('toggleMultiSelect')"
-        >{{ isMultiSelectMode ? '退出多选' : '多选模式' }}</button>
+        >
+          {{ isMultiSelectMode ? '退出多选' : '多选模式' }}
+        </button>
 
         <!-- 多选操作行 -->
         <div v-if="isMultiSelectMode" class="flex gap-1.5">
           <button
             class="flex-1 py-1.5 bg-blue-600 bg-opacity-60 hover:bg-opacity-80 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95"
             @click="$emit('toggleSelectAll')"
-          >{{ (selectedItemsCount ?? 0) >= processedItems.length ? '取消全选' : '全选' }}</button>
+          >
+            {{
+              (selectedItemsCount ?? 0) >= processedItems.length
+                ? '取消全选'
+                : '全选'
+            }}
+          </button>
           <button
             class="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95"
-            :class="(selectedItemsCount ?? 0) > 0
-              ? 'bg-green-600 bg-opacity-70 hover:bg-opacity-90 text-white'
-              : 'bg-gray-600 bg-opacity-40 text-gray-500 cursor-not-allowed'"
+            :class="
+              (selectedItemsCount ?? 0) > 0
+                ? 'bg-green-600 bg-opacity-70 hover:bg-opacity-90 text-white'
+                : 'bg-gray-600 bg-opacity-40 text-gray-500 cursor-not-allowed'
+            "
             :disabled="!selectedItemsCount || selectedItemsCount === 0"
             @click="$emit('addSelectedToQueue')"
-          >批量刮削 ({{ selectedItemsCount ?? 0 }})</button>
+          >
+            批量刮削 ({{ selectedItemsCount ?? 0 }})
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 可滚动文件列表 -->
     <div class="flex-1 overflow-y-auto p-2 left-panel-scroll">
-      <div v-if="filteredItems.length === 0" class="p-4 text-gray-400 text-center text-sm">
+      <div
+        v-if="filteredItems.length === 0"
+        class="p-4 text-gray-400 text-center text-sm"
+      >
         {{ searchQuery ? '没有找到匹配内容' : '请先添加文件夹' }}
       </div>
 
@@ -127,9 +194,14 @@
           :selected-path="selectedPath"
           :is-multi-select-mode="isMultiSelectMode"
           :is-selected="selectedItems?.has(item.path) || false"
-          @select="(item: ProcessedItem, rootItem: ProcessedItem) => $emit('selectItem', item, rootItem)"
+          @select="
+            (item: ProcessedItem, rootItem: ProcessedItem) =>
+              $emit('selectItem', item, rootItem)
+          "
           @preload="(item: ProcessedItem) => $emit('preload', item)"
-          @toggle-selection="(item: ProcessedItem) => $emit('toggleSelection', item)"
+          @toggle-selection="
+            (item: ProcessedItem) => $emit('toggleSelection', item)
+          "
           @auto-scrape="(item: ProcessedItem) => $emit('autoScrape', item)"
           @direct-scrape="(item: ProcessedItem) => $emit('directScrape', item)"
           @manual-scrape="(item: ProcessedItem) => $emit('manualScrape', item)"
@@ -150,10 +222,14 @@
           @manual-scrape="item => $emit('manualScrape', item)"
           @auto-scrape="item => $emit('autoScrape', item)"
           @direct-scrape="item => $emit('directScrape', item)"
-          @toggle-selection="(item: ProcessedItem) => $emit('toggleSelection', item)"
+          @toggle-selection="
+            (item: ProcessedItem) => $emit('toggleSelection', item)
+          "
           @preload="(item: ProcessedItem) => $emit('preload', item)"
           @local-scrape="(item: ProcessedItem) => $emit('localScrape', item)"
-          @download-video="(item: ProcessedItem) => $emit('downloadVideo', item)"
+          @download-video="
+            (item: ProcessedItem) => $emit('downloadVideo', item)
+          "
           @fetch-meta="(item: ProcessedItem) => $emit('fetchMeta', item)"
         />
       </template>
@@ -180,7 +256,7 @@ interface Props {
 }
 
 const props = withDefaults(defineProps<Props>(), {
-  mode: 'movie'
+  mode: 'movie',
 })
 
 // 搜索相关状态

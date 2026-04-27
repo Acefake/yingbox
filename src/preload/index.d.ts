@@ -40,9 +40,22 @@ interface API {
     download: (url: string, filePath: string) => Promise<FileOperationResult>
     fetch: (
       url: string,
-      options?: { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number }
-    ) => Promise<{ success: boolean; status?: number; data?: unknown; error?: string }>
-    fetchImage: (url: string, referer?: string) => Promise<{ success: boolean; data?: string; error?: string }>
+      options?: {
+        method?: string
+        headers?: Record<string, string>
+        body?: string
+        timeoutMs?: number
+      }
+    ) => Promise<{
+      success: boolean
+      status?: number
+      data?: unknown
+      error?: string
+    }>
+    fetchImage: (
+      url: string,
+      referer?: string
+    ) => Promise<{ success: boolean; data?: string; error?: string }>
   }
   path: {
     join: (...paths: string[]) => Promise<string>
@@ -75,7 +88,9 @@ interface API {
     getVersion: () => Promise<FileOperationResult>
   }
   shell: {
-    openPath: (filePath: string) => Promise<{ success: boolean; error?: string }>
+    openPath: (
+      filePath: string
+    ) => Promise<{ success: boolean; error?: string }>
   }
   player: {
     open: (filePath: string) => Promise<{ success: boolean }>

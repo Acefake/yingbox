@@ -15,6 +15,15 @@ export const routes = [
     },
   },
   {
+    path: '/vod-test',
+    name: 'VODTest',
+    component: () => import('@/views/VODTestWindow.vue'),
+    meta: {
+      title: 'VOD测试',
+      description: 'VOD解析器测试窗口',
+    },
+  },
+  {
     path: '/movie',
     name: 'Movie',
     component: () => import('@/views/movie/Index.vue'),

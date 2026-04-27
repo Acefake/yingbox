@@ -46,6 +46,9 @@ const (
 //go:embed py/src/downloaderMgr.py
 //go:embed py/src/downloader/*.py
 //go:embed py/cfg/configs.json
+//go:embed py/vod_parser.py
+//go:embed py/catspider_runner.js
+//go:embed py/vod.json
 
 //go:generate powershell -NoProfile -Command "Copy-Item -Recurse -Force ../main.py py/; Copy-Item -Recurse -Force ../metadata.py py/; Copy-Item -Recurse -Force ../requirements.txt py/; Copy-Item -Recurse -Force ../tools py/; Copy-Item -Recurse -Force ../src py/; Copy-Item -Recurse -Force ../cfg py/; if (!(Test-Path py/db)) { New-Item -ItemType Directory -Path py/db }"
 var pyScripts embed.FS
@@ -142,6 +145,8 @@ func runPython(scriptRelPath string, args []string, envExtra map[string]string) 
 	cmd := exec.Command("python", append([]string{script}, args...)...)
 	cmd.Dir = scriptsDir
 	cmd.Env = os.Environ()
+	// Force UTF-8 output on Windows (default is GBK on Chinese systems)
+	cmd.Env = append(cmd.Env, "PYTHONIOENCODING=utf-8")
 	for k, v := range envExtra {
 		cmd.Env = append(cmd.Env, k+"="+v)
 	}
@@ -217,6 +222,7 @@ func main() {
 	mux.HandleFunc("/api/queue", queueHandler)
 	mux.HandleFunc("/api/meta/", metaHandler)
 	mux.HandleFunc("/api/scrape/", scrapeHandler)
+	mux.HandleFunc("/api/vod/parse", vodParseHandler)
 	mux.HandleFunc("/proxy", proxyImageHandler)
 	mux.HandleFunc("/file/", imageHandler)
 
@@ -770,6 +776,105 @@ func scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 7. 返回元数据
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Write([]byte(jsonLine))
+}
+
+// vodParseHandler VOD 播放地址解析
+func vodParseHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodPost {
+		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	var reqMap map[string]interface{}
+	if err := json.NewDecoder(r.Body).Decode(&reqMap); err != nil {
+		httpError(w, "Invalid request body", http.StatusBadRequest)
+		return
+	}
+
+	// 确定操作类型
+	action, _ := reqMap["action"].(string)
+	if action == "" {
+		action = "parse"
+	}
+	siteName, _ := reqMap["siteName"].(string)
+
+	// 构建参数 - 传递所有字段给 Python
+	argsMap := map[string]interface{}{}
+	switch action {
+	case "getConfig":
+		// no extra args needed
+	case "search":
+		argsMap["text"] = reqMap["keyword"]
+		argsMap["page"] = reqMap["page"]
+		if argsMap["page"] == nil {
+			argsMap["page"] = 1
+		}
+	case "getCards":
+		if ext, ok := reqMap["ext"]; ok {
+			argsMap["ext"] = ext
+		}
+		if url, ok := reqMap["url"]; ok {
+			argsMap["url"] = url
+		}
+		argsMap["page"] = reqMap["page"]
+	case "getTracks":
+		argsMap["url"] = reqMap["url"]
+	case "getPlayinfo":
+		// Pass all extra fields (vid, pkey, ref, url, etc.)
+		for k, v := range reqMap {
+			if k != "action" && k != "siteName" {
+				argsMap[k] = v
+			}
+		}
+	case "parse":
+		argsMap["videoID"] = reqMap["videoID"]
+		argsMap["episode"] = reqMap["episode"]
+	}
+
+	argsJSON, _ := json.Marshal(argsMap)
+	args := []string{action, siteName, string(argsJSON)}
+
+	// Pass PROJECT_ROOT so Python/Node can find node_modules
+	// Go backend runs from packages/services/backend, node_modules is at project root
+	projectRoot := ""
+	if wd, err := os.Getwd(); err == nil {
+		// Walk up to find node_modules
+		dir := wd
+		for i := 0; i < 5; i++ {
+			if _, err := os.Stat(filepath.Join(dir, "node_modules")); err == nil {
+				projectRoot = dir
+				break
+			}
+			dir = filepath.Dir(dir)
+		}
+	}
+	if projectRoot == "" {
+		projectRoot, _ = os.Getwd()
+	}
+	envExtra := map[string]string{
+		"PROJECT_ROOT": projectRoot,
+	}
+
+	stdout, stderr, err := runPython("vod_parser.py", args, envExtra)
+	if err != nil {
+		logger.Printf("vod_parser exec failed: %v\nstderr: %s", err, stderr)
+	}
+
+	jsonLine, _ := parsePythonJSON(stdout, stderr)
+	if jsonLine == "" {
+		logger.Printf("vod_parser no json output, stdout: %s, stderr: %s", stdout, stderr)
+		result := map[string]interface{}{
+			"success": false,
+			"error":   "vod parser failed",
+			"log":     stdout + "\n" + stderr,
+		}
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		json.NewEncoder(w).Encode(result)
+		return
+	}
+
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	w.Write([]byte(jsonLine))
 }

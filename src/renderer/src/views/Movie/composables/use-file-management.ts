@@ -106,33 +106,40 @@ export const useFileManagement = () => {
 
     independentVideoFiles.forEach(video => {
       // 获取视频文件所在目录的所有文件（支持 Windows 和 Unix 路径）
-      const lastSlashIndex = Math.max(video.path.lastIndexOf('/'), video.path.lastIndexOf('\\'))
+      const lastSlashIndex = Math.max(
+        video.path.lastIndexOf('/'),
+        video.path.lastIndexOf('\\')
+      )
       const videoDir = video.path.substring(0, lastSlashIndex)
       const separator = video.path.includes('\\') ? '\\' : '/'
 
-      const sameDirectoryFiles = visibleFiles.filter(
-        file => {
-          const inDirectory = file.path.startsWith(videoDir + separator)
-          const noSubdir = file.path.substring(videoDir.length + 1).indexOf(separator) === -1
-          // console.log(`文件 ${file.name}:`, {
-          //   inDirectory,
-          //   noSubdir,
-          //   path: file.path,
-          //   videoDir: videoDir + separator
-          // })
-          return file.isFile && inDirectory && noSubdir
-        }
-      )
+      const sameDirectoryFiles = visibleFiles.filter(file => {
+        const inDirectory = file.path.startsWith(videoDir + separator)
+        const noSubdir =
+          file.path.substring(videoDir.length + 1).indexOf(separator) === -1
+        // console.log(`文件 ${file.name}:`, {
+        //   inDirectory,
+        //   noSubdir,
+        //   path: file.path,
+        //   videoDir: videoDir + separator
+        // })
+        return file.isFile && inDirectory && noSubdir
+      })
 
       // 检测是否已有 NFO、海报和背景图
-      const hasNfo = sameDirectoryFiles.some(file => file.name.toLowerCase().endsWith('.nfo'))
-      const hasPoster = sameDirectoryFiles.some(file =>
-        file.name.toLowerCase().includes('poster') || file.name.toLowerCase() === 'poster.jpg'
+      const hasNfo = sameDirectoryFiles.some(file =>
+        file.name.toLowerCase().endsWith('.nfo')
       )
-      const hasFanart = sameDirectoryFiles.some(file =>
-        file.name.toLowerCase().includes('fanart') ||
-        file.name.toLowerCase().includes('backdrop') ||
-        file.name.toLowerCase() === 'fanart.jpg'
+      const hasPoster = sameDirectoryFiles.some(
+        file =>
+          file.name.toLowerCase().includes('poster') ||
+          file.name.toLowerCase() === 'poster.jpg'
+      )
+      const hasFanart = sameDirectoryFiles.some(
+        file =>
+          file.name.toLowerCase().includes('fanart') ||
+          file.name.toLowerCase().includes('backdrop') ||
+          file.name.toLowerCase() === 'fanart.jpg'
       )
 
       result.push({
@@ -153,7 +160,9 @@ export const useFileManagement = () => {
   /**
    * 递归读取目录（自定义实现，支持增量更新进度）
    */
-  const readDirectoryRecursive = async (dirPath: string): Promise<FileItem[]> => {
+  const readDirectoryRecursive = async (
+    dirPath: string
+  ): Promise<FileItem[]> => {
     const allFiles: FileItem[] = []
 
     try {
@@ -162,7 +171,11 @@ export const useFileManagement = () => {
         return allFiles
       }
 
-      const items = result.data as Array<{ name: string; isDirectory: boolean; isFile: boolean }>
+      const items = result.data as Array<{
+        name: string
+        isDirectory: boolean
+        isFile: boolean
+      }>
 
       for (const item of items) {
         const fullPath = await window.api.path.join(dirPath, item.name)
@@ -172,7 +185,11 @@ export const useFileManagement = () => {
           continue
         }
 
-        const stat = statResult.data as { size: number; isDirectory: boolean; isFile: boolean }
+        const stat = statResult.data as {
+          size: number
+          isDirectory: boolean
+          isFile: boolean
+        }
 
         scanProgress.value.found++
         allFiles.push({
@@ -206,31 +223,28 @@ export const useFileManagement = () => {
   const readDirectory = async (): Promise<void> => {
     dirLoading.value = true
     scanProgress.value = { found: 0, active: true }
-    const result = await safeExecute(
-      async () => {
-        const dialogResult = await window.api.dialog.openDirectory()
+    const result = await safeExecute(async () => {
+      const dialogResult = await window.api.dialog.openDirectory()
 
-        if (
-          !dialogResult.success ||
-          dialogResult.canceled ||
-          !dialogResult.filePaths?.length
-        ) {
-          return null
-        }
+      if (
+        !dialogResult.success ||
+        dialogResult.canceled ||
+        !dialogResult.filePaths?.length
+      ) {
+        return null
+      }
 
-        const selectedPath = dialogResult.filePaths[0]
-        currentDirectoryPath.value = selectedPath
+      const selectedPath = dialogResult.filePaths[0]
+      currentDirectoryPath.value = selectedPath
 
-        scanProgress.value = { found: 0, active: true }
-        const files = await readDirectoryRecursive(selectedPath)
-        fileData.value = files
-        scanProgress.value = { found: files.length, active: false }
-        saveToCache()
+      scanProgress.value = { found: 0, active: true }
+      const files = await readDirectoryRecursive(selectedPath)
+      fileData.value = files
+      scanProgress.value = { found: files.length, active: false }
+      saveToCache()
 
-        return files
-      },
-      '读取目录失败'
-    )
+      return files
+    }, '读取目录失败')
 
     if (result) {
       scanProgress.value.active = false
@@ -268,7 +282,9 @@ export const useFileManagement = () => {
         message.success(`刷新完成：找到 ${fileCount} 个文件`)
       }
     } catch (error) {
-      message.error(`刷新目录失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      message.error(
+        `刷新目录失败: ${error instanceof Error ? error.message : '未知错误'}`
+      )
     } finally {
       dirLoading.value = false
     }
@@ -297,7 +313,7 @@ export const useFileManagement = () => {
 
       // 创建旧文件的映射（按路径）
       const oldFileMap = new Map(oldFiles.map(f => [f.path, f]))
-      
+
       // 创建新文件的映射（按路径）
       const newFileMap = new Map(newFiles.map(f => [f.path, f]))
 
@@ -307,10 +323,10 @@ export const useFileManagement = () => {
 
       // 找出新增和更新的文件
       const updatedFiles: FileItem[] = []
-      
+
       for (const newFile of newFiles) {
         const oldFile = oldFileMap.get(newFile.path) as FileItem | undefined
-        
+
         if (!oldFile) {
           // 新增文件
           updatedFiles.push(newFile)
@@ -338,10 +354,14 @@ export const useFileManagement = () => {
 
       // 只在有实际变化时显示提示
       if (addedCount > 0 || updatedCount > 0 || removedCount > 0) {
-        message.success(`增量刷新完成：新增 ${addedCount}，更新 ${updatedCount}，删除 ${removedCount}`)
+        message.success(
+          `增量刷新完成：新增 ${addedCount}，更新 ${updatedCount}，删除 ${removedCount}`
+        )
       }
     } catch (error) {
-      message.error(`增量刷新失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      message.error(
+        `增量刷新失败: ${error instanceof Error ? error.message : '未知错误'}`
+      )
     } finally {
       dirLoading.value = false
     }
@@ -350,7 +370,9 @@ export const useFileManagement = () => {
   /**
    * 只刷新特定目录（非递归，但构建完整路径）
    */
-  const refreshSpecificDirectory = async (targetPath: string): Promise<void> => {
+  const refreshSpecificDirectory = async (
+    targetPath: string
+  ): Promise<void> => {
     if (!currentDirectoryPath.value) {
       return
     }
@@ -368,7 +390,11 @@ export const useFileManagement = () => {
         throw new Error(result.error || '读取目录失败')
       }
 
-      const items = result.data as Array<{ name: string; isDirectory: boolean; isFile: boolean }>
+      const items = result.data as Array<{
+        name: string
+        isDirectory: boolean
+        isFile: boolean
+      }>
 
       // 构建含完整路径的 FileItem 列表（只取当前层，不递归）
       const newFiles: FileItem[] = []
@@ -376,7 +402,11 @@ export const useFileManagement = () => {
         const fullPath = await window.api.path.join(targetPath, item.name)
         const statResult = await window.api.file.stat(fullPath)
         if (!statResult.success || !statResult.data) continue
-        const stat = statResult.data as { size: number; isDirectory: boolean; isFile: boolean }
+        const stat = statResult.data as {
+          size: number
+          isDirectory: boolean
+          isFile: boolean
+        }
         newFiles.push({
           name: item.name,
           path: fullPath,
@@ -391,7 +421,9 @@ export const useFileManagement = () => {
         const normalizedPath = f.path.replace(/\\/g, '/')
         if (!normalizedPath.startsWith(normalizedTargetPath + '/')) return false
         // 只匹配直接子项（路径中没有额外的分隔符）
-        const relativePart = normalizedPath.slice(normalizedTargetPath.length + 1)
+        const relativePart = normalizedPath.slice(
+          normalizedTargetPath.length + 1
+        )
         return !relativePart.includes('/')
       })
 
@@ -402,7 +434,9 @@ export const useFileManagement = () => {
       const otherFiles = fileData.value.filter(f => {
         const normalizedPath = f.path.replace(/\\/g, '/')
         if (!normalizedPath.startsWith(normalizedTargetPath + '/')) return true
-        const relativePart = normalizedPath.slice(normalizedTargetPath.length + 1)
+        const relativePart = normalizedPath.slice(
+          normalizedTargetPath.length + 1
+        )
         return relativePart.includes('/') // 保留更深层子目录中的文件
       })
       fileData.value = [...otherFiles, ...newFiles]
@@ -412,7 +446,9 @@ export const useFileManagement = () => {
       const diffStr = diff > 0 ? `+${diff}` : `${diff}`
       message.success(`刷新完成：${newCount} 个文件 (${diffStr})`)
     } catch (error) {
-      message.error(`刷新目录失败: ${error instanceof Error ? error.message : '未知错误'}`)
+      message.error(
+        `刷新目录失败: ${error instanceof Error ? error.message : '未知错误'}`
+      )
     } finally {
       dirLoading.value = false
     }

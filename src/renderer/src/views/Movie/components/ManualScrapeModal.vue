@@ -56,7 +56,7 @@ const props = defineProps<Props>()
 // Emits定义
 const emit = defineEmits<{
   'update:visible': [value: boolean]
-  'search': [query: string]
+  search: [query: string]
   cancel: []
 }>()
 
@@ -95,7 +95,9 @@ const performManualSearch = (): void => {
   visible.value = false
   searchInput.value = ''
   emit('search', query)
-  setTimeout(() => { searching.value = false }, 300)
+  setTimeout(() => {
+    searching.value = false
+  }, 300)
 }
 
 /**

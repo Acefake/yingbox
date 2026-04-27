@@ -40,7 +40,10 @@
   },
   "build": {
     "win": {
-      "target": ["portable", "zip"]
+      "target": [
+        "portable",
+        "zip"
+      ]
     },
     "extraResources": [
       {

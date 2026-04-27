@@ -9,7 +9,9 @@
     :class="[
       'flex items-center py-1 px-2 rounded cursor-pointer transition-all duration-300 mb-0.5',
       selectedIndex === index ? 'selected-item' : 'hover:bg-gray-700',
-      isSelected && isMultiSelectMode ? 'bg-blue-600 bg-opacity-30' : 'hover:bg-gray-700',
+      isSelected && isMultiSelectMode
+        ? 'bg-blue-600 bg-opacity-30'
+        : 'hover:bg-gray-700',
     ]"
     :style="
       selectedIndex === index
@@ -54,14 +56,29 @@
       </div>
       <div class="flex gap-0.5 flex-shrink-0">
         <span
-          v-if="(item.type === 'folder' && hasNfoFile(item)) || (item.type === 'video' && hasVideoNfoFile(item))"
-          class="tag bg-yellow-600 text-yellow-100">N</span>
+          v-if="
+            (item.type === 'folder' && hasNfoFile(item)) ||
+            (item.type === 'video' && hasVideoNfoFile(item))
+          "
+          class="tag bg-yellow-600 text-yellow-100"
+          >N</span
+        >
         <span
-          v-if="(item.type === 'folder' && hasPosterFile(item)) || (item.type === 'video' && hasVideoPosterFile(item))"
-          class="tag bg-green-600 text-green-100">P</span>
+          v-if="
+            (item.type === 'folder' && hasPosterFile(item)) ||
+            (item.type === 'video' && hasVideoPosterFile(item))
+          "
+          class="tag bg-green-600 text-green-100"
+          >P</span
+        >
         <span
-          v-if="(item.type === 'folder' && hasFanartFile(item)) || (item.type === 'video' && hasVideoFanartFile(item))"
-          class="tag bg-blue-600 text-blue-100">A</span>
+          v-if="
+            (item.type === 'folder' && hasFanartFile(item)) ||
+            (item.type === 'video' && hasVideoFanartFile(item))
+          "
+          class="tag bg-blue-600 text-blue-100"
+          >A</span
+        >
       </div>
     </div>
   </div>
@@ -99,9 +116,7 @@ const hasVideoPosterFile = (item: ProcessedItem): boolean => {
   if (item.type !== 'video' || !item.files) return false
 
   // 获取视频文件的基础名称（不含扩展名）
-  const videoBaseName = item.name
-    .replace(/\.[^/.]+$/, '')
-    .toLowerCase()
+  const videoBaseName = item.name.replace(/\.[^/.]+$/, '').toLowerCase()
 
   const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
 
@@ -128,9 +143,7 @@ const hasVideoFanartFile = (item: ProcessedItem): boolean => {
   if (item.type !== 'video' || !item.files) return false
 
   // 获取视频文件的基础名称（不含扩展名）
-  const videoBaseName = item.name
-    .replace(/\.[^/.]+$/, '')
-    .toLowerCase()
+  const videoBaseName = item.name.replace(/\.[^/.]+$/, '').toLowerCase()
 
   const fanartExtensions = ['.jpg', '.jpeg', '.png', '.webp']
 
@@ -155,29 +168,30 @@ const getPosterPath = (item: ProcessedItem): string | null => {
   if (!item.files) return null
 
   const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
-  
+
   // 优先查找 poster.jpg
-  let posterFile = item.files.find(file => 
-    file.name.toLowerCase() === 'poster.jpg'
+  let posterFile = item.files.find(
+    file => file.name.toLowerCase() === 'poster.jpg'
   )
-  
+
   // 如果没有，查找包含 poster 的文件
   if (!posterFile) {
-    posterFile = item.files.find(file =>
-      posterExtensions.some(ext => file.name.toLowerCase().endsWith(ext)) &&
-      file.name.toLowerCase().includes('poster')
+    posterFile = item.files.find(
+      file =>
+        posterExtensions.some(ext => file.name.toLowerCase().endsWith(ext)) &&
+        file.name.toLowerCase().includes('poster')
     )
   }
-  
+
   // 如果还是没有，查找第一个图片文件
   if (!posterFile) {
     posterFile = item.files.find(file =>
       posterExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
     )
   }
-  
+
   if (!posterFile) return null
-  
+
   // 将 Windows 路径转换为 file:// 协议格式
   const path = posterFile.path.replace(/\\/g, '/')
   // console.log('海报路径:', path)
@@ -191,16 +205,16 @@ const loadPoster = async (): Promise<void> => {
       posterDataUrl.value = null
       return
     }
-    
+
     const path = getPosterPath(props.item)
     if (!path) {
       posterDataUrl.value = null
       return
     }
-    
+
     // console.log('读取海报文件:', path)
     const result = await window.api.file.read(path)
-    
+
     if (result.success && result.data) {
       // 将文件内容转换为 base64 data URL
       const uint8Array = new Uint8Array(result.data as ArrayBuffer)
@@ -221,9 +235,13 @@ const loadPoster = async (): Promise<void> => {
 }
 
 // 监听 item 变化，重新加载海报
-watch(() => props.item, () => {
-  loadPoster()
-}, { immediate: true })
+watch(
+  () => props.item,
+  () => {
+    loadPoster()
+  },
+  { immediate: true }
+)
 const emit = defineEmits<{
   select: [item: ProcessedItem, index: number]
   showSearchModal: [item: ProcessedItem]

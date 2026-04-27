@@ -18,20 +18,42 @@ const _isProcessing = ref(false)
 export function useGlobalQueue() {
   const totalCount = computed(() => _items.value.length)
   const doneCount = computed(
-    () => _items.value.filter(i => i.status === 'done' || i.status === 'error' || i.status === 'cancelled').length
+    () =>
+      _items.value.filter(
+        i =>
+          i.status === 'done' ||
+          i.status === 'error' ||
+          i.status === 'cancelled'
+      ).length
   )
-  const pendingCount = computed(() => _items.value.filter(i => i.status === 'pending').length)
-  const activeCount = computed(() => _items.value.filter(i => i.status === 'pending' || i.status === 'processing').length)
-  const currentItem = computed(() => _items.value.find(i => i.status === 'processing') ?? null)
+  const pendingCount = computed(
+    () => _items.value.filter(i => i.status === 'pending').length
+  )
+  const activeCount = computed(
+    () =>
+      _items.value.filter(
+        i => i.status === 'pending' || i.status === 'processing'
+      ).length
+  )
+  const currentItem = computed(
+    () => _items.value.find(i => i.status === 'processing') ?? null
+  )
   const progress = computed(() =>
     totalCount.value > 0 ? doneCount.value / totalCount.value : 0
   )
   const hasItems = computed(() => totalCount.value > 0)
 
-  const addItem = (name: string, type: 'movie' | 'tv' | 'download', options?: { cancellable?: boolean; cancelFn?: () => void }): string => {
+  const addItem = (
+    name: string,
+    type: 'movie' | 'tv' | 'download',
+    options?: { cancellable?: boolean; cancelFn?: () => void }
+  ): string => {
     const id = `${Date.now()}-${Math.random().toString(36).substring(2, 8)}`
     _items.value.push({
-      id, name, type, status: 'pending',
+      id,
+      name,
+      type,
+      status: 'pending',
       cancellable: options?.cancellable,
       cancelFn: options?.cancelFn,
     })
@@ -56,7 +78,11 @@ export function useGlobalQueue() {
     _checkIdle()
   }
 
-  const setStep = (id: string, step: string, steps?: { name: string; done: boolean }[]): void => {
+  const setStep = (
+    id: string,
+    step: string,
+    steps?: { name: string; done: boolean }[]
+  ): void => {
     const item = _items.value.find(i => i.id === id)
     if (item) {
       item.currentStep = step
@@ -114,7 +140,12 @@ export function useGlobalQueue() {
 }
 
 function _checkIdle(): void {
-  if (_items.value.every(i => i.status === 'done' || i.status === 'error' || i.status === 'cancelled')) {
+  if (
+    _items.value.every(
+      i =>
+        i.status === 'done' || i.status === 'error' || i.status === 'cancelled'
+    )
+  ) {
     _isProcessing.value = false
   }
 }

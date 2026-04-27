@@ -76,17 +76,26 @@ export const useFileStore = defineStore('file', () => {
       const hasVideoFiles = folderFiles.some(file => isVideoFile(file.name))
 
       // 检测是否已有 NFO、海报和背景图
-      const hasNfo = folderFiles.some(file => file.name.toLowerCase().endsWith('.nfo'))
-      const hasPoster = folderFiles.some(file =>
-        file.name.toLowerCase().includes('poster') || file.name.toLowerCase() === 'poster.jpg'
+      const hasNfo = folderFiles.some(file =>
+        file.name.toLowerCase().endsWith('.nfo')
       )
-      const hasFanart = folderFiles.some(file =>
-        file.name.toLowerCase().includes('fanart') ||
-        file.name.toLowerCase().includes('backdrop') ||
-        file.name.toLowerCase() === 'fanart.jpg'
+      const hasPoster = folderFiles.some(
+        file =>
+          file.name.toLowerCase().includes('poster') ||
+          file.name.toLowerCase() === 'poster.jpg'
+      )
+      const hasFanart = folderFiles.some(
+        file =>
+          file.name.toLowerCase().includes('fanart') ||
+          file.name.toLowerCase().includes('backdrop') ||
+          file.name.toLowerCase() === 'fanart.jpg'
       )
 
-      console.log(`文件夹 ${folder.name} 资源检测:`, { hasNfo, hasPoster, hasFanart })
+      console.log(`文件夹 ${folder.name} 资源检测:`, {
+        hasNfo,
+        hasPoster,
+        hasFanart,
+      })
 
       if (folderFiles.length > 0 && hasVideoFiles) {
         result.push({
@@ -115,44 +124,61 @@ export const useFileStore = defineStore('file', () => {
     independentVideoFiles.forEach(video => {
       console.log('=== 处理独立视频文件 ===')
       console.log('视频文件路径:', video.path)
-      
+
       // 获取视频文件所在目录的所有文件（支持 Windows 和 Unix 路径）
-      const lastSlashIndex = Math.max(video.path.lastIndexOf('/'), video.path.lastIndexOf('\\'))
+      const lastSlashIndex = Math.max(
+        video.path.lastIndexOf('/'),
+        video.path.lastIndexOf('\\')
+      )
       const videoDir = video.path.substring(0, lastSlashIndex)
       const separator = video.path.includes('\\') ? '\\' : '/'
 
       console.log('视频文件目录:', videoDir)
       console.log('路径分隔符:', separator)
 
-      const sameDirectoryFiles = visibleFiles.filter(
-        file => {
-          const inDirectory = file.path.startsWith(videoDir + separator)
-          const noSubdir = file.path.substring(videoDir.length + 1).indexOf(separator) === -1
-          // console.log(`文件 ${file.name}:`, {
-          //   inDirectory,
-          //   noSubdir,
-          //   path: file.path,
-          //   videoDir: videoDir + separator
-          // })
-          return file.isFile && inDirectory && noSubdir
-        }
-      )
+      const sameDirectoryFiles = visibleFiles.filter(file => {
+        const inDirectory = file.path.startsWith(videoDir + separator)
+        const noSubdir =
+          file.path.substring(videoDir.length + 1).indexOf(separator) === -1
+        // console.log(`文件 ${file.name}:`, {
+        //   inDirectory,
+        //   noSubdir,
+        //   path: file.path,
+        //   videoDir: videoDir + separator
+        // })
+        return file.isFile && inDirectory && noSubdir
+      })
 
-      console.log(`视频文件 ${video.name} 同目录文件数量:`, sameDirectoryFiles.length)
-      console.log(`同目录文件列表:`, sameDirectoryFiles.map(f => f.name))
+      console.log(
+        `视频文件 ${video.name} 同目录文件数量:`,
+        sameDirectoryFiles.length
+      )
+      console.log(
+        `同目录文件列表:`,
+        sameDirectoryFiles.map(f => f.name)
+      )
 
       // 检测是否已有 NFO、海报和背景图
-      const hasNfo = sameDirectoryFiles.some(file => file.name.toLowerCase().endsWith('.nfo'))
-      const hasPoster = sameDirectoryFiles.some(file =>
-        file.name.toLowerCase().includes('poster') || file.name.toLowerCase() === 'poster.jpg'
+      const hasNfo = sameDirectoryFiles.some(file =>
+        file.name.toLowerCase().endsWith('.nfo')
       )
-      const hasFanart = sameDirectoryFiles.some(file =>
-        file.name.toLowerCase().includes('fanart') ||
-        file.name.toLowerCase().includes('backdrop') ||
-        file.name.toLowerCase() === 'fanart.jpg'
+      const hasPoster = sameDirectoryFiles.some(
+        file =>
+          file.name.toLowerCase().includes('poster') ||
+          file.name.toLowerCase() === 'poster.jpg'
+      )
+      const hasFanart = sameDirectoryFiles.some(
+        file =>
+          file.name.toLowerCase().includes('fanart') ||
+          file.name.toLowerCase().includes('backdrop') ||
+          file.name.toLowerCase() === 'fanart.jpg'
       )
 
-      console.log(`视频文件 ${video.name} 所在目录资源检测:`, { hasNfo, hasPoster, hasFanart })
+      console.log(`视频文件 ${video.name} 所在目录资源检测:`, {
+        hasNfo,
+        hasPoster,
+        hasFanart,
+      })
 
       result.push({
         name: video.name,
@@ -203,7 +229,10 @@ export const useFileStore = defineStore('file', () => {
 
       const scannedFiles = files.data as FileItem[]
       console.log('扫描到的文件数量:', scannedFiles.length)
-      console.log('文件列表前5个:', scannedFiles.slice(0, 5).map(f => ({ name: f.name, path: f.path })))
+      console.log(
+        '文件列表前5个:',
+        scannedFiles.slice(0, 5).map(f => ({ name: f.name, path: f.path }))
+      )
 
       fileData.value = scannedFiles
       saveToCache()

@@ -11,7 +11,10 @@
 import axios from 'axios'
 import { getMetatubeConfig } from '@/stores/scrape-provider-store'
 
-const axiosFetch = async (url: string, headers?: Record<string, string>): Promise<unknown> => {
+const axiosFetch = async (
+  url: string,
+  headers?: Record<string, string>
+): Promise<unknown> => {
   const res = await axios.get(url, { headers, timeout: 15000 })
   return res.data
 }
@@ -80,7 +83,9 @@ export const searchMetatubeMovie = async (
   if (!serverUrl) throw new Error('MetaTube 服务器地址未配置')
 
   const url = `${serverUrl}/v1/movies/search?q=${encodeURIComponent(keyword)}&fallback=true`
-  const json = await axiosFetch(url, buildHeaders(token)) as MetatubeResponse<MetatubeMovieResult[]>
+  const json = (await axiosFetch(url, buildHeaders(token))) as MetatubeResponse<
+    MetatubeMovieResult[]
+  >
   console.log('[MetaTube] 搜索原始响应:', JSON.stringify(json, null, 2))
   return json.data || []
 }
@@ -96,7 +101,10 @@ export const getMetatubeMovieDetail = async (
   if (!serverUrl) throw new Error('MetaTube 服务器地址未配置')
 
   const url = `${serverUrl}/v1/movies/${encodeURIComponent(provider)}/${encodeURIComponent(id)}`
-  const json = await axiosFetch(url, buildHeaders(token)) as MetatubeResponse<MetatubeMovieDetail>
+  const json = (await axiosFetch(
+    url,
+    buildHeaders(token)
+  )) as MetatubeResponse<MetatubeMovieDetail>
   return json.data || null
 }
 
@@ -105,14 +113,20 @@ export const getMetatubeMovieDetail = async (
  * @param serverUrl 服务器地址（不传则从 store 读取）
  * @param token Bearer Token（不传则从 store 读取）
  */
-export const testMetatubeConnection = async (serverUrl?: string, token?: string): Promise<boolean> => {
+export const testMetatubeConnection = async (
+  serverUrl?: string,
+  token?: string
+): Promise<boolean> => {
   const config = getMetatubeConfig()
   const url = (serverUrl ?? config.serverUrl).replace(/\/$/, '')
   const tok = token ?? config.token
   if (!url) return false
   console.log('[MetaTube] 测试连接:', url)
   try {
-    await axiosFetch(`${url}/v1/movies/search?q=test&fallback=true`, buildHeaders(tok))
+    await axiosFetch(
+      `${url}/v1/movies/search?q=test&fallback=true`,
+      buildHeaders(tok)
+    )
     return true
   } catch (e) {
     console.warn('[MetaTube] 连接失败:', e)

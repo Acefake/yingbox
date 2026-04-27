@@ -22,12 +22,16 @@
         <div class="dw-hero">
           <!-- 海报 -->
           <div class="dw-poster-wrap">
-            <img :src="tmdbDetail?.poster_path ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}` : itemPic"
-              class="dw-poster" @error="onImgError" />
+            <img :src="tmdbDetail?.poster_path
+                ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}`
+                : itemPic
+              " class="dw-poster" @error="onImgError" />
           </div>
           <!-- 信息 -->
           <div class="dw-info">
-            <h1 class="dw-title">{{ tmdbDetail?.title || tmdbDetail?.name || itemName }}</h1>
+            <h1 class="dw-title">
+              {{ tmdbDetail?.title || tmdbDetail?.name || itemName }}
+            </h1>
             <h3 v-if="tmdbDetail?.original_title || tmdbDetail?.original_name" class="dw-orig-title">
               {{ tmdbDetail?.original_title || tmdbDetail?.original_name }}
             </h3>
@@ -36,10 +40,24 @@
                 ★ {{ tmdbDetail.vote_average.toFixed(1) }}<em>/ 10</em>
               </span>
               <span v-if="tmdbDetail?.release_date || tmdbDetail?.first_air_date" class="dw-tag">
-                {{ (tmdbDetail.release_date || tmdbDetail.first_air_date || '').slice(0, 4) }}
+                {{
+                  (
+                    tmdbDetail.release_date ||
+                    tmdbDetail.first_air_date ||
+                    ''
+                  ).slice(0, 4)
+                }}
               </span>
               <span v-if="tmdbDetail?.runtime" class="dw-tag">{{ tmdbDetail.runtime }} 分钟</span>
               <span v-for="g in (tmdbDetail?.genres || []).slice(0, 4)" :key="g.id" class="dw-tag">{{ g.name }}</span>
+              <span v-if="itemData?._source === 'catspider' || itemData?._source === 'cms'" class="dw-tag"
+                :class="{ 'source-vod': itemData._source === 'catspider', 'source-cms': itemData._source === 'cms' }">
+                {{ itemData._source === 'catspider' ? 'VOD' : 'CMS' }}
+                <template v-if="itemData.source_name">· {{ itemData.source_name }}</template>
+              </span>
+              <span v-else-if="itemData?._source === 'douban'" class="dw-tag source-douban">
+                豆瓣
+              </span>
             </div>
             <p v-if="tmdbDetail?.overview || itemOverview" class="dw-overview">
               {{ tmdbDetail?.overview || itemOverview }}
@@ -51,32 +69,76 @@
               </div>
               <div v-if="(tmdbDetail?.production_countries || []).length" class="dw-meta-item">
                 <span class="dw-meta-label">地区</span>
-                <span class="dw-meta-val">{{tmdbDetail.production_countries.map((c: any) => c.name).join('、')}}</span>
+                <span class="dw-meta-val">{{
+                  tmdbDetail.production_countries
+                    .map((c: any) => c.name)
+                    .join('、')
+                }}</span>
               </div>
             </div>
-            <!-- 播放按钮 -->
-            <button class="dw-play-btn" :disabled="searchingCms" @click="startPlay">
-              <span v-if="searchingCms" class="btn-spinner" />
-              <svg v-else viewBox="0 0 24 24" width="24" height="24" fill="currentColor">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-              {{ searchingCms ? '搜索播放源...' : '播放' }}
-            </button>
+            <!-- 播放源加载状态 -->
+            <div v-if="searchingCms" class="dw-loading-sources">
+              <span class="btn-spinner" />
+              <span>正在搜索播放源...</span>
+            </div>
+
+            <!-- 播放源 -->
+            <div v-if="episodeGroups.length" class="dw-sources-section">
+              <h4 class="dw-section-title">播放源</h4>
+              <!-- 来源分类 Tabs -->
+              <div class="source-type-tabs">
+                <button v-if="catSpiderGroups.length" class="source-type-tab"
+                  :class="{ active: currentSourceType === 'catspider' }" @click="switchSourceType('catspider')">
+                  VOD源
+                </button>
+                <button v-if="cmsGroups.length" class="source-type-tab" :class="{ active: currentSourceType === 'cms' }"
+                  @click="switchSourceType('cms')">
+                  CMS源
+                </button>
+              </div>
+              <!-- 分组 Tabs -->
+              <div class="group-tabs">
+                <button v-for="(g, gi) in currentGroups" :key="gi" class="group-tab"
+                  :class="{ active: activeGroup === gi, 'cs-tab': currentSourceType === 'catspider' }"
+                  @click="switchGroup(gi)">
+                  {{ g.label }}
+                </button>
+              </div>
+              <!-- 播放列表 -->
+              <div class="episode-list">
+                <button v-for="ep in currentGroups[activeGroup]?.episodes" :key="ep.url" class="ep-btn"
+                  :class="{ playing: currentUrl === ep.url }" @click="playEp(ep.url, ep.ext)">
+                  {{ ep.name }}
+                </button>
+                <div v-if="!currentGroups[activeGroup]?.episodes?.length" class="ep-empty">
+                  无可用剧集
+                </div>
+              </div>
+            </div>
+            <div v-else-if="!searchingCms && showPlaySheet" class="dw-sources-section">
+              <div class="ep-empty">未找到可用播放源</div>
+            </div>
           </div>
         </div>
+
+
 
         <!-- 演员 -->
         <div v-if="cast.length" class="dw-cast-section">
           <h4 class="dw-section-title">演员</h4>
           <div v-scroll-x class="dw-cast-list">
             <div v-for="actor in cast.slice(0, 14)" :key="actor.id" class="dw-actor">
-              <img :src="actor.profile_path ? `https://images.tmdb.org/t/p/w185${actor.profile_path}` : ''"
-                class="dw-actor-img" @error="onActorImgError" />
+              <img :src="actor.profile_path
+                  ? `https://images.tmdb.org/t/p/w185${actor.profile_path}`
+                  : ''
+                " class="dw-actor-img" @error="onActorImgError" />
               <div class="dw-actor-name">{{ actor.name }}</div>
               <div class="dw-actor-char">{{ actor.character }}</div>
             </div>
           </div>
         </div>
+
+
 
         <!-- 图库 -->
         <div v-if="images.length" class="dw-gallery-section">
@@ -94,61 +156,60 @@
     <!-- 图片灯箱 -->
     <Transition name="lb-fade">
       <div v-if="lightboxIdx !== null" class="lb-mask" @click.self="lightboxIdx = null">
-        <button class="lb-arrow lb-prev"
-          @click="lightboxIdx = (lightboxIdx! - 1 + images.length) % images.length">‹</button>
+        <button class="lb-arrow lb-prev" @click="
+          lightboxIdx = (lightboxIdx! - 1 + images.length) % images.length
+          ">
+          ‹
+        </button>
         <img :src="`https://images.tmdb.org/t/p/original${images[lightboxIdx!].file_path}`" class="lb-img" />
-        <button class="lb-arrow lb-next" @click="lightboxIdx = (lightboxIdx! + 1) % images.length">›</button>
+        <button class="lb-arrow lb-next" @click="lightboxIdx = (lightboxIdx! + 1) % images.length">
+          ›
+        </button>
         <button class="lb-close" @click="lightboxIdx = null">✕</button>
       </div>
     </Transition>
 
-    <!-- 播放源选择面板（居中弹窗） -->
+    <!-- 播放弹窗 -->
     <Transition name="sheet-fade">
       <div v-if="showPlaySheet" class="sheet-mask" @click.self="showPlaySheet = false">
-      
         <div class="play-sheet">
-          <div v-if="currentUrl" class="player-wrap">
-            <video
-              ref="videoEl"
-              class="hls-player"
-              controls
-              autoplay
-              :poster="tmdbDetail?.backdrop_path ? `https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}` : ''"
-            />
+          <div class="player-wrap">
+            <video ref="videoEl" class="hls-player" controls autoplay :poster="tmdbDetail?.backdrop_path
+                ? `https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}`
+                : ''
+              " />
           </div>
           <div class="sheet-header">
-            <span class="sheet-title">选择播放源</span>
-            <button class="sheet-close" @click="showPlaySheet = false">✕</button>
-          </div>
-          <div v-if="!episodeGroups.length" class="sheet-empty">未找到可用播放源</div>
-          <div v-else class="sheet-body">
-            <p class="sheet-label">播放源</p>
-            <div class="group-tabs">
-              <button v-for="(g, gi) in episodeGroups" :key="gi" class="group-tab"
-                :class="{ active: activeGroup === gi }" @click="switchGroup(gi)">{{ g.label }}</button>
-            </div>
-            <p class="sheet-label" style="margin-top:12px">播放列表</p>
-            <div class="episode-list">
-              <button v-for="ep in episodeGroups[activeGroup]?.episodes" :key="ep.url" class="ep-btn"
-                :class="{ playing: currentUrl === ep.url }" @click="playEp(ep.url)">{{ ep.name }}</button>
-            </div>
+            <span class="sheet-title">正在播放</span>
+            <button class="sheet-close" @click="showPlaySheet = false">
+              ✕
+            </button>
           </div>
         </div>
       </div>
     </Transition>
+
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, watch } from 'vue'
+import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
 import WinControls from '@/components/WinControls.vue'
 import axios from 'axios'
 import Hls from 'hls.js'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
-import { useOnlineSearch, type EpisodeGroup } from './composables/use-online-search'
+import {
+  useOnlineSearch,
+  type EpisodeGroup,
+} from './composables/use-online-search'
 
-const { fetchDetail, search: cmsSearch, results: cmsResults, keyword } = useOnlineSearch()
+const {
+  fetchDetail,
+  resolvePlayUrl,
+  keyword,
+} = useOnlineSearch()
 
+const itemData = ref<any>(null)
 const itemName = ref('')
 const itemPic = ref('')
 const itemType = ref('')
@@ -166,16 +227,22 @@ const searchingCms = ref(false)
 const showPlaySheet = ref(false)
 const episodeGroups = ref<EpisodeGroup[]>([])
 const activeGroup = ref(0)
+const currentSourceType = ref<'cms' | 'catspider'>('cms')
 const currentUrl = ref('')
+
+const catSpiderGroups = computed(() => episodeGroups.value.filter(g => g._source === 'catspider'))
+const cmsGroups = computed(() => episodeGroups.value.filter(g => g._source === 'cms' || !g._source))
+const currentGroups = computed(() => currentSourceType.value === 'catspider' ? catSpiderGroups.value : cmsGroups.value)
 const videoEl = ref<HTMLVideoElement | null>(null)
 let hls: Hls | null = null
 
 const loadData = async (data: any) => {
   if (!data) return
+  itemData.value = data
   itemName.value = data.vod_name || ''
   itemPic.value = data.vod_pic || ''
   itemType.value = data.type_name || ''
-  itemOverview.value = data.overview || data.vod_content || ''
+  itemOverview.value = data.overview || data.vod_content || data.vod_desc || ''
   searchTitle.value = data.searchTitle || data.vod_name || ''
   tmdbDetail.value = null
   cast.value = []
@@ -184,18 +251,22 @@ const loadData = async (data: any) => {
   showPlaySheet.value = false
   episodeGroups.value = []
   currentUrl.value = ''
-  const guessType: 'movie' | 'tv' = itemType.value.includes('剧') ? 'tv' : 'movie'
-  await fetchTmdb(itemName.value, guessType)
+  const guessType: 'movie' | 'tv' = itemType.value.includes('剧')
+    ? 'tv'
+    : 'movie'
+  await fetchTmdb(searchTitle.value || itemName.value, guessType)
+  // 自动加载播放源
+  await loadPlaySources()
 }
 
 onMounted(async () => {
   const data = await (window.api as any).detail.getData()
   await loadData(data)
-  ;(window.api as any).detail.onUpdate((newData: unknown) => loadData(newData))
+    ; (window.api as any).detail.onUpdate((newData: unknown) => loadData(newData))
 })
 
 onBeforeUnmount(() => {
-  ;(window.api as any).detail.offUpdate()
+  ; (window.api as any).detail.offUpdate()
 })
 
 const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
@@ -203,71 +274,157 @@ const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
   const token = getTmdbAccessToken()
   const headers = { Authorization: `Bearer ${token}` }
   try {
-    const sr = await axios.get(`https://api.themoviedb.org/3/search/${mediaType}`, {
-      params: { query: name, language: 'zh-CN', page: 1 }, headers, timeout: 8000,
-    })
+    const sr = await axios.get(
+      `https://api.themoviedb.org/3/search/${mediaType}`,
+      {
+        params: { query: name, language: 'zh-CN', page: 1 },
+        headers,
+        timeout: 8000,
+      }
+    )
     const first = sr.data?.results?.[0]
     if (!first) return
     const id = first.id
     const [dr, cr] = await Promise.all([
-      axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}`, { params: { language: 'zh-CN' }, headers, timeout: 8000 }),
-      axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}/credits`, { params: { language: 'zh-CN' }, headers, timeout: 8000 }),
+      axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}`, {
+        params: { language: 'zh-CN' },
+        headers,
+        timeout: 8000,
+      }),
+      axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}/credits`, {
+        params: { language: 'zh-CN' },
+        headers,
+        timeout: 8000,
+      }),
     ])
     tmdbDetail.value = dr.data
     cast.value = cr.data?.cast || []
-    directors.value = (cr.data?.crew || []).filter((c: any) => c.job === 'Director').map((c: any) => c.name)
-    const ir = await axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}/images`, { headers, timeout: 8000 }).catch(() => null as null)
+    directors.value = (cr.data?.crew || [])
+      .filter((c: any) => c.job === 'Director')
+      .map((c: any) => c.name)
+    const ir = await axios
+      .get(`https://api.themoviedb.org/3/${mediaType}/${id}/images`, {
+        headers,
+        timeout: 8000,
+      })
+      .catch(() => null as null)
     images.value = (ir?.data?.backdrops || []).slice(0, 30)
-  } catch { /* silent */ } finally {
+  } catch {
+    /* silent */
+  } finally {
     loadingTmdb.value = false
   }
 }
 
-const startPlay = async () => {
+const loadPlaySources = async () => {
   searchingCms.value = true
   episodeGroups.value = []
   activeGroup.value = 0
   currentUrl.value = ''
   try {
-    keyword.value = searchTitle.value
-    await cmsSearch(searchTitle.value)
-    if (cmsResults.value.length) {
-      episodeGroups.value = await fetchDetail(cmsResults.value[0])
-      const first = episodeGroups.value[0]?.episodes?.[0]
-      if (first) playEp(first.url)
+    // 如果 item 来自 cms/catspider，直接获取其播放列表
+    if (itemData.value?._source === 'cms' || itemData.value?._source === 'catspider') {
+      const itemGroups = await fetchDetail(itemData.value)
+      episodeGroups.value.push(...itemGroups)
+      currentSourceType.value = itemData.value._source === 'catspider' ? 'catspider' : 'cms'
+    } else {
+      // 否则（豆瓣/播放历史），搜索所有源获取播放列表
+      keyword.value = searchTitle.value
+      const { search, results } = useOnlineSearch()
+      await search(searchTitle.value)
+
+      // 增量加载：每获取到一个源的结果立即展示
+      for (const result of results.value) {
+        const resultGroups = await fetchDetail(result)
+        if (resultGroups.length) {
+          episodeGroups.value.push(...resultGroups)
+          // 首次有结果时自动设置默认源类型
+          if (!currentSourceType.value || currentSourceType.value === 'cms') {
+            const hasVod = episodeGroups.value.some(g => g._source === 'catspider')
+            if (hasVod) currentSourceType.value = 'catspider'
+          }
+        }
+      }
+
+      // 最终确定默认源类型
+      const hasVod = episodeGroups.value.some(g => g._source === 'catspider')
+      currentSourceType.value = hasVod ? 'catspider' : 'cms'
     }
-  } catch { /* silent */ } finally {
+  } catch {
+    /* silent */
+  } finally {
     searchingCms.value = false
-    showPlaySheet.value = true
   }
 }
 
 const resolveUrl = async (url: string): Promise<string> => {
   if (url.match(/\.(m3u8|mp4|flv)/i)) return url
   try {
-    const r = await axios.get(url, { timeout: 8000, maxRedirects: 5, responseType: 'text' })
+    const r = await axios.get(url, {
+      timeout: 8000,
+      maxRedirects: 5,
+      responseType: 'text',
+    })
     const final: string = (r.request as any)?.responseURL || url
     if (final.match(/\.(m3u8|mp4)/i)) return final
     const m = String(r.data).match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i)
     if (m) return m[0]
-  } catch { /* fallback */ }
+  } catch {
+    /* fallback */
+  }
   return url
 }
 
-const switchGroup = (gi: number) => {
-  activeGroup.value = gi
-  const first = episodeGroups.value[gi]?.episodes?.[0]
-  if (first) playEp(first.url)
+const switchSourceType = (type: 'cms' | 'catspider') => {
+  currentSourceType.value = type
+  activeGroup.value = 0
 }
 
-const playEp = (url: string) => { currentUrl.value = url }
+// For VOD sources, we need to know the siteName for resolvePlayUrl
+const currentSiteName = computed(() => {
+  if (currentSourceType.value === 'catspider') {
+    return catSpiderGroups.value[activeGroup.value]?._siteName || ''
+  }
+  return ''
+})
 
-watch(currentUrl, async (url) => {
+const switchGroup = (gi: number) => {
+  activeGroup.value = gi
+  const first = currentGroups.value[gi]?.episodes?.[0]
+  if (first) playEp(first.url, first.ext)
+}
+
+const resolvingUrl = ref(false)
+
+const playEp = async (url: string, ext?: Record<string, any>) => {
+  // 先弹出播放器窗口
+  showPlaySheet.value = true
+  currentUrl.value = ''
+  let playUrl = url
+  // CatSpider episodes need resolvePlayUrl
+  if (currentSourceType.value === 'catspider' && currentSiteName.value && ext) {
+    resolvingUrl.value = true
+    const resolved = await resolvePlayUrl(currentSiteName.value, ext)
+    resolvingUrl.value = false
+    if (resolved) playUrl = resolved
+  }
+  currentUrl.value = playUrl
+}
+
+watch(currentUrl, async url => {
   if (!url) return
-  await new Promise(r => setTimeout(r, 50))
-  const el = videoEl.value
+  // 等待 DOM 渲染 video 元素
+  await nextTick()
+  let el = videoEl.value
+  for (let i = 0; i < 10 && !el; i++) {
+    await new Promise(r => setTimeout(r, 100))
+    el = videoEl.value
+  }
   if (!el) return
-  if (hls) { hls.destroy(); hls = null }
+  if (hls) {
+    hls.destroy()
+    hls = null
+  }
   const resolved = await resolveUrl(url)
   if (Hls.isSupported() && resolved.includes('.m3u8')) {
     hls = new Hls()
@@ -280,14 +437,19 @@ watch(currentUrl, async (url) => {
   }
 })
 
-onBeforeUnmount(() => { if (hls) { hls.destroy(); hls = null } })
+onBeforeUnmount(() => {
+  if (hls) {
+    hls.destroy()
+    hls = null
+  }
+})
 
 const onImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src =
+  ; (e.target as HTMLImageElement).src =
     'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="210"><rect width="140" height="210" fill="%231f2937"/><text x="70" y="110" text-anchor="middle" fill="%236b7280" font-size="13">无封面</text></svg>'
 }
 const onActorImgError = (e: Event) => {
-  (e.target as HTMLImageElement).src =
+  ; (e.target as HTMLImageElement).src =
     'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><circle cx="30" cy="30" r="30" fill="%23374151"/></svg>'
 }
 </script>
@@ -311,7 +473,10 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-win-controls {
-  position: fixed; top: 14px; right: 14px; z-index: 300;
+  position: fixed;
+  top: 14px;
+  right: 14px;
+  z-index: 300;
 }
 
 .dw-loading {
@@ -373,7 +538,9 @@ const onActorImgError = (e: Event) => {
 .dw-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, rgba(13, 17, 23, 0) 20%, rgba(13, 17, 23, 1) 100%);
+  background: linear-gradient(to bottom,
+      rgba(13, 17, 23, 0) 20%,
+      rgba(13, 17, 23, 1) 100%);
 }
 
 .dw-content {
@@ -382,11 +549,11 @@ const onActorImgError = (e: Event) => {
   position: relative;
 }
 
-.dw-hero { 
-  display: flex; 
-  gap: 28px; 
-  align-items: flex-start; 
-  margin-bottom: 32px; 
+.dw-hero {
+  display: flex;
+  gap: 28px;
+  align-items: flex-start;
+  margin-bottom: 32px;
 }
 
 .dw-poster-wrap {
@@ -448,7 +615,21 @@ const onActorImgError = (e: Event) => {
   border-radius: 12px;
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(255, 255, 255, 0.13);
+}
+
+.dw-tag.source-vod {
+  background: rgba(16, 185, 129, 0.2);
+  color: #34d399;
+}
+
+.dw-tag.source-cms {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.dw-tag.source-douban {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
 }
 
 .dw-overview {
@@ -483,28 +664,26 @@ const onActorImgError = (e: Event) => {
   color: rgba(255, 255, 255, 0.75);
 }
 
-.dw-play-btn {
+.dw-loading-sources {
   display: inline-flex;
   align-items: center;
   gap: 8px;
-  padding: 10px 28px;
-  font-size: 15px;
-  font-weight: 600;
-  background: rgba(99, 102, 241, 0.85);
-  border: none;
-  border-radius: 10px;
-  color: white;
-  cursor: pointer;
-  transition: background 0.2s;
+  padding: 8px 16px;
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.6);
 }
 
-.dw-play-btn:hover:not(:disabled) {
-  background: rgba(99, 102, 241, 1);
+.dw-sources-section {
+  margin-top: 24px;
+  padding: 16px 0;
+  border-top: 1px solid rgba(255, 255, 255, 0.08);
 }
 
-.dw-play-btn:disabled {
-  opacity: 0.6;
-  cursor: not-allowed;
+.ep-empty {
+  font-size: 13px;
+  color: rgba(255, 255, 255, 0.35);
+  padding: 16px 0;
+  text-align: center;
 }
 
 .btn-spinner {
@@ -599,7 +778,9 @@ const onActorImgError = (e: Event) => {
   border-radius: 8px;
   overflow: hidden;
   cursor: pointer;
-  transition: transform 0.15s, box-shadow 0.15s;
+  transition:
+    transform 0.15s,
+    box-shadow 0.15s;
   border: 1px solid rgba(255, 255, 255, 0.08);
 }
 
@@ -691,7 +872,7 @@ const onActorImgError = (e: Event) => {
   background: rgba(239, 68, 68, 0.7);
 }
 
-/* 居中弹窗 */
+/* 播放弹窗 */
 .sheet-fade-enter-active,
 .sheet-fade-leave-active {
   transition: opacity 0.2s;
@@ -713,8 +894,8 @@ const onActorImgError = (e: Event) => {
 }
 
 .play-sheet {
-  width: min(680px, 92vw);
-  max-height: 80vh;
+  width: min(780px, 92vw);
+  max-height: 85vh;
   background: #161b22;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -727,14 +908,14 @@ const onActorImgError = (e: Event) => {
 .sheet-header {
   display: flex;
   align-items: center;
-  padding: 16px 20px 12px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.07);
+  padding: 12px 20px;
+  border-top: 1px solid rgba(255, 255, 255, 0.07);
   flex-shrink: 0;
 }
 
 .sheet-title {
   flex: 1;
-  font-size: 15px;
+  font-size: 14px;
   font-weight: 600;
 }
 
@@ -754,25 +935,47 @@ const onActorImgError = (e: Event) => {
   color: white;
 }
 
-.sheet-empty {
-  padding: 32px;
-  text-align: center;
-  color: rgba(255, 255, 255, 0.35);
+.player-wrap {
+  flex: 1;
+  min-height: 300px;
+  background: #000;
+}
+
+.hls-player {
+  width: 100%;
+  height: 100%;
+  max-height: 65vh;
+  display: block;
+}
+
+.source-type-tabs {
+  display: flex;
+  gap: 8px;
+  margin-bottom: 16px;
+  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  padding-bottom: 10px;
+}
+
+.source-type-tab {
+  padding: 6px 16px;
   font-size: 13px;
+  background: transparent;
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  border-radius: 6px;
+  color: rgba(255, 255, 255, 0.5);
+  cursor: pointer;
+  transition: all 0.2s;
 }
 
-.sheet-body {
-  padding: 14px 20px 0;
-  flex-shrink: 0;
+.source-type-tab:hover {
+  border-color: rgba(255, 255, 255, 0.3);
+  color: rgba(255, 255, 255, 0.8);
 }
 
-.sheet-label {
-  font-size: 11px;
-  font-weight: 600;
-  letter-spacing: 0.08em;
-  text-transform: uppercase;
-  color: rgba(255, 255, 255, 0.35);
-  margin-bottom: 8px;
+.source-type-tab.active {
+  background: rgba(99, 102, 241, 0.2);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #818cf8;
 }
 
 .group-tabs {
@@ -796,6 +999,11 @@ const onActorImgError = (e: Event) => {
   background: rgba(99, 102, 241, 0.4);
   border-color: rgba(99, 102, 241, 0.6);
   color: white;
+}
+
+.group-tab.cs-tab.active {
+  background: rgba(16, 185, 129, 0.4);
+  border-color: rgba(16, 185, 129, 0.6);
 }
 
 .episode-list {
@@ -834,18 +1042,5 @@ const onActorImgError = (e: Event) => {
   background: rgba(99, 102, 241, 0.4);
   border-color: rgba(99, 102, 241, 0.8);
   color: white;
-}
-
-.player-wrap {
-  flex: 1;
-  min-height: 200px;
-  background: #000;
-}
-
-.hls-player {
-  width: 100%;
-  height: 100%;
-  max-height: 400px;
-  display: block;
 }
 </style>

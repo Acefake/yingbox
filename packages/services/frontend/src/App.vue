@@ -6,16 +6,16 @@
           <h1>NASSAV</h1>
         </router-link>
         <router-link to="/queue" class="queue-link">下载队列</router-link>
-        
+
         <div class="search-box">
-          <input 
-            v-model="inputContent" 
-            type="text" 
-            placeholder="输入番号查看详情" 
+          <input
+            v-model="inputContent"
+            type="text"
+            placeholder="输入番号查看详情"
             class="search-input"
             @keyup.enter="handleAddVideo(inputContent)"
-          >
-          <button 
+          />
+          <button
             class="search-button"
             @click="handleAddVideo(inputContent)"
             :disabled="isAdding"
@@ -48,7 +48,7 @@ export default {
   data() {
     return {
       inputContent: '',
-      isAdding: false
+      isAdding: false,
     }
   },
   methods: {
@@ -57,8 +57,8 @@ export default {
       if (!id) return
       this.inputContent = ''
       this.$router.push({ name: 'meta', params: { id } })
-    }
-  }
+    },
+  },
 }
 </script>
 
@@ -86,7 +86,11 @@ body {
 
 /* 导航栏样式 */
 .app-header {
-  background: linear-gradient(135deg, var(--primary-color), var(--secondary-color));
+  background: linear-gradient(
+    135deg,
+    var(--primary-color),
+    var(--secondary-color)
+  );
   color: white;
   padding: 0;
   box-shadow: 0 4px 15px rgba(255, 107, 139, 0.2);
@@ -122,13 +126,13 @@ body {
   font-size: 0.95rem;
   padding: 6px 14px;
   border-radius: 20px;
-  border: 1px solid rgba(255,255,255,0.6);
+  border: 1px solid rgba(255, 255, 255, 0.6);
   white-space: nowrap;
   transition: background 0.2s;
 }
 
 .queue-link:hover {
-  background: rgba(255,255,255,0.2);
+  background: rgba(255, 255, 255, 0.2);
 }
 
 /* 搜索框样式 - 根据图片调整 */
@@ -198,25 +202,25 @@ body {
     padding: 1rem;
     flex-wrap: nowrap; /* 防止换行 */
   }
-  
+
   .logo h1 {
     font-size: 1.2rem;
   }
-  
+
   .search-box {
     gap: 8px;
   }
-  
+
   .search-input {
     width: 120px;
     font-size: 13px;
   }
-  
+
   .search-button {
     padding: 8px 12px;
     font-size: 13px;
   }
-  
+
   .app-main {
     padding: 1rem;
   }
@@ -227,11 +231,11 @@ body {
   .header-container {
     padding: 0.8rem;
   }
-  
+
   .search-input {
     width: 100px;
   }
-  
+
   .search-button {
     padding: 6px 10px;
   }

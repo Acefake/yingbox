@@ -61,9 +61,18 @@ const api = {
     // JSON request (GET/POST) via main process Node.js http/https
     fetch: (
       url: string,
-      options?: { method?: string; headers?: Record<string, string>; body?: string; timeoutMs?: number }
-    ): Promise<{ success: boolean; status?: number; data?: unknown; error?: string }> =>
-      ipcRenderer.invoke('http:fetch', url, options ?? {}),
+      options?: {
+        method?: string
+        headers?: Record<string, string>
+        body?: string
+        timeoutMs?: number
+      }
+    ): Promise<{
+      success: boolean
+      status?: number
+      data?: unknown
+      error?: string
+    }> => ipcRenderer.invoke('http:fetch', url, options ?? {}),
     // Fetch image as base64 data URL via main process (bypasses hotlink protection)
     fetchImage: (
       url: string,
@@ -128,7 +137,9 @@ const api = {
       ipcRenderer.invoke('app:getVersion'),
   },
   shell: {
-    openPath: (filePath: string): Promise<{ success: boolean; error?: string }> =>
+    openPath: (
+      filePath: string
+    ): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('shell:openPath', filePath),
   },
   player: {
@@ -144,12 +155,10 @@ const api = {
   detail: {
     open: (itemData: unknown): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('detail:open', itemData),
-    getData: (): Promise<unknown> =>
-      ipcRenderer.invoke('detail:getData'),
+    getData: (): Promise<unknown> => ipcRenderer.invoke('detail:getData'),
     onUpdate: (cb: (data: unknown) => void) =>
       ipcRenderer.on('detail:update', (_e, data) => cb(data)),
-    offUpdate: () =>
-      ipcRenderer.removeAllListeners('detail:update'),
+    offUpdate: () => ipcRenderer.removeAllListeners('detail:update'),
   },
   scraper: {},
   downloader: {},
