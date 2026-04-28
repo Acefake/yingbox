@@ -106,7 +106,7 @@
         </div>
 
         <!-- 任务列表 -->
-        <div v-else class="task-list">
+        <div v-else class="task-list custom-scrollbar">
           <TransitionGroup name="task-item">
             <div
               v-for="item in items"
@@ -506,16 +506,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   max-height: 320px;
   overflow-y: auto;
   overflow-x: hidden;
-}
-.task-list::-webkit-scrollbar {
-  width: 3px;
-}
-.task-list::-webkit-scrollbar-track {
-  background: transparent;
-}
-.task-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.1);
-  border-radius: 2px;
 }
 
 .task-row {

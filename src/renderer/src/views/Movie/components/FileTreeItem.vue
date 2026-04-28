@@ -60,7 +60,7 @@
             (item.type === 'folder' && hasNfoFile(item)) ||
             (item.type === 'video' && hasVideoNfoFile(item))
           "
-          class="tag bg-yellow-600 text-yellow-100"
+          class="status-tag bg-yellow-600 text-yellow-100"
           >N</span
         >
         <span
@@ -68,7 +68,7 @@
             (item.type === 'folder' && hasPosterFile(item)) ||
             (item.type === 'video' && hasVideoPosterFile(item))
           "
-          class="tag bg-green-600 text-green-100"
+          class="status-tag bg-green-600 text-green-100"
           >P</span
         >
         <span
@@ -76,7 +76,7 @@
             (item.type === 'folder' && hasFanartFile(item)) ||
             (item.type === 'video' && hasVideoFanartFile(item))
           "
-          class="tag bg-blue-600 text-blue-100"
+          class="status-tag bg-blue-600 text-blue-100"
           >A</span
         >
       </div>
@@ -85,10 +85,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
 import { MenuItem } from '@/composables/use-context-menu'
-import type { Movie } from '@tdanks2000/tmdb-wrapper'
-import { TMDB_IMG_URL } from '@/api/tmdb'
 import type { ProcessedItem } from '@/types'
 
 // 本地Props接口定义
@@ -160,88 +157,6 @@ const hasVideoFanartFile = (item: ProcessedItem): boolean => {
 
 const props = defineProps<Props>()
 
-// 海报 data URL
-const posterDataUrl = ref<string | null>(null)
-
-// 获取海报路径
-const getPosterPath = (item: ProcessedItem): string | null => {
-  if (!item.files) return null
-
-  const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
-
-  // 优先查找 poster.jpg
-  let posterFile = item.files.find(
-    file => file.name.toLowerCase() === 'poster.jpg'
-  )
-
-  // 如果没有，查找包含 poster 的文件
-  if (!posterFile) {
-    posterFile = item.files.find(
-      file =>
-        posterExtensions.some(ext => file.name.toLowerCase().endsWith(ext)) &&
-        file.name.toLowerCase().includes('poster')
-    )
-  }
-
-  // 如果还是没有，查找第一个图片文件
-  if (!posterFile) {
-    posterFile = item.files.find(file =>
-      posterExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-    )
-  }
-
-  if (!posterFile) return null
-
-  // 将 Windows 路径转换为 file:// 协议格式
-  const path = posterFile.path.replace(/\\/g, '/')
-  // console.log('海报路径:', path)
-  return path
-}
-
-// 计算海报路径并读取文件
-const loadPoster = async (): Promise<void> => {
-  try {
-    if (!props.item?.hasPoster || !props.item?.files) {
-      posterDataUrl.value = null
-      return
-    }
-
-    const path = getPosterPath(props.item)
-    if (!path) {
-      posterDataUrl.value = null
-      return
-    }
-
-    // console.log('读取海报文件:', path)
-    const result = await window.api.file.read(path)
-
-    if (result.success && result.data) {
-      // 将文件内容转换为 base64 data URL
-      const uint8Array = new Uint8Array(result.data as ArrayBuffer)
-      let binary = ''
-      for (let i = 0; i < uint8Array.length; i++) {
-        binary += String.fromCharCode(uint8Array[i])
-      }
-      const base64 = btoa(binary)
-      posterDataUrl.value = `data:image/jpeg;base64,${base64}`
-    } else {
-      console.error('读取海报失败:', result.error)
-      posterDataUrl.value = null
-    }
-  } catch (error) {
-    console.error('加载海报时出错:', error)
-    posterDataUrl.value = null
-  }
-}
-
-// 监听 item 变化，重新加载海报
-watch(
-  () => props.item,
-  () => {
-    loadPoster()
-  },
-  { immediate: true }
-)
 const emit = defineEmits<{
   select: [item: ProcessedItem, index: number]
   showSearchModal: [item: ProcessedItem]
@@ -458,13 +373,6 @@ const hasFanartFile = (item: ProcessedItem): boolean => {
   })
 }
 
-// 处理图片加载错误
-const handleImageError = (event: Event): void => {
-  console.error('海报加载失败:', event)
-  const img = event.target as HTMLImageElement
-  img.style.display = 'none'
-}
-
 // 静态图片菜单
 const folderMenuItems: MenuItem[] = [
   { id: 'view', label: '刮削', icon: 'fas fa-eye' },
@@ -484,74 +392,6 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
     emit('downloadVideo', item)
   }
 }
-
-/**
- * 获取父文件夹路径
- * @param item 文件或文件夹项
- * @returns 父文件夹路径
- */
-const getParentFolderPath = (item: ProcessedItem): string => {
-  if (item.type === 'folder') {
-    return item.path
-  } else {
-    // 如果是视频文件，返回其父目录路径（支持 Windows 和 Unix 路径）
-    const lastSlashIndex = Math.max(
-      item.path.lastIndexOf('/'),
-      item.path.lastIndexOf('\\')
-    )
-    if (lastSlashIndex === -1) {
-      return item.path
-    }
-    return item.path.substring(0, lastSlashIndex)
-  }
-}
-
-/**
- * 创建NFO文件内容
- * @param movieData 电影数据
- * @returns NFO XML内容
- */
-const createNfoContent = (movieData: Movie): string => {
-  const releaseYear = movieData.release_date
-    ? new Date(movieData.release_date).getFullYear()
-    : ''
-
-  return
-  ;`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-  <movie>
-  <title>${escapeXml(movieData.title || '')}</title>
-  <originaltitle>${escapeXml(movieData.original_title || '')}</originaltitle>
-  <year>${releaseYear}</year>
-  <plot>${escapeXml(movieData.overview || '')}</plot>
-  <runtime></runtime>
-  <mpaa></mpaa>
-  <id>${movieData.id}</id>
-  <tmdbid>${movieData.id}</tmdbid>
-  <premiered>${movieData.release_date || ''}</premiered>
-  <releasedate>${movieData.release_date || ''}</releasedate>
-  <rating>${movieData.vote_average || 0}</rating>
-  <votes>${movieData.vote_count || 0}</votes>
-  <popularity>${movieData.popularity || 0}</popularity>
-  <adult>${movieData.adult || false}</adult>
-  <language>${movieData.original_language || ''}</language>
-  <poster>${movieData.poster_path ? (movieData.poster_path.startsWith('http') ? movieData.poster_path : TMDB_IMG_URL + movieData.poster_path) : ''}</poster>
-  <fanart>${movieData.backdrop_path ? (movieData.backdrop_path.startsWith('http') ? movieData.backdrop_path : TMDB_IMG_URL + movieData.backdrop_path) : ''}</fanart>
-</movie>`
-}
-
-/**
- * 转义XML特殊字符
- * @param text 要转义的文本
- * @returns 转义后的文本
- */
-const escapeXml = (text: string): string => {
-  return text
-    .replace(/&/g, '&amp;')
-    .replace(/</g, '&lt;')
-    .replace(/>/g, '&gt;')
-    .replace(/"/g, '&quot;')
-    .replace(/'/g, '&apos;')
-}
 </script>
 
 <style scoped>
@@ -561,21 +401,6 @@ const escapeXml = (text: string): string => {
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: all 0.3s ease;
-}
-
-.tag {
-  font-size: 9px;
-  padding: 1px 3px;
-  border-radius: 2px;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
+  transition: var(--transition-normal);
 }
 </style>

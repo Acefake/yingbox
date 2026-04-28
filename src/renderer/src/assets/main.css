@@ -1,4 +1,7 @@
 @import 'tailwindcss';
+@import './styles/tokens.css';
+@import './styles/global.css';
+@import './styles/components.css';
 
 .ant-modal-content {
   background: rgba(15, 18, 28, 0.92) !important;

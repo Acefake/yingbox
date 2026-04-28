@@ -22,7 +22,7 @@
         @direct-scrape="handleDirectScrape"
         @toggle-multi-select="toggleMultiSelectMode"
         @toggle-select-all="toggleSelectAll"
-        @add-selected-to-queue="addSelectedToScrapeQueue"
+        @add-selected-to-queue="batchScrapeSelected"
         @toggle-selection="toggleItemSelection"
         @local-scrape="handleLocalScrape"
         @download-video="handleDownloadVideo"
@@ -55,7 +55,7 @@
       type="movie"
       :initial-query="currentScrapeItem?.name"
       @close="handleCloseSearchModal"
-      @scrape="handleScrapeMovie"
+      @scrape="handlePickMovie"
       @research="handleResearch"
     />
 
@@ -93,29 +93,14 @@
       @cancel="showDownloadModal = false"
       @done="handleDownloadDone"
     />
-
-    <!-- 本地刮削状态提示 -->
-    <Transition name="toast-fade">
-      <div
-        v-if="localScrapeToast"
-        class="fixed bottom-8 left-1/2 -translate-x-1/2 z-[999] px-4 py-2 rounded-lg text-sm text-white"
-        style="
-          background: rgba(20, 20, 28, 0.95);
-          border: 1px solid rgba(255, 255, 255, 0.12);
-          backdrop-filter: blur(12px);
-        "
-      >
-        {{ localScrapeToast }}
-      </div>
-    </Transition>
   </div>
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, ref, watch, onUnmounted } from 'vue'
+import { inject, onMounted, ref, watch } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { backend } from '@/api/backend'
-import { Modal } from 'ant-design-vue'
+import { Modal, message } from 'ant-design-vue'
 import { ProcessedItem } from '@/types'
 import RightPanel from '@/views/movie/RightPanel.vue'
 import LeftPanel from '@/views/movie/components/LeftPanel.vue'
@@ -129,7 +114,6 @@ import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { useScraping } from '@/views/movie/composables/use-scraping'
 import { useFileManagement } from '@/views/movie/composables/use-file-management'
-import { useScrapingQueue } from '@/views/movie/composables/use-scraping-queue'
 import {
   useMediaProcessing,
   bumpScrapeVersion,
@@ -146,6 +130,7 @@ const appLayoutMethods = inject('appLayoutMethods') as
   | undefined
 
 const { searchMovieInfo } = useScraping()
+const { processSingleScrapeTask: processTask } = useScrapingTask()
 
 // 弹窗状态管理
 const showSearchModal = ref(false)
@@ -168,8 +153,6 @@ const javBusScrapeItem = ref<ProcessedItem | null>(null)
 const javBusScrapeModal = ref<InstanceType<typeof JavBusScrapeModal> | null>(
   null
 )
-const localScrapeToast = ref('')
-let toastTimer: ReturnType<typeof setTimeout> | null = null
 
 const downloaderSites = [
   { downloaderName: 'MissAV', domain: 'missav.ai', weight: 1000 },
@@ -200,9 +183,7 @@ const {
   clearCacheAndData,
 } = useFileManagement()
 
-// 刮削队列相关状态和方法
-const { scrapeQueue, isProcessingQueue, currentQueueIndex, addToQueue } =
-  useScrapingQueue()
+// 刮削队列相关状态和方法 - 已简化为直接刮削
 
 // 基础状态
 const selectedItem = ref<ProcessedItem | null>(null)
@@ -286,13 +267,6 @@ const handleCloseManualScrapeModal = (): void => {
 }
 
 // 刮削项目状态管理 - 简单的状态操作直接写在组件里
-const clearCurrentScrapeItem = (): void => {
-  currentScrapeItem.value = null
-}
-
-const setCurrentScrapeItem = (item: ProcessedItem | null): void => {
-  currentScrapeItem.value = item
-}
 
 // 左侧边栏管理方法 - 这些逻辑都是组件特有的，直接写在组件里更清晰
 const selectItem = (item: ProcessedItem, index: number): void => {
@@ -351,69 +325,35 @@ const toggleSelectAll = (): void => {
 }
 
 /**
- * 批量添加选中项目到刮削队列 - 这个复杂的业务逻辑直接写在组件里，逻辑清晰
+ * 批量直接刮削选中项目
  */
-const addSelectedToScrapeQueue = async (): Promise<void> => {
+const batchScrapeSelected = async (): Promise<void> => {
   if (selectedItemsData.value.length === 0) {
     return
   }
 
   let successCount = 0
-  let failedCount = 0
+  message.loading(`正在批量处理 ${selectedItemsData.value.length} 个项目...`, 0)
 
   try {
-    // 为每个选中的项目搜索电影信息
-    for (let i = 0; i < selectedItemsData.value.length; i++) {
-      const item = selectedItemsData.value[i]
-
-      // 从文件名提取电影名称
-      const movieName = item.name
-        .replace(/\.[^/.]+$/, '') // 去除扩展名
-        .replace(/[[](){}]/g, '') // 去除括号
-        .trim()
-
-      // 搜索电影信息
-      const searchedMovie = await searchMovieInfo(item)
-
-      let movieToAdd: Movie
-
-      if (searchedMovie && searchedMovie.length > 0) {
-        // 如果搜索到了电影，使用第一个搜索结果
-        movieToAdd = searchedMovie[0]
+    for (const item of selectedItemsData.value) {
+      currentScrapeItem.value = item
+      const movies = await searchMovieInfo(item)
+      if (movies && movies.length > 0) {
+        await processTask(movies[0], item)
         successCount++
-      } else {
-        // 如果没有搜索到，创建默认电影信息
-        movieToAdd = {
-          id: Date.now() + Math.random(), // 临时ID
-          title: movieName || item.name,
-          overview: `未找到匹配的电影：${movieName || item.name}`,
-          release_date: '',
-          poster_path: '',
-          backdrop_path: '',
-          vote_average: 0,
-          vote_count: 0,
-          genre_ids: [],
-          adult: false,
-          original_language: 'zh',
-          original_title: movieName || item.name,
-          popularity: 0,
-          video: false,
-        }
-        failedCount++
       }
-
-      // 添加到队列
-      addToQueue(item, movieToAdd)
-
-      // 添加短暂延迟，避免API请求过快
-      await new Promise(resolve => setTimeout(resolve, 300))
     }
-
+    message.destroy()
+    message.success(`批量处理完成，共成功刮削 ${successCount} 个项目`)
+    
     // 清空选择
     selectedItems.value.clear()
     selectedItemsData.value = []
   } catch (error) {
-    console.error('批量添加失败:', error)
+    message.destroy()
+    console.error('批量处理失败:', error)
+    message.error('批量处理过程中出现错误')
   }
 }
 
@@ -469,103 +409,11 @@ const handleCancelManualScrape = (): void => {
 }
 
 /**
- * 添加刮削任务到队列 - 队列管理逻辑直接写在组件里
- * @param movie 电影数据
+ * 刮削此结果并关闭模态框
  */
-const addToScrapeQueue = async (movie: Movie): Promise<void> => {
-  if (!currentScrapeItem.value) {
-    return
-  }
-
-  // 添加到队列
-  addToQueue(currentScrapeItem.value, movie)
-
-  // 关闭搜索模态框
-  handleCloseSearchModal()
-
-  // 立即开始处理（currentScrapeItem 保持有效，处理完再清空）
-  await startProcessingQueue()
-}
-
-/**
- * 开始处理刮削队列 - 队列处理逻辑直接写在组件里，逻辑清晰
- */
-const startProcessingQueue = async (): Promise<void> => {
-  if (scrapeQueue.value.length === 0) {
-    return
-  }
-
-  if (isProcessingQueue.value) {
-    return
-  }
-
-  try {
-    isProcessingQueue.value = true
-    currentQueueIndex.value = 0
-
-    // 逐个处理队列中的任务
-    await processNextQueueItem()
-  } catch (error) {
-    console.error('处理队列失败:', error)
-  } finally {
-    isProcessingQueue.value = false
-    clearCurrentScrapeItem()
-  }
-}
-
-/**
- * 处理队列中的下一个项目 - 队列处理的核心逻辑直接写在组件里，逻辑清晰
- */
-const processNextQueueItem = async (): Promise<void> => {
-  // 检查是否还有待处理的任务
-  if (currentQueueIndex.value >= scrapeQueue.value.length) {
-    // 清空队列
-    scrapeQueue.value = []
-    currentQueueIndex.value = 0
-    isProcessingQueue.value = false
-    clearCurrentScrapeItem()
-
-    // 队列处理完成，无需额外全量刷新（每个任务完成时已定向刷新）
-    return
-  }
-
-  // 检查处理是否被停止
-  if (!isProcessingQueue.value) {
-    return
-  }
-
-  const task = scrapeQueue.value[currentQueueIndex.value]
-
-  try {
-    // 设置当前刮削项目
-    setCurrentScrapeItem(task.item)
-
-    // 执行刮削（refreshSpecificDirectory 已在 processSingleScrapeTask 内部调用）
-    await processSingleScrapeTask(task.movie)
-
-    // 移动到下一个任务
-    currentQueueIndex.value++
-
-    // 短暂延迟，避免过快处理
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    // 递归处理下一个任务
-    await processNextQueueItem()
-  } catch (error) {
-    console.error(`处理 ${task.movie.title} 失败:`, error)
-
-    // 即使当前任务失败，也继续处理下一个
-    currentQueueIndex.value++
-    await processNextQueueItem()
-  }
-}
-
-/**
- * 处理电影刮削：添加到队列或立即处理 - 刮削处理逻辑直接写在组件里
- * @param movie 电影数据
- */
-const handleScrapeMovie = async (movie: MediaResult): Promise<void> => {
-  addToScrapeQueue(movie as unknown as Movie)
+const handlePickMovie = async (movie: Movie): Promise<void> => {
+  showSearchModal.value = false
+  await processSingleScrapeTask(movie)
 }
 
 /**
@@ -639,29 +487,14 @@ const handleJavBusScrape = async (
 }
 
 /**
- * JavBus 加入队列 - 从预览弹窗触发
+ * JavBus 加入队列 - 已简化为直接刮削
  */
 const handleJavBusAddToQueue = async (
   movie: Movie,
   item: ProcessedItem
 ): Promise<void> => {
   currentScrapeItem.value = item
-  addToQueue(item, movie)
-  handleCloseSearchModal()
-
-  // 立即开始处理队列
-  if (!isProcessingQueue.value) {
-    try {
-      isProcessingQueue.value = true
-      currentQueueIndex.value = 0
-      await processNextQueueItem()
-    } finally {
-      isProcessingQueue.value = false
-      clearCurrentScrapeItem()
-    }
-  }
-
-  javBusScrapeModal.value?.setResult('✅ 刮削完成', false)
+  await handleJavBusScrape(movie, item)
 }
 
 /**
@@ -680,7 +513,6 @@ const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
       // 如果只有一个匹配结果，直接刮削
       if (movies.length === 1) {
         // 直接调用刮削任务
-        const { processSingleScrapeTask: processTask } = useScrapingTask()
         const folderPath = await processTask(movies[0], item)
 
         // 刮削完成，重新扫描父目录更新 UI
@@ -707,7 +539,6 @@ const processSingleScrapeTask = async (
 
   try {
     // 使用useScrapingTask中的方法
-    const { processSingleScrapeTask: processTask } = useScrapingTask()
     const folderPath = await processTask(movie, currentScrapeItem.value!)
 
     // 刮削完成，重新扫描父目录更新 UI
@@ -751,15 +582,16 @@ const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
     .replace(/\s*\(\d{4}\)\s*$/, '') // 去年份后缀 (2020)
     .trim()
     .toUpperCase()
-  showToast(`正在刮削 ${avid}...`)
+  message.loading(`正在刮削 ${avid}...`, 0)
   try {
     const meta = await backend.scrape(avid)
+    message.destroy()
     if (meta.error) {
-      showToast(`刮削失败: ${meta.error}`)
+      message.error(`刮削失败: ${meta.error}`)
       console.error(`[scrape:${avid}] error:`, meta.error)
       return
     }
-    showToast(`刮削完成: ${meta.title || avid}`)
+    message.success(`刮削完成: ${meta.title || avid}`)
     bumpScrapeVersion()
     await refreshAfterScrape(
       item.type === 'folder'
@@ -767,8 +599,9 @@ const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
         : item.path.replace(/[\\/][^\\/]+$/, '')
     )
   } catch (e) {
+    message.destroy()
     console.error('[scrape] exception:', e)
-    showToast('刮削异常，请检查 Go 后端日志')
+    message.error('刮削异常，请检查 Go 后端日志')
   }
 }
 
@@ -794,20 +627,8 @@ const handleFetchMeta = (item: ProcessedItem): void => {
 }
 
 const handleDownloadDone = (_avid: string, msg: string): void => {
-  showToast(msg || '已提交下载任务')
+  message.success(msg || '已提交下载任务')
 }
-
-const showToast = (msg: string): void => {
-  localScrapeToast.value = msg
-  if (toastTimer) clearTimeout(toastTimer)
-  toastTimer = setTimeout(() => {
-    localScrapeToast.value = ''
-  }, 3000)
-}
-
-onUnmounted(() => {
-  if (toastTimer) clearTimeout(toastTimer)
-})
 
 onMounted(() => {
   const loaded = loadFromCache()
@@ -821,7 +642,7 @@ onMounted(() => {
 
 <style scoped>
 .folder-item {
-  transition: all 0.2s ease-in-out;
+  transition: var(--transition-fast);
 }
 
 .folder-item:hover {
@@ -835,83 +656,10 @@ onMounted(() => {
   justify-content: center;
 }
 
-.toast-fade-enter-active,
-.toast-fade-leave-active {
-  transition:
-    opacity 0.3s ease,
-    transform 0.3s ease;
-}
-.toast-fade-enter-from,
-.toast-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(8px);
-}
-
-.glass-panel {
-  background: rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  box-shadow: 0 8px 32px 0 rgba(31, 38, 135, 0.37);
-  transition: background-color 0.3s ease;
-}
-
-.glass-panel::before {
-  content: '';
-  position: absolute;
-  top: 0;
-  left: 0;
-  right: 0;
-  bottom: 0;
-  background: inherit;
-  backdrop-filter: inherit;
-  -webkit-backdrop-filter: inherit;
-  z-index: -1;
-}
-
 .selected-item {
   backdrop-filter: blur(10px);
   -webkit-backdrop-filter: blur(10px);
   box-shadow: 0 4px 16px 0 rgba(0, 0, 1, 0.2);
-  transition: all 0.3s ease;
-}
-
-/* 海报3D悬浮效果 */
-.poster-3d {
-  perspective: 1000px;
-  transform-style: preserve-3d;
-  transition: all 0.3s ease;
-}
-
-.poster-3d:hover {
-  transform: rotateY(-5deg) rotateX(5deg) translateZ(20px);
-  box-shadow:
-    0 20px 40px rgba(0, 0, 0, 0.3),
-    0 10px 20px rgba(0, 0, 0, 0.2),
-    -10px 0 20px rgba(0, 0, 0, 0.1);
-}
-
-.poster-3d:hover img {
-  transform: scale(1.05);
-}
-
-/* 悬浮面板样式 */
-.glass-panel-floating {
-  background: rgba(17, 24, 39, 0.3);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow:
-    0 25px 50px -12px rgba(0, 0, 0, 0.5),
-    0 0 0 1px rgba(255, 255, 255, 0.05);
-  transition: all 0.3s ease;
-}
-
-.glass-panel-floating:hover {
-  background: rgba(17, 24, 39, 0.4);
-  border-color: rgba(255, 255, 255, 0.2);
-  box-shadow:
-    0 32px 64px -12px rgba(0, 0, 0, 0.6),
-    0 0 0 1px rgba(255, 255, 255, 0.1);
+  transition: var(--transition-normal);
 }
 </style>

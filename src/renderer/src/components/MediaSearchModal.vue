@@ -25,7 +25,7 @@
         重新搜索
       </AButton>
     </div>
-    <div class="max-h-[80vh] overflow-y-auto">
+    <div class="max-h-[80vh] overflow-y-auto custom-scrollbar">
       <div
         v-if="results.length === 0 && !isSearching"
         class="text-center py-8 text-gray-500"
@@ -116,7 +116,6 @@ import {
   Input as AInput,
   Button as AButton,
 } from 'ant-design-vue'
-import { TMDB_IMG_URL } from '@/api/tmdb'
 
 export interface MediaResult {
   id: number
@@ -199,10 +198,7 @@ const getYear = (item: MediaResult): string => {
 }
 
 const getPoster = (item: MediaResult): string => {
-  if (!item.poster_path) return ''
-  return item.poster_path.startsWith('http')
-    ? item.poster_path
-    : `${TMDB_IMG_URL}${item.poster_path}`
+  return item.poster_path || ''
 }
 
 const handleImageError = (event: Event): void => {
@@ -212,43 +208,18 @@ const handleImageError = (event: Event): void => {
 </script>
 
 <style scoped>
-:deep(.ant-modal-content) {
-  background: rgba(15, 23, 42, 0.92) !important;
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: 16px !important;
-}
-:deep(.ant-modal-header) {
-  background: transparent !important;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.06) !important;
-}
-:deep(.ant-modal-title) {
-  color: rgba(255, 255, 255, 0.85) !important;
-}
-:deep(.ant-modal-close-x) {
-  color: rgba(255, 255, 255, 0.5) !important;
-}
-
 .modal-card {
   background: rgba(30, 41, 59, 0.7);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
   border-radius: 12px;
-  border: 1px solid rgba(255, 255, 255, 0.06);
+  border: 1px solid var(--border-glass);
   overflow: hidden;
-  transition: all 0.25s ease;
+  transition: var(--transition-fast);
 }
 .modal-card:hover {
-  border-color: rgba(255, 255, 255, 0.12);
+  border-color: var(--border-glass-light);
   box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
   transform: translateY(-2px);
-}
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 </style>

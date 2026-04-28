@@ -1,10 +1,6 @@
 <template>
   <div
-    class="rounded-xl overflow-hidden"
-    style="
-      background: rgba(255, 255, 255, 0.04);
-      border: 1px solid rgba(255, 255, 255, 0.07);
-    "
+    class="rounded-xl overflow-hidden glass-panel"
   >
     <!-- 分区标题 -->
     <button
@@ -112,7 +108,7 @@ const open = ref(true)
 <style scoped>
 .section-enter-active,
 .section-leave-active {
-  transition: all 0.2s ease;
+  transition: var(--transition-fast);
   overflow: hidden;
 }
 .section-enter-from,

@@ -176,7 +176,7 @@
     </div>
 
     <!-- 可滚动文件列表 -->
-    <div class="flex-1 overflow-y-auto p-2 left-panel-scroll">
+    <div class="flex-1 overflow-y-auto p-2 custom-scrollbar primary-scrollbar">
       <div
         v-if="filteredItems.length === 0"
         class="p-4 text-gray-400 text-center text-sm"
@@ -238,7 +238,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, ref } from 'vue'
 import FileTreeItem from '@/views/movie/components/FileTreeItem.vue'
 import TVFileTreeItem from '@/views/tv/components/TVFileTreeItem.vue'
 import { ProcessedItem } from '@/types'
@@ -333,32 +333,5 @@ const filteredItems = computed(() => {
 </script>
 
 <style scoped>
-.left-panel-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-
-.left-panel-scroll::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 3px;
-}
-
-.left-panel-scroll::-webkit-scrollbar-thumb {
-  background: rgba(59, 130, 246, 0.5);
-  border-radius: 3px;
-  transition: background 0.2s;
-}
-
-.left-panel-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.7);
-}
-
-.left-panel-scroll::-webkit-scrollbar-thumb:active {
-  background: rgba(59, 130, 246, 0.9);
-}
-
-/* Firefox */
-.left-panel-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(59, 130, 246, 0.5) rgba(255, 255, 255, 0.05);
-}
+/* 使用全局 custom-scrollbar 样式 */
 </style>

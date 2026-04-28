@@ -4,13 +4,13 @@
     <div class="flex flex-col items-center">
       <!-- 海报/缩略图 -->
       <div
-        class="w-50 bg-gray-800 bg-opacity-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden poster-3d backdrop-blur-sm"
+        class="w-50 bg-gray-800 bg-opacity-50 rounded-lg flex items-center justify-center flex-shrink-0 overflow-hidden poster-3d-container backdrop-blur-sm"
       >
         <img
           v-if="posterImageDataUrl"
           :src="posterImageDataUrl"
           alt="海报"
-          class="w-full object-cover rounded-lg transition-transform duration-300"
+          class="w-full object-cover rounded-lg poster-3d-item"
           @error="handleImageError"
         />
         <svg
@@ -26,29 +26,6 @@
           ></path>
         </svg>
       </div>
-
-      <!-- 横幅图容器 -->
-      <!-- <div class="mt-10 w-48 flex items-center justify-center">
-        <img
-          v-if="fanartImageDataUrl"
-          :src="fanartImageDataUrl"
-          alt="横幅图"
-          class="w-full rounded-lg"
-          @error="handleImageError"
-        />
-        <svg
-          v-else
-          class="w-16 h-16 text-gray-600"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            fill-rule="evenodd"
-            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-            clip-rule="evenodd"
-          ></path>
-        </svg>
-      </div> -->
     </div>
 
     <!-- 基本信息 -->
@@ -74,7 +51,7 @@
         >
           演员
         </p>
-        <div class="actor-scroll flex gap-3 overflow-x-auto pb-1">
+        <div class="custom-scrollbar flex gap-3 overflow-x-auto pb-1">
           <div
             v-for="actor in actors"
             :key="actor.name"
@@ -146,18 +123,5 @@ const handleImageError = (event: Event): void => {
 </script>
 
 <style scoped>
-.actor-scroll {
-  scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.1) transparent;
-}
-.actor-scroll::-webkit-scrollbar {
-  height: 3px;
-}
-.actor-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.actor-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
-  border-radius: 3px;
-}
+/* 使用全局 custom-scrollbar-light 样式 */
 </style>

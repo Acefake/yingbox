@@ -35,7 +35,7 @@
         icon-path="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z"
       />
 
-      <div v-else class="p-6 h-full overflow-y-auto">
+      <div v-else class="p-6 h-full overflow-y-auto custom-scrollbar">
         <TVRightPanel
           :selected-item="selectedItem"
           :current-tv-show="selectedTVShow"
@@ -404,17 +404,5 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.custom-scroll::-webkit-scrollbar {
-  width: 6px;
-}
-.custom-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.custom-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.05);
-  border-radius: 10px;
-}
-.custom-scroll::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.3);
-}
+/* 使用全局 custom-scrollbar 样式 */
 </style>

@@ -10,12 +10,7 @@
       />
 
       <div
-        class="relative w-[780px] max-h-[88vh] rounded-2xl flex flex-col overflow-hidden"
-        style="
-          background: rgba(10, 12, 18, 0.97);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.8);
-        "
+        class="relative w-[780px] max-h-[88vh] rounded-2xl flex flex-col overflow-hidden glass-panel-floating"
         @click.stop
       >
         <!-- 头部 -->
@@ -63,7 +58,7 @@
         </div>
 
         <!-- 内容 -->
-        <div v-else-if="meta" class="flex-1 overflow-y-auto p-6 space-y-6">
+        <div v-else-if="meta" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
           <img
             :src="proxyUrl(meta.cover)"
             class="w-full flex-shrink-0 rounded-lg object-cover"
@@ -380,12 +375,5 @@ async function handleAddVideo() {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
-}
-.line-clamp-4 {
-  display: -webkit-box;
-  -webkit-line-clamp: 4;
-  line-clamp: 4;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
 }
 </style>

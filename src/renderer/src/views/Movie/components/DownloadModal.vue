@@ -12,13 +12,7 @@
 
       <!-- 弹窗 -->
       <div
-        class="relative w-[420px] rounded-2xl flex flex-col"
-        style="
-          background: rgba(10, 12, 18, 0.96);
-          backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
-        "
+        class="relative w-[420px] rounded-2xl flex flex-col glass-panel-floating"
         @click.stop
       >
         <!-- 头部 -->
@@ -52,7 +46,7 @@
         </div>
 
         <!-- 下载源列表 -->
-        <div class="px-5 py-4 space-y-2 overflow-y-auto max-h-[360px]">
+        <div class="px-5 py-4 space-y-2 overflow-y-auto max-h-[360px] custom-scrollbar">
           <p class="text-[11px] text-gray-500 mb-3">
             选择下载源（按推荐权重排序）
           </p>

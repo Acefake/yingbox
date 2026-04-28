@@ -132,7 +132,16 @@ export const useTVScraping = () => {
           return []
         }
 
-        return res.results
+        const { getImageBaseUrl } = await import('@/api/tmdb')
+        return res.results.map((tv: any) => ({
+          ...tv,
+          poster_path: tv.poster_path
+            ? getImageBaseUrl('poster') + tv.poster_path
+            : '',
+          backdrop_path: tv.backdrop_path
+            ? getImageBaseUrl('backdrop') + tv.backdrop_path
+            : '',
+        }))
       } catch (error) {
         loadingMessage()
         console.error('搜索电视剧失败:', error)

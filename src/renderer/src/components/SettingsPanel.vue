@@ -15,14 +15,10 @@
       class="fixed inset-0 z-[901] flex items-center justify-center pointer-events-none"
     >
       <div
-        class="pointer-events-auto relative flex flex-col rounded-2xl"
+        class="pointer-events-auto relative flex flex-col rounded-2xl glass-panel-floating"
         style="
           width: min(60vw, 92vw);
           max-height: 85vh;
-          background: rgba(10, 12, 18, 0.95);
-          backdrop-filter: blur(24px);
-          border: 1px solid rgba(255, 255, 255, 0.1);
-          box-shadow: 0 24px 64px rgba(0, 0, 0, 0.7);
         "
         @click.stop
       >
@@ -54,7 +50,7 @@
         </div>
 
         <!-- 设置内容（可滚动） -->
-        <div class="flex-1 overflow-y-auto py-3 px-4 space-y-2 scrollbar-thin">
+        <div class="flex-1 overflow-y-auto py-3 px-4 space-y-2 custom-scrollbar">
           <!-- 分区：图片质量（合并海报/背景/演员） -->
           <SettingsSection title="图片质量" icon="image">
             <div class="space-y-2">
@@ -590,28 +586,5 @@ const handleTestGoBackend = async (): Promise<void> => {
 .settings-slide-leave-to {
   opacity: 0;
   transform: scale(0.95);
-}
-
-.scrollbar-thin {
-  scrollbar-width: thin;
-  scrollbar-color: transparent transparent;
-  transition: scrollbar-color 0.2s;
-}
-.scrollbar-thin:hover {
-  scrollbar-color: rgba(255, 255, 255, 0.2) transparent;
-}
-.scrollbar-thin::-webkit-scrollbar {
-  width: 4px;
-}
-.scrollbar-thin::-webkit-scrollbar-track {
-  background: transparent;
-}
-.scrollbar-thin::-webkit-scrollbar-thumb {
-  background: transparent;
-  border-radius: 2px;
-  transition: background 0.2s;
-}
-.scrollbar-thin:hover::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
 }
 </style>

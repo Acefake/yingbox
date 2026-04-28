@@ -127,9 +127,9 @@
 
       <!-- 标签 -->
       <div class="flex gap-1 ml-2">
-        <span v-if="item.hasNfo" class="tag bg-yellow-600">NFO</span>
-        <span v-if="item.hasPoster" class="tag bg-green-600">海报</span>
-        <span v-if="item.hasFanart" class="tag bg-blue-600">艺术图</span>
+        <span v-if="item.hasNfo" class="status-tag bg-yellow-600 text-yellow-100">NFO</span>
+        <span v-if="item.hasPoster" class="status-tag bg-green-600 text-green-100">海报</span>
+        <span v-if="item.hasFanart" class="status-tag bg-blue-600 text-blue-100">艺术图</span>
       </div>
     </div>
 
@@ -249,12 +249,5 @@ const handleMouseEnter = (): void => {
 </script>
 
 <style scoped>
-.tag {
-  font-size: 9px;
-  padding: 1px 3px;
-  border-radius: 2px;
-  color: #fff;
-  line-height: 1;
-  flex-shrink: 0;
-}
+/* 使用全局 status-tag 样式 */
 </style>

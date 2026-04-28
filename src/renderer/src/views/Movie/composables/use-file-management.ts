@@ -117,12 +117,6 @@ export const useFileManagement = () => {
         const inDirectory = file.path.startsWith(videoDir + separator)
         const noSubdir =
           file.path.substring(videoDir.length + 1).indexOf(separator) === -1
-        // console.log(`文件 ${file.name}:`, {
-        //   inDirectory,
-        //   noSubdir,
-        //   path: file.path,
-        //   videoDir: videoDir + separator
-        // })
         return file.isFile && inDirectory && noSubdir
       })
 
