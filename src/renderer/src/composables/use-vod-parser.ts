@@ -24,6 +24,7 @@ export interface VODTrackRequest {
   siteName: string
   url: string
   ext?: string
+  [key: string]: any
 }
 
 export interface VODPlayRequest {

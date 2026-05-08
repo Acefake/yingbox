@@ -185,7 +185,7 @@
             <!-- 服务选择 -->
             <div class="space-y-1 mb-3">
               <div
-                v-for="opt in providerOptions"
+                v-for="opt in filteredProviderOptions"
                 :key="opt.value"
                 class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all"
                 :class="
@@ -390,7 +390,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import {
   getScrapeProviderConfig,
@@ -471,6 +471,7 @@ const providerOptions: {
   value: ScrapeProviderType
   label: string
   desc: string
+  adult?: boolean
 }[] = [
   {
     value: 'tmdb',
@@ -481,14 +482,31 @@ const providerOptions: {
     value: 'metatube',
     label: 'MetaTube',
     desc: '适合 JAV，需自行部署 metatube-server',
+    adult: true,
   },
   {
     value: 'javbus',
     label: 'JavBus Go 服务',
     desc: '本地 Go 后端，从 JavBus 刮削 JAV 元数据并下载图片',
+    adult: true,
   },
   { value: 'custom', label: '自定义服务', desc: '接入自己的刮削 API' },
 ]
+
+// 成人模式状态
+const adultMode = ref(localStorage.getItem('adultMode') === '1')
+
+// 根据成人模式过滤服务选项
+const filteredProviderOptions = computed(() =>
+  providerOptions.filter(opt => !opt.adult || adultMode.value)
+)
+
+// 成人模式关闭时，如果当前选中的是成人服务，自动切换到 TMDB
+watch(adultMode, isAdult => {
+  if (!isAdult && providerOptions.find(opt => opt.value === currentProvider.value)?.adult) {
+    currentProvider.value = 'tmdb'
+  }
+})
 
 const _config = getScrapeProviderConfig()
 const currentProvider = ref<ScrapeProviderType>(_config.provider)
@@ -503,6 +521,9 @@ const metaTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 const goTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 
 const loadConfig = () => {
+  // 刷新成人模式状态
+  adultMode.value = localStorage.getItem('adultMode') === '1'
+
   const c = getScrapeProviderConfig()
   currentProvider.value = c.provider
   tmdbAccessToken.value = c.tmdbAccessToken

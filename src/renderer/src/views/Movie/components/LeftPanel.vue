@@ -20,6 +20,10 @@
         <h2 class="text-xs font-black uppercase tracking-widest text-gray-400">
           {{ mode === 'tv' ? '电视剧库' : '媒体库' }}
         </h2>
+        <span
+          v-if="adultMode"
+          class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600/70 text-red-100 tracking-wide"
+        >18+</span>
         <div class="flex items-center gap-2">
           <div
             v-if="processedItems.length"
@@ -231,6 +235,7 @@
             (item: ProcessedItem) => $emit('downloadVideo', item)
           "
           @fetch-meta="(item: ProcessedItem) => $emit('fetchMeta', item)"
+          @play="(item: ProcessedItem) => $emit('play', item)"
         />
       </template>
     </div>
@@ -238,7 +243,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import FileTreeItem from '@/views/movie/components/FileTreeItem.vue'
 import TVFileTreeItem from '@/views/tv/components/TVFileTreeItem.vue'
 import { ProcessedItem } from '@/types'
@@ -261,6 +266,18 @@ const props = withDefaults(defineProps<Props>(), {
 
 // 搜索相关状态
 const searchQuery = ref('')
+
+// 成人模式状态
+const adultMode = ref(localStorage.getItem('adultMode') === '1')
+
+watch(searchQuery, val => {
+  if (val.trim().toLowerCase() === 'getav') {
+    adultMode.value = !adultMode.value
+    localStorage.setItem('adultMode', adultMode.value ? '1' : '0')
+    window.dispatchEvent(new CustomEvent('adultModeChange', { detail: adultMode.value }))
+    searchQuery.value = ''
+  }
+})
 
 defineEmits<{
   /** 全量刷新 */
@@ -298,6 +315,8 @@ defineEmits<{
   downloadVideo: [item: ProcessedItem]
   /** 预览元数据 */
   fetchMeta: [item: ProcessedItem]
+  /** 播放 */
+  play: [item: ProcessedItem]
 }>()
 
 /**
@@ -331,7 +350,3 @@ const filteredItems = computed(() => {
   })
 })
 </script>
-
-<style scoped>
-/* 使用全局 custom-scrollbar 样式 */
-</style>

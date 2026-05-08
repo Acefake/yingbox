@@ -54,9 +54,16 @@
         <!-- error -->
         <div
           v-else-if="error"
-          class="flex-1 flex items-center justify-center py-16 text-red-400 text-sm px-6"
+          class="flex-1 flex flex-col items-center justify-center py-16 gap-4 px-6"
         >
-          {{ error }}
+          <span class="text-red-400 text-sm text-center">{{ error }}</span>
+          <button
+            v-if="item"
+            @click="emit('manualSearch', item); $emit('close')"
+            class="px-4 py-2 rounded-lg bg-blue-600/70 hover:bg-blue-600 text-white text-xs font-semibold transition-all"
+          >
+            手动检索
+          </button>
         </div>
 
         <!-- 内容 -->
@@ -65,7 +72,7 @@
           <img
             :src="proxyUrl(meta.cover)"
             class="w-full flex-shrink-0 rounded-lg object-cover"
-            style="aspect-ratio: 16/9"
+            style="aspect-ratio: 16/10.5"
             @error="
               e => ((e.target as HTMLImageElement).style.display = 'none')
             "
@@ -317,6 +324,7 @@ const emit = defineEmits<{
   close: []
   scrape: [meta: BackendMeta, item: ProcessedItem]
   addToQueue: [movie: Movie, item: ProcessedItem]
+  manualSearch: [item: ProcessedItem]
 }>()
 
 const loading = ref(false)

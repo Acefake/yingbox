@@ -23,6 +23,16 @@
               在线观看
             </button>
 
+            <!-- AV资源 - 成人模式显示 -->
+            <button
+              v-if="adultMode"
+              class="nav-tab"
+              :class="{ active: route.name === 'AV' }"
+              @click="navigateTo('/av')"
+            >
+              AV资源
+            </button>
+
             <!-- 刮削服务下拉 -->
             <div
               class="nav-dropdown"
@@ -103,7 +113,7 @@
     </header>
 
     <!-- 主内容区域 -->
-    <main class="main-content">
+    <main class="main-content" style="position: relative; z-index: 0">
       <slot />
     </main>
 
@@ -117,6 +127,7 @@
     <img
       :src="bgImg"
       class="w-full h-full object-cover opacity-20 transition-opacity duration-300 fixed inset-0"
+      style="z-index: -2"
       alt="背景图片"
     />
 
@@ -125,21 +136,20 @@
       v-if="globalBackgroundImage"
       class="fixed inset-0 transition-opacity duration-500"
       :style="{
-        backgroundImage: `
-          linear-gradient(
-            to bottom,
-            rgba(0,0,0,0.2) 0%,
-            rgba(0,0,0,0.4) 30%,
-            rgba(0,0,0,0.7) 70%,
-            rgba(17,24,39,0.95) 100%
-          ),
-          url(${globalBackgroundImage})
-        `,
+        zIndex: -2,
+        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.85) 70%, rgba(17,24,39,1) 100%), url(${globalBackgroundImage})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        backdropFilter: 'blur(8px)',
+        filter: 'blur(12px)',
+        transform: 'scale(1.1)',
       }"
+    ></div>
+    <!-- 额外的暗色遮罩层增强效果 -->
+    <div
+      v-if="globalBackgroundImage"
+      class="fixed inset-0 bg-black/40 pointer-events-none"
+      style="z-index: -1"
     ></div>
   </div>
 </template>
@@ -201,6 +211,27 @@ const navigateTo = (path: string): void => {
  */
 const openSettings = (): void => {
   settingsVisible.value = true
+}
+
+// 成人模式检测
+const adultMode = ref(localStorage.getItem('adultMode') === '1')
+
+// 监听自定义事件（同页面内切换）和跨 Tab storage 事件
+const handleAdultModeChange = (enabled: boolean) => {
+  adultMode.value = enabled
+  if (!enabled && route.path === '/av') {
+    router.push('/online')
+  }
+}
+if (typeof window !== 'undefined') {
+  window.addEventListener('adultModeChange', (e) => {
+    handleAdultModeChange((e as CustomEvent<boolean>).detail)
+  })
+  window.addEventListener('storage', (e) => {
+    if (e.key === 'adultMode') {
+      handleAdultModeChange(e.newValue === '1')
+    }
+  })
 }
 
 const scraperOpen = ref(false)
