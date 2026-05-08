@@ -85,8 +85,10 @@
 </template>
 
 <script setup lang="ts">
+import { computed } from 'vue'
 import { MenuItem } from '@/composables/use-context-menu'
 import type { ProcessedItem } from '@/types'
+import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 
 // 本地Props接口定义
 interface Props {
@@ -168,6 +170,7 @@ const emit = defineEmits<{
   localScrape: [item: ProcessedItem]
   downloadVideo: [item: ProcessedItem]
   fetchMeta: [item: ProcessedItem]
+  play: [item: ProcessedItem]
 }>()
 
 /**
@@ -187,13 +190,8 @@ const handleItemClick = (): void => {
  * 右键点击时自动选中项目
  */
 const handleRightClick = (): void => {
-  // 不阻止默认行为，让 context-menu 指令正常工作
-  // 右键点击时也触发选中逻辑
-  if (props.isMultiSelectMode) {
-    emit('toggleSelection', props.item, props.index)
-  } else {
-    emit('select', props.item, props.index)
-  }
+  // 右键点击时先选中项目，确保菜单操作时项目已被选中
+  emit('select', props.item, props.index)
 }
 
 /**
@@ -373,17 +371,29 @@ const hasFanartFile = (item: ProcessedItem): boolean => {
   })
 }
 
-// 静态图片菜单
-const folderMenuItems: MenuItem[] = [
-  { id: 'view', label: '刮削', icon: 'fas fa-eye' },
-  { id: 'local-scrape', label: '本地刮削' },
-  { id: 'fetch-meta', label: '预览元数据' },
-  { id: 'download', label: '下载视频' },
-]
+// 动态图片菜单
+const folderMenuItems = computed<MenuItem[]>(() => {
+  const config = getScrapeProviderConfig()
+  const items: MenuItem[] = [
+    { id: 'view', label: '刮削', icon: 'fas fa-eye' },
+    { id: 'play', label: '播放', icon: 'fas fa-play' },
+  ]
+  
+  if (config.provider === 'javbus') {
+    items.push(
+      { id: 'fetch-meta', label: '预览元数据' },
+      { id: 'download', label: '下载视频' }
+    )
+  }
+  
+  return items
+})
 
 const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
   if (action.id === 'view') {
     emit('autoScrape', item)
+  } else if (action.id === 'play') {
+    emit('play', item)
   } else if (action.id === 'local-scrape') {
     emit('localScrape', item)
   } else if (action.id === 'fetch-meta') {

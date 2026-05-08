@@ -1,0 +1,56 @@
+import { useStorage } from '@vueuse/core'
+
+export interface AvSite {
+  name: string
+  api: string
+}
+
+export const AV_SOURCES: AvSite[] = [
+  { name: '森林资源', api: 'https://slapibf.com/api.php/provide/vod/' },
+  { name: '探探资源', api: 'https://apittzy.com/api.php/provide/vod/' },
+  { name: '奥斯卡资源', api: 'https://aosikazy.com/api.php/provide/vod/' },
+  { name: '老鸭资源', api: 'https://api.apilyzy.com/api.php/provide/vod/' },
+  { name: '皇冠', api: 'https://hghhh.com/api.php/provide/vod/' },
+  { name: '91麻豆', api: 'https://91md.me/api.php/provide/vod/' },
+  { name: '易看资源', api: 'https://api.yikanapi.com/api.php/provide/vod/' },
+  { name: '番号资源', api: 'http://fhapi9.com/api.php/provide/vod/' },
+  { name: '鲨鱼资源', api: 'https://shayuapi.com/api.php/provide/vod/' },
+  { name: 'KK写真', api: 'https://kkzy.me/api.php/provide/vod/' },
+  { name: 'AIvin', api: 'http://lbapiby.com/api.php/provide/vod/at/json' },
+  { name: '好色资源', api: 'https://haosezyw.com/api.php/provide/vod/' },
+  { name: '最色资源', api: 'https://zszyw.top/api.php/provide/vod/' },
+  { name: '色色虎资源', api: 'https://apisesehuzy.com/api.php/provide/vod/' },
+  { name: '黄瓜资源', api: 'https://www.zy018.com/api.php/provide/vod/' },
+  { name: '玉兔资源', api: 'https://apiyutu.com/api.php/provide/vod/' },
+  { name: '麻豆视频', api: 'http://www.madouse.la/api.php/provide/vod/' },
+  { name: '辣椒资源', api: 'https://apilj.com/api.php/provide/vod/' },
+  { name: '甜蜜资源', api: 'https://timizy10.cc/api.php/provide/vod/' },
+  { name: '奶香香', api: 'https://Naixxzy.com/api.php/provide/vod/' },
+  { name: '精品资源', api: 'https://www.jingpinx.com/api.php/provide/vod/' },
+  { name: '草榴资源', api: 'https://www.caoliuzyw.com/api.php/prodao/vod/' },
+  { name: '老色逼资源', api: 'https://apilsbzy1.com/api.php/provide/vod/' },
+]
+
+// 持久化启用的站点列表（默认全部启用）
+const enabledApiList = useStorage<string[]>(
+  'av_enabled_sites',
+  AV_SOURCES.map(s => s.api)
+)
+
+export function useAvSources() {
+  const enabledApis = {
+    has: (api: string) => enabledApiList.value.includes(api),
+    add: (api: string) => {
+      if (!enabledApiList.value.includes(api)) enabledApiList.value.push(api)
+    },
+    delete: (api: string) => {
+      enabledApiList.value = enabledApiList.value.filter(a => a !== api)
+    },
+  }
+
+  // 获取当前启用的站点
+  const getActiveSources = (): AvSite[] =>
+    AV_SOURCES.filter(s => enabledApis.has(s.api))
+
+  return { enabledApis, getActiveSources }
+}

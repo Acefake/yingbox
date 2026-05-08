@@ -109,6 +109,11 @@ function createCryptoJS() {
 
 // ── Download JS file ───────────────────────────────────────
 async function downloadJS(url) {
+  if (url.startsWith('file://') || url.startsWith('/') || /^[A-Za-z]:[\\\/]/.test(url)) {
+    const fs = require('fs')
+    const localPath = url.startsWith('file://') ? url.replace(/^file:\/\//, '').replace(/\//g, require('path').sep) : url
+    return fs.readFileSync(localPath, 'utf-8')
+  }
   const { data } = await $fetch(url)
   return data
 }
@@ -152,6 +157,8 @@ async function main() {
     // Call the requested action
     let result
     const ext = argsify(extJson)
+    // Some plugins use JSON.parse(ext) directly, so also provide a normalized JSON string
+    const extStr = typeof extJson === 'string' ? extJson : JSON.stringify(ext)
 
     try {
       switch (action) {
@@ -164,28 +171,28 @@ async function main() {
           break
       case 'search':
         if (typeof api.search === 'function') {
-          result = await api.search(ext)
+          result = await api.search(extStr)
         } else {
           result = { success: false, error: 'search function not found in JS' }
         }
         break
       case 'getCards':
         if (typeof api.getCards === 'function') {
-          result = await api.getCards(ext)
+          result = await api.getCards(extStr)
         } else {
           result = { success: false, error: 'getCards function not found in JS' }
         }
         break
       case 'getTracks':
         if (typeof api.getTracks === 'function') {
-          result = await api.getTracks(ext)
+          result = await api.getTracks(extStr)
         } else {
           result = { success: false, error: 'getTracks function not found in JS' }
         }
         break
       case 'getPlayinfo':
         if (typeof api.getPlayinfo === 'function') {
-          result = await api.getPlayinfo(ext)
+          result = await api.getPlayinfo(extStr)
         } else {
           result = { success: false, error: 'getPlayinfo function not found in JS' }
         }

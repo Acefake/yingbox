@@ -812,15 +812,21 @@ func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 			argsMap["page"] = 1
 		}
 	case "getCards":
-		if ext, ok := reqMap["ext"]; ok {
-			argsMap["ext"] = ext
+		// Pass all extra fields (id, url, page, ext, typeurl, etc.)
+		for k, v := range reqMap {
+			if k != "action" && k != "siteName" {
+				argsMap[k] = v
+			}
 		}
-		if url, ok := reqMap["url"]; ok {
-			argsMap["url"] = url
+		if argsMap["page"] == nil {
+			argsMap["page"] = 1
 		}
-		argsMap["page"] = reqMap["page"]
 	case "getTracks":
-		argsMap["url"] = reqMap["url"]
+		for k, v := range reqMap {
+			if k != "action" && k != "siteName" {
+				argsMap[k] = v
+			}
+		}
 	case "getPlayinfo":
 		// Pass all extra fields (vid, pkey, ref, url, etc.)
 		for k, v := range reqMap {

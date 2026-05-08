@@ -41,4 +41,14 @@ export const routes = [
       description: 'TV文件管理和刮削功能',
     },
   },
+  {
+    path: '/av',
+    name: 'AV',
+    component: () => import('@/views/av/Index.vue'),
+    meta: {
+      title: 'AV资源',
+      description: '成人资源在线播放',
+      adultOnly: true,
+    },
+  },
 ]

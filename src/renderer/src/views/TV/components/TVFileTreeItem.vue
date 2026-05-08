@@ -127,9 +127,9 @@
 
       <!-- 标签 -->
       <div class="flex gap-1 ml-2">
-        <span v-if="item.hasNfo" class="status-tag bg-yellow-600 text-yellow-100">NFO</span>
-        <span v-if="item.hasPoster" class="status-tag bg-green-600 text-green-100">海报</span>
-        <span v-if="item.hasFanart" class="status-tag bg-blue-600 text-blue-100">艺术图</span>
+        <span v-if="item.hasNfo" class="status-tag bg-yellow-600 text-yellow-100">N</span>
+        <span v-if="item.hasPoster" class="status-tag bg-green-600 text-green-100">P</span>
+        <span v-if="item.hasFanart" class="status-tag bg-blue-600 text-blue-100">A</span>
       </div>
     </div>
 
@@ -224,9 +224,7 @@ const handleRightClick = (): void => {
 }
 
 const tvMenuItems: MenuItem[] = [
-  { id: 'direct_scrape', label: '直接刮削', icon: 'fas fa-bolt' },
-  { id: 'auto_scrape', label: '刮削（选择匹配）', icon: 'fas fa-search' },
-  { id: 'manual_scrape', label: '手动匹配', icon: 'fas fa-keyboard' },
+  { id: 'direct_scrape', label: '刮削', icon: 'fas fa-bolt' },
 ]
 
 const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {

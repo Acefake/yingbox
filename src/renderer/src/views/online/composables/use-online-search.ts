@@ -54,9 +54,15 @@ export const DEFAULT_SITES: ApiSite[] = (cmsSitesRaw as { sites: ApiSite[] })
 // ── CatSpider sites from vod.json ──────────────────────────
 const CATSPIDER_SITES: CatSpiderSite[] = [
   { name: '茶杯狐', type: 3, api: 'csp_cupfox', ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js' },
+  { name: '荐片', type: 3, api: 'csp_jianpian', ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js' },
+  { name: 'NO視頻', type: 3, api: 'csp_novipnoad', ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js' },
 ]
 
 const selectedCatSpider = useStorage<string[]>('online_selected_catspider', CATSPIDER_SITES.map(s => s.api))
+// Auto-enable newly added sites that aren't in the persisted list yet
+CATSPIDER_SITES.forEach(s => {
+  if (!selectedCatSpider.value.includes(s.api)) selectedCatSpider.value.push(s.api)
+})
 
 // ── 模块级单例：useStorage 自动持久化到 localStorage ──────────
 // selectedApis: 已启用站点的 api 字符串数组
@@ -195,7 +201,7 @@ export function useOnlineSearch() {
       try {
         const ext = item._ext || {}
         const url = ext.url || String(item.vod_id)
-        const r = await getTracks({ siteName: item._siteName, url, ...ext })
+        const r = await getTracks({ siteName: item._siteName, url, ...ext, id: ext.id ?? item.vod_id })
         if (!r.success || !r.data) return []
         const list = r.data.list || r.data.data?.list || []
         return (list as any[]).map((group: any) => ({

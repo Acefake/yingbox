@@ -155,6 +155,8 @@ const sites = [
   '嗷嗚動漫', '荐片', '人人', 'anime1',
   '农民影视', '七色番動漫', '茶杯狐', '路漫漫',
   'ppnix', '河馬短劇', '壹影視',
+  // ── AV 源（测试中）──
+  'avtoday', '91Jav', 'jable', 'hanime', '麻豆社', 'hkdoll',
 ]
 
 const { loading, search, getCards, getTracks, getPlayinfo, getConfig } = useVODParser()

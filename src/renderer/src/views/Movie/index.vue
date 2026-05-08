@@ -27,6 +27,7 @@
         @local-scrape="handleLocalScrape"
         @download-video="handleDownloadVideo"
         @fetch-meta="handleFetchMeta"
+        @play="handlePlay"
       />
     </div>
 
@@ -38,7 +39,23 @@
       <EmptyPlaceholder v-if="!selectedItem" />
 
       <div v-else class="p-6 h-full overflow-y-auto">
+        <!-- 成人模式 + JAV 内容：使用 AdultContentPanel -->
+        <AdultContentPanel
+          v-if="isAdultMode && isJavContent"
+          :selected-item="selectedItem"
+          :meta="adultMeta"
+          :poster-image-data-url="posterImageDataUrl"
+          :fanart-image-data-url="fanartImageDataUrl"
+          :local-fanarts="localFanarts"
+          :actors="actors"
+          :loading="adultScrapeLoading"
+          :action-msg="adultActionMsg"
+          @scrape="handleAdultScrape"
+          @add-to-queue="handleAdultAddToQueue"
+        />
+        <!-- 普通模式：使用 RightPanel -->
         <RightPanel
+          v-else
           :selected-item="selectedItem"
           :poster-image-data-url="posterImageDataUrl"
           :movie-info="movieInfo"
@@ -83,6 +100,7 @@
       @close="showJavBusScrapeModal = false"
       @scrape="handleJavBusScrape"
       @add-to-queue="handleJavBusAddToQueue"
+      @manual-search="handleShowManualScrapeModal"
     />
 
     <!-- 下载弹窗 -->
@@ -97,12 +115,13 @@
 </template>
 
 <script setup lang="ts">
-import { inject, onMounted, ref, watch } from 'vue'
+import { computed, inject, onMounted, ref, watch } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
-import { backend } from '@/api/backend'
+import { backend, type BackendMeta } from '@/api/backend'
 import { Modal, message } from 'ant-design-vue'
 import { ProcessedItem } from '@/types'
 import RightPanel from '@/views/movie/RightPanel.vue'
+import AdultContentPanel from '@/views/movie/components/AdultContentPanel.vue'
 import LeftPanel from '@/views/movie/components/LeftPanel.vue'
 import MediaSearchModal from '@/components/MediaSearchModal.vue'
 import type { MediaResult } from '@/components/MediaSearchModal.vue'
@@ -196,6 +215,119 @@ const {
   actors,
   warmNfoCache,
 } = useMediaProcessing(selectedItem)
+
+// 成人模式状态
+const isAdultMode = ref(localStorage.getItem('adultMode') === '1')
+const adultMeta = ref<BackendMeta | null>(null)
+const adultMetaLoading = ref(false)  // 获取预览元数据加载状态
+const adultScrapeLoading = ref(false) // 执行刮削操作加载状态
+const adultActionMsg = ref('')
+
+// 检测是否为 JAV 内容（文件名匹配 JAV 格式）
+const isJavContent = computed(() => {
+  const name = selectedItem.value?.name || ''
+  // 匹配类似 XXX-123, XXX-1234, XXX_123 等格式
+  return /[A-Z]{2,6}[-_]?\s*\d{2,4}/i.test(name)
+})
+
+// 检测本地 fanarts 图片
+const localFanarts = computed(() => {
+  const item = selectedItem.value
+  if (!item?.path) return []
+
+  const isFolder = item.type === 'folder'
+  const basePath = isFolder ? item.path : item.path.replace(/\.[^.]+$/, '')
+  const baseName = isFolder ? item.name : item.name.replace(/\.[^.]+$/, '')
+
+  // 扫描本地文件中的 fanart 图片
+  const fanarts: string[] = []
+  if (item.files) {
+    // 优先查找以 baseName-fanart 开头的图片
+    for (const file of item.files) {
+      if (!file.isFile) continue
+      const name = file.name.toLowerCase()
+      // 匹配 fanart 图片命名：xxx-fanart.jpg, xxx-fanart-1.jpg, xxx-fanart-2.jpg 等
+      if (name.startsWith(baseName.toLowerCase()) && name.includes('fanart') && /\.(jpg|jpeg|png|webp)$/i.test(name)) {
+        fanarts.push(file.path)
+      }
+    }
+  }
+  return fanarts.sort()  // 按名称排序
+})
+
+// 监听选中项变化，成人模式下自动获取 JAV 元数据
+watch(selectedItem, async (item) => {
+  if (!item || !isAdultMode.value || !isJavContent.value) {
+    adultMeta.value = null
+    return
+  }
+  // 提取 AV 号
+  const match = item.name.match(/([A-Z]{2,6})[-_]?\s*(\d{2,4})/i)
+  if (!match) return
+  const avid = `${match[1].toUpperCase()}-${match[2]}`
+
+  adultMetaLoading.value = true
+  try {
+    const data = await backend.fetchMeta(avid)
+    if (!data.error) {
+      adultMeta.value = data
+    }
+  } catch (e) {
+    console.error('获取成人内容元数据失败:', e)
+  } finally {
+    adultMetaLoading.value = false
+  }
+})
+
+// 成人模式刮削处理 - 使用与 JavBusScrapeModal 相同的逻辑
+const handleAdultScrape = async (
+  meta: BackendMeta,
+  item: ProcessedItem
+): Promise<void> => {
+  if (!meta || !item) return
+  adultActionMsg.value = ''
+  adultScrapeLoading.value = true
+  currentScrapeItem.value = item
+
+  // 构造 Movie 对象（与 handleJavBusScrape 相同）
+  const movie: Movie = {
+    id: meta.avid as any,
+    title: meta.title || meta.avid,
+    original_title: meta.avid,
+    overview: meta.description || '',
+    release_date: meta.release_date || '',
+    vote_average: 0,
+    vote_count: 0,
+    poster_path: meta.cover || '',
+    backdrop_path: meta.fanarts?.[0] || '',
+    adult: false,
+    genre_ids: [],
+    original_language: 'ja',
+    popularity: 0,
+    video: false,
+    _javbus: meta,
+  } as any as Movie
+
+  try {
+    await processSingleScrapeTask(movie)
+    adultActionMsg.value = '✅ 刮削完成'
+    // 刷新显示
+    const data = await backend.fetchMeta(meta.avid)
+    if (!data.error) adultMeta.value = data
+  } catch (e: any) {
+    adultActionMsg.value = `❌ 刮削失败: ${e.message || '未知错误'}`
+  } finally {
+    adultScrapeLoading.value = false
+  }
+}
+
+// 成人模式添加到队列
+const handleAdultAddToQueue = (): void => {
+  if (!adultMeta.value || !selectedItem.value) return
+  // 使用现有的 JavBus 队列逻辑
+  handleJavBusAddToQueue(adultMeta.value as any, selectedItem.value)
+  adultActionMsg.value = '✅ 已加入队列'
+}
 
 // 计算属性改为 ref，支持直接修改
 const processedItems = ref<ProcessedItem[]>([])
@@ -628,6 +760,49 @@ const handleFetchMeta = (item: ProcessedItem): void => {
 
 const handleDownloadDone = (_avid: string, msg: string): void => {
   message.success(msg || '已提交下载任务')
+}
+
+const handlePlay = async (item: ProcessedItem): Promise<void> => {
+  let filePath = item.path
+  
+  // 如果是文件夹，找到里面的视频文件
+  if (item.type === 'folder' && item.files) {
+    const videoFile = item.files.find(f => 
+      f.isFile && /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$/i.test(f.name)
+    )
+    if (videoFile) {
+      filePath = videoFile.path
+    } else {
+      message.error('未找到视频文件')
+      return
+    }
+  }
+  
+  // 获取播放器配置
+  const videoPlayer = localStorage.getItem('videoPlayer') || 'builtin'
+  const api = (window as any).api
+  
+  if (videoPlayer === 'builtin') {
+    // 使用内置播放器
+    if (api?.player?.open) {
+      const result = await api.player.open(filePath)
+      if (!result.success) {
+        message.error('播放失败')
+      }
+    } else {
+      message.error('内置播放器 API 不可用')
+    }
+  } else {
+    // 使用系统默认播放器
+    if (api?.shell?.openPath) {
+      const result = await api.shell.openPath(filePath)
+      if (!result.success) {
+        message.error('播放失败: ' + (result.error || '未知错误'))
+      }
+    } else {
+      message.error('Shell API 不可用')
+    }
+  }
 }
 
 onMounted(() => {
