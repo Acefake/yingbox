@@ -1,10 +1,10 @@
 {
-  "name": "posterscraper",
+  "name": "yingbox",
   "version": "1.0.0",
-  "description": "An Electron application with Vue and TypeScript",
+  "description": "影盒 - 影视资源管理与在线观看",
   "main": "./out/main/index.js",
-  "author": "example.com",
-  "homepage": "https://electron-vite.org",
+  "author": "影盒团队",
+  "homepage": "https://github.com/yingbox",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -39,11 +39,47 @@
     "vue-router": "^4.5.1"
   },
   "build": {
+    "appId": "com.yingbox.app",
+    "productName": "影盒",
+    "copyright": "© 2024 影盒团队",
+    "directories": {
+      "output": "dist",
+      "buildResources": "resources"
+    },
+    "files": [
+      "out/**/*",
+      "resources/**/*"
+    ],
     "win": {
       "target": [
-        "portable",
-        "zip"
-      ]
+        {
+          "target": "nsis",
+          "arch": ["x64"]
+        },
+        {
+          "target": "portable",
+          "arch": ["x64"]
+        },
+        {
+          "target": "zip",
+          "arch": ["x64"]
+        }
+      ],
+      "icon": "resources/icon.ico",
+      "requestedExecutionLevel": "asInvoker"
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "allowElevation": true,
+      "installerIcon": "resources/icon.ico",
+      "uninstallerIcon": "resources/icon.ico",
+      "installerHeaderIcon": "resources/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "影盒",
+      "include": "build/installer.nsh",
+      "artifactName": "影盒-${version}-setup.${ext}"
     },
     "extraResources": [
       {
