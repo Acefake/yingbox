@@ -9,6 +9,7 @@
     }
   ],
   "compilerOptions": {
+    "moduleResolution": "bundler",
     /** 检查未使用的局部变量 */
     "noUnusedLocals": true,
     /** 检查未使用的参数 */
