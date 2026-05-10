@@ -28,13 +28,15 @@
       "api": "https://collect.wolongzyw.com/api.php/provide/vod"
     },
     { "name": "虎牙", "api": "https://www.huyaapi.com/api.php/provide/vod" },
+    { "name": "百度", "api": "https://api.apibdzy.com/api.php/provide/vod" },
     { "name": "飘零", "api": "https://p2100.net/api.php/provide/vod" },
-    { "name": "无尽", "api": "https://api.wujinapi.com/api.php/provide/vod" },
-    { "name": "速博", "api": "https://subocaiji.com/api.php/provide/vod" },
-    { "name": "魔都", "api": "https://caiji.moduapi.cc/api.php/provide/vod" },
-    {
-      "name": "新浪",
-      "api": "https://api.xinlangapi.com/xinlangapi.php/provide/vod"
-    }
+    { "name": "光速", "api": "https://api.guangsuapi.com/api.php/provide/vod" },
+    { "name": "金色", "api": "https://api.hyapi.xyz/api.php/provide/vod" },
+    { "name": "鱼乐", "api": "https://api.ylzy1.com/api.php/provide/vod" },
+    { "name": "飘零 v2", "api": "https://p2001.com/api.php/provide/vod" },
+    { "name": "博看", "api": "https://api.bk-zyw.com/api.php/provide/vod" },
+    { "name": "CK", "api": "https://www.ckzy1.com/api.php/provide/vod" },
+    { "name": "U酷 (备用)", "api": "https://api.ukuapi.cn/api.php/provide/vod" },
+    { "name": "无尽", "api": "https://api.wujinzy.com/api.php/provide/vod" }
   ]
 }
