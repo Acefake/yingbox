@@ -9,7 +9,7 @@
           <div class="logo-icon">
             <img :src="logo" alt="logo" />
           </div>
-          <span class="logo-text">Scraper</span>
+          <span class="logo-text">{{ appName }}</span>
         </div>
 
         <!-- 中间导航 -->
@@ -181,6 +181,9 @@ import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
 const router = useRouter()
 const route = useRoute()
 
+// 从 package.json 获取应用名称
+const appName = ref('影盒')
+
 const globalBackgroundImage = ref<string>('')
 const settingsVisible = ref(false)
 const sourcePanelVisible = ref(false)
@@ -298,7 +301,6 @@ const scheduleScraper = () => {
 .logo-section {
   display: flex;
   align-items: center;
-  gap: 12px;
   -webkit-app-region: no-drag;
 }
 
@@ -313,7 +315,7 @@ const scheduleScraper = () => {
 }
 
 .logo-text {
-  font-size: 25px;
+  font-size: 20px;
   font-weight: 600;
   color: white;
   letter-spacing: -0.025em;
