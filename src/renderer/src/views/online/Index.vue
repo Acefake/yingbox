@@ -6,7 +6,7 @@
         :key="tab.id"
         class="tab-btn"
         :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id as 'home' | 'search' | 'ext'"
+        @click="activeTab = tab.id as 'home' | 'search'"
       >
         {{ tab.label }}
       </button>
@@ -26,8 +26,6 @@
     <!-- 搜索 -->
     <SearchTab v-show="activeTab === 'search'" @open-item="openDetailWindow" />
 
-    <!-- 扩展 -->
-    <ExtTab v-show="activeTab === 'ext'" />
   </div>
 </template>
 
@@ -38,7 +36,6 @@ import { useRouter } from 'vue-router'
 import PlayHistory, { type PlayRecord } from './components/PlayHistory.vue'
 import DoubanSection, { type DoubanItem } from './components/DoubanSection.vue'
 import SearchTab from './components/SearchTab.vue'
-import ExtTab from './components/ExtTab.vue'
 
 const router = useRouter()
 
@@ -57,9 +54,8 @@ const clearPlayHistory = () => {
 const tabs = [
   { id: 'home', label: '首页' },
   { id: 'search', label: '搜索' },
-  { id: 'ext', label: '扩展' },
 ]
-const activeTab = ref<'home' | 'search' | 'ext'>('home')
+const activeTab = ref<'home' | 'search'>('home')
 // ─── 详情 / 搜索 ───────────────────────────────────────────
 const openDetailWindow = (item: CmsItem) => {
   ;(window.api as any).detail.open(JSON.parse(JSON.stringify(item)))

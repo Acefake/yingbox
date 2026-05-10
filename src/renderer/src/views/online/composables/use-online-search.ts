@@ -204,17 +204,60 @@ export function useOnlineSearch() {
         const r = await getTracks({ siteName: item._siteName, url, ...ext, id: ext.id ?? item.vod_id })
         if (!r.success || !r.data) return []
         const list = r.data.list || r.data.data?.list || []
-        return (list as any[]).map((group: any) => ({
-          label: group.name || group.title || item._siteName!,
-          episodes: (group.tracks || group.list || []).map((ep: any) => ({
-            name: ep.name || ep.title || '',
-            url: ep.url || '',
-            ext: ep.ext || {},
-          })),
-          hasDirect: true,
-          _source: 'catspider' as const,
-          _siteName: item._siteName,
-        }))
+        const groups: EpisodeGroup[] = []
+        for (const group of list as any[]) {
+          // Case A: group has tracks[] (茶杯狐 etc.)
+          if (Array.isArray(group.tracks) && group.tracks.length) {
+            groups.push({
+              label: group.name || group.title || item._siteName!,
+              episodes: group.tracks.map((ep: any) => ({
+                name: ep.name || ep.title || '',
+                url: ep.url || '',
+                ext: ep.ext || {},
+              })),
+              hasDirect: true,
+              _source: 'catspider' as const,
+              _siteName: item._siteName,
+            })
+          // Case B: group itself has vod_play_url (荐片 Apple CMS format)
+          } else if (group.vod_play_url) {
+            const fromNames = (group.vod_play_from || '').split('$$$')
+            const playSources = (group.vod_play_url as string).split('$$$')
+            playSources.forEach((src, i) => {
+              const episodes = src.split('#').filter(Boolean).map((ep, j) => {
+                const parts = ep.split('$')
+                const epUrl = parts.length > 1 ? parts[1] : ''
+                return { name: parts[0] || `第${j + 1}集`, url: epUrl, ext: {} }
+              }).filter(e => e.url.startsWith('http'))
+              if (!episodes.length) return
+              const fromLabel = fromNames[i]?.trim()
+              const label = playSources.length > 1
+                ? `${item._siteName}-${fromLabel || i + 1}`
+                : (fromLabel || item._siteName!)
+              groups.push({
+                label,
+                episodes,
+                hasDirect: true,
+                _source: 'catspider' as const,
+                _siteName: item._siteName,
+              })
+            })
+          // Case C: group has list[] of episodes
+          } else if (Array.isArray(group.list) && group.list.length) {
+            groups.push({
+              label: group.name || group.title || item._siteName!,
+              episodes: group.list.map((ep: any) => ({
+                name: ep.name || ep.title || '',
+                url: ep.url || '',
+                ext: ep.ext || {},
+              })),
+              hasDirect: true,
+              _source: 'catspider' as const,
+              _siteName: item._siteName,
+            })
+          }
+        }
+        return groups
       } catch {
         return []
       }

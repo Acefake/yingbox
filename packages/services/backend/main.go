@@ -27,11 +27,27 @@ import (
 
 // 服务器配置
 const (
-	basePath   = "F:/新建文件夹"
 	serverPort = ":31471"
 	apiKey     = "IBHUSDBWQHJEJOBDSW"
 	proxyURL   = "http://127.0.0.1:7897"
 )
+
+// 动态获取视频库路径（优先环境变量，其次系统视频目录，最后临时目录）
+func getBasePath() string {
+	if p := os.Getenv("MISSAV_VIDEO_PATH"); p != "" {
+		return p
+	}
+	// 尝试使用用户视频目录
+	home, _ := os.UserHomeDir()
+	if home != "" {
+		videos := filepath.Join(home, "Videos")
+		if _, err := os.Stat(videos); err == nil {
+			return videos
+		}
+	}
+	// 回退到临时目录
+	return os.TempDir()
+}
 
 // 嵌入所有 Python 脚本 — 打包成一个二进制
 //
@@ -206,9 +222,9 @@ func main() {
 		logger.Fatalf("Failed to extract Python scripts: %v", err)
 	}
 
-	// 3. 初始化缓存
+	// 3. 初始化缓存（失败时继续启动，使用空缓存）
 	if err := buildVideoListCache(); err != nil {
-		logger.Fatalf("Failed to build initial cache: %v", err)
+		logger.Printf("Initial cache build warning: %v", err)
 	}
 
 	// 4. 启动定时缓存更新
@@ -271,10 +287,12 @@ func buildVideoListCache() error {
 	startTime := time.Now()
 	logger.Println("Building video list cache...")
 
+	basePath := getBasePath()
 	files, err := os.ReadDir(basePath)
 	if err != nil {
-		logger.Printf("Error reading directory %s: %v", basePath, err)
-		return fmt.Errorf("read directory failed: %w", err)
+		logger.Printf("Warning: reading directory %s failed: %v. Using empty cache.", basePath, err)
+		videoListCache = []VideoItem{}
+		return nil
 	}
 
 	type dirEntryWithInfo struct {
@@ -301,7 +319,7 @@ func buildVideoListCache() error {
 
 	validCount := 0
 	for _, dir := range dirs {
-		posterPath := filepath.Join(basePath, dir.entry.Name(), dir.entry.Name()+"-poster.jpg")
+		posterPath := filepath.Join(getBasePath(), dir.entry.Name(), dir.entry.Name()+"-poster.jpg")
 		if _, err := os.Stat(posterPath); err == nil {
 			validCount++
 		}
@@ -316,7 +334,7 @@ func buildVideoListCache() error {
 	var count int
 	for _, dir := range dirs {
 		videoID := dir.entry.Name()
-		posterPath := filepath.Join(basePath, videoID, videoID+"-poster.jpg")
+		posterPath := filepath.Join(getBasePath(), videoID, videoID+"-poster.jpg")
 
 		if _, err := os.Stat(posterPath); err != nil {
 			continue
@@ -341,7 +359,7 @@ func buildVideoListCache() error {
 
 // parseTitleAndDate 解析NFO文件获取标题和日期
 func parseTitleAndDate(videoID string) (title, releaseDate string, err error) {
-	nfoPath := filepath.Join(basePath, videoID, videoID+".nfo")
+	nfoPath := filepath.Join(getBasePath(), videoID, videoID+".nfo")
 
 	file, err := os.Open(nfoPath)
 	if err != nil {
@@ -412,7 +430,7 @@ func videoDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 查找fanart图片
-	fanartDir := filepath.Join(basePath, videoID)
+	fanartDir := filepath.Join(getBasePath(), videoID)
 	if entries, err := os.ReadDir(fanartDir); err == nil {
 		type fanartFile struct {
 			path   string
@@ -467,7 +485,7 @@ func videoDetailHandler(w http.ResponseWriter, r *http.Request) {
 		}
 	}
 
-	videoFile := filepath.Join(basePath, videoID, videoID+".mp4")
+	videoFile := filepath.Join(getBasePath(), videoID, videoID+".mp4")
 	if _, err := os.Stat(videoFile); err == nil {
 		detail.VideoFile = fmt.Sprintf("/file/%s/%s.mp4", videoID, videoID)
 	}
@@ -496,9 +514,9 @@ func imageHandler(w http.ResponseWriter, r *http.Request) {
 
 	videoID := pathParts[0]
 	filename := strings.Join(pathParts[1:], "/")
-	imagePath := filepath.Join(basePath, videoID, filename)
+	imagePath := filepath.Join(getBasePath(), videoID, filename)
 
-	if !strings.HasPrefix(filepath.Clean(imagePath), filepath.Clean(basePath)) {
+	if !strings.HasPrefix(filepath.Clean(imagePath), filepath.Clean(getBasePath())) {
 		httpError(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
@@ -713,7 +731,7 @@ func scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	// 2. 创建目标目录
-	targetDir := filepath.Join(basePath, avid)
+	targetDir := filepath.Join(getBasePath(), avid)
 	if err := os.MkdirAll(targetDir, 0755); err != nil {
 		logger.Printf("scrape: mkdir failed for %s: %v", avid, err)
 		httpError(w, "mkdir failed", http.StatusInternalServerError)

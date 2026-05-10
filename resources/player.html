@@ -86,16 +86,22 @@
         justify-content: center;
         position: relative;
         cursor: none;
+        min-height: 0; /* 关键：允许flex子项收缩 */
+        overflow: hidden;
       }
       #video-wrap.show-cursor {
         cursor: default;
       }
       video {
-        width: 100%;
-        height: 100%;
+        max-width: 100%;
+        max-height: 100%;
+        width: auto;
+        height: auto;
         object-fit: contain;
         background: #000;
         outline: none;
+        /* 强制限制不溢出 */
+        display: block;
       }
 
       /* 底部控制栏 */
@@ -606,6 +612,7 @@
     </div>
     <!-- /#video-wrap -->
 
+    <script src="https://cdn.jsdelivr.net/npm/hls.js@1.5.15/dist/hls.min.js"></script>
     <script>
       const video = document.getElementById('video')
       const wrap = document.getElementById('video-wrap')
@@ -622,6 +629,7 @@
       let osdTimer = null
       let currentFile = ''
       let speedIdx = 2
+      let hls = null
 
       // ── 从 URL 参数拿到文件路径 ──────────────────────────────
       const params = new URLSearchParams(location.search)
@@ -630,13 +638,56 @@
       document.title = title
       document.getElementById('topbar-title').textContent = title
 
-      if (src) {
-        currentFile = src
-        video.src = src
+      // ── 动态调整视频尺寸（防止竖屏溢出）─────────────────────
+      function resizeVideo() {
+        if (!video.videoWidth || !video.videoHeight) return
+        const wrapW = wrap.clientWidth
+        const wrapH = wrap.clientHeight
+        // 预留控制栏高度（顶栏约40px + 底栏约70px）
+        const reservedH = 110
+        const availH = Math.max(wrapH - reservedH, 100)
+        const videoRatio = video.videoWidth / video.videoHeight
+        const availRatio = wrapW / availH
+        if (videoRatio < availRatio) {
+          // 竖屏视频：以可用高度为基准
+          video.style.height = availH + 'px'
+          video.style.width = 'auto'
+        } else {
+          // 横屏视频：以宽度为基准
+          video.style.width = wrapW + 'px'
+          video.style.height = 'auto'
+        }
+      }
+      window.addEventListener('resize', resizeVideo)
+      video.addEventListener('loadedmetadata', resizeVideo)
+      video.addEventListener('loadeddata', resizeVideo)
+
+      // ── 加载视频（支持本地文件和在线 HLS 流）──────────────────
+      function loadVideo(url) {
+        if (hls) { hls.destroy(); hls = null }
+        currentFile = url
+
+        // 检测是否为 HLS 流（m3u8）或在线 URL
+        const isOnline = url.startsWith('http') || url.includes('.m3u8')
+        const isHls = url.includes('.m3u8') || (isOnline && !url.match(/\.(mp4|webm|ogg|mov)($|\?)/))
+
+        if (isHls && Hls.isSupported()) {
+          hls = new Hls()
+          hls.loadSource(url)
+          hls.attachMedia(video)
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            video.play().catch(() => {})
+            resizeVideo()
+          })
+        } else {
+          video.src = url
+          video.addEventListener('canplay', () => video.play().catch(() => {}), { once: true })
+        }
         restoreProgress()
-        video.addEventListener('canplay', () => video.play().catch(() => {}), {
-          once: true,
-        })
+      }
+
+      if (src) {
+        loadVideo(src)
       }
 
       // ── 历史记录 ─────────────────────────────────────────────
@@ -991,10 +1042,9 @@
           item.addEventListener('click', () => {
             const h = list[parseInt(item.dataset.idx)]
             if (h.file !== currentFile) {
-              currentFile = h.file
-              video.src = h.file
               document.title = h.title
               document.getElementById('topbar-title').textContent = h.title
+              loadVideo(h.file)
               video.addEventListener(
                 'loadedmetadata',
                 () => {
@@ -1002,7 +1052,6 @@
                 },
                 { once: true }
               )
-              video.play()
             } else {
               video.currentTime = h.currentTime
             }

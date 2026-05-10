@@ -104,9 +104,17 @@
           </nav>
         </div>
 
-        <!-- 右侧：队列 + 窗口控制（含设置） -->
+        <!-- 右侧：队列 + 数据源 + 窗口控制（含设置） -->
         <div class="settings-section">
           <QueueWidget />
+          <button class="source-mgr-btn" :class="{ active: sourcePanelVisible }" title="数据源管理" @click="sourcePanelVisible = !sourcePanelVisible">
+            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
+              <ellipse cx="12" cy="5" rx="9" ry="3"/>
+              <path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
+              <path d="M3 11v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6"/>
+            </svg>
+            数据源
+          </button>
           <WinControls :show-settings="true" @open-settings="openSettings" />
         </div>
       </div>
@@ -121,6 +129,12 @@
     <SettingsPanel
       :visible="settingsVisible"
       @close="settingsVisible = false"
+    />
+
+    <!-- 数据源管理面板 -->
+    <SourceManagerPanel
+      :visible="sourcePanelVisible"
+      @close="sourcePanelVisible = false"
     />
 
     <!-- 默认背景图 -->
@@ -162,12 +176,14 @@ import logo from '@/assets/imgs/logo.svg'
 import bgImg from '@/assets/imgs/home-bg.jpg'
 import QueueWidget from '@/components/QueueWidget.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
+import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
 
 const router = useRouter()
 const route = useRoute()
 
 const globalBackgroundImage = ref<string>('')
 const settingsVisible = ref(false)
+const sourcePanelVisible = ref(false)
 
 const globalMenuBackgroundColor = ref<string>('')
 
@@ -424,6 +440,32 @@ const scheduleScraper = () => {
   align-items: center;
   gap: 8px;
   -webkit-app-region: no-drag;
+}
+
+.source-mgr-btn {
+  display: flex;
+  align-items: center;
+  gap: 5px;
+  height: 32px;
+  padding: 0 12px;
+  background: rgba(0, 0, 0, 0.35);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  border-radius: 8px;
+  color: rgba(255, 255, 255, 0.7);
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.15s ease;
+  -webkit-app-region: no-drag;
+}
+.source-mgr-btn:hover {
+  background: rgba(255, 255, 255, 0.12);
+  color: #fff;
+  border-color: rgba(255, 255, 255, 0.2);
+}
+.source-mgr-btn.active {
+  background: rgba(99, 102, 241, 0.25);
+  border-color: rgba(99, 102, 241, 0.5);
+  color: #a5b4fc;
 }
 
 /* 主内容区域 */
