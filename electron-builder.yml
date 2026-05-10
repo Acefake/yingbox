@@ -1,7 +1,9 @@
-appId: com.electron.app
-productName: posterscraper
+appId: com.yingbox.app
+productName: 影盒
+copyright: © 2024 影盒团队
 directories:
   buildResources: build
+  output: dist
 files:
   - '!**/.vscode/*'
   - '!src/*'
@@ -11,13 +13,37 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+extraResources:
+  - from: packages/services/backend/main.exe
+    to: backend/main.exe
+  - from: packages/services/backend/py
+    to: backend/py
 win:
-  executableName: posterscraper
+  executableName: 影盒
+  icon: resources/logo.ico
+  requestedExecutionLevel: asInvoker
+  target:
+    - target: nsis
+      arch:
+        - x64
+    - target: portable
+      arch:
+        - x64
+    - target: zip
+      arch:
+        - x64
 nsis:
-  artifactName: ${name}-${version}-setup.${ext}
-  shortcutName: ${productName}
-  uninstallDisplayName: ${productName}
+  artifactName: 影盒-${version}-setup.${ext}
+  shortcutName: 影盒
+  uninstallDisplayName: 影盒
+  installerIcon: resources/logo.ico
+  uninstallerIcon: resources/logo.ico
+  installerHeaderIcon: resources/logo.ico
+  oneClick: false
+  allowToChangeInstallationDirectory: true
+  allowElevation: true
   createDesktopShortcut: always
+  createStartMenuShortcut: true
 mac:
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -39,7 +65,8 @@ appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
 publish:
-  provider: generic
-  url: https://example.com/auto-updates
+  provider: github
+  owner: Acefake
+  repo: poster-scraper
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

@@ -1,3 +1,4 @@
-provider: generic
-url: https://example.com/auto-updates
-updaterCacheDirName: posterscraper-updater
+provider: github
+owner: Acefake
+repo: poster-scraper
+updaterCacheDirName: yingbox-updater

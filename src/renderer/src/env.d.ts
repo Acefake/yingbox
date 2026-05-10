@@ -52,5 +52,12 @@ interface Window {
         error?: string
       }>
     }
+    update: {
+      check: () => Promise<FileOperationResult>
+      download: () => Promise<FileOperationResult>
+      install: () => Promise<void>
+      onStatus: (cb: (status: unknown) => void) => void
+      offStatus: () => void
+    }
   }
 }

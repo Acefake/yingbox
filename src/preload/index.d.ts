@@ -87,6 +87,13 @@ interface API {
   app: {
     getVersion: () => Promise<FileOperationResult>
   }
+  update: {
+    check: () => Promise<FileOperationResult>
+    download: () => Promise<FileOperationResult>
+    install: () => Promise<void>
+    onStatus: (cb: (status: unknown) => void) => void
+    offStatus: () => void
+  }
   shell: {
     openPath: (
       filePath: string

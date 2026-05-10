@@ -370,13 +370,35 @@
               </p>
             </div>
           </SettingsSection>
+
+          <SettingsSection title="软件更新" icon="download">
+            <div class="space-y-2">
+              <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/5 border border-white/8">
+                <div class="min-w-0">
+                  <div class="text-xs font-medium text-white/90">{{ updateTitle }}</div>
+                  <div class="text-[10px] text-gray-500 mt-0.5">{{ updateMessage }}</div>
+                </div>
+                <button
+                  v-if="updateAction"
+                  @click="handleUpdateAction"
+                  :disabled="updateBusy"
+                  class="px-3 py-1 text-xs rounded-md transition-all bg-blue-600/40 border border-blue-500/50 text-blue-200 hover:bg-blue-600/55 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                >
+                  {{ updateAction }}
+                </button>
+              </div>
+              <div v-if="updateStatus === 'downloading'" class="h-1.5 rounded-full bg-white/8 overflow-hidden">
+                <div class="h-full rounded-full bg-blue-500 transition-all" :style="{ width: `${updateProgress}%` }"></div>
+              </div>
+            </div>
+          </SettingsSection>
         </div>
 
         <!-- 底部版本信息 -->
         <div
           class="flex-shrink-0 px-5 py-3 border-t border-white/8 flex items-center justify-between"
         >
-          <p class="text-[10px] text-gray-600">PosterScraper · 设置</p>
+          <p class="text-[10px] text-gray-600">影盒 · 设置</p>
           <button
             @click="resetProviderConfig"
             class="text-[10px] text-gray-600 hover:text-red-400 transition-colors px-2 py-0.5 rounded hover:bg-white/5"
@@ -390,7 +412,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import {
   getScrapeProviderConfig,
@@ -519,6 +541,84 @@ const metaToken = ref(_config.metaToken)
 const goBackendUrl = ref(_config.goBackendUrl || 'http://localhost:31471')
 const metaTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 const goTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
+
+type UpdateStatus =
+  | 'idle'
+  | 'checking'
+  | 'available'
+  | 'not-available'
+  | 'downloading'
+  | 'downloaded'
+  | 'error'
+
+const updateStatus = ref<UpdateStatus>('idle')
+const updateBusy = ref(false)
+const updateProgress = ref(0)
+const updateError = ref('')
+const updateVersion = ref('')
+
+const updateTitle = computed(() => {
+  if (updateStatus.value === 'checking') return '正在检查更新'
+  if (updateStatus.value === 'available') return `发现新版本 ${updateVersion.value || ''}`.trim()
+  if (updateStatus.value === 'not-available') return '当前已是最新版本'
+  if (updateStatus.value === 'downloading') return '正在下载更新'
+  if (updateStatus.value === 'downloaded') return '更新已下载'
+  if (updateStatus.value === 'error') return '更新检查失败'
+  return '检查软件更新'
+})
+
+const updateMessage = computed(() => {
+  if (updateStatus.value === 'checking') return '正在连接 GitHub Releases...'
+  if (updateStatus.value === 'available') return '可以下载新版本，下载完成后可重启安装'
+  if (updateStatus.value === 'not-available') return '你的影盒版本已经是最新'
+  if (updateStatus.value === 'downloading') return `下载进度 ${updateProgress.value.toFixed(1)}%`
+  if (updateStatus.value === 'downloaded') return '点击重启安装，应用会自动关闭并完成更新'
+  if (updateStatus.value === 'error') return updateError.value || '请稍后重试'
+  return '从 GitHub Release 检查是否有新版本'
+})
+
+const updateAction = computed(() => {
+  if (updateStatus.value === 'available') return '下载更新'
+  if (updateStatus.value === 'downloaded') return '重启安装'
+  if (updateStatus.value === 'checking' || updateStatus.value === 'downloading') return ''
+  return '检查更新'
+})
+
+const handleUpdateStatus = (status: any) => {
+  updateStatus.value = status.status || 'idle'
+  updateBusy.value = status.status === 'checking' || status.status === 'downloading'
+  if (status.info?.version) updateVersion.value = status.info.version
+  if (status.progress?.percent != null) updateProgress.value = status.progress.percent
+  if (status.error) updateError.value = status.error
+}
+
+const handleUpdateAction = async () => {
+  updateBusy.value = true
+  updateError.value = ''
+  try {
+    if (updateStatus.value === 'available') {
+      await window.api.update.download()
+      return
+    }
+    if (updateStatus.value === 'downloaded') {
+      await window.api.update.install()
+      return
+    }
+    updateStatus.value = 'checking'
+    const result = await window.api.update.check()
+    if (!result.success) {
+      updateStatus.value = 'error'
+      updateError.value = result.error || '检查更新失败'
+    }
+  } finally {
+    if (updateStatus.value !== 'checking' && updateStatus.value !== 'downloading') {
+      updateBusy.value = false
+    }
+  }
+}
+
+window.api.update.onStatus(handleUpdateStatus)
+onBeforeUnmount(() => window.api.update.offStatus())
 
 const loadConfig = () => {
   // 刷新成人模式状态

@@ -18,6 +18,7 @@ import * as http from 'http'
 import * as https from 'https'
 import * as path from 'path'
 import { join } from 'path'
+import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.svg?asset'
 
 Menu.setApplicationMenu(null)
@@ -35,6 +36,50 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 let mainWindow: BrowserWindow | null = null
+
+autoUpdater.autoDownload = false
+autoUpdater.autoInstallOnAppQuit = true
+
+autoUpdater.on('checking-for-update', () => {
+  mainWindow?.webContents.send('update:status', {
+    status: 'checking',
+  })
+})
+
+autoUpdater.on('update-available', info => {
+  mainWindow?.webContents.send('update:status', {
+    status: 'available',
+    info,
+  })
+})
+
+autoUpdater.on('update-not-available', info => {
+  mainWindow?.webContents.send('update:status', {
+    status: 'not-available',
+    info,
+  })
+})
+
+autoUpdater.on('download-progress', progress => {
+  mainWindow?.webContents.send('update:status', {
+    status: 'downloading',
+    progress,
+  })
+})
+
+autoUpdater.on('update-downloaded', info => {
+  mainWindow?.webContents.send('update:status', {
+    status: 'downloaded',
+    info,
+  })
+})
+
+autoUpdater.on('error', error => {
+  mainWindow?.webContents.send('update:status', {
+    status: 'error',
+    error: error.message,
+  })
+})
 
 function getScreenBasedSize(ratio = 0.85, minW = 1200, minH = 900) {
   const primary = screen.getPrimaryDisplay()
@@ -105,8 +150,38 @@ function createWindow(): void {
     }
   })
 
+  ipcMain.handle('update:check', async () => {
+    if (is.dev) {
+      return { success: false, error: '开发环境不检查更新' }
+    }
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      return { success: true, data: result?.updateInfo ?? null }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('update:download', async () => {
+    try {
+      await autoUpdater.downloadUpdate()
+      return { success: true }
+    } catch (error) {
+      return { success: false, error: (error as Error).message }
+    }
+  })
+
+  ipcMain.handle('update:install', () => {
+    autoUpdater.quitAndInstall(false, true)
+  })
+
   mainWindow.on('ready-to-show', () => {
     mainWindow!.show()
+    if (!is.dev) {
+      autoUpdater.checkForUpdates().catch(error => {
+        console.warn('[Updater] check failed:', error)
+      })
+    }
   })
 
   mainWindow.webContents.setWindowOpenHandler(details => {
@@ -123,7 +198,7 @@ function createWindow(): void {
 
 app.whenReady().then(() => {
   // Set app user model id for windows
-  electronApp.setAppUserModelId('com.electron')
+  electronApp.setAppUserModelId('com.yingbox.app')
 
   // 覆盖 CSP，允许外部媒体（m3u8/mp4）和 blob URL 加载
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {

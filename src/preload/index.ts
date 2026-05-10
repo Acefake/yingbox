@@ -136,6 +136,16 @@ const api = {
     getVersion: (): Promise<FileOperationResult> =>
       ipcRenderer.invoke('app:getVersion'),
   },
+  update: {
+    check: (): Promise<FileOperationResult> =>
+      ipcRenderer.invoke('update:check'),
+    download: (): Promise<FileOperationResult> =>
+      ipcRenderer.invoke('update:download'),
+    install: (): Promise<void> => ipcRenderer.invoke('update:install'),
+    onStatus: (cb: (status: unknown) => void) =>
+      ipcRenderer.on('update:status', (_e, status) => cb(status)),
+    offStatus: () => ipcRenderer.removeAllListeners('update:status'),
+  },
   shell: {
     openPath: (
       filePath: string

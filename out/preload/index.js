@@ -58,6 +58,13 @@ const api = {
     // Get app version info from package.json
     getVersion: () => electron.ipcRenderer.invoke("app:getVersion")
   },
+  update: {
+    check: () => electron.ipcRenderer.invoke("update:check"),
+    download: () => electron.ipcRenderer.invoke("update:download"),
+    install: () => electron.ipcRenderer.invoke("update:install"),
+    onStatus: (cb) => electron.ipcRenderer.on("update:status", (_e, status) => cb(status)),
+    offStatus: () => electron.ipcRenderer.removeAllListeners("update:status")
+  },
   shell: {
     openPath: (filePath) => electron.ipcRenderer.invoke("shell:openPath", filePath)
   },

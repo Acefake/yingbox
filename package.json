@@ -38,60 +38,6 @@
     "pinia": "^3.0.3",
     "vue-router": "^4.5.1"
   },
-  "build": {
-    "appId": "com.yingbox.app",
-    "productName": "影盒",
-    "copyright": "© 2024 影盒团队",
-    "directories": {
-      "output": "dist",
-      "buildResources": "resources"
-    },
-    "files": [
-      "out/**/*",
-      "resources/**/*"
-    ],
-    "win": {
-      "target": [
-        {
-          "target": "nsis",
-          "arch": ["x64"]
-        },
-        {
-          "target": "portable",
-          "arch": ["x64"]
-        },
-        {
-          "target": "zip",
-          "arch": ["x64"]
-        }
-      ],
-      "icon": "resources/icon.ico",
-      "requestedExecutionLevel": "asInvoker"
-    },
-    "nsis": {
-      "oneClick": false,
-      "allowToChangeInstallationDirectory": true,
-      "allowElevation": true,
-      "installerIcon": "resources/icon.ico",
-      "uninstallerIcon": "resources/icon.ico",
-      "installerHeaderIcon": "resources/icon.ico",
-      "createDesktopShortcut": true,
-      "createStartMenuShortcut": true,
-      "shortcutName": "影盒",
-      "include": "build/installer.nsh",
-      "artifactName": "影盒-${version}-setup.${ext}"
-    },
-    "extraResources": [
-      {
-        "from": "packages/services/backend/main.exe",
-        "to": "backend/main.exe"
-      },
-      {
-        "from": "packages/services/backend/py",
-        "to": "backend/py"
-      }
-    ]
-  },
   "devDependencies": {
     "@egoist/tailwindcss-icons": "^1.9.0",
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
