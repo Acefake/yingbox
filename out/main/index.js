@@ -7,6 +7,7 @@ const fs = require("fs/promises");
 const http = require("http");
 const https = require("https");
 const path = require("path");
+const electronUpdater = require("electron-updater");
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
   if (e) {
@@ -41,6 +42,43 @@ electron.protocol.registerSchemesAsPrivileged([
   }
 ]);
 let mainWindow = null;
+electronUpdater.autoUpdater.autoDownload = false;
+electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
+electronUpdater.autoUpdater.on("checking-for-update", () => {
+  mainWindow?.webContents.send("update:status", {
+    status: "checking"
+  });
+});
+electronUpdater.autoUpdater.on("update-available", (info) => {
+  mainWindow?.webContents.send("update:status", {
+    status: "available",
+    info
+  });
+});
+electronUpdater.autoUpdater.on("update-not-available", (info) => {
+  mainWindow?.webContents.send("update:status", {
+    status: "not-available",
+    info
+  });
+});
+electronUpdater.autoUpdater.on("download-progress", (progress) => {
+  mainWindow?.webContents.send("update:status", {
+    status: "downloading",
+    progress
+  });
+});
+electronUpdater.autoUpdater.on("update-downloaded", (info) => {
+  mainWindow?.webContents.send("update:status", {
+    status: "downloaded",
+    info
+  });
+});
+electronUpdater.autoUpdater.on("error", (error) => {
+  mainWindow?.webContents.send("update:status", {
+    status: "error",
+    error: error.message
+  });
+});
 function getScreenBasedSize(ratio = 0.85, minW = 1200, minH = 900) {
   const primary = electron.screen.getPrimaryDisplay();
   const { width: sw, height: sh } = primary.workAreaSize;
@@ -103,8 +141,35 @@ function createWindow() {
       };
     }
   });
+  electron.ipcMain.handle("update:check", async () => {
+    if (utils.is.dev) {
+      return { success: false, error: "开发环境不检查更新" };
+    }
+    try {
+      const result = await electronUpdater.autoUpdater.checkForUpdates();
+      return { success: true, data: result?.updateInfo ?? null };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  electron.ipcMain.handle("update:download", async () => {
+    try {
+      await electronUpdater.autoUpdater.downloadUpdate();
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
+  electron.ipcMain.handle("update:install", () => {
+    electronUpdater.autoUpdater.quitAndInstall(false, true);
+  });
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
+    if (!utils.is.dev) {
+      electronUpdater.autoUpdater.checkForUpdates().catch((error) => {
+        console.warn("[Updater] check failed:", error);
+      });
+    }
   });
   mainWindow.webContents.setWindowOpenHandler((details) => {
     electron.shell.openExternal(details.url);
@@ -117,7 +182,7 @@ function createWindow() {
   }
 }
 electron.app.whenReady().then(() => {
-  utils.electronApp.setAppUserModelId("com.electron");
+  utils.electronApp.setAppUserModelId("com.yingbox.app");
   electron.session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders };
     headers["Content-Security-Policy"] = [
