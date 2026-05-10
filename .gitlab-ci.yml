@@ -1,0 +1,59 @@
+stages:
+  - validate
+  - package
+
+variables:
+  PNPM_STORE_PATH: .pnpm-store
+  ELECTRON_CACHE: $CI_PROJECT_DIR/.cache/electron
+  ELECTRON_BUILDER_CACHE: $CI_PROJECT_DIR/.cache/electron-builder
+  GOMODCACHE: $CI_PROJECT_DIR/.go/pkg/mod
+  GOPATH: $CI_PROJECT_DIR/.go
+
+cache:
+  key:
+    files:
+      - pnpm-lock.yaml
+      - packages/services/backend/go.sum
+  paths:
+    - .pnpm-store/
+    - .cache/electron/
+    - .cache/electron-builder/
+    - .go/pkg/mod/
+
+.node_job:
+  image: node:22-bookworm
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@latest --activate
+    - pnpm config set store-dir $PNPM_STORE_PATH
+    - pnpm install --frozen-lockfile
+
+validate:
+  extends: .node_job
+  stage: validate
+  script:
+    - pnpm lint
+    - pnpm typecheck
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+    - if: $CI_PIPELINE_SOURCE == "push"
+    - if: $CI_PIPELINE_SOURCE == "web"
+
+package:windows:
+  tags:
+    - windows
+  stage: package
+  before_script:
+    - corepack enable
+    - corepack prepare pnpm@9 --activate
+    - pnpm install --frozen-lockfile
+  script:
+    - pnpm run build:win -- --publish always
+  artifacts:
+    name: yingbox-windows-$CI_COMMIT_SHORT_SHA
+    paths:
+      - dist/
+    expire_in: 30 days
+  rules:
+    - if: $CI_COMMIT_TAG =~ /^v\d+\.\d+\.\d+$/
+    - when: manual
