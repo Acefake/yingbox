@@ -1,4 +1,5 @@
 import { useStorage } from '@vueuse/core'
+import { computed } from 'vue'
 
 export interface AvSite {
   name: string
@@ -48,9 +49,13 @@ export function useAvSources() {
     },
   }
 
-  // 获取当前启用的站点
-  const getActiveSources = (): AvSite[] =>
-    AV_SOURCES.filter(s => enabledApis.has(s.api))
+  // 响应式的启用站点列表
+  const activeSources = computed(() =>
+    AV_SOURCES.filter(s => enabledApiList.value.includes(s.api))
+  )
 
-  return { enabledApis, getActiveSources }
+  // 获取当前启用的站点（非响应式快照，兼容旧调用）
+  const getActiveSources = (): AvSite[] => activeSources.value
+
+  return { enabledApis, getActiveSources, activeSources }
 }

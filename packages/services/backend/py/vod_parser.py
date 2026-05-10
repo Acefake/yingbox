@@ -152,7 +152,7 @@ def get_cards(site_name, ext):
     return {"success": False, "error": f"Unsupported site type: {site_type}"}
 
 
-def get_tracks(site_name, url):
+def get_tracks(site_name, args):
     """获取剧集列表"""
     vod_config = _find_vod_config()
     if not vod_config:
@@ -171,7 +171,7 @@ def get_tracks(site_name, url):
     ext_url = site_config.get('ext')
 
     if site_type == 3:
-        return _run_node_runner(ext_url, "getTracks", {"url": url})
+        return _run_node_runner(ext_url, "getTracks", args)
 
     return {"success": False, "error": f"Unsupported site type: {site_type}"}
 
@@ -242,7 +242,7 @@ if __name__ == "__main__":
     elif action == "getCards":
         result = get_cards(site_name, args)
     elif action == "getTracks":
-        result = get_tracks(site_name, args.get("url", ""))
+        result = get_tracks(site_name, args)
     elif action == "getPlayinfo":
         result = get_playinfo(site_name, args)
     elif action == "parse":

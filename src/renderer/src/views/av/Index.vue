@@ -29,7 +29,7 @@
             :disabled="loading"
             class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
           >
-            {{ loading ? `搜索中 (${doneCount}/${avSources.length})` : '全站搜索' }}
+            {{ loading ? `搜索中 (${doneCount}/${activeSources.length})` : '全站搜索' }}
           </button>
           <span v-if="mergedVideos.length > 0 && !loading" class="text-xs text-gray-400 whitespace-nowrap">{{ mergedVideos.length }} 部 / {{ videos.length }} 条</span>
         </div>
@@ -53,9 +53,9 @@
       <!-- 加载进度 -->
       <div v-if="loading" class="flex flex-col items-center justify-center py-8 gap-3">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <p class="text-sm text-gray-400">正在聚合 {{ avSources.length }} 个站点... ({{ doneCount }}/{{ avSources.length }})</p>
+        <p class="text-sm text-gray-400">正在聚合 {{ activeSources.length }} 个站点... ({{ doneCount }}/{{ activeSources.length }})</p>
         <div class="w-64 bg-white/10 rounded-full h-1.5">
-          <div class="bg-blue-500 h-1.5 rounded-full transition-all" :style="{ width: `${doneCount / avSources.length * 100}%` }"></div>
+          <div class="bg-blue-500 h-1.5 rounded-full transition-all" :style="{ width: `${doneCount / activeSources.length * 100}%` }"></div>
         </div>
       </div>
       <!-- 合并结果网格 -->
@@ -100,7 +100,7 @@
       <div v-if="showHomePage && !searchHistory.length" class="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
         <p class="text-5xl mb-2">🎬</p>
         <p class="text-base">输入番号或关键词，聚合搜索全部站点</p>
-        <p class="text-xs text-gray-600">共 {{ avSources.length }} 个资源站点</p>
+        <p class="text-xs text-gray-600">共 {{ activeSources.length }} 个资源站点</p>
       </div>
     </div>
 
@@ -151,15 +151,10 @@
       </div>
     </div>
 
-    <!-- 站点管理 -->
-    <div v-if="activeTab === 'ext'" class="flex-1 overflow-y-auto px-4 py-2">
-      <AvExtTab />
-    </div>
-
     <!-- 播放器弹窗 -->
     <Transition name="sheet-fade">
       <div v-if="showPlayer" class="fixed inset-0 flex items-center justify-center bg-black/70" style="z-index: 1001" @click.self="closePlayer">
-        <div class="flex flex-col rounded-xl overflow-hidden shadow-2xl bg-black" style="width: 80vw; max-width: 1000px;">
+        <div class="flex flex-col rounded-xl overflow-hidden shadow-2xl bg-black max-h-[90vh]" style="width: 80vw; max-width: 1000px;">
           <!-- 头部 -->
           <div class="flex items-center justify-between px-4 py-2.5 bg-gray-900 flex-shrink-0">
             <span class="text-sm font-medium text-white truncate max-w-[80%]">{{ playingVideo?.vod_name }}</span>
@@ -174,7 +169,7 @@
                 v-for="item in playingGroup.items" :key="item._uid"
                 class="px-2.5 py-0.5 rounded text-[11px] transition-colors"
                 :class="playingVideo?._uid === item._uid ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'"
-                @click="playVideo(item)"
+                @click="switchSource(item)"
               >{{ item._source }}</button>
             </div>
             <!-- 线路/清晰度/集数 -->
@@ -185,21 +180,18 @@
                 :key="ep.url"
                 @click="startPlay(ep.url, ep.name)"
                 class="px-2.5 py-0.5 text-xs rounded transition-colors"
-                :class="[
-                  playingUrl === ep.url ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20',
-                  isHdEp(ep.name) ? 'ring-1 ring-yellow-500/60' : ''
-                ]"
+                :class="playingUrl === ep.url ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'"
               >
                 {{ ep.name }}
-                <span v-if="isHdEp(ep.name)" class="ml-0.5 text-yellow-400 text-[9px]">HD</span>
               </button>
             </div>
           </div>
-          <!-- 视频 16:9 -->
-          <div class="relative bg-black" style="aspect-ratio: 16/9">
+          <!-- 视频区域：自适应竖屏，限制最大高度 -->
+          <div class="relative bg-black flex-shrink-0" style="max-height: calc(90vh - 140px);">
             <video
               ref="videoEl"
-              class="w-full h-full"
+              class="w-full h-full object-contain max-h-[calc(90vh-140px)]"
+              style="aspect-ratio: auto; max-height: min(60vw, calc(90vh - 140px));"
               controls
               autoplay
               :poster="playingVideo?.vod_pic"
@@ -215,21 +207,18 @@
 import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import Hls from 'hls.js'
-import { AV_SOURCES, useAvSources } from './use-av-sources'
-import AvExtTab from './AvExtTab.vue'
+import { useAvSources, type AvSite } from './use-av-sources'
 
 // ─── Tab ─────────────────────────────────────────────────────
 const tabs = [
   { id: 'search', label: '聚合搜索' },
   { id: 'fav', label: '收藏' },
   { id: 'history', label: '历史' },
-  { id: 'ext', label: '站点管理' },
 ]
 const activeTab = ref('search')
 
 // ─── 站点（使用启用列表） ─────────────────────────────────────
-const { getActiveSources } = useAvSources()
-const avSources = AV_SOURCES
+const { getActiveSources, activeSources } = useAvSources()
 
 // ─── 状态 ────────────────────────────────────────────────────
 const searchKeyword = ref('')
@@ -256,15 +245,20 @@ const savePlayHistory = (video: any, epName: string, url: string) => {
 
 // ─── 收藏 ─────────────────────────────────────────────────────
 const favorites = useStorage<any[]>('av_favorites', [])
-const isFav = (video: any) => favorites.value.some((f: any) => f._uid === video._uid)
 const toggleFav = (video: any) => {
-  if (isFav(video)) {
-    favorites.value = favorites.value.filter((f: any) => f._uid !== video._uid)
-  } else {
-    favorites.value = [video, ...favorites.value]
-  }
+  const exists = favorites.value.find((f: any) => f._uid === video._uid)
+  if (exists) favorites.value = favorites.value.filter((f: any) => f._uid !== video._uid)
+  else favorites.value = [...favorites.value, video]
 }
+const isFav = (video: any) => favorites.value.some((f: any) => f._uid === video._uid)
 
+// 播放器
+const showPlayer = ref(false)
+const playingVideo = ref<any>(null)
+const playingUrl = ref('')
+const videoEl = ref<HTMLVideoElement | null>(null)
+const playingGroup = ref<{ vod_name: string; vod_pic: string; items: any[] } | null>(null)
+let hls: Hls | null = null
 // ─── 当前空状态时显示历史 ─────────────────────────────────────
 const showHomePage = computed(() => !searchKeyword.value.trim() && !loading.value)
 
@@ -281,9 +275,6 @@ const mergedVideos = computed(() => {
   return Array.from(map.values())
 })
 
-const isHdEp = (name: string) =>
-  /1080|720|4k|hd|高清|蓝光|blu/i.test(name)
-
 const formatTime = (ts: number) => {
   const diff = (Date.now() - ts) / 1000
   if (diff < 60) return '刚刚'
@@ -295,16 +286,8 @@ const formatTime = (ts: number) => {
 
 let currentAbort: AbortController | null = null
 
-// 播放器
-const showPlayer = ref(false)
-const playingVideo = ref<any>(null)
-const playingUrl = ref('')
-const videoEl = ref<HTMLVideoElement | null>(null)
-const playingGroup = ref<{ vod_name: string; vod_pic: string; items: any[] } | null>(null)
-let hls: Hls | null = null
-
 // ─── 单站请求（带超时） ──────────────────────────────────────
-const fetchFromSource = async (source: typeof avSources[0], keyword: string, signal: AbortSignal): Promise<any[]> => {
+const fetchFromSource = async (source: AvSite, keyword: string, signal: AbortSignal): Promise<any[]> => {
   try {
     const url = keyword
       ? `${source.api}?ac=detail&wd=${encodeURIComponent(keyword)}`
@@ -378,6 +361,17 @@ const playVideo = async (video: any) => {
   await startPlay(episodes[0].url, episodes[0].name)
 }
 
+const switchSource = async (video: any) => {
+  if (!video.vod_play_url) return
+  const episodes = video.vod_play_url.split('#').filter(Boolean).map((ep: string) => {
+    const parts = ep.split('$')
+    return { name: parts[0], url: parts[parts.length - 1] }
+  })
+  if (episodes.length === 0) return
+  playingVideo.value = { ...video, episodes }
+  await startPlay(episodes[0].url, episodes[0].name)
+}
+
 const startPlay = async (url: string, epName = '') => {
   playingUrl.value = url
   if (playingVideo.value) savePlayHistory(playingVideo.value, epName, url)
@@ -392,7 +386,8 @@ const startPlay = async (url: string, epName = '') => {
 
   if (hls) { hls.destroy(); hls = null }
 
-  if (Hls.isSupported() && url.includes('.m3u8')) {
+  // 支持 HLS 在线流和直链
+  if (Hls.isSupported() && (url.includes('.m3u8') || url.startsWith('http'))) {
     hls = new Hls()
     hls.loadSource(url)
     hls.attachMedia(el)

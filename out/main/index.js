@@ -41,10 +41,18 @@ electron.protocol.registerSchemesAsPrivileged([
   }
 ]);
 let mainWindow = null;
+function getScreenBasedSize(ratio = 0.85, minW = 1200, minH = 900) {
+  const primary = electron.screen.getPrimaryDisplay();
+  const { width: sw, height: sh } = primary.workAreaSize;
+  const w = Math.max(Math.floor(sw * ratio), minW);
+  const h = Math.max(Math.floor(sh * ratio), minH);
+  return { width: w, height: h };
+}
 function createWindow() {
+  const { width, height } = getScreenBasedSize(0.85, 1200, 900);
   mainWindow = new electron.BrowserWindow({
-    width: 1200,
-    height: 900,
+    width,
+    height,
     minWidth: 1200,
     minHeight: 900,
     show: false,
@@ -573,9 +581,10 @@ electron.app.whenReady().then(() => {
       detailWin.focus();
       return { success: true };
     }
+    const { width: dw, height: dh } = getScreenBasedSize(0.75, 900, 680);
     detailWin = new electron.BrowserWindow({
-      width: 1100,
-      height: 800,
+      width: dw,
+      height: dh,
       minWidth: 800,
       minHeight: 600,
       frame: false,
@@ -603,14 +612,16 @@ electron.app.whenReady().then(() => {
     return { success: true };
   });
   electron.ipcMain.handle("detail:getData", () => pendingDetailData);
-  electron.ipcMain.handle("player:open", async (_, filePath) => {
-    const fileUrl = "file:///" + filePath.replace(/\\/g, "/");
-    const title = path__namespace.basename(filePath);
+  electron.ipcMain.handle("player:open", async (_, filePath, customTitle) => {
+    const isOnlineUrl = filePath.startsWith("http://") || filePath.startsWith("https://");
+    const videoUrl = isOnlineUrl ? filePath : "file:///" + filePath.replace(/\\/g, "/");
+    const title = customTitle || (isOnlineUrl ? "在线播放" : path__namespace.basename(filePath));
     const playerHtml = path.join(__dirname, "../../resources/player.html");
     const playerPreload = path.join(__dirname, "../../resources/player-preload.js");
+    const { width: pw, height: ph } = getScreenBasedSize(0.8, 900, 560);
     const win = new electron.BrowserWindow({
-      width: 1280,
-      height: 760,
+      width: pw,
+      height: ph,
       minWidth: 640,
       minHeight: 400,
       backgroundColor: "#000000",
@@ -636,7 +647,7 @@ electron.app.whenReady().then(() => {
       electron.ipcMain.off("player-win:minimize", onMin);
       electron.ipcMain.off("player-win:close", onClose);
     });
-    const query = "?src=" + encodeURIComponent(fileUrl) + "&title=" + encodeURIComponent(title);
+    const query = "?src=" + encodeURIComponent(videoUrl) + "&title=" + encodeURIComponent(title);
     win.loadFile(playerHtml, { search: query });
     return { success: true };
   });

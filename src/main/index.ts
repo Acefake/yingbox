@@ -7,6 +7,7 @@ import {
   globalShortcut,
   ipcMain,
   protocol,
+  screen,
   session,
   shell,
 } from 'electron'
@@ -35,10 +36,19 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null
 
+function getScreenBasedSize(ratio = 0.85, minW = 1200, minH = 900) {
+  const primary = screen.getPrimaryDisplay()
+  const { width: sw, height: sh } = primary.workAreaSize
+  const w = Math.max(Math.floor(sw * ratio), minW)
+  const h = Math.max(Math.floor(sh * ratio), minH)
+  return { width: w, height: h }
+}
+
 function createWindow(): void {
+  const { width, height } = getScreenBasedSize(0.85, 1200, 900)
   mainWindow = new BrowserWindow({
-    width: 1200,
-    height: 900,
+    width,
+    height,
     minWidth: 1200,
     minHeight: 900,
     show: false,
@@ -686,9 +696,10 @@ app.whenReady().then(() => {
       return { success: true }
     }
 
+    const { width: dw, height: dh } = getScreenBasedSize(0.75, 900, 680)
     detailWin = new BrowserWindow({
-      width: 1100,
-      height: 800,
+      width: dw,
+      height: dh,
       minWidth: 800,
       minHeight: 600,
       frame: false,
@@ -718,14 +729,17 @@ app.whenReady().then(() => {
 
   ipcMain.handle('detail:getData', () => pendingDetailData)
 
-  ipcMain.handle('player:open', async (_, filePath: string) => {
-    const fileUrl = 'file:///' + filePath.replace(/\\/g, '/')
-    const title = path.basename(filePath)
+  ipcMain.handle('player:open', async (_, filePath: string, customTitle?: string) => {
+    // 区分在线 URL 和本地文件
+    const isOnlineUrl = filePath.startsWith('http://') || filePath.startsWith('https://')
+    const videoUrl = isOnlineUrl ? filePath : 'file:///' + filePath.replace(/\\/g, '/')
+    const title = customTitle || (isOnlineUrl ? '在线播放' : path.basename(filePath))
     const playerHtml = join(__dirname, '../../resources/player.html')
     const playerPreload = join(__dirname, '../../resources/player-preload.js')
+    const { width: pw, height: ph } = getScreenBasedSize(0.8, 900, 560)
     const win = new BrowserWindow({
-      width: 1280,
-      height: 760,
+      width: pw,
+      height: ph,
       minWidth: 640,
       minHeight: 400,
       backgroundColor: '#000000',
@@ -753,7 +767,7 @@ app.whenReady().then(() => {
     })
     const query =
       '?src=' +
-      encodeURIComponent(fileUrl) +
+      encodeURIComponent(videoUrl) +
       '&title=' +
       encodeURIComponent(title)
     win.loadFile(playerHtml, { search: query })

@@ -55,9 +55,6 @@
                 {{ itemData._source === 'catspider' ? 'VOD' : 'CMS' }}
                 <template v-if="itemData.source_name">· {{ itemData.source_name }}</template>
               </span>
-              <span v-else-if="itemData?._source === 'douban'" class="dw-tag source-douban">
-                豆瓣
-              </span>
             </div>
             <p v-if="tmdbDetail?.overview || itemOverview" class="dw-overview">
               {{ tmdbDetail?.overview || itemOverview }}
@@ -96,21 +93,34 @@
                   CMS源
                 </button>
               </div>
-              <!-- 分组 Tabs -->
+              <!-- 层级一：源 -->
+              <div class="px-2 py-1 mb-1 text-xs text-gray-500 uppercase tracking-wide">源</div>
               <div class="group-tabs">
-                <button v-for="(g, gi) in currentGroups" :key="gi" class="group-tab"
-                  :class="{ active: activeGroup === gi, 'cs-tab': currentSourceType === 'catspider' }"
-                  @click="switchGroup(gi)">
-                  {{ g.label }}
+                <button v-for="(sg, si) in siteGroups" :key="si" class="group-tab"
+                  :class="{ active: activeSite === si, 'cs-tab': currentSourceType === 'catspider' }"
+                  @click="switchSite(si)">
+                  {{ sg.siteName }}
                 </button>
               </div>
-              <!-- 播放列表 -->
+              <!-- 层级二：线路（多条时才显示） -->
+              <template v-if="siteGroups[activeSite]?.lines.length > 1">
+                <div class="px-2 py-1 mb-1 mt-2 text-xs text-gray-500 uppercase tracking-wide">线路</div>
+                <div class="group-tabs">
+                  <button v-for="(line, li) in siteGroups[activeSite].lines" :key="li" class="group-tab"
+                    :class="{ active: activeLine === li }"
+                    @click="switchLine(li)">
+                    {{ line.label }}
+                  </button>
+                </div>
+              </template>
+              <!-- 层级三：播放列表 -->
+              <div class="px-2 py-1 mb-1 mt-2 text-xs text-gray-500 uppercase tracking-wide">播放列表</div>
               <div class="episode-list">
-                <button v-for="ep in currentGroups[activeGroup]?.episodes" :key="ep.url" class="ep-btn"
+                <button v-for="ep in currentEpisodes" :key="ep.url" class="ep-btn"
                   :class="{ playing: currentUrl === ep.url }" @click="playEp(ep.url, ep.ext)">
                   {{ ep.name }}
                 </button>
-                <div v-if="!currentGroups[activeGroup]?.episodes?.length" class="ep-empty">
+                <div v-if="!currentEpisodes.length" class="ep-empty">
                   无可用剧集
                 </div>
               </div>
@@ -233,6 +243,32 @@ const currentUrl = ref('')
 const catSpiderGroups = computed(() => episodeGroups.value.filter(g => g._source === 'catspider'))
 const cmsGroups = computed(() => episodeGroups.value.filter(g => g._source === 'cms' || !g._source))
 const currentGroups = computed(() => currentSourceType.value === 'catspider' ? catSpiderGroups.value : cmsGroups.value)
+
+// 三层结构：站点 → 线路 → 播放列表
+const activeSite = ref(0)
+const activeLine = ref(0)
+
+interface SiteGroup {
+  siteName: string
+  lines: EpisodeGroup[]
+}
+const siteGroups = computed((): SiteGroup[] => {
+  const map = new Map<string, EpisodeGroup[]>()
+  for (const g of currentGroups.value) {
+    const key = g._siteName || g.label
+    if (!map.has(key)) map.set(key, [])
+    map.get(key)!.push(g)
+  }
+  return Array.from(map.entries()).map(([siteName, lines]) => ({ siteName, lines }))
+})
+
+const currentEpisodes = computed(() =>
+  siteGroups.value[activeSite.value]?.lines[activeLine.value]?.episodes || []
+)
+
+const currentLineGroup = computed(() =>
+  siteGroups.value[activeSite.value]?.lines[activeLine.value]
+)
 const videoEl = ref<HTMLVideoElement | null>(null)
 let hls: Hls | null = null
 
@@ -354,6 +390,8 @@ const loadPlaySources = async () => {
     /* silent */
   } finally {
     searchingCms.value = false
+    activeSite.value = 0
+    activeLine.value = 0
   }
 }
 
@@ -378,20 +416,26 @@ const resolveUrl = async (url: string): Promise<string> => {
 const switchSourceType = (type: 'cms' | 'catspider') => {
   currentSourceType.value = type
   activeGroup.value = 0
+  activeSite.value = 0
+  activeLine.value = 0
 }
 
 // For VOD sources, we need to know the siteName for resolvePlayUrl
 const currentSiteName = computed(() => {
   if (currentSourceType.value === 'catspider') {
-    return catSpiderGroups.value[activeGroup.value]?._siteName || ''
+    return currentLineGroup.value?._siteName || catSpiderGroups.value[activeGroup.value]?._siteName || ''
   }
   return ''
 })
 
-const switchGroup = (gi: number) => {
-  activeGroup.value = gi
-  const first = currentGroups.value[gi]?.episodes?.[0]
-  if (first) playEp(first.url, first.ext)
+const switchSite = (si: number) => {
+  activeSite.value = si
+  activeLine.value = 0
+  activeGroup.value = 0
+}
+
+const switchLine = (li: number) => {
+  activeLine.value = li
 }
 
 const resolvingUrl = ref(false)
