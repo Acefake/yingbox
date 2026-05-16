@@ -1,8 +1,61 @@
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import type { ProcessedItem } from '@/types'
+import { Modal } from 'ant-design-vue'
 import { useErrorHandler } from '@/composables/use-error-handler'
-import { useScraping } from '@/views/movie/composables/use-scraping'
+import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useGlobalQueue } from '@/composables/use-global-queue'
+
+/**
+ * 移动文件，目标已存在时弹窗让用户选择替换或重命名
+ * @returns 移动后的最终路径，用户取消则返回 null
+ */
+const moveWithConflict = async (
+  srcPath: string,
+  destPath: string,
+  fileName: string
+): Promise<string | null> => {
+  const existsCheck = await window.api.file.exists(destPath)
+  if (!existsCheck.exists) {
+    const result = await window.api.file.move(srcPath, destPath)
+    return result.success ? destPath : null
+  }
+
+  // 目标已存在，弹窗让用户选择
+  return new Promise<string | null>((resolve) => {
+    Modal.confirm({
+      title: '文件已存在',
+      content: `目标文件夹中已存在 "${fileName}"，如何处理？`,
+      okText: '替换',
+      cancelText: '重命名',
+      onOk: async () => {
+        // 替换：先删旧文件再移动
+        await window.api.file.delete(destPath)
+        const result = await window.api.file.move(srcPath, destPath)
+        resolve(result.success ? destPath : null)
+      },
+      onCancel: async () => {
+        // 重命名：尾缀加 (2)、(3)...
+        const dotIndex = destPath.lastIndexOf('.')
+        const base = destPath.substring(0, dotIndex)
+        const ext = destPath.substring(dotIndex)
+        let newPath = `${base} (2)${ext}`
+        let counter = 3
+        while (true) {
+          const check = await window.api.file.exists(newPath)
+          if (!check.exists) break
+          newPath = `${base} (${counter})${ext}`
+          counter++
+        }
+        const result = await window.api.file.move(srcPath, newPath)
+        resolve(result.success ? newPath : null)
+      },
+    })
+  })
+}
+
+// 任务完成回调队列
+const _completions = new Map<string, { resolve: (v: string | null) => void }>()
+const _results = new Map<string, string | null>()
 
 /**
  * 刮削任务处理hook
@@ -10,28 +63,17 @@ import { useGlobalQueue } from '@/composables/use-global-queue'
 export const useScrapingTask = () => {
   const { safeExecute } = useErrorHandler()
   const { scrapeMovieInFolder } = useScraping()
-  const { addItem, setProcessing, setDone, setError, setStep } =
+  const { addItem, setDone, setError, setStep, setProcessing } =
     useGlobalQueue()
 
   /**
-   * 处理单个刮削任务
+   * 执行单个刮削任务的核心逻辑
    */
-  const processSingleScrapeTask = async (
+  const _doScrape = async (
     movie: Movie,
-    currentScrapeItem: ProcessedItem
+    currentScrapeItem: ProcessedItem,
+    queueId: string
   ): Promise<string | null> => {
-    console.log('=== 开始处理单个刮削任务 ===')
-    console.log('电影数据:', movie)
-    console.log('当前刮削项目:', currentScrapeItem)
-
-    if (!currentScrapeItem) {
-      console.error('没有选中的刮削项目')
-      return null
-    }
-
-    const queueId = addItem(currentScrapeItem.name, 'movie')
-    setProcessing(queueId)
-
     const taskResult = await safeExecute(async () => {
       console.log('开始处理电影文件')
 
@@ -100,19 +142,20 @@ export const useScrapingTask = () => {
       )
       console.log('视频文件扩展名:', videoExtension)
 
-      // MetaTube 用 number 作为文件名，TMDB 用 title
-      const isMetatube = !!(movie as any)._metatube
-      const baseName = isMetatube
-        ? movie.original_title || movie.title
-        : movie.title
-      console.log('使用文件名:', baseName, '| isMetatube:', isMetatube)
+      // 只使用番号（original_title）作为文件夹和文件名
+      // 如果没有番号则使用 title，限制长度避免 Windows 路径过长
+      const MAX_FOLDER_NAME_LENGTH = 80
+      let baseName = movie.original_title || movie.title
+      if (baseName.length > MAX_FOLDER_NAME_LENGTH) {
+        baseName = baseName.substring(0, MAX_FOLDER_NAME_LENGTH).trimEnd()
+        console.log('文件夹名过长，已截断:', baseName)
+      }
+      console.log('使用文件名:', baseName)
 
-      // 构建新的文件名和文件夹名（文件夹包含年份，视频文件不包含年份）
-      const year = movie.release_date ? movie.release_date.substring(0, 4) : ''
-      const movieFolderName = year ? `${baseName} (${year})` : baseName
+      // 构建新的文件名和文件夹名（只使用番号，不加年份）
+      const movieFolderName = baseName
       const newVideoFileName = `${baseName}${videoExtension}`
 
-      console.log('年份:', year)
       console.log('新视频文件名:', newVideoFileName)
       console.log('电影文件夹名:', movieFolderName)
 
@@ -122,8 +165,26 @@ export const useScrapingTask = () => {
 
       if (isAlreadyScraped) {
         console.log('=== 处理已刮削的项目 ===')
-        // 先在原文件夹中刮削（避免路径混乱）
         movieFolderPath = searchPath
+
+        const currentFolderName = await window.api.path.basename(searchPath)
+        if (currentFolderName !== movieFolderName) {
+          const parentPath = await window.api.path.dirname(searchPath)
+          const newFolderPath = await window.api.path.join(
+            parentPath,
+            movieFolderName
+          )
+          const renameFolderResult = await window.api.file.move(
+            searchPath,
+            newFolderPath
+          )
+          if (renameFolderResult.success) {
+            movieFolderPath = newFolderPath
+          } else {
+            console.warn('电影文件夹重命名失败，继续在原文件夹刮削:', renameFolderResult.error)
+          }
+        }
+
         currentVideoPath = await window.api.path.join(
           movieFolderPath,
           videoFile.name
@@ -153,32 +214,8 @@ export const useScrapingTask = () => {
           }
         )
 
-        // 刮削完成后，检查是否需要重命名文件夹和视频文件
-        const currentFolderName = await window.api.path.basename(searchPath)
         const expectedVideoFileName = `${movie.title}${videoExtension}`
-
-        console.log('当前文件夹名:', currentFolderName)
         console.log('期望的视频文件名:', expectedVideoFileName)
-
-        // 检查文件夹名是否需要更新
-        if (currentFolderName !== movieFolderName) {
-          console.log('需要重命名文件夹')
-          const parentPath = await window.api.path.dirname(searchPath)
-          const newFolderPath = await window.api.path.join(
-            parentPath,
-            movieFolderName
-          )
-          console.log('新文件夹路径:', newFolderPath)
-          const renameFolderResult = await window.api.file.move(
-            searchPath,
-            newFolderPath
-          )
-          console.log('文件夹重命名结果:', renameFolderResult)
-          if (!renameFolderResult.success) {
-            throw new Error(`重命名文件夹失败: ${renameFolderResult.error}`)
-          }
-          movieFolderPath = newFolderPath
-        }
 
         // 更新视频路径（文件夹可能已改名）
         currentVideoPath = await window.api.path.join(
@@ -194,13 +231,13 @@ export const useScrapingTask = () => {
             expectedVideoFileName
           )
           console.log('新视频路径:', newVideoPath)
-          const moveResult = await window.api.file.move(
+          const finalPath = await moveWithConflict(
             currentVideoPath,
-            newVideoPath
+            newVideoPath,
+            expectedVideoFileName
           )
-          console.log('视频文件重命名结果:', moveResult)
-          if (!moveResult.success) {
-            throw new Error(`重命名视频文件失败: ${moveResult.error}`)
+          if (!finalPath) {
+            console.warn('视频文件移动被取消或失败')
           }
         }
       } else {
@@ -265,13 +302,13 @@ export const useScrapingTask = () => {
             newVideoFileName
           )
           console.log('移动视频到目标文件夹:', newVideoPath)
-          const moveResult = await window.api.file.move(
+          const finalVideoPath = await moveWithConflict(
             currentVideoPath,
-            newVideoPath
+            newVideoPath,
+            newVideoFileName
           )
-          console.log('视频文件移动结果:', moveResult)
-          if (!moveResult.success) {
-            throw new Error(`移动视频文件失败: ${moveResult.error}`)
+          if (!finalVideoPath) {
+            throw new Error('视频文件移动被取消或失败')
           }
 
           // 在目标文件夹内刮削（所有资源都写到目标文件夹）
@@ -293,16 +330,73 @@ export const useScrapingTask = () => {
       return movieFolderPath
     }, '处理电影文件失败')
 
-    if (taskResult) {
-      setDone(queueId)
-    } else {
-      setError(queueId)
-    }
     return taskResult || null
   }
 
+  /**
+   * 统一刮削入口 —— 注册任务到队列，由调度器自动并发执行
+   * 返回 Promise<string | null>，resolve 时任务已完成
+   * 若同名任务已在队列中（去重），直接返回已有任务的结果
+   */
+  const scrape = (
+    movie: Movie,
+    currentScrapeItem: ProcessedItem,
+    options?: { cancellable?: boolean; cancelFn?: () => void }
+  ): Promise<string | null> => {
+    const { id: queueId, isDuplicate } = addItem(
+      currentScrapeItem.name,
+      'movie',
+      async (id: string) => {
+        setProcessing(id)
+        try {
+          const result = await _doScrape(movie, currentScrapeItem, id)
+          _results.set(id, result)
+          setDone(id)
+        } catch (e) {
+          _results.set(id, null)
+          setError(id)
+          throw e // 让调度器的 catch 触发 _schedule()
+        } finally {
+          _fireCompletion(id)
+        }
+      },
+      options
+    )
+
+    // 命中去重：等待已有任务完成，共享结果
+    if (isDuplicate) {
+      return new Promise<string | null>((resolve) => {
+        const existing = _completions.get(queueId)
+        if (existing) {
+          // 已有任务完成后，用相同结果 resolve 新的 promise
+          const origResolve = existing.resolve
+          existing.resolve = (v) => { origResolve(v); resolve(v) }
+        } else {
+          // 任务已完成，直接返回结果
+          resolve(_results.get(queueId) ?? null)
+        }
+      })
+    }
+
+    return new Promise<string | null>((resolve) => {
+      _completions.set(queueId, { resolve })
+    })
+  }
+
   return {
-    // 方法
-    processSingleScrapeTask,
+    scrape,
+    // 向后兼容别名
+    processSingleScrapeTask: scrape,
+    registerScrapeTask: scrape,
+  }
+}
+
+/** 触发任务完成回调 */
+function _fireCompletion(id: string): void {
+  const cb = _completions.get(id)
+  if (cb) {
+    cb.resolve(_results.get(id) ?? null)
+    _completions.delete(id)
+    _results.delete(id)
   }
 }

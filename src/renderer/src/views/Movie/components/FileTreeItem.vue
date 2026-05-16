@@ -1,84 +1,27 @@
 <template>
   <div
     v-context-menu="{
-      menuItems: folderMenuItems,
+      menuItems: menuItems,
       data: item,
       onItemClick: handleFileAction,
       onBeforeShow: handleRightClick,
     }"
     :class="[
-      'flex items-center py-1 px-2 rounded cursor-pointer transition-all duration-300 mb-0.5',
-      selectedIndex === index ? 'selected-item' : 'hover:bg-gray-700',
-      isSelected && isMultiSelectMode
-        ? 'bg-blue-600 bg-opacity-30'
-        : 'hover:bg-gray-700',
+      'flex items-center py-1 px-2 rounded cursor-pointer mb-0.5',
+      isSelected ? 'selected-item' : 'hover:bg-gray-700',
     ]"
-    :style="
-      selectedIndex === index
-        ? {
-            backgroundColor: 'rgba(255, 255, 255, 0.2)',
-          }
-        : {}
-    "
+    :style="isSelected ? selectedStyle : undefined"
     @click="handleItemClick"
     @mouseenter="handleMouseEnter"
   >
-    <!-- 多选模式复选框 -->
-    <div v-if="isMultiSelectMode" class="mr-3 flex-shrink-0">
-      <div
-        :class="[
-          'w-5 h-5 rounded border-2 flex items-center justify-center transition-all duration-200',
-          isSelected
-            ? 'bg-blue-600 border-blue-600'
-            : 'border-gray-400 hover:border-blue-400',
-        ]"
-      >
-        <svg
-          v-if="isSelected"
-          class="w-3 h-3 text-white"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="3"
-            d="M5 13l4 4L19 7"
-          ></path>
-        </svg>
-      </div>
-    </div>
-
     <div class="flex-1 min-w-0 flex items-center gap-1">
       <div class="text-xs font-medium text-white truncate flex-1">
         {{ item.name }}
       </div>
-      <div class="flex gap-0.5 flex-shrink-0">
-        <span
-          v-if="
-            (item.type === 'folder' && hasNfoFile(item)) ||
-            (item.type === 'video' && hasVideoNfoFile(item))
-          "
-          class="status-tag bg-yellow-600 text-yellow-100"
-          >N</span
-        >
-        <span
-          v-if="
-            (item.type === 'folder' && hasPosterFile(item)) ||
-            (item.type === 'video' && hasVideoPosterFile(item))
-          "
-          class="status-tag bg-green-600 text-green-100"
-          >P</span
-        >
-        <span
-          v-if="
-            (item.type === 'folder' && hasFanartFile(item)) ||
-            (item.type === 'video' && hasVideoFanartFile(item))
-          "
-          class="status-tag bg-blue-600 text-blue-100"
-          >A</span
-        >
+      <div class="flex gap-0.5 flex-shrink-0" v-if="hasStatus">
+        <span v-if="statusFlags.nfo" class="status-tag bg-yellow-600 text-yellow-100">N</span>
+        <span v-if="statusFlags.poster" class="status-tag bg-green-600 text-green-100">P</span>
+        <span v-if="statusFlags.fanart" class="status-tag bg-blue-600 text-blue-100">A</span>
       </div>
     </div>
   </div>
@@ -89,72 +32,14 @@ import { computed } from 'vue'
 import { MenuItem } from '@/composables/use-context-menu'
 import type { ProcessedItem } from '@/types'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
+import { useGlobalQueue } from '@/composables/use-global-queue'
+import { IMAGE_EXTENSIONS_SET } from '@/constants/media'
 
-// 本地Props接口定义
 interface Props {
   item: ProcessedItem
   index: number
   selectedIndex: number
-  isMultiSelectMode?: boolean
-  isSelected?: boolean
-}
-
-// 检查视频文件是否有对应的NFO文件
-const hasVideoNfoFile = (item: ProcessedItem): boolean => {
-  if (item.type !== 'video' || !item.files) return false
-
-  return item.files.some(file => {
-    const fileName = file.name.toLowerCase()
-
-    return fileName.endsWith('.nfo')
-  })
-}
-
-// 检查视频文件是否有对应的海报文件
-const hasVideoPosterFile = (item: ProcessedItem): boolean => {
-  if (item.type !== 'video' || !item.files) return false
-
-  // 获取视频文件的基础名称（不含扩展名）
-  const videoBaseName = item.name.replace(/\.[^/.]+$/, '').toLowerCase()
-
-  const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
-
-  // 检查同目录下是否有对应的海报文件
-  return item.files.some(file => {
-    const fileName = file.name.toLowerCase()
-
-    return (
-      posterExtensions.some(ext => fileName.endsWith(ext)) &&
-      (fileName.includes(videoBaseName) || // 包含视频文件名
-        fileName === `${videoBaseName}-poster.jpg` || // {视频文件名}-poster.jpg
-        fileName === `${videoBaseName}.jpg` || // {视频文件名}.jpg
-        fileName === `${videoBaseName}-folder.jpg` || // {视频文件名}-folder.jpg
-        fileName === `${videoBaseName}-movie.jpg` || // {视频文件名}-movie.jpg
-        fileName === 'poster.jpg' || // 标准海报文件名
-        fileName === 'folder.jpg' || // 标准文件夹图片
-        fileName === 'movie.jpg') // 标准电影图片
-    )
-  })
-}
-
-// 检查视频文件是否有对应的艺术图文件
-const hasVideoFanartFile = (item: ProcessedItem): boolean => {
-  if (item.type !== 'video' || !item.files) return false
-
-  // 获取视频文件的基础名称（不含扩展名）
-  const videoBaseName = item.name.replace(/\.[^/.]+$/, '').toLowerCase()
-
-  const fanartExtensions = ['.jpg', '.jpeg', '.png', '.webp']
-
-  // 检查同目录下是否有对应的艺术图文件
-  return item.files.some(file => {
-    const fileName = file.name.toLowerCase()
-    return (
-      fanartExtensions.some(ext => fileName.endsWith(ext)) &&
-      (fileName === `${videoBaseName}-fanart.jpg` || // {视频文件名}-fanart.jpg
-        fileName === 'fanart.jpg')
-    ) // fanart.jpg
-  })
+  selectedPath?: string
 }
 
 const props = defineProps<Props>()
@@ -164,236 +49,126 @@ const emit = defineEmits<{
   showSearchModal: [item: ProcessedItem]
   autoScrape: [item: ProcessedItem]
   directScrape: [item: ProcessedItem]
-  toggleSelection: [item: ProcessedItem, index: number]
   manualScrape: [item: ProcessedItem]
   preload: [item: ProcessedItem]
   localScrape: [item: ProcessedItem]
   downloadVideo: [item: ProcessedItem]
   fetchMeta: [item: ProcessedItem]
   play: [item: ProcessedItem]
+  deleteFile: [item: ProcessedItem]
 }>()
 
-/**
- * 处理项目点击事件
- * 在多选模式下切换选择状态，在单选模式下执行正常选择
- */
-const handleItemClick = (): void => {
-  if (props.isMultiSelectMode) {
-    emit('toggleSelection', props.item, props.index)
-  } else {
-    emit('select', props.item, props.index)
-  }
-}
+// 选中状态 - 极简判断
+const isSelected = computed(() => props.selectedIndex === props.index)
+const selectedStyle = { backgroundColor: 'rgba(255, 255, 255, 0.2)' }
 
-/**
- * 处理右键点击事件
- * 右键点击时自动选中项目
- */
-const handleRightClick = (): void => {
-  // 右键点击时先选中项目，确保菜单操作时项目已被选中
-  emit('select', props.item, props.index)
-}
-
-/**
- * 鼠标悬停预加载
- */
-const handleMouseEnter = (): void => {
-  // 仅对文件夹预加载
-  if (props.item.type === 'folder') {
-    emit('preload', props.item)
-  }
-}
-
-// 检查是否有NFO文件
-const hasNfoFile = (item: ProcessedItem): boolean => {
-  if (item.type !== 'folder' || !item.files) return false
-
-  // 获取文件夹中的视频文件
-  const videoFiles = item.files.filter(file => {
-    const videoExtensions = [
-      '.mp4',
-      '.avi',
-      '.mkv',
-      '.mov',
-      '.wmv',
-      '.flv',
-      '.webm',
-      '.m4v',
-    ]
-
-    return videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-  })
-
-  // 如果有视频文件，检查是否有对应的NFO文件
-  if (videoFiles.length > 0) {
-    return videoFiles.some(videoFile => {
-      const videoBaseName = videoFile.name.replace(/\.[^/.]+$/, '') // 移除扩展名
-
-      return item.files!.some(file => {
-        const fileName = file.name.toLowerCase()
-
-        const videoBaseNameLower = videoBaseName.toLowerCase()
-
-        return (
-          fileName.endsWith('.nfo') &&
-          (fileName === `${videoBaseNameLower}.nfo` ||
-            fileName.includes(videoBaseNameLower))
-        )
-      })
-    })
+// 预计算状态标志 - 使用 Set 提升查找性能
+const statusFlags = computed(() => {
+  const item = props.item
+  const files = item.files
+  if (!files || files.length === 0) {
+    return { nfo: false, poster: false, fanart: false }
   }
 
-  // 检查传统的nfo文件
-  return item.files.some(file => file.name.toLowerCase().endsWith('.nfo'))
-}
+  const baseName = item.type === 'video'
+    ? item.name.replace(/\.[^/.]+$/, '').toLowerCase()
+    : item.name.toLowerCase()
 
-// 检查是否有海报文件
-const hasPosterFile = (item: ProcessedItem): boolean => {
-  if (item.type !== 'folder' || !item.files) return false
+  let nfo = false
+  let poster = false
+  let fanart = false
 
-  const posterExtensions = ['.jpg', '.jpeg', '.png', '.webp']
+  for (const file of files) {
+    const name = file.name.toLowerCase()
+    const ext = name.substring(name.lastIndexOf('.'))
 
-  const folderName = item.name.toLowerCase()
+    // NFO 检查
+    if (!nfo && ext === '.nfo') {
+      if (item.type === 'video') {
+        nfo = name.includes(baseName)
+      } else {
+        nfo = true
+      }
+    }
 
-  // 获取文件夹中的视频文件
-  const videoFiles = item.files.filter(file => {
-    const videoExtensions = [
-      '.mp4',
-      '.avi',
-      '.mkv',
-      '.mov',
-      '.wmv',
-      '.flv',
-      '.webm',
-      '.m4v',
-    ]
+    // 海报检查
+    if (!poster && IMAGE_EXTENSIONS_SET.has(ext)) {
+      if (item.type === 'video') {
+        poster = name.includes(baseName) ||
+          name === 'poster.jpg' || name === 'folder.jpg' || name === 'movie.jpg'
+      } else {
+        poster = name.includes('poster') || name.includes('cover') ||
+          name.includes('folder') || name === 'poster.jpg' || name === 'folder.jpg'
+      }
+    }
 
-    return videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-  })
+    // Fanart 检查
+    if (!fanart && IMAGE_EXTENSIONS_SET.has(ext)) {
+      if (item.type === 'video') {
+        fanart = name.includes(`${baseName}-fanart`) || name === 'fanart.jpg'
+      } else {
+        fanart = name.includes('fanart') || name.includes('backdrop') || name === 'fanart.jpg'
+      }
+    }
 
-  // 如果有视频文件，检查是否有对应的海报文件
-  if (videoFiles.length > 0) {
-    const hasVideoRelatedImages = videoFiles.some(videoFile => {
-      const videoBaseName = videoFile.name.replace(/\.[^/.]+$/, '') // 移除扩展名
-
-      return item.files!.some(file => {
-        const fileName = file.name.toLowerCase()
-
-        const videoBaseNameLower = videoBaseName.toLowerCase()
-
-        return (
-          posterExtensions.some(ext => fileName.endsWith(ext)) &&
-          (fileName.includes(videoBaseNameLower) || // 包含视频文件名
-            fileName === `${videoBaseNameLower}-poster.jpg` || // {视频文件名}-poster.jpg
-            fileName === `${videoBaseNameLower}.jpg`)
-        ) // {视频文件名}.jpg
-      })
-    })
-
-    if (hasVideoRelatedImages) return true
+    // 提前退出
+    if (nfo && poster && fanart) break
   }
 
-  // 检查传统的海报文件
-  return item.files.some(file => {
-    const fileName = file.name.toLowerCase()
+  return { nfo, poster, fanart }
+})
 
-    return (
-      posterExtensions.some(ext => fileName.endsWith(ext)) &&
-      (fileName.includes('poster') ||
-        fileName.includes('cover') ||
-        fileName.includes('folder') ||
-        fileName.includes('thumb') ||
-        fileName === 'poster.jpg' ||
-        fileName === 'folder.jpg' ||
-        fileName === 'movie.jpg' ||
-        fileName === 'cover.jpg' ||
-        fileName.includes(folderName.split('(')[0].trim())) // 支持包含电影名字的文件
-    )
-  })
-}
+const hasStatus = computed(() => {
+  const f = statusFlags.value
+  return f.nfo || f.poster || f.fanart
+})
 
-// 检查是否有艺术图文件
-const hasFanartFile = (item: ProcessedItem): boolean => {
-  if (item.type !== 'folder' || !item.files) return false
-
-  const fanartExtensions = ['.jpg', '.jpeg', '.png', '.webp']
-
-  const folderName = item.name.toLowerCase()
-
-  // 获取文件夹中的视频文件
-  const videoFiles = item.files.filter(file => {
-    const videoExtensions = [
-      '.mp4',
-      '.avi',
-      '.mkv',
-      '.mov',
-      '.wmv',
-      '.flv',
-      '.webm',
-      '.m4v',
-    ]
-
-    return videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
-  })
-
-  // 如果有视频文件，检查是否有对应的艺术图文件
-  if (videoFiles.length > 0) {
-    const hasVideoRelatedFanart = videoFiles.some(videoFile => {
-      const videoBaseName = videoFile.name.replace(/\.[^/.]+$/, '') // 移除扩展名
-
-      return item.files!.some(file => {
-        const fileName = file.name.toLowerCase()
-
-        const videoBaseNameLower = videoBaseName.toLowerCase()
-
-        return (
-          fanartExtensions.some(ext => fileName.endsWith(ext)) &&
-          (fileName === `${videoBaseNameLower}-fanart.jpg` || // {视频文件名}-fanart.jpg
-            fileName === 'fanart.jpg')
-        ) // fanart.jpg
-      })
-    })
-
-    if (hasVideoRelatedFanart) return true
-  }
-
-  // 检查传统的艺术图文件
-  return item.files.some(file => {
-    const fileName = file.name.toLowerCase()
-
-    return (
-      fanartExtensions.some(ext => fileName.endsWith(ext)) &&
-      (fileName.includes('fanart') ||
-        fileName.includes('backdrop') ||
-        fileName === 'fanart.jpg' ||
-        fileName.includes(folderName.split('(')[0].trim())) // 支持包含电影名字的文件
-    )
-  })
-}
-
-// 动态图片菜单
-const folderMenuItems = computed<MenuItem[]>(() => {
+// 右键菜单 - 使用 shallowRef 避免深度响应式
+const { items: queueItems } = useGlobalQueue()
+const menuItems = computed<MenuItem[]>(() => {
+  const isQueued = queueItems.value.some(
+    i => i.name === props.item.name && (i.status === 'pending' || i.status === 'processing')
+  )
   const config = getScrapeProviderConfig()
-  const items: MenuItem[] = [
-    { id: 'view', label: '刮削', icon: 'fas fa-eye' },
-    { id: 'play', label: '播放', icon: 'fas fa-play' },
-  ]
-  
-  if (config.provider === 'javbus') {
+  const items: MenuItem[] = []
+
+  if (!isQueued) {
+    items.push({ id: 'view', label: '刮削', icon: 'fas fa-eye' })
+  }
+  items.push({ id: 'play', label: '播放', icon: 'fas fa-play' })
+  items.push({ id: 'delete', label: '删除', icon: 'fas fa-trash' })
+
+  if (!isQueued && config.provider === 'javbus') {
     items.push(
       { id: 'fetch-meta', label: '预览元数据' },
       { id: 'download', label: '下载视频' }
     )
   }
-  
+
   return items
 })
+
+const handleItemClick = (): void => {
+  emit('select', props.item, props.index)
+}
+
+const handleRightClick = (): void => {
+  emit('select', props.item, props.index)
+}
+
+const handleMouseEnter = (): void => {
+  if (props.item.type === 'folder') {
+    emit('preload', props.item)
+  }
+}
 
 const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
   if (action.id === 'view') {
     emit('autoScrape', item)
   } else if (action.id === 'play') {
     emit('play', item)
+  } else if (action.id === 'delete') {
+    emit('deleteFile', item)
   } else if (action.id === 'local-scrape') {
     emit('localScrape', item)
   } else if (action.id === 'fetch-meta') {
@@ -411,6 +186,5 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
   box-shadow:
     0 4px 6px -1px rgba(0, 0, 0, 0.1),
     0 2px 4px -1px rgba(0, 0, 0, 0.06);
-  transition: var(--transition-normal);
 }
 </style>

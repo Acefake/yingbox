@@ -1,5 +1,5 @@
 <template>
-  <div class="av-page h-full overflow-hidden bg-gray-900 text-white flex flex-col">
+  <div class="av-page h-full overflow-hidden text-white flex flex-col">
     <!-- Tab 导航 + 搜索栏 -->
     <div class="flex-shrink-0 bg-black/30 border-b border-white/10">
       <!-- Tab 行 -->
@@ -14,7 +14,7 @@
           @click="activeTab = tab.id"
         >{{ tab.label }}</button>
       </div>
-      <!-- 搜索栏（仅聚合搜索 tab 显示） -->
+      <!-- 搜索栏（聚合搜索 tab 显示） -->
       <div v-if="activeTab === 'search'" class="px-4 py-2">
         <div class="flex items-center gap-3">
           <input
@@ -44,6 +44,25 @@
             <span class="text-white/30 hover:text-red-400 text-[10px]" @click.stop="removeSearchHistory(kw)">✕</span>
           </span>
           <button class="text-[11px] text-white/25 hover:text-white/60 ml-auto" @click="searchHistory = []">清空</button>
+        </div>
+      </div>
+      <!-- 下载搜索栏（下载搜索 tab 显示） -->
+      <div v-if="activeTab === 'download'" class="px-4 py-2">
+        <div v-if="downloadStep === 'input'" class="flex items-center gap-3">
+          <input
+            v-model="downloadKeyword"
+            type="text"
+            placeholder="输入番号或标题..."
+            class="flex-1 max-w-xl bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+            @keyup.enter="handleSearchMeta"
+          />
+          <button
+            @click="handleSearchMeta"
+            :disabled="downloadLoading"
+            class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
+          >
+            {{ downloadLoading ? '搜索中...' : '搜索' }}
+          </button>
         </div>
       </div>
     </div>
@@ -79,28 +98,66 @@
             <button class="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-xs transition-colors" :class="isFav(group.items[0]) ? 'text-yellow-400' : 'text-white/50 hover:text-yellow-400'" @click.stop="toggleFav(group.items[0])">{{ isFav(group.items[0]) ? '♥' : '♡' }}</button>
           </div>
           <div class="p-2">
-            <h3 class="text-xs font-medium text-white truncate mb-1.5">{{ group.vod_name }}</h3>
-            <!-- 来源列表 -->
-            <div class="flex flex-wrap gap-1" @click.stop>
-              <button
-                v-for="item in group.items" :key="item._uid"
-                class="px-1.5 py-0.5 rounded text-[9px] transition-colors bg-pink-600/60 hover:bg-pink-500 text-white"
-                @click.stop="playVideo(item)"
-              >{{ item._source }}</button>
+            <h3 class="text-xs font-medium text-white truncate">{{ group.vod_name }}</h3>
+          </div>
+        </div>
+      </div>
+      <!-- 无结果提示 -->
+      <div v-if="!loading && mergedVideos.length === 0 && hasSearched" class="flex flex-col items-center justify-center py-12 text-gray-400">
+        <p class="text-sm">未找到相关结果</p>
+      </div>
+    </div>
+
+    <!-- 下载搜索内容 -->
+    <div v-if="activeTab === 'download'" class="flex-1 overflow-y-auto p-4">
+      <!-- 输入状态 -->
+      <div v-if="downloadStep === 'input'" class="flex items-center justify-center h-full">
+        <div class="text-center text-gray-400">
+          <div class="text-4xl mb-3">⬇️</div>
+          <p class="text-sm">输入番号或标题，搜索元数据</p>
+          <p class="text-xs mt-2 text-gray-500">确认后再添加到下载队列</p>
+        </div>
+      </div>
+      <!-- 预览状态 -->
+      <div v-if="downloadStep === 'preview' && downloadMeta" class="max-w-2xl mx-auto">
+        <div class="bg-white/5 rounded-lg p-6 border border-white/10">
+          <div class="flex flex-col gap-6">
+            <!-- 封面 -->
+            <div v-if="downloadMeta.cover" class="flex-shrink-0">
+              <img :src="getProxyImageUrl(downloadMeta.cover)" class="w-48 rounded-lg object-cover" />
+            </div>
+            <!-- 信息 -->
+            <div class="flex-1">
+              <h2 class="text-lg font-semibold text-white mb-2">{{ downloadMeta.title || downloadMeta.id }}</h2>
+              <div v-if="downloadMeta.id" class="text-sm text-gray-400 mb-3">番号: {{ downloadMeta.id }}</div>
+              <div v-if="downloadMeta.releaseDate" class="text-sm text-gray-400 mb-3">发布日期: {{ downloadMeta.releaseDate }}</div>
+              <div v-if="downloadMeta.description" class="text-sm text-gray-300 mb-4 line-clamp-3">{{ downloadMeta.description }}</div>
+              <!-- 按钮 -->
+              <div class="flex gap-3">
+                <button
+                  @click="handleDownload"
+                  :disabled="downloadLoading"
+                  class="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  {{ downloadLoading ? '添加中...' : '添加到下载' }}
+                </button>
+                <button
+                  @click="handleReset"
+                  class="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
+                >
+                  重新搜索
+                </button>
+              </div>
             </div>
           </div>
         </div>
       </div>
-      <!-- 空状态 -->
-      <div v-else-if="hasSearched && !loading" class="flex flex-col items-center justify-center h-full text-gray-500">
-        <p class="text-4xl mb-3">🔍</p>
-        <p>未找到相关资源</p>
-      </div>
-      <!-- 初始引导 -->
-      <div v-if="showHomePage && !searchHistory.length" class="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
-        <p class="text-5xl mb-2">🎬</p>
-        <p class="text-base">输入番号或关键词，聚合搜索全部站点</p>
-        <p class="text-xs text-gray-600">共 {{ activeSources.length }} 个资源站点</p>
+      <!-- 下载中状态 -->
+      <div v-if="downloadStep === 'downloading'" class="flex items-center justify-center h-full">
+        <div class="text-center">
+          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-3"></div>
+          <p class="text-sm text-gray-400">正在添加到下载队列...</p>
+        </div>
       </div>
     </div>
 
@@ -204,7 +261,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, nextTick, computed, watch } from 'vue'
+import { ref, shallowRef, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import Hls from 'hls.js'
 import { useAvSources, type AvSite } from './use-av-sources'
@@ -212,6 +269,7 @@ import { useAvSources, type AvSite } from './use-av-sources'
 // ─── Tab ─────────────────────────────────────────────────────
 const tabs = [
   { id: 'search', label: '聚合搜索' },
+  { id: 'download', label: '下载搜索' },
   { id: 'fav', label: '收藏' },
   { id: 'history', label: '历史' },
 ]
@@ -222,10 +280,108 @@ const { getActiveSources, activeSources } = useAvSources()
 
 // ─── 状态 ────────────────────────────────────────────────────
 const searchKeyword = ref('')
-const videos = ref<any[]>([])
+const videos = shallowRef<any[]>([])
 const loading = ref(false)
 const hasSearched = ref(false)
 const doneCount = ref(0)
+
+// ─── 下载搜索状态 ────────────────────────────────────────────
+const downloadKeyword = ref('')
+const downloadLoading = ref(false)
+const downloadMessage = ref('')
+const downloadSuccess = ref(false)
+const downloadMeta = ref<any>(null)
+const downloadStep = ref<'input' | 'preview' | 'downloading'>('input')
+
+// 图片代理 URL
+const getProxyImageUrl = (url: string) => {
+  if (!url) return ''
+  return `http://127.0.0.1:31471/proxy?url=${encodeURIComponent(url)}`
+}
+
+// ─── 获取元数据 ───────────────────────────────────────────────
+const handleSearchMeta = async () => {
+  if (!downloadKeyword.value.trim()) {
+    downloadMessage.value = '请输入番号或标题'
+    downloadSuccess.value = false
+    return
+  }
+
+  downloadLoading.value = true
+  downloadMessage.value = ''
+  downloadMeta.value = null
+
+  try {
+    const response = await fetch(`http://127.0.0.1:31471/api/meta/${encodeURIComponent(downloadKeyword.value)}`, {
+      headers: {
+        'Authorization': 'Bearer IBHUSDBWQHJEJOBDSW'
+      }
+    })
+
+    if (response.ok) {
+      const data = await response.json()
+      downloadMeta.value = data
+      downloadStep.value = 'preview'
+      downloadMessage.value = ''
+    } else {
+      const text = await response.text()
+      downloadMessage.value = text || '获取元数据失败'
+      downloadSuccess.value = false
+    }
+  } catch (err) {
+    downloadMessage.value = '网络错误，请确保后端服务已启动'
+    downloadSuccess.value = false
+  } finally {
+    downloadLoading.value = false
+  }
+}
+
+// ─── 下载功能 ─────────────────────────────────────────────────
+const handleDownload = async () => {
+  if (!downloadKeyword.value.trim()) {
+    downloadMessage.value = '请输入番号或标题'
+    downloadSuccess.value = false
+    return
+  }
+
+  downloadLoading.value = true
+  downloadMessage.value = ''
+  downloadSuccess.value = false
+  downloadStep.value = 'downloading'
+
+  try {
+    const response = await fetch(`http://127.0.0.1:31471/api/addvideo/${encodeURIComponent(downloadKeyword.value)}`, {
+      headers: {
+        'Authorization': 'Bearer IBHUSDBWQHJEJOBDSW'
+      }
+    })
+    const text = await response.text()
+
+    if (response.ok) {
+      downloadMessage.value = text
+      downloadSuccess.value = true
+      downloadKeyword.value = ''
+      downloadMeta.value = null
+      downloadStep.value = 'input'
+    } else {
+      downloadMessage.value = text || '添加失败'
+      downloadSuccess.value = false
+      downloadStep.value = 'preview'
+    }
+  } catch (err) {
+    downloadMessage.value = '网络错误，请确保后端服务已启动'
+    downloadSuccess.value = false
+    downloadStep.value = 'preview'
+  } finally {
+    downloadLoading.value = false
+  }
+}
+
+const handleReset = () => {
+  downloadStep.value = 'input'
+  downloadMeta.value = null
+  downloadMessage.value = ''
+}
 
 // ─── 搜索历史 ─────────────────────────────────────────────────
 const searchHistory = useStorage<string[]>('av_search_history', [])
@@ -259,21 +415,30 @@ const playingUrl = ref('')
 const videoEl = ref<HTMLVideoElement | null>(null)
 const playingGroup = ref<{ vod_name: string; vod_pic: string; items: any[] } | null>(null)
 let hls: Hls | null = null
-// ─── 当前空状态时显示历史 ─────────────────────────────────────
-const showHomePage = computed(() => !searchKeyword.value.trim() && !loading.value)
 
-const mergedVideos = computed(() => {
-  const map = new Map<string, { key: string; vod_name: string; vod_pic: string; items: any[] }>()
+// 增量去重合并 — 避免每次 videos 变化都重建整个 Map
+const mergedMap = new Map<string, { key: string; vod_name: string; vod_pic: string; items: any[] }>()
+const mergedVideos = shallowRef<{ key: string; vod_name: string; vod_pic: string; items: any[] }[]>([])
+
+function rebuildMerged() {
+  mergedMap.clear()
   for (const v of videos.value) {
     const key = v.vod_name.trim().toLowerCase()
-    if (map.has(key)) {
-      map.get(key)!.items.push(v)
+    const existing = mergedMap.get(key)
+    if (existing) {
+      existing.items.push(v)
     } else {
-      map.set(key, { key, vod_name: v.vod_name, vod_pic: v.vod_pic, items: [v] })
+      mergedMap.set(key, { key, vod_name: v.vod_name, vod_pic: v.vod_pic, items: [v] })
     }
   }
-  return Array.from(map.values())
-})
+  mergedVideos.value = Array.from(mergedMap.values())
+}
+
+// 在 playVideo 中直接用 Map 查找，避免遍历数组
+function findGroup(name: string) {
+  const key = name.trim().toLowerCase()
+  return mergedMap.get(key) || null
+}
 
 const formatTime = (ts: number) => {
   const diff = (Date.now() - ts) / 1000
@@ -292,9 +457,9 @@ const fetchFromSource = async (source: AvSite, keyword: string, signal: AbortSig
     const url = keyword
       ? `${source.api}?ac=detail&wd=${encodeURIComponent(keyword)}`
       : `${source.api}?ac=detail`
-    const timer = setTimeout(() => {}, 8000)
-    const res = await fetch(url, { signal })
-    clearTimeout(timer)
+    const timeout = AbortSignal.timeout(8000)
+    const merged = AbortSignal.any([signal, timeout])
+    const res = await fetch(url, { signal: merged })
     const data = await res.json()
     if (data.code === 1 && Array.isArray(data.list)) {
       return data.list.map((v: any) => ({
@@ -311,7 +476,8 @@ const fetchFromSource = async (source: AvSite, keyword: string, signal: AbortSig
 
 // ─── 全站并发聚合（仅使用已启用站点） ──────────────────────────────────
 let searchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchKeyword, () => {
+watch(searchKeyword, (val, oldVal) => {
+  if (val === oldVal) return
   if (searchTimer) clearTimeout(searchTimer)
   searchTimer = setTimeout(() => handleSearch(), 400)
 })
@@ -326,15 +492,21 @@ const handleSearch = async () => {
   hasSearched.value = true
   doneCount.value = 0
   videos.value = []
+  rebuildMerged()
 
   const activeSources = getActiveSources()
+  // 收集所有结果，搜索结束后一次性更新 — 避免中间态触发多次重渲染
+  const allItems: any[] = []
   await Promise.all(
     activeSources.map(async (source) => {
       const items = await fetchFromSource(source, searchKeyword.value.trim(), signal)
       if (signal.aborted) return
       doneCount.value++
       if (items.length > 0) {
-        videos.value = [...videos.value, ...items]
+        allItems.push(...items)
+        // 渐进更新：每个源完成时更新一次（不是每个 push）
+        videos.value = [...allItems]
+        rebuildMerged()
       }
     })
   )
@@ -353,9 +525,8 @@ const playVideo = async (video: any) => {
   if (episodes.length === 0) return
 
   playingVideo.value = { ...video, episodes }
-  // 找对应的合并组（搜索结果里找，找不到就单源）
-  const key = video.vod_name.trim().toLowerCase()
-  const found = mergedVideos.value.find(g => g.key === key)
+  // O(1) 查找合并组
+  const found = findGroup(video.vod_name)
   playingGroup.value = found || { vod_name: video.vod_name, vod_pic: video.vod_pic, items: [video] }
   showPlayer.value = true
   await startPlay(episodes[0].url, episodes[0].name)
@@ -375,13 +546,10 @@ const switchSource = async (video: any) => {
 const startPlay = async (url: string, epName = '') => {
   playingUrl.value = url
   if (playingVideo.value) savePlayHistory(playingVideo.value, epName, url)
-  await nextTick()
 
-  let el = videoEl.value
-  for (let i = 0; i < 10 && !el; i++) {
-    await new Promise(r => setTimeout(r, 100))
-    el = videoEl.value
-  }
+  // 等待 DOM 更新后直接获取 video 元素
+  await nextTick()
+  const el = videoEl.value
   if (!el) return
 
   if (hls) { hls.destroy(); hls = null }
@@ -391,7 +559,7 @@ const startPlay = async (url: string, epName = '') => {
     hls = new Hls()
     hls.loadSource(url)
     hls.attachMedia(el)
-    hls.on(Hls.Events.MANIFEST_PARSED, () => el!.play().catch(() => {}))
+    hls.on(Hls.Events.MANIFEST_PARSED, () => el.play().catch(() => {}))
   } else {
     el.src = url
     el.play().catch(() => {})

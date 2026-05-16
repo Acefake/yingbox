@@ -32,6 +32,18 @@ const seasonsCache = new Map<string, SeasonInfo[]>()
 /** 模块级季海报缓存：showPath → { seasonPath: posterUrl }，避免重复查找 */
 const seasonPostersCache = new Map<string, Record<string, string>>()
 
+const replaceItemPathPrefix = (
+  item: ProcessedItem,
+  oldPrefix: string,
+  newPrefix: string
+): ProcessedItem => ({
+  ...item,
+  path: item.path.replace(oldPrefix, newPrefix),
+  children: item.children?.map(child =>
+    replaceItemPathPrefix(child, oldPrefix, newPrefix)
+  ),
+})
+
 /** 带缓存的 readText */
 const cachedReadText = async (filePath: string): Promise<string> => {
   const cached = nfoContentCache.get(filePath)
@@ -469,11 +481,45 @@ export const useTVScraping = () => {
     tvDetails: any,
     seasons: SeasonInfo[]
   ): Promise<void> => {
-    const showPath = item.path
+    let showPath = item.path
 
     message.loading('正在刮削电视剧...', 0)
 
     try {
+      const showName = sanitizeFilename(
+        tvDetails.name || tvDetails.original_name || ''
+      )
+      const year = tvDetails.first_air_date
+        ? tvDetails.first_air_date.substring(0, 4)
+        : ''
+      const newFolderName = year ? `${showName}(${year})` : showName
+      const currentFolderName = await window.api.path.basename(showPath)
+
+      if (currentFolderName !== newFolderName) {
+        const parentPath = await window.api.path.dirname(showPath)
+        const newShowPath = await window.api.path.join(
+          parentPath,
+          newFolderName
+        )
+        const renameResult = await window.api.file.move(showPath, newShowPath)
+        if (renameResult.success) {
+          const oldShowPath = showPath
+          showPath = newShowPath
+          item.path = newShowPath
+          item.name = newFolderName
+          if (item.children) {
+            item.children = item.children.map(child =>
+              replaceItemPathPrefix(child, oldShowPath, newShowPath)
+            )
+          }
+        } else {
+          console.warn('文件夹重命名失败（可能被占用）:', renameResult.error)
+          message.warning(
+            `文件夹重命名失败: ${renameResult.error}。将继续在原文件夹中刮削`
+          )
+        }
+      }
+
       // 1. tvshow.nfo
       const nfoContent = generateTVShowNFO(tvDetails)
       await writeTextFile(
@@ -831,29 +877,6 @@ export const useTVScraping = () => {
               )
             }
           }
-        }
-      }
-
-      // 重命名剧集文件夹为 "剧名(年份)" 格式（在所有文件操作完成后）
-      const showName = sanitizeFilename(
-        tvDetails.name || tvDetails.original_name || ''
-      )
-      const year = tvDetails.first_air_date
-        ? tvDetails.first_air_date.substring(0, 4)
-        : ''
-      const newFolderName = year ? `${showName}(${year})` : showName
-      const currentFolderName = await window.api.path.basename(showPath)
-
-      if (currentFolderName !== newFolderName) {
-        const parentPath = await window.api.path.dirname(showPath)
-        const newShowPath = await window.api.path.join(
-          parentPath,
-          newFolderName
-        )
-        const renameResult = await window.api.file.move(showPath, newShowPath)
-        if (renameResult.success) {
-          item.path = newShowPath
-          item.name = newFolderName
         }
       }
 

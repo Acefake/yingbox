@@ -58,6 +58,11 @@ if __name__ == "__main__":
     logger.info(f"开始执行 车牌号: {avid}")
 
     # 文件锁实现全局下载单例
+    # 确保 work 文件存在
+    if not os.path.exists("work"):
+        with open("work", "w") as f:
+            f.write("0")
+
     with open("work", "r") as f:
         content = f.read().strip()
     if content == "1":

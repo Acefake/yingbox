@@ -22,7 +22,10 @@
     "build:win": "npm run build:nocheck && npm run build:backend && electron-builder --win zip",
     "build:win:full": "npm run build:nocheck && npm run build:backend && electron-builder --win",
     "build:mac": "npm run build:nocheck && electron-builder --mac",
-    "build:linux": "npm run build:nocheck && electron-builder --linux"
+    "build:linux": "npm run build:nocheck && electron-builder --linux",
+    "check": "bash scripts/check-issues.sh",
+    "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
+    "fix": "bash scripts/auto-fix.sh"
   },
   "dependencies": {
     "@electron-toolkit/preload": "^3.0.2",
@@ -52,14 +55,14 @@
     "concurrently": "^9.2.1",
     "electron": "^37.2.3",
     "electron-builder": "^25.1.8",
-    "electron-vite": "^6.0.0-beta.0",
+    "electron-vite": "^5.0.0",
     "eslint": "^9.31.0",
     "eslint-plugin-vue": "^10.3.0",
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
-    "vite": "^8.0.0",
+    "vite": "^7.0.0",
     "vue": "^3.5.17",
     "vue-eslint-parser": "^10.2.0",
     "vue-tsc": "^3.0.3"

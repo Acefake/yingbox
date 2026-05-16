@@ -6,13 +6,11 @@ export default defineConfig({
   main: {
     build: {
       externalizeDeps: true,
-      watch: {},
     },
   },
   preload: {
     build: {
       externalizeDeps: true,
-      watch: {},
     },
   },
   renderer: {
@@ -27,7 +25,10 @@ export default defineConfig({
       host: '127.0.0.1',
       port: 3000,
       strictPort: false,
-      hmr: true,
+      hmr: {
+        host: '127.0.0.1',
+        port: 3000,
+      },
       watch: {
         usePolling: true,
       },

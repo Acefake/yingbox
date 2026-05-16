@@ -9,19 +9,12 @@
         :dir-loading="dirLoading"
         :directory-paths="directoryPaths"
         :scan-progress="scanProgress"
-        :is-multi-select-mode="isMultiSelectMode"
-        :selected-items="selectedPaths"
-        :selected-items-count="selectedPaths.size"
         mode="tv"
         @refresh="refreshFiles"
         @add-folder="handleReadDirectory"
         @remove-directory="removeDirectory"
         @select-item="selectItem"
         @preload="handlePreload"
-        @toggle-multi-select="toggleTVMultiSelect"
-        @toggle-select-all="toggleTVSelectAll"
-        @toggle-selection="toggleTVSelection"
-        @add-selected-to-queue="batchScrapeSelected"
         @auto-scrape="searchTV"
         @direct-scrape="searchTV"
         @manual-scrape="searchTV"
@@ -70,7 +63,7 @@ import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useTVFileManagement } from './composables/use-tv-file-management'
 import { useTVScraping } from './composables/use-tv-scraping'
-import LeftPanel from '@/views/movie/components/LeftPanel.vue'
+import LeftPanel from '@/views/Movie/components/LeftPanel.vue'
 import TVRightPanel from './components/TVRightPanel.vue'
 import MediaSearchModal from '@/components/MediaSearchModal.vue'
 import type { MediaResult } from '@/components/MediaSearchModal.vue'
@@ -151,53 +144,8 @@ const {
 } = useTVScraping()
 
 const selectedIndex = ref<number>(-1)
-const {
-  addItem: addQueueItem,
-  setProcessing: setQueueProcessing,
-  setDone: setQueueDone,
-  setError: setQueueError,
-} = useGlobalQueue()
+const { addItem: addQueueItem, setProcessing: setQueueProcessing } = useGlobalQueue()
 
-/** 多选状态 */
-const isMultiSelectMode = ref(false)
-const selectedPaths = ref<Set<string>>(new Set())
-
-const toggleTVMultiSelect = (): void => {
-  isMultiSelectMode.value = !isMultiSelectMode.value
-  if (!isMultiSelectMode.value) selectedPaths.value.clear()
-}
-
-const toggleTVSelectAll = (): void => {
-  if (selectedPaths.value.size >= fileData.value.length) {
-    selectedPaths.value.clear()
-  } else {
-    selectedPaths.value.clear()
-    fileData.value.forEach(item => selectedPaths.value.add(item.path))
-  }
-}
-
-const toggleTVSelection = (item: ProcessedItem): void => {
-  if (selectedPaths.value.has(item.path)) {
-    selectedPaths.value.delete(item.path)
-  } else {
-    selectedPaths.value.add(item.path)
-  }
-}
-
-const batchScrapeSelected = async (): Promise<void> => {
-  const items = fileData.value.filter(item =>
-    selectedPaths.value.has(item.path)
-  )
-  if (items.length === 0) {
-    message.warning('请先选择要刮削的电视剧')
-    return
-  }
-  isMultiSelectMode.value = false
-  selectedPaths.value.clear()
-  for (const item of items) {
-    await searchTV(item)
-  }
-}
 const tvInfo = shallowRef<TVShowInfoType | null>(null)
 const loading = ref(false)
 
@@ -334,45 +282,46 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
   const showItem = pendingScrapeShowItem.value
   if (!showItem) return
   scrapingId.value = selected.id
-  const queueId = addQueueItem(showItem.name, 'tv')
-  setQueueProcessing(queueId)
-  try {
-    const tvDetails = await getTVDetails(selected.id)
-    if (tvDetails) {
-      const seasons = await getAllSeasons(tvDetails.id)
-      tvInfo.value = { ...convertToTVShowInfo(tvDetails), seasons }
-      await scrapeTVShow(showItem, tvDetails, seasons)
 
-      // 刮削完成后，检查父目录是否有同名系列季文件夹需要合并
-      const sep = showItem.path.includes('\\') ? '\\' : '/'
-      const parentDir = showItem.path.substring(
-        0,
-        showItem.path.lastIndexOf(sep)
-      )
-      if (parentDir) {
-        const merged = await mergeSeriesSeasons(parentDir)
-        if (merged) await refreshFiles()
-      }
+  addQueueItem(
+    showItem.name,
+    'tv',
+    async (queueId: string) => {
+      setQueueProcessing(queueId)
+      try {
+        const tvDetails = await getTVDetails(selected.id)
+        if (tvDetails) {
+          const seasons = await getAllSeasons(tvDetails.id)
+          tvInfo.value = { ...convertToTVShowInfo(tvDetails), seasons }
+          await scrapeTVShow(showItem, tvDetails, seasons)
 
-      const local = await loadLocalTVInfo(showItem)
-      if (local.posterDataUrl) posterUrl.value = local.posterDataUrl
-      if (local.fanartDataUrl) fanartUrl.value = local.fanartDataUrl
-      if (local.seasonPosters) seasonPosters.value = local.seasonPosters
+          // 刮削完成后，检查父目录是否有同名系列季文件夹需要合并
+          const sep = showItem.path.includes('\\') ? '\\' : '/'
+          const parentDir = showItem.path.substring(
+            0,
+            showItem.path.lastIndexOf(sep)
+          )
+          if (parentDir) {
+            const merged = await mergeSeriesSeasons(parentDir)
+            if (merged) await refreshFiles()
+          }
 
-      // 强制刷新 selectedItem 引用，使模板读取被 scrapeTVShow 修改后的 children
-      if (selectedItem.value) {
-        selectedItem.value = { ...selectedItem.value }
+          const local = await loadLocalTVInfo(showItem)
+          if (local.posterDataUrl) posterUrl.value = local.posterDataUrl
+          if (local.fanartDataUrl) fanartUrl.value = local.fanartDataUrl
+          if (local.seasonPosters) seasonPosters.value = local.seasonPosters
+
+          // 强制刷新 selectedItem 引用，使模板读取被 scrapeTVShow 修改后的 children
+          if (selectedItem.value) {
+            selectedItem.value = { ...selectedItem.value }
+          }
+        }
+      } finally {
+        scrapingId.value = null
+        searchModalVisible.value = false
       }
     }
-    setQueueDone(queueId)
-    searchModalVisible.value = false
-  } catch (error) {
-    console.error('刮削失败:', error)
-    message.error('刮削失败')
-    setQueueError(queueId)
-  } finally {
-    scrapingId.value = null
-  }
+  )
 }
 
 // 监听 fanart 变化，设置全局背景

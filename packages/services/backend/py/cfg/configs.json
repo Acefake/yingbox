@@ -1,6 +1,6 @@
 {
   "LogPath": "./logs",
-  "SavePath": "F:/新建文件夹",
+  "SavePath": "F:/yingboxdownload",
   "DBPath": "./db/downloaded.db",
   "QueuePath": "./db/download_queue.txt",
   "Proxy": "http://127.0.0.1:7897",

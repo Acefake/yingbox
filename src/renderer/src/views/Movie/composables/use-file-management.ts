@@ -3,6 +3,21 @@ import { message } from 'ant-design-vue'
 import type { FileItem, ProcessedItem } from '@/types'
 import { useErrorHandler } from '@/composables/use-error-handler'
 
+/** 基于路径生成确定性 ID（轻量 hash） */
+const makeId = (path: string): string => {
+  let h = 0
+  for (let i = 0; i < path.length; i++) {
+    h = ((h << 5) - h + path.charCodeAt(i)) | 0
+  }
+  return `f${(h >>> 0).toString(36)}`
+}
+
+/** 名称排序比较器：文件夹优先，然后按名称字母序 */
+const compareItems = (a: ProcessedItem, b: ProcessedItem): number => {
+  if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
+  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+}
+
 /**
  * 文件管理hook
  */
@@ -42,12 +57,12 @@ export const useFileManagement = () => {
 
   /**
    * 处理文件列表，按照规则分组
+   * 显示所有视频文件，并从视频文件所在的文件夹读取关联数据
    */
   const processFiles = (files: FileItem[]): ProcessedItem[] => {
     if (!files || files.length === 0) return []
 
     const result: ProcessedItem[] = []
-    const processedPaths = new Set<string>()
 
     // 统一路径分隔符为正斜杠，便于比较
     const normPath = (p: string): string => p.replace(/\\/g, '/')
@@ -61,93 +76,66 @@ export const useFileManagement = () => {
       return true
     })
 
-    // 找出所有顶级文件夹（使用统一路径比较）
-    const allFolders = visibleFiles.filter(f => f.isDirectory)
+    // 构建文件索引：规范化路径 → 文件项，用于 O(1) 查找
+    const normFileMap = new Map<string, FileItem[]>()
+    for (const f of visibleFiles) {
+      if (!f.isFile) continue
+      const dir = normPath(f.path).replace(/\/[^/]+$/, '')
+      const arr = normFileMap.get(dir)
+      if (arr) arr.push(f)
+      else normFileMap.set(dir, [f])
+    }
 
-    const topLevelFolders = allFolders.filter(folder => {
-      const nFolder = normPath(folder.path)
-      return !allFolders.some(
-        otherFolder =>
-          otherFolder.path !== folder.path &&
-          nFolder.startsWith(normPath(otherFolder.path) + '/')
-      )
-    })
+    // 显示所有视频文件，从视频文件所在的文件夹读取关联数据
+    for (const file of visibleFiles) {
+      if (!file.isFile || !isVideoFile(file.name)) continue
 
-    // 处理顶级文件夹
-    topLevelFolders.forEach(folder => {
-      const nFolder = normPath(folder.path)
-      const folderFiles = visibleFiles.filter(
-        f => f.isFile && normPath(f.path).startsWith(nFolder + '/')
-      )
-
-      const hasVideoFiles = folderFiles.some(file => isVideoFile(file.name))
-
-      // 无论有没有视频，文件夹内的文件都标记为已处理，防止漏出
-      folderFiles.forEach(file => {
-        processedPaths.add(file.path)
-      })
-
-      if (folderFiles.length > 0 && hasVideoFiles) {
-        result.push({
-          name: folder.name,
-          path: folder.path,
-          type: 'folder',
-          fileCount: folderFiles.length,
-          files: folderFiles,
-        })
-      }
-    })
-
-    // 处理独立的视频文件
-    const independentVideoFiles = visibleFiles.filter(
-      file =>
-        file.isFile && isVideoFile(file.name) && !processedPaths.has(file.path)
-    )
-
-    independentVideoFiles.forEach(video => {
-      // 获取视频文件所在目录的所有文件（支持 Windows 和 Unix 路径）
+      // 获取视频文件所在目录
       const lastSlashIndex = Math.max(
-        video.path.lastIndexOf('/'),
-        video.path.lastIndexOf('\\')
+        file.path.lastIndexOf('/'),
+        file.path.lastIndexOf('\\')
       )
-      const videoDir = video.path.substring(0, lastSlashIndex)
-      const separator = video.path.includes('\\') ? '\\' : '/'
+      const videoDir = file.path.substring(0, lastSlashIndex)
+      const normVideoDir = normPath(videoDir)
 
-      const sameDirectoryFiles = visibleFiles.filter(file => {
-        const inDirectory = file.path.startsWith(videoDir + separator)
+      // 从索引中获取同目录文件
+      const dirFiles = normFileMap.get(normVideoDir) || []
+      const sameDirectoryFiles = dirFiles.filter(f => {
         const noSubdir =
-          file.path.substring(videoDir.length + 1).indexOf(separator) === -1
-        return file.isFile && inDirectory && noSubdir
+          normPath(f.path).substring(normVideoDir.length + 1).indexOf('/') === -1
+        return f.isFile && noSubdir
       })
 
       // 检测是否已有 NFO、海报和背景图
-      const hasNfo = sameDirectoryFiles.some(file =>
-        file.name.toLowerCase().endsWith('.nfo')
+      const hasNfo = sameDirectoryFiles.some(f =>
+        f.name.toLowerCase().endsWith('.nfo')
       )
       const hasPoster = sameDirectoryFiles.some(
-        file =>
-          file.name.toLowerCase().includes('poster') ||
-          file.name.toLowerCase() === 'poster.jpg'
+        f =>
+          f.name.toLowerCase().includes('poster') ||
+          f.name.toLowerCase() === 'poster.jpg'
       )
       const hasFanart = sameDirectoryFiles.some(
-        file =>
-          file.name.toLowerCase().includes('fanart') ||
-          file.name.toLowerCase().includes('backdrop') ||
-          file.name.toLowerCase() === 'fanart.jpg'
+        f =>
+          f.name.toLowerCase().includes('fanart') ||
+          f.name.toLowerCase().includes('backdrop') ||
+          f.name.toLowerCase() === 'fanart.jpg'
       )
 
       result.push({
-        name: video.name,
-        path: video.path,
+        id: makeId(file.path),
+        name: file.name,
+        path: file.path,
         type: 'video',
-        size: video.size,
+        size: file.size,
         files: sameDirectoryFiles,
         hasNfo,
         hasPoster,
         hasFanart,
       })
-    })
+    }
 
+    result.sort(compareItems)
     return result
   }
 
@@ -183,15 +171,18 @@ export const useFileManagement = () => {
           size: number
           isDirectory: boolean
           isFile: boolean
+          mtime: number
         }
 
         scanProgress.value.found++
         allFiles.push({
+          id: makeId(fullPath),
           name: item.name,
           path: fullPath,
           size: stat.size,
           isDirectory: stat.isDirectory,
           isFile: stat.isFile,
+          mtime: stat.mtime,
         })
 
         // 如果是目录，递归读取
@@ -247,7 +238,9 @@ export const useFileManagement = () => {
   }
 
   /**
-   * 刷新文件列表（增量更新）
+   * 刷新文件列表
+   * - 有缓存数据时：增量刷新（只扫描顶层目录，按 ID + mtime/size 检测变化）
+   * - 无缓存数据时：全量扫描
    */
   const refreshFiles = async (): Promise<void> => {
     if (!currentDirectoryPath.value) {
@@ -260,6 +253,12 @@ export const useFileManagement = () => {
       return
     }
 
+    // 有数据时走增量刷新
+    if (fileData.value.length > 0) {
+      return refreshFilesIncremental()
+    }
+
+    // 无数据时全量扫描
     try {
       dirLoading.value = true
       scanProgress.value = { found: 0, active: true }
@@ -270,7 +269,6 @@ export const useFileManagement = () => {
       scanProgress.value = { found: fileList.length, active: false }
       saveToCache()
 
-      // 只在文件数量变化较大时显示提示
       const fileCount = fileList.length
       if (fileCount > 0) {
         message.success(`刷新完成：找到 ${fileCount} 个文件`)
@@ -285,7 +283,7 @@ export const useFileManagement = () => {
   }
 
   /**
-   * 增量刷新文件列表（只更新变化的文件）
+   * 增量刷新文件列表（基于 ID + mtime/size 只更新变化的文件）
    */
   const refreshFilesIncremental = async (): Promise<void> => {
     if (!currentDirectoryPath.value) {
@@ -300,53 +298,38 @@ export const useFileManagement = () => {
 
     try {
       dirLoading.value = true
-      // 移除刷新中的提示，避免频繁提醒
 
       const newFiles = await readDirectoryRecursive(currentDirectoryPath.value)
       const oldFiles = fileData.value
 
-      // 创建旧文件的映射（按路径）
-      const oldFileMap = new Map(oldFiles.map(f => [f.path, f]))
-
-      // 创建新文件的映射（按路径）
-      const newFileMap = new Map(newFiles.map(f => [f.path, f]))
+      // 按 ID 索引旧文件（O(1) 查找）
+      const oldById = new Map(oldFiles.map(f => [f.id, f]))
 
       let addedCount = 0
       let updatedCount = 0
       let removedCount = 0
 
-      // 找出新增和更新的文件
-      const updatedFiles: FileItem[] = []
-
-      for (const newFile of newFiles) {
-        const oldFile = oldFileMap.get(newFile.path) as FileItem | undefined
-
-        if (!oldFile) {
-          // 新增文件
-          updatedFiles.push(newFile)
+      // 用同一引用的对象替换变化的项，保留未变化的旧引用（减少 Vue 重渲染）
+      const result: FileItem[] = new Array(newFiles.length)
+      for (let i = 0; i < newFiles.length; i++) {
+        const nf = newFiles[i]
+        const of_ = oldById.get(nf.id)
+        if (!of_) {
+          result[i] = nf
           addedCount++
-        } else if ((oldFile as any).mtime !== (newFile as any).mtime) {
-          // 文件已修改
-          updatedFiles.push(newFile)
+        } else if (of_.mtime !== nf.mtime || of_.size !== nf.size) {
+          result[i] = nf
           updatedCount++
         } else {
-          // 文件未变化，保留旧文件
-          updatedFiles.push(oldFile)
+          result[i] = of_ // 保留旧引用，Vue 不触发重渲染
         }
       }
 
-      // 找出删除的文件
-      for (const oldFile of oldFiles) {
-        if (!newFileMap.has(oldFile.path)) {
-          removedCount++
-        }
-      }
+      removedCount = oldById.size - newFiles.length + addedCount
 
-      // 更新文件数据
-      fileData.value = updatedFiles
+      fileData.value = result
       saveToCache()
 
-      // 只在有实际变化时显示提示
       if (addedCount > 0 || updatedCount > 0 || removedCount > 0) {
         message.success(
           `增量刷新完成：新增 ${addedCount}，更新 ${updatedCount}，删除 ${removedCount}`
@@ -400,13 +383,16 @@ export const useFileManagement = () => {
           size: number
           isDirectory: boolean
           isFile: boolean
+          mtime: number
         }
         newFiles.push({
+          id: makeId(fullPath),
           name: item.name,
           path: fullPath,
           size: stat.size,
           isDirectory: stat.isDirectory,
           isFile: stat.isFile,
+          mtime: stat.mtime,
         })
       }
 
@@ -483,7 +469,11 @@ export const useFileManagement = () => {
       const cachedPath = localStorage.getItem('folderContent_currentPath')
 
       if (cachedData && cachedPath) {
-        fileData.value = JSON.parse(cachedData) as FileItem[]
+        const parsed = JSON.parse(cachedData) as FileItem[]
+        // 迁移旧缓存：补全缺失的 id
+        fileData.value = parsed.map(f =>
+          f.id ? f : { ...f, id: makeId(f.path) }
+        )
         currentDirectoryPath.value = cachedPath
         return true
       }

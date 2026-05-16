@@ -2,6 +2,8 @@
  * 处理后的项目接口
  */
 export interface ProcessedItem {
+  /** 唯一标识（基于路径的确定性 ID） */
+  id: string
   /** 项目名称 */
   name: string
   /** 项目路径 */
@@ -34,6 +36,8 @@ export interface ProcessedItem {
  * 文件项接口
  */
 export interface FileItem {
+  /** 唯一标识（基于路径的确定性 ID） */
+  id: string
   /** 文件名 */
   name: string
   /** 完整路径 */
@@ -44,6 +48,8 @@ export interface FileItem {
   isDirectory: boolean
   /** 是否为文件 */
   isFile: boolean
+  /** 修改时间（时间戳） */
+  mtime?: number
 }
 
 /**

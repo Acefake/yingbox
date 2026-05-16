@@ -1,5 +1,4 @@
 import { getImageBaseUrl, getTmdb } from '@/api/tmdb'
-import { searchMetatubeMovie, getMetatubeMovieDetail } from '@/api/metatube'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { backend } from '@/api/backend'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
@@ -174,38 +173,6 @@ export const useScraping = () => {
           ]
         } catch (e) {
           console.error('JavBus 获取元数据失败:', e)
-          return []
-        }
-      }
-
-      // MetaTube 搜索路径：番号不需要 handleSearchParams 清理，直接用原始名称
-      if (provider === 'metatube') {
-        try {
-          const results = await searchMetatubeMovie(searchName)
-          console.log('MetaTube 搜索结果数量:', results.length)
-          if (results.length === 0) return []
-          return results.map(
-            r =>
-              ({
-                id: r.id as any,
-                title: r.title,
-                original_title: r.number || r.title,
-                overview: '',
-                release_date: r.release_date || '',
-                vote_average: r.score || 0,
-                vote_count: 0,
-                poster_path: r.thumb_url || '',
-                backdrop_path: r.cover_url || '',
-                adult: false,
-                genre_ids: [],
-                original_language: 'ja',
-                popularity: 0,
-                video: false,
-                _metatube: { id: r.id, provider: r.provider },
-              }) as any as Movie
-          )
-        } catch (e) {
-          console.error('MetaTube 搜索失败:', e)
           return []
         }
       }
@@ -599,124 +566,58 @@ ${actressXml}
         return
       }
 
-      // MetaTube: 获取完整详情（包含演员/导演等）
-      const metaInfo = (movieData as any)._metatube as
-        | { id: string; provider: string }
-        | undefined
-      console.log(
-        '[scrapeMovieInFolder] _metatube:',
-        metaInfo,
-        '| movie.id:',
-        movieData.id,
-        '| title:',
-        movieData.title
-      )
-      if (metaInfo) {
-        progressCallback?.('正在获取 MetaTube 电影详情...', 0)
+      // TMDB: 获取完整电影详情（类型名称/时长/制片国家/制片公司/背景图）
+      if (movieData.id) {
+        progressCallback?.('正在获取电影详情...', 0)
         try {
-          const detail = await getMetatubeMovieDetail(
-            metaInfo.provider,
-            metaInfo.id
-          )
-          if (detail) {
-            if (detail.thumb_url && !movieData.poster_path)
-              movieData.poster_path = detail.thumb_url
-            if (detail.cover_url && !movieData.backdrop_path)
-              movieData.backdrop_path = detail.cover_url
-            ;(movieData as any).genres = (detail.genres || []).map(
-              (g: string) => ({ id: 0, name: g })
-            )
-            ;(movieData as any).runtime = detail.runtime || 0
-            ;(movieData as any).production_companies = detail.studio
-              ? [{ name: detail.studio }]
-              : []
-            ;(movieData as any).directors = detail.director
-              ? [{ name: detail.director, profile_path: '' }]
-              : []
-            ;(movieData as any).cast = (detail.actors || []).map((a: any) => ({
-              name: typeof a === 'string' ? a : a.name || String(a),
-              profile_path: typeof a === 'string' ? '' : a.thumb_url || '',
-            }))
-            if (!movieData.overview && detail.summary)
-              movieData.overview = detail.summary
-            console.log('MetaTube 详情获取成功')
+          const details = (await getTmdb().movies.details(
+            movieData.id as number
+          )) as any
+          if (details.backdrop_path && !movieData.backdrop_path) {
+            movieData.backdrop_path = `${getImageBaseUrl('backdrop')}${details.backdrop_path}`
           }
+          ;(movieData as any).genres = details.genres || []
+          ;(movieData as any).runtime = details.runtime || 0
+          ;(movieData as any).production_countries =
+            details.production_countries || []
+          ;(movieData as any).production_companies =
+            details.production_companies || []
+          console.log('获取电影详情成功', {
+            genres: details.genres,
+            runtime: details.runtime,
+          })
         } catch (e) {
-          console.warn('MetaTube 详情获取失败:', e)
+          console.warn('获取电影详情失败:', e)
         }
-        // MetaTube 演员照片下载（如有）
-        const cast = (movieData as any).cast || []
-        if (cast.length > 0) {
-          progressCallback?.('正在下载演员照片...', 4)
-          const actorsDir = await window.api.path.join(folderPath, '.actors')
-          await window.api.file.mkdir(actorsDir)
-          for (const actor of cast) {
-            if (actor.profile_path) {
-              const safeActorName = actor.name
-                .replace(/[<>:"/\\|?*]/g, '')
-                .trim()
-              const photoPath = await window.api.path.join(
-                actorsDir,
-                `${safeActorName}.jpg`
-              )
-              await downloadWithRetry(actor.profile_path, photoPath)
-            }
-          }
-        }
-      } else {
-        // TMDB: 获取完整电影详情（类型名称/时长/制片国家/制片公司/背景图）
-        if (movieData.id) {
-          progressCallback?.('正在获取电影详情...', 0)
-          try {
-            const details = (await getTmdb().movies.details(
-              movieData.id as number
-            )) as any
-            if (details.backdrop_path && !movieData.backdrop_path) {
-              movieData.backdrop_path = `${getImageBaseUrl('backdrop')}${details.backdrop_path}`
-            }
-            ;(movieData as any).genres = details.genres || []
-            ;(movieData as any).runtime = details.runtime || 0
-            ;(movieData as any).production_countries =
-              details.production_countries || []
-            ;(movieData as any).production_companies =
-              details.production_companies || []
-            console.log('获取电影详情成功', {
-              genres: details.genres,
-              runtime: details.runtime,
-            })
-          } catch (e) {
-            console.warn('获取电影详情失败:', e)
-          }
-        }
+      }
 
-        const { directors, cast } = await getMovieCredits(movieData.id)
-        console.log('演职员信息:', { directors, cast })
-        ;(movieData as any).directors = directors
-        ;(movieData as any).cast = cast
+      const { directors, cast } = await getMovieCredits(movieData.id)
+      console.log('演职员信息:', { directors, cast })
+      ;(movieData as any).directors = directors
+      ;(movieData as any).cast = cast
 
-        // 下载演员照片到 .actors 文件夹
-        if (cast.length > 0) {
-          progressCallback?.('正在下载演员照片...', 4)
-          const actorsDir = await window.api.path.join(folderPath, '.actors')
-          await window.api.file.mkdir(actorsDir)
-          for (const actor of cast) {
-            if (actor.profile_path) {
-              const photoUrl = actor.profile_path.startsWith('http')
-                ? actor.profile_path
-                : `${getImageBaseUrl('actor')}${actor.profile_path}`
-              const safeActorName = actor.name
-                .replace(/[<>:"/\\|?*]/g, '')
-                .trim()
-              const photoPath = await window.api.path.join(
-                actorsDir,
-                `${safeActorName}.jpg`
-              )
-              const result = await downloadWithRetry(photoUrl, photoPath)
-              if (result.success) {
-                console.log(`演员照片下载成功: ${actor.name}`)
-              } else {
-                console.warn(`演员照片下载失败: ${actor.name}`)
-              }
+      // 下载演员照片到 .actors 文件夹
+      if (cast.length > 0) {
+        progressCallback?.('正在下载演员照片...', 4)
+        const actorsDir = await window.api.path.join(folderPath, '.actors')
+        await window.api.file.mkdir(actorsDir)
+        for (const actor of cast) {
+          if (actor.profile_path) {
+            const photoUrl = actor.profile_path.startsWith('http')
+              ? actor.profile_path
+              : `${getImageBaseUrl('actor')}${actor.profile_path}`
+            const safeActorName = actor.name
+              .replace(/[<>:"/\\|?*]/g, '')
+              .trim()
+            const photoPath = await window.api.path.join(
+              actorsDir,
+              `${safeActorName}.jpg`
+            )
+            const result = await downloadWithRetry(photoUrl, photoPath)
+            if (result.success) {
+              console.log(`演员照片下载成功: ${actor.name}`)
+            } else {
+              console.warn(`演员照片下载失败: ${actor.name}`)
             }
           }
         }

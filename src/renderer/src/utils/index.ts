@@ -7,11 +7,11 @@
 export function throttle<T extends (...args: any[]) => any>(
   fn: T,
   delay: number
-): (...args: Parameters<T>) => void {
+): (this: any, ...args: Parameters<T>) => void {
   let lastTime = 0
   let timer: NodeJS.Timeout | null = null
 
-  return function (...args: Parameters<T>) {
+  return function (this: any, ...args: Parameters<T>) {
     const now = Date.now()
 
     // 清除之前的定时器

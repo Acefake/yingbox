@@ -268,7 +268,7 @@
 
 <script setup lang="ts">
 import { computed } from 'vue'
-import TVInfo from '@/views/tv/components/TVInfo.vue'
+import TVInfo from '@/views/TV/components/TVInfo.vue'
 import type { ProcessedItem, TVShowInfoType, SeasonInfo } from '@/types'
 
 interface Props {

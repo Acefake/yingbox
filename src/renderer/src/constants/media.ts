@@ -14,6 +14,9 @@ export const VIDEO_EXTENSIONS = [
   '.m4v',
 ] as const
 
+// 视频扩展名 Set（O(1) 查找）
+export const VIDEO_EXTENSIONS_SET = new Set(VIDEO_EXTENSIONS)
+
 // 图片文件扩展名
 export const IMAGE_EXTENSIONS = [
   '.jpg',
@@ -23,6 +26,9 @@ export const IMAGE_EXTENSIONS = [
   '.gif',
   '.bmp',
 ] as const
+
+// 图片扩展名 Set（O(1) 查找）
+export const IMAGE_EXTENSIONS_SET = new Set<string>(IMAGE_EXTENSIONS)
 
 // NFO 文件扩展名
 export const NFO_EXTENSION = '.nfo'

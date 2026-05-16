@@ -1,6 +1,6 @@
 <template>
   <!-- 应用主布局容器 -->
-  <div class="app-layout h-screen w-screen overflow-hidden bg-gray-900">
+  <div class="app-layout h-screen w-screen overflow-hidden">
     <!-- 顶部毛玻璃菜单栏 -->
     <header class="top-menu">
       <div class="menu-content">
@@ -121,7 +121,7 @@
     </header>
 
     <!-- 主内容区域 -->
-    <main class="main-content" style="position: relative; z-index: 0">
+    <main class="main-content" style="position: relative; z-index: 10">
       <slot />
     </main>
 
@@ -137,39 +137,30 @@
       @close="sourcePanelVisible = false"
     />
 
-    <!-- 默认背景图 -->
-    <img
-      :src="bgImg"
-      class="w-full h-full object-cover opacity-20 transition-opacity duration-300 fixed inset-0"
-      style="z-index: -2"
-      alt="背景图片"
-    />
-
-    <!-- 全屏背景艺术图 -->
+    <!-- 统一背景层 -->
     <div
-      v-if="globalBackgroundImage"
-      class="fixed inset-0 transition-opacity duration-500"
+      class="fixed inset-0 transition-all duration-500"
       :style="{
-        zIndex: -2,
-        backgroundImage: `linear-gradient(to bottom, rgba(0,0,0,0.4) 0%, rgba(0,0,0,0.6) 30%, rgba(0,0,0,0.85) 70%, rgba(17,24,39,1) 100%), url(${globalBackgroundImage})`,
+        zIndex: 0,
+        backgroundImage: globalBackgroundImage
+          ? `linear-gradient(to bottom, rgba(30, 30, 30, 0.7) 0%, rgba(30, 30, 30, 0.85) 100%), url(${globalBackgroundImage})`
+          : `linear-gradient(to bottom, rgba(30, 30, 30, 0.85) 0%, rgba(30, 30, 30, 0.95) 100%), url(${bgImg})`,
         backgroundSize: 'cover',
         backgroundPosition: 'center',
         backgroundRepeat: 'no-repeat',
-        filter: 'blur(12px)',
-        transform: 'scale(1.1)',
+        filter: 'blur(12px) scale(1.1)',
       }"
     ></div>
-    <!-- 额外的暗色遮罩层增强效果 -->
+    <!-- 额外模糊遮罩层 -->
     <div
-      v-if="globalBackgroundImage"
-      class="fixed inset-0 bg-black/40 pointer-events-none"
-      style="z-index: -1"
+      class="fixed inset-0 pointer-events-none"
+      style="z-index: 1; background: rgba(30, 30, 30, 0.25); backdrop-filter: blur(8px);"
     ></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { provide, ref } from 'vue'
+import { provide, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
 import logo from '@/assets/imgs/logo.svg'
@@ -216,6 +207,16 @@ provide('appLayoutMethods', {
   setGlobalBackground,
   clearGlobalBackground,
 })
+
+// 监听路由变化，切换到在线观看或AV资源时清除背景
+watch(
+  () => route.name,
+  (newRouteName) => {
+    if (newRouteName === 'Online' || newRouteName === 'AV') {
+      clearGlobalBackground()
+    }
+  }
+)
 
 /**
  * 导航到指定路由
@@ -327,6 +328,9 @@ const scheduleScraper = () => {
   align-items: center;
   justify-content: center;
   flex: 1;
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
   -webkit-app-region: no-drag;
 }
 

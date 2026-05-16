@@ -138,44 +138,14 @@
           </div>
         </div>
 
-        <!-- 多选模式按钮 -->
+        <!-- 一键刮削所有未元数据项 -->
         <button
-          class="w-full py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95"
-          :class="
-            isMultiSelectMode
-              ? 'bg-orange-500/70 hover:bg-orange-500/90 text-white'
-              : 'bg-gray-700/60 hover:bg-gray-600/70 text-gray-100'
-          "
-          @click="$emit('toggleMultiSelect')"
+          v-if="mode !== 'tv' && unscrapedCount > 0"
+          class="w-full py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 bg-amber-600/60 hover:bg-amber-600/80 text-white"
+          @click="$emit('scrapeAll')"
         >
-          {{ isMultiSelectMode ? '退出多选' : '多选模式' }}
+          一键刮削 ({{ unscrapedCount }})
         </button>
-
-        <!-- 多选操作行 -->
-        <div v-if="isMultiSelectMode" class="flex gap-1.5">
-          <button
-            class="flex-1 py-1.5 bg-blue-600 bg-opacity-60 hover:bg-opacity-80 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95"
-            @click="$emit('toggleSelectAll')"
-          >
-            {{
-              (selectedItemsCount ?? 0) >= processedItems.length
-                ? '取消全选'
-                : '全选'
-            }}
-          </button>
-          <button
-            class="flex-1 py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95"
-            :class="
-              (selectedItemsCount ?? 0) > 0
-                ? 'bg-green-600 bg-opacity-70 hover:bg-opacity-90 text-white'
-                : 'bg-gray-600 bg-opacity-40 text-gray-500 cursor-not-allowed'
-            "
-            :disabled="!selectedItemsCount || selectedItemsCount === 0"
-            @click="$emit('addSelectedToQueue')"
-          >
-            批量刮削 ({{ selectedItemsCount ?? 0 }})
-          </button>
-        </div>
       </div>
     </div>
 
@@ -196,16 +166,11 @@
           :index="index"
           :selected-index="selectedIndex"
           :selected-path="selectedPath"
-          :is-multi-select-mode="isMultiSelectMode"
-          :is-selected="selectedItems?.has(item.path) || false"
           @select="
             (item: ProcessedItem, rootItem: ProcessedItem) =>
               $emit('selectItem', item, rootItem)
           "
           @preload="(item: ProcessedItem) => $emit('preload', item)"
-          @toggle-selection="
-            (item: ProcessedItem) => $emit('toggleSelection', item)
-          "
           @auto-scrape="(item: ProcessedItem) => $emit('autoScrape', item)"
           @direct-scrape="(item: ProcessedItem) => $emit('directScrape', item)"
           @manual-scrape="(item: ProcessedItem) => $emit('manualScrape', item)"
@@ -219,16 +184,12 @@
           :item="item"
           :index="index"
           :selected-index="selectedIndex"
-          :is-multi-select-mode="isMultiSelectMode"
-          :is-selected="selectedItems?.has(item.path) || false"
+          :selected-path="selectedPath"
           @select="$emit('selectItem', item, index)"
           @show-search-modal="item => $emit('showSearchModal', item)"
           @manual-scrape="item => $emit('manualScrape', item)"
           @auto-scrape="item => $emit('autoScrape', item)"
           @direct-scrape="item => $emit('directScrape', item)"
-          @toggle-selection="
-            (item: ProcessedItem) => $emit('toggleSelection', item)
-          "
           @preload="(item: ProcessedItem) => $emit('preload', item)"
           @local-scrape="(item: ProcessedItem) => $emit('localScrape', item)"
           @download-video="
@@ -236,6 +197,7 @@
           "
           @fetch-meta="(item: ProcessedItem) => $emit('fetchMeta', item)"
           @play="(item: ProcessedItem) => $emit('play', item)"
+          @delete-file="(item: ProcessedItem) => $emit('deleteFile', item)"
         />
       </template>
     </div>
@@ -244,16 +206,13 @@
 
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
-import FileTreeItem from '@/views/movie/components/FileTreeItem.vue'
-import TVFileTreeItem from '@/views/tv/components/TVFileTreeItem.vue'
+import FileTreeItem from '@/views/Movie/components/FileTreeItem.vue'
+import TVFileTreeItem from '@/views/TV/components/TVFileTreeItem.vue'
 import { ProcessedItem } from '@/types'
 interface Props {
   processedItems: ProcessedItem[]
   selectedIndex: number
   dirLoading: boolean
-  isMultiSelectMode?: boolean
-  selectedItems?: Set<string>
-  selectedItemsCount?: number
   mode?: 'movie' | 'tv'
   directoryPaths?: string[]
   scanProgress?: { found: number; active: boolean }
@@ -299,14 +258,6 @@ defineEmits<{
   autoScrape: [item: ProcessedItem]
   /** 直接刮削 */
   directScrape: [item: ProcessedItem]
-  /** 切换多选模式 */
-  toggleMultiSelect: []
-  /** 切换全选 */
-  toggleSelectAll: []
-  /** 批量添加到队列 */
-  addSelectedToQueue: []
-  /** 切换选择 */
-  toggleSelection: [item: ProcessedItem]
   /** 鼠标悬停预加载 */
   preload: [item: ProcessedItem]
   /** 本地刮削 */
@@ -317,36 +268,68 @@ defineEmits<{
   fetchMeta: [item: ProcessedItem]
   /** 播放 */
   play: [item: ProcessedItem]
+  /** 删除文件 */
+  deleteFile: [item: ProcessedItem]
+  /** 一键刮削所有未元数据项 */
+  scrapeAll: []
 }>()
 
 /**
  * 过滤后的项目列表
- * 根据搜索关键词过滤processedItems
+ * 使用节流优化搜索性能
  */
 const filteredItems = computed(() => {
   if (!searchQuery.value.trim()) {
     return props.processedItems
   }
 
-  const query = searchQuery.value.toLowerCase().trim()
+  const query = searchQuery.value.toLowerCase()
+  const items = props.processedItems
+  const len = items.length
+  const result: ProcessedItem[] = []
 
-  return props.processedItems.filter(item => {
-    // 按名称搜索
-    if (item.name.toLowerCase().includes(query)) {
-      return true
+  // 预分配结果数组，减少内存分配
+  for (let i = 0; i < len; i++) {
+    const item = items[i]
+    const name = item.name.toLowerCase()
+
+    // 快速路径：名称匹配
+    if (name.includes(query)) {
+      result.push(item)
+      continue
     }
 
-    // 按路径搜索
+    // 路径匹配
     if (item.path.toLowerCase().includes(query)) {
-      return true
+      result.push(item)
+      continue
     }
 
-    // 如果是文件夹，搜索其中的文件
+    // 文件夹内文件匹配
     if (item.type === 'folder' && item.files) {
-      return item.files.some(file => file.name.toLowerCase().includes(query))
+      const files = item.files
+      for (let j = 0; j < files.length; j++) {
+        if (files[j].name.toLowerCase().includes(query)) {
+          result.push(item)
+          break
+        }
+      }
     }
+  }
 
-    return false
-  })
+  return result
+})
+
+/** 未刮削项数量（没有 NFO 文件的项） */
+const unscrapedCount = computed(() => {
+  const items = props.processedItems
+  let count = 0
+  for (let i = 0; i < items.length; i++) {
+    const item = items[i]
+    if (!item.files || !item.files.some(f => f.name.toLowerCase().endsWith('.nfo'))) {
+      count++
+    }
+  }
+  return count
 })
 </script>
