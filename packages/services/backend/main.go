@@ -217,9 +217,24 @@ func main() {
 	}
 	logger.Printf("Python scripts dir: %s", scriptsDir)
 
-	// 2. 提取嵌入的 Python 脚本
+	// 2. 提取嵌入的 Python 脚本（尝试主目录，失败则回退到用户目录）
 	if err := extractScripts(scriptsDir); err != nil {
-		logger.Fatalf("Failed to extract Python scripts: %v", err)
+		logger.Printf("Warning: failed to extract to %s: %v", scriptsDir, err)
+		// 回退到用户 AppData 目录
+		if home, herr := os.UserHomeDir(); herr == nil {
+			fallbackDir := filepath.Join(home, ".yingbox", "py")
+			if ferr := os.MkdirAll(fallbackDir, 0755); ferr == nil {
+				if err := extractScripts(fallbackDir); err != nil {
+					logger.Fatalf("Failed to extract Python scripts to fallback: %v", err)
+				}
+				scriptsDir = fallbackDir
+				logger.Printf("Using fallback scripts dir: %s", scriptsDir)
+			} else {
+				logger.Fatalf("Failed to create fallback directory: %v", ferr)
+			}
+		} else {
+			logger.Fatalf("Failed to get home directory: %v", herr)
+		}
 	}
 
 	// 3. 初始化缓存（失败时继续启动，使用空缓存）
@@ -581,12 +596,29 @@ func addVideoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	logger.Printf("Received ID: %s\n", id)
 
-	db, err := sql.Open("sqlite", filepath.Join(scriptsDir, "db", "downloaded.db"))
+	dbDir := filepath.Join(scriptsDir, "db")
+	dbPath := filepath.Join(dbDir, "downloaded.db")
+
+	// 确保数据库目录存在
+	if err := os.MkdirAll(dbDir, 0755); err != nil {
+		logger.Printf("Failed to create db directory: %v", err)
+		httpError(w, "db directory creation failed", http.StatusInternalServerError)
+		return
+	}
+
+	db, err := sql.Open("sqlite", dbPath)
 	if err != nil {
 		httpError(w, "db open failed", http.StatusInternalServerError)
 		return
 	}
 	defer db.Close()
+
+	// 确保数据库表存在
+	if err := initDB(db); err != nil {
+		logger.Printf("Failed to init database: %v", err)
+		httpError(w, "db init failed", http.StatusInternalServerError)
+		return
+	}
 
 	exists, err := checkStringExists(db, id)
 	if err != nil {
@@ -610,6 +642,16 @@ func addVideoHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(response))
+}
+
+func initDB(db *sql.DB) error {
+	query := `
+	CREATE TABLE IF NOT EXISTS MissAV (
+		bvid TEXT PRIMARY KEY,
+		downloaded_at DATETIME DEFAULT CURRENT_TIMESTAMP
+	)`
+	_, err := db.Exec(query)
+	return err
 }
 
 func checkStringExists(db *sql.DB, target string) (bool, error) {

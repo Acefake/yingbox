@@ -2,6 +2,30 @@ import { ref } from 'vue'
 import { ProcessedItem, FileItem } from '@/types'
 import { message } from 'ant-design-vue'
 
+/** 基于路径生成确定性 ID（轻量 hash） */
+const makeId = (path: string): string => {
+  let h = 0
+  for (let i = 0; i < path.length; i++) {
+    h = ((h << 5) - h + path.charCodeAt(i)) | 0
+  }
+  return `f${(h >>> 0).toString(36)}`
+}
+
+/** 名称排序比较器：文件夹优先，然后按名称字母序 */
+const compareItems = (a: ProcessedItem, b: ProcessedItem): number => {
+  if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
+  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+}
+
+/** 递归排序子项 */
+const sortTree = (items: ProcessedItem[]): ProcessedItem[] => {
+  items.sort(compareItems)
+  for (const item of items) {
+    if (item.children) sortTree(item.children)
+  }
+  return items
+}
+
 export const useTVFileManagement = () => {
   const fileData = ref<ProcessedItem[]>([])
   const directoryPaths = ref<string[]>([])
@@ -98,15 +122,18 @@ export const useTVFileManagement = () => {
           size: number
           isDirectory: boolean
           isFile: boolean
+          mtime: number
         }
 
         scanProgress.value.found++
         allFiles.push({
+          id: makeId(fullPath),
           name: item.name,
           path: fullPath,
           size: stat.size,
           isDirectory: stat.isDirectory,
           isFile: stat.isFile,
+          mtime: stat.mtime,
         })
 
         // 如果是目录，递归读取
@@ -199,7 +226,7 @@ export const useTVFileManagement = () => {
       )
     })
 
-    return finalRoots.map(root => buildTVTree(root, files))
+    return sortTree(finalRoots.map(root => buildTVTree(root, files)))
   }
 
   /**
@@ -226,6 +253,7 @@ export const useTVFileManagement = () => {
     const videoFiles = childrenFiles
       .filter(f => f.isFile && isVideoFile(f.name))
       .map(f => ({
+        id: makeId(f.path),
         name: f.name,
         path: f.path,
         type: 'video' as const,
@@ -238,6 +266,7 @@ export const useTVFileManagement = () => {
     const isSeason = isTVSeasonFolder(folder.name)
 
     return {
+      id: makeId(folder.path),
       name: folder.name,
       path: folder.path,
       type: 'folder',
@@ -261,7 +290,7 @@ export const useTVFileManagement = () => {
           (f.name.toLowerCase() === 'fanart.jpg' ||
             f.name.toLowerCase() === 'backdrop.jpg')
       ),
-      children: [...seasons, ...videoFiles],
+      children: sortTree([...seasons, ...videoFiles]),
     }
   }
 
@@ -622,7 +651,15 @@ export const useTVFileManagement = () => {
       if (dirs) directoryPaths.value = JSON.parse(dirs)
       const cached = localStorage.getItem('tvFileData')
       if (cached) {
-        fileData.value = JSON.parse(cached)
+        const parsed = JSON.parse(cached) as ProcessedItem[]
+        // 迁移旧缓存：补全缺失的 id
+        const migrate = (items: ProcessedItem[]): ProcessedItem[] =>
+          items.map(item => ({
+            ...item,
+            id: item.id || makeId(item.path),
+            children: item.children ? migrate(item.children) : undefined,
+          }))
+        fileData.value = migrate(parsed)
         return true
       }
     } catch (error) {

@@ -186,29 +186,17 @@ export const useMediaProcessing = (selectedItem: any) => {
     return null
   })
 
-  /** 通过 IPC 读取图片为 base64 data URL */
-  const loadPosterImage = async (): Promise<void> => {
-    if (!posterImagePath.value) {
-      posterImageDataUrl.value = ''
-      return
-    }
-    const result = await window.api.file
-      .readImage(posterImagePath.value)
-      .catch(() => ({ success: false, data: null }) as any)
-    posterImageDataUrl.value =
-      result.success && result.data ? (result.data as string) : ''
+  /** 使用 local:// URL 直接加载图片（零 IPC，浏览器直接读取本地文件） */
+  const loadPosterImage = (): void => {
+    posterImageDataUrl.value = posterImagePath.value
+      ? toLocalUrl(posterImagePath.value)
+      : ''
   }
 
-  const loadFanartImage = async (): Promise<void> => {
-    if (!fanartImagePath.value) {
-      fanartImageDataUrl.value = ''
-      return
-    }
-    const result = await window.api.file
-      .readImage(fanartImagePath.value)
-      .catch(() => ({ success: false, data: null }) as any)
-    fanartImageDataUrl.value =
-      result.success && result.data ? (result.data as string) : ''
+  const loadFanartImage = (): void => {
+    fanartImageDataUrl.value = fanartImagePath.value
+      ? toLocalUrl(fanartImagePath.value)
+      : ''
   }
 
   /**
@@ -393,10 +381,10 @@ export const useMediaProcessing = (selectedItem: any) => {
     actors.value = results
   }
 
-  // 图片路径变化时同步更新（无 IPC，无需 debounce）
+  // 图片路径变化时同步更新（local:// URL，零 IPC）
   watch(posterImagePath, loadPosterImage, { immediate: true })
   watch(fanartImagePath, loadFanartImage, { immediate: true })
-  // NFO 和演员照片走 debounce（仍需 IPC 读文件）
+  // NFO 走 debounce（仍需 IPC 读文件）
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
   watch(
     () => selectedItem.value,
@@ -406,7 +394,14 @@ export const useMediaProcessing = (selectedItem: any) => {
     },
     { immediate: true }
   )
-  watch(movieInfo, loadActorPhotos)
+  // 演员照片延迟到空闲时间加载，不阻塞 UI
+  watch(movieInfo, () => {
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(() => loadActorPhotos())
+    } else {
+      setTimeout(() => loadActorPhotos(), 50)
+    }
+  })
 
   return {
     // 状态

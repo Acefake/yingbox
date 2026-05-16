@@ -14,7 +14,7 @@ const router = createRouter({
   history: createWebHashHistory(),
   routes,
   // 滚动行为配置
-  scrollBehavior(to, from, savedPosition) {
+  scrollBehavior(_to, _from, savedPosition) {
     if (savedPosition) {
       return savedPosition
     } else {
@@ -30,7 +30,7 @@ const router = createRouter({
 router.beforeEach((to, _from, next) => {
   // 设置页面标题
   if (to.meta?.title) {
-    document.title = `PosterScraper - ${to.meta.title}`
+    document.title = `影盒 - ${to.meta.title}`
   }
   next()
 })

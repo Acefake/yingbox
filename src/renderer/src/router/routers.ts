@@ -8,7 +8,7 @@ export const routes = [
   {
     path: '/',
     name: 'Online',
-    component: () => import('@/views/online/Index.vue'),
+    component: () => import('@/views/online/index.vue'),
     meta: {
       title: '在线',
       description: '在线搜索与播放',
@@ -26,7 +26,7 @@ export const routes = [
   {
     path: '/movie',
     name: 'Movie',
-    component: () => import('@/views/movie/Index.vue'),
+    component: () => import('@/views/Movie/index.vue'),
     meta: {
       title: '电影',
       description: '电影文件管理和刮削功能',
@@ -35,7 +35,7 @@ export const routes = [
   {
     path: '/tv',
     name: 'TV',
-    component: () => import('@/views/tv/Index.vue'),
+    component: () => import('@/views/TV/index.vue'),
     meta: {
       title: 'TV',
       description: 'TV文件管理和刮削功能',
@@ -44,7 +44,7 @@ export const routes = [
   {
     path: '/av',
     name: 'AV',
-    component: () => import('@/views/av/Index.vue'),
+    component: () => import('@/views/av/index.vue'),
     meta: {
       title: 'AV资源',
       description: '成人资源在线播放',

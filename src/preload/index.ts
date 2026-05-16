@@ -130,6 +130,15 @@ const api = {
       filePath: string
       error?: string
     }> => ipcRenderer.invoke('dialog:saveFile', options),
+
+    // Select directory (returns single path)
+    selectDirectory: (): Promise<string | null> =>
+      ipcRenderer.invoke('dialog:selectDirectory'),
+  },
+  config: {
+    // Set download path
+    setDownloadPath: (path: string): Promise<void> =>
+      ipcRenderer.invoke('config:setDownloadPath', path),
   },
   app: {
     // Get app version info from package.json

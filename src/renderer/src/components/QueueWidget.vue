@@ -168,11 +168,27 @@
               <!-- 信息 -->
               <div class="task-info">
                 <div class="task-name">{{ item.name }}</div>
+                <!-- 步骤进度条 -->
+                <div v-if="item.steps?.length && item.status === 'processing'" class="task-steps">
+                  <span
+                    v-for="(step, si) in item.steps"
+                    :key="si"
+                    class="step-dot"
+                    :class="{ done: step.done }"
+                    :title="step.name"
+                  ></span>
+                </div>
                 <div
-                  v-if="item.status === 'processing' && item.currentStep"
+                  v-else-if="item.status === 'processing' && item.currentStep"
                   class="task-step"
                 >
                   {{ item.currentStep }}
+                </div>
+                <div
+                  v-else-if="item.status === 'pending'"
+                  class="task-step pending"
+                >
+                  等待中
                 </div>
                 <div
                   v-else-if="item.status === 'cancelled'"
@@ -185,6 +201,12 @@
                   class="task-step error"
                 >
                   失败
+                </div>
+                <div
+                  v-else-if="item.status === 'done'"
+                  class="task-step done-text"
+                >
+                  完成
                 </div>
               </div>
 
@@ -591,6 +613,28 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .task-step.error {
   color: #f87171;
+}
+.task-step.pending {
+  color: rgba(255, 255, 255, 0.25);
+}
+.task-step.done-text {
+  color: #34d399;
+}
+
+.task-steps {
+  display: flex;
+  gap: 3px;
+  margin-top: 3px;
+}
+.step-dot {
+  width: 16px;
+  height: 3px;
+  border-radius: 2px;
+  background: rgba(255, 255, 255, 0.12);
+  transition: background 0.2s;
+}
+.step-dot.done {
+  background: #60a5fa;
 }
 
 .type-badge {

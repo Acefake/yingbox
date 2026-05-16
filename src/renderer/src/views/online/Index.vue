@@ -1,25 +1,16 @@
 <template>
   <div class="online-view">
     <div class="tab-nav">
-      <button
-        v-for="tab in tabs"
-        :key="tab.id"
-        class="tab-btn"
-        :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id as 'home' | 'search'"
-      >
+      <button v-for="tab in tabs" :key="tab.id" class="tab-btn" :class="{ active: activeTab === tab.id }"
+        @click="activeTab = tab.id as 'home' | 'search'">
         {{ tab.label }}
       </button>
-      <button class="debug-btn" @click="openVODTest">调试</button>
+      // <button class="debug-btn" @click="openVODTest">调试</button>
     </div>
 
     <!-- 首页 -->
     <div v-show="activeTab === 'home'" class="content-area">
-      <PlayHistory
-        :history="playHistory"
-        @clear="clearPlayHistory"
-        @open="openPlayRecord"
-      />
+      <PlayHistory :history="playHistory" @clear="clearPlayHistory" @open="openPlayRecord" />
       <DoubanSection @open="openDoubanDetail" />
     </div>
 
@@ -58,11 +49,11 @@ const tabs = [
 const activeTab = ref<'home' | 'search'>('home')
 // ─── 详情 / 搜索 ───────────────────────────────────────────
 const openDetailWindow = (item: CmsItem) => {
-  ;(window.api as any).detail.open(JSON.parse(JSON.stringify(item)))
+  ; (window.api as any).detail.open(JSON.parse(JSON.stringify(item)))
 }
 
 const openDoubanDetail = (item: DoubanItem) => {
-  ;(window.api as any).detail.open(
+  ; (window.api as any).detail.open(
     JSON.parse(
       JSON.stringify({
         _source: 'douban',
@@ -155,6 +146,7 @@ const openVODTest = () => {
 .content-area::-webkit-scrollbar {
   width: 4px;
 }
+
 .content-area::-webkit-scrollbar-thumb {
   background: rgba(255, 255, 255, 0.2);
   border-radius: 2px;

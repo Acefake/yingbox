@@ -5,11 +5,9 @@
       <LeftPanel
         :processed-items="processedItems"
         :selected-index="selectedIndex"
+        :selected-path="selectedItem?.path"
         :dir-loading="dirLoading"
         :scan-progress="scanProgress"
-        :is-multi-select-mode="isMultiSelectMode"
-        :selected-items="selectedItems"
-        :selected-items-count="selectedItems.size"
         :directory-paths="currentDirectoryPath ? [currentDirectoryPath] : []"
         @refresh="refreshFiles"
         @remove-directory="clearCacheAndData"
@@ -20,14 +18,12 @@
         @manual-scrape="handleManualScrape"
         @auto-scrape="handleAutoScrape"
         @direct-scrape="handleDirectScrape"
-        @toggle-multi-select="toggleMultiSelectMode"
-        @toggle-select-all="toggleSelectAll"
-        @add-selected-to-queue="batchScrapeSelected"
-        @toggle-selection="toggleItemSelection"
         @local-scrape="handleLocalScrape"
         @download-video="handleDownloadVideo"
         @fetch-meta="handleFetchMeta"
         @play="handlePlay"
+        @delete-file="handleDeleteItem"
+        @scrape-all="handleScrapeAll"
       />
     </div>
 
@@ -52,6 +48,8 @@
           :action-msg="adultActionMsg"
           @scrape="handleAdultScrape"
           @add-to-queue="handleAdultAddToQueue"
+          @play-file="handlePlayFile"
+          @delete-file="handleDeleteFile"
         />
         <!-- 普通模式：使用 RightPanel -->
         <RightPanel
@@ -61,6 +59,8 @@
           :movie-info="movieInfo"
           :fanart-image-data-url="fanartImageDataUrl"
           :actors="actors"
+          @play-file="handlePlayFile"
+          @delete-file="handleDeleteFile"
         />
       </div>
     </div>
@@ -120,24 +120,25 @@ import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { backend, type BackendMeta } from '@/api/backend'
 import { Modal, message } from 'ant-design-vue'
 import { ProcessedItem } from '@/types'
-import RightPanel from '@/views/movie/RightPanel.vue'
-import AdultContentPanel from '@/views/movie/components/AdultContentPanel.vue'
-import LeftPanel from '@/views/movie/components/LeftPanel.vue'
+import RightPanel from '@/views/Movie/RightPanel.vue'
+import AdultContentPanel from '@/views/Movie/components/AdultContentPanel.vue'
+import LeftPanel from '@/views/Movie/components/LeftPanel.vue'
 import MediaSearchModal from '@/components/MediaSearchModal.vue'
 import type { MediaResult } from '@/components/MediaSearchModal.vue'
-import ManualScrapeModal from '@/views/movie/components/ManualScrapeModal.vue'
-import DownloadModal from '@/views/movie/components/DownloadModal.vue'
-import MetaPreviewModal from '@/views/movie/components/MetaPreviewModal.vue'
-import JavBusScrapeModal from '@/views/movie/components/JavBusScrapeModal.vue'
+import ManualScrapeModal from '@/views/Movie/components/ManualScrapeModal.vue'
+import DownloadModal from '@/views/Movie/components/DownloadModal.vue'
+import MetaPreviewModal from '@/views/Movie/components/MetaPreviewModal.vue'
+import JavBusScrapeModal from '@/views/Movie/components/JavBusScrapeModal.vue'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
-import { useScraping } from '@/views/movie/composables/use-scraping'
-import { useFileManagement } from '@/views/movie/composables/use-file-management'
+import { useScraping } from '@/views/Movie/composables/use-scraping'
+import { useFileManagement } from '@/views/Movie/composables/use-file-management'
 import {
   useMediaProcessing,
   bumpScrapeVersion,
-} from '@/views/movie/composables/use-media-processing'
-import { useScrapingTask } from '@/views/movie/composables/use-scraping-task'
+} from '@/views/Movie/composables/use-media-processing'
+import { useScrapingTask } from '@/views/Movie/composables/use-scraping-task'
+import { useGlobalQueue } from '@/composables/use-global-queue'
 
 interface AppLayoutMethods {
   setGlobalBackground: (imageUrl: string, overlayColor: string) => void
@@ -149,7 +150,8 @@ const appLayoutMethods = inject('appLayoutMethods') as
   | undefined
 
 const { searchMovieInfo } = useScraping()
-const { processSingleScrapeTask: processTask } = useScrapingTask()
+const { scrape } = useScrapingTask()
+const { isProcessing: queueActive } = useGlobalQueue()
 
 // 弹窗状态管理
 const showSearchModal = ref(false)
@@ -184,9 +186,6 @@ const downloaderSites = [
 // 左侧边栏状态
 const selectedIndex = ref(-1)
 const leftPanelWidth = ref(280)
-const isMultiSelectMode = ref(false)
-const selectedItems = ref<Set<string>>(new Set())
-const selectedItemsData = ref<ProcessedItem[]>([])
 
 // 文件管理相关状态和方法
 const {
@@ -255,13 +254,118 @@ const localFanarts = computed(() => {
   return fanarts.sort()  // 按名称排序
 })
 
+/**
+ * 检测项目是否已刮削（NFO + 海报 + fanart 均存在）
+ */
+const isAlreadyScraped = (item: ProcessedItem): boolean => {
+  if (!item.files) return false
+  const hasNfo = item.files.some(f => f.name.toLowerCase().endsWith('.nfo'))
+  const hasPoster = item.files.some(f => {
+    const n = f.name.toLowerCase()
+    return n.includes('poster') || n === 'folder.jpg' || n === 'movie.jpg'
+  })
+  const hasFanart = item.files.some(f => {
+    const n = f.name.toLowerCase()
+    return n.includes('fanart') || n.includes('backdrop')
+  })
+  return hasNfo && hasPoster && hasFanart
+}
+
+/**
+ * 从本地 NFO 文件构建 BackendMeta（避免重复网络请求）
+ */
+const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | null> => {
+  if (!item.files) return null
+  const nfoFile = item.files.find(f => f.name.toLowerCase().endsWith('.nfo'))
+  if (!nfoFile) return null
+
+  try {
+    const result = await window.api.file.read(nfoFile.path)
+    if (!result.success || !result.data) return null
+    const content = result.data as string
+
+    // 提取 AV 号
+    const match = item.name.match(/([A-Z]{2,6})[-_]?\s*(\d{2,4})/i)
+    const avid = match ? `${match[1].toUpperCase()}-${match[2]}` : item.name
+
+    const get = (tag: string) => content.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'))?.[1]?.trim() || ''
+    const getAll = (tag: string) => {
+      const re = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'gi')
+      const results: string[] = []
+      let m: RegExpExecArray | null
+      while ((m = re.exec(content)) !== null) results.push(m[1].trim())
+      return results
+    }
+
+    // 从 <actor><name> 块提取演员
+    const actress: Record<string, string> = {}
+    const actorRe = /<actor>([\s\S]*?)<\/actor>/gi
+    let block: RegExpExecArray | null
+    while ((block = actorRe.exec(content)) !== null) {
+      const nameM = block[1].match(/<name>([^<]+)<\/name>/i)
+      const thumbM = block[1].match(/<thumb>([^<]+)<\/thumb>/i)
+      if (nameM) actress[nameM[1].trim()] = thumbM?.[1]?.trim() || ''
+    }
+
+    // 本地 fanart 文件
+    const fanarts: string[] = []
+    for (const f of item.files) {
+      const fn = f.name.toLowerCase()
+      if ((fn.includes('fanart') || fn.includes('backdrop')) && /\.(jpg|jpeg|png|webp)$/i.test(fn)) {
+        fanarts.push(toLocalUrl(f.path))
+      }
+    }
+
+    // 本地海报
+    const posterFile = item.files.find(f => {
+      const n = f.name.toLowerCase()
+      return (n.includes('poster') || n === 'folder.jpg' || n === 'movie.jpg') && /\.(jpg|jpeg|png|webp)$/i.test(n)
+    })
+
+    return {
+      avid,
+      title: get('title'),
+      cover: posterFile ? toLocalUrl(posterFile.path) : '',
+      release_date: get('premiered') || get('year'),
+      duration: get('runtime'),
+      description: get('plot') || get('outline'),
+      keywords: getAll('genre'),
+      actress,
+      fanarts,
+      magnets: [],
+    }
+  } catch {
+    return null
+  }
+}
+
+/** 将本地路径转为 local:// URL */
+function toLocalUrl(filePath: string): string {
+  if (!filePath) return ''
+  const normalized = filePath.replace(/\\/g, '/')
+  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/)
+  if (driveMatch) return `local://${driveMatch[1].toLowerCase()}/${driveMatch[2]}`
+  return `local:///${normalized}`
+}
+
 // 监听选中项变化，成人模式下自动获取 JAV 元数据
 watch(selectedItem, async (item) => {
   if (!item || !isAdultMode.value || !isJavContent.value) {
     adultMeta.value = null
     return
   }
-  // 提取 AV 号
+
+  // 已刮削 → 直接读本地 NFO，跳过网络请求
+  if (isAlreadyScraped(item)) {
+    const localMeta = await buildMetaFromLocal(item)
+    if (localMeta) {
+      adultMeta.value = localMeta
+      adultMetaLoading.value = false
+      return
+    }
+  }
+
+  // 未刮削 → 从接口获取，拿到数据后自动触发刮削
   const match = item.name.match(/([A-Z]{2,6})[-_]?\s*(\d{2,4})/i)
   if (!match) return
   const avid = `${match[1].toUpperCase()}-${match[2]}`
@@ -271,6 +375,10 @@ watch(selectedItem, async (item) => {
     const data = await backend.fetchMeta(avid)
     if (!data.error) {
       adultMeta.value = data
+      // 接口有数据且本地无元数据 → 自动触发刮削
+      if (!isAlreadyScraped(item) && !adultScrapeLoading.value) {
+        handleAdultScrape(data, item)
+      }
     }
   } catch (e) {
     console.error('获取成人内容元数据失败:', e)
@@ -308,17 +416,9 @@ const handleAdultScrape = async (
     _javbus: meta,
   } as any as Movie
 
-  try {
-    await processSingleScrapeTask(movie)
-    adultActionMsg.value = '✅ 刮削完成'
-    // 刷新显示
-    const data = await backend.fetchMeta(meta.avid)
-    if (!data.error) adultMeta.value = data
-  } catch (e: any) {
-    adultActionMsg.value = `❌ 刮削失败: ${e.message || '未知错误'}`
-  } finally {
-    adultScrapeLoading.value = false
-  }
+  scrape(movie, item)
+  adultScrapeLoading.value = false
+  adultActionMsg.value = '✅ 已加入队列'
 }
 
 // 成人模式添加到队列
@@ -349,8 +449,7 @@ watch(
       )
       if (refreshed) selectedItem.value = refreshed
     }
-  },
-  { deep: true }
+  }
 )
 
 // 包装 readDirectory，读取后更新 processedItems
@@ -401,93 +500,98 @@ const handleCloseManualScrapeModal = (): void => {
 // 刮削项目状态管理 - 简单的状态操作直接写在组件里
 
 // 左侧边栏管理方法 - 这些逻辑都是组件特有的，直接写在组件里更清晰
-const selectItem = (item: ProcessedItem, index: number): void => {
-  if (isMultiSelectMode.value) {
-    // 多选模式
-    toggleItemSelection(item)
+const selectItem = (item: ProcessedItem, rootItem: number | ProcessedItem): void => {
+  const index = typeof rootItem === 'number' ? rootItem : -1
+  if (selectedItem.value?.path === item.path) {
+    selectedItem.value = null
+    selectedIndex.value = -1
   } else {
-    // 单选模式 - 如果点击已选中的项目，则取消选择
-    if (selectedItem.value?.path === item.path) {
-      selectedItem.value = null
-      selectedIndex.value = -1
-    } else {
-      selectedItem.value = item
-      selectedIndex.value = index
-    }
+    selectedItem.value = item
+    selectedIndex.value = index
   }
-}
-
-const toggleItemSelection = (item: ProcessedItem): void => {
-  if (selectedItems.value.has(item.path)) {
-    selectedItems.value.delete(item.path)
-  } else {
-    selectedItems.value.add(item.path)
-  }
-  updateSelectedItemsData()
-}
-
-const updateSelectedItemsData = (): void => {
-  const pathSet = selectedItems.value
-  selectedItemsData.value = processedItems.value.filter(item =>
-    pathSet.has(item.path)
-  )
-}
-
-const toggleMultiSelectMode = (): void => {
-  isMultiSelectMode.value = !isMultiSelectMode.value
-  if (!isMultiSelectMode.value) {
-    // 退出多选模式时清空选择
-    selectedItems.value.clear()
-    selectedItemsData.value = []
-  }
-}
-
-const toggleSelectAll = (): void => {
-  if (selectedItems.value.size === processedItems.value.length) {
-    // 当前全选，执行取消全选
-    selectedItems.value.clear()
-  } else {
-    // 执行全选
-    selectedItems.value.clear()
-    processedItems.value.forEach(item => {
-      selectedItems.value.add(item.path)
-    })
-  }
-  updateSelectedItemsData()
+  // 预加载相邻项
+  preloadAdjacentItems(index)
 }
 
 /**
- * 批量直接刮削选中项目
+ * 预加载当前项前后的相邻项（NFO + 图片），让切换更丝滑
  */
-const batchScrapeSelected = async (): Promise<void> => {
-  if (selectedItemsData.value.length === 0) {
-    return
-  }
+const PRELOAD_RANGE = 3 // 预加载前后各 3 项
+const preloadedSet = new Set<string>()
 
-  let successCount = 0
-  message.loading(`正在批量处理 ${selectedItemsData.value.length} 个项目...`, 0)
+function preloadAdjacentItems(centerIndex: number): void {
+  const items = processedItems.value
+  if (!items.length) return
 
-  try {
-    for (const item of selectedItemsData.value) {
-      currentScrapeItem.value = item
-      const movies = await searchMovieInfo(item)
-      if (movies && movies.length > 0) {
-        await processTask(movies[0], item)
-        successCount++
+  const start = Math.max(0, centerIndex - PRELOAD_RANGE)
+  const end = Math.min(items.length - 1, centerIndex + PRELOAD_RANGE)
+
+  const tasks: (() => Promise<void>)[] = []
+  for (let i = start; i <= end; i++) {
+    const it = items[i]
+    if (!it || preloadedSet.has(it.path)) continue
+    preloadedSet.add(it.path)
+
+    // NFO 缓存预热
+    if (it.files) {
+      const nfo = it.files.find(f => f.name.toLowerCase().endsWith('.nfo'))
+      if (nfo) {
+        const nfoPath = nfo.path
+        tasks.push(async () => {
+          try {
+            const r = await window.api.file.read(nfoPath)
+            if (r.success && r.data) {
+              // use-media-processing 内部有 nfoCache，直接读即可
+            }
+          } catch {}
+        })
       }
     }
-    message.destroy()
-    message.success(`批量处理完成，共成功刮削 ${successCount} 个项目`)
-    
-    // 清空选择
-    selectedItems.value.clear()
-    selectedItemsData.value = []
-  } catch (error) {
-    message.destroy()
-    console.error('批量处理失败:', error)
-    message.error('批量处理过程中出现错误')
+
+    // 图片预加载到浏览器缓存
+    if (it.files) {
+      for (const f of it.files) {
+        const fn = f.name.toLowerCase()
+        if (/\.(jpg|jpeg|png|webp)$/i.test(fn)) {
+          const url = toLocalUrl(f.path)
+          const img = new Image()
+          img.src = url
+        }
+      }
+    }
+  }
+
+  // NFO 读取放到空闲时间
+  if (tasks.length) {
+    const runTasks = () => {
+      for (const t of tasks) t()
+    }
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(runTasks, { timeout: 1000 })
+    } else {
+      setTimeout(runTasks, 50)
+    }
   }
 }
+
+
+// 队列全部完成时统一刷新一次（避免每个任务单独刷新）
+let wasQueueActive = false
+watch(queueActive, (active) => {
+  if (wasQueueActive && !active) {
+    wasQueueActive = false
+    bumpScrapeVersion()
+    refreshAfterScrape(currentDirectoryPath.value).then(async () => {
+      message.success('刮削完成，文件列表已刷新')
+      // 刷新成人元数据
+      if (selectedItem.value && isAdultMode.value) {
+        const localMeta = await buildMetaFromLocal(selectedItem.value)
+        if (localMeta) adultMeta.value = localMeta
+      }
+    })
+  }
+  if (active) wasQueueActive = true
+})
 
 /**
  * 显示清除缓存确认对话框 - 弹窗逻辑直接写在组件里
@@ -545,7 +649,8 @@ const handleCancelManualScrape = (): void => {
  */
 const handlePickMovie = async (movie: Movie): Promise<void> => {
   showSearchModal.value = false
-  await processSingleScrapeTask(movie)
+  if (!currentScrapeItem.value) return
+  scrape(movie, currentScrapeItem.value)
 }
 
 /**
@@ -608,25 +713,20 @@ const handleJavBusScrape = async (
     _javbus: meta,
   } as any as Movie
 
-  try {
-    await processSingleScrapeTask(movie)
-    javBusScrapeModal.value?.setResult(`✅ 刮削完成`)
-  } catch (e) {
-    javBusScrapeModal.value?.setScrapeError(
-      `刮削失败: ${e instanceof Error ? e.message : '未知错误'}`
-    )
-  }
+  scrape(movie, item)
+  javBusScrapeModal.value?.setResult(`✅ 已加入队列`)
 }
 
 /**
- * JavBus 加入队列 - 已简化为直接刮削
+ * JavBus 加入队列
  */
-const handleJavBusAddToQueue = async (
+const handleJavBusAddToQueue = (
   movie: Movie,
   item: ProcessedItem
-): Promise<void> => {
+): void => {
   currentScrapeItem.value = item
-  await handleJavBusScrape(movie, item)
+  scrape(movie, item)
+  javBusScrapeModal.value?.setResult(`✅ 已加入队列`)
 }
 
 /**
@@ -644,44 +744,14 @@ const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
     if (movies && movies.length > 0) {
       // 如果只有一个匹配结果，直接刮削
       if (movies.length === 1) {
-        // 直接调用刮削任务
-        const folderPath = await processTask(movies[0], item)
-
-        // 刮削完成，重新扫描父目录更新 UI
-        if (folderPath) {
-          bumpScrapeVersion()
-          await refreshAfterScrape(folderPath)
-        }
+        // 直接调用刮削任务（不等待，由队列调度器并发执行）
+        scrape(movies[0], item)
       } else {
         handleShowSearchModal(movies, item)
       }
     }
   } catch (error) {
     console.error('直接刮削失败:', error)
-  }
-}
-
-// 处理单个刮削任务 - 刮削任务处理逻辑直接写在组件里，逻辑清晰
-const processSingleScrapeTask = async (
-  movie: Movie
-): Promise<string | null> => {
-  if (!currentScrapeItem.value) {
-    return null
-  }
-
-  try {
-    // 使用useScrapingTask中的方法
-    const folderPath = await processTask(movie, currentScrapeItem.value!)
-
-    // 刮削完成，重新扫描父目录更新 UI
-    if (folderPath) {
-      bumpScrapeVersion()
-      await refreshAfterScrape(folderPath)
-    }
-    return folderPath
-  } catch (error) {
-    console.error('处理失败:', error)
-    return null
   }
 }
 
@@ -737,6 +807,64 @@ const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
   }
 }
 
+// 一键刮削所有未元数据项
+const handleScrapeAll = async (): Promise<void> => {
+  const provider = getScrapeProviderConfig().provider
+
+  // 找出没有 NFO 文件的项
+  const unscraped = processedItems.value.filter(item => {
+    if (!item.files) return true
+    return !item.files.some(f => f.name.toLowerCase().endsWith('.nfo'))
+  })
+
+  if (unscraped.length === 0) {
+    message.info('所有项目都已有元数据')
+    return
+  }
+
+  Modal.confirm({
+    title: '一键刮削',
+    content: `将对 ${unscraped.length} 个未元数据的项目执行刮削，是否继续？`,
+    okText: '开始刮削',
+    cancelText: '取消',
+    async onOk() {
+      for (const item of unscraped) {
+        if (provider === 'javbus') {
+          const avid = item.name
+            .replace(/\.[^/.]+$/, '')
+            .replace(/\s*\(\d{4}\)\s*$/, '')
+            .trim()
+            .toUpperCase()
+          const data = await backend.fetchMeta(avid)
+          if (!data.error) {
+            const movie: Movie = {
+              id: data.avid as any,
+              title: data.title || data.avid,
+              original_title: data.avid,
+              overview: data.description || '',
+              release_date: data.release_date || '',
+              vote_average: 0,
+              vote_count: 0,
+              poster_path: data.cover || '',
+              backdrop_path: data.fanarts?.[0] || '',
+              adult: false,
+              genre_ids: [],
+              original_language: 'ja',
+              popularity: 0,
+              video: false,
+              _javbus: data,
+            } as any as Movie
+            scrape(movie, item)
+          }
+        } else {
+          handleAutoScrape(item)
+        }
+      }
+      message.success(`已将 ${unscraped.length} 个项目加入刮削队列`)
+    },
+  })
+}
+
 // 下载视频
 const handleDownloadVideo = (item: ProcessedItem): void => {
   const avid = item.name
@@ -764,10 +892,10 @@ const handleDownloadDone = (_avid: string, msg: string): void => {
 
 const handlePlay = async (item: ProcessedItem): Promise<void> => {
   let filePath = item.path
-  
+
   // 如果是文件夹，找到里面的视频文件
   if (item.type === 'folder' && item.files) {
-    const videoFile = item.files.find(f => 
+    const videoFile = item.files.find(f =>
       f.isFile && /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$/i.test(f.name)
     )
     if (videoFile) {
@@ -777,13 +905,16 @@ const handlePlay = async (item: ProcessedItem): Promise<void> => {
       return
     }
   }
-  
-  // 获取播放器配置
+
+  await playVideoFile(filePath)
+}
+
+/** 播放指定路径的视频文件 */
+const playVideoFile = async (filePath: string): Promise<void> => {
   const videoPlayer = localStorage.getItem('videoPlayer') || 'builtin'
   const api = (window as any).api
-  
+
   if (videoPlayer === 'builtin') {
-    // 使用内置播放器
     if (api?.player?.open) {
       const result = await api.player.open(filePath)
       if (!result.success) {
@@ -793,7 +924,6 @@ const handlePlay = async (item: ProcessedItem): Promise<void> => {
       message.error('内置播放器 API 不可用')
     }
   } else {
-    // 使用系统默认播放器
     if (api?.shell?.openPath) {
       const result = await api.shell.openPath(filePath)
       if (!result.success) {
@@ -805,12 +935,71 @@ const handlePlay = async (item: ProcessedItem): Promise<void> => {
   }
 }
 
+/** RightPanel 播放指定视频文件 */
+const handlePlayFile = (filePath: string): void => {
+  playVideoFile(filePath)
+}
+
+/** RightPanel 删除指定视频文件 */
+const handleDeleteFile = (filePath: string): void => {
+  const fileName = filePath.split(/[/\\]/).pop() || filePath
+  Modal.confirm({
+    title: '确认删除',
+    content: `确定要删除 "${fileName}" 吗？此操作不可恢复。`,
+    okText: '删除',
+    cancelText: '取消',
+    okType: 'danger',
+    async onOk() {
+      const result = await window.api.file.delete(filePath)
+      if (result.success) {
+        message.success('已删除')
+        bumpScrapeVersion()
+        await refreshAfterScrape(currentDirectoryPath.value)
+      } else {
+        message.error('删除失败: ' + (result.error || '未知错误'))
+      }
+    },
+  })
+}
+
+/** 左侧树右键删除文件/文件夹 */
+const handleDeleteItem = (item: ProcessedItem): void => {
+  const isDir = item.type === 'folder'
+  const typeLabel = isDir ? '文件夹' : '文件'
+  Modal.confirm({
+    title: `确认删除${typeLabel}`,
+    content: `确定要删除"${item.name}"吗？${isDir ? '文件夹内所有内容都将被删除，' : ''}此操作不可恢复。`,
+    okText: '删除',
+    cancelText: '取消',
+    okType: 'danger',
+    async onOk() {
+      const result = await window.api.file.delete(item.path)
+      if (result.success) {
+        message.success('已删除')
+        // 如果删除的是当前选中项，清除选中
+        if (selectedItem.value?.path === item.path) {
+          selectedItem.value = null
+          selectedIndex.value = -1
+        }
+        bumpScrapeVersion()
+        await refreshAfterScrape(currentDirectoryPath.value)
+      } else {
+        message.error('删除失败: ' + (result.error || '未知错误'))
+      }
+    },
+  })
+}
+
 onMounted(() => {
   const loaded = loadFromCache()
 
   if (loaded) {
     // 组件启动时已从缓存加载数据，初始化 processedItems
     updateProcessedItems()
+    // 预加载前几项
+    if (processedItems.value.length > 0) {
+      preloadAdjacentItems(0)
+    }
   }
 })
 </script>

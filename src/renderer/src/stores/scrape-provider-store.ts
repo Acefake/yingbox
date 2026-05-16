@@ -1,9 +1,9 @@
 /**
  * 刮削服务提供者配置 Store
- * 支持多种刮削服务，当前内置 TMDB / MetaTube，可扩展自定义服务
+ * 支持多种刮削服务，当前内置 TMDB / JavBus，可扩展自定义服务
  */
 
-export type ScrapeProviderType = 'tmdb' | 'metatube' | 'javbus' | 'custom'
+export type ScrapeProviderType = 'tmdb' | 'javbus' | 'custom'
 
 export interface ScrapeProviderConfig {
   /** 当前选中的服务提供者 */
@@ -16,10 +16,6 @@ export interface ScrapeProviderConfig {
   customBaseUrl: string
   /** 自定义服务 API Key */
   customApiKey: string
-  /** MetaTube 服务器地址（用户自部署） */
-  metaServerUrl: string
-  /** MetaTube Bearer Token（可选） */
-  metaToken: string
   /** JavBus Go 后端地址 */
   goBackendUrl: string
 }
@@ -35,8 +31,6 @@ const defaults: ScrapeProviderConfig = {
   customProviderName: '',
   customBaseUrl: '',
   customApiKey: '',
-  metaServerUrl: '',
-  metaToken: '',
   goBackendUrl: 'http://localhost:31471',
 }
 
@@ -82,15 +76,4 @@ export const getTmdbAccessToken = (): string => {
 export const getGoBackendUrl = (): string => {
   const config = getScrapeProviderConfig()
   return (config.goBackendUrl || 'http://localhost:31471').replace(/\/$/, '')
-}
-
-/**
- * 获取 MetaTube 服务配置
- */
-export const getMetatubeConfig = (): { serverUrl: string; token: string } => {
-  const config = getScrapeProviderConfig()
-  return {
-    serverUrl: config.metaServerUrl.replace(/\/$/, ''),
-    token: config.metaToken,
-  }
 }

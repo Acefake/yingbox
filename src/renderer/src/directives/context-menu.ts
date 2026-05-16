@@ -15,8 +15,10 @@ class ContextMenuManager {
   private static instance: ContextMenuManager
   private menuElement: HTMLElement | null = null
   private isVisible = false
-  private currentConfig: ContextMenuConfig | null = null
-  private currentData: unknown = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private currentConfig: ContextMenuConfig<any> | null = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  private currentData: any = null
 
   static getInstance(): ContextMenuManager {
     if (!ContextMenuManager.instance) {

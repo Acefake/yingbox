@@ -37,6 +37,30 @@ protocol.registerSchemesAsPrivileged([
 
 let mainWindow: BrowserWindow | null = null
 
+// 下载路径配置
+const configPath = join(app.getPath('userData'), 'config.json')
+let downloadPath = ''
+
+// 加载配置
+try {
+  if (fsSync.existsSync(configPath)) {
+    const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'))
+    downloadPath = config.downloadPath || ''
+  }
+} catch (err) {
+  console.error('Failed to load config:', err)
+}
+
+// 保存配置
+function saveConfig() {
+  try {
+    const config = { downloadPath }
+    fsSync.writeFileSync(configPath, JSON.stringify(config, null, 2))
+  } catch (err) {
+    console.error('Failed to save config:', err)
+  }
+}
+
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
@@ -239,12 +263,33 @@ app.whenReady().then(() => {
     } catch {
       return new Response(null, { status: 404 })
     }
-    return new Response(fsSync.createReadStream(filePath) as any, {
-      headers: {
-        'Content-Type': mime,
-        'Cache-Control': 'public, max-age=86400',
-      },
-    })
+
+    // 对于图片和小文件使用 Buffer，对于视频使用流式处理
+    const isMedia = ['.mp4', '.webm', '.mkv', '.avi', '.mov', '.m4v', '.wmv', '.flv'].includes(ext)
+
+    if (isMedia) {
+      // 视频文件使用流式处理，但每次创建新流
+      const stream = fsSync.createReadStream(filePath)
+      return new Response(stream as any, {
+        headers: {
+          'Content-Type': mime,
+          'Cache-Control': 'public, max-age=86400',
+        },
+      })
+    } else {
+      // 图片和其他小文件使用 Buffer
+      try {
+        const buffer = await fs.readFile(filePath)
+        return new Response(buffer, {
+          headers: {
+            'Content-Type': mime,
+            'Cache-Control': 'public, max-age=86400',
+          },
+        })
+      } catch {
+        return new Response(null, { status: 500 })
+      }
+    }
   })
 
   app.on('browser-window-created', (_, window) => {
@@ -387,11 +432,41 @@ app.whenReady().then(() => {
   })
 
   ipcMain.handle('file:move', async (_, srcPath: string, destPath: string) => {
+    const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
     try {
-      await fs.rename(srcPath, destPath)
-      return { success: true }
+      if (srcPath === destPath) return { success: true }
+
+      try {
+        await fs.access(destPath)
+        return { success: false, error: `目标已存在: ${destPath}`, code: 'EEXIST' }
+      } catch {
+      }
+
+      let lastError: NodeJS.ErrnoException | null = null
+      for (let i = 0; i < 5; i++) {
+        try {
+          await fs.rename(srcPath, destPath)
+          return { success: true }
+        } catch (error) {
+          const err = error as NodeJS.ErrnoException
+          lastError = err
+          if (err.code === 'EXDEV') {
+            await fs.cp(srcPath, destPath, { recursive: true })
+            await fs.rm(srcPath, { recursive: true, force: true })
+            return { success: true }
+          }
+          if (!['EPERM', 'EBUSY', 'ENOTEMPTY'].includes(err.code || '')) break
+          await sleep(300 * (i + 1))
+        }
+      }
+      return {
+        success: false,
+        error: lastError?.message || 'move failed',
+        code: lastError?.code,
+      }
     } catch (error) {
-      return { success: false, error: (error as Error).message }
+      const err = error as NodeJS.ErrnoException
+      return { success: false, error: err.message, code: err.code }
     }
   })
 
@@ -436,6 +511,29 @@ app.whenReady().then(() => {
         filePaths: [],
       }
     }
+  })
+
+  ipcMain.handle('dialog:selectDirectory', async () => {
+    try {
+      const result = await dialog.showOpenDialog({
+        properties: ['openDirectory'],
+        title: '选择下载目录',
+      })
+      if (result.canceled || result.filePaths.length === 0) {
+        return null
+      }
+      return result.filePaths[0]
+    } catch (error) {
+      console.error('Failed to select directory:', error)
+      return null
+    }
+  })
+
+  // Config operations
+  ipcMain.handle('config:setDownloadPath', async (_, path: string) => {
+    downloadPath = path
+    saveConfig()
+    console.log('Download path set to:', path)
   })
 
   ipcMain.handle('dialog:openFile', async (_, options?: any) => {
@@ -716,10 +814,11 @@ app.whenReady().then(() => {
   // 开发环境: packages/services/backend/main.exe (由 pnpm dev:backend 启动)
   // 打包后: resources/backend/main.exe
   const isDev = is.dev
+  console.log('[Go] isDev:', isDev, 'resourcesPath:', process.resourcesPath)
+
   // 开发模式下，Go 后端由 pnpm dev:backend 启动，不再重复启动
   if (isDev) {
     console.log('[Go] Development mode: backend should be started by pnpm dev:backend')
-    console.log('[Go] Skipping backend spawn in development')
   } else {
     const goExe = join(
       process.resourcesPath,
@@ -729,21 +828,56 @@ app.whenReady().then(() => {
     const goCwd = join(process.resourcesPath, 'backend')
     let goProc: ReturnType<typeof spawn> | null = null
 
+    console.log('[Go] Looking for backend at:', goExe)
+
     if (fsSync.existsSync(goExe)) {
-      goProc = spawn(goExe, [], { cwd: goCwd })
-      goProc.stdout?.on('data', (d: Buffer) =>
-        console.log('[Go]', d.toString().trim())
-      )
-      goProc.stderr?.on('data', (d: Buffer) =>
-        console.error('[Go]', d.toString().trim())
-      )
-      goProc.on('exit', code => console.log('[Go] exited with code', code))
+      console.log('[Go] Starting backend from:', goExe)
+      // 设置环境变量
+      const env = { ...process.env }
+      if (downloadPath) {
+        env.MISSAV_VIDEO_PATH = downloadPath
+        console.log('[Go] Using custom download path:', downloadPath)
+      }
+
+      try {
+        goProc = spawn(goExe, [], { cwd: goCwd, env, shell: true })
+        goProc.stdout?.on('data', (d: Buffer) =>
+          console.log('[Go stdout]', d.toString().trim())
+        )
+        goProc.stderr?.on('data', (d: Buffer) =>
+          console.error('[Go stderr]', d.toString().trim())
+        )
+        goProc.on('exit', (code, signal) => {
+          console.log('[Go] exited with code', code, 'signal:', signal)
+        })
+        goProc.on('error', (err) => {
+          console.error('[Go] spawn error:', err.message)
+        })
+        console.log('[Go] Backend process started with PID:', goProc.pid)
+      } catch (err) {
+        console.error('[Go] Failed to start backend:', err)
+      }
     } else {
-      console.warn('[Go] backend exe not found:', goExe)
+      console.error('[Go] backend exe not found:', goExe)
+      // 尝试列出 resources 目录内容
+      try {
+        const resourcesDir = join(process.resourcesPath, 'backend')
+        if (fsSync.existsSync(resourcesDir)) {
+          const files = fsSync.readdirSync(resourcesDir)
+          console.log('[Go] Resources/backend contents:', files)
+        } else {
+          console.error('[Go] Resources/backend directory does not exist')
+        }
+      } catch (e) {
+        console.error('[Go] Error listing resources:', e)
+      }
     }
 
     app.on('will-quit', () => {
-      goProc?.kill()
+      if (goProc) {
+        console.log('[Go] Killing backend process...')
+        goProc.kill()
+      }
     })
   }
 

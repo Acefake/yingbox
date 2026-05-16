@@ -176,6 +176,27 @@
             </div>
           </SettingsSection>
 
+          <!-- 分区：下载设置 -->
+          <SettingsSection title="下载设置" icon="download">
+            <p class="text-[11px] text-gray-500 mb-2">
+              AV 资源下载保存路径
+            </p>
+            <div class="flex items-center gap-2">
+              <input
+                v-model="downloadPath"
+                type="text"
+                placeholder="默认系统视频目录"
+                class="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
+              />
+              <button
+                @click="selectDownloadPath"
+                class="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white transition-colors"
+              >
+                选择
+              </button>
+            </div>
+          </SettingsSection>
+
           <!-- 分区：刮削服务 -->
           <SettingsSection title="刮削服务" icon="database">
             <p class="text-[11px] text-gray-500 mb-2">
@@ -235,62 +256,6 @@
                   >TMDB API 设置</a
                 >
                 获取 Read Access Token
-              </p>
-            </div>
-
-            <!-- MetaTube 配置 -->
-            <div v-if="currentProvider === 'metatube'" class="space-y-2">
-              <div>
-                <p class="text-[11px] text-gray-400 mb-1">服务器地址</p>
-                <input
-                  v-model="metaServerUrl"
-                  type="text"
-                  placeholder="例如：http://localhost:8080"
-                  class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
-                />
-              </div>
-              <div>
-                <p class="text-[11px] text-gray-400 mb-1">
-                  Bearer Token（可选）
-                </p>
-                <input
-                  v-model="metaToken"
-                  type="password"
-                  placeholder="留空则不鉴权"
-                  class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
-                />
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  @click="handleTestMetatube"
-                  :disabled="!metaServerUrl || metaTestStatus === 'testing'"
-                  class="px-3 py-1 text-xs rounded-md transition-all"
-                  :class="
-                    metaTestStatus === 'ok'
-                      ? 'bg-green-600/30 border border-green-500/40 text-green-400'
-                      : metaTestStatus === 'fail'
-                        ? 'bg-red-600/30 border border-red-500/40 text-red-400'
-                        : 'bg-white/8 border border-white/10 text-gray-300 hover:bg-white/15 disabled:opacity-40 disabled:cursor-not-allowed'
-                  "
-                >
-                  {{
-                    metaTestStatus === 'testing'
-                      ? '测试中...'
-                      : metaTestStatus === 'ok'
-                        ? '✓ 连接成功'
-                        : metaTestStatus === 'fail'
-                          ? '✗ 连接失败'
-                          : '测试连接'
-                  }}
-                </button>
-              </div>
-              <p class="text-[10px] text-gray-600">
-                部署教程：<a
-                  href="https://metatube-community.github.io/wiki/server-deployment/"
-                  target="_blank"
-                  class="text-blue-400 hover:underline"
-                  >metatube-server 部署文档</a
-                >
               </p>
             </div>
 
@@ -419,7 +384,6 @@ import {
   saveScrapeProviderConfig,
   type ScrapeProviderType,
 } from '@/stores/scrape-provider-store'
-import { testMetatubeConnection } from '@/api/metatube'
 import { backend } from '@/api/backend'
 
 const props = defineProps<{ visible: boolean }>()
@@ -440,6 +404,27 @@ const backdropSize = ref(
 const actorSize = ref(
   localStorage.getItem('imageDownloadSize_actor') || 'original'
 )
+
+const downloadPath = ref(localStorage.getItem('downloadPath') || '')
+
+const selectDownloadPath = async () => {
+  try {
+    const path = await (window.api as any).dialog.selectDirectory()
+    if (path) {
+      downloadPath.value = path
+    }
+  } catch (err) {
+    console.error('Failed to select directory:', err)
+  }
+}
+
+watch(downloadPath, val => {
+  localStorage.setItem('downloadPath', val)
+  // 通知主进程更新下载路径
+  if (val) {
+    ;(window.api as any).config.setDownloadPath(val)
+  }
+}, { immediate: true })
 
 watch(
   posterSize,
@@ -501,12 +486,6 @@ const providerOptions: {
     desc: 'The Movie Database，全球最大的电影数据库',
   },
   {
-    value: 'metatube',
-    label: 'MetaTube',
-    desc: '适合 JAV，需自行部署 metatube-server',
-    adult: true,
-  },
-  {
     value: 'javbus',
     label: 'JavBus Go 服务',
     desc: '本地 Go 后端，从 JavBus 刮削 JAV 元数据并下载图片',
@@ -536,10 +515,7 @@ const tmdbAccessToken = ref(_config.tmdbAccessToken)
 const customProviderName = ref(_config.customProviderName)
 const customBaseUrl = ref(_config.customBaseUrl)
 const customApiKey = ref(_config.customApiKey)
-const metaServerUrl = ref(_config.metaServerUrl)
-const metaToken = ref(_config.metaToken)
 const goBackendUrl = ref(_config.goBackendUrl || 'http://localhost:31471')
-const metaTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 const goTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 
 type UpdateStatus =
@@ -630,8 +606,6 @@ const loadConfig = () => {
   customProviderName.value = c.customProviderName
   customBaseUrl.value = c.customBaseUrl
   customApiKey.value = c.customApiKey
-  metaServerUrl.value = c.metaServerUrl
-  metaToken.value = c.metaToken
   goBackendUrl.value = c.goBackendUrl || 'http://localhost:31471'
 }
 
@@ -644,11 +618,6 @@ watch(customProviderName, val =>
 )
 watch(customBaseUrl, val => saveScrapeProviderConfig({ customBaseUrl: val }))
 watch(customApiKey, val => saveScrapeProviderConfig({ customApiKey: val }))
-watch(metaServerUrl, val => {
-  saveScrapeProviderConfig({ metaServerUrl: val })
-  metaTestStatus.value = 'idle'
-})
-watch(metaToken, val => saveScrapeProviderConfig({ metaToken: val }))
 watch(goBackendUrl, val => {
   saveScrapeProviderConfig({ goBackendUrl: val })
   goTestStatus.value = 'idle'
@@ -663,21 +632,7 @@ watch(
 const resetProviderConfig = (): void => {
   localStorage.removeItem('scrapeProviderConfig')
   loadConfig()
-  metaTestStatus.value = 'idle'
   goTestStatus.value = 'idle'
-}
-
-const handleTestMetatube = async (): Promise<void> => {
-  console.log(
-    '[MetaTube] 开始测试, url:',
-    metaServerUrl.value,
-    'fetch:',
-    typeof (window.api?.http as any)?.fetch
-  )
-  metaTestStatus.value = 'testing'
-  const ok = await testMetatubeConnection(metaServerUrl.value, metaToken.value)
-  console.log('[MetaTube] 测试结果:', ok)
-  metaTestStatus.value = ok ? 'ok' : 'fail'
 }
 
 const handleTestGoBackend = async (): Promise<void> => {
