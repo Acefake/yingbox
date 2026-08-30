@@ -4,86 +4,25 @@
       v-if="showSettings"
       class="win-btn"
       title="设置"
+      aria-label="打开设置"
       @click="emit('openSettings')"
     >
-      <svg
-        viewBox="0 0 24 24"
-        width="16"
-        height="16"
-        fill="none"
-        stroke="currentColor"
-        stroke-width="2"
-        stroke-linecap="round"
-        stroke-linejoin="round"
-      >
-        <circle cx="12" cy="12" r="3" />
-        <path
-          d="M19.4 15a1.65 1.65 0 00.33 1.82l.06.06a2 2 0 010 2.83 2 2 0 01-2.83 0l-.06-.06a1.65 1.65 0 00-1.82-.33 1.65 1.65 0 00-1 1.51V21a2 2 0 01-4 0v-.09A1.65 1.65 0 009 19.4a1.65 1.65 0 00-1.82.33l-.06.06a2 2 0 01-2.83-2.83l.06-.06A1.65 1.65 0 004.68 15a1.65 1.65 0 00-1.51-1H3a2 2 0 010-4h.09A1.65 1.65 0 004.6 9a1.65 1.65 0 00-.33-1.82l-.06-.06a2 2 0 012.83-2.83l.06.06A1.65 1.65 0 009 4.68a1.65 1.65 0 001-1.51V3a2 2 0 014 0v.09a1.65 1.65 0 001 1.51 1.65 1.65 0 001.82-.33l.06-.06a2 2 0 012.83 2.83l-.06.06A1.65 1.65 0 0019.4 9a1.65 1.65 0 001.51 1H21a2 2 0 010 4h-.09a1.65 1.65 0 00-1.51 1z"
-        />
-      </svg>
+      <svg viewBox="0 0 24 24" aria-hidden="true"><circle cx="12" cy="12" r="3" /><path d="M19 15l2 1-2 3-2-1a8 8 0 0 1-3 2v2h-4v-2a8 8 0 0 1-3-2l-2 1-2-3 2-1a8 8 0 0 1 0-4l-2-1 2-3 2 1a8 8 0 0 1 3-2V3h4v2a8 8 0 0 1 3 2l2-1 2 3-2 1a8 8 0 0 1 0 5z" /></svg>
     </button>
-    <button class="win-btn win-min" title="最小化" @click="minimize">
-      <svg viewBox="0 0 10 1" width="10" height="1">
-        <rect width="10" height="1" fill="currentColor" />
-      </svg>
+    <button class="win-btn win-min" title="最小化" aria-label="最小化窗口" @click="minimize">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="M5 12h14" /></svg>
     </button>
     <button
       class="win-btn win-max"
       :title="isMaximized ? '还原' : '最大化'"
+      :aria-label="isMaximized ? '还原窗口' : '最大化窗口'"
       @click="toggleMax"
     >
-      <svg v-if="!isMaximized" viewBox="0 0 10 10" width="10" height="10">
-        <rect
-          x="0"
-          y="0"
-          width="10"
-          height="10"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1"
-        />
-      </svg>
-      <svg v-else viewBox="0 0 10 10" width="10" height="10">
-        <rect
-          x="2"
-          y="0"
-          width="8"
-          height="8"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1"
-        />
-        <rect
-          x="0"
-          y="2"
-          width="8"
-          height="8"
-          fill="none"
-          stroke="currentColor"
-          stroke-width="1"
-          style="fill: rgba(0, 0, 0, 0.01)"
-        />
-      </svg>
+      <svg v-if="!isMaximized" viewBox="0 0 24 24" aria-hidden="true"><rect x="5" y="5" width="14" height="14" /></svg>
+      <svg v-else viewBox="0 0 24 24" aria-hidden="true"><rect x="7" y="4" width="13" height="13" /><rect x="4" y="7" width="13" height="13" /></svg>
     </button>
-    <button class="win-btn win-close" title="关闭" @click="close">
-      <svg viewBox="0 0 10 10" width="10" height="10">
-        <line
-          x1="0"
-          y1="0"
-          x2="10"
-          y2="10"
-          stroke="currentColor"
-          stroke-width="1.2"
-        />
-        <line
-          x1="10"
-          y1="0"
-          x2="0"
-          y2="10"
-          stroke="currentColor"
-          stroke-width="1.2"
-        />
-      </svg>
+    <button class="win-btn win-close" title="关闭" aria-label="关闭窗口" @click="close">
+      <svg viewBox="0 0 24 24" aria-hidden="true"><path d="m6 6 12 12M18 6 6 18" /></svg>
     </button>
   </div>
 </template>
@@ -124,14 +63,23 @@ onUnmounted(() => window.removeEventListener('resize', checkMax))
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
+  width: 36px;
+  height: 36px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.7);
   cursor: pointer;
   transition: all 0.15s ease;
+}
+.win-btn svg {
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
 }
 .win-btn:hover {
   background: rgba(255, 255, 255, 0.12);

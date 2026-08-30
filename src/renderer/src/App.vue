@@ -1,9 +1,6 @@
 <template>
   <a-config-provider :component-size="'small'">
-    <template v-if="route.name === 'OnlineDetail'">
-      <router-view />
-    </template>
-    <AppLayout v-else>
+    <AppLayout>
       <router-view v-slot="{ Component }">
         <keep-alive>
           <component :is="Component" />
@@ -14,7 +11,5 @@
 </template>
 
 <script setup lang="ts">
-import { useRoute } from 'vue-router'
 import AppLayout from '@/components/Layout/AppLayout.vue'
-const route = useRoute()
 </script>

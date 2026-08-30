@@ -57,9 +57,6 @@ export default tseslint.config(
         // 类声明前后需要空行
         { blankLine: 'always', prev: '*', next: 'const' },
         { blankLine: 'always', prev: 'const', next: '*' },
-        // 导入语句后需要空行
-        { blankLine: 'always', prev: '*', next: 'type' },
-        { blankLine: 'always', prev: 'type', next: '*' },
         // 导出语句前需要空行
         { blankLine: 'always', prev: 'import', next: '*' },
         // 块语句前后空行

@@ -163,22 +163,14 @@ const api = {
       ipcRenderer.invoke('shell:openPath', filePath),
   },
   player: {
-    open: (filePath: string): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('player:open', filePath),
+    open: (filePath: string, customTitle?: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('player:open', filePath, customTitle),
   },
   win: {
     minimize: (): Promise<void> => ipcRenderer.invoke('win:minimize'),
     maximize: (): Promise<void> => ipcRenderer.invoke('win:maximize'),
     close: (): Promise<void> => ipcRenderer.invoke('win:close'),
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('win:isMaximized'),
-  },
-  detail: {
-    open: (itemData: unknown): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('detail:open', itemData),
-    getData: (): Promise<unknown> => ipcRenderer.invoke('detail:getData'),
-    onUpdate: (cb: (data: unknown) => void) =>
-      ipcRenderer.on('detail:update', (_e, data) => cb(data)),
-    offUpdate: () => ipcRenderer.removeAllListeners('detail:update'),
   },
   scraper: {},
   downloader: {},

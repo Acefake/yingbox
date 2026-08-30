@@ -1,38 +1,18 @@
 <template>
   <div class="vod-browse">
-    <!-- 顶部：源选择 + 分类 tab -->
     <div class="vod-header">
-      <!-- 源选择器 -->
-      <div class="source-selector">
-        <button
-          v-for="(src, idx) in sources"
-          :key="src.site.api"
-          :class="['source-btn', { active: activeSourceIdx === idx }]"
-          @click="switchSource(idx)"
-        >
-          {{ src.site.name }}
-        </button>
-        <span v-if="loadingSources" class="loading-hint">加载中...</span>
-      </div>
-
-      <!-- 分类 tab -->
-      <div v-if="activeTabs.length" class="category-tabs">
-        <button
-          v-for="(tab, idx) in activeTabs"
-          :key="tab.name"
-          :class="['tab-btn', { active: activeTabIdx === idx }]"
-          @click="switchTab(idx)"
-        >
-          {{ tab.name }}
-        </button>
-      </div>
+      <div class="library-heading"><h1>媒体库 <span>({{ cards.length }})</span></h1><span v-if="loadingSources" class="loading-hint">加载中...</span></div>
+      <MediaFilterBar :rows="filterRows" :model-value="filters" @update:model-value="handleFilterUpdate" />
     </div>
 
     <!-- 错误提示 -->
-    <div v-if="error" class="error-msg">{{ error }}</div>
+    <div v-if="error" class="ui-error-state">
+      <p>{{ error }}</p>
+      <button class="ui-secondary-button" @click="retry">重新加载</button>
+    </div>
 
     <!-- 空状态 -->
-    <div v-if="!loading && !error && !cards.length && !loadingSources" class="empty-state">
+    <div v-if="!loading && !error && !filteredCards.length && !loadingSources" class="empty-state">
       <svg viewBox="0 0 24 24" width="48" height="48" fill="none" stroke="rgba(255,255,255,0.2)" stroke-width="1.5">
         <rect x="2" y="2" width="20" height="20" rx="2" />
         <path d="M10 9l5 3-5 3z" />
@@ -41,9 +21,9 @@
     </div>
 
     <!-- 内容卡片网格 -->
-    <div v-if="cards.length" class="cards-grid">
+    <div v-if="filteredCards.length" class="cards-grid">
       <div
-        v-for="card in cards"
+        v-for="card in filteredCards"
         :key="card.vod_id + card._siteName"
         class="card-item"
         @click="handleOpenCard(card)"
@@ -70,7 +50,7 @@
     </div>
 
     <!-- 加载更多 -->
-    <div v-if="cards.length && hasMore" class="load-more">
+    <div v-if="filteredCards.length && hasMore" class="load-more">
       <button class="load-more-btn" :disabled="loading" @click="loadMore">
         <span v-if="loading" class="spinner" />
         {{ loading ? '加载中...' : '加载更多' }}
@@ -91,7 +71,8 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
+import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
 import { useVodBrowse, type VodCard } from '../composables/use-vod-browse'
 import { useOnlineSearch, type CmsItem } from '../composables/use-online-search'
 
@@ -103,8 +84,6 @@ const { CATSPIDER_SITES } = useOnlineSearch()
 
 const {
   sources,
-  activeSourceIdx,
-  activeTabIdx,
   activeTabs,
   cards,
   loading,
@@ -118,8 +97,37 @@ const {
   cardToCmsItem,
 } = useVodBrowse()
 
+const filters = ref<Record<string, string>>({ source: 'all', category: 'all', status: 'all', progress: 'all', genre: 'all', region: 'all', year: 'all', type: 'all' })
+const filterRows = computed<MediaFilterRow[]>(() => [
+  { key: 'status', label: '状态', options: [{ label: '全部', value: 'all' }, { label: 'NFO识别', value: 'nfo' }, { label: 'TMDB识别', value: 'tmdb' }, { label: '智能识别', value: 'smart' }, { label: '未识别', value: 'unknown' }] },
+  { key: 'progress', label: '进度', options: [{ label: '全部', value: 'all' }, { label: '未观看', value: 'unwatched' }, { label: '已观看', value: 'watched' }] },
+  { key: 'genre', label: '风格', options: [{ label: '全部', value: 'all' }, ...['剧情','喜剧','动作','爱情','惊悚','犯罪','悬疑','战争','科幻','动画','恐怖','家庭','冒险','奇幻','历史','纪录','音乐','西部','其他'].map(label => ({ label, value: label }))] },
+  { key: 'region', label: '地区', options: [{ label: '全部', value: 'all' }, ...['中国大陆','中国香港','中国台湾','美国','英国','法国','德国','意大利','西班牙','葡萄牙','韩国','日本','印度','泰国','其他'].map(label => ({ label, value: label }))] },
+  { key: 'year', label: '年份', options: [{ label: '全部', value: 'all' }, ...['2026','2025','2024','2023','2022','2021','2020-2011','2010-2001','2000-1991','1990-1981','更早'].map(label => ({ label, value: label }))] },
+  { key: 'type', label: '类型', options: [{ label: '全部', value: 'all' }, { label: '电影', value: '电影' }, { label: '剧集', value: '剧集' }, { label: '合集', value: '合集' }] },
+  ...(sources.value.length ? [{ key: 'source', label: '来源', options: [{ label: '全部', value: 'all' }, ...sources.value.map((s, i) => ({ label: s.site.name, value: String(i) }))] }] : []),
+  ...(activeTabs.value.length ? [{ key: 'category', label: '分类', options: [{ label: '全部', value: 'all' }, ...activeTabs.value.map((t, i) => ({ label: t.name, value: String(i) }))] }] : []),
+])
+const filteredCards = computed(() => cards.value.filter(card => {
+  const year = filters.value.year
+  const type = filters.value.type
+  const metadata = card as any
+  const matchesYear = year === 'all' || (year.includes('-') ? true : String(metadata.vod_year || '') === year)
+  const matchesType = type === 'all' || String(metadata.type_name || '').includes(type)
+  return matchesYear && matchesType
+}))
+const handleFilterUpdate = (next: Record<string, string>) => {
+  filters.value = next
+  if (next.source !== 'all') switchSource(Number(next.source))
+  if (next.category !== 'all') switchTab(Number(next.category))
+}
+
 const handleOpenCard = (card: VodCard): void => {
   emit('openItem', cardToCmsItem(card))
+}
+
+const retry = (): void => {
+  if (CATSPIDER_SITES.length > 0) loadSources(CATSPIDER_SITES)
 }
 
 const onImgError = (e: Event): void => {
@@ -149,6 +157,10 @@ onMounted(() => {
   flex-direction: column;
   gap: 10px;
 }
+
+.library-heading { display:flex; align-items:center; justify-content:space-between; }
+.library-heading h1 { margin:0; color:rgba(255,255,255,.9); font-size:18px; font-weight:600; }
+.library-heading h1 span { color:rgba(255,255,255,.42); font-size:14px; font-weight:400; }
 
 .source-selector {
   display: flex;
@@ -191,12 +203,13 @@ onMounted(() => {
 }
 
 .tab-btn {
-  padding: 5px 12px;
-  border-radius: 6px;
+  min-height: 36px;
+  padding: 0 12px;
+  border-radius: var(--radius-md);
   border: none;
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.55);
-  font-size: 12px;
+  font-size: var(--text-xs);
   cursor: pointer;
   transition: all 0.15s;
 }
@@ -220,7 +233,7 @@ onMounted(() => {
 
 .card-item {
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.04);
   border: 1px solid rgba(255, 255, 255, 0.06);
@@ -263,16 +276,16 @@ onMounted(() => {
   right: 6px;
   background: rgba(16, 185, 129, 0.85);
   color: white;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 4px;
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
 }
 
 .card-info {
   padding: 8px;
 }
 .card-title {
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 500;
   color: rgba(255, 255, 255, 0.9);
   white-space: nowrap;
@@ -281,7 +294,7 @@ onMounted(() => {
   margin-bottom: 3px;
 }
 .card-remarks {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: rgba(255, 200, 100, 0.75);
   white-space: nowrap;
   overflow: hidden;
@@ -298,8 +311,9 @@ onMounted(() => {
   display: flex;
   align-items: center;
   gap: 6px;
-  padding: 8px 24px;
-  border-radius: 8px;
+  min-height: var(--control-height);
+  padding: 0 24px;
+  border-radius: var(--radius-md);
   border: 1px solid rgba(255, 255, 255, 0.12);
   background: rgba(255, 255, 255, 0.06);
   color: rgba(255, 255, 255, 0.6);

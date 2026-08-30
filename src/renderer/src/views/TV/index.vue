@@ -1,7 +1,7 @@
 <template>
   <div class="folder-content relative h-full text-white overflow-hidden">
     <!-- 左侧悬浮面板 -->
-    <div class="absolute left-4 top-4 bottom-4 z-20 flex flex-col">
+    <div class="absolute left-0 top-0 bottom-0 z-20 flex flex-col">
       <LeftPanel
         :processed-items="fileData"
         :selected-index="selectedIndex"
@@ -28,7 +28,7 @@
         icon-path="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z"
       />
 
-      <div v-else class="p-6 h-full overflow-y-auto custom-scrollbar">
+      <div v-else class="primary-scroll p-6 h-full overflow-y-auto custom-scrollbar">
         <TVRightPanel
           :selected-item="selectedItem"
           :current-tv-show="selectedTVShow"
@@ -58,7 +58,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, inject, watch, onUnmounted, shallowRef } from 'vue'
+import { ref, onMounted, shallowRef } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useTVFileManagement } from './composables/use-tv-file-management'
@@ -69,15 +69,6 @@ import MediaSearchModal from '@/components/MediaSearchModal.vue'
 import type { MediaResult } from '@/components/MediaSearchModal.vue'
 import type { ProcessedItem, TVShowInfoType } from '@/types'
 import { message } from 'ant-design-vue'
-
-interface AppLayoutMethods {
-  setGlobalBackground: (imageUrl: string, overlayColor: string) => void
-  clearGlobalBackground: () => void
-}
-
-const appLayoutMethods = inject('appLayoutMethods') as
-  | AppLayoutMethods
-  | undefined
 
 const {
   fileData,
@@ -323,27 +314,6 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
     }
   )
 }
-
-// 监听 fanart 变化，设置全局背景
-watch(fanartUrl, newFanartUrl => {
-  if (appLayoutMethods) {
-    if (newFanartUrl) {
-      appLayoutMethods.setGlobalBackground(
-        newFanartUrl,
-        'rgba(17, 24, 39, 0.2)'
-      )
-    } else {
-      appLayoutMethods.clearGlobalBackground()
-    }
-  }
-})
-
-// 离开 TV 页面时清除全局背景
-onUnmounted(() => {
-  if (appLayoutMethods) {
-    appLayoutMethods.clearGlobalBackground()
-  }
-})
 
 onMounted(() => {
   if (fileData.value.length === 0) {

@@ -896,54 +896,6 @@ app.whenReady().then(() => {
     return { success: !error, error: error || undefined }
   })
 
-  // 详情窗口：单例 + 待传数据
-  let pendingDetailData: unknown = null
-  let detailWin: BrowserWindow | null = null
-
-  ipcMain.handle('detail:open', async (_, itemData: unknown) => {
-    pendingDetailData = itemData
-
-    // 已有窗口：推送新数据后聚焦，不重新创建
-    if (detailWin && !detailWin.isDestroyed()) {
-      detailWin.webContents.send('detail:update', itemData)
-      if (detailWin.isMinimized()) detailWin.restore()
-      detailWin.focus()
-      return { success: true }
-    }
-
-    const { width: dw, height: dh } = getScreenBasedSize(0.75, 900, 680)
-    detailWin = new BrowserWindow({
-      width: dw,
-      height: dh,
-      minWidth: 800,
-      minHeight: 600,
-      frame: false,
-      autoHideMenuBar: true,
-      webPreferences: {
-        preload: join(__dirname, '../preload/index.js'),
-        sandbox: false,
-        webSecurity: false,
-      },
-    })
-    detailWin.on('closed', () => {
-      detailWin = null
-      pendingDetailData = null
-    })
-    if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
-      detailWin.loadURL(
-        process.env['ELECTRON_RENDERER_URL'] + '#/online-detail'
-      )
-      detailWin.webContents.openDevTools()
-    } else {
-      detailWin.loadFile(join(__dirname, '../renderer/index.html'), {
-        hash: '/online-detail',
-      })
-    }
-    return { success: true }
-  })
-
-  ipcMain.handle('detail:getData', () => pendingDetailData)
-
   ipcMain.handle('player:open', async (_, filePath: string, customTitle?: string) => {
     // 区分在线 URL 和本地文件
     const isOnlineUrl = filePath.startsWith('http://') || filePath.startsWith('https://')

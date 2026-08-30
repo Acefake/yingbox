@@ -251,6 +251,7 @@ func main() {
 	mux.HandleFunc("/api/videos/", videoDetailHandler)
 	mux.HandleFunc("/api/addvideo/", addVideoHandler)
 	mux.HandleFunc("/api/queue", queueHandler)
+	mux.HandleFunc("/api/download-status", downloadStatusHandler)
 	mux.HandleFunc("/api/meta/", metaHandler)
 	mux.HandleFunc("/api/scrape/", scrapeHandler)
 	mux.HandleFunc("/api/vod/parse", vodParseHandler)
@@ -1072,6 +1073,58 @@ func queueHandler(w http.ResponseWriter, r *http.Request) {
 
 	w.Header().Set("Content-Type", "application/json; charset=utf-8")
 	json.NewEncoder(w).Encode(queue)
+}
+
+type completedDownload struct {
+	ID          string `json:"id"`
+	CompletedAt string `json:"completedAt"`
+}
+
+type downloadStatus struct {
+	Active    string              `json:"active"`
+	Queued    []string            `json:"queued"`
+	Completed []completedDownload `json:"completed"`
+}
+
+// downloadStatusHandler 返回当前任务、等待队列和最近完成记录。
+func downloadStatusHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	status := downloadStatus{Queued: []string{}, Completed: []completedDownload{}}
+	if data, err := os.ReadFile(filepath.Join(scriptsDir, "work")); err == nil {
+		value := strings.TrimSpace(string(data))
+		if value != "" && value != "0" && value != "1" {
+			status.Active = value
+		}
+	}
+
+	if data, err := os.ReadFile(filepath.Join(scriptsDir, "db", "download_queue.txt")); err == nil {
+		for _, line := range strings.Split(strings.TrimSpace(string(data)), "\n") {
+			if value := strings.TrimSpace(line); value != "" {
+				status.Queued = append(status.Queued, value)
+			}
+		}
+	}
+
+	dbPath := filepath.Join(scriptsDir, "db", "downloaded.db")
+	if db, err := sql.Open("sqlite", dbPath); err == nil {
+		defer db.Close()
+		if rows, queryErr := db.Query("SELECT bvid, downloaded_at FROM MissAV ORDER BY downloaded_at DESC LIMIT 20"); queryErr == nil {
+			defer rows.Close()
+			for rows.Next() {
+				var item completedDownload
+				if scanErr := rows.Scan(&item.ID, &item.CompletedAt); scanErr == nil {
+					status.Completed = append(status.Completed, item)
+				}
+			}
+		}
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(status)
 }
 
 // httpError 统一的HTTP错误响应

@@ -30,23 +30,9 @@ if [ -f "$ROUTER_FILE" ]; then
     FIXED=$((FIXED + 1))
 fi
 
-# 2. 修复 TypeScript 的 'this' 隐式类型问题
+# 2. 删除空的 barrel 文件
 echo ""
-echo "2. 修复 TypeScript 类型问题..."
-echo "-----------------------------------------"
-
-UTILS_FILE="src/renderer/src/utils/index.ts"
-if [ -f "$UTILS_FILE" ]; then
-    # 为 debounce 和 throttle 函数添加 this 类型
-    sed -i 's/const debounce = (func:/const debounce = function(this: any, func:/' "$UTILS_FILE"
-    sed -i 's/const throttle = (func:/const throttle = function(this: any, func:/' "$UTILS_FILE"
-    echo -e "${GREEN}✅ 修复 utils/index.ts 中的 this 类型问题${NC}"
-    FIXED=$((FIXED + 1))
-fi
-
-# 3. 删除空的 barrel 文件
-echo ""
-echo "3. 清理空的 barrel 文件..."
+echo "2. 清理空的 barrel 文件..."
 echo "-----------------------------------------"
 
 # 检查并删除空的 index.ts 文件
@@ -58,9 +44,9 @@ for file in src/renderer/src/views/*/composables/index.ts; do
     fi
 done
 
-# 4. 统一后端 URL 配置
+# 3. 统一后端 URL 配置
 echo ""
-echo "4. 检查后端 URL 配置..."
+echo "3. 检查后端 URL 配置..."
 echo "-----------------------------------------"
 
 # 检查 use-vod-parser.ts 是否使用了硬编码 URL
@@ -71,9 +57,9 @@ if [ -f "$VOD_FILE" ]; then
     fi
 fi
 
-# 5. 清理 console.log（生产环境）
+# 4. 清理 console.log（生产环境）
 echo ""
-echo "5. 检查 console.log 语句..."
+echo "4. 检查 console.log 语句..."
 echo "-----------------------------------------"
 
 CONSOLE_COUNT=$(grep -r "console\.log" src/renderer/src --include="*.ts" --include="*.vue" 2>/dev/null | wc -l)

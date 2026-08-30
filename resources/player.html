@@ -628,6 +628,7 @@
       let hideTimer = null
       let osdTimer = null
       let currentFile = ''
+      let lastHistorySave = 0
       let speedIdx = 2
       let hls = null
 
@@ -713,6 +714,19 @@
         })
         if (list.length > 50) list = list.slice(0, 50)
         saveHistory(list)
+      }
+      let pendingSeek = null
+      let seekFrame = 0
+      function seekBy(delta) {
+        const base = pendingSeek == null ? video.currentTime : pendingSeek
+        const duration = Number.isFinite(video.duration) ? video.duration : Infinity
+        pendingSeek = Math.max(0, Math.min(base + delta, duration))
+        if (seekFrame) return
+        seekFrame = requestAnimationFrame(() => {
+          if (pendingSeek != null) video.currentTime = pendingSeek
+          pendingSeek = null
+          seekFrame = 0
+        })
       }
       function restoreProgress() {
         const list = getHistory()
@@ -800,8 +814,10 @@
         progressThumb.style.left = pct + '%'
         document.getElementById('time').textContent =
           fmt(video.currentTime) + ' / ' + fmt(video.duration)
-        if (currentFile && video.duration)
+        if (currentFile && video.duration && Date.now() - lastHistorySave > 1000) {
+          lastHistorySave = Date.now()
           addHistory(currentFile, title, video.duration, video.currentTime)
+        }
       })
 
       video.addEventListener('progress', () => {
@@ -898,11 +914,11 @@
 
       // ── 前进/后退 ────────────────────────────────────────────
       document.getElementById('btn-back').addEventListener('click', () => {
-        video.currentTime -= 10
+        seekBy(-10)
         showOsd('← 10s')
       })
       document.getElementById('btn-fwd').addEventListener('click', () => {
-        video.currentTime += 10
+        seekBy(10)
         showOsd('→ 10s')
       })
 
@@ -926,12 +942,12 @@
             break
           case 'ArrowLeft':
             e.preventDefault()
-            video.currentTime -= 10
+            seekBy(-10)
             showOsd('← 10s')
             break
           case 'ArrowRight':
             e.preventDefault()
-            video.currentTime += 10
+            seekBy(10)
             showOsd('→ 10s')
             break
           case 'ArrowUp':

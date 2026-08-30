@@ -140,7 +140,7 @@
   ═══════════════════════════════════════════ -->
     <template v-else>
       <!-- 详情头部 glass card -->
-      <div class="p-5 mb-5">
+      <div class="glass-card p-5 mb-5">
         <div class="flex items-start gap-6">
           <div class="flex flex-col items-center">
             <div
@@ -190,7 +190,7 @@
       </div>
 
       <!-- 季信息卡片列表 -->
-      <div v-if="seasonList.length" class="p-5">
+      <div v-if="seasonList.length" class="glass-card p-5">
         <h2
           class="text-xs font-semibold text-gray-400 uppercase tracking-widest mb-4"
         >
@@ -357,21 +357,22 @@ const handleImageError = (event: Event): void => {
 
 <style scoped>
 .glass-card {
-  background: rgba(17, 24, 39, 0.35);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.25);
+  background: transparent;
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+  border-radius: 0;
+  border: 0;
+  box-shadow: none;
 }
 
 .glass-btn {
-  padding: 7px 16px;
-  border-radius: 10px;
-  font-size: 12px;
+  min-height: var(--control-height);
+  padding: 0 16px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
   font-weight: 500;
   color: #fff;
-  background: rgba(59, 130, 246, 0.5);
+  background: var(--primary-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
   border: 1px solid rgba(59, 130, 246, 0.3);

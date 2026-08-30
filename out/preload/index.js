@@ -83,12 +83,6 @@ const api = {
     close: () => electron.ipcRenderer.invoke("win:close"),
     isMaximized: () => electron.ipcRenderer.invoke("win:isMaximized")
   },
-  detail: {
-    open: (itemData) => electron.ipcRenderer.invoke("detail:open", itemData),
-    getData: () => electron.ipcRenderer.invoke("detail:getData"),
-    onUpdate: (cb) => electron.ipcRenderer.on("detail:update", (_e, data) => cb(data)),
-    offUpdate: () => electron.ipcRenderer.removeAllListeners("detail:update")
-  },
   scraper: {},
   downloader: {}
 };

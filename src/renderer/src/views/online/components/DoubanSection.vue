@@ -2,33 +2,9 @@
   <div class="home-section">
     <div class="section-header">
       <span class="section-title">豆瓣热门</span>
-      <div class="douban-type-btns">
-        <button
-          :class="['type-btn', doubanType === 'movie' ? 'active' : '']"
-          @click="switchType('movie')"
-        >
-          电影
-        </button>
-        <button
-          :class="['type-btn', doubanType === 'tv' ? 'active' : '']"
-          @click="switchType('tv')"
-        >
-          电视剧
-        </button>
-      </div>
       <button class="clear-btn" @click="nextPage">换一批</button>
     </div>
-
-    <div class="douban-tags">
-      <button
-        v-for="tag in currentTags"
-        :key="tag"
-        :class="['dtag', doubanTag === tag ? 'active' : '']"
-        @click="switchTag(tag)"
-      >
-        {{ tag }}
-      </button>
-    </div>
+    <MediaFilterBar :rows="filterRows" :model-value="{ type: doubanType, tag: doubanTag }" @update:model-value="applyFilter" />
 
     <div v-if="doubanLoading" class="db-loading">加载中...</div>
     <div v-else-if="doubanError" class="db-error">
@@ -54,6 +30,7 @@
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
+          <button class="favorite-btn" type="button" :class="{ active: isFavorite(item) }" :aria-label="isFavorite(item) ? '取消收藏' : '加入收藏'" @click.stop="toggleFavorite(item)">{{ isFavorite(item) ? '♥' : '♡' }}</button>
           <div class="rate-badge">★ {{ item.rate }}</div>
         </div>
         <div class="card-info">
@@ -75,6 +52,7 @@
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
+import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
 
 export interface DoubanItem {
   title: string
@@ -129,10 +107,24 @@ const doubanItems = ref<DoubanItem[]>([])
 const doubanLoading = ref(false)
 const doubanError = ref(false)
 const doubanPage = ref(0)
+const favorites = ref<DoubanItem[]>(JSON.parse(localStorage.getItem('media_favorites') || '[]'))
 
 const currentTags = computed(() =>
   doubanType.value === 'movie' ? MOVIE_TAGS : TV_TAGS
 )
+const filterRows = computed<MediaFilterRow[]>(() => [
+  { key: 'type', label: '类型', options: [{ label: '电影', value: 'movie' }, { label: '电视剧', value: 'tv' }] },
+  { key: 'tag', label: '分类', options: currentTags.value.map(tag => ({ label: tag, value: tag })) },
+])
+const applyFilter = (next: Record<string, string>) => {
+  if (next.type && next.type !== doubanType.value) switchType(next.type as DoubanType)
+  if (next.tag && next.tag !== doubanTag.value) switchTag(next.tag)
+}
+const isFavorite = (item: DoubanItem) => favorites.value.some(entry => entry.url === item.url)
+const toggleFavorite = (item: DoubanItem) => {
+  favorites.value = isFavorite(item) ? favorites.value.filter(entry => entry.url !== item.url) : [item, ...favorites.value]
+  localStorage.setItem('media_favorites', JSON.stringify(favorites.value))
+}
 
 const onImgError = (e: Event) => {
   ;(e.target as HTMLImageElement).src =
@@ -316,18 +308,19 @@ onMounted(fetchDouban)
 }
 
 .section-title {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
   flex: 1;
 }
 
 .clear-btn {
-  font-size: 11px;
-  padding: 2px 10px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--text-xs);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
   color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
 }
@@ -336,56 +329,8 @@ onMounted(fetchDouban)
   color: rgba(255, 255, 255, 0.8);
 }
 
-.douban-type-btns {
-  display: flex;
-  gap: 4px;
-}
-
-.type-btn {
-  font-size: 12px;
-  padding: 3px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.type-btn.active {
-  background: rgba(99, 102, 241, 0.4);
-  border-color: rgba(99, 102, 241, 0.6);
-  color: white;
-}
-
-.douban-tags {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 5px;
-  margin-bottom: 12px;
-}
-
-.dtag {
-  font-size: 11px;
-  padding: 3px 10px;
-  border-radius: 14px;
-  background: rgba(255, 255, 255, 0.06);
-  border: 1px solid rgba(255, 255, 255, 0.09);
-  color: rgba(255, 255, 255, 0.5);
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.dtag.active {
-  background: rgba(239, 68, 68, 0.3);
-  border-color: rgba(239, 68, 68, 0.5);
-  color: white;
-}
-
-.dtag:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.12);
-  color: white;
-}
+.favorite-btn { position:absolute; top:8px; right:8px; z-index:2; width:30px; height:30px; border:0; border-radius:50%; color:rgba(255,255,255,.78); background:rgba(0,0,0,.5); font-size:18px; cursor:pointer; }
+.favorite-btn.active { color:#fbbf24; }
 
 .db-loading {
   text-align: center;
@@ -409,7 +354,7 @@ onMounted(fetchDouban)
 
 .result-card {
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -483,23 +428,23 @@ onMounted(fetchDouban)
 }
 
 .card-year {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.55);
 }
 
 .card-type {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
   background: rgba(99, 102, 241, 0.25);
   color: rgba(180, 180, 255, 0.85);
 }
 
 .card-overview {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.4);
   line-height: 1.4;
   margin-top: 3px;
