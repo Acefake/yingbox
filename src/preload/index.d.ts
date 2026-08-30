@@ -100,17 +100,13 @@ interface API {
     ) => Promise<{ success: boolean; error?: string }>
   }
   player: {
-    open: (filePath: string) => Promise<{ success: boolean }>
+    open: (filePath: string, customTitle?: string) => Promise<{ success: boolean }>
   }
   win: {
     minimize: () => Promise<void>
     maximize: () => Promise<void>
     close: () => Promise<void>
     isMaximized: () => Promise<boolean>
-  }
-  detail: {
-    open: (itemData: unknown) => Promise<{ success: boolean }>
-    getData: () => Promise<unknown>
   }
   scraper: {}
   downloader: {}

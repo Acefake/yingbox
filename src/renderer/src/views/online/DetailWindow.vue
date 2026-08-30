@@ -1,7 +1,5 @@
 <template>
   <div class="detail-win">
-    <!-- 悬浮窗口控制按钮 -->
-    <WinControls class="dw-win-controls" />
 
     <!-- 加载中 -->
     <div v-if="loadingTmdb" class="dw-loading">
@@ -204,7 +202,6 @@
 
 <script setup lang="ts">
 import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
-import WinControls from '@/components/WinControls.vue'
 import axios from 'axios'
 import Hls from 'hls.js'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
@@ -218,6 +215,8 @@ const {
   resolvePlayUrl,
   keyword,
 } = useOnlineSearch()
+
+const props = defineProps<{ item?: unknown }>()
 
 const itemData = ref<any>(null)
 const itemName = ref('')
@@ -296,13 +295,11 @@ const loadData = async (data: any) => {
 }
 
 onMounted(async () => {
-  const data = await (window.api as any).detail.getData()
-  await loadData(data)
-    ; (window.api as any).detail.onUpdate((newData: unknown) => loadData(newData))
+  await loadData(props.item)
 })
 
-onBeforeUnmount(() => {
-  ; (window.api as any).detail.offUpdate()
+watch(() => props.item, (data) => {
+  if (data) loadData(data)
 })
 
 const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
@@ -453,6 +450,10 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
     if (resolved) playUrl = resolved
   }
   currentUrl.value = playUrl
+  const historyKey = 'online_play_history'
+  const history = JSON.parse(localStorage.getItem(historyKey) || '[]')
+  const record = { ...(itemData.value || {}), item: itemData.value, epName: ext?.name || '正在播放', url: playUrl, groupLabel: currentSourceType.value === 'catspider' ? 'VOD' : 'CMS', timestamp: Date.now() }
+  localStorage.setItem(historyKey, JSON.stringify([record, ...history.filter((entry: any) => entry.url !== playUrl)].slice(0, 30)))
 }
 
 watch(currentUrl, async url => {
@@ -508,19 +509,12 @@ const onActorImgError = (e: Event) => {
 .detail-win {
   width: 100vw;
   height: 100vh;
-  background: #0d1117;
+  background: #15181d;
   color: #fff;
   font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
   display: flex;
   flex-direction: column;
   overflow: hidden;
-}
-
-.dw-win-controls {
-  position: fixed;
-  top: 14px;
-  right: 14px;
-  z-index: 300;
 }
 
 .dw-loading {

@@ -1,118 +1,52 @@
 <template>
   <!-- 应用主布局容器 -->
-  <div class="app-layout h-screen w-screen overflow-hidden">
+  <div class="app-layout h-screen w-screen overflow-hidden" :class="{ 'sidebar-collapsed': sidebarCollapsed }">
+    <!-- 媒体中心侧栏 -->
+    <aside class="app-sidebar" aria-label="媒体中心导航">
+      <div class="sidebar-brand">
+        <span>{{ appName }}</span>
+        <button class="sidebar-toggle" type="button" :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'" @click="sidebarCollapsed = !sidebarCollapsed">{{ sidebarCollapsed ? '›' : '‹' }}</button>
+      </div>
+      <nav class="sidebar-nav">
+        <button class="sidebar-item" :class="{ active: route.name === 'Online' && !route.query.tab }" @click="navigateTo('/')">
+          <AppIcon name="home" /><span>首页</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: route.name === 'Online' && route.query.tab === 'recent' }" @click="navigateTo('/?tab=recent')">
+          <AppIcon name="history" /><span>最近播放</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: route.name === 'Online' && route.query.tab === 'favorites' }" @click="navigateTo('/?tab=favorites')">
+          <AppIcon name="heart" /><span>我的收藏</span>
+        </button>
+        <div class="sidebar-divider" />
+        <span class="sidebar-heading">分类</span>
+        <button class="sidebar-item" :class="{ active: route.name === 'Movie' }" @click="navigateTo('/movie')">
+          <AppIcon name="movie" /><span>电影</span>
+        </button>
+        <button class="sidebar-item" :class="{ active: route.name === 'TV' }" @click="navigateTo('/tv')">
+          <AppIcon name="tv" /><span>电视剧</span>
+        </button>
+        <button v-if="adultMode" class="sidebar-item" :class="{ active: route.name === 'AV' }" @click="navigateTo('/av')">
+          <AppIcon name="av" /><span>AV资源</span>
+        </button>
+      </nav>
+    </aside>
     <!-- 顶部毛玻璃菜单栏 -->
     <header class="top-menu">
       <div class="menu-content">
-        <!-- 左侧 Logo -->
-        <div class="logo-section">
-          <div class="logo-icon">
-            <img :src="logo" alt="logo" />
-          </div>
-          <span class="logo-text">{{ appName }}</span>
+        <div class="toolbar-leading">
+          <button class="toolbar-btn" aria-label="后退" title="后退" @click="navigateBack"><AppIcon name="back" /></button>
+          <button class="toolbar-btn" aria-label="前进" title="前进" @click="router.forward()"><AppIcon name="forward" /></button>
+          <button class="toolbar-btn" aria-label="刷新" title="刷新" @click="router.go(0)"><AppIcon name="refresh" /></button>
+          <label class="global-search">
+            <AppIcon name="search" size="sm" />
+            <input v-model="globalSearch" placeholder="搜索（Ctrl + K）" @keydown.enter="submitGlobalSearch" />
+          </label>
         </div>
 
-        <!-- 中间导航 -->
-        <div class="navigation-section">
-          <nav class="nav-tabs">
-            <button
-              class="nav-tab"
-              :class="{ active: route.name === 'Online' }"
-              @click="navigateTo('/')"
-            >
-              在线观看
-            </button>
-
-            <!-- AV资源 - 成人模式显示 -->
-            <button
-              v-if="adultMode"
-              class="nav-tab"
-              :class="{ active: route.name === 'AV' }"
-              @click="navigateTo('/av')"
-            >
-              AV资源
-            </button>
-
-            <!-- 刮削服务下拉 -->
-            <div
-              class="nav-dropdown"
-              @mouseenter="openScraper"
-              @mouseleave="scheduleScraper"
-            >
-              <button
-                class="nav-tab"
-                :class="{
-                  active: route.name === 'Movie' || route.name === 'TV',
-                }"
-              >
-                刮削服务
-                <svg
-                  viewBox="0 0 10 6"
-                  width="10"
-                  height="6"
-                  style="margin-left: 4px; opacity: 0.6"
-                >
-                  <path d="M0 0l5 6 5-6z" fill="currentColor" />
-                </svg>
-              </button>
-              <Transition name="dropdown-fade">
-                <div
-                  v-if="scraperOpen"
-                  class="dropdown-menu"
-                  @mouseenter="openScraper"
-                  @mouseleave="scheduleScraper"
-                >
-                  <button
-                    class="dropdown-item"
-                    :class="{ active: route.name === 'Movie' }"
-                    @click="navigateTo('/movie')"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <rect x="2" y="3" width="20" height="14" rx="2" />
-                      <path d="M8 21h8M12 17v4" />
-                    </svg>
-                    电影
-                  </button>
-                  <button
-                    class="dropdown-item"
-                    :class="{ active: route.name === 'TV' }"
-                    @click="navigateTo('/tv')"
-                  >
-                    <svg
-                      viewBox="0 0 24 24"
-                      width="14"
-                      height="14"
-                      fill="none"
-                      stroke="currentColor"
-                      stroke-width="2"
-                    >
-                      <rect x="2" y="7" width="20" height="14" rx="2" />
-                      <path d="M16 3l-4 4-4-4" />
-                    </svg>
-                    电视剧
-                  </button>
-                </div>
-              </Transition>
-            </div>
-          </nav>
-        </div>
-
-        <!-- 右侧：队列 + 数据源 + 窗口控制（含设置） -->
+        <!-- 右侧：数据源 + 窗口控制（含设置） -->
         <div class="settings-section">
-          <QueueWidget />
-          <button class="source-mgr-btn" :class="{ active: sourcePanelVisible }" title="数据源管理" @click="sourcePanelVisible = !sourcePanelVisible">
-            <svg viewBox="0 0 24 24" width="14" height="14" fill="none" stroke="currentColor" stroke-width="2">
-              <ellipse cx="12" cy="5" rx="9" ry="3"/>
-              <path d="M3 5v6c0 1.66 4.03 3 9 3s9-1.34 9-3V5"/>
-              <path d="M3 11v6c0 1.66 4.03 3 9 3s9-1.34 9-3v-6"/>
-            </svg>
+          <button class="source-mgr-btn" :class="{ active: sourcePanelVisible }" title="数据源管理" aria-label="打开数据源管理" :aria-pressed="sourcePanelVisible" @click="sourcePanelVisible = !sourcePanelVisible">
+            <AppIcon name="database" />
             数据源
           </button>
           <WinControls :show-settings="true" @open-settings="openSettings" />
@@ -137,86 +71,27 @@
       @close="sourcePanelVisible = false"
     />
 
-    <!-- 统一背景层 -->
-    <div
-      class="fixed inset-0 transition-all duration-500"
-      :style="{
-        zIndex: 0,
-        backgroundImage: globalBackgroundImage
-          ? `linear-gradient(to bottom, rgba(30, 30, 30, 0.7) 0%, rgba(30, 30, 30, 0.85) 100%), url(${globalBackgroundImage})`
-          : `linear-gradient(to bottom, rgba(30, 30, 30, 0.85) 0%, rgba(30, 30, 30, 0.95) 100%), url(${bgImg})`,
-        backgroundSize: 'cover',
-        backgroundPosition: 'center',
-        backgroundRepeat: 'no-repeat',
-        filter: 'blur(12px) scale(1.1)',
-      }"
-    ></div>
-    <!-- 额外模糊遮罩层 -->
-    <div
-      class="fixed inset-0 pointer-events-none"
-      style="z-index: 1; background: rgba(30, 30, 30, 0.25); backdrop-filter: blur(8px);"
-    ></div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { provide, ref, watch } from 'vue'
+import { onUnmounted, ref } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
-import logo from '@/assets/imgs/logo.svg'
-import bgImg from '@/assets/imgs/home-bg.jpg'
-import QueueWidget from '@/components/QueueWidget.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
+import AppIcon from '@/components/AppIcon.vue'
 
 const router = useRouter()
 const route = useRoute()
 
 // 从 package.json 获取应用名称
 const appName = ref('影盒')
+const sidebarCollapsed = ref(false)
 
-const globalBackgroundImage = ref<string>('')
 const settingsVisible = ref(false)
 const sourcePanelVisible = ref(false)
-
-const globalMenuBackgroundColor = ref<string>('')
-
-/**
- * 设置全局背景图片和菜单背景色
- * @param backgroundImage - 背景图片URL
- * @param menuBackgroundColor - 菜单背景色
- */
-const setGlobalBackground = (
-  backgroundImage: string,
-  menuBackgroundColor: string
-): void => {
-  globalBackgroundImage.value = backgroundImage
-  globalMenuBackgroundColor.value = menuBackgroundColor
-}
-
-/**
- * 清除全局背景
- */
-const clearGlobalBackground = (): void => {
-  globalBackgroundImage.value = ''
-  globalMenuBackgroundColor.value = ''
-}
-
-// 向子组件提供背景控制方法
-provide('appLayoutMethods', {
-  setGlobalBackground,
-  clearGlobalBackground,
-})
-
-// 监听路由变化，切换到在线观看或AV资源时清除背景
-watch(
-  () => route.name,
-  (newRouteName) => {
-    if (newRouteName === 'Online' || newRouteName === 'AV') {
-      clearGlobalBackground()
-    }
-  }
-)
+const globalSearch = ref('')
 
 /**
  * 导航到指定路由
@@ -226,11 +101,23 @@ const navigateTo = (path: string): void => {
   router.push(path)
 }
 
+const navigateBack = (): void => {
+  const event = new CustomEvent('app:navigate-back', { cancelable: true })
+  window.dispatchEvent(event)
+  if (!event.defaultPrevented) router.back()
+}
+
 /**
  * 设置按钮点击处理
  */
 const openSettings = (): void => {
   settingsVisible.value = true
+}
+
+const submitGlobalSearch = (): void => {
+  const query = globalSearch.value.trim()
+  const targetPath = route.name === 'AV' ? '/av' : '/'
+  router.replace({ path: targetPath, query: query ? { tab: 'search', q: query } : { tab: 'search' } })
 }
 
 // 成人模式检测
@@ -240,35 +127,25 @@ const adultMode = ref(localStorage.getItem('adultMode') === '1')
 const handleAdultModeChange = (enabled: boolean) => {
   adultMode.value = enabled
   if (!enabled && route.path === '/av') {
-    router.push('/online')
+    router.push('/')
   }
+}
+const onAdultModeChange = (e: Event) => {
+  handleAdultModeChange((e as CustomEvent<boolean>).detail)
+}
+const onStorageChange = (e: StorageEvent) => {
+  if (e.key === 'adultMode') handleAdultModeChange(e.newValue === '1')
 }
 if (typeof window !== 'undefined') {
-  window.addEventListener('adultModeChange', (e) => {
-    handleAdultModeChange((e as CustomEvent<boolean>).detail)
-  })
-  window.addEventListener('storage', (e) => {
-    if (e.key === 'adultMode') {
-      handleAdultModeChange(e.newValue === '1')
-    }
-  })
+  window.addEventListener('adultModeChange', onAdultModeChange)
+  window.addEventListener('storage', onStorageChange)
 }
 
-const scraperOpen = ref(false)
-let scraperTimer: ReturnType<typeof setTimeout> | null = null
+onUnmounted(() => {
+  window.removeEventListener('adultModeChange', onAdultModeChange)
+  window.removeEventListener('storage', onStorageChange)
+})
 
-const openScraper = () => {
-  if (scraperTimer) {
-    clearTimeout(scraperTimer)
-    scraperTimer = null
-  }
-  scraperOpen.value = true
-}
-const scheduleScraper = () => {
-  scraperTimer = setTimeout(() => {
-    scraperOpen.value = false
-  }, 120)
-}
 </script>
 
 <style scoped>
@@ -276,6 +153,7 @@ const scheduleScraper = () => {
   display: flex;
   flex-direction: column;
   position: relative;
+  background: #15181d;
 }
 
 /* 顶部毛玻璃菜单栏 - 与左侧面板保持一致的样式 */
@@ -298,148 +176,6 @@ const scheduleScraper = () => {
   max-width: 100%;
 }
 
-/* Logo 区域 */
-.logo-section {
-  display: flex;
-  align-items: center;
-  -webkit-app-region: no-drag;
-}
-
-.logo-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  width: 50px;
-  height: 50px;
-  border-radius: 8px;
-  transition: all 0.2s ease;
-}
-
-.logo-text {
-  font-size: 20px;
-  font-weight: 600;
-  color: white;
-  letter-spacing: -0.025em;
-}
-
-/* 导航区域 */
-.navigation-section {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  flex: 1;
-  position: absolute;
-  left: 50%;
-  transform: translateX(-50%);
-  -webkit-app-region: no-drag;
-}
-
-.nav-tabs {
-  display: flex;
-  gap: 4px;
-  background: rgba(0, 0, 0, 0.3);
-  border-radius: 100px;
-  padding: 4px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  backdrop-filter: blur(12px);
-  -webkit-backdrop-filter: blur(12px);
-}
-
-.nav-tab {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  height: 32px;
-  padding: 0 18px;
-  background: transparent;
-  border: none;
-  border-radius: 100px;
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
-  font-weight: 500;
-  cursor: pointer;
-  transition: all 0.2s ease;
-}
-
-.nav-tab:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.nav-tab.active {
-  background: rgba(255, 255, 255, 0.2);
-  color: white;
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
-}
-
-.nav-tab.active:hover {
-  background: rgba(255, 255, 255, 0.25);
-}
-
-/* 刃削下拉菜单 */
-.nav-dropdown {
-  position: relative;
-}
-
-.dropdown-menu {
-  position: absolute;
-  top: calc(100% + 6px);
-  left: 50%;
-  transform: translateX(-50%);
-  background: rgba(10, 12, 20, 0.96);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 10px;
-  padding: 4px;
-  min-width: 120px;
-  box-shadow: 0 12px 32px rgba(0, 0, 0, 0.6);
-  z-index: 200;
-}
-
-.dropdown-item {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: 100%;
-  padding: 8px 12px;
-  background: transparent;
-  border: none;
-  color: rgba(255, 255, 255, 0.65);
-  font-size: 13px;
-  border-radius: 7px;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-
-.dropdown-item:hover {
-  background: rgba(255, 255, 255, 0.08);
-  color: #fff;
-}
-
-.dropdown-item.active {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  font-weight: 500;
-}
-
-.dropdown-fade-enter-active,
-.dropdown-fade-leave-active {
-  transition:
-    opacity 0.15s,
-    transform 0.15s;
-}
-
-.dropdown-fade-enter-from,
-.dropdown-fade-leave-to {
-  opacity: 0;
-  transform: translateX(-50%) translateY(-4px);
-}
-
 /* 设置区域 */
 .settings-section {
   display: flex;
@@ -452,13 +188,13 @@ const scheduleScraper = () => {
   display: flex;
   align-items: center;
   gap: 5px;
-  height: 32px;
+  height: 36px;
   padding: 0 12px;
   background: rgba(0, 0, 0, 0.35);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.7);
-  font-size: 12px;
+  font-size: 13px;
   cursor: pointer;
   transition: all 0.15s ease;
   -webkit-app-region: no-drag;
@@ -481,5 +217,55 @@ const scheduleScraper = () => {
   /* 为顶部菜单留出空间 */
   height: calc(100vh - 80px);
   overflow: hidden;
+}
+.source-mgr-btn svg { width:16px; height:16px; flex:0 0 16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
+
+/* Screenshot-inspired media shell */
+.app-sidebar {
+  position: fixed;
+  inset: 0 auto 0 0;
+  width: 220px;
+  padding: 22px 14px;
+  z-index: 1100;
+  color: rgba(255, 255, 255, .76);
+  background: #15181d;
+  border-right: 1px solid rgba(255,255,255,.07);
+  -webkit-app-region: no-drag;
+}
+.sidebar-brand { display:flex; align-items:center; gap:10px; padding:0 10px 28px; color:#f5f7f8; font-size:18px; font-weight:650; }
+.sidebar-toggle { margin-left:auto; width:28px; height:28px; border:0; border-radius:7px; color:rgba(255,255,255,.55); background:transparent; font-size:22px; line-height:1; cursor:pointer; }
+.sidebar-toggle:hover { color:#fff; background:rgba(255,255,255,.1); }
+.sidebar-nav { display:flex; flex-direction:column; gap:5px; }
+.sidebar-item { display:flex; align-items:center; gap:12px; width:100%; min-height:42px; padding:0 12px; border:0; border-radius:10px; color:rgba(255,255,255,.68); background:transparent; font-size:14px; text-align:left; cursor:pointer; transition:background .18s ease, color .18s ease; }
+.sidebar-item:hover, .sidebar-item.active { color:#fff; background:rgba(255,255,255,.14); }
+.sidebar-divider { height:1px; margin:18px 10px 14px; background:rgba(255,255,255,.1); }
+.sidebar-heading { padding:0 12px 6px; color:rgba(255,255,255,.42); font-size:12px; letter-spacing:.08em; }
+.top-menu { left:220px; }
+.toolbar-leading { display:flex; align-items:center; gap:8px; -webkit-app-region:no-drag; }
+.toolbar-btn { display:grid; place-items:center; width:32px; height:32px; border:0; border-radius:8px; color:rgba(255,255,255,.7); background:transparent; font-size:16px; line-height:1; cursor:pointer; }
+.toolbar-btn svg { width:16px; height:16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; stroke-linejoin:round; }
+.toolbar-btn:hover { color:#fff; background:rgba(255,255,255,.1); }
+.global-search { display:flex; align-items:center; gap:8px; width:min(320px,34vw); height:38px; margin-left:8px; padding:0 13px; border:1px solid rgba(255,255,255,.1); border-radius:10px; color:rgba(255,255,255,.5); background:rgba(255,255,255,.1); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
+.global-search input { width:100%; border:0; outline:0; color:#fff; background:transparent; font-size:13px; }
+.global-search input::placeholder { color:rgba(255,255,255,.42); }
+.global-search .search-icon { width:16px; height:16px; flex:0 0 16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
+.main-content { margin-left:220px; }
+.app-layout.sidebar-collapsed .app-sidebar { width:68px; padding-left:10px; padding-right:10px; }
+.app-layout.sidebar-collapsed .top-menu { left:68px; }
+.app-layout.sidebar-collapsed .main-content { margin-left:68px; }
+.app-layout.sidebar-collapsed .sidebar-brand { justify-content:center; padding-left:0; padding-right:0; }
+.app-layout.sidebar-collapsed .sidebar-brand > span { display:none; }
+.app-layout.sidebar-collapsed .sidebar-item { justify-content:center; padding:0; }
+.app-layout.sidebar-collapsed .sidebar-item span { display:none; }
+.app-layout.sidebar-collapsed .sidebar-heading { display:none; }
+.app-layout.sidebar-collapsed .sidebar-divider { margin-left:8px; margin-right:8px; }
+
+@media (max-width: 860px) {
+  .app-sidebar { width:180px; padding:18px 10px; }
+  .top-menu { left:180px; }
+  .main-content { margin-left:180px; }
+  .menu-content { padding:0 12px; }
+  .source-mgr-btn { display:none; }
+  .global-search { width:min(250px, 42vw); }
 }
 </style>

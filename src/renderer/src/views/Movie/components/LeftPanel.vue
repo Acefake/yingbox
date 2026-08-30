@@ -4,30 +4,26 @@
     :style="{
       width: 280 + 'px',
       minWidth: 280 + 'px',
-      backgroundColor: 'rgba(17, 24, 39, 0.3)',
-      backdropFilter: 'blur(20px)',
-      WebkitBackdropFilter: 'blur(20px)',
     }"
     :class="[
-      'flex flex-col flex-shrink-0 relative rounded-xl glass-panel-floating shadow-2xl h-full',
-      mode !== 'tv' ? 'border border-white border-opacity-20' : '',
+      'flex flex-col flex-shrink-0 relative h-full border-r border-white/10',
     ]"
   >
     <!-- 顶部置顶操作区 -->
     <div class="flex-shrink-0 p-3 border-b border-white/10">
       <!-- 标题行 -->
       <div class="flex items-center justify-between px-1 mb-2">
-        <h2 class="text-xs font-black uppercase tracking-widest text-gray-400">
+        <h2 class="text-sm font-semibold tracking-wide text-gray-300">
           {{ mode === 'tv' ? '电视剧库' : '媒体库' }}
         </h2>
         <span
           v-if="adultMode"
-          class="text-[9px] font-bold px-1.5 py-0.5 rounded bg-red-600/70 text-red-100 tracking-wide"
+            class="text-xs font-bold px-1.5 py-0.5 rounded-md bg-red-600/70 text-red-100 tracking-wide"
         >18+</span>
         <div class="flex items-center gap-2">
           <div
             v-if="processedItems.length"
-            class="text-[10px] font-bold bg-white bg-opacity-10 px-2 py-0.5 rounded-full text-gray-400"
+            class="text-xs font-semibold bg-white bg-opacity-10 px-2 py-0.5 rounded-full text-gray-300"
           >
             {{ processedItems.length }} {{ mode === 'tv' ? '剧集' : '项目' }}
           </div>
@@ -36,7 +32,7 @@
 
       <!-- 扫描进度条（两种模式通用）-->
       <div v-if="dirLoading" class="mb-2 px-1">
-        <div class="flex items-center gap-1.5 text-[10px] text-blue-400 mb-1">
+        <div class="flex items-center gap-1.5 text-xs text-blue-300 mb-1">
           <span
             class="inline-block w-2 h-2 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"
           ></span>
@@ -59,14 +55,14 @@
           <button
             @click="$emit('addFolder')"
             :disabled="dirLoading"
-            class="flex-1 py-1.5 bg-blue-600 bg-opacity-60 hover:bg-opacity-80 text-white text-[11px] font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            class="flex-1 min-h-9 px-3 bg-blue-600 bg-opacity-70 hover:bg-opacity-90 text-white text-xs font-semibold rounded-lg transition-all active:scale-95 disabled:opacity-50"
           >
             + 添加
           </button>
           <button
             @click="$emit('refresh')"
             :disabled="dirLoading"
-            class="flex-1 py-1.5 bg-gray-700/60 hover:bg-gray-600/70 text-gray-100 text-[11px] font-bold rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            class="flex-1 min-h-9 px-3 bg-gray-700/60 hover:bg-gray-600/70 text-gray-100 text-xs font-semibold rounded-lg transition-all active:scale-95 disabled:opacity-50"
           >
             {{ dirLoading ? '刷新中...' : '刷新' }}
           </button>
@@ -124,13 +120,14 @@
           <div
             v-for="(dir, i) in directoryPaths"
             :key="dir"
-            class="flex items-center gap-1 px-2 py-1 bg-white bg-opacity-5 rounded-md text-[10px] text-gray-400 group"
+            class="flex items-center gap-1 px-2 py-1.5 bg-white bg-opacity-5 rounded-md text-xs text-gray-300 group"
           >
             <span class="flex-1 truncate" :title="dir">{{
               dir.split(/[/\\]/).pop()
             }}</span>
             <button
               @click="$emit('removeDirectory', i)"
+              :aria-label="`移除目录 ${dir}`"
               class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all flex-shrink-0"
             >
               ✕
@@ -141,7 +138,7 @@
         <!-- 一键刮削所有未元数据项 -->
         <button
           v-if="mode !== 'tv' && unscrapedCount > 0"
-          class="w-full py-1.5 rounded-lg text-[11px] font-bold transition-all active:scale-95 bg-amber-600/60 hover:bg-amber-600/80 text-white"
+          class="w-full min-h-9 px-3 rounded-lg text-xs font-semibold transition-all active:scale-95 bg-amber-600/70 hover:bg-amber-600/90 text-white"
           @click="$emit('scrapeAll')"
         >
           一键刮削 ({{ unscrapedCount }})

@@ -1,67 +1,70 @@
 <template>
   <div class="online-view">
-    <div class="tab-nav">
-      <button v-for="tab in tabs" :key="tab.id" class="tab-btn" :class="{ active: activeTab === tab.id }"
-        @click="activeTab = tab.id as 'home' | 'search'">
-        {{ tab.label }}
-      </button>
-      // <button class="debug-btn" @click="openVODTest">调试</button>
-    </div>
-
     <!-- 首页 -->
-    <div v-show="activeTab === 'home'" class="content-area">
-      <PlayHistory :history="playHistory" @clear="clearPlayHistory" @open="openPlayRecord" />
+    <div v-show="!inlineDetailItem && activeTab === 'home'" class="content-area primary-scroll home-content-area">
       <DoubanSection @open="openDoubanDetail" />
     </div>
 
     <!-- VOD 浏览 -->
-    <div v-show="activeTab === 'vod'" class="content-area">
+    <div v-show="!inlineDetailItem && activeTab === 'vod'" class="content-area primary-scroll">
       <VodBrowse @open-item="openDetailWindow" />
     </div>
 
     <!-- 搜索 -->
-    <SearchTab v-show="activeTab === 'search'" @open-item="openDetailWindow" />
+    <SearchTab v-show="!inlineDetailItem && activeTab === 'search'" @open-item="openDetailWindow" />
+
+    <div v-show="!inlineDetailItem && activeTab === 'favorites'" class="content-area primary-scroll home-content-area">
+      <LibraryCollection kind="favorites" @open="openDetailWindow" />
+    </div>
+    <div v-show="!inlineDetailItem && activeTab === 'recent'" class="content-area primary-scroll home-content-area">
+      <LibraryCollection kind="recent" @open="openDetailWindow" />
+    </div>
+
+    <Transition name="detail-page">
+      <section v-if="inlineDetailItem" class="inline-detail-page" aria-label="内容详情">
+        <DetailWindow :item="inlineDetailItem" />
+      </section>
+    </Transition>
 
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type CmsItem } from './composables/use-online-search'
-import { useRouter } from 'vue-router'
-import PlayHistory, { type PlayRecord } from './components/PlayHistory.vue'
+import { useRoute } from 'vue-router'
 import DoubanSection, { type DoubanItem } from './components/DoubanSection.vue'
 import SearchTab from './components/SearchTab.vue'
 import VodBrowse from './components/VodBrowse.vue'
+import DetailWindow from './DetailWindow.vue'
+import LibraryCollection from './components/LibraryCollection.vue'
 
-const router = useRouter()
-
-// ─── 播放记录 ────────────────────────────────────────────
-const PLAY_HISTORY_KEY = 'online_play_history'
-const playHistory = ref<PlayRecord[]>(
-  JSON.parse(localStorage.getItem(PLAY_HISTORY_KEY) || '[]')
-)
-
-const clearPlayHistory = () => {
-  playHistory.value = []
-  localStorage.removeItem(PLAY_HISTORY_KEY)
+const route = useRoute()
+const inlineDetailItem = ref<CmsItem | null>(null)
+const handleNavigateBack = (event: Event) => {
+  if (!inlineDetailItem.value) return
+  inlineDetailItem.value = null
+  event.preventDefault()
 }
+onMounted(() => window.addEventListener('app:navigate-back', handleNavigateBack))
+onBeforeUnmount(() => window.removeEventListener('app:navigate-back', handleNavigateBack))
 
 // ─── Tab ───────────────────────────────────────────────
-const tabs = [
-  { id: 'home', label: '首页' },
-  { id: 'vod', label: 'VOD' },
-  { id: 'search', label: '搜索' },
-]
-const activeTab = ref<'home' | 'vod' | 'search'>('home')
+type OnlineTab = 'home' | 'vod' | 'search' | 'favorites' | 'recent'
+const isOnlineTab = (value: unknown): value is OnlineTab =>
+  value === 'home' || value === 'vod' || value === 'search' || value === 'favorites' || value === 'recent'
+const activeTab = ref<OnlineTab>(isOnlineTab(route.query.tab) ? route.query.tab : 'home')
+watch(
+  () => route.query.tab,
+  (tab) => { activeTab.value = isOnlineTab(tab) ? tab : 'home' }
+)
 // ─── 详情 / 搜索 ───────────────────────────────────────────
 const openDetailWindow = (item: CmsItem) => {
-  ; (window.api as any).detail.open(JSON.parse(JSON.stringify(item)))
+  inlineDetailItem.value = JSON.parse(JSON.stringify(item))
 }
 
 const openDoubanDetail = (item: DoubanItem) => {
-  ; (window.api as any).detail.open(
-    JSON.parse(
+  inlineDetailItem.value = JSON.parse(
       JSON.stringify({
         _source: 'douban',
         vod_name: item.title,
@@ -71,15 +74,9 @@ const openDoubanDetail = (item: DoubanItem) => {
         overview: item.overview,
         searchTitle: item.searchTitle,
       })
-    )
   )
 }
 
-const openPlayRecord = (record: PlayRecord) => openDetailWindow(record.item)
-
-const openVODTest = () => {
-  router.push('/vod-test')
-}
 </script>
 
 <style scoped>
@@ -95,52 +92,6 @@ const openVODTest = () => {
   z-index: 10;
 }
 
-.tab-nav {
-  display: flex;
-  gap: 4px;
-  padding: 24px 24px 0;
-  flex-shrink: 0;
-}
-
-.tab-btn {
-  padding: 8px 20px;
-  border-radius: 8px 8px 0 0;
-  border: none;
-  background: rgba(255, 255, 255, 0.08);
-  color: rgba(255, 255, 255, 0.6);
-  font-size: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.tab-btn.active {
-  background: rgba(255, 255, 255, 0.15);
-  color: #fff;
-  font-weight: 600;
-}
-
-.tab-btn:hover:not(.active) {
-  background: rgba(255, 255, 255, 0.12);
-  color: rgba(255, 255, 255, 0.85);
-}
-
-.debug-btn {
-  margin-left: auto;
-  padding: 8px 16px;
-  border-radius: 6px;
-  border: 1px solid rgba(255, 255, 255, 0.2);
-  background: rgba(255, 152, 0, 0.15);
-  color: #ff9800;
-  font-size: 12px;
-  cursor: pointer;
-  transition: all 0.2s;
-}
-
-.debug-btn:hover {
-  background: rgba(255, 152, 0, 0.25);
-  border-color: rgba(255, 152, 0, 0.4);
-}
-
 .content-area {
   flex: 1;
   overflow-y: auto;
@@ -148,6 +99,30 @@ const openVODTest = () => {
   display: flex;
   flex-direction: column;
   gap: 20px;
+}
+
+.home-content-area { padding: 22px 40px 34px; gap: 28px; }
+
+.inline-detail-page {
+  position: absolute;
+  inset: 0;
+  z-index: 40;
+  width: 100%;
+  background: #15181d;
+}
+
+.inline-detail-page :deep(.detail-win) {
+  width: 100%;
+  height: 100%;
+}
+
+.detail-page-enter-active,
+.detail-page-leave-active { transition: opacity 0.2s ease; }
+.detail-page-enter-from,
+.detail-page-leave-to { opacity: 0; }
+
+@media (max-width: 860px) {
+  .home-content-area { padding: 18px 20px 24px; }
 }
 
 .content-area::-webkit-scrollbar {

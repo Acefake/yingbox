@@ -42,7 +42,7 @@ pnpm check:fix          # run checks and auto-fix lint issues
 
 ## Architecture
 
-The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app with six routes.
+The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app with five routes.
 
 ### Three-process layout (electron-vite)
 
@@ -71,7 +71,6 @@ Dev server runs on `127.0.0.1:3000` and proxies `/api` to `https://api.themovied
   - `dialog:*` (openDirectory, selectDirectory, openFile, saveFile)
   - `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)
   - `config:*`, `app:*`, `update:*`, `shell:*`
-  - `detail:*` (singleton popup window)
   - `player:*` (opens video player window using resources/player.html)
 - `backend-manager.ts` — Spawns Go backend executable (`main.exe`) on startup in production, kills on quit. In dev, assumes backend started separately via `pnpm dev:backend`
 - `auto-updater.ts` — Configures electron-updater (auto-download disabled), sends status via `update:status` IPC
@@ -79,7 +78,7 @@ Dev server runs on `127.0.0.1:3000` and proxies `/api` to `https://api.themovied
 - `local://` protocol handler for streaming local video files to the built-in player
 - DevTools shortcuts: F12 or Ctrl+Shift+I (Cmd+Option+I on Mac)
 
-**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `app.*`, `shell.*`, `player.*`, `win.*`, `detail.*`. Also defines `window.api.scraper` and `window.api.downloader` as empty objects (extensibility points). Type definitions are in [src/renderer/src/env.d.ts](src/renderer/src/env.d.ts).
+**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `app.*`, `shell.*`, `player.*`, `win.*`. Also defines `window.api.scraper` and `window.api.downloader` as empty objects (extensibility points). Type definitions are in [src/renderer/src/env.d.ts](src/renderer/src/env.d.ts).
 
 A separate preload exists at `resources/player-preload.js` for the video player window.
 
@@ -91,10 +90,8 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 - `/movie` → Movie file management & scraping ([views/Movie/index.vue](src/renderer/src/views/Movie/index.vue))
 - `/tv` → TV show file management & scraping ([views/TV/index.vue](src/renderer/src/views/TV/index.vue))
 - `/av` → Adult video resources online playback ([views/av/Index.vue](src/renderer/src/views/av/Index.vue))
-- `/vod-test` → VOD parser test window ([views/VODTestWindow.vue](src/renderer/src/views/VODTestWindow.vue))
-- `/online-detail` → Detail popup window singleton ([views/online/DetailWindow.vue](src/renderer/src/views/online/DetailWindow.vue))
 
-`App.vue` wraps all non-detail routes in `AppLayout` with `<keep-alive>`. `DetailWindow` renders standalone (no layout shell).
+`App.vue` wraps routes in `AppLayout` with `<keep-alive>`. `DetailWindow` renders inline as the online content page.
 
 Key directories under `src/renderer/src/`:
 

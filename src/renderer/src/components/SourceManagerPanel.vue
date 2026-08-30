@@ -19,7 +19,7 @@
                 <IconRefresh :spinning="checkingAll" />
                 {{ checkingAll ? `检测中 ${checkedCount}/${totalSources}` : '一键检测' }}
               </button>
-              <button class="smp-close" @click="emit('close')">✕</button>
+              <button class="smp-close" aria-label="关闭数据源管理" @click="emit('close')">✕</button>
             </div>
           </div>
 
@@ -104,6 +104,7 @@
 <script setup lang="ts">
 import { ref, computed, reactive, onMounted, defineComponent, h, onUnmounted } from 'vue'
 import axios from 'axios'
+import { Modal, message } from 'ant-design-vue'
 import { useOnlineSearch } from '@/views/online/composables/use-online-search'
 import { AV_SOURCES, useAvSources } from '@/views/av/use-av-sources'
 
@@ -236,8 +237,16 @@ const checkAll = async () => {
 }
 
 const disableAllFailed = () => {
-  for (const a of onlineApis.value) { if (statusMap[a] === 'fail') selectedSites.delete(a) }
-  for (const s of AV_SOURCES) { if (avStatusMap[s.api] === 'fail') avEnabledApis.delete(s.api) }
+  Modal.confirm({
+    title: `禁用 ${totalFail.value} 个失效数据源？`,
+    content: '只会停用这些数据源，不会删除自定义配置。',
+    okText: '禁用',
+    cancelText: '取消',
+    onOk: () => {
+      for (const a of onlineApis.value) { if (statusMap[a] === 'fail') selectedSites.delete(a) }
+      for (const s of AV_SOURCES) { if (avStatusMap[s.api] === 'fail') avEnabledApis.delete(s.api) }
+    },
+  })
 }
 
 // ── Auto-check on app startup ───────────────────────────────
@@ -260,7 +269,21 @@ const newApi = ref('')
 const addCustom = () => {
   const name = newName.value.trim()
   const api = newApi.value.trim()
-  if (!name || !api) return
+  if (!name || !api) {
+    message.warning('请填写数据源名称和 API 地址')
+    return
+  }
+  try {
+    const parsed = new URL(api)
+    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
+  } catch {
+    message.error('请输入有效的 HTTP 或 HTTPS API 地址')
+    return
+  }
+  if (customSites.value.some(site => site.api === api)) {
+    message.info('这个数据源已经添加')
+    return
+  }
   customSites.value.push({ name, api })
   selectedSites.add(api)
   showAdd.value = false
@@ -270,10 +293,19 @@ const addCustom = () => {
 }
 
 const removeCustom = (idx: number) => {
-  const api = customSites.value[idx].api
-  selectedSites.delete(api)
-  delete statusMap[api]
-  customSites.value = customSites.value.filter((_, i) => i !== idx)
+  const site = customSites.value[idx]
+  Modal.confirm({
+    title: `删除数据源“${site.name}”？`,
+    content: '删除后需要重新填写地址才能恢复。',
+    okText: '删除',
+    cancelText: '取消',
+    okType: 'danger',
+    onOk: () => {
+      selectedSites.delete(site.api)
+      delete statusMap[site.api]
+      customSites.value = customSites.value.filter((_, i) => i !== idx)
+    },
+  })
 }
 </script>
 
@@ -315,6 +347,7 @@ export const SiteCard = dc({
         ch('em', { class: 'badge', style: badgeStyle.value }, props.badge),
         ch('button', {
           class: 'icon-btn', disabled: props.checking,
+          title: '检测数据源', 'aria-label': `检测数据源 ${props.name}`,
           style: props.checking ? 'animation:spin 1s linear infinite' : '',
           onClick: (e: Event) => { e.stopPropagation(); emit('check') },
         }, [ch('svg', { viewBox: '0 0 24 24', width: 11, height: 11, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [
@@ -323,6 +356,7 @@ export const SiteCard = dc({
         ])]),
         props.deletable ? ch('button', {
           class: 'icon-btn danger',
+          title: '删除数据源', 'aria-label': `删除数据源 ${props.name}`,
           onClick: (e: Event) => { e.stopPropagation(); emit('delete') },
         }, [ch('svg', { viewBox: '0 0 24 24', width: 11, height: 11, fill: 'none', stroke: 'currentColor', 'stroke-width': 2 }, [
           ch('polyline', { points: '3 6 5 6 21 6' }),

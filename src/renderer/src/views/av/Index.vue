@@ -1,74 +1,46 @@
 <template>
   <div class="av-page h-full overflow-hidden text-white flex flex-col">
     <!-- Tab 导航 + 搜索栏 -->
-    <div class="flex-shrink-0 bg-black/30 border-b border-white/10">
+    <div class="flex-shrink-0 bg-transparent">
       <!-- Tab 行 -->
-      <div class="flex items-center gap-1 px-4 pt-3 pb-0">
+      <div class="flex items-center gap-6 px-4 pt-3 pb-0">
         <button
           v-for="tab in tabs"
           :key="tab.id"
-          class="px-5 py-2 rounded-t-lg text-sm transition-all border-b-2"
+          class="h-12 px-0 rounded-lg text-[15px] transition-colors"
           :class="activeTab === tab.id
-            ? 'bg-white/10 text-white font-semibold border-blue-500'
-            : 'bg-transparent text-gray-400 border-transparent hover:text-white hover:bg-white/5'"
+            ? 'text-blue-500 font-semibold'
+            : 'bg-transparent text-white/60 hover:text-white'"
           @click="activeTab = tab.id"
         >{{ tab.label }}</button>
       </div>
-      <!-- 搜索栏（聚合搜索 tab 显示） -->
-      <div v-if="activeTab === 'search'" class="px-4 py-2">
-        <div class="flex items-center gap-3">
-          <input
-            v-model="searchKeyword"
-            type="text"
-            placeholder="输入番号或关键词，聚合所有站点..."
-            class="flex-1 max-w-xl bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            @keyup.enter="handleSearch"
-          />
-          <button
-            @click="handleSearch"
-            :disabled="loading"
-            class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-          >
-            {{ loading ? `搜索中 (${doneCount}/${activeSources.length})` : '全站搜索' }}
-          </button>
-          <span v-if="mergedVideos.length > 0 && !loading" class="text-xs text-gray-400 whitespace-nowrap">{{ mergedVideos.length }} 部 / {{ videos.length }} 条</span>
-        </div>
-        <!-- 搜索记录 -->
-        <div v-if="searchHistory.length" class="flex flex-wrap gap-2 mt-2">
-          <span
-            v-for="kw in searchHistory" :key="kw"
-            class="flex items-center gap-1.5 bg-white/5 hover:bg-white/10 border border-white/10 rounded-full px-3 py-1 text-xs text-white/70 cursor-pointer transition-colors"
-            @click="searchKeyword = kw; handleSearch()"
-          >
-            {{ kw }}
-            <span class="text-white/30 hover:text-red-400 text-[10px]" @click.stop="removeSearchHistory(kw)">✕</span>
-          </span>
-          <button class="text-[11px] text-white/25 hover:text-white/60 ml-auto" @click="searchHistory = []">清空</button>
-        </div>
-      </div>
-      <!-- 下载搜索栏（下载搜索 tab 显示） -->
-      <div v-if="activeTab === 'download'" class="px-4 py-2">
-        <div v-if="downloadStep === 'input'" class="flex items-center gap-3">
-          <input
-            v-model="downloadKeyword"
-            type="text"
-            placeholder="输入番号或标题..."
-            class="flex-1 max-w-xl bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-sm text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-            @keyup.enter="handleSearchMeta"
-          />
-          <button
-            @click="handleSearchMeta"
-            :disabled="downloadLoading"
-            class="bg-blue-600 hover:bg-blue-500 disabled:opacity-50 text-white px-5 py-1.5 rounded-lg text-sm font-medium transition-colors whitespace-nowrap"
-          >
-            {{ downloadLoading ? '搜索中...' : '搜索' }}
-          </button>
-        </div>
+      <!-- 浏览工具栏 -->
+      <div v-if="activeTab === 'browse'" class="px-4 py-3">
+        <MediaFilterBar :rows="avFilterRows" :model-value="avFilterModel" @update:model-value="onFilterChange" />
       </div>
     </div>
 
+    <!-- 分类浏览内容 -->
+    <div v-if="activeTab === 'browse'" class="primary-scroll flex-1 overflow-y-auto p-6">
+      <div v-if="browseLoading" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div v-for="i in 12" :key="i" class="animate-pulse overflow-hidden rounded-xl border border-white/5 bg-white/5"><div class="aspect-video bg-white/10" /><div class="space-y-2 p-3"><div class="h-3 w-4/5 rounded bg-white/10" /><div class="h-3 w-2/5 rounded bg-white/10" /></div></div>
+      </div>
+      <div v-else-if="browseError" class="flex min-h-60 flex-col items-center justify-center gap-3 text-center"><p class="text-sm text-red-300">{{ browseError }}</p><button class="h-10 rounded-lg bg-white/10 px-4 text-sm hover:bg-white/15" @click="loadBrowse()">重新加载</button></div>
+      <template v-else>
+        <div class="mb-4 flex items-center justify-between"><div><h2 class="text-base font-semibold">{{ currentBrowseCategoryName }}</h2><p class="mt-1 text-xs text-white/40">{{ currentBrowseSource?.name || '未选择数据源' }} · 第 {{ browsePage }} / {{ browsePageCount || 1 }} 页<span v-if="browseTotal"> · 共 {{ browseTotal.toLocaleString() }} 条</span></p></div><button class="h-9 rounded-lg border border-white/10 px-3 text-xs text-white/70 hover:bg-white/10" @click="loadBrowse(true)">刷新</button></div>
+        <div v-if="sortedBrowseVideos.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <div v-for="video in sortedBrowseVideos" :key="`${video._source}-${video.vod_id}`" class="group cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.035] transition-all hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-white/[0.07]" @click="playVideo(video)">
+            <div class="relative aspect-video overflow-hidden bg-black"><img :src="video.vod_pic" :alt="video.vod_name" class="h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]" loading="lazy" decoding="async" @error="handleImageError" /><span v-if="video.vod_remarks" class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px]">{{ video.vod_remarks }}</span><button class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg" :class="isFav(video) ? 'text-yellow-400' : 'text-white/70 hover:text-yellow-300'" @click.stop="toggleFav(video)">{{ isFav(video) ? '♥' : '♡' }}</button></div>
+            <div class="p-3"><h3 class="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-white">{{ video.vod_name }}</h3><p class="mt-2 truncate text-xs text-white/45">{{ video.type_name || '未分类' }} · {{ video.vod_duration || '时长未知' }}</p></div>
+          </div>
+        </div>
+        <div v-else class="flex min-h-60 items-center justify-center text-sm text-white/40">这个分类暂时没有内容</div>
+        <div v-if="browsePageCount > 1" class="mt-8 flex items-center justify-center gap-3"><button class="h-10 rounded-lg border border-white/10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/10" :disabled="browsePage <= 1" @click="changeBrowsePage(-1)">上一页</button><span class="text-sm text-white/50">{{ browsePage }} / {{ browsePageCount }}</span><button class="h-10 rounded-lg border border-white/10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/10" :disabled="browsePage >= browsePageCount" @click="changeBrowsePage(1)">下一页</button></div>
+      </template>
+    </div>
+
     <!-- 聚合搜索内容 -->
-    <div v-if="activeTab === 'search'" class="flex-1 overflow-y-auto p-4">
+    <div v-if="activeTab === 'search'" class="primary-scroll flex-1 overflow-y-auto p-6">
       <!-- 加载进度 -->
       <div v-if="loading" class="flex flex-col items-center justify-center py-8 gap-3">
         <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
@@ -77,16 +49,23 @@
           <div class="bg-blue-500 h-1.5 rounded-full transition-all" :style="{ width: `${doneCount / activeSources.length * 100}%` }"></div>
         </div>
       </div>
+      <div v-if="loading && mergedVideos.length === 0" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+        <div v-for="i in 12" :key="i" class="animate-pulse overflow-hidden rounded-xl border border-white/5 bg-white/5"><div class="aspect-video bg-white/10" /><div class="space-y-2 p-3"><div class="h-3 w-4/5 rounded bg-white/10" /><div class="h-3 w-2/5 rounded bg-white/10" /></div></div>
+      </div>
+      <div v-if="searchError" class="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
+        <p class="text-sm text-red-300">{{ searchError }}</p>
+        <button v-if="searchKeyword.trim()" class="h-10 rounded-lg bg-white/10 px-4 text-sm hover:bg-white/15" @click="handleSearch">重试搜索</button>
+      </div>
       <!-- 合并结果网格 -->
-      <div v-if="mergedVideos.length > 0" class="grid grid-cols-2 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6 gap-3" :class="{ 'mt-4': loading }">
+      <div v-if="mergedVideos.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" :class="{ 'mt-4': loading }">
         <div
           v-for="group in mergedVideos"
           :key="group.key"
-          class="group rounded-lg overflow-hidden bg-white/5 hover:bg-white/10 transition-all hover:scale-[1.02] cursor-pointer"
+          class="group cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.035] transition-all hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-white/[0.07]"
           @click="playVideo(group.items[0])"
         >
           <div class="relative overflow-hidden bg-gray-800" style="aspect-ratio:16/9">
-            <img :src="group.vod_pic" :alt="group.vod_name" class="w-full h-full object-contain bg-black" loading="lazy" @error="handleImageError" />
+            <img :src="group.vod_pic" :alt="group.vod_name" class="w-full h-full object-contain bg-black" loading="lazy" decoding="async" @error="handleImageError" />
             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
               <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                 <svg class="w-5 h-5 text-white ml-0.5" fill="currentColor" viewBox="0 0 20 20">
@@ -95,165 +74,87 @@
               </div>
             </div>
             <div v-if="group.items[0].vod_remarks" class="absolute bottom-1 right-1 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-white">{{ group.items[0].vod_remarks }}</div>
-            <button class="absolute top-1 right-1 w-6 h-6 flex items-center justify-center rounded-full bg-black/50 text-xs transition-colors" :class="isFav(group.items[0]) ? 'text-yellow-400' : 'text-white/50 hover:text-yellow-400'" @click.stop="toggleFav(group.items[0])">{{ isFav(group.items[0]) ? '♥' : '♡' }}</button>
+            <button class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg transition-colors" :class="isFav(group.items[0]) ? 'text-yellow-400' : 'text-white/70 hover:text-yellow-300'" @click.stop="toggleFav(group.items[0])">{{ isFav(group.items[0]) ? '♥' : '♡' }}</button>
           </div>
-          <div class="p-2">
-            <h3 class="text-xs font-medium text-white truncate">{{ group.vod_name }}</h3>
+          <div class="p-3">
+            <h3 class="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-white">{{ group.vod_name }}</h3>
+            <p class="mt-2 truncate text-xs text-white/45">{{ group.items.length }} 个可用来源</p>
           </div>
         </div>
       </div>
       <!-- 无结果提示 -->
-      <div v-if="!loading && mergedVideos.length === 0 && hasSearched" class="flex flex-col items-center justify-center py-12 text-gray-400">
+      <div v-if="!loading && !searchError && mergedVideos.length === 0 && hasSearched" class="flex min-h-52 flex-col items-center justify-center text-gray-400">
         <p class="text-sm">未找到相关结果</p>
       </div>
-    </div>
-
-    <!-- 下载搜索内容 -->
-    <div v-if="activeTab === 'download'" class="flex-1 overflow-y-auto p-4">
-      <!-- 输入状态 -->
-      <div v-if="downloadStep === 'input'" class="flex items-center justify-center h-full">
-        <div class="text-center text-gray-400">
-          <div class="text-4xl mb-3">⬇️</div>
-          <p class="text-sm">输入番号或标题，搜索元数据</p>
-          <p class="text-xs mt-2 text-gray-500">确认后再添加到下载队列</p>
-        </div>
-      </div>
-      <!-- 预览状态 -->
-      <div v-if="downloadStep === 'preview' && downloadMeta" class="max-w-2xl mx-auto">
-        <div class="bg-white/5 rounded-lg p-6 border border-white/10">
-          <div class="flex flex-col gap-6">
-            <!-- 封面 -->
-            <div v-if="downloadMeta.cover" class="flex-shrink-0">
-              <img :src="getProxyImageUrl(downloadMeta.cover)" class="w-48 rounded-lg object-cover" />
-            </div>
-            <!-- 信息 -->
-            <div class="flex-1">
-              <h2 class="text-lg font-semibold text-white mb-2">{{ downloadMeta.title || downloadMeta.id }}</h2>
-              <div v-if="downloadMeta.id" class="text-sm text-gray-400 mb-3">番号: {{ downloadMeta.id }}</div>
-              <div v-if="downloadMeta.releaseDate" class="text-sm text-gray-400 mb-3">发布日期: {{ downloadMeta.releaseDate }}</div>
-              <div v-if="downloadMeta.description" class="text-sm text-gray-300 mb-4 line-clamp-3">{{ downloadMeta.description }}</div>
-              <!-- 按钮 -->
-              <div class="flex gap-3">
-                <button
-                  @click="handleDownload"
-                  :disabled="downloadLoading"
-                  class="bg-green-600 hover:bg-green-500 disabled:opacity-50 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  {{ downloadLoading ? '添加中...' : '添加到下载' }}
-                </button>
-                <button
-                  @click="handleReset"
-                  class="bg-white/10 hover:bg-white/20 text-white px-6 py-2 rounded-lg text-sm font-medium transition-colors"
-                >
-                  重新搜索
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-      <!-- 下载中状态 -->
-      <div v-if="downloadStep === 'downloading'" class="flex items-center justify-center h-full">
-        <div class="text-center">
-          <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-green-500 mx-auto mb-3"></div>
-          <p class="text-sm text-gray-400">正在添加到下载队列...</p>
-        </div>
+      <div v-if="!loading && !hasSearched" class="flex min-h-64 flex-col items-center justify-center text-center">
+        <p class="text-sm text-white/60">搜索全部启用数据源</p>
+        <p class="mt-2 text-xs text-white/30">输入番号或关键词后按回车</p>
       </div>
     </div>
 
-    <!-- 收藏 Tab -->
-    <div v-if="activeTab === 'fav'" class="flex-1 overflow-y-auto p-4">
+    <!-- 收藏 -->
+    <div v-if="activeTab === 'favorites'" class="primary-scroll flex-1 overflow-y-auto p-6">
+      <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="text-base font-semibold">收藏</h2><p class="mt-1 text-xs text-white/40">AV 资源收藏</p></div><button v-if="favorites.length" class="h-9 rounded-lg px-3 text-xs text-white/40 hover:bg-white/10 hover:text-white/70" @click="favorites = []">清空</button></div>
       <div v-if="favorites.length">
         <div class="flex items-center gap-2 mb-4">
           <span class="text-sm text-white/50">共 {{ favorites.length }} 个收藏</span>
-          <button class="text-[11px] text-white/30 hover:text-white/70 ml-auto" @click="favorites = []">清空全部</button>
+          <button class="ml-auto h-9 rounded-lg px-3 text-xs text-white/40 hover:bg-white/10 hover:text-white/70" @click="favorites = []">清空全部</button>
         </div>
-        <div class="grid grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-7 gap-3">
-          <div v-for="fav in favorites" :key="fav._uid" class="group cursor-pointer rounded-lg overflow-hidden bg-white/5 hover:bg-white/10 transition-all hover:scale-[1.02]" @click="playVideo(fav)">
-            <div class="relative bg-gray-800" style="aspect-ratio:16/9">
-              <img :src="fav.vod_pic" class="w-full h-full object-contain bg-black" @error="handleImageError" />
-              <div class="absolute top-1 left-1 bg-pink-600/80 px-1 py-0.5 rounded text-[9px] text-white">{{ fav._source }}</div>
-              <button class="absolute top-1 right-1 text-yellow-400 text-sm" @click.stop="toggleFav(fav)">♥</button>
+        <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
+          <div v-for="fav in favorites" :key="fav._uid" class="group cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.035] transition-all hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-white/[0.07]" @click="playVideo(fav)">
+            <div class="relative aspect-video bg-black">
+              <img :src="fav.vod_pic" loading="lazy" decoding="async" class="w-full h-full object-contain bg-black" @error="handleImageError" />
+              <div class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-white/80">{{ fav._source }}</div>
+              <button class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg text-yellow-400" @click.stop="toggleFav(fav)">♥</button>
             </div>
-            <p class="text-[11px] px-1.5 py-1 truncate text-white/80">{{ fav.vod_name }}</p>
+            <p class="line-clamp-2 min-h-16 p-3 text-sm font-medium leading-5 text-white/90">{{ fav.vod_name }}</p>
           </div>
         </div>
       </div>
-      <div v-else class="flex flex-col items-center justify-center h-full text-gray-500 gap-2">
+      <div v-else class="flex min-h-40 flex-col items-center justify-center text-gray-500 gap-2 rounded-xl border border-dashed border-white/10">
         <p class="text-4xl mb-2">♡</p>
         <p>还没有收藏</p>
         <p class="text-xs">在搜索结果中点击 ♡ 收藏</p>
       </div>
     </div>
 
-    <!-- 历史 Tab -->
-    <div v-if="activeTab === 'history'" class="flex-1 overflow-y-auto p-4 flex flex-col gap-6">
-      <!-- 播放历史 -->
-      <div>
-        <div class="flex items-center gap-2 mb-3">
-          <span class="text-sm font-semibold text-white/80">播放历史</span>
-          <button class="text-[11px] text-white/30 hover:text-white/70 ml-auto" @click="playHistory = []">清空</button>
-        </div>
-        <div v-if="playHistory.length" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-2">
-          <div v-for="rec in playHistory" :key="rec.url" class="flex items-center gap-3 bg-white/5 hover:bg-white/10 rounded-lg px-3 py-2 cursor-pointer transition-colors" @click="playVideo(rec.video)">
-            <img :src="rec.vod_pic" class="w-12 h-12 object-cover rounded flex-shrink-0" @error="handleImageError" />
-            <div class="min-w-0">
+    <!-- 播放历史 -->
+    <div v-if="activeTab === 'history'" class="primary-scroll flex-1 overflow-y-auto p-6">
+      <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="text-base font-semibold">播放历史</h2><p class="mt-1 text-xs text-white/40">AV 资源播放记录</p></div><button v-if="playHistory.length" class="h-9 rounded-lg px-3 text-xs text-white/40 hover:bg-white/10 hover:text-white/70" @click="playHistory = []">清空</button></div>
+      <div v-if="playHistory.length" class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
+          <div v-for="rec in playHistory" :key="rec.url" class="flex min-h-20 cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/[0.035] px-3 py-2 transition-colors hover:border-blue-400/30 hover:bg-white/[0.07]" @click="resumeHistory(rec)">
+            <img :src="rec.vod_pic" loading="lazy" decoding="async" class="h-14 w-20 flex-shrink-0 rounded-lg bg-black object-contain" @error="handleImageError" />
+            <div class="min-w-0 flex-1">
               <p class="text-sm text-white/80 truncate">{{ rec.vod_name }}</p>
               <p class="text-[11px] text-white/40">{{ rec.epName }} · {{ rec._source }}</p>
               <p class="text-[10px] text-white/25">{{ formatTime(rec.timestamp) }}</p>
+              <div v-if="rec.duration > 0" class="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-blue-500" :style="{ width: `${Math.min(100, rec.progress / rec.duration * 100)}%` }" /></div>
             </div>
           </div>
         </div>
-        <div v-else class="text-sm text-gray-500 py-4">暂无播放记录</div>
+      <div v-else class="flex min-h-40 items-center justify-center text-sm text-gray-500">暂无播放记录</div>
       </div>
-    </div>
 
-    <!-- 播放器弹窗 -->
+    <!-- 播放器：仅保留视频画面与原生控制条 -->
     <Transition name="sheet-fade">
-      <div v-if="showPlayer" class="fixed inset-0 flex items-center justify-center bg-black/70" style="z-index: 1001" @click.self="closePlayer">
-        <div class="flex flex-col rounded-xl overflow-hidden shadow-2xl bg-black max-h-[90vh]" style="width: 80vw; max-width: 1000px;">
-          <!-- 头部 -->
-          <div class="flex items-center justify-between px-4 py-2.5 bg-gray-900 flex-shrink-0">
-            <span class="text-sm font-medium text-white truncate max-w-[80%]">{{ playingVideo?.vod_name }}</span>
-            <button @click="closePlayer" class="text-gray-400 hover:text-white text-lg leading-none px-1" style="-webkit-app-region: no-drag">✕</button>
-          </div>
-          <!-- 源切换 + 集数 -->
-          <div class="bg-gray-900 px-4 py-2 flex flex-col gap-2 flex-shrink-0">
-            <!-- 多源时显示 -->
-            <div v-if="playingGroup && playingGroup.items.length > 1" class="flex items-center gap-2 flex-wrap">
-              <span class="text-[11px] text-gray-500 flex-shrink-0">切换源:</span>
-              <button
-                v-for="item in playingGroup.items" :key="item._uid"
-                class="px-2.5 py-0.5 rounded text-[11px] transition-colors"
-                :class="playingVideo?._uid === item._uid ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'"
-                @click="switchSource(item)"
-              >{{ item._source }}</button>
-            </div>
-            <!-- 线路/清晰度/集数 -->
-            <div v-if="playingVideo?.episodes?.length" class="flex items-center gap-2 flex-wrap max-h-24 overflow-y-auto">
-              <span class="text-[11px] text-gray-500 flex-shrink-0">线路:</span>
-              <button
-                v-for="ep in playingVideo.episodes"
-                :key="ep.url"
-                @click="startPlay(ep.url, ep.name)"
-                class="px-2.5 py-0.5 text-xs rounded transition-colors"
-                :class="playingUrl === ep.url ? 'bg-blue-600 text-white' : 'bg-white/10 text-gray-300 hover:bg-white/20'"
-              >
-                {{ ep.name }}
-              </button>
-            </div>
-          </div>
-          <!-- 视频区域：自适应竖屏，限制最大高度 -->
-          <div class="relative bg-black flex-shrink-0" style="max-height: calc(90vh - 140px);">
-            <video
-              ref="videoEl"
-              class="w-full h-full object-contain max-h-[calc(90vh-140px)]"
-              style="aspect-ratio: auto; max-height: min(60vw, calc(90vh - 140px));"
-              controls
-              autoplay
-              :poster="playingVideo?.vod_pic"
-            />
-          </div>
+      <div v-if="showPlayer" class="fixed inset-0 z-[1200] flex items-center justify-center bg-black/75" @click.self="closePlayer">
+        <div class="av-player-page relative flex max-h-[92vh] w-[92vw] items-center justify-center overflow-hidden rounded-xl bg-black">
+          <button class="absolute right-4 top-3 z-10 text-2xl leading-none text-white/60 hover:text-white" aria-label="关闭播放器" @click="closePlayer">×</button>
+        <p v-if="playerMessage" class="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-2 text-xs text-white/80">{{ playerMessage }}</p>
+        <video
+          ref="videoEl"
+          class="h-full w-full object-contain"
+          controls
+          autoplay
+          :poster="playingVideo?.vod_pic"
+          tabindex="0"
+          @loadedmetadata="handleLoadedMetadata"
+          @timeupdate="handleTimeUpdate"
+          @volumechange="handleVolumeChange"
+          @error="handleVideoError"
+          @ended="handleVideoEnded"
+          @keydown="handlePlayerKeydown"
+        />
         </div>
       </div>
     </Transition>
@@ -261,22 +162,223 @@
 </template>
 
 <script setup lang="ts">
-import { ref, shallowRef, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { computed, ref, shallowRef, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import Hls from 'hls.js'
+import { useRoute } from 'vue-router'
+import { backend } from '@/api/backend'
 import { useAvSources, type AvSite } from './use-av-sources'
+import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
 
 // ─── Tab ─────────────────────────────────────────────────────
 const tabs = [
-  { id: 'search', label: '聚合搜索' },
-  { id: 'download', label: '下载搜索' },
-  { id: 'fav', label: '收藏' },
-  { id: 'history', label: '历史' },
-]
-const activeTab = ref('search')
+  { id: 'browse', label: '浏览' },
+  { id: 'favorites', label: '收藏' },
+  { id: 'history', label: '播放历史' },
+] as const
+type AvTab = 'browse' | 'search' | 'favorites' | 'history'
+const activeTab = useStorage<AvTab>('av_active_tab', 'browse')
+const route = useRoute()
 
 // ─── 站点（使用启用列表） ─────────────────────────────────────
 const { getActiveSources, activeSources } = useAvSources()
+
+// ─── 单源分类浏览 ─────────────────────────────────────────────
+type BrowseCategory = { id: number | null; name: string }
+type BrowseVisit = { categoryId: number | null; categoryName: string; page: number; sort: 'latest' | 'hot' | 'rating' }
+const browseSourceApi = useStorage('av_browse_source', '')
+const browseCategoryId = ref<number | null>(null)
+const browseCategoryName = ref('全部')
+const browseCategories = ref<BrowseCategory[]>([{ id: null, name: '全部' }])
+const avFilterRows = computed<MediaFilterRow[]>(() => [
+  {
+    key: 'source',
+    label: '数据源',
+    options: activeSources.value.map(source => ({ label: source.name, value: source.api })),
+  },
+  {
+    key: 'sort',
+    label: '排序',
+    options: [
+      { label: '最新发布', value: 'latest' },
+      { label: '本周热度', value: 'hot' },
+      { label: '评分优先', value: 'rating' },
+    ],
+  },
+  {
+    key: 'category',
+    label: '分类',
+    options: browseCategories.value.map(category => ({ label: category.name, value: category.name })),
+  },
+])
+const avFilterModel = computed(() => ({ source: browseSourceApi.value, sort: browseSort.value, category: browseCategoryName.value }))
+const onFilterChange = (value: Record<string, string>) => {
+  if (value.source && value.source !== browseSourceApi.value) browseSourceApi.value = value.source
+  if (value.sort && value.sort !== browseSort.value) browseSort.value = value.sort as 'latest' | 'hot' | 'rating'
+  if (value.category && value.category !== browseCategoryName.value) {
+    const category = browseCategories.value.find(item => item.name === value.category)
+    if (category) selectBrowseCategory(category)
+  }
+}
+const browseVideos = shallowRef<any[]>([])
+const browsePage = ref(1)
+const browsePageCount = ref(0)
+const browseTotal = ref(0)
+const browseLoading = ref(false)
+const browseError = ref('')
+const browseSort = ref<'latest' | 'hot' | 'rating'>('latest')
+const browseVisits = useStorage<Record<string, BrowseVisit>>('av_browse_visits', {})
+const browseCategoryCache = useStorage<Record<string, BrowseCategory[]>>('av_browse_categories', {})
+type BrowseCacheEntry = { items: any[]; pageCount: number; total: number; categories: BrowseCategory[] }
+const browseCache = new Map<string, BrowseCacheEntry>()
+let browseAbort: AbortController | null = null
+let activeBrowseKey = ''
+
+const currentBrowseSource = computed(() =>
+  activeSources.value.find(source => source.api === browseSourceApi.value)
+)
+const currentBrowseCategoryName = computed(() =>
+  browseCategoryName.value
+)
+const normalizeCategoryName = (name: unknown) => String(name ?? '').trim()
+const sortedBrowseVideos = computed(() => [...browseVideos.value]
+  .sort((a, b) => {
+  if (browseSort.value === 'hot') return Number(b.vod_hits_week || 0) - Number(a.vod_hits_week || 0)
+  if (browseSort.value === 'rating') return Number(b.vod_score || 0) - Number(a.vod_score || 0)
+  return String(b.vod_time_add || b.vod_time || '').localeCompare(String(a.vod_time_add || a.vod_time || ''))
+}))
+
+const createBrowseUrl = (source: AvSite, page: number) => {
+  const params = new URLSearchParams({ ac: 'detail', pg: String(page) })
+  if (browseCategoryId.value !== null) params.set('t', String(browseCategoryId.value))
+  return `${source.api}?${params}`
+}
+
+const mergeBrowseCategories = (items: any[]) => {
+  const byId = new Map<number, BrowseCategory>(
+    browseCategories.value
+      .filter((category): category is BrowseCategory & { id: number } => category.id !== null)
+      .map(category => [category.id, category])
+  )
+  for (const item of items) {
+    const name = normalizeCategoryName(item.type_name)
+    const id = Number(item.type_id)
+    if (Number.isFinite(id) && name && !byId.has(id)) byId.set(id, { id, name })
+  }
+  browseCategories.value = [
+    { id: null, name: '全部' },
+    ...Array.from(byId.values()).sort((a, b) => a.name.localeCompare(b.name, 'zh-CN')),
+  ]
+  if (browseSourceApi.value) browseCategoryCache.value[browseSourceApi.value] = browseCategories.value
+}
+
+const saveBrowseVisit = () => {
+  if (!browseSourceApi.value) return
+  browseVisits.value[browseSourceApi.value] = {
+    categoryId: browseCategoryId.value,
+    categoryName: browseCategoryName.value,
+    page: browsePage.value,
+    sort: browseSort.value,
+  }
+}
+
+const restoreBrowseVisit = () => {
+  const saved = browseVisits.value[browseSourceApi.value]
+  browseCategories.value = browseCategoryCache.value[browseSourceApi.value] ?? [{ id: null, name: '全部' }]
+  browseCategoryId.value = saved?.categoryId ?? null
+  browseCategoryName.value = saved?.categoryName ?? '全部'
+  browsePage.value = saved?.page ?? 1
+  browseSort.value = saved?.sort ?? 'latest'
+}
+
+const browseCacheKey = () => `${browseSourceApi.value}|${browseCategoryId.value ?? 'all'}|${browsePage.value}|${browseSort.value}`
+
+const applyBrowseCache = (entry: BrowseCacheEntry) => {
+  browseVideos.value = entry.items
+  browsePageCount.value = entry.pageCount
+  browseTotal.value = entry.total
+  browseCategories.value = entry.categories
+  if (browseSourceApi.value) browseCategoryCache.value[browseSourceApi.value] = entry.categories
+}
+
+const loadBrowse = async (force = false) => {
+  const selectedSource = currentBrowseSource.value
+  if (!selectedSource) {
+    browseVideos.value = []
+    browseError.value = '没有启用的数据源，请先在数据源管理中启用一个来源'
+    return
+  }
+  const cacheKey = browseCacheKey()
+  if (!force && browseLoading.value && activeBrowseKey === cacheKey) return
+  const sources = [selectedSource]
+  browseAbort?.abort()
+  const cached = browseCache.get(cacheKey)
+  if (!force && cached) {
+    browseError.value = ''
+    applyBrowseCache(cached)
+    browseLoading.value = false
+    saveBrowseVisit()
+    return
+  }
+  const controller = new AbortController()
+  browseAbort = controller
+  activeBrowseKey = cacheKey
+  browseLoading.value = true
+  browseError.value = ''
+  try {
+    const settled = await Promise.allSettled(sources.map(async source => {
+      const response = await fetch(createBrowseUrl(source, browsePage.value), { signal: controller.signal })
+      if (!response.ok) throw new Error(`${source.name} 请求失败（HTTP ${response.status}）`)
+      const data = await response.json()
+      if (data.code !== 1 || !Array.isArray(data.list)) throw new Error(data.msg || `${source.name} 没有返回可用内容`)
+      return { source, data }
+    }))
+    const results = settled.flatMap(result => result.status === 'fulfilled' ? [result.value] : [])
+    if (!results.length) throw new Error('所有启用数据源均未返回可用内容')
+    const items = results.flatMap(({ source, data }) => data.list.map((item: any) => ({ ...item, _source: source.name, _uid: `${source.name}-${item.vod_id}` })))
+    mergeBrowseCategories(items)
+    const entry: BrowseCacheEntry = {
+      items,
+      pageCount: Number(results[0]?.data.pagecount || 0),
+      total: results.reduce((sum, result) => sum + Number(result.data.total || 0), 0),
+      categories: browseCategories.value,
+    }
+    browseCache.set(cacheKey, entry)
+    if (browseCache.size > 60) browseCache.delete(browseCache.keys().next().value as string)
+    applyBrowseCache(entry)
+  } catch (error) {
+    if ((error as Error).name !== 'AbortError') browseError.value = error instanceof Error ? error.message : '加载分类内容失败'
+  } finally {
+    if (!controller.signal.aborted) browseLoading.value = false
+  }
+}
+
+const selectBrowseCategory = (category: BrowseCategory) => {
+  if (browseCategoryName.value === category.name) return
+  browseCategoryId.value = category.id
+  browseCategoryName.value = category.name
+  browsePage.value = 1
+  saveBrowseVisit()
+  loadBrowse()
+}
+
+const changeBrowsePage = (offset: number) => {
+  const nextPage = browsePage.value + offset
+  if (nextPage < 1 || nextPage > browsePageCount.value) return
+  browsePage.value = nextPage
+  saveBrowseVisit()
+  loadBrowse()
+}
+
+watch(activeSources, sources => {
+  if (sources.some(source => source.api === browseSourceApi.value)) return
+  browseSourceApi.value = sources[0]?.api ?? ''
+}, { immediate: true })
+watch(browseSourceApi, () => {
+  restoreBrowseVisit()
+  loadBrowse()
+})
+watch(browseSort, saveBrowseVisit)
 
 // ─── 状态 ────────────────────────────────────────────────────
 const searchKeyword = ref('')
@@ -284,103 +386,21 @@ const videos = shallowRef<any[]>([])
 const loading = ref(false)
 const hasSearched = ref(false)
 const doneCount = ref(0)
-
-// ─── 下载搜索状态 ────────────────────────────────────────────
-const downloadKeyword = ref('')
-const downloadLoading = ref(false)
-const downloadMessage = ref('')
-const downloadSuccess = ref(false)
-const downloadMeta = ref<any>(null)
-const downloadStep = ref<'input' | 'preview' | 'downloading'>('input')
+const failedSourceCount = ref(0)
+const searchError = ref('')
+const runQuerySearch = () => {
+  const query = String(route.query.q || '').trim()
+  if (!query) return
+  searchKeyword.value = query
+  activeTab.value = 'search'
+  handleSearch()
+}
+watch(() => route.query.q, () => runQuerySearch())
 
 // 图片代理 URL
 const getProxyImageUrl = (url: string) => {
   if (!url) return ''
-  return `http://127.0.0.1:31471/proxy?url=${encodeURIComponent(url)}`
-}
-
-// ─── 获取元数据 ───────────────────────────────────────────────
-const handleSearchMeta = async () => {
-  if (!downloadKeyword.value.trim()) {
-    downloadMessage.value = '请输入番号或标题'
-    downloadSuccess.value = false
-    return
-  }
-
-  downloadLoading.value = true
-  downloadMessage.value = ''
-  downloadMeta.value = null
-
-  try {
-    const response = await fetch(`http://127.0.0.1:31471/api/meta/${encodeURIComponent(downloadKeyword.value)}`, {
-      headers: {
-        'Authorization': 'Bearer IBHUSDBWQHJEJOBDSW'
-      }
-    })
-
-    if (response.ok) {
-      const data = await response.json()
-      downloadMeta.value = data
-      downloadStep.value = 'preview'
-      downloadMessage.value = ''
-    } else {
-      const text = await response.text()
-      downloadMessage.value = text || '获取元数据失败'
-      downloadSuccess.value = false
-    }
-  } catch (err) {
-    downloadMessage.value = '网络错误，请确保后端服务已启动'
-    downloadSuccess.value = false
-  } finally {
-    downloadLoading.value = false
-  }
-}
-
-// ─── 下载功能 ─────────────────────────────────────────────────
-const handleDownload = async () => {
-  if (!downloadKeyword.value.trim()) {
-    downloadMessage.value = '请输入番号或标题'
-    downloadSuccess.value = false
-    return
-  }
-
-  downloadLoading.value = true
-  downloadMessage.value = ''
-  downloadSuccess.value = false
-  downloadStep.value = 'downloading'
-
-  try {
-    const response = await fetch(`http://127.0.0.1:31471/api/addvideo/${encodeURIComponent(downloadKeyword.value)}`, {
-      headers: {
-        'Authorization': 'Bearer IBHUSDBWQHJEJOBDSW'
-      }
-    })
-    const text = await response.text()
-
-    if (response.ok) {
-      downloadMessage.value = text
-      downloadSuccess.value = true
-      downloadKeyword.value = ''
-      downloadMeta.value = null
-      downloadStep.value = 'input'
-    } else {
-      downloadMessage.value = text || '添加失败'
-      downloadSuccess.value = false
-      downloadStep.value = 'preview'
-    }
-  } catch (err) {
-    downloadMessage.value = '网络错误，请确保后端服务已启动'
-    downloadSuccess.value = false
-    downloadStep.value = 'preview'
-  } finally {
-    downloadLoading.value = false
-  }
-}
-
-const handleReset = () => {
-  downloadStep.value = 'input'
-  downloadMeta.value = null
-  downloadMessage.value = ''
+  return backend.proxyUrl(url)
 }
 
 // ─── 搜索历史 ─────────────────────────────────────────────────
@@ -393,10 +413,33 @@ const removeSearchHistory = (kw: string) => {
 }
 
 // ─── 播放历史 ─────────────────────────────────────────────────
-const playHistory = useStorage<any[]>('av_play_history', [])
+interface AvPlayRecord {
+  vod_name: string
+  vod_pic: string
+  _source: string
+  epName: string
+  url: string
+  timestamp: number
+  progress: number
+  duration: number
+  video: any
+}
+const playHistory = useStorage<AvPlayRecord[]>('av_play_history', [])
+
 const savePlayHistory = (video: any, epName: string, url: string) => {
-  const record = { vod_name: video.vod_name, vod_pic: video.vod_pic, _source: video._source, epName, url, timestamp: Date.now(), video }
-  playHistory.value = [record, ...playHistory.value.filter((r: any) => r.url !== url)].slice(0, 30)
+  const previous = playHistory.value.find(record => record.url === url)
+  const record: AvPlayRecord = {
+    vod_name: video.vod_name,
+    vod_pic: video.vod_pic,
+    _source: video._source,
+    epName,
+    url,
+    timestamp: Date.now(),
+    progress: previous?.progress ?? 0,
+    duration: previous?.duration ?? 0,
+    video,
+  }
+  playHistory.value = [record, ...playHistory.value.filter(item => item.url !== url)].slice(0, 30)
 }
 
 // ─── 收藏 ─────────────────────────────────────────────────────
@@ -414,6 +457,13 @@ const playingVideo = ref<any>(null)
 const playingUrl = ref('')
 const videoEl = ref<HTMLVideoElement | null>(null)
 const playingGroup = ref<{ vod_name: string; vod_pic: string; items: any[] } | null>(null)
+const playerMessage = ref('')
+const playbackRate = useStorage<number>('av_playback_rate', 1)
+const volume = useStorage<number>('av_volume', 1)
+const attemptedSourceIds = new Set<string>()
+let switchingSource = false
+let resumeTime = 0
+let lastProgressSave = 0
 let hls: Hls | null = null
 
 // 增量去重合并 — 避免每次 videos 变化都重建整个 Map
@@ -469,49 +519,73 @@ const fetchFromSource = async (source: AvSite, keyword: string, signal: AbortSig
       }))
     }
   } catch {
-    // 超时、取消或失败静默跳过
+    if (!signal.aborted) failedSourceCount.value++
   }
   return []
 }
 
-// ─── 全站并发聚合（仅使用已启用站点） ──────────────────────────────────
-let searchTimer: ReturnType<typeof setTimeout> | null = null
-watch(searchKeyword, (val, oldVal) => {
-  if (val === oldVal) return
-  if (searchTimer) clearTimeout(searchTimer)
-  searchTimer = setTimeout(() => handleSearch(), 400)
-})
+const searchCache = new Map<string, { expiresAt: number; items: any[] }>()
+const mapWithConcurrency = async <T, R>(items: T[], limit: number, worker: (item: T) => Promise<R>) => {
+  const results: R[] = new Array(items.length)
+  let cursor = 0
+  const run = async () => {
+    while (cursor < items.length) {
+      const index = cursor++
+      results[index] = await worker(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(Math.max(1, limit), items.length) }, run))
+  return results
+}
 
 const handleSearch = async () => {
+  const keyword = searchKeyword.value.trim()
+  if (!keyword) {
+    hasSearched.value = true
+    searchError.value = '请输入番号或关键词'
+    return
+  }
   if (currentAbort) currentAbort.abort()
   currentAbort = new AbortController()
   const signal = currentAbort.signal
 
-  if (searchKeyword.value.trim()) saveSearchHistory(searchKeyword.value.trim())
+  saveSearchHistory(keyword)
   loading.value = true
   hasSearched.value = true
   doneCount.value = 0
+  failedSourceCount.value = 0
+  searchError.value = ''
   videos.value = []
   rebuildMerged()
 
   const activeSources = getActiveSources()
-  // 收集所有结果，搜索结束后一次性更新 — 避免中间态触发多次重渲染
-  const allItems: any[] = []
-  await Promise.all(
-    activeSources.map(async (source) => {
-      const items = await fetchFromSource(source, searchKeyword.value.trim(), signal)
-      if (signal.aborted) return
-      doneCount.value++
-      if (items.length > 0) {
-        allItems.push(...items)
-        // 渐进更新：每个源完成时更新一次（不是每个 push）
-        videos.value = [...allItems]
-        rebuildMerged()
-      }
-    })
-  )
+  const cacheKey = `${keyword}|${activeSources.map(source => source.api).sort().join(',')}`
+  const cached = searchCache.get(cacheKey)
+  if (cached && cached.expiresAt > Date.now()) {
+    videos.value = cached.items
+    doneCount.value = activeSources.length
+    rebuildMerged()
+    loading.value = false
+    return
+  }
 
-  if (!signal.aborted) loading.value = false
+  // 限制并发请求，避免数据源较多时同时建立过多连接。
+  const sourceResults = await mapWithConcurrency(activeSources, 4, async source => {
+    const items = await fetchFromSource(source, keyword, signal)
+    if (!signal.aborted) doneCount.value++
+    return items
+  })
+  if (signal.aborted) return
+  const allItems = sourceResults.flat()
+  searchCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, items: allItems })
+  if (searchCache.size > 30) searchCache.delete(searchCache.keys().next().value as string)
+  videos.value = allItems
+  rebuildMerged()
+
+  if (!signal.aborted) {
+    loading.value = false
+    if (allItems.length === 0 && failedSourceCount.value > 0) searchError.value = '已启用的数据源暂时均不可用'
+  }
 }
 
 // ─── 播放 ─────────────────────────────────────────────────────
@@ -528,11 +602,14 @@ const playVideo = async (video: any) => {
   // O(1) 查找合并组
   const found = findGroup(video.vod_name)
   playingGroup.value = found || { vod_name: video.vod_name, vod_pic: video.vod_pic, items: [video] }
-  showPlayer.value = true
-  await startPlay(episodes[0].url, episodes[0].name)
+  attemptedSourceIds.clear()
+  attemptedSourceIds.add(video._uid)
+  resumeTime = 0
+  playerMessage.value = ''
+  await window.api.player.open(episodes[0].url, video.vod_name)
 }
 
-const switchSource = async (video: any) => {
+const switchSource = async (video: any, automatic = false) => {
   if (!video.vod_play_url) return
   const episodes = video.vod_play_url.split('#').filter(Boolean).map((ep: string) => {
     const parts = ep.split('$')
@@ -540,7 +617,25 @@ const switchSource = async (video: any) => {
   })
   if (episodes.length === 0) return
   playingVideo.value = { ...video, episodes }
+  attemptedSourceIds.add(video._uid)
+  resumeTime = 0
+  playerMessage.value = automatic ? `当前线路不可用，已切换到 ${video._source}` : ''
   await startPlay(episodes[0].url, episodes[0].name)
+}
+
+const tryNextSource = async () => {
+  if (switchingSource) return
+  const next = playingGroup.value?.items.find(item => !attemptedSourceIds.has(item._uid))
+  if (!next) {
+    playerMessage.value = '当前内容的可用线路均播放失败'
+    return
+  }
+  switchingSource = true
+  try {
+    await switchSource(next, true)
+  } finally {
+    switchingSource = false
+  }
 }
 
 const startPlay = async (url: string, epName = '') => {
@@ -552,26 +647,135 @@ const startPlay = async (url: string, epName = '') => {
   const el = videoEl.value
   if (!el) return
 
+  applyPlaybackSettings()
+
   if (hls) { hls.destroy(); hls = null }
+  el.pause()
+  el.removeAttribute('src')
+  el.load()
 
   // 支持 HLS 在线流和直链
-  if (Hls.isSupported() && (url.includes('.m3u8') || url.startsWith('http'))) {
+  if (Hls.isSupported() && /\.m3u8(?:$|\?)/i.test(url)) {
     hls = new Hls()
     hls.loadSource(url)
     hls.attachMedia(el)
     hls.on(Hls.Events.MANIFEST_PARSED, () => el.play().catch(() => {}))
+    hls.on(Hls.Events.ERROR, (_event, data) => {
+      if (data.fatal) tryNextSource()
+    })
   } else {
     el.src = url
     el.play().catch(() => {})
   }
 }
 
+const applyPlaybackSettings = () => {
+  const el = videoEl.value
+  if (!el) return
+  el.playbackRate = Number(playbackRate.value) || 1
+  el.volume = Math.min(1, Math.max(0, Number(volume.value) || 0))
+}
+
+const resumeHistory = async (record: AvPlayRecord) => {
+  const video = record.video
+  const episodes = video.episodes?.length
+    ? video.episodes
+    : video.vod_play_url?.split('#').filter(Boolean).map((ep: string) => {
+      const parts = ep.split('$')
+      return { name: parts[0], url: parts[parts.length - 1] }
+    }) ?? []
+  playingVideo.value = { ...video, episodes }
+  playingGroup.value = findGroup(video.vod_name) || { vod_name: video.vod_name, vod_pic: video.vod_pic, items: [video] }
+  attemptedSourceIds.clear()
+  switchingSource = false
+  attemptedSourceIds.add(video._uid)
+  resumeTime = record.progress
+  playerMessage.value = record.progress > 5 ? '继续上次播放' : ''
+  await window.api.player.open(record.url, record.vod_name)
+}
+
+const handleLoadedMetadata = () => {
+  const el = videoEl.value
+  if (!el) return
+  applyPlaybackSettings()
+  if (resumeTime > 5 && resumeTime < el.duration - 10) el.currentTime = resumeTime
+  resumeTime = 0
+}
+
+const handleTimeUpdate = () => {
+  const el = videoEl.value
+  if (!el || !playingVideo.value || !playingUrl.value || Date.now() - lastProgressSave < 1000) return
+  lastProgressSave = Date.now()
+  const record = playHistory.value.find(item => item.url === playingUrl.value)
+  if (!record) return
+  record.progress = el.currentTime
+  record.duration = Number.isFinite(el.duration) ? el.duration : 0
+  record.timestamp = Date.now()
+}
+
+const handleVideoError = () => {
+  if (!hls) tryNextSource()
+}
+
+const handleVideoEnded = async () => {
+  const episodes = playingVideo.value?.episodes ?? []
+  const currentIndex = episodes.findIndex((episode: any) => episode.url === playingUrl.value)
+  const next = currentIndex >= 0 ? episodes[currentIndex + 1] : null
+  if (next) {
+    playerMessage.value = `即将播放：${next.name}`
+    await startPlay(next.url, next.name)
+  } else {
+    const groups = activeTab.value === 'search'
+      ? mergedVideos.value
+      : activeTab.value === 'browse'
+        ? sortedBrowseVideos.value.map(video => ({ items: [video] }))
+        : []
+    const currentKey = playingVideo.value?.vod_name?.trim().toLowerCase()
+    const currentIndex = groups.findIndex(group => group.items[0]?.vod_name?.trim().toLowerCase() === currentKey)
+    const nextVideo = currentIndex >= 0 ? groups[currentIndex + 1]?.items[0] : null
+    if (nextVideo) {
+      playerMessage.value = `即将播放：${nextVideo.vod_name}`
+      await playVideo(nextVideo)
+    } else {
+      playerMessage.value = '已播放完当前内容'
+    }
+  }
+}
+
+const handlePlayerKeydown = (event: KeyboardEvent) => {
+  const el = videoEl.value
+  if (!el) return
+  if (event.key === ' ') {
+    event.preventDefault()
+    if (el.paused) el.play().catch(() => {})
+    else el.pause()
+  } else if (event.key === 'ArrowLeft' || event.key === 'ArrowRight') {
+    event.preventDefault()
+    el.currentTime = Math.max(0, el.currentTime + (event.key === 'ArrowLeft' ? -10 : 10))
+  } else if (event.key.toLowerCase() === 'm') {
+    el.muted = !el.muted
+  }
+}
+
+const handleVolumeChange = () => {
+  const el = videoEl.value
+  if (el && !el.muted) volume.value = el.volume
+}
+
 const closePlayer = () => {
   showPlayer.value = false
   playingVideo.value = null
   playingUrl.value = ''
+  playerMessage.value = ''
+  resumeTime = 0
   if (hls) { hls.destroy(); hls = null }
   if (videoEl.value) videoEl.value.src = ''
+}
+
+const handleNavigateBack = (event: Event) => {
+  if (!showPlayer.value) return
+  closePlayer()
+  event.preventDefault()
 }
 
 // 图片加载失败
@@ -580,8 +784,18 @@ const handleImageError = (e: Event) => {
   target.style.display = 'none'
 }
 
-onBeforeUnmount(() => { if (hls) { hls.destroy(); hls = null } })
-onMounted(() => handleSearch())
+onBeforeUnmount(() => {
+  browseAbort?.abort()
+  currentAbort?.abort()
+  if (hls) { hls.destroy(); hls = null }
+})
+onMounted(() => {
+  window.addEventListener('app:navigate-back', handleNavigateBack)
+  restoreBrowseVisit()
+  loadBrowse()
+  if (route.query.tab === 'search') runQuerySearch()
+})
+onBeforeUnmount(() => window.removeEventListener('app:navigate-back', handleNavigateBack))
 </script>
 
 <style scoped>

@@ -1,5 +1,5 @@
 <template>
-  <div class="content-area search-tab">
+  <div class="content-area search-tab primary-scroll">
     <div class="search-bar">
       <div class="search-inner">
         <input
@@ -8,7 +8,7 @@
           placeholder="搜索电影、电视剧..."
           @keydown.enter="handleSearch()"
         />
-        <button class="search-btn" :disabled="loading" @click="handleSearch()">
+        <button class="search-btn" :disabled="loading" aria-label="搜索" @click="handleSearch()">
           <svg
             v-if="!loading"
             viewBox="0 0 24 24"
@@ -29,24 +29,30 @@
     <div v-if="searchHistory.length" class="home-section">
       <div class="section-header">
         <span class="section-title">搜索记录</span>
-        <button class="clear-btn" @click="clearHistory">清空</button>
+        <button class="clear-btn" @click="clearHistory">清空记录</button>
       </div>
       <div class="history-tags">
         <span
           v-for="kw in searchHistory"
           :key="kw"
           class="history-tag"
-          @click="emit('search', kw)"
+          role="button"
+          tabindex="0"
+          @click="handleSearch(kw)"
+          @keydown.enter="handleSearch(kw)"
         >
           {{ kw }}
-          <span class="del-tag" @click.stop="removeHistory(kw)">✕</span>
+          <button class="del-tag" :aria-label="`删除搜索记录 ${kw}`" @click.stop="removeHistory(kw)">✕</button>
         </span>
       </div>
     </div>
 
-    <div v-if="error" class="error-msg">{{ error }}</div>
+    <div v-if="error" class="ui-error-state">
+      <p>{{ error }}</p>
+      <button class="ui-secondary-button" @click="handleSearch()">重新搜索</button>
+    </div>
 
-    <div v-if="!results.length && !loading" class="empty-search">
+    <div v-if="!results.length && !loading && !error" class="empty-search">
       <svg
         viewBox="0 0 24 24"
         width="48"
@@ -160,15 +166,28 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { ref, computed, watch } from 'vue'
+import { Modal } from 'ant-design-vue'
+import { useRoute } from 'vue-router'
 import { useOnlineSearch, type CmsItem } from '../composables/use-online-search'
 
 const emit = defineEmits<{
-  (e: 'search', kw: string): void
   (e: 'openItem', item: CmsItem): void
 }>()
 
 const { keyword, results, loading, error, search: doSearch } = useOnlineSearch()
+const route = useRoute()
+
+watch(
+  () => route.query.q,
+  async (query) => {
+    if (typeof query === 'string') {
+      keyword.value = query
+      if (query.trim()) await doSearch(query)
+    }
+  },
+  { immediate: true }
+)
 
 const vodResults = computed(() => results.value.filter(item => item._source === 'catspider'))
 const cmsResults = computed(() => results.value.filter(item => item._source === 'cms' || !item._source))
@@ -191,8 +210,17 @@ const removeHistory = (kw: string) => {
 }
 
 const clearHistory = () => {
-  searchHistory.value = []
-  localStorage.removeItem(HISTORY_KEY)
+  Modal.confirm({
+    title: '清空搜索记录？',
+    content: `将清除本机保存的 ${searchHistory.value.length} 条搜索记录。`,
+    okText: '清空',
+    cancelText: '取消',
+    okType: 'danger',
+    onOk: () => {
+      searchHistory.value = []
+      localStorage.removeItem(HISTORY_KEY)
+    },
+  })
 }
 
 const handleSearch = async (kw?: string) => {
@@ -221,6 +249,18 @@ defineExpose({ handleSearch, saveHistory })
   gap: 20px;
 }
 
+.search-input,
+.search-btn { min-height: var(--control-height); }
+
+.history-tag { min-height: 32px; }
+
+.del-tag {
+  border: 0;
+  padding: 2px;
+  color: inherit;
+  background: transparent;
+}
+
 .content-area::-webkit-scrollbar {
   width: 4px;
 }
@@ -247,13 +287,13 @@ defineExpose({ handleSearch, saveHistory })
 
 .search-input {
   flex: 1;
-  height: 44px;
+  height: var(--control-height);
   padding: 0 16px;
   background: rgba(255, 255, 255, 0.1);
   border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 10px;
+  border-radius: var(--radius-md);
   color: white;
-  font-size: 15px;
+  font-size: var(--text-md);
   outline: none;
   transition: border-color 0.2s;
 }
@@ -267,10 +307,10 @@ defineExpose({ handleSearch, saveHistory })
 
 .search-btn {
   width: 44px;
-  height: 44px;
-  background: rgba(99, 102, 241, 0.8);
-  border: none;
-  border-radius: 10px;
+  height: var(--control-height);
+  background: var(--primary);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+  border-radius: var(--radius-md);
   color: white;
   cursor: pointer;
   display: flex;
@@ -281,7 +321,7 @@ defineExpose({ handleSearch, saveHistory })
 }
 
 .search-btn:hover {
-  background: rgba(99, 102, 241, 1);
+  background: var(--primary-hover);
 }
 .search-btn:disabled {
   opacity: 0.5;
@@ -312,18 +352,19 @@ defineExpose({ handleSearch, saveHistory })
 }
 
 .section-title {
-  font-size: 20px;
+  font-size: var(--text-lg);
   font-weight: 600;
   color: rgba(255, 255, 255, 0.85);
   flex: 1;
 }
 
 .clear-btn {
-  font-size: 11px;
-  padding: 2px 10px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.12);
-  border-radius: 12px;
+  min-height: 32px;
+  padding: 0 10px;
+  font-size: var(--text-xs);
+  background: var(--bg-glass);
+  border: 1px solid var(--border-glass);
+  border-radius: var(--radius-md);
   color: rgba(255, 255, 255, 0.45);
   cursor: pointer;
 }
@@ -390,7 +431,7 @@ defineExpose({ handleSearch, saveHistory })
 
 .result-card {
   cursor: pointer;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   overflow: hidden;
   background: rgba(255, 255, 255, 0.05);
   border: 1px solid rgba(255, 255, 255, 0.08);
@@ -466,21 +507,21 @@ defineExpose({ handleSearch, saveHistory })
 .card-meta {
   display: flex;
   flex-wrap: wrap;
-  gap: 4px;
+  gap: 6px;
   margin: 3px 0;
 }
 
 .tag-year,
 .tag-type {
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 3px;
+  font-size: var(--text-xs);
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
   background: rgba(255, 255, 255, 0.1);
   color: rgba(255, 255, 255, 0.6);
 }
 
 .card-remarks {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: rgba(255, 200, 100, 0.8);
   margin-top: 3px;
   white-space: nowrap;
@@ -489,7 +530,7 @@ defineExpose({ handleSearch, saveHistory })
 }
 
 .card-desc {
-  font-size: 11px;
+  font-size: var(--text-xs);
   color: rgba(255, 255, 255, 0.5);
   margin-top: 3px;
   display: -webkit-box;

@@ -43,6 +43,12 @@ export interface BackendMeta {
   error?: string
 }
 
+export interface BackendDownloadStatus {
+  active: string
+  queued: string[]
+  completed: { id: string; completedAt: string }[]
+}
+
 async function get<T>(
   path: string,
   extraHeaders?: Record<string, string>
@@ -97,7 +103,12 @@ export const backend = {
     return get<BackendMeta>(`/api/scrape/${avid}`)
   },
 
-  /** 获取下载队列 */
+  /** 获取下载任务状态 */
+  getDownloadStatus(): Promise<BackendDownloadStatus> {
+    return get<BackendDownloadStatus>('/api/download-status')
+  },
+
+  /** 获取等待队列（电影下载弹窗兼容接口） */
   getQueue(): Promise<string[]> {
     return get<string[]>('/api/queue')
   },

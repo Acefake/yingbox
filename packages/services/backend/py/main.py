@@ -65,14 +65,14 @@ if __name__ == "__main__":
 
     with open("work", "r") as f:
         content = f.read().strip()
-    if content == "1":
+    if content != "0":
         logger.info(f"A download task is running, save {avid} to download queue")
         with open(queue_path, 'a') as f: # 记录到queue中，等待下载
                 f.write(f'{avid}\n')
         exit(0)
 
     with open("work", "w") as f:
-        f.write("1")
+        f.write(avid)
     
     mgr = downloaderMgr.DownloaderMgr()
     try:

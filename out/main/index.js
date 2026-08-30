@@ -749,47 +749,6 @@ electron.app.whenReady().then(() => {
     const error = await electron.shell.openPath(filePath);
     return { success: !error, error: error || void 0 };
   });
-  let pendingDetailData = null;
-  let detailWin = null;
-  electron.ipcMain.handle("detail:open", async (_, itemData) => {
-    pendingDetailData = itemData;
-    if (detailWin && !detailWin.isDestroyed()) {
-      detailWin.webContents.send("detail:update", itemData);
-      if (detailWin.isMinimized()) detailWin.restore();
-      detailWin.focus();
-      return { success: true };
-    }
-    const { width: dw, height: dh } = getScreenBasedSize(0.75, 900, 680);
-    detailWin = new electron.BrowserWindow({
-      width: dw,
-      height: dh,
-      minWidth: 800,
-      minHeight: 600,
-      frame: false,
-      autoHideMenuBar: true,
-      webPreferences: {
-        preload: path.join(__dirname, "../preload/index.js"),
-        sandbox: false,
-        webSecurity: false
-      }
-    });
-    detailWin.on("closed", () => {
-      detailWin = null;
-      pendingDetailData = null;
-    });
-    if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
-      detailWin.loadURL(
-        process.env["ELECTRON_RENDERER_URL"] + "#/online-detail"
-      );
-      detailWin.webContents.openDevTools();
-    } else {
-      detailWin.loadFile(path.join(__dirname, "../renderer/index.html"), {
-        hash: "/online-detail"
-      });
-    }
-    return { success: true };
-  });
-  electron.ipcMain.handle("detail:getData", () => pendingDetailData);
   electron.ipcMain.handle("player:open", async (_, filePath, customTitle) => {
     const isOnlineUrl = filePath.startsWith("http://") || filePath.startsWith("https://");
     const videoUrl = isOnlineUrl ? filePath : "file:///" + filePath.replace(/\\/g, "/");

@@ -17,7 +17,7 @@
       <div
         class="pointer-events-auto relative flex flex-col rounded-2xl glass-panel-floating"
         style="
-          width: min(60vw, 92vw);
+          width: min(820px, 92vw);
           max-height: 85vh;
         "
         @click.stop
@@ -31,6 +31,7 @@
           </div>
           <button
             @click="$emit('close')"
+            aria-label="关闭设置"
             class="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all"
           >
             <svg

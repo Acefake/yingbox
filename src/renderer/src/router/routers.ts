@@ -1,26 +1,11 @@
 export const routes = [
   {
-    path: '/online-detail',
-    name: 'OnlineDetail',
-    component: () => import('@/views/online/DetailWindow.vue'),
-    meta: { title: '详情' },
-  },
-  {
     path: '/',
     name: 'Online',
-    component: () => import('@/views/online/index.vue'),
+    component: () => import('@/views/online/Index.vue'),
     meta: {
       title: '在线',
       description: '在线搜索与播放',
-    },
-  },
-  {
-    path: '/vod-test',
-    name: 'VODTest',
-    component: () => import('@/views/VODTestWindow.vue'),
-    meta: {
-      title: 'VOD测试',
-      description: 'VOD解析器测试窗口',
     },
   },
   {
@@ -44,11 +29,15 @@ export const routes = [
   {
     path: '/av',
     name: 'AV',
-    component: () => import('@/views/av/index.vue'),
+    component: () => import('@/views/av/Index.vue'),
     meta: {
       title: 'AV资源',
       description: '成人资源在线播放',
       adultOnly: true,
     },
+  },
+  {
+    path: '/:pathMatch(.*)*',
+    redirect: '/',
   },
 ]

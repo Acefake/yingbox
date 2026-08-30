@@ -1,7 +1,7 @@
 <template>
   <div class="folder-content relative h-full text-white overflow-hidden">
     <!-- 左侧悬浮面板 -->
-    <div class="absolute left-4 top-4 bottom-4 z-20 flex flex-col">
+    <div class="absolute left-0 top-0 bottom-0 z-20 flex flex-col">
       <LeftPanel
         :processed-items="processedItems"
         :selected-index="selectedIndex"
@@ -34,7 +34,7 @@
     >
       <EmptyPlaceholder v-if="!selectedItem" />
 
-      <div v-else class="p-6 h-full overflow-y-auto">
+      <div v-else class="primary-scroll p-6 h-full overflow-y-auto">
         <!-- 成人模式 + JAV 内容：使用 AdultContentPanel -->
         <AdultContentPanel
           v-if="isAdultMode && isJavContent"
@@ -115,7 +115,7 @@
 </template>
 
 <script setup lang="ts">
-import { computed, inject, onMounted, ref, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { backend, type BackendMeta } from '@/api/backend'
 import { Modal, message } from 'ant-design-vue'
@@ -142,15 +142,6 @@ import { useGlobalQueue } from '@/composables/use-global-queue'
 import { extractAvid } from '@/utils/avid'
 import { toLocalUrl } from '@/utils/local-url'
 import { parseNfo } from '@/services/nfo-service'
-
-interface AppLayoutMethods {
-  setGlobalBackground: (imageUrl: string, overlayColor: string) => void
-  clearGlobalBackground: () => void
-}
-
-const appLayoutMethods = inject('appLayoutMethods') as
-  | AppLayoutMethods
-  | undefined
 
 const { searchMovieInfo } = useScraping()
 const { scrape } = useScrapingTask()
@@ -711,28 +702,6 @@ const handleDirectScrape = async (item: ProcessedItem): Promise<void> => {
     console.error('直接刮削失败:', error)
   }
 }
-
-/**
- * 监听背景图变化，控制全局背景
- */
-watch(
-  [selectedItem, fanartImageDataUrl],
-  ([newSelectedItem, newFanartImageDataUrl]) => {
-    if (appLayoutMethods) {
-      if (newSelectedItem && newFanartImageDataUrl) {
-        // 设置全局背景艺术图
-        appLayoutMethods.setGlobalBackground(
-          newFanartImageDataUrl,
-          'rgba(17, 24, 39, 0.2)'
-        )
-      } else {
-        // 清除全局背景
-        appLayoutMethods.clearGlobalBackground()
-      }
-    }
-  },
-  { immediate: true }
-)
 
 // 本地刮削
 const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
