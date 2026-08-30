@@ -64,12 +64,14 @@ function saveConfig() {
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
 
+// 检查更新
 autoUpdater.on('checking-for-update', () => {
   mainWindow?.webContents.send('update:status', {
     status: 'checking',
   })
 })
 
+// 更新可用
 autoUpdater.on('update-available', info => {
   mainWindow?.webContents.send('update:status', {
     status: 'available',
@@ -77,6 +79,7 @@ autoUpdater.on('update-available', info => {
   })
 })
 
+// 更新不可用
 autoUpdater.on('update-not-available', info => {
   mainWindow?.webContents.send('update:status', {
     status: 'not-available',
@@ -84,6 +87,7 @@ autoUpdater.on('update-not-available', info => {
   })
 })
 
+// 下载进度
 autoUpdater.on('download-progress', progress => {
   mainWindow?.webContents.send('update:status', {
     status: 'downloading',
@@ -91,6 +95,7 @@ autoUpdater.on('download-progress', progress => {
   })
 })
 
+// 下载完成
 autoUpdater.on('update-downloaded', info => {
   mainWindow?.webContents.send('update:status', {
     status: 'downloaded',
@@ -98,6 +103,7 @@ autoUpdater.on('update-downloaded', info => {
   })
 })
 
+// 下载错误
 autoUpdater.on('error', error => {
   mainWindow?.webContents.send('update:status', {
     status: 'error',

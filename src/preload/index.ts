@@ -10,9 +10,10 @@ interface FileOperationResult {
 
 const api = {
   file: {
-    // Read file content
+    // 读取
     read: (filePath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:read', filePath),
+
 
     // Write content to file
     write: (filePath: string, content: string): Promise<FileOperationResult> =>
@@ -183,6 +184,9 @@ const api = {
   downloader: {},
 }
 
+/**
+ * 这是
+ */
 if (process.contextIsolated) {
   try {
     contextBridge.exposeInMainWorld('electron', electronAPI)

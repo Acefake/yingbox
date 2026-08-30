@@ -292,10 +292,16 @@ export function useOnlineSearch() {
     return allGroups
   }
 
-  /** Resolve a CatSpider episode URL to a playable m3u8/mp4 */
+  /** Resolve a CatSpider episode URL to a playable m3u8/mp4
+   *  将完整的 ext 传给后端，让插件自行提取所需参数（url/vid/pkey/ref 等）
+   */
   const resolvePlayUrl = async (siteName: string, ext: Record<string, any>): Promise<string> => {
     try {
-      const r = await getPlayinfo({ siteName, url: ext.url || '', ...ext })
+      const r = await getPlayinfo({
+        siteName,
+        url: ext.url || '',
+        ...ext,
+      })
       if (!r.success || !r.data) return ''
       const urls = r.data.urls || r.data.data?.urls || []
       return urls[0] || ''

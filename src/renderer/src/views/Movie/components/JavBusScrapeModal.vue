@@ -312,7 +312,7 @@
 import { ref, watch } from 'vue'
 import { backend, type BackendMeta } from '@/api/backend'
 import type { ProcessedItem } from '@/types'
-import type { Movie } from '@tdanks2000/tmdb-wrapper'
+import type { ScrapedMovie } from '@/types/scraping'
 
 const props = defineProps<{
   visible: boolean
@@ -323,7 +323,7 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   scrape: [meta: BackendMeta, item: ProcessedItem]
-  addToQueue: [movie: Movie, item: ProcessedItem]
+  addToQueue: [movie: ScrapedMovie, item: ProcessedItem]
   manualSearch: [item: ProcessedItem]
 }>()
 
@@ -386,7 +386,7 @@ watch(
   }
 )
 
-function buildMovieFromMeta(meta: BackendMeta): Movie {
+function buildMovieFromMeta(meta: BackendMeta): ScrapedMovie {
   return {
     id: meta.avid as any,
     title: meta.title || meta.avid,
@@ -403,7 +403,7 @@ function buildMovieFromMeta(meta: BackendMeta): Movie {
     popularity: 0,
     video: false,
     _javbus: meta,
-  } as any as Movie
+  } as ScrapedMovie
 }
 
 function handleDirectScrape() {

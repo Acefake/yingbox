@@ -3,6 +3,7 @@ import { ref, computed } from 'vue'
 export interface GlobalQueueItem {
   id: string
   name: string
+  dedupKey?: string
   type: 'movie' | 'tv' | 'download'
   status: 'pending' | 'processing' | 'done' | 'error' | 'cancelled'
   currentStep?: string
@@ -52,17 +53,19 @@ export function useGlobalQueue() {
   /**
    * 添加任务到队列
    * @param handler 可选的任务执行函数。传入后由调度器自动并发执行；不传则需外部手动调 setProcessing + 业务逻辑
+   * @param dedupKey 可选的去重键。传入路径信息可避免不同目录下同名文件被误去重
    * @returns { id, isDuplicate } — id 为队列项 ID，isDuplicate 表示是否命中去重
    */
   const addItem = (
     name: string,
     type: 'movie' | 'tv' | 'download',
     handler?: (queueId: string) => Promise<void>,
-    options?: { cancellable?: boolean; cancelFn?: () => void }
+    options?: { cancellable?: boolean; cancelFn?: () => void; dedupKey?: string }
   ): { id: string; isDuplicate: boolean } => {
-    // 去重：同名同类型的 pending/processing 任务不重复添加
+    // 去重：同名同类型（或同 dedupKey）的 pending/processing 任务不重复添加
+    const key = options?.dedupKey || name
     const existing = _items.value.find(
-      i => i.name === name && i.type === type && (i.status === 'pending' || i.status === 'processing')
+      i => (i.dedupKey || i.name) === key && i.type === type && (i.status === 'pending' || i.status === 'processing')
     )
     if (existing) return { id: existing.id, isDuplicate: true }
 
@@ -70,6 +73,7 @@ export function useGlobalQueue() {
     _items.value.push({
       id,
       name,
+      dedupKey: options?.dedupKey,
       type,
       status: 'pending',
       cancellable: options?.cancellable,

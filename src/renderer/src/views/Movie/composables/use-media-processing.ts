@@ -1,23 +1,19 @@
 import { ref, computed, watch, shallowRef } from 'vue'
 import type { ProcessedItem, MovieInfoType, ActorInfo } from '@/types'
 import { useErrorHandler } from '@/composables/use-error-handler'
+import { parseNfo, type NfoData } from '@/services/nfo-service'
+import { toLocalUrl } from '@/utils/local-url'
 
-/** 模块级 NFO 缓存：path → content */
-const nfoCache = new Map<string, string>()
+/** 模块级 NFO 缓存：path → NfoData */
+const nfoCache = new Map<string, NfoData>()
 
-/**
- * 将 Windows 本地路径转为 local:// URL（供 <img src> 直接使用，零 IPC）
- * e.g. "F:\\foo\\poster.jpg" → "local://f/foo/poster.jpg"
- */
-function toLocalUrl(filePath: string): string {
-  if (!filePath) return ''
-  const normalized = filePath.replace(/\\/g, '/')
-  // Windows 绝对路径 "F:/..." → host=drive letter, path=rest
-  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/)
-  if (driveMatch) {
-    return `local://${driveMatch[1].toLowerCase()}/${driveMatch[2]}`
-  }
-  return `local:///${normalized}`
+/** 预加载缓存（仅用于 hover 预热） */
+const preloadCache = new Set<string>()
+const preloadImage = (url: string): void => {
+  if (!url || preloadCache.has(url)) return
+  preloadCache.add(url)
+  const img = new Image()
+  img.src = url
 }
 
 /** 刮削版本号：每次刮削完成后递增，使图片 URL 失效强制浏览器重新请求 */
@@ -25,15 +21,6 @@ let scrapeVersion = 0
 export const bumpScrapeVersion = (): void => {
   scrapeVersion++
   nfoCache.clear()
-}
-
-/** 预加载缓存（仅用于 hover 预热，确保图片在浏览器缓存里） */
-const preloadCache = new Set<string>()
-const preloadImage = (url: string): void => {
-  if (!url || preloadCache.has(url)) return
-  preloadCache.add(url)
-  const img = new Image()
-  img.src = url
 }
 
 /**
@@ -48,23 +35,18 @@ export const useMediaProcessing = (selectedItem: any) => {
   const movieInfo = shallowRef<MovieInfoType | null>(null)
   const actors = shallowRef<ActorInfo[]>([])
 
-  // 图片扩展名
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
 
   /**
    * 计算海报图片路径
    */
   const posterImagePath = computed(() => {
-    if (!selectedItem.value || !selectedItem.value.files) {
-      return null
-    }
+    if (!selectedItem.value || !selectedItem.value.files) return null
 
     if (selectedItem.value.type === 'folder') {
       const folderName = selectedItem.value.name.toLowerCase()
-
       const posterFile = selectedItem.value.files.find((file: any) => {
         const fileName = file.name.toLowerCase()
-
         return (
           imageExtensions.some(ext => fileName.endsWith(ext)) &&
           !fileName.includes('fanart') &&
@@ -82,17 +64,13 @@ export const useMediaProcessing = (selectedItem: any) => {
               !fileName.includes('backdrop')))
         )
       })
-
       return posterFile ? posterFile.path : null
     } else if (selectedItem.value.type === 'video') {
-      // 视频文件的海报检测
       const videoBaseName = selectedItem.value.name
         .replace(/\.[^/.]+$/, '')
         .toLowerCase()
-
       const posterFile = selectedItem.value.files.find((file: any) => {
         const fileName = file.name.toLowerCase()
-
         return (
           imageExtensions.some(ext => fileName.endsWith(ext)) &&
           (fileName === `${videoBaseName}-poster.jpg` ||
@@ -103,10 +81,8 @@ export const useMediaProcessing = (selectedItem: any) => {
             fileName === 'movie.jpg')
         )
       })
-
       return posterFile ? posterFile.path : null
     }
-
     return null
   })
 
@@ -114,48 +90,36 @@ export const useMediaProcessing = (selectedItem: any) => {
    * 计算艺术图片路径
    */
   const fanartImagePath = computed(() => {
-    if (!selectedItem.value || !selectedItem.value.files) {
-      return null
-    }
+    if (!selectedItem.value || !selectedItem.value.files) return null
 
     if (selectedItem.value.type === 'folder') {
       const folderName = selectedItem.value.name.toLowerCase()
-
       const fanartFile = selectedItem.value.files.find((file: any) => {
         const fileName = file.name.toLowerCase()
-
         return (
           imageExtensions.some(ext => fileName.endsWith(ext)) &&
           (fileName.includes('fanart') ||
             fileName.includes('backdrop') ||
             fileName === 'fanart.jpg' ||
             (fileName.includes(folderName.split('(')[0].trim()) &&
-              fileName.includes('fanart')) ||
-            (fileName.includes(folderName.split('(')[0].trim()) &&
-              fileName.includes('backdrop')))
+              (fileName.includes('fanart') || fileName.includes('backdrop'))))
         )
       })
-
       return fanartFile ? fanartFile.path : null
     } else if (selectedItem.value.type === 'video') {
-      // 视频文件的艺术图检测
       const videoBaseName = selectedItem.value.name
         .replace(/\.[^/.]+$/, '')
         .toLowerCase()
-
       const fanartFile = selectedItem.value.files.find((file: any) => {
         const fileName = file.name.toLowerCase()
-
         return (
           imageExtensions.some(ext => fileName.endsWith(ext)) &&
           (fileName === `${videoBaseName}-fanart.jpg` ||
             fileName === 'fanart.jpg')
         )
       })
-
       return fanartFile ? fanartFile.path : null
     }
-
     return null
   })
 
@@ -163,30 +127,23 @@ export const useMediaProcessing = (selectedItem: any) => {
    * 计算NFO文件路径
    */
   const nfoFilePath = computed(() => {
-    if (!selectedItem.value || !selectedItem.value.files) {
-      return null
-    }
+    if (!selectedItem.value || !selectedItem.value.files) return null
 
     if (selectedItem.value.type === 'folder') {
       const nfoFile = selectedItem.value.files.find((file: any) =>
         file.name.toLowerCase().endsWith('.nfo')
       )
-
       return nfoFile ? nfoFile.path : null
     } else if (selectedItem.value.type === 'video') {
-      // 视频文件的NFO检测 - 只要同目录下有NFO文件就认为有对应的NFO
-      const nfoFile = selectedItem.value.files.find((file: any) => {
-        const fileName = file.name.toLowerCase()
-        return fileName.endsWith('.nfo')
-      })
-
+      const nfoFile = selectedItem.value.files.find((file: any) =>
+        file.name.toLowerCase().endsWith('.nfo')
+      )
       return nfoFile ? nfoFile.path : null
     }
-
     return null
   })
 
-  /** 使用 local:// URL 直接加载图片（零 IPC，浏览器直接读取本地文件） */
+  /** 使用 local:// URL 直接加载图片（零 IPC） */
   const loadPosterImage = (): void => {
     posterImageDataUrl.value = posterImagePath.value
       ? toLocalUrl(posterImagePath.value)
@@ -200,7 +157,7 @@ export const useMediaProcessing = (selectedItem: any) => {
   }
 
   /**
-   * 预加载电影图片到浏览器缓存（hover 时触发，让 Image 提前请求 local://）
+   * 预加载电影图片到浏览器缓存
    */
   const preloadMovieImages = (item: ProcessedItem): void => {
     if (!item?.files) return
@@ -209,6 +166,30 @@ export const useMediaProcessing = (selectedItem: any) => {
       if (imageExtensions.some(ext => fn.endsWith(ext))) {
         preloadImage(toLocalUrl(f.path))
       }
+    }
+  }
+
+  /**
+   * 将 NfoData 转换为旧的 MovieInfoType 格式（向后兼容 UI 组件）
+   */
+  const nfoDataToMovieInfo = (data: NfoData): MovieInfoType => {
+    return {
+      title: data.title,
+      originaltitle: data.originaltitle,
+      year: data.year,
+      plot: data.plot,
+      genre: data.genres,
+      director: data.directors?.join(', '),
+      actor: data.actors?.map(a => a.name),
+      actors: data.actors?.map(a => ({
+        name: a.name,
+        role: a.role,
+      })),
+      rating: data.rating,
+      runtime: data.runtime,
+      country: data.countries?.join(', '),
+      studio: data.studios?.join(', '),
+      premiered: data.premiered,
     }
   }
 
@@ -223,8 +204,7 @@ export const useMediaProcessing = (selectedItem: any) => {
     const path = nfoFilePath.value
     if (nfoCache.has(path)) {
       const cached = nfoCache.get(path)!
-      nfoContent.value = cached
-      parseNfoContent(cached)
+      movieInfo.value = nfoDataToMovieInfo(cached)
       return
     }
 
@@ -234,110 +214,12 @@ export const useMediaProcessing = (selectedItem: any) => {
         throw new Error(result.error || '读取NFO文件失败')
       }
       const content = result.data as string
-      nfoCache.set(path, content)
+      const parsed = parseNfo(content)
+      nfoCache.set(path, parsed)
       nfoContent.value = content
-      parseNfoContent(content)
+      movieInfo.value = nfoDataToMovieInfo(parsed)
       return content
     }, '加载NFO文件失败')
-  }
-
-  /**
-   * 解析NFO内容
-   */
-  const parseNfoContent = (content: string): void => {
-    movieInfo.value = null
-    if (!content) return
-
-    try {
-      const info: MovieInfoType = {}
-
-      // 提取标题
-      const titleMatch = content.match(/<title>([^<]+)<\/title>/i)
-      if (titleMatch) info.title = titleMatch[1].trim()
-
-      // 提取原始标题
-      const originalTitleMatch = content.match(
-        /<originaltitle>([^<]+)<\/originaltitle>/i
-      )
-      if (originalTitleMatch) info.originaltitle = originalTitleMatch[1].trim()
-
-      // 提取年份
-      const yearMatch = content.match(/<year>(\d{4})<\/year>/i)
-      if (yearMatch) info.year = yearMatch[1]
-
-      // 提取剧情简介
-      const plotMatch = content.match(/<plot>([^<]+)<\/plot>/i)
-      if (plotMatch) info.plot = plotMatch[1].trim()
-
-      // 提取类型（支持多个）
-      const genreMatches = content.match(/<genre>([^<]+)<\/genre>/gi)
-      if (genreMatches) {
-        info.genre = genreMatches
-          .map(m => m.replace(/<\/?genre>/gi, '').trim())
-          .filter(Boolean)
-      }
-
-      // 提取导演（支持多个）
-      const directorMatches = content.match(/<director>([^<]+)<\/director>/gi)
-      if (directorMatches) {
-        info.director = directorMatches
-          .map(m => m.replace(/<\/?director>/gi, '').trim())
-          .filter(Boolean)
-          .join(', ')
-      }
-
-      // 提取演员完整块（名字 + 角色）
-      const actorBlockRegex = /<actor>([\s\S]*?)<\/actor>/gi
-      const parsedActors: ActorInfo[] = []
-      let actorBlock: RegExpExecArray | null
-      while ((actorBlock = actorBlockRegex.exec(content)) !== null) {
-        const block = actorBlock[1]
-        const nameM = block.match(/<name>([^<]+)<\/name>/i)
-        const roleM = block.match(/<role>([^<]+)<\/role>/i)
-        if (nameM) {
-          parsedActors.push({
-            name: nameM[1].trim(),
-            role: roleM ? roleM[1].trim() : undefined,
-          })
-        }
-      }
-      info.actors = parsedActors
-      info.actor = parsedActors.map(a => a.name)
-
-      // 提取评分
-      const ratingMatch = content.match(/<rating>([^<]+)<\/rating>/i)
-      if (ratingMatch) info.rating = ratingMatch[1].trim()
-
-      // 提取时长
-      const runtimeMatch = content.match(/<runtime>([^<]+)<\/runtime>/i)
-      if (runtimeMatch) info.runtime = runtimeMatch[1].trim()
-
-      // 提取国家（支持多个）
-      const countryMatches = content.match(/<country>([^<]+)<\/country>/gi)
-      if (countryMatches) {
-        info.country = countryMatches
-          .map(m => m.replace(/<\/?country>/gi, '').trim())
-          .filter(Boolean)
-          .join(', ')
-      }
-
-      // 提取制片公司（支持多个）
-      const studioMatches = content.match(/<studio>([^<]+)<\/studio>/gi)
-      if (studioMatches) {
-        info.studio = studioMatches
-          .map(m => m.replace(/<\/?studio>/gi, '').trim())
-          .filter(Boolean)
-          .join(', ')
-      }
-
-      // 提取首映日期
-      const premieredMatch = content.match(/<premiered>([^<]+)<\/premiered>/i)
-      if (premieredMatch) info.premiered = premieredMatch[1].trim()
-
-      movieInfo.value = info
-    } catch (error) {
-      console.error('解析NFO内容失败:', error)
-    }
   }
 
   /**
@@ -381,10 +263,11 @@ export const useMediaProcessing = (selectedItem: any) => {
     actors.value = results
   }
 
-  // 图片路径变化时同步更新（local:// URL，零 IPC）
+  // 图片路径变化时同步更新
   watch(posterImagePath, loadPosterImage, { immediate: true })
   watch(fanartImagePath, loadFanartImage, { immediate: true })
-  // NFO 走 debounce（仍需 IPC 读文件）
+
+  // NFO 走 debounce
   let debounceTimer: ReturnType<typeof setTimeout> | null = null
   watch(
     () => selectedItem.value,
@@ -394,7 +277,8 @@ export const useMediaProcessing = (selectedItem: any) => {
     },
     { immediate: true }
   )
-  // 演员照片延迟到空闲时间加载，不阻塞 UI
+
+  // 演员照片延迟到空闲时间加载
   watch(movieInfo, () => {
     if (typeof requestIdleCallback !== 'undefined') {
       requestIdleCallback(() => loadActorPhotos())
@@ -404,19 +288,14 @@ export const useMediaProcessing = (selectedItem: any) => {
   })
 
   return {
-    // 状态
     posterImageDataUrl,
     fanartImageDataUrl,
     nfoContent,
     movieInfo,
     actors,
-
-    // 计算属性
     posterImagePath,
     fanartImagePath,
     nfoFilePath,
-
-    // 方法
     loadPosterImage,
     loadFanartImage,
     loadNfoContent,
@@ -428,7 +307,6 @@ export const useMediaProcessing = (selectedItem: any) => {
 
 /**
  * 目录加载完成后，利用浏览器空闲时间批量预读所有 NFO 到 nfoCache
- * 这样切换时 loadNfoContent 直接命中缓存，零 IPC
  */
 export function warmNfoCache(items: any[]): void {
   const nfoPaths: string[] = []
@@ -449,7 +327,9 @@ export function warmNfoCache(items: any[]): void {
       window.api.file
         .read(p)
         .then(r => {
-          if (r.success && r.data) nfoCache.set(p, r.data as string)
+          if (r.success && r.data) {
+            nfoCache.set(p, parseNfo(r.data as string))
+          }
         })
         .catch(() => {})
     }

@@ -14,6 +14,11 @@
       <DoubanSection @open="openDoubanDetail" />
     </div>
 
+    <!-- VOD 浏览 -->
+    <div v-show="activeTab === 'vod'" class="content-area">
+      <VodBrowse @open-item="openDetailWindow" />
+    </div>
+
     <!-- 搜索 -->
     <SearchTab v-show="activeTab === 'search'" @open-item="openDetailWindow" />
 
@@ -27,6 +32,7 @@ import { useRouter } from 'vue-router'
 import PlayHistory, { type PlayRecord } from './components/PlayHistory.vue'
 import DoubanSection, { type DoubanItem } from './components/DoubanSection.vue'
 import SearchTab from './components/SearchTab.vue'
+import VodBrowse from './components/VodBrowse.vue'
 
 const router = useRouter()
 
@@ -44,9 +50,10 @@ const clearPlayHistory = () => {
 // ─── Tab ───────────────────────────────────────────────
 const tabs = [
   { id: 'home', label: '首页' },
+  { id: 'vod', label: 'VOD' },
   { id: 'search', label: '搜索' },
 ]
-const activeTab = ref<'home' | 'search'>('home')
+const activeTab = ref<'home' | 'vod' | 'search'>('home')
 // ─── 详情 / 搜索 ───────────────────────────────────────────
 const openDetailWindow = (item: CmsItem) => {
   ; (window.api as any).detail.open(JSON.parse(JSON.stringify(item)))
