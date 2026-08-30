@@ -3,7 +3,7 @@ const preload = require("@electron-toolkit/preload");
 const electron = require("electron");
 const api = {
   file: {
-    // Read file content
+    // 读取
     read: (filePath) => electron.ipcRenderer.invoke("file:read", filePath),
     // Write content to file
     write: (filePath, content) => electron.ipcRenderer.invoke("file:write", filePath, content),

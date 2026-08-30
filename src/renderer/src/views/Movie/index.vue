@@ -120,6 +120,7 @@ import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { backend, type BackendMeta } from '@/api/backend'
 import { Modal, message } from 'ant-design-vue'
 import { ProcessedItem } from '@/types'
+import type { ScrapedMovie } from '@/types/scraping'
 import RightPanel from '@/views/Movie/RightPanel.vue'
 import AdultContentPanel from '@/views/Movie/components/AdultContentPanel.vue'
 import LeftPanel from '@/views/Movie/components/LeftPanel.vue'
@@ -130,7 +131,6 @@ import DownloadModal from '@/views/Movie/components/DownloadModal.vue'
 import MetaPreviewModal from '@/views/Movie/components/MetaPreviewModal.vue'
 import JavBusScrapeModal from '@/views/Movie/components/JavBusScrapeModal.vue'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
-import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useFileManagement } from '@/views/Movie/composables/use-file-management'
 import {
@@ -139,6 +139,9 @@ import {
 } from '@/views/Movie/composables/use-media-processing'
 import { useScrapingTask } from '@/views/Movie/composables/use-scraping-task'
 import { useGlobalQueue } from '@/composables/use-global-queue'
+import { extractAvid } from '@/utils/avid'
+import { toLocalUrl } from '@/utils/local-url'
+import { parseNfo } from '@/services/nfo-service'
 
 interface AppLayoutMethods {
   setGlobalBackground: (imageUrl: string, overlayColor: string) => void
@@ -222,6 +225,27 @@ const adultMetaLoading = ref(false)  // 获取预览元数据加载状态
 const adultScrapeLoading = ref(false) // 执行刮削操作加载状态
 const adultActionMsg = ref('')
 
+/**
+ * 构建 JavBus ScrapedMovie 对象（消除多处重复构造）
+ */
+const buildJavBusMovie = (meta: BackendMeta): ScrapedMovie => ({
+  id: meta.avid as any,
+  title: meta.title || meta.avid,
+  original_title: meta.avid,
+  overview: meta.description || '',
+  release_date: meta.release_date || '',
+  vote_average: 0,
+  vote_count: 0,
+  poster_path: meta.cover || '',
+  backdrop_path: meta.fanarts?.[0] || '',
+  adult: false,
+  genre_ids: [],
+  original_language: 'ja',
+  popularity: 0,
+  video: false,
+  _javbus: meta,
+})
+
 // 检测是否为 JAV 内容（文件名匹配 JAV 格式）
 const isJavContent = computed(() => {
   const name = selectedItem.value?.name || ''
@@ -235,7 +259,6 @@ const localFanarts = computed(() => {
   if (!item?.path) return []
 
   const isFolder = item.type === 'folder'
-  const basePath = isFolder ? item.path : item.path.replace(/\.[^.]+$/, '')
   const baseName = isFolder ? item.name : item.name.replace(/\.[^.]+$/, '')
 
   // 扫描本地文件中的 fanart 图片
@@ -282,29 +305,14 @@ const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | nu
   try {
     const result = await window.api.file.read(nfoFile.path)
     if (!result.success || !result.data) return null
-    const content = result.data as string
+    const nfo = parseNfo(result.data as string)
 
-    // 提取 AV 号
-    const match = item.name.match(/([A-Z]{2,6})[-_]?\s*(\d{2,4})/i)
-    const avid = match ? `${match[1].toUpperCase()}-${match[2]}` : item.name
+    const avid = extractAvid(item.name) || item.name
 
-    const get = (tag: string) => content.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'))?.[1]?.trim() || ''
-    const getAll = (tag: string) => {
-      const re = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'gi')
-      const results: string[] = []
-      let m: RegExpExecArray | null
-      while ((m = re.exec(content)) !== null) results.push(m[1].trim())
-      return results
-    }
-
-    // 从 <actor><name> 块提取演员
+    // 构建 actress map
     const actress: Record<string, string> = {}
-    const actorRe = /<actor>([\s\S]*?)<\/actor>/gi
-    let block: RegExpExecArray | null
-    while ((block = actorRe.exec(content)) !== null) {
-      const nameM = block[1].match(/<name>([^<]+)<\/name>/i)
-      const thumbM = block[1].match(/<thumb>([^<]+)<\/thumb>/i)
-      if (nameM) actress[nameM[1].trim()] = thumbM?.[1]?.trim() || ''
+    for (const actor of nfo.actors || []) {
+      actress[actor.name] = actor.thumb || ''
     }
 
     // 本地 fanart 文件
@@ -324,12 +332,12 @@ const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | nu
 
     return {
       avid,
-      title: get('title'),
+      title: nfo.title || '',
       cover: posterFile ? toLocalUrl(posterFile.path) : '',
-      release_date: get('premiered') || get('year'),
-      duration: get('runtime'),
-      description: get('plot') || get('outline'),
-      keywords: getAll('genre'),
+      release_date: nfo.premiered || nfo.year || '',
+      duration: nfo.runtime || '',
+      description: nfo.plot || nfo.outline || '',
+      keywords: nfo.genres || [],
       actress,
       fanarts,
       magnets: [],
@@ -337,15 +345,6 @@ const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | nu
   } catch {
     return null
   }
-}
-
-/** 将本地路径转为 local:// URL */
-function toLocalUrl(filePath: string): string {
-  if (!filePath) return ''
-  const normalized = filePath.replace(/\\/g, '/')
-  const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/)
-  if (driveMatch) return `local://${driveMatch[1].toLowerCase()}/${driveMatch[2]}`
-  return `local:///${normalized}`
 }
 
 // 监听选中项变化，成人模式下自动获取 JAV 元数据
@@ -365,17 +364,15 @@ watch(selectedItem, async (item) => {
     }
   }
 
-  // 未刮削 → 从接口获取，拿到数据后自动触发刮削
-  const match = item.name.match(/([A-Z]{2,6})[-_]?\s*(\d{2,4})/i)
-  if (!match) return
-  const avid = `${match[1].toUpperCase()}-${match[2]}`
+  // 未刮削 → 从接口获取
+  const avid = extractAvid(item.name)
+  if (!avid) return
 
   adultMetaLoading.value = true
   try {
     const data = await backend.fetchMeta(avid)
     if (!data.error) {
       adultMeta.value = data
-      // 接口有数据且本地无元数据 → 自动触发刮削
       if (!isAlreadyScraped(item) && !adultScrapeLoading.value) {
         handleAdultScrape(data, item)
       }
@@ -397,26 +394,7 @@ const handleAdultScrape = async (
   adultScrapeLoading.value = true
   currentScrapeItem.value = item
 
-  // 构造 Movie 对象（与 handleJavBusScrape 相同）
-  const movie: Movie = {
-    id: meta.avid as any,
-    title: meta.title || meta.avid,
-    original_title: meta.avid,
-    overview: meta.description || '',
-    release_date: meta.release_date || '',
-    vote_average: 0,
-    vote_count: 0,
-    poster_path: meta.cover || '',
-    backdrop_path: meta.fanarts?.[0] || '',
-    adult: false,
-    genre_ids: [],
-    original_language: 'ja',
-    popularity: 0,
-    video: false,
-    _javbus: meta,
-  } as any as Movie
-
-  scrape(movie, item)
+  scrape(buildJavBusMovie(meta), item)
   adultScrapeLoading.value = false
   adultActionMsg.value = '✅ 已加入队列'
 }
@@ -647,10 +625,10 @@ const handleCancelManualScrape = (): void => {
 /**
  * 刮削此结果并关闭模态框
  */
-const handlePickMovie = async (movie: Movie): Promise<void> => {
+const handlePickMovie = async (movie: MediaResult): Promise<void> => {
   showSearchModal.value = false
   if (!currentScrapeItem.value) return
-  scrape(movie, currentScrapeItem.value)
+  scrape(movie as ScrapedMovie, currentScrapeItem.value)
 }
 
 /**
@@ -662,11 +640,8 @@ const handleAutoScrape = async (item: ProcessedItem): Promise<void> => {
 
   // JavBus：使用独立刮削预览弹窗
   if (provider === 'javbus') {
-    const avid = item.name
-      .replace(/\.[^/.]+$/, '')
-      .replace(/\s*\(\d{4}\)\s*$/, '')
-      .trim()
-      .toUpperCase()
+    const avid = extractAvid(item.name)
+    if (!avid) return
     javBusScrapeAvid.value = avid
     javBusScrapeItem.value = item
     showJavBusScrapeModal.value = true
@@ -695,25 +670,7 @@ const handleJavBusScrape = async (
   item: ProcessedItem
 ): Promise<void> => {
   currentScrapeItem.value = item
-  const movie: Movie = {
-    id: meta.avid as any,
-    title: meta.title || meta.avid,
-    original_title: meta.avid,
-    overview: meta.description || '',
-    release_date: meta.release_date || '',
-    vote_average: 0,
-    vote_count: 0,
-    poster_path: meta.cover || '',
-    backdrop_path: meta.fanarts?.[0] || '',
-    adult: false,
-    genre_ids: [],
-    original_language: 'ja',
-    popularity: 0,
-    video: false,
-    _javbus: meta,
-  } as any as Movie
-
-  scrape(movie, item)
+  scrape(buildJavBusMovie(meta), item)
   javBusScrapeModal.value?.setResult(`✅ 已加入队列`)
 }
 
@@ -721,7 +678,7 @@ const handleJavBusScrape = async (
  * JavBus 加入队列
  */
 const handleJavBusAddToQueue = (
-  movie: Movie,
+  movie: ScrapedMovie,
   item: ProcessedItem
 ): void => {
   currentScrapeItem.value = item
@@ -779,11 +736,11 @@ watch(
 
 // 本地刮削
 const handleLocalScrape = async (item: ProcessedItem): Promise<void> => {
-  const avid = item.name
-    .replace(/\.[^/.]+$/, '') // 去扩展名
-    .replace(/\s*\(\d{4}\)\s*$/, '') // 去年份后缀 (2020)
-    .trim()
-    .toUpperCase()
+  const avid = extractAvid(item.name)
+  if (!avid) {
+    message.error('无法从文件名中提取 AV 号')
+    return
+  }
   message.loading(`正在刮削 ${avid}...`, 0)
   try {
     const meta = await backend.scrape(avid)
@@ -828,35 +785,25 @@ const handleScrapeAll = async (): Promise<void> => {
     okText: '开始刮削',
     cancelText: '取消',
     async onOk() {
-      for (const item of unscraped) {
-        if (provider === 'javbus') {
-          const avid = item.name
-            .replace(/\.[^/.]+$/, '')
-            .replace(/\s*\(\d{4}\)\s*$/, '')
-            .trim()
-            .toUpperCase()
-          const data = await backend.fetchMeta(avid)
-          if (!data.error) {
-            const movie: Movie = {
-              id: data.avid as any,
-              title: data.title || data.avid,
-              original_title: data.avid,
-              overview: data.description || '',
-              release_date: data.release_date || '',
-              vote_average: 0,
-              vote_count: 0,
-              poster_path: data.cover || '',
-              backdrop_path: data.fanarts?.[0] || '',
-              adult: false,
-              genre_ids: [],
-              original_language: 'ja',
-              popularity: 0,
-              video: false,
-              _javbus: data,
-            } as any as Movie
-            scrape(movie, item)
-          }
-        } else {
+      if (provider === 'javbus') {
+        // 并行获取所有元数据，再统一入队
+        const metas = await Promise.all(
+          unscraped.map(async item => {
+            const avid = extractAvid(item.name)
+            if (!avid) return { item, meta: null }
+            try {
+              const data = await backend.fetchMeta(avid)
+              return { item, meta: data.error ? null : data }
+            } catch {
+              return { item, meta: null }
+            }
+          })
+        )
+        for (const { item, meta } of metas) {
+          if (meta) scrape(buildJavBusMovie(meta), item)
+        }
+      } else {
+        for (const item of unscraped) {
           handleAutoScrape(item)
         }
       }
@@ -867,21 +814,15 @@ const handleScrapeAll = async (): Promise<void> => {
 
 // 下载视频
 const handleDownloadVideo = (item: ProcessedItem): void => {
-  const avid = item.name
-    .replace(/\.[^/.]+$/, '')
-    .replace(/\s*\(\d{4}\)\s*$/, '')
-    .trim()
-    .toUpperCase()
+  const avid = extractAvid(item.name)
+  if (!avid) return
   downloadAvid.value = avid
   showDownloadModal.value = true
 }
 
 const handleFetchMeta = (item: ProcessedItem): void => {
-  const avid = item.name
-    .replace(/\.[^/.]+$/, '')
-    .replace(/\s*\(\d{4}\)\s*$/, '')
-    .trim()
-    .toUpperCase()
+  const avid = extractAvid(item.name)
+  if (!avid) return
   metaPreviewAvid.value = avid
   showMetaPreviewModal.value = true
 }
