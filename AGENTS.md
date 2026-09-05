@@ -105,7 +105,7 @@ User settings are stored in `localStorage` (renderer side). Key keys:
 - `scrapeProviderConfig` — provider type, TMDB token, Go backend URL, MetaTube config
 - `imageDownloadSize_poster` / `imageDownloadSize_backdrop` / `imageDownloadSize_actor`
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
-- `metadataLanguage`, `videoPlayer`
+- `metadataLanguage`
 
 ### Build pipeline
 

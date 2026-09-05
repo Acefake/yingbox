@@ -3,7 +3,7 @@
   <Transition name="settings-fade">
     <div
       v-if="visible"
-      class="fixed inset-0 z-[900] bg-black/40 backdrop-blur-sm"
+      class="fixed inset-0 z-[2100] bg-black/40 backdrop-blur-sm"
       @click="$emit('close')"
     />
   </Transition>
@@ -12,22 +12,20 @@
   <Transition name="settings-slide">
     <div
       v-if="visible"
-      class="fixed inset-0 z-[901] flex items-center justify-center pointer-events-none"
+      class="fixed inset-y-0 right-0 z-[2101] pointer-events-none"
     >
       <div
-        class="pointer-events-auto relative flex flex-col rounded-2xl glass-panel-floating"
+        class="settings-drawer pointer-events-auto relative flex h-full flex-col"
         style="
-          width: min(820px, 92vw);
-          max-height: 85vh;
+          width: min(500px, calc(100vw - 48px));
         "
         @click.stop
       >
         <!-- 头部 -->
-        <div class="flex items-center justify-between px-5 py-4 flex-shrink-0">
-          <div class="flex items-center gap-2.5">
-            <span class="text-sm font-semibold text-white/90 tracking-wide"
-              >设置</span
-            >
+        <div class="flex items-center justify-between px-6 py-5 flex-shrink-0 border-b border-white/8">
+          <div>
+            <span class="text-sm font-semibold text-white/90 tracking-wide">设置</span>
+            <p class="mt-1 text-[11px] text-gray-500">偏好、下载与刮削服务</p>
           </div>
           <button
             @click="$emit('close')"
@@ -51,7 +49,7 @@
         </div>
 
         <!-- 设置内容（可滚动） -->
-        <div class="flex-1 overflow-y-auto py-3 px-4 space-y-2 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto px-6 py-4 space-y-2 custom-scrollbar">
           <!-- 分区：图片质量（合并海报/背景/演员） -->
           <SettingsSection title="图片质量" icon="image">
             <div class="space-y-2">
@@ -142,38 +140,9 @@
 
           <!-- 分区：播放器 -->
           <SettingsSection title="播放器" icon="play">
-            <div class="space-y-1">
-              <div
-                v-for="opt in playerOptions"
-                :key="opt.value"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all"
-                :class="
-                  videoPlayer === opt.value
-                    ? 'bg-blue-600/25 border border-blue-500/40'
-                    : 'bg-white/5 border border-transparent hover:bg-white/8'
-                "
-                @click="videoPlayer = opt.value"
-              >
-                <div
-                  class="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                  :class="
-                    videoPlayer === opt.value
-                      ? 'border-blue-400 bg-blue-400'
-                      : 'border-gray-600'
-                  "
-                >
-                  <div
-                    v-if="videoPlayer === opt.value"
-                    class="w-1.5 h-1.5 rounded-full bg-white"
-                  />
-                </div>
-                <div class="flex-1 min-w-0">
-                  <div class="text-xs font-medium text-white/90">
-                    {{ opt.label }}
-                  </div>
-                  <div class="text-[10px] text-gray-500">{{ opt.desc }}</div>
-                </div>
-              </div>
+            <div class="rounded-lg border border-blue-500/40 bg-blue-600/25 px-3 py-2">
+              <div class="text-xs font-medium text-white/90">统一内置播放器</div>
+              <div class="mt-1 text-[10px] text-gray-400">首页、本地影视和 AV 资源共用同一播放器，使用统一的基础播放控制。</div>
             </div>
           </SettingsSection>
 
@@ -362,7 +331,7 @@
 
         <!-- 底部版本信息 -->
         <div
-          class="flex-shrink-0 px-5 py-3 border-t border-white/8 flex items-center justify-between"
+          class="flex-shrink-0 px-6 py-4 border-t border-white/8 flex items-center justify-between"
         >
           <p class="text-[10px] text-gray-600">影盒 · 设置</p>
           <button
@@ -378,6 +347,7 @@
 </template>
 
 <script setup lang="ts">
+import { message } from 'ant-design-vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import {
@@ -410,7 +380,7 @@ const downloadPath = ref(localStorage.getItem('downloadPath') || '')
 
 const selectDownloadPath = async () => {
   try {
-    const path = await (window.api as any).dialog.selectDirectory()
+    const path = await window.api.dialog.selectDirectory()
     if (path) {
       downloadPath.value = path
     }
@@ -419,11 +389,13 @@ const selectDownloadPath = async () => {
   }
 }
 
-watch(downloadPath, val => {
-  localStorage.setItem('downloadPath', val)
-  // 通知主进程更新下载路径
-  if (val) {
-    ;(window.api as any).config.setDownloadPath(val)
+watch(downloadPath, async val => {
+  if (!val) return
+  try {
+    await window.api.config.setDownloadPath(val)
+    localStorage.setItem('downloadPath', val)
+  } catch (error) {
+    message.error(`保存下载目录失败: ${error instanceof Error ? error.message : '未知错误'}`)
   }
 }, { immediate: true })
 
@@ -454,25 +426,6 @@ const metadataLanguage = ref(
 watch(metadataLanguage, val => localStorage.setItem('metadataLanguage', val), {
   immediate: true,
 })
-
-// 播放器
-const playerOptions = [
-  {
-    value: 'builtin',
-    label: '内置播放器',
-    desc: 'HTML5 视频，秒开，支持 MP4 等常见格式',
-  },
-  {
-    value: 'system',
-    label: '系统默认',
-    desc: '调用系统关联的播放器（如 PotPlayer）',
-  },
-]
-const videoPlayer = ref(localStorage.getItem('videoPlayer') || 'builtin')
-watch(
-  () => videoPlayer.value,
-  val => localStorage.setItem('videoPlayer', val)
-)
 
 // 刮削服务
 const providerOptions: {
@@ -661,7 +614,13 @@ const handleTestGoBackend = async (): Promise<void> => {
 }
 .settings-slide-enter-from,
 .settings-slide-leave-to {
-  opacity: 0;
-  transform: scale(0.95);
+  transform: translateX(100%);
+}
+
+.settings-drawer {
+  background: rgba(18, 22, 29, 0.98);
+  border-left: 1px solid rgba(255, 255, 255, 0.1);
+  box-shadow: -24px 0 64px rgba(0, 0, 0, 0.45);
+  backdrop-filter: blur(24px);
 }
 </style>

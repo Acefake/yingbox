@@ -24,7 +24,8 @@ logger.add(
 )
 
 # 存储到变量中
-save_path = configs["SavePath"]
+save_path = os.environ.get("MISSAV_VIDEO_PATH") or configs["SavePath"]
+os.makedirs(save_path, exist_ok=True)
 downloaded_path = configs["DBPath"]
 queue_path = configs["QueuePath"]
 myproxy = configs["Proxy"]

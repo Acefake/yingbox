@@ -39,6 +39,9 @@ const api = {
     readdirRecursive: (dirPath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:readdirRecursive', dirPath),
 
+    scanMediaDirectory: (dirPath: string): Promise<FileOperationResult> =>
+      ipcRenderer.invoke('file:scanMediaDirectory', dirPath),
+
     // Get file stats
     stat: (filePath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:stat', filePath),
@@ -48,8 +51,8 @@ const api = {
       ipcRenderer.invoke('file:copy', srcPath, destPath),
 
     // Move file
-    move: (srcPath: string, destPath: string): Promise<FileOperationResult> =>
-      ipcRenderer.invoke('file:move', srcPath, destPath),
+    move: (srcPath: string, destPath: string, options?: { replace?: boolean }): Promise<FileOperationResult> =>
+      ipcRenderer.invoke('file:move', srcPath, destPath, options),
 
     // Read image as data URL
     readImage: (filePath: string): Promise<FileOperationResult> =>
@@ -161,10 +164,6 @@ const api = {
       filePath: string
     ): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('shell:openPath', filePath),
-  },
-  player: {
-    open: (filePath: string, customTitle?: string): Promise<{ success: boolean }> =>
-      ipcRenderer.invoke('player:open', filePath, customTitle),
   },
   win: {
     minimize: (): Promise<void> => ipcRenderer.invoke('win:minimize'),

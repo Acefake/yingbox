@@ -34,6 +34,7 @@ export const useMediaProcessing = (selectedItem: any) => {
   const nfoContent = ref('')
   const movieInfo = shallowRef<MovieInfoType | null>(null)
   const actors = shallowRef<ActorInfo[]>([])
+  let selectionVersion = 0
 
   const imageExtensions = ['.jpg', '.jpeg', '.png', '.webp']
 
@@ -196,13 +197,14 @@ export const useMediaProcessing = (selectedItem: any) => {
   /**
    * 加载NFO文件内容（带缓存）
    */
-  const loadNfoContent = async (): Promise<void> => {
+  const loadNfoContent = async (version: number): Promise<void> => {
     nfoContent.value = ''
     movieInfo.value = null
     if (!nfoFilePath.value) return
 
     const path = nfoFilePath.value
     if (nfoCache.has(path)) {
+      if (version !== selectionVersion) return
       const cached = nfoCache.get(path)!
       movieInfo.value = nfoDataToMovieInfo(cached)
       return
@@ -216,6 +218,7 @@ export const useMediaProcessing = (selectedItem: any) => {
       const content = result.data as string
       const parsed = parseNfo(content)
       nfoCache.set(path, parsed)
+      if (version !== selectionVersion) return
       nfoContent.value = content
       movieInfo.value = nfoDataToMovieInfo(parsed)
       return content
@@ -225,7 +228,7 @@ export const useMediaProcessing = (selectedItem: any) => {
   /**
    * 从 .actors 文件夹加载演员照片（并行）
    */
-  const loadActorPhotos = async (): Promise<void> => {
+  const loadActorPhotos = async (version: number): Promise<void> => {
     actors.value = []
     const info = movieInfo.value
     if (!info?.actors?.length) return
@@ -243,23 +246,24 @@ export const useMediaProcessing = (selectedItem: any) => {
     const dirExists = await window.api.file
       .exists(actorsDir)
       .catch(() => ({ success: false, exists: false }))
-    if (!dirExists.success || !dirExists.exists) return
+    if (version !== selectionVersion || !dirExists.success || !dirExists.exists) return
 
-    const results = await Promise.all(
-      info.actors.map(async actor => {
+    const results: ActorInfo[] = []
+    for (const actor of info.actors.slice(0, 20)) {
+      if (version !== selectionVersion) return
         const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
         const photoPath = actorsDir + sep + safeActorName + '.jpg'
         const exists = await window.api.file
           .exists(photoPath)
           .catch(() => ({ success: false, exists: false }))
-        return {
+        results.push({
           name: actor.name,
           role: actor.role,
           photoDataUrl:
             exists.success && exists.exists ? toLocalUrl(photoPath) : undefined,
-        }
-      })
-    )
+        })
+    }
+    if (version !== selectionVersion) return
     actors.value = results
   }
 
@@ -272,18 +276,20 @@ export const useMediaProcessing = (selectedItem: any) => {
   watch(
     () => selectedItem.value,
     () => {
+      const version = ++selectionVersion
       if (debounceTimer) clearTimeout(debounceTimer)
-      debounceTimer = setTimeout(() => loadNfoContent(), 80)
+      debounceTimer = setTimeout(() => loadNfoContent(version), 80)
     },
     { immediate: true }
   )
 
   // 演员照片延迟到空闲时间加载
   watch(movieInfo, () => {
+    const version = selectionVersion
     if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(() => loadActorPhotos())
+      requestIdleCallback(() => loadActorPhotos(version), { timeout: 2000 })
     } else {
-      setTimeout(() => loadActorPhotos(), 50)
+      setTimeout(() => loadActorPhotos(version), 500)
     }
   })
 
@@ -301,50 +307,5 @@ export const useMediaProcessing = (selectedItem: any) => {
     loadNfoContent,
     preloadMovieImages,
     loadActorPhotos,
-    warmNfoCache,
-  }
-}
-
-/**
- * 目录加载完成后，利用浏览器空闲时间批量预读所有 NFO 到 nfoCache
- */
-export function warmNfoCache(items: any[]): void {
-  const nfoPaths: string[] = []
-  for (const item of items) {
-    if (!item.files) continue
-    const nfo = item.files.find((f: any) =>
-      f.name.toLowerCase().endsWith('.nfo')
-    )
-    if (nfo && !nfoCache.has(nfo.path)) nfoPaths.push(nfo.path)
-  }
-  if (!nfoPaths.length) return
-
-  let i = 0
-  const next = (deadline?: IdleDeadline) => {
-    while (i < nfoPaths.length && (!deadline || deadline.timeRemaining() > 2)) {
-      const p = nfoPaths[i++]
-      if (nfoCache.has(p)) continue
-      window.api.file
-        .read(p)
-        .then(r => {
-          if (r.success && r.data) {
-            nfoCache.set(p, parseNfo(r.data as string))
-          }
-        })
-        .catch(() => {})
-    }
-    if (i < nfoPaths.length) {
-      if (typeof requestIdleCallback !== 'undefined') {
-        requestIdleCallback(next, { timeout: 2000 })
-      } else {
-        setTimeout(() => next(), 50)
-      }
-    }
-  }
-
-  if (typeof requestIdleCallback !== 'undefined') {
-    requestIdleCallback(next, { timeout: 2000 })
-  } else {
-    setTimeout(() => next(), 200)
   }
 }

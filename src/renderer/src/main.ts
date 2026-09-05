@@ -11,7 +11,6 @@ const defaults: Record<string, string> = {
   imageDownloadSize_poster: 'original',
   imageDownloadSize_backdrop: 'original',
   imageDownloadSize_actor: 'original',
-  videoPlayer: 'builtin',
 }
 for (const [key, val] of Object.entries(defaults)) {
   if (localStorage.getItem(key) === null) {

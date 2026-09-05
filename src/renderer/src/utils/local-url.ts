@@ -9,7 +9,7 @@ export function toLocalUrl(filePath: string): string {
   // Windows 绝对路径 "F:/..." → host=drive letter, path=rest
   const driveMatch = normalized.match(/^([A-Za-z]):\/(.*)$/)
   if (driveMatch) {
-    return `local://${driveMatch[1].toLowerCase()}/${driveMatch[2]}`
+    return `local://${driveMatch[1].toLowerCase()}/${driveMatch[2].split('/').map(encodeURIComponent).join('/')}`
   }
-  return `local:///${normalized}`
+  return `local:///${normalized.split('/').map(encodeURIComponent).join('/')}`
 }

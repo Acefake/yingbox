@@ -50,7 +50,7 @@
               <span v-for="g in (tmdbDetail?.genres || []).slice(0, 4)" :key="g.id" class="dw-tag">{{ g.name }}</span>
               <span v-if="itemData?._source === 'catspider' || itemData?._source === 'cms'" class="dw-tag"
                 :class="{ 'source-vod': itemData._source === 'catspider', 'source-cms': itemData._source === 'cms' }">
-                {{ itemData._source === 'catspider' ? 'VOD' : 'CMS' }}
+                {{ itemData._source === 'catspider' ? '插件源' : 'CMS' }}
                 <template v-if="itemData.source_name">· {{ itemData.source_name }}</template>
               </span>
             </div>
@@ -84,11 +84,11 @@
               <div class="source-type-tabs">
                 <button v-if="catSpiderGroups.length" class="source-type-tab"
                   :class="{ active: currentSourceType === 'catspider' }" @click="switchSourceType('catspider')">
-                  VOD源
+                  插件源{{ catSpiderGroups.length ? ` · ${catSpiderGroups.length}` : '' }}
                 </button>
                 <button v-if="cmsGroups.length" class="source-type-tab" :class="{ active: currentSourceType === 'cms' }"
                   @click="switchSourceType('cms')">
-                  CMS源
+                  CMS源{{ cmsGroups.length ? ` · ${cmsGroups.length}` : '' }}
                 </button>
               </div>
               <!-- 层级一：源 -->
@@ -182,16 +182,17 @@
       <div v-if="showPlaySheet" class="sheet-mask" @click.self="showPlaySheet = false">
         <div class="play-sheet">
           <div class="player-wrap">
-            <video ref="videoEl" class="hls-player" controls autoplay :poster="tmdbDetail?.backdrop_path
+            <UnifiedVideoPlayer
+              :src="currentUrl"
+              :resolve-url="resolveUrl"
+              :poster="tmdbDetail?.backdrop_path
                 ? `https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}`
-                : ''
-              " />
-          </div>
-          <div class="sheet-header">
-            <span class="sheet-title">正在播放</span>
-            <button class="sheet-close" @click="showPlaySheet = false">
-              ✕
-            </button>
+                : ''"
+              :title="itemName"
+              closable
+              @ready="videoEl = $event"
+              @close="showPlaySheet = false"
+            />
           </div>
         </div>
       </div>
@@ -201,10 +202,11 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, onMounted, onBeforeUnmount, watch, nextTick } from 'vue'
+import { readStoredArray, saveStoredArray } from '@/utils/storage'
+import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
-import Hls from 'hls.js'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
+import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
 import {
   useOnlineSearch,
   type EpisodeGroup,
@@ -214,6 +216,7 @@ const {
   fetchDetail,
   resolvePlayUrl,
   keyword,
+  search,
 } = useOnlineSearch()
 
 const props = defineProps<{ item?: unknown }>()
@@ -269,7 +272,6 @@ const currentLineGroup = computed(() =>
   siteGroups.value[activeSite.value]?.lines[activeLine.value]
 )
 const videoEl = ref<HTMLVideoElement | null>(null)
-let hls: Hls | null = null
 
 const loadData = async (data: any) => {
   if (!data) return
@@ -355,34 +357,57 @@ const loadPlaySources = async () => {
   activeGroup.value = 0
   currentUrl.value = ''
   try {
-    // 如果 item 来自 cms/catspider，直接获取其播放列表
-    if (itemData.value?._source === 'cms' || itemData.value?._source === 'catspider') {
-      const itemGroups = await fetchDetail(itemData.value)
-      episodeGroups.value.push(...itemGroups)
-      currentSourceType.value = itemData.value._source === 'catspider' ? 'catspider' : 'cms'
-    } else {
-      // 否则（豆瓣/播放历史），搜索所有源获取播放列表
-      keyword.value = searchTitle.value
-      const { search, results } = useOnlineSearch()
-      await search(searchTitle.value)
-
-      // 增量加载：每获取到一个源的结果立即展示
-      for (const result of results.value) {
-        const resultGroups = await fetchDetail(result)
-        if (resultGroups.length) {
-          episodeGroups.value.push(...resultGroups)
-          // 首次有结果时自动设置默认源类型
-          if (!currentSourceType.value || currentSourceType.value === 'cms') {
-            const hasVod = episodeGroups.value.some(g => g._source === 'catspider')
-            if (hasVod) currentSourceType.value = 'catspider'
+    // 先保留打开详情时命中的条目，然后按片名检索全部已启用源，
+    // 每个站点只取最匹配的一条，避免同一站点重复请求和重复线路。
+    const directItem = itemData.value?._source === 'cms' || itemData.value?._source === 'catspider'
+      ? itemData.value
+      : null
+    const normalizeTitle = (value: unknown) => String(value || '')
+      .toLowerCase()
+      .replace(/\[[^\]]*\]|\([^)]*\)|（[^）]*）/g, '')
+      .replace(/[^\p{L}\p{N}]+/gu, '')
+    const targetTitle = normalizeTitle(searchTitle.value)
+    const sourceKey = (value: any) => `${value?._source || 'unknown'}:${value?._siteName || value?.api_url || value?.vod_id || ''}`
+    const seenSources = new Set<string>()
+    const pendingDetails = new Set<Promise<void>>()
+    const appendDetail = (candidate: any) => {
+      const key = sourceKey(candidate)
+      if (seenSources.has(key)) return
+      seenSources.add(key)
+      const task = fetchDetail(candidate)
+        .then(groups => {
+          const available = groups.filter(group => group.episodes?.length)
+          if (!available.length) return
+          const hadGroups = episodeGroups.value.length > 0
+          episodeGroups.value = [...episodeGroups.value, ...available]
+          if (!hadGroups) {
+            currentSourceType.value = available.some(group => group._source === 'catspider') ? 'catspider' : 'cms'
           }
-        }
-      }
-
-      // 最终确定默认源类型
-      const hasVod = episodeGroups.value.some(g => g._source === 'catspider')
-      currentSourceType.value = hasVod ? 'catspider' : 'cms'
+        })
+        .catch(() => undefined)
+      pendingDetails.add(task)
+      void task.finally(() => pendingDetails.delete(task))
     }
+
+    // 当前命中的来源与全量搜索同时开始，并在任一来源完成后立即展示。
+    if (directItem) appendDetail(directItem)
+    keyword.value = searchTitle.value
+    // 详情页只查询用户已启用的插件源，避免强制遍历整份插件清单导致长时间转圈。
+    await search(searchTitle.value, {
+      allVod: false,
+      onItems: items => {
+        for (const resultAny of items as any[]) {
+          const title = normalizeTitle(resultAny?.vod_name || resultAny?.title || resultAny?.name)
+          if (!title || !targetTitle || !(title === targetTitle || title.includes(targetTitle) || targetTitle.includes(title))) continue
+          appendDetail(resultAny)
+        }
+      },
+    })
+    // 搜索结束后仍可能有详情请求在路上，等待它们完成以准确结束加载状态。
+    await Promise.all([...pendingDetails])
+
+    const hasVod = episodeGroups.value.some(g => g._source === 'catspider')
+    currentSourceType.value = hasVod ? 'catspider' : 'cms'
   } catch {
     /* silent */
   } finally {
@@ -436,8 +461,11 @@ const switchLine = (li: number) => {
 }
 
 const resolvingUrl = ref(false)
+let playGeneration = 0
+watch(showPlaySheet, visible => { if (!visible) { playGeneration++; resolvingUrl.value = false } })
 
 const playEp = async (url: string, ext?: Record<string, any>) => {
+  const generation = ++playGeneration
   // 先弹出播放器窗口
   showPlaySheet.value = true
   currentUrl.value = ''
@@ -446,48 +474,17 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
   if (currentSourceType.value === 'catspider' && currentSiteName.value && ext) {
     resolvingUrl.value = true
     const resolved = await resolvePlayUrl(currentSiteName.value, ext)
+    if (generation !== playGeneration) return
     resolvingUrl.value = false
     if (resolved) playUrl = resolved
   }
+  if (generation !== playGeneration) return
   currentUrl.value = playUrl
   const historyKey = 'online_play_history'
-  const history = JSON.parse(localStorage.getItem(historyKey) || '[]')
-  const record = { ...(itemData.value || {}), item: itemData.value, epName: ext?.name || '正在播放', url: playUrl, groupLabel: currentSourceType.value === 'catspider' ? 'VOD' : 'CMS', timestamp: Date.now() }
-  localStorage.setItem(historyKey, JSON.stringify([record, ...history.filter((entry: any) => entry.url !== playUrl)].slice(0, 30)))
+  const history = readStoredArray<Record<string, any>>(historyKey)
+  const record = { ...(itemData.value || {}), item: itemData.value, epName: ext?.name || '正在播放', url: playUrl, groupLabel: currentSourceType.value === 'catspider' ? '插件源' : 'CMS', timestamp: Date.now() }
+  saveStoredArray(historyKey, [record, ...history.filter((entry: any) => entry.url !== playUrl)].slice(0, 30))
 }
-
-watch(currentUrl, async url => {
-  if (!url) return
-  // 等待 DOM 渲染 video 元素
-  await nextTick()
-  let el = videoEl.value
-  for (let i = 0; i < 10 && !el; i++) {
-    await new Promise(r => setTimeout(r, 100))
-    el = videoEl.value
-  }
-  if (!el) return
-  if (hls) {
-    hls.destroy()
-    hls = null
-  }
-  const resolved = await resolveUrl(url)
-  if (Hls.isSupported() && resolved.includes('.m3u8')) {
-    hls = new Hls()
-    hls.loadSource(resolved)
-    hls.attachMedia(el)
-    hls.on(Hls.Events.MANIFEST_PARSED, () => el.play().catch(() => { }))
-  } else {
-    el.src = resolved
-    el.play().catch(() => { })
-  }
-})
-
-onBeforeUnmount(() => {
-  if (hls) {
-    hls.destroy()
-    hls = null
-  }
-})
 
 const onImgError = (e: Event) => {
   ; (e.target as HTMLImageElement).src =
@@ -533,7 +530,7 @@ const onActorImgError = (e: Event) => {
   height: 32px;
   border-radius: 50%;
   border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: rgba(99, 102, 241, 0.8);
+  border-top-color: rgba(10, 132, 255, 0.8);
   animation: spin 0.8s linear infinite;
 }
 
@@ -661,8 +658,8 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-tag.source-cms {
-  background: rgba(99, 102, 241, 0.2);
-  color: #818cf8;
+  background: rgba(10, 132, 255, 0.2);
+  color: #64b5ff;
 }
 
 .dw-tag.source-douban {
@@ -932,8 +929,9 @@ const onActorImgError = (e: Event) => {
 }
 
 .play-sheet {
-  width: min(780px, 92vw);
-  max-height: 85vh;
+  width: min(1200px, 92vw);
+  height: 78vh;
+  max-height: 92vh;
   background: #161b22;
   border-radius: 16px;
   border: 1px solid rgba(255, 255, 255, 0.1);
@@ -943,47 +941,11 @@ const onActorImgError = (e: Event) => {
   box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
 }
 
-.sheet-header {
-  display: flex;
-  align-items: center;
-  padding: 12px 20px;
-  border-top: 1px solid rgba(255, 255, 255, 0.07);
-  flex-shrink: 0;
-}
-
-.sheet-title {
-  flex: 1;
-  font-size: 14px;
-  font-weight: 600;
-}
-
-.sheet-close {
-  width: 28px;
-  height: 28px;
-  border-radius: 50%;
-  background: rgba(255, 255, 255, 0.08);
-  border: none;
-  color: rgba(255, 255, 255, 0.6);
-  cursor: pointer;
-  font-size: 13px;
-}
-
-.sheet-close:hover {
-  background: rgba(255, 255, 255, 0.15);
-  color: white;
-}
-
 .player-wrap {
   flex: 1;
-  min-height: 300px;
-  background: #000;
-}
-
-.hls-player {
-  width: 100%;
+  min-height: 0;
   height: 100%;
-  max-height: 65vh;
-  display: block;
+  background: #000;
 }
 
 .source-type-tabs {
@@ -1011,9 +973,9 @@ const onActorImgError = (e: Event) => {
 }
 
 .source-type-tab.active {
-  background: rgba(99, 102, 241, 0.2);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: #818cf8;
+  background: rgba(10, 132, 255, 0.2);
+  border-color: rgba(10, 132, 255, 0.5);
+  color: #64b5ff;
 }
 
 .group-tabs {
@@ -1034,8 +996,8 @@ const onActorImgError = (e: Event) => {
 }
 
 .group-tab.active {
-  background: rgba(99, 102, 241, 0.4);
-  border-color: rgba(99, 102, 241, 0.6);
+  background: rgba(10, 132, 255, 0.4);
+  border-color: rgba(10, 132, 255, 0.6);
   color: white;
 }
 
@@ -1077,8 +1039,8 @@ const onActorImgError = (e: Event) => {
 }
 
 .ep-btn.playing {
-  background: rgba(99, 102, 241, 0.4);
-  border-color: rgba(99, 102, 241, 0.8);
+  background: rgba(10, 132, 255, 0.4);
+  border-color: rgba(10, 132, 255, 0.8);
   color: white;
 }
 </style>

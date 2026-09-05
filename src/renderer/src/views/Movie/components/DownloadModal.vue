@@ -154,7 +154,8 @@ const selected = ref('')
 const downloading = ref(false)
 const resultMsg = ref('')
 const queueStatus = ref('')
-let pollTimer: ReturnType<typeof setInterval> | null = null
+let pollVersion = 0
+let pollTimer: ReturnType<typeof setTimeout> | null = null
 
 const sortedSites = computed(() =>
   [...props.sites].sort((a, b) => b.weight - a.weight)
@@ -177,27 +178,33 @@ watch(
 )
 
 function stopPolling() {
+  pollVersion++
   if (pollTimer) {
-    clearInterval(pollTimer)
+    clearTimeout(pollTimer)
     pollTimer = null
   }
 }
 
 function startPolling(avid: string) {
   stopPolling()
-  pollTimer = setInterval(async () => {
+  const version = pollVersion
+  const poll = async () => {
     try {
-      const queue = await backend.getQueue()
-      if (queue.includes(avid)) {
-        queueStatus.value = `⏳ 排队中 (队列第 ${queue.indexOf(avid) + 1} 位)`
-      } else {
-        queueStatus.value = '✅ 已完成或不在队列中'
-        stopPolling()
-      }
+      const status = await backend.getDownloadStatus()
+      if (version !== pollVersion) return
+      const id = avid.toUpperCase()
+      if (status.active === id) queueStatus.value = '正在下载'
+      else if (status.queued.includes(id)) queueStatus.value = `排队中（第 ${status.queued.indexOf(id) + 1} 位）`
+      else if (status.failed?.includes(id)) { queueStatus.value = '下载失败，请检查下载源后重试'; return }
+      else if (status.completed.some(item => item.id === id)) { queueStatus.value = '下载已完成'; return }
+      else queueStatus.value = '等待下载任务状态'
     } catch {
-      stopPolling()
+      if (version !== pollVersion) return
+      queueStatus.value = '暂时无法获取下载状态，正在重试'
     }
-  }, 3000)
+    if (version === pollVersion) pollTimer = setTimeout(poll, 3000)
+  }
+  void poll()
 }
 
 onUnmounted(() => stopPolling())

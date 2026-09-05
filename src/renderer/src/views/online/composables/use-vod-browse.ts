@@ -12,6 +12,7 @@ export interface VodCard {
   vod_name: string
   vod_pic: string
   vod_remarks: string
+  type_name: string
   ext: Record<string, any>
   _siteName: string
 }
@@ -20,6 +21,23 @@ export interface VodSource {
   site: CatSpiderSite
   tabs: VodTab[]
   loaded: boolean
+}
+
+const mapWithConcurrency = async <T, R>(
+  items: T[],
+  limit: number,
+  mapper: (item: T) => Promise<R>
+): Promise<R[]> => {
+  const results = new Array<R>(items.length)
+  let nextIndex = 0
+  const worker = async (): Promise<void> => {
+    while (nextIndex < items.length) {
+      const index = nextIndex++
+      results[index] = await mapper(items[index])
+    }
+  }
+  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  return results
 }
 
 /**
@@ -49,8 +67,8 @@ export function useVodBrowse() {
     loadingSources.value = true
     error.value = ''
 
-    const results = await Promise.allSettled(
-      sites.map(async site => {
+    const results = await mapWithConcurrency(sites, 4, async site => {
+      try {
         const r = await getConfig(site.name)
         if (!r.success || !r.data) return { site, tabs: [], loaded: false }
 
@@ -64,15 +82,13 @@ export function useVodBrowse() {
           })),
           loaded: tabList.length > 0,
         }
-      })
-    )
+      } catch {
+        return { site, tabs: [], loaded: false }
+      }
+    })
 
     sources.value = results
-      .filter(
-        (r): r is PromiseFulfilledResult<VodSource> =>
-          r.status === 'fulfilled' && r.value.loaded
-      )
-      .map(r => r.value)
+      .filter(source => source.loaded)
 
     loadingSources.value = false
 
@@ -113,6 +129,14 @@ export function useVodBrowse() {
     await loadCards(activeSourceIdx.value, activeTabIdx.value, currentPage.value + 1)
   }
 
+  /** 重新加载当前数据源和分类，供页面顶部刷新使用。 */
+  const reload = async (): Promise<void> => {
+    cards.value = []
+    currentPage.value = 1
+    hasMore.value = true
+    await loadCards(activeSourceIdx.value, activeTabIdx.value, 1)
+  }
+
   /**
    * 加载分类下的内容卡片
    */
@@ -150,6 +174,7 @@ export function useVodBrowse() {
         vod_name: item.vod_name || '',
         vod_pic: item.vod_pic || '',
         vod_remarks: item.vod_remarks || '',
+        type_name: item.type_name || item.vod_class || '',
         ext: item.ext || {},
         _siteName: src.site.name,
       }))
@@ -176,7 +201,7 @@ export function useVodBrowse() {
   const cardToCmsItem = (card: VodCard): CmsItem => ({
     vod_id: card.vod_id,
     vod_name: card.vod_name,
-    type_name: '',
+    type_name: card.type_name,
     vod_year: '',
     vod_remarks: card.vod_remarks,
     vod_pic: card.vod_pic,
@@ -201,6 +226,7 @@ export function useVodBrowse() {
     switchSource,
     switchTab,
     loadMore,
+    reload,
     cardToCmsItem,
   }
 }

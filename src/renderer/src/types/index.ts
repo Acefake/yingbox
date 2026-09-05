@@ -28,6 +28,8 @@ export interface ProcessedItem {
   episodeNumber?: number
   /** 是否为季文件夹 */
   isSeasonFolder?: boolean
+  /** 本地剧集缩略图路径 */
+  thumbnailPath?: string
   /** 子项目列表（用于电视剧的季和集） */
   children?: ProcessedItem[]
 }

@@ -6,7 +6,8 @@ import { ref } from 'vue'
 import type { ProcessedItem } from '@/types'
 import type { ScrapedMovie, CastMember, DirectorMember } from '@/types/scraping'
 import { generateNfo, parseNfo } from '@/services/nfo-service'
-import { cleanSearchParams } from '@/utils/avid'
+import { cleanSearchParams, extractAvid } from '@/utils/avid'
+import { safeFileName } from '@/utils/file-name'
 
 const getMetaLang = (): string =>
   (typeof window !== 'undefined' && localStorage.getItem('metadataLanguage')) ||
@@ -47,7 +48,7 @@ function isPermanentError(errorMsg: string): boolean {
 /**
  * 带重试和指数退避的下载函数
  */
-const downloadWithRetry = async (
+const tryDownload = async (
   url: string,
   path: string,
   maxRetries: number = 3,
@@ -80,6 +81,17 @@ const downloadWithRetry = async (
     }
   }
   return { success: false, error: '下载失败' }
+}
+
+async function downloadWithRetry(url: string, filePath: string): Promise<void> {
+  const result = await tryDownload(url, filePath)
+  if (!result.success) throw new Error(`下载失败 [${filePath}]: ${result.error || '未知错误'}`)
+}
+
+async function finishDownloads<T>(jobs: Promise<T>[]): Promise<void> {
+  const results = await Promise.allSettled(jobs)
+  const failed = results.find(result => result.status === 'rejected')
+  if (failed?.status === 'rejected') throw failed.reason
 }
 
 // ─── 主 Hook ──────────────────────────────────────────────
@@ -138,11 +150,8 @@ export const useScraping = () => {
 
       // ── JavBus ──
       if (provider === 'javbus') {
-        const avid = searchName
-          .replace(/\.[^/.]+$/, '')
-          .replace(/\s*\(\d{4}\)\s*$/, '')
-          .trim()
-          .toUpperCase()
+        const avid = extractAvid(searchName)
+        if (!avid) return []
         try {
           const meta = await backend.fetchMeta(avid)
           if (meta.error) return []
@@ -247,89 +256,6 @@ export const useScraping = () => {
    * 清理文件夹中属于指定视频的旧资源文件
    * 只删除匹配 videoBaseName 的 NFO/海报/背景图，不影响其他视频的文件
    */
-  const cleanOldMovieFiles = async (
-    folderPath: string,
-    videoBaseName: string
-  ): Promise<void> => {
-    try {
-      const folderFiles = await window.api.file.readdir(folderPath)
-      if (!folderFiles.success || !folderFiles.data) return
-
-      const files = folderFiles.data as Array<{
-        name: string
-        isDirectory: boolean
-        isFile: boolean
-      }>
-
-      const base = videoBaseName.toLowerCase()
-      const filesToDelete: string[] = []
-
-      for (const file of files) {
-        if (!file.isFile) continue
-        const fileName = file.name.toLowerCase()
-
-        // 只删除与当前视频名称匹配的资源文件
-        const belongsToVideo =
-          // 精确前缀匹配：{base}.nfo, {base}-poster.jpg, {base}-fanart.jpg 等
-          fileName.startsWith(base + '.') ||
-          fileName.startsWith(base + '-') ||
-          // 宽泛资源名匹配（不含视频扩展名的通用名）
-          fileName === 'poster.jpg' ||
-          fileName === 'folder.jpg' ||
-          fileName === 'movie.jpg' ||
-          fileName === 'fanart.jpg' ||
-          fileName === 'backdrop.jpg'
-
-        // 排除视频文件本身
-        const isVideoFile =
-          /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v|ts|rmvb)$/i.test(fileName)
-
-        if (belongsToVideo && !isVideoFile) {
-          const filePath = await window.api.path.join(folderPath, file.name)
-          filesToDelete.push(filePath)
-        }
-      }
-
-      // 逐个删除
-      for (const filePath of filesToDelete) {
-        try {
-          await window.api.file.delete(filePath)
-        } catch {
-          // 静默失败
-        }
-      }
-
-      // 清理 .actors 文件夹
-      const actorsDir = await window.api.path.join(folderPath, '.actors')
-      const actorsDirExists = await window.api.file.exists(actorsDir)
-      if (actorsDirExists.exists) {
-        try {
-          const actorsFiles = await window.api.file.readdir(actorsDir)
-          if (actorsFiles.success && actorsFiles.data) {
-            const actorFileList = actorsFiles.data as Array<{
-              name: string
-              isFile: boolean
-            }>
-            for (const file of actorFileList) {
-              if (file.isFile) {
-                const filePath = await window.api.path.join(
-                  actorsDir,
-                  file.name
-                )
-                await window.api.file.delete(filePath)
-              }
-            }
-          }
-          await window.api.file.delete(actorsDir)
-        } catch {
-          // 静默失败
-        }
-      }
-    } catch (error) {
-      console.warn('清理旧文件时出错:', error)
-    }
-  }
-
   /**
    * 在指定文件夹中刮削电影信息（下载海报和创建NFO文件）
    * @throws 失败时抛出错误，让调用方感知
@@ -369,16 +295,17 @@ export const useScraping = () => {
       if (cast.length > 0) {
         progressCallback?.('正在下载演员照片...', 4)
         const actorsDir = await window.api.path.join(folderPath, '.actors')
-        await window.api.file.mkdir(actorsDir)
+        const directory = await window.api.file.mkdir(actorsDir)
+        if (!directory.success) throw new Error(directory.error || '创建演员目录失败')
 
-        await Promise.all(
+        await finishDownloads(
           cast
             .filter(actor => actor.profile_path)
             .map(actor => {
               const photoUrl = actor.profile_path!.startsWith('http')
                 ? actor.profile_path!
                 : `${getImageBaseUrl('actor')}${actor.profile_path}`
-              const safeName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
+              const safeName = safeFileName(actor.name, 'actor')
               return window.api.path
                 .join(actorsDir, `${safeName}.jpg`)
                 .then(photoPath =>
@@ -389,8 +316,7 @@ export const useScraping = () => {
       }
     }
 
-    // 清理旧文件
-    await cleanOldMovieFiles(folderPath, videoBaseName)
+    // 每个资源完整写入后替换原文件，保留字幕、共享演员图和已有资源。
 
     // 构建文件路径
     const nfoPath = await window.api.path.join(
@@ -427,7 +353,7 @@ export const useScraping = () => {
           ? movieData.poster_path!
           : `${getImageBaseUrl('poster')}${movieData.poster_path}`
 
-      await Promise.all(
+      await finishDownloads(
         posterPaths.map(({ path }) => downloadWithRetry(posterUrl, path))
       )
     }
@@ -447,7 +373,7 @@ export const useScraping = () => {
 
     if (fanartSources.length > 0) {
       progressCallback?.('正在下载背景图...', 3)
-      await Promise.all(
+      await finishDownloads(
         fanartSources.map((url, i) => {
           const name =
             i === 0
@@ -464,13 +390,14 @@ export const useScraping = () => {
     if (javbusMeta?.actress && Object.keys(javbusMeta.actress).length) {
       progressCallback?.('正在下载演员照片...', 4)
       const actorsDir = await window.api.path.join(folderPath, '.actors')
-      await window.api.file.mkdir(actorsDir)
+      const directory = await window.api.file.mkdir(actorsDir)
+      if (!directory.success) throw new Error(directory.error || '创建演员目录失败')
 
-      await Promise.all(
+      await finishDownloads(
         Object.entries(javbusMeta.actress as Record<string, string>)
           .filter(([, imgUrl]) => imgUrl)
           .map(([name, imgUrl]) => {
-            const safeName = name.replace(/[<>:"/\\|?*]/g, '').trim()
+            const safeName = safeFileName(name, 'actor')
             return window.api.path
               .join(actorsDir, `${safeName}.jpg`)
               .then(photoPath =>
@@ -629,7 +556,6 @@ export const useScraping = () => {
 
   return {
     scrapeMovieInFolder,
-    cleanOldMovieFiles,
     searchMovieInfo,
     checkExistingResources,
   }

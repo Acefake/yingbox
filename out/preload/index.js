@@ -17,12 +17,13 @@ const api = {
     readdir: (dirPath) => electron.ipcRenderer.invoke("file:readdir", dirPath),
     // Read directory contents recursively
     readdirRecursive: (dirPath) => electron.ipcRenderer.invoke("file:readdirRecursive", dirPath),
+    scanMediaDirectory: (dirPath) => electron.ipcRenderer.invoke("file:scanMediaDirectory", dirPath),
     // Get file stats
     stat: (filePath) => electron.ipcRenderer.invoke("file:stat", filePath),
     // Copy file
     copy: (srcPath, destPath) => electron.ipcRenderer.invoke("file:copy", srcPath, destPath),
     // Move file
-    move: (srcPath, destPath) => electron.ipcRenderer.invoke("file:move", srcPath, destPath),
+    move: (srcPath, destPath, options) => electron.ipcRenderer.invoke("file:move", srcPath, destPath, options),
     // Read image as data URL
     readImage: (filePath) => electron.ipcRenderer.invoke("file:readImage", filePath)
   },
@@ -73,9 +74,6 @@ const api = {
   },
   shell: {
     openPath: (filePath) => electron.ipcRenderer.invoke("shell:openPath", filePath)
-  },
-  player: {
-    open: (filePath) => electron.ipcRenderer.invoke("player:open", filePath)
   },
   win: {
     minimize: () => electron.ipcRenderer.invoke("win:minimize"),

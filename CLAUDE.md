@@ -71,16 +71,13 @@ Dev server runs on `127.0.0.1:3000` and proxies `/api` to `https://api.themovied
   - `dialog:*` (openDirectory, selectDirectory, openFile, saveFile)
   - `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)
   - `config:*`, `app:*`, `update:*`, `shell:*`
-  - `player:*` (opens video player window using resources/player.html)
 - `backend-manager.ts` — Spawns Go backend executable (`main.exe`) on startup in production, kills on quit. In dev, assumes backend started separately via `pnpm dev:backend`
 - `auto-updater.ts` — Configures electron-updater (auto-download disabled), sends status via `update:status` IPC
 - `config.ts` — Reads/writes `userData/config.json` (currently stores `downloadPath`)
-- `local://` protocol handler for streaming local video files to the built-in player
+- `local://` protocol handler for streaming local video files to the unified renderer player
 - DevTools shortcuts: F12 or Ctrl+Shift+I (Cmd+Option+I on Mac)
 
-**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `app.*`, `shell.*`, `player.*`, `win.*`. Also defines `window.api.scraper` and `window.api.downloader` as empty objects (extensibility points). Type definitions are in [src/renderer/src/env.d.ts](src/renderer/src/env.d.ts).
-
-A separate preload exists at `resources/player-preload.js` for the video player window.
+**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `app.*`, `shell.*`, and `win.*`. Also defines `window.api.scraper` and `window.api.downloader` as empty objects (extensibility points). Type definitions are in [src/renderer/src/env.d.ts](src/renderer/src/env.d.ts).
 
 ### Renderer: Vue 3 SPA
 
@@ -132,7 +129,7 @@ User settings are stored in `localStorage` (renderer side). Key keys:
 - `scrapeProviderConfig` — provider type, TMDB token, Go backend URL, MetaTube config
 - `imageDownloadSize_poster` / `imageDownloadSize_backdrop` / `imageDownloadSize_actor`
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
-- `metadataLanguage`, `videoPlayer`
+- `metadataLanguage`
 
 Config in `userData/config.json` (main process): `downloadPath`.
 

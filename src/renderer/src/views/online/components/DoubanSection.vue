@@ -49,6 +49,7 @@
 </template>
 
 <script setup lang="ts">
+import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { ref, computed, onMounted } from 'vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
@@ -107,7 +108,7 @@ const doubanItems = ref<DoubanItem[]>([])
 const doubanLoading = ref(false)
 const doubanError = ref(false)
 const doubanPage = ref(0)
-const favorites = ref<DoubanItem[]>(JSON.parse(localStorage.getItem('media_favorites') || '[]'))
+const favorites = ref<DoubanItem[]>(readStoredArray<DoubanItem>('media_favorites'))
 
 const currentTags = computed(() =>
   doubanType.value === 'movie' ? MOVIE_TAGS : TV_TAGS
@@ -123,7 +124,7 @@ const applyFilter = (next: Record<string, string>) => {
 const isFavorite = (item: DoubanItem) => favorites.value.some(entry => entry.url === item.url)
 const toggleFavorite = (item: DoubanItem) => {
   favorites.value = isFavorite(item) ? favorites.value.filter(entry => entry.url !== item.url) : [item, ...favorites.value]
-  localStorage.setItem('media_favorites', JSON.stringify(favorites.value))
+  saveStoredArray('media_favorites', favorites.value)
 }
 
 const onImgError = (e: Event) => {
@@ -365,7 +366,7 @@ onMounted(fetchDouban)
 
 .result-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: rgba(10, 132, 255, 0.5);
 }
 
 .card-poster {
@@ -439,7 +440,7 @@ onMounted(fetchDouban)
   font-size: var(--text-xs);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
-  background: rgba(99, 102, 241, 0.25);
+  background: rgba(10, 132, 255, 0.25);
   color: rgba(180, 180, 255, 0.85);
 }
 

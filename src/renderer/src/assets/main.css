@@ -3,12 +3,17 @@
 @import './styles/global.css';
 @import './styles/components.css';
 
+/* Theme bridge for legacy utility classes. Keep all primary actions Apple blue. */
+.bg-blue-500, .bg-blue-600, .bg-indigo-500, .bg-indigo-600 { background-color: var(--primary) !important; }
+.text-blue-300, .text-blue-400, .text-blue-500, .text-indigo-300, .text-indigo-400 { color: var(--primary-hover) !important; }
+.border-blue-500, .border-blue-600, .border-indigo-500, .border-indigo-600 { border-color: var(--primary) !important; }
+
 .ant-modal-content {
-  background: rgba(15, 18, 28, 0.92) !important;
+  background: rgba(44, 44, 46, 0.96) !important;
   backdrop-filter: blur(24px) !important;
   -webkit-backdrop-filter: blur(24px) !important;
   border: 1px solid rgba(255, 255, 255, 0.1) !important;
-  border-radius: 16px !important;
+  border-radius: 13px !important;
   box-shadow: 0 24px 64px rgba(0, 0, 0, 0.6) !important;
   color: rgba(255, 255, 255, 0.9) !important;
   padding: 0 !important;
@@ -72,13 +77,13 @@
 }
 
 .ant-modal-footer .ant-btn-primary {
-  background: rgba(59, 130, 246, 0.8) !important;
-  border-color: rgba(59, 130, 246, 0.6) !important;
+  background: var(--primary) !important;
+  border-color: var(--primary) !important;
   border-radius: 8px !important;
 }
 
 .ant-modal-footer .ant-btn-primary:hover {
-  background: rgba(59, 130, 246, 1) !important;
+  background: var(--primary-hover) !important;
 }
 
 /* Confirm 弹窗图标颜色 */

@@ -1,31 +1,5 @@
 <template>
   <div class="content-area search-tab primary-scroll">
-    <div class="search-bar">
-      <div class="search-inner">
-        <input
-          v-model="keyword"
-          class="search-input"
-          placeholder="搜索电影、电视剧..."
-          @keydown.enter="handleSearch()"
-        />
-        <button class="search-btn" :disabled="loading" aria-label="搜索" @click="handleSearch()">
-          <svg
-            v-if="!loading"
-            viewBox="0 0 24 24"
-            width="18"
-            height="18"
-            fill="none"
-            stroke="currentColor"
-            stroke-width="2"
-          >
-            <circle cx="11" cy="11" r="8" />
-            <path d="m21 21-4.35-4.35" />
-          </svg>
-          <span v-else class="spinner" />
-        </button>
-      </div>
-    </div>
-
     <div v-if="searchHistory.length" class="home-section">
       <div class="section-header">
         <span class="section-title">搜索记录</span>
@@ -67,10 +41,10 @@
       <p>输入关键词搜索</p>
     </div>
 
-    <!-- VOD 源结果 -->
+    <!-- 插件视频源结果 -->
     <div v-if="vodResults.length" class="source-section">
       <div class="section-header">
-        <span class="section-title">VOD源</span>
+        <span class="section-title">插件视频源</span>
         <span class="section-count">{{ vodResults.length }}个结果</span>
       </div>
       <div class="result-grid">
@@ -166,9 +140,10 @@
 </template>
 
 <script setup lang="ts">
+import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { ref, computed, watch } from 'vue'
 import { Modal } from 'ant-design-vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import { useOnlineSearch, type CmsItem } from '../composables/use-online-search'
 
 const emit = defineEmits<{
@@ -177,36 +152,26 @@ const emit = defineEmits<{
 
 const { keyword, results, loading, error, search: doSearch } = useOnlineSearch()
 const route = useRoute()
-
-watch(
-  () => route.query.q,
-  async (query) => {
-    if (typeof query === 'string') {
-      keyword.value = query
-      if (query.trim()) await doSearch(query)
-    }
-  },
-  { immediate: true }
-)
+const router = useRouter()
 
 const vodResults = computed(() => results.value.filter(item => item._source === 'catspider'))
 const cmsResults = computed(() => results.value.filter(item => item._source === 'cms' || !item._source))
 
 const HISTORY_KEY = 'online_search_history'
 const searchHistory = ref<string[]>(
-  JSON.parse(localStorage.getItem(HISTORY_KEY) || '[]')
+  readStoredArray<string>(HISTORY_KEY, value => typeof value === 'string')
 )
 
 const saveHistory = (kw: string) => {
   const list = searchHistory.value.filter(s => s !== kw)
   list.unshift(kw)
   searchHistory.value = list.slice(0, 20)
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory.value))
+  saveStoredArray(HISTORY_KEY, searchHistory.value)
 }
 
 const removeHistory = (kw: string) => {
   searchHistory.value = searchHistory.value.filter(s => s !== kw)
-  localStorage.setItem(HISTORY_KEY, JSON.stringify(searchHistory.value))
+  saveStoredArray(HISTORY_KEY, searchHistory.value)
 }
 
 const clearHistory = () => {
@@ -224,12 +189,30 @@ const clearHistory = () => {
 }
 
 const handleSearch = async (kw?: string) => {
-  const q = kw ?? keyword.value
-  if (!q.trim()) return
-  keyword.value = q
-  saveHistory(q.trim())
-  await doSearch(q)
+  const query = (kw ?? keyword.value).trim()
+  if (!query) return
+  if (route.query.q !== query) {
+    await router.replace({ path: '/', query: { tab: 'search', q: query } })
+    return
+  }
+  keyword.value = query
+  saveHistory(query)
+  await doSearch(query)
 }
+
+watch(
+  () => route.query.q,
+  async query => {
+    if (typeof query !== 'string' || !query.trim()) {
+      keyword.value = ''
+      results.value = []
+      error.value = ''
+      return
+    }
+    await handleSearch(query)
+  },
+  { immediate: true }
+)
 
 const onImgError = (e: Event) => {
   ;(e.target as HTMLImageElement).src =
@@ -249,9 +232,6 @@ defineExpose({ handleSearch, saveHistory })
   gap: 20px;
 }
 
-.search-input,
-.search-btn { min-height: var(--control-height); }
-
 .history-tag { min-height: 32px; }
 
 .del-tag {
@@ -269,64 +249,6 @@ defineExpose({ handleSearch, saveHistory })
   border-radius: 2px;
 }
 
-.search-tab .search-bar {
-  padding: 0 0 8px;
-}
-
-.search-bar {
-  flex-shrink: 0;
-  -webkit-app-region: no-drag;
-}
-
-.search-inner {
-  display: flex;
-  gap: 8px;
-  max-width: 640px;
-  margin: 0 auto;
-}
-
-.search-input {
-  flex: 1;
-  height: var(--control-height);
-  padding: 0 16px;
-  background: rgba(255, 255, 255, 0.1);
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: var(--radius-md);
-  color: white;
-  font-size: var(--text-md);
-  outline: none;
-  transition: border-color 0.2s;
-}
-
-.search-input::placeholder {
-  color: rgba(255, 255, 255, 0.4);
-}
-.search-input:focus {
-  border-color: rgba(255, 255, 255, 0.4);
-}
-
-.search-btn {
-  width: 44px;
-  height: var(--control-height);
-  background: var(--primary);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  border-radius: var(--radius-md);
-  color: white;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.2s;
-  flex-shrink: 0;
-}
-
-.search-btn:hover {
-  background: var(--primary-hover);
-}
-.search-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 .spinner {
   width: 16px;
@@ -394,7 +316,7 @@ defineExpose({ handleSearch, saveHistory })
 }
 
 .history-tag:hover {
-  background: rgba(99, 102, 241, 0.25);
+  background: rgba(10, 132, 255, 0.25);
   color: white;
 }
 
@@ -442,7 +364,7 @@ defineExpose({ handleSearch, saveHistory })
 
 .result-card:hover {
   transform: translateY(-3px);
-  border-color: rgba(99, 102, 241, 0.5);
+  border-color: rgba(10, 132, 255, 0.5);
 }
 
 .card-poster {
@@ -477,7 +399,7 @@ defineExpose({ handleSearch, saveHistory })
   position: absolute;
   top: 6px;
   right: 6px;
-  background: rgba(99, 102, 241, 0.85);
+  background: rgba(10, 132, 255, 0.85);
   color: white;
   font-size: 10px;
   padding: 1px 5px;

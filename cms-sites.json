@@ -14,29 +14,30 @@
     { "name": "丫丫", "api": "https://cj.yayazy.net/api.php/provide/vod" },
     { "name": "影图", "api": "https://cj.vodimg.top/api.php/provide/vod" },
     { "name": "U酷", "api": "https://api.ukuapi.com/api.php/provide/vod" },
-    { "name": "豪华", "api": "https://hhzyapi.com/api.php/provide/vod" },
-    { "name": "极速", "api": "https://jszyapi.com/api.php/provide/vod" },
+    { "name": "豪华资源站", "api": "https://haohuazy.com/api.php/provide/vod/" },
+    { "name": "极速资源站", "api": "https://jszyapi.com/api.php/provide/vod/" },
     { "name": "索尼", "api": "https://suoniapi.com/api.php/provide/vod" },
     { "name": "ikun", "api": "https://ikunzyapi.com/api.php/provide/vod" },
     { "name": "非凡", "api": "https://ffzy5.tv/api.php/provide/vod" },
     { "name": "量子", "api": "https://cj.lziapi.com/api.php/provide/vod" },
     { "name": "暴风", "api": "https://bfzyapi.com/api.php/provide/vod" },
-    { "name": "红牛", "api": "https://www.hongniuzy2.com/api.php/provide/vod" },
-    { "name": "樱花", "api": "https://m3u8.apiyhzy.com/api.php/provide/vod" },
+    { "name": "红牛资源站", "api": "http://hongniuzy2.com/api.php/provide/vod/" },
+    { "name": "樱花资源站", "api": "https://m3u8.apiyhzy.com/api.php/provide/vod" },
     {
       "name": "卧龙",
       "api": "https://collect.wolongzyw.com/api.php/provide/vod"
     },
-    { "name": "虎牙", "api": "https://www.huyaapi.com/api.php/provide/vod" },
+    { "name": "虎牙资源站", "api": "https://huyazy.net/api.php/provide/vod/" },
     { "name": "百度", "api": "https://api.apibdzy.com/api.php/provide/vod" },
     { "name": "飘零", "api": "https://p2100.net/api.php/provide/vod" },
-    { "name": "光速", "api": "https://api.guangsuapi.com/api.php/provide/vod" },
+    { "name": "光速资源站", "api": "https://api.guangsuapi.com/api.php/provide/vod/" },
     { "name": "金色", "api": "https://api.hyapi.xyz/api.php/provide/vod" },
     { "name": "鱼乐", "api": "https://api.ylzy1.com/api.php/provide/vod" },
     { "name": "飘零 v2", "api": "https://p2001.com/api.php/provide/vod" },
     { "name": "博看", "api": "https://api.bk-zyw.com/api.php/provide/vod" },
     { "name": "CK", "api": "https://www.ckzy1.com/api.php/provide/vod" },
     { "name": "U酷 (备用)", "api": "https://api.ukuapi.cn/api.php/provide/vod" },
-    { "name": "无尽", "api": "https://api.wujinzy.com/api.php/provide/vod" }
+    { "name": "无尽资源站", "api": "https://api.wujinapi.me/api.php/provide/vod/" },
+    { "name": "速播资源站", "api": "https://subocj.com/api.php/provide/vod/" }
   ]
 }

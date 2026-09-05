@@ -13,7 +13,6 @@
           : undefined
       "
       @click="handleItemClick"
-      @mouseenter="handleMouseEnter"
       :class="[
         'flex items-center py-1 px-2 rounded cursor-pointer transition-all duration-200 mb-0.5 group',
         isMultiSelectedItem
@@ -145,7 +144,6 @@
         :selected-path="selectedPath"
         :root-item="rootItem ?? item"
         @select="(i, root) => $emit('select', i, root)"
-        @preload="i => $emit('preload', i)"
       />
     </div>
   </div>
@@ -175,8 +173,6 @@ const props = withDefaults(defineProps<Props>(), {
 const emit = defineEmits<{
   /** item: 被点击项, rootItem: 所属TV show根节点 */
   select: [item: ProcessedItem, rootItem: ProcessedItem]
-  /** 预加载事件 */
-  preload: [item: ProcessedItem]
   /** 多选切换（仅根节点）*/
   toggleSelection: [item: ProcessedItem]
   /** 自动刮削 */
@@ -238,12 +234,6 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
   }
 }
 
-const handleMouseEnter = (): void => {
-  // 仅对 TV show 根文件夹预加载
-  if (props.item.type === 'folder' && props.depth === 0) {
-    emit('preload', props.item)
-  }
-}
 </script>
 
 <style scoped>

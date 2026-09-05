@@ -78,8 +78,35 @@ $fetch.get = function(url, options = {}) {
   return _fetch(url, options)
 }
 $fetch.post = function(url, body, options = {}) {
-  // simplified POST support
-  return _fetch(url, { ...options, method: 'POST', body })
+  // 插件既有传字符串，也有传对象的实现；Node 的 req.write 不接受普通对象。
+  let payload = body
+  if (payload && typeof payload === 'object' && !Buffer.isBuffer(payload)) {
+    const contentType = String(options.headers?.['Content-Type'] || options.headers?.['content-type'] || '')
+    payload = contentType.includes('json')
+      ? JSON.stringify(payload)
+      : new URLSearchParams(payload).toString()
+  }
+  return _fetch(url, { ...options, method: 'POST', body: payload })
+}
+
+// XPTV 旧插件依赖宿主注入的配置字符串和 JSEncrypt。使用 Node 原生 RSA
+// 实现最小兼容接口，避免为每个插件单独改写加解密逻辑。
+function loadJSEncrypt() {
+  const crypto = require('crypto')
+  return class JSEncryptCompat {
+    setPrivateKey(key) { this.privateKey = key }
+    decrypt(value) {
+      if (!this.privateKey || !value) return null
+      try {
+        return crypto.privateDecrypt(
+          { key: this.privateKey, padding: crypto.constants.RSA_PKCS1_PADDING },
+          Buffer.from(String(value), 'base64'),
+        ).toString('utf8')
+      } catch {
+        return null
+      }
+    }
+  }
 }
 
 // ── CatSpider runtime helpers ──────────────────────────────
@@ -105,6 +132,65 @@ function createCheerio() {
 
 function createCryptoJS() {
   return _cryptojs
+}
+
+// 不同版本的 XPTV 插件对搜索词字段命名不一致（keyword/text/wd）。
+// 在运行时补齐别名，保持插件源码无需逐个改动。
+function normalizeActionExt(ext) {
+  const value = argsify(ext)
+  if (!value || typeof value !== 'object') return {}
+  const query = value.keyword || value.text || value.wd || ''
+  return { ...value, keyword: value.keyword || query, text: value.text || query, wd: value.wd || query }
+}
+
+// XPTV 部分旧插件依赖 $html 的简化选择器 API，而另一些使用 cheerio。
+// 两种写法共用同一个解析内核，避免因运行时缺失直接失败。
+function _select(root, selector) {
+  const $ = _cheerio.load(root)
+  return selector ? $(selector) : $.root()
+}
+const $html = {
+  elements(html, selector) {
+    return _select(html, selector).toArray()
+  },
+  text(root, selector) {
+    if (typeof root === 'string') return _select(root, selector).text().trim()
+    const $ = _cheerio.load(root)
+    return (selector ? $(root).find(selector) : $(root)).text().trim()
+  },
+  attr(root, selector, name) {
+    if (typeof root === 'string') return _select(root, selector).attr(name) || ''
+    const $ = _cheerio.load(root)
+    return (selector ? $(root).find(selector).first() : $(root)).attr(name) || ''
+  },
+}
+
+// 每次调用都是独立 Node 进程。这里至少保证依赖缓存的插件能完成本次解析；
+// 不持久化站点令牌，避免将敏感凭据写入临时目录。
+const cacheStore = new Map()
+const $cache = {
+  get: key => cacheStore.get(key),
+  set: (key, value) => cacheStore.set(key, value),
+  remove: key => cacheStore.delete(key),
+}
+const $utils = {
+  toastInfo: message => $print('[info]', message),
+  toastError: message => $print('[error]', message),
+  openSafari: (url, userAgent) => $fetch.get(url, { headers: userAgent ? { 'User-Agent': userAgent } : {} }),
+}
+
+function normalizePluginResult(value) {
+  let result = value
+  // 部分插件沿用 TVBox API，直接 return JSON.stringify({...})。
+  // 最多解两层，兼容被二次序列化的数据同时避免意外递归。
+  for (let i = 0; i < 2 && typeof result === 'string'; i++) {
+    try {
+      result = JSON.parse(result)
+    } catch {
+      break
+    }
+  }
+  return result
 }
 
 // ── Download JS file ───────────────────────────────────────
@@ -142,6 +228,11 @@ async function main() {
       $print,
       createCheerio,
       createCryptoJS,
+      $html,
+      $cache,
+      $utils,
+      $config_str: extJson,
+      loadJSEncrypt,
       Buffer,
       console: { log: $print, error: $print, warn: $print },
       setTimeout,
@@ -156,7 +247,7 @@ async function main() {
 
     // Call the requested action
     let result
-    const ext = argsify(extJson)
+    const ext = normalizeActionExt(extJson)
     // Some plugins use JSON.parse(ext) directly, so also provide a normalized JSON string
     const extStr = typeof extJson === 'string' ? extJson : JSON.stringify(ext)
 
@@ -171,7 +262,7 @@ async function main() {
           break
       case 'search':
         if (typeof api.search === 'function') {
-          result = await api.search(extStr)
+          result = await api.search(JSON.stringify(ext))
         } else {
           result = { success: false, error: 'search function not found in JS' }
         }
@@ -204,7 +295,7 @@ async function main() {
       result = { success: false, error: innerErr.message, stack: innerErr.stack?.split('\n')[0] }
     }
 
-    console.log(JSON.stringify({ success: true, data: result }, null, 0))
+    console.log(JSON.stringify({ success: true, data: normalizePluginResult(result) }, null, 0))
   } catch (error) {
     console.log(JSON.stringify({ success: false, error: error.message, stack: error.stack?.split('\n')[0] }))
   }

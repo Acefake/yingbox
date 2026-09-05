@@ -3,11 +3,15 @@ const utils = require("@electron-toolkit/utils");
 const electron = require("electron");
 const child_process = require("child_process");
 const fsSync = require("fs");
-const fs = require("fs/promises");
-const http = require("http");
-const https = require("https");
+const fs$1 = require("fs/promises");
 const path = require("path");
 const electronUpdater = require("electron-updater");
+const fs = require("node:fs/promises");
+const path$1 = require("node:path");
+const node_crypto = require("node:crypto");
+const node_stream = require("node:stream");
+const node_fs = require("node:fs");
+const promises = require("node:stream/promises");
 function _interopNamespaceDefault(e) {
   const n = Object.create(null, { [Symbol.toStringTag]: { value: "Module" } });
   if (e) {
@@ -25,11 +29,276 @@ function _interopNamespaceDefault(e) {
   return Object.freeze(n);
 }
 const fsSync__namespace = /* @__PURE__ */ _interopNamespaceDefault(fsSync);
+const fs__namespace$1 = /* @__PURE__ */ _interopNamespaceDefault(fs$1);
+const path__namespace$1 = /* @__PURE__ */ _interopNamespaceDefault(path);
 const fs__namespace = /* @__PURE__ */ _interopNamespaceDefault(fs);
-const http__namespace = /* @__PURE__ */ _interopNamespaceDefault(http);
-const https__namespace = /* @__PURE__ */ _interopNamespaceDefault(https);
-const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path);
+const path__namespace = /* @__PURE__ */ _interopNamespaceDefault(path$1);
 const icon = path.join(__dirname, "../../resources/icon.svg");
+const locks = /* @__PURE__ */ new Map();
+const keyFor = (value) => {
+  const resolved = path__namespace.resolve(value);
+  return process.platform === "win32" ? resolved.toLowerCase() : resolved;
+};
+async function withPathLocks(paths, action) {
+  const keys = [...new Set(paths.map(keyFor))].sort();
+  const previous = keys.map((key) => locks.get(key) ?? Promise.resolve());
+  let release;
+  const current = new Promise((resolve) => {
+    release = resolve;
+  });
+  for (const key of keys) locks.set(key, current);
+  await Promise.all(previous);
+  try {
+    return await action();
+  } finally {
+    release();
+    for (const key of keys) if (locks.get(key) === current) locks.delete(key);
+  }
+}
+async function exists(filePath) {
+  try {
+    await fs__namespace.lstat(filePath);
+    return true;
+  } catch (error) {
+    if (error.code === "ENOENT") return false;
+    throw error;
+  }
+}
+async function movePath(source, destination, replace = false) {
+  const src = path__namespace.resolve(source);
+  const dest = path__namespace.resolve(destination);
+  if (keyFor(src) === keyFor(dest)) {
+    await fs__namespace.access(src);
+    return;
+  }
+  await withPathLocks([src, dest], async () => {
+    const sourceStats = await fs__namespace.lstat(src);
+    const relative = path__namespace.relative(src, dest);
+    if (sourceStats.isDirectory() && relative && !relative.startsWith(`..${path__namespace.sep}`) && relative !== ".." && !path__namespace.isAbsolute(relative)) {
+      throw new Error("不能将目录移动到自身的子目录");
+    }
+    const targetExists = await exists(dest);
+    if (targetExists && !replace) throw new Error(`目标已存在: ${dest}`);
+    if (targetExists && (!sourceStats.isFile() || !(await fs__namespace.lstat(dest)).isFile())) {
+      throw new Error("仅支持替换普通文件");
+    }
+    const backup = `${dest}.${node_crypto.randomUUID()}.backup`;
+    let backedUp = false;
+    let committed = false;
+    try {
+      if (targetExists) {
+        await fs__namespace.rename(dest, backup);
+        backedUp = true;
+      }
+      try {
+        await fs__namespace.rename(src, dest);
+        committed = true;
+      } catch (error) {
+        if (error.code !== "EXDEV") throw error;
+        const staging = `${dest}.${node_crypto.randomUUID()}.partial`;
+        try {
+          await fs__namespace.cp(src, staging, { recursive: true, force: false, errorOnExist: true });
+          await fs__namespace.rename(staging, dest);
+          committed = true;
+          await fs__namespace.rm(src, { recursive: sourceStats.isDirectory() });
+        } finally {
+          await fs__namespace.rm(staging, { recursive: true, force: true }).catch(() => {
+          });
+        }
+      }
+    } catch (error) {
+      if (backedUp && !committed) {
+        try {
+          await fs__namespace.rename(backup, dest);
+        } catch {
+          throw new Error(`移动失败，原文件保留在 ${backup}: ${error.message}`);
+        }
+      }
+      throw error;
+    }
+    if (backedUp) {
+      await fs__namespace.unlink(backup).catch((error) => console.warn(`旧文件备份保留在 ${backup}`, error));
+    }
+  });
+}
+async function atomicWrite(filePath, content) {
+  await withPathLocks([filePath], async () => {
+    const temporary = `${filePath}.${node_crypto.randomUUID()}.partial`;
+    try {
+      await fs__namespace.writeFile(temporary, content, { flag: "wx" });
+      await fs__namespace.rename(temporary, filePath);
+    } finally {
+      await fs__namespace.unlink(temporary).catch(() => {
+      });
+    }
+  });
+}
+const mimeTypes = {
+  ".mp4": "video/mp4",
+  ".webm": "video/webm",
+  ".mkv": "video/x-matroska",
+  ".avi": "video/x-msvideo",
+  ".mov": "video/quicktime",
+  ".m4v": "video/mp4",
+  ".wmv": "video/x-ms-wmv",
+  ".flv": "video/x-flv",
+  ".jpg": "image/jpeg",
+  ".jpeg": "image/jpeg",
+  ".png": "image/png",
+  ".webp": "image/webp",
+  ".gif": "image/gif"
+};
+function parseRange(header, size) {
+  const match = /^bytes=(\d*)-(\d*)$/.exec(header);
+  if (!match || !match[1] && !match[2] || size === 0) return null;
+  const start = match[1] ? Number(match[1]) : Math.max(0, size - Number(match[2]));
+  const end = match[1] && match[2] ? Math.min(Number(match[2]), size - 1) : size - 1;
+  return Number.isSafeInteger(start) && Number.isSafeInteger(end) && start >= 0 && start <= end && start < size ? { start, end } : null;
+}
+async function serveLocalMedia(request) {
+  if (!["GET", "HEAD"].includes(request.method)) return new Response(null, { status: 405 });
+  let filePath;
+  try {
+    const url = new URL(request.url);
+    const pathname = decodeURIComponent(url.pathname);
+    if (url.host && !/^[a-z]$/i.test(url.host)) return new Response(null, { status: 400 });
+    filePath = url.host ? `${url.host.toUpperCase()}:${pathname}` : pathname.replace(/^\/(?=\/)/, "");
+  } catch {
+    return new Response(null, { status: 400 });
+  }
+  try {
+    const handle = await fs.open(filePath, "r");
+    try {
+      const stats = await handle.stat();
+      if (!stats.isFile()) {
+        await handle.close();
+        return new Response(null, { status: 404 });
+      }
+      const headers = new Headers({
+        "Content-Type": mimeTypes[path$1.extname(filePath).toLowerCase()] || "application/octet-stream",
+        "Accept-Ranges": "bytes",
+        "Cache-Control": "no-cache",
+        "Last-Modified": stats.mtime.toUTCString()
+      });
+      const requested = request.headers.get("Range");
+      const range = requested ? parseRange(requested, stats.size) : null;
+      if (requested && !range) {
+        await handle.close();
+        headers.set("Content-Range", `bytes */${stats.size}`);
+        return new Response(null, { status: 416, headers });
+      }
+      headers.set("Content-Length", String(range ? range.end - range.start + 1 : stats.size));
+      if (range) headers.set("Content-Range", `bytes ${range.start}-${range.end}/${stats.size}`);
+      if (request.method === "HEAD" || stats.size === 0) {
+        await handle.close();
+        return new Response(null, { status: range ? 206 : 200, headers });
+      }
+      const stream = handle.createReadStream(range ?? {});
+      const abort = () => stream.destroy();
+      request.signal.addEventListener("abort", abort, { once: true });
+      stream.once("close", () => request.signal.removeEventListener("abort", abort));
+      if (request.signal.aborted) abort();
+      return new Response(node_stream.Readable.toWeb(stream), {
+        status: range ? 206 : 200,
+        headers
+      });
+    } catch (error) {
+      await handle.close().catch(() => {
+      });
+      throw error;
+    }
+  } catch (error) {
+    const code = error.code;
+    return new Response(null, { status: code === "ENOENT" ? 404 : code === "EACCES" ? 403 : 500 });
+  }
+}
+const videoExtensions = /* @__PURE__ */ new Set([".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".ts", ".rmvb"]);
+const ignored = /* @__PURE__ */ new Set([".actors", "@eadir", "$recycle.bin", "system volume information"]);
+async function scanMediaDirectory(root) {
+  const data = [];
+  const warnings = [];
+  const directories = [path$1.resolve(root)];
+  while (directories.length) {
+    const batch = directories.splice(0, 4);
+    await Promise.all(batch.map(async (directory) => {
+      try {
+        const entries = await fs.readdir(directory, { withFileTypes: true });
+        for (const entry of entries) {
+          const name = entry.name.toLowerCase();
+          if (name.startsWith(".") || name.startsWith("__") || ignored.has(name) || entry.isSymbolicLink()) continue;
+          const filePath = path$1.join(directory, entry.name);
+          const isVideo = videoExtensions.has(path$1.extname(name));
+          const isSidecar = name.endsWith(".nfo") || /\.(jpe?g|png|webp)$/i.test(name);
+          if (!entry.isDirectory() && (!entry.isFile() || !isVideo && !isSidecar)) continue;
+          try {
+            const stats = await fs.stat(filePath);
+            data.push({
+              name: entry.name,
+              path: filePath,
+              size: stats.isFile() ? stats.size : 0,
+              mtime: stats.mtimeMs,
+              isDirectory: stats.isDirectory(),
+              isFile: stats.isFile()
+            });
+            if (entry.isDirectory()) directories.push(filePath);
+          } catch (error) {
+            warnings.push(`${filePath}: ${error.message}`);
+          }
+        }
+      } catch (error) {
+        if (directory === path$1.resolve(root)) throw error;
+        warnings.push(`${directory}: ${error.message}`);
+      }
+    }));
+  }
+  return { data: data.sort((a, b) => a.path.localeCompare(b.path)), warnings };
+}
+async function fetchHttp(url, options = {}, timeoutMs = 3e4) {
+  if (!/^https?:\/\//i.test(url)) throw new Error("仅支持 HTTP/HTTPS 地址");
+  const response = await fetch(url, { ...options, signal: AbortSignal.timeout(timeoutMs), redirect: "follow" });
+  if (!response.ok) {
+    await response.body?.cancel();
+    throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+  }
+  return response;
+}
+async function readLimited(response, maxBytes = 16 * 1024 * 1024) {
+  if (!response.body) return Buffer.alloc(0);
+  const reader = response.body.getReader();
+  const chunks = [];
+  let size = 0;
+  try {
+    for (; ; ) {
+      const { value, done } = await reader.read();
+      if (done) break;
+      size += value.byteLength;
+      if (size > maxBytes) throw new Error("响应内容超过大小限制");
+      chunks.push(value);
+    }
+    return Buffer.concat(chunks);
+  } finally {
+    await reader.cancel().catch(() => {
+    });
+    reader.releaseLock();
+  }
+}
+async function downloadFile(url, filePath) {
+  await withPathLocks([filePath], async () => {
+    const temporary = `${filePath}.${node_crypto.randomUUID()}.partial`;
+    try {
+      const response = await fetchHttp(url, {}, 6e4);
+      if (!response.body) throw new Error("下载响应为空");
+      await promises.pipeline(
+        node_stream.Readable.fromWeb(response.body),
+        node_fs.createWriteStream(temporary, { flags: "wx" })
+      );
+      await fs.rename(temporary, filePath);
+    } finally {
+      await fs.unlink(temporary).catch(() => {
+      });
+    }
+  });
+}
 electron.Menu.setApplicationMenu(null);
 electron.app.commandLine.appendSwitch(
   "enable-features",
@@ -52,13 +321,8 @@ try {
 } catch (err) {
   console.error("Failed to load config:", err);
 }
-function saveConfig() {
-  try {
-    const config = { downloadPath };
-    fsSync__namespace.writeFileSync(configPath, JSON.stringify(config, null, 2));
-  } catch (err) {
-    console.error("Failed to save config:", err);
-  }
+async function saveConfig() {
+  await atomicWrite(configPath, JSON.stringify({ downloadPath }, null, 2));
 }
 electronUpdater.autoUpdater.autoDownload = false;
 electronUpdater.autoUpdater.autoInstallOnAppQuit = true;
@@ -100,27 +364,11 @@ electronUpdater.autoUpdater.on("error", (error) => {
 function getScreenBasedSize(ratio = 0.85, minW = 1200, minH = 900) {
   const primary = electron.screen.getPrimaryDisplay();
   const { width: sw, height: sh } = primary.workAreaSize;
-  const w = Math.max(Math.floor(sw * ratio), minW);
-  const h = Math.max(Math.floor(sh * ratio), minH);
+  const w = Math.min(sw, Math.max(Math.floor(sw * ratio), minW));
+  const h = Math.min(sh, Math.max(Math.floor(sh * ratio), minH));
   return { width: w, height: h };
 }
-function createWindow() {
-  const { width, height } = getScreenBasedSize(0.85, 1200, 900);
-  mainWindow = new electron.BrowserWindow({
-    width,
-    height,
-    minWidth: 1200,
-    minHeight: 900,
-    show: false,
-    frame: false,
-    autoHideMenuBar: true,
-    ...process.platform === "linux" ? { icon } : {},
-    webPreferences: {
-      preload: path.join(__dirname, "../preload/index.js"),
-      sandbox: false,
-      webSecurity: false
-    }
-  });
+function registerWindowHandlers() {
   electron.ipcMain.handle("win:minimize", (event) => {
     electron.BrowserWindow.fromWebContents(event.sender)?.minimize();
   });
@@ -138,9 +386,9 @@ function createWindow() {
   });
   electron.ipcMain.handle("app:getVersion", async () => {
     try {
-      const packageJsonPath = path__namespace.join(__dirname, "../../package.json");
+      const packageJsonPath = path__namespace$1.join(__dirname, "../../package.json");
       const packageJson = JSON.parse(
-        await fs__namespace.readFile(packageJsonPath, "utf-8")
+        await fs__namespace$1.readFile(packageJsonPath, "utf-8")
       );
       return {
         success: true,
@@ -181,6 +429,27 @@ function createWindow() {
   electron.ipcMain.handle("update:install", () => {
     electronUpdater.autoUpdater.quitAndInstall(false, true);
   });
+}
+function createWindow() {
+  const { width, height } = getScreenBasedSize(0.85, 1200, 900);
+  mainWindow = new electron.BrowserWindow({
+    width,
+    height,
+    minWidth: Math.min(1200, width),
+    minHeight: Math.min(900, height),
+    show: false,
+    frame: false,
+    autoHideMenuBar: true,
+    ...process.platform === "linux" ? { icon } : {},
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      webSecurity: false
+    }
+  });
+  mainWindow.on("closed", () => {
+    mainWindow = null;
+  });
   mainWindow.on("ready-to-show", () => {
     mainWindow.show();
     if (!utils.is.dev) {
@@ -208,63 +477,14 @@ electron.app.whenReady().then(() => {
     ];
     callback({ responseHeaders: headers });
   });
-  electron.protocol.handle("local", async (request) => {
-    const url = new URL(request.url);
-    const host = url.host;
-    const pathname = decodeURIComponent(url.pathname);
-    const filePath = host ? `${host.toUpperCase()}:${pathname}` : pathname.replace(/^\//, "");
-    const ext = path__namespace.extname(filePath).toLowerCase();
-    const mimeMap = {
-      ".mp4": "video/mp4",
-      ".webm": "video/webm",
-      ".mkv": "video/x-matroska",
-      ".avi": "video/x-msvideo",
-      ".mov": "video/quicktime",
-      ".m4v": "video/mp4",
-      ".wmv": "video/x-ms-wmv",
-      ".flv": "video/x-flv",
-      ".jpg": "image/jpeg",
-      ".jpeg": "image/jpeg",
-      ".png": "image/png",
-      ".webp": "image/webp",
-      ".gif": "image/gif"
-    };
-    const mime = mimeMap[ext] || "application/octet-stream";
-    try {
-      await fs__namespace.access(filePath);
-    } catch {
-      return new Response(null, { status: 404 });
-    }
-    const isMedia = [".mp4", ".webm", ".mkv", ".avi", ".mov", ".m4v", ".wmv", ".flv"].includes(ext);
-    if (isMedia) {
-      const stream = fsSync__namespace.createReadStream(filePath);
-      return new Response(stream, {
-        headers: {
-          "Content-Type": mime,
-          "Cache-Control": "public, max-age=86400"
-        }
-      });
-    } else {
-      try {
-        const buffer = await fs__namespace.readFile(filePath);
-        return new Response(buffer, {
-          headers: {
-            "Content-Type": mime,
-            "Cache-Control": "public, max-age=86400"
-          }
-        });
-      } catch {
-        return new Response(null, { status: 500 });
-      }
-    }
-  });
+  electron.protocol.handle("local", serveLocalMedia);
   electron.app.on("browser-window-created", (_, window) => {
     utils.optimizer.watchWindowShortcuts(window);
   });
   electron.ipcMain.on("ping", () => console.log("pong"));
   electron.ipcMain.handle("file:read", async (_, filePath) => {
     try {
-      const data = await fs__namespace.readFile(filePath, "utf-8");
+      const data = await fs__namespace$1.readFile(filePath, "utf-8");
       return { success: true, data };
     } catch (error) {
       return { success: false, error: error.message };
@@ -272,7 +492,7 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:write", async (_, filePath, content) => {
     try {
-      await fs__namespace.writeFile(filePath, content, "utf-8");
+      await atomicWrite(filePath, content);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -280,7 +500,7 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:delete", async (_, filePath) => {
     try {
-      await fs__namespace.unlink(filePath);
+      await fs__namespace$1.unlink(filePath);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -288,7 +508,7 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:exists", async (_, filePath) => {
     try {
-      await fs__namespace.access(filePath);
+      await fs__namespace$1.access(filePath);
       return { success: true, exists: true };
     } catch {
       return { success: true, exists: false };
@@ -296,7 +516,7 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:mkdir", async (_, dirPath) => {
     try {
-      await fs__namespace.mkdir(dirPath, { recursive: true });
+      await fs__namespace$1.mkdir(dirPath, { recursive: true });
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
@@ -304,7 +524,7 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:readdir", async (_, dirPath) => {
     try {
-      const files = await fs__namespace.readdir(dirPath, { withFileTypes: true });
+      const files = await fs__namespace$1.readdir(dirPath, { withFileTypes: true });
       const result = files.map((file) => ({
         name: file.name,
         isDirectory: file.isDirectory(),
@@ -315,9 +535,16 @@ electron.app.whenReady().then(() => {
       return { success: false, error: error.message };
     }
   });
+  electron.ipcMain.handle("file:scanMediaDirectory", async (_, dirPath) => {
+    try {
+      return { success: true, ...await scanMediaDirectory(dirPath) };
+    } catch (error) {
+      return { success: false, error: error.message };
+    }
+  });
   electron.ipcMain.handle("file:stat", async (_, filePath) => {
     try {
-      const stats = await fs__namespace.stat(filePath);
+      const stats = await fs__namespace$1.stat(filePath);
       return {
         success: true,
         data: {
@@ -334,8 +561,8 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:readImage", async (_, filePath) => {
     try {
-      const data = await fs__namespace.readFile(filePath);
-      const ext = path__namespace.extname(filePath).toLowerCase();
+      const data = await fs__namespace$1.readFile(filePath);
+      const ext = path__namespace$1.extname(filePath).toLowerCase();
       let mimeType = "image/png";
       switch (ext) {
         case ".jpg":
@@ -370,62 +597,34 @@ electron.app.whenReady().then(() => {
   });
   electron.ipcMain.handle("file:copy", async (_, srcPath, destPath) => {
     try {
-      await fs__namespace.copyFile(srcPath, destPath);
+      await fs__namespace$1.copyFile(srcPath, destPath);
       return { success: true };
     } catch (error) {
       return { success: false, error: error.message };
     }
   });
-  electron.ipcMain.handle("file:move", async (_, srcPath, destPath) => {
-    const sleep = (ms) => new Promise((resolve) => setTimeout(resolve, ms));
+  electron.ipcMain.handle("file:move", async (_, srcPath, destPath, options) => {
     try {
-      if (srcPath === destPath) return { success: true };
-      try {
-        await fs__namespace.access(destPath);
-        return { success: false, error: `目标已存在: ${destPath}`, code: "EEXIST" };
-      } catch {
-      }
-      let lastError = null;
-      for (let i = 0; i < 5; i++) {
-        try {
-          await fs__namespace.rename(srcPath, destPath);
-          return { success: true };
-        } catch (error) {
-          const err = error;
-          lastError = err;
-          if (err.code === "EXDEV") {
-            await fs__namespace.cp(srcPath, destPath, { recursive: true });
-            await fs__namespace.rm(srcPath, { recursive: true, force: true });
-            return { success: true };
-          }
-          if (!["EPERM", "EBUSY", "ENOTEMPTY"].includes(err.code || "")) break;
-          await sleep(300 * (i + 1));
-        }
-      }
-      return {
-        success: false,
-        error: lastError?.message || "move failed",
-        code: lastError?.code
-      };
+      await movePath(srcPath, destPath, options?.replace === true);
+      return { success: true };
     } catch (error) {
-      const err = error;
-      return { success: false, error: err.message, code: err.code };
+      return { success: false, error: error.message };
     }
   });
   electron.ipcMain.handle("path:join", (_, ...paths) => {
-    return path__namespace.join(...paths);
+    return path__namespace$1.join(...paths);
   });
   electron.ipcMain.handle("path:resolve", (_, ...paths) => {
-    return path__namespace.resolve(...paths);
+    return path__namespace$1.resolve(...paths);
   });
   electron.ipcMain.handle("path:dirname", (_, filePath) => {
-    return path__namespace.dirname(filePath);
+    return path__namespace$1.dirname(filePath);
   });
   electron.ipcMain.handle("path:basename", (_, filePath, ext) => {
-    return path__namespace.basename(filePath, ext);
+    return path__namespace$1.basename(filePath, ext);
   });
   electron.ipcMain.handle("path:extname", (_, filePath) => {
-    return path__namespace.extname(filePath);
+    return path__namespace$1.extname(filePath);
   });
   electron.ipcMain.handle("dialog:openDirectory", async () => {
     try {
@@ -463,8 +662,17 @@ electron.app.whenReady().then(() => {
     }
   });
   electron.ipcMain.handle("config:setDownloadPath", async (_, path2) => {
+    if (typeof path2 !== "string" || !path2.trim()) throw new Error("下载目录不能为空");
+    const stats = await fs__namespace$1.stat(path2);
+    if (!stats.isDirectory()) throw new Error("下载路径必须是目录");
+    const previous = downloadPath;
     downloadPath = path2;
-    saveConfig();
+    try {
+      await saveConfig();
+    } catch (error) {
+      downloadPath = previous;
+      throw error;
+    }
     console.log("Download path set to:", path2);
   });
   electron.ipcMain.handle("dialog:openFile", async (_, options) => {
@@ -508,156 +716,62 @@ electron.app.whenReady().then(() => {
       };
     }
   });
-  electron.ipcMain.handle(
-    "http:fetch",
-    async (_event, url, options = {}) => {
+  electron.ipcMain.handle("http:fetch", async (_, url, options = {}) => {
+    try {
+      const response = await fetchHttp(url, {
+        method: options.method ?? "GET",
+        headers: options.headers,
+        body: options.body
+      }, options.timeoutMs ?? 3e4);
+      const text = (await readLimited(response)).toString("utf-8");
       try {
-        const protocol2 = url.startsWith("https:") ? https__namespace : http__namespace;
-        const timeout = options.timeoutMs ?? 3e4;
-        return new Promise((resolve) => {
-          const urlObj = new URL(url);
-          const reqOptions = {
-            hostname: urlObj.hostname,
-            port: urlObj.port,
-            path: urlObj.pathname + urlObj.search,
-            method: options.method ?? "GET",
-            headers: options.headers ?? {}
-          };
-          const req = protocol2.request(reqOptions, (res) => {
-            let data = "";
-            res.setEncoding("utf-8");
-            res.on("data", (chunk) => {
-              data += chunk;
-            });
-            res.on("end", () => {
-              try {
-                const json = JSON.parse(data);
-                resolve({ success: true, status: res.statusCode, data: json });
-              } catch {
-                resolve({
-                  success: true,
-                  status: res.statusCode,
-                  data,
-                  raw: true
-                });
-              }
-            });
-          });
-          req.setTimeout(timeout, () => {
-            req.destroy();
-            resolve({ success: false, error: "请求超时" });
-          });
-          req.on("error", (err) => {
-            resolve({ success: false, error: err.message });
-          });
-          if (options.body) req.write(options.body);
-          req.end();
-        });
-      } catch (error) {
-        return { success: false, error: error.message };
+        return { success: true, status: response.status, data: JSON.parse(text) };
+      } catch {
+        return { success: true, status: response.status, data: text, raw: true };
       }
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-  );
-  electron.ipcMain.handle(
-    "http:fetchImage",
-    async (_event, url, referer) => {
-      try {
-        const protocol2 = url.startsWith("https:") ? https__namespace : http__namespace;
-        return new Promise((resolve) => {
-          const urlObj = new URL(url);
-          const reqOptions = {
-            hostname: urlObj.hostname,
-            port: urlObj.port || (url.startsWith("https:") ? 443 : 80),
-            path: urlObj.pathname + urlObj.search,
-            method: "GET",
-            headers: {
-              "User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36",
-              Referer: referer || `${urlObj.protocol}//${urlObj.hostname}/`,
-              Accept: "image/webp,image/apng,image/*,*/*;q=0.8"
-            }
-          };
-          const req = protocol2.request(reqOptions, (res) => {
-            const chunks = [];
-            res.on("data", (chunk) => chunks.push(chunk));
-            res.on("end", () => {
-              if (res.statusCode && res.statusCode >= 400) {
-                resolve({ success: false, error: `HTTP ${res.statusCode}` });
-                return;
-              }
-              const buffer = Buffer.concat(chunks);
-              const contentType = res.headers["content-type"] || "image/jpeg";
-              const base64 = buffer.toString("base64");
-              resolve({
-                success: true,
-                data: `data:${contentType};base64,${base64}`
-              });
-            });
-          });
-          req.setTimeout(15e3, () => {
-            req.destroy();
-            resolve({ success: false, error: "超时" });
-          });
-          req.on(
-            "error",
-            (err) => resolve({ success: false, error: err.message })
-          );
-          req.end();
-        });
-      } catch (error) {
-        return { success: false, error: error.message };
+  });
+  electron.ipcMain.handle("http:fetchImage", async (_, url, referer) => {
+    try {
+      const response = await fetchHttp(url, { headers: {
+        "User-Agent": "Mozilla/5.0",
+        Referer: referer || new URL(url).origin + "/",
+        Accept: "image/webp,image/apng,image/*,*/*;q=0.8"
+      } }, 15e3);
+      const contentType = response.headers.get("content-type")?.split(";")[0] || "image/jpeg";
+      if (!contentType.startsWith("image/")) {
+        await response.body?.cancel();
+        throw new Error("响应不是图片");
       }
+      const buffer = await readLimited(response);
+      return { success: true, data: `data:${contentType};base64,${buffer.toString("base64")}` };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-  );
-  electron.ipcMain.handle(
-    "http:download",
-    async (_event, url, filePath) => {
-      try {
-        const protocol2 = url.startsWith("https:") ? https__namespace : http__namespace;
-        return new Promise((resolve) => {
-          const request = protocol2.get(url, (response) => {
-            if (response.statusCode === 200) {
-              const fileStream = fsSync__namespace.createWriteStream(filePath);
-              response.pipe(fileStream);
-              fileStream.on("finish", () => {
-                fileStream.close();
-                resolve({ success: true });
-              });
-              fileStream.on("error", (error) => {
-                resolve({ success: false, error: error.message });
-              });
-            } else {
-              resolve({
-                success: false,
-                error: `HTTP ${response.statusCode}: ${response.statusMessage}`
-              });
-            }
-          });
-          request.on("error", (error) => {
-            resolve({ success: false, error: error.message });
-          });
-          request.setTimeout(3e4, () => {
-            request.destroy();
-            resolve({ success: false, error: "下载超时" });
-          });
-        });
-      } catch (error) {
-        return { success: false, error: error.message };
-      }
+  });
+  electron.ipcMain.handle("http:download", async (_, url, filePath) => {
+    try {
+      await downloadFile(url, filePath);
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error.message };
     }
-  );
+  });
   electron.ipcMain.handle(
     "file:readdirRecursive",
     async (_event, dirPath) => {
       try {
         const allItems = [];
         async function scanDirectory(currentPath) {
-          const items = await fs__namespace.readdir(currentPath, { withFileTypes: true });
+          const items = await fs__namespace$1.readdir(currentPath, { withFileTypes: true });
           for (const item of items) {
             if (item.name.startsWith(".")) {
               continue;
             }
-            const fullPath = path__namespace.join(currentPath, item.name);
-            const stats = await fs__namespace.stat(fullPath);
+            const fullPath = path__namespace$1.join(currentPath, item.name);
+            const stats = await fs__namespace$1.stat(fullPath);
             allItems.push({
               name: item.name,
               path: fullPath,
@@ -699,13 +813,14 @@ electron.app.whenReady().then(() => {
     console.log("[Go] Looking for backend at:", goExe);
     if (fsSync__namespace.existsSync(goExe)) {
       console.log("[Go] Starting backend from:", goExe);
-      const env = { ...process.env };
+      const env = { ...process.env, YINGBOX_CONFIG_PATH: configPath, PROJECT_ROOT: electron.app.getAppPath(), NODE_EXECUTABLE: process.execPath };
+      env.ELECTRON_RUN_AS_NODE = "1";
       if (downloadPath) {
         env.MISSAV_VIDEO_PATH = downloadPath;
         console.log("[Go] Using custom download path:", downloadPath);
       }
       try {
-        goProc = child_process.spawn(goExe, [], { cwd: goCwd, env, shell: true });
+        goProc = child_process.spawn(goExe, [], { cwd: goCwd, env, shell: false, windowsHide: true });
         goProc.stdout?.on(
           "data",
           (d) => console.log("[Go stdout]", d.toString().trim())
@@ -738,10 +853,30 @@ electron.app.whenReady().then(() => {
         console.error("[Go] Error listing resources:", e);
       }
     }
-    electron.app.on("will-quit", () => {
-      if (goProc) {
-        console.log("[Go] Killing backend process...");
-        goProc.kill();
+    let stoppingBackend = false;
+    electron.app.on("before-quit", (event) => {
+      if (!goProc || stoppingBackend) return;
+      event.preventDefault();
+      stoppingBackend = true;
+      const child = goProc;
+      const finish = () => {
+        goProc = null;
+        electron.app.quit();
+      };
+      if (process.platform === "win32" && child.pid) {
+        const killer = child_process.spawn("taskkill", ["/PID", String(child.pid), "/T", "/F"], { windowsHide: true });
+        killer.once("error", () => {
+          child.kill();
+          finish();
+        });
+        killer.once("exit", finish);
+      } else {
+        child.once("exit", finish);
+        child.kill("SIGTERM");
+        setTimeout(() => {
+          child.kill("SIGKILL");
+          finish();
+        }, 5e3).unref();
       }
     });
   }
@@ -749,45 +884,7 @@ electron.app.whenReady().then(() => {
     const error = await electron.shell.openPath(filePath);
     return { success: !error, error: error || void 0 };
   });
-  electron.ipcMain.handle("player:open", async (_, filePath, customTitle) => {
-    const isOnlineUrl = filePath.startsWith("http://") || filePath.startsWith("https://");
-    const videoUrl = isOnlineUrl ? filePath : "file:///" + filePath.replace(/\\/g, "/");
-    const title = customTitle || (isOnlineUrl ? "在线播放" : path__namespace.basename(filePath));
-    const playerHtml = path.join(__dirname, "../../resources/player.html");
-    const playerPreload = path.join(__dirname, "../../resources/player-preload.js");
-    const { width: pw, height: ph } = getScreenBasedSize(0.8, 900, 560);
-    const win = new electron.BrowserWindow({
-      width: pw,
-      height: ph,
-      minWidth: 640,
-      minHeight: 400,
-      backgroundColor: "#000000",
-      title,
-      frame: false,
-      autoHideMenuBar: true,
-      webPreferences: {
-        webSecurity: false,
-        nodeIntegration: false,
-        contextIsolation: true,
-        preload: playerPreload
-      }
-    });
-    const onMin = (_e) => {
-      if (_e.sender === win.webContents) win.minimize();
-    };
-    const onClose = (_e) => {
-      if (_e.sender === win.webContents) win.close();
-    };
-    electron.ipcMain.on("player-win:minimize", onMin);
-    electron.ipcMain.on("player-win:close", onClose);
-    win.on("closed", () => {
-      electron.ipcMain.off("player-win:minimize", onMin);
-      electron.ipcMain.off("player-win:close", onClose);
-    });
-    const query = "?src=" + encodeURIComponent(videoUrl) + "&title=" + encodeURIComponent(title);
-    win.loadFile(playerHtml, { search: query });
-    return { success: true };
-  });
+  registerWindowHandlers();
   createWindow();
   const registerDevToolsShortcut = () => {
     electron.globalShortcut.register("F12", () => {

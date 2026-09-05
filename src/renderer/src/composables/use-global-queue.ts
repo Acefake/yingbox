@@ -13,7 +13,8 @@ export interface GlobalQueueItem {
 }
 
 interface TaskEntry {
-  handler: (queueId: string) => Promise<void>
+  handler: (queueId: string, signal: AbortSignal) => Promise<void>
+  controller: AbortController
 }
 
 // Module-level singleton — shared across all component instances
@@ -21,6 +22,7 @@ const _items = ref<GlobalQueueItem[]>([])
 const _isProcessing = ref(false)
 const _taskMap = new Map<string, TaskEntry>()
 const MAX_CONCURRENT = 3
+const _running = new Map<string, GlobalQueueItem>()
 
 export function useGlobalQueue() {
   const totalCount = computed(() => _items.value.length)
@@ -59,13 +61,13 @@ export function useGlobalQueue() {
   const addItem = (
     name: string,
     type: 'movie' | 'tv' | 'download',
-    handler?: (queueId: string) => Promise<void>,
+    handler?: (queueId: string, signal: AbortSignal) => Promise<void>,
     options?: { cancellable?: boolean; cancelFn?: () => void; dedupKey?: string }
   ): { id: string; isDuplicate: boolean } => {
     // 去重：同名同类型（或同 dedupKey）的 pending/processing 任务不重复添加
     const key = options?.dedupKey || name
-    const existing = _items.value.find(
-      i => (i.dedupKey || i.name) === key && i.type === type && (i.status === 'pending' || i.status === 'processing')
+    const existing = [..._items.value, ..._running.values()].find(
+      i => (i.dedupKey || i.name) === key && i.type === type && (i.status === 'pending' || i.status === 'processing' || _running.has(i.id))
     )
     if (existing) return { id: existing.id, isDuplicate: true }
 
@@ -80,7 +82,7 @@ export function useGlobalQueue() {
       cancelFn: options?.cancelFn,
     })
     if (handler) {
-      _taskMap.set(id, { handler })
+      _taskMap.set(id, { handler, controller: new AbortController() })
     }
     _isProcessing.value = true
     // 触发调度
@@ -90,12 +92,12 @@ export function useGlobalQueue() {
 
   const setProcessing = (id: string): void => {
     const item = _items.value.find(i => i.id === id)
-    if (item) item.status = 'processing'
+    if (item?.status === 'pending') item.status = 'processing'
   }
 
   const setDone = (id: string): void => {
     const item = _items.value.find(i => i.id === id)
-    if (item) item.status = 'done'
+    if (item && (item.status === 'pending' || item.status === 'processing')) item.status = 'done'
     _taskMap.delete(id)
     _checkIdle()
     _schedule()
@@ -103,7 +105,7 @@ export function useGlobalQueue() {
 
   const setError = (id: string): void => {
     const item = _items.value.find(i => i.id === id)
-    if (item) item.status = 'error'
+    if (item && (item.status === 'pending' || item.status === 'processing')) item.status = 'error'
     _taskMap.delete(id)
     _checkIdle()
     _schedule()
@@ -115,7 +117,7 @@ export function useGlobalQueue() {
     steps?: { name: string; done: boolean }[]
   ): void => {
     const item = _items.value.find(i => i.id === id)
-    if (item) {
+    if (item?.status === 'processing') {
       item.currentStep = step
       if (steps) item.steps = steps
     }
@@ -123,9 +125,10 @@ export function useGlobalQueue() {
 
   const cancelItem = (id: string): void => {
     const item = _items.value.find(i => i.id === id)
-    if (!item) return
-    if (item.cancelFn) item.cancelFn()
+    if (!item || !['pending', 'processing'].includes(item.status)) return
+    _taskMap.get(id)?.controller.abort()
     item.status = 'cancelled'
+    try { item.cancelFn?.() } catch (error) { console.warn('取消回调失败:', error) }
     item.currentStep = undefined
     _taskMap.delete(id)
     _checkIdle()
@@ -135,7 +138,8 @@ export function useGlobalQueue() {
   const removeItem = (id: string): void => {
     const item = _items.value.find(i => i.id === id)
     if (!item) return
-    if (item.status === 'processing') return
+    if (_running.has(id) || item.status === 'processing') return
+    if (item.status === 'pending') cancelItem(id)
     _items.value = _items.value.filter(i => i.id !== id)
     _taskMap.delete(id)
   }
@@ -152,9 +156,10 @@ export function useGlobalQueue() {
   }
 
   const clearAll = (): void => {
+    for (const item of [..._items.value]) cancelItem(item.id)
     _items.value = []
     _taskMap.clear()
-    _isProcessing.value = false
+    _checkIdle()
   }
 
   return {
@@ -180,38 +185,40 @@ export function useGlobalQueue() {
 }
 
 function _checkIdle(): void {
-  if (
-    _items.value.every(
-      i =>
-        i.status === 'done' || i.status === 'error' || i.status === 'cancelled'
-    )
-  ) {
-    _isProcessing.value = false
-  }
+  _isProcessing.value = _running.size > 0 || _items.value.some(i => i.status === 'pending' || i.status === 'processing')
 }
 
-/**
- * 调度器：检查是否有空闲槽位，取出有 handler 的 pending 任务并执行
- * 没有 handler 的任务（旧式 addItem）由外部代码手动管理，调度器不管
- */
+let scheduled = false
 function _schedule(): void {
-  const running = _items.value.filter(i => i.status === 'processing').length
-  const slots = MAX_CONCURRENT - running
-  if (slots <= 0) return
-
-  // 只调度有 handler 的 pending 任务
-  const pending = _items.value.filter(i => i.status === 'pending' && _taskMap.has(i.id))
-  const toStart = pending.slice(0, slots)
-
-  for (const item of toStart) {
-    const entry = _taskMap.get(item.id)!
-    item.status = 'processing'
-    entry.handler(item.id).catch(() => {
-      const it = _items.value.find(i => i.id === item.id)
-      if (it && it.status === 'processing') it.status = 'error'
-      _taskMap.delete(item.id)
-      _checkIdle()
-      _schedule()
-    })
-  }
+  if (scheduled) return
+  scheduled = true
+  queueMicrotask(() => {
+    scheduled = false
+    const manualRunning = _items.value.filter(i => i.status === 'processing' && !_running.has(i.id)).length
+    const slots = Math.max(0, MAX_CONCURRENT - _running.size - manualRunning)
+    const pending = _items.value.filter(i => i.status === 'pending' && _taskMap.has(i.id)).slice(0, slots)
+    for (const item of pending) {
+      const entry = _taskMap.get(item.id)
+      if (!entry || item.status !== 'pending') continue
+      item.status = 'processing'
+      _running.set(item.id, item)
+      Promise.resolve().then(() => {
+        entry.controller.signal.throwIfAborted()
+        return entry.handler(item.id, entry.controller.signal)
+      }).then(() => {
+        if (item.status === 'processing') item.status = 'done'
+      }).catch(error => {
+        if (item.status === 'processing') {
+          item.status = 'error'
+          item.currentStep = error instanceof Error ? error.message : String(error)
+        }
+      }).finally(() => {
+        _running.delete(item.id)
+        _taskMap.delete(item.id)
+        _checkIdle()
+        _schedule()
+      })
+    }
+    _checkIdle()
+  })
 }

@@ -1,10 +1,8 @@
 <template>
-  <div
-    class="rounded-xl overflow-hidden glass-panel"
-  >
+  <section class="settings-list-section">
     <!-- 分区标题 -->
     <button
-      class="w-full flex items-center gap-2 px-4 py-3 text-left hover:bg-white/5 transition-all"
+      class="w-full flex items-center gap-2 py-3 text-left hover:text-white transition-colors"
       @click="open = !open"
     >
       <svg
@@ -70,7 +68,7 @@
         />
       </svg>
       <span
-        class="text-xs font-semibold text-white/70 uppercase tracking-widest flex-1"
+        class="text-[11px] font-semibold text-white/65 tracking-[0.12em] flex-1"
         >{{ title }}</span
       >
       <svg
@@ -91,11 +89,11 @@
 
     <!-- 分区内容 -->
     <Transition name="section">
-      <div v-if="open" class="px-4 pb-4">
+      <div v-if="open" class="pb-4">
         <slot />
       </div>
     </Transition>
-  </div>
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -106,6 +104,10 @@ const open = ref(true)
 </script>
 
 <style scoped>
+.settings-list-section {
+  border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+}
+.settings-list-section:last-child { border-bottom: 0; }
 .section-enter-active,
 .section-leave-active {
   transition: var(--transition-fast);

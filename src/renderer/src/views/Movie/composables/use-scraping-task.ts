@@ -1,7 +1,7 @@
 import type { ProcessedItem } from '@/types'
 import type { ScrapedMovie } from '@/types/scraping'
 import { Modal } from 'ant-design-vue'
-import { useErrorHandler } from '@/composables/use-error-handler'
+import { safeFileName } from '@/utils/file-name'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 
@@ -12,41 +12,59 @@ import { useGlobalQueue } from '@/composables/use-global-queue'
 const moveWithConflict = async (
   srcPath: string,
   destPath: string,
-  fileName: string
+  fileName: string,
+  signal: AbortSignal
 ): Promise<string | null> => {
+  signal.throwIfAborted()
   const existsCheck = await window.api.file.exists(destPath)
+  if (!existsCheck.success) throw new Error(existsCheck.error || '无法检查目标文件')
+  signal.throwIfAborted()
   if (!existsCheck.exists) {
     const result = await window.api.file.move(srcPath, destPath)
-    return result.success ? destPath : null
+    if (!result.success) throw new Error(result.error || '移动文件失败')
+    return destPath
   }
 
-  return new Promise<string | null>((resolve) => {
-    Modal.confirm({
+  return new Promise<string | null>((resolve, reject) => {
+    const finish = (value: string | null) => { signal.removeEventListener('abort', abort); resolve(value) }
+    const fail = (error: unknown) => { signal.removeEventListener('abort', abort); reject(error) }
+    const abort = () => { modal.destroy(); finish(null) }
+    const modal = Modal.confirm({
       title: '文件已存在',
       content: `目标文件夹中已存在 "${fileName}"，如何处理？`,
-      okText: '替换',
-      cancelText: '重命名',
+      okText: '替换', cancelText: '重命名', keyboard: false, maskClosable: false,
+      afterClose: () => finish(null),
       onOk: async () => {
-        await window.api.file.delete(destPath)
-        const result = await window.api.file.move(srcPath, destPath)
-        resolve(result.success ? destPath : null)
+        try {
+          signal.throwIfAborted()
+          const result = await window.api.file.move(srcPath, destPath, { replace: true })
+          if (!result.success) throw new Error(result.error || '替换文件失败')
+          finish(destPath)
+        } catch (error) { fail(error) }
       },
       onCancel: async () => {
-        const dotIndex = destPath.lastIndexOf('.')
-        const base = destPath.substring(0, dotIndex)
-        const ext = destPath.substring(dotIndex)
-        let newPath = `${base} (2)${ext}`
-        let counter = 3
-        while (true) {
-          const check = await window.api.file.exists(newPath)
-          if (!check.exists) break
-          newPath = `${base} (${counter})${ext}`
-          counter++
-        }
-        const result = await window.api.file.move(srcPath, newPath)
-        resolve(result.success ? newPath : null)
+        try {
+          const dotIndex = destPath.lastIndexOf('.')
+          const base = dotIndex < 0 ? destPath : destPath.substring(0, dotIndex)
+          const ext = dotIndex < 0 ? '' : destPath.substring(dotIndex)
+          let counter = 2
+          let newPath: string
+          for (;;) {
+            signal.throwIfAborted()
+            newPath = `${base} (${counter++})${ext}`
+            const check = await window.api.file.exists(newPath)
+            if (!check.success) throw new Error(check.error || '无法检查重命名路径')
+            if (!check.exists) break
+          }
+          signal.throwIfAborted()
+          const result = await window.api.file.move(srcPath, newPath)
+          if (!result.success) throw new Error(result.error || '重命名失败')
+          finish(newPath)
+        } catch (error) { fail(error) }
       },
     })
+    signal.addEventListener('abort', abort, { once: true })
+    if (signal.aborted) abort()
   })
 }
 
@@ -59,26 +77,13 @@ const _results = new Map<string, string | null>()
  * JavBus 用 original_title (番号如 AAA-001)，TMDB 用 title
  */
 function getBaseName(movie: ScrapedMovie): string {
-  const MAX_FOLDER_NAME_LENGTH = 80
-  // JavBus：优先用番号
-  if (movie._javbus) {
-    const name = movie.original_title || movie.title
-    return name.length > MAX_FOLDER_NAME_LENGTH
-      ? name.substring(0, MAX_FOLDER_NAME_LENGTH).trimEnd()
-      : name
-  }
-  // TMDB：使用标题
-  const name = movie.title || movie.original_title
-  return name.length > MAX_FOLDER_NAME_LENGTH
-    ? name.substring(0, MAX_FOLDER_NAME_LENGTH).trimEnd()
-    : name
+  return safeFileName(movie._javbus ? movie.original_title || movie.title : movie.title || movie.original_title)
 }
 
 /**
  * 刮削任务处理hook
  */
 export const useScrapingTask = () => {
-  const { safeExecute } = useErrorHandler()
   const { scrapeMovieInFolder } = useScraping()
   const { addItem, setDone, setError, setStep, setProcessing } =
     useGlobalQueue()
@@ -105,13 +110,14 @@ export const useScrapingTask = () => {
   const _doScrape = async (
     movie: ScrapedMovie,
     currentScrapeItem: ProcessedItem,
-    queueId: string
+    queueId: string,
+    signal: AbortSignal
   ): Promise<string | null> => {
-    const taskResult = await safeExecute(async () => {
+    signal.throwIfAborted()
       const videoExtensions = [
         '.mp4', '.avi', '.mkv', '.mov', '.wmv', '.flv', '.webm', '.m4v',
       ]
-      let videoFile: any
+      let videoFile: { name: string; isDirectory: boolean; isFile: boolean } | undefined
       let searchPath: string
       let isAlreadyScraped = false
 
@@ -129,7 +135,7 @@ export const useScrapingTask = () => {
           isFile: boolean
         }>
         videoFile = files.find(file =>
-          videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
+          file.isFile && videoExtensions.some(ext => file.name.toLowerCase().endsWith(ext))
         )
         if (!videoFile) throw new Error('文件夹中未找到视频文件')
       } else {
@@ -148,6 +154,7 @@ export const useScrapingTask = () => {
         videoFile.name.lastIndexOf('.')
       )
 
+      signal.throwIfAborted()
       // 统一命名基准
       const baseName = getBaseName(movie)
       const movieFolderName = baseName
@@ -188,7 +195,7 @@ export const useScrapingTask = () => {
           movie,
           movieFolderPath,
           baseName,
-          makeProgressCb(queueId)
+          (step, index) => { signal.throwIfAborted(); makeProgressCb(queueId)(step, index) }
         )
 
         // 重命名视频文件（如果需要）
@@ -197,11 +204,9 @@ export const useScrapingTask = () => {
             movieFolderPath,
             newVideoFileName
           )
-          await moveWithConflict(
-            currentVideoPath,
-            newVideoPath,
-            newVideoFileName
-          )
+          signal.throwIfAborted()
+          const moved = await moveWithConflict(currentVideoPath, newVideoPath, newVideoFileName, signal)
+          if (!moved) throw new Error('视频重命名失败或已取消')
         }
       } else {
         // 新刮削
@@ -218,7 +223,7 @@ export const useScrapingTask = () => {
             movie,
             movieFolderPath,
             baseName,
-            makeProgressCb(queueId)
+            (step, index) => { signal.throwIfAborted(); makeProgressCb(queueId)(step, index) }
           )
         } else {
           // 创建文件夹并移动视频
@@ -242,7 +247,8 @@ export const useScrapingTask = () => {
           const finalVideoPath = await moveWithConflict(
             currentVideoPath,
             newVideoPath,
-            newVideoFileName
+            newVideoFileName,
+            signal
           )
           if (!finalVideoPath) {
             throw new Error('视频文件移动被取消或失败')
@@ -252,15 +258,13 @@ export const useScrapingTask = () => {
             movie,
             movieFolderPath,
             baseName,
-            makeProgressCb(queueId)
+            (step, index) => { signal.throwIfAborted(); makeProgressCb(queueId)(step, index) }
           )
         }
       }
 
       return movieFolderPath
-    }, '处理电影文件失败')
 
-    return taskResult || null
   }
 
   /**
@@ -274,10 +278,11 @@ export const useScrapingTask = () => {
     const { id: queueId, isDuplicate } = addItem(
       currentScrapeItem.name,
       'movie',
-      async (id: string) => {
+      async (id: string, signal: AbortSignal) => {
         setProcessing(id)
         try {
-          const result = await _doScrape(movie, currentScrapeItem, id)
+          const result = await _doScrape(movie, currentScrapeItem, id, signal)
+          signal.throwIfAborted()
           _results.set(id, result)
           setDone(id)
         } catch (e) {
@@ -288,7 +293,9 @@ export const useScrapingTask = () => {
           _fireCompletion(id)
         }
       },
-      { ...options, dedupKey: currentScrapeItem.path }
+      { ...options, dedupKey: currentScrapeItem.path, cancelFn: () => {
+        try { options?.cancelFn?.() } finally { _results.set(queueId, null); _fireCompletion(queueId) }
+      } }
     )
 
     // 命中去重：等待已有任务完成，共享结果
@@ -322,6 +329,6 @@ function _fireCompletion(id: string): void {
   if (cb) {
     cb.resolve(_results.get(id) ?? null)
     _completions.delete(id)
-    _results.delete(id)
   }
+  _results.delete(id)
 }

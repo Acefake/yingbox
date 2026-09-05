@@ -11,3 +11,5 @@ coverage
 *.tsbuildinfo
 out
 .eslintcache
+.claude/worktrees/
+.codex_tmp/
