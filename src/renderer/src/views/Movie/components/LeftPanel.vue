@@ -13,21 +13,14 @@
     <div class="flex-shrink-0 p-3 border-b border-white/10">
       <!-- 标题行 -->
       <div class="flex items-center justify-between px-1 mb-2">
-        <h2 class="text-sm font-semibold tracking-wide text-gray-300">
-          {{ mode === 'tv' ? '电视剧库' : '媒体库' }}
+        <h2 class="text-base font-semibold tracking-wide text-white">
+          {{ mode === 'tv' ? '电视剧' : '电影' }}
         </h2>
         <span
           v-if="adultMode"
             class="text-xs font-bold px-1.5 py-0.5 rounded-md bg-red-600/70 text-red-100 tracking-wide"
         >18+</span>
-        <div class="flex items-center gap-2">
-          <div
-            v-if="processedItems.length"
-            class="text-xs font-semibold bg-white bg-opacity-10 px-2 py-0.5 rounded-full text-gray-300"
-          >
-            {{ processedItems.length }} {{ mode === 'tv' ? '剧集' : '项目' }}
-          </div>
-        </div>
+        <span class="text-xs text-white/40">本地媒体库</span>
       </div>
 
       <!-- 扫描进度条（两种模式通用）-->
@@ -49,67 +42,24 @@
         </div>
       </div>
 
-      <div class="space-y-1.5">
-        <!-- 主操作按钮行 -->
-        <div class="flex gap-1.5">
+      <div class="space-y-2">
+        <!-- 顶部操作区：文字风格，空间不足时自动换行 -->
+        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-white/10 pb-2">
           <button
             @click="$emit('addFolder')"
             :disabled="dirLoading"
-            class="flex-1 min-h-9 px-3 bg-blue-600 bg-opacity-70 hover:bg-opacity-90 text-white text-xs font-semibold rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            class="library-action-button"
           >
             + 添加
           </button>
           <button
             @click="$emit('refresh')"
             :disabled="dirLoading"
-            class="flex-1 min-h-9 px-3 bg-gray-700/60 hover:bg-gray-600/70 text-gray-100 text-xs font-semibold rounded-lg transition-all active:scale-95 disabled:opacity-50"
+            class="library-action-button"
           >
             {{ dirLoading ? '刷新中...' : '刷新' }}
           </button>
-        </div>
-
-        <!-- 搜索框（两种模式）-->
-        <div class="relative">
-          <input
-            v-model="searchQuery"
-            type="text"
-            :placeholder="
-              mode === 'tv' ? '搜索电视剧...' : '搜索文件或文件夹...'
-            "
-            class="w-full py-1.5 pl-7 pr-6 rounded-lg bg-black bg-opacity-30 text-white placeholder-gray-500 border border-white border-opacity-10 focus:border-blue-500 focus:outline-none text-xs"
-          />
-          <svg
-            class="absolute left-2 top-1/2 -translate-y-1/2 w-3 h-3 text-gray-500 pointer-events-none"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="2"
-              d="M21 21l-6-6m2-5a7 7 0 11-14 0 7 7 0 0114 0z"
-            />
-          </svg>
-          <button
-            v-if="searchQuery"
-            @click="searchQuery = ''"
-            class="absolute right-2 top-1/2 -translate-y-1/2 text-gray-500 hover:text-white"
-          >
-            <svg
-              class="w-3 h-3"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
+          <span v-if="processedItems.length" class="ml-auto text-xs text-white/40">{{ processedItems.length }} 项</span>
         </div>
 
         <!-- 已添加目录列表（两种模式）-->
@@ -147,7 +97,11 @@
     </div>
 
     <!-- 可滚动文件列表 -->
-    <div class="flex-1 overflow-y-auto p-2 custom-scrollbar primary-scrollbar">
+    <div
+      ref="listViewport"
+      class="flex-1 overflow-y-auto p-2 custom-scrollbar primary-scrollbar"
+      @scroll.passive="handleListScroll"
+    >
       <div
         v-if="filteredItems.length === 0"
         class="p-4 text-gray-400 text-center text-sm"
@@ -175,14 +129,15 @@
       </template>
 
       <template v-else>
+        <div :style="{ height: `${movieListTopPadding}px` }" />
         <FileTreeItem
-          v-for="(item, index) in filteredItems"
-          :key="`movie-${item.path}`"
-          :item="item"
-          :index="index"
+          v-for="entry in visibleMovieItems"
+          :key="`movie-${entry.item.path}`"
+          :item="entry.item"
+          :index="entry.index"
           :selected-index="selectedIndex"
           :selected-path="selectedPath"
-          @select="$emit('selectItem', item, index)"
+          @select="$emit('selectItem', entry.item, entry.index)"
           @show-search-modal="item => $emit('showSearchModal', item)"
           @manual-scrape="item => $emit('manualScrape', item)"
           @auto-scrape="item => $emit('autoScrape', item)"
@@ -196,13 +151,15 @@
           @play="(item: ProcessedItem) => $emit('play', item)"
           @delete-file="(item: ProcessedItem) => $emit('deleteFile', item)"
         />
+        <div :style="{ height: `${movieListBottomPadding}px` }" />
       </template>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
-import { computed, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import FileTreeItem from '@/views/Movie/components/FileTreeItem.vue'
 import TVFileTreeItem from '@/views/TV/components/TVFileTreeItem.vue'
 import { ProcessedItem } from '@/types'
@@ -220,20 +177,19 @@ const props = withDefaults(defineProps<Props>(), {
   mode: 'movie',
 })
 
-// 搜索相关状态
+const route = useRoute()
 const searchQuery = ref('')
-
-// 成人模式状态
 const adultMode = ref(localStorage.getItem('adultMode') === '1')
-
-watch(searchQuery, val => {
-  if (val.trim().toLowerCase() === 'getav') {
-    adultMode.value = !adultMode.value
-    localStorage.setItem('adultMode', adultMode.value ? '1' : '0')
-    window.dispatchEvent(new CustomEvent('adultModeChange', { detail: adultMode.value }))
-    searchQuery.value = ''
-  }
-})
+watch(
+  () => route.query.q,
+  query => { searchQuery.value = typeof query === 'string' ? query : '' },
+  { immediate: true }
+)
+const syncAdultMode = () => { adultMode.value = localStorage.getItem('adultMode') === '1' }
+const onAdultModeChange = () => syncAdultMode()
+const onStorageChange = (event: StorageEvent) => {
+  if (event.key === 'adultMode') syncAdultMode()
+}
 
 defineEmits<{
   /** 全量刷新 */
@@ -317,6 +273,70 @@ const filteredItems = computed(() => {
   return result
 })
 
+const listViewport = ref<HTMLElement | null>(null)
+const listScrollTop = ref(0)
+const listViewportHeight = ref(0)
+const movieRowHeight = 31
+const movieOverscan = 10
+let listResizeObserver: ResizeObserver | undefined
+
+const visibleMovieRange = computed(() => {
+  const total = filteredItems.value.length
+  const start = Math.max(
+    0,
+    Math.floor(listScrollTop.value / movieRowHeight) - movieOverscan
+  )
+  const visibleCount = Math.ceil(listViewportHeight.value / movieRowHeight)
+  const end = Math.min(total, start + visibleCount + movieOverscan * 2)
+  return { start, end, total }
+})
+
+const visibleMovieItems = computed(() => {
+  const { start, end } = visibleMovieRange.value
+  return filteredItems.value.slice(start, end).map((item, offset) => ({
+    item,
+    index: start + offset,
+  }))
+})
+
+const movieListTopPadding = computed(
+  () => visibleMovieRange.value.start * movieRowHeight
+)
+const movieListBottomPadding = computed(
+  () =>
+    (visibleMovieRange.value.total - visibleMovieRange.value.end) * movieRowHeight
+)
+
+const handleListScroll = (event: Event): void => {
+  listScrollTop.value = (event.target as HTMLElement).scrollTop
+}
+
+const syncListViewport = (): void => {
+  listViewportHeight.value = listViewport.value?.clientHeight || 0
+}
+
+onMounted(() => {
+  window.addEventListener('adultModeChange', onAdultModeChange)
+  window.addEventListener('storage', onStorageChange)
+  void nextTick(() => {
+    syncListViewport()
+    if (!listViewport.value) return
+    listResizeObserver = new ResizeObserver(syncListViewport)
+    listResizeObserver.observe(listViewport.value)
+  })
+})
+
+onBeforeUnmount(() => {
+  listResizeObserver?.disconnect()
+  window.removeEventListener('adultModeChange', onAdultModeChange)
+  window.removeEventListener('storage', onStorageChange)
+})
+
+watch(filteredItems, () => {
+  listScrollTop.value = 0
+  listViewport.value?.scrollTo({ top: 0 })
+})
+
 /** 未刮削项数量（没有 NFO 文件的项） */
 const unscrapedCount = computed(() => {
   const items = props.processedItems
@@ -330,3 +350,21 @@ const unscrapedCount = computed(() => {
   return count
 })
 </script>
+
+<style scoped>
+.library-action-button {
+  min-height: 30px;
+  padding: 0 2px;
+  border: 0;
+  color: rgba(255, 255, 255, .62);
+  background: transparent;
+  font-size: 13px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: color .15s ease;
+}
+
+.library-action-button:hover:not(:disabled) { color: #fff; }
+.library-action-button:disabled { cursor: not-allowed; opacity: .45; }
+
+</style>

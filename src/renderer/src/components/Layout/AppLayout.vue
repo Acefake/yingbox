@@ -37,10 +37,11 @@
           <button class="toolbar-btn" aria-label="后退" title="后退" @click="navigateBack"><AppIcon name="back" /></button>
           <button class="toolbar-btn" aria-label="前进" title="前进" @click="router.forward()"><AppIcon name="forward" /></button>
           <button class="toolbar-btn" aria-label="刷新" title="刷新" @click="router.go(0)"><AppIcon name="refresh" /></button>
-          <label class="global-search">
+          <div class="global-search" role="search" :aria-label="globalSearchPlaceholder">
             <AppIcon name="search" size="sm" />
-            <input v-model="globalSearch" placeholder="搜索（Ctrl + K）" @keydown.enter="submitGlobalSearch" />
-          </label>
+            <input ref="globalSearchInput" v-model="globalSearch" :placeholder="globalSearchPlaceholder" type="search" @keydown.enter.prevent="submitGlobalSearch" />
+            <button v-if="globalSearch" class="global-search-clear" type="button" aria-label="清空搜索" @click="clearGlobalSearch">×</button>
+          </div>
         </div>
 
         <!-- 右侧：数据源 + 窗口控制（含设置） -->
@@ -55,7 +56,7 @@
     </header>
 
     <!-- 主内容区域 -->
-    <main class="main-content" style="position: relative; z-index: 10">
+    <main class="main-content">
       <slot />
     </main>
 
@@ -75,7 +76,7 @@
 </template>
 
 <script setup lang="ts">
-import { onUnmounted, ref } from 'vue'
+import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRouter, useRoute } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
@@ -92,6 +93,19 @@ const sidebarCollapsed = ref(false)
 const settingsVisible = ref(false)
 const sourcePanelVisible = ref(false)
 const globalSearch = ref('')
+const globalSearchInput = ref<HTMLInputElement | null>(null)
+const globalSearchPlaceholder = computed(() => {
+  if (route.name === 'Movie') return '搜索本地电影（Ctrl + K）'
+  if (route.name === 'TV') return '搜索本地电视剧（Ctrl + K）'
+  if (route.name === 'AV') return '搜索 AV 资源（Ctrl + K）'
+  return '搜索电影、电视剧（Ctrl + K）'
+})
+
+watch(
+  () => route.query.q,
+  query => { globalSearch.value = typeof query === 'string' ? query : '' },
+  { immediate: true }
+)
 
 /**
  * 导航到指定路由
@@ -116,8 +130,24 @@ const openSettings = (): void => {
 
 const submitGlobalSearch = (): void => {
   const query = globalSearch.value.trim()
+  if (query.toLowerCase() === 'getav') {
+    toggleAdultMode()
+    globalSearch.value = ''
+    return
+  }
+  if (route.name === 'Movie' || route.name === 'TV') {
+    router.replace({ path: route.path, query: query ? { q: query } : {} })
+    return
+  }
   const targetPath = route.name === 'AV' ? '/av' : '/'
   router.replace({ path: targetPath, query: query ? { tab: 'search', q: query } : { tab: 'search' } })
+}
+
+const clearGlobalSearch = (): void => {
+  globalSearch.value = ''
+  if (route.name === 'Movie' || route.name === 'TV') router.replace({ path: route.path })
+  else router.replace({ path: route.name === 'AV' ? '/av' : '/', query: { tab: 'search' } })
+  nextTick(() => globalSearchInput.value?.focus())
 }
 
 // 成人模式检测
@@ -130,20 +160,34 @@ const handleAdultModeChange = (enabled: boolean) => {
     router.push('/')
   }
 }
+const toggleAdultMode = () => {
+  const enabled = !adultMode.value
+  localStorage.setItem('adultMode', enabled ? '1' : '0')
+  window.dispatchEvent(new CustomEvent('adultModeChange', { detail: enabled }))
+}
 const onAdultModeChange = (e: Event) => {
   handleAdultModeChange((e as CustomEvent<boolean>).detail)
 }
 const onStorageChange = (e: StorageEvent) => {
   if (e.key === 'adultMode') handleAdultModeChange(e.newValue === '1')
 }
+const onGlobalSearchShortcut = (event: KeyboardEvent) => {
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+    event.preventDefault()
+    globalSearchInput.value?.focus()
+  }
+}
 if (typeof window !== 'undefined') {
   window.addEventListener('adultModeChange', onAdultModeChange)
   window.addEventListener('storage', onStorageChange)
 }
 
+onMounted(() => window.addEventListener('keydown', onGlobalSearchShortcut))
+
 onUnmounted(() => {
   window.removeEventListener('adultModeChange', onAdultModeChange)
   window.removeEventListener('storage', onStorageChange)
+  window.removeEventListener('keydown', onGlobalSearchShortcut)
 })
 
 </script>
@@ -153,7 +197,7 @@ onUnmounted(() => {
   display: flex;
   flex-direction: column;
   position: relative;
-  background: #15181d;
+  background: var(--bg-main);
 }
 
 /* 顶部毛玻璃菜单栏 - 与左侧面板保持一致的样式 */
@@ -190,7 +234,7 @@ onUnmounted(() => {
   gap: 5px;
   height: 36px;
   padding: 0 12px;
-  background: rgba(0, 0, 0, 0.35);
+  background: rgba(255, 255, 255, 0.06);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 8px;
   color: rgba(255, 255, 255, 0.7);
@@ -205,9 +249,9 @@ onUnmounted(() => {
   border-color: rgba(255, 255, 255, 0.2);
 }
 .source-mgr-btn.active {
-  background: rgba(99, 102, 241, 0.25);
-  border-color: rgba(99, 102, 241, 0.5);
-  color: #a5b4fc;
+  background: rgba(10, 132, 255, 0.18);
+  border-color: rgba(10, 132, 255, 0.45);
+  color: #64b5ff;
 }
 
 /* 主内容区域 */
@@ -228,7 +272,7 @@ onUnmounted(() => {
   padding: 22px 14px;
   z-index: 1100;
   color: rgba(255, 255, 255, .76);
-  background: #15181d;
+  background: var(--bg-main);
   border-right: 1px solid rgba(255,255,255,.07);
   -webkit-app-region: no-drag;
 }
@@ -237,7 +281,7 @@ onUnmounted(() => {
 .sidebar-toggle:hover { color:#fff; background:rgba(255,255,255,.1); }
 .sidebar-nav { display:flex; flex-direction:column; gap:5px; }
 .sidebar-item { display:flex; align-items:center; gap:12px; width:100%; min-height:42px; padding:0 12px; border:0; border-radius:10px; color:rgba(255,255,255,.68); background:transparent; font-size:14px; text-align:left; cursor:pointer; transition:background .18s ease, color .18s ease; }
-.sidebar-item:hover, .sidebar-item.active { color:#fff; background:rgba(255,255,255,.14); }
+.sidebar-item:hover, .sidebar-item.active { color:#fff; background:rgba(255,255,255,.1); }
 .sidebar-divider { height:1px; margin:18px 10px 14px; background:rgba(255,255,255,.1); }
 .sidebar-heading { padding:0 12px 6px; color:rgba(255,255,255,.42); font-size:12px; letter-spacing:.08em; }
 .top-menu { left:220px; }
@@ -248,6 +292,8 @@ onUnmounted(() => {
 .global-search { display:flex; align-items:center; gap:8px; width:min(320px,34vw); height:38px; margin-left:8px; padding:0 13px; border:1px solid rgba(255,255,255,.1); border-radius:10px; color:rgba(255,255,255,.5); background:rgba(255,255,255,.1); backdrop-filter:blur(14px); -webkit-backdrop-filter:blur(14px); }
 .global-search input { width:100%; border:0; outline:0; color:#fff; background:transparent; font-size:13px; }
 .global-search input::placeholder { color:rgba(255,255,255,.42); }
+.global-search-clear { width:20px; height:20px; padding:0; border:0; border-radius:50%; color:rgba(255,255,255,.52); background:transparent; font-size:16px; line-height:1; cursor:pointer; }
+.global-search-clear:hover { color:#fff; background:rgba(255,255,255,.12); }
 .global-search .search-icon { width:16px; height:16px; flex:0 0 16px; fill:none; stroke:currentColor; stroke-width:2; stroke-linecap:round; }
 .main-content { margin-left:220px; }
 .app-layout.sidebar-collapsed .app-sidebar { width:68px; padding-left:10px; padding-right:10px; }

@@ -111,6 +111,15 @@
       @cancel="showDownloadModal = false"
       @done="handleDownloadDone"
     />
+
+    <!-- 统一本地播放器 -->
+    <Transition name="sheet-fade">
+      <div v-if="showLocalPlayer" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/75" @click.self="closeLocalPlayer">
+        <div class="relative h-[78vh] max-h-[92vh] w-[92vw] max-w-[1200px] overflow-hidden rounded-xl bg-black shadow-2xl">
+          <UnifiedVideoPlayer :src="localPlayerUrl" :title="localPlayerTitle" closable @close="closeLocalPlayer" />
+        </div>
+      </div>
+    </Transition>
   </div>
 </template>
 
@@ -142,6 +151,7 @@ import { useGlobalQueue } from '@/composables/use-global-queue'
 import { extractAvid } from '@/utils/avid'
 import { toLocalUrl } from '@/utils/local-url'
 import { parseNfo } from '@/services/nfo-service'
+import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
 
 const { searchMovieInfo } = useScraping()
 const { scrape } = useScrapingTask()
@@ -156,6 +166,11 @@ const currentScrapeItem = ref<ProcessedItem | null>(null)
 // 下载弹窗状态
 const showDownloadModal = ref(false)
 const downloadAvid = ref('')
+
+// 统一播放器状态
+const showLocalPlayer = ref(false)
+const localPlayerUrl = ref('')
+const localPlayerTitle = ref('本地视频')
 
 // 元数据预览弹窗状态
 const showMetaPreviewModal = ref(false)
@@ -206,7 +221,6 @@ const {
   fanartImageDataUrl,
   movieInfo,
   actors,
-  warmNfoCache,
 } = useMediaProcessing(selectedItem)
 
 // 成人模式状态
@@ -338,16 +352,21 @@ const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | nu
   }
 }
 
-// 监听选中项变化，成人模式下自动获取 JAV 元数据
+let adultMetaRequestId = 0
+
+// 监听选中项变化：先完成选中渲染，再异步读取元数据。
 watch(selectedItem, async (item) => {
+  const requestId = ++adultMetaRequestId
   if (!item || !isAdultMode.value || !isJavContent.value) {
     adultMeta.value = null
+    adultMetaLoading.value = false
     return
   }
 
   // 已刮削 → 直接读本地 NFO，跳过网络请求
   if (isAlreadyScraped(item)) {
     const localMeta = await buildMetaFromLocal(item)
+    if (requestId !== adultMetaRequestId) return
     if (localMeta) {
       adultMeta.value = localMeta
       adultMetaLoading.value = false
@@ -362,16 +381,18 @@ watch(selectedItem, async (item) => {
   adultMetaLoading.value = true
   try {
     const data = await backend.fetchMeta(avid)
+    if (requestId !== adultMetaRequestId) return
     if (!data.error) {
       adultMeta.value = data
-      if (!isAlreadyScraped(item) && !adultScrapeLoading.value) {
-        handleAdultScrape(data, item)
-      }
     }
   } catch (e) {
-    console.error('获取成人内容元数据失败:', e)
+    if (requestId === adultMetaRequestId) {
+      console.error('获取成人内容元数据失败:', e)
+    }
   } finally {
-    adultMetaLoading.value = false
+    if (requestId === adultMetaRequestId) {
+      adultMetaLoading.value = false
+    }
   }
 })
 
@@ -403,7 +424,12 @@ const processedItems = ref<ProcessedItem[]>([])
 
 // 初始化 processedItems
 const updateProcessedItems = (): void => {
-  processedItems.value = processFiles(fileData.value)
+  const items = processFiles(fileData.value)
+  // 已有 NFO 与海报的项目置顶，背景图不影响排序。
+  items.sort(
+    (a, b) => Number(Boolean(b.hasNfo && b.hasPoster)) - Number(Boolean(a.hasNfo && a.hasPoster))
+  )
+  processedItems.value = items
 }
 
 // fileData 变化时自动同步（覆盖所有刷新路径，包括队列处理器）
@@ -425,7 +451,6 @@ watch(
 const handleReadDirectory = async (): Promise<void> => {
   await readDirectory()
   updateProcessedItems()
-  warmNfoCache(processedItems.value)
 }
 
 // 弹窗管理方法 - 直接写在组件内部，逻辑简单清晰
@@ -477,69 +502,6 @@ const selectItem = (item: ProcessedItem, rootItem: number | ProcessedItem): void
   } else {
     selectedItem.value = item
     selectedIndex.value = index
-  }
-  // 预加载相邻项
-  preloadAdjacentItems(index)
-}
-
-/**
- * 预加载当前项前后的相邻项（NFO + 图片），让切换更丝滑
- */
-const PRELOAD_RANGE = 3 // 预加载前后各 3 项
-const preloadedSet = new Set<string>()
-
-function preloadAdjacentItems(centerIndex: number): void {
-  const items = processedItems.value
-  if (!items.length) return
-
-  const start = Math.max(0, centerIndex - PRELOAD_RANGE)
-  const end = Math.min(items.length - 1, centerIndex + PRELOAD_RANGE)
-
-  const tasks: (() => Promise<void>)[] = []
-  for (let i = start; i <= end; i++) {
-    const it = items[i]
-    if (!it || preloadedSet.has(it.path)) continue
-    preloadedSet.add(it.path)
-
-    // NFO 缓存预热
-    if (it.files) {
-      const nfo = it.files.find(f => f.name.toLowerCase().endsWith('.nfo'))
-      if (nfo) {
-        const nfoPath = nfo.path
-        tasks.push(async () => {
-          try {
-            const r = await window.api.file.read(nfoPath)
-            if (r.success && r.data) {
-              // use-media-processing 内部有 nfoCache，直接读即可
-            }
-          } catch {}
-        })
-      }
-    }
-
-    // 图片预加载到浏览器缓存
-    if (it.files) {
-      for (const f of it.files) {
-        const fn = f.name.toLowerCase()
-        if (/\.(jpg|jpeg|png|webp)$/i.test(fn)) {
-          const url = toLocalUrl(f.path)
-          const img = new Image()
-          img.src = url
-        }
-      }
-    }
-  }
-
-  // NFO 读取放到空闲时间
-  if (tasks.length) {
-    const runTasks = () => {
-      for (const t of tasks) t()
-    }
-    if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(runTasks, { timeout: 1000 })
-    } else {
-      setTimeout(runTasks, 50)
-    }
   }
 }
 
@@ -821,28 +783,14 @@ const handlePlay = async (item: ProcessedItem): Promise<void> => {
 
 /** 播放指定路径的视频文件 */
 const playVideoFile = async (filePath: string): Promise<void> => {
-  const videoPlayer = localStorage.getItem('videoPlayer') || 'builtin'
-  const api = (window as any).api
+  localPlayerUrl.value = toLocalUrl(filePath)
+  localPlayerTitle.value = filePath.split(/[/\\]/).pop() || '本地视频'
+  showLocalPlayer.value = true
+}
 
-  if (videoPlayer === 'builtin') {
-    if (api?.player?.open) {
-      const result = await api.player.open(filePath)
-      if (!result.success) {
-        message.error('播放失败')
-      }
-    } else {
-      message.error('内置播放器 API 不可用')
-    }
-  } else {
-    if (api?.shell?.openPath) {
-      const result = await api.shell.openPath(filePath)
-      if (!result.success) {
-        message.error('播放失败: ' + (result.error || '未知错误'))
-      }
-    } else {
-      message.error('Shell API 不可用')
-    }
-  }
+const closeLocalPlayer = (): void => {
+  showLocalPlayer.value = false
+  localPlayerUrl.value = ''
 }
 
 /** RightPanel 播放指定视频文件 */
@@ -906,10 +854,6 @@ onMounted(() => {
   if (loaded) {
     // 组件启动时已从缓存加载数据，初始化 processedItems
     updateProcessedItems()
-    // 预加载前几项
-    if (processedItems.value.length > 0) {
-      preloadAdjacentItems(0)
-    }
   }
 })
 </script>

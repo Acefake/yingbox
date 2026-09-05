@@ -1,26 +1,26 @@
 :root {
   /* Colors */
-  --bg-main: #15181d;
-  --bg-panel: rgba(17, 24, 39, 0.3);
-  --bg-glass: rgba(255, 255, 255, 0.05);
-  --border-glass: rgba(255, 255, 255, 0.1);
-  --border-glass-light: rgba(255, 255, 255, 0.2);
+  --bg-main: #1c1c1e;
+  --bg-panel: rgba(44, 44, 46, 0.92);
+  --bg-glass: rgba(255, 255, 255, 0.06);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-light: rgba(255, 255, 255, 0.14);
   
-  --primary: #3b82f6;
-  --primary-hover: #2563eb;
-  --primary-glass: rgba(59, 130, 246, 0.5);
+  --primary: #0a84ff;
+  --primary-hover: #409cff;
+  --primary-glass: rgba(10, 132, 255, 0.42);
   
   --text-main: rgba(255, 255, 255, 0.9);
   --text-muted: rgba(255, 255, 255, 0.5);
   --text-dim: rgba(255, 255, 255, 0.3);
 
   /* Semantic colors */
-  --success: #34d399;
-  --warning: #fbbf24;
-  --danger: #f87171;
+  --success: #30d158;
+  --warning: #ff9f0a;
+  --danger: #ff453a;
 
   /* Typography */
-  --font-sans: Inter, "Segoe UI", "PingFang SC", "Microsoft YaHei", sans-serif;
+  --font-sans: "SF Pro Text", "SF Pro Display", "Helvetica Neue", "PingFang SC", "Microsoft YaHei", sans-serif;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
@@ -34,13 +34,13 @@
   --space-5: 20px;
   --space-6: 24px;
   --radius-sm: 6px;
-  --radius-md: 8px;
+  --radius-md: 9px;
   --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-xl: 14px;
   --control-height-sm: 32px;
   --control-height: 40px;
-  --focus-ring: 0 0 0 3px rgba(59, 130, 246, 0.32);
-  --shadow-panel: 0 20px 50px rgba(0, 0, 0, 0.45);
+  --focus-ring: 0 0 0 3px rgba(10, 132, 255, 0.32);
+  --shadow-panel: 0 18px 48px rgba(0, 0, 0, 0.32);
 
   /* Transitions */
   --transition-fast: all 0.2s ease;

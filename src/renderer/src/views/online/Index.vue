@@ -56,7 +56,12 @@ const isOnlineTab = (value: unknown): value is OnlineTab =>
 const activeTab = ref<OnlineTab>(isOnlineTab(route.query.tab) ? route.query.tab : 'home')
 watch(
   () => route.query.tab,
-  (tab) => { activeTab.value = isOnlineTab(tab) ? tab : 'home' }
+  (tab) => {
+    activeTab.value = isOnlineTab(tab) ? tab : 'home'
+    // 详情是当前在线页内的覆盖层。切换首页、最近播放、收藏或 VOD 标签时，
+    // 必须先关闭覆盖层，否则底层内容已切换但仍被详情层遮住。
+    inlineDetailItem.value = null
+  }
 )
 // ─── 详情 / 搜索 ───────────────────────────────────────────
 const openDetailWindow = (item: CmsItem) => {

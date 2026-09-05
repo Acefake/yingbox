@@ -14,7 +14,6 @@
         @add-folder="handleReadDirectory"
         @remove-directory="removeDirectory"
         @select-item="selectItem"
-        @preload="handlePreload"
         @auto-scrape="searchTV"
         @direct-scrape="searchTV"
         @manual-scrape="searchTV"
@@ -131,7 +130,6 @@ const {
   scrapeEpisode,
   loadLocalTVInfo,
   loadEpisodeThumbs,
-  preloadShowImages,
 } = useTVScraping()
 
 const selectedIndex = ref<number>(-1)
@@ -147,6 +145,7 @@ const posterUrl = ref('')
 const fanartUrl = ref('')
 const seasonPosters = shallowRef<Record<string, string>>({})
 const episodeThumbs = shallowRef<Record<string, string>>({})
+let selectionRequestId = 0
 
 /** 搜索弹窗状态 */
 const searchResults = ref<MediaResult[]>([])
@@ -161,10 +160,10 @@ const pendingScrapeShowItem = ref<ProcessedItem | null>(null)
  * - 点季：懒加载该季的集缩略图
  * - 批量更新状态减少重渲染
  */
-const selectItem = async (
+const selectItem = (
   item: ProcessedItem,
   rootItem: ProcessedItem | number
-): Promise<void> => {
+): void => {
   const showRoot = typeof rootItem === 'object' ? rootItem : item
   const isSameShow = selectedTVShow.value?.path === showRoot.path
 
@@ -172,21 +171,38 @@ const selectItem = async (
   selectedItem.value = item
   selectedTVShow.value = showRoot
   selectedIndex.value = -1
+  const requestId = ++selectionRequestId
 
-  // 切换到不同剧集：重载所有数据
+  // 选中态先完成渲染，重资源读取放到后台；忽略快速切换产生的过期结果。
   if (!isSameShow) {
-    const local = await loadLocalTVInfo(showRoot)
-    // 批量更新所有状态
-    tvInfo.value = local.tvInfo
-    posterUrl.value = local.posterDataUrl
-    fanartUrl.value = local.fanartDataUrl
-    seasonPosters.value = local.seasonPosters
+    tvInfo.value = null
+    posterUrl.value = ''
+    fanartUrl.value = ''
+    seasonPosters.value = {}
     episodeThumbs.value = {}
+    void loadLocalTVInfo(showRoot)
+      .then(local => {
+        if (requestId !== selectionRequestId) return
+        tvInfo.value = local.tvInfo
+        posterUrl.value = local.posterDataUrl
+        fanartUrl.value = local.fanartDataUrl
+        seasonPosters.value = local.seasonPosters
+      })
+      .catch(error => console.warn('读取本地电视剧信息失败:', error))
   }
 
-  // 点击季文件夹：懒加载该季的集缩略图
+  // 缩略图不再阻塞切换；只接受当前季的最新结果。
   if (item.isSeasonFolder) {
-    episodeThumbs.value = await loadEpisodeThumbs(item)
+    void loadEpisodeThumbs(item)
+      .then(thumbs => {
+        if (
+          requestId === selectionRequestId &&
+          selectedItem.value?.path === item.path
+        ) {
+          episodeThumbs.value = thumbs
+        }
+      })
+      .catch(error => console.warn('读取剧集缩略图失败:', error))
   } else if (!isSameShow) {
     episodeThumbs.value = {}
   }
@@ -211,11 +227,6 @@ const searchTV = async (
   } finally {
     loading.value = false
   }
-}
-
-/** 第二步：用户在弹窗中选择 → 拉取详情 → 刷削 */
-const handlePreload = async (item: ProcessedItem): Promise<void> => {
-  await preloadShowImages(item)
 }
 
 /** 刮削当前季 */
@@ -281,6 +292,7 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
       setQueueProcessing(queueId)
       try {
         const tvDetails = await getTVDetails(selected.id)
+        if (!tvDetails) throw new Error('获取电视剧详情失败')
         if (tvDetails) {
           const seasons = await getAllSeasons(tvDetails.id)
           tvInfo.value = { ...convertToTVShowInfo(tvDetails), seasons }

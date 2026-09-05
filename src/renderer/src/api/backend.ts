@@ -3,9 +3,9 @@ import { getGoBackendUrl } from '@/stores/scrape-provider-store'
 const DEFAULT_BASE = 'http://localhost:31471'
 const API_KEY = 'IBHUSDBWQHJEJOBDSW'
 
-const getBase = (): string => {
+export const getBase = (): string => {
   try {
-    return getGoBackendUrl() || DEFAULT_BASE
+    return (getGoBackendUrl() || DEFAULT_BASE).replace(/\/+$/, '')
   } catch {
     return DEFAULT_BASE
   }
@@ -44,6 +44,7 @@ export interface BackendMeta {
 }
 
 export interface BackendDownloadStatus {
+  failed?: string[]
   active: string
   queued: string[]
   completed: { id: string; completedAt: string }[]
@@ -56,7 +57,9 @@ async function get<T>(
   const res = await fetch(`${getBase()}${path}`, {
     method: 'GET',
     headers: { 'Content-Type': 'application/json', ...extraHeaders },
+    signal: AbortSignal.timeout(path.startsWith('/api/scrape/') ? 300000 : 60000),
   })
+  if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = await res.json()
   if (data && data.error) {
     if (data.log) console.error(`[backend${path}] log:\n`, data.log)
@@ -72,6 +75,7 @@ async function getText(
   const res = await fetch(`${getBase()}${path}`, {
     method: 'GET',
     headers: { ...extraHeaders },
+    signal: AbortSignal.timeout(15000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   return res.text()
@@ -85,22 +89,22 @@ export const backend = {
 
   /** 视频详情（title / releaseDate / fanarts / videoFile） */
   videoDetail(id: string): Promise<BackendVideoDetail> {
-    return get<BackendVideoDetail>(`/api/videos/${id}`)
+    return get<BackendVideoDetail>(`/api/videos/${encodeURIComponent(id)}`)
   },
 
   /** 触发下载（Go 调 Python main.py，去重检查），返回 text/plain */
   addVideo(avid: string): Promise<string> {
-    return getText(`/api/addvideo/${avid}`, authHeader())
+    return getText(`/api/addvideo/${encodeURIComponent(avid)}`, authHeader())
   },
 
   /** 从 JavBus 抓取元数据（Go 调 Python fetch_meta.py，只返回 JSON，不写磁盘） */
   fetchMeta(avid: string): Promise<BackendMeta> {
-    return get<BackendMeta>(`/api/meta/${avid}`)
+    return get<BackendMeta>(`/api/meta/${encodeURIComponent(avid)}`)
   },
 
   /** 完整刮削：下载封面/fanart/演员图 + 生成 NFO（Go 调 Python scrape.py，写磁盘） */
   scrape(avid: string): Promise<BackendMeta> {
-    return get<BackendMeta>(`/api/scrape/${avid}`)
+    return get<BackendMeta>(`/api/scrape/${encodeURIComponent(avid)}`)
   },
 
   /** 获取下载任务状态 */
@@ -126,7 +130,7 @@ export const backend = {
   /** 测试 Go 后端连通性 */
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${getBase()}/api/videos`, { method: 'GET' })
+      const res = await fetch(`${getBase()}/api/videos`, { method: 'GET', signal: AbortSignal.timeout(5000) })
       return res.ok
     } catch {
       return false

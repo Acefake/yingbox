@@ -18,27 +18,39 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onMounted, ref } from 'vue'
+import { readStoredArray } from '@/utils/storage'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 import type { CmsItem } from '../composables/use-online-search'
 
 const props = defineProps<{ kind: 'favorites' | 'recent' }>()
 const emit = defineEmits<{ open: [item: CmsItem] }>()
 const category = ref('all')
+const route = useRoute()
 const items = ref<Array<{ id: string; typeLabel: string; item: CmsItem }>>([])
 const title = computed(() => props.kind === 'favorites' ? '我的收藏' : '最近播放')
 const description = computed(() => props.kind === 'favorites' ? '豆瓣热门中的收藏内容' : '豆瓣热门中的最近观看内容')
 const tabs = [{ label: '全部', value: 'all' }, { label: '电影', value: 'movie' }, { label: '电视剧', value: 'tv' }]
-const typeOf = (item: any) => item.type_name?.includes('剧') ? 'tv' : item._uid || item.vod_play_url?.includes('m3u8') ? 'av' : 'movie'
+const typeOf = (item: any) => (item.type_name === 'tv' || item.type_name?.includes('剧')) ? 'tv' : item._uid || item.vod_play_url?.includes('m3u8') ? 'av' : 'movie'
 const read = () => {
   const key = props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
-  const own = JSON.parse(localStorage.getItem(key) || '[]')
-  const mapped = own.map((entry: any) => ({ item: entry.item || entry, typeLabel: typeOf(entry.item || entry) === 'tv' ? '电视剧' : '电影' }))
+  const own = readStoredArray<Record<string, any>>(key)
+  const mapped = own.map(entry => {
+    const raw = entry.item || entry
+    const item = raw.vod_name ? raw : {
+      ...raw, _source: 'douban', vod_id: raw.url || raw.title,
+      vod_name: raw.title, vod_pic: raw.cover, type_name: raw.type,
+      vod_year: raw.year || '', vod_remarks: '',
+    }
+    return { item, typeLabel: typeOf(item) === 'tv' ? '电视剧' : '电影' }
+  })
   items.value = mapped.filter(entry => entry.item?.vod_name && entry.item?.vod_pic).map((entry, index) => ({ id: `${entry.item.vod_name}-${index}`, ...entry }))
 }
 const filteredItems = computed(() => category.value === 'all' ? items.value : items.value.filter(entry => typeOf(entry.item) === category.value))
 const clear = () => { localStorage.removeItem(props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'); read() }
 const onImgError = (event: Event) => { (event.target as HTMLImageElement).src = 'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="220"><rect width="100%" height="100%" fill="%23232a33"/></svg>' }
 onMounted(read)
+watch(() => [route.query.tab, props.kind], read)
 </script>
 
 <style scoped>
@@ -48,7 +60,7 @@ onMounted(read)
 .collection-header p { margin:6px 0 0; color:rgba(255,255,255,.42); font-size:13px; }
 .collection-tabs { display:flex; gap:20px; padding-bottom:12px; border-bottom:1px solid rgba(255,255,255,.08); }
 .collection-tabs button { padding:0; border:0; color:rgba(255,255,255,.56); background:transparent; font-size:14px; cursor:pointer; }
-.collection-tabs button.active { color:#3295ff; font-weight:600; }
+.collection-tabs button.active { color:var(--primary); font-weight:600; }
 .collection-grid { display:grid; grid-template-columns:repeat(auto-fill,minmax(150px,1fr)); gap:24px 18px; }
 .collection-card { min-width:0; cursor:pointer; }
 .collection-card img { display:block; width:100%; aspect-ratio:2/3; object-fit:cover; border-radius:9px; background:#222a32; transition:transform .18s ease; }

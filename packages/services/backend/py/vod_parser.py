@@ -50,7 +50,7 @@ def _run_node_runner(js_url, action, ext=None):
             env['NODE_PATH'] = node_modules
 
         result = subprocess.run(
-            ["node", runner_path, js_url, action, ext_json],
+            [os.environ.get("NODE_EXECUTABLE", "node"), runner_path, js_url, action, ext_json],
             capture_output=True, timeout=60,
             encoding='utf-8', errors='replace',
             env=env

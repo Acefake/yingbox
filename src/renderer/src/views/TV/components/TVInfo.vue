@@ -100,8 +100,8 @@ defineProps<Props>()
   padding: 1px 8px;
   font-size: 11px;
   color: rgba(147, 197, 253, 0.9);
-  background: rgba(59, 130, 246, 0.12);
-  border: 1px solid rgba(59, 130, 246, 0.15);
+  background: rgba(10, 132, 255, 0.12);
+  border: 1px solid rgba(10, 132, 255, 0.15);
   border-radius: 6px;
 }
 </style>

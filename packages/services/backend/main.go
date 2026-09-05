@@ -12,7 +12,6 @@ import (
 	"net/http"
 	"net/url"
 	"os"
-	"os/exec"
 	"os/signal"
 	"path/filepath"
 	"sort"
@@ -34,6 +33,16 @@ const (
 
 // 动态获取视频库路径（优先环境变量，其次系统视频目录，最后临时目录）
 func getBasePath() string {
+	if configPath := os.Getenv("YINGBOX_CONFIG_PATH"); configPath != "" {
+		if data, err := os.ReadFile(configPath); err == nil {
+			var config struct {
+				DownloadPath string `json:"downloadPath"`
+			}
+			if json.Unmarshal(data, &config) == nil && filepath.IsAbs(config.DownloadPath) {
+				return config.DownloadPath
+			}
+		}
+	}
 	if p := os.Getenv("MISSAV_VIDEO_PATH"); p != "" {
 		return p
 	}
@@ -57,6 +66,7 @@ func getBasePath() string {
 //go:embed py/requirements.txt
 //go:embed py/src/__init__.py
 //go:embed py/src/comm.py
+//go:embed py/src/task_lock.py
 //go:embed py/src/data.py
 //go:embed py/src/scraper.py
 //go:embed py/src/downloaderMgr.py
@@ -156,25 +166,7 @@ func fsExtract(fs embed.FS, prefix, dst string, stripPrefix bool) error {
 }
 
 // runPython 封装执行 Python 脚本，返回 stdout
-func runPython(scriptRelPath string, args []string, envExtra map[string]string) (string, string, error) {
-	script := filepath.Join(scriptsDir, filepath.FromSlash(scriptRelPath))
-	cmd := exec.Command("python", append([]string{script}, args...)...)
-	cmd.Dir = scriptsDir
-	cmd.Env = os.Environ()
-	// Force UTF-8 output on Windows (default is GBK on Chinese systems)
-	cmd.Env = append(cmd.Env, "PYTHONIOENCODING=utf-8")
-	for k, v := range envExtra {
-		cmd.Env = append(cmd.Env, k+"="+v)
-	}
-	stdoutBuf := new(strings.Builder)
-	stderrBuf := new(strings.Builder)
-	cmd.Stdout = stdoutBuf
-	cmd.Stderr = stderrBuf
-	err := cmd.Run()
-	return stdoutBuf.String(), stderrBuf.String(), err
-}
 
-// parsePythonJSON 从 Python 输出中提取最后一行 JSON（忽略 loguru 日志）
 func parsePythonJSON(stdout, stderr string) (string, string) {
 	lines := strings.Split(strings.TrimSpace(stdout), "\n")
 	jsonLine := ""
@@ -193,7 +185,6 @@ func enableCORS(next http.Handler) http.Handler {
 		w.Header().Set("Access-Control-Allow-Origin", "*")
 		w.Header().Set("Access-Control-Allow-Methods", "GET, POST, OPTIONS, PUT, DELETE")
 		w.Header().Set("Access-Control-Allow-Headers", "Content-Type, Authorization")
-		w.Header().Set("Access-Control-Allow-Credentials", "true")
 		if r.Method == "OPTIONS" {
 			w.WriteHeader(http.StatusOK)
 			return
@@ -242,6 +233,8 @@ func main() {
 		logger.Printf("Initial cache build warning: %v", err)
 	}
 
+	startDownloadWorker()
+
 	// 4. 启动定时缓存更新
 	go startCacheUpdater(30 * time.Minute)
 
@@ -254,6 +247,7 @@ func main() {
 	mux.HandleFunc("/api/download-status", downloadStatusHandler)
 	mux.HandleFunc("/api/meta/", metaHandler)
 	mux.HandleFunc("/api/scrape/", scrapeHandler)
+	mux.HandleFunc("/api/vod/sites", vodSitesHandler)
 	mux.HandleFunc("/api/vod/parse", vodParseHandler)
 	mux.HandleFunc("/proxy", proxyImageHandler)
 	mux.HandleFunc("/file/", imageHandler)
@@ -261,11 +255,12 @@ func main() {
 	handler := enableCORS(mux)
 
 	// 6. 优雅关闭：收到 SIGINT/SIGTERM 时干净释放端口
-	server := &http.Server{Addr: serverPort, Handler: handler}
+	server := &http.Server{Addr: serverPort, Handler: handler, ReadHeaderTimeout: 10 * time.Second, IdleTimeout: 60 * time.Second, MaxHeaderBytes: 1 << 20}
 	quit := make(chan os.Signal, 1)
 	signal.Notify(quit, syscall.SIGINT, syscall.SIGTERM)
 	go func() {
 		sig := <-quit
+		stopWorkers()
 		logger.Printf("Received signal %v, shutting down...", sig)
 		ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 		defer cancel()
@@ -285,12 +280,17 @@ func main() {
 func startCacheUpdater(interval time.Duration) {
 	ticker := time.NewTicker(interval)
 	defer ticker.Stop()
-	for range ticker.C {
+	for {
+		select {
+		case <-workerContext.Done():
+			return
+		case <-ticker.C:
 		logger.Println("Starting scheduled cache update...")
 		if err := buildVideoListCache(); err != nil {
 			logger.Printf("Cache update failed: %v", err)
 		} else {
 			logger.Println("Cache updated successfully")
+		}
 		}
 	}
 }
@@ -428,7 +428,7 @@ func videoDetailHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	videoID := strings.TrimPrefix(r.URL.Path, "/api/videos/")
-	if videoID == "" {
+	if !validVideoID(videoID) {
 		httpError(w, "Invalid video ID", http.StatusBadRequest)
 		return
 	}
@@ -530,9 +530,14 @@ func imageHandler(w http.ResponseWriter, r *http.Request) {
 
 	videoID := pathParts[0]
 	filename := strings.Join(pathParts[1:], "/")
-	imagePath := filepath.Join(getBasePath(), videoID, filename)
-
-	if !strings.HasPrefix(filepath.Clean(imagePath), filepath.Clean(getBasePath())) {
+	if !validVideoID(videoID) || filename == "" {
+		httpError(w, "Invalid image path", http.StatusBadRequest)
+		return
+	}
+	basePath := filepath.Clean(getBasePath())
+	imagePath := filepath.Join(basePath, videoID, filename)
+	relPath, err := filepath.Rel(basePath, imagePath)
+	if err != nil || relPath == "." || strings.HasPrefix(relPath, ".."+string(filepath.Separator)) || filepath.IsAbs(relPath) {
 		httpError(w, "Invalid path", http.StatusBadRequest)
 		return
 	}
@@ -585,7 +590,7 @@ func addVideoHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	videoID := strings.TrimPrefix(r.URL.Path, "/api/addvideo/")
-	if videoID == "" {
+	if !validVideoID(videoID) {
 		httpError(w, "Invalid video ID", http.StatusBadRequest)
 		return
 	}
@@ -629,20 +634,29 @@ func addVideoHandler(w http.ResponseWriter, r *http.Request) {
 
 	response := fmt.Sprintf("%s already downloaded", id)
 	if !exists {
+		if err := enqueueDownload(id); err != nil {
+			httpError(w, err.Error(), http.StatusInternalServerError)
+			return
+		}
 		response = fmt.Sprintf("Add %s to download queue", id)
-		go func() {
-			stdout, stderr, err := runPython("main.py", []string{id}, nil)
-			if err != nil {
-				logger.Printf("main.py exec failed for %s: %v\nstderr: %s", id, err, stderr)
-			} else {
-				logger.Printf("main.py exec succ for %s\nstdout: %s", id, stdout)
-			}
-		}()
 	}
+
 	logger.Println(response)
 
 	w.Header().Set("Content-Type", "text/plain")
 	w.Write([]byte(response))
+}
+
+func validVideoID(id string) bool {
+	if len(id) == 0 || len(id) > 80 {
+		return false
+	}
+	for _, char := range id {
+		if !((char >= 'a' && char <= 'z') || (char >= 'A' && char <= 'Z') || (char >= '0' && char <= '9') || char == '-' || char == '_') {
+			return false
+		}
+	}
+	return true
 }
 
 func initDB(db *sql.DB) error {
@@ -664,13 +678,22 @@ func checkStringExists(db *sql.DB, target string) (bool, error) {
 
 // proxyImageHandler 代理外部图片请求，绕过防盗链
 func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
 	targetURL := r.URL.Query().Get("url")
 	if targetURL == "" {
 		httpError(w, "missing url", http.StatusBadRequest)
 		return
 	}
 
-	req, err := http.NewRequest("GET", targetURL, nil)
+	target, err := url.ParseRequestURI(targetURL)
+	if err != nil || (target.Scheme != "http" && target.Scheme != "https") || target.Host == "" {
+		httpError(w, "invalid url", http.StatusBadRequest)
+		return
+	}
+	req, err := http.NewRequestWithContext(r.Context(), http.MethodGet, target.String(), nil)
 	if err != nil {
 		httpError(w, "invalid url", http.StatusBadRequest)
 		return
@@ -685,7 +708,7 @@ func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
 		proxyAddr, _ := url.Parse(proxyURL)
 		transport = &http.Transport{Proxy: http.ProxyURL(proxyAddr)}
 	}
-	client := &http.Client{Transport: transport}
+	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
 	resp, err := client.Do(req)
 	if err != nil {
 		httpError(w, "fetch failed", http.StatusBadGateway)
@@ -693,7 +716,15 @@ func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
 	}
 	defer resp.Body.Close()
 
-	w.Header().Set("Content-Type", resp.Header.Get("Content-Type"))
+	if resp.StatusCode < http.StatusOK || resp.StatusCode >= http.StatusMultipleChoices {
+		httpError(w, "upstream image request failed", http.StatusBadGateway)
+		return
+	}
+	contentType := resp.Header.Get("Content-Type")
+	if contentType == "" {
+		contentType = "application/octet-stream"
+	}
+	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	io.Copy(w, resp.Body)
 }
@@ -706,12 +737,12 @@ func metaHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	avid := strings.ToUpper(strings.TrimPrefix(r.URL.Path, "/api/meta/"))
-	if avid == "" {
+	if !validVideoID(avid) {
 		httpError(w, "missing avid", http.StatusBadRequest)
 		return
 	}
 
-	stdout, stderr, err := runPython("tools/fetch_meta.py", []string{avid}, nil)
+	stdout, stderr, err := runPythonContext(r.Context(), 60*time.Second, "tools/fetch_meta.py", []string{avid}, nil)
 	if err != nil {
 		logger.Printf("fetch_meta exec failed for %s: %v\nstderr: %s", avid, err, stderr)
 	}
@@ -740,13 +771,13 @@ func scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	}
 
 	avid := strings.ToUpper(strings.TrimPrefix(r.URL.Path, "/api/scrape/"))
-	if avid == "" {
+	if !validVideoID(avid) {
 		httpError(w, "missing avid", http.StatusBadRequest)
 		return
 	}
 
 	// 1. 获取元数据
-	stdout, stderr, err := runPython("tools/fetch_meta.py", []string{avid}, nil)
+	stdout, stderr, err := runPythonContext(r.Context(), 60*time.Second, "tools/fetch_meta.py", []string{avid}, nil)
 	if err != nil {
 		logger.Printf("scrape fetch_meta failed for %s: %v\nstderr: %s", avid, err, stderr)
 		httpError(w, "fetch meta failed: "+err.Error(), http.StatusInternalServerError)
@@ -841,6 +872,28 @@ func scrapeHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(jsonLine))
 }
 
+// vodSitesHandler 返回与解析器一致的内置 VOD 站点配置。
+// 前端不再维护一份容易失效的硬编码副本。
+func vodSitesHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+
+	config, err := pyScripts.ReadFile("py/vod.json")
+	if err != nil {
+		logger.Printf("read embedded vod config failed: %v", err)
+		httpError(w, "VOD configuration unavailable", http.StatusInternalServerError)
+		return
+	}
+
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	json.NewEncoder(w).Encode(map[string]interface{}{
+		"success": true,
+		"config":  json.RawMessage(config),
+	})
+}
+
 // vodParseHandler VOD 播放地址解析
 func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodPost {
@@ -848,6 +901,7 @@ func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
 	var reqMap map[string]interface{}
 	if err := json.NewDecoder(r.Body).Decode(&reqMap); err != nil {
 		httpError(w, "Invalid request body", http.StatusBadRequest)
@@ -905,8 +959,8 @@ func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 
 	// Pass PROJECT_ROOT so Python/Node can find node_modules
 	// Go backend runs from packages/services/backend, node_modules is at project root
-	projectRoot := ""
-	if wd, err := os.Getwd(); err == nil {
+	projectRoot := os.Getenv("PROJECT_ROOT")
+	if wd, err := os.Getwd(); err == nil && projectRoot == "" {
 		// Walk up to find node_modules
 		dir := wd
 		for i := 0; i < 5; i++ {
@@ -924,7 +978,7 @@ func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 		"PROJECT_ROOT": projectRoot,
 	}
 
-	stdout, stderr, err := runPython("vod_parser.py", args, envExtra)
+	stdout, stderr, err := runPythonContext(r.Context(), 15*time.Second, "vod_parser.py", args, envExtra)
 	if err != nil {
 		logger.Printf("vod_parser exec failed: %v\nstderr: %s", err, stderr)
 	}
@@ -979,17 +1033,22 @@ func downloadImage(imageURL, savePath string, avid string) error {
 		return fmt.Errorf("http status %d", resp.StatusCode)
 	}
 
-	out, err := os.Create(savePath)
+	out, err := os.CreateTemp(filepath.Dir(savePath), ".image-*.partial")
 	if err != nil {
 		return fmt.Errorf("create file failed: %w", err)
 	}
+	temporary := out.Name()
+	defer os.Remove(temporary)
 	defer out.Close()
 
 	_, err = io.Copy(out, resp.Body)
 	if err != nil {
 		return fmt.Errorf("write file failed: %w", err)
 	}
-	return nil
+	if err := out.Close(); err != nil {
+		return err
+	}
+	return os.Rename(temporary, savePath)
 }
 
 // generateNfo 根据元数据生成 NFO 内容
@@ -1081,6 +1140,7 @@ type completedDownload struct {
 }
 
 type downloadStatus struct {
+	Failed    []string            `json:"failed"`
 	Active    string              `json:"active"`
 	Queued    []string            `json:"queued"`
 	Completed []completedDownload `json:"completed"`
@@ -1093,7 +1153,7 @@ func downloadStatusHandler(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	status := downloadStatus{Queued: []string{}, Completed: []completedDownload{}}
+	status := downloadStatus{Queued: []string{}, Completed: []completedDownload{}, Failed: []string{}}
 	if data, err := os.ReadFile(filepath.Join(scriptsDir, "work")); err == nil {
 		value := strings.TrimSpace(string(data))
 		if value != "" && value != "0" && value != "1" {
@@ -1108,6 +1168,18 @@ func downloadStatusHandler(w http.ResponseWriter, r *http.Request) {
 			}
 		}
 	}
+
+	downloadQueueMu.Lock()
+	status.Active = activeDownload
+	filteredQueue := []string{}
+	for _, id := range status.Queued {
+		if id != status.Active {
+			filteredQueue = append(filteredQueue, id)
+		}
+	}
+	status.Queued = filteredQueue
+	downloadQueueMu.Unlock()
+	downloadFailures.Range(func(key, _ interface{}) bool { status.Failed = append(status.Failed, key.(string)); return true })
 
 	dbPath := filepath.Join(scriptsDir, "db", "downloaded.db")
 	if db, err := sql.Open("sqlite", dbPath); err == nil {

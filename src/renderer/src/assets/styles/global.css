@@ -25,7 +25,7 @@
 }
 
 .primary-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(59, 130, 246, 0.7);
+  background: var(--primary-glass);
 }
 
 /* Firefox Support */
@@ -56,8 +56,8 @@
 /* Generic Utilities */
 .glass-panel {
   background: var(--bg-panel);
-  backdrop-filter: blur(20px);
-  -webkit-backdrop-filter: blur(20px);
+  backdrop-filter: blur(24px);
+  -webkit-backdrop-filter: blur(24px);
   border: 1px solid var(--border-glass);
 }
 
@@ -92,7 +92,7 @@ body {
   font-size: var(--text-md);
   line-height: 1.5;
   color: var(--text-main);
-  background: #15181d;
+  background: var(--bg-main);
   -webkit-font-smoothing: antialiased;
   text-rendering: optimizeLegibility;
 }

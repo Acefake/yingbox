@@ -1,6 +1,7 @@
 from src import downloaderMgr
 from src.comm import *
 from src import data
+from src.task_lock import acquire_task_lock
 import sys
 import argparse
 from metadata import *
@@ -57,18 +58,17 @@ if __name__ == "__main__":
             
     logger.info(f"开始执行 车牌号: {avid}")
 
-    # 文件锁实现全局下载单例
-    with open("work", "r") as f:
-        content = f.read().strip()
-    if content != "0":
-        logger.info(f"A download task is running, save {avid} to download queue")
-        with open(queue_path, 'a') as f: # 记录到queue中，等待下载
-                f.write(f'{avid}\n')
-        exit(0)
-
-    with open("work", "w") as f:
+    task_lock = acquire_task_lock("work.lock")
+    if task_lock is None:
+        if os.environ.get("YINGBOX_QUEUE_MANAGED") == "1":
+            logger.error("Another downloader process is active")
+            sys.exit(1)
+        append_if_not_duplicate(queue_path, avid)
+        sys.exit(0)
+    # The OS lock proves no other process owns a stale work marker.
+    with open("work", "w", encoding="utf-8") as f:
         f.write(avid)
-    
+
     mgr = downloaderMgr.DownloaderMgr()
     try:
         # 按照配置好的下载器顺序，依次尝试
@@ -79,12 +79,12 @@ if __name__ == "__main__":
         for it in sorted_downloaders:
             count += 1
             downloader = mgr.GetDownloader(it["downloaderName"])
+            if downloader is None:
+                logger.error(f"Downloader not found: {it['downloaderName']}")
+                continue
             if not downloader.setDomain(it["domain"]): # 设置成配置中的域名
                 logger.error(f"下载器 {downloader.getDownloaderName()} 的域名没有配置")
                 continue
-            if downloader is None:
-                logger.error(f"下载器{args.plugin} 没有找到")
-                raise ValueError(f"下载器{args.plugin} 没有找到")
             logger.info(f"尝试使用Downloader: {downloader.getDownloaderName()} 下载")
             lastDownloader = downloader
 
@@ -102,17 +102,19 @@ if __name__ == "__main__":
                     raise ValueError(f"{info.m3u8} 下载视频失败")
                 continue
             break
+        else:
+            raise ValueError("所有下载器均未成功下载")
             
         # 元数据只尝试下载一次，且只使用配置中权重最大的刮削器
         gen_nfo()
             
-    except ValueError as e:
+    except Exception as e:
         logger.error(e)
-        if append_if_not_duplicate(queue_path, avid):
-            logger.info(f"'{avid}' 已成功添加到下载队列。")
-        else:
-            logger.info(f"'{avid}' 已存在下载队列中。")
+        if os.environ.get("YINGBOX_QUEUE_MANAGED") != "1":
+            append_if_not_duplicate(queue_path, avid)
+        sys.exit(1)
 
     finally: # 一定要执行
         with open("work", "w") as f:
             f.write("0")
+        task_lock.close()

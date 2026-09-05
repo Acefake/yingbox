@@ -22,7 +22,7 @@
   color: var(--text-muted);
 }
 
-.ui-error-state { color: #fca5a5; }
+.ui-error-state { color: var(--danger); }
 
 .ui-secondary-button {
   min-height: var(--control-height);

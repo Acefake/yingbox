@@ -1,18 +1,17 @@
+import { readMediaDirectory, fileId as makeId } from '@/utils/media-directory'
 import { ref } from 'vue'
 import { ProcessedItem, FileItem } from '@/types'
 import { message } from 'ant-design-vue'
 
 /** 基于路径生成确定性 ID（轻量 hash） */
-const makeId = (path: string): string => {
-  let h = 0
-  for (let i = 0; i < path.length; i++) {
-    h = ((h << 5) - h + path.charCodeAt(i)) | 0
-  }
-  return `f${(h >>> 0).toString(36)}`
-}
 
 /** 名称排序比较器：文件夹优先，然后按名称字母序 */
 const compareItems = (a: ProcessedItem, b: ProcessedItem): number => {
+  const aScraped = Boolean(a.hasNfo && a.hasPoster)
+  const bScraped = Boolean(b.hasNfo && b.hasPoster)
+  if (aScraped !== bScraped) {
+    return aScraped ? -1 : 1
+  }
   if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
   return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
@@ -33,7 +32,8 @@ export const useTVFileManagement = () => {
   const scanProgress = ref({ found: 0, active: false })
   const selectedItems = ref<Set<string>>(new Set())
   const isMultiSelectMode = ref(false)
-
+  let cacheSaveScheduled = false
+  let cacheSaveVersion = 0
   /**
    * 打开对话框并添加新目录
    */
@@ -64,10 +64,9 @@ export const useTVFileManagement = () => {
 
       dirLoading.value = true
       scanProgress.value = { found: 0, active: true }
+      const files = await readDirectoryRecursive(path)
       directoryPaths.value = [...directoryPaths.value, path]
       saveDirectoryPaths()
-
-      const files = await readDirectoryRecursive(path)
       fileData.value = [...fileData.value, ...processTVFiles(files)]
       saveToCache()
       message.success('目录添加成功')
@@ -92,65 +91,10 @@ export const useTVFileManagement = () => {
   /**
    * 递归读取目录（自定义实现，跳过不存在的目录）
    */
-  const readDirectoryRecursive = async (
-    dirPath: string
-  ): Promise<FileItem[]> => {
-    const allFiles: FileItem[] = []
-
-    try {
-      const result = await window.api.file.readdir(dirPath)
-      // eslint-disable-next-line @typescript-eslint/no-explicit-any
-      if (!result.success || !result.data) {
-        return allFiles
-      }
-
-      const items = result.data as Array<{
-        name: string
-        isDirectory: boolean
-        isFile: boolean
-      }>
-
-      for (const item of items) {
-        const fullPath = await window.api.path.join(dirPath, item.name)
-        const statResult = await window.api.file.stat(fullPath)
-
-        if (!statResult.success || !statResult.data) {
-          continue
-        }
-
-        const stat = statResult.data as {
-          size: number
-          isDirectory: boolean
-          isFile: boolean
-          mtime: number
-        }
-
-        scanProgress.value.found++
-        allFiles.push({
-          id: makeId(fullPath),
-          name: item.name,
-          path: fullPath,
-          size: stat.size,
-          isDirectory: stat.isDirectory,
-          isFile: stat.isFile,
-          mtime: stat.mtime,
-        })
-
-        // 如果是目录，递归读取
-        if (item.isDirectory) {
-          try {
-            const subFiles = await readDirectoryRecursive(fullPath)
-            allFiles.push(...subFiles)
-          } catch (subError) {
-            console.warn(`跳过无法读取的目录: ${fullPath}`, subError)
-          }
-        }
-      }
-    } catch (error) {
-      console.warn(`读取目录失败，跳过: ${dirPath}`, error)
-    }
-
-    return allFiles
+  const readDirectoryRecursive = async (dirPath: string): Promise<FileItem[]> => {
+    const files = await readMediaDirectory(dirPath)
+    scanProgress.value.found = files.length
+    return files
   }
 
   /**
@@ -160,52 +104,84 @@ export const useTVFileManagement = () => {
   const processTVFiles = (files: FileItem[]): ProcessedItem[] => {
     if (!files || files.length === 0) return []
 
-    // 1. 识别所有的电视剧根目录（包含季文件夹或符合剧集命名规则的目录）
-    const tvShowRoots: FileItem[] = []
     const directories = files.filter(f => f.isDirectory)
-
-    for (const dir of directories) {
-      // 检查目录下是否有季文件夹
-      const hasSeason = files.some(
-        f =>
-          f.isDirectory &&
-          f.path.startsWith(
-            dir.path +
-              (dir.path.endsWith('\\') || dir.path.endsWith('/')
-                ? ''
-                : dir.path.includes('\\')
-                  ? '\\'
-                  : '/')
-          ) &&
-          f.path !== dir.path &&
-          isTVSeasonFolder(f.name)
+    const childrenByPath = new Map<string, FileItem[]>()
+    const nfoPaths = new Set<string>()
+    const thumbnailPaths = new Set<string>()
+    const directVideoParents = new Set<string>()
+    const seasonParents = new Set<string>()
+    const getParentPath = (filePath: string): string => {
+      const separatorIndex = Math.max(
+        filePath.lastIndexOf('/'),
+        filePath.lastIndexOf('\\')
       )
+      return separatorIndex === -1 ? '' : filePath.slice(0, separatorIndex)
+    }
 
-      // 如果有季文件夹，且它的父级不是另一个符合条件的剧集目录，则它是根
-      if (hasSeason) {
-        // 简单判断：如果父级目录名不叫 Season/Sxx，则当前是剧集根
-        const parentPath = dir.path.substring(
-          0,
-          dir.path.lastIndexOf(dir.path.includes('\\') ? '\\' : '/')
-        )
-        const parentDir = directories.find(d => d.path === parentPath)
-        if (!parentDir || !isTVSeasonFolder(parentDir.name)) {
-          tvShowRoots.push(dir)
-        }
+    for (const file of files) {
+      const parentPath = getParentPath(file.path)
+      const children = childrenByPath.get(parentPath)
+      if (children) children.push(file)
+      else childrenByPath.set(parentPath, [file])
+
+      if (file.isFile && file.name.toLowerCase().endsWith('.nfo')) {
+        nfoPaths.add(file.path)
+      }
+      if (file.isFile && /-thumb\.(jpe?g|png|webp)$/i.test(file.name)) {
+        thumbnailPaths.add(file.path)
+      }
+      if (file.isFile && isVideoFile(file.name)) {
+        directVideoParents.add(parentPath)
+      }
+      if (file.isDirectory && isTVSeasonFolder(file.name)) {
+        seasonParents.add(parentPath)
       }
     }
 
-    // 1.5. 补充：目录下有直接视频文件（无季文件夹的平铺结构）
-    for (const dir of directories) {
-      if (tvShowRoots.some(r => r.path === dir.path)) continue
-      if (isTVSeasonFolder(dir.name)) continue
-      const sep2 = dir.path.includes('\\') ? '\\' : '/'
-      const hasDirectVideos = files.some(f => {
-        const parent = f.path.substring(0, f.path.lastIndexOf(sep2))
-        return parent === dir.path && f.isFile && isVideoFile(f.name)
-      })
-      if (hasDirectVideos) tvShowRoots.push(dir)
+    const buildTVTree = (folder: FileItem): ProcessedItem => {
+      const childrenFiles = childrenByPath.get(folder.path) || []
+      const seasons = childrenFiles
+        .filter(f => f.isDirectory && isTVSeasonFolder(f.name))
+        .map(buildTVTree)
+      const videoFiles = childrenFiles
+        .filter(f => f.isFile && isVideoFile(f.name))
+        .map(f => ({
+          id: makeId(f.path),
+          name: f.name,
+          path: f.path,
+        type: 'video' as const,
+        episodeNumber: extractEpisodeNumber(f.name),
+        hasNfo: nfoPaths.has(f.path.replace(/\.[^.]+$/, '.nfo')),
+        thumbnailPath: thumbnailPaths.has(
+          f.path.replace(/\.[^.]+$/, '-thumb.jpg')
+        )
+          ? f.path.replace(/\.[^.]+$/, '-thumb.jpg')
+          : undefined,
+        }))
+      const isSeason = isTVSeasonFolder(folder.name)
+      const childNames = new Set(
+        childrenFiles.filter(f => f.isFile).map(f => f.name.toLowerCase())
+      )
+
+      return {
+        id: makeId(folder.path),
+        name: folder.name,
+        path: folder.path,
+        type: 'folder',
+        isSeasonFolder: isSeason,
+        seasonNumber: isSeason ? extractSeasonNumber(folder.name) : undefined,
+        hasNfo: childNames.has('tvshow.nfo') || childNames.has('season.nfo'),
+        hasPoster: childNames.has('poster.jpg') || childNames.has('folder.jpg'),
+        hasFanart: childNames.has('fanart.jpg') || childNames.has('backdrop.jpg'),
+        children: sortTree([...seasons, ...videoFiles]),
+      }
     }
+
+    const tvShowRoots = directories.filter(
+      dir =>
+        !isTVSeasonFolder(dir.name) &&
+        (seasonParents.has(dir.path) || directVideoParents.has(dir.path))
+    )
 
     // 如果仍然没找到任何根，取最浅子目录作为后备
     if (tvShowRoots.length === 0) {
@@ -213,7 +189,7 @@ export const useTVFileManagement = () => {
       const minDepth = Math.min(...paths.map(p => p.split(/[\\/]/).length))
       return directories
         .filter(d => d.path.split(/[\\/]/).length === minDepth + 1)
-        .map(d => buildTVTree(d, files))
+        .map(buildTVTree)
     }
 
     // 2. 构建最终列表：移除包含其他剧集根的外层目录（如 剧集/、大陆/），保留最内层的真实剧集
@@ -226,72 +202,7 @@ export const useTVFileManagement = () => {
       )
     })
 
-    return sortTree(finalRoots.map(root => buildTVTree(root, files)))
-  }
-
-  /**
-   * 构建标准的 剧 > 季 > 集 树结构
-   */
-  const buildTVTree = (
-    folder: FileItem,
-    allFiles: FileItem[]
-  ): ProcessedItem => {
-    const childrenFiles = allFiles.filter(f => {
-      const p = f.path.substring(
-        0,
-        f.path.lastIndexOf(f.path.includes('\\') ? '\\' : '/')
-      )
-      return p === folder.path
-    })
-
-    // 识别季
-    const seasons = childrenFiles
-      .filter(f => f.isDirectory && isTVSeasonFolder(f.name))
-      .map(f => buildTVTree(f, allFiles))
-
-    // 识别直接在剧集目录下的视频（有些剧没分季文件夹）
-    const videoFiles = childrenFiles
-      .filter(f => f.isFile && isVideoFile(f.name))
-      .map(f => ({
-        id: makeId(f.path),
-        name: f.name,
-        path: f.path,
-        type: 'video' as const,
-        episodeNumber: extractEpisodeNumber(f.name),
-        hasNfo: allFiles.some(
-          nfo => nfo.isFile && nfo.path === f.path.replace(/\.[^.]+$/, '.nfo')
-        ),
-      }))
-
-    const isSeason = isTVSeasonFolder(folder.name)
-
-    return {
-      id: makeId(folder.path),
-      name: folder.name,
-      path: folder.path,
-      type: 'folder',
-      isSeasonFolder: isSeason,
-      seasonNumber: isSeason ? extractSeasonNumber(folder.name) : undefined,
-      hasNfo: childrenFiles.some(
-        f =>
-          f.isFile &&
-          (f.name.toLowerCase() === 'tvshow.nfo' ||
-            f.name.toLowerCase() === 'season.nfo')
-      ),
-      hasPoster: childrenFiles.some(
-        f =>
-          f.isFile &&
-          (f.name.toLowerCase() === 'poster.jpg' ||
-            f.name.toLowerCase() === 'folder.jpg')
-      ),
-      hasFanart: childrenFiles.some(
-        f =>
-          f.isFile &&
-          (f.name.toLowerCase() === 'fanart.jpg' ||
-            f.name.toLowerCase() === 'backdrop.jpg')
-      ),
-      children: sortTree([...seasons, ...videoFiles]),
-    }
+    return sortTree(finalRoots.map(buildTVTree))
   }
 
   /**
@@ -590,11 +501,14 @@ export const useTVFileManagement = () => {
     for (const path of directoryPaths.value) {
       try {
         const pathCheck = await window.api.file.exists(path)
-        if (!pathCheck.success || !pathCheck.exists) continue
+        if (!pathCheck.success || !pathCheck.exists) throw new Error('目录不存在或无法访问')
         const files = await readDirectoryRecursive(path)
         allItems.push(...processTVFiles(files))
       } catch (e) {
-        console.warn('读取目录失败，跳过:', path, e)
+        console.warn('读取目录失败，保留原缓存:', path, e)
+        const prefix = path.replace(/\\/g, '/').replace(/\/$/, '') + '/'
+        allItems.push(...fileData.value.filter(item => item.path.replace(/\\/g, '/').startsWith(prefix)))
+        message.warning(`目录读取失败，保留原数据: ${path}`)
       }
     }
     fileData.value = allItems
@@ -628,17 +542,31 @@ export const useTVFileManagement = () => {
    * 持久化目录列表
    */
   const saveDirectoryPaths = (): void => {
-    localStorage.setItem('tvDirectories', JSON.stringify(directoryPaths.value))
+    try { localStorage.setItem('tvDirectories', JSON.stringify(directoryPaths.value)) }
+    catch (error) { console.warn('保存目录列表失败:', error) }
   }
 
   /**
    * 保存文件数据缓存
    */
   const saveToCache = (): void => {
-    try {
-      localStorage.setItem('tvFileData', JSON.stringify(fileData.value))
-    } catch (error) {
-      console.error('保存缓存失败:', error)
+    if (cacheSaveScheduled) return
+    cacheSaveScheduled = true
+    const version = cacheSaveVersion
+    const persist = () => {
+      cacheSaveScheduled = false
+      if (version !== cacheSaveVersion) return
+      try {
+        localStorage.setItem('tvFileData', JSON.stringify(fileData.value))
+      } catch (error) {
+        console.error('保存缓存失败:', error)
+      }
+    }
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(persist, { timeout: 1000 })
+    } else {
+      window.setTimeout(persist, 0)
     }
   }
 
@@ -648,7 +576,10 @@ export const useTVFileManagement = () => {
   const loadFromCache = (): boolean => {
     try {
       const dirs = localStorage.getItem('tvDirectories')
-      if (dirs) directoryPaths.value = JSON.parse(dirs)
+      if (dirs) {
+        const parsed: unknown = JSON.parse(dirs)
+        if (Array.isArray(parsed)) directoryPaths.value = parsed.filter((item): item is string => typeof item === 'string')
+      }
       const cached = localStorage.getItem('tvFileData')
       if (cached) {
         const parsed = JSON.parse(cached) as ProcessedItem[]
@@ -656,7 +587,7 @@ export const useTVFileManagement = () => {
         const migrate = (items: ProcessedItem[]): ProcessedItem[] =>
           items.map(item => ({
             ...item,
-            id: item.id || makeId(item.path),
+            id: makeId(item.path),
             children: item.children ? migrate(item.children) : undefined,
           }))
         fileData.value = migrate(parsed)
@@ -672,6 +603,8 @@ export const useTVFileManagement = () => {
    * 清除缓存
    */
   const clearCache = (): void => {
+    cacheSaveVersion++
+    cacheSaveScheduled = false
     try {
       localStorage.removeItem('tvFileData')
       localStorage.removeItem('tvDirectories')

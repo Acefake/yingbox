@@ -31,9 +31,10 @@ interface API {
     mkdir: (dirPath: string) => Promise<FileOperationResult>
     readdir: (dirPath: string) => Promise<FileOperationResult>
     readdirRecursive: (dirPath: string) => Promise<FileOperationResult>
+    scanMediaDirectory: (dirPath: string) => Promise<FileOperationResult>
     stat: (filePath: string) => Promise<FileOperationResult>
     copy: (srcPath: string, destPath: string) => Promise<FileOperationResult>
-    move: (srcPath: string, destPath: string) => Promise<FileOperationResult>
+    move: (srcPath: string, destPath: string, options?: { replace?: boolean }) => Promise<FileOperationResult>
     readImage: (filePath: string) => Promise<FileOperationResult>
   }
   http: {
@@ -64,7 +65,9 @@ interface API {
     basename: (filePath: string, ext?: string) => Promise<string>
     extname: (filePath: string) => Promise<string>
   }
+  config: { setDownloadPath: (path: string) => Promise<void> }
   dialog: {
+    selectDirectory: () => Promise<string | null>
     openDirectory: () => Promise<{
       success: boolean
       canceled: boolean
@@ -98,9 +101,6 @@ interface API {
     openPath: (
       filePath: string
     ) => Promise<{ success: boolean; error?: string }>
-  }
-  player: {
-    open: (filePath: string, customTitle?: string) => Promise<{ success: boolean }>
   }
   win: {
     minimize: () => Promise<void>

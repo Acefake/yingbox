@@ -1,19 +1,18 @@
+import { readMediaDirectory, fileId as makeId } from '@/utils/media-directory'
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FileItem, ProcessedItem } from '@/types'
 import { useErrorHandler } from '@/composables/use-error-handler'
 
 /** 基于路径生成确定性 ID（轻量 hash） */
-const makeId = (path: string): string => {
-  let h = 0
-  for (let i = 0; i < path.length; i++) {
-    h = ((h << 5) - h + path.charCodeAt(i)) | 0
-  }
-  return `f${(h >>> 0).toString(36)}`
-}
 
 /** 名称排序比较器：文件夹优先，然后按名称字母序 */
 const compareItems = (a: ProcessedItem, b: ProcessedItem): number => {
+  const aScraped = Boolean(a.hasNfo && a.hasPoster)
+  const bScraped = Boolean(b.hasNfo && b.hasPoster)
+  if (aScraped !== bScraped) {
+    return aScraped ? -1 : 1
+  }
   if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
   return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
 }
@@ -28,6 +27,8 @@ export const useFileManagement = () => {
   const currentDirectoryPath = ref<string>('')
   const dirLoading = ref(false)
   const scanProgress = ref({ found: 0, active: false })
+  let cacheSaveScheduled = false
+  let cacheSaveVersion = 0
 
   // 视频文件扩展名
   const videoExtensions = [
@@ -85,6 +86,10 @@ export const useFileManagement = () => {
       if (arr) arr.push(f)
       else normFileMap.set(dir, [f])
     }
+    const directoryMediaState = new Map<
+      string,
+      { hasNfo: boolean; hasPoster: boolean; hasFanart: boolean }
+    >()
 
     // 显示所有视频文件，从视频文件所在的文件夹读取关联数据
     for (const file of visibleFiles) {
@@ -99,28 +104,26 @@ export const useFileManagement = () => {
       const normVideoDir = normPath(videoDir)
 
       // 从索引中获取同目录文件
-      const dirFiles = normFileMap.get(normVideoDir) || []
-      const sameDirectoryFiles = dirFiles.filter(f => {
-        const noSubdir =
-          normPath(f.path).substring(normVideoDir.length + 1).indexOf('/') === -1
-        return f.isFile && noSubdir
-      })
-
-      // 检测是否已有 NFO、海报和背景图
-      const hasNfo = sameDirectoryFiles.some(f =>
-        f.name.toLowerCase().endsWith('.nfo')
-      )
-      const hasPoster = sameDirectoryFiles.some(
-        f =>
-          f.name.toLowerCase().includes('poster') ||
-          f.name.toLowerCase() === 'poster.jpg'
-      )
-      const hasFanart = sameDirectoryFiles.some(
-        f =>
-          f.name.toLowerCase().includes('fanart') ||
-          f.name.toLowerCase().includes('backdrop') ||
-          f.name.toLowerCase() === 'fanart.jpg'
-      )
+      const sameDirectoryFiles = normFileMap.get(normVideoDir) || []
+      let mediaState = directoryMediaState.get(normVideoDir)
+      if (!mediaState) {
+        mediaState = {
+          hasNfo: sameDirectoryFiles.some(f =>
+            f.name.toLowerCase().endsWith('.nfo')
+          ),
+          hasPoster: sameDirectoryFiles.some(f =>
+            f.name.toLowerCase().includes('poster') ||
+            f.name.toLowerCase() === 'poster.jpg'
+          ),
+          hasFanart: sameDirectoryFiles.some(
+            f =>
+              f.name.toLowerCase().includes('fanart') ||
+              f.name.toLowerCase().includes('backdrop') ||
+              f.name.toLowerCase() === 'fanart.jpg'
+          ),
+        }
+        directoryMediaState.set(normVideoDir, mediaState)
+      }
 
       result.push({
         id: makeId(file.path),
@@ -129,9 +132,9 @@ export const useFileManagement = () => {
         type: 'video',
         size: file.size,
         files: sameDirectoryFiles,
-        hasNfo,
-        hasPoster,
-        hasFanart,
+        hasNfo: mediaState.hasNfo,
+        hasPoster: mediaState.hasPoster,
+        hasFanart: mediaState.hasFanart,
       })
     }
 
@@ -142,64 +145,10 @@ export const useFileManagement = () => {
   /**
    * 递归读取目录（自定义实现，支持增量更新进度）
    */
-  const readDirectoryRecursive = async (
-    dirPath: string
-  ): Promise<FileItem[]> => {
-    const allFiles: FileItem[] = []
-
-    try {
-      const result = await window.api.file.readdir(dirPath)
-      if (!result.success || !result.data) {
-        return allFiles
-      }
-
-      const items = result.data as Array<{
-        name: string
-        isDirectory: boolean
-        isFile: boolean
-      }>
-
-      for (const item of items) {
-        const fullPath = await window.api.path.join(dirPath, item.name)
-        const statResult = await window.api.file.stat(fullPath)
-
-        if (!statResult.success || !statResult.data) {
-          continue
-        }
-
-        const stat = statResult.data as {
-          size: number
-          isDirectory: boolean
-          isFile: boolean
-          mtime: number
-        }
-
-        scanProgress.value.found++
-        allFiles.push({
-          id: makeId(fullPath),
-          name: item.name,
-          path: fullPath,
-          size: stat.size,
-          isDirectory: stat.isDirectory,
-          isFile: stat.isFile,
-          mtime: stat.mtime,
-        })
-
-        // 如果是目录，递归读取
-        if (item.isDirectory) {
-          try {
-            const subFiles = await readDirectoryRecursive(fullPath)
-            allFiles.push(...subFiles)
-          } catch {
-            // 跳过无法读取的目录
-          }
-        }
-      }
-    } catch {
-      // 跳过无法读取的目录
-    }
-
-    return allFiles
+  const readDirectoryRecursive = async (dirPath: string): Promise<FileItem[]> => {
+    const files = await readMediaDirectory(dirPath)
+    scanProgress.value.found = files.length
+    return files
   }
 
   /**
@@ -208,7 +157,7 @@ export const useFileManagement = () => {
   const readDirectory = async (): Promise<void> => {
     dirLoading.value = true
     scanProgress.value = { found: 0, active: true }
-    const result = await safeExecute(async () => {
+    await safeExecute(async () => {
       const dialogResult = await window.api.dialog.openDirectory()
 
       if (
@@ -220,10 +169,10 @@ export const useFileManagement = () => {
       }
 
       const selectedPath = dialogResult.filePaths[0]
-      currentDirectoryPath.value = selectedPath
 
       scanProgress.value = { found: 0, active: true }
       const files = await readDirectoryRecursive(selectedPath)
+      currentDirectoryPath.value = selectedPath
       fileData.value = files
       scanProgress.value = { found: files.length, active: false }
       saveToCache()
@@ -231,15 +180,13 @@ export const useFileManagement = () => {
       return files
     }, '读取目录失败')
 
-    if (result) {
-      scanProgress.value.active = false
-    }
+    scanProgress.value.active = false
     dirLoading.value = false
   }
 
   /**
    * 刷新文件列表
-   * - 有缓存数据时：增量刷新（只扫描顶层目录，按 ID + mtime/size 检测变化）
+   * - 有缓存数据时：增量刷新（递归扫描并按路径及 mtime/size 复用未变化条目）
    * - 无缓存数据时：全量扫描
    */
   const refreshFiles = async (): Promise<void> => {
@@ -278,6 +225,7 @@ export const useFileManagement = () => {
         `刷新目录失败: ${error instanceof Error ? error.message : '未知错误'}`
       )
     } finally {
+      scanProgress.value.active = false
       dirLoading.value = false
     }
   }
@@ -340,6 +288,7 @@ export const useFileManagement = () => {
         `增量刷新失败: ${error instanceof Error ? error.message : '未知错误'}`
       )
     } finally {
+      scanProgress.value.active = false
       dirLoading.value = false
     }
   }
@@ -360,41 +309,20 @@ export const useFileManagement = () => {
       // 统一路径分隔符为正斜杠，用于 fileData 过滤比较
       const normalizedTargetPath = targetPath.replace(/\\/g, '/')
 
-      // 读取目标目录的直接子项
-      const result = await window.api.file.readdir(targetPath)
+      const result = await window.api.file.scanMediaDirectory(targetPath)
 
       if (!result.success || !result.data) {
         throw new Error(result.error || '读取目录失败')
       }
 
-      const items = result.data as Array<{
-        name: string
-        isDirectory: boolean
-        isFile: boolean
-      }>
-
-      // 构建含完整路径的 FileItem 列表（只取当前层，不递归）
-      const newFiles: FileItem[] = []
-      for (const item of items) {
-        const fullPath = await window.api.path.join(targetPath, item.name)
-        const statResult = await window.api.file.stat(fullPath)
-        if (!statResult.success || !statResult.data) continue
-        const stat = statResult.data as {
-          size: number
-          isDirectory: boolean
-          isFile: boolean
-          mtime: number
-        }
-        newFiles.push({
-          id: makeId(fullPath),
-          name: item.name,
-          path: fullPath,
-          size: stat.size,
-          isDirectory: stat.isDirectory,
-          isFile: stat.isFile,
-          mtime: stat.mtime,
+      const newFiles = (result.data as Omit<FileItem, 'id'>[])
+        .map(file => ({ ...file, id: makeId(file.path) }))
+        .filter(file => {
+          const relativePath = file.path
+            .replace(/\\/g, '/')
+            .slice(normalizedTargetPath.length + 1)
+          return !relativePath.includes('/')
         })
-      }
 
       // 旧文件中属于该目录直接子项的条目（不含更深层子目录中的文件）
       const oldDirFiles = fileData.value.filter(f => {
@@ -430,6 +358,7 @@ export const useFileManagement = () => {
         `刷新目录失败: ${error instanceof Error ? error.message : '未知错误'}`
       )
     } finally {
+      scanProgress.value.active = false
       dirLoading.value = false
     }
   }
@@ -438,25 +367,50 @@ export const useFileManagement = () => {
    * 刮削完成后全量刷新，避免局部刷新在根目录场景下产生重复条目
    * @param _folderPath 刮削产生的目标文件夹路径（保留参数签名兼容性）
    */
-  const refreshAfterScrape = async (_folderPath: string): Promise<void> => {
-    await refreshFiles()
+  let refreshPending: Promise<void> | null = null
+  let refreshDirty = false
+  const refreshAfterScrape = (_folderPath: string): Promise<void> => {
+    refreshDirty = true
+    if (!refreshPending) {
+      refreshPending = (async () => {
+        do {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          refreshDirty = false
+          await refreshFiles()
+        } while (refreshDirty)
+      })().finally(() => { refreshPending = null })
+    }
+    return refreshPending
   }
 
   /**
    * 保存到缓存
    */
   const saveToCache = (): void => {
-    try {
-      localStorage.setItem(
-        'folderContent_fileData',
-        JSON.stringify(fileData.value)
-      )
-      localStorage.setItem(
-        'folderContent_currentPath',
-        currentDirectoryPath.value
-      )
-    } catch (error) {
-      console.error('保存缓存失败:', error)
+    if (cacheSaveScheduled) return
+    cacheSaveScheduled = true
+    const version = cacheSaveVersion
+    const persist = () => {
+      cacheSaveScheduled = false
+      if (version !== cacheSaveVersion) return
+      try {
+        localStorage.setItem(
+          'folderContent_fileData',
+          JSON.stringify(fileData.value)
+        )
+        localStorage.setItem(
+          'folderContent_currentPath',
+          currentDirectoryPath.value
+        )
+      } catch (error) {
+        console.error('保存缓存失败:', error)
+      }
+    }
+
+    if (typeof requestIdleCallback !== 'undefined') {
+      requestIdleCallback(persist, { timeout: 1000 })
+    } else {
+      window.setTimeout(persist, 0)
     }
   }
 
@@ -471,9 +425,7 @@ export const useFileManagement = () => {
       if (cachedData && cachedPath) {
         const parsed = JSON.parse(cachedData) as FileItem[]
         // 迁移旧缓存：补全缺失的 id
-        fileData.value = parsed.map(f =>
-          f.id ? f : { ...f, id: makeId(f.path) }
-        )
+        fileData.value = parsed.map(f => ({ ...f, id: makeId(f.path) }))
         currentDirectoryPath.value = cachedPath
         return true
       }
@@ -487,6 +439,8 @@ export const useFileManagement = () => {
    * 清除缓存
    */
   const clearCache = (): void => {
+    cacheSaveVersion++
+    cacheSaveScheduled = false
     try {
       localStorage.removeItem('folderContent_fileData')
       localStorage.removeItem('folderContent_currentPath')

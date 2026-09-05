@@ -375,14 +375,14 @@ const handleImageError = (event: Event): void => {
   background: var(--primary-glass);
   backdrop-filter: blur(12px);
   -webkit-backdrop-filter: blur(12px);
-  border: 1px solid rgba(59, 130, 246, 0.3);
+  border: 1px solid rgba(10, 132, 255, 0.3);
   transition: all 0.2s ease;
   cursor: pointer;
 }
 .glass-btn:hover {
-  background: rgba(59, 130, 246, 0.7);
-  border-color: rgba(59, 130, 246, 0.5);
-  box-shadow: 0 4px 16px rgba(59, 130, 246, 0.25);
+  background: rgba(10, 132, 255, 0.7);
+  border-color: rgba(10, 132, 255, 0.5);
+  box-shadow: 0 4px 16px rgba(10, 132, 255, 0.25);
 }
 
 .line-clamp-3 {

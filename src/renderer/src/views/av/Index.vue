@@ -137,23 +137,22 @@
 
     <!-- 播放器：仅保留视频画面与原生控制条 -->
     <Transition name="sheet-fade">
-      <div v-if="showPlayer" class="fixed inset-0 z-[1200] flex items-center justify-center bg-black/75" @click.self="closePlayer">
-        <div class="av-player-page relative flex max-h-[92vh] w-[92vw] items-center justify-center overflow-hidden rounded-xl bg-black">
-          <button class="absolute right-4 top-3 z-10 text-2xl leading-none text-white/60 hover:text-white" aria-label="关闭播放器" @click="closePlayer">×</button>
+      <div v-if="showPlayer" class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/75" @click.self="closePlayer">
+        <div class="av-player-page relative flex h-[78vh] max-h-[92vh] w-[92vw] max-w-[1200px] items-center justify-center overflow-hidden rounded-xl bg-black">
         <p v-if="playerMessage" class="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-2 text-xs text-white/80">{{ playerMessage }}</p>
-        <video
-          ref="videoEl"
-          class="h-full w-full object-contain"
-          controls
-          autoplay
+        <UnifiedVideoPlayer
+          :src="playingUrl"
           :poster="playingVideo?.vod_pic"
-          tabindex="0"
+          :title="playingVideo?.vod_name || '正在播放'"
+          closable
+          @ready="videoEl = $event; applyPlaybackSettings()"
           @loadedmetadata="handleLoadedMetadata"
           @timeupdate="handleTimeUpdate"
           @volumechange="handleVolumeChange"
           @error="handleVideoError"
           @ended="handleVideoEnded"
           @keydown="handlePlayerKeydown"
+          @close="closePlayer"
         />
         </div>
       </div>
@@ -162,13 +161,12 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, shallowRef, onMounted, onBeforeUnmount, nextTick, watch } from 'vue'
+import { computed, ref, shallowRef, onMounted, onBeforeUnmount, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
-import Hls from 'hls.js'
 import { useRoute } from 'vue-router'
-import { backend } from '@/api/backend'
 import { useAvSources, type AvSite } from './use-av-sources'
 import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
+import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
 
 // ─── Tab ─────────────────────────────────────────────────────
 const tabs = [
@@ -390,27 +388,18 @@ const failedSourceCount = ref(0)
 const searchError = ref('')
 const runQuerySearch = () => {
   const query = String(route.query.q || '').trim()
-  if (!query) return
+  if (!query) {
+    searchKeyword.value = ''
+    videos.value = []
+    hasSearched.value = false
+    searchError.value = ''
+    return
+  }
   searchKeyword.value = query
   activeTab.value = 'search'
   handleSearch()
 }
-watch(() => route.query.q, () => runQuerySearch())
-
-// 图片代理 URL
-const getProxyImageUrl = (url: string) => {
-  if (!url) return ''
-  return backend.proxyUrl(url)
-}
-
-// ─── 搜索历史 ─────────────────────────────────────────────────
-const searchHistory = useStorage<string[]>('av_search_history', [])
-const saveSearchHistory = (kw: string) => {
-  searchHistory.value = [kw, ...searchHistory.value.filter(s => s !== kw)].slice(0, 20)
-}
-const removeSearchHistory = (kw: string) => {
-  searchHistory.value = searchHistory.value.filter(s => s !== kw)
-}
+watch(() => route.query.q, () => runQuerySearch(), { immediate: true })
 
 // ─── 播放历史 ─────────────────────────────────────────────────
 interface AvPlayRecord {
@@ -458,13 +447,11 @@ const playingUrl = ref('')
 const videoEl = ref<HTMLVideoElement | null>(null)
 const playingGroup = ref<{ vod_name: string; vod_pic: string; items: any[] } | null>(null)
 const playerMessage = ref('')
-const playbackRate = useStorage<number>('av_playback_rate', 1)
 const volume = useStorage<number>('av_volume', 1)
 const attemptedSourceIds = new Set<string>()
 let switchingSource = false
 let resumeTime = 0
 let lastProgressSave = 0
-let hls: Hls | null = null
 
 // 增量去重合并 — 避免每次 videos 变化都重建整个 Map
 const mergedMap = new Map<string, { key: string; vod_name: string; vod_pic: string; items: any[] }>()
@@ -549,7 +536,6 @@ const handleSearch = async () => {
   currentAbort = new AbortController()
   const signal = currentAbort.signal
 
-  saveSearchHistory(keyword)
   loading.value = true
   hasSearched.value = true
   doneCount.value = 0
@@ -569,18 +555,23 @@ const handleSearch = async () => {
     return
   }
 
-  // 限制并发请求，避免数据源较多时同时建立过多连接。
+  // 限制并发请求；每个站点返回后立即合并结果，不等待全部站点完成。
   const sourceResults = await mapWithConcurrency(activeSources, 4, async source => {
     const items = await fetchFromSource(source, keyword, signal)
-    if (!signal.aborted) doneCount.value++
+    if (!signal.aborted) {
+      doneCount.value++
+      if (items.length) {
+        videos.value = [...videos.value, ...items]
+        rebuildMerged()
+      }
+    }
     return items
   })
   if (signal.aborted) return
   const allItems = sourceResults.flat()
   searchCache.set(cacheKey, { expiresAt: Date.now() + 5 * 60 * 1000, items: allItems })
   if (searchCache.size > 30) searchCache.delete(searchCache.keys().next().value as string)
-  videos.value = allItems
-  rebuildMerged()
+  // 增量结果已经渲染；这里仅用于缓存，避免最后一次重复重建。
 
   if (!signal.aborted) {
     loading.value = false
@@ -606,7 +597,8 @@ const playVideo = async (video: any) => {
   attemptedSourceIds.add(video._uid)
   resumeTime = 0
   playerMessage.value = ''
-  await window.api.player.open(episodes[0].url, video.vod_name)
+  showPlayer.value = true
+  await startPlay(episodes[0].url, episodes[0].name)
 }
 
 const switchSource = async (video: any, automatic = false) => {
@@ -641,38 +633,11 @@ const tryNextSource = async () => {
 const startPlay = async (url: string, epName = '') => {
   playingUrl.value = url
   if (playingVideo.value) savePlayHistory(playingVideo.value, epName, url)
-
-  // 等待 DOM 更新后直接获取 video 元素
-  await nextTick()
-  const el = videoEl.value
-  if (!el) return
-
-  applyPlaybackSettings()
-
-  if (hls) { hls.destroy(); hls = null }
-  el.pause()
-  el.removeAttribute('src')
-  el.load()
-
-  // 支持 HLS 在线流和直链
-  if (Hls.isSupported() && /\.m3u8(?:$|\?)/i.test(url)) {
-    hls = new Hls()
-    hls.loadSource(url)
-    hls.attachMedia(el)
-    hls.on(Hls.Events.MANIFEST_PARSED, () => el.play().catch(() => {}))
-    hls.on(Hls.Events.ERROR, (_event, data) => {
-      if (data.fatal) tryNextSource()
-    })
-  } else {
-    el.src = url
-    el.play().catch(() => {})
-  }
 }
 
 const applyPlaybackSettings = () => {
   const el = videoEl.value
   if (!el) return
-  el.playbackRate = Number(playbackRate.value) || 1
   el.volume = Math.min(1, Math.max(0, Number(volume.value) || 0))
 }
 
@@ -691,7 +656,8 @@ const resumeHistory = async (record: AvPlayRecord) => {
   attemptedSourceIds.add(video._uid)
   resumeTime = record.progress
   playerMessage.value = record.progress > 5 ? '继续上次播放' : ''
-  await window.api.player.open(record.url, record.vod_name)
+  showPlayer.value = true
+  await startPlay(record.url, record.epName)
 }
 
 const handleLoadedMetadata = () => {
@@ -714,7 +680,7 @@ const handleTimeUpdate = () => {
 }
 
 const handleVideoError = () => {
-  if (!hls) tryNextSource()
+  tryNextSource()
 }
 
 const handleVideoEnded = async () => {
@@ -768,7 +734,6 @@ const closePlayer = () => {
   playingUrl.value = ''
   playerMessage.value = ''
   resumeTime = 0
-  if (hls) { hls.destroy(); hls = null }
   if (videoEl.value) videoEl.value.src = ''
 }
 
@@ -787,7 +752,6 @@ const handleImageError = (e: Event) => {
 onBeforeUnmount(() => {
   browseAbort?.abort()
   currentAbort?.abort()
-  if (hls) { hls.destroy(); hls = null }
 })
 onMounted(() => {
   window.addEventListener('app:navigate-back', handleNavigateBack)
