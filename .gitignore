@@ -13,3 +13,5 @@ out
 .eslintcache
 .claude/worktrees/
 .codex_tmp/
+
+dist-web/

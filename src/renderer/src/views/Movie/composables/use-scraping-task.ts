@@ -72,6 +72,25 @@ const moveWithConflict = async (
 const _completions = new Map<string, { resolve: (v: string | null) => void }>()
 const _results = new Map<string, string | null>()
 
+/** 刮削入队参数，供失败重试用 */
+type ScrapePayload = {
+  movie: ScrapedMovie
+  item: ProcessedItem
+  options?: { cancellable?: boolean; cancelFn?: () => void }
+}
+const _scrapePayloads = new Map<string, ScrapePayload>()
+
+/** 刮削完成时通知（folderPath 为电影文件夹路径，失败为 null） */
+const _scrapedFolderListeners = new Set<(folderPath: string | null) => void>()
+export const onScrapedFolder = (
+  listener: (folderPath: string | null) => void
+): (() => void) => {
+  _scrapedFolderListeners.add(listener)
+  return () => {
+    _scrapedFolderListeners.delete(listener)
+  }
+}
+
 /**
  * 从电影数据中提取统一的命名基准
  * JavBus 用 original_title (番号如 AAA-001)，TMDB 用 title
@@ -85,8 +104,18 @@ function getBaseName(movie: ScrapedMovie): string {
  */
 export const useScrapingTask = () => {
   const { scrapeMovieInFolder } = useScraping()
-  const { addItem, setDone, setError, setStep, setProcessing } =
-    useGlobalQueue()
+  const {
+    addItem,
+    setDone,
+    setError,
+    setStep,
+    setProcessing,
+    retryItem,
+    retryAllFailed: queueRetryAllFailed,
+    removeItem,
+    clearCompleted: queueClearCompleted,
+    clearAll: queueClearAll,
+  } = useGlobalQueue()
 
   const STEPS = [
     { name: '获取详情', done: false },
@@ -285,18 +314,46 @@ export const useScrapingTask = () => {
           signal.throwIfAborted()
           _results.set(id, result)
           setDone(id)
+          _scrapePayloads.delete(id)
         } catch (e) {
           _results.set(id, null)
-          setError(id)
+          const msg = e instanceof Error ? e.message : String(e)
+          setError(id, msg)
           throw e
         } finally {
           _fireCompletion(id)
         }
       },
-      { ...options, dedupKey: currentScrapeItem.path, cancelFn: () => {
-        try { options?.cancelFn?.() } finally { _results.set(queueId, null); _fireCompletion(queueId) }
-      } }
+      {
+        cancellable: options?.cancellable ?? true,
+        dedupKey: currentScrapeItem.path,
+        cancelFn: () => {
+          try {
+            options?.cancelFn?.()
+          } finally {
+            _results.set(queueId, null)
+            _fireCompletion(queueId)
+          }
+        },
+        retryHandler: () => {
+          const payload = _scrapePayloads.get(queueId)
+          _scrapePayloads.delete(queueId)
+          if (payload) {
+            void scrape(payload.movie, payload.item, payload.options)
+          } else {
+            void scrape(movie, currentScrapeItem, options)
+          }
+        },
+      }
     )
+
+    if (!isDuplicate) {
+      _scrapePayloads.set(queueId, {
+        movie,
+        item: currentScrapeItem,
+        options,
+      })
+    }
 
     // 命中去重：等待已有任务完成，共享结果
     if (isDuplicate) {
@@ -316,19 +373,69 @@ export const useScrapingTask = () => {
     })
   }
 
+  /** 重试单个失败/已取消任务 */
+  const retryFailed = (id: string): boolean => {
+    return retryItem(id)
+  }
+
+  /** 重试全部失败/已取消任务 */
+  const retryAllFailed = (): number => {
+    return queueRetryAllFailed()
+  }
+
+  /** 移除队列项并清理载荷 */
+  const removeQueueItem = (id: string): void => {
+    _scrapePayloads.delete(id)
+    removeItem(id)
+  }
+
+  /** 清除已完成项并清理载荷 */
+  const clearCompleted = (): void => {
+    queueClearCompleted()
+    _prunePayloads()
+  }
+
+  /** 清空队列并清理载荷 */
+  const clearAll = (): void => {
+    queueClearAll()
+    _scrapePayloads.clear()
+  }
+
   return {
     scrape,
     processSingleScrapeTask: scrape,
     registerScrapeTask: scrape,
+    retryFailed,
+    retryAllFailed,
+    removeQueueItem,
+    clearCompleted,
+    clearAll,
+  }
+}
+
+/** 同步清理已不在队列中的载荷 */
+function _prunePayloads(): void {
+  const { items } = useGlobalQueue()
+  const live = new Set(items.value.map(i => i.id))
+  for (const id of [..._scrapePayloads.keys()]) {
+    if (!live.has(id)) _scrapePayloads.delete(id)
   }
 }
 
 /** 触发任务完成回调 */
 function _fireCompletion(id: string): void {
+  const result = _results.get(id) ?? null
   const cb = _completions.get(id)
   if (cb) {
-    cb.resolve(_results.get(id) ?? null)
+    cb.resolve(result)
     _completions.delete(id)
   }
   _results.delete(id)
+  for (const listener of _scrapedFolderListeners) {
+    try {
+      listener(result)
+    } catch (error) {
+      console.warn('onScrapedFolder listener error:', error)
+    }
+  }
 }

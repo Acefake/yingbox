@@ -16,21 +16,18 @@
     >
       <div
         class="settings-drawer pointer-events-auto relative flex h-full flex-col"
-        style="
-          width: min(500px, calc(100vw - 48px));
-        "
         @click.stop
       >
         <!-- 头部 -->
-        <div class="flex items-center justify-between px-6 py-5 flex-shrink-0 border-b border-white/8">
+        <div class="settings-header flex items-center justify-between px-6 py-5 flex-shrink-0">
           <div>
-            <span class="text-sm font-semibold text-white/90 tracking-wide">设置</span>
-            <p class="mt-1 text-[11px] text-gray-500">偏好、下载与刮削服务</p>
+            <h1 class="yb-page-title settings-drawer-title">设置</h1>
+            <p class="yb-section-subtitle">偏好与刮削服务</p>
           </div>
           <button
             @click="$emit('close')"
             aria-label="关闭设置"
-            class="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all"
+            class="settings-close-btn"
           >
             <svg
               class="w-4 h-4"
@@ -41,7 +38,7 @@
               <path
                 stroke-linecap="round"
                 stroke-linejoin="round"
-                stroke-width="2"
+                stroke-width="1.75"
                 d="M6 18L18 6M6 6l12 12"
               />
             </svg>
@@ -49,64 +46,46 @@
         </div>
 
         <!-- 设置内容（可滚动） -->
-        <div class="flex-1 overflow-y-auto px-6 py-4 space-y-2 custom-scrollbar">
+        <div class="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar settings-body">
           <!-- 分区：图片质量（合并海报/背景/演员） -->
           <SettingsSection title="图片质量" icon="image">
-            <div class="space-y-2">
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] text-gray-400 w-14 flex-shrink-0"
-                  >海报</span
-                >
-                <div class="flex gap-1 flex-1">
+            <div class="space-y-3">
+              <div class="settings-row">
+                <span class="settings-row-label">海报</span>
+                <div class="yb-seg-group flex-1">
                   <button
                     v-for="opt in imageSizeOptions"
                     :key="opt.value"
-                    class="flex-1 py-1 text-[10px] rounded transition-all"
-                    :class="
-                      posterSize === opt.value
-                        ? 'bg-blue-600/40 border border-blue-500/50 text-blue-300 font-semibold'
-                        : 'bg-white/5 border border-transparent text-gray-400 hover:bg-white/10'
-                    "
+                    class="yb-seg"
+                    :class="{ 'is-active': posterSize === opt.value }"
                     @click="posterSize = opt.value"
                   >
                     {{ opt.short }}
                   </button>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] text-gray-400 w-14 flex-shrink-0"
-                  >背景图</span
-                >
-                <div class="flex gap-1 flex-1">
+              <div class="settings-row">
+                <span class="settings-row-label">背景图</span>
+                <div class="yb-seg-group flex-1">
                   <button
                     v-for="opt in imageSizeOptions"
                     :key="opt.value"
-                    class="flex-1 py-1 text-[10px] rounded transition-all"
-                    :class="
-                      backdropSize === opt.value
-                        ? 'bg-blue-600/40 border border-blue-500/50 text-blue-300 font-semibold'
-                        : 'bg-white/5 border border-transparent text-gray-400 hover:bg-white/10'
-                    "
+                    class="yb-seg"
+                    :class="{ 'is-active': backdropSize === opt.value }"
                     @click="backdropSize = opt.value"
                   >
                     {{ opt.short }}
                   </button>
                 </div>
               </div>
-              <div class="flex items-center gap-2">
-                <span class="text-[11px] text-gray-400 w-14 flex-shrink-0"
-                  >演员</span
-                >
-                <div class="flex gap-1 flex-1">
+              <div class="settings-row">
+                <span class="settings-row-label">演员</span>
+                <div class="yb-seg-group flex-1">
                   <button
                     v-for="opt in imageSizeOptions"
                     :key="opt.value"
-                    class="flex-1 py-1 text-[10px] rounded transition-all"
-                    :class="
-                      actorSize === opt.value
-                        ? 'bg-blue-600/40 border border-blue-500/50 text-blue-300 font-semibold'
-                        : 'bg-white/5 border border-transparent text-gray-400 hover:bg-white/10'
-                    "
+                    class="yb-seg"
+                    :class="{ 'is-active': actorSize === opt.value }"
                     @click="actorSize = opt.value"
                   >
                     {{ opt.short }}
@@ -118,19 +97,15 @@
 
           <!-- 分区：元数据语言 -->
           <SettingsSection title="元数据语言" icon="globe">
-            <p class="text-[11px] text-gray-500 mb-2">
+            <p class="text-[11px] yb-dim mb-2">
               刮削时从 TMDB 获取的标题、简介、演员等信息的语言
             </p>
-            <div class="flex flex-wrap gap-1.5">
+            <div class="yb-seg-group settings-lang-group">
               <button
                 v-for="opt in metadataLanguageOptions"
                 :key="opt.value"
-                class="px-3 py-1 text-[10px] rounded-lg transition-all"
-                :class="
-                  metadataLanguage === opt.value
-                    ? 'bg-blue-600/40 border border-blue-500/50 text-blue-300 font-semibold'
-                    : 'bg-white/5 border border-transparent text-gray-400 hover:bg-white/10'
-                "
+                class="yb-seg"
+                :class="{ 'is-active': metadataLanguage === opt.value }"
                 @click="metadataLanguage = opt.value"
               >
                 {{ opt.label }}
@@ -140,36 +115,15 @@
 
           <!-- 分区：播放器 -->
           <SettingsSection title="播放器" icon="play">
-            <div class="rounded-lg border border-blue-500/40 bg-blue-600/25 px-3 py-2">
-              <div class="text-xs font-medium text-white/90">统一内置播放器</div>
-              <div class="mt-1 text-[10px] text-gray-400">首页、本地影视和 AV 资源共用同一播放器，使用统一的基础播放控制。</div>
-            </div>
-          </SettingsSection>
-
-          <!-- 分区：下载设置 -->
-          <SettingsSection title="下载设置" icon="download">
-            <p class="text-[11px] text-gray-500 mb-2">
-              AV 资源下载保存路径
-            </p>
-            <div class="flex items-center gap-2">
-              <input
-                v-model="downloadPath"
-                type="text"
-                placeholder="默认系统视频目录"
-                class="flex-1 bg-white/5 border border-white/10 rounded px-3 py-2 text-xs text-white placeholder-gray-500 focus:outline-none focus:border-blue-500"
-              />
-              <button
-                @click="selectDownloadPath"
-                class="px-3 py-2 bg-blue-600 hover:bg-blue-500 rounded text-xs text-white transition-colors"
-              >
-                选择
-              </button>
+            <div class="yb-info-callout">
+              <div class="yb-info-callout-title">统一内置播放器</div>
+              <div class="yb-info-callout-body">首页、本地影视和 AV 资源共用同一播放器，使用统一的基础播放控制。</div>
             </div>
           </SettingsSection>
 
           <!-- 分区：刮削服务 -->
           <SettingsSection title="刮削服务" icon="database">
-            <p class="text-[11px] text-gray-500 mb-2">
+            <p class="text-[11px] yb-dim mb-2">
               选择元数据刮削服务提供者
             </p>
 
@@ -178,51 +132,43 @@
               <div
                 v-for="opt in filteredProviderOptions"
                 :key="opt.value"
-                class="flex items-center gap-3 px-3 py-2 rounded-lg cursor-pointer transition-all"
-                :class="
-                  currentProvider === opt.value
-                    ? 'bg-blue-600/25 border border-blue-500/40'
-                    : 'bg-white/5 border border-transparent hover:bg-white/8'
-                "
+                class="yb-choice-card"
+                :class="{ 'is-active': currentProvider === opt.value }"
                 @click="currentProvider = opt.value"
               >
                 <div
-                  class="w-3.5 h-3.5 rounded-full border-2 flex items-center justify-center flex-shrink-0 transition-all"
-                  :class="
-                    currentProvider === opt.value
-                      ? 'border-blue-400 bg-blue-400'
-                      : 'border-gray-600'
-                  "
+                  class="yb-radio"
+                  :class="{ 'is-active': currentProvider === opt.value }"
                 >
                   <div
                     v-if="currentProvider === opt.value"
-                    class="w-1.5 h-1.5 rounded-full bg-white"
+                    class="yb-radio-dot"
                   />
                 </div>
                 <div class="flex-1 min-w-0">
-                  <div class="text-xs font-medium text-white/90">
+                  <div class="text-xs font-medium" style="color: var(--text-primary)">
                     {{ opt.label }}
                   </div>
-                  <div class="text-[10px] text-gray-500">{{ opt.desc }}</div>
+                  <div class="text-[10px] yb-dim">{{ opt.desc }}</div>
                 </div>
               </div>
             </div>
 
             <!-- TMDB 配置 -->
             <div v-if="currentProvider === 'tmdb'" class="space-y-2">
-              <p class="text-[11px] text-gray-400">TMDB Access Token</p>
+              <p class="text-[11px] yb-muted">TMDB Access Token</p>
               <textarea
                 v-model="tmdbAccessToken"
                 placeholder="输入 TMDB API Read Access Token"
                 rows="3"
-                class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-2 text-xs text-white/80 placeholder-gray-600 resize-none focus:outline-none focus:border-blue-500/50 transition-colors"
+                class="yb-field resize-none"
               />
-              <p class="text-[10px] text-gray-600">
+              <p class="text-[10px] yb-dim">
                 前往
                 <a
                   href="https://www.themoviedb.org/settings/api"
                   target="_blank"
-                  class="text-blue-400 hover:underline"
+                  class="yb-link"
                   >TMDB API 设置</a
                 >
                 获取 Read Access Token
@@ -232,25 +178,25 @@
             <!-- JavBus Go 后端配置 -->
             <div v-if="currentProvider === 'javbus'" class="space-y-2">
               <div>
-                <p class="text-[11px] text-gray-400 mb-1">Go 后端地址</p>
+                <p class="text-[11px] yb-muted mb-1">Go 后端地址</p>
                 <input
                   v-model="goBackendUrl"
                   type="text"
                   placeholder="例如：http://localhost:31471"
-                  class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  class="yb-field"
                 />
               </div>
               <div class="flex items-center gap-2">
                 <button
                   @click="handleTestGoBackend"
                   :disabled="!goBackendUrl || goTestStatus === 'testing'"
-                  class="px-3 py-1 text-xs rounded-md transition-all"
+                  class="px-3 py-1 text-xs rounded-md transition-all yb-btn-soft"
                   :class="
                     goTestStatus === 'ok'
-                      ? 'bg-green-600/30 border border-green-500/40 text-green-400'
+                      ? 'yb-status-ok'
                       : goTestStatus === 'fail'
-                        ? 'bg-red-600/30 border border-red-500/40 text-red-400'
-                        : 'bg-white/8 border border-white/10 text-gray-300 hover:bg-white/15 disabled:opacity-40 disabled:cursor-not-allowed'
+                        ? 'yb-status-fail'
+                        : ''
                   "
                 >
                   {{
@@ -264,9 +210,9 @@
                   }}
                 </button>
               </div>
-              <p class="text-[10px] text-gray-600">
+              <p class="text-[10px] yb-dim">
                 需先在
-                <code class="bg-white/5 px-1 rounded">packages/services/</code>
+                <code class="yb-chip" style="padding: 0 4px; border-radius: 4px">packages/services/</code>
                 目录下启动 Go 服务
               </p>
             </div>
@@ -274,33 +220,33 @@
             <!-- 自定义服务配置 -->
             <div v-if="currentProvider === 'custom'" class="space-y-2">
               <div>
-                <p class="text-[11px] text-gray-400 mb-1">服务名称</p>
+                <p class="text-[11px] yb-muted mb-1">服务名称</p>
                 <input
                   v-model="customProviderName"
                   type="text"
                   placeholder="例如：我的刮削服务"
-                  class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  class="yb-field"
                 />
               </div>
               <div>
-                <p class="text-[11px] text-gray-400 mb-1">API 基础 URL</p>
+                <p class="text-[11px] yb-muted mb-1">API 基础 URL</p>
                 <input
                   v-model="customBaseUrl"
                   type="text"
                   placeholder="例如：https://api.example.com"
-                  class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  class="yb-field"
                 />
               </div>
               <div>
-                <p class="text-[11px] text-gray-400 mb-1">API Key</p>
+                <p class="text-[11px] yb-muted mb-1">API Key</p>
                 <input
                   v-model="customApiKey"
                   type="password"
                   placeholder="输入 API Key"
-                  class="w-full bg-white/5 border border-white/10 rounded-lg px-3 py-1.5 text-xs text-white/80 placeholder-gray-600 focus:outline-none focus:border-blue-500/50 transition-colors"
+                  class="yb-field"
                 />
               </div>
-              <p class="text-[10px] text-gray-600">
+              <p class="text-[10px] yb-dim">
                 自定义服务需实现与 TMDB 兼容的接口格式
               </p>
             </div>
@@ -308,36 +254,31 @@
 
           <SettingsSection title="软件更新" icon="download">
             <div class="space-y-2">
-              <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg bg-white/5 border border-white/8">
+              <div class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg settings-update-card">
                 <div class="min-w-0">
-                  <div class="text-xs font-medium text-white/90">{{ updateTitle }}</div>
-                  <div class="text-[10px] text-gray-500 mt-0.5">{{ updateMessage }}</div>
+                  <div class="text-xs font-medium" style="color: var(--text-primary)">{{ updateTitle }}</div>
+                  <div class="text-[10px] yb-dim mt-0.5">{{ updateMessage }}</div>
                 </div>
                 <button
                   v-if="updateAction"
                   @click="handleUpdateAction"
                   :disabled="updateBusy"
-                  class="px-3 py-1 text-xs rounded-md transition-all bg-blue-600/40 border border-blue-500/50 text-blue-200 hover:bg-blue-600/55 disabled:opacity-40 disabled:cursor-not-allowed whitespace-nowrap"
+                  class="yb-btn-soft whitespace-nowrap"
                 >
                   {{ updateAction }}
                 </button>
               </div>
-              <div v-if="updateStatus === 'downloading'" class="h-1.5 rounded-full bg-white/8 overflow-hidden">
-                <div class="h-full rounded-full bg-blue-500 transition-all" :style="{ width: `${updateProgress}%` }"></div>
+              <div v-if="updateStatus === 'downloading'" class="h-1.5 rounded-full settings-progress-track overflow-hidden">
+                <div class="h-full rounded-full settings-progress-bar transition-all" :style="{ width: `${updateProgress}%` }"></div>
               </div>
             </div>
           </SettingsSection>
         </div>
 
         <!-- 底部版本信息 -->
-        <div
-          class="flex-shrink-0 px-6 py-4 border-t border-white/8 flex items-center justify-between"
-        >
-          <p class="text-[10px] text-gray-600">影盒 · 设置</p>
-          <button
-            @click="resetProviderConfig"
-            class="text-[10px] text-gray-600 hover:text-red-400 transition-colors px-2 py-0.5 rounded hover:bg-white/5"
-          >
+        <div class="settings-footer">
+          <p class="settings-footer-meta">影盒 · 设置</p>
+          <button type="button" class="settings-reset-btn" @click="resetProviderConfig">
             重置刮削配置
           </button>
         </div>
@@ -347,7 +288,6 @@
 </template>
 
 <script setup lang="ts">
-import { message } from 'ant-design-vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import {
@@ -375,29 +315,6 @@ const backdropSize = ref(
 const actorSize = ref(
   localStorage.getItem('imageDownloadSize_actor') || 'original'
 )
-
-const downloadPath = ref(localStorage.getItem('downloadPath') || '')
-
-const selectDownloadPath = async () => {
-  try {
-    const path = await window.api.dialog.selectDirectory()
-    if (path) {
-      downloadPath.value = path
-    }
-  } catch (err) {
-    console.error('Failed to select directory:', err)
-  }
-}
-
-watch(downloadPath, async val => {
-  if (!val) return
-  try {
-    await window.api.config.setDownloadPath(val)
-    localStorage.setItem('downloadPath', val)
-  } catch (error) {
-    message.error(`保存下载目录失败: ${error instanceof Error ? error.message : '未知错误'}`)
-  }
-}, { immediate: true })
 
 watch(
   posterSize,
@@ -547,8 +464,8 @@ const handleUpdateAction = async () => {
   }
 }
 
-window.api.update.onStatus(handleUpdateStatus)
-onBeforeUnmount(() => window.api.update.offStatus())
+window.api?.update?.onStatus?.(handleUpdateStatus)
+onBeforeUnmount(() => window.api?.update?.offStatus?.())
 
 const loadConfig = () => {
   // 刷新成人模式状态
@@ -599,7 +516,7 @@ const handleTestGoBackend = async (): Promise<void> => {
 <style scoped>
 .settings-fade-enter-active,
 .settings-fade-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity 0.3s var(--ease-out);
 }
 .settings-fade-enter-from,
 .settings-fade-leave-to {
@@ -608,9 +525,7 @@ const handleTestGoBackend = async (): Promise<void> => {
 
 .settings-slide-enter-active,
 .settings-slide-leave-active {
-  transition:
-    opacity 0.2s ease,
-    transform 0.2s cubic-bezier(0.4, 0, 0.2, 1);
+  transition: var(--transition-panel);
 }
 .settings-slide-enter-from,
 .settings-slide-leave-to {
@@ -618,9 +533,133 @@ const handleTestGoBackend = async (): Promise<void> => {
 }
 
 .settings-drawer {
-  background: rgba(18, 22, 29, 0.98);
-  border-left: 1px solid rgba(255, 255, 255, 0.1);
-  box-shadow: -24px 0 64px rgba(0, 0, 0, 0.45);
-  backdrop-filter: blur(24px);
+  width: min(500px, calc(100vw - 48px));
+  background: var(--bg-panel);
+  color: var(--text-primary);
+  border-left: 1px solid var(--separator);
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+}
+
+@media (max-width: 768px) {
+  .settings-drawer {
+    width: 100vw;
+    border-left: 0;
+  }
+}
+
+.settings-header {
+  border-bottom: 1px solid var(--separator);
+}
+
+.settings-drawer-title {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.022em;
+}
+
+.settings-close-btn {
+  width: 30px;
+  height: 30px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: var(--bg-fill-secondary);
+  border: 0;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.settings-close-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass-hover);
+}
+.settings-close-btn:active { transform: scale(0.94); }
+
+.settings-body {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+}
+
+.settings-row {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+
+.settings-row-label {
+  width: 52px;
+  flex-shrink: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+.settings-lang-group {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.settings-lang-group .yb-seg {
+  flex: 1 1 auto;
+  min-width: 72px;
+}
+
+.settings-update-card {
+  background: var(--bg-fill-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
+}
+.settings-progress-track { background: var(--bg-fill-secondary); }
+.settings-progress-bar { background: var(--accent); }
+
+.settings-footer {
+  flex-shrink: 0;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 14px 22px 18px;
+  border-top: 1px solid var(--separator);
+  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
+}
+.settings-footer-meta {
+  margin: 0;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+.settings-reset-btn {
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  color: var(--text-tertiary);
+  padding: 6px 10px;
+  border-radius: var(--radius-md);
+  transition: var(--transition-fast);
+}
+.settings-reset-btn:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
+.settings-reset-btn:active { transform: scale(0.97); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .settings-drawer {
+    backdrop-filter: none;
+    -webkit-backdrop-filter: none;
+    background: var(--bg-elevated);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .settings-slide-enter-active,
+  .settings-slide-leave-active {
+    transition: opacity 0.2s ease;
+  }
+  .settings-slide-enter-from,
+  .settings-slide-leave-to { transform: none; }
+  .settings-close-btn:active,
+  .settings-reset-btn:active { transform: none; }
 }
 </style>

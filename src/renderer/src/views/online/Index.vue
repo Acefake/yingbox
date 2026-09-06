@@ -17,7 +17,7 @@
       <LibraryCollection kind="favorites" @open="openDetailWindow" />
     </div>
     <div v-show="!inlineDetailItem && activeTab === 'recent'" class="content-area primary-scroll home-content-area">
-      <LibraryCollection kind="recent" @open="openDetailWindow" />
+      <LibraryCollection kind="recent" @open="openDetailWindow" @resume="resumeRecentPlay" />
     </div>
 
     <Transition name="detail-page">
@@ -38,6 +38,9 @@ import SearchTab from './components/SearchTab.vue'
 import VodBrowse from './components/VodBrowse.vue'
 import DetailWindow from './DetailWindow.vue'
 import LibraryCollection from './components/LibraryCollection.vue'
+import { message } from 'ant-design-vue'
+import { openMediaPlayer } from '@/composables/use-media-player'
+import { getMediaProgress } from '@/utils/play-progress'
 
 const route = useRoute()
 const inlineDetailItem = ref<CmsItem | null>(null)
@@ -67,6 +70,31 @@ watch(
 const openDetailWindow = (item: CmsItem) => {
   inlineDetailItem.value = JSON.parse(JSON.stringify(item))
 }
+const resumeRecentPlay = async (record: Record<string, any>) => {
+  const url = typeof record?.url === 'string' ? record.url.trim() : ''
+  const item = (record?.item || record) as CmsItem
+  if (!url) {
+    if (item?.vod_name) openDetailWindow(item)
+    return
+  }
+  const name = (item as any)?.vod_name || record?.vod_name || ''
+  const epName = typeof record?.epName === 'string' ? record.epName : ''
+  const title = [name, epName].filter(Boolean).join(' · ') || '继续播放'
+  const poster =
+    (typeof (item as any)?.vod_pic === 'string' && (item as any).vod_pic) ||
+    (typeof record?.vod_pic === 'string' && record.vod_pic) ||
+    undefined
+  const stored =
+    typeof record?.progress === 'number' && record.progress > 0
+      ? record.progress
+      : getMediaProgress(url)
+  const ok = await openMediaPlayer({ url, title, poster, startAt: stored })
+  if (!ok) {
+    message.error('无法打开播放窗口，已改为进入详情')
+    if (item?.vod_name) openDetailWindow(item)
+  }
+}
+
 
 const openDoubanDetail = (item: DoubanItem) => {
   inlineDetailItem.value = JSON.parse(
@@ -90,7 +118,7 @@ const openDoubanDetail = (item: DoubanItem) => {
   display: flex;
   flex-direction: column;
   background: transparent;
-  color: white;
+  color: var(--text-main);
   overflow: hidden;
   -webkit-app-region: no-drag;
   position: relative;
@@ -113,7 +141,7 @@ const openDoubanDetail = (item: DoubanItem) => {
   inset: 0;
   z-index: 40;
   width: 100%;
-  background: #15181d;
+  background: var(--bg-elevated);
 }
 
 .inline-detail-page :deep(.detail-win) {
@@ -135,7 +163,7 @@ const openDoubanDetail = (item: DoubanItem) => {
 }
 
 .content-area::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
 }
 </style>

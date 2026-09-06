@@ -1,111 +1,81 @@
 <template>
-  <div
-    ref="leftPanel"
-    :style="{
-      width: 280 + 'px',
-      minWidth: 280 + 'px',
-    }"
-    :class="[
-      'flex flex-col flex-shrink-0 relative h-full border-r border-white/10',
-    ]"
-  >
-    <!-- 顶部置顶操作区 -->
-    <div class="flex-shrink-0 p-3 border-b border-white/10">
-      <!-- 标题行 -->
-      <div class="flex items-center justify-between px-1 mb-2">
-        <h2 class="text-base font-semibold tracking-wide text-white">
-          {{ mode === 'tv' ? '电视剧' : '电影' }}
-        </h2>
-        <span
-          v-if="adultMode"
-            class="text-xs font-bold px-1.5 py-0.5 rounded-md bg-red-600/70 text-red-100 tracking-wide"
-        >18+</span>
-        <span class="text-xs text-white/40">本地媒体库</span>
+  <div ref="leftPanel" class="yb-media-sidebar left-panel">
+    <!-- Header -->
+    <div class="lp-header">
+      <div class="lp-title-block">
+        <div class="lp-title-row">
+          <h2 class="yb-page-title lp-title">
+            {{ mode === 'tv' ? '电视剧' : '电影' }}
+          </h2>
+          <span v-if="adultMode" class="lp-adult">18+</span>
+        </div>
+        <p class="yb-section-subtitle lp-sub">本地媒体库</p>
       </div>
 
-      <!-- 扫描进度条（两种模式通用）-->
-      <div v-if="dirLoading" class="mb-2 px-1">
-        <div class="flex items-center gap-1.5 text-xs text-blue-300 mb-1">
-          <span
-            class="inline-block w-2 h-2 border-2 border-blue-400 border-t-transparent rounded-full animate-spin"
-          ></span>
-          <span v-if="scanProgress?.active"
-            >正在扫描... 已找到 {{ scanProgress.found }} 项</span
-          >
-          <span v-else>正在加载...</span>
+      <!-- Scan progress -->
+      <div v-if="dirLoading" class="lp-scan">
+        <div class="lp-scan-label">
+          <span class="lp-spin" />
+          <span v-if="scanProgress?.active">正在扫描…</span>
+          <span v-else>正在加载…</span>
         </div>
-        <div class="h-0.5 bg-white bg-opacity-10 rounded overflow-hidden">
-          <div
-            class="h-full bg-blue-400 bg-opacity-60 rounded animate-pulse"
-            style="width: 60%"
-          ></div>
+        <div class="lp-scan-track">
+          <div class="lp-scan-bar" />
         </div>
       </div>
 
-      <div class="space-y-2">
-        <!-- 顶部操作区：文字风格，空间不足时自动换行 -->
-        <div class="flex flex-wrap items-center gap-x-4 gap-y-1 border-b border-white/10 pb-2">
-          <button
-            @click="$emit('addFolder')"
-            :disabled="dirLoading"
-            class="library-action-button"
-          >
-            + 添加
-          </button>
-          <button
-            @click="$emit('refresh')"
-            :disabled="dirLoading"
-            class="library-action-button"
-          >
-            {{ dirLoading ? '刷新中...' : '刷新' }}
-          </button>
-          <span v-if="processedItems.length" class="ml-auto text-xs text-white/40">{{ processedItems.length }} 项</span>
-        </div>
-
-        <!-- 已添加目录列表（两种模式）-->
-        <div
-          v-if="directoryPaths?.length"
-          class="space-y-1 max-h-16 overflow-y-auto"
-        >
-          <div
-            v-for="(dir, i) in directoryPaths"
-            :key="dir"
-            class="flex items-center gap-1 px-2 py-1.5 bg-white bg-opacity-5 rounded-md text-xs text-gray-300 group"
-          >
-            <span class="flex-1 truncate" :title="dir">{{
-              dir.split(/[/\\]/).pop()
-            }}</span>
-            <button
-              @click="$emit('removeDirectory', i)"
-              :aria-label="`移除目录 ${dir}`"
-              class="opacity-0 group-hover:opacity-100 text-gray-500 hover:text-red-400 transition-all flex-shrink-0"
-            >
-              ✕
-            </button>
-          </div>
-        </div>
-
-        <!-- 一键刮削所有未元数据项 -->
+      <!-- Primary actions -->
+      <div class="yb-media-toolbar lp-actions">
         <button
-          v-if="mode !== 'tv' && unscrapedCount > 0"
-          class="w-full min-h-9 px-3 rounded-lg text-xs font-semibold transition-all active:scale-95 bg-amber-600/70 hover:bg-amber-600/90 text-white"
-          @click="$emit('scrapeAll')"
+          class="yb-btn-primary"
+          :disabled="dirLoading"
+          @click="$emit('addFolder')"
         >
-          一键刮削 ({{ unscrapedCount }})
+          添加文件夹
         </button>
+        <button
+          class="yb-btn-soft"
+          :disabled="dirLoading"
+          @click="$emit('refresh')"
+        >
+          {{ dirLoading ? '刷新中…' : '刷新' }}
+        </button>
+        <span v-if="processedItems.length" class="lp-count">{{ processedItems.length }} 项</span>
       </div>
+
+      <!-- Directory chips -->
+      <div v-if="directoryPaths?.length" class="lp-dirs">
+        <div v-for="(dir, i) in directoryPaths" :key="dir" class="lp-dir group">
+          <span class="lp-dir-name" :title="dir">{{ dir.split(/[/\\]/).pop() }}</span>
+          <button
+            class="lp-dir-remove"
+            :aria-label="`移除目录 ${dir}`"
+            @click="$emit('removeDirectory', i)"
+          >
+            ✕
+          </button>
+        </div>
+      </div>
+
+      <!-- Secondary: scrape all (Apple / soft accent pill) -->
+      <button
+        v-if="mode !== 'tv' && unscrapedCount > 0"
+        class="lp-scrape-all"
+        type="button"
+        @click="$emit('scrapeAll')"
+      >
+        <span class="lp-scrape-all-label">刮削未匹配</span>
+        <span class="lp-scrape-all-badge">{{ unscrapedCount }}</span>
+      </button>
     </div>
 
-    <!-- 可滚动文件列表 -->
+    <!-- Library list -->
     <div
       ref="listViewport"
-      class="flex-1 overflow-y-auto p-2 custom-scrollbar primary-scrollbar"
+      class="lp-list primary-scrollbar"
       @scroll.passive="handleListScroll"
     >
-      <div
-        v-if="filteredItems.length === 0"
-        class="p-4 text-gray-400 text-center text-sm"
-      >
+      <div v-if="filteredItems.length === 0" class="lp-empty">
         {{ searchQuery ? '没有找到匹配内容' : '请先添加文件夹' }}
       </div>
 
@@ -138,16 +108,8 @@
           :selected-index="selectedIndex"
           :selected-path="selectedPath"
           @select="$emit('selectItem', entry.item, entry.index)"
-          @show-search-modal="item => $emit('showSearchModal', item)"
-          @manual-scrape="item => $emit('manualScrape', item)"
-          @auto-scrape="item => $emit('autoScrape', item)"
-          @direct-scrape="item => $emit('directScrape', item)"
+          @scrape="item => $emit('scrape', item)"
           @preload="(item: ProcessedItem) => $emit('preload', item)"
-          @local-scrape="(item: ProcessedItem) => $emit('localScrape', item)"
-          @download-video="
-            (item: ProcessedItem) => $emit('downloadVideo', item)
-          "
-          @fetch-meta="(item: ProcessedItem) => $emit('fetchMeta', item)"
           @play="(item: ProcessedItem) => $emit('play', item)"
           @delete-file="(item: ProcessedItem) => $emit('deleteFile', item)"
         />
@@ -192,45 +154,22 @@ const onStorageChange = (event: StorageEvent) => {
 }
 
 defineEmits<{
-  /** 全量刷新 */
   refresh: []
-  /** 添加文件夹 */
   addFolder: []
-  /** 移除目录（TV模式）*/
   removeDirectory: [index: number]
-  /** 清除缓存 */
   clearCache: []
-  /** 选择项目 */
-  /** TV模式: item=点击项, rootItem=所属show根; 电影模式: item=项, rootItem=项 */
   selectItem: [item: ProcessedItem, rootItem: ProcessedItem | number]
-  /** 显示搜索模态框 */
-  showSearchModal: [item: ProcessedItem]
-  /** 手动刮削 */
-  manualScrape: [item: ProcessedItem]
-  /** 自动刮削 */
+  scrape: [item: ProcessedItem]
+  /** TV / 旧入口兼容 */
   autoScrape: [item: ProcessedItem]
-  /** 直接刮削 */
   directScrape: [item: ProcessedItem]
-  /** 鼠标悬停预加载 */
+  manualScrape: [item: ProcessedItem]
   preload: [item: ProcessedItem]
-  /** 本地刮削 */
-  localScrape: [item: ProcessedItem]
-  /** 下载视频 */
-  downloadVideo: [item: ProcessedItem]
-  /** 预览元数据 */
-  fetchMeta: [item: ProcessedItem]
-  /** 播放 */
   play: [item: ProcessedItem]
-  /** 删除文件 */
   deleteFile: [item: ProcessedItem]
-  /** 一键刮削所有未元数据项 */
   scrapeAll: []
 }>()
 
-/**
- * 过滤后的项目列表
- * 使用节流优化搜索性能
- */
 const filteredItems = computed(() => {
   if (!searchQuery.value.trim()) {
     return props.processedItems
@@ -241,24 +180,20 @@ const filteredItems = computed(() => {
   const len = items.length
   const result: ProcessedItem[] = []
 
-  // 预分配结果数组，减少内存分配
   for (let i = 0; i < len; i++) {
     const item = items[i]
     const name = item.name.toLowerCase()
 
-    // 快速路径：名称匹配
     if (name.includes(query)) {
       result.push(item)
       continue
     }
 
-    // 路径匹配
     if (item.path.toLowerCase().includes(query)) {
       result.push(item)
       continue
     }
 
-    // 文件夹内文件匹配
     if (item.type === 'folder' && item.files) {
       const files = item.files
       for (let j = 0; j < files.length; j++) {
@@ -276,7 +211,7 @@ const filteredItems = computed(() => {
 const listViewport = ref<HTMLElement | null>(null)
 const listScrollTop = ref(0)
 const listViewportHeight = ref(0)
-const movieRowHeight = 31
+const movieRowHeight = 36
 const movieOverscan = 10
 let listResizeObserver: ResizeObserver | undefined
 
@@ -337,7 +272,6 @@ watch(filteredItems, () => {
   listViewport.value?.scrollTo({ top: 0 })
 })
 
-/** 未刮削项数量（没有 NFO 文件的项） */
 const unscrapedCount = computed(() => {
   const items = props.processedItems
   let count = 0
@@ -352,19 +286,224 @@ const unscrapedCount = computed(() => {
 </script>
 
 <style scoped>
-.library-action-button {
-  min-height: 30px;
-  padding: 0 2px;
-  border: 0;
-  color: rgba(255, 255, 255, .62);
-  background: transparent;
-  font-size: 13px;
-  font-weight: 600;
-  cursor: pointer;
-  transition: color .15s ease;
+.lp-header {
+  flex-shrink: 0;
+  padding: var(--space-4) var(--space-4) var(--space-3);
+  border-bottom: 1px solid var(--separator);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
 }
 
-.library-action-button:hover:not(:disabled) { color: #fff; }
-.library-action-button:disabled { cursor: not-allowed; opacity: .45; }
+.lp-title-block {
+  padding-inline: 2px;
+}
 
+.lp-title-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.lp-title {
+  font-size: var(--text-xl);
+  letter-spacing: -0.02em;
+  line-height: 1.2;
+}
+
+.lp-sub {
+  margin: 4px 0 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.lp-adult {
+  font-size: 10px;
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  background: color-mix(in srgb, var(--danger) 18%, transparent);
+  color: var(--danger);
+  border: 1px solid color-mix(in srgb, var(--danger) 36%, transparent);
+}
+
+.lp-actions {
+  gap: var(--space-2);
+}
+
+.lp-count {
+  margin-left: auto;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.lp-dirs {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 72px;
+  overflow-y: auto;
+}
+
+.lp-dir {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 28px;
+  padding: 4px 10px;
+  border-radius: var(--radius-md);
+  background: var(--bg-fill-secondary);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+}
+
+.lp-dir-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-dir-remove {
+  opacity: 0;
+  border: 0;
+  background: transparent;
+  color: var(--text-tertiary);
+  cursor: pointer;
+  font-size: 11px;
+  padding: 2px 4px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+
+.lp-dir:hover .lp-dir-remove,
+.lp-dir:focus-within .lp-dir-remove {
+  opacity: 1;
+}
+
+.lp-dir-remove:hover {
+  color: var(--danger);
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+}
+
+.lp-scrape-all {
+  display: inline-flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+  width: 100%;
+  min-height: var(--control-height-sm);
+  padding: 0 12px 0 14px;
+  border-radius: 999px;
+  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  cursor: pointer;
+  transition: var(--transition-fast);
+  text-align: left;
+  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 12%, transparent);
+}
+
+.lp-scrape-all-label {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.lp-scrape-all-badge {
+  flex-shrink: 0;
+  min-width: 22px;
+  height: 20px;
+  padding: 0 7px;
+  border-radius: 999px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 11px;
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
+  color: var(--accent-text);
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
+}
+
+.lp-scrape-all:hover {
+  background: color-mix(in srgb, var(--accent) 26%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
+}
+
+.lp-scrape-all:active {
+  transform: scale(0.98);
+}
+
+.lp-scan-label {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: var(--text-xs);
+  color: var(--accent-text);
+  margin-bottom: 6px;
+}
+
+.lp-spin {
+  width: 10px;
+  height: 10px;
+  border: 2px solid var(--accent);
+  border-top-color: transparent;
+  border-radius: 50%;
+  animation: lp-spin 0.8s linear infinite;
+}
+
+.lp-scan-track {
+  height: 3px;
+  border-radius: 999px;
+  overflow: hidden;
+  background: var(--bg-fill-secondary);
+}
+
+.lp-scan-bar {
+  width: 55%;
+  height: 100%;
+  border-radius: inherit;
+  background: color-mix(in srgb, var(--accent) 60%, transparent);
+  animation: lp-pulse 1.4s ease-in-out infinite;
+}
+
+.lp-list {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-2);
+}
+
+.lp-empty {
+  padding: var(--space-8) var(--space-4);
+  text-align: center;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+
+@keyframes lp-spin {
+  to { transform: rotate(360deg); }
+}
+
+@keyframes lp-pulse {
+  0%, 100% { opacity: 0.55; }
+  50% { opacity: 1; }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .lp-spin,
+  .lp-scan-bar,
+  .lp-scrape-all:active {
+    animation: none;
+    transform: none;
+  }
+}
 </style>

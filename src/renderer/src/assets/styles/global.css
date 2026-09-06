@@ -5,18 +5,18 @@
 }
 
 .custom-scrollbar::-webkit-scrollbar-track {
-  background: rgba(255, 255, 255, 0.05);
+  background: var(--scrollbar-track);
   border-radius: 3px;
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
   transition: var(--transition-fast);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Primary Color Scrollbar */
@@ -25,17 +25,17 @@
 }
 
 .primary-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--primary-glass);
+  background: var(--accent-glow);
 }
 
 /* Firefox Support */
 .custom-scrollbar {
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.2) rgba(255, 255, 255, 0.05);
+  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
 }
 
 .primary-scrollbar {
-  scrollbar-color: var(--primary-glass) rgba(255, 255, 255, 0.05);
+  scrollbar-color: var(--primary-glass) var(--scrollbar-track);
 }
 
 /* One predictable scroll contract for page-level content panes. */
@@ -43,28 +43,31 @@
   scrollbar-gutter: stable;
   overscroll-behavior: contain;
   scrollbar-width: thin;
-  scrollbar-color: rgba(255, 255, 255, 0.22) transparent;
+  scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
 .primary-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
 .primary-scroll::-webkit-scrollbar-track { background: transparent; }
 .primary-scroll::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.22);
+  background: var(--scrollbar-thumb);
   border-radius: 999px;
+}
+.primary-scroll::-webkit-scrollbar-thumb:hover {
+  background: var(--scrollbar-thumb-hover);
 }
 
 /* Generic Utilities */
 .glass-panel {
   background: var(--bg-panel);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
   border: 1px solid var(--border-glass);
 }
 
 .glass-panel-floating {
-  background: rgba(17, 24, 39, 0.6);
-  backdrop-filter: blur(24px);
-  -webkit-backdrop-filter: blur(24px);
+  background: var(--bg-panel);
+  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
   border: 1px solid var(--border-glass-light);
   box-shadow: var(--shadow-panel);
 }
@@ -79,11 +82,13 @@
     transition-duration: 0.01ms !important;
   }
 }
+
 html,
 body,
 #app {
   width: 100%;
   height: 100%;
+  height: 100dvh;
   margin: 0;
 }
 
@@ -107,6 +112,7 @@ textarea {
 button,
 [role='button'] {
   -webkit-tap-highlight-color: transparent;
+  touch-action: manipulation;
 }
 
 :where(button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
@@ -123,3 +129,24 @@ button:disabled,
 [class~='text-[9px]'] { font-size: 11px !important; }
 [class~='text-[10px]'] { font-size: var(--text-xs) !important; }
 [class~='text-[11px]'] { font-size: var(--text-xs) !important; }
+
+/* Shared icon optical box — prefer AppIcon; use for leftover inline SVGs */
+.ui-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  flex: 0 0 auto;
+  width: var(--icon-md, 16px);
+  height: var(--icon-md, 16px);
+  line-height: 0;
+}
+.ui-icon svg {
+  display: block;
+  width: 100%;
+  height: 100%;
+  stroke: currentColor;
+  stroke-width: var(--icon-stroke, 1.75);
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  fill: none;
+}

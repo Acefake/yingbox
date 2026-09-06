@@ -6,36 +6,48 @@
           <!-- Header -->
           <div class="smp-header">
             <div class="smp-heading">
-              <span class="smp-title">数据源</span>
-              <p class="smp-subtitle">{{ sourceActivityText }}</p>
-            </div>
-            <div class="smp-stats">
-              <span v-if="checkingAll" class="stat unk">检测中 {{ checkedCount }}/{{ totalSources }}</span>
-              <span v-else-if="totalFail" class="stat fail">{{ totalFail }} 个失效</span>
+              <h1 class="yb-page-title smp-title">数据源</h1>
+              <p class="yb-section-subtitle smp-subtitle">{{ sourceActivityText }}</p>
             </div>
             <div class="smp-header-actions">
-              <button v-if="totalFail" class="header-text-btn" @click="disableAllFailed">
-                停用失效源
+              <button
+                v-if="totalFail"
+                class="yb-btn-soft smp-fail-btn"
+                @click="disableAllFailed"
+              >
+                停用失效源（{{ totalFail }}）
               </button>
-              <button class="smp-close" aria-label="关闭数据源管理" @click="emit('close')">✕</button>
+              <button class="smp-close" aria-label="关闭数据源管理" @click="emit('close')">
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+                  <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" />
+                </svg>
+              </button>
             </div>
           </div>
 
-          <!-- Tabs -->
-          <div class="smp-tabs">
-            <button v-for="t in tabs" :key="t.id" class="smp-tab" :class="{ active: activeTab === t.id }"
-              @click="activeTab = t.id">
-              {{ t.label }}
-              <span class="tab-count">{{ t.count }}</span>
-            </button>
+          <!-- Segmented tabs -->
+          <div class="smp-tabs-wrap">
+            <div class="yb-seg-group smp-seg">
+              <button
+                v-for="t in tabs"
+                :key="t.id"
+                class="yb-seg"
+                :class="{ 'is-active': activeTab === t.id }"
+                @click="activeTab = t.id"
+              >
+                {{ t.label }}
+                <span class="tab-count">{{ t.count }}</span>
+              </button>
+            </div>
+            <span v-if="checkingAll" class="smp-status">检测中 {{ checkedCount }}/{{ totalSources }}</span>
           </div>
 
           <div class="smp-body">
             <!-- 在线CMS源 -->
             <template v-if="activeTab === 'online'">
               <div class="section-header">
-                <span class="section-title">内置 CMS 源</span>
-                <span class="section-count">{{ DEFAULT_SITES.length }}</span>
+                <h2 class="yb-section-title">内置 CMS 源</h2>
+                <span class="yb-section-count">{{ DEFAULT_SITES.length }}</span>
               </div>
               <div class="card-grid">
                 <SiteCard v-for="s in sortedDefaultSites" :key="s.api" :name="s.name" :api="s.api" badge="CMS"
@@ -44,8 +56,8 @@
               </div>
 
               <div class="section-header mt">
-                <span class="section-title">插件视频源</span>
-                <span class="section-count">{{ visibleCatSpiderSites.length }}</span>
+                <h2 class="yb-section-title">插件视频源</h2>
+                <span class="yb-section-count">{{ visibleCatSpiderSites.length }}</span>
               </div>
               <div class="card-grid">
                 <SiteCard v-for="s in visibleCatSpiderSites" :key="s.api" :name="s.name" :api="s.api" badge="插件"
@@ -54,7 +66,7 @@
               </div>
 
               <div class="section-header mt">
-                <span class="section-title">自定义源</span>
+                <h2 class="yb-section-title">自定义源</h2>
                 <button class="add-btn" @click="showAdd = true">+ 添加</button>
               </div>
               <div v-if="customSites.length === 0" class="empty">暂无自定义源</div>
@@ -69,8 +81,8 @@
             <!-- AV源 -->
             <template v-if="activeTab === 'av'">
               <div class="section-header">
-                <span class="section-title">AV 资源站点</span>
-                <span class="section-count">{{ avSources.length }}</span>
+                <h2 class="yb-section-title">AV 资源站点</h2>
+                <span class="yb-section-count">{{ avSources.length }}</span>
               </div>
               <div class="card-grid">
                 <SiteCard v-for="s in sortedAvSources" :key="s.api" :name="s.name" :api="s.api" badge="AV"
@@ -84,13 +96,15 @@
         <!-- Add custom source dialog -->
         <div v-if="showAdd" class="add-dialog" @click.self="showAdd = false">
           <div class="add-panel">
-            <h3>添加自定义源</h3>
-            <p class="hint">苹果CMS v10 接口，如：https://xxx.com/api.php/provide/vod</p>
-            <input v-model="newName" class="add-input" placeholder="名称" />
-            <input v-model="newApi" class="add-input" placeholder="API 地址" @keydown.enter="addCustom" />
+            <h3 class="yb-section-title">添加自定义源</h3>
+            <p class="hint">苹果 CMS v10 接口，例如：https://xxx.com/api.php/provide/vod</p>
+            <label class="yb-label add-label">名称</label>
+            <input v-model="newName" class="yb-field" placeholder="名称" />
+            <label class="yb-label add-label">API 地址</label>
+            <input v-model="newApi" class="yb-field" placeholder="API 地址" @keydown.enter="addCustom" />
             <div class="add-actions">
-              <button class="btn-cancel" @click="showAdd = false">取消</button>
-              <button class="btn-confirm" :disabled="addingSource" @click="addCustom">{{ addingSource ? '分析中…' : '确认添加' }}</button>
+              <button class="yb-btn-soft" @click="showAdd = false">取消</button>
+              <button class="yb-btn-primary" :disabled="addingSource" @click="addCustom">{{ addingSource ? '分析中…' : '确认添加' }}</button>
             </div>
           </div>
         </div>
@@ -377,15 +391,7 @@ export const SiteCard = dc({
       if (props.status === 'checking') return 'dot checking'
       return 'dot unk'
     })
-    const badgeStyle = cc(() => {
-      const map: Record<string, string> = {
-        blue: 'color:#93c5fd;background:rgba(59,130,246,0.18)',
-        purple: 'color:#c4b5fd;background:rgba(139,92,246,0.18)',
-        pink: 'color:#f9a8d4;background:rgba(236,72,153,0.18)',
-        amber: 'color:#fcd34d;background:rgba(245,158,11,0.18)',
-      }
-      return map[props.badgeColor || 'blue'] || map.blue
-    })
+    const badgeClass = cc(() => `badge badge-${props.badgeColor || 'blue'}`)
     return () => ch('div', {
       class: ['site-card', props.enabled ? 'active' : '', props.status === 'fail' ? 'fail' : ''].join(' ').trim(),
       onClick: () => emit('toggle'),
@@ -393,7 +399,7 @@ export const SiteCard = dc({
       ch('div', { class: 'card-top' }, [
         ch('span', { class: dotClass.value }),
         ch('span', { class: 'card-name' }, props.name),
-        ch('em', { class: 'badge', style: badgeStyle.value }, props.badge),
+        ch('em', { class: badgeClass.value }, props.badge),
         ch('button', {
           class: 'icon-btn', disabled: props.checking,
           title: '检测数据源', 'aria-label': `检测数据源 ${props.name}`,
@@ -421,178 +427,299 @@ export const SiteCard = dc({
 
 <style scoped>
 @keyframes spin { to { transform: rotate(360deg); } }
-@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.3} }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.35} }
 
 .smp-backdrop {
   position: fixed; inset: 0; z-index: 2000;
-  background: rgba(0,0,0,0.42);
+  background: rgba(0,0,0,0.36);
   display: flex; justify-content: flex-end;
 }
 
 .smp-panel {
-  width: min(500px, calc(100vw - 48px)); height: 100vh;
-  background: rgba(22, 24, 28, 0.96);
-  border-left: 1px solid rgba(255,255,255,0.08);
-  backdrop-filter: blur(28px);
-  display: flex; flex-direction: column;
+  width: min(520px, calc(100vw - 48px));
+  height: 100vh;
+  background: var(--bg-panel);
+  border-left: 1px solid var(--separator);
+  color: var(--text-primary);
+  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  display: flex;
+  flex-direction: column;
   overflow: hidden;
-  box-shadow: -24px 0 64px rgba(0,0,0,0.5);
-  transition: transform .22s cubic-bezier(.4,0,.2,1);
+  box-shadow: var(--shadow-lg);
+  transition: var(--transition-panel);
 }
 
 .smp-header {
-  display: flex; align-items: center; gap: 12px; flex-wrap: wrap;
-  padding: 18px 20px;
-  border-bottom: 1px solid rgba(255,255,255,0.08);
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 12px;
+  padding: 22px 22px 14px;
   flex-shrink: 0;
 }
-.smp-title { font-size: 15px; font-weight: 600; color: white; letter-spacing: .02em; }
-.smp-subtitle { margin: 3px 0 0; font-size: 10px; color: rgba(255,255,255,.38); }
-.smp-stats { display: flex; gap: 10px; font-size: 11px; flex: 1 0 100%; order: 3; }
-.stat { padding: 0; border-radius: 0; background: transparent; }
-.stat.ok { color: #4ade80; background: rgba(74,222,128,0.1); }
-.stat.fail { color: #f87171; background: rgba(248,113,113,0.1); }
-.stat.unk { color: rgba(255,255,255,0.4); background: rgba(255,255,255,0.06); }
-
-.smp-header-actions { display: flex; align-items: center; gap: 7px; }
-.header-text-btn { padding: 4px 0; border: 0; color: #fca5a5; background: transparent; font-size: 11px; cursor: pointer; }
-.header-text-btn:hover { color: #fecaca; text-decoration: underline; }
+.smp-title {
+  font-size: var(--text-2xl);
+  letter-spacing: -0.022em;
+}
+.smp-subtitle { margin: 4px 0 0; font-size: var(--text-sm); }
+.smp-header-actions { display: flex; align-items: center; gap: 8px; }
+.smp-fail-btn {
+  min-height: 28px;
+  font-size: 12px;
+  color: var(--danger);
+  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
+  background: color-mix(in srgb, var(--danger) 10%, transparent);
+}
 .smp-close {
-  width: 28px; height: 28px; border-radius: 50%;
-  background: transparent; border: none;
-  color: rgba(255,255,255,0.6); cursor: pointer; font-size: 12px;
+  width: 30px; height: 30px; border-radius: var(--radius-md);
+  background: var(--bg-fill-secondary); border: 0;
+  color: var(--text-secondary); cursor: pointer;
   display: flex; align-items: center; justify-content: center;
+  transition: var(--transition-fast);
 }
-.smp-close:hover { background: rgba(255,255,255,0.08); color: white; }
+.smp-close:hover { background: var(--bg-glass-hover); color: var(--text-primary); }
+.smp-close:active { transform: scale(0.94); }
 
-.smp-tabs {
-  display: flex; gap: 18px; padding: 12px 20px 0;
-  border-bottom: 1px solid rgba(255,255,255,0.07);
+.smp-tabs-wrap {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding: 0 22px 14px;
   flex-shrink: 0;
 }
-.smp-tab {
-  display: flex; align-items: center; gap: 6px;
-  padding: 8px 0; background: none; border: none;
-  color: rgba(255,255,255,.5); font-size: 13px; cursor: pointer;
-  border-bottom: 2px solid transparent; margin-bottom: -1px;
-  transition: all .15s;
-}
-.smp-tab:hover { color: rgba(255,255,255,.8); }
-.smp-tab.active { color: white; border-bottom-color: var(--primary); }
+.smp-seg { flex: 1; }
+.smp-seg .yb-seg { flex: 1; min-height: 30px; font-size: var(--text-sm); }
 .tab-count {
-  font-size: 10px; background: transparent;
-  padding: 0; border-radius: 0; color: rgba(255,255,255,.5);
+  margin-left: 4px;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+.smp-seg .yb-seg.is-active .tab-count { color: var(--accent-text); }
+.smp-status {
+  font-size: 12px;
+  color: var(--text-tertiary);
+  white-space: nowrap;
 }
 
 .smp-body {
-  flex: 1; overflow-y: auto; padding: 18px 20px 24px;
+  flex: 1;
+  overflow-y: auto;
+  padding: 8px 18px 28px;
 }
-.smp-body::-webkit-scrollbar { width: 4px; }
-.smp-body::-webkit-scrollbar-thumb { background: rgba(255,255,255,.12); border-radius: 2px; }
+.smp-body::-webkit-scrollbar { width: 6px; }
+.smp-body::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: 3px;
+}
 
 .section-header {
-  display: flex; align-items: center; gap: 8px; margin-bottom: 10px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin: 8px 4px 10px;
 }
-.section-header.mt { margin-top: 20px; }
-.section-title { font-size: 12px; font-weight: 500; color: rgba(255,255,255,.48); flex: 1; }
-.section-count {
-  font-size: 11px; color: rgba(255,255,255,.35);
-  display: none;
+.section-header.mt { margin-top: 22px; }
+.section-header .yb-section-title {
+  font-size: var(--text-sm);
+  letter-spacing: -0.01em;
+  color: var(--text-secondary);
+}
+.section-header .yb-section-count {
+  display: inline;
+  font-size: 12px;
 }
 
 .add-btn {
-  font-size: 11px; padding: 2px 0; border-radius: 0;
-  background: transparent; border: 0;
-  color: rgba(255,255,255,.45); cursor: pointer;
+  margin-left: auto;
+  min-height: 28px;
+  padding: 0 10px;
+  border-radius: var(--radius-md);
+  border: 0;
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  font-size: 12px;
+  font-weight: 600;
+  cursor: pointer;
+  transition: var(--transition-fast);
 }
-.add-btn:hover { color: white; border-color: rgba(255,255,255,.5); }
+.add-btn:hover { background: color-mix(in srgb, var(--accent) 28%, transparent); }
+.add-btn:active { transform: scale(0.97); }
 
-.empty { font-size: 12px; color: rgba(255,255,255,.3); padding: 8px 0; }
+.empty {
+  font-size: 13px;
+  color: var(--text-tertiary);
+  padding: 16px 8px;
+  text-align: center;
+}
 
 .card-grid {
-  display: flex; flex-direction: column; gap: 1px;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  box-shadow: var(--shadow-sm);
 }
 
-/* SiteCard styles (global-like via :deep or just apply in component) */
 :deep(.site-card) {
-  position: relative; width: 100%; box-sizing: border-box;
-  min-height: 48px; padding: 9px 10px;
-  background: transparent; border: 0;
-  border-radius: 0; cursor: pointer; transition: background .15s;
-  display: flex; flex-direction: row; align-items: center; gap: 8px;
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  min-height: 52px;
+  padding: 10px 14px;
+  background: transparent;
+  border: 0;
+  border-bottom: 1px solid var(--separator);
+  border-radius: 0;
+  cursor: pointer;
+  transition: background 0.18s var(--ease-out);
+  display: flex;
+  flex-direction: row;
+  align-items: center;
+  gap: 10px;
 }
-:deep(.site-card:hover) { background: transparent; }
-:deep(.site-card.active .card-name) { color: #fff; }
-:deep(.site-card.fail .card-name) { color: #fca5a5; }
-:deep(.card-top) { display: flex; align-items: center; gap: 6px; flex: 1; min-width: 0; }
+:deep(.site-card:last-child) { border-bottom: 0; }
+:deep(.site-card:hover) { background: var(--bg-fill-secondary); }
+:deep(.site-card:active) { transform: scale(0.995); }
+:deep(.site-card.active) { background: var(--bg-active-soft); }
+:deep(.site-card.active .card-name) { color: var(--accent-text); font-weight: 600; }
+:deep(.site-card.fail .card-name) { color: var(--danger); }
+:deep(.card-top) {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 1;
+  min-width: 0;
+}
 :deep(.card-name) {
-  font-size: 12px; font-weight: 500; color: rgba(255,255,255,.85);
-  flex: 1; overflow: hidden; text-overflow: ellipsis; white-space: nowrap;
+  font-size: var(--text-sm);
+  font-weight: 500;
+  color: var(--text-primary);
+  flex: 1;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  letter-spacing: -0.01em;
 }
 :deep(.card-api) {
-  font-size: 10px; color: rgba(255,255,255,.28); width: 42%;
-  overflow: hidden; text-overflow: ellipsis; white-space: nowrap; display: block;
+  display: none;
+  font-size: 11px;
+  color: var(--text-tertiary);
+  max-width: 38%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
+:deep(.site-card:hover .card-api) { display: block; }
 :deep(.badge) {
-  font-style: normal; font-size: 9px; font-weight: 600;
-  padding: 1px 4px; border-radius: 3px; flex-shrink: 0;
+  font-style: normal;
+  font-size: 10px;
+  font-weight: 600;
+  padding: 2px 6px;
+  border-radius: var(--radius-sm);
+  flex-shrink: 0;
+}
+:deep(.badge-blue) {
+  color: var(--accent-text);
+  background: var(--accent-soft);
+}
+:deep(.badge-purple) {
+  color: color-mix(in srgb, #af52de 80%, var(--text-primary));
+  background: color-mix(in srgb, #af52de 16%, transparent);
+}
+:deep(.badge-pink) {
+  color: color-mix(in srgb, #ff2d55 80%, var(--text-primary));
+  background: color-mix(in srgb, #ff2d55 14%, transparent);
+}
+:deep(.badge-amber) {
+  color: var(--warning);
+  background: color-mix(in srgb, var(--warning) 16%, transparent);
 }
 :deep(.dot) {
-  width: 6px; height: 6px; border-radius: 50%; flex-shrink: 0;
-  background: rgba(255,255,255,.2);
+  width: 8px; height: 8px; border-radius: 50%; flex-shrink: 0;
+  background: var(--text-quaternary);
 }
-:deep(.dot.ok) { background: #4ade80; box-shadow: 0 0 4px #4ade80; }
-:deep(.dot.fail) { background: #f87171; }
-:deep(.dot.checking) { background: #facc15; animation: pulse 1s infinite; }
+:deep(.dot.ok) { background: var(--success); box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent); }
+:deep(.dot.fail) { background: var(--danger); }
+:deep(.dot.checking) { background: var(--warning); animation: pulse 1s infinite; }
 :deep(.icon-btn) {
-  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
-  background: none; border: none; color: rgba(255,255,255,.35); border-radius: 4px;
-  cursor: pointer; transition: all .15s; padding: 0;
+  width: 26px; height: 26px;
+  display: flex; align-items: center; justify-content: center;
+  background: none; border: none; color: var(--text-tertiary);
+  border-radius: var(--radius-sm);
+  cursor: pointer; transition: var(--transition-fast); padding: 0;
 }
-:deep(.icon-btn:hover:not(:disabled)) { background: transparent; color: white; }
-:deep(.icon-btn:disabled) { opacity: .25; cursor: not-allowed; }
+:deep(.icon-btn:hover:not(:disabled)) {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+}
+:deep(.icon-btn:disabled) { opacity: .35; cursor: not-allowed; }
 :deep(.site-card .icon-btn) { opacity: 0; }
-:deep(.site-card:hover .icon-btn), :deep(.site-card:focus-within .icon-btn) { opacity: 1; }
-:deep(.icon-btn.danger:hover) { background: rgba(248,113,113,.2); color: #f87171; }
-:deep(.check-mark) {
-  position: static;
-  font-size: 10px; color: var(--primary); font-weight: 700; pointer-events: none;
+:deep(.site-card:hover .icon-btn),
+:deep(.site-card:focus-within .icon-btn) { opacity: 1; }
+:deep(.icon-btn.danger:hover) {
+  background: color-mix(in srgb, var(--danger) 16%, transparent);
+  color: var(--danger);
 }
-:deep(.badge), :deep(.card-api) { display: none; }
+:deep(.check-mark) {
+  font-size: 12px;
+  color: var(--accent);
+  font-weight: 700;
+  pointer-events: none;
+}
 
-/* Add dialog */
 .add-dialog {
   position: fixed; inset: 0; z-index: 3000;
   display: flex; align-items: center; justify-content: center;
-  background: rgba(0,0,0,.5);
+  background: rgba(0,0,0,.42);
 }
 .add-panel {
-  background: #131825; border: 1px solid rgba(255,255,255,.12);
-  border-radius: 12px; padding: 22px; width: 380px; color: white;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xl);
+  padding: 22px;
+  width: min(400px, calc(100vw - 48px));
+  color: var(--text-primary);
+  box-shadow: var(--shadow-lg);
 }
-.add-panel h3 { margin: 0 0 4px; font-size: 15px; }
-.hint { font-size: 11px; color: rgba(255,255,255,.35); margin-bottom: 12px; }
-.add-input {
-  width: 100%; height: 36px; padding: 0 10px; box-sizing: border-box;
-  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.13);
-  border-radius: 7px; color: white; font-size: 12px; margin-bottom: 7px; outline: none;
+.add-panel .yb-section-title { margin-bottom: 6px; }
+.hint { font-size: 12px; color: var(--text-tertiary); margin: 0 0 14px; line-height: 1.4; }
+.add-label { display: block; margin: 10px 0 6px; }
+.add-panel .yb-field { margin-bottom: 2px; }
+.add-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 16px;
 }
-.add-input:focus { border-color: rgba(99,102,241,.6); }
-.add-input::placeholder { color: rgba(255,255,255,.3); }
-.add-actions { display: flex; gap: 7px; justify-content: flex-end; margin-top: 4px; }
-.btn-cancel {
-  padding: 5px 14px; border-radius: 7px;
-  background: rgba(255,255,255,.07); border: 1px solid rgba(255,255,255,.13);
-  color: rgba(255,255,255,.7); cursor: pointer; font-size: 12px;
-}
-.btn-confirm {
-  padding: 5px 14px; border-radius: 7px;
-  background: rgba(99,102,241,.75); border: none; color: white;
-  cursor: pointer; font-size: 12px;
-}
-.btn-confirm:hover { background: rgba(99,102,241,1); }
 
-.panel-fade-enter-active, .panel-fade-leave-active { transition: opacity .2s ease; }
-.panel-fade-enter-from, .panel-fade-leave-to { opacity: 0; }
-.panel-fade-enter-from .smp-panel, .panel-fade-leave-to .smp-panel { transform: translateX(100%); }
+.panel-fade-enter-active,
+.panel-fade-leave-active { transition: opacity 0.3s var(--ease-out); }
+.panel-fade-enter-from,
+.panel-fade-leave-to { opacity: 0; }
+.panel-fade-enter-active .smp-panel,
+.panel-fade-leave-active .smp-panel { transition: var(--transition-panel); }
+.panel-fade-enter-from .smp-panel,
+.panel-fade-leave-to .smp-panel { transform: translateX(100%); }
+
+@media (prefers-reduced-transparency: reduce) {
+  .smp-panel { backdrop-filter: none; -webkit-backdrop-filter: none; background: var(--bg-elevated); }
+}
+@media (prefers-reduced-motion: reduce) {
+  .panel-fade-enter-active,
+  .panel-fade-leave-active,
+  .panel-fade-enter-active .smp-panel,
+  .panel-fade-leave-active .smp-panel {
+    transition: opacity 0.2s ease;
+  }
+  .panel-fade-enter-from .smp-panel,
+  .panel-fade-leave-to .smp-panel { transform: none; }
+  :deep(.site-card:active),
+  .smp-close:active,
+  .add-btn:active { transform: none; }
+}
 </style>

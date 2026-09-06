@@ -1,8 +1,8 @@
 <template>
   <div class="home-section">
-    <div class="section-header">
-      <span class="section-title">豆瓣热门</span>
-      <button class="clear-btn" @click="nextPage">换一批</button>
+    <div class="yb-section-header">
+      <h2 class="yb-section-title">豆瓣热门</h2>
+      <button class="yb-ghost-btn" @click="nextPage">换一批</button>
     </div>
     <MediaFilterBar :rows="filterRows" :model-value="{ type: doubanType, tag: doubanTag }" @update:model-value="applyFilter" />
 
@@ -10,14 +10,14 @@
     <div v-else-if="doubanError" class="db-error">
       ⚠ 豆瓣数据加载失败，请稍后重试
     </div>
-    <div v-else class="result-grid">
+    <div v-else class="yb-poster-grid">
       <div
         v-for="item in doubanItems"
         :key="item.url"
-        class="result-card"
+        class="yb-poster-card"
         @click="emit('open', item)"
       >
-        <div class="card-poster">
+        <div class="yb-poster-media">
           <img
             :src="item.cover"
             :alt="item.title"
@@ -25,21 +25,21 @@
             referrerpolicy="no-referrer"
             @error="onImgError"
           />
-          <div class="card-overlay">
+          <div class="yb-poster-overlay">
             <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
           <button class="favorite-btn" type="button" :class="{ active: isFavorite(item) }" :aria-label="isFavorite(item) ? '取消收藏' : '加入收藏'" @click.stop="toggleFavorite(item)">{{ isFavorite(item) ? '♥' : '♡' }}</button>
-          <div class="rate-badge">★ {{ item.rate }}</div>
+          <div class="yb-poster-badge is-rate">★ {{ item.rate }}</div>
         </div>
-        <div class="card-info">
-          <div class="card-title" :title="item.title">{{ item.title }}</div>
-          <div class="card-meta">
-            <span v-if="item.year" class="card-year">{{ item.year }}</span>
-            <span v-if="item.type" class="card-type">{{ item.type }}</span>
+        <div class="yb-poster-info">
+          <div class="yb-poster-title" :title="item.title">{{ item.title }}</div>
+          <div class="yb-poster-meta">
+            <span v-if="item.year" class="yb-poster-chip">{{ item.year }}</span>
+            <span v-if="item.type" class="yb-poster-chip is-accent">{{ item.type }}</span>
           </div>
-          <div v-if="item.overview" class="card-overview">
+          <div v-if="item.overview" class="yb-poster-sub">
             {{ item.overview }}
           </div>
         </div>
@@ -301,158 +301,36 @@ onMounted(fetchDouban)
 </script>
 
 <style scoped>
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.section-title {
-  font-size: var(--text-lg);
-  font-weight: 600;
+/* Poster overlays stay dark-on-image for contrast */
+.favorite-btn {
+  position: absolute;
+  top: 8px;
+  right: 8px;
+  z-index: 2;
+  width: 30px;
+  height: 30px;
+  border: 0;
+  border-radius: 50%;
   color: rgba(255, 255, 255, 0.85);
-  flex: 1;
-}
-
-.clear-btn {
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: var(--text-xs);
-  background: var(--bg-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  color: rgba(255, 255, 255, 0.45);
+  background: rgba(0, 0, 0, 0.5);
+  font-size: 18px;
   cursor: pointer;
+  transition: var(--transition-fast);
 }
-
-.clear-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
-}
-
-.favorite-btn { position:absolute; top:8px; right:8px; z-index:2; width:30px; height:30px; border:0; border-radius:50%; color:rgba(255,255,255,.78); background:rgba(0,0,0,.5); font-size:18px; cursor:pointer; }
-.favorite-btn.active { color:#fbbf24; }
+.favorite-btn:hover { background: rgba(0, 0, 0, 0.65); }
+.favorite-btn.active { color: #fbbf24; }
 
 .db-loading {
   text-align: center;
   padding: 40px;
-  color: rgba(255, 255, 255, 0.4);
-  font-size: 13px;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
 
 .db-error {
   text-align: center;
   padding: 30px;
-  color: rgba(248, 113, 113, 0.8);
-  font-size: 13px;
-}
-
-.result-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
-}
-
-.result-card {
-  cursor: pointer;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition:
-    transform 0.2s,
-    border-color 0.2s;
-}
-
-.result-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(10, 132, 255, 0.5);
-}
-
-.card-poster {
-  position: relative;
-  aspect-ratio: 2/3;
-  overflow: hidden;
-  background: #1f2937;
-}
-
-.card-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.card-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.result-card:hover .card-overlay {
-  opacity: 1;
-}
-
-.rate-badge {
-  position: absolute;
-  bottom: 6px;
-  left: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fbbf24;
-  font-size: 10px;
-  padding: 2px 6px;
-  border-radius: 4px;
-}
-
-.card-info {
-  padding: 8px;
-}
-
-.card-title {
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-
-.card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 3px 0;
-}
-
-.card-year {
-  font-size: var(--text-xs);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.55);
-}
-
-.card-type {
-  font-size: var(--text-xs);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(10, 132, 255, 0.25);
-  color: rgba(180, 180, 255, 0.85);
-}
-
-.card-overview {
-  font-size: var(--text-xs);
-  color: rgba(255, 255, 255, 0.4);
-  line-height: 1.4;
-  margin-top: 3px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  line-clamp: 2;
-  overflow: hidden;
+  color: var(--danger);
+  font-size: var(--text-sm);
 }
 </style>

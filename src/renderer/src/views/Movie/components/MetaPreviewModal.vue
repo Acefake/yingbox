@@ -15,15 +15,16 @@
       >
         <!-- 头部 -->
         <div
-          class="flex items-center justify-between px-6 py-4 border-b border-white/8 flex-shrink-0"
+          class="flex items-center justify-between px-6 py-4 mp-divider flex-shrink-0"
         >
           <div>
-            <div class="text-sm font-semibold text-white/90">元数据预览</div>
-            <div class="text-xs text-gray-500 mt-0.5">{{ avid }}</div>
+            <div class="text-sm font-semibold" style="color: var(--text-primary)">元数据预览</div>
+            <div class="text-xs yb-dim mt-0.5">{{ avid }}</div>
           </div>
           <button
             @click="$emit('close')"
-            class="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all"
+            class="w-7 h-7 flex items-center justify-center rounded-md mp-close"
+            aria-label="关闭"
           >
             <svg
               class="w-4 h-4"
@@ -44,7 +45,7 @@
         <!-- loading -->
         <div
           v-if="loading"
-          class="flex-1 flex items-center justify-center py-16 text-gray-400 text-sm"
+          class="flex-1 flex items-center justify-center py-16 yb-muted text-sm"
         >
           正在从 JavBus 获取数据...
         </div>
@@ -52,7 +53,8 @@
         <!-- error -->
         <div
           v-else-if="error"
-          class="flex-1 flex items-center justify-center py-16 text-red-400 text-sm px-6"
+          class="flex-1 flex items-center justify-center py-16 text-sm px-6"
+          style="color: var(--danger)"
         >
           {{ error }}
         </div>
@@ -72,30 +74,25 @@
             <!-- 封面 -->
 
             <div class="flex-1 min-w-0 space-y-3">
-              <h2 class="text-white font-semibold text-base leading-snug">
+              <h2 class="font-semibold text-base leading-snug" style="color: var(--text-primary)">
                 {{ meta.title }}
               </h2>
               <!-- 标签 -->
               <div class="flex flex-wrap gap-1.5">
-                <span
-                  class="px-2 py-0.5 rounded-full text-[11px] bg-blue-900/60 text-blue-300"
-                  >{{ meta.avid }}</span
-                >
+                <span class="yb-chip yb-chip-accent">{{ meta.avid }}</span>
                 <span
                   v-if="meta.release_date"
-                  class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400"
-                  >{{ meta.release_date }}</span
-                >
+                  class="yb-chip"
+                >{{ meta.release_date }}</span>
                 <span
                   v-if="meta.duration"
-                  class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400"
-                  >{{ meta.duration }}</span
-                >
+                  class="yb-chip"
+                >{{ meta.duration }}</span>
               </div>
               <!-- 简介 -->
               <p
                 v-if="meta.description"
-                class="text-gray-400 text-[12px] leading-relaxed line-clamp-4"
+                class="yb-muted text-[12px] leading-relaxed line-clamp-4"
               >
                 {{ meta.description }}
               </p>
@@ -104,40 +101,15 @@
                 <span
                   v-for="kw in meta.keywords"
                   :key="kw"
-                  class="px-1.5 py-0.5 rounded text-[10px] bg-white/5 text-gray-500"
-                  >{{ kw }}</span
-                >
-              </div>
-              <!-- 下载按钮 -->
-              <button
-                @click="handleAddVideo"
-                :disabled="adding"
-                class="mt-2 h-8 px-5 rounded-lg text-sm font-medium transition-all"
-                :class="
-                  adding
-                    ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                    : 'bg-blue-600 hover:bg-blue-500 text-white'
-                "
-              >
-                {{ adding ? '提交中...' : '加入下载队列' }}
-              </button>
-              <div
-                v-if="addMsg"
-                class="text-[11px] font-mono"
-                :class="
-                  addMsg.startsWith('❌') ? 'text-red-400' : 'text-green-400'
-                "
-              >
-                {{ addMsg }}
+                  class="yb-chip"
+                >{{ kw }}</span>
               </div>
             </div>
           </div>
 
           <!-- 演员 -->
           <div v-if="meta.actress && Object.keys(meta.actress).length">
-            <h3
-              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
-            >
+            <h3 class="yb-label mb-2">
               演员
             </h3>
             <div class="flex gap-3 flex-wrap">
@@ -149,24 +121,21 @@
                 <img
                   :src="proxyUrl(img)"
                   :alt="String(name)"
-                  class="w-12 h-12 rounded-full object-cover border border-white/10"
+                  class="w-12 h-12 rounded-full object-cover mp-avatar"
                   @error="
                     e => ((e.target as HTMLImageElement).style.display = 'none')
                   "
                 />
                 <span
-                  class="text-[10px] text-gray-400 max-w-[48px] truncate text-center"
-                  >{{ name }}</span
-                >
+                  class="text-[10px] yb-muted max-w-[48px] truncate text-center"
+                >{{ name }}</span>
               </div>
             </div>
           </div>
 
           <!-- Fanart -->
           <div v-if="meta.fanarts?.length">
-            <h3
-              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
-            >
+            <h3 class="yb-label mb-2">
               预览图
             </h3>
             <div class="grid grid-cols-3 gap-2">
@@ -186,45 +155,42 @@
 
           <!-- 磁力链接 -->
           <div v-if="meta.magnets?.length">
-            <h3
-              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
-            >
+            <h3 class="yb-label mb-2">
               磁力链接 ({{ meta.magnets.length }})
             </h3>
             <div class="space-y-1.5">
               <div
                 v-for="(m, i) in meta.magnets"
                 :key="i"
-                class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/8 transition-colors group"
+                class="yb-list-row group"
               >
                 <!-- 序号 -->
-                <span class="text-[10px] text-gray-600 w-4 flex-shrink-0">{{
+                <span class="yb-dim w-4 flex-shrink-0" style="font-size: 10px">{{
                   i + 1
                 }}</span>
                 <!-- 文件名 -->
                 <span
-                  class="text-[11px] text-gray-300 flex-1 truncate font-mono"
+                  class="text-[11px] flex-1 truncate font-mono mp-magnet-name"
                   :title="m.name"
-                  >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span
-                >
+                >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span>
                 <!-- 大小 -->
                 <span
-                  class="text-[10px] text-gray-500 flex-shrink-0 w-16 text-right"
-                  >{{ m.size }}</span
-                >
+                  class="yb-dim flex-shrink-0 w-16 text-right"
+                  style="font-size: 10px"
+                >{{ m.size }}</span>
                 <!-- 日期 -->
                 <span
-                  class="text-[10px] text-gray-600 flex-shrink-0 w-20 text-right"
-                  >{{ m.date }}</span
-                >
+                  class="yb-dim flex-shrink-0 w-20 text-right"
+                  style="font-size: 10px"
+                >{{ m.date }}</span>
                 <!-- 复制按钮 -->
                 <button
                   @click="copyMagnet(m.magnet, i)"
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
                   :class="
                     copiedIndex === i
-                      ? 'bg-green-600/30 text-green-400'
-                      : 'bg-white/8 text-gray-400 hover:bg-blue-600/30 hover:text-blue-300'
+                      ? 'yb-status-ok'
+                      : 'mp-copy-btn'
                   "
                 >
                   <svg
@@ -297,8 +263,6 @@ const loading = ref(false)
 const error = ref('')
 const meta = ref<BackendMeta | null>(null)
 const previewImg = ref<string | null>(null)
-const adding = ref(false)
-const addMsg = ref('')
 const copiedIndex = ref<number | null>(null)
 
 async function copyMagnet(magnet: string, index: number): Promise<void> {
@@ -331,7 +295,6 @@ watch(
     if (!v) {
       meta.value = null
       error.value = ''
-      addMsg.value = ''
       return
     }
     loading.value = true
@@ -352,19 +315,6 @@ watch(
   }
 )
 
-async function handleAddVideo() {
-  if (!props.avid) return
-  adding.value = true
-  addMsg.value = ''
-  try {
-    const msg = await backend.addVideo(props.avid)
-    addMsg.value = `✅ ${msg}`
-  } catch (e: unknown) {
-    addMsg.value = `❌ ${e instanceof Error ? e.message : '请求失败'}`
-  } finally {
-    adding.value = false
-  }
-}
 </script>
 
 <style scoped>
@@ -375,5 +325,30 @@ async function handleAddVideo() {
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+.mp-divider { border-bottom: 1px solid var(--separator); }
+.mp-close {
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.mp-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass-hover);
+}
+.mp-avatar { box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.mp-magnet-name { color: var(--text-primary); }
+.mp-copy-btn {
+  background: var(--bg-fill-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+.mp-copy-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 </style>

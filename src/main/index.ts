@@ -20,6 +20,7 @@ import { autoUpdater } from 'electron-updater'
 import icon from '../../resources/icon.svg?asset'
 import { atomicWrite, movePath } from './file-operations'
 import { serveLocalMedia } from './local-media'
+import { registerPlayerWindowIpc } from './player-window'
 import { scanMediaDirectory } from './media-scanner'
 import { downloadFile, fetchHttp, readLimited } from './http-client'
 
@@ -134,6 +135,8 @@ function registerWindowHandlers(): void {
   })
 
   // 获取package.json版本信息
+  ipcMain.handle('app:getUserDataPath', () => app.getPath('userData'))
+
   ipcMain.handle('app:getVersion', async () => {
     try {
       const packageJsonPath = path.join(__dirname, '../../package.json')
@@ -313,10 +316,27 @@ app.whenReady().then(() => {
   })
 
   // 媒体库扫描：在主进程一次完成遍历，避免渲染层对每个文件进行 IPC 往返。
-  ipcMain.handle('file:scanMediaDirectory', async (_, dirPath: string) => {
-    try { return { success: true, ...await scanMediaDirectory(dirPath) } }
-    catch (error) { return { success: false, error: (error as Error).message } }
-  })
+  ipcMain.handle(
+    'file:scanMediaDirectory',
+    async (
+      _,
+      dirPath: string,
+      previousIndex?: Array<{
+        path: string
+        mtime: number
+        size: number
+        name?: string
+        isDirectory?: boolean
+        isFile?: boolean
+      }>
+    ) => {
+      try {
+        return { success: true, ...(await scanMediaDirectory(dirPath, previousIndex)) }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    }
+  )
 
   ipcMain.handle('file:stat', async (_, filePath: string) => {
     try {
@@ -695,6 +715,7 @@ app.whenReady().then(() => {
   })
 
   registerWindowHandlers()
+  registerPlayerWindowIpc(() => mainWindow)
   createWindow()
 
   // 注册 DevTools 快捷键

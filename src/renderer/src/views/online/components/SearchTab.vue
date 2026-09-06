@@ -1,9 +1,9 @@
 <template>
   <div class="content-area search-tab primary-scroll">
     <div v-if="searchHistory.length" class="home-section">
-      <div class="section-header">
-        <span class="section-title">搜索记录</span>
-        <button class="clear-btn" @click="clearHistory">清空记录</button>
+      <div class="yb-section-header">
+        <h2 class="yb-section-title">搜索记录</h2>
+        <button class="yb-ghost-btn" @click="clearHistory">清空记录</button>
       </div>
       <div class="history-tags">
         <span
@@ -32,7 +32,7 @@
         width="48"
         height="48"
         fill="none"
-        stroke="rgba(255,255,255,0.2)"
+        stroke="var(--text-quaternary)"
         stroke-width="1.5"
       >
         <circle cx="11" cy="11" r="8" />
@@ -43,45 +43,45 @@
 
     <!-- 插件视频源结果 -->
     <div v-if="vodResults.length" class="source-section">
-      <div class="section-header">
-        <span class="section-title">插件视频源</span>
-        <span class="section-count">{{ vodResults.length }}个结果</span>
+      <div class="yb-section-header">
+        <h2 class="yb-section-title">插件视频源</h2>
+        <span class="yb-section-count">{{ vodResults.length }}个结果</span>
       </div>
-      <div class="result-grid">
+      <div class="yb-poster-grid">
         <div
           v-for="item in vodResults"
           :key="item.vod_name + item.source_name"
-          class="result-card"
+          class="yb-poster-card"
           @click="emit('openItem', item)"
         >
-          <div class="card-poster">
+          <div class="yb-poster-media">
             <img
               :src="item.vod_pic"
               :alt="item.vod_name"
               loading="lazy"
               @error="onImgError"
             />
-            <div class="card-overlay">
+            <div class="yb-poster-overlay">
               <svg viewBox="0 0 24 24" width="36" height="36" fill="white">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
-            <div class="source-badge cs-badge">
+            <div class="yb-poster-badge is-plugin">
               {{ item.source_name }}
             </div>
           </div>
-          <div class="card-info">
-            <div class="card-title" :title="item.vod_name">
+          <div class="yb-poster-info">
+            <div class="yb-poster-title" :title="item.vod_name">
               {{ item.vod_name }}
             </div>
-            <div class="card-meta">
-              <span class="tag-year">{{ item.vod_year }}</span>
-              <span class="tag-type">{{ item.type_name }}</span>
+            <div class="yb-poster-meta">
+              <span class="yb-poster-chip">{{ item.vod_year }}</span>
+              <span class="yb-poster-chip is-accent">{{ item.type_name }}</span>
             </div>
-            <div v-if="item.vod_remarks" class="card-remarks">
+            <div v-if="item.vod_remarks" class="yb-poster-remarks">
               {{ item.vod_remarks }}
             </div>
-            <div v-if="item.vod_content" class="card-desc">
+            <div v-if="item.vod_content" class="yb-poster-sub">
               {{ item.vod_content.slice(0, 50) }}{{ item.vod_content.length > 50 ? '...' : '' }}
             </div>
           </div>
@@ -91,45 +91,45 @@
 
     <!-- CMS 源结果 -->
     <div v-if="cmsResults.length" class="source-section" style="margin-top: 20px">
-      <div class="section-header">
-        <span class="section-title">CMS源</span>
-        <span class="section-count">{{ cmsResults.length }}个结果</span>
+      <div class="yb-section-header">
+        <h2 class="yb-section-title">CMS源</h2>
+        <span class="yb-section-count">{{ cmsResults.length }}个结果</span>
       </div>
-      <div class="result-grid">
+      <div class="yb-poster-grid">
         <div
           v-for="item in cmsResults"
           :key="item.vod_name + item.source_name"
-          class="result-card"
+          class="yb-poster-card"
           @click="emit('openItem', item)"
         >
-          <div class="card-poster">
+          <div class="yb-poster-media">
             <img
               :src="item.vod_pic"
               :alt="item.vod_name"
               loading="lazy"
               @error="onImgError"
             />
-            <div class="card-overlay">
+            <div class="yb-poster-overlay">
               <svg viewBox="0 0 24 24" width="36" height="36" fill="white">
                 <path d="M8 5v14l11-7z" />
               </svg>
             </div>
-            <div class="source-badge">
+            <div class="yb-poster-badge is-source">
               {{ item.source_name }}
             </div>
           </div>
-          <div class="card-info">
-            <div class="card-title" :title="item.vod_name">
+          <div class="yb-poster-info">
+            <div class="yb-poster-title" :title="item.vod_name">
               {{ item.vod_name }}
             </div>
-            <div class="card-meta">
-              <span class="tag-year">{{ item.vod_year }}</span>
-              <span class="tag-type">{{ item.type_name }}</span>
+            <div class="yb-poster-meta">
+              <span class="yb-poster-chip">{{ item.vod_year }}</span>
+              <span class="yb-poster-chip is-accent">{{ item.type_name }}</span>
             </div>
-            <div v-if="item.vod_remarks" class="card-remarks">
+            <div v-if="item.vod_remarks" class="yb-poster-remarks">
               {{ item.vod_remarks }}
             </div>
-            <div v-if="item.vod_content" class="card-desc">
+            <div v-if="item.vod_content" class="yb-poster-sub">
               {{ item.vod_content.slice(0, 50) }}{{ item.vod_content.length > 50 ? '...' : '' }}
             </div>
           </div>
@@ -232,67 +232,12 @@ defineExpose({ handleSearch, saveHistory })
   gap: 20px;
 }
 
-.history-tag { min-height: 32px; }
-
-.del-tag {
-  border: 0;
-  padding: 2px;
-  color: inherit;
-  background: transparent;
-}
-
 .content-area::-webkit-scrollbar {
   width: 4px;
 }
 .content-area::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
-}
-
-
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  margin-bottom: 10px;
-}
-
-.section-title {
-  font-size: var(--text-lg);
-  font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
-  flex: 1;
-}
-
-.clear-btn {
-  min-height: 32px;
-  padding: 0 10px;
-  font-size: var(--text-xs);
-  background: var(--bg-glass);
-  border: 1px solid var(--border-glass);
-  border-radius: var(--radius-md);
-  color: rgba(255, 255, 255, 0.45);
-  cursor: pointer;
-}
-
-.clear-btn:hover {
-  color: rgba(255, 255, 255, 0.8);
 }
 
 .history-tags {
@@ -305,34 +250,35 @@ defineExpose({ handleSearch, saveHistory })
   display: flex;
   align-items: center;
   gap: 5px;
+  min-height: 32px;
   padding: 4px 10px;
-  font-size: 12px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 16px;
-  color: rgba(255, 255, 255, 0.7);
+  font-size: var(--text-xs);
+  background: var(--bg-fill-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
   cursor: pointer;
-  transition: all 0.15s;
+  transition: var(--transition-fast);
 }
 
 .history-tag:hover {
-  background: rgba(10, 132, 255, 0.25);
-  color: white;
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
+  color: var(--accent-text);
 }
 
 .del-tag {
+  border: 0;
+  padding: 2px;
+  color: inherit;
+  background: transparent;
   font-size: 10px;
   opacity: 0.5;
+  cursor: pointer;
 }
 .del-tag:hover {
   opacity: 1;
-  color: #f87171;
-}
-
-.error-msg {
-  text-align: center;
-  color: rgba(255, 100, 100, 0.8);
-  padding: 40px;
+  color: var(--danger);
 }
 
 .empty-search {
@@ -341,127 +287,23 @@ defineExpose({ handleSearch, saveHistory })
   align-items: center;
   gap: 12px;
   padding-top: 80px;
-  color: rgba(255, 255, 255, 0.3);
-  font-size: 14px;
+  color: var(--text-tertiary);
+  font-size: var(--text-md);
 }
 
-.result-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(150px, 1fr));
-  gap: 16px;
+.spinner {
+  width: 16px;
+  height: 16px;
+  border: 2px solid var(--border-default);
+  border-top-color: var(--text-primary);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+  display: inline-block;
 }
 
-.result-card {
-  cursor: pointer;
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-  background: rgba(255, 255, 255, 0.05);
-  border: 1px solid rgba(255, 255, 255, 0.08);
-  transition:
-    transform 0.2s,
-    border-color 0.2s;
-}
-
-.result-card:hover {
-  transform: translateY(-3px);
-  border-color: rgba(10, 132, 255, 0.5);
-}
-
-.card-poster {
-  position: relative;
-  aspect-ratio: 2/3;
-  overflow: hidden;
-  background: #1f2937;
-}
-
-.card-poster img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.card-overlay {
-  position: absolute;
-  inset: 0;
-  background: rgba(0, 0, 0, 0.4);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  opacity: 0;
-  transition: opacity 0.2s;
-}
-
-.result-card:hover .card-overlay {
-  opacity: 1;
-}
-
-.source-badge {
-  position: absolute;
-  top: 6px;
-  right: 6px;
-  background: rgba(10, 132, 255, 0.85);
-  color: white;
-  font-size: 10px;
-  padding: 1px 5px;
-  border-radius: 4px;
-}
-
-.cs-badge {
-  top: auto;
-  bottom: 6px;
-  right: 6px;
-  background: rgba(16, 185, 129, 0.85);
-}
-
-.card-info {
-  padding: 8px;
-}
-
-.card-title {
-  font-size: 13px;
-  font-weight: 500;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  margin-bottom: 4px;
-}
-
-.card-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  margin: 3px 0;
-}
-
-.tag-year,
-.tag-type {
-  font-size: var(--text-xs);
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.6);
-}
-
-.card-remarks {
-  font-size: var(--text-xs);
-  color: rgba(255, 200, 100, 0.8);
-  margin-top: 3px;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.card-desc {
-  font-size: var(--text-xs);
-  color: rgba(255, 255, 255, 0.5);
-  margin-top: 3px;
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
-  overflow: hidden;
-  line-height: 1.4;
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>

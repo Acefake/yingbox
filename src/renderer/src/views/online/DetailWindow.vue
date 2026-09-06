@@ -92,7 +92,7 @@
                 </button>
               </div>
               <!-- 层级一：源 -->
-              <div class="px-2 py-1 mb-1 text-xs text-gray-500 uppercase tracking-wide">源</div>
+              <div class="px-2 py-1 mb-1 yb-label">源</div>
               <div class="group-tabs">
                 <button v-for="(sg, si) in siteGroups" :key="si" class="group-tab"
                   :class="{ active: activeSite === si, 'cs-tab': currentSourceType === 'catspider' }"
@@ -102,7 +102,7 @@
               </div>
               <!-- 层级二：线路（多条时才显示） -->
               <template v-if="siteGroups[activeSite]?.lines.length > 1">
-                <div class="px-2 py-1 mb-1 mt-2 text-xs text-gray-500 uppercase tracking-wide">线路</div>
+                <div class="px-2 py-1 mb-1 mt-2 yb-label">线路</div>
                 <div class="group-tabs">
                   <button v-for="(line, li) in siteGroups[activeSite].lines" :key="li" class="group-tab"
                     :class="{ active: activeLine === li }"
@@ -112,7 +112,7 @@
                 </div>
               </template>
               <!-- 层级三：播放列表 -->
-              <div class="px-2 py-1 mb-1 mt-2 text-xs text-gray-500 uppercase tracking-wide">播放列表</div>
+              <div class="px-2 py-1 mb-1 mt-2 yb-label">播放列表</div>
               <div class="episode-list">
                 <button v-for="ep in currentEpisodes" :key="ep.url" class="ep-btn"
                   :class="{ playing: currentUrl === ep.url }" @click="playEp(ep.url, ep.ext)">
@@ -207,6 +207,9 @@ import { ref, computed, onMounted, watch } from 'vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
+import { canOpenElectronPlayer, openMediaPlayer } from '@/composables/use-media-player'
+import { getMediaProgress } from '@/utils/play-progress'
+import { message } from 'ant-design-vue'
 import {
   useOnlineSearch,
   type EpisodeGroup,
@@ -466,8 +469,6 @@ watch(showPlaySheet, visible => { if (!visible) { playGeneration++; resolvingUrl
 
 const playEp = async (url: string, ext?: Record<string, any>) => {
   const generation = ++playGeneration
-  // 先弹出播放器窗口
-  showPlaySheet.value = true
   currentUrl.value = ''
   let playUrl = url
   // CatSpider episodes need resolvePlayUrl
@@ -479,11 +480,56 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
     if (resolved) playUrl = resolved
   }
   if (generation !== playGeneration) return
+
+  // 预解析跳转/页面内 m3u8，便于 Electron 独立窗口直接播放
+  resolvingUrl.value = true
+  try {
+    playUrl = await resolveUrl(playUrl)
+  } finally {
+    if (generation === playGeneration) resolvingUrl.value = false
+  }
+  if (generation !== playGeneration) return
+
   currentUrl.value = playUrl
   const historyKey = 'online_play_history'
   const history = readStoredArray<Record<string, any>>(historyKey)
-  const record = { ...(itemData.value || {}), item: itemData.value, epName: ext?.name || '正在播放', url: playUrl, groupLabel: currentSourceType.value === 'catspider' ? '插件源' : 'CMS', timestamp: Date.now() }
-  saveStoredArray(historyKey, [record, ...history.filter((entry: any) => entry.url !== playUrl)].slice(0, 30))
+  const mediaKey =
+    String(itemData.value?.vod_id || itemData.value?.vod_name || itemName.value || playUrl)
+  const prevProgress = getMediaProgress(playUrl)
+  const record = {
+    ...(itemData.value || {}),
+    item: itemData.value,
+    epName: ext?.name || '正在播放',
+    url: playUrl,
+    progress: prevProgress,
+    groupLabel: currentSourceType.value === 'catspider' ? '插件源' : 'CMS',
+    timestamp: Date.now(),
+  }
+  // 同一部片只保留一条最近记录（记住上次资源/集数）
+  saveStoredArray(
+    historyKey,
+    [
+      record,
+      ...history.filter((entry: any) => {
+        const key = String(entry?.item?.vod_id || entry?.vod_id || entry?.item?.vod_name || entry?.vod_name || entry?.url || '')
+        return key && key !== mediaKey && entry?.url !== playUrl
+      }),
+    ].slice(0, 30)
+  )
+
+  const title = [itemName.value, ext?.name].filter(Boolean).join(' · ') || itemName.value || '正在播放'
+  // 首页/在线：Electron 下强制独立播放窗，不再退回页内 sheet
+  if (canOpenElectronPlayer()) {
+    const startAt = getMediaProgress(playUrl)
+    const ok = await openMediaPlayer({ url: playUrl, title, poster: itemPic.value || undefined, startAt })
+    showPlaySheet.value = false
+    if (!ok) {
+      message.error('无法打开独立播放窗口，请完全重启应用后再试')
+    }
+    return
+  }
+  // 非 Electron（纯网页）才用页内播放层
+  showPlaySheet.value = true
 }
 
 const onImgError = (e: Event) => {
@@ -506,9 +552,9 @@ const onActorImgError = (e: Event) => {
 .detail-win {
   width: 100vw;
   height: 100vh;
-  background: #15181d;
-  color: #fff;
-  font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -521,7 +567,7 @@ const onActorImgError = (e: Event) => {
   align-items: center;
   justify-content: center;
   gap: 14px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
   font-size: 13px;
 }
 
@@ -529,8 +575,8 @@ const onActorImgError = (e: Event) => {
   width: 32px;
   height: 32px;
   border-radius: 50%;
-  border: 3px solid rgba(255, 255, 255, 0.1);
-  border-top-color: rgba(10, 132, 255, 0.8);
+  border: 3px solid var(--border-subtle);
+  border-top-color: var(--accent);
   animation: spin 0.8s linear infinite;
 }
 
@@ -551,7 +597,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-body::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
   border-radius: 2px;
 }
 
@@ -574,8 +620,8 @@ const onActorImgError = (e: Event) => {
   position: absolute;
   inset: 0;
   background: linear-gradient(to bottom,
-      rgba(13, 17, 23, 0) 20%,
-      rgba(13, 17, 23, 1) 100%);
+      transparent 20%,
+      var(--bg-base) 100%);
 }
 
 .dw-content {
@@ -602,7 +648,7 @@ const onActorImgError = (e: Event) => {
   object-fit: cover;
   border-radius: 12px;
   box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
-  border: 2px solid rgba(255, 255, 255, 0.12);
+  border: 2px solid var(--border-default);
 }
 
 .dw-info {
@@ -612,14 +658,16 @@ const onActorImgError = (e: Event) => {
 
 .dw-title {
   font-size: 30px;
-  font-weight: 700;
+  font-weight: var(--font-weight-bold);
   line-height: 1.2;
   margin-bottom: 5px;
+  color: var(--text-primary);
+  letter-spacing: -0.022em;
 }
 
 .dw-orig-title {
   font-size: 16px;
-  color: rgba(255, 255, 255, 0.45);
+  color: var(--text-tertiary);
   margin-bottom: 12px;
 }
 
@@ -634,13 +682,13 @@ const onActorImgError = (e: Event) => {
 .dw-rating {
   font-size: 18px;
   font-weight: 700;
-  color: #fbbf24;
+  color: var(--warning);
 }
 
 .dw-rating em {
   font-size: 12px;
   font-style: normal;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
   margin-left: 3px;
 }
 
@@ -648,28 +696,28 @@ const onActorImgError = (e: Event) => {
   font-size: 11px;
   padding: 2px 9px;
   border-radius: 12px;
-  background: rgba(255, 255, 255, 0.1);
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--bg-fill-secondary);
+  color: var(--text-secondary);
 }
 
 .dw-tag.source-vod {
-  background: rgba(16, 185, 129, 0.2);
-  color: #34d399;
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
 }
 
 .dw-tag.source-cms {
-  background: rgba(10, 132, 255, 0.2);
-  color: #64b5ff;
+  background: var(--accent-soft);
+  color: var(--accent-text);
 }
 
 .dw-tag.source-douban {
-  background: rgba(34, 197, 94, 0.2);
-  color: #4ade80;
+  background: color-mix(in srgb, var(--success) 20%, transparent);
+  color: var(--success);
 }
 
 .dw-overview {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.65);
+  color: var(--text-secondary);
   line-height: 1.75;
   margin-bottom: 18px;
 }
@@ -688,7 +736,7 @@ const onActorImgError = (e: Event) => {
 
 .dw-meta-label {
   font-size: 11px;
-  color: rgba(255, 255, 255, 0.3);
+  color: var(--text-tertiary);
   width: 36px;
   flex-shrink: 0;
   margin-top: 1px;
@@ -696,7 +744,7 @@ const onActorImgError = (e: Event) => {
 
 .dw-meta-val {
   font-size: 12px;
-  color: rgba(255, 255, 255, 0.75);
+  color: var(--text-secondary);
 }
 
 .dw-loading-sources {
@@ -705,18 +753,18 @@ const onActorImgError = (e: Event) => {
   gap: 8px;
   padding: 8px 16px;
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
 }
 
 .dw-sources-section {
   margin-top: 24px;
   padding: 16px 0;
-  border-top: 1px solid rgba(255, 255, 255, 0.08);
+  border-top: 1px solid var(--separator);
 }
 
 .ep-empty {
   font-size: 13px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
   padding: 16px 0;
   text-align: center;
 }
@@ -725,8 +773,8 @@ const onActorImgError = (e: Event) => {
   width: 16px;
   height: 16px;
   border-radius: 50%;
-  border: 2px solid rgba(255, 255, 255, 0.3);
-  border-top-color: white;
+  border: 2px solid var(--border-strong);
+  border-top-color: var(--text-primary);
   animation: spin 0.7s linear infinite;
   flex-shrink: 0;
 }
@@ -734,7 +782,7 @@ const onActorImgError = (e: Event) => {
 .dw-section-title {
   font-size: 14px;
   font-weight: 600;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--text-primary);
   margin-bottom: 12px;
 }
 
@@ -754,7 +802,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-cast-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
 }
 
 .dw-actor {
@@ -770,19 +818,19 @@ const onActorImgError = (e: Event) => {
   object-fit: cover;
   margin: 0 auto 6px;
   display: block;
-  background: #374151;
-  border: 2px solid rgba(255, 255, 255, 0.08);
+  background: var(--bg-fill-secondary);
+  border: 2px solid var(--border-subtle);
 }
 
 .dw-actor-name {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.8);
+  color: var(--text-primary);
   line-height: 1.3;
 }
 
 .dw-actor-char {
   font-size: 10px;
-  color: rgba(255, 255, 255, 0.35);
+  color: var(--text-tertiary);
   margin-top: 2px;
 }
 
@@ -803,7 +851,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-gallery::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
 }
 
 .dw-gallery-item {
@@ -816,7 +864,7 @@ const onActorImgError = (e: Event) => {
   transition:
     transform 0.15s,
     box-shadow 0.15s;
-  border: 1px solid rgba(255, 255, 255, 0.08);
+  border: 1px solid var(--border-subtle);
 }
 
 .dw-gallery-item:hover {
@@ -863,9 +911,9 @@ const onActorImgError = (e: Event) => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: rgba(255, 255, 255, 0.1);
+  background: var(--bg-fill-secondary);
   border: none;
-  color: white;
+  color: var(--text-on-accent);
   font-size: 36px;
   width: 48px;
   height: 64px;
@@ -878,7 +926,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .lb-arrow:hover {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-hover);
 }
 
 .lb-prev {
@@ -896,15 +944,15 @@ const onActorImgError = (e: Event) => {
   width: 36px;
   height: 36px;
   border-radius: 50%;
-  background: rgba(255, 255, 255, 0.12);
+  background: var(--bg-fill-secondary);
   border: none;
-  color: white;
+  color: var(--text-on-accent);
   font-size: 16px;
   cursor: pointer;
 }
 
 .lb-close:hover {
-  background: rgba(239, 68, 68, 0.7);
+  background: color-mix(in srgb, var(--danger) 70%, transparent);
 }
 
 /* 播放弹窗 */
@@ -932,9 +980,9 @@ const onActorImgError = (e: Event) => {
   width: min(1200px, 92vw);
   height: 78vh;
   max-height: 92vh;
-  background: #161b22;
-  border-radius: 16px;
-  border: 1px solid rgba(255, 255, 255, 0.1);
+  background: var(--bg-elevated);
+  border-radius: var(--radius-xl);
+  border: 1px solid var(--border-default);
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -952,7 +1000,7 @@ const onActorImgError = (e: Event) => {
   display: flex;
   gap: 8px;
   margin-bottom: 16px;
-  border-bottom: 1px solid rgba(255, 255, 255, 0.1);
+  border-bottom: 1px solid var(--separator);
   padding-bottom: 10px;
 }
 
@@ -960,22 +1008,22 @@ const onActorImgError = (e: Event) => {
   padding: 6px 16px;
   font-size: 13px;
   background: transparent;
-  border: 1px solid rgba(255, 255, 255, 0.15);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.5);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
   cursor: pointer;
   transition: all 0.2s;
 }
 
 .source-type-tab:hover {
-  border-color: rgba(255, 255, 255, 0.3);
-  color: rgba(255, 255, 255, 0.8);
+  border-color: var(--text-tertiary);
+  color: var(--text-primary);
 }
 
 .source-type-tab.active {
-  background: rgba(10, 132, 255, 0.2);
-  border-color: rgba(10, 132, 255, 0.5);
-  color: #64b5ff;
+  background: var(--accent-soft);
+  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
+  color: var(--accent-text);
 }
 
 .group-tabs {
@@ -988,22 +1036,22 @@ const onActorImgError = (e: Event) => {
 .group-tab {
   padding: 4px 14px;
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.08);
+  background: var(--bg-fill-tertiary);
   border: 1px solid rgba(255, 255, 255, 0.1);
   border-radius: 6px;
-  color: rgba(255, 255, 255, 0.6);
+  color: var(--text-secondary);
   cursor: pointer;
 }
 
 .group-tab.active {
-  background: rgba(10, 132, 255, 0.4);
-  border-color: rgba(10, 132, 255, 0.6);
-  color: white;
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
+  color: var(--text-on-accent);
 }
 
 .group-tab.cs-tab.active {
-  background: rgba(16, 185, 129, 0.4);
-  border-color: rgba(16, 185, 129, 0.6);
+  background: color-mix(in srgb, var(--success) 40%, transparent);
+  border-color: color-mix(in srgb, var(--success) 60%, transparent);
 }
 
 .episode-list {
@@ -1020,27 +1068,27 @@ const onActorImgError = (e: Event) => {
 }
 
 .episode-list::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb-hover);
 }
 
 .ep-btn {
   padding: 4px 13px;
   font-size: 12px;
-  background: rgba(255, 255, 255, 0.07);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
-  color: rgba(255, 255, 255, 0.7);
+  background: var(--bg-fill-tertiary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
   cursor: pointer;
   transition: all 0.15s;
 }
 
 .ep-btn:hover {
-  background: rgba(255, 255, 255, 0.15);
+  background: var(--scrollbar-thumb);
 }
 
 .ep-btn.playing {
-  background: rgba(10, 132, 255, 0.4);
-  border-color: rgba(10, 132, 255, 0.8);
-  color: white;
+  background: color-mix(in srgb, var(--accent) 40%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 80%, transparent);
+  color: var(--text-on-accent);
 }
 </style>

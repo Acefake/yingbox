@@ -12,34 +12,27 @@
             }
           : undefined
       "
-      @click="handleItemClick"
-      :class="[
-        'flex items-center py-1 px-2 rounded cursor-pointer transition-all duration-200 mb-0.5 group',
-        isMultiSelectedItem
-          ? 'bg-blue-600 bg-opacity-30'
-          : isSelected
-            ? 'bg-white bg-opacity-10'
-            : 'hover:bg-gray-700',
-      ]"
+      class="tv-row group"
+      :class="{
+        'is-multi-selected': isMultiSelectedItem,
+        'is-selected': !isMultiSelectedItem && isSelected,
+      }"
       :style="{ paddingLeft: depth * 12 + 8 + 'px' }"
+      @click="handleItemClick"
     >
       <!-- 多选复选框（仅根节点显示）-->
       <div
         v-if="isMultiSelectMode && depth === 0"
-        class="mr-1.5 flex-shrink-0"
+        class="tv-checkbox-wrap"
         @click.stop="handleToggleSelection"
       >
         <div
-          class="w-3.5 h-3.5 rounded border flex items-center justify-center transition-all"
-          :class="
-            isMultiSelectedItem
-              ? 'bg-blue-600 border-blue-600'
-              : 'border-gray-500 hover:border-blue-400'
-          "
+          class="tv-checkbox"
+          :class="{ 'is-checked': isMultiSelectedItem }"
         >
           <svg
             v-if="isMultiSelectedItem"
-            class="w-2.5 h-2.5 text-white"
+            class="tv-checkbox-icon"
             fill="none"
             stroke="currentColor"
             viewBox="0 0 24 24"
@@ -55,11 +48,11 @@
       </div>
 
       <!-- 展开图标（仅当有子项目时显示） -->
-      <div class="w-4 h-4 mr-1 flex items-center justify-center">
+      <div class="tv-expand">
         <svg
           v-if="hasChildren"
-          class="w-3 h-3 text-gray-400 transition-transform duration-200"
-          :class="{ 'rotate-90': isExpanded }"
+          class="tv-expand-icon"
+          :class="{ 'is-open': isExpanded }"
           fill="none"
           stroke="currentColor"
           viewBox="0 0 24 24"
@@ -75,12 +68,8 @@
 
       <!-- 图标 -->
       <div
-        class="mr-2 transition-colors"
-        :class="
-          isSelected
-            ? 'text-blue-400'
-            : 'text-gray-400 group-hover:text-blue-400'
-        "
+        class="tv-type-icon"
+        :class="{ 'is-active': isSelected }"
       >
         <!-- 季文件夹图标 -->
         <svg
@@ -115,20 +104,21 @@
       </div>
 
       <!-- 名称 -->
-      <div class="flex-1 min-w-0">
+      <div class="tv-name-wrap">
         <div
-          class="text-xs font-medium truncate"
-          :class="isSelected ? 'text-blue-400' : 'text-white'"
+          class="tv-name"
+          :class="{ 'is-active': isSelected }"
+          :title="item.name"
         >
-          {{ item.name }}
+          {{ displayName }}
         </div>
       </div>
 
       <!-- 标签 -->
-      <div class="flex gap-1 ml-2">
-        <span v-if="item.hasNfo" class="status-tag bg-yellow-600 text-yellow-100">N</span>
-        <span v-if="item.hasPoster" class="status-tag bg-green-600 text-green-100">P</span>
-        <span v-if="item.hasFanart" class="status-tag bg-blue-600 text-blue-100">A</span>
+      <div class="tv-flags">
+        <span v-if="item.hasNfo" class="status-tag flag-nfo">N</span>
+        <span v-if="item.hasPoster" class="status-tag flag-poster">P</span>
+        <span v-if="item.hasFanart" class="status-tag flag-fanart">A</span>
       </div>
     </div>
 
@@ -153,6 +143,7 @@
 import { ref, computed } from 'vue'
 import type { ProcessedItem } from '@/types'
 import type { MenuItem } from '@/composables/use-context-menu'
+import { stripMediaExtension } from '@/utils/avid'
 
 interface Props {
   item: ProcessedItem
@@ -198,6 +189,12 @@ const folderChildren = computed(() =>
 const isSelected = computed(() => props.selectedPath === props.item.path)
 const isMultiSelectedItem = computed(() => props.isSelected ?? false)
 
+/** 文件夹保留全名；视频文件去掉常见扩展名 */
+const displayName = computed(() => {
+  if (props.item.type === 'folder') return props.item.name
+  return stripMediaExtension(props.item.name)
+})
+
 const handleItemClick = (): void => {
   if (props.isMultiSelectMode && props.depth === 0) {
     handleToggleSelection()
@@ -237,5 +234,143 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 </script>
 
 <style scoped>
-/* 使用全局 status-tag 样式 */
+.tv-row {
+  display: flex;
+  align-items: center;
+  min-height: var(--media-row-height);
+  padding-top: 6px;
+  padding-bottom: 6px;
+  padding-right: 10px;
+  margin-bottom: 1px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.18s var(--ease-out), transform 100ms ease-out;
+}
+
+.tv-row:hover {
+  background: var(--bg-glass-hover);
+}
+
+.tv-row:active {
+  transform: scale(0.985);
+}
+
+.tv-row.is-selected {
+  background: var(--bg-active-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.tv-row.is-multi-selected {
+  background: var(--bg-active-soft);
+}
+
+.tv-checkbox-wrap {
+  margin-right: 6px;
+  flex-shrink: 0;
+}
+
+.tv-checkbox {
+  width: 14px;
+  height: 14px;
+  border-radius: var(--radius-sm);
+  border: 1px solid var(--border-strong);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: var(--transition-fast);
+}
+
+.tv-checkbox:hover {
+  border-color: var(--accent);
+}
+
+.tv-checkbox.is-checked {
+  background: var(--accent);
+  border-color: var(--accent);
+}
+
+.tv-checkbox-icon {
+  width: 10px;
+  height: 10px;
+  color: var(--text-on-accent);
+}
+
+.tv-expand {
+  width: 16px;
+  height: 16px;
+  margin-right: 4px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+.tv-expand-icon {
+  width: 12px;
+  height: 12px;
+  color: var(--text-tertiary);
+  transition: transform 0.2s var(--ease-out);
+}
+
+.tv-expand-icon.is-open {
+  transform: rotate(90deg);
+}
+
+.tv-type-icon {
+  margin-right: 8px;
+  color: var(--text-tertiary);
+  transition: color 0.18s var(--ease-out);
+}
+
+.tv-row:hover .tv-type-icon,
+.tv-type-icon.is-active {
+  color: var(--accent-text);
+}
+
+.tv-name-wrap {
+  flex: 1;
+  min-width: 0;
+}
+
+.tv-name {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.tv-name.is-active {
+  color: var(--accent-text);
+}
+
+.tv-flags {
+  display: flex;
+  gap: 4px;
+  margin-left: 8px;
+  flex-shrink: 0;
+}
+
+.flag-nfo {
+  background: color-mix(in srgb, var(--warning) 22%, transparent);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 40%, transparent);
+}
+
+.flag-poster {
+  background: color-mix(in srgb, var(--success) 22%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 40%, transparent);
+}
+
+.flag-fanart {
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--accent-text);
+  border: 1px solid color-mix(in srgb, var(--accent) 40%, transparent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .tv-row:active { transform: none; }
+}
 </style>

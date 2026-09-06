@@ -1,7 +1,6 @@
 import { getGoBackendUrl } from '@/stores/scrape-provider-store'
 
 const DEFAULT_BASE = 'http://localhost:31471'
-const API_KEY = 'IBHUSDBWQHJEJOBDSW'
 
 export const getBase = (): string => {
   try {
@@ -9,10 +8,6 @@ export const getBase = (): string => {
   } catch {
     return DEFAULT_BASE
   }
-}
-
-function authHeader() {
-  return { Authorization: `Bearer ${API_KEY}` }
 }
 
 export interface BackendVideoItem {
@@ -43,13 +38,6 @@ export interface BackendMeta {
   error?: string
 }
 
-export interface BackendDownloadStatus {
-  failed?: string[]
-  active: string
-  queued: string[]
-  completed: { id: string; completedAt: string }[]
-}
-
 async function get<T>(
   path: string,
   extraHeaders?: Record<string, string>
@@ -68,19 +56,6 @@ async function get<T>(
   return data as T
 }
 
-async function getText(
-  path: string,
-  extraHeaders?: Record<string, string>
-): Promise<string> {
-  const res = await fetch(`${getBase()}${path}`, {
-    method: 'GET',
-    headers: { ...extraHeaders },
-    signal: AbortSignal.timeout(15000),
-  })
-  if (!res.ok) throw new Error(`HTTP ${res.status}`)
-  return res.text()
-}
-
 export const backend = {
   /** 视频列表（Go 缓存，按修改时间倒序） */
   listVideos(): Promise<BackendVideoItem[]> {
@@ -92,11 +67,6 @@ export const backend = {
     return get<BackendVideoDetail>(`/api/videos/${encodeURIComponent(id)}`)
   },
 
-  /** 触发下载（Go 调 Python main.py，去重检查），返回 text/plain */
-  addVideo(avid: string): Promise<string> {
-    return getText(`/api/addvideo/${encodeURIComponent(avid)}`, authHeader())
-  },
-
   /** 从 JavBus 抓取元数据（Go 调 Python fetch_meta.py，只返回 JSON，不写磁盘） */
   fetchMeta(avid: string): Promise<BackendMeta> {
     return get<BackendMeta>(`/api/meta/${encodeURIComponent(avid)}`)
@@ -105,16 +75,6 @@ export const backend = {
   /** 完整刮削：下载封面/fanart/演员图 + 生成 NFO（Go 调 Python scrape.py，写磁盘） */
   scrape(avid: string): Promise<BackendMeta> {
     return get<BackendMeta>(`/api/scrape/${encodeURIComponent(avid)}`)
-  },
-
-  /** 获取下载任务状态 */
-  getDownloadStatus(): Promise<BackendDownloadStatus> {
-    return get<BackendDownloadStatus>('/api/download-status')
-  },
-
-  /** 获取等待队列（电影下载弹窗兼容接口） */
-  getQueue(): Promise<string[]> {
-    return get<string[]>('/api/queue')
   },
 
   /** 图片 URL（本地文件通过 Go 代理访问） */

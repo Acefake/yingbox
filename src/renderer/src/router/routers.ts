@@ -36,6 +36,17 @@ export const routes = [
       adultOnly: true,
     },
   },
+
+  {
+    path: '/player-popout',
+    name: 'PlayerPopout',
+    component: () => import('@/views/PlayerPopout.vue'),
+    meta: {
+      title: '播放器',
+      description: '独立播放窗口',
+      popout: true,
+    },
+  },
   {
     path: '/:pathMatch(.*)*',
     redirect: '/',
