@@ -28,7 +28,7 @@
     <div class="max-h-[80vh] overflow-y-auto custom-scrollbar">
       <div
         v-if="results.length === 0 && !isSearching"
-        class="text-center py-8 text-gray-500"
+        class="text-center py-8 yb-muted"
       >
         <p>没有搜索结果</p>
         <p class="text-sm mt-2">请修改搜索关键词后点击"重新搜索"</p>
@@ -50,9 +50,9 @@
             />
             <div
               v-else
-              class="h-56 w-full bg-gray-700/30 flex items-center justify-center"
+              class="h-56 w-full yb-poster-ph flex items-center justify-center"
             >
-              <span class="text-gray-400 text-sm">无海报</span>
+              <span class="text-sm">无海报</span>
             </div>
             <!-- 评分角标 -->
             <div
@@ -70,7 +70,7 @@
 
           <div class="p-3">
             <h4
-              class="text-white font-medium text-sm mb-1 line-clamp-2 leading-snug"
+              class="font-medium text-sm mb-1 line-clamp-2 leading-snug" style="color: var(--text-primary)"
             >
               {{ getTitle(item) }}
             </h4>
@@ -79,22 +79,22 @@
                 getOriginalTitle(item) &&
                 getOriginalTitle(item) !== getTitle(item)
               "
-              class="text-[10px] text-gray-500 -mt-0.5 mb-1 truncate"
+              class="text-[10px] yb-muted -mt-0.5 mb-1 truncate"
             >
               {{ getOriginalTitle(item) }}
             </div>
-            <div v-if="getYear(item)" class="text-[11px] text-gray-400 mb-2">
+            <div v-if="getYear(item)" class="text-[11px] yb-dim mb-2">
               {{ getYear(item) }}
             </div>
             <p
               v-if="item.overview"
-              class="text-[11px] text-gray-400/80 line-clamp-2 mb-3 leading-relaxed"
+              class="text-[11px] yb-dim line-clamp-2 mb-3 leading-relaxed"
             >
               {{ item.overview }}
             </p>
 
             <button
-              class="w-full py-1.5 rounded-lg text-xs font-medium text-white bg-blue-500/40 border border-blue-500/20 hover:bg-blue-500/60 transition-all backdrop-blur-sm"
+              class="modal-pick-btn"
               :class="{
                 'opacity-60 pointer-events-none': loadingId === item.id,
               }"
@@ -209,17 +209,35 @@ const handleImageError = (event: Event): void => {
 
 <style scoped>
 .modal-card {
-  background: rgba(30, 41, 59, 0.7);
+  background: var(--bg-elevated);
   backdrop-filter: blur(16px);
   -webkit-backdrop-filter: blur(16px);
-  border-radius: 12px;
+  border-radius: var(--radius-lg);
   border: 1px solid var(--border-glass);
   overflow: hidden;
   transition: var(--transition-fast);
 }
 .modal-card:hover {
   border-color: var(--border-glass-light);
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+  box-shadow: var(--shadow-md);
   transform: translateY(-2px);
+}
+.modal-pick-btn {
+  width: 100%;
+  padding: 6px 0;
+  border-radius: var(--radius-md);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  transition: var(--transition-fast);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  cursor: pointer;
+}
+.modal-pick-btn:hover {
+  background: color-mix(in srgb, var(--accent) 28%, transparent);
+  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
 }
 </style>

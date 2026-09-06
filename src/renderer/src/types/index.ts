@@ -22,6 +22,10 @@ export interface ProcessedItem {
   hasPoster?: boolean
   /** 是否已有背景图文件 */
   hasFanart?: boolean
+  /** NFO/scraped display title */
+  metaTitle?: string
+  /** NFO/scraped year */
+  metaYear?: string
   /** 电视剧季信息（仅电视剧） */
   seasonNumber?: number
   /** 电视剧集信息（仅电视剧） */

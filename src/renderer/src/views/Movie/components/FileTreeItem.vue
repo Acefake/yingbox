@@ -6,22 +6,19 @@
       onItemClick: handleFileAction,
       onBeforeShow: handleRightClick,
     }"
-    :class="[
-      'flex items-center py-1 px-2 rounded cursor-pointer mb-0.5',
-      isSelected ? 'selected-item' : 'hover:bg-gray-700',
-    ]"
-    :style="isSelected ? selectedStyle : undefined"
+    :class="['file-tree-item', { 'is-selected': isSelected }]"
     @click="handleItemClick"
     @mouseenter="handleMouseEnter"
   >
-    <div class="flex-1 min-w-0 flex items-center gap-1">
-      <div class="text-xs font-medium text-white truncate flex-1">
-        {{ item.name }}
+    <div class="file-tree-row">
+      <div class="file-tree-name" :title="item.name">
+        {{ displayName }}
       </div>
-      <div class="flex gap-0.5 flex-shrink-0" v-if="hasStatus">
-        <span v-if="statusFlags.nfo" class="status-tag bg-yellow-600 text-yellow-100">N</span>
-        <span v-if="statusFlags.poster" class="status-tag bg-green-600 text-green-100">P</span>
-        <span v-if="statusFlags.fanart" class="status-tag bg-blue-600 text-blue-100">A</span>
+      <div class="file-tree-flags" v-if="hasStatus || isQueued">
+        <span v-if="isQueued" class="status-tag flag-queued">队列</span>
+        <span v-if="statusFlags.nfo" class="status-tag flag-nfo">N</span>
+        <span v-if="statusFlags.poster" class="status-tag flag-poster">P</span>
+        <span v-if="statusFlags.fanart" class="status-tag flag-fanart">A</span>
       </div>
     </div>
   </div>
@@ -31,9 +28,9 @@
 import { computed } from 'vue'
 import { MenuItem } from '@/composables/use-context-menu'
 import type { ProcessedItem } from '@/types'
-import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { IMAGE_EXTENSIONS_SET } from '@/constants/media'
+import { resolveMediaDisplayTitle } from '@/utils/avid'
 
 interface Props {
   item: ProcessedItem
@@ -44,23 +41,23 @@ interface Props {
 
 const props = defineProps<Props>()
 
+/** 文件夹保留全名；视频用统一展示标题（metaTitle / cleanSearchParams） */
+const displayName = computed(() => {
+  if (props.item.type === 'folder') return props.item.name
+  return resolveMediaDisplayTitle(props.item)
+})
+
 const emit = defineEmits<{
   select: [item: ProcessedItem, index: number]
-  showSearchModal: [item: ProcessedItem]
-  autoScrape: [item: ProcessedItem]
-  directScrape: [item: ProcessedItem]
-  manualScrape: [item: ProcessedItem]
+  /** 打开统一刮削工作台 */
+  scrape: [item: ProcessedItem]
   preload: [item: ProcessedItem]
-  localScrape: [item: ProcessedItem]
-  downloadVideo: [item: ProcessedItem]
-  fetchMeta: [item: ProcessedItem]
   play: [item: ProcessedItem]
   deleteFile: [item: ProcessedItem]
 }>()
 
 // 选中状态 - 极简判断
 const isSelected = computed(() => props.selectedIndex === props.index)
-const selectedStyle = { backgroundColor: 'rgba(255, 255, 255, 0.2)' }
 
 // 预计算状态标志 - 使用 Set 提升查找性能
 const statusFlags = computed(() => {
@@ -125,25 +122,22 @@ const hasStatus = computed(() => {
 
 // 右键菜单 - 使用 shallowRef 避免深度响应式
 const { items: queueItems } = useGlobalQueue()
+const isQueued = computed(() =>
+  queueItems.value.some(i => {
+    if (i.status !== 'pending' && i.status !== 'processing') return false
+    if (i.dedupKey && i.dedupKey === props.item.path) return true
+    return i.name === props.item.name
+  })
+)
 const menuItems = computed<MenuItem[]>(() => {
-  const isQueued = queueItems.value.some(
-    i => i.name === props.item.name && (i.status === 'pending' || i.status === 'processing')
-  )
-  const config = getScrapeProviderConfig()
+  const queued = isQueued.value
   const items: MenuItem[] = []
 
-  if (!isQueued) {
-    items.push({ id: 'view', label: '刮削', icon: 'fas fa-eye' })
+  if (!queued) {
+    items.push({ id: 'scrape', label: '刮削', icon: 'fas fa-magic' })
   }
   items.push({ id: 'play', label: '播放', icon: 'fas fa-play' })
   items.push({ id: 'delete', label: '删除', icon: 'fas fa-trash' })
-
-  if (!isQueued && config.provider === 'javbus') {
-    items.push(
-      { id: 'fetch-meta', label: '预览元数据' },
-      { id: 'download', label: '下载视频' }
-    )
-  }
 
   return items
 })
@@ -163,28 +157,99 @@ const handleMouseEnter = (): void => {
 }
 
 const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
-  if (action.id === 'view') {
-    emit('autoScrape', item)
+  if (action.id === 'scrape' || action.id === 'view') {
+    emit('scrape', item)
   } else if (action.id === 'play') {
     emit('play', item)
   } else if (action.id === 'delete') {
     emit('deleteFile', item)
-  } else if (action.id === 'local-scrape') {
-    emit('localScrape', item)
-  } else if (action.id === 'fetch-meta') {
-    emit('fetchMeta', item)
-  } else if (action.id === 'download') {
-    emit('downloadVideo', item)
   }
 }
 </script>
 
 <style scoped>
-.selected-item {
-  backdrop-filter: blur(10px);
-  -webkit-backdrop-filter: blur(10px);
-  box-shadow:
-    0 4px 6px -1px rgba(0, 0, 0, 0.1),
-    0 2px 4px -1px rgba(0, 0, 0, 0.06);
+.file-tree-item {
+  display: flex;
+  align-items: center;
+  min-height: var(--media-row-height);
+  padding: 6px 10px;
+  margin-bottom: 1px;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  transition: background 0.18s var(--ease-out), transform 100ms ease-out;
+}
+
+.file-tree-item:hover {
+  background: var(--bg-glass-hover);
+}
+
+.file-tree-item:active {
+  transform: scale(0.985);
+}
+
+.file-tree-item.is-selected {
+  background: var(--bg-active-soft);
+  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+}
+
+.file-tree-item.is-selected .file-tree-name {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
+}
+
+.file-tree-row {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.file-tree-name {
+  flex: 1;
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  letter-spacing: -0.01em;
+  color: var(--text-primary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.file-tree-flags {
+  display: flex;
+  gap: 4px;
+  flex-shrink: 0;
+}
+
+.flag-nfo {
+  background: color-mix(in srgb, var(--warning) 18%, transparent);
+  color: var(--warning);
+  border: 1px solid color-mix(in srgb, var(--warning) 36%, transparent);
+}
+
+.flag-poster {
+  background: color-mix(in srgb, var(--success) 18%, transparent);
+  color: var(--success);
+  border: 1px solid color-mix(in srgb, var(--success) 36%, transparent);
+}
+
+.flag-fanart {
+  background: color-mix(in srgb, var(--accent) 18%, transparent);
+  color: var(--accent-text);
+  border: 1px solid color-mix(in srgb, var(--accent) 36%, transparent);
+}
+
+.flag-queued {
+  background: color-mix(in srgb, var(--accent) 16%, transparent);
+  color: var(--accent-text);
+  border: 1px solid color-mix(in srgb, var(--accent) 32%, transparent);
+  text-transform: none;
+  letter-spacing: 0;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .file-tree-item:active { transform: none; }
 }
 </style>

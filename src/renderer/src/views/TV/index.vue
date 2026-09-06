@@ -1,7 +1,7 @@
 <template>
-  <div class="folder-content relative h-full text-white overflow-hidden">
-    <!-- 左侧悬浮面板 -->
-    <div class="absolute left-0 top-0 bottom-0 z-20 flex flex-col">
+  <div class="yb-media-shell folder-content" :class="{ 'has-selection': Boolean(selectedItem) }">
+    <!-- 左侧媒体库列表 -->
+    <div class="yb-media-list-pane">
       <LeftPanel
         :processed-items="fileData"
         :selected-index="selectedIndex"
@@ -14,20 +14,20 @@
         @add-folder="handleReadDirectory"
         @remove-directory="removeDirectory"
         @select-item="selectItem"
-        @auto-scrape="searchTV"
-        @direct-scrape="searchTV"
-        @manual-scrape="searchTV"
+        @auto-scrape="openScrapeWorkbench"
+        @direct-scrape="openScrapeWorkbench"
+        @manual-scrape="openScrapeWorkbench"
       />
     </div>
 
     <!-- 右侧内容区域 -->
-    <div class="absolute inset-0 z-10" :style="{ paddingLeft: '312px' }">
+    <div class="yb-media-detail-pane">
       <EmptyPlaceholder
         v-if="!selectedItem"
         icon-path="M6 20.25h12m-7.5-3v3m3-3v3m-10.125-3h17.25c.621 0 1.125-.504 1.125-1.125V4.875c0-.621-.504-1.125-1.125-1.125H3.375c-.621 0-1.125.504-1.125 1.125v11.25c0 .621.504 1.125 1.125 1.125Z"
       />
 
-      <div v-else class="primary-scroll p-6 h-full overflow-y-auto custom-scrollbar">
+      <div v-else class="yb-media-canvas primary-scroll custom-scrollbar">
         <TVRightPanel
           :selected-item="selectedItem"
           :current-tv-show="selectedTVShow"
@@ -35,38 +35,38 @@
           :poster-url="posterUrl"
           :season-posters="seasonPosters"
           :episode-thumbs="episodeThumbs"
-          @search-tv="searchTV"
+          @search-tv="openScrapeWorkbench"
           @scrape-season="handleScrapeSeason"
           @scrape-episode="handleScrapeEpisode"
         />
       </div>
     </div>
 
-    <!-- 搜索结果弹窗 -->
-    <MediaSearchModal
-      type="tv"
-      :results="searchResults"
-      :loading-id="scrapingId"
-      :visible="searchModalVisible"
-      :initial-query="pendingScrapeShowItem?.name"
-      @close="searchModalVisible = false"
-      @scrape="handleScrapeChoice"
-      @research="handleResearch"
+    <!-- 统一刮削工作台（TV） -->
+    <ScrapeWorkbenchModal
+      media-type="tv"
+      :visible="showScrapeWorkbench"
+      :item="pendingScrapeShowItem"
+      :initial-query="scrapeWorkbenchQuery"
+      @close="closeScrapeWorkbench"
+      @scrape-tv="handleWorkbenchScrapeTv"
     />
   </div>
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, shallowRef } from 'vue'
+import { ref, onMounted, onBeforeUnmount, shallowRef } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useTVFileManagement } from './composables/use-tv-file-management'
 import { useTVScraping } from './composables/use-tv-scraping'
 import LeftPanel from '@/views/Movie/components/LeftPanel.vue'
 import TVRightPanel from './components/TVRightPanel.vue'
-import MediaSearchModal from '@/components/MediaSearchModal.vue'
-import type { MediaResult } from '@/components/MediaSearchModal.vue'
+import ScrapeWorkbenchModal, {
+  type WorkbenchMediaResult,
+} from '@/views/Movie/components/ScrapeWorkbenchModal.vue'
 import type { ProcessedItem, TVShowInfoType } from '@/types'
+import { cleanSearchParams, stripMediaExtension } from '@/utils/avid'
 import { message } from 'ant-design-vue'
 
 const {
@@ -77,6 +77,7 @@ const {
   readDirectory,
   removeDirectory,
   refreshFiles,
+  refreshAfterScrape,
   loadFromCache,
   organizeFilesIntoSeasons,
   mergeSeriesSeasons,
@@ -121,7 +122,6 @@ const handleReadDirectory = async (): Promise<void> => {
 }
 
 const {
-  searchTVInfo,
   getTVDetails,
   getAllSeasons,
   convertToTVShowInfo,
@@ -136,7 +136,6 @@ const selectedIndex = ref<number>(-1)
 const { addItem: addQueueItem, setProcessing: setQueueProcessing } = useGlobalQueue()
 
 const tvInfo = shallowRef<TVShowInfoType | null>(null)
-const loading = ref(false)
 
 const selectedItem = ref<ProcessedItem | null>(null)
 /** 总是指向 TV show 根节点（点击季时也保持为剧集根）*/
@@ -147,11 +146,11 @@ const seasonPosters = shallowRef<Record<string, string>>({})
 const episodeThumbs = shallowRef<Record<string, string>>({})
 let selectionRequestId = 0
 
-/** 搜索弹窗状态 */
-const searchResults = ref<MediaResult[]>([])
-const searchModalVisible = ref(false)
+/** 统一刮削工作台状态 */
+const showScrapeWorkbench = ref(false)
+const scrapeWorkbenchQuery = ref('')
 const scrapingId = ref<number | null>(null)
-/** 正在刮削的 TV show 根（弹窗确认后用） */
+/** 正在刮削的 TV show 根（工作台确认后用） */
 const pendingScrapeShowItem = ref<ProcessedItem | null>(null)
 
 /**
@@ -208,25 +207,26 @@ const selectItem = (
   }
 }
 
-/** 第一步：搜索 → 弹窗展示结果列表 */
-const searchTV = async (
+const resolveTVQuery = (showItem: ProcessedItem, query?: string): string => {
+  const raw = (query || '').trim()
+  if (raw) return cleanSearchParams(raw) || stripMediaExtension(raw)
+  if (showItem.type === 'folder') return cleanSearchParams(showItem.name) || showItem.name
+  return cleanSearchParams(stripMediaExtension(showItem.name)) || stripMediaExtension(showItem.name)
+}
+
+/** 打开统一刮削工作台（替代原 MediaSearchModal 搜索流） */
+const openScrapeWorkbench = (
   showItem: ProcessedItem,
   query?: string
-): Promise<void> => {
-  try {
-    loading.value = true
-    const results = await searchTVInfo(
-      query ? { ...showItem, name: query } : showItem
-    )
-    searchResults.value = results
-    pendingScrapeShowItem.value = showItem
-    searchModalVisible.value = true
-  } catch (error) {
-    console.error('搜索电视剧失败:', error)
-    message.error('搜索电视剧失败')
-  } finally {
-    loading.value = false
-  }
+): void => {
+  pendingScrapeShowItem.value = showItem
+  scrapeWorkbenchQuery.value = resolveTVQuery(showItem, query)
+  showScrapeWorkbench.value = true
+}
+
+const closeScrapeWorkbench = (): void => {
+  showScrapeWorkbench.value = false
+  scrapeWorkbenchQuery.value = ''
 }
 
 /** 刮削当前季 */
@@ -273,15 +273,12 @@ const handleScrapeEpisode = async (
   }
 }
 
-/** 用户手动修改搜索关键词重新搜索 */
-const handleResearch = async (query: string): Promise<void> => {
-  const showItem = pendingScrapeShowItem.value
-  if (!showItem) return
-  await searchTV(showItem, query)
-}
-
-const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
-  const showItem = pendingScrapeShowItem.value
+/** 工作台选用某条 TV 搜索结果 → 入队刮削（原 handleScrapeChoice） */
+const handleWorkbenchScrapeTv = async (
+  selected: WorkbenchMediaResult,
+  item: ProcessedItem
+): Promise<void> => {
+  const showItem = item || pendingScrapeShowItem.value
   if (!showItem) return
   scrapingId.value = selected.id
 
@@ -306,7 +303,8 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
           )
           if (parentDir) {
             const merged = await mergeSeriesSeasons(parentDir)
-            if (merged) await refreshFiles()
+            if (merged) await refreshAfterScrape(parentDir)
+            else await refreshAfterScrape(showItem.path)
           }
 
           const local = await loadLocalTVInfo(showItem)
@@ -321,19 +319,30 @@ const handleScrapeChoice = async (selected: MediaResult): Promise<void> => {
         }
       } finally {
         scrapingId.value = null
-        searchModalVisible.value = false
+        showScrapeWorkbench.value = false
       }
     }
   )
 }
 
+const handleNavigateBack = (event: Event) => {
+  if (!selectedItem.value) return
+  selectedItem.value = null
+  selectedIndex.value = -1
+  event.preventDefault()
+}
+
 onMounted(() => {
+  window.addEventListener('app:navigate-back', handleNavigateBack)
   if (fileData.value.length === 0) {
     loadFromCache()
   }
 })
+
+onBeforeUnmount(() => {
+  window.removeEventListener('app:navigate-back', handleNavigateBack)
+})
 </script>
 
 <style scoped>
-/* 使用全局 custom-scrollbar 样式 */
 </style>

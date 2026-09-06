@@ -1,206 +1,198 @@
 <template>
-  <div class="space-y-6 h-full overflow-y-auto custom-scrollbar pr-2">
-    <!-- 封面大图 -->
-    <div class="relative rounded-xl overflow-hidden ">
+  <div class="yb-media-detail adult-rp">
+    <!-- Top full-width cover banner (adult-specific; not shared portrait poster) -->
+    <div class="adult-cover-banner">
       <img
-        v-if="meta?.cover || posterImageDataUrl"
-        :src="meta?.cover ? proxyUrl(meta.cover) : posterImageDataUrl"
-        class="w-[500px] object-cover"
-        style="aspect-ratio: 16/10.5"
+        v-if="heroImage"
+        :src="heroImage"
+        alt="封面"
+        class="adult-cover-img"
         @error="handleImageError"
       />
-      <div
-        v-else
-        class="w-full flex items-center justify-center bg-gray-800/50"
-        style="aspect-ratio: 16/10.5"
-      >
-        <svg class="w-16 h-16 text-gray-600" fill="currentColor" viewBox="0 0 20 20">
-          <path fill-rule="evenodd" d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z" clip-rule="evenodd"/>
+      <div v-else class="adult-cover-ph">
+        <svg class="w-14 h-14 yb-icon-muted" fill="currentColor" viewBox="0 0 20 20">
+          <path
+            fill-rule="evenodd"
+            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
+            clip-rule="evenodd"
+          />
         </svg>
       </div>
     </div>
 
-    <!-- 主信息区 -->
-    <div class="space-y-4">
-      <!-- 标题 -->
-      <h1 class="text-2xl font-bold text-white leading-snug">
-        {{ meta?.title || selectedItem?.name }}
+    <div class="yb-media-meta adult-meta">
+      <h1 class="yb-page-title adult-title" :title="selectedItem?.name || displayTitle">
+        {{ displayTitle }}
       </h1>
 
-      <!-- 标签 -->
-      <div class="flex flex-wrap gap-2">
+      <div class="adult-chips">
         <span
           v-if="meta?.avid || avid"
-          class="px-2.5 py-1 rounded-full text-xs bg-blue-900/60 text-blue-300 font-medium"
+          class="yb-chip yb-chip-accent"
         >
           {{ meta?.avid || avid }}
         </span>
         <span
           v-if="meta?.release_date"
-          class="px-2.5 py-1 rounded-full text-xs bg-white/10 text-gray-300"
+          class="yb-chip"
         >
           {{ meta.release_date }}
         </span>
         <span
           v-if="meta?.duration"
-          class="px-2.5 py-1 rounded-full text-xs bg-white/10 text-gray-300"
+          class="yb-chip"
         >
           {{ meta.duration }}
         </span>
       </div>
 
-      <!-- 简介 -->
       <p
         v-if="meta?.description"
-        class="text-gray-400 text-sm leading-relaxed"
+        class="adult-desc yb-muted line-clamp-4"
       >
         {{ meta.description }}
       </p>
 
-      <!-- 关键词 -->
-      <div v-if="meta?.keywords?.length" class="flex flex-wrap gap-1.5">
+      <div v-if="meta?.keywords?.length" class="adult-keywords">
         <span
           v-for="kw in meta.keywords"
           :key="kw"
-          class="px-2 py-0.5 rounded text-[11px] bg-white/5 text-gray-500"
+          class="yb-chip"
         >
           {{ kw }}
         </span>
       </div>
 
-      <!-- 操作按钮 -->
-      <div class="flex gap-3 pt-2">
-        <button
-          @click="handleScrape"
-          :disabled="loading"
-          class="h-10 px-6 rounded-lg text-sm font-medium transition-all"
-          :class="loading ? 'bg-white/5 text-gray-500 cursor-not-allowed' : 'bg-blue-600 hover:bg-blue-500 text-white'"
-        >
-          {{ loading ? '刮削中...' : '刮削' }}
-        </button>
+      <!-- 演员（优先 meta.actress，否则 actors prop） -->
+      <div v-if="meta?.actress && Object.keys(meta.actress).length" class="adult-actors">
+        <p class="yb-label mb-2">演员</p>
+        <div class="custom-scrollbar flex gap-3 overflow-x-auto pb-1">
+          <div
+            v-for="(img, name) in meta.actress"
+            :key="name"
+            class="flex flex-col items-center flex-shrink-0 w-14"
+          >
+            <img
+              :src="proxyUrl(img)"
+              :alt="String(name)"
+              class="adult-actor-avatar"
+              @error="handleAvatarError"
+            />
+            <span class="adult-actor-name">{{ name }}</span>
+          </div>
+        </div>
+      </div>
+      <div v-else-if="actors && actors.length" class="adult-actors">
+        <p class="yb-label mb-2">演员</p>
+        <div class="custom-scrollbar flex gap-3 overflow-x-auto pb-1">
+          <div
+            v-for="actor in actors"
+            :key="actor.name"
+            class="flex flex-col items-center flex-shrink-0 w-14"
+          >
+            <div class="adult-actor-avatar adult-actor-avatar--ph">
+              <img
+                v-if="actor.photoDataUrl"
+                :src="actor.photoDataUrl"
+                :alt="actor.name"
+                class="w-full h-full object-cover"
+              />
+              <svg
+                v-else
+                class="w-5 h-5 yb-icon-muted"
+                fill="currentColor"
+                viewBox="0 0 20 20"
+              >
+                <path
+                  fill-rule="evenodd"
+                  d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
+                  clip-rule="evenodd"
+                />
+              </svg>
+            </div>
+            <span class="adult-actor-name">{{ actor.name }}</span>
+          </div>
+        </div>
       </div>
 
-      <!-- 视频文件 -->
-      <div v-if="videoFiles.length === 1" class="pt-2">
+      <!-- Secondary actions -->
+      <div class="yb-media-toolbar adult-toolbar">
         <button
-          class="w-full flex items-center gap-3 px-4 py-3 rounded-xl bg-green-600/20 hover:bg-green-600/30 border border-green-500/20 hover:border-green-500/40 transition-all group"
+          v-if="videoFiles.length === 1"
+          class="rp-play-btn-primary"
+          type="button"
+          :title="videoFiles[0].name"
           @click="emit('playFile', videoFiles[0].path)"
         >
-          <div class="w-10 h-10 rounded-full bg-green-500/30 flex items-center justify-center flex-shrink-0 group-hover:bg-green-500/50 transition-colors">
-            <svg class="w-5 h-5 text-green-400 ml-0.5" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-            </svg>
-          </div>
-          <div class="flex-1 min-w-0 text-left">
-            <div class="text-sm font-medium text-green-300 group-hover:text-green-200 transition-colors">播放视频</div>
-            <div class="text-[11px] text-gray-500 truncate">{{ videoFiles[0].name }}</div>
-          </div>
-          <span class="text-[11px] text-gray-600 flex-shrink-0">{{ formatSize(videoFiles[0].size) }}</span>
+          <svg class="rp-play-btn-icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
+            <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+          </svg>
+          <span>播放</span>
         </button>
+        <button
+          class="yb-btn-primary"
+          :disabled="loading"
+          @click="handleScrape"
+        >
+          {{ loading ? '刮削中...' : (meta ? '加入队列' : '打开刮削工作台') }}
+        </button>
+        <span
+          v-if="videoFiles.length === 1"
+          class="rp-play-size yb-dim"
+        >{{ formatSize(videoFiles[0].size) }}</span>
       </div>
-      <div v-else-if="videoFiles.length > 1" class="pt-2">
-        <p class="text-[11px] font-bold text-gray-500 uppercase tracking-widest mb-2">
-          视频文件 ({{ videoFiles.length }})
-        </p>
-        <div class="space-y-1">
-          <div
-            v-for="vf in videoFiles"
-            :key="vf.path"
-            class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/10 transition-colors group"
+      <div
+        v-if="actionMsg"
+        class="adult-action-msg"
+        :class="actionMsgIsError ? 'is-error' : 'is-ok'"
+      >
+        {{ actionMsg }}
+      </div>
+    </div>
+
+    <!-- Multi-file list -->
+    <div v-if="videoFiles.length > 1" class="yb-media-section adult-files">
+      <p class="yb-label mb-3">视频文件 ({{ videoFiles.length }})</p>
+      <div class="space-y-1.5">
+        <div
+          v-for="vf in videoFiles"
+          :key="vf.path"
+          class="yb-list-row group adult-file-row"
+        >
+          <svg class="w-4 h-4 yb-icon-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
+            <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+          </svg>
+          <span class="flex-1 text-sm truncate adult-file-name" :title="vf.name">{{ fileDisplayName(vf.name) }}</span>
+          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{ formatSize(vf.size) }}</span>
+          <button
+            class="opacity-0 group-hover:opacity-100 adult-play-btn"
+            title="播放"
+            @click="emit('playFile', vf.path)"
           >
-            <svg class="w-4 h-4 text-gray-500 flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-              <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-            </svg>
-            <span class="flex-1 text-xs text-gray-300 truncate" :title="vf.name">{{ vf.name }}</span>
-            <span class="text-[10px] text-gray-600 flex-shrink-0">{{ formatSize(vf.size) }}</span>
-            <button
-              class="opacity-0 group-hover:opacity-100 text-green-400 hover:text-green-300 transition-all flex-shrink-0 px-1"
-              title="播放"
-              @click="emit('playFile', vf.path)"
-            >
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
-              </svg>
-            </button>
-            <button
-              class="opacity-0 group-hover:opacity-100 text-red-400 hover:text-red-300 transition-all flex-shrink-0 px-1"
-              title="删除"
-              @click="emit('deleteFile', vf.path)"
-            >
-              <svg class="w-3.5 h-3.5" fill="currentColor" viewBox="0 0 20 20">
-                <path fill-rule="evenodd" d="M8.75 1A2.75 2.75 0 006 3.75v.443c-.795.077-1.584.176-2.365.298a.75.75 0 10.23 1.482l.149-.022 1.005 11.998A2.75 2.75 0 007.76 20h4.48a2.75 2.75 0 002.742-2.53l1.005-11.998.149.023a.75.75 0 00.23-1.482A41.03 41.03 0 0014 4.193V3.75A2.75 2.75 0 0011.25 1h-2.5zM10 4c.84 0 1.673.025 2.5.075V3.75c0-.69-.56-1.25-1.25-1.25h-2.5c-.69 0-1.25.56-1.25 1.25v.325C8.327 4.025 9.16 4 10 4zM8.58 7.72a.75.75 0 00-1.5.06l.3 7.5a.75.75 0 101.5-.06l-.3-7.5zm4.34.06a.75.75 0 10-1.5-.06l-.3 7.5a.75.75 0 101.5.06l.3-7.5z" clip-rule="evenodd" />
-              </svg>
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
-
-    <!-- 演员 -->
-    <div v-if="meta?.actress && Object.keys(meta.actress).length">
-      <h3 class="text-white/60 text-xs font-semibold uppercase tracking-wider mb-3">
-        演员
-      </h3>
-      <div class="flex gap-3 flex-wrap">
-        <div
-          v-for="(img, name) in meta.actress"
-          :key="name"
-          class="flex flex-col items-center gap-1"
-        >
-          <img
-            :src="proxyUrl(img)"
-            :alt="String(name)"
-            class="w-14 h-14 rounded-full object-cover border border-white/10"
-            @error="handleAvatarError"
-          />
-          <span class="text-[11px] text-gray-400 max-w-[56px] truncate text-center">
-            {{ name }}
-          </span>
-        </div>
-      </div>
-    </div>
-
-    <!-- 演员（从 actors prop） -->
-    <div v-else-if="actors && actors.length">
-      <h3 class="text-white/60 text-xs font-semibold uppercase tracking-wider mb-3">
-        演员
-      </h3>
-      <div class="flex gap-3 flex-wrap">
-        <div
-          v-for="actor in actors"
-          :key="actor.name"
-          class="flex flex-col items-center gap-1"
-        >
-          <div class="w-14 h-14 rounded-full overflow-hidden bg-gray-700/60 border border-white/10">
-            <img
-              v-if="actor.photoDataUrl"
-              :src="actor.photoDataUrl"
-              :alt="actor.name"
-              class="w-full h-full object-cover"
-            />
-            <svg v-else class="w-6 h-6 text-gray-500 m-4" fill="currentColor" viewBox="0 0 20 20">
-              <path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>
-            </svg>
-          </div>
-          <span class="text-[11px] text-gray-400 max-w-[56px] truncate text-center">
-            {{ actor.name }}
-          </span>
+            播放
+          </button>
+          <button
+            class="opacity-0 group-hover:opacity-100 adult-del-btn"
+            title="删除"
+            @click="emit('deleteFile', vf.path)"
+          >
+            删除
+          </button>
         </div>
       </div>
     </div>
 
     <!-- 预览图 -->
-    <div v-if="displayFanarts.length">
-      <h3 class="text-white/60 text-xs font-semibold uppercase tracking-wider mb-3">
+    <div v-if="displayFanarts.length" class="yb-media-section">
+      <h3 class="yb-label mb-3">
         预览图 ({{ displayFanarts.length }})
       </h3>
-      <div class="grid grid-cols-2 sm:grid-cols-3 gap-2">
+      <div class="adult-fanart-grid">
         <img
           v-for="(img, i) in displayFanarts"
           :key="i"
           :src="img.isLocal ? img.url : proxyUrl(img.url)"
-          class="w-full rounded-lg object-cover cursor-pointer hover:opacity-80 transition-opacity"
-          style="aspect-ratio: 16/9"
+          class="adult-fanart"
           @click="previewImg = img.isLocal ? img.url : proxyUrl(img.url)"
           @error="handleImageError"
         />
@@ -208,29 +200,29 @@
     </div>
 
     <!-- 磁力链接 -->
-    <div v-if="meta?.magnets?.length">
-      <h3 class="text-white/60 text-xs font-semibold uppercase tracking-wider mb-3">
+    <div v-if="meta?.magnets?.length" class="yb-media-section">
+      <h3 class="yb-label mb-3">
         磁力链接 ({{ meta.magnets.length }})
       </h3>
       <div class="space-y-2">
         <div
           v-for="(m, i) in meta.magnets"
           :key="i"
-          class="flex items-center gap-3 px-3 py-2.5 rounded-lg bg-white/5 hover:bg-white/8 transition-colors group"
+          class="yb-list-row group"
         >
-          <span class="text-[10px] text-gray-600 w-5 flex-shrink-0">{{ i + 1 }}</span>
+          <span class="yb-dim w-5 flex-shrink-0" style="font-size: 11px">{{ i + 1 }}</span>
           <span
-            class="text-xs text-gray-300 flex-1 truncate font-mono"
+            class="text-xs adult-file-name flex-1 truncate font-mono"
             :title="m.name"
           >
             {{ m.name || m.magnet.slice(20, 40) + '...' }}
           </span>
-          <span class="text-[10px] text-gray-500 flex-shrink-0">{{ m.size }}</span>
-          <span class="text-[10px] text-gray-600 flex-shrink-0">{{ m.date }}</span>
+          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{ m.size }}</span>
+          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{ m.date }}</span>
           <button
-            @click="copyMagnet(m.magnet, i)"
-            class="opacity-0 group-hover:opacity-100 px-2 py-1 rounded text-[10px] bg-blue-600/70 hover:bg-blue-600 text-white transition-all flex-shrink-0"
+            class="opacity-0 group-hover:opacity-100 px-2 py-1 rounded text-[10px] yb-btn-primary transition-all flex-shrink-0"
             :class="{ 'opacity-100': copiedIndex === i }"
+            @click="copyMagnet(m.magnet, i)"
           >
             {{ copiedIndex === i ? '已复制' : '复制' }}
           </button>
@@ -257,6 +249,7 @@
 <script setup lang="ts">
 import { computed, ref } from 'vue'
 import { backend, type BackendMeta } from '@/api/backend'
+import { resolveMediaDisplayTitle, stripMediaExtension } from '@/utils/avid'
 import type { ActorInfo, FileItem, ProcessedItem } from '@/types'
 
 interface Props {
@@ -274,19 +267,34 @@ const props = defineProps<Props>()
 
 const emit = defineEmits<{
   scrape: [meta: BackendMeta, item: ProcessedItem]
-  addToQueue: []
+  /** 无元数据时打开统一刮削工作台 */
+  openWorkbench: [item: ProcessedItem]
   playFile: [path: string]
   deleteFile: [path: string]
 }>()
 
-// 刮削按钮点击处理
+// 刮削按钮：有预览元数据则直接入队；否则打开工作台（不静默）
 const handleScrape = () => {
-  if (!props.meta || !props.selectedItem) return
-  emit('scrape', props.meta, props.selectedItem)
+  if (!props.selectedItem) return
+  if (props.meta) {
+    emit('scrape', props.meta, props.selectedItem)
+    return
+  }
+  emit('openWorkbench', props.selectedItem)
 }
 
 const previewImg = ref<string | null>(null)
 const copiedIndex = ref<number | null>(null)
+
+const heroImage = computed(() => {
+  if (props.meta?.cover) return proxyUrl(props.meta.cover)
+  return props.posterImageDataUrl || ''
+})
+
+const actionMsgIsError = computed(() => {
+  const msg = props.actionMsg || ''
+  return msg.startsWith('❌') || msg.startsWith('刮削失败')
+})
 
 // 合并本地和网络 fanarts，优先使用本地
 const displayFanarts = computed(() => {
@@ -307,6 +315,18 @@ const avid = computed(() => {
   const match = name.match(/([A-Z]{2,6})-?\s*(\d{2,4})/i)
   return match ? `${match[1].toUpperCase()}-${match[2]}` : ''
 })
+
+/** Unified display title — matches list once meta is filled. */
+const displayTitle = computed(() =>
+  resolveMediaDisplayTitle({
+    name: props.selectedItem?.name,
+    metaTitle: props.selectedItem?.metaTitle,
+    metaYear: props.selectedItem?.metaYear,
+    meta: props.meta,
+  })
+)
+
+const fileDisplayName = (name: string): string => stripMediaExtension(name)
 
 const videoExtensions = /\.(mp4|avi|mkv|mov|wmv|flv|webm|m4v)$/i
 
@@ -340,9 +360,9 @@ const handleImageError = (e: Event) => {
 const handleAvatarError = (e: Event) => {
   const target = e.target as HTMLImageElement
   target.style.display = 'none'
-  target.parentElement?.classList.add('flex', 'items-center', 'justify-center', 'bg-gray-700/60')
+  target.parentElement?.classList.add('flex', 'items-center', 'justify-center', 'yb-poster-ph')
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
-  svg.setAttribute('class', 'w-6 h-6 text-gray-500')
+  svg.setAttribute('class', 'w-6 h-6 yb-icon-muted')
   svg.setAttribute('fill', 'currentColor')
   svg.setAttribute('viewBox', '0 0 20 20')
   svg.innerHTML = '<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>'
@@ -368,5 +388,149 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
 </script>
 
 <style scoped>
-/* 使用全局 custom-scrollbar 样式 */
+.adult-rp { color: var(--text-primary); }
+/* Full-width cover stage: keep ~16:10.5 landscape strip height; width fills panel */
+.adult-cover-banner {
+  width: 100%;
+  aspect-ratio: 16 / 10.5;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
+  margin-bottom: var(--space-6);
+  box-shadow: var(--shadow-md);
+  outline: 1px solid var(--border-subtle);
+  background: var(--bg-fill-secondary);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+.adult-cover-img {
+  width: 100%;
+  height: 100%;
+  display: block;
+  object-fit: contain;
+  object-position: center;
+}
+.adult-cover-ph {
+  width: 100%;
+  height: 100%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--bg-fill-secondary);
+}
+.adult-meta {
+  width: 100%;
+  min-width: 0;
+  margin-bottom: var(--space-2);
+}
+.adult-title {
+  font-size: clamp(22px, 2.4vw, 28px);
+  letter-spacing: -0.025em;
+  margin: 0 0 var(--space-1);
+  line-height: 1.2;
+}
+.adult-chips {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+}
+.adult-desc {
+  margin: 0 0 var(--space-3);
+  font-size: var(--text-sm);
+  line-height: 1.55;
+}
+.adult-keywords {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: var(--space-3);
+}
+.adult-actors { margin-top: var(--space-1); margin-bottom: var(--space-3); }
+.adult-actor-avatar {
+  width: 44px;
+  height: 44px;
+  border-radius: 999px;
+  object-fit: cover;
+  display: block;
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+  background: var(--bg-fill-secondary);
+}
+.adult-actor-avatar--ph {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+}
+.adult-actor-name {
+  margin-top: 6px;
+  font-size: 10px;
+  color: var(--text-secondary);
+  text-align: center;
+  width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  line-height: 1.2;
+}
+.adult-toolbar { margin-top: var(--space-1); gap: var(--space-2); align-items: center; }
+.adult-action-msg {
+  margin-top: var(--space-2);
+  font-size: 11px;
+  font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
+}
+.adult-action-msg.is-ok { color: var(--success); }
+.adult-action-msg.is-error { color: var(--danger); }
+.adult-play-wrap {
+  margin-top: var(--space-2);
+  display: flex;
+  align-items: center;
+  gap: 12px;
+}
+.rp-play-size,
+.adult-play-wrap .rp-play-size {
+  font-size: var(--text-xs);
+}
+.adult-files { max-width: 720px; }
+.adult-file-row { min-height: 40px; }
+.adult-file-name { color: var(--text-primary); }
+.adult-play-btn,
+.adult-del-btn {
+  flex-shrink: 0;
+  border: 0;
+  background: transparent;
+  cursor: pointer;
+  font-size: 12px;
+  font-weight: 600;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  transition: var(--transition-fast);
+}
+.adult-play-btn { color: var(--success); }
+.adult-play-btn:hover { background: color-mix(in srgb, var(--success) 14%, transparent); }
+.adult-del-btn { color: var(--danger); }
+.adult-del-btn:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.adult-fanart-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+  gap: var(--space-2);
+}
+@media (min-width: 640px) {
+  .adult-fanart-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+}
+.adult-fanart {
+  width: 100%;
+  aspect-ratio: 16 / 9;
+  object-fit: cover;
+  border-radius: var(--radius-md);
+  cursor: pointer;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-fill-secondary);
+  transition: opacity var(--transition-fast), transform 100ms ease-out;
+}
+.adult-fanart:hover { opacity: 0.88; }
+.adult-fanart:active { transform: scale(0.98); }
+@media (prefers-reduced-motion: reduce) {
+  .adult-fanart:active { transform: none; }
+}
 </style>

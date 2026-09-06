@@ -1,19 +1,17 @@
 <template>
-  <div class="flex items-center justify-center h-full text-gray-300">
-    <div class="flex flex-col items-center">
-      <svg
-        xmlns="http://www.w3.org/2000/svg"
-        fill="none"
-        viewBox="0 0 24 24"
-        stroke-width="2"
-        stroke="currentColor"
-        class="size-20"
-      >
-        <path stroke-linecap="round" stroke-linejoin="round" :d="iconPath" />
-      </svg>
-      <p class="text-2xl mb-2">{{ title }}</p>
-      <p class="text-sm">{{ subtitle }}</p>
-    </div>
+  <div class="ui-empty-state empty-placeholder">
+    <svg
+      xmlns="http://www.w3.org/2000/svg"
+      fill="none"
+      viewBox="0 0 24 24"
+      stroke-width="1.6"
+      stroke="currentColor"
+      class="empty-icon"
+    >
+      <path stroke-linecap="round" stroke-linejoin="round" :d="iconPath" />
+    </svg>
+    <p class="empty-title">{{ title }}</p>
+    <p class="empty-subtitle">{{ subtitle }}</p>
   </div>
 </template>
 
@@ -32,3 +30,26 @@ withDefaults(
   }
 )
 </script>
+
+<style scoped>
+.empty-placeholder {
+  color: var(--text-secondary);
+}
+.empty-icon {
+  width: 64px;
+  height: 64px;
+  color: var(--text-tertiary);
+  margin-bottom: var(--space-2);
+}
+.empty-title {
+  margin: 0 0 var(--space-1);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.empty-subtitle {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+}
+</style>

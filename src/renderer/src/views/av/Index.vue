@@ -1,5 +1,5 @@
 <template>
-  <div class="av-page h-full overflow-hidden text-white flex flex-col">
+  <div class="av-page h-full overflow-hidden flex flex-col">
     <!-- Tab 导航 + 搜索栏 -->
     <div class="flex-shrink-0 bg-transparent">
       <!-- Tab 行 -->
@@ -9,8 +9,8 @@
           :key="tab.id"
           class="h-12 px-0 rounded-lg text-[15px] transition-colors"
           :class="activeTab === tab.id
-            ? 'text-blue-500 font-semibold'
-            : 'bg-transparent text-white/60 hover:text-white'"
+            ? 'av-tab is-active'
+            : 'av-tab'"
           @click="activeTab = tab.id"
         >{{ tab.label }}</button>
       </div>
@@ -23,19 +23,19 @@
     <!-- 分类浏览内容 -->
     <div v-if="activeTab === 'browse'" class="primary-scroll flex-1 overflow-y-auto p-6">
       <div v-if="browseLoading" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-        <div v-for="i in 12" :key="i" class="animate-pulse overflow-hidden rounded-xl border border-white/5 bg-white/5"><div class="aspect-video bg-white/10" /><div class="space-y-2 p-3"><div class="h-3 w-4/5 rounded bg-white/10" /><div class="h-3 w-2/5 rounded bg-white/10" /></div></div>
+        <div v-for="i in 12" :key="i" class="animate-pulse overflow-hidden rounded-xl av-card"><div class="aspect-video av-skel" /><div class="space-y-2 p-3"><div class="h-3 w-4/5 rounded av-skel-line" /><div class="h-3 w-2/5 rounded av-skel-line" /></div></div>
       </div>
-      <div v-else-if="browseError" class="flex min-h-60 flex-col items-center justify-center gap-3 text-center"><p class="text-sm text-red-300">{{ browseError }}</p><button class="h-10 rounded-lg bg-white/10 px-4 text-sm hover:bg-white/15" @click="loadBrowse()">重新加载</button></div>
+      <div v-else-if="browseError" class="flex min-h-60 flex-col items-center justify-center gap-3 text-center"><p class="text-sm" style="color: var(--danger)">{{ browseError }}</p><button class="h-10 rounded-lg av-ghost-btn px-4 text-sm" @click="loadBrowse()">重新加载</button></div>
       <template v-else>
-        <div class="mb-4 flex items-center justify-between"><div><h2 class="text-base font-semibold">{{ currentBrowseCategoryName }}</h2><p class="mt-1 text-xs text-white/40">{{ currentBrowseSource?.name || '未选择数据源' }} · 第 {{ browsePage }} / {{ browsePageCount || 1 }} 页<span v-if="browseTotal"> · 共 {{ browseTotal.toLocaleString() }} 条</span></p></div><button class="h-9 rounded-lg border border-white/10 px-3 text-xs text-white/70 hover:bg-white/10" @click="loadBrowse(true)">刷新</button></div>
+        <div class="mb-4 flex items-center justify-between"><div><h2 class="yb-section-title av-section-title">{{ currentBrowseCategoryName }}</h2><p class="yb-section-subtitle">{{ currentBrowseSource?.name || '未选择数据源' }} · 第 {{ browsePage }} / {{ browsePageCount || 1 }} 页<span v-if="browseTotal"> · 共 {{ browseTotal.toLocaleString() }} 条</span></p></div><button class="h-9 rounded-lg px-3 text-xs av-ghost-btn" @click="loadBrowse(true)">刷新</button></div>
         <div v-if="sortedBrowseVideos.length" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          <div v-for="video in sortedBrowseVideos" :key="`${video._source}-${video.vod_id}`" class="group cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.035] transition-all hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-white/[0.07]" @click="playVideo(video)">
+          <div v-for="video in sortedBrowseVideos" :key="`${video._source}-${video.vod_id}`" class="group cursor-pointer overflow-hidden rounded-xl av-card transition-all hover:-translate-y-0.5" @click="playVideo(video)">
             <div class="relative aspect-video overflow-hidden bg-black"><img :src="video.vod_pic" :alt="video.vod_name" class="h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]" loading="lazy" decoding="async" @error="handleImageError" /><span v-if="video.vod_remarks" class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px]">{{ video.vod_remarks }}</span><button class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg" :class="isFav(video) ? 'text-yellow-400' : 'text-white/70 hover:text-yellow-300'" @click.stop="toggleFav(video)">{{ isFav(video) ? '♥' : '♡' }}</button></div>
-            <div class="p-3"><h3 class="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-white">{{ video.vod_name }}</h3><p class="mt-2 truncate text-xs text-white/45">{{ video.type_name || '未分类' }} · {{ video.vod_duration || '时长未知' }}</p></div>
+            <div class="p-3"><h3 class="line-clamp-2 min-h-10 text-sm font-medium leading-5 av-card-title">{{ video.vod_name }}</h3><p class="mt-2 truncate text-xs yb-dim">{{ video.type_name || '未分类' }} · {{ video.vod_duration || '时长未知' }}</p></div>
           </div>
         </div>
-        <div v-else class="flex min-h-60 items-center justify-center text-sm text-white/40">这个分类暂时没有内容</div>
-        <div v-if="browsePageCount > 1" class="mt-8 flex items-center justify-center gap-3"><button class="h-10 rounded-lg border border-white/10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/10" :disabled="browsePage <= 1" @click="changeBrowsePage(-1)">上一页</button><span class="text-sm text-white/50">{{ browsePage }} / {{ browsePageCount }}</span><button class="h-10 rounded-lg border border-white/10 px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40 hover:bg-white/10" :disabled="browsePage >= browsePageCount" @click="changeBrowsePage(1)">下一页</button></div>
+        <div v-else class="flex min-h-60 items-center justify-center text-sm yb-dim">这个分类暂时没有内容</div>
+        <div v-if="browsePageCount > 1" class="mt-8 flex items-center justify-center gap-3"><button class="h-10 rounded-lg av-ghost-btn px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40" :disabled="browsePage <= 1" @click="changeBrowsePage(-1)">上一页</button><span class="text-sm yb-muted">{{ browsePage }} / {{ browsePageCount }}</span><button class="h-10 rounded-lg av-ghost-btn px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40" :disabled="browsePage >= browsePageCount" @click="changeBrowsePage(1)">下一页</button></div>
       </template>
     </div>
 
@@ -43,28 +43,28 @@
     <div v-if="activeTab === 'search'" class="primary-scroll flex-1 overflow-y-auto p-6">
       <!-- 加载进度 -->
       <div v-if="loading" class="flex flex-col items-center justify-center py-8 gap-3">
-        <div class="animate-spin rounded-full h-8 w-8 border-b-2 border-blue-500"></div>
-        <p class="text-sm text-gray-400">正在聚合 {{ activeSources.length }} 个站点... ({{ doneCount }}/{{ activeSources.length }})</p>
-        <div class="w-64 bg-white/10 rounded-full h-1.5">
-          <div class="bg-blue-500 h-1.5 rounded-full transition-all" :style="{ width: `${doneCount / activeSources.length * 100}%` }"></div>
+        <div class="animate-spin rounded-full h-8 w-8 border-b-2" style="border-color: var(--accent)"></div>
+        <p class="text-sm yb-muted">正在聚合 {{ activeSources.length }} 个站点... ({{ doneCount }}/{{ activeSources.length }})</p>
+        <div class="w-64 av-skel rounded-full h-1.5">
+          <div class="av-progress h-1.5 rounded-full transition-all" :style="{ width: `${doneCount / activeSources.length * 100}%` }"></div>
         </div>
       </div>
       <div v-if="loading && mergedVideos.length === 0" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-        <div v-for="i in 12" :key="i" class="animate-pulse overflow-hidden rounded-xl border border-white/5 bg-white/5"><div class="aspect-video bg-white/10" /><div class="space-y-2 p-3"><div class="h-3 w-4/5 rounded bg-white/10" /><div class="h-3 w-2/5 rounded bg-white/10" /></div></div>
+        <div v-for="i in 12" :key="i" class="animate-pulse overflow-hidden rounded-xl av-card"><div class="aspect-video av-skel" /><div class="space-y-2 p-3"><div class="h-3 w-4/5 rounded av-skel-line" /><div class="h-3 w-2/5 rounded av-skel-line" /></div></div>
       </div>
       <div v-if="searchError" class="flex min-h-52 flex-col items-center justify-center gap-3 text-center">
-        <p class="text-sm text-red-300">{{ searchError }}</p>
-        <button v-if="searchKeyword.trim()" class="h-10 rounded-lg bg-white/10 px-4 text-sm hover:bg-white/15" @click="handleSearch">重试搜索</button>
+        <p class="text-sm" style="color: var(--danger)">{{ searchError }}</p>
+        <button v-if="searchKeyword.trim()" class="h-10 rounded-lg av-ghost-btn px-4 text-sm" @click="handleSearch">重试搜索</button>
       </div>
       <!-- 合并结果网格 -->
       <div v-if="mergedVideos.length > 0" class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6" :class="{ 'mt-4': loading }">
         <div
           v-for="group in mergedVideos"
           :key="group.key"
-          class="group cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.035] transition-all hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-white/[0.07]"
+          class="group cursor-pointer overflow-hidden rounded-xl av-card transition-all hover:-translate-y-0.5"
           @click="playVideo(group.items[0])"
         >
-          <div class="relative overflow-hidden bg-gray-800" style="aspect-ratio:16/9">
+          <div class="relative overflow-hidden av-skel" style="aspect-ratio:16/9">
             <img :src="group.vod_pic" :alt="group.vod_name" class="w-full h-full object-contain bg-black" loading="lazy" decoding="async" @error="handleImageError" />
             <div class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center">
               <div class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
@@ -77,41 +77,41 @@
             <button class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg transition-colors" :class="isFav(group.items[0]) ? 'text-yellow-400' : 'text-white/70 hover:text-yellow-300'" @click.stop="toggleFav(group.items[0])">{{ isFav(group.items[0]) ? '♥' : '♡' }}</button>
           </div>
           <div class="p-3">
-            <h3 class="line-clamp-2 min-h-10 text-sm font-medium leading-5 text-white">{{ group.vod_name }}</h3>
-            <p class="mt-2 truncate text-xs text-white/45">{{ group.items.length }} 个可用来源</p>
+            <h3 class="line-clamp-2 min-h-10 text-sm font-medium leading-5 av-card-title">{{ group.vod_name }}</h3>
+            <p class="mt-2 truncate text-xs yb-dim">{{ group.items.length }} 个可用来源</p>
           </div>
         </div>
       </div>
       <!-- 无结果提示 -->
-      <div v-if="!loading && !searchError && mergedVideos.length === 0 && hasSearched" class="flex min-h-52 flex-col items-center justify-center text-gray-400">
+      <div v-if="!loading && !searchError && mergedVideos.length === 0 && hasSearched" class="flex min-h-52 flex-col items-center justify-center yb-muted">
         <p class="text-sm">未找到相关结果</p>
       </div>
       <div v-if="!loading && !hasSearched" class="flex min-h-64 flex-col items-center justify-center text-center">
-        <p class="text-sm text-white/60">搜索全部启用数据源</p>
-        <p class="mt-2 text-xs text-white/30">输入番号或关键词后按回车</p>
+        <p class="text-sm yb-muted">搜索全部启用数据源</p>
+        <p class="mt-2 text-xs yb-dim">输入番号或关键词后按回车</p>
       </div>
     </div>
 
     <!-- 收藏 -->
     <div v-if="activeTab === 'favorites'" class="primary-scroll flex-1 overflow-y-auto p-6">
-      <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="text-base font-semibold">收藏</h2><p class="mt-1 text-xs text-white/40">AV 资源收藏</p></div><button v-if="favorites.length" class="h-9 rounded-lg px-3 text-xs text-white/40 hover:bg-white/10 hover:text-white/70" @click="favorites = []">清空</button></div>
+      <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="yb-section-title av-section-title">收藏</h2><p class="yb-section-subtitle">AV 资源收藏</p></div><button v-if="favorites.length" class="h-9 rounded-lg px-3 text-xs av-ghost-btn" @click="favorites = []">清空</button></div>
       <div v-if="favorites.length">
         <div class="flex items-center gap-2 mb-4">
-          <span class="text-sm text-white/50">共 {{ favorites.length }} 个收藏</span>
-          <button class="ml-auto h-9 rounded-lg px-3 text-xs text-white/40 hover:bg-white/10 hover:text-white/70" @click="favorites = []">清空全部</button>
+          <span class="text-sm yb-muted">共 {{ favorites.length }} 个收藏</span>
+          <button class="ml-auto h-9 rounded-lg px-3 text-xs av-ghost-btn" @click="favorites = []">清空全部</button>
         </div>
         <div class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6">
-          <div v-for="fav in favorites" :key="fav._uid" class="group cursor-pointer overflow-hidden rounded-xl border border-white/5 bg-white/[0.035] transition-all hover:-translate-y-0.5 hover:border-blue-400/30 hover:bg-white/[0.07]" @click="playVideo(fav)">
+          <div v-for="fav in favorites" :key="fav._uid" class="group cursor-pointer overflow-hidden rounded-xl av-card transition-all hover:-translate-y-0.5" @click="playVideo(fav)">
             <div class="relative aspect-video bg-black">
               <img :src="fav.vod_pic" loading="lazy" decoding="async" class="w-full h-full object-contain bg-black" @error="handleImageError" />
               <div class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-white/80">{{ fav._source }}</div>
               <button class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg text-yellow-400" @click.stop="toggleFav(fav)">♥</button>
             </div>
-            <p class="line-clamp-2 min-h-16 p-3 text-sm font-medium leading-5 text-white/90">{{ fav.vod_name }}</p>
+            <p class="line-clamp-2 min-h-16 p-3 text-sm font-medium leading-5 av-card-title">{{ fav.vod_name }}</p>
           </div>
         </div>
       </div>
-      <div v-else class="flex min-h-40 flex-col items-center justify-center text-gray-500 gap-2 rounded-xl border border-dashed border-white/10">
+      <div v-else class="flex min-h-40 flex-col items-center justify-center yb-dim gap-2 rounded-xl border border-dashed av-empty-border">
         <p class="text-4xl mb-2">♡</p>
         <p>还没有收藏</p>
         <p class="text-xs">在搜索结果中点击 ♡ 收藏</p>
@@ -120,19 +120,19 @@
 
     <!-- 播放历史 -->
     <div v-if="activeTab === 'history'" class="primary-scroll flex-1 overflow-y-auto p-6">
-      <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="text-base font-semibold">播放历史</h2><p class="mt-1 text-xs text-white/40">AV 资源播放记录</p></div><button v-if="playHistory.length" class="h-9 rounded-lg px-3 text-xs text-white/40 hover:bg-white/10 hover:text-white/70" @click="playHistory = []">清空</button></div>
+      <div class="mb-5 flex items-center justify-between gap-3"><div><h2 class="yb-section-title av-section-title">播放历史</h2><p class="yb-section-subtitle">AV 资源播放记录</p></div><button v-if="playHistory.length" class="h-9 rounded-lg px-3 text-xs av-ghost-btn" @click="playHistory = []">清空</button></div>
       <div v-if="playHistory.length" class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3">
-          <div v-for="rec in playHistory" :key="rec.url" class="flex min-h-20 cursor-pointer items-center gap-3 rounded-xl border border-white/5 bg-white/[0.035] px-3 py-2 transition-colors hover:border-blue-400/30 hover:bg-white/[0.07]" @click="resumeHistory(rec)">
+          <div v-for="rec in playHistory" :key="rec.url" class="flex min-h-20 cursor-pointer items-center gap-3 rounded-xl av-card transition-all" @click="resumeHistory(rec)">
             <img :src="rec.vod_pic" loading="lazy" decoding="async" class="h-14 w-20 flex-shrink-0 rounded-lg bg-black object-contain" @error="handleImageError" />
             <div class="min-w-0 flex-1">
-              <p class="text-sm text-white/80 truncate">{{ rec.vod_name }}</p>
-              <p class="text-[11px] text-white/40">{{ rec.epName }} · {{ rec._source }}</p>
-              <p class="text-[10px] text-white/25">{{ formatTime(rec.timestamp) }}</p>
-              <div v-if="rec.duration > 0" class="mt-1.5 h-1 overflow-hidden rounded-full bg-white/10"><div class="h-full rounded-full bg-blue-500" :style="{ width: `${Math.min(100, rec.progress / rec.duration * 100)}%` }" /></div>
+              <p class="text-sm av-card-title truncate">{{ rec.vod_name }}</p>
+              <p class="text-[11px] yb-dim">{{ rec.epName }} · {{ rec._source }}</p>
+              <p class="text-[10px] yb-dim">{{ formatTime(rec.timestamp) }}</p>
+              <div v-if="rec.duration > 0" class="mt-1.5 h-1 overflow-hidden rounded-full av-skel"><div class="h-full rounded-full av-progress" :style="{ width: `${Math.min(100, rec.progress / rec.duration * 100)}%` }" /></div>
             </div>
           </div>
         </div>
-      <div v-else class="flex min-h-40 items-center justify-center text-sm text-gray-500">暂无播放记录</div>
+      <div v-else class="flex min-h-40 items-center justify-center text-sm yb-dim">暂无播放记录</div>
       </div>
 
     <!-- 播放器：仅保留视频画面与原生控制条 -->
@@ -167,6 +167,9 @@ import { useRoute } from 'vue-router'
 import { useAvSources, type AvSite } from './use-av-sources'
 import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
+import { canOpenElectronPlayer, openMediaPlayer } from '@/composables/use-media-player'
+import { getMediaProgress } from '@/utils/play-progress'
+import { message } from 'ant-design-vue'
 
 // ─── Tab ─────────────────────────────────────────────────────
 const tabs = [
@@ -597,7 +600,6 @@ const playVideo = async (video: any) => {
   attemptedSourceIds.add(video._uid)
   resumeTime = 0
   playerMessage.value = ''
-  showPlayer.value = true
   await startPlay(episodes[0].url, episodes[0].name)
 }
 
@@ -633,6 +635,20 @@ const tryNextSource = async () => {
 const startPlay = async (url: string, epName = '') => {
   playingUrl.value = url
   if (playingVideo.value) savePlayHistory(playingVideo.value, epName, url)
+  const title = [playingVideo.value?.vod_name, epName].filter(Boolean).join(' · ') || '正在播放'
+  // Electron：强制独立播放窗；页内层仅作非 Electron 兜底
+  if (canOpenElectronPlayer()) {
+    const poster = playingVideo.value?.vod_pic || undefined
+    const startAt = getMediaProgress(url)
+    const ok = await openMediaPlayer({ url, title, poster, startAt })
+    showPlayer.value = false
+    videoEl.value = null
+    if (!ok) {
+      message.error('无法打开独立播放窗口，请完全重启应用后再试')
+    }
+    return
+  }
+  showPlayer.value = true
 }
 
 const applyPlaybackSettings = () => {
@@ -656,7 +672,7 @@ const resumeHistory = async (record: AvPlayRecord) => {
   attemptedSourceIds.add(video._uid)
   resumeTime = record.progress
   playerMessage.value = record.progress > 5 ? '继续上次播放' : ''
-  showPlayer.value = true
+  // Electron 独立窗口无法回写进度；仅 overlay 模式支持 resumeTime
   await startPlay(record.url, record.epName)
 }
 
@@ -735,10 +751,11 @@ const closePlayer = () => {
   playerMessage.value = ''
   resumeTime = 0
   if (videoEl.value) videoEl.value.src = ''
+  void window.api?.player?.close?.()
 }
 
 const handleNavigateBack = (event: Event) => {
-  if (!showPlayer.value) return
+  if (!showPlayer.value && !playingUrl.value) return
   closePlayer()
   event.preventDefault()
 }
@@ -784,11 +801,51 @@ onBeforeUnmount(() => window.removeEventListener('app:navigate-back', handleNavi
 }
 
 ::-webkit-scrollbar-thumb {
-  background: rgba(255, 255, 255, 0.2);
+  background: var(--scrollbar-thumb);
   border-radius: 3px;
 }
 
 ::-webkit-scrollbar-thumb:hover {
-  background: rgba(255, 255, 255, 0.3);
+  background: var(--scrollbar-thumb-hover);
 }
+.av-page { color: var(--text-primary); }
+.av-tab {
+  color: var(--text-secondary);
+  background: transparent;
+}
+.av-tab:hover { color: var(--text-primary); }
+.av-tab.is-active {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
+}
+.av-section-title {
+  font-size: var(--text-lg);
+  flex: initial;
+}
+.av-card {
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
+}
+.av-card:hover {
+  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
+  background: var(--bg-fill-secondary);
+}
+.av-card-title { color: var(--text-primary); }
+.av-skel { background: var(--bg-fill-secondary); }
+.av-skel-line { background: var(--bg-fill-secondary); }
+.av-ghost-btn {
+  border: 1px solid var(--border-default);
+  color: var(--text-secondary);
+  background: transparent;
+  border-radius: var(--radius-md);
+  min-height: 36px;
+  transition: var(--transition-fast);
+  cursor: pointer;
+}
+.av-ghost-btn:hover {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+}
+.av-empty-border { border-color: var(--border-default); }
+.av-progress { background: var(--accent); }
 </style>

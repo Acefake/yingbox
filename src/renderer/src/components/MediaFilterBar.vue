@@ -33,10 +33,23 @@ const setFilter = (key: string, value: string) => {
 <style scoped>
 .media-filter-bar { display:flex; flex-direction:column; gap:13px; padding:0 0 8px; }
 .filter-row { display:flex; align-items:flex-start; gap:20px; }
-.filter-label { width:56px; flex:0 0 56px; padding-top:5px; color:rgba(255,255,255,.42); font-size:13px; white-space:nowrap; }
+.filter-label {
+  width:56px; flex:0 0 56px; padding-top:5px;
+  color: var(--text-tertiary);
+  font-size:13px; font-weight: var(--font-weight-medium);
+  white-space:nowrap;
+}
 .filter-options { display:flex; flex:1 1 auto; flex-wrap:wrap; gap:4px 18px; min-width:0; }
-.filter-option { min-height:28px; padding:0 1px; border:0; color:rgba(255,255,255,.58); background:transparent; font-size:13px; white-space:nowrap; cursor:pointer; transition:color .15s ease; }
-.filter-option:hover { color:#fff; }
-.filter-option.active { color:var(--primary); font-weight:600; }
+.filter-option {
+  min-height:28px; padding:0 1px; border:0;
+  color: var(--text-secondary);
+  background:transparent; font-size:13px; white-space:nowrap; cursor:pointer;
+  transition: color .15s ease;
+}
+.filter-option:hover { color: var(--text-primary); }
+.filter-option.active {
+  color: var(--accent-text);
+  font-weight:600;
+}
 @media (max-width: 760px) { .filter-row { gap:10px; } .filter-options { gap:3px 12px; } }
 </style>

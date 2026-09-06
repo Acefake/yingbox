@@ -1,13 +1,13 @@
 <template>
   <div class="mb-2">
-    <div v-if="loading" class="text-gray-400 text-sm">加载中...</div>
+    <div v-if="loading" class="yb-muted text-sm">加载中...</div>
     <div v-else-if="tvInfo">
       <!-- 标签行 -->
       <div class="flex flex-wrap gap-2 mb-3">
         <span v-if="tvInfo.year" class="info-badge">{{ tvInfo.year }}</span>
         <span v-if="tvInfo.rating" class="info-badge">
           <svg
-            class="w-3 h-3 text-yellow-400 inline mr-0.5"
+            class="w-3 h-3 ti-star inline mr-0.5"
             fill="currentColor"
             viewBox="0 0 20 20"
           >
@@ -38,33 +38,33 @@
 
       <!-- 详细信息 -->
       <div class="space-y-1.5 text-[13px]">
-        <div v-if="tvInfo.director" class="text-gray-300">
-          <span class="text-gray-500 mr-1">创作者</span> {{ tvInfo.director }}
+        <div v-if="tvInfo.director" class="ti-val">
+          <span class="yb-dim mr-1">创作者</span> {{ tvInfo.director }}
         </div>
         <div
           v-if="tvInfo.actor && tvInfo.actor.length > 0"
-          class="text-gray-300"
+          class="ti-val"
         >
-          <span class="text-gray-500 mr-1">演员</span>
+          <span class="yb-dim mr-1">演员</span>
           {{ tvInfo.actor.slice(0, 6).join(' / ') }}
         </div>
-        <div v-if="tvInfo.network" class="text-gray-300">
-          <span class="text-gray-500 mr-1">播出</span> {{ tvInfo.network }}
+        <div v-if="tvInfo.network" class="ti-val">
+          <span class="yb-dim mr-1">播出</span> {{ tvInfo.network }}
         </div>
-        <div v-if="tvInfo.premiered" class="text-gray-300">
-          <span class="text-gray-500 mr-1">首播</span> {{ tvInfo.premiered }}
+        <div v-if="tvInfo.premiered" class="ti-val">
+          <span class="yb-dim mr-1">首播</span> {{ tvInfo.premiered }}
         </div>
       </div>
 
       <!-- 简介 -->
       <p
         v-if="tvInfo.plot"
-        class="text-xs text-gray-300/80 leading-relaxed mt-3"
+        class="text-xs yb-muted leading-relaxed mt-3"
       >
         {{ tvInfo.plot }}
       </p>
     </div>
-    <div v-else class="text-gray-500 text-sm">
+    <div v-else class="yb-dim text-sm">
       未找到电视剧信息，请点击"同步信息"按钮从 TMDB 获取
     </div>
   </div>
@@ -88,20 +88,20 @@ defineProps<Props>()
   padding: 2px 10px;
   font-size: 11px;
   font-weight: 500;
-  color: rgba(255, 255, 255, 0.75);
-  background: rgba(255, 255, 255, 0.06);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  border: 1px solid rgba(255, 255, 255, 0.06);
-  border-radius: 8px;
+  color: var(--text-secondary);
+  background: var(--bg-fill-secondary);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-md);
 }
 .genre-tag {
   display: inline-block;
   padding: 1px 8px;
   font-size: 11px;
-  color: rgba(147, 197, 253, 0.9);
-  background: rgba(10, 132, 255, 0.12);
-  border: 1px solid rgba(10, 132, 255, 0.15);
-  border-radius: 6px;
+  color: var(--accent-text);
+  background: var(--accent-soft);
+  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  border-radius: var(--radius-sm);
 }
+.ti-val { color: var(--text-primary); }
+.ti-star { color: var(--warning); }
 </style>

@@ -15,17 +15,18 @@
       >
         <!-- 头部 -->
         <div
-          class="flex items-center justify-between px-6 py-4 border-b border-white/8 flex-shrink-0"
+          class="flex items-center justify-between px-6 py-4 jb-divider flex-shrink-0"
         >
           <div>
-            <div class="text-sm font-semibold text-white/90">
+            <div class="text-sm font-semibold" style="color: var(--text-primary)">
               JavBus 刮削预览
             </div>
-            <div class="text-xs text-gray-500 mt-0.5">{{ avid }}</div>
+            <div class="text-xs yb-dim mt-0.5">{{ avid }}</div>
           </div>
           <button
             @click="$emit('close')"
-            class="w-7 h-7 flex items-center justify-center rounded-md text-gray-500 hover:text-gray-300 hover:bg-white/10 transition-all"
+            class="w-7 h-7 flex items-center justify-center rounded-md jb-close"
+            aria-label="关闭"
           >
             <svg
               class="w-4 h-4"
@@ -46,7 +47,7 @@
         <!-- loading -->
         <div
           v-if="loading"
-          class="flex-1 flex items-center justify-center py-16 text-gray-400 text-sm"
+          class="flex-1 flex items-center justify-center py-16 yb-muted text-sm"
         >
           正在从 JavBus 获取数据...
         </div>
@@ -56,11 +57,11 @@
           v-else-if="error"
           class="flex-1 flex flex-col items-center justify-center py-16 gap-4 px-6"
         >
-          <span class="text-red-400 text-sm text-center">{{ error }}</span>
+          <span class="text-sm text-center" style="color: var(--danger)">{{ error }}</span>
           <button
             v-if="item"
             @click="emit('manualSearch', item); $emit('close')"
-            class="px-4 py-2 rounded-lg bg-blue-600/70 hover:bg-blue-600 text-white text-xs font-semibold transition-all"
+            class="yb-btn-primary text-xs font-semibold"
           >
             手动检索
           </button>
@@ -81,30 +82,25 @@
           <!-- 主信息区 -->
           <div class="flex gap-5">
             <div class="flex-1 min-w-0 space-y-3">
-              <h2 class="text-white font-semibold text-base leading-snug">
+              <h2 class="font-semibold text-base leading-snug" style="color: var(--text-primary)">
                 {{ meta.title }}
               </h2>
               <!-- 标签 -->
               <div class="flex flex-wrap gap-1.5">
-                <span
-                  class="px-2 py-0.5 rounded-full text-[11px] bg-blue-900/60 text-blue-300"
-                  >{{ meta.avid }}</span
-                >
+                <span class="yb-chip yb-chip-accent">{{ meta.avid }}</span>
                 <span
                   v-if="meta.release_date"
-                  class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400"
-                  >{{ meta.release_date }}</span
-                >
+                  class="yb-chip"
+                >{{ meta.release_date }}</span>
                 <span
                   v-if="meta.duration"
-                  class="px-2 py-0.5 rounded-full text-[11px] bg-white/8 text-gray-400"
-                  >{{ meta.duration }}</span
-                >
+                  class="yb-chip"
+                >{{ meta.duration }}</span>
               </div>
               <!-- 简介 -->
               <p
                 v-if="meta.description"
-                class="text-gray-400 text-[12px] leading-relaxed line-clamp-4"
+                class="yb-muted text-[12px] leading-relaxed line-clamp-4"
               >
                 {{ meta.description }}
               </p>
@@ -113,53 +109,28 @@
                 <span
                   v-for="kw in meta.keywords"
                   :key="kw"
-                  class="px-1.5 py-0.5 rounded text-[10px] bg-white/5 text-gray-500"
-                  >{{ kw }}</span
-                >
+                  class="yb-chip"
+                >{{ kw }}</span>
               </div>
               <!-- 操作按钮 -->
               <div class="flex gap-2 pt-1">
                 <button
                   @click="handleDirectScrape"
                   :disabled="processing"
-                  class="h-9 px-5 rounded-lg text-sm font-medium transition-all"
-                  :class="
-                    processing
-                      ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                      : 'bg-blue-600 hover:bg-blue-500 text-white'
-                  "
+                  class="yb-btn-primary text-sm"
                 >
-                  {{
-                    processing && actionType === 'scrape'
-                      ? '刮削中...'
-                      : '直接刮削'
-                  }}
-                </button>
-                <button
-                  @click="handleAddToQueue"
-                  :disabled="processing"
-                  class="h-9 px-5 rounded-lg text-sm font-medium transition-all"
-                  :class="
-                    processing
-                      ? 'bg-white/5 text-gray-500 cursor-not-allowed'
-                      : 'bg-white/10 hover:bg-white/15 text-gray-300'
-                  "
-                >
-                  {{
-                    processing && actionType === 'queue'
-                      ? '添加中...'
-                      : '加入队列'
-                  }}
+                  {{ processing ? '刮削中...' : '刮削' }}
                 </button>
               </div>
               <div
                 v-if="actionMsg"
                 class="text-[11px] font-mono"
-                :class="
-                  actionMsg.startsWith('❌') || actionMsg.startsWith('刮削失败')
-                    ? 'text-red-400'
-                    : 'text-green-400'
-                "
+                :style="{
+                  color:
+                    actionMsg.startsWith('❌') || actionMsg.startsWith('刮削失败')
+                      ? 'var(--danger)'
+                      : 'var(--success)',
+                }"
               >
                 {{ actionMsg }}
               </div>
@@ -168,9 +139,7 @@
 
           <!-- 演员 -->
           <div v-if="meta.actress && Object.keys(meta.actress).length">
-            <h3
-              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
-            >
+            <h3 class="yb-label mb-2">
               演员
             </h3>
             <div class="flex gap-3 flex-wrap">
@@ -182,24 +151,21 @@
                 <img
                   :src="proxyUrl(img)"
                   :alt="String(name)"
-                  class="w-12 h-12 rounded-full object-cover border border-white/10"
+                  class="w-12 h-12 rounded-full object-cover jb-avatar"
                   @error="
                     e => ((e.target as HTMLImageElement).style.display = 'none')
                   "
                 />
                 <span
-                  class="text-[10px] text-gray-400 max-w-[48px] truncate text-center"
-                  >{{ name }}</span
-                >
+                  class="text-[10px] yb-muted max-w-[48px] truncate text-center"
+                >{{ name }}</span>
               </div>
             </div>
           </div>
 
           <!-- Fanart -->
           <div v-if="meta.fanarts?.length">
-            <h3
-              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
-            >
+            <h3 class="yb-label mb-2">
               预览图
             </h3>
             <div class="grid grid-cols-3 gap-2">
@@ -219,40 +185,37 @@
 
           <!-- 磁力链接 -->
           <div v-if="meta.magnets?.length">
-            <h3
-              class="text-white/60 text-[11px] font-semibold uppercase tracking-wider mb-2"
-            >
+            <h3 class="yb-label mb-2">
               磁力链接 ({{ meta.magnets.length }})
             </h3>
             <div class="space-y-1.5">
               <div
                 v-for="(m, i) in meta.magnets"
                 :key="i"
-                class="flex items-center gap-2 px-3 py-2 rounded-lg bg-white/5 hover:bg-white/8 transition-colors group"
+                class="yb-list-row group"
               >
-                <span class="text-[10px] text-gray-600 w-4 flex-shrink-0">{{
+                <span class="yb-dim w-4 flex-shrink-0" style="font-size: 10px">{{
                   i + 1
                 }}</span>
                 <span
-                  class="text-[11px] text-gray-300 flex-1 truncate font-mono"
+                  class="text-[11px] flex-1 truncate font-mono jb-magnet-name"
                   :title="m.name"
-                  >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span
-                >
+                >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span>
                 <span
-                  class="text-[10px] text-gray-500 flex-shrink-0 w-16 text-right"
-                  >{{ m.size }}</span
-                >
+                  class="yb-dim flex-shrink-0 w-16 text-right"
+                  style="font-size: 10px"
+                >{{ m.size }}</span>
                 <span
-                  class="text-[10px] text-gray-600 flex-shrink-0 w-20 text-right"
-                  >{{ m.date }}</span
-                >
+                  class="yb-dim flex-shrink-0 w-20 text-right"
+                  style="font-size: 10px"
+                >{{ m.date }}</span>
                 <button
                   @click="copyMagnet(m.magnet, i)"
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
                   :class="
                     copiedIndex === i
-                      ? 'bg-green-600/30 text-green-400'
-                      : 'bg-white/8 text-gray-400 hover:bg-blue-600/30 hover:text-blue-300'
+                      ? 'yb-status-ok'
+                      : 'jb-copy-btn'
                   "
                 >
                   <svg
@@ -312,7 +275,6 @@
 import { ref, watch } from 'vue'
 import { backend, type BackendMeta } from '@/api/backend'
 import type { ProcessedItem } from '@/types'
-import type { ScrapedMovie } from '@/types/scraping'
 
 const props = defineProps<{
   visible: boolean
@@ -323,7 +285,6 @@ const props = defineProps<{
 const emit = defineEmits<{
   close: []
   scrape: [meta: BackendMeta, item: ProcessedItem]
-  addToQueue: [movie: ScrapedMovie, item: ProcessedItem]
   manualSearch: [item: ProcessedItem]
 }>()
 
@@ -332,7 +293,6 @@ const error = ref('')
 const meta = ref<BackendMeta | null>(null)
 const previewImg = ref<string | null>(null)
 const processing = ref(false)
-const actionType = ref<'scrape' | 'queue' | null>(null)
 const actionMsg = ref('')
 const copiedIndex = ref<number | null>(null)
 
@@ -386,41 +346,11 @@ watch(
   }
 )
 
-function buildMovieFromMeta(meta: BackendMeta): ScrapedMovie {
-  return {
-    id: meta.avid as any,
-    title: meta.title || meta.avid,
-    original_title: meta.avid,
-    overview: meta.description || '',
-    release_date: meta.release_date || '',
-    vote_average: 0,
-    vote_count: 0,
-    poster_path: meta.cover || '',
-    backdrop_path: meta.fanarts?.[0] || '',
-    adult: false,
-    genre_ids: [],
-    original_language: 'ja',
-    popularity: 0,
-    video: false,
-    _javbus: meta,
-  } as ScrapedMovie
-}
-
 function handleDirectScrape() {
   if (!meta.value || !props.item) return
   processing.value = true
-  actionType.value = 'scrape'
   actionMsg.value = ''
   emit('scrape', meta.value, props.item)
-}
-
-function handleAddToQueue() {
-  if (!meta.value || !props.item) return
-  processing.value = true
-  actionType.value = 'queue'
-  actionMsg.value = ''
-  const movie = buildMovieFromMeta(meta.value)
-  emit('addToQueue', movie, props.item)
 }
 
 function setResult(msg: string, isError: boolean = false) {
@@ -448,5 +378,30 @@ defineExpose({ setResult, setScrapeError })
 .modal-fade-enter-from,
 .modal-fade-leave-to {
   opacity: 0;
+}
+.jb-divider { border-bottom: 1px solid var(--separator); }
+.jb-close {
+  color: var(--text-tertiary);
+  background: transparent;
+  border: 0;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.jb-close:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass-hover);
+}
+.jb-avatar { box-shadow: inset 0 0 0 1px var(--border-subtle); }
+.jb-magnet-name { color: var(--text-primary); }
+.jb-copy-btn {
+  background: var(--bg-fill-secondary);
+  color: var(--text-secondary);
+  border: 1px solid var(--border-subtle);
+  cursor: pointer;
+}
+.jb-copy-btn:hover {
+  background: var(--accent-soft);
+  color: var(--accent-text);
+  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
 }
 </style>

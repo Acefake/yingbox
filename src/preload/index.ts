@@ -39,8 +39,18 @@ const api = {
     readdirRecursive: (dirPath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:readdirRecursive', dirPath),
 
-    scanMediaDirectory: (dirPath: string): Promise<FileOperationResult> =>
-      ipcRenderer.invoke('file:scanMediaDirectory', dirPath),
+    scanMediaDirectory: (
+      dirPath: string,
+      previousIndex?: Array<{
+        path: string
+        mtime: number
+        size: number
+        name?: string
+        isDirectory?: boolean
+        isFile?: boolean
+      }>
+    ): Promise<FileOperationResult> =>
+      ipcRenderer.invoke('file:scanMediaDirectory', dirPath, previousIndex),
 
     // Get file stats
     stat: (filePath: string): Promise<FileOperationResult> =>
@@ -145,6 +155,7 @@ const api = {
       ipcRenderer.invoke('config:setDownloadPath', path),
   },
   app: {
+    getUserDataPath: (): Promise<string> => ipcRenderer.invoke('app:getUserDataPath'),
     // Get app version info from package.json
     getVersion: (): Promise<FileOperationResult> =>
       ipcRenderer.invoke('app:getVersion'),
@@ -170,6 +181,49 @@ const api = {
     maximize: (): Promise<void> => ipcRenderer.invoke('win:maximize'),
     close: (): Promise<void> => ipcRenderer.invoke('win:close'),
     isMaximized: (): Promise<boolean> => ipcRenderer.invoke('win:isMaximized'),
+  },
+  player: {
+    open: (payload: {
+      filePath?: string
+      url?: string
+      title?: string
+      poster?: string
+      startAt?: number
+    }): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('player:open', payload),
+    close: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('player:close'),
+    getPending: (): Promise<{
+      filePath?: string
+      url?: string
+      title?: string
+      poster?: string
+      startAt?: number
+    } | null> => ipcRenderer.invoke('player:getPending'),
+    onLoad: (
+      cb: (payload: {
+        filePath?: string
+        url?: string
+        title?: string
+        poster?: string
+        startAt?: number
+      }) => void
+    ) => {
+      const handler = (
+        _e: Electron.IpcRendererEvent,
+        payload: {
+          filePath?: string
+          url?: string
+          title?: string
+          poster?: string
+          startAt?: number
+        }
+      ): void => {
+        cb(payload)
+      }
+      ipcRenderer.on('player:load', handler)
+    },
+    offLoad: () => ipcRenderer.removeAllListeners('player:load'),
   },
   scraper: {},
   downloader: {},

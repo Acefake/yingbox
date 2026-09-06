@@ -11,7 +11,7 @@
   >
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium text-gray-700 mb-2">
+        <label class="block text-sm font-medium mb-2" style="color: var(--text-primary)">
           电影名称
         </label>
         <Input
@@ -21,7 +21,7 @@
           @keydown.enter.prevent="performManualSearch"
         />
       </div>
-      <div v-if="currentItem" class="text-sm text-gray-500">
+      <div v-if="currentItem" class="text-sm yb-muted">
         <p>当前项目: {{ currentItem.name }}</p>
         <p class="text-xs mt-1">
           提示：您可以修改上面的名称来获得更准确的搜索结果

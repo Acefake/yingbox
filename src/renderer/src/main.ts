@@ -5,6 +5,8 @@ import App from '@/App.vue'
 import router from '@/router/index'
 import { setupDirectives } from '@/directives'
 import Antd from 'ant-design-vue'
+import { initTheme } from '@/utils/theme'
+import { registerPwa } from '@/pwa'
 
 const defaults: Record<string, string> = {
   metadataLanguage: 'zh-CN',
@@ -18,8 +20,12 @@ for (const [key, val] of Object.entries(defaults)) {
   }
 }
 
+initTheme()
+
 const app = createApp(App)
 app.use(Antd)
 app.use(router)
 setupDirectives(app)
 app.mount('#app')
+
+registerPwa()

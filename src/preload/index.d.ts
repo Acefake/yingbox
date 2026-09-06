@@ -31,7 +31,17 @@ interface API {
     mkdir: (dirPath: string) => Promise<FileOperationResult>
     readdir: (dirPath: string) => Promise<FileOperationResult>
     readdirRecursive: (dirPath: string) => Promise<FileOperationResult>
-    scanMediaDirectory: (dirPath: string) => Promise<FileOperationResult>
+    scanMediaDirectory: (
+      dirPath: string,
+      previousIndex?: Array<{
+        path: string
+        mtime: number
+        size: number
+        name?: string
+        isDirectory?: boolean
+        isFile?: boolean
+      }>
+    ) => Promise<FileOperationResult>
     stat: (filePath: string) => Promise<FileOperationResult>
     copy: (srcPath: string, destPath: string) => Promise<FileOperationResult>
     move: (srcPath: string, destPath: string, options?: { replace?: boolean }) => Promise<FileOperationResult>
@@ -88,6 +98,7 @@ interface API {
     }>
   }
   app: {
+    getUserDataPath: () => Promise<string>
     getVersion: () => Promise<FileOperationResult>
   }
   update: {
@@ -107,6 +118,33 @@ interface API {
     maximize: () => Promise<void>
     close: () => Promise<void>
     isMaximized: () => Promise<boolean>
+  }
+  player: {
+    open: (payload: {
+      filePath?: string
+      url?: string
+      title?: string
+      poster?: string
+      startAt?: number
+    }) => Promise<{ success: boolean; error?: string }>
+    close: () => Promise<{ success: boolean }>
+    getPending: () => Promise<{
+      filePath?: string
+      url?: string
+      title?: string
+      poster?: string
+      startAt?: number
+    } | null>
+    onLoad: (
+      cb: (payload: {
+        filePath?: string
+        url?: string
+        title?: string
+        poster?: string
+        startAt?: number
+      }) => void
+    ) => void
+    offLoad: () => void
   }
   scraper: {}
   downloader: {}

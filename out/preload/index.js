@@ -17,7 +17,7 @@ const api = {
     readdir: (dirPath) => electron.ipcRenderer.invoke("file:readdir", dirPath),
     // Read directory contents recursively
     readdirRecursive: (dirPath) => electron.ipcRenderer.invoke("file:readdirRecursive", dirPath),
-    scanMediaDirectory: (dirPath) => electron.ipcRenderer.invoke("file:scanMediaDirectory", dirPath),
+    scanMediaDirectory: (dirPath, previousIndex) => electron.ipcRenderer.invoke("file:scanMediaDirectory", dirPath, previousIndex),
     // Get file stats
     stat: (filePath) => electron.ipcRenderer.invoke("file:stat", filePath),
     // Copy file
@@ -62,6 +62,7 @@ const api = {
     setDownloadPath: (path) => electron.ipcRenderer.invoke("config:setDownloadPath", path)
   },
   app: {
+    getUserDataPath: () => electron.ipcRenderer.invoke("app:getUserDataPath"),
     // Get app version info from package.json
     getVersion: () => electron.ipcRenderer.invoke("app:getVersion")
   },
@@ -80,6 +81,18 @@ const api = {
     maximize: () => electron.ipcRenderer.invoke("win:maximize"),
     close: () => electron.ipcRenderer.invoke("win:close"),
     isMaximized: () => electron.ipcRenderer.invoke("win:isMaximized")
+  },
+  player: {
+    open: (payload) => electron.ipcRenderer.invoke("player:open", payload),
+    close: () => electron.ipcRenderer.invoke("player:close"),
+    getPending: () => electron.ipcRenderer.invoke("player:getPending"),
+    onLoad: (cb) => {
+      const handler = (_e, payload) => {
+        cb(payload);
+      };
+      electron.ipcRenderer.on("player:load", handler);
+    },
+    offLoad: () => electron.ipcRenderer.removeAllListeners("player:load")
   },
   scraper: {},
   downloader: {}

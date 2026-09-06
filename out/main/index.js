@@ -64,6 +64,31 @@ async function exists(filePath) {
     throw error;
   }
 }
+async function replaceFile(source, destination) {
+  const backup = `${destination}.${node_crypto.randomUUID()}.backup`;
+  const hadDestination = await exists(destination);
+  if (hadDestination && !(await fs__namespace.lstat(destination)).isFile()) {
+    throw new Error("目标不是普通文件");
+  }
+  let backedUp = false;
+  try {
+    if (hadDestination) {
+      await fs__namespace.rename(destination, backup);
+      backedUp = true;
+    }
+    await fs__namespace.rename(source, destination);
+  } catch (error) {
+    if (backedUp) {
+      try {
+        await fs__namespace.rename(backup, destination);
+      } catch {
+        throw new Error(`替换失败，原文件保留在 ${backup}: ${error.message}`);
+      }
+    }
+    throw error;
+  }
+  if (backedUp) await fs__namespace.unlink(backup).catch((error) => console.warn(`旧文件备份保留在 ${backup}`, error));
+}
 async function movePath(source, destination, replace = false) {
   const src = path__namespace.resolve(source);
   const dest = path__namespace.resolve(destination);
@@ -126,7 +151,7 @@ async function atomicWrite(filePath, content) {
     const temporary = `${filePath}.${node_crypto.randomUUID()}.partial`;
     try {
       await fs__namespace.writeFile(temporary, content, { flag: "wx" });
-      await fs__namespace.rename(temporary, filePath);
+      await replaceFile(temporary, filePath);
     } finally {
       await fs__namespace.unlink(temporary).catch(() => {
       });
@@ -212,46 +237,248 @@ async function serveLocalMedia(request) {
     return new Response(null, { status: code === "ENOENT" ? 404 : code === "EACCES" ? 403 : 500 });
   }
 }
-const videoExtensions = /* @__PURE__ */ new Set([".mp4", ".avi", ".mkv", ".mov", ".wmv", ".flv", ".webm", ".m4v", ".ts", ".rmvb"]);
+let playerWindow = null;
+let pendingPayload = null;
+function normalizePayload(payload) {
+  if (!payload || typeof payload !== "object") return null;
+  const filePath = typeof payload.filePath === "string" ? payload.filePath.trim() : "";
+  const url = typeof payload.url === "string" ? payload.url.trim() : "";
+  const title = typeof payload.title === "string" ? payload.title : void 0;
+  const poster = typeof payload.poster === "string" ? payload.poster.trim() : "";
+  const startAt = typeof payload.startAt === "number" && Number.isFinite(payload.startAt) ? Math.max(0, payload.startAt) : void 0;
+  if (!filePath && !url) return null;
+  return {
+    ...filePath ? { filePath } : {},
+    ...url ? { url } : {},
+    ...title ? { title } : {},
+    ...poster ? { poster } : {},
+    ...typeof startAt === "number" ? { startAt } : {}
+  };
+}
+function buildPlayerHash(payload) {
+  const q = new URLSearchParams();
+  if (payload.url) q.set("url", payload.url);
+  if (payload.filePath) q.set("filePath", payload.filePath);
+  if (payload.title) q.set("title", payload.title);
+  if (typeof payload.startAt === "number" && payload.startAt > 0) {
+    q.set("startAt", String(Math.floor(payload.startAt)));
+  }
+  const qs = q.toString();
+  return qs ? `player-popout?${qs}` : "player-popout";
+}
+function windowTitle(payload) {
+  const t = typeof payload.title === "string" ? payload.title.trim() : "";
+  return t ? `影盒 - ${t}` : "影盒 - 正在播放";
+}
+function applyWindowTitle(payload) {
+  if (!playerWindow || playerWindow.isDestroyed()) return;
+  try {
+    playerWindow.setTitle(windowTitle(payload));
+  } catch {
+  }
+}
+function sendLoad(payload) {
+  if (!playerWindow || playerWindow.isDestroyed()) return;
+  applyWindowTitle(payload);
+  playerWindow.webContents.send("player:load", payload);
+}
+function openPlayerWindow(payload, _mainWindow) {
+  pendingPayload = payload;
+  const hash = buildPlayerHash(payload);
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    if (playerWindow.isMinimized()) playerWindow.restore();
+    playerWindow.focus();
+    sendLoad(payload);
+    try {
+      const current = playerWindow.webContents.getURL();
+      if (current.includes("#")) {
+        const base = current.split("#")[0];
+        playerWindow.loadURL(`${base}#/${hash}`);
+      }
+    } catch {
+    }
+    return;
+  }
+  playerWindow = new electron.BrowserWindow({
+    width: 960,
+    height: 600,
+    minWidth: 640,
+    minHeight: 360,
+    show: false,
+    frame: true,
+    title: windowTitle(payload),
+    backgroundColor: "#000000",
+    autoHideMenuBar: true,
+    webPreferences: {
+      preload: path.join(__dirname, "../preload/index.js"),
+      sandbox: false,
+      webSecurity: false
+    }
+  });
+  playerWindow.on("closed", () => {
+    playerWindow = null;
+    pendingPayload = null;
+  });
+  const deliverPending = () => {
+    if (pendingPayload) sendLoad(pendingPayload);
+  };
+  playerWindow.once("ready-to-show", () => {
+    playerWindow?.show();
+    deliverPending();
+  });
+  playerWindow.webContents.on("did-finish-load", () => {
+    deliverPending();
+  });
+  if (utils.is.dev && process.env["ELECTRON_RENDERER_URL"]) {
+    playerWindow.loadURL(`${process.env["ELECTRON_RENDERER_URL"]}/#/${hash}`);
+  } else {
+    playerWindow.loadFile(path.join(__dirname, "../renderer/index.html"), {
+      hash
+    });
+  }
+}
+function closePlayerWindow() {
+  if (playerWindow && !playerWindow.isDestroyed()) {
+    playerWindow.close();
+  }
+  playerWindow = null;
+  pendingPayload = null;
+}
+function registerPlayerWindowIpc(getMainWindow) {
+  electron.ipcMain.handle("player:open", (_event, payload) => {
+    const normalized = normalizePayload(payload);
+    if (!normalized) {
+      return { success: false, error: "filePath or url required" };
+    }
+    try {
+      openPlayerWindow(normalized, getMainWindow());
+      return { success: true };
+    } catch (error) {
+      return { success: false, error: error instanceof Error ? error.message : String(error) };
+    }
+  });
+  electron.ipcMain.handle("player:close", () => {
+    closePlayerWindow();
+    return { success: true };
+  });
+  electron.ipcMain.handle("player:getPending", () => pendingPayload);
+}
+const videoExtensions = /* @__PURE__ */ new Set([
+  ".mp4",
+  ".avi",
+  ".mkv",
+  ".mov",
+  ".wmv",
+  ".flv",
+  ".webm",
+  ".m4v",
+  ".ts",
+  ".rmvb"
+]);
 const ignored = /* @__PURE__ */ new Set([".actors", "@eadir", "$recycle.bin", "system volume information"]);
-async function scanMediaDirectory(root) {
+const normPath = (p) => p.replace(/\\/g, "/").replace(/\/+$/, "");
+const pathKey = (p) => process.platform === "win32" ? normPath(p).toLowerCase() : normPath(p);
+async function scanMediaDirectory(root, previousIndex) {
   const data = [];
   const warnings = [];
-  const directories = [path$1.resolve(root)];
+  let reused = 0;
+  const rootResolved = path$1.resolve(root);
+  const prevByPath = /* @__PURE__ */ new Map();
+  if (previousIndex?.length) {
+    for (const entry of previousIndex) {
+      prevByPath.set(pathKey(entry.path), entry);
+    }
+  }
+  const collectCachedDescendants = (dirNorm) => {
+    const prefix = pathKey(dirNorm) + "/";
+    const out = [];
+    for (const [p, entry] of prevByPath) {
+      if (!p.startsWith(prefix)) continue;
+      out.push({
+        name: entry.name || path$1.basename(entry.path),
+        path: entry.path,
+        size: entry.size,
+        mtime: entry.mtime,
+        isDirectory: Boolean(entry.isDirectory),
+        isFile: entry.isFile !== void 0 ? Boolean(entry.isFile) : !entry.isDirectory
+      });
+    }
+    return out;
+  };
+  const directories = [rootResolved];
   while (directories.length) {
     const batch = directories.splice(0, 4);
-    await Promise.all(batch.map(async (directory) => {
-      try {
-        const entries = await fs.readdir(directory, { withFileTypes: true });
-        for (const entry of entries) {
-          const name = entry.name.toLowerCase();
-          if (name.startsWith(".") || name.startsWith("__") || ignored.has(name) || entry.isSymbolicLink()) continue;
-          const filePath = path$1.join(directory, entry.name);
-          const isVideo = videoExtensions.has(path$1.extname(name));
-          const isSidecar = name.endsWith(".nfo") || /\.(jpe?g|png|webp)$/i.test(name);
-          if (!entry.isDirectory() && (!entry.isFile() || !isVideo && !isSidecar)) continue;
-          try {
-            const stats = await fs.stat(filePath);
-            data.push({
-              name: entry.name,
-              path: filePath,
-              size: stats.isFile() ? stats.size : 0,
-              mtime: stats.mtimeMs,
-              isDirectory: stats.isDirectory(),
-              isFile: stats.isFile()
-            });
-            if (entry.isDirectory()) directories.push(filePath);
-          } catch (error) {
-            warnings.push(`${filePath}: ${error.message}`);
+    await Promise.all(
+      batch.map(async (directory) => {
+        const dirNorm = pathKey(directory);
+        try {
+          if (directory !== rootResolved && prevByPath.size > 0) {
+            try {
+              const dirStats = await fs.stat(directory);
+              const prev = prevByPath.get(dirNorm);
+              if (prev && prev.isDirectory && prev.mtime === dirStats.mtimeMs) {
+                const cached = collectCachedDescendants(dirNorm);
+                data.push(...cached);
+                reused += cached.length;
+                return;
+              }
+            } catch {
+            }
+          }
+          const entries = await fs.readdir(directory, { withFileTypes: true });
+          for (const entry of entries) {
+            const name = entry.name.toLowerCase();
+            if (name.startsWith(".") || name.startsWith("__") || ignored.has(name) || entry.isSymbolicLink()) {
+              continue;
+            }
+            const filePath = path$1.join(directory, entry.name);
+            const isVideo = videoExtensions.has(path$1.extname(name));
+            const isSidecar = name.endsWith(".nfo") || /\.(jpe?g|png|webp)$/i.test(name);
+            if (!entry.isDirectory() && (!entry.isFile() || !isVideo && !isSidecar)) {
+              continue;
+            }
+            try {
+              const stats = await fs.stat(filePath);
+              data.push({
+                name: entry.name,
+                path: filePath,
+                size: stats.isFile() ? stats.size : 0,
+                mtime: stats.mtimeMs,
+                isDirectory: stats.isDirectory(),
+                isFile: stats.isFile()
+              });
+              if (entry.isDirectory()) directories.push(filePath);
+            } catch (error) {
+              warnings.push(`${filePath}: ${error.message}`);
+            }
+          }
+        } catch (error) {
+          if (directory === rootResolved) throw error;
+          warnings.push(`${directory}: ${error.message}`);
+          if (prevByPath.size > 0) {
+            const cached = collectCachedDescendants(dirNorm);
+            if (cached.length) {
+              data.push(...cached);
+              reused += cached.length;
+            }
           }
         }
-      } catch (error) {
-        if (directory === path$1.resolve(root)) throw error;
-        warnings.push(`${directory}: ${error.message}`);
-      }
-    }));
+      })
+    );
   }
-  return { data: data.sort((a, b) => a.path.localeCompare(b.path)), warnings };
+  const seen = /* @__PURE__ */ new Set();
+  const deduped = [];
+  for (const item of data) {
+    const key = pathKey(item.path);
+    if (seen.has(key)) continue;
+    seen.add(key);
+    deduped.push(item);
+  }
+  return {
+    data: deduped.sort((a, b) => a.path.localeCompare(b.path)),
+    warnings,
+    reused
+  };
 }
 async function fetchHttp(url, options = {}, timeoutMs = 3e4) {
   if (!/^https?:\/\//i.test(url)) throw new Error("仅支持 HTTP/HTTPS 地址");
@@ -292,7 +519,7 @@ async function downloadFile(url, filePath) {
         node_stream.Readable.fromWeb(response.body),
         node_fs.createWriteStream(temporary, { flags: "wx" })
       );
-      await fs.rename(temporary, filePath);
+      await replaceFile(temporary, filePath);
     } finally {
       await fs.unlink(temporary).catch(() => {
       });
@@ -384,6 +611,7 @@ function registerWindowHandlers() {
   electron.ipcMain.handle("win:isMaximized", (event) => {
     return electron.BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false;
   });
+  electron.ipcMain.handle("app:getUserDataPath", () => electron.app.getPath("userData"));
   electron.ipcMain.handle("app:getVersion", async () => {
     try {
       const packageJsonPath = path__namespace$1.join(__dirname, "../../package.json");
@@ -535,13 +763,16 @@ electron.app.whenReady().then(() => {
       return { success: false, error: error.message };
     }
   });
-  electron.ipcMain.handle("file:scanMediaDirectory", async (_, dirPath) => {
-    try {
-      return { success: true, ...await scanMediaDirectory(dirPath) };
-    } catch (error) {
-      return { success: false, error: error.message };
+  electron.ipcMain.handle(
+    "file:scanMediaDirectory",
+    async (_, dirPath, previousIndex) => {
+      try {
+        return { success: true, ...await scanMediaDirectory(dirPath, previousIndex) };
+      } catch (error) {
+        return { success: false, error: error.message };
+      }
     }
-  });
+  );
   electron.ipcMain.handle("file:stat", async (_, filePath) => {
     try {
       const stats = await fs__namespace$1.stat(filePath);
@@ -885,6 +1116,7 @@ electron.app.whenReady().then(() => {
     return { success: !error, error: error || void 0 };
   });
   registerWindowHandlers();
+  registerPlayerWindowIpc(() => mainWindow);
   createWindow();
   const registerDevToolsShortcut = () => {
     electron.globalShortcut.register("F12", () => {

@@ -652,6 +652,136 @@ export const useTVFileManagement = () => {
     selectedItems.value.clear()
   }
 
+  const normPath = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '')
+
+  /**
+   * 只刷新单个剧集目录树节点（不扫整个媒体库）
+   */
+  const refreshSpecificShow = async (showPath: string): Promise<void> => {
+    try {
+      dirLoading.value = true
+      scanProgress.value = { found: 0, active: true }
+      const files = await readDirectoryRecursive(showPath)
+      const showName = showPath.split(/[\\/]/).pop() || showPath
+      const withRoot: FileItem[] = [
+        {
+          id: makeId(showPath),
+          name: showName,
+          path: showPath,
+          size: 0,
+          mtime: Date.now(),
+          isDirectory: true,
+          isFile: false,
+        },
+        ...files,
+      ]
+      const processed = processTVFiles(withRoot)
+      const key = normPath(showPath).toLowerCase()
+      const others = fileData.value.filter(
+        item => normPath(item.path).toLowerCase() !== key
+      )
+      fileData.value = [...others, ...processed]
+      saveToCache()
+    } catch (error) {
+      console.error('局部刷新剧集失败:', showPath, error)
+      message.error('局部刷新剧集失败')
+    } finally {
+      scanProgress.value.active = false
+      dirLoading.value = false
+    }
+  }
+
+  /**
+   * 只刷新某一个已添加的库根目录（多库时避免全扫）
+   */
+  const refreshOneLibraryRoot = async (libraryPath: string): Promise<void> => {
+    try {
+      dirLoading.value = true
+      scanProgress.value = { found: 0, active: true }
+      const pathCheck = await window.api.file.exists(libraryPath)
+      if (!pathCheck.success || !pathCheck.exists) {
+        throw new Error('目录不存在或无法访问')
+      }
+      const files = await readDirectoryRecursive(libraryPath)
+      const processed = processTVFiles(files)
+      const prefix = normPath(libraryPath).toLowerCase() + '/'
+      const rootKey = normPath(libraryPath).toLowerCase()
+      const others = fileData.value.filter(item => {
+        const p = normPath(item.path).toLowerCase()
+        return p !== rootKey && !p.startsWith(prefix)
+      })
+      fileData.value = [...others, ...processed]
+      saveToCache()
+    } catch (error) {
+      console.error('刷新库根失败:', libraryPath, error)
+      message.error('刷新库根失败')
+    } finally {
+      scanProgress.value.active = false
+      dirLoading.value = false
+    }
+  }
+
+  /**
+   * 刮削后刷新：优先局部；路径无效时回退全量
+   */
+  let tvRefreshPending: Promise<void> | null = null
+  let tvRefreshDirty = false
+  let tvPendingFull = false
+  const tvPendingLocals = new Set<string>()
+
+  const refreshAfterScrape = (targetPath?: string): Promise<void> => {
+    if (!targetPath) {
+      tvPendingFull = true
+    } else {
+      const n = normPath(targetPath)
+      const matchedRoot = directoryPaths.value.find(root => {
+        const r = normPath(root).toLowerCase()
+        const t = n.toLowerCase()
+        return t === r || t.startsWith(r + '/')
+      })
+      if (!matchedRoot) {
+        tvPendingFull = true
+      } else if (normPath(matchedRoot).toLowerCase() === n.toLowerCase()) {
+        tvPendingLocals.add(matchedRoot)
+      } else {
+        tvPendingLocals.add(targetPath)
+      }
+    }
+
+    tvRefreshDirty = true
+    if (!tvRefreshPending) {
+      tvRefreshPending = (async () => {
+        do {
+          await new Promise(resolve => setTimeout(resolve, 100))
+          tvRefreshDirty = false
+          const needFull = tvPendingFull
+          const locals = [...tvPendingLocals]
+          tvPendingFull = false
+          tvPendingLocals.clear()
+
+          if (needFull || locals.length === 0) {
+            await refreshFiles()
+          } else {
+            for (const p of locals) {
+              const isLibraryRoot = directoryPaths.value.some(
+                root => normPath(root).toLowerCase() === normPath(p).toLowerCase()
+              )
+              if (isLibraryRoot) {
+                await refreshOneLibraryRoot(p)
+              } else {
+                await refreshSpecificShow(p)
+              }
+            }
+            message.success(`刮削后已局部刷新 ${locals.length} 项`)
+          }
+        } while (tvRefreshDirty)
+      })().finally(() => {
+        tvRefreshPending = null
+      })
+    }
+    return tvRefreshPending
+  }
+
   return {
     fileData,
     directoryPaths,
@@ -670,5 +800,8 @@ export const useTVFileManagement = () => {
     clearSelection,
     organizeFilesIntoSeasons,
     mergeSeriesSeasons,
+    refreshSpecificShow,
+    refreshOneLibraryRoot,
+    refreshAfterScrape,
   }
 }
