@@ -18,20 +18,32 @@ export interface ScrapeProviderConfig {
   customApiKey: string
   /** JavBus Go 后端地址 */
   goBackendUrl: string
+  /**
+   * Go 后端访问密钥（对应后端环境变量 YINGBOX_API_KEY）。
+   * 仅当后端开放到局域网/NAS 时才需填写；本机访问无需密钥。
+   */
+  goBackendApiKey: string
 }
 
 const STORAGE_KEY = 'scrapeProviderConfig'
 
-const DEFAULT_TMDB_TOKEN =
-  'eyJhbGciOiJIUzI1NiJ9.eyJhdWQiOiJmMTlmNjFmZjRmNjVhYWRkODkzY2NmZTNkZTVmZGM2MyIsIm5iZiI6MTcxODQ0MzgyMC44NTUsInN1YiI6IjY2NmQ1ZjJjNWI3MTcwNTliZGE3Y2NmNCIsInNjb3BlcyI6WyJhcGlfcmVhZCJdLCJ2ZXJzaW9uIjoxfQ.kKzgbixXgO4SV57qNlLJRvxcZv8rt9A6vDi6OZKwTcI'
+/**
+ * 构建时注入的默认 Token（`VITE_TMDB_ACCESS_TOKEN`），为空表示未配置。
+ * 禁止把真实 Token 硬编码进源码：公开仓库中的密钥等同于泄露。
+ */
+const ENV_TMDB_TOKEN: string =
+  (typeof import.meta !== 'undefined' &&
+    (import.meta.env?.VITE_TMDB_ACCESS_TOKEN as string | undefined)) ||
+  ''
 
 const defaults: ScrapeProviderConfig = {
   provider: 'tmdb',
-  tmdbAccessToken: DEFAULT_TMDB_TOKEN,
+  tmdbAccessToken: '',
   customProviderName: '',
   customBaseUrl: '',
   customApiKey: '',
   goBackendUrl: 'http://localhost:31471',
+  goBackendApiKey: '',
 }
 
 /**
@@ -60,15 +72,16 @@ export const saveScrapeProviderConfig = (
 }
 
 /**
- * 获取当前生效的 TMDB Access Token
+ * 获取当前生效的 TMDB Access Token。
+ * 优先级：用户在设置中填写 > 构建时环境变量 > 空（未配置）。
  */
 export const getTmdbAccessToken = (): string => {
   const config = getScrapeProviderConfig()
-  if (config.provider === 'tmdb' && config.tmdbAccessToken) {
-    return config.tmdbAccessToken
-  }
-  return DEFAULT_TMDB_TOKEN
+  return config.tmdbAccessToken || ENV_TMDB_TOKEN
 }
+
+/** 是否已配置 TMDB Token（未配置时 TMDB 相关功能不可用） */
+export const hasTmdbToken = (): boolean => getTmdbAccessToken() !== ''
 
 /**
  * 获取 JavBus Go 后端 URL
@@ -76,4 +89,12 @@ export const getTmdbAccessToken = (): string => {
 export const getGoBackendUrl = (): string => {
   const config = getScrapeProviderConfig()
   return (config.goBackendUrl || 'http://localhost:31471').replace(/\/$/, '')
+}
+
+/**
+ * 获取 Go 后端访问密钥（本机访问可留空）
+ */
+export const getGoBackendApiKey = (): string => {
+  const config = getScrapeProviderConfig()
+  return config.goBackendApiKey || ''
 }

@@ -22,9 +22,9 @@
             <div class="text-xs yb-dim mt-0.5">{{ avid }}</div>
           </div>
           <button
-            @click="$emit('close')"
             class="w-7 h-7 flex items-center justify-center rounded-md mp-close"
             aria-label="关闭"
+            @click="$emit('close')"
           >
             <svg
               class="w-4 h-4"
@@ -185,13 +185,13 @@
                 >{{ m.date }}</span>
                 <!-- 复制按钮 -->
                 <button
-                  @click="copyMagnet(m.magnet, i)"
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
                   :class="
                     copiedIndex === i
                       ? 'yb-status-ok'
                       : 'mp-copy-btn'
                   "
+                  @click="copyMagnet(m.magnet, i)"
                 >
                   <svg
                     v-if="copiedIndex !== i"
@@ -248,14 +248,14 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { backend, type BackendMeta } from '@/api/backend'
+import { type BackendMeta, backend } from '@/api/backend'
 
 const props = defineProps<{
   visible: boolean
   avid: string
 }>()
 
-const emit = defineEmits<{
+defineEmits<{
   close: []
 }>()
 

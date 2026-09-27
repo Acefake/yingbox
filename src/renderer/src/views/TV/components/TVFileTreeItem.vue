@@ -140,7 +140,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { ProcessedItem } from '@/types'
 import type { MenuItem } from '@/composables/use-context-menu'
 import { stripMediaExtension } from '@/utils/avid'

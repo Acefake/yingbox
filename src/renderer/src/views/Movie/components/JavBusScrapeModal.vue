@@ -24,9 +24,9 @@
             <div class="text-xs yb-dim mt-0.5">{{ avid }}</div>
           </div>
           <button
-            @click="$emit('close')"
             class="w-7 h-7 flex items-center justify-center rounded-md jb-close"
             aria-label="关闭"
+            @click="$emit('close')"
           >
             <svg
               class="w-4 h-4"
@@ -60,8 +60,8 @@
           <span class="text-sm text-center" style="color: var(--danger)">{{ error }}</span>
           <button
             v-if="item"
-            @click="emit('manualSearch', item); $emit('close')"
             class="yb-btn-primary text-xs font-semibold"
+            @click="emit('manualSearch', item); $emit('close')"
           >
             手动检索
           </button>
@@ -115,9 +115,9 @@
               <!-- 操作按钮 -->
               <div class="flex gap-2 pt-1">
                 <button
-                  @click="handleDirectScrape"
                   :disabled="processing"
                   class="yb-btn-primary text-sm"
+                  @click="handleDirectScrape"
                 >
                   {{ processing ? '刮削中...' : '刮削' }}
                 </button>
@@ -210,13 +210,13 @@
                   style="font-size: 10px"
                 >{{ m.date }}</span>
                 <button
-                  @click="copyMagnet(m.magnet, i)"
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
                   :class="
                     copiedIndex === i
                       ? 'yb-status-ok'
                       : 'jb-copy-btn'
                   "
+                  @click="copyMagnet(m.magnet, i)"
                 >
                   <svg
                     v-if="copiedIndex !== i"
@@ -273,7 +273,7 @@
 
 <script setup lang="ts">
 import { ref, watch } from 'vue'
-import { backend, type BackendMeta } from '@/api/backend'
+import { type BackendMeta, backend } from '@/api/backend'
 import type { ProcessedItem } from '@/types'
 
 const props = defineProps<{

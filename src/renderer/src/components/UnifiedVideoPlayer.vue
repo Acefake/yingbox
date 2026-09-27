@@ -80,11 +80,94 @@ let hls: Hls | null = null
 let loadToken = 0
 let pendingSeek = 0
 
-const posterSrc = computed(() => props.poster?.trim() || '')
-const showLoadingPoster = computed(() => isLoading.value)
+/** 上一次使用的播放倍速（跨会话记忆） */
+const PLAYBACK_RATE_KEY = 'player_playback_rate'
 
-const hideLoading = (): void => {
-  isLoading.value = false
+const readStoredRate = (): number => {
+  const raw = Number(localStorage.getItem(PLAYBACK_RATE_KEY))
+  return Number.isFinite(raw) && raw >= 0.25 && raw <= 4 ? raw : 1
+}
+
+const storeRate = (rate: number): void => {
+  if (Number.isFinite(rate) && rate >= 0.25 && rate <= 4) {
+    localStorage.setItem(PLAYBACK_RATE_KEY, String(rate))
+  }
+}
+
+/** 本地字幕候选（同目录 .srt/.ass/.vtt） */
+interface LocalSubtitle {
+  name: string
+  path: string
+  ext: string
+}
+
+let subtitleObjectUrl: string | null = null
+
+const disposeSubtitleUrl = (): void => {
+  if (!subtitleObjectUrl) return
+  URL.revokeObjectURL(subtitleObjectUrl)
+  subtitleObjectUrl = null
+}
+
+const isLocalSource = (url: string): boolean => url.startsWith('local://')
+
+/**
+ * 为本地视频自动挂载同目录字幕。
+ *
+ * 字幕文件可能是 GBK 编码的 srt/ass，由主进程统一读成 WebVTT 后
+ * 以 blob URL 交给 Artplayer（避免 local:// 跨源读取限制）。
+ */
+const applyLocalSubtitles = async (instance: Artplayer, source: string): Promise<void> => {
+  const subtitleApi = window.api?.subtitle
+  if (!subtitleApi || !isLocalSource(source)) return
+
+  let list: LocalSubtitle[] = []
+  try {
+    const found = await subtitleApi.find(source)
+    if (!found?.success || !Array.isArray(found.data)) return
+    list = found.data
+  } catch {
+    return
+  }
+  // 等待期间可能已切集/销毁播放器，此时放弃挂载
+  if (!list.length || art !== instance) return
+
+  const switchTo = async (item: LocalSubtitle): Promise<boolean> => {
+    if (art !== instance) return false
+    try {
+      const read = await subtitleApi.read(item.path)
+      if (!read?.success || !read.data) return false
+      if (art !== instance) return false
+      disposeSubtitleUrl()
+      subtitleObjectUrl = URL.createObjectURL(new Blob([read.data], { type: 'text/vtt' }))
+      await instance.subtitle.switch(subtitleObjectUrl, { name: item.name, type: 'vtt' })
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  // 默认加载最佳匹配（与视频同名者优先）
+  const applied = await switchTo(list[0])
+  if (!applied || art !== instance) return
+
+  // 多个候选时提供字幕切换菜单；菜单失败不应影响已生效的字幕
+  if (list.length > 1) {
+    try {
+      instance.setting.add({
+        name: 'localSubtitle',
+        html: '字幕',
+        selector: list.map(item => ({ html: item.name, subtitlePath: item.path })),
+        onSelect(this: Artplayer, item: { html: string; subtitlePath?: string }) {
+          const target = list.find(sub => sub.path === item.subtitlePath)
+          if (target) void switchTo(target)
+          this.notice.show = `字幕：${item.html}`
+        },
+      })
+    } catch {
+      // ignore
+    }
+  }
 }
 
 const destroyHls = (): void => {
@@ -95,6 +178,7 @@ const destroyHls = (): void => {
 
 const destroyPlayer = (): void => {
   destroyHls()
+  disposeSubtitleUrl()
   if (art) {
     try {
       art.destroy(false)
@@ -104,6 +188,13 @@ const destroyPlayer = (): void => {
     art = null
   }
   video.value = null
+}
+
+const posterSrc = computed(() => props.poster?.trim() || '')
+const showLoadingPoster = computed(() => isLoading.value)
+
+const hideLoading = (): void => {
+  isLoading.value = false
 }
 
 const isHlsUrl = (url: string): boolean => /\.m3u8(?:$|\?)/i.test(url)
@@ -164,10 +255,10 @@ const createPlayer = async (source: string): Promise<void> => {
     autoMini: false,
     loop: false,
     flip: false,
-    playbackRate: false,
+    playbackRate: true,
     aspectRatio: false,
     screenshot: false,
-    setting: false,
+    setting: true,
     hotkey: false,
     pip: false,
     mutex: true,
@@ -213,6 +304,27 @@ const createPlayer = async (source: string): Promise<void> => {
 
   video.value = art.video
   emit('ready', art.video)
+
+  // 恢复上次使用的倍速，并记住本次改动（跨集/跨会话）
+  // 注意：video.load() 会把 playbackRate 重置为 defaultPlaybackRate，故两者都要设，
+  // 并在每次 loadedmetadata 时重新应用，保证自动连播换集后倍速不丢。
+  const initialRate = readStoredRate()
+  const applyRate = (el: HTMLVideoElement | null | undefined, rate: number): void => {
+    if (!el || rate === 1) return
+    try {
+      el.defaultPlaybackRate = rate
+      if (el.playbackRate !== rate) el.playbackRate = rate
+    } catch {
+      // ignore
+    }
+  }
+  applyRate(art.video, initialRate)
+  art.on('video:ratechange', () => {
+    if (art?.video) storeRate(art.video.playbackRate)
+  })
+
+  // 本地视频：自动挂载同目录字幕（srt/ass/vtt，含 GBK 编码转换）
+  void applyLocalSubtitles(art, resolved)
 
   art.on('video:loadedmetadata', (event: Event) => {
     if (art?.video) applySeekIfNeeded(art.video)

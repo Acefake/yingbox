@@ -242,7 +242,7 @@
 
 <script setup lang="ts">
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRouter, useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import SourceManagerPanel from '@/components/SourceManagerPanel.vue'

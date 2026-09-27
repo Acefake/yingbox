@@ -6,6 +6,7 @@ dist-renderer
 *.local
 .env
 .env.*
+!.env.example
 Thumbs.db
 coverage
 *.tsbuildinfo
@@ -15,3 +16,8 @@ out
 .codex_tmp/
 
 dist-web/
+
+# Go 后端构建产物（由 pnpm build:backend / dev:backend 生成）
+packages/services/backend/main.exe
+packages/services/backend/main
+packages/services/backend/gallery.exe

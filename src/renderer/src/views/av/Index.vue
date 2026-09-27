@@ -161,10 +161,10 @@
 </template>
 
 <script setup lang="ts">
-import { computed, ref, shallowRef, onMounted, onBeforeUnmount, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, shallowRef, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useRoute } from 'vue-router'
-import { useAvSources, type AvSite } from './use-av-sources'
+import { type AvSite, useAvSources } from './use-av-sources'
 import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
 import { canOpenElectronPlayer, openMediaPlayer } from '@/composables/use-media-player'

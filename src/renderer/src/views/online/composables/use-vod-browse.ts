@@ -1,6 +1,6 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import { useVODParser } from '@/composables/use-vod-parser'
-import type { CmsItem, CatSpiderSite } from '@/views/online/composables/use-online-search'
+import type { CatSpiderSite, CmsItem } from '@/views/online/composables/use-online-search'
 
 export interface VodTab {
   name: string

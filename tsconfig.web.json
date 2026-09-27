@@ -5,6 +5,9 @@
     "types": ["node"],
     "baseUrl": ".",
     "resolveJsonModule": true,
+    // 显式锁定：Windows 上大小写错误的 import 能编译过，但 mac/Linux 构建会断。
+    // 配合 pnpm check:case（scripts/check-import-case.mjs）在 CI 提前拦截。
+    "forceConsistentCasingInFileNames": true,
     "paths": {
       "@/*": ["src/renderer/src/*"]
     }

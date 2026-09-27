@@ -236,7 +236,7 @@
 import { computed } from 'vue'
 import TVInfo from '@/views/TV/components/TVInfo.vue'
 import { stripMediaExtension } from '@/utils/avid'
-import type { ProcessedItem, TVShowInfoType, SeasonInfo } from '@/types'
+import type { ProcessedItem, SeasonInfo, TVShowInfoType } from '@/types'
 
 interface Props {
   selectedItem: ProcessedItem
@@ -306,7 +306,7 @@ const showDisplayTitle = computed(() => {
 
 const episodeCode = (n?: number | null): string => {
   if (n == null) return '??'
-  return 'E' + String(n).padStart(2, '0')
+  return `E${  String(n).padStart(2, '0')}`
 }
 
 /** 集显示：有元数据标题则 E01 · title；否则去扩展名的文件名 */

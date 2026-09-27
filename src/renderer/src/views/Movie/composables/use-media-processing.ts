@@ -1,7 +1,7 @@
-import { ref, computed, watch, shallowRef } from 'vue'
-import type { ProcessedItem, MovieInfoType, ActorInfo } from '@/types'
+import { computed, ref, shallowRef, watch } from 'vue'
+import type { ActorInfo, MovieInfoType, ProcessedItem } from '@/types'
 import { useErrorHandler } from '@/composables/use-error-handler'
-import { parseNfo, type NfoData } from '@/services/nfo-service'
+import { type NfoData, parseNfo } from '@/services/nfo-service'
 import { toLocalUrl } from '@/utils/local-url'
 
 /** 模块级 NFO 缓存：path → NfoData */
@@ -16,10 +16,8 @@ const preloadImage = (url: string): void => {
   img.src = url
 }
 
-/** 刮削版本号：每次刮削完成后递增，使图片 URL 失效强制浏览器重新请求 */
-let scrapeVersion = 0
+/** 刮削完成后清空 NFO 缓存，强制下次读取最新内容 */
 export const bumpScrapeVersion = (): void => {
-  scrapeVersion++
   nfoCache.clear()
 }
 
@@ -241,7 +239,7 @@ export const useMediaProcessing = (selectedItem: any) => {
       item.type === 'folder'
         ? item.path
         : item.path.substring(0, item.path.lastIndexOf(sep))
-    const actorsDir = basePath + sep + '.actors'
+    const actorsDir = `${basePath + sep  }.actors`
 
     const dirExists = await window.api.file
       .exists(actorsDir)
@@ -252,7 +250,7 @@ export const useMediaProcessing = (selectedItem: any) => {
     for (const actor of info.actors.slice(0, 20)) {
       if (version !== selectionVersion) return
         const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
-        const photoPath = actorsDir + sep + safeActorName + '.jpg'
+        const photoPath = `${actorsDir + sep + safeActorName  }.jpg`
         const exists = await window.api.file
           .exists(photoPath)
           .catch(() => ({ success: false, exists: false }))

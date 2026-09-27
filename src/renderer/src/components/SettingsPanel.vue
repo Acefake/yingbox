@@ -25,9 +25,9 @@
             <p class="yb-section-subtitle">偏好与刮削服务</p>
           </div>
           <button
-            @click="$emit('close')"
             aria-label="关闭设置"
             class="settings-close-btn"
+            @click="$emit('close')"
           >
             <svg
               class="w-4 h-4"
@@ -159,7 +159,7 @@
               <p class="text-[11px] yb-muted">TMDB Access Token</p>
               <textarea
                 v-model="tmdbAccessToken"
-                placeholder="输入 TMDB API Read Access Token"
+                placeholder="输入 TMDB API Read Access Token（必填，无内置默认值）"
                 rows="3"
                 class="yb-field resize-none"
               />
@@ -172,6 +172,9 @@
                   >TMDB API 设置</a
                 >
                 获取 Read Access Token
+              </p>
+              <p v-if="!tmdbAccessToken" class="text-[10px] yb-status-fail">
+                尚未配置 Token，TMDB 搜索与刮削不可用
               </p>
             </div>
 
@@ -186,9 +189,23 @@
                   class="yb-field"
                 />
               </div>
+              <div>
+                <p class="text-[11px] yb-muted mb-1">访问密钥（可选）</p>
+                <input
+                  v-model="goBackendApiKey"
+                  type="password"
+                  autocomplete="off"
+                  placeholder="后端暴露到局域网/NAS 时填写"
+                  class="yb-field"
+                />
+                <p class="text-[10px] yb-dim mt-1">
+                  仅当后端设置了
+                  <code class="yb-chip" style="padding: 0 4px; border-radius: 4px">YINGBOX_API_KEY</code>
+                  时需要；仅本机使用可留空
+                </p>
+              </div>
               <div class="flex items-center gap-2">
                 <button
-                  @click="handleTestGoBackend"
                   :disabled="!goBackendUrl || goTestStatus === 'testing'"
                   class="px-3 py-1 text-xs rounded-md transition-all yb-btn-soft"
                   :class="
@@ -198,6 +215,7 @@
                         ? 'yb-status-fail'
                         : ''
                   "
+                  @click="handleTestGoBackend"
                 >
                   {{
                     goTestStatus === 'testing'
@@ -261,9 +279,9 @@
                 </div>
                 <button
                   v-if="updateAction"
-                  @click="handleUpdateAction"
                   :disabled="updateBusy"
                   class="yb-btn-soft whitespace-nowrap"
+                  @click="handleUpdateAction"
                 >
                   {{ updateAction }}
                 </button>
@@ -291,14 +309,14 @@
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import SettingsSection from '@/components/SettingsSection.vue'
 import {
+  type ScrapeProviderType,
   getScrapeProviderConfig,
   saveScrapeProviderConfig,
-  type ScrapeProviderType,
 } from '@/stores/scrape-provider-store'
 import { backend } from '@/api/backend'
 
 const props = defineProps<{ visible: boolean }>()
-const emit = defineEmits<{ close: [] }>()
+defineEmits<{ close: [] }>()
 
 const imageSizeOptions = [
   { value: 'w342', short: '小', label: '小 (w342)' },
@@ -387,6 +405,7 @@ const customProviderName = ref(_config.customProviderName)
 const customBaseUrl = ref(_config.customBaseUrl)
 const customApiKey = ref(_config.customApiKey)
 const goBackendUrl = ref(_config.goBackendUrl || 'http://localhost:31471')
+const goBackendApiKey = ref(_config.goBackendApiKey || '')
 const goTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 
 type UpdateStatus =
@@ -478,6 +497,7 @@ const loadConfig = () => {
   customBaseUrl.value = c.customBaseUrl
   customApiKey.value = c.customApiKey
   goBackendUrl.value = c.goBackendUrl || 'http://localhost:31471'
+  goBackendApiKey.value = c.goBackendApiKey || ''
 }
 
 watch(currentProvider, val => saveScrapeProviderConfig({ provider: val }))
@@ -491,6 +511,10 @@ watch(customBaseUrl, val => saveScrapeProviderConfig({ customBaseUrl: val }))
 watch(customApiKey, val => saveScrapeProviderConfig({ customApiKey: val }))
 watch(goBackendUrl, val => {
   saveScrapeProviderConfig({ goBackendUrl: val })
+  goTestStatus.value = 'idle'
+})
+watch(goBackendApiKey, val => {
+  saveScrapeProviderConfig({ goBackendApiKey: val })
   goTestStatus.value = 'idle'
 })
 watch(

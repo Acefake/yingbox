@@ -27,11 +27,13 @@
     "build:mac": "npm run build:nocheck && electron-builder --mac",
     "build:linux": "npm run build:nocheck && electron-builder --linux",
     "check": "bash scripts/check-issues.sh",
+    "check:case": "node scripts/check-import-case.mjs",
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
-    "fix": "bash scripts/auto-fix.sh"
+    "fix": "bash scripts/auto-fix.sh",
+    "test": "vitest run",
+    "test:watch": "vitest"
   },
   "dependencies": {
-    "@electron-toolkit/preload": "^3.0.2",
     "@electron-toolkit/utils": "^4.0.0",
     "@tdanks2000/tmdb-wrapper": "^1.3.3",
     "@types/crypto-js": "^4.2.2",
@@ -67,6 +69,7 @@
     "tailwindcss": "^4.1.11",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
+    "vitest": "^5.0.2",
     "vue": "^3.5.17",
     "vue-eslint-parser": "^10.2.0",
     "vue-tsc": "^3.0.3"

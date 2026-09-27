@@ -1,4 +1,4 @@
-import { readMediaDirectory, fileId as makeId } from '@/utils/media-directory'
+import { fileId as makeId, readMediaDirectory } from '@/utils/media-directory'
 import { ref } from 'vue'
 import { message } from 'ant-design-vue'
 import type { FileItem, ProcessedItem } from '@/types'
@@ -75,7 +75,7 @@ export const useFileManagement = () => {
     const folder = normPath(folderPath)
     const rootN = normPath(root)
     if (!folder || folder.toLowerCase() === rootN.toLowerCase()) return false
-    return folder.toLowerCase().startsWith(rootN.toLowerCase() + '/')
+    return folder.toLowerCase().startsWith(`${rootN.toLowerCase()  }/`)
   }
 
   const toPreviousIndex = (files: FileItem[]) =>
@@ -395,7 +395,7 @@ export const useFileManagement = () => {
 
       const oldDirFiles = fileData.value.filter(f => {
         const normalizedPath = normPath(f.path)
-        if (!normalizedPath.startsWith(normalizedTargetPath + '/')) return false
+        if (!normalizedPath.startsWith(`${normalizedTargetPath  }/`)) return false
         const relativePart = normalizedPath.slice(
           normalizedTargetPath.length + 1
         )
@@ -407,7 +407,7 @@ export const useFileManagement = () => {
 
       const otherFiles = fileData.value.filter(f => {
         const normalizedPath = normPath(f.path)
-        if (!normalizedPath.startsWith(normalizedTargetPath + '/')) return true
+        if (!normalizedPath.startsWith(`${normalizedTargetPath  }/`)) return true
         const relativePart = normalizedPath.slice(
           normalizedTargetPath.length + 1
         )
@@ -454,7 +454,7 @@ export const useFileManagement = () => {
       if (parent) {
         const parentKey = parent.toLowerCase()
         const rootKey = rootN.toLowerCase()
-        if (parentKey === rootKey || parentKey.startsWith(rootKey + '/')) {
+        if (parentKey === rootKey || parentKey.startsWith(`${rootKey  }/`)) {
           pendingLocalPaths.add(parent)
         }
       }

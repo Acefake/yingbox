@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 
 export interface GlobalQueueItem {
   id: string
@@ -274,6 +274,7 @@ function _checkIdle(): void {
 }
 
 let scheduled = false
+
 function _schedule(): void {
   if (scheduled) return
   scheduled = true

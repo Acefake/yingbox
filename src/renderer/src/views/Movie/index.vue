@@ -87,7 +87,7 @@
 <script setup lang="ts">
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
-import { backend, type BackendMeta } from '@/api/backend'
+import { type BackendMeta, backend } from '@/api/backend'
 import { Modal, message } from 'ant-design-vue'
 import { ProcessedItem } from '@/types'
 import type { ScrapedMovie } from '@/types/scraping'
@@ -99,10 +99,10 @@ import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useFileManagement } from '@/views/Movie/composables/use-file-management'
 import {
-  useMediaProcessing,
   bumpScrapeVersion,
+  useMediaProcessing,
 } from '@/views/Movie/composables/use-media-processing'
-import { useScrapingTask, onScrapedFolder } from '@/views/Movie/composables/use-scraping-task'
+import { onScrapedFolder, useScrapingTask } from '@/views/Movie/composables/use-scraping-task'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { extractAvid } from '@/utils/avid'
 import { toLocalUrl } from '@/utils/local-url'
@@ -735,7 +735,7 @@ const handleDeleteFile = (filePath: string): void => {
         const parent = filePath.replace(/[\\/][^\\/]+$/, '')
         await refreshAfterScrape(parent || currentDirectoryPath.value)
       } else {
-        message.error('删除失败: ' + (result.error || '未知错误'))
+        message.error(`删除失败: ${  result.error || '未知错误'}`)
       }
     },
   })
@@ -764,7 +764,7 @@ const handleDeleteItem = (item: ProcessedItem): void => {
         const parent = item.path.replace(/[\\/][^\\/]+$/, '')
         await refreshAfterScrape(parent || currentDirectoryPath.value)
       } else {
-        message.error('删除失败: ' + (result.error || '未知错误'))
+        message.error(`删除失败: ${  result.error || '未知错误'}`)
       }
     },
   })

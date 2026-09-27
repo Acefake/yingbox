@@ -1,5 +1,25 @@
-import { electronAPI } from '@electron-toolkit/preload'
 import { contextBridge, ipcRenderer } from 'electron'
+
+/** 播放列表条目：用于自动连播与失败换源 */
+interface PlayerSourceItem {
+  url?: string
+  filePath?: string
+  name?: string
+  ext?: Record<string, unknown>
+  siteName?: string
+}
+
+/** 播放窗口载荷 */
+interface PlayerPayload {
+  filePath?: string
+  url?: string
+  title?: string
+  poster?: string
+  startAt?: number
+  playlist?: PlayerSourceItem[]
+  index?: number
+  fallbacks?: PlayerSourceItem[]
+}
 
 interface FileOperationResult {
   success: boolean
@@ -34,10 +54,6 @@ const api = {
     // Read directory contents
     readdir: (dirPath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:readdir', dirPath),
-
-    // Read directory contents recursively
-    readdirRecursive: (dirPath: string): Promise<FileOperationResult> =>
-      ipcRenderer.invoke('file:readdirRecursive', dirPath),
 
     scanMediaDirectory: (
       dirPath: string,
@@ -189,59 +205,49 @@ const api = {
       title?: string
       poster?: string
       startAt?: number
+      playlist?: PlayerSourceItem[]
+      index?: number
+      fallbacks?: PlayerSourceItem[]
     }): Promise<{ success: boolean; error?: string }> =>
       ipcRenderer.invoke('player:open', payload),
     close: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('player:close'),
-    getPending: (): Promise<{
-      filePath?: string
-      url?: string
-      title?: string
-      poster?: string
-      startAt?: number
-    } | null> => ipcRenderer.invoke('player:getPending'),
-    onLoad: (
-      cb: (payload: {
-        filePath?: string
-        url?: string
-        title?: string
-        poster?: string
-        startAt?: number
-      }) => void
-    ) => {
-      const handler = (
-        _e: Electron.IpcRendererEvent,
-        payload: {
-          filePath?: string
-          url?: string
-          title?: string
-          poster?: string
-          startAt?: number
-        }
-      ): void => {
+    getPending: (): Promise<PlayerPayload | null> => ipcRenderer.invoke('player:getPending'),
+    onLoad: (cb: (payload: PlayerPayload) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, payload: PlayerPayload): void => {
         cb(payload)
       }
       ipcRenderer.on('player:load', handler)
     },
     offLoad: () => ipcRenderer.removeAllListeners('player:load'),
   },
-  scraper: {},
-  downloader: {},
+  subtitle: {
+    /**
+     * 查找本地视频同目录的字幕文件。
+     * 传入视频的 local:// URL（与 player 使用的是同一个地址）。
+     */
+    find: (localUrl: string): Promise<{
+      success: boolean
+      data?: Array<{ name: string; path: string; ext: string }>
+      error?: string
+    }> => ipcRenderer.invoke('subtitle:find', localUrl),
+    /** 读取字幕文件并统一转换为 WebVTT（自动处理 GBK/UTF-16 等编码与 srt/ass 格式） */
+    read: (filePath: string): Promise<{
+      success: boolean
+      data?: string
+      format?: string
+      error?: string
+    }> => ipcRenderer.invoke('subtitle:read', filePath),
+  },
 }
 
-/**
- * 这是
- */
 if (process.contextIsolated) {
   try {
-    contextBridge.exposeInMainWorld('electron', electronAPI)
     contextBridge.exposeInMainWorld('api', api)
   } catch (error) {
     console.error(error)
   }
 } else {
-  // @ts-ignore (define in dts)
-  window.electron = electronAPI
   // @ts-ignore (define in dts)
   window.api = api
 }

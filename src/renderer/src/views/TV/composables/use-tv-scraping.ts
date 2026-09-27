@@ -3,7 +3,7 @@ import { message } from 'ant-design-vue'
 import { ref } from 'vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { safeFileName } from '@/utils/file-name'
-import { ProcessedItem, TVShowInfoType, SeasonInfo, EpisodeInfo } from '@/types'
+import { EpisodeInfo, ProcessedItem, SeasonInfo, TVShowInfoType } from '@/types'
 
 /** 模块级 NFO 内容缓存：path → content，避免重复文件读取 */
 const nfoContentCache = new Map<string, string>()
@@ -975,9 +975,9 @@ export const useTVScraping = () => {
     const cachedSeasons = seasonsCache.get(item.path)
     const cachedSeasonPosters = seasonPostersCache.get(item.path)
     const sep = item.path.includes('\\') ? '\\' : '/'
-    const posterPath = item.path + sep + 'poster.jpg'
-    const fanartPath = item.path + sep + 'fanart.jpg'
-    const nfoPath = item.path + sep + 'tvshow.nfo'
+    const posterPath = `${item.path + sep  }poster.jpg`
+    const fanartPath = `${item.path + sep  }fanart.jpg`
+    const nfoPath = `${item.path + sep  }tvshow.nfo`
 
     // 如果所有数据都已缓存，直接返回（秒开）
     if (cachedTvInfo && cachedSeasons && cachedSeasonPosters) {
@@ -1023,11 +1023,11 @@ export const useTVScraping = () => {
       await Promise.all(
         seasonFolders.map(async sf => {
           const sfSep = sf.path.includes('\\') ? '\\' : '/'
-          const nfoP = sf.path + sfSep + 'season.nfo'
+          const nfoP = `${sf.path + sfSep  }season.nfo`
           const posterP =
-            sf.path +
-            sfSep +
-            `season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
+            `${sf.path +
+            sfSep 
+            }season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
 
           // 海报直接使用 local://，不再读取为 Base64。
           result.seasonPosters[sf.path] = toLocalUrl(posterP)
@@ -1084,7 +1084,7 @@ export const useTVScraping = () => {
    */
   const preloadShowImages = async (item: ProcessedItem): Promise<void> => {
     const iSep = item.path.includes('\\') ? '\\' : '/'
-    const nfoPath = item.path + iSep + 'tvshow.nfo'
+    const nfoPath = `${item.path + iSep  }tvshow.nfo`
 
     // 如果 NFO 已缓存，跳过读取
     if (!tvInfoCache.has(item.path)) {
@@ -1112,11 +1112,11 @@ export const useTVScraping = () => {
       await Promise.all(
         seasonFolders.map(async sf => {
           const sfSep2 = sf.path.includes('\\') ? '\\' : '/'
-          const nfoP = sf.path + sfSep2 + 'season.nfo'
+          const nfoP = `${sf.path + sfSep2  }season.nfo`
           const posterP =
-            sf.path +
-            sfSep2 +
-            `season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
+            `${sf.path +
+            sfSep2 
+            }season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
 
           // 季海报直接 local:// URL
           loadedSeasonPosters[sf.path] = toLocalUrl(posterP)
@@ -1164,7 +1164,7 @@ export const useTVScraping = () => {
       // 把点和下划线替换为空格（场景发布组常用）
       .replace(/[._]/g, ' ')
       // 移除括号内容 [] () 【】（）
-      .replace(/\s*[\[\(【（].*?[\]\)】）]\s*/g, ' ')
+      .replace(/\s*[[(【（].*?[\]】）]\s*/g, ' ')
       // 移除年份（单独的19xx或20xx）
       .replace(/\b(19|20)\d{2}(?!\w)\b/g, '')
       // 移除分辨率
@@ -1224,7 +1224,7 @@ export const useTVScraping = () => {
   }> => {
     const empty = { seasonPosterDataUrl: '', thumbs: {} }
     const showSep = tvShowRoot.path.includes('\\') ? '\\' : '/'
-    const nfoPath = tvShowRoot.path + showSep + 'tvshow.nfo'
+    const nfoPath = `${tvShowRoot.path + showSep  }tvshow.nfo`
 
     const nfoContent = await cachedReadText(nfoPath).catch(() => '')
     const tmdbIdMatch = nfoContent.match(/<tmdbid>(\d+)<\/tmdbid>/i)
@@ -1248,7 +1248,7 @@ export const useTVScraping = () => {
 
       // 3. 写 season.nfo
       const seasonNfo = generateSeasonNFO(tvDetails, seasonData)
-      await writeTextFile(seasonFolder.path + sep + 'season.nfo', seasonNfo)
+      await writeTextFile(`${seasonFolder.path + sep  }season.nfo`, seasonNfo)
 
       // 4. 下载季海报
       const seasonPosterFile = `season${String(sNum).padStart(2, '0')}-poster.jpg`
@@ -1308,7 +1308,7 @@ export const useTVScraping = () => {
         )
 
         // 下载缩略图并读为 data URL
-        const thumbPath = seasonFolder.path + sep + `${newBaseName}-thumb.jpg`
+        const thumbPath = `${seasonFolder.path + sep  }${newBaseName}-thumb.jpg`
         if (epData.still_path) {
           await downloadImage(`${TMDB_IMG_URL}${epData.still_path}`, thumbPath)
           const thumbResult = await window.api.file
@@ -1358,9 +1358,9 @@ export const useTVScraping = () => {
 
     // 1. 读取 tvshow.nfo 拿到 tmdbid
     const nfoPath =
-      tvShowRoot.path +
-      (tvShowRoot.path.includes('\\') ? '\\' : '/') +
-      'tvshow.nfo'
+      `${tvShowRoot.path +
+      (tvShowRoot.path.includes('\\') ? '\\' : '/') 
+      }tvshow.nfo`
     const nfoContent = await cachedReadText(nfoPath).catch(() => '')
     const tmdbIdMatch = nfoContent.match(/<tmdbid>(\d+)<\/tmdbid>/i)
     if (!tmdbIdMatch) {
@@ -1430,7 +1430,7 @@ export const useTVScraping = () => {
       )
 
       // 7. 下载缩略图
-      const thumbPath = seasonFolder.path + sep + `${newBaseName}-thumb.jpg`
+      const thumbPath = `${seasonFolder.path + sep  }${newBaseName}-thumb.jpg`
       if (epData.still_path) {
         await downloadImage(`${TMDB_IMG_URL}${epData.still_path}`, thumbPath)
       }

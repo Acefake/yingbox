@@ -14,7 +14,7 @@
         v-model:value="searchQuery"
         :placeholder="type === 'tv' ? '输入电视剧名称搜索' : '输入电影名称搜索'"
         size="large"
-        @pressEnter="handleResearch"
+        @press-enter="handleResearch"
       />
       <AButton
         type="primary"
@@ -112,9 +112,9 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import {
-  Modal as AModal,
-  Input as AInput,
   Button as AButton,
+  Input as AInput,
+  Modal as AModal,
 } from 'ant-design-vue'
 
 export interface MediaResult {
