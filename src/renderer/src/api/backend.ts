@@ -1,6 +1,18 @@
-import { getGoBackendUrl } from '@/stores/scrape-provider-store'
+import { getGoBackendApiKey, getGoBackendUrl } from '@/stores/scrape-provider-store'
 
 const DEFAULT_BASE = 'http://localhost:31471'
+
+/** 后端访问密钥查询串（图片等无法附带请求头的场景使用） */
+const keyQuery = (): string => {
+  const key = getGoBackendApiKey()
+  return key ? `key=${encodeURIComponent(key)}` : ''
+}
+
+/** 需鉴权的后端请求头（供其它模块复用） */
+export const getBackendAuthHeaders = (): Record<string, string> => {
+  const key = getGoBackendApiKey()
+  return key ? { Authorization: `Bearer ${key}` } : {}
+}
 
 export const getBase = (): string => {
   try {
@@ -44,7 +56,7 @@ async function get<T>(
 ): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json', ...extraHeaders },
+    headers: { 'Content-Type': 'application/json', ...getBackendAuthHeaders(), ...extraHeaders },
     signal: AbortSignal.timeout(path.startsWith('/api/scrape/') ? 300000 : 60000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
@@ -79,18 +91,24 @@ export const backend = {
 
   /** 图片 URL（本地文件通过 Go 代理访问） */
   fileUrl(path: string): string {
-    return `${getBase()}${path}`
+    const q = keyQuery()
+    return `${getBase()}${path}${q ? (path.includes('?') ? '&' : '?') + q : ''}`
   },
 
   /** 远端图片代理（绕过防盗链，如演员头像） */
   proxyUrl(url: string): string {
-    return `${getBase()}/proxy?url=${encodeURIComponent(url)}`
+    const q = keyQuery()
+    return `${getBase()}/proxy?url=${encodeURIComponent(url)}${q ? `&${q}` : ''}`
   },
 
   /** 测试 Go 后端连通性 */
   async testConnection(): Promise<boolean> {
     try {
-      const res = await fetch(`${getBase()}/api/videos`, { method: 'GET', signal: AbortSignal.timeout(5000) })
+      const res = await fetch(`${getBase()}/api/videos`, {
+        method: 'GET',
+        headers: getBackendAuthHeaders(),
+        signal: AbortSignal.timeout(5000),
+      })
       return res.ok
     } catch {
       return false

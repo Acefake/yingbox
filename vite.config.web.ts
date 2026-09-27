@@ -21,14 +21,6 @@ export default defineConfig({
     host: true,
     port: 4173,
     strictPort: false,
-    proxy: {
-      '/api': {
-        target: 'https://api.themoviedb.org/3',
-        changeOrigin: true,
-        secure: false,
-        rewrite: (path) => path.replace(/^\/api/, ''),
-      },
-    },
   },
   preview: {
     host: true,

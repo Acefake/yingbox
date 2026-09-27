@@ -21,6 +21,10 @@
     /** 允许合成默认导入 */
     "allowSyntheticDefaultImports": true,
 
+    // 显式锁定：Windows 上大小写错误的 import 能编译过，但 mac/Linux 构建会断。
+    // 配合 pnpm check:case（scripts/check-import-case.mjs）在 CI 提前拦截。
+    "forceConsistentCasingInFileNames": true,
+
     // === 类型定义 ===
     "types": ["electron-vite/node", "node", "electron"],
 

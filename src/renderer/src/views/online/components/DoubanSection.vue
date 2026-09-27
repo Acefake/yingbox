@@ -50,7 +50,7 @@
 
 <script setup lang="ts">
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
-import { ref, computed, onMounted } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
@@ -166,6 +166,10 @@ const fetchDouban = async () => {
   const loadCoversViaTmdb = async () => {
     const items = doubanItems.value
     const token = getTmdbAccessToken()
+    if (!token) {
+      console.warn('[TMDB] 未配置 Access Token，已跳过封面补全（请在设置中填写）')
+      return
+    }
     const imgBase = 'https://images.tmdb.org/t/p/w342'
     const headers = { Authorization: `Bearer ${token}` }
     const isTv = doubanType.value === 'tv'

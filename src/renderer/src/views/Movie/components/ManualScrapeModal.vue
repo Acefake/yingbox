@@ -1,7 +1,7 @@
 <template>
   <!-- 手动匹配弹窗 -->
   <Modal
-    v-model:open="visible"
+    v-model:open="modalVisible"
     title="手动匹配电影"
     :width="500"
     ok-text="搜索"
@@ -62,21 +62,21 @@ const emit = defineEmits<{
 
 // 响应式数据
 const searchInput = ref('')
-const visible = ref(false)
+const modalVisible = ref(false)
 const searching = ref(false)
 
 // 监听props变化
 watch(
   () => props.visible,
   newVal => {
-    visible.value = newVal
+    modalVisible.value = newVal
     if (newVal && props.currentItem) {
       searchInput.value = props.currentItem.name
     }
   }
 )
 
-watch(visible, newVal => {
+watch(modalVisible, newVal => {
   emit('update:visible', newVal)
 })
 
@@ -92,7 +92,7 @@ const performManualSearch = (): void => {
 
   searching.value = true
   const query = searchInput.value.trim()
-  visible.value = false
+  modalVisible.value = false
   searchInput.value = ''
   emit('search', query)
   setTimeout(() => {
@@ -104,7 +104,7 @@ const performManualSearch = (): void => {
  * 取消手动匹配
  */
 const handleCancel = (): void => {
-  visible.value = false
+  modalVisible.value = false
   searchInput.value = ''
   emit('cancel')
 }

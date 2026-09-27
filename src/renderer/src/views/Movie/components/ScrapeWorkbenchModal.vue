@@ -247,7 +247,7 @@
 <script setup lang="ts">
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { backend, type BackendMeta } from '@/api/backend'
+import { type BackendMeta, backend } from '@/api/backend'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useTVScraping } from '@/views/TV/composables/use-tv-scraping'
@@ -429,7 +429,7 @@ const runMovieSearch = async (query: string): Promise<void> => {
   searchResults.value = []
   try {
     const movies = await searchMovieInfo({ ...props.item, name: query })
-    searchResults.value = (movies || []) as WorkbenchMediaResult[]
+    searchResults.value = (movies || []) as unknown as WorkbenchMediaResult[]
     if (!movies || movies.length === 0) {
       error.value = '没有搜索结果，请修改关键词后重试'
       message.info(error.value)
@@ -583,7 +583,7 @@ const handlePickResult = (result: WorkbenchMediaResult): void => {
     actionMsg.value = '✅ 已加入刮削队列'
     message.success('已加入刮削队列')
   } else {
-    emit('scrape', result as ScrapedMovie, props.item)
+    emit('scrape', result as unknown as ScrapedMovie, props.item)
     actionMsg.value = '✅ 已加入刮削队列'
     message.success('已加入刮削队列')
   }

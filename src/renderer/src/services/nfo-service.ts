@@ -1,5 +1,5 @@
 import { escapeXml } from '@/utils/xml'
-import type { ScrapedMovie, CastMember } from '@/types/scraping'
+import type { CastMember, ScrapedMovie } from '@/types/scraping'
 import { getImageBaseUrl } from '@/api/tmdb'
 
 /**

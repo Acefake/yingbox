@@ -114,7 +114,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, computed, reactive, onUnmounted, watch } from 'vue'
+import { computed, onUnmounted, reactive, ref, watch } from 'vue'
 import axios from 'axios'
 import { Modal, message } from 'ant-design-vue'
 import { useOnlineSearch } from '@/views/online/composables/use-online-search'
@@ -374,7 +374,7 @@ const removeCustom = (idx: number) => {
 
 <script lang="ts">
 // SiteCard sub-component defined separately for clarity
-import { defineComponent as dc, h as ch, computed as cc } from 'vue'
+import { computed as cc, h as ch, defineComponent as dc } from 'vue'
 
 export const SiteCard = dc({
   name: 'SiteCard',

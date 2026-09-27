@@ -1,3 +1,15 @@
+/** 播放列表条目：用于自动连播与失败换源 */
+export type PlayerSourceItem = {
+  url?: string
+  filePath?: string
+  /** 展示名（集名 / 文件名） */
+  name?: string
+  /** CatSpider 插件参数 */
+  ext?: Record<string, unknown>
+  /** CatSpider 站点名 */
+  siteName?: string
+}
+
 export type MediaPlayerOpenOptions = {
   filePath?: string
   url?: string
@@ -5,6 +17,12 @@ export type MediaPlayerOpenOptions = {
   poster?: string
   /** Resume position in seconds */
   startAt?: number
+  /** 自动连播队列（当前线路的剧集） */
+  playlist?: PlayerSourceItem[]
+  /** 起始项下标 */
+  index?: number
+  /** 同集备用线路：播放失败时优先尝试 */
+  fallbacks?: PlayerSourceItem[]
 }
 
 /** Whether Electron dedicated player window IPC is available. */
@@ -28,7 +46,16 @@ export async function openMediaPlayer(
     typeof options.startAt === 'number' && Number.isFinite(options.startAt)
       ? Math.max(0, options.startAt)
       : undefined
-  if (!filePath && !url) return false
+  const playlist =
+    Array.isArray(options.playlist) && options.playlist.length ? options.playlist : undefined
+  const fallbacks =
+    Array.isArray(options.fallbacks) && options.fallbacks.length ? options.fallbacks : undefined
+  const index =
+    Number.isInteger(options.index) && (options.index as number) >= 0
+      ? (options.index as number)
+      : undefined
+
+  if (!filePath && !url && !playlist) return false
 
   if (!canOpenElectronPlayer()) return false
 
@@ -39,6 +66,9 @@ export async function openMediaPlayer(
       ...(title ? { title } : {}),
       ...(poster ? { poster } : {}),
       ...(typeof startAt === 'number' ? { startAt } : {}),
+      ...(playlist ? { playlist } : {}),
+      ...(typeof index === 'number' ? { index } : {}),
+      ...(fallbacks ? { fallbacks } : {}),
     })
     return Boolean(result?.success)
   } catch (error) {

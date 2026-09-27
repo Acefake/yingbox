@@ -141,10 +141,10 @@
 
 <script setup lang="ts">
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
-import { ref, computed, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 import { Modal } from 'ant-design-vue'
 import { useRoute, useRouter } from 'vue-router'
-import { useOnlineSearch, type CmsItem } from '../composables/use-online-search'
+import { type CmsItem, useOnlineSearch } from '../composables/use-online-search'
 
 const emit = defineEmits<{
   (e: 'openItem', item: CmsItem): void

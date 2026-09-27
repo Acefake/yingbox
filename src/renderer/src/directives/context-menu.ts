@@ -149,8 +149,8 @@ class ContextMenuManager {
     if (!this.menuElement) return
 
     // 先设置初始位置以获取尺寸
-    this.menuElement.style.left = x + 'px'
-    this.menuElement.style.top = y + 'px'
+    this.menuElement.style.left = `${x  }px`
+    this.menuElement.style.top = `${y  }px`
 
     const rect = this.menuElement.getBoundingClientRect()
 
@@ -175,8 +175,8 @@ class ContextMenuManager {
     newX = Math.max(10, newX)
     newY = Math.max(10, newY)
 
-    this.menuElement.style.left = newX + 'px'
-    this.menuElement.style.top = newY + 'px'
+    this.menuElement.style.left = `${newX  }px`
+    this.menuElement.style.top = `${newY  }px`
   }
 
   private handleItemClick(item: MenuItem): void {

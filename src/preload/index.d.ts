@@ -1,24 +1,8 @@
-import { ElectronAPI } from '@electron-toolkit/preload'
-
 interface FileOperationResult {
   success: boolean
   data?: unknown
   error?: string
   exists?: boolean
-}
-
-interface FileInfo {
-  name: string
-  isDirectory: boolean
-  isFile: boolean
-}
-
-interface FileStats {
-  size: number
-  isDirectory: boolean
-  isFile: boolean
-  mtime: Date
-  ctime: Date
 }
 
 // API interface
@@ -30,7 +14,6 @@ interface API {
     exists: (filePath: string) => Promise<FileOperationResult>
     mkdir: (dirPath: string) => Promise<FileOperationResult>
     readdir: (dirPath: string) => Promise<FileOperationResult>
-    readdirRecursive: (dirPath: string) => Promise<FileOperationResult>
     scanMediaDirectory: (
       dirPath: string,
       previousIndex?: Array<{
@@ -126,6 +109,21 @@ interface API {
       title?: string
       poster?: string
       startAt?: number
+      playlist?: Array<{
+        url?: string
+        filePath?: string
+        name?: string
+        ext?: Record<string, unknown>
+        siteName?: string
+      }>
+      index?: number
+      fallbacks?: Array<{
+        url?: string
+        filePath?: string
+        name?: string
+        ext?: Record<string, unknown>
+        siteName?: string
+      }>
     }) => Promise<{ success: boolean; error?: string }>
     close: () => Promise<{ success: boolean }>
     getPending: () => Promise<{
@@ -134,6 +132,21 @@ interface API {
       title?: string
       poster?: string
       startAt?: number
+      playlist?: Array<{
+        url?: string
+        filePath?: string
+        name?: string
+        ext?: Record<string, unknown>
+        siteName?: string
+      }>
+      index?: number
+      fallbacks?: Array<{
+        url?: string
+        filePath?: string
+        name?: string
+        ext?: Record<string, unknown>
+        siteName?: string
+      }>
     } | null>
     onLoad: (
       cb: (payload: {
@@ -142,17 +155,46 @@ interface API {
         title?: string
         poster?: string
         startAt?: number
+        playlist?: Array<{
+          url?: string
+          filePath?: string
+          name?: string
+          ext?: Record<string, unknown>
+          siteName?: string
+        }>
+        index?: number
+        fallbacks?: Array<{
+          url?: string
+          filePath?: string
+          name?: string
+          ext?: Record<string, unknown>
+          siteName?: string
+        }>
       }) => void
     ) => void
     offLoad: () => void
   }
-  scraper: {}
-  downloader: {}
+  subtitle: {
+    /** 查找本地视频同目录的字幕文件（传入视频的 local:// URL） */
+    find: (localUrl: string) => Promise<{
+      success: boolean
+      data?: Array<{ name: string; path: string; ext: string }>
+      error?: string
+    }>
+    /** 读取字幕并统一转换为 WebVTT（自动处理 GBK/UTF-16 编码与 srt/ass 格式） */
+    read: (filePath: string) => Promise<{
+      success: boolean
+      data?: string
+      format?: string
+      error?: string
+    }>
+  }
 }
 
 declare global {
   interface Window {
-    electron: ElectronAPI
     api: API
   }
 }
+
+export {}

@@ -1,5 +1,5 @@
 import { readdir, stat } from 'node:fs/promises'
-import { join, extname, resolve, basename } from 'node:path'
+import { basename, extname, join, resolve } from 'node:path'
 
 export interface MediaEntry {
   name: string
@@ -61,7 +61,7 @@ export async function scanMediaDirectory(
 
   /** Collect all cached descendants under a directory (not including the dir itself). */
   const collectCachedDescendants = (dirNorm: string): MediaEntry[] => {
-    const prefix = pathKey(dirNorm) + '/'
+    const prefix = `${pathKey(dirNorm)}/`
     const out: MediaEntry[] = []
     for (const [p, entry] of prevByPath) {
       if (!p.startsWith(prefix)) continue

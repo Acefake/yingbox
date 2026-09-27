@@ -203,16 +203,20 @@
 
 <script setup lang="ts">
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
-import { ref, computed, onMounted, watch } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
-import { canOpenElectronPlayer, openMediaPlayer } from '@/composables/use-media-player'
+import {
+  type PlayerSourceItem,
+  canOpenElectronPlayer,
+  openMediaPlayer,
+} from '@/composables/use-media-player'
 import { getMediaProgress } from '@/utils/play-progress'
 import { message } from 'ant-design-vue'
 import {
-  useOnlineSearch,
   type EpisodeGroup,
+  useOnlineSearch,
 } from './composables/use-online-search'
 
 const {
@@ -310,6 +314,11 @@ watch(() => props.item, (data) => {
 const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
   loadingTmdb.value = true
   const token = getTmdbAccessToken()
+  if (!token) {
+    console.warn('[TMDB] 未配置 Access Token，已跳过 TMDB 查询（请在设置中填写）')
+    loadingTmdb.value = false
+    return
+  }
   const headers = { Authorization: `Bearer ${token}` }
   try {
     const sr = await axios.get(
@@ -467,6 +476,51 @@ const resolvingUrl = ref(false)
 let playGeneration = 0
 watch(showPlaySheet, visible => { if (!visible) { playGeneration++; resolvingUrl.value = false } })
 
+/** 当前线路的播放队列：独立播放窗用它自动连播下一集 */
+const buildPlaylist = (): PlayerSourceItem[] => {
+  const line = siteGroups.value[activeSite.value]?.lines[activeLine.value]
+  if (!line?.episodes?.length) return []
+  return line.episodes.map(ep => ({
+    url: ep.url,
+    ...(ep.name ? { name: ep.name } : {}),
+    ...(ep.ext ? { ext: ep.ext } : {}),
+    ...(line._siteName ? { siteName: line._siteName } : {}),
+  }))
+}
+
+/** 同集其它线路：当前线路播放失败时自动尝试 */
+const buildFallbacks = (epName: string, epIndex: number): PlayerSourceItem[] => {
+  const currentLine = siteGroups.value[activeSite.value]?.lines[activeLine.value]
+  const out: PlayerSourceItem[] = []
+  const seen = new Set<string>()
+
+  const push = (line: EpisodeGroup, hit: { url: string; ext?: Record<string, any> }, sg: SiteGroup): void => {
+    if (!hit?.url) return
+    const key = `${line.label}|${hit.url}`
+    if (seen.has(key)) return
+    seen.add(key)
+    out.push({
+      url: hit.url,
+      name: `${sg.siteName} · ${line.label}`,
+      ...(hit.ext ? { ext: hit.ext } : {}),
+      ...(line._siteName ? { siteName: line._siteName } : {}),
+    })
+  }
+
+  for (const sg of siteGroups.value) {
+    for (const line of sg.lines) {
+      if (line === currentLine) continue
+      const eps = line.episodes || []
+      if (!eps.length) continue
+      // 优先按集名匹配；各源命名差异大（"第01集" vs "01"），失败时退化为按集序匹配
+      const byName = epName ? eps.find(ep => ep.name === epName) : undefined
+      const hit = byName || (epIndex >= 0 && epIndex < eps.length ? eps[epIndex] : undefined)
+      if (hit) push(line, hit, sg)
+    }
+  }
+  return out
+}
+
 const playEp = async (url: string, ext?: Record<string, any>) => {
   const generation = ++playGeneration
   currentUrl.value = ''
@@ -521,7 +575,18 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
   // 首页/在线：Electron 下强制独立播放窗，不再退回页内 sheet
   if (canOpenElectronPlayer()) {
     const startAt = getMediaProgress(playUrl)
-    const ok = await openMediaPlayer({ url: playUrl, title, poster: itemPic.value || undefined, startAt })
+    // 带上当前线路的剧集队列与同集备用线路：播放器据此自动连播/失败换线路
+    const playlist = buildPlaylist()
+    const epIndex = playlist.findIndex(item => item.url === url)
+    const fallbacks = buildFallbacks(ext?.name || '', epIndex)
+    const ok = await openMediaPlayer({
+      url: playUrl,
+      title,
+      poster: itemPic.value || undefined,
+      startAt,
+      ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
+      ...(fallbacks.length ? { fallbacks } : {}),
+    })
     showPlaySheet.value = false
     if (!ok) {
       message.error('无法打开独立播放窗口，请完全重启应用后再试')

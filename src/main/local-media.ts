@@ -18,6 +18,24 @@ export function parseRange(header: string, size: number): { start: number; end: 
     ? { start, end } : null
 }
 
+/**
+ * 将 local:// URL 还原为文件系统路径。
+ *
+ * 与 serveLocalMedia 使用同一套解析规则：Windows 盘符作为 host（local://f/...），
+ * 其余平台为 local:///abs/path。解析失败或 host 非法时返回 null。
+ */
+export function localUrlToFilePath(url: string): string | null {
+  let parsed: URL
+  try {
+    parsed = new URL(url)
+  } catch {
+    return null
+  }
+  const pathname = decodeURIComponent(parsed.pathname)
+  if (parsed.host && !/^[a-z]$/i.test(parsed.host)) return null
+  return parsed.host ? `${parsed.host.toUpperCase()}:${pathname}` : pathname.replace(/^\/(?=\/)/, '')
+}
+
 export async function serveLocalMedia(request: Request): Promise<Response> {
   if (!['GET', 'HEAD'].includes(request.method)) return new Response(null, { status: 405 })
   let filePath: string
@@ -52,7 +70,9 @@ export async function serveLocalMedia(request: Request): Promise<Response> {
         return new Response(null, { status: range ? 206 : 200, headers })
       }
       const stream = handle.createReadStream(range ?? {})
-      const abort = () => stream.destroy()
+      const abort = (): void => {
+        stream.destroy()
+      }
       request.signal.addEventListener('abort', abort, { once: true })
       stream.once('close', () => request.signal.removeEventListener('abort', abort))
       if (request.signal.aborted) abort()

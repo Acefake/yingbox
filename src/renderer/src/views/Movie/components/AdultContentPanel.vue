@@ -248,7 +248,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
-import { backend, type BackendMeta } from '@/api/backend'
+import { type BackendMeta, backend } from '@/api/backend'
 import { resolveMediaDisplayTitle, stripMediaExtension } from '@/utils/avid'
 import type { ActorInfo, FileItem, ProcessedItem } from '@/types'
 

@@ -1,5 +1,5 @@
 import { ref } from 'vue'
-import { getBase } from '@/api/backend'
+import { getBackendAuthHeaders, getBase } from '@/api/backend'
 
 export interface VODParseRequest {
   siteName: string
@@ -63,7 +63,7 @@ export function useVODParser() {
     try {
       const response = await fetch(`${getBase()}/api/vod/parse`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 'Content-Type': 'application/json', ...getBackendAuthHeaders() },
         body: JSON.stringify(body),
         signal: controller.signal,
       })

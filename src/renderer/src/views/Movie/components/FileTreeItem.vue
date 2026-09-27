@@ -14,7 +14,7 @@
       <div class="file-tree-name" :title="item.name">
         {{ displayName }}
       </div>
-      <div class="file-tree-flags" v-if="hasStatus || isQueued">
+      <div v-if="hasStatus || isQueued" class="file-tree-flags">
         <span v-if="isQueued" class="status-tag flag-queued">队列</span>
         <span v-if="statusFlags.nfo" class="status-tag flag-nfo">N</span>
         <span v-if="statusFlags.poster" class="status-tag flag-poster">P</span>

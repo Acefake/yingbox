@@ -76,8 +76,8 @@
 <script setup lang="ts">
 import { computed, onMounted, ref } from 'vue'
 import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
-import { useVodBrowse, type VodCard } from '../composables/use-vod-browse'
-import { useOnlineSearch, type CmsItem } from '../composables/use-online-search'
+import { type VodCard, useVodBrowse } from '../composables/use-vod-browse'
+import { type CmsItem, useOnlineSearch } from '../composables/use-online-search'
 
 const emit = defineEmits<{
   openItem: [item: CmsItem]

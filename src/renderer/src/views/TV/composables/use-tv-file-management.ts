@@ -1,6 +1,6 @@
-import { readMediaDirectory, fileId as makeId } from '@/utils/media-directory'
+import { fileId as makeId, readMediaDirectory } from '@/utils/media-directory'
 import { ref } from 'vue'
-import { ProcessedItem, FileItem } from '@/types'
+import { FileItem, ProcessedItem } from '@/types'
 import { message } from 'ant-design-vue'
 
 /** 基于路径生成确定性 ID（轻量 hash） */
@@ -250,7 +250,7 @@ export const useTVFileManagement = () => {
     if (m) return parseInt(m[1])
 
     // 分隔符后的集号: " - 01" / ".01." / "_01_"
-    m = base.match(/[\.\-\s_](\d{2,3})[\.\-\s_]/)
+    m = base.match(/[\s._-](\d{2,3})[\s._-]/)
     if (m) return parseInt(m[1])
 
     // 文件名本身就是纯数字: "01" "001"
@@ -506,7 +506,7 @@ export const useTVFileManagement = () => {
         allItems.push(...processTVFiles(files))
       } catch (e) {
         console.warn('读取目录失败，保留原缓存:', path, e)
-        const prefix = path.replace(/\\/g, '/').replace(/\/$/, '') + '/'
+        const prefix = `${path.replace(/\\/g, '/').replace(/\/$/, '')  }/`
         allItems.push(...fileData.value.filter(item => item.path.replace(/\\/g, '/').startsWith(prefix)))
         message.warning(`目录读取失败，保留原数据: ${path}`)
       }
@@ -704,7 +704,7 @@ export const useTVFileManagement = () => {
       }
       const files = await readDirectoryRecursive(libraryPath)
       const processed = processTVFiles(files)
-      const prefix = normPath(libraryPath).toLowerCase() + '/'
+      const prefix = `${normPath(libraryPath).toLowerCase()  }/`
       const rootKey = normPath(libraryPath).toLowerCase()
       const others = fileData.value.filter(item => {
         const p = normPath(item.path).toLowerCase()
@@ -737,7 +737,7 @@ export const useTVFileManagement = () => {
       const matchedRoot = directoryPaths.value.find(root => {
         const r = normPath(root).toLowerCase()
         const t = n.toLowerCase()
-        return t === r || t.startsWith(r + '/')
+        return t === r || t.startsWith(`${r  }/`)
       })
       if (!matchedRoot) {
         tvPendingFull = true

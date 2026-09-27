@@ -1,5 +1,5 @@
-import { ref, getCurrentScope, onScopeDispose } from 'vue'
-import { getBase } from '@/api/backend'
+import { getCurrentScope, onScopeDispose, ref } from 'vue'
+import { getBackendAuthHeaders, getBase } from '@/api/backend'
 import { useStorage } from '@vueuse/core'
 import axios from 'axios'
 import cmsSitesRaw from '../../../../../../cms-sites.json'
@@ -92,7 +92,10 @@ const isAdultCatSpiderSite = (site: CatSpiderSite): boolean =>
 export const loadCatSpiderSites = (): Promise<void> => {
   if (catSpiderLoadPromise) return catSpiderLoadPromise
 
-  catSpiderLoadPromise = axios.get(`${getBase()}/api/vod/sites`, { timeout: 10000 })
+  catSpiderLoadPromise = axios.get(`${getBase()}/api/vod/sites`, {
+    timeout: 10000,
+    headers: getBackendAuthHeaders(),
+  })
     .then(response => {
       const sites = response.data?.config?.sites
       if (!Array.isArray(sites)) return

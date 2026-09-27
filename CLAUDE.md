@@ -21,6 +21,9 @@ pnpm typecheck:web      # vue-tsc for renderer
 pnpm lint               # eslint --cache
 pnpm format             # prettier --write .
 
+# Tests
+pnpm test               # vitest run (tests/ — main-process pure logic)
+
 # Build
 pnpm build              # typecheck + electron-vite build
 pnpm build:nocheck      # skip typecheck
@@ -48,7 +51,7 @@ The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the 
 
 ```
 src/main/index.ts    → Electron main process (out/main/index.js)
-src/preload/index.ts → Preload script (context bridge → window.api / window.electron)
+src/preload/index.ts → Preload script (context bridge → window.api)
 src/renderer/        → Vue 3 SPA (out/renderer/)
 ```
 
@@ -59,25 +62,22 @@ Path aliases (defined in `electron.vite.config.ts` and `tsconfig.*.json`):
 - `@preload` → `src/preload`
 - `@shared` → `src/shared`
 
-Dev server runs on `127.0.0.1:3000` and proxies `/api` to `https://api.themoviedb.org/3` (for TMDB API calls during development).
+Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB and the Go backend are called via absolute URLs from the renderer.
 
-**Main process** ([src/main/index.ts](src/main/index.ts)) is organized into modules under [src/main/modules/](src/main/modules/):
+**Main process** ([src/main/index.ts](src/main/index.ts)) bootstraps the window and wires per-domain modules:
 
-- `window-manager.ts` — Creates frameless BrowserWindow (1200×900 min, 85% of screen)
-- `ipc-handlers.ts` — All IPC channel registrations:
-  - `win:*` (minimize, maximize, close, isMaximized)
-  - `file:*` (read, write, delete, exists, mkdir, readdir, readdirRecursive, stat, copy, move, readImage)
-  - `path:*` (join, resolve, dirname, basename, extname)
-  - `dialog:*` (openDirectory, selectDirectory, openFile, saveFile)
-  - `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)
-  - `config:*`, `app:*`, `update:*`, `shell:*`
-- `backend-manager.ts` — Spawns Go backend executable (`main.exe`) on startup in production, kills on quit. In dev, assumes backend started separately via `pnpm dev:backend`
-- `auto-updater.ts` — Configures electron-updater (auto-download disabled), sends status via `update:status` IPC
-- `config.ts` — Reads/writes `userData/config.json` (currently stores `downloadPath`)
+- `config.ts` — Reads/writes `userData/config.json` (`downloadPath`), validates writability (write probe) on load and set
+- `backend-manager.ts` — Spawns the Go backend on startup in production, kills on quit. In dev, assumes backend started separately via `pnpm dev:backend`
+- `ipc/` — IPC channel registrations:
+  - `file-ipc.ts` — `file:*` (read, write, delete, exists, mkdir, readdir, scanMediaDirectory, stat, copy, move, readImage) and `path:*` (join, resolve, dirname, basename, extname)
+  - `http-ipc.ts` — `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)
+  - `dialog-ipc.ts` — `dialog:*` (openDirectory, selectDirectory, openFile, saveFile), `config:setDownloadPath`, `shell:openPath`
+  - `app-ipc.ts` — `win:*`, `app:*`, `update:*` (electron-updater status via `update:status`)
+  - `subtitle-ipc.ts` — `subtitle:find/read` (only accepts `local://` URLs)
 - `local://` protocol handler for streaming local video files to the unified renderer player
 - DevTools shortcuts: F12 or Ctrl+Shift+I (Cmd+Option+I on Mac)
 
-**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `app.*`, `shell.*`, and `win.*`. Also defines `window.api.scraper` and `window.api.downloader` as empty objects (extensibility points). Type definitions are in [src/renderer/src/env.d.ts](src/renderer/src/env.d.ts).
+**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `config.*`, `app.*`, `update.*`, `shell.*`, `win.*`, `player.*`, `subtitle.*`. Types are in [src/preload/index.d.ts](src/preload/index.d.ts). The preload is **sandboxed**: only `electron` may be imported — never add npm imports here.
 
 ### Renderer: Vue 3 SPA
 
@@ -87,12 +87,13 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 - `/movie` → Movie file management & scraping ([views/Movie/index.vue](src/renderer/src/views/Movie/index.vue))
 - `/tv` → TV show file management & scraping ([views/TV/index.vue](src/renderer/src/views/TV/index.vue))
 - `/av` → Adult video resources online playback ([views/av/Index.vue](src/renderer/src/views/av/Index.vue))
+- `/player-popout` → Dedicated player window ([views/PlayerPopout.vue](src/renderer/src/views/PlayerPopout.vue))
 
 `App.vue` wraps routes in `AppLayout` with `<keep-alive>`. `DetailWindow` renders inline as the online content page.
 
 Key directories under `src/renderer/src/`:
 
-- `api/` — API clients: TMDB wrapper (`tmdb.ts`), Go backend at localhost:31471 (`backend.ts`), MetaTube server (`metatube.ts`)
+- `api/` — API clients: TMDB wrapper (`tmdb.ts`), Go backend at localhost:31471 (`backend.ts`)
 - `stores/` — Pinia stores: `scrape-provider-store` (provider config + tokens persisted in localStorage as `scrapeProviderConfig`)
 - `composables/` — Global composables:
   - `use-global-queue.ts` — Module-level singleton task queue with concurrent processing (max 3), dedup, progress tracking, cancellation
@@ -109,7 +110,7 @@ Key directories under `src/renderer/src/`:
 
 A self-contained HTTP server on port **31471** that:
 
-- Scans for MissAV video directories (path from `MISSAV_VIDEO_PATH` env var, defaults to `F:/新建文件夹`)
+- Scans for MissAV video directories (path resolution: `YINGBOX_CONFIG_PATH` config.json `downloadPath` → `MISSAV_VIDEO_PATH` env var → `~/Videos` → temp dir)
 - API routes:
   - `/api/videos` — cached list sorted by mtime
   - `/api/videos/<id>` — detail with NFO parsing + fanart discovery

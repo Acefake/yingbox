@@ -55,7 +55,7 @@
 </template>
 
 <script setup lang="ts">
-import { ref, onMounted, onBeforeUnmount, shallowRef } from 'vue'
+import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
 import EmptyPlaceholder from '@/components/EmptyPlaceholder.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useTVFileManagement } from './composables/use-tv-file-management'
@@ -67,7 +67,6 @@ import ScrapeWorkbenchModal, {
 } from '@/views/Movie/components/ScrapeWorkbenchModal.vue'
 import type { ProcessedItem, TVShowInfoType } from '@/types'
 import { cleanSearchParams, stripMediaExtension } from '@/utils/avid'
-import { message } from 'ant-design-vue'
 
 const {
   fileData,
