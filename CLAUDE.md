@@ -114,9 +114,7 @@ A self-contained HTTP server on port **31471** that:
 - API routes:
   - `/api/videos` — cached list sorted by mtime
   - `/api/videos/<id>` — detail with NFO parsing + fanart discovery
-  - `/api/meta/<avid>` — JavBus metadata via Python
   - `/api/addvideo/<avid>` — download trigger via Python
-  - `/api/scrape/<avid>` — scraping via Python
   - `/api/queue` — download queue management
   - `/api/vod/parse` — VOD parser
 - Serves local image/video files via `/file/<videoID>/<filename>` and proxies external images via `/proxy?url=...`

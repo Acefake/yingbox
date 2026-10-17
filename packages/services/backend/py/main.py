@@ -4,7 +4,6 @@ from src import data
 from src.task_lock import acquire_task_lock
 import sys
 import argparse
-from metadata import *
 
 def append_if_not_duplicate(filename, new_content):
     new_content = new_content.strip()
@@ -105,8 +104,7 @@ if __name__ == "__main__":
         else:
             raise ValueError("所有下载器均未成功下载")
             
-        # 元数据只尝试下载一次，且只使用配置中权重最大的刮削器
-        gen_nfo()
+        # 元数据管理由 Amane 板块负责。
             
     except Exception as e:
         logger.error(e)

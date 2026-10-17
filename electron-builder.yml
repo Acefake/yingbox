@@ -5,15 +5,44 @@ directories:
   buildResources: build
   output: dist
 files:
-  - '!**/.vscode/*'
-  - '!src/*'
+  # 只允许运行所需内容进 app.asar：out/ + package.json + node_modules(生产依赖)。
+  # 其余仓库内容一律排除——否则 dist/、packages/、.claude/ 会把 asar 撑到几百 MB，
+  # 既拖慢启动也让打包极易出错。
+  - '!packages/**'
+  - '!resources/**'
+  - '!dist/**'
+  - '!dist-web/**'
+  - '!out-*/**'
+  - '!output/**'
+  - '!src/**'
+  - '!tests/**'
+  - '!scripts/**'
+  - '!docs/**'
+  - '!build/**'
+  - '!.claude/**'
+  - '!.codex_tmp/**'
+  - '!.omo/**'
+  - '!.commandcode/**'
+  - '!.playwright-cli/**'
+  - '!.github/**'
+  - '!.vscode/**'
+  - '!**/*.map'
+  - '!**/*.md'
+  - '!*.log'
   - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
+  - '!vite.config.web.{js,ts,mjs,cjs}'
+  - '!vitest.config.{js,ts,mjs,cjs}'
+  - '!{tailwind.config.js,postcss.config.js,electron-builder.yml,cms-sites.json,vod-source-results.log}'
+  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
   - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
 extraResources:
+  - from: resources/amane
+    to: amane
+  - from: resources/mpv
+    to: mpv
   - from: packages/services/backend/main.exe
     to: backend/main.exe
   - from: packages/services/backend/py

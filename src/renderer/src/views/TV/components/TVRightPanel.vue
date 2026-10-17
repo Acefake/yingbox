@@ -29,9 +29,9 @@
           <div class="yb-label tv-series-label">
             {{ seriesLabel }}
           </div>
-          <h1 class="yb-page-title tv-rp-title">
+          <PageTitle>
             {{ seasonDisplayTitle }}
-          </h1>
+          </PageTitle>
           <div class="tv-meta-row">
             <span v-if="currentSeasonMeta?.air_date" class="yb-chip">{{
               currentSeasonMeta.air_date.substring(0, 4)
@@ -132,9 +132,9 @@
           </div>
         </div>
         <div class="tv-body">
-          <h1 class="yb-page-title tv-rp-title-lg">
+          <PageTitle>
             {{ showDisplayTitle }}
-          </h1>
+          </PageTitle>
           <div class="tv-info-wrap">
             <TVInfo :tv-info="tvInfo" :loading="false" />
           </div>
@@ -220,6 +220,7 @@
 </template>
 
 <script setup lang="ts">
+import PageTitle from '@/components/PageTitle.vue'
 import { computed } from 'vue'
 import TVInfo from '@/views/TV/components/TVInfo.vue'
 import { stripMediaExtension } from '@/utils/avid'
@@ -392,18 +393,6 @@ const handleImageError = (event: Event): void => {
 .tv-series-label {
   margin-bottom: var(--space-1);
 }
-.tv-rp-title {
-  font-size: clamp(20px, 2.2vw, 26px);
-  letter-spacing: -0.02em;
-  margin: 0 0 var(--space-3);
-  line-height: 1.2;
-}
-.tv-rp-title-lg {
-  font-size: clamp(22px, 2.4vw, 28px);
-  letter-spacing: -0.025em;
-  margin: 0 0 var(--space-3);
-  line-height: 1.2;
-}
 .tv-meta-row {
   display: flex;
   flex-wrap: wrap;
@@ -424,23 +413,27 @@ const handleImageError = (event: Event): void => {
   margin-top: var(--space-1);
 }
 .tv-section {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  padding: var(--space-5);
-  box-shadow: var(--shadow-sm);
+  background: transparent;
+  border: 0;
+  border-radius: 0;
+  padding: 20px 0;
+  box-shadow: none;
   margin-bottom: var(--space-5);
+
+  border-top: 1px solid var(--border-default);
 }
 .tv-ep-row {
   display: flex;
   align-items: center;
   gap: 12px;
   min-height: 72px;
-  padding: 10px 12px;
-  border-radius: var(--radius-lg);
-  background: var(--bg-fill-tertiary);
-  border: 1px solid transparent;
+  padding: 12px 0;
+  border-radius: 0;
+  background: transparent;
+  border: 0;
   transition: var(--transition-fast);
+
+  border-bottom: 1px solid var(--border-subtle);
 }
 .tv-ep-row:hover {
   background: var(--bg-fill-secondary);
@@ -488,10 +481,10 @@ const handleImageError = (event: Event): void => {
 .tv-season-card {
   display: flex;
   gap: 16px;
-  border-radius: var(--radius-lg);
+  border-radius: 6px;
   overflow: hidden;
-  background: var(--bg-fill-tertiary);
-  border: 1px solid transparent;
+  background: transparent;
+  border: 1px solid var(--border-default);
   transition: var(--transition-fast);
 }
 .tv-season-card:hover {

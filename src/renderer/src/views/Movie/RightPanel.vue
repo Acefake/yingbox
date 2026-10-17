@@ -1,6 +1,6 @@
 <template>
   <div class="yb-media-detail rp-root">
-    <!-- Movie: left portrait poster + right info (adult banner stays in AdultContentPanel) -->
+    <!-- Movie: portrait poster and film information -->
     <div class="rp-header">
       <div class="rp-poster">
         <img
@@ -26,12 +26,11 @@
       </div>
 
       <div class="rp-body">
-        <h1
-          class="yb-page-title rp-title"
+        <PageTitle
           :title="selectedItem?.name || displayTitle"
         >
           {{ displayTitle }}
-        </h1>
+        </PageTitle>
 
         <div class="rp-meta">
           <MovieInfo
@@ -157,6 +156,7 @@
 </template>
 
 <script setup lang="ts">
+import PageTitle from '@/components/PageTitle.vue'
 import { computed } from 'vue'
 import MovieInfo from '@/views/Movie/MovieInfo.vue'
 import { resolveMediaDisplayTitle, stripMediaExtension } from '@/utils/avid'
@@ -234,7 +234,7 @@ const handleImageError = (event: Event): void => {
   width: 200px;
   flex-shrink: 0;
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-lg);
+  border-radius: 6px;
   overflow: hidden;
   box-shadow: var(--shadow-md);
   outline: 1px solid var(--border-subtle);
@@ -261,12 +261,6 @@ const handleImageError = (event: Event): void => {
 .rp-body {
   flex: 1;
   min-width: 0;
-}
-.rp-title {
-  font-size: clamp(22px, 2.4vw, 28px);
-  letter-spacing: -0.025em;
-  margin: 0 0 var(--space-1);
-  line-height: 1.2;
 }
 .rp-meta {
   margin-bottom: var(--space-4);

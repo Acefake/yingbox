@@ -2,8 +2,8 @@
   <div class="content-area search-tab primary-scroll">
     <div v-if="searchHistory.length" class="home-section">
       <div class="yb-section-header">
-        <h2 class="yb-section-title">搜索记录</h2>
-        <button class="yb-ghost-btn" @click="clearHistory">清空记录</button>
+        <PageTitle as="h2" variant="section">搜索记录</PageTitle>
+        <IconButton icon="trash" label="清空搜索记录" danger @click="clearHistory" />
       </div>
       <div class="history-tags">
         <span
@@ -21,7 +21,7 @@
             :aria-label="`删除搜索记录 ${kw}`"
             @click.stop="removeHistory(kw)"
           >
-            ✕
+            <AppIcon name="close" size="sm" />
           </button>
         </span>
       </div>
@@ -52,7 +52,7 @@
     <!-- 插件视频源结果 -->
     <div v-if="vodResults.length" class="source-section">
       <div class="yb-section-header">
-        <h2 class="yb-section-title">插件视频源</h2>
+        <PageTitle as="h2" variant="section">插件视频源</PageTitle>
         <span class="yb-section-count">{{ vodResults.length }}个结果</span>
       </div>
       <div class="yb-poster-grid">
@@ -105,7 +105,7 @@
       style="margin-top: 20px"
     >
       <div class="yb-section-header">
-        <h2 class="yb-section-title">CMS源</h2>
+        <PageTitle as="h2" variant="section">CMS源</PageTitle>
         <span class="yb-section-count">{{ cmsResults.length }}个结果</span>
       </div>
       <div class="yb-poster-grid">
@@ -154,9 +154,13 @@
 </template>
 
 <script setup lang="ts">
+import { confirmDialog } from '@/utils/confirm-dialog'
+import PageTitle from '@/components/PageTitle.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import IconButton from '@/components/IconButton.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, ref, watch } from 'vue'
-import { Modal } from 'ant-design-vue'
+
 import { useRoute, useRouter } from 'vue-router'
 import { type CmsItem, useOnlineSearch } from '../composables/use-online-search'
 
@@ -193,7 +197,7 @@ const removeHistory = (kw: string) => {
 }
 
 const clearHistory = () => {
-  Modal.confirm({
+  confirmDialog({
     title: '清空搜索记录？',
     content: `将清除本机保存的 ${searchHistory.value.length} 条搜索记录。`,
     okText: '清空',
@@ -244,7 +248,7 @@ defineExpose({ handleSearch, saveHistory })
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 24px;
+  padding: 28px 40px;
   display: flex;
   flex-direction: column;
   gap: 20px;
@@ -269,11 +273,11 @@ defineExpose({ handleSearch, saveHistory })
   align-items: center;
   gap: 5px;
   min-height: 32px;
-  padding: 4px 10px;
+  padding: 6px 10px;
   font-size: var(--text-xs);
-  background: var(--bg-fill-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
+  background: transparent;
+  border: 1px solid var(--border-default);
+  border-radius: 6px;
   color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition-fast);

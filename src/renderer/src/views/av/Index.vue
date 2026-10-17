@@ -2,12 +2,13 @@
   <div class="av-page h-full overflow-hidden flex flex-col">
     <!-- Tab 导航 + 搜索栏 -->
     <div class="flex-shrink-0 bg-transparent">
+      <MissavPlayEntry @play="playMissavStream" />
       <!-- Tab 行 -->
-      <div class="flex items-center gap-6 px-4 pt-3 pb-0">
+      <div class="flex items-center gap-2 px-4 pt-3 pb-0">
         <button
           v-for="tab in tabs"
           :key="tab.id"
-          class="h-12 px-0 rounded-lg text-[15px] transition-colors"
+          class="h-10 px-4 rounded-full text-[14px] transition-colors"
           :class="activeTab === tab.id ? 'av-tab is-active' : 'av-tab'"
           @click="activeTab = tab.id"
         >
@@ -27,7 +28,9 @@
     <!-- 分类浏览内容 -->
     <div
       v-if="activeTab === 'browse'"
+      ref="browseScroll"
       class="primary-scroll flex-1 overflow-y-auto p-6"
+      @scroll="onBrowseScroll"
     >
       <div
         v-if="browseLoading"
@@ -36,7 +39,7 @@
         <div
           v-for="i in 12"
           :key="i"
-          class="animate-pulse overflow-hidden rounded-xl av-card"
+          class="animate-pulse overflow-hidden rounded-lg av-card"
         >
           <div class="aspect-video av-skel" />
           <div class="space-y-2 p-3">
@@ -60,12 +63,11 @@
       <template v-else>
         <div class="mb-4 flex items-center justify-between">
           <div>
-            <h2 class="yb-section-title av-section-title">
+            <PageTitle as="h2">
               {{ currentBrowseCategoryName }}
-            </h2>
+            </PageTitle>
             <p class="yb-section-subtitle">
-              {{ currentBrowseSource?.name || '未选择数据源' }} · 第
-              {{ browsePage }} / {{ browsePageCount || 1 }} 页<span
+              {{ currentBrowseSource?.name || '未选择数据源' }} · 已加载 {{ browseVideos.length }} 条<span
                 v-if="browseTotal"
               >
                 · 共 {{ browseTotal.toLocaleString() }} 条</span
@@ -86,7 +88,7 @@
           <div
             v-for="video in sortedBrowseVideos"
             :key="`${video._source}-${video.vod_id}`"
-            class="group cursor-pointer overflow-hidden rounded-xl av-card transition-all hover:-translate-y-0.5"
+            class="group cursor-pointer overflow-hidden rounded-lg av-card transition-colors"
             @click="playVideo(video)"
           >
             <div class="relative aspect-video overflow-hidden bg-black">
@@ -132,25 +134,10 @@
         >
           这个分类暂时没有内容
         </div>
-        <div
-          v-if="browsePageCount > 1"
-          class="mt-8 flex items-center justify-center gap-3"
-        >
-          <button
-            class="h-10 rounded-lg av-ghost-btn px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="browsePage <= 1"
-            @click="changeBrowsePage(-1)"
-          >
-            上一页</button
-          ><span class="text-sm yb-muted"
-            >{{ browsePage }} / {{ browsePageCount }}</span
-          ><button
-            class="h-10 rounded-lg av-ghost-btn px-4 text-sm disabled:cursor-not-allowed disabled:opacity-40"
-            :disabled="browsePage >= browsePageCount"
-            @click="changeBrowsePage(1)"
-          >
-            下一页
-          </button>
+        <div class="mt-6 flex items-center justify-center gap-3 text-sm yb-muted" role="status" aria-live="polite">
+          <span v-if="browseLoadingMore">正在加载更多…</span>
+          <template v-else-if="browseMoreError"><span>{{ browseMoreError }}</span><button type="button" class="av-ghost-btn" @click="loadBrowse(false, true)">重试</button></template>
+          <span v-else-if="browseVideos.length && !browseHasMore">已全部加载</span>
         </div>
       </template>
     </div>
@@ -170,8 +157,8 @@
           style="border-color: var(--accent)"
         ></div>
         <p class="text-sm yb-muted">
-          正在聚合 {{ activeSources.length }} 个站点... ({{ doneCount }}/{{
-            activeSources.length
+          正在聚合 {{ searchSourceCount }} 个站点... ({{ doneCount }}/{{
+            searchSourceCount
           }})
         </p>
         <div class="w-64 av-skel rounded-full h-1.5">
@@ -188,7 +175,7 @@
         <div
           v-for="i in 12"
           :key="i"
-          class="animate-pulse overflow-hidden rounded-xl av-card"
+          class="animate-pulse overflow-hidden rounded-lg av-card"
         >
           <div class="aspect-video av-skel" />
           <div class="space-y-2 p-3">
@@ -219,7 +206,7 @@
         <div
           v-for="group in mergedVideos"
           :key="group.key"
-          class="group cursor-pointer overflow-hidden rounded-xl av-card transition-all hover:-translate-y-0.5"
+          class="group cursor-pointer overflow-hidden rounded-lg av-card transition-colors"
           @click="playVideo(group.items[0])"
         >
           <div
@@ -306,7 +293,7 @@
     >
       <div class="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h2 class="yb-section-title av-section-title">收藏</h2>
+          <PageTitle as="h2">收藏</PageTitle>
           <p class="yb-section-subtitle">AV 资源收藏</p>
         </div>
         <button
@@ -333,7 +320,7 @@
           <div
             v-for="fav in favorites"
             :key="fav._uid"
-            class="group cursor-pointer overflow-hidden rounded-xl av-card transition-all hover:-translate-y-0.5"
+            class="group cursor-pointer overflow-hidden rounded-lg av-card transition-colors"
             @click="playVideo(fav)"
           >
             <div class="relative aspect-video bg-black">
@@ -381,7 +368,7 @@
     >
       <div class="mb-5 flex items-center justify-between gap-3">
         <div>
-          <h2 class="yb-section-title av-section-title">播放历史</h2>
+          <PageTitle as="h2">播放历史</PageTitle>
           <p class="yb-section-subtitle">AV 资源播放记录</p>
         </div>
         <button
@@ -399,7 +386,7 @@
         <div
           v-for="rec in playHistory"
           :key="rec.url"
-          class="flex min-h-20 cursor-pointer items-center gap-3 rounded-xl av-card transition-all"
+          class="flex min-h-20 cursor-pointer items-center gap-3 rounded-lg av-card transition-all"
           @click="resumeHistory(rec)"
         >
           <img
@@ -458,10 +445,7 @@
             :poster="playingVideo?.vod_pic"
             :title="playingVideo?.vod_name || '正在播放'"
             closable
-            @ready="
-              videoEl = $event
-              applyPlaybackSettings()
-            "
+            @ready="onPlayerReady"
             @loadedmetadata="handleLoadedMetadata"
             @timeupdate="handleTimeUpdate"
             @volumechange="handleVolumeChange"
@@ -477,8 +461,12 @@
 </template>
 
 <script setup lang="ts">
+import PageTitle from '@/components/PageTitle.vue'
+import MissavPlayEntry from './MissavPlayEntry.vue'
+import { type MissavStream, resolveMissav } from '@/api/missav'
 import {
   computed,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -488,6 +476,12 @@ import {
 import { useStorage } from '@vueuse/core'
 import { useRoute } from 'vue-router'
 import { type AvSite, useAvSources } from './use-av-sources'
+import { useVODParser } from '@/composables/use-vod-parser'
+import {
+  type CatSpiderSite,
+  loadCatSpiderSites,
+  useOnlineSearch,
+} from '@/views/online/composables/use-online-search'
 import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
@@ -509,15 +503,47 @@ type AvTab = 'browse' | 'search' | 'favorites' | 'history'
 const activeTab = useStorage<AvTab>('av_active_tab', 'browse')
 const route = useRoute()
 
-// ─── 站点（使用启用列表） ─────────────────────────────────────
+// ─── 站点（AV CMS 源 + 成人插件源） ───────────────────────────
 const { getActiveSources, activeSources } = useAvSources()
+const {
+  CATSPIDER_SITES,
+  selectedCatSpider,
+  isAdultCatSpiderSite,
+  fetchDetail,
+  resolvePlayUrl,
+} = useOnlineSearch()
+const { getConfig, getCards, search: vodSearch } = useVODParser()
+
+type AvEntry = { api: string; name: string; kind: 'cms' | 'plugin' }
+// 启用的成人插件源：与在线搜索共用同一份启用列表
+const pluginAvSources = computed<CatSpiderSite[]>(() =>
+  CATSPIDER_SITES.value.filter(
+    site =>
+      isAdultCatSpiderSite(site) && selectedCatSpider.value.includes(site.api)
+  )
+)
+const avEntries = computed<AvEntry[]>(() => [
+  ...activeSources.value.map(source => ({
+    api: source.api,
+    name: source.name,
+    kind: 'cms' as const,
+  })),
+  ...pluginAvSources.value.map(site => ({
+    api: site.api,
+    name: site.name,
+    kind: 'plugin' as const,
+  })),
+])
 
 // ─── 单源分类浏览 ─────────────────────────────────────────────
-type BrowseCategory = { id: number | null; name: string }
+type BrowseCategory = {
+  id: number | null
+  name: string
+  ext?: Record<string, any>
+}
 type BrowseVisit = {
   categoryId: number | null
   categoryName: string
-  page: number
   sort: 'latest' | 'hot' | 'rating'
 }
 const browseSourceApi = useStorage('av_browse_source', '')
@@ -528,9 +554,13 @@ const avFilterRows = computed<MediaFilterRow[]>(() => [
   {
     key: 'source',
     label: '数据源',
-    options: activeSources.value.map(source => ({
-      label: source.name,
-      value: source.api,
+    // 插件源排在前面，避免被一长串 CMS 源挤到看不见。
+    options: [
+      ...avEntries.value.filter(entry => entry.kind === 'plugin'),
+      ...avEntries.value.filter(entry => entry.kind === 'cms'),
+    ].map(entry => ({
+      label: entry.kind === 'plugin' ? `${entry.name}（插件）` : entry.name,
+      value: entry.api,
     })),
   },
   {
@@ -574,6 +604,15 @@ const browsePageCount = ref(0)
 const browseTotal = ref(0)
 const browseLoading = ref(false)
 const browseError = ref('')
+const browseLoadingMore = ref(false)
+const browseMoreError = ref('')
+const browseScroll = ref<HTMLElement | null>(null)
+const browseHasMore = computed(() => browsePage.value < browsePageCount.value)
+const onBrowseScroll = () => {
+  const el = browseScroll.value
+  if (activeTab.value !== 'browse' || !el || browseLoading.value || browseLoadingMore.value || browseMoreError.value || !browseHasMore.value) return
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) void loadBrowse(false, true)
+}
 const browseSort = ref<'latest' | 'hot' | 'rating'>('latest')
 const browseVisits = useStorage<Record<string, BrowseVisit>>(
   'av_browse_visits',
@@ -593,9 +632,11 @@ const browseCache = new Map<string, BrowseCacheEntry>()
 let browseAbort: AbortController | null = null
 let activeBrowseKey = ''
 
-const currentBrowseSource = computed(() =>
-  activeSources.value.find(source => source.api === browseSourceApi.value)
+const currentEntry = computed(() =>
+  avEntries.value.find(entry => entry.api === browseSourceApi.value)
 )
+const currentBrowseSource = computed(() => currentEntry.value)
+const isPluginSource = computed(() => currentEntry.value?.kind === 'plugin')
 const currentBrowseCategoryName = computed(() => browseCategoryName.value)
 const normalizeCategoryName = (name: unknown) => String(name ?? '').trim()
 const sortedBrowseVideos = computed(() =>
@@ -646,7 +687,6 @@ const saveBrowseVisit = () => {
   browseVisits.value[browseSourceApi.value] = {
     categoryId: browseCategoryId.value,
     categoryName: browseCategoryName.value,
-    page: browsePage.value,
     sort: browseSort.value,
   }
 }
@@ -658,51 +698,195 @@ const restoreBrowseVisit = () => {
   ]
   browseCategoryId.value = saved?.categoryId ?? null
   browseCategoryName.value = saved?.categoryName ?? '全部'
-  browsePage.value = saved?.page ?? 1
+  browsePage.value = 1
   browseSort.value = saved?.sort ?? 'latest'
 }
 
-const browseCacheKey = () =>
-  `${browseSourceApi.value}|${browseCategoryId.value ?? 'all'}|${browsePage.value}|${browseSort.value}`
+const browseCacheKey = (page: number) =>
+  `${browseSourceApi.value}|${
+    isPluginSource.value
+      ? browseCategoryName.value
+      : (browseCategoryId.value ?? 'all')
+  }|${page}|${browseSort.value}`
 
-const applyBrowseCache = (entry: BrowseCacheEntry) => {
-  browseVideos.value = entry.items
-  browsePageCount.value = entry.pageCount
+const applyBrowseCache = (entry: BrowseCacheEntry, append: boolean, page: number) => {
+  const items = append ? [...browseVideos.value, ...entry.items] : entry.items
+  browseVideos.value = Array.from(new Map(items.map(item => [item._uid, item])).values())
+  browsePage.value = page
+  browsePageCount.value = entry.items.length ? entry.pageCount : page
   browseTotal.value = entry.total
   browseCategories.value = entry.categories
   if (browseSourceApi.value)
     browseCategoryCache.value[browseSourceApi.value] = entry.categories
 }
 
-const loadBrowse = async (force = false) => {
+/** 读取插件源的分类配置（CatSpider 的 tabs）。 */
+const loadPluginTabs = async (siteName: string): Promise<BrowseCategory[]> => {
+  try {
+    const r = await getConfig(siteName)
+    if (!r.success || !r.data) return []
+    const config = r.data.config || r.data.data?.config || r.data
+    const tabList = Array.isArray(config?.tabs) ? config.tabs : []
+    return tabList.map((tab: any, index: number) => ({
+      id: index,
+      name: tab.name || `分类${index + 1}`,
+      ext: tab.ext || {},
+    }))
+  } catch {
+    return []
+  }
+}
+
+/** 切换到插件源时，先取回它的分类再加载内容。 */
+const setupPluginBrowse = async () => {
+  const entry = currentEntry.value
+  browseAbort?.abort()
+  browseVideos.value = []
+  browsePage.value = 1
+  browsePageCount.value = 0
+  browseTotal.value = 0
+  browseError.value = ''
+  browseMoreError.value = ''
+  browseCategories.value = []
+  if (!entry) return
+  browseLoading.value = true
+  const tabs = await loadPluginTabs(entry.name)
+  browseLoading.value = false
+  if (!tabs.length) {
+    browseError.value = `${entry.name} 暂不支持分类浏览`
+    return
+  }
+  browseCategories.value = tabs
+  browseCategoryCache.value[entry.api] = tabs
+  browseCategoryId.value = tabs[0].id
+  browseCategoryName.value = tabs[0].name
+  browseSort.value = 'latest'
+  await loadBrowse()
+}
+
+/** 插件源分类内容：走 CatSpider 的 getCards。 */
+const loadPluginBrowse = async (page: number, append: boolean) => {
+  const entry = currentEntry.value
+  if (!entry) return
+  const tab = browseCategories.value.find(
+    category => category.name === browseCategoryName.value
+  )
+  const ext = tab?.ext
+  if (!ext) {
+    browseVideos.value = []
+    browseError.value = `${entry.name} 暂不支持分类浏览`
+    browseLoading.value = false
+    browseLoadingMore.value = false
+    return
+  }
+  const controller = new AbortController()
+  browseAbort = controller
+  activeBrowseKey = browseCacheKey(page)
+  browseLoading.value = !append
+  browseLoadingMore.value = append
+  browseError.value = ''
+  try {
+    const r = await getCards({
+      siteName: entry.name,
+      url: ext.url,
+      ext: JSON.stringify(ext),
+      page,
+    })
+    if (controller.signal.aborted || browseAbort !== controller) return
+    if (!r.success || !r.data)
+      throw new Error(r.error || `${entry.name} 没有返回可用内容`)
+    const list = r.data.list || r.data.data?.list || []
+    const items = (list as any[]).map(item => ({
+      ...item,
+      vod_id: item.vod_id || item.ext?.url || '',
+      _source: entry.name,
+      _uid: `${entry.name}-${item.vod_id || item.ext?.url || ''}`,
+      _isPlugin: true,
+      _siteName: entry.name,
+      _ext: item.ext || {},
+    }))
+    const entryCache: BrowseCacheEntry = {
+      items,
+      pageCount: items.length ? page + 1 : page,
+      total: 0,
+      categories: browseCategories.value,
+    }
+    browseCache.set(browseCacheKey(page), entryCache)
+    if (browseCache.size > 60)
+      browseCache.delete(browseCache.keys().next().value as string)
+    applyBrowseCache(entryCache, append, page)
+    saveBrowseVisit()
+  } catch (error) {
+    if (!controller.signal.aborted && browseAbort === controller) {
+      const text = error instanceof Error ? error.message : '加载分类内容失败'
+      if (append) browseMoreError.value = text
+      else {
+        browseError.value = text
+        browseVideos.value = []
+      }
+    }
+  } finally {
+    if (browseAbort === controller && !controller.signal.aborted) {
+      browseLoading.value = false
+      browseLoadingMore.value = false
+      await nextTick()
+      if (!browseError.value && !browseMoreError.value) onBrowseScroll()
+    }
+  }
+}
+
+const loadBrowse = async (force = false, append = false) => {
+  if (append && (browseLoading.value || browseLoadingMore.value || !browseHasMore.value)) return
+  const requestedPage = append ? browsePage.value + 1 : 1
   const selectedSource = currentBrowseSource.value
   if (!selectedSource) {
+    browseAbort?.abort()
+    browseLoading.value = false
+    browseLoadingMore.value = false
+    browseMoreError.value = ''
     browseVideos.value = []
+    browsePageCount.value = 0
+    browseTotal.value = 0
     browseError.value = '没有启用的数据源，请先在数据源管理中启用一个来源'
     return
   }
-  const cacheKey = browseCacheKey()
+  const cacheKey = browseCacheKey(requestedPage)
   if (!force && browseLoading.value && activeBrowseKey === cacheKey) return
   const sources = [selectedSource]
   browseAbort?.abort()
+  browseLoadingMore.value = false
+  browseMoreError.value = ''
+  if (!append) {
+    browseVideos.value = []
+    browsePage.value = 1
+    browsePageCount.value = 0
+    if (browseScroll.value) browseScroll.value.scrollTop = 0
+  }
   const cached = browseCache.get(cacheKey)
   if (!force && cached) {
     browseError.value = ''
-    applyBrowseCache(cached)
+    applyBrowseCache(cached, append, requestedPage)
     browseLoading.value = false
     saveBrowseVisit()
+    await nextTick()
+    onBrowseScroll()
+    return
+  }
+  if (isPluginSource.value) {
+    await loadPluginBrowse(requestedPage, append)
     return
   }
   const controller = new AbortController()
   browseAbort = controller
   activeBrowseKey = cacheKey
-  browseLoading.value = true
+  browseLoading.value = !append
+  browseLoadingMore.value = append
   browseError.value = ''
   try {
     const settled = await Promise.allSettled(
       sources.map(async source => {
         const response = await fetch(
-          createBrowseUrl(source, browsePage.value),
+          createBrowseUrl(source, requestedPage),
           { signal: controller.signal }
         )
         if (!response.ok)
@@ -713,6 +897,7 @@ const loadBrowse = async (force = false) => {
         return { source, data }
       })
     )
+    if (controller.signal.aborted || browseAbort !== controller) return
     const results = settled.flatMap(result =>
       result.status === 'fulfilled' ? [result.value] : []
     )
@@ -737,13 +922,21 @@ const loadBrowse = async (force = false) => {
     browseCache.set(cacheKey, entry)
     if (browseCache.size > 60)
       browseCache.delete(browseCache.keys().next().value as string)
-    applyBrowseCache(entry)
+    applyBrowseCache(entry, append, requestedPage)
+    saveBrowseVisit()
   } catch (error) {
-    if ((error as Error).name !== 'AbortError')
-      browseError.value =
-        error instanceof Error ? error.message : '加载分类内容失败'
+    if (!controller.signal.aborted && browseAbort === controller) {
+      const text = error instanceof Error ? error.message : '加载分类内容失败'
+      if (append) browseMoreError.value = text
+      else browseError.value = text
+    }
   } finally {
-    if (!controller.signal.aborted) browseLoading.value = false
+    if (browseAbort === controller && !controller.signal.aborted) {
+      browseLoading.value = false
+      browseLoadingMore.value = false
+      await nextTick()
+      if (!browseError.value && !browseMoreError.value) onBrowseScroll()
+    }
   }
 }
 
@@ -756,27 +949,29 @@ const selectBrowseCategory = (category: BrowseCategory) => {
   loadBrowse()
 }
 
-const changeBrowsePage = (offset: number) => {
-  const nextPage = browsePage.value + offset
-  if (nextPage < 1 || nextPage > browsePageCount.value) return
-  browsePage.value = nextPage
-  saveBrowseVisit()
-  loadBrowse()
+const catSpiderReady = ref(false)
+const reconcileBrowseSource = () => {
+  if (avEntries.value.some(entry => entry.api === browseSourceApi.value)) return
+  browseSourceApi.value = avEntries.value[0]?.api ?? ''
 }
-
 watch(
-  activeSources,
-  sources => {
-    if (sources.some(source => source.api === browseSourceApi.value)) return
-    browseSourceApi.value = sources[0]?.api ?? ''
+  avEntries,
+  () => {
+    // 插件清单未就绪时不重置，否则会把已选插件源误判为失效。
+    if (!catSpiderReady.value) return
+    reconcileBrowseSource()
   },
   { immediate: true }
 )
 watch(browseSourceApi, () => {
+  if (isPluginSource.value) {
+    void setupPluginBrowse()
+    return
+  }
   restoreBrowseVisit()
-  loadBrowse()
+  void loadBrowse()
 })
-watch(browseSort, saveBrowseVisit)
+watch(browseSort, () => { saveBrowseVisit(); void loadBrowse() })
 
 // ─── 状态 ────────────────────────────────────────────────────
 const searchKeyword = ref('')
@@ -786,6 +981,10 @@ const hasSearched = ref(false)
 const doneCount = ref(0)
 const failedSourceCount = ref(0)
 const searchError = ref('')
+// 聚合搜索覆盖的站点：AV CMS 源 + 启用的成人插件源
+const searchSourceCount = computed(
+  () => activeSources.value.length + pluginAvSources.value.length
+)
 const runQuerySearch = () => {
   const query = String(route.query.q || '').trim()
   if (!query) {
@@ -938,6 +1137,47 @@ const fetchFromSource = async (
   return []
 }
 
+/** 插件源搜索：走 CatSpider 的 search 动作，返回条目仍需 fetchDetail 才能拿到线路。 */
+const fetchFromPluginSource = async (
+  site: CatSpiderSite,
+  keyword: string,
+  signal: AbortSignal
+): Promise<any[]> => {
+  try {
+    const r = await vodSearch({ siteName: site.name, keyword }, signal)
+    if (!r.success || !r.data) {
+      if (!signal.aborted) failedSourceCount.value++
+      return []
+    }
+    let payload: any = r.data
+    for (let i = 0; i < 2 && typeof payload === 'string'; i++) {
+      try {
+        payload = JSON.parse(payload)
+      } catch {
+        return []
+      }
+    }
+    const nested = payload?.data
+    const list = Array.isArray(payload?.list)
+      ? payload.list
+      : Array.isArray(nested?.list)
+        ? nested.list
+        : []
+    return (list as any[]).map(item => ({
+      ...item,
+      vod_id: item.vod_id || item.ext?.url || '',
+      _source: site.name,
+      _uid: `${site.name}-${item.vod_id || item.ext?.url || ''}`,
+      _isPlugin: true,
+      _siteName: site.name,
+      _ext: item.ext || {},
+    }))
+  } catch {
+    if (!signal.aborted) failedSourceCount.value++
+    return []
+  }
+}
+
 const searchCache = new Map<string, { expiresAt: number; items: any[] }>()
 const mapWithConcurrency = async <T, R>(
   items: T[],
@@ -977,25 +1217,27 @@ const handleSearch = async () => {
   videos.value = []
   rebuildMerged()
 
-  const activeSources = getActiveSources()
-  const cacheKey = `${keyword}|${activeSources
-    .map(source => source.api)
+  const cmsSources = getActiveSources()
+  const pluginSources = pluginAvSources.value
+  const totalQuery = cmsSources.length + pluginSources.length
+  const cacheKey = `${keyword}|${[
+    ...cmsSources.map(source => source.api),
+    ...pluginSources.map(site => site.api),
+  ]
     .sort()
     .join(',')}`
   const cached = searchCache.get(cacheKey)
   if (cached && cached.expiresAt > Date.now()) {
     videos.value = cached.items
-    doneCount.value = activeSources.length
+    doneCount.value = totalQuery
     rebuildMerged()
     loading.value = false
     return
   }
 
   // 限制并发请求；每个站点返回后立即合并结果，不等待全部站点完成。
-  const sourceResults = await mapWithConcurrency(
-    activeSources,
-    4,
-    async source => {
+  const [cmsResults, pluginResults] = await Promise.all([
+    mapWithConcurrency(cmsSources, 4, async source => {
       const items = await fetchFromSource(source, keyword, signal)
       if (!signal.aborted) {
         doneCount.value++
@@ -1005,10 +1247,21 @@ const handleSearch = async () => {
         }
       }
       return items
-    }
-  )
+    }),
+    mapWithConcurrency(pluginSources, 3, async site => {
+      const items = await fetchFromPluginSource(site, keyword, signal)
+      if (!signal.aborted) {
+        doneCount.value++
+        if (items.length) {
+          videos.value = [...videos.value, ...items]
+          rebuildMerged()
+        }
+      }
+      return items
+    }),
+  ])
   if (signal.aborted) return
-  const allItems = sourceResults.flat()
+  const allItems = [...cmsResults.flat(), ...pluginResults.flat()]
   searchCache.set(cacheKey, {
     expiresAt: Date.now() + 5 * 60 * 1000,
     items: allItems,
@@ -1025,16 +1278,68 @@ const handleSearch = async () => {
 }
 
 // ─── 播放 ─────────────────────────────────────────────────────
-const playVideo = async (video: any) => {
-  if (!video.vod_play_url) return
-
-  const episodes = video.vod_play_url
+const parseCmsEpisodes = (video: any) =>
+  String(video?.vod_play_url || '')
     .split('#')
     .filter(Boolean)
     .map((ep: string) => {
       const parts = ep.split('$')
       return { name: parts[0], url: parts[parts.length - 1] }
     })
+
+/** 插件源：先用 getTracks 取回线路，再由 startPlay 解析成可播放地址。 */
+const playPluginVideo = async (video: any) => {
+  playerMessage.value = ''
+  let groups: any[] = []
+  try {
+    groups = await fetchDetail({
+      vod_id: video.vod_id,
+      vod_name: video.vod_name || '',
+      type_name: video.type_name || '',
+      vod_year: video.vod_year || '',
+      vod_remarks: video.vod_remarks || '',
+      vod_pic: video.vod_pic || '',
+      _source: 'catspider',
+      _siteName: video._siteName,
+      _ext: video._ext,
+    })
+  } catch {
+    groups = []
+  }
+  const episodes = (groups || [])
+    .flatMap(group => group.episodes || [])
+    .filter(episode => episode?.url)
+  if (!episodes.length) {
+    playerMessage.value = '没有可用的播放线路'
+    message.error('没有可用的播放线路')
+    return
+  }
+  playingVideo.value = { ...video, episodes }
+  playingGroup.value = findGroup(video.vod_name) || {
+    vod_name: video.vod_name,
+    vod_pic: video.vod_pic,
+    items: [video],
+  }
+  resumeTime = 0
+  await startPlay(
+    episodes[0].url,
+    episodes[0].name,
+    episodes[0].ext,
+    video._siteName
+  )
+}
+
+const playVideo = async (video: any) => {
+  if (video._isPlugin) {
+    attemptedSourceIds.clear()
+    attemptedSourceIds.add(video._uid)
+    resumeTime = 0
+    await playPluginVideo(video)
+    return
+  }
+  if (!video.vod_play_url) return
+
+  const episodes = parseCmsEpisodes(video)
   if (episodes.length === 0) return
 
   playingVideo.value = { ...video, episodes }
@@ -1053,14 +1358,17 @@ const playVideo = async (video: any) => {
 }
 
 const switchSource = async (video: any, automatic = false) => {
+  if (video._isPlugin) {
+    playerMessage.value = automatic
+      ? `当前线路不可用，已切换到 ${video._source}`
+      : ''
+    attemptedSourceIds.add(video._uid)
+    resumeTime = 0
+    await playPluginVideo(video)
+    return
+  }
   if (!video.vod_play_url) return
-  const episodes = video.vod_play_url
-    .split('#')
-    .filter(Boolean)
-    .map((ep: string) => {
-      const parts = ep.split('$')
-      return { name: parts[0], url: parts[parts.length - 1] }
-    })
+  const episodes = parseCmsEpisodes(video)
   if (episodes.length === 0) return
   playingVideo.value = { ...video, episodes }
   attemptedSourceIds.add(video._uid)
@@ -1088,17 +1396,31 @@ const tryNextSource = async () => {
   }
 }
 
-const startPlay = async (url: string, epName = '') => {
-  playingUrl.value = url
-  if (playingVideo.value) savePlayHistory(playingVideo.value, epName, url)
+const PLAYABLE_URL_RE = /^https?:\/\/\S+\.(?:m3u8|mp4|flv)(?:[?#]|$)/i
+
+const startPlay = async (
+  url: string,
+  epName = '',
+  ext?: Record<string, any>,
+  siteName?: string,
+  resumeAt?: number
+) => {
+  let playUrl = url
+  // 插件线路需要经插件解析成真实地址；已是直链则跳过。
+  if (siteName && url && !PLAYABLE_URL_RE.test(url)) {
+    const resolved = await resolvePlayUrl(siteName, { ...(ext || {}), url })
+    if (resolved) playUrl = resolved
+  }
+  playingUrl.value = playUrl
+  if (playingVideo.value) savePlayHistory(playingVideo.value, epName, playUrl)
   const title =
     [playingVideo.value?.vod_name, epName].filter(Boolean).join(' · ') ||
     '正在播放'
   // Electron：强制独立播放窗；页内层仅作非 Electron 兜底
   if (canOpenElectronPlayer()) {
     const poster = playingVideo.value?.vod_pic || undefined
-    const startAt = getMediaProgress(url)
-    const ok = await openMediaPlayer({ url, title, poster, startAt })
+    const startAt = resumeAt ?? getMediaProgress(playUrl)
+    const ok = await openMediaPlayer({ url: playUrl, title, poster, startAt })
     showPlayer.value = false
     videoEl.value = null
     if (!ok) {
@@ -1109,23 +1431,53 @@ const startPlay = async (url: string, epName = '') => {
   showPlayer.value = true
 }
 
+const playMissavStream = async (stream: MissavStream, startAt = 0) => {
+  const video = {
+    vod_id: stream.input,
+    vod_name: stream.title,
+    vod_pic: '',
+    _source: 'MissAV',
+    _uid: `missav-${stream.input}`,
+    _missavInput: stream.input,
+    episodes: [{ name: '在线播放', url: stream.url }],
+  }
+  playingVideo.value = video
+  playingGroup.value = { vod_name: video.vod_name, vod_pic: '', items: [video] }
+  attemptedSourceIds.clear()
+  attemptedSourceIds.add(video._uid)
+  switchingSource = false
+  playerMessage.value = ''
+  resumeTime = startAt
+  await startPlay(stream.url, '在线播放', undefined, undefined, startAt)
+}
+
 const applyPlaybackSettings = () => {
   const el = videoEl.value
   if (!el) return
   el.volume = Math.min(1, Math.max(0, Number(volume.value) || 0))
 }
 
+const onPlayerReady = (video: HTMLVideoElement) => {
+  videoEl.value = video
+  applyPlaybackSettings()
+}
+
 const resumeHistory = async (record: AvPlayRecord) => {
   const video = record.video
+  if (video._missavInput) {
+    try {
+      await playMissavStream(
+        await resolveMissav(video._missavInput),
+        record.progress
+      )
+    } catch (error) {
+      message.error(error instanceof Error ? error.message : 'MissAV 重新解析失败')
+    }
+    return
+  }
   const episodes = video.episodes?.length
     ? video.episodes
-    : (video.vod_play_url
-        ?.split('#')
-        .filter(Boolean)
-        .map((ep: string) => {
-          const parts = ep.split('$')
-          return { name: parts[0], url: parts[parts.length - 1] }
-        }) ?? [])
+    : parseCmsEpisodes(video)
   playingVideo.value = { ...video, episodes }
   playingGroup.value = findGroup(video.vod_name) || {
     vod_name: video.vod_name,
@@ -1179,7 +1531,12 @@ const handleVideoEnded = async () => {
   const next = currentIndex >= 0 ? episodes[currentIndex + 1] : null
   if (next) {
     playerMessage.value = `即将播放：${next.name}`
-    await startPlay(next.url, next.name)
+    await startPlay(
+      next.url,
+      next.name,
+      (next as any).ext,
+      playingVideo.value?._siteName
+    )
   } else {
     const groups =
       activeTab.value === 'search'
@@ -1251,10 +1608,21 @@ onBeforeUnmount(() => {
   browseAbort?.abort()
   currentAbort?.abort()
 })
-onMounted(() => {
+onMounted(async () => {
   window.addEventListener('app:navigate-back', handleNavigateBack)
-  restoreBrowseVisit()
-  loadBrowse()
+  // 插件源清单来自后端，先加载完再决定当前数据源，避免误判为失效源。
+  await loadCatSpiderSites()
+  catSpiderReady.value = true
+  const before = browseSourceApi.value
+  reconcileBrowseSource()
+  if (browseSourceApi.value !== before) {
+    // 数据源已切换，交给 browseSourceApi 的 watcher 加载。
+  } else if (isPluginSource.value) {
+    await setupPluginBrowse()
+  } else {
+    restoreBrowseVisit()
+    await loadBrowse()
+  }
   if (route.query.tab === 'search') runQuerySearch()
 })
 onBeforeUnmount(() =>
@@ -1297,25 +1665,32 @@ onBeforeUnmount(() =>
 .av-tab {
   color: var(--text-secondary);
   background: transparent;
+
+  border-radius: 7px;
+
+  min-height: 36px;
 }
 .av-tab:hover {
   color: var(--text-primary);
 }
 .av-tab.is-active {
-  color: var(--accent-text);
-  font-weight: var(--font-weight-semibold);
-}
-.av-section-title {
-  font-size: var(--text-lg);
-  flex: initial;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+
+  background: var(--selection-bg);
+  box-shadow: none;
 }
 .av-card {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
+  border: 0;
+  background: transparent;
+
+  border-color: var(--border-subtle);
+
+  border-radius: 6px;
 }
 .av-card:hover {
-  border-color: color-mix(in srgb, var(--accent) 30%, transparent);
-  background: var(--bg-fill-secondary);
+  border-color: var(--border-default);
+  background: var(--bg-fill-tertiary);
 }
 .av-card-title {
   color: var(--text-primary);
@@ -1330,8 +1705,9 @@ onBeforeUnmount(() =>
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
   background: transparent;
-  border-radius: var(--radius-md);
-  min-height: 36px;
+  border-radius: 7px;
+  min-height: var(--control-height);
+  padding: 0 18px;
   transition: var(--transition-fast);
   cursor: pointer;
 }

@@ -140,17 +140,9 @@ export function parseNfo(content: string): NfoData {
 
 /**
  * 从 ScrapedMovie 生成 Kodi 标准 NFO XML
- * 统一处理 TMDB 和 JavBus 两种数据源
+ * 使用 TMDB 电影资料
  */
 export function generateNfo(movie: ScrapedMovie): string {
-  const javbusMeta = movie._javbus
-
-  // JavBus 路径：直接从 _javbus 构建
-  if (javbusMeta) {
-    return generateJavbusNfo(movie, javbusMeta)
-  }
-
-  // TMDB 路径
   return generateTmdbNfo(movie)
 }
 
@@ -213,42 +205,5 @@ ${studiosXml}
   <adult>${movie.adult ? 'true' : 'false'}</adult>
 ${directorsXml}
 ${castXml}
-</movie>`
-}
-
-interface JavbusMetaLite {
-  title?: string
-  avid?: string
-  description?: string
-  release_date?: string
-  duration?: string
-  keywords?: string[]
-  actress?: Record<string, string>
-}
-
-function generateJavbusNfo(movie: ScrapedMovie, meta: JavbusMetaLite): string {
-  const year = meta.release_date
-    ? new Date(meta.release_date).getFullYear()
-    : ''
-
-  const genresXml = (meta.keywords || [])
-    .map(k => `  <genre>${escapeXml(k)}</genre>`)
-    .join('\n')
-
-  const actressXml = Object.keys(meta.actress || {})
-    .map(name => `  <actor>\n    <name>${escapeXml(name)}</name>\n  </actor>`)
-    .join('\n')
-
-  return `<?xml version="1.0" encoding="UTF-8" standalone="yes"?>
-<movie>
-  <title>${escapeXml(meta.title || movie.title || '')}</title>
-  <originaltitle>${escapeXml(meta.avid || '')}</originaltitle>
-  <year>${year}</year>
-  <plot>${escapeXml(meta.description || '')}</plot>
-  <outline>${escapeXml(meta.description || '')}</outline>
-  <runtime>${meta.duration || ''}</runtime>
-${genresXml}
-  <premiered>${meta.release_date || ''}</premiered>
-${actressXml}
 </movie>`
 }

@@ -13,6 +13,10 @@ import { join } from 'path'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { registerPlayerWindowIpc } from './player-window'
+import {
+  startBrowserFetchService,
+  stopBrowserFetchService,
+} from './browser-fetch'
 import { getConfigPath, getDownloadPath, loadConfig } from './config'
 import { startBackend } from './backend-manager'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
@@ -20,6 +24,11 @@ import { registerDialogIpc } from './ipc/dialog-ipc'
 import { registerFileIpc } from './ipc/file-ipc'
 import { registerHttpIpc } from './ipc/http-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
+import { registerAmaneIpc } from './amane-manager'
+import { registerMpvIpc } from './ipc/mpv-ipc'
+import { registerLadaIpc } from './lada'
+import { registerLadaLiveIpc } from './lada-live'
+import { registerLadaResumeIpc } from './lada-resume'
 
 Menu.setApplicationMenu(null)
 
@@ -29,6 +38,7 @@ app.commandLine.appendSwitch(
 )
 
 protocol.registerSchemesAsPrivileged([
+  { scheme: 'amane', privileges: { secure: true, standard: true, supportFetchAPI: true } },
   {
     scheme: 'local',
     privileges: { secure: true, standard: true, stream: true, bypassCSP: true },
@@ -113,7 +123,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
     ]
     callback({ responseHeaders: headers })
   })
@@ -127,6 +137,9 @@ app.whenReady().then(async () => {
 
   await loadConfig()
 
+  // 浏览器级抓取服务：插件源被 Cloudflare 拦截时由主进程 Chromium 代取页面。
+  startBrowserFetchService()
+
   // IPC 按域注册；窗口与后端生命周期由本文件负责
   registerFileIpc()
   registerHttpIpc()
@@ -134,6 +147,11 @@ app.whenReady().then(async () => {
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
   registerPlayerWindowIpc()
+  await registerAmaneIpc()
+  registerMpvIpc()
+  await registerLadaIpc()
+  registerLadaLiveIpc()
+  registerLadaResumeIpc()
 
   startBackend({ configPath: getConfigPath(), downloadPath: getDownloadPath() })
 
@@ -152,4 +170,8 @@ app.on('window-all-closed', () => {
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('will-quit', () => {
+  stopBrowserFetchService()
 })

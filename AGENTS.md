@@ -6,7 +6,7 @@ This file provides guidance to coding agents working with code in this repositor
 
 影盒 (yingbox) is an Electron desktop app (Windows/macOS) for media library management:
 
-- **本地媒体库** — scans movie/TV folders, scrapes TMDB / JavBus metadata, writes Kodi-standard NFO + images
+- **本地媒体库** — scans movie/TV folders, scrapes TMDB metadata, writes Kodi-standard NFO + images
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs via the Go backend
 - **内置播放器** — dedicated player window: local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
@@ -64,13 +64,13 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 
 ### Preload (`src/preload/index.ts`)
 
-Exposes `window.api` only, namespaced: `file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`.
+Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`.
 
 **Sandboxed preload:** only `electron` may be imported — no npm packages (a sandboxed preload cannot `require` them).
 
 ### Renderer (`src/renderer/src/`)
 
-Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/av`, `/player-popout`; catch-all → `/`.
+Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
 
 - `api/` — `tmdb.ts` (token from settings or `VITE_TMDB_ACCESS_TOKEN`, no hardcoded default), `backend.ts` (Go backend client, Bearer key, image/proxy URL helpers)
 - `services/nfo-service.ts` — Kodi NFO parse/generate
@@ -84,9 +84,13 @@ Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/av`, `/player-popou
 
 HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and extracts it next to the binary at startup (never overwrites existing `cfg/` / `db/`).
 
-- Endpoints: `/api/videos`, `/api/videos/<id>`, `/api/meta/<avid>`, `/api/scrape/<avid>`, `/api/addvideo/<avid>`, `/api/queue`, `/api/vod/parse`, `/api/vod/sites`, `/file/<id>/<name>`, `/proxy?url=…`
+- Endpoints: `/api/videos`, `/api/videos/<id>`, `/api/addvideo/<avid>`, `/api/queue`, `/api/vod/parse`, `/api/vod/sites`, `/file/<id>/<name>`, `/proxy?url=…`
 - Security env vars: `BIND_ADDR` (default loopback), `YINGBOX_API_KEY` (Bearer / `?key=`), `YINGBOX_ALLOWED_ORIGINS`, `YINGBOX_PROXY_URL`, `YINGBOX_ALLOW_PRIVATE_PROXY` (`/proxy` denies private targets by default), `YINGBOX_ALLOW_INSECURE_LAN`
 - Library path resolution: `YINGBOX_CONFIG_PATH` (config.json `downloadPath`) → `MISSAV_VIDEO_PATH` → `~/Videos` → temp dir
+
+### Amane
+
+`src/main/amane-manager.ts` supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/views/Amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
 
 ### App settings
 

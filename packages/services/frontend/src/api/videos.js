@@ -27,11 +27,6 @@ export default {
     }
   },
 
-  async getMeta(id) {
-    const response = await axios.get(`${API_BASE}/api/meta/${id}`)
-    return response.data
-  },
-
   async getQueue() {
     const response = await axios.get(`${API_BASE}/api/queue`)
     return response.data || []

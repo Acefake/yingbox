@@ -45,8 +45,6 @@ for downloader in configs["Downloader"]:
         break
 logger.info(f"missav domain: {missAVDomain}")
 
-scraperDomain = random.choice(configs["ScraperDomain"])
-logger.info(f"scraper domain: {scraperDomain}")
 
 
 # 初始化下载器

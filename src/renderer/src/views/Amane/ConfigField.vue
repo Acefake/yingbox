@@ -1,0 +1,91 @@
+<template>
+  <div v-if="!hidden" class="amane-config-field" :class="{ 'is-boolean': schema.type === 'boolean' }">
+    <div v-if="!bare" class="amane-config-caption">
+      <label :for="id">{{ label }}</label>
+      <p v-if="description">{{ description }}</p>
+    </div>
+    <template v-if="schema.type === 'boolean'">
+      <input :id="id" :aria-label="label" type="checkbox" role="switch" :checked="modelValue === true" :disabled="readonly" @change="emit('update:modelValue', ($event.target as HTMLInputElement).checked)" />
+    </template>
+    <select v-else-if="schema.enum" :id="id" :aria-label="label" class="yb-field" :disabled="readonly" :value="modelValue == null ? '' : String(modelValue)" @change="selectEnum($event)">
+      <option v-if="schema.nullable" value="">不设置</option>
+      <option v-for="(option, index) in schema.enum" :key="String(option)" :value="String(option)">{{ optionLabel(option, schema, index) }}</option>
+    </select>
+    <input v-else-if="schema.type === 'number' || schema.type === 'integer'" :id="id" :aria-label="label" type="number" class="yb-field" :value="modelValue ?? ''" :min="schema.minimum ?? schema.exclusiveMinimum" :max="schema.maximum ?? schema.exclusiveMaximum" :step="schema.type === 'integer' ? 1 : 'any'" :required="!schema.nullable" :disabled="readonly" @input="numberChanged($event)" />
+    <template v-else-if="schema.type === 'object' && schema.properties">
+      <div class="amane-config-nested">
+        <ConfigField v-for="(child, key) in schema.properties" :key="key" :schema="child" :root="root" :path="`${path}.${key}`" :dict-key="dictKey" :model-value="objectValue[key] ?? null" @update:model-value="setObject(String(key), $event)" />
+      </div>
+    </template>
+    <template v-else-if="schema.type === 'object'">
+      <div class="amane-config-dict">
+        <div class="amane-config-dict-tabs" role="tablist" :aria-label="label">
+          <button v-for="key in Object.keys(objectValue)" :key="key" type="button" role="tab" :aria-selected="activeKey === key" :class="{ active: activeKey === key }" @click="selectedKey = key">{{ text(path, `options.${key}`, key) }}</button>
+        </div>
+        <div v-if="!schema['x-frozen-keys'] && !readonly" class="amane-config-add">
+          <select v-if="keyOptions.length" v-model="newKey" class="yb-field" :aria-label="`添加${label}`"><option value="">选择条目…</option><option v-for="key in keyOptions" :key="key" :value="key" :disabled="Object.hasOwn(objectValue, key)">{{ text(path, `options.${key}`, key) }}</option></select>
+          <input v-else v-model="newKey" class="yb-field" :aria-label="`添加${label}`" placeholder="输入名称" />
+          <button class="yb-btn-soft" type="button" :disabled="!newKey.trim() || Object.hasOwn(objectValue, newKey.trim())" @click="addEntry">添加</button>
+        </div>
+        <div v-if="activeKey" class="amane-config-dict-body">
+          <ConfigField :key="activeKey" :schema="valueSchema" :root="root" :path="`${path}.$`" :dict-key="activeKey" :model-value="objectValue[activeKey]" bare @update:model-value="setObject(activeKey, $event)" />
+          <button v-if="!schema['x-frozen-keys'] && !readonly" type="button" class="yb-btn-soft" @click="deleteEntry(activeKey)">移除此条目</button>
+        </div>
+        <p v-else class="amane-muted">暂无条目</p>
+      </div>
+    </template>
+    <template v-else-if="schema.type === 'array'">
+      <div v-if="itemSchema.enum && !schema['x-ordered']" class="amane-config-checks">
+        <label v-for="(option, index) in itemSchema.enum" :key="String(option)"><input type="checkbox" :checked="arrayValue.includes(option)" :disabled="readonly" @change="toggleOption(option)" />{{ text(path, `options.${option}`, optionLabel(option, itemSchema, index, `${path}.$`)) }}</label>
+      </div>
+      <template v-else>
+        <div class="amane-config-array">
+          <div v-for="(item, index) in arrayValue" :key="index" class="amane-config-array-item" :draggable="schema['x-ordered'] === true && !readonly" @dragstart.stop="dragIndex = index" @dragover.prevent @drop.prevent.stop="move(dragIndex, index)">
+            <span v-if="itemSchema.enum" class="amane-config-chip">{{ optionLabel(item, itemSchema, itemSchema.enum.indexOf(item), `${path}.$`) }}</span>
+            <ConfigField v-else :schema="itemSchema" :root="root" :path="`${path}.$`" :model-value="item" bare @update:model-value="setArray(index, $event)" />
+            <div v-if="!readonly" class="amane-config-item-actions">
+              <button v-if="schema['x-ordered']" type="button" :disabled="index === 0" :aria-label="`上移第 ${index + 1} 项`" @click="move(index, index - 1)">←</button>
+              <button v-if="schema['x-ordered']" type="button" :disabled="index === arrayValue.length - 1" :aria-label="`下移第 ${index + 1} 项`" @click="move(index, index + 1)">→</button>
+              <button type="button" :aria-label="`移除第 ${index + 1} 项`" @click="removeArray(index)">×</button>
+            </div>
+          </div>
+        </div>
+        <div v-if="itemSchema.enum && !readonly" class="amane-config-available">
+          <button v-for="(option, index) in itemSchema.enum.filter(option => !arrayValue.includes(option))" :key="String(option)" type="button" class="yb-btn-soft" @click="emit('update:modelValue', [...arrayValue, option])">＋ {{ optionLabel(option, itemSchema, index, `${path}.$`) }}</button>
+        </div>
+        <button v-else-if="!readonly" type="button" class="yb-btn-soft" @click="emit('update:modelValue', [...arrayValue, initialValue(itemSchema, root)])">添加条目</button>
+      </template>
+    </template>
+    <textarea v-else-if="schema['x-long']" :id="id" :aria-label="label" class="yb-field" rows="5" :maxlength="schema.maxLength" :readonly="readonly" :value="String(modelValue ?? '')" @input="emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)" />
+    <input v-else :id="id" :aria-label="label" class="yb-field" :type="secret ? 'password' : 'text'" :autocomplete="secret ? 'new-password' : 'off'" :value="String(modelValue ?? '')" :maxlength="schema.maxLength" :minlength="schema.minLength" :pattern="schema.pattern" :readonly="readonly" @input="emit('update:modelValue', ($event.target as HTMLInputElement).value)" />
+  </div>
+</template>
+<script setup lang="ts">
+import { computed, ref, useId } from 'vue'
+import { initialValue, resolveSchema, text, type Schema, type Value } from './config-schema'
+const props = defineProps<{ schema: Schema; root: Schema; path: string; modelValue: Value; bare?: boolean; dictKey?: string }>()
+const emit = defineEmits<{ 'update:modelValue': [value: Value] }>()
+const id = useId(), newKey = ref(''), selectedKey = ref(''), dragIndex = ref(-1)
+const schema = computed(() => resolveSchema(props.schema, props.root))
+const hidden = computed(() => schema.value['x-hidden'] || (Array.isArray(schema.value['x-visible-keys']) && props.dictKey && !(schema.value['x-visible-keys'] as string[]).includes(props.dictKey)))
+const readonly = computed(() => schema.value['x-readonly'] === true)
+const secret = computed(() => /(?:^|\.)(?:api_key|api_token|password|cookie|dsn)(?:\.|$)/.test(props.path))
+const label = computed(() => text(props.path, 'label', schema.value.title || props.path.split('.').pop() || ''))
+const description = computed(() => text(props.path, 'description', schema.value.description || ''))
+const objectValue = computed<Record<string, Value>>(() => props.modelValue && typeof props.modelValue === 'object' && !Array.isArray(props.modelValue) ? props.modelValue : {})
+const arrayValue = computed<Value[]>(() => Array.isArray(props.modelValue) ? props.modelValue : [])
+const valueSchema = computed(() => typeof schema.value.additionalProperties === 'object' ? schema.value.additionalProperties : { type: 'string' })
+const itemSchema = computed(() => resolveSchema(schema.value.items || {}, props.root))
+const keyOptions = computed(() => resolveSchema(schema.value.propertyNames || {}, props.root).enum?.map(String) || [])
+const activeKey = computed(() => Object.hasOwn(objectValue.value, selectedKey.value) ? selectedKey.value : Object.keys(objectValue.value)[0] || '')
+function optionLabel(value: Value, node: Schema, index: number, path = props.path): string { return text(path, `options.${value}`, (node['x-show-names'] as string[] | undefined)?.[index] || String(value)) }
+function setObject(key: string, value: Value): void { emit('update:modelValue', { ...objectValue.value, [key]: value }) }
+function addEntry(): void { const key = newKey.value.trim(); if (!key || ['__proto__', 'prototype', 'constructor'].includes(key) || Object.hasOwn(objectValue.value, key)) return; setObject(key, initialValue(valueSchema.value, props.root)); selectedKey.value = key; newKey.value = '' }
+function deleteEntry(key: string): void { const next = { ...objectValue.value }; delete next[key]; emit('update:modelValue', next) }
+function setArray(index: number, value: Value): void { const next = [...arrayValue.value]; next[index] = value; emit('update:modelValue', next) }
+function removeArray(index: number): void { emit('update:modelValue', arrayValue.value.filter((_, at) => index !== at)) }
+function move(from: number, to: number): void { if (readonly.value || from < 0 || to < 0 || from >= arrayValue.value.length || to >= arrayValue.value.length) return; const next = [...arrayValue.value]; const [item] = next.splice(from, 1); next.splice(to, 0, item); emit('update:modelValue', next); dragIndex.value = -1 }
+function toggleOption(option: Value): void { emit('update:modelValue', arrayValue.value.includes(option) ? arrayValue.value.filter(item => item !== option) : [...arrayValue.value, option]) }
+function selectEnum(event: Event): void { const value = (event.target as HTMLSelectElement).value; emit('update:modelValue', value === '' && schema.value.nullable ? null : schema.value.enum?.find(option => String(option) === value) ?? value) }
+function numberChanged(event: Event): void { const input = event.target as HTMLInputElement; if (input.value === '') emit('update:modelValue', null); else if (Number.isFinite(input.valueAsNumber)) emit('update:modelValue', input.valueAsNumber) }
+</script>

@@ -1,43 +1,14 @@
 <template>
-  <Teleport to="body">
-    <Transition name="panel-fade">
-      <div v-if="visible" class="smp-backdrop" @click.self="emit('close')">
-        <div class="smp-panel">
-          <!-- Header -->
-          <div class="smp-header">
-            <div class="smp-heading">
-              <h1 class="yb-page-title smp-title">数据源</h1>
-              <p class="yb-section-subtitle smp-subtitle">
-                {{ sourceActivityText }}
-              </p>
-            </div>
-            <div class="smp-header-actions">
-              <button
-                v-if="totalFail"
-                class="yb-btn-soft smp-fail-btn"
-                @click="disableAllFailed"
-              >
-                停用失效源（{{ totalFail }}）
-              </button>
-              <button
-                class="smp-close"
-                aria-label="关闭数据源管理"
-                @click="emit('close')"
-              >
-                <svg
-                  width="16"
-                  height="16"
-                  viewBox="0 0 24 24"
-                  fill="none"
-                  stroke="currentColor"
-                  stroke-width="1.75"
-                >
-                  <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" />
-                </svg>
-              </button>
-            </div>
-          </div>
-
+  <Teleport to="body" :disabled="embedded">
+    <Transition name="panel-fade" :css="!embedded">
+      <div
+        v-if="visible"
+        :class="embedded ? 'smp-embedded' : 'smp-backdrop'"
+        @click.self="!embedded && emit('close')"
+      >
+        <div :class="embedded ? 'smp-embedded-panel' : 'smp-panel'">
+          <!-- Header（仅独立面板） -->
+          <DialogTitlebar v-if="!embedded" title="数据源" icon="database" @close="emit('close')" />
           <!-- Segmented tabs -->
           <div class="smp-tabs-wrap">
             <div class="yb-seg-group smp-seg">
@@ -52,6 +23,20 @@
                 <span class="tab-count">{{ t.count }}</span>
               </button>
             </div>
+            <button
+              class="yb-btn-soft smp-update-btn"
+              :disabled="updatingSources"
+              @click="updateSources"
+            >
+              {{ updatingSources ? '更新中…' : '一键更新' }}
+            </button>
+            <button
+              v-if="totalFail"
+              class="yb-btn-soft smp-fail-btn"
+              @click="disableAllFailed"
+            >
+              停用失效源（{{ totalFail }}）
+            </button>
             <span v-if="checkingAll" class="smp-status"
               >检测中 {{ checkedCount }}/{{ totalSources }}</span
             >
@@ -61,7 +46,7 @@
             <!-- 在线CMS源 -->
             <template v-if="activeTab === 'online'">
               <div class="section-header">
-                <h2 class="yb-section-title">内置 CMS 源</h2>
+                <PageTitle as="h2" variant="section">内置 CMS 源</PageTitle>
                 <span class="yb-section-count">{{ DEFAULT_SITES.length }}</span>
               </div>
               <div class="card-grid">
@@ -80,10 +65,13 @@
               </div>
 
               <div class="section-header mt">
-                <h2 class="yb-section-title">插件视频源</h2>
+                <PageTitle as="h2" variant="section">插件视频源</PageTitle>
                 <span class="yb-section-count">{{
                   visibleCatSpiderSites.length
                 }}</span>
+              </div>
+              <div v-if="visibleCatSpiderSites.length === 0" class="empty">
+                暂无插件源
               </div>
               <div class="card-grid">
                 <SiteCard
@@ -102,7 +90,7 @@
               </div>
 
               <div class="section-header mt">
-                <h2 class="yb-section-title">自定义源</h2>
+                <PageTitle as="h2" variant="section">自定义源</PageTitle>
                 <button class="add-btn" @click="showAdd = true">+ 添加</button>
               </div>
               <div v-if="customSites.length === 0" class="empty">
@@ -130,7 +118,7 @@
             <!-- AV源 -->
             <template v-if="activeTab === 'av'">
               <div class="section-header">
-                <h2 class="yb-section-title">AV 资源站点</h2>
+                <PageTitle as="h2" variant="section">AV 资源站点</PageTitle>
                 <span class="yb-section-count">{{ avSources.length }}</span>
               </div>
               <div class="card-grid">
@@ -148,6 +136,31 @@
                   @check="checkAvSite(s.api)"
                 />
               </div>
+
+              <div class="section-header mt">
+                <PageTitle as="h2" variant="section">AV 插件源</PageTitle>
+                <span class="yb-section-count">{{
+                  adultCatSpiderSites.length
+                }}</span>
+              </div>
+              <div v-if="adultCatSpiderSites.length === 0" class="empty">
+                暂无插件源
+              </div>
+              <div v-else class="card-grid">
+                <SiteCard
+                  v-for="s in adultCatSpiderSites"
+                  :key="s.api"
+                  :name="s.name"
+                  :api="s.api"
+                  badge="插件"
+                  badge-color="purple"
+                  :enabled="selectedCatSpider.includes(s.api)"
+                  status="ok"
+                  :checking="false"
+                  @toggle="toggleCatSpider(s.api)"
+                  @check="() => {}"
+                />
+              </div>
             </template>
           </div>
         </div>
@@ -155,7 +168,7 @@
         <!-- Add custom source dialog -->
         <div v-if="showAdd" class="add-dialog" @click.self="showAdd = false">
           <div class="add-panel">
-            <h3 class="yb-section-title">添加自定义源</h3>
+            <DialogTitlebar title="添加自定义源" icon="plus" @close="showAdd = false" />
             <p class="hint">
               苹果 CMS v10 接口，例如：https://xxx.com/api.php/provide/vod
             </p>
@@ -186,13 +199,33 @@
 </template>
 
 <script setup lang="ts">
-import { computed, onUnmounted, reactive, ref, watch } from 'vue'
-import axios from 'axios'
-import { Modal, message } from 'ant-design-vue'
+import { confirmDialog } from '@/utils/confirm-dialog'
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import PageTitle from '@/components/PageTitle.vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
+import { message } from 'ant-design-vue'
 import { useOnlineSearch } from '@/views/online/composables/use-online-search'
 import { useAvSources } from '@/views/av/use-av-sources'
+import {
+  type SiteStatus,
+  avCheckingSet,
+  avStatusMap,
+  avStatusOf,
+  checkAll,
+  checkAvSite,
+  checkOnlineSite,
+  checkedCount,
+  checkingAll,
+  checkingSet,
+  onlineApis,
+  refreshSources,
+  statusMap,
+  statusOf,
+  syncAvSources,
+  syncingAv,
+} from '@/composables/use-source-refresh'
 
-const props = defineProps<{ visible: boolean }>()
+const props = defineProps<{ visible: boolean; embedded?: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 // ── Adult mode ───────────────────────────────────────────────
@@ -217,20 +250,16 @@ const {
   DEFAULT_SITES,
   CATSPIDER_SITES,
   selectedCatSpider,
-  loadCatSpiderSites,
   isAdultCatSpiderSite,
 } = useOnlineSearch()
+// 成人插件源统一归入 AV 源标签，不再出现在在线源的插件列表中。
+const adultCatSpiderSites = computed(() =>
+  CATSPIDER_SITES.value.filter(site => isAdultCatSpiderSite(site))
+)
 const visibleCatSpiderSites = computed(() =>
-  CATSPIDER_SITES.value.filter(
-    site => adultMode.value || !isAdultCatSpiderSite(site)
-  )
+  CATSPIDER_SITES.value.filter(site => !isAdultCatSpiderSite(site))
 )
 
-type SiteStatus = 'unknown' | 'checking' | 'ok' | 'fail'
-const statusMap = reactive<Record<string, SiteStatus>>({})
-const checkingSet = reactive<Set<string>>(new Set())
-
-const statusOf = (api: string): SiteStatus => statusMap[api] ?? 'unknown'
 const connectionRank = (status: SiteStatus): number =>
   status === 'ok' ? 0 : status === 'checking' ? 1 : status === 'unknown' ? 2 : 3
 const sortedDefaultSites = computed(() =>
@@ -243,26 +272,6 @@ const sortedCustomSites = computed(() =>
     (a, b) => connectionRank(statusOf(a.api)) - connectionRank(statusOf(b.api))
   )
 )
-
-const checkOnlineSite = async (api: string, autoEnable = false) => {
-  if (checkingSet.has(api)) return
-  checkingSet.add(api)
-  statusMap[api] = 'checking'
-  try {
-    const res = await axios.get(`${api}?ac=videolist&wd=test`, {
-      timeout: 8000,
-    })
-    const ok = res.data?.list !== undefined
-    statusMap[api] = ok ? 'ok' : 'fail'
-    if (ok && autoEnable) selectedSites.add(api)
-    if (!ok && autoEnable) selectedSites.delete(api)
-  } catch {
-    statusMap[api] = 'fail'
-    if (autoEnable) selectedSites.delete(api)
-  } finally {
-    checkingSet.delete(api)
-  }
-}
 
 const toggleOnline = (api: string) =>
   selectedSites.has(api) ? selectedSites.delete(api) : selectedSites.add(api)
@@ -278,77 +287,7 @@ const {
   allSources: avSources,
   addSources: addAvSources,
 } = useAvSources()
-const syncingAv = ref(false)
-const ORDINARY_CMS_NAMES =
-  /^(?:无尽|豪华|红牛|极速|虎牙|速播|樱花|光速)资源站?$/
-const syncAvSources = async (showMessage = true) => {
-  syncingAv.value = true
-  try {
-    const response = await axios.get(
-      'https://mylazily.github.io/ziyuanzhan/data/online.json',
-      { timeout: 15000 }
-    )
-    const entries = Array.isArray(response.data?.data) ? response.data.data : []
-    const sources = entries
-      .map((entry: any) => {
-        const name = String(entry.name || entry.title || '在线资源站').trim()
-        const api = String(entry.api || entry.url || entry.link || '').trim()
-        return { name, api }
-      })
-      .filter(
-        (source: { name: string; api: string }) =>
-          /^https?:\/\//i.test(source.api) &&
-          /(?:api\.php\/provide\/vod|api\/json\.php)/i.test(source.api)
-      )
-    // 远程清单混合了普通 CMS 与 AV 源；先按站点名称分流，避免普通源落入 AV 标签。
-    const ordinaryCmsSources = sources.filter(source =>
-      ORDINARY_CMS_NAMES.test(source.name)
-    )
-    const avOnlySources = sources.filter(
-      source => !ORDINARY_CMS_NAMES.test(source.name)
-    )
-    const knownCmsApis = new Set(DEFAULT_SITES.map(site => site.api))
-    let addedCms = 0
-    for (const source of ordinaryCmsSources) {
-      if (
-        knownCmsApis.has(source.api) ||
-        customSites.value.some(site => site.api === source.api)
-      )
-        continue
-      customSites.value = [...customSites.value, source]
-      selectedSites.add(source.api)
-      addedCms++
-    }
-    const added = addAvSources(avOnlySources)
-    const sourceApis = new Set(avOnlySources.map(source => source.api))
-    const movedOnlineSources = customSites.value.filter(source =>
-      sourceApis.has(source.api)
-    )
-    movedOnlineSources.forEach(source => selectedSites.delete(source.api))
-    if (movedOnlineSources.length) {
-      customSites.value = customSites.value.filter(
-        source => !sourceApis.has(source.api)
-      )
-    }
-    if (showMessage)
-      message.success(
-        added + addedCms
-          ? `已同步 ${added + addedCms} 个新数据源`
-          : '没有发现新的兼容数据源'
-      )
-  } catch (error) {
-    if (showMessage)
-      message.error(
-        error instanceof Error ? error.message : '在线数据源同步失败'
-      )
-  } finally {
-    syncingAv.value = false
-  }
-}
-const avStatusMap = reactive<Record<string, SiteStatus>>({})
-const avCheckingSet = reactive<Set<string>>(new Set())
 
-const avStatusOf = (api: string): SiteStatus => avStatusMap[api] ?? 'unknown'
 const sortedAvSources = computed(() =>
   [...avSources.value].sort(
     (a, b) =>
@@ -356,32 +295,10 @@ const sortedAvSources = computed(() =>
   )
 )
 
-const checkAvSite = async (api: string, autoEnable = false) => {
-  if (avCheckingSet.has(api)) return
-  avCheckingSet.add(api)
-  avStatusMap[api] = 'checking'
-  try {
-    const res = await axios.get(`${api}?ac=detail`, { timeout: 8000 })
-    const ok = res.data?.list !== undefined
-    avStatusMap[api] = ok ? 'ok' : 'fail'
-    if (ok && autoEnable) avEnabledApis.add(api)
-    if (!ok && autoEnable) avEnabledApis.delete(api)
-  } catch {
-    avStatusMap[api] = 'fail'
-    if (autoEnable) avEnabledApis.delete(api)
-  } finally {
-    avCheckingSet.delete(api)
-  }
-}
-
 const toggleAv = (api: string) =>
   avEnabledApis.has(api) ? avEnabledApis.delete(api) : avEnabledApis.add(api)
 
 // ── All-source stats ─────────────────────────────────────────
-const onlineApis = computed(() => [
-  ...DEFAULT_SITES.map(s => s.api),
-  ...customSites.value.map(s => s.api),
-])
 const totalSources = computed(
   () => onlineApis.value.length + (adultMode.value ? avSources.value.length : 0)
 )
@@ -394,32 +311,16 @@ const totalFail = computed(
       : 0)
 )
 
-// ── Check all ───────────────────────────────────────────────
-const checkingAll = ref(false)
-const checkedCount = ref(0)
-
-const checkAll = async () => {
-  if (checkingAll.value) return
-  checkingAll.value = true
-  checkedCount.value = 0
-  const onlineTasks = onlineApis.value.map(api =>
-    checkOnlineSite(api, true).then(() => {
-      checkedCount.value++
-    })
-  )
-  const avTasks = adultMode.value
-    ? avSources.value.map(s =>
-        checkAvSite(s.api, true).then(() => {
-          checkedCount.value++
-        })
-      )
-    : []
-  await Promise.all([...onlineTasks, ...avTasks])
-  checkingAll.value = false
+/** 一键更新：拉取远程源清单合并新源，再重新检测全部源（自动启用可用源、停用失效源）。 */
+const updatingSources = computed(() => syncingAv.value || checkingAll.value)
+const updateSources = async (): Promise<void> => {
+  if (updatingSources.value) return
+  await syncAvSources(true)
+  await checkAll()
 }
 
 const disableAllFailed = () => {
-  Modal.confirm({
+  confirmDialog({
     title: `禁用 ${totalFail.value} 个失效数据源？`,
     content: '只会停用这些数据源，不会删除自定义配置。',
     okText: '禁用',
@@ -435,28 +336,11 @@ const disableAllFailed = () => {
   })
 }
 
-// ── 每次打开时自动同步并检测 ─────────────────────────────────
-const refreshingOnOpen = ref(false)
-const sourceActivityText = computed(() => {
-  if (syncingAv.value) return '正在同步在线数据源…'
-  if (checkingAll.value)
-    return `正在检测 ${checkedCount.value}/${totalSources.value}`
-  return '打开时自动同步并检测'
-})
-const refreshSourcesOnOpen = async () => {
-  if (refreshingOnOpen.value) return
-  refreshingOnOpen.value = true
-  try {
-    await Promise.all([loadCatSpiderSites(), syncAvSources(false)])
-    await checkAll()
-  } finally {
-    refreshingOnOpen.value = false
-  }
-}
+// ── 启动与打开面板时自动同步并检测 ───────────────────────────
 watch(
   () => props.visible,
   visible => {
-    if (visible) void refreshSourcesOnOpen()
+    if (visible) void refreshSources()
   }
 )
 
@@ -469,7 +353,13 @@ const tabs = computed(() => [
     count: onlineApis.value.length + visibleCatSpiderSites.value.length,
   },
   ...(adultMode.value
-    ? [{ id: 'av', label: 'AV源', count: avSources.value.length }]
+    ? [
+        {
+          id: 'av',
+          label: 'AV源',
+          count: avSources.value.length + adultCatSpiderSites.value.length,
+        },
+      ]
     : []),
 ])
 
@@ -521,7 +411,7 @@ const addCustom = async () => {
 
 const removeCustom = (idx: number) => {
   const site = customSites.value[idx]
-  Modal.confirm({
+  confirmDialog({
     title: `删除数据源“${site.name}”？`,
     content: '删除后需要重新填写地址才能恢复。',
     okText: '删除',
@@ -682,12 +572,11 @@ export const SiteCard = dc({
 .smp-panel {
   width: min(520px, calc(100vw - 48px));
   height: 100vh;
-  background: var(--bg-panel);
+  background: var(--bg-main);
   border-left: 1px solid var(--separator);
   color: var(--text-primary);
-  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-panel))
-    saturate(var(--saturate-vibrancy));
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
   display: flex;
   flex-direction: column;
   overflow: hidden;
@@ -695,27 +584,27 @@ export const SiteCard = dc({
   transition: var(--transition-panel);
 }
 
-.smp-header {
+/* 嵌入模式：在统一设置窗口内渲染，不带遮罩与标题 */
+.smp-embedded {
+  position: relative;
   display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 22px 22px 14px;
-  flex-shrink: 0;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  color: var(--text-primary);
 }
-.smp-title {
-  font-size: var(--text-2xl);
-  letter-spacing: -0.022em;
-}
-.smp-subtitle {
-  margin: 4px 0 0;
-  font-size: var(--text-sm);
-}
-.smp-header-actions {
+
+.smp-embedded-panel {
   display: flex;
-  align-items: center;
-  gap: 8px;
+  flex-direction: column;
+  flex: 1;
+  min-height: 0;
 }
+
+.smp-embedded .smp-tabs-wrap {
+  padding: 0 0 12px;
+}
+
 .smp-fail-btn {
   min-height: 28px;
   font-size: 12px;
@@ -723,27 +612,15 @@ export const SiteCard = dc({
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
-.smp-close {
-  width: 30px;
-  height: 30px;
-  border-radius: var(--radius-md);
-  background: var(--bg-fill-secondary);
-  border: 0;
-  color: var(--text-secondary);
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: var(--transition-fast);
+.smp-update-btn {
+  min-height: 28px;
+  font-size: 12px;
+  white-space: nowrap;
 }
-.smp-close:hover {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
+.smp-update-btn:disabled {
+  opacity: 0.55;
+  cursor: default;
 }
-.smp-close:active {
-  transform: scale(0.94);
-}
-
 .smp-tabs-wrap {
   display: flex;
   align-items: center;
@@ -796,11 +673,6 @@ export const SiteCard = dc({
 .section-header.mt {
   margin-top: 22px;
 }
-.section-header .yb-section-title {
-  font-size: var(--text-sm);
-  letter-spacing: -0.01em;
-  color: var(--text-secondary);
-}
 .section-header .yb-section-count {
   display: inline;
   font-size: 12px;
@@ -811,11 +683,11 @@ export const SiteCard = dc({
   min-height: 28px;
   padding: 0 10px;
   border-radius: var(--radius-md);
-  border: 0;
-  background: var(--accent-soft);
+  border: 1px solid var(--border-default);
+  background: transparent;
   color: var(--accent-text);
   font-size: 12px;
-  font-weight: 600;
+  font-weight: 500;
   cursor: pointer;
   transition: var(--transition-fast);
 }
@@ -836,20 +708,20 @@ export const SiteCard = dc({
 .card-grid {
   display: flex;
   flex-direction: column;
-  gap: 2px;
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
+  gap: 0;
+  background: transparent;
+  border: 0;
+  border-radius: 0;
   overflow: hidden;
-  box-shadow: var(--shadow-sm);
+  box-shadow: none;
 }
 
 :deep(.site-card) {
   position: relative;
   width: 100%;
   box-sizing: border-box;
-  min-height: 52px;
-  padding: 10px 14px;
+  min-height: 64px;
+  padding: 12px 4px;
   background: transparent;
   border: 0;
   border-bottom: 1px solid var(--separator);
@@ -1000,6 +872,7 @@ export const SiteCard = dc({
   justify-content: center;
   background: rgba(0, 0, 0, 0.42);
 }
+.add-panel > .dialog-titlebar { margin:-22px -22px 18px; }
 .add-panel {
   background: var(--bg-elevated);
   border: 1px solid var(--border-default);
@@ -1008,9 +881,6 @@ export const SiteCard = dc({
   width: min(400px, calc(100vw - 48px));
   color: var(--text-primary);
   box-shadow: var(--shadow-lg);
-}
-.add-panel .yb-section-title {
-  margin-bottom: 6px;
 }
 .hint {
   font-size: 12px;
@@ -1068,7 +938,6 @@ export const SiteCard = dc({
     transform: none;
   }
   :deep(.site-card:active),
-  .smp-close:active,
   .add-btn:active {
     transform: none;
   }

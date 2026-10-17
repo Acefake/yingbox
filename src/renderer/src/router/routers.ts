@@ -1,5 +1,10 @@
 export const routes = [
   {
+    path: '/amane', name: 'Amane',
+    component: () => import('@/views/Amane/Index.vue'),
+    meta: { title: 'Amane', description: '私人片库、扫描与刮削', adultOnly: true },
+  },
+  {
     path: '/',
     name: 'Online',
     component: () => import('@/views/online/Index.vue'),

@@ -1,20 +1,6 @@
 <template>
   <div class="win-controls">
     <button
-      v-if="showSettings"
-      class="win-btn"
-      title="设置"
-      aria-label="打开设置"
-      @click="emit('openSettings')"
-    >
-      <svg viewBox="0 0 24 24" aria-hidden="true">
-        <circle cx="12" cy="12" r="3" />
-        <path
-          d="M19 15l2 1-2 3-2-1a8 8 0 0 1-3 2v2h-4v-2a8 8 0 0 1-3-2l-2 1-2-3 2-1a8 8 0 0 1 0-4l-2-1 2-3 2 1a8 8 0 0 1 3-2V3h4v2a8 8 0 0 1 3 2l2-1 2 3-2 1a8 8 0 0 1 0 5z"
-        />
-      </svg>
-    </button>
-    <button
       v-if="showWindowButtons"
       class="win-btn win-min"
       title="最小化"
@@ -56,13 +42,11 @@
 import { onMounted, onUnmounted, ref } from 'vue'
 
 withDefaults(
-  defineProps<{ showSettings?: boolean; showWindowButtons?: boolean }>(),
+  defineProps<{ showWindowButtons?: boolean }>(),
   {
-    showSettings: false,
     showWindowButtons: true,
   }
 )
-const emit = defineEmits<{ (e: 'openSettings'): void }>()
 
 const isMaximized = ref(false)
 
@@ -97,10 +81,10 @@ onUnmounted(() => window.removeEventListener('resize', checkMax))
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 32px;
-  height: 32px;
-  background: var(--bg-fill-secondary);
-  border: 1px solid var(--border-subtle);
+  width: 34px;
+  height: 34px;
+  background: transparent;
+  border: 0;
   border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
@@ -119,11 +103,9 @@ onUnmounted(() => window.removeEventListener('resize', checkMax))
 .win-btn:hover {
   background: var(--bg-glass-hover);
   color: var(--text-primary);
-  border-color: var(--border-default);
 }
 .win-close:hover {
   background: rgba(255, 59, 48, 0.9);
-  border-color: transparent;
   color: #fff;
 }
 .win-btn:active {

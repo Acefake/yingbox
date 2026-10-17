@@ -56,7 +56,7 @@ function normalizeSourceItem(raw: unknown): PlayerSourceItem | null {
   }
 }
 
-function normalizePayload(
+export function normalizePayload(
   payload: PlayerOpenPayload | null | undefined
 ): PlayerOpenPayload | null {
   if (!payload || typeof payload !== 'object') return null
@@ -76,11 +76,22 @@ function normalizePayload(
         .map(normalizeSourceItem)
         .filter((item): item is PlayerSourceItem => item !== null)
     : undefined
+  // 同集备用线路同样需要规范化后透传，否则播放失败时无法自动换线路。
+  const fallbacks = Array.isArray(payload.fallbacks)
+    ? payload.fallbacks
+        .slice(0, MAX_PLAYLIST)
+        .map(normalizeSourceItem)
+        .filter((item): item is PlayerSourceItem => item !== null)
+    : undefined
   const rawIndex = Number(payload.index)
   const index = Number.isInteger(rawIndex) && rawIndex >= 0 ? rawIndex : 0
+  // 越界下标回退到有效范围，否则会取不到起始条目而整个请求被判为无效。
+  const safeIndex = playlist?.length
+    ? Math.min(index, playlist.length - 1)
+    : index
 
   // 允许只给队列（首项即播放目标）
-  const first = playlist?.[index]
+  const first = playlist?.[safeIndex]
   const effectiveFilePath = filePath || (!url ? first?.filePath || '' : '')
   const effectiveUrl = url || (!filePath ? first?.url || '' : '')
   if (!effectiveFilePath && !effectiveUrl) return null
@@ -92,9 +103,8 @@ function normalizePayload(
     ...(poster ? { poster } : {}),
     ...(typeof startAt === 'number' ? { startAt } : {}),
     ...(playlist?.length ? { playlist } : {}),
-    ...(playlist?.length
-      ? { index: Math.min(index, playlist.length - 1) }
-      : {}),
+    ...(playlist?.length ? { index: safeIndex } : {}),
+    ...(fallbacks?.length ? { fallbacks } : {}),
   }
 }
 

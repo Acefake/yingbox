@@ -3,6 +3,7 @@ import { is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import * as fs from 'fs/promises'
 import * as path from 'path'
+import { networkInterfaces } from 'node:os'
 
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
@@ -39,6 +40,17 @@ export function registerAppIpc(
   })
 
   ipcMain.handle('app:getUserDataPath', () => app.getPath('userData'))
+
+  ipcMain.handle('app:networkIps', () => {
+    const nets = networkInterfaces()
+    const ips: string[] = []
+    for (const list of Object.values(nets)) {
+      for (const net of list ?? []) {
+        if (net.family === 'IPv4' && !net.internal) ips.push(net.address)
+      }
+    }
+    return ips
+  })
 
   ipcMain.handle('app:getVersion', async () => {
     try {

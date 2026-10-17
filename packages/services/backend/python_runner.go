@@ -50,10 +50,7 @@ func runPythonContext(parent context.Context, timeout time.Duration, scriptRelPa
 	case <-ctx.Done():
 		return "", "", ctx.Err()
 	}
-	python := os.Getenv("PYTHON_EXECUTABLE")
-	if python == "" {
-		python = "python"
-	}
+	python := resolvePythonExecutable()
 	cmd := exec.CommandContext(ctx, python, append([]string{filepath.Join(scriptsDir, filepath.FromSlash(scriptRelPath))}, args...)...)
 	configurePythonProcess(cmd)
 	cmd.WaitDelay = 3 * time.Second

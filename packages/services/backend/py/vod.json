@@ -190,7 +190,10 @@
       "name": "hkdoll",
       "type": 3,
       "api": "csp_hkdoll",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/hkdoll.js"
+      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/hkdoll.js",
+      "patch": {
+        "hongkongdollvideo.com": "hongkongdollvideo.org"
+      }
     }
   ]
 }

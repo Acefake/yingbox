@@ -94,23 +94,21 @@ func getBasePath() string {
 
 // 嵌入所有 Python 脚本 — 打包成一个二进制
 //
-//go:embed py/tools/fetch_meta.py
 //go:embed py/main.py
-//go:embed py/metadata.py
 //go:embed py/requirements.txt
 //go:embed py/src/__init__.py
 //go:embed py/src/comm.py
 //go:embed py/src/task_lock.py
 //go:embed py/src/data.py
-//go:embed py/src/scraper.py
 //go:embed py/src/downloaderMgr.py
 //go:embed py/src/downloader/*.py
 //go:embed py/cfg/configs.json
 //go:embed py/vod_parser.py
+//go:embed py/missav_resolver.py
 //go:embed py/catspider_runner.js
 //go:embed py/vod.json
 
-//go:generate powershell -NoProfile -Command "Copy-Item -Recurse -Force ../main.py py/; Copy-Item -Recurse -Force ../metadata.py py/; Copy-Item -Recurse -Force ../requirements.txt py/; Copy-Item -Recurse -Force ../tools py/; Copy-Item -Recurse -Force ../src py/; Copy-Item -Recurse -Force ../cfg py/; if (!(Test-Path py/db)) { New-Item -ItemType Directory -Path py/db }"
+//go:generate powershell -NoProfile -Command "Copy-Item -Recurse -Force ../main.py py/; Copy-Item -Recurse -Force ../requirements.txt py/; Copy-Item -Recurse -Force ../src py/; Copy-Item -Recurse -Force ../cfg py/; if (!(Test-Path py/db)) { New-Item -ItemType Directory -Path py/db }"
 var pyScripts embed.FS
 
 // 提取后 Python 脚本所在的根目录
@@ -136,24 +134,6 @@ var detailCache = struct {
 	sync.RWMutex
 	m map[string]detailCacheEntry
 }{m: make(map[string]detailCacheEntry)}
-
-// ── 性能：JavBus 元数据缓存（TTL）+ 单飞（并发同 avid 只 spawn 一次 Python）──
-type metaCacheEntry struct {
-	expires time.Time
-	body    []byte
-}
-
-type metaFlight struct {
-	wg   sync.WaitGroup
-	body []byte
-}
-
-var (
-	metaCache   sync.Map // avid -> metaCacheEntry
-	metaFlights sync.Map // avid -> *metaFlight
-)
-
-const metaCacheTTL = 15 * time.Minute
 
 // ── 性能：出站 HTTP 客户端复用（代理地址启动后不变，避免每次请求解析代理 URL + 新建 Transport）──
 var (
@@ -496,10 +476,10 @@ func main() {
 	mux.HandleFunc("/api/addvideo/", addVideoHandler)
 	mux.HandleFunc("/api/queue", queueHandler)
 	mux.HandleFunc("/api/download-status", downloadStatusHandler)
-	mux.HandleFunc("/api/meta/", metaHandler)
-	mux.HandleFunc("/api/scrape/", scrapeHandler)
 	mux.HandleFunc("/api/vod/sites", vodSitesHandler)
 	mux.HandleFunc("/api/vod/parse", vodParseHandler)
+	mux.HandleFunc("/api/missav/resolve", missavResolveHandler)
+	mux.HandleFunc("/api/missav/stream/", missavStreamHandler)
 	mux.HandleFunc("/proxy", proxyImageHandler)
 	mux.HandleFunc("/file/", imageHandler)
 
@@ -547,12 +527,12 @@ func startCacheUpdater(interval time.Duration) {
 		case <-workerContext.Done():
 			return
 		case <-ticker.C:
-		logger.Println("Starting scheduled cache update...")
-		if err := buildVideoListCache(); err != nil {
-			logger.Printf("Cache update failed: %v", err)
-		} else {
-			logger.Println("Cache updated successfully")
-		}
+			logger.Println("Starting scheduled cache update...")
+			if err := buildVideoListCache(); err != nil {
+				logger.Printf("Cache update failed: %v", err)
+			} else {
+				logger.Println("Cache updated successfully")
+			}
 		}
 	}
 }
@@ -999,12 +979,6 @@ func isPrivateIP(ip net.IP) bool {
 		ip.IsLinkLocalMulticast() || ip.IsUnspecified() || ip.IsMulticast()
 }
 
-// scraperHost 判断目标是否属于已知刮削站点（仅对它们附带 JavBus 身份头，避免把会话 Cookie 泄露给任意站点）
-func scraperHost(host string) bool {
-	h := strings.ToLower(host)
-	return strings.Contains(h, "javbus") || strings.Contains(h, "dmm") || strings.Contains(h, "awsimgsrc")
-}
-
 // proxyImageHandler 代理外部图片请求，绕过防盗链
 func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
@@ -1031,11 +1005,6 @@ func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
 	if err != nil {
 		httpError(w, "invalid url", http.StatusBadRequest)
 		return
-	}
-	// 仅对已知刮削站点附带身份头；否则会把 JavBus 会话 Cookie 泄露给任意第三方主机。
-	if scraperHost(target.Host) {
-		req.Header.Set("Referer", "https://www.javbus.com/")
-		req.Header.Set("Cookie", "PHPSESSID=kesgcjj4fklf91ojbaocbkbao2; age=verified; existmag=mag")
 	}
 	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36")
 	req.Header.Set("Accept", "image/webp,image/apng,image/*,*/*;q=0.8")
@@ -1079,151 +1048,6 @@ func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
 	io.Copy(w, resp.Body)
 }
 
-// metaHandler 从 javbus 抓取番号元数据
-func metaHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	avid := strings.ToUpper(strings.TrimPrefix(r.URL.Path, "/api/meta/"))
-	if !validVideoID(avid) {
-		httpError(w, "missing avid", http.StatusBadRequest)
-		return
-	}
-
-	stdout, stderr, err := runPythonContext(r.Context(), 60*time.Second, "tools/fetch_meta.py", []string{avid}, nil)
-	if err != nil {
-		logger.Printf("fetch_meta exec failed for %s: %v\nstderr: %s", avid, err, stderr)
-	}
-
-	jsonLine, _ := parsePythonJSON(stdout, stderr)
-	if jsonLine == "" {
-		logger.Printf("fetch_meta no json output for %s, stdout: %s, stderr: %s", avid, stdout, stderr)
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.WriteHeader(http.StatusOK)
-		json.NewEncoder(w).Encode(map[string]interface{}{
-			"error": "fetch meta failed",
-			"log":   stdout + "\n" + stderr,
-		})
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write([]byte(jsonLine))
-}
-
-// scrapeHandler 完整刮削：获取元数据 + 下载图片 + 生成 NFO
-func scrapeHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	avid := strings.ToUpper(strings.TrimPrefix(r.URL.Path, "/api/scrape/"))
-	if !validVideoID(avid) {
-		httpError(w, "missing avid", http.StatusBadRequest)
-		return
-	}
-
-	// 1. 获取元数据
-	stdout, stderr, err := runPythonContext(r.Context(), 60*time.Second, "tools/fetch_meta.py", []string{avid}, nil)
-	if err != nil {
-		logger.Printf("scrape fetch_meta failed for %s: %v\nstderr: %s", avid, err, stderr)
-		httpError(w, "fetch meta failed: "+err.Error(), http.StatusInternalServerError)
-		return
-	}
-
-	jsonLine, _ := parsePythonJSON(stdout, stderr)
-	if jsonLine == "" {
-		logger.Printf("scrape: no json output for %s, stdout: %s, stderr: %s", avid, stdout, stderr)
-		httpError(w, "fetch meta returned no data", http.StatusInternalServerError)
-		return
-	}
-
-	var meta map[string]interface{}
-	if err := json.Unmarshal([]byte(jsonLine), &meta); err != nil {
-		httpError(w, "parse meta json failed", http.StatusInternalServerError)
-		return
-	}
-
-	if errStr, ok := meta["error"].(string); ok && errStr != "" {
-		logger.Printf("scrape: meta error for %s: %s", avid, errStr)
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		w.Write([]byte(jsonLine))
-		return
-	}
-
-	// 2. 创建目标目录
-	targetDir := filepath.Join(getBasePath(), avid)
-	if err := os.MkdirAll(targetDir, 0755); err != nil {
-		logger.Printf("scrape: mkdir failed for %s: %v", avid, err)
-		httpError(w, "mkdir failed", http.StatusInternalServerError)
-		return
-	}
-
-	// 3. 下载封面
-	if cover, ok := meta["cover"].(string); ok && cover != "" {
-		posterPath := filepath.Join(targetDir, avid+"-poster.jpg")
-		if err := downloadImage(cover, posterPath, avid); err != nil {
-			logger.Printf("scrape: download cover failed for %s: %v", avid, err)
-		} else {
-			logger.Printf("scrape: cover saved to %s", posterPath)
-		}
-	}
-
-	// 4. 下载 fanart 图片
-	if fanarts, ok := meta["fanarts"].([]interface{}); ok {
-		for i, f := range fanarts {
-			fanartURL, ok := f.(string)
-			if !ok || fanartURL == "" {
-				continue
-			}
-			suffix := ""
-			if i > 0 {
-				suffix = fmt.Sprintf("-%d", i+1)
-			}
-			fanartPath := filepath.Join(targetDir, avid+"-fanart"+suffix+".jpg")
-			if err := downloadImage(fanartURL, fanartPath, avid); err != nil {
-				logger.Printf("scrape: download fanart %d failed for %s: %v", i, avid, err)
-			}
-		}
-	}
-
-	// 5. 下载演员头像
-	if actress, ok := meta["actress"].(map[string]interface{}); ok {
-		for name, avatarURL := range actress {
-			avatarStr, ok := avatarURL.(string)
-			if !ok || avatarStr == "" || strings.HasPrefix(avatarStr, "data:") {
-				continue
-			}
-			ext := ".jpg"
-			if strings.Contains(avatarStr, ".webp") {
-				ext = ".webp"
-			}
-			actorPath := filepath.Join(targetDir, " actress-"+name+ext)
-			if err := downloadImage(avatarStr, actorPath, avid); err != nil {
-				logger.Printf("scrape: download actress %s failed: %v", name, err)
-			}
-		}
-	}
-
-	// 6. 生成 NFO 文件
-	nfoContent := generateNfo(meta, avid)
-	nfoPath := filepath.Join(targetDir, avid+".nfo")
-	if err := os.WriteFile(nfoPath, []byte(nfoContent), 0644); err != nil {
-		logger.Printf("scrape: write nfo failed for %s: %v", avid, err)
-	} else {
-		logger.Printf("scrape: nfo saved to %s", nfoPath)
-	}
-
-	// 7. 返回元数据
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write([]byte(jsonLine))
-}
-
-// vodSitesHandler 返回与解析器一致的内置 VOD 站点配置。
-// 前端不再维护一份容易失效的硬编码副本。
 func vodSitesHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
@@ -1328,7 +1152,7 @@ func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 		"PROJECT_ROOT": projectRoot,
 	}
 
-	stdout, stderr, err := runPythonContext(r.Context(), 15*time.Second, "vod_parser.py", args, envExtra)
+	stdout, stderr, err := runPythonContext(r.Context(), 45*time.Second, "vod_parser.py", args, envExtra)
 	if err != nil {
 		logger.Printf("vod_parser exec failed: %v\nstderr: %s", err, stderr)
 	}
@@ -1350,109 +1174,6 @@ func vodParseHandler(w http.ResponseWriter, r *http.Request) {
 	w.Write([]byte(jsonLine))
 }
 
-// downloadImage 下载图片到本地
-func downloadImage(imageURL, savePath string, avid string) error {
-	if imageURL == "" {
-		return nil
-	}
-	logger.Printf("downloadImage: %s -> %s", imageURL, savePath)
-
-	req, err := http.NewRequest("GET", imageURL, nil)
-	if err != nil {
-		return err
-	}
-	req.Header.Set("User-Agent", "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36")
-	req.Header.Set("Referer", "https://www.javbus.com/")
-
-	var transport *http.Transport
-	if proxyURL != "" {
-		proxyAddr, parseErr := url.Parse(proxyURL)
-		if parseErr == nil {
-			transport = &http.Transport{Proxy: http.ProxyURL(proxyAddr)}
-		}
-	}
-	client := &http.Client{Transport: transport, Timeout: 30 * time.Second}
-
-	resp, err := client.Do(req)
-	if err != nil {
-		return fmt.Errorf("http get failed: %w", err)
-	}
-	defer resp.Body.Close()
-
-	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("http status %d", resp.StatusCode)
-	}
-
-	out, err := os.CreateTemp(filepath.Dir(savePath), ".image-*.partial")
-	if err != nil {
-		return fmt.Errorf("create file failed: %w", err)
-	}
-	temporary := out.Name()
-	defer os.Remove(temporary)
-	defer out.Close()
-
-	_, err = io.Copy(out, resp.Body)
-	if err != nil {
-		return fmt.Errorf("write file failed: %w", err)
-	}
-	if err := out.Close(); err != nil {
-		return err
-	}
-	return os.Rename(temporary, savePath)
-}
-
-// generateNfo 根据元数据生成 NFO 内容
-func generateNfo(meta map[string]interface{}, avid string) string {
-	var b strings.Builder
-	b.WriteString(`<?xml version="1.0" encoding="UTF-8" standalone="yes"?>` + "\n")
-	b.WriteString("<movie>\n")
-
-	title := avid
-	if t, ok := meta["title"].(string); ok && t != "" {
-		title = t
-	}
-	b.WriteString(fmt.Sprintf("  <title>%s</title>\n", escapeXML(title)))
-
-	if orig, ok := meta["title"].(string); ok && orig != "" && orig != title {
-		b.WriteString(fmt.Sprintf("  <originaltitle>%s</originaltitle>\n", escapeXML(orig)))
-	}
-
-	if rd, ok := meta["release_date"].(string); ok && rd != "" {
-		b.WriteString(fmt.Sprintf("  <year>%s</year>\n", escapeXML(rd[:minInt(4, len(rd))])))
-		b.WriteString(fmt.Sprintf("  <premiered>%s</premiered>\n", escapeXML(rd)))
-	}
-
-	if desc, ok := meta["description"].(string); ok && desc != "" {
-		b.WriteString(fmt.Sprintf("  <plot>%s</plot>\n", escapeXML(desc)))
-	}
-
-	if actress, ok := meta["actress"].(map[string]interface{}); ok {
-		for name := range actress {
-			b.WriteString(fmt.Sprintf("  <actor><name>%s</name></actor>\n", escapeXML(name)))
-		}
-	}
-
-	b.WriteString("</movie>")
-	return b.String()
-}
-
-func escapeXML(s string) string {
-	s = strings.ReplaceAll(s, "&", "&amp;")
-	s = strings.ReplaceAll(s, "<", "&lt;")
-	s = strings.ReplaceAll(s, ">", "&gt;")
-	s = strings.ReplaceAll(s, "\"", "&quot;")
-	s = strings.ReplaceAll(s, "'", "&apos;")
-	return s
-}
-
-func minInt(a, b int) int {
-	if a < b {
-		return a
-	}
-	return b
-}
-
-// queueHandler 获取下载队列
 func queueHandler(w http.ResponseWriter, r *http.Request) {
 	if r.Method != http.MethodGet {
 		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)

@@ -5,6 +5,9 @@ import {
 
 const DEFAULT_BASE = 'http://localhost:31471'
 
+/** Web/PWA 模式(无 Electron 桥):走 vite 同源代理,手机零配置。 */
+const isWeb = typeof window !== 'undefined' && !window.api?.file
+
 /** 后端访问密钥查询串（图片等无法附带请求头的场景使用） */
 const keyQuery = (): string => {
   const key = getGoBackendApiKey()
@@ -19,7 +22,11 @@ export const getBackendAuthHeaders = (): Record<string, string> => {
 
 export const getBase = (): string => {
   try {
-    return (getGoBackendUrl() || DEFAULT_BASE).replace(/\/+$/, '')
+    const configured = getGoBackendUrl()
+    if (isWeb && (!configured || configured === DEFAULT_BASE)) {
+      return `${window.location.origin}/backend-api`
+    }
+    return (configured || DEFAULT_BASE).replace(/\/+$/, '')
   } catch {
     return DEFAULT_BASE
   }
@@ -39,20 +46,6 @@ export interface BackendVideoDetail {
   videoFile?: string
 }
 
-export interface BackendMeta {
-  avid: string
-  title: string
-  cover: string
-  release_date: string
-  duration: string
-  description: string
-  keywords: string[]
-  actress: Record<string, string>
-  fanarts: string[]
-  magnets: { magnet: string; name: string; size: string; date: string }[]
-  error?: string
-}
-
 async function get<T>(
   path: string,
   extraHeaders?: Record<string, string>
@@ -64,9 +57,7 @@ async function get<T>(
       ...getBackendAuthHeaders(),
       ...extraHeaders,
     },
-    signal: AbortSignal.timeout(
-      path.startsWith('/api/scrape/') ? 300000 : 60000
-    ),
+    signal: AbortSignal.timeout(60000),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = await res.json()
@@ -86,16 +77,6 @@ export const backend = {
   /** 视频详情（title / releaseDate / fanarts / videoFile） */
   videoDetail(id: string): Promise<BackendVideoDetail> {
     return get<BackendVideoDetail>(`/api/videos/${encodeURIComponent(id)}`)
-  },
-
-  /** 从 JavBus 抓取元数据（Go 调 Python fetch_meta.py，只返回 JSON，不写磁盘） */
-  fetchMeta(avid: string): Promise<BackendMeta> {
-    return get<BackendMeta>(`/api/meta/${encodeURIComponent(avid)}`)
-  },
-
-  /** 完整刮削：下载封面/fanart/演员图 + 生成 NFO（Go 调 Python scrape.py，写磁盘） */
-  scrape(avid: string): Promise<BackendMeta> {
-    return get<BackendMeta>(`/api/scrape/${encodeURIComponent(avid)}`)
   },
 
   /** 图片 URL（本地文件通过 Go 代理访问） */

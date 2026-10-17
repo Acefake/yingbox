@@ -1,12 +1,10 @@
 import { getImageBaseUrl, getTmdb } from '@/api/tmdb'
-import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
-import { backend } from '@/api/backend'
 import type { Movie } from '@tdanks2000/tmdb-wrapper'
 import { ref } from 'vue'
 import type { ProcessedItem } from '@/types'
 import type { CastMember, DirectorMember, ScrapedMovie } from '@/types/scraping'
 import { generateNfo, parseNfo } from '@/services/nfo-service'
-import { cleanSearchParams, extractAvid } from '@/utils/avid'
+import { cleanSearchParams } from '@/utils/avid'
 import { safeFileName } from '@/utils/file-name'
 import { downloadWithRetry, finishDownloads } from '@/services/download-service'
 import { fetchActorPhoto } from '@/services/actor-cache-service'
@@ -21,7 +19,7 @@ export const useScraping = () => {
   const currentScrapeItem = ref<ProcessedItem>()
 
   /**
-   * 搜索电影（支持 TMDB / JavBus / 本地 NFO）
+   * 搜索电影（支持 TMDB / 本地 NFO）
    */
   const searchMovieInfo = async (
     item: ProcessedItem
@@ -65,40 +63,6 @@ export const useScraping = () => {
       // 提取搜索关键词
       const searchName =
         item.type === 'folder' ? item.name : item.name.replace(/\.[^.]*$/, '')
-
-      const provider = getScrapeProviderConfig().provider
-
-      // ── JavBus ──
-      if (provider === 'javbus') {
-        const avid = extractAvid(searchName)
-        if (!avid) return []
-        try {
-          const meta = await backend.fetchMeta(avid)
-          if (meta.error) return []
-          return [
-            {
-              id: avid as any,
-              title: meta.title || avid,
-              original_title: meta.avid,
-              overview: meta.description || '',
-              release_date: meta.release_date || '',
-              vote_average: 0,
-              vote_count: 0,
-              poster_path: meta.cover || '',
-              backdrop_path: meta.fanarts?.[0] || '',
-              adult: false,
-              genre_ids: [],
-              original_language: 'ja',
-              popularity: 0,
-              video: false,
-              _javbus: meta,
-            } as ScrapedMovie,
-          ]
-        } catch (e) {
-          console.error('JavBus 获取元数据失败:', e)
-          return []
-        }
-      }
 
       // ── TMDB 搜索（带回退策略）──
       const cleanName = cleanSearchParams(searchName)
@@ -182,8 +146,8 @@ export const useScraping = () => {
     videoBaseName: string,
     progressCallback?: (step: string, stepIndex: number) => void
   ): Promise<void> => {
-    // 如果是 JavBus，先获取详情
-    if (!movieData._javbus && movieData.id) {
+    // 获取 TMDB 详情
+    if (movieData.id) {
       progressCallback?.('正在获取电影详情...', 0)
       try {
         const details = (await getTmdb().movies.details(
@@ -202,7 +166,7 @@ export const useScraping = () => {
     }
 
     // TMDB 路径：获取演职员信息
-    if (!movieData._javbus && movieData.id) {
+    if (movieData.id) {
       const { directors, cast } = await getMovieCredits(movieData.id)
       movieData.directors = directors
       movieData.cast = cast
@@ -261,14 +225,11 @@ export const useScraping = () => {
     }
 
     // ── 下载海报（并行下载所有副本）──
-    const javbusMeta = movieData._javbus
-    if (javbusMeta?.cover || movieData.poster_path) {
+    if (movieData.poster_path) {
       progressCallback?.('正在下载海报...', 2)
-      const posterUrl = javbusMeta
-        ? backend.proxyUrl(javbusMeta.cover)
-        : movieData.poster_path!.startsWith('http')
-          ? movieData.poster_path!
-          : `${getImageBaseUrl('poster')}${movieData.poster_path}`
+      const posterUrl = movieData.poster_path.startsWith('http')
+        ? movieData.poster_path
+        : `${getImageBaseUrl('poster')}${movieData.poster_path}`
 
       await finishDownloads(
         posterPaths.map(({ path }) => downloadWithRetry(posterUrl, path))
@@ -277,11 +238,7 @@ export const useScraping = () => {
 
     // ── 下载背景图（并行）──
     const fanartSources: string[] = []
-    if (javbusMeta?.fanarts?.length) {
-      fanartSources.push(
-        ...javbusMeta.fanarts.map((url: string) => backend.proxyUrl(url))
-      )
-    } else if (movieData.backdrop_path) {
+    if (movieData.backdrop_path) {
       const url = movieData.backdrop_path.startsWith('http')
         ? movieData.backdrop_path
         : `${getImageBaseUrl('backdrop')}${movieData.backdrop_path}`
@@ -300,28 +257,6 @@ export const useScraping = () => {
             .join(folderPath, name)
             .then(path => downloadWithRetry(url, path))
         })
-      )
-    }
-
-    // ── JavBus 演员照片（并行）──
-    if (javbusMeta?.actress && Object.keys(javbusMeta.actress).length) {
-      progressCallback?.('正在下载演员照片...', 4)
-      const actorsDir = await window.api.path.join(folderPath, '.actors')
-      const directory = await window.api.file.mkdir(actorsDir)
-      if (!directory.success)
-        throw new Error(directory.error || '创建演员目录失败')
-
-      await finishDownloads(
-        Object.entries(javbusMeta.actress as Record<string, string>)
-          .filter(([, imgUrl]) => imgUrl)
-          .map(([name, imgUrl]) => {
-            const safeName = safeFileName(name, 'actor')
-            return window.api.path
-              .join(actorsDir, `${safeName}.jpg`)
-              .then(photoPath =>
-                fetchActorPhoto(safeName, backend.proxyUrl(imgUrl), photoPath)
-              )
-          })
       )
     }
 

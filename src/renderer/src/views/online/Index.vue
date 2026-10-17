@@ -158,15 +158,15 @@ const openDoubanDetail = (item: DoubanItem) => {
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 16px 24px;
+  padding: 24px 32px;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: 24px;
 }
 
 .home-content-area {
-  padding: 22px 40px 34px;
-  gap: 28px;
+  padding: 30px 40px 40px;
+  gap: 32px;
 }
 
 .inline-detail-page {
@@ -174,7 +174,7 @@ const openDoubanDetail = (item: DoubanItem) => {
   inset: 0;
   z-index: 40;
   width: 100%;
-  background: var(--bg-elevated);
+  background: var(--bg-main);
 }
 
 .inline-detail-page :deep(.detail-win) {

@@ -24,20 +24,78 @@
     </div>
     <div v-if="showFooter && (closable || title)" class="unified-player-footer">
       <span class="unified-player-title">{{ title || '正在播放' }}</span>
-      <button
-        v-if="closable"
-        type="button"
-        class="unified-player-close"
-        aria-label="关闭播放器"
-        @click="$emit('close')"
-      >
-        ×
-      </button>
+      <div class="unified-player-footer-actions">
+        <button
+          type="button"
+          class="unified-player-subtitle-btn"
+          title="在线字幕"
+          @click="toggleSubtitlePanel"
+        >
+          字
+        </button>
+        <button
+          v-if="closable"
+          type="button"
+          class="unified-player-close"
+          aria-label="关闭播放器"
+          @click="$emit('close')"
+        >
+          ×
+        </button>
+      </div>
+    </div>
+    <!-- 在线字幕搜索面板 -->
+    <div v-if="subtitlePanelOpen" class="unified-player-subtitle-panel">
+      <DialogTitlebar title="在线字幕 (OpenSubtitles)" icon="subtitle" @close="subtitlePanelOpen = false" />
+      <div class="usp-search-row">
+        <input
+          v-model="subtitleQuery"
+          class="usp-input"
+          placeholder="影视名称…"
+          @keydown.enter="doSubtitleSearch"
+        />
+        <button
+          type="button"
+          class="usp-btn"
+          :disabled="subtitleSearching"
+          @click="doSubtitleSearch"
+        >
+          {{ subtitleSearching ? '搜索中…' : '搜索' }}
+        </button>
+      </div>
+      <p v-if="subtitleMessage" class="usp-msg">{{ subtitleMessage }}</p>
+      <div class="usp-list">
+        <button
+          v-for="hit in subtitleHits"
+          :key="hit.fileId"
+          type="button"
+          class="usp-item"
+          :disabled="subtitleDownloadingId === hit.fileId"
+          @click="applyOnlineSubtitle(hit)"
+        >
+          <span class="usp-item-name">{{ hit.name }}</span>
+          <span class="usp-item-meta">
+            ↓{{ hit.downloads
+            }}<template v-if="hit.rating"> · ★{{ hit.rating }}</template> ·
+            {{ hit.format }}
+            {{ subtitleDownloadingId === hit.fileId ? '· 下载中…' : '' }}
+          </span>
+        </button>
+        <p
+          v-if="
+            !subtitleSearching && subtitleHits.length === 0 && subtitleMessage
+          "
+          class="usp-empty"
+        >
+          无结果
+        </p>
+      </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
@@ -54,6 +112,13 @@ const props = withDefaults(
     /** Resume seconds */
     startAt?: number
     resolveUrl?: (url: string) => Promise<string>
+    /** 在线字幕搜索关键词（无则用 title） */
+    subtitleSearchTitle?: string
+    /** 在线字幕的 IMDB id（有则大幅提高匹配精度） */
+    subtitleImdbId?: string
+    /** 在线字幕季/集（剧集用） */
+    subtitleSeason?: number
+    subtitleEpisode?: number
   }>(),
   {
     src: '',
@@ -64,6 +129,10 @@ const props = withDefaults(
     controls: true,
     showFooter: true,
     startAt: 0,
+    subtitleSearchTitle: '',
+    subtitleImdbId: '',
+    subtitleSeason: undefined,
+    subtitleEpisode: undefined,
   }
 )
 
@@ -119,6 +188,105 @@ const disposeSubtitleUrl = (): void => {
 }
 
 const isLocalSource = (url: string): boolean => url.startsWith('local://')
+
+// ── 在线字幕（OpenSubtitles）────────────────────────────
+interface OnlineSubtitleHit {
+  name: string
+  language: string
+  downloads: number
+  rating?: number
+  size?: number
+  format: string
+  fileId: number
+}
+
+const subtitlePanelOpen = ref(false)
+const subtitleQuery = ref('')
+const subtitleHits = ref<OnlineSubtitleHit[]>([])
+const subtitleSearching = ref(false)
+const subtitleDownloadingId = ref<number | null>(null)
+const subtitleMessage = ref('')
+
+const toggleSubtitlePanel = (): void => {
+  subtitlePanelOpen.value = !subtitlePanelOpen.value
+  if (subtitlePanelOpen.value && !subtitleHits.value.length) {
+    // 首次打开自动用标题搜一次
+    doSubtitleSearch()
+  }
+}
+
+const doSubtitleSearch = async (): Promise<void> => {
+  const api = window.api?.subtitle
+  if (!api?.searchOnline) {
+    subtitleMessage.value = '当前环境不支持在线字幕（需 Electron）'
+    return
+  }
+  const query = (
+    subtitleQuery.value ||
+    props.subtitleSearchTitle ||
+    props.title ||
+    ''
+  ).trim()
+  if (!query) {
+    subtitleMessage.value = '请输入影视名称'
+    return
+  }
+  subtitleSearching.value = true
+  subtitleMessage.value = ''
+  subtitleHits.value = []
+  try {
+    const result = await api.searchOnline({
+      query,
+      imdbId: props.subtitleImdbId || undefined,
+      season: props.subtitleSeason,
+      episode: props.subtitleEpisode,
+    })
+    if (!result?.success) {
+      subtitleMessage.value = result?.notConfigured
+        ? '未配置 API key：在启动环境设置 YINGBOX_OPENSUBTITLES_KEY 后重启应用'
+        : result?.error || '搜索失败'
+      return
+    }
+    subtitleHits.value = result.data || []
+    if (!subtitleHits.value.length) subtitleMessage.value = '无结果'
+  } catch (error) {
+    subtitleMessage.value = (error as Error).message
+  } finally {
+    subtitleSearching.value = false
+  }
+}
+
+/** 下载并挂载在线字幕（与本地字幕共用同一 blob 挂载链路） */
+const applyOnlineSubtitle = async (hit: OnlineSubtitleHit): Promise<void> => {
+  const api = window.api?.subtitle
+  const instance = art
+  if (!api?.downloadOnline || !instance) return
+  subtitleDownloadingId.value = hit.fileId
+  try {
+    const downloaded = await api.downloadOnline(hit.fileId)
+    if (!downloaded?.success || !downloaded.data) {
+      subtitleMessage.value = downloaded?.notConfigured
+        ? '未配置 API key：设置 YINGBOX_OPENSUBTITLES_KEY 后重启应用'
+        : downloaded?.error || '下载失败'
+      return
+    }
+    if (art !== instance) return
+    disposeSubtitleUrl()
+    subtitleObjectUrl = URL.createObjectURL(
+      new Blob([downloaded.data], { type: 'text/vtt' })
+    )
+    await instance.subtitle.switch(subtitleObjectUrl, {
+      name: hit.name,
+      type: 'vtt',
+    })
+    instance.notice.show = `字幕：${hit.name}`
+    subtitlePanelOpen.value = false
+  } catch (error) {
+    subtitleMessage.value = (error as Error).message
+  } finally {
+    subtitleDownloadingId.value = null
+  }
+}
 
 /**
  * 为本地视频自动挂载同目录字幕。
@@ -266,12 +434,45 @@ const createPlayer = async (source: string): Promise<void> => {
     typeof props.startAt === 'number' && props.startAt > 0 ? props.startAt : 0
   const useHls = Hls.isSupported() && isHlsUrl(resolved)
 
+  // HLS 走 hls.js 自定义类型；其余格式交给 Artplayer 按扩展名自动识别。
+  // 注意：Artplayer 5.x 会校验 type/customType 的类型，传 undefined 会在构造函数
+  // 直接抛错（option.customType require 'object'），导致本地文件与直链 mp4/flv
+  // 连 <video> 都创建不出来——因此这两项只在 HLS 时通过展开提供。
+  const hlsCustomType = useHls
+    ? {
+        m3u8(
+          videoEl: HTMLVideoElement,
+          url: string,
+          instance: Artplayer
+        ): void {
+          destroyHls()
+          hls = new Hls({ enableWorker: true })
+          hls.loadSource(url)
+          hls.attachMedia(videoEl)
+          hls.on(Hls.Events.MANIFEST_PARSED, () => {
+            applySeekIfNeeded(videoEl)
+            if (props.autoplay) videoEl.play().catch(() => {})
+          })
+          hls.on(Hls.Events.ERROR, (_event, data) => {
+            if (data.fatal) {
+              hideLoading()
+              emit('error', new Event('error'))
+              instance.notice.show = '播放失败'
+            }
+          })
+          instance.on('destroy', () => {
+            destroyHls()
+          })
+        },
+      }
+    : null
+
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
   art = new Artplayer({
     container: containerEl.value,
     url: resolved,
     poster: '',
-    theme: '#007aff',
+    theme: '#f5f5f7',
     volume: 1,
     autoplay: props.autoplay,
     muted: false,
@@ -299,31 +500,12 @@ const createPlayer = async (source: string): Promise<void> => {
       playsInline: true,
       preload: 'auto',
     },
-    type: useHls ? 'm3u8' : undefined,
-    customType: useHls
-      ? {
-          m3u8(videoEl: HTMLVideoElement, url: string, instance: Artplayer) {
-            destroyHls()
-            hls = new Hls({ enableWorker: true })
-            hls.loadSource(url)
-            hls.attachMedia(videoEl)
-            hls.on(Hls.Events.MANIFEST_PARSED, () => {
-              applySeekIfNeeded(videoEl)
-              if (props.autoplay) videoEl.play().catch(() => {})
-            })
-            hls.on(Hls.Events.ERROR, (_event, data) => {
-              if (data.fatal) {
-                hideLoading()
-                emit('error', new Event('error'))
-                instance.notice.show = '播放失败'
-              }
-            })
-            instance.on('destroy', () => {
-              destroyHls()
-            })
-          },
-        }
-      : undefined,
+    // Artplayer 5.x 校验 option.type 必须是字符串：传 undefined 会在构造时抛错，
+    // 导致非 HLS（本地文件、直链 mp4/flv）根本无法创建播放器。空串即沿用
+    // Artplayer 默认的按扩展名自动识别。
+    ...(useHls && hlsCustomType
+      ? { type: 'm3u8', customType: hlsCustomType }
+      : {}),
   })
 
   video.value = art.video
@@ -467,7 +649,7 @@ defineExpose({ video })
   height: auto;
   object-fit: contain;
   border-radius: 10px;
-  box-shadow: 0 16px 48px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-lg);
 }
 
 .unified-player-loading-spin {
@@ -504,8 +686,8 @@ defineExpose({ video })
   min-height: 48px;
   padding: 0 16px;
   color: var(--text-primary);
-  background: var(--bg-elevated);
-  border-top: 1px solid var(--separator);
+  background: var(--bg-main);
+  border-top: 1px solid var(--border-default);
 }
 
 .unified-player-title {
@@ -515,6 +697,149 @@ defineExpose({ video })
   white-space: nowrap;
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
+}
+
+.unified-player-footer-actions {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  flex: 0 0 auto;
+}
+
+.unified-player-subtitle-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 28px;
+  height: 28px;
+  flex: 0 0 auto;
+  border: 0;
+  border-radius: 6px;
+  color: var(--text-secondary);
+  background: var(--bg-fill-secondary);
+  cursor: pointer;
+  font-size: 13px;
+  line-height: 1;
+}
+
+.unified-player-subtitle-btn:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass-hover);
+}
+
+.unified-player-subtitle-panel {
+  position: absolute;
+  right: 12px;
+  bottom: 56px;
+  z-index: 30;
+  width: min(360px, 86vw);
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: 10px;
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary, #fff);
+  overflow: hidden;
+
+  backdrop-filter: none;
+}
+
+.usp-search-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.usp-input {
+  flex: 1;
+  min-width: 0;
+  height: 30px;
+  padding: 0 10px;
+  border-radius: 8px;
+  border: 1px solid var(--separator, rgba(255, 255, 255, 0.12));
+  background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.06));
+  color: inherit;
+  font-size: 12px;
+  outline: none;
+}
+
+.usp-input:focus {
+  border-color: var(--accent, #007aff);
+}
+
+.usp-btn {
+  height: 30px;
+  padding: 0 12px;
+  border: 0;
+  border-radius: 8px;
+  background: var(--accent, #007aff);
+  color: #fff;
+  font-size: 12px;
+  cursor: pointer;
+  white-space: nowrap;
+}
+
+.usp-btn:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
+.usp-msg {
+  margin: 0 12px 8px;
+  font-size: 11px;
+  color: var(--text-tertiary, #999);
+}
+
+.usp-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 10px;
+}
+
+.usp-item {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  width: 100%;
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border: 0;
+  border-radius: 6px;
+  background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.05));
+  color: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.usp-item:hover {
+  background: var(--bg-glass-hover, rgba(255, 255, 255, 0.12));
+}
+
+.usp-item:disabled {
+  opacity: 0.6;
+  cursor: default;
+}
+
+.usp-item-name {
+  font-size: 12px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usp-item-meta {
+  font-size: 10px;
+  color: var(--text-tertiary, #888);
+}
+
+.usp-empty {
+  margin: 8px 4px;
+  font-size: 11px;
+  color: var(--text-tertiary, #888);
+  text-align: center;
 }
 
 .unified-player-close {
