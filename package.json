@@ -73,5 +73,8 @@
     "vue": "^3.5.17",
     "vue-eslint-parser": "^10.2.0",
     "vue-tsc": "^3.0.3"
+  },
+  "pnpm": {
+    "onlyBuiltDependencies": ["core-js", "electron", "esbuild"]
   }
 }

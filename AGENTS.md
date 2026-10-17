@@ -98,6 +98,15 @@ HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and ex
 
 `pnpm test` — Vitest (node env), `tests/` covers main-process pure logic: Range parsing, `local://` path mapping, subtitle decoding/conversion, SSRF IP classification, incremental scan reuse. Vue components are not unit-tested.
 
+## Cursor Cloud specific instructions
+
+- `pnpm dev` starts the Go backend (`127.0.0.1:31471`) and the Electron window together. `pnpm dev:backend` is the API only. `GET /api/videos` returns the local library as JSON. HTTP 200 means the process is healthy; an empty library is `null` or `[]`.
+- Python helpers shell out to `python`, not `python3`. On Ubuntu, `sudo ln -sf "$(command -v python3)" /usr/local/bin/python` before scrape or metadata calls. Packages live in `packages/services/backend/py/requirements.txt`.
+- `go.mod` requires Go 1.22.6. Distro Go 1.22.2 downloads that toolchain on the first `go mod download` or `go build` when `GOTOOLCHAIN=auto`.
+- The Electron renderer is `http://127.0.0.1:3000` and needs `DISPLAY`. `pnpm dev:web` serves the same UI without Electron on port 4173.
+- pnpm 10 skips dependency build scripts unless they are listed in `package.json` under `pnpm.onlyBuiltDependencies` (`electron`, `esbuild`, `core-js`). Without that, `node_modules/electron/dist/electron` is missing until `node node_modules/electron/install.js`.
+- A TMDB token (`VITE_TMDB_ACCESS_TOKEN` or the in-app settings) is optional. Startup, `pnpm test`, and the Go API do not need it.
+
 ### Build pipeline
 
 `electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). The Go binary and `backend/py` ship via `extraResources`.
