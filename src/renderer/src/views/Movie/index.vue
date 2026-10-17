@@ -1,5 +1,8 @@
 <template>
-  <div class="yb-media-shell folder-content" :class="{ 'has-selection': Boolean(selectedItem) }">
+  <div
+    class="yb-media-shell folder-content"
+    :class="{ 'has-selection': Boolean(selectedItem) }"
+  >
     <!-- 左侧媒体库列表 -->
     <div class="yb-media-list-pane">
       <LeftPanel
@@ -67,7 +70,7 @@
       @scrape="handleWorkbenchScrape"
     />
 
-        <!-- 统一本地播放器：body + 全局高 z-index，避免被侧栏/标题栏/队列压住 -->
+    <!-- 统一本地播放器：body + 全局高 z-index，避免被侧栏/标题栏/队列压住 -->
     <Teleport to="body">
       <Transition name="sheet-fade">
         <div
@@ -76,7 +79,12 @@
           @click.self="closeLocalPlayer"
         >
           <div class="yb-local-player-stage">
-            <UnifiedVideoPlayer :src="localPlayerUrl" :title="localPlayerTitle" closable @close="closeLocalPlayer" />
+            <UnifiedVideoPlayer
+              :src="localPlayerUrl"
+              :title="localPlayerTitle"
+              closable
+              @close="closeLocalPlayer"
+            />
           </div>
         </div>
       </Transition>
@@ -102,7 +110,10 @@ import {
   bumpScrapeVersion,
   useMediaProcessing,
 } from '@/views/Movie/composables/use-media-processing'
-import { onScrapedFolder, useScrapingTask } from '@/views/Movie/composables/use-scraping-task'
+import {
+  onScrapedFolder,
+  useScrapingTask,
+} from '@/views/Movie/composables/use-scraping-task'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { extractAvid } from '@/utils/avid'
 import { toLocalUrl } from '@/utils/local-url'
@@ -155,12 +166,8 @@ const {
 const selectedItem = ref<ProcessedItem | null>(null)
 
 // 媒体处理相关状态
-const {
-  posterImageDataUrl,
-  fanartImageDataUrl,
-  movieInfo,
-  actors,
-} = useMediaProcessing(selectedItem)
+const { posterImageDataUrl, fanartImageDataUrl, movieInfo, actors } =
+  useMediaProcessing(selectedItem)
 
 // 成人模式状态（与 LeftPanel / AppLayout 同步：CustomEvent + storage）
 const isAdultMode = ref(localStorage.getItem('adultMode') === '1')
@@ -174,7 +181,7 @@ const onAdultStorageChange = (event: StorageEvent): void => {
   if (event.key === 'adultMode') syncAdultMode()
 }
 const adultMeta = ref<BackendMeta | null>(null)
-const adultMetaLoading = ref(false)  // 获取预览元数据加载状态
+const adultMetaLoading = ref(false) // 获取预览元数据加载状态
 const adultScrapeLoading = ref(false) // 执行刮削操作加载状态
 const adultActionMsg = ref('')
 
@@ -222,12 +229,16 @@ const localFanarts = computed(() => {
       if (!file.isFile) continue
       const name = file.name.toLowerCase()
       // 匹配 fanart 图片命名：xxx-fanart.jpg, xxx-fanart-1.jpg, xxx-fanart-2.jpg 等
-      if (name.startsWith(baseName.toLowerCase()) && name.includes('fanart') && /\.(jpg|jpeg|png|webp)$/i.test(name)) {
+      if (
+        name.startsWith(baseName.toLowerCase()) &&
+        name.includes('fanart') &&
+        /\.(jpg|jpeg|png|webp)$/i.test(name)
+      ) {
         fanarts.push(file.path)
       }
     }
   }
-  return fanarts.sort()  // 按名称排序
+  return fanarts.sort() // 按名称排序
 })
 
 /**
@@ -250,7 +261,9 @@ const isAlreadyScraped = (item: ProcessedItem): boolean => {
 /**
  * 从本地 NFO 文件构建 BackendMeta（避免重复网络请求）
  */
-const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | null> => {
+const buildMetaFromLocal = async (
+  item: ProcessedItem
+): Promise<BackendMeta | null> => {
   if (!item.files) return null
   const nfoFile = item.files.find(f => f.name.toLowerCase().endsWith('.nfo'))
   if (!nfoFile) return null
@@ -272,7 +285,10 @@ const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | nu
     const fanarts: string[] = []
     for (const f of item.files) {
       const fn = f.name.toLowerCase()
-      if ((fn.includes('fanart') || fn.includes('backdrop')) && /\.(jpg|jpeg|png|webp)$/i.test(fn)) {
+      if (
+        (fn.includes('fanart') || fn.includes('backdrop')) &&
+        /\.(jpg|jpeg|png|webp)$/i.test(fn)
+      ) {
         fanarts.push(toLocalUrl(f.path))
       }
     }
@@ -280,7 +296,10 @@ const buildMetaFromLocal = async (item: ProcessedItem): Promise<BackendMeta | nu
     // 本地海报
     const posterFile = item.files.find(f => {
       const n = f.name.toLowerCase()
-      return (n.includes('poster') || n === 'folder.jpg' || n === 'movie.jpg') && /\.(jpg|jpeg|png|webp)$/i.test(n)
+      return (
+        (n.includes('poster') || n === 'folder.jpg' || n === 'movie.jpg') &&
+        /\.(jpg|jpeg|png|webp)$/i.test(n)
+      )
     })
 
     return {
@@ -344,15 +363,14 @@ watch([selectedItem, isAdultMode], async ([item]) => {
   }
 })
 
-
 // Keep list title in sync when detail loads / refreshes NFO
-watch(movieInfo, (info) => {
+watch(movieInfo, info => {
   if (!info?.title || !selectedItem.value) return
   patchProcessedItemMeta(selectedItem.value.path, String(info.title), info.year)
 })
 
 // Adult meta title → same list/detail parity
-watch(adultMeta, (meta) => {
+watch(adultMeta, meta => {
   if (!meta?.title || !selectedItem.value) return
   patchProcessedItemMeta(selectedItem.value.path, String(meta.title))
 })
@@ -371,7 +389,6 @@ const handleAdultScrape = async (
   adultScrapeLoading.value = false
   adultActionMsg.value = '✅ 已加入刮削队列'
 }
-
 
 /** Concurrency-limited NFO title enrichment for list/detail parity */
 let enrichMetaToken = 0
@@ -454,7 +471,9 @@ const updateProcessedItems = (): void => {
   const items = processFiles(fileData.value)
   // 已有 NFO 与海报的项目置顶，背景图不影响排序。
   items.sort(
-    (a, b) => Number(Boolean(b.hasNfo && b.hasPoster)) - Number(Boolean(a.hasNfo && a.hasPoster))
+    (a, b) =>
+      Number(Boolean(b.hasNfo && b.hasPoster)) -
+      Number(Boolean(a.hasNfo && a.hasPoster))
   )
   for (const item of items) {
     const prev = prevMeta.get(item.path)
@@ -469,19 +488,16 @@ const updateProcessedItems = (): void => {
 }
 
 // fileData 变化时自动同步（覆盖所有刷新路径，包括队列处理器）
-watch(
-  fileData,
-  () => {
-    updateProcessedItems()
-    // 刷新后把 selectedItem 指向新扫描对象，使 fanartImagePath 能读到最新 files
-    if (selectedItem.value) {
-      const refreshed = processedItems.value.find(
-        i => i.path === selectedItem.value!.path
-      )
-      if (refreshed) selectedItem.value = refreshed
-    }
+watch(fileData, () => {
+  updateProcessedItems()
+  // 刷新后把 selectedItem 指向新扫描对象，使 fanartImagePath 能读到最新 files
+  if (selectedItem.value) {
+    const refreshed = processedItems.value.find(
+      i => i.path === selectedItem.value!.path
+    )
+    if (refreshed) selectedItem.value = refreshed
   }
-)
+})
 
 // 包装 readDirectory，读取后更新 processedItems
 const handleReadDirectory = async (): Promise<void> => {
@@ -490,7 +506,10 @@ const handleReadDirectory = async (): Promise<void> => {
 }
 
 // 统一刮削工作台
-const openScrapeWorkbench = (item: ProcessedItem, initialQuery?: string): void => {
+const openScrapeWorkbench = (
+  item: ProcessedItem,
+  initialQuery?: string
+): void => {
   currentScrapeItem.value = item
   scrapeWorkbenchQuery.value = (initialQuery || '').trim()
   showScrapeWorkbench.value = true
@@ -513,7 +532,10 @@ const closeScrapeWorkbench = (): void => {
   }
 }
 
-const handleWorkbenchScrape = (movie: ScrapedMovie, item: ProcessedItem): void => {
+const handleWorkbenchScrape = (
+  movie: ScrapedMovie,
+  item: ProcessedItem
+): void => {
   currentScrapeItem.value = item
   scrape(movie, item)
   // 批量歧义队列：选用后继续下一项
@@ -523,7 +545,10 @@ const handleWorkbenchScrape = (movie: ScrapedMovie, item: ProcessedItem): void =
 }
 
 // 左侧边栏管理方法 - 这些逻辑都是组件特有的，直接写在组件里更清晰
-const selectItem = (item: ProcessedItem, rootItem: number | ProcessedItem): void => {
+const selectItem = (
+  item: ProcessedItem,
+  rootItem: number | ProcessedItem
+): void => {
   const index = typeof rootItem === 'number' ? rootItem : -1
   if (selectedItem.value?.path === item.path) {
     selectedItem.value = null
@@ -534,10 +559,9 @@ const selectItem = (item: ProcessedItem, rootItem: number | ProcessedItem): void
   }
 }
 
-
 // 队列全部完成时统一刷新一次（优先局部刷新刮削目标文件夹）
 let wasQueueActive = false
-watch(queueActive, (active) => {
+watch(queueActive, active => {
   if (wasQueueActive && !active) {
     wasQueueActive = false
     bumpScrapeVersion()
@@ -579,7 +603,29 @@ const handleShowClearCacheDialog = (): void => {
   })
 }
 
-// 一键刮削所有未元数据项：先入队明确匹配，歧义项顺序打开工作台
+/** 简单的并发限制 map：保证同一时刻最多 limit 个任务在跑 */
+async function mapWithConcurrency<T, R>(
+  items: T[],
+  limit: number,
+  fn: (item: T) => Promise<R>
+): Promise<R[]> {
+  const results: R[] = new Array(items.length)
+  let index = 0
+
+  async function worker(): Promise<void> {
+    while (index < items.length) {
+      const current = index++
+      results[current] = await fn(items[current])
+    }
+  }
+
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  )
+  return results
+}
+
+// 一键刷削所有未元数据项：先入队明确匹配，歧义项顺序打开工作台
 const handleScrapeAll = async (): Promise<void> => {
   const provider = getScrapeProviderConfig().provider
 
@@ -603,23 +649,37 @@ const handleScrapeAll = async (): Promise<void> => {
       pendingAmbiguousQueue.value = []
 
       if (provider === 'javbus') {
-        // 并行获取所有元数据，再统一入队
-        const metas = await Promise.all(
-          unscraped.map(async item => {
-            const avid = extractAvid(item.name)
-            if (!avid) return { item, meta: null as BackendMeta | null, skipped: true, failed: false }
-            try {
-              const data = await backend.fetchMeta(avid)
-              return { item, meta: data.error ? null : data, skipped: false, failed: Boolean(data.error) }
-            } catch {
-              return { item, meta: null, skipped: false, failed: true }
+        // 并发限制获取所有元数据（避免对后端/JavBus 打出过多并发请求），再统一入队
+        const metas = await mapWithConcurrency(unscraped, 6, async item => {
+          const avid = extractAvid(item.name)
+          if (!avid)
+            return {
+              item,
+              meta: null as BackendMeta | null,
+              skipped: true,
+              failed: false,
             }
-          })
-        )
+          try {
+            const data = await backend.fetchMeta(avid)
+            return {
+              item,
+              meta: data.error ? null : data,
+              skipped: false,
+              failed: Boolean(data.error),
+            }
+          } catch {
+            return { item, meta: null, skipped: false, failed: true }
+          }
+        })
         let queued = 0
         let skipped = 0
         let failed = 0
-        for (const { item, meta, skipped: wasSkipped, failed: wasFailed } of metas) {
+        for (const {
+          item,
+          meta,
+          skipped: wasSkipped,
+          failed: wasFailed,
+        } of metas) {
           if (wasSkipped) {
             skipped += 1
             continue
@@ -636,17 +696,19 @@ const handleScrapeAll = async (): Promise<void> => {
         if (failed > 0) parts.push(`失败 ${failed}`)
         message.success(parts.join(' · '))
         if (skipped > 0) {
-          message.warning(`有 ${skipped} 项无法识别番号，可右键「刮削」手动处理`)
+          message.warning(
+            `有 ${skipped} 项无法识别番号，可右键「刮削」手动处理`
+          )
         }
         return
       }
 
-      // TMDB / 自定义：唯一结果自动入队；0 计失败；>1 收集后顺序打开工作台
+      // TMDB / 自定义：并发限制搜索，唯一结果自动入队；0 计失败；>1 收集后顺序打开工作台
       let queued = 0
       let failed = 0
       const needsChoice: ProcessedItem[] = []
 
-      for (const item of unscraped) {
+      await mapWithConcurrency(unscraped, 4, async item => {
         try {
           const movies = await searchMovieInfo(item)
           if (movies && movies.length === 1) {
@@ -658,10 +720,10 @@ const handleScrapeAll = async (): Promise<void> => {
             failed += 1
           }
         } catch (error) {
-          console.error('一键刮削失败:', error)
+          console.error('一键刷削失败:', error)
           failed += 1
         }
-      }
+      })
 
       pendingAmbiguousQueue.value = needsChoice
       const needManual = needsChoice.length
@@ -683,8 +745,8 @@ const handlePlay = async (item: ProcessedItem): Promise<void> => {
 
   // 如果是文件夹，找到里面的视频文件
   if (item.type === 'folder' && item.files) {
-    const videoFile = item.files.find(f =>
-      f.isFile && /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$/i.test(f.name)
+    const videoFile = item.files.find(
+      f => f.isFile && /\.(mp4|mkv|avi|mov|wmv|flv|webm|m4v)$/i.test(f.name)
     )
     if (videoFile) {
       filePath = videoFile.path
@@ -735,7 +797,7 @@ const handleDeleteFile = (filePath: string): void => {
         const parent = filePath.replace(/[\\/][^\\/]+$/, '')
         await refreshAfterScrape(parent || currentDirectoryPath.value)
       } else {
-        message.error(`删除失败: ${  result.error || '未知错误'}`)
+        message.error(`删除失败: ${result.error || '未知错误'}`)
       }
     },
   })
@@ -764,7 +826,7 @@ const handleDeleteItem = (item: ProcessedItem): void => {
         const parent = item.path.replace(/[\\/][^\\/]+$/, '')
         await refreshAfterScrape(parent || currentDirectoryPath.value)
       } else {
-        message.error(`删除失败: ${  result.error || '未知错误'}`)
+        message.error(`删除失败: ${result.error || '未知错误'}`)
       }
     },
   })
@@ -820,5 +882,7 @@ onBeforeUnmount(() => {
   box-shadow: 0 4px 16px 0 rgba(0, 0, 1, 0.2);
   transition: var(--transition-normal);
 }
-.folder-content { color: var(--text-primary); }
+.folder-content {
+  color: var(--text-primary);
+}
 </style>

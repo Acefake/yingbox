@@ -99,7 +99,10 @@ export function registerFileIpc(): void {
       }>
     ) => {
       try {
-        return { success: true, ...(await scanMediaDirectory(dirPath, previousIndex)) }
+        return {
+          success: true,
+          ...(await scanMediaDirectory(dirPath, previousIndex)),
+        }
       } catch (error) {
         return { success: false, error: (error as Error).message }
       }
@@ -134,7 +137,10 @@ export function registerFileIpc(): void {
         )
       }
       const data = await fs.readFile(filePath)
-      return { success: true, data: `data:${imageMimeType(filePath)};base64,${data.toString('base64')}` }
+      return {
+        success: true,
+        data: `data:${imageMimeType(filePath)};base64,${data.toString('base64')}`,
+      }
     } catch (error) {
       return { success: false, error: (error as Error).message }
     }
@@ -151,7 +157,12 @@ export function registerFileIpc(): void {
 
   ipcMain.handle(
     'file:move',
-    async (_, srcPath: string, destPath: string, options?: { replace?: boolean }) => {
+    async (
+      _,
+      srcPath: string,
+      destPath: string,
+      options?: { replace?: boolean }
+    ) => {
       try {
         await movePath(srcPath, destPath, options?.replace === true)
         return { success: true }
@@ -163,13 +174,19 @@ export function registerFileIpc(): void {
 
   ipcMain.handle('path:join', (_, ...paths: string[]) => path.join(...paths))
 
-  ipcMain.handle('path:resolve', (_, ...paths: string[]) => path.resolve(...paths))
+  ipcMain.handle('path:resolve', (_, ...paths: string[]) =>
+    path.resolve(...paths)
+  )
 
-  ipcMain.handle('path:dirname', (_, filePath: string) => path.dirname(filePath))
+  ipcMain.handle('path:dirname', (_, filePath: string) =>
+    path.dirname(filePath)
+  )
 
   ipcMain.handle('path:basename', (_, filePath: string, ext?: string) =>
     path.basename(filePath, ext)
   )
 
-  ipcMain.handle('path:extname', (_, filePath: string) => path.extname(filePath))
+  ipcMain.handle('path:extname', (_, filePath: string) =>
+    path.extname(filePath)
+  )
 }

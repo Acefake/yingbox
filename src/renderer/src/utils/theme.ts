@@ -22,7 +22,9 @@ export function resolveInitialTheme(): AppTheme {
 export function buildAntdTheme(theme: AppTheme): ThemeConfig {
   const isDark = theme === 'dark'
   return {
-    algorithm: isDark ? antdThemeAlgo.darkAlgorithm : antdThemeAlgo.defaultAlgorithm,
+    algorithm: isDark
+      ? antdThemeAlgo.darkAlgorithm
+      : antdThemeAlgo.defaultAlgorithm,
     token: {
       colorPrimary: isDark ? '#0a84ff' : '#007aff',
       colorInfo: isDark ? '#0a84ff' : '#007aff',
@@ -32,7 +34,9 @@ export function buildAntdTheme(theme: AppTheme): ThemeConfig {
       colorBgBase: isDark ? '#1c1c1e' : '#f5f5f7',
       colorBgContainer: isDark ? '#2c2c2e' : '#ffffff',
       colorText: isDark ? 'rgba(255,255,255,0.92)' : 'rgba(0,0,0,0.88)',
-      colorTextSecondary: isDark ? 'rgba(255,255,255,0.55)' : 'rgba(0,0,0,0.55)',
+      colorTextSecondary: isDark
+        ? 'rgba(255,255,255,0.55)'
+        : 'rgba(0,0,0,0.55)',
       colorBorder: isDark ? 'rgba(255,255,255,0.1)' : 'rgba(0,0,0,0.1)',
       borderRadius: 10,
       borderRadiusLG: 14,
@@ -52,7 +56,8 @@ export function applyTheme(theme: AppTheme): void {
   localStorage.setItem(STORAGE_KEY, theme)
   themeRef.value = theme
   const themeColor = document.querySelector('meta[name="theme-color"]')
-  if (themeColor) themeColor.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#f5f5f7')
+  if (themeColor)
+    themeColor.setAttribute('content', theme === 'dark' ? '#1c1c1e' : '#f5f5f7')
 }
 
 export function setTheme(theme: AppTheme): void {

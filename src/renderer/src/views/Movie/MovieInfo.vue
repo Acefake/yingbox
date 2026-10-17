@@ -84,6 +84,11 @@ defineEmits<{
 </script>
 
 <style scoped>
-.mi-val { color: var(--text-primary); font-size: 13px; }
-.mi-val .yb-muted { color: var(--text-secondary); }
+.mi-val {
+  color: var(--text-primary);
+  font-size: 13px;
+}
+.mi-val .yb-muted {
+  color: var(--text-secondary);
+}
 </style>

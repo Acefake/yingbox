@@ -18,7 +18,10 @@
           class="flex items-center justify-between px-6 py-4 jb-divider flex-shrink-0"
         >
           <div>
-            <div class="text-sm font-semibold" style="color: var(--text-primary)">
+            <div
+              class="text-sm font-semibold"
+              style="color: var(--text-primary)"
+            >
               JavBus 刮削预览
             </div>
             <div class="text-xs yb-dim mt-0.5">{{ avid }}</div>
@@ -57,18 +60,26 @@
           v-else-if="error"
           class="flex-1 flex flex-col items-center justify-center py-16 gap-4 px-6"
         >
-          <span class="text-sm text-center" style="color: var(--danger)">{{ error }}</span>
+          <span class="text-sm text-center" style="color: var(--danger)">{{
+            error
+          }}</span>
           <button
             v-if="item"
             class="yb-btn-primary text-xs font-semibold"
-            @click="emit('manualSearch', item); $emit('close')"
+            @click="
+              emit('manualSearch', item)
+              $emit('close')
+            "
           >
             手动检索
           </button>
         </div>
 
         <!-- 内容 -->
-        <div v-else-if="meta" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        <div
+          v-else-if="meta"
+          class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
+        >
           <!-- 封面 -->
           <img
             :src="proxyUrl(meta.cover)"
@@ -82,20 +93,21 @@
           <!-- 主信息区 -->
           <div class="flex gap-5">
             <div class="flex-1 min-w-0 space-y-3">
-              <h2 class="font-semibold text-base leading-snug" style="color: var(--text-primary)">
+              <h2
+                class="font-semibold text-base leading-snug"
+                style="color: var(--text-primary)"
+              >
                 {{ meta.title }}
               </h2>
               <!-- 标签 -->
               <div class="flex flex-wrap gap-1.5">
                 <span class="yb-chip yb-chip-accent">{{ meta.avid }}</span>
-                <span
-                  v-if="meta.release_date"
-                  class="yb-chip"
-                >{{ meta.release_date }}</span>
-                <span
-                  v-if="meta.duration"
-                  class="yb-chip"
-                >{{ meta.duration }}</span>
+                <span v-if="meta.release_date" class="yb-chip">{{
+                  meta.release_date
+                }}</span>
+                <span v-if="meta.duration" class="yb-chip">{{
+                  meta.duration
+                }}</span>
               </div>
               <!-- 简介 -->
               <p
@@ -106,11 +118,9 @@
               </p>
               <!-- 关键词 -->
               <div v-if="meta.keywords?.length" class="flex flex-wrap gap-1">
-                <span
-                  v-for="kw in meta.keywords"
-                  :key="kw"
-                  class="yb-chip"
-                >{{ kw }}</span>
+                <span v-for="kw in meta.keywords" :key="kw" class="yb-chip">{{
+                  kw
+                }}</span>
               </div>
               <!-- 操作按钮 -->
               <div class="flex gap-2 pt-1">
@@ -127,7 +137,8 @@
                 class="text-[11px] font-mono"
                 :style="{
                   color:
-                    actionMsg.startsWith('❌') || actionMsg.startsWith('刮削失败')
+                    actionMsg.startsWith('❌') ||
+                    actionMsg.startsWith('刮削失败')
                       ? 'var(--danger)'
                       : 'var(--success)',
                 }"
@@ -139,9 +150,7 @@
 
           <!-- 演员 -->
           <div v-if="meta.actress && Object.keys(meta.actress).length">
-            <h3 class="yb-label mb-2">
-              演员
-            </h3>
+            <h3 class="yb-label mb-2">演员</h3>
             <div class="flex gap-3 flex-wrap">
               <div
                 v-for="(img, name) in meta.actress"
@@ -158,16 +167,15 @@
                 />
                 <span
                   class="text-[10px] yb-muted max-w-[48px] truncate text-center"
-                >{{ name }}</span>
+                  >{{ name }}</span
+                >
               </div>
             </div>
           </div>
 
           <!-- Fanart -->
           <div v-if="meta.fanarts?.length">
-            <h3 class="yb-label mb-2">
-              预览图
-            </h3>
+            <h3 class="yb-label mb-2">预览图</h3>
             <div class="grid grid-cols-3 gap-2">
               <img
                 v-for="(img, i) in meta.fanarts"
@@ -185,37 +193,36 @@
 
           <!-- 磁力链接 -->
           <div v-if="meta.magnets?.length">
-            <h3 class="yb-label mb-2">
-              磁力链接 ({{ meta.magnets.length }})
-            </h3>
+            <h3 class="yb-label mb-2">磁力链接 ({{ meta.magnets.length }})</h3>
             <div class="space-y-1.5">
               <div
                 v-for="(m, i) in meta.magnets"
                 :key="i"
                 class="yb-list-row group"
               >
-                <span class="yb-dim w-4 flex-shrink-0" style="font-size: 10px">{{
-                  i + 1
-                }}</span>
+                <span
+                  class="yb-dim w-4 flex-shrink-0"
+                  style="font-size: 10px"
+                  >{{ i + 1 }}</span
+                >
                 <span
                   class="text-[11px] flex-1 truncate font-mono jb-magnet-name"
                   :title="m.name"
-                >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span>
+                  >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span
+                >
                 <span
                   class="yb-dim flex-shrink-0 w-16 text-right"
                   style="font-size: 10px"
-                >{{ m.size }}</span>
+                  >{{ m.size }}</span
+                >
                 <span
                   class="yb-dim flex-shrink-0 w-20 text-right"
                   style="font-size: 10px"
-                >{{ m.date }}</span>
+                  >{{ m.date }}</span
+                >
                 <button
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
-                  :class="
-                    copiedIndex === i
-                      ? 'yb-status-ok'
-                      : 'jb-copy-btn'
-                  "
+                  :class="copiedIndex === i ? 'yb-status-ok' : 'jb-copy-btn'"
                   @click="copyMagnet(m.magnet, i)"
                 >
                   <svg
@@ -379,7 +386,9 @@ defineExpose({ setResult, setScrapeError })
 .modal-fade-leave-to {
   opacity: 0;
 }
-.jb-divider { border-bottom: 1px solid var(--separator); }
+.jb-divider {
+  border-bottom: 1px solid var(--separator);
+}
 .jb-close {
   color: var(--text-tertiary);
   background: transparent;
@@ -391,8 +400,12 @@ defineExpose({ setResult, setScrapeError })
   color: var(--text-primary);
   background: var(--bg-glass-hover);
 }
-.jb-avatar { box-shadow: inset 0 0 0 1px var(--border-subtle); }
-.jb-magnet-name { color: var(--text-primary); }
+.jb-avatar {
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.jb-magnet-name {
+  color: var(--text-primary);
+}
 .jb-copy-btn {
   background: var(--bg-fill-secondary);
   color: var(--text-secondary);

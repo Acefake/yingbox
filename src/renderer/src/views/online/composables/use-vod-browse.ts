@@ -1,6 +1,9 @@
 import { computed, ref } from 'vue'
 import { useVODParser } from '@/composables/use-vod-parser'
-import type { CatSpiderSite, CmsItem } from '@/views/online/composables/use-online-search'
+import type {
+  CatSpiderSite,
+  CmsItem,
+} from '@/views/online/composables/use-online-search'
 
 export interface VodTab {
   name: string
@@ -36,7 +39,9 @@ const mapWithConcurrency = async <T, R>(
       results[index] = await mapper(items[index])
     }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  )
   return results
 }
 
@@ -57,7 +62,9 @@ export function useVodBrowse() {
   const currentPage = ref(1)
   const hasMore = ref(true)
 
-  const activeSource = computed(() => sources.value[activeSourceIdx.value] || null)
+  const activeSource = computed(
+    () => sources.value[activeSourceIdx.value] || null
+  )
   const activeTabs = computed(() => activeSource.value?.tabs || [])
 
   /**
@@ -87,8 +94,7 @@ export function useVodBrowse() {
       }
     })
 
-    sources.value = results
-      .filter(source => source.loaded)
+    sources.value = results.filter(source => source.loaded)
 
     loadingSources.value = false
 
@@ -126,7 +132,11 @@ export function useVodBrowse() {
    */
   const loadMore = async (): Promise<void> => {
     if (!hasMore.value || loading.value) return
-    await loadCards(activeSourceIdx.value, activeTabIdx.value, currentPage.value + 1)
+    await loadCards(
+      activeSourceIdx.value,
+      activeTabIdx.value,
+      currentPage.value + 1
+    )
   }
 
   /** 重新加载当前数据源和分类，供页面顶部刷新使用。 */

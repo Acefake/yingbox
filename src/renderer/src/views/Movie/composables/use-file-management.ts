@@ -12,10 +12,14 @@ const compareItems = (a: ProcessedItem, b: ProcessedItem): number => {
     return aScraped ? -1 : 1
   }
   if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
-  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+  return a.name.localeCompare(b.name, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  })
 }
 
-const normPath = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '')
+const normPath = (p: string): string =>
+  p.replace(/\\/g, '/').replace(/\/+$/, '')
 
 const parentDir = (p: string): string => {
   const n = normPath(p)
@@ -75,7 +79,7 @@ export const useFileManagement = () => {
     const folder = normPath(folderPath)
     const rootN = normPath(root)
     if (!folder || folder.toLowerCase() === rootN.toLowerCase()) return false
-    return folder.toLowerCase().startsWith(`${rootN.toLowerCase()  }/`)
+    return folder.toLowerCase().startsWith(`${rootN.toLowerCase()}/`)
   }
 
   const toPreviousIndex = (files: FileItem[]) =>
@@ -351,7 +355,9 @@ export const useFileManagement = () => {
       for (const entry of entries) {
         const lower = entry.name.toLowerCase()
         if (lower.startsWith('.') || lower.startsWith('__')) continue
-        const ext = lower.includes('.') ? lower.slice(lower.lastIndexOf('.')) : ''
+        const ext = lower.includes('.')
+          ? lower.slice(lower.lastIndexOf('.'))
+          : ''
         const isVideo = entry.isFile && videoExts.has(ext)
         const isSidecar =
           entry.isFile &&
@@ -395,7 +401,7 @@ export const useFileManagement = () => {
 
       const oldDirFiles = fileData.value.filter(f => {
         const normalizedPath = normPath(f.path)
-        if (!normalizedPath.startsWith(`${normalizedTargetPath  }/`)) return false
+        if (!normalizedPath.startsWith(`${normalizedTargetPath}/`)) return false
         const relativePart = normalizedPath.slice(
           normalizedTargetPath.length + 1
         )
@@ -407,7 +413,7 @@ export const useFileManagement = () => {
 
       const otherFiles = fileData.value.filter(f => {
         const normalizedPath = normPath(f.path)
-        if (!normalizedPath.startsWith(`${normalizedTargetPath  }/`)) return true
+        if (!normalizedPath.startsWith(`${normalizedTargetPath}/`)) return true
         const relativePart = normalizedPath.slice(
           normalizedTargetPath.length + 1
         )
@@ -454,7 +460,7 @@ export const useFileManagement = () => {
       if (parent) {
         const parentKey = parent.toLowerCase()
         const rootKey = rootN.toLowerCase()
-        if (parentKey === rootKey || parentKey.startsWith(`${rootKey  }/`)) {
+        if (parentKey === rootKey || parentKey.startsWith(`${rootKey}/`)) {
           pendingLocalPaths.add(parent)
         }
       }
@@ -557,7 +563,10 @@ export const useFileManagement = () => {
             JSON.stringify(payload)
           )
           if (!writeResult.success) {
-            console.warn('写入索引文件失败，回退 localStorage:', writeResult.error)
+            console.warn(
+              '写入索引文件失败，回退 localStorage:',
+              writeResult.error
+            )
           } else {
             localStorage.setItem(
               'folderContent_currentPath',
@@ -579,9 +588,12 @@ export const useFileManagement = () => {
     }
 
     if (typeof requestIdleCallback !== 'undefined') {
-      requestIdleCallback(() => {
-        void persist()
-      }, { timeout: 1000 })
+      requestIdleCallback(
+        () => {
+          void persist()
+        },
+        { timeout: 1000 }
+      )
     } else {
       window.setTimeout(() => {
         void persist()

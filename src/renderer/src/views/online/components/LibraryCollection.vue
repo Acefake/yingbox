@@ -1,11 +1,29 @@
 <template>
   <div class="library-collection">
     <header class="collection-header">
-      <div><h1 class="yb-page-title">{{ title }}</h1><p class="yb-section-subtitle">{{ description }}</p></div>
-      <button v-if="items.length" class="yb-ghost-btn" type="button" @click="clear">清空</button>
+      <div>
+        <h1 class="yb-page-title">{{ title }}</h1>
+        <p class="yb-section-subtitle">{{ description }}</p>
+      </div>
+      <button
+        v-if="items.length"
+        class="yb-ghost-btn"
+        type="button"
+        @click="clear"
+      >
+        清空
+      </button>
     </header>
     <div class="collection-tabs" role="tablist" aria-label="媒体类型">
-      <button v-for="tab in tabs" :key="tab.value" type="button" :class="{ active: category === tab.value }" @click="category = tab.value">{{ tab.label }}</button>
+      <button
+        v-for="tab in tabs"
+        :key="tab.value"
+        type="button"
+        :class="{ active: category === tab.value }"
+        @click="category = tab.value"
+      >
+        {{ tab.label }}
+      </button>
     </div>
     <div v-if="filteredItems.length" class="yb-poster-grid">
       <article
@@ -15,19 +33,39 @@
         @click="onOpen(entry)"
       >
         <div class="yb-poster-media">
-          <img :src="entry.item.vod_pic" :alt="entry.item.vod_name" loading="lazy" @error="onImgError" />
+          <img
+            :src="entry.item.vod_pic"
+            :alt="entry.item.vod_name"
+            loading="lazy"
+            @error="onImgError"
+          />
         </div>
         <div class="yb-poster-info">
-          <h3 class="yb-poster-title" :title="entry.item.vod_name">{{ entry.item.vod_name }}</h3>
+          <h3 class="yb-poster-title" :title="entry.item.vod_name">
+            {{ entry.item.vod_name }}
+          </h3>
           <p class="yb-poster-meta">
             <span class="yb-poster-chip is-accent">{{ entry.typeLabel }}</span>
-            <span v-if="entry.epName" class="yb-poster-chip">{{ entry.epName }}</span>
-            <span v-else-if="entry.item.vod_year" class="yb-poster-chip">{{ entry.item.vod_year }}</span>
+            <span v-if="entry.epName" class="yb-poster-chip">{{
+              entry.epName
+            }}</span>
+            <span v-else-if="entry.item.vod_year" class="yb-poster-chip">{{
+              entry.item.vod_year
+            }}</span>
           </p>
         </div>
       </article>
     </div>
-    <div v-else class="collection-empty"><span>◇</span><p>{{ category === 'all' ? '这里还没有内容' : `暂无${tabs.find(t => t.value === category)?.label}内容` }}</p></div>
+    <div v-else class="collection-empty">
+      <span>◇</span>
+      <p>
+        {{
+          category === 'all'
+            ? '这里还没有内容'
+            : `暂无${tabs.find(t => t.value === category)?.label}内容`
+        }}
+      </p>
+    </div>
   </div>
 </template>
 
@@ -67,11 +105,11 @@ const emit = defineEmits<{
 const category = ref('all')
 const route = useRoute()
 const items = ref<CollectionEntry[]>([])
-const title = computed(() => props.kind === 'favorites' ? '我的收藏' : '最近播放')
+const title = computed(() =>
+  props.kind === 'favorites' ? '我的收藏' : '最近播放'
+)
 const description = computed(() =>
-  props.kind === 'favorites'
-    ? '收藏的影片与剧集'
-    : '点击卡片直接继续上次播放'
+  props.kind === 'favorites' ? '收藏的影片与剧集' : '点击卡片直接继续上次播放'
 )
 const tabs = [
   { label: '全部', value: 'all' },
@@ -80,7 +118,7 @@ const tabs = [
 ]
 
 const typeOf = (item: any) =>
-  (item?.type_name === 'tv' || item?.type_name?.includes('剧')) ? 'tv' : 'movie'
+  item?.type_name === 'tv' || item?.type_name?.includes('剧') ? 'tv' : 'movie'
 
 const normalizeItem = (entry: RecentPlayRecord): CmsItem => {
   const raw: any = entry.item || entry
@@ -98,13 +136,15 @@ const normalizeItem = (entry: RecentPlayRecord): CmsItem => {
 }
 
 const read = () => {
-  const key = props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
+  const key =
+    props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
   const own = readStoredArray<RecentPlayRecord>(key)
   const mapped = own.map((entry, index) => {
     const item = normalizeItem(entry)
     const epName = typeof entry.epName === 'string' ? entry.epName : undefined
     const url = typeof entry.url === 'string' ? entry.url : undefined
-    const progress = typeof entry.progress === 'number' ? entry.progress : undefined
+    const progress =
+      typeof entry.progress === 'number' ? entry.progress : undefined
     return {
       id: `${item.vod_id || item.vod_name || 'item'}-${url || index}`,
       item,
@@ -115,7 +155,9 @@ const read = () => {
       record: { ...entry, item, url, epName, progress },
     } satisfies CollectionEntry
   })
-  items.value = mapped.filter(entry => entry.item?.vod_name && entry.item?.vod_pic)
+  items.value = mapped.filter(
+    entry => entry.item?.vod_name && entry.item?.vod_pic
+  )
 }
 
 const filteredItems = computed(() =>
@@ -133,7 +175,9 @@ const onOpen = (entry: CollectionEntry) => {
 }
 
 const clear = () => {
-  localStorage.removeItem(props.kind === 'favorites' ? 'media_favorites' : 'online_play_history')
+  localStorage.removeItem(
+    props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
+  )
   read()
 }
 

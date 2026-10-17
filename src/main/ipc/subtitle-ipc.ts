@@ -6,7 +6,8 @@ export function registerSubtitleIpc(): void {
   // 只接受 local:// URL，避免渲染层借接口读取任意路径。
   ipcMain.handle('subtitle:find', async (_, localUrl: string) => {
     try {
-      const filePath = typeof localUrl === 'string' ? localUrlToFilePath(localUrl) : null
+      const filePath =
+        typeof localUrl === 'string' ? localUrlToFilePath(localUrl) : null
       if (!filePath) return { success: false, error: 'invalid local url' }
       const list = await findSubtitleFiles(filePath)
       return { success: true, data: list }

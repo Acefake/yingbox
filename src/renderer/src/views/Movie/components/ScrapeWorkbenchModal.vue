@@ -16,21 +16,27 @@
         <!-- Header -->
         <div class="sw-header flex items-start justify-between flex-shrink-0">
           <div class="min-w-0 pr-3">
-            <div class="sw-title">
-              刮削工作台
-            </div>
+            <div class="sw-title">刮削工作台</div>
             <div class="sw-subtitle truncate" :title="item?.name">
               {{ displayItemName }}
-              <span v-if="providerLabel" class="ml-2 yb-chip">{{ providerLabel }}</span>
+              <span v-if="providerLabel" class="ml-2 yb-chip">{{
+                providerLabel
+              }}</span>
             </div>
           </div>
-          <button
-            class="sw-close"
-            aria-label="关闭"
-            @click="emitClose"
-          >
-            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12" />
+          <button class="sw-close" aria-label="关闭" @click="emitClose">
+            <svg
+              class="w-4 h-4"
+              fill="none"
+              stroke="currentColor"
+              viewBox="0 0 24 24"
+            >
+              <path
+                stroke-linecap="round"
+                stroke-linejoin="round"
+                stroke-width="2"
+                d="M6 18L18 6M6 6l12 12"
+              />
             </svg>
           </button>
         </div>
@@ -67,7 +73,9 @@
             v-else-if="error && !meta && searchResults.length === 0"
             class="flex flex-col items-center justify-center py-14 gap-3 px-6"
           >
-            <span class="text-sm text-center" style="color: var(--danger)">{{ error }}</span>
+            <span class="text-sm text-center" style="color: var(--danger)">{{
+              error
+            }}</span>
             <p class="text-xs yb-muted text-center">
               可修改上方关键词后重新搜索，或手动输入番号后获取预览
             </p>
@@ -84,13 +92,20 @@
             />
 
             <div class="space-y-3">
-              <h2 class="font-semibold text-base leading-snug" style="color: var(--text-primary)">
+              <h2
+                class="font-semibold text-base leading-snug"
+                style="color: var(--text-primary)"
+              >
                 {{ meta.title }}
               </h2>
               <div class="flex flex-wrap gap-1.5">
                 <span class="yb-chip yb-chip-accent">{{ meta.avid }}</span>
-                <span v-if="meta.release_date" class="yb-chip">{{ meta.release_date }}</span>
-                <span v-if="meta.duration" class="yb-chip">{{ meta.duration }}</span>
+                <span v-if="meta.release_date" class="yb-chip">{{
+                  meta.release_date
+                }}</span>
+                <span v-if="meta.duration" class="yb-chip">{{
+                  meta.duration
+                }}</span>
               </div>
               <p
                 v-if="meta.description"
@@ -99,7 +114,9 @@
                 {{ meta.description }}
               </p>
               <div v-if="meta.keywords?.length" class="flex flex-wrap gap-1">
-                <span v-for="kw in meta.keywords" :key="kw" class="yb-chip">{{ kw }}</span>
+                <span v-for="kw in meta.keywords" :key="kw" class="yb-chip">{{
+                  kw
+                }}</span>
               </div>
 
               <div class="flex flex-wrap gap-2 pt-1">
@@ -121,7 +138,9 @@
               <div
                 v-if="actionMsg"
                 class="text-[11px] font-mono"
-                :style="{ color: actionMsgIsError ? 'var(--danger)' : 'var(--success)' }"
+                :style="{
+                  color: actionMsgIsError ? 'var(--danger)' : 'var(--success)',
+                }"
               >
                 {{ actionMsg }}
               </div>
@@ -141,7 +160,10 @@
                     class="w-12 h-12 rounded-full object-cover jb-avatar"
                     @error="hideBrokenImage"
                   />
-                  <span class="text-[10px] yb-muted max-w-[48px] truncate text-center">{{ name }}</span>
+                  <span
+                    class="text-[10px] yb-muted max-w-[48px] truncate text-center"
+                    >{{ name }}</span
+                  >
                 </div>
               </div>
             </div>
@@ -174,7 +196,9 @@
                 class="sw-card group cursor-pointer"
                 @click="handlePickResult(result)"
               >
-                <div class="sw-poster relative overflow-hidden rounded-t-[var(--radius-lg)]">
+                <div
+                  class="sw-poster relative overflow-hidden rounded-t-[var(--radius-lg)]"
+                >
                   <img
                     v-if="result.poster_path"
                     :src="String(result.poster_path)"
@@ -196,7 +220,10 @@
                   >
                     {{ resultTitle(result) }}
                   </h4>
-                  <div v-if="resultYear(result)" class="text-[10px] yb-dim mb-2">
+                  <div
+                    v-if="resultYear(result)"
+                    class="text-[10px] yb-dim mb-2"
+                  >
                     {{ resultYear(result) }}
                   </div>
                   <button
@@ -212,7 +239,9 @@
             <div
               v-if="actionMsg"
               class="mt-3 text-[11px] font-mono"
-              :style="{ color: actionMsgIsError ? 'var(--danger)' : 'var(--success)' }"
+              :style="{
+                color: actionMsgIsError ? 'var(--danger)' : 'var(--success)',
+              }"
             >
               {{ actionMsg }}
             </div>
@@ -237,7 +266,10 @@
           class="fixed inset-0 z-[999] bg-black/90 flex items-center justify-center"
           @click="previewImg = null"
         >
-          <img :src="previewImg" class="max-w-[90vw] max-h-[90vh] rounded-lg object-contain" />
+          <img
+            :src="previewImg"
+            class="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
+          />
         </div>
       </Teleport>
     </div>
@@ -251,7 +283,11 @@ import { type BackendMeta, backend } from '@/api/backend'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useTVScraping } from '@/views/TV/composables/use-tv-scraping'
-import { cleanSearchParams, extractAvid, stripMediaExtension } from '@/utils/avid'
+import {
+  cleanSearchParams,
+  extractAvid,
+  stripMediaExtension,
+} from '@/utils/avid'
 import type { ProcessedItem } from '@/types'
 import type { ScrapedMovie } from '@/types/scraping'
 
@@ -358,7 +394,13 @@ const hideBrokenImage = (e: Event): void => {
 }
 
 const resultTitle = (result: WorkbenchMediaResult): string =>
-  String(result.title || result.name || result.original_title || result.original_name || '')
+  String(
+    result.title ||
+      result.name ||
+      result.original_title ||
+      result.original_name ||
+      ''
+  )
 
 const resultYear = (result: WorkbenchMediaResult): string => {
   const raw = String(result.release_date || result.first_air_date || '')
@@ -473,8 +515,13 @@ const resolveBootstrapQuery = (
   const fromProp = (props.initialQuery || '').trim()
 
   if (isTV.value) {
-    const raw = fromProp || (item.type === 'folder' ? item.name : stripMediaExtension(item.name))
-    return { query: cleanSearchParams(raw) || stripMediaExtension(raw), avid: null }
+    const raw =
+      fromProp ||
+      (item.type === 'folder' ? item.name : stripMediaExtension(item.name))
+    return {
+      query: cleanSearchParams(raw) || stripMediaExtension(raw),
+      avid: null,
+    }
   }
 
   if (fromProp) {
@@ -530,7 +577,11 @@ const handleSearch = async (): Promise<void> => {
   const q = queryInput.value.trim()
   if (!q) {
     message.error(
-      isTV.value ? '请输入电视剧名称' : isJavBus.value ? '请输入番号或关键词' : '请输入电影名称'
+      isTV.value
+        ? '请输入电视剧名称'
+        : isJavBus.value
+          ? '请输入番号或关键词'
+          : '请输入电影名称'
     )
     return
   }
@@ -626,7 +677,9 @@ defineExpose({
 
 .sw-sheet {
   border-radius: var(--radius-xl);
-  box-shadow: var(--shadow-lg), 0 0 0 0.5px color-mix(in srgb, var(--border-glass-light) 80%, transparent);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 0.5px color-mix(in srgb, var(--border-glass-light) 80%, transparent);
 }
 
 .sw-header {

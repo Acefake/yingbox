@@ -18,7 +18,9 @@ const mapWithConcurrency = async <T, R>(
       output[index] = await mapper(items[index])
     }
   }
-  await Promise.all(Array.from({ length: Math.min(limit, items.length) }, worker))
+  await Promise.all(
+    Array.from({ length: Math.min(limit, items.length) }, worker)
+  )
   return output
 }
 
@@ -71,18 +73,41 @@ export const DEFAULT_SITES: ApiSite[] = (cmsSitesRaw as { sites: ApiSite[] })
 
 // 后端不可用时仍可使用的精选源；完整列表由后端内嵌的 vod.json 提供。
 const FALLBACK_CATSPIDER_SITES: CatSpiderSite[] = [
-  { name: '茶杯狐', type: 3, api: 'csp_cupfox', ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js' },
-  { name: '荐片', type: 3, api: 'csp_jianpian', ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js' },
-  { name: 'NO視頻', type: 3, api: 'csp_novipnoad', ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js' },
+  {
+    name: '茶杯狐',
+    type: 3,
+    api: 'csp_cupfox',
+    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js',
+  },
+  {
+    name: '荐片',
+    type: 3,
+    api: 'csp_jianpian',
+    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js',
+  },
+  {
+    name: 'NO視頻',
+    type: 3,
+    api: 'csp_novipnoad',
+    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js',
+  },
 ]
 
 const CATSPIDER_SELECTION_KEY = 'online_selected_catspider'
-export const CATSPIDER_SITES = ref<CatSpiderSite[]>([...FALLBACK_CATSPIDER_SITES])
+export const CATSPIDER_SITES = ref<CatSpiderSite[]>([
+  ...FALLBACK_CATSPIDER_SITES,
+])
 const selectedCatSpider = useStorage<string[]>(
   CATSPIDER_SELECTION_KEY,
   FALLBACK_CATSPIDER_SITES.map(s => s.api)
 )
-const ADULT_CATSPIDER_APIS = new Set(['csp_avtoday', 'csp_jable', 'csp_hanime', 'csp_madou', 'csp_hkdoll'])
+const ADULT_CATSPIDER_APIS = new Set([
+  'csp_avtoday',
+  'csp_jable',
+  'csp_hanime',
+  'csp_madou',
+  'csp_hkdoll',
+])
 let catSpiderLoadPromise: Promise<void> | null = null
 
 const isAdultCatSpiderSite = (site: CatSpiderSite): boolean =>
@@ -92,18 +117,25 @@ const isAdultCatSpiderSite = (site: CatSpiderSite): boolean =>
 export const loadCatSpiderSites = (): Promise<void> => {
   if (catSpiderLoadPromise) return catSpiderLoadPromise
 
-  catSpiderLoadPromise = axios.get(`${getBase()}/api/vod/sites`, {
-    timeout: 10000,
-    headers: getBackendAuthHeaders(),
-  })
+  catSpiderLoadPromise = axios
+    .get(`${getBase()}/api/vod/sites`, {
+      timeout: 10000,
+      headers: getBackendAuthHeaders(),
+    })
     .then(response => {
       const sites = response.data?.config?.sites
       if (!Array.isArray(sites)) return
-      const supportedSites = sites.filter((site: unknown): site is CatSpiderSite => {
-        const candidate = site as Partial<CatSpiderSite>
-        return candidate.type === 3 && typeof candidate.name === 'string' &&
-          typeof candidate.api === 'string' && typeof candidate.ext === 'string'
-      })
+      const supportedSites = sites.filter(
+        (site: unknown): site is CatSpiderSite => {
+          const candidate = site as Partial<CatSpiderSite>
+          return (
+            candidate.type === 3 &&
+            typeof candidate.name === 'string' &&
+            typeof candidate.api === 'string' &&
+            typeof candidate.ext === 'string'
+          )
+        }
+      )
       if (!supportedSites.length) return
 
       CATSPIDER_SITES.value = supportedSites
@@ -113,13 +145,21 @@ export const loadCatSpiderSites = (): Promise<void> => {
         .filter(site => !isAdultCatSpiderSite(site))
         .map(site => site.api)
       const storedSelection = selectedCatSpider.value
-      const isLegacyFallback = storedSelection.length === FALLBACK_CATSPIDER_SITES.length &&
-        FALLBACK_CATSPIDER_SITES.every(site => storedSelection.includes(site.api))
-      if (localStorage.getItem(CATSPIDER_SELECTION_KEY) === null || isLegacyFallback) {
+      const isLegacyFallback =
+        storedSelection.length === FALLBACK_CATSPIDER_SITES.length &&
+        FALLBACK_CATSPIDER_SITES.every(site =>
+          storedSelection.includes(site.api)
+        )
+      if (
+        localStorage.getItem(CATSPIDER_SELECTION_KEY) === null ||
+        isLegacyFallback
+      ) {
         selectedCatSpider.value = configuredApis
       } else {
         // 清理已从后端配置移除的旧 api，同时保留用户新增的有效选择。
-        selectedCatSpider.value = storedSelection.filter(api => supportedSites.some(site => site.api === api))
+        selectedCatSpider.value = storedSelection.filter(api =>
+          supportedSites.some(site => site.api === api)
+        )
       }
     })
     .catch(() => {
@@ -147,7 +187,11 @@ const getVodList = (payload: unknown): any[] => {
   const data = normalizeVodPayload(payload)
   if (!data) return []
   const nested = normalizeVodPayload(data.data)
-  return Array.isArray(data.list) ? data.list : Array.isArray(nested?.list) ? nested.list : []
+  return Array.isArray(data.list)
+    ? data.list
+    : Array.isArray(nested?.list)
+      ? nested.list
+      : []
 }
 
 // ── 模块级单例：useStorage 自动持久化到 localStorage ──────────
@@ -158,13 +202,20 @@ const selectedApis = useStorage<string[]>(
 )
 // 旧版内置源改为资源站标准名称/地址后，迁移用户之前保存的启用状态。
 const CMS_API_MIGRATIONS: Record<string, string> = {
-  'https://hhzyapi.com/api.php/provide/vod': 'https://haohuazy.com/api.php/provide/vod/',
-  'https://www.hongniuzy2.com/api.php/provide/vod': 'http://hongniuzy2.com/api.php/provide/vod/',
-  'https://www.huyaapi.com/api.php/provide/vod': 'https://huyazy.net/api.php/provide/vod/',
-  'https://api.guangsuapi.com/api.php/provide/vod': 'https://api.guangsuapi.com/api.php/provide/vod/',
-  'https://api.wujinzy.com/api.php/provide/vod': 'https://api.wujinapi.me/api.php/provide/vod/',
+  'https://hhzyapi.com/api.php/provide/vod':
+    'https://haohuazy.com/api.php/provide/vod/',
+  'https://www.hongniuzy2.com/api.php/provide/vod':
+    'http://hongniuzy2.com/api.php/provide/vod/',
+  'https://www.huyaapi.com/api.php/provide/vod':
+    'https://huyazy.net/api.php/provide/vod/',
+  'https://api.guangsuapi.com/api.php/provide/vod':
+    'https://api.guangsuapi.com/api.php/provide/vod/',
+  'https://api.wujinzy.com/api.php/provide/vod':
+    'https://api.wujinapi.me/api.php/provide/vod/',
 }
-selectedApis.value = Array.from(new Set(selectedApis.value.map(api => CMS_API_MIGRATIONS[api] || api)))
+selectedApis.value = Array.from(
+  new Set(selectedApis.value.map(api => CMS_API_MIGRATIONS[api] || api))
+)
 // customSites: 自定义站点列表
 const customSites = useStorage<ApiSite[]>('online_custom_sites', [])
 
@@ -187,7 +238,11 @@ export function useOnlineSearch() {
   const { search: vodSearch, getTracks, getPlayinfo } = useVODParser()
   let generation = 0
   let searchController: AbortController | null = null
-  if (getCurrentScope()) onScopeDispose(() => { generation++; searchController?.abort() })
+  if (getCurrentScope())
+    onScopeDispose(() => {
+      generation++
+      searchController?.abort()
+    })
 
   const activeSites = (): ApiSite[] => {
     const all = [...DEFAULT_SITES, ...customSites.value]
@@ -196,15 +251,16 @@ export function useOnlineSearch() {
 
   const activeCatSpiderSites = (): CatSpiderSite[] => {
     const adultMode = localStorage.getItem('adultMode') === '1'
-    return CATSPIDER_SITES.value.filter(site =>
-      selectedCatSpider.value.includes(site.api) &&
-      (adultMode || !isAdultCatSpiderSite(site))
+    return CATSPIDER_SITES.value.filter(
+      site =>
+        selectedCatSpider.value.includes(site.api) &&
+        (adultMode || !isAdultCatSpiderSite(site))
     )
   }
 
   const search = async (
     kw?: string,
-    options: { allVod?: boolean; onItems?: (items: CmsItem[]) => void } = {},
+    options: { allVod?: boolean; onItems?: (items: CmsItem[]) => void } = {}
   ): Promise<void> => {
     const q = (kw ?? keyword.value).trim()
     if (!q) return
@@ -226,71 +282,77 @@ export function useOnlineSearch() {
     // 搜索页可能是应用启动后的第一个入口，必须先加载完整 VOD 配置，
     // 否则只会使用 3 个 fallback 源，表现为“详情只有荐片”。
     try {
-    await loadCatSpiderSites()
-    if (!current()) return
+      await loadCatSpiderSites()
+      if (!current()) return
 
-    // ── CMS sites search ──────────────────────────────
-    const cmsSites = activeSites()
-    const cmsTasks = mapWithConcurrency(cmsSites, 6, async site => {
-      if (!current()) return []
-      try {
-        const url = new URL(site.api)
-        url.searchParams.set('ac', 'videolist')
-        url.searchParams.set('wd', q)
-        const data = await axios.get(String(url), { timeout: 10000, signal: controller.signal }).then(r => r.data)
-        if (!Array.isArray(data?.list)) return []
-        const items = (data.list as CmsItem[]).map(item => ({
-          ...item,
-          source_name: site.name,
-          api_url: site.api,
-          _source: 'cms' as const,
-        }))
-        publish(items)
-        return items
-      } catch {
-        return []
-      }
-    })
+      // ── CMS sites search ──────────────────────────────
+      const cmsSites = activeSites()
+      const cmsTasks = mapWithConcurrency(cmsSites, 6, async site => {
+        if (!current()) return []
+        try {
+          const url = new URL(site.api)
+          url.searchParams.set('ac', 'videolist')
+          url.searchParams.set('wd', q)
+          const data = await axios
+            .get(String(url), { timeout: 10000, signal: controller.signal })
+            .then(r => r.data)
+          if (!Array.isArray(data?.list)) return []
+          const items = (data.list as CmsItem[]).map(item => ({
+            ...item,
+            source_name: site.name,
+            api_url: site.api,
+            _source: 'cms' as const,
+          }))
+          publish(items)
+          return items
+        } catch {
+          return []
+        }
+      })
 
-    // ── CatSpider sites search ────────────────────────
-    // 详情页需要跨源聚合，即使用户在搜索页只勾选了少数源，也要尝试全部非成人 VOD 源。
-    const csSites = options.allVod
-      ? CATSPIDER_SITES.value.filter(site => !isAdultCatSpiderSite(site))
-      : activeCatSpiderSites()
-    const csTasks = mapWithConcurrency(csSites, 4, async site => {
-      if (!current()) return []
-      try {
-        const r = await vodSearch({ siteName: site.name, keyword: q }, controller.signal)
-        if (!r.success || !r.data) return []
-        const list = getVodList(r.data)
-        const items = (list as any[]).map(item => ({
-          vod_id: item.vod_id || item.ext?.url || '',
-          vod_name: item.vod_name || '',
-          type_name: item.type_name || '',
-          vod_year: item.vod_year || '',
-          vod_remarks: item.vod_remarks || '',
-          vod_pic: item.vod_pic || '',
-          vod_content: item.vod_desc || item.vod_content || '',
-          source_name: site.name,
-          api_url: site.api,
-          _source: 'catspider' as const,
-          _siteName: site.name,
-          _ext: item.ext || {},
-        }))
-        publish(items)
-        return items
-      } catch {
-        return []
-      }
-    })
+      // ── CatSpider sites search ────────────────────────
+      // 详情页需要跨源聚合，即使用户在搜索页只勾选了少数源，也要尝试全部非成人 VOD 源。
+      const csSites = options.allVod
+        ? CATSPIDER_SITES.value.filter(site => !isAdultCatSpiderSite(site))
+        : activeCatSpiderSites()
+      const csTasks = mapWithConcurrency(csSites, 4, async site => {
+        if (!current()) return []
+        try {
+          const r = await vodSearch(
+            { siteName: site.name, keyword: q },
+            controller.signal
+          )
+          if (!r.success || !r.data) return []
+          const list = getVodList(r.data)
+          const items = (list as any[]).map(item => ({
+            vod_id: item.vod_id || item.ext?.url || '',
+            vod_name: item.vod_name || '',
+            type_name: item.type_name || '',
+            vod_year: item.vod_year || '',
+            vod_remarks: item.vod_remarks || '',
+            vod_pic: item.vod_pic || '',
+            vod_content: item.vod_desc || item.vod_content || '',
+            source_name: site.name,
+            api_url: site.api,
+            _source: 'catspider' as const,
+            _siteName: site.name,
+            _ext: item.ext || {},
+          }))
+          publish(items)
+          return items
+        } catch {
+          return []
+        }
+      })
 
-    const [cmsResults, csResults] = await Promise.all([cmsTasks, csTasks])
-    const allResults = [...cmsResults.flat(), ...csResults.flat()]
+      const [cmsResults, csResults] = await Promise.all([cmsTasks, csTasks])
+      const allResults = [...cmsResults.flat(), ...csResults.flat()]
 
-    // 直接返回所有结果，不去重合并
-    if (current()) results.value = allResults
+      // 直接返回所有结果，不去重合并
+      if (current()) results.value = allResults
     } catch (cause) {
-      if (current()) error.value = cause instanceof Error ? cause.message : '搜索失败'
+      if (current())
+        error.value = cause instanceof Error ? cause.message : '搜索失败'
     } finally {
       if (requestId === generation) loading.value = false
     }
@@ -323,7 +385,13 @@ export function useOnlineSearch() {
         // 很多站点返回的是无扩展名的播放接口或带签名参数的地址，
         // 不能只靠 .m3u8/.mp4 后缀判断是否可播放。
         const hasDirect = episodes.some(e => /^https?:\/\//i.test(e.url))
-        return { label, episodes, hasDirect, _source: 'cms' as const, _siteName: siteName }
+        return {
+          label,
+          episodes,
+          hasDirect,
+          _source: 'cms' as const,
+          _siteName: siteName,
+        }
       })
       .filter(g => g.episodes.length && g.hasDirect)
   }
@@ -334,7 +402,12 @@ export function useOnlineSearch() {
       try {
         const ext = item._ext || {}
         const url = ext.url || String(item.vod_id)
-        const r = await getTracks({ siteName: item._siteName, url, ...ext, id: ext.id ?? item.vod_id })
+        const r = await getTracks({
+          siteName: item._siteName,
+          url,
+          ...ext,
+          id: ext.id ?? item.vod_id,
+        })
         if (!r.success || !r.data) return []
         const list = getVodList(r.data)
         const groups: EpisodeGroup[] = []
@@ -357,21 +430,30 @@ export function useOnlineSearch() {
               _source: 'catspider' as const,
               _siteName: item._siteName,
             })
-          // Case B: group itself has vod_play_url (荐片 Apple CMS format)
+            // Case B: group itself has vod_play_url (荐片 Apple CMS format)
           } else if (group.vod_play_url) {
             const fromNames = (group.vod_play_from || '').split('$$$')
             const playSources = (group.vod_play_url as string).split('$$$')
             playSources.forEach((src, i) => {
-              const episodes = src.split('#').filter(Boolean).map((ep, j) => {
-                const parts = ep.split('$')
-                const epUrl = parts.length > 1 ? parts[1] : ''
-                return { name: parts[0] || `第${j + 1}集`, url: epUrl, ext: {} }
-              }).filter(e => e.url.startsWith('http'))
+              const episodes = src
+                .split('#')
+                .filter(Boolean)
+                .map((ep, j) => {
+                  const parts = ep.split('$')
+                  const epUrl = parts.length > 1 ? parts[1] : ''
+                  return {
+                    name: parts[0] || `第${j + 1}集`,
+                    url: epUrl,
+                    ext: {},
+                  }
+                })
+                .filter(e => e.url.startsWith('http'))
               if (!episodes.length) return
               const fromLabel = fromNames[i]?.trim()
-              const label = playSources.length > 1
-                ? `${item._siteName}-${fromLabel || i + 1}`
-                : (fromLabel || item._siteName!)
+              const label =
+                playSources.length > 1
+                  ? `${item._siteName}-${fromLabel || i + 1}`
+                  : fromLabel || item._siteName!
               groups.push({
                 label,
                 episodes,
@@ -380,7 +462,7 @@ export function useOnlineSearch() {
                 _siteName: item._siteName,
               })
             })
-          // Case C: group has list[] of episodes
+            // Case C: group has list[] of episodes
           } else if (Array.isArray(group.list) && group.list.length) {
             groups.push({
               label: group.name || group.title || item._siteName!,
@@ -433,7 +515,10 @@ export function useOnlineSearch() {
   /** Resolve a CatSpider episode URL to a playable m3u8/mp4
    *  将完整的 ext 传给后端，让插件自行提取所需参数（url/vid/pkey/ref 等）
    */
-  const resolvePlayUrl = async (siteName: string, ext: Record<string, any>): Promise<string> => {
+  const resolvePlayUrl = async (
+    siteName: string,
+    ext: Record<string, any>
+  ): Promise<string> => {
     try {
       const r = await getPlayinfo({
         siteName,

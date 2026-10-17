@@ -10,7 +10,9 @@ describe('srtToVtt', () => {
   })
 
   it('keeps multi-line bodies and drops malformed blocks', () => {
-    const vtt = srtToVtt('1\n00:00:01,000 --> 00:00:02,000\nLine A\nLine B\n\nNot a cue\n')
+    const vtt = srtToVtt(
+      '1\n00:00:01,000 --> 00:00:02,000\nLine A\nLine B\n\nNot a cue\n'
+    )
     expect(vtt).toContain('Line A\nLine B')
     expect(vtt).not.toContain('Not a cue')
   })
@@ -47,7 +49,10 @@ describe('decodeSubtitleText', () => {
   })
 
   it('decodes UTF-16LE with BOM', () => {
-    const buffer = Buffer.concat([Buffer.from([0xff, 0xfe]), Buffer.from('你好', 'utf-16le')])
+    const buffer = Buffer.concat([
+      Buffer.from([0xff, 0xfe]),
+      Buffer.from('你好', 'utf-16le'),
+    ])
     expect(decodeSubtitleText(buffer)).toBe('你好')
   })
 

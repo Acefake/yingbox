@@ -16,7 +16,10 @@ export async function readMediaDirectory(
   directory: string,
   previousIndex?: MediaPreviousIndexEntry[]
 ): Promise<FileItem[]> {
-  const result = await window.api.file.scanMediaDirectory(directory, previousIndex)
+  const result = await window.api.file.scanMediaDirectory(
+    directory,
+    previousIndex
+  )
   if (!result.success || !Array.isArray(result.data)) {
     throw new Error(result.error || '读取目录失败')
   }

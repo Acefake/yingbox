@@ -46,8 +46,13 @@
   scrollbar-color: var(--scrollbar-thumb) transparent;
 }
 
-.primary-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
-.primary-scroll::-webkit-scrollbar-track { background: transparent; }
+.primary-scroll::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+.primary-scroll::-webkit-scrollbar-track {
+  background: transparent;
+}
 .primary-scroll::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
   border-radius: 999px;
@@ -60,14 +65,16 @@
 .glass-panel {
   background: var(--bg-panel);
   backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-panel))
+    saturate(var(--saturate-vibrancy));
   border: 1px solid var(--border-glass);
 }
 
 .glass-panel-floating {
   background: var(--bg-panel);
   backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-panel))
+    saturate(var(--saturate-vibrancy));
   border: 1px solid var(--border-glass-light);
   box-shadow: var(--shadow-panel);
 }
@@ -115,7 +122,14 @@ button,
   touch-action: manipulation;
 }
 
-:where(button, input, select, textarea, [role='button'], [tabindex]):focus-visible {
+:where(
+  button,
+  input,
+  select,
+  textarea,
+  [role='button'],
+  [tabindex]
+):focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);
 }
@@ -126,9 +140,15 @@ button:disabled,
 }
 
 /* Keep dense metadata legible across pages that still use legacy utility sizes. */
-[class~='text-[9px]'] { font-size: 11px !important; }
-[class~='text-[10px]'] { font-size: var(--text-xs) !important; }
-[class~='text-[11px]'] { font-size: var(--text-xs) !important; }
+[class~='text-[9px]'] {
+  font-size: 11px !important;
+}
+[class~='text-[10px]'] {
+  font-size: var(--text-xs) !important;
+}
+[class~='text-[11px]'] {
+  font-size: var(--text-xs) !important;
+}
 
 /* Shared icon optical box — prefer AppIcon; use for leftover inline SVGs */
 .ui-icon {

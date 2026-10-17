@@ -21,7 +21,9 @@ export function startBackend(options: {
   console.log('[Go] isDev:', isDev, 'resourcesPath:', process.resourcesPath)
 
   if (isDev) {
-    console.log('[Go] Development mode: backend should be started by pnpm dev:backend')
+    console.log(
+      '[Go] Development mode: backend should be started by pnpm dev:backend'
+    )
     return
   }
 
@@ -49,7 +51,12 @@ export function startBackend(options: {
     }
 
     try {
-      goProc = spawn(goExe, [], { cwd: goCwd, env, shell: false, windowsHide: true })
+      goProc = spawn(goExe, [], {
+        cwd: goCwd,
+        env,
+        shell: false,
+        windowsHide: true,
+      })
       goProc.stdout?.on('data', (d: Buffer) =>
         console.log('[Go stdout]', d.toString().trim())
       )
@@ -91,9 +98,13 @@ export function startBackend(options: {
       app.quit()
     }
     if (process.platform === 'win32' && child.pid) {
-      const killer = spawn('taskkill', ['/PID', String(child.pid), '/T', '/F'], {
-        windowsHide: true,
-      })
+      const killer = spawn(
+        'taskkill',
+        ['/PID', String(child.pid), '/T', '/F'],
+        {
+          windowsHide: true,
+        }
+      )
       killer.once('error', () => {
         child.kill()
         finish()

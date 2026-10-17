@@ -49,9 +49,13 @@ const ORDINARY_CMS_APIS = new Set([
   'https://www.huyaapi.com/api.php/provide/vod',
   'https://api.wujinzy.com/api.php/provide/vod',
 ])
-const ordinaryRemote = remoteAvSources.value.filter(source => ORDINARY_CMS_APIS.has(source.api))
+const ordinaryRemote = remoteAvSources.value.filter(source =>
+  ORDINARY_CMS_APIS.has(source.api)
+)
 if (ordinaryRemote.length) {
-  remoteAvSources.value = remoteAvSources.value.filter(source => !ORDINARY_CMS_APIS.has(source.api))
+  remoteAvSources.value = remoteAvSources.value.filter(
+    source => !ORDINARY_CMS_APIS.has(source.api)
+  )
 }
 
 // 持久化启用的站点列表（默认全部启用）
@@ -60,7 +64,9 @@ const enabledApiList = useStorage<string[]>(
   AV_SOURCES.map(s => s.api)
 )
 if (ordinaryRemote.length) {
-  enabledApiList.value = enabledApiList.value.filter(api => !ORDINARY_CMS_APIS.has(api))
+  enabledApiList.value = enabledApiList.value.filter(
+    api => !ORDINARY_CMS_APIS.has(api)
+  )
 }
 
 export function useAvSources() {
@@ -76,13 +82,17 @@ export function useAvSources() {
 
   // 响应式的启用站点列表
   const activeSources = computed(() =>
-    [...AV_SOURCES, ...remoteAvSources.value].filter(s => enabledApiList.value.includes(s.api))
+    [...AV_SOURCES, ...remoteAvSources.value].filter(s =>
+      enabledApiList.value.includes(s.api)
+    )
   )
 
   const allSources = computed(() => [...AV_SOURCES, ...remoteAvSources.value])
   const addSources = (sources: AvSite[]) => {
     const known = new Set(allSources.value.map(source => source.api))
-    const additions = sources.filter(source => source.api && !known.has(source.api))
+    const additions = sources.filter(
+      source => source.api && !known.has(source.api)
+    )
     if (additions.length) {
       remoteAvSources.value = [...remoteAvSources.value, ...additions]
       additions.forEach(source => enabledApiList.value.push(source.api))
@@ -93,5 +103,11 @@ export function useAvSources() {
   // 获取当前启用的站点（非响应式快照，兼容旧调用）
   const getActiveSources = (): AvSite[] => activeSources.value
 
-  return { enabledApis, getActiveSources, activeSources, allSources, addSources }
+  return {
+    enabledApis,
+    getActiveSources,
+    activeSources,
+    allSources,
+    addSources,
+  }
 }

@@ -51,7 +51,10 @@ export function useVODParser() {
   const error = ref<string | null>(null)
 
   let activeRequests = 0
-  const _call = async (body: object, signal?: AbortSignal): Promise<VODParseResponse> => {
+  const _call = async (
+    body: object,
+    signal?: AbortSignal
+  ): Promise<VODParseResponse> => {
     activeRequests++
     loading.value = true
     error.value = null
@@ -59,17 +62,24 @@ export function useVODParser() {
     const abort = () => controller.abort()
     signal?.addEventListener('abort', abort, { once: true })
     if (signal?.aborted) abort()
-    const timeoutId = window.setTimeout(() => controller.abort(), REQUEST_TIMEOUT_MS)
+    const timeoutId = window.setTimeout(
+      () => controller.abort(),
+      REQUEST_TIMEOUT_MS
+    )
     try {
       const response = await fetch(`${getBase()}/api/vod/parse`, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json', ...getBackendAuthHeaders() },
+        headers: {
+          'Content-Type': 'application/json',
+          ...getBackendAuthHeaders(),
+        },
         body: JSON.stringify(body),
         signal: controller.signal,
       })
       if (!response.ok) throw new Error(`HTTP ${response.status}`)
       const result = await response.json()
-      if (!result || typeof result.success !== 'boolean') throw new Error('后端返回格式错误')
+      if (!result || typeof result.success !== 'boolean')
+        throw new Error('后端返回格式错误')
       return result as VODParseResponse
     } catch (e) {
       const err = e as Error
@@ -88,8 +98,10 @@ export function useVODParser() {
   const parseVOD = async (req: VODParseRequest): Promise<VODParseResponse> =>
     _call({ action: 'parse', ...req })
 
-  const search = async (req: VODSearchRequest, signal?: AbortSignal): Promise<VODParseResponse> =>
-    _call({ action: 'search', ...req }, signal)
+  const search = async (
+    req: VODSearchRequest,
+    signal?: AbortSignal
+  ): Promise<VODParseResponse> => _call({ action: 'search', ...req }, signal)
 
   const getCards = async (req: VODCardsRequest): Promise<VODParseResponse> =>
     _call({ action: 'getCards', ...req })

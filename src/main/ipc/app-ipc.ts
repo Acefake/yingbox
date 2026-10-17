@@ -16,7 +16,9 @@ export function checkForUpdatesOnStartup(): void {
 }
 
 /** 窗口控制、应用信息、自动更新 */
-export function registerAppIpc(getMainWindow: () => BrowserWindow | null): void {
+export function registerAppIpc(
+  getMainWindow: () => BrowserWindow | null
+): void {
   ipcMain.handle('win:minimize', event => {
     BrowserWindow.fromWebContents(event.sender)?.minimize()
   })
@@ -41,7 +43,9 @@ export function registerAppIpc(getMainWindow: () => BrowserWindow | null): void 
   ipcMain.handle('app:getVersion', async () => {
     try {
       const packageJsonPath = path.join(__dirname, '../../package.json')
-      const packageJson = JSON.parse(await fs.readFile(packageJsonPath, 'utf-8'))
+      const packageJson = JSON.parse(
+        await fs.readFile(packageJsonPath, 'utf-8')
+      )
       return {
         success: true,
         data: {
@@ -83,14 +87,22 @@ export function registerAppIpc(getMainWindow: () => BrowserWindow | null): void 
     getMainWindow()?.webContents.send('update:status', status)
   }
 
-  autoUpdater.on('checking-for-update', () => sendStatus({ status: 'checking' }))
-  autoUpdater.on('update-available', info => sendStatus({ status: 'available', info }))
+  autoUpdater.on('checking-for-update', () =>
+    sendStatus({ status: 'checking' })
+  )
+  autoUpdater.on('update-available', info =>
+    sendStatus({ status: 'available', info })
+  )
   autoUpdater.on('update-not-available', info =>
     sendStatus({ status: 'not-available', info })
   )
   autoUpdater.on('download-progress', progress =>
     sendStatus({ status: 'downloading', progress })
   )
-  autoUpdater.on('update-downloaded', info => sendStatus({ status: 'downloaded', info }))
-  autoUpdater.on('error', error => sendStatus({ status: 'error', error: error.message }))
+  autoUpdater.on('update-downloaded', info =>
+    sendStatus({ status: 'downloaded', info })
+  )
+  autoUpdater.on('error', error =>
+    sendStatus({ status: 'error', error: error.message })
+  )
 }

@@ -33,16 +33,12 @@
             {{ seasonDisplayTitle }}
           </h1>
           <div class="tv-meta-row">
-            <span
-              v-if="currentSeasonMeta?.air_date"
-              class="yb-chip"
-            >{{ currentSeasonMeta.air_date.substring(0, 4) }}</span>
+            <span v-if="currentSeasonMeta?.air_date" class="yb-chip">{{
+              currentSeasonMeta.air_date.substring(0, 4)
+            }}</span>
             <span class="yb-chip">{{ episodeList.length }} 集</span>
           </div>
-          <p
-            v-if="currentSeasonMeta?.overview"
-            class="tv-overview"
-          >
+          <p v-if="currentSeasonMeta?.overview" class="tv-overview">
             {{ currentSeasonMeta.overview }}
           </p>
           <div class="yb-media-toolbar tv-actions">
@@ -64,12 +60,10 @@
           <span class="ml-1 yb-dim">{{ episodeList.length }}</span>
         </h2>
         <div class="space-y-2">
-          <div
-            v-for="ep in episodeList"
-            :key="ep.path"
-            class="tv-ep-row"
-          >
-            <div class="w-28 h-16 rounded-lg overflow-hidden flex-shrink-0 tv-thumb">
+          <div v-for="ep in episodeList" :key="ep.path" class="tv-ep-row">
+            <div
+              class="w-28 h-16 rounded-lg overflow-hidden flex-shrink-0 tv-thumb"
+            >
               <img
                 v-if="episodeThumbs?.[ep.path]"
                 :src="episodeThumbs[ep.path]"
@@ -84,20 +78,14 @@
               </div>
             </div>
             <div class="flex-1 min-w-0">
-              <div
-                class="text-[13px] tv-ep-name truncate"
-                :title="ep.name"
-              >
+              <div class="text-[13px] tv-ep-name truncate" :title="ep.name">
                 {{ episodeDisplayLabel(ep) }}
               </div>
               <div class="text-[10px] yb-dim mt-0.5">
                 第 {{ ep.episodeNumber ?? '?' }} 集
               </div>
             </div>
-            <span
-              v-if="ep.hasNfo"
-              class="tv-nfo-badge"
-            >NFO</span>
+            <span v-if="ep.hasNfo" class="tv-nfo-badge">NFO</span>
             <button
               class="tv-scrape-btn"
               type="button"
@@ -200,22 +188,21 @@
                 <span class="font-semibold tv-ep-name text-sm">{{
                   season.name
                 }}</span>
-                <span
-                  v-if="season.season_number === 0"
-                  class="tv-special-badge"
-                >特辑</span>
+                <span v-if="season.season_number === 0" class="tv-special-badge"
+                  >特辑</span
+                >
               </div>
               <div class="flex items-center gap-3 text-[11px] yb-muted mb-2">
-                <span
-                  v-if="season.air_date"
-                  class="yb-chip"
-                >{{ season.air_date.substring(0, 4) }}</span>
+                <span v-if="season.air_date" class="yb-chip">{{
+                  season.air_date.substring(0, 4)
+                }}</span>
                 <span class="yb-chip"
-                >{{
+                  >{{
                     season.episode_count ??
                     getLocalEpisodeCount(season.season_number)
                   }}
-                  集</span>
+                  集</span
+                >
               </div>
               <p
                 v-if="season.overview"
@@ -306,7 +293,7 @@ const showDisplayTitle = computed(() => {
 
 const episodeCode = (n?: number | null): string => {
   if (n == null) return '??'
-  return `E${  String(n).padStart(2, '0')}`
+  return `E${String(n).padStart(2, '0')}`
 }
 
 /** 集显示：有元数据标题则 E01 · title；否则去扩展名的文件名 */
@@ -361,7 +348,9 @@ const handleImageError = (event: Event): void => {
 </script>
 
 <style scoped>
-.tv-rp { color: var(--text-primary); }
+.tv-rp {
+  color: var(--text-primary);
+}
 .tv-header {
   display: flex;
   align-items: flex-start;
@@ -428,8 +417,12 @@ const handleImageError = (event: Event): void => {
   color: var(--text-secondary);
   line-height: 1.55;
 }
-.tv-info-wrap { margin-bottom: var(--space-1); }
-.tv-actions { margin-top: var(--space-1); }
+.tv-info-wrap {
+  margin-bottom: var(--space-1);
+}
+.tv-actions {
+  margin-top: var(--space-1);
+}
 .tv-section {
   background: var(--bg-elevated);
   border: 1px solid var(--border-subtle);
@@ -453,12 +446,17 @@ const handleImageError = (event: Event): void => {
   background: var(--bg-fill-secondary);
   border-color: var(--border-subtle);
 }
-.tv-ep-row:active { transform: scale(0.99); }
+.tv-ep-row:active {
+  transform: scale(0.99);
+}
 .tv-thumb {
   background: var(--bg-fill-secondary);
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
-.tv-ep-name { color: var(--text-primary); font-weight: 500; }
+.tv-ep-name {
+  color: var(--text-primary);
+  font-weight: 500;
+}
 .tv-nfo-badge {
   font-size: 10px;
   padding: 2px 6px;
@@ -484,7 +482,9 @@ const handleImageError = (event: Event): void => {
 .tv-scrape-btn:hover {
   background: color-mix(in srgb, var(--accent) 28%, transparent);
 }
-.tv-scrape-btn:active { transform: scale(0.97); }
+.tv-scrape-btn:active {
+  transform: scale(0.97);
+}
 .tv-season-card {
   display: flex;
   gap: 16px;
@@ -522,11 +522,19 @@ const handleImageError = (event: Event): void => {
   overflow: hidden;
 }
 @media (max-width: 720px) {
-  .tv-header { flex-direction: column; align-items: stretch; }
-  .tv-poster { width: 160px; margin: 0 auto; }
+  .tv-header {
+    flex-direction: column;
+    align-items: stretch;
+  }
+  .tv-poster {
+    width: 160px;
+    margin: 0 auto;
+  }
 }
 @media (prefers-reduced-motion: reduce) {
   .tv-ep-row:active,
-  .tv-scrape-btn:active { transform: none; }
+  .tv-scrape-btn:active {
+    transform: none;
+  }
 }
 </style>

@@ -28,7 +28,11 @@ import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
 import { toLocalUrl } from '@/utils/local-url'
-import { getMediaProgress, mediaProgressKey, saveMediaProgress } from '@/utils/play-progress'
+import {
+  getMediaProgress,
+  mediaProgressKey,
+  saveMediaProgress,
+} from '@/utils/play-progress'
 import { resolvePlaySource } from '@/utils/play-source'
 
 /** 单个播放条目（集 / 文件 / 备用线路） */
@@ -78,7 +82,8 @@ let loadToken = 0
 let noticeTimer: number | undefined
 
 const currentEntry = computed<Entry | null>(() => {
-  if (activeFallback.value >= 0) return fallbacks.value[activeFallback.value] || null
+  if (activeFallback.value >= 0)
+    return fallbacks.value[activeFallback.value] || null
   return playlist.value[position.value] || null
 })
 
@@ -93,7 +98,8 @@ const showNotice = (text: string): void => {
 const entryLabel = (entry: Entry | null | undefined): string => {
   const name = typeof entry?.name === 'string' ? entry.name.trim() : ''
   if (name) return name
-  if (entry?.filePath) return entry.filePath.split(/[/\\]/).pop() || defaultTitle.value
+  if (entry?.filePath)
+    return entry.filePath.split(/[/\\]/).pop() || defaultTitle.value
   return defaultTitle.value
 }
 
@@ -120,7 +126,10 @@ const onTimeUpdate = (event: Event): void => {
  * @param seeded 调用方已解析好的地址（起始集复用，避免二次解析）
  * @param seededStartAt 起始续播位置
  */
-const loadEntry = async (seeded?: string, seededStartAt?: number): Promise<void> => {
+const loadEntry = async (
+  seeded?: string,
+  seededStartAt?: number
+): Promise<void> => {
   const token = ++loadToken
   const entry = currentEntry.value
   lastTime = 0
@@ -154,7 +163,9 @@ const loadEntry = async (seeded?: string, seededStartAt?: number): Promise<void>
 
   const stored = getMediaProgress(progressKey.value)
   startAt.value =
-    typeof seededStartAt === 'number' && seededStartAt > 0 ? seededStartAt : stored
+    typeof seededStartAt === 'number' && seededStartAt > 0
+      ? seededStartAt
+      : stored
   src.value = resolved
   document.title = `影盒 - ${entryLabel(entry)}`
 }
@@ -170,7 +181,8 @@ const playNext = async (): Promise<boolean> => {
 
 const onEnded = async (event: Event): Promise<void> => {
   const el = event.target as HTMLVideoElement | null
-  const duration = el && Number.isFinite(el.duration) ? el.duration : lastDuration
+  const duration =
+    el && Number.isFinite(el.duration) ? el.duration : lastDuration
   if (progressKey.value) {
     // 已看完：清除续播点，下次从头播放
     saveMediaProgress(progressKey.value, 0, duration)
@@ -190,7 +202,9 @@ const onError = async (): Promise<void> => {
   const nextFallback = activeFallback.value + 1
   if (nextFallback < fallbacks.value.length) {
     activeFallback.value = nextFallback
-    showNotice(`播放失败，切换线路：${entryLabel(fallbacks.value[nextFallback])}`)
+    showNotice(
+      `播放失败，切换线路：${entryLabel(fallbacks.value[nextFallback])}`
+    )
     await loadEntry()
     return
   }
@@ -198,10 +212,13 @@ const onError = async (): Promise<void> => {
 }
 
 const applyPayload = (payload: PlayerPayload): void => {
-  const filePath = typeof payload.filePath === 'string' ? payload.filePath.trim() : ''
+  const filePath =
+    typeof payload.filePath === 'string' ? payload.filePath.trim() : ''
   const url = typeof payload.url === 'string' ? payload.url.trim() : ''
-  const maybeTitle = typeof payload.title === 'string' ? payload.title.trim() : ''
-  const maybePoster = typeof payload.poster === 'string' ? payload.poster.trim() : ''
+  const maybeTitle =
+    typeof payload.title === 'string' ? payload.title.trim() : ''
+  const maybePoster =
+    typeof payload.poster === 'string' ? payload.poster.trim() : ''
   const maybeStart =
     typeof payload.startAt === 'number' && Number.isFinite(payload.startAt)
       ? Math.max(0, payload.startAt)
@@ -209,21 +226,29 @@ const applyPayload = (payload: PlayerPayload): void => {
 
   defaultTitle.value = maybeTitle || '正在播放'
 
-  const incoming = Array.isArray(payload.playlist) ? payload.playlist.filter(Boolean) : []
+  const incoming = Array.isArray(payload.playlist)
+    ? payload.playlist.filter(Boolean)
+    : []
   if (incoming.length) {
     playlist.value = incoming
     const rawIndex = Number(payload.index)
     position.value =
-      Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < incoming.length ? rawIndex : 0
+      Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < incoming.length
+        ? rawIndex
+        : 0
   } else if (url || filePath) {
     // 单条目：等价于长度为 1 的队列，仍记录进度，但不触发连播
-    playlist.value = [{ ...(url ? { url } : {}), ...(filePath ? { filePath } : {}) }]
+    playlist.value = [
+      { ...(url ? { url } : {}), ...(filePath ? { filePath } : {}) },
+    ]
     position.value = 0
   } else {
     return
   }
 
-  fallbacks.value = Array.isArray(payload.fallbacks) ? payload.fallbacks.filter(Boolean) : []
+  fallbacks.value = Array.isArray(payload.fallbacks)
+    ? payload.fallbacks.filter(Boolean)
+    : []
   activeFallback.value = -1
   poster.value = maybePoster
 
@@ -232,10 +257,13 @@ const applyPayload = (payload: PlayerPayload): void => {
 }
 
 onMounted(() => {
-  const qPath = typeof route.query.filePath === 'string' ? route.query.filePath : ''
+  const qPath =
+    typeof route.query.filePath === 'string' ? route.query.filePath : ''
   const qUrl = typeof route.query.url === 'string' ? route.query.url : ''
-  const qTitle = typeof route.query.title === 'string' ? route.query.title : undefined
-  const qStartRaw = typeof route.query.startAt === 'string' ? Number(route.query.startAt) : 0
+  const qTitle =
+    typeof route.query.title === 'string' ? route.query.title : undefined
+  const qStartRaw =
+    typeof route.query.startAt === 'string' ? Number(route.query.startAt) : 0
   if (qUrl || qPath) {
     applyPayload({
       filePath: qPath,
@@ -245,11 +273,11 @@ onMounted(() => {
     })
   }
 
-  window.api?.player?.onLoad?.((payload) => {
+  window.api?.player?.onLoad?.(payload => {
     applyPayload(payload)
   })
 
-  void window.api?.player?.getPending?.().then((pending) => {
+  void window.api?.player?.getPending?.().then(pending => {
     if (pending?.url || pending?.filePath || pending?.playlist?.length) {
       applyPayload(pending)
     }

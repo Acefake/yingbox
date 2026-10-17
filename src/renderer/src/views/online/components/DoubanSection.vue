@@ -4,7 +4,11 @@
       <h2 class="yb-section-title">豆瓣热门</h2>
       <button class="yb-ghost-btn" @click="nextPage">换一批</button>
     </div>
-    <MediaFilterBar :rows="filterRows" :model-value="{ type: doubanType, tag: doubanTag }" @update:model-value="applyFilter" />
+    <MediaFilterBar
+      :rows="filterRows"
+      :model-value="{ type: doubanType, tag: doubanTag }"
+      @update:model-value="applyFilter"
+    />
 
     <div v-if="doubanLoading" class="db-loading">加载中...</div>
     <div v-else-if="doubanError" class="db-error">
@@ -30,14 +34,26 @@
               <path d="M8 5v14l11-7z" />
             </svg>
           </div>
-          <button class="favorite-btn" type="button" :class="{ active: isFavorite(item) }" :aria-label="isFavorite(item) ? '取消收藏' : '加入收藏'" @click.stop="toggleFavorite(item)">{{ isFavorite(item) ? '♥' : '♡' }}</button>
+          <button
+            class="favorite-btn"
+            type="button"
+            :class="{ active: isFavorite(item) }"
+            :aria-label="isFavorite(item) ? '取消收藏' : '加入收藏'"
+            @click.stop="toggleFavorite(item)"
+          >
+            {{ isFavorite(item) ? '♥' : '♡' }}
+          </button>
           <div class="yb-poster-badge is-rate">★ {{ item.rate }}</div>
         </div>
         <div class="yb-poster-info">
-          <div class="yb-poster-title" :title="item.title">{{ item.title }}</div>
+          <div class="yb-poster-title" :title="item.title">
+            {{ item.title }}
+          </div>
           <div class="yb-poster-meta">
             <span v-if="item.year" class="yb-poster-chip">{{ item.year }}</span>
-            <span v-if="item.type" class="yb-poster-chip is-accent">{{ item.type }}</span>
+            <span v-if="item.type" class="yb-poster-chip is-accent">{{
+              item.type
+            }}</span>
           </div>
           <div v-if="item.overview" class="yb-poster-sub">
             {{ item.overview }}
@@ -53,7 +69,9 @@ import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
-import MediaFilterBar, { type MediaFilterRow } from '@/components/MediaFilterBar.vue'
+import MediaFilterBar, {
+  type MediaFilterRow,
+} from '@/components/MediaFilterBar.vue'
 
 export interface DoubanItem {
   title: string
@@ -108,22 +126,39 @@ const doubanItems = ref<DoubanItem[]>([])
 const doubanLoading = ref(false)
 const doubanError = ref(false)
 const doubanPage = ref(0)
-const favorites = ref<DoubanItem[]>(readStoredArray<DoubanItem>('media_favorites'))
+const favorites = ref<DoubanItem[]>(
+  readStoredArray<DoubanItem>('media_favorites')
+)
 
 const currentTags = computed(() =>
   doubanType.value === 'movie' ? MOVIE_TAGS : TV_TAGS
 )
 const filterRows = computed<MediaFilterRow[]>(() => [
-  { key: 'type', label: '类型', options: [{ label: '电影', value: 'movie' }, { label: '电视剧', value: 'tv' }] },
-  { key: 'tag', label: '分类', options: currentTags.value.map(tag => ({ label: tag, value: tag })) },
+  {
+    key: 'type',
+    label: '类型',
+    options: [
+      { label: '电影', value: 'movie' },
+      { label: '电视剧', value: 'tv' },
+    ],
+  },
+  {
+    key: 'tag',
+    label: '分类',
+    options: currentTags.value.map(tag => ({ label: tag, value: tag })),
+  },
 ])
 const applyFilter = (next: Record<string, string>) => {
-  if (next.type && next.type !== doubanType.value) switchType(next.type as DoubanType)
+  if (next.type && next.type !== doubanType.value)
+    switchType(next.type as DoubanType)
   if (next.tag && next.tag !== doubanTag.value) switchTag(next.tag)
 }
-const isFavorite = (item: DoubanItem) => favorites.value.some(entry => entry.url === item.url)
+const isFavorite = (item: DoubanItem) =>
+  favorites.value.some(entry => entry.url === item.url)
 const toggleFavorite = (item: DoubanItem) => {
-  favorites.value = isFavorite(item) ? favorites.value.filter(entry => entry.url !== item.url) : [item, ...favorites.value]
+  favorites.value = isFavorite(item)
+    ? favorites.value.filter(entry => entry.url !== item.url)
+    : [item, ...favorites.value]
   saveStoredArray('media_favorites', favorites.value)
 }
 
@@ -167,7 +202,9 @@ const fetchDouban = async () => {
     const items = doubanItems.value
     const token = getTmdbAccessToken()
     if (!token) {
-      console.warn('[TMDB] 未配置 Access Token，已跳过封面补全（请在设置中填写）')
+      console.warn(
+        '[TMDB] 未配置 Access Token，已跳过封面补全（请在设置中填写）'
+      )
       return
     }
     const imgBase = 'https://images.tmdb.org/t/p/w342'
@@ -321,8 +358,12 @@ onMounted(fetchDouban)
   cursor: pointer;
   transition: var(--transition-fast);
 }
-.favorite-btn:hover { background: rgba(0, 0, 0, 0.65); }
-.favorite-btn.active { color: #fbbf24; }
+.favorite-btn:hover {
+  background: rgba(0, 0, 0, 0.65);
+}
+.favorite-btn.active {
+  color: #fbbf24;
+}
 
 .db-loading {
   text-align: center;

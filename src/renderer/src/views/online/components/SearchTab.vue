@@ -16,14 +16,22 @@
           @keydown.enter="handleSearch(kw)"
         >
           {{ kw }}
-          <button class="del-tag" :aria-label="`删除搜索记录 ${kw}`" @click.stop="removeHistory(kw)">✕</button>
+          <button
+            class="del-tag"
+            :aria-label="`删除搜索记录 ${kw}`"
+            @click.stop="removeHistory(kw)"
+          >
+            ✕
+          </button>
         </span>
       </div>
     </div>
 
     <div v-if="error" class="ui-error-state">
       <p>{{ error }}</p>
-      <button class="ui-secondary-button" @click="handleSearch()">重新搜索</button>
+      <button class="ui-secondary-button" @click="handleSearch()">
+        重新搜索
+      </button>
     </div>
 
     <div v-if="!results.length && !loading && !error" class="empty-search">
@@ -82,7 +90,8 @@
               {{ item.vod_remarks }}
             </div>
             <div v-if="item.vod_content" class="yb-poster-sub">
-              {{ item.vod_content.slice(0, 50) }}{{ item.vod_content.length > 50 ? '...' : '' }}
+              {{ item.vod_content.slice(0, 50)
+              }}{{ item.vod_content.length > 50 ? '...' : '' }}
             </div>
           </div>
         </div>
@@ -90,7 +99,11 @@
     </div>
 
     <!-- CMS 源结果 -->
-    <div v-if="cmsResults.length" class="source-section" style="margin-top: 20px">
+    <div
+      v-if="cmsResults.length"
+      class="source-section"
+      style="margin-top: 20px"
+    >
       <div class="yb-section-header">
         <h2 class="yb-section-title">CMS源</h2>
         <span class="yb-section-count">{{ cmsResults.length }}个结果</span>
@@ -130,7 +143,8 @@
               {{ item.vod_remarks }}
             </div>
             <div v-if="item.vod_content" class="yb-poster-sub">
-              {{ item.vod_content.slice(0, 50) }}{{ item.vod_content.length > 50 ? '...' : '' }}
+              {{ item.vod_content.slice(0, 50)
+              }}{{ item.vod_content.length > 50 ? '...' : '' }}
             </div>
           </div>
         </div>
@@ -154,8 +168,12 @@ const { keyword, results, loading, error, search: doSearch } = useOnlineSearch()
 const route = useRoute()
 const router = useRouter()
 
-const vodResults = computed(() => results.value.filter(item => item._source === 'catspider'))
-const cmsResults = computed(() => results.value.filter(item => item._source === 'cms' || !item._source))
+const vodResults = computed(() =>
+  results.value.filter(item => item._source === 'catspider')
+)
+const cmsResults = computed(() =>
+  results.value.filter(item => item._source === 'cms' || !item._source)
+)
 
 const HISTORY_KEY = 'online_search_history'
 const searchHistory = ref<string[]>(

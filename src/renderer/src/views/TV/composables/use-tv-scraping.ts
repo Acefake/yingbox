@@ -4,6 +4,10 @@ import { ref } from 'vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { safeFileName } from '@/utils/file-name'
 import { EpisodeInfo, ProcessedItem, SeasonInfo, TVShowInfoType } from '@/types'
+import { downloadWithRetry } from '@/services/download-service'
+import { escapeXml } from '@/utils/xml'
+import { getAllTags, getTag } from '@/services/nfo-service'
+import { readMediaDirectory } from '@/utils/media-directory'
 
 /** 模块级 NFO 内容缓存：path → content，避免重复文件读取 */
 const nfoContentCache = new Map<string, string>()
@@ -169,7 +173,6 @@ export const useTVScraping = () => {
   const getTVDetails = async (tvId: number): Promise<any | null> => {
     const loadingMessage = message.loading('正在获取电视剧详细信息...', 0)
     try {
-
       const tvDetails = await getTmdb().tvShows.details(
         tvId,
         ['credits'],
@@ -182,7 +185,9 @@ export const useTVScraping = () => {
       console.error('获取电视剧详细信息失败:', error)
       message.error('获取电视剧详细信息失败')
       return null
-    } finally { loadingMessage() }
+    } finally {
+      loadingMessage()
+    }
   }
 
   /**
@@ -334,18 +339,18 @@ export const useTVScraping = () => {
   <network>${escapeXml(tvInfo.network || '')}</network>
   <director>${escapeXml(creators)}</director>
   ${
-      tvData.credits?.cast
-        ?.slice(0, 10)
-        .map(
-          a => `
+    tvData.credits?.cast
+      ?.slice(0, 10)
+      .map(
+        a => `
     <actor>
       <name>${escapeXml(a.name)}</name>
       <role>${escapeXml(a.character || '')}</role>
       <thumb>${a.profile_path ? TMDB_IMG_URL + a.profile_path : ''}</thumb>
     </actor>`
-        )
-        .join('') || ''
-    }
+      )
+      .join('') || ''
+  }
   <poster>${tvData.poster_path ? TMDB_IMG_URL + tvData.poster_path : ''}</poster>
   <fanart>${tvData.backdrop_path ? TMDB_IMG_URL + tvData.backdrop_path : ''}</fanart>
 </tvshow>`
@@ -427,28 +432,13 @@ export const useTVScraping = () => {
   }
 
   /**
-   * 转义XML特殊字符
-   */
-  const escapeXml = (text: string): string => {
-    return text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;')
-  }
-
-  /**
    * 下载图片到本地路径
    */
   const downloadImage = async (
     url: string,
     destPath: string
   ): Promise<void> => {
-    const result = await window.api.http.download(url, destPath)
-    if (!result.success) {
-      throw new Error(`下载图片失败 [${destPath}]: ${result.error || '未知错误'}`)
-    }
+    await downloadWithRetry(url, destPath)
   }
 
   /**
@@ -544,62 +534,7 @@ export const useTVScraping = () => {
 
       // 如果没有季文件夹，先根据文件名中的季信息自动组织文件
       if (seasonFolders.length === 0) {
-        // 递归读取目录
-        const readDirectoryRecursive = async (
-          dirPath: string
-        ): Promise<any[]> => {
-          const allFiles: any[] = []
-          try {
-            const result = await window.api.file.readdir(dirPath)
-            if (!result.success || !result.data) {
-              return allFiles
-            }
-
-            const items = result.data as Array<{
-              name: string
-              isDirectory: boolean
-              isFile: boolean
-            }>
-
-            for (const item of items) {
-              const fullPath = await window.api.path.join(dirPath, item.name)
-              const statResult = await window.api.file.stat(fullPath)
-
-              if (!statResult.success || !statResult.data) {
-                continue
-              }
-
-              const stat = statResult.data as {
-                size: number
-                isDirectory: boolean
-                isFile: boolean
-              }
-
-              allFiles.push({
-                name: item.name,
-                path: fullPath,
-                size: stat.size,
-                isDirectory: stat.isDirectory,
-                isFile: stat.isFile,
-              })
-
-              if (item.isDirectory) {
-                try {
-                  const subFiles = await readDirectoryRecursive(fullPath)
-                  allFiles.push(...subFiles)
-                } catch {
-                  // 跳过无法读取的目录
-                }
-              }
-            }
-          } catch {
-            // 跳过无法读取的目录
-          }
-
-          return allFiles
-        }
-
-        const files = await readDirectoryRecursive(showPath)
+        const files = await readMediaDirectory(showPath)
 
         // 按季分组视频文件
         const seasonGroups: Record<number, any[]> = {}
@@ -645,7 +580,9 @@ export const useTVScraping = () => {
           if (!existsCheck.success || !existsCheck.exists) {
             const createResult = await window.api.file.mkdir(seasonFolderPath)
             if (!createResult.success) {
-              throw new Error(createResult.error || `创建季目录失败: ${seasonFolderName}`)
+              throw new Error(
+                createResult.error || `创建季目录失败: ${seasonFolderName}`
+              )
             }
           }
 
@@ -672,7 +609,9 @@ export const useTVScraping = () => {
                   newThumbPath
                 )
                 if (!thumbMoveResult.success) {
-                  throw new Error(thumbMoveResult.error || `移动缩略图失败: ${thumbName}`)
+                  throw new Error(
+                    thumbMoveResult.error || `移动缩略图失败: ${thumbName}`
+                  )
                 }
               }
             } else {
@@ -693,13 +632,15 @@ export const useTVScraping = () => {
           if (!seasonExists.success || !seasonExists.exists) {
             const createResult = await window.api.file.mkdir(seasonFolderPath)
             if (!createResult.success) {
-              throw new Error(createResult.error || `创建季目录失败: ${seasonFolderName}`)
+              throw new Error(
+                createResult.error || `创建季目录失败: ${seasonFolderName}`
+              )
             }
           }
         }
 
         // 重新读取目录结构以更新 in-memory 表示
-        const updatedFiles = await readDirectoryRecursive(showPath)
+        const updatedFiles = await readMediaDirectory(showPath)
 
         // 更新 item.children 以反映新的文件结构
         // 简化处理：重新构建 ProcessedItem 结构
@@ -857,7 +798,9 @@ export const useTVScraping = () => {
                 video.name = newVideoName
                 video.path = newVideoPath
               } else {
-                throw new Error(moveResult.error || `重命名视频失败: ${video.name}`)
+                throw new Error(
+                  moveResult.error || `重命名视频失败: ${video.name}`
+                )
               }
             }
 
@@ -901,30 +844,18 @@ export const useTVScraping = () => {
    * 解析 tvshow.nfo 内容，返回 TVShowInfoType
    */
   const parseTVShowNFO = (content: string): TVShowInfoType => {
-    const get = (tag: string) => {
-      const m = content.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'))
-      return m ? m[1].trim() : undefined
-    }
-    const getAll = (tag: string) => {
-      const matches =
-        content.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'gi')) || []
-      return matches
-        .map(m => m.replace(new RegExp(`</?${tag}>`, 'gi'), '').trim())
-        .filter(Boolean)
-    }
-
     return {
-      title: get('title'),
-      originaltitle: get('originaltitle'),
-      year: get('year'),
-      plot: get('plot'),
-      genre: getAll('genre'),
-      director: get('director'),
-      actor: getAll('name'),
-      rating: get('rating'),
-      premiered: get('premiered'),
-      status: get('status'),
-      network: get('network'),
+      title: getTag(content, 'title'),
+      originaltitle: getTag(content, 'originaltitle'),
+      year: getTag(content, 'year'),
+      plot: getTag(content, 'plot'),
+      genre: getAllTags(content, 'genre'),
+      director: getTag(content, 'director'),
+      actor: getAllTags(content, 'name'),
+      rating: getTag(content, 'rating'),
+      premiered: getTag(content, 'premiered'),
+      status: getTag(content, 'status'),
+      network: getTag(content, 'network'),
     }
   }
 
@@ -932,17 +863,14 @@ export const useTVScraping = () => {
    * 解析 season.nfo 内容，返回 SeasonInfo
    */
   const parseSeasonNFO = (content: string): SeasonInfo => {
-    const get = (tag: string) => {
-      const m = content.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'))
-      return m ? m[1].trim() : undefined
-    }
     return {
-      season_number: parseInt(get('seasonnumber') || '0'),
-      name: get('title'),
-      overview: get('plot'),
-      air_date: get('aired'),
-      episode_count: parseInt(get('episodecount') || '0') || undefined,
-      poster_path: get('poster'),
+      season_number: parseInt(getTag(content, 'seasonnumber') || '0'),
+      name: getTag(content, 'title'),
+      overview: getTag(content, 'plot'),
+      air_date: getTag(content, 'aired'),
+      episode_count:
+        parseInt(getTag(content, 'episodecount') || '0') || undefined,
+      poster_path: getTag(content, 'poster'),
     }
   }
 
@@ -975,9 +903,9 @@ export const useTVScraping = () => {
     const cachedSeasons = seasonsCache.get(item.path)
     const cachedSeasonPosters = seasonPostersCache.get(item.path)
     const sep = item.path.includes('\\') ? '\\' : '/'
-    const posterPath = `${item.path + sep  }poster.jpg`
-    const fanartPath = `${item.path + sep  }fanart.jpg`
-    const nfoPath = `${item.path + sep  }tvshow.nfo`
+    const posterPath = `${item.path + sep}poster.jpg`
+    const fanartPath = `${item.path + sep}fanart.jpg`
+    const nfoPath = `${item.path + sep}tvshow.nfo`
 
     // 如果所有数据都已缓存，直接返回（秒开）
     if (cachedTvInfo && cachedSeasons && cachedSeasonPosters) {
@@ -1023,11 +951,10 @@ export const useTVScraping = () => {
       await Promise.all(
         seasonFolders.map(async sf => {
           const sfSep = sf.path.includes('\\') ? '\\' : '/'
-          const nfoP = `${sf.path + sfSep  }season.nfo`
-          const posterP =
-            `${sf.path +
-            sfSep 
-            }season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
+          const nfoP = `${sf.path + sfSep}season.nfo`
+          const posterP = `${
+            sf.path + sfSep
+          }season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
 
           // 海报直接使用 local://，不再读取为 Base64。
           result.seasonPosters[sf.path] = toLocalUrl(posterP)
@@ -1084,7 +1011,7 @@ export const useTVScraping = () => {
    */
   const preloadShowImages = async (item: ProcessedItem): Promise<void> => {
     const iSep = item.path.includes('\\') ? '\\' : '/'
-    const nfoPath = `${item.path + iSep  }tvshow.nfo`
+    const nfoPath = `${item.path + iSep}tvshow.nfo`
 
     // 如果 NFO 已缓存，跳过读取
     if (!tvInfoCache.has(item.path)) {
@@ -1112,11 +1039,10 @@ export const useTVScraping = () => {
       await Promise.all(
         seasonFolders.map(async sf => {
           const sfSep2 = sf.path.includes('\\') ? '\\' : '/'
-          const nfoP = `${sf.path + sfSep2  }season.nfo`
-          const posterP =
-            `${sf.path +
-            sfSep2 
-            }season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
+          const nfoP = `${sf.path + sfSep2}season.nfo`
+          const posterP = `${
+            sf.path + sfSep2
+          }season${String(sf.seasonNumber).padStart(2, '0')}-poster.jpg`
 
           // 季海报直接 local:// URL
           loadedSeasonPosters[sf.path] = toLocalUrl(posterP)
@@ -1224,7 +1150,7 @@ export const useTVScraping = () => {
   }> => {
     const empty = { seasonPosterDataUrl: '', thumbs: {} }
     const showSep = tvShowRoot.path.includes('\\') ? '\\' : '/'
-    const nfoPath = `${tvShowRoot.path + showSep  }tvshow.nfo`
+    const nfoPath = `${tvShowRoot.path + showSep}tvshow.nfo`
 
     const nfoContent = await cachedReadText(nfoPath).catch(() => '')
     const tmdbIdMatch = nfoContent.match(/<tmdbid>(\d+)<\/tmdbid>/i)
@@ -1248,7 +1174,7 @@ export const useTVScraping = () => {
 
       // 3. 写 season.nfo
       const seasonNfo = generateSeasonNFO(tvDetails, seasonData)
-      await writeTextFile(`${seasonFolder.path + sep  }season.nfo`, seasonNfo)
+      await writeTextFile(`${seasonFolder.path + sep}season.nfo`, seasonNfo)
 
       // 4. 下载季海报
       const seasonPosterFile = `season${String(sNum).padStart(2, '0')}-poster.jpg`
@@ -1308,7 +1234,7 @@ export const useTVScraping = () => {
         )
 
         // 下载缩略图并读为 data URL
-        const thumbPath = `${seasonFolder.path + sep  }${newBaseName}-thumb.jpg`
+        const thumbPath = `${seasonFolder.path + sep}${newBaseName}-thumb.jpg`
         if (epData.still_path) {
           await downloadImage(`${TMDB_IMG_URL}${epData.still_path}`, thumbPath)
           const thumbResult = await window.api.file
@@ -1357,10 +1283,9 @@ export const useTVScraping = () => {
     const sep = seasonFolder.path.includes('\\') ? '\\' : '/'
 
     // 1. 读取 tvshow.nfo 拿到 tmdbid
-    const nfoPath =
-      `${tvShowRoot.path +
-      (tvShowRoot.path.includes('\\') ? '\\' : '/') 
-      }tvshow.nfo`
+    const nfoPath = `${
+      tvShowRoot.path + (tvShowRoot.path.includes('\\') ? '\\' : '/')
+    }tvshow.nfo`
     const nfoContent = await cachedReadText(nfoPath).catch(() => '')
     const tmdbIdMatch = nfoContent.match(/<tmdbid>(\d+)<\/tmdbid>/i)
     if (!tmdbIdMatch) {
@@ -1418,7 +1343,9 @@ export const useTVScraping = () => {
           videoItem.name = newVideoName
           videoItem.path = newVideoPath
         } else {
-          throw new Error(moveResult.error || `重命名视频失败: ${videoItem.name}`)
+          throw new Error(
+            moveResult.error || `重命名视频失败: ${videoItem.name}`
+          )
         }
       }
 
@@ -1430,7 +1357,7 @@ export const useTVScraping = () => {
       )
 
       // 7. 下载缩略图
-      const thumbPath = `${seasonFolder.path + sep  }${newBaseName}-thumb.jpg`
+      const thumbPath = `${seasonFolder.path + sep}${newBaseName}-thumb.jpg`
       if (epData.still_path) {
         await downloadImage(`${TMDB_IMG_URL}${epData.still_path}`, thumbPath)
       }

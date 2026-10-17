@@ -40,8 +40,8 @@ const stop = () => {
 process.on('SIGINT', stop)
 process.on('SIGTERM', stop)
 
-child.on('error', (err) => {
+child.on('error', err => {
   console.error('[dev:backend]', err)
   process.exit(1)
 })
-child.on('exit', (code) => process.exit(code ?? 0))
+child.on('exit', code => process.exit(code ?? 0))

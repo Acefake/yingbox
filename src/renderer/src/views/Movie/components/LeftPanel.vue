@@ -40,13 +40,17 @@
         >
           {{ dirLoading ? '刷新中…' : '刷新' }}
         </button>
-        <span v-if="processedItems.length" class="lp-count">{{ processedItems.length }} 项</span>
+        <span v-if="processedItems.length" class="lp-count"
+          >{{ processedItems.length }} 项</span
+        >
       </div>
 
       <!-- Directory chips -->
       <div v-if="directoryPaths?.length" class="lp-dirs">
         <div v-for="(dir, i) in directoryPaths" :key="dir" class="lp-dir group">
-          <span class="lp-dir-name" :title="dir">{{ dir.split(/[/\\]/).pop() }}</span>
+          <span class="lp-dir-name" :title="dir">{{
+            dir.split(/[/\\]/).pop()
+          }}</span>
           <button
             class="lp-dir-remove"
             :aria-label="`移除目录 ${dir}`"
@@ -144,10 +148,14 @@ const searchQuery = ref('')
 const adultMode = ref(localStorage.getItem('adultMode') === '1')
 watch(
   () => route.query.q,
-  query => { searchQuery.value = typeof query === 'string' ? query : '' },
+  query => {
+    searchQuery.value = typeof query === 'string' ? query : ''
+  },
   { immediate: true }
 )
-const syncAdultMode = () => { adultMode.value = localStorage.getItem('adultMode') === '1' }
+const syncAdultMode = () => {
+  adultMode.value = localStorage.getItem('adultMode') === '1'
+}
 const onAdultModeChange = () => syncAdultMode()
 const onStorageChange = (event: StorageEvent) => {
   if (event.key === 'adultMode') syncAdultMode()
@@ -239,7 +247,8 @@ const movieListTopPadding = computed(
 )
 const movieListBottomPadding = computed(
   () =>
-    (visibleMovieRange.value.total - visibleMovieRange.value.end) * movieRowHeight
+    (visibleMovieRange.value.total - visibleMovieRange.value.end) *
+    movieRowHeight
 )
 
 const handleListScroll = (event: Event): void => {
@@ -277,7 +286,10 @@ const unscrapedCount = computed(() => {
   let count = 0
   for (let i = 0; i < items.length; i++) {
     const item = items[i]
-    if (!item.files || !item.files.some(f => f.name.toLowerCase().endsWith('.nfo'))) {
+    if (
+      !item.files ||
+      !item.files.some(f => f.name.toLowerCase().endsWith('.nfo'))
+    ) {
       count++
     }
   }
@@ -407,7 +419,8 @@ const unscrapedCount = computed(() => {
   cursor: pointer;
   transition: var(--transition-fast);
   text-align: left;
-  box-shadow: inset 0 0 0 0.5px color-mix(in srgb, var(--accent) 12%, transparent);
+  box-shadow: inset 0 0 0 0.5px
+    color-mix(in srgb, var(--accent) 12%, transparent);
 }
 
 .lp-scrape-all-label {
@@ -490,12 +503,19 @@ const unscrapedCount = computed(() => {
 }
 
 @keyframes lp-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 @keyframes lp-pulse {
-  0%, 100% { opacity: 0.55; }
-  50% { opacity: 1; }
+  0%,
+  100% {
+    opacity: 0.55;
+  }
+  50% {
+    opacity: 1;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

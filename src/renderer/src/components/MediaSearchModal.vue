@@ -70,7 +70,8 @@
 
           <div class="p-3">
             <h4
-              class="font-medium text-sm mb-1 line-clamp-2 leading-snug" style="color: var(--text-primary)"
+              class="font-medium text-sm mb-1 line-clamp-2 leading-snug"
+              style="color: var(--text-primary)"
             >
               {{ getTitle(item) }}
             </h4>

@@ -34,7 +34,6 @@ const api = {
     read: (filePath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:read', filePath),
 
-
     // Write content to file
     write: (filePath: string, content: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:write', filePath, content),
@@ -77,7 +76,11 @@ const api = {
       ipcRenderer.invoke('file:copy', srcPath, destPath),
 
     // Move file
-    move: (srcPath: string, destPath: string, options?: { replace?: boolean }): Promise<FileOperationResult> =>
+    move: (
+      srcPath: string,
+      destPath: string,
+      options?: { replace?: boolean }
+    ): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:move', srcPath, destPath, options),
 
     // Read image as data URL
@@ -171,7 +174,8 @@ const api = {
       ipcRenderer.invoke('config:setDownloadPath', path),
   },
   app: {
-    getUserDataPath: (): Promise<string> => ipcRenderer.invoke('app:getUserDataPath'),
+    getUserDataPath: (): Promise<string> =>
+      ipcRenderer.invoke('app:getUserDataPath'),
     // Get app version info from package.json
     getVersion: (): Promise<FileOperationResult> =>
       ipcRenderer.invoke('app:getVersion'),
@@ -212,9 +216,13 @@ const api = {
       ipcRenderer.invoke('player:open', payload),
     close: (): Promise<{ success: boolean }> =>
       ipcRenderer.invoke('player:close'),
-    getPending: (): Promise<PlayerPayload | null> => ipcRenderer.invoke('player:getPending'),
+    getPending: (): Promise<PlayerPayload | null> =>
+      ipcRenderer.invoke('player:getPending'),
     onLoad: (cb: (payload: PlayerPayload) => void) => {
-      const handler = (_e: Electron.IpcRendererEvent, payload: PlayerPayload): void => {
+      const handler = (
+        _e: Electron.IpcRendererEvent,
+        payload: PlayerPayload
+      ): void => {
         cb(payload)
       }
       ipcRenderer.on('player:load', handler)
@@ -226,13 +234,17 @@ const api = {
      * 查找本地视频同目录的字幕文件。
      * 传入视频的 local:// URL（与 player 使用的是同一个地址）。
      */
-    find: (localUrl: string): Promise<{
+    find: (
+      localUrl: string
+    ): Promise<{
       success: boolean
       data?: Array<{ name: string; path: string; ext: string }>
       error?: string
     }> => ipcRenderer.invoke('subtitle:find', localUrl),
     /** 读取字幕文件并统一转换为 WebVTT（自动处理 GBK/UTF-16 等编码与 srt/ass 格式） */
-    read: (filePath: string): Promise<{
+    read: (
+      filePath: string
+    ): Promise<{
       success: boolean
       data?: string
       format?: string

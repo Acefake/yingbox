@@ -35,7 +35,8 @@ export async function loadConfig(): Promise<void> {
   try {
     if (fsSync.existsSync(configPath)) {
       const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'))
-      downloadPath = typeof config.downloadPath === 'string' ? config.downloadPath : ''
+      downloadPath =
+        typeof config.downloadPath === 'string' ? config.downloadPath : ''
     }
   } catch (err) {
     console.error('Failed to load config:', err)
@@ -56,7 +57,8 @@ export async function saveConfig(): Promise<void> {
 }
 
 export async function setDownloadPath(dir: string): Promise<void> {
-  if (typeof dir !== 'string' || !dir.trim()) throw new Error('下载目录不能为空')
+  if (typeof dir !== 'string' || !dir.trim())
+    throw new Error('下载目录不能为空')
   await assertWritableDirectory(dir)
   const previous = downloadPath
   downloadPath = dir
