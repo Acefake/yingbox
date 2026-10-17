@@ -2,15 +2,7 @@
   <div ref="leftPanel" class="yb-media-sidebar left-panel">
     <!-- Header -->
     <div class="lp-header">
-      <div class="lp-title-block">
-        <div class="lp-title-row">
-          <h2 class="yb-page-title lp-title">
-            {{ mode === 'tv' ? '电视剧' : '电影' }}
-          </h2>
-          <span v-if="adultMode" class="lp-adult">18+</span>
-        </div>
-        <p class="yb-section-subtitle lp-sub">本地媒体库</p>
-      </div>
+      <PageHeader :title="mode === 'tv' ? '电视剧' : '电影'" description="本地媒体库" />
 
       <!-- Scan progress -->
       <div v-if="dirLoading" class="lp-scan">
@@ -26,20 +18,8 @@
 
       <!-- Primary actions -->
       <div class="yb-media-toolbar lp-actions">
-        <button
-          class="yb-btn-primary"
-          :disabled="dirLoading"
-          @click="$emit('addFolder')"
-        >
-          添加文件夹
-        </button>
-        <button
-          class="yb-btn-soft"
-          :disabled="dirLoading"
-          @click="$emit('refresh')"
-        >
-          {{ dirLoading ? '刷新中…' : '刷新' }}
-        </button>
+        <button type="button" class="yb-btn-soft" :disabled="dirLoading" @click="$emit('addFolder')"><AppIcon name="plus" />添加目录</button>
+        <IconButton icon="refresh" label="刷新媒体目录" :loading="dirLoading" @click="$emit('refresh')" />
         <span v-if="processedItems.length" class="lp-count"
           >{{ processedItems.length }} 项</span
         >
@@ -56,7 +36,7 @@
             :aria-label="`移除目录 ${dir}`"
             @click="$emit('removeDirectory', i)"
           >
-            ✕
+            <AppIcon name="close" size="sm" />
           </button>
         </div>
       </div>
@@ -124,6 +104,9 @@
 </template>
 
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
+import IconButton from '@/components/IconButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import FileTreeItem from '@/views/Movie/components/FileTreeItem.vue'
@@ -145,7 +128,6 @@ const props = withDefaults(defineProps<Props>(), {
 
 const route = useRoute()
 const searchQuery = ref('')
-const adultMode = ref(localStorage.getItem('adultMode') === '1')
 watch(
   () => route.query.q,
   query => {
@@ -153,14 +135,6 @@ watch(
   },
   { immediate: true }
 )
-const syncAdultMode = () => {
-  adultMode.value = localStorage.getItem('adultMode') === '1'
-}
-const onAdultModeChange = () => syncAdultMode()
-const onStorageChange = (event: StorageEvent) => {
-  if (event.key === 'adultMode') syncAdultMode()
-}
-
 defineEmits<{
   refresh: []
   addFolder: []
@@ -260,8 +234,6 @@ const syncListViewport = (): void => {
 }
 
 onMounted(() => {
-  window.addEventListener('adultModeChange', onAdultModeChange)
-  window.addEventListener('storage', onStorageChange)
   void nextTick(() => {
     syncListViewport()
     if (!listViewport.value) return
@@ -272,8 +244,6 @@ onMounted(() => {
 
 onBeforeUnmount(() => {
   listResizeObserver?.disconnect()
-  window.removeEventListener('adultModeChange', onAdultModeChange)
-  window.removeEventListener('storage', onStorageChange)
 })
 
 watch(filteredItems, () => {
@@ -300,44 +270,11 @@ const unscrapedCount = computed(() => {
 <style scoped>
 .lp-header {
   flex-shrink: 0;
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  padding: 24px 18px 18px;
   border-bottom: 1px solid var(--separator);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-}
-
-.lp-title-block {
-  padding-inline: 2px;
-}
-
-.lp-title-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-}
-
-.lp-title {
-  font-size: var(--text-xl);
-  letter-spacing: -0.02em;
-  line-height: 1.2;
-}
-
-.lp-sub {
-  margin: 4px 0 0;
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.lp-adult {
-  font-size: 10px;
-  font-weight: 700;
-  letter-spacing: 0.04em;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: color-mix(in srgb, var(--danger) 18%, transparent);
-  color: var(--danger);
-  border: 1px solid color-mix(in srgb, var(--danger) 36%, transparent);
+  gap: 16px;
 }
 
 .lp-actions {
@@ -365,10 +302,12 @@ const unscrapedCount = computed(() => {
   gap: 6px;
   min-height: 28px;
   padding: 4px 10px;
-  border-radius: var(--radius-md);
-  background: var(--bg-fill-secondary);
+  border-radius: 6px;
+  background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-xs);
+
+  border: 1px solid var(--border-subtle);
 }
 
 .lp-dir-name {

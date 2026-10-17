@@ -1,25 +1,10 @@
 <template>
   <div class="vod-browse">
     <div class="vod-header">
-      <div class="library-heading">
-        <div class="heading-copy">
-          <h1 class="yb-page-title">
-            媒体库
-            <span class="yb-section-count">({{ filteredCards.length }})</span>
-          </h1>
-          <span v-if="loadingSources" class="loading-hint">加载中...</span>
-        </div>
-        <div class="header-actions">
-          <button
-            type="button"
-            class="yb-ghost-btn"
-            :disabled="loading || loadingSources"
-            @click="refreshCurrent"
-          >
-            {{ loading ? '加载中…' : '刷新' }}
-          </button>
-        </div>
-      </div>
+      <PageHeader title="媒体库" :count="filteredCards.length">
+        <template #status><span v-if="loadingSources" class="loading-hint">加载中...</span></template>
+        <template #actions><IconButton icon="refresh" label="刷新媒体库" :loading="loading" :disabled="loadingSources" @click="refreshCurrent" /></template>
+      </PageHeader>
       <MediaFilterBar
         :rows="filterRows"
         :model-value="filters"
@@ -114,6 +99,8 @@
 </template>
 
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
+import IconButton from '@/components/IconButton.vue'
 import { computed, onMounted, ref } from 'vue'
 import MediaFilterBar, {
   type MediaFilterRow,
@@ -363,34 +350,11 @@ onMounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 10px;
-}
+  gap: 20px;
 
-.library-heading {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 16px;
-}
-.heading-copy {
-  display: flex;
-  align-items: center;
-  min-width: 0;
-}
-.library-heading .yb-page-title {
-  display: inline-flex;
-  align-items: baseline;
-  gap: 6px;
-  font-size: var(--text-xl);
-}
-.library-heading .yb-section-count {
-  font-size: var(--text-sm);
-}
-.header-actions {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  min-width: 0;
+  padding-bottom: 22px;
+
+  border-bottom: 1px solid var(--border-subtle);
 }
 
 .loading-hint {
@@ -411,9 +375,9 @@ onMounted(() => {
   gap: 6px;
   min-height: var(--control-height);
   padding: 0 24px;
-  border-radius: var(--radius-md);
+  border-radius: 7px;
   border: 1px solid var(--border-default);
-  background: var(--bg-fill-secondary);
+  background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
@@ -455,14 +419,5 @@ onMounted(() => {
   }
 }
 
-@media (max-width: 640px) {
-  .library-heading {
-    align-items: flex-start;
-    flex-direction: column;
-    gap: 10px;
-  }
-  .header-actions {
-    width: 100%;
-  }
-}
+
 </style>

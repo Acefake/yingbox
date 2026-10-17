@@ -1,0 +1,17 @@
+# 统一换行符策略: 仓库统一 LF,与 .prettierrc "endOfLine": "lf" 一致。
+# 避免检出 CRLF 与 prettier 冲突产生上万条 lint 告警。
+* text=auto eol=lf
+
+# Windows 专用脚本必须 CRLF
+*.bat text eol=crlf
+*.ps1 text eol=crlf
+
+# 二进制/资源文件不做换行转换
+*.ico binary
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.exe binary
+*.zip binary
+*.7z binary
+*.db binary

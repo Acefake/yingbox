@@ -94,6 +94,7 @@ const FALLBACK_CATSPIDER_SITES: CatSpiderSite[] = [
 ]
 
 const CATSPIDER_SELECTION_KEY = 'online_selected_catspider'
+const AV_PLUGIN_SEED_KEY = 'av_plugin_sources_seeded'
 export const CATSPIDER_SITES = ref<CatSpiderSite[]>([
   ...FALLBACK_CATSPIDER_SITES,
 ])
@@ -160,6 +161,19 @@ export const loadCatSpiderSites = (): Promise<void> => {
         selectedCatSpider.value = storedSelection.filter(api =>
           supportedSites.some(site => site.api === api)
         )
+      }
+
+      // 成人插件源归属 AV 资源，默认启用一次（之后仍可在数据源面板里关闭）。
+      if (localStorage.getItem(AV_PLUGIN_SEED_KEY) !== '1') {
+        for (const site of supportedSites) {
+          if (
+            isAdultCatSpiderSite(site) &&
+            !selectedCatSpider.value.includes(site.api)
+          ) {
+            selectedCatSpider.value.push(site.api)
+          }
+        }
+        localStorage.setItem(AV_PLUGIN_SEED_KEY, '1')
       }
     })
     .catch(() => {

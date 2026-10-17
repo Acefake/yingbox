@@ -9,9 +9,10 @@
     // 配合 pnpm check:case（scripts/check-import-case.mjs）在 CI 提前拦截。
     "forceConsistentCasingInFileNames": true,
     "paths": {
-      "@/*": ["src/renderer/src/*"]
+      "@/*": ["src/renderer/src/*"],
+      "@shared/*": ["src/shared/*"]
     }
   },
-  "include": ["src/renderer/**/*", "src/preload/index.d.ts"],
+  "include": ["src/renderer/**/*", "src/shared/**/*", "src/preload/index.d.ts"],
   "exclude": ["src/main/**/*", "node_modules", "dist", "out"]
 }

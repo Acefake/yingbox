@@ -1,19 +1,8 @@
 <template>
   <div class="library-collection">
-    <header class="collection-header">
-      <div>
-        <h1 class="yb-page-title">{{ title }}</h1>
-        <p class="yb-section-subtitle">{{ description }}</p>
-      </div>
-      <button
-        v-if="items.length"
-        class="yb-ghost-btn"
-        type="button"
-        @click="clear"
-      >
-        清空
-      </button>
-    </header>
+    <PageHeader :title="title" :description="description">
+      <template #actions><IconButton v-if="items.length" icon="trash" label="清空记录" danger @click="clear" /></template>
+    </PageHeader>
     <div class="collection-tabs" role="tablist" aria-label="媒体类型">
       <button
         v-for="tab in tabs"
@@ -70,6 +59,8 @@
 </template>
 
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
+import IconButton from '@/components/IconButton.vue'
 import { readStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -198,29 +189,24 @@ watch(() => [route.query.tab, props.kind], read)
   min-height: 100%;
 }
 
-.collection-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 16px;
-}
-
 .collection-tabs {
   display: flex;
-  gap: 20px;
-  padding-bottom: 12px;
+  gap: 6px;
+  padding-bottom: 16px;
   border-bottom: 1px solid var(--separator);
 }
 
 .collection-tabs button {
   position: relative;
-  padding: 0 0 10px;
+  padding: 8px 12px;
   border: 0;
   color: var(--text-secondary);
   background: transparent;
   font-size: var(--text-md);
   cursor: pointer;
   transition: var(--transition-fast);
+
+  border-radius: 7px;
 }
 
 .collection-tabs button:hover {
@@ -228,8 +214,10 @@ watch(() => [route.query.tab, props.kind], read)
 }
 
 .collection-tabs button.active {
-  color: var(--accent-text);
-  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+  font-weight: 500;
+
+  background: var(--bg-active);
 }
 
 .collection-tabs button.active::after {
@@ -240,7 +228,9 @@ watch(() => [route.query.tab, props.kind], read)
   bottom: -1px;
   height: 2px;
   border-radius: 1px;
-  background: var(--accent);
+  background: var(--text-primary);
+
+  display: none;
 }
 
 .collection-empty {

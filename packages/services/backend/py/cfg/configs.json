@@ -5,7 +5,6 @@
   "QueuePath": "./db/download_queue.txt",
   "Proxy": "http://127.0.0.1:7897",
   "IsNeedVideoProxy": true,
-  "ScraperDomain": ["www.javbus.com", "www.busdmm.ink", "www.dmmsee.bond"],
   "Downloader": [
     {
       "downloaderName": "MissAV",

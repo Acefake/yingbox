@@ -46,8 +46,8 @@ const setFilter = (key: string, value: string) => {
 .media-filter-bar {
   display: flex;
   flex-direction: column;
-  gap: 13px;
-  padding: 0 0 8px;
+  gap: 8px;
+  padding: 0;
 }
 .filter-row {
   display: flex;
@@ -60,33 +60,38 @@ const setFilter = (key: string, value: string) => {
   padding-top: 5px;
   color: var(--text-tertiary);
   font-size: 13px;
-  font-weight: var(--font-weight-medium);
+  font-weight: 400;
   white-space: nowrap;
 }
 .filter-options {
   display: flex;
   flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 4px 18px;
+  gap: 6px 8px;
   min-width: 0;
 }
 .filter-option {
-  min-height: 28px;
-  padding: 0 1px;
+  min-height: 30px;
+  padding: 4px 10px;
   border: 0;
   color: var(--text-secondary);
   background: transparent;
   font-size: 13px;
   white-space: nowrap;
   cursor: pointer;
-  transition: color 0.15s ease;
+  transition: color 0.15s ease, background 0.15s ease;
+
+  border-radius: 6px;
 }
 .filter-option:hover {
   color: var(--text-primary);
+  background: var(--bg-glass);
 }
 .filter-option.active {
-  color: var(--accent-text);
-  font-weight: 600;
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+
+  background: var(--selection-bg);
 }
 @media (max-width: 760px) {
   .filter-row {

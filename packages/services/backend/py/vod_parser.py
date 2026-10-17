@@ -29,7 +29,7 @@ def _find_vod_config():
     return None
 
 
-def _run_node_runner(js_url, action, ext=None):
+def _run_node_runner(js_url, action, ext=None, patch=None):
     """调用 Node.js CatSpider runner"""
     runner_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
@@ -39,6 +39,8 @@ def _run_node_runner(js_url, action, ext=None):
         return {"success": False, "error": f"catspider_runner.js not found at {runner_path}"}
 
     ext_json = json.dumps(ext, ensure_ascii=False) if ext else "{}"
+    # 站点配置里的 patch：上游插件域名过期时在运行时重写。
+    patch_json = json.dumps(patch, ensure_ascii=False) if patch else ""
     try:
         # Find node_modules - use PROJECT_ROOT from Go backend, or compute from file path
         project_root = os.environ.get('PROJECT_ROOT', '')
@@ -49,8 +51,18 @@ def _run_node_runner(js_url, action, ext=None):
         if os.path.isdir(node_modules):
             env['NODE_PATH'] = node_modules
 
+        command = [
+            os.environ.get("NODE_EXECUTABLE", "node"),
+            runner_path,
+            js_url,
+            action,
+            ext_json,
+        ]
+        if patch_json:
+            command.append(patch_json)
+
         result = subprocess.run(
-            [os.environ.get("NODE_EXECUTABLE", "node"), runner_path, js_url, action, ext_json],
+            command,
             capture_output=True, timeout=60,
             encoding='utf-8', errors='replace',
             env=env
@@ -90,7 +102,7 @@ def get_config(site_name):
     ext_url = site_config.get('ext')
 
     if site_type == 3:
-        return _run_node_runner(ext_url, "getConfig")
+        return _run_node_runner(ext_url, "getConfig", patch=site_config.get("patch"))
 
     return {"success": False, "error": f"Unsupported site type: {site_type}"}
 
@@ -114,7 +126,7 @@ def search_vod(site_name, keyword, page=1):
     ext_url = site_config.get('ext')
 
     if site_type == 3:
-        return _run_node_runner(ext_url, "search", {"text": keyword, "page": page})
+        return _run_node_runner(ext_url, "search", {"text": keyword, "page": page}, site_config.get("patch"))
     elif site_type == 1:
         api_url = site_config.get('api')
         try:
@@ -147,7 +159,7 @@ def get_cards(site_name, ext):
     ext_url = site_config.get('ext')
 
     if site_type == 3:
-        return _run_node_runner(ext_url, "getCards", ext)
+        return _run_node_runner(ext_url, "getCards", ext, site_config.get("patch"))
 
     return {"success": False, "error": f"Unsupported site type: {site_type}"}
 
@@ -171,7 +183,7 @@ def get_tracks(site_name, args):
     ext_url = site_config.get('ext')
 
     if site_type == 3:
-        return _run_node_runner(ext_url, "getTracks", args)
+        return _run_node_runner(ext_url, "getTracks", args, site_config.get("patch"))
 
     return {"success": False, "error": f"Unsupported site type: {site_type}"}
 
@@ -195,7 +207,7 @@ def get_playinfo(site_name, args):
     ext_url = site_config.get('ext')
 
     if site_type == 3:
-        return _run_node_runner(ext_url, "getPlayinfo", args)
+        return _run_node_runner(ext_url, "getPlayinfo", args, site_config.get("patch"))
     elif site_type == 1:
         url = args.get('url', '') if isinstance(args, dict) else str(args)
         try:

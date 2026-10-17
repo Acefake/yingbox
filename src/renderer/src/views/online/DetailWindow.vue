@@ -283,6 +283,8 @@
                   : ''
               "
               :title="itemName"
+              :subtitle-search-title="searchTitle || itemName"
+              :subtitle-imdb-id="tmdbDetail?.imdb_id ? String(tmdbDetail.imdb_id) : ''"
               closable
               @ready="videoEl = $event"
               @close="showPlaySheet = false"
@@ -868,9 +870,9 @@ const onActorImgError = (e: Event) => {
   width: 220px;
   aspect-ratio: 2/3;
   object-fit: cover;
-  border-radius: 12px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
-  border: 2px solid var(--border-default);
+  border-radius: 6px;
+  box-shadow: none;
+  border: 1px solid var(--border-subtle);
 }
 
 .dw-info {
@@ -880,11 +882,13 @@ const onActorImgError = (e: Event) => {
 
 .dw-title {
   font-size: 30px;
-  font-weight: var(--font-weight-bold);
+  font-weight: 400;
   line-height: 1.2;
   margin-bottom: 5px;
   color: var(--text-primary);
   letter-spacing: -0.022em;
+
+  font-family: var(--font-display);
 }
 
 .dw-orig-title {
@@ -917,7 +921,7 @@ const onActorImgError = (e: Event) => {
 .dw-tag {
   font-size: 11px;
   padding: 2px 9px;
-  border-radius: 12px;
+  border-radius: 5px;
   background: var(--bg-fill-secondary);
   color: var(--text-secondary);
 }
@@ -1115,7 +1119,7 @@ const onActorImgError = (e: Event) => {
 .lb-mask {
   position: fixed;
   inset: 0;
-  z-index: 400;
+  z-index: 2060;
   background: rgba(0, 0, 0, 0.92);
   display: flex;
   align-items: center;
@@ -1191,7 +1195,7 @@ const onActorImgError = (e: Event) => {
 .sheet-mask {
   position: fixed;
   inset: 0;
-  z-index: 100;
+  z-index: 2050;
   background: rgba(0, 0, 0, 0.75);
   display: flex;
   align-items: center;

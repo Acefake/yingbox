@@ -1,9 +1,8 @@
 <template>
   <div class="home-section">
-    <div class="yb-section-header">
-      <h2 class="yb-section-title">豆瓣热门</h2>
-      <button class="yb-ghost-btn" @click="nextPage">换一批</button>
-    </div>
+    <PageHeader title="豆瓣热门">
+      <template #actions><IconButton icon="refresh" label="换一批热门影片" :loading="doubanLoading" @click="nextPage" /></template>
+    </PageHeader>
     <MediaFilterBar
       :rows="filterRows"
       :model-value="{ type: doubanType, tag: doubanTag }"
@@ -12,9 +11,9 @@
 
     <div v-if="doubanLoading" class="db-loading">加载中...</div>
     <div v-else-if="doubanError" class="db-error">
-      ⚠ 豆瓣数据加载失败，请稍后重试
+      <AppIcon name="warning" /> 豆瓣数据加载失败，请稍后重试
     </div>
-    <div v-else class="yb-poster-grid">
+    <div v-else class="yb-poster-grid db-poster-grid">
       <div
         v-for="item in doubanItems"
         :key="item.url"
@@ -65,6 +64,9 @@
 </template>
 
 <script setup lang="ts">
+import PageHeader from '@/components/PageHeader.vue'
+import IconButton from '@/components/IconButton.vue'
+import AppIcon from '@/components/AppIcon.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
@@ -342,6 +344,8 @@ onMounted(fetchDouban)
 </script>
 
 <style scoped>
+.home-section > .page-header { margin-bottom: 20px; }
+.db-poster-grid { margin-top: 20px; }
 /* Poster overlays stay dark-on-image for contrast */
 .favorite-btn {
   position: absolute;
@@ -373,7 +377,10 @@ onMounted(fetchDouban)
 }
 
 .db-error {
-  text-align: center;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
   padding: 30px;
   color: var(--danger);
   font-size: var(--text-sm);

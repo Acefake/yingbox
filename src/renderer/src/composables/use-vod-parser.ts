@@ -44,7 +44,8 @@ export interface VODParseResponse {
   data?: any
 }
 
-const REQUEST_TIMEOUT_MS = 12000
+// 后端插件解析（含 Cloudflare 挑战时走浏览器抓取）可能超过 10s，前端超时需留出余量。
+const REQUEST_TIMEOUT_MS = 45000
 
 export function useVODParser() {
   const loading = ref(false)

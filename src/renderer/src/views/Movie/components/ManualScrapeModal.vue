@@ -1,6 +1,6 @@
 <template>
   <!-- 手动匹配弹窗 -->
-  <Modal
+  <AppModal
     v-model:open="modalVisible"
     title="手动匹配电影"
     :width="500"
@@ -31,12 +31,13 @@
         </p>
       </div>
     </div>
-  </Modal>
+  </AppModal>
 </template>
 
 <script setup lang="ts">
+import AppModal from '@/components/AppModal.vue'
 import { ref, watch } from 'vue'
-import { Input, Modal, message } from 'ant-design-vue'
+import { Input, message } from 'ant-design-vue'
 
 // 接口定义
 interface ProcessedItem {

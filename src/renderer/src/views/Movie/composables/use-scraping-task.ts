@@ -1,6 +1,7 @@
+import { confirmDialog } from '@/utils/confirm-dialog'
 import type { ProcessedItem } from '@/types'
 import type { ScrapedMovie } from '@/types/scraping'
-import { Modal } from 'ant-design-vue'
+
 import { safeFileName } from '@/utils/file-name'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useGlobalQueue } from '@/composables/use-global-queue'
@@ -39,7 +40,7 @@ const moveWithConflict = async (
       modal.destroy()
       finish(null)
     }
-    const modal = Modal.confirm({
+    const modal = confirmDialog({
       title: '文件已存在',
       content: `目标文件夹中已存在 "${fileName}"，如何处理？`,
       okText: '替换',
@@ -113,14 +114,10 @@ export const onScrapedFolder = (
 
 /**
  * 从电影数据中提取统一的命名基准
- * JavBus 用 original_title (番号如 AAA-001)，TMDB 用 title
+ * TMDB 优先使用展示标题
  */
 function getBaseName(movie: ScrapedMovie): string {
-  return safeFileName(
-    movie._javbus
-      ? movie.original_title || movie.title
-      : movie.title || movie.original_title
-  )
+  return safeFileName(movie.title || movie.original_title)
 }
 
 /**

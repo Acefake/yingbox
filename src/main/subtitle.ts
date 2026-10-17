@@ -249,6 +249,27 @@ export interface SubtitleReadResult {
   error?: string
 }
 
+/**
+ * 把字幕原始文本（按扩展名或显式 format）统一转成 WebVTT。
+ * 本地文件与在线下载共用这一条转换链路。
+ */
+export function convertSubtitleText(
+  text: string,
+  format: string
+): SubtitleReadResult {
+  const fmt = format.toLowerCase().replace(/^\./, '')
+  if (fmt === 'vtt') return { success: true, data: text, format: 'vtt' }
+  if (fmt === 'ass' || fmt === 'ssa') {
+    return { success: true, data: assToVtt(text), format: 'ass' }
+  }
+  // srt / sub 及未知格式按 SRT 解析；解析不出 cue 时原样交回
+  const converted = srtToVtt(text)
+  if (converted.includes('-->')) {
+    return { success: true, data: converted, format: 'srt' }
+  }
+  return { success: true, data: text, format: 'srt' }
+}
+
 /** 读取字幕文件并统一转换为 WebVTT（含编码处理） */
 export async function readSubtitleAsVtt(
   filePath: string
@@ -257,19 +278,7 @@ export async function readSubtitleAsVtt(
     const buffer = await readFile(filePath)
     const ext = extname(filePath).toLowerCase()
     const text = decodeSubtitleText(buffer)
-
-    if (ext === '.vtt') {
-      return { success: true, data: text, format: 'vtt' }
-    }
-    if (ext === '.ass' || ext === '.ssa') {
-      return { success: true, data: assToVtt(text), format: 'ass' }
-    }
-    // .srt / .sub 按 SRT 解析；解析不出 cue 时原样交回，由播放器自行尝试
-    const converted = srtToVtt(text)
-    if (converted.includes('-->')) {
-      return { success: true, data: converted, format: 'srt' }
-    }
-    return { success: true, data: text, format: 'srt' }
+    return convertSubtitleText(text, ext || '.srt')
   } catch (error) {
     return { success: false, error: (error as Error).message }
   }

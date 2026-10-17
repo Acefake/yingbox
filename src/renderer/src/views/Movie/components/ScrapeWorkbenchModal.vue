@@ -13,33 +13,8 @@
         class="sw-sheet relative w-[820px] max-h-[90vh] flex flex-col overflow-hidden glass-panel-floating"
         @click.stop
       >
-        <!-- Header -->
-        <div class="sw-header flex items-start justify-between flex-shrink-0">
-          <div class="min-w-0 pr-3">
-            <div class="sw-title">刮削工作台</div>
-            <div class="sw-subtitle truncate" :title="item?.name">
-              {{ displayItemName }}
-              <span v-if="providerLabel" class="ml-2 yb-chip">{{
-                providerLabel
-              }}</span>
-            </div>
-          </div>
-          <button class="sw-close" aria-label="关闭" @click="emitClose">
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
-            >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="2"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
+        <DialogTitlebar title="刮削工作台" icon="search" @close="emitClose" />
+        <div class="sw-subtitle truncate px-5 py-3" :title="item?.name">{{ displayItemName }}<span v-if="providerLabel" class="ml-2 yb-chip">{{ providerLabel }}</span></div>
 
         <!-- Search / avid bar (always available) -->
         <div class="sw-search-row flex gap-2.5 flex-shrink-0">
@@ -70,118 +45,15 @@
 
           <!-- error (still allow search) -->
           <div
-            v-else-if="error && !meta && searchResults.length === 0"
+            v-else-if="error && searchResults.length === 0"
             class="flex flex-col items-center justify-center py-14 gap-3 px-6"
           >
             <span class="text-sm text-center" style="color: var(--danger)">{{
               error
             }}</span>
             <p class="text-xs yb-muted text-center">
-              可修改上方关键词后重新搜索，或手动输入番号后获取预览
+              可修改上方片名后重新搜索
             </p>
-          </div>
-
-          <!-- JavBus preview -->
-          <div v-else-if="meta" class="p-6 space-y-5">
-            <img
-              v-if="meta.cover"
-              :src="proxyUrl(meta.cover)"
-              class="w-full flex-shrink-0 rounded-[var(--radius-lg)] object-cover"
-              style="aspect-ratio: 16/10.5"
-              @error="hideBrokenImage"
-            />
-
-            <div class="space-y-3">
-              <h2
-                class="font-semibold text-base leading-snug"
-                style="color: var(--text-primary)"
-              >
-                {{ meta.title }}
-              </h2>
-              <div class="flex flex-wrap gap-1.5">
-                <span class="yb-chip yb-chip-accent">{{ meta.avid }}</span>
-                <span v-if="meta.release_date" class="yb-chip">{{
-                  meta.release_date
-                }}</span>
-                <span v-if="meta.duration" class="yb-chip">{{
-                  meta.duration
-                }}</span>
-              </div>
-              <p
-                v-if="meta.description"
-                class="yb-muted text-[12px] leading-relaxed line-clamp-4"
-              >
-                {{ meta.description }}
-              </p>
-              <div v-if="meta.keywords?.length" class="flex flex-wrap gap-1">
-                <span v-for="kw in meta.keywords" :key="kw" class="yb-chip">{{
-                  kw
-                }}</span>
-              </div>
-
-              <div class="flex flex-wrap gap-2 pt-1">
-                <button
-                  class="yb-btn-primary text-sm"
-                  :disabled="processing || !item"
-                  @click="handleEnqueueMeta"
-                >
-                  {{ processing ? '加入中…' : '加入队列' }}
-                </button>
-                <button
-                  class="yb-btn-soft text-sm"
-                  :disabled="loading || searching"
-                  @click="focusSearchMode"
-                >
-                  修改番号 / 搜索
-                </button>
-              </div>
-              <div
-                v-if="actionMsg"
-                class="text-[11px] font-mono"
-                :style="{
-                  color: actionMsgIsError ? 'var(--danger)' : 'var(--success)',
-                }"
-              >
-                {{ actionMsg }}
-              </div>
-            </div>
-
-            <div v-if="meta.actress && Object.keys(meta.actress).length">
-              <h3 class="yb-label mb-2">演员</h3>
-              <div class="flex gap-3 flex-wrap">
-                <div
-                  v-for="(img, name) in meta.actress"
-                  :key="name"
-                  class="flex flex-col items-center gap-1"
-                >
-                  <img
-                    :src="proxyUrl(img)"
-                    :alt="String(name)"
-                    class="w-12 h-12 rounded-full object-cover jb-avatar"
-                    @error="hideBrokenImage"
-                  />
-                  <span
-                    class="text-[10px] yb-muted max-w-[48px] truncate text-center"
-                    >{{ name }}</span
-                  >
-                </div>
-              </div>
-            </div>
-
-            <div v-if="meta.fanarts?.length">
-              <h3 class="yb-label mb-2">预览图</h3>
-              <div class="grid grid-cols-3 gap-2">
-                <img
-                  v-for="(img, i) in meta.fanarts"
-                  :key="i"
-                  :src="proxyUrl(img)"
-                  class="w-full rounded-md object-cover cursor-pointer hover:opacity-80 transition-opacity"
-                  style="aspect-ratio: 16/9"
-                  @click="previewImg = proxyUrl(img)"
-                  @error="hideBrokenImage"
-                />
-              </div>
-            </div>
           </div>
 
           <!-- TMDB / TV / search results -->
@@ -260,32 +132,19 @@
         </div>
       </div>
 
-      <Teleport to="body">
-        <div
-          v-if="previewImg"
-          class="fixed inset-0 z-[999] bg-black/90 flex items-center justify-center"
-          @click="previewImg = null"
-        >
-          <img
-            :src="previewImg"
-            class="max-w-[90vw] max-h-[90vh] rounded-lg object-contain"
-          />
-        </div>
-      </Teleport>
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
-import { type BackendMeta, backend } from '@/api/backend'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useTVScraping } from '@/views/TV/composables/use-tv-scraping'
 import {
   cleanSearchParams,
-  extractAvid,
   stripMediaExtension,
 } from '@/utils/avid'
 import type { ProcessedItem } from '@/types'
@@ -312,7 +171,7 @@ const props = withDefaults(
     item: ProcessedItem | null
     /** 打开时优先使用的番号 / 关键词 */
     initialQuery?: string
-    /** movie：TMDB/JavBus；tv：电视剧 TMDB 搜索 */
+    /** movie：TMDB；tv：电视剧 TMDB 搜索 */
     mediaType?: 'movie' | 'tv'
   }>(),
   {
@@ -335,31 +194,26 @@ const searching = ref(false)
 const processing = ref(false)
 const error = ref('')
 const actionMsg = ref('')
-const meta = ref<BackendMeta | null>(null)
 const searchResults = ref<WorkbenchMediaResult[]>([])
 const queryInput = ref('')
-const previewImg = ref<string | null>(null)
 const provider = ref(getScrapeProviderConfig().provider)
 
 const isTV = computed(() => props.mediaType === 'tv')
-const isJavBus = computed(() => !isTV.value && provider.value === 'javbus')
 
 const providerLabel = computed(() => {
   if (isTV.value) return 'TMDB/TV'
-  if (provider.value === 'javbus') return 'JavBus'
   if (provider.value === 'tmdb') return 'TMDB'
   return '自定义'
 })
 
 const searchPlaceholder = computed(() => {
   if (isTV.value) return '输入电视剧名称搜索'
-  if (isJavBus.value) return '输入番号或关键词（如 MIDE-123）'
   return '输入电影名称搜索'
 })
 
 const loadingText = computed(() => {
   if (isTV.value) return '正在搜索电视剧…'
-  return isJavBus.value ? '正在获取元数据预览…' : '正在搜索匹配结果…'
+  return '正在搜索匹配结果…'
 })
 
 const emptyText = computed(() => {
@@ -369,7 +223,6 @@ const emptyText = computed(() => {
 
 const emptyHint = computed(() => {
   if (isTV.value) return '请修改关键词后搜索，从结果中选择匹配项'
-  if (isJavBus.value) return '请输入番号后搜索，确认预览再加入队列'
   return '请修改关键词后搜索，从结果中选择匹配项'
 })
 
@@ -386,7 +239,6 @@ const displayItemName = computed(() => {
   return stripMediaExtension(item.name)
 })
 
-const proxyUrl = (url: string) => (url ? backend.proxyUrl(url) : '')
 
 const hideBrokenImage = (e: Event): void => {
   const el = e.target as HTMLImageElement | null
@@ -417,49 +269,7 @@ const resetBody = (): void => {
   processing.value = false
   error.value = ''
   actionMsg.value = ''
-  meta.value = null
   searchResults.value = []
-  previewImg.value = null
-}
-
-const buildJavBusMovie = (data: BackendMeta): ScrapedMovie => ({
-  id: data.avid as any,
-  title: data.title || data.avid,
-  original_title: data.avid,
-  overview: data.description || '',
-  release_date: data.release_date || '',
-  vote_average: 0,
-  vote_count: 0,
-  poster_path: data.cover || '',
-  backdrop_path: data.fanarts?.[0] || '',
-  adult: false,
-  genre_ids: [],
-  original_language: 'ja',
-  popularity: 0,
-  video: false,
-  _javbus: data,
-})
-
-const fetchJavBusPreview = async (avid: string): Promise<void> => {
-  loading.value = true
-  error.value = ''
-  meta.value = null
-  searchResults.value = []
-  try {
-    const data = await backend.fetchMeta(avid)
-    if (data.error) {
-      error.value = `获取失败: ${data.error}`
-      message.warning(error.value)
-    } else {
-      meta.value = data
-      queryInput.value = data.avid || avid
-    }
-  } catch (e: unknown) {
-    error.value = `请求失败: ${e instanceof Error ? e.message : String(e)}`
-    message.error(error.value)
-  } finally {
-    loading.value = false
-  }
 }
 
 const runMovieSearch = async (query: string): Promise<void> => {
@@ -467,7 +277,6 @@ const runMovieSearch = async (query: string): Promise<void> => {
   searching.value = true
   loading.value = true
   error.value = ''
-  meta.value = null
   searchResults.value = []
   try {
     const movies = await searchMovieInfo({ ...props.item, name: query })
@@ -490,7 +299,6 @@ const runTVSearch = async (query: string): Promise<void> => {
   searching.value = true
   loading.value = true
   error.value = ''
-  meta.value = null
   searchResults.value = []
   try {
     const shows = await searchTVInfo({ ...props.item, name: query })
@@ -508,38 +316,6 @@ const runTVSearch = async (query: string): Promise<void> => {
   }
 }
 
-/** 构建搜索框初始值：永不塞入原始 xxx.mp4 */
-const resolveBootstrapQuery = (
-  item: ProcessedItem
-): { query: string; avid: string | null } => {
-  const fromProp = (props.initialQuery || '').trim()
-
-  if (isTV.value) {
-    const raw =
-      fromProp ||
-      (item.type === 'folder' ? item.name : stripMediaExtension(item.name))
-    return {
-      query: cleanSearchParams(raw) || stripMediaExtension(raw),
-      avid: null,
-    }
-  }
-
-  if (fromProp) {
-    const avid = extractAvid(fromProp)
-    if (isJavBus.value) {
-      return { query: avid || stripMediaExtension(fromProp), avid }
-    }
-    // TMDB / 自定义：像番号则保留番号，否则走 cleanSearchParams（保留年份）
-    return { query: avid || cleanSearchParams(fromProp), avid }
-  }
-
-  const avid = extractAvid(item.name)
-  if (isJavBus.value) {
-    return { query: avid || stripMediaExtension(item.name), avid }
-  }
-  return { query: cleanSearchParams(item.name), avid }
-}
-
 const bootstrap = async (): Promise<void> => {
   resetBody()
   provider.value = getScrapeProviderConfig().provider
@@ -549,24 +325,12 @@ const bootstrap = async (): Promise<void> => {
     return
   }
 
-  const { query, avid } = resolveBootstrapQuery(props.item)
+  const raw = (props.initialQuery || props.item.name).trim()
+  const query = cleanSearchParams(stripMediaExtension(raw)) || stripMediaExtension(raw)
   queryInput.value = query
 
   if (isTV.value) {
     await runTVSearch(query)
-    return
-  }
-
-  if (isJavBus.value && !avid && !(props.initialQuery || '').trim()) {
-    message.warning('未能从文件名提取番号，请手动输入后搜索')
-  }
-
-  if (isJavBus.value) {
-    if (avid) {
-      await fetchJavBusPreview(avid)
-    } else {
-      error.value = '未能识别番号，请在上方输入番号后搜索'
-    }
     return
   }
 
@@ -577,11 +341,7 @@ const handleSearch = async (): Promise<void> => {
   const q = queryInput.value.trim()
   if (!q) {
     message.error(
-      isTV.value
-        ? '请输入电视剧名称'
-        : isJavBus.value
-          ? '请输入番号或关键词'
-          : '请输入电影名称'
+      isTV.value ? '请输入电视剧名称' : '请输入电影名称'
     )
     return
   }
@@ -591,35 +351,7 @@ const handleSearch = async (): Promise<void> => {
     return
   }
 
-  if (isJavBus.value) {
-    const avid = extractAvid(q) || q.toUpperCase()
-    queryInput.value = avid
-    await fetchJavBusPreview(avid)
-    return
-  }
-
   await runMovieSearch(q)
-}
-
-const focusSearchMode = (): void => {
-  meta.value = null
-  searchResults.value = []
-  error.value = ''
-  actionMsg.value = ''
-  // keep queryInput so user can edit
-}
-
-const handleEnqueueMeta = (): void => {
-  if (!meta.value || !props.item) {
-    message.warning('暂无可用元数据，请先搜索')
-    return
-  }
-  processing.value = true
-  actionMsg.value = ''
-  emit('scrape', buildJavBusMovie(meta.value), props.item)
-  actionMsg.value = '✅ 已加入刮削队列'
-  processing.value = false
-  message.success('已加入刮削队列')
 }
 
 const handlePickResult = (result: WorkbenchMediaResult): void => {
@@ -676,23 +408,10 @@ defineExpose({
 }
 
 .sw-sheet {
-  border-radius: var(--radius-xl);
+  border-radius: 10px;
   box-shadow:
     var(--shadow-lg),
     0 0 0 0.5px color-mix(in srgb, var(--border-glass-light) 80%, transparent);
-}
-
-.sw-header {
-  padding: 18px 22px 14px;
-  border-bottom: 1px solid var(--separator);
-}
-
-.sw-title {
-  font-size: var(--text-md, 15px);
-  font-weight: var(--font-weight-semibold, 600);
-  letter-spacing: -0.02em;
-  color: var(--text-primary);
-  line-height: 1.3;
 }
 
 .sw-subtitle {
@@ -700,26 +419,6 @@ defineExpose({
   font-size: var(--text-xs, 12px);
   color: var(--text-tertiary);
   line-height: 1.35;
-}
-
-.sw-close {
-  width: 30px;
-  height: 30px;
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: 999px;
-  color: var(--text-tertiary);
-  background: var(--bg-fill-secondary);
-  border: 0;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.sw-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
 }
 
 .sw-search-row {
@@ -757,9 +456,9 @@ defineExpose({
 }
 
 .sw-card {
-  background: var(--bg-elevated);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-glass);
+  background: transparent;
+  border-radius: 6px;
+  border: 1px solid var(--border-default);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
   transition: var(--transition-fast);

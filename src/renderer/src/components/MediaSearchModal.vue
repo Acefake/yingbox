@@ -1,5 +1,5 @@
 <template>
-  <AModal
+  <AppModal
     :open="visible"
     :title="title"
     :width="1000"
@@ -107,15 +107,15 @@
         </div>
       </div>
     </div>
-  </AModal>
+  </AppModal>
 </template>
 
 <script setup lang="ts">
+import AppModal from '@/components/AppModal.vue'
 import { computed, ref, watch } from 'vue'
 import {
   Button as AButton,
   Input as AInput,
-  Modal as AModal,
 } from 'ant-design-vue'
 
 export interface MediaResult {
@@ -211,8 +211,6 @@ const handleImageError = (event: Event): void => {
 <style scoped>
 .modal-card {
   background: var(--bg-elevated);
-  backdrop-filter: blur(16px);
-  -webkit-backdrop-filter: blur(16px);
   border-radius: var(--radius-lg);
   border: 1px solid var(--border-glass);
   overflow: hidden;
@@ -233,8 +231,6 @@ const handleImageError = (event: Event): void => {
   background: var(--accent-soft);
   border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
   transition: var(--transition-fast);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
   cursor: pointer;
 }
 .modal-pick-btn:hover {

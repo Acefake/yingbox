@@ -11,7 +11,7 @@
           <input
             v-model="inputContent"
             type="text"
-            placeholder="输入番号查看详情"
+            placeholder="输入本地视频编号"
             class="search-input"
             @keyup.enter="handleAddVideo(inputContent)"
           />
@@ -56,7 +56,7 @@ export default {
       const id = this.inputContent.trim().toUpperCase()
       if (!id) return
       this.inputContent = ''
-      this.$router.push({ name: 'meta', params: { id } })
+      this.$router.push({ name: 'detail', params: { id } })
     },
   },
 }

@@ -1,62 +1,64 @@
-/* 影盒 design tokens — Apple-inspired. Light is default; dark via [data-theme="dark"]. */
+/* 影盒 design tokens — Claude desktop reference. Dark is default; light via [data-theme="light"]. */
 :root {
-  color-scheme: light;
+  color-scheme: dark;
 
-  /* Background layers */
-  --bg-base: #f5f5f7;
-  --bg-main: #f5f5f7;
-  --bg-elevated: #ffffff;
-  --bg-content: #ffffff;
-  --bg-sidebar: rgba(246, 246, 248, 0.92);
-  --bg-sidebar-solid: #f6f6f8;
-  --bg-titlebar: rgba(255, 255, 255, 0.72);
-  --bg-panel: rgba(255, 255, 255, 0.86);
-  --bg-glass: rgba(0, 0, 0, 0.04);
-  --bg-glass-hover: rgba(0, 0, 0, 0.07);
-  --bg-fill-secondary: rgba(0, 0, 0, 0.05);
-  --bg-fill-tertiary: rgba(0, 0, 0, 0.03);
-  --bg-active: rgba(0, 0, 0, 0.08);
-  --bg-active-soft: rgba(0, 122, 255, 0.12);
+  /* Background layers — graphite workspace with restrained surface layers */
+  --bg-base: #171717;
+  --bg-main: #171717;
+  --bg-elevated: #202020;
+  --bg-content: #171717;
+  --bg-sidebar: #111111;
+  --bg-sidebar-solid: #111111;
+  --bg-titlebar: #171717;
+  --bg-panel: #202020;
+  --bg-glass: rgba(255,255,255,.045);
+  --bg-glass-hover: rgba(255,255,255,.075);
+  --bg-fill-secondary: #282828;
+  --bg-fill-tertiary: #1D1D1D;
+  --bg-active: #373737;
+  --bg-active-soft: #303030;
 
   /* Separators / borders */
-  --border-subtle: rgba(0, 0, 0, 0.06);
-  --border-default: rgba(0, 0, 0, 0.1);
-  --border-strong: rgba(0, 0, 0, 0.16);
-  --border-glass: rgba(0, 0, 0, 0.08);
-  --border-glass-light: rgba(0, 0, 0, 0.12);
-  --separator: rgba(0, 0, 0, 0.08);
+  --border-subtle: #282828;
+  --border-default: #303030;
+  --border-strong: #505050;
+  --border-glass: #303030;
+  --border-glass-light: #3B3B3B;
+  --separator: #2C2C2C;
 
-  /* Text */
-  --text-primary: rgba(0, 0, 0, 0.88);
-  --text-secondary: rgba(0, 0, 0, 0.55);
-  --text-tertiary: rgba(0, 0, 0, 0.36);
-  --text-quaternary: rgba(0, 0, 0, 0.22);
+  /* Text hierarchy */
+  --text-primary: #F1F1F1;
+  --text-secondary: #A3A3A3;
+  --text-tertiary: #858585;
+  --text-quaternary: #727272;
   --text-main: var(--text-primary);
   --text-muted: var(--text-secondary);
   --text-dim: var(--text-tertiary);
-  --text-on-accent: #ffffff;
+  /* Text sitting on the white interaction fill */
+  --text-on-accent: #242424;
 
-  /* Accent (Apple system blue) */
-  --accent: #007aff;
-  --accent-hover: #0066d6;
-  --accent-soft: rgba(0, 122, 255, 0.14);
-  --accent-glow: rgba(0, 122, 255, 0.28);
-  /* Accent used as TEXT on light surfaces (darker than --accent for WCAG) */
-  --accent-text: #0051d5;
+  /* Interaction — one accent: white */
+  --accent: #E5E5E5;
+  --accent-hover: #FFFFFF;
+  --accent-soft: rgba(255,255,255,.07);
+  --accent-glow: rgba(255,255,255,.16);
+  --accent-text: #E5E5E5;
   --primary: var(--accent);
   --primary-hover: var(--accent-hover);
   --primary-glass: var(--accent-soft);
 
   /* Semantic */
-  --success: #34c759;
+  --success: #30d158;
   --warning: #ff9f0a;
-  --danger: #ff3b30;
+  --danger: #ff453a;
 
   /* Typography */
-  --font-sans:
-    'SF Pro Text', 'SF Pro Display', -apple-system, BlinkMacSystemFont,
-    'Helvetica Neue', 'PingFang SC', 'Microsoft YaHei UI', 'Microsoft YaHei',
-    'Segoe UI', sans-serif;
+  --font-sans: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
+  --font-display: Georgia, "Songti SC", "SimSun", serif;
+  --action-bg: #F1F1F1;
+  --action-hover: #FFFFFF;
+  --action-text: #242424;
+  --selection-bg: #373737;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
@@ -79,105 +81,111 @@
   --space-8: 40px;
   --space-9: 48px;
 
-  /* Radius */
+  /* Corner hierarchy */
   --radius-sm: 6px;
-  --radius-md: 10px;
-  --radius-lg: 14px;
-  --radius-xl: 18px;
+  --radius-md: 8px;
+  --radius-lg: 10px;
+  --radius-xl: 12px;
   --radius-full: 999px;
 
   /* Layout chrome */
-  --sidebar-width: 232px;
-  --sidebar-width-collapsed: 72px;
-  --titlebar-height: 56px;
+  --sidebar-width: 248px;
+  --sidebar-width-collapsed: 68px;
+  --titlebar-height: 52px;
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
-  --content-padding-x: 28px;
-  --content-padding-y: 22px;
-  --control-height-sm: 32px;
-  --control-height: 36px;
+  --content-padding-x: 40px;
+  --content-padding-y: 28px;
+  --control-height-sm: 34px;
+  --control-height: 38px;
   /* Icons — one optical size scale */
   --icon-sm: 14px;
   --icon-md: 16px;
   --icon-lg: 18px;
   --icon-stroke: 1.75;
-  --media-sidebar-width: 300px;
+  --media-sidebar-width: 280px;
   --media-row-height: 36px;
-  --transition-panel:
-    transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
+  --transition-panel: transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
 
-  /* Vibrancy / blur */
-  --blur-sidebar: 28px;
-  --blur-titlebar: 24px;
-  --blur-panel: 28px;
-  --saturate-vibrancy: 180%;
+  /* Solid desktop surfaces */
+  --blur-sidebar: 0px;
+  --blur-titlebar: 0px;
+  --blur-panel: 0px;
+  --saturate-vibrancy: 100%;
 
-  /* Shadows */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.04);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
+  /* Shadows — floors of light, not decorations */
+  --shadow-sm: none;
+  --shadow-md: 0 8px 24px rgba(0,0,0,.2);
+  --shadow-lg: 0 18px 56px rgba(0,0,0,.32);
   --shadow-panel: var(--shadow-lg);
-  --focus-ring: 0 0 0 3px var(--accent-glow);
+  --focus-ring: 0 0 0 2px var(--accent-glow);
 
   /* Scrollbar */
-  --scrollbar-thumb: rgba(0, 0, 0, 0.22);
-  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.35);
+  --scrollbar-thumb: rgba(255, 255, 255, 0.24);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.38);
   --scrollbar-track: transparent;
 
   /* Transitions (shorthand — keep compatible with existing `transition: var(--transition-*)`) */
   --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
-  --transition-fast: all 0.18s var(--ease-out);
-  --transition-normal: all 0.28s var(--ease-out);
+  --transition-fast: all 0.15s var(--ease-out);
+  --transition-normal: all 0.22s var(--ease-out);
 }
 
-[data-theme='dark'] {
-  color-scheme: dark;
+/* Light mode — kept for explicit toggling; neutral interactive identity stays. */
+[data-theme='light'] {
+  color-scheme: light;
 
-  --bg-base: #1c1c1e;
-  --bg-main: #1c1c1e;
-  --bg-elevated: #2c2c2e;
-  --bg-content: #1c1c1e;
-  --bg-sidebar: rgba(28, 28, 30, 0.88);
-  --bg-sidebar-solid: #1c1c1e;
-  --bg-titlebar: rgba(28, 28, 30, 0.72);
-  --bg-panel: rgba(44, 44, 46, 0.92);
-  --bg-glass: rgba(255, 255, 255, 0.06);
-  --bg-glass-hover: rgba(255, 255, 255, 0.1);
-  --bg-fill-secondary: rgba(255, 255, 255, 0.08);
-  --bg-fill-tertiary: rgba(255, 255, 255, 0.04);
-  --bg-active: rgba(255, 255, 255, 0.12);
-  --bg-active-soft: rgba(10, 132, 255, 0.22);
+  --bg-base: #FAFAF8;
+  --bg-main: #FAFAF8;
+  --bg-elevated: #ffffff;
+  --bg-content: #FAFAF8;
+  --bg-sidebar: #F0F0ED;
+  --bg-sidebar-solid: #F0F0ED;
+  --bg-titlebar: #FAFAF8;
+  --bg-panel: #FFFFFF;
+  --bg-glass: rgba(0, 0, 0, 0.04);
+  --bg-glass-hover: rgba(0, 0, 0, 0.07);
+  --bg-fill-secondary: #ECECE9;
+  --bg-fill-tertiary: #F4F4F1;
+  --bg-active: #E5E5E2;
+  --bg-active-soft: #EAEAE7;
 
-  --border-subtle: rgba(255, 255, 255, 0.06);
-  --border-default: rgba(255, 255, 255, 0.1);
-  --border-strong: rgba(255, 255, 255, 0.16);
-  --border-glass: rgba(255, 255, 255, 0.08);
-  --border-glass-light: rgba(255, 255, 255, 0.14);
-  --separator: rgba(255, 255, 255, 0.1);
+  --border-subtle: #E8E8E4;
+  --border-default: #DEDEDA;
+  --border-strong: #B7B7B1;
+  --border-glass: rgba(0, 0, 0, 0.08);
+  --border-glass-light: rgba(0, 0, 0, 0.12);
+  --separator: #E1E1DC;
 
-  --text-primary: rgba(255, 255, 255, 0.92);
-  --text-secondary: rgba(255, 255, 255, 0.55);
-  --text-tertiary: rgba(255, 255, 255, 0.36);
-  --text-quaternary: rgba(255, 255, 255, 0.22);
-  --text-on-accent: #ffffff;
+  --text-primary: #242424;
+  --text-secondary: #6C6C6C;
+  --text-tertiary: #797979;
+  --text-quaternary: #888888;
+  --text-on-accent: #f5f5f7;
 
-  --accent: #0a84ff;
-  --accent-hover: #409cff;
-  --accent-soft: rgba(10, 132, 255, 0.22);
-  --accent-glow: rgba(10, 132, 255, 0.36);
-  --accent-text: #7cbcff;
+  /* Interaction — one accent: near-black */
+  --accent: #262626;
+  --accent-hover: #000000;
+  --accent-soft: rgba(0, 0, 0, 0.07);
+  --accent-glow: rgba(0,0,0,.12);
+  --accent-text: #262626;
 
-  --success: #30d158;
+  --action-bg: #262626;
+  --action-hover: #000000;
+  --action-text: #FFFFFF;
+  --selection-bg: #E5E5E2;
+
+  --success: #34c759;
   --warning: #ff9f0a;
-  --danger: #ff453a;
+  --danger: #ff3b30;
 
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.4);
+  --shadow-sm: none;
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
+  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
 
-  --scrollbar-thumb: rgba(255, 255, 255, 0.22);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.24);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
 }

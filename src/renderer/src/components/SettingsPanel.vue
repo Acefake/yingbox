@@ -1,357 +1,531 @@
 <template>
   <!-- 遮罩层 -->
   <Transition name="settings-fade">
-    <div
-      v-if="visible"
-      class="fixed inset-0 z-[2100] bg-black/40 backdrop-blur-sm"
-      @click="$emit('close')"
-    />
+    <div v-if="visible" class="settings-backdrop" @click="requestClose" />
   </Transition>
 
-  <!-- 设置面板 -->
-  <Transition name="settings-slide">
+  <!-- 设置窗口（左侧导航 + 右侧内容） -->
+  <Transition name="settings-pop">
     <div
       v-if="visible"
-      class="fixed inset-y-0 right-0 z-[2101] pointer-events-none"
+      class="settings-window"
+      role="dialog"
+      aria-modal="true"
+      aria-label="设置"
+      @click.stop
     >
-      <div
-        class="settings-drawer pointer-events-auto relative flex h-full flex-col"
-        @click.stop
-      >
-        <!-- 头部 -->
-        <div
-          class="settings-header flex items-center justify-between px-6 py-5 flex-shrink-0"
-        >
-          <div>
-            <h1 class="yb-page-title settings-drawer-title">设置</h1>
-            <p class="yb-section-subtitle">偏好与刮削服务</p>
+      <div class="settings-frame">
+        <DialogTitlebar :title="`设置 · ${currentSection.label}`" icon="settings" @close="requestClose" />
+        <div class="settings-body">
+        <!-- 左侧：搜索 + 分区导航 -->
+        <aside class="settings-nav">
+          <div class="settings-search">
+            <AppIcon name="search" size="sm" />
+            <input
+              v-model="navQuery"
+              placeholder="搜索设置"
+              type="text"
+              aria-label="搜索设置"
+            />
           </div>
-          <button
-            aria-label="关闭设置"
-            class="settings-close-btn"
-            @click="$emit('close')"
-          >
-            <svg
-              class="w-4 h-4"
-              fill="none"
-              stroke="currentColor"
-              viewBox="0 0 24 24"
+          <nav class="settings-nav-list" aria-label="设置分区">
+            <button
+              v-for="sec in visibleSections"
+              :key="sec.id"
+              class="settings-nav-item"
+              :class="{ active: activeSection === sec.id }"
+              type="button"
+              @click="selectSection(sec.id)"
             >
-              <path
-                stroke-linecap="round"
-                stroke-linejoin="round"
-                stroke-width="1.75"
-                d="M6 18L18 6M6 6l12 12"
-              />
-            </svg>
-          </button>
-        </div>
-
-        <!-- 设置内容（可滚动） -->
-        <div
-          class="flex-1 overflow-y-auto px-5 py-4 custom-scrollbar settings-body"
-        >
-          <!-- 分区：图片质量（合并海报/背景/演员） -->
-          <SettingsSection title="图片质量" icon="image">
-            <div class="space-y-3">
-              <div class="settings-row">
-                <span class="settings-row-label">海报</span>
-                <div class="yb-seg-group flex-1">
-                  <button
-                    v-for="opt in imageSizeOptions"
-                    :key="opt.value"
-                    class="yb-seg"
-                    :class="{ 'is-active': posterSize === opt.value }"
-                    @click="posterSize = opt.value"
-                  >
-                    {{ opt.short }}
-                  </button>
-                </div>
-              </div>
-              <div class="settings-row">
-                <span class="settings-row-label">背景图</span>
-                <div class="yb-seg-group flex-1">
-                  <button
-                    v-for="opt in imageSizeOptions"
-                    :key="opt.value"
-                    class="yb-seg"
-                    :class="{ 'is-active': backdropSize === opt.value }"
-                    @click="backdropSize = opt.value"
-                  >
-                    {{ opt.short }}
-                  </button>
-                </div>
-              </div>
-              <div class="settings-row">
-                <span class="settings-row-label">演员</span>
-                <div class="yb-seg-group flex-1">
-                  <button
-                    v-for="opt in imageSizeOptions"
-                    :key="opt.value"
-                    class="yb-seg"
-                    :class="{ 'is-active': actorSize === opt.value }"
-                    @click="actorSize = opt.value"
-                  >
-                    {{ opt.short }}
-                  </button>
-                </div>
-              </div>
-            </div>
-          </SettingsSection>
-
-          <!-- 分区：刷削并发 -->
-          <SettingsSection title="刷削并发" icon="download">
-            <div class="settings-row">
-              <span class="settings-row-label">并发任务数</span>
-              <div class="yb-seg-group flex-1">
-                <button
-                  v-for="opt in concurrencyOptions"
-                  :key="opt.value"
-                  class="yb-seg"
-                  :class="{ 'is-active': scrapeConcurrency === opt.value }"
-                  @click="scrapeConcurrency = opt.value"
-                >
-                  {{ opt.short }}
-                </button>
-              </div>
-            </div>
-            <p class="text-[11px] yb-dim mb-2">
-              同时进行的刷削任务数量，网络较好可调高；如遇接口限流（429）建议调低。
+              <AppIcon :name="sec.icon" />
+              <span>{{ sec.label }}</span>
+            </button>
+            <p v-if="visibleSections.length === 0" class="settings-nav-empty">
+              没有匹配的设置
             </p>
-          </SettingsSection>
+          </nav>
+        </aside>
 
-          <!-- 分区：元数据语言 -->
-          <SettingsSection title="元数据语言" icon="globe">
-            <p class="text-[11px] yb-dim mb-2">
-              刮削时从 TMDB 获取的标题、简介、演员等信息的语言
-            </p>
-            <div class="yb-seg-group settings-lang-group">
-              <button
-                v-for="opt in metadataLanguageOptions"
-                :key="opt.value"
-                class="yb-seg"
-                :class="{ 'is-active': metadataLanguage === opt.value }"
-                @click="metadataLanguage = opt.value"
-              >
-                {{ opt.label }}
-              </button>
-            </div>
-          </SettingsSection>
+        <!-- 右侧：内容区 -->
+        <section class="settings-main">
+          <!-- 数据源：自管滚动，独占内容区 -->
+          <div v-if="currentSection.id === 'sources'" class="settings-sources">
+            <SourceManagerPanel embedded :visible="visible" />
+          </div>
 
-          <!-- 分区：播放器 -->
-          <SettingsSection title="播放器" icon="play">
-            <div class="yb-info-callout">
-              <div class="yb-info-callout-title">统一内置播放器</div>
-              <div class="yb-info-callout-body">
-                首页、本地影视和 AV 资源共用同一播放器，使用统一的基础播放控制。
+          <!-- 其余分区：统一滚动 -->
+          <div v-else class="settings-scroll custom-scrollbar" :class="{ 'settings-amane': currentSection.id === 'amane' }">
+            <AmaneSettings
+              v-if="currentSection.id === 'amane'"
+              ref="amanePanel"
+              :status="amaneStatus"
+              :initial-section="amaneInitialSection"
+              @changed="amaneStatus = $event"
+            />
+            <!-- 外观 -->
+            <template v-if="currentSection.id === 'appearance'">
+              <div class="st-group">
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">主题</div>
+                    <div class="st-row-desc">深色 / 浅色界面，可随时切换</div>
+                  </div>
+                  <div class="yb-seg-group st-seg-md">
+                    <button
+                      class="yb-seg"
+                      :class="{ 'is-active': isDark }"
+                      @click="setTheme('dark')"
+                    >
+                      深色
+                    </button>
+                    <button
+                      class="yb-seg"
+                      :class="{ 'is-active': !isDark }"
+                      @click="setTheme('light')"
+                    >
+                      浅色
+                    </button>
+                  </div>
+                </div>
               </div>
-            </div>
-          </SettingsSection>
+            </template>
 
-          <!-- 分区：刮削服务 -->
-          <SettingsSection title="刮削服务" icon="database">
-            <p class="text-[11px] yb-dim mb-2">选择元数据刮削服务提供者</p>
+            <!-- 图片质量 -->
+            <template v-if="currentSection.id === 'images'">
+              <div class="st-group">
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">海报</div>
+                    <div class="st-row-desc">影片封面图的下载尺寸</div>
+                  </div>
+                  <div class="yb-seg-group st-seg-sm">
+                    <button
+                      v-for="opt in imageSizeOptions"
+                      :key="opt.value"
+                      class="yb-seg"
+                      :class="{ 'is-active': posterSize === opt.value }"
+                      @click="posterSize = opt.value"
+                    >
+                      {{ opt.short }}
+                    </button>
+                  </div>
+                </div>
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">背景图</div>
+                    <div class="st-row-desc">详情页背景的下载尺寸</div>
+                  </div>
+                  <div class="yb-seg-group st-seg-sm">
+                    <button
+                      v-for="opt in imageSizeOptions"
+                      :key="opt.value"
+                      class="yb-seg"
+                      :class="{ 'is-active': backdropSize === opt.value }"
+                      @click="backdropSize = opt.value"
+                    >
+                      {{ opt.short }}
+                    </button>
+                  </div>
+                </div>
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">演员</div>
+                    <div class="st-row-desc">演员头像的下载尺寸</div>
+                  </div>
+                  <div class="yb-seg-group st-seg-sm">
+                    <button
+                      v-for="opt in imageSizeOptions"
+                      :key="opt.value"
+                      class="yb-seg"
+                      :class="{ 'is-active': actorSize === opt.value }"
+                      @click="actorSize = opt.value"
+                    >
+                      {{ opt.short }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
 
-            <!-- 服务选择 -->
-            <div class="space-y-1 mb-3">
-              <div
-                v-for="opt in filteredProviderOptions"
-                :key="opt.value"
-                class="yb-choice-card"
-                :class="{ 'is-active': currentProvider === opt.value }"
-                @click="currentProvider = opt.value"
-              >
-                <div
-                  class="yb-radio"
-                  :class="{ 'is-active': currentProvider === opt.value }"
-                >
-                  <div
-                    v-if="currentProvider === opt.value"
-                    class="yb-radio-dot"
+            <!-- 刮削 -->
+            <template v-if="currentSection.id === 'scrape'">
+              <div class="st-group">
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">并发任务数</div>
+                    <div class="st-row-desc">
+                      同时进行的刮削任务数量；网络好可调高，遇限流（429）建议调低
+                    </div>
+                  </div>
+                  <div class="yb-seg-group st-seg-md">
+                    <button
+                      v-for="opt in concurrencyOptions"
+                      :key="opt.value"
+                      class="yb-seg"
+                      :class="{ 'is-active': scrapeConcurrency === opt.value }"
+                      @click="scrapeConcurrency = opt.value"
+                    >
+                      {{ opt.short }}
+                    </button>
+                  </div>
+                </div>
+                <div class="st-row st-row-col">
+                  <div class="st-row-text">
+                    <div class="st-row-title">元数据语言</div>
+                    <div class="st-row-desc">
+                      刮削时从 TMDB 获取的标题、简介、演员等信息的语言
+                    </div>
+                  </div>
+                  <div class="yb-seg-group st-seg-wrap">
+                    <button
+                      v-for="opt in metadataLanguageOptions"
+                      :key="opt.value"
+                      class="yb-seg"
+                      :class="{ 'is-active': metadataLanguage === opt.value }"
+                      @click="metadataLanguage = opt.value"
+                    >
+                      {{ opt.label }}
+                    </button>
+                  </div>
+                </div>
+              </div>
+            </template>
+
+            <!-- 服务 -->
+            <template v-if="currentSection.id === 'provider'">
+              <div class="st-group">
+                <div class="st-row st-row-col">
+                  <div class="st-row-text">
+                    <div class="st-row-title">刮削服务</div>
+                    <div class="st-row-desc">选择元数据刮削服务提供者</div>
+                  </div>
+                  <div class="st-cards">
+                    <div
+                      v-for="opt in providerOptions"
+                      :key="opt.value"
+                      class="yb-choice-card"
+                      :class="{ 'is-active': currentProvider === opt.value }"
+                      @click="currentProvider = opt.value"
+                    >
+                      <div
+                        class="yb-radio"
+                        :class="{ 'is-active': currentProvider === opt.value }"
+                      >
+                        <div
+                          v-if="currentProvider === opt.value"
+                          class="yb-radio-dot"
+                        />
+                      </div>
+                      <div class="st-card-text">
+                        <div class="st-card-title">{{ opt.label }}</div>
+                        <div class="st-card-desc">{{ opt.desc }}</div>
+                      </div>
+                    </div>
+                  </div>
+                </div>
+
+                <div v-if="currentProvider === 'tmdb'" class="st-row st-row-col">
+                  <div class="st-row-text">
+                    <div class="st-row-title">TMDB Access Token</div>
+                    <div class="st-row-desc">
+                      前往
+                      <a
+                        href="https://www.themoviedb.org/settings/api"
+                        target="_blank"
+                        class="yb-link"
+                        >TMDB API 设置</a
+                      >
+                      获取 Read Access Token
+                    </div>
+                  </div>
+                  <textarea
+                    v-model="tmdbAccessToken"
+                    rows="3"
+                    class="yb-field st-field resize-none"
+                    placeholder="输入 TMDB API Read Access Token（必填，无内置默认值）"
+                  />
+                  <p v-if="!tmdbAccessToken" class="st-warn">
+                    尚未配置 Token，TMDB 搜索与刮削不可用
+                  </p>
+                </div>
+              </div>
+
+              <div class="st-group">
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">Go 后端地址</div>
+                    <div class="st-row-desc">
+                      需先在
+                      <code class="st-code">packages/services/</code>
+                      目录下启动 Go 服务
+                    </div>
+                  </div>
+                  <input
+                    v-model="goBackendUrl"
+                    type="text"
+                    placeholder="http://localhost:31471"
+                    class="yb-field st-field-md"
                   />
                 </div>
-                <div class="flex-1 min-w-0">
-                  <div
-                    class="text-xs font-medium"
-                    style="color: var(--text-primary)"
-                  >
-                    {{ opt.label }}
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">访问密钥</div>
+                    <div class="st-row-desc">
+                      仅当后端设置了
+                      <code class="st-code">YINGBOX_API_KEY</code>
+                      时需要；仅本机使用可留空
+                    </div>
                   </div>
-                  <div class="text-[10px] yb-dim">{{ opt.desc }}</div>
+                  <input
+                    v-model="goBackendApiKey"
+                    type="password"
+                    autocomplete="off"
+                    placeholder="可选"
+                    class="yb-field st-field-md"
+                  />
                 </div>
-              </div>
-            </div>
-
-            <!-- TMDB 配置 -->
-            <div v-if="currentProvider === 'tmdb'" class="space-y-2">
-              <p class="text-[11px] yb-muted">TMDB Access Token</p>
-              <textarea
-                v-model="tmdbAccessToken"
-                placeholder="输入 TMDB API Read Access Token（必填，无内置默认值）"
-                rows="3"
-                class="yb-field resize-none"
-              />
-              <p class="text-[10px] yb-dim">
-                前往
-                <a
-                  href="https://www.themoviedb.org/settings/api"
-                  target="_blank"
-                  class="yb-link"
-                  >TMDB API 设置</a
-                >
-                获取 Read Access Token
-              </p>
-              <p v-if="!tmdbAccessToken" class="text-[10px] yb-status-fail">
-                尚未配置 Token，TMDB 搜索与刮削不可用
-              </p>
-            </div>
-
-            <!-- JavBus Go 后端配置 -->
-            <div v-if="currentProvider === 'javbus'" class="space-y-2">
-              <div>
-                <p class="text-[11px] yb-muted mb-1">Go 后端地址</p>
-                <input
-                  v-model="goBackendUrl"
-                  type="text"
-                  placeholder="例如：http://localhost:31471"
-                  class="yb-field"
-                />
-              </div>
-              <div>
-                <p class="text-[11px] yb-muted mb-1">访问密钥（可选）</p>
-                <input
-                  v-model="goBackendApiKey"
-                  type="password"
-                  autocomplete="off"
-                  placeholder="后端暴露到局域网/NAS 时填写"
-                  class="yb-field"
-                />
-                <p class="text-[10px] yb-dim mt-1">
-                  仅当后端设置了
-                  <code
-                    class="yb-chip"
-                    style="padding: 0 4px; border-radius: 4px"
-                    >YINGBOX_API_KEY</code
-                  >
-                  时需要；仅本机使用可留空
-                </p>
-              </div>
-              <div class="flex items-center gap-2">
-                <button
-                  :disabled="!goBackendUrl || goTestStatus === 'testing'"
-                  class="px-3 py-1 text-xs rounded-md transition-all yb-btn-soft"
-                  :class="
-                    goTestStatus === 'ok'
-                      ? 'yb-status-ok'
-                      : goTestStatus === 'fail'
-                        ? 'yb-status-fail'
-                        : ''
-                  "
-                  @click="handleTestGoBackend"
-                >
-                  {{
-                    goTestStatus === 'testing'
-                      ? '测试中...'
-                      : goTestStatus === 'ok'
-                        ? '✓ 连接成功'
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">连接状态</div>
+                    <div class="st-row-desc">保存后可测试后端是否可达</div>
+                  </div>
+                  <button
+                    type="button"
+                    class="yb-btn-soft st-action"
+                    :class="
+                      goTestStatus === 'ok'
+                        ? 'yb-status-ok'
                         : goTestStatus === 'fail'
-                          ? '✗ 连接失败'
-                          : '测试连接'
-                  }}
-                </button>
-              </div>
-              <p class="text-[10px] yb-dim">
-                需先在
-                <code class="yb-chip" style="padding: 0 4px; border-radius: 4px"
-                  >packages/services/</code
-                >
-                目录下启动 Go 服务
-              </p>
-            </div>
-
-            <!-- 自定义服务配置 -->
-            <div v-if="currentProvider === 'custom'" class="space-y-2">
-              <div>
-                <p class="text-[11px] yb-muted mb-1">服务名称</p>
-                <input
-                  v-model="customProviderName"
-                  type="text"
-                  placeholder="例如：我的刮削服务"
-                  class="yb-field"
-                />
-              </div>
-              <div>
-                <p class="text-[11px] yb-muted mb-1">API 基础 URL</p>
-                <input
-                  v-model="customBaseUrl"
-                  type="text"
-                  placeholder="例如：https://api.example.com"
-                  class="yb-field"
-                />
-              </div>
-              <div>
-                <p class="text-[11px] yb-muted mb-1">API Key</p>
-                <input
-                  v-model="customApiKey"
-                  type="password"
-                  placeholder="输入 API Key"
-                  class="yb-field"
-                />
-              </div>
-              <p class="text-[10px] yb-dim">
-                自定义服务需实现与 TMDB 兼容的接口格式
-              </p>
-            </div>
-          </SettingsSection>
-
-          <SettingsSection title="软件更新" icon="download">
-            <div class="space-y-2">
-              <div
-                class="flex items-center justify-between gap-3 px-3 py-2 rounded-lg settings-update-card"
-              >
-                <div class="min-w-0">
-                  <div
-                    class="text-xs font-medium"
-                    style="color: var(--text-primary)"
+                          ? 'yb-status-fail'
+                          : ''
+                    "
+                    :disabled="!goBackendUrl || goTestStatus === 'testing'"
+                    @click="handleTestGoBackend"
                   >
-                    {{ updateTitle }}
+                    {{
+                      goTestStatus === 'testing'
+                        ? '测试中...'
+                        : goTestStatus === 'ok'
+                          ? '✓ 连接成功'
+                          : goTestStatus === 'fail'
+                            ? '✗ 连接失败'
+                            : '测试连接'
+                    }}
+                  </button>
+                </div>
+
+                <template v-if="currentProvider === 'custom'">
+                  <div class="st-row">
+                    <div class="st-row-text">
+                      <div class="st-row-title">服务名称</div>
+                    </div>
+                    <input
+                      v-model="customProviderName"
+                      type="text"
+                      placeholder="例如：我的刮削服务"
+                      class="yb-field st-field-md"
+                    />
                   </div>
-                  <div class="text-[10px] yb-dim mt-0.5">
-                    {{ updateMessage }}
+                  <div class="st-row">
+                    <div class="st-row-text">
+                      <div class="st-row-title">API 基础 URL</div>
+                      <div class="st-row-desc">
+                        自定义服务需实现与 TMDB 兼容的接口格式
+                      </div>
+                    </div>
+                    <input
+                      v-model="customBaseUrl"
+                      type="text"
+                      placeholder="https://api.example.com"
+                      class="yb-field st-field-md"
+                    />
+                  </div>
+                  <div class="st-row">
+                    <div class="st-row-text">
+                      <div class="st-row-title">API Key</div>
+                    </div>
+                    <input
+                      v-model="customApiKey"
+                      type="password"
+                      autocomplete="off"
+                      placeholder="输入 API Key"
+                      class="yb-field st-field-md"
+                    />
+                  </div>
+                </template>
+              </div>
+
+              <div class="st-group">
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">重置刮削配置</div>
+                    <div class="st-row-desc">清除已保存的服务与后端配置</div>
+                  </div>
+                  <button
+                    type="button"
+                    class="yb-btn-soft st-action"
+                    @click="resetProviderConfig"
+                  >
+                    重置
+                  </button>
+                </div>
+              </div>
+            </template>
+
+            <!-- 播放器 -->
+            <template v-if="currentSection.id === 'player'">
+              <div class="st-group">
+                <div class="st-row st-row-col">
+                  <div class="st-row-text">
+                    <div class="st-row-title">播放引擎</div>
+                    <div class="st-row-desc">选择视频播放时使用的核心引擎</div>
+                  </div>
+                  <div class="st-cards">
+                    <div
+                      v-for="opt in playerEngineOptions"
+                      :key="opt.value"
+                      class="yb-choice-card"
+                      :class="{ 'is-active': preferredPlayerEngine === opt.value }"
+                      @click="preferredPlayerEngine = opt.value"
+                    >
+                      <div
+                        class="yb-radio"
+                        :class="{ 'is-active': preferredPlayerEngine === opt.value }"
+                      >
+                        <div
+                          v-if="preferredPlayerEngine === opt.value"
+                          class="yb-radio-dot"
+                        />
+                      </div>
+                      <div class="st-card-text">
+                        <div class="st-card-title">{{ opt.label }}</div>
+                        <div class="st-card-desc">{{ opt.desc }}</div>
+                      </div>
+                    </div>
                   </div>
                 </div>
-                <button
-                  v-if="updateAction"
-                  :disabled="updateBusy"
-                  class="yb-btn-soft whitespace-nowrap"
-                  @click="handleUpdateAction"
-                >
-                  {{ updateAction }}
-                </button>
-              </div>
-              <div
-                v-if="updateStatus === 'downloading'"
-                class="h-1.5 rounded-full settings-progress-track overflow-hidden"
-              >
                 <div
-                  class="h-full rounded-full settings-progress-bar transition-all"
-                  :style="{ width: `${updateProgress}%` }"
-                ></div>
+                  v-if="preferredPlayerEngine === 'mpv'"
+                  class="st-row st-row-col"
+                >
+                  <p class="st-row-desc">
+                    提示：使用 mpv 需要系统已安装 mpv 或配置环境变量
+                    YINGBOX_MPV_PATH。若未检测到会自动回退至内置播放器。
+                  </p>
+                </div>
+                <div v-if="preferredPlayerEngine === 'mpv'" class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">RTX 视频超分</div>
+                    <div class="st-row-desc">
+                      仅 Windows + NVIDIA 显卡有效：片源低于 1080p
+                      时自动调用 NVIDIA 视频超分（需在 NVIDIA app 中打开「视频超级分辨率」）
+                    </div>
+                  </div>
+                  <button
+                    class="st-switch"
+                    :class="{ 'is-on': rtxVsrEnabled }"
+                    type="button"
+                    role="switch"
+                    :aria-checked="rtxVsrEnabled"
+                    aria-label="RTX 视频超分"
+                    @click="rtxVsrEnabled = !rtxVsrEnabled"
+                  >
+                    <span class="st-switch-thumb" />
+                  </button>
+                </div>
+                <div
+                  v-if="preferredPlayerEngine === 'mpv' && mpvState.running"
+                  class="st-row st-row-col"
+                >
+                  <p class="st-row-desc">当前播放：{{ mpvResolutionText }}</p>
+                </div>
               </div>
-            </div>
-          </SettingsSection>
-        </div>
+            </template>
 
-        <!-- 底部版本信息 -->
-        <div class="settings-footer">
-          <p class="settings-footer-meta">影盒 · 设置</p>
-          <button
-            type="button"
-            class="settings-reset-btn"
-            @click="resetProviderConfig"
-          >
-            重置刮削配置
-          </button>
+            <!-- 去马赛克（lada） -->
+            <template v-if="currentSection.id === 'lada'">
+              <div class="st-group">
+                <div class="st-row st-row-col">
+                  <p class="st-row-desc">
+                    影盒只负责调度：实际修复由外部工具 lada 完成（AGPL-3.0，需另行安装）。
+                    下面两项会自动探测，也可手动指定。
+                  </p>
+                </div>
+                <div class="st-row st-row-col">
+                  <p class="st-row-desc">lada-cli</p>
+                  <div class="flex items-center gap-2 w-full">
+                    <input
+                      v-model="ladaCli"
+                      type="text"
+                      class="yb-field flex-1"
+                      placeholder="未找到，请点右侧选择"
+                      readonly
+                    />
+                    <button class="yb-btn-soft whitespace-nowrap" @click="pickLadaCli">
+                      选择…
+                    </button>
+                    <button class="yb-btn-soft whitespace-nowrap" @click="resetLadaPath('cli')">
+                      自动
+                    </button>
+                  </div>
+                </div>
+                <div class="st-row st-row-col">
+                  <p class="st-row-desc">ffmpeg</p>
+                  <div class="flex items-center gap-2 w-full">
+                    <input
+                      v-model="ladaFfmpeg"
+                      type="text"
+                      class="yb-field flex-1"
+                      placeholder="未找到，请点右侧选择"
+                      readonly
+                    />
+                    <button class="yb-btn-soft whitespace-nowrap" @click="pickFfmpeg">
+                      选择…
+                    </button>
+                    <button class="yb-btn-soft whitespace-nowrap" @click="resetLadaPath('ffmpeg')">
+                      自动
+                    </button>
+                  </div>
+                </div>
+                <div v-if="ladaHint" class="st-row st-row-col">
+                  <p class="st-row-desc">{{ ladaHint }}</p>
+                </div>
+              </div>
+            </template>
+
+            <!-- 软件更新 -->
+            <template v-if="currentSection.id === 'update'">
+              <div class="st-group">
+                <div class="st-row">
+                  <div class="st-row-text">
+                    <div class="st-row-title">{{ updateTitle }}</div>
+                    <div class="st-row-desc">{{ updateMessage }}</div>
+                  </div>
+                  <button
+                    v-if="updateAction"
+                    type="button"
+                    class="yb-btn-soft st-action"
+                    :disabled="updateBusy"
+                    @click="handleUpdateAction"
+                  >
+                    {{ updateAction }}
+                  </button>
+                </div>
+                <div
+                  v-if="updateStatus === 'downloading'"
+                  class="st-row st-row-col"
+                >
+                  <div class="st-progress">
+                    <div
+                      class="st-progress-bar"
+                      :style="{ width: `${updateProgress}%` }"
+                    />
+                  </div>
+                </div>
+              </div>
+            </template>
+          </div>
+        </section>
         </div>
       </div>
     </div>
@@ -359,18 +533,199 @@
 </template>
 
 <script setup lang="ts">
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
-import SettingsSection from '@/components/SettingsSection.vue'
+import type { AmaneStatus } from '../../../shared/amane'
 import {
   type ScrapeProviderType,
   getScrapeProviderConfig,
   saveScrapeProviderConfig,
 } from '@/stores/scrape-provider-store'
 import { backend } from '@/api/backend'
+import { useTheme } from '@/utils/theme'
+import {
+  getRtxVsrEnabled,
+  setRtxVsrEnabled,
+  syncRtxVsr,
+} from '@/composables/use-media-player'
+import { useMpvPlayer } from '@/composables/use-mpv-player'
+import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
+import AppIcon from '@/components/AppIcon.vue'
+import AmaneSettings from '@/views/Amane/Settings.vue'
 
-const props = defineProps<{ visible: boolean }>()
-defineEmits<{ close: [] }>()
+const props = defineProps<{ visible: boolean; initialSection?: string }>()
+const emit = defineEmits<{ close: [] }>()
+const amanePanel = ref<InstanceType<typeof AmaneSettings> | null>(null)
 
+// ── 分区导航 ────────────────────────────────────────────────
+type SectionId =
+  | 'appearance'
+  | 'images'
+  | 'scrape'
+  | 'provider'
+  | 'sources'
+  | 'player'
+  | 'lada'
+  | 'update'
+  | 'amane'
+
+const sections: {
+  id: SectionId
+  label: string
+  icon: 'sun' | 'image' | 'download' | 'database' | 'grid' | 'play' | 'refresh'
+  keywords: string
+}[] = [
+  { id: 'appearance', label: '外观', icon: 'sun', keywords: '主题 深色 浅色' },
+  {
+    id: 'images',
+    label: '图片质量',
+    icon: 'image',
+    keywords: '海报 背景图 演员 尺寸',
+  },
+  {
+    id: 'scrape',
+    label: '刮削',
+    icon: 'download',
+    keywords: '并发 元数据 语言 tmdb',
+  },
+  {
+    id: 'provider',
+    label: '服务',
+    icon: 'database',
+    keywords: 'tmdb token 后端 密钥 自定义 连接',
+  },
+  {
+    id: 'sources',
+    label: '数据源',
+    icon: 'grid',
+    keywords: 'cms av 在线源 插件 站点',
+  },
+  { id: 'player', label: '播放器', icon: 'play', keywords: 'mpv 引擎 artplayer' },
+  { id: 'lada', label: '去马赛克', icon: 'image', keywords: 'lada 去码 马赛克 无码 mpv 路径' },
+  { id: 'update', label: '软件更新', icon: 'refresh', keywords: '版本 下载 重启' },
+  { id: 'amane', label: 'Amane', icon: 'database', keywords: 'Amane 片库 连接 存储 刮削 智能体 水印 超分' },
+]
+
+const navQuery = ref('')
+const activeSection = ref<SectionId>('appearance')
+const amaneStatus = ref<AmaneStatus | null>(null)
+const amaneInitialSection = ref('connection')
+watch(() => [props.visible, props.initialSection] as const, ([visible, initial]) => {
+  if (!visible || !initial) return
+  const amaneTarget = initial.startsWith('amane:')
+  const section = amaneTarget ? 'amane' : initial
+  if (!sections.some(item => item.id === section)) return
+  if (selectSection(section as SectionId)) {
+    navQuery.value = ''
+    amaneInitialSection.value = amaneTarget ? initial.slice('amane:'.length) : 'connection'
+  }
+})
+
+const visibleSections = computed(() => {
+  const q = navQuery.value.trim().toLowerCase()
+  if (!q) return sections
+  return sections.filter(s =>
+    `${s.label} ${s.keywords}`.toLowerCase().includes(q)
+  )
+})
+
+watch(navQuery, () => {
+  const vis = visibleSections.value
+  if (vis.length && !vis.some(s => s.id === activeSection.value)) {
+    if (selectSection(vis[0].id)) return
+    navQuery.value = ''
+  }
+})
+
+function canLeaveAmane(): boolean {
+  return activeSection.value !== 'amane' || amanePanel.value?.canLeave() !== false
+}
+
+function selectSection(section: SectionId): boolean {
+  if (!canLeaveAmane()) return false
+  if (section === 'amane' && activeSection.value !== 'amane') amaneInitialSection.value = 'connection'
+  activeSection.value = section
+  return true
+}
+
+function requestClose(): void {
+  if (canLeaveAmane()) emit('close')
+}
+
+const currentSection = computed(
+  () =>
+    sections.find(s => s.id === activeSection.value) ??
+    visibleSections.value[0] ??
+    sections[0]
+)
+
+watch(
+  () => [props.visible, activeSection.value] as const,
+  async ([visible, section]) => {
+    if (visible && section === 'amane' && window.api?.amane) {
+      try { amaneStatus.value = await window.api.amane.status() } catch { /* Amane settings report connection errors inline */ }
+    }
+    if (visible && section === 'lada') void loadLadaPaths()
+  },
+  { immediate: true }
+)
+
+// ── 去马赛克（lada）：外部工具路径 ───────────────────────────
+const ladaCli = ref('')
+const ladaFfmpeg = ref('')
+const ladaHint = ref('')
+
+async function loadLadaPaths(): Promise<void> {
+  if (!window.api?.lada?.paths) return
+  try {
+    const paths = await window.api.lada.paths()
+    ladaCli.value = paths.cli
+    ladaFfmpeg.value = paths.ffmpeg
+    ladaHint.value = !paths.cli
+      ? '未探测到 lada-cli：请先安装 lada，或手动选择 lada-cli.exe'
+      : paths.cliOverridden
+        ? 'lada-cli：使用手动指定的路径'
+        : 'lada-cli：已自动探测。修复产物为同目录的 .restored.mp4，播放时会优先选它。'
+  } catch (e) {
+    ladaHint.value = (e as Error).message
+  }
+}
+
+async function applyLadaPaths(changes: { cli?: string; ffmpeg?: string }): Promise<void> {
+  try {
+    await window.api.lada.setPaths(changes)
+    await loadLadaPaths()
+  } catch (e) {
+    ladaHint.value = (e as Error).message
+  }
+}
+
+async function pickLadaCli(): Promise<void> {
+  const res = await window.api.dialog.openFile({
+    title: '选择 lada-cli.exe',
+    properties: ['openFile'],
+    filters: [{ name: 'lada-cli', extensions: ['exe'] }],
+  })
+  if (res?.filePaths?.[0]) await applyLadaPaths({ cli: res.filePaths[0] })
+}
+
+async function pickFfmpeg(): Promise<void> {
+  const res = await window.api.dialog.openFile({
+    title: '选择 ffmpeg.exe',
+    properties: ['openFile'],
+    filters: [{ name: 'ffmpeg', extensions: ['exe'] }],
+  })
+  if (res?.filePaths?.[0]) await applyLadaPaths({ ffmpeg: res.filePaths[0] })
+}
+
+async function resetLadaPath(which: 'cli' | 'ffmpeg'): Promise<void> {
+  await applyLadaPaths(which === 'cli' ? { cli: '' } : { ffmpeg: '' })
+}
+
+// ── 外观：主题 ──────────────────────────────────────────────
+const { isDark, setTheme } = useTheme()
+
+// ── 图片质量 ────────────────────────────────────────────────
 const imageSizeOptions = [
   { value: 'w342', short: '小', label: '小 (w342)' },
   { value: 'w780', short: '中', label: '中 (w780)' },
@@ -387,6 +742,7 @@ const actorSize = ref(
   localStorage.getItem('imageDownloadSize_actor') || 'original'
 )
 
+// ── 刮削并发 ────────────────────────────────────────────────
 const concurrencyOptions = [
   { value: '1', short: '1' },
   { value: '2', short: '2' },
@@ -417,6 +773,7 @@ watch(
   { immediate: true }
 )
 
+// ── 元数据语言 ──────────────────────────────────────────────
 const metadataLanguageOptions = [
   { value: 'zh-CN', label: '中文简体' },
   { value: 'zh-TW', label: '中文繁體' },
@@ -431,44 +788,70 @@ watch(metadataLanguage, val => localStorage.setItem('metadataLanguage', val), {
   immediate: true,
 })
 
-// 刮削服务
+// ── 播放器引擎 ──────────────────────────────────────────────
+const playerEngineOptions: {
+  value: 'built-in' | 'mpv'
+  label: string
+  desc: string
+}[] = [
+  {
+    value: 'built-in',
+    label: '内置网页播放器 (Artplayer)',
+    desc: '轻量快速，支持 HLS 流与常规 mp4/webm 格式',
+  },
+  {
+    value: 'mpv',
+    label: 'mpv 高级播放器 (推荐)',
+    desc: '全格式硬解，支持 ASS 特效字幕、多音轨与 HDR/4K 高码率',
+  },
+]
+const preferredPlayerEngine = ref<'built-in' | 'mpv'>(
+  (localStorage.getItem('preferred_player_engine') as 'built-in' | 'mpv') ||
+    'built-in'
+)
+watch(preferredPlayerEngine, val => {
+  localStorage.setItem('preferred_player_engine', val)
+})
+
+// ── RTX 视频超分（NVIDIA） ─────────────────────────────────
+const { status: mpvState } = useMpvPlayer()
+const rtxVsrEnabled = ref(getRtxVsrEnabled())
+watch(rtxVsrEnabled, val => {
+  setRtxVsrEnabled(val)
+  syncRtxVsr()
+})
+
+/** 当前播放分辨率文案：片源 →（超分后） */
+const mpvResolutionText = computed(() => {
+  const {
+    videoWidth: w,
+    videoHeight: h,
+    vsrWidth: vw,
+    vsrHeight: vh,
+    vsr,
+  } = mpvState.value
+  if (!w || !h) return '读取中…'
+  const source = `${w}×${h}`
+  if (vsr && vw && vh) {
+    const scale = Math.round((vw / w) * 10) / 10
+    return `${source} → ${vw}×${vh}（RTX 超分 ${scale}×）`
+  }
+  return `${source}（未超分：片源 ≥ 1080p 或设备不支持）`
+})
+
+// ── 刮削服务 ────────────────────────────────────────────────
 const providerOptions: {
   value: ScrapeProviderType
   label: string
   desc: string
-  adult?: boolean
 }[] = [
   {
     value: 'tmdb',
     label: 'TMDB',
     desc: 'The Movie Database，全球最大的电影数据库',
   },
-  {
-    value: 'javbus',
-    label: 'JavBus Go 服务',
-    desc: '本地 Go 后端，从 JavBus 刮削 JAV 元数据并下载图片',
-    adult: true,
-  },
   { value: 'custom', label: '自定义服务', desc: '接入自己的刮削 API' },
 ]
-
-// 成人模式状态
-const adultMode = ref(localStorage.getItem('adultMode') === '1')
-
-// 根据成人模式过滤服务选项
-const filteredProviderOptions = computed(() =>
-  providerOptions.filter(opt => !opt.adult || adultMode.value)
-)
-
-// 成人模式关闭时，如果当前选中的是成人服务，自动切换到 TMDB
-watch(adultMode, isAdult => {
-  if (
-    !isAdult &&
-    providerOptions.find(opt => opt.value === currentProvider.value)?.adult
-  ) {
-    currentProvider.value = 'tmdb'
-  }
-})
 
 const _config = getScrapeProviderConfig()
 const currentProvider = ref<ScrapeProviderType>(_config.provider)
@@ -480,6 +863,7 @@ const goBackendUrl = ref(_config.goBackendUrl || 'http://localhost:31471')
 const goBackendApiKey = ref(_config.goBackendApiKey || '')
 const goTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 
+// ── 软件更新 ────────────────────────────────────────────────
 type UpdateStatus =
   | 'idle'
   | 'checking'
@@ -568,10 +952,8 @@ const handleUpdateAction = async () => {
 window.api?.update?.onStatus?.(handleUpdateStatus)
 onBeforeUnmount(() => window.api?.update?.offStatus?.())
 
+// ── 服务配置加载 / 保存 ──────────────────────────────────────
 const loadConfig = () => {
-  // 刷新成人模式状态
-  adultMode.value = localStorage.getItem('adultMode') === '1'
-
   const c = getScrapeProviderConfig()
   currentProvider.value = c.provider
   tmdbAccessToken.value = c.tmdbAccessToken
@@ -599,12 +981,6 @@ watch(goBackendApiKey, val => {
   saveScrapeProviderConfig({ goBackendApiKey: val })
   goTestStatus.value = 'idle'
 })
-watch(
-  () => props.visible,
-  v => {
-    if (v) loadConfig()
-  }
-)
 
 const resetProviderConfig = (): void => {
   localStorage.removeItem('scrapeProviderConfig')
@@ -617,168 +993,524 @@ const handleTestGoBackend = async (): Promise<void> => {
   const ok = await backend.testConnection()
   goTestStatus.value = ok ? 'ok' : 'fail'
 }
+
+// ── 打开/关闭行为 ───────────────────────────────────────────
+watch(
+  () => props.visible,
+  v => {
+    if (v) {
+      loadConfig()
+      navQuery.value = ''
+      window.addEventListener('keydown', onKeydown)
+    } else {
+      window.removeEventListener('keydown', onKeydown)
+    }
+  }
+)
+
+const onKeydown = (e: KeyboardEvent) => {
+  if (e.key === 'Escape') requestClose()
+}
+
+onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>
+.settings-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2100;
+  background: rgba(0, 0, 0, 0.44);
+  backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
+}
+
+.settings-window {
+  position: fixed;
+  inset: 0;
+  z-index: 2101;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  pointer-events: none;
+}
+
+.settings-body { display:flex; flex:1; min-height:0; min-width:0; }
+.settings-frame {
+  flex-direction:column;
+  pointer-events: auto;
+  display: flex;
+  width: min(980px, calc(100vw - 48px));
+  height: min(740px, calc(100vh - 72px));
+  overflow: hidden;
+  color: var(--text-primary);
+  background: var(--bg-main);
+  border: 1px solid var(--border-subtle);
+  border-radius: 10px;
+  box-shadow: var(--shadow-lg);
+  backdrop-filter: none;
+  -webkit-backdrop-filter: none;
+}
+
+/* ── 左侧导航 ── */
+.settings-nav {
+  display: flex;
+  flex: 0 0 216px;
+  flex-direction: column;
+  min-height: 0;
+  padding: 18px 12px;
+  background: var(--bg-sidebar-solid);
+  border-right: 1px solid var(--separator);
+}
+
+.settings-search {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: 8px;
+  height: 32px;
+  margin-bottom: 10px;
+  padding: 0 10px;
+  color: var(--text-tertiary);
+  background: var(--bg-fill-secondary);
+  border-radius: var(--radius-md);
+}
+
+.settings-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none !important;
+  box-shadow: none !important;
+  color: var(--text-primary);
+  background: transparent;
+  font-size: var(--text-sm);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.settings-search input::placeholder {
+  color: var(--text-tertiary);
+}
+
+.settings-nav-list {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 2px;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.settings-nav-item {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  height: 36px;
+  padding: 0 10px;
+  border: 0;
+  border-radius: var(--radius-md);
+  color: var(--text-secondary);
+  background: transparent;
+  font-size: var(--text-sm);
+  text-align: left;
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.settings-nav-item:hover {
+  color: var(--text-primary);
+  background: var(--bg-glass);
+}
+.settings-nav-item.active {
+  color: var(--text-primary);
+  background: var(--bg-active-soft);
+  font-weight: var(--font-weight-medium);
+}
+.settings-nav-empty {
+  margin: 10px 4px;
+  font-size: 12px;
+  color: var(--text-tertiary);
+}
+
+/* ── 右侧内容 ── */
+.settings-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+}
+
+.settings-scroll {
+  flex: 1;
+  min-height: 0;
+  padding: 12px 30px 30px;
+  overflow-y: auto;
+}
+
+.settings-sources {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-height: 0;
+  padding: 14px 16px 16px;
+}
+.settings-sources > * {
+  flex: 1;
+  min-height: 0;
+}
+
+/* ── 设置行（分组 + 右置控件） ── */
+.st-group {
+  margin-bottom: 20px;
+  background: transparent;
+  border-radius: 0;
+  overflow: hidden;
+
+  border-bottom: 1px solid var(--border-default);
+}
+
+.st-row {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 24px;
+  min-height: 64px;
+  padding: 15px 0;
+}
+.st-row + .st-row {
+  border-top: 1px solid var(--separator);
+}
+.st-row-col {
+  flex-direction: column;
+  align-items: stretch;
+  gap: 10px;
+}
+
+.st-row-text {
+  min-width: 0;
+}
+.st-row-title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.st-row-desc {
+  margin-top: 2px;
+  font-size: 12px;
+  line-height: 1.55;
+  color: var(--text-secondary);
+}
+
+.st-seg-sm {
+  flex: 0 0 auto;
+  width: 190px;
+}
+.st-seg-md {
+  flex: 0 0 auto;
+  width: 300px;
+}
+.st-seg-sm .yb-seg,
+.st-seg-md .yb-seg {
+  flex: 1 1 0;
+  min-width: 0;
+  padding: 4px 8px;
+  min-height: 28px;
+}
+.st-seg-wrap {
+  display: flex;
+  flex-wrap: wrap;
+  width: 100%;
+}
+.st-seg-wrap .yb-seg {
+  flex: 1 1 auto;
+  min-width: 72px;
+}
+
+/* 开关（布尔设置项，如 RTX 视频超分） */
+.st-switch {
+  position: relative;
+  flex: 0 0 auto;
+  width: 42px;
+  height: 24px;
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.st-switch:hover {
+  background: var(--bg-active-soft);
+}
+.st-switch-thumb {
+  position: absolute;
+  top: 3px;
+  left: 3px;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--bg-elevated);
+  box-shadow: 0 1px 2px rgba(0, 0, 0, 0.25);
+  transition: var(--transition-fast);
+}
+.st-switch.is-on {
+  background: var(--accent);
+}
+.st-switch.is-on:hover {
+  background: var(--accent-hover);
+}
+.st-switch.is-on .st-switch-thumb {
+  left: 21px;
+  background: var(--text-on-accent);
+  box-shadow: none;
+}
+
+.st-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.st-card-text {
+  flex: 1;
+  min-width: 0;
+}
+.st-card-title {
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
+  color: var(--text-primary);
+}
+.st-card-desc {
+  font-size: 10px;
+  color: var(--text-tertiary);
+}
+
+.st-field {
+  font-size: var(--text-sm);
+}
+.st-field-md {
+  flex: 0 0 auto;
+  width: 300px;
+  min-height: 32px;
+  padding: 6px 12px;
+  font-size: var(--text-sm);
+}
+
+.st-action {
+  flex: 0 0 auto;
+  min-height: 30px;
+  padding: 0 14px;
+  font-size: var(--text-xs);
+}
+
+.st-warn {
+  margin: 0;
+  font-size: 10px;
+  color: var(--danger);
+}
+
+.st-code {
+  padding: 0 4px;
+  border-radius: 4px;
+  font-size: 10px;
+  background: var(--bg-fill-secondary);
+}
+
+.st-progress {
+  height: 6px;
+  overflow: hidden;
+  background: var(--bg-fill-secondary);
+  border-radius: var(--radius-full);
+}
+.st-progress-bar {
+  height: 100%;
+  background: var(--accent);
+  border-radius: var(--radius-full);
+  transition: width 0.35s var(--ease-out);
+}
+
+/* ── 动效 ── */
 .settings-fade-enter-active,
 .settings-fade-leave-active {
-  transition: opacity 0.3s var(--ease-out);
+  transition: opacity 0.25s var(--ease-out);
 }
 .settings-fade-enter-from,
 .settings-fade-leave-to {
   opacity: 0;
 }
 
-.settings-slide-enter-active,
-.settings-slide-leave-active {
-  transition: var(--transition-panel);
+.settings-pop-enter-active {
+  transition: opacity 0.28s var(--ease-out);
 }
-.settings-slide-enter-from,
-.settings-slide-leave-to {
-  transform: translateX(100%);
+.settings-pop-enter-active .settings-frame {
+  transition:
+    opacity 0.28s var(--ease-out),
+    transform 0.28s var(--ease-out);
+}
+.settings-pop-enter-from {
+  opacity: 0;
+}
+.settings-pop-enter-from .settings-frame {
+  opacity: 0;
+  transform: scale(0.97) translateY(10px);
+}
+.settings-pop-leave-active {
+  transition: opacity 0.16s ease;
+}
+.settings-pop-leave-active .settings-frame {
+  transition:
+    opacity 0.16s ease,
+    transform 0.16s ease;
+}
+.settings-pop-leave-to {
+  opacity: 0;
+}
+.settings-pop-leave-to .settings-frame {
+  opacity: 0;
+  transform: scale(0.985) translateY(6px);
 }
 
-.settings-drawer {
-  width: min(500px, calc(100vw - 48px));
-  background: var(--bg-panel);
-  color: var(--text-primary);
-  border-left: 1px solid var(--separator);
-  box-shadow: var(--shadow-lg);
-  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-panel))
-    saturate(var(--saturate-vibrancy));
-}
-
-@media (max-width: 768px) {
-  .settings-drawer {
+/* ── 窄屏：整窗 + 顶部横向分区 ── */
+@media (max-width: 720px) {
+  .settings-frame {
+    flex-direction: column;
     width: 100vw;
-    border-left: 0;
+    height: 100dvh;
+    border: 0;
+    border-radius: 0;
+  }
+  .settings-nav {
+    flex: 0 0 auto;
+    flex-direction: row;
+    align-items: center;
+    gap: 8px;
+    width: 100%;
+    padding: 10px 12px;
+    border-right: 0;
+    border-bottom: 1px solid var(--separator);
+  }
+  .settings-search {
+    flex: 0 0 auto;
+    width: 132px;
+    margin-bottom: 0;
+  }
+  .settings-nav-list {
+    flex: 1;
+    flex-direction: row;
+    overflow-x: auto;
+    overflow-y: hidden;
+  }
+  .settings-nav-item {
+    width: auto;
+    white-space: nowrap;
+  }
+  .settings-nav-empty {
+    display: none;
+  }
+  .settings-scroll {
+    padding: 14px 16px 24px;
+  }
+  .settings-sources {
+    padding: 10px 12px 12px;
+  }
+  .st-row {
+    flex-wrap: wrap;
+  }
+  .st-field-md {
+    width: 100%;
   }
 }
 
-.settings-header {
-  border-bottom: 1px solid var(--separator);
-}
-
-.settings-drawer-title {
-  font-size: var(--text-2xl);
-  letter-spacing: -0.022em;
-}
-
-.settings-close-btn {
-  width: 30px;
-  height: 30px;
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  border-radius: var(--radius-md);
-  color: var(--text-secondary);
-  background: var(--bg-fill-secondary);
-  border: 0;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.settings-close-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-}
-.settings-close-btn:active {
-  transform: scale(0.94);
-}
-
-.settings-body {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-}
-
-.settings-row {
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-
-.settings-row-label {
-  width: 52px;
-  flex-shrink: 0;
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.settings-lang-group {
-  display: flex;
-  flex-wrap: wrap;
-  width: 100%;
-}
-.settings-lang-group .yb-seg {
-  flex: 1 1 auto;
-  min-width: 72px;
-}
-
-.settings-update-card {
-  background: var(--bg-fill-secondary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-md);
-}
-.settings-progress-track {
-  background: var(--bg-fill-secondary);
-}
-.settings-progress-bar {
-  background: var(--accent);
-}
-
-.settings-footer {
-  flex-shrink: 0;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 14px 22px 18px;
-  border-top: 1px solid var(--separator);
-  background: color-mix(in srgb, var(--bg-panel) 88%, transparent);
-}
-.settings-footer-meta {
-  margin: 0;
-  font-size: 12px;
-  color: var(--text-tertiary);
-}
-.settings-reset-btn {
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-size: 12px;
-  color: var(--text-tertiary);
-  padding: 6px 10px;
-  border-radius: var(--radius-md);
-  transition: var(--transition-fast);
-}
-.settings-reset-btn:hover {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
-}
-.settings-reset-btn:active {
-  transform: scale(0.97);
-}
-
 @media (prefers-reduced-transparency: reduce) {
-  .settings-drawer {
+  .settings-frame {
     backdrop-filter: none;
     -webkit-backdrop-filter: none;
     background: var(--bg-elevated);
   }
 }
+
 @media (prefers-reduced-motion: reduce) {
-  .settings-slide-enter-active,
-  .settings-slide-leave-active {
+  .settings-pop-enter-active,
+  .settings-pop-leave-active,
+  .settings-pop-enter-active .settings-frame,
+  .settings-pop-leave-active .settings-frame {
     transition: opacity 0.2s ease;
   }
-  .settings-slide-enter-from,
-  .settings-slide-leave-to {
+  .settings-pop-enter-from .settings-frame,
+  .settings-pop-leave-to .settings-frame {
     transform: none;
   }
-  .settings-close-btn:active,
-  .settings-reset-btn:active {
-    transform: none;
+  .st-progress-bar {
+    transition: none;
   }
 }
+
+.settings-scroll.settings-amane :deep(.amane-settings) {
+  display: grid;
+  grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
+  align-items: start;
+  gap: 22px;
+}
+
+.settings-scroll.settings-amane :deep(.amane-settings-nav) {
+  position: sticky;
+  top: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 3px;
+  padding: 4px 12px 4px 0;
+  border: 0;
+  border-right: 1px solid var(--separator);
+  border-radius: 0;
+}
+
+.settings-scroll.settings-amane :deep(.amane-config-settings.is-integrated) {
+  display: block;
+  padding: 0;
+}
+
+.settings-scroll.settings-amane :deep(.amane-settings-nav button) {
+  min-height: 36px;
+  padding: 8px 11px;
+  border-radius: var(--radius-md);
+}
+
+.settings-scroll.settings-amane :deep(.amane-config-panel) {
+  min-width: 0;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  border-radius: 0;
+  background: transparent;
+}
+
+.settings-scroll.settings-amane :deep(.amane-config-save) {
+  position: static;
+  margin-top: 24px;
+  padding-top: 16px;
+  border-top: 1px solid var(--separator);
+  background: transparent;
+}
+
+@media (max-width: 900px) {
+  .settings-scroll.settings-amane :deep(.amane-settings) {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 16px;
+  }
+
+  .settings-scroll.settings-amane :deep(.amane-settings-nav) {
+    position: static;
+    flex-direction: row;
+    overflow-x: auto;
+    border-right: 0;
+    border-bottom: 1px solid var(--separator);
+    padding: 0 0 8px;
+  }
+
+  .settings-scroll.settings-amane :deep(.amane-settings-nav button) {
+    flex: 0 0 auto;
+    white-space: nowrap;
+  }
+}
+@media(max-width:720px) { .settings-body { flex-direction:column; } }
 </style>

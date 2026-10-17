@@ -12,7 +12,7 @@ const _cheerio = require('cheerio')
 const _cryptojs = require('crypto-js')
 
 // ── HTTP fetch helper ──────────────────────────────────────
-function _fetch(url, options = {}) {
+function rawFetch(url, options = {}) {
   if (!url || typeof url !== 'string') {
     return Promise.reject(new Error(`Invalid URL: ${url}`))
   }
@@ -75,6 +75,135 @@ function _fetch(url, options = {}) {
     }
     req.end()
   })
+}
+
+// ── Browser fetch bridge（Cloudflare 挑战回退） ─────────────
+// Electron 主进程会把浏览器抓取服务写入临时文件；没有 Electron 时回退为空实现。
+const BROWSER_BRIDGE_FILE = require('path').join(
+  require('os').tmpdir(),
+  'yingbox-browser-fetch.json'
+)
+const CHALLENGE_MARKERS = [
+  'Just a moment',
+  'Attention Required',
+  'Enable JavaScript and cookies to continue',
+  '安全验证',
+  'cf-browser-verification',
+  'cf_chl_opt',
+]
+let browserBridgeCache = { at: 0, value: null }
+
+function readBrowserBridge() {
+  if (Date.now() - browserBridgeCache.at < 5000) return browserBridgeCache.value
+  browserBridgeCache = { at: Date.now(), value: null }
+  try {
+    const parsed = JSON.parse(
+      require('fs').readFileSync(BROWSER_BRIDGE_FILE, 'utf-8')
+    )
+    if (
+      parsed &&
+      typeof parsed.url === 'string' &&
+      typeof parsed.token === 'string'
+    ) {
+      browserBridgeCache.value = parsed
+    }
+  } catch {
+    /* 未运行 Electron 主进程时静默禁用 */
+  }
+  return browserBridgeCache.value
+}
+
+function isChallengePage(data) {
+  return (
+    typeof data === 'string' &&
+    CHALLENGE_MARKERS.some(marker => data.includes(marker))
+  )
+}
+
+function browserFetch(url) {
+  const bridge = readBrowserBridge()
+  if (!bridge) return Promise.resolve('')
+  return new Promise(resolve => {
+    let payload
+    try {
+      payload = JSON.stringify({ url })
+      const parsed = new URL(`${bridge.url}/fetch`)
+      const req = http.request(
+        {
+          hostname: parsed.hostname,
+          port: parsed.port,
+          path: parsed.pathname,
+          method: 'POST',
+          timeout: 35000,
+          headers: {
+            'content-type': 'application/json',
+            'content-length': Buffer.byteLength(payload),
+            'x-yingbox-token': bridge.token,
+          },
+        },
+        res => {
+          const chunks = []
+          res.on('data', chunk => chunks.push(chunk))
+          res.on('end', () => {
+            try {
+              const json = JSON.parse(Buffer.concat(chunks).toString('utf-8'))
+              if (json && json.ok && typeof json.html === 'string') {
+                $print(`[browser-fetch] ${url}`)
+                resolve(json.html)
+                return
+              }
+              $print(`[browser-fetch] ${url} -> ${json && json.error}`)
+            } catch {
+              /* 忽略解析失败 */
+            }
+            resolve('')
+          })
+        }
+      )
+      req.on('error', error => {
+        $print(`[browser-fetch] ${url} -> ${error.message}`)
+        resolve('')
+      })
+      req.on('timeout', () => {
+        req.destroy()
+        resolve('')
+      })
+      req.write(payload)
+      req.end()
+    } catch {
+      resolve('')
+    }
+  })
+}
+
+/**
+ * 直连失败或拿到 Cloudflare 挑战页时，改由浏览器抓取。
+ * 只对无请求体的 GET 生效，避免误伤 POST/API 与二进制下载。
+ */
+function _fetch(url, options = {}) {
+  const canFallback =
+    (options.method || 'GET').toUpperCase() === 'GET' && !options.body
+  const useBrowser = async () => {
+    const html = await browserFetch(url)
+    return html && !isChallengePage(html) ? { data: html, headers: {} } : null
+  }
+
+  return rawFetch(url, options).then(
+    async result => {
+      if (canFallback && isChallengePage(result.data)) {
+        const viaBrowser = await useBrowser()
+        if (viaBrowser) return viaBrowser
+      }
+      return result
+    },
+    async error => {
+      if (canFallback) {
+        const viaBrowser = await useBrowser()
+        if (viaBrowser) return viaBrowser
+      }
+      throw error
+    }
+  )
 }
 
 // CatSpider JS files use $fetch.get(url, { headers }) pattern
@@ -229,6 +358,18 @@ function normalizePluginResult(value) {
 }
 
 // ── Download JS file ───────────────────────────────────────
+// 插件源码每次调用都要重新走一遍 GitHub 代理，既慢又容易失败；
+// 这里落一份本地缓存，命中时直接读盘，过期或拉取失败时回退到旧缓存。
+const PLUGIN_CACHE_TTL_MS = 6 * 60 * 60 * 1000
+
+function pluginCachePath(url) {
+  const os = require('os')
+  const path = require('path')
+  const crypto = require('crypto')
+  const hash = crypto.createHash('sha1').update(url).digest('hex').slice(0, 16)
+  return path.join(os.tmpdir(), 'yingbox-plugin-cache', `${hash}.js`)
+}
+
 async function downloadJS(url) {
   if (
     url.startsWith('file://') ||
@@ -241,8 +382,40 @@ async function downloadJS(url) {
       : url
     return fs.readFileSync(localPath, 'utf-8')
   }
-  const { data } = await $fetch(url)
-  return data
+
+  const fs = require('fs')
+  const path = require('path')
+  const cachePath = pluginCachePath(url)
+  const readCache = () => {
+    try {
+      return { code: fs.readFileSync(cachePath, 'utf-8'), mtime: fs.statSync(cachePath).mtimeMs }
+    } catch {
+      return null
+    }
+  }
+  const writeCache = code => {
+    try {
+      fs.mkdirSync(path.dirname(cachePath), { recursive: true })
+      fs.writeFileSync(cachePath, code, 'utf-8')
+    } catch {
+      /* 缓存写入失败不影响本次调用 */
+    }
+  }
+
+  const cached = readCache()
+  if (cached && Date.now() - cached.mtime < PLUGIN_CACHE_TTL_MS) return cached.code
+
+  try {
+    const { data } = await $fetch(url)
+    writeCache(data)
+    return data
+  } catch (error) {
+    if (cached) {
+      $print(`[cache] 拉取插件失败，使用本地缓存: ${error.message}`)
+      return cached.code
+    }
+    throw error
+  }
 }
 
 // ── Main ───────────────────────────────────────────────────
@@ -261,10 +434,21 @@ async function main() {
   const jsUrl = args[0]
   const action = args[1]
   const extJson = args[2] || '{}'
+  // 站点配置里的 patch：上游插件域名/路径过期时，在运行时重写插件源码。
+  const patchJson = args[3] || ''
 
   try {
     // Download JS file
-    const jsCode = await downloadJS(jsUrl)
+    let jsCode = await downloadJS(jsUrl)
+
+    const patch = argsify(patchJson)
+    if (patch && typeof patch === 'object') {
+      for (const [from, to] of Object.entries(patch)) {
+        if (!from || typeof to !== 'string' || !jsCode.includes(from)) continue
+        jsCode = jsCode.split(from).join(to)
+        $print(`[patch] ${from} -> ${to}`)
+      }
+    }
 
     // Create sandboxed execution context
     const sandbox = {

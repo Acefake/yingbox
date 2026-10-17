@@ -1,4 +1,7 @@
 import { contextBridge, ipcRenderer } from 'electron'
+import type { AmaneBridge } from '../shared/amane'
+import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
+import type { LadaJob, LadaLiveStatus } from '../shared/lada'
 
 /** 播放列表条目：用于自动连播与失败换源 */
 interface PlayerSourceItem {
@@ -29,6 +32,16 @@ interface FileOperationResult {
 }
 
 const api = {
+  amane: {
+    status: () => ipcRenderer.invoke('amane:status'),
+    start: () => ipcRenderer.invoke('amane:start'),
+    stop: () => ipcRenderer.invoke('amane:stop'),
+    configure: settings => ipcRenderer.invoke('amane:configure', settings),
+    selectExecutable: () => ipcRenderer.invoke('amane:selectExecutable'),
+    request: request => ipcRenderer.invoke('amane:request', request),
+    resolveMedia: mediaId => ipcRenderer.invoke('amane:resolveMedia', mediaId),
+    connection: () => ipcRenderer.invoke('amane:connectionInfo'),
+  } satisfies AmaneBridge,
   file: {
     // 读取
     read: (filePath: string): Promise<FileOperationResult> =>
@@ -176,6 +189,7 @@ const api = {
   app: {
     getUserDataPath: (): Promise<string> =>
       ipcRenderer.invoke('app:getUserDataPath'),
+    networkIps: (): Promise<string[]> => ipcRenderer.invoke('app:networkIps'),
     // Get app version info from package.json
     getVersion: (): Promise<FileOperationResult> =>
       ipcRenderer.invoke('app:getVersion'),
@@ -250,6 +264,181 @@ const api = {
       format?: string
       error?: string
     }> => ipcRenderer.invoke('subtitle:read', filePath),
+    /** OpenSubtitles 在线搜索（需主进程环境变量 YINGBOX_OPENSUBTITLES_KEY） */
+    searchOnline: (options: {
+      query?: string
+      imdbId?: string
+      episode?: number
+      season?: number
+      languages?: string
+    }): Promise<{
+      success: boolean
+      data?: Array<{
+        name: string
+        language: string
+        downloads: number
+        rating?: number
+        size?: number
+        format: string
+        fileId: number
+      }>
+      error?: string
+      notConfigured?: boolean
+    }> => ipcRenderer.invoke('subtitle:searchOnline', options),
+    /** 下载在线字幕并转为 WebVTT 文本 */
+    downloadOnline: (
+      fileId: number
+    ): Promise<{
+      success: boolean
+      data?: string
+      format?: string
+      error?: string
+      notConfigured?: boolean
+    }> => ipcRenderer.invoke('subtitle:downloadOnline', fileId),
+  },
+  lada: {
+    /** 探测 lada-cli 与 ffmpeg 路径 */
+    paths: () => ipcRenderer.invoke('lada:paths'),
+    /** 覆盖路径（空串=恢复自动探测） */
+    setPaths: (changes: { cli?: string; ffmpeg?: string }) =>
+      ipcRenderer.invoke('lada:setPaths', changes),
+    /** 对某个视频发起去马赛克 */
+    start: (filePath: string) => ipcRenderer.invoke('lada:start', filePath),
+    cancel: () => ipcRenderer.invoke('lada:cancel'),
+    status: (): Promise<LadaJob | null> => ipcRenderer.invoke('lada:status'),
+    /** 别的影盒实例是否在跑任务（跨实例可见） */
+    otherJob: () => ipcRenderer.invoke('lada:otherJob'),
+    /** 播放时优先返回已修复的产物 */
+    playablePath: (
+      filePath: string
+    ): Promise<{ path: string; restored: boolean }> =>
+      ipcRenderer.invoke('lada:playablePath', filePath),
+    onProgress: (cb: (job: LadaJob | null) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, job: LadaJob | null): void => {
+        cb(job)
+      }
+      ipcRenderer.on('lada:progress', handler)
+    },
+    offProgress: () => ipcRenderer.removeAllListeners('lada:progress'),
+    onFinished: (cb: (job: LadaJob | null) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, job: LadaJob | null): void => {
+        cb(job)
+      }
+      ipcRenderer.on('lada:finished', handler)
+    },
+    offFinished: () => ipcRenderer.removeAllListeners('lada:finished'),
+    /** 「边跑边看」：起 lada + 追播，返回可直接交给播放器的 m3u8 地址 */
+    startLive: (
+      filePath: string
+    ): Promise<{ success: boolean; url?: string; error?: string }> =>
+      ipcRenderer.invoke('lada:startLive', filePath),
+    stopLive: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('lada:stopLive'),
+    liveStatus: () => ipcRenderer.invoke('lada:liveStatus'),
+    onLive: (cb: (status: LadaLiveStatus | null) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, status: LadaLiveStatus | null): void => {
+        cb(status)
+      }
+      ipcRenderer.on('lada:live', handler)
+    },
+    offLive: () => ipcRenderer.removeAllListeners('lada:live'),
+    /** 暂停/继续：查询该片子的已处理进度 */
+    resumeInfo: (filePath: string) => ipcRenderer.invoke('lada:resumeInfo', filePath),
+    /** 继续处理（裁剩余 → 跑剩余 → 自动拼接补音轨） */
+    resume: (
+      filePath: string
+    ): Promise<{ success: boolean; error?: string; doneSeconds?: number }> =>
+      ipcRenderer.invoke('lada:resume', filePath),
+    /** 接管 lada 写在 %TEMP% 里的半成品，收进缓存并登记进度 */
+    adoptPartial: (filePath: string, partialPath: string) =>
+      ipcRenderer.invoke('lada:adoptPartial', filePath, partialPath),
+    /** 区间去码：只处理 [起点, 终点]（end <= 0 表示到片尾） */
+    startRange: (
+      filePath: string,
+      startSeconds: number,
+      endSeconds: number
+    ): Promise<{ success: boolean; error?: string; output?: string; start?: number; end?: number }> =>
+      ipcRenderer.invoke('lada:startRange', filePath, startSeconds, endSeconds),
+    /** 区间产物拼好后触发（成功给 path，失败给 error） */
+    onRangeReady: (
+      cb: (info: {
+        path?: string
+        input: string
+        start: number
+        end: number
+        title: string
+        error?: string
+      }) => void
+    ) => {
+      const handler = (
+        _e: Electron.IpcRendererEvent,
+        info: { path?: string; input: string; start: number; end: number; title: string; error?: string }
+      ): void => {
+        cb(info)
+      }
+      ipcRenderer.on('lada:range-ready', handler)
+    },
+    offRangeReady: () => ipcRenderer.removeAllListeners('lada:range-ready'),
+    clearCache: (): Promise<{ success: boolean; freed?: number }> => ipcRenderer.invoke('lada:clearCache'),
+    cacheSize: (): Promise<number> => ipcRenderer.invoke('lada:cacheSize'),
+    onNotice: (cb: (text: string) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, text: string): void => {
+        cb(text)
+      }
+      ipcRenderer.on('lada:notice', handler)
+    },
+    offNotice: () => ipcRenderer.removeAllListeners('lada:notice'),
+  },
+  mpv: {    open: (
+      options: MpvOpenOptions
+    ): Promise<{ success: boolean; error?: string }> =>
+      ipcRenderer.invoke('mpv:open', options),
+    pause: (paused: boolean): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:pause', paused),
+    seek: (
+      seconds: number,
+      mode?: 'absolute' | 'relative'
+    ): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:seek', seconds, mode),
+    volume: (vol: number): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:volume', vol),
+    mute: (muted: boolean): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:mute', muted),
+    speed: (spd: number): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:speed', spd),
+    setVsr: (enabled: boolean): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:setVsr', enabled),
+    setSubTrack: (id: number | false): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:setSubTrack', id),
+    setAudioTrack: (id: number): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:setAudioTrack', id),
+    addSubFile: (filePath: string): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:addSubFile', filePath),
+    playlistNext: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:playlistNext'),
+    playlistPrev: (): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:playlistPrev'),
+    playlistPlay: (index: number): Promise<{ success: boolean }> =>
+      ipcRenderer.invoke('mpv:playlistPlay', index),
+    getStatus: (): Promise<MpvStatus> => ipcRenderer.invoke('mpv:getStatus'),
+    quit: (): Promise<{ success: boolean }> => ipcRenderer.invoke('mpv:quit'),
+    onStatus: (cb: (status: MpvStatus) => void) => {
+      const handler = (
+        _e: Electron.IpcRendererEvent,
+        status: MpvStatus
+      ): void => {
+        cb(status)
+      }
+      ipcRenderer.on('mpv:status', handler)
+    },
+    offStatus: () => ipcRenderer.removeAllListeners('mpv:status'),
+    onError: (cb: (msg: string) => void) => {
+      const handler = (_e: Electron.IpcRendererEvent, msg: string): void => {
+        cb(msg)
+      }
+      ipcRenderer.on('mpv:error', handler)
+    },
+    offError: () => ipcRenderer.removeAllListeners('mpv:error'),
   },
 }
 

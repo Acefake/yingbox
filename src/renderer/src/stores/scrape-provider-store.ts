@@ -1,9 +1,9 @@
 /**
  * 刮削服务提供者配置 Store
- * 支持多种刮削服务，当前内置 TMDB / JavBus，可扩展自定义服务
+ * 支持多种刮削服务，当前内置 TMDB，可扩展自定义服务
  */
 
-export type ScrapeProviderType = 'tmdb' | 'javbus' | 'custom'
+export type ScrapeProviderType = 'tmdb' | 'custom'
 
 export interface ScrapeProviderConfig {
   /** 当前选中的服务提供者 */
@@ -16,7 +16,7 @@ export interface ScrapeProviderConfig {
   customBaseUrl: string
   /** 自定义服务 API Key */
   customApiKey: string
-  /** JavBus Go 后端地址 */
+  /** 在线资源 Go 后端地址 */
   goBackendUrl: string
   /**
    * Go 后端访问密钥（对应后端环境变量 YINGBOX_API_KEY）。
@@ -53,7 +53,13 @@ export const getScrapeProviderConfig = (): ScrapeProviderConfig => {
   try {
     const raw = localStorage.getItem(STORAGE_KEY)
     if (raw) {
-      return { ...defaults, ...JSON.parse(raw) }
+      const saved = JSON.parse(raw)
+      const merged = { ...defaults, ...saved }
+      if (merged.provider !== 'tmdb' && merged.provider !== 'custom') {
+        merged.provider = 'tmdb'
+        localStorage.setItem(STORAGE_KEY, JSON.stringify(merged))
+      }
+      return merged
     }
   } catch {
     // ignore
@@ -84,7 +90,7 @@ export const getTmdbAccessToken = (): string => {
 export const hasTmdbToken = (): boolean => getTmdbAccessToken() !== ''
 
 /**
- * 获取 JavBus Go 后端 URL
+ * 获取 在线资源 Go 后端 URL
  */
 export const getGoBackendUrl = (): string => {
   const config = getScrapeProviderConfig()

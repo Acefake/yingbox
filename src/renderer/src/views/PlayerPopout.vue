@@ -10,6 +10,8 @@
       :show-footer="false"
       autoplay
       controls
+      @play="clearFailure"
+      @loadedmetadata="clearFailure"
       @timeupdate="onTimeUpdate"
       @pause="flushProgress"
       @ended="onEnded"
@@ -20,6 +22,24 @@
       <span>{{ emptyText }}</span>
     </div>
     <p v-if="notice" class="player-popout-notice">{{ notice }}</p>
+    <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
+    <div v-if="failure" class="player-popout-error" role="alert">
+      <p class="player-popout-error-title">播放失败</p>
+      <p class="player-popout-error-msg">{{ failure }}</p>
+      <p v-if="failedSource" class="player-popout-error-src" :title="failedSource">
+        {{ failedSource }}
+      </p>
+      <div class="player-popout-error-actions">
+        <button
+          type="button"
+          class="player-popout-error-btn"
+          :disabled="retrying"
+          @click="retry"
+        >
+          {{ retrying ? '重试中…' : '重试' }}
+        </button>
+      </div>
+    </div>
   </div>
 </template>
 
@@ -74,6 +94,11 @@ const activeFallback = ref(-1)
 
 const defaultTitle = ref('正在播放')
 
+/** 播放失败且已无备用线路时展示的可操作错误信息 */
+const failure = ref('')
+const failedSource = ref('')
+const retrying = ref(false)
+
 let lastPersist = 0
 let lastTime = 0
 let lastDuration = 0
@@ -93,6 +118,12 @@ const showNotice = (text: string): void => {
   noticeTimer = window.setTimeout(() => {
     notice.value = ''
   }, 4000)
+}
+
+/** 恢复播放后清掉错误面板 */
+const clearFailure = (): void => {
+  failure.value = ''
+  failedSource.value = ''
 }
 
 const entryLabel = (entry: Entry | null | undefined): string => {
@@ -134,6 +165,7 @@ const loadEntry = async (
   const entry = currentEntry.value
   lastTime = 0
   lastDuration = 0
+  clearFailure()
 
   if (!entry) {
     src.value = ''
@@ -152,12 +184,16 @@ const loadEntry = async (
   } else {
     src.value = ''
     emptyText.value = '无可用播放地址'
+    failure.value = '这一集没有可用的播放地址。'
+    failedSource.value = entryLabel(entry)
     return
   }
 
   if (!resolved) {
     src.value = ''
     emptyText.value = '无法解析播放地址'
+    failure.value = '无法从该来源解析出播放地址（可能是资源已下架或需要登录）。'
+    failedSource.value = entryLabel(entry)
     return
   }
 
@@ -208,7 +244,24 @@ const onError = async (): Promise<void> => {
     await loadEntry()
     return
   }
-  showNotice('播放失败，未找到可用备用线路')
+  // 备用线路也失败：给出可操作的错误界面
+  failure.value = fallbacks.value.length
+    ? '当前线路与备用线路均无法播放。'
+    : '无法播放该地址（可能是资源已失效或格式不受支持）。'
+  failedSource.value = entryLabel(currentEntry.value)
+  showNotice('播放失败')
+}
+
+/** 手动重试：重置备用线路，从当前集重新解析播放 */
+const retry = async (): Promise<void> => {
+  if (retrying.value) return
+  retrying.value = true
+  try {
+    activeFallback.value = -1
+    await loadEntry()
+  } finally {
+    retrying.value = false
+  }
 }
 
 const applyPayload = (payload: PlayerPayload): void => {
@@ -326,6 +379,83 @@ onBeforeUnmount(() => {
   height: auto;
   object-fit: contain;
   border-radius: 10px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.45);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 短暂提示（自动换线路 / 连播） */
+.player-popout-notice {
+  position: absolute;
+  top: 16px;
+  left: 50%;
+  transform: translateX(-50%);
+  z-index: 40;
+  margin: 0;
+  padding: 8px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #fff;
+  background: rgba(0, 0, 0, 0.72);
+  pointer-events: none;
+}
+
+/* 播放失败：可操作错误面板 */
+.player-popout-error {
+  position: absolute;
+  inset: 0;
+  z-index: 45;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 10px;
+  padding: 32px;
+  text-align: center;
+  background: rgba(0, 0, 0, 0.82);
+}
+
+.player-popout-error-title {
+  margin: 0;
+  font-size: 15px;
+  font-weight: 600;
+  color: #ff6b6b;
+}
+
+.player-popout-error-msg {
+  margin: 0;
+  max-width: 560px;
+  font-size: 13px;
+  line-height: 1.6;
+  color: rgba(255, 255, 255, 0.85);
+}
+
+.player-popout-error-src {
+  margin: 0;
+  max-width: 560px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 11px;
+  color: rgba(255, 255, 255, 0.5);
+}
+
+.player-popout-error-actions {
+  margin-top: 6px;
+}
+
+.player-popout-error-btn {
+  min-width: 96px;
+  padding: 7px 18px;
+  border: 0;
+  border-radius: 8px;
+  font-size: 13px;
+  color: #fff;
+  background: #F1F1F1;
+  color: #242424;
+  cursor: pointer;
+}
+
+.player-popout-error-btn:disabled {
+  opacity: 0.6;
+  cursor: default;
 }
 </style>

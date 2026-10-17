@@ -10,6 +10,7 @@
         </keep-alive>
       </router-view>
     </AppLayout>
+    <MpvLoadingOverlay v-if="!isPlayerPopout" />
   </a-config-provider>
 </template>
 
@@ -17,6 +18,7 @@
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import AppLayout from '@/components/Layout/AppLayout.vue'
+import MpvLoadingOverlay from '@/components/MpvLoadingOverlay.vue'
 import { useTheme } from '@/utils/theme'
 
 const route = useRoute()

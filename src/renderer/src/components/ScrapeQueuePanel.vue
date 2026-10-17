@@ -10,12 +10,65 @@
         class="sqp-panel"
         role="dialog"
         aria-label="刮削队列"
+        :style="{
+          '--sqp-left': `${anchorPos.left}px`,
+          '--sqp-anchor-bottom': `${anchorPos.bottom}px`,
+        }"
         @click.stop
       >
-        <header class="sqp-header">
-          <div>
-            <h2 class="sqp-title">刮削队列</h2>
-            <p class="sqp-subtitle">
+        <DialogTitlebar title="刮削队列" icon="list" @close="emit('close')" />
+
+        <!-- 去码 / 边跑边看：都是后台任务，收起时只留一行摘要 -->
+        <section v-if="hasRuntime" class="sqp-runtime" :class="{ 'is-open': runtimeOpen }">
+          <button
+            class="sqp-runtime-head"
+            type="button"
+            :aria-expanded="runtimeOpen"
+            @click="toggleRuntime"
+          >
+            <span v-if="restoreRunning" class="sqp-spin sqp-runtime-spin" aria-hidden="true" />
+            <AppIcon v-else name="sparkle" size="sm" />
+            <span class="sqp-runtime-label">后台任务</span>
+            <span class="sqp-runtime-summary" :title="runtimeSummary">{{ runtimeSummary }}</span>
+            <AppIcon name="arrowDown" size="sm" class="sqp-runtime-chevron" />
+          </button>
+
+          <div v-if="!runtimeOpen && restoreRunning" class="sqp-runtime-track" aria-hidden="true">
+            <div class="sqp-runtime-fill" :style="{ width: `${restorePercent}%` }" />
+          </div>
+
+          <div v-else-if="runtimeOpen" class="sqp-runtime-body">
+            <div v-if="restoreRunning" class="sqp-row sqp-job is-processing" role="status" aria-live="polite">
+              <div class="sqp-status" aria-hidden="true"><span class="sqp-spin" /></div>
+              <div class="sqp-info">
+                <div class="sqp-name" :title="restoreName">去码中 · {{ restoreName }}</div>
+                <div class="sqp-job-detail">
+                  <span class="sqp-job-track" aria-hidden="true">
+                    <span class="sqp-job-fill" :style="{ width: `${restorePercent}%` }" />
+                  </span>
+                  <span class="sqp-job-value">{{ restorePercentText }}</span>
+                </div>
+              </div>
+              <div class="sqp-actions">
+                <button class="sqp-action" type="button" @click="cancelRestore">取消</button>
+              </div>
+            </div>
+
+            <div v-if="hasLive" class="sqp-row sqp-job" role="status" aria-live="polite">
+              <div class="sqp-status" aria-hidden="true"><span class="sqp-dot is-live" /></div>
+              <div class="sqp-info">
+                <div class="sqp-name" :title="liveName">边跑边看 · {{ liveName }}</div>
+                <div class="sqp-meta" :class="{ 'is-error': liveFailed }">{{ liveSummary }}</div>
+              </div>
+              <div class="sqp-actions">
+                <button v-if="liveFailed" class="sqp-action" type="button" @click="dismissLive">关闭</button>
+                <button v-else class="sqp-action" type="button" @click="stopLive">停止</button>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <p class="sqp-subtitle">
               <template v-if="activeCount > 0"
                 >{{ activeCount }} 进行中 · {{ doneCount }}/{{
                   totalCount
@@ -26,25 +79,6 @@
               >
               <template v-else>暂无任务</template>
             </p>
-          </div>
-          <button
-            class="sqp-close"
-            type="button"
-            aria-label="关闭刮削队列"
-            @click="emit('close')"
-          >
-            <svg
-              width="16"
-              height="16"
-              viewBox="0 0 24 24"
-              fill="none"
-              stroke="currentColor"
-              stroke-width="1.75"
-            >
-              <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" />
-            </svg>
-          </button>
-        </header>
 
         <div v-if="totalCount === 0" class="sqp-empty">
           <p>还没有刮削任务</p>
@@ -168,13 +202,33 @@
 </template>
 
 <script setup lang="ts">
-import { onMounted, onUnmounted } from 'vue'
+import AppIcon from '@/components/AppIcon.vue'
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { GlobalQueueItem } from '@/composables/use-global-queue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
+import { useLadaTasks } from '@/composables/use-lada-tasks'
 import { useScrapingTask } from '@/views/Movie/composables/use-scraping-task'
 
-defineProps<{ visible: boolean }>()
+const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: [] }>()
+/** 面板从侧栏底部「刮削队列」按钮上方弹出，打开时按按钮的实时位置锚定 */
+const anchorPos = ref({ left: 12, bottom: 96 })
+
+function anchorPanel(): void {
+  // 窄屏走整幅底部样式，不做小结锚定
+  if (window.matchMedia('(max-width: 768px)').matches) return
+  const rect = document.querySelector('[data-queue-anchor]')?.getBoundingClientRect()
+  if (!rect || !rect.height) return
+  anchorPos.value = {
+    left: Math.max(12, Math.round(rect.left) - 6),
+    bottom: Math.max(16, Math.round(window.innerHeight - rect.top) + 8),
+  }
+}
+
+watch(() => props.visible, visible => {
+  if (visible) nextTick(anchorPanel)
+})
 
 const {
   items,
@@ -194,6 +248,31 @@ const {
   clearCompleted,
   clearAll,
 } = useScrapingTask()
+
+// 去码 / 边跑边看的状态在主进程里，这里只读展示
+const {
+  restoreRunning,
+  restoreName,
+  restorePercent,
+  restorePercentText,
+  hasLive,
+  liveName,
+  liveFailed,
+  liveSummary,
+  hasRuntime,
+  runtimeSummary,
+  cancelRestore,
+  stopLive,
+  dismissLive,
+} = useLadaTasks()
+
+/** 收起状态跟着用户走，别每次打开都重新展开 */
+const runtimeOpen = ref(localStorage.getItem('queueRuntimeOpen') === '1')
+
+function toggleRuntime(): void {
+  runtimeOpen.value = !runtimeOpen.value
+  localStorage.setItem('queueRuntimeOpen', runtimeOpen.value ? '1' : '0')
+}
 
 const metaText = (item: GlobalQueueItem): string => {
   if (item.status === 'processing') return item.currentStep || '处理中…'
@@ -232,59 +311,155 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-panel {
   position: fixed;
-  top: calc(var(--titlebar-height) + 10px);
-  right: 16px;
   z-index: 2051;
   display: flex;
   flex-direction: column;
-  width: min(420px, calc(100vw - 24px));
-  max-height: min(560px, calc(100vh - var(--titlebar-height) - 28px));
+  /* 锚定值走变量，窄屏的媒体查询才会真正接管定位 */
+  left: var(--sqp-left, 12px);
+  bottom: var(--sqp-anchor-bottom, 96px);
+  width: min(380px, calc(100vw - 24px));
+  max-height: min(560px, calc(100vh - var(--sqp-anchor-bottom, 96px) - 16px));
   border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg, 14px);
+  border-radius: 10px;
   background: var(--bg-elevated);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
   -webkit-app-region: no-drag;
 }
 
-.sqp-header {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 12px;
-  padding: 16px 16px 12px;
+.sqp-runtime {
   border-bottom: 1px solid var(--separator);
 }
 
-.sqp-title {
-  margin: 0;
-  font-size: var(--text-lg, 16px);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.02em;
+.sqp-runtime-head {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  width: 100%;
+  min-height: 38px;
+  padding: 0 14px;
+  border: 0;
+  background: transparent;
   color: var(--text-primary);
+  font-size: var(--text-xs);
+  text-align: left;
+  cursor: pointer;
+}
+.sqp-runtime-head:hover {
+  background: var(--bg-glass-hover);
+}
+.sqp-runtime-head:focus-visible {
+  outline: 2px solid var(--accent);
+  outline-offset: -2px;
+}
+.sqp-runtime-head .app-icon {
+  flex: 0 0 auto;
+  color: var(--accent);
+}
+.sqp-runtime-spin {
+  flex: 0 0 auto;
+}
+.sqp-runtime-label {
+  flex: 0 0 auto;
+  font-weight: var(--font-weight-medium);
+}
+.sqp-runtime-summary {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  color: var(--text-tertiary);
+}
+.sqp-runtime-chevron {
+  margin-left: auto;
+  color: var(--text-tertiary);
+  transition: transform 0.15s var(--ease-out);
+}
+.sqp-runtime.is-open .sqp-runtime-chevron {
+  transform: rotate(180deg);
+}
+
+/* 收起时只留一条线，进度仍然看得见 */
+.sqp-runtime-track {
+  height: 2px;
+  background: color-mix(in srgb, var(--accent) 22%, transparent);
+}
+.sqp-runtime-fill {
+  height: 100%;
+  background: var(--accent);
+  transition: width 0.3s var(--ease-out);
+}
+
+.sqp-runtime-body {
+  display: flex;
+  flex-direction: column;
+}
+.sqp-runtime-body .sqp-row {
+  cursor: default;
+}
+.sqp-runtime-body .sqp-row:last-child {
+  border-bottom: 0;
+}
+
+.sqp-job-detail {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 6px;
+}
+.sqp-job-track {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: 99px;
+  background: var(--bg-fill-secondary);
+  overflow: hidden;
+}
+.sqp-job-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--accent);
+  transition: width 0.2s var(--ease-out);
+}
+.sqp-job-value {
+  flex: 0 1 auto;
+  min-width: 0;
+  font-size: 11px;
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+.sqp-job-value.is-error {
+  color: var(--danger);
+}
+
+.sqp-dot.is-live {
+  border-color: var(--accent);
+  animation: sqp-live-pulse 1.4s ease-out infinite;
+}
+@keyframes sqp-live-pulse {
+  0%,
+  100% {
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+  }
+  50% {
+    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .sqp-dot.is-live,
+  .sqp-runtime-chevron {
+    animation: none;
+    transition: none;
+  }
 }
 
 .sqp-subtitle {
-  margin: 4px 0 0;
+  margin: 10px 16px;
   font-size: var(--text-xs);
   color: var(--text-tertiary);
-}
-
-.sqp-close {
-  width: 28px;
-  height: 28px;
-  display: grid;
-  place-items: center;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  background: transparent;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.sqp-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
 }
 
 .sqp-empty {
@@ -469,11 +644,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(
-    90deg,
-    var(--accent),
-    color-mix(in srgb, var(--accent) 55%, #5ac8fa)
-  );
+  background: var(--accent);
   transition: width 0.4s var(--ease-out);
 }
 .sqp-footer-actions {
@@ -513,17 +684,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .sqp-slide-enter-from {
   opacity: 0;
-  transform: translateY(-8px) scale(0.98);
+  transform: translateY(8px) scale(0.98);
 }
 .sqp-slide-leave-to {
   opacity: 0;
-  transform: translateY(-4px) scale(0.99);
+  transform: translateY(6px) scale(0.99);
 }
 
 @media (max-width: 768px) {
   .sqp-panel {
-    top: auto;
-    right: 0;
     bottom: 0;
     left: 0;
     width: 100%;

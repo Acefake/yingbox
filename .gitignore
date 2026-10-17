@@ -21,3 +21,15 @@ dist-web/
 packages/services/backend/main.exe
 packages/services/backend/main
 packages/services/backend/gallery.exe
+# Amane runtime is prepared explicitly from the pinned source submodule.
+/resources/amane/
+
+# Portable mpv runtime is prepared by scripts/fetch-mpv.mjs (pnpm fetch:mpv).
+/resources/mpv/
+
+# Python caches
+__pycache__/
+*.py[cod]
+
+# Local verification/scratch output (browser profiles, screenshots, built binaries)
+/output/

@@ -2,7 +2,6 @@ import { createRouter, createWebHistory } from 'vue-router'
 import HomeView from '../views/HomeView.vue'
 import DetailView from '../views/DetailView.vue'
 import QueueView from '../views/QueueView.vue'
-import MetaView from '../views/MetaView.vue'
 
 const routes = [
   {
@@ -20,12 +19,6 @@ const routes = [
     path: '/queue',
     name: 'queue',
     component: QueueView,
-  },
-  {
-    path: '/meta/:id',
-    name: 'meta',
-    component: MetaView,
-    props: true,
   },
 ]
 
