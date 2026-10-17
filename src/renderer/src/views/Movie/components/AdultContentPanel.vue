@@ -10,7 +10,11 @@
         @error="handleImageError"
       />
       <div v-else class="adult-cover-ph">
-        <svg class="w-14 h-14 yb-icon-muted" fill="currentColor" viewBox="0 0 20 20">
+        <svg
+          class="w-14 h-14 yb-icon-muted"
+          fill="currentColor"
+          viewBox="0 0 20 20"
+        >
           <path
             fill-rule="evenodd"
             d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
@@ -21,50 +25,40 @@
     </div>
 
     <div class="yb-media-meta adult-meta">
-      <h1 class="yb-page-title adult-title" :title="selectedItem?.name || displayTitle">
+      <h1
+        class="yb-page-title adult-title"
+        :title="selectedItem?.name || displayTitle"
+      >
         {{ displayTitle }}
       </h1>
 
       <div class="adult-chips">
-        <span
-          v-if="meta?.avid || avid"
-          class="yb-chip yb-chip-accent"
-        >
+        <span v-if="meta?.avid || avid" class="yb-chip yb-chip-accent">
           {{ meta?.avid || avid }}
         </span>
-        <span
-          v-if="meta?.release_date"
-          class="yb-chip"
-        >
+        <span v-if="meta?.release_date" class="yb-chip">
           {{ meta.release_date }}
         </span>
-        <span
-          v-if="meta?.duration"
-          class="yb-chip"
-        >
+        <span v-if="meta?.duration" class="yb-chip">
           {{ meta.duration }}
         </span>
       </div>
 
-      <p
-        v-if="meta?.description"
-        class="adult-desc yb-muted line-clamp-4"
-      >
+      <p v-if="meta?.description" class="adult-desc yb-muted line-clamp-4">
         {{ meta.description }}
       </p>
 
       <div v-if="meta?.keywords?.length" class="adult-keywords">
-        <span
-          v-for="kw in meta.keywords"
-          :key="kw"
-          class="yb-chip"
-        >
+        <span v-for="kw in meta.keywords" :key="kw" class="yb-chip">
           {{ kw }}
         </span>
       </div>
 
       <!-- 演员（优先 meta.actress，否则 actors prop） -->
-      <div v-if="meta?.actress && Object.keys(meta.actress).length" class="adult-actors">
+      <div
+        v-if="meta?.actress && Object.keys(meta.actress).length"
+        class="adult-actors"
+      >
         <p class="yb-label mb-2">演员</p>
         <div class="custom-scrollbar flex gap-3 overflow-x-auto pb-1">
           <div
@@ -124,8 +118,15 @@
           :title="videoFiles[0].name"
           @click="emit('playFile', videoFiles[0].path)"
         >
-          <svg class="rp-play-btn-icon" fill="currentColor" viewBox="0 0 20 20" aria-hidden="true">
-            <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+          <svg
+            class="rp-play-btn-icon"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+            aria-hidden="true"
+          >
+            <path
+              d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+            />
           </svg>
           <span>播放</span>
         </button>
@@ -134,12 +135,11 @@
           :disabled="loading"
           @click="handleScrape"
         >
-          {{ loading ? '刮削中...' : (meta ? '加入队列' : '打开刮削工作台') }}
+          {{ loading ? '刮削中...' : meta ? '加入队列' : '打开刮削工作台' }}
         </button>
-        <span
-          v-if="videoFiles.length === 1"
-          class="rp-play-size yb-dim"
-        >{{ formatSize(videoFiles[0].size) }}</span>
+        <span v-if="videoFiles.length === 1" class="rp-play-size yb-dim">{{
+          formatSize(videoFiles[0].size)
+        }}</span>
       </div>
       <div
         v-if="actionMsg"
@@ -159,11 +159,23 @@
           :key="vf.path"
           class="yb-list-row group adult-file-row"
         >
-          <svg class="w-4 h-4 yb-icon-muted flex-shrink-0" fill="currentColor" viewBox="0 0 20 20">
-            <path d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z" />
+          <svg
+            class="w-4 h-4 yb-icon-muted flex-shrink-0"
+            fill="currentColor"
+            viewBox="0 0 20 20"
+          >
+            <path
+              d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+            />
           </svg>
-          <span class="flex-1 text-sm truncate adult-file-name" :title="vf.name">{{ fileDisplayName(vf.name) }}</span>
-          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{ formatSize(vf.size) }}</span>
+          <span
+            class="flex-1 text-sm truncate adult-file-name"
+            :title="vf.name"
+            >{{ fileDisplayName(vf.name) }}</span
+          >
+          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{
+            formatSize(vf.size)
+          }}</span>
           <button
             class="opacity-0 group-hover:opacity-100 adult-play-btn"
             title="播放"
@@ -184,9 +196,7 @@
 
     <!-- 预览图 -->
     <div v-if="displayFanarts.length" class="yb-media-section">
-      <h3 class="yb-label mb-3">
-        预览图 ({{ displayFanarts.length }})
-      </h3>
+      <h3 class="yb-label mb-3">预览图 ({{ displayFanarts.length }})</h3>
       <div class="adult-fanart-grid">
         <img
           v-for="(img, i) in displayFanarts"
@@ -201,24 +211,24 @@
 
     <!-- 磁力链接 -->
     <div v-if="meta?.magnets?.length" class="yb-media-section">
-      <h3 class="yb-label mb-3">
-        磁力链接 ({{ meta.magnets.length }})
-      </h3>
+      <h3 class="yb-label mb-3">磁力链接 ({{ meta.magnets.length }})</h3>
       <div class="space-y-2">
-        <div
-          v-for="(m, i) in meta.magnets"
-          :key="i"
-          class="yb-list-row group"
-        >
-          <span class="yb-dim w-5 flex-shrink-0" style="font-size: 11px">{{ i + 1 }}</span>
+        <div v-for="(m, i) in meta.magnets" :key="i" class="yb-list-row group">
+          <span class="yb-dim w-5 flex-shrink-0" style="font-size: 11px">{{
+            i + 1
+          }}</span>
           <span
             class="text-xs adult-file-name flex-1 truncate font-mono"
             :title="m.name"
           >
             {{ m.name || m.magnet.slice(20, 40) + '...' }}
           </span>
-          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{ m.size }}</span>
-          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{ m.date }}</span>
+          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{
+            m.size
+          }}</span>
+          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{
+            m.date
+          }}</span>
           <button
             class="opacity-0 group-hover:opacity-100 px-2 py-1 rounded text-[10px] yb-btn-primary transition-all flex-shrink-0"
             :class="{ 'opacity-100': copiedIndex === i }"
@@ -257,7 +267,7 @@ interface Props {
   meta?: BackendMeta | null
   posterImageDataUrl?: string
   fanartImageDataUrl?: string
-  localFanarts?: string[]  // 本地已下载的 fanarts 路径
+  localFanarts?: string[] // 本地已下载的 fanarts 路径
   actors?: ActorInfo[]
   loading?: boolean
   actionMsg?: string
@@ -354,18 +364,24 @@ const proxyUrl = (url: string) => {
 }
 
 const handleImageError = (e: Event) => {
-  (e.target as HTMLImageElement).style.display = 'none'
+  ;(e.target as HTMLImageElement).style.display = 'none'
 }
 
 const handleAvatarError = (e: Event) => {
   const target = e.target as HTMLImageElement
   target.style.display = 'none'
-  target.parentElement?.classList.add('flex', 'items-center', 'justify-center', 'yb-poster-ph')
+  target.parentElement?.classList.add(
+    'flex',
+    'items-center',
+    'justify-center',
+    'yb-poster-ph'
+  )
   const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg')
   svg.setAttribute('class', 'w-6 h-6 yb-icon-muted')
   svg.setAttribute('fill', 'currentColor')
   svg.setAttribute('viewBox', '0 0 20 20')
-  svg.innerHTML = '<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>'
+  svg.innerHTML =
+    '<path fill-rule="evenodd" d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z" clip-rule="evenodd"/>'
   target.parentElement?.appendChild(svg)
 }
 
@@ -373,7 +389,7 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
   try {
     await navigator.clipboard.writeText(magnet)
     copiedIndex.value = index
-    setTimeout(() => copiedIndex.value = null, 2000)
+    setTimeout(() => (copiedIndex.value = null), 2000)
   } catch {
     const el = document.createElement('textarea')
     el.value = magnet
@@ -382,13 +398,15 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
     document.execCommand('copy')
     document.body.removeChild(el)
     copiedIndex.value = index
-    setTimeout(() => copiedIndex.value = null, 2000)
+    setTimeout(() => (copiedIndex.value = null), 2000)
   }
 }
 </script>
 
 <style scoped>
-.adult-rp { color: var(--text-primary); }
+.adult-rp {
+  color: var(--text-primary);
+}
 /* Full-width cover stage: keep ~16:10.5 landscape strip height; width fills panel */
 .adult-cover-banner {
   width: 100%;
@@ -446,7 +464,10 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
   gap: 6px;
   margin-bottom: var(--space-3);
 }
-.adult-actors { margin-top: var(--space-1); margin-bottom: var(--space-3); }
+.adult-actors {
+  margin-top: var(--space-1);
+  margin-bottom: var(--space-3);
+}
 .adult-actor-avatar {
   width: 44px;
   height: 44px;
@@ -473,14 +494,22 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
   white-space: nowrap;
   line-height: 1.2;
 }
-.adult-toolbar { margin-top: var(--space-1); gap: var(--space-2); align-items: center; }
+.adult-toolbar {
+  margin-top: var(--space-1);
+  gap: var(--space-2);
+  align-items: center;
+}
 .adult-action-msg {
   margin-top: var(--space-2);
   font-size: 11px;
   font-family: ui-monospace, SFMono-Regular, Menlo, Monaco, Consolas, monospace;
 }
-.adult-action-msg.is-ok { color: var(--success); }
-.adult-action-msg.is-error { color: var(--danger); }
+.adult-action-msg.is-ok {
+  color: var(--success);
+}
+.adult-action-msg.is-error {
+  color: var(--danger);
+}
 .adult-play-wrap {
   margin-top: var(--space-2);
   display: flex;
@@ -491,9 +520,15 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
 .adult-play-wrap .rp-play-size {
   font-size: var(--text-xs);
 }
-.adult-files { max-width: 720px; }
-.adult-file-row { min-height: 40px; }
-.adult-file-name { color: var(--text-primary); }
+.adult-files {
+  max-width: 720px;
+}
+.adult-file-row {
+  min-height: 40px;
+}
+.adult-file-name {
+  color: var(--text-primary);
+}
 .adult-play-btn,
 .adult-del-btn {
   flex-shrink: 0;
@@ -506,17 +541,27 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
   border-radius: var(--radius-sm);
   transition: var(--transition-fast);
 }
-.adult-play-btn { color: var(--success); }
-.adult-play-btn:hover { background: color-mix(in srgb, var(--success) 14%, transparent); }
-.adult-del-btn { color: var(--danger); }
-.adult-del-btn:hover { background: color-mix(in srgb, var(--danger) 14%, transparent); }
+.adult-play-btn {
+  color: var(--success);
+}
+.adult-play-btn:hover {
+  background: color-mix(in srgb, var(--success) 14%, transparent);
+}
+.adult-del-btn {
+  color: var(--danger);
+}
+.adult-del-btn:hover {
+  background: color-mix(in srgb, var(--danger) 14%, transparent);
+}
 .adult-fanart-grid {
   display: grid;
   grid-template-columns: repeat(2, minmax(0, 1fr));
   gap: var(--space-2);
 }
 @media (min-width: 640px) {
-  .adult-fanart-grid { grid-template-columns: repeat(3, minmax(0, 1fr)); }
+  .adult-fanart-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
 }
 .adult-fanart {
   width: 100%;
@@ -526,11 +571,19 @@ async function copyMagnet(magnet: string, index: number): Promise<void> {
   cursor: pointer;
   border: 1px solid var(--border-subtle);
   background: var(--bg-fill-secondary);
-  transition: opacity var(--transition-fast), transform 100ms ease-out;
+  transition:
+    opacity var(--transition-fast),
+    transform 100ms ease-out;
 }
-.adult-fanart:hover { opacity: 0.88; }
-.adult-fanart:active { transform: scale(0.98); }
+.adult-fanart:hover {
+  opacity: 0.88;
+}
+.adult-fanart:active {
+  transform: scale(0.98);
+}
 @media (prefers-reduced-motion: reduce) {
-  .adult-fanart:active { transform: none; }
+  .adult-fanart:active {
+    transform: none;
+  }
 }
 </style>

@@ -6,7 +6,7 @@ export function registerPwa(): void {
 
   const register = () => {
     const swUrl = `${import.meta.env.BASE_URL}sw.js`
-    navigator.serviceWorker.register(swUrl).catch((err) => {
+    navigator.serviceWorker.register(swUrl).catch(err => {
       console.warn('[pwa] sw register failed', err)
     })
   }

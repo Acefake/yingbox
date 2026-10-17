@@ -3,7 +3,10 @@ import { readStoredArray, saveStoredArray } from '@/utils/storage'
 const ONLINE_KEY = 'online_play_history'
 const PROGRESS_MAP_KEY = 'media_play_progress'
 
-type ProgressMap = Record<string, { progress: number; duration: number; updatedAt: number }>
+type ProgressMap = Record<
+  string,
+  { progress: number; duration: number; updatedAt: number }
+>
 
 function readProgressMap(): ProgressMap {
   try {
@@ -23,9 +26,13 @@ function writeProgressMap(map: ProgressMap): void {
 }
 
 /** Prefer URL / filePath as stable key. */
-export function mediaProgressKey(input: { url?: string; filePath?: string }): string {
+export function mediaProgressKey(input: {
+  url?: string
+  filePath?: string
+}): string {
   const url = typeof input.url === 'string' ? input.url.trim() : ''
-  const filePath = typeof input.filePath === 'string' ? input.filePath.trim() : ''
+  const filePath =
+    typeof input.filePath === 'string' ? input.filePath.trim() : ''
   return url || filePath
 }
 
@@ -53,7 +60,9 @@ export function saveMediaProgress(
     updatedAt: Date.now(),
   }
   // keep map bounded
-  const entries = Object.entries(map).sort((a, b) => b[1].updatedAt - a[1].updatedAt).slice(0, 80)
+  const entries = Object.entries(map)
+    .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
+    .slice(0, 80)
   writeProgressMap(Object.fromEntries(entries))
 
   const history = readStoredArray<Record<string, any>>(ONLINE_KEY)
@@ -62,7 +71,9 @@ export function saveMediaProgress(
   const next = {
     ...history[index],
     progress,
-    duration: Number.isFinite(duration) ? duration : history[index].duration || 0,
+    duration: Number.isFinite(duration)
+      ? duration
+      : history[index].duration || 0,
     timestamp: Date.now(),
   }
   const rest = history.filter((_, i) => i !== index)

@@ -1,10 +1,6 @@
 <template>
   <section class="yb-settings-group settings-list-section">
-    <button
-      class="settings-section-toggle"
-      type="button"
-      @click="open = !open"
-    >
+    <button class="settings-section-toggle" type="button" @click="open = !open">
       <span class="settings-section-icon" aria-hidden="true">
         <svg
           v-if="icon === 'image'"
@@ -134,8 +130,12 @@ const open = ref(true)
   transition: var(--transition-fast);
 }
 
-.settings-section-toggle:hover { color: var(--accent-text); }
-.settings-section-toggle:active { transform: scale(0.99); }
+.settings-section-toggle:hover {
+  color: var(--accent-text);
+}
+.settings-section-toggle:active {
+  transform: scale(0.99);
+}
 
 .settings-section-icon {
   width: 28px;
@@ -175,7 +175,9 @@ const open = ref(true)
 
 .section-enter-active,
 .section-leave-active {
-  transition: opacity 0.28s var(--ease-out), transform 0.28s var(--ease-out);
+  transition:
+    opacity 0.28s var(--ease-out),
+    transform 0.28s var(--ease-out);
 }
 
 .section-enter-from,
@@ -185,13 +187,19 @@ const open = ref(true)
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .settings-section-toggle:active { transform: none; }
-  .settings-chevron { transition: none; }
+  .settings-section-toggle:active {
+    transform: none;
+  }
+  .settings-chevron {
+    transition: none;
+  }
   .section-enter-active,
   .section-leave-active {
     transition: opacity 0.2s ease;
   }
   .section-enter-from,
-  .section-leave-to { transform: none; }
+  .section-leave-to {
+    transform: none;
+  }
 }
 </style>

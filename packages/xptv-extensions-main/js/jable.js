@@ -19,7 +19,7 @@ async function getTabs() {
   let list = []
   let ignore = ['首页']
   function isIgnoreClassName(className) {
-    return ignore.some((element) => className.includes(element))
+    return ignore.some(element => className.includes(element))
   }
   let classurl = `${appConfig.site}/categories/?mode=async&function=get_block&block_id=list_categories_video_categories_list&sort_by=avg_videos_popularity`
 

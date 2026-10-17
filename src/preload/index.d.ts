@@ -27,7 +27,11 @@ interface API {
     ) => Promise<FileOperationResult>
     stat: (filePath: string) => Promise<FileOperationResult>
     copy: (srcPath: string, destPath: string) => Promise<FileOperationResult>
-    move: (srcPath: string, destPath: string, options?: { replace?: boolean }) => Promise<FileOperationResult>
+    move: (
+      srcPath: string,
+      destPath: string,
+      options?: { replace?: boolean }
+    ) => Promise<FileOperationResult>
     readImage: (filePath: string) => Promise<FileOperationResult>
   }
   http: {

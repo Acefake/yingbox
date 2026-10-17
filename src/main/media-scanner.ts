@@ -32,9 +32,15 @@ const videoExtensions = new Set([
   '.ts',
   '.rmvb',
 ])
-const ignored = new Set(['.actors', '@eadir', '$recycle.bin', 'system volume information'])
+const ignored = new Set([
+  '.actors',
+  '@eadir',
+  '$recycle.bin',
+  'system volume information',
+])
 
-const normPath = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '')
+const normPath = (p: string): string =>
+  p.replace(/\\/g, '/').replace(/\/+$/, '')
 const pathKey = (p: string): string =>
   process.platform === 'win32' ? normPath(p).toLowerCase() : normPath(p)
 
@@ -71,7 +77,10 @@ export async function scanMediaDirectory(
         size: entry.size,
         mtime: entry.mtime,
         isDirectory: Boolean(entry.isDirectory),
-        isFile: entry.isFile !== undefined ? Boolean(entry.isFile) : !entry.isDirectory,
+        isFile:
+          entry.isFile !== undefined
+            ? Boolean(entry.isFile)
+            : !entry.isDirectory,
       })
     }
     return out
@@ -89,11 +98,7 @@ export async function scanMediaDirectory(
             try {
               const dirStats = await stat(directory)
               const prev = prevByPath.get(dirNorm) // dirNorm already pathKey'd
-              if (
-                prev &&
-                prev.isDirectory &&
-                prev.mtime === dirStats.mtimeMs
-              ) {
+              if (prev && prev.isDirectory && prev.mtime === dirStats.mtimeMs) {
                 const cached = collectCachedDescendants(dirNorm)
                 data.push(...cached)
                 reused += cached.length
@@ -174,4 +179,3 @@ export async function scanMediaDirectory(
     reused,
   }
 }
-

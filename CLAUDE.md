@@ -148,13 +148,13 @@ Config in `userData/config.json` (main process): `downloadPath`.
 
 ### Tech stack summary
 
-| Layer          | Technology                                         |
-| -------------- | -------------------------------------------------- |
-| Desktop shell  | Electron 37                                        |
-| Build tooling  | electron-vite 5, Vite 7                            |
-| Renderer       | Vue 3.5, TypeScript 5.9, Pinia 3                   |
-| UI kit         | Ant Design Vue 4.x, Tailwind CSS 4                 |
-| Metadata       | @tdanks2000/tmdb-wrapper, cheerio (scraping)       |
-| Go backend     | Go 1.22, modernc.org/sqlite (no CGo needed)        |
-| Python scripts | Embedded in Go binary via //go:embed               |
-| Package manager| pnpm                                               |
+| Layer           | Technology                                   |
+| --------------- | -------------------------------------------- |
+| Desktop shell   | Electron 37                                  |
+| Build tooling   | electron-vite 5, Vite 7                      |
+| Renderer        | Vue 3.5, TypeScript 5.9, Pinia 3             |
+| UI kit          | Ant Design Vue 4.x, Tailwind CSS 4           |
+| Metadata        | @tdanks2000/tmdb-wrapper, cheerio (scraping) |
+| Go backend      | Go 1.22, modernc.org/sqlite (no CGo needed)  |
+| Python scripts  | Embedded in Go binary via //go:embed         |
+| Package manager | pnpm                                         |

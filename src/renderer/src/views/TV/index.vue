@@ -1,5 +1,8 @@
 <template>
-  <div class="yb-media-shell folder-content" :class="{ 'has-selection': Boolean(selectedItem) }">
+  <div
+    class="yb-media-shell folder-content"
+    :class="{ 'has-selection': Boolean(selectedItem) }"
+  >
     <!-- 左侧媒体库列表 -->
     <div class="yb-media-list-pane">
       <LeftPanel
@@ -132,7 +135,8 @@ const {
 } = useTVScraping()
 
 const selectedIndex = ref<number>(-1)
-const { addItem: addQueueItem, setProcessing: setQueueProcessing } = useGlobalQueue()
+const { addItem: addQueueItem, setProcessing: setQueueProcessing } =
+  useGlobalQueue()
 
 const tvInfo = shallowRef<TVShowInfoType | null>(null)
 
@@ -209,15 +213,16 @@ const selectItem = (
 const resolveTVQuery = (showItem: ProcessedItem, query?: string): string => {
   const raw = (query || '').trim()
   if (raw) return cleanSearchParams(raw) || stripMediaExtension(raw)
-  if (showItem.type === 'folder') return cleanSearchParams(showItem.name) || showItem.name
-  return cleanSearchParams(stripMediaExtension(showItem.name)) || stripMediaExtension(showItem.name)
+  if (showItem.type === 'folder')
+    return cleanSearchParams(showItem.name) || showItem.name
+  return (
+    cleanSearchParams(stripMediaExtension(showItem.name)) ||
+    stripMediaExtension(showItem.name)
+  )
 }
 
 /** 打开统一刮削工作台（替代原 MediaSearchModal 搜索流） */
-const openScrapeWorkbench = (
-  showItem: ProcessedItem,
-  query?: string
-): void => {
+const openScrapeWorkbench = (showItem: ProcessedItem, query?: string): void => {
   pendingScrapeShowItem.value = showItem
   scrapeWorkbenchQuery.value = resolveTVQuery(showItem, query)
   showScrapeWorkbench.value = true
@@ -281,47 +286,43 @@ const handleWorkbenchScrapeTv = async (
   if (!showItem) return
   scrapingId.value = selected.id
 
-  addQueueItem(
-    showItem.name,
-    'tv',
-    async (queueId: string) => {
-      setQueueProcessing(queueId)
-      try {
-        const tvDetails = await getTVDetails(selected.id)
-        if (!tvDetails) throw new Error('获取电视剧详情失败')
-        if (tvDetails) {
-          const seasons = await getAllSeasons(tvDetails.id)
-          tvInfo.value = { ...convertToTVShowInfo(tvDetails), seasons }
-          await scrapeTVShow(showItem, tvDetails, seasons)
+  addQueueItem(showItem.name, 'tv', async (queueId: string) => {
+    setQueueProcessing(queueId)
+    try {
+      const tvDetails = await getTVDetails(selected.id)
+      if (!tvDetails) throw new Error('获取电视剧详情失败')
+      if (tvDetails) {
+        const seasons = await getAllSeasons(tvDetails.id)
+        tvInfo.value = { ...convertToTVShowInfo(tvDetails), seasons }
+        await scrapeTVShow(showItem, tvDetails, seasons)
 
-          // 刮削完成后，检查父目录是否有同名系列季文件夹需要合并
-          const sep = showItem.path.includes('\\') ? '\\' : '/'
-          const parentDir = showItem.path.substring(
-            0,
-            showItem.path.lastIndexOf(sep)
-          )
-          if (parentDir) {
-            const merged = await mergeSeriesSeasons(parentDir)
-            if (merged) await refreshAfterScrape(parentDir)
-            else await refreshAfterScrape(showItem.path)
-          }
-
-          const local = await loadLocalTVInfo(showItem)
-          if (local.posterDataUrl) posterUrl.value = local.posterDataUrl
-          if (local.fanartDataUrl) fanartUrl.value = local.fanartDataUrl
-          if (local.seasonPosters) seasonPosters.value = local.seasonPosters
-
-          // 强制刷新 selectedItem 引用，使模板读取被 scrapeTVShow 修改后的 children
-          if (selectedItem.value) {
-            selectedItem.value = { ...selectedItem.value }
-          }
+        // 刮削完成后，检查父目录是否有同名系列季文件夹需要合并
+        const sep = showItem.path.includes('\\') ? '\\' : '/'
+        const parentDir = showItem.path.substring(
+          0,
+          showItem.path.lastIndexOf(sep)
+        )
+        if (parentDir) {
+          const merged = await mergeSeriesSeasons(parentDir)
+          if (merged) await refreshAfterScrape(parentDir)
+          else await refreshAfterScrape(showItem.path)
         }
-      } finally {
-        scrapingId.value = null
-        showScrapeWorkbench.value = false
+
+        const local = await loadLocalTVInfo(showItem)
+        if (local.posterDataUrl) posterUrl.value = local.posterDataUrl
+        if (local.fanartDataUrl) fanartUrl.value = local.fanartDataUrl
+        if (local.seasonPosters) seasonPosters.value = local.seasonPosters
+
+        // 强制刷新 selectedItem 引用，使模板读取被 scrapeTVShow 修改后的 children
+        if (selectedItem.value) {
+          selectedItem.value = { ...selectedItem.value }
+        }
       }
+    } finally {
+      scrapingId.value = null
+      showScrapeWorkbench.value = false
     }
-  )
+  })
 }
 
 const handleNavigateBack = (event: Event) => {
@@ -343,5 +344,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-</style>
+<style scoped></style>

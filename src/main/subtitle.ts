@@ -21,7 +21,9 @@ export interface SubtitleCandidate {
  *   2. 同名的语言变体（`影片.zh.srt` / `影片.chs.srt` / `影片.简体.srt`）
  *   3. 目录内其它字幕文件
  */
-export async function findSubtitleFiles(videoPath: string): Promise<SubtitleCandidate[]> {
+export async function findSubtitleFiles(
+  videoPath: string
+): Promise<SubtitleCandidate[]> {
   const dir = dirname(videoPath)
   const videoBase = basename(videoPath, extname(videoPath)).toLowerCase()
 
@@ -77,7 +79,12 @@ function extPriority(ext: string): number {
  * 因此先看 BOM，再用「严格 UTF-8」试探，失败后回退 GBK。
  */
 export function decodeSubtitleText(buffer: Buffer): string {
-  if (buffer.length >= 3 && buffer[0] === 0xef && buffer[1] === 0xbb && buffer[2] === 0xbf) {
+  if (
+    buffer.length >= 3 &&
+    buffer[0] === 0xef &&
+    buffer[1] === 0xbb &&
+    buffer[2] === 0xbf
+  ) {
     return buffer.subarray(3).toString('utf-8')
   }
   if (buffer.length >= 2 && buffer[0] === 0xff && buffer[1] === 0xfe) {
@@ -100,7 +107,11 @@ export function decodeSubtitleText(buffer: Buffer): string {
   return buffer.toString('latin1')
 }
 
-function decodeWith(buffer: Buffer, encoding: string, fatal = false): string | null {
+function decodeWith(
+  buffer: Buffer,
+  encoding: string,
+  fatal = false
+): string | null {
   try {
     return new TextDecoder(encoding, { fatal }).decode(buffer)
   } catch {
@@ -138,9 +149,9 @@ export function srtToVtt(text: string): string {
   const out: string[] = ['WEBVTT', '']
 
   for (const block of blocks) {
-    const lines = block.split('\n').filter((line) => line.trim() !== '')
+    const lines = block.split('\n').filter(line => line.trim() !== '')
     if (!lines.length) continue
-    const timeIdx = lines.findIndex((line) => line.includes('-->'))
+    const timeIdx = lines.findIndex(line => line.includes('-->'))
     if (timeIdx < 0) continue
     const [rawStart, rawEnd] = lines[timeIdx].split('-->')
     const start = parseTimecode(rawStart || '')
@@ -196,7 +207,7 @@ export function assToVtt(text: string): string {
       const fields = trimmed
         .slice(trimmed.indexOf(':') + 1)
         .split(',')
-        .map((f) => f.trim().toLowerCase())
+        .map(f => f.trim().toLowerCase())
       startIdx = fields.indexOf('start')
       endIdx = fields.indexOf('end')
       textIdx = fields.indexOf('text')
@@ -204,7 +215,9 @@ export function assToVtt(text: string): string {
     }
     if (!/^dialogue\s*:/i.test(trimmed)) continue
 
-    const payload = line.slice(line.toLowerCase().indexOf('dialogue:') + 'dialogue:'.length)
+    const payload = line.slice(
+      line.toLowerCase().indexOf('dialogue:') + 'dialogue:'.length
+    )
     // Text 是最后一个字段且可能自带逗号，故最后一段保留全部剩余内容
     const parts = splitAssFields(payload, textIdx >= 0 ? textIdx + 1 : 10)
     const sIdx = startIdx >= 0 ? startIdx : 1
@@ -237,7 +250,9 @@ export interface SubtitleReadResult {
 }
 
 /** 读取字幕文件并统一转换为 WebVTT（含编码处理） */
-export async function readSubtitleAsVtt(filePath: string): Promise<SubtitleReadResult> {
+export async function readSubtitleAsVtt(
+  filePath: string
+): Promise<SubtitleReadResult> {
   try {
     const buffer = await readFile(filePath)
     const ext = extname(filePath).toLowerCase()

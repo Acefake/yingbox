@@ -18,7 +18,12 @@
           class="flex items-center justify-between px-6 py-4 mp-divider flex-shrink-0"
         >
           <div>
-            <div class="text-sm font-semibold" style="color: var(--text-primary)">元数据预览</div>
+            <div
+              class="text-sm font-semibold"
+              style="color: var(--text-primary)"
+            >
+              元数据预览
+            </div>
             <div class="text-xs yb-dim mt-0.5">{{ avid }}</div>
           </div>
           <button
@@ -60,7 +65,10 @@
         </div>
 
         <!-- 内容 -->
-        <div v-else-if="meta" class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar">
+        <div
+          v-else-if="meta"
+          class="flex-1 overflow-y-auto p-6 space-y-6 custom-scrollbar"
+        >
           <img
             :src="proxyUrl(meta.cover)"
             class="w-full flex-shrink-0 rounded-lg object-cover"
@@ -74,20 +82,21 @@
             <!-- 封面 -->
 
             <div class="flex-1 min-w-0 space-y-3">
-              <h2 class="font-semibold text-base leading-snug" style="color: var(--text-primary)">
+              <h2
+                class="font-semibold text-base leading-snug"
+                style="color: var(--text-primary)"
+              >
                 {{ meta.title }}
               </h2>
               <!-- 标签 -->
               <div class="flex flex-wrap gap-1.5">
                 <span class="yb-chip yb-chip-accent">{{ meta.avid }}</span>
-                <span
-                  v-if="meta.release_date"
-                  class="yb-chip"
-                >{{ meta.release_date }}</span>
-                <span
-                  v-if="meta.duration"
-                  class="yb-chip"
-                >{{ meta.duration }}</span>
+                <span v-if="meta.release_date" class="yb-chip">{{
+                  meta.release_date
+                }}</span>
+                <span v-if="meta.duration" class="yb-chip">{{
+                  meta.duration
+                }}</span>
               </div>
               <!-- 简介 -->
               <p
@@ -98,20 +107,16 @@
               </p>
               <!-- 关键词 -->
               <div v-if="meta.keywords?.length" class="flex flex-wrap gap-1">
-                <span
-                  v-for="kw in meta.keywords"
-                  :key="kw"
-                  class="yb-chip"
-                >{{ kw }}</span>
+                <span v-for="kw in meta.keywords" :key="kw" class="yb-chip">{{
+                  kw
+                }}</span>
               </div>
             </div>
           </div>
 
           <!-- 演员 -->
           <div v-if="meta.actress && Object.keys(meta.actress).length">
-            <h3 class="yb-label mb-2">
-              演员
-            </h3>
+            <h3 class="yb-label mb-2">演员</h3>
             <div class="flex gap-3 flex-wrap">
               <div
                 v-for="(img, name) in meta.actress"
@@ -128,16 +133,15 @@
                 />
                 <span
                   class="text-[10px] yb-muted max-w-[48px] truncate text-center"
-                >{{ name }}</span>
+                  >{{ name }}</span
+                >
               </div>
             </div>
           </div>
 
           <!-- Fanart -->
           <div v-if="meta.fanarts?.length">
-            <h3 class="yb-label mb-2">
-              预览图
-            </h3>
+            <h3 class="yb-label mb-2">预览图</h3>
             <div class="grid grid-cols-3 gap-2">
               <img
                 v-for="(img, i) in meta.fanarts"
@@ -155,9 +159,7 @@
 
           <!-- 磁力链接 -->
           <div v-if="meta.magnets?.length">
-            <h3 class="yb-label mb-2">
-              磁力链接 ({{ meta.magnets.length }})
-            </h3>
+            <h3 class="yb-label mb-2">磁力链接 ({{ meta.magnets.length }})</h3>
             <div class="space-y-1.5">
               <div
                 v-for="(m, i) in meta.magnets"
@@ -165,32 +167,33 @@
                 class="yb-list-row group"
               >
                 <!-- 序号 -->
-                <span class="yb-dim w-4 flex-shrink-0" style="font-size: 10px">{{
-                  i + 1
-                }}</span>
+                <span
+                  class="yb-dim w-4 flex-shrink-0"
+                  style="font-size: 10px"
+                  >{{ i + 1 }}</span
+                >
                 <!-- 文件名 -->
                 <span
                   class="text-[11px] flex-1 truncate font-mono mp-magnet-name"
                   :title="m.name"
-                >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span>
+                  >{{ m.name || m.magnet.slice(20, 40) + '...' }}</span
+                >
                 <!-- 大小 -->
                 <span
                   class="yb-dim flex-shrink-0 w-16 text-right"
                   style="font-size: 10px"
-                >{{ m.size }}</span>
+                  >{{ m.size }}</span
+                >
                 <!-- 日期 -->
                 <span
                   class="yb-dim flex-shrink-0 w-20 text-right"
                   style="font-size: 10px"
-                >{{ m.date }}</span>
+                  >{{ m.date }}</span
+                >
                 <!-- 复制按钮 -->
                 <button
                   class="flex-shrink-0 flex items-center gap-1 px-2 py-0.5 rounded text-[10px] transition-all"
-                  :class="
-                    copiedIndex === i
-                      ? 'yb-status-ok'
-                      : 'mp-copy-btn'
-                  "
+                  :class="copiedIndex === i ? 'yb-status-ok' : 'mp-copy-btn'"
                   @click="copyMagnet(m.magnet, i)"
                 >
                   <svg
@@ -314,7 +317,6 @@ watch(
     }
   }
 )
-
 </script>
 
 <style scoped>
@@ -326,7 +328,9 @@ watch(
 .modal-fade-leave-to {
   opacity: 0;
 }
-.mp-divider { border-bottom: 1px solid var(--separator); }
+.mp-divider {
+  border-bottom: 1px solid var(--separator);
+}
 .mp-close {
   color: var(--text-tertiary);
   background: transparent;
@@ -338,8 +342,12 @@ watch(
   color: var(--text-primary);
   background: var(--bg-glass-hover);
 }
-.mp-avatar { box-shadow: inset 0 0 0 1px var(--border-subtle); }
-.mp-magnet-name { color: var(--text-primary); }
+.mp-avatar {
+  box-shadow: inset 0 0 0 1px var(--border-subtle);
+}
+.mp-magnet-name {
+  color: var(--text-primary);
+}
 .mp-copy-btn {
   background: var(--bg-fill-secondary);
   color: var(--text-secondary);

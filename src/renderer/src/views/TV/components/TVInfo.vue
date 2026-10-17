@@ -41,10 +41,7 @@
         <div v-if="tvInfo.director" class="ti-val">
           <span class="yb-dim mr-1">创作者</span> {{ tvInfo.director }}
         </div>
-        <div
-          v-if="tvInfo.actor && tvInfo.actor.length > 0"
-          class="ti-val"
-        >
+        <div v-if="tvInfo.actor && tvInfo.actor.length > 0" class="ti-val">
           <span class="yb-dim mr-1">演员</span>
           {{ tvInfo.actor.slice(0, 6).join(' / ') }}
         </div>
@@ -57,10 +54,7 @@
       </div>
 
       <!-- 简介 -->
-      <p
-        v-if="tvInfo.plot"
-        class="text-xs yb-muted leading-relaxed mt-3"
-      >
+      <p v-if="tvInfo.plot" class="text-xs yb-muted leading-relaxed mt-3">
         {{ tvInfo.plot }}
       </p>
     </div>
@@ -102,6 +96,10 @@ defineProps<Props>()
   border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
   border-radius: var(--radius-sm);
 }
-.ti-val { color: var(--text-primary); }
-.ti-star { color: var(--warning); }
+.ti-val {
+  color: var(--text-primary);
+}
+.ti-star {
+  color: var(--warning);
+}
 </style>

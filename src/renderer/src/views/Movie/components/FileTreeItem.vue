@@ -67,9 +67,10 @@ const statusFlags = computed(() => {
     return { nfo: false, poster: false, fanart: false }
   }
 
-  const baseName = item.type === 'video'
-    ? item.name.replace(/\.[^/.]+$/, '').toLowerCase()
-    : item.name.toLowerCase()
+  const baseName =
+    item.type === 'video'
+      ? item.name.replace(/\.[^/.]+$/, '').toLowerCase()
+      : item.name.toLowerCase()
 
   let nfo = false
   let poster = false
@@ -91,11 +92,18 @@ const statusFlags = computed(() => {
     // 海报检查
     if (!poster && IMAGE_EXTENSIONS_SET.has(ext)) {
       if (item.type === 'video') {
-        poster = name.includes(baseName) ||
-          name === 'poster.jpg' || name === 'folder.jpg' || name === 'movie.jpg'
+        poster =
+          name.includes(baseName) ||
+          name === 'poster.jpg' ||
+          name === 'folder.jpg' ||
+          name === 'movie.jpg'
       } else {
-        poster = name.includes('poster') || name.includes('cover') ||
-          name.includes('folder') || name === 'poster.jpg' || name === 'folder.jpg'
+        poster =
+          name.includes('poster') ||
+          name.includes('cover') ||
+          name.includes('folder') ||
+          name === 'poster.jpg' ||
+          name === 'folder.jpg'
       }
     }
 
@@ -104,7 +112,10 @@ const statusFlags = computed(() => {
       if (item.type === 'video') {
         fanart = name.includes(`${baseName}-fanart`) || name === 'fanart.jpg'
       } else {
-        fanart = name.includes('fanart') || name.includes('backdrop') || name === 'fanart.jpg'
+        fanart =
+          name.includes('fanart') ||
+          name.includes('backdrop') ||
+          name === 'fanart.jpg'
       }
     }
 
@@ -176,7 +187,9 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
   margin-bottom: 1px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.18s var(--ease-out), transform 100ms ease-out;
+  transition:
+    background 0.18s var(--ease-out),
+    transform 100ms ease-out;
 }
 
 .file-tree-item:hover {
@@ -250,6 +263,8 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .file-tree-item:active { transform: none; }
+  .file-tree-item:active {
+    transform: none;
+  }
 }
 </style>

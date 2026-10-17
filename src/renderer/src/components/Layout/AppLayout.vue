@@ -41,14 +41,18 @@
         </button>
         <button
           class="sidebar-item"
-          :class="{ active: route.name === 'Online' && route.query.tab === 'recent' }"
+          :class="{
+            active: route.name === 'Online' && route.query.tab === 'recent',
+          }"
           @click="navigateTo('/?tab=recent')"
         >
           <AppIcon name="history" size="lg" /><span>最近播放</span>
         </button>
         <button
           class="sidebar-item"
-          :class="{ active: route.name === 'Online' && route.query.tab === 'favorites' }"
+          :class="{
+            active: route.name === 'Online' && route.query.tab === 'favorites',
+          }"
           @click="navigateTo('/?tab=favorites')"
         >
           <AppIcon name="heart" size="lg" /><span>我的收藏</span>
@@ -95,120 +99,145 @@
     </aside>
 
     <div class="shell-column">
-    <!-- 顶部毛玻璃菜单栏（含拖拽区域） -->
-    <header class="top-menu">
-      <div class="menu-content">
-        <div class="toolbar-leading">
-          <button
-            v-if="isPhone"
-            class="toolbar-btn"
-            type="button"
-            aria-label="打开菜单"
-            @click="sidebarOpen = true"
-          >
-            <AppIcon name="menu" />
-          </button>
-          <button class="toolbar-btn" aria-label="后退" title="后退" @click="navigateBack">
-            <AppIcon name="back" />
-          </button>
-          <button
-            v-if="!isPhone"
-            class="toolbar-btn"
-            aria-label="前进"
-            title="前进"
-            @click="router.forward()"
-          >
-            <AppIcon name="forward" />
-          </button>
-          <button
-            v-if="!isPhone"
-            class="toolbar-btn"
-            aria-label="刷新"
-            title="刷新"
-            @click="router.go(0)"
-          >
-            <AppIcon name="refresh" />
-          </button>
-          <div class="global-search" role="search" :aria-label="globalSearchPlaceholder">
-            <AppIcon name="search" size="md" />
-            <input
-              ref="globalSearchInput"
-              v-model="globalSearch"
-              :placeholder="globalSearchPlaceholder"
-              type="text"
-              @keydown.enter.prevent="submitGlobalSearch"
-            />
+      <!-- 顶部毛玻璃菜单栏（含拖拽区域） -->
+      <header class="top-menu">
+        <div class="menu-content">
+          <div class="toolbar-leading">
             <button
-              v-if="globalSearch"
-              class="global-search-clear"
+              v-if="isPhone"
+              class="toolbar-btn"
               type="button"
-              aria-label="清空搜索"
-              @click="clearGlobalSearch"
+              aria-label="打开菜单"
+              @click="sidebarOpen = true"
             >
-              <AppIcon name="close" size="sm" />
+              <AppIcon name="menu" />
             </button>
+            <button
+              class="toolbar-btn"
+              aria-label="后退"
+              title="后退"
+              @click="navigateBack"
+            >
+              <AppIcon name="back" />
+            </button>
+            <button
+              v-if="!isPhone"
+              class="toolbar-btn"
+              aria-label="前进"
+              title="前进"
+              @click="router.forward()"
+            >
+              <AppIcon name="forward" />
+            </button>
+            <button
+              v-if="!isPhone"
+              class="toolbar-btn"
+              aria-label="刷新"
+              title="刷新"
+              @click="router.go(0)"
+            >
+              <AppIcon name="refresh" />
+            </button>
+            <div
+              class="global-search"
+              role="search"
+              :aria-label="globalSearchPlaceholder"
+            >
+              <AppIcon name="search" size="md" />
+              <input
+                ref="globalSearchInput"
+                v-model="globalSearch"
+                :placeholder="globalSearchPlaceholder"
+                type="text"
+                @keydown.enter.prevent="submitGlobalSearch"
+              />
+              <button
+                v-if="globalSearch"
+                class="global-search-clear"
+                type="button"
+                aria-label="清空搜索"
+                @click="clearGlobalSearch"
+              >
+                <AppIcon name="close" size="sm" />
+              </button>
+            </div>
+          </div>
+
+          <!-- 右侧：数据源 + 窗口控制（含设置） -->
+          <div class="settings-section">
+            <button
+              class="queue-entry-btn"
+              :class="{
+                active: queuePanelVisible,
+                processing: processingCount > 0,
+              }"
+              type="button"
+              title="刮削队列"
+              aria-label="打开刮削队列"
+              :aria-pressed="queuePanelVisible"
+              @click="queuePanelVisible = !queuePanelVisible"
+            >
+              <span class="queue-entry-icon" aria-hidden="true">
+                <AppIcon name="list" size="md" />
+                <span v-if="processingCount > 0" class="queue-entry-pulse" />
+              </span>
+              <span class="queue-entry-label">队列</span>
+              <span v-if="activeCount > 0" class="queue-entry-badge">{{
+                activeCount
+              }}</span>
+              <span
+                v-if="processingCount > 0"
+                class="queue-entry-progress"
+                :style="{
+                  width: Math.max(12, Math.round(progress * 100)) + '%',
+                }"
+              />
+            </button>
+            <button
+              class="source-mgr-btn"
+              :class="{ active: sourcePanelVisible }"
+              title="数据源管理"
+              aria-label="打开数据源管理"
+              :aria-pressed="sourcePanelVisible"
+              @click="sourcePanelVisible = !sourcePanelVisible"
+            >
+              <AppIcon name="database" />
+              数据源
+            </button>
+            <WinControls
+              :show-settings="true"
+              :show-window-buttons="isElectron"
+              @open-settings="openSettings"
+            />
           </div>
         </div>
+      </header>
 
-        <!-- 右侧：数据源 + 窗口控制（含设置） -->
-        <div class="settings-section">
-          <button
-            class="queue-entry-btn"
-            :class="{ active: queuePanelVisible, processing: processingCount > 0 }"
-            type="button"
-            title="刮削队列"
-            aria-label="打开刮削队列"
-            :aria-pressed="queuePanelVisible"
-            @click="queuePanelVisible = !queuePanelVisible"
-          >
-            <span class="queue-entry-icon" aria-hidden="true">
-              <AppIcon name="list" size="md" />
-              <span v-if="processingCount > 0" class="queue-entry-pulse" />
-            </span>
-            <span class="queue-entry-label">队列</span>
-            <span v-if="activeCount > 0" class="queue-entry-badge">{{ activeCount }}</span>
-            <span
-              v-if="processingCount > 0"
-              class="queue-entry-progress"
-              :style="{ width: Math.max(12, Math.round(progress * 100)) + '%' }"
-            />
-          </button>
-          <button
-            class="source-mgr-btn"
-            :class="{ active: sourcePanelVisible }"
-            title="数据源管理"
-            aria-label="打开数据源管理"
-            :aria-pressed="sourcePanelVisible"
-            @click="sourcePanelVisible = !sourcePanelVisible"
-          >
-            <AppIcon name="database" />
-            数据源
-          </button>
-          <WinControls
-            :show-settings="true"
-            :show-window-buttons="isElectron"
-            @open-settings="openSettings"
-          />
+      <!-- 主内容区域 -->
+      <main class="main-content">
+        <div class="content-surface">
+          <slot />
         </div>
-      </div>
-    </header>
-
-    <!-- 主内容区域 -->
-    <main class="main-content">
-      <div class="content-surface">
-        <slot />
-      </div>
-    </main>
+      </main>
     </div>
 
     <!-- 全局设置面板 -->
-    <SettingsPanel :visible="settingsVisible" @close="settingsVisible = false" />
+    <SettingsPanel
+      :visible="settingsVisible"
+      @close="settingsVisible = false"
+    />
 
     <!-- 数据源管理面板 -->
-    <SourceManagerPanel :visible="sourcePanelVisible" @close="sourcePanelVisible = false" />
+    <SourceManagerPanel
+      :visible="sourcePanelVisible"
+      @close="sourcePanelVisible = false"
+    />
 
     <!-- 全局刮削队列面板 -->
-    <ScrapeQueuePanel :visible="queuePanelVisible" @close="queuePanelVisible = false" />
+    <ScrapeQueuePanel
+      :visible="queuePanelVisible"
+      @close="queuePanelVisible = false"
+    />
 
     <nav v-if="isPhone" class="bottom-nav" aria-label="主导航">
       <button
@@ -220,7 +249,9 @@
       </button>
       <button
         type="button"
-        :class="{ active: route.name === 'Online' && route.query.tab === 'favorites' }"
+        :class="{
+          active: route.name === 'Online' && route.query.tab === 'favorites',
+        }"
         @click="navigateTo('/?tab=favorites')"
       >
         <AppIcon name="heart" size="lg" /><span>收藏</span>
@@ -233,7 +264,11 @@
       >
         <AppIcon name="movie" size="lg" /><span>电影</span>
       </button>
-      <button type="button" :class="{ active: sidebarOpen }" @click="sidebarOpen = true">
+      <button
+        type="button"
+        :class="{ active: sidebarOpen }"
+        @click="sidebarOpen = true"
+      >
         <AppIcon name="menu" /><span>菜单</span>
       </button>
     </nav>
@@ -324,13 +359,21 @@ const submitGlobalSearch = (): void => {
     return
   }
   const targetPath = route.name === 'AV' ? '/av' : '/'
-  router.replace({ path: targetPath, query: query ? { tab: 'search', q: query } : { tab: 'search' } })
+  router.replace({
+    path: targetPath,
+    query: query ? { tab: 'search', q: query } : { tab: 'search' },
+  })
 }
 
 const clearGlobalSearch = (): void => {
   globalSearch.value = ''
-  if (route.name === 'Movie' || route.name === 'TV') router.replace({ path: route.path })
-  else router.replace({ path: route.name === 'AV' ? '/av' : '/', query: { tab: 'search' } })
+  if (route.name === 'Movie' || route.name === 'TV')
+    router.replace({ path: route.path })
+  else
+    router.replace({
+      path: route.name === 'AV' ? '/av' : '/',
+      query: { tab: 'search' },
+    })
   nextTick(() => globalSearchInput.value?.focus())
 }
 
@@ -406,10 +449,16 @@ onUnmounted(() => {
   color: var(--text-secondary);
   background: var(--bg-sidebar);
   backdrop-filter: blur(var(--blur-sidebar)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-sidebar)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-sidebar))
+    saturate(var(--saturate-vibrancy));
   border-right: 1px solid var(--separator);
   -webkit-app-region: no-drag;
-  transition: flex-basis var(--transition-fast), width var(--transition-fast), max-width var(--transition-fast), padding var(--transition-fast), transform 0.28s var(--ease-out);
+  transition:
+    flex-basis var(--transition-fast),
+    width var(--transition-fast),
+    max-width var(--transition-fast),
+    padding var(--transition-fast),
+    transform 0.28s var(--ease-out);
 }
 
 .shell-column {
@@ -499,9 +548,10 @@ onUnmounted(() => {
   font-weight: var(--font-weight-medium);
   text-align: left;
   cursor: pointer;
-  transition: background 0.16s var(--ease-out), color 0.16s var(--ease-out);
+  transition:
+    background 0.16s var(--ease-out),
+    color 0.16s var(--ease-out);
 }
-
 
 .sidebar-item :deep(.app-icon) {
   width: var(--icon-lg);
@@ -569,7 +619,8 @@ onUnmounted(() => {
   z-index: 5;
   background: var(--bg-titlebar);
   backdrop-filter: blur(var(--blur-titlebar)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-titlebar)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-titlebar))
+    saturate(var(--saturate-vibrancy));
   border-bottom: 1px solid var(--separator);
   -webkit-app-region: drag;
 }
@@ -685,7 +736,6 @@ onUnmounted(() => {
   stroke-width: 2.25;
 }
 
-
 .global-search-clear:hover {
   color: var(--text-primary);
   background: var(--bg-glass-hover);
@@ -769,8 +819,12 @@ onUnmounted(() => {
   animation: queue-pulse 1.4s ease-out infinite;
 }
 @keyframes queue-pulse {
-  70% { box-shadow: 0 0 0 6px transparent; }
-  100% { box-shadow: 0 0 0 0 transparent; }
+  70% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+  100% {
+    box-shadow: 0 0 0 0 transparent;
+  }
 }
 .queue-entry-badge {
   min-width: 18px;
@@ -844,7 +898,6 @@ onUnmounted(() => {
   margin-right: 8px;
 }
 
-
 /* Phone / narrow: drawer sidebar overlays only when open */
 .app-layout.is-phone,
 .app-layout.is-phone.sidebar-collapsed {
@@ -913,7 +966,8 @@ onUnmounted(() => {
   padding: 0 8px var(--safe-bottom);
   background: var(--bg-titlebar);
   backdrop-filter: blur(var(--blur-titlebar)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-titlebar)) saturate(var(--saturate-vibrancy));
+  -webkit-backdrop-filter: blur(var(--blur-titlebar))
+    saturate(var(--saturate-vibrancy));
   border-top: 1px solid var(--separator);
 }
 
@@ -988,5 +1042,4 @@ onUnmounted(() => {
     margin: 0;
   }
 }
-
 </style>

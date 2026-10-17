@@ -239,27 +239,28 @@ export const useMediaProcessing = (selectedItem: any) => {
       item.type === 'folder'
         ? item.path
         : item.path.substring(0, item.path.lastIndexOf(sep))
-    const actorsDir = `${basePath + sep  }.actors`
+    const actorsDir = `${basePath + sep}.actors`
 
     const dirExists = await window.api.file
       .exists(actorsDir)
       .catch(() => ({ success: false, exists: false }))
-    if (version !== selectionVersion || !dirExists.success || !dirExists.exists) return
+    if (version !== selectionVersion || !dirExists.success || !dirExists.exists)
+      return
 
     const results: ActorInfo[] = []
     for (const actor of info.actors.slice(0, 20)) {
       if (version !== selectionVersion) return
-        const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
-        const photoPath = `${actorsDir + sep + safeActorName  }.jpg`
-        const exists = await window.api.file
-          .exists(photoPath)
-          .catch(() => ({ success: false, exists: false }))
-        results.push({
-          name: actor.name,
-          role: actor.role,
-          photoDataUrl:
-            exists.success && exists.exists ? toLocalUrl(photoPath) : undefined,
-        })
+      const safeActorName = actor.name.replace(/[<>:"/\\|?*]/g, '').trim()
+      const photoPath = `${actorsDir + sep + safeActorName}.jpg`
+      const exists = await window.api.file
+        .exists(photoPath)
+        .catch(() => ({ success: false, exists: false }))
+      results.push({
+        name: actor.name,
+        role: actor.role,
+        photoDataUrl:
+          exists.success && exists.exists ? toLocalUrl(photoPath) : undefined,
+      })
     }
     if (version !== selectionVersion) return
     actors.value = results

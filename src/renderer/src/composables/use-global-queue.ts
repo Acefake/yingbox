@@ -31,8 +31,18 @@ const _items = ref<GlobalQueueItem[]>([])
 const _isProcessing = ref(false)
 const _taskMap = new Map<string, TaskEntry>()
 const _retryMap = new Map<string, () => void>()
-const MAX_CONCURRENT = 3
 const _running = new Map<string, GlobalQueueItem>()
+
+/** 并发数从设置里读取（1-8），未设置或非法时回退为 3 */
+function getMaxConcurrent(): number {
+  const raw =
+    typeof window !== 'undefined'
+      ? localStorage.getItem('scrapeConcurrency')
+      : null
+  const n = raw ? parseInt(raw, 10) : NaN
+  if (!Number.isFinite(n)) return 3
+  return Math.min(8, Math.max(1, n))
+}
 
 export function useGlobalQueue() {
   const totalCount = computed(() => _items.value.length)
@@ -50,9 +60,8 @@ export function useGlobalQueue() {
   )
   const failedCount = computed(
     () =>
-      _items.value.filter(
-        i => i.status === 'error' || i.status === 'cancelled'
-      ).length
+      _items.value.filter(i => i.status === 'error' || i.status === 'cancelled')
+        .length
   )
   const pendingCount = computed(
     () => _items.value.filter(i => i.status === 'pending').length
@@ -89,7 +98,12 @@ export function useGlobalQueue() {
     // 去重：同名同类型（或同 dedupKey）的 pending/processing 任务不重复添加
     const key = options?.dedupKey || name
     const existing = [..._items.value, ..._running.values()].find(
-      i => (i.dedupKey || i.name) === key && i.type === type && (i.status === 'pending' || i.status === 'processing' || _running.has(i.id))
+      i =>
+        (i.dedupKey || i.name) === key &&
+        i.type === type &&
+        (i.status === 'pending' ||
+          i.status === 'processing' ||
+          _running.has(i.id))
     )
     if (existing) return { id: existing.id, isDuplicate: true }
 
@@ -162,7 +176,11 @@ export function useGlobalQueue() {
     if (!item || !['pending', 'processing'].includes(item.status)) return
     _taskMap.get(id)?.controller.abort()
     item.status = 'cancelled'
-    try { item.cancelFn?.() } catch (error) { console.warn('取消回调失败:', error) }
+    try {
+      item.cancelFn?.()
+    } catch (error) {
+      console.warn('取消回调失败:', error)
+    }
     item.currentStep = undefined
     _taskMap.delete(id)
     _checkIdle()
@@ -191,7 +209,8 @@ export function useGlobalQueue() {
    */
   const retryItem = (id: string): boolean => {
     const item = _items.value.find(i => i.id === id)
-    if (!item || (item.status !== 'error' && item.status !== 'cancelled')) return false
+    if (!item || (item.status !== 'error' && item.status !== 'cancelled'))
+      return false
     const retry = _retryMap.get(id)
     if (!retry) return false
     _purgeTerminal(id)
@@ -217,7 +236,8 @@ export function useGlobalQueue() {
 
   const canRetry = (id: string): boolean => {
     const item = _items.value.find(i => i.id === id)
-    if (!item || (item.status !== 'error' && item.status !== 'cancelled')) return false
+    if (!item || (item.status !== 'error' && item.status !== 'cancelled'))
+      return false
     return _retryMap.has(id)
   }
 
@@ -270,7 +290,9 @@ export function useGlobalQueue() {
 }
 
 function _checkIdle(): void {
-  _isProcessing.value = _running.size > 0 || _items.value.some(i => i.status === 'pending' || i.status === 'processing')
+  _isProcessing.value =
+    _running.size > 0 ||
+    _items.value.some(i => i.status === 'pending' || i.status === 'processing')
 }
 
 let scheduled = false
@@ -280,33 +302,44 @@ function _schedule(): void {
   scheduled = true
   queueMicrotask(() => {
     scheduled = false
-    const manualRunning = _items.value.filter(i => i.status === 'processing' && !_running.has(i.id)).length
-    const slots = Math.max(0, MAX_CONCURRENT - _running.size - manualRunning)
-    const pending = _items.value.filter(i => i.status === 'pending' && _taskMap.has(i.id)).slice(0, slots)
+    const manualRunning = _items.value.filter(
+      i => i.status === 'processing' && !_running.has(i.id)
+    ).length
+    const slots = Math.max(
+      0,
+      getMaxConcurrent() - _running.size - manualRunning
+    )
+    const pending = _items.value
+      .filter(i => i.status === 'pending' && _taskMap.has(i.id))
+      .slice(0, slots)
     for (const item of pending) {
       const entry = _taskMap.get(item.id)
       if (!entry || item.status !== 'pending') continue
       item.status = 'processing'
       item.errorMessage = undefined
       _running.set(item.id, item)
-      Promise.resolve().then(() => {
-        entry.controller.signal.throwIfAborted()
-        return entry.handler(item.id, entry.controller.signal)
-      }).then(() => {
-        if (item.status === 'processing') item.status = 'done'
-      }).catch(error => {
-        if (item.status === 'processing') {
-          item.status = 'error'
-          const msg = error instanceof Error ? error.message : String(error)
-          item.errorMessage = msg
-          item.currentStep = msg
-        }
-      }).finally(() => {
-        _running.delete(item.id)
-        _taskMap.delete(item.id)
-        _checkIdle()
-        _schedule()
-      })
+      Promise.resolve()
+        .then(() => {
+          entry.controller.signal.throwIfAborted()
+          return entry.handler(item.id, entry.controller.signal)
+        })
+        .then(() => {
+          if (item.status === 'processing') item.status = 'done'
+        })
+        .catch(error => {
+          if (item.status === 'processing') {
+            item.status = 'error'
+            const msg = error instanceof Error ? error.message : String(error)
+            item.errorMessage = msg
+            item.currentStep = msg
+          }
+        })
+        .finally(() => {
+          _running.delete(item.id)
+          _taskMap.delete(item.id)
+          _checkIdle()
+          _schedule()
+        })
     }
     _checkIdle()
   })

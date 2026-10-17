@@ -39,12 +39,12 @@ export interface NfoActor {
 
 // ─── XML 解析 ─────────────────────────────────────────────
 
-function getTag(content: string, tag: string): string | undefined {
+export function getTag(content: string, tag: string): string | undefined {
   const m = content.match(new RegExp(`<${tag}>([^<]*)</${tag}>`, 'i'))
   return m?.[1]?.trim() || undefined
 }
 
-function getAllTags(content: string, tag: string): string[] {
+export function getAllTags(content: string, tag: string): string[] {
   const re = new RegExp(`<${tag}>([^<]*)</${tag}>`, 'gi')
   const results: string[] = []
   let m: RegExpExecArray | null
@@ -226,10 +226,7 @@ interface JavbusMetaLite {
   actress?: Record<string, string>
 }
 
-function generateJavbusNfo(
-  movie: ScrapedMovie,
-  meta: JavbusMetaLite
-): string {
+function generateJavbusNfo(movie: ScrapedMovie, meta: JavbusMetaLite): string {
   const year = meta.release_date
     ? new Date(meta.release_date).getFullYear()
     : ''

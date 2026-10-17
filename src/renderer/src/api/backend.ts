@@ -1,4 +1,7 @@
-import { getGoBackendApiKey, getGoBackendUrl } from '@/stores/scrape-provider-store'
+import {
+  getGoBackendApiKey,
+  getGoBackendUrl,
+} from '@/stores/scrape-provider-store'
 
 const DEFAULT_BASE = 'http://localhost:31471'
 
@@ -56,8 +59,14 @@ async function get<T>(
 ): Promise<T> {
   const res = await fetch(`${getBase()}${path}`, {
     method: 'GET',
-    headers: { 'Content-Type': 'application/json', ...getBackendAuthHeaders(), ...extraHeaders },
-    signal: AbortSignal.timeout(path.startsWith('/api/scrape/') ? 300000 : 60000),
+    headers: {
+      'Content-Type': 'application/json',
+      ...getBackendAuthHeaders(),
+      ...extraHeaders,
+    },
+    signal: AbortSignal.timeout(
+      path.startsWith('/api/scrape/') ? 300000 : 60000
+    ),
   })
   if (!res.ok) throw new Error(`HTTP ${res.status}`)
   const data = await res.json()

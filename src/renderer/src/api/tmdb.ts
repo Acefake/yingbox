@@ -32,10 +32,13 @@ const TMDB_IMG_URL = 'https://images.tmdb.org/t/p/original'
  * 向后兼容的懒加载单例：首次访问属性时才用当前 token 构造。
  * 新代码请直接用 getTmdb()。
  */
-export const tmdb: InstanceType<typeof TMDB> = new Proxy({} as InstanceType<typeof TMDB>, {
-  get(_target, prop, receiver): unknown {
-    return Reflect.get(getTmdb(), prop, receiver)
-  },
-})
+export const tmdb: InstanceType<typeof TMDB> = new Proxy(
+  {} as InstanceType<typeof TMDB>,
+  {
+    get(_target, prop, receiver): unknown {
+      return Reflect.get(getTmdb(), prop, receiver)
+    },
+  }
+)
 
 export { TMDB_IMG_URL }

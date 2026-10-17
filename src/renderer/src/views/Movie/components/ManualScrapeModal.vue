@@ -11,7 +11,10 @@
   >
     <div class="space-y-4">
       <div>
-        <label class="block text-sm font-medium mb-2" style="color: var(--text-primary)">
+        <label
+          class="block text-sm font-medium mb-2"
+          style="color: var(--text-primary)"
+        >
           电影名称
         </label>
         <Input

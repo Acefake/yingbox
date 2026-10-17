@@ -3,7 +3,7 @@
 // 但 mac/Linux 构建会报 TS1149 / Vite 解析失败。用 tsc 拦不住（Windows 下不报错），
 // 所以用本脚本逐段比对磁盘真实名称，在 CI（或提交前）提前拦截。
 // 用法：node scripts/check-import-case.mjs
-/* eslint-disable @typescript-eslint/explicit-function-return-type -- 纯 JS 运维脚本，无 TS 返回值注解 */
+
 import { readdirSync, statSync } from 'node:fs'
 import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'

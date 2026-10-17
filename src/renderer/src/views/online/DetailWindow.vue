@@ -1,6 +1,5 @@
 <template>
   <div class="detail-win">
-
     <!-- 加载中 -->
     <div v-if="loadingTmdb" class="dw-loading">
       <div class="dw-spinner" />
@@ -10,8 +9,11 @@
     <div v-else class="dw-body">
       <!-- 背景大图 -->
       <div class="dw-backdrop">
-        <img v-if="tmdbDetail?.backdrop_path" :src="`https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}`"
-          class="dw-backdrop-img" />
+        <img
+          v-if="tmdbDetail?.backdrop_path"
+          :src="`https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}`"
+          class="dw-backdrop-img"
+        />
         <div class="dw-backdrop-overlay" />
       </div>
 
@@ -20,24 +22,35 @@
         <div class="dw-hero">
           <!-- 海报 -->
           <div class="dw-poster-wrap">
-            <img :src="tmdbDetail?.poster_path
-                ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}`
-                : itemPic
-              " class="dw-poster" @error="onImgError" />
+            <img
+              :src="
+                tmdbDetail?.poster_path
+                  ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}`
+                  : itemPic
+              "
+              class="dw-poster"
+              @error="onImgError"
+            />
           </div>
           <!-- 信息 -->
           <div class="dw-info">
             <h1 class="dw-title">
               {{ tmdbDetail?.title || tmdbDetail?.name || itemName }}
             </h1>
-            <h3 v-if="tmdbDetail?.original_title || tmdbDetail?.original_name" class="dw-orig-title">
+            <h3
+              v-if="tmdbDetail?.original_title || tmdbDetail?.original_name"
+              class="dw-orig-title"
+            >
               {{ tmdbDetail?.original_title || tmdbDetail?.original_name }}
             </h3>
             <div class="dw-meta-row">
               <span v-if="tmdbDetail?.vote_average" class="dw-rating">
                 ★ {{ tmdbDetail.vote_average.toFixed(1) }}<em>/ 10</em>
               </span>
-              <span v-if="tmdbDetail?.release_date || tmdbDetail?.first_air_date" class="dw-tag">
+              <span
+                v-if="tmdbDetail?.release_date || tmdbDetail?.first_air_date"
+                class="dw-tag"
+              >
                 {{
                   (
                     tmdbDetail.release_date ||
@@ -46,12 +59,30 @@
                   ).slice(0, 4)
                 }}
               </span>
-              <span v-if="tmdbDetail?.runtime" class="dw-tag">{{ tmdbDetail.runtime }} 分钟</span>
-              <span v-for="g in (tmdbDetail?.genres || []).slice(0, 4)" :key="g.id" class="dw-tag">{{ g.name }}</span>
-              <span v-if="itemData?._source === 'catspider' || itemData?._source === 'cms'" class="dw-tag"
-                :class="{ 'source-vod': itemData._source === 'catspider', 'source-cms': itemData._source === 'cms' }">
+              <span v-if="tmdbDetail?.runtime" class="dw-tag"
+                >{{ tmdbDetail.runtime }} 分钟</span
+              >
+              <span
+                v-for="g in (tmdbDetail?.genres || []).slice(0, 4)"
+                :key="g.id"
+                class="dw-tag"
+                >{{ g.name }}</span
+              >
+              <span
+                v-if="
+                  itemData?._source === 'catspider' ||
+                  itemData?._source === 'cms'
+                "
+                class="dw-tag"
+                :class="{
+                  'source-vod': itemData._source === 'catspider',
+                  'source-cms': itemData._source === 'cms',
+                }"
+              >
                 {{ itemData._source === 'catspider' ? '插件源' : 'CMS' }}
-                <template v-if="itemData.source_name">· {{ itemData.source_name }}</template>
+                <template v-if="itemData.source_name"
+                  >· {{ itemData.source_name }}</template
+                >
               </span>
             </div>
             <p v-if="tmdbDetail?.overview || itemOverview" class="dw-overview">
@@ -62,7 +93,10 @@
                 <span class="dw-meta-label">导演</span>
                 <span class="dw-meta-val">{{ directors.join('、') }}</span>
               </div>
-              <div v-if="(tmdbDetail?.production_countries || []).length" class="dw-meta-item">
+              <div
+                v-if="(tmdbDetail?.production_countries || []).length"
+                class="dw-meta-item"
+              >
                 <span class="dw-meta-label">地区</span>
                 <span class="dw-meta-val">{{
                   tmdbDetail.production_countries
@@ -82,21 +116,38 @@
               <h4 class="dw-section-title">播放源</h4>
               <!-- 来源分类 Tabs -->
               <div class="source-type-tabs">
-                <button v-if="catSpiderGroups.length" class="source-type-tab"
-                  :class="{ active: currentSourceType === 'catspider' }" @click="switchSourceType('catspider')">
-                  插件源{{ catSpiderGroups.length ? ` · ${catSpiderGroups.length}` : '' }}
+                <button
+                  v-if="catSpiderGroups.length"
+                  class="source-type-tab"
+                  :class="{ active: currentSourceType === 'catspider' }"
+                  @click="switchSourceType('catspider')"
+                >
+                  插件源{{
+                    catSpiderGroups.length ? ` · ${catSpiderGroups.length}` : ''
+                  }}
                 </button>
-                <button v-if="cmsGroups.length" class="source-type-tab" :class="{ active: currentSourceType === 'cms' }"
-                  @click="switchSourceType('cms')">
+                <button
+                  v-if="cmsGroups.length"
+                  class="source-type-tab"
+                  :class="{ active: currentSourceType === 'cms' }"
+                  @click="switchSourceType('cms')"
+                >
                   CMS源{{ cmsGroups.length ? ` · ${cmsGroups.length}` : '' }}
                 </button>
               </div>
               <!-- 层级一：源 -->
               <div class="px-2 py-1 mb-1 yb-label">源</div>
               <div class="group-tabs">
-                <button v-for="(sg, si) in siteGroups" :key="si" class="group-tab"
-                  :class="{ active: activeSite === si, 'cs-tab': currentSourceType === 'catspider' }"
-                  @click="switchSite(si)">
+                <button
+                  v-for="(sg, si) in siteGroups"
+                  :key="si"
+                  class="group-tab"
+                  :class="{
+                    active: activeSite === si,
+                    'cs-tab': currentSourceType === 'catspider',
+                  }"
+                  @click="switchSite(si)"
+                >
                   {{ sg.siteName }}
                 </button>
               </div>
@@ -104,9 +155,13 @@
               <template v-if="siteGroups[activeSite]?.lines.length > 1">
                 <div class="px-2 py-1 mb-1 mt-2 yb-label">线路</div>
                 <div class="group-tabs">
-                  <button v-for="(line, li) in siteGroups[activeSite].lines" :key="li" class="group-tab"
+                  <button
+                    v-for="(line, li) in siteGroups[activeSite].lines"
+                    :key="li"
+                    class="group-tab"
                     :class="{ active: activeLine === li }"
-                    @click="switchLine(li)">
+                    @click="switchLine(li)"
+                  >
                     {{ line.label }}
                   </button>
                 </div>
@@ -114,8 +169,13 @@
               <!-- 层级三：播放列表 -->
               <div class="px-2 py-1 mb-1 mt-2 yb-label">播放列表</div>
               <div class="episode-list">
-                <button v-for="ep in currentEpisodes" :key="ep.url" class="ep-btn"
-                  :class="{ playing: currentUrl === ep.url }" @click="playEp(ep.url, ep.ext)">
+                <button
+                  v-for="ep in currentEpisodes"
+                  :key="ep.url"
+                  class="ep-btn"
+                  :class="{ playing: currentUrl === ep.url }"
+                  @click="playEp(ep.url, ep.ext)"
+                >
                   {{ ep.name }}
                 </button>
                 <div v-if="!currentEpisodes.length" class="ep-empty">
@@ -123,38 +183,53 @@
                 </div>
               </div>
             </div>
-            <div v-else-if="!searchingCms && showPlaySheet" class="dw-sources-section">
+            <div
+              v-else-if="!searchingCms && showPlaySheet"
+              class="dw-sources-section"
+            >
               <div class="ep-empty">未找到可用播放源</div>
             </div>
           </div>
         </div>
 
-
-
         <!-- 演员 -->
         <div v-if="cast.length" class="dw-cast-section">
           <h4 class="dw-section-title">演员</h4>
           <div v-scroll-x class="dw-cast-list">
-            <div v-for="actor in cast.slice(0, 14)" :key="actor.id" class="dw-actor">
-              <img :src="actor.profile_path
-                  ? `https://images.tmdb.org/t/p/w185${actor.profile_path}`
-                  : ''
-                " class="dw-actor-img" @error="onActorImgError" />
+            <div
+              v-for="actor in cast.slice(0, 14)"
+              :key="actor.id"
+              class="dw-actor"
+            >
+              <img
+                :src="
+                  actor.profile_path
+                    ? `https://images.tmdb.org/t/p/w185${actor.profile_path}`
+                    : ''
+                "
+                class="dw-actor-img"
+                @error="onActorImgError"
+              />
               <div class="dw-actor-name">{{ actor.name }}</div>
               <div class="dw-actor-char">{{ actor.character }}</div>
             </div>
           </div>
         </div>
 
-
-
         <!-- 图库 -->
         <div v-if="images.length" class="dw-gallery-section">
           <h4 class="dw-section-title">剧照</h4>
           <div v-scroll-x class="dw-gallery">
-            <div v-for="(img, idx) in images.slice(0, 20)" :key="idx" class="dw-gallery-item"
-              @click="lightboxIdx = idx">
-              <img :src="`https://images.tmdb.org/t/p/w500${img.file_path}`" class="dw-gallery-img" />
+            <div
+              v-for="(img, idx) in images.slice(0, 20)"
+              :key="idx"
+              class="dw-gallery-item"
+              @click="lightboxIdx = idx"
+            >
+              <img
+                :src="`https://images.tmdb.org/t/p/w500${img.file_path}`"
+                class="dw-gallery-img"
+              />
             </div>
           </div>
         </div>
@@ -163,14 +238,27 @@
 
     <!-- 图片灯箱 -->
     <Transition name="lb-fade">
-      <div v-if="lightboxIdx !== null" class="lb-mask" @click.self="lightboxIdx = null">
-        <button class="lb-arrow lb-prev" @click="
-          lightboxIdx = (lightboxIdx! - 1 + images.length) % images.length
-          ">
+      <div
+        v-if="lightboxIdx !== null"
+        class="lb-mask"
+        @click.self="lightboxIdx = null"
+      >
+        <button
+          class="lb-arrow lb-prev"
+          @click="
+            lightboxIdx = (lightboxIdx! - 1 + images.length) % images.length
+          "
+        >
           ‹
         </button>
-        <img :src="`https://images.tmdb.org/t/p/original${images[lightboxIdx!].file_path}`" class="lb-img" />
-        <button class="lb-arrow lb-next" @click="lightboxIdx = (lightboxIdx! + 1) % images.length">
+        <img
+          :src="`https://images.tmdb.org/t/p/original${images[lightboxIdx!].file_path}`"
+          class="lb-img"
+        />
+        <button
+          class="lb-arrow lb-next"
+          @click="lightboxIdx = (lightboxIdx! + 1) % images.length"
+        >
           ›
         </button>
         <button class="lb-close" @click="lightboxIdx = null">✕</button>
@@ -179,15 +267,21 @@
 
     <!-- 播放弹窗 -->
     <Transition name="sheet-fade">
-      <div v-if="showPlaySheet" class="sheet-mask" @click.self="showPlaySheet = false">
+      <div
+        v-if="showPlaySheet"
+        class="sheet-mask"
+        @click.self="showPlaySheet = false"
+      >
         <div class="play-sheet">
           <div class="player-wrap">
             <UnifiedVideoPlayer
               :src="currentUrl"
               :resolve-url="resolveUrl"
-              :poster="tmdbDetail?.backdrop_path
-                ? `https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}`
-                : ''"
+              :poster="
+                tmdbDetail?.backdrop_path
+                  ? `https://images.tmdb.org/t/p/w1280${tmdbDetail.backdrop_path}`
+                  : ''
+              "
               :title="itemName"
               closable
               @ready="videoEl = $event"
@@ -197,7 +291,6 @@
         </div>
       </div>
     </Transition>
-
   </div>
 </template>
 
@@ -219,12 +312,7 @@ import {
   useOnlineSearch,
 } from './composables/use-online-search'
 
-const {
-  fetchDetail,
-  resolvePlayUrl,
-  keyword,
-  search,
-} = useOnlineSearch()
+const { fetchDetail, resolvePlayUrl, keyword, search } = useOnlineSearch()
 
 const props = defineProps<{ item?: unknown }>()
 
@@ -249,9 +337,17 @@ const activeGroup = ref(0)
 const currentSourceType = ref<'cms' | 'catspider'>('cms')
 const currentUrl = ref('')
 
-const catSpiderGroups = computed(() => episodeGroups.value.filter(g => g._source === 'catspider'))
-const cmsGroups = computed(() => episodeGroups.value.filter(g => g._source === 'cms' || !g._source))
-const currentGroups = computed(() => currentSourceType.value === 'catspider' ? catSpiderGroups.value : cmsGroups.value)
+const catSpiderGroups = computed(() =>
+  episodeGroups.value.filter(g => g._source === 'catspider')
+)
+const cmsGroups = computed(() =>
+  episodeGroups.value.filter(g => g._source === 'cms' || !g._source)
+)
+const currentGroups = computed(() =>
+  currentSourceType.value === 'catspider'
+    ? catSpiderGroups.value
+    : cmsGroups.value
+)
 
 // 三层结构：站点 → 线路 → 播放列表
 const activeSite = ref(0)
@@ -268,15 +364,19 @@ const siteGroups = computed((): SiteGroup[] => {
     if (!map.has(key)) map.set(key, [])
     map.get(key)!.push(g)
   }
-  return Array.from(map.entries()).map(([siteName, lines]) => ({ siteName, lines }))
+  return Array.from(map.entries()).map(([siteName, lines]) => ({
+    siteName,
+    lines,
+  }))
 })
 
-const currentEpisodes = computed(() =>
-  siteGroups.value[activeSite.value]?.lines[activeLine.value]?.episodes || []
+const currentEpisodes = computed(
+  () =>
+    siteGroups.value[activeSite.value]?.lines[activeLine.value]?.episodes || []
 )
 
-const currentLineGroup = computed(() =>
-  siteGroups.value[activeSite.value]?.lines[activeLine.value]
+const currentLineGroup = computed(
+  () => siteGroups.value[activeSite.value]?.lines[activeLine.value]
 )
 const videoEl = ref<HTMLVideoElement | null>(null)
 
@@ -307,15 +407,20 @@ onMounted(async () => {
   await loadData(props.item)
 })
 
-watch(() => props.item, (data) => {
-  if (data) loadData(data)
-})
+watch(
+  () => props.item,
+  data => {
+    if (data) loadData(data)
+  }
+)
 
 const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
   loadingTmdb.value = true
   const token = getTmdbAccessToken()
   if (!token) {
-    console.warn('[TMDB] 未配置 Access Token，已跳过 TMDB 查询（请在设置中填写）')
+    console.warn(
+      '[TMDB] 未配置 Access Token，已跳过 TMDB 查询（请在设置中填写）'
+    )
     loadingTmdb.value = false
     return
   }
@@ -371,15 +476,19 @@ const loadPlaySources = async () => {
   try {
     // 先保留打开详情时命中的条目，然后按片名检索全部已启用源，
     // 每个站点只取最匹配的一条，避免同一站点重复请求和重复线路。
-    const directItem = itemData.value?._source === 'cms' || itemData.value?._source === 'catspider'
-      ? itemData.value
-      : null
-    const normalizeTitle = (value: unknown) => String(value || '')
-      .toLowerCase()
-      .replace(/\[[^\]]*\]|\([^)]*\)|（[^）]*）/g, '')
-      .replace(/[^\p{L}\p{N}]+/gu, '')
+    const directItem =
+      itemData.value?._source === 'cms' ||
+      itemData.value?._source === 'catspider'
+        ? itemData.value
+        : null
+    const normalizeTitle = (value: unknown) =>
+      String(value || '')
+        .toLowerCase()
+        .replace(/\[[^\]]*\]|\([^)]*\)|（[^）]*）/g, '')
+        .replace(/[^\p{L}\p{N}]+/gu, '')
     const targetTitle = normalizeTitle(searchTitle.value)
-    const sourceKey = (value: any) => `${value?._source || 'unknown'}:${value?._siteName || value?.api_url || value?.vod_id || ''}`
+    const sourceKey = (value: any) =>
+      `${value?._source || 'unknown'}:${value?._siteName || value?.api_url || value?.vod_id || ''}`
     const seenSources = new Set<string>()
     const pendingDetails = new Set<Promise<void>>()
     const appendDetail = (candidate: any) => {
@@ -393,7 +502,11 @@ const loadPlaySources = async () => {
           const hadGroups = episodeGroups.value.length > 0
           episodeGroups.value = [...episodeGroups.value, ...available]
           if (!hadGroups) {
-            currentSourceType.value = available.some(group => group._source === 'catspider') ? 'catspider' : 'cms'
+            currentSourceType.value = available.some(
+              group => group._source === 'catspider'
+            )
+              ? 'catspider'
+              : 'cms'
           }
         })
         .catch(() => undefined)
@@ -409,8 +522,19 @@ const loadPlaySources = async () => {
       allVod: false,
       onItems: items => {
         for (const resultAny of items as any[]) {
-          const title = normalizeTitle(resultAny?.vod_name || resultAny?.title || resultAny?.name)
-          if (!title || !targetTitle || !(title === targetTitle || title.includes(targetTitle) || targetTitle.includes(title))) continue
+          const title = normalizeTitle(
+            resultAny?.vod_name || resultAny?.title || resultAny?.name
+          )
+          if (
+            !title ||
+            !targetTitle ||
+            !(
+              title === targetTitle ||
+              title.includes(targetTitle) ||
+              targetTitle.includes(title)
+            )
+          )
+            continue
           appendDetail(resultAny)
         }
       },
@@ -457,7 +581,11 @@ const switchSourceType = (type: 'cms' | 'catspider') => {
 // For VOD sources, we need to know the siteName for resolvePlayUrl
 const currentSiteName = computed(() => {
   if (currentSourceType.value === 'catspider') {
-    return currentLineGroup.value?._siteName || catSpiderGroups.value[activeGroup.value]?._siteName || ''
+    return (
+      currentLineGroup.value?._siteName ||
+      catSpiderGroups.value[activeGroup.value]?._siteName ||
+      ''
+    )
   }
   return ''
 })
@@ -474,7 +602,12 @@ const switchLine = (li: number) => {
 
 const resolvingUrl = ref(false)
 let playGeneration = 0
-watch(showPlaySheet, visible => { if (!visible) { playGeneration++; resolvingUrl.value = false } })
+watch(showPlaySheet, visible => {
+  if (!visible) {
+    playGeneration++
+    resolvingUrl.value = false
+  }
+})
 
 /** 当前线路的播放队列：独立播放窗用它自动连播下一集 */
 const buildPlaylist = (): PlayerSourceItem[] => {
@@ -489,12 +622,20 @@ const buildPlaylist = (): PlayerSourceItem[] => {
 }
 
 /** 同集其它线路：当前线路播放失败时自动尝试 */
-const buildFallbacks = (epName: string, epIndex: number): PlayerSourceItem[] => {
-  const currentLine = siteGroups.value[activeSite.value]?.lines[activeLine.value]
+const buildFallbacks = (
+  epName: string,
+  epIndex: number
+): PlayerSourceItem[] => {
+  const currentLine =
+    siteGroups.value[activeSite.value]?.lines[activeLine.value]
   const out: PlayerSourceItem[] = []
   const seen = new Set<string>()
 
-  const push = (line: EpisodeGroup, hit: { url: string; ext?: Record<string, any> }, sg: SiteGroup): void => {
+  const push = (
+    line: EpisodeGroup,
+    hit: { url: string; ext?: Record<string, any> },
+    sg: SiteGroup
+  ): void => {
     if (!hit?.url) return
     const key = `${line.label}|${hit.url}`
     if (seen.has(key)) return
@@ -514,7 +655,9 @@ const buildFallbacks = (epName: string, epIndex: number): PlayerSourceItem[] => 
       if (!eps.length) continue
       // 优先按集名匹配；各源命名差异大（"第01集" vs "01"），失败时退化为按集序匹配
       const byName = epName ? eps.find(ep => ep.name === epName) : undefined
-      const hit = byName || (epIndex >= 0 && epIndex < eps.length ? eps[epIndex] : undefined)
+      const hit =
+        byName ||
+        (epIndex >= 0 && epIndex < eps.length ? eps[epIndex] : undefined)
       if (hit) push(line, hit, sg)
     }
   }
@@ -547,8 +690,12 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
   currentUrl.value = playUrl
   const historyKey = 'online_play_history'
   const history = readStoredArray<Record<string, any>>(historyKey)
-  const mediaKey =
-    String(itemData.value?.vod_id || itemData.value?.vod_name || itemName.value || playUrl)
+  const mediaKey = String(
+    itemData.value?.vod_id ||
+      itemData.value?.vod_name ||
+      itemName.value ||
+      playUrl
+  )
   const prevProgress = getMediaProgress(playUrl)
   const record = {
     ...(itemData.value || {}),
@@ -565,13 +712,23 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
     [
       record,
       ...history.filter((entry: any) => {
-        const key = String(entry?.item?.vod_id || entry?.vod_id || entry?.item?.vod_name || entry?.vod_name || entry?.url || '')
+        const key = String(
+          entry?.item?.vod_id ||
+            entry?.vod_id ||
+            entry?.item?.vod_name ||
+            entry?.vod_name ||
+            entry?.url ||
+            ''
+        )
         return key && key !== mediaKey && entry?.url !== playUrl
       }),
     ].slice(0, 30)
   )
 
-  const title = [itemName.value, ext?.name].filter(Boolean).join(' · ') || itemName.value || '正在播放'
+  const title =
+    [itemName.value, ext?.name].filter(Boolean).join(' · ') ||
+    itemName.value ||
+    '正在播放'
   // 首页/在线：Electron 下强制独立播放窗，不再退回页内 sheet
   if (canOpenElectronPlayer()) {
     const startAt = getMediaProgress(playUrl)
@@ -584,7 +741,9 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
       title,
       poster: itemPic.value || undefined,
       startAt,
-      ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
+      ...(playlist.length
+        ? { playlist, index: epIndex >= 0 ? epIndex : 0 }
+        : {}),
       ...(fallbacks.length ? { fallbacks } : {}),
     })
     showPlaySheet.value = false
@@ -598,11 +757,11 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
 }
 
 const onImgError = (e: Event) => {
-  ; (e.target as HTMLImageElement).src =
+  ;(e.target as HTMLImageElement).src =
     'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="210"><rect width="140" height="210" fill="%231f2937"/><text x="70" y="110" text-anchor="middle" fill="%236b7280" font-size="13">无封面</text></svg>'
 }
 const onActorImgError = (e: Event) => {
-  ; (e.target as HTMLImageElement).src =
+  ;(e.target as HTMLImageElement).src =
     'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="60" height="60"><circle cx="30" cy="30" r="30" fill="%23374151"/></svg>'
 }
 </script>
@@ -684,9 +843,7 @@ const onActorImgError = (e: Event) => {
 .dw-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom,
-      transparent 20%,
-      var(--bg-base) 100%);
+  background: linear-gradient(to bottom, transparent 20%, var(--bg-base) 100%);
 }
 
 .dw-content {

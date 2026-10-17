@@ -13,7 +13,10 @@ const compareItems = (a: ProcessedItem, b: ProcessedItem): number => {
     return aScraped ? -1 : 1
   }
   if (a.type !== b.type) return a.type === 'folder' ? -1 : 1
-  return a.name.localeCompare(b.name, undefined, { numeric: true, sensitivity: 'base' })
+  return a.name.localeCompare(b.name, undefined, {
+    numeric: true,
+    sensitivity: 'base',
+  })
 }
 
 /** 递归排序子项 */
@@ -23,6 +26,133 @@ const sortTree = (items: ProcessedItem[]): ProcessedItem[] => {
     if (item.children) sortTree(item.children)
   }
   return items
+}
+
+const normPath = (p: string): string =>
+  p.replace(/\\/g, '/').replace(/\/+$/, '')
+
+type CompactFileEntry = {
+  path: string
+  mtime: number
+  size: number
+  name: string
+  isDirectory: boolean
+  isFile: boolean
+}
+
+const toPreviousIndex = (files: FileItem[]): CompactFileEntry[] =>
+  files.map(f => ({
+    path: f.path,
+    mtime: f.mtime ?? 0,
+    size: f.size ?? 0,
+    name: f.name,
+    isDirectory: f.isDirectory,
+    isFile: f.isFile,
+  }))
+
+/** 按库根缓存的扁平扫描结果（与 fileData 的树形结构分开维护），用于目录 mtime 短路 */
+const rawIndexCache = new Map<string, FileItem[]>()
+const TV_RAW_INDEX_FILE = 'yingbox-tv-library-index.json'
+let tvIndexFilePath: string | null = null
+let rawIndexLoadPromise: Promise<void> | null = null
+let rawIndexSaveScheduled = false
+
+const resolveTVIndexFilePath = async (): Promise<string | null> => {
+  if (tvIndexFilePath) return tvIndexFilePath
+  try {
+    const userData = await window.api.app.getUserDataPath()
+    if (!userData) return null
+    const sep = userData.includes('\\') ? '\\' : '/'
+    tvIndexFilePath = `${userData.replace(/[\\/]+$/, '')}${sep}${TV_RAW_INDEX_FILE}`
+    return tvIndexFilePath
+  } catch (error) {
+    console.warn('获取 userData 路径失败:', error)
+    return null
+  }
+}
+
+/** 首次使用前从磁盘加载上次的扁平索引（幂等，只加载一次） */
+const ensureRawIndexLoaded = (): Promise<void> => {
+  if (!rawIndexLoadPromise) {
+    rawIndexLoadPromise = (async () => {
+      try {
+        const filePath = await resolveTVIndexFilePath()
+        if (!filePath) return
+        const exists = await window.api.file.exists(filePath)
+        if (!exists.success || !exists.exists) return
+        const readResult = await window.api.file.read(filePath)
+        if (readResult.success && typeof readResult.data === 'string') {
+          const parsed = JSON.parse(readResult.data) as {
+            roots?: Record<string, CompactFileEntry[]>
+          }
+          if (parsed.roots) {
+            for (const [key, entries] of Object.entries(parsed.roots)) {
+              if (Array.isArray(entries))
+                rawIndexCache.set(key, entries as FileItem[])
+            }
+          }
+        }
+      } catch (error) {
+        console.warn('加载 TV 增量索引失败:', error)
+      }
+    })()
+  }
+  return rawIndexLoadPromise
+}
+
+const scheduleRawIndexSave = (): void => {
+  if (rawIndexSaveScheduled) return
+  rawIndexSaveScheduled = true
+  const persist = async () => {
+    rawIndexSaveScheduled = false
+    try {
+      const filePath = await resolveTVIndexFilePath()
+      if (!filePath) return
+      const roots: Record<string, CompactFileEntry[]> = {}
+      for (const [key, files] of rawIndexCache)
+        roots[key] = toPreviousIndex(files)
+      await window.api.file.write(
+        filePath,
+        JSON.stringify({ roots, savedAt: Date.now() })
+      )
+    } catch (error) {
+      console.warn('保存 TV 增量索引失败:', error)
+    }
+  }
+  if (typeof requestIdleCallback !== 'undefined') {
+    requestIdleCallback(() => void persist(), { timeout: 1000 })
+  } else {
+    window.setTimeout(() => void persist(), 0)
+  }
+}
+
+/** 用新扫描结果替换某个子树在缓存里的部分，其余条目保留 */
+const mergeIntoRawCache = (
+  rootKey: string,
+  scannedPath: string,
+  entries: FileItem[]
+): void => {
+  const scannedNorm = normPath(scannedPath).toLowerCase()
+  const prevArr = rawIndexCache.get(rootKey) || []
+  const kept = prevArr.filter(f => {
+    const p = normPath(f.path).toLowerCase()
+    return p !== scannedNorm && !p.startsWith(`${scannedNorm}/`)
+  })
+  rawIndexCache.set(rootKey, [...kept, ...entries])
+  scheduleRawIndexSave()
+}
+
+const clearRawIndex = (): void => {
+  rawIndexCache.clear()
+  void (async () => {
+    const filePath = await resolveTVIndexFilePath()
+    if (filePath) await window.api.file.delete(filePath)
+  })()
+}
+
+const dropRootFromRawIndex = (rootPath: string): void => {
+  rawIndexCache.delete(normPath(rootPath).toLowerCase())
+  scheduleRawIndexSave()
 }
 
 export const useTVFileManagement = () => {
@@ -83,17 +213,38 @@ export const useTVFileManagement = () => {
    * 移除指定索引的目录
    */
   const removeDirectory = async (index: number): Promise<void> => {
+    const removed = directoryPaths.value[index]
     directoryPaths.value = directoryPaths.value.filter((_, i) => i !== index)
     saveDirectoryPaths()
+    if (removed) dropRootFromRawIndex(removed)
     await refreshAllDirectories()
   }
 
+  /** 找到 path 所属的已添加库根目录（自身或祖先），用于定位增量索引缓存 key */
+  const findMatchingRoot = (path: string): string | null => {
+    const n = normPath(path).toLowerCase()
+    for (const root of directoryPaths.value) {
+      const r = normPath(root).toLowerCase()
+      if (n === r || n.startsWith(`${r}/`)) return root
+    }
+    return null
+  }
+
   /**
-   * 递归读取目录（自定义实现，跳过不存在的目录）
+   * 递归读取目录（会传入上次扫描的扁平索引让主进程按目录 mtime 短路，避免全量 readdir/stat）
    */
-  const readDirectoryRecursive = async (dirPath: string): Promise<FileItem[]> => {
-    const files = await readMediaDirectory(dirPath)
+  const readDirectoryRecursive = async (
+    dirPath: string
+  ): Promise<FileItem[]> => {
+    await ensureRawIndexLoaded()
+    const rootKey = normPath(findMatchingRoot(dirPath) || dirPath).toLowerCase()
+    const previous = rawIndexCache.get(rootKey)
+    const files = await readMediaDirectory(
+      dirPath,
+      previous ? toPreviousIndex(previous) : undefined
+    )
     scanProgress.value.found = files.length
+    mergeIntoRawCache(rootKey, dirPath, files)
     return files
   }
 
@@ -149,14 +300,14 @@ export const useTVFileManagement = () => {
           id: makeId(f.path),
           name: f.name,
           path: f.path,
-        type: 'video' as const,
-        episodeNumber: extractEpisodeNumber(f.name),
-        hasNfo: nfoPaths.has(f.path.replace(/\.[^.]+$/, '.nfo')),
-        thumbnailPath: thumbnailPaths.has(
-          f.path.replace(/\.[^.]+$/, '-thumb.jpg')
-        )
-          ? f.path.replace(/\.[^.]+$/, '-thumb.jpg')
-          : undefined,
+          type: 'video' as const,
+          episodeNumber: extractEpisodeNumber(f.name),
+          hasNfo: nfoPaths.has(f.path.replace(/\.[^.]+$/, '.nfo')),
+          thumbnailPath: thumbnailPaths.has(
+            f.path.replace(/\.[^.]+$/, '-thumb.jpg')
+          )
+            ? f.path.replace(/\.[^.]+$/, '-thumb.jpg')
+            : undefined,
         }))
       const isSeason = isTVSeasonFolder(folder.name)
       const childNames = new Set(
@@ -172,7 +323,8 @@ export const useTVFileManagement = () => {
         seasonNumber: isSeason ? extractSeasonNumber(folder.name) : undefined,
         hasNfo: childNames.has('tvshow.nfo') || childNames.has('season.nfo'),
         hasPoster: childNames.has('poster.jpg') || childNames.has('folder.jpg'),
-        hasFanart: childNames.has('fanart.jpg') || childNames.has('backdrop.jpg'),
+        hasFanart:
+          childNames.has('fanart.jpg') || childNames.has('backdrop.jpg'),
         children: sortTree([...seasons, ...videoFiles]),
       }
     }
@@ -501,13 +653,18 @@ export const useTVFileManagement = () => {
     for (const path of directoryPaths.value) {
       try {
         const pathCheck = await window.api.file.exists(path)
-        if (!pathCheck.success || !pathCheck.exists) throw new Error('目录不存在或无法访问')
+        if (!pathCheck.success || !pathCheck.exists)
+          throw new Error('目录不存在或无法访问')
         const files = await readDirectoryRecursive(path)
         allItems.push(...processTVFiles(files))
       } catch (e) {
         console.warn('读取目录失败，保留原缓存:', path, e)
-        const prefix = `${path.replace(/\\/g, '/').replace(/\/$/, '')  }/`
-        allItems.push(...fileData.value.filter(item => item.path.replace(/\\/g, '/').startsWith(prefix)))
+        const prefix = `${path.replace(/\\/g, '/').replace(/\/$/, '')}/`
+        allItems.push(
+          ...fileData.value.filter(item =>
+            item.path.replace(/\\/g, '/').startsWith(prefix)
+          )
+        )
         message.warning(`目录读取失败，保留原数据: ${path}`)
       }
     }
@@ -542,8 +699,14 @@ export const useTVFileManagement = () => {
    * 持久化目录列表
    */
   const saveDirectoryPaths = (): void => {
-    try { localStorage.setItem('tvDirectories', JSON.stringify(directoryPaths.value)) }
-    catch (error) { console.warn('保存目录列表失败:', error) }
+    try {
+      localStorage.setItem(
+        'tvDirectories',
+        JSON.stringify(directoryPaths.value)
+      )
+    } catch (error) {
+      console.warn('保存目录列表失败:', error)
+    }
   }
 
   /**
@@ -578,7 +741,10 @@ export const useTVFileManagement = () => {
       const dirs = localStorage.getItem('tvDirectories')
       if (dirs) {
         const parsed: unknown = JSON.parse(dirs)
-        if (Array.isArray(parsed)) directoryPaths.value = parsed.filter((item): item is string => typeof item === 'string')
+        if (Array.isArray(parsed))
+          directoryPaths.value = parsed.filter(
+            (item): item is string => typeof item === 'string'
+          )
       }
       const cached = localStorage.getItem('tvFileData')
       if (cached) {
@@ -610,6 +776,7 @@ export const useTVFileManagement = () => {
       localStorage.removeItem('tvDirectories')
       fileData.value = []
       directoryPaths.value = []
+      clearRawIndex()
     } catch (error) {
       console.error('清除缓存失败:', error)
     }
@@ -652,7 +819,8 @@ export const useTVFileManagement = () => {
     selectedItems.value.clear()
   }
 
-  const normPath = (p: string): string => p.replace(/\\/g, '/').replace(/\/+$/, '')
+  const normPath = (p: string): string =>
+    p.replace(/\\/g, '/').replace(/\/+$/, '')
 
   /**
    * 只刷新单个剧集目录树节点（不扫整个媒体库）
@@ -704,7 +872,7 @@ export const useTVFileManagement = () => {
       }
       const files = await readDirectoryRecursive(libraryPath)
       const processed = processTVFiles(files)
-      const prefix = `${normPath(libraryPath).toLowerCase()  }/`
+      const prefix = `${normPath(libraryPath).toLowerCase()}/`
       const rootKey = normPath(libraryPath).toLowerCase()
       const others = fileData.value.filter(item => {
         const p = normPath(item.path).toLowerCase()
@@ -737,7 +905,7 @@ export const useTVFileManagement = () => {
       const matchedRoot = directoryPaths.value.find(root => {
         const r = normPath(root).toLowerCase()
         const t = n.toLowerCase()
-        return t === r || t.startsWith(`${r  }/`)
+        return t === r || t.startsWith(`${r}/`)
       })
       if (!matchedRoot) {
         tvPendingFull = true
@@ -764,7 +932,8 @@ export const useTVFileManagement = () => {
           } else {
             for (const p of locals) {
               const isLibraryRoot = directoryPaths.value.some(
-                root => normPath(root).toLowerCase() === normPath(p).toLowerCase()
+                root =>
+                  normPath(root).toLowerCase() === normPath(p).toLowerCase()
               )
               if (isLibraryRoot) {
                 await refreshOneLibraryRoot(p)

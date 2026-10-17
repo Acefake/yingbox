@@ -26,10 +26,7 @@
         class="tv-checkbox-wrap"
         @click.stop="handleToggleSelection"
       >
-        <div
-          class="tv-checkbox"
-          :class="{ 'is-checked': isMultiSelectedItem }"
-        >
+        <div class="tv-checkbox" :class="{ 'is-checked': isMultiSelectedItem }">
           <svg
             v-if="isMultiSelectedItem"
             class="tv-checkbox-icon"
@@ -67,10 +64,7 @@
       </div>
 
       <!-- 图标 -->
-      <div
-        class="tv-type-icon"
-        :class="{ 'is-active': isSelected }"
-      >
+      <div class="tv-type-icon" :class="{ 'is-active': isSelected }">
         <!-- 季文件夹图标 -->
         <svg
           v-if="item.isSeasonFolder"
@@ -230,7 +224,6 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
     emit('manualScrape', root)
   }
 }
-
 </script>
 
 <style scoped>
@@ -244,7 +237,9 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
   margin-bottom: 1px;
   border-radius: var(--radius-md);
   cursor: pointer;
-  transition: background 0.18s var(--ease-out), transform 100ms ease-out;
+  transition:
+    background 0.18s var(--ease-out),
+    transform 100ms ease-out;
 }
 
 .tv-row:hover {
@@ -371,6 +366,8 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .tv-row:active { transform: none; }
+  .tv-row:active {
+    transform: none;
+  }
 }
 </style>

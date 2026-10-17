@@ -8,93 +8,14 @@ import type { CastMember, DirectorMember, ScrapedMovie } from '@/types/scraping'
 import { generateNfo, parseNfo } from '@/services/nfo-service'
 import { cleanSearchParams, extractAvid } from '@/utils/avid'
 import { safeFileName } from '@/utils/file-name'
+import { downloadWithRetry, finishDownloads } from '@/services/download-service'
+import { fetchActorPhoto } from '@/services/actor-cache-service'
 
 const getMetaLang = (): string =>
   (typeof window !== 'undefined' && localStorage.getItem('metadataLanguage')) ||
   'zh-CN'
 
-// ─── 下载工具 ─────────────────────────────────────────────
-
-/**
- * 判断错误是否值得重试
- */
-function isRetryableError(errorMsg: string): boolean {
-  const lower = errorMsg.toLowerCase()
-  return (
-    lower.includes('econnreset') ||
-    lower.includes('etimedout') ||
-    lower.includes('network') ||
-    lower.includes('econnrefused') ||
-    lower.includes('socket hang up') ||
-    lower.includes('429') ||
-    lower.includes('503')
-  )
-}
-
-/**
- * 判断错误是否为永久性失败（不应重试）
- */
-function isPermanentError(errorMsg: string): boolean {
-  const lower = errorMsg.toLowerCase()
-  return (
-    lower.includes('eperm') ||
-    lower.includes('permission') ||
-    lower.includes('404') ||
-    lower.includes('403') ||
-    lower.includes('enoent')
-  )
-}
-
-/**
- * 带重试和指数退避的下载函数
- */
-const tryDownload = async (
-  url: string,
-  path: string,
-  maxRetries: number = 3,
-  baseDelay: number = 1000
-): Promise<{ success: boolean; error?: string }> => {
-  for (let attempt = 1; attempt <= maxRetries; attempt++) {
-    try {
-      const result = await window.api.http.download(url, path)
-      if (result.success) return result
-
-      const errorMsg = result.error || ''
-      if (isPermanentError(errorMsg)) return result
-      if (attempt === maxRetries || !isRetryableError(errorMsg)) return result
-
-      const delay = baseDelay * Math.pow(2, attempt - 1)
-      console.warn(`下载失败，${delay}ms 后重试 (${attempt}/${maxRetries}): ${path}`)
-      await new Promise(resolve => setTimeout(resolve, delay))
-    } catch (e) {
-      const errorMsg = e instanceof Error ? e.message : ''
-      if (isPermanentError(errorMsg)) {
-        return { success: false, error: errorMsg }
-      }
-      if (attempt < maxRetries && isRetryableError(errorMsg)) {
-        const delay = baseDelay * Math.pow(2, attempt - 1)
-        console.warn(`下载异常，${delay}ms 后重试 (${attempt}/${maxRetries}): ${path}`)
-        await new Promise(resolve => setTimeout(resolve, delay))
-        continue
-      }
-      return { success: false, error: errorMsg || '未知错误' }
-    }
-  }
-  return { success: false, error: '下载失败' }
-}
-
-async function downloadWithRetry(url: string, filePath: string): Promise<void> {
-  const result = await tryDownload(url, filePath)
-  if (!result.success) throw new Error(`下载失败 [${filePath}]: ${result.error || '未知错误'}`)
-}
-
-async function finishDownloads<T>(jobs: Promise<T>[]): Promise<void> {
-  const results = await Promise.allSettled(jobs)
-  const failed = results.find(result => result.status === 'rejected')
-  if (failed?.status === 'rejected') throw failed.reason
-}
-
-// ─── 主 Hook ──────────────────────────────────────────────
+// ─── 主 Hook ───────────────────────────────
 
 export const useScraping = () => {
   const currentScrapeItem = ref<ProcessedItem>()
@@ -123,7 +44,8 @@ export const useScraping = () => {
                 title: nfoData.title || item.name,
                 original_title: nfoData.originaltitle || '',
                 overview: nfoData.plot || '',
-                release_date: nfoData.premiered || `${nfoData.year || ''}-01-01`,
+                release_date:
+                  nfoData.premiered || `${nfoData.year || ''}-01-01`,
                 vote_average: nfoData.rating ? parseFloat(nfoData.rating) : 0,
                 vote_count: nfoData.votes ? parseInt(nfoData.votes) : 0,
                 poster_path: nfoData.poster || '',
@@ -142,9 +64,7 @@ export const useScraping = () => {
 
       // 提取搜索关键词
       const searchName =
-        item.type === 'folder'
-          ? item.name
-          : item.name.replace(/\.[^.]*$/, '')
+        item.type === 'folder' ? item.name : item.name.replace(/\.[^.]*$/, '')
 
       const provider = getScrapeProviderConfig().provider
 
@@ -186,9 +106,7 @@ export const useScraping = () => {
 
       const yearMatch = cleanName.match(/\b(19|20)\d{2}\b/)
       const year = yearMatch ? parseInt(yearMatch[0]) : undefined
-      const nameWithoutYear = cleanName
-        .replace(/\b(19|20)\d{2}\b/g, '')
-        .trim()
+      const nameWithoutYear = cleanName.replace(/\b(19|20)\d{2}\b/g, '').trim()
 
       const query = nameWithoutYear || cleanName
       const lang = getMetaLang()
@@ -205,9 +123,7 @@ export const useScraping = () => {
         if (res.results.length === 0) {
           const fallbacks: Promise<any>[] = []
           if (year) {
-            fallbacks.push(
-              getTmdb().search.movies({ query, language: lang })
-            )
+            fallbacks.push(getTmdb().search.movies({ query, language: lang }))
           }
           if (lang !== 'en-US') {
             fallbacks.push(
@@ -296,7 +212,8 @@ export const useScraping = () => {
         progressCallback?.('正在下载演员照片...', 4)
         const actorsDir = await window.api.path.join(folderPath, '.actors')
         const directory = await window.api.file.mkdir(actorsDir)
-        if (!directory.success) throw new Error(directory.error || '创建演员目录失败')
+        if (!directory.success)
+          throw new Error(directory.error || '创建演员目录失败')
 
         await finishDownloads(
           cast
@@ -309,7 +226,7 @@ export const useScraping = () => {
               return window.api.path
                 .join(actorsDir, `${safeName}.jpg`)
                 .then(photoPath =>
-                  downloadWithRetry(photoUrl, photoPath)
+                  fetchActorPhoto(String(actor.id), photoUrl, photoPath)
                 )
             })
         )
@@ -391,7 +308,8 @@ export const useScraping = () => {
       progressCallback?.('正在下载演员照片...', 4)
       const actorsDir = await window.api.path.join(folderPath, '.actors')
       const directory = await window.api.file.mkdir(actorsDir)
-      if (!directory.success) throw new Error(directory.error || '创建演员目录失败')
+      if (!directory.success)
+        throw new Error(directory.error || '创建演员目录失败')
 
       await finishDownloads(
         Object.entries(javbusMeta.actress as Record<string, string>)
@@ -401,7 +319,7 @@ export const useScraping = () => {
             return window.api.path
               .join(actorsDir, `${safeName}.jpg`)
               .then(photoPath =>
-                downloadWithRetry(backend.proxyUrl(imgUrl), photoPath)
+                fetchActorPhoto(safeName, backend.proxyUrl(imgUrl), photoPath)
               )
           })
       )
@@ -446,117 +364,8 @@ export const useScraping = () => {
     }
   }
 
-  /**
-   * 检查文件夹中是否已有 NFO 文件和海报
-   */
-  const checkExistingResources = async (
-    folderPath: string,
-    videoBaseName: string
-  ): Promise<{
-    hasNfo: boolean
-    nfoContent: string | null
-    hasPoster: boolean
-    posterPath: string | null
-    hasFanart: boolean
-    fanartPath: string | null
-  }> => {
-    const result = {
-      hasNfo: false,
-      nfoContent: null as string | null,
-      hasPoster: false,
-      posterPath: null as string | null,
-      hasFanart: false,
-      fanartPath: null as string | null,
-    }
-
-    try {
-      const hasExtension = /\.[^.]+$/.test(folderPath)
-      const actualFolderPath = hasExtension
-        ? await window.api.path.dirname(folderPath)
-        : folderPath
-
-      const folderFiles = await window.api.file.readdir(actualFolderPath)
-      if (!folderFiles.success || !folderFiles.data) return result
-
-      const files = folderFiles.data as Array<{
-        name: string
-        isDirectory: boolean
-        isFile: boolean
-      }>
-
-      const base = videoBaseName.toLowerCase()
-
-      // NFO
-      const nfoFile = files.find(
-        f =>
-          f.isFile &&
-          f.name.toLowerCase() === `${base}.nfo`
-      )
-      if (nfoFile) {
-        const nfoPath = await window.api.path.join(
-          actualFolderPath,
-          nfoFile.name
-        )
-        const nfoResult = await window.api.file.read(nfoPath)
-        if (nfoResult.success && nfoResult.data) {
-          result.hasNfo = true
-          result.nfoContent = nfoResult.data as string
-        }
-      }
-
-      // 海报
-      const posterPatterns = [
-        `${base}-poster.jpg`,
-        `${base}-movie.jpg`,
-        `${base}-folder.jpg`,
-        'poster.jpg',
-        'folder.jpg',
-        'movie.jpg',
-      ]
-      for (const pattern of posterPatterns) {
-        const posterFile = files.find(
-          f => f.isFile && f.name.toLowerCase() === pattern
-        )
-        if (posterFile) {
-          result.hasPoster = true
-          result.posterPath = await window.api.path.join(
-            actualFolderPath,
-            posterFile.name
-          )
-          break
-        }
-      }
-
-      // 背景图
-      const fanartPatterns = [
-        `${base}-fanart.jpg`,
-        `${base}-backdrop.jpg`,
-        'fanart.jpg',
-        'backdrop.jpg',
-      ]
-      for (const pattern of fanartPatterns) {
-        const fanartFile = files.find(
-          f => f.isFile && f.name.toLowerCase() === pattern
-        )
-        if (fanartFile) {
-          result.hasFanart = true
-          result.fanartPath = await window.api.path.join(
-            actualFolderPath,
-            fanartFile.name
-          )
-          break
-        }
-      }
-    } catch (error) {
-      console.error('检查已有资源时出错:', error)
-    }
-
-    return result
-  }
-
   return {
     scrapeMovieInFolder,
     searchMovieInfo,
-    checkExistingResources,
   }
 }

@@ -44,7 +44,9 @@ function normalizeSourceItem(raw: unknown): PlayerSourceItem | null {
   const name = typeof rec.name === 'string' ? rec.name : undefined
   const siteName = typeof rec.siteName === 'string' ? rec.siteName : undefined
   const ext =
-    rec.ext && typeof rec.ext === 'object' ? (rec.ext as Record<string, unknown>) : undefined
+    rec.ext && typeof rec.ext === 'object'
+      ? (rec.ext as Record<string, unknown>)
+      : undefined
   return {
     ...(url ? { url } : {}),
     ...(filePath ? { filePath } : {}),
@@ -54,9 +56,12 @@ function normalizeSourceItem(raw: unknown): PlayerSourceItem | null {
   }
 }
 
-function normalizePayload(payload: PlayerOpenPayload | null | undefined): PlayerOpenPayload | null {
+function normalizePayload(
+  payload: PlayerOpenPayload | null | undefined
+): PlayerOpenPayload | null {
   if (!payload || typeof payload !== 'object') return null
-  const filePath = typeof payload.filePath === 'string' ? payload.filePath.trim() : ''
+  const filePath =
+    typeof payload.filePath === 'string' ? payload.filePath.trim() : ''
   const url = typeof payload.url === 'string' ? payload.url.trim() : ''
   const title = typeof payload.title === 'string' ? payload.title : undefined
   const poster = typeof payload.poster === 'string' ? payload.poster.trim() : ''
@@ -87,7 +92,9 @@ function normalizePayload(payload: PlayerOpenPayload | null | undefined): Player
     ...(poster ? { poster } : {}),
     ...(typeof startAt === 'number' ? { startAt } : {}),
     ...(playlist?.length ? { playlist } : {}),
-    ...(playlist?.length ? { index: Math.min(index, playlist.length - 1) } : {}),
+    ...(playlist?.length
+      ? { index: Math.min(index, playlist.length - 1) }
+      : {}),
   }
 }
 
@@ -207,7 +214,10 @@ export function registerPlayerWindowIpc(): void {
       openPlayerWindow(normalized)
       return { success: true }
     } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
+      return {
+        success: false,
+        error: error instanceof Error ? error.message : String(error),
+      }
     }
   })
 

@@ -22,7 +22,8 @@ export interface PlaySourceItem {
 const DIRECT_MEDIA_RE = /\.(m3u8|mp4|flv)(?:\?|$)/i
 
 /** 判断是否已是可直接播放的地址 */
-export const isDirectMediaUrl = (url: string): boolean => DIRECT_MEDIA_RE.test(url)
+export const isDirectMediaUrl = (url: string): boolean =>
+  DIRECT_MEDIA_RE.test(url)
 
 /**
  * 把播放源解析为可直接播放的地址。
@@ -67,7 +68,8 @@ export async function resolvePageToMedia(url: string): Promise<string> {
       maxRedirects: 5,
       responseType: 'text',
     })
-    const final: string = (r.request as { responseURL?: string })?.responseURL || url
+    const final: string =
+      (r.request as { responseURL?: string })?.responseURL || url
     if (isDirectMediaUrl(final)) return final
     const m = String(r.data).match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i)
     if (m) return m[0]

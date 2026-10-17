@@ -1,31 +1,53 @@
 <template>
   <div class="online-view">
     <!-- 首页 -->
-    <div v-show="!inlineDetailItem && activeTab === 'home'" class="content-area primary-scroll home-content-area">
+    <div
+      v-show="!inlineDetailItem && activeTab === 'home'"
+      class="content-area primary-scroll home-content-area"
+    >
       <DoubanSection @open="openDoubanDetail" />
     </div>
 
     <!-- VOD 浏览 -->
-    <div v-show="!inlineDetailItem && activeTab === 'vod'" class="content-area primary-scroll">
+    <div
+      v-show="!inlineDetailItem && activeTab === 'vod'"
+      class="content-area primary-scroll"
+    >
       <VodBrowse @open-item="openDetailWindow" />
     </div>
 
     <!-- 搜索 -->
-    <SearchTab v-show="!inlineDetailItem && activeTab === 'search'" @open-item="openDetailWindow" />
+    <SearchTab
+      v-show="!inlineDetailItem && activeTab === 'search'"
+      @open-item="openDetailWindow"
+    />
 
-    <div v-show="!inlineDetailItem && activeTab === 'favorites'" class="content-area primary-scroll home-content-area">
+    <div
+      v-show="!inlineDetailItem && activeTab === 'favorites'"
+      class="content-area primary-scroll home-content-area"
+    >
       <LibraryCollection kind="favorites" @open="openDetailWindow" />
     </div>
-    <div v-show="!inlineDetailItem && activeTab === 'recent'" class="content-area primary-scroll home-content-area">
-      <LibraryCollection kind="recent" @open="openDetailWindow" @resume="resumeRecentPlay" />
+    <div
+      v-show="!inlineDetailItem && activeTab === 'recent'"
+      class="content-area primary-scroll home-content-area"
+    >
+      <LibraryCollection
+        kind="recent"
+        @open="openDetailWindow"
+        @resume="resumeRecentPlay"
+      />
     </div>
 
     <Transition name="detail-page">
-      <section v-if="inlineDetailItem" class="inline-detail-page" aria-label="内容详情">
+      <section
+        v-if="inlineDetailItem"
+        class="inline-detail-page"
+        aria-label="内容详情"
+      >
         <DetailWindow :item="inlineDetailItem" />
       </section>
     </Transition>
-
   </div>
 </template>
 
@@ -49,17 +71,27 @@ const handleNavigateBack = (event: Event) => {
   inlineDetailItem.value = null
   event.preventDefault()
 }
-onMounted(() => window.addEventListener('app:navigate-back', handleNavigateBack))
-onBeforeUnmount(() => window.removeEventListener('app:navigate-back', handleNavigateBack))
+onMounted(() =>
+  window.addEventListener('app:navigate-back', handleNavigateBack)
+)
+onBeforeUnmount(() =>
+  window.removeEventListener('app:navigate-back', handleNavigateBack)
+)
 
 // ─── Tab ───────────────────────────────────────────────
 type OnlineTab = 'home' | 'vod' | 'search' | 'favorites' | 'recent'
 const isOnlineTab = (value: unknown): value is OnlineTab =>
-  value === 'home' || value === 'vod' || value === 'search' || value === 'favorites' || value === 'recent'
-const activeTab = ref<OnlineTab>(isOnlineTab(route.query.tab) ? route.query.tab : 'home')
+  value === 'home' ||
+  value === 'vod' ||
+  value === 'search' ||
+  value === 'favorites' ||
+  value === 'recent'
+const activeTab = ref<OnlineTab>(
+  isOnlineTab(route.query.tab) ? route.query.tab : 'home'
+)
 watch(
   () => route.query.tab,
-  (tab) => {
+  tab => {
     activeTab.value = isOnlineTab(tab) ? tab : 'home'
     // 详情是当前在线页内的覆盖层。切换首页、最近播放、收藏或 VOD 标签时，
     // 必须先关闭覆盖层，否则底层内容已切换但仍被详情层遮住。
@@ -95,21 +127,19 @@ const resumeRecentPlay = async (record: Record<string, any>) => {
   }
 }
 
-
 const openDoubanDetail = (item: DoubanItem) => {
   inlineDetailItem.value = JSON.parse(
-      JSON.stringify({
-        _source: 'douban',
-        vod_name: item.title,
-        vod_pic: item.cover,
-        type_name: item.type,
-        vod_year: item.year,
-        overview: item.overview,
-        searchTitle: item.searchTitle,
-      })
+    JSON.stringify({
+      _source: 'douban',
+      vod_name: item.title,
+      vod_pic: item.cover,
+      type_name: item.type,
+      vod_year: item.year,
+      overview: item.overview,
+      searchTitle: item.searchTitle,
+    })
   )
 }
-
 </script>
 
 <style scoped>
@@ -134,7 +164,10 @@ const openDoubanDetail = (item: DoubanItem) => {
   gap: 20px;
 }
 
-.home-content-area { padding: 22px 40px 34px; gap: 28px; }
+.home-content-area {
+  padding: 22px 40px 34px;
+  gap: 28px;
+}
 
 .inline-detail-page {
   position: absolute;
@@ -150,12 +183,18 @@ const openDoubanDetail = (item: DoubanItem) => {
 }
 
 .detail-page-enter-active,
-.detail-page-leave-active { transition: opacity 0.2s ease; }
+.detail-page-leave-active {
+  transition: opacity 0.2s ease;
+}
 .detail-page-enter-from,
-.detail-page-leave-to { opacity: 0; }
+.detail-page-leave-to {
+  opacity: 0;
+}
 
 @media (max-width: 860px) {
-  .home-content-area { padding: 18px 20px 24px; }
+  .home-content-area {
+    padding: 18px 20px 24px;
+  }
 }
 
 .content-area::-webkit-scrollbar {

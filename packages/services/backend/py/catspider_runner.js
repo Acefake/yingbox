@@ -21,7 +21,8 @@ function _fetch(url, options = {}) {
     const mod = parsedUrl.protocol === 'https:' ? https : http
     const method = (options.method || 'GET').toUpperCase()
     const headers = {
-      'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
+      'User-Agent':
+        'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/130.0.0.0 Safari/537.36',
       ...options.headers,
     }
 
@@ -34,10 +35,13 @@ function _fetch(url, options = {}) {
       timeout: options.timeout || 15000,
     }
 
-    const req = mod.request(reqOptions, (res) => {
+    const req = mod.request(reqOptions, res => {
       const chunks = []
       // Handle gzip/br
-      if (res.headers['content-encoding'] === 'gzip' || res.headers['content-encoding'] === 'br') {
+      if (
+        res.headers['content-encoding'] === 'gzip' ||
+        res.headers['content-encoding'] === 'br'
+      ) {
         const zlib = require('zlib')
         let stream = res
         if (res.headers['content-encoding'] === 'gzip') {
@@ -60,7 +64,10 @@ function _fetch(url, options = {}) {
       }
     })
     req.on('error', reject)
-    req.on('timeout', () => { req.destroy(); reject(new Error('Request timeout')) })
+    req.on('timeout', () => {
+      req.destroy()
+      reject(new Error('Request timeout'))
+    })
 
     // Write body for POST
     if (options.body && method === 'POST') {
@@ -71,17 +78,21 @@ function _fetch(url, options = {}) {
 }
 
 // CatSpider JS files use $fetch.get(url, { headers }) pattern
-const $fetch = function(url, options) {
+const $fetch = function (url, options) {
   return _fetch(url, options)
 }
-$fetch.get = function(url, options = {}) {
+$fetch.get = function (url, options = {}) {
   return _fetch(url, options)
 }
-$fetch.post = function(url, body, options = {}) {
+$fetch.post = function (url, body, options = {}) {
   // 插件既有传字符串，也有传对象的实现；Node 的 req.write 不接受普通对象。
   let payload = body
   if (payload && typeof payload === 'object' && !Buffer.isBuffer(payload)) {
-    const contentType = String(options.headers?.['Content-Type'] || options.headers?.['content-type'] || '')
+    const contentType = String(
+      options.headers?.['Content-Type'] ||
+        options.headers?.['content-type'] ||
+        ''
+    )
     payload = contentType.includes('json')
       ? JSON.stringify(payload)
       : new URLSearchParams(payload).toString()
@@ -94,14 +105,21 @@ $fetch.post = function(url, body, options = {}) {
 function loadJSEncrypt() {
   const crypto = require('crypto')
   return class JSEncryptCompat {
-    setPrivateKey(key) { this.privateKey = key }
+    setPrivateKey(key) {
+      this.privateKey = key
+    }
     decrypt(value) {
       if (!this.privateKey || !value) return null
       try {
-        return crypto.privateDecrypt(
-          { key: this.privateKey, padding: crypto.constants.RSA_PKCS1_PADDING },
-          Buffer.from(String(value), 'base64'),
-        ).toString('utf8')
+        return crypto
+          .privateDecrypt(
+            {
+              key: this.privateKey,
+              padding: crypto.constants.RSA_PKCS1_PADDING,
+            },
+            Buffer.from(String(value), 'base64')
+          )
+          .toString('utf8')
       } catch {
         return null
       }
@@ -112,7 +130,11 @@ function loadJSEncrypt() {
 // ── CatSpider runtime helpers ──────────────────────────────
 function argsify(ext) {
   if (typeof ext === 'string') {
-    try { return JSON.parse(ext) } catch { return {} }
+    try {
+      return JSON.parse(ext)
+    } catch {
+      return {}
+    }
   }
   return ext || {}
 }
@@ -123,7 +145,11 @@ function jsonify(obj) {
 
 function $print(...args) {
   // Debug output - write to stderr so it doesn't interfere with JSON output
-  process.stderr.write(args.map(a => typeof a === 'object' ? JSON.stringify(a) : String(a)).join(' ') + '\n')
+  process.stderr.write(
+    args
+      .map(a => (typeof a === 'object' ? JSON.stringify(a) : String(a)))
+      .join(' ') + '\n'
+  )
 }
 
 function createCheerio() {
@@ -140,7 +166,12 @@ function normalizeActionExt(ext) {
   const value = argsify(ext)
   if (!value || typeof value !== 'object') return {}
   const query = value.keyword || value.text || value.wd || ''
-  return { ...value, keyword: value.keyword || query, text: value.text || query, wd: value.wd || query }
+  return {
+    ...value,
+    keyword: value.keyword || query,
+    text: value.text || query,
+    wd: value.wd || query,
+  }
 }
 
 // XPTV 部分旧插件依赖 $html 的简化选择器 API，而另一些使用 cheerio。
@@ -159,9 +190,12 @@ const $html = {
     return (selector ? $(root).find(selector) : $(root)).text().trim()
   },
   attr(root, selector, name) {
-    if (typeof root === 'string') return _select(root, selector).attr(name) || ''
+    if (typeof root === 'string')
+      return _select(root, selector).attr(name) || ''
     const $ = _cheerio.load(root)
-    return (selector ? $(root).find(selector).first() : $(root)).attr(name) || ''
+    return (
+      (selector ? $(root).find(selector).first() : $(root)).attr(name) || ''
+    )
   },
 }
 
@@ -176,7 +210,8 @@ const $cache = {
 const $utils = {
   toastInfo: message => $print('[info]', message),
   toastError: message => $print('[error]', message),
-  openSafari: (url, userAgent) => $fetch.get(url, { headers: userAgent ? { 'User-Agent': userAgent } : {} }),
+  openSafari: (url, userAgent) =>
+    $fetch.get(url, { headers: userAgent ? { 'User-Agent': userAgent } : {} }),
 }
 
 function normalizePluginResult(value) {
@@ -195,9 +230,15 @@ function normalizePluginResult(value) {
 
 // ── Download JS file ───────────────────────────────────────
 async function downloadJS(url) {
-  if (url.startsWith('file://') || url.startsWith('/') || /^[A-Za-z]:[\\\/]/.test(url)) {
+  if (
+    url.startsWith('file://') ||
+    url.startsWith('/') ||
+    /^[A-Za-z]:[\\\/]/.test(url)
+  ) {
     const fs = require('fs')
-    const localPath = url.startsWith('file://') ? url.replace(/^file:\/\//, '').replace(/\//g, require('path').sep) : url
+    const localPath = url.startsWith('file://')
+      ? url.replace(/^file:\/\//, '').replace(/\//g, require('path').sep)
+      : url
     return fs.readFileSync(localPath, 'utf-8')
   }
   const { data } = await $fetch(url)
@@ -208,7 +249,12 @@ async function downloadJS(url) {
 async function main() {
   const args = process.argv.slice(2)
   if (args.length < 2) {
-    console.log(JSON.stringify({ success: false, error: 'Usage: node catspider_runner.js <js_url> <action> [ext_json]' }))
+    console.log(
+      JSON.stringify({
+        success: false,
+        error: 'Usage: node catspider_runner.js <js_url> <action> [ext_json]',
+      })
+    )
     process.exit(1)
   }
 
@@ -257,47 +303,78 @@ async function main() {
           if (typeof api.getConfig === 'function') {
             result = await api.getConfig()
           } else {
-            result = { success: false, error: 'getConfig function not found in JS' }
+            result = {
+              success: false,
+              error: 'getConfig function not found in JS',
+            }
           }
           break
-      case 'search':
-        if (typeof api.search === 'function') {
-          result = await api.search(JSON.stringify(ext))
-        } else {
-          result = { success: false, error: 'search function not found in JS' }
-        }
-        break
-      case 'getCards':
-        if (typeof api.getCards === 'function') {
-          result = await api.getCards(extStr)
-        } else {
-          result = { success: false, error: 'getCards function not found in JS' }
-        }
-        break
-      case 'getTracks':
-        if (typeof api.getTracks === 'function') {
-          result = await api.getTracks(extStr)
-        } else {
-          result = { success: false, error: 'getTracks function not found in JS' }
-        }
-        break
-      case 'getPlayinfo':
-        if (typeof api.getPlayinfo === 'function') {
-          result = await api.getPlayinfo(extStr)
-        } else {
-          result = { success: false, error: 'getPlayinfo function not found in JS' }
-        }
-        break
-      default:
-        result = { success: false, error: `Unknown action: ${action}` }
-    }
+        case 'search':
+          if (typeof api.search === 'function') {
+            result = await api.search(JSON.stringify(ext))
+          } else {
+            result = {
+              success: false,
+              error: 'search function not found in JS',
+            }
+          }
+          break
+        case 'getCards':
+          if (typeof api.getCards === 'function') {
+            result = await api.getCards(extStr)
+          } else {
+            result = {
+              success: false,
+              error: 'getCards function not found in JS',
+            }
+          }
+          break
+        case 'getTracks':
+          if (typeof api.getTracks === 'function') {
+            result = await api.getTracks(extStr)
+          } else {
+            result = {
+              success: false,
+              error: 'getTracks function not found in JS',
+            }
+          }
+          break
+        case 'getPlayinfo':
+          if (typeof api.getPlayinfo === 'function') {
+            result = await api.getPlayinfo(extStr)
+          } else {
+            result = {
+              success: false,
+              error: 'getPlayinfo function not found in JS',
+            }
+          }
+          break
+        default:
+          result = { success: false, error: `Unknown action: ${action}` }
+      }
     } catch (innerErr) {
-      result = { success: false, error: innerErr.message, stack: innerErr.stack?.split('\n')[0] }
+      result = {
+        success: false,
+        error: innerErr.message,
+        stack: innerErr.stack?.split('\n')[0],
+      }
     }
 
-    console.log(JSON.stringify({ success: true, data: normalizePluginResult(result) }, null, 0))
+    console.log(
+      JSON.stringify(
+        { success: true, data: normalizePluginResult(result) },
+        null,
+        0
+      )
+    )
   } catch (error) {
-    console.log(JSON.stringify({ success: false, error: error.message, stack: error.stack?.split('\n')[0] }))
+    console.log(
+      JSON.stringify({
+        success: false,
+        error: error.message,
+        stack: error.stack?.split('\n')[0],
+      })
+    )
   }
 }
 

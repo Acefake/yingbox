@@ -38,7 +38,8 @@ export function canOpenElectronPlayer(): boolean {
 export async function openMediaPlayer(
   options: MediaPlayerOpenOptions
 ): Promise<boolean> {
-  const filePath = typeof options.filePath === 'string' ? options.filePath.trim() : ''
+  const filePath =
+    typeof options.filePath === 'string' ? options.filePath.trim() : ''
   const url = typeof options.url === 'string' ? options.url.trim() : ''
   const title = typeof options.title === 'string' ? options.title : undefined
   const poster = typeof options.poster === 'string' ? options.poster.trim() : ''
@@ -47,9 +48,13 @@ export async function openMediaPlayer(
       ? Math.max(0, options.startAt)
       : undefined
   const playlist =
-    Array.isArray(options.playlist) && options.playlist.length ? options.playlist : undefined
+    Array.isArray(options.playlist) && options.playlist.length
+      ? options.playlist
+      : undefined
   const fallbacks =
-    Array.isArray(options.fallbacks) && options.fallbacks.length ? options.fallbacks : undefined
+    Array.isArray(options.fallbacks) && options.fallbacks.length
+      ? options.fallbacks
+      : undefined
   const index =
     Number.isInteger(options.index) && (options.index as number) >= 0
       ? (options.index as number)

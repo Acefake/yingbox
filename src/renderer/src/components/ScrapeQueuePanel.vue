@@ -1,11 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="sqp-fade">
-      <div
-        v-if="visible"
-        class="sqp-overlay"
-        @click="emit('close')"
-      />
+      <div v-if="visible" class="sqp-overlay" @click="emit('close')" />
     </Transition>
 
     <Transition name="sqp-slide">
@@ -20,13 +16,31 @@
           <div>
             <h2 class="sqp-title">刮削队列</h2>
             <p class="sqp-subtitle">
-              <template v-if="activeCount > 0">{{ activeCount }} 进行中 · {{ doneCount }}/{{ totalCount }}</template>
-              <template v-else-if="totalCount > 0">全部结束 · {{ doneCount }}/{{ totalCount }}</template>
+              <template v-if="activeCount > 0"
+                >{{ activeCount }} 进行中 · {{ doneCount }}/{{
+                  totalCount
+                }}</template
+              >
+              <template v-else-if="totalCount > 0"
+                >全部结束 · {{ doneCount }}/{{ totalCount }}</template
+              >
               <template v-else>暂无任务</template>
             </p>
           </div>
-          <button class="sqp-close" type="button" aria-label="关闭刮削队列" @click="emit('close')">
-            <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.75">
+          <button
+            class="sqp-close"
+            type="button"
+            aria-label="关闭刮削队列"
+            @click="emit('close')"
+          >
+            <svg
+              width="16"
+              height="16"
+              viewBox="0 0 24 24"
+              fill="none"
+              stroke="currentColor"
+              stroke-width="1.75"
+            >
               <path d="M6 18L18 6M6 6l12 12" stroke-linecap="round" />
             </svg>
           </button>
@@ -47,14 +61,21 @@
             <div class="sqp-status" aria-hidden="true">
               <span v-if="item.status === 'processing'" class="sqp-spin" />
               <span v-else-if="item.status === 'pending'" class="sqp-dot" />
-              <span v-else-if="item.status === 'done'" class="sqp-mark ok">✓</span>
-              <span v-else-if="item.status === 'error'" class="sqp-mark err">!</span>
+              <span v-else-if="item.status === 'done'" class="sqp-mark ok"
+                >✓</span
+              >
+              <span v-else-if="item.status === 'error'" class="sqp-mark err"
+                >!</span
+              >
               <span v-else class="sqp-mark mute">–</span>
             </div>
 
             <div class="sqp-info">
               <div class="sqp-name" :title="item.name">{{ item.name }}</div>
-              <div v-if="item.steps?.length && item.status === 'processing'" class="sqp-steps">
+              <div
+                v-if="item.steps?.length && item.status === 'processing'"
+                class="sqp-steps"
+              >
                 <span
                   v-for="(step, idx) in item.steps"
                   :key="idx"
@@ -68,7 +89,9 @@
               </div>
             </div>
 
-            <span class="yb-chip sqp-type">{{ item.type === 'tv' ? '剧集' : '电影' }}</span>
+            <span class="yb-chip sqp-type">{{
+              item.type === 'tv' ? '剧集' : '电影'
+            }}</span>
 
             <div class="sqp-actions">
               <button
@@ -90,7 +113,11 @@
                 重试
               </button>
               <button
-                v-if="item.status === 'done' || item.status === 'error' || item.status === 'cancelled'"
+                v-if="
+                  item.status === 'done' ||
+                  item.status === 'error' ||
+                  item.status === 'cancelled'
+                "
                 type="button"
                 class="sqp-action"
                 title="移除"
@@ -104,7 +131,10 @@
 
         <footer v-if="totalCount > 0" class="sqp-footer">
           <div class="sqp-progress-track" aria-hidden="true">
-            <div class="sqp-progress-fill" :style="{ width: `${Math.round(progress * 100)}%` }" />
+            <div
+              class="sqp-progress-fill"
+              :style="{ width: `${Math.round(progress * 100)}%` }"
+            />
           </div>
           <div class="sqp-footer-actions">
             <button
@@ -170,7 +200,8 @@ const metaText = (item: GlobalQueueItem): string => {
   if (item.status === 'pending') return '等待中'
   if (item.status === 'done') return '完成'
   if (item.status === 'cancelled') return '已取消'
-  if (item.status === 'error') return item.errorMessage || item.currentStep || '失败'
+  if (item.status === 'error')
+    return item.errorMessage || item.currentStep || '失败'
   return ''
 }
 
@@ -288,7 +319,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-bottom: 1px solid var(--separator);
   transition: background 0.15s var(--ease-out);
 }
-.sqp-row:last-child { border-bottom: 0; }
+.sqp-row:last-child {
+  border-bottom: 0;
+}
 .sqp-row.is-processing {
   background: color-mix(in srgb, var(--accent) 8%, transparent);
 }
@@ -316,7 +349,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-top-color: var(--accent);
   animation: sqp-spin 0.75s linear infinite;
 }
-@keyframes sqp-spin { to { transform: rotate(360deg); } }
+@keyframes sqp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
 
 .sqp-dot {
   width: 7px;
@@ -330,9 +367,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   font-weight: 700;
   line-height: 1;
 }
-.sqp-mark.ok { color: var(--success); }
-.sqp-mark.err { color: var(--danger); }
-.sqp-mark.mute { color: var(--text-tertiary); }
+.sqp-mark.ok {
+  color: var(--success);
+}
+.sqp-mark.err {
+  color: var(--danger);
+}
+.sqp-mark.mute {
+  color: var(--text-tertiary);
+}
 
 .sqp-info {
   flex: 1;
@@ -354,9 +397,15 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sqp-meta.is-error { color: var(--danger); }
-.sqp-meta.is-done { color: var(--success); }
-.sqp-meta.is-muted { color: var(--text-tertiary); }
+.sqp-meta.is-error {
+  color: var(--danger);
+}
+.sqp-meta.is-done {
+  color: var(--success);
+}
+.sqp-meta.is-muted {
+  color: var(--text-tertiary);
+}
 
 .sqp-steps {
   display: flex;
@@ -420,7 +469,11 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-progress-fill {
   height: 100%;
   border-radius: inherit;
-  background: linear-gradient(90deg, var(--accent), color-mix(in srgb, var(--accent) 55%, #5ac8fa));
+  background: linear-gradient(
+    90deg,
+    var(--accent),
+    color-mix(in srgb, var(--accent) 55%, #5ac8fa)
+  );
   transition: width 0.4s var(--ease-out);
 }
 .sqp-footer-actions {
@@ -440,14 +493,32 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .sqp-fade-enter-active,
-.sqp-fade-leave-active { transition: opacity 0.18s ease; }
+.sqp-fade-leave-active {
+  transition: opacity 0.18s ease;
+}
 .sqp-fade-enter-from,
-.sqp-fade-leave-to { opacity: 0; }
+.sqp-fade-leave-to {
+  opacity: 0;
+}
 
-.sqp-slide-enter-active { transition: opacity 0.18s ease, transform 0.18s var(--ease-out); }
-.sqp-slide-leave-active { transition: opacity 0.14s ease, transform 0.12s ease; }
-.sqp-slide-enter-from { opacity: 0; transform: translateY(-8px) scale(0.98); }
-.sqp-slide-leave-to { opacity: 0; transform: translateY(-4px) scale(0.99); }
+.sqp-slide-enter-active {
+  transition:
+    opacity 0.18s ease,
+    transform 0.18s var(--ease-out);
+}
+.sqp-slide-leave-active {
+  transition:
+    opacity 0.14s ease,
+    transform 0.12s ease;
+}
+.sqp-slide-enter-from {
+  opacity: 0;
+  transform: translateY(-8px) scale(0.98);
+}
+.sqp-slide-leave-to {
+  opacity: 0;
+  transform: translateY(-4px) scale(0.99);
+}
 
 @media (max-width: 768px) {
   .sqp-panel {

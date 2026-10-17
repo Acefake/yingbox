@@ -7,7 +7,11 @@
     <div class="unified-player-stage">
       <div ref="containerEl" class="unified-player-video-area" />
       <!-- 仅加载中显示自适应海报；开播后纯黑，不留背景 -->
-      <div v-if="showLoadingPoster" class="unified-player-loading" aria-hidden="true">
+      <div
+        v-if="showLoadingPoster"
+        class="unified-player-loading"
+        aria-hidden="true"
+      >
         <img
           v-if="posterSrc"
           class="unified-player-loading-poster"
@@ -26,7 +30,9 @@
         class="unified-player-close"
         aria-label="关闭播放器"
         @click="$emit('close')"
-      >×</button>
+      >
+        ×
+      </button>
     </div>
   </div>
 </template>
@@ -36,27 +42,30 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
 
-const props = withDefaults(defineProps<{
-  src?: string
-  poster?: string
-  title?: string
-  closable?: boolean
-  autoplay?: boolean
-  controls?: boolean
-  showFooter?: boolean
-  /** Resume seconds */
-  startAt?: number
-  resolveUrl?: (url: string) => Promise<string>
-}>(), {
-  src: '',
-  poster: '',
-  title: '',
-  closable: true,
-  autoplay: true,
-  controls: true,
-  showFooter: true,
-  startAt: 0,
-})
+const props = withDefaults(
+  defineProps<{
+    src?: string
+    poster?: string
+    title?: string
+    closable?: boolean
+    autoplay?: boolean
+    controls?: boolean
+    showFooter?: boolean
+    /** Resume seconds */
+    startAt?: number
+    resolveUrl?: (url: string) => Promise<string>
+  }>(),
+  {
+    src: '',
+    poster: '',
+    title: '',
+    closable: true,
+    autoplay: true,
+    controls: true,
+    showFooter: true,
+    startAt: 0,
+  }
+)
 
 const emit = defineEmits<{
   (name: 'ready', video: HTMLVideoElement): void
@@ -117,7 +126,10 @@ const isLocalSource = (url: string): boolean => url.startsWith('local://')
  * 字幕文件可能是 GBK 编码的 srt/ass，由主进程统一读成 WebVTT 后
  * 以 blob URL 交给 Artplayer（避免 local:// 跨源读取限制）。
  */
-const applyLocalSubtitles = async (instance: Artplayer, source: string): Promise<void> => {
+const applyLocalSubtitles = async (
+  instance: Artplayer,
+  source: string
+): Promise<void> => {
   const subtitleApi = window.api?.subtitle
   if (!subtitleApi || !isLocalSource(source)) return
 
@@ -139,8 +151,13 @@ const applyLocalSubtitles = async (instance: Artplayer, source: string): Promise
       if (!read?.success || !read.data) return false
       if (art !== instance) return false
       disposeSubtitleUrl()
-      subtitleObjectUrl = URL.createObjectURL(new Blob([read.data], { type: 'text/vtt' }))
-      await instance.subtitle.switch(subtitleObjectUrl, { name: item.name, type: 'vtt' })
+      subtitleObjectUrl = URL.createObjectURL(
+        new Blob([read.data], { type: 'text/vtt' })
+      )
+      await instance.subtitle.switch(subtitleObjectUrl, {
+        name: item.name,
+        type: 'vtt',
+      })
       return true
     } catch {
       return false
@@ -157,8 +174,14 @@ const applyLocalSubtitles = async (instance: Artplayer, source: string): Promise
       instance.setting.add({
         name: 'localSubtitle',
         html: '字幕',
-        selector: list.map(item => ({ html: item.name, subtitlePath: item.path })),
-        onSelect(this: Artplayer, item: { html: string; subtitlePath?: string }) {
+        selector: list.map(item => ({
+          html: item.name,
+          subtitlePath: item.path,
+        })),
+        onSelect(
+          this: Artplayer,
+          item: { html: string; subtitlePath?: string }
+        ) {
           const target = list.find(sub => sub.path === item.subtitlePath)
           if (target) void switchTo(target)
           this.notice.show = `字幕：${item.html}`
@@ -239,7 +262,8 @@ const createPlayer = async (source: string): Promise<void> => {
   }
   if (token !== loadToken || !containerEl.value) return
 
-  pendingSeek = typeof props.startAt === 'number' && props.startAt > 0 ? props.startAt : 0
+  pendingSeek =
+    typeof props.startAt === 'number' && props.startAt > 0 ? props.startAt : 0
   const useHls = Hls.isSupported() && isHlsUrl(resolved)
 
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
@@ -309,7 +333,10 @@ const createPlayer = async (source: string): Promise<void> => {
   // 注意：video.load() 会把 playbackRate 重置为 defaultPlaybackRate，故两者都要设，
   // 并在每次 loadedmetadata 时重新应用，保证自动连播换集后倍速不丢。
   const initialRate = readStoredRate()
-  const applyRate = (el: HTMLVideoElement | null | undefined, rate: number): void => {
+  const applyRate = (
+    el: HTMLVideoElement | null | undefined,
+    rate: number
+  ): void => {
     if (!el || rate === 1) return
     try {
       el.defaultPlaybackRate = rate
@@ -359,14 +386,14 @@ const createPlayer = async (source: string): Promise<void> => {
 
 watch(
   () => props.src,
-  (source) => {
+  source => {
     void createPlayer(source || '')
   }
 )
 
 watch(
   () => props.startAt,
-  (value) => {
+  value => {
     if (typeof value === 'number' && value > 0) pendingSeek = value
   }
 )
@@ -455,7 +482,9 @@ defineExpose({ video })
 }
 
 @keyframes unified-player-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .unified-player--no-controls :deep(.art-controls),
