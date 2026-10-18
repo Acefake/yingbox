@@ -30,6 +30,16 @@ import { registerLadaIpc } from './lada'
 import { registerLadaLiveIpc } from './lada-live'
 import { registerLadaResumeIpc } from './lada-resume'
 
+/**
+ * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
+ *
+ * `electron-vite preview` 以 `out/main/index.js` 作为入口启动 Electron 时，app name
+ * 会退化成 "Electron"，userData 随之变成 %APPDATA%\Electron —— 渲染层的 localStorage
+ * 就是一个全新的空桶：刚改的设置“消失”，切回 `pnpm dev` 又“恢复”成旧的。
+ * 开发/预览统一钉到 yingbox；打包版仍走 productName（影盒）的目录，不动已安装用户的数据。
+ */
+if (is.dev) app.setPath('userData', join(app.getPath('appData'), 'yingbox'))
+
 Menu.setApplicationMenu(null)
 
 app.commandLine.appendSwitch(

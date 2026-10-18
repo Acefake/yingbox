@@ -40,7 +40,9 @@ export default defineConfig({
     server: {
       host: '127.0.0.1',
       port: 3000,
-      strictPort: false,
+      // 必须锁死：渲染层的 localStorage 按 origin 分桶，端口一旦漂移到 3001，
+      // 用户的主题/播放器/数据源等设置会整体“归零”（旧值还躺在 3000 那个桶里）。
+      strictPort: true,
       hmr: {
         host: '127.0.0.1',
         port: 3000,
