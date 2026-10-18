@@ -11,11 +11,7 @@ import {
 export type SiteStatus = 'unknown' | 'checking' | 'ok' | 'fail'
 
 const { selectedSites, customSites } = useOnlineSearch()
-const {
-  enabledApis: avEnabledApis,
-  allSources: avSources,
-  addSources: addAvSources,
-} = useAvSources()
+const { allSources: avSources, addSources: addAvSources } = useAvSources()
 
 // ── 检测状态（模块级单例，数据源面板与启动刷新共用）──────────
 export const statusMap = reactive<Record<string, SiteStatus>>({})
@@ -64,7 +60,14 @@ export const checkAvSite = async (api: string): Promise<void> => {
   }
 }
 
-/** 检测全部源并按结果自动启用/停用；AV 源仅在成人模式下参与。 */
+/**
+ * 检测全部源，只写状态。AV 源仅在成人模式下参与。
+ *
+ * 探测结果不代表用户意愿：连不上可能只是对方临时挂了、被墙，或者本机网络受限。
+ * 早先这里会按结果 add/delete 用户的启用集合，于是每次启动都会静默改写用户手选的数据源，
+ * 连得上的被强行开启、连不上的被删除——用户看到的就是“设置又自己变回去了”。
+ * 启用与否归用户（数据源面板），这里只负责把状态显示出来。
+ */
 export const checkAll = async (): Promise<void> => {
   if (checkingAll.value) return
   checkingAll.value = true
@@ -84,21 +87,6 @@ export const checkAll = async (): Promise<void> => {
         )
       : []
     await Promise.all([...onlineTasks, ...avTasks])
-    const onlineOk = onlineApis.value.filter(api => statusMap[api] === 'ok')
-    const avOk = includesAv
-      ? avSources.value.filter(site => avStatusMap[site.api] === 'ok')
-      : []
-    // 全部源都不可达说明离线或网络受限，此时保留原有启用状态，
-    // 避免自动刷新把用户的数据源静默清空。
-    if (!onlineOk.length && !avOk.length) return
-    for (const api of onlineApis.value) {
-      if (statusMap[api] === 'ok') selectedSites.add(api)
-      else selectedSites.delete(api)
-    }
-    for (const site of avSources.value) {
-      if (avStatusMap[site.api] === 'ok') avEnabledApis.add(site.api)
-      else avEnabledApis.delete(site.api)
-    }
   } finally {
     checkingAll.value = false
   }
