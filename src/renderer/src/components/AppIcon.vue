@@ -26,6 +26,8 @@ const paths = {
   sort: 'M8 4v16m-4-4 4 4 4-4M15 5h6M15 10h4M15 15h2',
   grid: 'M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z',
   play: 'm8 4 12 8-12 8Z',
+  range: 'M5 4v16M19 4v16M8 12h8m-6-3-3 3 3 3m4-6 3 3-3 3',
+  livePlay: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM10 8l6 4-6 4Z',
   pause: 'M7 4v16M17 4v16',
   stop: 'M5 5h14v14H5Z',
   users: 'M16 21v-3a4 4 0 0 0-4-4H6a4 4 0 0 0-4 4v3M9 10a4 4 0 1 0 0-8 4 4 0 0 0 0 8ZM17 3a4 4 0 0 1 0 8M22 21v-3a4 4 0 0 0-3-3.87',

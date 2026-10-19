@@ -1,5 +1,5 @@
 <template>
-  <div class="amane-shell" :class="{ 'is-agent-view': tab === 'agent' }">
+  <div class="amane-shell min-h-0 bg-yb-bg text-yb-text" :class="{ 'is-agent-view': tab === 'agent' }">
     <nav class="amane-tabs" aria-label="Amane 功能">
       <button v-for="item in tabs" :key="item.id" :class="{ active: tab === item.id }" @click="switchTab(item.id)">{{ item.label }}</button>
       <button v-if="tab !== 'agent'" class="yb-btn-soft amane-nav-refresh" :disabled="busy" @click="refreshAll">刷新</button>
@@ -44,7 +44,7 @@
       <template v-else-if="tab === 'films'">
         <div v-if="selectedIds.length" class="amane-selection"><span>已选择 {{ selectedIds.length }} 部</span><button class="yb-btn-primary" :disabled="busy" @click="scrapeFilms(selectedIds)">批量刮削</button><button class="yb-btn-soft" @click="selectedIds = []">取消选择</button></div>
         <div v-if="films.length" class="amane-posters">
-          <article v-for="film in films" :key="film.id" class="amane-poster" :class="{ selected: detail?.metadata.id === film.id, 'is-previewing': hoverFilm?.id === film.id }" @mouseenter="filmHoverEnter(film, $event)" @mouseleave="filmHoverLeave">
+          <article v-for="film in films" :key="film.id" class="amane-poster" :class="{ selected: detail?.metadata.id === film.id, 'is-previewing': hoverFilm?.id === film.id }" @pointerenter="filmHoverEnter(film, $event)" @mouseleave="filmHoverLeave">
             <div class="amane-poster-image">
               <button
                 class="amane-poster-check"
@@ -112,10 +112,15 @@
     </dialog>
     </Teleport>
     <!-- 悬停预览(Netflix 式):悬停意图延迟后弹出,横版剧照 + 详情级信息 + 直接操作 -->
+    <Teleport to="body">
     <div v-if="hoverFilm" class="amane-hover-card" :style="hoverStyle" role="tooltip" @mouseenter="hoverCardEnter" @mouseleave="filmHoverLeave">
       <button type="button" class="amane-hover-hero" :aria-label="`查看 ${hoverFilm.title || hoverFilm.number} 详情`" @click="hoverOpen">
-        <img v-if="hoverHero" :src="hoverHero" alt="" />
-        <span v-else class="amane-hover-hero-fallback">{{ hoverFilm.number }}</span>
+        <Transition name="amane-hover-slide">
+          <img v-if="hoverHero" :key="hoverHero" :src="hoverHero" alt="" @load="hoverImageLoaded(($event.target as HTMLImageElement).getAttribute('src') || '')" @error="hoverImageFailed(($event.target as HTMLImageElement).getAttribute('src') || '')" />
+        </Transition>
+        <span v-if="!hoverHero" class="amane-hover-hero-fallback">{{ hoverFilm.number }}</span>
+        <span v-if="hoverImages.length" class="amane-hover-count">{{ hoverImageIndex + 1 }} / {{ hoverImages.length }}</span>
+        <span v-if="hoverImageReady && hoverImages.length > 1 && !hoverReducedMotion" :key="hoverHero" class="amane-hover-progress" aria-hidden="true" />
       </button>
       <div class="amane-hover-body">
         <p class="amane-hover-number">{{ hoverFilm.number }}</p>
@@ -128,13 +133,13 @@
         </p>
         <div class="amane-hover-actions">
           <template v-if="!isWeb && hoverFilm.file_count">
-            <button type="button" class="yb-btn-primary amane-hover-btn" :disabled="hoverActionBusy" @click="hoverPlay"><AppIcon name="play" size="sm" />播放</button>
-            <button type="button" class="yb-btn-soft amane-hover-btn" :disabled="hoverActionBusy" @click="hoverRestore"><AppIcon name="sparkle" size="sm" />去码</button>
-            <button type="button" class="yb-btn-soft amane-hover-btn" :disabled="hoverActionBusy" @click="hoverRange">去码一段</button>
-            <button type="button" class="yb-btn-soft amane-hover-btn" :disabled="hoverActionBusy" @click="hoverLive">边跑边看</button>
+            <ActionButton :disabled="hoverActionBusy" @click="hoverPlay" icon="play" label="播放" primary />
+            <ActionButton :disabled="hoverActionBusy" @click="hoverRestore" icon="sparkle" label="去码" />
+            <ActionButton :disabled="hoverActionBusy" @click="hoverRange" icon="range" label="去码一段" />
+            <ActionButton :disabled="hoverActionBusy" @click="hoverLive" icon="livePlay" label="边跑边看" />
           </template>
-          <IconButton icon="refresh" label="重新刮削" :disabled="busy || hoverActionBusy" @click="hoverRescrape" />
-          <button type="button" class="yb-btn-soft amane-hover-btn" @click="hoverOpen">详情</button>
+          <ActionButton icon="refresh" label="重新刮削" :disabled="busy || hoverActionBusy" @click="hoverRescrape" />
+          <ActionButton @click="hoverOpen" icon="info" label="详情" />
         </div>
         <div class="amane-hover-facts">
           <p v-if="hoverFilm.studio" class="amane-hover-fact"><span>制作商</span><b>{{ hoverFilm.studio }}</b></p>
@@ -146,6 +151,7 @@
         </div>
       </div>
     </div>
+    </Teleport>
   </div>
 </template>
 
@@ -153,11 +159,13 @@
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, nextTick, onBeforeUnmount, onDeactivated, onMounted, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { useMediaQuery } from '@vueuse/core'
 import { message } from 'ant-design-vue'
 import type { AmaneStatus } from '../../../../shared/amane'
 import { amaneImage, amaneRequest, statusNames, taskNames, type AmaneActor, type AmaneDetail, type AmaneFile, type AmaneFilm, type AmaneLibrary, type AmaneTask, type AmaneUserTag, type Page } from '@/api/amane'
 import AgentPanel from './AgentPanel.vue'
 import AppIcon from '@/components/AppIcon.vue'
+import ActionButton from '@/components/ActionButton.vue'
 import AdvancedSearch from './AdvancedSearch.vue'
 import AmaneFilmDetail from './FilmDetail.vue'
 import { openMediaPlayer } from '@/composables/use-media-player'
@@ -335,13 +343,52 @@ const hoverStyle = ref<Record<string, string>>({})
 let hoverTimer: number | undefined
 let hoverHideTimer: number | undefined
 /** 仅精确指针启用:触屏不做悬停预览 */
-const hoverCapable = typeof window !== 'undefined' ? window.matchMedia?.('(hover: hover) and (pointer: fine)').matches !== false : false
-const hoverHero = computed(() => {
+const hoverReducedMotion = useMediaQuery('(prefers-reduced-motion: reduce)')
+const hoverImageIndex = ref(0)
+const hoverImageReady = ref(false)
+const hoverFailedImages = ref<string[]>([])
+let hoverSlideTimer: ReturnType<typeof setTimeout> | undefined
+const hoverImages = computed(() => {
   const film = hoverFilm.value
-  if (!film) return ''
-  // 封面用横版剧照;无剧照时退回竖版海报(裁切显示)
-  return amaneImage(film.extrafanart?.[0] || film.poster_url || film.poster_urls?.[0] || film.thumb_url)
+  if (!film) return []
+  const stills = [...new Set((film.extrafanart || []).filter(Boolean))]
+  const candidates = stills.length ? stills : [film.poster_url || film.poster_urls?.[0] || film.thumb_url]
+  return candidates.filter((url): url is string => Boolean(url)).map(amaneImage)
+    .filter(url => !hoverFailedImages.value.includes(url))
 })
+const hoverHero = computed(() => hoverImages.value[hoverImageIndex.value] || '')
+function stopHoverSlides(): void {
+  clearTimeout(hoverSlideTimer)
+  hoverImageReady.value = false
+}
+function hoverImageLoaded(url: string): void {
+  if (!hoverFilm.value || url !== hoverHero.value) return
+  stopHoverSlides()
+  hoverImageReady.value = true
+  if (hoverReducedMotion.value || hoverImages.value.length < 2) return
+  hoverSlideTimer = setTimeout(() => {
+    hoverImageReady.value = false
+    hoverImageIndex.value = (hoverImageIndex.value + 1) % hoverImages.value.length
+  }, 2400)
+}
+function hoverImageFailed(url: string): void {
+  if (!url || url !== hoverHero.value) return
+  stopHoverSlides()
+  hoverFailedImages.value = [...hoverFailedImages.value, url]
+  if (hoverImageIndex.value >= hoverImages.value.length) hoverImageIndex.value = 0
+}
+watch(() => hoverFilm.value?.id, () => {
+  stopHoverSlides()
+  hoverFailedImages.value = []
+  hoverImageIndex.value = 0
+}, { flush: 'sync' })
+watch(hoverReducedMotion, () => {
+  stopHoverSlides()
+  hoverImageIndex.value = 0
+  if (hoverHero.value) hoverImageLoaded(hoverHero.value)
+})
+onBeforeUnmount(stopHoverSlides)
+onDeactivated(stopHoverSlides)
 const hoverActionBusy = ref(false)
 const hoverFileCache = new Map<number, number | null>()
 /** 列表项不含文件 ID;点操作时按影片拉一次详情并缓存。 */
@@ -392,8 +439,8 @@ function showHover(film: AmaneFilm, el: HTMLElement): void {
   hoverStyle.value = { left: `${Math.round(left)}px`, top: `${Math.round(top)}px` }
   hoverFilm.value = film
 }
-function filmHoverEnter(film: AmaneFilm, event: MouseEvent): void {
-  if (!hoverCapable || disposed || selectedIds.value.length) return
+function filmHoverEnter(film: AmaneFilm, event: PointerEvent): void {
+  if (event.pointerType === 'touch' || disposed || selectedIds.value.length) return
   clearTimeout(hoverTimer)
   clearTimeout(hoverHideTimer)
   if (hoverFilm.value?.id === film.id) return

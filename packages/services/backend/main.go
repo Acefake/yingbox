@@ -479,6 +479,8 @@ func main() {
 	mux.HandleFunc("/api/vod/sites", vodSitesHandler)
 	mux.HandleFunc("/api/vod/parse", vodParseHandler)
 	mux.HandleFunc("/api/missav/resolve", missavResolveHandler)
+	mux.HandleFunc("/api/missav/list", missavListHandler)
+	mux.HandleFunc("/api/missav/cover", missavCoverHandler)
 	mux.HandleFunc("/api/missav/stream/", missavStreamHandler)
 	mux.HandleFunc("/proxy", proxyImageHandler)
 	mux.HandleFunc("/file/", imageHandler)

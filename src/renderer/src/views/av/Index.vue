@@ -1,10 +1,9 @@
 <template>
-  <div class="av-page h-full overflow-hidden flex flex-col">
+  <div class="av-page flex h-full min-h-0 flex-col overflow-hidden bg-yb-bg text-yb-text">
     <!-- Tab 导航 + 搜索栏 -->
     <div class="flex-shrink-0 bg-transparent">
-      <MissavPlayEntry @play="playMissavStream" />
       <!-- Tab 行 -->
-      <div class="flex items-center gap-2 px-4 pt-3 pb-0">
+      <div class="flex flex-wrap items-center gap-2 px-6 pt-4 pb-2">
         <button
           v-for="tab in tabs"
           :key="tab.id"
@@ -16,7 +15,7 @@
         </button>
       </div>
       <!-- 浏览工具栏 -->
-      <div v-if="activeTab === 'browse'" class="px-4 py-3">
+      <div v-if="activeTab === 'browse'" class="px-6 py-3">
         <MediaFilterBar
           :rows="avFilterRows"
           :model-value="avFilterModel"
@@ -93,7 +92,7 @@
           >
             <div class="relative aspect-video overflow-hidden bg-black">
               <img
-                :src="video.vod_pic"
+                :src="coverSrc(video)"
                 :alt="video.vod_name"
                 class="h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
                 loading="lazy"
@@ -214,7 +213,7 @@
             style="aspect-ratio: 16/9"
           >
             <img
-              :src="group.vod_pic"
+              :src="coverSrc(group.items[0])"
               :alt="group.vod_name"
               class="w-full h-full object-contain bg-black"
               loading="lazy"
@@ -325,7 +324,7 @@
           >
             <div class="relative aspect-video bg-black">
               <img
-                :src="fav.vod_pic"
+                :src="coverSrc(fav)"
                 loading="lazy"
                 decoding="async"
                 class="w-full h-full object-contain bg-black"
@@ -390,7 +389,7 @@
           @click="resumeHistory(rec)"
         >
           <img
-            :src="rec.vod_pic"
+            :src="coverSrc(rec.video || rec)"
             loading="lazy"
             decoding="async"
             class="h-14 w-20 flex-shrink-0 rounded-lg bg-black object-contain"
@@ -442,7 +441,7 @@
           </p>
           <UnifiedVideoPlayer
             :src="playingUrl"
-            :poster="playingVideo?.vod_pic"
+            :poster="coverSrc(playingVideo)"
             :title="playingVideo?.vod_name || '正在播放'"
             closable
             @ready="onPlayerReady"
@@ -462,8 +461,8 @@
 
 <script setup lang="ts">
 import PageTitle from '@/components/PageTitle.vue'
-import MissavPlayEntry from './MissavPlayEntry.vue'
-import { type MissavStream, resolveMissav } from '@/api/missav'
+import { type MissavStream, listMissav, resolveMissav } from '@/api/missav'
+import { backend } from '@/api/backend'
 import {
   computed,
   nextTick,
@@ -514,7 +513,18 @@ const {
 } = useOnlineSearch()
 const { getConfig, getCards, search: vodSearch } = useVODParser()
 
-type AvEntry = { api: string; name: string; kind: 'cms' | 'plugin' }
+type AvEntry = { api: string; name: string; kind: 'cms' | 'plugin' | 'missav' }
+const MISSAV_SOURCE = 'missav://catalog'
+const MISSAV_CATEGORIES: BrowseCategory[] = [
+  { id: 0, name: '最新更新', ext: { slug: 'new' } },
+  { id: 1, name: '新作发布', ext: { slug: 'release' } },
+  { id: 2, name: '中文字幕', ext: { slug: 'chinese-subtitle' } },
+  { id: 3, name: '无码流出', ext: { slug: 'uncensored-leak' } },
+  { id: 4, name: '英语字幕', ext: { slug: 'english-subtitle' } },
+  { id: 5, name: 'FC2', ext: { slug: 'fc2' } },
+  { id: 6, name: '麻豆传媒', ext: { slug: 'madou' } },
+  { id: 7, name: 'HEYZO', ext: { slug: 'heyzo' } },
+]
 // 启用的成人插件源：与在线搜索共用同一份启用列表
 const pluginAvSources = computed<CatSpiderSite[]>(() =>
   CATSPIDER_SITES.value.filter(
@@ -523,6 +533,7 @@ const pluginAvSources = computed<CatSpiderSite[]>(() =>
   )
 )
 const avEntries = computed<AvEntry[]>(() => [
+  { api: MISSAV_SOURCE, name: 'MissAV', kind: 'missav' },
   ...activeSources.value.map(source => ({
     api: source.api,
     name: source.name,
@@ -556,6 +567,7 @@ const avFilterRows = computed<MediaFilterRow[]>(() => [
     label: '数据源',
     // 插件源排在前面，避免被一长串 CMS 源挤到看不见。
     options: [
+      ...avEntries.value.filter(entry => entry.kind === 'missav'),
       ...avEntries.value.filter(entry => entry.kind === 'plugin'),
       ...avEntries.value.filter(entry => entry.kind === 'cms'),
     ].map(entry => ({
@@ -566,11 +578,18 @@ const avFilterRows = computed<MediaFilterRow[]>(() => [
   {
     key: 'sort',
     label: '排序',
-    options: [
-      { label: '最新发布', value: 'latest' },
-      { label: '本周热度', value: 'hot' },
-      { label: '评分优先', value: 'rating' },
-    ],
+    options:
+      browseSourceApi.value === MISSAV_SOURCE
+        ? [
+            { label: '最新更新', value: 'latest' },
+            { label: '本月热度', value: 'hot' },
+            { label: '总浏览', value: 'rating' },
+          ]
+        : [
+            { label: '最新发布', value: 'latest' },
+            { label: '本周热度', value: 'hot' },
+            { label: '评分优先', value: 'rating' },
+          ],
   },
   {
     key: 'category',
@@ -637,10 +656,12 @@ const currentEntry = computed(() =>
 )
 const currentBrowseSource = computed(() => currentEntry.value)
 const isPluginSource = computed(() => currentEntry.value?.kind === 'plugin')
+const isMissavSource = computed(() => currentEntry.value?.kind === 'missav')
 const currentBrowseCategoryName = computed(() => browseCategoryName.value)
 const normalizeCategoryName = (name: unknown) => String(name ?? '').trim()
-const sortedBrowseVideos = computed(() =>
-  [...browseVideos.value].sort((a, b) => {
+const sortedBrowseVideos = computed(() => {
+  if (isMissavSource.value) return browseVideos.value
+  return [...browseVideos.value].sort((a, b) => {
     if (browseSort.value === 'hot')
       return Number(b.vod_hits_week || 0) - Number(a.vod_hits_week || 0)
     if (browseSort.value === 'rating')
@@ -649,7 +670,7 @@ const sortedBrowseVideos = computed(() =>
       String(a.vod_time_add || a.vod_time || '')
     )
   })
-)
+})
 
 const createBrowseUrl = (source: AvSite, page: number) => {
   const params = new URLSearchParams({ ac: 'detail', pg: String(page) })
@@ -704,7 +725,7 @@ const restoreBrowseVisit = () => {
 
 const browseCacheKey = (page: number) =>
   `${browseSourceApi.value}|${
-    isPluginSource.value
+    isPluginSource.value || isMissavSource.value
       ? browseCategoryName.value
       : (browseCategoryId.value ?? 'all')
   }|${page}|${browseSort.value}`
@@ -876,6 +897,10 @@ const loadBrowse = async (force = false, append = false) => {
     await loadPluginBrowse(requestedPage, append)
     return
   }
+  if (isMissavSource.value) {
+    await loadMissavBrowse(requestedPage, append)
+    return
+  }
   const controller = new AbortController()
   browseAbort = controller
   activeBrowseKey = cacheKey
@@ -963,7 +988,92 @@ watch(
   },
   { immediate: true }
 )
+const applyMissavCategories = () => {
+  browseCategories.value = MISSAV_CATEGORIES.map(category => ({
+    ...category,
+    ext: { ...category.ext },
+  }))
+  const saved = browseVisits.value[MISSAV_SOURCE]
+  const match =
+    browseCategories.value.find(
+      category => category.name === saved?.categoryName
+    ) || browseCategories.value[0]
+  browseCategoryId.value = match.id
+  browseCategoryName.value = match.name
+  if (saved?.sort) browseSort.value = saved.sort
+}
+
+const currentMissavSlug = () =>
+  String(
+    browseCategories.value.find(
+      category => category.name === browseCategoryName.value
+    )?.ext?.slug || 'new'
+  )
+
+const loadMissavBrowse = async (page: number, append: boolean) => {
+  const controller = new AbortController()
+  browseAbort = controller
+  activeBrowseKey = browseCacheKey(page)
+  browseLoading.value = !append
+  browseLoadingMore.value = append
+  browseError.value = ''
+  try {
+    const result = await listMissav(
+      currentMissavSlug(),
+      page,
+      browseSort.value,
+      controller.signal
+    )
+    if (controller.signal.aborted || browseAbort !== controller) return
+    const items = result.items.map(item => ({
+      vod_id: item.code,
+      vod_name: item.title,
+      vod_pic: backend.fileUrl(
+        `/api/missav/cover?code=${encodeURIComponent(item.code)}`
+      ),
+      vod_remarks: item.code.toUpperCase(),
+      vod_duration: item.duration || '',
+      type_name: browseCategoryName.value,
+      _source: 'MissAV',
+      _uid: `missav-${item.code}`,
+      _missavInput: item.code,
+    }))
+    const entryCache: BrowseCacheEntry = {
+      items,
+      pageCount: result.pageCount,
+      total: 0,
+      categories: browseCategories.value,
+    }
+    browseCache.set(browseCacheKey(page), entryCache)
+    if (browseCache.size > 60)
+      browseCache.delete(browseCache.keys().next().value as string)
+    applyBrowseCache(entryCache, append, page)
+    saveBrowseVisit()
+  } catch (error) {
+    if (!controller.signal.aborted && browseAbort === controller) {
+      const text = error instanceof Error ? error.message : '加载分类内容失败'
+      if (append) browseMoreError.value = text
+      else {
+        browseError.value = text
+        browseVideos.value = []
+      }
+    }
+  } finally {
+    if (browseAbort === controller && !controller.signal.aborted) {
+      browseLoading.value = false
+      browseLoadingMore.value = false
+      await nextTick()
+      if (!browseError.value && !browseMoreError.value) onBrowseScroll()
+    }
+  }
+}
+
 watch(browseSourceApi, () => {
+  if (isMissavSource.value) {
+    applyMissavCategories()
+    void loadBrowse()
+    return
+  }
   if (isPluginSource.value) {
     void setupPluginBrowse()
     return
@@ -1329,7 +1439,44 @@ const playPluginVideo = async (video: any) => {
   )
 }
 
+const FOURHOI_COVER =
+  /^https:\/\/fourhoi\.com\/([a-z0-9]+(?:-[a-z0-9]+)*)\/cover-t\.jpg(?:[?#].*)?$/i
+
+const coverSrc = (item: any) => {
+  const code = String(item?._missavInput || '')
+    .trim()
+    .toLowerCase()
+  if (code)
+    return backend.fileUrl(`/api/missav/cover?code=${encodeURIComponent(code)}`)
+  const match = String(item?.vod_pic || '').match(FOURHOI_COVER)
+  if (match)
+    return backend.fileUrl(
+      `/api/missav/cover?code=${encodeURIComponent(match[1].toLowerCase())}`
+    )
+  return item?.vod_pic || ''
+}
+
+const playListedMissav = async (video: any) => {
+  const hide = message.loading('正在解析 MissAV…', 0)
+  try {
+    const stream = await resolveMissav(video._missavInput)
+    await playMissavStream({
+      ...stream,
+      title: video.vod_name || stream.title,
+      poster: coverSrc(video),
+    })
+  } catch (error) {
+    message.error(error instanceof Error ? error.message : 'MissAV 解析失败')
+  } finally {
+    hide()
+  }
+}
+
 const playVideo = async (video: any) => {
+  if (video._missavInput) {
+    await playListedMissav(video)
+    return
+  }
   if (video._isPlugin) {
     attemptedSourceIds.clear()
     attemptedSourceIds.add(video._uid)
@@ -1418,7 +1565,7 @@ const startPlay = async (
     '正在播放'
   // Electron：强制独立播放窗；页内层仅作非 Electron 兜底
   if (canOpenElectronPlayer()) {
-    const poster = playingVideo.value?.vod_pic || undefined
+    const poster = coverSrc(playingVideo.value) || undefined
     const startAt = resumeAt ?? getMediaProgress(playUrl)
     const ok = await openMediaPlayer({ url: playUrl, title, poster, startAt })
     showPlayer.value = false
@@ -1435,14 +1582,18 @@ const playMissavStream = async (stream: MissavStream, startAt = 0) => {
   const video = {
     vod_id: stream.input,
     vod_name: stream.title,
-    vod_pic: '',
+    vod_pic: stream.poster || '',
     _source: 'MissAV',
     _uid: `missav-${stream.input}`,
     _missavInput: stream.input,
     episodes: [{ name: '在线播放', url: stream.url }],
   }
   playingVideo.value = video
-  playingGroup.value = { vod_name: video.vod_name, vod_pic: '', items: [video] }
+  playingGroup.value = {
+    vod_name: video.vod_name,
+    vod_pic: stream.poster || '',
+    items: [video],
+  }
   attemptedSourceIds.clear()
   attemptedSourceIds.add(video._uid)
   switchingSource = false
@@ -1613,10 +1764,17 @@ onMounted(async () => {
   // 插件源清单来自后端，先加载完再决定当前数据源，避免误判为失效源。
   await loadCatSpiderSites()
   catSpiderReady.value = true
+  if (!localStorage.getItem('av_missav_catalog_v1')) {
+    localStorage.setItem('av_missav_catalog_v1', '1')
+    browseSourceApi.value = MISSAV_SOURCE
+  }
   const before = browseSourceApi.value
   reconcileBrowseSource()
   if (browseSourceApi.value !== before) {
     // 数据源已切换，交给 browseSourceApi 的 watcher 加载。
+  } else if (isMissavSource.value) {
+    applyMissavCategories()
+    await loadBrowse()
   } else if (isPluginSource.value) {
     await setupPluginBrowse()
   } else {
@@ -1674,19 +1832,20 @@ onBeforeUnmount(() =>
   color: var(--text-primary);
 }
 .av-tab.is-active {
-  color: var(--text-primary);
+  color: var(--accent-text);
   font-weight: var(--font-weight-medium);
 
-  background: var(--selection-bg);
+  background: var(--accent-soft);
   box-shadow: none;
 }
 .av-card {
-  border: 0;
-  background: transparent;
+  border: 1px solid var(--border-subtle);
+  background: var(--bg-elevated);
 
   border-color: var(--border-subtle);
 
-  border-radius: 6px;
+  border-radius: var(--radius-lg);
+  overflow: hidden;
 }
 .av-card:hover {
   border-color: var(--border-default);

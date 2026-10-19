@@ -1,13 +1,13 @@
 <template>
   <div class="yb-media-detail rp-root">
     <!-- Movie: portrait poster and film information -->
-    <div class="rp-header">
+    <div class="rp-header flex flex-wrap items-start gap-6">
       <div class="rp-poster">
         <img
           v-if="posterImageDataUrl"
           :src="posterImageDataUrl"
           alt="海报"
-          class="rp-poster-img"
+          class="rp-poster-img block size-full object-cover"
           @error="handleImageError"
         />
         <div v-else class="rp-poster-ph">

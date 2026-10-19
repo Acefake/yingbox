@@ -4,12 +4,12 @@
        季视图：selectedItem 是季文件夹时显示
   ═══════════════════════════════════════════ -->
     <template v-if="selectedItem.isSeasonFolder">
-      <div class="tv-header">
+      <div class="tv-header flex flex-wrap items-start gap-6">
         <div class="tv-poster">
           <img
             v-if="currentSeasonPoster"
             :src="currentSeasonPoster"
-            class="tv-poster-img"
+            class="tv-poster-img block size-full object-cover"
             alt="季海报"
             @error="handleImageError"
           />
@@ -108,13 +108,13 @@
        剧集视图：selectedItem 是TV show根时显示
   ═══════════════════════════════════════════ -->
     <template v-else>
-      <div class="tv-header">
+      <div class="tv-header flex flex-wrap items-start gap-6">
         <div class="tv-poster">
           <img
             v-if="posterUrl"
             :src="posterUrl"
             alt="海报"
-            class="tv-poster-img"
+            class="tv-poster-img block size-full object-cover"
             @error="handleImageError"
           />
           <div v-else class="tv-poster-ph">
