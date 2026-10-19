@@ -3,6 +3,7 @@ package main
 import (
 	"bufio"
 	"context"
+	"encoding/base64"
 	"encoding/json"
 	"fmt"
 	"io"
@@ -13,6 +14,7 @@ import (
 	"path"
 	"path/filepath"
 	"regexp"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -111,6 +113,214 @@ func missavHTTPClient() *http.Client {
 		missavClient = &client
 	})
 	return missavClient
+}
+
+var missavListCategories = map[string]struct{}{
+	"new": {}, "release": {}, "chinese-subtitle": {}, "uncensored-leak": {},
+	"english-subtitle": {}, "fc2": {}, "madou": {}, "heyzo": {},
+}
+var missavListSorts = map[string]struct{}{"latest": {}, "hot": {}, "rating": {}}
+
+type missavListCacheEntry struct {
+	body []byte
+	at   time.Time
+}
+
+var missavListCache = struct {
+	sync.Mutex
+	items map[string]missavListCacheEntry
+}{items: map[string]missavListCacheEntry{}}
+
+func missavListHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet {
+		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	category := r.URL.Query().Get("category")
+	if category == "" {
+		category = "new"
+	}
+	sort := r.URL.Query().Get("sort")
+	if sort == "" {
+		sort = "latest"
+	}
+	page := 1
+	if raw := r.URL.Query().Get("page"); raw != "" {
+		parsed, err := strconv.Atoi(raw)
+		if err != nil || parsed < 1 || parsed > 2000 {
+			httpError(w, "页码超出范围", http.StatusBadRequest)
+			return
+		}
+		page = parsed
+	}
+	if _, ok := missavListCategories[category]; !ok {
+		httpError(w, "不支持的 MissAV 分类", http.StatusBadRequest)
+		return
+	}
+	if _, ok := missavListSorts[sort]; !ok {
+		httpError(w, "不支持的 MissAV 排序", http.StatusBadRequest)
+		return
+	}
+	cacheKey := category + "|" + strconv.Itoa(page) + "|" + sort
+	missavListCache.Lock()
+	if cached, ok := missavListCache.items[cacheKey]; ok && time.Since(cached.at) < 2*time.Minute {
+		body := cached.body
+		missavListCache.Unlock()
+		w.Header().Set("Content-Type", "application/json; charset=utf-8")
+		w.Header().Set("Cache-Control", "no-store")
+		w.Write(body)
+		return
+	}
+	missavListCache.Unlock()
+
+	stdout, stderr, err := runPythonContext(r.Context(), 70*time.Second, "missav_resolver.py", []string{"--list", category, strconv.Itoa(page), sort}, nil)
+	line, _ := parsePythonJSON(stdout, stderr)
+	var probe struct {
+		Success bool `json:"success"`
+	}
+	if json.Unmarshal([]byte(line), &probe) != nil || (err != nil && probe.Success) {
+		line = `{"success":false,"code":"RESOLVER_UNAVAILABLE","error":"MissAV 列表未完成，请检查 Python 环境、网络或稍后重试"}`
+		probe.Success = false
+	}
+	body := []byte(line)
+	if probe.Success {
+		missavListCache.Lock()
+		if len(missavListCache.items) > 40 {
+			missavListCache.items = map[string]missavListCacheEntry{}
+		}
+		missavListCache.items[cacheKey] = missavListCacheEntry{body: body, at: time.Now()}
+		missavListCache.Unlock()
+	}
+	w.Header().Set("Content-Type", "application/json; charset=utf-8")
+	w.Header().Set("Cache-Control", "no-store")
+	w.Write(body)
+}
+
+var missavCoverCode = regexp.MustCompile(`^[a-z0-9]+(?:-[a-z0-9]+)*$`)
+var missavCoverClientOnce sync.Once
+var missavCoverClient *http.Client
+
+func missavCoverHTTPClient() *http.Client {
+	missavCoverClientOnce.Do(func() {
+		client := *outboundClient()
+		if proxyURL == "" {
+			data, err := os.ReadFile(filepath.Join(scriptsDir, "cfg", "configs.json"))
+			var config struct {
+				Proxy string `json:"Proxy"`
+			}
+			if err == nil && json.Unmarshal(data, &config) == nil && config.Proxy != "" {
+				if proxy, err := url.Parse(config.Proxy); err == nil && proxy.Host != "" {
+					client.Transport = &http.Transport{Proxy: http.ProxyURL(proxy)}
+				}
+			}
+		}
+		client.CheckRedirect = func(req *http.Request, via []*http.Request) error {
+			if len(via) >= 3 || req.URL.Scheme != "https" || req.URL.Hostname() != "fourhoi.com" || req.URL.User != nil {
+				return fmt.Errorf("unsupported cover redirect")
+			}
+			return nil
+		}
+		missavCoverClient = &client
+	})
+	return missavCoverClient
+}
+
+type missavCoverCacheEntry struct {
+	body        []byte
+	contentType string
+	at          time.Time
+}
+
+var missavCoverCache = struct {
+	sync.Mutex
+	items map[string]missavCoverCacheEntry
+}{items: map[string]missavCoverCacheEntry{}}
+
+func missavCurlCover(ctx context.Context, code string) ([]byte, string, error) {
+	stdout, stderr, err := runPythonContext(ctx, 25*time.Second, "missav_resolver.py", []string{"--cover", code}, nil)
+	line, _ := parsePythonJSON(stdout, stderr)
+	var result struct {
+		Success bool   `json:"success"`
+		Type    string `json:"type"`
+		Data    string `json:"data"`
+	}
+	if json.Unmarshal([]byte(line), &result) != nil || !result.Success {
+		if err != nil {
+			return nil, "", err
+		}
+		return nil, "", fmt.Errorf("cover compatibility request failed")
+	}
+	if !strings.HasPrefix(result.Type, "image/") {
+		return nil, "", fmt.Errorf("unsupported cover type")
+	}
+	body, err := base64.StdEncoding.DecodeString(result.Data)
+	if err != nil || len(body) == 0 || len(body) > 2<<20 {
+		return nil, "", fmt.Errorf("invalid cover payload")
+	}
+	return body, result.Type, nil
+}
+
+func missavCoverHandler(w http.ResponseWriter, r *http.Request) {
+	if r.Method != http.MethodGet && r.Method != http.MethodHead {
+		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
+		return
+	}
+	code := strings.ToLower(strings.TrimSpace(r.URL.Query().Get("code")))
+	if _, blocked := missavListCategories[code]; blocked || len(code) < 2 || len(code) > 80 || !missavCoverCode.MatchString(code) {
+		httpError(w, "不支持的封面编号", http.StatusBadRequest)
+		return
+	}
+	missavCoverCache.Lock()
+	if cached, ok := missavCoverCache.items[code]; ok && time.Since(cached.at) < 30*time.Minute {
+		body, contentType := cached.body, cached.contentType
+		missavCoverCache.Unlock()
+		w.Header().Set("Content-Type", contentType)
+		w.Header().Set("Cache-Control", "private, max-age=3600")
+		if r.Method != http.MethodHead {
+			w.Write(body)
+		}
+		return
+	}
+	missavCoverCache.Unlock()
+
+	var body []byte
+	contentType := ""
+	request, err := http.NewRequestWithContext(r.Context(), http.MethodGet, "https://fourhoi.com/"+code+"/cover-t.jpg", nil)
+	if err == nil {
+		request.Header.Set("Referer", "https://missav.ai/")
+		request.Header.Set("User-Agent", "Mozilla/5.0")
+		request.Header.Set("Accept", "image/avif,image/webp,image/apng,image/*,*/*;q=0.8")
+		response, reqErr := missavCoverHTTPClient().Do(request)
+		if reqErr == nil {
+			defer response.Body.Close()
+			if response.StatusCode == http.StatusOK && strings.HasPrefix(response.Header.Get("Content-Type"), "image/") {
+				read, readErr := io.ReadAll(io.LimitReader(response.Body, (2<<20)+1))
+				if readErr == nil && len(read) > 0 && len(read) <= 2<<20 {
+					body = read
+					contentType = response.Header.Get("Content-Type")
+				}
+			}
+		}
+	}
+	if body == nil {
+		fetched, fetchedType, fetchErr := missavCurlCover(r.Context(), code)
+		if fetchErr != nil {
+			httpError(w, "封面请求失败", http.StatusBadGateway)
+			return
+		}
+		body, contentType = fetched, fetchedType
+	}
+	missavCoverCache.Lock()
+	if len(missavCoverCache.items) > 200 {
+		missavCoverCache.items = map[string]missavCoverCacheEntry{}
+	}
+	missavCoverCache.items[code] = missavCoverCacheEntry{body: body, contentType: contentType, at: time.Now()}
+	missavCoverCache.Unlock()
+	w.Header().Set("Content-Type", contentType)
+	w.Header().Set("Cache-Control", "private, max-age=3600")
+	if r.Method != http.MethodHead {
+		w.Write(body)
+	}
 }
 
 func missavResolveHandler(w http.ResponseWriter, r *http.Request) {

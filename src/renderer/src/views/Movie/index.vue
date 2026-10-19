@@ -1,6 +1,6 @@
 <template>
   <div
-    class="yb-media-shell folder-content"
+    class="yb-media-shell folder-content min-h-0 bg-yb-bg text-yb-text"
     :class="{ 'has-selection': Boolean(selectedItem) }"
   >
     <!-- 左侧媒体库列表 -->

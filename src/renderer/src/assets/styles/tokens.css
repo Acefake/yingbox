@@ -1,36 +1,36 @@
-/* 影盒 design tokens — Claude desktop reference. Dark is default; light via [data-theme="light"]. */
+/* 影盒 design tokens — cinema workspace. Dark is default; light via [data-theme="light"]. */
 :root {
   color-scheme: dark;
 
   /* Background layers — graphite workspace with restrained surface layers */
-  --bg-base: #171717;
-  --bg-main: #171717;
-  --bg-elevated: #202020;
-  --bg-content: #171717;
-  --bg-sidebar: #111111;
-  --bg-sidebar-solid: #111111;
-  --bg-titlebar: #171717;
-  --bg-panel: #202020;
+  --bg-base: #14171c;
+  --bg-main: #14171c;
+  --bg-elevated: #1c2129;
+  --bg-content: #14171c;
+  --bg-sidebar: #101318;
+  --bg-sidebar-solid: #101318;
+  --bg-titlebar: #14171c;
+  --bg-panel: #1c2129;
   --bg-glass: rgba(255,255,255,.045);
   --bg-glass-hover: rgba(255,255,255,.075);
-  --bg-fill-secondary: #282828;
-  --bg-fill-tertiary: #1D1D1D;
-  --bg-active: #373737;
-  --bg-active-soft: #303030;
+  --bg-fill-secondary: #252c36;
+  --bg-fill-tertiary: #191e25;
+  --bg-active: #343d49;
+  --bg-active-soft: #2c3440;
 
   /* Separators / borders */
-  --border-subtle: #282828;
-  --border-default: #303030;
-  --border-strong: #505050;
-  --border-glass: #303030;
-  --border-glass-light: #3B3B3B;
-  --separator: #2C2C2C;
+  --border-subtle: #252c36;
+  --border-default: #2c3440;
+  --border-strong: #586475;
+  --border-glass: #2c3440;
+  --border-glass-light: #3a4553;
+  --separator: #29323d;
 
   /* Text hierarchy */
-  --text-primary: #F1F1F1;
-  --text-secondary: #A3A3A3;
-  --text-tertiary: #858585;
-  --text-quaternary: #727272;
+  --text-primary: #eef1f5;
+  --text-secondary: #a9b2bf;
+  --text-tertiary: #8b97a8;
+  --text-quaternary: #798697;
   --text-main: var(--text-primary);
   --text-muted: var(--text-secondary);
   --text-dim: var(--text-tertiary);
@@ -38,11 +38,11 @@
   --text-on-accent: #242424;
 
   /* Interaction — one accent: white */
-  --accent: #E5E5E5;
-  --accent-hover: #FFFFFF;
-  --accent-soft: rgba(255,255,255,.07);
+  --accent: #e8ba78;
+  --accent-hover: #f4ce98;
+  --accent-soft: rgba(232,186,120,.12);
   --accent-glow: rgba(255,255,255,.16);
-  --accent-text: #E5E5E5;
+  --accent-text: #edc58f;
   --primary: var(--accent);
   --primary-hover: var(--accent-hover);
   --primary-glass: var(--accent-soft);
@@ -54,11 +54,11 @@
 
   /* Typography */
   --font-sans: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
-  --font-display: Georgia, "Songti SC", "SimSun", serif;
-  --action-bg: #F1F1F1;
-  --action-hover: #FFFFFF;
+  --font-display: var(--font-sans);
+  --action-bg: var(--accent);
+  --action-hover: var(--accent-hover);
   --action-text: #242424;
-  --selection-bg: #373737;
+  --selection-bg: #343d49;
   --text-xs: 12px;
   --text-sm: 13px;
   --text-md: 14px;
@@ -89,15 +89,15 @@
   --radius-full: 999px;
 
   /* Layout chrome */
-  --sidebar-width: 248px;
+  --sidebar-width: 224px;
   --sidebar-width-collapsed: 68px;
-  --titlebar-height: 52px;
+  --titlebar-height: 60px;
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
-  --content-padding-x: 40px;
+  --content-padding-x: 32px;
   --content-padding-y: 28px;
   --control-height-sm: 34px;
   --control-height: 38px;
@@ -129,9 +129,9 @@
   --scrollbar-track: transparent;
 
   /* Transitions (shorthand — keep compatible with existing `transition: var(--transition-*)`) */
-  --ease-out: cubic-bezier(0.25, 0.1, 0.25, 1);
-  --transition-fast: all 0.15s var(--ease-out);
-  --transition-normal: all 0.22s var(--ease-out);
+  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
+  --transition-fast: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 150ms var(--ease-out), box-shadow 150ms ease;
+  --transition-normal: color 220ms ease, background-color 220ms ease, border-color 220ms ease, opacity 220ms ease, transform 220ms var(--ease-out), box-shadow 220ms ease;
 }
 
 /* Light mode — kept for explicit toggling; neutral interactive identity stays. */
@@ -167,14 +167,14 @@
   --text-on-accent: #f5f5f7;
 
   /* Interaction — one accent: near-black */
-  --accent: #262626;
-  --accent-hover: #000000;
-  --accent-soft: rgba(0, 0, 0, 0.07);
+  --accent: #8a551c;
+  --accent-hover: #704114;
+  --accent-soft: rgba(138,85,28,.09);
   --accent-glow: rgba(0,0,0,.12);
-  --accent-text: #262626;
+  --accent-text: #8a551c;
 
-  --action-bg: #262626;
-  --action-hover: #000000;
+  --action-bg: var(--accent);
+  --action-hover: var(--accent-hover);
   --action-text: #FFFFFF;
   --selection-bg: #E5E5E2;
 

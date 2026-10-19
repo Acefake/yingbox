@@ -20,8 +20,8 @@ withDefaults(defineProps<{
   margin: 0;
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: 28px;
-  font-weight: 400;
+  font-size: clamp(22px, 2vw, 28px);
+  font-weight: 600;
   letter-spacing: -.025em;
   line-height: 1.3;
   overflow-wrap: anywhere;

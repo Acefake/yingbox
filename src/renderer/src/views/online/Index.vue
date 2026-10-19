@@ -1,5 +1,5 @@
 <template>
-  <div class="online-view">
+  <div class="online-view h-full min-h-0 bg-yb-bg text-yb-text">
     <!-- 首页 -->
     <div
       v-show="!inlineDetailItem && activeTab === 'home'"
