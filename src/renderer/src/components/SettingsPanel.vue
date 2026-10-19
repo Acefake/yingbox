@@ -16,7 +16,7 @@
     >
       <div class="settings-frame">
         <DialogTitlebar :title="`设置 · ${currentSection.label}`" icon="settings" @close="requestClose" />
-        <div class="settings-body">
+        <div class="settings-body flex min-h-0 min-w-0 flex-1">
         <!-- 左侧：搜索 + 分区导航 -->
         <aside class="settings-nav">
           <div class="settings-search">
@@ -1046,7 +1046,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   color: var(--text-primary);
   background: var(--bg-main);
   border: 1px solid var(--border-subtle);
-  border-radius: 10px;
+  border-radius: var(--radius-xl);
   box-shadow: var(--shadow-lg);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -1123,7 +1123,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 .settings-nav-item.active {
   color: var(--text-primary);
-  background: var(--bg-active-soft);
+  background: var(--accent-soft);
   font-weight: var(--font-weight-medium);
 }
 .settings-nav-empty {
@@ -1241,7 +1241,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   transition: var(--transition-fast);
 }
 .st-switch:hover {
-  background: var(--bg-active-soft);
+  background: var(--accent-soft);
 }
 .st-switch-thumb {
   position: absolute;
@@ -1261,7 +1261,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   background: var(--accent-hover);
 }
 .st-switch.is-on .st-switch-thumb {
-  left: 21px;
+  transform: translateX(18px);
   background: var(--text-on-accent);
   box-shadow: none;
 }
@@ -1332,7 +1332,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 /* ── 动效 ── */
 .settings-fade-enter-active,
 .settings-fade-leave-active {
-  transition: opacity 0.25s var(--ease-out);
+  transition: opacity 0.2s var(--ease-out);
 }
 .settings-fade-enter-from,
 .settings-fade-leave-to {
@@ -1340,12 +1340,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .settings-pop-enter-active {
-  transition: opacity 0.28s var(--ease-out);
+  transition: opacity 0.2s var(--ease-out);
 }
 .settings-pop-enter-active .settings-frame {
   transition:
-    opacity 0.28s var(--ease-out),
-    transform 0.28s var(--ease-out);
+    opacity 0.2s var(--ease-out),
+    transform 0.2s var(--ease-out);
 }
 .settings-pop-enter-from {
   opacity: 0;

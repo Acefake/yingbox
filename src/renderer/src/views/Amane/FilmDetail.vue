@@ -15,12 +15,12 @@
           <span v-if="film.score != null" class="amane-film-score"><b>★</b> {{ film.score.toFixed(1) }}</span>
         </p>
         <div class="amane-film-actions">
-          <button v-if="detail.files.length" class="yb-btn-primary" :disabled="busy" @click="$emit('play', detail.files[0].id)"><AppIcon name="play" size="sm" />播放</button>
-          <IconButton icon="refresh" label="重新刮削" :disabled="busy" @click="$emit('scrape', film.id)" />
-          <IconButton v-if="detail.files.length" icon="sparkle" label="去码" :disabled="busy" @click="$emit('restore', detail.files[0].id)" />
-          <button v-if="detail.files.length" class="yb-btn-soft" :disabled="busy" @click="$emit('range', detail.files[0].id)">去码一段</button>
-          <button v-if="detail.files.length" class="yb-btn-soft" :disabled="busy" title="按媒体库模板把文件搬进子目录，并在旁边写出封面/海报（水印打在它们上面）" @click="$emit('organize', detail.files[0].id)">整理</button>
-          <button v-if="detail.files.length" class="yb-btn-soft" :disabled="busy" @click="$emit('live', detail.files[0].id)">边跑边看</button>
+          <ActionButton v-if="detail.files.length" :disabled="busy" @click="$emit('play', detail.files[0].id)" icon="play" label="播放" primary />
+          <ActionButton icon="refresh" label="重新刮削" :disabled="busy" @click="$emit('scrape', film.id)" />
+          <ActionButton v-if="detail.files.length" icon="sparkle" label="去码" :disabled="busy" @click="$emit('restore', detail.files[0].id)" />
+          <ActionButton v-if="detail.files.length" :disabled="busy" @click="$emit('range', detail.files[0].id)" icon="range" label="去码一段" />
+          <ActionButton v-if="detail.files.length" :disabled="busy" title="按媒体库模板把文件搬进子目录，并在旁边写出封面/海报（水印打在它们上面）" @click="$emit('organize', detail.files[0].id)" icon="folder" label="整理" />
+          <ActionButton v-if="detail.files.length" :disabled="busy" @click="$emit('live', detail.files[0].id)" icon="livePlay" label="边跑边看" />
         </div>
       </div>
 
@@ -90,6 +90,7 @@
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, nextTick, ref, watch } from 'vue'
 import AppIcon from '@/components/AppIcon.vue'
+import ActionButton from '@/components/ActionButton.vue'
 import IconButton from '@/components/IconButton.vue'
 import { amaneImage, amaneRequest, type AmaneDetail, type AmaneUserTag } from '@/api/amane'
 

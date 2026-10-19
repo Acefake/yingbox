@@ -1,4 +1,4 @@
-import { BrowserWindow, screen, session } from 'electron'
+import { app, BrowserWindow, screen, session } from 'electron'
 import {
   type IncomingMessage,
   type Server,
@@ -8,7 +8,7 @@ import {
 import { randomBytes } from 'crypto'
 import { tmpdir } from 'os'
 import { join } from 'path'
-import { rmSync, writeFileSync } from 'fs'
+import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
 
 /**
  * 浏览器级抓取服务。
@@ -25,7 +25,8 @@ const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 // 固定 partition：cf_clearance 等 cookie 跨请求、跨重启保留，避免每次都重新过挑战。
 const PARTITION = 'persist:yingbox-browser-fetch'
-const DISCOVERY_FILE = join(tmpdir(), 'yingbox-browser-fetch.json')
+const DISCOVERY_NAME = 'yingbox-browser-fetch.json'
+const DISCOVERY_FILE = join(tmpdir(), DISCOVERY_NAME)
 const DEFAULT_WAIT_MS = 20000
 const MAX_WAIT_MS = 30000
 const LOAD_TIMEOUT_MS = 25000
@@ -238,6 +239,42 @@ function handleRequest(req: IncomingMessage, res: ServerResponse): void {
   })
 }
 
+function discoveryTargets(): string[] {
+  const targets = [DISCOVERY_FILE]
+  try {
+    targets.push(join(app.getPath('userData'), DISCOVERY_NAME))
+  } catch {
+    // app 尚未 ready 时只使用临时目录。
+  }
+  targets.push(join(process.cwd(), 'output', DISCOVERY_NAME))
+  return targets
+}
+
+function publishDiscovery(body: string): boolean {
+  const errors: unknown[] = []
+  for (const target of discoveryTargets()) {
+    const pendingFile = `${target}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`
+    try {
+      mkdirSync(join(target, '..'), { recursive: true })
+      writeFileSync(pendingFile, body, { encoding: 'utf-8', mode: 0o600 })
+      renameSync(pendingFile, target)
+      return true
+    } catch (error) {
+      errors.push(error)
+    } finally {
+      try {
+        rmSync(pendingFile, { force: true })
+      } catch {
+        // A locked temporary file must not interrupt application startup.
+      }
+    }
+  }
+  for (const error of errors) {
+    console.error('[browser-fetch] cannot publish discovery file:', error)
+  }
+  return false
+}
+
 export function startBrowserFetchService(): void {
   if (server) return
   token = randomBytes(24).toString('hex')
@@ -249,17 +286,18 @@ export function startBrowserFetchService(): void {
     const address = server?.address()
     if (!address || typeof address === 'string') return
     const endpoint = `http://127.0.0.1:${address.port}`
-    // 抓取器（Node 子进程）通过该文件发现服务；内含令牌，仅本机可读。
-    writeFileSync(
-      DISCOVERY_FILE,
-      JSON.stringify({
-        url: endpoint,
-        token,
-        pid: process.pid,
-        updatedAt: Date.now(),
-      }),
-      { encoding: 'utf-8', mode: 0o600 }
-    )
+    const body = JSON.stringify({
+      url: endpoint,
+      token,
+      pid: process.pid,
+      updatedAt: Date.now(),
+    })
+    if (!publishDiscovery(body)) {
+      server?.close()
+      server = null
+      token = ''
+      return
+    }
     console.log(`[browser-fetch] listening on ${endpoint}`)
   })
 
@@ -271,7 +309,8 @@ export function stopBrowserFetchService(): void {
   server = null
   token = ''
   try {
-    rmSync(DISCOVERY_FILE, { force: true })
+    const discovery = JSON.parse(readFileSync(DISCOVERY_FILE, 'utf-8'))
+    if (discovery.pid === process.pid) rmSync(DISCOVERY_FILE, { force: true })
   } catch {
     /* 文件可能已被清理 */
   }

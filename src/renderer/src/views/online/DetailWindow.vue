@@ -18,8 +18,8 @@
       </div>
 
       <!-- 内容 -->
-      <div class="dw-content">
-        <div class="dw-hero">
+      <div class="dw-content min-w-0">
+        <div class="dw-hero flex flex-wrap items-start gap-6">
           <!-- 海报 -->
           <div class="dw-poster-wrap">
             <img

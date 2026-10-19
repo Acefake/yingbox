@@ -53,6 +53,27 @@ class MissavResolverTests(unittest.TestCase):
             with self.assertRaises((resolver.ResolveError, ValueError)):
                 resolver.page_url(value)
 
+    def test_catalog_listing(self):
+        self.assertEqual(resolver.listing_url("new", 1, "latest"), "https://missav.ai/cn/new")
+        self.assertEqual(resolver.listing_url("chinese-subtitle", 2, "hot"), "https://missav.ai/cn/chinese-subtitle?page=2&sort=monthly_views")
+        for category, page, sort in (("genres", 1, "latest"), ("new", 0, "latest"), ("new", 1, "score")):
+            with self.assertRaises(resolver.ResolveError):
+                resolver.listing_url(category, page, sort)
+        page = '''
+            <div class="thumbnail group">
+              <a href="https://missav.ai/cn/abp-001"><img data-src="https://fourhoi.com/abp-001/cover-t.jpg"></a>
+              <span class="absolute">1:02:03</span>
+              <a class="text-secondary group-hover:text-primary" href="https://missav.ai/cn/abp-001">ABP-001 Sample</a>
+            </div>
+            <a href="https://missav.ai/cn/new?page=2" rel="next">next</a>
+        '''
+        items, has_next = resolver.parse_catalog(page)
+        self.assertTrue(has_next)
+        self.assertEqual(items, [{"code": "abp-001", "title": "ABP-001 Sample", "poster": "https://fourhoi.com/abp-001/cover-t.jpg", "duration": "1:02:03"}])
+        for code in ("new", "../a", ""):
+            with self.assertRaises(resolver.ResolveError):
+                resolver.fetch_cover(code)
+
     def test_stream_formats(self):
         uuid = "12345678-1234-abcd-5678-123456789abc"
         packed = "m3u8|" + "|".join(uuid.split("-")[::-1]) + "|com|surrit|https|video"
