@@ -5,12 +5,16 @@ import { randomUUID } from 'crypto'
 import { join } from 'path'
 import { atomicWrite } from './file-operations'
 
-/** 用户配置（userData/config.json），当前仅存 downloadPath */
-const configPath = join(app.getPath('userData'), 'config.json')
+/**
+ * 用户配置（userData/config.json），当前仅存 downloadPath。
+ * 必须按调用时求值：userData 在启动瞬间可能仍是默认的 "Electron" 目录
+ * （见 index.ts 的固定逻辑），提前冻结路径会把设置写进错误的 profile。
+ */
+const configPath = (): string => join(app.getPath('userData'), 'config.json')
 
 let downloadPath = ''
 
-export const getConfigPath = (): string => configPath
+export const getConfigPath = (): string => configPath()
 
 export const getDownloadPath = (): string => downloadPath
 
@@ -33,8 +37,8 @@ async function assertWritableDirectory(dir: string): Promise<void> {
 
 export async function loadConfig(): Promise<void> {
   try {
-    if (fsSync.existsSync(configPath)) {
-      const config = JSON.parse(fsSync.readFileSync(configPath, 'utf-8'))
+    if (fsSync.existsSync(configPath())) {
+      const config = JSON.parse(fsSync.readFileSync(configPath(), 'utf-8'))
       downloadPath =
         typeof config.downloadPath === 'string' ? config.downloadPath : ''
     }
@@ -53,7 +57,7 @@ export async function loadConfig(): Promise<void> {
 }
 
 export async function saveConfig(): Promise<void> {
-  await atomicWrite(configPath, JSON.stringify({ downloadPath }, null, 2))
+  await atomicWrite(configPath(), JSON.stringify({ downloadPath }, null, 2))
 }
 
 export async function setDownloadPath(dir: string): Promise<void> {
