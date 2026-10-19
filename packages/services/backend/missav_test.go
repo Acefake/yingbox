@@ -9,6 +9,21 @@ import (
 	"testing"
 )
 
+func TestMissavListAndCoverQuery(t *testing.T) {
+	for _, target := range []string{"/api/missav/list?page=0", "/api/missav/list?category=genres", "/api/missav/cover", "/api/missav/cover?code=new", "/api/missav/cover?code=../a"} {
+		result := httptest.NewRecorder()
+		request := httptest.NewRequest(http.MethodGet, target, nil)
+		if strings.Contains(target, "/cover") {
+			missavCoverHandler(result, request)
+		} else {
+			missavListHandler(result, request)
+		}
+		if result.Code != http.StatusBadRequest {
+			t.Fatalf("%s accepted: %d", target, result.Code)
+		}
+	}
+}
+
 func TestMissavPlaylistRewrite(t *testing.T) {
 	base, _ := url.Parse("https://surrit.com/video/720/playlist.m3u8")
 	input := "#EXTM3U\r\n#EXT-X-KEY:METHOD=AES-128,URI=\"../key.bin?token=abc\"\n#EXT-X-MAP:URI=\"init.mp4\"\n#EXTINF:5,\nsegment.ts?token=a%2Bb\n#EXT-X-ENDLIST\n"

@@ -17,7 +17,7 @@
       @ended="onEnded"
       @error="onError"
     />
-    <div v-else class="player-popout-empty">
+    <div v-else class="player-popout-empty flex flex-col items-center justify-center gap-4">
       <img v-if="poster" class="player-popout-poster" :src="poster" alt="" />
       <span>{{ emptyText }}</span>
     </div>

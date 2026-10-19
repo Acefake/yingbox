@@ -30,7 +30,7 @@
           <AppIcon name="panel" />
         </button>
       </div>
-      <nav class="sidebar-nav">
+      <nav class="sidebar-nav flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
         <span class="sidebar-heading">资料库</span>
         <button
           class="sidebar-item"
@@ -137,7 +137,7 @@
       </div>
     </aside>
 
-    <div class="shell-column">
+    <div class="shell-column flex min-h-0 min-w-0 flex-1 flex-col">
       <!-- 顶部工具栏，保留窗口拖拽区域 -->
       <header class="top-menu">
         <div class="menu-content">
@@ -211,7 +211,7 @@
 
       <!-- 主内容区域 -->
       <main class="main-content">
-        <div class="content-surface">
+        <div class="content-surface h-full overflow-hidden bg-yb-bg">
           <slot />
         </div>
       </main>
@@ -460,7 +460,7 @@ onUnmounted(() => {
   max-width: var(--sidebar-width);
   height: 100%;
   min-height: 0;
-  padding: 12px 10px;
+  padding: 20px 12px;
   z-index: 2;
   color: var(--text-secondary);
   background: var(--bg-sidebar-solid);
@@ -490,14 +490,14 @@ onUnmounted(() => {
 }
 
 .brand-mark {
-  width: 24px;
-  height: 24px;
+  width: 32px;
+  height: 32px;
   border-radius: var(--radius-md);
-  background: transparent;
-  box-shadow: none;
+  background: var(--accent-soft);
+  box-shadow: inset 0 0 0 1px var(--border-default);
   flex: 0 0 auto;
 
-  color: var(--text-primary);
+  color: var(--accent-text);
 
   display: grid;
 
@@ -588,8 +588,8 @@ onUnmounted(() => {
 }
 
 .sidebar-item.active {
-  color: var(--text-primary);
-  background: var(--selection-bg);
+  color: var(--accent-text);
+  background: var(--accent-soft);
   font-weight: var(--font-weight-medium);
 }
 
@@ -787,7 +787,7 @@ onUnmounted(() => {
 
 .footer-icon-btn.active {
   color: var(--accent);
-  background: var(--bg-active-soft);
+  background: var(--accent-soft);
 }
 
 .footer-icon-btn :deep(.app-icon) {

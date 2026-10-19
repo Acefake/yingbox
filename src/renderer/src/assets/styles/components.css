@@ -12,10 +12,7 @@
 .ui-empty-state,
 .ui-error-state {
   min-height: 220px;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
+  @apply flex flex-col items-center justify-center;
   gap: var(--space-3);
   padding: var(--space-6);
   text-align: center;
@@ -43,8 +40,7 @@
 /* Content page wrapper — use inside feature views for consistent padding */
 .yb-page {
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col;
   color: var(--text-main);
   background: transparent;
   overflow: hidden;
@@ -176,8 +172,8 @@
   color: var(--text-primary);
 }
 .yb-seg.is-active {
-  background: var(--bg-active);
-  color: var(--text-primary);
+  background: var(--accent-soft);
+  color: var(--accent-text);
   font-weight: var(--font-weight-medium);
   box-shadow: none;
 }
@@ -224,7 +220,7 @@
 
   gap: 7px;
 }
-.yb-btn-primary:hover {
+.yb-btn-primary:hover:not(:disabled) {
   background: var(--action-hover);
 }
 .yb-btn-primary:disabled {
@@ -251,7 +247,7 @@
 
   gap: 7px;
 }
-.yb-btn-soft:hover {
+.yb-btn-soft:hover:not(:disabled) {
   background: var(--bg-glass-hover);
   color: var(--text-primary);
 }
@@ -277,9 +273,7 @@
 
 /* Compact primary play button (Movie/Adult detail) */
 .rp-play-btn-primary {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
+  @apply inline-flex items-center justify-center;
   gap: 8px;
   min-height: 38px;
   padding: 0 20px;
@@ -458,8 +452,7 @@
   top: 0;
   bottom: 0;
   z-index: 20;
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col;
 }
 
 .yb-media-detail-pane {
@@ -473,11 +466,10 @@
   width: var(--media-sidebar-width);
   min-width: var(--media-sidebar-width);
   height: 100%;
-  display: flex;
-  flex-direction: column;
+  @apply flex flex-col;
   flex-shrink: 0;
   border-right: 1px solid var(--separator);
-  background: var(--bg-main);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
@@ -486,7 +478,7 @@
 .yb-media-canvas {
   height: 100%;
   overflow-y: auto;
-  padding: 32px 40px;
+  padding: var(--content-padding-y) var(--content-padding-x);
   background: var(--bg-main);
 }
 
@@ -495,14 +487,13 @@
 }
 
 .yb-media-hero {
-  display: flex;
-  align-items: flex-start;
+  @apply flex items-start;
   gap: var(--space-6);
   margin-bottom: var(--space-6);
 }
 
 .yb-media-poster {
-  width: 200px;
+  width: clamp(160px, 19vw, 240px);
   aspect-ratio: 2 / 3;
   border-radius: 6px;
   overflow: hidden;
@@ -513,10 +504,7 @@
 }
 
 .yb-media-poster img {
-  width: 100%;
-  height: 100%;
-  display: block;
-  object-fit: cover;
+  @apply block size-full object-cover;
 }
 
 .yb-media-meta {
@@ -530,9 +518,7 @@
 }
 
 .yb-media-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
+  @apply flex flex-wrap items-center;
   gap: var(--space-2);
 }
 
@@ -544,8 +530,8 @@
 
 .yb-btn-primary:active:not(:disabled),
 .yb-btn-soft:active:not(:disabled),
-.yb-seg:active,
-.yb-play-cta:active {
+.yb-seg:active:not(:disabled),
+.yb-play-cta:active:not(:disabled) {
   transform: scale(0.97);
   transition: transform 100ms ease-out;
 }
@@ -588,7 +574,7 @@
 .yb-poster-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
-  gap: 26px 22px;
+  gap: 28px 20px;
 }
 
 .yb-poster-card {
@@ -596,10 +582,10 @@
   cursor: pointer;
   overflow: visible;
   border: 0;
-  border-radius: 0;
+  border-radius: var(--radius-lg);
   background: transparent;
   box-shadow: none;
-  transition: opacity 140ms ease;
+  transition: opacity 140ms ease, transform 160ms ease;
 }
 
 .yb-poster-card:hover {
@@ -616,14 +602,15 @@
   transform-origin: center;
   transition: opacity 150ms ease;
 
-  border-radius: 6px;
+  border-radius: var(--radius-lg);
 }
 
 .yb-poster-card:hover .yb-poster-media {
   transform: none;
   box-shadow: none;
 
-  opacity: .9;
+  opacity: .95;
+  box-shadow: 0 8px 24px rgb(0 0 0 / .2);
 }
 
 .yb-poster-media img {
@@ -644,7 +631,7 @@
   transition: opacity 0.2s var(--ease-out);
 }
 
-.yb-poster-card:hover .yb-poster-overlay {
+.yb-poster-card:focus-within .yb-poster-overlay {
   opacity: 1;
 }
 
@@ -808,8 +795,8 @@
 @media (prefers-reduced-motion: reduce) {
   .yb-btn-primary:active:not(:disabled),
   .yb-btn-soft:active:not(:disabled),
-  .yb-seg:active,
-  .yb-play-cta:active {
+  .yb-seg:active:not(:disabled),
+  .yb-play-cta:active:not(:disabled) {
     transform: none;
   }
 }
@@ -844,3 +831,7 @@
 .yb-icon-button.is-loading .app-icon { animation: yb-icon-spin .9s linear infinite; }
 @keyframes yb-icon-spin { to { transform: rotate(360deg); } }
 @media(prefers-reduced-motion:reduce) { .yb-icon-button.is-loading .app-icon { animation: none; } }
+
+@media (hover: hover) and (pointer: fine) {
+  .yb-poster-card:hover .yb-poster-overlay { opacity: 1; }
+}
