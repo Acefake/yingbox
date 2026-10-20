@@ -1,3 +1,7 @@
+/**
+ * 旧扫描器（原 src/main/media-scanner.ts），P4 删除旧电影 / 剧集页面后不再被应用使用，
+ * 只留给 bench-library 做新旧对照。引擎的扫描在 src/main/library/scanner。
+ */
 import { readdir, stat } from 'node:fs/promises'
 import { basename, join, resolve } from 'node:path'
 import {
@@ -5,7 +9,7 @@ import {
   isWantedEntry,
   parentKey,
   pathKey,
-} from './library/scanner/rules'
+} from '../../src/main/library/scanner/rules'
 
 interface MediaEntry {
   name: string
