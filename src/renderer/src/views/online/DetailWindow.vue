@@ -45,7 +45,8 @@
             </h3>
             <div class="dw-meta-row">
               <span v-if="tmdbDetail?.vote_average" class="dw-rating">
-                ★ {{ tmdbDetail.vote_average.toFixed(1) }}<em>/ 10</em>
+                <UiIcon name="star" size="sm" filled />
+                {{ tmdbDetail.vote_average.toFixed(1) }}
               </span>
               <span
                 v-if="tmdbDetail?.release_date || tmdbDetail?.first_air_date"
@@ -85,6 +86,15 @@
                 >
               </span>
             </div>
+            <div v-if="currentEpisodes.length" class="dw-actions">
+              <UiButton
+                variant="primary"
+                size="lg"
+                icon="play"
+                :label="currentEpisodes.length > 1 ? `播放 ${currentEpisodes[0].name}` : '播放'"
+                @click="playEp(currentEpisodes[0].url, currentEpisodes[0].ext)"
+              />
+            </div>
             <p v-if="tmdbDetail?.overview || itemOverview" class="dw-overview">
               {{ tmdbDetail?.overview || itemOverview }}
             </p>
@@ -115,26 +125,14 @@
             <div v-if="episodeGroups.length" class="dw-sources-section">
               <h4 class="dw-section-title">播放源</h4>
               <!-- 来源分类 Tabs -->
-              <div class="source-type-tabs">
-                <button
-                  v-if="catSpiderGroups.length"
-                  class="source-type-tab"
-                  :class="{ active: currentSourceType === 'catspider' }"
-                  @click="switchSourceType('catspider')"
-                >
-                  插件源{{
-                    catSpiderGroups.length ? ` · ${catSpiderGroups.length}` : ''
-                  }}
-                </button>
-                <button
-                  v-if="cmsGroups.length"
-                  class="source-type-tab"
-                  :class="{ active: currentSourceType === 'cms' }"
-                  @click="switchSourceType('cms')"
-                >
-                  CMS源{{ cmsGroups.length ? ` · ${cmsGroups.length}` : '' }}
-                </button>
-              </div>
+              <UiSegmented
+                v-if="sourceTypeOptions.length > 1"
+                class="source-type-tabs"
+                label="播放源类型"
+                :model-value="currentSourceType"
+                :options="sourceTypeOptions"
+                @update:model-value="switchSourceType"
+              />
               <!-- 层级一：源 -->
               <div class="px-2 py-1 mb-1 yb-label">源</div>
               <div class="group-tabs">
@@ -243,25 +241,36 @@
         class="lb-mask"
         @click.self="lightboxIdx = null"
       >
-        <button
+        <UiIconButton
           class="lb-arrow lb-prev"
+          icon="back"
+          label="上一张"
+          variant="overlay"
+          size="lg"
           @click="
             lightboxIdx = (lightboxIdx! - 1 + images.length) % images.length
           "
-        >
-          ‹
-        </button>
+        />
         <img
           :src="`https://images.tmdb.org/t/p/original${images[lightboxIdx!].file_path}`"
           class="lb-img"
         />
-        <button
+        <UiIconButton
           class="lb-arrow lb-next"
+          icon="forward"
+          label="下一张"
+          variant="overlay"
+          size="lg"
           @click="lightboxIdx = (lightboxIdx! + 1) % images.length"
-        >
-          ›
-        </button>
-        <button class="lb-close" @click="lightboxIdx = null">✕</button>
+        />
+        <UiIconButton
+          class="lb-close"
+          icon="close"
+          label="关闭"
+          variant="overlay"
+          size="lg"
+          @click="lightboxIdx = null"
+        />
       </div>
     </Transition>
 
@@ -299,6 +308,10 @@
 <script setup lang="ts">
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiSegmented from '@/components/ui/UiSegmented.vue'
 import axios from 'axios'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
@@ -337,6 +350,14 @@ const showPlaySheet = ref(false)
 const episodeGroups = ref<EpisodeGroup[]>([])
 const activeGroup = ref(0)
 const currentSourceType = ref<'cms' | 'catspider'>('cms')
+const sourceTypeOptions = computed(() => [
+  ...(catSpiderGroups.value.length
+    ? [{ value: 'catspider' as const, label: `插件源 · ${catSpiderGroups.value.length}` }]
+    : []),
+  ...(cmsGroups.value.length
+    ? [{ value: 'cms' as const, label: `CMS 源 · ${cmsGroups.value.length}` }]
+    : []),
+])
 const currentUrl = ref('')
 
 const catSpiderGroups = computed(() =>
@@ -794,7 +815,7 @@ const onActorImgError = (e: Event) => {
   justify-content: center;
   gap: 14px;
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .dw-spinner {
@@ -824,7 +845,7 @@ const onActorImgError = (e: Event) => {
 
 .dw-body::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .dw-backdrop {
@@ -849,9 +870,9 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-content {
-  padding: 0 36px 36px;
-  margin-top: -260px;
   position: relative;
+  margin-top: -260px;
+  padding: 0 var(--content-padding-x) var(--space-9);
 }
 
 .dw-hero {
@@ -867,12 +888,10 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-poster {
-  width: 220px;
-  aspect-ratio: 2/3;
-  object-fit: cover;
-  border-radius: 6px;
-  box-shadow: none;
-  border: 1px solid var(--border-subtle);
+  display: block;
+  width: 100%;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
 }
 
 .dw-info {
@@ -881,71 +900,77 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-title {
-  font-size: 30px;
-  font-weight: 400;
-  line-height: 1.2;
-  margin-bottom: 5px;
+  margin: 0 0 var(--space-1);
   color: var(--text-primary);
-  letter-spacing: -0.022em;
-
   font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-bold);
+  letter-spacing: var(--tracking-tight);
+  line-height: var(--leading-tight);
 }
 
 .dw-orig-title {
-  font-size: 16px;
+  margin: 0 0 var(--space-4);
   color: var(--text-tertiary);
-  margin-bottom: 12px;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-regular);
 }
 
 .dw-meta-row {
   display: flex;
   flex-wrap: wrap;
-  gap: 7px;
   align-items: center;
-  margin-bottom: 14px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 
 .dw-rating {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--warning);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
 }
 
 .dw-rating em {
-  font-size: 12px;
-  font-style: normal;
-  color: var(--text-tertiary);
-  margin-left: 3px;
+  display: none;
 }
 
 .dw-tag {
-  font-size: 11px;
-  padding: 2px 9px;
-  border-radius: 5px;
-  background: var(--bg-fill-secondary);
   color: var(--text-secondary);
+  white-space: nowrap;
 }
 
-.dw-tag.source-vod {
-  background: color-mix(in srgb, var(--success) 20%, transparent);
-  color: var(--success);
+
+
+
+.dw-rating .app-icon {
+  color: var(--rating);
 }
 
-.dw-tag.source-cms {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+.dw-rating + .dw-tag::before,
+.dw-tag + .dw-tag::before {
+  content: '·';
+  margin-right: var(--space-2);
+  color: var(--text-quaternary);
 }
 
-.dw-tag.source-douban {
-  background: color-mix(in srgb, var(--success) 20%, transparent);
-  color: var(--success);
+.dw-actions {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
 }
 
 .dw-overview {
-  font-size: 13px;
+  max-width: 64ch;
+  margin: 0 0 var(--space-5);
   color: var(--text-secondary);
-  line-height: 1.75;
-  margin-bottom: 18px;
+  font-size: var(--text-md);
+  line-height: 1.65;
 }
 
 .dw-meta-table {
@@ -961,7 +986,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-meta-label {
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary);
   width: 36px;
   flex-shrink: 0;
@@ -969,7 +994,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-meta-val {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-secondary);
 }
 
@@ -978,18 +1003,16 @@ const onActorImgError = (e: Event) => {
   align-items: center;
   gap: 8px;
   padding: 8px 16px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-secondary);
 }
 
 .dw-sources-section {
-  margin-top: 24px;
-  padding: 16px 0;
-  border-top: 1px solid var(--separator);
+  margin-top: var(--space-6);
 }
 
 .ep-empty {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-tertiary);
   padding: 16px 0;
   text-align: center;
@@ -1006,7 +1029,7 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-section-title {
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
   margin-bottom: 12px;
@@ -1038,24 +1061,22 @@ const onActorImgError = (e: Event) => {
 }
 
 .dw-actor-img {
-  width: 64px;
-  height: 64px;
+  width: 72px;
+  height: 72px;
+  margin-bottom: var(--space-2);
   border-radius: 50%;
   object-fit: cover;
-  margin: 0 auto 6px;
-  display: block;
   background: var(--bg-fill-secondary);
-  border: 2px solid var(--border-subtle);
 }
 
 .dw-actor-name {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--text-primary);
   line-height: 1.3;
 }
 
 .dw-actor-char {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary);
   margin-top: 2px;
 }
@@ -1084,7 +1105,7 @@ const onActorImgError = (e: Event) => {
   flex-shrink: 0;
   width: 200px;
   height: 112px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   overflow: hidden;
   cursor: pointer;
   transition:
@@ -1129,7 +1150,7 @@ const onActorImgError = (e: Event) => {
 .lb-img {
   max-width: 90vw;
   max-height: 86vh;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   object-fit: contain;
 }
 
@@ -1137,23 +1158,8 @@ const onActorImgError = (e: Event) => {
   position: absolute;
   top: 50%;
   transform: translateY(-50%);
-  background: var(--bg-fill-secondary);
-  border: none;
-  color: var(--text-on-accent);
-  font-size: 36px;
-  width: 48px;
-  height: 64px;
-  border-radius: 8px;
-  cursor: pointer;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  transition: background 0.15s;
 }
 
-.lb-arrow:hover {
-  background: var(--scrollbar-thumb-hover);
-}
 
 .lb-prev {
   left: 16px;
@@ -1165,21 +1171,10 @@ const onActorImgError = (e: Event) => {
 
 .lb-close {
   position: absolute;
-  top: 16px;
-  right: 16px;
-  width: 36px;
-  height: 36px;
-  border-radius: 50%;
-  background: var(--bg-fill-secondary);
-  border: none;
-  color: var(--text-on-accent);
-  font-size: 16px;
-  cursor: pointer;
+  top: var(--space-4);
+  right: var(--space-4);
 }
 
-.lb-close:hover {
-  background: color-mix(in srgb, var(--danger) 70%, transparent);
-}
 
 /* 播放弹窗 */
 .sheet-fade-enter-active,
@@ -1223,70 +1218,50 @@ const onActorImgError = (e: Event) => {
 }
 
 .source-type-tabs {
-  display: flex;
-  gap: 8px;
-  margin-bottom: 16px;
-  border-bottom: 1px solid var(--separator);
-  padding-bottom: 10px;
+  margin-bottom: var(--space-4);
 }
 
-.source-type-tab {
-  padding: 6px 16px;
-  font-size: 13px;
-  background: transparent;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  cursor: pointer;
-  transition: all 0.2s;
-}
 
-.source-type-tab:hover {
-  border-color: var(--text-tertiary);
-  color: var(--text-primary);
-}
 
-.source-type-tab.active {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 50%, transparent);
-  color: var(--accent-text);
-}
 
 .group-tabs {
   display: flex;
-  gap: 6px;
-  margin-bottom: 10px;
   flex-wrap: wrap;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
 }
 
 .group-tab {
-  padding: 4px 14px;
-  font-size: 12px;
-  background: var(--bg-fill-tertiary);
-  border: 1px solid rgba(255, 255, 255, 0.1);
-  border-radius: 6px;
+  height: var(--control-height-sm);
+  padding: 0 var(--space-3);
+  border: 0;
+  border-radius: var(--radius-full);
+  background: var(--bg-glass);
   color: var(--text-secondary);
+  font-size: var(--text-xs);
   cursor: pointer;
+  transition: var(--transition-fast);
+}
+
+.group-tab:hover {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
 }
 
 .group-tab.active {
-  background: color-mix(in srgb, var(--accent) 40%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 60%, transparent);
-  color: var(--text-on-accent);
+  background: var(--bg-active);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
 }
 
-.group-tab.cs-tab.active {
-  background: color-mix(in srgb, var(--success) 40%, transparent);
-  border-color: color-mix(in srgb, var(--success) 60%, transparent);
-}
 
 .episode-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 6px;
-  max-height: 130px;
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(72px, 1fr));
+  gap: var(--space-2);
+  max-height: 168px;
   overflow-y: auto;
-  padding-bottom: 12px;
+  padding-bottom: var(--space-3);
 }
 
 .episode-list::-webkit-scrollbar {
@@ -1298,23 +1273,28 @@ const onActorImgError = (e: Event) => {
 }
 
 .ep-btn {
-  padding: 4px 13px;
-  font-size: 12px;
-  background: var(--bg-fill-tertiary);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-sm);
+  height: var(--control-height);
+  padding: 0 var(--space-2);
+  overflow: hidden;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
   color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
   cursor: pointer;
-  transition: all 0.15s;
+  transition: var(--transition-fast);
 }
 
 .ep-btn:hover {
-  background: var(--scrollbar-thumb);
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
 }
 
 .ep-btn.playing {
-  background: color-mix(in srgb, var(--accent) 40%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 80%, transparent);
-  color: var(--text-on-accent);
+  background: var(--action-bg);
+  color: var(--action-text);
+  font-weight: var(--font-weight-semibold);
 }
 </style>

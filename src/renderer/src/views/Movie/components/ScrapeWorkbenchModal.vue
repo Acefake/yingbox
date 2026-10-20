@@ -408,7 +408,7 @@ defineExpose({
 }
 
 .sw-sheet {
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   box-shadow:
     var(--shadow-lg),
     0 0 0 0.5px color-mix(in srgb, var(--border-glass-light) 80%, transparent);
@@ -429,7 +429,7 @@ defineExpose({
 .sw-input {
   height: 40px;
   padding: 0 16px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 1px solid var(--border-subtle);
   background: var(--bg-fill-secondary);
   color: var(--text-primary);
@@ -446,7 +446,7 @@ defineExpose({
 
 .sw-search-btn {
   height: 40px;
-  border-radius: 999px !important;
+  border-radius: var(--radius-full) !important;
   padding-left: 18px !important;
   padding-right: 18px !important;
 }
@@ -457,7 +457,7 @@ defineExpose({
 
 .sw-card {
   background: transparent;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   border: 1px solid var(--border-default);
   overflow: hidden;
   box-shadow: var(--shadow-sm);
@@ -485,12 +485,11 @@ defineExpose({
 .sw-pick-btn {
   width: 100%;
   padding: 6px 0;
-  border-radius: 999px;
-  font-size: 11px;
+  border-radius: var(--radius-full);
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
-  color: var(--accent-text);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
+  color: var(--text-primary);
+  background: var(--bg-active);
   cursor: pointer;
   transition: var(--transition-fast);
 }

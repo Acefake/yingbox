@@ -20,7 +20,7 @@ export function resolveInitialTheme(): AppTheme {
 }
 
 const FONT_STACK =
-  '"Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif'
+  '-apple-system, BlinkMacSystemFont, "SF Pro Text", "PingFang SC", "Segoe UI Variable Text", "Segoe UI", "Microsoft YaHei UI", system-ui, sans-serif'
 
 export function buildAntdTheme(theme: AppTheme): ThemeConfig {
   const isDark = theme === 'dark'
@@ -30,41 +30,41 @@ export function buildAntdTheme(theme: AppTheme): ThemeConfig {
       : antdThemeAlgo.defaultAlgorithm,
     token: isDark
       ? {
-          colorPrimary: '#f1f1f1',
-          colorInfo: '#f1f1f1',
-          colorTextLightSolid: '#242424',
+          colorPrimary: '#0a84ff',
+          colorInfo: '#0a84ff',
+          colorTextLightSolid: '#ffffff',
           colorSuccess: '#30d158',
           colorWarning: '#ff9f0a',
           colorError: '#ff453a',
-          colorBgBase: '#171717',
-          colorBgContainer: '#202020',
-          colorText: '#f1f1f1',
-          colorTextSecondary: '#a3a3a3',
-          colorBorder: '#303030',
+          colorBgBase: '#121214',
+          colorBgContainer: '#1c1c1e',
+          colorText: '#f5f5f7',
+          colorTextSecondary: 'rgba(235, 235, 245, 0.68)',
+          colorBorder: 'rgba(255, 255, 255, 0.1)',
           borderRadius: 8,
-          borderRadiusLG: 10,
+          borderRadiusLG: 12,
           borderRadiusSM: 6,
           fontFamily: FONT_STACK,
-          controlHeight: 38,
+          controlHeight: 32,
           wireframe: false,
         }
       : {
-          colorPrimary: '#242424',
-          colorInfo: '#242424',
-          colorTextLightSolid: '#f1f1f1',
+          colorPrimary: '#007aff',
+          colorInfo: '#007aff',
+          colorTextLightSolid: '#ffffff',
           colorSuccess: '#34c759',
-          colorWarning: '#ff9f0a',
+          colorWarning: '#ff9500',
           colorError: '#ff3b30',
-          colorBgBase: '#fafaf8',
+          colorBgBase: '#ffffff',
           colorBgContainer: '#ffffff',
-          colorText: '#242424',
-          colorTextSecondary: '#6c6c6c',
-          colorBorder: '#dededa',
+          colorText: '#1d1d1f',
+          colorTextSecondary: 'rgba(60, 60, 67, 0.82)',
+          colorBorder: 'rgba(0, 0, 0, 0.1)',
           borderRadius: 8,
-          borderRadiusLG: 10,
+          borderRadiusLG: 12,
           borderRadiusSM: 6,
           fontFamily: FONT_STACK,
-          controlHeight: 38,
+          controlHeight: 32,
           wireframe: false,
         },
   }

@@ -19,7 +19,7 @@
     <!-- 媒体中心侧栏 -->
     <aside class="app-sidebar" aria-label="媒体中心导航">
       <div class="sidebar-brand">
-        <span class="brand-mark" aria-hidden="true"><AppIcon name="movie" /></span>
+        <span class="brand-mark" aria-hidden="true"><UiIcon name="movie" /></span>
         <span class="brand-name">{{ appName }}</span>
         <button
           class="sidebar-toggle"
@@ -27,7 +27,7 @@
           :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="sidebarCollapsed = !sidebarCollapsed"
         >
-          <AppIcon name="panel" />
+          <UiIcon name="panel" />
         </button>
       </div>
       <nav class="sidebar-nav flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
@@ -37,7 +37,7 @@
           :class="{ active: route.name === 'Online' && !route.query.tab }"
           @click="navigateTo('/')"
          title="首页" aria-label="首页">
-          <AppIcon name="home" size="lg" /><span>首页</span>
+          <UiIcon name="home" size="lg" /><span>首页</span>
         </button>
         <button
           class="sidebar-item"
@@ -46,7 +46,7 @@
           }"
           @click="navigateTo('/?tab=recent')"
          title="最近播放" aria-label="最近播放">
-          <AppIcon name="history" size="lg" /><span>最近播放</span>
+          <UiIcon name="history" size="lg" /><span>最近播放</span>
         </button>
         <button
           class="sidebar-item"
@@ -55,7 +55,7 @@
           }"
           @click="navigateTo('/?tab=favorites')"
          title="我的收藏" aria-label="我的收藏">
-          <AppIcon name="heart" size="lg" /><span>我的收藏</span>
+          <UiIcon name="heart" size="lg" /><span>我的收藏</span>
         </button>
         <template v-if="hasLocalLibrary">
           <div class="sidebar-divider" />
@@ -65,14 +65,14 @@
             :class="{ active: route.name === 'Movie' }"
             @click="navigateTo('/movie')"
            title="电影" aria-label="电影">
-            <AppIcon name="movie" size="lg" /><span>电影</span>
+            <UiIcon name="movie" size="lg" /><span>电影</span>
           </button>
           <button
             class="sidebar-item"
             :class="{ active: route.name === 'TV' }"
             @click="navigateTo('/tv')"
            title="电视剧" aria-label="电视剧">
-            <AppIcon name="tv" size="lg" /><span>电视剧</span>
+            <UiIcon name="tv" size="lg" /><span>电视剧</span>
           </button>
         </template>
         <button
@@ -81,7 +81,7 @@
           :class="{ active: route.name === 'Amane' }"
           @click="navigateTo('/amane')"
          title="Amane" aria-label="Amane">
-          <AppIcon name="movie" size="lg" /><span>Amane</span>
+          <UiIcon name="movie" size="lg" /><span>Amane</span>
         </button>
         <button
           v-if="adultMode"
@@ -89,7 +89,7 @@
           :class="{ active: route.name === 'AV' }"
           @click="navigateTo('/av')"
          title="AV资源" aria-label="AV资源">
-          <AppIcon name="av" size="lg" /><span>AV资源</span>
+          <UiIcon name="av" size="lg" /><span>AV资源</span>
         </button>
       </nav>
       <div class="sidebar-footer">
@@ -108,7 +108,7 @@
             @click="queuePanelVisible = !queuePanelVisible"
           >
             <span class="footer-queue-icon" aria-hidden="true">
-              <AppIcon name="list" size="lg" />
+              <UiIcon name="list" size="lg" />
               <span v-if="queueBusy" class="footer-pulse" />
             </span>
             <span class="footer-action-label">刮削队列</span>
@@ -131,7 +131,7 @@
             aria-label="打开设置"
             @click="openGlobalSettings()"
           >
-            <AppIcon name="settings" size="lg" /><span class="footer-action-label">设置</span>
+            <UiIcon name="settings" size="lg" /><span class="footer-action-label">设置</span>
           </button>
         </div>
       </div>
@@ -149,7 +149,7 @@
               aria-label="打开菜单"
               @click="sidebarOpen = true"
             >
-              <AppIcon name="menu" />
+              <UiIcon name="menu" />
             </button>
             <button
               class="toolbar-btn"
@@ -157,7 +157,7 @@
               title="后退"
               @click="navigateBack"
             >
-              <AppIcon name="back" />
+              <UiIcon name="back" />
             </button>
             <button
               v-if="!isPhone"
@@ -166,7 +166,7 @@
               title="前进"
               @click="router.forward()"
             >
-              <AppIcon name="forward" />
+              <UiIcon name="forward" />
             </button>
             <button
               v-if="!isPhone"
@@ -175,14 +175,14 @@
               title="刷新"
               @click="router.go(0)"
             >
-              <AppIcon name="refresh" />
+              <UiIcon name="refresh" />
             </button>
             <div
               class="global-search"
               role="search"
               :aria-label="globalSearchPlaceholder"
             >
-              <AppIcon name="search" size="md" />
+              <UiIcon name="search" size="md" />
               <input
                 ref="globalSearchInput"
                 v-model="globalSearch"
@@ -197,7 +197,7 @@
                 aria-label="清空搜索"
                 @click="clearGlobalSearch"
               >
-                <AppIcon name="close" size="sm" />
+                <UiIcon name="close" size="sm" />
               </button>
             </div>
           </div>
@@ -236,7 +236,7 @@
         :class="{ active: route.name === 'Online' && !route.query.tab }"
         @click="navigateTo('/')"
       >
-        <AppIcon name="home" size="lg" /><span>首页</span>
+        <UiIcon name="home" size="lg" /><span>首页</span>
       </button>
       <button
         type="button"
@@ -245,7 +245,7 @@
         }"
         @click="navigateTo('/?tab=favorites')"
       >
-        <AppIcon name="heart" size="lg" /><span>收藏</span>
+        <UiIcon name="heart" size="lg" /><span>收藏</span>
       </button>
       <button
         v-if="hasLocalLibrary"
@@ -253,14 +253,14 @@
         :class="{ active: route.name === 'Movie' }"
         @click="navigateTo('/movie')"
       >
-        <AppIcon name="movie" size="lg" /><span>电影</span>
+        <UiIcon name="movie" size="lg" /><span>电影</span>
       </button>
       <button
         type="button"
         :class="{ active: sidebarOpen }"
         @click="sidebarOpen = true"
       >
-        <AppIcon name="menu" /><span>菜单</span>
+        <UiIcon name="menu" /><span>菜单</span>
       </button>
     </nav>
   </div>
@@ -272,7 +272,7 @@ import { useRoute, useRouter } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import ScrapeQueuePanel from '@/components/ScrapeQueuePanel.vue'
-import AppIcon from '@/components/AppIcon.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useLadaTasks } from '@/composables/use-lada-tasks'
 import { usePlatform } from '@/composables/use-platform'
@@ -466,7 +466,6 @@ onUnmounted(() => {
   background: var(--bg-sidebar-solid);
   backdrop-filter: none;
   -webkit-backdrop-filter: none;
-  border-right: 1px solid var(--border-subtle);
   -webkit-app-region: no-drag;
   transition: width 150ms ease, flex-basis 150ms ease, max-width 150ms ease, transform 180ms ease;
 }
@@ -493,11 +492,10 @@ onUnmounted(() => {
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
-  background: var(--accent-soft);
-  box-shadow: inset 0 0 0 1px var(--border-default);
+  background: var(--action-bg);
   flex: 0 0 auto;
 
-  color: var(--accent-text);
+  color: var(--action-text);
 
   display: grid;
 
@@ -505,7 +503,7 @@ onUnmounted(() => {
 }
 
 .brand-name {
-  font-size: 17px;
+  font-size: var(--text-lg);
   font-weight: 500;
   letter-spacing: -0.01em;
 }
@@ -518,7 +516,7 @@ onUnmounted(() => {
   border-radius: var(--radius-sm);
   color: var(--text-tertiary);
   background: transparent;
-  font-size: 20px;
+  font-size: var(--text-xl);
   line-height: 1;
   cursor: pointer;
   transition: var(--transition-fast);
@@ -553,10 +551,10 @@ onUnmounted(() => {
   min-height: 36px;
   padding: 0 12px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background: transparent;
-  font-size: 14px;
+  font-size: var(--text-md);
   font-weight: var(--font-weight-regular);
   text-align: left;
   cursor: pointer;
@@ -588,9 +586,13 @@ onUnmounted(() => {
 }
 
 .sidebar-item.active {
-  color: var(--accent-text);
-  background: var(--accent-soft);
+  color: var(--text-primary);
+  background: var(--bg-active);
   font-weight: var(--font-weight-medium);
+}
+
+.sidebar-item.active :deep(.app-icon) {
+  color: var(--accent-text);
 }
 
 .sidebar-divider {
@@ -602,7 +604,7 @@ onUnmounted(() => {
 .sidebar-heading {
   padding: 16px 12px 6px;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 400;
   letter-spacing: 0;
   text-transform: none;
@@ -645,7 +647,7 @@ onUnmounted(() => {
   width: 34px;
   height: 34px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
@@ -666,7 +668,7 @@ onUnmounted(() => {
   margin-left: 8px;
   padding: 0 10px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   color: var(--text-tertiary);
   background: var(--bg-fill-tertiary);
   transition: var(--transition-fast);
@@ -767,7 +769,7 @@ onUnmounted(() => {
   height: 36px;
   overflow: hidden;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background: transparent;
   cursor: pointer;
@@ -777,7 +779,7 @@ onUnmounted(() => {
 
   gap: 10px;
 
-  font-size: 13px;
+  font-size: var(--text-sm);
 }
 
 .footer-icon-btn:hover {
@@ -786,8 +788,8 @@ onUnmounted(() => {
 }
 
 .footer-icon-btn.active {
-  color: var(--accent);
-  background: var(--accent-soft);
+  color: var(--text-primary);
+  background: var(--bg-active);
 }
 
 .footer-icon-btn :deep(.app-icon) {
@@ -828,10 +830,10 @@ onUnmounted(() => {
   min-width: 15px;
   height: 15px;
   padding: 0 4px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--text-on-accent);
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   line-height: 15px;
   text-align: center;
@@ -988,7 +990,7 @@ onUnmounted(() => {
   border: 0;
   background: transparent;
   color: var(--text-secondary);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
 }
 

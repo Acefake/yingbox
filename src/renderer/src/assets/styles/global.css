@@ -6,12 +6,12 @@
 
 .custom-scrollbar::-webkit-scrollbar-track {
   background: var(--scrollbar-track);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 .custom-scrollbar::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
   transition: var(--transition-fast);
 }
 
@@ -55,7 +55,7 @@
 }
 .primary-scroll::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 999px;
+  border-radius: var(--radius-full);
 }
 .primary-scroll::-webkit-scrollbar-thumb:hover {
   background: var(--scrollbar-thumb-hover);
@@ -131,7 +131,7 @@ button:disabled,
 
 /* Keep dense metadata legible across pages that still use legacy utility sizes. */
 [class~='text-[9px]'] {
-  font-size: 11px !important;
+  font-size: var(--text-2xs) !important;
 }
 [class~='text-[10px]'] {
   font-size: var(--text-xs) !important;

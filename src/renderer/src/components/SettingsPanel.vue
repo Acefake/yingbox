@@ -20,7 +20,7 @@
         <!-- 左侧：搜索 + 分区导航 -->
         <aside class="settings-nav">
           <div class="settings-search">
-            <AppIcon name="search" size="sm" />
+            <UiIcon name="search" size="sm" />
             <input
               v-model="navQuery"
               placeholder="搜索设置"
@@ -37,7 +37,7 @@
               type="button"
               @click="selectSection(sec.id)"
             >
-              <AppIcon :name="sec.icon" />
+              <UiIcon :name="sec.icon" />
               <span>{{ sec.label }}</span>
             </button>
             <p v-if="visibleSections.length === 0" class="settings-nav-empty">
@@ -550,7 +550,7 @@ import {
 } from '@/composables/use-media-player'
 import { useMpvPlayer } from '@/composables/use-mpv-player'
 import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
-import AppIcon from '@/components/AppIcon.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import AmaneSettings from '@/views/Amane/Settings.vue'
 
 const props = defineProps<{ visible: boolean; initialSection?: string }>()
@@ -1123,12 +1123,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 .settings-nav-item.active {
   color: var(--text-primary);
-  background: var(--accent-soft);
+  background: var(--bg-active);
   font-weight: var(--font-weight-medium);
 }
 .settings-nav-empty {
   margin: 10px 4px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
 
@@ -1197,7 +1197,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 .st-row-desc {
   margin-top: 2px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   line-height: 1.55;
   color: var(--text-secondary);
 }
@@ -1281,7 +1281,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   color: var(--text-primary);
 }
 .st-card-desc {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary);
 }
 
@@ -1305,14 +1305,14 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .st-warn {
   margin: 0;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--danger);
 }
 
 .st-code {
   padding: 0 4px;
-  border-radius: 4px;
-  font-size: 10px;
+  border-radius: var(--radius-xs);
+  font-size: var(--text-2xs);
   background: var(--bg-fill-secondary);
 }
 

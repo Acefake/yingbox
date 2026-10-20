@@ -203,6 +203,6 @@ const openDoubanDetail = (item: DoubanItem) => {
 
 .content-area::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 </style>

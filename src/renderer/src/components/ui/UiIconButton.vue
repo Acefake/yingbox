@@ -1,0 +1,123 @@
+<template>
+  <button
+    v-tooltip="label"
+    type="button"
+    class="yb-icon-button"
+    :class="[
+      `is-${variant}`,
+      `is-${size}`,
+      { 'is-active': active, 'is-danger': danger, 'is-loading': loading },
+    ]"
+    :aria-label="label"
+    :aria-pressed="active === undefined ? undefined : active"
+    :aria-busy="loading || undefined"
+    :disabled="disabled || loading"
+  >
+    <UiIcon
+      :name="loading ? 'refresh' : icon"
+      :size="size === 'lg' ? 'lg' : 'md'"
+      :filled="filled"
+    />
+  </button>
+</template>
+
+<script setup lang="ts">
+/**
+ * 只有图标的按钮。label 必填：作为无障碍名称，同时是悬停提示。
+ *
+ * variant：
+ * - plain：透明底，工具栏默认
+ * - secondary：浅填充底，和文字按钮并排时用
+ * - overlay：半透明深色圆底，叠在海报和图片上
+ */
+import type { IconName } from './icons'
+import { vTooltip } from './tooltip'
+import UiIcon from './UiIcon.vue'
+
+withDefaults(
+  defineProps<{
+    icon: IconName
+    label: string
+    variant?: 'plain' | 'secondary' | 'overlay'
+    size?: 'sm' | 'md' | 'lg'
+    disabled?: boolean
+    loading?: boolean
+    active?: boolean
+    danger?: boolean
+    filled?: boolean
+  }>(),
+  { variant: 'plain', size: 'md', active: undefined }
+)
+</script>
+
+<style>
+.yb-icon-button {
+  --ib-size: var(--control-height);
+  display: inline-flex;
+  flex: 0 0 var(--ib-size);
+  align-items: center;
+  justify-content: center;
+  width: var(--ib-size);
+  height: var(--ib-size);
+  padding: 0;
+  border: 0;
+  border-radius: var(--radius-md);
+  background: transparent;
+  color: var(--text-secondary);
+  cursor: pointer;
+  transition: var(--transition-fast);
+}
+.yb-icon-button.is-sm {
+  --ib-size: var(--control-height-sm);
+}
+.yb-icon-button.is-lg {
+  --ib-size: var(--control-height-lg);
+  border-radius: var(--radius-full);
+}
+.yb-icon-button.is-secondary {
+  background: var(--bg-glass);
+  color: var(--text-primary);
+}
+.yb-icon-button.is-overlay {
+  border-radius: var(--radius-full);
+  background: rgba(0, 0, 0, 0.48);
+  color: #fff;
+  backdrop-filter: blur(12px) saturate(160%);
+  -webkit-backdrop-filter: blur(12px) saturate(160%);
+}
+.yb-icon-button:hover:not(:disabled) {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+}
+.yb-icon-button.is-overlay:hover:not(:disabled) {
+  background: rgba(0, 0, 0, 0.64);
+  color: #fff;
+}
+.yb-icon-button:active:not(:disabled) {
+  transform: scale(0.94);
+}
+.yb-icon-button:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.yb-icon-button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.yb-icon-button.is-active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+}
+.yb-icon-button.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
+  color: var(--danger);
+}
+.yb-icon-button.is-loading .app-icon {
+  animation: yb-icon-spin 0.9s linear infinite;
+}
+@keyframes yb-icon-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+</style>

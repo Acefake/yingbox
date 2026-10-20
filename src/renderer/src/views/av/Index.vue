@@ -1811,7 +1811,7 @@ onBeforeUnmount(() =>
 
 ::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 ::-webkit-scrollbar-thumb:hover {
@@ -1824,7 +1824,7 @@ onBeforeUnmount(() =>
   color: var(--text-secondary);
   background: transparent;
 
-  border-radius: 7px;
+  border-radius: var(--radius-md);
 
   min-height: 36px;
 }
@@ -1832,10 +1832,10 @@ onBeforeUnmount(() =>
   color: var(--text-primary);
 }
 .av-tab.is-active {
-  color: var(--accent-text);
+  color: var(--text-primary);
   font-weight: var(--font-weight-medium);
 
-  background: var(--accent-soft);
+  background: var(--bg-active);
   box-shadow: none;
 }
 .av-card {
@@ -1864,7 +1864,7 @@ onBeforeUnmount(() =>
   border: 1px solid var(--border-default);
   color: var(--text-secondary);
   background: transparent;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   min-height: var(--control-height);
   padding: 0 18px;
   transition: var(--transition-fast);
