@@ -28,6 +28,14 @@ const HANDLERS: Handlers = {
   scan: (s, p) => s.scan(p),
   query: (s, p) => s.query(p),
   getItem: (s, p) => s.getItem(p),
+  identify: (s, p) => s.identify(p),
+  getMatchCandidates: (s, p) => s.getMatchCandidates(p),
+  applyMatch: (s, p) => s.applyMatch(p),
+  lockMatch: (s, p) => s.lockMatch(p),
+  unlockMatch: (s, p) => s.unlockMatch(p),
+  refreshMetadata: (s, p) => s.refreshMetadata(p),
+  setProviderToken: (s, p) => s.setProviderToken(p),
+  getProviderStatus: s => s.getProviderStatus(),
 }
 
 /** 处理一次调用，永不抛出：任何错误都变成 ok: false 的响应。 */

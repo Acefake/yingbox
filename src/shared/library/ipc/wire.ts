@@ -52,8 +52,14 @@ export interface ReadyMessage {
   kind: 'ready'
 }
 
+/** 引擎 → 主进程：一批原图已下载到缓存目录，主进程据此预热缩略图。 */
+export interface ImagesCachedMessage {
+  kind: 'images-cached'
+  keys: string[]
+}
+
 /** 引擎发给主进程的全部消息。 */
-export type EngineMessage = RpcResponse | ReadyMessage
+export type EngineMessage = RpcResponse | ReadyMessage | ImagesCachedMessage
 
 /** 渲染进程 ↔ 主进程的 IPC 通道名。 */
 export const LIBRARY_CHANNELS = {

@@ -5,6 +5,8 @@
  */
 import {
   type AddLibraryRequest,
+  type ApplyMatchRequest,
+  type IdentifyRequest,
   LIBRARY_METHODS,
   type LibraryKind,
   type LibraryMethod,
@@ -12,7 +14,9 @@ import {
   type LibraryRpcMap,
   type LibrarySortField,
   type MatchState,
+  type RefreshMetadataRequest,
   type ScanRequest,
+  type SetProviderTokenRequest,
   type TopLevelItemType,
 } from './contract'
 import { LibraryError } from './wire'
@@ -162,6 +166,103 @@ function parseScan(input: unknown): ScanRequest {
   return { libraryId: positiveId(r.libraryId, 'libraryId'), full: !!r.full }
 }
 
+/** 一次识别 / 刷新最多点名的条目数。 */
+export const MAX_ITEM_IDS = 10_000
+
+function itemIdList(value: unknown): number[] | undefined {
+  if (value === undefined || value === null) return undefined
+  if (!Array.isArray(value)) return invalid('itemIds 必须是数组')
+  if (value.length > MAX_ITEM_IDS) {
+    return invalid(`itemIds 一次最多 ${MAX_ITEM_IDS} 个`)
+  }
+  return [...new Set(value.map(v => positiveId(v, 'itemIds')))]
+}
+
+/** 识别 / 刷新：libraryId 与 itemIds 至少给一个。 */
+function parseTargets(input: unknown, what: string): IdentifyRequest {
+  const r = asRecord(input, `${what} 参数`)
+  const libraryId =
+    r.libraryId === undefined || r.libraryId === null
+      ? undefined
+      : positiveId(r.libraryId, 'libraryId')
+  const itemIds = itemIdList(r.itemIds)
+  if (libraryId === undefined && !itemIds?.length) {
+    invalid('libraryId 与 itemIds 至少提供一个')
+  }
+  return { libraryId, itemIds, force: !!r.force }
+}
+
+const optionalText = (
+  value: unknown,
+  name: string,
+  max = 200
+): string | undefined => {
+  if (value === undefined || value === null || value === '') return undefined
+  if (typeof value !== 'string') return invalid(`${name} 必须是字符串`)
+  const text = value.trim()
+  if (!text) return undefined
+  if (text.length > max) return invalid(`${name} 过长`)
+  return text
+}
+
+function parseApplyMatch(input: unknown): ApplyMatchRequest {
+  const r = asRecord(input, 'applyMatch 参数')
+  const itemId = positiveId(r.itemId, 'itemId')
+  const tmdbId = optionalText(r.tmdbId, 'tmdbId', 20)
+  const imdbId = optionalText(r.imdbId, 'imdbId', 20)
+  const tvdbId = optionalText(r.tvdbId, 'tvdbId', 20)
+  if (tmdbId !== undefined && !/^\d+$/.test(tmdbId))
+    invalid('tmdbId 必须是数字')
+  if (imdbId !== undefined && !/^tt\d{6,9}$/i.test(imdbId)) {
+    invalid('imdbId 格式应为 tt 加数字')
+  }
+  if (tvdbId !== undefined && !/^\d+$/.test(tvdbId))
+    invalid('tvdbId 必须是数字')
+  let query: ApplyMatchRequest['query']
+  if (r.query !== undefined && r.query !== null) {
+    const q = asRecord(r.query, 'query')
+    const title = optionalText(q.title, 'query.title')
+    if (!title) invalid('query.title 不能为空')
+    query = { title: title!, year: optionalInt(q.year, 'query.year', 1800) }
+  }
+  const given = [tmdbId, imdbId, tvdbId, query].filter(v => v !== undefined)
+  if (given.length !== 1) {
+    invalid('tmdbId / imdbId / tvdbId / query 必须且只能提供一个')
+  }
+  return {
+    itemId,
+    tmdbId,
+    imdbId: imdbId?.toLowerCase(),
+    tvdbId,
+    query,
+    lock: r.lock === undefined ? true : !!r.lock,
+  }
+}
+
+function parseSetToken(input: unknown): SetProviderTokenRequest {
+  const r = asRecord(input, 'setProviderToken 参数')
+  const provider = oneOf(
+    r.provider,
+    ['tmdb', 'opensubtitles'] as const,
+    'provider'
+  )
+  if (
+    r.token !== null &&
+    r.token !== undefined &&
+    typeof r.token !== 'string'
+  ) {
+    invalid('token 必须是字符串或 null')
+  }
+  const token = typeof r.token === 'string' ? r.token.trim() : ''
+  if (token.length > 2000) invalid('token 过长')
+  if (/\s/.test(token)) invalid('token 不能包含空白字符')
+  return { provider, token: token || null }
+}
+
+const itemIdParam = (input: unknown): { itemId: number } => ({
+  itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
+})
+
 /** 解析后的参数类型：query 补全了默认值，其余与契约一致。 */
 export type ParsedRpcParams<M extends LibraryMethod> = M extends 'query'
   ? NormalizedLibraryQuery
@@ -178,9 +279,18 @@ const PARAM_PARSERS: {
   }),
   scan: parseScan,
   query: normalizeLibraryQuery,
-  getItem: input => ({
-    itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
-  }),
+  getItem: itemIdParam,
+  identify: input => parseTargets(input, 'identify'),
+  getMatchCandidates: itemIdParam,
+  applyMatch: parseApplyMatch,
+  lockMatch: itemIdParam,
+  unlockMatch: itemIdParam,
+  refreshMetadata: (input): RefreshMetadataRequest => {
+    const { libraryId, itemIds } = parseTargets(input, 'refreshMetadata')
+    return { libraryId, itemIds }
+  },
+  setProviderToken: parseSetToken,
+  getProviderStatus: () => undefined,
 }
 
 /** 方法名是否在白名单内。 */

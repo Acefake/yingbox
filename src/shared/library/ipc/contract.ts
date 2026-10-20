@@ -3,6 +3,12 @@
  *
  * 只有类型和常量，不依赖 Node / Electron，主进程、引擎进程、preload、渲染进程共用。
  */
+import type {
+  EpisodeMetadata,
+  MediaKind,
+  MediaMetadata,
+  SeasonMetadata,
+} from '../provider'
 
 /** 媒体库类型：电影库或剧集库，决定本地分组方式和后续用哪类元数据源识别。 */
 export type LibraryKind = 'movie' | 'tv'
@@ -56,8 +62,15 @@ export interface LibraryItemSummary {
   year: number | null
   matchState: MatchState
   providerIds: ProviderIds
-  /** 本地海报路径或远程海报 URL；P3 识别后填充。 */
+  /**
+   * 海报：已缓存时为 yingbox-media://image/<key>（加 ?w=300 / ?w=780 取缩略图，见 mediaImageUrl），
+   * 缓存失败时为 TMDB 远程地址；未识别为 null。
+   */
   poster: string | null
+  /** 背景图，规则同 poster。 */
+  backdrop: string | null
+  /** 评分 0–10；未识别或无评分为 null。 */
+  rating: number | null
   addedAt: number
   updatedAt: number
 }
@@ -75,6 +88,16 @@ export interface LibraryItemFile {
 export interface LibraryItemNode extends LibraryItemSummary {
   seasonNumber: number | null
   episodeNumber: number | null
+  overview: string | null
+  /** 标志图（透明底片名），规则同 poster。 */
+  logo: string | null
+  /** 时长（分钟）。 */
+  runtime: number | null
+  genres: string[]
+  /** 首映 / 播出日期。 */
+  airDate: string | null
+  /** 完整元数据（演职员、图片候选、外部 ID 等）；未识别为 null。 */
+  metadata: ItemMetadata | null
   files: LibraryItemFile[]
   children: LibraryItemNode[]
 }
@@ -132,6 +155,95 @@ export interface ScanAccepted {
   jobId: number
 }
 
+/**
+ * 条目上存的完整元数据：电影 / 剧集是 MediaMetadata，季是 SeasonMetadata（不含 episodes），
+ * 集是 EpisodeMetadata。绝对集数的集额外带 mapped（映射到的 季 / 集）。
+ */
+export type ItemMetadata =
+  | ({ level: 'title' } & MediaMetadata)
+  | ({ level: 'season' } & Omit<SeasonMetadata, 'episodes'>)
+  | ({ level: 'episode' } & EpisodeMetadata & { mapped?: boolean })
+
+/** 识别请求：给 itemIds 只识别这些条目；只给 libraryId 识别该库里需要识别的条目。 */
+export interface IdentifyRequest {
+  libraryId?: number
+  itemIds?: number[]
+  /** 为 true 时已自动匹配 / 待确认的也重新识别（锁定的永远不动）。 */
+  force?: boolean
+}
+
+/** 刷新元数据：重新拉取已匹配条目（含锁定）的元数据与图片，不改匹配。 */
+export interface RefreshMetadataRequest {
+  libraryId?: number
+  itemIds?: number[]
+}
+
+/** 任务已排入队列。 */
+export interface JobAccepted {
+  jobId: number
+}
+
+/** 一个匹配候选（待确认列表、手动搜索结果）。 */
+export interface MatchCandidateInfo {
+  provider: 'tmdb'
+  kind: MediaKind
+  id: string
+  title: string
+  originalTitle: string | null
+  year: number | null
+  /** 0–1。 */
+  confidence: number
+  /** 各信号得分（title / year / runtime / episodes）。 */
+  breakdown: Record<string, number>
+  /** TMDB 海报远程地址（w185），候选还没缓存，直接用远程图。 */
+  poster: string | null
+}
+
+/** 某条目当前的匹配与候选。 */
+export interface MatchCandidatesResult {
+  itemId: number
+  matchState: MatchState
+  /** 当前匹配（auto / locked）；没有为 null。 */
+  current: MatchCandidateInfo | null
+  /** 待确认 / 未匹配时保存的前几名候选。 */
+  candidates: MatchCandidateInfo[]
+}
+
+/**
+ * 手动匹配：三选一——
+ * - tmdbId：直接指定（kind 缺省取条目类型）；
+ * - imdbId / tvdbId：反查后指定；
+ * - query：用给定标题（和年份）重新搜索打分，够自信自动应用，否则返回候选。
+ */
+export interface ApplyMatchRequest {
+  itemId: number
+  tmdbId?: string
+  imdbId?: string
+  tvdbId?: string
+  query?: { title: string; year?: number }
+  /** 指定 id 时是否锁定，默认 true（手动选择的结果之后不被自动识别覆盖）。 */
+  lock?: boolean
+}
+
+/** 手动匹配结果。 */
+export interface ApplyMatchResult {
+  status: 'matched' | 'review' | 'unmatched'
+  item: LibraryItemSummary | null
+  candidates: MatchCandidateInfo[]
+}
+
+/** 设置元数据源令牌；token 为 null 或空串表示清除。 */
+export interface SetProviderTokenRequest {
+  provider: 'tmdb' | 'opensubtitles'
+  token: string | null
+}
+
+/** 元数据源配置状态（不回传令牌本身）。 */
+export interface ProviderStatus {
+  tmdb: { configured: boolean }
+  opensubtitles: { configured: boolean }
+}
+
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
 export interface LibraryRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
@@ -140,6 +252,17 @@ export interface LibraryRpcMap {
   scan: { params: ScanRequest; result: ScanAccepted }
   query: { params: LibraryQuery; result: LibraryQueryResult }
   getItem: { params: { itemId: number }; result: LibraryItemNode | null }
+  identify: { params: IdentifyRequest; result: JobAccepted }
+  getMatchCandidates: {
+    params: { itemId: number }
+    result: MatchCandidatesResult
+  }
+  applyMatch: { params: ApplyMatchRequest; result: ApplyMatchResult }
+  lockMatch: { params: { itemId: number }; result: LibraryItemSummary }
+  unlockMatch: { params: { itemId: number }; result: LibraryItemSummary }
+  refreshMetadata: { params: RefreshMetadataRequest; result: JobAccepted }
+  setProviderToken: { params: SetProviderTokenRequest; result: ProviderStatus }
+  getProviderStatus: { params: void; result: ProviderStatus }
 }
 
 /** 方法名。 */
@@ -153,6 +276,14 @@ export const LIBRARY_METHODS = [
   'scan',
   'query',
   'getItem',
+  'identify',
+  'getMatchCandidates',
+  'applyMatch',
+  'lockMatch',
+  'unlockMatch',
+  'refreshMetadata',
+  'setProviderToken',
+  'getProviderStatus',
 ] as const satisfies readonly LibraryMethod[]
 
 /** 任务状态。 */
@@ -186,8 +317,30 @@ export interface JobEvent {
   error?: string
 }
 
+/** 识别 / 刷新元数据进度（节流推送，最后一次 finished 为 true）。 */
+export interface IdentifyProgressEvent {
+  type: 'identify-progress'
+  jobId: number
+  /** 'identify' 或 'refresh'。 */
+  mode: 'identify' | 'refresh'
+  libraryId: number | null
+  total: number
+  done: number
+  matched: number
+  review: number
+  unmatched: number
+  failed: number
+  finished: boolean
+  /** 失败原因（如令牌无效）。 */
+  error?: string
+}
+
 /** 引擎经 MessagePort 推给订阅方的事件。 */
-export type LibraryEvent = ItemsChangedEvent | LibrariesChangedEvent | JobEvent
+export type LibraryEvent =
+  | ItemsChangedEvent
+  | LibrariesChangedEvent
+  | JobEvent
+  | IdentifyProgressEvent
 
 /** 单个 items-changed 事件里 id 总数的上限，超过就改发 reset。 */
 export const ITEMS_CHANGED_LIMIT = 1000
@@ -203,6 +356,19 @@ export interface LibraryBridge {
   scan(request: ScanRequest): Promise<ScanAccepted>
   query(query?: LibraryQuery): Promise<LibraryQueryResult>
   getItem(itemId: number): Promise<LibraryItemNode | null>
+  /** 识别条目（排队执行，进度见 identify-progress 事件）。 */
+  identify(request: IdentifyRequest): Promise<JobAccepted>
+  getMatchCandidates(itemId: number): Promise<MatchCandidatesResult>
+  applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult>
+  lockMatch(itemId: number): Promise<LibraryItemSummary>
+  unlockMatch(itemId: number): Promise<LibraryItemSummary>
+  refreshMetadata(request: RefreshMetadataRequest): Promise<JobAccepted>
+  /** 设置 / 清除元数据源令牌，持久化在引擎侧。 */
+  setProviderToken(
+    provider: SetProviderTokenRequest['provider'],
+    token: string | null
+  ): Promise<ProviderStatus>
+  getProviderStatus(): Promise<ProviderStatus>
   /** 订阅引擎事件，返回取消订阅函数。事件经 MessagePort 直达，不经主进程转发。 */
   subscribe(listener: (event: LibraryEvent) => void): () => void
 }
