@@ -5,12 +5,12 @@ import { killTree, reclaimPort } from './dev-port.mjs'
 
 const backendDir = path.resolve(
   path.dirname(fileURLToPath(import.meta.url)),
-  '../packages/services/backend'
+  '../packages/backend'
 )
 const binName = process.platform === 'win32' ? 'main.exe' : 'main'
 const binPath = path.join(backendDir, binName)
 
-// 与 packages/services/backend/main.go 保持一致：BIND_ADDR 可覆盖默认监听地址
+// 与 packages/backend/main.go 保持一致：BIND_ADDR 可覆盖默认监听地址
 const bindAddr = (process.env.BIND_ADDR ?? '').trim() || '127.0.0.1:31471'
 const port = Number(bindAddr.slice(bindAddr.lastIndexOf(':') + 1)) || 31471
 // YINGBOX_DEV_RECLAIM_DRY=1 只检查端口占用并打印结果，不结束进程、不编译、不启动

@@ -32,8 +32,8 @@ pnpm build:win:full     # full Windows installer (NSIS)
 pnpm build:mac          # full macOS installer
 
 # Go backend only
-pnpm dev:backend        # cd packages/services/backend && go run .
-pnpm build:backend      # cd packages/services/backend && go build -o main.exe .
+pnpm dev:backend        # cd packages/backend && go run .
+pnpm build:backend      # cd packages/backend && go build -o main.exe .
 
 # Start preview (no hot-reload, production-like)
 pnpm start
@@ -106,7 +106,7 @@ Key directories under `src/renderer/src/`:
 - `types/` — TypeScript interfaces: `ProcessedItem`, `FileItem`, `ActorInfo`, `MovieInfoType`, `EpisodeInfo`, `SeasonInfo`, `TVShowInfoType`
 - `directives/` — Custom Vue directives: `v-context-menu`, `v-scroll-x`
 
-### Go backend ([packages/services/backend/main.go](packages/services/backend/main.go))
+### Go backend ([packages/backend/main.go](packages/backend/main.go))
 
 A self-contained HTTP server on port **31471** that:
 
@@ -119,7 +119,7 @@ A self-contained HTTP server on port **31471** that:
   - `/api/vod/parse` — VOD parser
 - Serves local image/video files via `/file/<videoID>/<filename>` and proxies external images via `/proxy?url=...`
 - Manages a download queue (text file + SQLite dedup check)
-- Embeds Python scripts via `//go:embed` from `packages/services/backend/py/`
+- Embeds Python scripts via `//go:embed` from `packages/backend/py/`
 
 ### App settings
 
