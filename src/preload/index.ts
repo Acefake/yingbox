@@ -2,6 +2,7 @@ import { contextBridge, ipcRenderer } from 'electron'
 import type { AmaneBridge } from '../shared/amane'
 import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
 import type { LadaJob, LadaLiveStatus } from '../shared/lada'
+import { createLibraryBridge } from './library-bridge'
 
 /** 播放列表条目：用于自动连播与失败换源 */
 interface PlayerSourceItem {
@@ -440,6 +441,8 @@ const api = {
     },
     offError: () => ipcRenderer.removeAllListeners('mpv:error'),
   },
+  /** 媒体库引擎（P2）：调用转发到 utilityProcess，事件经 MessagePort 直达。 */
+  library: createLibraryBridge(ipcRenderer),
 }
 
 if (process.contextIsolated) {
