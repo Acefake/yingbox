@@ -1,0 +1,149 @@
+{
+ "id": 603,
+ "imdb_id": "tt0133093",
+ "title": "黑客帝国",
+ "original_title": "The Matrix",
+ "original_language": "en",
+ "release_date": "1999-03-30",
+ "runtime": 136,
+ "popularity": 70.0,
+ "status": "Released",
+ "overview": "尼奥。",
+ "tagline": "",
+ "genres": [
+  {
+   "id": 0,
+   "name": "动作"
+  },
+  {
+   "id": 1,
+   "name": "科幻"
+  }
+ ],
+ "vote_average": 7.5,
+ "vote_count": 1000,
+ "poster_path": "/m603p.jpg",
+ "backdrop_path": "/m603b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "US",
+   "name": "US"
+  }
+ ],
+ "production_companies": [],
+ "credits": {
+  "cast": [],
+  "crew": []
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m603p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m603p_en.jpg",
+    "iso_639_1": "en",
+    "width": 2000,
+    "height": 3000,
+    "vote_average": 5.6,
+    "vote_count": 8
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m603b.jpg",
+    "iso_639_1": null,
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.4,
+    "vote_count": 6
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m603b_en.jpg",
+    "iso_639_1": "en",
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.9,
+    "vote_count": 9
+   }
+  ],
+  "logos": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m603l.png",
+    "iso_639_1": "en",
+    "width": 800,
+    "height": 1200,
+    "vote_average": 5.3,
+    "vote_count": 2
+   }
+  ]
+ },
+ "external_ids": {
+  "imdb_id": "tt0133093",
+  "tvdb_id": null
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "黑客帝国",
+     "overview": "尼奥。",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "駭客任務",
+     "overview": "",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "The Matrix",
+     "overview": "",
+     "tagline": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "titles": []
+ },
+ "release_dates": {
+  "results": [
+   {
+    "iso_3166_1": "US",
+    "release_dates": [
+     {
+      "certification": "R",
+      "type": 3,
+      "release_date": "1999-03-30T00:00:00.000Z"
+     }
+    ]
+   }
+  ]
+ }
+}

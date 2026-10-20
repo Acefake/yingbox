@@ -1,0 +1,43 @@
+{
+ "id": 6401000,
+ "season_number": 0,
+ "name": "特别篇",
+ "overview": "",
+ "air_date": "2015-01-01",
+ "poster_path": "/t64010s0.jpg",
+ "episodes": [
+  {
+   "id": 640100001,
+   "season_number": 0,
+   "episode_number": 1,
+   "name": "特别篇 1",
+   "overview": "S00E01 简介",
+   "air_date": "2015-01-01",
+   "runtime": 90,
+   "vote_average": 8.0,
+   "still_path": "/t64010s0e1.jpg"
+  },
+  {
+   "id": 640100002,
+   "season_number": 0,
+   "episode_number": 2,
+   "name": "特别篇 2",
+   "overview": "S00E02 简介",
+   "air_date": "2015-01-02",
+   "runtime": 90,
+   "vote_average": 8.0,
+   "still_path": "/t64010s0e2.jpg"
+  },
+  {
+   "id": 640100003,
+   "season_number": 0,
+   "episode_number": 3,
+   "name": "特别篇 3",
+   "overview": "S00E03 简介",
+   "air_date": "2015-01-03",
+   "runtime": 90,
+   "vote_average": 8.0,
+   "still_path": "/t64010s0e3.jpg"
+  }
+ ]
+}

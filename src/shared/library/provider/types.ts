@@ -1,5 +1,5 @@
 /**
- * 元数据源（TMDB 等）的抽象接口。本层只定义形状，不发网络请求；具体实现见 P3。
+ * 元数据源（TMDB 等）的抽象接口。本层只定义形状，不发网络请求；TMDB 实现在 src/main/library/providers/tmdb。
  */
 
 /** 条目大类：电影或剧集（剧集指整部剧，不是单集）。 */
@@ -40,6 +40,8 @@ export interface Candidate {
   seasons?: SeasonInfo[]
   /** 热度，只用于平局时排序。 */
   popularity?: number
+  /** 海报路径（元数据源内路径），待确认列表展示用。 */
+  posterPath?: string
 }
 
 /** 标题搜索请求。 */
@@ -47,6 +49,8 @@ export interface SearchQuery {
   kind: MediaKind
   title: string
   year?: number
+  /** 结果语言（如 zh-CN、en-US）；缺省由 provider 决定。 */
+  language?: string
 }
 
 /** 可反查的外部 ID 来源。 */
@@ -56,9 +60,17 @@ export type ExternalIdSource = 'imdb' | 'tvdb'
 export interface MetadataProvider {
   readonly name: ProviderName
   /** 按标题（可带年份）搜索候选。 */
-  search(query: SearchQuery): Promise<Candidate[]>
-  /** 按本源 ID 取详情；不存在时返回 null。 */
-  details(kind: MediaKind, id: string): Promise<Candidate | null>
+  search(query: SearchQuery, signal?: AbortSignal): Promise<Candidate[]>
+  /** 按本源 ID 取详情（带全部别名、译名、时长、各季集数）；不存在时返回 null。 */
+  details(
+    kind: MediaKind,
+    id: string,
+    signal?: AbortSignal
+  ): Promise<Candidate | null>
   /** 按外部 ID（imdb / tvdb）反查本源条目。 */
-  find(source: ExternalIdSource, id: string): Promise<Candidate[]>
+  find(
+    source: ExternalIdSource,
+    id: string,
+    signal?: AbortSignal
+  ): Promise<Candidate[]>
 }

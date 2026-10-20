@@ -1,0 +1,109 @@
+{
+ "id": 61316,
+ "name": "请回答1994",
+ "original_name": "응답하라 1994",
+ "original_language": "ko",
+ "first_air_date": "2013-10-18",
+ "popularity": 15.0,
+ "status": "Ended",
+ "episode_run_time": [
+  60
+ ],
+ "overview": "",
+ "genres": [],
+ "vote_average": 8.6,
+ "vote_count": 2000,
+ "origin_country": [
+  "KR"
+ ],
+ "poster_path": "/t61316p.jpg",
+ "backdrop_path": "/t61316b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "KR",
+   "name": "KR"
+  }
+ ],
+ "production_companies": [
+  {
+   "id": 1,
+   "name": "Studio"
+  }
+ ],
+ "created_by": [],
+ "seasons": [
+  {
+   "season_number": 1,
+   "episode_count": 21,
+   "name": "第 1 季",
+   "air_date": "2013-01-01",
+   "poster_path": "/t61316s1.jpg"
+  }
+ ],
+ "credits": {
+  "cast": [],
+  "crew": []
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t61316p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t61316b.jpg",
+    "iso_639_1": null,
+    "width": 1920,
+    "height": 2880,
+    "vote_average": 5.4,
+    "vote_count": 6
+   }
+  ],
+  "logos": []
+ },
+ "external_ids": {
+  "imdb_id": "tt3233418",
+  "tvdb_id": null
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "请回答1994",
+     "overview": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "Reply 1994",
+     "overview": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "results": []
+ },
+ "content_ratings": {
+  "results": []
+ },
+ "episode_groups": {
+  "results": []
+ }
+}

@@ -10,6 +10,7 @@ export {
   type ScoredCandidate,
   type ScoringOptions,
   type ScoringWeights,
+  compareScored,
   decide,
   rankCandidates,
 } from './score'
