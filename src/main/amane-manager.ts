@@ -1,4 +1,5 @@
 import { app, dialog, protocol, safeStorage } from 'electron'
+import { settingsStore } from './settings'
 import { type ChildProcess, spawn } from 'child_process'
 import { randomBytes } from 'crypto'
 import { existsSync, promises as fs } from 'fs'
@@ -18,9 +19,9 @@ import { implement } from './rpc'
 const VERSION = '0.20.1'
 const sleep = (ms: number): Promise<void> =>
   new Promise(done => setTimeout(done, ms))
-type SavedSettings = Omit<AmaneSettings, 'tokenConfigured' | 'devSource'> & {
-  encryptedToken?: string
-}
+type SavedSettings = Omit<AmaneSettings, 'tokenConfigured' | 'devSource'>
+/** 旧版 amane.json 里还带着 safeStorage 密文令牌；首启迁到设置密钥后不再写回 */
+type LegacySavedSettings = SavedSettings & { encryptedToken?: string }
 let settings: SavedSettings
 let token = ''
 let child: ChildProcess | null = null
@@ -104,14 +105,9 @@ function baseUrl(raw: string): string {
   return url.origin
 }
 
+/** 连接设置写 amane.json，令牌写设置密钥（safeStorage） */
 async function persist(): Promise<void> {
-  if (token) {
-    if (!safeStorage.isEncryptionAvailable())
-      throw new Error('系统密钥存储不可用，无法安全保存 Amane 连接信息')
-    settings.encryptedToken = safeStorage
-      .encryptString(token)
-      .toString('base64')
-  } else delete settings.encryptedToken
+  await settingsStore().setSecret('amane.token', token)
   await fs.mkdir(dirname(configPath()), { recursive: true })
   const temp = `${configPath()}.tmp`
   await fs.writeFile(temp, JSON.stringify(settings, null, 2), { mode: 0o600 })
@@ -133,10 +129,11 @@ async function initialize(): Promise<void> {
     baseUrl: 'http://127.0.0.1:18180',
     dataDirectory: join(app.getPath('userData'), 'amane', 'data'),
   }
+  token = settingsStore().getSecret('amane.token')
   try {
     const saved = JSON.parse(
       await fs.readFile(configPath(), 'utf8')
-    ) as SavedSettings
+    ) as LegacySavedSettings
     if (
       !saved ||
       !['managed', 'external'].includes(saved.mode) ||
@@ -149,18 +146,18 @@ async function initialize(): Promise<void> {
     ) {
       throw new Error('无效的 Amane 连接设置')
     }
-    const savedBase = baseUrl(saved.baseUrl)
-    const savedToken = saved.encryptedToken
-      ? safeStorage.decryptString(Buffer.from(saved.encryptedToken, 'base64'))
-      : ''
     settings = {
       mode: saved.mode,
       executablePath: saved.executablePath,
-      baseUrl: savedBase,
+      baseUrl: baseUrl(saved.baseUrl),
       dataDirectory: saved.dataDirectory,
-      encryptedToken: saved.encryptedToken,
     }
-    token = savedToken
+    if (!token && saved.encryptedToken) {
+      token = safeStorage.decryptString(
+        Buffer.from(saved.encryptedToken, 'base64')
+      )
+      await settingsStore().setSecret('amane.token', token)
+    }
   } catch (error) {
     if ((error as NodeJS.ErrnoException).code !== 'ENOENT') {
       state = 'error'

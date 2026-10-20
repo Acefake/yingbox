@@ -1,4 +1,4 @@
-import { type ComputedRef, type Ref, computed, onBeforeUnmount, ref } from 'vue'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
 
 export type UpdateStatus =
   | 'idle'
@@ -27,13 +27,20 @@ export interface UpdateState {
   runAction: () => Promise<void>
 }
 
+let shared: UpdateState | null = null
+
 /**
- * 软件更新状态（GitHub Releases）。
+ * 软件更新状态（GitHub Releases），全应用共享一份。
  *
- * 必须在常驻组件（SettingsPanel）的 setup 里调用：它在创建时就订阅主进程的
- * update:status，设置窗口关着时自动检查的结果也不会丢；组件卸载时取消订阅。
+ * 第一次调用时订阅主进程的 update.status 并常驻到应用退出：设置面板在创建时就调用一次，
+ * 所以设置窗口关着时自动检查的结果也不会丢；更新分区再调用拿到的是同一份状态。
  */
 export function useUpdateStatus(): UpdateState {
+  shared ??= createUpdateState()
+  return shared
+}
+
+function createUpdateState(): UpdateState {
   const status = ref<UpdateStatus>('idle')
   const busy = ref(false)
   const progress = ref(0)
@@ -109,7 +116,6 @@ export function useUpdateStatus(): UpdateState {
   }
 
   window.api?.update?.onStatus?.(handleStatus)
-  onBeforeUnmount(() => window.api?.update?.offStatus?.())
 
   return { status, busy, progress, title, message, action, runAction }
 }

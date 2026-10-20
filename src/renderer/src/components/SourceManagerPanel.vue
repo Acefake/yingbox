@@ -212,11 +212,12 @@
  * 既能作为独立侧滑面板，也能 embedded 嵌入设置窗口的「数据源」分区。
  */
 import { message } from 'ant-design-vue'
-import { computed, onUnmounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import PageTitle from '@/components/PageTitle.vue'
-import SourceSiteRow from '@/components/settings/SourceSiteRow.vue'
+import SourceSiteRow from '@/features/settings/ui/SourceSiteRow.vue'
+import { useSetting } from '@/features/settings/use-setting'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -248,19 +249,7 @@ const props = defineProps<{ visible: boolean; embedded?: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 // ── Adult mode ───────────────────────────────────────────────
-const adultMode = ref(localStorage.getItem('adultMode') === '1')
-const onAdultChange = (e: Event): void => {
-  adultMode.value = (e as CustomEvent<boolean>).detail
-}
-const onStorage = (e: StorageEvent): void => {
-  if (e.key === 'adultMode') adultMode.value = e.newValue === '1'
-}
-window.addEventListener('adultModeChange', onAdultChange)
-window.addEventListener('storage', onStorage)
-onUnmounted(() => {
-  window.removeEventListener('adultModeChange', onAdultChange)
-  window.removeEventListener('storage', onStorage)
-})
+const adultMode = useSetting('app.adultMode')
 
 // ── Online sources ───────────────────────────────────────────
 const {
