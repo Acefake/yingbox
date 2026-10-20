@@ -9,8 +9,10 @@ import { join } from 'node:path'
 import { net } from 'electron'
 import { createNetClient } from '../shared/net/client'
 import { av } from '../shared/contract/av'
+import { download } from '../shared/contract/download'
 import { online } from '../shared/contract/online'
 import { createAvHandlers } from './av'
+import { createDownloadHandlers } from './download'
 import { createOnlineHandlers } from './online'
 import { createPluginLoader } from './online/plugin-cache'
 import { type EnginePort, serveEngine } from './rpc'
@@ -45,4 +47,15 @@ server.implement(
 
 server.implement(av, createAvHandlers(httpClient))
 
-server.onShutdown(() => process.exit(0))
+const downloads = createDownloadHandlers({
+  net: httpClient,
+  stateFile: join(userData, 'downloads', 'queue.json'),
+  ctx: server.context,
+})
+server.implement(download, downloads.handlers)
+void downloads.queue.load()
+
+server.onShutdown(() => {
+  downloads.queue.stop()
+  void downloads.queue.flush().finally(() => process.exit(0))
+})

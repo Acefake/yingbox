@@ -21,7 +21,10 @@ function wire() {
   let crash: (code: number) => void = () => {}
   const host = new EngineHost({
     broadcast: (channel, payload) => broadcasts.push([channel, payload]),
-    hostMethods: { browserFetch: async url => `<html>${url}</html>` },
+    hostMethods: {
+      browserFetch: async url => `<html>${url}</html>`,
+      downloadDir: async () => '/tmp',
+    },
     fork: () => {
       forks++
       const toHost: Array<(m: FromEngine) => void> = []

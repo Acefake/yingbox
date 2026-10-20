@@ -10,6 +10,7 @@ import { av } from './av'
 import { config } from './config'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
+import { download } from './download'
 import { file } from './file'
 import { http } from './http'
 import { lada } from './lada'
@@ -30,6 +31,7 @@ export const contract = {
   av,
   config,
   dialog,
+  download,
   file,
   http,
   lada,

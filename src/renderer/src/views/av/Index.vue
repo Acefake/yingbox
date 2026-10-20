@@ -161,6 +161,12 @@
       @clear="playHistory = []"
     />
 
+    <!-- 下载 -->
+    <AvDownloadsView
+      v-if="activeTab === 'downloads'"
+      class="av-scroll primary-scroll"
+    />
+
     <!-- 播放器（非 Electron 兜底）：仅保留视频画面与原生控制条 -->
     <Transition name="sheet-fade">
       <div
@@ -206,6 +212,7 @@ import UiSegmented, {
 } from '@/components/ui/UiSegmented.vue'
 import AvFavoritesView from './components/AvFavoritesView.vue'
 import AvHistoryView from './components/AvHistoryView.vue'
+import AvDownloadsView from './components/AvDownloadsView.vue'
 import AvSkeletonGrid from './components/AvSkeletonGrid.vue'
 import AvStatus from './components/AvStatus.vue'
 import { coverSrc } from './av-media'
@@ -245,12 +252,13 @@ import { getMediaProgress } from '@/utils/play-progress'
 import { message } from 'ant-design-vue'
 
 // ─── Tab ─────────────────────────────────────────────────────
-type AvTab = 'browse' | 'search' | 'favorites' | 'history'
+type AvTab = 'browse' | 'search' | 'favorites' | 'history' | 'downloads'
 /** 「搜索」视图没有 Tab，由路由 ?q= 进入。 */
 const tabs: SegmentedOption<AvTab>[] = [
   { value: 'browse', label: '浏览' },
   { value: 'favorites', label: '收藏' },
   { value: 'history', label: '播放历史' },
+  { value: 'downloads', label: '下载' },
 ]
 const activeTab = useStorage<AvTab>('av_active_tab', 'browse')
 const route = useRoute()
