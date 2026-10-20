@@ -2,10 +2,11 @@ import tseslint from '@electron-toolkit/eslint-config-ts'
 import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginVue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
+import yingbox from './scripts/eslint/feature-boundaries.mjs'
 
 /**
  * 渲染层禁止直接 fetch：外网请求经 @/api/online（引擎 net 出网，带 SSRF 防护）。
- * 唯一豁免 api/amane.ts——它访问的是本机 Amane 插件（Web 模式经 vite 同源代理）。
+ * 唯一豁免 features/amane/api/amane.ts——它访问的是本机 Amane 插件（Web 模式经 vite 同源代理）。
  * 与 localStorage 禁令同属 no-restricted-globals，flat config 后者会覆盖前者，
  * 所以两处都要带上这几项。
  */
@@ -106,7 +107,7 @@ export default tseslint.config(
   {
     // 渲染层不直连外网：在线请求经 window.api.online（引擎 net，SSRF 防护）。
     files: ['src/renderer/**/*.{ts,mts,vue}'],
-    ignores: ['src/renderer/src/api/amane.ts'],
+    ignores: ['src/renderer/src/features/amane/api/amane.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -172,13 +173,13 @@ export default tseslint.config(
       'src/renderer/src/components/ScrapeQueuePanel.vue',
       'src/renderer/src/composables/use-global-queue.ts',
       // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存、手机端令牌），后续迁到 Engine 的 SQLite
-      'src/renderer/src/api/amane.ts',
-      'src/renderer/src/utils/play-progress.ts',
+      'src/renderer/src/features/amane/api/amane.ts',
+      'src/renderer/src/features/player/utils/play-progress.ts',
       'src/renderer/src/utils/storage.ts',
-      'src/renderer/src/views/av/Index.vue',
-      'src/renderer/src/views/online/components/LibraryCollection.vue',
-      'src/renderer/src/views/online/components/SearchTab.vue',
-      'src/renderer/src/views/online/composables/use-online-search.ts',
+      'src/renderer/src/features/av/views/AvView.vue',
+      'src/renderer/src/features/online/components/LibraryCollection.vue',
+      'src/renderer/src/features/online/components/SearchTab.vue',
+      'src/renderer/src/features/online/composables/use-online-search.ts',
     ],
     rules: {
       'no-restricted-globals': [
@@ -199,6 +200,13 @@ export default tseslint.config(
         ...fetchPropertyBans,
       ],
     },
+  },
+
+  {
+    // feature 之间只能经 features/<x>/index.ts 公共出口互相引用（规则见 scripts/eslint/feature-boundaries.mjs）
+    files: ['src/renderer/src/features/**/*.{ts,mts,vue}'],
+    plugins: { yingbox },
+    rules: { 'yingbox/feature-boundaries': 'error' },
   },
 
   {

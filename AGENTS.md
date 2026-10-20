@@ -71,13 +71,12 @@ Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* co
 
 Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
 
-- `api/` — `tmdb.ts` (token from settings or `VITE_TMDB_ACCESS_TOKEN`, no hardcoded default), `online.ts` / `missav.ts` / `download.ts` (thin wrappers over `window.api.*` engine domains). Renderer code must not call `fetch` directly (eslint; only `api/amane.ts` is exempt)
+- `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `av` (MissAV), `download`, `amane`, `lada`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
+- `api/tmdb.ts` (token from settings or `VITE_TMDB_ACCESS_TOKEN`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
 - `services/nfo-service.ts` — Kodi NFO parse/generate
 - `stores/scrape-provider-store.ts` — provider config in localStorage (`scrapeProviderConfig`)
-- `composables/` — cross-view: `use-vod-parser`, `use-media-player`, `use-global-queue`, `use-error-handler`, `use-context-menu`
-- `views/Movie|TV/` — file tree + scraping, each with its own `composables/`
-- `views/online/` — CMS/CatSpider search + `DetailWindow.vue`; `views/av/` — MissAV library
-- `components/UnifiedVideoPlayer.vue` — Artplayer + hls.js wrapper (subtitles, playback-rate memory)
+- `views/Movie|TV/` — library (file tree + scraping, owned by the library project); `components/UnifiedVideoPlayer.vue`, `composables/use-media-player.ts`, `composables/use-lada-tasks.ts` are one-line re-exports kept for it (delete after the library merge)
+- shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-global-queue`, `use-error-handler`, `use-context-menu`, `use-platform`), `utils/`
 
 ### Engine (`src/engine/`)
 
@@ -85,7 +84,7 @@ Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`.
 
 ### Amane
 
-`src/main/amane-manager.ts` supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/views/Amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
+`src/main/amane-manager.ts` supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/features/amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
 
 ### App settings
 

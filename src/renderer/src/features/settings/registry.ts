@@ -25,6 +25,8 @@ export interface SettingsSection {
   fill?: boolean
   /** 固定传给分区组件的属性 */
   props?: Record<string, unknown>
+  /** 导航中的排序值（升序）；省略时排在最后 */
+  order?: number
 }
 
 /** 设置模块自带的分区 */
@@ -35,6 +37,7 @@ const coreSections: SettingsSection[] = [
     icon: 'sun',
     keywords: '主题 深色 浅色',
     load: () => import('./sections/AppearanceSettings.vue'),
+    order: 10,
   },
   {
     id: 'images',
@@ -42,6 +45,7 @@ const coreSections: SettingsSection[] = [
     icon: 'image',
     keywords: '海报 背景图 演员 尺寸',
     load: () => import('./sections/ImageSettings.vue'),
+    order: 20,
   },
   {
     id: 'scrape',
@@ -49,6 +53,7 @@ const coreSections: SettingsSection[] = [
     icon: 'download',
     keywords: '并发 元数据 语言 tmdb',
     load: () => import('./sections/ScrapeSettings.vue'),
+    order: 30,
   },
   {
     id: 'provider',
@@ -56,15 +61,7 @@ const coreSections: SettingsSection[] = [
     icon: 'globe',
     keywords: 'tmdb token 后端 密钥 自定义 连接',
     load: () => import('./sections/ProviderSettings.vue'),
-  },
-  {
-    id: 'sources',
-    title: '数据源',
-    icon: 'database',
-    keywords: 'cms av 在线源 插件 站点',
-    load: () => import('@/components/SourceManagerPanel.vue'),
-    fill: true,
-    props: { embedded: true, visible: true },
+    order: 40,
   },
   {
     id: 'player',
@@ -72,14 +69,7 @@ const coreSections: SettingsSection[] = [
     icon: 'play',
     keywords: 'mpv 引擎 artplayer 超分',
     load: () => import('./sections/PlayerSettings.vue'),
-  },
-  {
-    id: 'lada',
-    title: '去马赛克',
-    icon: 'wand',
-    keywords: 'lada 去码 马赛克 无码 mpv 路径',
-    load: () => import('./sections/LadaSettings.vue'),
-    adultOnly: true,
+    order: 60,
   },
   {
     id: 'update',
@@ -87,17 +77,28 @@ const coreSections: SettingsSection[] = [
     icon: 'refresh',
     keywords: '版本 下载 重启',
     load: () => import('./sections/UpdateSettings.vue'),
+    order: 80,
   },
 ]
 
-/** 全部分区（按登记顺序显示） */
+/** 全部分区（按 order 升序显示，order 相同或缺省时按登记顺序） */
 export const settingsSections = shallowReactive<SettingsSection[]>([
   ...coreSections,
 ])
 
-/** 登记一个由其它功能提供的分区；同 id 重复登记时以后者为准 */
+const orderOf = (section: SettingsSection): number =>
+  section.order ?? Number.POSITIVE_INFINITY
+
+/**
+ * 登记一个由其它 feature 提供的分区（由应用入口组合），按 order 插入到对应位置；
+ * 同 id 重复登记时以后者为准。
+ */
 export function registerSettingsSection(section: SettingsSection): void {
-  const index = settingsSections.findIndex(item => item.id === section.id)
-  if (index >= 0) settingsSections.splice(index, 1, section)
-  else settingsSections.push(section)
+  const existing = settingsSections.findIndex(item => item.id === section.id)
+  if (existing >= 0) settingsSections.splice(existing, 1)
+  const at = settingsSections.findIndex(
+    item => orderOf(item) > orderOf(section)
+  )
+  if (at < 0) settingsSections.push(section)
+  else settingsSections.splice(at, 0, section)
 }
