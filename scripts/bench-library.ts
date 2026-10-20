@@ -235,8 +235,12 @@ interface Tally {
   ok: number
   total: number
 }
-const pct = (t: Tally): string =>
-  t.total ? `${((t.ok / t.total) * 100).toFixed(1)}%` : '—'
+/** 百分比向下取整到 0.1%，只有全对才显示 100%；不全对时附上失败条数。 */
+const pct = (t: Tally): string => {
+  if (!t.total) return '—'
+  const value = `${(Math.floor((t.ok / t.total) * 1000) / 10).toFixed(1)}%`
+  return t.ok === t.total ? value : `${value} (−${t.total - t.ok})`
+}
 const bump = (t: Tally, ok: boolean): void => {
   t.total++
   if (ok) t.ok++
