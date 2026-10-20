@@ -7,10 +7,12 @@ export default defineConfig({
     build: {
       externalizeDeps: true,
       rollupOptions: {
-        // 第二个入口：媒体库引擎，跑在 utilityProcess（src/main/library/host.ts fork 它）
+        // 第二个入口：媒体库引擎，跑在 utilityProcess（src/main/library/host.ts fork 它）；
+        // 第三个入口：缩略图 WebP 编码线程（src/main/library/media/media-service.ts 启动它）
         input: {
           index: resolve('src/main/index.ts'),
           'library-engine': resolve('src/main/library/engine/entry.ts'),
+          'webp-worker': resolve('src/main/library/media/webp-worker.ts'),
         },
       },
     },
