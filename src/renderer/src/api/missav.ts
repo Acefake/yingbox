@@ -7,7 +7,7 @@ export interface MissavStream {
   poster?: string
 }
 
-export interface MissavCatalogItem {
+interface MissavCatalogItem {
   code: string
   title: string
   poster: string

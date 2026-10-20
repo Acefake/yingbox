@@ -183,13 +183,13 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
   display: flex;
   align-items: center;
   min-height: var(--media-row-height);
-  padding: 6px 10px;
+  padding: var(--space-2) var(--space-2);
   margin-bottom: 1px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition:
-    background 0.18s var(--ease-out),
-    transform 100ms ease-out;
+    background var(--duration-fast) var(--ease-out),
+    transform var(--duration-instant) ease-out;
 }
 
 .file-tree-item:hover {
@@ -213,7 +213,7 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
   min-width: 0;
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
 }
 
 .file-tree-name {
@@ -230,7 +230,7 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
 
 .file-tree-flags {
   display: flex;
-  gap: 4px;
+  gap: var(--space-1);
   flex-shrink: 0;
 }
 

@@ -140,12 +140,12 @@ const hasMetaRow = computed(() => {
 .mi-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0;
 }
 .mi-item {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 .mi-item dt {
   flex-shrink: 0;

@@ -2,7 +2,7 @@ import { TMDB } from '@tdanks2000/tmdb-wrapper'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 
 /** 缺少 Token 时的统一报错：引导用户去设置页填写，而非吞掉 401 */
-export const missingTmdbTokenError = (): Error =>
+const missingTmdbTokenError = (): Error =>
   new Error('未配置 TMDB Access Token，请在设置中填写（TMDB API 设置页获取）')
 
 /**
@@ -27,18 +27,5 @@ export const getImageBaseUrl = (
 
 // 向后兼容的静态常量（指向 original，仅用于展示类场景）
 const TMDB_IMG_URL = 'https://images.tmdb.org/t/p/original'
-
-/**
- * 向后兼容的懒加载单例：首次访问属性时才用当前 token 构造。
- * 新代码请直接用 getTmdb()。
- */
-export const tmdb: InstanceType<typeof TMDB> = new Proxy(
-  {} as InstanceType<typeof TMDB>,
-  {
-    get(_target, prop, receiver): unknown {
-      return Reflect.get(getTmdb(), prop, receiver)
-    },
-  }
-)
 
 export { TMDB_IMG_URL }

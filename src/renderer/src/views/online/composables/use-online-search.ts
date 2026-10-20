@@ -56,7 +56,7 @@ export interface EpisodeGroup {
   _siteName?: string
 }
 
-export interface ApiSite {
+interface ApiSite {
   name: string
   api: string
 }
@@ -95,9 +95,7 @@ const FALLBACK_CATSPIDER_SITES: CatSpiderSite[] = [
 
 const CATSPIDER_SELECTION_KEY = 'online_selected_catspider'
 const AV_PLUGIN_SEED_KEY = 'av_plugin_sources_seeded'
-export const CATSPIDER_SITES = ref<CatSpiderSite[]>([
-  ...FALLBACK_CATSPIDER_SITES,
-])
+const CATSPIDER_SITES = ref<CatSpiderSite[]>([...FALLBACK_CATSPIDER_SITES])
 const selectedCatSpider = useStorage<string[]>(
   CATSPIDER_SELECTION_KEY,
   FALLBACK_CATSPIDER_SITES.map(s => s.api)

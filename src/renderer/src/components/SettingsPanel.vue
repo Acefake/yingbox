@@ -298,7 +298,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .settings-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2100;
+  z-index: var(--z-settings);
   background: var(--overlay-scrim-soft);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -307,7 +307,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 .settings-window {
   position: fixed;
   inset: 0;
-  z-index: 2101;
+  z-index: calc(var(--z-settings) + 1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -354,7 +354,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   min-height: 0;
   overflow-y: auto;
 }
@@ -408,7 +408,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 /* ── 动效 ── */
 .settings-fade-enter-active,
 .settings-fade-leave-active {
-  transition: opacity 0.2s var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 .settings-fade-enter-from,
 .settings-fade-leave-to {
@@ -416,12 +416,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .settings-pop-enter-active {
-  transition: opacity 0.2s var(--ease-out);
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 .settings-pop-enter-active .settings-frame {
   transition:
-    opacity 0.2s var(--ease-out),
-    transform 0.2s var(--ease-out);
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
 }
 .settings-pop-enter-from {
   opacity: 0;
@@ -431,12 +431,12 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   transform: scale(0.97) translateY(10px);
 }
 .settings-pop-leave-active {
-  transition: opacity 0.16s ease;
+  transition: opacity var(--duration-fast) ease;
 }
 .settings-pop-leave-active .settings-frame {
   transition:
-    opacity 0.16s ease,
-    transform 0.16s ease;
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 .settings-pop-leave-to {
   opacity: 0;
@@ -497,7 +497,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   .settings-pop-leave-active,
   .settings-pop-enter-active .settings-frame,
   .settings-pop-leave-active .settings-frame {
-    transition: opacity 0.2s ease;
+    transition: opacity var(--duration-normal) ease;
   }
   .settings-pop-enter-from .settings-frame,
   .settings-pop-leave-to .settings-frame {
@@ -510,7 +510,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   display: grid;
   grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
   align-items: start;
-  gap: 22px;
+  gap: var(--space-6);
 }
 
 .settings-scroll.settings-amane :deep(.amane-settings-nav) {
@@ -518,8 +518,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 4px 12px 4px 0;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
   border: 0;
   border-right: 1px solid var(--separator);
   border-radius: 0;
@@ -532,7 +532,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .settings-scroll.settings-amane :deep(.amane-settings-nav .ui-nav-item) {
   min-height: 36px;
-  padding: 8px 11px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
 
@@ -547,8 +547,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 
 .settings-scroll.settings-amane :deep(.amane-config-save) {
   position: static;
-  margin-top: 24px;
-  padding-top: 16px;
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--separator);
   background: transparent;
 }
@@ -556,7 +556,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 @media (max-width: 900px) {
   .settings-scroll.settings-amane :deep(.amane-settings) {
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .settings-scroll.settings-amane :deep(.amane-settings-nav) {
@@ -565,7 +565,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--separator);
-    padding: 0 0 8px;
+    padding: 0 0 var(--space-2);
   }
 
   .settings-scroll.settings-amane :deep(.amane-settings-nav .ui-nav-item) {

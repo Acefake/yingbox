@@ -69,7 +69,7 @@ defineProps<{
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   min-width: 0;
 }
 .ui-list-row-title {

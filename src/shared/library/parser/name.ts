@@ -36,7 +36,7 @@ export interface NameInfo {
 }
 
 /** 解析选项。 */
-export interface ParseNameOptions {
+interface ParseNameOptions {
   /** 名字是文件夹名：不从裸数字推断集号（“24” 是剧名，不是第 24 集）。 */
   folder?: boolean
 }

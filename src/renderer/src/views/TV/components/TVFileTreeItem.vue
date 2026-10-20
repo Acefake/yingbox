@@ -190,15 +190,15 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
   display: flex;
   align-items: center;
   min-height: var(--media-row-height);
-  padding-top: 6px;
-  padding-bottom: 6px;
-  padding-right: 10px;
+  padding-top: var(--space-2);
+  padding-bottom: var(--space-2);
+  padding-right: var(--space-2);
   margin-bottom: 1px;
   border-radius: var(--radius-md);
   cursor: pointer;
   transition:
-    background 0.18s var(--ease-out),
-    transform 100ms ease-out;
+    background var(--duration-fast) var(--ease-out),
+    transform var(--duration-instant) ease-out;
 }
 
 .tv-row:hover {
@@ -218,7 +218,7 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 }
 
 .tv-checkbox-wrap {
-  margin-right: 6px;
+  margin-right: var(--space-2);
   flex-shrink: 0;
 }
 
@@ -252,7 +252,7 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 .tv-expand {
   width: 16px;
   height: 16px;
-  margin-right: 4px;
+  margin-right: var(--space-1);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -260,7 +260,7 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 
 .tv-expand-icon {
   color: var(--text-tertiary);
-  transition: transform 0.2s var(--ease-out);
+  transition: transform var(--duration-normal) var(--ease-out);
 }
 
 .tv-expand-icon.is-open {
@@ -268,9 +268,9 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 }
 
 .tv-type-icon {
-  margin-right: 8px;
+  margin-right: var(--space-2);
   color: var(--text-tertiary);
-  transition: color 0.18s var(--ease-out);
+  transition: color var(--duration-fast) var(--ease-out);
 }
 
 .tv-row:hover .tv-type-icon,
@@ -299,8 +299,8 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 
 .tv-flags {
   display: flex;
-  gap: 4px;
-  margin-left: 8px;
+  gap: var(--space-1);
+  margin-left: var(--space-2);
   flex-shrink: 0;
 }
 

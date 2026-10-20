@@ -72,20 +72,6 @@ export interface AmaneTask {
   payload?: unknown
   result?: unknown
 }
-export interface AmaneHotConfig {
-  network: { proxy?: string | null }
-  scraping: {
-    content_routes: Record<string, string[]>
-    site_config: Record<
-      string,
-      {
-        base_url?: string | null
-        use_proxy: boolean
-        cookie?: Record<string, string>
-      }
-    >
-  }
-}
 
 /** Web/PWA 手机访问:无 Electron 桥时直连 vite 同源代理。token 从分享 URL 参数注入。 */
 const AMANE_TOKEN_KEY = 'yingbox-amane-token'

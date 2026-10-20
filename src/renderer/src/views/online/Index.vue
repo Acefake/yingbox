@@ -152,27 +152,27 @@ const openDoubanDetail = (item: DoubanItem) => {
   overflow: hidden;
   -webkit-app-region: no-drag;
   position: relative;
-  z-index: 10;
+  z-index: var(--z-float);
 }
 
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 24px 32px;
+  padding: var(--space-6) var(--space-7);
   display: flex;
   flex-direction: column;
-  gap: 24px;
+  gap: var(--space-6);
 }
 
 .home-content-area {
-  padding: 30px 40px 40px;
-  gap: 32px;
+  padding: var(--space-7) var(--space-8) var(--space-8);
+  gap: var(--space-7);
 }
 
 .inline-detail-page {
   position: absolute;
   inset: 0;
-  z-index: 40;
+  z-index: var(--z-overlay);
   width: 100%;
   background: var(--bg-main);
 }
@@ -184,7 +184,7 @@ const openDoubanDetail = (item: DoubanItem) => {
 
 .detail-page-enter-active,
 .detail-page-leave-active {
-  transition: opacity 0.2s ease;
+  transition: opacity var(--duration-normal) ease;
 }
 .detail-page-enter-from,
 .detail-page-leave-to {
@@ -193,7 +193,7 @@ const openDoubanDetail = (item: DoubanItem) => {
 
 @media (max-width: 860px) {
   .home-content-area {
-    padding: 18px 20px 24px;
+    padding: var(--space-4) var(--space-5) var(--space-6);
   }
 }
 

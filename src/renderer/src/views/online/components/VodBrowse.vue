@@ -341,7 +341,7 @@ onMounted(() => {
 .vod-browse {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
   height: 100%;
 }
 
@@ -350,9 +350,9 @@ onMounted(() => {
   flex-shrink: 0;
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-5);
 
-  padding-bottom: 22px;
+  padding-bottom: var(--space-6);
 
   border-bottom: 1px solid var(--border-subtle);
 }
@@ -360,22 +360,22 @@ onMounted(() => {
 .loading-hint {
   font-size: var(--text-xs);
   color: var(--text-tertiary);
-  margin-left: 8px;
+  margin-left: var(--space-2);
 }
 
 /* ── 加载更多 ── */
 .load-more {
   display: flex;
   justify-content: center;
-  padding: 8px 0 16px;
+  padding: var(--space-2) 0 var(--space-4);
 }
 /* ── 空状态 ── */
 .empty-state {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding: 60px 0;
+  gap: var(--space-3);
+  padding: var(--space-10) 0;
   color: var(--text-tertiary);
   font-size: var(--text-md);
 }

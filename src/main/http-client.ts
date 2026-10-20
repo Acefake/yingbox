@@ -100,7 +100,7 @@ function looksLikeIP(host: string): boolean {
  * 注意：检查与请求之间存在 TOCTOU 窗口（DNS 重绑定），本机 Electron 场景下残余风险可接受；
  * 内网高敏环境请走 Go 后端代理并收紧出口。
  */
-export async function assertPublicTarget(rawUrl: string): Promise<void> {
+async function assertPublicTarget(rawUrl: string): Promise<void> {
   let parsed: URL
   try {
     parsed = new URL(rawUrl)

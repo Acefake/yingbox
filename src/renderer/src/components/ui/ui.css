@@ -3,9 +3,9 @@
   position: fixed;
   top: 0;
   left: 0;
-  z-index: 10000;
+  z-index: var(--z-max);
   max-width: 280px;
-  padding: 4px 8px;
+  padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
   background: var(--bg-fill-secondary);
   color: var(--text-primary);
@@ -82,7 +82,7 @@
   border-color: var(--danger);
 }
 :where(.ui-field.is-invalid):focus-within {
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 32%, transparent);
+  box-shadow: var(--focus-ring-danger);
 }
 :where(.ui-field.is-disabled, .ui-field:disabled) {
   opacity: 0.5;
