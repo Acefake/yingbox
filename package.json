@@ -33,7 +33,8 @@
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
     "fix": "bash scripts/auto-fix.sh",
     "test": "vitest run",
-    "test:watch": "vitest"
+    "test:watch": "vitest",
+    "bench:library": "tsx scripts/bench-library.ts"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
@@ -47,6 +48,7 @@
     "crypto-js": "^4.2.0",
     "electron-updater": "^6.3.9",
     "hls.js": "^1.6.16",
+    "opencc-js": "^1.4.2",
     "pinia": "^3.0.3",
     "vue-router": "^4.5.1"
   },
@@ -69,6 +71,7 @@
     "postcss": "^8.5.6",
     "prettier": "^3.6.2",
     "tailwindcss": "^4.1.11",
+    "tsx": "^4.23.15",
     "typescript": "^5.8.3",
     "vite": "^7.0.0",
     "vitest": "^5.0.2",
