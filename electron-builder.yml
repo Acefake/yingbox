@@ -43,9 +43,9 @@ extraResources:
     to: amane
   - from: resources/mpv
     to: mpv
-  - from: packages/services/backend/main.exe
+  - from: packages/backend/main.exe
     to: backend/main.exe
-  - from: packages/services/backend/py
+  - from: packages/backend/py
     to: backend/py
 win:
   executableName: 影盒

@@ -256,7 +256,7 @@
                     <div class="st-row-title">Go 后端地址</div>
                     <div class="st-row-desc">
                       需先在
-                      <code class="st-code">packages/services/</code>
+                      <code class="st-code">packages/backend/</code>
                       目录下启动 Go 服务
                     </div>
                   </div>
