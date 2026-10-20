@@ -212,6 +212,58 @@ CREATE TABLE settings (
 ) STRICT;
 `
 
+/**
+ * P5 写出层：写出记录与整理批次日志。
+ *
+ * - writer_outputs：我们写过的每个 sidecar（NFO / 图片），path 是路径键。hash 是上次写入内容的 SHA-1，
+ *   size / mtime 是写完后的 stat，三者都对得上就说明文件没被别人动过，图片可以不读文件直接跳过；
+ *   fields 是上次写入 NFO 时各字段的规范化文本，合并模式据此判断哪些字段被用户手改过；
+ * - media_items.written_at：条目最近一次写出完成的时间；
+ * - organize_batches / organize_ops：每次整理执行一批，每项移动一行，撤销按 seq 倒序移回。
+ */
+const V3_SCHEMA = `
+CREATE TABLE writer_outputs (
+  path       TEXT    PRIMARY KEY,
+  item_id    INTEGER REFERENCES media_items (id) ON DELETE SET NULL,
+  kind       TEXT    NOT NULL CHECK (kind IN ('nfo', 'image')),
+  hash       TEXT    NOT NULL,
+  size       INTEGER NOT NULL,
+  mtime      REAL    NOT NULL,
+  fields     TEXT,
+  written_at INTEGER NOT NULL
+) STRICT;
+CREATE INDEX writer_outputs_item ON writer_outputs (item_id);
+
+ALTER TABLE media_items ADD COLUMN written_at INTEGER;
+
+CREATE TABLE organize_batches (
+  id          INTEGER PRIMARY KEY,
+  state       TEXT    NOT NULL
+              CHECK (state IN ('running', 'done', 'partial', 'failed', 'undoing', 'undone')),
+  item_ids    TEXT    NOT NULL,
+  total       INTEGER NOT NULL,
+  error       TEXT,
+  created_at  INTEGER NOT NULL,
+  finished_at INTEGER,
+  undone_at   INTEGER
+) STRICT;
+
+CREATE TABLE organize_ops (
+  batch_id   INTEGER NOT NULL REFERENCES organize_batches (id) ON DELETE CASCADE,
+  seq        INTEGER NOT NULL,
+  item_id    INTEGER NOT NULL,
+  library_id INTEGER NOT NULL,
+  kind       TEXT    NOT NULL CHECK (kind IN ('video', 'sidecar', 'folder')),
+  src        TEXT    NOT NULL,
+  dst        TEXT    NOT NULL,
+  cross_device INTEGER NOT NULL DEFAULT 0,
+  state      TEXT    NOT NULL DEFAULT 'pending'
+             CHECK (state IN ('pending', 'done', 'failed', 'skipped', 'undone')),
+  error      TEXT,
+  PRIMARY KEY (batch_id, seq)
+) STRICT, WITHOUT ROWID;
+`
+
 /** 全部迁移，按版本升序。 */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, description: '初始表结构与片名 FTS', sql: V1_SCHEMA },
@@ -220,6 +272,7 @@ export const MIGRATIONS: readonly Migration[] = [
     description: '识别与刮削：元数据、图片缓存、设置',
     sql: V2_SCHEMA,
   },
+  { version: 3, description: '写出层：写出记录与整理批次', sql: V3_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

@@ -208,6 +208,14 @@ function toImages(
 }
 
 /** 分级：中国大陆优先，其次美国，再其次任意有值的。 */
+/** 电影所属系列；没有时返回空对象，便于展开。 */
+function collectionOf(
+  c: TmdbMovieDetails['belongs_to_collection']
+): Pick<MediaMetadata, 'collection'> {
+  const name = nonEmpty(c?.name)
+  return c && name ? { collection: { id: String(c.id), name } } : {}
+}
+
 function certificationOf(kind: MediaKind, d: TmdbDetails): string | undefined {
   const byCountry = new Map<string, string>()
   if (isMovie(kind, d)) {
@@ -355,6 +363,7 @@ export function metadataFromDetails(
     ),
     externalIds,
     ...(d.status ? { status: d.status } : {}),
+    ...collectionOf(movie ? d.belongs_to_collection : undefined),
     ...(movie
       ? {}
       : {

@@ -23,6 +23,9 @@ import {
   type ScanAccepted,
   type SetProviderTokenRequest,
 } from '../../../shared/library/ipc'
+import { KeyedMutex } from '../jobs/keyed-mutex'
+import type { MoveOps } from '../writer/fs/file-ops'
+import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, ItemChanges } from '../catalog/catalog-store'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
@@ -86,6 +89,11 @@ export interface LibraryServiceOptions {
     | 'http'
     | 'concurrency'
   >
+  /** 写出层的注入项（测试模拟跨盘）。 */
+  writer?: {
+    moveOps?: MoveOps
+    deviceOf?: (path: string) => Promise<number | undefined>
+  }
 }
 
 /** 合并两个扫描载荷：任何一方是整库扫描就是整库扫描，否则目录取并集。 */
@@ -111,6 +119,10 @@ export class LibraryService {
   readonly queue: JobQueue
   /** 识别与刮削。 */
   readonly identifier: IdentifyModule
+  /** 写出层（NFO / 图片 / 整理）。 */
+  readonly writer: WriterModule
+  /** 同一媒体库的扫描与整理互斥。 */
+  private readonly locks = new KeyedMutex<number>()
   private readonly watcher: LibraryWatcher | undefined
   private readonly listeners = new Set<(event: LibraryEvent) => void>()
   private readonly fingerprint: (path: string) => Promise<string | undefined>
@@ -130,13 +142,16 @@ export class LibraryService {
     })
     this.queue.register(
       'scan',
-      (p, ctx) => this.runScan(p as ScanPayload, ctx),
-      {
-        merge: mergeScanPayload,
-      }
+      (p, ctx) =>
+        this.locks.run((p as ScanPayload).libraryId, () =>
+          this.runScan(p as ScanPayload, ctx)
+        ),
+      { merge: mergeScanPayload }
     )
     this.queue.register('parse', (p, ctx) =>
-      this.runParse(p as LibraryPayload, ctx)
+      this.locks.run((p as LibraryPayload).libraryId, () =>
+        this.runParse(p as LibraryPayload, ctx)
+      )
     )
     this.queue.register('fingerprint', (p, ctx) =>
       this.runFingerprint(p as LibraryPayload, ctx)
@@ -148,6 +163,19 @@ export class LibraryService {
       catalogQuery: this.catalogQuery,
       emit: event => this.emit(event),
       fingerprint: path => this.fingerprint(path),
+      onIdentified: itemIds => this.writer.enqueueAuto(itemIds),
+      log: this.log,
+    })
+    this.writer = new WriterModule({
+      db: this.db,
+      queue: this.queue,
+      catalogQuery: this.catalogQuery,
+      libraries: this.libraries,
+      locks: this.locks,
+      emit: event => this.emit(event),
+      images: this.identifier.images,
+      moveOps: options.writer?.moveOps,
+      deviceOf: options.writer?.deviceOf,
       log: this.log,
     })
     if (options.watch !== false) {
