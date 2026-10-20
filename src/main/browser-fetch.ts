@@ -1,4 +1,4 @@
-import { app, BrowserWindow, screen, session } from 'electron'
+import { BrowserWindow, app, screen, session } from 'electron'
 import {
   type IncomingMessage,
   type Server,

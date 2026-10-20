@@ -13,10 +13,10 @@
  *  2. 分片时间戳必须**连续**（用 -copyts），一旦每个分片从 0 开始就会反复播同一段
  *  3. 本地文件路径的 HLS 在 Windows 上走不通 → 起一个只绑 127.0.0.1 的 HTTP 服务
  */
-import { app, BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow, app, ipcMain } from 'electron'
 import { spawn } from 'child_process'
-import { createReadStream, copyFileSync, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { createServer, type Server } from 'node:http'
+import { copyFileSync, createReadStream, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import { type Server, createServer } from 'node:http'
 import { dirname, join } from 'node:path'
 import { cancelCurrentJob, currentJob, ladaPaths, ladaTempVideo, startJob, waitForLadaExit } from './lada'
 import { adoptPartial } from './lada-resume'
@@ -97,7 +97,7 @@ function writePlaylist(s: LiveSession, ended: boolean): void {
     lines.push(seg.name)
   }
   if (ended) lines.push('#EXT-X-ENDLIST')
-  const body = lines.join('\n') + '\n'
+  const body = `${lines.join('\n')}\n`
   // 播放器正在轮询这个文件时，Windows 上 rename 可能被拒（EBUSY/EPERM）→ 重试，
   // 最后一次退化为直接覆写。绝不能因为写播放列表失败就把追播链断掉。
   const tmp = `${s.playlist}.tmp`

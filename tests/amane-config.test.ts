@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { configPatch, type Config, type Schema } from '../src/renderer/src/views/Amane/config-schema'
+import { type Config, type Schema, configPatch } from '../src/renderer/src/views/Amane/config-schema'
 
 describe('Amane settings patches', () => {
   const schema: Schema = { properties: {

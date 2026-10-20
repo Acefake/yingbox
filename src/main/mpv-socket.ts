@@ -1,4 +1,4 @@
-import { createConnection, Socket } from 'net'
+import { Socket, createConnection } from 'net'
 import { EventEmitter } from 'events'
 import { app } from 'electron'
 import { join } from 'path'
@@ -105,7 +105,7 @@ export class MpvSocket extends EventEmitter {
         reject(new Error('mpv 命令超时'))
       }, 5000)
       this.pending.set(id, { resolve, reject, timer })
-      this.socket.write(JSON.stringify({ ...payload, request_id: id }) + '\n')
+      this.socket.write(`${JSON.stringify({ ...payload, request_id: id })}\n`)
     })
   }
 
