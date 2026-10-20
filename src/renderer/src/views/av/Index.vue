@@ -1,442 +1,175 @@
 <template>
-  <div class="av-page flex h-full min-h-0 flex-col overflow-hidden bg-yb-bg text-yb-text">
-    <!-- Tab 导航 + 搜索栏 -->
-    <div class="flex-shrink-0 bg-transparent">
-      <!-- Tab 行 -->
-      <div class="flex flex-wrap items-center gap-2 px-6 pt-4 pb-2">
-        <button
-          v-for="tab in tabs"
-          :key="tab.id"
-          class="h-10 px-4 rounded-full text-[14px] transition-colors"
-          :class="activeTab === tab.id ? 'av-tab is-active' : 'av-tab'"
-          @click="activeTab = tab.id"
-        >
-          {{ tab.label }}
-        </button>
-      </div>
-      <!-- 浏览工具栏 -->
-      <div v-if="activeTab === 'browse'" class="px-6 py-3">
-        <MediaFilterBar
-          :rows="avFilterRows"
-          :model-value="avFilterModel"
-          @update:model-value="onFilterChange"
-        />
-      </div>
-    </div>
+  <div class="av-page">
+    <!-- 视图切换 + 浏览筛选 -->
+    <header class="av-toolbar">
+      <UiSegmented
+        :model-value="activeTab"
+        :options="tabs"
+        label="AV 视图"
+        @update:model-value="activeTab = $event"
+      />
+      <MediaFilterBar
+        v-if="activeTab === 'browse'"
+        :rows="avFilterRows"
+        :model-value="avFilterModel"
+        @update:model-value="onFilterChange"
+      />
+    </header>
 
-    <!-- 分类浏览内容 -->
+    <!-- 分类浏览 -->
     <div
       v-if="activeTab === 'browse'"
       ref="browseScroll"
-      class="primary-scroll flex-1 overflow-y-auto p-6"
+      class="av-scroll primary-scroll"
       @scroll="onBrowseScroll"
     >
-      <div
-        v-if="browseLoading"
-        class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-      >
-        <div
-          v-for="i in 12"
-          :key="i"
-          class="animate-pulse overflow-hidden rounded-lg av-card"
-        >
-          <div class="aspect-video av-skel" />
-          <div class="space-y-2 p-3">
-            <div class="h-3 w-4/5 rounded av-skel-line" />
-            <div class="h-3 w-2/5 rounded av-skel-line" />
-          </div>
-        </div>
-      </div>
-      <div
-        v-else-if="browseError"
-        class="flex min-h-60 flex-col items-center justify-center gap-3 text-center"
-      >
-        <p class="text-sm" style="color: var(--danger)">{{ browseError }}</p>
-        <button
-          class="h-10 rounded-lg av-ghost-btn px-4 text-sm"
-          @click="loadBrowse()"
-        >
-          重新加载
-        </button>
-      </div>
+      <AvSkeletonGrid v-if="browseLoading" />
+      <AvStatus v-else-if="browseError" :title="browseError" tone="danger">
+        <UiButton icon="refresh" label="重新加载" @click="loadBrowse()" />
+      </AvStatus>
       <template v-else>
-        <div class="mb-4 flex items-center justify-between">
-          <div>
-            <PageTitle as="h2">
-              {{ currentBrowseCategoryName }}
-            </PageTitle>
+        <PageHeader :title="currentBrowseCategoryName" as="h2">
+          <template #status>
             <p class="yb-section-subtitle">
-              {{ currentBrowseSource?.name || '未选择数据源' }} · 已加载 {{ browseVideos.length }} 条<span
-                v-if="browseTotal"
-              >
+              {{ currentBrowseSource?.name || '未选择数据源' }} · 已加载
+              {{ browseVideos.length }} 条<span v-if="browseTotal">
                 · 共 {{ browseTotal.toLocaleString() }} 条</span
               >
             </p>
-          </div>
-          <button
-            class="h-9 rounded-lg px-3 text-xs av-ghost-btn"
-            @click="loadBrowse(true)"
-          >
-            刷新
-          </button>
-        </div>
+          </template>
+          <template #actions>
+            <UiIconButton
+              icon="refresh"
+              label="刷新"
+              @click="loadBrowse(true)"
+            />
+          </template>
+        </PageHeader>
         <div
           v-if="sortedBrowseVideos.length"
-          class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
+          class="ui-poster-grid is-landscape"
         >
-          <div
+          <UiPosterCard
             v-for="video in sortedBrowseVideos"
             :key="`${video._source}-${video.vod_id}`"
-            class="group cursor-pointer overflow-hidden rounded-lg av-card transition-colors"
-            @click="playVideo(video)"
+            shape="landscape"
+            :title="video.vod_name"
+            :cover="coverSrc(video)"
+            :subtitle="`${video.type_name || '未分类'} · ${video.vod_duration || '时长未知'}`"
+            :favorite="isFav(video)"
+            @open="playVideo(video)"
+            @toggle-favorite="toggleFav(video)"
           >
-            <div class="relative aspect-video overflow-hidden bg-black">
-              <img
-                :src="coverSrc(video)"
-                :alt="video.vod_name"
-                class="h-full w-full object-contain transition-transform duration-200 group-hover:scale-[1.02]"
-                loading="lazy"
-                decoding="async"
-                @error="handleImageError"
-              /><span
-                v-if="video.vod_remarks"
-                class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px]"
-                >{{ video.vod_remarks }}</span
-              ><button
-                class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg"
-                :class="
-                  isFav(video)
-                    ? 'text-yellow-400'
-                    : 'text-white/70 hover:text-yellow-300'
-                "
-                @click.stop="toggleFav(video)"
-              >
-                {{ isFav(video) ? '♥' : '♡' }}
-              </button>
-            </div>
-            <div class="p-3">
-              <h3
-                class="line-clamp-2 min-h-10 text-sm font-medium leading-5 av-card-title"
-              >
-                {{ video.vod_name }}
-              </h3>
-              <p class="mt-2 truncate text-xs yb-dim">
-                {{ video.type_name || '未分类' }} ·
-                {{ video.vod_duration || '时长未知' }}
-              </p>
-            </div>
-          </div>
+            <template v-if="video.vod_remarks" #badges>
+              <span class="ui-poster-badge">{{ video.vod_remarks }}</span>
+            </template>
+          </UiPosterCard>
         </div>
-        <div
-          v-else
-          class="flex min-h-60 items-center justify-center text-sm yb-dim"
-        >
-          这个分类暂时没有内容
-        </div>
-        <div class="mt-6 flex items-center justify-center gap-3 text-sm yb-muted" role="status" aria-live="polite">
+        <AvStatus v-else title="这个分类暂时没有内容" />
+        <div class="av-load-more" role="status" aria-live="polite">
           <span v-if="browseLoadingMore">正在加载更多…</span>
-          <template v-else-if="browseMoreError"><span>{{ browseMoreError }}</span><button type="button" class="av-ghost-btn" @click="loadBrowse(false, true)">重试</button></template>
-          <span v-else-if="browseVideos.length && !browseHasMore">已全部加载</span>
+          <template v-else-if="browseMoreError">
+            <span>{{ browseMoreError }}</span>
+            <UiButton
+              icon="refresh"
+              label="重试"
+              size="sm"
+              @click="loadBrowse(false, true)"
+            />
+          </template>
+          <span v-else-if="browseVideos.length && !browseHasMore"
+            >已全部加载</span
+          >
         </div>
       </template>
     </div>
 
-    <!-- 聚合搜索内容 -->
-    <div
-      v-if="activeTab === 'search'"
-      class="primary-scroll flex-1 overflow-y-auto p-6"
-    >
-      <!-- 加载进度 -->
-      <div
-        v-if="loading"
-        class="flex flex-col items-center justify-center py-8 gap-3"
-      >
-        <div
-          class="animate-spin rounded-full h-8 w-8 border-b-2"
-          style="border-color: var(--accent)"
-        ></div>
-        <p class="text-sm yb-muted">
-          正在聚合 {{ searchSourceCount }} 个站点... ({{ doneCount }}/{{
+    <!-- 聚合搜索 -->
+    <div v-if="activeTab === 'search'" class="av-scroll primary-scroll">
+      <div v-if="loading" class="av-search-progress" role="status">
+        <p>
+          正在聚合 {{ searchSourceCount }} 个站点…（{{ doneCount }}/{{
             searchSourceCount
-          }})
+          }}）
         </p>
-        <div class="w-64 av-skel rounded-full h-1.5">
+        <div class="av-progress-track">
           <div
-            class="av-progress h-1.5 rounded-full transition-all"
+            class="av-progress-bar"
             :style="{ width: `${(doneCount / activeSources.length) * 100}%` }"
-          ></div>
+          />
         </div>
       </div>
-      <div
-        v-if="loading && mergedVideos.length === 0"
-        class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-      >
-        <div
-          v-for="i in 12"
-          :key="i"
-          class="animate-pulse overflow-hidden rounded-lg av-card"
-        >
-          <div class="aspect-video av-skel" />
-          <div class="space-y-2 p-3">
-            <div class="h-3 w-4/5 rounded av-skel-line" />
-            <div class="h-3 w-2/5 rounded av-skel-line" />
-          </div>
-        </div>
-      </div>
-      <div
-        v-if="searchError"
-        class="flex min-h-52 flex-col items-center justify-center gap-3 text-center"
-      >
-        <p class="text-sm" style="color: var(--danger)">{{ searchError }}</p>
-        <button
+      <AvSkeletonGrid v-if="loading && mergedVideos.length === 0" />
+      <AvStatus v-if="searchError" :title="searchError" tone="danger">
+        <UiButton
           v-if="searchKeyword.trim()"
-          class="h-10 rounded-lg av-ghost-btn px-4 text-sm"
+          icon="refresh"
+          label="重试搜索"
           @click="handleSearch"
-        >
-          重试搜索
-        </button>
-      </div>
-      <!-- 合并结果网格 -->
-      <div
-        v-if="mergedVideos.length > 0"
-        class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-        :class="{ 'mt-4': loading }"
-      >
-        <div
+        />
+      </AvStatus>
+      <div v-if="mergedVideos.length > 0" class="ui-poster-grid is-landscape">
+        <UiPosterCard
           v-for="group in mergedVideos"
           :key="group.key"
-          class="group cursor-pointer overflow-hidden rounded-lg av-card transition-colors"
-          @click="playVideo(group.items[0])"
+          shape="landscape"
+          :title="group.vod_name"
+          :cover="coverSrc(group.items[0])"
+          :subtitle="`${group.items.length} 个可用来源`"
+          :favorite="isFav(group.items[0])"
+          @open="playVideo(group.items[0])"
+          @toggle-favorite="toggleFav(group.items[0])"
         >
-          <div
-            class="relative overflow-hidden av-skel"
-            style="aspect-ratio: 16/9"
-          >
-            <img
-              :src="coverSrc(group.items[0])"
-              :alt="group.vod_name"
-              class="w-full h-full object-contain bg-black"
-              loading="lazy"
-              decoding="async"
-              @error="handleImageError"
-            />
-            <div
-              class="absolute inset-0 bg-black/0 group-hover:bg-black/40 transition-colors flex items-center justify-center"
-            >
-              <div
-                class="w-10 h-10 rounded-full bg-white/20 backdrop-blur-sm flex items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity"
-              >
-                <svg
-                  class="w-5 h-5 text-white ml-0.5"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    d="M6.3 5.84a.75.75 0 011.06.02l3.858 4.5a.75.75 0 010 .98l-3.858 4.5A.75.75 0 016 14.5V5.75a.75.75 0 01.3-.91z"
-                  />
-                </svg>
-              </div>
-            </div>
-            <div
-              v-if="group.items[0].vod_remarks"
-              class="absolute bottom-1 right-1 bg-black/60 px-1.5 py-0.5 rounded text-[10px] text-white"
-            >
-              {{ group.items[0].vod_remarks }}
-            </div>
-            <button
-              class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg transition-colors"
-              :class="
-                isFav(group.items[0])
-                  ? 'text-yellow-400'
-                  : 'text-white/70 hover:text-yellow-300'
-              "
-              @click.stop="toggleFav(group.items[0])"
-            >
-              {{ isFav(group.items[0]) ? '♥' : '♡' }}
-            </button>
-          </div>
-          <div class="p-3">
-            <h3
-              class="line-clamp-2 min-h-10 text-sm font-medium leading-5 av-card-title"
-            >
-              {{ group.vod_name }}
-            </h3>
-            <p class="mt-2 truncate text-xs yb-dim">
-              {{ group.items.length }} 个可用来源
-            </p>
-          </div>
-        </div>
+          <template v-if="group.items[0].vod_remarks" #badges>
+            <span class="ui-poster-badge">{{
+              group.items[0].vod_remarks
+            }}</span>
+          </template>
+        </UiPosterCard>
       </div>
-      <!-- 无结果提示 -->
-      <div
+      <AvStatus
         v-if="
           !loading && !searchError && mergedVideos.length === 0 && hasSearched
         "
-        class="flex min-h-52 flex-col items-center justify-center yb-muted"
-      >
-        <p class="text-sm">未找到相关结果</p>
-      </div>
-      <div
+        icon="search"
+        title="未找到相关结果"
+      />
+      <AvStatus
         v-if="!loading && !hasSearched"
-        class="flex min-h-64 flex-col items-center justify-center text-center"
-      >
-        <p class="text-sm yb-muted">搜索全部启用数据源</p>
-        <p class="mt-2 text-xs yb-dim">输入番号或关键词后按回车</p>
-      </div>
+        icon="search"
+        title="搜索全部启用数据源"
+        hint="输入番号或关键词后按回车"
+      />
     </div>
 
     <!-- 收藏 -->
-    <div
+    <AvFavoritesView
       v-if="activeTab === 'favorites'"
-      class="primary-scroll flex-1 overflow-y-auto p-6"
-    >
-      <div class="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <PageTitle as="h2">收藏</PageTitle>
-          <p class="yb-section-subtitle">AV 资源收藏</p>
-        </div>
-        <button
-          v-if="favorites.length"
-          class="h-9 rounded-lg px-3 text-xs av-ghost-btn"
-          @click="favorites = []"
-        >
-          清空
-        </button>
-      </div>
-      <div v-if="favorites.length">
-        <div class="flex items-center gap-2 mb-4">
-          <span class="text-sm yb-muted">共 {{ favorites.length }} 个收藏</span>
-          <button
-            class="ml-auto h-9 rounded-lg px-3 text-xs av-ghost-btn"
-            @click="favorites = []"
-          >
-            清空全部
-          </button>
-        </div>
-        <div
-          class="grid grid-cols-2 gap-4 md:grid-cols-3 lg:grid-cols-4 xl:grid-cols-5 2xl:grid-cols-6"
-        >
-          <div
-            v-for="fav in favorites"
-            :key="fav._uid"
-            class="group cursor-pointer overflow-hidden rounded-lg av-card transition-colors"
-            @click="playVideo(fav)"
-          >
-            <div class="relative aspect-video bg-black">
-              <img
-                :src="coverSrc(fav)"
-                loading="lazy"
-                decoding="async"
-                class="w-full h-full object-contain bg-black"
-                @error="handleImageError"
-              />
-              <div
-                class="absolute bottom-2 left-2 rounded bg-black/70 px-1.5 py-0.5 text-[11px] text-white/80"
-              >
-                {{ fav._source }}
-              </div>
-              <button
-                class="absolute right-1 top-1 flex h-10 w-10 items-center justify-center rounded-full bg-black/55 text-lg text-yellow-400"
-                @click.stop="toggleFav(fav)"
-              >
-                ♥
-              </button>
-            </div>
-            <p
-              class="line-clamp-2 min-h-16 p-3 text-sm font-medium leading-5 av-card-title"
-            >
-              {{ fav.vod_name }}
-            </p>
-          </div>
-        </div>
-      </div>
-      <div
-        v-else
-        class="flex min-h-40 flex-col items-center justify-center yb-dim gap-2 rounded-xl border border-dashed av-empty-border"
-      >
-        <p class="text-4xl mb-2">♡</p>
-        <p>还没有收藏</p>
-        <p class="text-xs">在搜索结果中点击 ♡ 收藏</p>
-      </div>
-    </div>
+      class="av-scroll primary-scroll"
+      :favorites="favorites"
+      @play="playVideo"
+      @toggle-favorite="toggleFav"
+      @clear="favorites = []"
+    />
 
     <!-- 播放历史 -->
-    <div
+    <AvHistoryView
       v-if="activeTab === 'history'"
-      class="primary-scroll flex-1 overflow-y-auto p-6"
-    >
-      <div class="mb-5 flex items-center justify-between gap-3">
-        <div>
-          <PageTitle as="h2">播放历史</PageTitle>
-          <p class="yb-section-subtitle">AV 资源播放记录</p>
-        </div>
-        <button
-          v-if="playHistory.length"
-          class="h-9 rounded-lg px-3 text-xs av-ghost-btn"
-          @click="playHistory = []"
-        >
-          清空
-        </button>
-      </div>
-      <div
-        v-if="playHistory.length"
-        class="grid grid-cols-1 gap-3 md:grid-cols-2 lg:grid-cols-3"
-      >
-        <div
-          v-for="rec in playHistory"
-          :key="rec.url"
-          class="flex min-h-20 cursor-pointer items-center gap-3 rounded-lg av-card transition-all"
-          @click="resumeHistory(rec)"
-        >
-          <img
-            :src="coverSrc(rec.video || rec)"
-            loading="lazy"
-            decoding="async"
-            class="h-14 w-20 flex-shrink-0 rounded-lg bg-black object-contain"
-            @error="handleImageError"
-          />
-          <div class="min-w-0 flex-1">
-            <p class="text-sm av-card-title truncate">{{ rec.vod_name }}</p>
-            <p class="text-[11px] yb-dim">
-              {{ rec.epName }} · {{ rec._source }}
-            </p>
-            <p class="text-[10px] yb-dim">{{ formatTime(rec.timestamp) }}</p>
-            <div
-              v-if="rec.duration > 0"
-              class="mt-1.5 h-1 overflow-hidden rounded-full av-skel"
-            >
-              <div
-                class="h-full rounded-full av-progress"
-                :style="{
-                  width: `${Math.min(100, (rec.progress / rec.duration) * 100)}%`,
-                }"
-              />
-            </div>
-          </div>
-        </div>
-      </div>
-      <div
-        v-else
-        class="flex min-h-40 items-center justify-center text-sm yb-dim"
-      >
-        暂无播放记录
-      </div>
-    </div>
+      class="av-scroll primary-scroll"
+      :records="playHistory"
+      @resume="resumeHistory"
+      @clear="playHistory = []"
+    />
 
-    <!-- 播放器：仅保留视频画面与原生控制条 -->
+    <!-- 播放器（非 Electron 兜底）：仅保留视频画面与原生控制条 -->
     <Transition name="sheet-fade">
       <div
         v-if="showPlayer"
-        class="fixed inset-0 z-[2000] flex items-center justify-center bg-black/75"
+        class="av-player-backdrop"
         @click.self="closePlayer"
       >
-        <div
-          class="av-player-page relative flex h-[78vh] max-h-[92vh] w-[92vw] max-w-[1200px] items-center justify-center overflow-hidden rounded-xl bg-black"
-        >
-          <p
-            v-if="playerMessage"
-            class="absolute left-1/2 top-4 z-10 -translate-x-1/2 rounded bg-black/70 px-3 py-2 text-xs text-white/80"
-          >
+        <div class="av-player-page">
+          <p v-if="playerMessage" class="av-player-message">
             {{ playerMessage }}
           </p>
           <UnifiedVideoPlayer
@@ -460,7 +193,22 @@
 </template>
 
 <script setup lang="ts">
-import PageTitle from '@/components/PageTitle.vue'
+/**
+ * AV 页面：分类浏览、聚合搜索、收藏和播放历史四个视图。
+ * 收藏与历史的展示拆在 ./components 里；数据和播放流程集中在这里。
+ */
+import PageHeader from '@/components/PageHeader.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiSegmented, {
+  type SegmentedOption,
+} from '@/components/ui/UiSegmented.vue'
+import AvFavoritesView from './components/AvFavoritesView.vue'
+import AvHistoryView from './components/AvHistoryView.vue'
+import AvSkeletonGrid from './components/AvSkeletonGrid.vue'
+import AvStatus from './components/AvStatus.vue'
+import { coverSrc } from './av-media'
 import { type MissavStream, listMissav, resolveMissav } from '@/api/missav'
 import { backend } from '@/api/backend'
 import {
@@ -493,12 +241,13 @@ import { getMediaProgress } from '@/utils/play-progress'
 import { message } from 'ant-design-vue'
 
 // ─── Tab ─────────────────────────────────────────────────────
-const tabs = [
-  { id: 'browse', label: '浏览' },
-  { id: 'favorites', label: '收藏' },
-  { id: 'history', label: '播放历史' },
-] as const
 type AvTab = 'browse' | 'search' | 'favorites' | 'history'
+/** 「搜索」视图没有 Tab，由路由 ?q= 进入。 */
+const tabs: SegmentedOption<AvTab>[] = [
+  { value: 'browse', label: '浏览' },
+  { value: 'favorites', label: '收藏' },
+  { value: 'history', label: '播放历史' },
+]
 const activeTab = useStorage<AvTab>('av_active_tab', 'browse')
 const route = useRoute()
 
@@ -629,8 +378,17 @@ const browseScroll = ref<HTMLElement | null>(null)
 const browseHasMore = computed(() => browsePage.value < browsePageCount.value)
 const onBrowseScroll = () => {
   const el = browseScroll.value
-  if (activeTab.value !== 'browse' || !el || browseLoading.value || browseLoadingMore.value || browseMoreError.value || !browseHasMore.value) return
-  if (el.scrollHeight - el.scrollTop - el.clientHeight < 400) void loadBrowse(false, true)
+  if (
+    activeTab.value !== 'browse' ||
+    !el ||
+    browseLoading.value ||
+    browseLoadingMore.value ||
+    browseMoreError.value ||
+    !browseHasMore.value
+  )
+    return
+  if (el.scrollHeight - el.scrollTop - el.clientHeight < 400)
+    void loadBrowse(false, true)
 }
 const browseSort = ref<'latest' | 'hot' | 'rating'>('latest')
 const browseVisits = useStorage<Record<string, BrowseVisit>>(
@@ -730,9 +488,15 @@ const browseCacheKey = (page: number) =>
       : (browseCategoryId.value ?? 'all')
   }|${page}|${browseSort.value}`
 
-const applyBrowseCache = (entry: BrowseCacheEntry, append: boolean, page: number) => {
+const applyBrowseCache = (
+  entry: BrowseCacheEntry,
+  append: boolean,
+  page: number
+) => {
   const items = append ? [...browseVideos.value, ...entry.items] : entry.items
-  browseVideos.value = Array.from(new Map(items.map(item => [item._uid, item])).values())
+  browseVideos.value = Array.from(
+    new Map(items.map(item => [item._uid, item])).values()
+  )
   browsePage.value = page
   browsePageCount.value = entry.items.length ? entry.pageCount : page
   browseTotal.value = entry.total
@@ -857,7 +621,11 @@ const loadPluginBrowse = async (page: number, append: boolean) => {
 }
 
 const loadBrowse = async (force = false, append = false) => {
-  if (append && (browseLoading.value || browseLoadingMore.value || !browseHasMore.value)) return
+  if (
+    append &&
+    (browseLoading.value || browseLoadingMore.value || !browseHasMore.value)
+  )
+    return
   const requestedPage = append ? browsePage.value + 1 : 1
   const selectedSource = currentBrowseSource.value
   if (!selectedSource) {
@@ -910,10 +678,9 @@ const loadBrowse = async (force = false, append = false) => {
   try {
     const settled = await Promise.allSettled(
       sources.map(async source => {
-        const response = await fetch(
-          createBrowseUrl(source, requestedPage),
-          { signal: controller.signal }
-        )
+        const response = await fetch(createBrowseUrl(source, requestedPage), {
+          signal: controller.signal,
+        })
         if (!response.ok)
           throw new Error(`${source.name} 请求失败（HTTP ${response.status}）`)
         const data = await response.json()
@@ -1081,7 +848,10 @@ watch(browseSourceApi, () => {
   restoreBrowseVisit()
   void loadBrowse()
 })
-watch(browseSort, () => { saveBrowseVisit(); void loadBrowse() })
+watch(browseSort, () => {
+  saveBrowseVisit()
+  void loadBrowse()
+})
 
 // ─── 状态 ────────────────────────────────────────────────────
 const searchKeyword = ref('')
@@ -1207,15 +977,6 @@ function rebuildMerged() {
 function findGroup(name: string) {
   const key = name.trim().toLowerCase()
   return mergedMap.get(key) || null
-}
-
-const formatTime = (ts: number) => {
-  const diff = (Date.now() - ts) / 1000
-  if (diff < 60) return '刚刚'
-  if (diff < 3600) return `${Math.floor(diff / 60)}分钟前`
-  if (diff < 86400) return `${Math.floor(diff / 3600)}小时前`
-  const d = new Date(ts)
-  return `${d.getMonth() + 1}/${d.getDate()}`
 }
 
 let currentAbort: AbortController | null = null
@@ -1439,23 +1200,6 @@ const playPluginVideo = async (video: any) => {
   )
 }
 
-const FOURHOI_COVER =
-  /^https:\/\/fourhoi\.com\/([a-z0-9]+(?:-[a-z0-9]+)*)\/cover-t\.jpg(?:[?#].*)?$/i
-
-const coverSrc = (item: any) => {
-  const code = String(item?._missavInput || '')
-    .trim()
-    .toLowerCase()
-  if (code)
-    return backend.fileUrl(`/api/missav/cover?code=${encodeURIComponent(code)}`)
-  const match = String(item?.vod_pic || '').match(FOURHOI_COVER)
-  if (match)
-    return backend.fileUrl(
-      `/api/missav/cover?code=${encodeURIComponent(match[1].toLowerCase())}`
-    )
-  return item?.vod_pic || ''
-}
-
 const playListedMissav = async (video: any) => {
   const hide = message.loading('正在解析 MissAV…', 0)
   try {
@@ -1622,7 +1366,9 @@ const resumeHistory = async (record: AvPlayRecord) => {
         record.progress
       )
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'MissAV 重新解析失败')
+      message.error(
+        error instanceof Error ? error.message : 'MissAV 重新解析失败'
+      )
     }
     return
   }
@@ -1749,12 +1495,6 @@ const handleNavigateBack = (event: Event) => {
   event.preventDefault()
 }
 
-// 图片加载失败
-const handleImageError = (e: Event) => {
-  const target = e.target as HTMLImageElement
-  target.style.display = 'none'
-}
-
 onBeforeUnmount(() => {
   browseAbort?.abort()
   currentAbort?.abort()
@@ -1790,94 +1530,101 @@ onBeforeUnmount(() =>
 
 <style scoped>
 .av-page {
-  min-height: 100%;
-}
-
-.line-clamp-2 {
-  display: -webkit-box;
-  -webkit-line-clamp: 2;
-  -webkit-box-orient: vertical;
+  display: flex;
+  height: 100%;
+  min-height: 0;
+  flex-direction: column;
   overflow: hidden;
-}
-
-/* 自定义滚动条 */
-::-webkit-scrollbar {
-  width: 6px;
-}
-
-::-webkit-scrollbar-track {
-  background: transparent;
-}
-
-::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--radius-xs);
-}
-
-::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
-.av-page {
+  background: var(--bg-content);
   color: var(--text-primary);
 }
-.av-tab {
-  color: var(--text-secondary);
-  background: transparent;
-
-  border-radius: var(--radius-md);
-
-  min-height: 36px;
+.av-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-4);
+  padding: var(--space-5) var(--space-6) var(--space-3);
 }
-.av-tab:hover {
-  color: var(--text-primary);
+.av-toolbar > .ui-segmented {
+  align-self: flex-start;
 }
-.av-tab.is-active {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-medium);
-
-  background: var(--bg-active);
-  box-shadow: none;
+.av-scroll {
+  display: flex;
+  min-height: 0;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-6);
+  overflow-y: auto;
+  padding: var(--space-3) var(--space-6) var(--space-8);
 }
-.av-card {
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-elevated);
-
-  border-color: var(--border-subtle);
-
-  border-radius: var(--radius-lg);
-  overflow: hidden;
-}
-.av-card:hover {
-  border-color: var(--border-default);
-  background: var(--bg-fill-tertiary);
-}
-.av-card-title {
-  color: var(--text-primary);
-}
-.av-skel {
-  background: var(--bg-fill-secondary);
-}
-.av-skel-line {
-  background: var(--bg-fill-secondary);
-}
-.av-ghost-btn {
-  border: 1px solid var(--border-default);
-  color: var(--text-secondary);
-  background: transparent;
-  border-radius: var(--radius-md);
+.av-load-more {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-3);
   min-height: var(--control-height);
-  padding: 0 18px;
-  transition: var(--transition-fast);
-  cursor: pointer;
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
 }
-.av-ghost-btn:hover {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
+.av-search-progress {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-6) 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
-.av-empty-border {
-  border-color: var(--border-default);
+.av-search-progress p {
+  margin: 0;
 }
-.av-progress {
-  background: var(--accent);
+.av-progress-track {
+  width: 256px;
+  height: 3px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-secondary);
+}
+.av-progress-bar {
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text-secondary);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+.av-player-backdrop {
+  position: fixed;
+  inset: 0;
+  z-index: 2000;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: rgba(0, 0, 0, 0.75);
+}
+.av-player-page {
+  position: relative;
+  display: flex;
+  width: 92vw;
+  max-width: 1200px;
+  height: 78vh;
+  max-height: 92vh;
+  align-items: center;
+  justify-content: center;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: #000;
+}
+.av-player-message {
+  position: absolute;
+  top: var(--space-4);
+  left: 50%;
+  z-index: 10;
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-sm);
+  background: rgba(0, 0, 0, 0.7);
+  color: rgba(255, 255, 255, 0.8);
+  font-size: var(--text-xs);
+  transform: translateX(-50%);
 }
 </style>
