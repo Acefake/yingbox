@@ -268,7 +268,11 @@ import { useLibraries } from './state/use-libraries'
 import { usePagedQuery } from './state/use-paged-query'
 import PosterWall from './wall/PosterWall.vue'
 import OrganizeSheet from './writer/OrganizeSheet.vue'
-import { WRITER_UNAVAILABLE, useWriter } from './writer/use-writer'
+import {
+  WRITER_UNAVAILABLE,
+  useWriter,
+  writerActivity,
+} from './writer/use-writer'
 
 const props = defineProps<{ kind: LibraryKind }>()
 
@@ -282,7 +286,7 @@ const {
   available,
   libraries,
   loaded: librariesLoaded,
-  activity,
+  activity: libraryActivity,
   addFolder: pickFolder,
   scanAll: scanLibraries,
   identifyAll: identifyLibraries,
@@ -473,7 +477,18 @@ function openOrganize(itemIds: number[]): void {
 }
 
 // —— 操作 ——
-const { available: writerAvailable, write } = useWriter()
+const {
+  available: writerAvailable,
+  write,
+  progress: writerProgress,
+} = useWriter()
+
+/** 后台活动：写出 / 整理进度优先，其次识别与扫描。 */
+const activity = computed(() =>
+  writerProgress.value
+    ? writerActivity(writerProgress.value)
+    : libraryActivity.value
+)
 
 async function guarded(
   task: () => Promise<unknown>,

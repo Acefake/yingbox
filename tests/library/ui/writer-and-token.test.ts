@@ -2,14 +2,15 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 
 import { migrateLegacyTmdbToken } from '../../../src/renderer/src/features/library/settings/provider-token'
-import {
-  runnableCount,
-  useWriter,
-} from '../../../src/renderer/src/features/library/writer/use-writer'
 import type {
   LibraryWriterBridge,
   OrganizePlan,
-} from '../../../src/renderer/src/features/library/writer/writer-contract'
+} from '../../../src/shared/library/ipc'
+import {
+  runnableCount,
+  useWriter,
+  writerActivity,
+} from '../../../src/renderer/src/features/library/writer/use-writer'
 
 function storage(initial: Record<string, string> = {}) {
   const map = new Map(Object.entries(initial))
@@ -72,16 +73,25 @@ describe('migrateLegacyTmdbToken', () => {
 
 const PLAN: OrganizePlan = {
   planId: 'p1',
+  unchanged: 4,
   entries: [
-    { itemId: 1, from: '/a/x.mkv', to: '/a/X (2000)/X (2000).mkv', crossDevice: false },
+    {
+      itemId: 1,
+      kind: 'video',
+      from: '/a/x.mkv',
+      to: '/a/X (2000)/X (2000).mkv',
+      crossDevice: false,
+    },
     {
       itemId: 2,
+      kind: 'sidecar',
       from: '/a/y.mkv',
       to: '/b/Y (2001)/Y (2001).mkv',
       crossDevice: true,
     },
     {
       itemId: 3,
+      kind: 'video',
       from: '/a/z.mkv',
       to: '/a/X (2000)/X (2000).mkv',
       conflict: '目标已存在',
@@ -110,13 +120,33 @@ describe('useWriter', () => {
     expect(runnableCount(PLAN)).toBe(2)
   })
 
-  it('没有 writer（P5 未合并）：不可用，写出返回提示', async () => {
+  it('没有 writer（网页版 / 旧 preload）：不可用，写出返回提示', async () => {
     installWriter(undefined)
     const scope = effectScope()
     const writer = scope.run(() => useWriter())!
     expect(writer.available).toBe(false)
-    expect(await writer.write([1])).toContain('P5')
+    expect(await writer.write([1])).toContain('桌面版')
     scope.stop()
+  })
+
+  it('writer-progress → 进度文字', () => {
+    const base = {
+      type: 'writer-progress' as const,
+      jobId: 1,
+      total: 10,
+      done: 4,
+      written: 3,
+      skipped: 1,
+      failed: 0,
+      finished: false,
+    }
+    expect(writerActivity({ ...base, mode: 'write' })).toEqual({
+      label: '正在写出 NFO 与图片 4 / 10',
+      progress: 0.4,
+    })
+    expect(
+      writerActivity({ ...base, mode: 'undo', batchId: 3 }).label
+    ).toContain('撤销')
   })
 
   it('整理：预览 → 执行 → 撤销', async () => {

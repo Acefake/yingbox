@@ -187,9 +187,13 @@
           :model-value="templateValue"
           :aria-label="`${kindLabel}路径模板`"
           class="lib-template"
+          :invalid="Boolean(templateError)"
           :disabled="!writer.available"
           @update:model-value="setTemplate"
         />
+        <p v-if="templateError" class="lib-template-error">
+          {{ templateError }}
+        </p>
       </SettingsRow>
       <SettingsRow
         v-for="batch in batches"
@@ -215,7 +219,7 @@
 <script setup lang="ts">
 /**
  * 媒体库设置（macOS 系统设置式分组）：文件夹管理、TMDB 令牌与识别、写出 NFO 与图片、整理模板。
- * 写出与整理来自 P5 的 writer 接口，不可用时整组置灰并在组尾说明。
+ * 写出与整理走 window.api.library.writer，不可用（网页版）时整组置灰并在组尾说明。
  */
 import { message } from 'ant-design-vue'
 import { computed, ref, shallowRef, watch } from 'vue'
@@ -223,7 +227,13 @@ import { computed, ref, shallowRef, watch } from 'vue'
 import type {
   LibraryInfo,
   LibraryKind,
+  OrganizeBatchInfo,
+  WriterSettings,
 } from '../../../../../shared/library/ipc'
+import {
+  TEMPLATE_VARIABLES,
+  validateTemplate,
+} from '../../../../../shared/library/writer'
 import SettingsGroup from '@/components/settings/SettingsGroup.vue'
 import SettingsRow from '@/components/settings/SettingsRow.vue'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -242,10 +252,6 @@ import {
   useWriter,
   useWriterSettings,
 } from '../writer/use-writer'
-import type {
-  OrganizeBatchInfo,
-  WriterSettings,
-} from '../writer/writer-contract'
 import { setTmdbToken } from './provider-token'
 
 const props = defineProps<{ open: boolean; kind: LibraryKind }>()
@@ -374,19 +380,32 @@ const ARTWORK_ROWS: Array<{ key: ArtworkKey; title: string }> = [
   { key: 'legacyNames', title: '兼容旧播放器的文件名' },
 ]
 
+/** 电影模板用不到剧集变量，剧集模板全部可用。 */
+const TV_ONLY = new Set(['series', 'season', 'episode', 'episodeTitle'])
 const templateVariables = computed(() =>
-  props.kind === 'movie'
-    ? '{title} {originalTitle} {year} {tmdbId} {imdbId} {ext}'
-    : '{series} {year} {season:02} {episode:02} {episodeTitle} {tmdbId} {ext}'
+  TEMPLATE_VARIABLES.filter(v => props.kind === 'tv' || !TV_ONLY.has(v))
+    .map(v => `{${v}}`)
+    .join(' ')
 )
-const templateValue = computed(() =>
-  props.kind === 'movie'
-    ? writer.settings.value.organize.movieTemplate
-    : writer.settings.value.organize.tvTemplate
+const templateError = computed(() =>
+  validateTemplate(templateValue.value, props.kind)
 )
+const templateValue = computed(
+  () =>
+    templateDraft.value ??
+    (props.kind === 'movie'
+      ? writer.settings.value.organize.movieTemplate
+      : writer.settings.value.organize.tvTemplate)
+)
+
+/** 模板逐字编辑：不合法时只在界面上提示，不下发（引擎也会拒绝）。 */
+const templateDraft = ref<string | null>(null)
 
 function setTemplate(value: string | number | null | undefined): void {
   const text = String(value ?? '')
+  templateDraft.value = text
+  if (validateTemplate(text, props.kind)) return
+  templateDraft.value = null
   writer.update(s => {
     if (props.kind === 'movie') s.organize.movieTemplate = text
     else s.organize.tvTemplate = text
@@ -448,6 +467,11 @@ watch(
 }
 .lib-template {
   font-family: var(--font-mono);
+}
+.lib-template-error {
+  margin: 0;
+  color: var(--danger);
+  font-size: var(--text-xs);
 }
 .lib-code {
   font-family: var(--font-mono);

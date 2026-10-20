@@ -7,20 +7,13 @@ import { getCurrentScope, onScopeDispose } from 'vue'
 
 import type { LibraryEvent } from '../../../../../shared/library/ipc'
 import { libraryBridge } from '../api/bridge'
-import type { WriterProgressEvent } from '../writer/writer-contract'
 
-/**
- * 界面处理的事件：引擎事件 + P5 的 writer-progress。
- * TODO(P5)：合并后 LibraryEvent 自带 WriterProgressEvent，这里直接用 LibraryEvent。
- */
-export type LibraryUiEvent = LibraryEvent | WriterProgressEvent
-
-type Listener = (event: LibraryUiEvent) => void
+type Listener = (event: LibraryEvent) => void
 
 const listeners = new Set<Listener>()
 let unsubscribe: (() => void) | null = null
 
-function dispatch(event: LibraryUiEvent): void {
+function dispatch(event: LibraryEvent): void {
   for (const listener of listeners) {
     try {
       listener(event)
