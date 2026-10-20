@@ -7,7 +7,7 @@ import {
   pathKey,
 } from './library/scanner/rules'
 
-export interface MediaEntry {
+interface MediaEntry {
   name: string
   path: string
   size: number

@@ -11,7 +11,9 @@
       :name="loading ? 'refresh' : icon!"
       :size="size === 'lg' ? 'lg' : 'sm'"
     />
-    <span><slot>{{ label }}</slot></span>
+    <span
+      ><slot>{{ label }}</slot></span
+    >
   </button>
 </template>
 
@@ -100,6 +102,6 @@ withDefaults(
   cursor: default;
 }
 .ui-button.is-loading .app-icon {
-  animation: yb-icon-spin 0.9s linear infinite;
+  animation: yb-icon-spin var(--duration-spin) linear infinite;
 }
 </style>

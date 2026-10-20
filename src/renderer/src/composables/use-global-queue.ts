@@ -18,7 +18,7 @@ interface TaskEntry {
   controller: AbortController
 }
 
-export type QueueAddOptions = {
+type QueueAddOptions = {
   cancellable?: boolean
   cancelFn?: () => void
   dedupKey?: string

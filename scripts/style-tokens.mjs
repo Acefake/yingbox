@@ -2,6 +2,13 @@
  * 样式令牌检查与迁移。
  *
  * 渲染进程的样式里，字号和圆角必须引用 tokens.css 的变量，不能写裸 px。
+ * 同样受检的还有：
+ *   - 间距：padding / margin / gap / inset / top / right / bottom / left 里的裸 px
+ *     （0 和 1px 发丝线除外）。确属布局尺寸的偏移，在同一行末尾写
+ *     `/* style-tokens: layout（原因） *\/` 豁免。
+ *   - 动效：transition / animation 里的字面时长，改用 --duration-*。
+ *   - 层级：数字 z-index（0、1、-1、auto 除外），改用 --z-*。
+ * --fix 只替换能精确对上令牌的值，就近取档需要人工判断。
  *
  *   node scripts/style-tokens.mjs          检查，发现裸值时退出码为 1
  *   node scripts/style-tokens.mjs --fix    把能映射的裸值替换成变量
@@ -58,6 +65,63 @@ function radiusToken(px) {
   if (px >= 99) return '--radius-full'
   return null
 }
+
+/** 间距 px → 令牌（只收精确值） */
+const SPACE = new Map([
+  [2, '--space-0_5'],
+  [4, '--space-1'],
+  [8, '--space-2'],
+  [12, '--space-3'],
+  [16, '--space-4'],
+  [20, '--space-5'],
+  [24, '--space-6'],
+  [28, '--space-6_5'],
+  [32, '--space-7'],
+  [40, '--space-8'],
+  [48, '--space-9'],
+  [64, '--space-10'],
+  [80, '--space-11'],
+])
+
+/** 时长 ms → 令牌（只收精确值） */
+const DURATION = new Map([
+  [100, '--duration-instant'],
+  [150, '--duration-fast'],
+  [240, '--duration-normal'],
+  [350, '--duration-slow'],
+  [800, '--duration-spin'],
+  [1400, '--duration-pulse'],
+])
+
+/** z-index 数值 → 令牌（只收精确值） */
+const Z_INDEX = new Map([
+  [2, '--z-raised'],
+  [5, '--z-above'],
+  [10, '--z-float'],
+  [20, '--z-dropdown'],
+  [30, '--z-popover'],
+  [40, '--z-overlay'],
+  [45, '--z-overlay-top'],
+  [1100, '--z-bottom-nav'],
+  [1140, '--z-drawer-backdrop'],
+  [1150, '--z-drawer'],
+  [2000, '--z-modal'],
+  [2050, '--z-sheet'],
+  [2060, '--z-lightbox'],
+  [2100, '--z-settings'],
+  [3000, '--z-dialog'],
+  [6000, '--z-player-overlay'],
+  [10000, '--z-max'],
+])
+
+/** 声明后紧跟这个注释（同一行）的是布局尺寸，跳过间距检查 */
+const LAYOUT_EXEMPT = /\/\*\s*style-tokens:\s*layout/
+
+const SPACING_DECL =
+  /(^|[;{\s])((?:padding|margin|inset)(?:-(?:top|bottom|left|right|inline|block)(?:-(?:start|end))?)?|gap|row-gap|column-gap|top|right|bottom|left)(\s*:\s*)([^;}\n]+)(?=(;?[ \t]*(?:\/\*[^*]*\*\/)?))/g
+const MOTION_DECL =
+  /(^|[;{\s])((?:transition|animation)(?:-duration|-delay)?)(\s*:\s*)([^;}]+)/g
+const Z_DECL = /(^|[;{\s])(z-index\s*:\s*)(-?\d+)(?=\s*[;}\n])/g
 
 const RULES = [
   {
@@ -116,6 +180,50 @@ function transformCss(css, report) {
       return `var(${token})`
     })
     return prop + replaced
+  })
+  out = out.replace(SPACING_DECL, (all, pre, prop, colon, value, rest) => {
+    if (LAYOUT_EXEMPT.test(rest)) return all
+    const replaced = value.replace(
+      /(-?)(\d+(?:\.\d+)?)px/g,
+      (raw, neg, num) => {
+        const px = Number(num)
+        if (px <= 1) return raw
+        const token = SPACE.get(px)
+        if (!token) {
+          report.push(`${prop}: ${raw}`)
+          return raw
+        }
+        return neg ? `calc(var(${token}) * -1)` : `var(${token})`
+      }
+    )
+    return pre + prop + colon + replaced
+  })
+  out = out.replace(MOTION_DECL, (all, pre, prop, colon, value) => {
+    const replaced = value.replace(
+      /(?<![\w.-])(\d*\.?\d+)(ms|s)\b/g,
+      (raw, num, unit) => {
+        const ms = unit === 's' ? Number(num) * 1000 : Number(num)
+        // 0 与 prefers-reduced-motion 里的 0.01ms 是“关掉动画”，不算动效档位
+        if (ms <= 0.01) return raw
+        const token = DURATION.get(ms)
+        if (!token) {
+          report.push(`${prop}: ${raw}`)
+          return raw
+        }
+        return `var(${token})`
+      }
+    )
+    return pre + prop + colon + replaced
+  })
+  out = out.replace(Z_DECL, (all, pre, prop, num) => {
+    const n = Number(num)
+    if (n >= -1 && n <= 1) return all
+    const token = Z_INDEX.get(n)
+    if (!token) {
+      report.push(`z-index: ${num}`)
+      return all
+    }
+    return `${pre}${prop}var(${token})`
   })
   return out
 }
@@ -220,7 +328,7 @@ for (const file of walk(srcDir)) {
   if (result !== text) {
     dirty++
     if (fix) writeFileSync(file, result)
-    else console.log(`${rel}: 有裸字号或圆角，可运行 --fix`)
+    else console.log(`${rel}: 有可映射到令牌的裸值，可运行 --fix`)
   }
   for (const item of report) leftovers.push(`${rel}: ${item}（无对应令牌）`)
 }

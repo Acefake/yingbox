@@ -61,15 +61,6 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-/* Generic Utilities */
-.glass-panel {
-  background: var(--bg-panel);
-  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-panel))
-    saturate(var(--saturate-vibrancy));
-  border: 1px solid var(--border-glass);
-}
-
 .glass-panel-floating {
   background: var(--bg-panel);
   backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
@@ -127,38 +118,6 @@ button:disabled,
   cursor: not-allowed;
 }
 
-/* Keep dense metadata legible across pages that still use legacy utility sizes. */
-[class~='text-[9px]'] {
-  font-size: var(--text-2xs) !important;
-}
-[class~='text-[10px]'] {
-  font-size: var(--text-xs) !important;
-}
-[class~='text-[11px]'] {
-  font-size: var(--text-xs) !important;
-}
-
-/* Shared icon optical box — prefer AppIcon; use for leftover inline SVGs */
-.ui-icon {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  flex: 0 0 auto;
-  width: var(--icon-md, 16px);
-  height: var(--icon-md, 16px);
-  line-height: 0;
-}
-.ui-icon svg {
-  display: block;
-  width: 100%;
-  height: 100%;
-  stroke: currentColor;
-  stroke-width: var(--icon-stroke, 1.75);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  fill: none;
-}
-
 :where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
   outline: 2px solid var(--accent-text);
   outline-offset: 3px;
@@ -173,17 +132,6 @@ button:disabled {
   background: var(--selection-bg);
   color: var(--text-primary);
 }
-@media (prefers-reduced-motion: reduce) {
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    animation-iteration-count: 1 !important;
-    transition-duration: 0.01ms !important;
-    scroll-behavior: auto !important;
-  }
-}
-
 /* Native dropdown menus must keep readable colors in both themes. */
 select option,
 select optgroup {

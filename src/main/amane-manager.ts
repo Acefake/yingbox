@@ -632,7 +632,7 @@ export async function registerAmaneIpc(): Promise<void> {
 }
 
 /** Playback paths are resolved from indexed media, never supplied as arbitrary IPC arguments. */
-export async function resolveAmaneMedia(mediaId: number): Promise<string> {
+async function resolveAmaneMedia(mediaId: number): Promise<string> {
   if (!Number.isSafeInteger(mediaId) || mediaId < 1)
     throw new Error('无效的媒体文件')
   const media = (await requestApi({ path: `/api/media/${mediaId}` })) as {

@@ -16,7 +16,7 @@ import { basename, join } from 'node:path'
 import { ladaPaths, onJobFinished, startJob, tempDirPath } from './lada'
 import { restoredPathFor } from '../shared/lada'
 
-export interface ResumeProgress {
+interface ResumeProgress {
   input: string
   /** 已经处理好的秒数（由半成品实测） */
   doneSeconds: number
@@ -43,7 +43,7 @@ const dirFor = (input: string): string => join(cacheRoot(), keyFor(input))
 const partPath = (input: string, index: number): string => join(dirFor(input), `part${index}.mp4`)
 const progressPath = (input: string): string => join(dirFor(input), 'progress.json')
 
-export function readProgress(input: string): ResumeProgress | null {
+function readProgress(input: string): ResumeProgress | null {
   const file = progressPath(input)
   if (!existsSync(file)) return null
   try {
@@ -180,7 +180,7 @@ async function assemble(input: string, output: string): Promise<void> {
 }
 
 /** 「继续」：裁出剩余部分 → 交给 lada → 跑完自动拼接 */
-export async function resume(input: unknown): Promise<{ success: boolean; error?: string; doneSeconds?: number }> {
+async function resume(input: unknown): Promise<{ success: boolean; error?: string; doneSeconds?: number }> {
   try {
     if (running) throw new Error('已经有一个续跑在进行中')
     if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
@@ -242,7 +242,7 @@ function notify(text: string): void {
 }
 
 /** 把秒数写成 1h02m03s / 12m34s 这种给人看的形式 */
-export function fmtClock(seconds: number): string {
+function fmtClock(seconds: number): string {
   const total = Math.max(0, Math.round(seconds))
   const h = Math.floor(total / 3600)
   const m = Math.floor((total % 3600) / 60)
@@ -275,7 +275,7 @@ interface RangeJob {
 
 let range: RangeJob | null = null
 
-export async function startRange(
+async function startRange(
   input: unknown,
   startSeconds: unknown,
   endSeconds: unknown
@@ -458,13 +458,11 @@ export function registerLadaResumeIpc(): void {
   })
 }
 
-export { partsOf, dirFor }
-
 /**
  * 认领上次崩溃留下的半成品：带 `*.owner.json` 归属记录的临时视频会被收进缓存目录
  * 并登记进度，然后删掉临时文件。没有归属记录的才是真垃圾，留给清扫处理。
  */
-export async function adoptLeftovers(): Promise<number> {
+async function adoptLeftovers(): Promise<number> {
   const { ffmpeg } = ladaPaths()
   if (!ffmpeg) return 0
   let adopted = 0

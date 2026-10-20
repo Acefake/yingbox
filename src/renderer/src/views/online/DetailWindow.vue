@@ -824,7 +824,7 @@ const onActorImgError = (e: Event) => {
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 14px;
+  gap: var(--space-4);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
 }
@@ -835,7 +835,7 @@ const onActorImgError = (e: Event) => {
   border-radius: 50%;
   border: 3px solid var(--border-subtle);
   border-top-color: var(--accent);
-  animation: spin 0.8s linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
 }
 
 @keyframes spin {
@@ -882,15 +882,15 @@ const onActorImgError = (e: Event) => {
 
 .dw-content {
   position: relative;
-  margin-top: -260px;
+  margin-top: -260px; /* style-tokens: layout（内容上移盖住背景图） */
   padding: 0 var(--content-padding-x) var(--space-9);
 }
 
 .dw-hero {
   display: flex;
-  gap: 28px;
+  gap: var(--space-6_5);
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: var(--space-7);
 }
 
 .dw-poster-wrap {
@@ -984,13 +984,13 @@ const onActorImgError = (e: Event) => {
 .dw-meta-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 20px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
 }
 
 .dw-meta-item {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .dw-meta-label {
@@ -1009,8 +1009,8 @@ const onActorImgError = (e: Event) => {
 .dw-loading-sources {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
@@ -1022,7 +1022,7 @@ const onActorImgError = (e: Event) => {
 .ep-empty {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
-  padding: 16px 0;
+  padding: var(--space-4) 0;
   text-align: center;
 }
 
@@ -1032,7 +1032,7 @@ const onActorImgError = (e: Event) => {
   border-radius: 50%;
   border: 2px solid var(--border-strong);
   border-top-color: var(--text-primary);
-  animation: spin 0.7s linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
   flex-shrink: 0;
 }
 
@@ -1040,18 +1040,18 @@ const onActorImgError = (e: Event) => {
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .dw-cast-section {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-6_5);
 }
 
 .dw-cast-list {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
 }
 
 .dw-cast-list::-webkit-scrollbar {
@@ -1086,19 +1086,19 @@ const onActorImgError = (e: Event) => {
 .dw-actor-char {
   font-size: var(--text-2xs);
   color: var(--text-tertiary);
-  margin-top: 2px;
+  margin-top: var(--space-0_5);
 }
 
 /* 图库 */
 .dw-gallery-section {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-6_5);
 }
 
 .dw-gallery {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
 }
 
 .dw-gallery::-webkit-scrollbar {
@@ -1117,8 +1117,8 @@ const onActorImgError = (e: Event) => {
   overflow: hidden;
   cursor: pointer;
   transition:
-    transform 0.15s,
-    box-shadow 0.15s;
+    transform var(--duration-fast),
+    box-shadow var(--duration-fast);
   border: 1px solid var(--border-subtle);
 }
 
@@ -1137,7 +1137,7 @@ const onActorImgError = (e: Event) => {
 /* 灯箱 */
 .lb-fade-enter-active,
 .lb-fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-normal);
 }
 
 .lb-fade-enter-from,
@@ -1148,7 +1148,7 @@ const onActorImgError = (e: Event) => {
 .lb-mask {
   position: fixed;
   inset: 0;
-  z-index: 2060;
+  z-index: var(--z-lightbox);
   background: var(--overlay-scrim-strong);
   display: flex;
   align-items: center;
@@ -1169,11 +1169,11 @@ const onActorImgError = (e: Event) => {
 }
 
 .lb-prev {
-  left: 16px;
+  left: var(--space-4);
 }
 
 .lb-next {
-  right: 16px;
+  right: var(--space-4);
 }
 
 .lb-close {
@@ -1185,7 +1185,7 @@ const onActorImgError = (e: Event) => {
 /* 播放弹窗 */
 .sheet-fade-enter-active,
 .sheet-fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-normal);
 }
 
 .sheet-fade-enter-from,
@@ -1196,7 +1196,7 @@ const onActorImgError = (e: Event) => {
 .sheet-mask {
   position: fixed;
   inset: 0;
-  z-index: 2050;
+  z-index: var(--z-sheet);
   background: var(--overlay-scrim);
   display: flex;
   align-items: center;

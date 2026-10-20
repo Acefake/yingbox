@@ -10,7 +10,7 @@ export type PlayerSourceItem = {
   siteName?: string
 }
 
-export type MediaPlayerOpenOptions = {
+type MediaPlayerOpenOptions = {
   filePath?: string
   url?: string
   title?: string
@@ -33,15 +33,9 @@ export function canOpenElectronPlayer(): boolean {
 }
 
 /** 获取用户首选播放器引擎 */
-export function getPreferredPlayerEngine(): 'built-in' | 'mpv' {
+function getPreferredPlayerEngine(): 'built-in' | 'mpv' {
   if (typeof localStorage === 'undefined') return 'built-in'
   return (localStorage.getItem('preferred_player_engine') as 'built-in' | 'mpv') || 'built-in'
-}
-
-/** 设置用户首选播放器引擎 */
-export function setPreferredPlayerEngine(engine: 'built-in' | 'mpv'): void {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem('preferred_player_engine', engine)
 }
 
 /** 是否启用 RTX 视频超分（mpv 专属，NVIDIA 显卡） */
@@ -169,12 +163,5 @@ export async function openMediaPlayer(
   } catch (error) {
     console.warn('[openMediaPlayer] failed', error)
     return false
-  }
-}
-
-export function useMediaPlayer() {
-  return {
-    canOpenElectronPlayer,
-    openMediaPlayer,
   }
 }

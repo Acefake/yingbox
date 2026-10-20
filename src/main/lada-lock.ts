@@ -11,7 +11,7 @@
 import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 
-export interface JobLock {
+interface JobLock {
   pid: number
   input?: string
   startedAt?: number
