@@ -10,6 +10,8 @@
 export interface HostMethods {
   /** 用 Chromium 窗口打开页面，等 Cloudflare 挑战结束后返回 HTML；失败返回空串。 */
   browserFetch(url: string, waitMs?: number): string
+  /** 当前下载目录（用户设置，可能随时改变） */
+  downloadDir(): string
 }
 
 /** 主进程 → 引擎 */

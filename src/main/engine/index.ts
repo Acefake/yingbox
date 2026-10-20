@@ -5,11 +5,13 @@ import { app, utilityProcess } from 'electron'
 import { join } from 'node:path'
 import { broadcastChannel, implement } from '../rpc'
 import { browserFetch } from '../browser-fetch'
+import { getDownloadPath } from '../config'
 import { av } from '../../shared/contract/av'
+import { download } from '../../shared/contract/download'
 import { online } from '../../shared/contract/online'
 import { type EngineChild, EngineHost, forwardTo } from './host'
 
-/** 注册引擎域（online、av）。 */
+/** 注册引擎域（online、av、download）。 */
 export function registerEngine(): EngineHost {
   const host = new EngineHost({
     fork: () =>
@@ -19,10 +21,15 @@ export function registerEngine(): EngineHost {
         { serviceName: 'yingbox-engine', stdio: 'inherit' }
       ) as unknown as EngineChild,
     broadcast: broadcastChannel,
-    hostMethods: { browserFetch: (url, waitMs) => browserFetch(url, waitMs) },
+    hostMethods: {
+      browserFetch: (url, waitMs) => browserFetch(url, waitMs),
+      downloadDir: async () =>
+        getDownloadPath() || join(app.getPath('videos'), '影盒下载'),
+    },
   })
   implement(online, forwardTo(host, online))
   implement(av, forwardTo(host, av))
+  implement(download, forwardTo(host, download))
   app.on('will-quit', () => host.shutdown())
   return host
 }

@@ -148,6 +148,7 @@ const ADDED_API: Record<string, string[]> = {
   settings: ['snapshot', 'migrateLegacy', 'set', 'onChanged', 'offChanged'],
   online: ['sites', 'vod', 'getJson', 'resolvePage'],
   av: ['list', 'resolve'],
+  download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
 }
 
 beforeAll(async () => {
