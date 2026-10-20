@@ -18,8 +18,10 @@ import {
   type ScanRequest,
   type SetProviderTokenRequest,
   type TopLevelItemType,
+  type WriterSettings,
 } from './contract'
 import { LibraryError } from './wire'
+import { validateTemplate } from '../writer/template'
 
 /** 默认每页条数。 */
 export const DEFAULT_PAGE_SIZE = 200
@@ -259,6 +261,60 @@ function parseSetToken(input: unknown): SetProviderTokenRequest {
   return { provider, token: token || null }
 }
 
+function bool(value: unknown, name: string): boolean {
+  if (typeof value !== 'boolean') return invalid(`${name} 必须是布尔值`)
+  return value
+}
+
+function template(value: unknown, name: string, kind: 'movie' | 'tv'): string {
+  if (typeof value !== 'string') return invalid(`${name} 必须是字符串`)
+  const error = validateTemplate(value, kind)
+  if (error) invalid(`${name}：${error}`)
+  return value.trim()
+}
+
+/** 写出设置：每个字段都必须给全（设置页整份提交），模板按语法校验。 */
+export function parseWriterSettings(input: unknown): WriterSettings {
+  const r = asRecord(input, 'settings')
+  const nfo = asRecord(r.nfo, 'nfo')
+  const art = asRecord(r.artwork, 'artwork')
+  const org = asRecord(r.organize, 'organize')
+  return {
+    nfo: {
+      enabled: bool(nfo.enabled, 'nfo.enabled'),
+      mode: oneOf(nfo.mode, ['merge', 'overwrite'] as const, 'nfo.mode'),
+    },
+    artwork: {
+      poster: bool(art.poster, 'artwork.poster'),
+      fanart: bool(art.fanart, 'artwork.fanart'),
+      logo: bool(art.logo, 'artwork.logo'),
+      seasonArt: bool(art.seasonArt, 'artwork.seasonArt'),
+      actors: bool(art.actors, 'artwork.actors'),
+      legacyNames: bool(art.legacyNames, 'artwork.legacyNames'),
+    },
+    autoWriteAfterIdentify: bool(
+      r.autoWriteAfterIdentify,
+      'autoWriteAfterIdentify'
+    ),
+    organize: {
+      enabled: bool(org.enabled, 'organize.enabled'),
+      movieTemplate: template(
+        org.movieTemplate,
+        'organize.movieTemplate',
+        'movie'
+      ),
+      tvTemplate: template(org.tvTemplate, 'organize.tvTemplate', 'tv'),
+    },
+  }
+}
+
+/** 写出 / 整理点名的条目：非空。 */
+function requiredItemIds(input: unknown): { itemIds: number[] } {
+  const itemIds = itemIdList(asRecord(input, '参数').itemIds)
+  if (!itemIds?.length) invalid('itemIds 不能为空')
+  return { itemIds: itemIds! }
+}
+
 const itemIdParam = (input: unknown): { itemId: number } => ({
   itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
 })
@@ -291,6 +347,21 @@ const PARAM_PARSERS: {
   },
   setProviderToken: parseSetToken,
   getProviderStatus: () => undefined,
+  'writer.getSettings': () => undefined,
+  'writer.setSettings': parseWriterSettings,
+  'writer.write': requiredItemIds,
+  'writer.previewOrganize': requiredItemIds,
+  'writer.applyOrganize': input => {
+    const planId = asRecord(input, '参数').planId
+    if (typeof planId !== 'string' || !/^[0-9a-f-]{36}$/.test(planId)) {
+      invalid('planId 格式不对')
+    }
+    return { planId: planId as string }
+  },
+  'writer.undoOrganize': input => ({
+    batchId: positiveId(asRecord(input, '参数').batchId, 'batchId'),
+  }),
+  'writer.listOrganizeBatches': () => undefined,
 }
 
 /** 方法名是否在白名单内。 */

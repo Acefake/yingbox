@@ -121,6 +121,13 @@ describe('引擎 RPC 与 preload bridge', () => {
       'refreshMetadata',
       'setProviderToken',
       'getProviderStatus',
+      'writer.getSettings',
+      'writer.setSettings',
+      'writer.write',
+      'writer.previewOrganize',
+      'writer.applyOrganize',
+      'writer.undoOrganize',
+      'writer.listOrganizeBatches',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })
