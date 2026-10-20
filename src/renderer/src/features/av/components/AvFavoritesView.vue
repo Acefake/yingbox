@@ -25,6 +25,7 @@
     >
       <template #default="{ item: fav }">
         <UiPosterCard
+          thumb
           shape="landscape"
           :title="fav.vod_name"
           :cover="coverSrc(fav)"

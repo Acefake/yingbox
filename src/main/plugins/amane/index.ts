@@ -7,6 +7,7 @@ import { dialog, protocol } from 'electron'
 import type { AmaneStatus } from '../../../shared/amane'
 import { type AmaneConfigureInput, amane } from '../../../shared/contract/amane'
 import { implement } from '../../rpc'
+import { registerThumbSource } from '../../thumbnails'
 import { registerPlugin } from '../host'
 import { imageResponse, requestApi, resolveAmaneMedia } from './api'
 import { connection, loadConnection, persist } from './connection'
@@ -49,6 +50,8 @@ export async function registerAmaneIpc(): Promise<void> {
     service.failure = loadError
   }
   protocol.handle('amane', imageResponse)
+  // 缩略图服务取 Amane 资源图的原图时直接走同一个处理函数（Amane 在本机，不能经外网 SSRF 防护）
+  registerThumbSource('amane:', source => imageResponse(new Request(source)))
   implement(amane, {
     status: async () => {
       if (service.state === 'running') {

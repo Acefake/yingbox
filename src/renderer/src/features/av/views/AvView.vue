@@ -59,6 +59,7 @@
         >
           <template #default="{ item: video }">
             <UiPosterCard
+              thumb
               shape="landscape"
               :title="video.vod_name"
               :cover="coverSrc(video)"

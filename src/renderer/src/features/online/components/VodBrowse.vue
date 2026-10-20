@@ -61,6 +61,7 @@
     >
       <template #default="{ item: card }">
         <UiPosterCard
+          thumb
           :title="card.vod_name"
           :cover="card.vod_pic"
           :subtitle="card.vod_remarks"

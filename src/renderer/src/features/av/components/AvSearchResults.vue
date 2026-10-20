@@ -28,6 +28,7 @@
     >
       <template #default="{ item: group }">
         <UiPosterCard
+          thumb
           shape="landscape"
           :title="group.vod_name"
           :cover="coverSrc(group.items[0])"

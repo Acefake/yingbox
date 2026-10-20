@@ -24,6 +24,7 @@
     >
       <template #default="{ item: entry }">
         <UiPosterCard
+          thumb
           :title="entry.item.vod_name"
           :cover="entry.item.vod_pic"
           :subtitle="
