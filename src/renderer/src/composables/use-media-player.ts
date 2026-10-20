@@ -1,3 +1,5 @@
+import { getSetting } from '@/features/settings/use-setting'
+
 /** 播放列表条目：用于自动连播与失败换源 */
 export type PlayerSourceItem = {
   url?: string
@@ -32,24 +34,6 @@ export function canOpenElectronPlayer(): boolean {
   return Boolean(typeof window !== 'undefined' && window.api?.player?.open)
 }
 
-/** 获取用户首选播放器引擎 */
-function getPreferredPlayerEngine(): 'built-in' | 'mpv' {
-  if (typeof localStorage === 'undefined') return 'built-in'
-  return (localStorage.getItem('preferred_player_engine') as 'built-in' | 'mpv') || 'built-in'
-}
-
-/** 是否启用 RTX 视频超分（mpv 专属，NVIDIA 显卡） */
-export function getRtxVsrEnabled(): boolean {
-  if (typeof localStorage === 'undefined') return false
-  return localStorage.getItem('player_rtx_vsr') === '1'
-}
-
-/** 保存 RTX 视频超分开关 */
-export function setRtxVsrEnabled(enabled: boolean): void {
-  if (typeof localStorage === 'undefined') return
-  localStorage.setItem('player_rtx_vsr', enabled ? '1' : '0')
-}
-
 /**
  * 把 RTX 视频超分开关同步给主进程。
  * 主进程据此决定 mpv 启动参数（d3d11 GPU API / 硬解）与运行时滤镜挂载。
@@ -57,7 +41,7 @@ export function setRtxVsrEnabled(enabled: boolean): void {
 export function syncRtxVsr(): void {
   const api = typeof window !== 'undefined' ? window.api?.mpv : undefined
   if (!api?.setVsr) return
-  void api.setVsr(getRtxVsrEnabled()).catch(() => {
+  void api.setVsr(getSetting('player.rtxVsr')).catch(() => {
     /* 非 Electron 或旧版本预加载：静默忽略 */
   })
 }
@@ -70,7 +54,8 @@ let mpvFallbackNotified = false
  * 详细原因（含安装指引）写入控制台，提示本身保持简短。
  */
 function notifyMpvFallback(detail?: string): void {
-  if (detail) console.warn('[openMediaPlayer] mpv 不可用，已改用内置播放器:', detail)
+  if (detail)
+    console.warn('[openMediaPlayer] mpv 不可用，已改用内置播放器:', detail)
   if (mpvFallbackNotified) return
   mpvFallbackNotified = true
   void import('ant-design-vue')
@@ -116,9 +101,13 @@ export async function openMediaPlayer(
 
   if (!filePath && !url && !playlist) return false
 
-  const selectedEngine = options.engine || getPreferredPlayerEngine()
+  const selectedEngine = options.engine || getSetting('player.engine')
 
-  if (selectedEngine === 'mpv' && typeof window !== 'undefined' && window.api?.mpv) {
+  if (
+    selectedEngine === 'mpv' &&
+    typeof window !== 'undefined' &&
+    window.api?.mpv
+  ) {
     try {
       // 先同步超分开关，保证首次启动 mpv 时启动参数正确
       syncRtxVsr()

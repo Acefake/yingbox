@@ -196,7 +196,8 @@ import { useRoute, useRouter } from 'vue-router'
 
 import logoUrl from '@/assets/imgs/logo.svg'
 import ScrapeQueuePanel from '@/components/ScrapeQueuePanel.vue'
-import SettingsPanel from '@/components/SettingsPanel.vue'
+import SettingsPanel from '@/features/settings/SettingsPanel.vue'
+import { useSetting } from '@/features/settings/use-setting'
 import type { IconName } from '@/components/ui/icons'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -303,8 +304,11 @@ const clearGlobalSearch = (): void => {
   nextTick(() => globalSearchInput.value?.focus())
 }
 
-// 成人模式检测
-const adultMode = ref(localStorage.getItem('adultMode') === '1')
+// 成人模式（设置 app.adultMode，任一窗口切换后所有窗口同步）
+const adultMode = useSetting('app.adultMode')
+watch(adultMode, enabled => {
+  if (!enabled && ['/av', '/amane'].includes(route.path)) router.push('/')
+})
 
 interface NavItem {
   label: string
@@ -422,23 +426,8 @@ const bottomNavItems = computed(() => [
   },
 ])
 
-// 监听自定义事件（同页面内切换）和跨 Tab storage 事件
-const handleAdultModeChange = (enabled: boolean): void => {
-  adultMode.value = enabled
-  if (!enabled && ['/av', '/amane'].includes(route.path)) {
-    router.push('/')
-  }
-}
 const toggleAdultMode = (): void => {
-  const enabled = !adultMode.value
-  localStorage.setItem('adultMode', enabled ? '1' : '0')
-  window.dispatchEvent(new CustomEvent('adultModeChange', { detail: enabled }))
-}
-const onAdultModeChange = (e: Event): void => {
-  handleAdultModeChange((e as CustomEvent<boolean>).detail)
-}
-const onStorageChange = (e: StorageEvent): void => {
-  if (e.key === 'adultMode') handleAdultModeChange(e.newValue === '1')
+  adultMode.value = !adultMode.value
 }
 const onGlobalSearchShortcut = (event: KeyboardEvent): void => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
@@ -464,8 +453,6 @@ const onOpenSettings = (event: Event): void => {
   openGlobalSettings(section || 'appearance')
 }
 if (typeof window !== 'undefined') {
-  window.addEventListener('adultModeChange', onAdultModeChange)
-  window.addEventListener('storage', onStorageChange)
   window.addEventListener('app:open-settings', onOpenSettings)
 }
 
@@ -479,8 +466,6 @@ onMounted(() => {
 })
 
 onUnmounted(() => {
-  window.removeEventListener('adultModeChange', onAdultModeChange)
-  window.removeEventListener('storage', onStorageChange)
   window.removeEventListener('app:open-settings', onOpenSettings)
   window.removeEventListener('keydown', onGlobalSearchShortcut)
   window.removeEventListener('keydown', onSettingsShortcut)

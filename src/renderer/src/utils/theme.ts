@@ -1,23 +1,13 @@
 /** 主题：明暗切换，以及把 tokens.css 同步给 Ant Design */
-import { type ComputedRef, type Ref, computed, readonly, ref } from 'vue'
+import { type ComputedRef, computed, watchEffect } from 'vue'
 import { theme as antdThemeAlgo } from 'ant-design-vue'
 import type { ThemeConfig } from 'ant-design-vue/es/config-provider/context'
+import { getSetting, setSetting } from '@/features/settings/use-setting'
 
 export type AppTheme = 'light' | 'dark'
 
-const STORAGE_KEY = 'yingbox-theme'
-
-/** Shared reactive theme — read via useTheme(); mutate via setTheme/toggleTheme. */
-const themeRef = ref<AppTheme>('dark')
-
-function getStoredTheme(): AppTheme | null {
-  const value = localStorage.getItem(STORAGE_KEY)
-  return value === 'light' || value === 'dark' ? value : null
-}
-
-function resolveInitialTheme(): AppTheme {
-  return getStoredTheme() ?? 'dark'
-}
+/** 当前主题：直接取自设置（app.theme），任一窗口修改后所有窗口同步 */
+const themeRef = computed<AppTheme>(() => getSetting('app.theme'))
 
 /**
  * CSS 变量读不到时（例如测试环境、样式尚未注入）用的兜底值，与 tokens.css 保持一致。
@@ -133,36 +123,35 @@ function buildAntdTheme(theme: AppTheme): ThemeConfig {
   }
 }
 
+/** 把主题应用到文档：data-theme 属性与浏览器 theme-color */
 function applyTheme(theme: AppTheme): void {
   const root = document.documentElement
   if (theme === 'light') root.setAttribute('data-theme', 'light')
   else root.removeAttribute('data-theme')
-  localStorage.setItem(STORAGE_KEY, theme)
-  themeRef.value = theme
   const themeColor = document.querySelector('meta[name="theme-color"]')
   if (themeColor)
     themeColor.setAttribute('content', theme === 'dark' ? '#171717' : '#fafaf8')
 }
 
-function setTheme(theme: AppTheme): void {
-  applyTheme(theme)
+/** 切换主题（写入设置，界面经 initTheme 的监听自动更新） */
+export function setTheme(theme: AppTheme): void {
+  void setSetting('app.theme', theme)
 }
 
-function toggleTheme(): AppTheme {
+/** 在深色 / 浅色之间切换，返回切换后的主题 */
+export function toggleTheme(): AppTheme {
   const next: AppTheme = themeRef.value === 'dark' ? 'light' : 'dark'
-  applyTheme(next)
+  setTheme(next)
   return next
 }
 
-/** Call once at app boot. Defaults to dark; respects stored preference. */
-export function initTheme(): AppTheme {
-  const theme = resolveInitialTheme()
-  applyTheme(theme)
-  return theme
+/** 启动时调用一次：立即应用当前主题，之后设置变化时自动重新应用 */
+export function initTheme(): void {
+  watchEffect(() => applyTheme(themeRef.value))
 }
 
-interface UseThemeReturn {
-  theme: Readonly<Ref<AppTheme>>
+export interface UseThemeReturn {
+  theme: ComputedRef<AppTheme>
   isDark: ComputedRef<boolean>
   antdTheme: ComputedRef<ThemeConfig>
   setTheme: (theme: AppTheme) => void
@@ -172,7 +161,7 @@ interface UseThemeReturn {
 /** Reactive theme + Ant Design ConfigProvider bridge. Instant switch, no reload. */
 export function useTheme(): UseThemeReturn {
   return {
-    theme: readonly(themeRef),
+    theme: themeRef,
     isDark: computed(() => themeRef.value === 'dark'),
     antdTheme: computed(() => buildAntdTheme(themeRef.value)),
     setTheme,

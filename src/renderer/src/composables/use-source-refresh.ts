@@ -1,3 +1,4 @@
+import { getSetting } from '@/features/settings/use-setting'
 import { computed, reactive, ref } from 'vue'
 import axios from 'axios'
 import { message } from 'ant-design-vue'
@@ -23,7 +24,8 @@ export const checkingAll = ref(false)
 export const checkedCount = ref(0)
 
 export const statusOf = (api: string): SiteStatus => statusMap[api] ?? 'unknown'
-export const avStatusOf = (api: string): SiteStatus => avStatusMap[api] ?? 'unknown'
+export const avStatusOf = (api: string): SiteStatus =>
+  avStatusMap[api] ?? 'unknown'
 
 export const onlineApis = computed(() => [
   ...DEFAULT_SITES.map(site => site.api),
@@ -78,7 +80,7 @@ export const checkAll = async (): Promise<void> => {
         checkedCount.value++
       })
     )
-    const includesAv = localStorage.getItem('adultMode') === '1'
+    const includesAv = getSetting('app.adultMode')
     const avTasks = includesAv
       ? avSources.value.map(site =>
           checkAvSite(site.api).then(() => {

@@ -120,9 +120,7 @@
 <script setup lang="ts">
 /**
  * 设置 · 服务：刮削服务（TMDB / 自定义）、TMDB Token、Go 后端地址与密钥。
- *
- * 每个字段变化即通过 saveScrapeProviderConfig 写入 localStorage 的 scrapeProviderConfig；
- * 组件每次挂载（打开此分区）都会重新读取最新配置。
+ * 每个字段即改即存（scrape.* / backend.*）。
  */
 import { computed, ref, watch } from 'vue'
 
@@ -131,70 +129,48 @@ import type { IconName } from '@/components/ui/icons'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiTextarea from '@/components/ui/UiTextarea.vue'
-import {
-  type ScrapeProviderType,
-  getScrapeProviderConfig,
-  saveScrapeProviderConfig,
-} from '@/stores/scrape-provider-store'
 
-import SettingsGroup from './SettingsGroup.vue'
+import type { SettingValue } from '../../../../../shared/settings/schema'
+import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRadioList, {
   type SettingsRadioOption,
-} from './SettingsRadioList.vue'
-import SettingsRow from './SettingsRow.vue'
+} from '../ui/SettingsRadioList.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
+import { resetSettings, useSetting } from '../use-setting'
 
-const providerOptions: SettingsRadioOption<ScrapeProviderType>[] = [
-  {
-    value: 'tmdb',
-    label: 'TMDB',
-    desc: 'The Movie Database，全球最大的电影数据库',
-  },
-  { value: 'custom', label: '自定义服务', desc: '接入自己的刮削 API' },
-]
+const providerOptions: SettingsRadioOption<SettingValue<'scrape.provider'>>[] =
+  [
+    {
+      value: 'tmdb',
+      label: 'TMDB',
+      desc: 'The Movie Database，全球最大的电影数据库',
+    },
+    { value: 'custom', label: '自定义服务', desc: '接入自己的刮削 API' },
+  ]
 
-const initial = getScrapeProviderConfig()
-const currentProvider = ref<ScrapeProviderType>(initial.provider)
-const tmdbAccessToken = ref(initial.tmdbAccessToken)
-const customProviderName = ref(initial.customProviderName)
-const customBaseUrl = ref(initial.customBaseUrl)
-const customApiKey = ref(initial.customApiKey)
-const goBackendUrl = ref(initial.goBackendUrl || 'http://localhost:31471')
-const goBackendApiKey = ref(initial.goBackendApiKey || '')
+const currentProvider = useSetting('scrape.provider')
+const tmdbAccessToken = useSetting('scrape.tmdbToken')
+const customProviderName = useSetting('scrape.customName')
+const customBaseUrl = useSetting('scrape.customBaseUrl')
+const customApiKey = useSetting('scrape.customApiKey')
+const goBackendUrl = useSetting('backend.url')
+const goBackendApiKey = useSetting('backend.apiKey')
 const goTestStatus = ref<'idle' | 'testing' | 'ok' | 'fail'>('idle')
 
-/** 从 localStorage 重新读取全部字段 */
-const loadConfig = (): void => {
-  const c = getScrapeProviderConfig()
-  currentProvider.value = c.provider
-  tmdbAccessToken.value = c.tmdbAccessToken
-  customProviderName.value = c.customProviderName
-  customBaseUrl.value = c.customBaseUrl
-  customApiKey.value = c.customApiKey
-  goBackendUrl.value = c.goBackendUrl || 'http://localhost:31471'
-  goBackendApiKey.value = c.goBackendApiKey || ''
-}
-
-watch(currentProvider, val => saveScrapeProviderConfig({ provider: val }))
-watch(tmdbAccessToken, val =>
-  saveScrapeProviderConfig({ tmdbAccessToken: val })
-)
-watch(customProviderName, val =>
-  saveScrapeProviderConfig({ customProviderName: val })
-)
-watch(customBaseUrl, val => saveScrapeProviderConfig({ customBaseUrl: val }))
-watch(customApiKey, val => saveScrapeProviderConfig({ customApiKey: val }))
-watch(goBackendUrl, val => {
-  saveScrapeProviderConfig({ goBackendUrl: val })
-  goTestStatus.value = 'idle'
-})
-watch(goBackendApiKey, val => {
-  saveScrapeProviderConfig({ goBackendApiKey: val })
+watch([goBackendUrl, goBackendApiKey], () => {
   goTestStatus.value = 'idle'
 })
 
 const resetProviderConfig = (): void => {
-  localStorage.removeItem('scrapeProviderConfig')
-  loadConfig()
+  void resetSettings([
+    'scrape.provider',
+    'scrape.tmdbToken',
+    'scrape.customName',
+    'scrape.customBaseUrl',
+    'scrape.customApiKey',
+    'backend.url',
+    'backend.apiKey',
+  ])
   goTestStatus.value = 'idle'
 }
 

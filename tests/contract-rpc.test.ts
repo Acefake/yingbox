@@ -14,6 +14,7 @@ import {
   event,
   int,
   str,
+  syncCall,
 } from '../src/shared/contract/define'
 
 interface FakeContents {
@@ -42,13 +43,38 @@ function fakeIpc() {
     string,
     (event: { sender: unknown }, ...args: unknown[]) => unknown
   >()
+  const syncListeners = new Map<
+    string,
+    (
+      event: { sender: unknown; returnValue: unknown },
+      ...args: unknown[]
+    ) => void
+  >()
   return {
     listeners,
+    syncListeners,
     handle(
       channel: string,
       listener: (event: { sender: unknown }, ...args: unknown[]) => unknown
     ) {
       listeners.set(channel, listener)
+    },
+    /** ipcMain.on 的替身（同步调用）：返回 listener 写进 event.returnValue 的值 */
+    on(
+      channel: string,
+      listener: (
+        event: { sender: unknown; returnValue: unknown },
+        ...args: unknown[]
+      ) => void
+    ) {
+      syncListeners.set(channel, listener)
+    },
+    sendSync(channel: string, ...args: unknown[]): unknown {
+      const listener = syncListeners.get(channel)
+      if (!listener) throw new Error(`no sync handler for ${channel}`)
+      const event = { sender: 'sender', returnValue: undefined as unknown }
+      listener(event, ...args)
+      return event.returnValue
     },
     invoke(channel: string, ...args: unknown[]) {
       const listener = listeners.get(channel)
@@ -151,6 +177,55 @@ describe('implement', () => {
       )
     ).toThrow('[rpc] demo:extra 不在契约里')
     expect(ipc.listeners.size).toBe(0)
+  })
+})
+
+describe('同步调用', () => {
+  const boot = defineDomain(
+    'boot',
+    {
+      snapshot: syncCall<{ theme: string }>(),
+      twice: syncCall<[n: number], number>(a => [int(a[0], 'n')]),
+    },
+    {}
+  )
+
+  it('走 ipcMain.on 而不是 handle，返回值装进 { ok, value } 外壳', () => {
+    const ipc = fakeIpc()
+    implement(
+      boot,
+      { snapshot: () => ({ theme: 'dark' }), twice: (_, n) => n * 2 },
+      ipc as never
+    )
+    expect(ipc.listeners.size).toBe(0)
+    expect([...ipc.syncListeners.keys()].sort()).toEqual([
+      'boot:snapshot',
+      'boot:twice',
+    ])
+    expect(ipc.sendSync('boot:snapshot')).toEqual({
+      ok: true,
+      value: { theme: 'dark' },
+    })
+    expect(ipc.sendSync('boot:twice', 21)).toEqual({ ok: true, value: 42 })
+  })
+
+  it('非法入参与处理函数抛错都装成 { ok: false, error }，不会让 sendSync 挂起', () => {
+    const ipc = fakeIpc()
+    implement(
+      boot,
+      {
+        snapshot: () => {
+          throw new Error('boom')
+        },
+        twice: (_, n) => n,
+      },
+      ipc as never
+    )
+    expect(ipc.sendSync('boot:snapshot')).toEqual({ ok: false, error: 'boom' })
+    expect(ipc.sendSync('boot:twice', 'x')).toEqual({
+      ok: false,
+      error: '[boot:twice] 参数 n 应为整数',
+    })
   })
 })
 

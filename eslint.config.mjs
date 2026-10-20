@@ -103,7 +103,8 @@ export default tseslint.config(
             {
               name: 'electron',
               importNames: ['ipcMain', 'ipcRenderer'],
-              message: '在 src/shared/contract 声明通道，主进程用 main/rpc 的 implement / emit。',
+              message:
+                '在 src/shared/contract 声明通道，主进程用 main/rpc 的 implement / emit。',
             },
           ],
         },
@@ -111,8 +112,53 @@ export default tseslint.config(
       'no-restricted-syntax': [
         'error',
         {
-          selector: "CallExpression[callee.property.name='send'][callee.object.property.name='webContents']",
+          selector:
+            "CallExpression[callee.property.name='send'][callee.object.property.name='webContents']",
           message: '事件请在契约里声明，并用 main/rpc 的 emit 推送。',
+        },
+      ],
+    },
+  },
+
+  {
+    // 设置一律经 features/settings 的 useSetting / getSetting，渲染层禁止直接用 localStorage。
+    files: ['src/renderer/**/*.{ts,mts,vue}'],
+    ignores: [
+      // 设置层自身：首启迁移读旧值、Web/PWA 模式的浏览器存储
+      'src/renderer/src/features/settings/browser-storage.ts',
+      // 影视库（另一处重构中，合并后连同 legacy mirror 一起收口）
+      'src/renderer/src/features/settings/legacy-library-mirror.ts',
+      'src/renderer/src/views/Movie/**',
+      'src/renderer/src/views/TV/**',
+      'src/renderer/src/api/tmdb.ts',
+      'src/renderer/src/services/nfo-service.ts',
+      'src/renderer/src/services/actor-cache-service.ts',
+      'src/renderer/src/stores/scrape-provider-store.ts',
+      'src/renderer/src/components/ScrapeQueuePanel.vue',
+      'src/renderer/src/composables/use-global-queue.ts',
+      // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存、手机端令牌），后续迁到 Engine 的 SQLite
+      'src/renderer/src/api/amane.ts',
+      'src/renderer/src/utils/play-progress.ts',
+      'src/renderer/src/utils/storage.ts',
+      'src/renderer/src/views/av/Index.vue',
+      'src/renderer/src/views/online/components/LibraryCollection.vue',
+      'src/renderer/src/views/online/components/SearchTab.vue',
+      'src/renderer/src/views/online/composables/use-online-search.ts',
+    ],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'localStorage',
+          message: '设置请用 features/settings 的 useSetting / getSetting。',
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'window',
+          property: 'localStorage',
+          message: '设置请用 features/settings 的 useSetting / getSetting。',
         },
       ],
     },

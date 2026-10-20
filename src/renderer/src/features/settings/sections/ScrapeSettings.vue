@@ -27,14 +27,16 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 刮削：并发任务数（scrapeConcurrency）与 TMDB 元数据语言（metadataLanguage）。
+ * 设置 · 刮削：并发任务数（scrape.concurrency）与 TMDB 元数据语言（scrape.metadataLanguage）。
  */
+import { computed } from 'vue'
+
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 
-import SettingsGroup from './SettingsGroup.vue'
-import SettingsRow from './SettingsRow.vue'
-import { useStoredSetting } from './use-stored-setting'
+import SettingsGroup from '../ui/SettingsGroup.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
+import { useSetting } from '../use-setting'
 
 const concurrencyOptions: SegmentedOption[] = [
   '1',
@@ -53,6 +55,13 @@ const metadataLanguageOptions: SegmentedOption[] = [
   { value: 'ko-KR', label: '한국어' },
 ]
 
-const scrapeConcurrency = useStoredSetting('scrapeConcurrency', '3')
-const metadataLanguage = useStoredSetting('metadataLanguage', 'zh-CN')
+const concurrency = useSetting('scrape.concurrency')
+/** 分段控件的值是字符串，设置里是整数 */
+const scrapeConcurrency = computed({
+  get: () => String(concurrency.value),
+  set: value => {
+    concurrency.value = Number(value)
+  },
+})
+const metadataLanguage = useSetting('scrape.metadataLanguage')
 </script>

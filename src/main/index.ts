@@ -29,6 +29,7 @@ import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
 import { MEDIA_SCHEME_PRIVILEGES } from './library/media/media-service'
+import { initSettings } from './settings'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -151,6 +152,7 @@ app.whenReady().then(async () => {
   })
 
   await loadConfig()
+  await initSettings()
 
   // 浏览器级抓取服务：插件源被 Cloudflare 拦截时由主进程 Chromium 代取页面。
   startBrowserFetchService()
