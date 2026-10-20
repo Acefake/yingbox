@@ -1,10 +1,14 @@
 import type { LegacySettings } from '../settings/legacy'
 import {
+  RENDERER_READABLE_SECRETS,
+  type ReadableSecretKey,
+  type SecretKey,
   type SettingChange,
   type SettingValue,
   type SettingsSnapshot,
   type ValueKey,
   parseSetting,
+  secretKeys,
 } from '../settings/schema'
 import {
   ContractError,
@@ -12,6 +16,7 @@ import {
   defineDomain,
   event,
   record,
+  str,
   syncCall,
 } from './define'
 
@@ -36,9 +41,31 @@ export const settings = defineDomain(
       if (!change) throw new ContractError(`设置 ${String(a[0])} 的值不合法`)
       return [change.key, change.value] as SetSettingArgs
     }),
+    /** 写入一个密钥（空字符串表示清除）；主进程加密落盘 */
+    setSecret: call<[key: SecretKey, value: string], void>(a => [
+      oneOfKeys(a[0], secretKeys, 'key'),
+      str(a[1], 'value'),
+    ]),
+    /** 读出渲染层可用的密钥明文（只限 RENDERER_READABLE_SECRETS） */
+    readSecret: call<[key: ReadableSecretKey], string>(a => [
+      oneOfKeys(a[0], RENDERER_READABLE_SECRETS, 'key'),
+    ]),
   },
   {
     /** 任一窗口改了设置后广播给所有窗口 */
     changed: event<SettingChange>(),
+    /** 任一窗口改了密钥后广播（只带是否已配置，不带明文） */
+    secretChanged: event<{ key: SecretKey; configured: boolean }>(),
   }
 )
+
+/** 校验参数是给定键集合里的一个 */
+function oneOfKeys<K extends string>(
+  value: unknown,
+  keys: readonly K[],
+  name: string
+): K {
+  if (typeof value === 'string' && (keys as readonly string[]).includes(value))
+    return value as K
+  throw new ContractError(`参数 ${name} 不是允许的密钥`)
+}

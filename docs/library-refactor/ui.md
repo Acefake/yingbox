@@ -78,7 +78,7 @@ TMDB 令牌现在存在引擎（`setProviderToken` / `getProviderStatus`）。�
 - `types/index.ts`、`types/scraping.ts`、`utils/media-directory.ts`（只被旧页面使用）
 - `file:scanMediaDirectory` IPC 与 preload 方法；`src/main/media-scanner.ts` 与 `utils/avid.ts` 移到 `scripts/legacy/`，
   只给 `bench-library` 做新旧对照（`tests/media-scanner.test.ts` 随之删除，新扫描器有自己的测试）
-- 刮削队列面板原来借旧页面的 `useScrapingTask` 做重试 / 清理，改用 `useGlobalQueue` 自身的同名方法
+- 刮削队列面板原来借旧页面的 `useScrapingTask` 做重试 / 清理，改用 `useGlobalQueue` 自身的同名方法（重构 p6：旧页面删除后队列已无生产者，`useGlobalQueue` 删除，面板改为只展示 Lada 的「后台任务」面板 `features/shell/components/BackgroundTasksPanel.vue`）
 
 AV / 在线 / Amane 未改动。
 
@@ -127,4 +127,4 @@ Playwright Chromium headless（aarch64，2 vCPU，软件光栅化），每帧把
   Electron 真机未跑（沙箱没有图形环境）。
 - 同一作品在两个文件夹里是两个条目，海报墙还没有按 tmdb id 合并展示。
 - 详情的“在文件夹中显示”用 `shell.openPath(目录)` 打开目录，没有选中文件（preload 没有 showItemInFolder）。
-- 旧的“刮削队列”面板仍在侧栏（Lada 后台任务也住在里面），媒体库的识别 / 写出进度显示在页面顶部，没有进这个面板。
+- 旧的“刮削队列”面板已改为“后台任务”面板（只放 Lada 去码 / 边跑边看），媒体库的识别 / 写出进度显示在页面顶部，没有进这个面板。

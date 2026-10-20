@@ -51,7 +51,7 @@ const coreSections: SettingsSection[] = [
     id: 'scrape',
     title: '刮削',
     icon: 'download',
-    keywords: '并发 元数据 语言 tmdb',
+    keywords: '元数据 语言 tmdb',
     load: () => import('./sections/ScrapeSettings.vue'),
     order: 30,
   },

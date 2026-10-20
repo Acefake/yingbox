@@ -35,11 +35,7 @@ function bool(fallback: boolean): ValueSpec<boolean> {
 }
 
 /** [min, max] 内的整数 */
-function int(
-  min: number,
-  max: number,
-  fallback: number
-): ValueSpec<number> {
+function int(min: number, max: number, fallback: number): ValueSpec<number> {
   return {
     kind: 'value',
     default: fallback,
@@ -53,11 +49,7 @@ function int(
 }
 
 /** [min, max] 内的有限数字 */
-function num(
-  min: number,
-  max: number,
-  fallback: number
-): ValueSpec<number> {
+function num(min: number, max: number, fallback: number): ValueSpec<number> {
   return {
     kind: 'value',
     default: fallback,
@@ -130,7 +122,7 @@ export const settingsSchema = {
     ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'] as const,
     'zh-CN'
   ),
-  /** 刮削并发任务数 */
+  /** 刮削并发任务数（旧刮削队列用；队列已删，暂无消费方，保留以免丢用户值） */
   'scrape.concurrency': int(1, 8, 3),
   /** 海报下载尺寸 */
   'scrape.imageSize.poster': oneOf(IMAGE_SIZES, 'original'),
@@ -140,22 +132,14 @@ export const settingsSchema = {
   'scrape.imageSize.actor': oneOf(IMAGE_SIZES, 'original'),
   /** 刮削服务 */
   'scrape.provider': oneOf(['tmdb', 'custom'] as const, 'tmdb'),
-  /** TMDB Access Token。影视库仍直接读 localStorage，暂不作为密钥存放（影视合并后改 secret） */
-  'scrape.tmdbToken': text(''),
+  /** TMDB Access Token（密钥：主进程 safeStorage；渲染层经 settings.readSecret 取用，见 RENDERER_READABLE_SECRETS） */
+  'scrape.tmdbToken': secret(),
   /** 自定义刮削服务名称 */
   'scrape.customName': text('', 200),
   /** 自定义刮削服务 API 地址 */
   'scrape.customBaseUrl': text('', 2048),
   /** 自定义刮削服务 API Key */
   'scrape.customApiKey': text(''),
-
-  /**
-   * @deprecated Go 后端已删除（p3d）。只为影视的 legacy-library-mirror 回写旧存储而保留，
-   * 界面不再展示；影视合并后与 mirror 一起删除。
-   */
-  'backend.url': text('http://localhost:31471', 2048),
-  /** @deprecated 同 backend.url；Amane 手机接入只用 Amane 自己的令牌，不再读它。 */
-  'backend.apiKey': text(''),
 
   /** Amane 后台 API Token */
   'amane.token': secret(),
@@ -199,6 +183,14 @@ const valueKeys = (Object.keys(settingsSchema) as SettingKey[]).filter(
 export const secretKeys = (Object.keys(settingsSchema) as SettingKey[]).filter(
   (key): key is SecretKey => settingsSchema[key].kind === 'secret'
 )
+
+/**
+ * 渲染层可以读出明文的密钥。TMDB 请求仍在渲染层发出（在线页面的豆瓣 / 详情补充），
+ * 所以它的令牌只做「静态加密」；Amane 令牌只在主进程使用，不在此列。
+ */
+export const RENDERER_READABLE_SECRETS = ['scrape.tmdbToken'] as const
+/** 渲染层可读的密钥键 */
+export type ReadableSecretKey = (typeof RENDERER_READABLE_SECRETS)[number]
 
 /** 全部普通设置项的默认值 */
 export function defaultValues(): SettingValues {

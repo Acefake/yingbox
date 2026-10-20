@@ -128,7 +128,8 @@ export default tseslint.config(
   {
     // IPC 只能经契约（src/shared/contract）：ipcMain / ipcRenderer / webContents.send
     // 只允许出现在通用注册器 src/main/rpc 与通用 preload 里。
-    // src/main/library/host.ts 属于影视项目的媒体库引擎（自带 IPC），合并前不动它。
+    // 例外：src/main/library/host.ts 是媒体库引擎的桥（一个 invoke 通道 + MessagePort 事件流，
+    // 自带 shared/library/ipc 的校验与 wire 格式），保留独立桥接而不并进契约，见 docs/library-refactor。
     files: ['src/**/*.{ts,mts,vue}'],
     ignores: ['src/main/rpc/**', 'src/preload/**', 'src/main/library/host.ts'],
     rules: {
@@ -162,16 +163,6 @@ export default tseslint.config(
     ignores: [
       // 设置层自身：首启迁移读旧值、Web/PWA 模式的浏览器存储
       'src/renderer/src/features/settings/browser-storage.ts',
-      // 影视库（另一处重构中，合并后连同 legacy mirror 一起收口）
-      'src/renderer/src/features/settings/legacy-library-mirror.ts',
-      'src/renderer/src/views/Movie/**',
-      'src/renderer/src/views/TV/**',
-      'src/renderer/src/api/tmdb.ts',
-      'src/renderer/src/services/nfo-service.ts',
-      'src/renderer/src/services/actor-cache-service.ts',
-      'src/renderer/src/stores/scrape-provider-store.ts',
-      'src/renderer/src/components/ScrapeQueuePanel.vue',
-      'src/renderer/src/composables/use-global-queue.ts',
       // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存、手机端令牌），后续迁到 Engine 的 SQLite
       'src/renderer/src/features/amane/api/amane.ts',
       'src/renderer/src/features/player/utils/play-progress.ts',

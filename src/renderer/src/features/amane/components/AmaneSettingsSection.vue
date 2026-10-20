@@ -46,7 +46,7 @@ defineExpose({ canLeave })
   display: grid;
   grid-template-columns: minmax(150px, 190px) minmax(0, 1fr);
   align-items: start;
-  gap: 22px;
+  gap: var(--space-6);
 }
 
 .amane-settings-section :deep(.amane-settings-nav) {
@@ -54,8 +54,8 @@ defineExpose({ canLeave })
   top: 0;
   display: flex;
   flex-direction: column;
-  gap: 3px;
-  padding: 4px 12px 4px 0;
+  gap: var(--space-1);
+  padding: var(--space-1) var(--space-3) var(--space-1) 0;
   border: 0;
   border-right: 1px solid var(--separator);
   border-radius: 0;
@@ -68,7 +68,7 @@ defineExpose({ canLeave })
 
 .amane-settings-section :deep(.amane-settings-nav .ui-nav-item) {
   min-height: 36px;
-  padding: 8px 11px;
+  padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-md);
 }
 
@@ -83,8 +83,8 @@ defineExpose({ canLeave })
 
 .amane-settings-section :deep(.amane-config-save) {
   position: static;
-  margin-top: 24px;
-  padding-top: 16px;
+  margin-top: var(--space-6);
+  padding-top: var(--space-4);
   border-top: 1px solid var(--separator);
   background: transparent;
 }
@@ -92,7 +92,7 @@ defineExpose({ canLeave })
 @media (max-width: 900px) {
   .amane-settings-section :deep(.amane-settings) {
     grid-template-columns: minmax(0, 1fr);
-    gap: 16px;
+    gap: var(--space-4);
   }
 
   .amane-settings-section :deep(.amane-settings-nav) {
@@ -101,7 +101,7 @@ defineExpose({ canLeave })
     overflow-x: auto;
     border-right: 0;
     border-bottom: 1px solid var(--separator);
-    padding: 0 0 8px;
+    padding: 0 0 var(--space-2);
   }
 
   .amane-settings-section :deep(.amane-settings-nav .ui-nav-item) {

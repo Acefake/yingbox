@@ -50,8 +50,8 @@ describe('默认值', () => {
     expect(values['app.theme']).toBe('dark')
     expect(values['app.adultMode']).toBe(false)
     expect(values['scrape.concurrency']).toBe(3)
-    expect(values['backend.url']).toBe('http://localhost:31471')
-    expect(secrets).toEqual({ 'amane.token': false })
+    expect(values).not.toHaveProperty('backend.url')
+    expect(secrets).toEqual({ 'scrape.tmdbToken': false, 'amane.token': false })
     expect(legacyMigrated).toBe(false)
     expect(existsSync(file)).toBe(false)
   })
@@ -167,11 +167,29 @@ describe('旧 localStorage 迁移', () => {
       'scrape.concurrency': 6,
       'scrape.imageSize.poster': 'w342',
       'scrape.imageSize.actor': 'original',
-      'scrape.tmdbToken': 'tok',
-      'backend.url': 'http://nas:31471',
-      'backend.apiKey': '',
     })
+    expect(snapshot.values).not.toHaveProperty('scrape.tmdbToken')
+    expect(snapshot.values).not.toHaveProperty('backend.url')
     expect(onDisk()).toMatchObject({ legacyMigrated: true })
+  })
+
+  it('旧明文 TMDB 令牌加密成密钥：盘上没有明文，已有密钥不覆盖，密钥存储不可用时放弃', async () => {
+    const store = await open()
+    const snapshot = store.migrateLegacy(legacy)
+    await store.flush()
+    expect(snapshot.secrets['scrape.tmdbToken']).toBe(true)
+    expect(store.getSecret('scrape.tmdbToken')).toBe('tok')
+    expect(readFileSync(file, 'utf8')).not.toContain('"tok"')
+
+    writeFileSync(file, JSON.stringify({ secrets: {}, legacyMigrated: false }))
+    const existing = await open()
+    await existing.setSecret('scrape.tmdbToken', 'new')
+    existing.migrateLegacy(legacy)
+    expect(existing.getSecret('scrape.tmdbToken')).toBe('new')
+
+    writeFileSync(file, JSON.stringify({ legacyMigrated: false }))
+    const locked = await open({ codec: { ...codec, available: () => false } })
+    expect(locked.migrateLegacy(legacy).secrets['scrape.tmdbToken']).toBe(false)
   })
 
   it('幂等：已迁移后再调用不再改动任何值', async () => {
@@ -205,7 +223,7 @@ describe('旧 localStorage 迁移', () => {
     expect(snapshot.values['app.theme']).toBe('dark')
     expect(snapshot.values['scrape.concurrency']).toBe(3)
     expect(snapshot.values['player.playbackRate']).toBe(1)
-    expect(snapshot.values['scrape.tmdbToken']).toBe('')
+    expect(snapshot.secrets['scrape.tmdbToken']).toBe(false)
   })
 })
 

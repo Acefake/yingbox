@@ -2,7 +2,7 @@
  * 旧版设置（渲染层 localStorage）到新设置的映射，只用于首启迁移。
  * 迁移器保留一个发布版本后与本文件一起删除。
  */
-import { type SettingValues, parseSetting } from './schema'
+import { type SecretKey, type SettingValues, parseSetting } from './schema'
 
 /** 旧版存放设置的 localStorage 键 */
 export const LEGACY_SETTING_KEYS = [
@@ -33,12 +33,9 @@ const number = (raw: string | undefined): number | undefined =>
 /** scrapeProviderConfig 里的字段 → 新键 */
 const PROVIDER_FIELDS = {
   provider: 'scrape.provider',
-  tmdbAccessToken: 'scrape.tmdbToken',
   customProviderName: 'scrape.customName',
   customBaseUrl: 'scrape.customBaseUrl',
   customApiKey: 'scrape.customApiKey',
-  goBackendUrl: 'backend.url',
-  goBackendApiKey: 'backend.apiKey',
 } as const
 
 function providerConfig(raw: string | undefined): Record<string, unknown> {
@@ -82,4 +79,17 @@ export function fromLegacy(legacy: LegacySettings): Partial<SettingValues> {
     if (change) out[change.key] = change.value
   }
   return out as Partial<SettingValues>
+}
+
+/**
+ * 旧版存在 localStorage 的密钥（明文）→ 新密钥。只取非空字符串；
+ * 由主进程迁移时加密写入（系统密钥存储不可用时放弃，不留明文）。
+ */
+export function legacySecrets(
+  legacy: LegacySettings
+): Partial<Record<SecretKey, string>> {
+  const token = providerConfig(legacy.scrapeProviderConfig).tmdbAccessToken
+  return typeof token === 'string' && token.trim()
+    ? { 'scrape.tmdbToken': token.trim() }
+    : {}
 }

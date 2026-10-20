@@ -1,7 +1,16 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { effectScope } from 'vue'
 
-import { migrateLegacyTmdbToken } from '../../../src/renderer/src/features/library/settings/provider-token'
+// 设置层在 import 时会读快照（需要 window / localStorage），这里只测媒体库一侧的编排
+vi.mock('@/features/settings', () => ({
+  getTmdbAccessToken: () => '',
+  setTmdbToken: vi.fn(),
+}))
+
+import {
+  saveLibraryTmdbToken,
+  syncTmdbTokenToEngine,
+} from '../../../src/renderer/src/features/library/settings/provider-token'
 import type {
   LibraryWriterBridge,
   OrganizePlan,
@@ -12,62 +21,58 @@ import {
   writerActivity,
 } from '../../../src/renderer/src/features/library/writer/use-writer'
 
-function storage(initial: Record<string, string> = {}) {
-  const map = new Map(Object.entries(initial))
-  return {
-    getItem: (key: string) => map.get(key) ?? null,
-    setItem: (key: string, value: string) => void map.set(key, value),
-  }
-}
+const status = (configured: boolean) => ({
+  tmdb: { configured },
+  opensubtitles: { configured: false },
+})
 
-describe('migrateLegacyTmdbToken', () => {
-  it('引擎未配置、本地有旧令牌：下发一次并记下已迁移', async () => {
+describe('syncTmdbTokenToEngine', () => {
+  it('引擎未配置、设置里有令牌：下发（去掉首尾空白）', async () => {
     const bridge = {
-      getProviderStatus: vi.fn(async () => ({
-        tmdb: { configured: false },
-        opensubtitles: { configured: false },
-      })),
-      setProviderToken: vi.fn(async () => ({
-        tmdb: { configured: true },
-        opensubtitles: { configured: false },
-      })),
+      getProviderStatus: vi.fn(async () => status(false)),
+      setProviderToken: vi.fn(async () => status(true)),
     }
-    const store = storage()
-    expect(await migrateLegacyTmdbToken(bridge, store, () => ' eyJold ')).toBe(
-      true
-    )
+    expect(await syncTmdbTokenToEngine(bridge, () => ' eyJold ')).toBe(true)
     expect(bridge.setProviderToken).toHaveBeenCalledWith('tmdb', 'eyJold')
-    expect(store.getItem('library.tmdbTokenMigrated')).toBe('1')
-
-    // 第二次启动不再覆盖引擎里的令牌
-    expect(await migrateLegacyTmdbToken(bridge, store, () => 'eyJnew')).toBe(
-      false
-    )
-    expect(bridge.setProviderToken).toHaveBeenCalledTimes(1)
   })
 
-  it('引擎已配置：不覆盖，只记已迁移', async () => {
+  it('引擎已配置：不覆盖', async () => {
     const bridge = {
-      getProviderStatus: vi.fn(async () => ({
-        tmdb: { configured: true },
-        opensubtitles: { configured: false },
-      })),
+      getProviderStatus: vi.fn(async () => status(true)),
       setProviderToken: vi.fn(),
     }
-    const store = storage()
-    expect(await migrateLegacyTmdbToken(bridge, store, () => 'eyJold')).toBe(
-      false
-    )
+    expect(await syncTmdbTokenToEngine(bridge, () => 'eyJold')).toBe(false)
     expect(bridge.setProviderToken).not.toHaveBeenCalled()
-    expect(store.getItem('library.tmdbTokenMigrated')).toBe('1')
   })
 
-  it('没有引擎（网页版）：什么也不做，等桌面版再迁', async () => {
-    const store = storage()
-    expect(await migrateLegacyTmdbToken(null, store, () => 'eyJold')).toBe(
-      false
-    )
-    expect(store.getItem('library.tmdbTokenMigrated')).toBeNull()
+  it('设置里没有令牌：不查引擎也不写', async () => {
+    const bridge = {
+      getProviderStatus: vi.fn(async () => status(false)),
+      setProviderToken: vi.fn(),
+    }
+    expect(await syncTmdbTokenToEngine(bridge, () => '  ')).toBe(false)
+    expect(bridge.getProviderStatus).not.toHaveBeenCalled()
+    expect(bridge.setProviderToken).not.toHaveBeenCalled()
+  })
+
+  it('没有引擎（网页版）：什么也不做', async () => {
+    expect(await syncTmdbTokenToEngine(null, () => 'eyJold')).toBe(false)
+  })
+})
+
+describe('saveLibraryTmdbToken', () => {
+  it('先存设置密钥再写引擎；清空时两边一起清', async () => {
+    const calls: string[] = []
+    const save = vi.fn(async (value: string) => void calls.push(`save:${value}`))
+    const bridge = {
+      setProviderToken: vi.fn(async (_p: 'tmdb', token: string | null) => {
+        calls.push(`engine:${token}`)
+        return status(token !== null)
+      }),
+    }
+    expect((await saveLibraryTmdbToken(bridge, ' eyJnew ', save)).tmdb.configured).toBe(true)
+    expect((await saveLibraryTmdbToken(bridge, '', save)).tmdb.configured).toBe(false)
+    expect(calls).toEqual(['save:eyJnew', 'engine:eyJnew', 'save:', 'engine:null'])
   })
 })
 

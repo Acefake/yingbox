@@ -129,7 +129,7 @@ onUnmounted(() => window.removeEventListener('keydown', onGlobalSearchShortcut))
 /* 标题栏与内容同色，不留色带 */
 .top-menu {
   position: relative;
-  z-index: 5;
+  z-index: var(--z-above);
   flex: 0 0 var(--titlebar-height);
   height: var(--titlebar-height);
   background: var(--bg-content);
