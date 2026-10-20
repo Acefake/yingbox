@@ -4,6 +4,7 @@ import { existsSync } from 'fs'
 import { join } from 'path'
 import { EventEmitter } from 'events'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
+import { refererFor } from './media-headers'
 import type { MpvOpenOptions, MpvPlaylistEntry, MpvStatus, MpvTrack } from '../shared/mpv'
 
 const DEFAULT_STATUS: MpvStatus = {
@@ -164,6 +165,9 @@ class MpvPlayer extends EventEmitter {
     if (typeof options.startAt === 'number') args.push(`--start=${options.startAt}`)
     if (options.title) args.push(`--title=${options.title}`)
     if (options.subFile) args.push(`--sub-file=${options.subFile}`)
+    // 防盗链 CDN（MissAV）：mpv 不经 Chromium 会话，Referer 要自己带
+    const referer = options.url ? refererFor(options.url) : undefined
+    if (referer) args.push(`--referrer=${referer}`)
     args.push(target)
 
     this.child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })

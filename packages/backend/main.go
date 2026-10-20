@@ -103,7 +103,6 @@ func getBasePath() string {
 //go:embed py/src/downloaderMgr.py
 //go:embed py/src/downloader/*.py
 //go:embed py/cfg/configs.json
-//go:embed py/missav_resolver.py
 
 var pyScripts embed.FS
 
@@ -434,10 +433,6 @@ func main() {
 	mux.HandleFunc("/api/addvideo/", addVideoHandler)
 	mux.HandleFunc("/api/queue", queueHandler)
 	mux.HandleFunc("/api/download-status", downloadStatusHandler)
-	mux.HandleFunc("/api/missav/resolve", missavResolveHandler)
-	mux.HandleFunc("/api/missav/list", missavListHandler)
-	mux.HandleFunc("/api/missav/cover", missavCoverHandler)
-	mux.HandleFunc("/api/missav/stream/", missavStreamHandler)
 	mux.HandleFunc("/proxy", proxyImageHandler)
 	mux.HandleFunc("/file/", imageHandler)
 
