@@ -13,6 +13,8 @@ export default defineConfig({
           index: resolve('src/main/index.ts'),
           'library-engine': resolve('src/main/library/engine/entry.ts'),
           'webp-worker': resolve('src/main/library/media/webp-worker.ts'),
+          // 后台引擎（在线 / AV / 下载），src/main/engine fork 它
+          engine: resolve('src/engine/index.ts'),
         },
       },
     },

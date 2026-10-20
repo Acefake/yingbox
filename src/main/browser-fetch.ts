@@ -186,6 +186,20 @@ function runFetch(url: string, waitMs: number): Promise<string> {
   return task
 }
 
+/**
+ * 引擎请求的浏览器代抓：返回渲染后的 HTML；挑战未通过或加载失败返回空串。
+ * 请求串行执行。
+ */
+export async function browserFetch(
+  url: string,
+  waitMs: number = DEFAULT_WAIT_MS
+): Promise<string> {
+  if (!isHttpUrl(url)) return ''
+  const wait = Math.min(Math.max(waitMs, 0), MAX_WAIT_MS)
+  const html = await runFetch(url, wait).catch(() => '')
+  return isUsablePage(html) ? html : ''
+}
+
 function sendJson(res: ServerResponse, status: number, body: unknown): void {
   const payload = JSON.stringify(body)
   res.writeHead(status, {

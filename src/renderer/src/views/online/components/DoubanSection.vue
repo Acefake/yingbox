@@ -42,7 +42,7 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
-import axios from 'axios'
+import { getJson, withQuery } from '@/api/online'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 import MediaFilterBar, {
   type MediaFilterRow,
@@ -216,12 +216,11 @@ const fetchDouban = async () => {
       const endpoint = isTv
         ? 'https://api.themoviedb.org/3/search/tv'
         : 'https://api.themoviedb.org/3/search/movie'
-      const res = await axios.get(endpoint, {
-        params: { query: q, language: 'zh-CN', page: 1 },
-        headers,
-        timeout: 8000,
-      })
-      return res.data?.results?.[0] ?? null
+      const res = await getJson<any>(
+        withQuery(endpoint, { query: q, language: 'zh-CN', page: 1 }),
+        { headers, timeoutMs: 8000 }
+      )
+      return res?.results?.[0] ?? null
     }
 
     const searchTmdb = async (title: string) => {
@@ -229,12 +228,15 @@ const fetchDouban = async () => {
         const r = await queryTmdb(v)
         if (r) return r
       }
-      const res = await axios.get('https://api.themoviedb.org/3/search/multi', {
-        params: { query: stripSeason(title), language: 'zh-CN', page: 1 },
-        headers,
-        timeout: 8000,
-      })
-      return res.data?.results?.[0] ?? null
+      const res = await getJson<any>(
+        withQuery('https://api.themoviedb.org/3/search/multi', {
+          query: stripSeason(title),
+          language: 'zh-CN',
+          page: 1,
+        }),
+        { headers, timeoutMs: 8000 }
+      )
+      return res?.results?.[0] ?? null
     }
 
     const concurrency = 4
@@ -275,13 +277,14 @@ const fetchDouban = async () => {
   }
 
   try {
-    const res = await axios.get(apiUrl, { timeout: 10000 })
-    parseSubjects(res.data)
+    parseSubjects(await getJson(apiUrl, { timeoutMs: 10000 }))
   } catch {
     try {
       const proxyUrl = `https://api.allorigins.win/get?url=${encodeURIComponent(apiUrl)}`
-      const res = await axios.get(proxyUrl, { timeout: 12000 })
-      parseSubjects(JSON.parse(res.data.contents))
+      const res = await getJson<{ contents: string }>(proxyUrl, {
+        timeoutMs: 12000,
+      })
+      parseSubjects(JSON.parse(res.contents))
     } catch {
       doubanError.value = true
     }

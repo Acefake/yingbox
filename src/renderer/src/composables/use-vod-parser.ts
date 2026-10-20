@@ -1,5 +1,6 @@
 import { ref } from 'vue'
-import { getBackendAuthHeaders, getBase } from '@/api/backend'
+import { onlineApi } from '@/api/online'
+import type { VodRequest } from '../../../shared/contract/online'
 
 interface VODParseRequest {
   siteName: string
@@ -44,7 +45,7 @@ interface VODParseResponse {
   data?: any
 }
 
-// 后端插件解析（含 Cloudflare 挑战时走浏览器抓取）可能超过 10s，前端超时需留出余量。
+// 插件解析（含 Cloudflare 挑战时走浏览器代抓）可能超过 10s，前端超时需留出余量。
 const REQUEST_TIMEOUT_MS = 45000
 
 export function useVODParser() {
@@ -59,28 +60,22 @@ export function useVODParser() {
     activeRequests++
     loading.value = true
     error.value = null
-    const controller = new AbortController()
-    const abort = () => controller.abort()
-    signal?.addEventListener('abort', abort, { once: true })
-    if (signal?.aborted) abort()
-    const timeoutId = window.setTimeout(
-      () => controller.abort(),
-      REQUEST_TIMEOUT_MS
-    )
+    let timeoutId = 0
     try {
-      const response = await fetch(`${getBase()}/api/vod/parse`, {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...getBackendAuthHeaders(),
-        },
-        body: JSON.stringify(body),
-        signal: controller.signal,
-      })
-      if (!response.ok) throw new Error(`HTTP ${response.status}`)
-      const result = await response.json()
-      if (!result || typeof result.success !== 'boolean')
-        throw new Error('后端返回格式错误')
+      if (signal?.aborted) throw new Error('已取消')
+      // IPC 调用无法中途撤回：超时或取消时直接放弃结果，引擎侧自有网络超时兜底
+      const result = await Promise.race([
+        onlineApi().vod(body as VodRequest),
+        new Promise<never>((_, reject) => {
+          timeoutId = window.setTimeout(
+            () => reject(new Error('请求超时')),
+            REQUEST_TIMEOUT_MS
+          )
+          signal?.addEventListener('abort', () => reject(new Error('已取消')), {
+            once: true,
+          })
+        }),
+      ])
       return result as VODParseResponse
     } catch (e) {
       const err = e as Error
@@ -88,7 +83,6 @@ export function useVODParser() {
       return { success: false, error: err.message }
     } finally {
       window.clearTimeout(timeoutId)
-      signal?.removeEventListener('abort', abort)
       loading.value = --activeRequests > 0
     }
   }
