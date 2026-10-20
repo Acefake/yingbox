@@ -17,19 +17,24 @@
       </template>
     </PageHeader>
 
-    <div v-if="favorites.length" class="ui-poster-grid is-landscape">
-      <UiPosterCard
-        v-for="fav in favorites"
-        :key="fav._uid"
-        shape="landscape"
-        :title="fav.vod_name"
-        :cover="coverSrc(fav)"
-        :subtitle="fav._source"
-        :favorite="true"
-        @open="emit('play', fav)"
-        @toggle-favorite="emit('toggle-favorite', fav)"
-      />
-    </div>
+    <UiVirtualGrid
+      v-if="favorites.length"
+      :items="favorites"
+      class="ui-poster-grid is-landscape"
+      :item-key="fav => fav._uid"
+    >
+      <template #default="{ item: fav }">
+        <UiPosterCard
+          shape="landscape"
+          :title="fav.vod_name"
+          :cover="coverSrc(fav)"
+          :subtitle="fav._source"
+          :favorite="true"
+          @open="emit('play', fav)"
+          @toggle-favorite="emit('toggle-favorite', fav)"
+        />
+      </template>
+    </UiVirtualGrid>
     <StatusState
       v-else
       icon="heart"
@@ -46,6 +51,7 @@
 import PageHeader from '@/components/PageHeader.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 
 import { coverSrc } from '../utils/av-media'
 import StatusState from '@/components/StatusState.vue'

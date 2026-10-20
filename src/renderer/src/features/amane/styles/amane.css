@@ -237,6 +237,13 @@
   color: var(--text-secondary);
   font-size: var(--text-2xl);
 }
+.amane-actor-card strong {
+  /* 单行：演员墙是虚拟网格，行高要一致 */
+  max-width: 100%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 .amane-actor-card small {
   color: var(--text-secondary);
 }
