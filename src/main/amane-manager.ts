@@ -1,4 +1,4 @@
-import { app, dialog, ipcMain, protocol, safeStorage } from 'electron'
+import { app, dialog, protocol, safeStorage } from 'electron'
 import { type ChildProcess, spawn } from 'child_process'
 import { randomBytes } from 'crypto'
 import { existsSync, promises as fs } from 'fs'
@@ -12,6 +12,8 @@ import {
 import { createServer } from 'net'
 import type { AmaneRequest, AmaneSettings, AmaneStatus } from '../shared/amane'
 import { readAmaneResponse } from './amane-response'
+import { type AmaneConfigureInput, amane } from '../shared/contract/amane'
+import { implement } from './rpc'
 
 const VERSION = '0.20.1'
 const sleep = (ms: number): Promise<void> =>
@@ -510,101 +512,94 @@ async function imageResponse(request: Request): Promise<Response> {
   }
 }
 
+/** 修改连接设置：校验 → 持久化（失败回滚） → 状态复位 */
+async function configure(changes: AmaneConfigureInput): Promise<AmaneStatus> {
+  if (starting || child)
+    throw new Error('请先停止由影盒管理的 Amane 后台，再修改连接设置')
+  if (!['managed', 'external'].includes(changes.mode || settings.mode))
+    throw new Error('无效的服务模式')
+  const next = { ...settings }
+  if (changes.mode) next.mode = changes.mode
+  if (changes.baseUrl !== undefined) next.baseUrl = baseUrl(changes.baseUrl)
+  if (changes.executablePath !== undefined)
+    next.executablePath = String(changes.executablePath).trim()
+  if (changes.dataDirectory !== undefined) {
+    if (!isAbsolute(changes.dataDirectory))
+      throw new Error('数据目录须为绝对路径')
+    next.dataDirectory = resolve(changes.dataDirectory)
+  }
+  if (
+    changes.token !== undefined &&
+    (typeof changes.token !== 'string' ||
+      changes.token.length > 4096 ||
+      /[\r\n]/.test(changes.token))
+  )
+    throw new Error('无效的 API Token')
+  const previous = settings
+  const previousToken = token
+  settings = next
+  if (changes.token !== undefined) token = changes.token.trim()
+  try {
+    await persist()
+  } catch (error) {
+    settings = previous
+    token = previousToken
+    throw error
+  }
+  state = 'stopped'
+  failure = ''
+  version = undefined
+  return snapshot()
+}
+
 export async function registerAmaneIpc(): Promise<void> {
   await initialize()
   protocol.handle('amane', imageResponse)
-  ipcMain.handle('amane:status', async () => {
-    if (state === 'running') {
-      try {
-        await checkHealth()
-      } catch (error) {
-        state = 'error'
-        failure = (error as Error).message
+  implement(amane, {
+    status: async () => {
+      if (state === 'running') {
+        try {
+          await checkHealth()
+        } catch (error) {
+          state = 'error'
+          failure = (error as Error).message
+        }
       }
-    }
-    return snapshot()
-  })
-  ipcMain.handle('amane:start', () => startService())
-  ipcMain.handle('amane:stop', async () => {
-    if (starting) await starting
-    await stopChild()
-    state = 'stopped'
-    failure = ''
-    return snapshot()
-  })
-  ipcMain.handle(
-    'amane:configure',
-    async (_event, changes: Partial<AmaneSettings> & { token?: string }) => {
-      if (starting || child)
-        throw new Error('请先停止由影盒管理的 Amane 后台，再修改连接设置')
-      if (
-        !changes ||
-        !['managed', 'external'].includes(changes.mode || settings.mode)
-      )
-        throw new Error('无效的服务模式')
-      const next = { ...settings }
-      if (changes.mode) next.mode = changes.mode
-      if (changes.baseUrl !== undefined) next.baseUrl = baseUrl(changes.baseUrl)
-      if (changes.executablePath !== undefined)
-        next.executablePath = String(changes.executablePath).trim()
-      if (changes.dataDirectory !== undefined) {
-        if (!isAbsolute(changes.dataDirectory))
-          throw new Error('数据目录须为绝对路径')
-        next.dataDirectory = resolve(changes.dataDirectory)
-      }
-      if (
-        changes.token !== undefined &&
-        (typeof changes.token !== 'string' ||
-          changes.token.length > 4096 ||
-          /[\r\n]/.test(changes.token))
-      )
-        throw new Error('无效的 API Token')
-      const previous = settings
-      const previousToken = token
-      settings = next
-      if (changes.token !== undefined) token = changes.token.trim()
-      try {
-        await persist()
-      } catch (error) {
-        settings = previous
-        token = previousToken
-        throw error
-      }
+      return snapshot()
+    },
+    start: () => startService(),
+    stop: async () => {
+      if (starting) await starting
+      await stopChild()
       state = 'stopped'
       failure = ''
-      version = undefined
       return snapshot()
-    }
-  )
-  ipcMain.handle('amane:selectExecutable', async () => {
-    const result = await dialog.showOpenDialog({
-      title: '选择 Amane 后台程序',
-      properties: ['openFile'],
-      filters: [
-        {
-          name: 'Amane.Server',
-          extensions: process.platform === 'win32' ? ['exe'] : ['*'],
-        },
-      ],
-    })
-    return result.canceled ? null : result.filePaths[0] || null
-  })
-  ipcMain.handle('amane:request', (_event, request: AmaneRequest) =>
-    requestApi(request)
-  )
-  // 手机接入:把当前服务的 baseUrl + token 交给渲染层,由"手机访问"面板生成接入链接。
-  ipcMain.handle('amane:connectionInfo', () => ({
-    baseUrl: settings.baseUrl,
-    token: token || '',
-  }))
-  // 仅解析路径，不直接开播放窗：播放引擎（内置 / mpv）由渲染层统一决定。
-  ipcMain.handle('amane:resolveMedia', async (_event, mediaId: number) => {
-    try {
-      const filePath = await resolveAmaneMedia(mediaId)
-      return { success: true, filePath }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
-    }
+    },
+    configure: (_, changes) => configure(changes),
+    selectExecutable: async () => {
+      const result = await dialog.showOpenDialog({
+        title: '选择 Amane 后台程序',
+        properties: ['openFile'],
+        filters: [
+          {
+            name: 'Amane.Server',
+            extensions: process.platform === 'win32' ? ['exe'] : ['*'],
+          },
+        ],
+      })
+      return result.canceled ? null : result.filePaths[0] || null
+    },
+    request: (_, request) => requestApi(request),
+    // 仅解析路径，不直接开播放窗：播放引擎（内置 / mpv）由渲染层统一决定。
+    resolveMedia: async (_, mediaId) => {
+      try {
+        return { success: true, filePath: await resolveAmaneMedia(mediaId) }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    },
+    // 手机接入:把当前服务的 baseUrl + token 交给渲染层,由"手机访问"面板生成接入链接。
+    connection: () => ({ baseUrl: settings.baseUrl, token: token || '' }),
   })
   app.on('before-quit', () => {
     quitting = true

@@ -97,7 +97,7 @@ export function amaneRequest<T>(
   body?: unknown
 ): Promise<T> {
   if (window.api?.amane) {
-    return window.api.amane.request<T>({ path: `/api${path}`, method, body })
+    return window.api.amane.request({ path: `/api${path}`, method, body }) as Promise<T>
   }
   return fetch(`${amaneBase()}/api${path}`, {
     method,
