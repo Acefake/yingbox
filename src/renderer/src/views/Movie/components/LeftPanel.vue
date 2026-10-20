@@ -18,8 +18,8 @@
 
       <!-- Primary actions -->
       <div class="yb-media-toolbar lp-actions">
-        <button type="button" class="yb-btn-soft" :disabled="dirLoading" @click="$emit('addFolder')"><AppIcon name="plus" />添加目录</button>
-        <IconButton icon="refresh" label="刷新媒体目录" :loading="dirLoading" @click="$emit('refresh')" />
+        <button type="button" class="yb-btn-soft" :disabled="dirLoading" @click="$emit('addFolder')"><UiIcon name="plus" />添加目录</button>
+        <UiIconButton icon="refresh" label="刷新媒体目录" :loading="dirLoading" @click="$emit('refresh')" />
         <span v-if="processedItems.length" class="lp-count"
           >{{ processedItems.length }} 项</span
         >
@@ -36,7 +36,7 @@
             :aria-label="`移除目录 ${dir}`"
             @click="$emit('removeDirectory', i)"
           >
-            <AppIcon name="close" size="sm" />
+            <UiIcon name="close" size="sm" />
           </button>
         </div>
       </div>
@@ -105,8 +105,8 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
-import IconButton from '@/components/IconButton.vue'
-import AppIcon from '@/components/AppIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import FileTreeItem from '@/views/Movie/components/FileTreeItem.vue'
@@ -302,7 +302,7 @@ const unscrapedCount = computed(() => {
   gap: 6px;
   min-height: 28px;
   padding: 4px 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-xs);
@@ -324,7 +324,7 @@ const unscrapedCount = computed(() => {
   background: transparent;
   color: var(--text-tertiary);
   cursor: pointer;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   padding: 2px 4px;
   border-radius: var(--radius-sm);
   transition: var(--transition-fast);
@@ -348,10 +348,9 @@ const unscrapedCount = computed(() => {
   width: 100%;
   min-height: var(--control-height-sm);
   padding: 0 12px 0 14px;
-  border-radius: 999px;
-  border: 1px solid color-mix(in srgb, var(--accent) 22%, transparent);
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  color: var(--text-primary);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: -0.01em;
@@ -374,11 +373,11 @@ const unscrapedCount = computed(() => {
   min-width: 22px;
   height: 20px;
   padding: 0 7px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
   color: var(--accent-text);
@@ -415,7 +414,7 @@ const unscrapedCount = computed(() => {
 
 .lp-scan-track {
   height: 3px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   overflow: hidden;
   background: var(--bg-fill-secondary);
 }

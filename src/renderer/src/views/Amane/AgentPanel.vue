@@ -1,24 +1,24 @@
 <template>
   <section class="amane-agent" aria-label="智能体">
     <aside class="agent-sessions">
-      <div class="agent-session-heading"><strong>对话</strong><IconButton icon="plus" label="新建对话" :disabled="busy || loadingTrace" @click="createSession" /></div>
+      <div class="agent-session-heading"><strong>对话</strong><UiIconButton icon="plus" label="新建对话" :disabled="busy || loadingTrace" @click="createSession" /></div>
       <p v-if="!sessions.length" class="amane-muted">新建对话，开始查询片库</p>
       <div v-for="session in sessions" :key="session.id" class="agent-session-row" :class="{ active: session.id === selected }">
         <input v-if="renaming === session.id" v-model="renameText" class="yb-field" maxlength="200" aria-label="对话名称" @keydown.enter.prevent="renameSession(session.id)" @keydown.esc="renaming = null" />
         <button v-else type="button" class="agent-session-link" :aria-current="selected === session.id ? 'page' : undefined" @click="selectSession(session.id)">{{ session.title }}<small v-if="session.status === 'awaiting_approval'">等待审批</small></button>
-        <IconButton v-if="renaming === session.id" icon="check" label="保存对话名称" :disabled="busy || !renameText.trim()" @click="renameSession(session.id)" />
-        <IconButton v-else icon="file" label="重命名对话" :disabled="busy" @click="renaming = session.id; renameText = session.title" />
-        <IconButton icon="trash" label="删除对话" danger :disabled="busy || (selected === session.id && running)" @click="deleteSession(session)" />
+        <UiIconButton v-if="renaming === session.id" icon="check" label="保存对话名称" :disabled="busy || !renameText.trim()" @click="renameSession(session.id)" />
+        <UiIconButton v-else icon="file" label="重命名对话" :disabled="busy" @click="renaming = session.id; renameText = session.title" />
+        <UiIconButton icon="trash" label="删除对话" danger :disabled="busy || (selected === session.id && running)" @click="deleteSession(session)" />
       </div>
     </aside>
     <div class="agent-conversation">
       <header class="agent-toolbar">
-        <div class="agent-toolbar-title"><AppIcon :name="showQueries ? 'database' : 'sparkle'" /><span>{{ showQueries ? '查询预设' : currentSession?.title || '智能体' }}</span><small v-if="running">处理中</small></div>
-        <IconButton icon="database" label="查询预设" :active="showQueries" @click="showQueries = !showQueries; refreshQueries()" />
-        <IconButton icon="refresh" label="刷新对话" :disabled="busy" @click="refresh" />
-        <IconButton icon="settings" label="配置智能体模型" @click="emit('settings')" />
+        <div class="agent-toolbar-title"><UiIcon :name="showQueries ? 'database' : 'sparkle'" /><span>{{ showQueries ? '查询预设' : currentSession?.title || '智能体' }}</span><small v-if="running">处理中</small></div>
+        <UiIconButton icon="database" label="查询预设" :active="showQueries" @click="showQueries = !showQueries; refreshQueries()" />
+        <UiIconButton icon="refresh" label="刷新对话" :disabled="busy" @click="refresh" />
+        <UiIconButton icon="settings" label="配置智能体模型" @click="emit('settings')" />
       </header>
-      <div v-if="error" class="agent-error-banner"><AgentErrorCard :message="error" @settings="emit('settings')" /><IconButton icon="close" label="关闭错误提示" @click="error = ''" /></div>
+      <div v-if="error" class="agent-error-banner"><AgentErrorCard :message="error" @settings="emit('settings')" /><UiIconButton icon="close" label="关闭错误提示" @click="error = ''" /></div>
       <div v-if="showQueries" class="agent-query-list primary-scroll">
         <p v-if="!queries.length" class="amane-muted">暂无查询预设。可以让智能体查询片库并保存查询。</p>
         <article v-for="query in queries" :key="query.id" class="agent-query">
@@ -27,11 +27,11 @@
           <div class="agent-query-actions">
             <button type="button" class="yb-btn-soft" :disabled="busy" @click="viewQuery(query.id)">查看结果</button>
             <button v-if="!query.persisted" type="button" class="yb-btn-soft" :disabled="busy" @click="queryAction(query.id, 'persist')">保留预设</button>
-            <IconButton icon="trash" label="删除查询预设" danger :disabled="busy" @click="queryAction(query.id, 'delete')" />
+            <UiIconButton icon="trash" label="删除查询预设" danger :disabled="busy" @click="queryAction(query.id, 'delete')" />
           </div>
         </article>
         <div v-if="queryResult" class="agent-query-result">
-          <div class="agent-query-actions"><span>共 {{ queryResult.total }} 行</span><IconButton icon="download" label="导出当前查询结果为 CSV" @click="exportQuery" /></div>
+          <div class="agent-query-actions"><span>共 {{ queryResult.total }} 行</span><UiIconButton icon="download" label="导出当前查询结果为 CSV" @click="exportQuery" /></div>
           <div class="amane-table-wrap"><table class="amane-table"><thead><tr><th v-for="column in queryResult.columns" :key="column">{{ column }}</th></tr></thead><tbody><tr v-for="(row, index) in queryResult.rows" :key="index"><td v-for="(value, cell) in row" :key="cell">{{ cellText(value) }}</td></tr></tbody></table></div>
           <div class="agent-query-actions"><button type="button" class="yb-btn-soft" :disabled="busy || queryOffset === 0" @click="viewQuery(queryId, queryOffset - 100)">上一页</button><button type="button" class="yb-btn-soft" :disabled="busy || queryOffset + 100 >= queryResult.total" @click="viewQuery(queryId, queryOffset + 100)">下一页</button></div>
         </div>
@@ -39,13 +39,13 @@
       <div v-else ref="messageList" class="agent-message-list primary-scroll" role="log" aria-label="对话消息" :aria-busy="loadingTrace">
         <div class="agent-thread">
         <div v-if="loadingTrace" class="amane-muted" role="status">正在读取对话…</div>
-        <div v-else-if="!folded.messages.length" class="agent-welcome"><AppIcon name="sparkle" size="lg" /><h2>想在片库中找什么？</h2><p>查询影片、演员和媒体文件，或让智能体帮你整理查询条件。</p><div class="agent-suggestions"><button v-for="hint in hints" :key="hint" type="button" class="yb-btn-soft" @click="draft = hint"><AppIcon name="search" size="sm" />{{ hint }}</button></div><p class="amane-muted">首次使用，请先在设置的「智能体」中配置模型。</p></div>
+        <div v-else-if="!folded.messages.length" class="agent-welcome"><UiIcon name="sparkle" size="lg" /><h2>想在片库中找什么？</h2><p>查询影片、演员和媒体文件，或让智能体帮你整理查询条件。</p><div class="agent-suggestions"><button v-for="hint in hints" :key="hint" type="button" class="yb-btn-soft" @click="draft = hint"><UiIcon name="search" size="sm" />{{ hint }}</button></div><p class="amane-muted">首次使用，请先在设置的「智能体」中配置模型。</p></div>
         <article v-for="message in folded.messages" :key="message.id" class="agent-message" :class="message.role">
-          <span v-if="message.role === 'assistant'" class="agent-role"><AppIcon name="sparkle" size="sm" />Amane</span>
+          <span v-if="message.role === 'assistant'" class="agent-role"><UiIcon name="sparkle" size="sm" />Amane</span>
           <template v-for="(part, index) in message.parts" :key="index">
             <AgentMarkdown v-if="part.kind === 'text'" :text="part.text" />
             <details v-else-if="part.kind === 'reasoning'" class="agent-thought"><summary>思考过程</summary><AgentMarkdown :text="part.text" /></details>
-            <details v-else-if="part.kind === 'tool'" class="agent-tool"><summary><AppIcon name="settings" size="sm" />{{ part.name }} <span>{{ part.result === undefined ? '等待结果' : '已完成' }}</span></summary><p>参数</p><pre>{{ cellText(part.args) }}</pre><template v-if="part.result !== undefined"><p>结果</p><pre>{{ cellText(part.result) }}</pre></template></details>
+            <details v-else-if="part.kind === 'tool'" class="agent-tool"><summary><UiIcon name="settings" size="sm" />{{ part.name }} <span>{{ part.result === undefined ? '等待结果' : '已完成' }}</span></summary><p>参数</p><pre>{{ cellText(part.args) }}</pre><template v-if="part.result !== undefined"><p>结果</p><pre>{{ cellText(part.result) }}</pre></template></details>
             <p v-else-if="part.kind === 'usage'" class="agent-usage">{{ part.text }}</p>
             <AgentErrorCard v-else :message="part.text" @settings="emit('settings')" />
           </template>
@@ -65,7 +65,7 @@
       <div v-if="!showQueries" class="agent-composer-dock">
       <form class="agent-composer" @submit.prevent="send">
         <textarea v-model="draft" rows="2" placeholder="向片库提问…" aria-label="输入消息" :disabled="busy || loadingTrace || running || !!folded.interrupts.length" @keydown="composerKey" />
-        <div class="agent-composer-actions"><label>思考<select class="agent-thinking-select" aria-label="思考强度" :value="currentSession?.thinking || ''" :disabled="!selected || busy || running" @change="setThinking(($event.target as HTMLSelectElement).value)"><option value="">跟随全局设置</option><option v-for="mode in thinkingModes" :key="mode.value" :value="mode.value">{{ mode.label }}</option></select></label><span>Enter 发送，Shift + Enter 换行</span><IconButton v-if="running" icon="stop" label="停止生成" :disabled="busy" @click="stop" /><IconButton v-else icon="arrowUp" label="发送消息" :disabled="busy || loadingTrace || !draft.trim() || !!folded.interrupts.length" @click="send" /></div>
+        <div class="agent-composer-actions"><label>思考<select class="agent-thinking-select" aria-label="思考强度" :value="currentSession?.thinking || ''" :disabled="!selected || busy || running" @change="setThinking(($event.target as HTMLSelectElement).value)"><option value="">跟随全局设置</option><option v-for="mode in thinkingModes" :key="mode.value" :value="mode.value">{{ mode.label }}</option></select></label><span>Enter 发送，Shift + Enter 换行</span><UiIconButton v-if="running" icon="stop" label="停止生成" :disabled="busy" @click="stop" /><UiIconButton v-else icon="arrowUp" label="发送消息" :disabled="busy || loadingTrace || !draft.trim() || !!folded.interrupts.length" @click="send" /></div>
       </form>
       </div>
     </div>
@@ -73,8 +73,8 @@
 </template>
 <script setup lang="ts">
 import { computed, nextTick, onActivated, onBeforeUnmount, onDeactivated, onMounted, reactive, ref } from 'vue'
-import AppIcon from '@/components/AppIcon.vue'
-import IconButton from '@/components/IconButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { amaneRequest } from '@/api/amane'
 import { agentPath, agentRunBody, foldAgentTrace, getTrace, type AgentSession, type AgentTrace, type SavedQuery, type QueryResult } from '@/api/amane-agent'
 import AgentMarkdown from './AgentMarkdown.vue'

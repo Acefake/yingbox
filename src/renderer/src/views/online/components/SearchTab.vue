@@ -3,7 +3,7 @@
     <div v-if="searchHistory.length" class="home-section">
       <div class="yb-section-header">
         <PageTitle as="h2" variant="section">搜索记录</PageTitle>
-        <IconButton icon="trash" label="清空搜索记录" danger @click="clearHistory" />
+        <UiIconButton icon="trash" label="清空搜索记录" danger @click="clearHistory" />
       </div>
       <div class="history-tags">
         <span
@@ -21,7 +21,7 @@
             :aria-label="`删除搜索记录 ${kw}`"
             @click.stop="removeHistory(kw)"
           >
-            <AppIcon name="close" size="sm" />
+            <UiIcon name="close" size="sm" />
           </button>
         </span>
       </div>
@@ -55,46 +55,17 @@
         <PageTitle as="h2" variant="section">插件视频源</PageTitle>
         <span class="yb-section-count">{{ vodResults.length }}个结果</span>
       </div>
-      <div class="yb-poster-grid">
-        <div
+      <div class="ui-poster-grid">
+        <UiPosterCard
           v-for="item in vodResults"
           :key="item.vod_name + item.source_name"
-          class="yb-poster-card"
-          @click="emit('openItem', item)"
+          :title="item.vod_name"
+          :cover="item.vod_pic"
+          :subtitle="[item.vod_year, item.type_name, item.vod_remarks].filter(Boolean).join(' · ')"
+          @open="emit('openItem', item)"
         >
-          <div class="yb-poster-media">
-            <img
-              :src="item.vod_pic"
-              :alt="item.vod_name"
-              loading="lazy"
-              @error="onImgError"
-            />
-            <div class="yb-poster-overlay">
-              <svg viewBox="0 0 24 24" width="36" height="36" fill="white">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-            <div class="yb-poster-badge is-plugin">
-              {{ item.source_name }}
-            </div>
-          </div>
-          <div class="yb-poster-info">
-            <div class="yb-poster-title" :title="item.vod_name">
-              {{ item.vod_name }}
-            </div>
-            <div class="yb-poster-meta">
-              <span class="yb-poster-chip">{{ item.vod_year }}</span>
-              <span class="yb-poster-chip is-accent">{{ item.type_name }}</span>
-            </div>
-            <div v-if="item.vod_remarks" class="yb-poster-remarks">
-              {{ item.vod_remarks }}
-            </div>
-            <div v-if="item.vod_content" class="yb-poster-sub">
-              {{ item.vod_content.slice(0, 50)
-              }}{{ item.vod_content.length > 50 ? '...' : '' }}
-            </div>
-          </div>
-        </div>
+          <template #badges><span class="ui-poster-badge">{{ item.source_name }}</span></template>
+        </UiPosterCard>
       </div>
     </div>
 
@@ -108,56 +79,28 @@
         <PageTitle as="h2" variant="section">CMS源</PageTitle>
         <span class="yb-section-count">{{ cmsResults.length }}个结果</span>
       </div>
-      <div class="yb-poster-grid">
-        <div
+      <div class="ui-poster-grid">
+        <UiPosterCard
           v-for="item in cmsResults"
           :key="item.vod_name + item.source_name"
-          class="yb-poster-card"
-          @click="emit('openItem', item)"
+          :title="item.vod_name"
+          :cover="item.vod_pic"
+          :subtitle="[item.vod_year, item.type_name, item.vod_remarks].filter(Boolean).join(' · ')"
+          @open="emit('openItem', item)"
         >
-          <div class="yb-poster-media">
-            <img
-              :src="item.vod_pic"
-              :alt="item.vod_name"
-              loading="lazy"
-              @error="onImgError"
-            />
-            <div class="yb-poster-overlay">
-              <svg viewBox="0 0 24 24" width="36" height="36" fill="white">
-                <path d="M8 5v14l11-7z" />
-              </svg>
-            </div>
-            <div class="yb-poster-badge is-source">
-              {{ item.source_name }}
-            </div>
-          </div>
-          <div class="yb-poster-info">
-            <div class="yb-poster-title" :title="item.vod_name">
-              {{ item.vod_name }}
-            </div>
-            <div class="yb-poster-meta">
-              <span class="yb-poster-chip">{{ item.vod_year }}</span>
-              <span class="yb-poster-chip is-accent">{{ item.type_name }}</span>
-            </div>
-            <div v-if="item.vod_remarks" class="yb-poster-remarks">
-              {{ item.vod_remarks }}
-            </div>
-            <div v-if="item.vod_content" class="yb-poster-sub">
-              {{ item.vod_content.slice(0, 50)
-              }}{{ item.vod_content.length > 50 ? '...' : '' }}
-            </div>
-          </div>
-        </div>
+          <template #badges><span class="ui-poster-badge">{{ item.source_name }}</span></template>
+        </UiPosterCard>
       </div>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import { confirmDialog } from '@/utils/confirm-dialog'
 import PageTitle from '@/components/PageTitle.vue'
-import AppIcon from '@/components/AppIcon.vue'
-import IconButton from '@/components/IconButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, ref, watch } from 'vue'
 
@@ -236,11 +179,6 @@ watch(
   { immediate: true }
 )
 
-const onImgError = (e: Event) => {
-  ;(e.target as HTMLImageElement).src =
-    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
-}
-
 defineExpose({ handleSearch, saveHistory })
 </script>
 
@@ -259,7 +197,7 @@ defineExpose({ handleSearch, saveHistory })
 }
 .content-area::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
 }
 
 .history-tags {
@@ -277,16 +215,15 @@ defineExpose({ handleSearch, saveHistory })
   font-size: var(--text-xs);
   background: transparent;
   border: 1px solid var(--border-default);
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   cursor: pointer;
   transition: var(--transition-fast);
 }
 
 .history-tag:hover {
-  background: var(--accent-soft);
-  border-color: color-mix(in srgb, var(--accent) 35%, transparent);
-  color: var(--accent-text);
+  background: var(--bg-active);
+  color: var(--text-primary);
 }
 
 .del-tag {
@@ -294,7 +231,7 @@ defineExpose({ handleSearch, saveHistory })
   padding: 2px;
   color: inherit;
   background: transparent;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   opacity: 0.5;
   cursor: pointer;
 }

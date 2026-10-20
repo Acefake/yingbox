@@ -15,12 +15,12 @@
           <span v-if="film.score != null" class="amane-film-score"><b>★</b> {{ film.score.toFixed(1) }}</span>
         </p>
         <div class="amane-film-actions">
-          <ActionButton v-if="detail.files.length" :disabled="busy" @click="$emit('play', detail.files[0].id)" icon="play" label="播放" primary />
-          <ActionButton icon="refresh" label="重新刮削" :disabled="busy" @click="$emit('scrape', film.id)" />
-          <ActionButton v-if="detail.files.length" icon="sparkle" label="去码" :disabled="busy" @click="$emit('restore', detail.files[0].id)" />
-          <ActionButton v-if="detail.files.length" :disabled="busy" @click="$emit('range', detail.files[0].id)" icon="range" label="去码一段" />
-          <ActionButton v-if="detail.files.length" :disabled="busy" title="按媒体库模板把文件搬进子目录，并在旁边写出封面/海报（水印打在它们上面）" @click="$emit('organize', detail.files[0].id)" icon="folder" label="整理" />
-          <ActionButton v-if="detail.files.length" :disabled="busy" @click="$emit('live', detail.files[0].id)" icon="livePlay" label="边跑边看" />
+          <UiButton v-if="detail.files.length" :disabled="busy" @click="$emit('play', detail.files[0].id)" icon="play" label="播放" variant="primary" />
+          <UiIconButton icon="refresh" label="重新刮削" :disabled="busy" @click="$emit('scrape', film.id)" variant="secondary" />
+          <UiIconButton v-if="detail.files.length" icon="sparkle" label="去码" :disabled="busy" @click="$emit('restore', detail.files[0].id)" variant="secondary" />
+          <UiIconButton v-if="detail.files.length" :disabled="busy" @click="$emit('range', detail.files[0].id)" icon="range" label="去码一段" variant="secondary" />
+          <UiIconButton v-if="detail.files.length" :disabled="busy" @click="$emit('organize', detail.files[0].id)" icon="folder" label="整理到媒体库目录（写出封面与海报）" variant="secondary" />
+          <UiIconButton v-if="detail.files.length" :disabled="busy" @click="$emit('live', detail.files[0].id)" icon="livePlay" label="边跑边看" variant="secondary" />
         </div>
       </div>
 
@@ -45,15 +45,15 @@
     <section class="amane-film-section">
       <h3>用户标签</h3>
       <div class="amane-film-chips">
-        <span v-for="tag in detail.user_tags" :key="tag.id" class="amane-film-chip user-tag">{{ tag.name }}<button :disabled="tagBusy" :aria-label="`移除标签 ${tag.name}`" @click="removeTag(tag.id)"><AppIcon name="close" size="sm" /></button></span>
-        <IconButton :icon="editingTags ? 'close' : 'plus'" :label="editingTags ? '收起标签编辑' : '添加用户标签'" :aria-expanded="editingTags" @click="editingTags = !editingTags" />
+        <span v-for="tag in detail.user_tags" :key="tag.id" class="amane-film-chip user-tag">{{ tag.name }}<button :disabled="tagBusy" :aria-label="`移除标签 ${tag.name}`" @click="removeTag(tag.id)"><UiIcon name="close" size="sm" /></button></span>
+        <UiIconButton :icon="editingTags ? 'close' : 'plus'" :label="editingTags ? '收起标签编辑' : '添加用户标签'" :aria-expanded="editingTags" @click="editingTags = !editingTags" />
       </div>
       <form v-if="editingTags" class="amane-tag-form" @submit.prevent="addTag"><input v-model="tagName" class="yb-field" aria-label="用户标签名称" placeholder="输入标签名称" maxlength="100" /><button class="yb-btn-soft" :disabled="tagBusy || !tagName.trim()">添加</button></form>
       <p v-if="tagError" class="amane-task-error" role="alert">{{ tagError }}</p>
     </section>
     <section class="amane-film-section">
       <h3>来源链接</h3>
-      <div class="amane-film-chips"><a v-for="link in sources" :key="link.name" class="amane-film-source" :href="link.url" target="_blank" rel="noopener noreferrer">{{ link.name }} <AppIcon name="externalLink" size="sm" /></a><span v-if="!sources.length" class="amane-muted">暂无来源链接</span></div>
+      <div class="amane-film-chips"><a v-for="link in sources" :key="link.name" class="amane-film-source" :href="link.url" target="_blank" rel="noopener noreferrer">{{ link.name }} <UiIcon name="externalLink" size="sm" /></a><span v-if="!sources.length" class="amane-muted">暂无来源链接</span></div>
     </section>
     <section v-if="film.plot" class="amane-film-section">
       <h3>简介 <span v-if="locked('plot')" class="amane-field-lock" title="已锁定">▣</span></h3><p class="amane-film-plot">{{ film.plot }}</p>
@@ -89,9 +89,9 @@
 <script setup lang="ts">
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, nextTick, ref, watch } from 'vue'
-import AppIcon from '@/components/AppIcon.vue'
-import ActionButton from '@/components/ActionButton.vue'
-import IconButton from '@/components/IconButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { amaneImage, amaneRequest, type AmaneDetail, type AmaneUserTag } from '@/api/amane'
 
 const props = defineProps<{ detail: AmaneDetail; busy: boolean }>()
@@ -173,12 +173,12 @@ function hideBrokenImage(event: Event): void { (event.target as HTMLImageElement
 .amane-still-preview { position:fixed; inset:0; width:100%; height:100%; max-width:none; max-height:none; margin:0; padding:0; border:0; background:rgba(0,0,0,.94); color:#fff; }
 .amane-still-preview[open] { display:flex; flex-direction:column; gap:16px; }
 .amane-still-preview::backdrop { background:rgba(0,0,0,.7); }
-.amane-still-preview-navigation button { padding:8px 14px; border:1px solid rgba(255,255,255,.3); border-radius:8px; background:rgba(255,255,255,.08); color:#fff; cursor:pointer; font:inherit; }
+.amane-still-preview-navigation button { padding:8px 14px; border:1px solid rgba(255,255,255,.3); border-radius:var(--radius-md); background:rgba(255,255,255,.08); color:#fff; cursor:pointer; font:inherit; }
 .amane-still-preview button:focus-visible { outline:2px solid #fff; outline-offset:3px; }
 .amane-still-preview-stage { padding:16px; flex:1; min-height:0; display:flex; overflow:auto; }
 .amane-still-preview-stage img { display:block; margin:auto; max-width:100%; max-height:100%; object-fit:contain; flex-shrink:0; }
 .amane-still-preview-stage.original-size img { max-width:none; max-height:none; }
 .amane-still-preview-stage p { margin:auto; }
 .amane-still-preview-navigation { padding:0 16px 16px; display:flex; justify-content:center; gap:16px; flex-shrink:0; }
-@media(max-width:600px) { .amane-still-preview-navigation button { padding:8px 10px; font-size:13px; } }
+@media(max-width:600px) { .amane-still-preview-navigation button { padding:8px 10px; font-size:var(--text-sm); } }
 </style>

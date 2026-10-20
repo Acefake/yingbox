@@ -27,7 +27,7 @@
   min-height: var(--control-height);
   padding: 0 var(--space-5);
   border: 1px solid var(--border-default);
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   color: var(--text-main);
   background: transparent;
   transition: var(--transition-fast);
@@ -172,17 +172,17 @@
   color: var(--text-primary);
 }
 .yb-seg.is-active {
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--bg-fill-secondary);
+  color: var(--text-primary);
   font-weight: var(--font-weight-medium);
-  box-shadow: none;
+  box-shadow: var(--shadow-sm);
 }
 
 .yb-field {
   width: 100%;
   min-height: var(--control-height);
   padding: 8px 11px;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
   background: var(--bg-elevated);
   color: var(--text-primary);
@@ -200,60 +200,51 @@
 }
 .yb-field:focus-visible { outline: 2px solid var(--accent-text); outline-offset: 2px; }
 
-.yb-btn-primary {
+/* 旧的按钮类：外观与 UiButton 保持一致，新代码请直接用 UiButton */
+.yb-btn-primary,
+.yb-btn-soft,
+.yb-ghost-btn {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
   min-height: var(--control-height);
-  padding: 0 16px;
-  border-radius: 7px;
+  padding: 0 var(--space-4);
   border: 0;
-  background: var(--action-bg);
-  color: var(--action-text);
-  font-size: var(--text-md);
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
+  white-space: nowrap;
   cursor: pointer;
   transition: var(--transition-fast);
-
-  display: inline-flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  gap: 7px;
+}
+.yb-btn-primary {
+  background: var(--action-bg);
+  color: var(--action-text);
 }
 .yb-btn-primary:hover:not(:disabled) {
   background: var(--action-hover);
 }
-.yb-btn-primary:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-.yb-btn-soft {
-  min-height: var(--control-height);
-  padding: 0 14px;
-  border-radius: 7px;
-  border: 1px solid var(--border-default);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: var(--transition-fast);
-
-  display: inline-flex;
-
-  align-items: center;
-
-  justify-content: center;
-
-  gap: 7px;
-}
-.yb-btn-soft:hover:not(:disabled) {
+.yb-btn-soft,
+.yb-ghost-btn {
   background: var(--bg-glass-hover);
   color: var(--text-primary);
 }
-.yb-btn-soft:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
+.yb-btn-soft:hover:not(:disabled),
+.yb-ghost-btn:hover:not(:disabled) {
+  background: var(--bg-active);
+}
+.yb-btn-primary:disabled,
+.yb-btn-soft:disabled,
+.yb-ghost-btn:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+.yb-btn-primary:focus-visible,
+.yb-btn-soft:focus-visible,
+.yb-ghost-btn:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
 }
 
 .yb-list-row {
@@ -278,7 +269,7 @@
   min-height: 38px;
   padding: 0 20px;
   border: 0;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   background: var(--action-bg);
   color: var(--action-text);
   font-size: var(--text-md);
@@ -330,7 +321,7 @@
 .yb-play-cta-icon {
   width: 40px;
   height: 40px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -383,7 +374,7 @@
 .yb-radio {
   width: 14px;
   height: 14px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   border: 2px solid var(--border-strong);
   display: flex;
   align-items: center;
@@ -397,7 +388,7 @@
 .yb-radio-dot {
   width: 6px;
   height: 6px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   background: var(--text-on-accent);
 }
 
@@ -495,7 +486,7 @@
 .yb-media-poster {
   width: clamp(160px, 19vw, 240px);
   aspect-ratio: 2 / 3;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   flex-shrink: 0;
   box-shadow: none;
@@ -570,191 +561,18 @@
   color: var(--text-secondary);
 }
 
-/* Shared portrait poster cards (home / search / VOD / library) */
-.yb-poster-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(156px, 1fr));
-  gap: 28px 20px;
-}
-
-.yb-poster-card {
-  min-width: 0;
-  cursor: pointer;
-  overflow: visible;
-  border: 0;
-  border-radius: var(--radius-lg);
-  background: transparent;
-  box-shadow: none;
-  transition: opacity 140ms ease, transform 160ms ease;
-}
-
-.yb-poster-card:hover {
-  transform: none;
-  border-color: transparent;
-  box-shadow: none;
-}
-
-.yb-poster-media {
-  position: relative;
-  aspect-ratio: 2 / 3;
-  overflow: hidden;
-  background: var(--bg-fill-secondary);
-  transform-origin: center;
-  transition: opacity 150ms ease;
-
-  border-radius: var(--radius-lg);
-}
-
-.yb-poster-card:hover .yb-poster-media {
-  transform: none;
-  box-shadow: none;
-
-  opacity: .95;
-  box-shadow: 0 8px 24px rgb(0 0 0 / .2);
-}
-
-.yb-poster-media img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-
-.yb-poster-overlay {
-  position: absolute;
-  inset: 0;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: rgba(0, 0, 0, 0.4);
-  opacity: 0;
-  transition: opacity 0.2s var(--ease-out);
-}
-
-.yb-poster-card:focus-within .yb-poster-overlay {
-  opacity: 1;
-}
-
-.yb-poster-badge {
-  position: absolute;
-  z-index: 1;
-  padding: 2px 8px;
-  border-radius: var(--radius-full);
-  color: #fff;
-  font-size: 10px;
-  font-weight: var(--font-weight-semibold);
-}
-
-.yb-poster-badge.is-source {
-  top: 6px;
-  right: 6px;
-  background: rgba(0,0,0,.78);
-
-  color: #F1F1F1;
-}
-
-.yb-poster-badge.is-plugin {
-  right: 6px;
-  bottom: 6px;
-  background: color-mix(in srgb, var(--success) 88%, black);
-}
-
-.yb-poster-badge.is-rate {
-  left: 6px;
-  bottom: 6px;
-  background: rgba(0, 0, 0, 0.65);
-  color: #fbbf24;
-}
-
-.yb-poster-info {
-  padding: 10px 0 0;
-}
-
-.yb-poster-title {
-  margin: 0 0 4px;
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: 14px;
-  font-weight: var(--font-weight-medium);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.yb-poster-meta {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 4px;
-  margin: 3px 0;
-}
-
-.yb-poster-chip {
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-}
-
-.yb-poster-chip.is-accent {
-  background: var(--accent-soft);
-  color: var(--accent-text);
-  font-weight: var(--font-weight-semibold);
-}
-
-.yb-poster-sub {
-  display: -webkit-box;
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  line-height: 1.4;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
-  line-clamp: 2;
-}
-
-.yb-poster-remarks {
-  margin-top: 3px;
-  overflow: hidden;
-  color: var(--warning);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
 .yb-poster-skel-line {
   height: 10px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg-fill-secondary);
 }
 
-.yb-ghost-btn {
-  min-height: 32px;
-  padding: 0 14px;
-  border: 1px solid var(--border-default);
-  border-radius: 6px;
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.yb-ghost-btn:hover:not(:disabled) {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
-
-.yb-ghost-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
 
 @media (max-width: 768px) {
-  .yb-poster-grid {
-    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
-    gap: 10px;
+  .ui-poster-grid {
+    --poster-min-width: 110px;
+    --poster-gap-x: 12px;
+    --poster-gap-y: 20px;
   }
   .yb-media-list-pane,
   .yb-media-detail-pane {
@@ -822,16 +640,3 @@
   box-shadow: var(--shadow-lg);
 }
 
-/* Icon actions share one hit area and keyboard treatment. */
-.yb-icon-button { width: 34px; height: 34px; flex: 0 0 34px; display: inline-flex; align-items: center; justify-content: center; padding: 0; border: 0; border-radius: 6px; background: transparent; color: var(--text-secondary); cursor: pointer; transition: color 140ms ease, background 140ms ease; }
-.yb-icon-button:hover:not(:disabled) { color: var(--text-primary); background: var(--bg-glass-hover); }
-.yb-icon-button:disabled { opacity: .4; cursor: default; }
-.yb-icon-button.is-active { color: var(--text-primary); background: var(--selection-bg); }
-.yb-icon-button.is-danger:hover:not(:disabled) { color: var(--danger); background: color-mix(in srgb,var(--danger) 9%,transparent); }
-.yb-icon-button.is-loading .app-icon { animation: yb-icon-spin .9s linear infinite; }
-@keyframes yb-icon-spin { to { transform: rotate(360deg); } }
-@media(prefers-reduced-motion:reduce) { .yb-icon-button.is-loading .app-icon { animation: none; } }
-
-@media (hover: hover) and (pointer: fine) {
-  .yb-poster-card:hover .yb-poster-overlay { opacity: 1; }
-}

@@ -1,0 +1,26 @@
+/* v-tooltip 的浮层（见 tooltip.ts），全局唯一 */
+.ui-tooltip {
+  position: fixed;
+  top: 0;
+  left: 0;
+  z-index: 10000;
+  max-width: 280px;
+  padding: 4px 8px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-secondary);
+  color: var(--text-primary);
+  font-family: var(--font-sans);
+  font-size: var(--text-xs);
+  line-height: 1.4;
+  white-space: nowrap;
+  box-shadow: var(--shadow-md);
+  pointer-events: none;
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease;
+}
+.ui-tooltip.is-visible {
+  opacity: 1;
+}
+[data-theme='light'] .ui-tooltip {
+  background: #fff;
+}

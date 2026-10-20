@@ -28,6 +28,7 @@
     "build:mac": "npm run build:nocheck && electron-builder --mac",
     "build:linux": "npm run build:nocheck && electron-builder --linux",
     "check": "bash scripts/check-issues.sh",
+    "check:style": "node scripts/style-tokens.mjs",
     "check:case": "node scripts/check-import-case.mjs",
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
     "fix": "bash scripts/auto-fix.sh",

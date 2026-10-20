@@ -227,9 +227,8 @@ const handleImageError = (event: Event): void => {
   border-radius: var(--radius-md);
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
-  color: var(--accent-text);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 28%, transparent);
+  color: var(--text-primary);
+  background: var(--bg-active);
   transition: var(--transition-fast);
   cursor: pointer;
 }
