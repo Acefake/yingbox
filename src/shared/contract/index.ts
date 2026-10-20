@@ -6,6 +6,7 @@
  */
 import { amane } from './amane'
 import { app } from './app'
+import { av } from './av'
 import { config } from './config'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
@@ -26,6 +27,7 @@ import { win } from './win'
 export const contract = {
   amane,
   app,
+  av,
   config,
   dialog,
   file,
