@@ -54,9 +54,7 @@
             v-else-if="error && searchResults.length === 0"
             class="flex flex-col items-center justify-center py-14 gap-3 px-6"
           >
-            <span class="text-sm text-center" style="color: var(--danger)">{{
-              error
-            }}</span>
+            <span class="text-sm text-center sw-error-text">{{ error }}</span>
             <p class="text-xs yb-muted text-center">可修改上方片名后重新搜索</p>
           </div>
 
@@ -88,10 +86,9 @@
             </div>
             <div
               v-if="actionMsg"
-              class="sw-action-msg font-mono"
-              :style="{
-                color: actionMsgIsError ? 'var(--danger)' : 'var(--success)',
-              }"
+              class="sw-action-msg"
+              :class="actionMsgIsError ? 'is-error' : 'is-success'"
+              role="status"
             >
               {{ actionMsg }}
             </div>
@@ -172,6 +169,8 @@ const searching = ref(false)
 const processing = ref(false)
 const error = ref('')
 const actionMsg = ref('')
+/** 当前提示是否为错误（由 setResult 传入），决定提示颜色 */
+const actionMsgError = ref(false)
 const searchResults = ref<WorkbenchMediaResult[]>([])
 const queryInput = ref('')
 const provider = ref(getScrapeProviderConfig().provider)
@@ -206,7 +205,7 @@ const emptyHint = computed(() => {
 
 const actionMsgIsError = computed(() => {
   const msg = actionMsg.value
-  return msg.startsWith('❌') || msg.includes('失败')
+  return actionMsgError.value || msg.includes('失败')
 })
 
 /** 标题栏展示名：文件夹保留全名，文件去掉视频扩展名 */
@@ -241,6 +240,7 @@ const resetBody = (): void => {
   processing.value = false
   error.value = ''
   actionMsg.value = ''
+  actionMsgError.value = false
   searchResults.value = []
 }
 
@@ -332,13 +332,14 @@ const handlePickResult = (result: WorkbenchMediaResult): void => {
   }
   processing.value = true
   actionMsg.value = ''
+  actionMsgError.value = false
   if (isTV.value) {
     emit('scrape-tv', result, props.item)
-    actionMsg.value = '✅ 已加入刮削队列'
+    actionMsg.value = '已加入刮削队列'
     message.success('已加入刮削队列')
   } else {
     emit('scrape', result as unknown as ScrapedMovie, props.item)
-    actionMsg.value = '✅ 已加入刮削队列'
+    actionMsg.value = '已加入刮削队列'
     message.success('已加入刮削队列')
   }
   processing.value = false
@@ -358,6 +359,7 @@ watch(
 defineExpose({
   setResult(msg: string, isError = false) {
     actionMsg.value = msg
+    actionMsgError.value = isError
     processing.value = false
     if (!isError) {
       setTimeout(() => {
@@ -369,6 +371,13 @@ defineExpose({
 </script>
 
 <style scoped>
+.sw-action-msg.is-success {
+  color: var(--success);
+}
+.sw-action-msg.is-error,
+.sw-error-text {
+  color: var(--danger);
+}
 .modal-fade-enter-active,
 .modal-fade-leave-active {
   transition: opacity 0.22s var(--ease-out, ease);

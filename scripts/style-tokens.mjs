@@ -12,7 +12,8 @@
  * 应改用 UiButton / UiIconButton / UiNavItem / UiListRow / UiChip / UiPressable；
  * 也不能手写原生 <input> / <select> / <textarea>，应改用 UiInput / UiSelect /
  * UiTextarea / UiSwitch / UiCheckbox / UiRadio。只有 type 为 file / range / hidden 的
- * <input> 允许保留原生。这两项 --fix 无法自动修复。
+ * <input> 允许保留原生。模板里也不能写静态 style="..."，请改用类名和令牌
+ * （动态 :style 绑定不受限）。这几项 --fix 无法自动修复。
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -173,6 +174,18 @@ function rawFieldLines(text) {
   return found
 }
 
+/** .vue 模板里的静态 style="..." 属性（不含 :style / v-bind:style），返回行号 */
+function inlineStyleLines(text) {
+  const template = templateOnly(text)
+  const lines = []
+  const re = /[\s]style="/g
+  let m
+  while ((m = re.exec(template))) {
+    lines.push(template.slice(0, m.index + 1).split('\n').length)
+  }
+  return lines
+}
+
 let dirty = 0
 const leftovers = []
 const rawControls = []
@@ -186,6 +199,10 @@ for (const file of walk(srcDir)) {
     for (const [line, tag] of rawFieldLines(text))
       rawControls.push(
         `${path.relative(root, file)}:${line}: 手写了 <${tag}>，请改用 components/ui 里的表单组件`
+      )
+    for (const line of inlineStyleLines(text))
+      rawControls.push(
+        `${path.relative(root, file)}:${line}: 写了行内 style，请改用类名和令牌`
       )
   }
   const ranges = styleRanges(file, text)

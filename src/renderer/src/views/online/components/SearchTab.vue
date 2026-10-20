@@ -83,11 +83,7 @@
     </div>
 
     <!-- CMS 源结果 -->
-    <div
-      v-if="cmsResults.length"
-      class="source-section"
-      style="margin-top: 20px"
-    >
+    <div v-if="cmsResults.length" class="source-section source-section--spaced">
       <div class="yb-section-header">
         <PageTitle as="h2" variant="section">CMS源</PageTitle>
         <span class="yb-section-count">{{ cmsResults.length }}个结果</span>
@@ -204,6 +200,9 @@ defineExpose({ handleSearch, saveHistory })
 </script>
 
 <style scoped>
+.source-section--spaced {
+  margin-top: var(--space-5);
+}
 .content-area {
   flex: 1;
   overflow-y: auto;
