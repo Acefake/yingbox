@@ -1,23 +1,24 @@
 import {
-  cancelCurrentJob,
-  initLada,
-  ladaPaths,
-  otherInstanceJob,
-  playablePath,
-  setPathOverrides,
-  snapshot,
-  startTask,
-} from '../lada'
-import { initLadaLive, liveStatus, startLive, stopLive } from '../lada-live'
-import {
   adoptPartial,
   cacheSize,
+  cancelCurrentJob,
   clearCache,
+  initLada,
+  initLadaLive,
   initLadaResume,
+  ladaPaths,
+  liveStatus,
+  otherInstanceJob,
+  playablePath,
   resume,
   resumeInfo,
+  setPathOverrides,
+  snapshot,
+  startLive,
   startRange,
-} from '../lada-resume'
+  startTask,
+  stopLive,
+} from '../plugins/lada'
 import { implement } from '../rpc'
 import { lada } from '../../shared/contract/lada'
 
