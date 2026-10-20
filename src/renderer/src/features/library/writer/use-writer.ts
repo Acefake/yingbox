@@ -1,22 +1,40 @@
 /**
- * 写出与整理（P5）在界面侧的状态：设置读写、写出 NFO 与图片、整理的“预览 → 执行 → 撤销”流程。
+ * 写出与整理在界面侧的状态：设置读写、写出 NFO 与图片、整理的“预览 → 执行 → 撤销”流程，
+ * 以及 writer-progress 进度。
  *
- * writer bridge 不存在（P5 未合并 / 网页版）时 available 为 false，界面把入口置灰并提示。
+ * writer bridge 不存在（网页版 / 旧 preload）时 available 为 false，界面把入口置灰并提示。
  */
 import { type ComputedRef, type Ref, computed, ref, shallowRef } from 'vue'
 
-import { errorText, writerBridge } from '../api/bridge'
-import { onLibraryEvent } from '../state/library-events'
 import {
   DEFAULT_WRITER_SETTINGS,
   type OrganizeBatchInfo,
   type OrganizePlan,
   type WriterProgressEvent,
   type WriterSettings,
-} from './writer-contract'
+} from '../../../../../shared/library/ipc'
+import { errorText, writerBridge } from '../api/bridge'
+import { onLibraryEvent } from '../state/library-events'
 
 /** 写出入口不可用时的提示。 */
-export const WRITER_UNAVAILABLE = '写出功能将在写出层（P5）合并后可用'
+export const WRITER_UNAVAILABLE = '写出 NFO 与整理仅在桌面版可用'
+
+/** 写出进度 → 状态文字（后台任务进度条用）。 */
+export function writerActivity(event: WriterProgressEvent): {
+  label: string
+  progress?: number
+} {
+  const verb =
+    event.mode === 'write'
+      ? '正在写出 NFO 与图片'
+      : event.mode === 'organize'
+        ? '正在整理文件'
+        : '正在撤销整理'
+  return {
+    label: `${verb} ${event.done} / ${event.total}`,
+    progress: event.total > 0 ? event.done / event.total : undefined,
+  }
+}
 
 /** 整理流程的阶段。 */
 export type OrganizeStage =

@@ -7,9 +7,9 @@ import type {
   MatchCandidateInfo,
 } from '../../../src/shared/library/ipc'
 import {
+  type ReviewBridge,
   localFileNames,
   parseManualMatch,
-  type ReviewBridge,
   useMatchReview,
 } from '../../../src/renderer/src/features/library/review/use-match-review'
 
@@ -28,9 +28,9 @@ describe('parseManualMatch', () => {
 
   it('IMDb 编号和链接 → imdbId（小写）', () => {
     expect(parseManualMatch('tt0816692')).toEqual({ imdbId: 'tt0816692' })
-    expect(
-      parseManualMatch('https://www.imdb.com/title/TT0816692/')
-    ).toEqual({ imdbId: 'tt0816692' })
+    expect(parseManualMatch('https://www.imdb.com/title/TT0816692/')).toEqual({
+      imdbId: 'tt0816692',
+    })
   })
 
   it('片名，末尾年份单独取出', () => {
@@ -90,7 +90,13 @@ function node(partial: Partial<LibraryItemNode> = {}): LibraryItemNode {
         size: 1,
         mtime: 0,
       },
-      { id: 2, path: '/media/Interstellar.nfo', kind: 'nfo', size: 1, mtime: 0 },
+      {
+        id: 2,
+        path: '/media/Interstellar.nfo',
+        kind: 'nfo',
+        size: 1,
+        mtime: 0,
+      },
     ],
     children: [],
     ...partial,
@@ -180,7 +186,11 @@ describe('useMatchReview', () => {
   })
 
   it('锁定 / 解锁后重新读取；切换条目清掉搜索结果', async () => {
-    const bridge = fakeBridge({ status: 'unmatched', item: null, candidates: [] })
+    const bridge = fakeBridge({
+      status: 'unmatched',
+      item: null,
+      candidates: [],
+    })
     const id = ref<number | null>(7)
     const scope = effectScope()
     const review = scope.run(() => useMatchReview(id, bridge))!

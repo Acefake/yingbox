@@ -107,10 +107,7 @@ describe('canPatchInPlace（diff 事件局部更新）', () => {
 
   it('纯更新 + 按添加时间 + 无筛选搜索：只重载所在页', () => {
     expect(
-      canPatchInPlace(
-        { sort: 'addedAt' },
-        { updated, structural: false }
-      )
+      canPatchInPlace({ sort: 'addedAt' }, { updated, structural: false })
     ).toBe(true)
   })
 
