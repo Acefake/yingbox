@@ -30,6 +30,8 @@
     "check": "bash scripts/check-issues.sh",
     "check:style": "node scripts/style-tokens.mjs",
     "check:case": "node scripts/check-import-case.mjs",
+    "check:size": "node scripts/check-size.mjs",
+    "perf:static": "node scripts/measure-static.mjs",
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
     "test": "vitest run",
     "test:watch": "vitest",
