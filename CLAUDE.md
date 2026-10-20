@@ -31,10 +31,6 @@ pnpm build:win          # full Windows installer (zip)
 pnpm build:win:full     # full Windows installer (NSIS)
 pnpm build:mac          # full macOS installer
 
-# Go backend only
-pnpm dev:backend        # cd packages/backend && go run .
-pnpm build:backend      # cd packages/backend && go build -o main.exe .
-
 # Start preview (no hot-reload, production-like)
 pnpm start
 
@@ -62,12 +58,12 @@ Path aliases (defined in `electron.vite.config.ts` and `tsconfig.*.json`):
 - `@preload` → `src/preload`
 - `@shared` → `src/shared`
 
-Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB and the Go backend are called via absolute URLs from the renderer.
+Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from the renderer; online sources go through the engine (`window.api.online` etc.).
 
 **Main process** ([src/main/index.ts](src/main/index.ts)) bootstraps the window and wires per-domain modules:
 
 - `config.ts` — Reads/writes `userData/config.json` (`downloadPath`), validates writability (write probe) on load and set
-- `backend-manager.ts` — Spawns the Go backend on startup in production, kills on quit. In dev, assumes backend started separately via `pnpm dev:backend`
+- `engine/` — Hosts the engine utilityProcess (online sources, MissAV, downloads), started on demand
 - `ipc/` — IPC channel registrations:
   - `file-ipc.ts` — `file:*` (read, write, delete, exists, mkdir, readdir, scanMediaDirectory, stat, copy, move, readImage) and `path:*` (join, resolve, dirname, basename, extname)
   - `http-ipc.ts` — `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)
@@ -93,11 +89,11 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 
 Key directories under `src/renderer/src/`:
 
-- `api/` — API clients: TMDB wrapper (`tmdb.ts`), Go backend at localhost:31471 (`backend.ts`)
+- `api/` — API clients: TMDB wrapper (`tmdb.ts`), engine wrappers (`online.ts`, `missav.ts`, `download.ts`)
 - `stores/` — localStorage-backed settings (no Pinia): `scrape-provider-store` (provider config + tokens persisted as `scrapeProviderConfig`)
 - `composables/` — Global composables:
   - `use-global-queue.ts` — Module-level singleton task queue with concurrent processing (max 3), dedup, progress tracking, cancellation
-  - `use-vod-parser.ts` — VOD parser client (parse, search, getCards, getTracks, getPlayinfo) via Go backend
+  - `use-vod-parser.ts` — VOD parser client over the engine `online` domain
   - `use-error-handler.ts` — `safeExecute` / `safeExecuteSync` wrappers with Ant Design message toasts
   - `use-context-menu.ts` — MenuItem interface definition
 - `views/Movie/composables/` — Movie-specific: `use-file-management`, `use-scraping`, `use-media-processing`, `use-scraping-task`
@@ -106,26 +102,15 @@ Key directories under `src/renderer/src/`:
 - `types/` — TypeScript interfaces: `ProcessedItem`, `FileItem`, `ActorInfo`, `MovieInfoType`, `EpisodeInfo`, `SeasonInfo`, `TVShowInfoType`
 - `directives/` — Custom Vue directives: `v-context-menu`, `v-scroll-x`
 
-### Go backend ([packages/backend/main.go](packages/backend/main.go))
+### Engine ([src/engine/](src/engine/))
 
-A self-contained HTTP server on port **31471** that:
-
-- Scans for MissAV video directories (path resolution: `YINGBOX_CONFIG_PATH` config.json `downloadPath` → `MISSAV_VIDEO_PATH` env var → `~/Videos` → temp dir)
-- API routes:
-  - `/api/videos` — cached list sorted by mtime
-  - `/api/videos/<id>` — detail with NFO parsing + fanart discovery
-  - `/api/addvideo/<avid>` — download trigger via Python
-  - `/api/queue` — download queue management
-  - `/api/vod/parse` — VOD parser
-- Serves local image/video files via `/file/<videoID>/<filename>` and proxies external images via `/proxy?url=...`
-- Manages a download queue (text file + SQLite dedup check)
-- Embeds Python scripts via `//go:embed` from `packages/backend/py/`
+The former Go backend (port 31471) was removed in p3d; its routes now live in engine domains `online`, `av` and `download`, run in an Electron utilityProcess. See AGENTS.md.
 
 ### App settings
 
 User settings are stored in `localStorage` (renderer side). Key keys:
 
-- `scrapeProviderConfig` — provider type, TMDB token, Go backend URL, MetaTube config
+- `scrapeProviderConfig` — provider type, TMDB token, MetaTube config (legacy backend URL kept for the library mirror)
 - `imageDownloadSize_poster` / `imageDownloadSize_backdrop` / `imageDownloadSize_actor`
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
 - `metadataLanguage`

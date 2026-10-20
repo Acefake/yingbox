@@ -222,6 +222,7 @@ import {
   missavCover,
   resolveMissav,
 } from '@/api/missav'
+import { getJson } from '@/api/online'
 import {
   computed,
   nextTick,
@@ -690,12 +691,12 @@ const loadBrowse = async (force = false, append = false) => {
   try {
     const settled = await Promise.allSettled(
       sources.map(async source => {
-        const response = await fetch(createBrowseUrl(source, requestedPage), {
-          signal: controller.signal,
+        const data = await getJson<any>(
+          createBrowseUrl(source, requestedPage),
+          { timeoutMs: 10000 }
+        ).catch((error: Error) => {
+          throw new Error(`${source.name} 请求失败（${error.message}）`)
         })
-        if (!response.ok)
-          throw new Error(`${source.name} 请求失败（HTTP ${response.status}）`)
-        const data = await response.json()
         if (data.code !== 1 || !Array.isArray(data.list))
           throw new Error(data.msg || `${source.name} 没有返回可用内容`)
         return { source, data }
@@ -996,10 +997,8 @@ const fetchFromSource = async (
     const url = keyword
       ? `${source.api}?ac=detail&wd=${encodeURIComponent(keyword)}`
       : `${source.api}?ac=detail`
-    const timeout = AbortSignal.timeout(8000)
-    const merged = AbortSignal.any([signal, timeout])
-    const res = await fetch(url, { signal: merged })
-    const data = await res.json()
+    const data = await getJson<any>(url, { timeoutMs: 8000 })
+    if (signal.aborted) return []
     if (data.code === 1 && Array.isArray(data.list)) {
       return data.list.map((v: any) => ({
         ...v,
