@@ -29,6 +29,7 @@ import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
 import { MEDIA_SCHEME_PRIVILEGES } from './library/media/media-service'
+import { registerEngine } from './engine'
 import { initSettings } from './settings'
 
 /**
@@ -168,6 +169,7 @@ app.whenReady().then(async () => {
   registerMpvIpc()
   await registerLadaIpc()
   registerLibraryIpc()
+  registerEngine()
 
   startBackend({ configPath: getConfigPath(), downloadPath: getDownloadPath() })
 
