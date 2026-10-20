@@ -5,9 +5,18 @@
  * 轨迹按 generation 防串台：切换会话、停用页面、卸载时 generation 自增，
  * 之前发出的请求回来后直接丢弃。
  */
-import { type Ref, computed, nextTick, reactive, ref } from 'vue'
+import {
+  type ComputedRef,
+  type Ref,
+  computed,
+  nextTick,
+  reactive,
+  ref,
+} from 'vue'
 import { amaneRequest } from '../api/amane'
 import {
+  type AgentInterrupt,
+  type AgentMessage,
   type AgentSession,
   type AgentTrace,
   agentPath,
@@ -30,7 +39,41 @@ export interface AgentChatOptions {
   onTurnEnd: () => Promise<void>
 }
 
-export function useAgentChat(options: AgentChatOptions) {
+/** useAgentChat 的返回值：会话列表、当前回合状态与操作 */
+export interface AgentChat {
+  sessions: Ref<AgentSession[]>
+  selected: Ref<number | null>
+  draft: Ref<string>
+  error: Ref<string>
+  busy: Ref<boolean>
+  loadingTrace: Ref<boolean>
+  /** 待审批的工具调用：interrupt id → 是否放行 */
+  decisions: Record<string, boolean>
+  folded: ComputedRef<{
+    messages: AgentMessage[]
+    interrupts: AgentInterrupt[]
+  }>
+  running: ComputedRef<boolean>
+  currentSession: ComputedRef<AgentSession | undefined>
+  allDecided: ComputedRef<boolean>
+  isDisposed: () => boolean
+  act: (action: () => Promise<void>) => Promise<void>
+  selectSession: (id: number) => Promise<void>
+  createSession: () => Promise<boolean>
+  renameSession: (id: number, title: string) => Promise<boolean>
+  deleteSession: (session: AgentSession) => Promise<void>
+  refresh: () => Promise<void>
+  send: () => Promise<void>
+  resume: () => Promise<void>
+  stop: () => Promise<void>
+  setThinking: (thinking: string) => Promise<void>
+  start: () => Promise<void>
+  activate: () => void
+  deactivate: () => void
+  dispose: () => void
+}
+
+export function useAgentChat(options: AgentChatOptions): AgentChat {
   const { messageList } = options
   const sessions = ref<AgentSession[]>([]),
     selected = ref<number | null>(null)

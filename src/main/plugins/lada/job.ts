@@ -15,7 +15,14 @@ import { lada } from '../../../shared/contract/lada'
 import { emit } from '../../rpc'
 import { killTree } from '../process'
 import { acquireLock, readLock, releaseLock } from './lock'
-import { applyProgress, exitError, foreignJobMessage, ladaArgs, splitProgress, videoExtProblem } from './rules'
+import {
+  applyProgress,
+  exitError,
+  foreignJobMessage,
+  ladaArgs,
+  splitProgress,
+  videoExtProblem,
+} from './rules'
 import { cleanupTemp, dropFile, sidecarFor, tempDirPath } from './temp'
 import { detectCli } from './tools'
 
@@ -40,7 +47,8 @@ export function onJobFinished(cb: (job: LadaJob) => void): void {
 
 /** 校验输入：必须是存在的本地视频文件 */
 function validateInput(input: unknown): string {
-  if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
+  if (typeof input !== 'string' || !input.trim())
+    throw new Error('缺少文件路径')
   const filePath = input.trim()
   if (!isAbsolute(filePath)) throw new Error('必须是绝对路径')
   if (!existsSync(filePath)) throw new Error('文件不存在')
@@ -68,13 +76,14 @@ function finish(state: LadaJob['state'], error?: string): void {
   releaseLock(tempDirPath(), process.pid)
   emit(lada, 'progress', done)
   emit(lada, 'finished', done)
-  if (done) for (const cb of finishedListeners) {
-    try {
-      cb(done)
-    } catch {
-      /* 监听者出错不影响别人 */
+  if (done)
+    for (const cb of finishedListeners) {
+      try {
+        cb(done)
+      } catch {
+        /* 监听者出错不影响别人 */
+      }
     }
-  }
 }
 
 /** 抢机器级锁并写归属记录；抢不到抛错 */
@@ -83,8 +92,17 @@ function claim(input: string, source: string, output: string): void {
   // 会一起抢显存互相打死（真实踩过）
   const foreign = readLock(tempDirPath())
   if (foreign) throw new Error(foreignJobMessage(foreign.input))
-  if (!acquireLock(tempDirPath(), { pid: process.pid, input, startedAt: Date.now(), tag: app.getName() })) {
-    throw new Error('已有一个去码任务在跑（可能来自另一个影盒窗口），请等它结束')
+  if (
+    !acquireLock(tempDirPath(), {
+      pid: process.pid,
+      input,
+      startedAt: Date.now(),
+      tag: app.getName(),
+    })
+  ) {
+    throw new Error(
+      '已有一个去码任务在跑（可能来自另一个影盒窗口），请等它结束'
+    )
   }
   try {
     mkdirSync(tempDirPath(), { recursive: true })
@@ -94,16 +112,25 @@ function claim(input: string, source: string, output: string): void {
   // 记下"这份半成品属于哪个源文件"，这样即使进程被杀，下次启动也能把它
   // 认领成可续跑的进度，而不是当垃圾删掉（这个坑真实踩过）
   try {
-    writeFileSync(sidecarFor(output), JSON.stringify({ input, source, output, startedAt: Date.now() }))
+    writeFileSync(
+      sidecarFor(output),
+      JSON.stringify({ input, source, output, startedAt: Date.now() })
+    )
   } catch {
     /* 记录失败不影响跑任务 */
   }
 }
 
 /** 启动一个去码任务（供 IPC、「边跑边看」、续跑与区间共用） */
-export function startJob(input: string, opts?: { source?: string; output?: string }): LadaJob {
+export function startJob(
+  input: string,
+  opts?: { source?: string; output?: string }
+): LadaJob {
   const cli = detectCli()
-  if (!cli) throw new Error('没找到 lada-cli，请在设置里指定路径（或在环境变量 YINGBOX_LADA_CLI 里给出）')
+  if (!cli)
+    throw new Error(
+      '没找到 lada-cli，请在设置里指定路径（或在环境变量 YINGBOX_LADA_CLI 里给出）'
+    )
   const source = opts?.source ?? input
   const output = opts?.output ?? restoredPathFor(input)
   claim(input, source, output)
@@ -151,7 +178,8 @@ export function startJob(input: string, opts?: { source?: string; output?: strin
   service.stderr?.on('data', onChunk)
 
   service.once('error', err => {
-    if (job && job.state === 'running') finish('failed', `lada 启动失败：${err.message}`)
+    if (job && job.state === 'running')
+      finish('failed', `lada 启动失败：${err.message}`)
   })
   service.once('exit', code => {
     if (!job || job.state !== 'running') return
@@ -185,26 +213,42 @@ export async function stopForQuit(): Promise<void> {
 export async function waitForLadaExit(): Promise<void> {
   const pending = childExit
   if (pending) {
-    await Promise.race([pending, new Promise<void>(resolve => setTimeout(resolve, 20_000))])
+    await Promise.race([
+      pending,
+      new Promise<void>(resolve => setTimeout(resolve, 20_000)),
+    ])
   }
   // 再给驱动一点回收显存的时间
   await new Promise<void>(resolve => setTimeout(resolve, 1_000))
 }
 
 /** 播放时优先选择已修复的产物 */
-export function playablePath(input: unknown): { path: string; restored: boolean } {
+export function playablePath(input: unknown): {
+  path: string
+  restored: boolean
+} {
   const filePath = validateInput(input)
   const restored = restoredPathFor(filePath)
-  return existsSync(restored) ? { path: restored, restored: true } : { path: filePath, restored: false }
+  return existsSync(restored)
+    ? { path: restored, restored: true }
+    : { path: filePath, restored: false }
 }
 
 /** 发起整片去码；已有任务在跑时返回失败 */
-export function startTask(input: string): { success: boolean; job?: LadaJob; error?: string } {
+export function startTask(input: string): {
+  success: boolean
+  job?: LadaJob
+  error?: string
+} {
   try {
-    if (job && job.state === 'running') throw new Error('已有一个去码任务在跑，请先取消')
+    if (job && job.state === 'running')
+      throw new Error('已有一个去码任务在跑，请先取消')
     return { success: true, job: startJob(validateInput(input)) }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 

@@ -168,7 +168,7 @@ async function launch(): Promise<AmaneStatus> {
     stdio: ['ignore', 'pipe', 'pipe'],
   })
   // 开发时把 Amane.Server 输出转到主进程控制台；打包版只读空管道
-  const relay = (channel: string) =>
+  const relay = (channel: string): ((line: string) => void) | null =>
     app.isPackaged ? null : (line: string) => log.info(`${channel}:`, line)
   relayLines(child.stdout, relay('out'))
   relayLines(child.stderr, relay('err'))

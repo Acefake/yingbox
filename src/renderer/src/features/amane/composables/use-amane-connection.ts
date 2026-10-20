@@ -4,7 +4,7 @@
  *
  * Web/PWA（没有 Electron 桥）经 vite 同源代理直连，视为已连接。
  */
-import { type Ref, computed, ref } from 'vue'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
 import type { AmaneStatus } from '../../../../../shared/amane'
 import type { AmaneTab } from '../utils/library-query'
 
@@ -25,7 +25,19 @@ export interface ConnectionContext {
   load: (silent?: boolean) => Promise<void>
 }
 
-export function useAmaneConnection(ctx: ConnectionContext) {
+/** useAmaneConnection 的返回值：后台状态与启动 / 刷新 */
+export interface AmaneConnection {
+  status: Ref<AmaneStatus | null>
+  /** Web/PWA：没有本地文件能力 */
+  isWeb: boolean
+  connected: ComputedRef<boolean>
+  connecting: Ref<boolean>
+  refreshAll: () => Promise<void>
+  start: () => Promise<void>
+  dispose: () => void
+}
+
+export function useAmaneConnection(ctx: ConnectionContext): AmaneConnection {
   const status = ref<AmaneStatus | null>(null)
   const isWeb = !window.api?.amane
   const connected = computed(() => isWeb || status.value?.state === 'running')

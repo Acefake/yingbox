@@ -13,7 +13,21 @@ export interface SavedQueryOptions {
   isDisposed: () => boolean
 }
 
-export function useSavedQueries(options: SavedQueryOptions) {
+/** useSavedQueries 的返回值：查询预设列表、结果分页与导出 */
+export interface SavedQueries {
+  showQueries: Ref<boolean>
+  queries: Ref<SavedQuery[]>
+  queryResult: Ref<QueryResult | null>
+  queryId: Ref<number>
+  queryOffset: Ref<number>
+  refreshQueries: () => Promise<void>
+  toggleQueries: () => void
+  queryAction: (id: number, action: 'persist' | 'delete') => Promise<void>
+  viewQuery: (id: number, offset?: number) => Promise<void>
+  exportQuery: () => void
+}
+
+export function useSavedQueries(options: SavedQueryOptions): SavedQueries {
   const { act, error, isDisposed } = options
   const showQueries = ref(false),
     queries = ref<SavedQuery[]>([]),

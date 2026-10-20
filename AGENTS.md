@@ -17,7 +17,7 @@ Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`
 ```bash
 pnpm dev            # Electron (engine starts on demand)
 pnpm typecheck      # tsc (main/preload) + vue-tsc (renderer)
-pnpm lint           # eslint --cache
+pnpm lint           # eslint --cache + check:size --strict
 pnpm test           # vitest run (tests/)
 pnpm format         # prettier --write .
 pnpm build          # typecheck + electron-vite build
@@ -104,18 +104,18 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
 
 ### Tech stack
 
-| Layer             | Technology                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| Desktop shell     | Electron 37 (sandboxed preload, frameless)                                             |
-| Build tooling     | electron-vite 5, Vite 7                                                                |
-| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                                                  |
-| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                                                     |
-| Player            | Artplayer 5, hls.js                                                                    |
-| Metadata          | @tdanks2000/tmdb-wrapper                                                               |
-| CatSpider runtime | cheerio, crypto-js (required by `backend/py/catspider_runner.js`, not by the renderer) |
-| Go backend        | Go 1.22, modernc.org/sqlite (no CGo needed)                                            |
-| Tests             | Vitest 5                                                                               |
-| Python scripts    | Embedded in the Go binary via //go:embed                                               |
+| Layer             | Technology                                                       |
+| ----------------- | ---------------------------------------------------------------- |
+| Desktop shell     | Electron 37 (sandboxed preload, frameless)                       |
+| Build tooling     | electron-vite 5, Vite 7                                          |
+| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                            |
+| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                               |
+| Player            | Artplayer 5, hls.js                                              |
+| Metadata          | @tdanks2000/tmdb-wrapper                                         |
+| Engine            | Electron utilityProcess, `net.fetch`                             |
+| Library           | utilityProcess engine, `node:sqlite`                             |
+| CatSpider runtime | cheerio, crypto-js (required inside the engine's plugin sandbox) |
+| Tests             | Vitest 5                                                         |
 
 ## UI conventions
 

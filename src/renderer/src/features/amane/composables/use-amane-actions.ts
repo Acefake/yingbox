@@ -5,7 +5,7 @@
  * 去码状态在 useLadaTasks 里（刮削队列面板展示同一份），这里只负责找到文件路径。
  * 整理不刮削、不改元数据，但**会移动视频文件**，所以每次都先确认。
  */
-import type { Ref } from 'vue'
+import type { ComputedRef, Ref } from 'vue'
 import { message } from 'ant-design-vue'
 import { openMediaPlayer } from '@/features/player'
 import { useLadaTasks } from '@/features/lada'
@@ -41,7 +41,26 @@ export interface LibraryInput {
   automation: AmaneLibrary['automation']
 }
 
-export function useAmaneActions(ctx: ActionContext) {
+/** useAmaneActions 的返回值：刮削、播放、去码、整理、媒体库与任务操作 */
+export interface AmaneActions {
+  restoreRunning: ComputedRef<boolean>
+  liveBusy: Ref<boolean>
+  scrapeNumber: (number: string) => Promise<boolean>
+  scrapeFilms: (ids: number[]) => Promise<void>
+  scrapeFile: (file: AmaneFile, input: string) => Promise<void>
+  play: (id: number) => Promise<void>
+  restoreFile: (id: number) => Promise<void>
+  rangeFile: (id: number) => Promise<void>
+  watchLive: (id: number) => Promise<void>
+  organizeFile: (id: number) => Promise<void>
+  organizeLibrary: (library: AmaneLibrary) => Promise<void>
+  addLibrary: (input: LibraryInput) => Promise<boolean>
+  scanLibrary: (library: AmaneLibrary, scrape: boolean) => Promise<void>
+  retryTask: (id: number) => Promise<void>
+  setWorker: (paused: boolean) => Promise<void>
+}
+
+export function useAmaneActions(ctx: ActionContext): AmaneActions {
   const { isWeb, run } = ctx
   const {
     restoreRunning,
