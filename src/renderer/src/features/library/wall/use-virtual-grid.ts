@@ -4,7 +4,9 @@
  * 性能要点：
  * - 滚动回调只登记一帧（requestAnimationFrame），每帧最多算一次；
  * - 区间没变（还在同一行内滚动）就不写响应式状态，组件不重新渲染；
- * - 尺寸变化用 ResizeObserver，不在滚动时测量。
+ * - 尺寸变化用 ResizeObserver，不在滚动时测量；
+ * - 一帧滚过半行以上时标记为快速滚动（fast），停下 FAST_IDLE_MS 后清除，
+ *   海报墙据此跳过只是一闪而过的格子的图片解码。
  */
 import {
   type ComputedRef,
@@ -26,6 +28,9 @@ import {
   sameRange,
   visibleRange,
 } from './virtual-grid'
+
+/** 快速滚动停下多久后恢复加载图片。 */
+const FAST_IDLE_MS = 120
 
 const EMPTY: GridRange = { startRow: 0, endRow: 0, start: 0, end: 0 }
 
@@ -49,6 +54,8 @@ function readOptions(el: HTMLElement, fallback: GridOptions): GridOptions {
 export interface VirtualGrid {
   metrics: Ref<GridMetrics>
   range: Ref<GridRange>
+  /** 是否正在快速滚动（一帧超过半行）。 */
+  fast: Ref<boolean>
   height: ComputedRef<number>
   offset: (index: number) => { x: number; y: number }
   /** 把第 index 格滚进视口（键盘导航用）。 */
@@ -68,6 +75,8 @@ export function useVirtualGrid(params: {
   let options = params.options
   const metrics = shallowRef<GridMetrics>(gridMetrics(0, options))
   const range = shallowRef<GridRange>(EMPTY)
+  const fast = shallowRef(false)
+  let fastTimer: ReturnType<typeof setTimeout> | undefined
   let frame = 0
   let observer: ResizeObserver | null = null
 
@@ -83,10 +92,20 @@ export function useVirtualGrid(params: {
   }
 
   let top = 0
+  let lastScrollTop = 0
 
   function update(): void {
     const s = scroller.value
     if (!s) return
+    const delta = Math.abs(s.scrollTop - lastScrollTop)
+    lastScrollTop = s.scrollTop
+    if (delta > metrics.value.rowStride / 2) {
+      fast.value = true
+      clearTimeout(fastTimer)
+      fastTimer = setTimeout(() => {
+        fast.value = false
+      }, FAST_IDLE_MS)
+    }
     const next = visibleRange(
       metrics.value,
       count.value,
@@ -134,6 +153,7 @@ export function useVirtualGrid(params: {
     scroller.value?.removeEventListener('scroll', onScroll)
     observer?.disconnect()
     cancelAnimationFrame(frame)
+    clearTimeout(fastTimer)
   })
 
   watch(count, () => {
@@ -144,6 +164,7 @@ export function useVirtualGrid(params: {
   return {
     metrics,
     range,
+    fast,
     height: computed(() =>
       contentHeight(metrics.value, count.value, options.gapY)
     ),

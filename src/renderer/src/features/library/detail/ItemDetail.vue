@@ -820,6 +820,7 @@ function onFadeIn(event: Event): void {
   padding: 0 var(--content-padding-x) var(--space-3);
   overflow-x: auto;
   list-style: none;
+  scroll-padding-inline: var(--content-padding-x);
   scroll-snap-type: x proximity;
 }
 .lib-person {
