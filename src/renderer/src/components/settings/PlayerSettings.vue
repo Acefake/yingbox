@@ -24,7 +24,7 @@
       title="RTX 视频超分"
       description="仅 Windows + NVIDIA 显卡有效：片源低于 1080p 时自动调用 NVIDIA 视频超分（需在 NVIDIA app 中打开「视频超级分辨率」）"
     >
-      <SettingsSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
+      <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
   </SettingsGroup>
 </template>
@@ -41,13 +41,13 @@ import {
   syncRtxVsr,
 } from '@/composables/use-media-player'
 import { useMpvPlayer } from '@/composables/use-mpv-player'
+import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import SettingsGroup from './SettingsGroup.vue'
 import SettingsRadioList, {
   type SettingsRadioOption,
 } from './SettingsRadioList.vue'
 import SettingsRow from './SettingsRow.vue'
-import SettingsSwitch from './SettingsSwitch.vue'
 
 type PlayerEngine = 'built-in' | 'mpv'
 

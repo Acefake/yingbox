@@ -209,9 +209,8 @@
           class="amane-tag-form"
           @submit.prevent="addTag"
         >
-          <input
+          <UiInput
             v-model="tagName"
-            class="yb-field"
             aria-label="用户标签名称"
             placeholder="输入标签名称"
             maxlength="100"
@@ -350,6 +349,7 @@ import {
   UiChip,
   UiIcon,
   UiIconButton,
+  UiInput,
   UiPressable,
   vTooltip,
 } from '@/components/ui'
@@ -548,8 +548,8 @@ function hideBrokenImage(event: Event): void {
   margin: 0;
   padding: 0;
   border: 0;
-  background: rgba(0, 0, 0, 0.94);
-  color: #fff;
+  background: var(--overlay-scrim-strong);
+  color: var(--media-text);
 }
 .amane-still-preview[open] {
   display: flex;
@@ -557,7 +557,7 @@ function hideBrokenImage(event: Event): void {
   gap: 16px;
 }
 .amane-still-preview::backdrop {
-  background: rgba(0, 0, 0, 0.7);
+  background: var(--overlay-scrim);
 }
 .amane-still-preview-stage {
   padding: 16px;

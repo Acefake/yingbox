@@ -1124,7 +1124,7 @@ const onActorImgError = (e: Event) => {
 
 .dw-gallery-item:hover {
   transform: scale(1.03);
-  box-shadow: 0 6px 20px rgba(0, 0, 0, 0.5);
+  box-shadow: var(--shadow-md);
 }
 
 .dw-gallery-img {
@@ -1149,7 +1149,7 @@ const onActorImgError = (e: Event) => {
   position: fixed;
   inset: 0;
   z-index: 2060;
-  background: rgba(0, 0, 0, 0.92);
+  background: var(--overlay-scrim-strong);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1197,7 +1197,7 @@ const onActorImgError = (e: Event) => {
   position: fixed;
   inset: 0;
   z-index: 2050;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--overlay-scrim);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -1213,14 +1213,14 @@ const onActorImgError = (e: Event) => {
   display: flex;
   flex-direction: column;
   overflow: hidden;
-  box-shadow: 0 24px 60px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--shadow-lg);
 }
 
 .player-wrap {
   flex: 1;
   min-height: 0;
   height: 100%;
-  background: #000;
+  background: var(--media-bg);
 }
 
 .source-type-tabs {

@@ -359,8 +359,8 @@ onBeforeUnmount(() => {
   flex-direction: column;
   width: 100vw;
   height: 100vh;
-  background: #000;
-  color: #fff;
+  background: var(--media-bg);
+  color: var(--media-text);
   overflow: hidden;
 }
 
@@ -400,8 +400,8 @@ onBeforeUnmount(() => {
   padding: 8px 14px;
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
-  color: #fff;
-  background: rgba(0, 0, 0, 0.72);
+  color: var(--media-text);
+  background: var(--overlay-scrim);
   pointer-events: none;
 }
 
@@ -417,14 +417,14 @@ onBeforeUnmount(() => {
   gap: 10px;
   padding: 32px;
   text-align: center;
-  background: rgba(0, 0, 0, 0.82);
+  background: var(--overlay-scrim-strong);
 }
 
 .player-popout-error-title {
   margin: 0;
   font-size: var(--text-md);
   font-weight: 600;
-  color: #ff6b6b;
+  color: var(--danger);
 }
 
 .player-popout-error-msg {
@@ -432,7 +432,7 @@ onBeforeUnmount(() => {
   max-width: 560px;
   font-size: var(--text-sm);
   line-height: 1.6;
-  color: rgba(255, 255, 255, 0.85);
+  color: var(--media-text-secondary);
 }
 
 .player-popout-error-src {
@@ -442,7 +442,7 @@ onBeforeUnmount(() => {
   text-overflow: ellipsis;
   white-space: nowrap;
   font-size: var(--text-2xs);
-  color: rgba(255, 255, 255, 0.5);
+  color: var(--media-text-tertiary);
 }
 
 .player-popout-error-actions {

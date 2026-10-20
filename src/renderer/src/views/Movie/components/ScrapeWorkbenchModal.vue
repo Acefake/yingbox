@@ -23,9 +23,9 @@
 
         <!-- Search / avid bar (always available) -->
         <div class="sw-search-row flex gap-2.5 flex-shrink-0">
-          <input
+          <UiInput
             v-model="queryInput"
-            class="sw-input flex-1"
+            class="flex-1"
             :placeholder="searchPlaceholder"
             @keydown.enter.prevent="handleSearch"
           />
@@ -117,6 +117,7 @@
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiInput from '@/components/ui/UiInput.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
@@ -394,24 +395,6 @@ defineExpose({
 .sw-search-row {
   padding: 14px 22px 14px;
   border-bottom: 1px solid var(--separator);
-}
-
-.sw-input {
-  height: var(--control-height);
-  padding: 0 var(--space-3);
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-subtle);
-  background: var(--bg-fill-secondary);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  outline: none;
-  transition: var(--transition-fast);
-}
-
-.sw-input:focus {
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 16%, transparent);
-  background: var(--bg-elevated, var(--bg-fill-secondary));
 }
 
 .sw-action-msg {

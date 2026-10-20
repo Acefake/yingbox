@@ -19,15 +19,15 @@
         <div class="settings-body">
           <!-- 左侧：搜索 + 分区导航 -->
           <aside class="settings-nav">
-            <div class="settings-search">
-              <UiIcon name="search" size="sm" />
-              <input
-                v-model="navQuery"
-                placeholder="搜索设置"
-                type="text"
-                aria-label="搜索设置"
-              />
-            </div>
+            <UiInput
+              v-model="navQuery"
+              class="settings-search"
+              variant="filled"
+              size="sm"
+              icon="search"
+              placeholder="搜索设置"
+              aria-label="搜索设置"
+            />
             <nav class="settings-nav-list" aria-label="设置分区">
               <UiNavItem
                 v-for="sec in visibleSections"
@@ -113,7 +113,7 @@ import UpdateSettings from '@/components/settings/UpdateSettings.vue'
 import { useUpdateStatus } from '@/components/settings/use-update-status'
 import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
 import type { IconName } from '@/components/ui/icons'
-import UiIcon from '@/components/ui/UiIcon.vue'
+import UiInput from '@/components/ui/UiInput.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import AmaneSettings from '@/views/Amane/Settings.vue'
 
@@ -346,34 +346,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .settings-search {
-  display: flex;
   flex: 0 0 auto;
-  align-items: center;
-  gap: var(--space-2);
-  height: var(--control-height-sm);
   margin-bottom: var(--space-3);
-  padding: 0 var(--space-2);
-  border-radius: var(--radius-md);
-  background: var(--bg-glass);
-  color: var(--text-tertiary);
-  transition: var(--transition-fast);
-}
-.settings-search:focus-within {
-  box-shadow: var(--focus-ring);
-}
-.settings-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  appearance: none;
-  -webkit-appearance: none;
-}
-.settings-search input::placeholder {
-  color: var(--text-tertiary);
 }
 
 .settings-nav-list {

@@ -182,11 +182,10 @@
                 苹果 CMS v10 接口，例如：https://xxx.com/api.php/provide/vod
               </p>
               <label class="yb-label add-label">名称</label>
-              <input v-model="newName" class="yb-field" placeholder="名称" />
+              <UiInput v-model="newName" placeholder="名称" />
               <label class="yb-label add-label">API 地址</label>
-              <input
+              <UiInput
                 v-model="newApi"
-                class="yb-field"
                 placeholder="API 地址"
                 @keydown.enter="addCustom"
               />
@@ -221,6 +220,7 @@ import SourceSiteRow from '@/components/settings/SourceSiteRow.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiInput from '@/components/ui/UiInput.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import { confirmDialog } from '@/utils/confirm-dialog'
 import { useOnlineSearch } from '@/views/online/composables/use-online-search'

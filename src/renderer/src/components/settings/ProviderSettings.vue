@@ -22,10 +22,10 @@
         >
         获取 Read Access Token
       </template>
-      <textarea
+      <UiTextarea
         v-model="tmdbAccessToken"
         rows="3"
-        class="yb-field settings-field resize-none"
+        class="settings-token"
         aria-label="TMDB Access Token"
         placeholder="输入 TMDB API Read Access Token（必填，无内置默认值）"
       />
@@ -41,12 +41,12 @@
         需先在 <code class="settings-code">packages/backend/</code> 目录下启动
         Go 服务
       </template>
-      <input
+      <UiInput
         v-model="goBackendUrl"
         type="text"
         aria-label="Go 后端地址"
         placeholder="http://localhost:31471"
-        class="yb-field settings-field is-inline"
+        class="settings-field is-inline"
       />
     </SettingsRow>
     <SettingsRow title="访问密钥">
@@ -54,13 +54,13 @@
         仅当后端设置了 <code class="settings-code">YINGBOX_API_KEY</code>
         时需要；仅本机使用可留空
       </template>
-      <input
+      <UiInput
         v-model="goBackendApiKey"
         type="password"
         autocomplete="off"
         aria-label="访问密钥"
         placeholder="可选"
-        class="yb-field settings-field is-inline"
+        class="settings-field is-inline"
       />
     </SettingsRow>
     <SettingsRow title="连接状态" :description="testDescription">
@@ -77,34 +77,34 @@
 
     <template v-if="currentProvider === 'custom'">
       <SettingsRow title="服务名称">
-        <input
+        <UiInput
           v-model="customProviderName"
           type="text"
           aria-label="服务名称"
           placeholder="例如：我的刮削服务"
-          class="yb-field settings-field is-inline"
+          class="settings-field is-inline"
         />
       </SettingsRow>
       <SettingsRow
         title="API 基础 URL"
         description="自定义服务需实现与 TMDB 兼容的接口格式"
       >
-        <input
+        <UiInput
           v-model="customBaseUrl"
           type="text"
           aria-label="API 基础 URL"
           placeholder="https://api.example.com"
-          class="yb-field settings-field is-inline"
+          class="settings-field is-inline"
         />
       </SettingsRow>
       <SettingsRow title="API Key">
-        <input
+        <UiInput
           v-model="customApiKey"
           type="password"
           autocomplete="off"
           aria-label="API Key"
           placeholder="输入 API Key"
-          class="yb-field settings-field is-inline"
+          class="settings-field is-inline"
         />
       </SettingsRow>
     </template>
@@ -129,6 +129,8 @@ import { computed, ref, watch } from 'vue'
 import { backend } from '@/api/backend'
 import type { IconName } from '@/components/ui/icons'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiInput from '@/components/ui/UiInput.vue'
+import UiTextarea from '@/components/ui/UiTextarea.vue'
 import {
   type ScrapeProviderType,
   getScrapeProviderConfig,
@@ -221,14 +223,12 @@ const testDescription = computed(() =>
 </script>
 
 <style scoped>
-.settings-field {
-  font-size: var(--text-sm);
+.settings-token {
+  resize: none;
 }
 .settings-field.is-inline {
   width: 260px;
   max-width: 100%;
-  height: var(--control-height);
-  padding-block: 0;
 }
 .settings-warn {
   margin: 0;
