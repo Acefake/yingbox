@@ -2,8 +2,19 @@
   <div class="vod-browse">
     <div class="vod-header">
       <PageHeader title="媒体库" :count="filteredCards.length">
-        <template #status><span v-if="loadingSources" class="loading-hint">加载中...</span></template>
-        <template #actions><UiIconButton icon="refresh" label="刷新媒体库" :loading="loading" :disabled="loadingSources" @click="refreshCurrent" /></template>
+        <template #status
+          ><span v-if="loadingSources" class="loading-hint"
+            >加载中...</span
+          ></template
+        >
+        <template #actions
+          ><UiIconButton
+            icon="refresh"
+            label="刷新媒体库"
+            :loading="loading"
+            :disabled="loadingSources"
+            @click="refreshCurrent"
+        /></template>
       </PageHeader>
       <MediaFilterBar
         :rows="filterRows"
@@ -15,7 +26,7 @@
     <!-- 错误提示 -->
     <div v-if="error" class="ui-error-state">
       <p>{{ error }}</p>
-      <button class="ui-secondary-button" @click="retry">重新加载</button>
+      <UiButton icon="refresh" label="重新加载" @click="retry" />
     </div>
 
     <!-- 空状态 -->
@@ -51,20 +62,27 @@
         :subtitle="card.vod_remarks"
         @open="handleOpenCard(card)"
       >
-        <template #badges><span class="ui-poster-badge">{{ card._siteName }}</span></template>
+        <template #badges
+          ><span class="ui-poster-badge">{{ card._siteName }}</span></template
+        >
       </UiPosterCard>
     </div>
 
     <!-- 加载更多 -->
     <div v-if="filteredCards.length && hasMore" class="load-more">
-      <button class="load-more-btn" :disabled="loading" @click="loadMore">
-        <span v-if="loading" class="spinner" />
-        {{ loading ? '加载中...' : '加载更多' }}
-      </button>
+      <UiButton
+        :label="loading ? '加载中...' : '加载更多'"
+        :loading="loading"
+        @click="loadMore"
+      />
     </div>
 
     <!-- 首次加载骨架 -->
-    <div v-if="loading && !cards.length" class="ui-poster-grid" aria-busy="true">
+    <div
+      v-if="loading && !cards.length"
+      class="ui-poster-grid"
+      aria-busy="true"
+    >
       <div v-for="i in 8" :key="i" class="ui-poster">
         <div class="ui-poster-media" />
         <div class="ui-poster-text">
@@ -82,6 +100,7 @@
 <script setup lang="ts">
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { computed, onMounted, ref } from 'vue'
 import MediaFilterBar, {
@@ -346,30 +365,6 @@ onMounted(() => {
   justify-content: center;
   padding: 8px 0 16px;
 }
-.load-more-btn {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  min-height: var(--control-height);
-  padding: 0 24px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-default);
-  background: transparent;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.load-more-btn:hover:not(:disabled) {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
-.load-more-btn:disabled {
-  opacity: 0.5;
-  cursor: not-allowed;
-}
-
 /* ── 空状态 ── */
 .empty-state {
   display: flex;
@@ -380,21 +375,4 @@ onMounted(() => {
   color: var(--text-tertiary);
   font-size: var(--text-md);
 }
-
-.spinner {
-  width: 14px;
-  height: 14px;
-  border: 2px solid var(--border-default);
-  border-top-color: var(--text-secondary);
-  border-radius: 50%;
-  animation: spin 0.7s linear infinite;
-  display: inline-block;
-}
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
-
 </style>

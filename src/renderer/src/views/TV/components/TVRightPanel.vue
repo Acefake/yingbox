@@ -14,15 +14,7 @@
             @error="handleImageError"
           />
           <div v-else class="tv-poster-ph">
-            <svg
-              class="w-12 h-12 yb-icon-muted"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"
-              />
-            </svg>
+            <UiIcon name="tv" size="lg" />
           </div>
         </div>
         <div class="tv-body">
@@ -33,23 +25,21 @@
             {{ seasonDisplayTitle }}
           </PageTitle>
           <div class="tv-meta-row">
-            <span v-if="currentSeasonMeta?.air_date" class="yb-chip">{{
+            <span v-if="currentSeasonMeta?.air_date" class="tv-tag">{{
               currentSeasonMeta.air_date.substring(0, 4)
             }}</span>
-            <span class="yb-chip">{{ episodeList.length }} 集</span>
+            <span class="tv-tag">{{ episodeList.length }} 集</span>
+          </div>
+          <div class="tv-actions">
+            <UiButton
+              icon="wand"
+              label="刮削这季"
+              @click="emit('scrape-season', selectedItem)"
+            />
           </div>
           <p v-if="currentSeasonMeta?.overview" class="tv-overview">
             {{ currentSeasonMeta.overview }}
           </p>
-          <div class="yb-media-toolbar tv-actions">
-            <button
-              class="yb-btn-primary"
-              type="button"
-              @click="emit('scrape-season', selectedItem)"
-            >
-              刮削这季
-            </button>
-          </div>
         </div>
       </div>
 
@@ -78,21 +68,19 @@
               </div>
             </div>
             <div class="flex-1 min-w-0">
-              <div class="text-[13px] tv-ep-name truncate" :title="ep.name">
+              <div class="tv-ep-name truncate" :title="ep.name">
                 {{ episodeDisplayLabel(ep) }}
               </div>
-              <div class="text-[10px] yb-dim mt-0.5">
-                第 {{ ep.episodeNumber ?? '?' }} 集
-              </div>
+              <div class="tv-ep-sub">第 {{ ep.episodeNumber ?? '?' }} 集</div>
             </div>
             <span v-if="ep.hasNfo" class="tv-nfo-badge">NFO</span>
-            <button
+            <UiIconButton
               class="tv-scrape-btn"
-              type="button"
+              icon="wand"
+              label="刮削本集"
+              size="sm"
               @click.stop="emit('scrape-episode', selectedItem, ep)"
-            >
-              刮削
-            </button>
+            />
           </div>
           <div
             v-if="episodeList.length === 0"
@@ -118,35 +106,24 @@
             @error="handleImageError"
           />
           <div v-else class="tv-poster-ph">
-            <svg
-              class="w-14 h-14 yb-icon-muted"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-            >
-              <path
-                fill-rule="evenodd"
-                d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-                clip-rule="evenodd"
-              />
-            </svg>
+            <UiIcon name="tv" size="lg" />
           </div>
         </div>
         <div class="tv-body">
           <PageTitle>
             {{ showDisplayTitle }}
           </PageTitle>
-          <div class="tv-info-wrap">
-            <TVInfo :tv-info="tvInfo" :loading="false" />
-          </div>
-          <div class="yb-media-toolbar tv-actions">
-            <button
-              class="yb-btn-primary"
-              type="button"
-              @click="$emit('search-tv', scrapeTarget)"
-            >
-              同步信息
-            </button>
-          </div>
+          <TVInfo class="tv-info-wrap" :tv-info="tvInfo" :loading="false">
+            <template #actions>
+              <div class="tv-actions">
+                <UiButton
+                  icon="refresh"
+                  label="同步信息"
+                  @click="$emit('search-tv', scrapeTarget)"
+                />
+              </div>
+            </template>
+          </TVInfo>
         </div>
       </div>
 
@@ -170,17 +147,9 @@
               />
               <div
                 v-else
-                class="w-full h-full min-h-[120px] flex items-center justify-center"
+                class="w-full h-full min-h-[120px] flex items-center justify-center tv-season-ph"
               >
-                <svg
-                  class="w-7 h-7 yb-icon-muted"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"
-                  />
-                </svg>
+                <UiIcon name="tv" />
               </div>
             </div>
             <div class="flex-1 min-w-0 py-3 pr-4">
@@ -192,11 +161,11 @@
                   >特辑</span
                 >
               </div>
-              <div class="flex items-center gap-3 text-[11px] yb-muted mb-2">
-                <span v-if="season.air_date" class="yb-chip">{{
+              <div class="tv-meta-row tv-season-meta">
+                <span v-if="season.air_date" class="tv-tag">{{
                   season.air_date.substring(0, 4)
                 }}</span>
-                <span class="yb-chip"
+                <span class="tv-tag"
                   >{{
                     season.episode_count ??
                     getLocalEpisodeCount(season.season_number)
@@ -223,6 +192,9 @@
 import PageTitle from '@/components/PageTitle.vue'
 import { computed } from 'vue'
 import TVInfo from '@/views/TV/components/TVInfo.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { stripMediaExtension } from '@/utils/avid'
 import type { ProcessedItem, SeasonInfo, TVShowInfoType } from '@/types'
 
@@ -385,6 +357,10 @@ const handleImageError = (event: Event): void => {
   align-items: center;
   justify-content: center;
   background: var(--bg-fill-secondary);
+  color: var(--text-quaternary);
+}
+.tv-season-ph {
+  color: var(--text-quaternary);
 }
 .tv-body {
   flex: 1;
@@ -398,19 +374,37 @@ const handleImageError = (event: Event): void => {
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
-  margin-bottom: var(--space-3);
+  margin: var(--space-3) 0 var(--space-5);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.tv-tag {
+  white-space: nowrap;
+}
+.tv-tag + .tv-tag::before {
+  content: '·';
+  margin-right: var(--space-2);
+  color: var(--text-quaternary);
+}
+.tv-season-meta {
+  margin: 0 0 var(--space-2);
+  font-size: var(--text-xs);
 }
 .tv-overview {
-  margin: 0 0 var(--space-3);
-  font-size: var(--text-xs);
+  max-width: 64ch;
+  margin: 0 0 var(--space-5);
   color: var(--text-secondary);
-  line-height: 1.55;
+  font-size: var(--text-md);
+  line-height: 1.65;
 }
 .tv-info-wrap {
-  margin-bottom: var(--space-1);
+  margin-top: var(--space-3);
 }
 .tv-actions {
-  margin-top: var(--space-1);
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
 }
 .tv-section {
   background: transparent;
@@ -448,7 +442,8 @@ const handleImageError = (event: Event): void => {
 }
 .tv-ep-name {
   color: var(--text-primary);
-  font-weight: 500;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
 }
 .tv-nfo-badge {
   font-size: var(--text-2xs);
@@ -459,24 +454,17 @@ const handleImageError = (event: Event): void => {
   background: color-mix(in srgb, var(--success) 16%, transparent);
   color: var(--success);
 }
+.tv-ep-sub {
+  margin-top: 2px;
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+}
 .tv-scrape-btn {
-  flex-shrink: 0;
-  min-height: 28px;
-  font-size: var(--text-xs);
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  border: 0;
-  background: var(--bg-active);
-  color: var(--text-primary);
-  font-weight: 600;
-  cursor: pointer;
-  transition: var(--transition-fast);
+  opacity: 0;
 }
-.tv-scrape-btn:hover {
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
-}
-.tv-scrape-btn:active {
-  transform: scale(0.97);
+.tv-ep-row:hover .tv-scrape-btn,
+.tv-ep-row:focus-within .tv-scrape-btn {
+  opacity: 1;
 }
 .tv-season-card {
   display: flex;
@@ -525,8 +513,7 @@ const handleImageError = (event: Event): void => {
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .tv-ep-row:active,
-  .tv-scrape-btn:active {
+  .tv-ep-row:active {
     transform: none;
   }
 }

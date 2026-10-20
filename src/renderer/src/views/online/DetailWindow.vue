@@ -91,7 +91,11 @@
                 variant="primary"
                 size="lg"
                 icon="play"
-                :label="currentEpisodes.length > 1 ? `播放 ${currentEpisodes[0].name}` : '播放'"
+                :label="
+                  currentEpisodes.length > 1
+                    ? `播放 ${currentEpisodes[0].name}`
+                    : '播放'
+                "
                 @click="playEp(currentEpisodes[0].url, currentEpisodes[0].ext)"
               />
             </div>
@@ -136,46 +140,46 @@
               <!-- 层级一：源 -->
               <div class="px-2 py-1 mb-1 yb-label">源</div>
               <div class="group-tabs">
-                <button
+                <UiButton
                   v-for="(sg, si) in siteGroups"
                   :key="si"
-                  class="group-tab"
-                  :class="{
-                    active: activeSite === si,
-                    'cs-tab': currentSourceType === 'catspider',
-                  }"
+                  size="sm"
+                  class="dw-chip"
+                  :class="{ 'is-selected': activeSite === si }"
+                  :aria-pressed="activeSite === si"
+                  :label="sg.siteName"
                   @click="switchSite(si)"
-                >
-                  {{ sg.siteName }}
-                </button>
+                />
               </div>
               <!-- 层级二：线路（多条时才显示） -->
               <template v-if="siteGroups[activeSite]?.lines.length > 1">
                 <div class="px-2 py-1 mb-1 mt-2 yb-label">线路</div>
                 <div class="group-tabs">
-                  <button
+                  <UiButton
                     v-for="(line, li) in siteGroups[activeSite].lines"
                     :key="li"
-                    class="group-tab"
-                    :class="{ active: activeLine === li }"
+                    size="sm"
+                    class="dw-chip"
+                    :class="{ 'is-selected': activeLine === li }"
+                    :aria-pressed="activeLine === li"
+                    :label="line.label"
                     @click="switchLine(li)"
-                  >
-                    {{ line.label }}
-                  </button>
+                  />
                 </div>
               </template>
               <!-- 层级三：播放列表 -->
               <div class="px-2 py-1 mb-1 mt-2 yb-label">播放列表</div>
               <div class="episode-list">
-                <button
+                <UiButton
                   v-for="ep in currentEpisodes"
                   :key="ep.url"
-                  class="ep-btn"
-                  :class="{ playing: currentUrl === ep.url }"
+                  class="dw-chip ep-btn"
+                  :class="{ 'is-selected': currentUrl === ep.url }"
+                  :aria-pressed="currentUrl === ep.url"
+                  :label="ep.name"
+                  :title="ep.name"
                   @click="playEp(ep.url, ep.ext)"
-                >
-                  {{ ep.name }}
-                </button>
+                />
                 <div v-if="!currentEpisodes.length" class="ep-empty">
                   无可用剧集
                 </div>
@@ -293,7 +297,9 @@
               "
               :title="itemName"
               :subtitle-search-title="searchTitle || itemName"
-              :subtitle-imdb-id="tmdbDetail?.imdb_id ? String(tmdbDetail.imdb_id) : ''"
+              :subtitle-imdb-id="
+                tmdbDetail?.imdb_id ? String(tmdbDetail.imdb_id) : ''
+              "
               closable
               @ready="videoEl = $event"
               @close="showPlaySheet = false"
@@ -352,7 +358,12 @@ const activeGroup = ref(0)
 const currentSourceType = ref<'cms' | 'catspider'>('cms')
 const sourceTypeOptions = computed(() => [
   ...(catSpiderGroups.value.length
-    ? [{ value: 'catspider' as const, label: `插件源 · ${catSpiderGroups.value.length}` }]
+    ? [
+        {
+          value: 'catspider' as const,
+          label: `插件源 · ${catSpiderGroups.value.length}`,
+        },
+      ]
     : []),
   ...(cmsGroups.value.length
     ? [{ value: 'cms' as const, label: `CMS 源 · ${cmsGroups.value.length}` }]
@@ -944,9 +955,6 @@ const onActorImgError = (e: Event) => {
   white-space: nowrap;
 }
 
-
-
-
 .dw-rating .app-icon {
   color: var(--rating);
 }
@@ -1160,7 +1168,6 @@ const onActorImgError = (e: Event) => {
   transform: translateY(-50%);
 }
 
-
 .lb-prev {
   left: 16px;
 }
@@ -1174,7 +1181,6 @@ const onActorImgError = (e: Event) => {
   top: var(--space-4);
   right: var(--space-4);
 }
-
 
 /* 播放弹窗 */
 .sheet-fade-enter-active,
@@ -1221,9 +1227,6 @@ const onActorImgError = (e: Event) => {
   margin-bottom: var(--space-4);
 }
 
-
-
-
 .group-tabs {
   display: flex;
   flex-wrap: wrap;
@@ -1231,29 +1234,13 @@ const onActorImgError = (e: Event) => {
   margin-bottom: var(--space-3);
 }
 
-.group-tab {
-  height: var(--control-height-sm);
-  padding: 0 var(--space-3);
-  border: 0;
-  border-radius: var(--radius-full);
-  background: var(--bg-glass);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.group-tab:hover {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
-
-.group-tab.active {
+/* 源 / 线路 / 剧集选择：UiButton secondary，选中态为中性 --bg-active */
+.ui-button.dw-chip.is-selected {
   background: var(--bg-active);
   color: var(--text-primary);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
+  box-shadow: inset 0 0 0 1px var(--border-strong);
 }
-
 
 .episode-list {
   display: grid;
@@ -1272,29 +1259,13 @@ const onActorImgError = (e: Event) => {
   background: var(--scrollbar-thumb-hover);
 }
 
-.ep-btn {
-  height: var(--control-height);
+.ui-button.ep-btn {
+  min-width: 0;
   padding: 0 var(--space-2);
+}
+
+.ep-btn :deep(span) {
   overflow: hidden;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--bg-glass);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
   text-overflow: ellipsis;
-  white-space: nowrap;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.ep-btn:hover {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
-
-.ep-btn.playing {
-  background: var(--action-bg);
-  color: var(--action-text);
-  font-weight: var(--font-weight-semibold);
 }
 </style>
