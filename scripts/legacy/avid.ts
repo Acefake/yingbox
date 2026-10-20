@@ -1,3 +1,7 @@
+/**
+ * 旧文件名清洗（原 src/renderer/src/utils/avid.ts），P4 删除旧电影 / 剧集页面后不再被应用使用，
+ * 只留给 bench-library 做新旧解析准确率对照。新解析器在 src/shared/library/parser。
+ */
 /** 常见视频扩展名（含 iso），用于显示名与搜索清洗。 */
 const MEDIA_EXT_RE = /\.(mkv|mp4|avi|mov|wmv|flv|webm|m4v|ts|rmvb|iso)$/i
 
