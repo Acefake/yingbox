@@ -20,17 +20,6 @@ interface API {
     exists: (filePath: string) => Promise<FileOperationResult>
     mkdir: (dirPath: string) => Promise<FileOperationResult>
     readdir: (dirPath: string) => Promise<FileOperationResult>
-    scanMediaDirectory: (
-      dirPath: string,
-      previousIndex?: Array<{
-        path: string
-        mtime: number
-        size: number
-        name?: string
-        isDirectory?: boolean
-        isFile?: boolean
-      }>
-    ) => Promise<FileOperationResult>
     stat: (filePath: string) => Promise<FileOperationResult>
     copy: (srcPath: string, destPath: string) => Promise<FileOperationResult>
     move: (

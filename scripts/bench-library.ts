@@ -3,7 +3,7 @@
  *
  * 用法：pnpm bench:library [--files 50000] [--runs 3] [--skip-scan] [--skip-parse] [--skip-engine]
  *
- * 1. 在系统临时目录生成约 5 万个文件的假媒体库，测 src/main/media-scanner.ts 的
+ * 1. 在系统临时目录生成约 5 万个文件的假媒体库，测旧扫描器（scripts/legacy/media-scanner.ts）的
  *    冷扫（无旧索引）、热扫（目录未变）和“深层变更后热扫”的耗时，并检查深层变更是否被发现。
  *    文件都是空文件、跑在同一台机器的页缓存上，“冷扫”指没有旧索引，不是冷磁盘。
  * 2. 在 tests/fixtures/media-names 黄金集上测旧解析（avid.cleanSearchParams 与 TV 两处
@@ -27,7 +27,7 @@ import { performance } from 'node:perf_hooks'
 import {
   type MediaIndexEntry,
   scanMediaDirectory,
-} from '../src/main/media-scanner'
+} from './legacy/media-scanner'
 import { CatalogStore } from '../src/main/library/catalog/catalog-store'
 import { CatalogQuery } from '../src/main/library/catalog/query'
 import { type LibraryDb, openLibraryDb } from '../src/main/library/db/database'
@@ -39,7 +39,7 @@ import { fingerprintFile } from '../src/main/library/scanner/fingerprint'
 import { scanLibrary } from '../src/main/library/scanner/scan-library'
 import { ScanStore } from '../src/main/library/scanner/scan-store'
 import { normalizeLibraryQuery } from '../src/shared/library/ipc'
-import { cleanSearchParams } from '../src/renderer/src/utils/avid'
+import { cleanSearchParams } from './legacy/avid'
 import {
   type GoldenCase,
   compareParse,

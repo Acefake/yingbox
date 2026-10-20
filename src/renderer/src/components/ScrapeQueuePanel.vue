@@ -267,7 +267,6 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { GlobalQueueItem } from '@/composables/use-global-queue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useLadaTasks } from '@/composables/use-lada-tasks'
-import { useScrapingTask } from '@/views/Movie/composables/use-scraping-task'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -303,15 +302,12 @@ const {
   progress,
   cancelItem,
   canRetry,
-} = useGlobalQueue()
-
-const {
-  retryFailed,
+  retryItem: retryFailed,
   retryAllFailed,
-  removeQueueItem,
+  removeItem: removeQueueItem,
   clearCompleted,
   clearAll,
-} = useScrapingTask()
+} = useGlobalQueue()
 
 // 去码 / 边跑边看的状态在主进程里，这里只读展示
 const {

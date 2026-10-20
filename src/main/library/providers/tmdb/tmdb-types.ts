@@ -12,6 +12,7 @@ export interface TmdbMovieResult {
   popularity?: number
   vote_count?: number
   poster_path?: string | null
+  overview?: string
 }
 
 /** 搜索结果里的剧集。 */
@@ -24,6 +25,7 @@ export interface TmdbTvResult {
   popularity?: number
   vote_count?: number
   poster_path?: string | null
+  overview?: string
 }
 
 /** 分页结果。 */

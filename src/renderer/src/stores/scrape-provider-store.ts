@@ -85,9 +85,10 @@ export const saveScrapeProviderConfig = (
 
 /**
  * 把当前生效的 TMDB 令牌下发到媒体库引擎（引擎持久化在自己的数据库里，识别与刮削在引擎进程进行）。
- * 启动时调用一次（迁移已有令牌），之后每次修改令牌时调用。网页版没有引擎，直接跳过。
+ * 在「设置 → 服务」修改令牌时调用；启动时的一次性迁移见 features/library/settings/provider-token.ts。
+ * 网页版没有引擎，直接跳过。
  */
-export const syncTmdbTokenToEngine = async (): Promise<void> => {
+const syncTmdbTokenToEngine = async (): Promise<void> => {
   const library =
     typeof window !== 'undefined' ? window.api?.library : undefined
   if (!library) return
