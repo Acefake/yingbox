@@ -67,16 +67,37 @@
   --danger: #ff453a;
   --rating: #ffd60a;
   --favorite: #ff375f;
+  /* 角标点缀色（例如数据源类型），只用于小面积标签 */
+  --tint-purple: #bf5af2;
+
+  /*
+   * ── 媒体与遮罩 ──
+   * 视频画布和看图 / 看片浮层无论哪套主题都是深色，所以 media-* 两套取值相同；
+   * overlay-scrim 是盖在内容上的半透明黑幕（播放弹窗、灯箱、视频上的提示条）。
+   */
+  --media-bg: #000000;
+  --media-text: #ffffff;
+  --media-text-secondary: rgba(255, 255, 255, 0.85);
+  --media-text-tertiary: rgba(255, 255, 255, 0.5);
+  --media-track: rgba(255, 255, 255, 0.25);
+  /* 播放器进度条等控件的主题色 */
+  --media-accent: #f5f5f7;
+  --overlay-scrim: rgba(0, 0, 0, 0.72);
+  --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
+  /* 普通弹窗背后的轻遮罩 */
+  --overlay-scrim-soft: rgba(0, 0, 0, 0.35);
 
   /* ── 字体：优先系统字体（macOS 为 SF / 苹方，Windows 为 Segoe / 雅黑） ── */
-  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC',
+  --font-sans:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC',
     'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', system-ui,
     sans-serif;
-  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
-    'PingFang SC', 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei UI',
-    system-ui, sans-serif;
-  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas,
-    monospace;
+  --font-display:
+    -apple-system, BlinkMacSystemFont, 'SF Pro Display', 'PingFang SC',
+    'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei UI', system-ui,
+    sans-serif;
+  --font-mono:
+    ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
 
   /* ── 字号：参照 macOS 文字样式 ── */
   --text-2xs: 11px; /* 角标、辅助说明 */
@@ -164,13 +185,14 @@
   --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
   --duration-fast: 150ms;
   --duration-normal: 240ms;
-  --transition-panel: transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
-  --transition-fast: color 150ms ease, background-color 150ms ease,
-    border-color 150ms ease, opacity 150ms ease, transform 150ms var(--ease-out),
-    box-shadow 150ms ease;
-  --transition-normal: color 240ms ease, background-color 240ms ease,
-    border-color 240ms ease, opacity 240ms ease,
-    transform 240ms var(--ease-out), box-shadow 240ms ease;
+  --transition-panel:
+    transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
+  --transition-fast:
+    color 150ms ease, background-color 150ms ease, border-color 150ms ease,
+    opacity 150ms ease, transform 150ms var(--ease-out), box-shadow 150ms ease;
+  --transition-normal:
+    color 240ms ease, background-color 240ms ease, border-color 240ms ease,
+    opacity 240ms ease, transform 240ms var(--ease-out), box-shadow 240ms ease;
 }
 
 [data-theme='light'] {
@@ -220,6 +242,18 @@
   --danger: #ff3b30;
   --rating: #f5a700;
   --favorite: #ff2d55;
+  --tint-purple: #af52de;
+
+  /* 媒体画布在浅色主题下仍是深色，取值与深色主题一致 */
+  --media-bg: #000000;
+  --media-text: #ffffff;
+  --media-text-secondary: rgba(255, 255, 255, 0.85);
+  --media-text-tertiary: rgba(255, 255, 255, 0.5);
+  --media-track: rgba(255, 255, 255, 0.25);
+  --media-accent: #f5f5f7;
+  --overlay-scrim: rgba(0, 0, 0, 0.72);
+  --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
+  --overlay-scrim-soft: rgba(0, 0, 0, 0.24);
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);

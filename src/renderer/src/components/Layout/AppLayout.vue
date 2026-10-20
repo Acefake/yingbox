@@ -123,22 +123,19 @@
               role="search"
               :aria-label="globalSearchPlaceholder"
             >
-              <UiIcon name="search" size="md" />
-              <input
+              <UiInput
                 ref="globalSearchInput"
                 v-model="globalSearch"
+                class="global-search-field"
+                variant="filled"
+                clearable
+                clear-label="清空搜索"
                 :placeholder="globalSearchPlaceholder"
-                type="text"
                 @keydown.enter.prevent="submitGlobalSearch"
-              />
-              <UiIconButton
-                v-if="globalSearch"
-                class="global-search-clear"
-                icon="close"
-                size="sm"
-                label="清空搜索"
-                @click="clearGlobalSearch"
-              />
+                @clear="clearGlobalSearch"
+              >
+                <template #leading><UiIcon name="search" size="md" /></template>
+              </UiInput>
             </div>
           </div>
 
@@ -203,6 +200,7 @@ import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { IconName } from '@/components/ui/icons'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiInput from '@/components/ui/UiInput.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import WinControls from '@/components/WinControls.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
@@ -236,7 +234,7 @@ const queueLabel = computed(() =>
     : '打开刮削队列（后台任务进行中）'
 )
 const globalSearch = ref('')
-const globalSearchInput = ref<HTMLInputElement | null>(null)
+const globalSearchInput = ref<InstanceType<typeof UiInput> | null>(null)
 const globalSearchPlaceholder = computed(() => {
   if (isPhone.value) {
     if (route.name === 'Movie') return '搜索本地电影'
@@ -689,42 +687,14 @@ onUnmounted(() => {
 
 .global-search {
   display: flex;
-  align-items: center;
-  gap: var(--space-2);
   width: min(320px, 32vw);
-  height: var(--control-height);
   margin-left: var(--space-2);
+}
+.global-search-field {
   padding: 0 var(--space-1) 0 var(--space-3);
-  border-radius: var(--radius-md);
-  background: var(--bg-glass);
-  color: var(--text-tertiary);
-  transition: var(--transition-fast);
 }
-.global-search:focus-within {
-  background: var(--bg-elevated);
-  color: var(--text-secondary);
-  box-shadow: var(--focus-ring);
-}
-.global-search > .app-icon {
-  flex: 0 0 auto;
-}
-.global-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: none;
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  appearance: none;
-  -webkit-appearance: none;
-}
-.global-search input::placeholder {
-  color: var(--text-tertiary);
-}
-.global-search-clear {
+.global-search-field :deep(.ui-input-clear) {
   --ib-size: 24px;
-  border-radius: var(--radius-full);
 }
 
 .main-content {

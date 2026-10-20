@@ -49,9 +49,10 @@
         @close="subtitlePanelOpen = false"
       />
       <div class="usp-search-row">
-        <input
+        <UiInput
           v-model="subtitleQuery"
           class="usp-input"
+          size="sm"
           placeholder="影视名称…"
           @keydown.enter="doSubtitleSearch"
         />
@@ -102,11 +103,23 @@ import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiInput from '@/components/ui/UiInput.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
 import { ICON_PATHS, type IconName } from '@/components/ui/icons'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
+
+/**
+ * 播放器控件主题色取自 tokens.css 的 --media-accent（Artplayer 需要具体颜色值，不能传 var()）。
+ */
+function mediaAccent(): string {
+  return (
+    getComputedStyle(document.documentElement)
+      .getPropertyValue('--media-accent')
+      .trim() || 'white'
+  )
+}
 
 const props = withDefaults(
   defineProps<{
@@ -502,7 +515,7 @@ const createPlayer = async (source: string): Promise<void> => {
     container: containerEl.value,
     url: resolved,
     poster: '',
-    theme: '#f5f5f7',
+    theme: mediaAccent(),
     volume: 1,
     autoplay: props.autoplay,
     muted: false,
@@ -631,7 +644,7 @@ defineExpose({ video })
   flex-direction: column;
   width: 100%;
   height: 100%;
-  background: #000;
+  background: var(--media-bg);
   overflow: hidden;
 }
 
@@ -640,13 +653,13 @@ defineExpose({ video })
   flex: 1;
   min-height: 0;
   width: 100%;
-  background: #000;
+  background: var(--media-bg);
 }
 
 .unified-player-video-area {
   position: absolute;
   inset: 0;
-  background: #000;
+  background: var(--media-bg);
 }
 
 .unified-player-video-area :deep(.artplayer-app),
@@ -655,7 +668,7 @@ defineExpose({ video })
 .unified-player-video-area :deep(video) {
   width: 100% !important;
   height: 100% !important;
-  background: #000 !important;
+  background: var(--media-bg) !important;
 }
 
 .unified-player-video-area :deep(.art-poster) {
@@ -669,7 +682,7 @@ defineExpose({ video })
   display: flex;
   align-items: center;
   justify-content: center;
-  background: #000;
+  background: var(--media-bg);
   pointer-events: none;
 }
 
@@ -688,8 +701,8 @@ defineExpose({ video })
   bottom: 28px;
   width: 22px;
   height: 22px;
-  border: 2px solid rgba(255, 255, 255, 0.25);
-  border-top-color: rgba(255, 255, 255, 0.9);
+  border: 2px solid var(--media-track);
+  border-top-color: var(--media-text-secondary);
   border-radius: 50%;
   animation: unified-player-spin 0.8s linear infinite;
 }
@@ -750,7 +763,7 @@ defineExpose({ video })
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-lg);
-  color: var(--text-primary, #fff);
+  color: var(--text-primary);
   overflow: hidden;
 
   backdrop-filter: none;
@@ -764,25 +777,12 @@ defineExpose({ video })
 
 .usp-input {
   flex: 1;
-  min-width: 0;
-  height: var(--control-height-sm);
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--separator, rgba(255, 255, 255, 0.12));
-  background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.06));
-  color: inherit;
-  font-size: var(--text-xs);
-  outline: none;
-}
-
-.usp-input:focus {
-  border-color: var(--accent, #007aff);
 }
 
 .usp-msg {
   margin: 0 12px 8px;
   font-size: var(--text-2xs);
-  color: var(--text-tertiary, #999);
+  color: var(--text-tertiary);
 }
 
 .usp-list {
@@ -823,7 +823,7 @@ defineExpose({ video })
   align-items: center;
   gap: 3px;
   font-size: var(--text-2xs);
-  color: var(--text-tertiary, #888);
+  color: var(--text-tertiary);
 }
 
 .usp-item-meta .app-icon {
@@ -834,7 +834,7 @@ defineExpose({ video })
 .usp-empty {
   margin: 8px 4px;
   font-size: var(--text-2xs);
-  color: var(--text-tertiary, #888);
+  color: var(--text-tertiary);
   text-align: center;
 }
 </style>

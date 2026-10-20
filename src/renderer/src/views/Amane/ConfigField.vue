@@ -9,23 +9,18 @@
       <p v-if="description">{{ description }}</p>
     </div>
     <template v-if="schema.type === 'boolean'">
-      <input
+      <UiSwitch
         :id="id"
-        :aria-label="label"
-        type="checkbox"
-        role="switch"
-        :checked="modelValue === true"
+        :label="label"
+        :model-value="modelValue === true"
         :disabled="readonly"
-        @change="
-          emit('update:modelValue', ($event.target as HTMLInputElement).checked)
-        "
+        @update:model-value="emit('update:modelValue', $event)"
       />
     </template>
-    <select
+    <UiSelect
       v-else-if="schema.enum"
       :id="id"
       :aria-label="label"
-      class="yb-field"
       :disabled="readonly"
       :value="modelValue == null ? '' : String(modelValue)"
       @change="selectEnum($event)"
@@ -38,13 +33,12 @@
       >
         {{ optionLabel(option, schema, index) }}
       </option>
-    </select>
-    <input
+    </UiSelect>
+    <UiInput
       v-else-if="schema.type === 'number' || schema.type === 'integer'"
       :id="id"
       :aria-label="label"
       type="number"
-      class="yb-field"
       :value="modelValue ?? ''"
       :min="schema.minimum ?? schema.exclusiveMinimum"
       :max="schema.maximum ?? schema.exclusiveMaximum"
@@ -82,10 +76,9 @@
           v-if="!schema['x-frozen-keys'] && !readonly"
           class="amane-config-add"
         >
-          <select
+          <UiSelect
             v-if="keyOptions.length"
             v-model="newKey"
-            class="yb-field"
             :aria-label="`添加${label}`"
           >
             <option value="">选择条目…</option>
@@ -97,11 +90,10 @@
             >
               {{ text(path, `options.${key}`, key) }}
             </option>
-          </select>
-          <input
+          </UiSelect>
+          <UiInput
             v-else
             v-model="newKey"
-            class="yb-field"
             :aria-label="`添加${label}`"
             placeholder="输入名称"
           />
@@ -142,20 +134,20 @@
         v-if="itemSchema.enum && !schema['x-ordered']"
         class="amane-config-checks"
       >
-        <label v-for="(option, index) in itemSchema.enum" :key="String(option)"
-          ><input
-            type="checkbox"
-            :checked="arrayValue.includes(option)"
-            :disabled="readonly"
-            @change="toggleOption(option)"
-          />{{
+        <UiCheckbox
+          v-for="(option, index) in itemSchema.enum"
+          :key="String(option)"
+          :model-value="arrayValue.includes(option)"
+          :disabled="readonly"
+          :label="
             text(
               path,
               `options.${option}`,
               optionLabel(option, itemSchema, index, `${path}.$`)
             )
-          }}</label
-        >
+          "
+          @update:model-value="toggleOption(option)"
+        />
       </div>
       <template v-else>
         <div class="amane-config-array">
@@ -237,11 +229,10 @@
         />
       </template>
     </template>
-    <textarea
+    <UiTextarea
       v-else-if="schema['x-long']"
       :id="id"
       :aria-label="label"
-      class="yb-field"
       rows="5"
       :maxlength="schema.maxLength"
       :readonly="readonly"
@@ -250,11 +241,10 @@
         emit('update:modelValue', ($event.target as HTMLTextAreaElement).value)
       "
     />
-    <input
+    <UiInput
       v-else
       :id="id"
       :aria-label="label"
-      class="yb-field"
       :type="secret ? 'password' : 'text'"
       :autocomplete="secret ? 'new-password' : 'off'"
       :value="String(modelValue ?? '')"
@@ -273,8 +263,13 @@ import { computed, ref, useId } from 'vue'
 import {
   type SegmentedOption,
   UiButton,
+  UiCheckbox,
   UiIconButton,
+  UiInput,
   UiSegmented,
+  UiSelect,
+  UiSwitch,
+  UiTextarea,
 } from '@/components/ui'
 import {
   type Schema,

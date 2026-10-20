@@ -24,3 +24,90 @@
 [data-theme='light'] .ui-tooltip {
   background: #fff;
 }
+
+/*
+ * 表单控件共用的外壳（UiInput / UiSelect 的 div，UiTextarea 的 textarea 本身）。
+ * 全部包在 :where() 里，特异性为 0，页面 class 可直接覆盖宽度、底色、尺寸。
+ */
+:where(.ui-field) {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  box-sizing: border-box;
+  width: 100%;
+  min-width: 0;
+  height: var(--control-height);
+  margin: 0;
+  padding: 0 var(--space-3);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: var(--text-sm);
+  transition: var(--transition-fast);
+}
+:where(.ui-field):hover:not(:where(.is-disabled, :disabled)) {
+  border-color: var(--border-strong);
+}
+:where(.ui-field):focus-within {
+  border-color: var(--accent);
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+:where(.ui-field.is-sm) {
+  height: var(--control-height-sm);
+  padding: 0 var(--space-2);
+  gap: var(--space-1);
+  font-size: var(--text-xs);
+}
+:where(.ui-field.is-filled) {
+  border-color: transparent;
+  background: var(--bg-glass);
+}
+:where(.ui-field.is-filled):hover:not(:where(.is-disabled)) {
+  border-color: transparent;
+  background: var(--bg-glass-hover);
+}
+:where(.ui-field.is-filled):focus-within {
+  border-color: transparent;
+  background: var(--bg-elevated);
+}
+:where(.ui-field.is-readonly) {
+  background: var(--bg-glass);
+}
+:where(.ui-field.is-invalid),
+:where(.ui-field.is-invalid):hover {
+  border-color: var(--danger);
+}
+:where(.ui-field.is-invalid):focus-within {
+  box-shadow: 0 0 0 3px color-mix(in srgb, var(--danger) 32%, transparent);
+}
+:where(.ui-field.is-disabled, .ui-field:disabled) {
+  opacity: 0.5;
+  cursor: default;
+}
+:where(.ui-field-leading) {
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  color: var(--text-tertiary);
+}
+/* 下拉：内边距交给原生 select，好让整块都可点 */
+:where(.ui-field.ui-select) {
+  padding: 0;
+}
+/* 多行：外壳就是 textarea 本身 */
+:where(.ui-field.ui-textarea) {
+  display: block;
+  height: auto;
+  padding: var(--space-2) var(--space-3);
+  color: var(--text-primary);
+  line-height: var(--leading-normal);
+  resize: vertical;
+}
+/* global.css 的 textarea { font: inherit } 特异性高于 :where()，这里补回字号 */
+textarea:where(.ui-textarea) {
+  font-size: var(--text-sm);
+}

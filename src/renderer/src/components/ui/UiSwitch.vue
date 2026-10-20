@@ -1,15 +1,13 @@
 <template>
   <input
-    class="settings-switch"
+    class="ui-switch"
     type="checkbox"
     role="switch"
     :checked="modelValue"
     :aria-checked="modelValue"
     :aria-label="label"
     :disabled="disabled"
-    @change="
-      emit('update:modelValue', ($event.target as HTMLInputElement).checked)
-    "
+    @change="onChange"
   />
 </template>
 
@@ -17,18 +15,26 @@
 /**
  * 开关：原生 checkbox（role="switch"），键盘空格即可切换。
  * 开启态用强调色——这是界面里少数允许出现强调色的地方。
+ *
+ * label 作为无障碍名称；旁边已有可见 <label for> 时可以不传，改传 id。
  */
-defineProps<{ modelValue: boolean; label: string; disabled?: boolean }>()
+defineProps<{ modelValue: boolean; label?: string; disabled?: boolean }>()
 const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
+
+function onChange(event: Event): void {
+  emit('update:modelValue', (event.target as HTMLInputElement).checked)
+}
 </script>
 
-<style scoped>
-.settings-switch {
+<style>
+.ui-switch {
   position: relative;
   flex: 0 0 auto;
   width: 38px;
   height: 22px;
+  min-height: 0;
   margin: 0;
+  border: 0;
   border-radius: var(--radius-full);
   background: var(--bg-active);
   cursor: pointer;
@@ -36,7 +42,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
   -webkit-appearance: none;
   transition: var(--transition-fast);
 }
-.settings-switch::after {
+.ui-switch::after {
   position: absolute;
   top: 2px;
   left: 2px;
@@ -48,17 +54,17 @@ const emit = defineEmits<{ 'update:modelValue': [value: boolean] }>()
   content: '';
   transition: transform var(--duration-fast) var(--ease-out);
 }
-.settings-switch:checked {
+.ui-switch:where(:checked) {
   background: var(--accent);
 }
-.settings-switch:checked::after {
+.ui-switch:where(:checked)::after {
   transform: translateX(16px);
 }
-.settings-switch:focus-visible {
+.ui-switch:where(:focus-visible) {
   outline: none;
   box-shadow: var(--focus-ring);
 }
-.settings-switch:disabled {
+.ui-switch:where(:disabled) {
   opacity: 0.4;
   cursor: default;
 }

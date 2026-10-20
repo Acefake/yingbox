@@ -9,8 +9,10 @@
  * 只处理 .css 文件和 .vue 文件的 <style> 块；tokens.css 本身除外。
  *
  * 另外检查 .vue 模板里不能手写原生 <button>（components/ui/ 除外），
- * 应改用 UiButton / UiIconButton / UiNavItem / UiListRow / UiChip / UiPressable。
- * 这一项 --fix 无法自动修复。
+ * 应改用 UiButton / UiIconButton / UiNavItem / UiListRow / UiChip / UiPressable；
+ * 也不能手写原生 <input> / <select> / <textarea>，应改用 UiInput / UiSelect /
+ * UiTextarea / UiSwitch / UiCheckbox / UiRadio。只有 type 为 file / range / hidden 的
+ * <input> 允许保留原生。这两项 --fix 无法自动修复。
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -117,13 +119,34 @@ function transformCss(css, report) {
   return out
 }
 
-/** .vue 模板里的原生 <button>（忽略 HTML 注释、<script> 和 <style>），返回行号 */
-function rawButtonLines(text) {
+/** 去掉 HTML 注释、<script> 和 <style>，只留模板（保持行号不变） */
+function templateOnly(text) {
   const blank = m => m.replace(/[^\n]/g, ' ')
-  const template = text
+  return text
     .replace(/<!--[\s\S]*?-->/g, blank)
     .replace(/<script[^>]*>[\s\S]*?<\/script>/g, blank)
     .replace(/<style[^>]*>[\s\S]*?<\/style>/g, blank)
+}
+
+/** 从 start（指向 '<'）读到标签结束的 '>'，跳过引号里的内容（属性表达式里可能有 '>'） */
+function readTag(text, start) {
+  let quote = ''
+  for (let i = start + 1; i < text.length; i++) {
+    const ch = text[i]
+    if (quote) {
+      if (ch === quote) quote = ''
+    } else if (ch === '"' || ch === "'") quote = ch
+    else if (ch === '>') return text.slice(start, i + 1)
+  }
+  return text.slice(start)
+}
+
+/** 允许保留原生的 <input type>：文件选择、滑块、隐藏字段 */
+const NATIVE_INPUT_TYPES = new Set(['file', 'range', 'hidden'])
+
+/** .vue 模板里的原生 <button>，返回行号 */
+function rawButtonLines(text) {
+  const template = templateOnly(text)
   const lines = []
   const re = /<button[\s>/]/g
   let m
@@ -133,15 +156,36 @@ function rawButtonLines(text) {
   return lines
 }
 
+/** .vue 模板里的原生 <input> / <select> / <textarea>，返回 [行号, 标签名] */
+function rawFieldLines(text) {
+  const template = templateOnly(text)
+  const found = []
+  const re = /<(input|select|textarea)[\s>/]/g
+  let m
+  while ((m = re.exec(template))) {
+    const tag = m[1]
+    if (tag === 'input') {
+      const type = /\stype="([^"]*)"/.exec(readTag(template, m.index))?.[1]
+      if (type && NATIVE_INPUT_TYPES.has(type)) continue
+    }
+    found.push([template.slice(0, m.index).split('\n').length, tag])
+  }
+  return found
+}
+
 let dirty = 0
 const leftovers = []
-const rawButtons = []
+const rawControls = []
 for (const file of walk(srcDir)) {
   const text = readFileSync(file, 'utf8')
   if (file.endsWith('.vue') && !file.startsWith(uiDir)) {
     for (const line of rawButtonLines(text))
-      rawButtons.push(
+      rawControls.push(
         `${path.relative(root, file)}:${line}: 手写了 <button>，请改用 components/ui 里的组件`
+      )
+    for (const [line, tag] of rawFieldLines(text))
+      rawControls.push(
+        `${path.relative(root, file)}:${line}: 手写了 <${tag}>，请改用 components/ui 里的表单组件`
       )
   }
   const ranges = styleRanges(file, text)
@@ -165,8 +209,8 @@ for (const file of walk(srcDir)) {
 }
 
 for (const line of leftovers) console.log(line)
-for (const line of rawButtons) console.log(line)
+for (const line of rawControls) console.log(line)
 if (fix) console.log(`已迁移 ${dirty} 个文件`)
-if (rawButtons.length) process.exit(1)
+if (rawControls.length) process.exit(1)
 if (!fix && (dirty || leftovers.length)) process.exit(1)
 if (!fix) console.log('样式令牌检查通过')
