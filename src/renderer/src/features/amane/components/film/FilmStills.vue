@@ -113,7 +113,11 @@ function closePreview(): void {
 
 function stepPreview(delta: number): void {
   if (previewIndex.value === null || !props.stills.length) return
-  previewIndex.value = cycleIndex(previewIndex.value, delta, props.stills.length)
+  previewIndex.value = cycleIndex(
+    previewIndex.value,
+    delta,
+    props.stills.length
+  )
   originalSize.value = false
   previewError.value = false
 }

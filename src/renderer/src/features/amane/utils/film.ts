@@ -71,8 +71,11 @@ export function filmStills(film: AmaneFilm, toImage: ToImage): string[] {
 }
 
 /** 循环翻页（剧照预览左右切换） */
-export const cycleIndex = (index: number, delta: number, size: number): number =>
-  (index + delta + size) % size
+export const cycleIndex = (
+  index: number,
+  delta: number,
+  size: number
+): number => (index + delta + size) % size
 
 /** 用户标签增删后的新列表：移除按 id 过滤；添加时已存在则不重复 */
 export function nextUserTags(

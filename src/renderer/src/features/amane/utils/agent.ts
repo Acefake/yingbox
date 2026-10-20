@@ -55,7 +55,11 @@ export const csvFilename = (queryId: number, offset: number): string =>
 
 /** 用户离底部不到 100px（或还没有列表）时，新消息到来自动滚到底 */
 export function followsBottom(
-  element: { scrollHeight: number; scrollTop: number; clientHeight: number } | null
+  element: {
+    scrollHeight: number
+    scrollTop: number
+    clientHeight: number
+  } | null
 ): boolean {
   return (
     !element ||

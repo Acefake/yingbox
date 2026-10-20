@@ -2,10 +2,7 @@
   <section class="amane-film-section">
     <h3>用户标签</h3>
     <div class="amane-film-chips">
-      <span
-        v-for="tag in tags"
-        :key="tag.id"
-        class="amane-film-chip user-tag"
+      <span v-for="tag in tags" :key="tag.id" class="amane-film-chip user-tag"
         >{{ tag.name
         }}<UiIconButton
           icon="close"

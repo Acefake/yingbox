@@ -36,23 +36,36 @@ describe('lada 输入与参数', () => {
     expect(videoExtProblem('noext')).toBe('不支持的格式：未知')
   })
   it('路径覆盖只保留绝对路径字符串', () => {
-    expect(sanitizeOverrides({ cli: '/x/lada-cli', ffmpeg: 'ffmpeg' })).toEqual({ cli: '/x/lada-cli' })
+    expect(sanitizeOverrides({ cli: '/x/lada-cli', ffmpeg: 'ffmpeg' })).toEqual(
+      { cli: '/x/lada-cli' }
+    )
     expect(sanitizeOverrides({ cli: 3 })).toEqual({})
     expect(sanitizeOverrides(null)).toBeNull()
     expect(sanitizeOverrides('x')).toBeNull()
   })
   it('半成品路径与 lada 的命名一致：<名>.tmp.<扩展名>', () => {
-    expect(tempVideoFor('/tmp/yl', 'D:\\v\\a.b.restored.mp4')).toBe(join('/tmp/yl', 'a.b.restored.tmp.mp4'))
+    expect(tempVideoFor('/tmp/yl', 'D:\\v\\a.b.restored.mp4')).toBe(
+      join('/tmp/yl', 'a.b.restored.tmp.mp4')
+    )
   })
   it('命令行带上编码预设与快速起播', () => {
     expect(ladaArgs('in.mp4', 'out.mp4', '/t')).toEqual([
-      '--input', 'in.mp4', '--output', 'out.mp4', '--temporary-directory', '/t',
-      '--encoding-preset', 'hevc-nvidia-gpu-hq', '--mp4-fast-start',
+      '--input',
+      'in.mp4',
+      '--output',
+      'out.mp4',
+      '--temporary-directory',
+      '/t',
+      '--encoding-preset',
+      'hevc-nvidia-gpu-hq',
+      '--mp4-fast-start',
     ])
   })
   it('别的实例占锁时提示带文件名', () => {
     expect(foreignJobMessage('C:\\v\\a.mp4')).toContain('在跑：a.mp4（')
-    expect(foreignJobMessage()).toBe('已有一个去码任务在跑（可能来自另一个影盒窗口），请等它结束')
+    expect(foreignJobMessage()).toBe(
+      '已有一个去码任务在跑（可能来自另一个影盒窗口），请等它结束'
+    )
   })
   it('非零退出带上最后一条进度文字', () => {
     expect(exitError(1, '显存不足')).toBe('lada 退出（代码 1）：显存不足')
@@ -90,7 +103,10 @@ describe('ffprobe 解析', () => {
     expect(parseDuration('N/A')).toBeNull()
   })
   it('分片起点与时长都要有', () => {
-    expect(parseSegmentProbe('start_time=1.4\nduration=10.0')).toEqual({ start: 1.4, duration: 10 })
+    expect(parseSegmentProbe('start_time=1.4\nduration=10.0')).toEqual({
+      start: 1.4,
+      duration: 10,
+    })
     expect(parseSegmentProbe('duration=10')).toBeNull()
     expect(parseSegmentProbe('start_time=0\nduration=0')).toBeNull()
   })
@@ -124,13 +140,17 @@ describe('区间去码', () => {
     expect(() => rangeStop(10, 0, null)).toThrow('终点要大于起点')
   })
   it('产物名带区间', () => {
-    expect(rangeOutputName(join('/v', 'abc.mkv'), 60, 125)).toBe('abc.1m00s-2m05s.restored.mp4')
+    expect(rangeOutputName(join('/v', 'abc.mkv'), 60, 125)).toBe(
+      'abc.1m00s-2m05s.restored.mp4'
+    )
   })
 })
 
 describe('续跑缓存', () => {
   it('分段按序号排序而不是字典序', () => {
-    expect(sortParts(['part10.mp4', 'progress.json', 'part2.mp4', 'part0.mp4'])).toEqual(['part0.mp4', 'part2.mp4', 'part10.mp4'])
+    expect(
+      sortParts(['part10.mp4', 'progress.json', 'part2.mp4', 'part0.mp4'])
+    ).toEqual(['part0.mp4', 'part2.mp4', 'part10.mp4'])
   })
   it('清缓存时保留分段与进度', () => {
     expect(isResumeProgressFile('part3.mp4')).toBe(true)
@@ -150,8 +170,13 @@ describe('边跑边看', () => {
     expect(isServableName('a b')).toBe(false)
   })
   it('EVENT 播放列表：EXTINF 写实测时长，结束时加 ENDLIST', () => {
-    const body = buildPlaylist([{ name: 'seg00000.ts', duration: 9.8765 }], false)
-    expect(body).toBe('#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:12\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXTINF:9.877,\nseg00000.ts\n')
+    const body = buildPlaylist(
+      [{ name: 'seg00000.ts', duration: 9.8765 }],
+      false
+    )
+    expect(body).toBe(
+      '#EXTM3U\n#EXT-X-VERSION:3\n#EXT-X-TARGETDURATION:12\n#EXT-X-MEDIA-SEQUENCE:0\n#EXT-X-PLAYLIST-TYPE:EVENT\n#EXTINF:9.877,\nseg00000.ts\n'
+    )
     expect(buildPlaylist([], true).endsWith('#EXT-X-ENDLIST\n')).toBe(true)
   })
   it('分片判定：够长就发布；lada 在跑时短片等下一轮；结束后短片当片尾，太短收尾', () => {

@@ -12,9 +12,9 @@ export const isSecretPath = (path: string): boolean =>
 export function isHiddenField(schema: Schema, dictKey?: string): boolean {
   return Boolean(
     schema['x-hidden'] ||
-      (Array.isArray(schema['x-visible-keys']) &&
-        dictKey &&
-        !(schema['x-visible-keys'] as string[]).includes(dictKey))
+    (Array.isArray(schema['x-visible-keys']) &&
+      dictKey &&
+      !(schema['x-visible-keys'] as string[]).includes(dictKey))
   )
 }
 
@@ -81,14 +81,22 @@ export const activeDictKey = (
   Object.hasOwn(object, selected) ? selected : Object.keys(object)[0] || ''
 
 /** 替换数组第 index 项（返回新数组） */
-export function replaceAt(items: Value[], index: number, value: Value): Value[] {
+export function replaceAt(
+  items: Value[],
+  index: number,
+  value: Value
+): Value[] {
   const next = [...items]
   next[index] = value
   return next
 }
 
 /** 把第 from 项移到 to；越界时返回 null（不改动） */
-export function moveItem(items: Value[], from: number, to: number): Value[] | null {
+export function moveItem(
+  items: Value[],
+  from: number,
+  to: number
+): Value[] | null {
   if (from < 0 || to < 0 || from >= items.length || to >= items.length)
     return null
   const next = [...items]
