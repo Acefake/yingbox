@@ -103,10 +103,7 @@ func getBasePath() string {
 //go:embed py/src/downloaderMgr.py
 //go:embed py/src/downloader/*.py
 //go:embed py/cfg/configs.json
-//go:embed py/vod_parser.py
 //go:embed py/missav_resolver.py
-//go:embed py/catspider_runner.js
-//go:embed py/vod.json
 
 var pyScripts embed.FS
 
@@ -437,8 +434,6 @@ func main() {
 	mux.HandleFunc("/api/addvideo/", addVideoHandler)
 	mux.HandleFunc("/api/queue", queueHandler)
 	mux.HandleFunc("/api/download-status", downloadStatusHandler)
-	mux.HandleFunc("/api/vod/sites", vodSitesHandler)
-	mux.HandleFunc("/api/vod/parse", vodParseHandler)
 	mux.HandleFunc("/api/missav/resolve", missavResolveHandler)
 	mux.HandleFunc("/api/missav/list", missavListHandler)
 	mux.HandleFunc("/api/missav/cover", missavCoverHandler)
@@ -1009,132 +1004,6 @@ func proxyImageHandler(w http.ResponseWriter, r *http.Request) {
 	w.Header().Set("Content-Type", contentType)
 	w.Header().Set("Cache-Control", "public, max-age=86400")
 	io.Copy(w, resp.Body)
-}
-
-func vodSitesHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodGet {
-		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	config, err := pyScripts.ReadFile("py/vod.json")
-	if err != nil {
-		logger.Printf("read embedded vod config failed: %v", err)
-		httpError(w, "VOD configuration unavailable", http.StatusInternalServerError)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	json.NewEncoder(w).Encode(map[string]interface{}{
-		"success": true,
-		"config":  json.RawMessage(config),
-	})
-}
-
-// vodParseHandler VOD 播放地址解析
-func vodParseHandler(w http.ResponseWriter, r *http.Request) {
-	if r.Method != http.MethodPost {
-		httpError(w, "Method not allowed", http.StatusMethodNotAllowed)
-		return
-	}
-
-	r.Body = http.MaxBytesReader(w, r.Body, 1<<20)
-	var reqMap map[string]interface{}
-	if err := json.NewDecoder(r.Body).Decode(&reqMap); err != nil {
-		httpError(w, "Invalid request body", http.StatusBadRequest)
-		return
-	}
-
-	// 确定操作类型
-	action, _ := reqMap["action"].(string)
-	if action == "" {
-		action = "parse"
-	}
-	siteName, _ := reqMap["siteName"].(string)
-
-	// 构建参数 - 传递所有字段给 Python
-	argsMap := map[string]interface{}{}
-	switch action {
-	case "getConfig":
-		// no extra args needed
-	case "search":
-		argsMap["text"] = reqMap["keyword"]
-		argsMap["page"] = reqMap["page"]
-		if argsMap["page"] == nil {
-			argsMap["page"] = 1
-		}
-	case "getCards":
-		// Pass all extra fields (id, url, page, ext, typeurl, etc.)
-		for k, v := range reqMap {
-			if k != "action" && k != "siteName" {
-				argsMap[k] = v
-			}
-		}
-		if argsMap["page"] == nil {
-			argsMap["page"] = 1
-		}
-	case "getTracks":
-		for k, v := range reqMap {
-			if k != "action" && k != "siteName" {
-				argsMap[k] = v
-			}
-		}
-	case "getPlayinfo":
-		// Pass all extra fields (vid, pkey, ref, url, etc.)
-		for k, v := range reqMap {
-			if k != "action" && k != "siteName" {
-				argsMap[k] = v
-			}
-		}
-	case "parse":
-		argsMap["videoID"] = reqMap["videoID"]
-		argsMap["episode"] = reqMap["episode"]
-	}
-
-	argsJSON, _ := json.Marshal(argsMap)
-	args := []string{action, siteName, string(argsJSON)}
-
-	// Pass PROJECT_ROOT so Python/Node can find node_modules
-	// Go backend runs from packages/backend, node_modules is at project root
-	projectRoot := os.Getenv("PROJECT_ROOT")
-	if wd, err := os.Getwd(); err == nil && projectRoot == "" {
-		// Walk up to find node_modules
-		dir := wd
-		for i := 0; i < 5; i++ {
-			if _, err := os.Stat(filepath.Join(dir, "node_modules")); err == nil {
-				projectRoot = dir
-				break
-			}
-			dir = filepath.Dir(dir)
-		}
-	}
-	if projectRoot == "" {
-		projectRoot, _ = os.Getwd()
-	}
-	envExtra := map[string]string{
-		"PROJECT_ROOT": projectRoot,
-	}
-
-	stdout, stderr, err := runPythonContext(r.Context(), 45*time.Second, "vod_parser.py", args, envExtra)
-	if err != nil {
-		logger.Printf("vod_parser exec failed: %v\nstderr: %s", err, stderr)
-	}
-
-	jsonLine, _ := parsePythonJSON(stdout, stderr)
-	if jsonLine == "" {
-		logger.Printf("vod_parser no json output, stdout: %s, stderr: %s", stdout, stderr)
-		result := map[string]interface{}{
-			"success": false,
-			"error":   "vod parser failed",
-			"log":     stdout + "\n" + stderr,
-		}
-		w.Header().Set("Content-Type", "application/json; charset=utf-8")
-		json.NewEncoder(w).Encode(result)
-		return
-	}
-
-	w.Header().Set("Content-Type", "application/json; charset=utf-8")
-	w.Write([]byte(jsonLine))
 }
 
 func queueHandler(w http.ResponseWriter, r *http.Request) {

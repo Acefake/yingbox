@@ -1,4 +1,4 @@
-import axios from 'axios'
+import { onlineApi } from '@/api/online'
 import { useVODParser } from '@/composables/use-vod-parser'
 
 /**
@@ -56,24 +56,13 @@ export async function resolvePlaySource(item: PlaySourceItem): Promise<string> {
 }
 
 /**
- * 页面地址 → 媒体直链。
- * 先看 axios 跟随跳转后的最终地址，再从 HTML 中提取 m3u8。
+ * 页面地址 → 媒体直链：由引擎跟随跳转并从 HTML 中提取 m3u8，失败返回原地址。
  */
-async function resolvePageToMedia(url: string): Promise<string> {
+export async function resolvePageToMedia(url: string): Promise<string> {
   if (!url || isDirectMediaUrl(url)) return url
   try {
-    const r = await axios.get(url, {
-      timeout: 8000,
-      maxRedirects: 5,
-      responseType: 'text',
-    })
-    const final: string =
-      (r.request as { responseURL?: string })?.responseURL || url
-    if (isDirectMediaUrl(final)) return final
-    const m = String(r.data).match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i)
-    if (m) return m[0]
+    return await onlineApi().resolvePage(url)
   } catch {
-    // 保留原始地址
+    return url
   }
-  return url
 }

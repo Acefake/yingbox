@@ -90,6 +90,24 @@ export default tseslint.config(
   },
 
   {
+    // 渲染层不直连外网：在线请求经 window.api.online（引擎 net，SSRF 防护）。
+    files: ['src/renderer/**/*.{ts,vue}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'axios',
+              message: '渲染层不直连外网，改用 @/api/online（引擎 net 出网）。',
+            },
+          ],
+        },
+      ],
+    },
+  },
+
+  {
     // IPC 只能经契约（src/shared/contract）：ipcMain / ipcRenderer / webContents.send
     // 只允许出现在通用注册器 src/main/rpc 与通用 preload 里。
     // src/main/library/host.ts 属于影视项目的媒体库引擎（自带 IPC），合并前不动它。

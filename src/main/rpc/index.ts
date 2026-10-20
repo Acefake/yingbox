@@ -117,3 +117,13 @@ export function emit<D extends Domain, K extends keyof D['events'] & string>(
     if (!target.isDestroyed()) target.send(channel, payload)
   }
 }
+
+/**
+ * 按通道名广播。只给引擎宿主转发引擎事件用：通道由引擎按契约（channelOf）生成，
+ * 其余场景一律用类型安全的 {@link emit}。
+ */
+export function broadcastChannel(channel: string, payload: unknown): void {
+  for (const win of BrowserWindow.getAllWindows()) {
+    if (!win.webContents.isDestroyed()) win.webContents.send(channel, payload)
+  }
+}

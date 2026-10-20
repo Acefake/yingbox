@@ -318,7 +318,8 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
-import axios from 'axios'
+import { getJson, withQuery } from '@/api/online'
+import { resolvePageToMedia } from '@/utils/play-source'
 import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
 import {
@@ -460,41 +461,38 @@ const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
   }
   const headers = { Authorization: `Bearer ${token}` }
   try {
-    const sr = await axios.get(
-      `https://api.themoviedb.org/3/search/${mediaType}`,
-      {
-        params: { query: name, language: 'zh-CN', page: 1 },
-        headers,
-        timeout: 8000,
-      }
+    const tmdb = 'https://api.themoviedb.org/3'
+    const sr = await getJson<any>(
+      withQuery(`${tmdb}/search/${mediaType}`, {
+        query: name,
+        language: 'zh-CN',
+        page: 1,
+      }),
+      { headers, timeoutMs: 8000 }
     )
-    const first = sr.data?.results?.[0]
+    const first = sr?.results?.[0]
     if (!first) return
     const id = first.id
     const [dr, cr] = await Promise.all([
-      axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}`, {
-        params: { language: 'zh-CN' },
+      getJson<any>(`${tmdb}/${mediaType}/${id}?language=zh-CN`, {
         headers,
-        timeout: 8000,
+        timeoutMs: 8000,
       }),
-      axios.get(`https://api.themoviedb.org/3/${mediaType}/${id}/credits`, {
-        params: { language: 'zh-CN' },
+      getJson<any>(`${tmdb}/${mediaType}/${id}/credits?language=zh-CN`, {
         headers,
-        timeout: 8000,
+        timeoutMs: 8000,
       }),
     ])
-    tmdbDetail.value = dr.data
-    cast.value = cr.data?.cast || []
-    directors.value = (cr.data?.crew || [])
+    tmdbDetail.value = dr
+    cast.value = cr?.cast || []
+    directors.value = (cr?.crew || [])
       .filter((c: any) => c.job === 'Director')
       .map((c: any) => c.name)
-    const ir = await axios
-      .get(`https://api.themoviedb.org/3/${mediaType}/${id}/images`, {
-        headers,
-        timeout: 8000,
-      })
-      .catch(() => null as null)
-    images.value = (ir?.data?.backdrops || []).slice(0, 30)
+    const ir = await getJson<any>(`${tmdb}/${mediaType}/${id}/images`, {
+      headers,
+      timeoutMs: 8000,
+    }).catch(() => null)
+    images.value = (ir?.backdrops || []).slice(0, 30)
   } catch {
     /* silent */
   } finally {
@@ -587,23 +585,7 @@ const loadPlaySources = async () => {
   }
 }
 
-const resolveUrl = async (url: string): Promise<string> => {
-  if (url.match(/\.(m3u8|mp4|flv)/i)) return url
-  try {
-    const r = await axios.get(url, {
-      timeout: 8000,
-      maxRedirects: 5,
-      responseType: 'text',
-    })
-    const final: string = (r.request as any)?.responseURL || url
-    if (final.match(/\.(m3u8|mp4)/i)) return final
-    const m = String(r.data).match(/https?:\/\/[^\s"']+\.m3u8[^\s"']*/i)
-    if (m) return m[0]
-  } catch {
-    /* fallback */
-  }
-  return url
-}
+const resolveUrl = (url: string): Promise<string> => resolvePageToMedia(url)
 
 const switchSourceType = (type: 'cms' | 'catspider') => {
   currentSourceType.value = type

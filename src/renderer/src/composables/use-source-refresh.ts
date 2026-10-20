@@ -1,6 +1,6 @@
 import { getSetting } from '@/features/settings/use-setting'
 import { computed, reactive, ref } from 'vue'
-import axios from 'axios'
+import { getJson } from '@/api/online'
 import { message } from 'ant-design-vue'
 import { useAvSources } from '@/views/av/use-av-sources'
 import {
@@ -37,10 +37,11 @@ export const checkOnlineSite = async (api: string): Promise<void> => {
   checkingSet.add(api)
   statusMap[api] = 'checking'
   try {
-    const res = await axios.get(`${api}?ac=videolist&wd=test`, {
-      timeout: 8000,
-    })
-    statusMap[api] = res.data?.list !== undefined ? 'ok' : 'fail'
+    const data = await getJson<{ list?: unknown }>(
+      `${api}?ac=videolist&wd=test`,
+      { timeoutMs: 8000 }
+    )
+    statusMap[api] = data?.list !== undefined ? 'ok' : 'fail'
   } catch {
     statusMap[api] = 'fail'
   } finally {
@@ -53,8 +54,10 @@ export const checkAvSite = async (api: string): Promise<void> => {
   avCheckingSet.add(api)
   avStatusMap[api] = 'checking'
   try {
-    const res = await axios.get(`${api}?ac=detail`, { timeout: 8000 })
-    avStatusMap[api] = res.data?.list !== undefined ? 'ok' : 'fail'
+    const data = await getJson<{ list?: unknown }>(`${api}?ac=detail`, {
+      timeoutMs: 8000,
+    })
+    avStatusMap[api] = data?.list !== undefined ? 'ok' : 'fail'
   } catch {
     avStatusMap[api] = 'fail'
   } finally {
@@ -101,11 +104,11 @@ const ORDINARY_CMS_NAMES =
 export const syncAvSources = async (showMessage = true): Promise<void> => {
   syncingAv.value = true
   try {
-    const response = await axios.get(
+    const response = await getJson<{ data?: unknown }>(
       'https://mylazily.github.io/ziyuanzhan/data/online.json',
-      { timeout: 15000 }
+      { timeoutMs: 15000 }
     )
-    const entries = Array.isArray(response.data?.data) ? response.data.data : []
+    const entries = Array.isArray(response?.data) ? response.data : []
     const sources = entries
       .map((entry: any) => {
         const name = String(entry.name || entry.title || '在线资源站').trim()
