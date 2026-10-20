@@ -3,9 +3,9 @@
     <div class="amane-film-poster">
       <img
         v-if="cover"
-        :src="amaneImage(cover.url)"
+        :src="amaneImage(cover)"
         alt="影片海报"
-        @error="failedCovers = [...failedCovers, cover.url]"
+        @error="failedCovers = [...failedCovers, cover]"
       />
       <span v-else>{{ film.number }}</span>
     </div>
@@ -23,9 +23,7 @@
             aria-hidden="true"
             >·</span
           >
-          <span v-if="film.runtime"
-            >{{ Math.floor(film.runtime / 60) }}h {{ film.runtime % 60 }}m</span
-          >
+          <span v-if="film.runtime">{{ runtimeText(film.runtime) }}</span>
           <span v-if="film.score != null" class="amane-film-score"
             ><UiIcon name="star" size="sm" filled />{{
               film.score.toFixed(1)
@@ -87,14 +85,7 @@
         <div v-for="fact in facts" :key="fact.field">
           <dt>
             {{ fact.label }}
-            <span
-              v-if="locked(fact.field)"
-              v-tooltip="'已锁定，刮削时保留'"
-              class="amane-field-lock"
-              role="img"
-              aria-label="已锁定"
-              ><UiIcon name="lock" size="sm"
-            /></span>
+            <FieldLock v-if="locked(fact.field)" />
           </dt>
           <dd>{{ fact.value }}</dd>
         </div>
@@ -102,14 +93,7 @@
       <section v-if="film.directors?.length" class="amane-film-section">
         <h3>
           导演
-          <span
-            v-if="locked('directors')"
-            v-tooltip="'已锁定，刮削时保留'"
-            class="amane-field-lock"
-            role="img"
-            aria-label="已锁定"
-            ><UiIcon name="lock" size="sm"
-          /></span>
+          <FieldLock v-if="locked('directors')" />
         </h3>
         <div class="amane-film-chips">
           <span
@@ -125,14 +109,7 @@
       <section class="amane-film-section">
         <h3>
           演员
-          <span
-            v-if="locked('actors')"
-            v-tooltip="'已锁定，刮削时保留'"
-            class="amane-field-lock"
-            role="img"
-            aria-label="已锁定"
-            ><UiIcon name="lock" size="sm"
-          /></span>
+          <FieldLock v-if="locked('actors')" />
         </h3>
         <div class="amane-film-chips">
           <UiChip
@@ -162,14 +139,7 @@
       <section class="amane-film-section">
         <h3>
           标签
-          <span
-            v-if="locked('tags')"
-            v-tooltip="'已锁定，刮削时保留'"
-            class="amane-field-lock"
-            role="img"
-            aria-label="已锁定"
-            ><UiIcon name="lock" size="sm"
-          /></span>
+          <FieldLock v-if="locked('tags')" />
         </h3>
         <div class="amane-film-chips">
           <UiChip
@@ -182,48 +152,11 @@
           /><span v-if="!film.tags.length" class="amane-muted">暂无标签</span>
         </div>
       </section>
-      <section class="amane-film-section">
-        <h3>用户标签</h3>
-        <div class="amane-film-chips">
-          <span
-            v-for="tag in detail.user_tags"
-            :key="tag.id"
-            class="amane-film-chip user-tag"
-            >{{ tag.name
-            }}<UiIconButton
-              icon="close"
-              size="sm"
-              :label="`移除标签 ${tag.name}`"
-              :disabled="tagBusy"
-              @click="removeTag(tag.id)"
-          /></span>
-          <UiIconButton
-            :icon="editingTags ? 'close' : 'plus'"
-            :label="editingTags ? '收起标签编辑' : '添加用户标签'"
-            :aria-expanded="editingTags"
-            @click="editingTags = !editingTags"
-          />
-        </div>
-        <form
-          v-if="editingTags"
-          class="amane-tag-form"
-          @submit.prevent="addTag"
-        >
-          <UiInput
-            v-model="tagName"
-            aria-label="用户标签名称"
-            placeholder="输入标签名称"
-            maxlength="100"
-          /><UiButton
-            type="submit"
-            label="添加"
-            :disabled="tagBusy || !tagName.trim()"
-          />
-        </form>
-        <p v-if="tagError" class="amane-task-error" role="alert">
-          {{ tagError }}
-        </p>
-      </section>
+      <FilmUserTags
+        :metadata-id="film.id"
+        :tags="detail.user_tags || []"
+        @tags-changed="(id, tags) => emit('tagsChanged', id, tags)"
+      />
       <section class="amane-film-section">
         <h3>来源链接</h3>
         <div class="amane-film-chips">
@@ -241,124 +174,33 @@
       <section v-if="film.plot" class="amane-film-section">
         <h3>
           简介
-          <span
-            v-if="locked('plot')"
-            v-tooltip="'已锁定，刮削时保留'"
-            class="amane-field-lock"
-            role="img"
-            aria-label="已锁定"
-            ><UiIcon name="lock" size="sm"
-          /></span>
+          <FieldLock v-if="locked('plot')" />
         </h3>
         <p class="amane-film-plot">{{ film.plot }}</p>
       </section>
-      <section class="amane-film-section amane-film-gallery">
-        <h3>
-          剧照 <span class="amane-section-count">{{ stills.length }}</span>
-          <span
-            v-if="locked('extrafanart')"
-            v-tooltip="'已锁定，刮削时保留'"
-            class="amane-field-lock"
-            role="img"
-            aria-label="已锁定"
-            ><UiIcon name="lock" size="sm"
-          /></span>
-        </h3>
-        <div v-if="stills.length" class="amane-film-stills">
-          <UiPressable
-            v-for="(image, index) in stills"
-            :key="image"
-            block
-            class="amane-still-open"
-            :label="`放大剧照 ${index + 1}`"
-            @click="openPreview(index)"
-          >
-            <img
-              :src="amaneImage(image)"
-              :alt="`剧照 ${index + 1}`"
-              loading="lazy"
-              @error="hideBrokenImage"
-            />
-          </UiPressable>
-        </div>
-        <p v-else class="amane-muted">暂无剧照</p>
-      </section>
+      <FilmStills :stills="stills" :locked="locked('extrafanart')" />
     </div>
-    <dialog
-      ref="previewDialog"
-      class="amane-still-preview"
-      aria-label="剧照预览"
-      @cancel.prevent="closePreview"
-      @keydown.stop="previewKeydown"
-      @click.self="closePreview"
-    >
-      <template v-if="previewIndex !== null">
-        <DialogTitlebar
-          :title="`剧照 ${previewIndex + 1} / ${stills.length}`"
-          icon="image"
-          @close="closePreview"
-        >
-          <template #actions
-            ><UiIconButton
-              icon="fullscreen"
-              label="原图尺寸"
-              :active="originalSize"
-              @click="originalSize = !originalSize"
-          /></template>
-        </DialogTitlebar>
-        <div
-          class="amane-still-preview-stage"
-          :class="{ 'original-size': originalSize }"
-          @click.self="closePreview"
-        >
-          <p v-if="previewError" role="alert">图片加载失败，请关闭后重试。</p>
-          <img
-            v-else
-            :key="stills[previewIndex]"
-            :src="amaneImage(stills[previewIndex])"
-            :alt="`剧照 ${previewIndex + 1}`"
-            @error="previewError = true"
-          />
-        </div>
-        <footer v-if="stills.length > 1" class="amane-still-preview-navigation">
-          <UiIconButton
-            icon="back"
-            label="上一张剧照"
-            variant="overlay"
-            size="lg"
-            @click="stepPreview(-1)"
-          />
-          <UiIconButton
-            icon="forward"
-            label="下一张剧照"
-            variant="overlay"
-            size="lg"
-            @click="stepPreview(1)"
-          />
-        </footer>
-      </template>
-    </dialog>
   </article>
 </template>
 
 <script setup lang="ts">
-import DialogTitlebar from '@/components/DialogTitlebar.vue'
-import { computed, nextTick, ref, watch } from 'vue'
+/**
+ * Amane 影片详情：海报、摘要与操作、信息行、导演 / 演员 / 标签、用户标签、来源链接、简介、剧照。
+ * 用户标签与剧照预览各自成组件（film/），纯规则在 utils/film.ts。
+ */
+import { computed, ref, watch } from 'vue'
+import { UiButton, UiChip, UiIcon, UiIconButton } from '@/components/ui'
+import { type AmaneDetail, type AmaneUserTag, amaneImage } from '../api/amane'
 import {
-  UiButton,
-  UiChip,
-  UiIcon,
-  UiIconButton,
-  UiInput,
-  UiPressable,
-  vTooltip,
-} from '@/components/ui'
-import {
-  type AmaneDetail,
-  type AmaneUserTag,
-  amaneImage,
-  amaneRequest,
-} from '../api/amane'
+  detailCover,
+  filmFacts,
+  filmStills,
+  runtimeText,
+  sourceLinks,
+} from '../utils/film'
+import FieldLock from './film/FieldLock.vue'
+import FilmStills from './film/FilmStills.vue'
+import FilmUserTags from './film/FilmUserTags.vue'
 
 const props = defineProps<{ detail: AmaneDetail; busy: boolean }>()
 const emit = defineEmits<{
@@ -374,11 +216,7 @@ const emit = defineEmits<{
 }>()
 const film = computed(() => props.detail.metadata)
 const failedCovers = ref<string[]>([])
-const cover = computed(() => {
-  const posters = [film.value.poster_url, ...(film.value.poster_urls || [])]
-  const url = posters.find(url => url && !failedCovers.value.includes(url))
-  return url ? { url } : null
-})
+const cover = computed(() => detailCover(film.value, failedCovers.value))
 watch(
   () => film.value.id,
   () => {
@@ -387,205 +225,7 @@ watch(
 )
 const locked = (field: string): boolean =>
   Boolean(film.value.locked_fields?.includes(field))
-const facts = computed(() =>
-  [
-    { field: 'studio', label: '制作商', value: film.value.studio || '—' },
-    { field: 'publisher', label: '发行商', value: film.value.publisher || '—' },
-    ...(film.value.series
-      ? [{ field: 'series', label: '系列', value: film.value.series }]
-      : []),
-  ].filter(fact => fact.value !== '—')
-)
-const sources = computed(() =>
-  Object.entries(film.value.source_urls || {}).flatMap(([name, raw]) => {
-    if (typeof raw !== 'string') return []
-    try {
-      const url = new URL(raw)
-      return ['http:', 'https:'].includes(url.protocol)
-        ? [{ name, url: url.href }]
-        : []
-    } catch {
-      return []
-    }
-  })
-)
-const stills = computed(() => {
-  const primary = film.value.extrafanart || []
-  const images = primary.length
-    ? primary
-    : Object.values(film.value.extrafanart_urls || {}).flat()
-  return [...new Set(images)].filter(
-    image => typeof image === 'string' && amaneImage(image)
-  )
-})
-const editingTags = ref(false),
-  tagName = ref(''),
-  tagBusy = ref(false),
-  tagError = ref('')
-const previewDialog = ref<HTMLDialogElement | null>(null)
-const previewIndex = ref<number | null>(null),
-  originalSize = ref(false),
-  previewError = ref(false)
-
-async function openPreview(index: number): Promise<void> {
-  previewIndex.value = index
-  originalSize.value = false
-  previewError.value = false
-  await nextTick()
-  if (previewIndex.value !== null && !previewDialog.value?.open)
-    previewDialog.value?.showModal()
-}
-
-function closePreview(): void {
-  previewDialog.value?.close()
-  previewIndex.value = null
-}
-
-function stepPreview(delta: number): void {
-  if (previewIndex.value === null || !stills.value.length) return
-  previewIndex.value =
-    (previewIndex.value + delta + stills.value.length) % stills.value.length
-  originalSize.value = false
-  previewError.value = false
-}
-
-function previewKeydown(event: KeyboardEvent): void {
-  if (event.key === 'Escape') {
-    event.preventDefault()
-    closePreview()
-  } else if (event.key === 'ArrowLeft') {
-    event.preventDefault()
-    stepPreview(-1)
-  } else if (event.key === 'ArrowRight') {
-    event.preventDefault()
-    stepPreview(1)
-  }
-}
-
-watch(stills, closePreview)
-watch(
-  () => film.value.id,
-  () => {
-    closePreview()
-    editingTags.value = false
-    tagName.value = ''
-    tagError.value = ''
-  }
-)
-
-async function updateTag(
-  action: 'attach' | 'detach',
-  id?: number
-): Promise<void> {
-  if (tagBusy.value) return
-  const metadataId = film.value.id
-  tagBusy.value = true
-  tagError.value = ''
-  try {
-    let tag: AmaneUserTag | undefined
-    if (action === 'attach') {
-      const result = await amaneRequest<{ items: AmaneUserTag[] }>(
-        '/facets/user_tag',
-        'POST',
-        { names: [tagName.value.trim()] }
-      )
-      tag = result.items[0]
-      if (!tag) throw new Error('未能创建用户标签，请重试')
-      id = tag.id
-    }
-    await amaneRequest('/metadata/batch/user-tags', 'POST', {
-      ids: [metadataId],
-      user_tag_ids: [id],
-      action,
-    })
-    if (metadataId !== film.value.id) return
-    const tags = props.detail.user_tags || []
-    emit(
-      'tagsChanged',
-      metadataId,
-      action === 'detach'
-        ? tags.filter(item => item.id !== id)
-        : tags.some(item => item.id === id)
-          ? tags
-          : [...tags, tag!]
-    )
-    tagName.value = ''
-  } catch (e) {
-    if (metadataId === film.value.id) tagError.value = (e as Error).message
-  } finally {
-    tagBusy.value = false
-  }
-}
-
-function addTag(): void {
-  if (tagName.value.trim()) void updateTag('attach')
-}
-
-function removeTag(id: number): void {
-  void updateTag('detach', id)
-}
-
-function hideBrokenImage(event: Event): void {
-  ;(event.target as HTMLImageElement).style.visibility = 'hidden'
-}
+const facts = computed(() => filmFacts(film.value))
+const sources = computed(() => sourceLinks(film.value))
+const stills = computed(() => filmStills(film.value, amaneImage))
 </script>
-
-<style scoped>
-/* 剧照为 UiPressable block（已提供焦点环和按压反馈） */
-.amane-still-open {
-  border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary);
-  cursor: zoom-in;
-  overflow: hidden;
-}
-.amane-still-preview {
-  position: fixed;
-  inset: 0;
-  width: 100%;
-  height: 100%;
-  max-width: none;
-  max-height: none;
-  margin: 0;
-  padding: 0;
-  border: 0;
-  background: var(--overlay-scrim-strong);
-  color: var(--media-text);
-}
-.amane-still-preview[open] {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-4);
-}
-.amane-still-preview::backdrop {
-  background: var(--overlay-scrim);
-}
-.amane-still-preview-stage {
-  padding: var(--space-4);
-  flex: 1;
-  min-height: 0;
-  display: flex;
-  overflow: auto;
-}
-.amane-still-preview-stage img {
-  display: block;
-  margin: auto;
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
-  flex-shrink: 0;
-}
-.amane-still-preview-stage.original-size img {
-  max-width: none;
-  max-height: none;
-}
-.amane-still-preview-stage p {
-  margin: auto;
-}
-.amane-still-preview-navigation {
-  padding: 0 var(--space-4) var(--space-4);
-  display: flex;
-  justify-content: center;
-  gap: var(--space-4);
-  flex-shrink: 0;
-}
-</style>
