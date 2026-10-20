@@ -87,6 +87,15 @@ export function createLibraryBridge(
     setProviderToken: (provider, token) =>
       call('setProviderToken', { provider, token }),
     getProviderStatus: () => call('getProviderStatus'),
+    writer: {
+      getSettings: () => call('writer.getSettings'),
+      setSettings: settings => call('writer.setSettings', settings),
+      write: itemIds => call('writer.write', { itemIds }),
+      previewOrganize: itemIds => call('writer.previewOrganize', { itemIds }),
+      applyOrganize: planId => call('writer.applyOrganize', { planId }),
+      undoOrganize: batchId => call('writer.undoOrganize', { batchId }),
+      listOrganizeBatches: () => call('writer.listOrganizeBatches'),
+    },
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       const { port1, port2 } = createChannel()
       port1.onmessage = event => listener(event.data as LibraryEvent)

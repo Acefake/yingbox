@@ -36,6 +36,13 @@ const HANDLERS: Handlers = {
   refreshMetadata: (s, p) => s.refreshMetadata(p),
   setProviderToken: (s, p) => s.setProviderToken(p),
   getProviderStatus: s => s.getProviderStatus(),
+  'writer.getSettings': s => s.writer.getSettings(),
+  'writer.setSettings': (s, p) => s.writer.setSettings(p),
+  'writer.write': (s, p) => s.writer.write(p.itemIds),
+  'writer.previewOrganize': (s, p) => s.writer.previewOrganize(p.itemIds),
+  'writer.applyOrganize': (s, p) => s.writer.applyOrganize(p.planId),
+  'writer.undoOrganize': (s, p) => s.writer.undoOrganize(p.batchId),
+  'writer.listOrganizeBatches': s => s.writer.listOrganizeBatches(),
 }
 
 /** 处理一次调用，永不抛出：任何错误都变成 ok: false 的响应。 */
