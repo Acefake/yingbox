@@ -2,7 +2,10 @@
   <div ref="leftPanel" class="yb-media-sidebar left-panel">
     <!-- Header -->
     <div class="lp-header">
-      <PageHeader :title="mode === 'tv' ? '电视剧' : '电影'" description="本地媒体库" />
+      <PageHeader
+        :title="mode === 'tv' ? '电视剧' : '电影'"
+        description="本地媒体库"
+      />
 
       <!-- Scan progress -->
       <div v-if="dirLoading" class="lp-scan">
@@ -18,8 +21,18 @@
 
       <!-- Primary actions -->
       <div class="yb-media-toolbar lp-actions">
-        <button type="button" class="yb-btn-soft" :disabled="dirLoading" @click="$emit('addFolder')"><UiIcon name="plus" />添加目录</button>
-        <UiIconButton icon="refresh" label="刷新媒体目录" :loading="dirLoading" @click="$emit('refresh')" />
+        <UiButton
+          icon="plus"
+          label="添加目录"
+          :disabled="dirLoading"
+          @click="$emit('addFolder')"
+        />
+        <UiIconButton
+          icon="refresh"
+          label="刷新媒体目录"
+          :loading="dirLoading"
+          @click="$emit('refresh')"
+        />
         <span v-if="processedItems.length" class="lp-count"
           >{{ processedItems.length }} 项</span
         >
@@ -31,26 +44,27 @@
           <span class="lp-dir-name" :title="dir">{{
             dir.split(/[/\\]/).pop()
           }}</span>
-          <button
+          <UiIconButton
             class="lp-dir-remove"
-            :aria-label="`移除目录 ${dir}`"
+            icon="close"
+            size="sm"
+            danger
+            :label="`移除目录「${dir.split(/[/\\]/).pop()}」`"
             @click="$emit('removeDirectory', i)"
-          >
-            <UiIcon name="close" size="sm" />
-          </button>
+          />
         </div>
       </div>
 
-      <!-- Secondary: scrape all (Apple / soft accent pill) -->
-      <button
+      <!-- 次要操作：批量刮削未匹配条目 -->
+      <UiButton
         v-if="mode !== 'tv' && unscrapedCount > 0"
         class="lp-scrape-all"
-        type="button"
+        icon="wand"
+        size="sm"
         @click="$emit('scrapeAll')"
       >
-        <span class="lp-scrape-all-label">刮削未匹配</span>
-        <span class="lp-scrape-all-badge">{{ unscrapedCount }}</span>
-      </button>
+        刮削未匹配<span class="lp-scrape-all-badge">{{ unscrapedCount }}</span>
+      </UiButton>
     </div>
 
     <!-- Library list -->
@@ -105,8 +119,8 @@
 
 <script setup lang="ts">
 import PageHeader from '@/components/PageHeader.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiIcon from '@/components/ui/UiIcon.vue'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import FileTreeItem from '@/views/Movie/components/FileTreeItem.vue'
@@ -301,7 +315,7 @@ const unscrapedCount = computed(() => {
   align-items: center;
   gap: 6px;
   min-height: 28px;
-  padding: 4px 10px;
+  padding: 2px 2px 2px 10px;
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
@@ -320,14 +334,6 @@ const unscrapedCount = computed(() => {
 
 .lp-dir-remove {
   opacity: 0;
-  border: 0;
-  background: transparent;
-  color: var(--text-tertiary);
-  cursor: pointer;
-  font-size: var(--text-2xs);
-  padding: 2px 4px;
-  border-radius: var(--radius-sm);
-  transition: var(--transition-fast);
 }
 
 .lp-dir:hover .lp-dir-remove,
@@ -335,63 +341,14 @@ const unscrapedCount = computed(() => {
   opacity: 1;
 }
 
-.lp-dir-remove:hover {
-  color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 12%, transparent);
-}
-
 .lp-scrape-all {
-  display: inline-flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 8px;
   width: 100%;
-  min-height: var(--control-height-sm);
-  padding: 0 12px 0 14px;
-  border-radius: var(--radius-full);
-  background: var(--bg-active);
-  color: var(--text-primary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: -0.01em;
-  cursor: pointer;
-  transition: var(--transition-fast);
-  text-align: left;
-  box-shadow: inset 0 0 0 0.5px
-    color-mix(in srgb, var(--accent) 12%, transparent);
-}
-
-.lp-scrape-all-label {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 
 .lp-scrape-all-badge {
-  flex-shrink: 0;
-  min-width: 22px;
-  height: 20px;
-  padding: 0 7px;
-  border-radius: var(--radius-full);
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-semibold);
+  margin-left: var(--space-2);
+  color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
-  color: var(--accent-text);
-  background: color-mix(in srgb, var(--accent) 18%, transparent);
-  border: 1px solid color-mix(in srgb, var(--accent) 20%, transparent);
-}
-
-.lp-scrape-all:hover {
-  background: color-mix(in srgb, var(--accent) 26%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 34%, transparent);
-}
-
-.lp-scrape-all:active {
-  transform: scale(0.98);
 }
 
 .lp-scan-label {
@@ -458,10 +415,8 @@ const unscrapedCount = computed(() => {
 
 @media (prefers-reduced-motion: reduce) {
   .lp-spin,
-  .lp-scan-bar,
-  .lp-scrape-all:active {
+  .lp-scan-bar {
     animation: none;
-    transform: none;
   }
 }
 </style>

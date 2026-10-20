@@ -14,7 +14,12 @@
         @click.stop
       >
         <DialogTitlebar title="刮削工作台" icon="search" @close="emitClose" />
-        <div class="sw-subtitle truncate px-5 py-3" :title="item?.name">{{ displayItemName }}<span v-if="providerLabel" class="ml-2 yb-chip">{{ providerLabel }}</span></div>
+        <div class="sw-subtitle truncate px-5 py-3" :title="item?.name">
+          {{ displayItemName
+          }}<span v-if="providerLabel" class="ml-2 yb-chip">{{
+            providerLabel
+          }}</span>
+        </div>
 
         <!-- Search / avid bar (always available) -->
         <div class="sw-search-row flex gap-2.5 flex-shrink-0">
@@ -24,13 +29,14 @@
             :placeholder="searchPlaceholder"
             @keydown.enter.prevent="handleSearch"
           />
-          <button
-            class="yb-btn-primary text-xs font-semibold px-4 sw-search-btn"
-            :disabled="loading || searching"
+          <UiButton
+            variant="primary"
+            icon="search"
+            :label="searching ? '搜索中…' : '搜索'"
+            :disabled="loading"
+            :loading="searching"
             @click="handleSearch"
-          >
-            {{ searching ? '搜索中…' : '搜索' }}
-          </button>
+          />
         </div>
 
         <!-- Body -->
@@ -51,9 +57,7 @@
             <span class="text-sm text-center" style="color: var(--danger)">{{
               error
             }}</span>
-            <p class="text-xs yb-muted text-center">
-              可修改上方片名后重新搜索
-            </p>
+            <p class="text-xs yb-muted text-center">可修改上方片名后重新搜索</p>
           </div>
 
           <!-- TMDB / TV / search results -->
@@ -61,56 +65,30 @@
             <div class="text-xs yb-muted mb-3">
               找到 {{ searchResults.length }} 个结果，点击选用并加入队列
             </div>
-            <div class="grid grid-cols-4 gap-3">
-              <div
+            <div class="ui-poster-grid">
+              <UiPosterCard
                 v-for="result in searchResults"
                 :key="result.id"
-                class="sw-card group cursor-pointer"
-                @click="handlePickResult(result)"
+                :title="resultTitle(result)"
+                :cover="result.poster_path ? String(result.poster_path) : ''"
+                :subtitle="resultYear(result)"
+                @open="handlePickResult(result)"
               >
-                <div
-                  class="sw-poster relative overflow-hidden rounded-t-[var(--radius-lg)]"
-                >
-                  <img
-                    v-if="result.poster_path"
-                    :src="String(result.poster_path)"
-                    :alt="resultTitle(result)"
-                    class="sw-poster-img w-full object-cover group-hover:scale-[1.03] transition-transform duration-300"
-                    @error="hideBrokenImage"
-                  />
-                  <div
-                    v-else
-                    class="sw-poster-img w-full yb-poster-ph flex items-center justify-center text-sm"
-                  >
-                    无海报
-                  </div>
-                </div>
-                <div class="p-2.5">
-                  <h4
-                    class="font-medium text-xs mb-1 line-clamp-2 leading-snug"
-                    style="color: var(--text-primary)"
-                  >
-                    {{ resultTitle(result) }}
-                  </h4>
-                  <div
-                    v-if="resultYear(result)"
-                    class="text-[10px] yb-dim mb-2"
-                  >
-                    {{ resultYear(result) }}
-                  </div>
-                  <button
-                    class="sw-pick-btn"
+                <template #actions>
+                  <UiIconButton
+                    :icon="isTV ? 'wand' : 'plus'"
+                    :label="isTV ? '选用并刮削' : '加入队列'"
+                    variant="overlay"
+                    size="sm"
                     :disabled="processing"
                     @click.stop="handlePickResult(result)"
-                  >
-                    {{ isTV ? '选用并刮削' : '加入队列' }}
-                  </button>
-                </div>
-              </div>
+                  />
+                </template>
+              </UiPosterCard>
             </div>
             <div
               v-if="actionMsg"
-              class="mt-3 text-[11px] font-mono"
+              class="sw-action-msg font-mono"
               :style="{
                 color: actionMsgIsError ? 'var(--danger)' : 'var(--success)',
               }"
@@ -131,22 +109,21 @@
           </div>
         </div>
       </div>
-
     </div>
   </Transition>
 </template>
 
 <script setup lang="ts">
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import { computed, ref, watch } from 'vue'
 import { message } from 'ant-design-vue'
 import { getScrapeProviderConfig } from '@/stores/scrape-provider-store'
 import { useScraping } from '@/views/Movie/composables/use-scraping'
 import { useTVScraping } from '@/views/TV/composables/use-tv-scraping'
-import {
-  cleanSearchParams,
-  stripMediaExtension,
-} from '@/utils/avid'
+import { cleanSearchParams, stripMediaExtension } from '@/utils/avid'
 import type { ProcessedItem } from '@/types'
 import type { ScrapedMovie } from '@/types/scraping'
 
@@ -239,12 +216,6 @@ const displayItemName = computed(() => {
   return stripMediaExtension(item.name)
 })
 
-
-const hideBrokenImage = (e: Event): void => {
-  const el = e.target as HTMLImageElement | null
-  if (el) el.style.display = 'none'
-}
-
 const resultTitle = (result: WorkbenchMediaResult): string =>
   String(
     result.title ||
@@ -326,7 +297,8 @@ const bootstrap = async (): Promise<void> => {
   }
 
   const raw = (props.initialQuery || props.item.name).trim()
-  const query = cleanSearchParams(stripMediaExtension(raw)) || stripMediaExtension(raw)
+  const query =
+    cleanSearchParams(stripMediaExtension(raw)) || stripMediaExtension(raw)
   queryInput.value = query
 
   if (isTV.value) {
@@ -340,9 +312,7 @@ const bootstrap = async (): Promise<void> => {
 const handleSearch = async (): Promise<void> => {
   const q = queryInput.value.trim()
   if (!q) {
-    message.error(
-      isTV.value ? '请输入电视剧名称' : '请输入电影名称'
-    )
+    message.error(isTV.value ? '请输入电视剧名称' : '请输入电影名称')
     return
   }
 
@@ -416,7 +386,7 @@ defineExpose({
 
 .sw-subtitle {
   margin-top: 4px;
-  font-size: var(--text-xs, 12px);
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   line-height: 1.35;
 }
@@ -427,9 +397,9 @@ defineExpose({
 }
 
 .sw-input {
-  height: 40px;
-  padding: 0 16px;
-  border-radius: var(--radius-full);
+  height: var(--control-height);
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-subtle);
   background: var(--bg-fill-secondary);
   color: var(--text-primary);
@@ -444,68 +414,8 @@ defineExpose({
   background: var(--bg-elevated, var(--bg-fill-secondary));
 }
 
-.sw-search-btn {
-  height: 40px;
-  border-radius: var(--radius-full) !important;
-  padding-left: 18px !important;
-  padding-right: 18px !important;
-}
-
-.jb-avatar {
-  box-shadow: inset 0 0 0 1px var(--border-subtle);
-}
-
-.sw-card {
-  background: transparent;
-  border-radius: var(--radius-sm);
-  border: 1px solid var(--border-default);
-  overflow: hidden;
-  box-shadow: var(--shadow-sm);
-  transition: var(--transition-fast);
-}
-
-.sw-card:hover {
-  border-color: var(--border-glass-light);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-1px);
-}
-
-.sw-poster {
-  width: 100%;
-}
-
-.sw-poster-img {
-  width: 100%;
-  aspect-ratio: 2 / 3;
-  height: auto;
-  object-fit: cover;
-  display: block;
-}
-
-.sw-pick-btn {
-  width: 100%;
-  padding: 6px 0;
-  border-radius: var(--radius-full);
+.sw-action-msg {
+  margin-top: var(--space-3);
   font-size: var(--text-2xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-  background: var(--bg-active);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.sw-pick-btn:hover {
-  background: color-mix(in srgb, var(--accent) 26%, transparent);
-}
-
-.sw-pick-btn:disabled {
-  opacity: 0.45;
-  cursor: not-allowed;
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .sw-card:hover {
-    transform: none;
-  }
 }
 </style>
