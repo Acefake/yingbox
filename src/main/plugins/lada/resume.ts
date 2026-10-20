@@ -8,13 +8,27 @@
  *
  * 代价：段边界可能有一帧级瑕疵；分段处理的时域稳定性略逊于整片一次跑。
  */
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+} from 'node:fs'
 import { basename, join } from 'node:path'
 import { type LadaResumeProgress, restoredPathFor } from '../../../shared/lada'
 import { lada } from '../../../shared/contract/lada'
 import { emit } from '../../rpc'
 import { runTool } from '../process'
-import { dirFor, durationOf, partPath, partsOf, readProgress, writeProgress } from './cache'
+import {
+  dirFor,
+  durationOf,
+  partPath,
+  partsOf,
+  readProgress,
+  writeProgress,
+} from './cache'
 import { onJobFinished, startJob } from './job'
 import { ENCODING_PRESET, classifyTempEntry, durationMismatch } from './rules'
 import { tempDirPath } from './temp'
@@ -38,7 +52,10 @@ export function notify(text: string): void {
  * 把一份"半成品"视频收进缓存目录当作最新的一段，并更新进度。
  * 用于接管 lada 自己写在 %TEMP% 里的临时文件（比如上次被中断的那个）。
  */
-export async function adoptPartial(input: string, partialFile: string): Promise<LadaResumeProgress | null> {
+export async function adoptPartial(
+  input: string,
+  partialFile: string
+): Promise<LadaResumeProgress | null> {
   const { ffmpeg } = ladaPaths()
   if (!ffmpeg) return null
   const ffprobe = ffprobeFor(ffmpeg)
@@ -79,8 +96,22 @@ async function assemble(input: string, output: string): Promise<void> {
   for (const part of parts) {
     const ts = `${part}.ts`
     rmSync(ts, { force: true })
-    const convert = await runTool(ffmpeg, ['-y', '-loglevel', 'error', '-i', part,
-      '-map', '0:v:0', '-c', 'copy', '-bsf:v', 'hevc_mp4toannexb', '-f', 'mpegts', ts])
+    const convert = await runTool(ffmpeg, [
+      '-y',
+      '-loglevel',
+      'error',
+      '-i',
+      part,
+      '-map',
+      '0:v:0',
+      '-c',
+      'copy',
+      '-bsf:v',
+      'hevc_mp4toannexb',
+      '-f',
+      'mpegts',
+      ts,
+    ])
     if (convert.code !== 0 || !existsSync(ts)) {
       throw new Error(`分段转 TS 失败：${convert.out.slice(-200)}`)
     }
@@ -88,17 +119,42 @@ async function assemble(input: string, output: string): Promise<void> {
   }
 
   const videoOnly = join(dir, 'joined.mp4')
-  const join1 = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
-    '-i', `concat:${tsFiles.join('|')}`, '-c', 'copy', videoOnly])
+  const join1 = await runTool(ffmpeg, [
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    `concat:${tsFiles.join('|')}`,
+    '-c',
+    'copy',
+    videoOnly,
+  ])
   for (const ts of tsFiles) rmSync(ts, { force: true })
-  if (join1.code !== 0 || !existsSync(videoOnly)) throw new Error(`拼接视频失败：${join1.out.slice(-200)}`)
+  if (join1.code !== 0 || !existsSync(videoOnly))
+    throw new Error(`拼接视频失败：${join1.out.slice(-200)}`)
 
   // 用原片的音轨补上
-  const final = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
-    '-i', videoOnly, '-i', input,
-    '-map', '0:v:0', '-map', '1:a:0?', '-c', 'copy', '-movflags', '+faststart', output])
+  const final = await runTool(ffmpeg, [
+    '-y',
+    '-loglevel',
+    'error',
+    '-i',
+    videoOnly,
+    '-i',
+    input,
+    '-map',
+    '0:v:0',
+    '-map',
+    '1:a:0?',
+    '-c',
+    'copy',
+    '-movflags',
+    '+faststart',
+    output,
+  ])
   rmSync(videoOnly, { force: true })
-  if (final.code !== 0) throw new Error(`合并音轨失败：${final.out.slice(-200)}`)
+  if (final.code !== 0)
+    throw new Error(`合并音轨失败：${final.out.slice(-200)}`)
 
   // 收尾自检：拼出来的时长应接近源片；差太多说明拼接有问题，别把坏文件留给用户
   const ffprobe = ffprobeFor(ffmpeg)
@@ -107,17 +163,22 @@ async function assemble(input: string, output: string): Promise<void> {
     durationOf(ffprobe, input),
   ])
   if (done && whole && durationMismatch(done, whole)) {
-    throw new Error(`拼接结果时长异常（${done.toFixed(0)} 秒 vs 源片 ${whole.toFixed(0)} 秒）`)
+    throw new Error(
+      `拼接结果时长异常（${done.toFixed(0)} 秒 vs 源片 ${whole.toFixed(0)} 秒）`
+    )
   }
   // 成功后清掉缓存，避免堆积
   rmSync(dir, { recursive: true, force: true })
 }
 
 /** 「继续」：裁出剩余部分 → 交给 lada → 跑完自动拼接 */
-export async function resume(input: unknown): Promise<{ success: boolean; error?: string; doneSeconds?: number }> {
+export async function resume(
+  input: unknown
+): Promise<{ success: boolean; error?: string; doneSeconds?: number }> {
   try {
     if (running) throw new Error('已经有一个续跑在进行中')
-    if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
+    if (typeof input !== 'string' || !input.trim())
+      throw new Error('缺少文件路径')
     const file = input.trim()
     if (!existsSync(file)) throw new Error('文件不存在')
     const progress = readProgress(file)
@@ -128,15 +189,33 @@ export async function resume(input: unknown): Promise<{ success: boolean; error?
     const dir = dirFor(file)
     const remainder = join(dir, `rest-${Date.now()}.mp4`)
     // -c copy 裁出剩余部分：很快，不重新编码
-    const trim = await runTool(ffmpeg, ['-y', '-loglevel', 'error', '-ss', progress.doneSeconds.toFixed(3),
-      '-i', file, '-c', 'copy', '-avoid_negative_ts', 'make_zero', remainder])
-    if (trim.code !== 0 || !existsSync(remainder)) throw new Error(`裁出剩余部分失败：${trim.out.slice(-300)}`)
+    const trim = await runTool(ffmpeg, [
+      '-y',
+      '-loglevel',
+      'error',
+      '-ss',
+      progress.doneSeconds.toFixed(3),
+      '-i',
+      file,
+      '-c',
+      'copy',
+      '-avoid_negative_ts',
+      'make_zero',
+      remainder,
+    ])
+    if (trim.code !== 0 || !existsSync(remainder))
+      throw new Error(`裁出剩余部分失败：${trim.out.slice(-300)}`)
 
     const output = restoredPathFor(file)
     // lada 处理"剩余部分"，输出到缓存目录（先不覆盖最终文件）
     const partOutput = join(dir, `part${progress.parts}.mp4`)
     startJob(file, { source: remainder, output: partOutput })
-    running = { input: file, output, remainder, trimStart: progress.doneSeconds }
+    running = {
+      input: file,
+      output,
+      remainder,
+      trimStart: progress.doneSeconds,
+    }
     const expectedParts = progress.parts + 1
 
     onJobFinished(async finished => {
@@ -160,12 +239,17 @@ export async function resume(input: unknown): Promise<{ success: boolean; error?
         await assemble(file, active.output)
         notify(`去码完成（续跑）：${basename(file)}`)
       } catch (error) {
-        notify(`续跑收尾失败：${error instanceof Error ? error.message : String(error)}`)
+        notify(
+          `续跑收尾失败：${error instanceof Error ? error.message : String(error)}`
+        )
       }
     })
     return { success: true, doneSeconds: progress.doneSeconds }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
@@ -199,7 +283,9 @@ export async function adoptLeftovers(): Promise<number> {
     const sidecar = `${partial}.owner.json`
     if (!existsSync(sidecar)) continue
     try {
-      const owner = JSON.parse(readFileSync(sidecar, 'utf8')) as { input?: string }
+      const owner = JSON.parse(readFileSync(sidecar, 'utf8')) as {
+        input?: string
+      }
       // 进度已经登记过就别重复认领
       if (owner.input && !readProgress(owner.input)) {
         const progress = await adoptPartial(owner.input, partial)

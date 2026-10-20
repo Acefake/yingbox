@@ -7,7 +7,7 @@
   "homepage": "https://github.com/Acefake/yingbox",
   "scripts": {
     "format": "prettier --write .",
-    "lint": "eslint --cache .",
+    "lint": "eslint --cache . && node scripts/check-size.mjs --strict",
     "typecheck:node": "tsc --noEmit -p tsconfig.node.json --composite false",
     "typecheck:web": "vue-tsc --noEmit -p tsconfig.web.json --composite false",
     "typecheck": "npm run typecheck:node && npm run typecheck:web",
@@ -28,7 +28,7 @@
     "check": "bash scripts/check-issues.sh",
     "check:style": "node scripts/style-tokens.mjs",
     "check:case": "node scripts/check-import-case.mjs",
-    "check:size": "node scripts/check-size.mjs",
+    "check:size": "node scripts/check-size.mjs --strict",
     "perf:static": "node scripts/measure-static.mjs",
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
     "test": "vitest run",

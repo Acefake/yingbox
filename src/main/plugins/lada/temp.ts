@@ -10,7 +10,8 @@ import { type JobLock, clearStaleLock, readLock } from './lock'
 import { classifyTempEntry, sidecarVideo, tempVideoFor } from './rules'
 
 /** lada 临时目录（也用于放锁、追播分片） */
-export const tempDirPath = (): string => join(app.getPath('temp'), 'yingbox-lada')
+export const tempDirPath = (): string =>
+  join(app.getPath('temp'), 'yingbox-lada')
 
 /** lada 在临时目录里写的"纯视频半成品"路径（与它内部的命名规则一致） */
 export function ladaTempVideo(output: string): string {
@@ -18,7 +19,8 @@ export function ladaTempVideo(output: string): string {
 }
 
 /** 半成品的归属记录路径 */
-export const sidecarFor = (output: string): string => `${ladaTempVideo(output)}.owner.json`
+export const sidecarFor = (output: string): string =>
+  `${ladaTempVideo(output)}.owner.json`
 
 /** 删除文件；进程刚被杀时文件可能还被占着，重试几次，别把垃圾留下 */
 export function dropFile(file: string): void {

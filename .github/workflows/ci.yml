@@ -1,0 +1,48 @@
+name: CI
+
+# 每个 PR 跑完成定义里的全套检查；lint 里含 check:size --strict（单文件 ≤ 400 行）
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+jobs:
+  check:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup pnpm
+        uses: pnpm/action-setup@v4
+        with:
+          version: 9
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: 22
+          cache: pnpm
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile --ignore-scripts
+
+      - name: Typecheck
+        run: pnpm typecheck
+
+      - name: Lint (含 check:size --strict)
+        run: pnpm lint
+
+      - name: Test
+        run: pnpm test
+
+      - name: Build
+        run: pnpm build:nocheck
+
+      - name: Style / import case
+        run: pnpm check:style && pnpm check:case
+
+      - name: preload 只能 require electron
+        run: |
+          bad=$(grep -o 'require("[^"]*")' out/preload/*.js | grep -v 'require("electron")' || true)
+          if [ -n "$bad" ]; then echo "$bad"; exit 1; fi

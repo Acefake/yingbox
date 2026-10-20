@@ -4,12 +4,12 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-影盒 (yingbox) is an Electron desktop app (Windows/Mac) for media resource management, online streaming, and metadata scraping. It has a Vue 3 + TypeScript frontend, an Electron main-process shell, and a Go backend for MissAV content serving.
+影盒 (yingbox) is an Electron desktop app (Windows/Mac) for media resource management, online streaming, and metadata scraping. It has a Vue 3 + TypeScript frontend, an Electron main-process shell, and an engine `utilityProcess` for online sources, MissAV and downloads.
 
 ## Common commands
 
 ```bash
-# Dev (Electron + Go backend concurrently)
+# Dev (Electron + renderer HMR)
 pnpm dev
 
 # Type checking
@@ -18,7 +18,7 @@ pnpm typecheck:node     # tsc for main/preload
 pnpm typecheck:web      # vue-tsc for renderer
 
 # Lint / format
-pnpm lint               # eslint --cache
+pnpm lint               # eslint --cache + check:size --strict（单文件 ≤ 400 行，影视文件豁免）
 pnpm format             # prettier --write .
 
 # Tests
@@ -132,17 +132,17 @@ Config in `userData/config.json` (main process): `downloadPath`.
 
 ### Tech stack summary
 
-| Layer             | Technology                                                        |
-| ----------------- | ----------------------------------------------------------------- |
-| Desktop shell     | Electron 37                                                       |
-| Build tooling     | electron-vite 5, Vite 7                                           |
-| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                             |
-| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                                |
-| Metadata          | @tdanks2000/tmdb-wrapper                                          |
-| CatSpider runtime | cheerio, crypto-js (required by `backend/py/catspider_runner.js`) |
-| Go backend        | Go 1.22, modernc.org/sqlite (no CGo needed)                       |
-| Python scripts    | Embedded in Go binary via //go:embed                              |
-| Package manager   | pnpm                                                              |
+| Layer             | Technology                                          |
+| ----------------- | --------------------------------------------------- |
+| Desktop shell     | Electron 37                                         |
+| Build tooling     | electron-vite 5, Vite 7                             |
+| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4               |
+| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                  |
+| Metadata          | @tdanks2000/tmdb-wrapper                            |
+| Engine            | Electron utilityProcess, `net.fetch`                |
+| Library           | utilityProcess engine, `node:sqlite`                |
+| CatSpider runtime | cheerio, crypto-js (engine plugin sandbox)          |
+| Package manager   | pnpm                                                |
 
 ## UI conventions
 
