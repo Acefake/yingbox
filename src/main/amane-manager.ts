@@ -11,6 +11,7 @@ import {
 } from 'path'
 import { createServer } from 'net'
 import type { AmaneRequest, AmaneSettings, AmaneStatus } from '../shared/amane'
+import { readAmaneResponse } from './amane-response'
 
 const VERSION = '0.20.1'
 const sleep = (ms: number): Promise<void> =>
@@ -474,21 +475,7 @@ async function requestApi(request: AmaneRequest): Promise<unknown> {
     await response.body?.cancel()
     return { accepted: true }
   }
-  if (response.status === 204) return null
-  const data = (await response.json()) as { detail?: unknown }
-  if (!response.ok) {
-    const detail =
-      typeof data.detail === 'string'
-        ? data.detail
-        : Array.isArray(data.detail)
-          ? data.detail
-              .map(item => (typeof item?.msg === 'string' ? item.msg : ''))
-              .filter(Boolean)
-              .join('；')
-          : ''
-    throw new Error(detail || `Amane 请求失败（HTTP ${response.status}）`)
-  }
-  return data
+  return readAmaneResponse(response, path)
 }
 
 async function imageResponse(request: Request): Promise<Response> {
