@@ -4,7 +4,7 @@
   "description": "影盒 - 影视资源管理与在线观看",
   "main": "./out/main/index.js",
   "author": "影盒团队",
-  "homepage": "https://github.com/yingbox",
+  "homepage": "https://github.com/Acefake/yingbox",
   "scripts": {
     "format": "prettier --write .",
     "lint": "eslint --cache .",
@@ -21,7 +21,7 @@
     "build:nocheck": "electron-vite build",
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
-    "build:backend": "cd packages/services/backend && go build -o main.exe .",
+    "build:backend": "cd packages/backend && go build -o main.exe .",
     "build:unpack": "npm run fetch:mpv && npm run build:nocheck && npm run build:backend && electron-builder --dir",
     "build:win": "npm run fetch:mpv && npm run build:nocheck && npm run build:backend && electron-builder --win zip",
     "build:win:full": "npm run fetch:mpv && npm run build:nocheck && npm run build:backend && electron-builder --win",

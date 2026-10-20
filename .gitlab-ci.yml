@@ -13,7 +13,7 @@ cache:
   key:
     files:
       - pnpm-lock.yaml
-      - packages/services/backend/go.sum
+      - packages/backend/go.sum
   paths:
     - .pnpm-store/
     - .cache/electron/

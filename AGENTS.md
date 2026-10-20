@@ -23,7 +23,7 @@ pnpm test           # vitest run (tests/)
 pnpm format         # prettier --write .
 pnpm build          # typecheck + electron-vite build
 pnpm build:nocheck  # electron-vite build only
-pnpm build:backend  # go build -o main.exe (packages/services/backend)
+pnpm build:backend  # go build -o main.exe (packages/backend)
 pnpm build:win      # Windows zip (builds Go backend first)
 pnpm build:win:full # Windows NSIS installer
 pnpm build:mac      # macOS dmg
@@ -80,7 +80,7 @@ Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/pl
 - `views/online/` — CMS/CatSpider search + `DetailWindow.vue`; `views/av/` — MissAV library
 - `components/UnifiedVideoPlayer.vue` — Artplayer + hls.js wrapper (subtitles, playback-rate memory)
 
-### Go backend (`packages/services/backend/main.go`)
+### Go backend (`packages/backend/main.go`)
 
 HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and extracts it next to the binary at startup (never overwrites existing `cfg/` / `db/`).
 
@@ -106,7 +106,7 @@ HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and ex
 
 `electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). The Go binary and `backend/py` ship via `extraResources`.
 
-Build outputs (`out/`, `packages/services/backend/main*`) are gitignored and untracked — regenerate with `pnpm build:backend` / `pnpm build`.
+Build outputs (`out/`, `packages/backend/main*`) are gitignored and untracked — regenerate with `pnpm build:backend` / `pnpm build`.
 
 ### Tech stack
 
