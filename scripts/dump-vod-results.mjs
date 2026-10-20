@@ -4,10 +4,10 @@ import { spawn } from 'node:child_process'
 
 const keyword = process.argv[2] || '流浪地球'
 const root = process.cwd()
-const configPath = path.join(root, 'packages/services/backend/py/vod.json')
+const configPath = path.join(root, 'packages/backend/py/vod.json')
 const runner = path.join(
   root,
-  'packages/services/backend/py/catspider_runner.js'
+  'packages/backend/py/catspider_runner.js'
 )
 const config = JSON.parse(fs.readFileSync(configPath, 'utf8'))
 const sites = (config.sites || []).filter(site => site.type === 3)

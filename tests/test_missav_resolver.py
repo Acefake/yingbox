@@ -5,7 +5,7 @@ import json
 import socket
 from unittest.mock import MagicMock, patch
 
-spec = importlib.util.spec_from_file_location("missav_resolver", Path(__file__).resolve().parents[1] / "packages/services/backend/py/missav_resolver.py")
+spec = importlib.util.spec_from_file_location("missav_resolver", Path(__file__).resolve().parents[1] / "packages/backend/py/missav_resolver.py")
 resolver = importlib.util.module_from_spec(spec)
 spec.loader.exec_module(resolver)
 

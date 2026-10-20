@@ -12,13 +12,9 @@ export default tseslint.config(
       '**/dist-web',
       '**/dist-renderer',
       // 本地临时目录与 agent 工作树（已在 .gitignore，避免 lint 解析构建产物/仓库副本）
-      '.codex_tmp',
       '.claude/worktrees',
-      // 第三方 vendored 扩展（CatSpider js 插件），非本仓库源码
-      'packages/xptv-extensions-main',
-      // 独立部署的下载器前端与内嵌 Python 脚本（各有自己的约定，不随 Electron 应用发版）
-      'packages/services/frontend',
-      'packages/services/backend/py',
+      // Go 后端内嵌的 Python/Node 脚本（各有自己的约定）
+      'packages/backend/py',
     ],
   },
   tseslint.configs.recommended,
