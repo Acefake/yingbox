@@ -11,8 +11,9 @@ import { setAmanePhoneToken } from '@/api/amane'
 import {
   getScrapeProviderConfig,
   saveScrapeProviderConfig,
-  syncTmdbTokenToEngine,
 } from '@/stores/scrape-provider-store'
+import { libraryBridge } from '@/features/library/api/bridge'
+import { migrateLegacyTmdbToken } from '@/features/library/settings/provider-token'
 
 /**
  * 手机接入(桌面客户端 → Amane 设置 → "手机接入"):地址栏一次性携带
@@ -64,5 +65,5 @@ app.mount('#app')
 
 registerPwa()
 
-// 媒体库引擎在自己的进程里识别与刮削，令牌由这里下发（引擎侧持久化）
-void syncTmdbTokenToEngine()
+// 媒体库令牌存在引擎里；旧版本存在 localStorage 的令牌在这里一次性迁过去
+void migrateLegacyTmdbToken(libraryBridge())
