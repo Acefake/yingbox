@@ -72,7 +72,7 @@ const name = `settings-radio-${useId()}`
 .settings-radio-text {
   display: flex;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   min-width: 0;
 }
 .settings-radio-title {

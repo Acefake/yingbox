@@ -72,7 +72,7 @@ function findMpvExecutable(): string {
  * 封装进程生命周期与 IPC 控制，以 EventEmitter 形式暴露状态变化。
  * 外部通过 `mpvPlayer` 单例访问。
  */
-export class MpvPlayer extends EventEmitter {
+class MpvPlayer extends EventEmitter {
   private child: ChildProcess | null = null
   private readonly sock = new MpvSocket()
   private _status: MpvStatus = { ...DEFAULT_STATUS }

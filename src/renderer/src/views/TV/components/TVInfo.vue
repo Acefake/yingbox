@@ -116,12 +116,12 @@ defineProps<Props>()
 .ti-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
+  gap: var(--space-2);
   margin: 0;
 }
 .ti-item {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 .ti-item dt {
   flex-shrink: 0;

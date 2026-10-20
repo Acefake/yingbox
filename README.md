@@ -9,7 +9,7 @@
 
 ## 技术栈
 
-Electron 37 · Vue 3 + TypeScript + Pinia · Ant Design Vue 4 + Tailwind CSS 4 · Go 1.22 后端（127.0.0.1:31471，内嵌 Python 脚本）· pnpm
+Electron 37 · Vue 3 + TypeScript · Ant Design Vue 4 + Tailwind CSS 4 · Go 1.22 后端（127.0.0.1:31471，内嵌 Python 脚本）· pnpm
 
 ## 目录
 

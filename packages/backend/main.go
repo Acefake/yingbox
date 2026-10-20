@@ -190,44 +190,6 @@ func outboundClient() *http.Client {
 	return direct
 }
 
-// ── 性能：downloaded.db 全局句柄（WAL + busy_timeout），避免每次请求 open + 建表 ──
-var (
-	downloadedDB   *sql.DB
-	downloadedDBMu sync.Mutex
-)
-
-func getDownloadedDB() (*sql.DB, error) {
-	downloadedDBMu.Lock()
-	defer downloadedDBMu.Unlock()
-	if downloadedDB != nil {
-		return downloadedDB, nil
-	}
-	dbDir := filepath.Join(scriptsDir, "db")
-	if err := os.MkdirAll(dbDir, 0755); err != nil {
-		return nil, err
-	}
-	dbPath := filepath.Join(dbDir, "downloaded.db")
-	db, err := sql.Open("sqlite", dbPath)
-	if err != nil {
-		return nil, err
-	}
-	// WAL 提升并发读性能；busy_timeout 避免高并发写时直接报 locked
-	if _, err := db.Exec("PRAGMA journal_mode=WAL"); err != nil {
-		db.Close()
-		return nil, err
-	}
-	if _, err := db.Exec("PRAGMA busy_timeout=5000"); err != nil {
-		db.Close()
-		return nil, err
-	}
-	if err := initDB(db); err != nil {
-		db.Close()
-		return nil, err
-	}
-	downloadedDB = db
-	return downloadedDB, nil
-}
-
 // VideoItem 表示视频列表项
 type VideoItem struct {
 	ID     string `json:"id"`

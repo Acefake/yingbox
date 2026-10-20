@@ -113,7 +113,7 @@ withDefaults(
   color: var(--danger);
 }
 .yb-icon-button.is-loading .app-icon {
-  animation: yb-icon-spin 0.9s linear infinite;
+  animation: yb-icon-spin var(--duration-spin) linear infinite;
 }
 @keyframes yb-icon-spin {
   to {

@@ -368,19 +368,22 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-overlay {
   position: fixed;
   inset: 0;
-  z-index: 2050;
+  z-index: var(--z-sheet);
   background: var(--overlay-scrim-soft);
   backdrop-filter: blur(4px);
 }
 
 .sqp-panel {
   position: fixed;
-  z-index: 2051;
+  z-index: calc(var(--z-sheet) + 1);
   display: flex;
   flex-direction: column;
   /* 锚定值走变量，窄屏的媒体查询才会真正接管定位 */
-  left: var(--sqp-left, 12px);
-  bottom: var(--sqp-anchor-bottom, 96px);
+  left: var(--sqp-left, var(--space-3));
+  bottom: var(
+    --sqp-anchor-bottom,
+    96px
+  ); /* style-tokens: layout（由 JS 锚定的回退值） */
   width: min(380px, calc(100vw - 24px));
   max-height: min(560px, calc(100vh - var(--sqp-anchor-bottom, 96px) - 16px));
   border: 1px solid var(--border-default);
@@ -436,7 +439,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-runtime-fill {
   height: 100%;
   background: var(--accent);
-  transition: width 0.3s var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 
 .sqp-runtime-body {
@@ -450,8 +453,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-job-detail {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin-top: 6px;
+  gap: var(--space-2);
+  margin-top: var(--space-2);
 }
 .sqp-job-track {
   flex: 1 1 auto;
@@ -465,7 +468,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 0.2s var(--ease-out);
+  transition: width var(--duration-normal) var(--ease-out);
 }
 .sqp-job-value {
   flex: 0 1 auto;
@@ -479,7 +482,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-dot.is-live {
   border-color: var(--accent);
-  animation: sqp-live-pulse 1.4s ease-out infinite;
+  animation: sqp-live-pulse var(--duration-pulse) ease-out infinite;
 }
 @keyframes sqp-live-pulse {
   0%,
@@ -497,7 +500,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .sqp-subtitle {
-  margin: 10px 16px;
+  margin: var(--space-2) var(--space-4);
   font-size: var(--text-xs);
   color: var(--text-tertiary);
 }
@@ -506,8 +509,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 6px;
-  padding: 48px 20px;
+  gap: var(--space-2);
+  padding: var(--space-9) var(--space-5);
   color: var(--text-tertiary);
   text-align: center;
 }
@@ -529,10 +532,10 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-row {
   display: flex;
   align-items: center;
-  gap: 10px;
-  padding: 10px 14px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   border-bottom: 1px solid var(--separator);
-  transition: background 0.15s var(--ease-out);
+  transition: background var(--duration-fast) var(--ease-out);
 }
 .sqp-row:last-child {
   border-bottom: 0;
@@ -562,7 +565,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-radius: var(--radius-full);
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
-  animation: sqp-spin 0.75s linear infinite;
+  animation: sqp-spin var(--duration-spin) linear infinite;
 }
 @keyframes sqp-spin {
   to {
@@ -603,7 +606,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   text-overflow: ellipsis;
 }
 .sqp-meta {
-  margin-top: 2px;
+  margin-top: var(--space-0_5);
   font-size: var(--text-2xs);
   color: var(--text-secondary);
   white-space: nowrap;
@@ -622,8 +625,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-steps {
   display: flex;
-  gap: 3px;
-  margin-top: 5px;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
 }
 .sqp-step {
   width: 16px;
@@ -638,20 +641,20 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-type {
   flex-shrink: 0;
   font-size: var(--text-2xs);
-  padding: 1px 8px;
+  padding: 1px var(--space-2);
 }
 
 .sqp-actions {
   display: flex;
-  gap: 2px;
+  gap: var(--space-0_5);
   flex-shrink: 0;
 }
 
 .sqp-footer {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 12px 14px 14px;
+  gap: var(--space-2);
+  padding: var(--space-3) var(--space-4) var(--space-4);
   border-top: 1px solid var(--separator);
 }
 .sqp-progress-track {
@@ -664,12 +667,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   height: 100%;
   border-radius: inherit;
   background: var(--accent);
-  transition: width 0.4s var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 .sqp-footer-actions {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 .sqp-clear-all:hover:not(:disabled) {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
@@ -678,7 +681,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-fade-enter-active,
 .sqp-fade-leave-active {
-  transition: opacity 0.18s ease;
+  transition: opacity var(--duration-fast) ease;
 }
 .sqp-fade-enter-from,
 .sqp-fade-leave-to {
@@ -687,13 +690,13 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-slide-enter-active {
   transition:
-    opacity 0.18s ease,
-    transform 0.18s var(--ease-out);
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out);
 }
 .sqp-slide-leave-active {
   transition:
-    opacity 0.14s ease,
-    transform 0.12s ease;
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 .sqp-slide-enter-from {
   opacity: 0;

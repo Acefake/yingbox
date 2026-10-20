@@ -300,7 +300,7 @@ function serve(s: LiveSession): Promise<number> {
  *  - 已经有一个**普通去码任务**在跑同一部片子 → 直接追播它，不再起第二个 lada
  *  - 有别的普通任务在跑 → 同样先暂停并登记进度
  */
-export async function startLive(input: unknown): Promise<{ success: boolean; url?: string; error?: string }> {
+async function startLive(input: unknown): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
     const file = input.trim()
@@ -400,7 +400,7 @@ async function pauseJob(job: LadaJob): Promise<void> {
   await waitForLadaExit()
 }
 
-export function stopLive(): void {
+function stopLive(): void {
   const s = session
   if (!s) return
   s.stopping = true

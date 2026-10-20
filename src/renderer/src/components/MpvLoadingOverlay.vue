@@ -73,9 +73,9 @@ onBeforeUnmount(() => overlay.value?.close())
 .mpv-loading-content {
   display: flex;
   align-items: center;
-  gap: 16px;
+  gap: var(--space-4);
 
-  padding: 24px 28px;
+  padding: var(--space-6) var(--space-6_5);
 
   background: var(--bg-elevated);
   color: var(--text-primary);
@@ -87,7 +87,7 @@ onBeforeUnmount(() => overlay.value?.close())
   border: 3px solid var(--text-tertiary);
   border-top-color: var(--text-primary);
   border-radius: 50%;
-  animation: mpv-loading-spin 0.8s linear infinite;
+  animation: mpv-loading-spin var(--duration-spin) linear infinite;
 }
 .mpv-loading-copy {
   min-width: 0;
@@ -97,7 +97,7 @@ onBeforeUnmount(() => overlay.value?.close())
   font-size: var(--text-sm);
 }
 .mpv-loading-title {
-  margin: 6px 0 0;
+  margin: var(--space-2) 0 0;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--text-xs);

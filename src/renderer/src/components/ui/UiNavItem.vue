@@ -120,7 +120,7 @@ withDefaults(
 .ui-nav-item:where(.is-stack) {
   flex-direction: column;
   justify-content: center;
-  gap: 2px;
+  gap: var(--space-0_5);
   height: auto;
   padding: var(--space-1) 0;
   border-radius: 0;

@@ -6,7 +6,7 @@ export interface AvSite {
   api: string
 }
 
-export const AV_SOURCES: AvSite[] = [
+const AV_SOURCES: AvSite[] = [
   { name: '森林资源', api: 'https://slapibf.com/api.php/provide/vod/' },
   { name: '探探资源', api: 'https://apittzy.com/api.php/provide/vod/' },
   { name: '奥斯卡资源', api: 'https://aosikazy.com/api.php/provide/vod/' },

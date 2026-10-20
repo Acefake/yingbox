@@ -5,7 +5,7 @@
 
 export type ScrapeProviderType = 'tmdb' | 'custom'
 
-export interface ScrapeProviderConfig {
+interface ScrapeProviderConfig {
   /** 当前选中的服务提供者 */
   provider: ScrapeProviderType
   /** TMDB Access Token（Bearer token） */
@@ -85,9 +85,6 @@ export const getTmdbAccessToken = (): string => {
   const config = getScrapeProviderConfig()
   return config.tmdbAccessToken || ENV_TMDB_TOKEN
 }
-
-/** 是否已配置 TMDB Token（未配置时 TMDB 相关功能不可用） */
-export const hasTmdbToken = (): boolean => getTmdbAccessToken() !== ''
 
 /**
  * 获取 在线资源 Go 后端 URL

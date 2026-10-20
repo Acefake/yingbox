@@ -39,7 +39,7 @@ withDefaults(
   gap: var(--space-1);
   max-width: 100%;
   min-height: 24px;
-  padding: 3px var(--space-2);
+  padding: var(--space-1) var(--space-2);
   border: 0;
   border-radius: var(--radius-full);
   background: var(--bg-fill-secondary);

@@ -10,12 +10,12 @@ const STORAGE_KEY = 'yingbox-theme'
 /** Shared reactive theme — read via useTheme(); mutate via setTheme/toggleTheme. */
 const themeRef = ref<AppTheme>('dark')
 
-export function getStoredTheme(): AppTheme | null {
+function getStoredTheme(): AppTheme | null {
   const value = localStorage.getItem(STORAGE_KEY)
   return value === 'light' || value === 'dark' ? value : null
 }
 
-export function resolveInitialTheme(): AppTheme {
+function resolveInitialTheme(): AppTheme {
   return getStoredTheme() ?? 'dark'
 }
 
@@ -97,7 +97,7 @@ function px(value: string, fallback: number): number {
  * 明暗算法跟随我们的主题。message / notification / Modal.confirm 这些静态方法
  * 由 App.vue 通过 ConfigProvider.config 同步拿到同一份主题。
  */
-export function buildAntdTheme(theme: AppTheme): ThemeConfig {
+function buildAntdTheme(theme: AppTheme): ThemeConfig {
   const read = tokenReader(theme)
   const accent = read('--accent')
   return {
@@ -133,7 +133,7 @@ export function buildAntdTheme(theme: AppTheme): ThemeConfig {
   }
 }
 
-export function applyTheme(theme: AppTheme): void {
+function applyTheme(theme: AppTheme): void {
   const root = document.documentElement
   if (theme === 'light') root.setAttribute('data-theme', 'light')
   else root.removeAttribute('data-theme')
@@ -144,11 +144,11 @@ export function applyTheme(theme: AppTheme): void {
     themeColor.setAttribute('content', theme === 'dark' ? '#171717' : '#fafaf8')
 }
 
-export function setTheme(theme: AppTheme): void {
+function setTheme(theme: AppTheme): void {
   applyTheme(theme)
 }
 
-export function toggleTheme(): AppTheme {
+function toggleTheme(): AppTheme {
   const next: AppTheme = themeRef.value === 'dark' ? 'light' : 'dark'
   applyTheme(next)
   return next
@@ -161,7 +161,7 @@ export function initTheme(): AppTheme {
   return theme
 }
 
-export interface UseThemeReturn {
+interface UseThemeReturn {
   theme: Readonly<Ref<AppTheme>>
   isDark: ComputedRef<boolean>
   antdTheme: ComputedRef<ThemeConfig>

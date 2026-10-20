@@ -116,17 +116,24 @@
   --leading-tight: 1.2;
   --leading-normal: 1.5;
 
-  /* ── 间距：8pt 网格 ── */
+  /*
+   * ── 间距：8pt 网格 ──
+   * 组件里的 padding / margin / gap / 定位偏移一律用这里的档位；
+   * 0_5 / 6_5 是网格之间的半档，只给反复出现的微调和大留白用。
+   */
+  --space-0_5: 2px;
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
+  --space-6_5: 28px;
   --space-7: 32px;
   --space-8: 40px;
   --space-9: 48px;
   --space-10: 64px;
+  --space-11: 80px; /* 空状态的大留白 */
 
   /* ── 圆角：角标 4 / 小控件 6 / 控件 8 / 卡片海报 12 / 弹窗 16 ── */
   --radius-xs: 4px;
@@ -174,6 +181,11 @@
   --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.5);
   --shadow-panel: var(--shadow-lg);
   --focus-ring: 0 0 0 3px var(--accent-glow);
+  /* 校验失败的输入框外圈 */
+  --focus-ring-danger: 0 0 0 3px
+    color-mix(in srgb, var(--danger) 32%, transparent);
+  /* 与内容隔开一圈底色的焦点环（海报等图片目标） */
+  --focus-ring-offset: 0 0 0 3px var(--bg-content), 0 0 0 6px var(--accent);
 
   /* ── 滚动条 ── */
   --scrollbar-thumb: rgba(255, 255, 255, 0.2);
@@ -183,16 +195,52 @@
   /* ── 动效 ── */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
   --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
-  --duration-fast: 150ms;
-  --duration-normal: 240ms;
+  --duration-instant: 100ms; /* 按下反馈 */
+  --duration-fast: 150ms; /* 悬停、颜色、淡入淡出 */
+  --duration-normal: 240ms; /* 弹窗、面板进出 */
+  --duration-slow: 350ms; /* 宽度、进度条等大幅变化 */
+  --duration-spin: 800ms; /* 加载转圈一周 */
+  --duration-pulse: 1.4s; /* 呼吸 / 脉冲一个周期 */
   --transition-panel:
-    transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
+    transform var(--duration-slow) var(--ease-out),
+    opacity var(--duration-slow) var(--ease-out);
   --transition-fast:
-    color 150ms ease, background-color 150ms ease, border-color 150ms ease,
-    opacity 150ms ease, transform 150ms var(--ease-out), box-shadow 150ms ease;
+    color var(--duration-fast) ease, background-color var(--duration-fast) ease,
+    border-color var(--duration-fast) ease, opacity var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out),
+    box-shadow var(--duration-fast) ease;
   --transition-normal:
-    color 240ms ease, background-color 240ms ease, border-color 240ms ease,
-    opacity 240ms ease, transform 240ms var(--ease-out), box-shadow 240ms ease;
+    color var(--duration-normal) ease,
+    background-color var(--duration-normal) ease,
+    border-color var(--duration-normal) ease,
+    opacity var(--duration-normal) ease,
+    transform var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) ease;
+
+  /*
+   * ── 层级（z-index）──
+   * 局部档只在组件自己的层叠上下文里比大小；全局档给 position: fixed 的浮层。
+   * 顺序（低 → 高）：局部档 < Ant 弹窗 1000 / message 1010 / 下拉 1050 / 气泡 1070
+   * < 底栏 < 抽屉 < 播放弹窗 < 浮层面板 < 灯箱 < 设置 < 二级对话框 < 本地播放器 < 提示。
+   * 同一组件的遮罩和窗口用 calc(var(--z-…) + 1) 叠在一起。
+   */
+  --z-raised: 2; /* 略高于兄弟元素 */
+  --z-above: 5; /* 加载层、顶栏 */
+  --z-float: 10; /* 页内浮起的内容 */
+  --z-dropdown: 20; /* 页内下拉菜单、列表栏 */
+  --z-popover: 30; /* 播放器里的弹出面板 */
+  --z-overlay: 40; /* 盖住整页的内联覆盖层 */
+  --z-overlay-top: 45; /* 覆盖层之上的错误提示、悬浮卡片 */
+  --z-bottom-nav: 1100; /* 手机底部导航，高于 Ant 弹窗与 message */
+  --z-drawer-backdrop: 1140;
+  --z-drawer: 1150; /* 手机侧栏抽屉 */
+  --z-modal: 2000; /* 播放弹窗、来源管理遮罩 */
+  --z-sheet: 2050; /* 刮削队列、选集面板 */
+  --z-lightbox: 2060; /* 看图灯箱 */
+  --z-settings: 2100; /* 设置窗口 */
+  --z-dialog: 3000; /* 设置里再弹出的对话框 */
+  --z-player-overlay: 6000; /* 应用内本地播放器 */
+  --z-max: 10000; /* tooltip，永远在最上 */
 }
 
 [data-theme='light'] {
@@ -265,13 +313,9 @@
 
 @media (prefers-reduced-motion: reduce) {
   :root {
+    --duration-instant: 0ms;
     --duration-fast: 0ms;
     --duration-normal: 0ms;
-  }
-  *,
-  *::before,
-  *::after {
-    animation-duration: 0.01ms !important;
-    transition-duration: 0.01ms !important;
+    --duration-slow: 0ms;
   }
 }
