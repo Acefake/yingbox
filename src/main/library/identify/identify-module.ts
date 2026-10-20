@@ -85,6 +85,8 @@ export interface IdentifyModuleOptions {
   http?: { rps?: number; concurrency?: number; clock?: Clock }
   /** 同时识别的条目数，默认 8。 */
   concurrency?: number
+  /** 识别 / 刷新 / 手动匹配后有元数据变化的顶层条目（写出层据此自动写 NFO）。 */
+  onIdentified?: (itemIds: number[]) => void
   log?: (message: string) => void
 }
 
@@ -113,6 +115,8 @@ export class IdentifyModule {
   readonly http: ProviderHttp
   readonly store: IdentifyStore
   readonly runner: IdentifyRunner
+  /** 原图缓存；没有缓存目录时为 undefined。写出层复用它拿图片。 */
+  readonly images: ImageCache | undefined
   private readonly cache: SqliteResponseCache
   private readonly settings: SettingsStore
   private readonly hashLookup: OpenSubtitlesHashLookup
@@ -149,20 +153,21 @@ export class IdentifyModule {
         options.env?.opensubtitlesKey
     )
     this.store = new IdentifyStore(db)
+    this.images = options.mediaDir
+      ? new ImageCache({
+          db,
+          mediaDir: options.mediaDir,
+          fetch: fetchImpl,
+          onCached: options.onImagesCached,
+        })
+      : undefined
     this.runner = new IdentifyRunner({
       db,
       store: this.store,
       writer: new MetadataWriter(db),
       provider: this.provider,
       hashLookup: this.hashLookup,
-      images: options.mediaDir
-        ? new ImageCache({
-            db,
-            mediaDir: options.mediaDir,
-            fetch: fetchImpl,
-            onCached: options.onImagesCached,
-          })
-        : undefined,
+      images: this.images,
       probeDuration: options.probeDuration ?? probeFileDuration,
       fingerprint: options.fingerprint,
       log: this.log,
@@ -258,6 +263,7 @@ export class IdentifyModule {
     try {
       const result = await this.runner.applyManual(target, request)
       this.emitChanges(result.changes)
+      if (result.status === 'matched') this.options.onIdentified?.([target.id])
       return {
         status: result.status,
         item: this.options.catalogQuery.summary(target.id),
@@ -442,6 +448,8 @@ export class IdentifyModule {
     }
     flush(summary.changes)
     progress(summary, true)
+    const changed = [...summary.changes.added, ...summary.changes.updated]
+    if (changed.length) this.options.onIdentified?.(changed)
   }
 }
 

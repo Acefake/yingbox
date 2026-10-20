@@ -85,6 +85,8 @@ export interface MediaMetadata {
   /** 已按“语言偏好 → 评分 → 票数”排好序。 */
   images: ImageCandidate[]
   externalIds: ExternalIds
+  /** 电影所属系列（合集），NFO 的 <set>。 */
+  collection?: { id: string; name: string }
   /** 剧集状态（Returning Series / Ended / Canceled……）。 */
   status?: string
   seasons?: SeasonSummary[]
