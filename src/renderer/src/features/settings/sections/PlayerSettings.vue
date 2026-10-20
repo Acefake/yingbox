@@ -35,8 +35,7 @@
  */
 import { computed, watch } from 'vue'
 
-import { syncRtxVsr } from '@/composables/use-media-player'
-import { useMpvPlayer } from '@/composables/use-mpv-player'
+import { syncRtxVsr, useMpvPlayer } from '@/features/player'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'

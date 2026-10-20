@@ -79,26 +79,26 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 
 Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/routers.ts)):
 
-- `/` → Online search & streaming ([views/online/Index.vue](src/renderer/src/views/online/Index.vue))
+- `/` → Online search & streaming ([features/online/views/OnlineView.vue](src/renderer/src/features/online/views/OnlineView.vue))
 - `/movie` → Movie file management & scraping ([views/Movie/index.vue](src/renderer/src/views/Movie/index.vue))
 - `/tv` → TV show file management & scraping ([views/TV/index.vue](src/renderer/src/views/TV/index.vue))
-- `/av` → Adult video resources online playback ([views/av/Index.vue](src/renderer/src/views/av/Index.vue))
-- `/player-popout` → Dedicated player window ([views/PlayerPopout.vue](src/renderer/src/views/PlayerPopout.vue))
+- `/av` → Adult video resources online playback ([features/av/views/AvView.vue](src/renderer/src/features/av/views/AvView.vue))
+- `/player-popout` → Dedicated player window ([features/player/views/PlayerPopout.vue](src/renderer/src/features/player/views/PlayerPopout.vue))
 
 `App.vue` wraps routes in `AppLayout` with `<keep-alive>`. `DetailWindow` renders inline as the online content page.
 
 Key directories under `src/renderer/src/`:
 
-- `api/` — API clients: TMDB wrapper (`tmdb.ts`), engine wrappers (`online.ts`, `missav.ts`, `download.ts`)
+- `features/<x>/` — non-library features, each self-contained (`views/ components/ composables/ api/ utils/`): `online`, `av`, `download`, `amane`, `lada`, `player`, `settings`, `shell`. Cross-feature imports only via `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`); `main.ts` / `App.vue` / `router/` compose features and may point at view files for lazy routes
+- `api/tmdb.ts` — TMDB wrapper (library)
 - `stores/` — localStorage-backed settings (no Pinia): `scrape-provider-store` (provider config + tokens persisted as `scrapeProviderConfig`)
 - `composables/` — Global composables:
   - `use-global-queue.ts` — Module-level singleton task queue with concurrent processing (max 3), dedup, progress tracking, cancellation
-  - `use-vod-parser.ts` — VOD parser client over the engine `online` domain
   - `use-error-handler.ts` — `safeExecute` / `safeExecuteSync` wrappers with Ant Design message toasts
   - `use-context-menu.ts` — MenuItem interface definition
 - `views/Movie/composables/` — Movie-specific: `use-file-management`, `use-scraping`, `use-media-processing`, `use-scraping-task`
 - `views/TV/composables/` — TV-specific: `use-tv-file-management`, `use-tv-scraping`
-- `components/` — Shared UI: `AppLayout` (frosted-glass navbar + blurred background), `WinControls` (custom titlebar), `SettingsPanel`, `SourceManagerPanel`, `ScrapeQueuePanel`; reusable controls in `components/ui/`
+- `components/` — Shared UI: page chrome (`PageHeader`, `DialogTitlebar`, `StatusState`), `ScrapeQueuePanel` (library); reusable controls in `components/ui/`. `components/UnifiedVideoPlayer.vue` and `composables/use-media-player.ts` / `use-lada-tasks.ts` are re-exports kept for the library views (delete after the library merge)
 - `types/` — TypeScript interfaces: `ProcessedItem`, `FileItem`, `ActorInfo`, `MovieInfoType`, `EpisodeInfo`, `SeasonInfo`, `TVShowInfoType`
 - `directives/` — Custom Vue directives: `v-context-menu`, `v-scroll-x`
 

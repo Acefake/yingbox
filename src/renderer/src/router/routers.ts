@@ -1,13 +1,22 @@
+/**
+ * 路由表（应用组合层）。页面组件按需加载，所以这里直接指向各 feature 的视图文件，
+ * 不经 index.ts——组合层不受 feature 边界规则约束，以保留按路由拆包。
+ */
 export const routes = [
   {
-    path: '/amane', name: 'Amane',
-    component: () => import('@/views/Amane/Index.vue'),
-    meta: { title: 'Amane', description: '私人片库、扫描与刮削', adultOnly: true },
+    path: '/amane',
+    name: 'Amane',
+    component: () => import('@/features/amane/views/AmaneView.vue'),
+    meta: {
+      title: 'Amane',
+      description: '私人片库、扫描与刮削',
+      adultOnly: true,
+    },
   },
   {
     path: '/',
     name: 'Online',
-    component: () => import('@/views/online/Index.vue'),
+    component: () => import('@/features/online/views/OnlineView.vue'),
     meta: {
       title: '在线',
       description: '在线搜索与播放',
@@ -34,7 +43,7 @@ export const routes = [
   {
     path: '/av',
     name: 'AV',
-    component: () => import('@/views/av/Index.vue'),
+    component: () => import('@/features/av/views/AvView.vue'),
     meta: {
       title: 'AV资源',
       description: '成人资源在线播放',
@@ -45,7 +54,7 @@ export const routes = [
   {
     path: '/player-popout',
     name: 'PlayerPopout',
-    component: () => import('@/views/PlayerPopout.vue'),
+    component: () => import('@/features/player/views/PlayerPopout.vue'),
     meta: {
       title: '播放器',
       description: '独立播放窗口',
