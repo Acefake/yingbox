@@ -26,9 +26,7 @@ import { registerHttpIpc } from './ipc/http-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { registerAmaneIpc } from './amane-manager'
 import { registerMpvIpc } from './ipc/mpv-ipc'
-import { registerLadaIpc } from './lada'
-import { registerLadaLiveIpc } from './lada-live'
-import { registerLadaResumeIpc } from './lada-resume'
+import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
 import { MEDIA_SCHEME_PRIVILEGES } from './library/media/media-service'
 
@@ -167,8 +165,6 @@ app.whenReady().then(async () => {
   await registerAmaneIpc()
   registerMpvIpc()
   await registerLadaIpc()
-  registerLadaLiveIpc()
-  registerLadaResumeIpc()
   registerLibraryIpc()
 
   startBackend({ configPath: getConfigPath(), downloadPath: getDownloadPath() })

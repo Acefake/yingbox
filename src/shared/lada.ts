@@ -106,3 +106,28 @@ export interface LadaLiveStatus {
   availableSeconds: number
   error?: string
 }
+
+/** 续跑进度：某个原片已经处理好的部分 */
+export interface LadaResumeProgress {
+  input: string
+  /** 已经处理好的秒数（由半成品实测） */
+  doneSeconds: number
+  /** 分段数（part0、part1…） */
+  parts: number
+  /** 上次用的编码预设/模型（拼接要求一致） */
+  preset: string
+  updatedAt: number
+}
+
+/** 区间去码产物就绪的通知 */
+export interface LadaRangeReady {
+  input: string
+  start: number
+  end: number
+  /** 给用户看的标题，如「xx.mp4（12m00s-15m00s 已去码）」 */
+  title: string
+  /** 成功时为产物路径 */
+  path?: string
+  /** 失败原因 */
+  error?: string
+}

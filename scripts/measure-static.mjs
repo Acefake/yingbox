@@ -61,14 +61,23 @@ function main() {
   const lines = []
   const pkg = JSON.parse(readFileSync(join(ROOT, 'package.json'), 'utf8'))
   lines.push('### 依赖')
-  lines.push(`- package.json dependencies：${Object.keys(pkg.dependencies ?? {}).length} 个`)
-  lines.push(`- 解析后的生产依赖（含传递）：${countDeps('--prod') ?? '未测'} 个`)
+  lines.push(
+    `- package.json dependencies：${Object.keys(pkg.dependencies ?? {}).length} 个`
+  )
+  lines.push(
+    `- 解析后的生产依赖（含传递）：${countDeps('--prod') ?? '未测'} 个`
+  )
   lines.push(`- 解析后的全部依赖（含 dev）：${countDeps('') ?? '未测'} 个`)
 
   if (!existsSync(OUT)) {
     lines.push('', '> out/ 不存在：先运行 `pnpm build:nocheck`')
   } else {
-    lines.push('', '### 构建产物（out/）', '| 进程 | 文件数 | 原始 | gzip |', '|---|---|---|---|')
+    lines.push(
+      '',
+      '### 构建产物（out/）',
+      '| 进程 | 文件数 | 原始 | gzip |',
+      '|---|---|---|---|'
+    )
     for (const proc of ['main', 'preload', 'renderer']) {
       const dir = join(OUT, proc)
       if (!existsSync(dir)) continue
@@ -80,9 +89,18 @@ function main() {
     if (existsSync(assets)) {
       const chunks = walk(assets)
         .filter(f => /\.(js|css)$/.test(f))
-        .map(f => ({ file: relative(assets, f), raw: statSync(f).size, gzip: sizeOf([f]).gzip }))
+        .map(f => ({
+          file: relative(assets, f),
+          raw: statSync(f).size,
+          gzip: sizeOf([f]).gzip,
+        }))
         .sort((a, b) => b.raw - a.raw)
-      lines.push('', '### renderer chunk（前 10）', '| chunk | 原始 | gzip |', '|---|---|---|')
+      lines.push(
+        '',
+        '### renderer chunk（前 10）',
+        '| chunk | 原始 | gzip |',
+        '|---|---|---|'
+      )
       for (const chunk of chunks.slice(0, 10)) {
         lines.push(`| ${chunk.file} | ${kb(chunk.raw)} | ${kb(chunk.gzip)} |`)
       }
@@ -91,8 +109,12 @@ function main() {
 
   const sizes = measureLines()
   lines.push('', '### 单文件行数（前 10）', '| 行数 | 文件 |', '|---|---|')
-  for (const { file, lines: count } of sizes.slice(0, 10)) lines.push(`| ${count} | ${file} |`)
-  lines.push('', `超过 400 行的文件：${sizes.filter(s => s.lines > 400).length} 个`)
+  for (const { file, lines: count } of sizes.slice(0, 10))
+    lines.push(`| ${count} | ${file} |`)
+  lines.push(
+    '',
+    `超过 400 行的文件：${sizes.filter(s => s.lines > 400).length} 个`
+  )
 
   console.log(lines.join('\n'))
 }

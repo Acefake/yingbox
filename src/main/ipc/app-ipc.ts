@@ -1,9 +1,13 @@
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { BrowserWindow, app as electronApp } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import * as fs from 'fs/promises'
-import * as path from 'path'
 import { networkInterfaces } from 'node:os'
+import * as path from 'path'
+import { emit, implement } from '../rpc'
+import { app } from '../../shared/contract/app'
+import { type UpdateStatusEvent, update } from '../../shared/contract/update'
+import { win } from '../../shared/contract/win'
 
 autoUpdater.autoDownload = false
 autoUpdater.autoInstallOnAppQuit = true
@@ -16,87 +20,85 @@ export function checkForUpdatesOnStartup(): void {
   })
 }
 
-/** 窗口控制、应用信息、自动更新 */
+/** 实现 win / app / update 三个域，并把 electron-updater 的状态推给主窗口 */
 export function registerAppIpc(
   getMainWindow: () => BrowserWindow | null
 ): void {
-  ipcMain.handle('win:minimize', event => {
-    BrowserWindow.fromWebContents(event.sender)?.minimize()
+  implement(win, {
+    minimize: ({ sender }) => {
+      BrowserWindow.fromWebContents(sender)?.minimize()
+    },
+    maximize: ({ sender }) => {
+      const target = BrowserWindow.fromWebContents(sender)
+      if (!target) return
+      if (target.isMaximized()) target.unmaximize()
+      else target.maximize()
+    },
+    close: ({ sender }) => {
+      BrowserWindow.fromWebContents(sender)?.close()
+    },
+    isMaximized: ({ sender }) =>
+      BrowserWindow.fromWebContents(sender)?.isMaximized() ?? false,
   })
 
-  ipcMain.handle('win:maximize', event => {
-    const win = BrowserWindow.fromWebContents(event.sender)
-    if (!win) return
-    if (win.isMaximized()) win.unmaximize()
-    else win.maximize()
-  })
-
-  ipcMain.handle('win:close', event => {
-    BrowserWindow.fromWebContents(event.sender)?.close()
-  })
-
-  ipcMain.handle('win:isMaximized', event => {
-    return BrowserWindow.fromWebContents(event.sender)?.isMaximized() ?? false
-  })
-
-  ipcMain.handle('app:getUserDataPath', () => app.getPath('userData'))
-
-  ipcMain.handle('app:networkIps', () => {
-    const nets = networkInterfaces()
-    const ips: string[] = []
-    for (const list of Object.values(nets)) {
-      for (const net of list ?? []) {
-        if (net.family === 'IPv4' && !net.internal) ips.push(net.address)
+  implement(app, {
+    getUserDataPath: () => electronApp.getPath('userData'),
+    networkIps: () => {
+      const ips: string[] = []
+      for (const list of Object.values(networkInterfaces())) {
+        for (const net of list ?? []) {
+          if (net.family === 'IPv4' && !net.internal) ips.push(net.address)
+        }
       }
-    }
-    return ips
-  })
-
-  ipcMain.handle('app:getVersion', async () => {
-    try {
-      const packageJsonPath = path.join(__dirname, '../../package.json')
-      const packageJson = JSON.parse(
-        await fs.readFile(packageJsonPath, 'utf-8')
-      )
-      return {
-        success: true,
-        data: {
-          name: packageJson.name,
-          version: packageJson.version,
-          description: packageJson.description,
-          author: packageJson.author,
-        },
+      return ips
+    },
+    getVersion: async () => {
+      try {
+        const packageJsonPath = path.join(__dirname, '../../package.json')
+        const packageJson = JSON.parse(
+          await fs.readFile(packageJsonPath, 'utf-8')
+        )
+        return {
+          success: true,
+          data: {
+            name: packageJson.name,
+            version: packageJson.version,
+            description: packageJson.description,
+            author: packageJson.author,
+          },
+        }
+      } catch (error) {
+        return { success: false, error: (error as Error).message, data: null }
       }
-    } catch (error) {
-      return { success: false, error: (error as Error).message, data: null }
-    }
+    },
   })
 
-  ipcMain.handle('update:check', async () => {
-    if (is.dev) return { success: false, error: '开发环境不检查更新' }
-    try {
-      const result = await autoUpdater.checkForUpdates()
-      return { success: true, data: result?.updateInfo ?? null }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
-    }
+  implement(update, {
+    check: async () => {
+      if (is.dev) return { success: false, error: '开发环境不检查更新' }
+      try {
+        const result = await autoUpdater.checkForUpdates()
+        return { success: true, data: result?.updateInfo ?? null }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    },
+    download: async () => {
+      try {
+        await autoUpdater.downloadUpdate()
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    },
+    install: () => {
+      autoUpdater.quitAndInstall(false, true)
+    },
   })
 
-  ipcMain.handle('update:download', async () => {
-    try {
-      await autoUpdater.downloadUpdate()
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
-    }
-  })
-
-  ipcMain.handle('update:install', () => {
-    autoUpdater.quitAndInstall(false, true)
-  })
-
-  const sendStatus = (status: unknown): void => {
-    getMainWindow()?.webContents.send('update:status', status)
+  const sendStatus = (status: UpdateStatusEvent): void => {
+    const target = getMainWindow()
+    if (target) emit(update, 'status', status, target.webContents)
   }
 
   autoUpdater.on('checking-for-update', () =>

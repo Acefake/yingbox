@@ -1,22 +1,14 @@
-import { ipcMain } from 'electron'
 import { downloadFile, fetchHttp, readLimited } from '../http-client'
+import { implement } from '../rpc'
+import { http } from '../../shared/contract/http'
 
 /** 图片代理的大小上限（base64 后约放大 1/3，控制在可接受的内存占用内） */
 const MAX_IMAGE_BYTES = 8 * 1024 * 1024
 
+/** 实现 http 域：全部经 http-client 的 SSRF 防护 */
 export function registerHttpIpc(): void {
-  ipcMain.handle(
-    'http:fetch',
-    async (
-      _,
-      url: string,
-      options: {
-        method?: string
-        headers?: Record<string, string>
-        body?: string
-        timeoutMs?: number
-      } = {}
-    ) => {
+  implement(http, {
+    fetch: async (_, url, options = {}) => {
       try {
         const method = (options.method ?? 'GET').toUpperCase()
         if (method !== 'GET' && method !== 'POST' && method !== 'HEAD') {
@@ -49,12 +41,9 @@ export function registerHttpIpc(): void {
       } catch (error) {
         return { success: false, error: (error as Error).message }
       }
-    }
-  )
+    },
 
-  ipcMain.handle(
-    'http:fetchImage',
-    async (_, url: string, referer?: string) => {
+    fetchImage: async (_, url, referer) => {
       try {
         const response = await fetchHttp(
           url,
@@ -87,15 +76,15 @@ export function registerHttpIpc(): void {
       } catch (error) {
         return { success: false, error: (error as Error).message }
       }
-    }
-  )
+    },
 
-  ipcMain.handle('http:download', async (_, url: string, filePath: string) => {
-    try {
-      await downloadFile(url, filePath)
-      return { success: true }
-    } catch (error) {
-      return { success: false, error: (error as Error).message }
-    }
+    download: async (_, url, filePath) => {
+      try {
+        await downloadFile(url, filePath)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: (error as Error).message }
+      }
+    },
   })
 }
