@@ -67,7 +67,7 @@ const isInstallStep = computed(
   height: 100%;
   border-radius: var(--radius-full);
   background: var(--accent);
-  transition: width 0.35s var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 @media (prefers-reduced-motion: reduce) {
   .update-progress-bar {

@@ -56,7 +56,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import type { CmsItem } from '../composables/use-online-search'
 
-export type RecentPlayRecord = {
+type RecentPlayRecord = {
   url?: string
   epName?: string
   progress?: number
@@ -170,7 +170,7 @@ watch(() => [route.query.tab, props.kind], read)
 .library-collection {
   display: flex;
   flex-direction: column;
-  gap: 18px;
+  gap: var(--space-4);
   min-height: 100%;
 }
 

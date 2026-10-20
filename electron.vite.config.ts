@@ -41,7 +41,6 @@ export default defineConfig({
         'ant-design-vue',
         'vue',
         'vue-router',
-        'pinia',
       ],
     },
     server: {

@@ -18,7 +18,7 @@ withDefaults(defineProps<{ count?: number }>(), { count: 12 })
 
 <style scoped>
 .av-skeleton {
-  animation: av-skeleton-pulse 1.4s ease-in-out infinite;
+  animation: av-skeleton-pulse var(--duration-pulse) ease-in-out infinite;
 }
 .av-skeleton-media {
   aspect-ratio: 16 / 9;

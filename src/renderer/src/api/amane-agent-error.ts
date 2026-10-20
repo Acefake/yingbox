@@ -1,4 +1,4 @@
-export interface AgentErrorInfo { title: string; message: string; settings: boolean; model?: string }
+interface AgentErrorInfo { title: string; message: string; settings: boolean; model?: string }
 export function describeAgentError(raw: string): AgentErrorInfo {
   const model = raw.match(/model_name[:=]\s*['"]?([^,'"}\s]+)/i)?.[1]
   const base = { model, settings: true }

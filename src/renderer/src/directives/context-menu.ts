@@ -260,5 +260,3 @@ const contextMenu: ObjectDirective<HTMLElement, ContextMenuConfig> = {
 }
 
 export default contextMenu
-
-export { ContextMenuManager, type ContextMenuConfig }

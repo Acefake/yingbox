@@ -94,7 +94,7 @@ const statusText = computed(() => {
   position: absolute;
   top: 0;
   right: 0;
-  left: calc(var(--space-4) + 8px + var(--space-3));
+  left: calc(var(--space-4) + var(--space-2) + var(--space-3));
   height: 1px;
   background: var(--separator);
   content: '';
@@ -117,7 +117,7 @@ const statusText = computed(() => {
 }
 .site-dot.is-checking {
   background: var(--warning);
-  animation: site-pulse 1s infinite;
+  animation: site-pulse var(--duration-pulse) infinite;
 }
 .site-text {
   display: flex;
@@ -150,7 +150,7 @@ const statusText = computed(() => {
 }
 .site-badge {
   flex-shrink: 0;
-  padding: 2px 6px;
+  padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
   color: var(--text-secondary);
   background: var(--bg-active-soft);
@@ -172,7 +172,7 @@ const statusText = computed(() => {
 }
 .site-actions {
   display: flex;
-  gap: 2px;
+  gap: var(--space-0_5);
   opacity: 0;
   transition: opacity var(--duration-fast) ease;
 }

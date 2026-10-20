@@ -1,41 +1,41 @@
 import { ref } from 'vue'
 import { getBackendAuthHeaders, getBase } from '@/api/backend'
 
-export interface VODParseRequest {
+interface VODParseRequest {
   siteName: string
   videoID?: string
   episode?: string
 }
 
-export interface VODSearchRequest {
+interface VODSearchRequest {
   siteName: string
   keyword: string
   ext?: string
   page?: number
 }
 
-export interface VODCardsRequest {
+interface VODCardsRequest {
   siteName: string
   url?: string
   ext?: string
   page?: number
 }
 
-export interface VODTrackRequest {
+interface VODTrackRequest {
   siteName: string
   url: string
   ext?: string
   [key: string]: any
 }
 
-export interface VODPlayRequest {
+interface VODPlayRequest {
   siteName: string
   url: string
   ext?: string
   [key: string]: any
 }
 
-export interface VODParseResponse {
+interface VODParseResponse {
   success: boolean
   error?: string
   url?: string

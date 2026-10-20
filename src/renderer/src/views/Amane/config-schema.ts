@@ -124,7 +124,8 @@ export function initialValue(
     return schema.minimum || 0
   return ''
 }
-export function encodeValue(
+
+function encodeValue(
   input: Schema,
   value: Value,
   root: Record<string, unknown>

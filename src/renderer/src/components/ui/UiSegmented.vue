@@ -1,5 +1,10 @@
 <template>
-  <div class="ui-segmented" :class="`is-${size}`" role="tablist" :aria-label="label">
+  <div
+    class="ui-segmented"
+    :class="`is-${size}`"
+    role="tablist"
+    :aria-label="label"
+  >
     <button
       v-for="option in options"
       :key="option.value"
@@ -50,8 +55,8 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
 <style>
 .ui-segmented {
   display: inline-flex;
-  gap: 2px;
-  padding: 2px;
+  gap: var(--space-0_5);
+  padding: var(--space-0_5);
   border-radius: var(--radius-md);
   background: var(--bg-glass);
 }

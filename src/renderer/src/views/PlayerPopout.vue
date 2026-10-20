@@ -374,7 +374,7 @@ onBeforeUnmount(() => {
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
+  gap: var(--space-3);
   opacity: 0.85;
   font-size: var(--text-md);
 }
@@ -392,12 +392,12 @@ onBeforeUnmount(() => {
 /* 短暂提示（自动换线路 / 连播） */
 .player-popout-notice {
   position: absolute;
-  top: 16px;
+  top: var(--space-4);
   left: 50%;
   transform: translateX(-50%);
-  z-index: 40;
+  z-index: var(--z-overlay);
   margin: 0;
-  padding: 8px 14px;
+  padding: var(--space-2) var(--space-4);
   border-radius: var(--radius-md);
   font-size: var(--text-sm);
   color: var(--media-text);
@@ -409,13 +409,13 @@ onBeforeUnmount(() => {
 .player-popout-error {
   position: absolute;
   inset: 0;
-  z-index: 45;
+  z-index: var(--z-overlay-top);
   display: flex;
   flex-direction: column;
   align-items: center;
   justify-content: center;
-  gap: 10px;
-  padding: 32px;
+  gap: var(--space-2);
+  padding: var(--space-7);
   text-align: center;
   background: var(--overlay-scrim-strong);
 }
@@ -446,6 +446,6 @@ onBeforeUnmount(() => {
 }
 
 .player-popout-error-actions {
-  margin-top: 6px;
+  margin-top: var(--space-2);
 }
 </style>

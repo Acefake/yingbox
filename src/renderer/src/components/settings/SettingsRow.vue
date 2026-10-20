@@ -68,7 +68,7 @@ const labelId = `settings-row-${useId()}`
   font-size: var(--text-sm);
 }
 .settings-row-desc {
-  margin-top: 2px;
+  margin-top: var(--space-0_5);
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   line-height: var(--leading-normal);

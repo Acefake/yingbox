@@ -198,11 +198,6 @@ export const isStrongTag = memoize((word: string): boolean => {
   )
 })
 
-/** 是否弱标记。 */
-export function isWeakTag(word: string): boolean {
-  return WEAK_WORDS.has(word.toLowerCase())
-}
-
 /** 是否任意发布标记（强、弱或括号专用）。 */
 export const isAnyTag = memoize((word: string): boolean => {
   const w = word.toLowerCase()

@@ -3,7 +3,7 @@ import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 
 /** 播放列表条目：用于自动连播与失败跳过 */
-export type PlayerSourceItem = {
+type PlayerSourceItem = {
   url?: string
   filePath?: string
   /** 展示名（集名 / 文件名） */
@@ -14,7 +14,7 @@ export type PlayerSourceItem = {
   siteName?: string
 }
 
-export type PlayerOpenPayload = {
+type PlayerOpenPayload = {
   filePath?: string
   url?: string
   title?: string
@@ -141,7 +141,7 @@ function sendLoad(payload: PlayerOpenPayload): void {
   playerWindow.webContents.send('player:load', payload)
 }
 
-export function openPlayerWindow(payload: PlayerOpenPayload): void {
+function openPlayerWindow(payload: PlayerOpenPayload): void {
   pendingPayload = payload
   const hash = buildPlayerHash(payload)
 
@@ -206,7 +206,7 @@ export function openPlayerWindow(payload: PlayerOpenPayload): void {
   }
 }
 
-export function closePlayerWindow(): void {
+function closePlayerWindow(): void {
   if (playerWindow && !playerWindow.isDestroyed()) {
     playerWindow.close()
   }

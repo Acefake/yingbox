@@ -554,13 +554,13 @@ function hideBrokenImage(event: Event): void {
 .amane-still-preview[open] {
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 .amane-still-preview::backdrop {
   background: var(--overlay-scrim);
 }
 .amane-still-preview-stage {
-  padding: 16px;
+  padding: var(--space-4);
   flex: 1;
   min-height: 0;
   display: flex;
@@ -582,10 +582,10 @@ function hideBrokenImage(event: Event): void {
   margin: auto;
 }
 .amane-still-preview-navigation {
-  padding: 0 16px 16px;
+  padding: 0 var(--space-4) var(--space-4);
   display: flex;
   justify-content: center;
-  gap: 16px;
+  gap: var(--space-4);
   flex-shrink: 0;
 }
 </style>
