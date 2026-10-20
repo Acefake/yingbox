@@ -45,6 +45,7 @@ export interface NormalizedLibraryQuery {
 const SORT_FIELDS: readonly LibrarySortField[] = [
   'title',
   'year',
+  'rating',
   'addedAt',
   'updatedAt',
 ]

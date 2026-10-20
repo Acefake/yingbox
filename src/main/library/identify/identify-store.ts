@@ -51,8 +51,13 @@ export interface StoredCandidate {
   originalTitle?: string
   year?: number
   posterPath?: string
+  /** 简介摘要（截断到 OVERVIEW_SUMMARY_MAX 字）。 */
+  overview?: string
   breakdown?: Record<string, number>
 }
+
+/** 候选简介摘要的最大字数：只给待确认列表看个大概，不占数据库空间。 */
+export const OVERVIEW_SUMMARY_MAX = 160
 
 /** 选目标的方式。 */
 export type TargetMode =
@@ -408,6 +413,9 @@ export function storedCandidate(
     ...(c.originalTitle ? { originalTitle: c.originalTitle } : {}),
     ...(c.year ? { year: c.year } : {}),
     ...(c.posterPath ? { posterPath: c.posterPath } : {}),
+    ...(c.overview
+      ? { overview: c.overview.slice(0, OVERVIEW_SUMMARY_MAX) }
+      : {}),
     ...(Object.keys(clean).length ? { breakdown: clean } : {}),
   }
 }
