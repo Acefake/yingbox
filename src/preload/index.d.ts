@@ -1,6 +1,7 @@
 import type { AmaneBridge } from '../shared/amane'
 import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
 import type { LadaJob, LadaLiveStatus, LadaPaths } from '../shared/lada'
+import type { LibraryBridge } from '../shared/library/ipc'
 
 interface FileOperationResult {
   success: boolean
@@ -339,6 +340,8 @@ interface API {
     onError: (cb: (msg: string) => void) => void
     offError: () => void
   }
+  /** 媒体库引擎：增删媒体库、扫描、分页查询、条目详情、事件订阅。 */
+  library: LibraryBridge
 }
 
 declare global {

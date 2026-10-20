@@ -29,6 +29,7 @@ import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './lada'
 import { registerLadaLiveIpc } from './lada-live'
 import { registerLadaResumeIpc } from './lada-resume'
+import { registerLibraryIpc } from './library/host'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -162,6 +163,7 @@ app.whenReady().then(async () => {
   await registerLadaIpc()
   registerLadaLiveIpc()
   registerLadaResumeIpc()
+  registerLibraryIpc()
 
   startBackend({ configPath: getConfigPath(), downloadPath: getDownloadPath() })
 
