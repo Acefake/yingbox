@@ -67,6 +67,7 @@
       >
         <template #default="{ item }">
           <UiPosterCard
+            thumb
             :title="item.vod_name"
             :cover="item.vod_pic"
             :subtitle="
@@ -99,6 +100,7 @@
       >
         <template #default="{ item }">
           <UiPosterCard
+            thumb
             :title="item.vod_name"
             :cover="item.vod_pic"
             :subtitle="

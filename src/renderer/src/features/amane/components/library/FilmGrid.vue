@@ -22,6 +22,7 @@
   >
     <template #default="{ item: film }">
       <UiPosterCard
+        thumb
         class="amane-poster"
         :class="{
           'is-current': currentId === film.id,

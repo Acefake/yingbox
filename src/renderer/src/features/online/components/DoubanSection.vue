@@ -27,6 +27,7 @@
     >
       <template #default="{ item }">
         <UiPosterCard
+          thumb
           :title="item.title"
           :cover="item.cover"
           :rating="item.rate"
