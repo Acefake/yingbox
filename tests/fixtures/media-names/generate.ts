@@ -829,7 +829,7 @@ export function generateGoldenCases(): GoldenCase[] {
     add(
       join(
         dir(a.cn),
-        `[${pick(CN_ANIME_GROUPS)}] ${a.cn} / ${a.romaji} [${e2}][1080P][简繁内封].mkv`
+        `[${pick(CN_ANIME_GROUPS)}] ${a.cn} ／ ${a.romaji} [${e2}][1080P][简繁内封].mkv`
       ),
       'episode-anime-absolute',
       abs(a.cn, a.romaji)
