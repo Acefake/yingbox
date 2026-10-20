@@ -1,0 +1,156 @@
+// Vitest Snapshot v1, https://vitest.dev/guide/snapshot.html
+
+exports[`NFO 生成 > 剧集 / 季 / 集（含一个文件两集）快照 > episode 1`] = `
+"<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<episodedetails>
+  <title>再见，初恋 &amp; 你好</title>
+  <showtitle>請回答1988</showtitle>
+  <season>1</season>
+  <episode>5</episode>
+  <ratings>
+    <rating name="themoviedb" max="10" default="true">
+      <value>8.9</value>
+    </rating>
+  </ratings>
+  <rating>8.9</rating>
+  <plot>德善的&quot;初恋&quot;。</plot>
+  <outline>德善的&quot;初恋&quot;。</outline>
+  <runtime>95</runtime>
+  <aired>2015-11-20</aired>
+  <premiered>2015-11-20</premiered>
+  <thumb>https://image.tmdb.org/t/p/original/e5.jpg</thumb>
+  <studio>tvN</studio>
+</episodedetails>
+<episodedetails>
+  <title>母亲们</title>
+  <showtitle>請回答1988</showtitle>
+  <season>1</season>
+  <episode>6</episode>
+  <aired>2015-11-21</aired>
+  <premiered>2015-11-21</premiered>
+  <studio>tvN</studio>
+</episodedetails>
+"
+`;
+
+exports[`NFO 生成 > 剧集 / 季 / 集（含一个文件两集）快照 > season 1`] = `
+"<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<season>
+  <title>第 1 季</title>
+  <showtitle>請回答1988</showtitle>
+  <seasonnumber>1</seasonnumber>
+  <year>2015</year>
+  <premiered>2015-11-06</premiered>
+  <releasedate>2015-11-06</releasedate>
+  <plot>&lt;双门洞&gt;的一年</plot>
+  <outline>&lt;双门洞&gt;的一年</outline>
+  <thumb aspect="poster">https://image.tmdb.org/t/p/original/s1.jpg</thumb>
+</season>
+"
+`;
+
+exports[`NFO 生成 > 剧集 / 季 / 集（含一个文件两集）快照 > tvshow 1`] = `
+"<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<tvshow>
+  <title>請回答1988</title>
+  <originaltitle>응답하라 1988</originaltitle>
+  <sorttitle>請回答1988</sorttitle>
+  <ratings>
+    <rating name="themoviedb" max="10" default="true">
+      <value>8.6</value>
+      <votes>500</votes>
+    </rating>
+  </ratings>
+  <rating>8.6</rating>
+  <year>2015</year>
+  <premiered>2015-11-06</premiered>
+  <plot>1988 年首尔双门洞五户人家的故事。</plot>
+  <outline>1988 年首尔双门洞五户人家的故事。</outline>
+  <runtime>90</runtime>
+  <mpaa>15</mpaa>
+  <genre>剧情</genre>
+  <genre>喜剧</genre>
+  <country>韩国</country>
+  <studio>tvN</studio>
+  <showtitle>請回答1988</showtitle>
+  <status>Ended</status>
+  <credits>申元浩</credits>
+  <namedseason number="0">特别篇</namedseason>
+  <namedseason number="1">第 1 季</namedseason>
+  <episodeguide>{&quot;tmdb&quot;:&quot;64010&quot;}</episodeguide>
+  <uniqueid type="tmdb" default="true">64010</uniqueid>
+  <uniqueid type="imdb">tt5182866</uniqueid>
+  <uniqueid type="tvdb">299945</uniqueid>
+  <tmdbid>64010</tmdbid>
+  <imdbid>tt5182866</imdbid>
+  <tvdbid>299945</tvdbid>
+  <actor>
+    <name>李惠利</name>
+    <role>成德善</role>
+    <order>0</order>
+    <profile>https://www.themoviedb.org/person/10</profile>
+    <tmdbid>10</tmdbid>
+  </actor>
+</tvshow>
+"
+`;
+
+exports[`NFO 生成 > 电影：字段完整、转义正确（快照） 1`] = `
+"<?xml version="1.0" encoding="UTF-8" standalone="yes" ?>
+<movie>
+  <title>流浪地球 &amp; &lt;特别版&gt;</title>
+  <originaltitle>The Wandering Earth &quot;Director&apos;s Cut&quot;</originaltitle>
+  <sorttitle>流浪地球 &amp; &lt;特别版&gt;</sorttitle>
+  <ratings>
+    <rating name="themoviedb" max="10" default="true">
+      <value>7.5</value>
+      <votes>1234</votes>
+    </rating>
+  </ratings>
+  <rating>7.5</rating>
+  <year>2019</year>
+  <premiered>2019-02-05</premiered>
+  <plot>太阳即将毁灭，人类开启“流浪地球”计划。控制字符应被去掉 🌍</plot>
+  <outline>太阳即将毁灭，人类开启“流浪地球”计划。控制字符应被去掉 🌍</outline>
+  <tagline>希望是像钻石一样珍贵的东西</tagline>
+  <runtime>125</runtime>
+  <mpaa>PG-13</mpaa>
+  <genre>科幻</genre>
+  <genre>冒险</genre>
+  <country>中国</country>
+  <country>美国</country>
+  <studio>中国电影股份有限公司</studio>
+  <studio>Bona Film Group</studio>
+  <director>郭帆</director>
+  <credits>龚格尔</credits>
+  <credits>刘慈欣</credits>
+  <set tmdbcolid="1000">
+    <name>流浪地球（系列）</name>
+  </set>
+  <uniqueid type="tmdb" default="true">535167</uniqueid>
+  <uniqueid type="imdb">tt7605074</uniqueid>
+  <tmdbid>535167</tmdbid>
+  <imdbid>tt7605074</imdbid>
+  <thumb aspect="poster">https://image.tmdb.org/t/p/original/poster-zh.jpg</thumb>
+  <thumb aspect="clearlogo">https://image.tmdb.org/t/p/original/logo.png</thumb>
+  <fanart>
+    <thumb>https://image.tmdb.org/t/p/original/backdrop.jpg</thumb>
+  </fanart>
+  <actor>
+    <name>吴京</name>
+    <role>刘培强</role>
+    <order>0</order>
+    <thumb>https://image.tmdb.org/t/p/h632/wujing.jpg</thumb>
+    <profile>https://www.themoviedb.org/person/78871</profile>
+    <tmdbid>78871</tmdbid>
+  </actor>
+  <actor>
+    <name>Qu Chuxiao</name>
+    <role>Liu Qi</role>
+    <order>1</order>
+    <profile>https://www.themoviedb.org/person/1192</profile>
+    <tmdbid>1192</tmdbid>
+  </actor>
+</movie>
+"
+`;
