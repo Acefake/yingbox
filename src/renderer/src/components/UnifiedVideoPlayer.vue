@@ -648,7 +648,7 @@ defineExpose({ video })
   width: auto;
   height: auto;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 }
 
@@ -714,11 +714,11 @@ defineExpose({ video })
   height: 28px;
   flex: 0 0 auto;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   color: var(--text-secondary);
   background: var(--bg-fill-secondary);
   cursor: pointer;
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1;
 }
 
@@ -736,7 +736,7 @@ defineExpose({ video })
   max-height: min(420px, 60vh);
   display: flex;
   flex-direction: column;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
   box-shadow: var(--shadow-lg);
@@ -757,11 +757,11 @@ defineExpose({ video })
   min-width: 0;
   height: 30px;
   padding: 0 10px;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--separator, rgba(255, 255, 255, 0.12));
   background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.06));
   color: inherit;
-  font-size: 12px;
+  font-size: var(--text-xs);
   outline: none;
 }
 
@@ -773,10 +773,10 @@ defineExpose({ video })
   height: 30px;
   padding: 0 12px;
   border: 0;
-  border-radius: 8px;
+  border-radius: var(--radius-md);
   background: var(--accent, #007aff);
   color: #fff;
-  font-size: 12px;
+  font-size: var(--text-xs);
   cursor: pointer;
   white-space: nowrap;
 }
@@ -788,7 +788,7 @@ defineExpose({ video })
 
 .usp-msg {
   margin: 0 12px 8px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary, #999);
 }
 
@@ -807,7 +807,7 @@ defineExpose({ video })
   padding: 8px 10px;
   margin-bottom: 4px;
   border: 0;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.05));
   color: inherit;
   text-align: left;
@@ -824,20 +824,20 @@ defineExpose({ video })
 }
 
 .usp-item-name {
-  font-size: 12px;
+  font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .usp-item-meta {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary, #888);
 }
 
 .usp-empty {
   margin: 8px 4px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary, #888);
   text-align: center;
 }
@@ -854,7 +854,7 @@ defineExpose({ video })
   color: var(--text-secondary);
   background: var(--bg-fill-secondary);
   cursor: pointer;
-  font-size: 22px;
+  font-size: var(--text-xl);
   line-height: 1;
 }
 

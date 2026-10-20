@@ -1,19 +1,20 @@
 <template>
   <header class="dialog-titlebar">
     <div class="dialog-titlebar-caption">
-      <AppIcon v-if="icon" :name="icon" size="sm" />
+      <UiIcon v-if="icon" :name="icon" size="sm" />
       <span class="dialog-titlebar-title"><slot>{{ title }}</slot></span>
     </div>
     <div v-if="$slots.actions" class="dialog-titlebar-actions"><slot name="actions" /></div>
-    <button v-if="closable" class="dialog-titlebar-close" type="button" :aria-label="closeLabel" :title="closeLabel" @click="$emit('close', $event)"><AppIcon name="close" size="sm" /></button>
+    <button v-if="closable" class="dialog-titlebar-close" type="button" :aria-label="closeLabel" :title="closeLabel" @click="$emit('close', $event)"><UiIcon name="close" size="sm" /></button>
   </header>
 </template>
 
 <script setup lang="ts">
-import AppIcon from './AppIcon.vue'
+import type { IconName } from '@/components/ui/icons'
+import UiIcon from '@/components/ui/UiIcon.vue'
 withDefaults(defineProps<{
   title?: string
-  icon?: InstanceType<typeof AppIcon>['$props']['name']
+  icon?: IconName
   closable?: boolean
   closeLabel?: string
 }>(), { closable: true, closeLabel: '关闭' })

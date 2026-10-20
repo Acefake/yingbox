@@ -121,3 +121,10 @@ Build outputs (`out/`, `packages/backend/main*`) are gitignored and untracked â€
 | Go backend     | Go 1.22, modernc.org/sqlite (no CGo needed)    |
 | Tests          | Vitest 5                                       |
 | Python scripts | Embedded in the Go binary via //go:embed       |
+
+## UI conventions
+
+- Look: Apple-like restraint, generous whitespace; neutral grays, color comes from posters. Accent blue only for focus, links and toggles; selected states use `--bg-active`.
+- Tokens live in `src/renderer/src/assets/styles/tokens.css`. Never hard-code font sizes or radii; `pnpm check:style` enforces it (`node scripts/style-tokens.mjs --fix` migrates).
+- Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
+- Prefer `UiIconButton` over text buttons; keep at most one `UiButton variant="primary"` per area (e.g. Play).

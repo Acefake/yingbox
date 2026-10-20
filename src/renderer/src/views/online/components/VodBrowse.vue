@@ -3,7 +3,7 @@
     <div class="vod-header">
       <PageHeader title="媒体库" :count="filteredCards.length">
         <template #status><span v-if="loadingSources" class="loading-hint">加载中...</span></template>
-        <template #actions><IconButton icon="refresh" label="刷新媒体库" :loading="loading" :disabled="loadingSources" @click="refreshCurrent" /></template>
+        <template #actions><UiIconButton icon="refresh" label="刷新媒体库" :loading="loading" :disabled="loadingSources" @click="refreshCurrent" /></template>
       </PageHeader>
       <MediaFilterBar
         :rows="filterRows"
@@ -42,36 +42,17 @@
     </div>
 
     <!-- 内容卡片网格 -->
-    <div v-if="filteredCards.length" class="yb-poster-grid">
-      <div
+    <div v-if="filteredCards.length" class="ui-poster-grid">
+      <UiPosterCard
         v-for="card in filteredCards"
         :key="card.vod_id + card._siteName"
-        class="yb-poster-card"
-        @click="handleOpenCard(card)"
+        :title="card.vod_name"
+        :cover="card.vod_pic"
+        :subtitle="card.vod_remarks"
+        @open="handleOpenCard(card)"
       >
-        <div class="yb-poster-media">
-          <img
-            :src="card.vod_pic"
-            :alt="card.vod_name"
-            loading="lazy"
-            @error="onImgError"
-          />
-          <div class="yb-poster-overlay">
-            <svg viewBox="0 0 24 24" width="36" height="36" fill="white">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-          <div class="yb-poster-badge is-plugin">{{ card._siteName }}</div>
-        </div>
-        <div class="yb-poster-info">
-          <div class="yb-poster-title" :title="card.vod_name">
-            {{ card.vod_name }}
-          </div>
-          <div v-if="card.vod_remarks" class="yb-poster-remarks">
-            {{ card.vod_remarks }}
-          </div>
-        </div>
-      </div>
+        <template #badges><span class="ui-poster-badge">{{ card._siteName }}</span></template>
+      </UiPosterCard>
     </div>
 
     <!-- 加载更多 -->
@@ -83,10 +64,10 @@
     </div>
 
     <!-- 首次加载骨架 -->
-    <div v-if="loading && !cards.length" class="yb-poster-grid">
-      <div v-for="i in 8" :key="i" class="yb-poster-card">
-        <div class="yb-poster-media" />
-        <div class="yb-poster-info">
+    <div v-if="loading && !cards.length" class="ui-poster-grid" aria-busy="true">
+      <div v-for="i in 8" :key="i" class="ui-poster">
+        <div class="ui-poster-media" />
+        <div class="ui-poster-text">
           <div class="yb-poster-skel-line" style="width: 80%" />
           <div
             class="yb-poster-skel-line"
@@ -99,8 +80,9 @@
 </template>
 
 <script setup lang="ts">
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import IconButton from '@/components/IconButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { computed, onMounted, ref } from 'vue'
 import MediaFilterBar, {
   type MediaFilterRow,
@@ -327,11 +309,6 @@ const refreshCurrent = (): void => {
   else void retry()
 }
 
-const onImgError = (e: Event): void => {
-  ;(e.target as HTMLImageElement).src =
-    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
-}
-
 onMounted(() => {
   void retry()
 })
@@ -358,7 +335,7 @@ onMounted(() => {
 }
 
 .loading-hint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   margin-left: 8px;
 }
@@ -375,7 +352,7 @@ onMounted(() => {
   gap: 6px;
   min-height: var(--control-height);
   padding: 0 24px;
-  border-radius: 7px;
+  border-radius: var(--radius-md);
   border: 1px solid var(--border-default);
   background: transparent;
   color: var(--text-secondary);
@@ -401,7 +378,7 @@ onMounted(() => {
   gap: 12px;
   padding: 60px 0;
   color: var(--text-tertiary);
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .spinner {

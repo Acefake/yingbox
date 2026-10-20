@@ -1,7 +1,7 @@
 <template>
   <div class="library-collection">
     <PageHeader :title="title" :description="description">
-      <template #actions><IconButton v-if="items.length" icon="trash" label="清空记录" danger @click="clear" /></template>
+      <template #actions><UiIconButton v-if="items.length" icon="trash" label="清空记录" danger @click="clear" /></template>
     </PageHeader>
     <div class="collection-tabs" role="tablist" aria-label="媒体类型">
       <button
@@ -14,39 +14,18 @@
         {{ tab.label }}
       </button>
     </div>
-    <div v-if="filteredItems.length" class="yb-poster-grid">
-      <article
+    <div v-if="filteredItems.length" class="ui-poster-grid">
+      <UiPosterCard
         v-for="entry in filteredItems"
         :key="entry.id"
-        class="yb-poster-card"
-        @click="onOpen(entry)"
-      >
-        <div class="yb-poster-media">
-          <img
-            :src="entry.item.vod_pic"
-            :alt="entry.item.vod_name"
-            loading="lazy"
-            @error="onImgError"
-          />
-        </div>
-        <div class="yb-poster-info">
-          <h3 class="yb-poster-title" :title="entry.item.vod_name">
-            {{ entry.item.vod_name }}
-          </h3>
-          <p class="yb-poster-meta">
-            <span class="yb-poster-chip is-accent">{{ entry.typeLabel }}</span>
-            <span v-if="entry.epName" class="yb-poster-chip">{{
-              entry.epName
-            }}</span>
-            <span v-else-if="entry.item.vod_year" class="yb-poster-chip">{{
-              entry.item.vod_year
-            }}</span>
-          </p>
-        </div>
-      </article>
+        :title="entry.item.vod_name"
+        :cover="entry.item.vod_pic"
+        :subtitle="[entry.typeLabel, entry.epName || entry.item.vod_year].filter(Boolean).join(' · ')"
+        @open="onOpen(entry)"
+      />
     </div>
     <div v-else class="collection-empty">
-      <span>◇</span>
+      <UiIcon name="heart" class="collection-empty-icon" />
       <p>
         {{
           category === 'all'
@@ -59,8 +38,10 @@
 </template>
 
 <script setup lang="ts">
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import IconButton from '@/components/IconButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { readStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -172,11 +153,6 @@ const clear = () => {
   read()
 }
 
-const onImgError = (event: Event) => {
-  ;(event.target as HTMLImageElement).src =
-    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="160" height="220"><rect width="100%" height="100%" fill="%239ca3af"/></svg>'
-}
-
 onMounted(read)
 watch(() => [route.query.tab, props.kind], read)
 </script>
@@ -206,7 +182,7 @@ watch(() => [route.query.tab, props.kind], read)
   cursor: pointer;
   transition: var(--transition-fast);
 
-  border-radius: 7px;
+  border-radius: var(--radius-md);
 }
 
 .collection-tabs button:hover {
@@ -227,7 +203,7 @@ watch(() => [route.query.tab, props.kind], read)
   right: 0;
   bottom: -1px;
   height: 2px;
-  border-radius: 1px;
+  border-radius: var(--radius-xs);
   background: var(--text-primary);
 
   display: none;
@@ -240,8 +216,9 @@ watch(() => [route.query.tab, props.kind], read)
   color: var(--text-tertiary);
 }
 
-.collection-empty span {
-  font-size: 42px;
+.collection-empty-icon {
+  width: 40px;
+  height: 40px;
   color: var(--text-quaternary);
 }
 </style>

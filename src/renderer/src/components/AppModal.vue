@@ -9,9 +9,9 @@
 <script setup lang="ts">
 import { Modal } from 'ant-design-vue'
 import DialogTitlebar from './DialogTitlebar.vue'
-import type AppIcon from './AppIcon.vue'
+import type { IconName } from '@/components/ui/icons'
 defineOptions({ inheritAttrs: false })
-defineProps<{ open?: boolean; title?: string; icon?: InstanceType<typeof AppIcon>['$props']['name'] }>()
+defineProps<{ open?: boolean; title?: string; icon?: IconName }>()
 const emit = defineEmits<{ cancel: [event: MouseEvent]; 'update:open': [value: boolean] }>()
 function cancel(event: MouseEvent): void { emit('update:open', false); emit('cancel', event) }
 </script>

@@ -26,6 +26,6 @@ withDefaults(defineProps<{
   line-height: 1.3;
   overflow-wrap: anywhere;
 }
-.page-title.is-section { font-family: var(--font-sans); font-size: 18px; font-weight: 500; letter-spacing: -.015em; }
-.page-title-count { margin-left: 8px; color: var(--text-tertiary); font-family: var(--font-sans); font-size: 13px; font-weight: 400; letter-spacing: 0; white-space: nowrap; }
+.page-title.is-section { font-family: var(--font-sans); font-size: var(--text-lg); font-weight: 500; letter-spacing: -.015em; }
+.page-title-count { margin-left: 8px; color: var(--text-tertiary); font-family: var(--font-sans); font-size: var(--text-sm); font-weight: 400; letter-spacing: 0; white-space: nowrap; }
 </style>

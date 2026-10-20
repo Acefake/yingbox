@@ -369,7 +369,7 @@ onBeforeUnmount(() => {
   align-items: center;
   gap: 12px;
   opacity: 0.85;
-  font-size: 14px;
+  font-size: var(--text-md);
 }
 
 .player-popout-poster {
@@ -378,7 +378,7 @@ onBeforeUnmount(() => {
   width: auto;
   height: auto;
   object-fit: contain;
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   box-shadow: var(--shadow-lg);
 }
 
@@ -391,8 +391,8 @@ onBeforeUnmount(() => {
   z-index: 40;
   margin: 0;
   padding: 8px 14px;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   color: #fff;
   background: rgba(0, 0, 0, 0.72);
   pointer-events: none;
@@ -415,7 +415,7 @@ onBeforeUnmount(() => {
 
 .player-popout-error-title {
   margin: 0;
-  font-size: 15px;
+  font-size: var(--text-md);
   font-weight: 600;
   color: #ff6b6b;
 }
@@ -423,7 +423,7 @@ onBeforeUnmount(() => {
 .player-popout-error-msg {
   margin: 0;
   max-width: 560px;
-  font-size: 13px;
+  font-size: var(--text-sm);
   line-height: 1.6;
   color: rgba(255, 255, 255, 0.85);
 }
@@ -434,7 +434,7 @@ onBeforeUnmount(() => {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: rgba(255, 255, 255, 0.5);
 }
 
@@ -446,8 +446,8 @@ onBeforeUnmount(() => {
   min-width: 96px;
   padding: 7px 18px;
   border: 0;
-  border-radius: 8px;
-  font-size: 13px;
+  border-radius: var(--radius-md);
+  font-size: var(--text-sm);
   color: #fff;
   background: #F1F1F1;
   color: #242424;
