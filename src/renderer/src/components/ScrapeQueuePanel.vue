@@ -369,7 +369,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   position: fixed;
   inset: 0;
   z-index: 2050;
-  background: rgba(0, 0, 0, 0.28);
+  background: var(--overlay-scrim-soft);
   backdrop-filter: blur(4px);
 }
 

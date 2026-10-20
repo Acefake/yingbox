@@ -1,14 +1,21 @@
 <template>
   <Teleport to="body">
-    <dialog ref="overlay" class="mpv-loading" aria-label="正在打开播放器" @cancel.prevent>
+    <dialog
+      ref="overlay"
+      class="mpv-loading"
+      aria-label="正在打开播放器"
+      @cancel.prevent
+    >
       <div class="mpv-loading-card" role="status" aria-live="polite">
         <DialogTitlebar title="正在打开播放器" icon="play" :closable="false" />
         <div class="mpv-loading-content">
-        <span class="mpv-loading-spinner" aria-hidden="true" />
-        <div class="mpv-loading-copy">
-          <p class="mpv-loading-label">正在准备播放…</p>
-          <p v-if="status.title" class="mpv-loading-title">{{ status.title }}</p>
-        </div>
+          <span class="mpv-loading-spinner" aria-hidden="true" />
+          <div class="mpv-loading-copy">
+            <p class="mpv-loading-label">正在准备播放…</p>
+            <p v-if="status.title" class="mpv-loading-title">
+              {{ status.title }}
+            </p>
+          </div>
         </div>
       </div>
     </dialog>
@@ -51,9 +58,18 @@ onBeforeUnmount(() => overlay.value?.close())
   place-items: center;
 }
 .mpv-loading::backdrop {
-  background: rgb(0 0 0 / 35%);
+  background: var(--overlay-scrim-soft);
 }
-.mpv-loading-card { display:flex; flex-direction:column; width:min(420px,calc(100vw - 48px)); overflow:hidden; border:1px solid var(--border-default); border-radius:var(--radius-lg); background:var(--bg-elevated); box-shadow:var(--shadow-lg); }
+.mpv-loading-card {
+  display: flex;
+  flex-direction: column;
+  width: min(420px, calc(100vw - 48px));
+  overflow: hidden;
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-lg);
+}
 .mpv-loading-content {
   display: flex;
   align-items: center;
@@ -61,10 +77,8 @@ onBeforeUnmount(() => overlay.value?.close())
 
   padding: 24px 28px;
 
-
   background: var(--bg-elevated);
   color: var(--text-primary);
-
 }
 .mpv-loading-spinner {
   flex: 0 0 26px;
@@ -91,6 +105,8 @@ onBeforeUnmount(() => overlay.value?.close())
   white-space: nowrap;
 }
 @keyframes mpv-loading-spin {
-  to { transform: rotate(360deg); }
+  to {
+    transform: rotate(360deg);
+  }
 }
 </style>
