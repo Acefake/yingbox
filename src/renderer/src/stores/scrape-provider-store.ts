@@ -75,6 +75,27 @@ export const saveScrapeProviderConfig = (
 ): void => {
   const current = getScrapeProviderConfig()
   localStorage.setItem(STORAGE_KEY, JSON.stringify({ ...current, ...config }))
+  if (
+    config.tmdbAccessToken !== undefined &&
+    config.tmdbAccessToken !== current.tmdbAccessToken
+  ) {
+    void syncTmdbTokenToEngine()
+  }
+}
+
+/**
+ * 把当前生效的 TMDB 令牌下发到媒体库引擎（引擎持久化在自己的数据库里，识别与刮削在引擎进程进行）。
+ * 启动时调用一次（迁移已有令牌），之后每次修改令牌时调用。网页版没有引擎，直接跳过。
+ */
+export const syncTmdbTokenToEngine = async (): Promise<void> => {
+  const library =
+    typeof window !== 'undefined' ? window.api?.library : undefined
+  if (!library) return
+  try {
+    await library.setProviderToken('tmdb', getTmdbAccessToken() || null)
+  } catch (error) {
+    console.warn('同步 TMDB 令牌到媒体库引擎失败', (error as Error).message)
+  }
 }
 
 /**

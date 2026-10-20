@@ -2,6 +2,7 @@
  * 条目查询：海报墙分页列表（筛选、排序、FTS 片名搜索）与单个条目详情树。
  */
 import type {
+  ItemMetadata,
   LibraryFileKind,
   LibraryItemFile,
   LibraryItemNode,
@@ -16,7 +17,12 @@ import { normalizeTitle } from '../../../shared/library/scoring'
 import { type LibraryDb, StatementCache } from '../db/database'
 
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
-  i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.added_at, i.updated_at`
+  i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
+  i.added_at, i.updated_at`
+
+/** 详情额外的列。 */
+const DETAIL_COLUMNS = `i.parent_id, i.season_number, i.episode_number, i.overview,
+  i.logo, i.runtime, i.genres, i.air_date, i.metadata`
 
 const SORT_COLUMN: Record<LibrarySortField, string> = {
   title: 'i.sort_title',
@@ -44,8 +50,19 @@ function toSummary(row: Record<string, unknown>): LibraryItemSummary {
     matchState: row.match_state as MatchState,
     providerIds,
     poster: row.poster === null ? null : String(row.poster),
+    backdrop: row.backdrop === null ? null : String(row.backdrop),
+    rating: row.rating === null ? null : Number(row.rating),
     addedAt: Number(row.added_at),
     updatedAt: Number(row.updated_at),
+  }
+}
+
+function parseJson<T>(text: unknown): T | null {
+  if (text === null || text === undefined) return null
+  try {
+    return JSON.parse(String(text)) as T
+  } catch {
+    return null
   }
 }
 
@@ -131,6 +148,14 @@ export class CatalogQuery {
     }
   }
 
+  /** 单个条目的列表形状；不存在返回 null。 */
+  summary(id: number): LibraryItemSummary | null {
+    const row = this.sql
+      .get(`SELECT ${SUMMARY_COLUMNS} FROM media_items i WHERE i.id = ?`)
+      .get(id)
+    return row ? toSummary(row) : null
+  }
+
   /** 条目详情：自身、全部子孙（季 / 集）以及每个节点关联的文件。不存在返回 null。 */
   getItem(id: number): LibraryItemNode | null {
     const rows = this.sql
@@ -140,7 +165,7 @@ export class CatalogQuery {
            UNION ALL
            SELECT c.id FROM media_items c JOIN tree t ON c.parent_id = t.id
          )
-         SELECT ${SUMMARY_COLUMNS}, i.parent_id, i.season_number, i.episode_number
+         SELECT ${SUMMARY_COLUMNS}, ${DETAIL_COLUMNS}
          FROM media_items i JOIN tree USING (id)
          ORDER BY i.season_number IS NULL, i.season_number,
                   i.episode_number IS NULL, i.episode_number, i.id`
@@ -156,6 +181,12 @@ export class CatalogQuery {
           row.season_number === null ? null : Number(row.season_number),
         episodeNumber:
           row.episode_number === null ? null : Number(row.episode_number),
+        overview: row.overview === null ? null : String(row.overview),
+        logo: row.logo === null ? null : String(row.logo),
+        runtime: row.runtime === null ? null : Number(row.runtime),
+        genres: parseJson<string[]>(row.genres) ?? [],
+        airDate: row.air_date === null ? null : String(row.air_date),
+        metadata: parseJson<ItemMetadata>(row.metadata),
         files: [],
         children: [],
       })

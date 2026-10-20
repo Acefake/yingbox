@@ -168,9 +168,58 @@ WHEN new.type IN ('movie', 'series') BEGIN
 END;
 `
 
+/**
+ * P3 识别与刮削：条目元数据列、文件时长、图片缓存表、引擎设置表。
+ *
+ * - media_items.metadata 存整份元数据 JSON（电影 / 剧集 / 季 / 集各自的形状），
+ *   常用于筛选排序的字段（评分、时长、类型）另存一列；
+ * - poster / backdrop / logo 存 yingbox-media:// 地址（已缓存）或 TMDB 远程地址（缓存失败时）；
+ * - identified_at 记录最近一次识别时间，updated_at 晚于它说明文件有变化、需要重新识别；
+ * - files.duration 是探测到的视频时长（秒），文件内容变化时清空；
+ * - images 记录要缓存的远程图片，key 是 URL 的哈希，也是本地文件名与 yingbox-media 地址的一部分；
+ * - settings 存引擎侧配置（如 TMDB 令牌），只在引擎进程读写。
+ */
+const V2_SCHEMA = `
+ALTER TABLE media_items ADD COLUMN backdrop TEXT;
+ALTER TABLE media_items ADD COLUMN logo TEXT;
+ALTER TABLE media_items ADD COLUMN rating REAL;
+ALTER TABLE media_items ADD COLUMN runtime INTEGER;
+ALTER TABLE media_items ADD COLUMN genres TEXT;
+ALTER TABLE media_items ADD COLUMN air_date TEXT;
+ALTER TABLE media_items ADD COLUMN metadata TEXT;
+ALTER TABLE media_items ADD COLUMN metadata_at INTEGER;
+ALTER TABLE media_items ADD COLUMN identified_at INTEGER;
+CREATE INDEX media_items_identify ON media_items (library_id, match_state)
+  WHERE parent_id IS NULL;
+CREATE INDEX media_items_rating ON media_items (type, rating, id);
+
+ALTER TABLE files ADD COLUMN duration REAL;
+
+CREATE TABLE images (
+  key        TEXT    PRIMARY KEY,
+  url        TEXT    NOT NULL,
+  state      TEXT    NOT NULL CHECK (state IN ('pending', 'cached', 'error')),
+  bytes      INTEGER,
+  attempts   INTEGER NOT NULL DEFAULT 0,
+  error      TEXT,
+  updated_at INTEGER NOT NULL
+) STRICT;
+
+CREATE TABLE settings (
+  key        TEXT    PRIMARY KEY,
+  value      TEXT    NOT NULL,
+  updated_at INTEGER NOT NULL
+) STRICT;
+`
+
 /** 全部迁移，按版本升序。 */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, description: '初始表结构与片名 FTS', sql: V1_SCHEMA },
+  {
+    version: 2,
+    description: '识别与刮削：元数据、图片缓存、设置',
+    sql: V2_SCHEMA,
+  },
 ]
 
 /** 读取当前 schema 版本。 */

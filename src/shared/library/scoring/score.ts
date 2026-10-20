@@ -165,11 +165,14 @@ export function rankCandidates(
     add('episodes', episodeScore(query, candidate))
     return { candidate, score: total / weight, breakdown }
   })
-  return scored.sort((a, b) =>
-    Math.abs(a.score - b.score) > TIE_EPSILON
-      ? b.score - a.score
-      : (b.candidate.popularity ?? 0) - (a.candidate.popularity ?? 0)
-  )
+  return scored.sort(compareScored)
+}
+
+/** 排序比较：分数降序，同分按热度降序。 */
+export function compareScored(a: ScoredCandidate, b: ScoredCandidate): number {
+  return Math.abs(a.score - b.score) > TIE_EPSILON
+    ? b.score - a.score
+    : (b.candidate.popularity ?? 0) - (a.candidate.popularity ?? 0)
 }
 
 /** 按阈值判定已排序的候选。 */

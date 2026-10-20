@@ -110,7 +110,9 @@ describe('migrate', () => {
       ...extra,
       sql: 'ALTER TABLE libraries ADD COLUMN ok TEXT; SELECT * FROM no_such_table;',
     }
-    expect(() => migrate(db, [...MIGRATIONS, broken])).toThrow(/迁移 2/)
+    expect(() => migrate(db, [...MIGRATIONS, broken])).toThrow(
+      new RegExp(`迁移 ${broken.version}`)
+    )
     expect(schemaVersion(db)).toBe(MIGRATIONS.length)
     const columns = db
       .prepare('PRAGMA table_info(libraries)')

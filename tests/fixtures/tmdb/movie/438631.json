@@ -1,0 +1,154 @@
+{
+ "id": 438631,
+ "imdb_id": "tt1160419",
+ "title": "沙丘",
+ "original_title": "Dune",
+ "original_language": "en",
+ "release_date": "2021-09-15",
+ "runtime": 155,
+ "popularity": 80.0,
+ "status": "Released",
+ "overview": "保罗·厄崔迪。",
+ "tagline": "",
+ "genres": [
+  {
+   "id": 0,
+   "name": "科幻"
+  }
+ ],
+ "vote_average": 7.5,
+ "vote_count": 1000,
+ "poster_path": "/m438631p.jpg",
+ "backdrop_path": "/m438631b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "US",
+   "name": "US"
+  }
+ ],
+ "production_companies": [],
+ "credits": {
+  "cast": [],
+  "crew": [
+   {
+    "id": 60,
+    "name": "Denis Villeneuve",
+    "original_name": "Denis Villeneuve",
+    "job": "Director",
+    "department": "Directing",
+    "profile_path": null
+   }
+  ]
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m438631p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m438631p_en.jpg",
+    "iso_639_1": "en",
+    "width": 2000,
+    "height": 3000,
+    "vote_average": 5.6,
+    "vote_count": 8
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m438631b.jpg",
+    "iso_639_1": null,
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.4,
+    "vote_count": 6
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m438631b_en.jpg",
+    "iso_639_1": "en",
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.9,
+    "vote_count": 9
+   }
+  ],
+  "logos": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m438631l.png",
+    "iso_639_1": "en",
+    "width": 800,
+    "height": 1200,
+    "vote_average": 5.3,
+    "vote_count": 2
+   }
+  ]
+ },
+ "external_ids": {
+  "imdb_id": "tt1160419",
+  "tvdb_id": null
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "沙丘",
+     "overview": "保罗·厄崔迪。",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "沙丘",
+     "overview": "",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "Dune",
+     "overview": "Paul Atreides.",
+     "tagline": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "titles": []
+ },
+ "release_dates": {
+  "results": [
+   {
+    "iso_3166_1": "US",
+    "release_dates": [
+     {
+      "certification": "PG-13",
+      "type": 3,
+      "release_date": "2021-09-15T00:00:00.000Z"
+     }
+    ]
+   }
+  ]
+ }
+}

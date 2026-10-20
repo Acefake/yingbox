@@ -78,6 +78,15 @@ export function createLibraryBridge(
     scan: request => call('scan', request),
     query: (query = {}) => call('query', query),
     getItem: itemId => call('getItem', { itemId }),
+    identify: request => call('identify', request),
+    getMatchCandidates: itemId => call('getMatchCandidates', { itemId }),
+    applyMatch: request => call('applyMatch', request),
+    lockMatch: itemId => call('lockMatch', { itemId }),
+    unlockMatch: itemId => call('unlockMatch', { itemId }),
+    refreshMetadata: request => call('refreshMetadata', request),
+    setProviderToken: (provider, token) =>
+      call('setProviderToken', { provider, token }),
+    getProviderStatus: () => call('getProviderStatus'),
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       const { port1, port2 } = createChannel()
       port1.onmessage = event => listener(event.data as LibraryEvent)

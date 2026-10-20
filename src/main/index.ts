@@ -30,6 +30,7 @@ import { registerLadaIpc } from './lada'
 import { registerLadaLiveIpc } from './lada-live'
 import { registerLadaResumeIpc } from './lada-resume'
 import { registerLibraryIpc } from './library/host'
+import { MEDIA_SCHEME_PRIVILEGES } from './library/media/media-service'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -49,11 +50,16 @@ app.commandLine.appendSwitch(
 )
 
 protocol.registerSchemesAsPrivileged([
-  { scheme: 'amane', privileges: { secure: true, standard: true, supportFetchAPI: true } },
+  {
+    scheme: 'amane',
+    privileges: { secure: true, standard: true, supportFetchAPI: true },
+  },
   {
     scheme: 'local',
     privileges: { secure: true, standard: true, stream: true, bypassCSP: true },
   },
+  // 媒体库缓存图片（海报 / 背景图缩略图），见 src/main/library/media
+  MEDIA_SCHEME_PRIVILEGES,
 ])
 
 let mainWindow: BrowserWindow | null = null
@@ -134,7 +140,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
     ]
     callback({ responseHeaders: headers })
   })

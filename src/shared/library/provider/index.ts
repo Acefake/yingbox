@@ -11,3 +11,14 @@ export type {
   SearchQuery,
   SeasonInfo,
 } from './types'
+export type {
+  EpisodeGroupSummary,
+  EpisodeMetadata,
+  EpisodePosition,
+  ImageCandidate,
+  ImageRole,
+  MediaMetadata,
+  PersonCredit,
+  SeasonMetadata,
+  SeasonSummary,
+} from './metadata'

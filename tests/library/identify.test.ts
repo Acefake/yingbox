@@ -159,22 +159,25 @@ describe('identify', () => {
     })
   })
 
-  it('没有年份可比的同名片同分，按热度取第一个', async () => {
+  it('没有年份可比的同名片同分：不按热度硬选，进待确认（热度高的排前）', async () => {
     const result = await run('/m/Heat.1080p.mkv').result
-    // 1986 版在目录里排第二，但更热门
     expect(result).toMatchObject({
-      status: 'matched',
-      source: 'search',
-      ref: { id: '2' },
+      status: 'review',
+      candidates: [
+        { candidate: { ref: { id: '2' } } },
+        { candidate: { ref: { id: '1' } } },
+      ],
     })
   })
 
-  it('带年份搜不到时去掉年份重搜', async () => {
+  it('带年份搜不到时去掉年份重搜，并试“标题 + 年份”整体当标题，最后取详情精排', async () => {
     const { provider, result } = run('/m/The.Matrix.2001.mkv')
     const r = await result
     expect(provider.calls).toEqual([
       'search:movie:The Matrix:2001',
       'search:movie:The Matrix:',
+      'search:movie:The Matrix 2001:',
+      'details:movie:603',
     ])
     // 标题满分、年份差 2 年 → 0.6/0.85 ≈ 0.71，进入待确认
     expect(r).toMatchObject({

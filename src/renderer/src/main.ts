@@ -11,6 +11,7 @@ import { setAmanePhoneToken } from '@/api/amane'
 import {
   getScrapeProviderConfig,
   saveScrapeProviderConfig,
+  syncTmdbTokenToEngine,
 } from '@/stores/scrape-provider-store'
 
 /**
@@ -62,3 +63,6 @@ setupDirectives(app)
 app.mount('#app')
 
 registerPwa()
+
+// 媒体库引擎在自己的进程里识别与刮削，令牌由这里下发（引擎侧持久化）
+void syncTmdbTokenToEngine()
