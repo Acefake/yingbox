@@ -1,0 +1,106 @@
+/**
+ * 下载域的引擎实现：把站点解析、HLS 下载、ffmpeg 转封装接到队列上。
+ */
+import { spawn } from 'node:child_process'
+import { mkdir, rm } from 'node:fs/promises'
+import { join } from 'node:path'
+import type { NetClient } from '../../shared/net/client'
+import { type DownloadSnapshot, download } from '../../shared/contract/download'
+import type { EngineContext, EngineHandlers } from '../rpc'
+import { downloadHls } from './hls'
+import { DownloadQueue, type DownloadRunner } from './queue'
+import { pageGetter, resolveSource } from './sources'
+
+/**
+ * 有 ffmpeg 时把 .ts 无损转成 .mp4（-c copy），成功后删 .ts；没有 ffmpeg 或失败保留 .ts。
+ * 不打包 ffmpeg：原 Python 下载器引用的 tools/ffmpeg.exe 从未随安装包分发。
+ */
+export function remuxToMp4(tsFile: string, ffmpeg = 'ffmpeg'): Promise<string> {
+  const mp4 = tsFile.replace(/\.ts$/, '.mp4')
+  return new Promise(resolve => {
+    const child = spawn(
+      ffmpeg,
+      [
+        '-y',
+        '-loglevel',
+        'error',
+        '-i',
+        tsFile,
+        '-c',
+        'copy',
+        '-f',
+        'mp4',
+        mp4,
+      ],
+      {
+        stdio: 'ignore',
+        windowsHide: true,
+      }
+    )
+    child.on('error', () => resolve(tsFile))
+    child.on('exit', code => {
+      if (code === 0) void rm(tsFile, { force: true }).then(() => resolve(mp4))
+      else void rm(mp4, { force: true }).then(() => resolve(tsFile))
+    })
+  })
+}
+
+/** 下载域依赖。 */
+export interface DownloadDeps {
+  net: NetClient
+  /** 队列持久化文件 */
+  stateFile: string
+  /** 引擎共享上下文：要下载目录、浏览器代抓、推事件 */
+  ctx: EngineContext
+}
+
+/** 创建下载域 handlers 与队列。 */
+export function createDownloadHandlers(deps: DownloadDeps): {
+  handlers: EngineHandlers<typeof download>
+  queue: DownloadQueue
+} {
+  const run: DownloadRunner = async (code, report, signal) => {
+    const { ctx } = deps
+    const dir = join(await ctx.host('downloadDir'), code)
+    await mkdir(dir, { recursive: true })
+    const source = await resolveSource(
+      code,
+      pageGetter({
+        net: deps.net,
+        browserFetch: url => ctx.host('browserFetch', url),
+      })
+    )
+    if (signal.aborted) throw new Error('已取消')
+    const result = await downloadHls(deps.net, source.m3u8, join(dir, code), {
+      referer: source.referer,
+      signal,
+      onProgress: report,
+    })
+    const file =
+      result.container === 'ts' ? await remuxToMp4(result.file) : result.file
+    return { file, site: source.site }
+  }
+
+  // 进度很密：合并成最多每 500ms 推一次
+  let timer: ReturnType<typeof setTimeout> | undefined
+  let latest: DownloadSnapshot | undefined
+  const onChange = (snapshot: DownloadSnapshot): void => {
+    latest = snapshot
+    if (timer) return
+    timer = setTimeout(() => {
+      timer = undefined
+      if (latest) deps.ctx.emit(download, 'changed', latest)
+    }, 500)
+  }
+
+  const queue = new DownloadQueue({ file: deps.stateFile, run, onChange })
+  return {
+    queue,
+    handlers: {
+      list: () => queue.snapshot(),
+      add: (_ctx, code) => queue.add(code),
+      remove: (_ctx, code) => queue.remove(code),
+      retry: (_ctx, code) => queue.retry(code),
+    },
+  }
+}
