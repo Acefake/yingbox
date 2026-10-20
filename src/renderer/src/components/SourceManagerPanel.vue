@@ -459,7 +459,7 @@ const removeCustom = (idx: number): void => {
   z-index: 2000;
   display: flex;
   justify-content: flex-end;
-  background: rgba(0, 0, 0, 0.36);
+  background: var(--overlay-scrim-soft);
 }
 
 .smp-panel {
@@ -567,7 +567,7 @@ const removeCustom = (idx: number): void => {
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.42);
+  background: var(--overlay-scrim-soft);
 }
 .add-panel {
   width: min(400px, calc(100vw - 48px));
