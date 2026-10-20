@@ -5,7 +5,7 @@
  * 缩略图（300w / 780w webp）由主进程生成：下载完成后经 onCached 通知主进程（见 media/thumbnailer.ts）。
  */
 import { createHash, randomUUID } from 'node:crypto'
-import { mkdir, rename, rm, writeFile } from 'node:fs/promises'
+import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname, join } from 'node:path'
 import { mediaImageUrl } from '../../../shared/library/media-url'
 import { type LibraryDb, StatementCache } from '../db/database'
@@ -81,6 +81,27 @@ export class ImageCache {
     )
     if (fresh.length) this.options.onCached?.(fresh)
     return result
+  }
+
+  /**
+   * 确保 URL 已缓存并返回原图文件路径（写出层复制到媒体库用）；失败返回 null。
+   * 记录为已缓存但文件被删掉时，清掉记录重新下载一次。
+   */
+  async ensureFile(url: string, signal?: AbortSignal): Promise<string | null> {
+    const key = imageKey(url)
+    const path = originalPath(this.options.mediaDir, key)
+    for (let attempt = 0; attempt < 2; attempt++) {
+      if (!(await this.ensure([url], signal)).get(url)) return null
+      if (
+        await access(path).then(
+          () => true,
+          () => false
+        )
+      )
+        return path
+      this.sql.get('DELETE FROM images WHERE key = ?').run(key)
+    }
+    return null
   }
 
   private async ensureOne(

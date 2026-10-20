@@ -118,6 +118,8 @@ export interface TmdbMovieDetails extends TmdbDetailsBase {
   release_date?: string
   runtime?: number | null
   imdb_id?: string | null
+  /** 所属系列（合集）。 */
+  belongs_to_collection?: { id: number; name?: string } | null
   alternative_titles?: { titles?: TmdbAltTitle[] }
   release_dates?: {
     results?: Array<{
