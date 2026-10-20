@@ -629,7 +629,7 @@ const rows: Row[] = [
     { type: 'episode', title: 'Steins;Gate', episodes: [1], absolute: true },
   ],
   [
-    '/media/Anime/葬送的芙莉莲/[桜都字幕组] 葬送的芙莉莲 / Sousou no Frieren [03][1080P][简繁内封].mkv',
+    '/media/Anime/葬送的芙莉莲/[桜都字幕组] 葬送的芙莉莲 ／ Sousou no Frieren [03][1080P][简繁内封].mkv',
     'episode-anime-absolute',
     {
       type: 'episode',

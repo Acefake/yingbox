@@ -28,6 +28,7 @@ import {
   type GoldenCase,
   compareParse,
   goldenCases,
+  holdoutPaths,
 } from '../tests/fixtures/media-names'
 
 const args = process.argv.slice(2)
@@ -271,6 +272,12 @@ async function benchParse(): Promise<string> {
   }
   const failures: string[] = []
   let parseMs = 0
+  /** 按来源统计整条全对：手写难例 / 留出集 / 规则生成。 */
+  const bySource: Record<string, Tally> = {
+    手写难例: { ok: 0, total: 0 },
+    留出集: { ok: 0, total: 0 },
+    规则生成: { ok: 0, total: 0 },
+  }
 
   for (const cat of cats) {
     const t = {
@@ -288,7 +295,7 @@ async function benchParse(): Promise<string> {
       const name = fileName(c.path)
       const e = c.expected
       const firstEp = e.episodes?.[0]
-      bump(t.lt, legacyTitleOk(c))
+      if (e.type === 'movie') bump(t.lt, legacyTitleOk(c))
       if (e.type === 'episode' && firstEp !== undefined) {
         bump(t.le1, legacyEpisodeFileManagement(name) === firstEp)
         bump(t.le2, legacyEpisodeScraping(name) === firstEp)
@@ -311,6 +318,12 @@ async function benchParse(): Promise<string> {
         if (e.type === 'episode' && e.season !== undefined)
           bump(t.ns, got.season === e.season)
         bump(t.nall, diff.length === 0)
+        const source = holdoutPaths.has(c.path)
+          ? '留出集'
+          : c.hand
+            ? '手写难例'
+            : '规则生成'
+        bump(bySource[source], diff.length === 0)
         if (diff.length) {
           failures.push(
             `- \`${c.path}\` — ${diff.map(d => `${d.field}: 期望 ${JSON.stringify(d.expected)}，得到 ${JSON.stringify(d.actual)}`).join('；')}`
@@ -330,11 +343,36 @@ async function benchParse(): Promise<string> {
     `| **合计** | ${goldenCases.length} | ${pct(total.lt)} | ${pct(total.le1)} | ${pct(total.le2)} | ${pct(total.ls)} | ${pct(total.nt)} | ${pct(total.ne)} | ${pct(total.ns)} | ${pct(total.nall)} |`
   )
 
+  if (parse) {
+    rows.push(
+      '',
+      '按来源（新解析器整条全对）：',
+      '',
+      '| 来源 | 用例数 | 整条全对 |',
+      '| --- | ---: | ---: |',
+      ...Object.entries(bySource).map(
+        ([name, t]) => `| ${name} | ${t.total} | ${pct(t)} |`
+      )
+    )
+  }
+
+  // 吞吐：先完整跑过一遍（上面的准确率循环）预热，再取 3 遍的中位数
+  let steadyUs = 0
+  if (parse) {
+    const passes: number[] = []
+    for (let r = 0; r < 3; r++) {
+      const s = performance.now()
+      for (const c of goldenCases) parse(c.path)
+      passes.push(((performance.now() - s) / goldenCases.length) * 1000)
+    }
+    steadyUs = median(passes)
+  }
+
   const head = [
     `黄金集 ${goldenCases.length} 条（手写 ${goldenCases.filter(c => c.hand).length} 条）。`,
-    '旧逻辑只看文件名、没有类型判断，所以“旧·片名”允许结果里带着年份或英文副标题；“—”表示该类没有此字段。',
+    '“旧·片名”只统计电影（旧流程只对电影文件名用 cleanSearchParams，剧集靠文件夹名），并允许结果里带着年份或英文副标题；旧逻辑没有类型判断和附加内容识别。“—”表示该类没有此字段。',
     parse
-      ? `新解析器单条平均 ${((parseMs / goldenCases.length) * 1000).toFixed(1)} µs。`
+      ? `新解析器单条耗时：首遍（含 JIT 预热、缓存未命中）平均 ${((parseMs / goldenCases.length) * 1000).toFixed(1)} µs，预热后 ${steadyUs.toFixed(1)} µs。`
       : '新解析器尚未实现，只给出旧逻辑数字。',
     '',
   ]
