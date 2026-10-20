@@ -1,7 +1,4 @@
-import {
-  getGoBackendApiKey,
-  getGoBackendUrl,
-} from '@/stores/scrape-provider-store'
+import { getSetting } from '@/features/settings/use-setting'
 
 const DEFAULT_BASE = 'http://localhost:31471'
 
@@ -10,19 +7,19 @@ const isWeb = typeof window !== 'undefined' && !window.api?.file
 
 /** 后端访问密钥查询串（图片等无法附带请求头的场景使用） */
 const keyQuery = (): string => {
-  const key = getGoBackendApiKey()
+  const key = getSetting('backend.apiKey')
   return key ? `key=${encodeURIComponent(key)}` : ''
 }
 
 /** 需鉴权的后端请求头（供其它模块复用） */
 export const getBackendAuthHeaders = (): Record<string, string> => {
-  const key = getGoBackendApiKey()
+  const key = getSetting('backend.apiKey')
   return key ? { Authorization: `Bearer ${key}` } : {}
 }
 
 export const getBase = (): string => {
   try {
-    const configured = getGoBackendUrl()
+    const configured = getSetting('backend.url').replace(/\/$/, '')
     if (isWeb && (!configured || configured === DEFAULT_BASE)) {
       return `${window.location.origin}/backend-api`
     }

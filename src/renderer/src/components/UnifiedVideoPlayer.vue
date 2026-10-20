@@ -106,6 +106,7 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
 import { ICON_PATHS, type IconName } from '@/components/ui/icons'
+import { getSetting, setSetting } from '@/features/settings/use-setting'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
@@ -179,17 +180,12 @@ let hls: Hls | null = null
 let loadToken = 0
 let pendingSeek = 0
 
-/** 上一次使用的播放倍速（跨会话记忆） */
-const PLAYBACK_RATE_KEY = 'player_playback_rate'
-
-const readStoredRate = (): number => {
-  const raw = Number(localStorage.getItem(PLAYBACK_RATE_KEY))
-  return Number.isFinite(raw) && raw >= 0.25 && raw <= 4 ? raw : 1
-}
+/** 上一次使用的播放倍速（跨会话记忆，设置 player.playbackRate） */
+const readStoredRate = (): number => getSetting('player.playbackRate')
 
 const storeRate = (rate: number): void => {
   if (Number.isFinite(rate) && rate >= 0.25 && rate <= 4) {
-    localStorage.setItem(PLAYBACK_RATE_KEY, String(rate))
+    void setSetting('player.playbackRate', rate)
   }
 }
 

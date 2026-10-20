@@ -15,6 +15,7 @@ import { lada } from './lada'
 import { mpv } from './mpv'
 import { path } from './path'
 import { player } from './player'
+import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
 import { update } from './update'
@@ -32,6 +33,7 @@ export const contract = {
   mpv,
   path,
   player,
+  settings,
   shell,
   subtitle,
   update,

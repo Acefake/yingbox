@@ -18,8 +18,8 @@ import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import { type AppTheme, useTheme } from '@/utils/theme'
 
-import SettingsGroup from './SettingsGroup.vue'
-import SettingsRow from './SettingsRow.vue'
+import SettingsGroup from '../ui/SettingsGroup.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
 
 const { theme, setTheme } = useTheme()
 

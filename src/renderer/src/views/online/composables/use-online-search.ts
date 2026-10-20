@@ -1,3 +1,4 @@
+import { getSetting } from '@/features/settings/use-setting'
 import { getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getBackendAuthHeaders, getBase } from '@/api/backend'
 import { useStorage } from '@vueuse/core'
@@ -262,7 +263,7 @@ export function useOnlineSearch() {
   }
 
   const activeCatSpiderSites = (): CatSpiderSite[] => {
-    const adultMode = localStorage.getItem('adultMode') === '1'
+    const adultMode = getSetting('app.adultMode')
     return CATSPIDER_SITES.value.filter(
       site =>
         selectedCatSpider.value.includes(site.api) &&

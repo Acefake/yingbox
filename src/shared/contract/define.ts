@@ -30,6 +30,22 @@ export interface Call<Args extends unknown[], Result> {
   readonly result?: Result
 }
 
+/**
+ * 同步调用：渲染层 `sendSync`，会阻塞渲染进程。
+ * 只用于启动时必须在首屏前拿到的少量数据（如设置快照）。
+ */
+export interface SyncCall<Args extends unknown[], Result> {
+  readonly kind: 'sync'
+  readonly parse: ArgsParser<Args>
+  /** 仅用于类型推导，运行时恒为 undefined */
+  readonly result?: Result
+}
+
+/** 同步调用经 IPC 返回的外壳：sendSync 无法 reject，错误靠它带回 */
+export type SyncReply =
+  | { ok: true; value: unknown }
+  | { ok: false; error: string }
+
 /** 主进程推给渲染层的事件。渲染层得到 `on<Key>(cb)` 与 `off<Key>()` 两个方法。 */
 export interface Event<Payload> {
   readonly kind: 'event'
@@ -38,7 +54,7 @@ export interface Event<Payload> {
 }
 
 /* eslint-disable @typescript-eslint/no-explicit-any -- 下面是「任意契约」的上界，只用于约束泛型 */
-export type AnyCall = Call<any, any>
+export type AnyCall = Call<any, any> | SyncCall<any, any>
 export type AnyEvent = Event<any>
 /* eslint-enable @typescript-eslint/no-explicit-any */
 
@@ -65,6 +81,18 @@ export function call(
   parse: ArgsParser<unknown[]> = noArgs
 ): Call<unknown[], unknown> {
   return { kind: 'call', parse }
+}
+
+/** 声明无参数的同步调用：`syncCall<Result>()`。 */
+export function syncCall<Result>(): SyncCall<[], Result>
+/** 声明带参数的同步调用。 */
+export function syncCall<Args extends unknown[], Result>(
+  parse: ArgsParser<Args>
+): SyncCall<Args, Result>
+export function syncCall(
+  parse: ArgsParser<unknown[]> = noArgs
+): SyncCall<unknown[], unknown> {
+  return { kind: 'sync', parse }
 }
 
 /** 声明事件。 */
@@ -95,12 +123,24 @@ export function listenerNames(key: string): { on: string; off: string } {
 // ── 由契约推导渲染层 API 类型 ─────────────────────────────
 
 type CallFn<C> =
-  C extends Call<infer A, infer R> ? (...args: A) => Promise<Awaited<R>> : never
+  C extends Call<infer A, infer R>
+    ? (...args: A) => Promise<Awaited<R>>
+    : C extends SyncCall<infer A, infer R>
+      ? (...args: A) => R
+      : never
 
 /** 调用的参数元组 */
-export type ArgsOf<C> = C extends Call<infer A, infer _R> ? A : never
+export type ArgsOf<C> = C extends
+  | Call<infer A, infer _R>
+  | SyncCall<infer A, infer _R>
+  ? A
+  : never
 /** 调用的返回值 */
-export type ResultOf<C> = C extends Call<infer _A, infer R> ? R : never
+export type ResultOf<C> = C extends
+  | Call<infer _A, infer R>
+  | SyncCall<infer _A, infer R>
+  ? R
+  : never
 /** 事件的载荷 */
 export type PayloadOf<E> = E extends Event<infer P> ? P : never
 

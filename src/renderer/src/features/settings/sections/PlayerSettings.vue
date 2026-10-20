@@ -31,25 +31,23 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 播放器：播放引擎（preferred_player_engine）与 mpv 下的 RTX 视频超分开关。
+ * 设置 · 播放器：播放引擎（player.engine）与 mpv 下的 RTX 视频超分开关（player.rtxVsr）。
  */
-import { computed, ref, watch } from 'vue'
+import { computed, watch } from 'vue'
 
-import {
-  getRtxVsrEnabled,
-  setRtxVsrEnabled,
-  syncRtxVsr,
-} from '@/composables/use-media-player'
+import { syncRtxVsr } from '@/composables/use-media-player'
 import { useMpvPlayer } from '@/composables/use-mpv-player'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
-import SettingsGroup from './SettingsGroup.vue'
+import type { SettingValue } from '../../../../../shared/settings/schema'
+import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRadioList, {
   type SettingsRadioOption,
-} from './SettingsRadioList.vue'
-import SettingsRow from './SettingsRow.vue'
+} from '../ui/SettingsRadioList.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
+import { useSetting } from '../use-setting'
 
-type PlayerEngine = 'built-in' | 'mpv'
+type PlayerEngine = SettingValue<'player.engine'>
 
 const playerEngineOptions: SettingsRadioOption<PlayerEngine>[] = [
   {
@@ -64,21 +62,12 @@ const playerEngineOptions: SettingsRadioOption<PlayerEngine>[] = [
   },
 ]
 
-const preferredPlayerEngine = ref<PlayerEngine>(
-  (localStorage.getItem('preferred_player_engine') as PlayerEngine) ||
-    'built-in'
-)
-watch(preferredPlayerEngine, val => {
-  localStorage.setItem('preferred_player_engine', val)
-})
+const preferredPlayerEngine = useSetting('player.engine')
 
 // ── RTX 视频超分（NVIDIA） ─────────────────────────────────
 const { status: mpvState } = useMpvPlayer()
-const rtxVsrEnabled = ref(getRtxVsrEnabled())
-watch(rtxVsrEnabled, val => {
-  setRtxVsrEnabled(val)
-  syncRtxVsr()
-})
+const rtxVsrEnabled = useSetting('player.rtxVsr')
+watch(rtxVsrEnabled, () => syncRtxVsr())
 
 /** 当前播放分辨率文案：片源 →（超分后） */
 const mpvResolutionText = computed(() => {
