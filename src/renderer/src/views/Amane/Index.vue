@@ -27,12 +27,12 @@
         <button class="yb-btn-soft" type="submit">搜索</button>
         <div v-if="tab === 'films'" ref="sortWrapper" class="amane-sort" @keydown.esc.stop="sortOpen = false">
           <button ref="sortButton" class="yb-btn-soft amane-sort-button" type="button" aria-haspopup="menu" :aria-expanded="sortOpen" @click="sortOpen = !sortOpen">
-            <AppIcon name="sort" size="sm" /><span>{{ sortLabel }}</span><AppIcon :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'" size="sm" />
+            <UiIcon name="sort" size="sm" /><span>{{ sortLabel }}</span><UiIcon :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'" size="sm" />
           </button>
           <div v-if="sortOpen" class="amane-sort-menu" role="menu" aria-label="排序">
             <button v-for="option in sortOptions" :key="option.value" type="button" role="menuitemradio" :aria-checked="sortField === option.value" :class="{ active: sortField === option.value }" @click="chooseSort(option.value)">
               <span>{{ option.label }}</span>
-              <AppIcon v-if="sortField === option.value" :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'" size="sm" />
+              <UiIcon v-if="sortField === option.value" :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'" size="sm" />
             </button>
           </div>
         </div>
@@ -62,7 +62,7 @@
                 <span v-else class="amane-poster-placeholder">{{ film.number }}</span>
               </button>
               <span v-if="film.score != null" class="amane-poster-badge amane-poster-score"><i>★</i>{{ film.score.toFixed(1) }}</span>
-              <span v-if="film.release" class="amane-poster-badge amane-poster-release"><AppIcon name="calendar" />{{ film.release.slice(0, 7) }}</span>
+              <span v-if="film.release" class="amane-poster-badge amane-poster-release"><UiIcon name="calendar" />{{ film.release.slice(0, 7) }}</span>
               <span v-else-if="film.file_count" class="amane-poster-badge amane-poster-files">{{ film.file_count }} 个文件</span>
             </div>
             <button class="amane-poster-info" @click="openFilm(film.id)">
@@ -133,13 +133,13 @@
         </p>
         <div class="amane-hover-actions">
           <template v-if="!isWeb && hoverFilm.file_count">
-            <ActionButton :disabled="hoverActionBusy" @click="hoverPlay" icon="play" label="播放" primary />
-            <ActionButton :disabled="hoverActionBusy" @click="hoverRestore" icon="sparkle" label="去码" />
-            <ActionButton :disabled="hoverActionBusy" @click="hoverRange" icon="range" label="去码一段" />
-            <ActionButton :disabled="hoverActionBusy" @click="hoverLive" icon="livePlay" label="边跑边看" />
+            <UiButton :disabled="hoverActionBusy" @click="hoverPlay" icon="play" label="播放" variant="primary" />
+            <UiIconButton :disabled="hoverActionBusy" @click="hoverRestore" icon="sparkle" label="去码" variant="secondary" />
+            <UiIconButton :disabled="hoverActionBusy" @click="hoverRange" icon="range" label="去码一段" variant="secondary" />
+            <UiIconButton :disabled="hoverActionBusy" @click="hoverLive" icon="livePlay" label="边跑边看" variant="secondary" />
           </template>
-          <ActionButton icon="refresh" label="重新刮削" :disabled="busy || hoverActionBusy" @click="hoverRescrape" />
-          <ActionButton @click="hoverOpen" icon="info" label="详情" />
+          <UiIconButton icon="refresh" label="重新刮削" :disabled="busy || hoverActionBusy" @click="hoverRescrape" variant="secondary" />
+          <UiIconButton @click="hoverOpen" icon="info" label="详情" variant="secondary" />
         </div>
         <div class="amane-hover-facts">
           <p v-if="hoverFilm.studio" class="amane-hover-fact"><span>制作商</span><b>{{ hoverFilm.studio }}</b></p>
@@ -164,8 +164,9 @@ import { message } from 'ant-design-vue'
 import type { AmaneStatus } from '../../../../shared/amane'
 import { amaneImage, amaneRequest, statusNames, taskNames, type AmaneActor, type AmaneDetail, type AmaneFile, type AmaneFilm, type AmaneLibrary, type AmaneTask, type AmaneUserTag, type Page } from '@/api/amane'
 import AgentPanel from './AgentPanel.vue'
-import AppIcon from '@/components/AppIcon.vue'
-import ActionButton from '@/components/ActionButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import AdvancedSearch from './AdvancedSearch.vue'
 import AmaneFilmDetail from './FilmDetail.vue'
 import { openMediaPlayer } from '@/composables/use-media-player'

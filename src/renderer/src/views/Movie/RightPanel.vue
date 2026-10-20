@@ -234,7 +234,7 @@ const handleImageError = (event: Event): void => {
   width: 200px;
   flex-shrink: 0;
   aspect-ratio: 2 / 3;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   box-shadow: var(--shadow-md);
   outline: 1px solid var(--border-subtle);
@@ -276,7 +276,7 @@ const handleImageError = (event: Event): void => {
 .rp-actor-avatar {
   width: 44px;
   height: 44px;
-  border-radius: 999px;
+  border-radius: var(--radius-full);
   overflow: hidden;
   display: flex;
   align-items: center;
@@ -286,7 +286,7 @@ const handleImageError = (event: Event): void => {
 }
 .rp-actor-name {
   margin-top: 6px;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   color: var(--text-secondary);
   text-align: center;
   width: 100%;
@@ -296,7 +296,7 @@ const handleImageError = (event: Event): void => {
   line-height: 1.2;
 }
 .rp-actor-role {
-  font-size: 9px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary);
   text-align: center;
   width: 100%;
@@ -329,7 +329,7 @@ const handleImageError = (event: Event): void => {
   border: 0;
   background: transparent;
   cursor: pointer;
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 600;
   padding: 4px 8px;
   border-radius: var(--radius-sm);

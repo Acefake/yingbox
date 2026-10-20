@@ -1,7 +1,7 @@
 <template>
   <div class="home-section">
     <PageHeader title="豆瓣热门">
-      <template #actions><IconButton icon="refresh" label="换一批热门影片" :loading="doubanLoading" @click="nextPage" /></template>
+      <template #actions><UiIconButton icon="refresh" label="换一批热门影片" :loading="doubanLoading" @click="nextPage" /></template>
     </PageHeader>
     <MediaFilterBar
       :rows="filterRows"
@@ -11,62 +11,29 @@
 
     <div v-if="doubanLoading" class="db-loading">加载中...</div>
     <div v-else-if="doubanError" class="db-error">
-      <AppIcon name="warning" /> 豆瓣数据加载失败，请稍后重试
+      <UiIcon name="warning" /> 豆瓣数据加载失败，请稍后重试
     </div>
-    <div v-else class="yb-poster-grid db-poster-grid">
-      <div
+    <div v-else class="ui-poster-grid">
+      <UiPosterCard
         v-for="item in doubanItems"
         :key="item.url"
-        class="yb-poster-card"
-        @click="emit('open', item)"
-      >
-        <div class="yb-poster-media">
-          <img
-            :src="item.cover"
-            :alt="item.title"
-            loading="lazy"
-            referrerpolicy="no-referrer"
-            @error="onImgError"
-          />
-          <div class="yb-poster-overlay">
-            <svg viewBox="0 0 24 24" width="28" height="28" fill="white">
-              <path d="M8 5v14l11-7z" />
-            </svg>
-          </div>
-          <button
-            class="favorite-btn"
-            type="button"
-            :class="{ active: isFavorite(item) }"
-            :aria-label="isFavorite(item) ? '取消收藏' : '加入收藏'"
-            @click.stop="toggleFavorite(item)"
-          >
-            {{ isFavorite(item) ? '♥' : '♡' }}
-          </button>
-          <div class="yb-poster-badge is-rate">★ {{ item.rate }}</div>
-        </div>
-        <div class="yb-poster-info">
-          <div class="yb-poster-title" :title="item.title">
-            {{ item.title }}
-          </div>
-          <div class="yb-poster-meta">
-            <span v-if="item.year" class="yb-poster-chip">{{ item.year }}</span>
-            <span v-if="item.type" class="yb-poster-chip is-accent">{{
-              item.type
-            }}</span>
-          </div>
-          <div v-if="item.overview" class="yb-poster-sub">
-            {{ item.overview }}
-          </div>
-        </div>
-      </div>
+        :title="item.title"
+        :cover="item.cover"
+        :rating="item.rate"
+        :subtitle="[item.year, item.type].filter(Boolean).join(' · ')"
+        :favorite="isFavorite(item)"
+        @open="emit('open', item)"
+        @toggle-favorite="toggleFavorite(item)"
+      />
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import IconButton from '@/components/IconButton.vue'
-import AppIcon from '@/components/AppIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import axios from 'axios'
@@ -162,11 +129,6 @@ const toggleFavorite = (item: DoubanItem) => {
     ? favorites.value.filter(entry => entry.url !== item.url)
     : [item, ...favorites.value]
   saveStoredArray('media_favorites', favorites.value)
-}
-
-const onImgError = (e: Event) => {
-  ;(e.target as HTMLImageElement).src =
-    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="120" height="160" viewBox="0 0 120 160"><rect width="120" height="160" fill="%23374151"/><text x="60" y="85" text-anchor="middle" fill="%236b7280" font-size="12">无图</text></svg>'
 }
 
 const fetchDouban = async () => {
@@ -344,29 +306,10 @@ onMounted(fetchDouban)
 </script>
 
 <style scoped>
-.home-section > .page-header { margin-bottom: 20px; }
-.db-poster-grid { margin-top: 20px; }
-/* Poster overlays stay dark-on-image for contrast */
-.favorite-btn {
-  position: absolute;
-  top: 8px;
-  right: 8px;
-  z-index: 2;
-  width: 30px;
-  height: 30px;
-  border: 0;
-  border-radius: 50%;
-  color: rgba(255, 255, 255, 0.85);
-  background: rgba(0, 0, 0, 0.5);
-  font-size: 18px;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.favorite-btn:hover {
-  background: rgba(0, 0, 0, 0.65);
-}
-.favorite-btn.active {
-  color: #fbbf24;
+.home-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
 }
 
 .db-loading {

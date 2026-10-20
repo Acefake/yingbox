@@ -27,10 +27,10 @@
             @click="toggleRuntime"
           >
             <span v-if="restoreRunning" class="sqp-spin sqp-runtime-spin" aria-hidden="true" />
-            <AppIcon v-else name="sparkle" size="sm" />
+            <UiIcon v-else name="sparkle" size="sm" />
             <span class="sqp-runtime-label">后台任务</span>
             <span class="sqp-runtime-summary" :title="runtimeSummary">{{ runtimeSummary }}</span>
-            <AppIcon name="arrowDown" size="sm" class="sqp-runtime-chevron" />
+            <UiIcon name="arrowDown" size="sm" class="sqp-runtime-chevron" />
           </button>
 
           <div v-if="!runtimeOpen && restoreRunning" class="sqp-runtime-track" aria-hidden="true">
@@ -202,7 +202,7 @@
 </template>
 
 <script setup lang="ts">
-import AppIcon from '@/components/AppIcon.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import type { GlobalQueueItem } from '@/composables/use-global-queue'
@@ -320,7 +320,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   width: min(380px, calc(100vw - 24px));
   max-height: min(560px, calc(100vh - var(--sqp-anchor-bottom, 96px) - 16px));
   border: 1px solid var(--border-default);
-  border-radius: 10px;
+  border-radius: var(--radius-lg);
   background: var(--bg-elevated);
   box-shadow: var(--shadow-lg);
   overflow: hidden;
@@ -411,7 +411,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-job-track {
   flex: 1 1 auto;
   height: 4px;
-  border-radius: 99px;
+  border-radius: var(--radius-full);
   background: var(--bg-fill-secondary);
   overflow: hidden;
 }
@@ -425,7 +425,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-job-value {
   flex: 0 1 auto;
   min-width: 0;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
@@ -538,7 +538,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 
 .sqp-mark {
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 700;
   line-height: 1;
 }
@@ -566,7 +566,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .sqp-meta {
   margin-top: 2px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--accent-text, var(--accent));
   white-space: nowrap;
   overflow: hidden;
@@ -590,7 +590,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-step {
   width: 16px;
   height: 3px;
-  border-radius: 2px;
+  border-radius: var(--radius-xs);
   background: var(--bg-fill-tertiary, var(--bg-fill-secondary));
 }
 .sqp-step.done {
@@ -599,7 +599,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-type {
   flex-shrink: 0;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   padding: 1px 8px;
 }
 
@@ -615,7 +615,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-tertiary);
-  font-size: 11px;
+  font-size: var(--text-2xs);
   cursor: pointer;
   transition: var(--transition-fast);
 }
@@ -637,7 +637,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 }
 .sqp-progress-track {
   height: 3px;
-  border-radius: 99px;
+  border-radius: var(--radius-full);
   background: var(--bg-fill-secondary);
   overflow: hidden;
 }
@@ -655,7 +655,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-footer-btn {
   min-height: 28px;
   padding: 0 10px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
 }
 .sqp-footer-btn.danger:hover {
   border-color: color-mix(in srgb, var(--danger) 40%, transparent);
@@ -697,7 +697,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     left: 0;
     width: 100%;
     max-height: min(70vh, 520px);
-    border-radius: var(--radius-lg, 14px) var(--radius-lg, 14px) 0 0;
+    border-radius: var(--radius-lg, var(--radius-xl)) var(--radius-lg, var(--radius-xl)) 0 0;
   }
 }
 </style>

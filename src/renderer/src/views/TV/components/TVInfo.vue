@@ -80,7 +80,7 @@ defineProps<Props>()
   display: inline-flex;
   align-items: center;
   padding: 2px 10px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   font-weight: 500;
   color: var(--text-secondary);
   background: var(--bg-fill-secondary);
@@ -90,10 +90,9 @@ defineProps<Props>()
 .genre-tag {
   display: inline-block;
   padding: 1px 8px;
-  font-size: 11px;
-  color: var(--accent-text);
-  background: var(--accent-soft);
-  border: 1px solid color-mix(in srgb, var(--accent) 25%, transparent);
+  font-size: var(--text-2xs);
+  color: var(--text-primary);
+  background: var(--bg-active);
   border-radius: var(--radius-sm);
 }
 .ti-val {

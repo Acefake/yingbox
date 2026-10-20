@@ -607,14 +607,14 @@ export const SiteCard = dc({
 
 .smp-fail-btn {
   min-height: 28px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--danger);
   border-color: color-mix(in srgb, var(--danger) 30%, transparent);
   background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 .smp-update-btn {
   min-height: 28px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   white-space: nowrap;
 }
 .smp-update-btn:disabled {
@@ -638,7 +638,7 @@ export const SiteCard = dc({
 }
 .tab-count {
   margin-left: 4px;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary);
   font-variant-numeric: tabular-nums;
 }
@@ -646,7 +646,7 @@ export const SiteCard = dc({
   color: var(--accent-text);
 }
 .smp-status {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   white-space: nowrap;
 }
@@ -661,7 +661,7 @@ export const SiteCard = dc({
 }
 .smp-body::-webkit-scrollbar-thumb {
   background: var(--scrollbar-thumb);
-  border-radius: 3px;
+  border-radius: var(--radius-xs);
 }
 
 .section-header {
@@ -675,7 +675,7 @@ export const SiteCard = dc({
 }
 .section-header .yb-section-count {
   display: inline;
-  font-size: 12px;
+  font-size: var(--text-xs);
 }
 
 .add-btn {
@@ -686,7 +686,7 @@ export const SiteCard = dc({
   border: 1px solid var(--border-default);
   background: transparent;
   color: var(--accent-text);
-  font-size: 12px;
+  font-size: var(--text-xs);
   font-weight: 500;
   cursor: pointer;
   transition: var(--transition-fast);
@@ -699,7 +699,7 @@ export const SiteCard = dc({
 }
 
 .empty {
-  font-size: 13px;
+  font-size: var(--text-sm);
   color: var(--text-tertiary);
   padding: 16px 8px;
   text-align: center;
@@ -771,7 +771,7 @@ export const SiteCard = dc({
 }
 :deep(.card-api) {
   display: none;
-  font-size: 11px;
+  font-size: var(--text-2xs);
   color: var(--text-tertiary);
   max-width: 38%;
   overflow: hidden;
@@ -783,15 +783,15 @@ export const SiteCard = dc({
 }
 :deep(.badge) {
   font-style: normal;
-  font-size: 10px;
+  font-size: var(--text-2xs);
   font-weight: 600;
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   flex-shrink: 0;
 }
 :deep(.badge-blue) {
-  color: var(--accent-text);
-  background: var(--accent-soft);
+  color: var(--text-primary);
+  background: var(--bg-active);
 }
 :deep(.badge-purple) {
   color: color-mix(in srgb, #af52de 80%, var(--text-primary));
@@ -857,7 +857,7 @@ export const SiteCard = dc({
   color: var(--danger);
 }
 :deep(.check-mark) {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--accent);
   font-weight: 700;
   pointer-events: none;
@@ -883,7 +883,7 @@ export const SiteCard = dc({
   box-shadow: var(--shadow-lg);
 }
 .hint {
-  font-size: 12px;
+  font-size: var(--text-xs);
   color: var(--text-tertiary);
   margin: 0 0 14px;
   line-height: 1.4;

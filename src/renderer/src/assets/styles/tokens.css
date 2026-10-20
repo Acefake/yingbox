@@ -1,76 +1,101 @@
-/* 影盒 design tokens — cinema workspace. Dark is default; light via [data-theme="light"]. */
+/*
+ * 影盒设计令牌（design tokens）。
+ *
+ * 方向：苹果式的克制与留白。界面本身是中性灰阶，色彩交给海报；
+ * 强调色只用于选中、焦点和链接，主按钮在深色下为白底黑字（Apple TV 风格）。
+ *
+ * 规则：组件里不写裸的字号、圆角、阴影和颜色，一律引用这里的变量。
+ * 深色为默认，浅色通过 [data-theme="light"] 切换。
+ */
 :root {
   color-scheme: dark;
 
-  /* Background layers — graphite workspace with restrained surface layers */
-  --bg-base: #14171c;
-  --bg-main: #14171c;
-  --bg-elevated: #1c2129;
-  --bg-content: #14171c;
-  --bg-sidebar: #101318;
-  --bg-sidebar-solid: #101318;
-  --bg-titlebar: #14171c;
-  --bg-panel: #1c2129;
-  --bg-glass: rgba(255,255,255,.045);
-  --bg-glass-hover: rgba(255,255,255,.075);
-  --bg-fill-secondary: #252c36;
-  --bg-fill-tertiary: #191e25;
-  --bg-active: #343d49;
-  --bg-active-soft: #2c3440;
+  /* ── 背景层次（由深到浅：内容 < 侧栏 < 浮层 < 填充） ── */
+  --bg-base: #121214;
+  --bg-main: #121214;
+  --bg-content: #121214;
+  --bg-sidebar: #18181a;
+  --bg-sidebar-solid: #18181a;
+  --bg-titlebar: #121214;
+  --bg-elevated: #1c1c1e;
+  --bg-panel: #1c1c1e;
+  --bg-glass: rgba(255, 255, 255, 0.05);
+  --bg-glass-hover: rgba(255, 255, 255, 0.08);
+  --bg-fill-secondary: #2c2c2e;
+  --bg-fill-tertiary: #1c1c1e;
+  --bg-active: rgba(255, 255, 255, 0.12);
+  --bg-active-soft: rgba(255, 255, 255, 0.08);
 
-  /* Separators / borders */
-  --border-subtle: #252c36;
-  --border-default: #2c3440;
-  --border-strong: #586475;
-  --border-glass: #2c3440;
-  --border-glass-light: #3a4553;
-  --separator: #29323d;
+  /* ── 分隔：能用留白就不用线 ── */
+  --border-subtle: rgba(255, 255, 255, 0.06);
+  --border-default: rgba(255, 255, 255, 0.1);
+  --border-strong: rgba(255, 255, 255, 0.24);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --border-glass-light: rgba(255, 255, 255, 0.12);
+  --separator: rgba(255, 255, 255, 0.08);
 
-  /* Text hierarchy */
-  --text-primary: #eef1f5;
-  --text-secondary: #a9b2bf;
-  --text-tertiary: #8b97a8;
-  --text-quaternary: #798697;
+  /* ── 文字层级（tertiary 仍满足 4.5:1） ── */
+  --text-primary: #f5f5f7;
+  --text-secondary: rgba(235, 235, 245, 0.68);
+  --text-tertiary: rgba(235, 235, 245, 0.55);
+  --text-quaternary: rgba(235, 235, 245, 0.32);
   --text-main: var(--text-primary);
   --text-muted: var(--text-secondary);
   --text-dim: var(--text-tertiary);
-  /* Text sitting on the white interaction fill */
-  --text-on-accent: #242424;
+  /* 放在强调色背景上的文字 */
+  --text-on-accent: #ffffff;
 
-  /* Interaction — one accent: white */
-  --accent: #e8ba78;
-  --accent-hover: #f4ce98;
-  --accent-soft: rgba(232,186,120,.12);
-  --accent-glow: rgba(255,255,255,.16);
-  --accent-text: #edc58f;
+  /* ── 强调色：只用于选中、焦点、链接 ── */
+  --accent: #0a84ff;
+  --accent-hover: #409cff;
+  --accent-soft: rgba(10, 132, 255, 0.16);
+  --accent-glow: rgba(10, 132, 255, 0.4);
+  --accent-text: #4da3ff;
   --primary: var(--accent);
   --primary-hover: var(--accent-hover);
   --primary-glass: var(--accent-soft);
 
-  /* Semantic */
+  /* ── 主操作按钮：深色白底黑字 ── */
+  --action-bg: #f5f5f7;
+  --action-hover: #ffffff;
+  --action-text: #111113;
+  --selection-bg: rgba(10, 132, 255, 0.4);
+
+  /* ── 语义色 ── */
   --success: #30d158;
   --warning: #ff9f0a;
   --danger: #ff453a;
+  --rating: #ffd60a;
+  --favorite: #ff375f;
 
-  /* Typography */
-  --font-sans: "Segoe UI Variable", "Segoe UI", "PingFang SC", "Microsoft YaHei UI", sans-serif;
-  --font-display: var(--font-sans);
-  --action-bg: var(--accent);
-  --action-hover: var(--accent-hover);
-  --action-text: #242424;
-  --selection-bg: #343d49;
-  --text-xs: 12px;
-  --text-sm: 13px;
-  --text-md: 14px;
-  --text-lg: 16px;
-  --text-xl: 20px;
-  --text-2xl: 24px;
+  /* ── 字体：优先系统字体（macOS 为 SF / 苹方，Windows 为 Segoe / 雅黑） ── */
+  --font-sans: -apple-system, BlinkMacSystemFont, 'SF Pro Text', 'PingFang SC',
+    'Segoe UI Variable Text', 'Segoe UI', 'Microsoft YaHei UI', system-ui,
+    sans-serif;
+  --font-display: -apple-system, BlinkMacSystemFont, 'SF Pro Display',
+    'PingFang SC', 'Segoe UI Variable Display', 'Segoe UI', 'Microsoft YaHei UI',
+    system-ui, sans-serif;
+  --font-mono: ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas,
+    monospace;
+
+  /* ── 字号：参照 macOS 文字样式 ── */
+  --text-2xs: 11px; /* 角标、辅助说明 */
+  --text-xs: 12px; /* 次要信息 */
+  --text-sm: 13px; /* 正文、控件 */
+  --text-md: 14px; /* 列表标题 */
+  --text-lg: 17px; /* 区块标题 */
+  --text-xl: 22px; /* 页面副标题 */
+  --text-2xl: 28px; /* 页面标题 */
+  --text-3xl: 34px; /* 详情页大标题 */
   --font-weight-regular: 400;
   --font-weight-medium: 500;
   --font-weight-semibold: 600;
   --font-weight-bold: 700;
+  --tracking-tight: -0.022em;
+  --leading-tight: 1.2;
+  --leading-normal: 1.5;
 
-  /* Spacing scale */
+  /* ── 间距：8pt 网格 ── */
   --space-1: 4px;
   --space-2: 8px;
   --space-3: 12px;
@@ -80,112 +105,139 @@
   --space-7: 32px;
   --space-8: 40px;
   --space-9: 48px;
+  --space-10: 64px;
 
-  /* Corner hierarchy */
+  /* ── 圆角：角标 4 / 小控件 6 / 控件 8 / 卡片海报 12 / 弹窗 16 ── */
+  --radius-xs: 4px;
   --radius-sm: 6px;
   --radius-md: 8px;
-  --radius-lg: 10px;
-  --radius-xl: 12px;
+  --radius-lg: 12px;
+  --radius-xl: 16px;
   --radius-full: 999px;
 
-  /* Layout chrome */
-  --sidebar-width: 224px;
+  /* ── 布局 ── */
+  --sidebar-width: 232px;
   --sidebar-width-collapsed: 68px;
-  --titlebar-height: 60px;
+  --titlebar-height: 52px;
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
   --safe-left: env(safe-area-inset-left, 0px);
   --safe-right: env(safe-area-inset-right, 0px);
-  --content-padding-x: 32px;
-  --content-padding-y: 28px;
-  --control-height-sm: 34px;
-  --control-height: 38px;
-  /* Icons — one optical size scale */
+  --content-padding-x: 40px;
+  --content-padding-y: 32px;
+  --control-height-sm: 28px;
+  --control-height: 32px;
+  --control-height-lg: 40px;
+  --poster-min-width: 160px;
+  --poster-gap-x: 24px;
+  --poster-gap-y: 32px;
+
+  /* ── 图标：统一线宽与三档尺寸 ── */
   --icon-sm: 14px;
   --icon-md: 16px;
   --icon-lg: 18px;
   --icon-stroke: 1.75;
   --media-sidebar-width: 280px;
   --media-row-height: 36px;
-  --transition-panel: transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
 
-  /* Solid desktop surfaces */
+  /* ── 材质：侧栏与标题栏可用毛玻璃，其余实色 ── */
   --blur-sidebar: 0px;
   --blur-titlebar: 0px;
   --blur-panel: 0px;
   --saturate-vibrancy: 100%;
 
-  /* Shadows — floors of light, not decorations */
-  --shadow-sm: none;
-  --shadow-md: 0 8px 24px rgba(0,0,0,.2);
-  --shadow-lg: 0 18px 56px rgba(0,0,0,.32);
+  /* ── 阴影：只有两档真正的层级 ── */
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.5);
   --shadow-panel: var(--shadow-lg);
-  --focus-ring: 0 0 0 2px var(--accent-glow);
+  --focus-ring: 0 0 0 3px var(--accent-glow);
 
-  /* Scrollbar */
-  --scrollbar-thumb: rgba(255, 255, 255, 0.24);
-  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.38);
+  /* ── 滚动条 ── */
+  --scrollbar-thumb: rgba(255, 255, 255, 0.2);
+  --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
   --scrollbar-track: transparent;
 
-  /* Transitions (shorthand — keep compatible with existing `transition: var(--transition-*)`) */
-  --ease-out: cubic-bezier(0.23, 1, 0.32, 1);
-  --transition-fast: color 150ms ease, background-color 150ms ease, border-color 150ms ease, opacity 150ms ease, transform 150ms var(--ease-out), box-shadow 150ms ease;
-  --transition-normal: color 220ms ease, background-color 220ms ease, border-color 220ms ease, opacity 220ms ease, transform 220ms var(--ease-out), box-shadow 220ms ease;
+  /* ── 动效 ── */
+  --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
+  --ease-spring: cubic-bezier(0.34, 1.36, 0.64, 1);
+  --duration-fast: 150ms;
+  --duration-normal: 240ms;
+  --transition-panel: transform 0.35s var(--ease-out), opacity 0.35s var(--ease-out);
+  --transition-fast: color 150ms ease, background-color 150ms ease,
+    border-color 150ms ease, opacity 150ms ease, transform 150ms var(--ease-out),
+    box-shadow 150ms ease;
+  --transition-normal: color 240ms ease, background-color 240ms ease,
+    border-color 240ms ease, opacity 240ms ease,
+    transform 240ms var(--ease-out), box-shadow 240ms ease;
 }
 
-/* Light mode — kept for explicit toggling; neutral interactive identity stays. */
 [data-theme='light'] {
   color-scheme: light;
 
-  --bg-base: #FAFAF8;
-  --bg-main: #FAFAF8;
+  --bg-base: #ffffff;
+  --bg-main: #ffffff;
+  --bg-content: #ffffff;
+  --bg-sidebar: #f5f5f7;
+  --bg-sidebar-solid: #f5f5f7;
+  --bg-titlebar: #ffffff;
   --bg-elevated: #ffffff;
-  --bg-content: #FAFAF8;
-  --bg-sidebar: #F0F0ED;
-  --bg-sidebar-solid: #F0F0ED;
-  --bg-titlebar: #FAFAF8;
-  --bg-panel: #FFFFFF;
+  --bg-panel: #ffffff;
   --bg-glass: rgba(0, 0, 0, 0.04);
-  --bg-glass-hover: rgba(0, 0, 0, 0.07);
-  --bg-fill-secondary: #ECECE9;
-  --bg-fill-tertiary: #F4F4F1;
-  --bg-active: #E5E5E2;
-  --bg-active-soft: #EAEAE7;
+  --bg-glass-hover: rgba(0, 0, 0, 0.06);
+  --bg-fill-secondary: #f2f2f4;
+  --bg-fill-tertiary: #f7f7f8;
+  --bg-active: rgba(0, 0, 0, 0.08);
+  --bg-active-soft: rgba(0, 0, 0, 0.05);
 
-  --border-subtle: #E8E8E4;
-  --border-default: #DEDEDA;
-  --border-strong: #B7B7B1;
+  --border-subtle: rgba(0, 0, 0, 0.05);
+  --border-default: rgba(0, 0, 0, 0.1);
+  --border-strong: rgba(0, 0, 0, 0.24);
   --border-glass: rgba(0, 0, 0, 0.08);
   --border-glass-light: rgba(0, 0, 0, 0.12);
-  --separator: #E1E1DC;
+  --separator: rgba(0, 0, 0, 0.08);
 
-  --text-primary: #242424;
-  --text-secondary: #6C6C6C;
-  --text-tertiary: #797979;
-  --text-quaternary: #888888;
-  --text-on-accent: #f5f5f7;
+  --text-primary: #1d1d1f;
+  --text-secondary: rgba(60, 60, 67, 0.82);
+  --text-tertiary: rgba(60, 60, 67, 0.7);
+  --text-quaternary: rgba(60, 60, 67, 0.36);
+  --text-on-accent: #ffffff;
 
-  /* Interaction — one accent: near-black */
-  --accent: #8a551c;
-  --accent-hover: #704114;
-  --accent-soft: rgba(138,85,28,.09);
-  --accent-glow: rgba(0,0,0,.12);
-  --accent-text: #8a551c;
+  --accent: #007aff;
+  --accent-hover: #0062cc;
+  --accent-soft: rgba(0, 122, 255, 0.1);
+  --accent-glow: rgba(0, 122, 255, 0.32);
+  --accent-text: #0066d6;
 
-  --action-bg: var(--accent);
-  --action-hover: var(--accent-hover);
-  --action-text: #FFFFFF;
-  --selection-bg: #E5E5E2;
+  --action-bg: #1d1d1f;
+  --action-hover: #000000;
+  --action-text: #ffffff;
+  --selection-bg: rgba(0, 122, 255, 0.24);
 
   --success: #34c759;
-  --warning: #ff9f0a;
+  --warning: #ff9500;
   --danger: #ff3b30;
+  --rating: #f5a700;
+  --favorite: #ff2d55;
 
-  --shadow-sm: none;
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.08);
-  --shadow-lg: 0 18px 48px rgba(0, 0, 0, 0.12);
+  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
+  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.16);
 
-  --scrollbar-thumb: rgba(0, 0, 0, 0.24);
-  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.38);
+  --scrollbar-thumb: rgba(0, 0, 0, 0.2);
+  --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  :root {
+    --duration-fast: 0ms;
+    --duration-normal: 0ms;
+  }
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    transition-duration: 0.01ms !important;
+  }
 }

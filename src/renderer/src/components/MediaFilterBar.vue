@@ -46,11 +46,7 @@ const setFilter = (key: string, value: string) => {
 .media-filter-bar {
   display: flex;
   flex-direction: column;
-  gap: 10px;
-  padding: 16px;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
+  gap: var(--space-2);
 }
 .filter-row {
   display: flex;
@@ -58,11 +54,11 @@ const setFilter = (key: string, value: string) => {
   gap: 20px;
 }
 .filter-label {
-  width: 56px;
-  flex: 0 0 56px;
-  padding-top: 5px;
+  width: 40px;
+  flex: 0 0 40px;
+  padding-top: 6px;
   color: var(--text-tertiary);
-  font-size: 13px;
+  font-size: var(--text-sm);
   font-weight: 400;
   white-space: nowrap;
 }
@@ -70,31 +66,30 @@ const setFilter = (key: string, value: string) => {
   display: flex;
   flex: 1 1 auto;
   flex-wrap: wrap;
-  gap: 6px 8px;
+  gap: var(--space-1);
   min-width: 0;
 }
 .filter-option {
-  min-height: 30px;
-  padding: 4px 10px;
+  min-height: var(--control-height-sm);
+  padding: 0 var(--space-3);
   border: 0;
   color: var(--text-secondary);
   background: transparent;
-  font-size: 13px;
+  font-size: var(--text-sm);
   white-space: nowrap;
   cursor: pointer;
   transition: color 0.15s ease, background 0.15s ease;
 
-  border-radius: 6px;
+  border-radius: var(--radius-full);
 }
 .filter-option:hover {
   color: var(--text-primary);
   background: var(--bg-glass);
 }
 .filter-option.active {
-  color: var(--accent-text);
+  color: var(--text-primary);
   font-weight: var(--font-weight-medium);
-
-  background: var(--accent-soft);
+  background: var(--bg-active);
 }
 @media (max-width: 760px) {
   .filter-row {

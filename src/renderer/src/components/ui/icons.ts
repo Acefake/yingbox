@@ -1,22 +1,8 @@
-<template>
-  <svg
-    class="app-icon"
-    :class="sizeClass"
-    viewBox="0 0 24 24"
-    width="16"
-    height="16"
-    fill="none"
-    aria-hidden="true"
-  >
-    <path v-if="paths[name]" :d="paths[name]" />
-  </svg>
-</template>
-
-<script setup lang="ts">
-import { computed } from 'vue'
-
-/** Lucide-style stroke paths, optically centered in 24×24 */
-const paths = {
+/**
+ * 统一图标：Lucide 风格线性图标，24×24 视框，线宽由 --icon-stroke 控制。
+ * filled 用于选中态（如已收藏的心形、评分星）。
+ */
+export const ICON_PATHS = {
   externalLink: 'M14 3h7v7M21 3 10 14M10 3H3v18h18v-7',
   panel: 'M3 4h18v16H3ZM9 4v16',
   calendar: 'M4 6a1 1 0 0 1 1-1h14a1 1 0 0 1 1 1v13a1 1 0 0 1-1 1H5a1 1 0 0 1-1-1V6ZM8 3v4M16 3v4M4 10h16',
@@ -26,6 +12,7 @@ const paths = {
   sort: 'M8 4v16m-4-4 4 4 4-4M15 5h6M15 10h4M15 15h2',
   grid: 'M3 3h7v7H3ZM14 3h7v7h-7ZM3 14h7v7H3ZM14 14h7v7h-7Z',
   play: 'm8 4 12 8-12 8Z',
+  star: 'm12 3.5 2.6 5.3 5.9.9-4.25 4.1 1 5.85L12 16.9l-5.25 2.75 1-5.85L3.5 9.7l5.9-.9Z',
   range: 'M5 4v16M19 4v16M8 12h8m-6-3-3 3 3 3m4-6 3 3-3 3',
   livePlay: 'M21 12a9 9 0 1 1-18 0 9 9 0 0 1 18 0ZM10 8l6 4-6 4Z',
   pause: 'M7 4v16M17 4v16',
@@ -71,42 +58,4 @@ const paths = {
     'M12 15.2a3.2 3.2 0 1 0 0-6.4 3.2 3.2 0 0 0 0 6.4ZM19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.87-2.87l.06-.06a1.65 1.65 0 0 0 .33-1.81 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1Z',
 } as const
 
-const props = withDefaults(
-  defineProps<{ name: keyof typeof paths; size?: 'sm' | 'md' | 'lg' }>(),
-  { size: 'md' }
-)
-
-const sizeClass = computed(() => `app-icon--${props.size}`)
-</script>
-
-<style scoped>
-.app-icon {
-  display: block;
-  flex: 0 0 auto;
-  box-sizing: content-box;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: var(--icon-stroke, 1.75);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  overflow: visible;
-  vertical-align: middle;
-  /* optical box keeps glyphs centered next to text */
-  margin-block: 0;
-}
-
-.app-icon--sm {
-  width: var(--icon-sm, 14px);
-  height: var(--icon-sm, 14px);
-}
-
-.app-icon--md {
-  width: var(--icon-md, 16px);
-  height: var(--icon-md, 16px);
-}
-
-.app-icon--lg {
-  width: var(--icon-lg, 18px);
-  height: var(--icon-lg, 18px);
-}
-</style>
+export type IconName = keyof typeof ICON_PATHS

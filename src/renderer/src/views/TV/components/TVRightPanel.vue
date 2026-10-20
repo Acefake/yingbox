@@ -451,7 +451,7 @@ const handleImageError = (event: Event): void => {
   font-weight: 500;
 }
 .tv-nfo-badge {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-weight: 700;
@@ -462,12 +462,12 @@ const handleImageError = (event: Event): void => {
 .tv-scrape-btn {
   flex-shrink: 0;
   min-height: 28px;
-  font-size: 12px;
+  font-size: var(--text-xs);
   padding: 0 10px;
   border-radius: var(--radius-md);
   border: 0;
-  background: var(--accent-soft);
-  color: var(--accent-text);
+  background: var(--bg-active);
+  color: var(--text-primary);
   font-weight: 600;
   cursor: pointer;
   transition: var(--transition-fast);
@@ -481,7 +481,7 @@ const handleImageError = (event: Event): void => {
 .tv-season-card {
   display: flex;
   gap: 16px;
-  border-radius: 6px;
+  border-radius: var(--radius-sm);
   overflow: hidden;
   background: transparent;
   border: 1px solid var(--border-default);
@@ -500,7 +500,7 @@ const handleImageError = (event: Event): void => {
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 .tv-special-badge {
-  font-size: 10px;
+  font-size: var(--text-2xs);
   padding: 2px 6px;
   border-radius: var(--radius-sm);
   font-weight: 700;
