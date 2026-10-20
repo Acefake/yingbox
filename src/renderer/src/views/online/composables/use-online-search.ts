@@ -1,8 +1,7 @@
 import { getSetting } from '@/features/settings/use-setting'
 import { getCurrentScope, onScopeDispose, ref } from 'vue'
-import { getBackendAuthHeaders, getBase } from '@/api/backend'
 import { useStorage } from '@vueuse/core'
-import axios from 'axios'
+import { getJson, onlineApi } from '@/api/online'
 import cmsSitesRaw from '../../../../../../cms-sites.json'
 import { useVODParser } from '@/composables/use-vod-parser'
 
@@ -117,25 +116,10 @@ const isAdultCatSpiderSite = (site: CatSpiderSite): boolean =>
 export const loadCatSpiderSites = (): Promise<void> => {
   if (catSpiderLoadPromise) return catSpiderLoadPromise
 
-  catSpiderLoadPromise = axios
-    .get(`${getBase()}/api/vod/sites`, {
-      timeout: 10000,
-      headers: getBackendAuthHeaders(),
-    })
-    .then(response => {
-      const sites = response.data?.config?.sites
-      if (!Array.isArray(sites)) return
-      const supportedSites = sites.filter(
-        (site: unknown): site is CatSpiderSite => {
-          const candidate = site as Partial<CatSpiderSite>
-          return (
-            candidate.type === 3 &&
-            typeof candidate.name === 'string' &&
-            typeof candidate.api === 'string' &&
-            typeof candidate.ext === 'string'
-          )
-        }
-      )
+  catSpiderLoadPromise = Promise.resolve()
+    .then(() => onlineApi().sites())
+    .then(sites => {
+      const supportedSites = sites
       if (!supportedSites.length) return
 
       CATSPIDER_SITES.value = supportedSites
@@ -306,9 +290,7 @@ export function useOnlineSearch() {
           const url = new URL(site.api)
           url.searchParams.set('ac', 'videolist')
           url.searchParams.set('wd', q)
-          const data = await axios
-            .get(String(url), { timeout: 10000, signal: controller.signal })
-            .then(r => r.data)
+          const data = await getJson<any>(String(url), { timeoutMs: 10000 })
           if (!Array.isArray(data?.list)) return []
           const items = (data.list as CmsItem[]).map(item => ({
             ...item,
@@ -513,7 +495,7 @@ export function useOnlineSearch() {
     const tasks = sources.map(async src => {
       try {
         const url = `${src.api_url}?ac=videolist&ids=${src.vod_id}`
-        const data = await axios.get(url, { timeout: 10000 }).then(r => r.data)
+        const data = await getJson<any>(url, { timeoutMs: 10000 })
         return parseGroups(data?.list?.[0], src.source_name)
       } catch {
         return []

@@ -13,6 +13,7 @@ import { file } from './file'
 import { http } from './http'
 import { lada } from './lada'
 import { mpv } from './mpv'
+import { online } from './online'
 import { path } from './path'
 import { player } from './player'
 import { settings } from './settings'
@@ -31,6 +32,7 @@ export const contract = {
   http,
   lada,
   mpv,
+  online,
   path,
   player,
   settings,

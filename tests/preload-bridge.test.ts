@@ -146,6 +146,7 @@ const EXTERNAL_API: Record<string, string[]> = {
 /** 重构后新增的域（旧域保持原样，新增只能在这里登记） */
 const ADDED_API: Record<string, string[]> = {
   settings: ['snapshot', 'migrateLegacy', 'set', 'onChanged', 'offChanged'],
+  online: ['sites', 'vod', 'getJson', 'resolvePage'],
 }
 
 beforeAll(async () => {
