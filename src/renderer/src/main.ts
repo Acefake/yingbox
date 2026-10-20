@@ -12,21 +12,17 @@ import { libraryBridge } from '@/features/library/api/bridge'
 import { migrateLegacyTmdbToken } from '@/features/library/settings/provider-token'
 import { startLegacyLibraryMirror } from '@/features/settings/legacy-library-mirror'
 import { registerSettingsSection } from '@/features/settings/registry'
-import { getSetting, setSetting } from '@/features/settings/use-setting'
 import { amaneSettingsSection } from '@/views/Amane/settings-section'
 
 /**
  * 手机接入(桌面客户端 → Amane 设置 → "手机接入"):地址栏一次性携带
- * `?amane=<token>&key=<后端key>`,写入本地存储并清理参数。
+ * `?amane=<token>`,写入本地存储并清理参数。旧链接里的 `key`（Go 后端密钥）一并清掉。
  */
 function bindPhoneBootstrap(): void {
   const params = new URLSearchParams(window.location.search)
   const amane = params.get('amane') || ''
-  const key = params.get('key') || ''
-  if (!amane && !key) return
+  if (!amane && !params.has('key')) return
   if (amane) setAmanePhoneToken(amane)
-  if (key && !getSetting('backend.apiKey'))
-    void setSetting('backend.apiKey', key)
   params.delete('amane')
   params.delete('key')
   const rest = params.toString()

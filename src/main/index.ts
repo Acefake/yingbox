@@ -13,12 +13,7 @@ import { join } from 'path'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { registerPlayerWindowIpc } from './player-window'
-import {
-  startBrowserFetchService,
-  stopBrowserFetchService,
-} from './browser-fetch'
-import { getConfigPath, getDownloadPath, loadConfig } from './config'
-import { startBackend } from './backend-manager'
+import { loadConfig } from './config'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
 import { registerFileIpc } from './ipc/file-ipc'
@@ -159,10 +154,7 @@ app.whenReady().then(async () => {
   await loadConfig()
   await initSettings()
 
-  // 浏览器级抓取服务：插件源被 Cloudflare 拦截时由主进程 Chromium 代取页面。
-  startBrowserFetchService()
-
-  // IPC 按域注册；窗口与后端生命周期由本文件负责
+  // IPC 按域注册；窗口生命周期由本文件负责
   registerFileIpc()
   registerHttpIpc()
   registerDialogIpc()
@@ -174,8 +166,6 @@ app.whenReady().then(async () => {
   await registerLadaIpc()
   registerLibraryIpc()
   registerEngine()
-
-  startBackend({ configPath: getConfigPath(), downloadPath: getDownloadPath() })
 
   createWindow()
   registerDevToolsShortcut()
@@ -194,6 +184,3 @@ app.on('window-all-closed', () => {
   }
 })
 
-app.on('will-quit', () => {
-  stopBrowserFetchService()
-})

@@ -149,9 +149,12 @@ export const settingsSchema = {
   /** 自定义刮削服务 API Key */
   'scrape.customApiKey': text(''),
 
-  /** 在线资源 Go 后端地址 */
+  /**
+   * @deprecated Go 后端已删除（p3d）。只为影视的 legacy-library-mirror 回写旧存储而保留，
+   * 界面不再展示；影视合并后与 mirror 一起删除。
+   */
   'backend.url': text('http://localhost:31471', 2048),
-  /** Go 后端访问密钥（只在后端开放到局域网时需要） */
+  /** @deprecated 同 backend.url；Amane 手机接入只用 Amane 自己的令牌，不再读它。 */
   'backend.apiKey': text(''),
 
   /** Amane 后台 API Token */
