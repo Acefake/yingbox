@@ -31,6 +31,7 @@
           />
           <UiSelect
             v-model="state.filter"
+            class="lib-select"
             size="sm"
             aria-label="筛选"
             :options="filterOptions"
@@ -38,12 +39,14 @@
           <UiSelect
             v-if="libraries.length > 1"
             v-model="libraryChoice"
+            class="lib-select"
             size="sm"
             aria-label="媒体库"
             :options="libraryOptions"
           />
           <UiSelect
             :model-value="state.sort"
+            class="lib-select"
             size="sm"
             aria-label="排序"
             :options="sortOptions"
@@ -548,10 +551,10 @@ function writeSelected(): void {
 
 /* —— 工具栏 —— */
 .lib-toolbar {
-  display: grid;
-  grid-template-columns: minmax(0, 1fr) auto minmax(0, 1fr);
+  display: flex;
+  flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-4);
+  gap: var(--space-3) var(--space-6);
   padding: var(--space-6) var(--content-padding-x) var(--space-4);
 }
 .lib-toolbar-title {
@@ -575,13 +578,18 @@ function writeSelected(): void {
 }
 .lib-toolbar-tools {
   display: flex;
+  flex: 1 0 auto;
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-  min-width: 0;
 }
 .lib-search {
-  width: 200px;
+  flex: 0 0 200px;
+}
+/* 下拉按内容宽度，不被拉伸 */
+.lib-select {
+  flex: 0 0 auto;
+  width: auto;
 }
 
 /* —— 后台任务 —— */
@@ -614,7 +622,7 @@ function writeSelected(): void {
 }
 .lib-activity-fill.is-indeterminate {
   width: 40%;
-  animation: lib-indeterminate 1.2s var(--ease-out) infinite;
+  animation: lib-indeterminate var(--duration-pulse) var(--ease-out) infinite;
 }
 @keyframes lib-indeterminate {
   from {
@@ -702,15 +710,8 @@ function writeSelected(): void {
 }
 
 @media (max-width: 1100px) {
-  .lib-toolbar {
-    grid-template-columns: minmax(0, 1fr) auto;
-  }
-  .lib-toolbar-views {
-    grid-row: 2;
-    justify-self: start;
-  }
   .lib-search {
-    width: 160px;
+    flex-basis: 160px;
   }
 }
 </style>

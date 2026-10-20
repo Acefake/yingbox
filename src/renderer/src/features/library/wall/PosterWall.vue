@@ -40,9 +40,11 @@
             :height="metrics.mediaHeight"
             @load="onImageLoad"
           />
-          <span v-else-if="cell.item" class="lib-cell-fallback">{{
-            cell.item.title
-          }}</span>
+          <span
+            v-else-if="cell.item && !cell.item.poster"
+            class="lib-cell-fallback"
+            >{{ cell.item.title }}</span
+          >
           <span v-if="cell.badge" class="lib-cell-badge">{{ cell.badge }}</span>
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
@@ -114,7 +116,7 @@ const grid = ref<HTMLElement | null>(null)
 /** 文字区高度：标题 + 年份 + 上间距（与样式一致）。 */
 const TEXT_HEIGHT = 52
 
-const { metrics, range, height, offset, scrollToIndex } = useVirtualGrid({
+const { metrics, range, fast, height, offset, scrollToIndex } = useVirtualGrid({
   scroller,
   grid,
   count: toRef(props, 'count'),
@@ -145,6 +147,25 @@ const BADGES: Partial<Record<LibraryItemSummary['matchState'], string>> = {
 
 watch(range, r => emit('visible', r.start, r.end), { immediate: true })
 
+/**
+ * 快速滚动时只给“已经显示过图片”的格子 src，飞过去的格子先画占位，停下后再加载，
+ * 省掉一大批马上就离开视口的图片解码。停下时把当前区间都记为已显示。
+ */
+let shown = new Set<number>()
+watch(
+  [fast, range],
+  () => {
+    if (fast.value) return
+    const next = new Set<number>()
+    for (let i = range.value.start; i < range.value.end; i++) {
+      const item = props.list.at(i)
+      if (item) next.add(item.id)
+    }
+    shown = next
+  },
+  { immediate: true }
+)
+
 /** 一个渲染格。 */
 interface Cell {
   key: number | string
@@ -161,6 +182,7 @@ const cells = computed<Cell[]>(() => {
   void props.version
   void props.selectionVersion
   const { start, end } = range.value
+  const deferImages = fast.value
   const out: Cell[] = []
   for (let index = start; index < end; index++) {
     const item = props.list.at(index)
@@ -169,7 +191,10 @@ const cells = computed<Cell[]>(() => {
       key: item ? item.id : `p${index}`,
       index,
       item,
-      src: item ? itemImage(item.poster, 300) : null,
+      src:
+        item && (!deferImages || shown.has(item.id))
+          ? itemImage(item.poster, 300)
+          : null,
       badge:
         item && props.showStateBadge ? (BADGES[item.matchState] ?? '') : '',
       rating: item ? formatRating(item.rating) : '',
