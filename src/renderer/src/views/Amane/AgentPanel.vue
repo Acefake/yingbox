@@ -26,18 +26,17 @@
           @keydown.enter.prevent="renameSession(session.id)"
           @keydown.esc="renaming = null"
         />
-        <button
+        <UiListRow
           v-else
-          type="button"
           class="agent-session-link"
           :aria-current="selected === session.id ? 'page' : undefined"
           @click="selectSession(session.id)"
         >
-          {{ session.title
-          }}<small v-if="session.status === 'awaiting_approval'"
-            >等待审批</small
+          {{ session.title }}
+          <template v-if="session.status === 'awaiting_approval'" #description
+            ><small>等待审批</small></template
           >
-        </button>
+        </UiListRow>
         <UiIconButton
           v-if="renaming === session.id"
           icon="check"
@@ -192,15 +191,16 @@
             <h2>想在片库中找什么？</h2>
             <p>查询影片、演员和媒体文件，或让智能体帮你整理查询条件。</p>
             <div class="agent-suggestions">
-              <!-- 建议是可点的提示卡（多行文字），不是操作按钮 --><button
+              <!-- 建议是可点的提示卡（多行文字），不是操作按钮 -->
+              <UiListRow
                 v-for="hint in hints"
                 :key="hint"
-                type="button"
                 class="agent-suggestion"
                 @click="draft = hint"
               >
-                <UiIcon name="search" size="sm" />{{ hint }}
-              </button>
+                <template #leading><UiIcon name="search" size="sm" /></template>
+                {{ hint }}
+              </UiListRow>
             </div>
             <p class="amane-muted">
               首次使用，请先在设置的「智能体」中配置模型。
@@ -359,7 +359,7 @@ import {
   reactive,
   ref,
 } from 'vue'
-import { UiButton, UiIcon, UiIconButton } from '@/components/ui'
+import { UiButton, UiIcon, UiIconButton, UiListRow } from '@/components/ui'
 import { amaneRequest } from '@/api/amane'
 import {
   type AgentSession,

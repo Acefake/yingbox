@@ -135,24 +135,25 @@
           /></span>
         </h3>
         <div class="amane-film-chips">
-          <button
+          <UiChip
             v-for="name in film.actors"
             :key="name"
-            type="button"
             class="amane-film-chip actor"
             :disabled="!detail.actor_ids[name]"
             @click="$emit('actor', { id: detail.actor_ids[name], name })"
           >
-            <span
-              v-if="detail.actor_genders?.[name] === 'female'"
-              aria-label="女"
-              >♀</span
-            ><span
-              v-else-if="detail.actor_genders?.[name] === 'male'"
-              aria-label="男"
-              >♂</span
+            <template #leading
+              ><span
+                v-if="detail.actor_genders?.[name] === 'female'"
+                aria-label="女"
+                >♀</span
+              ><span
+                v-else-if="detail.actor_genders?.[name] === 'male'"
+                aria-label="男"
+                >♂</span
+              ></template
             >
-            {{ name }}</button
+            {{ name }}</UiChip
           ><span v-if="!film.actors.length" class="amane-muted"
             >暂无演员资料</span
           >
@@ -171,16 +172,14 @@
           /></span>
         </h3>
         <div class="amane-film-chips">
-          <button
+          <UiChip
             v-for="name in film.tags"
             :key="name"
-            type="button"
             class="amane-film-chip"
+            :label="name"
             :disabled="!detail.tag_ids[name]"
             @click="$emit('tag', name, detail.tag_ids[name])"
-          >
-            {{ name }}</button
-          ><span v-if="!film.tags.length" class="amane-muted">暂无标签</span>
+          /><span v-if="!film.tags.length" class="amane-muted">暂无标签</span>
         </div>
       </section>
       <section class="amane-film-section">
@@ -267,12 +266,12 @@
           /></span>
         </h3>
         <div v-if="stills.length" class="amane-film-stills">
-          <button
+          <UiPressable
             v-for="(image, index) in stills"
             :key="image"
-            type="button"
+            block
             class="amane-still-open"
-            :aria-label="`放大剧照 ${index + 1}`"
+            :label="`放大剧照 ${index + 1}`"
             @click="openPreview(index)"
           >
             <img
@@ -281,7 +280,7 @@
               loading="lazy"
               @error="hideBrokenImage"
             />
-          </button>
+          </UiPressable>
         </div>
         <p v-else class="amane-muted">暂无剧照</p>
       </section>
@@ -346,7 +345,14 @@
 <script setup lang="ts">
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { computed, nextTick, ref, watch } from 'vue'
-import { UiButton, UiIcon, UiIconButton, vTooltip } from '@/components/ui'
+import {
+  UiButton,
+  UiChip,
+  UiIcon,
+  UiIconButton,
+  UiPressable,
+  vTooltip,
+} from '@/components/ui'
 import {
   type AmaneDetail,
   type AmaneUserTag,
@@ -525,19 +531,12 @@ function hideBrokenImage(event: Event): void {
 </script>
 
 <style scoped>
+/* 剧照为 UiPressable block（已提供焦点环和按压反馈） */
 .amane-still-open {
-  display: block;
-  width: 100%;
-  padding: 0;
-  border: 0;
   border-radius: var(--radius-sm);
   background: var(--bg-fill-secondary);
   cursor: zoom-in;
   overflow: hidden;
-}
-.amane-still-open:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: 3px;
 }
 .amane-still-preview {
   position: fixed;

@@ -65,20 +65,24 @@
 .agent-session-row.active {
   background: var(--bg-active);
 }
-.agent-session-link {
-  min-width: 0;
+/* 会话链接为 UiListRow：行本身负责选中底色，链接只是透明的文字目标 */
+.agent-session-link.ui-list-row {
   flex: 1;
+  gap: 0;
   padding: 10px 7px;
+  border-radius: var(--radius-sm);
   background: none;
-  border: 0;
-  cursor: pointer;
-  text-align: left;
   color: inherit;
+  font-size: var(--text-xs);
+  line-height: 1.4;
+}
+.agent-session-link .ui-list-row-body {
+  gap: 3px;
+}
+.agent-session-link .ui-list-row-title {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-size: var(--text-xs);
-  line-height: 1.4;
 }
 .agent-session-row.active .agent-session-link {
   color: var(--text-primary);
@@ -88,10 +92,8 @@
   color: var(--text-primary);
 }
 .agent-session-link small {
-  display: block;
   color: var(--warning);
   font-size: var(--text-2xs);
-  margin-top: 3px;
 }
 .agent-session-row > .yb-icon-button {
   --ib-size: 26px;
@@ -185,28 +187,15 @@
   margin: 24px 0;
 }
 /* 建议提示卡：可换行的整行按钮，悬停浅底 */
-.agent-suggestion {
-  display: flex;
-  align-items: center;
+/* 建议提示卡为 UiListRow，这里只调成更宽松的内边距和常驻浅底 */
+.agent-suggestion.ui-list-row {
   gap: 10px;
-  width: 100%;
   padding: 12px 14px;
-  border: 0;
-  border-radius: var(--radius-md);
   background: var(--bg-glass);
-  color: var(--text-primary);
-  font: inherit;
   font-size: var(--text-xs);
-  line-height: 1.5;
-  text-align: left;
-  cursor: pointer;
-  transition: var(--transition-fast);
 }
-.agent-suggestion:hover {
+.agent-suggestion.ui-list-row:hover {
   background: var(--bg-glass-hover);
-}
-.agent-suggestion > .app-icon {
-  color: var(--text-tertiary);
 }
 .agent-message {
   width: 100%;
@@ -547,8 +536,6 @@
   margin: 8px 0 0;
   font-size: var(--text-2xs);
 }
-.agent-session-link:focus-visible,
-.agent-suggestion:focus-visible,
 .amane-agent summary:focus-visible {
   outline: none;
   box-shadow: var(--focus-ring);

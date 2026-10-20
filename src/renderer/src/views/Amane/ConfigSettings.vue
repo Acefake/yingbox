@@ -13,18 +13,21 @@
     </div>
     <template v-if="schema && draft && baseline">
       <nav v-if="!integrated" class="amane-settings-nav" aria-label="设置分组">
-        <button
+        <UiNavItem
           v-for="key in sections"
           :key="key"
-          type="button"
+          :label="
+            isDirty(key) ? `${sectionLabel(key)}（未保存）` : sectionLabel(key)
+          "
           :disabled="saving || upscaling"
-          :class="{ active: section === key }"
-          :aria-current="section === key ? 'page' : undefined"
+          :active="section === key"
           @click="section = key"
         >
-          {{ sectionLabel(key)
-          }}<span v-if="isDirty(key)" aria-label="未保存"> •</span>
-        </button>
+          {{ sectionLabel(key) }}
+          <template #trailing>
+            <span v-if="isDirty(key)" aria-hidden="true">•</span>
+          </template>
+        </UiNavItem>
       </nav>
       <form class="amane-config-panel" @submit.prevent="save">
         <PageHeader :title="sectionLabel(section)" as="h2" />
@@ -91,7 +94,7 @@ import {
 } from 'vue'
 import { onBeforeRouteLeave } from 'vue-router'
 import { amaneRequest } from '@/api/amane'
-import { UiButton } from '@/components/ui'
+import { UiButton, UiNavItem } from '@/components/ui'
 import ConfigField from './ConfigField.vue'
 import {
   type Config,

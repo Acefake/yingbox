@@ -221,7 +221,7 @@ const resolveTVQuery = (showItem: ProcessedItem, query?: string): string => {
   )
 }
 
-/** 打开统一刮削工作台（替代原 MediaSearchModal 搜索流） */
+/** 打开统一刮削工作台（手动搜索匹配也在这里完成） */
 const openScrapeWorkbench = (showItem: ProcessedItem, query?: string): void => {
   pendingScrapeShowItem.value = showItem
   scrapeWorkbenchQuery.value = resolveTVQuery(showItem, query)

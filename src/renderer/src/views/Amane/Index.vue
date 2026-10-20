@@ -112,23 +112,24 @@
                 role="menu"
                 aria-label="排序"
               >
-                <!-- 菜单项保持原生 button：role=menuitemradio，样式属于菜单而不是按钮 -->
-                <button
+                <!-- 菜单项是 UiListRow：role=menuitemradio + aria-checked 透传给原生 button -->
+                <UiListRow
                   v-for="option in sortOptions"
                   :key="option.value"
-                  type="button"
+                  class="amane-sort-item"
                   role="menuitemradio"
                   :aria-checked="sortField === option.value"
-                  :class="{ active: sortField === option.value }"
+                  :selected="sortField === option.value"
                   @click="chooseSort(option.value)"
                 >
-                  <span>{{ option.label }}</span>
-                  <UiIcon
-                    v-if="sortField === option.value"
-                    :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'"
-                    size="sm"
-                  />
-                </button>
+                  {{ option.label }}
+                  <template v-if="sortField === option.value" #trailing>
+                    <UiIcon
+                      :name="sortOrder === 'asc' ? 'arrowUp' : 'arrowDown'"
+                      size="sm"
+                    />
+                  </template>
+                </UiListRow>
               </div>
             </div>
             <UiButton
@@ -236,10 +237,9 @@
           <template v-else-if="tab === 'actors'">
             <div v-if="actors.length" class="amane-actors">
               <!-- 演员卡是可点的内容卡片（头像 + 名字），不是操作按钮 -->
-              <button
+              <UiPressable
                 v-for="actor in actors"
                 :key="actor.id"
-                type="button"
                 class="amane-actor-card"
                 @click="filterActor(actor)"
               >
@@ -254,7 +254,7 @@
                 }}</span>
                 <strong>{{ actor.name }}</strong>
                 <small>{{ actor.count }} 部作品</small>
-              </button>
+              </UiPressable>
             </div>
             <div v-else class="amane-empty">
               <h2>暂无演员资料</h2>
@@ -590,16 +590,15 @@
             }}</pre>
             <h3 v-if="taskChildren.length">子任务</h3>
             <!-- 子任务是可点的列表行，不是操作按钮 -->
-            <button
+            <UiListRow
               v-for="task in taskChildren"
               :key="task.id"
-              type="button"
               class="amane-task-child"
               @click="showTask(task.id)"
             >
               {{ task.title || `#${task.id}` }} — {{ statusNames[task.status]
               }}<span v-if="task.error">：{{ task.error }}</span>
-            </button>
+            </UiListRow>
           </div>
         </div>
       </dialog>
@@ -614,10 +613,10 @@
         @mouseenter="hoverCardEnter"
         @mouseleave="filmHoverLeave"
       >
-        <button
-          type="button"
+        <UiPressable
+          block
           class="amane-hover-hero"
-          :aria-label="`查看 ${hoverFilm.title || hoverFilm.number} 详情`"
+          :label="`查看 ${hoverFilm.title || hoverFilm.number} 详情`"
           @click="hoverOpen"
         >
           <Transition name="amane-hover-slide">
@@ -652,18 +651,14 @@
             class="amane-hover-progress"
             aria-hidden="true"
           />
-        </button>
+        </UiPressable>
         <div class="amane-hover-body">
           <p class="amane-hover-number">{{ hoverFilm.number }}</p>
-          <button
-            type="button"
-            class="amane-hover-title-btn"
-            @click="hoverOpen"
-          >
+          <UiPressable class="amane-hover-title-btn" @click="hoverOpen">
             <strong class="amane-hover-title">{{
               hoverFilm.title || hoverFilm.number
             }}</strong>
-          </button>
+          </UiPressable>
           <p class="amane-hover-meta">
             <span v-if="hoverFilm.release">{{
               hoverFilm.release.slice(0, 10)
@@ -803,7 +798,9 @@ import {
   UiButton,
   UiIcon,
   UiIconButton,
+  UiListRow,
   UiPosterCard,
+  UiPressable,
   UiSegmented,
 } from '@/components/ui'
 import AdvancedSearch from './AdvancedSearch.vue'
