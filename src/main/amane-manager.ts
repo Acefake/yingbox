@@ -15,6 +15,8 @@ import type { AmaneRequest, AmaneSettings, AmaneStatus } from '../shared/amane'
 import { readAmaneResponse } from './amane-response'
 import { type AmaneConfigureInput, amane } from '../shared/contract/amane'
 import { implement } from './rpc'
+import { pluginLogger, registerPlugin } from './plugins/host'
+import { relayLines, stopProcess } from './plugins/process'
 
 const VERSION = '0.20.1'
 const sleep = (ms: number): Promise<void> =>
@@ -33,6 +35,7 @@ let quitting = false
 let restartAttempts = 0
 let restartTimer: NodeJS.Timeout | null = null
 const MAX_RESTART_ATTEMPTS = 5
+const log = pluginLogger('Amane')
 
 function scheduleRestart(): void {
   if (quitting || settings.mode !== 'managed' || !settings.executablePath)
@@ -58,16 +61,6 @@ function scheduleRestart(): void {
   }, delay)
 }
 
-function terminateOwned(service: ChildProcess): void {
-  if (process.platform === 'win32' && service.pid) {
-    const killer = spawn(
-      'taskkill',
-      ['/pid', String(service.pid), '/T', '/F'],
-      { shell: false, windowsHide: true, stdio: 'ignore' }
-    )
-    killer.once('error', () => service.kill())
-  } else service.kill()
-}
 
 const configPath = (): string =>
   join(app.getPath('userData'), 'amane', 'connection.json')
@@ -286,7 +279,7 @@ async function startService(): Promise<AmaneStatus> {
         }
       }
       const source = settings.mode === 'managed' ? resolveSourceRuntime() : null
-      if (source) console.log('[Amane] 开发模式:运行项目源码', source.sourceDir)
+      if (source) log.info('开发模式:运行项目源码', source.sourceDir)
       if (!source) {
         if (
           !settings.executablePath ||
@@ -355,29 +348,11 @@ async function startService(): Promise<AmaneStatus> {
         env: launch.env,
         stdio: ['ignore', 'pipe', 'pipe'],
       })
-      const relayChildLog = (
-        stream: NodeJS.ReadableStream | null,
-        channel: 'out' | 'err'
-      ): void => {
-        if (!stream || app.isPackaged) {
-          stream?.resume()
-          return
-        }
-        let pending = ''
-        stream.on('data', (chunk: Buffer) => {
-          pending += chunk.toString('utf8')
-          for (;;) {
-            const index = pending.indexOf('\n')
-            if (index < 0) break
-            const line = pending.slice(0, index).trim()
-            pending = pending.slice(index + 1)
-            if (line)
-              console.log(`[Amane.Server:${channel}] ${line.slice(0, 500)}`)
-          }
-        })
-      }
-      relayChildLog(service.stdout, 'out')
-      relayChildLog(service.stderr, 'err')
+      // 开发时把 Amane.Server 输出转到主进程控制台；打包版只读空管道
+      const relay = (channel: string) =>
+        app.isPackaged ? null : (line: string) => log.info(`${channel}:`, line)
+      relayLines(service.stdout, relay('out'))
+      relayLines(service.stderr, relay('err'))
       child = service
       service.once('error', error => {
         if (child === service) {
@@ -410,7 +385,7 @@ async function startService(): Promise<AmaneStatus> {
       state = 'error'
       failure = error instanceof Error ? error.message : 'Amane 启动失败'
       if (child) await stopChild()
-      console.error('[Amane]', failure)
+      log.error(failure)
       return snapshot()
     }
   })().finally(() => {
@@ -423,12 +398,7 @@ async function stopChild(): Promise<void> {
   const service = child
   if (!service) return
   child = null
-  const exited = new Promise<void>(done => {
-    service.once('exit', () => done())
-    setTimeout(done, 3000).unref()
-  })
-  terminateOwned(service)
-  await exited
+  await stopProcess(service)
 }
 
 function permitted(request: AmaneRequest): string {
@@ -598,15 +568,23 @@ export async function registerAmaneIpc(): Promise<void> {
     // 手机接入:把当前服务的 baseUrl + token 交给渲染层,由"手机访问"面板生成接入链接。
     connection: () => ({ baseUrl: settings.baseUrl, token: token || '' }),
   })
-  app.on('before-quit', () => {
-    quitting = true
-    if (restartTimer) {
-      clearTimeout(restartTimer)
-      restartTimer = null
-    }
-    const service = child
-    child = null
-    if (service) terminateOwned(service)
+  registerPlugin({
+    id: 'Amane',
+    // 退出：不再自动重启，等正在进行的启动结束后停掉托管进程（外部服务不动）
+    stop: async () => {
+      quitting = true
+      if (restartTimer) {
+        clearTimeout(restartTimer)
+        restartTimer = null
+      }
+      if (starting) await starting
+      await stopChild()
+    },
+    // 托管进程存在或正在启动都算运行；外部服务模式不归影盒管
+    health: () => ({
+      running: child !== null || starting !== null || restartTimer !== null,
+      detail: failure || state,
+    }),
   })
 }
 
