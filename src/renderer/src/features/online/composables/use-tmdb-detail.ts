@@ -3,7 +3,7 @@
  * 未配置 TMDB Access Token 时跳过；任何失败都静默（详情页仍可只靠来源数据展示）。
  */
 import { ref } from 'vue'
-import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
+import { getTmdbAccessToken } from '@/features/settings'
 import { getJson, withQuery } from '../api/online'
 
 const TMDB = 'https://api.themoviedb.org/3'

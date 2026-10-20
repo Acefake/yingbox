@@ -55,7 +55,7 @@ const emit = defineEmits<{
 .av-player-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: var(--z-modal);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -78,7 +78,7 @@ const emit = defineEmits<{
   position: absolute;
   top: var(--space-4);
   left: 50%;
-  z-index: 10;
+  z-index: var(--z-float);
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);

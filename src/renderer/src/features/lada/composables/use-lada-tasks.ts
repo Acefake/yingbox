@@ -2,7 +2,7 @@
  * 去马赛克（lada）与「边跑边看」的后台任务状态。
  *
  * 两个任务都在主进程里跑，跟当前停留在哪个页面无关，所以状态放在模块级单例里：
- * AppLayout 启动时接一次 IPC 推送，Amane 页面与刮削队列面板读同一份数据。
+ * AppLayout 启动时接一次 IPC 推送，Amane 页面与后台任务面板读同一份数据。
  */
 import { computed, h, ref } from 'vue'
 import { message } from 'ant-design-vue'
@@ -151,7 +151,7 @@ export function useLadaTasks() {
     const result = await api.start(filePath)
     if (!result?.success) throw new Error(result?.error || '无法启动去码')
     job.value = result.job ?? null
-    message.info('已开始去码（后台运行，进度在「刮削队列」）')
+    message.info('已开始去码（后台运行，进度在「后台任务」）')
   }
 
   /**

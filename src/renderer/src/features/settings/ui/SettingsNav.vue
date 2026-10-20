@@ -68,7 +68,7 @@ const query = defineModel<string>('query', { required: true })
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   min-height: 0;
   overflow-y: auto;
 }

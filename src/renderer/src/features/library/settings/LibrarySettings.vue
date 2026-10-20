@@ -251,7 +251,7 @@ import {
   useWriter,
   useWriterSettings,
 } from '../writer/use-writer'
-import { setTmdbToken } from './provider-token'
+import { saveLibraryTmdbToken } from './provider-token'
 
 const props = defineProps<{ open: boolean; kind: LibraryKind }>()
 const emit = defineEmits<{ close: [] }>()
@@ -348,7 +348,7 @@ async function saveToken(): Promise<void> {
   if (!bridge || !tokenInput.value.trim()) return
   tokenSaving.value = true
   try {
-    const status = await setTmdbToken(bridge, tokenInput.value)
+    const status = await saveLibraryTmdbToken(bridge, tokenInput.value)
     tokenConfigured.value = status.tmdb.configured
     tokenInput.value = ''
     message.success('TMDB 令牌已保存')

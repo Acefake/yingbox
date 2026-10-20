@@ -5,7 +5,7 @@ import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import {
   type PlayerSourceItem,
   openMediaPlayer,
-} from '@/composables/use-media-player'
+} from '@/features/player'
 
 import { baseName, episodeCode } from '../shared/format'
 

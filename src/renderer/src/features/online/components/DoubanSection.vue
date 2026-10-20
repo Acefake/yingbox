@@ -50,7 +50,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import { getJson, withQuery } from '../api/online'
-import { getTmdbAccessToken } from '@/stores/scrape-provider-store'
+import { getTmdbAccessToken } from '@/features/settings'
 import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
