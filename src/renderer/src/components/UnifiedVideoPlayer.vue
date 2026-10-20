@@ -678,7 +678,7 @@ defineExpose({ video })
 .unified-player-loading {
   position: absolute;
   inset: 0;
-  z-index: 5;
+  z-index: var(--z-above);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -698,13 +698,13 @@ defineExpose({ video })
 
 .unified-player-loading-spin {
   position: absolute;
-  bottom: 28px;
+  bottom: var(--space-6_5);
   width: 22px;
   height: 22px;
   border: 2px solid var(--media-track);
   border-top-color: var(--media-text-secondary);
   border-radius: 50%;
-  animation: unified-player-spin 0.8s linear infinite;
+  animation: unified-player-spin var(--duration-spin) linear infinite;
 }
 
 @keyframes unified-player-spin {
@@ -725,10 +725,10 @@ defineExpose({ video })
   align-items: center;
   justify-content: space-between;
   position: relative;
-  z-index: 2;
+  z-index: var(--z-raised);
   flex-shrink: 0;
   min-height: 48px;
-  padding: 0 16px;
+  padding: 0 var(--space-4);
   color: var(--text-primary);
   background: var(--bg-main);
   border-top: 1px solid var(--border-default);
@@ -746,15 +746,15 @@ defineExpose({ video })
 .unified-player-footer-actions {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   flex: 0 0 auto;
 }
 
 .unified-player-subtitle-panel {
   position: absolute;
-  right: 12px;
-  bottom: 56px;
-  z-index: 30;
+  right: var(--space-3);
+  bottom: 56px; /* style-tokens: layout（避开底部控制栏） */
+  z-index: var(--z-popover);
   width: min(360px, 86vw);
   max-height: min(420px, 60vh);
   display: flex;
@@ -771,8 +771,8 @@ defineExpose({ video })
 
 .usp-search-row {
   display: flex;
-  gap: 8px;
-  padding: 10px 12px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-3);
 }
 
 .usp-input {
@@ -780,7 +780,7 @@ defineExpose({ video })
 }
 
 .usp-msg {
-  margin: 0 12px 8px;
+  margin: 0 var(--space-3) var(--space-2);
   font-size: var(--text-2xs);
   color: var(--text-tertiary);
 }
@@ -789,13 +789,13 @@ defineExpose({ video })
   flex: 1;
   min-height: 0;
   overflow-y: auto;
-  padding: 0 8px 10px;
+  padding: 0 var(--space-2) var(--space-2);
 }
 
 /* 结果行为 UiListRow：这里只保留紧凑尺寸和面板内的填充底 */
 .usp-item {
-  padding: 8px 10px;
-  margin-bottom: 4px;
+  padding: var(--space-2) var(--space-2);
+  margin-bottom: var(--space-1);
   border-radius: var(--radius-sm);
   background: var(--bg-fill-secondary);
   color: inherit;
@@ -821,7 +821,7 @@ defineExpose({ video })
   display: inline-flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: 3px;
+  gap: var(--space-1);
   font-size: var(--text-2xs);
   color: var(--text-tertiary);
 }
@@ -832,7 +832,7 @@ defineExpose({ video })
 }
 
 .usp-empty {
-  margin: 8px 4px;
+  margin: var(--space-2) var(--space-1);
   font-size: var(--text-2xs);
   color: var(--text-tertiary);
   text-align: center;

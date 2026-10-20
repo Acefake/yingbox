@@ -11,7 +11,7 @@ export const SENTINEL = '\u0001'
 const SLOT = ` ${SENTINEL} `
 
 /** 抽取到的标记。 */
-export interface Markers {
+interface Markers {
   ids: ExternalIds
   season?: number
   episodes: number[]

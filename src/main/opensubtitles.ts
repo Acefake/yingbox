@@ -12,7 +12,7 @@ const API_BASE = 'https://api.opensubtitles.com/api/v1'
 const MAX_SUBTITLE_BYTES = 10 * 1024 * 1024
 const USER_AGENT = 'yingbox v1.0.0'
 
-export interface OsSubtitleHit {
+interface OsSubtitleHit {
   /** 展示名：release 名或文件名 */
   name: string
   /** 语言代码（zh / en ...） */
@@ -29,7 +29,7 @@ export interface OsSubtitleHit {
   fileId: number
 }
 
-export interface OsSearchResult {
+interface OsSearchResult {
   success: boolean
   data?: OsSubtitleHit[]
   error?: string
@@ -158,7 +158,7 @@ export async function searchSubtitles(options: {
   }
 }
 
-export interface OsDownloadResult {
+interface OsDownloadResult {
   success: boolean
   /** 转换后的 WebVTT 文本 */
   data?: string

@@ -32,13 +32,13 @@ export const getBase = (): string => {
   }
 }
 
-export interface BackendVideoItem {
+interface BackendVideoItem {
   id: string
   title: string
   poster: string
 }
 
-export interface BackendVideoDetail {
+interface BackendVideoDetail {
   id: string
   title: string
   releaseDate: string

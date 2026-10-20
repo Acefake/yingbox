@@ -1,7 +1,13 @@
 import { readdir, stat } from 'node:fs/promises'
-import { basename, extname, join, resolve } from 'node:path'
+import { basename, join, resolve } from 'node:path'
+import {
+  isIgnoredName,
+  isWantedEntry,
+  parentKey,
+  pathKey,
+} from './library/scanner/rules'
 
-export interface MediaEntry {
+interface MediaEntry {
   name: string
   path: string
   size: number
@@ -20,36 +26,11 @@ export interface MediaIndexEntry {
   isFile?: boolean
 }
 
-const videoExtensions = new Set([
-  '.mp4',
-  '.avi',
-  '.mkv',
-  '.mov',
-  '.wmv',
-  '.flv',
-  '.webm',
-  '.m4v',
-  '.ts',
-  '.rmvb',
-])
-const ignored = new Set([
-  '.actors',
-  '@eadir',
-  '$recycle.bin',
-  'system volume information',
-])
-
 /** 与 String#localeCompare 默认行为一致的排序器，复用实例比逐次 localeCompare 快得多。 */
 const pathCollator = new Intl.Collator()
 
 /** 同时处理的目录数；目录内的 stat 也并发发起。 */
 const DIRECTORY_CONCURRENCY = 16
-
-const normPath = (p: string): string =>
-  p.replace(/\\/g, '/').replace(/\/+$/, '')
-const pathKey = (p: string): string =>
-  process.platform === 'win32' ? normPath(p).toLowerCase() : normPath(p)
-const parentKey = (key: string): string => key.slice(0, key.lastIndexOf('/'))
 
 const toMediaEntry = (entry: MediaIndexEntry): MediaEntry => ({
   name: entry.name || basename(entry.path),
@@ -60,21 +41,6 @@ const toMediaEntry = (entry: MediaIndexEntry): MediaEntry => ({
   isFile:
     entry.isFile !== undefined ? Boolean(entry.isFile) : !entry.isDirectory,
 })
-
-/** 是否收录该目录项（媒体文件、旁挂 nfo/图片，或可下钻的目录）。 */
-function isWanted(
-  lowerName: string,
-  isDirectory: boolean,
-  isFile: boolean
-): boolean {
-  if (isDirectory) return true
-  if (!isFile) return false
-  return (
-    videoExtensions.has(extname(lowerName)) ||
-    lowerName.endsWith('.nfo') ||
-    /\.(jpe?g|png|webp)$/i.test(lowerName)
-  )
-}
 
 /**
  * 递归扫描媒体库目录。
@@ -140,11 +106,9 @@ export async function scanMediaDirectory(
     for (const entry of entries) {
       const name = entry.name.toLowerCase()
       if (
-        name.startsWith('.') ||
-        name.startsWith('__') ||
-        ignored.has(name) ||
+        isIgnoredName(name) ||
         entry.isSymbolicLink() ||
-        !isWanted(name, entry.isDirectory(), entry.isFile())
+        !isWantedEntry(name, entry.isDirectory(), entry.isFile())
       ) {
         continue
       }

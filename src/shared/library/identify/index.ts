@@ -9,9 +9,5 @@ export {
   type IdentifySource,
   identify,
 } from './identify'
-export {
-  type ByteSource,
-  MOVIE_HASH_CHUNK,
-  computeMovieHash,
-} from './movie-hash'
+export { type ByteSource, computeMovieHash } from './movie-hash'
 export { type NfoInfo, type NfoKind, parseNfo } from './nfo'

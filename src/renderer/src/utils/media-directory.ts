@@ -3,7 +3,7 @@ import { message } from 'ant-design-vue'
 
 export const fileId = (path: string): string => path.replace(/\\/g, '/')
 
-export type MediaPreviousIndexEntry = {
+type MediaPreviousIndexEntry = {
   path: string
   mtime: number
   size: number

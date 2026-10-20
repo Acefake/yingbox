@@ -67,7 +67,7 @@ import { coverSrc, formatTime } from '../av-media'
 import AvStatus from './AvStatus.vue'
 
 /** 历史记录的展示字段（完整结构见 Index.vue 的 AvPlayRecord）。 */
-export interface AvHistoryRecord {
+interface AvHistoryRecord {
   vod_name: string
   vod_pic: string
   _source: string
@@ -147,7 +147,7 @@ const markBroken = (url: string): void => {
   white-space: nowrap;
 }
 .av-history-meta {
-  margin: 2px 0 0;
+  margin: var(--space-0_5) 0 0;
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--text-2xs);

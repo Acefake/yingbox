@@ -206,10 +206,10 @@ defineExpose({ handleSearch, saveHistory })
 .content-area {
   flex: 1;
   overflow-y: auto;
-  padding: 28px 40px;
+  padding: var(--space-6_5) var(--space-8);
   display: flex;
   flex-direction: column;
-  gap: 20px;
+  gap: var(--space-5);
 }
 
 .content-area::-webkit-scrollbar {
@@ -223,7 +223,7 @@ defineExpose({ handleSearch, saveHistory })
 .history-tags {
   display: flex;
   flex-wrap: wrap;
-  gap: 6px;
+  gap: var(--space-2);
 }
 
 .history-tag {
@@ -231,7 +231,7 @@ defineExpose({ handleSearch, saveHistory })
   align-items: center;
   gap: var(--space-1);
   min-height: var(--control-height);
-  padding: 2px 2px 2px 10px;
+  padding: var(--space-0_5) var(--space-0_5) var(--space-0_5) var(--space-2);
   font-size: var(--text-xs);
   background: transparent;
   border: 1px solid var(--border-default);
@@ -259,8 +259,8 @@ defineExpose({ handleSearch, saveHistory })
   display: flex;
   flex-direction: column;
   align-items: center;
-  gap: 12px;
-  padding-top: 80px;
+  gap: var(--space-3);
+  padding-top: var(--space-11);
   color: var(--text-tertiary);
   font-size: var(--text-md);
 }
@@ -271,7 +271,7 @@ defineExpose({ handleSearch, saveHistory })
   border: 2px solid var(--border-default);
   border-top-color: var(--text-primary);
   border-radius: 50%;
-  animation: spin 0.7s linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
   display: inline-block;
 }
 

@@ -506,7 +506,7 @@ onUnmounted(() => {
 /* ── 侧栏：桌面端在文档流里，不覆盖内容 ── */
 .app-sidebar {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-raised);
   display: flex;
   flex: 0 0 var(--sidebar-width);
   flex-direction: column;
@@ -519,10 +519,10 @@ onUnmounted(() => {
   color: var(--text-secondary);
   -webkit-app-region: no-drag;
   transition:
-    width 150ms ease,
-    flex-basis 150ms ease,
-    max-width 150ms ease,
-    transform 180ms ease;
+    width var(--duration-fast) ease,
+    flex-basis var(--duration-fast) ease,
+    max-width var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 
 .sidebar-brand {
@@ -551,7 +551,7 @@ onUnmounted(() => {
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   min-height: 0;
   overflow-y: auto;
 }
@@ -563,7 +563,7 @@ onUnmounted(() => {
 }
 .sidebar-divider {
   height: 1px;
-  margin: var(--space-3) var(--space-3) 2px;
+  margin: var(--space-3) var(--space-3) var(--space-0_5);
   background: var(--separator);
 }
 
@@ -589,7 +589,7 @@ onUnmounted(() => {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--separator);
@@ -603,14 +603,14 @@ onUnmounted(() => {
 }
 .footer-pulse {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: calc(var(--space-0_5) * -1);
+  right: calc(var(--space-0_5) * -1);
   width: 6px;
   height: 6px;
   border-radius: var(--radius-full);
   background: var(--accent);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-  animation: queue-pulse 1.4s ease-out infinite;
+  animation: queue-pulse var(--duration-pulse) ease-out infinite;
 }
 @keyframes queue-pulse {
   70%,
@@ -620,8 +620,8 @@ onUnmounted(() => {
 }
 .footer-badge {
   position: absolute;
-  top: 2px;
-  right: 2px;
+  top: var(--space-0_5);
+  right: var(--space-0_5);
   min-width: 15px;
   height: 15px;
   padding: 0 var(--space-1);
@@ -641,7 +641,7 @@ onUnmounted(() => {
   height: 2px;
   background: var(--accent);
   opacity: 0.85;
-  transition: width 0.35s var(--ease-out);
+  transition: width var(--duration-slow) var(--ease-out);
 }
 
 /* ── 右侧：工具栏 + 内容 ── */
@@ -657,7 +657,7 @@ onUnmounted(() => {
 /* 标题栏与内容同色，不留色带 */
 .top-menu {
   position: relative;
-  z-index: 5;
+  z-index: var(--z-above);
   flex: 0 0 var(--titlebar-height);
   height: var(--titlebar-height);
   background: var(--bg-content);
@@ -744,12 +744,12 @@ onUnmounted(() => {
 .app-layout.is-phone .app-sidebar {
   position: fixed;
   inset: 0 auto 0 0;
-  z-index: 1150;
+  z-index: var(--z-drawer);
   flex: none;
   width: min(320px, 86vw);
   max-width: min(320px, 86vw);
   height: 100%;
-  padding: calc(18px + var(--safe-top)) var(--space-3)
+  padding: calc(var(--space-4) + var(--safe-top)) var(--space-3)
     calc(20px + var(--safe-bottom));
   box-shadow: var(--shadow-lg);
   transform: translateX(-110%);
@@ -784,7 +784,7 @@ onUnmounted(() => {
 .sidebar-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 1140;
+  z-index: var(--z-drawer-backdrop);
   background: var(--overlay-scrim-soft);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
@@ -795,7 +795,7 @@ onUnmounted(() => {
   right: 0;
   bottom: 0;
   left: 0;
-  z-index: 1100;
+  z-index: var(--z-bottom-nav);
   display: flex;
   align-items: stretch;
   height: calc(var(--bottom-nav-height) + var(--safe-bottom));
@@ -818,7 +818,7 @@ onUnmounted(() => {
   .app-layout:not(.is-phone) .app-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
-    z-index: 1150;
+    z-index: var(--z-drawer);
     flex: none;
     width: min(320px, 86vw);
     max-width: min(320px, 86vw);

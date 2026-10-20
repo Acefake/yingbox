@@ -456,7 +456,7 @@ const removeCustom = (idx: number): void => {
 .smp-backdrop {
   position: fixed;
   inset: 0;
-  z-index: 2000;
+  z-index: var(--z-modal);
   display: flex;
   justify-content: flex-end;
   background: var(--overlay-scrim-soft);
@@ -563,7 +563,7 @@ const removeCustom = (idx: number): void => {
 .add-dialog {
   position: fixed;
   inset: 0;
-  z-index: 3000;
+  z-index: var(--z-dialog);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -600,7 +600,7 @@ const removeCustom = (idx: number): void => {
 
 .panel-fade-enter-active,
 .panel-fade-leave-active {
-  transition: opacity 0.3s var(--ease-out);
+  transition: opacity var(--duration-slow) var(--ease-out);
 }
 .panel-fade-enter-from,
 .panel-fade-leave-to {
@@ -620,7 +620,7 @@ const removeCustom = (idx: number): void => {
   .panel-fade-leave-active,
   .panel-fade-enter-active .smp-panel,
   .panel-fade-leave-active .smp-panel {
-    transition: opacity 0.2s ease;
+    transition: opacity var(--duration-normal) ease;
   }
   .panel-fade-enter-from .smp-panel,
   .panel-fade-leave-to .smp-panel {

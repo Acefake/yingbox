@@ -1,7 +1,13 @@
 <template>
   <div class="home-section">
     <PageHeader title="豆瓣热门">
-      <template #actions><UiIconButton icon="refresh" label="换一批热门影片" :loading="doubanLoading" @click="nextPage" /></template>
+      <template #actions
+        ><UiIconButton
+          icon="refresh"
+          label="换一批热门影片"
+          :loading="doubanLoading"
+          @click="nextPage"
+      /></template>
     </PageHeader>
     <MediaFilterBar
       :rows="filterRows"
@@ -314,7 +320,7 @@ onMounted(fetchDouban)
 
 .db-loading {
   text-align: center;
-  padding: 40px;
+  padding: var(--space-8);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
 }
@@ -323,8 +329,8 @@ onMounted(fetchDouban)
   display: flex;
   align-items: center;
   justify-content: center;
-  gap: 8px;
-  padding: 30px;
+  gap: var(--space-2);
+  padding: var(--space-7);
   color: var(--danger);
   font-size: var(--text-sm);
 }

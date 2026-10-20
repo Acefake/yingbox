@@ -257,7 +257,7 @@ const handleImageError = (event: Event): void => {
   box-shadow: inset 0 0 0 1px var(--border-subtle);
 }
 .rp-actor-name {
-  margin-top: 6px;
+  margin-top: var(--space-2);
   font-size: var(--text-2xs);
   color: var(--text-secondary);
   text-align: center;

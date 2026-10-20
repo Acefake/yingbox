@@ -284,11 +284,11 @@ const unscrapedCount = computed(() => {
 <style scoped>
 .lp-header {
   flex-shrink: 0;
-  padding: 24px 18px 18px;
+  padding: var(--space-6) var(--space-4) var(--space-4);
   border-bottom: 1px solid var(--separator);
   display: flex;
   flex-direction: column;
-  gap: 16px;
+  gap: var(--space-4);
 }
 
 .lp-actions {
@@ -305,7 +305,7 @@ const unscrapedCount = computed(() => {
 .lp-dirs {
   display: flex;
   flex-direction: column;
-  gap: 4px;
+  gap: var(--space-1);
   max-height: 72px;
   overflow-y: auto;
 }
@@ -313,9 +313,9 @@ const unscrapedCount = computed(() => {
 .lp-dir {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: var(--space-2);
   min-height: 28px;
-  padding: 2px 2px 2px 10px;
+  padding: var(--space-0_5) var(--space-0_5) var(--space-0_5) var(--space-2);
   border-radius: var(--radius-sm);
   background: transparent;
   color: var(--text-secondary);
@@ -354,10 +354,10 @@ const unscrapedCount = computed(() => {
 .lp-scan-label {
   display: flex;
   align-items: center;
-  gap: 8px;
+  gap: var(--space-2);
   font-size: var(--text-xs);
   color: var(--accent-text);
-  margin-bottom: 6px;
+  margin-bottom: var(--space-2);
 }
 
 .lp-spin {
@@ -366,7 +366,7 @@ const unscrapedCount = computed(() => {
   border: 2px solid var(--accent);
   border-top-color: transparent;
   border-radius: 50%;
-  animation: lp-spin 0.8s linear infinite;
+  animation: lp-spin var(--duration-spin) linear infinite;
 }
 
 .lp-scan-track {
@@ -381,7 +381,7 @@ const unscrapedCount = computed(() => {
   height: 100%;
   border-radius: inherit;
   background: color-mix(in srgb, var(--accent) 60%, transparent);
-  animation: lp-pulse 1.4s ease-in-out infinite;
+  animation: lp-pulse var(--duration-pulse) ease-in-out infinite;
 }
 
 .lp-list {

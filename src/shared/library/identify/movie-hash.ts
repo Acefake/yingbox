@@ -13,7 +13,7 @@ export interface ByteSource {
 }
 
 /** 头尾各读取的字节数。 */
-export const MOVIE_HASH_CHUNK = 64 * 1024
+const MOVIE_HASH_CHUNK = 64 * 1024
 const MASK_64 = (1n << 64n) - 1n
 
 /** 把一段字节按 8 字节小端整数累加（不足 8 字节的尾部补零）。 */

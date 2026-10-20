@@ -1,19 +1,24 @@
 /**
  * 媒体库基准：扫描耗时 + 文件名解析准确率。
  *
- * 用法：pnpm bench:library [--files 50000] [--runs 3] [--skip-scan] [--skip-parse]
+ * 用法：pnpm bench:library [--files 50000] [--runs 3] [--skip-scan] [--skip-parse] [--skip-engine]
  *
  * 1. 在系统临时目录生成约 5 万个文件的假媒体库，测 src/main/media-scanner.ts 的
  *    冷扫（无旧索引）、热扫（目录未变）和“深层变更后热扫”的耗时，并检查深层变更是否被发现。
  *    文件都是空文件、跑在同一台机器的页缓存上，“冷扫”指没有旧索引，不是冷磁盘。
  * 2. 在 tests/fixtures/media-names 黄金集上测旧解析（avid.cleanSearchParams 与 TV 两处
  *    extractEpisodeNumber）和新解析器（src/shared/library/parser）的逐类准确率。
+ * 3. 媒体库引擎（src/main/library）：同规模假库拆成电影库 + 剧集库，测冷扫入库、无变化重扫、
+ *    深层变更重扫、首屏分页查询与各种查询形态的耗时。
  */
 import {
   mkdirSync,
   mkdtempSync,
+  readdirSync,
   rmSync,
+  statSync,
   unlinkSync,
+  utimesSync,
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
@@ -23,6 +28,17 @@ import {
   type MediaIndexEntry,
   scanMediaDirectory,
 } from '../src/main/media-scanner'
+import { CatalogStore } from '../src/main/library/catalog/catalog-store'
+import { CatalogQuery } from '../src/main/library/catalog/query'
+import { type LibraryDb, openLibraryDb } from '../src/main/library/db/database'
+import {
+  type LibraryRecord,
+  LibraryStore,
+} from '../src/main/library/libraries/library-store'
+import { fingerprintFile } from '../src/main/library/scanner/fingerprint'
+import { scanLibrary } from '../src/main/library/scanner/scan-library'
+import { ScanStore } from '../src/main/library/scanner/scan-store'
+import { normalizeLibraryQuery } from '../src/shared/library/ipc'
 import { cleanSearchParams } from '../src/renderer/src/utils/avid'
 import {
   type GoldenCase,
@@ -50,9 +66,18 @@ interface FakeLibrary {
   deepVictim: string
 }
 
-/** 生成假媒体库：根目录下直接放电影文件夹和剧集文件夹（混合库的常见布局）。 */
-function createFakeLibrary(targetFiles: number): FakeLibrary {
+/**
+ * 生成假媒体库：默认根目录下直接放电影文件夹和剧集文件夹（混合库的常见布局）；
+ * split 时电影放 Movies/、剧集放 TV/，给引擎基准建两个不同类型的媒体库。
+ */
+function createFakeLibrary(targetFiles: number, split = false): FakeLibrary {
   const root = mkdtempSync(join(tmpdir(), 'yingbox-bench-'))
+  const movieRoot = split ? join(root, 'Movies') : root
+  const showRoot = split ? join(root, 'TV') : root
+  if (split) {
+    mkdirSync(movieRoot)
+    mkdirSync(showRoot)
+  }
   let files = 0
   let dirs = 0
   const touch = (p: string): void => {
@@ -67,7 +92,7 @@ function createFakeLibrary(targetFiles: number): FakeLibrary {
   // 约 40% 电影：每部 视频 + nfo + poster，每 10 部带一个 Featurettes 子目录
   const movieCount = Math.round((targetFiles * 0.4) / 3.2)
   for (let i = 0; i < movieCount; i++) {
-    const dir = join(root, `Movie ${i} (${1950 + (i % 75)})`)
+    const dir = join(movieRoot, `Movie ${i} (${1950 + (i % 75)})`)
     mkdir(dir)
     touch(join(dir, `Movie ${i} (${1950 + (i % 75)}).mkv`))
     touch(join(dir, 'movie.nfo'))
@@ -84,7 +109,7 @@ function createFakeLibrary(targetFiles: number): FakeLibrary {
   let deepVictim = ''
   let show = 0
   while (files < targetFiles) {
-    const showDir = join(root, `Show ${show}`)
+    const showDir = join(showRoot, `Show ${show}`)
     mkdir(showDir)
     touch(join(showDir, 'tvshow.nfo'))
     touch(join(showDir, 'poster.jpg'))
@@ -393,12 +418,192 @@ async function benchParse(): Promise<string> {
   return [...head, ...rows, ...tail].join('\n')
 }
 
+// ———————————————————————————— 引擎基准 ————————————————————————————
+
+/** 整棵树的目录 mtime 拨回一小时前：真实媒体库的目录早就不动了（见 walk.ts 的 racyWindowMs）。 */
+function ageDirectories(dir: string): void {
+  for (const entry of readdirSync(dir, { withFileTypes: true })) {
+    if (entry.isDirectory()) ageDirectories(join(dir, entry.name))
+  }
+  const t = new Date(Date.now() - 3600_000)
+  utimesSync(dir, t, t)
+}
+
+/** 打开一个引擎环境（文件数据库，WAL）。 */
+function openEngine(dbFile: string): {
+  db: LibraryDb
+  libraries: LibraryStore
+  query: CatalogQuery
+  scan: (lib: LibraryRecord) => ReturnType<typeof scanLibrary>
+} {
+  const db = openLibraryDb(dbFile)
+  const scanStore = new ScanStore(db)
+  const catalog = new CatalogStore(db)
+  return {
+    db,
+    libraries: new LibraryStore(db),
+    query: new CatalogQuery(db),
+    scan: lib =>
+      scanLibrary(
+        {
+          db,
+          scanStore,
+          catalog,
+          fingerprint: f => fingerprintFile(f.displayPath),
+        },
+        lib
+      ),
+  }
+}
+
+async function timed<T>(
+  fn: () => Promise<T> | T
+): Promise<{ ms: number; value: T }> {
+  const start = performance.now()
+  const value = await fn()
+  return { ms: performance.now() - start, value }
+}
+
+async function benchEngine(): Promise<string> {
+  const lib = createFakeLibrary(TARGET_FILES, true)
+  ageDirectories(lib.root)
+  const dbDir = mkdtempSync(join(tmpdir(), 'yingbox-bench-db-'))
+  try {
+    const cold: number[] = []
+    const coldWalk: number[] = []
+    const coldWrite: number[] = []
+    const hot: number[] = []
+    const firstPage: number[] = []
+    const warmPage: number[] = []
+    let dbFile = ''
+    let items = 0
+    let rows = 0
+    for (let r = 0; r < RUNS; r++) {
+      dbFile = join(dbDir, `run-${r}.db`)
+      const engine = openEngine(dbFile)
+      const movies = engine.libraries.add(
+        { root: join(lib.root, 'Movies'), kind: 'movie' },
+        Date.now()
+      )
+      const tv = engine.libraries.add(
+        { root: join(lib.root, 'TV'), kind: 'tv' },
+        Date.now()
+      )
+
+      const c = await timed(async () => [
+        await engine.scan(movies),
+        await engine.scan(tv),
+      ])
+      cold.push(c.ms)
+      coldWalk.push(c.value.reduce((n, s) => n + s.timings.walk, 0))
+      coldWrite.push(
+        c.value.reduce((n, s) => n + s.timings.moves + s.timings.write, 0)
+      )
+      rows = c.value.reduce((n, s) => n + s.added, 0)
+
+      const h = await timed(async () => [
+        await engine.scan(movies),
+        await engine.scan(tv),
+      ])
+      hot.push(h.ms)
+      engine.db.close()
+
+      // 首屏查询：新开连接（冷语句缓存、冷页缓存之外的一切都是冷的）后的第一次默认查询
+      const reopened = openEngine(dbFile)
+      const first = await timed(() =>
+        reopened.query.list(normalizeLibraryQuery({}))
+      )
+      firstPage.push(first.ms)
+      items = first.value.total
+      const warm: number[] = []
+      for (let i = 0; i < 20; i++) {
+        warm.push(
+          (await timed(() => reopened.query.list(normalizeLibraryQuery({})))).ms
+        )
+      }
+      warmPage.push(median(warm))
+      reopened.db.close()
+    }
+
+    // 各种查询形态（最后一次运行的库，热连接）
+    const engine = openEngine(dbFile)
+    const shapes: Array<[string, Record<string, unknown>]> = [
+      ['默认（片名升序，200 条）', {}],
+      ['按添加时间降序', { sort: 'addedAt' }],
+      ['按年份降序 + 年份区间', { sort: 'year', yearFrom: 1990, yearTo: 2010 }],
+      ['只看剧集', { types: ['series'] }],
+      ['FTS 搜索 “Movie 12”', { search: 'Movie 12' }],
+      ['短词搜索（LIKE）“12”', { search: '12' }],
+      ['深分页 offset 5000', { offset: 5000 }],
+    ]
+    const shapeRows: string[] = []
+    for (const [label, q] of shapes) {
+      const normalized = normalizeLibraryQuery(q)
+      engine.query.list(normalized)
+      const runs: number[] = []
+      let total = 0
+      for (let i = 0; i < 20; i++) {
+        const t = await timed(() => engine.query.list(normalized))
+        runs.push(t.ms)
+        total = t.value.total
+      }
+      shapeRows.push(`| ${label} | ${median(runs).toFixed(2)} | ${total} |`)
+    }
+    const series = engine.query.list(
+      normalizeLibraryQuery({ types: ['series'], limit: 1 })
+    ).items[0]
+    const detail = await timed(() => engine.query.getItem(series.id))
+    const episodes = detail.value!.children.reduce(
+      (n, s) => n + s.children.length,
+      0
+    )
+
+    // 深层变更：某季目录里加一集、删一集
+    const added = join(lib.deepDir, 'Show 0 S02E99.mkv')
+    writeFileSync(added, '')
+    unlinkSync(lib.deepVictim)
+    const tv = engine.libraries.list().find(l => l.kind === 'tv')!
+    const deep = await timed(() => engine.scan(tv))
+    engine.db.close()
+    const dbBytes =
+      statSync(dbFile).size +
+      (statSync(`${dbFile}-wal`, { throwIfNoEntry: false })?.size ?? 0)
+
+    return [
+      `假媒体库：${lib.files} 个文件、${lib.dirs} 个目录，拆成电影库（Movies/）和剧集库（TV/）两个媒体库；`,
+      `目录 mtime 预先拨回一小时前。数据库为临时目录里的文件（WAL）。每项取 ${RUNS} 次中位数。`,
+      '',
+      '| 场景 | 耗时 (ms) | 目标 | 说明 |',
+      '| --- | ---: | ---: | --- |',
+      `| 冷扫入库 | ${median(cold).toFixed(0)} | — | 写入 ${rows} 个文件、${items} 个顶层条目；遍历 ${median(coldWalk).toFixed(0)} ms，解析 + 写库 ${median(coldWrite).toFixed(0)} ms |`,
+      `| 无变化重扫 | ${median(hot).toFixed(0)} | < 1000 | 只 stat 目录，零写入 |`,
+      `| 深层变更重扫（剧集库） | ${deep.ms.toFixed(0)} | — | 新增 ${deep.value.added}、删除 ${deep.value.removed} |`,
+      `| 首屏查询（新连接第一次） | ${median(firstPage).toFixed(1)} | < 200 | 默认排序 200 条 + 总数 |`,
+      `| 首屏查询（热） | ${median(warmPage).toFixed(2)} | — | 同上，连续 20 次中位数 |`,
+      `| getItem（一部剧） | ${detail.ms.toFixed(2)} | — | ${detail.value!.children.length} 季 ${episodes} 集，含文件 |`,
+      '',
+      `数据库大小：${(dbBytes / 1024 / 1024).toFixed(1)} MiB。`,
+      '',
+      '查询形态（热连接，20 次中位数）：',
+      '',
+      '| 查询 | 耗时 (ms) | 命中总数 |',
+      '| --- | ---: | ---: |',
+      ...shapeRows,
+    ].join('\n')
+  } finally {
+    rmSync(lib.root, { recursive: true, force: true })
+    rmSync(dbDir, { recursive: true, force: true })
+  }
+}
+
 async function main(): Promise<void> {
   const sections: string[] = []
   if (!args.includes('--skip-scan'))
     sections.push('## 扫描\n', await benchScanner())
   if (!args.includes('--skip-parse'))
     sections.push('\n## 解析准确率\n', await benchParse())
+  if (!args.includes('--skip-engine'))
+    sections.push('\n## 媒体库引擎\n', await benchEngine())
   process.stdout.write(`${sections.join('\n')}\n`)
 }
 

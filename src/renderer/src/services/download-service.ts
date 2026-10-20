@@ -3,7 +3,7 @@
  */
 
 /** 判断错误是否值得重试 */
-export function isRetryableError(errorMsg: string): boolean {
+function isRetryableError(errorMsg: string): boolean {
   const lower = errorMsg.toLowerCase()
   return (
     lower.includes('econnreset') ||
@@ -17,7 +17,7 @@ export function isRetryableError(errorMsg: string): boolean {
 }
 
 /** 判断错误是否为永久性失败（不应重试） */
-export function isPermanentError(errorMsg: string): boolean {
+function isPermanentError(errorMsg: string): boolean {
   const lower = errorMsg.toLowerCase()
   return (
     lower.includes('eperm') ||
@@ -29,7 +29,7 @@ export function isPermanentError(errorMsg: string): boolean {
 }
 
 /** 带重试和指数退避的下载函数 */
-export const tryDownload = async (
+const tryDownload = async (
   url: string,
   path: string,
   maxRetries: number = 3,

@@ -56,7 +56,7 @@ export async function loadConfig(): Promise<void> {
   }
 }
 
-export async function saveConfig(): Promise<void> {
+async function saveConfig(): Promise<void> {
   await atomicWrite(configPath(), JSON.stringify({ downloadPath }, null, 2))
 }
 

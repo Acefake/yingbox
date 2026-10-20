@@ -6,6 +6,13 @@ export default defineConfig({
   main: {
     build: {
       externalizeDeps: true,
+      rollupOptions: {
+        // 第二个入口：媒体库引擎，跑在 utilityProcess（src/main/library/host.ts fork 它）
+        input: {
+          index: resolve('src/main/index.ts'),
+          'library-engine': resolve('src/main/library/engine/entry.ts'),
+        },
+      },
     },
   },
   preload: {
@@ -34,7 +41,6 @@ export default defineConfig({
         'ant-design-vue',
         'vue',
         'vue-router',
-        'pinia',
       ],
     },
     server: {
