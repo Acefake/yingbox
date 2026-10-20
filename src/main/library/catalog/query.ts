@@ -27,6 +27,7 @@ const DETAIL_COLUMNS = `i.parent_id, i.season_number, i.episode_number, i.overvi
 const SORT_COLUMN: Record<LibrarySortField, string> = {
   title: 'i.sort_title',
   year: 'i.year',
+  rating: 'i.rating',
   addedAt: 'i.added_at',
   updatedAt: 'i.updated_at',
 }
@@ -123,12 +124,13 @@ export class CatalogQuery {
     this.sql = new StatementCache(db)
   }
 
-  /** 分页列出顶层条目。排序带 id 兜底，翻页稳定；年份为空的排在最后。 */
+  /** 分页列出顶层条目。排序带 id 兜底，翻页稳定；年份 / 评分为空的排在最后。 */
   list(q: NormalizedLibraryQuery): LibraryQueryResult {
     const { where, params } = compileWhere(q)
     const dir = q.order === 'asc' ? 'ASC' : 'DESC'
     const column = SORT_COLUMN[q.sort]
-    const nulls = q.sort === 'year' ? `${column} IS NULL, ` : ''
+    const nulls =
+      q.sort === 'year' || q.sort === 'rating' ? `${column} IS NULL, ` : ''
     const rows = this.sql
       .get(
         `SELECT ${SUMMARY_COLUMNS} FROM media_items i WHERE ${where}

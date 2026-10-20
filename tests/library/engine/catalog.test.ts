@@ -134,4 +134,21 @@ describe('CatalogQuery', () => {
     expect(list(env, { matchStates: ['auto'] })).toEqual(['英雄'])
     expect(list(env, { matchStates: ['unmatched'] })).toHaveLength(4)
   })
+
+  it('评分排序：高分在前，无评分的排最后', async () => {
+    const env = await library()
+    env.db.exec(`UPDATE media_items SET rating = CASE title
+      WHEN '霸王別姬' THEN 8.9 WHEN 'The Matrix' THEN 8.2 WHEN '英雄' THEN 7.0
+      ELSE NULL END`)
+    expect(list(env, { sort: 'rating' }).slice(0, 3)).toEqual([
+      '霸王別姬',
+      'The Matrix',
+      '英雄',
+    ])
+    expect(list(env, { sort: 'rating', order: 'asc' }).slice(0, 3)).toEqual([
+      '英雄',
+      'The Matrix',
+      '霸王別姬',
+    ])
+  })
 })

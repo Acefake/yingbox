@@ -123,6 +123,7 @@ export function candidateFromResult(
     year: yearOf(movie ? m.release_date : t.first_air_date),
     popularity: r.popularity,
     ...(r.poster_path ? { posterPath: r.poster_path } : {}),
+    ...(nonEmpty(r.overview) ? { overview: r.overview!.trim() } : {}),
   }
 }
 
@@ -155,6 +156,7 @@ export function candidateFromDetails(
         }),
     popularity: d.popularity,
     ...(d.poster_path ? { posterPath: d.poster_path } : {}),
+    ...(nonEmpty(d.overview) ? { overview: d.overview!.trim() } : {}),
   }
 }
 
