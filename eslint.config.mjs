@@ -176,10 +176,10 @@ export default tseslint.config(
       'src/renderer/src/features/amane/api/amane.ts',
       'src/renderer/src/features/player/utils/play-progress.ts',
       'src/renderer/src/utils/storage.ts',
-      'src/renderer/src/features/av/views/AvView.vue',
+      'src/renderer/src/features/av/composables/use-av-browse.ts',
       'src/renderer/src/features/online/components/LibraryCollection.vue',
       'src/renderer/src/features/online/components/SearchTab.vue',
-      'src/renderer/src/features/online/composables/use-online-search.ts',
+      'src/renderer/src/features/online/composables/catspider-sites.ts',
     ],
     rules: {
       'no-restricted-globals': [

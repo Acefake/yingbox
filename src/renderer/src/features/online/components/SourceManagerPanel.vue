@@ -43,13 +43,9 @@
           </div>
 
           <div class="smp-body">
-            <!-- 在线CMS源 -->
+            <!-- 在线 CMS / 插件 / 自定义源 -->
             <template v-if="activeTab === 'online'">
-              <div class="section-header">
-                <PageTitle as="h2" variant="section">内置 CMS 源</PageTitle>
-                <span class="yb-section-count">{{ DEFAULT_SITES.length }}</span>
-              </div>
-              <div class="smp-list">
+              <SourceSection title="内置 CMS 源" :count="DEFAULT_SITES.length">
                 <SourceSiteRow
                   v-for="s in sortedDefaultSites"
                   :key="s.api"
@@ -59,21 +55,18 @@
                   :enabled="selectedSites.has(s.api)"
                   :status="statusOf(s.api)"
                   :checking="checkingSet.has(s.api)"
-                  @toggle="toggleOnline(s.api)"
+                  @toggle="toggleSite(s.api)"
                   @check="checkOnlineSite(s.api)"
                 />
-              </div>
+              </SourceSection>
 
-              <div class="section-header mt">
-                <PageTitle as="h2" variant="section">插件视频源</PageTitle>
-                <span class="yb-section-count">{{
-                  visibleCatSpiderSites.length
-                }}</span>
-              </div>
-              <div v-if="visibleCatSpiderSites.length === 0" class="empty">
-                暂无插件源
-              </div>
-              <div class="smp-list">
+              <SourceSection
+                title="插件视频源"
+                :count="visibleCatSpiderSites.length"
+                :empty="visibleCatSpiderSites.length === 0"
+                empty-text="暂无插件源"
+                spaced
+              >
                 <SourceSiteRow
                   v-for="s in visibleCatSpiderSites"
                   :key="s.api"
@@ -86,22 +79,23 @@
                   :checkable="false"
                   @toggle="toggleCatSpider(s.api)"
                 />
-              </div>
+              </SourceSection>
 
-              <div class="section-header mt">
-                <PageTitle as="h2" variant="section">自定义源</PageTitle>
-                <UiIconButton
-                  class="section-action"
-                  icon="plus"
-                  size="sm"
-                  label="添加自定义源"
-                  @click="showAdd = true"
-                />
-              </div>
-              <div v-if="customSites.length === 0" class="empty">
-                暂无自定义源
-              </div>
-              <div v-else class="smp-list">
+              <SourceSection
+                title="自定义源"
+                :empty="customSites.length === 0"
+                empty-text="暂无自定义源"
+                spaced
+              >
+                <template #action>
+                  <UiIconButton
+                    class="section-action"
+                    icon="plus"
+                    size="sm"
+                    label="添加自定义源"
+                    @click="showAdd = true"
+                  />
+                </template>
                 <SourceSiteRow
                   v-for="(s, i) in sortedCustomSites"
                   :key="s.api + i"
@@ -113,94 +107,23 @@
                   :status="statusOf(s.api)"
                   :checking="checkingSet.has(s.api)"
                   deletable
-                  @toggle="toggleOnline(s.api)"
+                  @toggle="toggleSite(s.api)"
                   @check="checkOnlineSite(s.api)"
                   @delete="removeCustom(i)"
                 />
-              </div>
+              </SourceSection>
             </template>
 
-            <!-- AV源 -->
-            <template v-if="activeTab === 'av'">
-              <div class="section-header">
-                <PageTitle as="h2" variant="section">AV 资源站点</PageTitle>
-                <span class="yb-section-count">{{ avSources.length }}</span>
-              </div>
-              <div class="smp-list">
-                <SourceSiteRow
-                  v-for="s in sortedAvSources"
-                  :key="s.api"
-                  :name="s.name"
-                  :api="s.api"
-                  badge="AV"
-                  badge-color="pink"
-                  :enabled="avEnabledApis.has(s.api)"
-                  :status="avStatusOf(s.api)"
-                  :checking="avCheckingSet.has(s.api)"
-                  @toggle="toggleAv(s.api)"
-                  @check="checkAvSite(s.api)"
-                />
-              </div>
-
-              <div class="section-header mt">
-                <PageTitle as="h2" variant="section">AV 插件源</PageTitle>
-                <span class="yb-section-count">{{
-                  adultCatSpiderSites.length
-                }}</span>
-              </div>
-              <div v-if="adultCatSpiderSites.length === 0" class="empty">
-                暂无插件源
-              </div>
-              <div v-else class="smp-list">
-                <SourceSiteRow
-                  v-for="s in adultCatSpiderSites"
-                  :key="s.api"
-                  :name="s.name"
-                  :api="s.api"
-                  badge="插件"
-                  badge-color="purple"
-                  :enabled="selectedCatSpider.includes(s.api)"
-                  status="ok"
-                  :checkable="false"
-                  @toggle="toggleCatSpider(s.api)"
-                />
-              </div>
-            </template>
-          </div>
-        </div>
-
-        <!-- Add custom source dialog -->
-        <div v-if="showAdd" class="add-dialog" @click.self="showAdd = false">
-          <div class="add-panel">
-            <DialogTitlebar
-              title="添加自定义源"
-              icon="plus"
-              @close="showAdd = false"
+            <!-- AV 源 -->
+            <AvSourcesTab
+              v-if="activeTab === 'av'"
+              :plugins="adultCatSpiderSites"
             />
-            <div class="add-body">
-              <p class="hint">
-                苹果 CMS v10 接口，例如：https://xxx.com/api.php/provide/vod
-              </p>
-              <label class="yb-label add-label">名称</label>
-              <UiInput v-model="newName" placeholder="名称" />
-              <label class="yb-label add-label">API 地址</label>
-              <UiInput
-                v-model="newApi"
-                placeholder="API 地址"
-                @keydown.enter="addCustom"
-              />
-              <div class="add-actions">
-                <UiButton label="取消" @click="showAdd = false" />
-                <UiButton
-                  variant="primary"
-                  :label="addingSource ? '分析中…' : '确认添加'"
-                  :loading="addingSource"
-                  @click="addCustom"
-                />
-              </div>
-            </div>
           </div>
         </div>
+
+        <!-- 添加自定义源（v-show：取消后再打开时保留已填内容） -->
+        <AddSourceDialog v-show="showAdd" @close="showAdd = false" />
       </div>
     </Transition>
   </Teleport>
@@ -210,29 +133,27 @@
 /**
  * 数据源管理：在线 CMS / 插件 / 自定义源，以及成人模式下的 AV 源。
  * 既能作为独立侧滑面板，也能 embedded 嵌入设置窗口的「数据源」分区。
+ * AV 分类、分组外框、添加对话框分别是 AvSourcesTab / SourceSection / AddSourceDialog。
  */
-import { message } from 'ant-design-vue'
 import { computed, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
-import PageTitle from '@/components/PageTitle.vue'
+import AddSourceDialog from './AddSourceDialog.vue'
+import AvSourcesTab from './AvSourcesTab.vue'
+import SourceSection from './SourceSection.vue'
 import SourceSiteRow from './SourceSiteRow.vue'
 import { useSetting } from '@/features/settings'
-import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiInput from '@/components/ui/UiInput.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import { confirmDialog } from '@/utils/confirm-dialog'
 import { useOnlineSearch } from '../composables/use-online-search'
+import { toggleCatSpider } from '../composables/catspider-sites'
+import { toggleSite } from '../composables/cms-sites'
 import { useAvSources } from '@/features/av'
 import {
-  type SiteStatus,
-  avCheckingSet,
   avStatusMap,
-  avStatusOf,
   checkAll,
-  checkAvSite,
   checkOnlineSite,
   checkedCount,
   checkingAll,
@@ -244,14 +165,19 @@ import {
   syncAvSources,
   syncingAv,
 } from '../composables/use-source-refresh'
+import {
+  type SourceTab,
+  countFailed,
+  sortByConnection,
+  sourceTabs,
+} from '../utils/source-rules'
 
 const props = defineProps<{ visible: boolean; embedded?: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
-// ── Adult mode ───────────────────────────────────────────────
 const adultMode = useSetting('app.adultMode')
 
-// ── Online sources ───────────────────────────────────────────
+// ── 在线源 ───────────────────────────────────────────────────
 const {
   selectedSites,
   customSites,
@@ -267,59 +193,26 @@ const adultCatSpiderSites = computed(() =>
 const visibleCatSpiderSites = computed(() =>
   CATSPIDER_SITES.value.filter(site => !isAdultCatSpiderSite(site))
 )
-
-const connectionRank = (status: SiteStatus): number =>
-  status === 'ok' ? 0 : status === 'checking' ? 1 : status === 'unknown' ? 2 : 3
 const sortedDefaultSites = computed(() =>
-  [...DEFAULT_SITES].sort(
-    (a, b) => connectionRank(statusOf(a.api)) - connectionRank(statusOf(b.api))
-  )
+  sortByConnection(DEFAULT_SITES, statusOf)
 )
 const sortedCustomSites = computed(() =>
-  [...customSites.value].sort(
-    (a, b) => connectionRank(statusOf(a.api)) - connectionRank(statusOf(b.api))
-  )
+  sortByConnection(customSites.value, statusOf)
 )
 
-const toggleOnline = (api: string): void => {
-  if (selectedSites.has(api)) selectedSites.delete(api)
-  else selectedSites.add(api)
-}
-const toggleCatSpider = (api: string): void => {
-  const idx = selectedCatSpider.value.indexOf(api)
-  if (idx >= 0) selectedCatSpider.value.splice(idx, 1)
-  else selectedCatSpider.value.push(api)
-}
-
-// ── AV sources ───────────────────────────────────────────────
-const {
-  enabledApis: avEnabledApis,
-  allSources: avSources,
-  addSources: addAvSources,
-} = useAvSources()
-
-const sortedAvSources = computed(() =>
-  [...avSources.value].sort(
-    (a, b) =>
-      connectionRank(avStatusOf(a.api)) - connectionRank(avStatusOf(b.api))
-  )
-)
-
-const toggleAv = (api: string): void => {
-  if (avEnabledApis.has(api)) avEnabledApis.delete(api)
-  else avEnabledApis.add(api)
-}
-
-// ── All-source stats ─────────────────────────────────────────
+// ── 全部源统计（AV 源只在成人模式下计入） ──────────────────────
+const { enabledApis: avEnabledApis, allSources: avSources } = useAvSources()
 const totalSources = computed(
   () => onlineApis.value.length + (adultMode.value ? avSources.value.length : 0)
 )
-
 const totalFail = computed(
   () =>
-    onlineApis.value.filter(a => statusMap[a] === 'fail').length +
+    countFailed(onlineApis.value, statusMap) +
     (adultMode.value
-      ? avSources.value.filter(s => avStatusMap[s.api] === 'fail').length
+      ? countFailed(
+          avSources.value.map(s => s.api),
+          avStatusMap
+        )
       : 0)
 )
 
@@ -356,74 +249,23 @@ watch(
   }
 )
 
-// ── Tabs ────────────────────────────────────────────────────
-type SourceTab = 'online' | 'av'
+// ── 分类 ────────────────────────────────────────────────────
 const activeTab = ref<SourceTab>('online')
-const tabs = computed<SegmentedOption<SourceTab>[]>(() => [
-  {
-    value: 'online',
-    label: `在线源 ${onlineApis.value.length + visibleCatSpiderSites.value.length}`,
-  },
-  ...(adultMode.value
-    ? [
-        {
-          value: 'av' as const,
-          label: `AV 源 ${avSources.value.length + adultCatSpiderSites.value.length}`,
-        },
-      ]
-    : []),
-])
+const tabs = computed(() =>
+  sourceTabs(
+    onlineApis.value.length + visibleCatSpiderSites.value.length,
+    adultMode.value
+      ? avSources.value.length + adultCatSpiderSites.value.length
+      : null
+  )
+)
 // 关闭成人模式后不要停留在已经消失的 AV 分类
 watch(adultMode, on => {
   if (!on) activeTab.value = 'online'
 })
 
-// ── Custom source ────────────────────────────────────────────
+// ── 自定义源 ─────────────────────────────────────────────────
 const showAdd = ref(false)
-const newName = ref('')
-const newApi = ref('')
-const addingSource = ref(false)
-
-const addCustom = async (): Promise<void> => {
-  if (addingSource.value) return
-  const name = newName.value.trim()
-  const api = newApi.value.trim()
-  if (!name || !api) {
-    message.warning('请填写数据源名称和 API 地址')
-    return
-  }
-  try {
-    const parsed = new URL(api)
-    if (!['http:', 'https:'].includes(parsed.protocol)) throw new Error()
-  } catch {
-    message.error('请输入有效的 HTTP 或 HTTPS API 地址')
-    return
-  }
-  if (
-    customSites.value.some(site => site.api === api) ||
-    avSources.value.some(site => site.api === api)
-  ) {
-    message.info('这个数据源已经添加')
-    return
-  }
-  addingSource.value = true
-  try {
-    const added = addAvSources([{ name, api }])
-    if (!added) throw new Error('这个数据源已经添加')
-    message.success('已加入 AV 源')
-    await checkAvSite(api)
-    showAdd.value = false
-    newName.value = ''
-    newApi.value = ''
-  } catch (error) {
-    message.error(
-      error instanceof Error ? error.message : '数据源分析失败，请检查接口地址'
-    )
-  } finally {
-    addingSource.value = false
-  }
-}
-
 const removeCustom = (idx: number): void => {
   const site = customSites.value[idx]
   confirmDialog({
@@ -515,76 +357,8 @@ const removeCustom = (idx: number): void => {
   padding: 0 var(--space-2) var(--space-6) 0;
 }
 
-.section-header {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0 var(--space-4) var(--space-2);
-}
-.section-header.mt {
-  margin-top: var(--space-6);
-}
-.section-header .yb-section-count {
-  display: inline;
-  font-size: var(--text-xs);
-}
 .section-action {
   margin-left: auto;
-}
-
-/* 内嵌分组：和设置里的 SettingsGroup 同一种底板 */
-.smp-list {
-  overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-glass);
-}
-.smp-list:empty {
-  display: none;
-}
-
-.empty {
-  padding: var(--space-4) var(--space-2);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-  text-align: center;
-}
-
-.add-dialog {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-dialog);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--overlay-scrim-soft);
-}
-.add-panel {
-  width: min(400px, calc(100vw - 48px));
-  overflow: hidden;
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
-}
-.add-body {
-  padding: var(--space-5);
-}
-.hint {
-  margin: 0 0 var(--space-3);
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-.add-label {
-  display: block;
-  margin: var(--space-3) 0 var(--space-1);
-}
-.add-actions {
-  display: flex;
-  justify-content: flex-end;
-  gap: var(--space-2);
-  margin-top: var(--space-5);
 }
 
 .panel-fade-enter-active,
