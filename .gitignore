@@ -18,9 +18,6 @@ out
 
 dist-web/
 
-# Go 后端构建产物（由 pnpm build:backend / dev:backend 生成）
-packages/backend/main.exe
-packages/backend/main
 # Amane runtime is prepared explicitly from the pinned source submodule.
 /resources/amane/
 

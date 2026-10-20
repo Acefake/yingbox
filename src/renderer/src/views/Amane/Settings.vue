@@ -174,7 +174,6 @@ import {
 import ConfigSettings from './ConfigSettings.vue'
 import { message } from 'ant-design-vue'
 import type { AmaneSettings, AmaneStatus } from '../../../../shared/amane'
-import { getSetting } from '@/features/settings/use-setting'
 import { sectionLabel } from './config-schema'
 
 const props = defineProps<{
@@ -322,7 +321,7 @@ async function stop(): Promise<void> {
     })
 }
 
-/* 手机接入:复制 ?amane=<token>&key=<backendKey> 链接(走 vite 同源代理)。 */
+/* 手机接入:复制 ?amane=<token> 链接(走 vite 同源代理);Amane 只认自己的令牌。 */
 const phoneToken = ref(''),
   phoneLinkReady = ref(false)
 watch(
@@ -340,11 +339,7 @@ async function copyPhoneLink(): Promise<void> {
   try {
     const ips = await window.api.app.networkIps()
     const lanHost = ips[0] || new URL(window.location.href).hostname
-    const key = getSetting('backend.apiKey')
-    const query = new URLSearchParams({
-      amane: phoneToken.value,
-      ...(key ? { key } : {}),
-    })
+    const query = new URLSearchParams({ amane: phoneToken.value })
     const link = `http://${lanHost}:4173/?${query.toString()}`
     await navigator.clipboard.writeText(link)
     phoneLinkReady.value = true

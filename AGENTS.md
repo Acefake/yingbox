@@ -7,24 +7,22 @@ This file provides guidance to coding agents working with code in this repositor
 影盒 (yingbox) is an Electron desktop app (Windows/macOS) for media library management:
 
 - **本地媒体库** — scans movie/TV folders, scrapes TMDB metadata, writes Kodi-standard NFO + images
-- **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs via the Go backend
+- **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
 - **内置播放器** — dedicated player window: local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
-Stack: Electron 37 shell + Vue 3 SPA + Go 1.22 HTTP backend (127.0.0.1:31471) with Python scripts embedded into the Go binary.
+Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, MissAV, HLS downloads) reached through the IPC contract. There is no HTTP backend and no Go/Python runtime.
 
 ## Common commands
 
 ```bash
-pnpm dev            # Electron + Go backend concurrently
-pnpm dev:backend    # Go backend only (go build + run)
+pnpm dev            # Electron (engine starts on demand)
 pnpm typecheck      # tsc (main/preload) + vue-tsc (renderer)
 pnpm lint           # eslint --cache
 pnpm test           # vitest run (tests/)
 pnpm format         # prettier --write .
 pnpm build          # typecheck + electron-vite build
 pnpm build:nocheck  # electron-vite build only
-pnpm build:backend  # go build -o main.exe (packages/backend)
-pnpm build:win      # Windows zip (builds Go backend first)
+pnpm build:win      # Windows zip
 pnpm build:win:full # Windows NSIS installer
 pnpm build:mac      # macOS dmg
 pnpm check          # scripts/check-issues.sh
@@ -48,7 +46,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
 - `config.ts` — `userData/config.json` (`downloadPath`); validates writability (real write probe) on load and on set
-- `backend-manager.ts` — spawns the Go backend in packaged builds (dev uses `pnpm dev:backend`); kills it on quit
+- `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine; `media-headers.ts` injects Referer for direct stream/cover requests
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
   - `file-ipc.ts` (`file:*` incl. incremental `scanMediaDirectory`, `path:*`; `readImage` capped at 16MB)
   - `http-ipc.ts` (`http:fetch/fetchImage/download`; image proxy capped at 8MB)
@@ -72,7 +70,7 @@ Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* co
 
 Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
 
-- `api/` — `tmdb.ts` (token from settings or `VITE_TMDB_ACCESS_TOKEN`, no hardcoded default), `backend.ts` (Go backend client, Bearer key, image/proxy URL helpers)
+- `api/` — `tmdb.ts` (token from settings or `VITE_TMDB_ACCESS_TOKEN`, no hardcoded default), `online.ts` / `missav.ts` / `download.ts` (thin wrappers over `window.api.*` engine domains). Renderer code must not call `fetch` directly (eslint; only `api/amane.ts` is exempt)
 - `services/nfo-service.ts` — Kodi NFO parse/generate
 - `stores/scrape-provider-store.ts` — provider config in localStorage (`scrapeProviderConfig`)
 - `composables/` — cross-view: `use-vod-parser`, `use-media-player`, `use-global-queue`, `use-error-handler`, `use-context-menu`
@@ -80,13 +78,9 @@ Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/pl
 - `views/online/` — CMS/CatSpider search + `DetailWindow.vue`; `views/av/` — MissAV library
 - `components/UnifiedVideoPlayer.vue` — Artplayer + hls.js wrapper (subtitles, playback-rate memory)
 
-### Go backend (`packages/backend/main.go`)
+### Engine (`src/engine/`)
 
-HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and extracts it next to the binary at startup (never overwrites existing `cfg/` / `db/`).
-
-- Endpoints: `/api/videos`, `/api/videos/<id>`, `/api/addvideo/<avid>`, `/api/queue`, `/api/vod/parse`, `/api/vod/sites`, `/file/<id>/<name>`, `/proxy?url=…`
-- Security env vars: `BIND_ADDR` (default loopback), `YINGBOX_API_KEY` (Bearer / `?key=`), `YINGBOX_ALLOWED_ORIGINS`, `YINGBOX_PROXY_URL`, `YINGBOX_ALLOW_PRIVATE_PROXY` (`/proxy` denies private targets by default), `YINGBOX_ALLOW_INSECURE_LAN`
-- Library path resolution: `YINGBOX_CONFIG_PATH` (config.json `downloadPath`) → `MISSAV_VIDEO_PATH` → `~/Videos` → temp dir
+Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`. Domains: `online` (CMS sites, CatSpider plugins, VOD parse), `av` (MissAV catalogue + resolver), `download` (site → m3u8 lookup, HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard). Replaces the former Go backend on 127.0.0.1:31471, removed in p3d.
 
 ### Amane
 
@@ -94,7 +88,7 @@ HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and ex
 
 ### App settings
 
-- localStorage: `scrapeProviderConfig` (provider, TMDB token, backend URL/key), `imageDownloadSize_*`, `folderContent_*` (tree cache), `metadataLanguage`, `player_playback_rate`
+- localStorage: `scrapeProviderConfig` (provider, TMDB token; legacy backend URL/key kept only for the library mirror), `imageDownloadSize_*`, `folderContent_*` (tree cache), `metadataLanguage`, `player_playback_rate`
 - `userData/config.json` (main process): `downloadPath`
 - Build-time env: `VITE_TMDB_ACCESS_TOKEN` — optional default TMDB token; never commit a real one (see `.env.example`)
 
@@ -104,9 +98,9 @@ HTTP server on **127.0.0.1:31471**. Embeds Python via `//go:embed py/…` and ex
 
 ### Build pipeline
 
-`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). The Go binary and `backend/py` ship via `extraResources`.
+`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). `extraResources` ships Amane and mpv only.
 
-Build outputs (`out/`, `packages/backend/main*`) are gitignored and untracked — regenerate with `pnpm build:backend` / `pnpm build`.
+Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm build`.
 
 ### Tech stack
 

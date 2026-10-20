@@ -9,21 +9,21 @@
 
 ## 技术栈
 
-Electron 37 · Vue 3 + TypeScript · Ant Design Vue 4 + Tailwind CSS 4 · Go 1.22 后端（127.0.0.1:31471，内嵌 Python 脚本）· pnpm
+Electron 37 · Vue 3 + TypeScript · Ant Design Vue 4 + Tailwind CSS 4 · 引擎（Electron utilityProcess：在线源 / MissAV / 下载）· pnpm
 
 ## 目录
 
 ```
 src/
-  main/        Electron 主进程：窗口、IPC、配置、后端/Amane/mpv/lada 管理
+  main/        Electron 主进程：窗口、IPC、配置、引擎宿主、Amane/mpv/lada 管理
+  engine/      引擎（utilityProcess）：在线源解析、MissAV、HLS 下载
   preload/     沙箱预加载，暴露 window.api
   renderer/    Vue 3 单页应用
   shared/      主进程与渲染进程共用的类型和工具
 packages/
-  backend/     Go HTTP 后端（py/ 为内嵌的 Python/Node 脚本）
   amane/       Amane 上游源码子模块
 scripts/       开发、打包、检查脚本
-tests/         vitest 单元测试（主进程纯逻辑）与 Python 测试
+tests/         vitest 单元测试
 docs/          设计文档
 build/         打包资源（图标、NSIS、entitlements）
 ```
@@ -32,16 +32,16 @@ build/         打包资源（图标、NSIS、entitlements）
 
 ```bash
 pnpm install
-pnpm dev            # Electron + Go 后端
+pnpm dev            # Electron（引擎随应用按需启动，无需单独起后端）
 pnpm typecheck      # tsc + vue-tsc
 pnpm lint
 pnpm test
-pnpm build:win      # Windows zip（先构建 Go 后端）
+pnpm build:win      # Windows zip
 pnpm build:mac
 ```
 
-需要 Node 22+、pnpm 10、Go 1.22+。更多架构说明见 [AGENTS.md](AGENTS.md)。
+需要 Node 22+、pnpm 10。更多架构说明见 [AGENTS.md](AGENTS.md)。
 
 ## 许可
 
-`packages/backend` 的下载器脚本源自 [NASSAV](https://github.com/Satoing/NASSAV)（MIT，见 `packages/backend/LICENSE-NASSAV`）。
+`src/engine/download/sources.ts` 的站点解析逻辑移植自 [NASSAV](https://github.com/Satoing/NASSAV)（MIT，见 `src/engine/download/LICENSE-NASSAV`）。
