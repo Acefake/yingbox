@@ -8,7 +8,9 @@ import { lookup } from 'node:dns/promises'
 import { join } from 'node:path'
 import { net } from 'electron'
 import { createNetClient } from '../shared/net/client'
+import { av } from '../shared/contract/av'
 import { online } from '../shared/contract/online'
+import { createAvHandlers } from './av'
 import { createOnlineHandlers } from './online'
 import { createPluginLoader } from './online/plugin-cache'
 import { type EnginePort, serveEngine } from './rpc'
@@ -40,5 +42,7 @@ server.implement(
     log,
   })
 )
+
+server.implement(av, createAvHandlers(httpClient))
 
 server.onShutdown(() => process.exit(0))

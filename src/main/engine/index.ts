@@ -5,10 +5,11 @@ import { app, utilityProcess } from 'electron'
 import { join } from 'node:path'
 import { broadcastChannel, implement } from '../rpc'
 import { browserFetch } from '../browser-fetch'
+import { av } from '../../shared/contract/av'
 import { online } from '../../shared/contract/online'
 import { type EngineChild, EngineHost, forwardTo } from './host'
 
-/** 注册引擎域（online）。 */
+/** 注册引擎域（online、av）。 */
 export function registerEngine(): EngineHost {
   const host = new EngineHost({
     fork: () =>
@@ -21,6 +22,7 @@ export function registerEngine(): EngineHost {
     hostMethods: { browserFetch: (url, waitMs) => browserFetch(url, waitMs) },
   })
   implement(online, forwardTo(host, online))
+  implement(av, forwardTo(host, av))
   app.on('will-quit', () => host.shutdown())
   return host
 }

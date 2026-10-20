@@ -30,6 +30,7 @@ import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
 import { MEDIA_SCHEME_PRIVILEGES } from './library/media/media-service'
 import { registerEngine } from './engine'
+import { installMediaHeaders } from './media-headers'
 import { initSettings } from './settings'
 
 /**
@@ -144,6 +145,9 @@ app.whenReady().then(async () => {
     ]
     callback({ responseHeaders: headers })
   })
+
+  // MissAV 视频分片与封面需要 Referer，渲染层直连时由这里注入
+  installMediaHeaders(session.defaultSession)
 
   // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
   protocol.handle('local', serveLocalMedia)

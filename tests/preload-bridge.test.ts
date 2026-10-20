@@ -147,6 +147,7 @@ const EXTERNAL_API: Record<string, string[]> = {
 const ADDED_API: Record<string, string[]> = {
   settings: ['snapshot', 'migrateLegacy', 'set', 'onChanged', 'offChanged'],
   online: ['sites', 'vod', 'getJson', 'resolvePage'],
+  av: ['list', 'resolve'],
 }
 
 beforeAll(async () => {

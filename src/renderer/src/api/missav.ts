@@ -1,5 +1,10 @@
-import { backend, getBackendAuthHeaders, getBase } from './backend'
+/**
+ * MissAV：目录与播放地址经引擎（window.api.av）获取；封面与视频流渲染层直连，
+ * 防盗链 Referer 由主进程注入。
+ */
+import type { AvCategory, AvSort } from '../../../shared/contract/av'
 
+/** 一条可播放的 MissAV 流。 */
 export interface MissavStream {
   url: string
   title: string
@@ -7,65 +12,41 @@ export interface MissavStream {
   poster?: string
 }
 
-interface MissavCatalogItem {
+/** 目录条目。 */
+export interface MissavCatalogItem {
   code: string
   title: string
   poster: string
   duration: string
 }
 
-export async function resolveMissav(
-  input: string,
-  signal?: AbortSignal
-): Promise<MissavStream> {
-  const response = await fetch(`${getBase()}/api/missav/resolve`, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json', ...getBackendAuthHeaders() },
-    body: JSON.stringify({ input }),
-    signal: signal || AbortSignal.timeout(85000),
-  })
-  if (response.status === 404)
-    throw new Error('当前 Go 后端尚未支持 MissAV 在线播放，请更新并重启后端')
-  if (!response.ok)
-    throw new Error(`MissAV 解析请求失败（HTTP ${response.status}）`)
-  const result = await response.json()
-  if (!result.success) throw new Error(result.error || 'MissAV 解析失败')
-  if (
-    typeof result.url !== 'string' ||
-    !result.url.startsWith('/api/missav/stream/')
-  ) {
-    throw new Error('后端未返回有效的播放地址')
-  }
-  return {
-    url: backend.fileUrl(result.url),
-    title: result.title || 'MissAV',
-    input,
-  }
+function avApi(): Window['api']['av'] {
+  const api = typeof window !== 'undefined' ? window.api?.av : undefined
+  if (!api) throw new Error('MissAV 需要桌面端')
+  return api
 }
 
+/** 番号对应的封面地址。 */
+export function missavCover(code: string): string {
+  return `https://fourhoi.com/${code.toLowerCase()}/cover-t.jpg`
+}
+
+/** 番号或链接 → 播放地址。 */
+export async function resolveMissav(input: string): Promise<MissavStream> {
+  const stream = await avApi().resolve(input)
+  return { url: stream.url, title: stream.title || 'MissAV', input }
+}
+
+/** 拉一页目录。 */
 export async function listMissav(
   category: string,
   page: number,
-  sort: string,
-  signal?: AbortSignal
+  sort: string
 ): Promise<{ pageCount: number; items: MissavCatalogItem[] }> {
-  const params = new URLSearchParams({
-    category,
-    page: String(page),
-    sort,
-  })
-  const response = await fetch(`${getBase()}/api/missav/list?${params}`, {
-    headers: getBackendAuthHeaders(),
-    signal: signal || AbortSignal.timeout(85000),
-  })
-  if (response.status === 404)
-    throw new Error('当前 Go 后端尚未支持 MissAV 列表，请更新并重启后端')
-  if (!response.ok)
-    throw new Error(`MissAV 列表请求失败（HTTP ${response.status}）`)
-  const result = await response.json()
-  if (!result.success) throw new Error(result.error || 'MissAV 列表加载失败')
-  return {
-    pageCount: Number(result.pageCount) || page,
-    items: Array.isArray(result.items) ? result.items : [],
-  }
+  const result = await avApi().list(
+    category as AvCategory,
+    page,
+    sort as AvSort
+  )
+  return { pageCount: result.pageCount || page, items: result.items }
 }
