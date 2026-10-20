@@ -90,6 +90,35 @@ export default tseslint.config(
   },
 
   {
+    // IPC 只能经契约（src/shared/contract）：ipcMain / ipcRenderer / webContents.send
+    // 只允许出现在通用注册器 src/main/rpc 与通用 preload 里。
+    // src/main/library/host.ts 属于影视项目的媒体库引擎（自带 IPC），合并前不动它。
+    files: ['src/**/*.{ts,mts,vue}'],
+    ignores: ['src/main/rpc/**', 'src/preload/**', 'src/main/library/host.ts'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [
+            {
+              name: 'electron',
+              importNames: ['ipcMain', 'ipcRenderer'],
+              message: '在 src/shared/contract 声明通道，主进程用 main/rpc 的 implement / emit。',
+            },
+          ],
+        },
+      ],
+      'no-restricted-syntax': [
+        'error',
+        {
+          selector: "CallExpression[callee.property.name='send'][callee.object.property.name='webContents']",
+          message: '事件请在契约里声明，并用 main/rpc 的 emit 推送。',
+        },
+      ],
+    },
+  },
+
+  {
     // 纯 JS/MJS 文件不适用 TS 的返回类型规则
     files: ['**/*.{js,mjs,cjs}'],
     rules: {
