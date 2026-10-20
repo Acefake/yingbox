@@ -33,10 +33,12 @@
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
     "test": "vitest run",
     "test:watch": "vitest",
-    "bench:library": "tsx scripts/bench-library.ts"
+    "bench:library": "tsx scripts/bench-library.ts",
+    "bench:identify": "tsx scripts/bench-identify.ts"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",
+    "@jsquash/webp": "^1.5.0",
     "@tdanks2000/tmdb-wrapper": "^1.3.3",
     "@vueuse/core": "^14.2.1",
     "ant-design-vue": "4.x",

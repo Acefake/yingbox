@@ -1,0 +1,174 @@
+{
+ "id": 1396,
+ "name": "绝命毒师",
+ "original_name": "Breaking Bad",
+ "original_language": "en",
+ "first_air_date": "2008-01-20",
+ "popularity": 300.0,
+ "status": "Ended",
+ "episode_run_time": [
+  47
+ ],
+ "overview": "化学老师制毒。",
+ "genres": [
+  {
+   "id": 0,
+   "name": "剧情"
+  },
+  {
+   "id": 1,
+   "name": "犯罪"
+  }
+ ],
+ "vote_average": 8.6,
+ "vote_count": 2000,
+ "origin_country": [
+  "US"
+ ],
+ "poster_path": "/t1396p.jpg",
+ "backdrop_path": "/t1396b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "US",
+   "name": "US"
+  }
+ ],
+ "production_companies": [
+  {
+   "id": 1,
+   "name": "Studio"
+  }
+ ],
+ "created_by": [
+  {
+   "id": 90,
+   "name": "Vince Gilligan",
+   "profile_path": null
+  }
+ ],
+ "seasons": [
+  {
+   "season_number": 0,
+   "episode_count": 9,
+   "name": "特别篇",
+   "air_date": "2008-01-01",
+   "poster_path": "/t1396s0.jpg"
+  },
+  {
+   "season_number": 1,
+   "episode_count": 7,
+   "name": "第 1 季",
+   "air_date": "2008-01-01",
+   "poster_path": "/t1396s1.jpg"
+  },
+  {
+   "season_number": 2,
+   "episode_count": 13,
+   "name": "第 2 季",
+   "air_date": "2009-01-01",
+   "poster_path": "/t1396s2.jpg"
+  },
+  {
+   "season_number": 3,
+   "episode_count": 13,
+   "name": "第 3 季",
+   "air_date": "2010-01-01",
+   "poster_path": "/t1396s3.jpg"
+  },
+  {
+   "season_number": 4,
+   "episode_count": 13,
+   "name": "第 4 季",
+   "air_date": "2011-01-01",
+   "poster_path": "/t1396s4.jpg"
+  },
+  {
+   "season_number": 5,
+   "episode_count": 16,
+   "name": "第 5 季",
+   "air_date": "2012-01-01",
+   "poster_path": "/t1396s5.jpg"
+  }
+ ],
+ "credits": {
+  "cast": [],
+  "crew": []
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t1396p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t1396b.jpg",
+    "iso_639_1": null,
+    "width": 1920,
+    "height": 2880,
+    "vote_average": 5.4,
+    "vote_count": 6
+   }
+  ],
+  "logos": []
+ },
+ "external_ids": {
+  "imdb_id": "tt0903747",
+  "tvdb_id": "81189"
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "绝命毒师",
+     "overview": "化学老师制毒。"
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "絕命毒師",
+     "overview": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "Breaking Bad",
+     "overview": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "results": []
+ },
+ "content_ratings": {
+  "results": [
+   {
+    "iso_3166_1": "US",
+    "rating": "TV-MA"
+   }
+  ]
+ },
+ "episode_groups": {
+  "results": []
+ }
+}

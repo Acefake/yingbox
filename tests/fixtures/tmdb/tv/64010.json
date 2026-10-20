@@ -1,0 +1,163 @@
+{
+ "id": 64010,
+ "name": "请回答1988",
+ "original_name": "응답하라 1988",
+ "original_language": "ko",
+ "first_air_date": "2015-11-06",
+ "popularity": 30.0,
+ "status": "Ended",
+ "episode_run_time": [
+  90
+ ],
+ "overview": "双门洞五户人家的故事。",
+ "genres": [
+  {
+   "id": 0,
+   "name": "剧情"
+  },
+  {
+   "id": 1,
+   "name": "喜剧"
+  }
+ ],
+ "vote_average": 8.6,
+ "vote_count": 2000,
+ "origin_country": [
+  "KR"
+ ],
+ "poster_path": "/t64010p.jpg",
+ "backdrop_path": "/t64010b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "KR",
+   "name": "KR"
+  }
+ ],
+ "production_companies": [
+  {
+   "id": 1,
+   "name": "Studio"
+  }
+ ],
+ "created_by": [
+  {
+   "id": 82,
+   "name": "申源浩",
+   "profile_path": null
+  }
+ ],
+ "seasons": [
+  {
+   "season_number": 0,
+   "episode_count": 3,
+   "name": "特别篇",
+   "air_date": "2015-01-01",
+   "poster_path": "/t64010s0.jpg"
+  },
+  {
+   "season_number": 1,
+   "episode_count": 20,
+   "name": "第 1 季",
+   "air_date": "2015-01-01",
+   "poster_path": "/t64010s1.jpg"
+  }
+ ],
+ "credits": {
+  "cast": [
+   {
+    "id": 80,
+    "name": "李惠利",
+    "original_name": "李惠利",
+    "character": "成德善",
+    "order": 0,
+    "profile_path": "/p80.jpg"
+   },
+   {
+    "id": 81,
+    "name": "朴宝剑",
+    "original_name": "朴宝剑",
+    "character": "崔泽",
+    "order": 1,
+    "profile_path": "/p81.jpg"
+   }
+  ],
+  "crew": []
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t64010p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t64010b.jpg",
+    "iso_639_1": null,
+    "width": 1920,
+    "height": 2880,
+    "vote_average": 5.4,
+    "vote_count": 6
+   }
+  ],
+  "logos": []
+ },
+ "external_ids": {
+  "imdb_id": "tt5182866",
+  "tvdb_id": "299879"
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "请回答1988",
+     "overview": "双门洞五户人家的故事。"
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "請回答1988",
+     "overview": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "Reply 1988",
+     "overview": "Five families."
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "results": []
+ },
+ "content_ratings": {
+  "results": [
+   {
+    "iso_3166_1": "KR",
+    "rating": "15"
+   }
+  ]
+ },
+ "episode_groups": {
+  "results": []
+ }
+}

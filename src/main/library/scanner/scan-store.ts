@@ -141,7 +141,7 @@ export class ScanStore {
 
   /**
    * 更新已有文件的位置、大小、时间与解析结果。
-   * 内容变了（大小或 mtime 不同）时清掉指纹，等指纹任务重算。
+   * 内容变了（大小或 mtime 不同）时清掉指纹，等指纹任务重算；时长同理清空，下次识别重新探测。
    */
   updateFile(
     id: number,
@@ -154,7 +154,8 @@ export class ScanStore {
       .get(
         `UPDATE files SET path = ?, display_path = ?, dir = ?, name = ?, size = ?,
            mtime = ?, parsed = ?, parser_version = ?, state = ?, updated_at = ?,
-           fingerprint = ?
+           fingerprint = ?,
+           duration = CASE WHEN size = ? AND mtime = ? THEN duration END
          WHERE id = ?`
       )
       .run(
@@ -169,6 +170,8 @@ export class ScanStore {
         parsed.state,
         now,
         fingerprint,
+        file.size,
+        file.mtime,
         id
       )
   }

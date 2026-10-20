@@ -1,0 +1,197 @@
+{
+ "id": 10997,
+ "imdb_id": "tt0106332",
+ "title": "霸王别姬",
+ "original_title": "霸王別姬",
+ "original_language": "zh",
+ "release_date": "1993-01-01",
+ "runtime": 171,
+ "popularity": 20.3,
+ "status": "Released",
+ "overview": "段小楼与程蝶衣的半生。",
+ "tagline": "",
+ "genres": [
+  {
+   "id": 0,
+   "name": "剧情"
+  },
+  {
+   "id": 1,
+   "name": "爱情"
+  }
+ ],
+ "vote_average": 7.5,
+ "vote_count": 1000,
+ "poster_path": "/m10997p.jpg",
+ "backdrop_path": "/m10997b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "CN",
+   "name": "CN"
+  },
+  {
+   "iso_3166_1": "HK",
+   "name": "HK"
+  }
+ ],
+ "production_companies": [],
+ "credits": {
+  "cast": [
+   {
+    "id": 30,
+    "name": "张国荣",
+    "original_name": "张国荣",
+    "character": "程蝶衣",
+    "order": 0,
+    "profile_path": "/p30.jpg"
+   },
+   {
+    "id": 31,
+    "name": "张丰毅",
+    "original_name": "张丰毅",
+    "character": "段小楼",
+    "order": 1,
+    "profile_path": "/p31.jpg"
+   },
+   {
+    "id": 32,
+    "name": "巩俐",
+    "original_name": "巩俐",
+    "character": "菊仙",
+    "order": 2,
+    "profile_path": "/p32.jpg"
+   }
+  ],
+  "crew": [
+   {
+    "id": 33,
+    "name": "陈凯歌",
+    "original_name": "陈凯歌",
+    "job": "Director",
+    "department": "Directing",
+    "profile_path": null
+   }
+  ]
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m10997p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m10997p_en.jpg",
+    "iso_639_1": "en",
+    "width": 2000,
+    "height": 3000,
+    "vote_average": 5.6,
+    "vote_count": 8
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m10997b.jpg",
+    "iso_639_1": null,
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.4,
+    "vote_count": 6
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m10997b_en.jpg",
+    "iso_639_1": "en",
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.9,
+    "vote_count": 9
+   }
+  ],
+  "logos": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m10997l.png",
+    "iso_639_1": "en",
+    "width": 800,
+    "height": 1200,
+    "vote_average": 5.3,
+    "vote_count": 2
+   }
+  ]
+ },
+ "external_ids": {
+  "imdb_id": "tt0106332",
+  "tvdb_id": null
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "霸王别姬",
+     "overview": "段小楼与程蝶衣的半生。",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "霸王別姬",
+     "overview": "段小樓與程蝶衣。",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "Farewell My Concubine",
+     "overview": "Two boys.",
+     "tagline": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "titles": []
+ },
+ "release_dates": {
+  "results": [
+   {
+    "iso_3166_1": "CN",
+    "release_dates": [
+     {
+      "certification": "",
+      "type": 3,
+      "release_date": "1993-01-01T00:00:00.000Z"
+     }
+    ]
+   },
+   {
+    "iso_3166_1": "US",
+    "release_dates": [
+     {
+      "certification": "R",
+      "type": 3,
+      "release_date": "1993-01-01T00:00:00.000Z"
+     }
+    ]
+   }
+  ]
+ }
+}

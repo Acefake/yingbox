@@ -113,6 +113,14 @@ describe('引擎 RPC 与 preload bridge', () => {
       'scan',
       'query',
       'getItem',
+      'identify',
+      'getMatchCandidates',
+      'applyMatch',
+      'lockMatch',
+      'unlockMatch',
+      'refreshMetadata',
+      'setProviderToken',
+      'getProviderStatus',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })
