@@ -1,5 +1,8 @@
 <template>
-  <div v-if="itemSchema.enum && !schema['x-ordered']" class="amane-config-checks">
+  <div
+    v-if="itemSchema.enum && !schema['x-ordered']"
+    class="amane-config-checks"
+  >
     <UiCheckbox
       v-for="(option, index) in itemSchema.enum"
       :key="String(option)"
@@ -12,7 +15,9 @@
           optionLabel(`${path}.$`, option, itemSchema, index)
         )
       "
-      @update:model-value="emit('update:modelValue', toggleItem(arrayValue, option))"
+      @update:model-value="
+        emit('update:modelValue', toggleItem(arrayValue, option))
+      "
     />
   </div>
   <template v-else>
