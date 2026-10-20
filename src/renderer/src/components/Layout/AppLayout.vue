@@ -18,9 +18,7 @@
     <!-- 媒体中心侧栏 -->
     <aside class="app-sidebar" aria-label="媒体中心导航">
       <div class="sidebar-brand">
-        <span class="brand-mark" aria-hidden="true"
-          ><UiIcon name="movie"
-        /></span>
+        <img class="brand-mark" :src="logoUrl" alt="" aria-hidden="true" />
         <span class="brand-name">{{ appName }}</span>
         <UiIconButton
           class="sidebar-toggle"
@@ -199,6 +197,7 @@
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
+import logoUrl from '@/assets/imgs/logo.svg'
 import ScrapeQueuePanel from '@/components/ScrapeQueuePanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { IconName } from '@/components/ui/icons'
@@ -537,14 +536,9 @@ onUnmounted(() => {
   color: var(--text-primary);
 }
 .brand-mark {
-  display: grid;
   flex: 0 0 auto;
-  place-items: center;
   width: 32px;
   height: 32px;
-  border-radius: var(--radius-md);
-  background: var(--action-bg);
-  color: var(--action-text);
 }
 .brand-name {
   font-size: var(--text-lg);

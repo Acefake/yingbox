@@ -1,38 +1,26 @@
-<svg version="1.2" xmlns="http://www.w3.org/2000/svg" viewBox="0 0 622 603" width="512" height="512">
-	<style>
-		.s0 { fill: #6d38e0 } 
-		.s1 { fill: #ffffff } 
-		.s2 { fill: #002547 } 
-		.s3 { fill: #d2ccff } 
-	</style>
-	<g id="BACKGROUND">
-	</g>
-	<g id="OBJECTS">
-		<g id="&lt;Group&gt;">
-		</g>
-		<g id="&lt;Group&gt;">
-			<g id="&lt;Group&gt;">
-				<path id="&lt;Path&gt;" class="s0" d="m145.58 340.78l310.17-105.71-10.91 293.99-256.86 4.85z"/>
-				<g id="&lt;Group&gt;">
-					<path id="&lt;Path&gt;" fill-rule="evenodd" class="s1" d="m374.32 463.35c-35.95 0-65-21.72-65-48.58 0-26.86 29.05-48.58 65-48.58 35.94 0 65 21.72 65 48.58 0 26.86-29.06 48.58-65 48.58z"/>
-					<path id="&lt;Path&gt;" fill-rule="evenodd" class="s2" d="m328.17 433.72c-5.86 0-10.6-5.01-10.6-11.2 0-6.19 4.74-11.19 10.6-11.19 5.87 0 10.61 5 10.61 11.19 0 6.19-4.74 11.2-10.61 11.2z"/>
-					<path id="&lt;Path&gt;" fill-rule="evenodd" class="s1" d="m235.17 471.1c-35.95 0-65-21.71-65-48.58 0-26.86 29.05-48.57 65-48.57 35.95 0 65 21.71 65 48.57 0 26.87-29.05 48.58-65 48.58z"/>
-					<path id="&lt;Path&gt;" fill-rule="evenodd" class="s2" d="m281.31 441.47c-5.86 0-10.6-5.01-10.6-11.2 0-6.19 4.74-11.19 10.6-11.19 5.87 0 10.61 5 10.61 11.19 0 6.19-4.74 11.2-10.61 11.2z"/>
-				</g>
-				<g id="&lt;Group&gt;">
-					<path id="&lt;Path&gt;" class="s3" d="m413.01 249.06l-18.03 52.92-41.04 9.43 15.15-47.35z"/>
-					<path id="&lt;Path&gt;" class="s3" d="m195.7 323.31l-9.27 26.65-37.87 8.71-3.93-17.92z"/>
-					<path id="&lt;Path&gt;" class="s3" d="m309.94 284.29l-13.37 40.33-55.32 12.72 12.23-33.78z"/>
-				</g>
-			</g>
-			<g id="&lt;Group&gt;">
-				<path id="&lt;Path&gt;" class="s0" d="m130.24 274.35l73.37 21.38 48.35-39.61-82.35-18.66z"/>
-				<path id="&lt;Path&gt;" class="s0" d="m406.76 128.99l-21.81-92.64-77.99 72.97 86.18 30.62z"/>
-				<path id="&lt;Path&gt;" class="s0" d="m359.27 167.84l-95.64-18.14-50.2 46.96 76.54 27.99z"/>
-				<path id="&lt;Path&gt;" class="s3" d="m358.1 169.01l36.61-30.11-86.25-31.08-45.46 42.47z"/>
-				<path id="&lt;Path&gt;" class="s3" d="m214.32 195.77l-46.04 43.01 82.63 18.39 50.17-41.26z"/>
-				<path id="&lt;Path&gt;" class="s3" d="m106.29 296.71l39.32 48.51 7-7.2 52.6-43.26-74.54-20.84z"/>
-			</g>
-		</g>
-	</g>
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1024 1024" width="1024" height="1024">
+  <defs>
+    <linearGradient id="bg" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#8B6CFF"/>
+      <stop offset="1" stop-color="#4527D9"/>
+    </linearGradient>
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0" stop-color="#fff" stop-opacity=".16"/>
+      <stop offset=".5" stop-color="#fff" stop-opacity="0"/>
+    </linearGradient>
+    <linearGradient id="play" x1="0" y1="0" x2="1" y2="1">
+      <stop offset="0" stop-color="#7A5AF8"/>
+      <stop offset="1" stop-color="#4527D9"/>
+    </linearGradient>
+  </defs>
+  <g transform="translate(0 0) scale(1.0)">
+    <rect width="1024" height="1024" rx="230" fill="url(#bg)"/>
+    <rect width="1024" height="1024" rx="230" fill="url(#sheen)"/>
+    <g transform="translate(512 512) scale(.9) translate(-512 -512)" stroke-linejoin="round" stroke-width="48">
+      <path d="M262 382 382 262H762L642 382Z" fill="#E2D9FF" stroke="#E2D9FF"/>
+      <path d="M642 382 762 262V642L642 762Z" fill="#B9A6FF" stroke="#B9A6FF"/>
+      <path d="M262 382H642V762H262Z" fill="#fff" stroke="#fff"/>
+      <path d="M412 498V646L532 572Z" fill="url(#play)" stroke="url(#play)" stroke-width="40"/>
+    </g>
+  </g>
 </svg>
