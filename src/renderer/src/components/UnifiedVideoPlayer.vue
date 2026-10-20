@@ -65,24 +65,25 @@
       </div>
       <p v-if="subtitleMessage" class="usp-msg">{{ subtitleMessage }}</p>
       <div class="usp-list">
-        <button
+        <UiListRow
           v-for="hit in subtitleHits"
           :key="hit.fileId"
-          type="button"
           class="usp-item"
           :disabled="subtitleDownloadingId === hit.fileId"
           @click="applyOnlineSubtitle(hit)"
         >
           <span class="usp-item-name">{{ hit.name }}</span>
-          <span class="usp-item-meta">
-            <UiIcon name="download" size="sm" />{{ hit.downloads }}
-            <template v-if="hit.rating">
-              · <UiIcon name="star" size="sm" filled />{{ hit.rating }}
-            </template>
-            · {{ hit.format }}
-            {{ subtitleDownloadingId === hit.fileId ? '· 下载中…' : '' }}
-          </span>
-        </button>
+          <template #description>
+            <span class="usp-item-meta">
+              <UiIcon name="download" size="sm" />{{ hit.downloads }}
+              <template v-if="hit.rating">
+                · <UiIcon name="star" size="sm" filled />{{ hit.rating }}
+              </template>
+              · {{ hit.format }}
+              {{ subtitleDownloadingId === hit.fileId ? '· 下载中…' : '' }}
+            </span>
+          </template>
+        </UiListRow>
         <p
           v-if="
             !subtitleSearching && subtitleHits.length === 0 && subtitleMessage
@@ -101,6 +102,7 @@ import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiListRow from '@/components/ui/UiListRow.vue'
 import { ICON_PATHS, type IconName } from '@/components/ui/icons'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
@@ -790,31 +792,25 @@ defineExpose({ video })
   padding: 0 8px 10px;
 }
 
+/* 结果行为 UiListRow：这里只保留紧凑尺寸和面板内的填充底 */
 .usp-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
   padding: 8px 10px;
   margin-bottom: 4px;
-  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.05));
+  background: var(--bg-fill-secondary);
   color: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
-.usp-item:hover {
-  background: var(--bg-glass-hover, rgba(255, 255, 255, 0.12));
+.usp-item:hover:not(:disabled) {
+  background: var(--bg-glass-hover);
 }
 
 .usp-item:disabled {
   opacity: 0.6;
-  cursor: default;
 }
 
 .usp-item-name {
+  display: block;
   font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;

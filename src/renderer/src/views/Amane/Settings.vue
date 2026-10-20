@@ -1,34 +1,25 @@
 <template>
   <div class="amane-settings">
     <nav class="amane-settings-nav" aria-label="Amane 设置分组">
-      <button
+      <UiNavItem
         v-if="!isWeb"
-        type="button"
-        :class="{ active: activeSection === 'connection' }"
-        :aria-current="activeSection === 'connection' ? 'page' : undefined"
+        label="连接与存储"
+        :active="activeSection === 'connection'"
         @click="selectSection('connection')"
-      >
-        连接与存储
-      </button>
-      <button
+      />
+      <UiNavItem
         v-if="!isWeb"
-        type="button"
-        :class="{ active: activeSection === 'phone' }"
-        :aria-current="activeSection === 'phone' ? 'page' : undefined"
+        label="手机接入"
+        :active="activeSection === 'phone'"
         @click="selectSection('phone')"
-      >
-        手机接入
-      </button>
-      <button
+      />
+      <UiNavItem
         v-for="key in configSections"
         :key="key"
-        type="button"
-        :class="{ active: activeSection === key }"
-        :aria-current="activeSection === key ? 'page' : undefined"
+        :label="sectionLabel(key)"
+        :active="activeSection === key"
         @click="selectSection(key)"
-      >
-        {{ sectionLabel(key) }}
-      </button>
+      />
     </nav>
 
     <main class="amane-settings-content">
@@ -180,7 +171,7 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import './amane.css'
-import { UiButton, UiIconButton } from '@/components/ui'
+import { UiButton, UiIconButton, UiNavItem } from '@/components/ui'
 import ConfigSettings from './ConfigSettings.vue'
 import { message } from 'ant-design-vue'
 import type { AmaneSettings, AmaneStatus } from '../../../../shared/amane'

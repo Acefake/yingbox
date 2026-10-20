@@ -36,58 +36,63 @@
           <span v-if="group.heading" class="sidebar-heading">{{
             group.heading
           }}</span>
-          <button
+          <UiNavItem
             v-for="item in group.items"
             :key="item.path"
-            v-tooltip="collapsed ? item.label : undefined"
-            type="button"
             class="sidebar-item"
-            :class="{ 'is-active': item.active }"
-            :aria-label="item.label"
-            :aria-current="item.active ? 'page' : undefined"
+            :label="item.label"
+            :icon="item.icon"
+            icon-size="lg"
+            :active="item.active"
+            :collapsed="collapsed"
             @click="navigateTo(item.path)"
-          >
-            <UiIcon :name="item.icon" size="lg" />
-            <span class="sidebar-item-label">{{ item.label }}</span>
-          </button>
+          />
         </template>
       </nav>
       <div class="sidebar-footer">
-        <button
-          v-tooltip="collapsed ? queueLabel : undefined"
-          type="button"
+        <UiNavItem
           class="sidebar-item"
           data-queue-anchor
-          :class="{ 'is-active': queuePanelVisible }"
-          :aria-label="queueLabel"
-          :aria-pressed="queuePanelVisible"
+          :label="queueLabel"
+          current="pressed"
+          :active="queuePanelVisible"
+          :collapsed="collapsed"
           @click="queuePanelVisible = !queuePanelVisible"
         >
-          <span class="footer-queue-icon" aria-hidden="true">
-            <UiIcon name="list" size="lg" />
-            <span v-if="queueBusy" class="footer-pulse" />
-          </span>
-          <span class="sidebar-item-label">刮削队列</span>
-          <span v-if="activeCount > 0" class="footer-badge">{{
-            activeCount
-          }}</span>
-          <span
-            v-if="processingCount > 0"
-            class="footer-progress"
-            :style="{ width: Math.max(14, Math.round(progress * 100)) + '%' }"
-          />
-        </button>
-        <button
-          v-tooltip="collapsed ? '设置' : undefined"
-          type="button"
+          <template #icon>
+            <span class="footer-queue-icon" aria-hidden="true">
+              <UiIcon name="list" size="lg" />
+              <span v-if="queueBusy" class="footer-pulse" />
+            </span>
+          </template>
+          刮削队列
+          <template #trailing>
+            <span v-if="activeCount > 0" class="footer-badge">{{
+              activeCount
+            }}</span>
+          </template>
+          <template #extra>
+            <span
+              v-if="processingCount > 0"
+              class="footer-progress"
+              :style="{
+                width: Math.max(14, Math.round(progress * 100)) + '%',
+              }"
+            />
+          </template>
+        </UiNavItem>
+        <!-- 可见文字「设置」，无障碍名称「打开设置」，active 只是外观，不输出 aria-current -->
+        <UiNavItem
           class="sidebar-item"
-          :class="{ 'is-active': settingsVisible }"
+          label="设置"
           aria-label="打开设置"
+          icon="settings"
+          icon-size="lg"
+          current="none"
+          :active="settingsVisible"
+          :collapsed="collapsed"
           @click="openGlobalSettings()"
-        >
-          <UiIcon name="settings" size="lg" />
-          <span class="sidebar-item-label">设置</span>
-        </button>
+        />
       </div>
     </aside>
 
@@ -169,18 +174,19 @@
 
     <!-- 手机底部标签栏 -->
     <nav v-if="isPhone" class="bottom-nav" aria-label="主导航">
-      <button
+      <UiNavItem
         v-for="item in bottomNavItems"
         :key="item.key"
-        type="button"
         class="bottom-nav-item"
-        :class="{ 'is-active': item.active }"
-        :aria-current="item.active && item.path ? 'page' : undefined"
+        layout="stack"
+        :label="item.label"
+        :icon="item.icon"
+        icon-size="lg"
+        :active="item.active"
+        :current="item.path ? 'page' : 'none'"
+        :aria-expanded="item.path ? undefined : sidebarOpen"
         @click="item.path ? navigateTo(item.path) : (sidebarOpen = true)"
-      >
-        <UiIcon :name="item.icon" size="lg" />
-        <span>{{ item.label }}</span>
-      </button>
+      />
     </nav>
   </div>
 </template>
@@ -196,9 +202,9 @@ import { useRoute, useRouter } from 'vue-router'
 import ScrapeQueuePanel from '@/components/ScrapeQueuePanel.vue'
 import SettingsPanel from '@/components/SettingsPanel.vue'
 import type { IconName } from '@/components/ui/icons'
-import { vTooltip } from '@/components/ui/tooltip'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiNavItem from '@/components/ui/UiNavItem.vue'
 import WinControls from '@/components/WinControls.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useLadaTasks } from '@/composables/use-lada-tasks'
@@ -569,42 +575,22 @@ onUnmounted(() => {
   background: var(--separator);
 }
 
-/* 导航项（含页脚的刮削队列 / 设置）：选中为中性填充，不用强调色 */
+/* 导航项（UiNavItem，含页脚的刮削队列 / 设置）：侧栏版更高、更大字号，未选中为次要色 */
 .sidebar-item {
-  position: relative;
-  display: flex;
-  align-items: center;
   gap: var(--space-3);
-  width: 100%;
+  height: auto;
   min-height: 36px;
   padding: 0 var(--space-3);
   overflow: hidden;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
   color: var(--text-secondary);
   font-size: var(--text-md);
-  text-align: left;
-  cursor: pointer;
-  transition: var(--transition-fast);
 }
-.sidebar-item:hover {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
+.sidebar-item:hover:not(:disabled),
 .sidebar-item.is-active {
-  background: var(--bg-active);
   color: var(--text-primary);
-  font-weight: var(--font-weight-medium);
 }
-.sidebar-item:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
-.sidebar-item-label {
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
+.sidebar-item :deep(.app-icon) {
+  color: inherit;
 }
 
 .sidebar-footer {
@@ -773,15 +759,13 @@ onUnmounted(() => {
 }
 .app-layout.sidebar-collapsed .brand-name,
 .app-layout.sidebar-collapsed .brand-mark,
-.app-layout.sidebar-collapsed .sidebar-heading,
-.app-layout.sidebar-collapsed .sidebar-item-label {
+.app-layout.sidebar-collapsed .sidebar-heading {
   display: none;
 }
 .app-layout.sidebar-collapsed .sidebar-toggle {
   margin-left: 0;
 }
 .app-layout.sidebar-collapsed .sidebar-item {
-  justify-content: center;
   padding: 0;
 }
 .app-layout.sidebar-collapsed .sidebar-divider {
@@ -855,27 +839,11 @@ onUnmounted(() => {
   border-top: 1px solid var(--separator);
   background: var(--bg-titlebar);
 }
+/* 底部标签项（UiNavItem layout="stack"）：等分宽度、撑满栏高 */
 .bottom-nav-item {
-  display: flex;
   flex: 1;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: 2px;
+  width: auto;
   min-height: var(--bottom-nav-height);
-  border: 0;
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-medium);
-  cursor: pointer;
-}
-.bottom-nav-item.is-active {
-  color: var(--text-primary);
-}
-.bottom-nav-item:focus-visible {
-  outline: none;
-  box-shadow: inset var(--focus-ring);
 }
 
 /* 未识别为手机但窗口很窄时：侧栏收进屏幕外，保持内容可用 */

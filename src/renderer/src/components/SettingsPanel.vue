@@ -29,18 +29,15 @@
               />
             </div>
             <nav class="settings-nav-list" aria-label="设置分区">
-              <button
+              <UiNavItem
                 v-for="sec in visibleSections"
                 :key="sec.id"
                 class="settings-nav-item"
-                :class="{ 'is-active': activeSection === sec.id }"
-                :aria-current="activeSection === sec.id ? 'page' : undefined"
-                type="button"
+                :label="sec.label"
+                :icon="sec.icon"
+                :active="activeSection === sec.id"
                 @click="selectSection(sec.id)"
-              >
-                <UiIcon :name="sec.icon" />
-                <span>{{ sec.label }}</span>
-              </button>
+              />
               <p v-if="visibleSections.length === 0" class="settings-nav-empty">
                 没有匹配的设置
               </p>
@@ -117,6 +114,7 @@ import { useUpdateStatus } from '@/components/settings/use-update-status'
 import SourceManagerPanel from '@/components/SourceManagerPanel.vue'
 import type { IconName } from '@/components/ui/icons'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import UiNavItem from '@/components/ui/UiNavItem.vue'
 import AmaneSettings from '@/views/Amane/Settings.vue'
 
 import type { AmaneStatus } from '../../../shared/amane'
@@ -387,39 +385,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   overflow-y: auto;
 }
 
-.settings-nav-item {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  width: 100%;
-  height: var(--control-height);
-  padding: 0 var(--space-2);
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  text-align: left;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.settings-nav-item .app-icon {
-  color: var(--text-secondary);
-}
-.settings-nav-item:hover {
-  background: var(--bg-glass-hover);
-}
-.settings-nav-item.is-active {
-  background: var(--bg-active);
-  font-weight: var(--font-weight-medium);
-}
-.settings-nav-item.is-active .app-icon {
-  color: var(--text-primary);
-}
-.settings-nav-item:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-}
+/* 分区导航项即 UiNavItem 的默认外观，这里不再重复 */
 .settings-nav-empty {
   margin: var(--space-2) var(--space-1);
   color: var(--text-tertiary);
@@ -535,8 +501,8 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     overflow-y: hidden;
   }
   .settings-nav-item {
+    flex: 0 0 auto;
     width: auto;
-    white-space: nowrap;
   }
   .settings-nav-empty {
     display: none;
@@ -590,7 +556,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   padding: 0;
 }
 
-.settings-scroll.settings-amane :deep(.amane-settings-nav button) {
+.settings-scroll.settings-amane :deep(.amane-settings-nav .ui-nav-item) {
   min-height: 36px;
   padding: 8px 11px;
   border-radius: var(--radius-md);
@@ -628,7 +594,7 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
     padding: 0 0 8px;
   }
 
-  .settings-scroll.settings-amane :deep(.amane-settings-nav button) {
+  .settings-scroll.settings-amane :deep(.amane-settings-nav .ui-nav-item) {
     flex: 0 0 auto;
     white-space: nowrap;
   }
