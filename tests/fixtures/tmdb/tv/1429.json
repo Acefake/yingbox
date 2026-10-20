@@ -1,0 +1,166 @@
+{
+ "id": 1429,
+ "name": "进击的巨人",
+ "original_name": "進撃の巨人",
+ "original_language": "ja",
+ "first_air_date": "2013-04-07",
+ "popularity": 120.0,
+ "status": "Ended",
+ "episode_run_time": [
+  24
+ ],
+ "overview": "巨人吃人的世界。",
+ "genres": [
+  {
+   "id": 0,
+   "name": "动画"
+  }
+ ],
+ "vote_average": 8.6,
+ "vote_count": 2000,
+ "origin_country": [
+  "JP"
+ ],
+ "poster_path": "/t1429p.jpg",
+ "backdrop_path": "/t1429b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "JP",
+   "name": "JP"
+  }
+ ],
+ "production_companies": [
+  {
+   "id": 1,
+   "name": "Studio"
+  }
+ ],
+ "created_by": [],
+ "seasons": [
+  {
+   "season_number": 0,
+   "episode_count": 8,
+   "name": "特别篇",
+   "air_date": "2013-01-01",
+   "poster_path": "/t1429s0.jpg"
+  },
+  {
+   "season_number": 1,
+   "episode_count": 25,
+   "name": "第 1 季",
+   "air_date": "2013-01-01",
+   "poster_path": "/t1429s1.jpg"
+  },
+  {
+   "season_number": 2,
+   "episode_count": 12,
+   "name": "第 2 季",
+   "air_date": "2014-01-01",
+   "poster_path": "/t1429s2.jpg"
+  },
+  {
+   "season_number": 3,
+   "episode_count": 22,
+   "name": "第 3 季",
+   "air_date": "2015-01-01",
+   "poster_path": "/t1429s3.jpg"
+  },
+  {
+   "season_number": 4,
+   "episode_count": 30,
+   "name": "第 4 季",
+   "air_date": "2016-01-01",
+   "poster_path": "/t1429s4.jpg"
+  }
+ ],
+ "credits": {
+  "cast": [],
+  "crew": []
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t1429p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t1429b.jpg",
+    "iso_639_1": null,
+    "width": 1920,
+    "height": 2880,
+    "vote_average": 5.4,
+    "vote_count": 6
+   }
+  ],
+  "logos": []
+ },
+ "external_ids": {
+  "imdb_id": "tt2560140",
+  "tvdb_id": "267440"
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "进击的巨人",
+     "overview": "巨人吃人的世界。"
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "進擊的巨人",
+     "overview": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "Attack on Titan",
+     "overview": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "results": [
+   {
+    "iso_3166_1": "JP",
+    "title": "Shingeki no Kyojin",
+    "type": ""
+   }
+  ]
+ },
+ "content_ratings": {
+  "results": []
+ },
+ "episode_groups": {
+  "results": [
+   {
+    "id": "5b11ba820e0a265fe901ac2f",
+    "name": "Absolute Order",
+    "type": 2,
+    "episode_count": 60,
+    "group_count": 3
+   }
+  ]
+ }
+}

@@ -1,0 +1,149 @@
+{
+ "id": 37854,
+ "name": "海贼王",
+ "original_name": "ワンピース",
+ "original_language": "ja",
+ "first_air_date": "1999-10-20",
+ "popularity": 150.0,
+ "status": "Returning Series",
+ "episode_run_time": [
+  24
+ ],
+ "overview": "",
+ "genres": [
+  {
+   "id": 0,
+   "name": "动画"
+  }
+ ],
+ "vote_average": 8.6,
+ "vote_count": 2000,
+ "origin_country": [
+  "JP"
+ ],
+ "poster_path": "/t37854p.jpg",
+ "backdrop_path": "/t37854b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "JP",
+   "name": "JP"
+  }
+ ],
+ "production_companies": [
+  {
+   "id": 1,
+   "name": "Studio"
+  }
+ ],
+ "created_by": [],
+ "seasons": [
+  {
+   "season_number": 1,
+   "episode_count": 61,
+   "name": "第 1 季",
+   "air_date": "1999-01-01",
+   "poster_path": "/t37854s1.jpg"
+  },
+  {
+   "season_number": 2,
+   "episode_count": 16,
+   "name": "第 2 季",
+   "air_date": "2000-01-01",
+   "poster_path": "/t37854s2.jpg"
+  },
+  {
+   "season_number": 3,
+   "episode_count": 14,
+   "name": "第 3 季",
+   "air_date": "2001-01-01",
+   "poster_path": "/t37854s3.jpg"
+  }
+ ],
+ "credits": {
+  "cast": [],
+  "crew": []
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t37854p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/t37854b.jpg",
+    "iso_639_1": null,
+    "width": 1920,
+    "height": 2880,
+    "vote_average": 5.4,
+    "vote_count": 6
+   }
+  ],
+  "logos": []
+ },
+ "external_ids": {
+  "imdb_id": null,
+  "tvdb_id": null
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "海贼王",
+     "overview": ""
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "航海王",
+     "overview": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "name": "One Piece",
+     "overview": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "results": [
+   {
+    "iso_3166_1": "CN",
+    "title": "航海王",
+    "type": ""
+   },
+   {
+    "iso_3166_1": "US",
+    "title": "One Piece",
+    "type": ""
+   }
+  ]
+ },
+ "content_ratings": {
+  "results": []
+ },
+ "episode_groups": {
+  "results": []
+ }
+}

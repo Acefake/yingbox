@@ -1,0 +1,265 @@
+/**
+ * 元数据源统一 HTTP 层：限速、并发、重试、在途去重与响应缓存。
+ *
+ * 一次 getJson 的路径：
+ *   新鲜缓存 → 直接返回；
+ *   同 key 已在途 → 共用同一个 Promise；
+ *   否则 占并发名额 → 取令牌 → 请求（过期缓存带 If-None-Match）→
+ *     200 写缓存 / 304 续期 / 404 记空结果 / 429 按 Retry-After 全局冷却后重试 /
+ *     5xx 与网络错误指数退避重试 / 401、403 立即失败。
+ *
+ * fetch 由调用方注入：引擎进程里用 Electron net.fetch（走系统代理），测试用假 fetch。
+ */
+import type { CacheEntry, ResponseCache } from './provider-cache'
+import { type Clock, Semaphore, TokenBucket, realClock } from './rate-limiter'
+
+/** 注入的 fetch：只用到标准 fetch 的这一小部分。 */
+export type FetchLike = (
+  url: string,
+  init: { headers: Record<string, string>; signal?: AbortSignal }
+) => Promise<{
+  status: number
+  headers: { get(name: string): string | null }
+  text(): Promise<string>
+}>
+
+/** 认证失败：令牌缺失或无效。不重试，识别任务据此直接失败并提示用户。 */
+export class ProviderAuthError extends Error {
+  override name = 'ProviderAuthError'
+}
+
+/** 请求最终失败（重试用尽或不可重试的状态码）。 */
+export class ProviderHttpError extends Error {
+  override name = 'ProviderHttpError'
+  constructor(
+    message: string,
+    readonly status?: number
+  ) {
+    super(message)
+  }
+}
+
+/** HTTP 层参数。 */
+export interface ProviderHttpOptions {
+  fetch: FetchLike
+  cache?: ResponseCache
+  /** 每秒请求数，默认 20。 */
+  rps?: number
+  /** 令牌桶容量，默认等于 rps。 */
+  burst?: number
+  /** 同时在途的请求数，默认 8。 */
+  concurrency?: number
+  /** 失败后最多再试几次，默认 4。 */
+  maxRetries?: number
+  /** 第一次重试的基础等待，默认 500 ms，之后翻倍（带抖动）。 */
+  baseDelayMs?: number
+  /** 没有 Retry-After 时 429 的等待，默认 2 s。 */
+  default429Ms?: number
+  /** 单次请求超时，默认 15 s。 */
+  timeoutMs?: number
+  clock?: Clock
+  /** 随机数（抖动），测试注入。 */
+  random?: () => number
+}
+
+/** 一次 JSON 请求。 */
+export interface JsonRequest {
+  url: string
+  headers?: Record<string, string>
+  /** 缓存键；缺省不缓存（也不去重）。不要把令牌放进键里。 */
+  cacheKey?: string
+  /** 根据响应体决定缓存多久（毫秒）。 */
+  ttl?: (body: unknown) => number
+  /** 404 结果缓存多久，默认 1 天。 */
+  notFoundTtl?: number
+  signal?: AbortSignal
+}
+
+/** 统计（基准与调试用）。 */
+export interface ProviderHttpStats {
+  requests: number
+  cacheHits: number
+  notModified: number
+  deduped: number
+  retries: number
+  throttled: number
+}
+
+const DAY = 86_400_000
+
+/** 解析 Retry-After：秒数或 HTTP 日期，返回毫秒；无法解析返回 undefined。 */
+export function parseRetryAfter(
+  value: string | null,
+  now: number
+): number | undefined {
+  if (!value) return undefined
+  const seconds = Number(value)
+  if (Number.isFinite(seconds)) return Math.max(0, seconds * 1000)
+  const date = Date.parse(value)
+  return Number.isNaN(date) ? undefined : Math.max(0, date - now)
+}
+
+/** 带限速、重试、缓存与去重的 JSON 客户端。 */
+export class ProviderHttp {
+  readonly stats: ProviderHttpStats = {
+    requests: 0,
+    cacheHits: 0,
+    notModified: 0,
+    deduped: 0,
+    retries: 0,
+    throttled: 0,
+  }
+  private readonly bucket: TokenBucket
+  private readonly slots: Semaphore
+  private readonly inflight = new Map<string, Promise<unknown>>()
+  private readonly clock: Clock
+  private readonly random: () => number
+  private readonly maxRetries: number
+  private readonly baseDelayMs: number
+  private readonly default429Ms: number
+  private readonly timeoutMs: number
+
+  constructor(private readonly options: ProviderHttpOptions) {
+    this.clock = options.clock ?? realClock
+    this.random = options.random ?? Math.random
+    const rps = options.rps ?? 20
+    this.bucket = new TokenBucket(rps, options.burst ?? rps, this.clock)
+    this.slots = new Semaphore(options.concurrency ?? 8)
+    this.maxRetries = options.maxRetries ?? 4
+    this.baseDelayMs = options.baseDelayMs ?? 500
+    this.default429Ms = options.default429Ms ?? 2000
+    this.timeoutMs = options.timeoutMs ?? 15_000
+  }
+
+  /** 取 JSON；404 返回 null。 */
+  async getJson<T>(request: JsonRequest): Promise<T | null> {
+    const key = request.cacheKey
+    const cached = key ? this.options.cache?.get(key) : undefined
+    if (cached && cached.expiresAt > this.clock.now()) {
+      this.stats.cacheHits++
+      return JSON.parse(cached.body) as T | null
+    }
+    if (!key) return (await this.send(request, undefined)) as T | null
+    const pending = this.inflight.get(key)
+    if (pending) {
+      this.stats.deduped++
+      return (await pending) as T | null
+    }
+    const promise = this.send(request, cached).finally(() =>
+      this.inflight.delete(key)
+    )
+    this.inflight.set(key, promise)
+    return (await promise) as T | null
+  }
+
+  /** 发请求（含重试），处理缓存写回。 */
+  private async send(
+    request: JsonRequest,
+    stale: CacheEntry | undefined
+  ): Promise<unknown> {
+    const { signal } = request
+    for (let attempt = 0; ; attempt++) {
+      signal?.throwIfAborted()
+      let status: number
+      let text = ''
+      let headers: { get(name: string): string | null }
+      const release = await this.slots.acquire()
+      try {
+        await this.bucket.acquire(signal)
+        this.stats.requests++
+        const timeout = AbortSignal.timeout(this.timeoutMs)
+        const response = await this.options.fetch(request.url, {
+          headers: {
+            Accept: 'application/json',
+            ...request.headers,
+            ...(stale?.etag ? { 'If-None-Match': stale.etag } : {}),
+          },
+          signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        })
+        status = response.status
+        headers = response.headers
+        // 错误响应也读完，避免连接被未消费的响应体占住
+        text = await response.text()
+      } catch (error) {
+        release()
+        if (signal?.aborted) throw error
+        // 网络错误 / 超时：指数退避重试
+        if (attempt >= this.maxRetries) {
+          throw new ProviderHttpError(
+            `请求失败：${(error as Error).message || String(error)}`
+          )
+        }
+        await this.backoff(attempt, signal)
+        continue
+      }
+      release()
+
+      const now = this.clock.now()
+      if (status === 200) {
+        const body = JSON.parse(text) as unknown
+        if (request.cacheKey && this.options.cache) {
+          this.options.cache.set(
+            request.cacheKey,
+            {
+              body: text,
+              etag: headers.get('etag'),
+              expiresAt: now + (request.ttl?.(body) ?? DAY),
+            },
+            now
+          )
+        }
+        return body
+      }
+      if (status === 304 && stale) {
+        this.stats.notModified++
+        const body = JSON.parse(stale.body) as unknown
+        this.options.cache?.touch(
+          request.cacheKey!,
+          now + (request.ttl?.(body) ?? DAY),
+          now
+        )
+        return body
+      }
+      if (status === 404) {
+        if (request.cacheKey && this.options.cache) {
+          this.options.cache.set(
+            request.cacheKey,
+            {
+              body: 'null',
+              etag: null,
+              expiresAt: now + (request.notFoundTtl ?? DAY),
+            },
+            now
+          )
+        }
+        return null
+      }
+      if (status === 401 || status === 403) {
+        throw new ProviderAuthError(
+          `元数据源拒绝访问（HTTP ${status}），请检查 API 令牌`
+        )
+      }
+      const retriable = status === 429 || status >= 500
+      if (!retriable || attempt >= this.maxRetries) {
+        throw new ProviderHttpError(`元数据源返回 HTTP ${status}`, status)
+      }
+      if (status === 429) {
+        this.stats.throttled++
+        const wait =
+          parseRetryAfter(headers.get('retry-after'), now) ?? this.default429Ms
+        // 冷却对所有请求生效：继续猛发只会被继续 429
+        this.bucket.pauseUntil(now + wait)
+        this.stats.retries++
+        continue
+      }
+      await this.backoff(attempt, signal)
+    }
+  }
+
+  private async backoff(attempt: number, signal?: AbortSignal): Promise<void> {
+    this.stats.retries++
+    const base = this.baseDelayMs * 2 ** attempt
+    // 0.5–1.0 倍抖动，避免一批失败的请求同时重试
+    await this.clock.sleep(base * (0.5 + this.random() / 2), signal)
+  }
+}

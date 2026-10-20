@@ -1,0 +1,98 @@
+{
+ "id": 142900,
+ "season_number": 0,
+ "name": "特别篇",
+ "overview": "",
+ "air_date": "2013-01-01",
+ "poster_path": "/t1429s0.jpg",
+ "episodes": [
+  {
+   "id": 14290001,
+   "season_number": 0,
+   "episode_number": 1,
+   "name": "特别篇 1",
+   "overview": "S00E01 简介",
+   "air_date": "2013-01-01",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e1.jpg"
+  },
+  {
+   "id": 14290002,
+   "season_number": 0,
+   "episode_number": 2,
+   "name": "特别篇 2",
+   "overview": "S00E02 简介",
+   "air_date": "2013-01-02",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e2.jpg"
+  },
+  {
+   "id": 14290003,
+   "season_number": 0,
+   "episode_number": 3,
+   "name": "特别篇 3",
+   "overview": "S00E03 简介",
+   "air_date": "2013-01-03",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e3.jpg"
+  },
+  {
+   "id": 14290004,
+   "season_number": 0,
+   "episode_number": 4,
+   "name": "特别篇 4",
+   "overview": "S00E04 简介",
+   "air_date": "2013-01-04",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e4.jpg"
+  },
+  {
+   "id": 14290005,
+   "season_number": 0,
+   "episode_number": 5,
+   "name": "特别篇 5",
+   "overview": "S00E05 简介",
+   "air_date": "2013-01-05",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e5.jpg"
+  },
+  {
+   "id": 14290006,
+   "season_number": 0,
+   "episode_number": 6,
+   "name": "特别篇 6",
+   "overview": "S00E06 简介",
+   "air_date": "2013-01-06",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e6.jpg"
+  },
+  {
+   "id": 14290007,
+   "season_number": 0,
+   "episode_number": 7,
+   "name": "特别篇 7",
+   "overview": "S00E07 简介",
+   "air_date": "2013-01-07",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e7.jpg"
+  },
+  {
+   "id": 14290008,
+   "season_number": 0,
+   "episode_number": 8,
+   "name": "特别篇 8",
+   "overview": "S00E08 简介",
+   "air_date": "2013-01-08",
+   "runtime": 24,
+   "vote_average": 8.0,
+   "still_path": "/t1429s0e8.jpg"
+  }
+ ]
+}

@@ -1,0 +1,196 @@
+{
+ "id": 535167,
+ "imdb_id": "tt7605074",
+ "title": "流浪地球",
+ "original_title": "流浪地球",
+ "original_language": "zh",
+ "release_date": "2019-02-05",
+ "runtime": 125,
+ "popularity": 40.1,
+ "status": "Released",
+ "overview": "太阳即将毁灭，人类开启“流浪地球”计划。",
+ "tagline": "",
+ "genres": [
+  {
+   "id": 0,
+   "name": "科幻"
+  },
+  {
+   "id": 1,
+   "name": "冒险"
+  }
+ ],
+ "vote_average": 7.5,
+ "vote_count": 1000,
+ "poster_path": "/m535167p.jpg",
+ "backdrop_path": "/m535167b.jpg",
+ "production_countries": [
+  {
+   "iso_3166_1": "CN",
+   "name": "CN"
+  }
+ ],
+ "production_companies": [
+  {
+   "id": 0,
+   "name": "中国电影股份有限公司"
+  }
+ ],
+ "credits": {
+  "cast": [
+   {
+    "id": 1,
+    "name": "吴京",
+    "original_name": "吴京",
+    "character": "刘培强",
+    "order": 0,
+    "profile_path": "/p1.jpg"
+   },
+   {
+    "id": 2,
+    "name": "屈楚萧",
+    "original_name": "屈楚萧",
+    "character": "刘启",
+    "order": 1,
+    "profile_path": "/p2.jpg"
+   },
+   {
+    "id": 3,
+    "name": "李光洁",
+    "original_name": "李光洁",
+    "character": "王磊",
+    "order": 2,
+    "profile_path": "/p3.jpg"
+   }
+  ],
+  "crew": [
+   {
+    "id": 10,
+    "name": "郭帆",
+    "original_name": "郭帆",
+    "job": "Director",
+    "department": "Directing",
+    "profile_path": null
+   },
+   {
+    "id": 11,
+    "name": "龚格尔",
+    "original_name": "龚格尔",
+    "job": "Screenplay",
+    "department": "Writing",
+    "profile_path": null
+   }
+  ]
+ },
+ "images": {
+  "posters": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m535167p.jpg",
+    "iso_639_1": "zh",
+    "width": 780,
+    "height": 1170,
+    "vote_average": 5.5,
+    "vote_count": 4
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m535167p_en.jpg",
+    "iso_639_1": "en",
+    "width": 2000,
+    "height": 3000,
+    "vote_average": 5.6,
+    "vote_count": 8
+   }
+  ],
+  "backdrops": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m535167b.jpg",
+    "iso_639_1": null,
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.4,
+    "vote_count": 6
+   },
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m535167b_en.jpg",
+    "iso_639_1": "en",
+    "width": 3840,
+    "height": 5760,
+    "vote_average": 5.9,
+    "vote_count": 9
+   }
+  ],
+  "logos": [
+   {
+    "aspect_ratio": 0.667,
+    "file_path": "/m535167l.png",
+    "iso_639_1": "en",
+    "width": 800,
+    "height": 1200,
+    "vote_average": 5.3,
+    "vote_count": 2
+   }
+  ]
+ },
+ "external_ids": {
+  "imdb_id": "tt7605074",
+  "tvdb_id": null
+ },
+ "translations": {
+  "translations": [
+   {
+    "iso_3166_1": "CN",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "流浪地球",
+     "overview": "太阳即将毁灭，人类开启“流浪地球”计划。",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "TW",
+    "iso_639_1": "zh",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "流浪地球",
+     "overview": "太陽即將毀滅。",
+     "tagline": ""
+    }
+   },
+   {
+    "iso_3166_1": "US",
+    "iso_639_1": "en",
+    "name": "",
+    "english_name": "",
+    "data": {
+     "title": "The Wandering Earth",
+     "overview": "The sun is dying.",
+     "tagline": ""
+    }
+   }
+  ]
+ },
+ "alternative_titles": {
+  "titles": []
+ },
+ "release_dates": {
+  "results": [
+   {
+    "iso_3166_1": "US",
+    "release_dates": [
+     {
+      "certification": "NR",
+      "type": 3,
+      "release_date": "2019-02-05T00:00:00.000Z"
+     }
+    ]
+   }
+  ]
+ }
+}
