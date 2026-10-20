@@ -439,7 +439,7 @@
   scrollbar-gutter: auto;
 }
 .amane-detail-dialog::backdrop {
-  background: rgba(0, 0, 0, 0.6);
+  background: var(--overlay-scrim-soft);
 }
 .amane-detail-dialog[open] {
   display: flex;
@@ -847,8 +847,8 @@
   z-index: 2;
   padding: 3px 7px;
   border-radius: var(--radius-sm);
-  background: rgb(0 0 0 / 65%);
-  color: #fff;
+  background: var(--overlay-scrim);
+  color: var(--media-text);
   font-size: var(--text-2xs);
   font-variant-numeric: tabular-nums;
   pointer-events: none;
@@ -860,7 +860,7 @@
   z-index: 2;
   width: 100%;
   height: 2px;
-  background: #fff;
+  background: var(--media-text);
   transform-origin: left;
   animation: amane-hover-progress 2.4s linear both;
   pointer-events: none;

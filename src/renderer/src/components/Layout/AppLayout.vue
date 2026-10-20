@@ -785,7 +785,7 @@ onUnmounted(() => {
   position: fixed;
   inset: 0;
   z-index: 1140;
-  background: rgba(0, 0, 0, 0.4);
+  background: var(--overlay-scrim-soft);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
 }
