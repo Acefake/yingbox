@@ -49,6 +49,8 @@ export interface EngineServer {
   implement<D extends Domain>(domain: D, handlers: EngineHandlers<D>): void
   /** 收到 shutdown 时调用 */
   onShutdown(listener: () => void): void
+  /** 共享上下文：调用之外（如后台队列）推事件、请主进程代办时使用 */
+  readonly context: EngineContext
 }
 
 /** 在端口上启动引擎 RPC。 */
@@ -130,5 +132,6 @@ export function serveEngine(port: EnginePort): EngineServer {
     onShutdown(listener) {
       shutdownListeners.push(listener)
     },
+    context: ctx,
   }
 }
