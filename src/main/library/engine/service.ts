@@ -5,18 +5,31 @@
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。
  */
 import {
+  type ApplyMatchRequest,
+  type ApplyMatchResult,
   ITEMS_CHANGED_LIMIT,
+  type IdentifyRequest,
+  type JobAccepted,
   type LibraryEvent,
   type LibraryInfo,
   type LibraryItemNode,
+  type LibraryItemSummary,
   type LibraryQueryResult,
   type LibraryRpcMap,
+  type MatchCandidatesResult,
   type NormalizedLibraryQuery,
+  type ProviderStatus,
+  type RefreshMetadataRequest,
   type ScanAccepted,
+  type SetProviderTokenRequest,
 } from '../../../shared/library/ipc'
 import { CatalogStore, ItemChanges } from '../catalog/catalog-store'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
+import {
+  IdentifyModule,
+  type IdentifyModuleOptions,
+} from '../identify/identify-module'
 import { JobStore } from '../jobs/job-store'
 import { type JobContext, JobQueue, PermanentJobError } from '../jobs/queue'
 import {
@@ -62,6 +75,17 @@ export interface LibraryServiceOptions {
   fingerprint?: (path: string) => Promise<string | undefined>
   /** 写日志（告警、监听失败）。 */
   log?: (message: string) => void
+  /** 识别与刮削的注入项（网络、图片缓存目录、令牌兜底、限速），见 IdentifyModuleOptions。 */
+  identify?: Pick<
+    IdentifyModuleOptions,
+    | 'fetch'
+    | 'mediaDir'
+    | 'onImagesCached'
+    | 'probeDuration'
+    | 'env'
+    | 'http'
+    | 'concurrency'
+  >
 }
 
 /** 合并两个扫描载荷：任何一方是整库扫描就是整库扫描，否则目录取并集。 */
@@ -85,6 +109,8 @@ export class LibraryService {
   private readonly catalog: CatalogStore
   private readonly catalogQuery: CatalogQuery
   readonly queue: JobQueue
+  /** 识别与刮削。 */
+  readonly identifier: IdentifyModule
   private readonly watcher: LibraryWatcher | undefined
   private readonly listeners = new Set<(event: LibraryEvent) => void>()
   private readonly fingerprint: (path: string) => Promise<string | undefined>
@@ -115,6 +141,15 @@ export class LibraryService {
     this.queue.register('fingerprint', (p, ctx) =>
       this.runFingerprint(p as LibraryPayload, ctx)
     )
+    this.identifier = new IdentifyModule({
+      ...options.identify,
+      db: this.db,
+      queue: this.queue,
+      catalogQuery: this.catalogQuery,
+      emit: event => this.emit(event),
+      fingerprint: path => this.fingerprint(path),
+      log: this.log,
+    })
     if (options.watch !== false) {
       this.watcher = new LibraryWatcher(
         (libraryId, dirs) => this.onWatchChange(libraryId, dirs),
@@ -132,6 +167,7 @@ export class LibraryService {
         this.enqueueLibraryJob('parse', lib.id)
       }
     }
+    this.identifier.start()
     this.queue.start()
     for (const lib of this.libraries.list()) this.startWatching(lib)
   }
@@ -192,6 +228,48 @@ export class LibraryService {
   /** 条目详情。 */
   getItem({ itemId }: { itemId: number }): LibraryItemNode | null {
     return this.catalogQuery.getItem(itemId)
+  }
+
+  /** 识别条目。 */
+  identify(request: IdentifyRequest): JobAccepted {
+    if (request.libraryId !== undefined) this.libraries.get(request.libraryId)
+    return this.identifier.identify(request)
+  }
+
+  /** 条目的匹配候选。 */
+  getMatchCandidates({ itemId }: { itemId: number }): MatchCandidatesResult {
+    return this.identifier.getMatchCandidates(itemId)
+  }
+
+  /** 手动匹配。 */
+  applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult> {
+    return this.identifier.applyMatch(request)
+  }
+
+  /** 锁定匹配。 */
+  lockMatch({ itemId }: { itemId: number }): LibraryItemSummary {
+    return this.identifier.lockMatch(itemId)
+  }
+
+  /** 解除锁定。 */
+  unlockMatch({ itemId }: { itemId: number }): LibraryItemSummary {
+    return this.identifier.unlockMatch(itemId)
+  }
+
+  /** 刷新元数据。 */
+  refreshMetadata(request: RefreshMetadataRequest): JobAccepted {
+    if (request.libraryId !== undefined) this.libraries.get(request.libraryId)
+    return this.identifier.refreshMetadata(request)
+  }
+
+  /** 设置元数据源令牌。 */
+  setProviderToken(request: SetProviderTokenRequest): ProviderStatus {
+    return this.identifier.setProviderToken(request)
+  }
+
+  /** 元数据源配置状态。 */
+  getProviderStatus(): ProviderStatus {
+    return this.identifier.getProviderStatus()
   }
 
   // —————————————————————————— 内部 ——————————————————————————
@@ -295,8 +373,11 @@ export class LibraryService {
       this.emitLibraries()
     }
     this.emitItems(lib.id, summary.changes)
-    if (summary.added || summary.changed)
+    if (summary.added || summary.changed) {
       this.enqueueLibraryJob('fingerprint', lib.id)
+    }
+    // 有新增 / 变化的条目就排自动识别（只处理没识别过或文件变过的）
+    if (!summary.changes.empty) this.identifier.enqueueAuto(lib.id)
   }
 
   /** 重解析解析版本落后的文件，并按新结果重新分组。 */
@@ -340,6 +421,7 @@ export class LibraryService {
       this.catalog.bumpUpdated(changes, Date.now())
     })
     this.emitItems(lib.id, changes)
+    if (!changes.empty) this.identifier.enqueueAuto(lib.id)
   }
 
   /** 为还没有指纹的视频文件分批计算指纹（读头尾各 64 KiB）。 */
