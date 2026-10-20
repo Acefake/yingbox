@@ -1,32 +1,18 @@
-import { BrowserWindow, app, screen, session } from 'electron'
-import {
-  type IncomingMessage,
-  type Server,
-  type ServerResponse,
-  createServer,
-} from 'http'
-import { randomBytes } from 'crypto'
-import { tmpdir } from 'os'
-import { join } from 'path'
-import { mkdirSync, readFileSync, renameSync, rmSync, writeFileSync } from 'fs'
+import { BrowserWindow, screen, session } from 'electron'
 
 /**
- * 浏览器级抓取服务。
+ * 浏览器级抓取：引擎经 MessagePort 请求主进程代抓页面。
  *
  * 部分插件源（jable/hanime/avtoday 等）挂在 Cloudflare 后面，非浏览器客户端
- * 只会拿到挑战页；后端的 Node 抓取器无法执行挑战脚本。这里用 Electron 自带的
- * Chromium 开一个窗口取页面，再把渲染后的 HTML 交回抓取器。
- *
- * 抓取器（Node 子进程）无法直接访问主进程，因此服务监听本机随机端口，并把
- * 端点与令牌写入临时文件供其发现；见 catspider_runner.js 的 browserFetch。
+ * 只会拿到挑战页。这里用 Electron 自带的 Chromium 开一个窗口取页面，等挑战结束后
+ * 把渲染后的 HTML 交回引擎。原先为 Go/Node 子进程开的本机 HTTP 服务与临时发现文件
+ * 已随 Go 后端一起删除。
  */
 
 const CHROME_UA =
   'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/131.0.0.0 Safari/537.36'
 // 固定 partition：cf_clearance 等 cookie 跨请求、跨重启保留，避免每次都重新过挑战。
 const PARTITION = 'persist:yingbox-browser-fetch'
-const DISCOVERY_NAME = 'yingbox-browser-fetch.json'
-const DISCOVERY_FILE = join(tmpdir(), DISCOVERY_NAME)
 const DEFAULT_WAIT_MS = 20000
 const MAX_WAIT_MS = 30000
 const LOAD_TIMEOUT_MS = 25000
@@ -40,13 +26,6 @@ const CHALLENGE_MARKERS = [
   'cf_chl_opt',
 ]
 
-interface FetchRequest {
-  url?: unknown
-  waitMs?: unknown
-}
-
-let server: Server | null = null
-let token = ''
 // 请求串行执行：多个可见窗口同时闪出既打扰用户，也更容易触发风控。
 let queue: Promise<unknown> = Promise.resolve()
 
@@ -198,134 +177,4 @@ export async function browserFetch(
   const wait = Math.min(Math.max(waitMs, 0), MAX_WAIT_MS)
   const html = await runFetch(url, wait).catch(() => '')
   return isUsablePage(html) ? html : ''
-}
-
-function sendJson(res: ServerResponse, status: number, body: unknown): void {
-  const payload = JSON.stringify(body)
-  res.writeHead(status, {
-    'content-type': 'application/json; charset=utf-8',
-    'content-length': Buffer.byteLength(payload),
-  })
-  res.end(payload)
-}
-
-function handleRequest(req: IncomingMessage, res: ServerResponse): void {
-  if (req.method !== 'POST' || (req.url || '').split('?')[0] !== '/fetch') {
-    sendJson(res, 404, { ok: false, error: 'not found' })
-    return
-  }
-  if (req.headers['x-yingbox-token'] !== token) {
-    sendJson(res, 403, { ok: false, error: 'forbidden' })
-    return
-  }
-
-  const chunks: Buffer[] = []
-  req.on('data', chunk => chunks.push(chunk as Buffer))
-  req.on('end', () => {
-    void (async () => {
-      try {
-        const body = JSON.parse(
-          Buffer.concat(chunks).toString('utf-8') || '{}'
-        ) as FetchRequest
-        const url = typeof body.url === 'string' ? body.url.trim() : ''
-        if (!url || !isHttpUrl(url)) {
-          sendJson(res, 400, { ok: false, error: 'invalid url' })
-          return
-        }
-        const rawWait = Number(body.waitMs)
-        const waitMs = Number.isFinite(rawWait)
-          ? Math.min(Math.max(rawWait, 0), MAX_WAIT_MS)
-          : DEFAULT_WAIT_MS
-        const html = await runFetch(url, waitMs)
-        if (!isUsablePage(html)) {
-          sendJson(res, 200, { ok: false, error: 'challenge not passed' })
-          return
-        }
-        sendJson(res, 200, { ok: true, html })
-      } catch (error) {
-        sendJson(res, 200, {
-          ok: false,
-          error:
-            error instanceof Error ? error.message : 'browser fetch failed',
-        })
-      }
-    })()
-  })
-}
-
-function discoveryTargets(): string[] {
-  const targets = [DISCOVERY_FILE]
-  try {
-    targets.push(join(app.getPath('userData'), DISCOVERY_NAME))
-  } catch {
-    // app 尚未 ready 时只使用临时目录。
-  }
-  targets.push(join(process.cwd(), 'output', DISCOVERY_NAME))
-  return targets
-}
-
-function publishDiscovery(body: string): boolean {
-  const errors: unknown[] = []
-  for (const target of discoveryTargets()) {
-    const pendingFile = `${target}.${process.pid}.${randomBytes(6).toString('hex')}.tmp`
-    try {
-      mkdirSync(join(target, '..'), { recursive: true })
-      writeFileSync(pendingFile, body, { encoding: 'utf-8', mode: 0o600 })
-      renameSync(pendingFile, target)
-      return true
-    } catch (error) {
-      errors.push(error)
-    } finally {
-      try {
-        rmSync(pendingFile, { force: true })
-      } catch {
-        // A locked temporary file must not interrupt application startup.
-      }
-    }
-  }
-  for (const error of errors) {
-    console.error('[browser-fetch] cannot publish discovery file:', error)
-  }
-  return false
-}
-
-export function startBrowserFetchService(): void {
-  if (server) return
-  token = randomBytes(24).toString('hex')
-  server = createServer(handleRequest)
-  server.on('error', error => {
-    console.error('[browser-fetch] server error:', error.message)
-  })
-  server.listen(0, '127.0.0.1', () => {
-    const address = server?.address()
-    if (!address || typeof address === 'string') return
-    const endpoint = `http://127.0.0.1:${address.port}`
-    const body = JSON.stringify({
-      url: endpoint,
-      token,
-      pid: process.pid,
-      updatedAt: Date.now(),
-    })
-    if (!publishDiscovery(body)) {
-      server?.close()
-      server = null
-      token = ''
-      return
-    }
-    console.log(`[browser-fetch] listening on ${endpoint}`)
-  })
-
-  session.fromPartition(PARTITION).setUserAgent(CHROME_UA)
-}
-
-export function stopBrowserFetchService(): void {
-  server?.close()
-  server = null
-  token = ''
-  try {
-    const discovery = JSON.parse(readFileSync(DISCOVERY_FILE, 'utf-8'))
-    if (discovery.pid === process.pid) rmSync(DISCOVERY_FILE, { force: true })
-  } catch {
-    /* 文件可能已被清理 */
-  }
 }

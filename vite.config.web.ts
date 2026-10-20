@@ -4,16 +4,9 @@ import vue from '@vitejs/plugin-vue'
 
 /** Standalone web / PWA build (no Electron main/preload). */
 
-/** 同源代理:浏览器(手机)只访问 vite,由 vite 在 PC 本机回源,后端无需暴露局域网。 */
-const backendTarget = process.env.BACKEND_PROXY_TARGET || 'http://127.0.0.1:31471'
+/** 同源代理:浏览器(手机)只访问 vite,由 vite 在 PC 本机回源,Amane 无需暴露局域网。 */
 const amaneTarget = process.env.AMANE_PROXY_TARGET || 'http://127.0.0.1:18180'
 const localProxy = {
-  '/backend-api': {
-    target: backendTarget,
-    changeOrigin: true,
-    ws: true,
-    rewrite: (path: string): string => path.replace(/^\/backend-api/, ''),
-  },
   '/amane-api': {
     target: amaneTarget,
     changeOrigin: true,

@@ -6,19 +6,15 @@ variables:
   PNPM_STORE_PATH: .pnpm-store
   ELECTRON_CACHE: $CI_PROJECT_DIR/.cache/electron
   ELECTRON_BUILDER_CACHE: $CI_PROJECT_DIR/.cache/electron-builder
-  GOMODCACHE: $CI_PROJECT_DIR/.go/pkg/mod
-  GOPATH: $CI_PROJECT_DIR/.go
 
 cache:
   key:
     files:
       - pnpm-lock.yaml
-      - packages/backend/go.sum
   paths:
     - .pnpm-store/
     - .cache/electron/
     - .cache/electron-builder/
-    - .go/pkg/mod/
 
 .node_job:
   image: node:22-bookworm

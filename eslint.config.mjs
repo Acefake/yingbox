@@ -3,6 +3,22 @@ import eslintConfigPrettier from '@electron-toolkit/eslint-config-prettier'
 import eslintPluginVue from 'eslint-plugin-vue'
 import vueParser from 'vue-eslint-parser'
 
+/**
+ * 渲染层禁止直接 fetch：外网请求经 @/api/online（引擎 net 出网，带 SSRF 防护）。
+ * 唯一豁免 api/amane.ts——它访问的是本机 Amane 插件（Web 模式经 vite 同源代理）。
+ * 与 localStorage 禁令同属 no-restricted-globals，flat config 后者会覆盖前者，
+ * 所以两处都要带上这几项。
+ */
+const fetchGlobalBan = {
+  name: 'fetch',
+  message: '渲染层不直连网络，改用 @/api/online（引擎 net 出网）。',
+}
+const fetchPropertyBans = ['window', 'globalThis'].map(object => ({
+  object,
+  property: 'fetch',
+  message: fetchGlobalBan.message,
+}))
+
 export default tseslint.config(
   {
     ignores: [
@@ -13,8 +29,6 @@ export default tseslint.config(
       '**/dist-renderer',
       // 本地临时目录与 agent 工作树（已在 .gitignore，避免 lint 解析构建产物/仓库副本）
       '.claude/worktrees',
-      // Go 后端内嵌的 Python/Node 脚本（各有自己的约定）
-      'packages/backend/py',
       // 手动跑的截图 / 性能驾驭（Playwright 脚本，不进应用）
       'scripts/ui-harness',
     ],
@@ -91,7 +105,8 @@ export default tseslint.config(
 
   {
     // 渲染层不直连外网：在线请求经 window.api.online（引擎 net，SSRF 防护）。
-    files: ['src/renderer/**/*.{ts,vue}'],
+    files: ['src/renderer/**/*.{ts,mts,vue}'],
+    ignores: ['src/renderer/src/api/amane.ts'],
     rules: {
       'no-restricted-imports': [
         'error',
@@ -104,6 +119,8 @@ export default tseslint.config(
           ],
         },
       ],
+      'no-restricted-globals': ['error', fetchGlobalBan],
+      'no-restricted-properties': ['error', ...fetchPropertyBans],
     },
   },
 
@@ -170,6 +187,7 @@ export default tseslint.config(
           name: 'localStorage',
           message: '设置请用 features/settings 的 useSetting / getSetting。',
         },
+        fetchGlobalBan,
       ],
       'no-restricted-properties': [
         'error',
@@ -178,6 +196,7 @@ export default tseslint.config(
           property: 'localStorage',
           message: '设置请用 features/settings 的 useSetting / getSetting。',
         },
+        ...fetchPropertyBans,
       ],
     },
   },
