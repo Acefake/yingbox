@@ -8,38 +8,38 @@
       >
         <div :class="embedded ? 'smp-embedded-panel' : 'smp-panel'">
           <!-- Header（仅独立面板） -->
-          <DialogTitlebar v-if="!embedded" title="数据源" icon="database" @close="emit('close')" />
-          <!-- Segmented tabs -->
-          <div class="smp-tabs-wrap">
-            <div class="yb-seg-group smp-seg">
-              <button
-                v-for="t in tabs"
-                :key="t.id"
-                class="yb-seg"
-                :class="{ 'is-active': activeTab === t.id }"
-                @click="activeTab = t.id"
-              >
-                {{ t.label }}
-                <span class="tab-count">{{ t.count }}</span>
-              </button>
+          <DialogTitlebar
+            v-if="!embedded"
+            title="数据源"
+            icon="database"
+            @close="emit('close')"
+          />
+          <div class="smp-toolbar">
+            <UiSegmented
+              v-if="tabs.length > 1"
+              v-model="activeTab"
+              size="sm"
+              label="数据源分类"
+              :options="tabs"
+            />
+            <span v-if="checkingAll" class="smp-status" role="status">
+              检测中 {{ checkedCount }}/{{ totalSources }}
+            </span>
+            <div class="smp-toolbar-actions">
+              <UiButton
+                v-if="totalFail"
+                class="smp-fail-btn"
+                size="sm"
+                :label="`停用失效源（${totalFail}）`"
+                @click="disableAllFailed"
+              />
+              <UiIconButton
+                icon="refresh"
+                label="一键更新：同步并检测全部数据源"
+                :loading="updatingSources"
+                @click="updateSources"
+              />
             </div>
-            <button
-              class="yb-btn-soft smp-update-btn"
-              :disabled="updatingSources"
-              @click="updateSources"
-            >
-              {{ updatingSources ? '更新中…' : '一键更新' }}
-            </button>
-            <button
-              v-if="totalFail"
-              class="yb-btn-soft smp-fail-btn"
-              @click="disableAllFailed"
-            >
-              停用失效源（{{ totalFail }}）
-            </button>
-            <span v-if="checkingAll" class="smp-status"
-              >检测中 {{ checkedCount }}/{{ totalSources }}</span
-            >
           </div>
 
           <div class="smp-body">
@@ -49,8 +49,8 @@
                 <PageTitle as="h2" variant="section">内置 CMS 源</PageTitle>
                 <span class="yb-section-count">{{ DEFAULT_SITES.length }}</span>
               </div>
-              <div class="card-grid">
-                <SiteCard
+              <div class="smp-list">
+                <SourceSiteRow
                   v-for="s in sortedDefaultSites"
                   :key="s.api"
                   :name="s.name"
@@ -73,8 +73,8 @@
               <div v-if="visibleCatSpiderSites.length === 0" class="empty">
                 暂无插件源
               </div>
-              <div class="card-grid">
-                <SiteCard
+              <div class="smp-list">
+                <SourceSiteRow
                   v-for="s in visibleCatSpiderSites"
                   :key="s.api"
                   :name="s.name"
@@ -83,21 +83,26 @@
                   badge-color="purple"
                   :enabled="selectedCatSpider.includes(s.api)"
                   status="ok"
-                  :checking="false"
+                  :checkable="false"
                   @toggle="toggleCatSpider(s.api)"
-                  @check="() => {}"
                 />
               </div>
 
               <div class="section-header mt">
                 <PageTitle as="h2" variant="section">自定义源</PageTitle>
-                <button class="add-btn" @click="showAdd = true">+ 添加</button>
+                <UiIconButton
+                  class="section-action"
+                  icon="plus"
+                  size="sm"
+                  label="添加自定义源"
+                  @click="showAdd = true"
+                />
               </div>
               <div v-if="customSites.length === 0" class="empty">
                 暂无自定义源
               </div>
-              <div v-else class="card-grid">
-                <SiteCard
+              <div v-else class="smp-list">
+                <SourceSiteRow
                   v-for="(s, i) in sortedCustomSites"
                   :key="s.api + i"
                   :name="s.name"
@@ -121,8 +126,8 @@
                 <PageTitle as="h2" variant="section">AV 资源站点</PageTitle>
                 <span class="yb-section-count">{{ avSources.length }}</span>
               </div>
-              <div class="card-grid">
-                <SiteCard
+              <div class="smp-list">
+                <SourceSiteRow
                   v-for="s in sortedAvSources"
                   :key="s.api"
                   :name="s.name"
@@ -146,8 +151,8 @@
               <div v-if="adultCatSpiderSites.length === 0" class="empty">
                 暂无插件源
               </div>
-              <div v-else class="card-grid">
-                <SiteCard
+              <div v-else class="smp-list">
+                <SourceSiteRow
                   v-for="s in adultCatSpiderSites"
                   :key="s.api"
                   :name="s.name"
@@ -156,9 +161,8 @@
                   badge-color="purple"
                   :enabled="selectedCatSpider.includes(s.api)"
                   status="ok"
-                  :checking="false"
+                  :checkable="false"
                   @toggle="toggleCatSpider(s.api)"
-                  @check="() => {}"
                 />
               </div>
             </template>
@@ -168,28 +172,33 @@
         <!-- Add custom source dialog -->
         <div v-if="showAdd" class="add-dialog" @click.self="showAdd = false">
           <div class="add-panel">
-            <DialogTitlebar title="添加自定义源" icon="plus" @close="showAdd = false" />
-            <p class="hint">
-              苹果 CMS v10 接口，例如：https://xxx.com/api.php/provide/vod
-            </p>
-            <label class="yb-label add-label">名称</label>
-            <input v-model="newName" class="yb-field" placeholder="名称" />
-            <label class="yb-label add-label">API 地址</label>
-            <input
-              v-model="newApi"
-              class="yb-field"
-              placeholder="API 地址"
-              @keydown.enter="addCustom"
+            <DialogTitlebar
+              title="添加自定义源"
+              icon="plus"
+              @close="showAdd = false"
             />
-            <div class="add-actions">
-              <button class="yb-btn-soft" @click="showAdd = false">取消</button>
-              <button
-                class="yb-btn-primary"
-                :disabled="addingSource"
-                @click="addCustom"
-              >
-                {{ addingSource ? '分析中…' : '确认添加' }}
-              </button>
+            <div class="add-body">
+              <p class="hint">
+                苹果 CMS v10 接口，例如：https://xxx.com/api.php/provide/vod
+              </p>
+              <label class="yb-label add-label">名称</label>
+              <input v-model="newName" class="yb-field" placeholder="名称" />
+              <label class="yb-label add-label">API 地址</label>
+              <input
+                v-model="newApi"
+                class="yb-field"
+                placeholder="API 地址"
+                @keydown.enter="addCustom"
+              />
+              <div class="add-actions">
+                <UiButton label="取消" @click="showAdd = false" />
+                <UiButton
+                  variant="primary"
+                  :label="addingSource ? '分析中…' : '确认添加'"
+                  :loading="addingSource"
+                  @click="addCustom"
+                />
+              </div>
             </div>
           </div>
         </div>
@@ -199,11 +208,21 @@
 </template>
 
 <script setup lang="ts">
-import { confirmDialog } from '@/utils/confirm-dialog'
+/**
+ * 数据源管理：在线 CMS / 插件 / 自定义源，以及成人模式下的 AV 源。
+ * 既能作为独立侧滑面板，也能 embedded 嵌入设置窗口的「数据源」分区。
+ */
+import { message } from 'ant-design-vue'
+import { computed, onUnmounted, ref, watch } from 'vue'
+
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import PageTitle from '@/components/PageTitle.vue'
-import { computed, onUnmounted, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
+import SourceSiteRow from '@/components/settings/SourceSiteRow.vue'
+import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiSegmented from '@/components/ui/UiSegmented.vue'
+import { confirmDialog } from '@/utils/confirm-dialog'
 import { useOnlineSearch } from '@/views/online/composables/use-online-search'
 import { useAvSources } from '@/views/av/use-av-sources'
 import {
@@ -230,10 +249,10 @@ const emit = defineEmits<{ (e: 'close'): void }>()
 
 // ── Adult mode ───────────────────────────────────────────────
 const adultMode = ref(localStorage.getItem('adultMode') === '1')
-const onAdultChange = (e: Event) => {
+const onAdultChange = (e: Event): void => {
   adultMode.value = (e as CustomEvent<boolean>).detail
 }
-const onStorage = (e: StorageEvent) => {
+const onStorage = (e: StorageEvent): void => {
   if (e.key === 'adultMode') adultMode.value = e.newValue === '1'
 }
 window.addEventListener('adultModeChange', onAdultChange)
@@ -273,9 +292,11 @@ const sortedCustomSites = computed(() =>
   )
 )
 
-const toggleOnline = (api: string) =>
-  selectedSites.has(api) ? selectedSites.delete(api) : selectedSites.add(api)
-const toggleCatSpider = (api: string) => {
+const toggleOnline = (api: string): void => {
+  if (selectedSites.has(api)) selectedSites.delete(api)
+  else selectedSites.add(api)
+}
+const toggleCatSpider = (api: string): void => {
   const idx = selectedCatSpider.value.indexOf(api)
   if (idx >= 0) selectedCatSpider.value.splice(idx, 1)
   else selectedCatSpider.value.push(api)
@@ -295,8 +316,10 @@ const sortedAvSources = computed(() =>
   )
 )
 
-const toggleAv = (api: string) =>
-  avEnabledApis.has(api) ? avEnabledApis.delete(api) : avEnabledApis.add(api)
+const toggleAv = (api: string): void => {
+  if (avEnabledApis.has(api)) avEnabledApis.delete(api)
+  else avEnabledApis.add(api)
+}
 
 // ── All-source stats ─────────────────────────────────────────
 const totalSources = computed(
@@ -319,7 +342,7 @@ const updateSources = async (): Promise<void> => {
   await checkAll()
 }
 
-const disableAllFailed = () => {
+const disableAllFailed = (): void => {
   confirmDialog({
     title: `禁用 ${totalFail.value} 个失效数据源？`,
     content: '只会停用这些数据源，不会删除自定义配置。',
@@ -345,23 +368,26 @@ watch(
 )
 
 // ── Tabs ────────────────────────────────────────────────────
-const activeTab = ref('online')
-const tabs = computed(() => [
+type SourceTab = 'online' | 'av'
+const activeTab = ref<SourceTab>('online')
+const tabs = computed<SegmentedOption<SourceTab>[]>(() => [
   {
-    id: 'online',
-    label: '在线源',
-    count: onlineApis.value.length + visibleCatSpiderSites.value.length,
+    value: 'online',
+    label: `在线源 ${onlineApis.value.length + visibleCatSpiderSites.value.length}`,
   },
   ...(adultMode.value
     ? [
         {
-          id: 'av',
-          label: 'AV源',
-          count: avSources.value.length + adultCatSpiderSites.value.length,
+          value: 'av' as const,
+          label: `AV 源 ${avSources.value.length + adultCatSpiderSites.value.length}`,
         },
       ]
     : []),
 ])
+// 关闭成人模式后不要停留在已经消失的 AV 分类
+watch(adultMode, on => {
+  if (!on) activeTab.value = 'online'
+})
 
 // ── Custom source ────────────────────────────────────────────
 const showAdd = ref(false)
@@ -369,7 +395,7 @@ const newName = ref('')
 const newApi = ref('')
 const addingSource = ref(false)
 
-const addCustom = async () => {
+const addCustom = async (): Promise<void> => {
   if (addingSource.value) return
   const name = newName.value.trim()
   const api = newApi.value.trim()
@@ -409,7 +435,7 @@ const addCustom = async () => {
   }
 }
 
-const removeCustom = (idx: number) => {
+const removeCustom = (idx: number): void => {
   const site = customSites.value[idx]
   confirmDialog({
     title: `删除数据源“${site.name}”？`,
@@ -426,160 +452,25 @@ const removeCustom = (idx: number) => {
 }
 </script>
 
-<script lang="ts">
-// SiteCard sub-component defined separately for clarity
-import { computed as cc, h as ch, defineComponent as dc } from 'vue'
-
-export const SiteCard = dc({
-  name: 'SiteCard',
-  props: {
-    name: String,
-    api: String,
-    badge: String,
-    badgeColor: { type: String, default: 'blue' },
-    enabled: Boolean,
-    status: String,
-    checking: Boolean,
-    deletable: Boolean,
-  },
-  emits: ['toggle', 'check', 'delete'],
-  setup(props, { emit }) {
-    const dotClass = cc(() => {
-      if (props.status === 'ok') return 'dot ok'
-      if (props.status === 'fail') return 'dot fail'
-      if (props.status === 'checking') return 'dot checking'
-      return 'dot unk'
-    })
-    const badgeClass = cc(() => `badge badge-${props.badgeColor || 'blue'}`)
-    return () =>
-      ch(
-        'div',
-        {
-          class: [
-            'site-card',
-            props.enabled ? 'active' : '',
-            props.status === 'fail' ? 'fail' : '',
-          ]
-            .join(' ')
-            .trim(),
-          onClick: () => emit('toggle'),
-        },
-        [
-          ch('div', { class: 'card-top' }, [
-            ch('span', { class: dotClass.value }),
-            ch('span', { class: 'card-name' }, props.name),
-            ch('em', { class: badgeClass.value }, props.badge),
-            ch(
-              'button',
-              {
-                class: 'icon-btn',
-                disabled: props.checking,
-                title: '检测数据源',
-                'aria-label': `检测数据源 ${props.name}`,
-                style: props.checking
-                  ? 'animation:spin 1s linear infinite'
-                  : '',
-                onClick: (e: Event) => {
-                  e.stopPropagation()
-                  emit('check')
-                },
-              },
-              [
-                ch(
-                  'svg',
-                  {
-                    viewBox: '0 0 24 24',
-                    width: 11,
-                    height: 11,
-                    fill: 'none',
-                    stroke: 'currentColor',
-                    'stroke-width': 2,
-                  },
-                  [
-                    ch('path', { d: 'M4 4v5h5M20 20v-5h-5' }),
-                    ch('path', { d: 'M4 9a8 8 0 0 1 16 0 8 8 0 0 1-4.9 7.4' }),
-                  ]
-                ),
-              ]
-            ),
-            props.deletable
-              ? ch(
-                  'button',
-                  {
-                    class: 'icon-btn danger',
-                    title: '删除数据源',
-                    'aria-label': `删除数据源 ${props.name}`,
-                    onClick: (e: Event) => {
-                      e.stopPropagation()
-                      emit('delete')
-                    },
-                  },
-                  [
-                    ch(
-                      'svg',
-                      {
-                        viewBox: '0 0 24 24',
-                        width: 11,
-                        height: 11,
-                        fill: 'none',
-                        stroke: 'currentColor',
-                        'stroke-width': 2,
-                      },
-                      [
-                        ch('polyline', { points: '3 6 5 6 21 6' }),
-                        ch('path', {
-                          d: 'M19 6l-1 14H6L5 6M10 11v6M14 11v6M9 6V4h6v2',
-                        }),
-                      ]
-                    ),
-                  ]
-                )
-              : null,
-          ]),
-          ch('span', { class: 'card-api' }, props.api),
-          props.enabled ? ch('div', { class: 'check-mark' }, '✓') : null,
-        ]
-      )
-  },
-})
-</script>
-
 <style scoped>
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes pulse {
-  0%,
-  100% {
-    opacity: 1;
-  }
-  50% {
-    opacity: 0.35;
-  }
-}
-
 .smp-backdrop {
   position: fixed;
   inset: 0;
   z-index: 2000;
-  background: rgba(0, 0, 0, 0.36);
   display: flex;
   justify-content: flex-end;
+  background: rgba(0, 0, 0, 0.36);
 }
 
 .smp-panel {
-  width: min(520px, calc(100vw - 48px));
-  height: 100vh;
-  background: var(--bg-main);
-  border-left: 1px solid var(--separator);
-  color: var(--text-primary);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   display: flex;
   flex-direction: column;
+  width: min(520px, calc(100vw - 48px));
+  height: 100vh;
   overflow: hidden;
+  border-left: 1px solid var(--separator);
+  background: var(--bg-main);
+  color: var(--text-primary);
   box-shadow: var(--shadow-lg);
   transition: var(--transition-panel);
 }
@@ -593,274 +484,80 @@ export const SiteCard = dc({
   min-height: 0;
   color: var(--text-primary);
 }
-
 .smp-embedded-panel {
   display: flex;
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
   min-height: 0;
 }
 
-.smp-embedded .smp-tabs-wrap {
-  padding: 0 0 12px;
+.smp-toolbar {
+  display: flex;
+  flex-shrink: 0;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
 }
-
-.smp-fail-btn {
-  min-height: 28px;
-  font-size: var(--text-xs);
-  color: var(--danger);
-  border-color: color-mix(in srgb, var(--danger) 30%, transparent);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
+.smp-embedded .smp-toolbar {
+  padding: 0 0 var(--space-4);
 }
-.smp-update-btn {
-  min-height: 28px;
-  font-size: var(--text-xs);
-  white-space: nowrap;
-}
-.smp-update-btn:disabled {
-  opacity: 0.55;
-  cursor: default;
-}
-.smp-tabs-wrap {
+.smp-toolbar-actions {
   display: flex;
   align-items: center;
-  gap: 12px;
-  padding: 0 22px 14px;
-  flex-shrink: 0;
-}
-.smp-seg {
-  flex: 1;
-}
-.smp-seg .yb-seg {
-  flex: 1;
-  min-height: 30px;
-  font-size: var(--text-sm);
-}
-.tab-count {
-  margin-left: 4px;
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-  font-variant-numeric: tabular-nums;
-}
-.smp-seg .yb-seg.is-active .tab-count {
-  color: var(--accent-text);
+  gap: var(--space-2);
+  margin-left: auto;
 }
 .smp-status {
-  font-size: var(--text-xs);
   color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
   white-space: nowrap;
+}
+.smp-fail-btn {
+  color: var(--danger);
 }
 
 .smp-body {
   flex: 1;
+  padding: 0 var(--space-5) var(--space-7);
   overflow-y: auto;
-  padding: 8px 18px 28px;
 }
-.smp-body::-webkit-scrollbar {
-  width: 6px;
-}
-.smp-body::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--radius-xs);
+.smp-embedded .smp-body {
+  padding: 0 var(--space-2) var(--space-6) 0;
 }
 
 .section-header {
   display: flex;
   align-items: center;
-  gap: 8px;
-  margin: 8px 4px 10px;
+  gap: var(--space-2);
+  margin: 0 var(--space-4) var(--space-2);
 }
 .section-header.mt {
-  margin-top: 22px;
+  margin-top: var(--space-6);
 }
 .section-header .yb-section-count {
   display: inline;
   font-size: var(--text-xs);
 }
-
-.add-btn {
+.section-action {
   margin-left: auto;
-  min-height: 28px;
-  padding: 0 10px;
-  border-radius: var(--radius-md);
-  border: 1px solid var(--border-default);
-  background: transparent;
-  color: var(--accent-text);
-  font-size: var(--text-xs);
-  font-weight: 500;
-  cursor: pointer;
-  transition: var(--transition-fast);
 }
-.add-btn:hover {
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
+
+/* 内嵌分组：和设置里的 SettingsGroup 同一种底板 */
+.smp-list {
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-glass);
 }
-.add-btn:active {
-  transform: scale(0.97);
+.smp-list:empty {
+  display: none;
 }
 
 .empty {
-  font-size: var(--text-sm);
+  padding: var(--space-4) var(--space-2);
   color: var(--text-tertiary);
-  padding: 16px 8px;
+  font-size: var(--text-sm);
   text-align: center;
-}
-
-.card-grid {
-  display: flex;
-  flex-direction: column;
-  gap: 0;
-  background: transparent;
-  border: 0;
-  border-radius: 0;
-  overflow: hidden;
-  box-shadow: none;
-}
-
-:deep(.site-card) {
-  position: relative;
-  width: 100%;
-  box-sizing: border-box;
-  min-height: 64px;
-  padding: 12px 4px;
-  background: transparent;
-  border: 0;
-  border-bottom: 1px solid var(--separator);
-  border-radius: 0;
-  cursor: pointer;
-  transition: background 0.18s var(--ease-out);
-  display: flex;
-  flex-direction: row;
-  align-items: center;
-  gap: 10px;
-}
-:deep(.site-card:last-child) {
-  border-bottom: 0;
-}
-:deep(.site-card:hover) {
-  background: var(--bg-fill-secondary);
-}
-:deep(.site-card:active) {
-  transform: scale(0.995);
-}
-:deep(.site-card.active) {
-  background: var(--bg-active-soft);
-}
-:deep(.site-card.active .card-name) {
-  color: var(--accent-text);
-  font-weight: 600;
-}
-:deep(.site-card.fail .card-name) {
-  color: var(--danger);
-}
-:deep(.card-top) {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 1;
-  min-width: 0;
-}
-:deep(.card-name) {
-  font-size: var(--text-sm);
-  font-weight: 500;
-  color: var(--text-primary);
-  flex: 1;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  letter-spacing: -0.01em;
-}
-:deep(.card-api) {
-  display: none;
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-  max-width: 38%;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-:deep(.site-card:hover .card-api) {
-  display: block;
-}
-:deep(.badge) {
-  font-style: normal;
-  font-size: var(--text-2xs);
-  font-weight: 600;
-  padding: 2px 6px;
-  border-radius: var(--radius-sm);
-  flex-shrink: 0;
-}
-:deep(.badge-blue) {
-  color: var(--text-primary);
-  background: var(--bg-active);
-}
-:deep(.badge-purple) {
-  color: color-mix(in srgb, #af52de 80%, var(--text-primary));
-  background: color-mix(in srgb, #af52de 16%, transparent);
-}
-:deep(.badge-pink) {
-  color: color-mix(in srgb, #ff2d55 80%, var(--text-primary));
-  background: color-mix(in srgb, #ff2d55 14%, transparent);
-}
-:deep(.badge-amber) {
-  color: var(--warning);
-  background: color-mix(in srgb, var(--warning) 16%, transparent);
-}
-:deep(.dot) {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  flex-shrink: 0;
-  background: var(--text-quaternary);
-}
-:deep(.dot.ok) {
-  background: var(--success);
-  box-shadow: 0 0 0 3px color-mix(in srgb, var(--success) 22%, transparent);
-}
-:deep(.dot.fail) {
-  background: var(--danger);
-}
-:deep(.dot.checking) {
-  background: var(--warning);
-  animation: pulse 1s infinite;
-}
-:deep(.icon-btn) {
-  width: 26px;
-  height: 26px;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: none;
-  border: none;
-  color: var(--text-tertiary);
-  border-radius: var(--radius-sm);
-  cursor: pointer;
-  transition: var(--transition-fast);
-  padding: 0;
-}
-:deep(.icon-btn:hover:not(:disabled)) {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
-:deep(.icon-btn:disabled) {
-  opacity: 0.35;
-  cursor: not-allowed;
-}
-:deep(.site-card .icon-btn) {
-  opacity: 0;
-}
-:deep(.site-card:hover .icon-btn),
-:deep(.site-card:focus-within .icon-btn) {
-  opacity: 1;
-}
-:deep(.icon-btn.danger:hover) {
-  background: color-mix(in srgb, var(--danger) 16%, transparent);
-  color: var(--danger);
-}
-:deep(.check-mark) {
-  font-size: var(--text-xs);
-  color: var(--accent);
-  font-weight: 700;
-  pointer-events: none;
 }
 
 .add-dialog {
@@ -872,34 +569,33 @@ export const SiteCard = dc({
   justify-content: center;
   background: rgba(0, 0, 0, 0.42);
 }
-.add-panel > .dialog-titlebar { margin:-22px -22px 18px; }
 .add-panel {
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-xl);
-  padding: 22px;
   width: min(400px, calc(100vw - 48px));
+  overflow: hidden;
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
   color: var(--text-primary);
   box-shadow: var(--shadow-lg);
 }
+.add-body {
+  padding: var(--space-5);
+}
 .hint {
-  font-size: var(--text-xs);
+  margin: 0 0 var(--space-3);
   color: var(--text-tertiary);
-  margin: 0 0 14px;
-  line-height: 1.4;
+  font-size: var(--text-xs);
+  line-height: var(--leading-normal);
 }
 .add-label {
   display: block;
-  margin: 10px 0 6px;
-}
-.add-panel .yb-field {
-  margin-bottom: 2px;
+  margin: var(--space-3) 0 var(--space-1);
 }
 .add-actions {
   display: flex;
-  gap: 8px;
   justify-content: flex-end;
-  margin-top: 16px;
+  gap: var(--space-2);
+  margin-top: var(--space-5);
 }
 
 .panel-fade-enter-active,
@@ -919,13 +615,6 @@ export const SiteCard = dc({
   transform: translateX(100%);
 }
 
-@media (prefers-reduced-transparency: reduce) {
-  .smp-panel {
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
-    background: var(--bg-elevated);
-  }
-}
 @media (prefers-reduced-motion: reduce) {
   .panel-fade-enter-active,
   .panel-fade-leave-active,
@@ -935,10 +624,6 @@ export const SiteCard = dc({
   }
   .panel-fade-enter-from .smp-panel,
   .panel-fade-leave-to .smp-panel {
-    transform: none;
-  }
-  :deep(.site-card:active),
-  .add-btn:active {
     transform: none;
   }
 }

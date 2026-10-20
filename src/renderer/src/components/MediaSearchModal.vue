@@ -2,6 +2,7 @@
   <AppModal
     :open="visible"
     :title="title"
+    icon="search"
     :width="1000"
     :footer="null"
     :centered="true"
@@ -9,114 +10,69 @@
     :z-index="9999"
     @cancel="$emit('close')"
   >
-    <div class="mb-4 flex gap-2">
+    <div class="msm-search">
       <AInput
         v-model:value="searchQuery"
         :placeholder="type === 'tv' ? '输入电视剧名称搜索' : '输入电影名称搜索'"
         size="large"
         @press-enter="handleResearch"
       />
-      <AButton
-        type="primary"
-        size="large"
+      <UiButton
+        variant="primary"
+        icon="search"
+        label="重新搜索"
         :loading="isSearching"
         @click="handleResearch"
-      >
-        重新搜索
-      </AButton>
+      />
     </div>
-    <div class="max-h-[80vh] overflow-y-auto custom-scrollbar">
+    <div class="msm-results custom-scrollbar">
       <div
         v-if="results.length === 0 && !isSearching"
-        class="text-center py-8 yb-muted"
+        class="ui-empty-state msm-empty"
       >
         <p>没有搜索结果</p>
-        <p class="text-sm mt-2">请修改搜索关键词后点击"重新搜索"</p>
+        <span>请修改搜索关键词后点击「重新搜索」</span>
       </div>
-      <div v-else class="grid grid-cols-5 gap-4 my-5">
-        <div
+      <div v-else class="ui-poster-grid">
+        <UiPosterCard
           v-for="item in results"
           :key="item.id"
-          class="modal-card group cursor-pointer"
-          @click="handlePick(item)"
+          :title="getTitle(item)"
+          :cover="getPoster(item)"
+          :subtitle="subtitleOf(item)"
+          :rating="item.vote_average ? item.vote_average.toFixed(1) : undefined"
+          :aria-busy="loadingId === item.id || undefined"
+          :class="{ 'is-loading': loadingId === item.id }"
+          @open="handlePick(item)"
         >
-          <div class="relative overflow-hidden rounded-t-xl">
-            <img
-              v-if="getPoster(item)"
-              :src="getPoster(item)"
-              :alt="getTitle(item)"
-              class="h-56 w-full object-cover group-hover:scale-105 transition-transform duration-300"
-              @error="handleImageError"
-            />
-            <div
-              v-else
-              class="h-56 w-full yb-poster-ph flex items-center justify-center"
-            >
-              <span class="text-sm">无海报</span>
-            </div>
-            <!-- 评分角标 -->
-            <div
-              v-if="item.vote_average"
-              class="absolute top-2 right-2 flex items-center gap-0.5 bg-black/60 backdrop-blur-sm rounded-md px-1.5 py-0.5 text-[11px] text-yellow-400 font-medium"
-            >
-              <svg class="w-3 h-3" fill="currentColor" viewBox="0 0 20 20">
-                <path
-                  d="M9.049 2.927c.3-.921 1.603-.921 1.902 0l1.07 3.292a1 1 0 00.95.69h3.462c.969 0 1.371 1.24.588 1.81l-2.8 2.034a1 1 0 00-.364 1.118l1.07 3.292c.3.921-.755 1.688-1.54 1.118l-2.8-2.034a1 1 0 00-1.175 0l-2.8 2.034c-.784.57-1.838-.197-1.539-1.118l1.07-3.292a1 1 0 00-.364-1.118L2.98 8.72c-.783-.57-.38-1.81.588-1.81h3.461a1 1 0 00.951-.69l1.07-3.292z"
-                />
-              </svg>
-              {{ item.vote_average.toFixed(1) }}
-            </div>
-          </div>
-
-          <div class="p-3">
-            <h4
-              class="font-medium text-sm mb-1 line-clamp-2 leading-snug"
-              style="color: var(--text-primary)"
-            >
-              {{ getTitle(item) }}
-            </h4>
-            <div
-              v-if="
-                getOriginalTitle(item) &&
-                getOriginalTitle(item) !== getTitle(item)
-              "
-              class="text-[10px] yb-muted -mt-0.5 mb-1 truncate"
-            >
-              {{ getOriginalTitle(item) }}
-            </div>
-            <div v-if="getYear(item)" class="text-[11px] yb-dim mb-2">
-              {{ getYear(item) }}
-            </div>
-            <p
-              v-if="item.overview"
-              class="text-[11px] yb-dim line-clamp-2 mb-3 leading-relaxed"
-            >
-              {{ item.overview }}
-            </p>
-
-            <button
-              class="modal-pick-btn"
-              :class="{
-                'opacity-60 pointer-events-none': loadingId === item.id,
-              }"
+          <template #actions>
+            <UiIconButton
+              icon="check"
+              variant="overlay"
+              size="sm"
+              :label="loadingId === item.id ? '处理中…' : '使用此结果'"
+              :loading="loadingId === item.id"
               @click.stop="handlePick(item)"
-            >
-              {{ loadingId === item.id ? '处理中...' : '使用此结果' }}
-            </button>
-          </div>
-        </div>
+            />
+          </template>
+        </UiPosterCard>
       </div>
     </div>
   </AppModal>
 </template>
 
 <script setup lang="ts">
-import AppModal from '@/components/AppModal.vue'
+/**
+ * TMDB 搜索结果选择弹窗：重新搜索 + 海报网格，点选一个结果触发刮削。
+ * 目前没有页面引用（已被统一刮削工作台取代），保留以兼容旧入口。
+ */
+import { Input as AInput } from 'ant-design-vue'
 import { computed, ref, watch } from 'vue'
-import {
-  Button as AButton,
-  Input as AInput,
-} from 'ant-design-vue'
+
+import AppModal from '@/components/AppModal.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 
 export interface MediaResult {
   id: number
@@ -198,42 +154,43 @@ const getYear = (item: MediaResult): string => {
   return d ? String(new Date(d).getFullYear()) : ''
 }
 
-const getPoster = (item: MediaResult): string => {
-  return item.poster_path || ''
-}
+const getPoster = (item: MediaResult): string => item.poster_path || ''
 
-const handleImageError = (event: Event): void => {
-  const target = event.target as HTMLImageElement | null
-  if (target) target.style.display = 'none'
+/** 副标题：原名（与标题不同时）+ 年份 */
+const subtitleOf = (item: MediaResult): string => {
+  const original = getOriginalTitle(item)
+  return [original !== getTitle(item) ? original : '', getYear(item)]
+    .filter(Boolean)
+    .join(' · ')
 }
 </script>
 
 <style scoped>
-.modal-card {
-  background: var(--bg-elevated);
-  border-radius: var(--radius-lg);
-  border: 1px solid var(--border-glass);
-  overflow: hidden;
-  transition: var(--transition-fast);
+.msm-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-4);
 }
-.modal-card:hover {
-  border-color: var(--border-glass-light);
-  box-shadow: var(--shadow-md);
-  transform: translateY(-2px);
+.msm-search .ui-button {
+  height: var(--control-height-lg);
 }
-.modal-pick-btn {
-  width: 100%;
-  padding: 6px 0;
-  border-radius: var(--radius-md);
+.msm-results {
+  max-height: 80vh;
+  padding: var(--space-2) 0;
+  overflow-y: auto;
+}
+.msm-empty p {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.msm-empty span {
+  color: var(--text-tertiary);
   font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-  background: var(--bg-active);
-  transition: var(--transition-fast);
-  cursor: pointer;
 }
-.modal-pick-btn:hover {
-  background: color-mix(in srgb, var(--accent) 28%, transparent);
-  border-color: color-mix(in srgb, var(--accent) 45%, transparent);
+.ui-poster.is-loading {
+  opacity: 0.6;
+  pointer-events: none;
 }
 </style>

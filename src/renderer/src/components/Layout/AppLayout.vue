@@ -3,180 +3,118 @@
   <div
     class="app-layout h-screen w-screen overflow-hidden"
     :class="{
-      'sidebar-collapsed': sidebarCollapsed && !isPhone,
+      'sidebar-collapsed': collapsed,
       'is-phone': isPhone,
       'is-web': isWeb,
       'sidebar-open': isPhone && sidebarOpen,
     }"
   >
-    <button
+    <div
       v-if="isPhone && sidebarOpen"
       class="sidebar-backdrop"
-      type="button"
-      aria-label="关闭菜单"
+      aria-hidden="true"
       @click="sidebarOpen = false"
     />
     <!-- 媒体中心侧栏 -->
     <aside class="app-sidebar" aria-label="媒体中心导航">
       <div class="sidebar-brand">
-        <span class="brand-mark" aria-hidden="true"><UiIcon name="movie" /></span>
+        <span class="brand-mark" aria-hidden="true"
+          ><UiIcon name="movie"
+        /></span>
         <span class="brand-name">{{ appName }}</span>
-        <button
+        <UiIconButton
           class="sidebar-toggle"
-          type="button"
-          :aria-label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
+          icon="panel"
+          size="sm"
+          :label="sidebarCollapsed ? '展开侧边栏' : '收起侧边栏'"
           @click="sidebarCollapsed = !sidebarCollapsed"
-        >
-          <UiIcon name="panel" />
-        </button>
+        />
       </div>
-      <nav class="sidebar-nav flex min-h-0 flex-1 flex-col gap-1 overflow-y-auto">
-        <span class="sidebar-heading">资料库</span>
-        <button
-          class="sidebar-item"
-          :class="{ active: route.name === 'Online' && !route.query.tab }"
-          @click="navigateTo('/')"
-         title="首页" aria-label="首页">
-          <UiIcon name="home" size="lg" /><span>首页</span>
-        </button>
-        <button
-          class="sidebar-item"
-          :class="{
-            active: route.name === 'Online' && route.query.tab === 'recent',
-          }"
-          @click="navigateTo('/?tab=recent')"
-         title="最近播放" aria-label="最近播放">
-          <UiIcon name="history" size="lg" /><span>最近播放</span>
-        </button>
-        <button
-          class="sidebar-item"
-          :class="{
-            active: route.name === 'Online' && route.query.tab === 'favorites',
-          }"
-          @click="navigateTo('/?tab=favorites')"
-         title="我的收藏" aria-label="我的收藏">
-          <UiIcon name="heart" size="lg" /><span>我的收藏</span>
-        </button>
-        <template v-if="hasLocalLibrary">
-          <div class="sidebar-divider" />
-          <span class="sidebar-heading">本地媒体</span>
+      <nav class="sidebar-nav">
+        <template v-for="group in navGroups" :key="group.key">
+          <div v-if="group.divider" class="sidebar-divider" />
+          <span v-if="group.heading" class="sidebar-heading">{{
+            group.heading
+          }}</span>
           <button
+            v-for="item in group.items"
+            :key="item.path"
+            v-tooltip="collapsed ? item.label : undefined"
+            type="button"
             class="sidebar-item"
-            :class="{ active: route.name === 'Movie' }"
-            @click="navigateTo('/movie')"
-           title="电影" aria-label="电影">
-            <UiIcon name="movie" size="lg" /><span>电影</span>
-          </button>
-          <button
-            class="sidebar-item"
-            :class="{ active: route.name === 'TV' }"
-            @click="navigateTo('/tv')"
-           title="电视剧" aria-label="电视剧">
-            <UiIcon name="tv" size="lg" /><span>电视剧</span>
+            :class="{ 'is-active': item.active }"
+            :aria-label="item.label"
+            :aria-current="item.active ? 'page' : undefined"
+            @click="navigateTo(item.path)"
+          >
+            <UiIcon :name="item.icon" size="lg" />
+            <span class="sidebar-item-label">{{ item.label }}</span>
           </button>
         </template>
-        <button
-          v-if="adultMode && hasLocalLibrary"
-          class="sidebar-item"
-          :class="{ active: route.name === 'Amane' }"
-          @click="navigateTo('/amane')"
-         title="Amane" aria-label="Amane">
-          <UiIcon name="movie" size="lg" /><span>Amane</span>
-        </button>
-        <button
-          v-if="adultMode"
-          class="sidebar-item"
-          :class="{ active: route.name === 'AV' }"
-          @click="navigateTo('/av')"
-         title="AV资源" aria-label="AV资源">
-          <UiIcon name="av" size="lg" /><span>AV资源</span>
-        </button>
       </nav>
       <div class="sidebar-footer">
-        <div class="footer-actions">
-          <button
-            class="footer-icon-btn"
-            data-queue-anchor
-            :class="{
-              active: queuePanelVisible,
-              processing: queueBusy,
-            }"
-            type="button"
-            :title="queueLabel"
-            :aria-label="queueLabel"
-            :aria-pressed="queuePanelVisible"
-            @click="queuePanelVisible = !queuePanelVisible"
-          >
-            <span class="footer-queue-icon" aria-hidden="true">
-              <UiIcon name="list" size="lg" />
-              <span v-if="queueBusy" class="footer-pulse" />
-            </span>
-            <span class="footer-action-label">刮削队列</span>
-            <span v-if="activeCount > 0" class="footer-badge">{{
-              activeCount
-            }}</span>
-            <span
-              v-if="processingCount > 0"
-              class="footer-progress"
-              :style="{
-                width: Math.max(14, Math.round(progress * 100)) + '%',
-              }"
-            />
-          </button>
-          <button
-            class="footer-icon-btn settings-entry"
-            :class="{ active: settingsVisible }"
-            type="button"
-            title="设置"
-            aria-label="打开设置"
-            @click="openGlobalSettings()"
-          >
-            <UiIcon name="settings" size="lg" /><span class="footer-action-label">设置</span>
-          </button>
-        </div>
+        <button
+          v-tooltip="collapsed ? queueLabel : undefined"
+          type="button"
+          class="sidebar-item"
+          data-queue-anchor
+          :class="{ 'is-active': queuePanelVisible }"
+          :aria-label="queueLabel"
+          :aria-pressed="queuePanelVisible"
+          @click="queuePanelVisible = !queuePanelVisible"
+        >
+          <span class="footer-queue-icon" aria-hidden="true">
+            <UiIcon name="list" size="lg" />
+            <span v-if="queueBusy" class="footer-pulse" />
+          </span>
+          <span class="sidebar-item-label">刮削队列</span>
+          <span v-if="activeCount > 0" class="footer-badge">{{
+            activeCount
+          }}</span>
+          <span
+            v-if="processingCount > 0"
+            class="footer-progress"
+            :style="{ width: Math.max(14, Math.round(progress * 100)) + '%' }"
+          />
+        </button>
+        <button
+          v-tooltip="collapsed ? '设置' : undefined"
+          type="button"
+          class="sidebar-item"
+          :class="{ 'is-active': settingsVisible }"
+          aria-label="打开设置"
+          @click="openGlobalSettings()"
+        >
+          <UiIcon name="settings" size="lg" />
+          <span class="sidebar-item-label">设置</span>
+        </button>
       </div>
     </aside>
 
-    <div class="shell-column flex min-h-0 min-w-0 flex-1 flex-col">
+    <div class="shell-column">
       <!-- 顶部工具栏，保留窗口拖拽区域 -->
       <header class="top-menu">
         <div class="menu-content">
           <div class="toolbar-leading">
-            <button
+            <UiIconButton
               v-if="isPhone"
-              class="toolbar-btn"
-              type="button"
-              aria-label="打开菜单"
+              icon="menu"
+              label="打开菜单"
               @click="sidebarOpen = true"
-            >
-              <UiIcon name="menu" />
-            </button>
-            <button
-              class="toolbar-btn"
-              aria-label="后退"
-              title="后退"
-              @click="navigateBack"
-            >
-              <UiIcon name="back" />
-            </button>
-            <button
+            />
+            <UiIconButton icon="back" label="后退" @click="navigateBack" />
+            <UiIconButton
               v-if="!isPhone"
-              class="toolbar-btn"
-              aria-label="前进"
-              title="前进"
+              icon="forward"
+              label="前进"
               @click="router.forward()"
-            >
-              <UiIcon name="forward" />
-            </button>
-            <button
+            />
+            <UiIconButton
               v-if="!isPhone"
-              class="toolbar-btn"
-              aria-label="刷新"
-              title="刷新"
+              icon="refresh"
+              label="刷新"
               @click="router.go(0)"
-            >
-              <UiIcon name="refresh" />
-            </button>
+            />
             <div
               class="global-search"
               role="search"
@@ -190,20 +128,19 @@
                 type="text"
                 @keydown.enter.prevent="submitGlobalSearch"
               />
-              <button
+              <UiIconButton
                 v-if="globalSearch"
                 class="global-search-clear"
-                type="button"
-                aria-label="清空搜索"
+                icon="close"
+                size="sm"
+                label="清空搜索"
                 @click="clearGlobalSearch"
-              >
-                <UiIcon name="close" size="sm" />
-              </button>
+              />
             </div>
           </div>
 
           <!-- 右侧：窗口控制 -->
-          <div class="settings-section">
+          <div class="window-section">
             <WinControls :show-window-buttons="isElectron" />
           </div>
         </div>
@@ -211,7 +148,7 @@
 
       <!-- 主内容区域 -->
       <main class="main-content">
-        <div class="content-surface h-full overflow-hidden bg-yb-bg">
+        <div class="content-surface">
           <slot />
         </div>
       </main>
@@ -230,49 +167,39 @@
       @close="queuePanelVisible = false"
     />
 
+    <!-- 手机底部标签栏 -->
     <nav v-if="isPhone" class="bottom-nav" aria-label="主导航">
       <button
+        v-for="item in bottomNavItems"
+        :key="item.key"
         type="button"
-        :class="{ active: route.name === 'Online' && !route.query.tab }"
-        @click="navigateTo('/')"
+        class="bottom-nav-item"
+        :class="{ 'is-active': item.active }"
+        :aria-current="item.active && item.path ? 'page' : undefined"
+        @click="item.path ? navigateTo(item.path) : (sidebarOpen = true)"
       >
-        <UiIcon name="home" size="lg" /><span>首页</span>
-      </button>
-      <button
-        type="button"
-        :class="{
-          active: route.name === 'Online' && route.query.tab === 'favorites',
-        }"
-        @click="navigateTo('/?tab=favorites')"
-      >
-        <UiIcon name="heart" size="lg" /><span>收藏</span>
-      </button>
-      <button
-        v-if="hasLocalLibrary"
-        type="button"
-        :class="{ active: route.name === 'Movie' }"
-        @click="navigateTo('/movie')"
-      >
-        <UiIcon name="movie" size="lg" /><span>电影</span>
-      </button>
-      <button
-        type="button"
-        :class="{ active: sidebarOpen }"
-        @click="sidebarOpen = true"
-      >
-        <UiIcon name="menu" /><span>菜单</span>
+        <UiIcon :name="item.icon" size="lg" />
+        <span>{{ item.label }}</span>
       </button>
     </nav>
   </div>
 </template>
 
 <script setup lang="ts">
+/**
+ * 应用外壳：左侧导航栏（可收起为图标栏，手机上为抽屉）、顶部工具栏（前进后退、全局搜索、窗口控制）、
+ * 主内容插槽，以及全局的设置窗口和刮削队列浮层。手机上额外显示底部标签栏。
+ */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import WinControls from '@/components/WinControls.vue'
-import SettingsPanel from '@/components/SettingsPanel.vue'
+
 import ScrapeQueuePanel from '@/components/ScrapeQueuePanel.vue'
+import SettingsPanel from '@/components/SettingsPanel.vue'
+import type { IconName } from '@/components/ui/icons'
+import { vTooltip } from '@/components/ui/tooltip'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import WinControls from '@/components/WinControls.vue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useLadaTasks } from '@/composables/use-lada-tasks'
 import { usePlatform } from '@/composables/use-platform'
@@ -287,6 +214,9 @@ const { isElectron, isWeb, isPhone, hasLocalLibrary } = usePlatform()
 const appName = ref('影盒')
 const sidebarCollapsed = ref(false)
 const sidebarOpen = ref(false)
+
+/** 桌面端收起侧栏时只显示图标，导航项改用悬停提示 */
+const collapsed = computed(() => sidebarCollapsed.value && !isPhone.value)
 
 const settingsVisible = ref(false)
 const settingsInitialSection = ref('appearance')
@@ -373,41 +303,160 @@ const clearGlobalSearch = (): void => {
 // 成人模式检测
 const adultMode = ref(localStorage.getItem('adultMode') === '1')
 
+interface NavItem {
+  label: string
+  icon: IconName
+  path: string
+  active: boolean
+}
+interface NavGroup {
+  key: string
+  heading?: string
+  divider?: boolean
+  items: NavItem[]
+}
+
+const isOnlineTab = (tab?: string): boolean =>
+  route.name === 'Online' && (tab ? route.query.tab === tab : !route.query.tab)
+
+/** 侧栏导航分组；本地媒体只在有本地片库的平台显示，Amane / AV 只在成人模式下出现 */
+const navGroups = computed<NavGroup[]>(() => {
+  const groups: NavGroup[] = [
+    {
+      key: 'library',
+      heading: '资料库',
+      items: [
+        { label: '首页', icon: 'home', path: '/', active: isOnlineTab() },
+        {
+          label: '最近播放',
+          icon: 'history',
+          path: '/?tab=recent',
+          active: isOnlineTab('recent'),
+        },
+        {
+          label: '我的收藏',
+          icon: 'heart',
+          path: '/?tab=favorites',
+          active: isOnlineTab('favorites'),
+        },
+      ],
+    },
+  ]
+  const local: NavItem[] = []
+  if (hasLocalLibrary.value) {
+    local.push(
+      {
+        label: '电影',
+        icon: 'movie',
+        path: '/movie',
+        active: route.name === 'Movie',
+      },
+      { label: '电视剧', icon: 'tv', path: '/tv', active: route.name === 'TV' }
+    )
+    if (adultMode.value)
+      local.push({
+        label: 'Amane',
+        icon: 'database',
+        path: '/amane',
+        active: route.name === 'Amane',
+      })
+  }
+  if (local.length)
+    groups.push({
+      key: 'local',
+      heading: '本地媒体',
+      divider: true,
+      items: local,
+    })
+  if (adultMode.value)
+    groups.push({
+      key: 'adult',
+      items: [
+        {
+          label: 'AV资源',
+          icon: 'av',
+          path: '/av',
+          active: route.name === 'AV',
+        },
+      ],
+    })
+  return groups
+})
+
+/** 手机底部标签栏；「菜单」没有 path，点击打开侧栏抽屉 */
+const bottomNavItems = computed(() => [
+  {
+    key: 'home',
+    label: '首页',
+    icon: 'home' as IconName,
+    path: '/',
+    active: isOnlineTab(),
+  },
+  {
+    key: 'favorites',
+    label: '收藏',
+    icon: 'heart' as IconName,
+    path: '/?tab=favorites',
+    active: isOnlineTab('favorites'),
+  },
+  ...(hasLocalLibrary.value
+    ? [
+        {
+          key: 'movie',
+          label: '电影',
+          icon: 'movie' as IconName,
+          path: '/movie',
+          active: route.name === 'Movie',
+        },
+      ]
+    : []),
+  {
+    key: 'menu',
+    label: '菜单',
+    icon: 'menu' as IconName,
+    path: '',
+    active: sidebarOpen.value,
+  },
+])
+
 // 监听自定义事件（同页面内切换）和跨 Tab storage 事件
-const handleAdultModeChange = (enabled: boolean) => {
+const handleAdultModeChange = (enabled: boolean): void => {
   adultMode.value = enabled
   if (!enabled && ['/av', '/amane'].includes(route.path)) {
     router.push('/')
   }
 }
-const toggleAdultMode = () => {
+const toggleAdultMode = (): void => {
   const enabled = !adultMode.value
   localStorage.setItem('adultMode', enabled ? '1' : '0')
   window.dispatchEvent(new CustomEvent('adultModeChange', { detail: enabled }))
 }
-const onAdultModeChange = (e: Event) => {
+const onAdultModeChange = (e: Event): void => {
   handleAdultModeChange((e as CustomEvent<boolean>).detail)
 }
-const onStorageChange = (e: StorageEvent) => {
+const onStorageChange = (e: StorageEvent): void => {
   if (e.key === 'adultMode') handleAdultModeChange(e.newValue === '1')
 }
-const onGlobalSearchShortcut = (event: KeyboardEvent) => {
+const onGlobalSearchShortcut = (event: KeyboardEvent): void => {
   if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
     event.preventDefault()
     globalSearchInput.value?.focus()
   }
 }
-const onSettingsShortcut = (event: KeyboardEvent) => {
+const onDrawerEscape = (event: KeyboardEvent): void => {
+  if (event.key === 'Escape' && sidebarOpen.value) sidebarOpen.value = false
+}
+const onSettingsShortcut = (event: KeyboardEvent): void => {
   if ((event.ctrlKey || event.metaKey) && event.key === ',') {
     event.preventDefault()
     openGlobalSettings()
   }
 }
-const openGlobalSettings = (section = 'appearance') => {
+const openGlobalSettings = (section = 'appearance'): void => {
   settingsInitialSection.value = section
   settingsVisible.value = true
 }
-const onOpenSettings = (event: Event) => {
+const onOpenSettings = (event: Event): void => {
   const section = (event as CustomEvent<string>).detail
   openGlobalSettings(section || 'appearance')
 }
@@ -420,6 +469,7 @@ if (typeof window !== 'undefined') {
 onMounted(() => {
   window.addEventListener('keydown', onGlobalSearchShortcut)
   window.addEventListener('keydown', onSettingsShortcut)
+  window.addEventListener('keydown', onDrawerEscape)
   // 每次启动自动同步并检测数据源（静默，失败不影响其余功能）。
   // 浏览器/PWA 模式下跨域受限，检测会全部失败，因此仅在桌面端执行。
   if (isElectron) void refreshSources()
@@ -431,17 +481,18 @@ onUnmounted(() => {
   window.removeEventListener('app:open-settings', onOpenSettings)
   window.removeEventListener('keydown', onGlobalSearchShortcut)
   window.removeEventListener('keydown', onSettingsShortcut)
+  window.removeEventListener('keydown', onDrawerEscape)
 })
 </script>
 
 <style scoped>
 .app-layout {
+  position: relative;
   display: flex;
   flex-direction: row;
   align-items: stretch;
-  position: relative;
   background: var(--bg-main);
-  color: var(--text-main);
+  color: var(--text-primary);
 }
 
 .app-layout.is-web .app-sidebar,
@@ -449,387 +500,153 @@ onUnmounted(() => {
   -webkit-app-region: no-drag;
 }
 
-/* Sidebar — document flow on desktop (never covers content) */
+/* ── 侧栏：桌面端在文档流里，不覆盖内容 ── */
 .app-sidebar {
   position: relative;
-  inset: auto;
+  z-index: 2;
   display: flex;
-  flex-direction: column;
   flex: 0 0 var(--sidebar-width);
+  flex-direction: column;
   width: var(--sidebar-width);
   max-width: var(--sidebar-width);
   height: 100%;
   min-height: 0;
-  padding: 20px 12px;
-  z-index: 2;
+  padding: var(--space-5) var(--space-3);
+  background: var(--bg-sidebar);
   color: var(--text-secondary);
-  background: var(--bg-sidebar-solid);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
   -webkit-app-region: no-drag;
-  transition: width 150ms ease, flex-basis 150ms ease, max-width 150ms ease, transform 180ms ease;
-}
-
-.shell-column {
-  flex: 1 1 auto;
-  min-width: 0;
-  min-height: 0;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
+  transition:
+    width 150ms ease,
+    flex-basis 150ms ease,
+    max-width 150ms ease,
+    transform 180ms ease;
 }
 
 .sidebar-brand {
   display: flex;
   align-items: center;
-  gap: 9px;
+  gap: var(--space-2);
   min-height: 42px;
-  padding: 4px 10px 22px;
+  padding: var(--space-1) var(--space-1) var(--space-5) var(--space-2);
   color: var(--text-primary);
 }
-
 .brand-mark {
+  display: grid;
+  flex: 0 0 auto;
+  place-items: center;
   width: 32px;
   height: 32px;
   border-radius: var(--radius-md);
   background: var(--action-bg);
-  flex: 0 0 auto;
-
   color: var(--action-text);
-
-  display: grid;
-
-  place-items: center;
 }
-
 .brand-name {
   font-size: var(--text-lg);
-  font-weight: 500;
+  font-weight: var(--font-weight-medium);
   letter-spacing: -0.01em;
 }
-
 .sidebar-toggle {
   margin-left: auto;
-  width: 28px;
-  height: 28px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  background: transparent;
-  font-size: var(--text-xl);
-  line-height: 1;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.sidebar-toggle:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
 }
 
 .sidebar-nav {
   display: flex;
-  flex-direction: column;
   flex: 1;
+  flex-direction: column;
   gap: 2px;
   min-height: 0;
   overflow-y: auto;
 }
 
-.sidebar-footer {
-  flex: 0 0 auto;
-  margin-top: 12px;
-  padding-top: 10px;
-  border-top: 1px solid var(--separator);
-}
-
-.sidebar-item {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  width: 100%;
-  min-height: 36px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  background: transparent;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-regular);
-  text-align: left;
-  cursor: pointer;
-  transition:
-    background 0.16s var(--ease-out),
-    color 0.16s var(--ease-out);
-}
-
-.sidebar-item :deep(.app-icon) {
-  width: var(--icon-lg);
-  height: var(--icon-lg);
-  flex: 0 0 var(--icon-lg);
-}
-
-.toolbar-btn :deep(.app-icon),
-.bottom-nav :deep(.app-icon) {
-  display: block;
-  margin: 0 auto;
-}
-
-.bottom-nav :deep(.app-icon) {
-  width: var(--icon-lg);
-  height: var(--icon-lg);
-}
-
-.sidebar-item:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-}
-
-.sidebar-item.active {
-  color: var(--text-primary);
-  background: var(--bg-active);
-  font-weight: var(--font-weight-medium);
-}
-
-.sidebar-item.active :deep(.app-icon) {
-  color: var(--accent-text);
-}
-
-.sidebar-divider {
-  height: 1px;
-  margin: 12px 12px 2px;
-  background: var(--border-subtle);
-}
-
 .sidebar-heading {
-  padding: 16px 12px 6px;
+  padding: var(--space-4) var(--space-3) var(--space-1);
   color: var(--text-tertiary);
   font-size: var(--text-2xs);
-  font-weight: 400;
-  letter-spacing: 0;
-  text-transform: none;
+}
+.sidebar-divider {
+  height: 1px;
+  margin: var(--space-3) var(--space-3) 2px;
+  background: var(--separator);
 }
 
-/* Titlebar in shell column — 与内容同色，不留色带 */
-.top-menu {
-  position: relative;
-  top: auto;
-  left: auto;
-  right: auto;
-  flex: 0 0 var(--titlebar-height);
-  height: var(--titlebar-height);
-  z-index: 5;
-  background: var(--bg-content);
-  -webkit-app-region: drag;
-}
-
-.menu-content {
-  height: 100%;
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding: 0 16px 0 14px;
-  max-width: 100%;
-  gap: 12px;
-}
-
-.toolbar-leading {
-  display: flex;
-  align-items: center;
-  gap: 4px;
-  min-width: 0;
-  -webkit-app-region: no-drag;
-}
-
-.toolbar-btn {
-  display: grid;
-  place-items: center;
-  width: 34px;
-  height: 34px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  background: transparent;
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-
-.toolbar-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-}
-
-.global-search {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  width: min(320px, 32vw);
-  height: 32px;
-  margin-left: 8px;
-  padding: 0 10px;
-  border: 0;
-  border-radius: var(--radius-md);
-  color: var(--text-tertiary);
-  background: var(--bg-fill-tertiary);
-  transition: var(--transition-fast);
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .global-search {
-    background: var(--bg-elevated);
-  }
-}
-
-.global-search:focus-within {
-  color: var(--text-secondary);
-  background: var(--bg-elevated);
-  box-shadow: var(--focus-ring);
-}
-
-.global-search input {
-  width: 100%;
-  min-width: 0;
-  border: 0;
-  outline: none !important;
-  box-shadow: none !important;
-  color: var(--text-primary);
-  background: transparent;
-  font-size: var(--text-sm);
-  appearance: none;
-  -webkit-appearance: none;
-}
-
-/* 去掉系统自带清空钮，只保留自定义 × */
-.global-search input::-webkit-search-cancel-button,
-.global-search input::-webkit-search-decoration,
-.global-search input::-webkit-search-results-button,
-.global-search input::-webkit-search-results-decoration {
-  -webkit-appearance: none;
-  appearance: none;
-  display: none;
-}
-
-.global-search input::placeholder {
-  color: var(--text-tertiary);
-}
-
-.global-search :deep(.app-icon) {
-  flex: 0 0 auto;
-  stroke-width: 2;
-}
-
-.global-search-clear {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 22px;
-  height: 22px;
-  padding: 0;
-  border: 0;
-  border-radius: 50%;
-  color: var(--text-tertiary);
-  background: transparent;
-  line-height: 0;
-  cursor: pointer;
-}
-
-.global-search-clear :deep(.app-icon) {
-  width: 12px;
-  height: 12px;
-  stroke-width: 2.25;
-}
-
-.global-search-clear:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-}
-
-.settings-section {
-  display: flex;
-  align-items: center;
-  gap: 8px;
-  flex: 0 0 auto;
-  -webkit-app-region: no-drag;
-}
-
-.footer-actions {
-  display: flex;
-  align-items: stretch;
-  gap: 2px;
-
-  flex-direction: column;
-}
-
-.footer-icon-btn {
+/* 导航项（含页脚的刮削队列 / 设置）：选中为中性填充，不用强调色 */
+.sidebar-item {
   position: relative;
   display: flex;
   align-items: center;
-  justify-content: flex-start;
+  gap: var(--space-3);
   width: 100%;
-  height: 36px;
+  min-height: 36px;
+  padding: 0 var(--space-3);
   overflow: hidden;
   border: 0;
   border-radius: var(--radius-sm);
-  color: var(--text-secondary);
   background: transparent;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  text-align: left;
   cursor: pointer;
   transition: var(--transition-fast);
+}
+.sidebar-item:hover {
+  background: var(--bg-glass-hover);
+  color: var(--text-primary);
+}
+.sidebar-item.is-active {
+  background: var(--bg-active);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-medium);
+}
+.sidebar-item:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+.sidebar-item-label {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
 
-  padding: 0 12px;
-
-  gap: 10px;
-
+.sidebar-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: 2px;
+  margin-top: var(--space-3);
+  padding-top: var(--space-3);
+  border-top: 1px solid var(--separator);
+}
+.sidebar-footer .sidebar-item {
   font-size: var(--text-sm);
 }
-
-.footer-icon-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-}
-
-.footer-icon-btn.active {
-  color: var(--text-primary);
-  background: var(--bg-active);
-}
-
-.footer-icon-btn :deep(.app-icon) {
-  display: block;
-}
-
 .footer-queue-icon {
   position: relative;
   display: inline-flex;
-  align-items: center;
-  justify-content: center;
 }
-
 .footer-pulse {
   position: absolute;
   top: -2px;
   right: -2px;
   width: 6px;
   height: 6px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   background: var(--accent);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
   animation: queue-pulse 1.4s ease-out infinite;
 }
 @keyframes queue-pulse {
-  70% {
+  70%,
+  100% {
     box-shadow: 0 0 0 6px transparent;
   }
-  100% {
-    box-shadow: 0 0 0 0 transparent;
-  }
 }
-
 .footer-badge {
   position: absolute;
   top: 2px;
   right: 2px;
   min-width: 15px;
   height: 15px;
-  padding: 0 4px;
+  padding: 0 var(--space-1);
   border-radius: var(--radius-full);
   background: var(--accent);
   color: var(--text-on-accent);
@@ -839,149 +656,208 @@ onUnmounted(() => {
   text-align: center;
   pointer-events: none;
 }
-
 .footer-progress {
   position: absolute;
-  left: 0;
   bottom: 0;
+  left: 0;
   height: 2px;
   background: var(--accent);
   opacity: 0.85;
   transition: width 0.35s var(--ease-out);
 }
 
-/* Main content fills shell column */
+/* ── 右侧：工具栏 + 内容 ── */
+.shell-column {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  min-width: 0;
+  min-height: 0;
+  height: 100%;
+}
+
+/* 标题栏与内容同色，不留色带 */
+.top-menu {
+  position: relative;
+  z-index: 5;
+  flex: 0 0 var(--titlebar-height);
+  height: var(--titlebar-height);
+  background: var(--bg-content);
+  -webkit-app-region: drag;
+}
+.menu-content {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+  height: 100%;
+  padding: 0 var(--space-4) 0 var(--space-3);
+}
+.toolbar-leading {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
+  -webkit-app-region: no-drag;
+}
+.window-section {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  -webkit-app-region: no-drag;
+}
+
+.global-search {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  width: min(320px, 32vw);
+  height: var(--control-height);
+  margin-left: var(--space-2);
+  padding: 0 var(--space-1) 0 var(--space-3);
+  border-radius: var(--radius-md);
+  background: var(--bg-glass);
+  color: var(--text-tertiary);
+  transition: var(--transition-fast);
+}
+.global-search:focus-within {
+  background: var(--bg-elevated);
+  color: var(--text-secondary);
+  box-shadow: var(--focus-ring);
+}
+.global-search > .app-icon {
+  flex: 0 0 auto;
+}
+.global-search input {
+  width: 100%;
+  min-width: 0;
+  border: 0;
+  outline: none;
+  background: transparent;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  appearance: none;
+  -webkit-appearance: none;
+}
+.global-search input::placeholder {
+  color: var(--text-tertiary);
+}
+.global-search-clear {
+  --ib-size: 24px;
+  border-radius: var(--radius-full);
+}
+
 .main-content {
   flex: 1 1 auto;
   min-height: 0;
-  margin: 0;
-  height: auto;
   overflow: hidden;
 }
-
 .content-surface {
   height: 100%;
-  background: var(--bg-main);
   overflow: hidden;
+  background: var(--bg-main);
 }
 
-/* Collapsed sidebar */
+/* ── 收起侧栏：只留图标，文字改为悬停提示 ── */
 .app-layout.sidebar-collapsed .app-sidebar {
   flex-basis: var(--sidebar-width-collapsed);
   width: var(--sidebar-width-collapsed);
   max-width: var(--sidebar-width-collapsed);
-  padding-left: 10px;
-  padding-right: 10px;
+  padding-right: var(--space-3);
+  padding-left: var(--space-3);
 }
 .app-layout.sidebar-collapsed .sidebar-brand {
   justify-content: center;
-  padding-left: 0;
   padding-right: 0;
+  padding-left: 0;
 }
 .app-layout.sidebar-collapsed .brand-name,
-.app-layout.sidebar-collapsed .brand-mark {
+.app-layout.sidebar-collapsed .brand-mark,
+.app-layout.sidebar-collapsed .sidebar-heading,
+.app-layout.sidebar-collapsed .sidebar-item-label {
   display: none;
+}
+.app-layout.sidebar-collapsed .sidebar-toggle {
+  margin-left: 0;
 }
 .app-layout.sidebar-collapsed .sidebar-item {
   justify-content: center;
   padding: 0;
 }
-.app-layout.sidebar-collapsed .sidebar-item span {
-  display: none;
-}
-.app-layout.sidebar-collapsed .sidebar-heading {
-  display: none;
-}
 .app-layout.sidebar-collapsed .sidebar-divider {
-  margin-left: 8px;
-  margin-right: 8px;
+  margin-right: var(--space-2);
+  margin-left: var(--space-2);
 }
 
-/* 收起侧栏：页脚按钮纵向堆叠 */
-.app-layout.sidebar-collapsed .footer-actions {
-  flex-direction: column;
-  gap: 2px;
-}
-
-.app-layout.sidebar-collapsed .footer-action-label { display: none; }
-.app-layout.sidebar-collapsed .footer-icon-btn { width: 36px; padding: 0; justify-content: center; }
-
-/* Phone / narrow: drawer sidebar overlays only when open */
-.app-layout.is-phone,
-.app-layout.is-phone.sidebar-collapsed {
+/* ── 手机：侧栏为抽屉，只在打开时覆盖内容 ── */
+.app-layout.is-phone {
   flex-direction: column;
 }
-
 .app-layout.is-phone .app-sidebar {
   position: fixed;
   inset: 0 auto 0 0;
+  z-index: 1150;
   flex: none;
   width: min(320px, 86vw);
   max-width: min(320px, 86vw);
   height: 100%;
-  padding: calc(18px + var(--safe-top)) 12px calc(20px + var(--safe-bottom));
-  transform: translateX(-110%);
-  z-index: 1150;
+  padding: calc(18px + var(--safe-top)) var(--space-3)
+    calc(20px + var(--safe-bottom));
   box-shadow: var(--shadow-lg);
+  transform: translateX(-110%);
   pointer-events: none;
 }
-
 .app-layout.is-phone.sidebar-open .app-sidebar {
   transform: translateX(0);
   pointer-events: auto;
 }
-
 .app-layout.is-phone .sidebar-toggle {
   display: none;
 }
-
 .app-layout.is-phone .shell-column {
   width: 100%;
-  height: 100%;
   padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom));
 }
-
 .app-layout.is-phone .top-menu {
   flex-basis: calc(var(--titlebar-height) + var(--safe-top));
   height: calc(var(--titlebar-height) + var(--safe-top));
   padding-top: var(--safe-top);
   -webkit-app-region: no-drag;
 }
-
-.app-layout.is-phone .main-content {
-  margin: 0;
-  height: auto;
+.app-layout.is-phone .menu-content {
+  padding: 0 var(--space-2);
 }
-
-.app-layout.is-phone .sidebar-backdrop {
+.app-layout.is-phone .global-search {
+  flex: 1;
+  width: auto;
+  min-width: 0;
+  margin-left: var(--space-1);
+}
+.sidebar-backdrop {
   position: fixed;
   inset: 0;
   z-index: 1140;
-  border: 0;
   background: rgba(0, 0, 0, 0.4);
   backdrop-filter: blur(6px);
+  -webkit-backdrop-filter: blur(6px);
 }
 
-.app-layout.is-phone .bottom-nav {
+.bottom-nav {
   position: fixed;
-  left: 0;
   right: 0;
   bottom: 0;
+  left: 0;
   z-index: 1100;
   display: flex;
   align-items: stretch;
   height: calc(var(--bottom-nav-height) + var(--safe-bottom));
-  padding: 0 8px var(--safe-bottom);
-  background: var(--bg-titlebar);
-  backdrop-filter: blur(var(--blur-titlebar)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-titlebar))
-    saturate(var(--saturate-vibrancy));
+  padding: 0 var(--space-2) var(--safe-bottom);
   border-top: 1px solid var(--separator);
+  background: var(--bg-titlebar);
 }
-
-.app-layout.is-phone .bottom-nav button {
-  flex: 1;
+.bottom-nav-item {
   display: flex;
+  flex: 1;
   flex-direction: column;
   align-items: center;
   justify-content: center;
@@ -989,57 +865,42 @@ onUnmounted(() => {
   min-height: var(--bottom-nav-height);
   border: 0;
   background: transparent;
-  color: var(--text-secondary);
+  color: var(--text-tertiary);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
+  cursor: pointer;
+}
+.bottom-nav-item.is-active {
+  color: var(--text-primary);
+}
+.bottom-nav-item:focus-visible {
+  outline: none;
+  box-shadow: inset var(--focus-ring);
 }
 
-.app-layout.is-phone .bottom-nav button.active {
-  color: var(--accent-text);
-}
-
-.app-layout.is-phone .global-search {
-  flex: 1;
-  width: auto;
-  min-width: 0;
-  margin-left: 4px;
-}
-
-.app-layout.is-phone .menu-content {
-  padding: 0 10px;
-}
-
+/* 未识别为手机但窗口很窄时：侧栏收进屏幕外，保持内容可用 */
 @media (max-width: 768px) {
-  /* Fallback before/without is-phone class */
   .app-layout:not(.is-phone) {
     flex-direction: column;
   }
   .app-layout:not(.is-phone) .app-sidebar {
     position: fixed;
     inset: 0 auto 0 0;
+    z-index: 1150;
     flex: none;
     width: min(320px, 86vw);
     max-width: min(320px, 86vw);
     height: 100%;
     transform: translateX(-110%);
-    z-index: 1150;
     pointer-events: none;
-  }
-  .app-layout:not(.is-phone).sidebar-open .app-sidebar,
-  .app-layout:not(.is-phone) .app-sidebar {
-    /* stay closed unless JS opens; without is-phone, sidebar-open won't set — keep hidden */
   }
   .app-layout:not(.is-phone) .shell-column {
     width: 100%;
     padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom));
   }
   .app-layout:not(.is-phone) .top-menu {
-    left: auto;
     height: calc(var(--titlebar-height) + var(--safe-top));
     padding-top: var(--safe-top);
-  }
-  .app-layout:not(.is-phone) .main-content {
-    margin: 0;
   }
 }
 </style>
