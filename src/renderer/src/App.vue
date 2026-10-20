@@ -23,8 +23,8 @@ import { computed, watchEffect } from 'vue'
 import { useRoute } from 'vue-router'
 import { ConfigProvider } from 'ant-design-vue'
 import type { Theme } from 'ant-design-vue/es/config-provider/context'
-import AppLayout from '@/components/Layout/AppLayout.vue'
-import MpvLoadingOverlay from '@/components/MpvLoadingOverlay.vue'
+import { AppLayout } from '@/features/shell'
+import { MpvLoadingOverlay } from '@/features/player'
 import { useTheme } from '@/utils/theme'
 
 const route = useRoute()
