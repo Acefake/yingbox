@@ -12,8 +12,8 @@
       controls
       @play="clearFailure"
       @loadedmetadata="clearFailure"
-      @timeupdate="onTimeUpdate"
-      @pause="flushProgress"
+      @timeupdate="progress.onTimeUpdate"
+      @pause="progress.flush"
       @ended="onEnded"
       @error="onError"
     />
@@ -50,37 +50,24 @@
 </template>
 
 <script setup lang="ts">
+/**
+ * 独立播放窗口：接收主窗口发来的播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
+ * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/popout-queue、useProgressSaver。
+ */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import UnifiedVideoPlayer from '../components/UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
+import { useProgressSaver } from '../composables/use-progress-saver'
+import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import {
-  getMediaProgress,
-  mediaProgressKey,
-  saveMediaProgress,
-} from '../utils/play-progress'
+  type PlayerPayload,
+  type PlaylistEntry,
+  normalizePlayerPayload,
+  playlistEntryLabel,
+} from '../utils/popout-queue'
 import { resolvePlaySource } from '@/features/online'
-
-/** 单个播放条目（集 / 文件 / 备用线路） */
-type Entry = {
-  url?: string
-  filePath?: string
-  name?: string
-  ext?: Record<string, unknown>
-  siteName?: string
-}
-
-type PlayerPayload = {
-  filePath?: string
-  url?: string
-  title?: string
-  poster?: string
-  startAt?: number
-  playlist?: Entry[]
-  index?: number
-  fallbacks?: Entry[]
-}
 
 const route = useRoute()
 const src = ref('')
@@ -92,10 +79,10 @@ const emptyText = ref('等待加载视频…')
 const notice = ref('')
 
 /** 当前线路的播放队列（自动连播用） */
-const playlist = ref<Entry[]>([])
+const playlist = ref<PlaylistEntry[]>([])
 const position = ref(0)
 /** 同集备用线路（失败自动换线路用） */
-const fallbacks = ref<Entry[]>([])
+const fallbacks = ref<PlaylistEntry[]>([])
 /** 当前使用的备用线路下标；-1 = 主线路 */
 const activeFallback = ref(-1)
 
@@ -106,14 +93,12 @@ const failure = ref('')
 const failedSource = ref('')
 const retrying = ref(false)
 
-let lastPersist = 0
-let lastTime = 0
-let lastDuration = 0
+const progress = useProgressSaver(() => progressKey.value)
 /** 加载世代：丢弃过期的异步解析结果 */
 let loadToken = 0
 let noticeTimer: number | undefined
 
-const currentEntry = computed<Entry | null>(() => {
+const currentEntry = computed<PlaylistEntry | null>(() => {
   if (activeFallback.value >= 0)
     return fallbacks.value[activeFallback.value] || null
   return playlist.value[position.value] || null
@@ -133,30 +118,8 @@ const clearFailure = (): void => {
   failedSource.value = ''
 }
 
-const entryLabel = (entry: Entry | null | undefined): string => {
-  const name = typeof entry?.name === 'string' ? entry.name.trim() : ''
-  if (name) return name
-  if (entry?.filePath)
-    return entry.filePath.split(/[/\\]/).pop() || defaultTitle.value
-  return defaultTitle.value
-}
-
-const flushProgress = (): void => {
-  if (!progressKey.value) return
-  if (!(lastTime > 1)) return
-  saveMediaProgress(progressKey.value, lastTime, lastDuration)
-}
-
-const onTimeUpdate = (event: Event): void => {
-  const el = event.target as HTMLVideoElement | null
-  if (!el || !progressKey.value) return
-  lastTime = el.currentTime || 0
-  lastDuration = Number.isFinite(el.duration) ? el.duration : 0
-  const now = Date.now()
-  if (now - lastPersist < 2000) return
-  lastPersist = now
-  saveMediaProgress(progressKey.value, lastTime, lastDuration)
-}
+const entryLabel = (entry: PlaylistEntry | null | undefined): string =>
+  playlistEntryLabel(entry, defaultTitle.value)
 
 /**
  * 加载当前条目。
@@ -170,8 +133,7 @@ const loadEntry = async (
 ): Promise<void> => {
   const token = ++loadToken
   const entry = currentEntry.value
-  lastTime = 0
-  lastDuration = 0
+  progress.reset()
   clearFailure()
 
   if (!entry) {
@@ -224,13 +186,7 @@ const playNext = async (): Promise<boolean> => {
 
 const onEnded = async (event: Event): Promise<void> => {
   const el = event.target as HTMLVideoElement | null
-  const duration =
-    el && Number.isFinite(el.duration) ? el.duration : lastDuration
-  if (progressKey.value) {
-    // 已看完：清除续播点，下次从头播放
-    saveMediaProgress(progressKey.value, 0, duration)
-  }
-  lastTime = 0
+  progress.markFinished(el)
   const next = playlist.value[position.value + 1]
   if (next) {
     showNotice(`即将播放：${entryLabel(next)}`)
@@ -272,48 +228,16 @@ const retry = async (): Promise<void> => {
 }
 
 const applyPayload = (payload: PlayerPayload): void => {
-  const filePath =
-    typeof payload.filePath === 'string' ? payload.filePath.trim() : ''
-  const url = typeof payload.url === 'string' ? payload.url.trim() : ''
-  const maybeTitle =
-    typeof payload.title === 'string' ? payload.title.trim() : ''
-  const maybePoster =
-    typeof payload.poster === 'string' ? payload.poster.trim() : ''
-  const maybeStart =
-    typeof payload.startAt === 'number' && Number.isFinite(payload.startAt)
-      ? Math.max(0, payload.startAt)
-      : undefined
-
-  defaultTitle.value = maybeTitle || '正在播放'
-
-  const incoming = Array.isArray(payload.playlist)
-    ? payload.playlist.filter(Boolean)
-    : []
-  if (incoming.length) {
-    playlist.value = incoming
-    const rawIndex = Number(payload.index)
-    position.value =
-      Number.isInteger(rawIndex) && rawIndex >= 0 && rawIndex < incoming.length
-        ? rawIndex
-        : 0
-  } else if (url || filePath) {
-    // 单条目：等价于长度为 1 的队列，仍记录进度，但不触发连播
-    playlist.value = [
-      { ...(url ? { url } : {}), ...(filePath ? { filePath } : {}) },
-    ]
-    position.value = 0
-  } else {
-    return
-  }
-
-  fallbacks.value = Array.isArray(payload.fallbacks)
-    ? payload.fallbacks.filter(Boolean)
-    : []
+  const queue = normalizePlayerPayload(payload)
+  if (!queue) return
+  defaultTitle.value = queue.title
+  playlist.value = queue.playlist
+  position.value = queue.position
+  fallbacks.value = queue.fallbacks
   activeFallback.value = -1
-  poster.value = maybePoster
-
+  poster.value = queue.poster
   // 起始项地址已由调用方解析过，直接复用以避免二次解析（url 始终对应 index 指向的那一集）
-  void loadEntry(url || undefined, maybeStart)
+  void loadEntry(queue.seededUrl, queue.startAt)
 }
 
 onMounted(() => {
@@ -343,12 +267,12 @@ onMounted(() => {
     }
   })
 
-  window.addEventListener('beforeunload', flushProgress)
+  window.addEventListener('beforeunload', progress.flush)
 })
 
 onBeforeUnmount(() => {
-  flushProgress()
-  window.removeEventListener('beforeunload', flushProgress)
+  progress.flush()
+  window.removeEventListener('beforeunload', progress.flush)
   window.api?.player?.offLoad?.()
 })
 </script>

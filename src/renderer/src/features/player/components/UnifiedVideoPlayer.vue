@@ -7,20 +7,7 @@
     <div class="unified-player-stage">
       <div ref="containerEl" class="unified-player-video-area" />
       <!-- 仅加载中显示自适应海报；开播后纯黑，不留背景 -->
-      <div
-        v-if="showLoadingPoster"
-        class="unified-player-loading"
-        aria-hidden="true"
-      >
-        <img
-          v-if="posterSrc"
-          class="unified-player-loading-poster"
-          :src="posterSrc"
-          alt=""
-          draggable="false"
-        />
-        <div class="unified-player-loading-spin" />
-      </div>
+      <PlayerLoadingCover v-if="isLoading" :poster="posterSrc" />
     </div>
     <div v-if="showFooter && (closable || title)" class="unified-player-footer">
       <span class="unified-player-title">{{ title || '正在播放' }}</span>
@@ -29,8 +16,8 @@
           icon="subtitle"
           label="在线字幕"
           size="sm"
-          :active="subtitlePanelOpen"
-          @click="toggleSubtitlePanel"
+          :active="subtitles.panelOpen.value"
+          @click="subtitles.togglePanel"
         />
         <UiIconButton
           v-if="closable"
@@ -42,85 +29,43 @@
       </div>
     </div>
     <!-- 在线字幕搜索面板 -->
-    <div v-if="subtitlePanelOpen" class="unified-player-subtitle-panel">
-      <DialogTitlebar
-        title="在线字幕 (OpenSubtitles)"
-        icon="subtitle"
-        @close="subtitlePanelOpen = false"
-      />
-      <div class="usp-search-row">
-        <UiInput
-          v-model="subtitleQuery"
-          class="usp-input"
-          size="sm"
-          placeholder="影视名称…"
-          @keydown.enter="doSubtitleSearch"
-        />
-        <UiButton
-          size="sm"
-          icon="search"
-          :label="subtitleSearching ? '搜索中…' : '搜索'"
-          :loading="subtitleSearching"
-          @click="doSubtitleSearch"
-        />
-      </div>
-      <p v-if="subtitleMessage" class="usp-msg">{{ subtitleMessage }}</p>
-      <div class="usp-list">
-        <UiListRow
-          v-for="hit in subtitleHits"
-          :key="hit.fileId"
-          class="usp-item"
-          :disabled="subtitleDownloadingId === hit.fileId"
-          @click="applyOnlineSubtitle(hit)"
-        >
-          <span class="usp-item-name">{{ hit.name }}</span>
-          <template #description>
-            <span class="usp-item-meta">
-              <UiIcon name="download" size="sm" />{{ hit.downloads }}
-              <template v-if="hit.rating">
-                · <UiIcon name="star" size="sm" filled />{{ hit.rating }}
-              </template>
-              · {{ hit.format }}
-              {{ subtitleDownloadingId === hit.fileId ? '· 下载中…' : '' }}
-            </span>
-          </template>
-        </UiListRow>
-        <p
-          v-if="
-            !subtitleSearching && subtitleHits.length === 0 && subtitleMessage
-          "
-          class="usp-empty"
-        >
-          无结果
-        </p>
-      </div>
-    </div>
+    <SubtitleSearchPanel
+      v-show="subtitles.panelOpen.value"
+      v-model:query="subtitles.query.value"
+      :hits="subtitles.hits.value"
+      :searching="subtitles.searching.value"
+      :downloading-id="subtitles.downloadingId.value"
+      :message="subtitles.message.value"
+      @search="subtitles.search"
+      @pick="subtitles.applyOnline"
+      @close="subtitles.panelOpen.value = false"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import DialogTitlebar from '@/components/DialogTitlebar.vue'
-import UiButton from '@/components/ui/UiButton.vue'
-import UiIcon from '@/components/ui/UiIcon.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiInput from '@/components/ui/UiInput.vue'
-import UiListRow from '@/components/ui/UiListRow.vue'
-import { ICON_PATHS, type IconName } from '@/components/ui/icons'
-import { getSetting, setSetting } from '@/features/settings'
+/**
+ * 统一播放器：Artplayer 外壳 + hls.js（HLS）+ 字幕（本地自动挂载 / 在线搜索）+ 续播与倍速记忆。
+ * 构造参数与纯规则在 utils/art-options.ts，字幕在 usePlayerSubtitles，这里只管加载、销毁与事件转发。
+ */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
 
-/**
- * 播放器控件主题色取自 tokens.css 的 --media-accent（Artplayer 需要具体颜色值，不能传 var()）。
- */
-function mediaAccent(): string {
-  return (
-    getComputedStyle(document.documentElement)
-      .getPropertyValue('--media-accent')
-      .trim() || 'white'
-  )
-}
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { getSetting, setSetting } from '@/features/settings'
+
+import { usePlayerSubtitles } from '../composables/use-player-subtitles'
+import {
+  applyPlaybackRate,
+  artOptions,
+  isHlsUrl,
+  isValidPlaybackRate,
+  shouldResume,
+} from '../utils/art-options'
+import { createHlsSession } from '../utils/hls-session'
+import PlayerLoadingCover from './PlayerLoadingCover.vue'
+import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -176,239 +121,31 @@ const video = ref<HTMLVideoElement | null>(null)
 const isLoading = ref(false)
 
 let art: Artplayer | null = null
-let hls: Hls | null = null
 let loadToken = 0
 let pendingSeek = 0
 
 /** 上一次使用的播放倍速（跨会话记忆，设置 player.playbackRate） */
 const readStoredRate = (): number => getSetting('player.playbackRate')
 
+const subtitles = usePlayerSubtitles({
+  player: () => art,
+  search: () => ({
+    title: props.subtitleSearchTitle || props.title || '',
+    imdbId: props.subtitleImdbId,
+    season: props.subtitleSeason,
+    episode: props.subtitleEpisode,
+  }),
+})
+
 const storeRate = (rate: number): void => {
-  if (Number.isFinite(rate) && rate >= 0.25 && rate <= 4) {
-    void setSetting('player.playbackRate', rate)
-  }
+  if (isValidPlaybackRate(rate)) void setSetting('player.playbackRate', rate)
 }
 
-/** 本地字幕候选（同目录 .srt/.ass/.vtt） */
-interface LocalSubtitle {
-  name: string
-  path: string
-  ext: string
-}
-
-let subtitleObjectUrl: string | null = null
-
-const disposeSubtitleUrl = (): void => {
-  if (!subtitleObjectUrl) return
-  URL.revokeObjectURL(subtitleObjectUrl)
-  subtitleObjectUrl = null
-}
-
-const isLocalSource = (url: string): boolean => url.startsWith('local://')
-
-// ── 在线字幕（OpenSubtitles）────────────────────────────
-interface OnlineSubtitleHit {
-  name: string
-  language: string
-  downloads: number
-  rating?: number
-  size?: number
-  format: string
-  fileId: number
-}
-
-const subtitlePanelOpen = ref(false)
-const subtitleQuery = ref('')
-const subtitleHits = ref<OnlineSubtitleHit[]>([])
-const subtitleSearching = ref(false)
-const subtitleDownloadingId = ref<number | null>(null)
-const subtitleMessage = ref('')
-
-const toggleSubtitlePanel = (): void => {
-  subtitlePanelOpen.value = !subtitlePanelOpen.value
-  if (subtitlePanelOpen.value && !subtitleHits.value.length) {
-    // 首次打开自动用标题搜一次
-    doSubtitleSearch()
-  }
-}
-
-const doSubtitleSearch = async (): Promise<void> => {
-  const api = window.api?.subtitle
-  if (!api?.searchOnline) {
-    subtitleMessage.value = '当前环境不支持在线字幕（需 Electron）'
-    return
-  }
-  const query = (
-    subtitleQuery.value ||
-    props.subtitleSearchTitle ||
-    props.title ||
-    ''
-  ).trim()
-  if (!query) {
-    subtitleMessage.value = '请输入影视名称'
-    return
-  }
-  subtitleSearching.value = true
-  subtitleMessage.value = ''
-  subtitleHits.value = []
-  try {
-    const result = await api.searchOnline({
-      query,
-      imdbId: props.subtitleImdbId || undefined,
-      season: props.subtitleSeason,
-      episode: props.subtitleEpisode,
-    })
-    if (!result?.success) {
-      subtitleMessage.value = result?.notConfigured
-        ? '未配置 API key：在启动环境设置 YINGBOX_OPENSUBTITLES_KEY 后重启应用'
-        : result?.error || '搜索失败'
-      return
-    }
-    subtitleHits.value = result.data || []
-    if (!subtitleHits.value.length) subtitleMessage.value = '无结果'
-  } catch (error) {
-    subtitleMessage.value = (error as Error).message
-  } finally {
-    subtitleSearching.value = false
-  }
-}
-
-/** 下载并挂载在线字幕（与本地字幕共用同一 blob 挂载链路） */
-const applyOnlineSubtitle = async (hit: OnlineSubtitleHit): Promise<void> => {
-  const api = window.api?.subtitle
-  const instance = art
-  if (!api?.downloadOnline || !instance) return
-  subtitleDownloadingId.value = hit.fileId
-  try {
-    const downloaded = await api.downloadOnline(hit.fileId)
-    if (!downloaded?.success || !downloaded.data) {
-      subtitleMessage.value = downloaded?.notConfigured
-        ? '未配置 API key：设置 YINGBOX_OPENSUBTITLES_KEY 后重启应用'
-        : downloaded?.error || '下载失败'
-      return
-    }
-    if (art !== instance) return
-    disposeSubtitleUrl()
-    subtitleObjectUrl = URL.createObjectURL(
-      new Blob([downloaded.data], { type: 'text/vtt' })
-    )
-    await instance.subtitle.switch(subtitleObjectUrl, {
-      name: hit.name,
-      type: 'vtt',
-    })
-    instance.notice.show = `字幕：${hit.name}`
-    subtitlePanelOpen.value = false
-  } catch (error) {
-    subtitleMessage.value = (error as Error).message
-  } finally {
-    subtitleDownloadingId.value = null
-  }
-}
-
-/**
- * 为本地视频自动挂载同目录字幕。
- *
- * 字幕文件可能是 GBK 编码的 srt/ass，由主进程统一读成 WebVTT 后
- * 以 blob URL 交给 Artplayer（避免 local:// 跨源读取限制）。
- */
-const applyLocalSubtitles = async (
-  instance: Artplayer,
-  source: string
-): Promise<void> => {
-  const subtitleApi = window.api?.subtitle
-  if (!subtitleApi || !isLocalSource(source)) return
-
-  let list: LocalSubtitle[] = []
-  try {
-    const found = await subtitleApi.find(source)
-    if (!found?.success || !Array.isArray(found.data)) return
-    list = found.data
-  } catch {
-    return
-  }
-  // 等待期间可能已切集/销毁播放器，此时放弃挂载
-  if (!list.length || art !== instance) return
-
-  const switchTo = async (item: LocalSubtitle): Promise<boolean> => {
-    if (art !== instance) return false
-    try {
-      const read = await subtitleApi.read(item.path)
-      if (!read?.success || !read.data) return false
-      if (art !== instance) return false
-      disposeSubtitleUrl()
-      subtitleObjectUrl = URL.createObjectURL(
-        new Blob([read.data], { type: 'text/vtt' })
-      )
-      await instance.subtitle.switch(subtitleObjectUrl, {
-        name: item.name,
-        type: 'vtt',
-      })
-      return true
-    } catch {
-      return false
-    }
-  }
-
-  // 默认加载最佳匹配（与视频同名者优先）
-  const applied = await switchTo(list[0])
-  if (!applied || art !== instance) return
-
-  // 多个候选时提供字幕切换菜单；菜单失败不应影响已生效的字幕
-  if (list.length > 1) {
-    try {
-      instance.setting.add({
-        name: 'localSubtitle',
-        html: '字幕',
-        selector: list.map(item => ({
-          html: item.name,
-          subtitlePath: item.path,
-        })),
-        onSelect(
-          this: Artplayer,
-          item: { html: string; subtitlePath?: string }
-        ) {
-          const target = list.find(sub => sub.path === item.subtitlePath)
-          if (target) void switchTo(target)
-          this.notice.show = `字幕：${item.html}`
-        },
-      })
-    } catch {
-      // ignore
-    }
-  }
-}
-
-/**
- * 把设计系统的图标转成 Artplayer 控制栏可用的 SVG 字符串，
- * 让播放器原生控制栏与应用其余部分使用同一套线性图标。
- * 只替换图标外观，不改变 Artplayer 的任何控制行为。
- */
-const artIcon = (name: IconName, filled = false): string =>
-  `<svg viewBox="0 0 24 24" width="22" height="22" style="fill:${
-    filled ? 'currentColor' : 'none'
-  }" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[name]}"/></svg>`
-
-const ART_ICONS = {
-  play: artIcon('play', true),
-  pause: artIcon('pause'),
-  volume: artIcon('volume'),
-  volumeClose: artIcon('volumeOff'),
-  fullscreenOn: artIcon('fullscreen'),
-  // 图标库没有「退出全屏」，用最接近的 restore
-  fullscreenOff: artIcon('restore'),
-  pip: artIcon('pip'),
-  setting: artIcon('settings'),
-}
-
-const destroyHls = (): void => {
-  if (!hls) return
-  hls.destroy()
-  hls = null
-}
+const hlsSession = createHlsSession()
 
 const destroyPlayer = (): void => {
-  destroyHls()
-  disposeSubtitleUrl()
+  hlsSession.destroy()
+  subtitles.dispose()
   if (art) {
     try {
       art.destroy(false)
@@ -421,22 +158,15 @@ const destroyPlayer = (): void => {
 }
 
 const posterSrc = computed(() => props.poster?.trim() || '')
-const showLoadingPoster = computed(() => isLoading.value)
 
 const hideLoading = (): void => {
   isLoading.value = false
 }
 
-const isHlsUrl = (url: string): boolean => /\.m3u8(?:$|\?)/i.test(url)
-
 const applySeekIfNeeded = (videoEl: HTMLVideoElement): void => {
-  const target = pendingSeek
-  if (!(target > 5)) return
-  const duration = videoEl.duration
-  if (!Number.isFinite(duration) || duration <= 15) return
-  if (target >= duration - 10) return
+  if (!shouldResume(pendingSeek, videoEl.duration)) return
   try {
-    videoEl.currentTime = target
+    videoEl.currentTime = pendingSeek
   } catch {
     // ignore
   }
@@ -478,75 +208,29 @@ const createPlayer = async (source: string): Promise<void> => {
   // 直接抛错（option.customType require 'object'），导致本地文件与直链 mp4/flv
   // 连 <video> 都创建不出来——因此这两项只在 HLS 时通过展开提供。
   const hlsCustomType = useHls
-    ? {
-        m3u8(
-          videoEl: HTMLVideoElement,
-          url: string,
-          instance: Artplayer
-        ): void {
-          destroyHls()
-          hls = new Hls({ enableWorker: true })
-          hls.loadSource(url)
-          hls.attachMedia(videoEl)
-          hls.on(Hls.Events.MANIFEST_PARSED, () => {
-            applySeekIfNeeded(videoEl)
-            if (props.autoplay) videoEl.play().catch(() => {})
-          })
-          hls.on(Hls.Events.ERROR, (_event, data) => {
-            if (data.fatal) {
-              hideLoading()
-              emit('error', new Event('error'))
-              instance.notice.show = '播放失败'
-            }
-          })
-          instance.on('destroy', () => {
-            destroyHls()
-          })
+    ? hlsSession.customType({
+        onManifestParsed: videoEl => {
+          applySeekIfNeeded(videoEl)
+          if (props.autoplay) videoEl.play().catch(() => {})
         },
-      }
+        onFatalError: instance => {
+          hideLoading()
+          emit('error', new Event('error'))
+          instance.notice.show = '播放失败'
+        },
+      })
     : null
 
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
-  art = new Artplayer({
-    container: containerEl.value,
-    url: resolved,
-    poster: '',
-    theme: mediaAccent(),
-    volume: 1,
-    autoplay: props.autoplay,
-    muted: false,
-    autoSize: false,
-    autoMini: false,
-    loop: false,
-    flip: false,
-    playbackRate: true,
-    aspectRatio: false,
-    screenshot: false,
-    setting: true,
-    hotkey: false,
-    pip: false,
-    mutex: true,
-    backdrop: true,
-    fullscreen: props.controls,
-    fullscreenWeb: false,
-    miniProgressBar: false,
-    autoPlayback: false,
-    lock: false,
-    fastForward: false,
-    autoOrientation: false,
-    lang: 'zh-cn',
-    icons: ART_ICONS,
-    moreVideoAttr: {
-      playsInline: true,
-      preload: 'auto',
-    },
-    // Artplayer 5.x 校验 option.type 必须是字符串：传 undefined 会在构造时抛错，
-    // 导致非 HLS（本地文件、直链 mp4/flv）根本无法创建播放器。空串即沿用
-    // Artplayer 默认的按扩展名自动识别。
-    ...(useHls && hlsCustomType
-      ? { type: 'm3u8', customType: hlsCustomType }
-      : {}),
-  })
+  art = new Artplayer(
+    artOptions({
+      container: containerEl.value,
+      url: resolved,
+      autoplay: props.autoplay,
+      controls: props.controls,
+      hls: useHls ? hlsCustomType : null,
+    })
+  )
 
   video.value = art.video
   emit('ready', art.video)
@@ -555,25 +239,13 @@ const createPlayer = async (source: string): Promise<void> => {
   // 注意：video.load() 会把 playbackRate 重置为 defaultPlaybackRate，故两者都要设，
   // 并在每次 loadedmetadata 时重新应用，保证自动连播换集后倍速不丢。
   const initialRate = readStoredRate()
-  const applyRate = (
-    el: HTMLVideoElement | null | undefined,
-    rate: number
-  ): void => {
-    if (!el || rate === 1) return
-    try {
-      el.defaultPlaybackRate = rate
-      if (el.playbackRate !== rate) el.playbackRate = rate
-    } catch {
-      // ignore
-    }
-  }
-  applyRate(art.video, initialRate)
+  applyPlaybackRate(art.video, initialRate)
   art.on('video:ratechange', () => {
     if (art?.video) storeRate(art.video.playbackRate)
   })
 
   // 本地视频：自动挂载同目录字幕（srt/ass/vtt，含 GBK 编码转换）
-  void applyLocalSubtitles(art, resolved)
+  void subtitles.applyLocal(art, resolved)
 
   art.on('video:loadedmetadata', (event: Event) => {
     if (art?.video) applySeekIfNeeded(art.video)
@@ -671,44 +343,6 @@ defineExpose({ video })
   display: none !important;
 }
 
-.unified-player-loading {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-above);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--media-bg);
-  pointer-events: none;
-}
-
-.unified-player-loading-poster {
-  max-width: min(72%, 420px);
-  max-height: min(78%, 72vh);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-.unified-player-loading-spin {
-  position: absolute;
-  bottom: var(--space-6_5);
-  width: 22px;
-  height: 22px;
-  border: 2px solid var(--media-track);
-  border-top-color: var(--media-text-secondary);
-  border-radius: 50%;
-  animation: unified-player-spin var(--duration-spin) linear infinite;
-}
-
-@keyframes unified-player-spin {
-  to {
-    transform: rotate(360deg);
-  }
-}
-
 .unified-player--no-controls :deep(.art-controls),
 .unified-player--no-controls :deep(.art-bottom),
 .unified-player--no-controls :deep(.art-mask),
@@ -744,93 +378,5 @@ defineExpose({ video })
   align-items: center;
   gap: var(--space-2);
   flex: 0 0 auto;
-}
-
-.unified-player-subtitle-panel {
-  position: absolute;
-  right: var(--space-3);
-  bottom: 56px; /* style-tokens: layout（避开底部控制栏） */
-  z-index: var(--z-popover);
-  width: min(360px, 86vw);
-  max-height: min(420px, 60vh);
-  display: flex;
-  flex-direction: column;
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-lg);
-  color: var(--text-primary);
-  overflow: hidden;
-
-  backdrop-filter: none;
-}
-
-.usp-search-row {
-  display: flex;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
-}
-
-.usp-input {
-  flex: 1;
-}
-
-.usp-msg {
-  margin: 0 var(--space-3) var(--space-2);
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-}
-
-.usp-list {
-  flex: 1;
-  min-height: 0;
-  overflow-y: auto;
-  padding: 0 var(--space-2) var(--space-2);
-}
-
-/* 结果行为 UiListRow：这里只保留紧凑尺寸和面板内的填充底 */
-.usp-item {
-  padding: var(--space-2) var(--space-2);
-  margin-bottom: var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary);
-  color: inherit;
-}
-
-.usp-item:hover:not(:disabled) {
-  background: var(--bg-glass-hover);
-}
-
-.usp-item:disabled {
-  opacity: 0.6;
-}
-
-.usp-item-name {
-  display: block;
-  font-size: var(--text-xs);
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.usp-item-meta {
-  display: inline-flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-1);
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-}
-
-.usp-item-meta .app-icon {
-  width: 11px;
-  height: 11px;
-}
-
-.usp-empty {
-  margin: var(--space-2) var(--space-1);
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-  text-align: center;
 }
 </style>
