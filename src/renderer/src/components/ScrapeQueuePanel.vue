@@ -19,66 +19,123 @@
         <DialogTitlebar title="刮削队列" icon="list" @close="emit('close')" />
 
         <!-- 去码 / 边跑边看：都是后台任务，收起时只留一行摘要 -->
-        <section v-if="hasRuntime" class="sqp-runtime" :class="{ 'is-open': runtimeOpen }">
-          <button
-            class="sqp-runtime-head"
-            type="button"
-            :aria-expanded="runtimeOpen"
-            @click="toggleRuntime"
-          >
-            <span v-if="restoreRunning" class="sqp-spin sqp-runtime-spin" aria-hidden="true" />
+        <section v-if="hasRuntime" class="sqp-runtime">
+          <div class="sqp-runtime-head" @click="toggleRuntime">
+            <span
+              v-if="restoreRunning"
+              class="sqp-spin sqp-runtime-spin"
+              aria-hidden="true"
+            />
             <UiIcon v-else name="sparkle" size="sm" />
             <span class="sqp-runtime-label">后台任务</span>
-            <span class="sqp-runtime-summary" :title="runtimeSummary">{{ runtimeSummary }}</span>
-            <UiIcon name="arrowDown" size="sm" class="sqp-runtime-chevron" />
-          </button>
-
-          <div v-if="!runtimeOpen && restoreRunning" class="sqp-runtime-track" aria-hidden="true">
-            <div class="sqp-runtime-fill" :style="{ width: `${restorePercent}%` }" />
+            <span class="sqp-runtime-summary" :title="runtimeSummary">{{
+              runtimeSummary
+            }}</span>
+            <UiIconButton
+              size="sm"
+              :icon="runtimeOpen ? 'chevronUp' : 'chevronDown'"
+              :label="runtimeOpen ? '收起后台任务' : '展开后台任务'"
+              :aria-expanded="runtimeOpen"
+              aria-controls="sqp-runtime-body"
+              @click.stop="toggleRuntime"
+            />
           </div>
 
-          <div v-else-if="runtimeOpen" class="sqp-runtime-body">
-            <div v-if="restoreRunning" class="sqp-row sqp-job is-processing" role="status" aria-live="polite">
-              <div class="sqp-status" aria-hidden="true"><span class="sqp-spin" /></div>
+          <div
+            v-if="!runtimeOpen && restoreRunning"
+            class="sqp-runtime-track"
+            aria-hidden="true"
+          >
+            <div
+              class="sqp-runtime-fill"
+              :style="{ width: `${restorePercent}%` }"
+            />
+          </div>
+
+          <div
+            v-else-if="runtimeOpen"
+            id="sqp-runtime-body"
+            class="sqp-runtime-body"
+          >
+            <div
+              v-if="restoreRunning"
+              class="sqp-row sqp-job is-processing"
+              role="status"
+              aria-live="polite"
+            >
+              <div class="sqp-status" aria-hidden="true">
+                <span class="sqp-spin" />
+              </div>
               <div class="sqp-info">
-                <div class="sqp-name" :title="restoreName">去码中 · {{ restoreName }}</div>
+                <div class="sqp-name" :title="restoreName">
+                  去码中 · {{ restoreName }}
+                </div>
                 <div class="sqp-job-detail">
                   <span class="sqp-job-track" aria-hidden="true">
-                    <span class="sqp-job-fill" :style="{ width: `${restorePercent}%` }" />
+                    <span
+                      class="sqp-job-fill"
+                      :style="{ width: `${restorePercent}%` }"
+                    />
                   </span>
                   <span class="sqp-job-value">{{ restorePercentText }}</span>
                 </div>
               </div>
               <div class="sqp-actions">
-                <button class="sqp-action" type="button" @click="cancelRestore">取消</button>
+                <UiIconButton
+                  icon="close"
+                  size="sm"
+                  label="取消去码"
+                  @click="cancelRestore"
+                />
               </div>
             </div>
 
-            <div v-if="hasLive" class="sqp-row sqp-job" role="status" aria-live="polite">
-              <div class="sqp-status" aria-hidden="true"><span class="sqp-dot is-live" /></div>
+            <div
+              v-if="hasLive"
+              class="sqp-row sqp-job"
+              role="status"
+              aria-live="polite"
+            >
+              <div class="sqp-status" aria-hidden="true">
+                <span class="sqp-dot is-live" />
+              </div>
               <div class="sqp-info">
-                <div class="sqp-name" :title="liveName">边跑边看 · {{ liveName }}</div>
-                <div class="sqp-meta" :class="{ 'is-error': liveFailed }">{{ liveSummary }}</div>
+                <div class="sqp-name" :title="liveName">
+                  边跑边看 · {{ liveName }}
+                </div>
+                <div class="sqp-meta" :class="{ 'is-error': liveFailed }">
+                  {{ liveSummary }}
+                </div>
               </div>
               <div class="sqp-actions">
-                <button v-if="liveFailed" class="sqp-action" type="button" @click="dismissLive">关闭</button>
-                <button v-else class="sqp-action" type="button" @click="stopLive">停止</button>
+                <UiIconButton
+                  v-if="liveFailed"
+                  icon="close"
+                  size="sm"
+                  label="关闭"
+                  @click="dismissLive"
+                />
+                <UiIconButton
+                  v-else
+                  icon="stop"
+                  size="sm"
+                  label="停止边跑边看"
+                  @click="stopLive"
+                />
               </div>
             </div>
           </div>
         </section>
 
         <p class="sqp-subtitle">
-              <template v-if="activeCount > 0"
-                >{{ activeCount }} 进行中 · {{ doneCount }}/{{
-                  totalCount
-                }}</template
-              >
-              <template v-else-if="totalCount > 0"
-                >全部结束 · {{ doneCount }}/{{ totalCount }}</template
-              >
-              <template v-else>暂无任务</template>
-            </p>
+          <template v-if="activeCount > 0">
+            {{ activeCount }} 进行中 · {{ doneCount }}/{{ totalCount }}
+          </template>
+          <template v-else-if="totalCount > 0">
+            全部结束 · {{ doneCount }}/{{ totalCount }}
+          </template>
+          <template v-else>暂无任务</template>
+        </p>
 
         <div v-if="totalCount === 0" class="sqp-empty">
           <p>还没有刮削任务</p>
@@ -95,13 +152,19 @@
             <div class="sqp-status" aria-hidden="true">
               <span v-if="item.status === 'processing'" class="sqp-spin" />
               <span v-else-if="item.status === 'pending'" class="sqp-dot" />
-              <span v-else-if="item.status === 'done'" class="sqp-mark ok"
-                >✓</span
-              >
-              <span v-else-if="item.status === 'error'" class="sqp-mark err"
-                >!</span
-              >
-              <span v-else class="sqp-mark mute">–</span>
+              <UiIcon
+                v-else-if="item.status === 'done'"
+                class="sqp-mark ok"
+                name="check"
+                size="sm"
+              />
+              <UiIcon
+                v-else-if="item.status === 'error'"
+                class="sqp-mark err"
+                name="warning"
+                size="sm"
+              />
+              <UiIcon v-else class="sqp-mark mute" name="minus" size="sm" />
             </div>
 
             <div class="sqp-info">
@@ -128,37 +191,31 @@
             }}</span>
 
             <div class="sqp-actions">
-              <button
+              <UiIconButton
                 v-if="item.status === 'pending' || item.status === 'processing'"
-                type="button"
-                class="sqp-action"
-                title="取消"
+                icon="close"
+                size="sm"
+                label="取消"
                 @click="cancelItem(item.id)"
-              >
-                取消
-              </button>
-              <button
+              />
+              <UiIconButton
                 v-if="canRetry(item.id)"
-                type="button"
-                class="sqp-action accent"
-                title="重试"
+                icon="refresh"
+                size="sm"
+                label="重试"
                 @click="retryFailed(item.id)"
-              >
-                重试
-              </button>
-              <button
+              />
+              <UiIconButton
                 v-if="
                   item.status === 'done' ||
                   item.status === 'error' ||
                   item.status === 'cancelled'
                 "
-                type="button"
-                class="sqp-action"
-                title="移除"
+                icon="trash"
+                size="sm"
+                label="移除"
                 @click="removeQueueItem(item.id)"
-              >
-                移除
-              </button>
+              />
             </div>
           </div>
         </div>
@@ -171,29 +228,24 @@
             />
           </div>
           <div class="sqp-footer-actions">
-            <button
-              type="button"
-              class="yb-btn-soft sqp-footer-btn"
+            <UiButton
+              size="sm"
+              label="清除已完成"
               :disabled="doneCount === 0"
               @click="clearCompleted"
-            >
-              清除已完成
-            </button>
-            <button
-              type="button"
-              class="yb-btn-soft sqp-footer-btn"
+            />
+            <UiButton
+              size="sm"
+              :label="`重试失败（${failedCount}）`"
               :disabled="failedCount === 0"
               @click="retryAllFailed"
-            >
-              重试失败（{{ failedCount }}）
-            </button>
-            <button
-              type="button"
-              class="yb-btn-soft sqp-footer-btn danger"
+            />
+            <UiButton
+              class="sqp-clear-all"
+              size="sm"
+              label="全部清除"
               @click="clearAll"
-            >
-              全部清除
-            </button>
+            />
           </div>
         </footer>
       </aside>
@@ -202,9 +254,16 @@
 </template>
 
 <script setup lang="ts">
-import UiIcon from '@/components/ui/UiIcon.vue'
-import DialogTitlebar from '@/components/DialogTitlebar.vue'
+/**
+ * 全局刮削队列浮层：从侧栏「刮削队列」按钮上方弹出。
+ * 上半部分是去码 / 边跑边看等后台任务（可折叠），下面是刮削任务列表和批量操作。
+ */
 import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { GlobalQueueItem } from '@/composables/use-global-queue'
 import { useGlobalQueue } from '@/composables/use-global-queue'
 import { useLadaTasks } from '@/composables/use-lada-tasks'
@@ -218,7 +277,9 @@ const anchorPos = ref({ left: 12, bottom: 96 })
 function anchorPanel(): void {
   // 窄屏走整幅底部样式，不做小结锚定
   if (window.matchMedia('(max-width: 768px)').matches) return
-  const rect = document.querySelector('[data-queue-anchor]')?.getBoundingClientRect()
+  const rect = document
+    .querySelector('[data-queue-anchor]')
+    ?.getBoundingClientRect()
   if (!rect || !rect.height) return
   anchorPos.value = {
     left: Math.max(12, Math.round(rect.left) - 6),
@@ -226,9 +287,12 @@ function anchorPanel(): void {
   }
 }
 
-watch(() => props.visible, visible => {
-  if (visible) nextTick(anchorPanel)
-})
+watch(
+  () => props.visible,
+  visible => {
+    if (visible) nextTick(anchorPanel)
+  }
+)
 
 const {
   items,
@@ -292,7 +356,7 @@ const metaClass = (item: GlobalQueueItem): string => {
   return ''
 }
 
-const onKeydown = (e: KeyboardEvent) => {
+const onKeydown = (e: KeyboardEvent): void => {
   if (e.key === 'Escape') emit('close')
 }
 
@@ -334,27 +398,19 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-runtime-head {
   display: flex;
   align-items: center;
-  gap: 8px;
-  width: 100%;
-  min-height: 38px;
-  padding: 0 14px;
-  border: 0;
-  background: transparent;
+  gap: var(--space-2);
+  min-height: 40px;
+  padding: 0 var(--space-2) 0 var(--space-4);
   color: var(--text-primary);
   font-size: var(--text-xs);
-  text-align: left;
   cursor: pointer;
 }
 .sqp-runtime-head:hover {
   background: var(--bg-glass-hover);
 }
-.sqp-runtime-head:focus-visible {
-  outline: 2px solid var(--accent);
-  outline-offset: -2px;
-}
-.sqp-runtime-head .app-icon {
+.sqp-runtime-head > .app-icon {
   flex: 0 0 auto;
-  color: var(--accent);
+  color: var(--text-secondary);
 }
 .sqp-runtime-spin {
   flex: 0 0 auto;
@@ -371,14 +427,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   white-space: nowrap;
   color: var(--text-tertiary);
 }
-.sqp-runtime-chevron {
-  margin-left: auto;
-  color: var(--text-tertiary);
-  transition: transform 0.15s var(--ease-out);
-}
-.sqp-runtime.is-open .sqp-runtime-chevron {
-  transform: rotate(180deg);
-}
 
 /* 收起时只留一条线，进度仍然看得见 */
 .sqp-runtime-track {
@@ -394,9 +442,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-runtime-body {
   display: flex;
   flex-direction: column;
-}
-.sqp-runtime-body .sqp-row {
-  cursor: default;
 }
 .sqp-runtime-body .sqp-row:last-child {
   border-bottom: 0;
@@ -431,9 +476,6 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   overflow: hidden;
   text-overflow: ellipsis;
 }
-.sqp-job-value.is-error {
-  color: var(--danger);
-}
 
 .sqp-dot.is-live {
   border-color: var(--accent);
@@ -449,10 +491,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   }
 }
 @media (prefers-reduced-motion: reduce) {
-  .sqp-dot.is-live,
-  .sqp-runtime-chevron {
+  .sqp-dot.is-live {
     animation: none;
-    transition: none;
   }
 }
 
@@ -498,7 +538,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   border-bottom: 0;
 }
 .sqp-row.is-processing {
-  background: color-mix(in srgb, var(--accent) 8%, transparent);
+  background: var(--bg-active-soft);
 }
 .sqp-row.is-error {
   background: color-mix(in srgb, var(--danger) 7%, transparent);
@@ -519,7 +559,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-spin {
   width: 13px;
   height: 13px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
   border-top-color: var(--accent);
   animation: sqp-spin 0.75s linear infinite;
@@ -533,14 +573,12 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-dot {
   width: 7px;
   height: 7px;
-  border-radius: 50%;
+  border-radius: var(--radius-full);
   border: 1.5px solid var(--text-quaternary, var(--text-tertiary));
 }
 
 .sqp-mark {
-  font-size: var(--text-xs);
-  font-weight: 700;
-  line-height: 1;
+  stroke-width: 2.25;
 }
 .sqp-mark.ok {
   color: var(--success);
@@ -567,7 +605,7 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 .sqp-meta {
   margin-top: 2px;
   font-size: var(--text-2xs);
-  color: var(--accent-text, var(--accent));
+  color: var(--text-secondary);
   white-space: nowrap;
   overflow: hidden;
   text-overflow: ellipsis;
@@ -605,27 +643,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
 
 .sqp-actions {
   display: flex;
-  gap: 4px;
+  gap: 2px;
   flex-shrink: 0;
-}
-.sqp-action {
-  height: 24px;
-  padding: 0 8px;
-  border: 0;
-  border-radius: var(--radius-sm);
-  background: transparent;
-  color: var(--text-tertiary);
-  font-size: var(--text-2xs);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.sqp-action:hover {
-  background: var(--bg-glass-hover);
-  color: var(--text-primary);
-}
-.sqp-action.accent:hover {
-  background: var(--accent-soft);
-  color: var(--accent-text);
 }
 
 .sqp-footer {
@@ -652,15 +671,9 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
   flex-wrap: wrap;
   gap: 6px;
 }
-.sqp-footer-btn {
-  min-height: 28px;
-  padding: 0 10px;
-  font-size: var(--text-2xs);
-}
-.sqp-footer-btn.danger:hover {
-  border-color: color-mix(in srgb, var(--danger) 40%, transparent);
+.sqp-clear-all:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
-  background: color-mix(in srgb, var(--danger) 10%, transparent);
 }
 
 .sqp-fade-enter-active,
@@ -697,7 +710,8 @@ onUnmounted(() => window.removeEventListener('keydown', onKeydown))
     left: 0;
     width: 100%;
     max-height: min(70vh, 520px);
-    border-radius: var(--radius-lg, var(--radius-xl)) var(--radius-lg, var(--radius-xl)) 0 0;
+    border-radius: var(--radius-lg, var(--radius-xl))
+      var(--radius-lg, var(--radius-xl)) 0 0;
   }
 }
 </style>

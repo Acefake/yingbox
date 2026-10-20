@@ -201,12 +201,10 @@ const handleFileAction = (action: MenuItem, item: ProcessedItem): void => {
 }
 
 .file-tree-item.is-selected {
-  background: var(--bg-active-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  background: var(--bg-active);
 }
 
 .file-tree-item.is-selected .file-tree-name {
-  color: var(--accent-text);
   font-weight: var(--font-weight-semibold);
 }
 
