@@ -31,10 +31,6 @@
   padding: 0 var(--space-1) var(--space-6) 0;
   scrollbar-gutter: stable;
 }
-.amane-shell input,
-.amane-shell select {
-  min-height: var(--control-height);
-}
 .amane-shell label {
   display: flex;
   flex-direction: column;
@@ -128,7 +124,7 @@
   flex-wrap: wrap;
   margin-bottom: var(--space-5);
 }
-.amane-toolbar select {
+.amane-toolbar .ui-select {
   width: auto;
 }
 .amane-search {
@@ -136,7 +132,7 @@
   align-items: center;
   gap: var(--space-1);
 }
-.amane-search input {
+.amane-search .ui-input {
   width: 240px;
 }
 .amane-scrape {
@@ -271,7 +267,7 @@
   flex-shrink: 0;
   color: var(--text-primary);
 }
-.amane-form-row > .yb-field,
+.amane-form-row > .ui-field,
 .amane-form-row > .amane-form-control {
   flex: 0 1 360px;
   min-width: 0;
@@ -281,7 +277,7 @@
   align-items: center;
   gap: var(--space-2);
 }
-.amane-form-control .yb-field {
+.amane-form-control .ui-field {
   flex: 1;
   min-width: 0;
 }
@@ -405,7 +401,7 @@
   min-width: 0;
   font-size: var(--text-sm);
 }
-.amane-filter-grid .yb-field {
+.amane-filter-grid .ui-field {
   width: 100%;
   min-width: 0;
 }
@@ -660,7 +656,7 @@
   gap: var(--space-2);
   margin-top: var(--space-3);
 }
-.amane-tag-form input {
+.amane-tag-form .ui-input {
   flex: 1;
   min-width: 0;
 }
@@ -980,12 +976,9 @@
   line-height: 1.6;
   white-space: pre-line;
 }
-.amane-config-field .yb-field {
+.amane-config-field .ui-field {
   width: 100%;
   min-width: 0;
-}
-.amane-config-field textarea {
-  resize: vertical;
 }
 /* 单值字段：一行，标题左、控件右 */
 .amane-config-field.is-inline {
@@ -1000,48 +993,8 @@
   min-width: 0;
   margin-bottom: 0;
 }
-.amane-config-field.is-inline > .yb-field {
+.amane-config-field.is-inline > .ui-field {
   flex: 0 1 280px;
-}
-/* 开关：role=switch 的原生复选框画成拨动开关（强调色只用在开关上） */
-.amane-config-field input[role='switch'] {
-  position: relative;
-  flex-shrink: 0;
-  width: 34px;
-  height: 20px;
-  min-height: 0;
-  margin: 0;
-  border-radius: var(--radius-full);
-  background: var(--border-strong);
-  cursor: pointer;
-  transition: background var(--duration-fast) ease;
-  appearance: none;
-}
-.amane-config-field input[role='switch']::before {
-  position: absolute;
-  top: 2px;
-  left: 2px;
-  width: 16px;
-  height: 16px;
-  border-radius: var(--radius-full);
-  background: #fff;
-  box-shadow: var(--shadow-sm);
-  content: '';
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-.amane-config-field input[role='switch']:checked {
-  background: var(--accent);
-}
-.amane-config-field input[role='switch']:checked::before {
-  transform: translateX(14px);
-}
-.amane-config-field input[role='switch']:disabled {
-  opacity: 0.4;
-  cursor: default;
-}
-.amane-config-field input[role='switch']:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
 }
 .amane-config-nested {
   padding-left: var(--space-4);
@@ -1166,7 +1119,7 @@
     margin-left: 0;
   }
   .amane-search,
-  .amane-search input {
+  .amane-search .ui-input {
     width: 100%;
   }
   .amane-sort-menu {
@@ -1197,7 +1150,7 @@
     flex-direction: column;
     align-items: stretch;
   }
-  .amane-form-row > .yb-field,
+  .amane-form-row > .ui-field,
   .amane-form-row > .amane-form-control {
     flex-basis: auto;
   }

@@ -6,8 +6,8 @@
       class="settings-radio"
       :class="{ 'is-active': modelValue === opt.value }"
     >
-      <input
-        type="radio"
+      <UiRadio
+        class="settings-radio-input"
         :name="name"
         :value="opt.value"
         :checked="modelValue === opt.value"
@@ -27,6 +27,8 @@
  * 每项一行：圆形单选 + 标题 + 一行说明。
  */
 import { useId } from 'vue'
+
+import UiRadio from '@/components/ui/UiRadio.vue'
 
 export interface SettingsRadioOption<V extends string = string> {
   value: V
@@ -64,18 +66,8 @@ const name = `settings-radio-${useId()}`
 .settings-radio:hover {
   background: var(--bg-glass-hover);
 }
-.settings-radio input {
-  flex: 0 0 auto;
-  width: var(--icon-md);
-  height: var(--icon-md);
-  margin: 1px 0 0;
-  accent-color: var(--accent);
-  cursor: pointer;
-}
-.settings-radio input:focus-visible {
-  outline: none;
-  box-shadow: var(--focus-ring);
-  border-radius: var(--radius-full);
+.settings-radio-input {
+  margin-top: 1px;
 }
 .settings-radio-text {
   display: flex;

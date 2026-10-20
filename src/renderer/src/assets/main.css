@@ -3,6 +3,7 @@
 @import './styles/global.css';
 @import './styles/components.css';
 @import '../components/ui/ui.css';
+@import './styles/antd-overrides.css';
 
 /* Tailwind v4 theme bridge — map design tokens into utility namespace */
 @theme {
@@ -49,92 +50,5 @@
   color: var(--text-tertiary) !important;
 }
 .text-gray-500 {
-  color: var(--text-secondary) !important;
-}
-
-.ant-modal-content {
-  background: var(--bg-panel) !important;
-  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy)) !important;
-  -webkit-backdrop-filter: blur(var(--blur-panel))
-    saturate(var(--saturate-vibrancy)) !important;
-  border: 1px solid var(--border-glass) !important;
-  border-radius: var(--radius-lg) !important;
-  box-shadow: var(--shadow-lg) !important;
-  color: var(--text-main) !important;
-  padding: 0 !important;
-}
-
-.ant-modal-header {
-  background: transparent !important;
-  border-bottom: 1px solid var(--separator) !important;
-  border-radius: var(--radius-lg) var(--radius-lg) 0 0 !important;
-  padding: 16px 20px !important;
-  margin-bottom: 0 !important;
-}
-
-.ant-modal-title {
-  color: var(--text-primary) !important;
-  font-size: var(--text-md) !important;
-  font-weight: var(--font-weight-semibold) !important;
-}
-
-.ant-modal-body {
-  padding: 20px !important;
-  color: var(--text-secondary) !important;
-}
-
-.ant-modal-footer {
-  background: transparent !important;
-  border-top: 1px solid var(--separator) !important;
-  border-radius: 0 0 var(--radius-lg) var(--radius-lg) !important;
-  padding: 12px 20px !important;
-}
-
-.ant-modal-close {
-  color: var(--text-tertiary) !important;
-  top: 12px !important;
-  right: 12px !important;
-}
-
-.ant-modal-close:hover {
-  color: var(--text-primary) !important;
-  background: var(--bg-glass-hover) !important;
-  border-radius: var(--radius-sm) !important;
-}
-
-.ant-modal-mask {
-  background: rgba(0, 0, 0, 0.35) !important;
-  backdrop-filter: blur(6px) !important;
-  -webkit-backdrop-filter: blur(6px) !important;
-}
-
-.ant-modal-footer .ant-btn-default {
-  background: var(--bg-fill-secondary) !important;
-  border-color: var(--border-default) !important;
-  color: var(--text-primary) !important;
-  border-radius: var(--radius-md) !important;
-}
-
-.ant-modal-footer .ant-btn-default:hover {
-  background: var(--bg-glass-hover) !important;
-  border-color: var(--border-strong) !important;
-  color: var(--text-primary) !important;
-}
-
-.ant-modal-footer .ant-btn-primary {
-  background: var(--primary) !important;
-  border-color: var(--primary) !important;
-  border-radius: var(--radius-md) !important;
-}
-
-.ant-modal-footer .ant-btn-primary:hover {
-  background: var(--primary-hover) !important;
-}
-
-.ant-modal-confirm-title {
-  color: var(--text-primary) !important;
-}
-
-.ant-modal-confirm-content {
   color: var(--text-secondary) !important;
 }

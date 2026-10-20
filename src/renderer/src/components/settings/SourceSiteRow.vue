@@ -34,7 +34,7 @@
         @click="emit('delete')"
       />
     </div>
-    <SettingsSwitch
+    <UiSwitch
       :model-value="enabled"
       :label="`启用数据源 ${name}`"
       @click.stop
@@ -51,8 +51,7 @@
 import { computed } from 'vue'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-
-import SettingsSwitch from './SettingsSwitch.vue'
+import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 const props = withDefaults(
   defineProps<{
@@ -160,8 +159,8 @@ const statusText = computed(() => {
   font-weight: var(--font-weight-medium);
 }
 .site-badge.is-purple {
-  color: color-mix(in srgb, #af52de 80%, var(--text-primary));
-  background: color-mix(in srgb, #af52de 14%, transparent);
+  color: color-mix(in srgb, var(--tint-purple) 80%, var(--text-primary));
+  background: color-mix(in srgb, var(--tint-purple) 14%, transparent);
 }
 .site-badge.is-pink {
   color: color-mix(in srgb, var(--favorite) 80%, var(--text-primary));

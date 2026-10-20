@@ -11,10 +11,9 @@
       stacked
     >
       <div class="lada-path">
-        <input
+        <UiInput
           :value="tool.path.value"
-          type="text"
-          class="yb-field lada-field"
+          class="lada-field"
           :aria-label="`${tool.title} 路径`"
           placeholder="未找到，请点右侧选择"
           readonly
@@ -45,6 +44,7 @@ import { onMounted, ref } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiInput from '@/components/ui/UiInput.vue'
 
 import SettingsGroup from './SettingsGroup.vue'
 import SettingsRow from './SettingsRow.vue'
@@ -120,9 +120,6 @@ onMounted(loadLadaPaths)
 .lada-field {
   flex: 1;
   min-width: 0;
-  height: var(--control-height);
-  padding-block: 0;
-  font-size: var(--text-sm);
 }
 .lada-intro {
   margin: 0 0 var(--space-4);
