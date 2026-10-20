@@ -200,7 +200,8 @@ function makeFetch(deps: CatSpiderDeps): unknown {
       throw error
     }
   }
-  const $fetch = (url: string, options?: PluginFetchOptions) =>
+  type Fetched = Promise<{ data: string; headers: Record<string, string> }>
+  const $fetch = (url: string, options?: PluginFetchOptions): Fetched =>
     fetchWithFallback(url, options)
   $fetch.get = (url: string, options: PluginFetchOptions = {}) =>
     fetchWithFallback(url, options)

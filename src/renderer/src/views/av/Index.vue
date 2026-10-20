@@ -209,8 +209,12 @@ import AvHistoryView from './components/AvHistoryView.vue'
 import AvSkeletonGrid from './components/AvSkeletonGrid.vue'
 import AvStatus from './components/AvStatus.vue'
 import { coverSrc } from './av-media'
-import { type MissavStream, listMissav, resolveMissav } from '@/api/missav'
-import { backend } from '@/api/backend'
+import {
+  type MissavStream,
+  listMissav,
+  missavCover,
+  resolveMissav,
+} from '@/api/missav'
 import {
   computed,
   nextTick,
@@ -785,19 +789,12 @@ const loadMissavBrowse = async (page: number, append: boolean) => {
   browseLoadingMore.value = append
   browseError.value = ''
   try {
-    const result = await listMissav(
-      currentMissavSlug(),
-      page,
-      browseSort.value,
-      controller.signal
-    )
+    const result = await listMissav(currentMissavSlug(), page, browseSort.value)
     if (controller.signal.aborted || browseAbort !== controller) return
     const items = result.items.map(item => ({
       vod_id: item.code,
       vod_name: item.title,
-      vod_pic: backend.fileUrl(
-        `/api/missav/cover?code=${encodeURIComponent(item.code)}`
-      ),
+      vod_pic: missavCover(item.code),
       vod_remarks: item.code.toUpperCase(),
       vod_duration: item.duration || '',
       type_name: browseCategoryName.value,
