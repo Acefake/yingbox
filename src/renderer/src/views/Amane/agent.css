@@ -103,9 +103,7 @@
 .agent-session-row:focus-within > .yb-icon-button {
   opacity: 1;
 }
-.agent-session-row > .yb-field {
-  padding: 4px 6px;
-  font-size: var(--text-xs);
+.agent-session-row > .ui-field {
   min-width: 0;
 }
 .agent-conversation {
@@ -339,61 +337,9 @@
   color: var(--text-secondary);
   white-space: nowrap;
 }
-.amane-shell.is-agent-view
-  .amane-agent
-  .agent-composer-actions
-  .agent-thinking-select {
-  appearance: none;
+.amane-agent .agent-composer-actions .agent-thinking-select {
   width: auto;
   max-width: 160px;
-  min-height: 30px;
-  margin: 0;
-  padding: 3px 24px 3px 9px;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-md);
-  background-color: var(--bg-fill-secondary);
-  background-image:
-    linear-gradient(45deg, transparent 50%, var(--text-secondary) 50%),
-    linear-gradient(135deg, var(--text-secondary) 50%, transparent 50%);
-  background-position:
-    calc(100% - 10px) 12px,
-    calc(100% - 6px) 12px;
-  background-repeat: no-repeat;
-  background-size: 4px 4px;
-  color: var(--text-primary);
-  font-size: var(--text-2xs);
-  line-height: 1.2;
-  cursor: pointer;
-}
-.amane-shell.is-agent-view
-  .amane-agent
-  .agent-composer-actions
-  .agent-thinking-select
-  option {
-  background-color: var(--bg-elevated);
-  color: var(--text-primary);
-}
-.amane-shell.is-agent-view
-  .amane-agent
-  .agent-composer-actions
-  .agent-thinking-select:hover:not(:disabled) {
-  background-color: var(--bg-glass-hover);
-  border-color: var(--border-strong);
-}
-.amane-shell.is-agent-view
-  .amane-agent
-  .agent-composer-actions
-  .agent-thinking-select:focus-visible {
-  outline: 2px solid var(--accent-text);
-  outline-offset: 2px;
-  box-shadow: none;
-}
-.amane-shell.is-agent-view
-  .amane-agent
-  .agent-composer-actions
-  .agent-thinking-select:disabled {
-  cursor: default;
-  opacity: 0.55;
 }
 .agent-composer-actions > span {
   margin-left: auto;

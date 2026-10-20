@@ -64,9 +64,8 @@
             @submit.prevent="searchNow"
           >
             <div class="amane-search">
-              <input
+              <UiInput
                 v-model="search"
-                class="yb-field"
                 :placeholder="
                   tab === 'actors'
                     ? '搜索演员'
@@ -140,9 +139,9 @@
               @click="clearFilters"
             />
             <div v-if="tab === 'films'" class="amane-scrape">
-              <input
+              <UiInput
                 v-model="number"
-                class="yb-field number-input"
+                class="number-input"
                 placeholder="输入番号添加资料"
                 aria-label="手动刮削番号"
               />
@@ -267,17 +266,13 @@
               <div class="amane-form-group">
                 <label class="amane-form-row"
                   ><span>名称</span
-                  ><input
-                    v-model="libraryName"
-                    class="yb-field"
-                    placeholder="我的片库"
+                  ><UiInput v-model="libraryName" placeholder="我的片库"
                 /></label>
                 <label class="amane-form-row">
                   <span>目录</span>
                   <div class="amane-form-control">
-                    <input
+                    <UiInput
                       v-model="libraryPath"
-                      class="yb-field"
                       placeholder="选择存放视频的目录"
                       required
                     />
@@ -291,11 +286,11 @@
                 </label>
                 <label class="amane-form-row">
                   <span>自动化</span>
-                  <select v-model="automation" class="yb-field">
+                  <UiSelect v-model="automation">
                     <option value="none">手动扫描</option>
                     <option value="watch">监控新文件</option>
                     <option value="scrape">监控并刮削</option>
-                  </select>
+                  </UiSelect>
                 </label>
               </div>
               <div class="amane-form-footer">
@@ -359,9 +354,8 @@
           </template>
           <template v-else-if="tab === 'tasks'">
             <div class="amane-toolbar">
-              <select
+              <UiSelect
                 v-model="taskStatus"
-                class="yb-field"
                 aria-label="任务状态"
                 @change="searchNow"
               >
@@ -373,7 +367,7 @@
                 >
                   {{ statusNames[s] }}
                 </option>
-              </select>
+              </UiSelect>
               <UiIconButton
                 :icon="workerPaused ? 'play' : 'pause'"
                 :label="workerPaused ? '继续队列' : '暂停队列'"
@@ -456,9 +450,8 @@
                   <tr v-for="file in files" :key="file.id">
                     <td class="amane-file-path">{{ file.path }}</td>
                     <td>
-                      <input
+                      <UiInput
                         v-model="fileNumbers[file.id]"
-                        class="yb-field"
                         :placeholder="file.number || '输入番号'"
                         :aria-label="`文件 ${file.id} 的番号`"
                       />
@@ -798,10 +791,12 @@ import {
   UiButton,
   UiIcon,
   UiIconButton,
+  UiInput,
   UiListRow,
   UiPosterCard,
   UiPressable,
   UiSegmented,
+  UiSelect,
 } from '@/components/ui'
 import AdvancedSearch from './AdvancedSearch.vue'
 import AmaneFilmDetail from './FilmDetail.vue'

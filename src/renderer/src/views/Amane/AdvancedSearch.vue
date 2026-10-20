@@ -4,8 +4,7 @@
     <div class="amane-filter-grid">
       <label v-for="facet in facets" :key="facet.kind"
         >{{ facet.label }}
-        <input
-          class="yb-field"
+        <UiInput
           :value="terms[facet.kind] || ''"
           placeholder="搜索…"
           :aria-label="`搜索${facet.label}`"
@@ -13,8 +12,7 @@
             searchFacet(facet.kind, ($event.target as HTMLInputElement).value)
           "
         />
-        <select
-          class="yb-field"
+        <UiSelect
           value=""
           :aria-label="`添加${facet.label}筛选`"
           @focus="loadFacet(facet.kind)"
@@ -29,12 +27,11 @@
           >
             {{ option.name }} ({{ option.count }})
           </option>
-        </select>
+        </UiSelect>
       </label>
       <label v-for="field in fields" :key="field.key"
         >{{ field.label }}
-        <select
-          class="yb-field"
+        <UiSelect
           :value="filters[field.key]?.[0] || ''"
           @change="
             setSingle(field.key, ($event.target as HTMLSelectElement).value)
@@ -48,7 +45,7 @@
           >
             {{ option.label }}
           </option>
-        </select>
+        </UiSelect>
       </label>
     </div>
     <p v-if="error" role="alert" class="amane-task-error">{{ error }}</p>
@@ -76,7 +73,7 @@
 <script setup lang="ts">
 import { onBeforeUnmount, reactive, ref } from 'vue'
 import { type Page, amaneRequest } from '@/api/amane'
-import { UiButton } from '@/components/ui'
+import { UiButton, UiInput, UiSelect } from '@/components/ui'
 const props = defineProps<{ filters: Record<string, string[]> }>()
 const emit = defineEmits<{ change: [filters: Record<string, string[]>] }>()
 const facets = [

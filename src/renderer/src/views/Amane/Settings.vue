@@ -44,17 +44,16 @@
           <div class="amane-form-group">
             <label class="amane-form-row"
               ><span>运行方式</span
-              ><select v-model="form.mode" class="yb-field">
+              ><UiSelect v-model="form.mode">
                 <option value="managed">由影盒管理后台</option>
                 <option value="external">连接已有服务</option>
-              </select></label
+              </UiSelect></label
             >
             <label v-if="form.mode === 'managed'" class="amane-form-row">
               <span>后台程序</span>
               <div class="amane-form-control">
-                <input
+                <UiInput
                   v-model="form.executablePath"
-                  class="yb-field"
                   placeholder="选择安装目录内的 Amane.Server.exe"
                 /><UiIconButton
                   icon="folder"
@@ -66,20 +65,15 @@
             </label>
             <label class="amane-form-row"
               ><span>服务地址</span
-              ><input
+              ><UiInput
                 v-model="form.baseUrl"
-                class="yb-field"
                 placeholder="http://127.0.0.1:18180"
                 required
             /></label>
             <label v-if="form.mode === 'managed'" class="amane-form-row">
               <span>片库数据目录</span>
               <div class="amane-form-control">
-                <input
-                  v-model="form.dataDirectory"
-                  class="yb-field"
-                  required
-                /><UiIconButton
+                <UiInput v-model="form.dataDirectory" required /><UiIconButton
                   icon="folder"
                   label="选择目录"
                   variant="secondary"
@@ -89,11 +83,10 @@
             </label>
             <label v-if="form.mode === 'external'" class="amane-form-row"
               ><span>API Token</span
-              ><input
+              ><UiInput
                 v-model="token"
                 type="password"
                 autocomplete="off"
-                class="yb-field"
                 :placeholder="
                   status?.settings.tokenConfigured
                     ? '已保存，留空保留原密钥'
@@ -171,7 +164,13 @@
 <script setup lang="ts">
 import { computed, reactive, ref, watch } from 'vue'
 import './amane.css'
-import { UiButton, UiIconButton, UiNavItem } from '@/components/ui'
+import {
+  UiButton,
+  UiIconButton,
+  UiInput,
+  UiNavItem,
+  UiSelect,
+} from '@/components/ui'
 import ConfigSettings from './ConfigSettings.vue'
 import { message } from 'ant-design-vue'
 import type { AmaneSettings, AmaneStatus } from '../../../../shared/amane'

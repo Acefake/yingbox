@@ -17,10 +17,10 @@
         class="agent-session-row"
         :class="{ active: session.id === selected }"
       >
-        <input
+        <UiInput
           v-if="renaming === session.id"
           v-model="renameText"
-          class="yb-field"
+          size="sm"
           maxlength="200"
           aria-label="对话名称"
           @keydown.enter.prevent="renameSession(session.id)"
@@ -287,7 +287,7 @@
       </div>
       <div v-if="!showQueries" class="agent-composer-dock">
         <form class="agent-composer" @submit.prevent="send">
-          <textarea
+          <UiTextarea
             v-model="draft"
             rows="2"
             placeholder="向片库提问…"
@@ -299,8 +299,9 @@
           />
           <div class="agent-composer-actions">
             <label
-              >思考<select
+              >思考<UiSelect
                 class="agent-thinking-select"
+                size="sm"
                 aria-label="思考强度"
                 :value="currentSession?.thinking || ''"
                 :disabled="!selected || busy || running"
@@ -316,7 +317,7 @@
                 >
                   {{ mode.label }}
                 </option>
-              </select></label
+              </UiSelect></label
             ><span>Enter 发送，Shift + Enter 换行</span
             ><UiIconButton
               v-if="running"
@@ -353,7 +354,15 @@ import {
   reactive,
   ref,
 } from 'vue'
-import { UiButton, UiIcon, UiIconButton, UiListRow } from '@/components/ui'
+import {
+  UiButton,
+  UiIcon,
+  UiIconButton,
+  UiInput,
+  UiListRow,
+  UiSelect,
+  UiTextarea,
+} from '@/components/ui'
 import { amaneRequest } from '@/api/amane'
 import {
   type AgentSession,

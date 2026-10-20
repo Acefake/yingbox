@@ -122,8 +122,6 @@ button,
   touch-action: manipulation;
 }
 
-
-
 button:disabled,
 [aria-disabled='true'] {
   cursor: not-allowed;
@@ -161,21 +159,39 @@ button:disabled,
   fill: none;
 }
 
-:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible { outline: 2px solid var(--accent-text); outline-offset: 3px; }
-button { -webkit-app-region: no-drag; }
-button:disabled { cursor: default; }
-::selection { background: var(--selection-bg); color: var(--text-primary); }
-@media(prefers-reduced-motion:reduce) { *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; transition-duration: .01ms !important; scroll-behavior: auto !important; } }
+:where(button, a, input, select, textarea, summary, [tabindex]):focus-visible {
+  outline: 2px solid var(--accent-text);
+  outline-offset: 3px;
+}
+button {
+  -webkit-app-region: no-drag;
+}
+button:disabled {
+  cursor: default;
+}
+::selection {
+  background: var(--selection-bg);
+  color: var(--text-primary);
+}
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
 
 /* Native dropdown menus must keep readable colors in both themes. */
-select option, select optgroup { background: var(--bg-elevated); color: var(--text-primary); }
+select option,
+select optgroup {
+  background: var(--bg-elevated);
+  color: var(--text-primary);
+}
 
-/* Ant modal shells use the same titlebar component as native/custom dialogs. */
-.app-modal .ant-modal-header { padding:0 !important; border-bottom:0 !important; }
-.app-modal .ant-modal-title { line-height:normal; }
-.yb-confirm-dialog .ant-modal-body { padding:0 !important; }
-.yb-confirm-dialog .ant-modal-confirm-title { display:block; margin:0; }
-.yb-confirm-dialog .ant-modal-confirm-content { margin:0 !important; padding:20px; }
-.yb-confirm-dialog .ant-modal-confirm-btns { margin:0 20px 20px; }
-
-input, textarea { caret-color: var(--accent-text); }
+input,
+textarea {
+  caret-color: var(--accent-text);
+}

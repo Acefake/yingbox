@@ -1599,7 +1599,7 @@ onBeforeUnmount(() =>
   display: flex;
   align-items: center;
   justify-content: center;
-  background: rgba(0, 0, 0, 0.75);
+  background: var(--overlay-scrim);
 }
 .av-player-page {
   position: relative;
@@ -1612,7 +1612,7 @@ onBeforeUnmount(() =>
   justify-content: center;
   overflow: hidden;
   border-radius: var(--radius-lg);
-  background: #000;
+  background: var(--media-bg);
 }
 .av-player-message {
   position: absolute;
@@ -1622,8 +1622,8 @@ onBeforeUnmount(() =>
   margin: 0;
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-sm);
-  background: rgba(0, 0, 0, 0.7);
-  color: rgba(255, 255, 255, 0.8);
+  background: var(--overlay-scrim);
+  color: var(--media-text-secondary);
   font-size: var(--text-xs);
   transform: translateX(-50%);
 }

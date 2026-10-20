@@ -5,8 +5,10 @@
  * AppLayout 启动时接一次 IPC 推送，Amane 页面与刮削队列面板读同一份数据。
  */
 import { computed, h, ref } from 'vue'
-import { Modal, message } from 'ant-design-vue'
+import { message } from 'ant-design-vue'
 import type { LadaJob, LadaLiveStatus } from '../../../shared/lada'
+import UiInput from '@/components/ui/UiInput.vue'
+import { confirmDialog } from '@/utils/confirm-dialog'
 import { openMediaPlayer } from './use-media-player'
 
 const job = ref<LadaJob | null>(null)
@@ -66,7 +68,8 @@ function attach(): void {
       else message.info('已取消区间处理')
       return
     }
-    if (next?.state === 'done') message.success('去码完成，现在点「播放」就是无码版本')
+    if (next?.state === 'done')
+      message.success('去码完成，现在点「播放」就是无码版本')
     else if (next?.state === 'failed') message.error(next.error || '去码失败')
   })
   // 区间产物好了才播：lada 跑完时文件还没拼好
@@ -76,10 +79,13 @@ function attach(): void {
       message.error(info?.error || '这一段没处理成功')
       return
     }
-    void openMediaPlayer({ filePath: info.path, title: info.title }).then(opened => {
-      if (opened) message.success('这一段已经去码完成，正在播放')
-      else message.warning(`这一段已处理完，但播放器没打开。文件：${info.path}`)
-    })
+    void openMediaPlayer({ filePath: info.path, title: info.title }).then(
+      opened => {
+        if (opened) message.success('这一段已经去码完成，正在播放')
+        else
+          message.warning(`这一段已处理完，但播放器没打开。文件：${info.path}`)
+      }
+    )
   })
   void api
     .status?.()
@@ -159,7 +165,7 @@ export function useLadaTasks() {
     if (progress && progress.doneSeconds > 5) {
       const minutes = Math.round(progress.doneSeconds / 60)
       const resume = await new Promise<boolean>(resolve => {
-        Modal.confirm({
+        confirmDialog({
           title: '这部片子有未完成的进度',
           content: `上次已处理约 ${minutes} 分钟。接着处理，还是从头重跑？`,
           okText: '接着处理',
@@ -195,11 +201,11 @@ export function useLadaTasks() {
   /** 让用户填一段区间；返回 null 表示取消 */
   function askRange(): Promise<{ start: number; end: number } | null> {
     return new Promise(resolve => {
-      const startEl = ref<HTMLInputElement | null>(null)
-      const endEl = ref<HTMLInputElement | null>(null)
+      const startEl = ref<InstanceType<typeof UiInput> | null>(null)
+      const endEl = ref<InstanceType<typeof UiInput> | null>(null)
       const field = (placeholder: string, element: typeof startEl) =>
-        h('input', { ref: element, class: 'yb-field', style: 'width:100%', placeholder })
-      void Modal.confirm({
+        h(UiInput, { ref: element, style: 'flex:1', placeholder })
+      void confirmDialog({
         title: '只去码指定的一段',
         width: 460,
         content: () =>
@@ -221,12 +227,12 @@ export function useLadaTasks() {
         okText: '开始处理这一段',
         cancelText: '取消',
         onOk: () => {
-          const start = parseClock(startEl.value?.value ?? '')
+          const start = parseClock(startEl.value?.el?.value ?? '')
           if (start === null) {
             message.error('起点填成 10:00，或者直接填秒数')
             return Promise.reject(new Error('起点格式不对'))
           }
-          const endText = (endEl.value?.value ?? '').trim()
+          const endText = (endEl.value?.el?.value ?? '').trim()
           const end = endText ? parseClock(endText) : 0
           if (end === null) {
             message.error('终点填成 20:00，或者直接填秒数')
@@ -254,7 +260,8 @@ export function useLadaTasks() {
     pendingRange.value = true
     try {
       const result = await api.startRange(filePath, picked.start, picked.end)
-      if (!result?.success) throw new Error(result?.error || '无法开始处理这一段')
+      if (!result?.success)
+        throw new Error(result?.error || '无法开始处理这一段')
       const span = `${fmtClock(result.start ?? picked.start)} - ${fmtClock(result.end ?? 0)}`
       message.info(`已开始处理 ${span}，跑完会自动播放`)
     } catch (error) {
