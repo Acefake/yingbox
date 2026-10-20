@@ -42,6 +42,8 @@ export interface Candidate {
   popularity?: number
   /** 海报路径（元数据源内路径），待确认列表展示用。 */
   posterPath?: string
+  /** 简介（搜索结果语言），待确认列表展示摘要用。 */
+  overview?: string
 }
 
 /** 标题搜索请求。 */

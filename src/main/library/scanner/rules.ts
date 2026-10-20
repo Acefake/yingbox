@@ -1,5 +1,5 @@
 /**
- * 扫描收录规则：哪些目录项进媒体库，以及路径键的约定。旧扫描器（media-scanner.ts）与引擎共用。
+ * 扫描收录规则：哪些目录项进媒体库，以及路径键的约定。引擎使用；bench 里的旧扫描器（scripts/legacy/media-scanner.ts）也复用它做对照。
  */
 import { extname } from 'node:path'
 import type { LibraryFileKind } from '../../../shared/library/ipc'

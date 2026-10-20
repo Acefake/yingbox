@@ -68,19 +68,6 @@ const api = {
     readdir: (dirPath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:readdir', dirPath),
 
-    scanMediaDirectory: (
-      dirPath: string,
-      previousIndex?: Array<{
-        path: string
-        mtime: number
-        size: number
-        name?: string
-        isDirectory?: boolean
-        isFile?: boolean
-      }>
-    ): Promise<FileOperationResult> =>
-      ipcRenderer.invoke('file:scanMediaDirectory', dirPath, previousIndex),
-
     // Get file stats
     stat: (filePath: string): Promise<FileOperationResult> =>
       ipcRenderer.invoke('file:stat', filePath),

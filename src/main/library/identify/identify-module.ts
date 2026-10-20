@@ -45,6 +45,7 @@ import {
 import {
   IdentifyStore,
   type IdentifyTarget,
+  OVERVIEW_SUMMARY_MAX,
   type StoredCandidate,
 } from './identify-store'
 import { probeFileDuration } from './media-duration'
@@ -470,6 +471,7 @@ function candidateInfo(
     confidence,
     breakdown: c.breakdown ?? {},
     poster: c.posterPath ? TmdbProvider.imageUrl(c.posterPath, 'w185') : null,
+    overview: c.overview ?? null,
   }
 }
 
@@ -487,6 +489,7 @@ function scoredInfo(s: ScoredCandidate): MatchCandidateInfo {
       originalTitle: s.candidate.originalTitle,
       year: s.candidate.year,
       posterPath: s.candidate.posterPath,
+      overview: s.candidate.overview?.slice(0, OVERVIEW_SUMMARY_MAX),
       breakdown,
     },
     s.score

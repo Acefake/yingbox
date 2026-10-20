@@ -1,0 +1,7 @@
+wall {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":14460,"renderedCells":48,"domNodes":451,"queries":3,"jumpToEndFrameMs":32.2,"lastTitle":"北方","heapMB":38}
+wall#2 {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":14460,"renderedCells":48,"domNodes":451,"queries":3,"jumpToEndFrameMs":21.9,"lastTitle":"北方","heapMB":38}
+wall#3 {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":14460,"renderedCells":48,"domNodes":451,"queries":3,"jumpToEndFrameMs":31.2,"lastTitle":"北方","heapMB":38}
+baseline-static {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":57840}
+wall {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":57840,"renderedCells":42,"domNodes":376,"queries":7,"jumpToEndFrameMs":32.8,"lastTitle":"北方","heapMB":36}
+wall#2 {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":57840,"renderedCells":42,"domNodes":376,"queries":7,"jumpToEndFrameMs":32.6,"lastTitle":"北方","heapMB":36}
+wall#3 {"fps":60,"p50":16.7,"p95":16.8,"p99":16.8,"max":16.8,"over20ms":0,"frames":240,"longTasks":0,"longTaskMaxMs":0,"scrolledPx":57840,"renderedCells":42,"domNodes":376,"queries":7,"jumpToEndFrameMs":32.7,"lastTitle":"北方","heapMB":36}

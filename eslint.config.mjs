@@ -15,6 +15,8 @@ export default tseslint.config(
       '.claude/worktrees',
       // Go 后端内嵌的 Python/Node 脚本（各有自己的约定）
       'packages/backend/py',
+      // 手动跑的截图 / 性能驾驭（Playwright 脚本，不进应用）
+      'scripts/ui-harness',
     ],
   },
   tseslint.configs.recommended,

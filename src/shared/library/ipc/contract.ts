@@ -104,7 +104,12 @@ export interface LibraryItemNode extends LibraryItemSummary {
 }
 
 /** query 可排序字段。 */
-export type LibrarySortField = 'title' | 'year' | 'addedAt' | 'updatedAt'
+export type LibrarySortField =
+  | 'title'
+  | 'year'
+  | 'rating'
+  | 'addedAt'
+  | 'updatedAt'
 
 /** 列表查询。所有字段可选，缺省时取 normalizeLibraryQuery 的默认值。 */
 export interface LibraryQuery {
@@ -198,6 +203,8 @@ export interface MatchCandidateInfo {
   breakdown: Record<string, number>
   /** TMDB 海报远程地址（w185），候选还没缓存，直接用远程图。 */
   poster: string | null
+  /** 简介摘要（最多 160 字）；搜索结果没有简介为 null。 */
+  overview: string | null
 }
 
 /** 某条目当前的匹配与候选。 */
