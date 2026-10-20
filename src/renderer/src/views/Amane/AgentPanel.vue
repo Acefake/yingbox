@@ -49,10 +49,7 @@
           icon="edit"
           label="重命名对话"
           :disabled="busy"
-          @click="
-            renaming = session.id
-            renameText = session.title
-          "
+          @click="startRename(session)"
         />
         <UiIconButton
           icon="trash"
@@ -75,10 +72,7 @@
           icon="database"
           label="查询预设"
           :active="showQueries"
-          @click="
-            showQueries = !showQueries
-            refreshQueries()
-          "
+          @click="toggleQueries"
         />
         <UiIconButton
           icon="refresh"
@@ -520,6 +514,18 @@ async function createSession(): Promise<void> {
     showQueries.value = false
     schedule()
   })
+}
+
+/** 进入重命名状态，输入框预填当前标题 */
+function startRename(session: { id: number; title: string }): void {
+  renaming.value = session.id
+  renameText.value = session.title
+}
+
+/** 展开或收起查询预设，展开时刷新列表 */
+function toggleQueries(): void {
+  showQueries.value = !showQueries.value
+  void refreshQueries()
 }
 
 async function renameSession(id: number): Promise<void> {
