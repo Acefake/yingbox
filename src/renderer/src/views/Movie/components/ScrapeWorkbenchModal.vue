@@ -380,7 +380,7 @@ defineExpose({
 }
 .modal-fade-enter-active,
 .modal-fade-leave-active {
-  transition: opacity 0.22s var(--ease-out, ease);
+  transition: opacity var(--duration-normal) var(--ease-out, ease);
 }
 .modal-fade-enter-from,
 .modal-fade-leave-to {
@@ -395,14 +395,14 @@ defineExpose({
 }
 
 .sw-subtitle {
-  margin-top: 4px;
+  margin-top: var(--space-1);
   font-size: var(--text-xs);
   color: var(--text-tertiary);
   line-height: 1.35;
 }
 
 .sw-search-row {
-  padding: 14px 22px 14px;
+  padding: var(--space-4) var(--space-6) var(--space-4);
   border-bottom: 1px solid var(--separator);
 }
 

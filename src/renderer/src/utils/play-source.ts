@@ -8,7 +8,7 @@ import { useVODParser } from '@/composables/use-vod-parser'
  *  - 在线：`url`（可能是页面地址，需解析成 m3u8/mp4）
  *  - 本地：`filePath`（播放器内部转成 local:// 地址）
  */
-export interface PlaySourceItem {
+interface PlaySourceItem {
   url?: string
   filePath?: string
   /** 展示名（集名 / 文件名） */
@@ -22,8 +22,7 @@ export interface PlaySourceItem {
 const DIRECT_MEDIA_RE = /\.(m3u8|mp4|flv)(?:\?|$)/i
 
 /** 判断是否已是可直接播放的地址 */
-export const isDirectMediaUrl = (url: string): boolean =>
-  DIRECT_MEDIA_RE.test(url)
+const isDirectMediaUrl = (url: string): boolean => DIRECT_MEDIA_RE.test(url)
 
 /**
  * 把播放源解析为可直接播放的地址。
@@ -60,7 +59,7 @@ export async function resolvePlaySource(item: PlaySourceItem): Promise<string> {
  * 页面地址 → 媒体直链。
  * 先看 axios 跟随跳转后的最终地址，再从 HTML 中提取 m3u8。
  */
-export async function resolvePageToMedia(url: string): Promise<string> {
+async function resolvePageToMedia(url: string): Promise<string> {
   if (!url || isDirectMediaUrl(url)) return url
   try {
     const r = await axios.get(url, {

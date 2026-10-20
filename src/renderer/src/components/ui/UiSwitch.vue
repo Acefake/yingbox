@@ -44,8 +44,8 @@ function onChange(event: Event): void {
 }
 .ui-switch::after {
   position: absolute;
-  top: 2px;
-  left: 2px;
+  top: var(--space-0_5);
+  left: var(--space-0_5);
   width: 18px;
   height: 18px;
   border-radius: var(--radius-full);

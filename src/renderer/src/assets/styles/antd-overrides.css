@@ -7,7 +7,7 @@
  *   radius-lg，不要彩色描边。
  * - Modal.confirm（confirmDialog）：macOS 警告框——居中、紧凑，按钮与 UiButton 一致：
  *   确认是 primary，其余是 secondary，危险操作用 danger 底色。
- * - 普通 Modal（AppModal）：面板底色、细分隔线。
+ * - Modal 外壳（Modal.confirm 也用它）：面板底色、细分隔线。
  *
  * Ant 的样式是运行时以 :where() 注入的，这里大多数规则不需要 !important；
  * 只有 Ant 内联或高特异性的地方才保留。
@@ -72,7 +72,7 @@
   color: var(--text-primary);
 }
 
-/* ── 普通 Modal（AppModal 等）── */
+/* ── Modal 外壳 ── */
 .ant-modal .ant-modal-content {
   padding: 0;
   border: 1px solid var(--border-glass);
@@ -121,14 +121,6 @@
   background: var(--overlay-scrim-soft);
   backdrop-filter: blur(6px);
   -webkit-backdrop-filter: blur(6px);
-}
-/* AppModal 用 DialogTitlebar 自己画标题栏 */
-.app-modal .ant-modal-header {
-  padding: 0;
-  border-bottom: 0;
-}
-.app-modal .ant-modal-title {
-  line-height: normal;
 }
 
 /* ── 按钮：与 UiButton 一致（primary 白底黑字 / 黑底白字，secondary 浅灰底）── */

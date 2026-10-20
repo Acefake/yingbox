@@ -5,7 +5,7 @@ import type {
   CmsItem,
 } from '@/views/online/composables/use-online-search'
 
-export interface VodTab {
+interface VodTab {
   name: string
   ext: Record<string, any>
 }
@@ -20,7 +20,7 @@ export interface VodCard {
   _siteName: string
 }
 
-export interface VodSource {
+interface VodSource {
   site: CatSpiderSite
   tabs: VodTab[]
   loaded: boolean

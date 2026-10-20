@@ -1,10 +1,10 @@
 import { amaneRequest } from './amane'
 export interface AgentSession { id: number; title: string; status: string; thinking: string | null; updated_at: string }
-export interface AgentInterrupt { id: string; toolCallId?: string; value?: unknown; reason?: string }
+interface AgentInterrupt { id: string; toolCallId?: string; value?: unknown; reason?: string }
 export interface TraceRow { type: string; text?: string; block_id?: string; tool_call_id?: string; name?: string; args?: unknown; result?: unknown; message?: string; usage?: Record<string, number>; interrupts?: AgentInterrupt[] }
 export interface AgentTrace { events: TraceRow[]; turn_running: boolean; last_seq: number; meta: Record<string, unknown> }
-export interface AgentPart { kind: 'text' | 'reasoning' | 'tool' | 'usage' | 'error'; text: string; id?: string; name?: string; args?: unknown; result?: unknown }
-export interface AgentMessage { id: string; role: 'user' | 'assistant'; parts: AgentPart[] }
+interface AgentPart { kind: 'text' | 'reasoning' | 'tool' | 'usage' | 'error'; text: string; id?: string; name?: string; args?: unknown; result?: unknown }
+interface AgentMessage { id: string; role: 'user' | 'assistant'; parts: AgentPart[] }
 export interface SavedQuery { id: number; name: string; description: string; sql: string; entity: string; persisted: boolean }
 export interface QueryResult { columns: string[]; rows: unknown[][]; total: number; offset: number; limit: number }
 export function foldAgentTrace(rows: TraceRow[]): { messages: AgentMessage[]; interrupts: AgentInterrupt[] } {

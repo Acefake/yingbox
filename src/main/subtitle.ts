@@ -4,7 +4,7 @@ import { basename, dirname, extname, join } from 'node:path'
 /** 支持的字幕扩展名（按优先级排序） */
 const SUBTITLE_EXTS = ['.srt', '.ass', '.ssa', '.vtt', '.sub']
 
-export interface SubtitleCandidate {
+interface SubtitleCandidate {
   /** 展示名（去掉扩展名，含语言后缀） */
   name: string
   /** 字幕文件绝对路径 */
@@ -240,7 +240,7 @@ export function assToVtt(text: string): string {
   return out.join('\n')
 }
 
-export interface SubtitleReadResult {
+interface SubtitleReadResult {
   success: boolean
   /** 转换后的 WebVTT 文本 */
   data?: string

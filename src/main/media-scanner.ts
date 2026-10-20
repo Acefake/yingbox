@@ -1,7 +1,7 @@
 import { readdir, stat } from 'node:fs/promises'
 import { basename, extname, join, resolve } from 'node:path'
 
-export interface MediaEntry {
+interface MediaEntry {
   name: string
   path: string
   size: number

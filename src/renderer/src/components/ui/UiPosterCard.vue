@@ -26,9 +26,14 @@
       <span v-if="rating" class="ui-poster-rating">
         <UiIcon name="star" size="sm" filled />{{ rating }}
       </span>
-      <div v-if="$slots.badges" class="ui-poster-badges"><slot name="badges" /></div>
+      <div v-if="$slots.badges" class="ui-poster-badges">
+        <slot name="badges" />
+      </div>
 
-      <div v-if="favorite !== undefined || $slots.actions" class="ui-poster-actions">
+      <div
+        v-if="favorite !== undefined || $slots.actions"
+        class="ui-poster-actions"
+      >
         <slot name="actions" />
         <UiIconButton
           v-if="favorite !== undefined"
@@ -134,9 +139,7 @@ const broken = ref(false)
   box-shadow: var(--shadow-md);
 }
 .ui-poster:focus-visible .ui-poster-media {
-  box-shadow:
-    0 0 0 3px var(--bg-content),
-    0 0 0 6px var(--accent);
+  box-shadow: var(--focus-ring-offset);
 }
 .ui-poster-rating {
   position: absolute;
@@ -144,8 +147,8 @@ const broken = ref(false)
   left: var(--space-2);
   display: inline-flex;
   align-items: center;
-  gap: 3px;
-  padding: 2px 6px;
+  gap: var(--space-1);
+  padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
   background: rgba(0, 0, 0, 0.56);
   color: #fff;
@@ -168,7 +171,7 @@ const broken = ref(false)
   gap: var(--space-1);
 }
 .ui-poster-badge {
-  padding: 2px 6px;
+  padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
   background: rgba(0, 0, 0, 0.56);
   color: #fff;

@@ -37,7 +37,7 @@ export default defineConfig({
   },
   plugins: [vue()],
   optimizeDeps: {
-    include: ['ant-design-vue', 'vue', 'vue-router', 'pinia'],
+    include: ['ant-design-vue', 'vue', 'vue-router'],
   },
   server: {
     host: true,
