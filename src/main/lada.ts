@@ -1,10 +1,12 @@
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { app } from 'electron'
 import { type ChildProcess, execFileSync, spawn } from 'child_process'
 import { existsSync, promises as fs, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { isAbsolute, join } from 'node:path'
 import type { LadaJob, LadaPaths } from '../shared/lada'
 import { parseLadaLine, restoredPathFor } from '../shared/lada'
-import { acquireLock, clearStaleLock, readLock, releaseLock } from './lada-lock'
+import { type JobLock, acquireLock, clearStaleLock, readLock, releaseLock } from './lada-lock'
+import { emit } from './rpc'
+import { lada } from '../shared/contract/lada'
 
 /**
  * 去马赛克（lada）调度。
@@ -126,14 +128,8 @@ async function saveOverrides(): Promise<void> {
   await fs.rename(temp, file)
 }
 
-function broadcast(channel: string, payload: unknown): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send(channel, payload)
-  }
-}
-
 /** 快照，避免把内部可变对象直接发给渲染层 */
-const snapshot = (): LadaJob | null => (job ? { ...job } : null)
+export const snapshot = (): LadaJob | null => (job ? { ...job } : null)
 
 /** 校验输入：必须是存在的本地视频文件 */
 function validateInput(input: unknown): string {
@@ -257,8 +253,8 @@ function finish(state: LadaJob['state'], error?: string): void {
   const done = snapshot()
   child = null
   releaseLock(tempDir(), process.pid)
-  broadcast('lada:progress', done)
-  broadcast('lada:finished', done)
+  emit(lada, 'progress', done)
+  emit(lada, 'finished', done)
   if (done) for (const cb of finishedListeners) {
     try {
       cb(done)
@@ -316,7 +312,7 @@ export function startJob(input: string, opts?: { source?: string; output?: strin
     message: '正在启动 lada（首次加载模型约 20-40 秒）…',
     startedAt: Date.now(),
   }
-  broadcast('lada:progress', snapshot())
+  emit(lada, 'progress', snapshot())
 
   const service = spawn(
     cli,
@@ -354,7 +350,7 @@ export function startJob(input: string, opts?: { source?: string; output?: strin
     const now = Date.now()
     if (now - lastEmit > 150) {
       lastEmit = now
-      broadcast('lada:progress', snapshot())
+      emit(lada, 'progress', snapshot())
     }
   }
   service.stdout?.on('data', onChunk)
@@ -404,7 +400,7 @@ function cancelJob(): void {
 }
 
 /** 播放时优先选择已修复的产物 */
-function playablePath(input: unknown): { path: string; restored: boolean } {
+export function playablePath(input: unknown): { path: string; restored: boolean } {
   const filePath = validateInput(input)
   const restored = restoredPathFor(filePath)
   return existsSync(restored) ? { path: restored, restored: true } : { path: filePath, restored: false }
@@ -428,47 +424,43 @@ export async function waitForLadaExit(): Promise<void> {
   await new Promise<void>(resolve => setTimeout(resolve, 1_000))
 }
 
-export async function registerLadaIpc(): Promise<void> {
+/** 覆盖 lada-cli / ffmpeg 路径（空串 = 恢复自动探测），校验后持久化 */
+export async function setPathOverrides(changes: Overrides): Promise<LadaPaths> {
+  const next: Overrides = { ...overrides }
+  for (const key of ['cli', 'ffmpeg'] as const) {
+    const value = changes[key]
+    if (value === undefined) continue
+    const text = String(value).trim()
+    if (!text) delete next[key]
+    else if (!isAbsolute(text)) throw new Error('必须填绝对路径')
+    else if (!existsSync(text)) throw new Error(`路径不存在：${text}`)
+    else next[key] = text
+  }
+  overrides = next
+  await saveOverrides()
+  return paths()
+}
+
+/** 发起整片去码；已有任务在跑时返回失败 */
+export function startTask(input: string): { success: boolean; job?: LadaJob; error?: string } {
+  try {
+    if (job && job.state === 'running') throw new Error('已有一个去码任务在跑，请先取消')
+    return { success: true, job: startJob(validateInput(input)) }
+  } catch (error) {
+    return { success: false, error: error instanceof Error ? error.message : String(error) }
+  }
+}
+
+/** 别的影盒实例是否正在跑任务（跨实例可见）——界面据此提示用户 */
+export function otherInstanceJob(): JobLock | null {
+  const lock = readLock(tempDir())
+  return lock && lock.pid !== process.pid ? lock : null
+}
+
+/** 启动时加载路径覆盖、清扫上次遗留的临时文件，并在退出时取消任务 */
+export async function initLada(): Promise<void> {
   await loadOverrides()
   sweepOrphans()
-
-  ipcMain.handle('lada:paths', () => paths())
-  ipcMain.handle('lada:setPaths', async (_e, changes: Overrides) => {
-    const next: Overrides = { ...overrides }
-    for (const key of ['cli', 'ffmpeg'] as const) {
-      const value = changes?.[key]
-      if (value === undefined) continue
-      const text = String(value).trim()
-      if (!text) delete next[key]
-      else if (!isAbsolute(text)) throw new Error('必须填绝对路径')
-      else if (!existsSync(text)) throw new Error(`路径不存在：${text}`)
-      else next[key] = text
-    }
-    overrides = next
-    await saveOverrides()
-    return paths()
-  })
-
-  ipcMain.handle('lada:start', (_e, input: unknown) => {
-    try {
-      if (job && job.state === 'running') throw new Error('已有一个去码任务在跑，请先取消')
-      return { success: true, job: startJob(validateInput(input)) }
-    } catch (error) {
-      return { success: false, error: error instanceof Error ? error.message : String(error) }
-    }
-  })
-  ipcMain.handle('lada:cancel', () => {
-    cancelJob()
-    return { success: true }
-  })
-  ipcMain.handle('lada:status', () => snapshot())
-  // 别的影盒实例是否正在跑任务（跨实例可见）——界面据此提示用户
-  ipcMain.handle('lada:otherJob', () => {
-    const lock = readLock(tempDir())
-    return lock && lock.pid !== process.pid ? lock : null
-  })
-  ipcMain.handle('lada:playablePath', (_e, input: unknown) => playablePath(input))
-
   app.on('before-quit', () => {
     if (job?.state === 'running') cancelJob()
   })

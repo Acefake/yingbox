@@ -13,11 +13,13 @@
  *  2. 分片时间戳必须**连续**（用 -copyts），一旦每个分片从 0 开始就会反复播同一段
  *  3. 本地文件路径的 HLS 在 Windows 上走不通 → 起一个只绑 127.0.0.1 的 HTTP 服务
  */
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { app } from 'electron'
 import { spawn } from 'child_process'
 import { copyFileSync, createReadStream, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { dirname, join } from 'node:path'
+import { emit } from './rpc'
+import { lada } from '../shared/contract/lada'
 import { cancelCurrentJob, currentJob, ladaPaths, ladaTempVideo, startJob, waitForLadaExit } from './lada'
 import { adoptPartial } from './lada-resume'
 import type { LadaJob, LadaLiveState, LadaLiveStatus } from '../shared/lada'
@@ -261,9 +263,7 @@ function statusOf(s: LiveSession): LadaLiveStatus {
 }
 
 function broadcastStatus(s: LiveSession): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('lada:live', statusOf(s))
-  }
+  emit(lada, 'live', statusOf(s))
 }
 
 function serve(s: LiveSession): Promise<number> {
@@ -300,7 +300,7 @@ function serve(s: LiveSession): Promise<number> {
  *  - 已经有一个**普通去码任务**在跑同一部片子 → 直接追播它，不再起第二个 lada
  *  - 有别的普通任务在跑 → 同样先暂停并登记进度
  */
-async function startLive(input: unknown): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function startLive(input: unknown): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
     if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
     const file = input.trim()
@@ -400,7 +400,7 @@ async function pauseJob(job: LadaJob): Promise<void> {
   await waitForLadaExit()
 }
 
-function stopLive(): void {
+export function stopLive(): void {
   const s = session
   if (!s) return
   s.stopping = true
@@ -417,12 +417,12 @@ function stopLive(): void {
   session = null
 }
 
-export function registerLadaLiveIpc(): void {
-  ipcMain.handle('lada:startLive', (_e, input: unknown) => startLive(input))
-  ipcMain.handle('lada:stopLive', () => {
-    stopLive()
-    return { success: true }
-  })
-  ipcMain.handle('lada:liveStatus', () => (session ? statusOf(session) : null))
+/** 边跑边看的当前状态；没有会话时为 null */
+export function liveStatus(): LadaLiveStatus | null {
+  return session ? statusOf(session) : null
+}
+
+/** 退出时停掉追播会话 */
+export function initLadaLive(): void {
   app.on('before-quit', () => stopLive())
 }

@@ -8,24 +8,15 @@
  *
  * 代价：段边界可能有一帧级瑕疵；分段处理的时域稳定性略逊于整片一次跑。
  */
-import { BrowserWindow, app, ipcMain } from 'electron'
+import { app } from 'electron'
 import { spawn } from 'child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
 import { ladaPaths, onJobFinished, startJob, tempDirPath } from './lada'
-import { restoredPathFor } from '../shared/lada'
-
-interface ResumeProgress {
-  input: string
-  /** 已经处理好的秒数（由半成品实测） */
-  doneSeconds: number
-  /** 分段数（part0、part1…） */
-  parts: number
-  /** 上次用的编码预设/模型（拼接要求一致） */
-  preset: string
-  updatedAt: number
-}
+import { emit } from './rpc'
+import { lada } from '../shared/contract/lada'
+import { type LadaResumeProgress, restoredPathFor } from '../shared/lada'
 
 interface Running {
   input: string
@@ -43,11 +34,11 @@ const dirFor = (input: string): string => join(cacheRoot(), keyFor(input))
 const partPath = (input: string, index: number): string => join(dirFor(input), `part${index}.mp4`)
 const progressPath = (input: string): string => join(dirFor(input), 'progress.json')
 
-function readProgress(input: string): ResumeProgress | null {
+export function readProgress(input: string): LadaResumeProgress | null {
   const file = progressPath(input)
   if (!existsSync(file)) return null
   try {
-    const data = JSON.parse(readFileSync(file, 'utf8')) as ResumeProgress
+    const data = JSON.parse(readFileSync(file, 'utf8')) as LadaResumeProgress
     if (!data || typeof data.doneSeconds !== 'number' || data.doneSeconds <= 1) return null
     return { ...data, input }
   } catch {
@@ -55,7 +46,7 @@ function readProgress(input: string): ResumeProgress | null {
   }
 }
 
-function writeProgress(progress: ResumeProgress): void {
+function writeProgress(progress: LadaResumeProgress): void {
   const dir = dirFor(progress.input)
   mkdirSync(dir, { recursive: true })
   const file = progressPath(progress.input)
@@ -104,7 +95,7 @@ function partsOf(input: string): string[] {
  * 把一份"半成品"视频收进缓存目录当作最新的一段，并更新进度。
  * 用于接管 lada 自己写在 %TEMP% 里的临时文件（比如上次被中断的那个）。
  */
-export async function adoptPartial(input: string, partialFile: string): Promise<ResumeProgress | null> {
+export async function adoptPartial(input: string, partialFile: string): Promise<LadaResumeProgress | null> {
   const { ffmpeg } = ladaPaths()
   if (!ffmpeg) return null
   const ffprobe = ffprobeFor(ffmpeg)
@@ -119,7 +110,7 @@ export async function adoptPartial(input: string, partialFile: string): Promise<
   } catch {
     return null
   }
-  const progress: ResumeProgress = {
+  const progress: LadaResumeProgress = {
     input,
     doneSeconds: done,
     parts: existing.length + 1,
@@ -180,7 +171,7 @@ async function assemble(input: string, output: string): Promise<void> {
 }
 
 /** 「继续」：裁出剩余部分 → 交给 lada → 跑完自动拼接 */
-async function resume(input: unknown): Promise<{ success: boolean; error?: string; doneSeconds?: number }> {
+export async function resume(input: unknown): Promise<{ success: boolean; error?: string; doneSeconds?: number }> {
   try {
     if (running) throw new Error('已经有一个续跑在进行中')
     if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
@@ -236,9 +227,7 @@ async function resume(input: unknown): Promise<{ success: boolean; error?: strin
 }
 
 function notify(text: string): void {
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('lada:notice', text)
-  }
+  emit(lada, 'notice', text)
 }
 
 /** 把秒数写成 1h02m03s / 12m34s 这种给人看的形式 */
@@ -275,7 +264,7 @@ interface RangeJob {
 
 let range: RangeJob | null = null
 
-async function startRange(
+export async function startRange(
   input: unknown,
   startSeconds: unknown,
   endSeconds: unknown
@@ -374,88 +363,77 @@ function broadcastRangeReady(info: {
   path?: string
   error?: string
 }): void {
-  const payload = {
+  emit(lada, 'rangeReady', {
     ...info,
     title: `${basename(info.input)}（${fmtClock(info.start)}-${fmtClock(info.end)} 已去码）`,
-  }
-  for (const win of BrowserWindow.getAllWindows()) {
-    if (!win.isDestroyed()) win.webContents.send('lada:range-ready', payload)
+  })
+}
+
+/** 查询该片已处理的进度（暂停 / 继续） */
+export function resumeInfo(input: string): LadaResumeProgress | null {
+  return readProgress(input)
+}
+
+/** 缓存目录总字节数 */
+export function cacheSize(): number {
+  try {
+    let total = 0
+    for (const dir of readdirSync(cacheRoot())) {
+      const path = join(cacheRoot(), dir)
+      for (const name of readdirSync(path)) {
+        try {
+          total += statSync(join(path, name)).size
+        } catch {
+          /* ignore */
+        }
+      }
+    }
+    return total
+  } catch {
+    return 0
   }
 }
 
-export function registerLadaResumeIpc(): void {
-  // 启动时先把"上次崩溃留下的半成品"认领成可续跑的进度（而不是让清扫当垃圾删掉）
-  void adoptLeftovers()
-  ipcMain.handle('lada:resumeInfo', (_e, input: unknown) => {
-    if (typeof input !== 'string') return null
-    return readProgress(input)
-  })
-  ipcMain.handle('lada:resume', (_e, input: unknown) => resume(input))
-  // 区间去码：只处理 [start, end]（end<=0 表示到片尾）
-  ipcMain.handle('lada:startRange', (_e, input: unknown, start: unknown, end: unknown) =>
-    startRange(input, start, end)
-  )
-  ipcMain.handle('lada:parts', (_e, input: unknown) =>
-    typeof input === 'string' ? partsOf(input) : []
-  )
-  ipcMain.handle('lada:cacheSize', () => {
+/** 清理可再生的缓存，保留暂停任务的进度 */
+export function clearCache(): { success: boolean; freed: number } {
+  // 只清"可再生"的东西：区间产物、拼接中间文件、转 TS 的碎片。
+  // part*.mp4 与 progress.json 是**暂停任务的进度**，清掉就等于让人白跑，必须留着。
+  let freed = 0
+  const drop = (path: string, dir: boolean): void => {
     try {
-      let total = 0
-      for (const dir of readdirSync(cacheRoot())) {
-        const path = join(cacheRoot(), dir)
-        for (const name of readdirSync(path)) {
-          try {
-            total += statSync(join(path, name)).size
-          } catch {
-            /* ignore */
-          }
-        }
-      }
-      return total
+      freed += dir ? 0 : statSync(path).size
+      rmSync(path, { recursive: dir, force: true })
     } catch {
-      return 0
+      /* 占用中就留给下次 */
     }
-  })
-  ipcMain.handle('lada:clearCache', () => {
-    // 只清"可再生"的东西：区间产物、拼接中间文件、转 TS 的碎片。
-    // part*.mp4 与 progress.json 是**暂停任务的进度**，清掉就等于让人白跑，必须留着。
-    let freed = 0
-    const drop = (path: string, dir: boolean): void => {
-      try {
-        freed += dir ? 0 : statSync(path).size
-        rmSync(path, { recursive: dir, force: true })
-      } catch {
-        /* 占用中就留给下次 */
-      }
-    }
-    drop(join(cacheRoot(), 'ranges'), true)
-    let keys: string[] = []
-    try {
-      keys = readdirSync(cacheRoot())
-    } catch {
-      return { success: true, freed }
-    }
-    for (const key of keys) {
-      if (key === 'ranges') continue
-      const dir = join(cacheRoot(), key)
-      let names: string[] = []
-      try {
-        names = readdirSync(dir)
-      } catch {
-        continue
-      }
-      for (const name of names) {
-        if (/^part\d+\.mp4$/i.test(name) || name === 'progress.json') continue
-        drop(join(dir, name), false)
-      }
-    }
+  }
+  drop(join(cacheRoot(), 'ranges'), true)
+  let keys: string[] = []
+  try {
+    keys = readdirSync(cacheRoot())
+  } catch {
     return { success: true, freed }
-  })
-  // 接管 lada 自己写在 %TEMP% 里的半成品，收进缓存并登记进度
-  ipcMain.handle('lada:adoptPartial', (_e, input: unknown, partial: unknown) => {
-    if (typeof input !== 'string' || typeof partial !== 'string') return null
-    return adoptPartial(input, partial)
-  })
+  }
+  for (const key of keys) {
+    if (key === 'ranges') continue
+    const dir = join(cacheRoot(), key)
+    let names: string[] = []
+    try {
+      names = readdirSync(dir)
+    } catch {
+      continue
+    }
+    for (const name of names) {
+      if (/^part\d+\.mp4$/i.test(name) || name === 'progress.json') continue
+      drop(join(dir, name), false)
+    }
+  }
+  return { success: true, freed }
+}
+
+/** 启动时先把「上次崩溃留下的半成品」认领成可续跑的进度（而不是让清扫当垃圾删掉） */
+export function initLadaResume(): void {
+  void adoptLeftovers()
 }
 
 /**

@@ -1,32 +1,9 @@
-import { BrowserWindow, ipcMain } from 'electron'
+import { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
+import { emit, implement } from './rpc'
+import { type PlayerOpenPayload, type PlayerSourceItem, player } from '../shared/contract/player'
 
-/** 播放列表条目：用于自动连播与失败跳过 */
-type PlayerSourceItem = {
-  url?: string
-  filePath?: string
-  /** 展示名（集名 / 文件名） */
-  name?: string
-  /** CatSpider 插件参数 */
-  ext?: Record<string, unknown>
-  /** CatSpider 站点名 */
-  siteName?: string
-}
-
-type PlayerOpenPayload = {
-  filePath?: string
-  url?: string
-  title?: string
-  poster?: string
-  startAt?: number
-  /** 播放队列；配合 index 决定起始项 */
-  playlist?: PlayerSourceItem[]
-  /** 起始项下标 */
-  index?: number
-  /** 同集备用线路：播放失败时优先尝试 */
-  fallbacks?: PlayerSourceItem[]
-}
 
 /** 队列长度上限，避免渲染层发送超大数组 */
 const MAX_PLAYLIST = 500
@@ -138,7 +115,7 @@ function applyWindowTitle(payload: PlayerOpenPayload): void {
 function sendLoad(payload: PlayerOpenPayload): void {
   if (!playerWindow || playerWindow.isDestroyed()) return
   applyWindowTitle(payload)
-  playerWindow.webContents.send('player:load', payload)
+  emit(player, 'load', payload, playerWindow.webContents)
 }
 
 function openPlayerWindow(payload: PlayerOpenPayload): void {
@@ -214,27 +191,23 @@ function closePlayerWindow(): void {
   pendingPayload = null
 }
 
+/** 实现 player 域 */
 export function registerPlayerWindowIpc(): void {
-  ipcMain.handle('player:open', (_event, payload: PlayerOpenPayload) => {
-    const normalized = normalizePayload(payload)
-    if (!normalized) {
-      return { success: false, error: 'filePath or url required' }
-    }
-    try {
-      openPlayerWindow(normalized)
-      return { success: true }
-    } catch (error) {
-      return {
-        success: false,
-        error: error instanceof Error ? error.message : String(error),
+  implement(player, {
+    open: (_, payload) => {
+      const normalized = normalizePayload(payload)
+      if (!normalized) return { success: false, error: 'filePath or url required' }
+      try {
+        openPlayerWindow(normalized)
+        return { success: true }
+      } catch (error) {
+        return { success: false, error: error instanceof Error ? error.message : String(error) }
       }
-    }
+    },
+    close: () => {
+      closePlayerWindow()
+      return { success: true }
+    },
+    getPending: () => pendingPayload,
   })
-
-  ipcMain.handle('player:close', () => {
-    closePlayerWindow()
-    return { success: true }
-  })
-
-  ipcMain.handle('player:getPending', () => pendingPayload)
 }
