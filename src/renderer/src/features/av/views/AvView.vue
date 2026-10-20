@@ -51,26 +51,28 @@
             />
           </template>
         </PageHeader>
-        <div
+        <UiVirtualGrid
           v-if="browse.sortedVideos.value.length"
+          :items="browse.sortedVideos.value"
           class="ui-poster-grid is-landscape"
+          :item-key="video => `${video._source}-${video.vod_id}`"
         >
-          <UiPosterCard
-            v-for="video in browse.sortedVideos.value"
-            :key="`${video._source}-${video.vod_id}`"
-            shape="landscape"
-            :title="video.vod_name"
-            :cover="coverSrc(video)"
-            :subtitle="`${video.type_name || '未分类'} · ${video.vod_duration || '时长未知'}`"
-            :favorite="isFav(video)"
-            @open="playback.playVideo(video)"
-            @toggle-favorite="toggleFav(video)"
-          >
-            <template v-if="video.vod_remarks" #badges>
-              <span class="ui-poster-badge">{{ video.vod_remarks }}</span>
-            </template>
-          </UiPosterCard>
-        </div>
+          <template #default="{ item: video }">
+            <UiPosterCard
+              shape="landscape"
+              :title="video.vod_name"
+              :cover="coverSrc(video)"
+              :subtitle="`${video.type_name || '未分类'} · ${video.vod_duration || '时长未知'}`"
+              :favorite="isFav(video)"
+              @open="playback.playVideo(video)"
+              @toggle-favorite="toggleFav(video)"
+            >
+              <template v-if="video.vod_remarks" #badges>
+                <span class="ui-poster-badge">{{ video.vod_remarks }}</span>
+              </template>
+            </UiPosterCard>
+          </template>
+        </UiVirtualGrid>
         <StatusState v-else title="这个分类暂时没有内容" />
         <div class="av-load-more" role="status" aria-live="polite">
           <span v-if="browse.loadingMore.value">正在加载更多…</span>
@@ -162,6 +164,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import UiSegmented, {
   type SegmentedOption,
 } from '@/components/ui/UiSegmented.vue'

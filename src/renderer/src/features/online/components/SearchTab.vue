@@ -60,26 +60,30 @@
         <PageTitle as="h2" variant="section">插件视频源</PageTitle>
         <span class="yb-section-count">{{ vodResults.length }}个结果</span>
       </div>
-      <div class="ui-poster-grid">
-        <UiPosterCard
-          v-for="item in vodResults"
-          :key="item.vod_name + item.source_name"
-          :title="item.vod_name"
-          :cover="item.vod_pic"
-          :subtitle="
-            [item.vod_year, item.type_name, item.vod_remarks]
-              .filter(Boolean)
-              .join(' · ')
-          "
-          @open="emit('openItem', item)"
-        >
-          <template #badges
-            ><span class="ui-poster-badge">{{
-              item.source_name
-            }}</span></template
+      <UiVirtualGrid
+        :items="vodResults"
+        class="ui-poster-grid"
+        :item-key="item => item.vod_name + item.source_name"
+      >
+        <template #default="{ item }">
+          <UiPosterCard
+            :title="item.vod_name"
+            :cover="item.vod_pic"
+            :subtitle="
+              [item.vod_year, item.type_name, item.vod_remarks]
+                .filter(Boolean)
+                .join(' · ')
+            "
+            @open="emit('openItem', item)"
           >
-        </UiPosterCard>
-      </div>
+            <template #badges
+              ><span class="ui-poster-badge">{{
+                item.source_name
+              }}</span></template
+            >
+          </UiPosterCard>
+        </template>
+      </UiVirtualGrid>
     </div>
 
     <!-- CMS 源结果 -->
@@ -88,32 +92,37 @@
         <PageTitle as="h2" variant="section">CMS源</PageTitle>
         <span class="yb-section-count">{{ cmsResults.length }}个结果</span>
       </div>
-      <div class="ui-poster-grid">
-        <UiPosterCard
-          v-for="item in cmsResults"
-          :key="item.vod_name + item.source_name"
-          :title="item.vod_name"
-          :cover="item.vod_pic"
-          :subtitle="
-            [item.vod_year, item.type_name, item.vod_remarks]
-              .filter(Boolean)
-              .join(' · ')
-          "
-          @open="emit('openItem', item)"
-        >
-          <template #badges
-            ><span class="ui-poster-badge">{{
-              item.source_name
-            }}</span></template
+      <UiVirtualGrid
+        :items="cmsResults"
+        class="ui-poster-grid"
+        :item-key="item => item.vod_name + item.source_name"
+      >
+        <template #default="{ item }">
+          <UiPosterCard
+            :title="item.vod_name"
+            :cover="item.vod_pic"
+            :subtitle="
+              [item.vod_year, item.type_name, item.vod_remarks]
+                .filter(Boolean)
+                .join(' · ')
+            "
+            @open="emit('openItem', item)"
           >
-        </UiPosterCard>
-      </div>
+            <template #badges
+              ><span class="ui-poster-badge">{{
+                item.source_name
+              }}</span></template
+            >
+          </UiPosterCard>
+        </template>
+      </UiVirtualGrid>
     </div>
   </div>
 </template>
 
 <script setup lang="ts">
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import { confirmDialog } from '@/utils/confirm-dialog'
 import PageTitle from '@/components/PageTitle.vue'
 import UiButton from '@/components/ui/UiButton.vue'
