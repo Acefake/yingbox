@@ -1,0 +1,54 @@
+/**
+ * 顶部全局搜索的纯规则：各页面的占位文字，以及提交 / 清空后应跳到哪里。
+ * 本地片库页（电影、剧集、Amane）在本页按 ?q= 过滤；AV 页和其余页面跳到对应的搜索标签。
+ */
+
+/** 在本页用 ?q= 过滤的路由 */
+const LOCAL_FILTER_ROUTES = new Set(['Movie', 'TV', 'Amane'])
+
+const PLACEHOLDERS: Record<string, string> = {
+  Movie: '搜索本地电影',
+  TV: '搜索本地电视剧',
+  Amane: '搜索 Amane 片库',
+  AV: '搜索 AV 资源',
+}
+
+/** 搜索框占位文字；桌面端带快捷键提示 */
+export function searchPlaceholder(
+  routeName: string | undefined,
+  isPhone: boolean
+): string {
+  const base =
+    (routeName && PLACEHOLDERS[routeName]) ||
+    (isPhone ? '搜索' : '搜索电影、电视剧')
+  return isPhone ? base : `${base}（Ctrl + K）`
+}
+
+/** 路由跳转目标（交给 router.replace） */
+export interface SearchLocation {
+  path: string
+  query: Record<string, string>
+}
+
+/**
+ * 计算提交或清空搜索后要去的地址。
+ * @param routeName 当前路由名
+ * @param routePath 当前路由路径
+ * @param query 去掉首尾空白的搜索词；空串表示清空
+ */
+export function searchLocation(
+  routeName: string | undefined,
+  routePath: string,
+  query: string
+): SearchLocation {
+  if (routeName && LOCAL_FILTER_ROUTES.has(routeName)) {
+    return { path: routePath, query: query ? { q: query } : {} }
+  }
+  return {
+    path: routeName === 'AV' ? '/av' : '/',
+    query: query ? { tab: 'search', q: query } : { tab: 'search' },
+  }
+}
+
+/** 输入这个口令并回车会切换成人模式（不触发搜索） */
+export const ADULT_MODE_PASSPHRASE = 'getav'
