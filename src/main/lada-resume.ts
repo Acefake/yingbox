@@ -8,7 +8,7 @@
  *
  * 代价：段边界可能有一帧级瑕疵；分段处理的时域稳定性略逊于整片一次跑。
  */
-import { app, ipcMain, BrowserWindow } from 'electron'
+import { BrowserWindow, app, ipcMain } from 'electron'
 import { spawn } from 'child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
@@ -148,7 +148,7 @@ async function assemble(input: string, output: string): Promise<void> {
     const convert = await run(ffmpeg, ['-y', '-loglevel', 'error', '-i', part,
       '-map', '0:v:0', '-c', 'copy', '-bsf:v', 'hevc_mp4toannexb', '-f', 'mpegts', ts])
     if (convert.code !== 0 || !existsSync(ts)) {
-      throw new Error('分段转 TS 失败：' + convert.out.slice(-200))
+      throw new Error(`分段转 TS 失败：${convert.out.slice(-200)}`)
     }
     tsFiles.push(ts)
   }
@@ -157,14 +157,14 @@ async function assemble(input: string, output: string): Promise<void> {
   const join1 = await run(ffmpeg, ['-y', '-loglevel', 'error',
     '-i', `concat:${tsFiles.join('|')}`, '-c', 'copy', videoOnly])
   for (const ts of tsFiles) rmSync(ts, { force: true })
-  if (join1.code !== 0 || !existsSync(videoOnly)) throw new Error('拼接视频失败：' + join1.out.slice(-200))
+  if (join1.code !== 0 || !existsSync(videoOnly)) throw new Error(`拼接视频失败：${join1.out.slice(-200)}`)
 
   // 用原片的音轨补上
   const final = await run(ffmpeg, ['-y', '-loglevel', 'error',
     '-i', videoOnly, '-i', input,
     '-map', '0:v:0', '-map', '1:a:0?', '-c', 'copy', '-movflags', '+faststart', output])
   rmSync(videoOnly, { force: true })
-  if (final.code !== 0) throw new Error('合并音轨失败：' + final.out.slice(-200))
+  if (final.code !== 0) throw new Error(`合并音轨失败：${final.out.slice(-200)}`)
 
   // 收尾自检：拼出来的时长应接近源片；差太多说明拼接有问题，别把坏文件留给用户
   const ffprobe = ffprobeFor(ffmpeg)
@@ -196,7 +196,7 @@ async function resume(input: unknown): Promise<{ success: boolean; error?: strin
     // -c copy 裁出剩余部分：很快，不重新编码
     const trim = await run(ffmpeg, ['-y', '-loglevel', 'error', '-ss', progress.doneSeconds.toFixed(3),
       '-i', file, '-c', 'copy', '-avoid_negative_ts', 'make_zero', remainder])
-    if (trim.code !== 0 || !existsSync(remainder)) throw new Error('裁出剩余部分失败：' + trim.out.slice(-300))
+    if (trim.code !== 0 || !existsSync(remainder)) throw new Error(`裁出剩余部分失败：${trim.out.slice(-300)}`)
 
     const output = restoredPathFor(file)
     // lada 处理"剩余部分"，输出到缓存目录（先不覆盖最终文件）
@@ -314,7 +314,7 @@ async function startRange(
       '-ss', start.toFixed(3), '-t', seconds.toFixed(3),
       '-i', file, '-c', 'copy', '-avoid_negative_ts', 'make_zero', source])
     if (trim.code !== 0 || !existsSync(source)) {
-      throw new Error('裁出这一段失败：' + trim.out.slice(-200))
+      throw new Error(`裁出这一段失败：${trim.out.slice(-200)}`)
     }
 
     const stem = basename(file).replace(/\.[^.]+$/, '')
@@ -340,7 +340,7 @@ async function startRange(
         const mux = await run(ffmpeg, ['-y', '-loglevel', 'error',
           '-i', active.part, '-i', active.source,
           '-map', '0:v:0', '-map', '1:a:0?', '-c', 'copy', '-movflags', '+faststart', active.output])
-        if (mux.code !== 0) throw new Error('合并音轨失败：' + mux.out.slice(-200))
+        if (mux.code !== 0) throw new Error(`合并音轨失败：${mux.out.slice(-200)}`)
         const [done, want] = await Promise.all([
           durationOf(ffprobe, active.output),
           durationOf(ffprobe, active.source),

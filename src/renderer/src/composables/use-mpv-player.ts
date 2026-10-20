@@ -1,4 +1,4 @@
-import { ref, computed } from 'vue'
+import { computed, ref } from 'vue'
 import type { MpvOpenOptions, MpvStatus, MpvTrack } from '@shared/mpv'
 
 const DEFAULT_STATUS: MpvStatus = {

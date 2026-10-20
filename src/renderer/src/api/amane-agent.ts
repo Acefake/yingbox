@@ -39,4 +39,4 @@ export function agentRunBody(id: number, rows: TraceRow[], prompt?: string, deci
   return { threadId: `session-${id}`, runId: createId(), state: null, messages, tools: [], context: [], forwardedProps: {}, ...(decisions ? { resume: Object.entries(decisions).map(([interruptId, approved]) => ({ interruptId, status: 'resolved', payload: approved ? { approved: true } : { approved: false, reason: '用户拒绝此操作' } })) } : {}) }
 }
 export const agentPath = (id: number): string => `/agent/sessions/${id}`
-export const getTrace = (id: number): Promise<AgentTrace> => amaneRequest(agentPath(id) + '/trace')
+export const getTrace = (id: number): Promise<AgentTrace> => amaneRequest(`${agentPath(id)}/trace`)
