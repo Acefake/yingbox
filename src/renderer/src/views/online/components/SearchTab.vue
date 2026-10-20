@@ -3,7 +3,12 @@
     <div v-if="searchHistory.length" class="home-section">
       <div class="yb-section-header">
         <PageTitle as="h2" variant="section">搜索记录</PageTitle>
-        <UiIconButton icon="trash" label="清空搜索记录" danger @click="clearHistory" />
+        <UiIconButton
+          icon="trash"
+          label="清空搜索记录"
+          danger
+          @click="clearHistory"
+        />
       </div>
       <div class="history-tags">
         <span
@@ -16,22 +21,22 @@
           @keydown.enter="handleSearch(kw)"
         >
           {{ kw }}
-          <button
+          <UiIconButton
             class="del-tag"
-            :aria-label="`删除搜索记录 ${kw}`"
+            icon="close"
+            size="sm"
+            danger
+            :label="`删除搜索记录「${kw}」`"
             @click.stop="removeHistory(kw)"
-          >
-            <UiIcon name="close" size="sm" />
-          </button>
+            @keydown.enter.stop
+          />
         </span>
       </div>
     </div>
 
     <div v-if="error" class="ui-error-state">
       <p>{{ error }}</p>
-      <button class="ui-secondary-button" @click="handleSearch()">
-        重新搜索
-      </button>
+      <UiButton icon="search" label="重新搜索" @click="handleSearch()" />
     </div>
 
     <div v-if="!results.length && !loading && !error" class="empty-search">
@@ -61,10 +66,18 @@
           :key="item.vod_name + item.source_name"
           :title="item.vod_name"
           :cover="item.vod_pic"
-          :subtitle="[item.vod_year, item.type_name, item.vod_remarks].filter(Boolean).join(' · ')"
+          :subtitle="
+            [item.vod_year, item.type_name, item.vod_remarks]
+              .filter(Boolean)
+              .join(' · ')
+          "
           @open="emit('openItem', item)"
         >
-          <template #badges><span class="ui-poster-badge">{{ item.source_name }}</span></template>
+          <template #badges
+            ><span class="ui-poster-badge">{{
+              item.source_name
+            }}</span></template
+          >
         </UiPosterCard>
       </div>
     </div>
@@ -85,10 +98,18 @@
           :key="item.vod_name + item.source_name"
           :title="item.vod_name"
           :cover="item.vod_pic"
-          :subtitle="[item.vod_year, item.type_name, item.vod_remarks].filter(Boolean).join(' · ')"
+          :subtitle="
+            [item.vod_year, item.type_name, item.vod_remarks]
+              .filter(Boolean)
+              .join(' · ')
+          "
           @open="emit('openItem', item)"
         >
-          <template #badges><span class="ui-poster-badge">{{ item.source_name }}</span></template>
+          <template #badges
+            ><span class="ui-poster-badge">{{
+              item.source_name
+            }}</span></template
+          >
         </UiPosterCard>
       </div>
     </div>
@@ -99,7 +120,7 @@
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import { confirmDialog } from '@/utils/confirm-dialog'
 import PageTitle from '@/components/PageTitle.vue'
-import UiIcon from '@/components/ui/UiIcon.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, ref, watch } from 'vue'
@@ -209,9 +230,9 @@ defineExpose({ handleSearch, saveHistory })
 .history-tag {
   display: flex;
   align-items: center;
-  gap: 5px;
-  min-height: 32px;
-  padding: 6px 10px;
+  gap: var(--space-1);
+  min-height: var(--control-height);
+  padding: 2px 2px 2px 10px;
   font-size: var(--text-xs);
   background: transparent;
   border: 1px solid var(--border-default);
@@ -226,18 +247,13 @@ defineExpose({ handleSearch, saveHistory })
   color: var(--text-primary);
 }
 
-.del-tag {
-  border: 0;
-  padding: 2px;
-  color: inherit;
-  background: transparent;
-  font-size: var(--text-2xs);
+.yb-icon-button.del-tag {
+  --ib-size: 24px;
   opacity: 0.5;
-  cursor: pointer;
 }
-.del-tag:hover {
+.history-tag:hover .del-tag,
+.del-tag:focus-visible {
   opacity: 1;
-  color: var(--danger);
 }
 
 .empty-search {

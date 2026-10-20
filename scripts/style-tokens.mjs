@@ -7,6 +7,10 @@
  *   node scripts/style-tokens.mjs --fix    把能映射的裸值替换成变量
  *
  * 只处理 .css 文件和 .vue 文件的 <style> 块；tokens.css 本身除外。
+ *
+ * 另外检查 .vue 模板里不能手写原生 <button>（components/ui/ 除外），
+ * 应改用 UiButton / UiIconButton / UiNavItem / UiListRow / UiChip / UiPressable。
+ * 这一项 --fix 无法自动修复。
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
@@ -15,6 +19,7 @@ import { fileURLToPath } from 'node:url'
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const srcDir = path.join(root, 'src/renderer/src')
 const tokensFile = path.join(srcDir, 'assets/styles/tokens.css')
+const uiDir = path.join(srcDir, 'components/ui') + path.sep
 const fix = process.argv.includes('--fix')
 
 /** 字号 px → 令牌（就近取档，最小 11px） */
@@ -60,7 +65,8 @@ const RULES = [
   {
     name: 'border-radius',
     // 只处理单值圆角；多值（如 12px 12px 0 0）逐个替换
-    pattern: /(border-(?:top-left-|top-right-|bottom-left-|bottom-right-)?radius\s*:\s*)([^;}\n]+)/g,
+    pattern:
+      /(border-(?:top-left-|top-right-|bottom-left-|bottom-right-)?radius\s*:\s*)([^;}\n]+)/g,
     map: null,
   },
 ]
@@ -111,17 +117,41 @@ function transformCss(css, report) {
   return out
 }
 
+/** .vue 模板里的原生 <button>（忽略 HTML 注释、<script> 和 <style>），返回行号 */
+function rawButtonLines(text) {
+  const blank = m => m.replace(/[^\n]/g, ' ')
+  const template = text
+    .replace(/<!--[\s\S]*?-->/g, blank)
+    .replace(/<script[^>]*>[\s\S]*?<\/script>/g, blank)
+    .replace(/<style[^>]*>[\s\S]*?<\/style>/g, blank)
+  const lines = []
+  const re = /<button[\s>/]/g
+  let m
+  while ((m = re.exec(template))) {
+    lines.push(template.slice(0, m.index).split('\n').length)
+  }
+  return lines
+}
+
 let dirty = 0
 const leftovers = []
+const rawButtons = []
 for (const file of walk(srcDir)) {
   const text = readFileSync(file, 'utf8')
+  if (file.endsWith('.vue') && !file.startsWith(uiDir)) {
+    for (const line of rawButtonLines(text))
+      rawButtons.push(
+        `${path.relative(root, file)}:${line}: 手写了 <button>，请改用 components/ui 里的组件`
+      )
+  }
   const ranges = styleRanges(file, text)
   if (!ranges.length) continue
   let result = ''
   let cursor = 0
   const report = []
   for (const [start, end] of ranges) {
-    result += text.slice(cursor, start) + transformCss(text.slice(start, end), report)
+    result +=
+      text.slice(cursor, start) + transformCss(text.slice(start, end), report)
     cursor = end
   }
   result += text.slice(cursor)
@@ -135,6 +165,8 @@ for (const file of walk(srcDir)) {
 }
 
 for (const line of leftovers) console.log(line)
+for (const line of rawButtons) console.log(line)
 if (fix) console.log(`已迁移 ${dirty} 个文件`)
-else if (dirty || leftovers.length) process.exit(1)
-else console.log('样式令牌检查通过')
+if (rawButtons.length) process.exit(1)
+if (!fix && (dirty || leftovers.length)) process.exit(1)
+if (!fix) console.log('样式令牌检查通过')

@@ -11,67 +11,47 @@
           @error="handleImageError"
         />
         <div v-else class="rp-poster-ph">
-          <svg
-            class="w-14 h-14 yb-icon-muted"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              fill-rule="evenodd"
-              d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm12 12H4l4-8 3 6 2-4 3 6z"
-              clip-rule="evenodd"
-            />
-          </svg>
+          <UiIcon name="movie" size="lg" />
         </div>
       </div>
 
       <div class="rp-body">
-        <PageTitle
-          :title="selectedItem?.name || displayTitle"
-        >
+        <PageTitle :title="selectedItem?.name || displayTitle">
           {{ displayTitle }}
         </PageTitle>
 
-        <div class="rp-meta">
-          <MovieInfo
-            v-if="movieInfo"
-            :movie-info="movieInfo"
-            :poster-url="posterImageDataUrl"
-            :loading="false"
-          />
-        </div>
-
-        <div class="yb-media-toolbar rp-action-bar">
-          <button
-            v-if="videoFiles.length === 1"
-            class="rp-play-btn-primary"
-            type="button"
-            :title="videoFiles[0].name"
-            @click="$emit('playFile', videoFiles[0].path)"
-          >
-            <svg
-              class="rp-play-btn-icon"
-              fill="currentColor"
-              viewBox="0 0 20 20"
-              aria-hidden="true"
-            >
-              <path
-                d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
+        <MovieInfo
+          class="rp-meta"
+          :movie-info="movieInfo"
+          :poster-url="posterImageDataUrl"
+          :loading="false"
+          :hide-actors="actors.length > 0"
+        >
+          <template #actions>
+            <!-- 一个主操作「播放」，其余为图标按钮 -->
+            <div class="rp-actions">
+              <UiButton
+                v-if="videoFiles.length === 1"
+                v-tooltip="videoFiles[0].name"
+                variant="primary"
+                size="lg"
+                icon="play"
+                label="播放"
+                @click="$emit('playFile', videoFiles[0].path)"
               />
-            </svg>
-            <span>播放</span>
-          </button>
-          <button
-            class="yb-btn-soft text-sm"
-            type="button"
-            @click="selectedItem && $emit('openWorkbench', selectedItem)"
-          >
-            刮削
-          </button>
-          <span v-if="videoFiles.length === 1" class="rp-play-size yb-dim">{{
-            formatSize(videoFiles[0].size)
-          }}</span>
-        </div>
+              <UiIconButton
+                icon="wand"
+                label="刮削"
+                variant="secondary"
+                size="lg"
+                @click="selectedItem && $emit('openWorkbench', selectedItem)"
+              />
+              <span v-if="videoFiles.length === 1" class="rp-play-size">{{
+                formatSize(videoFiles[0].size)
+              }}</span>
+            </div>
+          </template>
+        </MovieInfo>
 
         <div v-if="actors && actors.length" class="rp-actors">
           <p class="yb-label mb-2">演员</p>
@@ -88,18 +68,7 @@
                   :alt="actor.name"
                   class="w-full h-full object-cover"
                 />
-                <svg
-                  v-else
-                  class="w-5 h-5 yb-icon-muted"
-                  fill="currentColor"
-                  viewBox="0 0 20 20"
-                >
-                  <path
-                    fill-rule="evenodd"
-                    d="M10 9a3 3 0 100-6 3 3 0 000 6zm-7 9a7 7 0 1114 0H3z"
-                    clip-rule="evenodd"
-                  />
-                </svg>
+                <UiIcon v-else name="users" size="sm" class="rp-actor-ph" />
               </div>
               <span class="rp-actor-name">{{ actor.name }}</span>
               <span v-if="actor.role" class="rp-actor-role">{{
@@ -118,37 +87,28 @@
         <div
           v-for="vf in videoFiles"
           :key="vf.path"
-          class="yb-list-row group rp-file-row"
+          class="yb-list-row rp-file-row"
         >
-          <svg
-            class="w-4 h-4 yb-icon-muted flex-shrink-0"
-            fill="currentColor"
-            viewBox="0 0 20 20"
-          >
-            <path
-              d="M6.3 2.841A1.5 1.5 0 004 4.11v11.78a1.5 1.5 0 002.3 1.269l9.344-5.89a1.5 1.5 0 000-2.538L6.3 2.84z"
-            />
-          </svg>
+          <UiIcon name="movie" size="sm" class="rp-file-icon" />
           <span class="flex-1 text-sm truncate rp-file-name" :title="vf.name">{{
             fileDisplayName(vf.name)
           }}</span>
-          <span class="yb-dim flex-shrink-0" style="font-size: 11px">{{
-            formatSize(vf.size)
-          }}</span>
-          <button
-            class="opacity-0 group-hover:opacity-100 rp-play-btn"
-            title="播放"
-            @click="$emit('playFile', vf.path)"
-          >
-            播放
-          </button>
-          <button
-            class="opacity-0 group-hover:opacity-100 rp-del-btn"
-            title="删除"
-            @click="$emit('deleteFile', vf.path)"
-          >
-            删除
-          </button>
+          <span class="rp-file-size">{{ formatSize(vf.size) }}</span>
+          <div class="rp-file-actions">
+            <UiIconButton
+              icon="play"
+              label="播放"
+              size="sm"
+              @click="$emit('playFile', vf.path)"
+            />
+            <UiIconButton
+              icon="trash"
+              label="删除"
+              size="sm"
+              danger
+              @click="$emit('deleteFile', vf.path)"
+            />
+          </div>
         </div>
       </div>
     </div>
@@ -159,6 +119,10 @@
 import PageTitle from '@/components/PageTitle.vue'
 import { computed } from 'vue'
 import MovieInfo from '@/views/Movie/MovieInfo.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { vTooltip } from '@/components/ui/tooltip'
 import { resolveMediaDisplayTitle, stripMediaExtension } from '@/utils/avid'
 import type { ActorInfo, FileItem, ProcessedItem } from '@/types'
 
@@ -234,7 +198,7 @@ const handleImageError = (event: Event): void => {
   width: 200px;
   flex-shrink: 0;
   aspect-ratio: 2 / 3;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-lg);
   overflow: hidden;
   box-shadow: var(--shadow-md);
   outline: 1px solid var(--border-subtle);
@@ -257,18 +221,26 @@ const handleImageError = (event: Event): void => {
   align-items: center;
   justify-content: center;
   background: var(--bg-fill-secondary);
+  color: var(--text-quaternary);
 }
 .rp-body {
   flex: 1;
   min-width: 0;
 }
 .rp-meta {
+  margin-top: var(--space-3);
   margin-bottom: var(--space-4);
 }
-.rp-action-bar {
-  margin-bottom: var(--space-3);
-  gap: var(--space-2);
+.rp-actions {
+  display: flex;
   align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-6);
+}
+.rp-play-size {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
 }
 .rp-actors {
   margin-top: var(--space-2);
@@ -304,48 +276,38 @@ const handleImageError = (event: Event): void => {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.rp-play-wrap {
-  margin-top: var(--space-2);
-  display: flex;
-  align-items: center;
-  gap: 12px;
-}
-.rp-play-size {
-  font-size: var(--text-xs);
-}
 .rp-files {
   margin-top: var(--space-5);
   max-width: 720px;
 }
 .rp-file-row {
+  gap: var(--space-3);
   min-height: 40px;
+}
+.rp-file-icon,
+.rp-actor-ph {
+  flex-shrink: 0;
+  color: var(--text-tertiary);
 }
 .rp-file-name {
   color: var(--text-primary);
 }
-.rp-play-btn,
-.rp-del-btn {
+.rp-file-size {
   flex-shrink: 0;
-  border: 0;
-  background: transparent;
-  cursor: pointer;
-  font-size: var(--text-xs);
-  font-weight: 600;
-  padding: 4px 8px;
-  border-radius: var(--radius-sm);
-  transition: var(--transition-fast);
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
 }
-.rp-play-btn {
-  color: var(--success);
+.rp-file-actions {
+  display: flex;
+  flex-shrink: 0;
+  gap: var(--space-1);
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease;
 }
-.rp-play-btn:hover {
-  background: color-mix(in srgb, var(--success) 14%, transparent);
-}
-.rp-del-btn {
-  color: var(--danger);
-}
-.rp-del-btn:hover {
-  background: color-mix(in srgb, var(--danger) 14%, transparent);
+.rp-file-row:hover .rp-file-actions,
+.rp-file-row:focus-within .rp-file-actions {
+  opacity: 1;
 }
 
 @media (max-width: 720px) {

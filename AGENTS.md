@@ -126,5 +126,7 @@ Build outputs (`out/`, `packages/backend/main*`) are gitignored and untracked â€
 
 - Look: Apple-like restraint, generous whitespace; neutral grays, color comes from posters. Accent blue only for focus, links and toggles; selected states use `--bg-active`.
 - Tokens live in `src/renderer/src/assets/styles/tokens.css`. Never hard-code font sizes or radii; `pnpm check:style` enforces it (`node scripts/style-tokens.mjs --fix` migrates).
-- Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
+- Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiNavItem` (sidebar / settings / tab-bar navigation; `collapsed` hides the label and shows it as tooltip, `layout="stack"` for the phone bottom bar, `current="page" | "pressed" | "none"`), `UiListRow` (clickable multi-line row; `role` / `aria-*` pass through, e.g. `menuitemradio`), `UiChip` (small gray pill for actors/tags; put a separate `UiIconButton` next to it for remove), `UiPressable` (unstyled button for image/card targets; pass `label` when the content has no text), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
+- No raw `<button>` in `.vue` files outside `components/ui/` â€” pick one of the components above (`UiPressable` when nothing else fits). `pnpm check:style` fails on violations.
+- New `components/ui` styles wrap state/modifier selectors in `:where()`, so a single page class overrides sizing and colors.
 - Prefer `UiIconButton` over text buttons; keep at most one `UiButton variant="primary"` per area (e.g. Play).

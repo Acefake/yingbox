@@ -27,74 +27,32 @@
         @click.stop="handleToggleSelection"
       >
         <div class="tv-checkbox" :class="{ 'is-checked': isMultiSelectedItem }">
-          <svg
-            v-if="isMultiSelectedItem"
-            class="tv-checkbox-icon"
-            fill="none"
-            stroke="currentColor"
-            viewBox="0 0 24 24"
-          >
-            <path
-              stroke-linecap="round"
-              stroke-linejoin="round"
-              stroke-width="3"
-              d="M5 13l4 4L19 7"
-            />
-          </svg>
+          <UiIcon v-if="isMultiSelectedItem" name="check" size="sm" />
         </div>
       </div>
 
       <!-- 展开图标（仅当有子项目时显示） -->
       <div class="tv-expand">
-        <svg
+        <UiIcon
           v-if="hasChildren"
+          name="forward"
+          size="sm"
           class="tv-expand-icon"
           :class="{ 'is-open': isExpanded }"
-          fill="none"
-          stroke="currentColor"
-          viewBox="0 0 24 24"
-        >
-          <path
-            stroke-linecap="round"
-            stroke-linejoin="round"
-            stroke-width="3"
-            d="M9 5l7 7-7 7"
-          />
-        </svg>
+        />
       </div>
 
-      <!-- 图标 -->
+      <!-- 图标：季 / 文件夹 / 视频 -->
       <div class="tv-type-icon" :class="{ 'is-active': isSelected }">
-        <!-- 季文件夹图标 -->
-        <svg
-          v-if="item.isSeasonFolder"
-          class="w-4 h-4"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            d="M2 6a2 2 0 012-2h6a2 2 0 012 2v8a2 2 0 01-2 2H4a2 2 0 01-2-2V6zM14.553 7.106A1 1 0 0014 8v4a1 1 0 00.553.894l2 1A1 1 0 0018 13V7a1 1 0 00-1.447-.894l-2 1z"
-          />
-        </svg>
-        <!-- 普通文件夹图标 -->
-        <svg
-          v-else-if="item.type === 'folder'"
-          class="w-5 h-5"
-          fill="currentColor"
-          viewBox="0 0 20 20"
-        >
-          <path
-            d="M2 6a2 2 0 012-2h5l2 2h5a2 2 0 012 2v6a2 2 0 01-2 2H4a2 2 0 01-2-2V6z"
-          />
-        </svg>
-        <!-- 视频图标 -->
-        <svg v-else class="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
-          <path
-            fill-rule="evenodd"
-            d="M4 3a2 2 0 00-2 2v10a2 2 0 002 2h12a2 2 0 002-2V5a2 2 0 00-2-2H4zm3 2h6v4H7V5zm8 8v2h-2v-2h2zm-2-2h2v-2h-2v2zm-4 4v-2H9v2h2zm-4 0v-2H5v2h2zm-2-4h2v-2H5v2zm8-4v2h2V9h-2z"
-            clip-rule="evenodd"
-          />
-        </svg>
+        <UiIcon
+          :name="
+            item.isSeasonFolder
+              ? 'tv'
+              : item.type === 'folder'
+                ? 'folder'
+                : 'movie'
+          "
+        />
       </div>
 
       <!-- 名称 -->
@@ -135,6 +93,7 @@
 
 <script setup lang="ts">
 import { computed, ref } from 'vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import type { ProcessedItem } from '@/types'
 import type { MenuItem } from '@/composables/use-context-menu'
 import { stripMediaExtension } from '@/utils/avid'
@@ -251,8 +210,7 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 }
 
 .tv-row.is-selected {
-  background: var(--bg-active-soft);
-  box-shadow: inset 0 0 0 1px color-mix(in srgb, var(--accent) 28%, transparent);
+  background: var(--bg-active);
 }
 
 .tv-row.is-multi-selected {
@@ -284,10 +242,11 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
   border-color: var(--accent);
 }
 
-.tv-checkbox-icon {
+.tv-checkbox.is-checked .app-icon {
   width: 10px;
   height: 10px;
   color: var(--text-on-accent);
+  --icon-stroke: 3;
 }
 
 .tv-expand {
@@ -300,8 +259,6 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 }
 
 .tv-expand-icon {
-  width: 12px;
-  height: 12px;
   color: var(--text-tertiary);
   transition: transform 0.2s var(--ease-out);
 }
@@ -318,7 +275,7 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 
 .tv-row:hover .tv-type-icon,
 .tv-type-icon.is-active {
-  color: var(--accent-text);
+  color: var(--text-primary);
 }
 
 .tv-name-wrap {
@@ -337,7 +294,7 @@ const handleTVAction = (action: MenuItem, _item: ProcessedItem): void => {
 }
 
 .tv-name.is-active {
-  color: var(--accent-text);
+  font-weight: var(--font-weight-semibold);
 }
 
 .tv-flags {

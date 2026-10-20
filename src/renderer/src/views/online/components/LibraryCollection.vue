@@ -1,26 +1,32 @@
 <template>
   <div class="library-collection">
     <PageHeader :title="title" :description="description">
-      <template #actions><UiIconButton v-if="items.length" icon="trash" label="清空记录" danger @click="clear" /></template>
+      <template #actions
+        ><UiIconButton
+          v-if="items.length"
+          icon="trash"
+          label="清空记录"
+          danger
+          @click="clear"
+      /></template>
     </PageHeader>
-    <div class="collection-tabs" role="tablist" aria-label="媒体类型">
-      <button
-        v-for="tab in tabs"
-        :key="tab.value"
-        type="button"
-        :class="{ active: category === tab.value }"
-        @click="category = tab.value"
-      >
-        {{ tab.label }}
-      </button>
-    </div>
+    <UiSegmented
+      v-model="category"
+      class="collection-tabs"
+      label="媒体类型"
+      :options="tabs"
+    />
     <div v-if="filteredItems.length" class="ui-poster-grid">
       <UiPosterCard
         v-for="entry in filteredItems"
         :key="entry.id"
         :title="entry.item.vod_name"
         :cover="entry.item.vod_pic"
-        :subtitle="[entry.typeLabel, entry.epName || entry.item.vod_year].filter(Boolean).join(' · ')"
+        :subtitle="
+          [entry.typeLabel, entry.epName || entry.item.vod_year]
+            .filter(Boolean)
+            .join(' · ')
+        "
         @open="onOpen(entry)"
       />
     </div>
@@ -42,6 +48,9 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiSegmented, {
+  type SegmentedOption,
+} from '@/components/ui/UiSegmented.vue'
 import { readStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
@@ -83,7 +92,7 @@ const title = computed(() =>
 const description = computed(() =>
   props.kind === 'favorites' ? '收藏的影片与剧集' : '点击卡片直接继续上次播放'
 )
-const tabs = [
+const tabs: SegmentedOption[] = [
   { label: '全部', value: 'all' },
   { label: '电影', value: 'movie' },
   { label: '电视剧', value: 'tv' },
@@ -166,47 +175,7 @@ watch(() => [route.query.tab, props.kind], read)
 }
 
 .collection-tabs {
-  display: flex;
-  gap: 6px;
-  padding-bottom: 16px;
-  border-bottom: 1px solid var(--separator);
-}
-
-.collection-tabs button {
-  position: relative;
-  padding: 8px 12px;
-  border: 0;
-  color: var(--text-secondary);
-  background: transparent;
-  font-size: var(--text-md);
-  cursor: pointer;
-  transition: var(--transition-fast);
-
-  border-radius: var(--radius-md);
-}
-
-.collection-tabs button:hover {
-  color: var(--text-primary);
-}
-
-.collection-tabs button.active {
-  color: var(--text-primary);
-  font-weight: 500;
-
-  background: var(--bg-active);
-}
-
-.collection-tabs button.active::after {
-  content: '';
-  position: absolute;
-  left: 0;
-  right: 0;
-  bottom: -1px;
-  height: 2px;
-  border-radius: var(--radius-xs);
-  background: var(--text-primary);
-
-  display: none;
+  align-self: flex-start;
 }
 
 .collection-empty {

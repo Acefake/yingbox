@@ -25,28 +25,29 @@
     <div v-if="showFooter && (closable || title)" class="unified-player-footer">
       <span class="unified-player-title">{{ title || '正在播放' }}</span>
       <div class="unified-player-footer-actions">
-        <button
-          type="button"
-          class="unified-player-subtitle-btn"
-          title="在线字幕"
+        <UiIconButton
+          icon="subtitle"
+          label="在线字幕"
+          size="sm"
+          :active="subtitlePanelOpen"
           @click="toggleSubtitlePanel"
-        >
-          字
-        </button>
-        <button
+        />
+        <UiIconButton
           v-if="closable"
-          type="button"
-          class="unified-player-close"
-          aria-label="关闭播放器"
+          icon="close"
+          label="关闭播放器"
+          size="sm"
           @click="$emit('close')"
-        >
-          ×
-        </button>
+        />
       </div>
     </div>
     <!-- 在线字幕搜索面板 -->
     <div v-if="subtitlePanelOpen" class="unified-player-subtitle-panel">
-      <DialogTitlebar title="在线字幕 (OpenSubtitles)" icon="subtitle" @close="subtitlePanelOpen = false" />
+      <DialogTitlebar
+        title="在线字幕 (OpenSubtitles)"
+        icon="subtitle"
+        @close="subtitlePanelOpen = false"
+      />
       <div class="usp-search-row">
         <input
           v-model="subtitleQuery"
@@ -54,33 +55,35 @@
           placeholder="影视名称…"
           @keydown.enter="doSubtitleSearch"
         />
-        <button
-          type="button"
-          class="usp-btn"
-          :disabled="subtitleSearching"
+        <UiButton
+          size="sm"
+          icon="search"
+          :label="subtitleSearching ? '搜索中…' : '搜索'"
+          :loading="subtitleSearching"
           @click="doSubtitleSearch"
-        >
-          {{ subtitleSearching ? '搜索中…' : '搜索' }}
-        </button>
+        />
       </div>
       <p v-if="subtitleMessage" class="usp-msg">{{ subtitleMessage }}</p>
       <div class="usp-list">
-        <button
+        <UiListRow
           v-for="hit in subtitleHits"
           :key="hit.fileId"
-          type="button"
           class="usp-item"
           :disabled="subtitleDownloadingId === hit.fileId"
           @click="applyOnlineSubtitle(hit)"
         >
           <span class="usp-item-name">{{ hit.name }}</span>
-          <span class="usp-item-meta">
-            ↓{{ hit.downloads
-            }}<template v-if="hit.rating"> · ★{{ hit.rating }}</template> ·
-            {{ hit.format }}
-            {{ subtitleDownloadingId === hit.fileId ? '· 下载中…' : '' }}
-          </span>
-        </button>
+          <template #description>
+            <span class="usp-item-meta">
+              <UiIcon name="download" size="sm" />{{ hit.downloads }}
+              <template v-if="hit.rating">
+                · <UiIcon name="star" size="sm" filled />{{ hit.rating }}
+              </template>
+              · {{ hit.format }}
+              {{ subtitleDownloadingId === hit.fileId ? '· 下载中…' : '' }}
+            </span>
+          </template>
+        </UiListRow>
         <p
           v-if="
             !subtitleSearching && subtitleHits.length === 0 && subtitleMessage
@@ -96,6 +99,11 @@
 
 <script setup lang="ts">
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiListRow from '@/components/ui/UiListRow.vue'
+import { ICON_PATHS, type IconName } from '@/components/ui/icons'
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Artplayer from 'artplayer'
 import Hls from 'hls.js'
@@ -361,6 +369,28 @@ const applyLocalSubtitles = async (
   }
 }
 
+/**
+ * 把设计系统的图标转成 Artplayer 控制栏可用的 SVG 字符串，
+ * 让播放器原生控制栏与应用其余部分使用同一套线性图标。
+ * 只替换图标外观，不改变 Artplayer 的任何控制行为。
+ */
+const artIcon = (name: IconName, filled = false): string =>
+  `<svg viewBox="0 0 24 24" width="22" height="22" style="fill:${
+    filled ? 'currentColor' : 'none'
+  }" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[name]}"/></svg>`
+
+const ART_ICONS = {
+  play: artIcon('play', true),
+  pause: artIcon('pause'),
+  volume: artIcon('volume'),
+  volumeClose: artIcon('volumeOff'),
+  fullscreenOn: artIcon('fullscreen'),
+  // 图标库没有「退出全屏」，用最接近的 restore
+  fullscreenOff: artIcon('restore'),
+  pip: artIcon('pip'),
+  setting: artIcon('settings'),
+}
+
 const destroyHls = (): void => {
   if (!hls) return
   hls.destroy()
@@ -496,6 +526,7 @@ const createPlayer = async (source: string): Promise<void> => {
     fastForward: false,
     autoOrientation: false,
     lang: 'zh-cn',
+    icons: ART_ICONS,
     moreVideoAttr: {
       playsInline: true,
       preload: 'auto',
@@ -706,27 +737,6 @@ defineExpose({ video })
   flex: 0 0 auto;
 }
 
-.unified-player-subtitle-btn {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  border: 0;
-  border-radius: var(--radius-sm);
-  color: var(--text-secondary);
-  background: var(--bg-fill-secondary);
-  cursor: pointer;
-  font-size: var(--text-sm);
-  line-height: 1;
-}
-
-.unified-player-subtitle-btn:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
-}
-
 .unified-player-subtitle-panel {
   position: absolute;
   right: 12px;
@@ -755,7 +765,7 @@ defineExpose({ video })
 .usp-input {
   flex: 1;
   min-width: 0;
-  height: 30px;
+  height: var(--control-height-sm);
   padding: 0 10px;
   border-radius: var(--radius-md);
   border: 1px solid var(--separator, rgba(255, 255, 255, 0.12));
@@ -767,23 +777,6 @@ defineExpose({ video })
 
 .usp-input:focus {
   border-color: var(--accent, #007aff);
-}
-
-.usp-btn {
-  height: 30px;
-  padding: 0 12px;
-  border: 0;
-  border-radius: var(--radius-md);
-  background: var(--accent, #007aff);
-  color: #fff;
-  font-size: var(--text-xs);
-  cursor: pointer;
-  white-space: nowrap;
-}
-
-.usp-btn:disabled {
-  opacity: 0.5;
-  cursor: default;
 }
 
 .usp-msg {
@@ -799,31 +792,25 @@ defineExpose({ video })
   padding: 0 8px 10px;
 }
 
+/* 结果行为 UiListRow：这里只保留紧凑尺寸和面板内的填充底 */
 .usp-item {
-  display: flex;
-  flex-direction: column;
-  gap: 2px;
-  width: 100%;
   padding: 8px 10px;
   margin-bottom: 4px;
-  border: 0;
   border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary, rgba(255, 255, 255, 0.05));
+  background: var(--bg-fill-secondary);
   color: inherit;
-  text-align: left;
-  cursor: pointer;
 }
 
-.usp-item:hover {
-  background: var(--bg-glass-hover, rgba(255, 255, 255, 0.12));
+.usp-item:hover:not(:disabled) {
+  background: var(--bg-glass-hover);
 }
 
 .usp-item:disabled {
   opacity: 0.6;
-  cursor: default;
 }
 
 .usp-item-name {
+  display: block;
   font-size: var(--text-xs);
   overflow: hidden;
   text-overflow: ellipsis;
@@ -831,8 +818,17 @@ defineExpose({ video })
 }
 
 .usp-item-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
   font-size: var(--text-2xs);
   color: var(--text-tertiary, #888);
+}
+
+.usp-item-meta .app-icon {
+  width: 11px;
+  height: 11px;
 }
 
 .usp-empty {
@@ -840,26 +836,5 @@ defineExpose({ video })
   font-size: var(--text-2xs);
   color: var(--text-tertiary, #888);
   text-align: center;
-}
-
-.unified-player-close {
-  display: inline-flex;
-  align-items: center;
-  justify-content: center;
-  width: 28px;
-  height: 28px;
-  flex: 0 0 auto;
-  border: 0;
-  border-radius: 50%;
-  color: var(--text-secondary);
-  background: var(--bg-fill-secondary);
-  cursor: pointer;
-  font-size: var(--text-xl);
-  line-height: 1;
-}
-
-.unified-player-close:hover {
-  color: var(--text-primary);
-  background: var(--bg-glass-hover);
 }
 </style>

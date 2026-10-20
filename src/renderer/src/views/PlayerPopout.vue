@@ -17,7 +17,10 @@
       @ended="onEnded"
       @error="onError"
     />
-    <div v-else class="player-popout-empty flex flex-col items-center justify-center gap-4">
+    <div
+      v-else
+      class="player-popout-empty flex flex-col items-center justify-center gap-4"
+    >
       <img v-if="poster" class="player-popout-poster" :src="poster" alt="" />
       <span>{{ emptyText }}</span>
     </div>
@@ -26,18 +29,21 @@
     <div v-if="failure" class="player-popout-error" role="alert">
       <p class="player-popout-error-title">播放失败</p>
       <p class="player-popout-error-msg">{{ failure }}</p>
-      <p v-if="failedSource" class="player-popout-error-src" :title="failedSource">
+      <p
+        v-if="failedSource"
+        class="player-popout-error-src"
+        :title="failedSource"
+      >
         {{ failedSource }}
       </p>
       <div class="player-popout-error-actions">
-        <button
-          type="button"
-          class="player-popout-error-btn"
-          :disabled="retrying"
+        <UiButton
+          variant="primary"
+          icon="refresh"
+          :label="retrying ? '重试中…' : '重试'"
+          :loading="retrying"
           @click="retry"
-        >
-          {{ retrying ? '重试中…' : '重试' }}
-        </button>
+        />
       </div>
     </div>
   </div>
@@ -47,6 +53,7 @@
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
 import UnifiedVideoPlayer from '@/components/UnifiedVideoPlayer.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import {
   getMediaProgress,
@@ -440,22 +447,5 @@ onBeforeUnmount(() => {
 
 .player-popout-error-actions {
   margin-top: 6px;
-}
-
-.player-popout-error-btn {
-  min-width: 96px;
-  padding: 7px 18px;
-  border: 0;
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: #fff;
-  background: #F1F1F1;
-  color: #242424;
-  cursor: pointer;
-}
-
-.player-popout-error-btn:disabled {
-  opacity: 0.6;
-  cursor: default;
 }
 </style>
