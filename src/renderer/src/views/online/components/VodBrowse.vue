@@ -86,11 +86,8 @@
       <div v-for="i in 8" :key="i" class="ui-poster">
         <div class="ui-poster-media" />
         <div class="ui-poster-text">
-          <div class="yb-poster-skel-line" style="width: 80%" />
-          <div
-            class="yb-poster-skel-line"
-            style="width: 50%; margin-top: 8px"
-          />
+          <div class="yb-poster-skel-line skel-line--long" />
+          <div class="yb-poster-skel-line skel-line--short" />
         </div>
       </div>
     </div>
@@ -334,6 +331,13 @@ onMounted(() => {
 </script>
 
 <style scoped>
+.skel-line--long {
+  width: 80%;
+}
+.skel-line--short {
+  width: 50%;
+  margin-top: var(--space-2);
+}
 .vod-browse {
   display: flex;
   flex-direction: column;
