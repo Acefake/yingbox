@@ -14,6 +14,7 @@ import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { registerPlayerWindowIpc } from './player-window'
 import { loadConfig } from './config'
+import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
 import { registerFileIpc } from './ipc/file-ipc'
@@ -166,6 +167,8 @@ app.whenReady().then(async () => {
   await registerLadaIpc()
   registerLibraryIpc()
   registerEngine()
+  // Amane / lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
+  installPluginHost(app)
 
   createWindow()
   registerDevToolsShortcut()

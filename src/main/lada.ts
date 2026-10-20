@@ -1,11 +1,13 @@
 import { app } from 'electron'
 import { type ChildProcess, execFileSync, spawn } from 'child_process'
 import { existsSync, promises as fs, mkdirSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { isAbsolute, join } from 'node:path'
+import { dirname, isAbsolute, join } from 'node:path'
 import type { LadaJob, LadaPaths } from '../shared/lada'
 import { parseLadaLine, restoredPathFor } from '../shared/lada'
 import { type JobLock, acquireLock, clearStaleLock, readLock, releaseLock } from './lada-lock'
 import { emit } from './rpc'
+import { registerPlugin } from './plugins/host'
+import { killTree } from './plugins/process'
 import { lada } from '../shared/contract/lada'
 
 /**
@@ -369,34 +371,11 @@ export function startJob(input: string, opts?: { source?: string; output?: strin
   return { ...job }
 }
 
+/** 取消当前任务：lada 是 PyInstaller 打包的，会带子进程，整棵树一起收。 */
 function cancelJob(): void {
   if (!child || !job) return
   cancelled = true
-  const pid = child.pid
-  if (pid && process.platform === 'win32') {
-    // lada 是 PyInstaller 打包的，会带子进程，整棵树一起收
-    const killer = spawn('taskkill', ['/pid', String(pid), '/T', '/F'], {
-      shell: false,
-      windowsHide: true,
-      stdio: 'ignore',
-    })
-    killer.once('error', () => {
-      try {
-        child?.kill()
-      } catch {
-        /* ignore */
-      }
-      finish('cancelled')
-    })
-    killer.once('exit', () => finish('cancelled'))
-    return
-  }
-  try {
-    child.kill()
-  } catch {
-    /* ignore */
-  }
-  finish('cancelled')
+  void killTree(child).then(() => finish('cancelled'))
 }
 
 /** 播放时优先选择已修复的产物 */
@@ -457,11 +436,30 @@ export function otherInstanceJob(): JobLock | null {
   return lock && lock.pid !== process.pid ? lock : null
 }
 
-/** 启动时加载路径覆盖、清扫上次遗留的临时文件，并在退出时取消任务 */
+/** 与 ffmpeg 同目录的 ffprobe；找不到就退回 PATH 上的 ffprobe。 */
+export function ffprobeFor(ffmpeg: string): string {
+  const name = process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'
+  if (ffmpeg && ffmpeg !== 'ffmpeg') {
+    const sibling = join(dirname(ffmpeg), name)
+    if (existsSync(sibling)) return sibling
+  }
+  return name
+}
+
+/** 启动时加载路径覆盖、清扫上次遗留的临时文件，并登记为插件（退出时取消任务并等进程退出）。 */
 export async function initLada(): Promise<void> {
   await loadOverrides()
   sweepOrphans()
-  app.on('before-quit', () => {
-    if (job?.state === 'running') cancelJob()
+  registerPlugin({
+    id: 'lada',
+    stop: async () => {
+      if (job?.state !== 'running') return
+      cancelJob()
+      await childExit
+    },
+    health: () => ({
+      running: job?.state === 'running',
+      detail: job?.message,
+    }),
   })
 }

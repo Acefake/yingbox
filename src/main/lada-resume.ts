@@ -9,11 +9,11 @@
  * 代价：段边界可能有一帧级瑕疵；分段处理的时域稳定性略逊于整片一次跑。
  */
 import { app } from 'electron'
-import { spawn } from 'child_process'
 import { createHash } from 'node:crypto'
 import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { basename, join } from 'node:path'
-import { ladaPaths, onJobFinished, startJob, tempDirPath } from './lada'
+import { ffprobeFor, ladaPaths, onJobFinished, startJob, tempDirPath } from './lada'
+import { runTool } from './plugins/process'
 import { emit } from './rpc'
 import { lada } from '../shared/contract/lada'
 import { type LadaResumeProgress, restoredPathFor } from '../shared/lada'
@@ -55,27 +55,10 @@ function writeProgress(progress: LadaResumeProgress): void {
   renameSync(tmp, file)
 }
 
-function run(bin: string, args: string[]): Promise<{ code: number; out: string }> {
-  return new Promise(resolve => {
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
-    let out = ''
-    child.stdout.on('data', d => { out += d })
-    child.stderr.on('data', d => { out += d })
-    child.once('error', () => resolve({ code: -1, out }))
-    child.once('exit', code => resolve({ code: code ?? -1, out }))
-  })
-}
 
-function ffprobeFor(ffmpeg: string): string {
-  if (ffmpeg && ffmpeg !== 'ffmpeg') {
-    const sibling = join(ffmpeg, '..', process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
-    if (existsSync(sibling)) return sibling
-  }
-  return process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'
-}
 
 async function durationOf(ffprobe: string, file: string): Promise<number | null> {
-  const { code, out } = await run(ffprobe, ['-v', 'error', '-show_entries', 'format=duration',
+  const { code, out } = await runTool(ffprobe, ['-v', 'error', '-show_entries', 'format=duration',
     '-of', 'default=noprint_wrappers=1', file])
   if (code !== 0) return null
   const value = Number((out.match(/duration=([\d.]+)/) || [])[1] ?? NaN)
@@ -136,7 +119,7 @@ async function assemble(input: string, output: string): Promise<void> {
   for (const part of parts) {
     const ts = `${part}.ts`
     rmSync(ts, { force: true })
-    const convert = await run(ffmpeg, ['-y', '-loglevel', 'error', '-i', part,
+    const convert = await runTool(ffmpeg, ['-y', '-loglevel', 'error', '-i', part,
       '-map', '0:v:0', '-c', 'copy', '-bsf:v', 'hevc_mp4toannexb', '-f', 'mpegts', ts])
     if (convert.code !== 0 || !existsSync(ts)) {
       throw new Error(`分段转 TS 失败：${convert.out.slice(-200)}`)
@@ -145,13 +128,13 @@ async function assemble(input: string, output: string): Promise<void> {
   }
 
   const videoOnly = join(dir, 'joined.mp4')
-  const join1 = await run(ffmpeg, ['-y', '-loglevel', 'error',
+  const join1 = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
     '-i', `concat:${tsFiles.join('|')}`, '-c', 'copy', videoOnly])
   for (const ts of tsFiles) rmSync(ts, { force: true })
   if (join1.code !== 0 || !existsSync(videoOnly)) throw new Error(`拼接视频失败：${join1.out.slice(-200)}`)
 
   // 用原片的音轨补上
-  const final = await run(ffmpeg, ['-y', '-loglevel', 'error',
+  const final = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
     '-i', videoOnly, '-i', input,
     '-map', '0:v:0', '-map', '1:a:0?', '-c', 'copy', '-movflags', '+faststart', output])
   rmSync(videoOnly, { force: true })
@@ -185,7 +168,7 @@ export async function resume(input: unknown): Promise<{ success: boolean; error?
     const dir = dirFor(file)
     const remainder = join(dir, `rest-${Date.now()}.mp4`)
     // -c copy 裁出剩余部分：很快，不重新编码
-    const trim = await run(ffmpeg, ['-y', '-loglevel', 'error', '-ss', progress.doneSeconds.toFixed(3),
+    const trim = await runTool(ffmpeg, ['-y', '-loglevel', 'error', '-ss', progress.doneSeconds.toFixed(3),
       '-i', file, '-c', 'copy', '-avoid_negative_ts', 'make_zero', remainder])
     if (trim.code !== 0 || !existsSync(remainder)) throw new Error(`裁出剩余部分失败：${trim.out.slice(-300)}`)
 
@@ -299,7 +282,7 @@ export async function startRange(
 
     const source = join(dir, `src-${Date.now()}.mp4`)
     // -ss 放在 -i 前面是快速定位（不重编码，落在最近的关键帧上，误差通常不到 1 秒）
-    const trim = await run(ffmpeg, ['-y', '-loglevel', 'error',
+    const trim = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
       '-ss', start.toFixed(3), '-t', seconds.toFixed(3),
       '-i', file, '-c', 'copy', '-avoid_negative_ts', 'make_zero', source])
     if (trim.code !== 0 || !existsSync(source)) {
@@ -326,7 +309,7 @@ export async function startRange(
       try {
         if (finished.state !== 'done') return
         // 音轨统一从裁出来的区间素材上取，不指望 lada 的产物带声
-        const mux = await run(ffmpeg, ['-y', '-loglevel', 'error',
+        const mux = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
           '-i', active.part, '-i', active.source,
           '-map', '0:v:0', '-map', '1:a:0?', '-c', 'copy', '-movflags', '+faststart', active.output])
         if (mux.code !== 0) throw new Error(`合并音轨失败：${mux.out.slice(-200)}`)

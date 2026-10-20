@@ -14,13 +14,14 @@
  *  3. 本地文件路径的 HLS 在 Windows 上走不通 → 起一个只绑 127.0.0.1 的 HTTP 服务
  */
 import { app } from 'electron'
-import { spawn } from 'child_process'
 import { copyFileSync, createReadStream, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
 import { type Server, createServer } from 'node:http'
-import { dirname, join } from 'node:path'
+import { join } from 'node:path'
 import { emit } from './rpc'
 import { lada } from '../shared/contract/lada'
-import { cancelCurrentJob, currentJob, ladaPaths, ladaTempVideo, startJob, waitForLadaExit } from './lada'
+import { cancelCurrentJob, currentJob, ffprobeFor, ladaPaths, ladaTempVideo, startJob, waitForLadaExit } from './lada'
+import { registerPlugin } from './plugins/host'
+import { runTool } from './plugins/process'
 import { adoptPartial } from './lada-resume'
 import type { LadaJob, LadaLiveState, LadaLiveStatus } from '../shared/lada'
 
@@ -52,32 +53,14 @@ let session: LiveSession | null = null
 
 const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
 
-function run(bin: string, args: string[]): Promise<{ code: number; out: string }> {
-  return new Promise(resolve => {
-    const child = spawn(bin, args, { stdio: ['ignore', 'pipe', 'pipe'], windowsHide: true })
-    let out = ''
-    child.stdout.on('data', d => { out += d })
-    child.stderr.on('data', d => { out += d })
-    child.once('error', () => resolve({ code: -1, out }))
-    child.once('exit', code => resolve({ code: code ?? -1, out }))
-  })
-}
 
-/** 与 ffmpeg 同目录的 ffprobe；找不到就退回 PATH 上的 ffprobe */
-function ffprobeFor(ffmpeg: string): string {
-  if (ffmpeg && ffmpeg !== 'ffmpeg') {
-    const sibling = join(dirname(ffmpeg), process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe')
-    if (existsSync(sibling)) return sibling
-  }
-  return process.platform === 'win32' ? 'ffprobe.exe' : 'ffprobe'
-}
 
 /** 读取一段媒体的起始时间与时长（用来判断分片是否切全、以及推进游标） */
 async function probeSegment(
   ffprobe: string,
   file: string
 ): Promise<{ start: number; duration: number } | null> {
-  const { code, out } = await run(ffprobe, [
+  const { code, out } = await runTool(ffprobe, [
     '-v', 'error',
     '-show_entries', 'format=start_time,duration',
     '-of', 'default=noprint_wrappers=1',
@@ -142,7 +125,7 @@ async function cutSegment(
   rmSync(file, { force: true })
   rmSync(videoOnly, { force: true })
 
-  const cut = await run(ffmpeg, [
+  const cut = await runTool(ffmpeg, [
     '-y', '-loglevel', 'error',
     '-ss', start.toFixed(3), '-to', end.toFixed(3), '-i', s.tempVideo,
     '-an', '-c', 'copy', '-copyts',
@@ -159,7 +142,7 @@ async function cutSegment(
   }
 
   const audioTo = info.start + info.duration
-  const mux = await run(ffmpeg, [
+  const mux = await runTool(ffmpeg, [
     '-y', '-loglevel', 'error',
     '-ss', info.start.toFixed(3), '-to', audioTo.toFixed(3), '-i', s.input,
     '-i', videoOnly,
@@ -422,7 +405,11 @@ export function liveStatus(): LadaLiveStatus | null {
   return session ? statusOf(session) : null
 }
 
-/** 退出时停掉追播会话 */
+/** 登记为插件：退出时由插件宿主停掉追播会话 */
 export function initLadaLive(): void {
-  app.on('before-quit', () => stopLive())
+  registerPlugin({
+    id: 'lada-live',
+    stop: () => stopLive(),
+    health: () => ({ running: session !== null, detail: session?.state }),
+  })
 }
