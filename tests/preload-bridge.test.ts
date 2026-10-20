@@ -5,6 +5,10 @@ const exposed: Record<
   Record<string, (...args: unknown[]) => unknown>
 > = {}
 const invoke = vi.fn((..._args: unknown[]) => Promise.resolve('ok'))
+const sendSync = vi.fn((..._args: unknown[]): unknown => ({
+  ok: true,
+  value: 'sync-ok',
+}))
 const listeners = new Map<
   string,
   Array<(event: unknown, payload: unknown) => void>
@@ -18,6 +22,7 @@ vi.mock('electron', () => ({
   },
   ipcRenderer: {
     invoke: (...args: unknown[]) => invoke(...args),
+    sendSync: (...args: unknown[]) => sendSync(...args),
     on: (
       channel: string,
       listener: (event: unknown, payload: unknown) => void
@@ -138,12 +143,17 @@ const EXTERNAL_API: Record<string, string[]> = {
   ],
 }
 
+/** 重构后新增的域（旧域保持原样，新增只能在这里登记） */
+const ADDED_API: Record<string, string[]> = {
+  settings: ['snapshot', 'migrateLegacy', 'set', 'onChanged', 'offChanged'],
+}
+
 beforeAll(async () => {
   await import('../src/preload/index')
 })
 
 describe('通用 preload', () => {
-  it('与重构前的 window.api 完全同名：域与方法一个不少、一个不多', () => {
+  it('重构前的 window.api 域与方法一个不少、一个不多；新增域只有 settings', () => {
     const actual = Object.fromEntries(
       Object.entries(exposed).map(([domain, api]) => [
         domain,
@@ -151,10 +161,9 @@ describe('通用 preload', () => {
       ])
     )
     const expected = Object.fromEntries(
-      Object.entries({ ...LEGACY_API, ...EXTERNAL_API }).map(([domain, keys]) => [
-        domain,
-        [...keys].sort(),
-      ])
+      Object.entries({ ...LEGACY_API, ...ADDED_API, ...EXTERNAL_API }).map(
+        ([domain, keys]) => [domain, [...keys].sort()]
+      )
     )
     expect(actual).toEqual(expected)
   })
@@ -168,6 +177,16 @@ describe('通用 preload', () => {
     expect(invoke).toHaveBeenLastCalledWith('path:join', 'a', 'b', 'c')
     await exposed.amane.connection()
     expect(invoke).toHaveBeenLastCalledWith('amane:connection')
+  })
+
+  it('同步调用走 sendSync 直接返回值；主进程报错时在渲染层抛出', () => {
+    expect(exposed.settings.snapshot()).toBe('sync-ok')
+    expect(sendSync).toHaveBeenLastCalledWith('settings:snapshot')
+    sendSync.mockReturnValueOnce({ ok: false, error: '设置 x 的值不合法' })
+    expect(() => exposed.settings.migrateLegacy({})).toThrow(
+      '设置 x 的值不合法'
+    )
+    expect(sendSync).toHaveBeenLastCalledWith('settings:migrateLegacy', {})
   })
 
   it('on<事件> 订阅后收到载荷，off<事件> 退订', () => {

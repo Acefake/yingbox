@@ -46,8 +46,8 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 
-import SettingsGroup from './SettingsGroup.vue'
-import SettingsRow from './SettingsRow.vue'
+import SettingsGroup from '../ui/SettingsGroup.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
 
 const ladaCli = ref('')
 const ladaFfmpeg = ref('')

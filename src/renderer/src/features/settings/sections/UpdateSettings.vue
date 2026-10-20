@@ -33,24 +33,23 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 软件更新。状态由 SettingsPanel 里常驻的 useUpdateStatus 提供，
+ * 设置 · 软件更新。状态来自全局共享的 useUpdateStatus（设置面板创建时就开始订阅），
  * 这里只负责展示和触发「检查 / 下载 / 重启安装」。
  */
 import { computed } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 
-import SettingsGroup from './SettingsGroup.vue'
-import SettingsRow from './SettingsRow.vue'
-import type { UpdateState } from './use-update-status'
+import SettingsGroup from '../ui/SettingsGroup.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
+import { useUpdateStatus } from '../use-update-status'
 
-const props = defineProps<{ update: UpdateState }>()
+const update = useUpdateStatus()
 
 /** 有新版本可下载 / 可安装时，这是本区唯一的主操作 */
 const isInstallStep = computed(
   () =>
-    props.update.status.value === 'available' ||
-    props.update.status.value === 'downloaded'
+    update.status.value === 'available' || update.status.value === 'downloaded'
 )
 </script>
 

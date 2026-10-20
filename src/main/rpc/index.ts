@@ -10,6 +10,8 @@ import {
   type Domain,
   type PayloadOf,
   type ResultOf,
+  type SyncCall,
+  type SyncReply,
   channelOf,
 } from '../../shared/contract/define'
 
@@ -23,7 +25,9 @@ export type Handlers<D extends Domain> = {
   [K in keyof D['calls']]: (
     ctx: CallContext,
     ...args: ArgsOf<D['calls'][K]>
-  ) => ResultOf<D['calls'][K]> | Promise<ResultOf<D['calls'][K]>>
+  ) => D['calls'][K] extends SyncCall<infer _A, infer R>
+    ? R
+    : ResultOf<D['calls'][K]> | Promise<ResultOf<D['calls'][K]>>
 }
 
 /** ipcMain 中注册器用到的那一小部分，测试可传入替身 */
@@ -31,6 +35,13 @@ export interface IpcHandleTarget {
   handle(
     channel: string,
     listener: (event: { sender: WebContents }, ...args: unknown[]) => unknown
+  ): void
+  on(
+    channel: string,
+    listener: (
+      event: { sender: WebContents; returnValue: unknown },
+      ...args: unknown[]
+    ) => void
   ): void
 }
 
@@ -60,7 +71,7 @@ export function implement<D extends Domain>(
   for (const [key, def] of Object.entries(domain.calls)) {
     const channel = channelOf(domain.name, key)
     const handler = table[key]
-    ipc.handle(channel, (event, ...raw) => {
+    const run = (sender: WebContents, raw: unknown[]): unknown => {
       let args: unknown[]
       try {
         args = def.parse(raw)
@@ -69,8 +80,22 @@ export function implement<D extends Domain>(
           throw new Error(`[${channel}] ${error.message}`)
         throw error
       }
-      return handler({ sender: event.sender }, ...args)
-    })
+      return handler({ sender }, ...args)
+    }
+    if (def.kind === 'sync') {
+      // sendSync 无法 reject：错误装进 SyncReply 带回，由 preload 在渲染层重新抛出
+      ipc.on(channel, (event, ...raw) => {
+        let reply: SyncReply
+        try {
+          reply = { ok: true, value: run(event.sender, raw) }
+        } catch (error) {
+          reply = { ok: false, error: (error as Error).message }
+        }
+        event.returnValue = reply
+      })
+    } else {
+      ipc.handle(channel, (event, ...raw) => run(event.sender, raw))
+    }
   }
 }
 

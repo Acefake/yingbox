@@ -174,7 +174,7 @@ import {
 import ConfigSettings from './ConfigSettings.vue'
 import { message } from 'ant-design-vue'
 import type { AmaneSettings, AmaneStatus } from '../../../../shared/amane'
-import { getGoBackendApiKey } from '@/stores/scrape-provider-store'
+import { getSetting } from '@/features/settings/use-setting'
 import { sectionLabel } from './config-schema'
 
 const props = defineProps<{
@@ -340,7 +340,7 @@ async function copyPhoneLink(): Promise<void> {
   try {
     const ips = await window.api.app.networkIps()
     const lanHost = ips[0] || new URL(window.location.href).hostname
-    const key = getGoBackendApiKey()
+    const key = getSetting('backend.apiKey')
     const query = new URLSearchParams({
       amane: phoneToken.value,
       ...(key ? { key } : {}),

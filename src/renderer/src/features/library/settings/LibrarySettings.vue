@@ -234,8 +234,8 @@ import {
   TEMPLATE_VARIABLES,
   validateTemplate,
 } from '../../../../../shared/library/writer'
-import SettingsGroup from '@/components/settings/SettingsGroup.vue'
-import SettingsRow from '@/components/settings/SettingsRow.vue'
+import SettingsGroup from '@/features/settings/ui/SettingsGroup.vue'
+import SettingsRow from '@/features/settings/ui/SettingsRow.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'

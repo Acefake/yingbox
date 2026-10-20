@@ -18,15 +18,14 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 图片质量：海报 / 背景图 / 演员头像的 TMDB 下载尺寸。
- * 写入 localStorage 的 imageDownloadSize_{poster,backdrop,actor}，由 api/tmdb 读取。
+ * 设置 · 图片质量：海报 / 背景图 / 演员头像的 TMDB 下载尺寸（scrape.imageSize.*）。
  */
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 
-import SettingsGroup from './SettingsGroup.vue'
-import SettingsRow from './SettingsRow.vue'
-import { useStoredSetting } from './use-stored-setting'
+import SettingsGroup from '../ui/SettingsGroup.vue'
+import SettingsRow from '../ui/SettingsRow.vue'
+import { useSetting } from '../use-setting'
 
 const imageSizeOptions: SegmentedOption[] = [
   { value: 'w342', label: '小', title: '小 (w342)' },
@@ -39,19 +38,19 @@ const rows = [
     key: 'poster',
     title: '海报',
     description: '影片封面图的下载尺寸',
-    model: useStoredSetting('imageDownloadSize_poster', 'original'),
+    model: useSetting('scrape.imageSize.poster'),
   },
   {
     key: 'backdrop',
     title: '背景图',
     description: '详情页背景的下载尺寸',
-    model: useStoredSetting('imageDownloadSize_backdrop', 'original'),
+    model: useSetting('scrape.imageSize.backdrop'),
   },
   {
     key: 'actor',
     title: '演员',
     description: '演员头像的下载尺寸',
-    model: useStoredSetting('imageDownloadSize_actor', 'original'),
+    model: useSetting('scrape.imageSize.actor'),
   },
 ]
 </script>
