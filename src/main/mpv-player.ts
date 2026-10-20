@@ -5,6 +5,8 @@ import { join } from 'path'
 import { EventEmitter } from 'events'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
 import { refererFor } from './media-headers'
+import { registerPlugin } from './plugins/host'
+import { killTree, stopProcess } from './plugins/process'
 import type { MpvOpenOptions, MpvPlaylistEntry, MpvStatus, MpvTrack } from '../shared/mpv'
 
 const DEFAULT_STATUS: MpvStatus = {
@@ -94,7 +96,14 @@ class MpvPlayer extends EventEmitter {
     super()
     this.sock.on('event', (msg: Record<string, unknown>) => this.onEvent(msg))
     this.sock.on('close', () => this.onSocketClose())
-    app.on('before-quit', () => this.quit())
+    registerPlugin({
+      id: 'mpv',
+      stop: () => this.quit(),
+      health: () => ({
+        running: Boolean(this.child),
+        detail: this._status.title,
+      }),
+    })
   }
 
   /** 打开媒体。若 mpv 已在运行则替换当前文件，否则启动新进程 */
@@ -143,7 +152,7 @@ class MpvPlayer extends EventEmitter {
   }
 
   private async spawnProcess(options: MpvOpenOptions): Promise<void> {
-    this.child?.kill()
+    if (this.child) void killTree(this.child)
     const exe = findMpvExecutable()
     const target = options.filePath || options.url!
 
@@ -369,10 +378,11 @@ class MpvPlayer extends EventEmitter {
   async playlistPrev(): Promise<void> { await this.cmd('playlist-prev') }
   async playlistPlay(index: number): Promise<void> { await this.cmd('playlist-play-index', index) }
 
-  /** 退出 mpv（优先发 quit 命令，超时则 kill） */
-  quit(): void {
-    if (!this.child) return
-    this.cmd('quit').catch(() => this.child?.kill())
+  /** 退出 mpv：先发 quit 命令，1.5 秒内没退出就强杀进程树；返回时进程已退出或已放弃等待。 */
+  async quit(): Promise<void> {
+    const child = this.child
+    if (!child) return
+    await stopProcess(child, { graceful: () => this.cmd('quit') })
   }
 }
 

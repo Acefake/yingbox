@@ -47,6 +47,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
 - `config.ts` — `userData/config.json` (`downloadPath`); validates writability (real write probe) on load and on set
 - `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine; `media-headers.ts` injects Referer for direct stream/cover requests
+- `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
   - `file-ipc.ts` (`file:*` incl. incremental `scanMediaDirectory`, `path:*`; `readImage` capped at 16MB)
   - `http-ipc.ts` (`http:fetch/fetchImage/download`; image proxy capped at 8MB)

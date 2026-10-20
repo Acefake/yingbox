@@ -42,7 +42,7 @@ export function registerMpvIpc(): void {
     playlistPlay: (_, index) => done(mpvPlayer.playlistPlay(index)),
     getStatus: () => mpvPlayer.getStatus(),
     quit: () => {
-      mpvPlayer.quit()
+      void mpvPlayer.quit()
       return ok
     },
   })
