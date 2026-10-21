@@ -1,0 +1,43 @@
+{
+  "_fixture": "按 api.theporndb.net/openapi.json 的 SceneResource 结构手写，未用真实应答验证（需要令牌）",
+  "data": [
+    {
+      "id": "0b7b0c55-1111-4c3e-9a51-000000000001",
+      "_id": 101,
+      "title": "SSIS-498 Another Title",
+      "type": "JAV",
+      "slug": "ssis-498-another-title",
+      "external_id": "ssis00498",
+      "sku": "SSIS-498",
+      "date": "2022-08-19",
+      "duration": 7200,
+      "performers": [],
+      "tags": [],
+      "directors": []
+    },
+    {
+      "id": "0b7b0c55-1111-4c3e-9a51-000000000002",
+      "_id": 102,
+      "title": "SSIS-497 The Best Onna, Mei Washio",
+      "type": "JAV",
+      "slug": "ssis-497-the-best-onna-mei-washio",
+      "external_id": "ssis00497",
+      "sku": null,
+      "description": "  An unforgettable\n one-day contract.  ",
+      "date": "2022-08-19",
+      "duration": 7230,
+      "image": "https://cdn.theporndb.net/jav/ssis497-image.jpg",
+      "poster": "https://cdn.theporndb.net/jav/ssis497-poster.jpg",
+      "background": { "full": null, "large": "https://cdn.theporndb.net/jav/ssis497-bg-large.jpg", "medium": null, "small": null },
+      "posters": { "full": "https://cdn.theporndb.net/jav/ssis497-poster-full.jpg", "large": null, "medium": null, "small": null },
+      "site": { "id": 9, "name": "S1 NO.1 STYLE" },
+      "performers": [
+        { "id": "p1", "name": "Washio Mei", "image": "https://cdn.theporndb.net/p/alias.jpg", "parent": { "id": "pp1", "name": "Mei Washio", "image": "https://cdn.theporndb.net/p/mei.jpg" } },
+        { "id": "p2", "name": "Mei Washio", "image": "https://cdn.theporndb.net/p/dup.jpg" },
+        { "id": "p3", "name": "", "image": "https://cdn.theporndb.net/p/none.jpg" }
+      ],
+      "tags": [{ "id": 1, "name": "Big Tits" }, { "id": 2, "name": "Hotel" }, { "id": 3, "name": "Big Tits" }],
+      "directors": [{ "id": 1, "name": "Michiru Arashiyama" }]
+    }
+  ]
+}

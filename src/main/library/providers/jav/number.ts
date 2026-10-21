@@ -4,6 +4,7 @@
  * 支持的形态（按优先级）：
  * - FC2：`FC2-PPV-1234567` / `FC2PPV_1234567` / `fc2-1234567` → `FC2-PPV-1234567`；
  * - HEYZO：`HEYZO-0841` / `heyzo_841` → `HEYZO-0841`；
+ * - 金髪天國：`KIN8-3997` / `kin8tengoku_3997` / `KIN8-123` → `KIN8-3997` / `KIN8-0123`（数字补零到 4 位）；
  * - 日期型无码（Carib / 1pon / 10musume / Pacopacomama）：`010120-001`、`010120_001`（保留原分隔符）；
  * - 素人带数字前缀：`259LUXU-1234`、`300MIUM-123`；
  * - 常规：`SSIS-497`、`abp_123`、`ABP 123`、`SSIS497`、DMM 连写 `ssis00497` → `SSIS-497`；
@@ -169,6 +170,16 @@ function match(s: string, strict: boolean): Hit | null {
       code: `HEYZO-${m[1].padStart(4, '0')}`,
       kind: 'uncensored',
       rest: after(m),
+    }
+  }
+  // 金髪天國：站点编号恰好 4 位（补零），超过 4 位不是它的番号
+  if ((m = /(?<![0-9A-Z])KIN8(?:TENGOKU)?[-_ ]*(\d{1,4})(?!\d)/.exec(s))) {
+    if (Number(m[1]) > 0) {
+      return {
+        code: `KIN8-${m[1].padStart(4, '0')}`,
+        kind: 'uncensored',
+        rest: after(m),
+      }
     }
   }
   if ((m = /(?<![0-9A-Z])(\d{6})([-_])(\d{2,3})(?!\d)/.exec(s))) {

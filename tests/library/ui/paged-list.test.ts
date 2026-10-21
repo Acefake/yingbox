@@ -169,6 +169,61 @@ describe('PagedList', () => {
     expect(engine.calls).toEqual([600])
   })
 
+  it('空列表 invalidate 也会重新取第一页（从 0 条加进新条目时海报墙要刷新）', async () => {
+    let total = 0
+    const calls: number[] = []
+    const fetch = (
+      offset: number,
+      limit: number
+    ): Promise<LibraryQueryResult> => {
+      calls.push(offset)
+      const count = Math.max(0, Math.min(limit, total - offset))
+      return Promise.resolve({
+        items: Array.from({ length: count }, (_, i) => summary(offset + i + 1)),
+        total,
+        offset,
+        limit,
+      })
+    }
+    const list = new PagedList(fetch, () => {}, 200)
+    await list.ensure(0, 200)
+    expect(list.ready).toBe(true)
+    expect(list.total).toBe(0)
+
+    // 新库扫描出两条：items-changed → invalidate；空海报墙报告的可见区间是 [0, 0)
+    total = 2
+    calls.length = 0
+    await list.invalidate(0, 0)
+    expect(calls).toEqual([0])
+    expect(list.total).toBe(2)
+    expect(list.at(1)?.id).toBe(2)
+  })
+
+  it('invalidate 拿到更大的新总数后补齐可见区间的其余页', async () => {
+    let total = 150
+    const calls: number[] = []
+    const fetch = (
+      offset: number,
+      limit: number
+    ): Promise<LibraryQueryResult> => {
+      calls.push(offset)
+      const count = Math.max(0, Math.min(limit, total - offset))
+      return Promise.resolve({
+        items: Array.from({ length: count }, (_, i) => summary(offset + i + 1)),
+        total,
+        offset,
+        limit,
+      })
+    }
+    const list = new PagedList(fetch, () => {}, 100)
+    await list.ensure(0, 300)
+    total = 250
+    calls.length = 0
+    await list.invalidate(0, 300)
+    expect(calls).toEqual([0, 100, 200])
+    expect(list.at(249)?.id).toBe(250)
+  })
+
   it('请求失败时记录错误，并标记为已就绪（界面可显示错误）', async () => {
     const list = new PagedList(
       () => Promise.reject(new Error('[library:internal] 数据库忙')),

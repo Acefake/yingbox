@@ -73,7 +73,19 @@ export async function serveLocalMedia(request: Request): Promise<Response> {
   } catch {
     return new Response(null, { status: 400 })
   }
+  return serveFile(filePath, request)
+}
 
+/**
+ * 把一个本地文件作为 HTTP 响应返回：支持 Range（206 / 416）、HEAD，请求中止时关闭文件流。
+ * 调用方负责决定这个路径能不能给出去（local:// 协议由主进程控制；独立服务只给片库里登记过的文件）。
+ */
+export async function serveFile(
+  filePath: string,
+  request: Request
+): Promise<Response> {
+  if (!['GET', 'HEAD'].includes(request.method))
+    return new Response(null, { status: 405 })
   try {
     const handle = await open(filePath, 'r')
     try {

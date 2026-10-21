@@ -52,7 +52,7 @@ describe('默认值', () => {
     // 已删除的设置（旧刮削队列的并发数）不再出现
     expect(values).not.toHaveProperty('scrape.concurrency')
     expect(values).not.toHaveProperty('backend.url')
-    expect(secrets).toEqual({ 'scrape.tmdbToken': false, 'amane.token': false })
+    expect(secrets).toEqual({ 'scrape.tmdbToken': false })
     expect(legacyMigrated).toBe(false)
     expect(existsSync(file)).toBe(false)
   })
@@ -112,7 +112,7 @@ describe('写入校验', () => {
     expect(() => store.set('app.adultMode', '1')).toThrow('不合法')
     expect(() => store.set('scrape.concurrency', 3)).toThrow('不合法')
     expect(() => store.set('player.playbackRate', 5)).toThrow('不合法')
-    expect(() => store.set('amane.token', 'x')).toThrow('不合法')
+    expect(() => store.set('scrape.tmdbToken', 'x')).toThrow('不合法')
     expect(store.snapshot().values).toEqual((await open()).snapshot().values)
   })
 
@@ -312,33 +312,35 @@ describe('迁移硬约束', () => {
 describe('密钥', () => {
   it('密文落盘、明文不落盘；快照里只有「已配置」', async () => {
     const store = await open()
-    await store.setSecret('amane.token', 'super-secret-token')
-    expect(store.getSecret('amane.token')).toBe('super-secret-token')
-    expect(store.snapshot().secrets['amane.token']).toBe(true)
+    await store.setSecret('scrape.tmdbToken', 'super-secret-token')
+    expect(store.getSecret('scrape.tmdbToken')).toBe('super-secret-token')
+    expect(store.snapshot().secrets['scrape.tmdbToken']).toBe(true)
     expect(readFileSync(file, 'utf8')).not.toContain('super-secret-token')
     expect(JSON.stringify(store.snapshot())).not.toContain('super-secret-token')
-    expect((await open()).getSecret('amane.token')).toBe('super-secret-token')
+    expect((await open()).getSecret('scrape.tmdbToken')).toBe(
+      'super-secret-token'
+    )
   })
 
   it('空串删除密钥', async () => {
     const store = await open()
-    await store.setSecret('amane.token', 'abc')
-    await store.setSecret('amane.token', '')
-    expect(store.getSecret('amane.token')).toBe('')
-    expect(store.snapshot().secrets['amane.token']).toBe(false)
+    await store.setSecret('scrape.tmdbToken', 'abc')
+    await store.setSecret('scrape.tmdbToken', '')
+    expect(store.getSecret('scrape.tmdbToken')).toBe('')
+    expect(store.snapshot().secrets['scrape.tmdbToken']).toBe(false)
   })
 
   it('系统密钥存储不可用或值含换行时拒绝，原值保留', async () => {
     const store = await open()
-    await store.setSecret('amane.token', 'abc')
-    await expect(store.setSecret('amane.token', 'a\nb')).rejects.toThrow(
+    await store.setSecret('scrape.tmdbToken', 'abc')
+    await expect(store.setSecret('scrape.tmdbToken', 'a\nb')).rejects.toThrow(
       '不合法'
     )
     const locked = await open({ codec: { ...codec, available: () => false } })
-    await expect(locked.setSecret('amane.token', 'next')).rejects.toThrow(
+    await expect(locked.setSecret('scrape.tmdbToken', 'next')).rejects.toThrow(
       '不可用'
     )
-    expect(locked.getSecret('amane.token')).toBe('abc')
-    expect(store.getSecret('amane.token')).toBe('abc')
+    expect(locked.getSecret('scrape.tmdbToken')).toBe('abc')
+    expect(store.getSecret('scrape.tmdbToken')).toBe('abc')
   })
 })

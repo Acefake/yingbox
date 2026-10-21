@@ -6,8 +6,13 @@
  *   启动时引擎还没配置而设置里有值（老用户迁移来的令牌）也补一次，不覆盖引擎已有的令牌。
  * 渲染层只写不读：只知道「是否已配置」。
  */
-import type { ProviderStatus } from '../shared/library/ipc'
 import type { LibraryEngineClient } from './library/host'
+import {
+  type LibraryTokenTarget,
+  syncTmdbTokenToLibrary,
+} from './library/platform/token-sync'
+
+export { type LibraryTokenTarget, syncTmdbTokenToLibrary }
 
 /** 设置里的密钥键。 */
 export const TMDB_SECRET = 'scrape.tmdbToken'
@@ -27,12 +32,6 @@ export function effectiveTmdbToken(
   return userToken.trim() || fallback
 }
 
-/** 媒体库引擎里令牌的读写口（只依赖这两个方法，便于测试）。 */
-export interface LibraryTokenTarget {
-  getProviderStatus(): Promise<ProviderStatus>
-  setProviderToken(token: string | null): Promise<unknown>
-}
-
 /** 主进程直接调媒体库引擎的 TMDB 令牌接口。 */
 export function libraryTokenTarget(
   client: LibraryEngineClient
@@ -42,19 +41,4 @@ export function libraryTokenTarget(
     setProviderToken: token =>
       client.call('setProviderToken', { provider: 'tmdb', token }),
   }
-}
-
-/**
- * 启动时：媒体库引擎还没配置、设置里有用户令牌时下发。返回是否下发了。
- * 设置里没有令牌时不碰引擎（引擎按需启动，不为这件事 fork）。
- */
-export async function syncTmdbTokenToLibrary(
-  library: LibraryTokenTarget,
-  userToken: string
-): Promise<boolean> {
-  const token = userToken.trim()
-  if (!token || (await library.getProviderStatus()).tmdb.configured)
-    return false
-  await library.setProviderToken(token)
-  return true
 }

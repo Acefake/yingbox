@@ -6,9 +6,9 @@ import yingbox from './scripts/eslint/feature-boundaries.mjs'
 
 /**
  * 渲染层禁止直接 fetch：外网请求经 @/api/online（引擎 net 出网，带 SSRF 防护）。
- * 唯一豁免 features/amane/api/amane.ts——它访问的是本机 Amane 插件（Web 模式经 vite 同源代理）。
+ * 豁免 services/library-server/index.ts——网页端访问同源的独立片库服务（src/server）。
  * 与 localStorage 禁令同属 no-restricted-globals，flat config 后者会覆盖前者，
- * 所以两处都要带上这几项。
+ * 所以 localStorage 那段也带上 fetch 禁令。
  */
 const fetchGlobalBan = {
   name: 'fetch',
@@ -136,7 +136,7 @@ export default tseslint.config(
   {
     // 渲染层不直连外网：在线请求经 window.api.online（引擎 net，SSRF 防护）。
     files: ['src/renderer/**/*.{ts,mts,vue}'],
-    ignores: ['src/renderer/src/features/amane/api/amane.ts'],
+    ignores: ['src/renderer/src/services/library-server/index.ts'],
     rules: {
       'no-restricted-globals': ['error', fetchGlobalBan],
       'no-restricted-properties': ['error', ...fetchPropertyBans],
@@ -189,8 +189,7 @@ export default tseslint.config(
     ignores: [
       // 设置层自身：首启迁移读旧值、Web/PWA 模式的浏览器存储
       'src/renderer/src/features/settings/browser-storage.ts',
-      // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存、手机端令牌），后续迁到 Engine 的 SQLite
-      'src/renderer/src/features/amane/api/amane.ts',
+      // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存），后续迁到 Engine 的 SQLite
       'src/renderer/src/features/player/utils/play-progress.ts',
       'src/renderer/src/utils/storage.ts',
       'src/renderer/src/features/av/composables/use-av-browse.ts',
@@ -215,6 +214,28 @@ export default tseslint.config(
           message: '设置请用 features/settings 的 useSetting / getSetting。',
         },
         ...fetchPropertyBans,
+      ],
+    },
+  },
+
+  {
+    // 片库服务客户端可以同源 fetch（见文件头说明），localStorage 禁令照旧；必须排在上一段之后才能覆盖它
+    files: ['src/renderer/src/services/library-server/index.ts'],
+    rules: {
+      'no-restricted-globals': [
+        'error',
+        {
+          name: 'localStorage',
+          message: '设置请用 features/settings 的 useSetting / getSetting。',
+        },
+      ],
+      'no-restricted-properties': [
+        'error',
+        {
+          object: 'window',
+          property: 'localStorage',
+          message: '设置请用 features/settings 的 useSetting / getSetting。',
+        },
       ],
     },
   },

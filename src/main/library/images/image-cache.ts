@@ -4,13 +4,13 @@
  * key = URL 的 SHA-1 前 32 位，同一 URL 只下载一次；images 表记录状态，失败的最多重试 3 次。
  * 缩略图由主进程生成：下载完成后经 onCached 通知主进程预热（见 src/main/thumbnails）。
  * key 与路径规则和主进程共用 thumbnails/paths.ts，两边算出同一个文件。
- * 防盗链图床（如番号库的 JavBus 图片）按 media-headers 的名单带上 Referer。
+ * 防盗链图床（如番号库的 JavBus 图片）按 shared/net/media-referer 的名单带上 Referer。
  */
 import { randomUUID } from 'node:crypto'
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { mediaImageUrl } from '../../../shared/media-url'
-import { refererFor } from '../../media-headers'
+import { refererFor } from '../../../shared/net/media-referer'
 import { imageKey, originalPath } from '../../thumbnails/paths'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { Semaphore } from '../providers/http/rate-limiter'

@@ -47,14 +47,23 @@ export interface JavRecord {
 export interface PageOptions {
   /** 附加 Cookie（如 javbus 的年龄确认）。 */
   cookie?: string
-  /** 附加请求头（如 Accept-Language）。 */
+  /** 附加请求头（如 Accept-Language、POST 的 Content-Type）。 */
   headers?: Record<string, string>
+  /** 缺省：有 body 为 POST，否则 GET（jav321 表单、avsox JSON、DMM GraphQL 用 POST）。 */
+  method?: 'GET' | 'POST'
+  /** POST 请求体。 */
+  body?: string
 }
 
 /** 站点拿网页用的上下文：限速、重试、熔断、防护页识别都在这一层。 */
 export interface SiteContext {
   /** 取页面；404 返回 null，被拦截 / 网络失败抛错。 */
   page(url: string, options?: PageOptions): Promise<string | null>
+  /**
+   * 发一次不跟随重定向的 GET，返回响应下发的 Cookie（`name=value`）。
+   * 给要先领会话的站点（GIGA）；测试里的假上下文可以不提供。
+   */
+  issuedCookies?(url: string, options?: PageOptions): Promise<string[]>
   signal?: AbortSignal
 }
 
