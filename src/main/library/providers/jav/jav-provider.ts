@@ -189,6 +189,8 @@ export class JavProvider {
           ...options.headers,
         },
         signal,
+        method: options.method,
+        body: options.body,
       })
     } catch (error) {
       // 403 多半是 Cloudflare 挑战（个别客户端指纹过不去，稍后也可能就过了）：按失败计数，连续几次才熔断
