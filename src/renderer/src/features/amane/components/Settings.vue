@@ -170,9 +170,9 @@ import {
   UiInput,
   UiNavItem,
   UiSelect,
+  toast,
 } from '@/components/ui'
 import ConfigSettings from './ConfigSettings.vue'
-import { message } from 'ant-design-vue'
 import type { AmaneSettings, AmaneStatus } from '../../../../../shared/amane'
 import { sectionLabel } from '../config/config-schema'
 
@@ -310,7 +310,7 @@ async function saveConnection(): Promise<void> {
     emit('changed', next)
     if (next.state !== 'running')
       throw new Error(next.error || 'Amane 连接失败')
-    message.success('Amane 已连接')
+    toast.success('Amane 已连接')
   })
 }
 
@@ -343,7 +343,7 @@ async function copyPhoneLink(): Promise<void> {
     const link = `http://${lanHost}:4173/?${query.toString()}`
     await navigator.clipboard.writeText(link)
     phoneLinkReady.value = true
-    message.success('手机接入链接已复制，请在手机浏览器打开一次')
+    toast.success('手机接入链接已复制，请在手机浏览器打开一次')
     setTimeout(() => {
       phoneLinkReady.value = false
     }, 2500)

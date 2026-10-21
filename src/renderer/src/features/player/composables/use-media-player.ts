@@ -1,3 +1,4 @@
+import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
 /** 播放列表条目：用于自动连播与失败换源 */
@@ -58,15 +59,9 @@ function notifyMpvFallback(detail?: string): void {
     console.warn('[openMediaPlayer] mpv 不可用，已改用内置播放器:', detail)
   if (mpvFallbackNotified) return
   mpvFallbackNotified = true
-  void import('ant-design-vue')
-    .then(({ message }) => {
-      message.warning(
-        '未检测到 mpv 播放器，已改用内置播放器。可在「设置 → 播放器引擎」切换或安装 mpv。'
-      )
-    })
-    .catch(() => {
-      /* 非 UI 环境下静默忽略 */
-    })
+  toast.warning(
+    '未检测到 mpv 播放器，已改用内置播放器。可在「设置 → 播放器引擎」切换或安装 mpv。'
+  )
 }
 
 /**

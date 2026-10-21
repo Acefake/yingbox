@@ -87,7 +87,7 @@
  *
  * 本地一侧见 MatchLocal，候选卡片见 MatchCandidate，纯规则在 match-rules.ts。
  */
-import { message } from 'ant-design-vue'
+import { toast } from '@/components/ui'
 import { computed, ref, toRef, watch } from 'vue'
 
 import type { MatchCandidateInfo } from '../../../../../shared/library/ipc'
@@ -136,12 +136,12 @@ const shown = computed(() =>
 
 function finish(outcome: ReviewOutcome, done: string): void {
   if (outcome.kind === 'matched' && props.itemId !== null) {
-    message.success(done)
+    toast.success(done)
     emit('resolved', props.itemId)
   } else if (outcome.kind === 'candidates') {
-    message.info(`找到 ${outcome.count} 个候选，请选择`)
+    toast.info(`找到 ${outcome.count} 个候选，请选择`)
   } else if (outcome.kind === 'unmatched') {
-    message.warning('没有找到匹配的条目')
+    toast.warning('没有找到匹配的条目')
   }
 }
 
@@ -161,14 +161,14 @@ async function toggleLock(): Promise<void> {
   const locked = node.value?.matchState === 'locked'
   const outcome = await setLocked(!locked)
   if (outcome.kind === 'matched') {
-    message.success(locked ? '已解除锁定' : '已锁定')
+    toast.success(locked ? '已解除锁定' : '已锁定')
     if (!locked && props.itemId !== null) emit('resolved', props.itemId)
   }
 }
 
 async function refresh(): Promise<void> {
   const outcome = await refreshMetadata()
-  if (outcome.kind === 'matched') message.info('已开始重新获取元数据')
+  if (outcome.kind === 'matched') toast.info('已开始重新获取元数据')
 }
 
 /** 1 / 2 / 3 采用对应候选（焦点在输入框里时不拦截）。 */

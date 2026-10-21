@@ -33,7 +33,7 @@
  * 添加自定义源对话框：校验名称与地址后加入 AV 源并立即检测一次。
  * 已知源（自定义 / AV）重复时只提示，不重复添加。
  */
-import { message } from 'ant-design-vue'
+import { toast } from '@/components/ui'
 import { ref } from 'vue'
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -58,20 +58,20 @@ const addCustom = async (): Promise<void> => {
     ...avSources.value.map(site => site.api),
   ])
   if (problem) {
-    message[problem.level](problem.text)
+    toast[problem.level](problem.text)
     return
   }
   addingSource.value = true
   try {
     const added = addAvSources([{ name, api }])
     if (!added) throw new Error('这个数据源已经添加')
-    message.success('已加入 AV 源')
+    toast.success('已加入 AV 源')
     await checkAvSite(api)
     emit('close')
     newName.value = ''
     newApi.value = ''
   } catch (error) {
-    message.error(
+    toast.error(
       error instanceof Error ? error.message : '数据源分析失败，请检查接口地址'
     )
   } finally {

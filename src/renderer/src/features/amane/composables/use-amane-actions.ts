@@ -5,8 +5,8 @@
  * 去码状态在 useLadaTasks 里（后台任务面板展示同一份），这里只负责找到文件路径。
  * 整理不刮削、不改元数据，但**会移动视频文件**，所以每次都先确认。
  */
+import { toast } from '@/components/ui'
 import type { ComputedRef, Ref } from 'vue'
-import { message } from 'ant-design-vue'
 import { openMediaPlayer } from '@/features/player'
 import { useLadaTasks } from '@/features/lada'
 import {
@@ -82,7 +82,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
   function filePath(id: number): string | null {
     const file = findFile(id)
     if (!file?.path) {
-      message.error('找不到该文件的路径')
+      toast.error('找不到该文件的路径')
       return null
     }
     return file.path
@@ -96,7 +96,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         number: number.trim(),
       })
       queued = true
-      message.success('已加入 Amane 刮削队列')
+      toast.success('已加入 Amane 刮削队列')
       ctx.switchTab('tasks')
     })
     return queued
@@ -106,7 +106,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
     await run(async () => {
       await amaneRequest('/metadata/batch/scrape', 'POST', { ids })
       ctx.selectedIds.value = []
-      message.success('已加入 Amane 刮削队列')
+      toast.success('已加入 Amane 刮削队列')
     })
   }
 
@@ -114,7 +114,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
   async function scrapeFile(file: AmaneFile, input: string): Promise<void> {
     const number = (input || file.number || '').trim()
     if (!number) {
-      message.info('请先在文件的番号栏输入番号')
+      toast.info('请先在文件的番号栏输入番号')
       return
     }
     await run(async () => {
@@ -125,7 +125,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         media_id: file.id,
         number,
       })
-      message.success('已加入 Amane 刮削队列')
+      toast.success('已加入 Amane 刮削队列')
     })
   }
 
@@ -153,7 +153,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         !(await openMediaPlayer({ filePath: target, title: playTitle(target) }))
       )
         throw new Error('无法打开播放器，请完全重启应用后重试')
-      if (restored) message.success('正在播放无码版本')
+      if (restored) toast.success('正在播放无码版本')
     })
   }
 
@@ -188,7 +188,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
   async function organizeFiles(targets: AmaneFile[]): Promise<void> {
     const usable = targets.filter(file => file.metadata_id)
     if (!usable.length) {
-      message.info('这些文件还没有刮削信息，整理会直接跳过它们（先去「刮削」）')
+      toast.info('这些文件还没有刮削信息，整理会直接跳过它们（先去「刮削」）')
       return
     }
     if (!window.confirm(organizeFilesConfirm(usable))) return
@@ -198,7 +198,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         library_id: usable[0].library_id,
         media_file_ids: usable.map(file => file.id),
       })
-      message.success(`已加入整理队列（${usable.length} 条），去「任务」看结果`)
+      toast.success(`已加入整理队列（${usable.length} 条），去「任务」看结果`)
       ctx.switchTab('tasks')
     })
   }
@@ -206,7 +206,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
   async function organizeFile(id: number): Promise<void> {
     const file = findFile(id)
     if (!file) {
-      message.error('找不到该文件')
+      toast.error('找不到该文件')
       return
     }
     await organizeFiles([file])
@@ -220,7 +220,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         type: 'organize',
         library_id: library.id,
       })
-      message.success('已加入整理队列（整个媒体库），去「任务」看结果')
+      toast.success('已加入整理队列（整个媒体库），去「任务」看结果')
       ctx.switchTab('tasks')
     })
   }
@@ -237,7 +237,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         scan: true,
       })
       added = true
-      message.success('媒体库已添加，扫描任务已提交')
+      toast.success('媒体库已添加，扫描任务已提交')
       await ctx.load()
     })
     return added
@@ -255,7 +255,7 @@ export function useAmaneActions(ctx: ActionContext): AmaneActions {
         scan: ['add'],
         scrape: scrape ? ['pending', 'failed'] : [],
       })
-      message.success(scrape ? '扫描和刮削任务已提交' : '扫描任务已提交')
+      toast.success(scrape ? '扫描和刮削任务已提交' : '扫描任务已提交')
     })
   }
 

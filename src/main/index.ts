@@ -131,7 +131,7 @@ app.whenReady().then(async () => {
   electronApp.setAppUserModelId('com.yingbox.app')
 
   // 收紧 CSP（与 src/renderer/index.html 的 meta CSP 对齐）：
-  // script 禁 eval/inline，style 允许 inline（Ant Design 运行时样式），
+  // script 禁 eval/inline，style 允许 inline（开发时 Vite 注入的 <style>、组件的动态样式），
   // 媒体与图片允许任意源（m3u8/mp4/在线封面）+ blob/data，local:// 协议自带 bypassCSP。
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }

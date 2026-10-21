@@ -92,9 +92,8 @@ Key directories under `src/renderer/src/`:
 - `features/library/` — movie / TV library UI on top of the library engine (`src/main/library`, `window.api.library`)
 - TMDB token — settings secret `scrape.tmdbToken`, write-only from the renderer (`setTmdbToken`); TMDB requests use `online.tmdb(path, query)`, the engine adds the token (see `src/main/tmdb.ts`)
 - `composables/` — Global composables:
-  - `use-error-handler.ts` — `safeExecute` / `safeExecuteSync` wrappers with Ant Design message toasts
   - `use-context-menu.ts` — MenuItem interface definition
-- `components/` — Shared UI: page chrome (`PageHeader`, `DialogTitlebar`, `StatusState`); reusable controls in `components/ui/`.
+- `components/` — Shared UI: page chrome (`PageHeader`, `DialogTitlebar`, `StatusState`); reusable controls in `components/ui/`, including the imperative `toast` and `confirmDialog` (no Ant Design).
 - `types/window-api.d.ts` — `window.api` type (generated from the contract, plus `library`)
 - `directives/` — Custom Vue directives: `v-context-menu`, `v-scroll-x`
 
@@ -127,17 +126,17 @@ Config in `userData/config.json` (main process): `downloadPath`.
 
 ### Tech stack summary
 
-| Layer             | Technology                                          |
-| ----------------- | --------------------------------------------------- |
-| Desktop shell     | Electron 37                                         |
-| Build tooling     | electron-vite 5, Vite 7                             |
-| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4               |
-| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                  |
-| Metadata          | @tdanks2000/tmdb-wrapper                            |
-| Engine            | Electron utilityProcess, `net.fetch`                |
-| Library           | utilityProcess engine, `node:sqlite`                |
-| CatSpider runtime | cheerio, crypto-js (engine plugin sandbox)          |
-| Package manager   | pnpm                                                |
+| Layer             | Technology                                 |
+| ----------------- | ------------------------------------------ |
+| Desktop shell     | Electron 37                                |
+| Build tooling     | electron-vite 5, Vite 7                    |
+| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4      |
+| UI kit            | own `components/ui/`, Tailwind CSS 4       |
+| Metadata          | @tdanks2000/tmdb-wrapper                   |
+| Engine            | Electron utilityProcess, `net.fetch`       |
+| Library           | utilityProcess engine, `node:sqlite`       |
+| CatSpider runtime | cheerio, crypto-js (engine plugin sandbox) |
+| Package manager   | pnpm                                       |
 
 ## UI conventions
 
@@ -145,7 +144,7 @@ Config in `userData/config.json` (main process): `downloadPath`.
 - Tokens live in `src/renderer/src/assets/styles/tokens.css`. Never hard-code font sizes, radii, spacing, durations, z-index or shadows; `pnpm check:style` enforces it (`node scripts/style-tokens.mjs --fix` migrates values that match a token exactly).
   - Spacing (`padding` / `margin` / `gap` / `inset` / `top` / `right` / `bottom` / `left`): `--space-1..11` (4, 8, 12, 16, 20, 24, 32, 40, 48, 64, 80) plus half steps `--space-0_5` (2px) and `--space-6_5` (28px); negatives as `calc(var(--space-n) * -1)`. `0` and `1px` hairlines are fine; width/height are layout, not spacing. Snap off-grid values to the nearest step; a genuine layout offset gets `/* style-tokens: layout（reason） */` after the declaration.
   - Motion: `--duration-instant` 100ms (press), `-fast` 150ms (hover/fade), `-normal` 240ms (dialogs/panels), `-slow` 350ms (width/progress), `-spin` 800ms (spinners), `-pulse` 1.4s (pulses); easing `--ease-out` / `--ease-spring`. The fast/normal/slow/instant durations drop to 0 under reduced motion.
-  - Layers: local `--z-raised` 2 < `--z-above` 5 < `--z-float` 10 < `--z-dropdown` 20 < `--z-popover` 30 < `--z-overlay` 40 < `--z-overlay-top` 45 (inside a component's stacking context), then Ant modal 1000 / message 1010 < `--z-bottom-nav` 1100 < `--z-drawer-backdrop` 1140 < `--z-drawer` 1150 < `--z-modal` 2000 < `--z-sheet` 2050 < `--z-lightbox` 2060 < `--z-settings` 2100 < `--z-dialog` 3000 < `--z-player-overlay` 6000 < `--z-max` 10000 (tooltip). A backdrop + window pair uses `calc(var(--z-…) + 1)` for the window. Only `0`, `1`, `-1`, `auto` may stay numeric.
+  - Layers: local `--z-raised` 2 < `--z-above` 5 < `--z-float` 10 < `--z-dropdown` 20 < `--z-popover` 30 < `--z-overlay` 40 < `--z-overlay-top` 45 (inside a component's stacking context), then `--z-bottom-nav` 1100 < `--z-drawer-backdrop` 1140 < `--z-drawer` 1150 < `--z-modal` 2000 < `--z-sheet` 2050 < `--z-lightbox` 2060 < `--z-settings` 2100 < `--z-dialog` 3000 < `--z-player-overlay` 6000 < `--z-max` 10000 (tooltip). `toast` and `confirmDialog` live in the browser top layer (popover / modal `<dialog>`), above every z-index. A backdrop + window pair uses `calc(var(--z-…) + 1)` for the window. Only `0`, `1`, `-1`, `auto` may stay numeric.
   - Shadows: `--shadow-sm/md/lg`, `--focus-ring`, `--focus-ring-danger`, `--focus-ring-offset`.
 - Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiNavItem` (sidebar / settings / tab-bar navigation; `collapsed` hides the label and shows it as tooltip, `layout="stack"` for the phone bottom bar, `current="page" | "pressed" | "none"`), `UiListRow` (clickable multi-line row; `role` / `aria-*` pass through, e.g. `menuitemradio`), `UiChip` (small gray pill for actors/tags; put a separate `UiIconButton` next to it for remove), `UiPressable` (unstyled button for image/card targets; pass `label` when the content has no text), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
 - Long lists (unbounded: infinite scroll, aggregated search, favourites, queues) go through `UiVirtualGrid` (`class` = the grid/list class, `:items`, `:item-key`, default slot `{ item }`; `tag="ul"` for lists). It reads the column count from `grid-template-columns`, needs rows of equal height, and owns the container's vertical padding. `tests/virtual-lists.test.ts` lists the wired lists.
