@@ -49,7 +49,7 @@ export interface PageOptions {
   cookie?: string
   /** 附加请求头（如 Accept-Language、POST 的 Content-Type）。 */
   headers?: Record<string, string>
-  /** 缺省 GET；站内搜索表单（jav321）、JSON 接口（avsox）用 POST。 */
+  /** 缺省：有 body 为 POST，否则 GET（jav321 表单、avsox JSON、DMM GraphQL 用 POST）。 */
   method?: 'GET' | 'POST'
   /** POST 请求体。 */
   body?: string

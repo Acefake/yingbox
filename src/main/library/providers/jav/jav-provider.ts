@@ -26,6 +26,11 @@ import { jav321 } from './sites/jav321'
 import { javbus } from './sites/javbus'
 import { javdb } from './sites/javdb'
 import { javlibrary } from './sites/javlibrary'
+import { dmm, dmmApi } from './sites/dmm'
+import { fc2 } from './sites/fc2'
+import { getchu } from './sites/getchu'
+import { javbus } from './sites/javbus'
+import { mgstage } from './sites/mgstage'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
 
 const DAY = 86_400_000
@@ -60,6 +65,12 @@ export const JAV_SITE_IMPLS: readonly JavSite[] = [
   jav321,
   avsox,
   fc2,
+  avbase,
+  fc2,
+  dmm,
+  mgstage,
+  dmmApi,
+  getchu,
 ]
 
 /** 构造参数。 */

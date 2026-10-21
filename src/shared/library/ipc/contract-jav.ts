@@ -22,12 +22,20 @@ export type JavSiteId =
   | 'jav321'
   | 'avsox'
   | 'fc2'
+  | 'avbase'
+  | 'fc2'
+  | 'dmm'
+  | 'dmm_api'
+  | 'mgstage'
+  | 'getchu'
 
 /** 站点显示名与说明（设置页用）。 */
 export const JAV_SITES: ReadonlyArray<{
   id: JavSiteId
   name: string
   description: string
+  /** 新装 / 新增时是否默认开启；缺省开启。 */
+  defaultEnabled?: boolean
 }> = [
   {
     id: 'javbus',
@@ -65,6 +73,27 @@ export const JAV_SITES: ReadonlyArray<{
     name: 'FC2',
     description: '只查 FC2-PPV 番号（FC2 官方商品页）',
   },
+  {
+    id: 'dmm',
+    name: 'FANZA (DMM)',
+    description: '有码 / 部分素人，官方数据，高清封面；DVD 版需日本网络',
+  },
+  {
+    id: 'mgstage',
+    name: 'MGS 動画',
+    description: '素人（259LUXU、SIRO 等）与 Prestige 系，需日本网络',
+  },
+  {
+    id: 'dmm_api',
+    name: 'DMM 官方 API',
+    description: '需要 DMM_API_ID / DMM_AFFILIATE_ID，未配置时自动跳过',
+  },
+  {
+    id: 'getchu',
+    name: 'Getchu',
+    description: '成人动画（里番）按品番查，需日本网络，默认关闭',
+    defaultEnabled: false,
+  },
 ]
 
 /** 番号站点设置：数组顺序即优先级（同一字段先取排在前面的站点的值）。 */
@@ -74,5 +103,8 @@ export interface JavSettings {
 
 /** 默认：全部开启，顺序同 JAV_SITES。 */
 export const DEFAULT_JAV_SETTINGS: JavSettings = {
-  sites: JAV_SITES.map(site => ({ id: site.id, enabled: true })),
+  sites: JAV_SITES.map(site => ({
+    id: site.id,
+    enabled: site.defaultEnabled !== false,
+  })),
 }

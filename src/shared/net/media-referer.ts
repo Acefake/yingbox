@@ -11,6 +11,7 @@ export const MEDIA_REFERERS: Readonly<Record<string, string>> = {
   'surrit.com': 'https://missav.ai/',
   'fourhoi.com': 'https://missav.ai/',
   'www.javbus.com': 'https://www.javbus.com/',
+  'www.getchu.com': 'https://www.getchu.com/',
 }
 
 /** 给定请求地址，返回需要注入的 Referer；不在名单里返回 undefined。 */

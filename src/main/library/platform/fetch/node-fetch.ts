@@ -16,7 +16,7 @@ export function createNodeFetch(
     fetchImpl(url, {
       headers: init.headers,
       signal: init.signal,
-      method: init.method,
+      method: init.method ?? (init.body !== undefined ? 'POST' : undefined),
       body: init.body,
       redirect: 'follow',
     })) as HttpFetch
