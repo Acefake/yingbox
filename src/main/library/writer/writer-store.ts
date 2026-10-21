@@ -186,7 +186,12 @@ export class WriterStore {
     const id = Number(row.id)
     const key = pathKey(to)
     const { columns } = parseLibraryFile(
-      { libraryId: library.id, kind: library.kind, rootKey: library.rootKey },
+      {
+        libraryId: library.id,
+        kind: library.kind,
+        rootKey: library.rootKey,
+        source: library.source,
+      },
       { key, displayPath: to, kind: String(row.kind) }
     )
     // 目标路径上若残留旧记录（之前删掉、扫描还没回收），先清掉，避免唯一索引冲突

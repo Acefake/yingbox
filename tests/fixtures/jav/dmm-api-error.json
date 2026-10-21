@@ -1,0 +1,1 @@
+{"request":{"parameters":{"api_id":"x","affiliate_id":"x-990","site":"FANZA","service":"digital","floor":"videoa","cid":"ssis00497","output":"json"}},"result":{"status":400,"message":"BAD REQUEST","errors":{"api_id":"Invalid Request Error"}}}

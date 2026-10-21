@@ -110,6 +110,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'listLibraries',
       'addLibrary',
       'removeLibrary',
+      'updateLibrary',
       'scan',
       'query',
       'getItem',
@@ -128,6 +129,16 @@ describe('引擎 RPC 与 preload bridge', () => {
       'writer.applyOrganize',
       'writer.undoOrganize',
       'writer.listOrganizeBatches',
+      'jav.getSettings',
+      'jav.setSettings',
+      'actors.list',
+      'actors.get',
+      'actors.forItem',
+      'actors.update',
+      'actors.refresh',
+      'actors.cancelRefresh',
+      'actors.getSettings',
+      'actors.setSettings',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })

@@ -1,0 +1,18 @@
+[
+  {
+    "slug": "fns257",
+    "title": { "rendered": "（構造推定用サンプル）作品タイトル 女優A" },
+    "acf": {
+      "作品名": "（構造推定用サンプル）作品タイトル 女優A",
+      "出演女優": "女優A",
+      "作品紹介文": "紹介文のサンプル。",
+      "収録時間": "120分",
+      "発売日（表示用）": "2025/06/12"
+    },
+    "acf_custom_images": {
+      "main_photo_url": "https://cdn.faleno.net/top/wp-content/uploads/2025/05/fns257_1200.jpg",
+      "sub_photo_url": "https://cdn.faleno.net/top/wp-content/uploads/2025/05/fns257_2125.jpg",
+      "gallery_urls": ["https://cdn.faleno.net/top/wp-content/uploads/2025/05/fns257_1.jpg", null, ""]
+    }
+  }
+]

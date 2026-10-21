@@ -22,9 +22,12 @@
     <ActivityBar :activity="activity" />
 
     <main class="lib-main">
+      <!-- 网页端：片库服务连不上 / 需要登录 -->
+      <ServerConnect v-if="serverGate" :state="serverState" :kind="kind" />
+
       <!-- 不在桌面版 -->
       <LibraryEmpty
-        v-if="!available"
+        v-else-if="!available"
         :icon="kind"
         :title="`本地${kindLabel}库仅在桌面版可用`"
         text="媒体库需要读取本机文件夹，请在影盒桌面版中使用。"
@@ -74,16 +77,24 @@
           :kind="kind"
           :library-ids="libraryIds"
         />
+        <ActorsView v-if="view === 'actors'" @open="id => openActor(id)" />
       </template>
     </main>
 
-    <!-- 详情覆盖整页（海报墙留在下面，返回时滚动位置不变） -->
+    <!-- 演员详情与条目详情覆盖整页（海报墙留在下面，返回时滚动位置不变）；条目详情在上层 -->
+    <ActorDetail
+      v-if="actorId !== null"
+      :actor-id="actorId"
+      @close="closeActor"
+      @open-item="openDetail"
+    />
     <ItemDetail
       v-if="detailId !== null"
       :item-id="detailId"
       @close="closeDetail"
       @fix-match="openMatchSheet"
       @organize="openOrganize"
+      @open-actor="id => openActor(id, ['item'])"
     />
 
     <SelectionBar
@@ -130,27 +141,32 @@
 import { toast } from '@/components/ui'
 import { useDebounceFn } from '@vueuse/core'
 import { computed, reactive, ref, watch } from 'vue'
-import { useRoute, useRouter } from 'vue-router'
+import { useRoute } from 'vue-router'
 
 import type {
   LibraryItemSummary,
   LibraryKind,
 } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
+import { libraryServerState } from '@/services/library-server'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 
+import ActorDetail from './actors/ActorDetail.vue'
+import ActorsView from './actors/ActorsView.vue'
 import ItemDetail from './detail/ItemDetail.vue'
 import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
 import LibraryToolbar, { type LibraryView } from './page/LibraryToolbar.vue'
 import SelectionBar from './page/SelectionBar.vue'
+import ServerConnect from './page/ServerConnect.vue'
+import { usesLibraryServer } from './api/bridge'
 import {
   type ActivateModifiers,
   emptyTitleFor,
   libraryOptionsFor,
-  parseDetailId,
   reviewTabLabel,
 } from './page/page-rules'
+import { useOverlayRoute } from './page/use-overlay-route'
 import { useLibraryActions } from './page/use-library-actions'
 import { useWallSelection } from './page/use-wall-selection'
 import MatchPane from './review/MatchPane.vue'
@@ -180,7 +196,6 @@ import {
 const props = defineProps<{ kind: LibraryKind }>()
 
 const route = useRoute()
-const router = useRouter()
 const kindLabel = computed(() => (props.kind === 'movie' ? '电影' : '剧集'))
 
 // —— 媒体库 ——
@@ -194,6 +209,11 @@ const {
   identifyAll: identifyLibraries,
 } = useLibraries(props.kind)
 const hasLibraries = computed(() => libraries.value.length > 0)
+// 网页端：片库服务就绪前（探测中 / 连不上 / 未登录）不显示海报墙
+const serverState = libraryServerState()
+const serverGate = computed(
+  () => usesLibraryServer() && serverState.value !== 'online'
+)
 const libraryIds = computed(() => libraries.value.map(lib => lib.id))
 
 // —— 查询条件 ——
@@ -261,10 +281,16 @@ const reviewCount = usePagedQuery(
   1
 )
 const view = ref<LibraryView>('wall')
+// 演员库只属于番号文件夹
+const hasJav = computed(() => libraries.value.some(l => l.source === 'jav'))
 const viewOptions = computed<SegmentedOption<LibraryView>[]>(() => [
   { value: 'wall', label: '资料库' },
+  ...(hasJav.value ? [{ value: 'actors' as const, label: '演员' }] : []),
   { value: 'review', label: reviewTabLabel(reviewCount.total.value) },
 ])
+watch(hasJav, has => {
+  if (!has && view.value === 'actors') view.value = 'wall'
+})
 
 // —— 多选 ——
 const { selection, selectionVersion, clearSelection, activate } =
@@ -283,20 +309,17 @@ watch(
   () => clearSelection()
 )
 
-// —— 详情（路由驱动）——
-const detailId = computed(() => parseDetailId(route.query.item))
-
-function openDetail(itemId: number): void {
-  void router.push({ query: { ...route.query, item: String(itemId) } })
-}
-
-function closeDetail(): void {
-  if (window.history.state?.back) router.back()
-  else {
-    const { item: _item, ...rest } = route.query
-    void router.replace({ query: rest })
-  }
-}
+// —— 条目详情 / 演员详情（路由驱动）——
+const {
+  id: detailId,
+  open: openDetail,
+  close: closeDetail,
+} = useOverlayRoute('item')
+const {
+  id: actorId,
+  open: openActor,
+  close: closeActor,
+} = useOverlayRoute('actor')
 
 // —— 面板 ——
 const settingsOpen = ref(false)

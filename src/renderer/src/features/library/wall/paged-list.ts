@@ -70,6 +70,9 @@ export class PagedList {
   /**
    * 数据变了但查询没变（条目增删、整体 reset 事件）：作废全部页，
    * 保留 [start, end) 的旧数据先显示，再重新加载这一段。
+   *
+   * 旧的 total 已不可信：从空库加进第一批条目时 total 还是 0，ensure 会以“超出总数”为由一页都不取。
+   * 所以可见区间的第一页无条件重载，拿到新总数后再按它补齐其余页。
    */
   invalidate(start: number, end: number): Promise<void> {
     this.generation++
@@ -80,7 +83,11 @@ export class PagedList {
     for (let i = 0; i < this.items.length; i++) {
       if (i < keepFrom || i >= keepTo) this.items[i] = undefined
     }
-    return this.ensure(start, end)
+    const generation = this.generation
+    return this.loadPage(this.pageOf(Math.max(0, start)), generation).then(
+      () =>
+        generation === this.generation ? this.ensure(start, end) : undefined
+    )
   }
 
   /** 只重载包含这些 id 的已加载页（条目内容变化，位置不变）。返回重载的页数。 */

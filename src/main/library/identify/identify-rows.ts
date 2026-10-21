@@ -2,9 +2,17 @@
  * 识别仓库的行类型与纯转换：数据库行 → 目标 / 文件 / 子条目 / 匹配记录，候选摘要的清洗。
  * 不碰数据库，供 identify-store 使用并单测。
  */
-import type { MatchState, MediaItemType } from '../../../shared/library/ipc'
+import type {
+  LibrarySource,
+  MatchState,
+  MediaItemType,
+} from '../../../shared/library/ipc'
 import type { ParsedMedia } from '../../../shared/library/parser'
-import type { Candidate, MediaRef } from '../../../shared/library/provider'
+import type {
+  Candidate,
+  MediaRef,
+  ProviderName,
+} from '../../../shared/library/provider'
 
 /** 一个待识别的顶层条目。 */
 export interface IdentifyTarget {
@@ -15,7 +23,10 @@ export interface IdentifyTarget {
   title: string
   year: number | null
   matchState: MatchState
+  /** 已匹配的元数据源 id：TMDB 数字 id，番号库为番号。 */
   tmdbId: string | null
+  /** 所属媒体库的元数据来源。 */
+  source: LibrarySource
 }
 
 /** 条目关联的一个视频文件。 */
@@ -81,6 +92,7 @@ export function toTarget(row: Row): IdentifyTarget {
     year: numOrNull(row.year),
     matchState: row.match_state as MatchState,
     tmdbId: row.tmdb_id === null ? null : String(row.tmdb_id),
+    source: row.source === 'jav' ? 'jav' : 'tmdb',
   }
 }
 
@@ -123,12 +135,14 @@ export interface MatchRow {
 export const matchProviderId = (ref: Pick<MediaRef, 'kind' | 'id'>): string =>
   `${ref.kind}:${ref.id}`
 
-/** matches 行 → 匹配记录（provider 固定 tmdb；候选摘要坏了当作空标题）。 */
+/** matches 行 → 匹配记录（候选摘要坏了当作空标题）。 */
 export function toMatch(r: Row): MatchRow {
-  const [kind, id] = String(r.provider_id).split(':')
+  const raw = String(r.provider_id)
+  const colon = raw.indexOf(':')
+  const [kind, id] = [raw.slice(0, colon), raw.slice(colon + 1)]
   return {
     ref: {
-      provider: 'tmdb',
+      provider: r.provider === 'jav' ? 'jav' : ('tmdb' as ProviderName),
       kind: kind as MediaRef['kind'],
       id,
     },

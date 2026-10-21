@@ -1,6 +1,6 @@
 /**
  * 主进程设置模块：打开 settings.json，实现 settings 域，并把变更广播给所有窗口。
- * 其他主进程模块经 {@link settingsStore} 读写（例如 Amane 令牌）。
+ * 其他主进程模块经 {@link settingsStore} 读写（例如 TMDB 令牌）。
  */
 import { app } from 'electron'
 import { join } from 'node:path'

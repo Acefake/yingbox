@@ -1,6 +1,7 @@
 /**
- * 写出层模块：组装设置、写出、整理，注册任务类型（writer-write / writer-organize / writer-undo），
- * 实现 writer.* IPC 方法并推送 writer-progress。LibraryService 只做转发。
+ * 写出层模块：组装设置、写出、整理，注册任务类型（writer-write / writer-organize / writer-undo /
+ * writer-auto-organize），实现 writer.* IPC 方法并推送 writer-progress。LibraryService 只做转发。
+ * 识别后的自动写出 / 自动整理按条目所在媒体库的自动化设置分组（见 auto-rules）。
  *
  * 不形成循环：写出的 nfo / 图片不关联任何条目，扫描器收录它们不会让条目变化，
  * 也就不会触发识别和“识别后自动写出”；内容未变的文件直接跳过、不改 mtime。
@@ -23,7 +24,10 @@ import type { KeyedMutex } from '../jobs/keyed-mutex'
 import type { JobQueue } from '../jobs/queue'
 import type { LibraryStore } from '../libraries/library-store'
 import { SettingsStore } from '../providers/settings-store'
+import { autoFollowups, mergeAutoOrganizePayload } from './auto-rules'
+import type { AutoOrganizePayload } from './auto-rules'
 import type { MoveOps } from './fs/file-ops'
+import { runAutoOrganize } from './organize/auto-organize'
 import { type PlannedMove, planOrganize } from './organize/organize-planner'
 import { OrganizeRunner } from './organize/organize-runner'
 import { type ImageSource, OutputWriter } from './write/output-writer'
@@ -51,6 +55,8 @@ export interface WriterModuleOptions {
   emit: (event: LibraryEvent) => void
   /** 原图缓存（复用识别模块的 ImageCache）；没有时不写图片。 */
   images?: ImageSource
+  /** 番号库条目演员的资料（演员库），NFO 的 <actor> 据此补头像与生日等扩展字段。 */
+  actorProfiles?: WriterJobDeps['actorProfiles']
   /** 整理时的底层 rename（测试注入以模拟跨盘）。 */
   moveOps?: MoveOps
   /** 设备号（测试注入以模拟跨盘预览）。 */
@@ -90,6 +96,7 @@ export class WriterModule {
       catalogQuery: options.catalogQuery,
       libraries: options.libraries,
       settings: () => this.settings.get(),
+      actorProfiles: options.actorProfiles,
       emit: options.emit,
       log: options.log,
     }
@@ -103,6 +110,17 @@ export class WriterModule {
     )
     options.queue.register('writer-undo', (p, ctx) =>
       runBatch(jobs, (p as BatchPayload).batchId, 'undo', ctx)
+    )
+    const autoJobs = {
+      ...jobs,
+      db: options.db,
+      deviceOf: options.deviceOf,
+      enqueueWrite: (ids: number[]) => this.enqueueWrite(ids, PRIORITY.auto),
+    }
+    options.queue.register(
+      'writer-auto-organize',
+      (p, ctx) => runAutoOrganize(autoJobs, p as AutoOrganizePayload, ctx),
+      { merge: mergeAutoOrganizePayload }
     )
   }
 
@@ -121,10 +139,25 @@ export class WriterModule {
     return this.enqueueWrite(itemIds, PRIORITY.user)
   }
 
-  /** 识别后自动写出（设置关闭时什么都不做）。 */
+  /** 识别后的自动后续：按库设置自动写出 / 先整理再写出（都关闭时什么都不做）。 */
   enqueueAuto(itemIds: number[]): void {
-    if (!itemIds.length || !this.settings.get().autoWriteAfterIdentify) return
-    this.enqueueWrite(itemIds, PRIORITY.auto)
+    if (!itemIds.length) return
+    const followups = autoFollowups(itemIds, this.settings.get(), {
+      libraryOf: id => this.store.libraryOf(id),
+      automationOf: id => this.options.libraries.find(id)?.automation,
+    })
+    if (followups.write.length) {
+      this.enqueueWrite(followups.write, PRIORITY.auto)
+    }
+    if (followups.organize) {
+      this.options.queue.enqueue({
+        type: 'writer-auto-organize',
+        key: 'writer-auto-organize',
+        payload: followups.organize,
+        priority: PRIORITY.auto,
+        maxAttempts: 1,
+      })
+    }
   }
 
   /** 整理预览。 */

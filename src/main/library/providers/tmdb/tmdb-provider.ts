@@ -90,9 +90,12 @@ export class TmdbProvider implements MetadataProvider {
     return Boolean(this.options.token())
   }
 
-  /** 拼图片 URL；size 如 w300 / w780 / original。 */
+  /**
+   * 拼图片 URL；size 如 w300 / w780 / original。
+   * path 已是绝对地址（番号站点的图片）时原样返回，写出层 / 识别执行器因此不用区分来源。
+   */
   static imageUrl(path: string, size = 'original'): string {
-    return `${TMDB_IMAGE}/${size}${path}`
+    return /^https?:\/\//.test(path) ? path : `${TMDB_IMAGE}/${size}${path}`
   }
 
   /**

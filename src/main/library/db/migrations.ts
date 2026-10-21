@@ -4,6 +4,7 @@
  * 规则：已发布的迁移永远不改，只追加新的。
  */
 import type { DatabaseSync } from 'node:sqlite'
+import { V6_SCHEMA } from './schema-actors'
 
 /** 一条迁移。 */
 export interface Migration {
@@ -264,6 +265,23 @@ CREATE TABLE organize_ops (
 ) STRICT, WITHOUT ROWID;
 `
 
+/**
+ * V4：媒体库的元数据来源。tmdb 按片名识别；jav 按文件名里的番号刮削番号站点（只用于电影库）。
+ * 番号库的条目 tmdb_id 列存番号（列名沿用：它是“匹配到的元数据源 id”，matches.provider 区分来源）。
+ */
+const V4_SCHEMA = `
+ALTER TABLE libraries ADD COLUMN source TEXT NOT NULL DEFAULT 'tmdb'
+  CHECK (source IN ('tmdb', 'jav'));
+`
+
+/**
+ * V5：媒体库级自动化设置（监控、自动识别、自动写出、自动整理），整份 JSON；
+ * 缺字段按默认值补（见 shared/library/ipc/contract-library.ts），以后加开关不用再迁移。
+ */
+const V5_SCHEMA = `
+ALTER TABLE libraries ADD COLUMN automation TEXT NOT NULL DEFAULT '{}';
+`
+
 /** 全部迁移，按版本升序。 */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, description: '初始表结构与片名 FTS', sql: V1_SCHEMA },
@@ -273,6 +291,9 @@ export const MIGRATIONS: readonly Migration[] = [
     sql: V2_SCHEMA,
   },
   { version: 3, description: '写出层：写出记录与整理批次', sql: V3_SCHEMA },
+  { version: 4, description: '媒体库元数据来源（番号库）', sql: V4_SCHEMA },
+  { version: 5, description: '媒体库自动化设置', sql: V5_SCHEMA },
+  { version: 6, description: '演员库（演员资料与作品关联）', sql: V6_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

@@ -33,7 +33,8 @@ export {
   storedCandidate,
 } from './identify-rows'
 
-const TARGET_COLUMNS = `id, library_id, type, local_key, title, year, match_state, tmdb_id`
+const TARGET_COLUMNS = `id, library_id, type, local_key, title, year, match_state, tmdb_id,
+  (SELECT source FROM libraries l WHERE l.id = media_items.library_id) AS source`
 
 const MODE_WHERE: Record<TargetMode, string> = {
   pending: `match_state <> 'locked'
@@ -89,6 +90,33 @@ export class IdentifyStore {
       )
       .all(...params)
       .map(toTarget)
+  }
+
+  /**
+   * 这次识别 / 刷新是否涉及 TMDB 库（需要令牌）。番号库不需要令牌。
+   * 范围：指定条目 → 这些条目所属的库；指定库 → 该库；都没指定 → 全部库。
+   */
+  needsTmdb(scope: { libraryId?: number; itemIds?: number[] }): boolean {
+    if (scope.itemIds) {
+      return Boolean(
+        this.sql
+          .get(
+            `SELECT 1 FROM media_items i JOIN libraries l ON l.id = i.library_id
+             WHERE i.id IN (SELECT value FROM json_each(?)) AND l.source = 'tmdb'
+             LIMIT 1`
+          )
+          .get(JSON.stringify(scope.itemIds))
+      )
+    }
+    const row =
+      scope.libraryId === undefined
+        ? this.sql
+            .get("SELECT 1 FROM libraries WHERE source = 'tmdb' LIMIT 1")
+            .get()
+        : this.sql
+            .get("SELECT 1 FROM libraries WHERE id = ? AND source = 'tmdb'")
+            .get(scope.libraryId)
+    return Boolean(row)
   }
 
   /** 条目（含子孙）关联的视频文件。 */

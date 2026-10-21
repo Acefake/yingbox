@@ -8,10 +8,13 @@ import { type ComputedRef, type Ref, computed, reactive, ref } from 'vue'
 
 import type {
   IdentifyProgressEvent,
+  LibraryAutomation,
   LibraryInfo,
   LibraryKind,
+  LibrarySource,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
+import { pickLibraryFolder } from '../settings/folder-picker'
 import { onLibraryEvent } from './library-events'
 
 /** 后台活动：界面顶部的细进度条与状态文字。 */
@@ -85,8 +88,14 @@ export interface UseLibraries {
   loaded: Ref<boolean>
   error: Ref<string | null>
   activity: ComputedRef<LibraryActivity | null>
-  addFolder: () => Promise<LibraryInfo | null>
+  /** 选文件夹并添加；source 为 jav 时是番号文件夹（只用于电影库）。 */
+  addFolder: (source?: LibrarySource) => Promise<LibraryInfo | null>
   removeLibrary: (libraryId: number) => Promise<void>
+  /** 改一个库的自动化设置（只改给出的字段）。 */
+  updateAutomation: (
+    libraryId: number,
+    patch: Partial<LibraryAutomation>
+  ) => Promise<void>
   scanAll: (full?: boolean) => Promise<void>
   identifyAll: (force?: boolean) => Promise<void>
   refreshAll: () => Promise<void>
@@ -114,21 +123,34 @@ export function useLibraries(kind: LibraryKind): UseLibraries {
     }
   }
 
-  async function addFolder(): Promise<LibraryInfo | null> {
+  async function addFolder(
+    source: LibrarySource = 'tmdb'
+  ): Promise<LibraryInfo | null> {
     if (!bridge) return null
-    const picked = await window.api.dialog.openDirectory()
-    const root = picked.success && !picked.canceled ? picked.filePaths[0] : ''
+    const root = await pickLibraryFolder()
     if (!root) return null
     let info: LibraryInfo | null = null
     await run(async () => {
-      info = await bridge.addLibrary({ root, kind })
+      info = await bridge.addLibrary({ root, kind, source })
     })
     return info
+  }
+
+  async function updateAutomation(
+    libraryId: number,
+    patch: Partial<LibraryAutomation>
+  ): Promise<void> {
+    await run(async () => {
+      const info = await bridge!.updateLibrary({ libraryId, automation: patch })
+      // 不等 libraries-changed 事件，先把返回的结果放进列表，开关不回弹
+      all.value = all.value.map(lib => (lib.id === info.id ? info : lib))
+    })
   }
 
   return {
     available: Boolean(bridge),
     libraries,
+    updateAutomation,
     loaded,
     error: lastError,
     activity,
