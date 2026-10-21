@@ -63,19 +63,23 @@ export function parseCurlOutput(output: Buffer): CurlResponse {
   }
 }
 
-/** 拼 curl 参数（纯函数，便于测试）。 */
+/**
+ * 拼 curl 参数（纯函数，便于测试）。
+ * body 有值时发 POST（--data-binary）；不加 --request，重定向后按 curl 默认改成 GET，与 fetch 一致。
+ * follow 为 false 时不跟随重定向（对应 fetch 的 redirect: 'manual'）。
+ */
 export function curlArgs(
   url: string,
   headers: Record<string, string>,
   maxBytes: number,
-  timeoutMs: number
+  timeoutMs: number,
+  body?: string,
+  follow = true
 ): string[] {
   const args = [
     '--silent',
     '--show-error',
-    '--location',
-    '--max-redirs',
-    '5',
+    ...(follow ? ['--location', '--max-redirs', '5'] : []),
     '--compressed',
     '--dump-header',
     '-',
@@ -89,6 +93,8 @@ export function curlArgs(
     if (/[\r\n]/.test(name + value)) continue
     args.push('--header', `${name}: ${value}`)
   }
+  // 带请求体即 POST（--data-binary 原样发送，不做 URL 编码；重定向后保持 POST 语义）
+  if (body !== undefined) args.push('--data-binary', body)
   args.push('--', url)
   return args
 }
@@ -104,7 +110,13 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
   const run = options.spawnImpl ?? spawn
   return ((
     url: string,
-    init: { headers?: Record<string, string>; signal?: AbortSignal }
+    init: {
+      headers?: Record<string, string>
+      signal?: AbortSignal
+      method?: 'GET' | 'POST'
+      body?: string
+      redirect?: 'follow' | 'manual'
+    }
   ) =>
     new Promise<Response>((resolve, reject) => {
       if (!/^https?:\/\//i.test(url)) {
@@ -114,7 +126,16 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
       init.signal?.throwIfAborted()
       const child = run(
         binary,
-        curlArgs(url, init.headers ?? {}, maxBytes, timeoutMs),
+        curlArgs(
+          url,
+          init.headers ?? {},
+          maxBytes,
+          timeoutMs,
+          (init.method ?? (init.body !== undefined ? 'POST' : 'GET')) === 'POST'
+            ? (init.body ?? '')
+            : undefined,
+          init.redirect !== 'manual'
+        ),
         {
           stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true,

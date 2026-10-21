@@ -2,7 +2,10 @@
  * 番号站点设置页的纯规则：站点行、开关、上下移动；文件夹描述标出番号库。
  */
 import { describe, expect, it } from 'vitest'
-import { DEFAULT_JAV_SETTINGS } from '../../../src/shared/library/ipc'
+import {
+  DEFAULT_JAV_SETTINGS,
+  JAV_SITES,
+} from '../../../src/shared/library/ipc'
 import {
   javSiteRows,
   moveJavSite,
@@ -13,19 +16,33 @@ import { folderDescription } from '../../../src/renderer/src/features/library/se
 describe('番号站点设置规则', () => {
   it('站点行：名称、优先级、能否上下移', () => {
     const rows = javSiteRows(DEFAULT_JAV_SETTINGS)
-    expect(rows.map(r => [r.id, r.name, r.rank, r.canUp, r.canDown])).toEqual([
-      ['javbus', 'JavBus', 1, false, true],
-      ['avbase', 'AVBase', 2, true, true],
-      ['fc2', 'FC2', 3, true, false],
-    ])
+    const last = JAV_SITES.length
+    expect(rows.map(r => [r.id, r.name, r.rank])).toEqual(
+      JAV_SITES.map((site, i) => [site.id, site.name, i + 1])
+    )
+    expect(rows[0]).toMatchObject({ id: 'javbus', canUp: false, canDown: true })
+    expect(rows[1]).toMatchObject({ canUp: true, canDown: true })
+    expect(rows[last - 1]).toMatchObject({
+      id: JAV_SITES[last - 1].id,
+      canUp: true,
+      canDown: false,
+    })
   })
 
   it('开关与移动返回新设置，不改原对象；越界原样返回', () => {
+    const at = DEFAULT_JAV_SETTINGS.sites.findIndex(s => s.id === 'avbase')
     const off = toggleJavSite(DEFAULT_JAV_SETTINGS, 'avbase', false)
-    expect(off.sites[1]).toEqual({ id: 'avbase', enabled: false })
-    expect(DEFAULT_JAV_SETTINGS.sites[1].enabled).toBe(true)
+    expect(off.sites[at]).toEqual({ id: 'avbase', enabled: false })
+    expect(DEFAULT_JAV_SETTINGS.sites[at].enabled).toBe(true)
+    const ids = DEFAULT_JAV_SETTINGS.sites.map(s => s.id)
+    const i = ids.indexOf('fc2')
     const moved = moveJavSite(DEFAULT_JAV_SETTINGS, 'fc2', -1)
-    expect(moved.sites.map(s => s.id)).toEqual(['javbus', 'fc2', 'avbase'])
+    expect(moved.sites.map(s => s.id)).toEqual([
+      ...ids.slice(0, i - 1),
+      'fc2',
+      ids[i - 1],
+      ...ids.slice(i + 1),
+    ])
     expect(moveJavSite(DEFAULT_JAV_SETTINGS, 'javbus', -1)).toBe(
       DEFAULT_JAV_SETTINGS
     )

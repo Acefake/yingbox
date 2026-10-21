@@ -7,7 +7,7 @@
 import { createServer } from 'node:http'
 import { describeFetch } from '../main/library/platform/fetch'
 import { createServerApp } from './app'
-import { loadConfig } from './config'
+import { describeMonitor, loadConfig } from './config'
 import { createNodeListener } from './http/adapter'
 
 const log = (message: string): void => console.log(`[yingbox] ${message}`)
@@ -39,6 +39,7 @@ async function main(): Promise<void> {
   log(`数据目录：${config.dataDir}`)
   log(`媒体根目录：${config.mediaRoots.join('、')}`)
   log(`出网：${describeFetch(config.fetch)}`)
+  log(`目录监控：${describeMonitor(config.monitor)}`)
   log(
     config.webDir
       ? `网页端：${base}/?token=${app.token}${app.tokenGenerated ? '（新生成的令牌）' : ''}`

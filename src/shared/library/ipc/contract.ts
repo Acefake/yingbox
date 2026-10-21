@@ -9,18 +9,34 @@ import type {
   MediaMetadata,
   SeasonMetadata,
 } from '../provider'
+import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
+import { ACTOR_METHODS } from './contract-actors'
 import type { LibraryEvent } from './contract-events'
 import type { JavSettings, LibrarySource } from './contract-jav'
 import type {
+  JavCredentialProvider,
+  ProviderStatus,
+  SetProviderTokenRequest,
+} from './contract-provider'
+import type {
+  AddLibraryRequest,
+  LibraryAutomation,
+  UpdateLibraryRequest,
+} from './contract-library'
+import type {
+  LibraryWriterBridge,
   OrganizeAccepted,
   OrganizeBatchInfo,
   OrganizePlan,
   WriterSettings,
 } from './contract-writer'
 
+export * from './contract-actors'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-jav'
+export * from './contract-provider'
+export * from './contract-library'
 export * from './contract-writer'
 
 /** 媒体库类型：电影库或剧集库，决定本地分组方式和后续用哪类元数据源识别。 */
@@ -58,6 +74,8 @@ export interface LibraryInfo {
   createdAt: number
   /** 最近一次扫描完成的时间；从未扫描为 null。 */
   lastScanAt: number | null
+  /** 自动化：监控、自动识别、自动写出、自动整理。 */
+  automation: LibraryAutomation
 }
 
 /** 外部数据库 ID；尚未识别时为空对象。 */
@@ -133,6 +151,8 @@ export interface LibraryQuery {
   types?: TopLevelItemType[]
   /** 片名搜索（FTS5，繁简与大小写不敏感）。 */
   search?: string
+  /** 只要这位演员的作品（演员库）。 */
+  actorId?: number
   yearFrom?: number
   yearTo?: number
   matchStates?: MatchState[]
@@ -151,15 +171,6 @@ export interface LibraryQueryResult {
   total: number
   offset: number
   limit: number
-}
-
-/** 添加媒体库。 */
-export interface AddLibraryRequest {
-  root: string
-  kind: LibraryKind
-  name?: string
-  /** 缺省 tmdb；jav 只能用于电影库。 */
-  source?: LibrarySource
 }
 
 /** 触发扫描。 */
@@ -256,23 +267,12 @@ export interface ApplyMatchResult {
   candidates: MatchCandidateInfo[]
 }
 
-/** 设置元数据源令牌；token 为 null 或空串表示清除。 */
-export interface SetProviderTokenRequest {
-  provider: 'tmdb' | 'opensubtitles'
-  token: string | null
-}
-
-/** 元数据源配置状态（不回传令牌本身）。 */
-export interface ProviderStatus {
-  tmdb: { configured: boolean }
-  opensubtitles: { configured: boolean }
-}
-
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
-export interface LibraryRpcMap {
+export interface LibraryRpcMap extends ActorRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
+  updateLibrary: { params: UpdateLibraryRequest; result: LibraryInfo }
   scan: { params: ScanRequest; result: ScanAccepted }
   query: { params: LibraryQuery; result: LibraryQueryResult }
   getItem: { params: { itemId: number }; result: LibraryItemNode | null }
@@ -312,6 +312,7 @@ export const LIBRARY_METHODS = [
   'listLibraries',
   'addLibrary',
   'removeLibrary',
+  'updateLibrary',
   'scan',
   'query',
   'getItem',
@@ -332,6 +333,7 @@ export const LIBRARY_METHODS = [
   'writer.listOrganizeBatches',
   'jav.getSettings',
   'jav.setSettings',
+  ...ACTOR_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -342,6 +344,8 @@ export interface LibraryBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>
+  /** 改名或改自动化设置，返回生效后的媒体库。 */
+  updateLibrary(request: UpdateLibraryRequest): Promise<LibraryInfo>
   scan(request: ScanRequest): Promise<ScanAccepted>
   query(query?: LibraryQuery): Promise<LibraryQueryResult>
   getItem(itemId: number): Promise<LibraryItemNode | null>
@@ -364,28 +368,18 @@ export interface LibraryBridge {
   setProviderToken?(token: string | null): Promise<ProviderStatus>
   /** 写出层：NFO / 图片 / 整理（改名移动）。进度见 writer-progress 事件。 */
   writer: LibraryWriterBridge
-  /** 番号站点设置（开关与优先级）。 */
+  /** 番号站点设置（开关与优先级）与站点凭据。 */
   jav: {
     getSettings(): Promise<JavSettings>
     setSettings(settings: JavSettings): Promise<JavSettings>
+    /** 设置 / 清除（null）一个番号站点的凭据，返回配置状态（不回传凭据本身）。 */
+    setCredential(
+      provider: JavCredentialProvider,
+      value: string | null
+    ): Promise<ProviderStatus>
   }
+  /** 演员库：列表、详情、编辑锁定、刷新资料、来源设置。 */
+  actors: LibraryActorsBridge
   /** 订阅引擎事件，返回取消订阅函数。事件经 MessagePort 直达，不经主进程转发。 */
   subscribe(listener: (event: LibraryEvent) => void): () => void
-}
-
-/** window.api.library.writer。 */
-export interface LibraryWriterBridge {
-  getSettings(): Promise<WriterSettings>
-  /** 保存并返回生效的设置；模板不合法时以 invalid-params 拒绝。 */
-  setSettings(settings: WriterSettings): Promise<WriterSettings>
-  /** 为这些条目（电影 / 剧集，传季 / 集按所属剧集处理）写 NFO 与图片，排队执行。 */
-  write(itemIds: number[]): Promise<JobAccepted>
-  /** 按模板生成整理计划（只读，不动文件）。 */
-  previewOrganize(itemIds: number[]): Promise<OrganizePlan>
-  /** 执行计划里没有冲突的项，记录批次日志；整理未开启或计划过期时拒绝。 */
-  applyOrganize(planId: string): Promise<OrganizeAccepted>
-  /** 按批次日志倒序移回原处。 */
-  undoOrganize(batchId: number): Promise<JobAccepted>
-  /** 最近的整理批次，新的在前。 */
-  listOrganizeBatches(): Promise<OrganizeBatchInfo[]>
 }

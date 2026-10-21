@@ -10,9 +10,7 @@ coverage
 .codex_tmp
 .tmp
 .eslintcache
-resources/amane
 resources/mpv
-packages/amane/upstream
 *.log
 .env
 .env.*

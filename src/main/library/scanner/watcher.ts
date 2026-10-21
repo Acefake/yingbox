@@ -1,14 +1,17 @@
 /**
- * 文件监听：Node 内置 fs.watch(root, { recursive: true })。
+ * 文件系统事件：Node 内置 fs.watch(root, { recursive: true })。
  *
  * Windows 上是一个 ReadDirectoryChangesW 句柄、macOS 上是 FSEvents，整棵树只占一个句柄，
  * 不用逐目录注册（chokidar v4 不用 recursive 模式，每个目录一个 fs.watch，万级目录就是万级句柄）；
- * Linux 上 Node 22 用 inotify 逐目录模拟，只用于开发。不引入原生依赖（@parcel/watcher 会被
- * postinstall 的 electron-builder install-app-deps 拿去 node-gyp 重编，没有编译工具链就装不上）。
+ * Linux 上 Node 用 inotify 逐目录模拟，每个目录占一个 watch，受 fs.inotify.max_user_watches 限制，
+ * 满了会报 ENOSPC；NFS / SMB / FUSE 挂载上别的机器写入的文件不产生事件。这些情况由
+ * engine/library-monitor 退回定时增量扫描。不引入原生依赖（@parcel/watcher 会被 postinstall 的
+ * electron-builder install-app-deps 拿去 node-gyp 重编，没有编译工具链就装不上）。
  *
  * 事件去抖合批后转换成“需要重读的目录”，交给增量扫描。监听是加速手段，不是正确性的依据：
- * 事件丢失（网络盘、缓冲区溢出、休眠唤醒）时，下次扫描仍会靠目录 mtime 对齐；
- * 系统报告溢出（filename 为空）时直接排整库扫描。
+ * 事件丢失（网络盘、缓冲区溢出、休眠唤醒）时，定时增量扫描仍会靠目录 mtime 对齐；
+ * 系统报告溢出（filename 为空）时直接排整库扫描。启动失败直接抛出、运行中出错走 onError，
+ * 由调用方决定降级。
  */
 import { type FSWatcher, watch } from 'node:fs'
 import { dirname, join } from 'node:path'

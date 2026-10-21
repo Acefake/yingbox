@@ -1,0 +1,21 @@
+{
+  "uuid": "5c0f6d47-2c1a-4bb5-9a43-0c8c3f5d9e21",
+  "title": "（構造推定用サンプル）タイトル",
+  "body": "作品紹介文のサンプル。",
+  "mgsStartAt": "2023-03-10T00:00:00+09:00",
+  "createdAt": "2023-02-01T12:00:00+09:00",
+  "playTime": 150,
+  "actress": [{ "name": "女優A" }, { "name": "女優B" }],
+  "directors": [{ "name": "監督X" }],
+  "genre": [{ "name": "単体作品" }, { "name": "美少女" }],
+  "maker": { "name": "プレステージ" },
+  "label": [{ "name": "ABSOLUTELY WONDERFUL" }],
+  "series": { "name": "シリーズS" },
+  "thumbnail": { "path": "1/2/front.jpg" },
+  "packageImage": { "path": "1/2/package.jpg" },
+  "media": [{ "path": "1/2/cap1.jpg" }, { "path": "https://image.example/cap2.jpg" }, { "path": null }],
+  "sku": [
+    { "deliveryItemId": "GOOEABW-350" },
+    { "deliveryItemId": "ABW-350" }
+  ]
+}

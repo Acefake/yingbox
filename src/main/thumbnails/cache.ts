@@ -20,7 +20,7 @@ import { dirname, join } from 'node:path'
 
 /**
  * 默认容量上限：512 MB。媒体库每部影片两档（300w ≈ 25 KB、780w ≈ 90 KB），
- * 加上在线 / AV / Amane 封面，够存几千部；淘汰的媒体库缩略图会从原图重新生成。
+ * 加上在线 / AV 封面，够存几千部；淘汰的媒体库缩略图会从原图重新生成。
  */
 export const DEFAULT_MAX_BYTES = 512 * 1024 * 1024
 /** 命中后多久内不重复更新 mtime */

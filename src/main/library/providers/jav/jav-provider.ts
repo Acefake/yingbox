@@ -16,12 +16,17 @@ import {
   createHostBreaker,
 } from '../../../../shared/net/host-breaker'
 import type { ResponseCache } from '../http/provider-cache'
-import { type ProviderHttp, ProviderHttpError } from '../http/provider-http'
+import {
+  type FetchLike,
+  ProviderHttp,
+  ProviderHttpError,
+} from '../http/provider-http'
+import type { Clock } from '../http/rate-limiter'
+import type { ActorContext, ActorSource } from './actors'
+import { createGfriendsSource } from './actors/sources/gfriends'
 import { type JavMovie, aggregate, toMetadata } from './aggregate'
 import { type JavCode, parseJavCode } from './number'
-import { avbase } from './sites/avbase'
-import { fc2 } from './sites/fc2'
-import { javbus } from './sites/javbus'
+import { type JavCredentials, createJavSites } from './sites/registry'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
 
 const DAY = 86_400_000
@@ -47,15 +52,38 @@ export function pageVerdict(
   )
 }
 
-/** 内置站点。 */
-export const JAV_SITE_IMPLS: readonly JavSite[] = [javbus, avbase, fc2]
+/** 内置站点（不带用户凭据；测试与缺省用）。 */
+export const JAV_SITE_IMPLS: readonly JavSite[] = createJavSites()
+
+/** 按主机懒建出网客户端（每个主机一个，各自限速），给 JavProviderOptions.http 用。 */
+export function perHost(
+  make: () => ProviderHttp
+): (host: string) => ProviderHttp {
+  const byHost = new Map<string, ProviderHttp>()
+  return host => {
+    let http = byHost.get(host)
+    if (!http) byHost.set(host, (http = make()))
+    return http
+  }
+}
 
 /** 构造参数。 */
 export interface JavProviderOptions {
-  http: ProviderHttp
+  /**
+   * 出网客户端。给函数时按主机各用一个（各站独立限速：一个慢站不拖住其它站，
+   * 二十几个站并行查也不会对单站过快）；给实例时所有站点共用。
+   */
+  http: ProviderHttp | ((host: string) => ProviderHttp)
   cache?: ResponseCache
   /** 每次查询时读取当前站点设置。 */
   settings: () => JavSettings
+  /**
+   * 给站点没带头像的演员补头像的来源（只用它的头像）。缺省 gfriends（整理过的女优头像库，
+   * 索引只拉一次）；null 关闭。sites 注入（测试）时缺省关闭。
+   */
+  avatars?: ActorSource | null
+  /** 每次查询时读取站点凭据；缺省没有凭据。sites 注入时忽略。 */
+  credentials?: () => JavCredentials
   /** 站点实现，测试注入；缺省为内置站点。 */
   sites?: readonly JavSite[]
   breaker?: HostBreaker
@@ -80,7 +108,21 @@ export class JavProvider {
   private readonly now: () => number
   private readonly log: (message: string) => void
 
+  private readonly sites: ReadonlyMap<string, JavSite>
+  private readonly avatars: ActorSource | null
+
   constructor(private readonly options: JavProviderOptions) {
+    this.sites = new Map(
+      (
+        options.sites ?? createJavSites(options.credentials ?? (() => ({})))
+      ).map(s => [s.id, s])
+    )
+    this.avatars =
+      options.avatars !== undefined
+        ? options.avatars
+        : options.sites
+          ? null
+          : createGfriendsSource()
     this.breaker = options.breaker ?? createHostBreaker()
     this.now = options.now ?? Date.now
     this.log = options.log ?? (() => {})
@@ -88,13 +130,10 @@ export class JavProvider {
 
   /** 按优先级排好、已开启且支持这类番号的站点。 */
   private sitesFor(code: JavCode): JavSite[] {
-    const impls = new Map(
-      (this.options.sites ?? JAV_SITE_IMPLS).map(s => [s.id, s])
-    )
     return this.options
       .settings()
       .sites.filter(s => s.enabled)
-      .map(s => impls.get(s.id))
+      .map(s => this.sites.get(s.id))
       .filter((s): s is JavSite => Boolean(s?.supports(code.kind)))
   }
 
@@ -116,8 +155,38 @@ export class JavProvider {
       throw new ProviderHttpError(`番号站点都无法访问（${code.code}）`)
     }
     const movie = aggregate(records)
+    if (!movie) return null
     // 番号以文件名解析出的写法为准（条目 id 稳定）；站点页面上的写法可能缺数字前缀等
-    return movie && { ...movie, code: code.code }
+    return {
+      ...movie,
+      code: code.code,
+      actors: await this.withAvatars(movie, signal),
+    }
+  }
+
+  /**
+   * 给没头像的演员补头像。补不到（来源被墙、没收录）就保持原样，绝不让刮削因此失败；
+   * gfriends 的索引首次下载后在内存里，之后每个演员都是本地查表。
+   */
+  private async withAvatars(
+    movie: JavMovie,
+    signal?: AbortSignal
+  ): Promise<JavMovie['actors']> {
+    const avatars = this.avatars
+    if (!avatars || movie.actors.every(a => a.photo)) return movie.actors
+    const ctx = this.context(signal)
+    return Promise.all(
+      movie.actors.map(async actor => {
+        if (actor.photo) return actor
+        try {
+          const photo = (await avatars.fetch(actor.name, ctx))?.images[0]
+          return photo ? { ...actor, photo } : actor
+        } catch (error) {
+          if (signal?.aborted) throw error
+          return actor
+        }
+      })
+    )
   }
 
   /** 番号 → 入库元数据；查不到返回 null。 */
@@ -167,6 +236,60 @@ export class JavProvider {
       signal,
       page: (url: string, options?: PageOptions) =>
         this.page(url, options, signal),
+      issuedCookies: (url: string, options: PageOptions = {}) =>
+        this.issuedCookies(url, options, signal),
+    }
+  }
+
+  /**
+   * 演员资料来源用的上下文：与番号站点共用熔断、按主机限速和防护页识别，
+   * 另提供 postJson（ThePornDB 的 GraphQL）。演员库的后台任务用它查资料。
+   */
+  actorContext(signal?: AbortSignal): ActorContext {
+    return {
+      ...this.context(signal),
+      postJson: async (url, body, headers = {}) => {
+        const text = await this.page(
+          url,
+          {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json', ...headers },
+          },
+          signal
+        )
+        return text === null ? null : (JSON.parse(text) as unknown)
+      },
+    }
+  }
+
+  /** 这个地址用哪个出网客户端。 */
+  private httpFor(url: string): ProviderHttp {
+    const { http } = this.options
+    return typeof http === 'function' ? http(new URL(url).host) : http
+  }
+
+  /** 领取会话 Cookie（见 SiteContext.issuedCookies）：与取页同一套熔断。 */
+  private async issuedCookies(
+    url: string,
+    options: PageOptions,
+    signal?: AbortSignal
+  ): Promise<string[]> {
+    const trip = this.breaker.check(url)
+    if (trip) throw new HostUnavailableError(trip)
+    try {
+      return await this.httpFor(url).getCookies({
+        url,
+        headers: {
+          'User-Agent': USER_AGENT,
+          ...(options.cookie ? { Cookie: options.cookie } : {}),
+          ...options.headers,
+        },
+        signal,
+      })
+    } catch (error) {
+      if (!signal?.aborted) this.breaker.fail(url, 'unreachable')
+      throw error
     }
   }
 
@@ -179,7 +302,7 @@ export class JavProvider {
     if (trip) throw new HostUnavailableError(trip)
     let html: string | null
     try {
-      html = await this.options.http.getText({
+      html = await this.httpFor(url).getText({
         url,
         headers: {
           Accept:
@@ -189,6 +312,8 @@ export class JavProvider {
           ...options.headers,
         },
         signal,
+        method: options.method,
+        body: options.body,
       })
     } catch (error) {
       // 403 多半是 Cloudflare 挑战（个别客户端指纹过不去，稍后也可能就过了）：按失败计数，连续几次才熔断
@@ -211,4 +336,36 @@ export class JavProvider {
     this.breaker.succeed(url)
     return html
   }
+}
+
+/** createJavProvider 的参数。 */
+export interface CreateJavProviderOptions extends Pick<
+  JavProviderOptions,
+  'cache' | 'settings' | 'credentials' | 'avatars' | 'log'
+> {
+  fetch: FetchLike
+  clock?: Clock
+}
+
+/**
+ * 按引擎的默认网络策略建番号元数据源：番号站点是普通网站，每个主机一个客户端各自限速
+ * （2 rps、并发 2），重试少一些，被拦的站点由熔断跳过。
+ */
+export function createJavProvider(
+  options: CreateJavProviderOptions
+): JavProvider {
+  const { fetch, clock, ...rest } = options
+  return new JavProvider({
+    ...rest,
+    http: perHost(
+      () =>
+        new ProviderHttp({
+          fetch,
+          rps: 2,
+          concurrency: 2,
+          maxRetries: 2,
+          clock,
+        })
+    ),
+  })
 }

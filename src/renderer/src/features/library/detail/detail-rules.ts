@@ -85,12 +85,26 @@ export interface PersonCard {
   name: string
   role: string
   photo: string | null
+  /** 演员库里的演员（番号库条目）；有时可点开演员详情。 */
+  actorId?: number
 }
+
+/** 演员库里的演员（按名字查），用来让演员可点、并换成本地缓存的头像。 */
+export interface ActorLink {
+  id: number
+  /** 已换成界面地址的头像。 */
+  photo: string | null
+}
+
+/** 名字比较键：NFKC + 压缩空白 + 小写（与引擎的演员名字键一致）。 */
+export const personKey = (name: string): string =>
+  name.normalize('NFKC').replace(/\s+/g, ' ').trim().toLowerCase()
 
 /** 演职员：导演 / 主创在前，然后演员表。 */
 export function peopleOf(
   meta: TitleMeta | null,
-  photo: (path: string | undefined) => string | null
+  photo: (path: string | undefined) => string | null,
+  actors: ReadonlyMap<string, ActorLink> = new Map()
 ): PersonCard[] {
   if (!meta) return []
   const crew = meta.crew
@@ -101,12 +115,16 @@ export function peopleOf(
       role: p.job === 'Director' ? '导演' : '主创',
       photo: photo(p.profilePath),
     }))
-  const cast = meta.cast.map(p => ({
-    key: `cast-${p.id}`,
-    name: p.name,
-    role: p.character ?? '',
-    photo: photo(p.profilePath),
-  }))
+  const cast = meta.cast.map(p => {
+    const actor = actors.get(personKey(p.name))
+    return {
+      key: `cast-${p.id}`,
+      name: p.name,
+      role: p.character ?? '',
+      photo: actor?.photo ?? photo(p.profilePath),
+      ...(actor ? { actorId: actor.id } : {}),
+    }
+  })
   return [...crew, ...cast]
 }
 

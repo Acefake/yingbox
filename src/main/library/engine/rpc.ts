@@ -25,6 +25,7 @@ const HANDLERS: Handlers = {
   listLibraries: s => s.listLibraries(),
   addLibrary: (s, p) => s.addLibrary(p),
   removeLibrary: (s, p) => s.removeLibrary(p),
+  updateLibrary: (s, p) => s.updateLibrary(p),
   scan: (s, p) => s.scan(p),
   query: (s, p) => s.query(p),
   getItem: (s, p) => s.getItem(p),
@@ -45,6 +46,14 @@ const HANDLERS: Handlers = {
   'writer.listOrganizeBatches': s => s.writer.listOrganizeBatches(),
   'jav.getSettings': s => s.identifier.getJavSettings(),
   'jav.setSettings': (s, p) => s.identifier.setJavSettings(p),
+  'actors.list': (s, p) => s.actors.list(p),
+  'actors.get': (s, p) => s.actors.get(p.actorId),
+  'actors.forItem': (s, p) => s.actors.forItem(p.itemId),
+  'actors.update': (s, p) => s.actors.update(p),
+  'actors.refresh': (s, p) => s.actors.refresh(p),
+  'actors.cancelRefresh': s => s.actors.cancelRefresh(),
+  'actors.getSettings': s => s.actors.getSettings(),
+  'actors.setSettings': (s, p) => s.actors.setSettings(p),
 }
 
 /** 处理一次调用，永不抛出：任何错误都变成 ok: false 的响应。 */
