@@ -20,8 +20,12 @@ import { type ProviderHttp, ProviderHttpError } from '../http/provider-http'
 import { type JavMovie, aggregate, toMetadata } from './aggregate'
 import { type JavCode, parseJavCode } from './number'
 import { avbase } from './sites/avbase'
+import { avsox } from './sites/avsox'
 import { fc2 } from './sites/fc2'
+import { jav321 } from './sites/jav321'
 import { javbus } from './sites/javbus'
+import { javdb } from './sites/javdb'
+import { javlibrary } from './sites/javlibrary'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
 
 const DAY = 86_400_000
@@ -48,7 +52,15 @@ export function pageVerdict(
 }
 
 /** 内置站点。 */
-export const JAV_SITE_IMPLS: readonly JavSite[] = [javbus, avbase, fc2]
+export const JAV_SITE_IMPLS: readonly JavSite[] = [
+  javbus,
+  javdb,
+  avbase,
+  javlibrary,
+  jav321,
+  avsox,
+  fc2,
+]
 
 /** 构造参数。 */
 export interface JavProviderOptions {
