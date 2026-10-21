@@ -1,6 +1,6 @@
 /**
  * 侧栏与手机底部标签栏的导航项（纯函数，按当前路由与平台能力算出）。
- * 本地媒体只在有本地片库的平台显示（番号库在「电影」里）；AV 只在成人模式下出现。
+ * 本地媒体只在有本地片库的平台显示；其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
  */
 import type { IconName } from '@/components/ui/icons'
 
@@ -42,6 +42,14 @@ const isOnlineTab = (state: NavState, tab?: string): boolean =>
   state.routeName === 'Online' &&
   (tab ? state.onlineTab === tab : !state.onlineTab)
 
+/** 本地番号库入口（成人模式 + 有本地片库时） */
+const JAV_ITEM = (state: NavState): NavItem => ({
+  label: '番号',
+  icon: 'tag',
+  path: '/jav',
+  active: state.routeName === 'Jav',
+})
+
 /** 侧栏导航分组 */
 export function buildNavGroups(state: NavState): NavGroup[] {
   const groups: NavGroup[] = [
@@ -81,6 +89,7 @@ export function buildNavGroups(state: NavState): NavGroup[] {
         active: state.routeName === 'TV',
       }
     )
+    if (state.adultMode) local.push(JAV_ITEM(state))
   }
   if (local.length)
     groups.push({
@@ -133,6 +142,7 @@ export function buildBottomNav(
             path: '/movie',
             active: state.routeName === 'Movie',
           },
+          ...(state.adultMode ? [{ key: 'jav', ...JAV_ITEM(state) }] : []),
         ]
       : []),
     { key: 'menu', label: '菜单', icon: 'menu', path: '', active: menuOpen },

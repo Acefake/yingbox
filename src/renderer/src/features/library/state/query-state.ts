@@ -1,7 +1,8 @@
 /**
  * 海报墙的查询条件：排序、匹配状态筛选、媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
  *
- * 纯数据 + 纯函数，便于单测；响应式包装在 use-library-query.ts。
+ * 每个查询都带分区的类型与来源（见 library-section.ts）。
+ * 纯数据 + 纯函数，便于单测；响应式包装在 use-paged-query.ts。
  */
 import type {
   LibraryKind,
@@ -10,6 +11,7 @@ import type {
   MatchState,
   TopLevelItemType,
 } from '../../../../../shared/library/ipc'
+import { type LibrarySection, SECTIONS } from './library-section'
 
 /** 界面提供的排序方式。 */
 export type WallSort = Extract<
@@ -79,13 +81,21 @@ export function topLevelType(kind: LibraryKind): TopLevelItemType {
   return kind === 'movie' ? 'movie' : 'series'
 }
 
+/** 分区的基础查询：顶层类型 + 来源（电影页不出番号条目，番号页只出番号条目）。 */
+export function sectionQuery(
+  section: LibrarySection
+): Pick<LibraryQuery, 'types' | 'source'> {
+  const spec = SECTIONS[section]
+  return { types: [topLevelType(spec.kind)], source: spec.source }
+}
+
 /** 界面条件 → 引擎查询（不含 offset / limit，由分页列表补）。 */
 export function toLibraryQuery(
-  kind: LibraryKind,
+  section: LibrarySection,
   state: WallQueryState
 ): LibraryQuery {
   const query: LibraryQuery = {
-    types: [topLevelType(kind)],
+    ...sectionQuery(section),
     sort: state.sort,
     order: state.order,
   }
@@ -99,11 +109,11 @@ export function toLibraryQuery(
 
 /** 待确认队列的查询：待确认在前（同一状态按片名）。 */
 export function reviewQuery(
-  kind: LibraryKind,
+  section: LibrarySection,
   matchStates: MatchState[] = ['review', 'unmatched']
 ): LibraryQuery {
   return {
-    types: [topLevelType(kind)],
+    ...sectionQuery(section),
     matchStates,
     sort: 'title',
     order: 'asc',
@@ -112,13 +122,13 @@ export function reviewQuery(
 
 const STORAGE_PREFIX = 'library.wall.'
 
-/** 读回上次的排序（每种媒体库各记一份）；搜索与筛选不记。 */
+/** 读回上次的排序（每个分区各记一份）；搜索与筛选不记。 */
 export function loadSavedSort(
-  kind: LibraryKind,
+  section: LibrarySection,
   storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage
 ): Pick<WallQueryState, 'sort' | 'order'> | null {
   try {
-    const raw = storage?.getItem(`${STORAGE_PREFIX}${kind}`)
+    const raw = storage?.getItem(`${STORAGE_PREFIX}${section}`)
     if (!raw) return null
     const saved = JSON.parse(raw) as Partial<WallQueryState>
     const sort = SORT_OPTIONS.find(o => o.value === saved.sort)?.value
@@ -135,12 +145,12 @@ export function loadSavedSort(
 
 /** 记住排序。 */
 export function saveSort(
-  kind: LibraryKind,
+  section: LibrarySection,
   state: Pick<WallQueryState, 'sort' | 'order'>,
   storage: Pick<Storage, 'setItem'> | undefined = globalThis.localStorage
 ): void {
   storage?.setItem(
-    `${STORAGE_PREFIX}${kind}`,
+    `${STORAGE_PREFIX}${section}`,
     JSON.stringify({ sort: state.sort, order: state.order })
   )
 }

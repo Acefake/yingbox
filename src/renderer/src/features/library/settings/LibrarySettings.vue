@@ -38,16 +38,7 @@
           icon="plus"
           label="添加文件夹…"
           :disabled="!available"
-          @click="addFolder('tmdb')"
-        />
-        <UiButton
-          v-if="kind === 'movie'"
-          size="sm"
-          variant="plain"
-          icon="plus"
-          label="添加番号文件夹…"
-          :disabled="!available"
-          @click="addFolder('jav')"
+          @click="addFolder"
         />
         <UiButton
           size="sm"
@@ -70,7 +61,7 @@
 
     <!-- 元数据源 -->
     <SettingsGroup title="元数据">
-      <SettingsRow title="TMDB 令牌" stacked>
+      <SettingsRow v-if="!isJav" title="TMDB 令牌" stacked>
         <template #description>
           {{ tokenStatusText }}。在
           <a
@@ -124,28 +115,33 @@
       </SettingsRow>
     </SettingsGroup>
 
-    <JavSettingsGroup v-if="hasJav" :open="open" />
-    <JavCredentialsGroup v-if="hasJav" :open="open" />
-    <ActorSourcesGroup v-if="hasJav" :open="open" />
+    <!-- 番号站点、站点凭据、演员资料来源只在番号页 -->
+    <template v-if="isJav">
+      <JavSettingsGroup :open="open" />
+      <JavCredentialsGroup :open="open" />
+      <ActorSourcesGroup :open="open" />
+    </template>
 
-    <WriterSettingsGroups :open="open" :kind="kind" :kind-label="kindLabel" />
+    <WriterSettingsGroups
+      :open="open"
+      :kind="spec.kind"
+      :kind-label="templateLabel"
+    />
   </LibrarySheet>
 </template>
 
 <script setup lang="ts">
 /**
- * 媒体库设置（macOS 系统设置式分组）：文件夹管理、按文件夹的自动入库、TMDB 令牌与识别、
- * 番号站点（有番号文件夹时）、写出 NFO 与图片、整理模板。
+ * 媒体库设置（macOS 系统设置式分组），按分区显示：
+ * - 电影 / 剧集：文件夹、自动入库、TMDB 令牌与识别、写出 NFO 与图片、整理模板；
+ * - 番号：文件夹（添加的就是番号库）、自动入库、识别（不需要 TMDB 令牌）、番号站点、站点凭据、
+ *   演员资料来源、写出与整理（路径模板与电影共用）。
  * 写出与整理两组在 WriterSettingsGroups，走 window.api.library.writer。
  */
 import { confirmDialog, toast } from '@/components/ui'
 import { computed, ref, watch } from 'vue'
 
-import type {
-  LibraryInfo,
-  LibraryKind,
-  LibrarySource,
-} from '../../../../../shared/library/ipc'
+import type { LibraryInfo } from '../../../../../shared/library/ipc'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -154,6 +150,7 @@ import UiInput from '@/components/ui/UiInput.vue'
 import { errorText, libraryBridge } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
+import { type LibrarySection, SECTIONS } from '../state/library-section'
 import { useLibraries } from '../state/use-libraries'
 import ActorSourcesGroup from './ActorSourcesGroup.vue'
 import JavCredentialsGroup from './JavCredentialsGroup.vue'
@@ -163,11 +160,16 @@ import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import { saveLibraryTmdbToken } from './provider-token'
 import { folderDescription, tokenStatus } from './settings-rules'
 
-const props = defineProps<{ open: boolean; kind: LibraryKind }>()
+const props = defineProps<{ open: boolean; section: LibrarySection }>()
 const emit = defineEmits<{ close: [] }>()
 
 const bridge = libraryBridge()
-const kindLabel = computed(() => (props.kind === 'movie' ? '电影' : '剧集'))
+// 分区在面板生命周期内不变
+const spec = SECTIONS[props.section]
+const kindLabel = spec.label
+const isJav = props.section === 'jav'
+/** 整理路径模板按库类型存：番号库与电影共用电影模板。 */
+const templateLabel = isJav ? '电影与番号' : kindLabel
 const {
   available,
   libraries,
@@ -177,27 +179,20 @@ const {
   scanAll,
   identifyAll: startIdentify,
   refreshAll: startRefresh,
-} = useLibraries(props.kind)
+} = useLibraries(props.section)
 
-/** 有番号文件夹：显示番号站点设置；番号库识别不需要 TMDB 令牌。 */
-const hasJav = computed(() => libraries.value.some(l => l.source === 'jav'))
+/** 番号库识别走番号站点，不需要 TMDB 令牌。 */
 const canIdentify = computed(
-  () =>
-    libraries.value.length > 0 &&
-    (tokenConfigured.value || libraries.value.every(l => l.source === 'jav'))
+  () => libraries.value.length > 0 && (isJav || tokenConfigured.value)
 )
 
-const folderFooter = computed(() => {
-  const base =
-    '全量扫描逐个检查全部文件，用于只改了文件内容、目录没变化的情况。'
-  return props.kind === 'movie'
-    ? `${base}番号文件夹按文件名里的番号刮削番号站点，不需要 TMDB 令牌。`
-    : base
-})
+const folderFooter = isJav
+  ? '番号文件夹按文件名里的番号（如 ABC-123）刮削番号站点，不需要 TMDB 令牌。全量扫描逐个检查全部文件。'
+  : '全量扫描逐个检查全部文件，用于只改了文件内容、目录没变化的情况。'
 
-function addFolder(source: LibrarySource): void {
+function addFolder(): void {
   void guarded(async () => {
-    const lib = await pickFolder(source)
+    const lib = await pickFolder()
     if (lib) toast.success(`已添加「${lib.name}」，正在扫描`)
   })
 }
@@ -233,7 +228,7 @@ const tokenStatusText = computed(() =>
 )
 
 async function loadTokenStatus(): Promise<void> {
-  if (!bridge) return
+  if (!bridge || isJav) return
   try {
     tokenConfigured.value = (await bridge.getProviderStatus()).tmdb.configured
   } catch {

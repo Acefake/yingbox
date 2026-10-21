@@ -1,7 +1,7 @@
 <template>
   <LibraryEmpty
     v-if="state === 'offline'"
-    :icon="kind"
+    :icon="icon"
     title="连不上片库服务"
     text="网页端的媒体库由独立的片库服务提供。请在电脑或 NAS 上启动它（pnpm dev:server，或 Docker），再刷新本页。"
   >
@@ -9,7 +9,7 @@
   </LibraryEmpty>
   <LibraryEmpty
     v-else-if="state === 'unauthorized'"
-    :icon="kind"
+    :icon="icon"
     title="登录片库服务"
     text="输入服务启动日志里的访问令牌（或环境变量 YINGBOX_SERVER_TOKEN 的值）。"
   >
@@ -49,7 +49,10 @@ import {
 } from '@/services/library-server'
 import LibraryEmpty from './LibraryEmpty.vue'
 
-defineProps<{ state: LibraryServerState; kind: 'movie' | 'tv' }>()
+defineProps<{
+  state: LibraryServerState
+  icon: 'movie' | 'tv' | 'tag'
+}>()
 
 const token = ref('')
 const busy = ref(false)
