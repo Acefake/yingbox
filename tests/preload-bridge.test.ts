@@ -159,7 +159,6 @@ const ADDED_API: Record<string, string[]> = {
   online: ['sites', 'vod', 'getJson', 'resolvePage'],
   av: ['list', 'resolve'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
-  thumbs: ['put'],
 }
 
 beforeAll(async () => {

@@ -21,11 +21,10 @@ import { registerFileIpc } from './ipc/file-ipc'
 import { registerHttpIpc } from './ipc/http-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { registerAmaneIpc } from './plugins/amane'
-import { registerThumbnails } from './thumbnails'
+import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
-import { MEDIA_SCHEME_PRIVILEGES } from './library/media/media-service'
 import { registerEngine } from './engine'
 import { installMediaHeaders } from './media-headers'
 import { initSettings } from './settings'
@@ -53,20 +52,10 @@ protocol.registerSchemesAsPrivileged([
     privileges: { secure: true, standard: true, supportFetchAPI: true },
   },
   {
-    // 缩略图：<img> 直接加载，Worker 跨源 fetch 读 x-thumb（见 src/main/thumbnails）
-    scheme: 'thumb',
-    privileges: {
-      secure: true,
-      standard: true,
-      supportFetchAPI: true,
-      corsEnabled: true,
-    },
-  },
-  {
     scheme: 'local',
     privileges: { secure: true, standard: true, stream: true, bypassCSP: true },
   },
-  // 媒体库缓存图片（海报 / 背景图缩略图），见 src/main/library/media
+  // 缓存图片与缩略图（媒体库海报、在线 / AV / Amane 封面），见 src/main/thumbnails
   MEDIA_SCHEME_PRIVILEGES,
 ])
 
@@ -148,7 +137,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: yingbox-media: thumb: data: blob:; connect-src 'self' https: http: ws: wss: thumb:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
     ]
     callback({ responseHeaders: headers })
   })
@@ -159,8 +148,8 @@ app.whenReady().then(async () => {
   // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
   protocol.handle('local', serveLocalMedia)
 
-  // 注册 thumb:// 协议与 thumbs 域（非影视海报 / 封面的 WebP 缩略图缓存）
-  registerThumbnails()
+  // 注册 yingbox-media:// 协议（全应用的缓存图片与 WebP 缩略图）
+  const thumbnails = registerThumbnails()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)
@@ -179,7 +168,7 @@ app.whenReady().then(async () => {
   await registerAmaneIpc()
   registerMpvIpc()
   await registerLadaIpc()
-  registerLibraryIpc()
+  registerLibraryIpc(thumbnails)
   registerEngine()
   // Amane / lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
@@ -200,4 +189,3 @@ app.on('window-all-closed', () => {
     app.quit()
   }
 })
-
