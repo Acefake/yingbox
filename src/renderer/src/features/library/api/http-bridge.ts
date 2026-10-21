@@ -83,6 +83,7 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
     listLibraries: () => call('listLibraries'),
     addLibrary: request => call('addLibrary', request),
     removeLibrary: libraryId => call('removeLibrary', { libraryId }),
+    updateLibrary: request => call('updateLibrary', request),
     scan: request => call('scan', request),
     query: (query = {}) => call('query', query),
     getItem: itemId => call('getItem', { itemId }),

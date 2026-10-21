@@ -48,6 +48,8 @@ const server = spawn(
       YINGBOX_DATA_DIR: join(work, 'data'),
       YINGBOX_MEDIA_ROOTS: media,
       YINGBOX_SERVER_TOKEN: TOKEN,
+      // 夹具文件刚写出，mtime 很新：不做写入稳定判定，建库后立即入库
+      YINGBOX_SETTLE_SECONDS: '0',
       YINGBOX_WEB_DIR: join(REPO, 'dist-web'),
       YINGBOX_FETCH: `module:${join(REPO, 'scripts/smoke/fixture-fetch.mjs')}`,
     },

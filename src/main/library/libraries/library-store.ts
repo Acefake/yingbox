@@ -1,13 +1,17 @@
 /**
- * 媒体库（根目录）的增删查。根目录之间不允许嵌套，否则同一个文件会属于两个库。
+ * 媒体库（根目录）的增删查改。根目录之间不允许嵌套，否则同一个文件会属于两个库。
+ * 自动化设置整份存 JSON，读取时与默认值合并（旧数据、缺字段都能用）。
  */
 import { basename, resolve } from 'node:path'
 import {
   type AddLibraryRequest,
+  type LibraryAutomation,
   LibraryError,
   type LibraryInfo,
   type LibraryKind,
   type LibrarySource,
+  type UpdateLibraryRequest,
+  withAutomationDefaults,
 } from '../../../shared/library/ipc'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { pathKey } from '../scanner/rules'
@@ -18,7 +22,18 @@ export interface LibraryRecord extends LibraryInfo {
 }
 
 const SELECT = `SELECT id, name, root, root_display, kind, source, created_at,
-  last_scan_at FROM libraries`
+  last_scan_at, automation FROM libraries`
+
+/** 存储里的自动化 JSON → 补全默认值；坏数据按默认值处理。 */
+function parseAutomation(raw: unknown): LibraryAutomation {
+  try {
+    return withAutomationDefaults(
+      JSON.parse(String(raw ?? '{}')) as Partial<LibraryAutomation>
+    )
+  } catch {
+    return withAutomationDefaults(null)
+  }
+}
 
 function toRecord(row: Record<string, unknown>): LibraryRecord {
   return {
@@ -30,6 +45,7 @@ function toRecord(row: Record<string, unknown>): LibraryRecord {
     source: row.source as LibrarySource,
     createdAt: Number(row.created_at),
     lastScanAt: row.last_scan_at === null ? null : Number(row.last_scan_at),
+    automation: parseAutomation(row.automation),
   }
 }
 
@@ -56,9 +72,15 @@ export class LibraryStore {
 
   /** 按 id 取；不存在抛 not-found。 */
   get(id: number): LibraryRecord {
+    const lib = this.find(id)
+    if (!lib) throw new LibraryError('not-found', `媒体库 ${id} 不存在`)
+    return lib
+  }
+
+  /** 按 id 取；不存在返回 undefined。 */
+  find(id: number): LibraryRecord | undefined {
     const row = this.sql.get(`${SELECT} WHERE id = ?`).get(id)
-    if (!row) throw new LibraryError('not-found', `媒体库 ${id} 不存在`)
-    return toRecord(row)
+    return row ? toRecord(row) : undefined
   }
 
   /** 添加媒体库；与已有根目录相同或互相嵌套时抛 conflict。 */
@@ -79,8 +101,9 @@ export class LibraryStore {
     }
     const row = this.sql
       .get(
-        `INSERT INTO libraries (root, root_display, kind, source, name, created_at)
-         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`
+        `INSERT INTO libraries (root, root_display, kind, source, name, created_at,
+           automation)
+         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`
       )
       .get(
         key,
@@ -88,9 +111,23 @@ export class LibraryStore {
         request.kind,
         request.source ?? 'tmdb',
         request.name || basename(root) || root,
-        now
+        now,
+        JSON.stringify(withAutomationDefaults(request.automation))
       )!
     return this.get(Number(row.id))
+  }
+
+  /** 改名 / 改自动化设置（只改给出的字段），返回修改后的记录；不存在抛 not-found。 */
+  update(request: UpdateLibraryRequest): LibraryRecord {
+    const current = this.get(request.libraryId)
+    const automation = withAutomationDefaults({
+      ...current.automation,
+      ...request.automation,
+    })
+    this.sql
+      .get('UPDATE libraries SET name = ?, automation = ? WHERE id = ?')
+      .run(request.name ?? current.name, JSON.stringify(automation), current.id)
+    return this.get(current.id)
   }
 
   /** 删除媒体库及其全部目录、文件、条目（外键级联）。 */

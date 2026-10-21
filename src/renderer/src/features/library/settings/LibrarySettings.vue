@@ -62,6 +62,12 @@
       </template>
     </SettingsGroup>
 
+    <LibraryAutomationGroup
+      v-if="libraries.length"
+      :libraries="libraries"
+      :update="updateAutomation"
+    />
+
     <!-- 元数据源 -->
     <SettingsGroup title="元数据">
       <SettingsRow title="TMDB 令牌" stacked>
@@ -126,8 +132,8 @@
 
 <script setup lang="ts">
 /**
- * 媒体库设置（macOS 系统设置式分组）：文件夹管理、TMDB 令牌与识别、番号站点（有番号文件夹时）、
- * 写出 NFO 与图片、整理模板。
+ * 媒体库设置（macOS 系统设置式分组）：文件夹管理、按文件夹的自动入库、TMDB 令牌与识别、
+ * 番号站点（有番号文件夹时）、写出 NFO 与图片、整理模板。
  * 写出与整理两组在 WriterSettingsGroups，走 window.api.library.writer。
  */
 import { confirmDialog, toast } from '@/components/ui'
@@ -148,6 +154,7 @@ import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
 import { useLibraries } from '../state/use-libraries'
 import JavSettingsGroup from './JavSettingsGroup.vue'
+import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
 import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import { saveLibraryTmdbToken } from './provider-token'
 import { folderDescription, tokenStatus } from './settings-rules'
@@ -162,6 +169,7 @@ const {
   libraries,
   addFolder: pickFolder,
   removeLibrary,
+  updateAutomation,
   scanAll,
   identifyAll: startIdentify,
   refreshAll: startRefresh,

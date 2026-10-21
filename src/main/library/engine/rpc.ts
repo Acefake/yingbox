@@ -25,6 +25,7 @@ const HANDLERS: Handlers = {
   listLibraries: s => s.listLibraries(),
   addLibrary: (s, p) => s.addLibrary(p),
   removeLibrary: (s, p) => s.removeLibrary(p),
+  updateLibrary: (s, p) => s.updateLibrary(p),
   scan: (s, p) => s.scan(p),
   query: (s, p) => s.query(p),
   getItem: (s, p) => s.getItem(p),

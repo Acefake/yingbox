@@ -22,6 +22,7 @@ import {
   type WriterSettings,
 } from './contract'
 import { parseJavSettings } from './validate-jav'
+import { parseAutomationPatch, parseUpdateLibrary } from './validate-library'
 import { LibraryError } from './wire'
 import { validateTemplate } from '../writer/template'
 
@@ -168,6 +169,7 @@ function parseAddLibrary(input: unknown): AddLibraryRequest {
     kind,
     name: (r.name as string | undefined)?.trim() || undefined,
     source,
+    automation: parseAutomationPatch(r.automation),
   }
 }
 
@@ -341,6 +343,7 @@ const PARAM_PARSERS: {
   removeLibrary: input => ({
     libraryId: positiveId(asRecord(input, '参数').libraryId, 'libraryId'),
   }),
+  updateLibrary: parseUpdateLibrary,
   scan: parseScan,
   query: normalizeLibraryQuery,
   getItem: itemIdParam,

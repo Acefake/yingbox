@@ -110,6 +110,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'listLibraries',
       'addLibrary',
       'removeLibrary',
+      'updateLibrary',
       'scan',
       'query',
       'getItem',

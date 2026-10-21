@@ -9,7 +9,10 @@
  * 两种宿主都经 createLibraryService 构造同一个 LibraryService，行为一致。
  */
 import type { HttpFetch } from '../identify/identify-module'
+import { DEFAULT_MONITOR } from '../engine/library-monitor'
 import { LibraryService, type LibraryServiceOptions } from '../engine/service'
+
+export { DEFAULT_MONITOR } from '../engine/library-monitor'
 
 export { libraryPaths } from './paths'
 
@@ -44,12 +47,13 @@ export function envSecrets(env: NodeJS.ProcessEnv): LibraryEnvSecrets {
   }
 }
 
-/** 用宿主能力构造片库服务；extra 只放测试 / 宿主特有的调优项（监听、并发等）。 */
+/** 用宿主能力构造片库服务；extra 只放测试 / 宿主特有的调优项（监控、并发等），缺省用 DEFAULT_MONITOR。 */
 export function createLibraryService(
   platform: LibraryPlatform,
   extra: Omit<LibraryServiceOptions, 'dbPath' | 'log' | 'identify'> = {}
 ): LibraryService {
   return new LibraryService({
+    ...DEFAULT_MONITOR,
     ...extra,
     dbPath: platform.dbPath,
     log: platform.log,

@@ -1,6 +1,7 @@
 /**
- * 媒体库服务：把数据库、任务队列、扫描器、监听器组装起来，实现 IPC 契约的每个方法，
- * 并把变化广播给订阅方。
+ * 媒体库服务：把数据库、任务队列、扫描器、监控组装起来，实现 IPC 契约的每个方法，
+ * 并把变化广播给订阅方。新文件的链路：监控（事件 / 定时扫描）→ 增量扫描（写入稳定判定）→
+ * 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」）。
  *
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。
  * 扫描 / 解析 / 指纹任务的实现在 library-jobs，纯规则在 service-rules。
@@ -22,17 +23,14 @@ import type {
   RefreshMetadataRequest,
   ScanAccepted,
   SetProviderTokenRequest,
+  UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
 import { KeyedMutex } from '../jobs/keyed-mutex'
-import type { MoveOps } from '../writer/fs/file-ops'
 import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
-import {
-  IdentifyModule,
-  type IdentifyModuleOptions,
-} from '../identify/identify-module'
+import { IdentifyModule } from '../identify/identify-module'
 import { JobStore } from '../jobs/job-store'
 import { JobQueue, PermanentJobError } from '../jobs/queue'
 import {
@@ -43,7 +41,9 @@ import {
 import { fingerprintFile } from '../scanner/fingerprint'
 import { PARSER_VERSION } from '../scanner/parse'
 import { ScanStore } from '../scanner/scan-store'
-import { LibraryWatcher } from '../scanner/watcher'
+import { SettleTracker } from '../scanner/settle'
+import { LibraryMonitor } from './library-monitor'
+import type { LibraryServiceOptions } from './service-options'
 import {
   type LibraryJobDeps,
   runFingerprint,
@@ -60,38 +60,7 @@ import {
 } from './service-rules'
 
 export { mergeScanPayload } from './service-rules'
-
-/** 服务参数。 */
-export interface LibraryServiceOptions {
-  /** 数据库文件路径；测试可用 ':memory:'。 */
-  dbPath: string
-  /** 是否启用文件监听，默认 true。 */
-  watch?: boolean
-  /** 监听去抖静默时间，默认 1000 ms。 */
-  watchQuietMs?: number
-  /** 同时运行的任务数，默认 2。 */
-  concurrency?: number
-  /** 指纹实现（文件路径 → hash），测试注入。 */
-  fingerprint?: (path: string) => Promise<string | undefined>
-  /** 写日志（告警、监听失败）。 */
-  log?: (message: string) => void
-  /** 识别与刮削的注入项（网络、图片缓存目录、令牌兜底、限速），见 IdentifyModuleOptions。 */
-  identify?: Pick<
-    IdentifyModuleOptions,
-    | 'fetch'
-    | 'mediaDir'
-    | 'onImagesCached'
-    | 'probeDuration'
-    | 'env'
-    | 'http'
-    | 'concurrency'
-  >
-  /** 写出层的注入项（测试模拟跨盘）。 */
-  writer?: {
-    moveOps?: MoveOps
-    deviceOf?: (path: string) => Promise<number | undefined>
-  }
-}
+export type { LibraryServiceOptions } from './service-options'
 
 /** 媒体库服务。 */
 export class LibraryService {
@@ -107,7 +76,9 @@ export class LibraryService {
   readonly writer: WriterModule
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
-  private readonly watcher: LibraryWatcher | undefined
+  private readonly monitor: LibraryMonitor
+  private readonly settle = new Map<number, SettleTracker>()
+  private readonly settleMs: number
   private readonly listeners = new Set<(event: LibraryEvent) => void>()
   private readonly fingerprint: (path: string) => Promise<string | undefined>
   private readonly log: (message: string) => void
@@ -120,6 +91,7 @@ export class LibraryService {
     this.catalogQuery = new CatalogQuery(this.db)
     this.fingerprint = options.fingerprint ?? fingerprintFile
     this.log = options.log ?? (() => {})
+    this.settleMs = options.settleMs ?? 0
     this.queue = new JobQueue(new JobStore(this.db), {
       concurrency: options.concurrency,
       onEvent: event => this.emit(event),
@@ -136,7 +108,12 @@ export class LibraryService {
       },
       emitItems: (id, changes) => this.emitItems(id, changes),
       enqueueFingerprint: id => this.enqueueLibraryJob('fingerprint', id),
-      enqueueIdentify: id => this.identifier.enqueueAuto(id),
+      enqueueIdentify: id => {
+        if (this.libraries.find(id)?.automation.identify)
+          this.identifier.enqueueAuto(id)
+      },
+      settleFor: lib => this.settleFor(lib),
+      onUnsettled: (id, u) => this.monitor.recheck(id, u.dirs, u.retryInMs),
       log: this.log,
     }
     this.queue.register(
@@ -177,17 +154,18 @@ export class LibraryService {
       deviceOf: options.writer?.deviceOf,
       log: this.log,
     })
-    if (options.watch !== false) {
-      this.watcher = new LibraryWatcher(
-        (libraryId, dirs) => this.onWatchChange(libraryId, dirs),
-        (libraryId, error) =>
-          this.log(`监听媒体库 ${libraryId} 出错：${error.message}`),
-        options.watchQuietMs
-      )
-    }
+    this.monitor = new LibraryMonitor(
+      {
+        mode: options.watch === false ? 'off' : (options.watchMode ?? 'auto'),
+        pollIntervalMs: options.scanIntervalMs ?? 0,
+        quietMs: options.watchQuietMs,
+        log: this.log,
+      },
+      (libraryId, dirs) => this.onWatchChange(libraryId, dirs)
+    )
   }
 
-  /** 启动：恢复中断的任务，旧解析版本的文件排重解析，开始监听。 */
+  /** 启动：恢复中断的任务，旧解析版本的文件排重解析，开始监控（并补扫停机期间的变化）。 */
   async start(): Promise<void> {
     for (const lib of this.libraries.list()) {
       if (this.scanStore.staleParsed(lib.id, PARSER_VERSION, 0, 1).length) {
@@ -196,12 +174,12 @@ export class LibraryService {
     }
     this.identifier.start()
     this.queue.start()
-    for (const lib of this.libraries.list()) this.startWatching(lib)
+    for (const lib of this.libraries.list()) this.startWatching(lib, true)
   }
 
-  /** 停止任务和监听，关闭数据库。 */
+  /** 停止任务和监控，关闭数据库。 */
   async close(): Promise<void> {
-    this.watcher?.close()
+    this.monitor.close()
     await this.queue.stop()
     this.db.close()
   }
@@ -226,13 +204,26 @@ export class LibraryService {
     const lib = this.libraries.add(request, Date.now())
     this.enqueueScan({ libraryId: lib.id }, PRIORITY.scan)
     this.emitLibraries()
-    this.startWatching(lib)
+    this.startWatching(lib, false)
+    return toLibraryInfo(lib)
+  }
+
+  /** 改名 / 改自动化设置；监控开关立即生效，打开时补一次增量扫描。 */
+  async updateLibrary(request: UpdateLibraryRequest): Promise<LibraryInfo> {
+    const before = this.libraries.get(request.libraryId)
+    const lib = this.libraries.update(request)
+    if (before.automation.watch !== lib.automation.watch) {
+      this.monitor.remove(lib.id)
+      this.startWatching(lib, true)
+    }
+    this.emitLibraries()
     return toLibraryInfo(lib)
   }
 
   /** 删除媒体库及其全部数据。 */
   async removeLibrary({ libraryId }: { libraryId: number }): Promise<void> {
-    this.watcher?.unwatch(libraryId)
+    this.monitor.remove(libraryId)
+    this.settle.delete(libraryId)
     transaction(this.db, () => this.libraries.remove(libraryId))
     this.emitLibraries()
   }
@@ -345,18 +336,29 @@ export class LibraryService {
     })
   }
 
-  private startWatching(lib: LibraryRecord): void {
-    if (!this.watcher) return
-    try {
-      this.watcher.watch(lib.id, lib.root)
-    } catch (error) {
-      this.log(
-        `无法监听 ${lib.root}：${(error as Error).message}，仅支持手动扫描`
-      )
-    }
+  /** 按库设置开始监控（catchUp：立即补一次增量扫描）。 */
+  private startWatching(lib: LibraryRecord, catchUp: boolean): void {
+    if (!lib.automation.watch) return
+    void this.monitor.add(lib.id, lib.root, catchUp).catch(error => {
+      this.log(`监控 ${lib.root} 失败：${(error as Error).message}`)
+    })
   }
 
-  /** 监听到变化：重读涉及的目录；dirs 为 null（事件丢失）时整库扫描。 */
+  /** 这个库的写入稳定判定（settleMs 为 0 时不判定）。 */
+  private settleFor(lib: LibraryRecord): {
+    tracker: SettleTracker
+    initial: boolean
+  } | null {
+    if (this.settleMs <= 0) return null
+    let tracker = this.settle.get(lib.id)
+    if (!tracker) {
+      tracker = new SettleTracker(this.settleMs)
+      this.settle.set(lib.id, tracker)
+    }
+    return { tracker, initial: lib.lastScanAt === null }
+  }
+
+  /** 监控发现变化：重读涉及的目录；dirs 为 null（事件丢失 / 定时扫描）时整库增量扫描。 */
   private onWatchChange(libraryId: number, dirs: string[] | null): void {
     try {
       this.enqueueScan(

@@ -273,6 +273,14 @@ ALTER TABLE libraries ADD COLUMN source TEXT NOT NULL DEFAULT 'tmdb'
   CHECK (source IN ('tmdb', 'jav'));
 `
 
+/**
+ * V5：媒体库级自动化设置（监控、自动识别、自动写出、自动整理），整份 JSON；
+ * 缺字段按默认值补（见 shared/library/ipc/contract-library.ts），以后加开关不用再迁移。
+ */
+const V5_SCHEMA = `
+ALTER TABLE libraries ADD COLUMN automation TEXT NOT NULL DEFAULT '{}';
+`
+
 /** 全部迁移，按版本升序。 */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, description: '初始表结构与片名 FTS', sql: V1_SCHEMA },
@@ -283,6 +291,7 @@ export const MIGRATIONS: readonly Migration[] = [
   },
   { version: 3, description: '写出层：写出记录与整理批次', sql: V3_SCHEMA },
   { version: 4, description: '媒体库元数据来源（番号库）', sql: V4_SCHEMA },
+  { version: 5, description: '媒体库自动化设置', sql: V5_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */
