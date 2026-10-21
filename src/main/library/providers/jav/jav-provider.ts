@@ -194,8 +194,9 @@ export class JavProvider {
     code: string,
     signal?: AbortSignal
   ): Promise<MediaMetadata | null> {
-    const movie = await this.scrape(codeOf(code), signal)
-    return movie ? toMetadata(movie) : null
+    const parsed = codeOf(code)
+    const movie = await this.scrape(parsed, signal)
+    return movie ? toMetadata(movie, parsed.kind) : null
   }
 
   /** 查一个站点：命中缓存直接用；查无此片为 null；网络失败 / 被拦为 undefined（不缓存）。 */

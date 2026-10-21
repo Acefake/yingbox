@@ -11,6 +11,8 @@ import type {
   MediaMetadata,
   PersonCredit,
 } from '../../../../shared/library/provider'
+import { posterFromCover } from '../../images/derived'
+import type { JavCodeKind } from './number'
 import type { JavActor, JavRecord, JavSiteId } from './types'
 
 /** 聚合后的一部片。 */
@@ -99,8 +101,14 @@ function image(role: ImageCandidate['role'], url: string): ImageCandidate {
  * 聚合结果 → 入库元数据。
  * 标题写成「番号 片名」，海报墙上一眼能看到番号，按标题排序也就是按番号排序；原名存站点标题。
  * 制作商、发行商进 companies（NFO 的 studio）；系列进 collection（NFO 的 set）；剧照记为 still。
+ *
+ * 海报：有码片的封面是 DMM 版式（右半是正面），优先从封面裁右侧（见 images/derived.ts），
+ * 站点自带的小海报排第二；无码 / FC2 / 素人的封面没有固定版式，只用站点海报，没有时拿封面顶上。
  */
-export function toMetadata(movie: JavMovie): MediaMetadata {
+export function toMetadata(
+  movie: JavMovie,
+  kind: JavCodeKind = 'censored'
+): MediaMetadata {
   const year = movie.releaseDate
     ? Number(movie.releaseDate.slice(0, 4))
     : undefined
@@ -113,13 +121,19 @@ export function toMetadata(movie: JavMovie): MediaMetadata {
   const crew: PersonCredit[] = movie.director
     ? [{ id: movie.director, name: movie.director, job: 'Director' }]
     : []
+  const posters = [
+    ...(kind === 'censored' && movie.cover
+      ? [posterFromCover(movie.cover)]
+      : []),
+    ...(movie.poster ? [movie.poster] : []),
+  ]
+  // 没有竖版海报时用封面顶上，海报墙至少有图
+  if (!posters.length && movie.cover) posters.push(movie.cover)
   const images = [
-    ...(movie.poster ? [image('poster', movie.poster)] : []),
+    ...posters.map(url => image('poster', url)),
     ...(movie.cover ? [image('backdrop', movie.cover)] : []),
     ...movie.stills.map(url => image('still', url)),
   ]
-  // 没有竖版海报时用封面顶上，海报墙至少有图
-  if (!movie.poster && movie.cover) images.unshift(image('poster', movie.cover))
   return {
     ref: { provider: 'jav', kind: 'movie', id: movie.code },
     title: movie.title ? `${movie.code} ${movie.title}` : movie.code,

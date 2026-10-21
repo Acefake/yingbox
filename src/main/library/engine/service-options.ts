@@ -31,6 +31,7 @@ export interface LibraryServiceOptions {
     | 'fetch'
     | 'mediaDir'
     | 'onImagesCached'
+    | 'deriveImage'
     | 'probeDuration'
     | 'env'
     | 'http'

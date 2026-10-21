@@ -173,20 +173,28 @@ describe('聚合', () => {
       crew: [{ name: '导演', job: 'Director' }],
       externalIds: {},
     })
+    // 有码：先用封面裁右侧的派生海报，站点小海报排第二
     expect(meta.images.map(i => [i.role, i.path])).toEqual([
+      ['poster', 'https://a/c.jpg#yingbox=poster-right'],
       ['poster', 'https://a/t.jpg'],
       ['backdrop', 'https://a/c.jpg'],
       ['still', 'https://a/1.jpg'],
     ])
-    // 没有竖版海报时封面顶上
-    const noPoster = toMetadata(
-      aggregate([record('javbus', { cover: 'https://a/c.jpg' })])!
-    )
-    expect(noPoster.images[0]).toMatchObject({
+    const coverOnly = aggregate([
+      record('javbus', { cover: 'https://a/c.jpg' }),
+    ])!
+    expect(toMetadata(coverOnly).images[0]).toMatchObject({
       role: 'poster',
-      path: 'https://a/c.jpg',
+      path: 'https://a/c.jpg#yingbox=poster-right',
     })
-    expect(noPoster.title).toBe('SSIS-497')
+    expect(toMetadata(coverOnly).title).toBe('SSIS-497')
+    // 无码 / FC2 的封面没有固定版式：只用站点海报，没有时封面原样顶上
+    expect(
+      toMetadata(coverOnly, 'uncensored').images.map(i => [i.role, i.path])
+    ).toEqual([
+      ['poster', 'https://a/c.jpg'],
+      ['backdrop', 'https://a/c.jpg'],
+    ])
   })
 })
 

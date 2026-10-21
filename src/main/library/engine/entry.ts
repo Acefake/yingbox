@@ -10,11 +10,18 @@
  * 独立服务（src/server）用同一个 createLibraryService，只是注入 Node 实现。
  */
 import { type MessagePortMain, net } from 'electron'
+import { join } from 'node:path'
 import type { EngineMessage, HostMessage } from '../../../shared/library/ipc'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
 import { createLibraryService, envSecrets } from '../platform/platform'
+import { codecDeriver } from '../images/derived'
+import {
+  type Codec,
+  inProcessCodec,
+  startCodec,
+} from '../../thumbnails/codec-client'
 
 const dbPath = process.argv[2]
 const mediaDir = process.argv[3]
@@ -29,12 +36,26 @@ const fetchImpl: HttpFetch =
   typeof net?.fetch === 'function'
     ? (((url, init) => net.fetch(url, init)) as HttpFetch)
     : createNodeFetch()
+/**
+ * 加工派生图（封面裁海报）的编解码线程：第一次用到才起，和主进程缩略图共用 webp-worker.js；
+ * 线程起不来时在引擎线程里做。
+ */
+let codec: Codec | undefined
+const lazyCodec: Codec = (request, transfer) => {
+  codec ??=
+    startCodec(join(__dirname, 'webp-worker.js'), message =>
+      console.warn(`[library] ${message}`)
+    ) ?? inProcessCodec()
+  return codec(request, transfer)
+}
+
 const service = createLibraryService({
   dbPath,
   mediaDir,
   fetch: fetchImpl,
   log: message => console.warn(`[library] ${message}`),
   onImagesCached: keys => post({ kind: 'images-cached', keys }),
+  deriveImage: codecDeriver(lazyCodec),
   env: envSecrets(process.env),
 })
 
