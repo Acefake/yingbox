@@ -29,6 +29,8 @@ export type FetchLike = (
   status: number
   headers: { get(name: string): string | null }
   text(): Promise<string>
+  /** 有就用它按页面声明的字符集解码（EUC-JP / Shift_JIS 的老站）；测试里的假 fetch 可以没有。 */
+  arrayBuffer?(): Promise<ArrayBuffer>
 }>
 
 /** 认证失败：令牌缺失或无效。不重试，识别任务据此直接失败并提示用户。 */
@@ -88,10 +90,47 @@ export interface TextRequest {
   url: string
   headers?: Record<string, string>
   signal?: AbortSignal
-  /** 缺省 GET。POST 只用于幂等的检索（失败重试是安全的）。 */
+  /** 缺省：有 body 为 POST，否则 GET。POST 只用于幂等的检索（失败重试是安全的）。 */
   method?: 'GET' | 'POST'
-  /** POST 请求体（表单或 JSON 字符串，Content-Type 由调用方放进 headers）。 */
+  /** 请求体（表单、JSON 或 GraphQL 查询字符串，Content-Type 由调用方放进 headers）。 */
   body?: string
+}
+
+/** 实际方法：显式给了用显式的，否则有请求体就是 POST。 */
+export function methodOf(request: Pick<TextRequest, 'method' | 'body'>): 'GET' | 'POST' {
+  return request.method ?? (request.body !== undefined ? 'POST' : 'GET')
+}
+
+/**
+ * 响应体的字符集：先看 Content-Type，再看页面前 2 KB 里的 <meta charset> / http-equiv；都没有按 UTF-8。
+ * 只认得到的名字才返回（TextDecoder 不认识的字符集退回 UTF-8）。
+ */
+export function sniffCharset(
+  contentType: string | null,
+  head: Uint8Array
+): string {
+  const fromHeader = /charset=["']?([\w-]+)/i.exec(contentType ?? '')?.[1]
+  const fromMeta =
+    fromHeader ??
+    /<meta[^>]+charset=["']?([\w-]+)/i.exec(
+      new TextDecoder('latin1').decode(head.subarray(0, 2048))
+    )?.[1]
+  const label = fromMeta?.toLowerCase() ?? 'utf-8'
+  try {
+    return new TextDecoder(label).encoding
+  } catch {
+    return 'utf-8'
+  }
+}
+
+/** 按字符集解码响应体（TEXT 请求用；JSON 接口固定 UTF-8）。 */
+async function readText(
+  response: Awaited<ReturnType<FetchLike>>
+): Promise<string> {
+  if (!response.arrayBuffer) return response.text()
+  const bytes = new Uint8Array(await response.arrayBuffer())
+  const charset = sniffCharset(response.headers.get('content-type'), bytes)
+  return new TextDecoder(charset).decode(bytes)
 }
 
 /** send 的解码方式：JSON 解析，或原样返回文本。 */
@@ -99,10 +138,16 @@ interface Decoder {
   decode: (text: string) => unknown
   /** 401 / 403 是否按令牌错误处理（JSON API 是；网页站点的 403 多半是防护拦截）。 */
   authErrors: boolean
+  /** 按页面声明的字符集解码（网页是；JSON 接口固定 UTF-8）。 */
+  sniffCharset?: boolean
 }
 
 const JSON_DECODER: Decoder = { decode: JSON.parse, authErrors: true }
-const TEXT_DECODER: Decoder = { decode: text => text, authErrors: false }
+const TEXT_DECODER: Decoder = {
+  decode: text => text,
+  authErrors: false,
+  sniffCharset: true,
+}
 
 /** 统计（基准与调试用）。 */
 export interface ProviderHttpStats {
@@ -212,14 +257,16 @@ export class ProviderHttp {
             ...(stale?.etag ? { 'If-None-Match': stale.etag } : {}),
           },
           signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
-          ...(request.method === 'POST'
-            ? { method: 'POST' as const, body: request.body }
+          ...(methodOf(request) === 'POST'
+            ? { method: 'POST' as const, body: request.body ?? '' }
             : {}),
         })
         status = response.status
         headers = response.headers
         // 错误响应也读完，避免连接被未消费的响应体占住
-        text = await response.text()
+        text = decoder.sniffCharset
+          ? await readText(response)
+          : await response.text()
       } catch (error) {
         release()
         if (signal?.aborted) throw error

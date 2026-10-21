@@ -93,6 +93,7 @@ export function curlArgs(
     if (/[\r\n]/.test(name + value)) continue
     args.push('--header', `${name}: ${value}`)
   }
+  // 带请求体即 POST（--data-binary 原样发送，不做 URL 编码；重定向后保持 POST 语义）
   if (body !== undefined) args.push('--data-binary', body)
   args.push('--', url)
   return args
@@ -129,7 +130,9 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
           init.headers ?? {},
           maxBytes,
           timeoutMs,
-          init.method === 'POST' ? (init.body ?? '') : undefined
+          (init.method ?? (init.body !== undefined ? 'POST' : 'GET')) === 'POST'
+            ? (init.body ?? '')
+            : undefined
         ),
         {
           stdio: ['ignore', 'pipe', 'pipe'],
