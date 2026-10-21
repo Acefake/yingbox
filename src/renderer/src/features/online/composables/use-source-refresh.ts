@@ -1,7 +1,7 @@
+import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 import { computed, reactive, ref } from 'vue'
 import { getJson } from '../api/online'
-import { message } from 'ant-design-vue'
 import { useAvSources } from '@/features/av'
 import {
   DEFAULT_SITES,
@@ -152,16 +152,14 @@ export const syncAvSources = async (showMessage = true): Promise<void> => {
       )
     }
     if (showMessage)
-      message.success(
+      toast.success(
         added + addedCms
           ? `已同步 ${added + addedCms} 个新数据源`
           : '没有发现新的兼容数据源'
       )
   } catch (error) {
     if (showMessage)
-      message.error(
-        error instanceof Error ? error.message : '在线数据源同步失败'
-      )
+      toast.error(error instanceof Error ? error.message : '在线数据源同步失败')
   } finally {
     syncingAv.value = false
   }

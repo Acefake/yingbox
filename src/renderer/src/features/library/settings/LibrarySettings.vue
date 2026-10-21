@@ -118,7 +118,7 @@
  * 媒体库设置（macOS 系统设置式分组）：文件夹管理、TMDB 令牌与识别、写出 NFO 与图片、整理模板。
  * 写出与整理两组在 WriterSettingsGroups，走 window.api.library.writer。
  */
-import { message } from 'ant-design-vue'
+import { confirmDialog, toast } from '@/components/ui'
 import { computed, ref, watch } from 'vue'
 
 import type {
@@ -129,7 +129,6 @@ import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
-import { confirmDialog } from '@/utils/confirm-dialog'
 
 import { errorText, libraryBridge } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
@@ -157,7 +156,7 @@ const {
 function addFolder(): void {
   void guarded(async () => {
     const lib = await pickFolder()
-    if (lib) message.success(`已添加「${lib.name}」，正在扫描`)
+    if (lib) toast.success(`已添加「${lib.name}」，正在扫描`)
   })
 }
 
@@ -166,12 +165,11 @@ function scan(libraryId: number, full: boolean): void {
 }
 
 function confirmRemove(lib: LibraryInfo): void {
-  confirmDialog({
+  void confirmDialog({
     title: `移除「${lib.name}」？`,
     content: '只从媒体库里移除，不会删除磁盘上的文件。',
     okText: '移除',
-    okType: 'danger',
-    cancelText: '取消',
+    danger: true,
     onOk: () => guarded(() => removeLibrary(lib.id), '已移除'),
   })
 }
@@ -208,9 +206,9 @@ async function saveToken(): Promise<void> {
     const status = await saveLibraryTmdbToken(bridge, tokenInput.value)
     tokenConfigured.value = status.tmdb.configured
     tokenInput.value = ''
-    message.success('TMDB 令牌已保存')
+    toast.success('TMDB 令牌已保存')
   } catch (error) {
-    message.error(errorText(error))
+    toast.error(errorText(error))
   } finally {
     tokenSaving.value = false
   }

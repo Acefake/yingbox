@@ -9,7 +9,7 @@
 
 ## 技术栈
 
-Electron 37 · Vue 3 + TypeScript · Ant Design Vue 4 + Tailwind CSS 4 · 引擎（Electron utilityProcess：在线源 / MissAV / 下载）· pnpm
+Electron 37 · Vue 3 + TypeScript · 自带 UI 组件库 + Tailwind CSS 4 · 引擎（Electron utilityProcess：在线源 / MissAV / 下载）· pnpm
 
 ## 目录
 

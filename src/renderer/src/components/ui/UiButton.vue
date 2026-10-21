@@ -21,6 +21,7 @@
 /**
  * 带文字的按钮。一个区域里最多一个 primary（例如详情页的「播放」），
  * 其余操作优先用 UiIconButton，只有在图标表达不清时才用带文字的 secondary。
+ * danger 只给破坏性操作的确认（如确认框里的「删除」）。
  */
 import type { IconName } from './icons'
 import UiIcon from './UiIcon.vue'
@@ -29,7 +30,7 @@ withDefaults(
   defineProps<{
     label?: string
     icon?: IconName
-    variant?: 'primary' | 'secondary' | 'plain'
+    variant?: 'primary' | 'secondary' | 'plain' | 'danger'
     size?: 'sm' | 'md' | 'lg'
     disabled?: boolean
     loading?: boolean
@@ -82,6 +83,16 @@ withDefaults(
 }
 .ui-button.is-secondary:hover:not(:disabled) {
   background: var(--bg-active);
+}
+.ui-button.is-danger {
+  background: var(--danger);
+  color: var(--text-on-accent);
+}
+.ui-button.is-danger:hover:not(:disabled) {
+  background: color-mix(in srgb, var(--danger) 88%, var(--text-primary));
+}
+.ui-button.is-danger:focus-visible {
+  box-shadow: var(--focus-ring-danger);
 }
 .ui-button.is-plain {
   background: transparent;

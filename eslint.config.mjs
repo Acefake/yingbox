@@ -20,6 +20,30 @@ const fetchPropertyBans = ['window', 'globalThis'].map(object => ({
   message: fetchGlobalBan.message,
 }))
 
+/**
+ * no-restricted-imports 在 flat config 里同样是后者覆盖前者（不合并），
+ * 所以各处禁令放在一起：ipcImportBan 给整个 src，renderer 再加上 axios。
+ */
+const ipcImportBan = {
+  name: 'electron',
+  importNames: ['ipcMain', 'ipcRenderer'],
+  message:
+    '在 src/shared/contract 声明通道，主进程用 main/rpc 的 implement / emit。',
+}
+/** Ant Design 已删除：反馈用 @/components/ui 的 toast / confirmDialog，控件用 Ui* 组件 */
+const antdMessage =
+  'ant-design-vue 已移除：提示用 @/components/ui 的 toast，确认用 confirmDialog，控件用 Ui* 组件。'
+const antdImportBan = {
+  paths: [{ name: 'ant-design-vue', message: antdMessage }],
+  patterns: [
+    { group: ['ant-design-vue/*', '@ant-design/*'], message: antdMessage },
+  ],
+}
+const axiosImportBan = {
+  name: 'axios',
+  message: '渲染层不直连外网，改用 @/api/online（引擎 net 出网）。',
+}
+
 export default tseslint.config(
   {
     ignores: [
@@ -36,6 +60,11 @@ export default tseslint.config(
   },
   tseslint.configs.recommended,
   eslintPluginVue.configs['flat/recommended'],
+  {
+    // 全仓禁 antd（src 下的分段会带着这条再加各自的禁令）
+    files: ['**/*.{ts,mts,tsx,vue,js,mjs,cjs}'],
+    rules: { 'no-restricted-imports': ['error', antdImportBan] },
+  },
   {
     files: ['**/*.vue'],
     languageOptions: {
@@ -109,17 +138,6 @@ export default tseslint.config(
     files: ['src/renderer/**/*.{ts,mts,vue}'],
     ignores: ['src/renderer/src/features/amane/api/amane.ts'],
     rules: {
-      'no-restricted-imports': [
-        'error',
-        {
-          paths: [
-            {
-              name: 'axios',
-              message: '渲染层不直连外网，改用 @/api/online（引擎 net 出网）。',
-            },
-          ],
-        },
-      ],
       'no-restricted-globals': ['error', fetchGlobalBan],
       'no-restricted-properties': ['error', ...fetchPropertyBans],
     },
@@ -136,14 +154,8 @@ export default tseslint.config(
       'no-restricted-imports': [
         'error',
         {
-          paths: [
-            {
-              name: 'electron',
-              importNames: ['ipcMain', 'ipcRenderer'],
-              message:
-                '在 src/shared/contract 声明通道，主进程用 main/rpc 的 implement / emit。',
-            },
-          ],
+          paths: [ipcImportBan, ...antdImportBan.paths],
+          patterns: antdImportBan.patterns,
         },
       ],
       'no-restricted-syntax': [
@@ -152,6 +164,20 @@ export default tseslint.config(
           selector:
             "CallExpression[callee.property.name='send'][callee.object.property.name='webContents']",
           message: '事件请在契约里声明，并用 main/rpc 的 emit 推送。',
+        },
+      ],
+    },
+  },
+
+  {
+    // 渲染层在上一段的基础上再禁 axios；必须排在它后面，否则会被覆盖
+    files: ['src/renderer/**/*.{ts,mts,vue}'],
+    rules: {
+      'no-restricted-imports': [
+        'error',
+        {
+          paths: [ipcImportBan, ...antdImportBan.paths, axiosImportBan],
+          patterns: antdImportBan.patterns,
         },
       ],
     },

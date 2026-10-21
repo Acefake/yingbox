@@ -135,6 +135,7 @@
  * 既能作为独立侧滑面板，也能 embedded 嵌入设置窗口的「数据源」分区。
  * AV 分类、分组外框、添加对话框分别是 AvSourcesTab / SourceSection / AddSourceDialog。
  */
+import { confirmDialog } from '@/components/ui'
 import { computed, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
@@ -146,7 +147,6 @@ import { useSetting } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
-import { confirmDialog } from '@/utils/confirm-dialog'
 import { useOnlineSearch } from '../composables/use-online-search'
 import { toggleCatSpider } from '../composables/catspider-sites'
 import { toggleSite } from '../composables/cms-sites'
@@ -225,11 +225,10 @@ const updateSources = async (): Promise<void> => {
 }
 
 const disableAllFailed = (): void => {
-  confirmDialog({
+  void confirmDialog({
     title: `禁用 ${totalFail.value} 个失效数据源？`,
     content: '只会停用这些数据源，不会删除自定义配置。',
     okText: '禁用',
-    cancelText: '取消',
     onOk: () => {
       for (const a of onlineApis.value) {
         if (statusMap[a] === 'fail') selectedSites.delete(a)
@@ -268,12 +267,11 @@ watch(adultMode, on => {
 const showAdd = ref(false)
 const removeCustom = (idx: number): void => {
   const site = customSites.value[idx]
-  confirmDialog({
+  void confirmDialog({
     title: `删除数据源“${site.name}”？`,
     content: '删除后需要重新填写地址才能恢复。',
     okText: '删除',
-    cancelText: '取消',
-    okType: 'danger',
+    danger: true,
     onOk: () => {
       selectedSites.delete(site.api)
       delete statusMap[site.api]

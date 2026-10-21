@@ -3,9 +3,9 @@
  * 播放历史与续播、连播下一集或列表下一部。
  * Electron 下一律打开独立播放窗；页内播放层只是非 Electron 的兜底。
  */
+import { toast } from '@/components/ui'
 import { ref } from 'vue'
 import { useStorage } from '@vueuse/core'
-import { message } from 'ant-design-vue'
 import { useOnlineSearch } from '@/features/online'
 import {
   canOpenElectronPlayer,
@@ -81,7 +81,7 @@ export function useAvPlayback(options: {
       const ok = await openMediaPlayer({ url: playUrl, title, poster, startAt })
       showPlayer.value = false
       videoEl.value = null
-      if (!ok) message.error('无法打开独立播放窗口，请完全重启应用后再试')
+      if (!ok) toast.error('无法打开独立播放窗口，请完全重启应用后再试')
       return
     }
     showPlayer.value = true
@@ -106,7 +106,7 @@ export function useAvPlayback(options: {
       .filter(episode => episode?.url)
     if (!episodes.length) {
       playerMessage.value = '没有可用的播放线路'
-      message.error('没有可用的播放线路')
+      toast.error('没有可用的播放线路')
       return
     }
     playingVideo.value = { ...video, episodes }
@@ -141,7 +141,7 @@ export function useAvPlayback(options: {
   }
 
   const playListedMissav = async (video: any) => {
-    const hide = message.loading('正在解析 MissAV…', 0)
+    const hide = toast.loading('正在解析 MissAV…')
     try {
       const stream = await resolveMissav(video._missavInput)
       await playMissavStream({
@@ -150,7 +150,7 @@ export function useAvPlayback(options: {
         poster: coverSrc(video),
       })
     } catch (error) {
-      message.error(error instanceof Error ? error.message : 'MissAV 解析失败')
+      toast.error(error instanceof Error ? error.message : 'MissAV 解析失败')
     } finally {
       hide()
     }
@@ -220,7 +220,7 @@ export function useAvPlayback(options: {
         const stream = await resolveMissav(video._missavInput)
         await playMissavStream(stream, record.progress)
       } catch (error) {
-        message.error(
+        toast.error(
           error instanceof Error ? error.message : 'MissAV 重新解析失败'
         )
       }

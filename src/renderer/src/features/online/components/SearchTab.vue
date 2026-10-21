@@ -123,9 +123,9 @@
 </template>
 
 <script setup lang="ts">
+import { confirmDialog } from '@/components/ui'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
-import { confirmDialog } from '@/utils/confirm-dialog'
 import PageTitle from '@/components/PageTitle.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -168,12 +168,11 @@ const removeHistory = (kw: string) => {
 }
 
 const clearHistory = () => {
-  confirmDialog({
+  void confirmDialog({
     title: '清空搜索记录？',
     content: `将清除本机保存的 ${searchHistory.value.length} 条搜索记录。`,
     okText: '清空',
-    cancelText: '取消',
-    okType: 'danger',
+    danger: true,
     onOk: () => {
       searchHistory.value = []
       localStorage.removeItem(HISTORY_KEY)

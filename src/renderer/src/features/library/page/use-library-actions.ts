@@ -2,8 +2,8 @@
  * 媒体库页面的操作：添加文件夹、扫描 / 识别全部、对选中条目重新识别 / 写出。
  * 成功、失败都用全局提示告知；只在按下按钮时调用。
  */
-import { message } from 'ant-design-vue'
 
+import { toast } from '@/components/ui'
 import { errorText, libraryBridge } from '../api/bridge'
 import { guarded } from '../shared/guarded'
 import type { UseLibraries } from '../state/use-libraries'
@@ -30,9 +30,9 @@ export function useLibraryActions(
   async function addFolder(): Promise<void> {
     try {
       const lib = await libraries.addFolder()
-      if (lib) message.success(`已添加「${lib.name}」，正在扫描`)
+      if (lib) toast.success(`已添加「${lib.name}」，正在扫描`)
     } catch (error) {
-      message.error(errorText(error))
+      toast.error(errorText(error))
     }
   }
 
