@@ -19,6 +19,7 @@ import type {
   SeasonMetadata,
 } from '../../../../shared/library/provider'
 import type { NfoActorLookup, NfoActorProfile } from '../../actors/actor-store'
+import { sourceOf } from '../../images/derived'
 import { TmdbProvider } from '../../providers/tmdb/tmdb-provider'
 import { XML_DECLARATION, type XmlNode, el, group, renderNode } from './xml'
 
@@ -93,7 +94,8 @@ function imageOf(
   const image = meta.images.find(
     i => i.role === role && (role !== 'logo' || !/\.svg$/i.test(i.path))
   )
-  return image ? TmdbProvider.imageUrl(image.path) : undefined
+  // 派生图（封面裁的海报）在外部程序眼里就是源图地址
+  return image ? sourceOf(TmdbProvider.imageUrl(image.path)) : undefined
 }
 
 /** `<thumb aspect=…>` 与 `<fanart><thumb>`。 */

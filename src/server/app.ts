@@ -16,6 +16,7 @@ import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
 import type { LibraryService } from '../main/library/engine/service'
 import type { HttpFetch } from '../main/library/identify/identify-module'
+import { codecDeriver } from '../main/library/images/derived'
 import { createFetch, describeFetch } from '../main/library/platform/fetch'
 import {
   createLibraryService,
@@ -98,6 +99,7 @@ export async function createServerApp(
       mediaDir,
       fetch: options.fetch ?? (await createFetch(config.fetch)),
       log: message => log(`[library] ${message}`),
+      deriveImage: codecDeriver(codec),
       onImagesCached: keys => thumbnails.warm(keys),
       env: envSecrets(env),
     },
