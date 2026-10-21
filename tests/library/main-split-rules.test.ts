@@ -417,6 +417,7 @@ describe('识别仓库行转换', () => {
       year: null,
       matchState: 'auto',
       tmdbId: '5',
+      source: 'tmdb',
     })
     const f = toTargetFile({
       item_id: 3,

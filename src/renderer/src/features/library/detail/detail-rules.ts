@@ -133,8 +133,10 @@ export function infoRowsOf(
   }
   if (meta?.status) rows.push({ label: '状态', value: meta.status })
   rows.push({ label: '匹配', value: MATCH_STATE_LABEL[node.matchState] })
-  if (node.providerIds.tmdb)
-    rows.push({ label: 'TMDB', value: node.providerIds.tmdb })
+  if (node.providerIds.tmdb) {
+    const jav = meta?.ref?.provider === 'jav'
+    rows.push({ label: jav ? '番号' : 'TMDB', value: node.providerIds.tmdb })
+  }
   if (node.providerIds.imdb)
     rows.push({ label: 'IMDb', value: node.providerIds.imdb })
   return rows

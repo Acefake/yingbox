@@ -29,6 +29,8 @@ export interface ParsedMovie extends ParsedBase {
   type: 'movie'
   /** 分段序号（CD1 / part2 / Disc 1）。 */
   part?: number
+  /** 番号库里从文件名解析出的番号（此时 title 也是番号）。 */
+  code?: string
 }
 
 /** 剧集单集（可能一个文件含多集）。 */

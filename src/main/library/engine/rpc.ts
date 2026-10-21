@@ -43,6 +43,8 @@ const HANDLERS: Handlers = {
   'writer.applyOrganize': (s, p) => s.writer.applyOrganize(p.planId),
   'writer.undoOrganize': (s, p) => s.writer.undoOrganize(p.batchId),
   'writer.listOrganizeBatches': s => s.writer.listOrganizeBatches(),
+  'jav.getSettings': s => s.identifier.getJavSettings(),
+  'jav.setSettings': (s, p) => s.identifier.setJavSettings(p),
 }
 
 /** 处理一次调用，永不抛出：任何错误都变成 ok: false 的响应。 */

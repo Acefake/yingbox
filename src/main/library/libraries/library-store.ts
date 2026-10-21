@@ -7,6 +7,7 @@ import {
   LibraryError,
   type LibraryInfo,
   type LibraryKind,
+  type LibrarySource,
 } from '../../../shared/library/ipc'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { pathKey } from '../scanner/rules'
@@ -16,8 +17,8 @@ export interface LibraryRecord extends LibraryInfo {
   rootKey: string
 }
 
-const SELECT = `SELECT id, name, root, root_display, kind, created_at, last_scan_at
-FROM libraries`
+const SELECT = `SELECT id, name, root, root_display, kind, source, created_at,
+  last_scan_at FROM libraries`
 
 function toRecord(row: Record<string, unknown>): LibraryRecord {
   return {
@@ -26,6 +27,7 @@ function toRecord(row: Record<string, unknown>): LibraryRecord {
     root: String(row.root_display),
     rootKey: String(row.root),
     kind: row.kind as LibraryKind,
+    source: row.source as LibrarySource,
     createdAt: Number(row.created_at),
     lastScanAt: row.last_scan_at === null ? null : Number(row.last_scan_at),
   }
@@ -77,13 +79,14 @@ export class LibraryStore {
     }
     const row = this.sql
       .get(
-        `INSERT INTO libraries (root, root_display, kind, name, created_at)
-         VALUES (?, ?, ?, ?, ?) RETURNING id`
+        `INSERT INTO libraries (root, root_display, kind, source, name, created_at)
+         VALUES (?, ?, ?, ?, ?, ?) RETURNING id`
       )
       .get(
         key,
         root,
         request.kind,
+        request.source ?? 'tmdb',
         request.name || basename(root) || root,
         now
       )!

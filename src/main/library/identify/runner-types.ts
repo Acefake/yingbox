@@ -7,6 +7,7 @@ import type { ScoredCandidate } from '../../../shared/library/scoring'
 import type { ItemChanges } from '../catalog/catalog-store'
 import type { LibraryDb } from '../db/database'
 import type { ImageCache } from '../images/image-cache'
+import type { JavProvider } from '../providers/jav/jav-provider'
 import type { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
 import type { TmdbProvider } from '../providers/tmdb/tmdb-provider'
 import type { IdentifyStore, IdentifyTarget } from './identify-store'
@@ -18,6 +19,8 @@ export interface IdentifyRunnerDeps {
   store: IdentifyStore
   writer: MetadataWriter
   provider: TmdbProvider
+  /** 番号库的元数据源；没有时番号库条目一律记为未匹配。 */
+  jav?: JavProvider
   hashLookup?: OpenSubtitlesHashLookup
   images?: ImageCache
   /** 读 NFO 文本；读不到返回 undefined。 */

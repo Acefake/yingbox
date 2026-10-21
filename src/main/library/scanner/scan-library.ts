@@ -68,6 +68,7 @@ export async function scanLibrary(
     libraryId: library.id,
     kind: library.kind,
     rootKey: library.rootKey,
+    source: library.source,
   }
 
   const t0 = performance.now()

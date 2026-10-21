@@ -38,7 +38,16 @@
           icon="plus"
           label="添加文件夹…"
           :disabled="!available"
-          @click="addFolder"
+          @click="addFolder('tmdb')"
+        />
+        <UiButton
+          v-if="kind === 'movie'"
+          size="sm"
+          variant="plain"
+          icon="plus"
+          label="添加番号文件夹…"
+          :disabled="!available"
+          @click="addFolder('jav')"
         />
         <UiButton
           size="sm"
@@ -49,7 +58,7 @@
         />
       </SettingsRow>
       <template #footer>
-        全量扫描逐个检查全部文件，用于只改了文件内容、目录没变化的情况。
+        {{ folderFooter }}
       </template>
     </SettingsGroup>
 
@@ -92,7 +101,7 @@
         <UiButton
           size="sm"
           label="开始识别"
-          :disabled="!libraries.length || !tokenConfigured"
+          :disabled="!canIdentify"
           @click="identifyAll(false)"
         />
       </SettingsRow>
@@ -103,11 +112,13 @@
         <UiButton
           size="sm"
           label="刷新"
-          :disabled="!libraries.length || !tokenConfigured"
+          :disabled="!canIdentify"
           @click="refreshAll"
         />
       </SettingsRow>
     </SettingsGroup>
+
+    <JavSettingsGroup v-if="hasJav" :open="open" />
 
     <WriterSettingsGroups :open="open" :kind="kind" :kind-label="kindLabel" />
   </LibrarySheet>
@@ -115,7 +126,8 @@
 
 <script setup lang="ts">
 /**
- * 媒体库设置（macOS 系统设置式分组）：文件夹管理、TMDB 令牌与识别、写出 NFO 与图片、整理模板。
+ * 媒体库设置（macOS 系统设置式分组）：文件夹管理、TMDB 令牌与识别、番号站点（有番号文件夹时）、
+ * 写出 NFO 与图片、整理模板。
  * 写出与整理两组在 WriterSettingsGroups，走 window.api.library.writer。
  */
 import { confirmDialog, toast } from '@/components/ui'
@@ -124,6 +136,7 @@ import { computed, ref, watch } from 'vue'
 import type {
   LibraryInfo,
   LibraryKind,
+  LibrarySource,
 } from '../../../../../shared/library/ipc'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -134,6 +147,7 @@ import { errorText, libraryBridge } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
 import { useLibraries } from '../state/use-libraries'
+import JavSettingsGroup from './JavSettingsGroup.vue'
 import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import { saveLibraryTmdbToken } from './provider-token'
 import { folderDescription, tokenStatus } from './settings-rules'
@@ -153,9 +167,25 @@ const {
   refreshAll: startRefresh,
 } = useLibraries(props.kind)
 
-function addFolder(): void {
+/** 有番号文件夹：显示番号站点设置；番号库识别不需要 TMDB 令牌。 */
+const hasJav = computed(() => libraries.value.some(l => l.source === 'jav'))
+const canIdentify = computed(
+  () =>
+    libraries.value.length > 0 &&
+    (tokenConfigured.value || libraries.value.every(l => l.source === 'jav'))
+)
+
+const folderFooter = computed(() => {
+  const base =
+    '全量扫描逐个检查全部文件，用于只改了文件内容、目录没变化的情况。'
+  return props.kind === 'movie'
+    ? `${base}番号文件夹按文件名里的番号刮削番号站点，不需要 TMDB 令牌。`
+    : base
+})
+
+function addFolder(source: LibrarySource): void {
   void guarded(async () => {
-    const lib = await pickFolder()
+    const lib = await pickFolder(source)
     if (lib) toast.success(`已添加「${lib.name}」，正在扫描`)
   })
 }

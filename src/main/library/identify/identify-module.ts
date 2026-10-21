@@ -8,6 +8,7 @@ import {
   type ApplyMatchRequest,
   type ApplyMatchResult,
   type IdentifyRequest,
+  type JavSettings,
   type JobAccepted,
   LibraryError,
   type LibraryEvent,
@@ -25,6 +26,8 @@ import { type BinaryFetch, ImageCache } from '../images/image-cache'
 import type { JobQueue } from '../jobs/queue'
 import { SqliteResponseCache } from '../providers/http/provider-cache'
 import { type FetchLike, ProviderHttp } from '../providers/http/provider-http'
+import { JavProvider } from '../providers/jav/jav-provider'
+import { JavSettingsStore } from '../providers/jav/jav-settings'
 import type { Clock } from '../providers/http/rate-limiter'
 import { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
 import { SETTING_KEYS, SettingsStore } from '../providers/settings-store'
@@ -85,6 +88,8 @@ const PRIORITY = { user: 15, auto: 3 } as const
 /** 识别与刮削模块。 */
 export class IdentifyModule {
   readonly provider: TmdbProvider
+  /** 番号库的元数据源（番号站点聚合）。 */
+  readonly jav: JavProvider
   readonly http: ProviderHttp
   readonly store: IdentifyStore
   readonly runner: IdentifyRunner
@@ -93,6 +98,7 @@ export class IdentifyModule {
   private readonly cache: SqliteResponseCache
   private readonly settings: SettingsStore
   private readonly hashLookup: OpenSubtitlesHashLookup
+  private readonly javSettings: JavSettingsStore
   private readonly log: (message: string) => void
 
   constructor(private readonly options: IdentifyModuleOptions) {
@@ -125,6 +131,20 @@ export class IdentifyModule {
         this.settings.get(SETTING_KEYS.opensubtitlesKey) ??
         options.env?.opensubtitlesKey
     )
+    // 番号站点是普通网站：限速放保守，重试少一些，被拦的站点由熔断跳过
+    this.javSettings = new JavSettingsStore(this.settings)
+    this.jav = new JavProvider({
+      http: new ProviderHttp({
+        fetch: fetchImpl,
+        rps: 2,
+        concurrency: 2,
+        maxRetries: 2,
+        clock: options.http?.clock,
+      }),
+      cache: this.cache,
+      settings: () => this.javSettings.get(),
+      log: this.log,
+    })
     this.store = new IdentifyStore(db)
     this.images = options.mediaDir
       ? new ImageCache({
@@ -139,6 +159,7 @@ export class IdentifyModule {
       store: this.store,
       writer: new MetadataWriter(db),
       provider: this.provider,
+      jav: this.jav,
       hashLookup: this.hashLookup,
       images: this.images,
       probeDuration: options.probeDuration ?? probeFileDuration,
@@ -176,9 +197,9 @@ export class IdentifyModule {
     return this.provider.configured
   }
 
-  /** 扫描后自动识别新增 / 变化的条目（没有令牌时不排）。 */
+  /** 扫描后自动识别新增 / 变化的条目（TMDB 库没有令牌时不排；番号库不需要令牌）。 */
   enqueueAuto(libraryId: number): void {
-    if (!this.configured) return
+    if (!this.configured && this.store.needsTmdb({ libraryId })) return
     this.enqueue({ mode: 'identify', libraryId }, PRIORITY.auto)
   }
 
@@ -192,8 +213,11 @@ export class IdentifyModule {
     return { jobId: job.id }
   }
 
-  private requireToken(): void {
-    if (!this.configured) {
+  /** 涉及 TMDB 库时要求已配置令牌。 */
+  private requireToken(
+    scope: { libraryId?: number; itemIds?: number[] } = {}
+  ): void {
+    if (!this.configured && this.store.needsTmdb(scope)) {
       throw new LibraryError('invalid-params', '未配置 TMDB API 令牌')
     }
   }
@@ -202,7 +226,7 @@ export class IdentifyModule {
 
   /** 识别条目（排队）。 */
   identify(request: IdentifyRequest): JobAccepted {
-    this.requireToken()
+    this.requireToken(request)
     return this.enqueue(
       {
         mode: request.force ? 'force' : 'identify',
@@ -215,7 +239,7 @@ export class IdentifyModule {
 
   /** 刷新元数据（排队）。 */
   refreshMetadata(request: RefreshMetadataRequest): JobAccepted {
-    this.requireToken()
+    this.requireToken(request)
     return this.enqueue(
       {
         mode: 'refresh',
@@ -243,8 +267,8 @@ export class IdentifyModule {
 
   /** 手动匹配。 */
   async applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult> {
-    this.requireToken()
     const target = this.requireTarget(request.itemId)
+    if (target.source !== 'jav') this.requireToken({ itemIds: [target.id] })
     try {
       const result = await this.runner.applyManual(target, request)
       this.emitChanges(result.changes)
@@ -290,6 +314,16 @@ export class IdentifyModule {
       tmdb: { configured: this.provider.configured },
       opensubtitles: { configured: this.hashLookup.configured },
     }
+  }
+
+  /** 番号站点设置。 */
+  getJavSettings(): JavSettings {
+    return this.javSettings.get()
+  }
+
+  /** 保存番号站点设置（参数已在 IPC 边界校验）。 */
+  setJavSettings(value: JavSettings): JavSettings {
+    return this.javSettings.set(value, Date.now())
   }
 
   // —————————————————————————— 内部 ——————————————————————————

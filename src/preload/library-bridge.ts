@@ -94,6 +94,10 @@ export function createLibraryBridge(
       undoOrganize: batchId => call('writer.undoOrganize', { batchId }),
       listOrganizeBatches: () => call('writer.listOrganizeBatches'),
     },
+    jav: {
+      getSettings: () => call('jav.getSettings'),
+      setSettings: settings => call('jav.setSettings', settings),
+    },
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       const { port1, port2 } = createChannel()
       port1.onmessage = event => listener(event.data as LibraryEvent)

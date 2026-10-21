@@ -16,15 +16,17 @@ export const dateFormat = new Intl.DateTimeFormat('zh-CN', {
   timeStyle: 'short',
 })
 
-/** 文件夹行的描述：路径 · 上次扫描时间（没扫过时「尚未扫描」）。 */
+/** 文件夹行的描述：（番号 · ）路径 · 上次扫描时间（没扫过时「尚未扫描」）。 */
 export function folderDescription(
-  lib: Pick<LibraryInfo, 'root' | 'lastScanAt'>,
+  lib: Pick<LibraryInfo, 'root' | 'lastScanAt'> &
+    Partial<Pick<LibraryInfo, 'source'>>,
   format: (time: number) => string = t => dateFormat.format(t)
 ): string {
   const scanned = lib.lastScanAt
     ? `上次扫描 ${format(lib.lastScanAt)}`
     : '尚未扫描'
-  return `${lib.root} · ${scanned}`
+  const prefix = lib.source === 'jav' ? '番号 · ' : ''
+  return `${prefix}${lib.root} · ${scanned}`
 }
 
 /** TMDB 令牌状态文字。 */

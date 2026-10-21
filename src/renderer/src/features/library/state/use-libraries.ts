@@ -10,6 +10,7 @@ import type {
   IdentifyProgressEvent,
   LibraryInfo,
   LibraryKind,
+  LibrarySource,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
 import { onLibraryEvent } from './library-events'
@@ -85,7 +86,8 @@ export interface UseLibraries {
   loaded: Ref<boolean>
   error: Ref<string | null>
   activity: ComputedRef<LibraryActivity | null>
-  addFolder: () => Promise<LibraryInfo | null>
+  /** 选文件夹并添加；source 为 jav 时是番号文件夹（只用于电影库）。 */
+  addFolder: (source?: LibrarySource) => Promise<LibraryInfo | null>
   removeLibrary: (libraryId: number) => Promise<void>
   scanAll: (full?: boolean) => Promise<void>
   identifyAll: (force?: boolean) => Promise<void>
@@ -114,14 +116,16 @@ export function useLibraries(kind: LibraryKind): UseLibraries {
     }
   }
 
-  async function addFolder(): Promise<LibraryInfo | null> {
+  async function addFolder(
+    source: LibrarySource = 'tmdb'
+  ): Promise<LibraryInfo | null> {
     if (!bridge) return null
     const picked = await window.api.dialog.openDirectory()
     const root = picked.success && !picked.canceled ? picked.filePaths[0] : ''
     if (!root) return null
     let info: LibraryInfo | null = null
     await run(async () => {
-      info = await bridge.addLibrary({ root, kind })
+      info = await bridge.addLibrary({ root, kind, source })
     })
     return info
   }
