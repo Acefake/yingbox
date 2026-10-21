@@ -34,20 +34,6 @@ function bool(fallback: boolean): ValueSpec<boolean> {
   }
 }
 
-/** [min, max] 内的整数 */
-function int(min: number, max: number, fallback: number): ValueSpec<number> {
-  return {
-    kind: 'value',
-    default: fallback,
-    parse: raw =>
-      Number.isSafeInteger(raw) &&
-      (raw as number) >= min &&
-      (raw as number) <= max
-        ? (raw as number)
-        : undefined,
-  }
-}
-
 /** [min, max] 内的有限数字 */
 function num(min: number, max: number, fallback: number): ValueSpec<number> {
   return {
@@ -122,8 +108,6 @@ export const settingsSchema = {
     ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'] as const,
     'zh-CN'
   ),
-  /** 刮削并发任务数（旧刮削队列用；队列已删，暂无消费方，保留以免丢用户值） */
-  'scrape.concurrency': int(1, 8, 3),
   /** 海报下载尺寸 */
   'scrape.imageSize.poster': oneOf(IMAGE_SIZES, 'original'),
   /** 背景图下载尺寸 */
@@ -132,7 +116,7 @@ export const settingsSchema = {
   'scrape.imageSize.actor': oneOf(IMAGE_SIZES, 'original'),
   /** 刮削服务 */
   'scrape.provider': oneOf(['tmdb', 'custom'] as const, 'tmdb'),
-  /** TMDB Access Token（密钥：主进程 safeStorage；渲染层经 settings.readSecret 取用，见 RENDERER_READABLE_SECRETS） */
+  /** TMDB Access Token（密钥：主进程 safeStorage；只在主进程与后台引擎使用，见 src/main/tmdb.ts） */
   'scrape.tmdbToken': secret(),
   /** 自定义刮削服务名称 */
   'scrape.customName': text('', 200),
@@ -183,14 +167,6 @@ const valueKeys = (Object.keys(settingsSchema) as SettingKey[]).filter(
 export const secretKeys = (Object.keys(settingsSchema) as SettingKey[]).filter(
   (key): key is SecretKey => settingsSchema[key].kind === 'secret'
 )
-
-/**
- * 渲染层可以读出明文的密钥。TMDB 请求仍在渲染层发出（在线页面的豆瓣 / 详情补充），
- * 所以它的令牌只做「静态加密」；Amane 令牌只在主进程使用，不在此列。
- */
-export const RENDERER_READABLE_SECRETS = ['scrape.tmdbToken'] as const
-/** 渲染层可读的密钥键 */
-export type ReadableSecretKey = (typeof RENDERER_READABLE_SECRETS)[number]
 
 /** 全部普通设置项的默认值 */
 export function defaultValues(): SettingValues {

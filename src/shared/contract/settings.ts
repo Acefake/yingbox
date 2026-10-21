@@ -1,7 +1,5 @@
 import type { LegacySettings } from '../settings/legacy'
 import {
-  RENDERER_READABLE_SECRETS,
-  type ReadableSecretKey,
   type SecretKey,
   type SettingChange,
   type SettingValue,
@@ -41,14 +39,10 @@ export const settings = defineDomain(
       if (!change) throw new ContractError(`设置 ${String(a[0])} 的值不合法`)
       return [change.key, change.value] as SetSettingArgs
     }),
-    /** 写入一个密钥（空字符串表示清除）；主进程加密落盘 */
+    /** 写入一个密钥（空字符串表示清除）；主进程加密落盘。密钥明文只写不读，渲染层只看快照里的「是否已配置」 */
     setSecret: call<[key: SecretKey, value: string], void>(a => [
       oneOfKeys(a[0], secretKeys, 'key'),
       str(a[1], 'value'),
-    ]),
-    /** 读出渲染层可用的密钥明文（只限 RENDERER_READABLE_SECRETS） */
-    readSecret: call<[key: ReadableSecretKey], string>(a => [
-      oneOfKeys(a[0], RENDERER_READABLE_SECRETS, 'key'),
     ]),
   },
   {

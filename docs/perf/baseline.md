@@ -97,7 +97,7 @@
 | 解析后的生产依赖（含传递，去重） | 204 | 170 | −34 |
 | 解析后的全部依赖（含 dev，去重） | 774 | 751 | −23 |
 
-阶段 5 没有加依赖：虚拟列表（`UiVirtualGrid`，约 200 行）和缩略图（Worker + OffscreenCanvas）都是自写。
+阶段 5 没有加依赖：虚拟列表（`UiVirtualGrid`，约 200 行）是自写；缩略图后来与媒体库合成一套（主进程 nativeImage + `@jsquash/webp`，见 opt/a）。
 
 ### 构建产物（`out/`）
 
@@ -166,5 +166,5 @@ src/ 总行数增加约 7.7k：Go/Python 的 4.3k 行迁成 TypeScript 引擎（
 
 6. **DOM 节点数**：打开 AV「分类浏览」，一直滚到底直到「已加载」≥ 1000 条。DevTools Console 执行 `document.querySelectorAll('.ui-poster').length`。main 上应等于已加载条数；p5 上应只有视口附近几行（与条数无关，通常 < 60）。在线搜索、Amane 影片墙、下载队列同法。
 7. **滚动帧率**：同一页面加载到 1000 条后，DevTools → Performance 勾选 Screenshots，录制匀速滚动 10 秒，记录 FPS 中位数、最低值和最长一帧。也可在 Rendering 面板打开「Frame Rendering Stats」看实时帧率。
-8. **海报解码**：清空 `userData/thumb-cache` 后打开 AV 浏览，Performance 面板录首屏加载，统计 `Decode Image` 事件的总耗时；关掉应用再打开同一页面重录一次（这次应命中 WebP 缓存）。Network 面板筛 `thumb:` 可看每张图的大小（命中时是 WebP，未命中是原图）。
-9. **缓存大小**：浏览几个分类后看 `%APPDATA%/影盒/thumb-cache`（mac：`~/Library/Application Support/影盒/thumb-cache`）的文件数与总大小（打包版目录名是 productName「影盒」，开发模式是 `yingbox`）；上限 256 MB，超出后应回落到约 230 MB。
+8. **海报解码**：清空 `userData/library/media/thumb` 后打开 AV 浏览，Performance 面板录首屏加载，统计 `Decode Image` 事件的总耗时；关掉应用再打开同一页面重录一次（这次应命中 WebP 缓存）。Network 面板筛 `yingbox-media:` 可看每张图的大小（都应是 WebP）。
+9. **缓存大小**：浏览几个分类后看 `%APPDATA%/影盒/library/media/thumb`（mac：`~/Library/Application Support/影盒/library/media/thumb`）的文件数与总大小（打包版目录名是 productName「影盒」，开发模式是 `yingbox`）；上限 512 MB，超出后应回落到约 460 MB。

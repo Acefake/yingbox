@@ -49,7 +49,8 @@ describe('默认值', () => {
     const { values, secrets, legacyMigrated } = store.snapshot()
     expect(values['app.theme']).toBe('dark')
     expect(values['app.adultMode']).toBe(false)
-    expect(values['scrape.concurrency']).toBe(3)
+    // 已删除的设置（旧刮削队列的并发数）不再出现
+    expect(values).not.toHaveProperty('scrape.concurrency')
     expect(values).not.toHaveProperty('backend.url')
     expect(secrets).toEqual({ 'scrape.tmdbToken': false, 'amane.token': false })
     expect(legacyMigrated).toBe(false)
@@ -62,7 +63,8 @@ describe('默认值', () => {
       JSON.stringify({
         values: {
           'app.theme': 'purple',
-          'scrape.concurrency': 99,
+          'player.playbackRate': 99,
+          'scrape.concurrency': 5,
           'app.adultMode': true,
           nope: 1,
         },
@@ -70,8 +72,13 @@ describe('默认值', () => {
     )
     const store = await open()
     expect(store.get('app.theme')).toBe('dark')
-    expect(store.get('scrape.concurrency')).toBe(3)
+    expect(store.get('player.playbackRate')).toBe(1)
     expect(store.get('app.adultMode')).toBe(true)
+    // 老用户 settings.json 里已删除的键读入时丢掉，下次落盘不再写回
+    expect(store.snapshot().values).not.toHaveProperty('scrape.concurrency')
+    store.set('app.theme', 'light')
+    await store.flush()
+    expect(onDisk().values as object).not.toHaveProperty('scrape.concurrency')
   })
 
   it('文件损坏时用默认值继续，并备份原文件', async () => {
@@ -103,8 +110,7 @@ describe('写入校验', () => {
     const store = await open()
     expect(() => store.set('nope', 1)).toThrow('不合法')
     expect(() => store.set('app.adultMode', '1')).toThrow('不合法')
-    expect(() => store.set('scrape.concurrency', 9)).toThrow('不合法')
-    expect(() => store.set('scrape.concurrency', 2.5)).toThrow('不合法')
+    expect(() => store.set('scrape.concurrency', 3)).toThrow('不合法')
     expect(() => store.set('player.playbackRate', 5)).toThrow('不合法')
     expect(() => store.set('amane.token', 'x')).toThrow('不合法')
     expect(store.snapshot().values).toEqual((await open()).snapshot().values)
@@ -124,11 +130,11 @@ describe('写入校验', () => {
 describe('原子写', () => {
   it('连续快速写入后，文件是完整 JSON、等于最终状态，且不留临时文件', async () => {
     const store = await open()
-    for (let i = 1; i <= 8; i++) store.set('scrape.concurrency', i)
+    for (let i = 1; i <= 8; i++) store.set('player.playbackRate', i / 4)
     store.set('app.theme', 'light')
     await store.flush()
     expect(onDisk()).toMatchObject({
-      values: { 'scrape.concurrency': 8, 'app.theme': 'light' },
+      values: { 'player.playbackRate': 2, 'app.theme': 'light' },
     })
     expect(readdirSync(dir)).toEqual(['settings.json'])
   })
@@ -164,12 +170,13 @@ describe('旧 localStorage 迁移', () => {
       'player.rtxVsr': false,
       'player.playbackRate': 1.25,
       'scrape.metadataLanguage': 'ja-JP',
-      'scrape.concurrency': 6,
       'scrape.imageSize.poster': 'w342',
       'scrape.imageSize.actor': 'original',
     })
     expect(snapshot.values).not.toHaveProperty('scrape.tmdbToken')
     expect(snapshot.values).not.toHaveProperty('backend.url')
+    // 旧 scrapeConcurrency 已无对应设置，迁移时忽略
+    expect(snapshot.values).not.toHaveProperty('scrape.concurrency')
     expect(onDisk()).toMatchObject({ legacyMigrated: true })
   })
 
@@ -216,12 +223,10 @@ describe('旧 localStorage 迁移', () => {
     const store = await open()
     const snapshot = store.migrateLegacy({
       'yingbox-theme': 'light',
-      scrapeConcurrency: 'abc',
       player_playback_rate: '9',
       scrapeProviderConfig: '{broken',
     })
     expect(snapshot.values['app.theme']).toBe('dark')
-    expect(snapshot.values['scrape.concurrency']).toBe(3)
     expect(snapshot.values['player.playbackRate']).toBe(1)
     expect(snapshot.secrets['scrape.tmdbToken']).toBe(false)
   })
@@ -237,7 +242,7 @@ describe('迁移硬约束', () => {
           'app.theme': 'light',
           'app.adultMode': false,
           'player.engine': 'mpv',
-          'scrape.concurrency': 5,
+          'player.playbackRate': 1.5,
         },
         legacyMigrated: false,
       })
@@ -247,7 +252,7 @@ describe('迁移硬约束', () => {
       'yingbox-theme': 'dark',
       adultMode: '1',
       preferred_player_engine: 'built-in',
-      scrapeConcurrency: '2',
+      player_playback_rate: '2',
       player_rtx_vsr: '1',
     })
     await store.flush()
@@ -255,7 +260,7 @@ describe('迁移硬约束', () => {
       'app.theme': 'light',
       'app.adultMode': false,
       'player.engine': 'mpv',
-      'scrape.concurrency': 5,
+      'player.playbackRate': 1.5,
     }
     expect(snapshot.values).toMatchObject({ ...kept, 'player.rtxVsr': true })
     expect(onDisk()).toMatchObject({

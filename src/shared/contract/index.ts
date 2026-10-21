@@ -7,21 +7,16 @@
 import { amane } from './amane'
 import { app } from './app'
 import { av } from './av'
-import { config } from './config'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { download } from './download'
-import { file } from './file'
-import { http } from './http'
 import { lada } from './lada'
 import { mpv } from './mpv'
 import { online } from './online'
-import { path } from './path'
 import { player } from './player'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
-import { thumbs } from './thumbs'
 import { update } from './update'
 import { win } from './win'
 
@@ -30,20 +25,15 @@ export const contract = {
   amane,
   app,
   av,
-  config,
   dialog,
   download,
-  file,
-  http,
   lada,
   mpv,
   online,
-  path,
   player,
   settings,
   shell,
   subtitle,
-  thumbs,
   update,
   win,
 } as const

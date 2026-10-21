@@ -46,14 +46,6 @@ export const mpv = defineDomain(
     setAudioTrack: call<[id: number], Ok>(a => [int(a[0], 'id')]),
     /** 挂载外挂字幕文件 */
     addSubFile: call<[filePath: string], Ok>(a => [str(a[0], 'filePath')]),
-    /** 播放列表下一项 */
-    playlistNext: call<Ok>(),
-    /** 播放列表上一项 */
-    playlistPrev: call<Ok>(),
-    /** 播放列表跳到指定下标 */
-    playlistPlay: call<[index: number], Ok>(a => [int(a[0], 'index')]),
-    /** 当前状态 */
-    getStatus: call<MpvStatus>(),
     /** 退出 mpv */
     quit: call<Ok>(),
   },

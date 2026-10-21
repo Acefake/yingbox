@@ -207,10 +207,6 @@ export function sortParts(names: string[]): string[] {
     .sort((a, b) => Number(a.slice(4, -4)) - Number(b.slice(4, -4)))
 }
 
-/** 清缓存时要保留的文件：暂停任务的分段与进度（清掉等于白跑） */
-export const isResumeProgressFile = (name: string): boolean =>
-  /^part\d+\.mp4$/i.test(name) || name === 'progress.json'
-
 /** 分片文件名 seg00000.ts */
 export const segmentName = (index: number): string =>
   `seg${String(index).padStart(5, '0')}.ts`

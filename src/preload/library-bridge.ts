@@ -84,8 +84,6 @@ export function createLibraryBridge(
     lockMatch: itemId => call('lockMatch', { itemId }),
     unlockMatch: itemId => call('unlockMatch', { itemId }),
     refreshMetadata: request => call('refreshMetadata', request),
-    setProviderToken: (provider, token) =>
-      call('setProviderToken', { provider, token }),
     getProviderStatus: () => call('getProviderStatus'),
     writer: {
       getSettings: () => call('writer.getSettings'),

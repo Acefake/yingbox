@@ -10,7 +10,6 @@ import {
   exitError,
   fmtClock,
   foreignJobMessage,
-  isResumeProgressFile,
   isServableName,
   ladaArgs,
   parseDuration,
@@ -151,12 +150,6 @@ describe('续跑缓存', () => {
     expect(
       sortParts(['part10.mp4', 'progress.json', 'part2.mp4', 'part0.mp4'])
     ).toEqual(['part0.mp4', 'part2.mp4', 'part10.mp4'])
-  })
-  it('清缓存时保留分段与进度', () => {
-    expect(isResumeProgressFile('part3.mp4')).toBe(true)
-    expect(isResumeProgressFile('progress.json')).toBe(true)
-    expect(isResumeProgressFile('joined.mp4')).toBe(false)
-    expect(isResumeProgressFile('part3.mp4.ts')).toBe(false)
   })
 })
 

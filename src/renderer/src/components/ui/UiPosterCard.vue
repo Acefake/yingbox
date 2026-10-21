@@ -65,13 +65,9 @@
  * 只放三样东西：图、标题、一行副标题。评分在图上左下角，
  * 收藏和其他操作悬停时出现在右上角。更多信息放到详情页。
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
-import {
-  ensureThumbnail,
-  pickThumbWidth,
-  thumbSrc,
-} from '@/services/thumbnails'
+import { pickThumbWidth, thumbSrc } from '@/services/thumbnails'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
 
@@ -87,7 +83,7 @@ const props = withDefaults(
     /** portrait 2:3 海报；landscape 16:9 剧照/封面 */
     shape?: 'portrait' | 'landscape'
     /**
-     * 用 WebP 缩略图缓存（thumb://，见 services/thumbnails）。只给非影视的网络 / Amane 封面开；
+     * 用 WebP 缩略图（yingbox-media://thumb/，见 services/thumbnails）。网络 / Amane / 本地封面都可开；
      * 缩略图加载失败时自动退回原图。
      */
     thumb?: boolean
@@ -119,17 +115,11 @@ function onError(): void {
   else broken.value = true
 }
 
-function requestThumbnail(): void {
-  if (props.thumb && props.cover) ensureThumbnail(props.cover, thumbWidth.value)
-}
-
-onMounted(requestThumbnail)
 watch(
   () => props.cover,
   () => {
     broken.value = false
     useOriginal.value = false
-    requestThumbnail()
   }
 )
 </script>
