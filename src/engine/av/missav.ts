@@ -6,6 +6,7 @@
  * surrit.com / fourhoi.com，Referer 由主进程 media-headers 注入。
  */
 import type { NetClient } from '../../shared/net/client'
+import { classifyPage } from '../../shared/net/cf-page'
 import type {
   AvCatalogPage,
   AvCategory,
@@ -203,10 +204,10 @@ export interface MissavDeps {
   browserFetch: (url: string, waitMs?: number) => Promise<string>
 }
 
-const isChallenge = (text: string): boolean =>
-  text.includes('Just a moment') || text.includes('cf-chl-')
-
-/** 取一个 MissAV 页面；被挑战时改用浏览器代抓。重定向只允许留在 MissAV 域内。 */
+/**
+ * 取一个 MissAV 页面；被挑战时改用浏览器代抓，硬封锁直接报错（浏览器也过不去，不开窗口）。
+ * 重定向只允许留在 MissAV 域内。
+ */
 async function fetchDocument(
   deps: MissavDeps,
   url: string
@@ -218,7 +219,13 @@ async function fetchDocument(
     headers: { Referer: 'https://missav.ai/' },
   })
   const text = new TextDecoder().decode(res.body)
-  if (res.status === 403 || res.status === 429 || isChallenge(text)) {
+  const verdict = classifyPage(text)
+  if (verdict === 'blocked')
+    throw new ResolveError(
+      'SITE_BLOCKED',
+      'MissAV 拒绝了当前网络的访问（Cloudflare 封锁，与 IP / 地区有关），换个网络后再试'
+    )
+  if (res.status === 403 || res.status === 429 || verdict === 'challenge') {
     const rendered = await deps.browserFetch(res.url, 20000)
     if (!rendered)
       throw new ResolveError(

@@ -3,7 +3,9 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import { type NetClient, createNetClient } from '../src/shared/net/client'
+import { readFileSync } from 'node:fs'
 import { runCatSpider } from '../src/engine/online/catspider'
+import { createHostBreaker } from '../src/shared/net/host-breaker'
 import { SITES, createOnlineHandlers, findM3u8 } from '../src/engine/online'
 import {
   PLUGIN_TTL_MS,
@@ -98,6 +100,143 @@ describe('CatSpider 运行时', () => {
   })
 })
 
+const BLOCKED = readFileSync(
+  join(__dirname, 'fixtures/cloudflare/blocked-4k-av.html'),
+  'utf-8'
+)
+const CHALLENGE = '<title>Just a moment...</title>'
+
+/** 记录请求次数的假网络。 */
+const countingNet = (
+  routes: Record<string, () => Response>
+): { net: NetClient; calls: string[] } => {
+  const calls: string[] = []
+  const net = createNetClient({
+    lookup,
+    fetch: async url => {
+      calls.push(url)
+      const route = routes[url]
+      return route ? route() : new Response('nf', { status: 404 })
+    },
+  })
+  return { net, calls }
+}
+
+describe('CatSpider 遇到硬封锁与熔断', () => {
+  it('拿到硬封锁页：不找浏览器代抓，回报 blocked，插件得到 success:false', async () => {
+    const { net } = countingNet({
+      'https://site.test/s?wd=x': () => new Response(BLOCKED, { status: 403 }),
+    })
+    const browserFetch = vi.fn(async () => '<li>不该走到这里</li>')
+    const onTrip = vi.fn()
+    const result = await runCatSpider(
+      { ...deps(net, browserFetch), onTrip },
+      'p.js',
+      'search',
+      { text: 'x' }
+    )
+    expect(browserFetch).not.toHaveBeenCalled()
+    expect(onTrip).toHaveBeenCalledWith(
+      expect.objectContaining({ host: 'site.test', reason: 'blocked' })
+    )
+    expect(result).toMatchObject({ success: false })
+    expect(JSON.stringify(result)).toContain('被站点拦截')
+  })
+
+  it('同一熔断器下，被封的主机在冷却期内不再发请求', async () => {
+    const { net, calls } = countingNet({
+      'https://site.test/s?wd=x': () => new Response(BLOCKED, { status: 403 }),
+    })
+    const breaker = createHostBreaker()
+    const onTrip = vi.fn()
+    const run = (): Promise<unknown> =>
+      runCatSpider({ ...deps(net), breaker, onTrip }, 'p.js', 'search', {
+        text: 'x',
+      })
+    await run()
+    await run()
+    await run()
+    expect(calls).toEqual(['https://site.test/s?wd=x'])
+    expect(onTrip).toHaveBeenCalledTimes(3)
+    breaker.reset('site.test')
+    await run()
+    expect(calls).toHaveLength(2)
+  })
+
+  it('挑战页代抓连续失败 3 次后熔断（challenge），之后不再请求也不再找浏览器', async () => {
+    const { net, calls } = countingNet({
+      'https://site.test/s?wd=x': () =>
+        new Response(CHALLENGE, { status: 403 }),
+    })
+    const browserFetch = vi.fn(async () => '')
+    const breaker = createHostBreaker()
+    const onTrip = vi.fn()
+    for (let i = 0; i < 5; i++)
+      await runCatSpider(
+        { ...deps(net, browserFetch), breaker, onTrip },
+        'p.js',
+        'search',
+        { text: 'x' }
+      )
+    expect(browserFetch).toHaveBeenCalledTimes(3)
+    expect(calls).toHaveLength(3)
+    expect(onTrip.mock.calls[0][0]).toMatchObject({ reason: 'challenge' })
+  })
+
+  it('代抓拿回的仍是封锁页不当成功；成功一次清零失败计数', async () => {
+    const { net } = countingNet({
+      'https://site.test/s?wd=x': () =>
+        new Response(CHALLENGE, { status: 403 }),
+    })
+    const breaker = createHostBreaker()
+    const pages = [BLOCKED, BLOCKED, '<li>好了</li>', BLOCKED, BLOCKED, BLOCKED]
+    const browserFetch = vi.fn(async () => pages.shift() ?? '')
+    const run = (): Promise<unknown> =>
+      runCatSpider({ ...deps(net, browserFetch), breaker }, 'p.js', 'search', {
+        text: 'x',
+      })
+    const results: unknown[] = []
+    for (let i = 0; i < 5; i++) results.push(await run())
+    expect(results[2]).toMatchObject({ list: ['好了'] })
+    expect(breaker.check('site.test')).toBeNull()
+    await run()
+    expect(breaker.check('site.test')).toMatchObject({ reason: 'challenge' })
+  })
+
+  it('POST 连不上记失败（不走浏览器），5xx 也记失败', async () => {
+    const breaker = createHostBreaker({ threshold: 2 })
+    const browserFetch = vi.fn(async () => '')
+    const net = createNetClient({
+      lookup,
+      fetch: async () => {
+        throw new Error('ECONNRESET')
+      },
+    })
+    const post = `async function search() { await $fetch.post('https://p.test/api', { a: 1 }); return {} }`
+    const run = (): Promise<unknown> =>
+      runCatSpider(
+        { net, browserFetch, breaker, loadPlugin: async () => post },
+        'p.js',
+        'search',
+        {}
+      )
+    await run()
+    await run()
+    expect(browserFetch).not.toHaveBeenCalled()
+    expect(breaker.check('p.test')).toMatchObject({ reason: 'unreachable' })
+
+    const down = countingNet({
+      'https://site.test/s?wd=x': () => new Response('down', { status: 522 }),
+    })
+    const b2 = createHostBreaker({ threshold: 2 })
+    for (let i = 0; i < 2; i++)
+      await runCatSpider({ ...deps(down.net), breaker: b2 }, 'p.js', 'search', {
+        text: 'x',
+      })
+    expect(b2.check('site.test')).toMatchObject({ reason: 'unreachable' })
+  })
+})
+
 describe('在线域 handlers', () => {
   const ctx = {
     host: vi.fn(async () => ''),
@@ -127,6 +266,48 @@ describe('在线域 handlers', () => {
       keyword: 'kw',
     })
     expect(res).toEqual({ success: true, data: { list: ['R'], wd: 'kw' } })
+  })
+
+  it('vod 碰到硬封锁：回报 unavailable；resetBlocks 解除引擎熔断并通知主进程', async () => {
+    const { net, calls } = countingNet({
+      'https://site.test/s?wd=kw': () => new Response(BLOCKED, { status: 403 }),
+    })
+    const host = vi.fn(async () => '')
+    const c = { host, emit: vi.fn() } as unknown as EngineContext
+    const h = createOnlineHandlers({ net, loadPlugin: async () => PLUGIN })
+    const req = { action: 'search', siteName: SITES[0].name, keyword: 'kw' }
+    const first = await h.vod(c, req as never)
+    expect(first).toMatchObject({
+      success: true,
+      unavailable: { host: 'site.test', reason: 'blocked' },
+    })
+    expect(JSON.stringify(first.data)).toContain('被站点拦截')
+    await h.vod(c, req as never)
+    expect(calls).toHaveLength(1)
+    expect(host).not.toHaveBeenCalledWith('browserFetch', expect.anything())
+    await h.resetBlocks(c, 'site.test')
+    expect(host).toHaveBeenCalledWith('resetBrowserFetch', 'site.test')
+    await h.vod(c, req as never)
+    expect(calls).toHaveLength(2)
+  })
+
+  it('插件脚本下载失败：回报 plugin，5 分钟内不再下载；resetBlocks 后重试', async () => {
+    const loadPlugin = vi.fn(async () => {
+      throw new Error('ETIMEDOUT')
+    })
+    const h = createOnlineHandlers({ net: fakeNet({}), loadPlugin })
+    const req = { action: 'search', siteName: SITES[0].name, keyword: 'kw' }
+    const res = await h.vod(ctx, req as never)
+    expect(res).toMatchObject({
+      success: false,
+      unavailable: { reason: 'plugin', host: 'ghp.xptvhelper.link' },
+    })
+    expect(res.error).toContain('插件脚本下载失败')
+    await h.vod(ctx, req as never)
+    expect(loadPlugin).toHaveBeenCalledTimes(1)
+    await h.resetBlocks(ctx, undefined)
+    await h.vod(ctx, req as never)
+    expect(loadPlugin).toHaveBeenCalledTimes(2)
   })
 
   it('resolvePage：跳转到媒体直链取最终地址；否则从 HTML 提取 m3u8；失败原样返回', async () => {

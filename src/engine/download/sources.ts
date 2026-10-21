@@ -5,6 +5,7 @@
  * 页面请求走引擎 net，被 Cloudflare 拦下时请主进程浏览器代抓。
  */
 import type { NetClient } from '../../shared/net/client'
+import { classifyPage } from '../../shared/net/cf-page'
 import { extractStream } from '../av/missav'
 
 /** 解析出的下载源。 */
@@ -154,10 +155,10 @@ export interface SourceDeps {
   browserFetch: (url: string) => Promise<string>
 }
 
-const isChallenge = (text: string): boolean =>
-  text.includes('Just a moment') || text.includes('cf-chl-')
-
-/** 构造页面获取函数：直连 → 被拦时浏览器代抓 → 仍失败返回 undefined。 */
+/**
+ * 构造页面获取函数：直连 → 被挑战时浏览器代抓 → 仍失败返回 undefined。
+ * 硬封锁页直接返回 undefined，换下一个站点，不开浏览器窗口。
+ */
 export function pageGetter(deps: SourceDeps): PageGetter {
   return async (url, referer) => {
     try {
@@ -167,7 +168,9 @@ export function pageGetter(deps: SourceDeps): PageGetter {
         maxBytes: 8 * 1024 * 1024,
       })
       const text = new TextDecoder().decode(res.body)
-      if (res.status === 403 || res.status === 429 || isChallenge(text)) {
+      const verdict = classifyPage(text)
+      if (verdict === 'blocked') return undefined
+      if (res.status === 403 || res.status === 429 || verdict === 'challenge') {
         const html = await deps.browserFetch(url)
         return html || undefined
       }

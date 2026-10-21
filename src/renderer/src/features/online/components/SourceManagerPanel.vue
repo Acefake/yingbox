@@ -75,9 +75,9 @@
                   badge="插件"
                   badge-color="purple"
                   :enabled="selectedCatSpider.includes(s.api)"
-                  status="ok"
-                  :checkable="false"
+                  v-bind="pluginRowProps(s.name)"
                   @toggle="toggleCatSpider(s.api)"
+                  @check="retryPlugin(s.name)"
                 />
               </SourceSection>
 
@@ -149,6 +149,11 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import { useOnlineSearch } from '../composables/use-online-search'
 import { toggleCatSpider } from '../composables/catspider-sites'
+import {
+  pluginRowProps,
+  retryAllPlugins,
+  retryPlugin,
+} from '../composables/plugin-health'
 import { toggleSite } from '../composables/cms-sites'
 import { useAvSources } from '@/features/av'
 import {
@@ -221,6 +226,7 @@ const updatingSources = computed(() => syncingAv.value || checkingAll.value)
 const updateSources = async (): Promise<void> => {
   if (updatingSources.value) return
   await syncAvSources(true)
+  await retryAllPlugins().catch(() => {})
   await checkAll()
 }
 

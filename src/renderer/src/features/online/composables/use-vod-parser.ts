@@ -1,6 +1,8 @@
 import { type Ref, ref } from 'vue'
 import { onlineApi } from '../api/online'
 import type { VodRequest } from '../../../../../shared/contract/online'
+import type { PluginHealth } from '../utils/plugin-health'
+import { markPluginOk, markPluginUnavailable } from './plugin-health'
 
 interface VODParseRequest {
   siteName: string
@@ -44,6 +46,14 @@ interface VODParseResponse {
   videoID?: string
   /** 插件原样返回的数据（对象或 JSON 字符串），用 utils/vod-payload 解析 */
   data?: unknown
+  /** 引擎回报的熔断：该源暂不可用（被拦截 / 连不上 / 插件下载失败） */
+  unavailable?: PluginHealth
+}
+
+/** 按引擎回报更新源的可用性：有熔断记为不可用，正常返回则清掉旧记录。 */
+function trackHealth(siteName: string, result: VODParseResponse): void {
+  if (result.unavailable) markPluginUnavailable(siteName, result.unavailable)
+  else if (result.success) markPluginOk(siteName)
 }
 
 // 插件解析（含 Cloudflare 挑战时走浏览器代抓）可能超过 10s，前端超时需留出余量。
@@ -70,7 +80,7 @@ export function useVODParser(): UseVODParserReturn {
 
   let activeRequests = 0
   const _call = async (
-    body: object,
+    body: VodRequest,
     signal?: AbortSignal
   ): Promise<VODParseResponse> => {
     activeRequests++
@@ -81,7 +91,7 @@ export function useVODParser(): UseVODParserReturn {
       if (signal?.aborted) throw new Error('已取消')
       // IPC 调用无法中途撤回：超时或取消时直接放弃结果，引擎侧自有网络超时兜底
       const result = await Promise.race([
-        onlineApi().vod(body as VodRequest),
+        onlineApi().vod(body),
         new Promise<never>((_, reject) => {
           timeoutId = window.setTimeout(
             () => reject(new Error('请求超时')),
@@ -92,7 +102,9 @@ export function useVODParser(): UseVODParserReturn {
           })
         }),
       ])
-      return result as VODParseResponse
+      const response = result as VODParseResponse
+      trackHealth(body.siteName, response)
+      return response
     } catch (e) {
       const err = e as Error
       error.value = err.message

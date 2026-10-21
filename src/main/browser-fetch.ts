@@ -1,4 +1,6 @@
 import { BrowserWindow, screen, session } from 'electron'
+import { classifyPage } from '../shared/net/cf-page'
+import { createHostBreaker, hostOf } from '../shared/net/host-breaker'
 
 /**
  * 浏览器级抓取：引擎经 MessagePort 请求主进程代抓页面。
@@ -7,6 +9,10 @@ import { BrowserWindow, screen, session } from 'electron'
  * 只会拿到挑战页。这里用 Electron 自带的 Chromium 开一个窗口取页面，等挑战结束后
  * 把渲染后的 HTML 交回引擎。原先为 Go/Node 子进程开的本机 HTTP 服务与临时发现文件
  * 已随 Go 后端一起删除。
+ *
+ * 只有「可通过的挑战页」才把窗口短暂显示出来；硬封锁页（Sorry, you have been blocked、
+ * Error 1020 等）一经识别立即销毁窗口、绝不显示，并按主机熔断 30 分钟，期间同一主机的
+ * 请求直接返回空串，不再开窗口。
  */
 
 const CHROME_UA =
@@ -17,30 +23,29 @@ const DEFAULT_WAIT_MS = 20000
 const MAX_WAIT_MS = 30000
 const LOAD_TIMEOUT_MS = 25000
 
-const CHALLENGE_MARKERS = [
-  'Just a moment',
-  'Attention Required',
-  'Enable JavaScript and cookies to continue',
-  '安全验证',
-  'cf-browser-verification',
-  'cf_chl_opt',
-]
-
 // 请求串行执行：多个可见窗口同时闪出既打扰用户，也更容易触发风控。
 let queue: Promise<unknown> = Promise.resolve()
+/** 同一地址正在排队 / 进行中的请求：重复请求共用结果，不再多开窗口。 */
+const pending = new Map<string, Promise<string>>()
+/** 浏览器代抓的主机熔断：硬封锁立即熔断，挑战连续 3 次没过也熔断。 */
+const breaker = createHostBreaker()
 
 const delay = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms))
 
-const isChallengePage = (html: string): boolean =>
-  CHALLENGE_MARKERS.some(marker => html.includes(marker))
-
-/** 页面可用 = 不是挑战页，且有真实文档内容（避免把空白/失败页当成成功）。 */
+/** 页面可用 = 不是挑战/封锁页，且有真实文档内容（避免把空白/失败页当成成功）。 */
 const isUsablePage = (html: string): boolean =>
   typeof html === 'string' &&
   html.length >= 500 &&
   html.includes('<body') &&
-  !isChallengePage(html)
+  classifyPage(html) === 'ok'
+
+/** 硬封锁：浏览器也过不去。 */
+class BlockedPageError extends Error {
+  constructor(readonly url: string) {
+    super(`blocked: ${url}`)
+  }
+}
 
 const isHttpUrl = (value: string): boolean => {
   try {
@@ -140,6 +145,8 @@ async function fetchViaBrowser(url: string, waitMs: number): Promise<string> {
     })
 
     let html = await readHtml()
+    // 硬封锁：窗口从未显示，直接销毁（finally）并交由调用方熔断。
+    if (classifyPage(html) === 'blocked') throw new BlockedPageError(url)
     // Cloudflare 的挑战脚本要求页面处于可见状态才会继续；命中挑战页时才把窗口
     // 短暂显示出来（不抢焦点），通过后立即销毁；普通站点全程不出现窗口。
     const needsVisible = !isUsablePage(html)
@@ -151,6 +158,8 @@ async function fetchViaBrowser(url: string, waitMs: number): Promise<string> {
     while (Date.now() < deadline && !isUsablePage(html)) {
       await delay(1000)
       html = await readHtml()
+      // 挑战跳转到了封锁页：立即收起，不再等满时限。
+      if (classifyPage(html) === 'blocked') throw new BlockedPageError(url)
     }
     return html
   } finally {
@@ -158,23 +167,48 @@ async function fetchViaBrowser(url: string, waitMs: number): Promise<string> {
   }
 }
 
+/** 排队执行一次代抓；轮到时再查熔断，前面的请求刚把主机熔断时不再开窗口。 */
 function runFetch(url: string, waitMs: number): Promise<string> {
-  const task = queue.then(() => fetchViaBrowser(url, waitMs))
+  const task = queue.then(async () => {
+    if (breaker.check(url)) return ''
+    try {
+      const html = await fetchViaBrowser(url, waitMs)
+      if (isUsablePage(html)) breaker.succeed(url)
+      else breaker.fail(url, 'challenge')
+      return html
+    } catch (error) {
+      if (error instanceof BlockedPageError) breaker.block(url)
+      else breaker.fail(url)
+      throw error
+    }
+  })
   // 队列本身不做错误处理，避免一次失败卡死后续请求。
   queue = task.catch(() => undefined)
   return task
 }
 
 /**
- * 引擎请求的浏览器代抓：返回渲染后的 HTML；挑战未通过或加载失败返回空串。
- * 请求串行执行。
+ * 引擎请求的浏览器代抓：返回渲染后的 HTML；挑战未通过、硬封锁、主机熔断或加载失败
+ * 返回空串。请求串行执行，同一地址同时只开一个窗口。
  */
 export async function browserFetch(
   url: string,
   waitMs: number = DEFAULT_WAIT_MS
 ): Promise<string> {
-  if (!isHttpUrl(url)) return ''
+  if (!isHttpUrl(url) || breaker.check(url)) return ''
   const wait = Math.min(Math.max(waitMs, 0), MAX_WAIT_MS)
-  const html = await runFetch(url, wait).catch(() => '')
+  let task = pending.get(url)
+  if (!task) {
+    task = runFetch(url, wait)
+      .catch(() => '')
+      .finally(() => pending.delete(url))
+    pending.set(url, task)
+  }
+  const html = await task
   return isUsablePage(html) ? html : ''
+}
+
+/** 解除浏览器代抓的主机熔断（用户在数据源面板点「重试」时）；不给主机则全部解除。 */
+export function resetBrowserFetch(host?: string): void {
+  breaker.reset(host === undefined ? undefined : hostOf(host))
 }

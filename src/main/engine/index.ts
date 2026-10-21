@@ -4,7 +4,7 @@
 import { app, utilityProcess } from 'electron'
 import { join } from 'node:path'
 import { broadcastChannel, implement } from '../rpc'
-import { browserFetch } from '../browser-fetch'
+import { browserFetch, resetBrowserFetch } from '../browser-fetch'
 import { getDownloadPath } from '../config'
 import { settingsStore } from '../settings'
 import { TMDB_SECRET, effectiveTmdbToken } from '../tmdb'
@@ -25,6 +25,7 @@ export function registerEngine(): EngineHost {
     broadcast: broadcastChannel,
     hostMethods: {
       browserFetch: (url, waitMs) => browserFetch(url, waitMs),
+      resetBrowserFetch: async host => resetBrowserFetch(host),
       downloadDir: async () =>
         getDownloadPath() || join(app.getPath('videos'), '影盒下载'),
       tmdbToken: async () =>
