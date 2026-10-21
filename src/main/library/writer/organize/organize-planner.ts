@@ -12,19 +12,23 @@
  */
 import type { Dirent } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
-import { basename, dirname, extname, join, relative, sep } from 'node:path'
+import { dirname, extname, join, relative, sep } from 'node:path'
 import type {
   LibraryItemNode,
   OrganizeEntry,
   WriterSettings,
 } from '../../../../shared/library/ipc'
-import {
-  type TemplateValues,
-  renderTemplate,
-} from '../../../../shared/library/writer'
 import type { LibraryRecord } from '../../libraries/library-store'
 import { VIDEO_EXTENSIONS } from '../../scanner/rules'
 import { exists } from '../fs/file-ops'
+import {
+  type VideoTarget,
+  blockWithConflictingVideo,
+  movieTargets,
+  seriesTargets,
+  sidecarOwner,
+  stem,
+} from './organize-targets'
 
 /** 不移动的系统文件与我们自己的临时文件。 */
 export const JUNK_RE =
@@ -54,8 +58,6 @@ export interface PlannerDeps {
 const isVideo = (name: string): boolean =>
   VIDEO_EXTENSIONS.has(extname(name).toLowerCase())
 
-const stem = (file: string): string => basename(file, extname(file))
-
 /** 路径长度上限：Windows（含 UNC / 盘符路径）260，其余 4096。 */
 export function pathLimit(root: string): number {
   return process.platform === 'win32' || /^(?:[A-Za-z]:[\\/]|\\\\)/.test(root)
@@ -78,126 +80,6 @@ async function defaultDeviceOf(path: string): Promise<number | undefined> {
       current = parent
     }
   }
-}
-
-/** 一个视频要去的地方。 */
-interface VideoTarget {
-  from: string
-  to: string | null
-  error?: string
-}
-
-/** 按模板渲染一个文件的目标路径。 */
-function render(
-  root: string,
-  template: string,
-  values: TemplateValues
-): { to: string } | { error: string } {
-  const result = renderTemplate(template, values)
-  return result.ok
-    ? { to: join(root, ...result.segments) }
-    : { error: result.error }
-}
-
-/** 多文件电影：第 2 个起在扩展名前加 ` - partN`（Kodi / Jellyfin 都能识别为分段）。 */
-function withPart(path: string, index: number, count: number): string {
-  if (count < 2) return path
-  const ext = extname(path)
-  return `${path.slice(0, path.length - ext.length)} - part${index + 1}${ext}`
-}
-
-/** 电影的各视频目标。 */
-function movieTargets(
-  node: LibraryItemNode,
-  root: string,
-  settings: WriterSettings
-): VideoTarget[] {
-  const meta = node.metadata?.level === 'title' ? node.metadata : null
-  const videos = node.files.filter(f => f.kind === 'video').map(f => f.path)
-  if (!meta)
-    return videos.map(from => ({
-      from,
-      to: null,
-      error: '条目未识别，无法按模板命名',
-    }))
-  return videos.map((from, i) => {
-    const r = render(root, settings.organize.movieTemplate, {
-      title: meta.title,
-      originalTitle: meta.originalTitle ?? meta.title,
-      year: meta.year,
-      tmdbId: meta.externalIds.tmdb ?? meta.ref.id,
-      imdbId: meta.externalIds.imdb,
-      ext: extname(from).slice(1),
-    })
-    return 'error' in r
-      ? { from, to: null, error: r.error }
-      : { from, to: withPart(r.to, i, videos.length) }
-  })
-}
-
-/** 剧集的各视频目标（一个文件含多集时集号渲染成 01-E02）。 */
-function seriesTargets(
-  node: LibraryItemNode,
-  root: string,
-  settings: WriterSettings
-): VideoTarget[] {
-  const meta = node.metadata?.level === 'title' ? node.metadata : null
-  const episodes = [
-    ...node.children.filter(c => c.type === 'episode'),
-    ...node.children.filter(c => c.type === 'season').flatMap(s => s.children),
-  ]
-  const byFile = new Map<string, LibraryItemNode[]>()
-  for (const ep of episodes) {
-    for (const f of ep.files) {
-      if (f.kind === 'video')
-        byFile.set(f.path, [...(byFile.get(f.path) ?? []), ep])
-    }
-  }
-  const targets: VideoTarget[] = []
-  for (const [from, eps] of byFile) {
-    if (!meta) {
-      targets.push({ from, to: null, error: '剧集未识别，无法按模板命名' })
-      continue
-    }
-    const numbered = eps
-      .map(ep => {
-        const em = ep.metadata?.level === 'episode' ? ep.metadata : null
-        return {
-          season: em?.season ?? ep.seasonNumber,
-          episode: em?.episode ?? ep.episodeNumber,
-          title: em?.title ?? '',
-        }
-      })
-      .filter(e => e.season !== null && e.episode !== null)
-      .sort((a, b) => a.season! - b.season! || a.episode! - b.episode!)
-    if (!numbered.length) {
-      targets.push({
-        from,
-        to: null,
-        error: '缺少季号或集号（绝对集数未映射）',
-      })
-      continue
-    }
-    const r = render(root, settings.organize.tvTemplate, {
-      title: meta.title,
-      series: meta.title,
-      originalTitle: meta.originalTitle ?? meta.title,
-      year: meta.year,
-      tmdbId: meta.externalIds.tmdb ?? meta.ref.id,
-      imdbId: meta.externalIds.imdb,
-      season: numbered[0].season!,
-      episode:
-        numbered.length > 1
-          ? numbered.map(e => e.episode!)
-          : numbered[0].episode!,
-      episodeTitle: numbered[0].title,
-      ext: extname(from).slice(1),
-    })
-    targets.push(
-      'error' in r ? { from, to: null, error: r.error } : { from, to: r.to }
-    )
-  }
-  return targets.sort((a, b) => a.from.localeCompare(b.from))
 }
 
 /** 目录列表缓存（同一次预览里每个目录只读一次）。 */
@@ -263,17 +145,7 @@ async function planItem(
       const path = join(dir, entry.name)
       if (!entry.isFile() || assigned.has(path) || foreign.includes(path))
         continue
-      let best: (typeof owners)[number] | undefined
-      for (const o of owners) {
-        const next = entry.name[o.stem.length]
-        if (
-          entry.name.startsWith(o.stem) &&
-          (next === '.' || next === '-') &&
-          (!best || o.stem.length > best.stem.length)
-        ) {
-          best = o
-        }
-      }
+      const best = sidecarOwner(entry.name, owners)
       if (best?.t) {
         sidecars.set(best.t, [...(sidecars.get(best.t) ?? []), entry.name])
         assigned.add(path)
@@ -396,14 +268,6 @@ export async function planOrganize(
       m.crossDevice = a !== undefined && b !== undefined && a !== b
     }
   }
-  // 视频有冲突时，同条目的旁挂与文件夹级文件都不动（否则字幕会和视频分开）
-  const blocked = new Set(
-    moves.filter(m => m.kind === 'video' && m.conflict).map(m => m.itemId)
-  )
-  for (const m of moves) {
-    if (m.kind !== 'video' && !m.conflict && blocked.has(m.itemId)) {
-      m.conflict = '同条目的视频有冲突，暂不移动'
-    }
-  }
+  blockWithConflictingVideo(moves)
   return { moves, unchanged }
 }
