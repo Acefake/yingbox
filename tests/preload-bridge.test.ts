@@ -131,7 +131,7 @@ const ADDED_API: Record<string, string[]> = {
     'onSecretChanged',
     'offSecretChanged',
   ],
-  online: ['sites', 'vod', 'getJson', 'tmdb', 'resolvePage'],
+  online: ['sites', 'vod', 'resetBlocks', 'getJson', 'tmdb', 'resolvePage'],
   av: ['list', 'resolve'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
 }

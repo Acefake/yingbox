@@ -46,7 +46,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
 - `config.ts` — `userData/config.json` (`downloadPath`, read-only for now: no UI sets it); validates writability (real write probe) on load
-- `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine; `media-headers.ts` injects Referer for direct stream/cover requests
+- `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine (only passable challenges are ever shown; hard blocks such as 1020 / "Sorry, you have been blocked" destroy the window unseen and trip a per-host 30-min breaker); `media-headers.ts` injects Referer for direct stream/cover requests
 - `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/amane/` (rules / connection / service / api) and `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
   - `dialog-ipc.ts` (`dialog:*`, `shell:openPath`)
@@ -77,7 +77,7 @@ Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/pl
 
 ### Engine (`src/engine/`)
 
-Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`. Domains: `online` (CMS sites, CatSpider plugins, VOD parse), `av` (MissAV catalogue + resolver), `download` (site → m3u8 lookup, HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard). Replaces the former Go backend on 127.0.0.1:31471, removed in p3d.
+Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`. Domains: `online` (CMS sites, CatSpider plugins, VOD parse), `av` (MissAV catalogue + resolver), `download` (site → m3u8 lookup, HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard); `cf-page.ts` classifies challenge vs hard-block pages and `host-breaker.ts` is the per-host breaker, both shared with the main process. Plugin sources that trip report `unavailable` to the renderer, which skips them in search and marks them in the source list. Replaces the former Go backend on 127.0.0.1:31471, removed in p3d.
 
 ### Amane
 

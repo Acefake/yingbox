@@ -30,6 +30,8 @@ import {
   selectedCatSpider,
 } from './catspider-sites'
 import { DEFAULT_SITES, customSites, selectedSites } from './cms-sites'
+import { splitByHealth } from '../utils/plugin-health'
+import { pluginHealthOf } from './plugin-health'
 import { useVODParser } from './use-vod-parser'
 
 export type {
@@ -53,6 +55,8 @@ export interface UseOnlineSearchReturn {
   results: Ref<CmsItem[]>
   loading: Ref<boolean>
   error: Ref<string>
+  /** 本次搜索因暂不可用而跳过的插件源名称 */
+  skippedPlugins: Ref<string[]>
   selectedSites: typeof selectedSites
   customSites: RemovableRef<ApiSite[]>
   DEFAULT_SITES: ApiSite[]
@@ -74,6 +78,7 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
   const results = ref<CmsItem[]>([])
   const loading = ref(false)
   const error = ref('')
+  const skippedPlugins = ref<string[]>([])
   const { search: vodSearch, getTracks, getPlayinfo } = useVODParser()
   let generation = 0
   let searchController: AbortController | null = null
@@ -113,6 +118,7 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
     loading.value = true
     error.value = ''
     results.value = []
+    skippedPlugins.value = []
     const publish = (items: CmsItem[]): void => {
       if (!current() || !items.length) return
       results.value = [...results.value, ...items]
@@ -144,9 +150,16 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
       })
 
       // 详情页需要跨源聚合时（allVod），即使用户只勾选了少数源，也尝试全部非成人 VOD 源。
-      const csSites = options.allVod
+      const candidates = options.allVod
         ? CATSPIDER_SITES.value.filter(site => !isAdultCatSpiderSite(site))
         : activeCatSpiderSites()
+      // 冷却期内的不可用源直接跳过，搜索页列出跳过了哪些，而不是让它们各自卡到超时。
+      const { usable: csSites, skipped } = splitByHealth(
+        candidates,
+        pluginHealthOf,
+        Date.now()
+      )
+      skippedPlugins.value = skipped.map(site => site.name)
       const csTasks = mapWithConcurrency(csSites, 4, async site => {
         if (!current()) return []
         try {
@@ -154,6 +167,8 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
             { siteName: site.name, keyword: q },
             controller.signal
           )
+          if (r.unavailable && current())
+            skippedPlugins.value = [...skippedPlugins.value, site.name]
           if (!r.success || !r.data) return []
           const items = toCatSpiderSearchItems(getVodList(r.data), site)
           publish(items)
@@ -231,6 +246,7 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
     results,
     loading,
     error,
+    skippedPlugins,
     selectedSites,
     customSites,
     DEFAULT_SITES,

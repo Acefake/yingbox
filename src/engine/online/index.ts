@@ -3,6 +3,13 @@
  */
 import type { NetClient } from '../../shared/net/client'
 import {
+  type HostBreaker,
+  type HostTrip,
+  HostUnavailableError,
+  createHostBreaker,
+  hostOf,
+} from '../../shared/net/host-breaker'
+import {
   type CatSpiderSite,
   type VodRequest,
   type VodResponse,
@@ -35,8 +42,19 @@ const TMDB_API = 'https://api.themoviedb.org/3'
 export interface OnlineDeps {
   net: NetClient
   loadPlugin: (url: string) => Promise<string>
+  /** 插件请求的主机熔断；缺省新建一份（30 分钟冷却、连续 3 次失败） */
+  breaker?: HostBreaker
   log?: (line: string) => void
 }
+
+/** 插件脚本下载失败后多久内不再重试同一个脚本地址：5 分钟 */
+const PLUGIN_RETRY_MS = 5 * 60 * 1000
+
+/** 熔断严重程度：同一次调用碰到多个时回报最严重的那个。 */
+const TRIP_RANK = { blocked: 3, challenge: 2, unreachable: 1, plugin: 0 }
+
+const worse = (a: HostTrip | undefined, b: HostTrip): HostTrip =>
+  !a || TRIP_RANK[b.reason] > TRIP_RANK[a.reason] ? b : a
 
 /** 插件动作需要的参数：去掉 action / siteName，search 统一成 {text, page}。 */
 function pluginArgs(request: VodRequest): Record<string, unknown> {
@@ -55,8 +73,43 @@ function pluginArgs(request: VodRequest): Record<string, unknown> {
 export function createOnlineHandlers(
   deps: OnlineDeps
 ): EngineHandlers<typeof online> {
+  const breaker = deps.breaker ?? createHostBreaker()
+  /** 下载失败的插件脚本：地址 → 失败时间；冷却期内直接判失败 */
+  const pluginFailures = new Map<string, number>()
+  const loadPlugin = async (url: string): Promise<string> => {
+    const failedAt = pluginFailures.get(url)
+    if (failedAt !== undefined && Date.now() - failedAt < PLUGIN_RETRY_MS)
+      throw new HostUnavailableError({
+        host: hostOf(url),
+        reason: 'plugin',
+        until: failedAt + PLUGIN_RETRY_MS,
+      })
+    try {
+      const code = await deps.loadPlugin(url)
+      pluginFailures.delete(url)
+      return code
+    } catch {
+      const now = Date.now()
+      pluginFailures.set(url, now)
+      throw new HostUnavailableError({
+        host: hostOf(url),
+        reason: 'plugin',
+        until: now + PLUGIN_RETRY_MS,
+      })
+    }
+  }
+
   return {
     sites: () => SITES,
+
+    async resetBlocks(ctx, host) {
+      breaker.reset(host)
+      if (host === undefined) pluginFailures.clear()
+      else
+        for (const url of pluginFailures.keys())
+          if (hostOf(url) === hostOf(host)) pluginFailures.delete(url)
+      await ctx.host('resetBrowserFetch', host)
+    },
 
     async vod(ctx: EngineContext, request): Promise<VodResponse> {
       const site = SITES.find(s => s.name === request.siteName)
@@ -64,12 +117,18 @@ export function createOnlineHandlers(
         return { success: false, error: `Site not found: ${request.siteName}` }
       // parse 是旧接口：CatSpider 站点上等同于按番号搜索
       const action = request.action === 'parse' ? 'search' : request.action
+      let unavailable: HostTrip | undefined
+      const onTrip = (trip: HostTrip): void => {
+        unavailable = worse(unavailable, trip)
+      }
       try {
         const data = await runCatSpider(
           {
             net: deps.net,
-            loadPlugin: deps.loadPlugin,
+            loadPlugin,
             browserFetch: url => ctx.host('browserFetch', url),
+            breaker,
+            onTrip,
             log: deps.log,
           },
           site.ext,
@@ -77,9 +136,13 @@ export function createOnlineHandlers(
           pluginArgs(request),
           site.patch
         )
-        return { success: true, data }
+        return unavailable
+          ? { success: true, data, unavailable }
+          : { success: true, data }
       } catch (error) {
-        return { success: false, error: (error as Error).message }
+        if (error instanceof HostUnavailableError) onTrip(error.trip)
+        const failed = { success: false, error: (error as Error).message }
+        return unavailable ? { ...failed, unavailable } : failed
       }
     },
 

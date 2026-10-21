@@ -9,6 +9,13 @@ import * as cheerio from 'cheerio'
 import CryptoJS from 'crypto-js'
 import { constants, privateDecrypt } from 'node:crypto'
 import type { NetClient } from '../../shared/net/client'
+import { classifyPage } from '../../shared/net/cf-page'
+import {
+  type HostBreaker,
+  type HostTrip,
+  HostUnavailableError,
+  createHostBreaker,
+} from '../../shared/net/host-breaker'
 import type { CatSpiderAction } from '../../shared/contract/online'
 
 /** 运行时依赖（便于单测替换）。 */
@@ -18,22 +25,19 @@ export interface CatSpiderDeps {
   browserFetch: (url: string) => Promise<string>
   /** 读插件源码（带本地缓存），见 plugin-cache.ts */
   loadPlugin: (url: string) => Promise<string>
+  /** 按主机熔断；在线域跨请求共用一份，缺省时每次运行各建一份 */
+  breaker?: HostBreaker
+  /** 本次运行碰到熔断（硬封锁 / 连续失败）时回报，供上层标记站点不可用 */
+  onTrip?: (trip: HostTrip) => void
   /** 调试输出 */
   log?: (line: string) => void
 }
 
-const CHALLENGE_MARKERS = [
-  'Just a moment',
-  'Attention Required',
-  'Enable JavaScript and cookies to continue',
-  '安全验证',
-  'cf-browser-verification',
-  'cf_chl_opt',
-]
-
-/** 是否 Cloudflare 一类的挑战页。 */
-export const isChallengePage = (data: unknown): boolean =>
-  typeof data === 'string' && CHALLENGE_MARKERS.some(m => data.includes(m))
+/** $fetch 返回给插件的结果。 */
+interface Fetched {
+  data: string
+  headers: Record<string, string>
+}
 
 /** 插件调用 $fetch 的选项。 */
 interface PluginFetchOptions {
@@ -149,13 +153,24 @@ function makeHtmlHelpers(): Record<string, unknown> {
   }
 }
 
-/** 构造插件的 $fetch：直连失败或拿到挑战页时，GET 请求改由浏览器代抓。 */
+/**
+ * 构造插件的 $fetch：
+ * - 主机在熔断期：直接抛 HostUnavailableError，不发请求；
+ * - 拿到硬封锁页：熔断该主机并抛错，不找浏览器（浏览器也过不去，只会弹窗打扰）；
+ * - 拿到可通过的挑战页或直连出错：GET 请求改由浏览器代抓，代抓也失败记一次失败。
+ */
 function makeFetch(deps: CatSpiderDeps): unknown {
   const log = deps.log ?? (() => {})
+  const breaker = deps.breaker ?? createHostBreaker()
+  const report = (trip: HostTrip | null): void => {
+    if (!trip) return
+    log(`[host-breaker] ${trip.host} ${trip.reason}`)
+    deps.onTrip?.(trip)
+  }
   const raw = async (
     url: string,
-    options: PluginFetchOptions = {}
-  ): Promise<{ data: string; headers: Record<string, string> }> => {
+    options: PluginFetchOptions
+  ): Promise<Fetched & { status: number }> => {
     if (!url || typeof url !== 'string') throw new Error(`Invalid URL: ${url}`)
     const method = (options.method || 'GET').toUpperCase() as 'GET' | 'POST'
     const res = await deps.net.request(url, {
@@ -169,40 +184,61 @@ function makeFetch(deps: CatSpiderDeps): unknown {
     })
     const headers: Record<string, string> = {}
     res.headers.forEach((value, key) => (headers[key] = value))
-    return { data: new TextDecoder().decode(res.body), headers }
+    const data = new TextDecoder().decode(res.body)
+    return { data, headers, status: res.status }
   }
   const viaBrowser = async (
-    url: string
-  ): Promise<{ data: string; headers: Record<string, string> } | null> => {
+    url: string,
+    reason: 'challenge' | 'unreachable'
+  ): Promise<Fetched | null> => {
     const html = await deps.browserFetch(url).catch(() => '')
-    if (html && !isChallengePage(html)) {
+    if (html && classifyPage(html) === 'ok') {
       log(`[browser-fetch] ${url}`)
+      breaker.succeed(url)
       return { data: html, headers: {} }
     }
+    report(breaker.fail(url, reason))
     return null
   }
   const fetchWithFallback = async (
     url: string,
     options: PluginFetchOptions = {}
-  ): Promise<{ data: string; headers: Record<string, string> }> => {
+  ): Promise<Fetched> => {
+    const open = typeof url === 'string' && url ? breaker.check(url) : null
+    if (open) {
+      report(open)
+      throw new HostUnavailableError(open)
+    }
     const canFallback =
       (options.method || 'GET').toUpperCase() === 'GET' && !options.body
+    let result: Fetched & { status: number }
     try {
-      const result = await raw(url, options)
-      if (canFallback && isChallengePage(result.data))
-        return (await viaBrowser(url)) ?? result
-      return result
+      result = await raw(url, options)
     } catch (error) {
-      if (canFallback) {
-        const fallback = await viaBrowser(url)
-        if (fallback) return fallback
-      }
+      const fallback = canFallback ? await viaBrowser(url, 'unreachable') : null
+      if (fallback) return fallback
+      if (!canFallback && typeof url === 'string' && url)
+        report(breaker.fail(url))
       throw error
     }
+    const verdict = classifyPage(result.data)
+    if (verdict === 'blocked') {
+      const trip = breaker.block(url)
+      report(trip)
+      throw new HostUnavailableError(trip)
+    }
+    if (verdict === 'challenge') {
+      const fallback = canFallback ? await viaBrowser(url, 'challenge') : null
+      return fallback ?? { data: result.data, headers: result.headers }
+    }
+    if (result.status >= 500) report(breaker.fail(url))
+    else breaker.succeed(url)
+    return { data: result.data, headers: result.headers }
   }
-  type Fetched = Promise<{ data: string; headers: Record<string, string> }>
-  const $fetch = (url: string, options?: PluginFetchOptions): Fetched =>
-    fetchWithFallback(url, options)
+  const $fetch = (
+    url: string,
+    options?: PluginFetchOptions
+  ): Promise<Fetched> => fetchWithFallback(url, options)
   $fetch.get = (url: string, options: PluginFetchOptions = {}) =>
     fetchWithFallback(url, options)
   $fetch.post = (
