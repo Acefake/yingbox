@@ -3,30 +3,30 @@
  * 并把变化广播给订阅方。
  *
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。
+ * 扫描 / 解析 / 指纹任务的实现在 library-jobs，纯规则在 service-rules。
  */
-import {
-  type ApplyMatchRequest,
-  type ApplyMatchResult,
-  ITEMS_CHANGED_LIMIT,
-  type IdentifyRequest,
-  type JobAccepted,
-  type LibraryEvent,
-  type LibraryInfo,
-  type LibraryItemNode,
-  type LibraryItemSummary,
-  type LibraryQueryResult,
-  type LibraryRpcMap,
-  type MatchCandidatesResult,
-  type NormalizedLibraryQuery,
-  type ProviderStatus,
-  type RefreshMetadataRequest,
-  type ScanAccepted,
-  type SetProviderTokenRequest,
+import type {
+  ApplyMatchRequest,
+  ApplyMatchResult,
+  IdentifyRequest,
+  JobAccepted,
+  LibraryEvent,
+  LibraryInfo,
+  LibraryItemNode,
+  LibraryItemSummary,
+  LibraryQueryResult,
+  LibraryRpcMap,
+  MatchCandidatesResult,
+  NormalizedLibraryQuery,
+  ProviderStatus,
+  RefreshMetadataRequest,
+  ScanAccepted,
+  SetProviderTokenRequest,
 } from '../../../shared/library/ipc'
 import { KeyedMutex } from '../jobs/keyed-mutex'
 import type { MoveOps } from '../writer/fs/file-ops'
 import { WriterModule } from '../writer/writer-module'
-import { CatalogStore, ItemChanges } from '../catalog/catalog-store'
+import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
 import {
@@ -34,35 +34,32 @@ import {
   type IdentifyModuleOptions,
 } from '../identify/identify-module'
 import { JobStore } from '../jobs/job-store'
-import { type JobContext, JobQueue, PermanentJobError } from '../jobs/queue'
+import { JobQueue, PermanentJobError } from '../jobs/queue'
 import {
   type LibraryRecord,
   LibraryStore,
   toLibraryInfo,
 } from '../libraries/library-store'
 import { fingerprintFile } from '../scanner/fingerprint'
-import { PARSER_VERSION, parseLibraryFile } from '../scanner/parse'
-import { scanLibrary } from '../scanner/scan-library'
+import { PARSER_VERSION } from '../scanner/parse'
 import { ScanStore } from '../scanner/scan-store'
 import { LibraryWatcher } from '../scanner/watcher'
+import {
+  type LibraryJobDeps,
+  runFingerprint,
+  runParse,
+  runScan,
+} from './library-jobs'
+import {
+  type LibraryPayload,
+  PRIORITY,
+  type ScanPayload,
+  itemsChangedEvent,
+  mergeScanPayload,
+  scanJobKey,
+} from './service-rules'
 
-/** 任务类型与载荷。 */
-interface ScanPayload {
-  libraryId: number
-  full?: boolean
-  /** 只重读这些目录；缺省为整库扫描。 */
-  dirs?: string[]
-}
-interface LibraryPayload {
-  libraryId: number
-}
-
-/** 任务优先级：用户手动扫描 > 监听触发 > 解析 > 指纹。 */
-const PRIORITY = { scan: 20, watch: 10, parse: 5, fingerprint: 0 } as const
-/** 指纹 / 解析任务每批处理的文件数。 */
-const BACKGROUND_BATCH = 500
-/** 同时读取的文件数：每个读 128 KiB，网络盘上并发过高反而更慢。 */
-const FINGERPRINT_CONCURRENCY = 8
+export { mergeScanPayload } from './service-rules'
 
 /** 服务参数。 */
 export interface LibraryServiceOptions {
@@ -93,19 +90,6 @@ export interface LibraryServiceOptions {
   writer?: {
     moveOps?: MoveOps
     deviceOf?: (path: string) => Promise<number | undefined>
-  }
-}
-
-/** 合并两个扫描载荷：任何一方是整库扫描就是整库扫描，否则目录取并集。 */
-export function mergeScanPayload(a: unknown, b: unknown): ScanPayload {
-  const x = a as ScanPayload
-  const y = b as ScanPayload
-  const full = !!x.full || !!y.full
-  if (!x.dirs || !y.dirs) return { libraryId: x.libraryId, full }
-  return {
-    libraryId: x.libraryId,
-    full,
-    dirs: [...new Set([...x.dirs, ...y.dirs])],
   }
 }
 
@@ -140,21 +124,36 @@ export class LibraryService {
       concurrency: options.concurrency,
       onEvent: event => this.emit(event),
     })
+    const jobs: LibraryJobDeps = {
+      db: this.db,
+      scanStore: this.scanStore,
+      catalog: this.catalog,
+      fingerprint: path => this.fingerprint(path),
+      libraryFor: id => this.libraryFor(id),
+      onLibraryScanned: id => {
+        this.libraries.markScanned(id, Date.now())
+        this.emitLibraries()
+      },
+      emitItems: (id, changes) => this.emitItems(id, changes),
+      enqueueFingerprint: id => this.enqueueLibraryJob('fingerprint', id),
+      enqueueIdentify: id => this.identifier.enqueueAuto(id),
+      log: this.log,
+    }
     this.queue.register(
       'scan',
       (p, ctx) =>
         this.locks.run((p as ScanPayload).libraryId, () =>
-          this.runScan(p as ScanPayload, ctx)
+          runScan(jobs, p as ScanPayload, ctx)
         ),
       { merge: mergeScanPayload }
     )
     this.queue.register('parse', (p, ctx) =>
       this.locks.run((p as LibraryPayload).libraryId, () =>
-        this.runParse(p as LibraryPayload, ctx)
+        runParse(jobs, p as LibraryPayload, ctx)
       )
     )
     this.queue.register('fingerprint', (p, ctx) =>
-      this.runFingerprint(p as LibraryPayload, ctx)
+      runFingerprint(jobs, p as LibraryPayload, ctx)
     )
     this.identifier = new IdentifyModule({
       ...options.identify,
@@ -311,24 +310,14 @@ export class LibraryService {
   }
 
   private emitItems(libraryId: number, changes: ItemChanges): void {
-    if (changes.empty) return
-    const count =
-      changes.added.size + changes.updated.size + changes.removed.size
-    const reset = count > ITEMS_CHANGED_LIMIT
-    this.emit({
-      type: 'items-changed',
-      libraryId,
-      added: reset ? [] : [...changes.added],
-      updated: reset ? [] : [...changes.updated],
-      removed: reset ? [] : [...changes.removed],
-      reset,
-    })
+    const event = itemsChangedEvent(libraryId, changes)
+    if (event) this.emit(event)
   }
 
   private enqueueScan(payload: ScanPayload, priority: number): { id: number } {
     return this.queue.enqueue({
       type: 'scan',
-      key: `library:${payload.libraryId}`,
+      key: scanJobKey(payload.libraryId),
       payload,
       priority,
     })
@@ -375,115 +364,6 @@ export class LibraryService {
       return this.libraries.get(libraryId)
     } catch (error) {
       throw new PermanentJobError((error as Error).message)
-    }
-  }
-
-  private async runScan(payload: ScanPayload, ctx: JobContext): Promise<void> {
-    const lib = this.libraryFor(payload.libraryId)
-    const summary = await scanLibrary(
-      {
-        db: this.db,
-        scanStore: this.scanStore,
-        catalog: this.catalog,
-        fingerprint: f => this.fingerprint(f.displayPath),
-      },
-      lib,
-      {
-        full: payload.full,
-        scope: payload.dirs,
-        signal: ctx.signal,
-        onProgress: ctx.progress,
-      }
-    )
-    for (const warning of summary.warnings.slice(0, 20)) this.log(warning)
-    if (!payload.dirs) {
-      this.libraries.markScanned(lib.id, Date.now())
-      this.emitLibraries()
-    }
-    this.emitItems(lib.id, summary.changes)
-    if (summary.added || summary.changed) {
-      this.enqueueLibraryJob('fingerprint', lib.id)
-    }
-    // 有新增 / 变化的条目就排自动识别（只处理没识别过或文件变过的）
-    if (!summary.changes.empty) this.identifier.enqueueAuto(lib.id)
-  }
-
-  /** 重解析解析版本落后的文件，并按新结果重新分组。 */
-  private async runParse(
-    payload: LibraryPayload,
-    ctx: JobContext
-  ): Promise<void> {
-    const lib = this.libraryFor(payload.libraryId)
-    const parseCtx = { libraryId: lib.id, kind: lib.kind, rootKey: lib.rootKey }
-    const changes = new ItemChanges()
-    let afterId = 0
-    for (;;) {
-      ctx.signal.throwIfAborted()
-      const batch = this.scanStore.staleParsed(
-        lib.id,
-        PARSER_VERSION,
-        afterId,
-        BACKGROUND_BATCH
-      )
-      if (!batch.length) break
-      transaction(this.db, () => {
-        const now = Date.now()
-        for (const file of batch) {
-          const parse = parseLibraryFile(parseCtx, { ...file, kind: 'video' })
-          this.scanStore.setParsed(file.id, parse.columns, now)
-          this.catalog.linkFile(
-            lib.id,
-            file.id,
-            parse.grouping,
-            false,
-            now,
-            changes
-          )
-        }
-      })
-      afterId = batch.at(-1)!.id
-      await new Promise(resolve => setImmediate(resolve))
-    }
-    transaction(this.db, () => {
-      this.catalog.collectGarbage(lib.id, changes)
-      this.catalog.bumpUpdated(changes, Date.now())
-    })
-    this.emitItems(lib.id, changes)
-    if (!changes.empty) this.identifier.enqueueAuto(lib.id)
-  }
-
-  /** 为还没有指纹的视频文件分批计算指纹（读头尾各 64 KiB）。 */
-  private async runFingerprint(
-    payload: LibraryPayload,
-    ctx: JobContext
-  ): Promise<void> {
-    const lib = this.libraryFor(payload.libraryId)
-    const failed = new Set<number>()
-    for (;;) {
-      ctx.signal.throwIfAborted()
-      const batch = this.scanStore
-        .unfingerprinted(lib.id, BACKGROUND_BATCH + failed.size)
-        .filter(f => !failed.has(f.id))
-      if (!batch.length) return
-      const results: Array<{ id: number; hash: string | undefined }> = []
-      for (let i = 0; i < batch.length; i += FINGERPRINT_CONCURRENCY) {
-        ctx.signal.throwIfAborted()
-        const chunk = batch.slice(i, i + FINGERPRINT_CONCURRENCY)
-        results.push(
-          ...(await Promise.all(
-            chunk.map(async f => ({
-              id: f.id,
-              hash: await this.fingerprint(f.displayPath),
-            }))
-          ))
-        )
-      }
-      transaction(this.db, () => {
-        for (const { id, hash } of results) {
-          if (hash) this.scanStore.setFingerprint(id, hash)
-          else failed.add(id)
-        }
-      })
     }
   }
 }

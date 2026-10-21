@@ -4,69 +4,34 @@
  *
  * 写方法都应在调用方的事务里执行。
  */
-import type { MatchState, MediaItemType } from '../../../shared/library/ipc'
-import type { ParsedMedia } from '../../../shared/library/parser'
-import type { Candidate, MediaRef } from '../../../shared/library/provider'
+import type { MatchState } from '../../../shared/library/ipc'
+import type { MediaRef } from '../../../shared/library/provider'
 import type { ScoredCandidate } from '../../../shared/library/scoring'
 import { type LibraryDb, StatementCache } from '../db/database'
+import {
+  type ChildItem,
+  type IdentifyTarget,
+  type MatchRow,
+  type StoredCandidate,
+  type TargetFile,
+  type TargetMode,
+  matchProviderId,
+  storedCandidate,
+  toChild,
+  toMatch,
+  toTarget,
+  toTargetFile,
+} from './identify-rows'
 
-/** 一个待识别的顶层条目。 */
-export interface IdentifyTarget {
-  id: number
-  libraryId: number
-  type: Extract<MediaItemType, 'movie' | 'series'>
-  localKey: string
-  title: string
-  year: number | null
-  matchState: MatchState
-  tmdbId: string | null
-}
-
-/** 条目关联的一个视频文件。 */
-export interface TargetFile {
-  id: number
-  displayPath: string
-  dir: string
-  name: string
-  size: number
-  parsed: ParsedMedia | null
-  fingerprint: string | null
-  /** 秒；未探测为 null。 */
-  duration: number | null
-}
-
-/** 剧集下的季 / 集条目。 */
-export interface ChildItem {
-  id: number
-  type: 'season' | 'episode'
-  parentId: number
-  season: number | null
-  episode: number | null
-  localKey: string
-}
-
-/** 存进 matches.candidate 的候选摘要。 */
-export interface StoredCandidate {
-  title: string
-  originalTitle?: string
-  year?: number
-  posterPath?: string
-  /** 简介摘要（截断到 OVERVIEW_SUMMARY_MAX 字）。 */
-  overview?: string
-  breakdown?: Record<string, number>
-}
-
-/** 候选简介摘要的最大字数：只给待确认列表看个大概，不占数据库空间。 */
-export const OVERVIEW_SUMMARY_MAX = 160
-
-/** 选目标的方式。 */
-export type TargetMode =
-  /** 只要“没识别过或文件变过”的、非锁定条目。 */
-  | 'pending'
-  /** 全部非锁定条目。 */
-  | 'force'
-  /** 已有 tmdb_id 的条目（含锁定），刷新元数据用。 */
-  | 'matched'
+export {
+  type ChildItem,
+  type IdentifyTarget,
+  OVERVIEW_SUMMARY_MAX,
+  type StoredCandidate,
+  type TargetFile,
+  type TargetMode,
+  storedCandidate,
+} from './identify-rows'
 
 const TARGET_COLUMNS = `id, library_id, type, local_key, title, year, match_state, tmdb_id`
 
@@ -75,28 +40,6 @@ const MODE_WHERE: Record<TargetMode, string> = {
     AND (identified_at IS NULL OR updated_at > identified_at)`,
   force: `match_state <> 'locked'`,
   matched: `tmdb_id IS NOT NULL`,
-}
-
-function toTarget(row: Record<string, unknown>): IdentifyTarget {
-  return {
-    id: Number(row.id),
-    libraryId: Number(row.library_id),
-    type: row.type as IdentifyTarget['type'],
-    localKey: String(row.local_key),
-    title: String(row.title),
-    year: row.year === null ? null : Number(row.year),
-    matchState: row.match_state as MatchState,
-    tmdbId: row.tmdb_id === null ? null : String(row.tmdb_id),
-  }
-}
-
-function parseJson<T>(text: unknown): T | null {
-  if (text === null || text === undefined) return null
-  try {
-    return JSON.parse(String(text)) as T
-  } catch {
-    return null
-  }
 }
 
 /** 识别仓库。 */
@@ -165,17 +108,7 @@ export class IdentifyStore {
          ORDER BY f.id`
       )
       .all(itemId)
-      .map(r => ({
-        itemId: Number(r.item_id),
-        id: Number(r.id),
-        displayPath: String(r.display_path),
-        dir: String(r.dir),
-        name: String(r.name),
-        size: Number(r.size),
-        parsed: parseJson<ParsedMedia>(r.parsed),
-        fingerprint: r.fingerprint === null ? null : String(r.fingerprint),
-        duration: r.duration === null ? null : Number(r.duration),
-      }))
+      .map(toTargetFile)
   }
 
   /** 剧集下的全部季、集。 */
@@ -193,14 +126,7 @@ export class IdentifyStore {
          ORDER BY i.season_number, i.episode_number, i.id`
       )
       .all(seriesId)
-      .map(r => ({
-        id: Number(r.id),
-        type: r.type as ChildItem['type'],
-        parentId: Number(r.parent_id),
-        season: r.season_number === null ? null : Number(r.season_number),
-        episode: r.episode_number === null ? null : Number(r.episode_number),
-        localKey: String(r.local_key),
-      }))
+      .map(toChild)
   }
 
   /** 某目录下的 NFO 文件（名称 → 原始路径）。 */
@@ -275,7 +201,7 @@ export class IdentifyStore {
       .run(
         itemId,
         ref.provider,
-        `${ref.kind}:${ref.id}`,
+        matchProviderId(ref),
         confidence,
         status,
         JSON.stringify(candidate),
@@ -303,7 +229,7 @@ export class IdentifyStore {
       insert.run(
         itemId,
         s.candidate.ref.provider,
-        `${s.candidate.ref.kind}:${s.candidate.ref.id}`,
+        matchProviderId(s.candidate.ref),
         s.score,
         state,
         JSON.stringify(storedCandidate(s.candidate, s.breakdown)),
@@ -320,12 +246,7 @@ export class IdentifyStore {
   }
 
   /** 条目的匹配记录（当前匹配在前，其余按置信度降序）。 */
-  matches(itemId: number): Array<{
-    ref: MediaRef
-    status: MatchState
-    confidence: number
-    candidate: StoredCandidate
-  }> {
+  matches(itemId: number): MatchRow[] {
     return this.sql
       .get(
         `SELECT provider, provider_id, confidence, status, candidate FROM matches
@@ -333,19 +254,7 @@ export class IdentifyStore {
          ORDER BY status IN ('auto', 'locked') DESC, confidence DESC, id`
       )
       .all(itemId)
-      .map(r => {
-        const [kind, id] = String(r.provider_id).split(':')
-        return {
-          ref: {
-            provider: 'tmdb',
-            kind: kind as MediaRef['kind'],
-            id,
-          },
-          status: r.status as MatchState,
-          confidence: Number(r.confidence),
-          candidate: parseJson<StoredCandidate>(r.candidate) ?? { title: '' },
-        }
-      })
+      .map(toMatch)
   }
 
   /** 设置匹配状态（锁定 / 解锁）。 */
@@ -394,28 +303,5 @@ export class IdentifyStore {
     )
     for (const fileId of fileIds) move.run(id, fileId, item.id)
     return id
-  }
-}
-
-/** 候选 → matches.candidate。 */
-export function storedCandidate(
-  c: Candidate,
-  breakdown?: object
-): StoredCandidate {
-  const clean: Record<string, number> = {}
-  for (const [k, v] of Object.entries(breakdown ?? {}) as Array<
-    [string, unknown]
-  >) {
-    if (typeof v === 'number') clean[k] = Math.round(v * 1000) / 1000
-  }
-  return {
-    title: c.title,
-    ...(c.originalTitle ? { originalTitle: c.originalTitle } : {}),
-    ...(c.year ? { year: c.year } : {}),
-    ...(c.posterPath ? { posterPath: c.posterPath } : {}),
-    ...(c.overview
-      ? { overview: c.overview.slice(0, OVERVIEW_SUMMARY_MAX) }
-      : {}),
-    ...(Object.keys(clean).length ? { breakdown: clean } : {}),
   }
 }
