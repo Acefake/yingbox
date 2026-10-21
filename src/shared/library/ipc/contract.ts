@@ -19,6 +19,7 @@ import type {
 } from './contract-writer'
 
 export * from './contract-events'
+export * from './contract-http'
 export * from './contract-jav'
 export * from './contract-writer'
 
@@ -353,9 +354,14 @@ export interface LibraryBridge {
   refreshMetadata(request: RefreshMetadataRequest): Promise<JobAccepted>
   /**
    * 元数据源配置状态。TMDB 令牌由主进程下发给引擎（src/main/tmdb.ts），
-   * 渲染层改令牌走 settings.setSecret，bridge 不再提供 setProviderToken。
+   * 渲染层改令牌走 settings.setSecret，桌面端 bridge 不提供 setProviderToken。
    */
   getProviderStatus(): Promise<ProviderStatus>
+  /**
+   * 设置 TMDB 令牌（null 清除）。只有独立服务的网页端 transport 提供：
+   * 网页端没有主进程与设置密钥，令牌由服务存进它自己的密钥文件并下发给片库。
+   */
+  setProviderToken?(token: string | null): Promise<ProviderStatus>
   /** 写出层：NFO / 图片 / 整理（改名移动）。进度见 writer-progress 事件。 */
   writer: LibraryWriterBridge
   /** 番号站点设置（开关与优先级）。 */
