@@ -13,7 +13,8 @@
     />
     <div class="site-text">
       <span class="site-name">{{ name }}</span>
-      <span class="site-api">{{ api }}</span>
+      <span v-if="note" class="site-note">{{ note }}</span>
+      <span v-else class="site-api">{{ api }}</span>
     </div>
     <em class="site-badge" :class="`is-${badgeColor}`">{{ badge }}</em>
     <div class="site-actions" @click.stop>
@@ -21,7 +22,7 @@
         v-if="checkable"
         icon="refresh"
         size="sm"
-        :label="`检测数据源 ${name}`"
+        :label="`${checkLabel} ${name}`"
         :loading="checking"
         @click="emit('check')"
       />
@@ -63,11 +64,21 @@ const props = withDefaults(
     /** 'ok' | 'fail' | 'checking' | 'unknown' */
     status?: string
     checking?: boolean
-    /** 是否提供「检测」按钮（插件源没有检测） */
+    /** 是否提供「检测」按钮（插件源只在不可用时提供「重试」） */
     checkable?: boolean
+    /** 检测按钮的读屏文字前缀 */
+    checkLabel?: string
+    /** 名称旁的一行说明（如插件源不可用的原因） */
+    note?: string
     deletable?: boolean
   }>(),
-  { badgeColor: 'blue', status: 'unknown', checkable: true }
+  {
+    badgeColor: 'blue',
+    status: 'unknown',
+    checkable: true,
+    checkLabel: '检测数据源',
+    note: '',
+  }
 )
 const emit = defineEmits<{ toggle: []; check: []; delete: [] }>()
 
@@ -147,6 +158,14 @@ const statusText = computed(() => {
 }
 .site-row:hover .site-api {
   display: block;
+}
+.site-note {
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
 .site-badge {
   flex-shrink: 0;

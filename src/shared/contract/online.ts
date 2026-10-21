@@ -4,9 +4,13 @@ import {
   defineDomain,
   oneOf,
   optRecord,
+  optStr,
   record,
   str,
 } from './define'
+import type { HostTrip } from '../net/host-breaker'
+
+export type { HostTrip, TripReason } from '../net/host-breaker'
 
 /** CatSpider（XPTV）插件站点。 */
 export interface CatSpiderSite {
@@ -48,6 +52,8 @@ export interface VodResponse {
   success: boolean
   data?: unknown
   error?: string
+  /** 本次调用碰到的熔断（站点被拦截 / 连不上 / 插件下载失败）；渲染层据此把源标成不可用 */
+  unavailable?: HostTrip
 }
 
 /**
@@ -74,6 +80,8 @@ export const online = defineDomain('online', {
     str(request.siteName, 'request.siteName')
     return [request]
   }),
+  /** 解除插件源的主机熔断（引擎与浏览器代抓两边）；不给主机则全部解除 */
+  resetBlocks: call<[host?: string], void>(a => [optStr(a[0], 'host')]),
   /** GET 一个 JSON 接口（CMS、豆瓣、TMDB、源清单）；失败 reject */
   getJson: call<[url: string, options?: GetJsonOptions], unknown>(a => [
     str(a[0], 'url'),

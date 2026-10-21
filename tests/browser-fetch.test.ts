@@ -61,13 +61,21 @@ vi.mock('electron', () => {
   }
 })
 
-import { browserFetch } from '../src/main/browser-fetch'
+import { readFileSync } from 'node:fs'
+import { join } from 'node:path'
+import { browserFetch, resetBrowserFetch } from '../src/main/browser-fetch'
 
 const page = (text: string): string =>
   `<html><body>${text}${'.'.repeat(600)}</body></html>`
 const challenge = `<html><body>Just a moment${'.'.repeat(600)}</body></html>`
 
+const blocked = readFileSync(
+  join(__dirname, 'fixtures/cloudflare/blocked-4k-av.html'),
+  'utf-8'
+)
+
 beforeEach(() => {
+  resetBrowserFetch()
   state.pages = []
   state.windows = []
   state.active = 0
@@ -120,5 +128,71 @@ describe('browserFetch', () => {
     state.pages.push([challenge], [page('next')])
     expect(await browserFetch('https://example.com/x', 0)).toBe('')
     expect(await browserFetch('https://example.com/y', 0)).toContain('next')
+  })
+
+  it('硬封锁页：窗口从不显示、立即销毁，返回空串', async () => {
+    state.pages.push([blocked])
+    const started = Date.now()
+    expect(await browserFetch('https://4k-av.test/s?q=1', 3000)).toBe('')
+    expect(Date.now() - started).toBeLessThan(1000)
+    expect(state.windows[0]).toMatchObject({ shown: false, destroyed: true })
+  })
+
+  it('被封主机熔断：同主机后续请求不开窗口；resetBrowserFetch 后恢复', async () => {
+    state.pages.push([blocked], [page('again')])
+    await browserFetch('https://4k-av.test/a', 0)
+    expect(await browserFetch('https://4k-av.test/b', 0)).toBe('')
+    expect(state.windows).toHaveLength(1)
+    resetBrowserFetch('4k-av.test')
+    expect(await browserFetch('https://4k-av.test/b', 0)).toContain('again')
+    expect(state.windows).toHaveLength(2)
+  })
+
+  it('排队中的同主机请求在前一个被封后不再开窗口', async () => {
+    state.pages.push([blocked], [page('x')], [page('y')])
+    const results = await Promise.all([
+      browserFetch('https://4k-av.test/1', 0),
+      browserFetch('https://4k-av.test/2', 0),
+      browserFetch('https://other.test/3', 0),
+    ])
+    expect(results[0]).toBe('')
+    expect(results[1]).toBe('')
+    expect(results[2]).toContain('x')
+    expect(state.windows).toHaveLength(2)
+  })
+
+  it('熔断中的主机不排队：前面有慢请求时也立即返回', async () => {
+    state.pages.push([blocked], [challenge, page('slow')])
+    await browserFetch('https://4k-av.test/a', 0)
+    const slow = browserFetch('https://slow.test/x', 3000)
+    const started = Date.now()
+    expect(await browserFetch('https://4k-av.test/b', 0)).toBe('')
+    expect(Date.now() - started).toBeLessThan(300)
+    expect(await slow).toContain('slow')
+  })
+
+  it('挑战途中跳到封锁页：不等满时限立即收起', async () => {
+    state.pages.push([challenge, blocked])
+    const started = Date.now()
+    expect(await browserFetch('https://cf.test/x', 10000)).toBe('')
+    expect(Date.now() - started).toBeLessThan(3000)
+    expect(state.windows[0].destroyed).toBe(true)
+  })
+
+  it('同一地址并发请求只开一个窗口、共用结果', async () => {
+    state.pages.push([page('shared')], [page('second')])
+    const [a, b] = await Promise.all([
+      browserFetch('https://same.test/p', 0),
+      browserFetch('https://same.test/p', 0),
+    ])
+    expect(a).toContain('shared')
+    expect(b).toBe(a)
+    expect(state.windows).toHaveLength(1)
+  })
+
+  it('挑战连续 3 次没过：该主机熔断，不再弹窗', async () => {
+    state.pages.push([challenge], [challenge], [challenge], [page('no')])
+    for (let i = 0; i < 4; i++) await browserFetch(`https://cf.test/${i}`, 0)
+    expect(state.windows).toHaveLength(3)
   })
 })

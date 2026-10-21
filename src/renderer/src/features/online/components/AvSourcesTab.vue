@@ -30,9 +30,9 @@
       badge="插件"
       badge-color="purple"
       :enabled="selectedCatSpider.includes(s.api)"
-      status="ok"
-      :checkable="false"
+      v-bind="pluginRowProps(s.name)"
       @toggle="toggleCatSpider(s.api)"
+      @check="retryPlugin(s.name)"
     />
   </SourceSection>
 </template>
@@ -49,6 +49,7 @@ import {
   selectedCatSpider,
   toggleCatSpider,
 } from '../composables/catspider-sites'
+import { pluginRowProps, retryPlugin } from '../composables/plugin-health'
 import {
   avCheckingSet,
   avStatusOf,

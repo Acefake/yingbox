@@ -39,6 +39,12 @@
       <UiButton icon="search" label="重新搜索" @click="handleSearch()" />
     </div>
 
+    <p v-if="skippedPlugins.length" class="skipped-note" role="status">
+      {{ skippedPlugins.length }} 个插件源暂不可用，已跳过：{{
+        skippedPlugins.join('、')
+      }}
+    </p>
+
     <div v-if="!results.length && !loading && !error" class="empty-search">
       <svg
         viewBox="0 0 24 24"
@@ -139,7 +145,14 @@ const emit = defineEmits<{
   (e: 'openItem', item: CmsItem): void
 }>()
 
-const { keyword, results, loading, error, search: doSearch } = useOnlineSearch()
+const {
+  keyword,
+  results,
+  loading,
+  error,
+  skippedPlugins,
+  search: doSearch,
+} = useOnlineSearch()
 const route = useRoute()
 const router = useRouter()
 
@@ -210,6 +223,11 @@ defineExpose({ handleSearch, saveHistory })
 </script>
 
 <style scoped>
+.skipped-note {
+  margin: 0 0 var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
 .source-section--spaced {
   margin-top: var(--space-5);
 }
