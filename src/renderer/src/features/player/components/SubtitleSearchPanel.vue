@@ -1,0 +1,172 @@
+<template>
+  <div class="unified-player-subtitle-panel">
+    <DialogTitlebar
+      title="在线字幕 (OpenSubtitles)"
+      icon="subtitle"
+      @close="emit('close')"
+    />
+    <div class="usp-search-row">
+      <UiInput
+        v-model="query"
+        class="usp-input"
+        size="sm"
+        placeholder="影视名称…"
+        @keydown.enter="emit('search')"
+      />
+      <UiButton
+        size="sm"
+        icon="search"
+        :label="searching ? '搜索中…' : '搜索'"
+        :loading="searching"
+        @click="emit('search')"
+      />
+    </div>
+    <p v-if="message" class="usp-msg">{{ message }}</p>
+    <div class="usp-list">
+      <UiListRow
+        v-for="hit in hits"
+        :key="hit.fileId"
+        class="usp-item"
+        :disabled="downloadingId === hit.fileId"
+        @click="emit('pick', hit)"
+      >
+        <span class="usp-item-name">{{ hit.name }}</span>
+        <template #description>
+          <span class="usp-item-meta">
+            <UiIcon name="download" size="sm" />{{ hit.downloads }}
+            <template v-if="hit.rating">
+              · <UiIcon name="star" size="sm" filled />{{ hit.rating }}
+            </template>
+            · {{ hit.format }}
+            {{ downloadingId === hit.fileId ? '· 下载中…' : '' }}
+          </span>
+        </template>
+      </UiListRow>
+      <p v-if="!searching && hits.length === 0 && message" class="usp-empty">
+        无结果
+      </p>
+    </div>
+  </div>
+</template>
+
+<script setup lang="ts">
+/**
+ * 在线字幕（OpenSubtitles）搜索面板：搜索框 + 结果列表。只负责展示，状态与下载在 usePlayerSubtitles。
+ */
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiInput from '@/components/ui/UiInput.vue'
+import UiListRow from '@/components/ui/UiListRow.vue'
+
+import type { OnlineSubtitleHit } from '../composables/use-player-subtitles'
+
+defineProps<{
+  /** 搜索结果 */
+  hits: OnlineSubtitleHit[]
+  /** 是否正在搜索 */
+  searching: boolean
+  /** 正在下载的字幕 fileId */
+  downloadingId: number | null
+  /** 提示或错误信息 */
+  message: string
+}>()
+const emit = defineEmits<{
+  search: []
+  pick: [hit: OnlineSubtitleHit]
+  close: []
+}>()
+
+/** 搜索关键词（v-model:query） */
+const query = defineModel<string>('query', { required: true })
+</script>
+
+<style scoped>
+.unified-player-subtitle-panel {
+  position: absolute;
+  right: 12px;
+  bottom: 56px;
+  z-index: 30;
+  width: min(360px, 86vw);
+  max-height: min(420px, 60vh);
+  display: flex;
+  flex-direction: column;
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+  border: 1px solid var(--border-strong);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  overflow: hidden;
+
+  backdrop-filter: none;
+}
+
+.usp-search-row {
+  display: flex;
+  gap: 8px;
+  padding: 10px 12px;
+}
+
+.usp-input {
+  flex: 1;
+}
+
+.usp-msg {
+  margin: 0 12px 8px;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.usp-list {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: 0 8px 10px;
+}
+
+/* 结果行为 UiListRow：这里只保留紧凑尺寸和面板内的填充底 */
+.usp-item {
+  padding: 8px 10px;
+  margin-bottom: 4px;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-secondary);
+  color: inherit;
+}
+
+.usp-item:hover:not(:disabled) {
+  background: var(--bg-glass-hover);
+}
+
+.usp-item:disabled {
+  opacity: 0.6;
+}
+
+.usp-item-name {
+  display: block;
+  font-size: var(--text-xs);
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.usp-item-meta {
+  display: inline-flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 3px;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+}
+
+.usp-item-meta .app-icon {
+  width: 11px;
+  height: 11px;
+}
+
+.usp-empty {
+  margin: 8px 4px;
+  font-size: var(--text-2xs);
+  color: var(--text-tertiary);
+  text-align: center;
+}
+</style>

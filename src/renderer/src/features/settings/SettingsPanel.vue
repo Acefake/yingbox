@@ -17,32 +17,12 @@
       <div class="settings-frame">
         <DialogTitlebar title="设置" icon="settings" @close="requestClose" />
         <div class="settings-body">
-          <!-- 左侧：搜索 + 分区导航 -->
-          <aside class="settings-nav">
-            <UiInput
-              v-model="navQuery"
-              class="settings-search"
-              variant="filled"
-              size="sm"
-              icon="search"
-              placeholder="搜索设置"
-              aria-label="搜索设置"
-            />
-            <nav class="settings-nav-list" aria-label="设置分区">
-              <UiNavItem
-                v-for="sec in visibleSections"
-                :key="sec.id"
-                class="settings-nav-item"
-                :label="sec.title"
-                :icon="sec.icon"
-                :active="current?.id === sec.id"
-                @click="selectSection(sec.id)"
-              />
-              <p v-if="visibleSections.length === 0" class="settings-nav-empty">
-                没有匹配的设置
-              </p>
-            </nav>
-          </aside>
+          <SettingsNav
+            v-model:query="navQuery"
+            :sections="visibleSections"
+            :active-id="current?.id"
+            @select="selectSection"
+          />
 
           <!-- 右侧：内容区。fill 分区自管滚动，其余由面板统一滚动 -->
           <section
@@ -81,20 +61,13 @@
  * 分区可 defineExpose({ canLeave }) 拦截切换与关闭（如 Amane 的未保存修改）。
  * 软件更新状态需要在窗口关闭时也持续接收，所以这里一创建就启动 useUpdateStatus。
  */
-import {
-  type Component,
-  computed,
-  onBeforeUnmount,
-  ref,
-  shallowRef,
-  watch,
-} from 'vue'
+import { type Component, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
-import UiInput from '@/components/ui/UiInput.vue'
-import UiNavItem from '@/components/ui/UiNavItem.vue'
 
 import { settingsSections } from './registry'
+import SettingsNav from './ui/SettingsNav.vue'
+import { useSectionNavigation } from './use-section-navigation'
 import { useSetting } from './use-setting'
 import { useUpdateStatus } from './use-update-status'
 
@@ -104,34 +77,18 @@ const emit = defineEmits<{ close: [] }>()
 useUpdateStatus()
 
 // ── 分区导航 ────────────────────────────────────────────────
-const adultMode = useSetting('app.adultMode')
-const available = computed(() =>
-  settingsSections.filter(section => adultMode.value || !section.adultOnly)
-)
-
-const navQuery = ref('')
-/** 当前分区与它的子页（来自 "<分区>:<子页>"，切换分区后清空） */
-const target = ref<{ id: string; sub?: string }>({ id: 'appearance' })
-
-const visibleSections = computed(() => {
-  const q = navQuery.value.trim().toLowerCase()
-  if (!q) return available.value
-  return available.value.filter(s =>
-    `${s.title} ${s.keywords}`.toLowerCase().includes(q)
-  )
+const {
+  navQuery,
+  visibleSections,
+  current,
+  sectionProps,
+  selectSection,
+  openTarget,
+} = useSectionNavigation({
+  sections: () => settingsSections,
+  adultMode: useSetting('app.adultMode'),
+  canLeave,
 })
-
-const current = computed(
-  () =>
-    available.value.find(s => s.id === target.value.id) ??
-    visibleSections.value[0] ??
-    available.value[0]
-)
-
-const sectionProps = computed(() => ({
-  ...current.value?.props,
-  ...(target.value.sub ? { sub: target.value.sub } : {}),
-}))
 
 // ── 分区组件懒加载 ───────────────────────────────────────────
 const loaded = shallowRef<Component | null>(null)
@@ -153,12 +110,6 @@ function canLeave(): boolean {
   return sectionRef.value?.canLeave?.() !== false
 }
 
-function selectSection(id: string, sub?: string): boolean {
-  if (id !== current.value?.id && !canLeave()) return false
-  target.value = { id, sub }
-  return true
-}
-
 function requestClose(): void {
   if (canLeave()) emit('close')
 }
@@ -166,20 +117,9 @@ function requestClose(): void {
 watch(
   () => [props.visible, props.initialSection] as const,
   ([visible, initial]) => {
-    if (!visible || !initial) return
-    const [id, sub] = initial.split(':')
-    if (!available.value.some(s => s.id === id)) return
-    if (selectSection(id, sub)) navQuery.value = ''
+    if (visible && initial) openTarget(initial)
   }
 )
-
-watch(navQuery, () => {
-  const vis = visibleSections.value
-  if (vis.length && !vis.some(s => s.id === current.value?.id)) {
-    if (selectSection(vis[0].id)) return
-    navQuery.value = ''
-  }
-})
 
 // ── 打开/关闭行为 ───────────────────────────────────────────
 const onKeydown = (e: KeyboardEvent): void => {
@@ -240,37 +180,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   flex: 1;
   min-width: 0;
   min-height: 0;
-}
-
-/* ── 左侧导航：靠底色和内容区分开，不画分隔线 ── */
-.settings-nav {
-  display: flex;
-  flex: 0 0 216px;
-  flex-direction: column;
-  min-height: 0;
-  padding: var(--space-4) var(--space-3);
-  background: var(--bg-sidebar);
-}
-
-.settings-search {
-  flex: 0 0 auto;
-  margin-bottom: var(--space-3);
-}
-
-.settings-nav-list {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-0_5);
-  min-height: 0;
-  overflow-y: auto;
-}
-
-/* 分区导航项即 UiNavItem 的默认外观，这里不再重复 */
-.settings-nav-empty {
-  margin: var(--space-2) var(--space-1);
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
 }
 
 /* ── 右侧内容 ── */
@@ -363,30 +272,6 @@ onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
   }
   .settings-body {
     flex-direction: column;
-  }
-  .settings-nav {
-    flex: 0 0 auto;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-2) var(--space-3);
-  }
-  .settings-search {
-    flex: 0 0 132px;
-    margin-bottom: 0;
-  }
-  .settings-nav-list {
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  .settings-nav-item {
-    flex: 0 0 auto;
-    width: auto;
-  }
-  .settings-nav-empty {
-    display: none;
   }
   .settings-main-title {
     padding: var(--space-4) var(--space-4) var(--space-3);
