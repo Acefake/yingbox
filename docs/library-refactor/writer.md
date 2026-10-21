@@ -7,7 +7,9 @@ P5 在引擎里补上“写回媒体库”：为已识别的电影 / 剧集写 N
 
 ```
 src/main/library/writer/
-  writer-module       组装、注册任务（writer-write / writer-organize / writer-undo）、writer.* IPC、进度事件
+  writer-module       组装、注册任务（writer-write / writer-organize / writer-undo）、writer.* IPC
+  writer-jobs         写出 / 整理 / 撤销任务与进度事件
+  writer-rules        纯规则：合并、执行步骤排序、批次状态、计划过期、进度节流
   writer-settings     设置持久化（settings 表 writer.settings，读取时与默认值合并）
   writer-store        writer_outputs、写出时间、整理批次 / 日志、整理后 files 表路径更新
   nfo/xml             XML 转义与生成；容错切块（只切根元素的直接子元素，读不懂返回 null）
@@ -16,6 +18,7 @@ src/main/library/writer/
   write/output-plan   一个条目写哪些 sidecar（纯函数）
   write/output-writer 单个 sidecar 的写入、跳过判断
   organize/organize-planner  整理预览与冲突检查（只读）
+  organize/organize-targets  模板目标路径、旁挂归属、冲突连带（纯函数）
   organize/organize-runner   执行 / 撤销（批次日志、幂等重跑）
   fs/file-ops         原子写、内容未变跳过、移动（跨盘 复制 → 校验 → 删除）
 src/main/library/jobs/keyed-mutex   同一媒体库的扫描与整理互斥

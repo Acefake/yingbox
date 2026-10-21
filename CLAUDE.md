@@ -18,7 +18,7 @@ pnpm typecheck:node     # tsc for main/preload
 pnpm typecheck:web      # vue-tsc for renderer
 
 # Lint / format
-pnpm lint               # eslint --cache + check:size --strict（单文件 ≤ 400 行，影视文件豁免）
+pnpm lint               # eslint --cache + check:size --strict（单文件 ≤ 400 行，无豁免）
 pnpm format             # prettier --write .
 
 # Tests
