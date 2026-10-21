@@ -1,32 +1,16 @@
 /**
  * CMS / CatSpider 返回数据的纯解析：外部数据只在这里整理成 CmsItem / EpisodeGroup。
  */
-import type { ApiSite, CatSpiderSite, CmsItem, EpisodeGroup } from '../types'
-
-/** CatSpider 插件同时存在对象返回和 JSON 字符串返回两种实现（最多解两层字符串）。 */
-export const normalizeVodPayload = (payload: unknown): any => {
-  let value: any = payload
-  for (let i = 0; i < 2 && typeof value === 'string'; i++) {
-    try {
-      value = JSON.parse(value)
-    } catch {
-      return null
-    }
-  }
-  return value && typeof value === 'object' ? value : null
-}
-
-/** 取出 payload.list 或 payload.data.list；都没有时返回空数组。 */
-export const getVodList = (payload: unknown): any[] => {
-  const data = normalizeVodPayload(payload)
-  if (!data) return []
-  const nested = normalizeVodPayload(data.data)
-  return Array.isArray(data.list)
-    ? data.list
-    : Array.isArray(nested?.list)
-      ? nested.list
-      : []
-}
+import { asArray, asRecord, asText } from '@/utils/json'
+import { asRawVod } from '@/utils/vod-data'
+import type {
+  ApiSite,
+  CatSpiderSite,
+  CmsItem,
+  CmsSource,
+  Episode,
+  EpisodeGroup,
+} from '../types'
 
 /** CMS 搜索结果补上来源字段。 */
 export const toCmsSearchItems = (list: CmsItem[], site: ApiSite): CmsItem[] =>
@@ -39,11 +23,11 @@ export const toCmsSearchItems = (list: CmsItem[], site: ApiSite): CmsItem[] =>
 
 /** CatSpider 搜索结果整理成 CmsItem（vod_id 缺失时用 ext.url）。 */
 export const toCatSpiderSearchItems = (
-  list: any[],
+  list: unknown[],
   site: CatSpiderSite
 ): CmsItem[] =>
-  list.map(item => ({
-    vod_id: item.vod_id || item.ext?.url || '',
+  list.map(asRawVod).map(item => ({
+    vod_id: item.vod_id || asText(item.ext?.url),
     vod_name: item.vod_name || '',
     type_name: item.type_name || '',
     vod_year: item.vod_year || '',
@@ -106,7 +90,7 @@ export const parseCmsGroups = (
  * A. group.tracks[]（茶杯狐等）；B. group 本身是苹果 CMS 格式（荐片）；C. group.list[]。
  */
 export const parseCatSpiderGroups = (
-  list: any[],
+  list: unknown[],
   siteName: string
 ): EpisodeGroup[] => {
   const groups: EpisodeGroup[] = []
@@ -115,25 +99,31 @@ export const parseCatSpiderGroups = (
     _source: 'catspider' as const,
     _siteName: siteName,
   }
-  for (const group of list) {
-    if (Array.isArray(group.tracks) && group.tracks.length) {
+  for (const raw of list) {
+    const group = asRecord(raw)
+    if (!group) continue
+    const groupLabel = asText(group.name) || asText(group.title) || siteName
+    const tracks = asArray(group.tracks)
+    const playUrl = asText(group.vod_play_url)
+    if (tracks.length) {
       groups.push({
         ...base,
-        label: group.name || group.title || siteName,
-        episodes: group.tracks.map((ep: any) => {
-          const ext = ep.ext || {}
-          const url = ep.url || ext.url || ''
+        label: groupLabel,
+        episodes: tracks.map((track): Episode => {
+          const ep = asRecord(track) ?? {}
+          const ext = asRecord(ep.ext) ?? {}
+          const url = asText(ep.url) || asText(ext.url)
           // 保留插件需要的 id、referer 等字段，同时确保直链可回退播放。
           return {
-            name: ep.name || ep.title || '',
+            name: asText(ep.name) || asText(ep.title),
             url,
-            ext: { ...ext, url: ext.url || url },
+            ext: { ...ext, url: asText(ext.url) || url },
           }
         }),
       })
-    } else if (group.vod_play_url) {
-      const fromNames = (group.vod_play_from || '').split('$$$')
-      const playSources = (group.vod_play_url as string).split('$$$')
+    } else if (playUrl) {
+      const fromNames = asText(group.vod_play_from).split('$$$')
+      const playSources = playUrl.split('$$$')
       playSources.forEach((src, i) => {
         const episodes = src
           .split('#')
@@ -152,15 +142,18 @@ export const parseCatSpiderGroups = (
             : fromLabel || siteName
         groups.push({ ...base, label, episodes })
       })
-    } else if (Array.isArray(group.list) && group.list.length) {
+    } else if (asArray(group.list).length) {
       groups.push({
         ...base,
-        label: group.name || group.title || siteName,
-        episodes: group.list.map((ep: any) => ({
-          name: ep.name || ep.title || '',
-          url: ep.url || '',
-          ext: ep.ext || {},
-        })),
+        label: groupLabel,
+        episodes: asArray(group.list).map((item): Episode => {
+          const ep = asRecord(item) ?? {}
+          return {
+            name: asText(ep.name) || asText(ep.title),
+            url: asText(ep.url),
+            ext: asRecord(ep.ext) ?? {},
+          }
+        }),
       })
     }
   }
@@ -168,7 +161,7 @@ export const parseCatSpiderGroups = (
 }
 
 /** 条目要查详情的 CMS 来源：聚合条目用 sources，否则用自身的 api_url。 */
-export const cmsDetailSources = (item: CmsItem) =>
+export const cmsDetailSources = (item: CmsItem): CmsSource[] =>
   item.sources?.length
     ? item.sources
     : item.api_url
@@ -180,9 +173,3 @@ export const cmsDetailSources = (item: CmsItem) =>
           },
         ]
       : []
-
-/** 插件 getPlayinfo 返回里的第一个播放地址。 */
-export const firstPlayUrl = (data: any): string => {
-  const urls = data?.urls || data?.data?.urls || []
-  return urls[0] || ''
-}

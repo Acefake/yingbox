@@ -15,7 +15,13 @@
  * 该目录已被 .gitignore 忽略，不进入版本库。
  */
 import { spawnSync } from 'node:child_process'
-import { createWriteStream, existsSync, mkdirSync, rmSync, statSync } from 'node:fs'
+import {
+  createWriteStream,
+  existsSync,
+  mkdirSync,
+  rmSync,
+  statSync,
+} from 'node:fs'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 import { tmpdir } from 'node:os'
@@ -31,7 +37,13 @@ const ARCHIVE = `mpv-x86_64-${RELEASE}-git-492bae0768.7z`
 const URL = `https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/${RELEASE}/${ARCHIVE}`
 
 /** 解压后仅保留运行时所需内容 */
-const PRUNE = ['doc', 'installer', 'mpv-register.bat', 'mpv-unregister.bat', 'updater.bat']
+const PRUNE = [
+  'doc',
+  'installer',
+  'mpv-register.bat',
+  'mpv-unregister.bat',
+  'updater.bat',
+]
 
 const log = (...a) => console.log('[fetch:mpv]', ...a)
 
@@ -48,13 +60,33 @@ function canRun(cmd, args) {
 
 /** 找到可解压 .7z 的工具及其参数构造方式 */
 function findExtractor() {
-  const systemTar = path.join(process.env.WINDIR || 'C:\\Windows', 'System32', 'tar.exe')
-  if (process.platform === 'win32' && existsSync(systemTar) && canRun(systemTar, ['--version'])) {
-    return { cmd: systemTar, extract: (archive, dest) => [['-xf', archive, '-C', dest], { cwd: undefined }] }
+  const systemTar = path.join(
+    process.env.WINDIR || 'C:\\Windows',
+    'System32',
+    'tar.exe'
+  )
+  if (
+    process.platform === 'win32' &&
+    existsSync(systemTar) &&
+    canRun(systemTar, ['--version'])
+  ) {
+    return {
+      cmd: systemTar,
+      extract: (archive, dest) => [
+        ['-xf', archive, '-C', dest],
+        { cwd: undefined },
+      ],
+    }
   }
   for (const sevenZip of ['7z', '7za']) {
     if (canRun(sevenZip, ['i'])) {
-      return { cmd: sevenZip, extract: (archive, dest) => [['x', '-y', `-o${dest}`, archive], { cwd: undefined }] }
+      return {
+        cmd: sevenZip,
+        extract: (archive, dest) => [
+          ['x', '-y', `-o${dest}`, archive],
+          { cwd: undefined },
+        ],
+      }
     }
   }
   return null
@@ -73,7 +105,9 @@ async function main() {
   const exe = path.join(DEST, 'mpv.exe')
 
   if (process.platform !== 'win32') {
-    log('非 Windows 平台跳过：请使用系统 mpv（macOS: brew install mpv / Linux: sudo apt install mpv）')
+    log(
+      '非 Windows 平台跳过：请使用系统 mpv（macOS: brew install mpv / Linux: sudo apt install mpv）'
+    )
     return
   }
   if (existsSync(exe) && !force) {
@@ -82,7 +116,10 @@ async function main() {
   }
 
   const extractor = findExtractor()
-  if (!extractor) throw new Error('找不到可解压 .7z 的工具（需要 Windows 自带 tar.exe，或 7z/7za）')
+  if (!extractor)
+    throw new Error(
+      '找不到可解压 .7z 的工具（需要 Windows 自带 tar.exe，或 7z/7za）'
+    )
 
   const archive = path.join(tmpdir(), ARCHIVE)
   await download(URL, archive)
@@ -93,7 +130,8 @@ async function main() {
   const [args, opts] = extractor.extract(archive, DEST)
   if (run(extractor.cmd, args, opts) !== 0) throw new Error('解压失败')
 
-  for (const item of PRUNE) rmSync(path.join(DEST, item), { recursive: true, force: true })
+  for (const item of PRUNE)
+    rmSync(path.join(DEST, item), { recursive: true, force: true })
   if (!existsSync(exe)) throw new Error('解压后未找到 mpv.exe')
 
   const probe = spawnSync(exe, ['--version'], { encoding: 'utf8' })

@@ -169,9 +169,9 @@ export async function openSettingsStore(
       }
       // 旧明文密钥（TMDB 令牌）：加密后填空位；系统密钥存储不可用时放弃，不落明文
       if (codec.available()) {
-        for (const [key, plain] of Object.entries(legacySecrets(legacy)) as Array<
-          [SecretKey, string]
-        >) {
+        for (const [key, plain] of Object.entries(
+          legacySecrets(legacy)
+        ) as Array<[SecretKey, string]>) {
           if (!state.secrets[key]) state.secrets[key] = codec.encrypt(plain)
         }
       }

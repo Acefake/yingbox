@@ -91,7 +91,7 @@
         >
           <span class="dw-meta-label">地区</span>
           <span class="dw-meta-val">{{
-            tmdbDetail.production_countries.map((c: any) => c.name).join('、')
+            (tmdbDetail?.production_countries ?? []).map(c => c.name).join('、')
           }}</span>
         </div>
       </div>
@@ -107,18 +107,19 @@
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import type { Episode, OnlineDetailItem, PluginExt, TmdbDetail } from '../types'
 
 defineProps<{
-  tmdbDetail: any
-  itemData: any
+  tmdbDetail: TmdbDetail | null
+  itemData: OnlineDetailItem | null
   itemName: string
   itemPic: string
   itemOverview: string
   directors: string[]
-  currentEpisodes: { name: string; url: string; ext?: Record<string, any> }[]
+  currentEpisodes: Episode[]
 }>()
 const emit = defineEmits<{
-  (e: 'play', url: string, ext?: Record<string, any>): void
+  (e: 'play', url: string, ext?: PluginExt): void
 }>()
 
 const onImgError = (e: Event): void => {

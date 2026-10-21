@@ -1,5 +1,11 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdirSync,
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import {
@@ -39,7 +45,10 @@ describe('isProcessAlive', () => {
 
 describe('parseLock', () => {
   it('accepts a valid lock and rejects garbage', () => {
-    expect(parseLock(JSON.stringify({ pid: 123, input: 'a.mp4' }))).toEqual({ pid: 123, input: 'a.mp4' })
+    expect(parseLock(JSON.stringify({ pid: 123, input: 'a.mp4' }))).toEqual({
+      pid: 123,
+      input: 'a.mp4',
+    })
     expect(parseLock('not json')).toBeNull()
     expect(parseLock('{}')).toBeNull()
     expect(parseLock(JSON.stringify({ pid: 'x' }))).toBeNull()
@@ -66,7 +75,10 @@ describe('acquire / release', () => {
 
 describe('stale locks', () => {
   it('ignores and cleans a lock whose owner is dead', () => {
-    writeFileSync(lockPath(root), JSON.stringify({ pid: 999999999, input: 'dead.mp4' }))
+    writeFileSync(
+      lockPath(root),
+      JSON.stringify({ pid: 999999999, input: 'dead.mp4' })
+    )
     // 持有者已死 → 视为无锁
     expect(readLock(root)).toBeNull()
     // 可以接管，且过期文件被清掉后重新写入

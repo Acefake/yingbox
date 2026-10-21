@@ -15,7 +15,12 @@ const demo = defineDomain(
 )
 
 /** 用内存端口把宿主与引擎接在一起；exit() 模拟引擎崩溃 */
-function wire() {
+function wire(): {
+  host: EngineHost
+  broadcasts: Array<[string, unknown]>
+  forks: () => number
+  crash: (code: number) => void
+} {
   const broadcasts: Array<[string, unknown]> = []
   let forks = 0
   let crash: (code: number) => void = () => {}

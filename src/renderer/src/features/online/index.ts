@@ -12,6 +12,7 @@ export {
 } from './composables/use-online-search'
 export { refreshSources } from './composables/use-source-refresh'
 export { resolvePlaySource } from './utils/play-source'
+export type { Episode } from './types'
 
 /** 「数据源」设置分区（CMS / CatSpider / AV 源管理），由应用入口登记 */
 export const sourcesSettingsSection: SettingsSection = {

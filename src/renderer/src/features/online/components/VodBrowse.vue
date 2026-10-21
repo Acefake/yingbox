@@ -283,11 +283,9 @@ const filteredCards = computed(() =>
   cards.value.filter(card => {
     const year = filters.value.year
     const type = filters.value.type
-    const metadata = card as any
     const matchesYear =
-      year === 'all' ||
-      (year.includes('-') ? true : String(metadata.vod_year || '') === year)
-    const typeName = String(metadata.type_name || '')
+      year === 'all' || (year.includes('-') ? true : card.vod_year === year)
+    const typeName = card.type_name
     const activeTabName =
       activeTabs.value[Number(filters.value.category)]?.name || ''
     const matchesType =
@@ -299,7 +297,7 @@ const filteredCards = computed(() =>
     return matchesYear && matchesType
   })
 )
-const handleFilterUpdate = (next: Record<string, string>) => {
+const handleFilterUpdate = (next: Record<string, string>): void => {
   filters.value = next
   if (next.source !== 'all') switchSource(Number(next.source))
   if (next.category !== 'all' && next.type === 'all')

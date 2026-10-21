@@ -10,7 +10,15 @@ import {
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  type Mock,
+  afterEach,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import {
   TOUCH_INTERVAL_MS,
   ThumbCache,
@@ -20,6 +28,7 @@ import { imageKey, originalPath, thumbName } from '../src/main/thumbnails/paths'
 import { createMediaHandler } from '../src/main/thumbnails/protocol'
 import {
   MAX_ORIGINAL_BYTES,
+  type SourceDeps,
   createSourceLoader,
   isWebp,
 } from '../src/main/thumbnails/sources'
@@ -88,7 +97,13 @@ async function setup(
     maxBytes?: number
     loadSource?: (source: string) => Promise<OriginalImage>
   } = {}
-) {
+): Promise<{
+  resize: ReturnType<typeof fakeResizer>
+  cache: ThumbCache
+  thumbnailer: Thumbnailer
+  loadSource: Mock<(source: string) => Promise<OriginalImage>>
+  handler: (request: Request) => Promise<Response>
+}> {
   const resize = fakeResizer()
   const cache = new ThumbCache(join(dir, 'thumb'), options.maxBytes)
   const thumbnailer = new Thumbnailer(
@@ -346,7 +361,13 @@ describe('取原图', () => {
         ...(length ? { 'content-length': String(length) } : {}),
       },
     })
-  const deps = (response: Response = image()) => ({
+  const deps = (
+    response: Response = image()
+  ): SourceDeps & {
+    fetchImage: Mock<SourceDeps['fetchImage']>
+    readLimited: Mock<SourceDeps['readLimited']>
+    loaders: Map<string, Mock<(source: string) => Promise<Response>>>
+  } => ({
     fetchImage: vi.fn(async () => response),
     readLimited: vi.fn(
       async (r: Response) => new Uint8Array(await r.arrayBuffer())
@@ -405,7 +426,7 @@ describe('WebP 编解码（wasm）', () => {
   })
 
   it('WebP 文件头校验（同为 RIFF 的 WAV 不算）', () => {
-    const tag = (s: string) => [...s].map(c => c.charCodeAt(0))
+    const tag = (s: string): number[] => [...s].map(c => c.charCodeAt(0))
     const webp = new Uint8Array(16)
     webp.set(tag('RIFF'), 0)
     webp.set(tag('WEBP'), 8)

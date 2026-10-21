@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   cmsDetailSources,
-  firstPlayUrl,
-  getVodList,
-  normalizeVodPayload,
   parseCatSpiderGroups,
   parseCmsGroups,
   toCatSpiderSearchItems,
 } from '../src/renderer/src/features/online/utils/vod-payload'
+import {
+  firstPlayUrl,
+  getVodList,
+  normalizeVodPayload,
+} from '../src/renderer/src/utils/vod-data'
 import {
   migrateCmsApis,
   planCatSpiderSelection,
@@ -27,15 +29,30 @@ import {
   tmdbImage,
 } from '../src/renderer/src/features/online/utils/detail-sources'
 import {
+  type SiteStatus,
   connectionRank,
   countFailed,
   sortByConnection,
   sourceTabs,
   validateCustomSource,
 } from '../src/renderer/src/features/online/utils/source-rules'
-import type { EpisodeGroup } from '../src/renderer/src/features/online/types'
+import type {
+  CmsItem,
+  EpisodeGroup,
+} from '../src/renderer/src/features/online/types'
 
-const site = (api: string, name = api) => ({ api, name, type: 3, ext: '' })
+/** 用例只给关心的字段，其余必填字段不影响被测规则 */
+const cmsItem = (fields: Partial<CmsItem>): CmsItem => fields as CmsItem
+
+const site = (
+  api: string,
+  name = api
+): { api: string; name: string; type: number; ext: string } => ({
+  api,
+  name,
+  type: 3,
+  ext: '',
+})
 
 describe('在线返回数据解析', () => {
   it('payload：最多解两层 JSON 字符串，非对象返回 null', () => {
@@ -56,11 +73,11 @@ describe('在线返回数据解析', () => {
 
   it('CMS 线路：$$$ 分线路、# 分集、只留 http(s)；多线路标签带站点名与来源名', () => {
     const groups = parseCmsGroups(
-      {
+      cmsItem({
         vod_play_from: 'm3u8$$$ftp',
         vod_play_url:
           '第1集$https://a/1.m3u8#$http://a/2#坏$ftp://x$$$x$ftp://y',
-      } as any,
+      }),
       '站A'
     )
     expect(groups).toHaveLength(1)
@@ -70,7 +87,10 @@ describe('在线返回数据解析', () => {
       { name: '第2集', url: 'http://a/2' },
     ])
     expect(groups[0]).toMatchObject({ _source: 'cms', _siteName: '站A' })
-    const single = parseCmsGroups({ vod_play_url: 'a$https://x' } as any, '站B')
+    const single = parseCmsGroups(
+      cmsItem({ vod_play_url: 'a$https://x' }),
+      '站B'
+    )
     expect(single[0].label).toBe('站B')
     expect(parseCmsGroups(undefined, '站')).toEqual([])
   })
@@ -127,11 +147,11 @@ describe('在线返回数据解析', () => {
 
   it('详情来源：聚合条目用 sources，否则用自身 api_url；播放地址取第一个', () => {
     const sources = [{ source_name: 'a', api_url: 'x', vod_id: 1 }]
-    expect(cmsDetailSources({ sources, api_url: 'y' } as any)).toBe(sources)
-    expect(cmsDetailSources({ api_url: 'y', vod_id: 2 } as any)).toEqual([
+    expect(cmsDetailSources(cmsItem({ sources, api_url: 'y' }))).toBe(sources)
+    expect(cmsDetailSources(cmsItem({ api_url: 'y', vod_id: 2 }))).toEqual([
       { source_name: '未知', api_url: 'y', vod_id: 2 },
     ])
-    expect(cmsDetailSources({} as any)).toEqual([])
+    expect(cmsDetailSources(cmsItem({}))).toEqual([])
     expect(firstPlayUrl({ data: { urls: ['a', 'b'] } })).toBe('a')
     expect(firstPlayUrl({})).toBe('')
   })
@@ -139,7 +159,9 @@ describe('在线返回数据解析', () => {
 
 describe('站点启用列表', () => {
   const sites = [site('a'), site('b'), site('csp_jable')]
-  const plan = (o: Partial<Parameters<typeof planCatSpiderSelection>[0]>) =>
+  const plan = (
+    o: Partial<Parameters<typeof planCatSpiderSelection>[0]>
+  ): string[] =>
     planCatSpiderSelection({
       sites,
       stored: [],
@@ -292,7 +314,7 @@ describe('在线详情页规则', () => {
 
 describe('数据源面板规则', () => {
   it('按连通状态排序：可用 < 检测中 < 未检测 < 失效，同状态保持原顺序', () => {
-    const status: Record<string, any> = {
+    const status: Record<string, SiteStatus> = {
       a: 'fail',
       b: 'ok',
       c: 'unknown',

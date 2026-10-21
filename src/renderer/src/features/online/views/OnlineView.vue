@@ -54,7 +54,7 @@
 <script setup lang="ts">
 import { toast } from '@/components/ui'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import { type CmsItem } from '../composables/use-online-search'
+import type { CmsItem, OnlineDetailItem, OnlinePlayRecord } from '../types'
 import { useRoute } from 'vue-router'
 import DoubanSection, { type DoubanItem } from '../components/DoubanSection.vue'
 import SearchTab from '../components/SearchTab.vue'
@@ -64,8 +64,8 @@ import LibraryCollection from '../components/LibraryCollection.vue'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
 
 const route = useRoute()
-const inlineDetailItem = ref<CmsItem | null>(null)
-const handleNavigateBack = (event: Event) => {
+const inlineDetailItem = ref<OnlineDetailItem | null>(null)
+const handleNavigateBack = (event: Event): void => {
   if (!inlineDetailItem.value) return
   inlineDetailItem.value = null
   event.preventDefault()
@@ -98,21 +98,22 @@ watch(
   }
 )
 // ─── 详情 / 搜索 ───────────────────────────────────────────
-const openDetailWindow = (item: CmsItem) => {
+const openDetailWindow = (item: CmsItem | OnlineDetailItem): void => {
   inlineDetailItem.value = JSON.parse(JSON.stringify(item))
 }
-const resumeRecentPlay = async (record: Record<string, any>) => {
+const resumeRecentPlay = async (record: OnlinePlayRecord): Promise<void> => {
   const url = typeof record?.url === 'string' ? record.url.trim() : ''
-  const item = (record?.item || record) as CmsItem
+  // 旧记录没有 item，条目字段平铺在记录上
+  const item = (record?.item || record) as OnlineDetailItem
   if (!url) {
     if (item?.vod_name) openDetailWindow(item)
     return
   }
-  const name = (item as any)?.vod_name || record?.vod_name || ''
+  const name = item?.vod_name || record?.vod_name || ''
   const epName = typeof record?.epName === 'string' ? record.epName : ''
   const title = [name, epName].filter(Boolean).join(' · ') || '继续播放'
   const poster =
-    (typeof (item as any)?.vod_pic === 'string' && (item as any).vod_pic) ||
+    (typeof item?.vod_pic === 'string' && item.vod_pic) ||
     (typeof record?.vod_pic === 'string' && record.vod_pic) ||
     undefined
   const stored =
@@ -126,7 +127,7 @@ const resumeRecentPlay = async (record: Record<string, any>) => {
   }
 }
 
-const openDoubanDetail = (item: DoubanItem) => {
+const openDoubanDetail = (item: DoubanItem): void => {
   inlineDetailItem.value = JSON.parse(
     JSON.stringify({
       _source: 'douban',

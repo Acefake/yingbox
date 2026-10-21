@@ -61,7 +61,7 @@
             <UiPosterCard
               thumb
               shape="landscape"
-              :title="video.vod_name"
+              :title="video.vod_name ?? ''"
               :cover="coverSrc(video)"
               :subtitle="`${video.type_name || '未分类'} · ${video.vod_duration || '时长未知'}`"
               :favorite="isFav(video)"
@@ -189,7 +189,7 @@ import { useAvBrowse } from '../composables/use-av-browse'
 import { useAvPlayback } from '../composables/use-av-playback'
 import { useAvSearch } from '../composables/use-av-search'
 import { useAvSources } from '../composables/use-av-sources'
-import { buildAvEntries } from '../utils/av-catalog'
+import { type AvVideo, buildAvEntries } from '../utils/av-catalog'
 import { coverSrc } from '../utils/av-media'
 import { toggleFavorite } from '../utils/av-playback'
 
@@ -241,15 +241,15 @@ const playback = useAvPlayback({
 })
 
 // ─── 收藏 ─────────────────────────────────────────────────────
-const favorites = useStorage<any[]>('av_favorites', [])
-const toggleFav = (video: any) => {
+const favorites = useStorage<AvVideo[]>('av_favorites', [])
+const toggleFav = (video: AvVideo): void => {
   favorites.value = toggleFavorite(favorites.value, video)
 }
-const isFav = (video: any) =>
-  favorites.value.some((f: any) => f._uid === video._uid)
+const isFav = (video: AvVideo): boolean =>
+  favorites.value.some(f => f._uid === video._uid)
 
 // ─── 路由 ?q= → 聚合搜索 ──────────────────────────────────────
-const runQuerySearch = () => {
+const runQuerySearch = (): void => {
   const query = String(route.query.q || '').trim()
   if (!query) return search.reset()
   search.keyword.value = query

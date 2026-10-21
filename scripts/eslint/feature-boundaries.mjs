@@ -16,7 +16,8 @@ const FEATURES = join('src', 'renderer', 'src', 'features')
  * @param {string} file 发起引用的文件（相对仓库根）
  */
 function resolveSpec(spec, file) {
-  if (spec.startsWith('@/')) return normalize(join('src', 'renderer', 'src', spec.slice(2)))
+  if (spec.startsWith('@/'))
+    return normalize(join('src', 'renderer', 'src', spec.slice(2)))
   if (spec.startsWith('.')) return normalize(join(dirname(file), spec))
   return null
 }
@@ -60,9 +61,15 @@ const rule = {
     const file = relative(context.cwd, context.filename)
     const check = node => {
       const source = node.source
-      if (!source || source.type !== 'Literal' || typeof source.value !== 'string') return
+      if (
+        !source ||
+        source.type !== 'Literal' ||
+        typeof source.value !== 'string'
+      )
+        return
       const name = boundaryViolation(file, source.value)
-      if (name) context.report({ node: source, messageId: 'deep', data: { name } })
+      if (name)
+        context.report({ node: source, messageId: 'deep', data: { name } })
     }
     return {
       ImportDeclaration: check,

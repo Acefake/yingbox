@@ -1,6 +1,9 @@
 /**
  * 在线域共用的数据形状：CMS / CatSpider 搜索条目、播放线路分组、站点配置。
  */
+import type { PluginExt } from '@/utils/vod-data'
+
+export type { PluginExt, RawVod } from '@/utils/vod-data'
 
 /** 聚合后的一个 CMS 来源（同名条目的其它站点）。 */
 export interface CmsSource {
@@ -25,16 +28,83 @@ export interface CmsItem {
   sources?: CmsSource[]
   _source?: 'cms' | 'catspider'
   _siteName?: string
-  _ext?: Record<string, any>
+  _ext?: PluginExt
+}
+
+/** 一集：名称、地址，插件线路还带插件参数。 */
+export interface Episode {
+  name: string
+  url: string
+  ext?: PluginExt
 }
 
 /** 一条播放线路：同一来源下的一组剧集。 */
 export interface EpisodeGroup {
   label: string
-  episodes: { name: string; url: string; ext?: Record<string, any> }[]
+  episodes: Episode[]
   hasDirect: boolean
   _source?: 'cms' | 'catspider'
   _siteName?: string
+}
+
+/**
+ * 详情页打开的条目：来自搜索 / 浏览（CmsItem）、最近播放、或豆瓣卡片（_source 为 douban，
+ * 带 overview / searchTitle）。可能是从别的窗口传过来的，字段都按可能缺失处理。
+ */
+export interface OnlineDetailItem extends Partial<Omit<CmsItem, '_source'>> {
+  _source?: 'cms' | 'catspider' | 'douban'
+  vod_desc?: string
+  /** 豆瓣卡片带的简介 */
+  overview?: string
+  /** 豆瓣卡片用来搜源的片名（可能和展示名不同） */
+  searchTitle?: string
+}
+
+/** 在线播放历史（localStorage online_play_history）的一条：条目字段平铺 + item 原样 + 播放位置 */
+export interface OnlinePlayRecord {
+  url?: string
+  epName?: string
+  progress?: number
+  duration?: number
+  timestamp?: number
+  groupLabel?: string
+  item?: OnlineDetailItem
+  vod_id?: string | number
+  vod_name?: string
+  vod_pic?: string
+  [key: string]: unknown
+}
+
+/** TMDB 影片 / 剧集详情：只声明详情页读的字段 */
+export interface TmdbDetail {
+  id: number
+  title?: string
+  name?: string
+  original_title?: string
+  original_name?: string
+  overview?: string
+  poster_path?: string | null
+  backdrop_path?: string | null
+  vote_average?: number
+  release_date?: string
+  first_air_date?: string
+  runtime?: number
+  imdb_id?: string | null
+  genres?: { id: number; name: string }[]
+  production_countries?: { name: string }[]
+}
+
+/** TMDB 演职员里的一位演员 */
+export interface TmdbCastMember {
+  id: number
+  name: string
+  character?: string
+  profile_path?: string | null
+}
+
+/** TMDB 的一张剧照 */
+export interface TmdbImage {
+  file_path: string
 }
 
 /** 苹果 CMS 站点。 */

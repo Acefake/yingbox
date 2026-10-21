@@ -91,7 +91,9 @@
  * TMDB 与播放源加载在 useTmdbDetail / useDetailSources，规则在 ../utils/detail-sources。
  */
 import { toast } from '@/components/ui'
+import { asText } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
+import { asRawVod } from '@/utils/vod-data'
 import { computed, onMounted, ref, watch } from 'vue'
 import {
   UnifiedVideoPlayer,
@@ -114,6 +116,12 @@ import DetailCastGallery from './DetailCastGallery.vue'
 import DetailHero from './DetailHero.vue'
 import DetailLightbox from './DetailLightbox.vue'
 import DetailSourcePicker from './DetailSourcePicker.vue'
+import type {
+  CmsItem,
+  OnlineDetailItem,
+  OnlinePlayRecord,
+  PluginExt,
+} from '../types'
 
 const HISTORY_KEY = 'online_play_history'
 const props = defineProps<{ item?: unknown }>()
@@ -122,7 +130,7 @@ const tmdb = useTmdbDetail()
 const sources = useDetailSources()
 const tmdbDetail = computed(() => tmdb.detail.value)
 
-const itemData = ref<any>(null)
+const itemData = ref<OnlineDetailItem | null>(null)
 const itemName = ref('')
 const itemPic = ref('')
 const itemOverview = ref('')
@@ -131,8 +139,10 @@ const lightboxIdx = ref<number | null>(null)
 const showPlaySheet = ref(false)
 const currentUrl = ref('')
 
-const loadData = async (data: any) => {
-  if (!data) return
+const loadData = async (raw: unknown): Promise<void> => {
+  if (!raw) return
+  // 条目可能来自别的窗口，字段都按可能缺失读
+  const data = asRawVod(raw) as OnlineDetailItem
   itemData.value = data
   itemName.value = data.vod_name || ''
   itemPic.value = data.vod_pic || ''
@@ -147,7 +157,8 @@ const loadData = async (data: any) => {
   // 自动加载播放源：先保留打开详情时命中的条目，再按片名检索全部已启用源
   currentUrl.value = ''
   const direct = data._source === 'cms' || data._source === 'catspider'
-  await sources.load(direct ? data : null, searchTitle.value)
+  // _source 是 cms / catspider 的就是搜索 / 浏览结果里的 CmsItem
+  await sources.load(direct ? (data as CmsItem) : null, searchTitle.value)
 }
 
 onMounted(() => loadData(props.item))
@@ -164,27 +175,27 @@ watch(showPlaySheet, visible => {
 })
 
 /** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）。 */
-const recordHistory = (playUrl: string, ext?: Record<string, any>) => {
+const recordHistory = (playUrl: string, ext?: PluginExt): void => {
   const item = itemData.value
   const mediaKey = String(
     item?.vod_id || item?.vod_name || itemName.value || playUrl
   )
-  const record = {
+  const record: OnlinePlayRecord = {
     ...(item || {}),
-    item,
-    epName: ext?.name || '正在播放',
+    item: item ?? undefined,
+    epName: asText(ext?.name) || '正在播放',
     url: playUrl,
     progress: getMediaProgress(playUrl),
     groupLabel:
       sources.currentSourceType.value === 'catspider' ? '插件源' : 'CMS',
     timestamp: Date.now(),
   }
-  const history = readStoredArray<Record<string, any>>(HISTORY_KEY)
+  const history = readStoredArray<OnlinePlayRecord>(HISTORY_KEY)
   saveStoredArray(HISTORY_KEY, mergeOnlineHistory(history, record, mediaKey))
 }
 
 /** 播放一集：插件线路先解析地址，再预解析跳转 / 页面内 m3u8，然后打开独立播放窗。 */
-const playEp = async (url: string, ext?: Record<string, any>) => {
+const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   const generation = ++playGeneration
   currentUrl.value = ''
   let playUrl = url
@@ -201,7 +212,7 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
   currentUrl.value = playUrl
   recordHistory(playUrl, ext)
   const title =
-    [itemName.value, ext?.name].filter(Boolean).join(' · ') ||
+    [itemName.value, asText(ext?.name)].filter(Boolean).join(' · ') ||
     itemName.value ||
     '正在播放'
   // Electron 下强制独立播放窗；非 Electron（纯网页）才用页内播放层
@@ -215,7 +226,7 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
   const fallbacks = buildFallbacks(
     sources.siteGroups.value,
     sources.currentLine.value,
-    ext?.name || '',
+    asText(ext?.name),
     epIndex
   )
   const ok = await openMediaPlayer({

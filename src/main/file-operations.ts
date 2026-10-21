@@ -39,10 +39,7 @@ async function exists(filePath: string): Promise<boolean> {
 }
 
 /** Replace a file while retaining the prior content until the new file is committed. */
-async function replaceFile(
-  source: string,
-  destination: string
-): Promise<void> {
+async function replaceFile(source: string, destination: string): Promise<void> {
   const backup = `${destination}.${randomUUID()}.backup`
   const hadDestination = await exists(destination)
   if (hadDestination && !(await fs.lstat(destination)).isFile()) {

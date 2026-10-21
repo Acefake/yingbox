@@ -1,3 +1,4 @@
+import { firstPlayUrl } from '@/utils/vod-data'
 import { onlineApi } from '../api/online'
 import { useVODParser } from '../composables/use-vod-parser'
 
@@ -41,11 +42,11 @@ export async function resolvePlaySource(item: PlaySourceItem): Promise<string> {
       const { getPlayinfo } = useVODParser()
       const r = await getPlayinfo({
         siteName: item.siteName,
-        url: String((item.ext as Record<string, unknown>).url || raw),
+        url: String(item.ext.url || raw),
         ...item.ext,
       })
-      const urls = r?.data?.urls || r?.data?.data?.urls || []
-      if (r?.success && urls[0]) candidate = String(urls[0])
+      const url = r?.success ? firstPlayUrl(r.data) : ''
+      if (url) candidate = url
     } catch {
       // 插件解析失败时继续尝试通用解析
     }

@@ -18,7 +18,7 @@ pnpm typecheck:node     # tsc for main/preload
 pnpm typecheck:web      # vue-tsc for renderer
 
 # Lint / format
-pnpm lint               # eslint --cache + check:size --strict（单文件 ≤ 400 行，无豁免）
+pnpm lint               # eslint --cache --max-warnings 0（warning 也算失败）+ check:size --strict（单文件 ≤ 400 行，无豁免）
 pnpm format             # prettier --write .
 
 # Tests
@@ -121,7 +121,8 @@ Config in `userData/config.json` (main process): `downloadPath`.
 
 - **Prettier:** single quotes, no semicolons, trailing commas (es5), 2-space indent, LF line endings
 - **ESLint:** TypeScript + Vue recommended rules, `prefer-template` enforced, import sorting (`sort-imports`), padding-line-between-statements (blank lines required around functions, consts, types, and after imports)
-- **TypeScript:** `noUnusedLocals`, `noUnusedParameters`, `noImplicitAny` are enabled
+- **TypeScript:** `noUnusedLocals`, `noUnusedParameters`, `noImplicitAny` are enabled; no `any` (lint warns, and warnings fail `pnpm lint`); functions declare return types, composables export a `UseXxxReturn` interface
+- **External data** (plugin / CMS / TMDB responses, old localStorage records): type it `unknown` and narrow with `utils/json.ts` (`asRecord` / `asArray` / `asText`); raw plugin/CMS shapes and parsers shared by online and AV live in `utils/vod-data.ts`
 - Vue SFC `<script>` blocks must use `lang="ts"`
 
 ### Tech stack summary

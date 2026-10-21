@@ -10,6 +10,7 @@ import { saveLibraryTmdbToken } from '../../../src/renderer/src/features/library
 import type {
   LibraryWriterBridge,
   OrganizePlan,
+  ProviderStatus,
 } from '../../../src/shared/library/ipc'
 import {
   runnableCount,
@@ -17,7 +18,7 @@ import {
   writerActivity,
 } from '../../../src/renderer/src/features/library/writer/use-writer'
 
-const status = (configured: boolean) => ({
+const status = (configured: boolean): ProviderStatus => ({
   tmdb: { configured },
   opensubtitles: { configured: false },
 })
@@ -76,7 +77,7 @@ const PLAN: OrganizePlan = {
   ],
 }
 
-function installWriter(writer: Partial<LibraryWriterBridge> | undefined) {
+function installWriter(writer: Partial<LibraryWriterBridge> | undefined): void {
   vi.stubGlobal('window', {
     api: {
       library: {
