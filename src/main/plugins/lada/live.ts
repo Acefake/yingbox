@@ -7,156 +7,29 @@
  *  - 所以每个分片都**自带音视频同一区间**，音频在结构上不可能跑在视频前面；
  *    实测整段跟播的音画漂移只有 0.02–0.03 秒。
  *  - mpv 会跟着"增长了的事件型播放列表"连续播下去，不需要任何 seek 补丁。
- *
- * 三个坑（也都实测踩过）：
- *  1. 播放列表必须标 #EXT-X-PLAYLIST-TYPE:EVENT，并且**原子写**（否则播放器会读到半截）
- *  2. 分片时间戳必须**连续**（用 -copyts），一旦每个分片从 0 开始就会反复播同一段
- *  3. 本地文件路径的 HLS 在 Windows 上走不通 → 起一个只绑 127.0.0.1 的 HTTP 服务
+ * 切分片 / 播放列表 / HTTP 服务见 live-media.ts。
  */
-import { app } from 'electron'
-import { copyFileSync, createReadStream, existsSync, mkdirSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
-import { type Server, createServer } from 'node:http'
+import { copyFileSync, existsSync, mkdirSync, rmSync } from 'node:fs'
 import { join } from 'node:path'
-import { emit } from './rpc'
-import { lada } from '../shared/contract/lada'
-import { cancelCurrentJob, currentJob, ffprobeFor, ladaPaths, ladaTempVideo, startJob, waitForLadaExit } from './lada'
-import { registerPlugin } from './plugins/host'
-import { runTool } from './plugins/process'
-import { adoptPartial } from './lada-resume'
-import type { LadaJob, LadaLiveState, LadaLiveStatus } from '../shared/lada'
+import type { LadaJob, LadaLiveStatus } from '../../../shared/lada'
+import { lada } from '../../../shared/contract/lada'
+import { emit } from '../../rpc'
+import { registerPlugin } from '../host'
+import { cancelCurrentJob, currentJob, startJob, waitForLadaExit } from './job'
+import { type LiveSession, cutSegment, probeSegment, serve, writePlaylist } from './live-media'
+import { adoptPartial } from './resume'
+import { SEGMENT_SECONDS, segmentVerdict } from './rules'
+import { ladaTempVideo, tempDirPath } from './temp'
+import { ffprobeFor, ladaPaths } from './tools'
 
-/** 每个分片的秒数。够小才能尽快出画，够大才不至于切得太碎 */
-const SEGMENT_SECONDS = 10
 /** 切不出完整分片时的重试间隔 */
 const RETRY_MS = 2500
 /** 等首片出现的上限（含模型加载约 30 秒） */
 const FIRST_SEGMENT_TIMEOUT_MS = 240_000
 
-interface LiveSession {
-  input: string
-  output: string
-  tempVideo: string
-  workDir: string
-  playlist: string
-  /** 已发布的分片：名字 + **实测**时长（EXTINF 必须写实测值，不能写请求值） */
-  segments: { name: string; duration: number }[]
-  nextStart: number
-  port: number
-  state: LadaLiveState
-  error?: string
-  server: Server
-  timer?: ReturnType<typeof setTimeout>
-  stopping: boolean
-}
-
 let session: LiveSession | null = null
 
 const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))
-
-
-
-/** 读取一段媒体的起始时间与时长（用来判断分片是否切全、以及推进游标） */
-async function probeSegment(
-  ffprobe: string,
-  file: string
-): Promise<{ start: number; duration: number } | null> {
-  const { code, out } = await runTool(ffprobe, [
-    '-v', 'error',
-    '-show_entries', 'format=start_time,duration',
-    '-of', 'default=noprint_wrappers=1',
-    file,
-  ])
-  if (code !== 0) return null
-  const start = Number((out.match(/start_time=([\d.]+)/) || [])[1] ?? NaN)
-  const duration = Number((out.match(/duration=([\d.]+)/) || [])[1] ?? NaN)
-  if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return null
-  return { start, duration }
-}
-
-/** 原子写播放列表：EVENT 表示"只增不减"，正是边处理边看的语义 */
-function writePlaylist(s: LiveSession, ended: boolean): void {
-  const lines = ['#EXTM3U', '#EXT-X-VERSION:3', `#EXT-X-TARGETDURATION:${SEGMENT_SECONDS + 2}`,
-    '#EXT-X-MEDIA-SEQUENCE:0', '#EXT-X-PLAYLIST-TYPE:EVENT']
-  for (const seg of s.segments) {
-    lines.push(`#EXTINF:${seg.duration.toFixed(3)},`)
-    lines.push(seg.name)
-  }
-  if (ended) lines.push('#EXT-X-ENDLIST')
-  const body = `${lines.join('\n')}\n`
-  // 播放器正在轮询这个文件时，Windows 上 rename 可能被拒（EBUSY/EPERM）→ 重试，
-  // 最后一次退化为直接覆写。绝不能因为写播放列表失败就把追播链断掉。
-  const tmp = `${s.playlist}.tmp`
-  for (let attempt = 0; attempt < 5; attempt++) {
-    try {
-      writeFileSync(tmp, body)
-      renameSync(tmp, s.playlist)
-      return
-    } catch {
-      // 稍后重试
-    }
-  }
-  try {
-    rmSync(tmp, { force: true })
-  } catch {
-    /* ignore */
-  }
-  writeFileSync(s.playlist, body)
-}
-
-/**
- * 切一个分片。分两趟走：
- *   1) 只从"增长中的半成品"切视频 —— 但 `-c copy` 只能落在关键帧上，实际起点会往后偏
- *   2) 用**实测出来的真实起点/时长**去原片切音频，再封装
- * 这样音频严格跟随视频的实际区间，而不是"我请求的区间"——否则每个分片内音画会差
- * 最多一个 GOP（实测能看到 0.2 秒级偏移）。
- * `-copyts` 保持时间戳连续，避免播放器反复播同一段。
- */
-async function cutSegment(
-  s: LiveSession,
-  ffmpeg: string,
-  ffprobe: string,
-  index: number,
-  start: number,
-  end: number
-): Promise<string | null> {
-  const name = `seg${String(index).padStart(5, '0')}.ts`
-  const file = join(s.workDir, name)
-  const videoOnly = join(s.workDir, `${name}.v.ts`)
-  rmSync(file, { force: true })
-  rmSync(videoOnly, { force: true })
-
-  const cut = await runTool(ffmpeg, [
-    '-y', '-loglevel', 'error',
-    '-ss', start.toFixed(3), '-to', end.toFixed(3), '-i', s.tempVideo,
-    '-an', '-c', 'copy', '-copyts',
-    '-f', 'mpegts', videoOnly,
-  ])
-  if (cut.code !== 0 || !existsSync(videoOnly) || statSync(videoOnly).size < 8 * 1024) {
-    rmSync(videoOnly, { force: true })
-    return null
-  }
-  const info = await probeSegment(ffprobe, videoOnly)
-  if (!info) {
-    rmSync(videoOnly, { force: true })
-    return null
-  }
-
-  const audioTo = info.start + info.duration
-  const mux = await runTool(ffmpeg, [
-    '-y', '-loglevel', 'error',
-    '-ss', info.start.toFixed(3), '-to', audioTo.toFixed(3), '-i', s.input,
-    '-i', videoOnly,
-    '-map', '1:v:0', '-map', '0:a:0',
-    '-c', 'copy', '-copyts',
-    '-f', 'mpegts', file,
-  ])
-  rmSync(videoOnly, { force: true })
-  if (mux.code !== 0 || !existsSync(file) || statSync(file).size < 8 * 1024) {
-    rmSync(file, { force: true })
-    return null
-  }
-  return name
-}
 
 /** 一轮追播：能切就切，不能切就等。**任何异常都不能让链断掉** */
 async function tick(): Promise<void> {
@@ -183,34 +56,25 @@ async function tickOnce(): Promise<void> {
   const ffprobe = ffprobeFor(ffmpeg)
   const job = currentJob()
   const ladaRunning = job?.state === 'running'
+  const waitOrFinish = (): void => (ladaRunning ? schedule(RETRY_MS) : finishUp())
 
   const start = s.nextStart
-  const end = start + SEGMENT_SECONDS
-  const name = await cutSegment(s, ffmpeg, ffprobe, s.segments.length, start, end)
+  const name = await cutSegment(s, ffmpeg, ffprobe, s.segments.length, start, start + SEGMENT_SECONDS)
+  // 数据还不够切满一段：lada 还在跑就等；已经结束了就直接收尾
+  if (!name) return waitOrFinish()
 
-  if (!name) {
-    // 数据还不够切满一段：lada 还在跑就等；已经结束了就直接收尾
-    if (ladaRunning) return schedule(RETRY_MS)
-    return finishUp()
-  }
-
-  const info = await probeSegment(ffprobe, join(s.workDir, name))
+  const segment = join(s.workDir, name)
+  const info = await probeSegment(ffprobe, segment)
   if (!info) {
-    rmSync(join(s.workDir, name), { force: true })
-    return ladaRunning ? schedule(RETRY_MS) : finishUp()
+    rmSync(segment, { force: true })
+    return waitOrFinish()
   }
 
   // 数据不足时 -c copy 只会切出很短的一截，丢掉等下一轮（不猜"写到哪里了"）
-  if (info.duration < SEGMENT_SECONDS * 0.95) {
-    if (ladaRunning) {
-      rmSync(join(s.workDir, name), { force: true })
-      return schedule(RETRY_MS)
-    }
-    // lada 已结束，这段就是片尾：短点也收下
-    if (info.duration < 0.5) {
-      rmSync(join(s.workDir, name), { force: true })
-      return finishUp()
-    }
+  const verdict = segmentVerdict(info.duration, ladaRunning)
+  if (verdict !== 'publish') {
+    rmSync(segment, { force: true })
+    return verdict === 'retry' ? schedule(RETRY_MS) : finishUp()
   }
 
   s.segments.push({ name, duration: info.duration })
@@ -249,33 +113,6 @@ function broadcastStatus(s: LiveSession): void {
   emit(lada, 'live', statusOf(s))
 }
 
-function serve(s: LiveSession): Promise<number> {
-  s.server = createServer((req, res) => {
-    const name = decodeURIComponent((req.url || '/').split('?')[0]).replace(/^\//, '')
-    // Node 的 res.end() 返回 this，直接 return 会触发 "not all code paths return a value"
-    if (name && !/^[A-Za-z0-9._-]+$/.test(name)) {
-      res.statusCode = 400
-      res.end()
-      return
-    }
-    const file = join(s.workDir, name || 'index.m3u8')
-    if (!file.startsWith(s.workDir) || !existsSync(file)) {
-      res.statusCode = 404
-      res.end()
-      return
-    }
-    res.setHeader('Content-Type', name.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t')
-    res.setHeader('Cache-Control', 'no-store')
-    createReadStream(file).pipe(res)
-  })
-  return new Promise(resolve => {
-    s.server.listen(0, '127.0.0.1', () => {
-      const address = s.server.address()
-      resolve(typeof address === 'object' && address ? address.port : 0)
-    })
-  })
-}
-
 /**
  * 「边跑边看」的入口。语义（按用户要求）：
  *  - 正在追播的就是这部片子 → 不报错，直接把地址再交给播放器（接着看）
@@ -307,16 +144,15 @@ export async function startLive(input: unknown): Promise<{ success: boolean; url
       job = startJob(file)
     }
 
-    const tempVideo = ladaTempVideo(job.output)
-    const workDir = join(app.getPath('temp'), 'yingbox-lada', 'live', String(job.startedAt))
+    const workDir = join(tempDirPath(), 'live', String(job.startedAt))
     rmSync(workDir, { recursive: true, force: true })
     mkdirSync(workDir, { recursive: true })
 
     const live: LiveSession = {
-      input: file, output: job.output, tempVideo, workDir,
+      input: file, output: job.output, tempVideo: ladaTempVideo(job.output), workDir,
       playlist: join(workDir, 'index.m3u8'),
       segments: [], nextStart: 0, port: 0,
-      state: 'preparing', server: null as unknown as Server, stopping: false, /* eslint-disable-line */
+      state: 'preparing', server: null, stopping: false,
     }
     session = live
     live.port = await serve(live)
@@ -390,7 +226,7 @@ export function stopLive(): void {
   if (s.timer) clearTimeout(s.timer)
   if (s.state === 'serving' || s.state === 'preparing') s.state = 'cancelled'
   try {
-    s.server.close()
+    s.server?.close()
   } catch {
     /* ignore */
   }

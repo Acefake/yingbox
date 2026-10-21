@@ -1,3 +1,9 @@
+/**
+ * Amane 响应解析：204 → null；非 JSON 或非 2xx 时抛出带 HTTP 状态与接口路径（不含查询串）的错误。
+ */
+import { errorDetail } from './rules'
+
+/** 读完响应体并解析 JSON；失败时错误信息带上状态码与接口路径 */
 export async function readAmaneResponse(
   response: Response,
   path: string
@@ -22,15 +28,7 @@ export async function readAmaneResponse(
       data && typeof data === 'object' && 'detail' in data
         ? data.detail
         : undefined
-    const message =
-      typeof detail === 'string'
-        ? detail
-        : Array.isArray(detail)
-          ? detail
-              .map(item => (typeof item?.msg === 'string' ? item.msg : ''))
-              .filter(Boolean)
-              .join('；')
-          : ''
+    const message = errorDetail(detail)
     throw new Error(
       `Amane 请求失败（${context}）${message ? `：${message}` : '，请检查 Amane 后台日志'}`
     )

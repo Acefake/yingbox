@@ -10,7 +10,7 @@ import {
   parseLock,
   readLock,
   releaseLock,
-} from '../src/main/lada-lock'
+} from '../src/main/plugins/lada/lock'
 
 let root: string
 
