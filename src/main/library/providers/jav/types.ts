@@ -47,8 +47,12 @@ export interface JavRecord {
 export interface PageOptions {
   /** 附加 Cookie（如 javbus 的年龄确认）。 */
   cookie?: string
-  /** 附加请求头（如 Accept-Language）。 */
+  /** 附加请求头（如 Accept-Language、POST 的 Content-Type）。 */
   headers?: Record<string, string>
+  /** 缺省 GET；站内搜索表单（jav321）、JSON 接口（avsox）用 POST。 */
+  method?: 'GET' | 'POST'
+  /** POST 请求体。 */
+  body?: string
 }
 
 /** 站点拿网页用的上下文：限速、重试、熔断、防护页识别都在这一层。 */
