@@ -10,7 +10,7 @@ This file provides guidance to coding agents working with code in this repositor
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
 - **内置播放器** — dedicated player window: local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
-Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, MissAV, HLS downloads) reached through the IPC contract. There is no HTTP backend and no Go/Python runtime.
+Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, MissAV, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; the desktop app never talks to it.
 
 ## Common commands
 
@@ -28,6 +28,11 @@ pnpm build:mac      # macOS dmg
 pnpm check          # scripts/check-issues.sh
 pnpm check:case     # import case-sensitivity check (Windows-safe against mac/Linux breakage)
 pnpm start          # electron-vite preview (production-like)
+pnpm dev:server     # standalone library server (tsx watch, 127.0.0.1:31480)
+pnpm dev:web        # web build; proxies /api and /media to the library server
+pnpm build:server   # → out/server/server.js
+pnpm build:web      # → dist-web/
+pnpm smoke:server   # offline end-to-end smoke of the library server (fixture fetch)
 ```
 
 ## Architecture
@@ -71,8 +76,8 @@ Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* co
 Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
 
 - `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `av` (MissAV), `download`, `amane`, `lada`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
-- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
-- `features/library/` — movie / TV library UI (poster wall, detail, match review, writer / organize, library settings), talking to the library engine through `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract)
+- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` and `services/library-server` are exempt)
+- `features/library/` — movie / TV library UI (poster wall, detail, match review, writer / organize, library settings), talking to the library engine through `api/bridge.ts`: on desktop `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract), on the web the HTTP transport to the library server
 - shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-context-menu`, `use-platform`), `utils/`
 
 ### Engine (`src/engine/`)
@@ -86,6 +91,10 @@ Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`.
 ### 番号库（JAV 刮削）
 
 A movie library can be added with `source: 'jav'` (「添加番号文件夹…」 in library settings; fixed at creation, migration v4 adds `libraries.source`). The scanner then parses a 番号 from each file name (`src/main/library/providers/jav/number.ts`; falls back to folder names) and groups files by it; identification skips TMDB search/scoring and asks the 番号 sites directly (`identify/runner-jav.ts`), no TMDB token needed. Sites live in `providers/jav/sites/` (javbus, avbase, fc2), fetched through `ProviderHttp.getText` (Electron `net.fetch`) with per-host breaker and Cloudflare page detection; `aggregate.ts` merges per field by the user's site priority (`jav.getSettings` / `jav.setSettings`, stored in `settings` as `provider.jav.settings`). For these items `media_items.tmdb_id` holds the 番号 and `matches.provider` is `jav`; image paths are absolute URLs (`TmdbProvider.imageUrl` passes them through); NFO writes `<uniqueid type="num">`. Behaviour is modelled on Amane's scrapers but independently implemented (no GPL code copied); the external Amane backend under `plugins/amane` is untouched.
+
+### Library server (`src/server/`, web / NAS)
+
+The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480`, token from `YINGBOX_SERVER_TOKEN` or generated into `<dataDir>/secrets.json`. Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`, `detail/WebPlayer.vue`. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy (`HTTPS_PROXY` + `NODE_USE_ENV_PROXY=1`), Docker: `docs/library-server.md`. Checks: `scripts/smoke-server.mjs` (CI-able, offline), `scripts/web-e2e.mjs` (Playwright, manual).
 
 ### App settings
 
