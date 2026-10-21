@@ -14,7 +14,15 @@ export type LibrarySource = 'tmdb' | 'jav'
 export const LIBRARY_SOURCES: readonly LibrarySource[] = ['tmdb', 'jav']
 
 /** 内置番号站点。 */
-export type JavSiteId = 'javbus' | 'avbase' | 'fc2'
+export type JavSiteId =
+  | 'javbus'
+  | 'avbase'
+  | 'fc2'
+  | 'freejavbt'
+  | 'airav'
+  | 'iqqtv'
+  | 'fc2club'
+  | 'fc2ppvdb'
 
 /** 站点显示名与说明（设置页用）。 */
 export const JAV_SITES: ReadonlyArray<{
