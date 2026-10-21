@@ -34,7 +34,11 @@
         :seasons="seasons"
         @play-episode="playEpisode"
       />
-      <DetailPeople v-if="people.length" :people="people" />
+      <DetailPeople
+        v-if="people.length"
+        :people="people"
+        @open-actor="emit('open-actor', $event)"
+      />
       <DetailInfo :info-rows="infoRows" :files="files" />
     </template>
     <WebPlayer />
@@ -53,7 +57,10 @@
 import { toast } from '@/components/ui'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 
-import type { LibraryItemNode } from '../../../../../shared/library/ipc'
+import type {
+  ActorSummary,
+  LibraryItemNode,
+} from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { errorText, libraryBridge } from '../api/bridge'
@@ -65,10 +72,12 @@ import DetailInfo from './DetailInfo.vue'
 import DetailPeople from './DetailPeople.vue'
 import DetailSeasons from './DetailSeasons.vue'
 import {
+  type ActorLink,
   allVideoFiles,
   infoRowsOf,
   metaLineOf,
   peopleOf,
+  personKey,
   playLabelOf,
   sortedSeasons,
   titleMetaOf,
@@ -88,6 +97,7 @@ const emit = defineEmits<{
   close: []
   'fix-match': [itemId: number]
   organize: [itemIds: number[]]
+  'open-actor': [actorId: number]
 }>()
 
 const bridge = libraryBridge()
@@ -183,8 +193,34 @@ function playEpisode(season: LibraryItemNode, ep: LibraryItemNode): void {
   if (request) void startPlayback(request)
 }
 
+// 番号库条目：演员库里的演员可点开详情，头像换成本地缓存的；后台查到资料（actors-changed）时重取
+const actorLinks = shallowRef<ReadonlyMap<string, ActorLink>>(new Map())
+const javItemId = computed(() =>
+  titleMeta.value?.ref.provider === 'jav' ? node.value?.id : undefined
+)
+
+async function loadActorLinks(): Promise<void> {
+  const id = javItemId.value
+  if (!id || !bridge?.actors) {
+    actorLinks.value = new Map()
+    return
+  }
+  const actors = await bridge.actors.forItem(id).catch((): ActorSummary[] => [])
+  if (id !== javItemId.value) return
+  actorLinks.value = new Map(
+    actors.map((a): [string, ActorLink] => [
+      personKey(a.name),
+      { id: a.id, photo: itemImage(a.photo, 300) },
+    ])
+  )
+}
+
+watch(javItemId, () => void loadActorLinks(), { immediate: true })
+onLibraryEvent(event => {
+  if (event.type === 'actors-changed' && javItemId.value) void loadActorLinks()
+})
 const people = computed(() =>
-  peopleOf(titleMeta.value, path => tmdbImage(path))
+  peopleOf(titleMeta.value, path => tmdbImage(path), actorLinks.value)
 )
 const infoRows = computed(() => infoRowsOf(node.value))
 const files = computed(() => allVideoFiles(node.value))

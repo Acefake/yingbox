@@ -107,6 +107,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'getProviderStatus',
     'writer',
     'jav',
+    'actors',
     'subscribe',
   ],
 }

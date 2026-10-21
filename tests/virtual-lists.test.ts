@@ -14,6 +14,7 @@ const LONG_LISTS: Record<string, string[]> = {
   'features/online/components/LibraryCollection.vue': ['filteredItems'],
   'features/online/components/DoubanSection.vue': ['doubanItems'],
   'features/download/components/DownloadsView.vue': ['rows'],
+  'features/library/actors/ActorsView.vue': ['actors'],
 }
 
 describe('长列表走虚拟网格', () => {

@@ -11,6 +11,7 @@ import {
   type LibraryEvent,
   type LibraryMethod,
   type LibraryRpcMap,
+  createActorsBridge,
   encodeErrorMessage,
 } from '../shared/library/ipc'
 
@@ -101,6 +102,7 @@ export function createLibraryBridge(
       setCredential: (provider, token) =>
         call('setProviderToken', { provider, token }),
     },
+    actors: createActorsBridge(call),
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       const { port1, port2 } = createChannel()
       port1.onmessage = event => listener(event.data as LibraryEvent)

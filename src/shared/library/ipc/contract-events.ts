@@ -4,6 +4,7 @@
  * 只有类型和常量，由 contract.ts 统一再导出。
  */
 import type { LibraryInfo } from './contract'
+import type { ActorsChangedEvent } from './contract-actors'
 
 /** 任务状态。 */
 export type JobState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
@@ -81,6 +82,7 @@ export type LibraryEvent =
   | JobEvent
   | IdentifyProgressEvent
   | WriterProgressEvent
+  | ActorsChangedEvent
 
 /** 单个 items-changed 事件里 id 总数的上限，超过就改发 reset。 */
 export const ITEMS_CHANGED_LIMIT = 1000
