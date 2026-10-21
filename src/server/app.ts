@@ -59,7 +59,7 @@ export interface ServerAppOptions {
   fetch?: HttpFetch
   /** 编解码实现；缺省起 webp-worker 线程，线程文件不存在时在当前线程执行。 */
   codec?: Codec
-  /** 是否监听媒体库目录变化，默认 true。 */
+  /** 是否监控媒体库目录（false 时不监听也不定时扫描），默认按 config.monitor。 */
   watch?: boolean
   env?: NodeJS.ProcessEnv
 }
@@ -101,7 +101,7 @@ export async function createServerApp(
       onImagesCached: keys => thumbnails.warm(keys),
       env: envSecrets(env),
     },
-    { watch: options.watch }
+    { ...config.monitor, watch: options.watch }
   )
   await service.start()
   // 网页端保存过的 TMDB 令牌：片库还没配置时补一次（与桌面端启动时的规则相同）

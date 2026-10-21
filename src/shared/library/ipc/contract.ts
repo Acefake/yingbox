@@ -12,6 +12,11 @@ import type {
 import type { LibraryEvent } from './contract-events'
 import type { JavSettings, LibrarySource } from './contract-jav'
 import type {
+  AddLibraryRequest,
+  LibraryAutomation,
+  UpdateLibraryRequest,
+} from './contract-library'
+import type {
   OrganizeAccepted,
   OrganizeBatchInfo,
   OrganizePlan,
@@ -21,6 +26,7 @@ import type {
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-jav'
+export * from './contract-library'
 export * from './contract-writer'
 
 /** 媒体库类型：电影库或剧集库，决定本地分组方式和后续用哪类元数据源识别。 */
@@ -58,6 +64,8 @@ export interface LibraryInfo {
   createdAt: number
   /** 最近一次扫描完成的时间；从未扫描为 null。 */
   lastScanAt: number | null
+  /** 自动化：监控、自动识别、自动写出、自动整理。 */
+  automation: LibraryAutomation
 }
 
 /** 外部数据库 ID；尚未识别时为空对象。 */
@@ -151,15 +159,6 @@ export interface LibraryQueryResult {
   total: number
   offset: number
   limit: number
-}
-
-/** 添加媒体库。 */
-export interface AddLibraryRequest {
-  root: string
-  kind: LibraryKind
-  name?: string
-  /** 缺省 tmdb；jav 只能用于电影库。 */
-  source?: LibrarySource
 }
 
 /** 触发扫描。 */
@@ -273,6 +272,7 @@ export interface LibraryRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
+  updateLibrary: { params: UpdateLibraryRequest; result: LibraryInfo }
   scan: { params: ScanRequest; result: ScanAccepted }
   query: { params: LibraryQuery; result: LibraryQueryResult }
   getItem: { params: { itemId: number }; result: LibraryItemNode | null }
@@ -312,6 +312,7 @@ export const LIBRARY_METHODS = [
   'listLibraries',
   'addLibrary',
   'removeLibrary',
+  'updateLibrary',
   'scan',
   'query',
   'getItem',
@@ -342,6 +343,8 @@ export interface LibraryBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>
+  /** 改名或改自动化设置，返回生效后的媒体库。 */
+  updateLibrary(request: UpdateLibraryRequest): Promise<LibraryInfo>
   scan(request: ScanRequest): Promise<ScanAccepted>
   query(query?: LibraryQuery): Promise<LibraryQueryResult>
   getItem(itemId: number): Promise<LibraryItemNode | null>

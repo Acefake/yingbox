@@ -104,6 +104,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'listLibraries',
     'addLibrary',
     'removeLibrary',
+    'updateLibrary',
     'scan',
     'query',
     'getItem',

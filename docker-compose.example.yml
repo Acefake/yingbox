@@ -22,6 +22,12 @@ services:
       # HTTP_PROXY: 'http://192.168.1.2:7890'
       # NO_PROXY: 'localhost,127.0.0.1'
       # NODE_USE_ENV_PROXY: '1'
+      # 目录监控（见 docs/library-server.md「自动入库」）：auto 本地盘用文件系统事件、网络盘只用定时扫描
+      # YINGBOX_WATCH: 'auto'
+      # 定时增量扫描间隔（秒），NFS / SMB 挂载的媒体目录只靠它发现新文件
+      # YINGBOX_SCAN_INTERVAL: '300'
+      # 新文件大小与 mtime 保持多少秒不变才入库（避免刮削复制到一半的文件）
+      # YINGBOX_SETTLE_SECONDS: '10'
       TZ: Asia/Shanghai
     volumes:
       # 数据目录：片库数据库、海报缓存、密钥文件
