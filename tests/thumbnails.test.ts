@@ -152,10 +152,9 @@ describe('yingbox-media 地址', () => {
     ).toBeNull()
   })
 
-  it('来源：http(s)、amane://image/、带图片扩展名的本地 file:///', () => {
+  it('来源：http(s)、带图片扩展名的本地 file:///', () => {
     expect(isThumbSource('https://a.com/x.jpg')).toBe(true)
     expect(isThumbSource('http://a.com/x.jpg')).toBe(true)
-    expect(isThumbSource('amane://image/?path=%2Fapi')).toBe(true)
     expect(isThumbSource('file:///C:/海报/poster.JPG')).toBe(true)
     expect(isThumbSource('file:///home/a/fanart.webp')).toBe(true)
     expect(isThumbSource('file:///etc/passwd')).toBe(false)
@@ -366,13 +365,11 @@ describe('取原图', () => {
   ): SourceDeps & {
     fetchImage: Mock<SourceDeps['fetchImage']>
     readLimited: Mock<SourceDeps['readLimited']>
-    loaders: Map<string, Mock<(source: string) => Promise<Response>>>
   } => ({
     fetchImage: vi.fn(async () => response),
     readLimited: vi.fn(
       async (r: Response) => new Uint8Array(await r.arrayBuffer())
     ),
-    loaders: new Map([['amane:', vi.fn(async () => image('image/png'))]]),
   })
 
   it('本地 file:/// 给路径，不读字节', async () => {
@@ -383,22 +380,17 @@ describe('取原图', () => {
     expect(d.fetchImage).not.toHaveBeenCalled()
   })
 
-  it('插件协议交给登记的处理函数，http(s) 走带防护的出网', async () => {
+  it('http(s) 走带防护的出网', async () => {
     const d = deps()
     const load = createSourceLoader(d)
-    expect(await load('amane://image/?path=x')).toEqual({
+    expect(await load('https://a.com/x.jpg')).toEqual({
       bytes: new Uint8Array([1, 2, 3]),
     })
-    expect(d.loaders.get('amane:')).toHaveBeenCalledWith(
-      'amane://image/?path=x'
-    )
-    expect(d.fetchImage).not.toHaveBeenCalled()
-    await load('https://a.com/x.jpg')
     expect(d.fetchImage).toHaveBeenCalledWith('https://a.com/x.jpg')
-    expect(d.readLimited.mock.calls[1][1]).toBe(MAX_ORIGINAL_BYTES)
+    expect(d.readLimited.mock.calls[0][1]).toBe(MAX_ORIGINAL_BYTES)
   })
 
-  it('不是图片、超大小上限、未登记的协议都拒绝', async () => {
+  it('不是图片、超大小上限、不支持的协议都拒绝', async () => {
     await expect(
       createSourceLoader(deps(image('text/html')))('https://a.com/x')
     ).rejects.toThrow('响应不是图片')
