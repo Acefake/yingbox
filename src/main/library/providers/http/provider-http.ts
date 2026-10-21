@@ -18,7 +18,13 @@ import { type Clock, Semaphore, TokenBucket, realClock } from './rate-limiter'
 /** 注入的 fetch：只用到标准 fetch 的这一小部分。 */
 export type FetchLike = (
   url: string,
-  init: { headers: Record<string, string>; signal?: AbortSignal }
+  init: {
+    headers: Record<string, string>
+    signal?: AbortSignal
+    /** 缺省 GET；番号站点的站内搜索 / JSON 接口用 POST。 */
+    method?: 'GET' | 'POST'
+    body?: string
+  }
 ) => Promise<{
   status: number
   headers: { get(name: string): string | null }
@@ -82,6 +88,10 @@ export interface TextRequest {
   url: string
   headers?: Record<string, string>
   signal?: AbortSignal
+  /** 缺省 GET。POST 只用于幂等的检索（失败重试是安全的）。 */
+  method?: 'GET' | 'POST'
+  /** POST 请求体（表单或 JSON 字符串，Content-Type 由调用方放进 headers）。 */
+  body?: string
 }
 
 /** send 的解码方式：JSON 解析，或原样返回文本。 */
@@ -180,7 +190,7 @@ export class ProviderHttp {
 
   /** 发请求（含重试），处理缓存写回。 */
   private async send(
-    request: JsonRequest,
+    request: JsonRequest & Pick<TextRequest, 'method' | 'body'>,
     stale: CacheEntry | undefined,
     decoder: Decoder
   ): Promise<unknown> {
@@ -202,6 +212,9 @@ export class ProviderHttp {
             ...(stale?.etag ? { 'If-None-Match': stale.etag } : {}),
           },
           signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+          ...(request.method === 'POST'
+            ? { method: 'POST' as const, body: request.body }
+            : {}),
         })
         status = response.status
         headers = response.headers

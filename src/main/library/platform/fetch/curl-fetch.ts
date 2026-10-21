@@ -63,12 +63,16 @@ export function parseCurlOutput(output: Buffer): CurlResponse {
   }
 }
 
-/** 拼 curl 参数（纯函数，便于测试）。 */
+/**
+ * 拼 curl 参数（纯函数，便于测试）。
+ * body 有值时发 POST（--data-binary）；不加 --request，重定向后按 curl 默认改成 GET，与 fetch 一致。
+ */
 export function curlArgs(
   url: string,
   headers: Record<string, string>,
   maxBytes: number,
-  timeoutMs: number
+  timeoutMs: number,
+  body?: string
 ): string[] {
   const args = [
     '--silent',
@@ -89,6 +93,7 @@ export function curlArgs(
     if (/[\r\n]/.test(name + value)) continue
     args.push('--header', `${name}: ${value}`)
   }
+  if (body !== undefined) args.push('--data-binary', body)
   args.push('--', url)
   return args
 }
@@ -104,7 +109,12 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
   const run = options.spawnImpl ?? spawn
   return ((
     url: string,
-    init: { headers?: Record<string, string>; signal?: AbortSignal }
+    init: {
+      headers?: Record<string, string>
+      signal?: AbortSignal
+      method?: 'GET' | 'POST'
+      body?: string
+    }
   ) =>
     new Promise<Response>((resolve, reject) => {
       if (!/^https?:\/\//i.test(url)) {
@@ -114,7 +124,13 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
       init.signal?.throwIfAborted()
       const child = run(
         binary,
-        curlArgs(url, init.headers ?? {}, maxBytes, timeoutMs),
+        curlArgs(
+          url,
+          init.headers ?? {},
+          maxBytes,
+          timeoutMs,
+          init.method === 'POST' ? (init.body ?? '') : undefined
+        ),
         {
           stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true,
