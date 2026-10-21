@@ -1,12 +1,16 @@
 /**
  * 扫描时的文件名解析：用 P1 解析器解析相对媒体库根目录的路径，得到写库的列与分组结果。
+ *
+ * 番号库：再从文件名（退到文件夹名）解析番号，认出来时以番号为片名，同一番号的分段 / 字幕版
+ * 归到同一个条目；认不出的文件保持普通解析结果（识别时记为未匹配）。
  */
 import { type FileGrouping, groupFile } from '../catalog/grouping'
-import type { LibraryKind } from '../../../shared/library/ipc'
+import type { LibraryKind, LibrarySource } from '../../../shared/library/ipc'
 import {
   type ParsedMedia,
   parseMediaPath,
 } from '../../../shared/library/parser'
+import { parseJavCode } from '../providers/jav/number'
 import type { ParsedColumns } from './scan-store'
 
 /**
@@ -32,6 +36,22 @@ export interface ParseContext {
   kind: LibraryKind
   /** 媒体库根目录的路径键。 */
   rootKey: string
+  /** 元数据来源，缺省 tmdb。 */
+  source?: LibrarySource
+}
+
+/** 番号库的文件：认出番号时改用番号作片名（附加内容不动）。 */
+function withJavCode(parsed: ParsedMedia, relativePath: string): ParsedMedia {
+  if (parsed.type === 'extra') return parsed
+  const segments = relativePath.split('/')
+  const jav = parseJavCode(segments.at(-1)!, segments.slice(0, -1))
+  if (!jav) return parsed
+  return {
+    type: 'movie',
+    title: jav.code,
+    code: jav.code,
+    ...(jav.part !== undefined ? { part: jav.part } : {}),
+  }
 }
 
 /**
@@ -50,6 +70,7 @@ export function parseLibraryFile(
   let parsed: ParsedMedia
   try {
     parsed = parseMediaPath(relativePath)
+    if (ctx.source === 'jav') parsed = withJavCode(parsed, relativePath)
   } catch {
     return {
       columns: { parsed: null, parserVersion: PARSER_VERSION, state: 'error' },

@@ -128,6 +128,8 @@ describe('引擎 RPC 与 preload bridge', () => {
       'writer.applyOrganize',
       'writer.undoOrganize',
       'writer.listOrganizeBatches',
+      'jav.getSettings',
+      'jav.setSettings',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })

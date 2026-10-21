@@ -4,7 +4,7 @@
  * 引擎的 poster / backdrop 有两种形态：
  * - 已缓存：yingbox-media://image/<key>，换成 mediaImageUrl(key, 300 | 780) 取本地缩略图；
  * - 缓存失败：TMDB 远程地址（w500 / w1280），把尺寸段换成接近的远程尺寸，免得海报墙拉大图。
- * logo、季海报、剧照、演员头像只有 TMDB 远程地址或元数据里的相对路径。
+ * logo、季海报、剧照、演员头像只有 TMDB 远程地址或元数据里的相对路径（番号库是站点图片的绝对地址）。
  *
  * 这些函数在海报墙每格渲染时调用，用正则而不是 new URL，保持够快。
  */
@@ -34,10 +34,11 @@ export function itemImage(
   return url
 }
 
-/** TMDB 相对路径（/abc.jpg）→ 远程地址；路径为空返回 null。 */
+/** TMDB 相对路径（/abc.jpg）→ 远程地址；已是绝对地址（番号站点图片）原样返回；路径为空返回 null。 */
 export function tmdbImage(
   path: string | null | undefined,
   size: 'w185' | 'w300' | 'w500' | 'w780' = 'w185'
 ): string | null {
-  return path ? `${TMDB_IMAGE}/${size}${path}` : null
+  if (!path) return null
+  return /^https?:\/\//.test(path) ? path : `${TMDB_IMAGE}/${size}${path}`
 }

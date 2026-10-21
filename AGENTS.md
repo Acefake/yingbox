@@ -83,6 +83,10 @@ Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`.
 
 `src/main/plugins/amane/` (rules / connection / service / api) supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/features/amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
 
+### 番号库（JAV 刮削）
+
+A movie library can be added with `source: 'jav'` (「添加番号文件夹…」 in library settings; fixed at creation, migration v4 adds `libraries.source`). The scanner then parses a 番号 from each file name (`src/main/library/providers/jav/number.ts`; falls back to folder names) and groups files by it; identification skips TMDB search/scoring and asks the 番号 sites directly (`identify/runner-jav.ts`), no TMDB token needed. Sites live in `providers/jav/sites/` (javbus, avbase, fc2), fetched through `ProviderHttp.getText` (Electron `net.fetch`) with per-host breaker and Cloudflare page detection; `aggregate.ts` merges per field by the user's site priority (`jav.getSettings` / `jav.setSettings`, stored in `settings` as `provider.jav.settings`). For these items `media_items.tmdb_id` holds the 番号 and `matches.provider` is `jav`; image paths are absolute URLs (`TmdbProvider.imageUrl` passes them through); NFO writes `<uniqueid type="num">`. Behaviour is modelled on Amane's scrapers but independently implemented (no GPL code copied); the external Amane backend under `plugins/amane` is untouched.
+
 ### App settings
 
 - localStorage: `scrapeProviderConfig` (provider, TMDB token; legacy backend URL/key kept only for the library mirror), `imageDownloadSize_*`, `folderContent_*` (tree cache), `metadataLanguage`, `player_playback_rate`

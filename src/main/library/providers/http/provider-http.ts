@@ -8,6 +8,8 @@
  *     200 写缓存 / 304 续期 / 404 记空结果 / 429 按 Retry-After 全局冷却后重试 /
  *     5xx 与网络错误指数退避重试 / 401、403 立即失败。
  *
+ * getText 取 HTML 等纯文本（番号站点刮削用）：不缓存、不去重，401 / 403 当作普通失败而不是令牌错误。
+ *
  * fetch 由调用方注入：引擎进程里用 Electron net.fetch（走系统代理），测试用假 fetch。
  */
 import type { CacheEntry, ResponseCache } from './provider-cache'
@@ -75,6 +77,23 @@ export interface JsonRequest {
   signal?: AbortSignal
 }
 
+/** 一次纯文本请求（HTML 页面）。不缓存；调用方自己缓存解析后的结果。 */
+export interface TextRequest {
+  url: string
+  headers?: Record<string, string>
+  signal?: AbortSignal
+}
+
+/** send 的解码方式：JSON 解析，或原样返回文本。 */
+interface Decoder {
+  decode: (text: string) => unknown
+  /** 401 / 403 是否按令牌错误处理（JSON API 是；网页站点的 403 多半是防护拦截）。 */
+  authErrors: boolean
+}
+
+const JSON_DECODER: Decoder = { decode: JSON.parse, authErrors: true }
+const TEXT_DECODER: Decoder = { decode: text => text, authErrors: false }
+
 /** 统计（基准与调试用）。 */
 export interface ProviderHttpStats {
   requests: number
@@ -139,23 +158,31 @@ export class ProviderHttp {
       this.stats.cacheHits++
       return JSON.parse(cached.body) as T | null
     }
-    if (!key) return (await this.send(request, undefined)) as T | null
+    if (!key) {
+      return (await this.send(request, undefined, JSON_DECODER)) as T | null
+    }
     const pending = this.inflight.get(key)
     if (pending) {
       this.stats.deduped++
       return (await pending) as T | null
     }
-    const promise = this.send(request, cached).finally(() =>
+    const promise = this.send(request, cached, JSON_DECODER).finally(() =>
       this.inflight.delete(key)
     )
     this.inflight.set(key, promise)
     return (await promise) as T | null
   }
 
+  /** 取纯文本（HTML）；404 返回 null。限速、并发、重试与 getJson 相同。 */
+  async getText(request: TextRequest): Promise<string | null> {
+    return (await this.send(request, undefined, TEXT_DECODER)) as string | null
+  }
+
   /** 发请求（含重试），处理缓存写回。 */
   private async send(
     request: JsonRequest,
-    stale: CacheEntry | undefined
+    stale: CacheEntry | undefined,
+    decoder: Decoder
   ): Promise<unknown> {
     const { signal } = request
     for (let attempt = 0; ; attempt++) {
@@ -196,7 +223,7 @@ export class ProviderHttp {
 
       const now = this.clock.now()
       if (status === 200) {
-        const body = JSON.parse(text) as unknown
+        const body = decoder.decode(text)
         if (request.cacheKey && this.options.cache) {
           this.options.cache.set(
             request.cacheKey,
@@ -212,7 +239,7 @@ export class ProviderHttp {
       }
       if (status === 304 && stale) {
         this.stats.notModified++
-        const body = JSON.parse(stale.body) as unknown
+        const body = decoder.decode(stale.body)
         this.options.cache?.touch(
           request.cacheKey!,
           now + (request.ttl?.(body) ?? DAY),
@@ -234,7 +261,7 @@ export class ProviderHttp {
         }
         return null
       }
-      if (status === 401 || status === 403) {
+      if ((status === 401 || status === 403) && decoder.authErrors) {
         throw new ProviderAuthError(
           `元数据源拒绝访问（HTTP ${status}），请检查 API 令牌`
         )

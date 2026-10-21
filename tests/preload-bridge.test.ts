@@ -115,6 +115,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'refreshMetadata',
     'getProviderStatus',
     'writer',
+    'jav',
     'subscribe',
   ],
 }

@@ -10,6 +10,7 @@ import type {
   SeasonMetadata,
 } from '../provider'
 import type { LibraryEvent } from './contract-events'
+import type { JavSettings, LibrarySource } from './contract-jav'
 import type {
   OrganizeAccepted,
   OrganizeBatchInfo,
@@ -18,6 +19,7 @@ import type {
 } from './contract-writer'
 
 export * from './contract-events'
+export * from './contract-jav'
 export * from './contract-writer'
 
 /** 媒体库类型：电影库或剧集库，决定本地分组方式和后续用哪类元数据源识别。 */
@@ -49,6 +51,8 @@ export interface LibraryInfo {
   /** 根目录（原始系统路径）。 */
   root: string
   kind: LibraryKind
+  /** 元数据来源：tmdb 按片名识别，jav 按番号刮削（只用于电影库）。 */
+  source: LibrarySource
   /** 毫秒时间戳。 */
   createdAt: number
   /** 最近一次扫描完成的时间；从未扫描为 null。 */
@@ -153,6 +157,8 @@ export interface AddLibraryRequest {
   root: string
   kind: LibraryKind
   name?: string
+  /** 缺省 tmdb；jav 只能用于电影库。 */
+  source?: LibrarySource
 }
 
 /** 触发扫描。 */
@@ -293,6 +299,8 @@ export interface LibraryRpcMap {
   }
   'writer.undoOrganize': { params: { batchId: number }; result: JobAccepted }
   'writer.listOrganizeBatches': { params: void; result: OrganizeBatchInfo[] }
+  'jav.getSettings': { params: void; result: JavSettings }
+  'jav.setSettings': { params: JavSettings; result: JavSettings }
 }
 
 /** 方法名。 */
@@ -321,6 +329,8 @@ export const LIBRARY_METHODS = [
   'writer.applyOrganize',
   'writer.undoOrganize',
   'writer.listOrganizeBatches',
+  'jav.getSettings',
+  'jav.setSettings',
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -348,6 +358,11 @@ export interface LibraryBridge {
   getProviderStatus(): Promise<ProviderStatus>
   /** 写出层：NFO / 图片 / 整理（改名移动）。进度见 writer-progress 事件。 */
   writer: LibraryWriterBridge
+  /** 番号站点设置（开关与优先级）。 */
+  jav: {
+    getSettings(): Promise<JavSettings>
+    setSettings(settings: JavSettings): Promise<JavSettings>
+  }
   /** 订阅引擎事件，返回取消订阅函数。事件经 MessagePort 直达，不经主进程转发。 */
   subscribe(listener: (event: LibraryEvent) => void): () => void
 }

@@ -75,7 +75,12 @@ export async function runParse(
 ): Promise<void> {
   const { db, scanStore, catalog } = deps
   const lib = deps.libraryFor(payload.libraryId)
-  const parseCtx = { libraryId: lib.id, kind: lib.kind, rootKey: lib.rootKey }
+  const parseCtx = {
+    libraryId: lib.id,
+    kind: lib.kind,
+    rootKey: lib.rootKey,
+    source: lib.source,
+  }
   const changes = new ItemChanges()
   let afterId = 0
   for (;;) {

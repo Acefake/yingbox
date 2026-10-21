@@ -8,6 +8,7 @@ import {
   type ApplyMatchRequest,
   type IdentifyRequest,
   LIBRARY_METHODS,
+  LIBRARY_SOURCES,
   type LibraryKind,
   type LibraryMethod,
   type LibraryQuery,
@@ -20,6 +21,7 @@ import {
   type TopLevelItemType,
   type WriterSettings,
 } from './contract'
+import { parseJavSettings } from './validate-jav'
 import { LibraryError } from './wire'
 import { validateTemplate } from '../writer/template'
 
@@ -157,10 +159,15 @@ function parseAddLibrary(input: unknown): AddLibraryRequest {
   if (r.name !== undefined && typeof r.name !== 'string') {
     invalid('name 必须是字符串')
   }
+  const kind = oneOf(r.kind, LIBRARY_KINDS, 'kind')
+  const source =
+    r.source === undefined ? 'tmdb' : oneOf(r.source, LIBRARY_SOURCES, 'source')
+  if (source === 'jav' && kind !== 'movie') invalid('番号库只能是电影库')
   return {
     root: (r.root as string).trim(),
-    kind: oneOf(r.kind, LIBRARY_KINDS, 'kind'),
+    kind,
     name: (r.name as string | undefined)?.trim() || undefined,
+    source,
   }
 }
 
@@ -363,6 +370,8 @@ const PARAM_PARSERS: {
     batchId: positiveId(asRecord(input, '参数').batchId, 'batchId'),
   }),
   'writer.listOrganizeBatches': () => undefined,
+  'jav.getSettings': () => undefined,
+  'jav.setSettings': parseJavSettings,
 }
 
 /** 方法名是否在白名单内。 */
