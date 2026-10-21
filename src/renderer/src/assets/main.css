@@ -3,7 +3,6 @@
 @import './styles/global.css';
 @import './styles/components.css';
 @import '../components/ui/ui.css';
-@import './styles/antd-overrides.css';
 
 /* Tailwind v4 theme bridge — map design tokens into utility namespace */
 @theme {

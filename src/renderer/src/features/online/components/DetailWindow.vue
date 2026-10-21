@@ -90,9 +90,9 @@
  * 主信息、播放源选择、演员剧照、灯箱分别是 ./Detail* 子组件；
  * TMDB 与播放源加载在 useTmdbDetail / useDetailSources，规则在 ../utils/detail-sources。
  */
+import { toast } from '@/components/ui'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
-import { message } from 'ant-design-vue'
 import {
   UnifiedVideoPlayer,
   canOpenElectronPlayer,
@@ -227,7 +227,7 @@ const playEp = async (url: string, ext?: Record<string, any>) => {
     ...(fallbacks.length ? { fallbacks } : {}),
   })
   showPlaySheet.value = false
-  if (!ok) message.error('无法打开独立播放窗口，请完全重启应用后再试')
+  if (!ok) toast.error('无法打开独立播放窗口，请完全重启应用后再试')
 }
 </script>
 

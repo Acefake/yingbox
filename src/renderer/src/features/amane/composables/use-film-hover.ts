@@ -3,8 +3,8 @@
  * 移到卡片上保持；卡片上的「播放 / 去码 / 边跑边看」按需取影片的第一个文件。
  * 轮播图逻辑在 FilmHoverCard 组件里。
  */
+import { toast } from '@/components/ui'
 import { type Ref, ref } from 'vue'
-import { message } from 'ant-design-vue'
 import { type AmaneDetail, type AmaneFilm, amaneRequest } from '../api/amane'
 import { hoverPosition } from '../utils/film'
 
@@ -109,7 +109,7 @@ export function useFilmHover(options: FilmHoverOptions): FilmHover {
     try {
       const id = await firstFileId(film.id)
       if (id === null) {
-        message.info('该影片还没有关联本地文件')
+        toast.info('该影片还没有关联本地文件')
         return
       }
       hideHover()

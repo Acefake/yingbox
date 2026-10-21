@@ -45,7 +45,7 @@
  * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailPeople / DetailInfo，
  * 纯规则在 detail-rules.ts。
  */
-import { message } from 'ant-design-vue'
+import { toast } from '@/components/ui'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
@@ -161,7 +161,7 @@ async function startPlayback(request: PlayRequest): Promise<void> {
     request,
     itemImage(node.value?.poster ?? null, 780) ?? undefined
   )
-  if (!ok) message.warning('当前环境无法播放本地文件')
+  if (!ok) toast.warning('当前环境无法播放本地文件')
 }
 
 function playPrimary(): void {
@@ -187,7 +187,7 @@ async function run(name: string, task: () => Promise<unknown>): Promise<void> {
   try {
     await task()
   } catch (e) {
-    message.error(errorText(e))
+    toast.error(errorText(e))
   } finally {
     busy.value = null
   }
@@ -209,7 +209,7 @@ function refreshMetadata(): void {
   if (!n || !bridge) return
   void run('refresh', async () => {
     await bridge.refreshMetadata({ itemIds: [n.id] })
-    message.info('已开始重新获取元数据')
+    toast.info('已开始重新获取元数据')
   })
 }
 
@@ -219,7 +219,7 @@ function writeOut(): void {
   void run('write', async () => {
     const failure = await write([n.id])
     if (failure) throw new Error(failure)
-    message.info('已开始写出 NFO 与图片')
+    toast.info('已开始写出 NFO 与图片')
   })
 }
 </script>

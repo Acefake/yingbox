@@ -32,20 +32,8 @@ export default defineConfig({
       },
     },
     plugins: [vue()],
-    // Prebundle CJS dayjs plugins so ESM named/default imports work in Vite
     optimizeDeps: {
-      include: [
-        'dayjs',
-        'dayjs/plugin/advancedFormat',
-        'dayjs/plugin/customParseFormat',
-        'dayjs/plugin/localeData',
-        'dayjs/plugin/weekday',
-        'dayjs/plugin/weekOfYear',
-        'dayjs/plugin/weekYear',
-        'ant-design-vue',
-        'vue',
-        'vue-router',
-      ],
+      include: ['vue', 'vue-router'],
     },
     server: {
       host: '127.0.0.1',
