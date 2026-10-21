@@ -13,6 +13,7 @@ import type {
   LibrarySource,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
+import { pickLibraryFolder } from '../settings/folder-picker'
 import { onLibraryEvent } from './library-events'
 
 /** 后台活动：界面顶部的细进度条与状态文字。 */
@@ -120,8 +121,7 @@ export function useLibraries(kind: LibraryKind): UseLibraries {
     source: LibrarySource = 'tmdb'
   ): Promise<LibraryInfo | null> {
     if (!bridge) return null
-    const picked = await window.api.dialog.openDirectory()
-    const root = picked.success && !picked.canceled ? picked.filePaths[0] : ''
+    const root = await pickLibraryFolder()
     if (!root) return null
     let info: LibraryInfo | null = null
     await run(async () => {
