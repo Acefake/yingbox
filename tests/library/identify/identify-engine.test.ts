@@ -374,7 +374,9 @@ describe('剧集识别', () => {
       '绝命毒师/Season 1/BB.S01E02.mkv': '',
       '绝命毒师/Season 1/BB.S01E09.mkv': '',
     })
-    const [reply, bb] = env.items()
+    // 两部剧的扫描顺序不固定（机器忙时先入库的可能是绝命毒师），按文件找，不按 id 顺序
+    const reply = env.byFile('请回答1988.S01E02.mkv')!
+    const bb = env.byFile('BB.S01E02.mkv')!
     expect(reply).toMatchObject({ tmdb: '64010' })
     expect(bb).toMatchObject({ tmdb: '1396', title: '绝命毒师' })
     const eps = env.service.getItem({ itemId: bb.id })!.children[0].children
