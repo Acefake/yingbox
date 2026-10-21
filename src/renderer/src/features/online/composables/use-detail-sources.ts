@@ -3,9 +3,10 @@
  * 每个站点只取最匹配的一条去查线路，任一来源返回即展示。
  * 选择分三层：来源类型（插件 / CMS）→ 站点 → 线路。
  */
-import { computed, ref } from 'vue'
-import type { EpisodeGroup } from '../types'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
+import type { CmsItem, Episode, EpisodeGroup } from '../types'
 import {
+  type SiteGroup,
   type SourceType,
   groupBySite,
   normalizeTitle,
@@ -17,7 +18,25 @@ import {
 } from '../utils/detail-sources'
 import { useOnlineSearch } from './use-online-search'
 
-export function useDetailSources() {
+/** 详情页播放源：三层选择（来源类型 → 站点 → 线路）的状态与操作 */
+export interface UseDetailSourcesReturn {
+  searching: Ref<boolean>
+  episodeGroups: Ref<EpisodeGroup[]>
+  currentSourceType: Ref<SourceType>
+  typeOptions: ComputedRef<{ value: SourceType; label: string }[]>
+  siteGroups: ComputedRef<SiteGroup[]>
+  activeSite: Ref<number>
+  activeLine: Ref<number>
+  currentLine: ComputedRef<EpisodeGroup | undefined>
+  currentEpisodes: ComputedRef<Episode[]>
+  currentSiteName: ComputedRef<string>
+  load: (directItem: CmsItem | null, searchTitle: string) => Promise<void>
+  switchSourceType: (type: SourceType) => void
+  switchSite: (index: number) => void
+  switchLine: (index: number) => void
+}
+
+export function useDetailSources(): UseDetailSourcesReturn {
   const { fetchDetail, keyword, search } = useOnlineSearch()
   const searching = ref(false)
   const episodeGroups = ref<EpisodeGroup[]>([])
@@ -47,7 +66,10 @@ export function useDetailSources() {
   )
 
   /** 按片名加载播放源；directItem 是打开详情时命中的那条（可为空）。 */
-  const load = async (directItem: any, searchTitle: string) => {
+  const load = async (
+    directItem: CmsItem | null,
+    searchTitle: string
+  ): Promise<void> => {
     searching.value = true
     episodeGroups.value = []
     activeGroup.value = 0
@@ -55,7 +77,7 @@ export function useDetailSources() {
       const targetTitle = normalizeTitle(searchTitle)
       const seen = new Set<string>()
       const pending = new Set<Promise<void>>()
-      const appendDetail = (candidate: any) => {
+      const appendDetail = (candidate: CmsItem): void => {
         const key = sourceKey(candidate)
         if (seen.has(key)) return
         seen.add(key)
@@ -79,10 +101,8 @@ export function useDetailSources() {
       await search(searchTitle, {
         allVod: false,
         onItems: items => {
-          for (const result of items as any[]) {
-            const title = normalizeTitle(
-              result?.vod_name || result?.title || result?.name
-            )
+          for (const result of items) {
+            const title = normalizeTitle(result.vod_name)
             if (titleMatches(title, targetTitle)) appendDetail(result)
           }
         },
@@ -99,18 +119,18 @@ export function useDetailSources() {
     }
   }
 
-  const switchSourceType = (type: SourceType) => {
+  const switchSourceType = (type: SourceType): void => {
     currentSourceType.value = type
     activeGroup.value = 0
     activeSite.value = 0
     activeLine.value = 0
   }
-  const switchSite = (index: number) => {
+  const switchSite = (index: number): void => {
     activeSite.value = index
     activeLine.value = 0
     activeGroup.value = 0
   }
-  const switchLine = (index: number) => {
+  const switchLine = (index: number): void => {
     activeLine.value = index
   }
 

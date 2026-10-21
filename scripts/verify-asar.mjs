@@ -17,7 +17,8 @@ const ROOT = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 
 function defaultAsar() {
   const dir = path.join(ROOT, 'dist')
-  if (!existsSync(dir)) return path.join(dir, 'win-unpacked', 'resources', 'app.asar')
+  if (!existsSync(dir))
+    return path.join(dir, 'win-unpacked', 'resources', 'app.asar')
   const unpacked = readdirSync(dir).find(n => n.endsWith('unpacked'))
   return path.join(dir, unpacked || 'win-unpacked', 'resources', 'app.asar')
 }
@@ -27,7 +28,8 @@ function defaultAsar() {
  */
 function readHeader(file) {
   const raw = readFileSync(file)
-  if (raw.readUInt32LE(0) !== 4) throw new Error('不是合法的 asar（首个 uint32 应为 4）')
+  if (raw.readUInt32LE(0) !== 4)
+    throw new Error('不是合法的 asar（首个 uint32 应为 4）')
   const headerSize = raw.readUInt32LE(4)
   const jsonLen = raw.readUInt32LE(12)
   const header = JSON.parse(raw.toString('utf8', 16, 16 + jsonLen))
@@ -74,30 +76,48 @@ if (!pkgRaw) {
   try {
     pkg = JSON.parse(text)
   } catch (error) {
-    problems.push(`/package.json 不是合法 JSON（${error.message}）；开头 80 字节：${JSON.stringify(text.slice(0, 80))}`)
+    problems.push(
+      `/package.json 不是合法 JSON（${error.message}）；开头 80 字节：${JSON.stringify(text.slice(0, 80))}`
+    )
   }
   if (pkg) {
     const main = String(pkg.main || '').replace(/^\.?\//, '/')
-    if (!entries.has(main)) problems.push(`package.json 的 main 指向的 ${main} 不在 asar 中`)
-    else if (read(main).subarray(0, 2).toString('latin1') === '') problems.push(`${main} 为空`)
+    if (!entries.has(main))
+      problems.push(`package.json 的 main 指向的 ${main} 不在 asar 中`)
+    else if (read(main).subarray(0, 2).toString('latin1') === '')
+      problems.push(`${main} 为空`)
   }
 }
 
 // 2) 主进程/预加载/渲染入口可读取且非空
-for (const p of ['/out/main/index.js', '/out/preload/index.js', '/out/renderer/index.html']) {
+for (const p of [
+  '/out/main/index.js',
+  '/out/preload/index.js',
+  '/out/renderer/index.html',
+]) {
   const e = entries.get(p)
   if (!e) problems.push(`缺少 ${p}`)
   else if (!e.size) problems.push(`${p} 大小为 0`)
-  else if (dataOffset + e.offset + e.size > totalBytes) problems.push(`${p} 数据越界（asar 被截断）`)
+  else if (dataOffset + e.offset + e.size > totalBytes)
+    problems.push(`${p} 数据越界（asar 被截断）`)
 }
 
 // 3) 数据区不能越界
-const maxEnd = Math.max(...[...entries.values()].map(e => dataOffset + e.offset + e.size))
-if (maxEnd > totalBytes) problems.push(`数据区越界：需要 ${maxEnd} 字节，文件只有 ${totalBytes} 字节（asar 损坏）`)
+const maxEnd = Math.max(
+  ...[...entries.values()].map(e => dataOffset + e.offset + e.size)
+)
+if (maxEnd > totalBytes)
+  problems.push(
+    `数据区越界：需要 ${maxEnd} 字节，文件只有 ${totalBytes} 字节（asar 损坏）`
+  )
 
-console.log(`[verify-asar] ${path.relative(ROOT, file)}  ${(totalBytes / 1048576).toFixed(1)} MB，${entries.size} 个条目`)
+console.log(
+  `[verify-asar] ${path.relative(ROOT, file)}  ${(totalBytes / 1048576).toFixed(1)} MB，${entries.size} 个条目`
+)
 if (problems.length) {
   for (const p of problems) console.error(`[verify-asar] ✗ ${p}`)
   process.exit(1)
 }
-console.log('[verify-asar] ✓ app.asar 完好（package.json 可解析、main/入口齐全、数据区完整）')
+console.log(
+  '[verify-asar] ✓ app.asar 完好（package.json 可解析、main/入口齐全、数据区完整）'
+)

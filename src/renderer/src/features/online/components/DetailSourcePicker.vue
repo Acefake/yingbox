@@ -75,6 +75,7 @@
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
+import type { Episode, PluginExt } from '../types'
 import type { SiteGroup, SourceType } from '../utils/detail-sources'
 
 defineProps<{
@@ -87,13 +88,13 @@ defineProps<{
   siteGroups: SiteGroup[]
   activeSite: number
   activeLine: number
-  currentEpisodes: { name: string; url: string; ext?: Record<string, any> }[]
+  currentEpisodes: Episode[]
   currentUrl: string
 }>()
 const emit = defineEmits<{
   (e: 'switch-type', type: SourceType): void
   (e: 'switch-site' | 'switch-line', index: number): void
-  (e: 'play', url: string, ext?: Record<string, any>): void
+  (e: 'play', url: string, ext?: PluginExt): void
 }>()
 </script>
 

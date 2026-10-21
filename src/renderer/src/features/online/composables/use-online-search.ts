@@ -2,15 +2,22 @@
  * 在线搜索：并发检索已启用的 CMS 与 CatSpider 站点、取详情线路、解析插件播放地址。
  * 站点清单与启用列表在 ./cms-sites、./catspider-sites；返回数据的解析在 ../utils/vod-payload。
  */
+import type { RemovableRef } from '@vueuse/core'
 import { getSetting } from '@/features/settings'
 import { mapWithConcurrency } from '@/utils/concurrency'
-import { getCurrentScope, onScopeDispose, ref } from 'vue'
+import { asText } from '@/utils/json'
+import { firstPlayUrl, getVodList } from '@/utils/vod-data'
+import { type Ref, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getJson } from '../api/online'
-import type { ApiSite, CatSpiderSite, CmsItem, EpisodeGroup } from '../types'
+import type {
+  ApiSite,
+  CatSpiderSite,
+  CmsItem,
+  EpisodeGroup,
+  PluginExt,
+} from '../types'
 import {
   cmsDetailSources,
-  firstPlayUrl,
-  getVodList,
   parseCatSpiderGroups,
   parseCmsGroups,
   toCatSpiderSearchItems,
@@ -34,7 +41,35 @@ export type {
 } from '../types'
 export { CATSPIDER_SITES, DEFAULT_SITES, loadCatSpiderSites }
 
-export function useOnlineSearch() {
+/** 苹果 CMS 列表 / 详情接口的返回（ac=videolist） */
+interface CmsListResponse {
+  code?: number
+  list?: CmsItem[]
+}
+
+/** 在线搜索：站点清单、搜索结果、取线路与解析播放地址 */
+export interface UseOnlineSearchReturn {
+  keyword: Ref<string>
+  results: Ref<CmsItem[]>
+  loading: Ref<boolean>
+  error: Ref<string>
+  selectedSites: typeof selectedSites
+  customSites: RemovableRef<ApiSite[]>
+  DEFAULT_SITES: ApiSite[]
+  CATSPIDER_SITES: Ref<CatSpiderSite[]>
+  selectedCatSpider: RemovableRef<string[]>
+  loadCatSpiderSites: () => Promise<void>
+  isAdultCatSpiderSite: (site: CatSpiderSite) => boolean
+  activeCatSpiderSites: () => CatSpiderSite[]
+  search: (
+    kw?: string,
+    options?: { allVod?: boolean; onItems?: (items: CmsItem[]) => void }
+  ) => Promise<void>
+  fetchDetail: (item: CmsItem) => Promise<EpisodeGroup[]>
+  resolvePlayUrl: (siteName: string, ext: PluginExt) => Promise<string>
+}
+
+export function useOnlineSearch(): UseOnlineSearchReturn {
   const keyword = ref('')
   const results = ref<CmsItem[]>([])
   const loading = ref(false)
@@ -72,12 +107,13 @@ export function useOnlineSearch() {
     searchController?.abort()
     const controller = new AbortController()
     searchController = controller
-    const current = () => requestId === generation && !controller.signal.aborted
+    const current = (): boolean =>
+      requestId === generation && !controller.signal.aborted
     keyword.value = q
     loading.value = true
     error.value = ''
     results.value = []
-    const publish = (items: CmsItem[]) => {
+    const publish = (items: CmsItem[]): void => {
       if (!current() || !items.length) return
       results.value = [...results.value, ...items]
       options.onItems?.(items)
@@ -95,7 +131,9 @@ export function useOnlineSearch() {
           const url = new URL(site.api)
           url.searchParams.set('ac', 'videolist')
           url.searchParams.set('wd', q)
-          const data = await getJson<any>(String(url), { timeoutMs: 10000 })
+          const data = await getJson<CmsListResponse>(String(url), {
+            timeoutMs: 10000,
+          })
           if (!Array.isArray(data?.list)) return []
           const items = toCmsSearchItems(data.list, site)
           publish(items)
@@ -141,7 +179,7 @@ export function useOnlineSearch() {
     if (item._source === 'catspider' && item._siteName) {
       try {
         const ext = item._ext || {}
-        const url = ext.url || String(item.vod_id)
+        const url = asText(ext.url) || String(item.vod_id)
         const r = await getTracks({
           siteName: item._siteName,
           url,
@@ -160,7 +198,7 @@ export function useOnlineSearch() {
     const tasks = sources.map(async src => {
       try {
         const url = `${src.api_url}?ac=videolist&ids=${src.vod_id}`
-        const data = await getJson<any>(url, { timeoutMs: 10000 })
+        const data = await getJson<CmsListResponse>(url, { timeoutMs: 10000 })
         return parseCmsGroups(data?.list?.[0], src.source_name)
       } catch {
         return []
@@ -177,10 +215,10 @@ export function useOnlineSearch() {
    */
   const resolvePlayUrl = async (
     siteName: string,
-    ext: Record<string, any>
+    ext: PluginExt
   ): Promise<string> => {
     try {
-      const r = await getPlayinfo({ siteName, url: ext.url || '', ...ext })
+      const r = await getPlayinfo({ siteName, url: asText(ext.url), ...ext })
       if (!r.success || !r.data) return ''
       return firstPlayUrl(r.data)
     } catch {

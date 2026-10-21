@@ -43,7 +43,9 @@
  * 在线详情页的演员条（最多 14 位）与剧照条（最多 20 张，点击打开灯箱）。
  * 多根节点组件，两段各自在没有数据时不渲染。
  */
-defineProps<{ cast: any[]; images: any[] }>()
+import type { TmdbCastMember, TmdbImage } from '../types'
+
+defineProps<{ cast: TmdbCastMember[]; images: TmdbImage[] }>()
 const emit = defineEmits<{ (e: 'open', index: number): void }>()
 
 const onActorImgError = (e: Event): void => {

@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { type Mock, describe, expect, it, vi } from 'vitest'
 
 import type {
   LibraryItemSummary,
@@ -24,8 +24,16 @@ function summary(id: number, title = `片${id}`): LibraryItemSummary {
   }
 }
 
+/** fakeEngine 的返回：取页函数、请求过的 offset，以及挂起 / 放行请求的开关 */
+interface FakeEngine {
+  fetch: Mock<(offset: number, limit: number) => Promise<LibraryQueryResult>>
+  calls: number[]
+  hold(): void
+  release(): void
+}
+
 /** 假引擎：total 条，id = 下标 + 1；记录每次请求的 offset。 */
-function fakeEngine(total: number, titlePrefix = '片') {
+function fakeEngine(total: number, titlePrefix = '片'): FakeEngine {
   const calls: number[] = []
   let pending: Array<() => void> = []
   let manual = false

@@ -9,7 +9,9 @@ const FOURHOI_COVER =
   /^https:\/\/fourhoi\.com\/([a-z0-9]+(?:-[a-z0-9]+)*)\/cover-t\.jpg(?:[?#].*)?$/i
 
 /** 返回条目可直接用于 <img> 的封面地址；MissAV 条目统一用 fourhoi 原图地址。 */
-export const coverSrc = (item: any): string => {
+export const coverSrc = (
+  item: { _missavInput?: string; vod_pic?: string } | null | undefined
+): string => {
   const code = String(item?._missavInput || '')
     .trim()
     .toLowerCase()

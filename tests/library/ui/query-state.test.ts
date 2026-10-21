@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { normalizeLibraryQuery } from '../../../src/shared/library/ipc'
+import type { MatchState } from '../../../src/shared/library/ipc/contract'
 import {
   defaultOrder,
   defaultWallQuery,
@@ -40,7 +41,9 @@ describe('toLibraryQuery', () => {
   })
 
   it('筛选映射到匹配状态，已匹配 = 自动 + 锁定', () => {
-    const q = (filter: ReturnType<typeof defaultWallQuery>['filter']) =>
+    const q = (
+      filter: ReturnType<typeof defaultWallQuery>['filter']
+    ): MatchState[] | undefined =>
       toLibraryQuery('movie', { ...defaultWallQuery(), filter }).matchStates
     expect(q('all')).toBeUndefined()
     expect(q('matched')).toEqual(['auto', 'locked'])

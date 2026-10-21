@@ -16,11 +16,15 @@ describe('parseLadaLine', () => {
   })
 
   it('handles carriage returns (tqdm redraws the same line)', () => {
-    expect(parseLadaLine('\r正在处理视频:  42%|██|已处理 00:10 (300帧)\r').percent).toBe(42)
+    expect(
+      parseLadaLine('\r正在处理视频:  42%|██|已处理 00:10 (300帧)\r').percent
+    ).toBe(42)
   })
 
   it('accepts a half-width colon before the speed', () => {
-    expect(parseLadaLine('已处理 00:10 (300帧) | 速度: 12.5 帧/秒').fps).toBeCloseTo(12.5)
+    expect(
+      parseLadaLine('已处理 00:10 (300帧) | 速度: 12.5 帧/秒').fps
+    ).toBeCloseTo(12.5)
   })
 
   it('parses the audio-merge line as a message without numbers', () => {
@@ -39,12 +43,16 @@ describe('parseLadaLine', () => {
 
 describe('restoredPathFor', () => {
   it('inserts .restored before the extension', () => {
-    expect(restoredPathFor('E:\\root\\高跟\\a.mp4')).toBe('E:\\root\\高跟\\a.restored.mp4')
+    expect(restoredPathFor('E:\\root\\高跟\\a.mp4')).toBe(
+      'E:\\root\\高跟\\a.restored.mp4'
+    )
     expect(restoredPathFor('/home/u/a.mkv')).toBe('/home/u/a.restored.mkv')
   })
 
   it('keeps earlier dots in the name', () => {
-    expect(restoredPathFor('C:\\v\\a.b.c.mp4')).toBe('C:\\v\\a.b.c.restored.mp4')
+    expect(restoredPathFor('C:\\v\\a.b.c.mp4')).toBe(
+      'C:\\v\\a.b.c.restored.mp4'
+    )
   })
 
   it('falls back to .mp4 when there is no extension', () => {
@@ -52,6 +60,8 @@ describe('restoredPathFor', () => {
   })
 
   it('does not treat a dot in a directory name as an extension', () => {
-    expect(restoredPathFor('C:\\my.folder\\movie')).toBe('C:\\my.folder\\movie.restored.mp4')
+    expect(restoredPathFor('C:\\my.folder\\movie')).toBe(
+      'C:\\my.folder\\movie.restored.mp4'
+    )
   })
 })

@@ -193,7 +193,7 @@ describe('站点解析（移植自 Python 各 Downloader）', () => {
 describe('下载队列', () => {
   const setup = async (
     run: ConstructorParameters<typeof DownloadQueue>[0]['run']
-  ) => {
+  ): Promise<{ queue: DownloadQueue; file: string; snapshots: string[] }> => {
     const file = join(await tmp(), 'queue.json')
     const snapshots: string[] = []
     const queue = new DownloadQueue({

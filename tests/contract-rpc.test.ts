@@ -37,8 +37,24 @@ function contents(destroyed = false): FakeContents {
   }
 }
 
+type IpcListener = (event: { sender: unknown }, ...args: unknown[]) => unknown
+type IpcSyncListener = (
+  event: { sender: unknown; returnValue: unknown },
+  ...args: unknown[]
+) => void
+
+/** fakeIpc 的返回：ipcMain 的 handle / on 与渲染侧 invoke / sendSync 接在一起 */
+interface FakeIpc {
+  listeners: Map<string, IpcListener>
+  syncListeners: Map<string, IpcSyncListener>
+  handle(channel: string, listener: IpcListener): void
+  on(channel: string, listener: IpcSyncListener): void
+  sendSync(channel: string, ...args: unknown[]): unknown
+  invoke(channel: string, ...args: unknown[]): Promise<unknown>
+}
+
 /** ipcMain.handle 的替身：记下每个通道的 listener，测试里直接调用 */
-function fakeIpc() {
+function fakeIpc(): FakeIpc {
   const listeners = new Map<
     string,
     (event: { sender: unknown }, ...args: unknown[]) => unknown

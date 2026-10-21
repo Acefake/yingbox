@@ -135,7 +135,7 @@ describe('插件宿主', () => {
       app.emit('before-quit', event())
     })
     const prevented: boolean[] = []
-    const event = () => {
+    const event = (): { preventDefault: () => boolean; prevented: boolean } => {
       const e = { preventDefault: () => (e.prevented = true), prevented: false }
       setTimeout(() => prevented.push(e.prevented))
       return e

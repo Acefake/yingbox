@@ -1,7 +1,10 @@
 import { describe, expect, it } from 'vitest'
-import { nextTick, ref } from 'vue'
+import { type Ref, nextTick, ref } from 'vue'
 import type { SettingsSection } from '../src/renderer/src/features/settings/registry'
-import { useSectionNavigation } from '../src/renderer/src/features/settings/use-section-navigation'
+import {
+  type SectionNavigation,
+  useSectionNavigation,
+} from '../src/renderer/src/features/settings/use-section-navigation'
 
 const section = (
   id: string,
@@ -21,7 +24,14 @@ const SECTIONS = [
   section('lada', { keywords: '马赛克', adultOnly: true }),
 ]
 
-const setup = (adult = false, allowLeave = true) => {
+const setup = (
+  adult = false,
+  allowLeave = true
+): {
+  nav: SectionNavigation
+  adultMode: Ref<boolean>
+  leave: { ok: boolean }
+} => {
   const adultMode = ref(adult)
   const leave = { ok: allowLeave }
   const nav = useSectionNavigation({

@@ -1,3 +1,4 @@
+import type { JsonRecord } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 
 const ONLINE_KEY = 'online_play_history'
@@ -40,7 +41,7 @@ export function getMediaProgress(key: string): number {
   if (!key) return 0
   const mapped = readProgressMap()[key]?.progress
   if (typeof mapped === 'number' && mapped > 0) return mapped
-  const history = readStoredArray<Record<string, any>>(ONLINE_KEY)
+  const history = readStoredArray<JsonRecord>(ONLINE_KEY)
   const hit = history.find(entry => entry?.url === key)
   return typeof hit?.progress === 'number' ? hit.progress : 0
 }
@@ -65,7 +66,7 @@ export function saveMediaProgress(
     .slice(0, 80)
   writeProgressMap(Object.fromEntries(entries))
 
-  const history = readStoredArray<Record<string, any>>(ONLINE_KEY)
+  const history = readStoredArray<JsonRecord>(ONLINE_KEY)
   const index = history.findIndex(entry => entry?.url === key)
   if (index < 0) return
   const next = {

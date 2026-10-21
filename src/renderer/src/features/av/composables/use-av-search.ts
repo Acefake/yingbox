@@ -2,30 +2,52 @@
  * AV 聚合搜索：同时检索全部启用的 AV CMS 源与成人插件源（限并发），
  * 每个站点返回后立即按片名合并展示；结果按「关键词 + 站点集合」缓存 5 分钟。
  */
-import { type ComputedRef, computed, ref, shallowRef } from 'vue'
+import {
+  type ComputedRef,
+  type Ref,
+  type ShallowRef,
+  computed,
+  ref,
+  shallowRef,
+} from 'vue'
 import { type CatSpiderSite, getJson, useVODParser } from '@/features/online'
+import { getVodList } from '@/utils/vod-data'
 import { mapWithConcurrency } from '@/utils/concurrency'
 import type { AvSite } from './use-av-sources'
 import {
   type MergedGroup,
   mergeByTitle,
-  parsePluginSearchList,
   searchCacheKey,
   titleKey,
 } from '../utils/av-playback'
-import { toCmsItems, toPluginItems } from '../utils/av-catalog'
+import { type AvVideo, toCmsItems, toPluginItems } from '../utils/av-catalog'
 
 const SEARCH_CACHE_TTL = 5 * 60 * 1000
 const SEARCH_CACHE_LIMIT = 30
+
+/** AV 聚合搜索的状态与操作 */
+export interface UseAvSearchReturn {
+  keyword: Ref<string>
+  loading: Ref<boolean>
+  hasSearched: Ref<boolean>
+  doneCount: Ref<number>
+  error: Ref<string>
+  groups: ShallowRef<MergedGroup[]>
+  sourceCount: ComputedRef<number>
+  findGroup: (name: string) => MergedGroup | null
+  search: () => Promise<void>
+  reset: () => void
+  dispose: () => void
+}
 
 export function useAvSearch(options: {
   cmsSources: () => AvSite[]
   pluginSources: ComputedRef<CatSpiderSite[]>
   cmsCount: () => number
-}) {
+}): UseAvSearchReturn {
   const { search: vodSearch } = useVODParser()
   const keyword = ref('')
-  const videos = shallowRef<any[]>([])
+  const videos = shallowRef<AvVideo[]>([])
   const loading = ref(false)
   const hasSearched = ref(false)
   const doneCount = ref(0)
@@ -37,9 +59,9 @@ export function useAvSearch(options: {
   )
   let groupMap = new Map<string, MergedGroup>()
   let abort: AbortController | null = null
-  const cache = new Map<string, { expiresAt: number; items: any[] }>()
+  const cache = new Map<string, { expiresAt: number; items: AvVideo[] }>()
 
-  const rebuild = () => {
+  const rebuild = (): void => {
     groupMap = mergeByTitle(videos.value)
     groups.value = Array.from(groupMap.values())
   }
@@ -49,12 +71,18 @@ export function useAvSearch(options: {
     groupMap.get(titleKey(name)) || null
 
   /** 单个 CMS 站点：失败计入 failedCount，返回空。 */
-  const fetchCms = async (source: AvSite, kw: string, signal: AbortSignal) => {
+  const fetchCms = async (
+    source: AvSite,
+    kw: string,
+    signal: AbortSignal
+  ): Promise<AvVideo[]> => {
     try {
       const url = kw
         ? `${source.api}?ac=detail&wd=${encodeURIComponent(kw)}`
         : `${source.api}?ac=detail`
-      const data = await getJson<any>(url, { timeoutMs: 8000 })
+      const data = await getJson<{ code?: number; list?: unknown }>(url, {
+        timeoutMs: 8000,
+      })
       if (signal.aborted) return []
       if (data.code === 1 && Array.isArray(data.list))
         return toCmsItems(data.list, source.name)
@@ -69,21 +97,21 @@ export function useAvSearch(options: {
     site: CatSpiderSite,
     kw: string,
     signal: AbortSignal
-  ) => {
+  ): Promise<AvVideo[]> => {
     try {
       const r = await vodSearch({ siteName: site.name, keyword: kw }, signal)
       if (!r.success || !r.data) {
         if (!signal.aborted) failedCount.value++
         return []
       }
-      return toPluginItems(parsePluginSearchList(r.data), site.name)
+      return toPluginItems(getVodList(r.data), site.name)
     } catch {
       if (!signal.aborted) failedCount.value++
       return []
     }
   }
 
-  const search = async () => {
+  const search = async (): Promise<void> => {
     const kw = keyword.value.trim()
     if (!kw) {
       hasSearched.value = true
@@ -117,7 +145,7 @@ export function useAvSearch(options: {
     }
 
     // 每个站点返回后立即合并结果，不等待全部站点完成。
-    const collect = async (items: any[]) => {
+    const collect = async (items: AvVideo[]): Promise<AvVideo[]> => {
       if (!signal.aborted) {
         doneCount.value++
         if (items.length) {
@@ -150,7 +178,7 @@ export function useAvSearch(options: {
   }
 
   /** 清空搜索（路由去掉 ?q= 时）。 */
-  const reset = () => {
+  const reset = (): void => {
     keyword.value = ''
     videos.value = []
     hasSearched.value = false

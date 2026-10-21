@@ -155,19 +155,19 @@ const searchHistory = ref<string[]>(
   readStoredArray<string>(HISTORY_KEY, value => typeof value === 'string')
 )
 
-const saveHistory = (kw: string) => {
+const saveHistory = (kw: string): void => {
   const list = searchHistory.value.filter(s => s !== kw)
   list.unshift(kw)
   searchHistory.value = list.slice(0, 20)
   saveStoredArray(HISTORY_KEY, searchHistory.value)
 }
 
-const removeHistory = (kw: string) => {
+const removeHistory = (kw: string): void => {
   searchHistory.value = searchHistory.value.filter(s => s !== kw)
   saveStoredArray(HISTORY_KEY, searchHistory.value)
 }
 
-const clearHistory = () => {
+const clearHistory = (): void => {
   void confirmDialog({
     title: '清空搜索记录？',
     content: `将清除本机保存的 ${searchHistory.value.length} 条搜索记录。`,
@@ -180,7 +180,7 @@ const clearHistory = () => {
   })
 }
 
-const handleSearch = async (kw?: string) => {
+const handleSearch = async (kw?: string): Promise<void> => {
   const query = (kw ?? keyword.value).trim()
   if (!query) return
   if (route.query.q !== query) {

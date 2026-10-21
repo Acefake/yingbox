@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
 import type { MpvOpenOptions, MpvStatus, MpvTrack } from '@shared/mpv'
 
 const DEFAULT_STATUS: MpvStatus = {
@@ -30,11 +30,37 @@ function initMpvListeners(): void {
   })
 }
 
+/** mpv 播放器状态（从主进程推送）与控制操作 */
+export interface UseMpvPlayerReturn {
+  status: Ref<MpvStatus>
+  isRunning: ComputedRef<boolean>
+  isPaused: ComputedRef<boolean>
+  duration: ComputedRef<number>
+  position: ComputedRef<number>
+  volume: ComputedRef<number>
+  isMuted: ComputedRef<boolean>
+  speed: ComputedRef<number>
+  title: ComputedRef<string>
+  subtitleTracks: ComputedRef<MpvTrack[]>
+  audioTracks: ComputedRef<MpvTrack[]>
+  canUseMpv: () => boolean
+  openMpv: (options: MpvOpenOptions) => Promise<boolean>
+  togglePause: () => Promise<void>
+  seek: (seconds: number, mode?: 'absolute' | 'relative') => Promise<void>
+  setVolume: (val: number) => Promise<void>
+  toggleMute: () => Promise<void>
+  setSpeed: (val: number) => Promise<void>
+  setSubTrack: (id: number | false) => Promise<void>
+  setAudioTrack: (id: number) => Promise<void>
+  addSubFile: (filePath: string) => Promise<void>
+  quit: () => Promise<void>
+}
+
 /**
  * mpv 播放器交互 Composable。
  * 提供响应式状态以及播放、音轨、字幕控制接口。
  */
-export function useMpvPlayer() {
+export function useMpvPlayer(): UseMpvPlayerReturn {
   initMpvListeners()
 
   const isRunning = computed<boolean>(() => status.value.running)

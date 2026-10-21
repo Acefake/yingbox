@@ -22,7 +22,14 @@ describe('config.json 路径', () => {
   it('按调用时的 userData 解析，不会把设置写进已经过期的 profile', async () => {
     const { getConfigPath } = await import('../src/main/config')
 
-    state.userData = join('C:', 'Users', 'tester', 'AppData', 'Roaming', 'yingbox')
+    state.userData = join(
+      'C:',
+      'Users',
+      'tester',
+      'AppData',
+      'Roaming',
+      'yingbox'
+    )
 
     expect(getConfigPath()).toBe(join(state.userData, 'config.json'))
   })

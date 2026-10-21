@@ -1,4 +1,4 @@
-import { ref } from 'vue'
+import { type Ref, ref } from 'vue'
 import { onlineApi } from '../api/online'
 import type { VodRequest } from '../../../../../shared/contract/online'
 
@@ -26,14 +26,14 @@ interface VODTrackRequest {
   siteName: string
   url: string
   ext?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface VODPlayRequest {
   siteName: string
   url: string
   ext?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface VODParseResponse {
@@ -42,13 +42,29 @@ interface VODParseResponse {
   url?: string
   site?: string
   videoID?: string
-  data?: any
+  /** 插件原样返回的数据（对象或 JSON 字符串），用 utils/vod-payload 解析 */
+  data?: unknown
 }
 
 // 插件解析（含 Cloudflare 挑战时走浏览器代抓）可能超过 10s，前端超时需留出余量。
 const REQUEST_TIMEOUT_MS = 45000
 
-export function useVODParser() {
+/** CatSpider 插件调用（各动作都返回插件原样数据） */
+export interface UseVODParserReturn {
+  loading: Ref<boolean>
+  error: Ref<string | null>
+  getConfig: (siteName: string) => Promise<VODParseResponse>
+  parseVOD: (req: VODParseRequest) => Promise<VODParseResponse>
+  search: (
+    req: VODSearchRequest,
+    signal?: AbortSignal
+  ) => Promise<VODParseResponse>
+  getCards: (req: VODCardsRequest) => Promise<VODParseResponse>
+  getTracks: (req: VODTrackRequest) => Promise<VODParseResponse>
+  getPlayinfo: (req: VODPlayRequest) => Promise<VODParseResponse>
+}
+
+export function useVODParser(): UseVODParserReturn {
   const loading = ref(false)
   const error = ref<string | null>(null)
 

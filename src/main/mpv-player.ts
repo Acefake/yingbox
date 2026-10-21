@@ -1,25 +1,17 @@
-import { app } from 'electron'
-import { type ChildProcess, execFileSync, spawn } from 'child_process'
-import { existsSync } from 'fs'
-import { join } from 'path'
+import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
+import { findMpvExecutable } from './mpv-locate'
+import {
+  DEFAULT_STATUS,
+  WATCH_PROPS,
+  parsePlaylist,
+  parseTracks,
+} from './mpv-props'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
 import { refererFor } from './media-headers'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
-import type { MpvOpenOptions, MpvPlaylistEntry, MpvStatus, MpvTrack } from '../shared/mpv'
-
-const DEFAULT_STATUS: MpvStatus = {
-  running: false, paused: true, volume: 100, muted: false,
-  speed: 1, tracks: [], playlist: [], playlistPos: 0,
-}
-
-/** 需要持续观察的 mpv 属性（按索引注册，从 1 开始） */
-const WATCH_PROPS = [
-  'time-pos', 'duration', 'pause', 'volume', 'mute',
-  'speed', 'track-list', 'media-title', 'path', 'playlist', 'playlist-pos',
-  'video-params',
-]
+import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
 
 /** RTX 视频超分：仅对低于该高度（1080p）的片源自动挂载 */
 const VSR_HEIGHT_LIMIT = 1080
@@ -31,44 +23,6 @@ const VSR_FILTER = `d3d11vpp=scale=${VSR_SCALE}:scaling-mode=nvidia`
 const VSR_OSD_MS = 4500
 /** 新播放时窗口「一瞬间置顶」的时长，之后自动取消置顶 */
 const ONTOP_FLASH_MS = 1000
-
-/** 随包/随项目附带的 mpv 可执行文件候选路径 */
-function bundledMpvPaths(): string[] {
-  const exe = process.platform === 'win32' ? 'mpv.exe' : 'mpv'
-  return [
-    // 打包后：electron-builder extraResources 把 resources/mpv 放到 resourcesPath/mpv
-    typeof process.resourcesPath === 'string'
-      ? join(process.resourcesPath, 'mpv', exe)
-      : '',
-    // 开发运行：项目内的 resources/mpv（与 amane 运行时同一套约定）
-    join(app.getAppPath(), 'resources', 'mpv', exe),
-  ].filter(Boolean)
-}
-
-/** 查找系统中的 mpv 可执行文件 */
-function findMpvExecutable(): string {
-  if (process.env.YINGBOX_MPV_PATH && existsSync(process.env.YINGBOX_MPV_PATH)) {
-    return process.env.YINGBOX_MPV_PATH
-  }
-  const bundled = bundledMpvPaths().find(p => existsSync(p))
-  if (bundled) return bundled
-
-  const candidates = process.platform === 'win32'
-    ? ['mpv.exe']
-    : ['/opt/homebrew/bin/mpv', '/usr/local/bin/mpv', '/usr/bin/mpv', 'mpv']
-
-  for (const c of candidates) {
-    try { execFileSync(c, ['--version'], { timeout: 2000, stdio: 'pipe' }); return c } catch { /* next */ }
-  }
-  throw new Error(
-    '未找到 mpv 播放器。影盒会附带便携版 mpv（resources/mpv），' +
-    '若缺失可执行 pnpm fetch:mpv 重新准备，或自行安装：\n' +
-    'Windows: https://mpv.io/installation/\n' +
-    'macOS: brew install mpv\n' +
-    'Linux: sudo apt install mpv\n\n' +
-    '也可通过环境变量 YINGBOX_MPV_PATH 指定可执行文件路径。'
-  )
-}
 
 /**
  * mpv 播放器进程管理器。
@@ -111,13 +65,20 @@ class MpvPlayer extends EventEmitter {
     const target = options.filePath || options.url
     if (!target) throw new Error('mpv: 必须指定 filePath 或 url')
 
-    this._status = { ...this._status, loading: true, title: options.title, position: undefined }
+    this._status = {
+      ...this._status,
+      loading: true,
+      title: options.title,
+      position: undefined,
+    }
     this.emit('status', this.getStatus())
     try {
       if (this.child && this.sock.connected) {
         await this.cmd('loadfile', target, 'replace')
-        if (typeof options.startAt === 'number') await this.setProp('time-pos', options.startAt)
-        if (options.subFile) await this.cmd('sub-add', options.subFile, 'select')
+        if (typeof options.startAt === 'number')
+          await this.setProp('time-pos', options.startAt)
+        if (options.subFile)
+          await this.cmd('sub-add', options.subFile, 'select')
         await this.bringToFront()
       } else {
         await this.spawnProcess(options)
@@ -158,8 +119,11 @@ class MpvPlayer extends EventEmitter {
 
     const args: string[] = [
       `--input-ipc-server=${SOCKET_PATH}`,
-      '--force-window=yes', '--keep-open=yes',
-      '--osc=yes', '--no-terminal', '--ytdl=no',
+      '--force-window=yes',
+      '--keep-open=yes',
+      '--osc=yes',
+      '--no-terminal',
+      '--ytdl=no',
       // 无边框：不显示 Windows 标题栏及其英文系统菜单，菜单改由影盒提供。
       // --window-dragging 默认 yes，无边框时仍可用鼠标拖动窗口。
       '--border=no',
@@ -171,7 +135,8 @@ class MpvPlayer extends EventEmitter {
       // 同时固定 D3D11 硬解，让帧停留在 GPU 上。
       args.push('--gpu-api=d3d11', '--hwdec=d3d11va')
     }
-    if (typeof options.startAt === 'number') args.push(`--start=${options.startAt}`)
+    if (typeof options.startAt === 'number')
+      args.push(`--start=${options.startAt}`)
     if (options.title) args.push(`--title=${options.title}`)
     if (options.subFile) args.push(`--sub-file=${options.subFile}`)
     // 防盗链 CDN（MissAV）：mpv 不经 Chromium 会话，Referer 要自己带
@@ -188,17 +153,24 @@ class MpvPlayer extends EventEmitter {
 
     await this.sock.connect()
     this._status = {
-      ...DEFAULT_STATUS, running: true, loading: true,
-      path: target, title: options.title, paused: false,
+      ...DEFAULT_STATUS,
+      running: true,
+      loading: true,
+      path: target,
+      title: options.title,
+      paused: false,
     }
     for (let i = 0; i < WATCH_PROPS.length; i++) {
-      await this.sock.send({ command: ['observe_property', i + 1, WATCH_PROPS[i]] })
+      await this.sock.send({
+        command: ['observe_property', i + 1, WATCH_PROPS[i]],
+      })
     }
     this.emit('status', this.getStatus())
   }
 
   private onEvent(msg: Record<string, unknown>): void {
-    if (msg.event === 'property-change') this.applyProp(msg.name as string, msg.data)
+    if (msg.event === 'property-change')
+      this.applyProp(msg.name as string, msg.data)
     else if (msg.event === 'end-file') {
       this._status.loading = false
       this.emit('status', this.getStatus())
@@ -220,16 +192,36 @@ class MpvPlayer extends EventEmitter {
         // 启动时可能在 IPC 连接前已经就绪；有效播放位置可补齐该状态。
         if (typeof data === 'number') this._status.loading = false
         break
-      case 'duration': this._status.duration = typeof data === 'number' ? data : undefined; break
-      case 'pause': this._status.paused = Boolean(data); break
-      case 'volume': this._status.volume = typeof data === 'number' ? data : 100; break
-      case 'mute': this._status.muted = Boolean(data); break
-      case 'speed': this._status.speed = typeof data === 'number' ? data : 1; break
-      case 'media-title': this._status.title = typeof data === 'string' ? data : undefined; break
-      case 'path': this._status.path = typeof data === 'string' ? data : undefined; break
-      case 'playlist-pos': this._status.playlistPos = typeof data === 'number' ? data : 0; break
-      case 'track-list': this._status.tracks = this.parseTracks(data as Record<string, unknown>[]); break
-      case 'playlist': this._status.playlist = this.parsePlaylist(data as Record<string, unknown>[]); break
+      case 'duration':
+        this._status.duration = typeof data === 'number' ? data : undefined
+        break
+      case 'pause':
+        this._status.paused = Boolean(data)
+        break
+      case 'volume':
+        this._status.volume = typeof data === 'number' ? data : 100
+        break
+      case 'mute':
+        this._status.muted = Boolean(data)
+        break
+      case 'speed':
+        this._status.speed = typeof data === 'number' ? data : 1
+        break
+      case 'media-title':
+        this._status.title = typeof data === 'string' ? data : undefined
+        break
+      case 'path':
+        this._status.path = typeof data === 'string' ? data : undefined
+        break
+      case 'playlist-pos':
+        this._status.playlistPos = typeof data === 'number' ? data : 0
+        break
+      case 'track-list':
+        this._status.tracks = parseTracks(data as Record<string, unknown>[])
+        break
+      case 'playlist':
+        this._status.playlist = parsePlaylist(data as Record<string, unknown>[])
+        break
       case 'video-params': {
         const params = data as { h?: number; w?: number } | null
         this.videoHeight = typeof params?.h === 'number' ? params.h : 0
@@ -296,22 +288,6 @@ class MpvPlayer extends EventEmitter {
     await this.syncVsr()
   }
 
-  private parseTracks(raw: Record<string, unknown>[]): MpvTrack[] {
-    if (!Array.isArray(raw)) return []
-    return raw.map(t => ({
-      id: t.id as number, type: t.type as MpvTrack['type'],
-      title: t.title as string | undefined, lang: t.lang as string | undefined,
-      selected: Boolean(t.selected), codec: t.codec as string | undefined,
-      forced: Boolean(t.forced), default: Boolean(t.default),
-      externalFilename: t['external-filename'] as string | undefined,
-    }))
-  }
-
-  private parsePlaylist(raw: Record<string, unknown>[]): MpvPlaylistEntry[] {
-    if (!Array.isArray(raw)) return []
-    return raw.map(p => ({ url: p.filename as string | undefined, name: p.title as string | undefined }))
-  }
-
   private onSocketClose(): void {
     if (this.child) {
       this._status = { ...DEFAULT_STATUS }
@@ -360,18 +336,35 @@ class MpvPlayer extends EventEmitter {
   }
 
   // ——— 播放控制 ———
-  async pause(paused: boolean): Promise<void> { await this.setProp('pause', paused) }
-  async seek(seconds: number, mode: 'absolute' | 'relative' = 'absolute'): Promise<void> {
+  async pause(paused: boolean): Promise<void> {
+    await this.setProp('pause', paused)
+  }
+  async seek(
+    seconds: number,
+    mode: 'absolute' | 'relative' = 'absolute'
+  ): Promise<void> {
     await this.cmd('seek', seconds, mode)
   }
-  async setVolume(vol: number): Promise<void> { await this.setProp('volume', Math.max(0, Math.min(200, vol))) }
-  async setMute(muted: boolean): Promise<void> { await this.setProp('mute', muted) }
-  async setSpeed(speed: number): Promise<void> { await this.setProp('speed', speed) }
+  async setVolume(vol: number): Promise<void> {
+    await this.setProp('volume', Math.max(0, Math.min(200, vol)))
+  }
+  async setMute(muted: boolean): Promise<void> {
+    await this.setProp('mute', muted)
+  }
+  async setSpeed(speed: number): Promise<void> {
+    await this.setProp('speed', speed)
+  }
 
   // ——— 轨道控制 ———
-  async setSubTrack(id: number | false): Promise<void> { await this.setProp('sid', id === false ? 'no' : id) }
-  async setAudioTrack(id: number): Promise<void> { await this.setProp('aid', id) }
-  async addSubFile(filePath: string): Promise<void> { await this.cmd('sub-add', filePath, 'select') }
+  async setSubTrack(id: number | false): Promise<void> {
+    await this.setProp('sid', id === false ? 'no' : id)
+  }
+  async setAudioTrack(id: number): Promise<void> {
+    await this.setProp('aid', id)
+  }
+  async addSubFile(filePath: string): Promise<void> {
+    await this.cmd('sub-add', filePath, 'select')
+  }
 
   // ——— 播放列表 ———
 
