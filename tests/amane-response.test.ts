@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readAmaneResponse } from '../src/main/amane-response'
+import { readAmaneResponse } from '../src/main/plugins/amane/response'
 
 describe('Amane API responses', () => {
   it('reports a plain-text server failure with its endpoint and HTTP status', async () => {

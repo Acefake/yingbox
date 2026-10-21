@@ -64,6 +64,7 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 
 - `config.ts` — Reads/writes `userData/config.json` (`downloadPath`), validates writability (write probe) on load and set
 - `engine/` — Hosts the engine utilityProcess (online sources, MissAV, downloads), started on demand
+- `plugins/` — Host for external programs (`host.ts`, `process.ts`) plus `plugins/amane/` (Amane backend: rules / connection / service / api) and `plugins/lada/` (de-mosaic: rules / tools / temp / lock / job / cache / resume / range / live / live-media)
 - `ipc/` — IPC channel registrations:
   - `file-ipc.ts` — `file:*` (read, write, delete, exists, mkdir, readdir, scanMediaDirectory, stat, copy, move, readImage) and `path:*` (join, resolve, dirname, basename, extname)
   - `http-ipc.ts` — `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)

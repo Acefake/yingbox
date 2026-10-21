@@ -47,7 +47,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
 - `config.ts` — `userData/config.json` (`downloadPath`); validates writability (real write probe) on load and on set
 - `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine; `media-headers.ts` injects Referer for direct stream/cover requests
-- `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
+- `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/amane/` (rules / connection / service / api) and `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
   - `file-ipc.ts` (`file:*` incl. incremental `scanMediaDirectory`, `path:*`; `readImage` capped at 16MB)
   - `http-ipc.ts` (`http:fetch/fetchImage/download`; image proxy capped at 8MB)
@@ -84,7 +84,7 @@ Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`.
 
 ### Amane
 
-`src/main/amane-manager.ts` supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/features/amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
+`src/main/plugins/amane/` (rules / connection / service / api) supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/features/amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
 
 ### App settings
 
