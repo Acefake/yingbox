@@ -4,6 +4,7 @@
  * 规则：已发布的迁移永远不改，只追加新的。
  */
 import type { DatabaseSync } from 'node:sqlite'
+import { V6_SCHEMA } from './schema-actors'
 
 /** 一条迁移。 */
 export interface Migration {
@@ -292,6 +293,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 3, description: '写出层：写出记录与整理批次', sql: V3_SCHEMA },
   { version: 4, description: '媒体库元数据来源（番号库）', sql: V4_SCHEMA },
   { version: 5, description: '媒体库自动化设置', sql: V5_SCHEMA },
+  { version: 6, description: '演员库（演员资料与作品关联）', sql: V6_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

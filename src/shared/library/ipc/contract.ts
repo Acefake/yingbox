@@ -9,6 +9,8 @@ import type {
   MediaMetadata,
   SeasonMetadata,
 } from '../provider'
+import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
+import { ACTOR_METHODS } from './contract-actors'
 import type { LibraryEvent } from './contract-events'
 import type { JavSettings, LibrarySource } from './contract-jav'
 import type {
@@ -22,12 +24,14 @@ import type {
   UpdateLibraryRequest,
 } from './contract-library'
 import type {
+  LibraryWriterBridge,
   OrganizeAccepted,
   OrganizeBatchInfo,
   OrganizePlan,
   WriterSettings,
 } from './contract-writer'
 
+export * from './contract-actors'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-jav'
@@ -147,6 +151,8 @@ export interface LibraryQuery {
   types?: TopLevelItemType[]
   /** 片名搜索（FTS5，繁简与大小写不敏感）。 */
   search?: string
+  /** 只要这位演员的作品（演员库）。 */
+  actorId?: number
   yearFrom?: number
   yearTo?: number
   matchStates?: MatchState[]
@@ -262,7 +268,7 @@ export interface ApplyMatchResult {
 }
 
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
-export interface LibraryRpcMap {
+export interface LibraryRpcMap extends ActorRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
@@ -327,6 +333,7 @@ export const LIBRARY_METHODS = [
   'writer.listOrganizeBatches',
   'jav.getSettings',
   'jav.setSettings',
+  ...ACTOR_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -371,23 +378,8 @@ export interface LibraryBridge {
       value: string | null
     ): Promise<ProviderStatus>
   }
+  /** 演员库：列表、详情、编辑锁定、刷新资料、来源设置。 */
+  actors: LibraryActorsBridge
   /** 订阅引擎事件，返回取消订阅函数。事件经 MessagePort 直达，不经主进程转发。 */
   subscribe(listener: (event: LibraryEvent) => void): () => void
-}
-
-/** window.api.library.writer。 */
-export interface LibraryWriterBridge {
-  getSettings(): Promise<WriterSettings>
-  /** 保存并返回生效的设置；模板不合法时以 invalid-params 拒绝。 */
-  setSettings(settings: WriterSettings): Promise<WriterSettings>
-  /** 为这些条目（电影 / 剧集，传季 / 集按所属剧集处理）写 NFO 与图片，排队执行。 */
-  write(itemIds: number[]): Promise<JobAccepted>
-  /** 按模板生成整理计划（只读，不动文件）。 */
-  previewOrganize(itemIds: number[]): Promise<OrganizePlan>
-  /** 执行计划里没有冲突的项，记录批次日志；整理未开启或计划过期时拒绝。 */
-  applyOrganize(planId: string): Promise<OrganizeAccepted>
-  /** 按批次日志倒序移回原处。 */
-  undoOrganize(batchId: number): Promise<JobAccepted>
-  /** 最近的整理批次，新的在前。 */
-  listOrganizeBatches(): Promise<OrganizeBatchInfo[]>
 }

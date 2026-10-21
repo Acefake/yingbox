@@ -26,7 +26,11 @@ import { type BinaryFetch, ImageCache } from '../images/image-cache'
 import type { JobQueue } from '../jobs/queue'
 import { SqliteResponseCache } from '../providers/http/provider-cache'
 import { type FetchLike, ProviderHttp } from '../providers/http/provider-http'
-import { JavProvider, perHost } from '../providers/jav/jav-provider'
+import type { ActorSource } from '../providers/jav/actors'
+import {
+  type JavProvider,
+  createJavProvider,
+} from '../providers/jav/jav-provider'
 import { JavSettingsStore } from '../providers/jav/jav-settings'
 import type { JavCredentials } from '../providers/jav/sites/registry'
 import type { LibraryEnvSecrets } from '../platform/platform'
@@ -87,6 +91,8 @@ export interface IdentifyModuleOptions {
   http?: { rps?: number; concurrency?: number; clock?: Clock }
   /** 同时识别的条目数，默认 8。 */
   concurrency?: number
+  /** 给番号站点没带头像的演员补头像的来源（演员库共用的 gfriends）；缺省 JavProvider 自建。 */
+  avatars?: ActorSource
   /** 识别 / 刷新 / 手动匹配后有元数据变化的顶层条目（写出层据此自动写 NFO）。 */
   onIdentified?: (itemIds: number[]) => void
   log?: (message: string) => void
@@ -141,23 +147,14 @@ export class IdentifyModule {
         this.settings.get(SETTING_KEYS.opensubtitlesKey) ??
         options.env?.opensubtitlesKey
     )
-    // 番号站点是普通网站：限速放保守，重试少一些，被拦的站点由熔断跳过
     this.javSettings = new JavSettingsStore(this.settings)
-    this.jav = new JavProvider({
-      // 每个主机一个客户端，各自限速
-      http: perHost(
-        () =>
-          new ProviderHttp({
-            fetch: fetchImpl,
-            rps: 2,
-            concurrency: 2,
-            maxRetries: 2,
-            clock: options.http?.clock,
-          })
-      ),
+    this.jav = createJavProvider({
+      fetch: fetchImpl,
+      clock: options.http?.clock,
       cache: this.cache,
       settings: () => this.javSettings.get(),
       credentials: () => this.javCredentials(),
+      avatars: options.avatars,
       log: this.log,
     })
     this.store = new IdentifyStore(db)
@@ -321,7 +318,10 @@ export class IdentifyModule {
       Date.now()
     )
     if (request.provider === 'theporndb' || request.provider === 'javdb')
-      this.cache.expire([`jav:${request.provider}:`], Date.now())
+      this.cache.expire(
+        [`jav:${request.provider}:`, `actor:${request.provider}:`],
+        Date.now()
+      )
     return this.getProviderStatus()
   }
 
@@ -337,8 +337,8 @@ export class IdentifyModule {
     }
   }
 
-  /** 番号站点凭据：设置里的优先，没有用环境变量。 */
-  private javCredentials(): JavCredentials {
+  /** 番号站点凭据：设置里的优先，没有用环境变量（演员库的 ThePornDB 来源也用它）。 */
+  javCredentials(): JavCredentials {
     return readJavCredentials(this.settings, this.options.env)
   }
 

@@ -16,6 +16,7 @@ const LONG_LISTS: Record<string, string[]> = {
   'features/amane/components/library/FilmGrid.vue': ['films'],
   'features/amane/components/library/ActorGrid.vue': ['actors'],
   'features/download/components/DownloadsView.vue': ['rows'],
+  'features/library/actors/ActorsView.vue': ['actors'],
 }
 
 describe('长列表走虚拟网格', () => {

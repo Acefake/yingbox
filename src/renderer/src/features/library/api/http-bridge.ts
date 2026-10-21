@@ -14,6 +14,7 @@ import {
   type LibraryEvent,
   type LibraryMethod,
   type LibraryRpcMap,
+  createActorsBridge,
   encodeErrorMessage,
 } from '../../../../../shared/library/ipc'
 
@@ -111,6 +112,7 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
       setCredential: (provider, token) =>
         call('setProviderToken', { provider, token }),
     },
+    actors: createActorsBridge(call),
     subscribe(listener) {
       listeners.add(listener)
       stream ??= deps.openEvents(LIBRARY_HTTP.events, data => {
