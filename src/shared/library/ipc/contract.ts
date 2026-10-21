@@ -341,11 +341,10 @@ export interface LibraryBridge {
   lockMatch(itemId: number): Promise<LibraryItemSummary>
   unlockMatch(itemId: number): Promise<LibraryItemSummary>
   refreshMetadata(request: RefreshMetadataRequest): Promise<JobAccepted>
-  /** 设置 / 清除元数据源令牌，持久化在引擎侧。 */
-  setProviderToken(
-    provider: SetProviderTokenRequest['provider'],
-    token: string | null
-  ): Promise<ProviderStatus>
+  /**
+   * 元数据源配置状态。TMDB 令牌由主进程下发给引擎（src/main/tmdb.ts），
+   * 渲染层改令牌走 settings.setSecret，bridge 不再提供 setProviderToken。
+   */
   getProviderStatus(): Promise<ProviderStatus>
   /** 写出层：NFO / 图片 / 整理（改名移动）。进度见 writer-progress 事件。 */
   writer: LibraryWriterBridge

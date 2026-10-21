@@ -6,7 +6,7 @@
 import { app } from 'electron'
 import { existsSync, readdirSync, rmSync, statSync } from 'node:fs'
 import { join } from 'node:path'
-import { type JobLock, clearStaleLock, readLock } from './lock'
+import { clearStaleLock, readLock } from './lock'
 import { classifyTempEntry, sidecarVideo, tempVideoFor } from './rules'
 
 /** lada 临时目录（也用于放锁、追播分片） */
@@ -47,12 +47,6 @@ export function cleanupTemp(output: string): void {
   } catch {
     /* 清理失败不影响主流程；下次启动会清扫 */
   }
-}
-
-/** 别的影盒实例是否正在跑任务（跨实例可见）——界面据此提示用户 */
-export function otherInstanceJob(): JobLock | null {
-  const lock = readLock(tempDirPath())
-  return lock && lock.pid !== process.pid ? lock : null
 }
 
 /** 清扫临时目录顶层：无主半成品超过 10 分钟删，孤立的归属记录删；目录读不到返回 false */

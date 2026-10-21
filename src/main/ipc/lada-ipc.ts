@@ -1,14 +1,10 @@
 import {
-  adoptPartial,
-  cacheSize,
   cancelCurrentJob,
-  clearCache,
   initLada,
   initLadaLive,
   initLadaResume,
   ladaPaths,
   liveStatus,
-  otherInstanceJob,
   playablePath,
   resume,
   resumeInfo,
@@ -40,7 +36,6 @@ export async function registerLadaIpc(): Promise<void> {
       return { success: true }
     },
     status: () => snapshot(),
-    otherJob: () => otherInstanceJob(),
     playablePath: (_, filePath) => playablePath(filePath),
     startLive: (_, filePath) => startLive(filePath),
     stopLive: () => {
@@ -50,10 +45,6 @@ export async function registerLadaIpc(): Promise<void> {
     liveStatus: () => liveStatus(),
     resumeInfo: (_, filePath) => resumeInfo(filePath),
     resume: (_, filePath) => resume(filePath),
-    adoptPartial: (_, filePath, partialPath) =>
-      adoptPartial(filePath, partialPath),
-    clearCache: () => clearCache(),
-    cacheSize: () => cacheSize(),
     startRange: (_, filePath, start, end) => startRange(filePath, start, end),
   })
 }

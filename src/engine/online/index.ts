@@ -28,6 +28,9 @@ export function findM3u8(html: string): string | undefined {
   return html.match(M3U8_IN_HTML)?.[0]
 }
 
+/** TMDB v3 接口根地址。 */
+const TMDB_API = 'https://api.themoviedb.org/3'
+
 /** 在线域依赖。 */
 export interface OnlineDeps {
   net: NetClient
@@ -86,6 +89,19 @@ export function createOnlineHandlers(
         timeoutMs: Math.min(Math.max(options.timeoutMs ?? 10000, 1000), 60000),
         ttlMs: 60_000,
       }),
+
+    async tmdb(ctx, path, query = {}) {
+      const token = await ctx.host('tmdbToken')
+      if (!token) return null
+      const target = new URL(`${TMDB_API}${path}`)
+      for (const [key, value] of Object.entries(query))
+        target.searchParams.set(key, String(value))
+      return deps.net.getJson(String(target), {
+        headers: { Authorization: `Bearer ${token}` },
+        timeoutMs: 8000,
+        ttlMs: 60_000,
+      })
+    },
 
     async resolvePage(_ctx, url) {
       if (!url || MEDIA_URL.test(url)) return url

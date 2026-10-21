@@ -45,17 +45,16 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 ### Main process (`src/main/`)
 
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
-- `config.ts` — `userData/config.json` (`downloadPath`); validates writability (real write probe) on load and on set
+- `config.ts` — `userData/config.json` (`downloadPath`, read-only for now: no UI sets it); validates writability (real write probe) on load
 - `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine; `media-headers.ts` injects Referer for direct stream/cover requests
 - `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/amane/` (rules / connection / service / api) and `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
-  - `file-ipc.ts` (`file:*` incl. incremental `scanMediaDirectory`, `path:*`; `readImage` capped at 16MB)
-  - `http-ipc.ts` (`http:fetch/fetchImage/download`; image proxy capped at 8MB)
-  - `dialog-ipc.ts` (`dialog:*`, `config:setDownloadPath`, `shell:openPath`)
-  - `app-ipc.ts` (`win:*`, `app:*`, `update:*` + electron-updater status events)
+  - `dialog-ipc.ts` (`dialog:*`, `shell:openPath`)
+  - `app-ipc.ts` (`win:*`, `app:networkIps`, `update:*` + electron-updater status events)
+  - The renderer has no generic `file:*` / `http:*` / `path:*` / `config:*` channels (removed: no callers). Add a narrow domain method when a feature needs one
   - `subtitle-ipc.ts` (`subtitle:find/read`; only accepts `local://` URLs)
-- `file-operations.ts` — atomic write / atomic replace / move with per-path locks
-- `http-client.ts` — SSRF-guarded fetch (private-IP blocking incl. DNS resolution, manual redirect hops), size-limited reads, atomic downloads
+- `file-operations.ts` — atomic write (temp file + replace, per-path locks)
+- `http-client.ts` — SSRF-guarded fetch for main's own requests (subtitles, thumbnail originals): private-IP blocking incl. DNS resolution, manual redirect hops, size-limited reads
 - `local-media.ts` — `local://` URL ↔ filesystem path + HTTP Range streaming (206/416)
 - `media-scanner.ts` — incremental library scan (directory-mtime short-circuit + cache reuse)
 - `player-window.ts` — singleton player window; normalizes payloads, caps playlists at 500 items
@@ -72,7 +71,7 @@ Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* co
 Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
 
 - `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `av` (MissAV), `download`, `amane`, `lada`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
-- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage); renderer reads it via `getTmdbAccessToken()` from `@/features/settings` (falls back to `VITE_TMDB_ACCESS_TOKEN`), the library engine keeps its own copy (`features/library/settings/provider-token.ts`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
+- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
 - `features/library/` — movie / TV library UI (poster wall, detail, match review, writer / organize, library settings), talking to the library engine through `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract)
 - shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-error-handler`, `use-context-menu`, `use-platform`), `utils/`
 
@@ -88,7 +87,7 @@ Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`.
 
 - localStorage: `scrapeProviderConfig` (provider, TMDB token; legacy backend URL/key kept only for the library mirror), `imageDownloadSize_*`, `folderContent_*` (tree cache), `metadataLanguage`, `player_playback_rate`
 - `userData/config.json` (main process): `downloadPath`
-- Build-time env: `VITE_TMDB_ACCESS_TOKEN` — optional default TMDB token; never commit a real one (see `.env.example`)
+- Env: `VITE_TMDB_ACCESS_TOKEN` (or `YINGBOX_TMDB_TOKEN`) — optional dev-only default TMDB token, read by the main process / library engine at runtime; never commit a real one (see `.env.example`)
 
 ### Tests
 
@@ -125,7 +124,7 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
   - Shadows: `--shadow-sm/md/lg`, `--focus-ring`, `--focus-ring-danger`, `--focus-ring-offset`.
 - Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiNavItem` (sidebar / settings / tab-bar navigation; `collapsed` hides the label and shows it as tooltip, `layout="stack"` for the phone bottom bar, `current="page" | "pressed" | "none"`), `UiListRow` (clickable multi-line row; `role` / `aria-*` pass through, e.g. `menuitemradio`), `UiChip` (small gray pill for actors/tags; put a separate `UiIconButton` next to it for remove), `UiPressable` (unstyled button for image/card targets; pass `label` when the content has no text), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
 - Long lists (unbounded: infinite scroll, aggregated search, favourites, queues) go through `UiVirtualGrid` (`class` = the grid/list class, `:items`, `:item-key`, default slot `{ item }`; `tag="ul"` for lists). It reads the column count from `grid-template-columns`, needs rows of equal height, and owns the container's vertical padding. `tests/virtual-lists.test.ts` lists the wired lists.
-- Non-film posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `thumb://img/?w=&src=` (main serves the cached WebP from `userData/thumb-cache`, 256 MB LRU, or proxies the original), and a renderer Worker (`services/thumbnails`, `createImageBitmap` + `OffscreenCanvas`) encodes the WebP on a miss and stores it via `api.thumbs.put`. Sources: http(s) and `amane://image/`. Film views do not use it.
+- Posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `yingbox-media://thumb/?w=&src=` (`services/thumbnails`). Main (`src/main/thumbnails`) fetches the original, resizes with `nativeImage` (WebP originals decoded by wasm first), encodes WebP in a `worker_threads` worker (`@jsquash/webp`) and caches it in `userData/library/media/thumb` (one 512 MB LRU shared with the library's `yingbox-media://image/<key>?w=` thumbnails). Sources: http(s), `amane://image/`, local `file:///…` images. On error the card falls back to the original URL.
 - No raw `<button>` in `.vue` files outside `components/ui/` — pick one of the components above (`UiPressable` when nothing else fits). `pnpm check:style` fails on violations.
 - Form controls: `UiInput` (`size` sm/md, `variant` default/filled, `icon` / `#leading`, `clearable` + `@clear`, `invalid`), `UiTextarea` (`autosize`), `UiSelect` (`options` or `<option>` slot), `UiSwitch`, `UiCheckbox`, `UiRadio`. They accept `v-model` or `:value`/`:checked` + native events; `UiInput`/`UiSelect` put `class` on the wrapper and every other attr/listener on the native element, and expose `focus()`. No raw `<input>` / `<select>` / `<textarea>` outside `components/ui/` except `type="file|range|hidden"` — `pnpm check:style` enforces it.
 - No static `style="..."` in templates (use a class + tokens; dynamic `:style` is fine) and no emoji as status icons (use `UiIcon` or plain text) — `pnpm check:style` enforces the inline-style rule.

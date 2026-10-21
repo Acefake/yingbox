@@ -3,7 +3,7 @@
  *
  * - call / result：主进程把已在 IPC 边界解析过的调用转给引擎，引擎回结果。
  * - event：引擎推契约事件，主进程原样广播给窗口。
- * - host / hostResult：引擎请主进程代办只有主进程能做的事（目前只有浏览器代抓）。
+ * - host / hostResult：引擎请主进程代办只有主进程能做的事（浏览器代抓、读下载目录与 TMDB 令牌）。
  */
 
 /** 引擎能请主进程代办的事。 */
@@ -12,6 +12,8 @@ export interface HostMethods {
   browserFetch(url: string, waitMs?: number): string
   /** 当前下载目录（用户设置，可能随时改变） */
   downloadDir(): string
+  /** 当前生效的 TMDB 令牌（明文只在主进程与引擎之间传，不经渲染层）；未配置为空串 */
+  tmdbToken(): string
 }
 
 /** 主进程 → 引擎 */

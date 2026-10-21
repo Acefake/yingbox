@@ -2,7 +2,7 @@
  * 主进程侧：按需启动引擎进程（utilityProcess），转发渲染进程的调用，转交事件订阅端口。
  *
  * 主进程不做媒体库计算，只做四件事：fork、按 id 配对请求与响应、把 MessagePort 交给引擎、
- * 提供 yingbox-media:// 图片协议（引擎下载好原图后通知这里生成缩略图）。
+ * 把引擎「原图已下载」的通知转给缩略图服务预热（协议本身在 src/main/thumbnails）。
  * 引擎崩溃时挂起的调用以 engine-unavailable 失败，下一次调用自动重启引擎。
  */
 import { type UtilityProcess, app, ipcMain, utilityProcess } from 'electron'
@@ -11,10 +11,12 @@ import {
   type EngineMessage,
   type InvokeResult,
   LIBRARY_CHANNELS,
+  type LibraryMethod,
+  type LibraryRpcMap,
   type RpcError,
   isLibraryMethod,
 } from '../../shared/library/ipc'
-import { type MediaService, registerMediaProtocol } from './media/media-service'
+import type { ThumbnailService } from '../thumbnails'
 
 /** 引擎数据目录。 */
 const libraryDir = (): string => join(app.getPath('userData'), 'library')
@@ -30,7 +32,7 @@ class LibraryEngineHost {
   private readonly pending = new Map<number, (result: InvokeResult) => void>()
   private nextId = 1
 
-  constructor(private readonly media?: MediaService) {}
+  constructor(private readonly thumbnails?: ThumbnailService) {}
 
   /** 确保引擎在运行。 */
   private ensure(): UtilityProcess {
@@ -63,7 +65,7 @@ class LibraryEngineHost {
 
   private onMessage(message: EngineMessage): void {
     if (message.kind === 'images-cached') {
-      this.media?.warm(message.keys.filter(k => /^[0-9a-f]{32}$/.test(k)))
+      this.thumbnails?.warm(message.keys.filter(k => /^[0-9a-f]{32}$/.test(k)))
       return
     }
     if (message.kind !== 'response') return
@@ -109,13 +111,22 @@ class LibraryEngineHost {
 }
 
 /**
- * 注册媒体库 IPC：library:invoke（调用）与 library:subscribe（事件端口），
- * 以及 yingbox-media:// 图片协议。须在 app ready 之后调用。
+/** 主进程内直接调引擎（如下发 TMDB 令牌）；引擎报错时抛出。 */
+export interface LibraryEngineClient {
+  call<M extends LibraryMethod>(
+    method: M,
+    params: LibraryRpcMap[M]['params']
+  ): Promise<LibraryRpcMap[M]['result']>
+}
+
+/**
+ * 注册媒体库 IPC：library:invoke（调用）与 library:subscribe（事件端口）。
+ * 须在 app ready 之后调用。返回主进程内用的调用口。
  */
-export function registerLibraryIpc(): void {
-  const host = new LibraryEngineHost(
-    registerMediaProtocol(join(libraryDir(), 'media'))
-  )
+export function registerLibraryIpc(
+  thumbnails: ThumbnailService
+): LibraryEngineClient {
+  const host = new LibraryEngineHost(thumbnails)
   ipcMain.handle(
     LIBRARY_CHANNELS.invoke,
     (_event, method: unknown, params: unknown) => host.invoke(method, params)
@@ -125,4 +136,11 @@ export function registerLibraryIpc(): void {
     if (port) host.subscribe(port)
   })
   app.on('will-quit', () => host.shutdown())
+  return {
+    async call(method, params) {
+      const response = await host.invoke(method, params)
+      if (!response.ok) throw new Error(response.error.message)
+      return response.result as never
+    },
+  }
 }

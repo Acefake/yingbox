@@ -6,10 +6,22 @@ import { app } from 'electron'
 import { join } from 'node:path'
 import { emit, implement } from '../rpc'
 import { settings } from '../../shared/contract/settings'
+import type { SecretKey } from '../../shared/settings/schema'
 import { safeStorageCodec } from './secrets'
 import { type SettingsStore, openSettingsStore } from './store'
 
 let store: SettingsStore | null = null
+/** 密钥保存后要跑的主进程逻辑（如把 TMDB 令牌下发给媒体库引擎） */
+const secretListeners = new Set<
+  (key: SecretKey, value: string) => Promise<void> | void
+>()
+
+/** 订阅密钥保存：settings.setSecret 等这些回调跑完才返回给渲染层 */
+export function onSecretSaved(
+  listener: (key: SecretKey, value: string) => Promise<void> | void
+): void {
+  secretListeners.add(listener)
+}
 
 /** 已打开的设置存储；必须在 {@link initSettings} 之后调用 */
 export function settingsStore(): SettingsStore {
@@ -33,11 +45,11 @@ export async function initSettings(): Promise<void> {
     },
     setSecret: async (_, key, value) => {
       await opened.setSecret(key, value)
+      await Promise.all([...secretListeners].map(fn => fn(key, value)))
       emit(settings, 'secretChanged', {
         key,
         configured: opened.snapshot().secrets[key],
       })
     },
-    readSecret: (_, key) => opened.getSecret(key),
   })
 }

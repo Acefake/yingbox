@@ -49,8 +49,7 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
-import { getJson, withQuery } from '../api/online'
-import { getTmdbAccessToken } from '@/features/settings'
+import { getJson, tmdb } from '../api/online'
 import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
@@ -177,16 +176,19 @@ const fetchDouban = async () => {
 
   const loadCoversViaTmdb = async () => {
     const items = doubanItems.value
-    const token = getTmdbAccessToken()
-    if (!token) {
-      console.warn(
-        '[TMDB] 未配置 Access Token，已跳过封面补全（请在设置中填写）'
-      )
-      return
-    }
     const imgBase = 'https://images.tmdb.org/t/p/w342'
-    const headers = { Authorization: `Bearer ${token}` }
     const isTv = doubanType.value === 'tv'
+    // 引擎没有令牌时 tmdb() 返回 null：整批停下，不逐条重试
+    const NO_TOKEN = new Error('TMDB 未配置令牌')
+    const searchFirst = async (path: string, q: string) => {
+      const res = await tmdb<any>(path, {
+        query: q,
+        language: 'zh-CN',
+        page: 1,
+      })
+      if (res === null) throw NO_TOKEN
+      return res?.results?.[0] ?? null
+    }
 
     const extractNum = (t: string): string | null => {
       const zh: Record<string, string> = {
@@ -219,31 +221,15 @@ const fetchDouban = async () => {
       return Array.from(new Set(variants))
     }
 
-    const queryTmdb = async (q: string) => {
-      const endpoint = isTv
-        ? 'https://api.themoviedb.org/3/search/tv'
-        : 'https://api.themoviedb.org/3/search/movie'
-      const res = await getJson<any>(
-        withQuery(endpoint, { query: q, language: 'zh-CN', page: 1 }),
-        { headers, timeoutMs: 8000 }
-      )
-      return res?.results?.[0] ?? null
-    }
+    const queryTmdb = (q: string) =>
+      searchFirst(isTv ? '/search/tv' : '/search/movie', q)
 
     const searchTmdb = async (title: string) => {
       for (const v of buildVariants(title)) {
         const r = await queryTmdb(v)
         if (r) return r
       }
-      const res = await getJson<any>(
-        withQuery('https://api.themoviedb.org/3/search/multi', {
-          query: stripSeason(title),
-          language: 'zh-CN',
-          page: 1,
-        }),
-        { headers, timeoutMs: 8000 }
-      )
-      return res?.results?.[0] ?? null
+      return searchFirst('/search/multi', stripSeason(title))
     }
 
     const concurrency = 4
@@ -275,7 +261,15 @@ const fetchDouban = async () => {
             const tmdbName = first.name || first.title || ''
             if (tmdbName) items[i].searchTitle = tmdbName
           }
-        } catch {
+        } catch (error) {
+          if (error === NO_TOKEN) {
+            if (idx < items.length)
+              console.warn(
+                '[TMDB] 未配置 Access Token，已跳过封面补全（请在设置中填写）'
+              )
+            idx = items.length
+            return
+          }
           items[i].cover = item.coverSrc
         }
       }

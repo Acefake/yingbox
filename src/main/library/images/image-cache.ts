@@ -2,12 +2,14 @@
  * 图片原图缓存（引擎进程）：把选中的海报 / 背景图下载到 <mediaDir>/orig/<key 前两位>/<key>。
  *
  * key = URL 的 SHA-1 前 32 位，同一 URL 只下载一次；images 表记录状态，失败的最多重试 3 次。
- * 缩略图（300w / 780w webp）由主进程生成：下载完成后经 onCached 通知主进程（见 media/thumbnailer.ts）。
+ * 缩略图由主进程生成：下载完成后经 onCached 通知主进程预热（见 src/main/thumbnails）。
+ * key 与路径规则和主进程共用 thumbnails/paths.ts，两边算出同一个文件。
  */
-import { createHash, randomUUID } from 'node:crypto'
+import { randomUUID } from 'node:crypto'
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises'
-import { dirname, join } from 'node:path'
-import { mediaImageUrl } from '../../../shared/library/media-url'
+import { dirname } from 'node:path'
+import { mediaImageUrl } from '../../../shared/media-url'
+import { imageKey, originalPath } from '../../thumbnails/paths'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { Semaphore } from '../providers/http/rate-limiter'
 
@@ -25,16 +27,6 @@ export type BinaryFetch = (
 const MAX_BYTES = 15 * 1024 * 1024
 /** 失败几次后不再尝试。 */
 const MAX_ATTEMPTS = 3
-
-/** URL → 缓存 key。 */
-export function imageKey(url: string): string {
-  return createHash('sha1').update(url).digest('hex').slice(0, 32)
-}
-
-/** 原图在缓存目录里的路径。 */
-export function originalPath(mediaDir: string, key: string): string {
-  return join(mediaDir, 'orig', key.slice(0, 2), key)
-}
 
 /** 构造参数。 */
 export interface ImageCacheOptions {

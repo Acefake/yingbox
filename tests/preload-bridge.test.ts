@@ -34,8 +34,10 @@ vi.mock('electron', () => ({
 }))
 
 /**
- * 重构前手写 preload 暴露的全部方法（src/preload/index.d.ts @ ac92d77）。
- * 影视库代码仍按这些名字调用，必须一个不少。
+ * 重构前手写 preload 暴露的方法（src/preload/index.d.ts @ ac92d77），
+ * 减去 opt/a 逐个 grep 确认没有调用方而删掉的：file / http / path / config 四个域、
+ * dialog.saveFile、app.getUserDataPath / getVersion、lada.otherJob / adoptPartial / clearCache /
+ * cacheSize / notice 事件、mpv.playlistNext / playlistPrev / playlistPlay / getStatus。
  */
 const LEGACY_API: Record<string, string[]> = {
   amane: [
@@ -48,23 +50,8 @@ const LEGACY_API: Record<string, string[]> = {
     'resolveMedia',
     'connection',
   ],
-  file: [
-    'read',
-    'write',
-    'delete',
-    'exists',
-    'mkdir',
-    'readdir',
-    'stat',
-    'copy',
-    'move',
-    'readImage',
-  ],
-  http: ['download', 'fetch', 'fetchImage'],
-  path: ['join', 'resolve', 'dirname', 'basename', 'extname'],
-  config: ['setDownloadPath'],
-  dialog: ['selectDirectory', 'openDirectory', 'openFile', 'saveFile'],
-  app: ['getUserDataPath', 'networkIps', 'getVersion'],
+  dialog: ['selectDirectory', 'openDirectory', 'openFile'],
+  app: ['networkIps'],
   update: ['check', 'download', 'install', 'onStatus', 'offStatus'],
   shell: ['openPath'],
   win: ['minimize', 'maximize', 'close', 'isMaximized'],
@@ -76,7 +63,6 @@ const LEGACY_API: Record<string, string[]> = {
     'start',
     'cancel',
     'status',
-    'otherJob',
     'playablePath',
     'onProgress',
     'offProgress',
@@ -89,14 +75,9 @@ const LEGACY_API: Record<string, string[]> = {
     'offLive',
     'resumeInfo',
     'resume',
-    'adoptPartial',
-    'clearCache',
-    'cacheSize',
     'startRange',
     'onRangeReady',
     'offRangeReady',
-    'onNotice',
-    'offNotice',
   ],
   mpv: [
     'open',
@@ -109,10 +90,6 @@ const LEGACY_API: Record<string, string[]> = {
     'setSubTrack',
     'setAudioTrack',
     'addSubFile',
-    'playlistNext',
-    'playlistPrev',
-    'playlistPlay',
-    'getStatus',
     'quit',
     'onStatus',
     'offStatus',
@@ -136,7 +113,6 @@ const EXTERNAL_API: Record<string, string[]> = {
     'lockMatch',
     'unlockMatch',
     'refreshMetadata',
-    'setProviderToken',
     'getProviderStatus',
     'writer',
     'subscribe',
@@ -150,16 +126,14 @@ const ADDED_API: Record<string, string[]> = {
     'migrateLegacy',
     'set',
     'setSecret',
-    'readSecret',
     'onChanged',
     'offChanged',
     'onSecretChanged',
     'offSecretChanged',
   ],
-  online: ['sites', 'vod', 'getJson', 'resolvePage'],
+  online: ['sites', 'vod', 'getJson', 'tmdb', 'resolvePage'],
   av: ['list', 'resolve'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
-  thumbs: ['put'],
 }
 
 beforeAll(async () => {
@@ -183,12 +157,12 @@ describe('通用 preload', () => {
   })
 
   it('调用按位置参数转发到「域名:方法名」通道', async () => {
-    await exposed.file.move('a', 'b', { replace: true })
-    expect(invoke).toHaveBeenLastCalledWith('file:move', 'a', 'b', {
-      replace: true,
+    await exposed.lada.startRange('a', 1, 2)
+    expect(invoke).toHaveBeenLastCalledWith('lada:startRange', 'a', 1, 2)
+    await exposed.online.tmdb('/movie/1', { language: 'zh-CN' })
+    expect(invoke).toHaveBeenLastCalledWith('online:tmdb', '/movie/1', {
+      language: 'zh-CN',
     })
-    await exposed.path.join('a', 'b', 'c')
-    expect(invoke).toHaveBeenLastCalledWith('path:join', 'a', 'b', 'c')
     await exposed.amane.connection()
     expect(invoke).toHaveBeenLastCalledWith('amane:connection')
   })

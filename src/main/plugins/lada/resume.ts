@@ -18,8 +18,6 @@ import {
 } from 'node:fs'
 import { basename, join } from 'node:path'
 import { type LadaResumeProgress, restoredPathFor } from '../../../shared/lada'
-import { lada } from '../../../shared/contract/lada'
-import { emit } from '../../rpc'
 import { runTool } from '../process'
 import {
   dirFor,
@@ -43,9 +41,9 @@ interface Running {
 
 let running: Running | null = null
 
-/** 给界面推一条提示 */
+/** 一次性提示（界面没有订阅方，只写日志） */
 export function notify(text: string): void {
-  emit(lada, 'notice', text)
+  console.warn(`[lada] ${text}`)
 }
 
 /**
