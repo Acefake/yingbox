@@ -3,9 +3,10 @@
  * 每个站点只取最匹配的一条去查线路，任一来源返回即展示。
  * 选择分三层：来源类型（插件 / CMS）→ 站点 → 线路。
  */
-import { computed, ref } from 'vue'
-import type { CmsItem, EpisodeGroup } from '../types'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
+import type { CmsItem, Episode, EpisodeGroup } from '../types'
 import {
+  type SiteGroup,
   type SourceType,
   groupBySite,
   normalizeTitle,
@@ -17,7 +18,25 @@ import {
 } from '../utils/detail-sources'
 import { useOnlineSearch } from './use-online-search'
 
-export function useDetailSources() {
+/** 详情页播放源：三层选择（来源类型 → 站点 → 线路）的状态与操作 */
+export interface UseDetailSourcesReturn {
+  searching: Ref<boolean>
+  episodeGroups: Ref<EpisodeGroup[]>
+  currentSourceType: Ref<SourceType>
+  typeOptions: ComputedRef<{ value: SourceType; label: string }[]>
+  siteGroups: ComputedRef<SiteGroup[]>
+  activeSite: Ref<number>
+  activeLine: Ref<number>
+  currentLine: ComputedRef<EpisodeGroup | undefined>
+  currentEpisodes: ComputedRef<Episode[]>
+  currentSiteName: ComputedRef<string>
+  load: (directItem: CmsItem | null, searchTitle: string) => Promise<void>
+  switchSourceType: (type: SourceType) => void
+  switchSite: (index: number) => void
+  switchLine: (index: number) => void
+}
+
+export function useDetailSources(): UseDetailSourcesReturn {
   const { fetchDetail, keyword, search } = useOnlineSearch()
   const searching = ref(false)
   const episodeGroups = ref<EpisodeGroup[]>([])

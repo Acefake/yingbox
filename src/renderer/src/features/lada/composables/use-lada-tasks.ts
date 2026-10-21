@@ -4,7 +4,7 @@
  * 两个任务都在主进程里跑，跟当前停留在哪个页面无关，所以状态放在模块级单例里：
  * AppLayout 启动时接一次 IPC 推送，Amane 页面与后台任务面板读同一份数据。
  */
-import { computed, h, ref } from 'vue'
+import { type ComputedRef, type Ref, type VNode, computed, h, ref } from 'vue'
 import type {
   LadaJob,
   LadaLiveStatus,
@@ -92,7 +92,32 @@ function attach(): void {
     .catch(() => undefined)
 }
 
-export function useLadaTasks() {
+/** Lada 修复任务（整片修复、实时修复）的状态与操作 */
+export interface UseLadaTasksReturn {
+  job: Ref<LadaJob | null>
+  live: Ref<LadaLiveStatus | null>
+  liveBusy: Ref<boolean>
+  restoreRunning: ComputedRef<boolean>
+  restoreName: ComputedRef<string>
+  restorePercent: ComputedRef<number>
+  restorePercentText: ComputedRef<string>
+  hasLive: ComputedRef<boolean>
+  liveName: ComputedRef<string>
+  liveFailed: ComputedRef<boolean>
+  liveSummary: ComputedRef<string>
+  hasRuntime: ComputedRef<boolean>
+  runtimeSummary: ComputedRef<string>
+  startRestore: (filePath: string) => Promise<void>
+  startRestoreSmart: (filePath: string) => Promise<void>
+  startRangeSmart: (filePath: string) => Promise<void>
+  getResumeInfo: (filePath: string) => Promise<LadaResumeProgress | null>
+  cancelRestore: () => Promise<void>
+  startLive: (filePath: string) => Promise<void>
+  stopLive: () => Promise<void>
+  dismissLive: () => void
+}
+
+export function useLadaTasks(): UseLadaTasksReturn {
   attach()
 
   const restoreRunning = computed(() => job.value?.state === 'running')
@@ -188,7 +213,7 @@ export function useLadaTasks() {
   async function askRange(): Promise<{ start: number; end: number } | null> {
     const startEl = ref<InstanceType<typeof UiInput> | null>(null)
     const endEl = ref<InstanceType<typeof UiInput> | null>(null)
-    const field = (placeholder: string, element: typeof startEl) =>
+    const field = (placeholder: string, element: typeof startEl): VNode =>
       h(UiInput, { ref: element, style: 'flex:1', placeholder })
     let picked: { start: number; end: number } | null = null
     const confirmed = await confirmDialog({

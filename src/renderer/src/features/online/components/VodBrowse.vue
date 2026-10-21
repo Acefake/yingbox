@@ -297,7 +297,7 @@ const filteredCards = computed(() =>
     return matchesYear && matchesType
   })
 )
-const handleFilterUpdate = (next: Record<string, string>) => {
+const handleFilterUpdate = (next: Record<string, string>): void => {
   filters.value = next
   if (next.source !== 'all') switchSource(Number(next.source))
   if (next.category !== 'all' && next.type === 'all')

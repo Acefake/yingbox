@@ -3,7 +3,10 @@ import {
   normalizePlayerPayload,
   playlistEntryLabel,
 } from '../src/renderer/src/features/player/utils/popout-queue'
-import { useProgressSaver } from '../src/renderer/src/features/player/composables/use-progress-saver'
+import {
+  type ProgressSaver,
+  useProgressSaver,
+} from '../src/renderer/src/features/player/composables/use-progress-saver'
 
 describe('独立播放窗口的播放队列', () => {
   it('没有列表也没有地址时忽略', () => {
@@ -61,7 +64,11 @@ describe('独立播放窗口的播放队列', () => {
 describe('播放进度节流保存', () => {
   afterEach(() => vi.unstubAllGlobals())
 
-  const setup = () => {
+  const setup = (): {
+    saver: ProgressSaver
+    tick: (currentTime: number, advance?: number) => void
+    saved: () => number
+  } => {
     const store: Record<string, string> = {}
     vi.stubGlobal('localStorage', {
       getItem: (k: string) => store[k] ?? null,

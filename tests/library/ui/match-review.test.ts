@@ -1,4 +1,4 @@
-import { describe, expect, it, vi } from 'vitest'
+import { type Mock, describe, expect, it, vi } from 'vitest'
 import { effectScope, nextTick, ref } from 'vue'
 
 import type {
@@ -118,7 +118,9 @@ function candidate(id: string, title: string): MatchCandidateInfo {
   }
 }
 
-function fakeBridge(applyResult: ApplyMatchResult) {
+function fakeBridge(
+  applyResult: ApplyMatchResult
+): ReviewBridge & { applyMatch: Mock<ReviewBridge['applyMatch']> } {
   const bridge = {
     getItem: vi.fn(async () => node()),
     getMatchCandidates: vi.fn(async () => ({

@@ -1,4 +1,4 @@
-import { computed, ref } from 'vue'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
 import { mapWithConcurrency } from '@/utils/concurrency'
 import { asText } from '@/utils/json'
 import {
@@ -28,11 +28,32 @@ interface VodSource {
   loaded: boolean
 }
 
+/** 插件源分类浏览的状态与操作 */
+export interface UseVodBrowseReturn {
+  sources: Ref<VodSource[]>
+  activeSourceIdx: Ref<number>
+  activeTabIdx: Ref<number>
+  activeSource: ComputedRef<VodSource | null>
+  activeTabs: ComputedRef<PluginTab[]>
+  cards: Ref<VodCard[]>
+  loading: Ref<boolean>
+  loadingSources: Ref<boolean>
+  error: Ref<string>
+  currentPage: Ref<number>
+  hasMore: Ref<boolean>
+  loadSources: (sites: CatSpiderSite[]) => Promise<void>
+  switchSource: (idx: number) => Promise<void>
+  switchTab: (idx: number) => Promise<void>
+  loadMore: () => Promise<void>
+  reload: () => Promise<void>
+  cardToCmsItem: (card: VodCard) => CmsItem
+}
+
 /**
  * VOD 分类浏览 composable
  * 管理 CatSpider 源的分类导航、内容卡片列表和分页
  */
-export function useVodBrowse() {
+export function useVodBrowse(): UseVodBrowseReturn {
   const { getConfig, getCards } = useVODParser()
 
   const sources = ref<VodSource[]>([])

@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import { getVodList } from '../src/renderer/src/utils/vod-data'
 import {
+  type AvVideo,
   MISSAV_SOURCE,
   browseCacheKey,
   buildAvEntries,
@@ -29,6 +30,14 @@ import {
 } from '../src/renderer/src/features/av/utils/av-playback'
 import { mapWithConcurrency } from '../src/renderer/src/utils/concurrency'
 
+/** 用例只给关心的字段（片名、封面），来源与去重键不影响被测规则 */
+const video = (fields: Partial<AvVideo>): AvVideo => ({
+  vod_id: '',
+  _source: '',
+  _uid: '',
+  ...fields,
+})
+
 describe('AV 浏览规则', () => {
   const entries = buildAvEntries(
     [{ api: 'cms-a', name: 'A' }],
@@ -46,7 +55,7 @@ describe('AV 浏览规则', () => {
   })
 
   it('排序文案：MissAV 用「本月热度 / 总浏览」，其它源用「本周热度 / 评分优先」', () => {
-    const labels = (api: string) =>
+    const labels = (api: string): string[] =>
       buildFilterRows(entries, api, [])[1].options.map(o => o.label)
     expect(labels(MISSAV_SOURCE)).toEqual(['最新更新', '本月热度', '总浏览'])
     expect(labels('cms-a')).toEqual(['最新发布', '本周热度', '评分优先'])
@@ -210,15 +219,21 @@ describe('AV 播放与搜索规则', () => {
   })
 
   it('播放历史：同地址只留一条并沿用进度，新的在前，最多 30 条', () => {
-    const old = upsertPlayHistory([], { vod_name: 'A' }, '1', 'u1', 1)
+    const old = upsertPlayHistory([], video({ vod_name: 'A' }), '1', 'u1', 1)
     old[0].progress = 42
     old[0].duration = 100
-    const next = upsertPlayHistory(old, { vod_name: 'A' }, '1', 'u1', 2)
+    const next = upsertPlayHistory(old, video({ vod_name: 'A' }), '1', 'u1', 2)
     expect(next).toHaveLength(1)
     expect(next[0]).toMatchObject({ progress: 42, duration: 100, timestamp: 2 })
     let many = next
     for (let i = 0; i < 40; i++)
-      many = upsertPlayHistory(many, { vod_name: `v${i}` }, '', `x${i}`, i)
+      many = upsertPlayHistory(
+        many,
+        video({ vod_name: `v${i}` }),
+        '',
+        `x${i}`,
+        i
+      )
     expect(many).toHaveLength(30)
     expect(many[0].url).toBe('x39')
   })
@@ -240,9 +255,9 @@ describe('AV 播放与搜索规则', () => {
 
   it('同名合并：忽略大小写与首尾空白，保持首次出现的顺序', () => {
     const map = mergeByTitle([
-      { vod_name: 'Foo', vod_pic: 'p1' },
-      { vod_name: 'bar' },
-      { vod_name: ' foo ', vod_pic: 'p2' },
+      video({ vod_name: 'Foo', vod_pic: 'p1' }),
+      video({ vod_name: 'bar' }),
+      video({ vod_name: ' foo ', vod_pic: 'p2' }),
     ])
     expect([...map.keys()]).toEqual(['foo', 'bar'])
     expect(map.get('foo')!.items).toHaveLength(2)

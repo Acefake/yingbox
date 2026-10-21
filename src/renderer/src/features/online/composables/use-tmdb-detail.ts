@@ -2,7 +2,7 @@
  * 在线详情页的 TMDB 元信息：按片名搜第一条，再取详情、演职员与剧照。
  * 未配置 TMDB Access Token 时跳过；任何失败都静默（详情页仍可只靠来源数据展示）。
  */
-import { ref } from 'vue'
+import { type Ref, ref } from 'vue'
 import { tmdb } from '../api/online'
 import type { TmdbCastMember, TmdbDetail, TmdbImage } from '../types'
 
@@ -17,7 +17,18 @@ interface TmdbCredits {
   crew?: { job?: string; name: string }[]
 }
 
-export function useTmdbDetail() {
+/** 详情页的 TMDB 元信息（详情、演员、导演、剧照） */
+export interface UseTmdbDetailReturn {
+  detail: Ref<TmdbDetail | null>
+  cast: Ref<TmdbCastMember[]>
+  directors: Ref<string[]>
+  images: Ref<TmdbImage[]>
+  loading: Ref<boolean>
+  reset: () => void
+  fetchTmdb: (name: string, mediaType: 'movie' | 'tv') => Promise<void>
+}
+
+export function useTmdbDetail(): UseTmdbDetailReturn {
   const detail = ref<TmdbDetail | null>(null)
   const cast = ref<TmdbCastMember[]>([])
   const directors = ref<string[]>([])

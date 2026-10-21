@@ -5,6 +5,7 @@
 import {
   type ComputedRef,
   type Ref,
+  type ShallowRef,
   computed,
   nextTick,
   ref,
@@ -12,6 +13,7 @@ import {
   watch,
 } from 'vue'
 import { useStorage } from '@vueuse/core'
+import type { MediaFilterRow } from '@/components/MediaFilterBar.vue'
 import { useVODParser } from '@/features/online'
 import {
   type AvEntry,
@@ -34,13 +36,39 @@ import { createPageFetchers } from './av-browse-pages'
 
 const NO_SOURCE_ERROR = '没有启用的数据源，请先在数据源管理中启用一个来源'
 
+/** AV 分类浏览页用到的状态与操作 */
+export interface UseAvBrowseReturn {
+  scrollEl: Ref<HTMLElement | null>
+  videos: ShallowRef<AvVideo[]>
+  sortedVideos: ComputedRef<AvVideo[]>
+  total: Ref<number>
+  loading: Ref<boolean>
+  error: Ref<string>
+  loadingMore: Ref<boolean>
+  moreError: Ref<string>
+  hasMore: ComputedRef<boolean>
+  currentEntry: ComputedRef<AvEntry | undefined>
+  categoryName: Ref<string>
+  filterRows: ComputedRef<MediaFilterRow[]>
+  filterModel: ComputedRef<{
+    source: string
+    sort: BrowseSort
+    category: string
+  }>
+  onFilterChange: (value: Record<string, string>) => void
+  onScroll: () => void
+  load: (force?: boolean, append?: boolean) => Promise<void>
+  init: () => Promise<void>
+  dispose: () => void
+}
+
 export function useAvBrowse(options: {
   entries: ComputedRef<AvEntry[]>
   /** 只有停在「浏览」视图时才滚动加载 */
   isActive: () => boolean
   /** 插件清单就绪前不校正失效数据源，避免把已选插件源误判为失效 */
   ready: Ref<boolean>
-}) {
+}): UseAvBrowseReturn {
   const { getConfig } = useVODParser()
   const sourceApi = useStorage('av_browse_source', '')
   const categoryId = ref<number | null>(null)

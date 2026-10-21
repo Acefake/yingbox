@@ -249,7 +249,7 @@ const isFav = (video: AvVideo): boolean =>
   favorites.value.some(f => f._uid === video._uid)
 
 // ─── 路由 ?q= → 聚合搜索 ──────────────────────────────────────
-const runQuerySearch = () => {
+const runQuerySearch = (): void => {
   const query = String(route.query.q || '').trim()
   if (!query) return search.reset()
   search.keyword.value = query
