@@ -24,18 +24,10 @@ const EXTENSIONS = /\.(ts|vue|mjs)$/
  */
 export const EXEMPT = {
   'src/renderer/src/features/library/detail/ItemDetail.vue': 932,
-  'src/main/library/identify/identify-runner.ts': 756,
   'src/renderer/src/features/library/LibraryPage.vue': 718,
-  'src/shared/library/ipc/contract.ts': 558,
-  'src/main/library/identify/identify-module.ts': 507,
-  'src/main/library/engine/service.ts': 490,
   'src/renderer/src/features/library/review/MatchPane.vue': 485,
   'src/renderer/src/features/library/settings/LibrarySettings.vue': 485,
   'src/renderer/src/features/library/wall/PosterWall.vue': 425,
-  'src/main/library/identify/identify-store.ts': 422,
-  'src/main/library/writer/writer-module.ts': 415,
-  'src/main/library/providers/tmdb/tmdb-map.ts': 411,
-  'src/main/library/writer/organize/organize-planner.ts': 410,
 }
 
 /** 递归列出 dir 下所有源文件（跳过 node_modules） */
@@ -106,7 +98,8 @@ function main() {
   }
   console.warn(`⚠ ${oversized.length} 个文件超过 ${limit} 行：`)
   for (const { file, lines, ceiling } of oversized) {
-    const note = ceiling === undefined ? '' : `（豁免天花板 ${ceiling}，又变长了）`
+    const note =
+      ceiling === undefined ? '' : `（豁免天花板 ${ceiling}，又变长了）`
     console.warn(`  ${String(lines).padStart(5)}  ${file}${note}`)
   }
   if (strict) process.exitCode = 1
