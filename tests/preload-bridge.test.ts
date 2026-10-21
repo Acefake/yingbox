@@ -40,16 +40,6 @@ vi.mock('electron', () => ({
  * cacheSize / notice 事件、mpv.playlistNext / playlistPrev / playlistPlay / getStatus。
  */
 const LEGACY_API: Record<string, string[]> = {
-  amane: [
-    'status',
-    'start',
-    'stop',
-    'configure',
-    'selectExecutable',
-    'request',
-    'resolveMedia',
-    'connection',
-  ],
   dialog: ['selectDirectory', 'openDirectory', 'openFile'],
   app: ['networkIps'],
   update: ['check', 'download', 'install', 'onStatus', 'offStatus'],
@@ -165,8 +155,6 @@ describe('通用 preload', () => {
     expect(invoke).toHaveBeenLastCalledWith('online:tmdb', '/movie/1', {
       language: 'zh-CN',
     })
-    await exposed.amane.connection()
-    expect(invoke).toHaveBeenLastCalledWith('amane:connection')
   })
 
   it('同步调用走 sendSync 直接返回值；主进程报错时在渲染层抛出', () => {

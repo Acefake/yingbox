@@ -1,7 +1,7 @@
 /**
  * 缩略图生成（桌面端主进程 / 独立服务进程）：原图 → 指定宽度的 WebP，写进 LRU 缓存（cache.ts）。
  *
- * - 原图：本地文件路径（媒体库原图、本地图片）或内存字节（远程 / Amane 图片），由调用方的 load 提供；
+ * - 原图：本地文件路径（媒体库原图、本地图片）或内存字节（远程图片），由调用方的 load 提供；
  * - 缩放：经 ImageResizer 注入。桌面端用 Electron nativeImage（native-resizer.ts，Skia、几毫秒，只在主进程可用）；
  *   独立服务用编解码线程里的 wasm（wasm-resizer.ts，无原生依赖）；
  * - 编码：WebP 由独立 worker 线程编码（wasm libwebp），不占宿主事件循环；

@@ -27,8 +27,6 @@ export interface ThumbnailPipelineOptions {
   codec: Codec | undefined
   /** 宿主的缩放实现。 */
   resizer: ImageResizer
-  /** 非 http(s) 来源的取图函数，按协议（含冒号）登记，如 amane:。 */
-  loaders?: ReadonlyMap<string, (source: string) => Promise<Response>>
   log: (message: string) => void
 }
 
@@ -76,7 +74,6 @@ export function createThumbnailPipeline(
     log
   )
   const loadSource = createSourceLoader({
-    loaders: options.loaders ?? new Map(),
     readLimited,
     fetchImage,
   })

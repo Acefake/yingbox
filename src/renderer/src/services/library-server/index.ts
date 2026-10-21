@@ -5,7 +5,7 @@
  * 鉴权靠服务写入的 HttpOnly Cookie：页面脚本拿不到令牌，<img> / <video> / EventSource 自动带上。
  * 桌面端（有 window.api）不经过这里，片库走 IPC。
  *
- * 这是渲染层除 Amane 插件外唯一直接 fetch 的地方（eslint 豁免），只访问同源的片库服务。
+ * 这是渲染层唯一直接 fetch 的地方（eslint 豁免），只访问同源的片库服务。
  */
 import { type Ref, ref } from 'vue'
 

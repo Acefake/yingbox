@@ -14,7 +14,7 @@ function bundledMpvPaths(): string[] {
     typeof process.resourcesPath === 'string'
       ? join(process.resourcesPath, 'mpv', exe)
       : '',
-    // 开发运行：项目内的 resources/mpv（与 amane 运行时同一套约定）
+    // 开发运行：项目内的 resources/mpv
     join(app.getAppPath(), 'resources', 'mpv', exe),
   ].filter(Boolean)
 }

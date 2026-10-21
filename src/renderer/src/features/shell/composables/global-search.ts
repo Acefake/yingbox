@@ -1,15 +1,14 @@
 /**
  * 顶部全局搜索的纯规则：各页面的占位文字，以及提交 / 清空后应跳到哪里。
- * 本地片库页（电影、剧集、Amane）在本页按 ?q= 过滤；AV 页和其余页面跳到对应的搜索标签。
+ * 本地片库页（电影、剧集）在本页按 ?q= 过滤；AV 页和其余页面跳到对应的搜索标签。
  */
 
 /** 在本页用 ?q= 过滤的路由 */
-const LOCAL_FILTER_ROUTES = new Set(['Movie', 'TV', 'Amane'])
+const LOCAL_FILTER_ROUTES = new Set(['Movie', 'TV'])
 
 const PLACEHOLDERS: Record<string, string> = {
   Movie: '搜索本地电影',
   TV: '搜索本地电视剧',
-  Amane: '搜索 Amane 片库',
   AV: '搜索 AV 资源',
 }
 
