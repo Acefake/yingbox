@@ -266,5 +266,5 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时界面提示改用桌面版。没有服务端转码。
 - 没有 mpv、内置播放器窗口、外挂字幕自动挂载。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
-- 在线播放、MissAV、下载、Amane、lada 这些板块不在片库服务里，网页端仍不可用。
+- 在线播放、MissAV、下载、lada 这些板块不在片库服务里，网页端仍不可用。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。

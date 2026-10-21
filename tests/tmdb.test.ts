@@ -155,7 +155,7 @@ describe('渲染层：密钥只写不读', () => {
 
   it('setSecret 只接受已登记的密钥键与字符串值', () => {
     const parse = settings.calls.setSecret.parse
-    expect(parse(['amane.token', 'x'])).toEqual(['amane.token', 'x'])
+    expect(parse(['scrape.tmdbToken', 'x'])).toEqual(['scrape.tmdbToken', 'x'])
     expect(parse(['scrape.tmdbToken', ''])).toEqual(['scrape.tmdbToken', ''])
     expect(() => parse(['app.theme', 'dark'])).toThrow()
     expect(() => parse(['scrape.tmdbToken', 1])).toThrow()

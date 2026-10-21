@@ -18,17 +18,17 @@ const state = (patch: Partial<NavState> = {}): NavState => ({
 })
 
 describe('侧栏导航项', () => {
-  it('桌面端：资料库 + 本地媒体；成人模式多出 Amane 与 AV', () => {
+  it('桌面端：资料库 + 本地媒体；成人模式多出 AV', () => {
     expect(buildNavGroups(state()).map(g => g.key)).toEqual([
       'library',
       'local',
     ])
     const adult = buildNavGroups(state({ adultMode: true }))
     expect(adult.map(g => g.key)).toEqual(['library', 'local', 'adult'])
-    expect(adult[1].items.map(i => i.path)).toEqual(['/movie', '/tv', '/amane'])
+    expect(adult[1].items.map(i => i.path)).toEqual(['/movie', '/tv'])
   })
 
-  it('没有本地片库时不显示本地媒体组（成人模式下也不显示 Amane）', () => {
+  it('没有本地片库时不显示本地媒体组（成人模式下也不显示）', () => {
     const groups = buildNavGroups(
       state({ hasLocalLibrary: false, adultMode: true })
     )
@@ -68,8 +68,8 @@ describe('全局搜索规则', () => {
       path: '/tv',
       query: { q: '海' },
     })
-    expect(searchLocation('Amane', '/amane', '')).toEqual({
-      path: '/amane',
+    expect(searchLocation('Movie', '/movie', '')).toEqual({
+      path: '/movie',
       query: {},
     })
   })
