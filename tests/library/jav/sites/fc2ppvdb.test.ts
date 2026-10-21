@@ -5,18 +5,18 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   fc2ppvdb,
   fc2ppvdbActresses,
   fc2ppvdbRecord,
   inertiaFromHtml,
   inertiaFromJson,
-} from '../src/main/library/providers/jav/sites/fc2ppvdb'
-import type { PageOptions } from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/sites/fc2ppvdb'
+import type { PageOptions } from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const URL_ = 'https://fc2cmadb.com/articles/3662771'
 

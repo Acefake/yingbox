@@ -71,9 +71,11 @@ async function invoke(
   const result = toInvokeResult(
     await handleRpc(deps.service, { id: 0, method, params })
   )
+  // 只有 TMDB 令牌另存进服务的密钥文件（与桌面端 safeStorage 对应）；番号站点凭据存在片库设置里
   if (method === 'setProviderToken' && result.ok) {
-    const token = (params as { token?: string | null }).token ?? null
-    deps.secrets.set(SECRET_KEYS.tmdbToken, token)
+    const request = params as { provider?: string; token?: string | null }
+    if (request.provider === 'tmdb')
+      deps.secrets.set(SECRET_KEYS.tmdbToken, request.token ?? null)
   }
   return result
 }

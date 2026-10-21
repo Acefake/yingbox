@@ -5,17 +5,17 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   mgstage,
   mgstageDetailUrl,
   parseMgstageDetail,
   pickMgstageSearch,
-} from '../src/main/library/providers/jav/sites/mgstage'
-import type { SiteContext } from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/sites/mgstage'
+import type { SiteContext } from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 function pages(map: Record<string, string>): SiteContext & { seen: string[] } {
   const seen: string[] = []

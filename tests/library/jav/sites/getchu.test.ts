@@ -8,17 +8,17 @@ import { describe, expect, it } from 'vitest'
 import {
   ProviderHttp,
   sniffCharset,
-} from '../src/main/library/providers/http/provider-http'
+} from '../../../../src/main/library/providers/http/provider-http'
 import {
   getchu,
   getchuCandidates,
   getchuSearchUrl,
   parseGetchuDetail,
-} from '../src/main/library/providers/jav/sites/getchu'
-import type { SiteContext } from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/sites/getchu'
+import type { SiteContext } from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const soft = (id: number): string =>
   `https://www.getchu.com/soft.phtml?id=${id}`

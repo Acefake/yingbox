@@ -18,6 +18,6 @@ export function createNodeFetch(
       signal: init.signal,
       method: init.method ?? (init.body !== undefined ? 'POST' : undefined),
       body: init.body,
-      redirect: 'follow',
+      redirect: init.redirect ?? 'follow',
     })) as HttpFetch
 }

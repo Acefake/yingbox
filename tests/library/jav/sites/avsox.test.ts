@@ -3,14 +3,14 @@
  * 录制响应为 2026-10-21 实抓。
  */
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   avsox,
   avsoxData,
   avsoxRecord,
   pickAvsoxMovie,
-} from '../src/main/library/providers/jav/sites/avsox'
-import { fixture, pages } from './jav-site-helpers'
+} from '../../../../src/main/library/providers/jav/sites/avsox'
+import { fixture, pages } from './site-helpers'
 
 const API = 'https://avsox.click/javu/data/api'
 

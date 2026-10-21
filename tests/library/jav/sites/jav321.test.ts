@@ -3,19 +3,19 @@
  * 以及 POST 经 ProviderHttp / curl 出网实现的透传。录制页面为 2026-10-21 实抓。
  */
 import { describe, expect, it } from 'vitest'
-import { curlArgs } from '../src/main/library/platform/fetch/curl-fetch'
-import { ProviderHttp } from '../src/main/library/providers/http/provider-http'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { curlArgs } from '../../../../src/main/library/platform/fetch/curl-fetch'
+import { ProviderHttp } from '../../../../src/main/library/providers/http/provider-http'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   jav321,
   jav321Image,
   jav321SearchOptions,
   parseJav321Detail,
   sameJav321Code,
-} from '../src/main/library/providers/jav/sites/jav321'
-import { fixture, pages } from './jav-site-helpers'
+} from '../../../../src/main/library/providers/jav/sites/jav321'
+import { fixture, pages } from './site-helpers'
 
-const SEARCH = 'https://www.jav321.com/search'
+const SEARCH = 'http://www.jav321.com/search'
 
 describe('JAV321 解析', () => {
   it('有码详情页：字段、简介、封面 / 海报 / 剧照、演员头像', () => {
@@ -23,7 +23,7 @@ describe('JAV321 解析', () => {
     expect(r).toMatchObject({
       site: 'jav321',
       code: 'SSIS-497',
-      url: 'https://www.jav321.com/video/ssis00497',
+      url: 'http://www.jav321.com/video/ssis00497',
       title:
         '最高のオンナ鷲尾めいが人生最高に尽くす一生忘れられない1日限定愛人契約',
       releaseDate: '2022-08-23',
@@ -56,7 +56,7 @@ describe('JAV321 解析', () => {
       '単体作品',
       '巨乳',
     ])
-    expect(r.url).toBe('https://www.jav321.com/video/118abp00123')
+    expect(r.url).toBe('http://www.jav321.com/video/118abp00123')
   })
 
   it('素人：品番没有数字前缀，封面是厂牌自家大图', () => {
@@ -64,7 +64,7 @@ describe('JAV321 解析', () => {
     expect(r.code).toBe('LUXU-1234')
     expect(r.studio).toBe('ラグジュTV')
     expect(r.cover).toBe(
-      'https://www.jav321.com/images/luxutv/259luxu/1234/pb_e_259luxu-1234.jpg'
+      'http://www.jav321.com/images/luxutv/259luxu/1234/pb_e_259luxu-1234.jpg'
     )
     expect(r.stills.length).toBeGreaterThan(0)
     expect(sameJav321Code(r.code, '259LUXU-1234')).toBe(true)

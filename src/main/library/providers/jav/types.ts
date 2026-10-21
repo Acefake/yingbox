@@ -59,6 +59,11 @@ export interface PageOptions {
 export interface SiteContext {
   /** 取页面；404 返回 null，被拦截 / 网络失败抛错。 */
   page(url: string, options?: PageOptions): Promise<string | null>
+  /**
+   * 发一次不跟随重定向的 GET，返回响应下发的 Cookie（`name=value`）。
+   * 给要先领会话的站点（GIGA）；测试里的假上下文可以不提供。
+   */
+  issuedCookies?(url: string, options?: PageOptions): Promise<string[]>
   signal?: AbortSignal
 }
 

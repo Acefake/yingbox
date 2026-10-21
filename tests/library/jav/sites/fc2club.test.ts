@@ -4,15 +4,15 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   fc2club,
   isFc2clubRedirect,
   parseFc2clubDetail,
-} from '../src/main/library/providers/jav/sites/fc2club'
+} from '../../../../src/main/library/providers/jav/sites/fc2club'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 /** 现站回的脚本跳转页（令牌已截短）。 */
 const REDIRECT =

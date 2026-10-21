@@ -8,41 +8,41 @@ import { describe, expect, it } from 'vitest'
 import {
   type JavCode,
   parseJavCode,
-} from '../src/main/library/providers/jav/number'
+} from '../../../../src/main/library/providers/jav/number'
 import {
   cidToCode,
   dmmCid,
   pickCid,
   sameCid,
-} from '../src/main/library/providers/jav/sites/dmm/cid'
+} from '../../../../src/main/library/providers/jav/sites/dmm/cid'
 import {
   createDmmApi,
   credentialsFromEnv,
   dmm,
-} from '../src/main/library/providers/jav/sites/dmm'
+} from '../../../../src/main/library/providers/jav/sites/dmm'
 import {
   dmmApiRecord,
   dmmApiUrl,
   parseDmmApi,
-} from '../src/main/library/providers/jav/sites/dmm/affiliate'
+} from '../../../../src/main/library/providers/jav/sites/dmm/affiliate'
 import {
   DMM_GRAPHQL,
   dmmContentRecord,
   jstDateOf,
   parseGraphql,
-} from '../src/main/library/providers/jav/sites/dmm/graphql'
+} from '../../../../src/main/library/providers/jav/sites/dmm/graphql'
 import {
   isRegionBlocked,
   parseDmmMono,
   pickDmmSearch,
-} from '../src/main/library/providers/jav/sites/dmm/web'
+} from '../../../../src/main/library/providers/jav/sites/dmm/web'
 import type {
   PageOptions,
   SiteContext,
-} from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 /** 记录请求的假上下文：handler 按地址和请求体给响应，返回 undefined 当 404。 */
 function fakeCtx(

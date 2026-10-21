@@ -23,7 +23,7 @@ describe('番号站点设置规则', () => {
     expect(rows[0]).toMatchObject({ id: 'javbus', canUp: false, canDown: true })
     expect(rows[1]).toMatchObject({ canUp: true, canDown: true })
     expect(rows[last - 1]).toMatchObject({
-      id: 'fc2',
+      id: JAV_SITES[last - 1].id,
       canUp: true,
       canDown: false,
     })
@@ -35,11 +35,13 @@ describe('番号站点设置规则', () => {
     expect(off.sites[at]).toEqual({ id: 'avbase', enabled: false })
     expect(DEFAULT_JAV_SETTINGS.sites[at].enabled).toBe(true)
     const ids = DEFAULT_JAV_SETTINGS.sites.map(s => s.id)
+    const i = ids.indexOf('fc2')
     const moved = moveJavSite(DEFAULT_JAV_SETTINGS, 'fc2', -1)
     expect(moved.sites.map(s => s.id)).toEqual([
-      ...ids.slice(0, -2),
+      ...ids.slice(0, i - 1),
       'fc2',
-      ids[ids.length - 2],
+      ids[i - 1],
+      ...ids.slice(i + 1),
     ])
     expect(moveJavSite(DEFAULT_JAV_SETTINGS, 'javbus', -1)).toBe(
       DEFAULT_JAV_SETTINGS

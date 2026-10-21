@@ -6,11 +6,11 @@ import { join } from 'node:path'
 import type {
   PageOptions,
   SiteContext,
-} from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/types'
 
 /** 读 tests/fixtures/jav 下的录制页面。 */
 export const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 /** 一次请求的记录。 */
 export interface SeenRequest {

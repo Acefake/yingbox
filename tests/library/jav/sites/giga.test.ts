@@ -14,14 +14,14 @@ import {
   isGigaCode,
   parseGigaDetail,
   parseGigaSearch,
-} from '../src/main/library/providers/jav/sites/giga'
+} from '../../../../src/main/library/providers/jav/sites/giga'
 import type {
   PageOptions,
   SiteContext,
-} from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const BASE = 'https://www.giga-web.jp'
 const ENTRY = `${BASE}/cookie_set.php`

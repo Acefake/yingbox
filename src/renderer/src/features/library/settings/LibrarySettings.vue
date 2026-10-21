@@ -125,6 +125,7 @@
     </SettingsGroup>
 
     <JavSettingsGroup v-if="hasJav" :open="open" />
+    <JavCredentialsGroup v-if="hasJav" :open="open" />
 
     <WriterSettingsGroups :open="open" :kind="kind" :kind-label="kindLabel" />
   </LibrarySheet>
@@ -153,6 +154,7 @@ import { errorText, libraryBridge } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
 import { useLibraries } from '../state/use-libraries'
+import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
 import WriterSettingsGroups from './WriterSettingsGroups.vue'

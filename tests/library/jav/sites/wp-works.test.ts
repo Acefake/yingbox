@@ -6,9 +6,9 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { ProviderHttpError } from '../src/main/library/providers/http/provider-http'
-import { dahlia } from '../src/main/library/providers/jav/sites/dahlia'
-import { faleno } from '../src/main/library/providers/jav/sites/faleno'
+import { ProviderHttpError } from '../../../../src/main/library/providers/http/provider-http'
+import { dahlia } from '../../../../src/main/library/providers/jav/sites/dahlia'
+import { faleno } from '../../../../src/main/library/providers/jav/sites/faleno'
 import {
   type WpWorksConfig,
   createWpWorksSite,
@@ -17,14 +17,14 @@ import {
   splitActors,
   stripActorSuffix,
   wpSlug,
-} from '../src/main/library/providers/jav/sites/wp-works'
+} from '../../../../src/main/library/providers/jav/sites/wp-works'
 import type {
   JavSiteId,
   SiteContext,
-} from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const FALENO: WpWorksConfig = {
   id: 'faleno' as JavSiteId,

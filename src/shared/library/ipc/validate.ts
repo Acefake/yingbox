@@ -18,6 +18,7 @@ import {
   type RefreshMetadataRequest,
   type ScanRequest,
   type SetProviderTokenRequest,
+  TOKEN_PROVIDERS,
   type TopLevelItemType,
   type WriterSettings,
 } from './contract'
@@ -253,11 +254,7 @@ function parseApplyMatch(input: unknown): ApplyMatchRequest {
 
 function parseSetToken(input: unknown): SetProviderTokenRequest {
   const r = asRecord(input, 'setProviderToken 参数')
-  const provider = oneOf(
-    r.provider,
-    ['tmdb', 'opensubtitles'] as const,
-    'provider'
-  )
+  const provider = oneOf(r.provider, TOKEN_PROVIDERS, 'provider')
   if (
     r.token !== null &&
     r.token !== undefined &&

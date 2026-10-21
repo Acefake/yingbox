@@ -66,20 +66,20 @@ export function parseCurlOutput(output: Buffer): CurlResponse {
 /**
  * 拼 curl 参数（纯函数，便于测试）。
  * body 有值时发 POST（--data-binary）；不加 --request，重定向后按 curl 默认改成 GET，与 fetch 一致。
+ * follow 为 false 时不跟随重定向（对应 fetch 的 redirect: 'manual'）。
  */
 export function curlArgs(
   url: string,
   headers: Record<string, string>,
   maxBytes: number,
   timeoutMs: number,
-  body?: string
+  body?: string,
+  follow = true
 ): string[] {
   const args = [
     '--silent',
     '--show-error',
-    '--location',
-    '--max-redirs',
-    '5',
+    ...(follow ? ['--location', '--max-redirs', '5'] : []),
     '--compressed',
     '--dump-header',
     '-',
@@ -115,6 +115,7 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
       signal?: AbortSignal
       method?: 'GET' | 'POST'
       body?: string
+      redirect?: 'follow' | 'manual'
     }
   ) =>
     new Promise<Response>((resolve, reject) => {
@@ -132,7 +133,8 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
           timeoutMs,
           (init.method ?? (init.body !== undefined ? 'POST' : 'GET')) === 'POST'
             ? (init.body ?? '')
-            : undefined
+            : undefined,
+          init.redirect !== 'manual'
         ),
         {
           stdio: ['ignore', 'pipe', 'pipe'],
