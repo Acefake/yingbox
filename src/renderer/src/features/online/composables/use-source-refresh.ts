@@ -9,7 +9,8 @@ import {
   useOnlineSearch,
 } from './use-online-search'
 
-export type SiteStatus = 'unknown' | 'checking' | 'ok' | 'fail'
+import type { SiteStatus } from '../utils/source-rules'
+export type { SiteStatus }
 
 const { selectedSites, customSites } = useOnlineSearch()
 const { allSources: avSources, addSources: addAvSources } = useAvSources()
