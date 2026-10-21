@@ -18,6 +18,7 @@ import type {
   PersonCredit,
   SeasonMetadata,
 } from '../../../../shared/library/provider'
+import type { NfoActorLookup, NfoActorProfile } from '../../actors/actor-store'
 import { TmdbProvider } from '../../providers/tmdb/tmdb-provider'
 import { XML_DECLARATION, type XmlNode, el, group, renderNode } from './xml'
 
@@ -114,17 +115,26 @@ function artwork(meta: MediaMetadata): Array<XmlNode | undefined> {
   ]
 }
 
-/** 一位演员。 */
+/**
+ * 一位演员。番号库演员有演员库资料时：thumb 用演员库的首选头像（远程地址，本地 .actors/ 由播放器自己找），
+ * 另写扩展字段 birthdate / birthplace / height / measurements / cup（Kodi / Jellyfin 不认识的标签会忽略）。
+ */
 function actor(
   person: PersonCredit,
   index: number,
-  jav = false
+  jav = false,
+  profile?: NfoActorProfile
 ): XmlNode | undefined {
   if (jav) {
     return group('actor', [
       el('name', person.name),
       el('order', person.order ?? index),
-      el('thumb', person.profilePath),
+      el('thumb', profile?.thumb ?? person.profilePath),
+      el('birthdate', profile?.birthday),
+      el('birthplace', profile?.birthplace),
+      el('height', profile?.height),
+      el('measurements', profile?.measurements),
+      el('cup', profile?.cup),
     ])
   }
   return group('actor', [
@@ -172,8 +182,11 @@ function common(meta: MediaMetadata): Array<XmlNode | undefined> {
   ]
 }
 
-/** movie.nfo / <视频名>.nfo。 */
-export function buildMovieNfo(meta: MediaMetadata): XmlNode {
+/** movie.nfo / <视频名>.nfo；actors 为番号库条目演员的演员库资料（按名字）。 */
+export function buildMovieNfo(
+  meta: MediaMetadata,
+  actors?: NfoActorLookup
+): XmlNode {
   return {
     tag: 'movie',
     children: [
@@ -189,7 +202,9 @@ export function buildMovieNfo(meta: MediaMetadata): XmlNode {
         : undefined,
       ...ids(meta),
       ...artwork(meta),
-      ...meta.cast.map((p, i) => actor(p, i, meta.ref.provider === 'jav')),
+      ...meta.cast.map((p, i) =>
+        actor(p, i, meta.ref.provider === 'jav', actors?.get(p.name))
+      ),
       ...(meta.ref.provider === 'jav'
         ? meta.genres.map(g => el('tag', g))
         : []),

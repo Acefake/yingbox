@@ -16,8 +16,13 @@ import {
   createHostBreaker,
 } from '../../../../shared/net/host-breaker'
 import type { ResponseCache } from '../http/provider-cache'
-import { type ProviderHttp, ProviderHttpError } from '../http/provider-http'
-import type { ActorSource } from './actors'
+import {
+  type FetchLike,
+  ProviderHttp,
+  ProviderHttpError,
+} from '../http/provider-http'
+import type { Clock } from '../http/rate-limiter'
+import type { ActorContext, ActorSource } from './actors'
 import { createGfriendsSource } from './actors/sources/gfriends'
 import { type JavMovie, aggregate, toMetadata } from './aggregate'
 import { type JavCode, parseJavCode } from './number'
@@ -236,6 +241,28 @@ export class JavProvider {
     }
   }
 
+  /**
+   * 演员资料来源用的上下文：与番号站点共用熔断、按主机限速和防护页识别，
+   * 另提供 postJson（ThePornDB 的 GraphQL）。演员库的后台任务用它查资料。
+   */
+  actorContext(signal?: AbortSignal): ActorContext {
+    return {
+      ...this.context(signal),
+      postJson: async (url, body, headers = {}) => {
+        const text = await this.page(
+          url,
+          {
+            method: 'POST',
+            body: JSON.stringify(body),
+            headers: { 'Content-Type': 'application/json', ...headers },
+          },
+          signal
+        )
+        return text === null ? null : (JSON.parse(text) as unknown)
+      },
+    }
+  }
+
   /** 这个地址用哪个出网客户端。 */
   private httpFor(url: string): ProviderHttp {
     const { http } = this.options
@@ -309,4 +336,36 @@ export class JavProvider {
     this.breaker.succeed(url)
     return html
   }
+}
+
+/** createJavProvider 的参数。 */
+export interface CreateJavProviderOptions extends Pick<
+  JavProviderOptions,
+  'cache' | 'settings' | 'credentials' | 'avatars' | 'log'
+> {
+  fetch: FetchLike
+  clock?: Clock
+}
+
+/**
+ * 按引擎的默认网络策略建番号元数据源：番号站点是普通网站，每个主机一个客户端各自限速
+ * （2 rps、并发 2），重试少一些，被拦的站点由熔断跳过。
+ */
+export function createJavProvider(
+  options: CreateJavProviderOptions
+): JavProvider {
+  const { fetch, clock, ...rest } = options
+  return new JavProvider({
+    ...rest,
+    http: perHost(
+      () =>
+        new ProviderHttp({
+          fetch,
+          rps: 2,
+          concurrency: 2,
+          maxRetries: 2,
+          clock,
+        })
+    ),
+  })
 }

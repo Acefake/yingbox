@@ -25,6 +25,7 @@ import type {
   SetProviderTokenRequest,
   UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
+import { ActorModule } from '../actors/actor-module'
 import { KeyedMutex } from '../jobs/keyed-mutex'
 import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
@@ -74,6 +75,8 @@ export class LibraryService {
   readonly identifier: IdentifyModule
   /** 写出层（NFO / 图片 / 整理）。 */
   readonly writer: WriterModule
+  /** 演员库（番号库的演员资料）。 */
+  readonly actors: ActorModule
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
   private readonly monitor: LibraryMonitor
@@ -132,14 +135,26 @@ export class LibraryService {
     this.queue.register('fingerprint', (p, ctx) =>
       runFingerprint(jobs, p as LibraryPayload, ctx)
     )
+    this.actors = new ActorModule({
+      db: this.db,
+      queue: this.queue,
+      emit: event => this.emit(event),
+      mediaDir: options.identify?.mediaDir,
+      identify: () => this.identifier,
+      log: this.log,
+    })
     this.identifier = new IdentifyModule({
       ...options.identify,
+      avatars: this.actors.avatars,
       db: this.db,
       queue: this.queue,
       catalogQuery: this.catalogQuery,
       emit: event => this.emit(event),
       fingerprint: path => this.fingerprint(path),
-      onIdentified: itemIds => this.writer.enqueueAuto(itemIds),
+      onIdentified: itemIds => {
+        this.actors.onIdentified(itemIds)
+        this.writer.enqueueAuto(itemIds)
+      },
       log: this.log,
     })
     this.writer = new WriterModule({
@@ -150,6 +165,7 @@ export class LibraryService {
       locks: this.locks,
       emit: event => this.emit(event),
       images: this.identifier.images,
+      actorProfiles: itemId => this.actors.nfoProfiles(itemId),
       moveOps: options.writer?.moveOps,
       deviceOf: options.writer?.deviceOf,
       log: this.log,
@@ -173,6 +189,7 @@ export class LibraryService {
       }
     }
     this.identifier.start()
+    this.actors.start()
     this.queue.start()
     for (const lib of this.libraries.list()) this.startWatching(lib, true)
   }
