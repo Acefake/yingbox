@@ -52,6 +52,7 @@
 </template>
 
 <script setup lang="ts">
+import { toast } from '@/components/ui'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { type CmsItem } from '../composables/use-online-search'
 import { useRoute } from 'vue-router'
@@ -60,7 +61,6 @@ import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
-import { message } from 'ant-design-vue'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
 
 const route = useRoute()
@@ -121,7 +121,7 @@ const resumeRecentPlay = async (record: Record<string, any>) => {
       : getMediaProgress(url)
   const ok = await openMediaPlayer({ url, title, poster, startAt: stored })
   if (!ok) {
-    message.error('无法打开播放窗口，已改为进入详情')
+    toast.error('无法打开播放窗口，已改为进入详情')
     if (item?.vod_name) openDetailWindow(item)
   }
 }

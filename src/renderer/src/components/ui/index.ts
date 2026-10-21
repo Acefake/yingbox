@@ -3,8 +3,10 @@
  * 保证风格一致；页面里不要再手写原生 <button>（需要无样式的可点区域时用 UiPressable），
  * 也不要手写 <input> / <select> / <textarea>（用 UiInput / UiSelect / UiTextarea /
  * UiSwitch / UiCheckbox / UiRadio；文件、滑块、隐藏字段除外）。
+ * 轻提示用 toast，确认用 confirmDialog（都是命令式，不用在模板里放组件）。
  */
 export { default as UiButton } from './UiButton.vue'
+export { confirmDialog, type ConfirmOptions } from './confirm'
 export { default as UiCheckbox } from './UiCheckbox.vue'
 export { default as UiChip } from './UiChip.vue'
 export { default as UiIcon } from './UiIcon.vue'
@@ -21,6 +23,12 @@ export { default as UiSelect } from './UiSelect.vue'
 export type { SelectOption } from './UiSelect.vue'
 export { default as UiSwitch } from './UiSwitch.vue'
 export { default as UiTextarea } from './UiTextarea.vue'
+export {
+  toast,
+  type ToastDismiss,
+  type ToastKind,
+  type ToastOptions,
+} from './toast'
 export { ICON_PATHS, type IconName } from './icons'
 export { vTooltip } from './tooltip'
 export { default as UiVirtualGrid } from './UiVirtualGrid.vue'

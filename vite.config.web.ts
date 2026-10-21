@@ -30,7 +30,7 @@ export default defineConfig({
   },
   plugins: [vue()],
   optimizeDeps: {
-    include: ['ant-design-vue', 'vue', 'vue-router'],
+    include: ['vue', 'vue-router'],
   },
   server: {
     host: true,

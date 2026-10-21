@@ -5,10 +5,10 @@
  * AppLayout 启动时接一次 IPC 推送，Amane 页面与后台任务面板读同一份数据。
  */
 import { computed, h, ref } from 'vue'
-import { message } from 'ant-design-vue'
 import type { LadaJob, LadaLiveStatus } from '../../../../../shared/lada'
+import { confirmDialog, toast } from '@/components/ui'
 import UiInput from '@/components/ui/UiInput.vue'
-import { confirmDialog } from '@/utils/confirm-dialog'
+import { readRange } from '../utils/range-input'
 import { openMediaPlayer } from '@/features/player'
 
 const job = ref<LadaJob | null>(null)
@@ -21,22 +21,6 @@ let attached = false
 /** 取文件名：路径可能是 Windows 反斜杠写法 */
 function fileName(input?: string): string {
   return (input || '').split(/[\\/]/).pop() || '视频'
-}
-
-/** 把 "10:30" / "1:02:03" / "630" 解析成秒数；解析不了返回 null */
-function parseClock(raw: string): number | null {
-  const text = raw.trim()
-  if (!text) return null
-  if (/^\d+(\.\d+)?$/.test(text)) return Number(text)
-  const parts = text.split(':')
-  if (parts.length < 2 || parts.length > 3) return null
-  let seconds = 0
-  for (const part of parts) {
-    const value = part.trim()
-    if (!/^\d+(\.\d+)?$/.test(value)) return null
-    seconds = seconds * 60 + Number(value)
-  }
-  return seconds
 }
 
 /** 秒数 → "m:ss" / "h:mm:ss"（给人看的写法） */
@@ -64,26 +48,25 @@ function attach(): void {
     if (pendingRange.value) {
       if (next?.state === 'done' || next?.state === 'running') return
       pendingRange.value = false
-      if (next?.state === 'failed') message.error(next.error || '区间处理失败')
-      else message.info('已取消区间处理')
+      if (next?.state === 'failed') toast.error(next.error || '区间处理失败')
+      else toast.info('已取消区间处理')
       return
     }
     if (next?.state === 'done')
-      message.success('去码完成，现在点「播放」就是无码版本')
-    else if (next?.state === 'failed') message.error(next.error || '去码失败')
+      toast.success('去码完成，现在点「播放」就是无码版本')
+    else if (next?.state === 'failed') toast.error(next.error || '去码失败')
   })
   // 区间产物好了才播：lada 跑完时文件还没拼好
   api.onRangeReady?.(info => {
     pendingRange.value = false
     if (!info?.path) {
-      message.error(info?.error || '这一段没处理成功')
+      toast.error(info?.error || '这一段没处理成功')
       return
     }
     void openMediaPlayer({ filePath: info.path, title: info.title }).then(
       opened => {
-        if (opened) message.success('这一段已经去码完成，正在播放')
-        else
-          message.warning(`这一段已处理完，但播放器没打开。文件：${info.path}`)
+        if (opened) toast.success('这一段已经去码完成，正在播放')
+        else toast.warning(`这一段已处理完，但播放器没打开。文件：${info.path}`)
       }
     )
   })
@@ -151,7 +134,7 @@ export function useLadaTasks() {
     const result = await api.start(filePath)
     if (!result?.success) throw new Error(result?.error || '无法启动去码')
     job.value = result.job ?? null
-    message.info('已开始去码（后台运行，进度在「后台任务」）')
+    toast.info('已开始去码（后台运行，进度在「后台任务」）')
   }
 
   /**
@@ -164,20 +147,17 @@ export function useLadaTasks() {
     const progress = await api.resumeInfo(filePath).catch(() => null)
     if (progress && progress.doneSeconds > 5) {
       const minutes = Math.round(progress.doneSeconds / 60)
-      const resume = await new Promise<boolean>(resolve => {
-        confirmDialog({
-          title: '这部片子有未完成的进度',
-          content: `上次已处理约 ${minutes} 分钟。接着处理，还是从头重跑？`,
-          okText: '接着处理',
-          cancelText: '从头重跑',
-          onOk: () => resolve(true),
-          onCancel: () => resolve(false),
-        })
+      // 取消（含 Esc）= 从头重跑，与原来的 Modal.confirm 一致
+      const resume = await confirmDialog({
+        title: '这部片子有未完成的进度',
+        content: `上次已处理约 ${minutes} 分钟。接着处理，还是从头重跑？`,
+        okText: '接着处理',
+        cancelText: '从头重跑',
       })
       if (resume) {
         const result = await api.resume(filePath)
         if (!result?.success) throw new Error(result?.error || '无法继续处理')
-        message.info(`已从上次的位置（约 ${minutes} 分钟处）继续处理`)
+        toast.info(`已从上次的位置（约 ${minutes} 分钟处）继续处理`)
         return
       }
     }
@@ -195,60 +175,44 @@ export function useLadaTasks() {
     const api = window.api?.lada
     if (!api) return
     await api.cancel()
-    message.info('已取消去码')
+    toast.info('已取消去码')
   }
 
-  /** 让用户填一段区间；返回 null 表示取消 */
-  function askRange(): Promise<{ start: number; end: number } | null> {
-    return new Promise(resolve => {
-      const startEl = ref<InstanceType<typeof UiInput> | null>(null)
-      const endEl = ref<InstanceType<typeof UiInput> | null>(null)
-      const field = (placeholder: string, element: typeof startEl) =>
-        h(UiInput, { ref: element, style: 'flex:1', placeholder })
-      void confirmDialog({
-        title: '只去码指定的一段',
-        width: 460,
-        content: () =>
-          h('div', { style: 'display:flex;flex-direction:column;gap:10px' }, [
-            h(
-              'p',
-              { style: 'margin:0;opacity:.75' },
-              '填成 10:00（10 分 00 秒）或直接填秒数。终点留空表示到片尾。会从最近的关键帧开始，误差通常不到 1 秒。'
-            ),
-            h('label', { style: 'display:flex;align-items:center;gap:8px' }, [
-              h('span', { style: 'width:34px' }, '起点'),
-              field('例如 10:00', startEl),
-            ]),
-            h('label', { style: 'display:flex;align-items:center;gap:8px' }, [
-              h('span', { style: 'width:34px' }, '终点'),
-              field('例如 20:00（留空 = 到片尾）', endEl),
-            ]),
+  /** 让用户填一段区间；返回 null 表示取消。格式不对时错误显示在框里，不关闭 */
+  async function askRange(): Promise<{ start: number; end: number } | null> {
+    const startEl = ref<InstanceType<typeof UiInput> | null>(null)
+    const endEl = ref<InstanceType<typeof UiInput> | null>(null)
+    const field = (placeholder: string, element: typeof startEl) =>
+      h(UiInput, { ref: element, style: 'flex:1', placeholder })
+    let picked: { start: number; end: number } | null = null
+    const confirmed = await confirmDialog({
+      title: '只去码指定的一段',
+      width: 460,
+      content: () =>
+        h('div', { style: 'display:flex;flex-direction:column;gap:10px' }, [
+          h(
+            'p',
+            { style: 'margin:0;opacity:.75' },
+            '填成 10:00（10 分 00 秒）或直接填秒数。终点留空表示到片尾。会从最近的关键帧开始，误差通常不到 1 秒。'
+          ),
+          h('label', { style: 'display:flex;align-items:center;gap:8px' }, [
+            h('span', { style: 'width:34px' }, '起点'),
+            field('例如 10:00', startEl),
           ]),
-        okText: '开始处理这一段',
-        cancelText: '取消',
-        onOk: () => {
-          const start = parseClock(startEl.value?.el?.value ?? '')
-          if (start === null) {
-            message.error('起点填成 10:00，或者直接填秒数')
-            return Promise.reject(new Error('起点格式不对'))
-          }
-          const endText = (endEl.value?.el?.value ?? '').trim()
-          const end = endText ? parseClock(endText) : 0
-          if (end === null) {
-            message.error('终点填成 20:00，或者直接填秒数')
-            return Promise.reject(new Error('终点格式不对'))
-          }
-          if (end > 0 && end <= start) {
-            message.error('终点要大于起点')
-            return Promise.reject(new Error('终点不大于起点'))
-          }
-          resolve({ start, end })
-          return undefined
-        },
-        onCancel: () => resolve(null),
-        afterClose: () => resolve(null),
-      })
+          h('label', { style: 'display:flex;align-items:center;gap:8px' }, [
+            h('span', { style: 'width:34px' }, '终点'),
+            field('例如 20:00（留空 = 到片尾）', endEl),
+          ]),
+        ]),
+      okText: '开始处理这一段',
+      onOk: () => {
+        picked = readRange(
+          startEl.value?.el?.value ?? '',
+          endEl.value?.el?.value ?? ''
+        )
+      },
     })
+    return confirmed ? picked : null
   }
 
   /** 区间去码：先问区间，再只处理这一段（跑完会自动播放） */
@@ -263,7 +227,7 @@ export function useLadaTasks() {
       if (!result?.success)
         throw new Error(result?.error || '无法开始处理这一段')
       const span = `${fmtClock(result.start ?? picked.start)} - ${fmtClock(result.end ?? 0)}`
-      message.info(`已开始处理 ${span}，跑完会自动播放`)
+      toast.info(`已开始处理 ${span}，跑完会自动播放`)
     } catch (error) {
       pendingRange.value = false
       throw error
@@ -275,7 +239,7 @@ export function useLadaTasks() {
     const api = window.api?.lada
     if (!api || liveBusy.value) return
     liveBusy.value = true
-    const hide = message.loading('正在准备边跑边看（首次加载模型约 30 秒）…', 0)
+    const hide = toast.loading('正在准备边跑边看（首次加载模型约 30 秒）…')
     try {
       const result = await api.startLive(filePath)
       if (!result?.success || !result.url)
@@ -283,9 +247,9 @@ export function useLadaTasks() {
       const title = `${fileName(filePath)}（去码中）`
       if (!(await openMediaPlayer({ url: result.url, title })))
         throw new Error('无法打开播放器（本功能需要 mpv 引擎）')
-      message.success('已开始：处理到哪，就能看到哪')
+      toast.success('已开始：处理到哪，就能看到哪')
     } catch (error) {
-      message.error((error as Error).message)
+      toast.error((error as Error).message)
     } finally {
       hide()
       liveBusy.value = false
@@ -297,7 +261,7 @@ export function useLadaTasks() {
     if (!api) return
     await api.stopLive()
     live.value = null
-    message.info('已停止边跑边看')
+    toast.info('已停止边跑边看')
   }
 
   /** 追播已经失败时没什么可停的，点一下只是收掉这一行 */

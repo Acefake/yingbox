@@ -127,8 +127,8 @@
  * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙。
  * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts。
  */
+import { toast } from '@/components/ui'
 import { useDebounceFn } from '@vueuse/core'
-import { message } from 'ant-design-vue'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -315,7 +315,7 @@ function openMatchSheet(itemId: number): void {
 
 function openOrganize(itemIds: number[]): void {
   if (!writerAvailable) {
-    message.info(WRITER_UNAVAILABLE)
+    toast.info(WRITER_UNAVAILABLE)
     return
   }
   organizeIds.value = itemIds
