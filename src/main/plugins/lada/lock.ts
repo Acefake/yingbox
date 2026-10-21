@@ -8,7 +8,13 @@
  * 做法：在系统临时目录放一个锁文件，内容含持有者 PID。跨实例可见。
  * 进程已死（或锁内容损坏）视为过期，可接管。
  */
-import { existsSync, mkdirSync, readFileSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { join } from 'node:path'
 
 export interface JobLock {
@@ -40,7 +46,13 @@ export function isProcessAlive(pid: number): boolean {
 export function parseLock(raw: string): JobLock | null {
   try {
     const data = JSON.parse(raw) as JobLock
-    if (!data || typeof data.pid !== 'number' || !Number.isSafeInteger(data.pid) || data.pid <= 0) return null
+    if (
+      !data ||
+      typeof data.pid !== 'number' ||
+      !Number.isSafeInteger(data.pid) ||
+      data.pid <= 0
+    )
+      return null
     return data
   } catch {
     return null

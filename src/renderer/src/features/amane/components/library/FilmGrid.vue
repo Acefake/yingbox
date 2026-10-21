@@ -14,51 +14,57 @@
       @click="emit('clearSelection')"
     />
   </div>
-  <div v-if="films.length" class="ui-poster-grid amane-posters">
-    <UiPosterCard
-      v-for="film in films"
-      :key="film.id"
-      class="amane-poster"
-      :class="{
-        'is-current': currentId === film.id,
-        'is-previewing': previewId === film.id,
-      }"
-      :title="film.title || film.number"
-      :cover="cover(film)"
-      :subtitle="filmSubtitle(film)"
-      :rating="film.score != null ? film.score.toFixed(1) : undefined"
-      @open="emit('open', film.id)"
-      @pointerenter="emit('hoverEnter', film, $event)"
-      @mouseleave="emit('hoverLeave')"
-    >
-      <template #badges>
-        <span v-if="film.release" class="ui-poster-badge">{{
-          film.release.slice(0, 7)
-        }}</span>
-        <span v-else-if="film.file_count" class="ui-poster-badge"
-          >{{ film.file_count }} 个文件</span
-        >
-      </template>
-      <template #actions>
-        <UiIconButton
-          class="amane-poster-check"
-          :class="{ 'is-on': selectedIds.includes(film.id) }"
-          icon="check"
-          variant="overlay"
-          size="sm"
-          :active="selectedIds.includes(film.id)"
-          :label="
-            selectedIds.includes(film.id)
-              ? `取消选择 ${film.number}`
-              : `选择 ${film.number}`
-          "
-          @click.stop="emit('toggle', film.id)"
-          @keydown.enter.stop
-          @keydown.space.stop
-        />
-      </template>
-    </UiPosterCard>
-  </div>
+  <UiVirtualGrid
+    v-if="films.length"
+    :items="films"
+    class="ui-poster-grid amane-posters"
+    :item-key="film => film.id"
+  >
+    <template #default="{ item: film }">
+      <UiPosterCard
+        thumb
+        class="amane-poster"
+        :class="{
+          'is-current': currentId === film.id,
+          'is-previewing': previewId === film.id,
+        }"
+        :title="film.title || film.number"
+        :cover="cover(film)"
+        :subtitle="filmSubtitle(film)"
+        :rating="film.score != null ? film.score.toFixed(1) : undefined"
+        @open="emit('open', film.id)"
+        @pointerenter="emit('hoverEnter', film, $event)"
+        @mouseleave="emit('hoverLeave')"
+      >
+        <template #badges>
+          <span v-if="film.release" class="ui-poster-badge">{{
+            film.release.slice(0, 7)
+          }}</span>
+          <span v-else-if="film.file_count" class="ui-poster-badge"
+            >{{ film.file_count }} 个文件</span
+          >
+        </template>
+        <template #actions>
+          <UiIconButton
+            class="amane-poster-check"
+            :class="{ 'is-on': selectedIds.includes(film.id) }"
+            icon="check"
+            variant="overlay"
+            size="sm"
+            :active="selectedIds.includes(film.id)"
+            :label="
+              selectedIds.includes(film.id)
+                ? `取消选择 ${film.number}`
+                : `选择 ${film.number}`
+            "
+            @click.stop="emit('toggle', film.id)"
+            @keydown.enter.stop
+            @keydown.space.stop
+          />
+        </template>
+      </UiPosterCard>
+    </template>
+  </UiVirtualGrid>
   <div v-else class="amane-empty">
     <h2>这里还没有影片</h2>
     <p>添加媒体目录并扫描，或输入番号获取影片资料。</p>
@@ -73,7 +79,12 @@
 
 <script setup lang="ts">
 /** 影片海报墙：多选与批量刮削、当前详情 / 悬停预览高亮、空状态。 */
-import { UiButton, UiIconButton, UiPosterCard } from '@/components/ui'
+import {
+  UiButton,
+  UiIconButton,
+  UiPosterCard,
+  UiVirtualGrid,
+} from '@/components/ui'
 import { type AmaneFilm, amaneImage } from '../../api/amane'
 import { filmCoverSource, filmSubtitle } from '../../utils/film'
 

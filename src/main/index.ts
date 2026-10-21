@@ -21,6 +21,7 @@ import { registerFileIpc } from './ipc/file-ipc'
 import { registerHttpIpc } from './ipc/http-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { registerAmaneIpc } from './plugins/amane'
+import { registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
@@ -50,6 +51,16 @@ protocol.registerSchemesAsPrivileged([
   {
     scheme: 'amane',
     privileges: { secure: true, standard: true, supportFetchAPI: true },
+  },
+  {
+    // 缩略图：<img> 直接加载，Worker 跨源 fetch 读 x-thumb（见 src/main/thumbnails）
+    scheme: 'thumb',
+    privileges: {
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+    },
   },
   {
     scheme: 'local',
@@ -137,7 +148,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: yingbox-media: thumb: data: blob:; connect-src 'self' https: http: ws: wss: thumb:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
     ]
     callback({ responseHeaders: headers })
   })
@@ -147,6 +158,9 @@ app.whenReady().then(async () => {
 
   // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
   protocol.handle('local', serveLocalMedia)
+
+  // 注册 thumb:// 协议与 thumbs 域（非影视海报 / 封面的 WebP 缩略图缓存）
+  registerThumbnails()
 
   app.on('browser-window-created', (_, window) => {
     optimizer.watchWindowShortcuts(window)

@@ -16,20 +16,26 @@
       label="媒体类型"
       :options="tabs"
     />
-    <div v-if="filteredItems.length" class="ui-poster-grid">
-      <UiPosterCard
-        v-for="entry in filteredItems"
-        :key="entry.id"
-        :title="entry.item.vod_name"
-        :cover="entry.item.vod_pic"
-        :subtitle="
-          [entry.typeLabel, entry.epName || entry.item.vod_year]
-            .filter(Boolean)
-            .join(' · ')
-        "
-        @open="onOpen(entry)"
-      />
-    </div>
+    <UiVirtualGrid
+      v-if="filteredItems.length"
+      :items="filteredItems"
+      class="ui-poster-grid"
+      :item-key="entry => entry.id"
+    >
+      <template #default="{ item: entry }">
+        <UiPosterCard
+          thumb
+          :title="entry.item.vod_name"
+          :cover="entry.item.vod_pic"
+          :subtitle="
+            [entry.typeLabel, entry.epName || entry.item.vod_year]
+              .filter(Boolean)
+              .join(' · ')
+          "
+          @open="onOpen(entry)"
+        />
+      </template>
+    </UiVirtualGrid>
     <div v-else class="collection-empty">
       <UiIcon name="heart" class="collection-empty-icon" />
       <p>
@@ -46,6 +52,7 @@
 <script setup lang="ts">
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSegmented, {

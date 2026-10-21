@@ -19,24 +19,31 @@
     <div v-else-if="doubanError" class="db-error">
       <UiIcon name="warning" /> 豆瓣数据加载失败，请稍后重试
     </div>
-    <div v-else class="ui-poster-grid">
-      <UiPosterCard
-        v-for="item in doubanItems"
-        :key="item.url"
-        :title="item.title"
-        :cover="item.cover"
-        :rating="item.rate"
-        :subtitle="[item.year, item.type].filter(Boolean).join(' · ')"
-        :favorite="isFavorite(item)"
-        @open="emit('open', item)"
-        @toggle-favorite="toggleFavorite(item)"
-      />
-    </div>
+    <UiVirtualGrid
+      v-else
+      :items="doubanItems"
+      class="ui-poster-grid"
+      :item-key="item => item.url"
+    >
+      <template #default="{ item }">
+        <UiPosterCard
+          thumb
+          :title="item.title"
+          :cover="item.cover"
+          :rating="item.rate"
+          :subtitle="[item.year, item.type].filter(Boolean).join(' · ')"
+          :favorite="isFavorite(item)"
+          @open="emit('open', item)"
+          @toggle-favorite="toggleFavorite(item)"
+        />
+      </template>
+    </UiVirtualGrid>
   </div>
 </template>
 
 <script setup lang="ts">
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'

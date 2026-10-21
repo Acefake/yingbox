@@ -17,7 +17,7 @@ Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`
 ```bash
 pnpm dev            # Electron (engine starts on demand)
 pnpm typecheck      # tsc (main/preload) + vue-tsc (renderer)
-pnpm lint           # eslint --cache
+pnpm lint           # eslint --cache + check:size --strict
 pnpm test           # vitest run (tests/)
 pnpm format         # prettier --write .
 pnpm build          # typecheck + electron-vite build
@@ -104,18 +104,18 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
 
 ### Tech stack
 
-| Layer             | Technology                                                                             |
-| ----------------- | -------------------------------------------------------------------------------------- |
-| Desktop shell     | Electron 37 (sandboxed preload, frameless)                                             |
-| Build tooling     | electron-vite 5, Vite 7                                                                |
-| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                                                  |
-| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                                                     |
-| Player            | Artplayer 5, hls.js                                                                    |
-| Metadata          | @tdanks2000/tmdb-wrapper                                                               |
-| CatSpider runtime | cheerio, crypto-js (required by `backend/py/catspider_runner.js`, not by the renderer) |
-| Go backend        | Go 1.22, modernc.org/sqlite (no CGo needed)                                            |
-| Tests             | Vitest 5                                                                               |
-| Python scripts    | Embedded in the Go binary via //go:embed                                               |
+| Layer             | Technology                                                       |
+| ----------------- | ---------------------------------------------------------------- |
+| Desktop shell     | Electron 37 (sandboxed preload, frameless)                       |
+| Build tooling     | electron-vite 5, Vite 7                                          |
+| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                            |
+| UI kit            | Ant Design Vue 4.x, Tailwind CSS 4                               |
+| Player            | Artplayer 5, hls.js                                              |
+| Metadata          | @tdanks2000/tmdb-wrapper                                         |
+| Engine            | Electron utilityProcess, `net.fetch`                             |
+| Library           | utilityProcess engine, `node:sqlite`                             |
+| CatSpider runtime | cheerio, crypto-js (required inside the engine's plugin sandbox) |
+| Tests             | Vitest 5                                                         |
 
 ## UI conventions
 
@@ -126,6 +126,8 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
   - Layers: local `--z-raised` 2 < `--z-above` 5 < `--z-float` 10 < `--z-dropdown` 20 < `--z-popover` 30 < `--z-overlay` 40 < `--z-overlay-top` 45 (inside a component's stacking context), then Ant modal 1000 / message 1010 < `--z-bottom-nav` 1100 < `--z-drawer-backdrop` 1140 < `--z-drawer` 1150 < `--z-modal` 2000 < `--z-sheet` 2050 < `--z-lightbox` 2060 < `--z-settings` 2100 < `--z-dialog` 3000 < `--z-player-overlay` 6000 < `--z-max` 10000 (tooltip). A backdrop + window pair uses `calc(var(--z-…) + 1)` for the window. Only `0`, `1`, `-1`, `auto` may stay numeric.
   - Shadows: `--shadow-sm/md/lg`, `--focus-ring`, `--focus-ring-danger`, `--focus-ring-offset`.
 - Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiNavItem` (sidebar / settings / tab-bar navigation; `collapsed` hides the label and shows it as tooltip, `layout="stack"` for the phone bottom bar, `current="page" | "pressed" | "none"`), `UiListRow` (clickable multi-line row; `role` / `aria-*` pass through, e.g. `menuitemradio`), `UiChip` (small gray pill for actors/tags; put a separate `UiIconButton` next to it for remove), `UiPressable` (unstyled button for image/card targets; pass `label` when the content has no text), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
+- Long lists (unbounded: infinite scroll, aggregated search, favourites, queues) go through `UiVirtualGrid` (`class` = the grid/list class, `:items`, `:item-key`, default slot `{ item }`; `tag="ul"` for lists). It reads the column count from `grid-template-columns`, needs rows of equal height, and owns the container's vertical padding. `tests/virtual-lists.test.ts` lists the wired lists.
+- Non-film posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `thumb://img/?w=&src=` (main serves the cached WebP from `userData/thumb-cache`, 256 MB LRU, or proxies the original), and a renderer Worker (`services/thumbnails`, `createImageBitmap` + `OffscreenCanvas`) encodes the WebP on a miss and stores it via `api.thumbs.put`. Sources: http(s) and `amane://image/`. Film views do not use it.
 - No raw `<button>` in `.vue` files outside `components/ui/` — pick one of the components above (`UiPressable` when nothing else fits). `pnpm check:style` fails on violations.
 - Form controls: `UiInput` (`size` sm/md, `variant` default/filled, `icon` / `#leading`, `clearable` + `@clear`, `invalid`), `UiTextarea` (`autosize`), `UiSelect` (`options` or `<option>` slot), `UiSwitch`, `UiCheckbox`, `UiRadio`. They accept `v-model` or `:value`/`:checked` + native events; `UiInput`/`UiSelect` put `class` on the wrapper and every other attr/listener on the native element, and expose `focus()`. No raw `<input>` / `<select>` / `<textarea>` outside `components/ui/` except `type="file|range|hidden"` — `pnpm check:style` enforces it.
 - No static `style="..."` in templates (use a class + tokens; dynamic `:style` is fine) and no emoji as status icons (use `UiIcon` or plain text) — `pnpm check:style` enforces the inline-style rule.

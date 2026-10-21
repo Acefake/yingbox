@@ -11,7 +11,23 @@ import {
   amaneRequest,
 } from '../api/amane'
 
-export function useAmaneDetail(error: Ref<string>, isDisposed: () => boolean) {
+/** useAmaneDetail 的返回值：影片详情与任务详情弹窗的数据和操作 */
+export interface AmaneDetailState {
+  detailLoading: Ref<boolean>
+  detail: Ref<AmaneDetail | null>
+  taskDetail: Ref<AmaneTask | null>
+  taskChildren: Ref<AmaneTask[]>
+  closeDetail: () => void
+  openFilm: (id: number) => Promise<void>
+  showTask: (id: number) => Promise<void>
+  updateDetailTags: (id: number, tags: AmaneUserTag[]) => void
+  dispose: () => void
+}
+
+export function useAmaneDetail(
+  error: Ref<string>,
+  isDisposed: () => boolean
+): AmaneDetailState {
   const detailLoading = ref(false)
   const detail = ref<AmaneDetail | null>(null),
     taskDetail = ref<AmaneTask | null>(null),

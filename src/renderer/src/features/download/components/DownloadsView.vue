@@ -35,36 +35,50 @@
       title="下载队列为空"
       hint="输入番号后回车即可开始下载"
     />
-    <ul v-else class="av-dl-list">
-      <li v-for="task in rows" :key="task.id" class="av-dl-row">
-        <div class="av-dl-text">
-          <p class="av-dl-title">{{ task.id }}</p>
-          <p class="av-dl-meta">{{ describe(task) }}</p>
-          <div
-            v-if="task.status === 'active' && task.progress"
-            class="av-dl-progress"
-            role="progressbar"
-            :aria-valuenow="percent(task)"
-            aria-valuemin="0"
-            aria-valuemax="100"
-          >
-            <div :style="{ transform: `scaleX(${percent(task) / 100})` }" />
+    <UiVirtualGrid
+      v-else
+      tag="ul"
+      class="av-dl-list"
+      :items="rows"
+      :item-key="task => task.id"
+    >
+      <template #default="{ item: task }">
+        <li class="av-dl-row">
+          <div class="av-dl-text">
+            <p class="av-dl-title">{{ task.id }}</p>
+            <p class="av-dl-meta">{{ describe(task) }}</p>
+            <div
+              v-if="task.status === 'active' && task.progress"
+              class="av-dl-progress"
+              role="progressbar"
+              :aria-valuenow="percent(task)"
+              aria-valuemin="0"
+              aria-valuemax="100"
+            >
+              <div :style="{ transform: `scaleX(${percent(task) / 100})` }" />
+            </div>
+            <!-- 占位：所有行等高（虚拟列表按统一行距排） -->
+            <div
+              v-else
+              class="av-dl-progress is-placeholder"
+              aria-hidden="true"
+            />
           </div>
-        </div>
-        <UiIconButton
-          v-if="task.status === 'failed'"
-          icon="refresh"
-          label="重试"
-          @click="downloads.retry(task.id)"
-        />
-        <UiIconButton
-          icon="trash"
-          :label="task.status === 'active' ? '取消下载' : '移除'"
-          danger
-          @click="downloads.remove(task.id)"
-        />
-      </li>
-    </ul>
+          <UiIconButton
+            v-if="task.status === 'failed'"
+            icon="refresh"
+            label="重试"
+            @click="downloads.retry(task.id)"
+          />
+          <UiIconButton
+            icon="trash"
+            :label="task.status === 'active' ? '取消下载' : '移除'"
+            danger
+            @click="downloads.remove(task.id)"
+          />
+        </li>
+      </template>
+    </UiVirtualGrid>
   </section>
 </template>
 
@@ -78,6 +92,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import { ADD_REASON, useDownloads } from '../api/download'
 import type { DownloadTask } from '../../../../../shared/contract/download'
 import StatusState from '@/components/StatusState.vue'
@@ -182,6 +197,9 @@ const submit = async (): Promise<void> => {
   margin-top: var(--space-2);
   border-radius: var(--radius-full);
   background: var(--bg-fill-secondary);
+}
+.av-dl-progress.is-placeholder {
+  visibility: hidden;
 }
 .av-dl-progress > div {
   height: 100%;

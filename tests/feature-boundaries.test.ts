@@ -40,8 +40,13 @@ describe('feature 边界判定', () => {
   })
 })
 
-describe('eslint 配置里规则生效', () => {
-  const eslint = new ESLint({ cwd: process.cwd() })
+// 首次 lintText 要加载整份 eslint 配置（typescript-eslint、vue、prettier 插件），
+// 机器负载高时会超过 vitest 默认的 5 秒；只跑边界规则并放宽本组超时
+describe('eslint 配置里规则生效', { timeout: 30_000 }, () => {
+  const eslint = new ESLint({
+    cwd: process.cwd(),
+    ruleFilter: ({ ruleId }) => ruleId === 'yingbox/feature-boundaries',
+  })
   const lint = async (code: string): Promise<string[]> => {
     const [result] = await eslint.lintText(code, {
       filePath: 'src/renderer/src/features/av/composables/boundary-probe.ts',

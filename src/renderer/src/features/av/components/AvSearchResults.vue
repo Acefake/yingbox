@@ -20,23 +20,31 @@
         @click="emit('retry')"
       />
     </StatusState>
-    <div v-if="groups.length > 0" class="ui-poster-grid is-landscape">
-      <UiPosterCard
-        v-for="group in groups"
-        :key="group.key"
-        shape="landscape"
-        :title="group.vod_name"
-        :cover="coverSrc(group.items[0])"
-        :subtitle="`${group.items.length} 个可用来源`"
-        :favorite="isFavorite(group.items[0])"
-        @open="emit('play', group.items[0])"
-        @toggle-favorite="emit('toggle-favorite', group.items[0])"
-      >
-        <template v-if="group.items[0].vod_remarks" #badges>
-          <span class="ui-poster-badge">{{ group.items[0].vod_remarks }}</span>
-        </template>
-      </UiPosterCard>
-    </div>
+    <UiVirtualGrid
+      v-if="groups.length > 0"
+      :items="groups"
+      class="ui-poster-grid is-landscape"
+      :item-key="group => group.key"
+    >
+      <template #default="{ item: group }">
+        <UiPosterCard
+          thumb
+          shape="landscape"
+          :title="group.vod_name"
+          :cover="coverSrc(group.items[0])"
+          :subtitle="`${group.items.length} 个可用来源`"
+          :favorite="isFavorite(group.items[0])"
+          @open="emit('play', group.items[0])"
+          @toggle-favorite="emit('toggle-favorite', group.items[0])"
+        >
+          <template v-if="group.items[0].vod_remarks" #badges>
+            <span class="ui-poster-badge">{{
+              group.items[0].vod_remarks
+            }}</span>
+          </template>
+        </UiPosterCard>
+      </template>
+    </UiVirtualGrid>
     <StatusState
       v-if="!loading && !error && groups.length === 0 && hasSearched"
       icon="search"
@@ -58,6 +66,7 @@
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import StatusState from '@/components/StatusState.vue'
 import AvSkeletonGrid from './AvSkeletonGrid.vue'
 import { coverSrc } from '../utils/av-media'

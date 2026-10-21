@@ -16,7 +16,9 @@ const settingsPath = (): string => join(app.getPath('userData'), 'lada.json')
 function scanFfmpeg(): string {
   const roots = [
     process.env['ProgramFiles'],
-    process.env['LOCALAPPDATA'] ? join(process.env['LOCALAPPDATA'], 'Programs') : '',
+    process.env['LOCALAPPDATA']
+      ? join(process.env['LOCALAPPDATA'], 'Programs')
+      : '',
     'C:\\',
     process.env['USERPROFILE'],
   ].filter((v): v is string => Boolean(v))
@@ -42,7 +44,9 @@ export function detectCli(): string {
   if (fromEnv && existsSync(fromEnv)) return fromEnv
   if (overrides.cli && existsSync(overrides.cli)) return overrides.cli
   const candidates = [
-    process.env['LOCALAPPDATA'] ? join(process.env['LOCALAPPDATA'], 'lada', 'lada', 'lada-cli.exe') : '',
+    process.env['LOCALAPPDATA']
+      ? join(process.env['LOCALAPPDATA'], 'lada', 'lada', 'lada-cli.exe')
+      : '',
     'C:\\lada\\lada-cli.exe',
     'C:\\lada\\lada\\lada-cli.exe',
   ].filter(Boolean)
