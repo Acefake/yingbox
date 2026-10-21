@@ -8,16 +8,17 @@
 
 ```
 features/library/
-  LibraryPage.vue        页面外壳：工具栏、后台任务进度、海报墙 / 待确认、详情覆盖层、多选操作条、各面板
+  LibraryPage.vue        页面外壳：查询条件、海报墙 / 待确认、详情覆盖层、各面板
+  page/       工具栏、后台任务条、多选操作条、空状态、多选 / 页面操作 composable、页面纯规则
   MovieLibraryPage.vue   /movie（kind="movie"）
   TvLibraryPage.vue      /tv（kind="tv"）
   api/        bridge（window.api.library / writer）、图片地址换算
   state/      查询条件、分页查询（含 items-changed 合并）、媒体库管理与任务进度、引擎事件单一订阅
-  wall/       虚拟网格（几何纯函数 + DOM 绑定）、稀疏分页列表、PosterWall.vue
-  detail/     ItemDetail.vue（Apple TV 风格）、播放列表构造
-  review/     待确认队列、匹配对照面板、匹配操作 composable
+  wall/       虚拟网格（几何纯函数 + DOM 绑定）、稀疏分页列表、PosterWall.vue（格子纯规则 wall-cells.ts）
+  detail/     ItemDetail.vue（Apple TV 风格，载入与操作）+ 头图 / 剧集 / 演职员 / 信息区块组件、详情纯规则、播放列表构造
+  review/     待确认队列、匹配对照面板（本地一侧 / 候选卡片）、匹配操作 composable
   writer/     写出与整理的状态机、整理预览面板
-  settings/   媒体库设置（System Settings 风格）、TMDB 令牌迁移
+  settings/   媒体库设置（System Settings 风格；写出与整理两组单独成组件）、TMDB 令牌迁移
   shared/     模态面板、格式化
 ```
 

@@ -1,118 +1,42 @@
 <template>
   <div class="lib-page">
-    <!-- 工具栏：标题与数量、视图切换、搜索筛选排序、操作 -->
-    <header class="lib-toolbar">
-      <div class="lib-toolbar-title">
-        <h1>{{ kindLabel }}</h1>
-        <span v-if="view === 'wall' && ready" class="lib-toolbar-count">{{
-          total.toLocaleString('zh-CN')
-        }}</span>
-      </div>
-      <UiSegmented
-        v-if="hasLibraries"
-        v-model="view"
-        class="lib-toolbar-views"
-        size="sm"
-        label="视图"
-        :options="viewOptions"
-      />
-      <div class="lib-toolbar-tools">
-        <template v-if="hasLibraries && view === 'wall'">
-          <UiInput
-            ref="searchInput"
-            v-model="searchText"
-            class="lib-search"
-            variant="filled"
-            size="sm"
-            icon="search"
-            clearable
-            :placeholder="`搜索${kindLabel}`"
-            :aria-label="`搜索${kindLabel}`"
-          />
-          <UiSelect
-            v-model="state.filter"
-            class="lib-select"
-            size="sm"
-            aria-label="筛选"
-            :options="filterOptions"
-          />
-          <UiSelect
-            v-if="libraries.length > 1"
-            v-model="libraryChoice"
-            class="lib-select"
-            size="sm"
-            aria-label="媒体库"
-            :options="libraryOptions"
-          />
-          <UiSelect
-            :model-value="state.sort"
-            class="lib-select"
-            size="sm"
-            aria-label="排序"
-            :options="sortOptions"
-            @update:model-value="setSort"
-          />
-          <UiIconButton
-            :icon="state.order === 'asc' ? 'arrowUp' : 'arrowDown'"
-            size="sm"
-            :label="state.order === 'asc' ? '升序' : '降序'"
-            @click="toggleOrder"
-          />
-        </template>
-        <UiIconButton
-          v-if="hasLibraries"
-          icon="refresh"
-          size="sm"
-          label="扫描文件夹"
-          @click="scanAll"
-        />
-        <UiIconButton
-          v-if="hasLibraries"
-          icon="sparkle"
-          size="sm"
-          label="识别全部"
-          @click="identifyAll"
-        />
-        <UiIconButton
-          icon="settings"
-          size="sm"
-          :label="`${kindLabel}库设置`"
-          @click="openSettings"
-        />
-      </div>
-    </header>
+    <LibraryToolbar
+      v-model:view="view"
+      v-model:search="searchText"
+      v-model:filter="state.filter"
+      v-model:library="libraryChoice"
+      :kind-label="kindLabel"
+      :count="view === 'wall' && ready ? total : null"
+      :has-libraries="hasLibraries"
+      :view-options="viewOptions"
+      :library-options="libraryOptions"
+      :sort="state.sort"
+      :order="state.order"
+      @sort="setSort"
+      @toggle-order="toggleOrder"
+      @scan="scanAll"
+      @identify="identifyAll"
+      @settings="openSettings"
+    />
 
-    <!-- 后台任务：一条细进度线 + 状态文字 -->
-    <div class="lib-activity" :class="{ 'is-on': activity }" aria-live="polite">
-      <template v-if="activity">
-        <div class="lib-activity-track">
-          <div
-            class="lib-activity-fill"
-            :class="{ 'is-indeterminate': activity.progress === undefined }"
-            :style="
-              activity.progress === undefined
-                ? undefined
-                : { transform: `scaleX(${activity.progress})` }
-            "
-          />
-        </div>
-        <span class="lib-activity-label">{{ activity.label }}</span>
-      </template>
-    </div>
+    <ActivityBar :activity="activity" />
 
     <main class="lib-main">
       <!-- 不在桌面版 -->
-      <div v-if="!available" class="lib-empty">
-        <UiIcon :name="kind === 'movie' ? 'movie' : 'tv'" size="lg" />
-        <h2>本地{{ kindLabel }}库仅在桌面版可用</h2>
-        <p>媒体库需要读取本机文件夹，请在影盒桌面版中使用。</p>
-      </div>
+      <LibraryEmpty
+        v-if="!available"
+        :icon="kind"
+        :title="`本地${kindLabel}库仅在桌面版可用`"
+        text="媒体库需要读取本机文件夹，请在影盒桌面版中使用。"
+      />
 
       <!-- 还没有文件夹 -->
-      <div v-else-if="librariesLoaded && !hasLibraries" class="lib-empty">
-        <UiIcon :name="kind === 'movie' ? 'movie' : 'tv'" size="lg" />
-        <h2>添加你的{{ kindLabel }}文件夹</h2>
-        <p>影盒会扫描文件夹里的视频，自动识别片名并补全海报、简介和演职员。</p>
+      <LibraryEmpty
+        v-else-if="librariesLoaded && !hasLibraries"
+        :icon="kind"
+        :title="`添加你的${kindLabel}文件夹`"
+        text="影盒会扫描文件夹里的视频，自动识别片名并补全海报、简介和演职员。"
+      >
         <UiButton
           variant="primary"
           size="lg"
@@ -120,7 +44,7 @@
           label="添加文件夹…"
           @click="addFolder"
         />
-      </div>
+      </LibraryEmpty>
 
       <template v-else-if="hasLibraries">
         <PosterWall
@@ -137,10 +61,12 @@
           @activate="onActivate"
         >
           <template #after>
-            <div v-if="ready && total === 0" class="lib-empty is-inline">
-              <h2>{{ emptyTitle }}</h2>
-              <p v-if="queryError">{{ queryError }}</p>
-            </div>
+            <LibraryEmpty
+              v-if="ready && total === 0"
+              inline
+              :title="emptyTitle"
+              :text="queryError || undefined"
+            />
           </template>
         </PosterWall>
         <ReviewQueue
@@ -160,45 +86,14 @@
       @organize="openOrganize"
     />
 
-    <!-- 多选操作条 -->
-    <Transition name="lib-selection">
-      <div v-if="selection.size > 0 && view === 'wall'" class="lib-selection">
-        <span class="lib-selection-count">已选 {{ selection.size }} 项</span>
-        <UiButton
-          size="sm"
-          variant="plain"
-          icon="sparkle"
-          label="重新识别"
-          @click="identifySelected"
-        />
-        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiButton
-            size="sm"
-            variant="plain"
-            icon="save"
-            label="写出 NFO 与图片"
-            :disabled="!writerAvailable"
-            @click="writeSelected"
-          />
-        </span>
-        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiButton
-            size="sm"
-            variant="plain"
-            icon="folder"
-            label="整理…"
-            :disabled="!writerAvailable"
-            @click="openOrganize([...selection])"
-          />
-        </span>
-        <UiIconButton
-          icon="close"
-          size="sm"
-          label="取消选择"
-          @click="clearSelection"
-        />
-      </div>
-    </Transition>
+    <SelectionBar
+      :count="view === 'wall' ? selection.size : 0"
+      :writer-available="writerAvailable"
+      @identify="identifySelected"
+      @write="writeSelected"
+      @organize="openOrganize([...selection])"
+      @clear="clearSelection"
+    />
 
     <LibrarySettings
       v-if="settingsMounted"
@@ -230,10 +125,11 @@
  * 详情（覆盖在海报墙上，返回时保留滚动位置）、设置、修正匹配、整理。
  *
  * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙。
+ * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts。
  */
 import { useDebounceFn } from '@vueuse/core'
 import { message } from 'ant-design-vue'
-import { computed, reactive, ref, shallowRef, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import type {
@@ -241,23 +137,27 @@ import type {
   LibraryKind,
 } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiIcon from '@/components/ui/UiIcon.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiInput from '@/components/ui/UiInput.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
-import UiSegmented from '@/components/ui/UiSegmented.vue'
-import UiSelect from '@/components/ui/UiSelect.vue'
-import { vTooltip } from '@/components/ui/tooltip'
 
-import { errorText, libraryBridge } from './api/bridge'
 import ItemDetail from './detail/ItemDetail.vue'
+import ActivityBar from './page/ActivityBar.vue'
+import LibraryEmpty from './page/LibraryEmpty.vue'
+import LibraryToolbar, { type LibraryView } from './page/LibraryToolbar.vue'
+import SelectionBar from './page/SelectionBar.vue'
+import {
+  type ActivateModifiers,
+  emptyTitleFor,
+  libraryOptionsFor,
+  parseDetailId,
+  reviewTabLabel,
+} from './page/page-rules'
+import { useLibraryActions } from './page/use-library-actions'
+import { useWallSelection } from './page/use-wall-selection'
 import MatchPane from './review/MatchPane.vue'
 import ReviewQueue from './review/ReviewQueue.vue'
 import LibrarySettings from './settings/LibrarySettings.vue'
 import LibrarySheet from './shared/LibrarySheet.vue'
 import {
-  FILTER_OPTIONS,
-  SORT_OPTIONS,
   type WallQueryState,
   type WallSort,
   defaultOrder,
@@ -281,7 +181,6 @@ const props = defineProps<{ kind: LibraryKind }>()
 
 const route = useRoute()
 const router = useRouter()
-const bridge = libraryBridge()
 const kindLabel = computed(() => (props.kind === 'movie' ? '电影' : '剧集'))
 
 // —— 媒体库 ——
@@ -316,13 +215,7 @@ watch(
   },
   { immediate: true }
 )
-
-const sortOptions = SORT_OPTIONS.map(o => ({ ...o }))
-const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
-const libraryOptions = computed(() => [
-  { value: 0, label: '全部文件夹' },
-  ...libraries.value.map(lib => ({ value: lib.id, label: lib.name })),
-])
+const libraryOptions = computed(() => libraryOptionsFor(libraries.value))
 const libraryChoice = computed({
   get: () => state.libraryId ?? 0,
   set: value => {
@@ -359,12 +252,7 @@ watch(
   () => [state.sort, state.order, state.filter, state.libraryId, state.search],
   () => wall.value?.scrollToTop()
 )
-
-const emptyTitle = computed(() => {
-  if (state.search) return `没有找到“${state.search}”`
-  if (state.filter !== 'all') return '没有符合筛选条件的条目'
-  return '文件夹里还没有扫描到视频'
-})
+const emptyTitle = computed(() => emptyTitleFor(state))
 
 // —— 待确认数量（视图切换上的角标）——
 const reviewCount = usePagedQuery(
@@ -372,64 +260,22 @@ const reviewCount = usePagedQuery(
   event => libraryIds.value.includes(event.libraryId),
   1
 )
-type View = 'wall' | 'review'
-const view = ref<View>('wall')
-const viewOptions = computed<SegmentedOption<View>[]>(() => [
+const view = ref<LibraryView>('wall')
+const viewOptions = computed<SegmentedOption<LibraryView>[]>(() => [
   { value: 'wall', label: '资料库' },
-  {
-    value: 'review',
-    label: reviewCount.total.value
-      ? `待确认 ${reviewCount.total.value.toLocaleString('zh-CN')}`
-      : '待确认',
-  },
+  { value: 'review', label: reviewTabLabel(reviewCount.total.value) },
 ])
 
 // —— 多选 ——
-const selection = shallowRef(new Set<number>())
-const selectionVersion = ref(0)
-let anchorIndex = -1
-
-function commitSelection(next: Set<number>): void {
-  selection.value = next
-  selectionVersion.value++
-}
-
-function clearSelection(): void {
-  commitSelection(new Set())
-  anchorIndex = -1
-}
+const { selection, selectionVersion, clearSelection, activate } =
+  useWallSelection(list)
 
 function onActivate(
   index: number,
   item: LibraryItemSummary,
-  modifiers: { toggle: boolean; range: boolean; double: boolean }
+  modifiers: ActivateModifiers
 ): void {
-  if (modifiers.range && anchorIndex >= 0) {
-    const next = new Set(selection.value)
-    const [from, to] = [
-      Math.min(anchorIndex, index),
-      Math.max(anchorIndex, index),
-    ]
-    for (let i = from; i <= to; i++) {
-      const it = list.at(i)
-      if (it) next.add(it.id)
-    }
-    commitSelection(next)
-    return
-  }
-  if (modifiers.toggle) {
-    const next = new Set(selection.value)
-    if (next.has(item.id)) next.delete(item.id)
-    else next.add(item.id)
-    anchorIndex = index
-    commitSelection(next)
-    return
-  }
-  if (selection.value.size > 0 && !modifiers.double) {
-    clearSelection()
-  }
-  anchorIndex = index
-  openDetail(item.id)
+  activate(index, item, modifiers, openDetail)
 }
 
 watch(
@@ -438,11 +284,7 @@ watch(
 )
 
 // —— 详情（路由驱动）——
-const detailId = computed(() => {
-  const raw = route.query.item
-  const id = typeof raw === 'string' ? Number(raw) : NaN
-  return Number.isSafeInteger(id) && id > 0 ? id : null
-})
+const detailId = computed(() => parseDetailId(route.query.item))
 
 function openDetail(itemId: number): void {
   void router.push({ query: { ...route.query, item: String(itemId) } })
@@ -493,49 +335,21 @@ const activity = computed(() =>
     : libraryActivity.value
 )
 
-async function guarded(
-  task: () => Promise<unknown>,
-  done: string
-): Promise<void> {
-  try {
-    await task()
-    message.success(done)
-  } catch (error) {
-    message.error(errorText(error))
-  }
-}
-
-async function addFolder(): Promise<void> {
-  try {
-    const lib = await pickFolder()
-    if (lib) message.success(`已添加「${lib.name}」，正在扫描`)
-  } catch (error) {
-    message.error(errorText(error))
-  }
-}
-
-function scanAll(): void {
-  void guarded(() => scanLibraries(false), '已开始扫描')
-}
-
-function identifyAll(): void {
-  void guarded(() => identifyLibraries(false), '已开始识别')
-}
+const { addFolder, scanAll, identifyAll, ...actions } = useLibraryActions(
+  {
+    addFolder: pickFolder,
+    scanAll: scanLibraries,
+    identifyAll: identifyLibraries,
+  },
+  write
+)
 
 function identifySelected(): void {
-  const itemIds = [...selection.value]
-  void guarded(async () => {
-    await bridge!.identify({ itemIds, force: true })
-    clearSelection()
-  }, `已开始重新识别 ${itemIds.length} 项`)
+  actions.identifySelected([...selection.value], clearSelection)
 }
 
 function writeSelected(): void {
-  const itemIds = [...selection.value]
-  void guarded(async () => {
-    const failure = await write(itemIds)
-    if (failure) throw new Error(failure)
-  }, `已开始写出 ${itemIds.length} 项`)
+  actions.writeSelected([...selection.value])
 }
 </script>
 
@@ -549,169 +363,10 @@ function writeSelected(): void {
   background: var(--bg-content);
 }
 
-/* —— 工具栏 —— */
-.lib-toolbar {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3) var(--space-6);
-  padding: var(--space-6) var(--content-padding-x) var(--space-4);
-}
-.lib-toolbar-title {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-3);
-  min-width: 0;
-}
-.lib-toolbar-title h1 {
-  margin: 0;
-  color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-tight);
-}
-.lib-toolbar-count {
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-  font-variant-numeric: tabular-nums;
-}
-.lib-toolbar-tools {
-  display: flex;
-  flex: 1 0 auto;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2);
-}
-.lib-search {
-  flex: 0 0 200px;
-}
-/* 下拉按内容宽度，不被拉伸 */
-.lib-select {
-  flex: 0 0 auto;
-  width: auto;
-}
-
-/* —— 后台任务 —— */
-.lib-activity {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  height: 0;
-  padding: 0 var(--content-padding-x);
-  overflow: hidden;
-  transition: height var(--duration-normal) var(--ease-out);
-}
-.lib-activity.is-on {
-  height: 28px;
-}
-.lib-activity-track {
-  position: relative;
-  flex: 0 0 160px;
-  height: 3px;
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
-}
-.lib-activity-fill {
-  position: absolute;
-  inset: 0;
-  background: var(--accent);
-  transform-origin: left center;
-  transition: transform var(--duration-slow) var(--ease-out);
-}
-.lib-activity-fill.is-indeterminate {
-  width: 40%;
-  animation: lib-indeterminate var(--duration-pulse) var(--ease-out) infinite;
-}
-@keyframes lib-indeterminate {
-  from {
-    transform: translateX(-100%);
-  }
-  to {
-    transform: translateX(250%);
-  }
-}
-.lib-activity-label {
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-}
-
 /* —— 内容 —— */
 .lib-main {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
-}
-.lib-empty {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  height: 100%;
-  padding: var(--space-11) var(--space-8);
-  color: var(--text-tertiary);
-  text-align: center;
-}
-.lib-empty.is-inline {
-  height: auto;
-}
-.lib-empty h2 {
-  margin: var(--space-2) 0 0;
-  color: var(--text-primary);
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-semibold);
-}
-.lib-empty p {
-  max-width: 420px;
-  margin: 0 0 var(--space-4);
-  font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-}
-
-/* —— 多选操作条 —— */
-.lib-selection {
-  position: absolute;
-  bottom: var(--space-6);
-  left: 50%;
-  z-index: var(--z-float);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-1) var(--space-2) var(--space-1) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-full);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-md);
-  transform: translateX(-50%);
-}
-.lib-selection > span {
-  display: inline-flex;
-}
-.lib-selection-count {
-  margin-right: var(--space-2);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  font-variant-numeric: tabular-nums;
-}
-.lib-selection-enter-active,
-.lib-selection-leave-active {
-  transition:
-    opacity var(--duration-normal) var(--ease-out),
-    transform var(--duration-normal) var(--ease-out);
-}
-.lib-selection-enter-from,
-.lib-selection-leave-to {
-  opacity: 0;
-  transform: translate(-50%, 12px);
-}
-
-@media (max-width: 1100px) {
-  .lib-search {
-    flex-basis: 160px;
-  }
 }
 </style>

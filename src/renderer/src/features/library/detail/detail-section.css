@@ -1,0 +1,23 @@
+/* 详情页各区块共用的标题与间距（ItemDetail 及其区块组件 scoped 引入）。 */
+.lib-section {
+  padding: var(--space-7) var(--content-padding-x) 0;
+}
+.lib-section:last-child {
+  padding-bottom: var(--space-10);
+}
+.lib-section-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.lib-section-title {
+  margin: 0 0 var(--space-4);
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.lib-section-head .lib-section-title {
+  margin: 0;
+}
