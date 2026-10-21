@@ -18,7 +18,6 @@ import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
-import { registerAmaneIpc } from './plugins/amane'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
@@ -47,14 +46,10 @@ app.commandLine.appendSwitch(
 
 protocol.registerSchemesAsPrivileged([
   {
-    scheme: 'amane',
-    privileges: { secure: true, standard: true, supportFetchAPI: true },
-  },
-  {
     scheme: 'local',
     privileges: { secure: true, standard: true, stream: true, bypassCSP: true },
   },
-  // 缓存图片与缩略图（媒体库海报、在线 / AV / Amane 封面），见 src/main/thumbnails
+  // 缓存图片与缩略图（媒体库海报、在线 / AV 封面），见 src/main/thumbnails
   MEDIA_SCHEME_PRIVILEGES,
 ])
 
@@ -136,7 +131,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: amane: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
     ]
     callback({ responseHeaders: headers })
   })
@@ -162,7 +157,6 @@ app.whenReady().then(async () => {
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
   registerPlayerWindowIpc()
-  await registerAmaneIpc()
   registerMpvIpc()
   await registerLadaIpc()
   const library = libraryTokenTarget(registerLibraryIpc(thumbnails))
@@ -178,7 +172,7 @@ app.whenReady().then(async () => {
     console.warn('[tmdb] 同步令牌到媒体库引擎失败', (error as Error).message)
   )
   registerEngine()
-  // Amane / lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
+  // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 
   createWindow()

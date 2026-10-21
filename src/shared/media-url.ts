@@ -4,7 +4,7 @@
  * 两种形态：
  * - `yingbox-media://image/<key>[?w=300]`：媒体库引擎已下载的原图（key 是远程 URL 的哈希），
  *   带 w 取缩略图，缺省为原图。引擎把这种地址存进数据库，形态不能改；
- * - `yingbox-media://thumb/?w=300&src=<来源>`：任意来源（http(s)、amane://image/、本地 file:///）
+ * - `yingbox-media://thumb/?w=300&src=<来源>`：任意来源（http(s)、本地 file:///）
  *   的缩略图，主进程取原图、缩放、编码 WebP、落盘后返回。
  *
  * 缩略图只生成 THUMB_WIDTHS 这几档，防止任意尺寸把缓存撑爆。内容按来源不可变，响应带一年强缓存。
@@ -35,12 +35,9 @@ export function mediaImageUrl(key: string, width?: ThumbWidth): string {
   return `${MEDIA_SCHEME}://image/${key}${width ? `?w=${width}` : ''}`
 }
 
-/** 可以生成缩略图的来源：http(s)、Amane 资源图、本地图片（file:///…，限图片扩展名）。 */
+/** 可以生成缩略图的来源：http(s)、本地图片（file:///…，限图片扩展名）。 */
 export function isThumbSource(source: string): boolean {
-  return (
-    /^(https?:\/\/|amane:\/\/image\/)/i.test(source) ||
-    LOCAL_IMAGE_RE.test(source)
-  )
+  return /^https?:\/\//i.test(source) || LOCAL_IMAGE_RE.test(source)
 }
 
 /** 任意来源的缩略图地址；来源不支持时返回 null。 */

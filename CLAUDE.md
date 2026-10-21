@@ -64,7 +64,7 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 
 - `config.ts` — Reads `userData/config.json` (`downloadPath`; no UI sets it yet), validates writability (write probe) on load
 - `engine/` — Hosts the engine utilityProcess (online sources, MissAV, downloads), started on demand
-- `plugins/` — Host for external programs (`host.ts`, `process.ts`) plus `plugins/amane/` (Amane backend: rules / connection / service / api) and `plugins/lada/` (de-mosaic: rules / tools / temp / lock / job / cache / resume / range / live / live-media)
+- `plugins/` — Host for external programs (`host.ts`, `process.ts`) plus `plugins/lada/` (de-mosaic: rules / tools / temp / lock / job / cache / resume / range / live / live-media)
 - `ipc/` — IPC channel registrations:
   - `dialog-ipc.ts` — `dialog:*` (openDirectory, selectDirectory, openFile), `shell:openPath`
   - `app-ipc.ts` — `win:*`, `app:networkIps`, `update:*` (electron-updater status via `update:status`)
@@ -88,8 +88,8 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 
 Key directories under `src/renderer/src/`:
 
-- `features/<x>/` — non-library features, each self-contained (`views/ components/ composables/ api/ utils/`): `online`, `av`, `download`, `amane`, `lada`, `player`, `settings`, `shell`. Cross-feature imports only via `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`); `main.ts` / `App.vue` / `router/` compose features and may point at view files for lazy routes
-- `features/library/` — movie / TV library UI on top of the library engine (`src/main/library`, `window.api.library`)
+- `features/<x>/` — non-library features, each self-contained (`views/ components/ composables/ api/ utils/`): `online`, `av`, `download`, `lada`, `player`, `settings`, `shell`. Cross-feature imports only via `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`); `main.ts` / `App.vue` / `router/` compose features and may point at view files for lazy routes
+- `features/library/` — movie / TV / 番号 library UI on top of the library engine (`src/main/library`, `window.api.library`); 番号 scraping is the TS implementation in `src/main/library/providers/jav/` (it replaced the former Amane sidecar), see [docs/library-server.md](docs/library-server.md). The detail page also starts lada de-mosaic (`detail/use-restore.ts`)
 - TMDB token — settings secret `scrape.tmdbToken`, write-only from the renderer (`setTmdbToken`); TMDB requests use `online.tmdb(path, query)`, the engine adds the token (see `src/main/tmdb.ts`)
 - `composables/` — Global composables:
   - `use-context-menu.ts` — MenuItem interface definition
@@ -149,7 +149,7 @@ Config in `userData/config.json` (main process): `downloadPath`.
   - Shadows: `--shadow-sm/md/lg`, `--focus-ring`, `--focus-ring-danger`, `--focus-ring-offset`.
 - Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiNavItem` (sidebar / settings / tab-bar navigation; `collapsed` hides the label and shows it as tooltip, `layout="stack"` for the phone bottom bar, `current="page" | "pressed" | "none"`), `UiListRow` (clickable multi-line row; `role` / `aria-*` pass through, e.g. `menuitemradio`), `UiChip` (small gray pill for actors/tags; put a separate `UiIconButton` next to it for remove), `UiPressable` (unstyled button for image/card targets; pass `label` when the content has no text), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
 - Long lists (unbounded: infinite scroll, aggregated search, favourites, queues) go through `UiVirtualGrid` (`class` = the grid/list class, `:items`, `:item-key`, default slot `{ item }`; `tag="ul"` for lists). It reads the column count from `grid-template-columns`, needs rows of equal height, and owns the container's vertical padding. `tests/virtual-lists.test.ts` lists the wired lists.
-- Posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `yingbox-media://thumb/?w=&src=` (`services/thumbnails`). Main (`src/main/thumbnails`) fetches the original, resizes with `nativeImage` (WebP originals decoded by wasm first), encodes WebP in a `worker_threads` worker (`@jsquash/webp`) and caches it in `userData/library/media/thumb` (one 512 MB LRU shared with the library's `yingbox-media://image/<key>?w=` thumbnails). Sources: http(s), `amane://image/`, local `file:///…` images. On error the card falls back to the original URL.
+- Posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `yingbox-media://thumb/?w=&src=` (`services/thumbnails`). Main (`src/main/thumbnails`) fetches the original, resizes with `nativeImage` (WebP originals decoded by wasm first), encodes WebP in a `worker_threads` worker (`@jsquash/webp`) and caches it in `userData/library/media/thumb` (one 512 MB LRU shared with the library's `yingbox-media://image/<key>?w=` thumbnails). Sources: http(s) and local `file:///…` images. On error the card falls back to the original URL.
 - No raw `<button>` in `.vue` files outside `components/ui/` — pick one of the components above (`UiPressable` when nothing else fits). `pnpm check:style` fails on violations.
 - New `components/ui` styles wrap state/modifier selectors in `:where()`, so a single page class overrides sizing and colors.
 - Prefer `UiIconButton` over text buttons; keep at most one `UiButton variant="primary"` per area (e.g. Play).
