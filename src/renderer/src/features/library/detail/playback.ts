@@ -2,10 +2,7 @@
  * 从条目详情树得到播放列表，交给现有播放能力（openMediaPlayer：内置播放器或 mpv）。
  */
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
-import {
-  type PlayerSourceItem,
-  openMediaPlayer,
-} from '@/features/player'
+import { type PlayerSourceItem, openMediaPlayer } from '@/features/player'
 
 import { baseName, episodeCode } from '../shared/format'
 

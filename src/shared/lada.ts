@@ -53,12 +53,18 @@ export function parseLadaLine(line: string): {
   const text = line.replace(/\r/g, '').trim()
   if (!text) return {}
 
-  const out: { percent?: number; fps?: number; frames?: number; message?: string } = {}
+  const out: {
+    percent?: number
+    fps?: number
+    frames?: number
+    message?: string
+  } = {}
 
   const percent = text.match(/(\d{1,3})\s*%/)
   if (percent) {
     const value = Number(percent[1])
-    if (Number.isFinite(value) && value >= 0 && value <= 100) out.percent = value
+    if (Number.isFinite(value) && value >= 0 && value <= 100)
+      out.percent = value
   }
 
   // 速度：35.4 帧/秒（半角/全角冒号都见过）
@@ -93,7 +99,12 @@ export function restoredPathFor(input: string): string {
 }
 
 // ── 边跑边看（追播）────────────────────────────────────────
-export type LadaLiveState = 'preparing' | 'serving' | 'finished' | 'failed' | 'cancelled'
+export type LadaLiveState =
+  | 'preparing'
+  | 'serving'
+  | 'finished'
+  | 'failed'
+  | 'cancelled'
 
 export interface LadaLiveStatus {
   state: LadaLiveState

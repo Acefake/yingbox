@@ -97,7 +97,11 @@ export function amaneRequest<T>(
   body?: unknown
 ): Promise<T> {
   if (window.api?.amane) {
-    return window.api.amane.request({ path: `/api${path}`, method, body }) as Promise<T>
+    return window.api.amane.request({
+      path: `/api${path}`,
+      method,
+      body,
+    }) as Promise<T>
   }
   return fetch(`${amaneBase()}/api${path}`, {
     method,
@@ -107,12 +111,22 @@ export function amaneRequest<T>(
     credentials: 'same-origin',
     signal: AbortSignal.timeout(30000),
   }).then(async res => {
-    if (res.status === 401) throw new Error('Amane 未授权：请在手机浏览器打开桌面客户端生成的「手机接入链接」，或清除本站数据后重新绑定')
+    if (res.status === 401)
+      throw new Error(
+        'Amane 未授权：请在手机浏览器打开桌面客户端生成的「手机接入链接」，或清除本站数据后重新绑定'
+      )
     if (!res.ok) {
-      const data = await res.json().catch(() => null) as { detail?: unknown } | null
-      throw new Error(typeof data?.detail === 'string' ? data.detail : `HTTP ${res.status}`)
+      const data = (await res.json().catch(() => null)) as {
+        detail?: unknown
+      } | null
+      throw new Error(
+        typeof data?.detail === 'string' ? data.detail : `HTTP ${res.status}`
+      )
     }
-    if (/^\/agent\/sessions\/\d+\/agui$/.test(path)) { await res.body?.cancel(); return { accepted: true } as T }
+    if (/^\/agent\/sessions\/\d+\/agui$/.test(path)) {
+      await res.body?.cancel()
+      return { accepted: true } as T
+    }
     if (res.status === 204) return null as T
     return (await res.json()) as T
   })
