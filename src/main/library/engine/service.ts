@@ -299,6 +299,16 @@ export class LibraryService {
     return this.identifier.getProviderStatus()
   }
 
+  // —————————————————————————— 宿主用（不在 IPC 契约里） ——————————————————————————
+
+  /** 片库里登记过的视频文件路径；不存在或不是视频返回 null（独立服务据此决定能不能给出视频流）。 */
+  videoFilePath(fileId: number): string | null {
+    const row = this.db
+      .prepare("SELECT path FROM files WHERE id = ? AND kind = 'video'")
+      .get(fileId)
+    return row ? String(row.path) : null
+  }
+
   // —————————————————————————— 内部 ——————————————————————————
 
   private emit(event: LibraryEvent): void {
