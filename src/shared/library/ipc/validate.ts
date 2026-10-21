@@ -14,6 +14,7 @@ import {
   type LibraryQuery,
   type LibraryRpcMap,
   type LibrarySortField,
+  type LibrarySource,
   type MatchState,
   type RefreshMetadataRequest,
   type ScanRequest,
@@ -43,6 +44,7 @@ export const MAX_PAGE_SIZE = 1000
 /** 归一化后的查询：分页、排序都有确定值。 */
 export interface NormalizedLibraryQuery {
   libraryId?: number
+  source?: LibrarySource
   types: TopLevelItemType[]
   search?: string
   actorId?: number
@@ -94,6 +96,10 @@ export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
       q.libraryId === undefined
         ? undefined
         : positiveId(q.libraryId, 'libraryId'),
+    source:
+      q.source === undefined
+        ? undefined
+        : oneOf(q.source, LIBRARY_SOURCES, 'source'),
     types: listOf(q.types, TOP_LEVEL_TYPES, 'types') ?? [...TOP_LEVEL_TYPES],
     search,
     actorId:

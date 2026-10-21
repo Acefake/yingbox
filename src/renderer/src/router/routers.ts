@@ -31,6 +31,16 @@ export const routes = [
     },
   },
   {
+    path: '/jav',
+    name: 'Jav',
+    component: () => import('@/features/library/JavLibraryPage.vue'),
+    meta: {
+      title: '番号',
+      description: '本地番号库（刮削番号站点）',
+      adultOnly: true,
+    },
+  },
+  {
     path: '/av',
     name: 'AV',
     component: () => import('@/features/av/views/AvView.vue'),

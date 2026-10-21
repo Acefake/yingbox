@@ -1,7 +1,8 @@
 /**
  * 网页端端到端检查（手动跑，不进 CI）：启动 out/server，用 Playwright 驱动 dist-web，
- * 走一遍 登录 → 目录浏览加电影库 → 经 API 加番号库 → 事件推送刷新海报墙 → 演员库（列表 → 演员详情 →
- * 编辑并锁定 → 作品 → 条目详情里点演员回到演员详情）→ 详情 → 网页播放器。
+ * 走一遍 登录 → 目录浏览加电影库 → 成人模式关闭时 /jav 被挡 → 打开成人模式进「番号」页 → 番号页加番号库 →
+ * 电影页不出番号条目 → 番号页演员库（列表 → 演员详情 → 编辑并锁定 → 作品 → 条目详情里点演员回到演员详情）→
+ * 旧链接（/movie?actor= / ?item=）落到番号页 → 网页播放器 → 关闭成人模式后番号内容不可见。
  *
  * 出网走 scripts/smoke/fixture-fetch.mjs（离线夹具），不碰真实网络。
  *
@@ -78,6 +79,46 @@ const browser = await chromium.launch()
 const page = await browser.newPage({ viewport: { width: 1280, height: 860 } })
 page.on('pageerror', error => console.log('PAGEERROR', error.message))
 const wall = page.getByRole('grid', { name: '电影海报墙' })
+const javWall = page.getByRole('grid', { name: '番号海报墙' })
+const sidebar = page.getByRole('complementary', { name: '媒体中心导航' })
+/** 侧栏导航项。 */
+const navItem = label =>
+  sidebar.getByRole('button', { name: label, exact: true })
+const hash = () => decodeURIComponent(new URL(page.url()).hash)
+/** 用顶栏搜索的口令切换成人模式（真实界面路径）。 */
+async function toggleAdultMode() {
+  const search = page.locator('.global-search-field input')
+  await search.fill('getav')
+  await search.press('Enter')
+}
+/** 关掉设置面板（Esc 由面板自己处理，先把焦点放进去）。 */
+async function closeSheet(title) {
+  const sheet = page.getByRole('dialog', { name: title })
+  await sheet.press('Escape')
+  await sheet.waitFor({ state: 'hidden' })
+}
+/** 带登录 cookie 调片库 RPC。 */
+async function rpc(method, params) {
+  const cookie = (await page.context().cookies())[0]
+  const response = await fetch(`${base}/api/library/rpc`, {
+    method: 'POST',
+    headers: {
+      'content-type': 'application/json',
+      cookie: `${cookie.name}=${cookie.value}`,
+    },
+    body: JSON.stringify({ method, params }),
+  })
+  return (await response.json()).result
+}
+/** 在目录浏览器里选 media/<name> 并添加。 */
+async function pickFolder(name) {
+  await page.getByText('选择文件夹').waitFor()
+  await page.getByRole('button', { name: 'media' }).click()
+  await page.getByRole('button', { name }).click()
+  await page.locator('.folder-browser__path', { hasText: `/${name}` }).waitFor()
+  await page.screenshot({ path: shot(`3-picker-${name}`) })
+  await page.getByRole('button', { name: '添加', exact: true }).click()
+}
 try {
   await page.goto(`${base}/#/movie`)
   await page.getByText('登录片库服务').waitFor({ timeout: 15000 })
@@ -94,13 +135,8 @@ try {
   await page.screenshot({ path: shot('2-empty') })
 
   await page.getByRole('button', { name: '添加文件夹…' }).click()
-  await page.getByText('选择文件夹').waitFor()
-  await page.getByRole('button', { name: 'media' }).click()
-  await page.getByRole('button', { name: 'movies' }).click()
-  await page.locator('.folder-browser__path', { hasText: '/movies' }).waitFor()
-  await page.screenshot({ path: shot('3-picker') })
+  await pickFolder('movies')
   step('目录浏览：根目录 → media → movies')
-  await page.getByRole('button', { name: '添加', exact: true }).click()
   // 只认海报墙里的格子：目录浏览器里也有 “Inception (2010)” 文字，不能拿来当证据
   await wall
     .getByRole('gridcell', { name: /Inception/ })
@@ -108,21 +144,28 @@ try {
   step('添加 movies 文件夹后海报墙出现 Inception（无 TMDB 令牌，未识别）')
   await page.screenshot({ path: shot('4-wall-tmdb') })
 
-  // 番号库：经 API 建（界面入口在设置里，走同一个 addLibrary）
-  const cookie = (await page.context().cookies())[0]
-  const response = await fetch(`${base}/api/library/rpc`, {
-    method: 'POST',
-    headers: {
-      'content-type': 'application/json',
-      cookie: `${cookie.name}=${cookie.value}`,
-    },
-    body: JSON.stringify({
-      method: 'addLibrary',
-      params: { root: join(media, 'jav'), kind: 'movie', source: 'jav' },
-    }),
-  })
-  step(`API 建番号库：${JSON.stringify((await response.json()).ok)}`)
-  const poster = wall.locator('img[src*="/media/image/"]').first()
+  // 成人模式关闭：侧栏没有「番号」，直接打开 /jav 回首页
+  if (await navItem('番号').count())
+    throw new Error('成人模式关闭时侧栏出现了「番号」')
+  await page.goto(`${base}/#/jav`)
+  await page.waitForFunction(() => location.hash === '#/')
+  step('成人模式关闭：侧栏无「番号」，直接打开 /jav 被挡回首页')
+  await page.goto(`${base}/#/movie`)
+  await wall.getByRole('gridcell', { name: /Inception/ }).waitFor()
+
+  // 打开成人模式 → 侧栏「本地媒体」出现「番号」→ 番号页空状态
+  await toggleAdultMode()
+  const javNav = navItem('番号')
+  await javNav.waitFor({ timeout: 5000 })
+  await javNav.click()
+  await page.getByText('添加你的番号文件夹').waitFor({ timeout: 10000 })
+  step(`成人模式开启：侧栏出现「番号」，进入 ${hash()} 显示番号空状态`)
+  await page.screenshot({ path: shot('5-jav-empty') })
+
+  // 番号页的「添加文件夹…」直接建番号库
+  await page.getByRole('button', { name: '添加文件夹…' }).click()
+  await pickFolder('jav')
+  const poster = javWall.locator('img[src*="/media/image/"]').first()
   await poster.waitFor({ timeout: 20000 })
   await page.waitForFunction(
     () =>
@@ -132,27 +175,64 @@ try {
     null,
     { timeout: 15000 }
   )
+  const libs = await rpc('listLibraries')
+  const javLib = libs.find(l => l.source === 'jav')
+  if (!javLib) throw new Error('番号页添加的不是番号库')
   step(
-    `事件推送刷新海报墙，番号海报经 /media/image 加载：${await poster.getAttribute('src')}`
+    `番号页添加 jav 文件夹 → source=jav 的库；番号海报经 /media/image 加载：${await poster.getAttribute('src')}`
   )
-  await page.screenshot({ path: shot('5-wall-jav') })
+  await page.screenshot({ path: shot('6-jav-wall') })
 
-  // 演员库：番号库识别后演员入库，「演员」视图出现
+  // 番号设置：番号站点、演员资料来源都在这里
+  await page.getByRole('button', { name: '番号库设置' }).click()
+  await page.getByText('番号站点').first().waitFor()
+  await page.getByText('演员资料').first().waitFor()
+  step('番号库设置：有番号站点、演员资料来源')
+  await page.screenshot({ path: shot('6a-jav-settings') })
+  await page.getByText('番号站点').first().scrollIntoViewIfNeeded()
+  await page.screenshot({ path: shot('6b-jav-sites') })
+  await closeSheet('番号库设置')
+
+  // 电影页不出番号条目，设置里没有番号入口，没有演员视图
+  await navItem('电影').click()
+  await wall.getByRole('gridcell', { name: /Inception/ }).waitFor()
+  const movieCells = await wall.getByRole('gridcell').count()
+  const leaked = await wall.getByRole('gridcell', { name: /SSIS|FC2/ }).count()
+  if (leaked) throw new Error(`电影页露出了 ${leaked} 个番号条目`)
+  if (await page.getByRole('tab', { name: '演员' }).count())
+    throw new Error('电影页出现了「演员」视图')
+  await page.getByRole('button', { name: '电影库设置' }).click()
+  await page.getByText('电影文件夹').first().waitFor()
+  if (
+    (await page.getByText('添加番号文件夹…').count()) ||
+    (await page.getByText('番号站点').count())
+  )
+    throw new Error('电影设置里还有番号入口')
+  await page.screenshot({ path: shot('7-movie-only') })
+  await closeSheet('电影库设置')
+  step(
+    `电影页只有 ${movieCells} 个条目（Inception），无番号条目、无演员视图，设置里无番号入口`
+  )
+
+  // 演员库：番号库识别后演员入库，「演员」视图在番号页
+  await navItem('番号').click()
+  await javWall.waitFor()
   await page.getByRole('tab', { name: '演员' }).click()
   const actorCard = page.locator('.lib-actor-card', { hasText: '鷲尾めい' })
   await actorCard.waitFor({ timeout: 15000 })
   const cards = await page.locator('.lib-actor-card').count()
   step(
-    `演员视图：${cards} 位演员，含「鷲尾めい」（${await actorCard.locator('.lib-actor-works').innerText()}）`
+    `番号页演员视图：${cards} 位演员，含「鷲尾めい」（${await actorCard.locator('.lib-actor-works').innerText()}）`
   )
-  await page.screenshot({ path: shot('5a-actors') })
+  await page.screenshot({ path: shot('8-actors') })
   await actorCard.click()
   const actorWall = page.getByRole('grid', { name: '鷲尾めい的作品' })
   await actorWall
     .getByRole('gridcell', { name: /SSIS-497/ })
     .waitFor({ timeout: 10000 })
-  step(`演员详情：作品墙有 SSIS-497，地址 ${new URL(page.url()).hash}`)
-  await page.screenshot({ path: shot('5b-actor-detail') })
+  const actorHash = hash()
+  step(`演员详情：作品墙有 SSIS-497，地址 ${actorHash}`)
+  await page.screenshot({ path: shot('8a-actor-detail') })
   await page.getByRole('button', { name: '编辑资料' }).click()
   await page.locator('#actor-height').fill('155')
   await page.locator('#actor-birthday').fill('1998-09-02')
@@ -163,37 +243,43 @@ try {
     .getByRole('dialog', { name: '编辑演员资料' })
     .waitFor({ state: 'hidden' })
   step('编辑资料：身高、生日保存后显示并自动锁定 2 项')
-  await page.screenshot({ path: shot('5c-actor-edited') })
+  await page.screenshot({ path: shot('8b-actor-edited') })
   await actorWall.getByRole('gridcell', { name: /SSIS-497/ }).click()
   const person = page.locator('.lib-person-target.is-link', {
     hasText: '鷲尾めい',
   })
   await person.waitFor({ timeout: 10000 })
-  await page.screenshot({ path: shot('5d-item-cast') })
+  const itemHash = hash()
+  await page.screenshot({ path: shot('8c-item-cast') })
   await person.click()
   await actorWall.waitFor({ timeout: 10000 })
   step('条目详情的演职员里点演员 → 回到演员详情')
-  // 后退两次：演员详情 → 条目详情 → 演员详情（第一次打开的），再关掉演员详情回到海报墙
-  await page.goBack()
-  await page.locator('.lib-hero-actions').waitFor()
-  await page.goBack()
-  await page.goBack()
-  await page.getByRole('tab', { name: '资料库' }).click()
-  await poster.waitFor({ timeout: 10000 })
 
-  await poster.click()
+  // 旧链接兼容：原来挂在电影页上的演员 / 番号条目链接落到番号页
+  const actorId = new URLSearchParams(actorHash.split('?')[1]).get('actor')
+  await page.goto(`${base}/#/movie?actor=${actorId}`)
+  await page.waitForFunction(() => location.hash.startsWith('#/jav?'))
+  await actorWall.waitFor({ timeout: 10000 })
+  step(`旧链接 /movie?actor=${actorId} → ${hash()}`)
+  const itemId = new URLSearchParams(itemHash.split('?')[1]).get('item')
+  await page.goto(`${base}/#/movie?item=${itemId}`)
+  await page.waitForFunction(() => location.hash.startsWith('#/jav?'))
+  await page.locator('.lib-hero-actions').waitFor({ timeout: 10000 })
+  step(`旧链接 /movie?item=${itemId}（番号条目）→ ${hash()}`)
+  await page.screenshot({ path: shot('9-legacy-link') })
+
   const play = page
     .locator('.lib-hero-actions')
     .getByRole('button', { name: /播放/ })
     .first()
   // 侧栏也有“播放记录”，只认详情页顶部的播放按钮
   await play.waitFor({ timeout: 10000 })
-  await page.screenshot({ path: shot('6-detail') })
   step('打开详情')
   await play.click()
   const video = page.locator('video.web-player__video')
   await video.waitFor({ timeout: 10000 })
   const src = await video.getAttribute('src')
+  const cookie = (await page.context().cookies())[0]
   const range = await fetch(new URL(src, base), {
     headers: {
       cookie: `${cookie.name}=${cookie.value}`,
@@ -203,7 +289,21 @@ try {
   step(`网页播放器：<video src=${src}>，Range 请求 → HTTP ${range.status}`)
   if (range.status !== 206)
     throw new Error(`视频流不支持 Range：${range.status}`)
-  await page.screenshot({ path: shot('7-player') })
+  await page.screenshot({ path: shot('10-player') })
+  await page.keyboard.press('Escape')
+
+  // 关闭成人模式：离开番号页，番号条目旧链接也不再显示
+  await page.goto(`${base}/#/jav`)
+  // 番号页停在上次的「演员」视图（keep-alive），以视图切换为准
+  await page.getByRole('tab', { name: '演员' }).waitFor()
+  await toggleAdultMode()
+  await page.waitForFunction(() => location.hash === '#/')
+  await page.goto(`${base}/#/movie?item=${itemId}`)
+  await page.waitForFunction(() => location.hash === '#/')
+  if (await navItem('番号').count())
+    throw new Error('关闭成人模式后侧栏仍有「番号」')
+  step('关闭成人模式：离开番号页；番号条目的旧链接被挡回首页，侧栏无「番号」')
+  await page.screenshot({ path: shot('11-adult-off') })
 } catch (error) {
   console.log('FAIL', error.message)
   await page.screenshot({ path: shot('fail') })

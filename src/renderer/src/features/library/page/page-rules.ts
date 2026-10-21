@@ -1,12 +1,15 @@
 /**
- * 媒体库页面的纯规则：详情路由参数、空状态标题、视图切换标签、媒体库下拉、海报墙多选。
+ * 媒体库页面的纯规则：详情路由参数、空状态标题与文案、视图切换、媒体库下拉、海报墙多选。
  * 不依赖 Vue，便于单测。
  */
 import type {
   LibraryInfo,
   LibraryItemSummary,
 } from '../../../../../shared/library/ipc'
+import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
+import type { LibrarySection } from '../state/library-section'
 import type { WallQueryState } from '../state/query-state'
+import type { LibraryView } from './LibraryToolbar.vue'
 
 /** 路由 query 里的 ?item=123 → 条目 id；不是正的安全整数时为 null。 */
 export function parseDetailId(raw: unknown): number | null {
@@ -23,9 +26,38 @@ export function emptyTitleFor(
   return '文件夹里还没有扫描到视频'
 }
 
+/** 还没有文件夹时的空状态文案：番号页引导添加番号文件夹。 */
+export function noFolderCopy(section: LibrarySection): {
+  title: string
+  text: string
+} {
+  if (section === 'jav')
+    return {
+      title: '添加你的番号文件夹',
+      text: '影盒按文件名里的番号（如 ABC-123）刮削番号站点，补全封面、演员和简介，不需要 TMDB 令牌。',
+    }
+  const label = section === 'movie' ? '电影' : '剧集'
+  return {
+    title: `添加你的${label}文件夹`,
+    text: '影盒会扫描文件夹里的视频，自动识别片名并补全海报、简介和演职员。',
+  }
+}
+
 /** 视图切换上「待确认」的标签：有数量时带千分位数字。 */
 export function reviewTabLabel(count: number): string {
   return count ? `待确认 ${count.toLocaleString('zh-CN')}` : '待确认'
+}
+
+/** 某分区可用的视图：资料库、演员（演员库只属于番号页）、待确认。 */
+export function viewOptionsFor(
+  section: LibrarySection,
+  reviewCount: number
+): SegmentedOption<LibraryView>[] {
+  return [
+    { value: 'wall', label: '资料库' },
+    ...(section === 'jav' ? [{ value: 'actors' as const, label: '演员' }] : []),
+    { value: 'review', label: reviewTabLabel(reviewCount) },
+  ]
 }
 
 /** 媒体库下拉：0 表示全部文件夹。 */

@@ -18,14 +18,16 @@ const state = (patch: Partial<NavState> = {}): NavState => ({
 })
 
 describe('侧栏导航项', () => {
-  it('桌面端：资料库 + 本地媒体；成人模式多出 AV', () => {
-    expect(buildNavGroups(state()).map(g => g.key)).toEqual([
-      'library',
-      'local',
-    ])
+  it('桌面端：资料库 + 本地媒体；成人模式多出番号与 AV', () => {
+    const normal = buildNavGroups(state())
+    expect(normal.map(g => g.key)).toEqual(['library', 'local'])
+    expect(normal[1].items.map(i => i.path)).toEqual(['/movie', '/tv'])
     const adult = buildNavGroups(state({ adultMode: true }))
     expect(adult.map(g => g.key)).toEqual(['library', 'local', 'adult'])
-    expect(adult[1].items.map(i => i.path)).toEqual(['/movie', '/tv'])
+    expect(adult[1].items.map(i => i.path)).toEqual(['/movie', '/tv', '/jav'])
+    expect(adult[1].items[2]).toMatchObject({ label: '番号', icon: 'tag' })
+    const onJav = buildNavGroups(state({ adultMode: true, routeName: 'Jav' }))
+    expect(onJav[1].items.map(i => i.active)).toEqual([false, false, true])
   })
 
   it('没有本地片库时不显示本地媒体组（成人模式下也不显示）', () => {
@@ -49,7 +51,22 @@ describe('侧栏导航项', () => {
     const items = buildBottomNav(state({ hasLocalLibrary: false }), true)
     expect(items.map(i => i.key)).toEqual(['home', 'favorites', 'menu'])
     expect(items.at(-1)).toMatchObject({ path: '', active: true })
-    expect(buildBottomNav(state(), false).map(i => i.key)).toContain('movie')
+    expect(buildBottomNav(state(), false).map(i => i.key)).toEqual([
+      'home',
+      'favorites',
+      'movie',
+      'menu',
+    ])
+    // 番号只在成人模式 + 有本地片库时出现在底栏
+    expect(
+      buildBottomNav(state({ adultMode: true }), false).map(i => i.key)
+    ).toEqual(['home', 'favorites', 'movie', 'jav', 'menu'])
+    expect(
+      buildBottomNav(
+        state({ adultMode: true, hasLocalLibrary: false }),
+        false
+      ).map(i => i.key)
+    ).toEqual(['home', 'favorites', 'menu'])
   })
 })
 
@@ -61,6 +78,14 @@ describe('全局搜索规则', () => {
     expect(searchPlaceholder(undefined, false)).toBe(
       '搜索电影、电视剧（Ctrl + K）'
     )
+  })
+
+  it('番号页在本页按 ?q= 过滤', () => {
+    expect(searchPlaceholder('Jav', true)).toBe('搜索本地番号')
+    expect(searchLocation('Jav', '/jav', 'ABC')).toEqual({
+      path: '/jav',
+      query: { q: 'ABC' },
+    })
   })
 
   it('本地片库页在本页按 ?q= 过滤，清空时去掉参数', () => {

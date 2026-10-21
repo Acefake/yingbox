@@ -14,7 +14,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 defineProps<{
   title: string
   text?: string
-  icon?: 'movie' | 'tv'
+  icon?: 'movie' | 'tv' | 'tag'
   inline?: boolean
 }>()
 </script>
