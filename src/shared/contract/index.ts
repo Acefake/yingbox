@@ -21,7 +21,6 @@ import { player } from './player'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
-import { thumbs } from './thumbs'
 import { update } from './update'
 import { win } from './win'
 
@@ -43,7 +42,6 @@ export const contract = {
   settings,
   shell,
   subtitle,
-  thumbs,
   update,
   win,
 } as const

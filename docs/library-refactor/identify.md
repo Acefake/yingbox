@@ -20,11 +20,9 @@ src/main/library/
     episode-mapping  本地集 → (季, 集)，绝对集数按剧集分组顺序
     media-duration   只读容器头取时长（mkv / mp4 / mov），不依赖 ffprobe
   images/image-cache 引擎下载原图（poster w780、backdrop w1280）
-  media/             主进程：yingbox-media:// 协议、nativeImage 缩放、worker 线程 WebP 编码
 src/shared/library/
   identify/identify  识别链与分档搜索（纯 TS）
   provider/metadata  元数据形状（MediaMetadata / SeasonMetadata / EpisodeMetadata / ImageCandidate…）
-  media-url          yingbox-media 地址的生成与解析
 ```
 
 ## 识别链
@@ -86,11 +84,13 @@ tmdb_id / imdb_id / tvdb_id），完整元数据存 `media_items.metadata`（JSO
 ## 图片
 
 引擎把每个电影 / 剧集选中的海报（w780）和背景图（w1280）下载到 `<userData>/library/media/orig/`，key 是 URL 的
-SHA-1 前 32 位；下载完通知主进程，主进程用 `nativeImage` 缩放到 300w / 780w（nativeImage 在 utilityProcess 里不可用），
-再交给 worker 线程用 wasm libwebp（`@jsquash/webp`，无原生依赖）编码成 WebP，写到 `media/thumb/`。
+SHA-1 前 32 位；下载完通知主进程预热缩略图。缩略图是全应用共用的一套（`src/main/thumbnails`、地址规则 `src/shared/media-url.ts`）：
+主进程用 `nativeImage` 缩放（nativeImage 在 utilityProcess 里不可用），再交给 worker 线程用 wasm libwebp（`@jsquash/webp`，无原生依赖）
+编码成 WebP，写到 `media/thumb/`（与在线 / AV / Amane 封面共用一个 512 MB LRU 上限）。
 编码器不可用时退回 nativeImage 的 JPEG。季海报、剧照、标志只存 TMDB 远程地址，不下载。
 
-`yingbox-media://image/<key>?w=300|780` 返回缩略图（没有就现生成），不带 `w` 返回原图；响应带
+`yingbox-media://image/<key>?w=300|480|780` 返回缩略图（没有就现生成），不带 `w` 返回原图；任意来源用
+`yingbox-media://thumb/?w=…&src=…`。响应带
 `Cache-Control: public, max-age=31536000, immutable` 和 ETag。CSP 的 img-src 已加入 `yingbox-media:`。
 
 ## 给 P4 / P5 的接口

@@ -8,10 +8,7 @@
  *
  * 这些函数在海报墙每格渲染时调用，用正则而不是 new URL，保持够快。
  */
-import {
-  type ThumbWidth,
-  mediaImageUrl,
-} from '../../../../../shared/library/media-url'
+import { type ThumbWidth, mediaImageUrl } from '../../../../../shared/media-url'
 
 const TMDB_IMAGE = 'https://image.tmdb.org/t/p'
 const MEDIA_KEY_RE = /^yingbox-media:\/\/image\/([0-9a-f]{32})/
@@ -20,6 +17,7 @@ const TMDB_RE = /^https:\/\/image\.tmdb\.org\/t\/p\/[a-z0-9]+(\/.+)$/
 /** 本地缩略图宽度 → 远程回退时用的 TMDB 尺寸。 */
 const REMOTE_FOR_WIDTH: Record<ThumbWidth, string> = {
   300: 'w342',
+  480: 'w500',
   780: 'w780',
 }
 
