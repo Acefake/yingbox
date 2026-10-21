@@ -26,13 +26,20 @@ import { type BinaryFetch, ImageCache } from '../images/image-cache'
 import type { JobQueue } from '../jobs/queue'
 import { SqliteResponseCache } from '../providers/http/provider-cache'
 import { type FetchLike, ProviderHttp } from '../providers/http/provider-http'
-import { JavProvider } from '../providers/jav/jav-provider'
+import type { ActorSource } from '../providers/jav/actors'
+import {
+  type JavProvider,
+  createJavProvider,
+} from '../providers/jav/jav-provider'
 import { JavSettingsStore } from '../providers/jav/jav-settings'
+import type { JavCredentials } from '../providers/jav/sites/registry'
+import type { LibraryEnvSecrets } from '../platform/platform'
 import type { Clock } from '../providers/http/rate-limiter'
 import { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
 import { SETTING_KEYS, SettingsStore } from '../providers/settings-store'
 import { TmdbProvider } from '../providers/tmdb/tmdb-provider'
 import { runIdentifyJob } from './identify-job'
+import { TOKEN_SETTING_KEYS, readJavCredentials } from './provider-credentials'
 import {
   type IdentifyPayload,
   candidateInfo,
@@ -52,7 +59,14 @@ export { type IdentifyPayload, mergeIdentifyPayload } from './identify-rules'
 /** 文本与二进制都能取的 fetch（标准 fetch / Electron net.fetch 都满足）。 */
 export type HttpFetch = (
   url: string,
-  init: { headers?: Record<string, string>; signal?: AbortSignal }
+  init: {
+    headers?: Record<string, string>
+    signal?: AbortSignal
+    /** 缺省 GET；番号站点的检索表单 / JSON 接口用 POST。 */
+    method?: 'GET' | 'POST'
+    body?: string
+    redirect?: 'follow' | 'manual'
+  }
 ) => ReturnType<FetchLike> & ReturnType<BinaryFetch>
 
 /** 模块参数。 */
@@ -72,11 +86,13 @@ export interface IdentifyModuleOptions {
   /** 文件指纹（OpenSubtitles hash）。 */
   fingerprint?: (path: string) => Promise<string | undefined>
   /** 环境变量兜底的令牌（设置里没有时使用）。 */
-  env?: { tmdbToken?: string; opensubtitlesKey?: string }
+  env?: LibraryEnvSecrets
   /** TMDB 限速参数与时钟（测试、基准注入）。 */
   http?: { rps?: number; concurrency?: number; clock?: Clock }
   /** 同时识别的条目数，默认 8。 */
   concurrency?: number
+  /** 给番号站点没带头像的演员补头像的来源（演员库共用的 gfriends）；缺省 JavProvider 自建。 */
+  avatars?: ActorSource
   /** 识别 / 刷新 / 手动匹配后有元数据变化的顶层条目（写出层据此自动写 NFO）。 */
   onIdentified?: (itemIds: number[]) => void
   log?: (message: string) => void
@@ -131,18 +147,14 @@ export class IdentifyModule {
         this.settings.get(SETTING_KEYS.opensubtitlesKey) ??
         options.env?.opensubtitlesKey
     )
-    // 番号站点是普通网站：限速放保守，重试少一些，被拦的站点由熔断跳过
     this.javSettings = new JavSettingsStore(this.settings)
-    this.jav = new JavProvider({
-      http: new ProviderHttp({
-        fetch: fetchImpl,
-        rps: 2,
-        concurrency: 2,
-        maxRetries: 2,
-        clock: options.http?.clock,
-      }),
+    this.jav = createJavProvider({
+      fetch: fetchImpl,
+      clock: options.http?.clock,
       cache: this.cache,
       settings: () => this.javSettings.get(),
+      credentials: () => this.javCredentials(),
+      avatars: options.avatars,
       log: this.log,
     })
     this.store = new IdentifyStore(db)
@@ -298,22 +310,36 @@ export class IdentifyModule {
     return this.setState(itemId, target.tmdbId ? 'auto' : 'unmatched')
   }
 
-  /** 设置 / 清除令牌。 */
+  /** 设置 / 清除令牌。番号站点凭据变了，清掉该站缓存的「查无此片」等结果。 */
   setProviderToken(request: SetProviderTokenRequest): ProviderStatus {
-    const key =
-      request.provider === 'tmdb'
-        ? SETTING_KEYS.tmdbToken
-        : SETTING_KEYS.opensubtitlesKey
-    this.settings.set(key, request.token, Date.now())
+    this.settings.set(
+      TOKEN_SETTING_KEYS[request.provider],
+      request.token,
+      Date.now()
+    )
+    if (request.provider === 'theporndb' || request.provider === 'javdb')
+      this.cache.expire(
+        [`jav:${request.provider}:`, `actor:${request.provider}:`],
+        Date.now()
+      )
     return this.getProviderStatus()
   }
 
   /** 令牌配置状态。 */
   getProviderStatus(): ProviderStatus {
+    const jav = this.javCredentials()
     return {
       tmdb: { configured: this.provider.configured },
       opensubtitles: { configured: this.hashLookup.configured },
+      theporndb: { configured: Boolean(jav.theporndbToken) },
+      javdb: { configured: Boolean(jav.javdbCookie) },
+      dmm_api: { configured: Boolean(jav.dmmApi) },
     }
+  }
+
+  /** 番号站点凭据：设置里的优先，没有用环境变量（演员库的 ThePornDB 来源也用它）。 */
+  javCredentials(): JavCredentials {
+    return readJavCredentials(this.settings, this.options.env)
   }
 
   /** 番号站点设置。 */

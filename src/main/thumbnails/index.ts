@@ -25,17 +25,6 @@ export const MEDIA_SCHEME_PRIVILEGES: Electron.CustomScheme = {
 export const mediaDir = (): string =>
   join(app.getPath('userData'), 'library', 'media')
 
-/** 非 http(s) 来源的取图函数，按协议登记（如 amane:） */
-const loaders = new Map<string, (source: string) => Promise<Response>>()
-
-/** 插件登记自己协议的原图读取（返回图片 Response） */
-export function registerThumbSource(
-  scheme: string,
-  load: (source: string) => Promise<Response>
-): void {
-  loaders.set(scheme, load)
-}
-
 /** 缩略图服务（给媒体库主进程宿主用）。 */
 export interface ThumbnailService {
   /** 引擎下载好一批原图后调用，后台生成全部宽度的缩略图。 */
@@ -51,7 +40,6 @@ export function registerThumbnails(
     mediaDir: mediaDir(),
     codec,
     resizer: createNativeResizer(codec),
-    loaders,
     log,
   })
   protocol.handle(MEDIA_SCHEME, pipeline.handle)

@@ -1,0 +1,39 @@
+{
+  "request": {"parameters": {"site": "FANZA", "service": "digital", "floor": "videoa", "cid": "ssis00497", "output": "json"}},
+  "result": {
+    "status": 200,
+    "result_count": 1,
+    "total_count": 1,
+    "first_position": 1,
+    "items": [
+      {
+        "service_code": "digital",
+        "floor_code": "videoa",
+        "content_id": "ssis00497",
+        "product_id": "ssis00497",
+        "title": "最高のオンナ鷲尾めいが人生最高に尽くす一生忘れられない1日限定愛人契約",
+        "volume": "120",
+        "review": {"count": 50, "average": "4.50"},
+        "URL": "https://video.dmm.co.jp/av/content/?id=ssis00497",
+        "imageURL": {
+          "list": "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497pt.jpg",
+          "small": "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497ps.jpg",
+          "large": "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497pl.jpg"
+        },
+        "sampleImageURL": {
+          "sample_s": {"image": ["https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497-1.jpg"]},
+          "sample_l": {"image": ["https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497jp-1.jpg", "https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497jp-2.jpg"]}
+        },
+        "date": "2022-08-19 10:00:00",
+        "iteminfo": {
+          "genre": [{"id": 1, "name": "単体作品"}, {"id": 2, "name": "巨乳"}],
+          "series": [{"id": 3, "name": "一生忘れられない1日限定愛人契約"}],
+          "maker": [{"id": 4, "name": "エスワン ナンバーワンスタイル"}],
+          "actress": [{"id": 1060824, "name": "鷲尾めい", "ruby": "わしおめい"}],
+          "director": [{"id": 5, "name": "嵐山みちる"}],
+          "label": [{"id": 6, "name": "S1 NO.1 STYLE"}]
+        }
+      }
+    ]
+  }
+}

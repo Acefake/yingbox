@@ -18,11 +18,21 @@ import {
   type RefreshMetadataRequest,
   type ScanRequest,
   type SetProviderTokenRequest,
+  TOKEN_PROVIDERS,
   type TopLevelItemType,
   type WriterSettings,
 } from './contract'
+import { ACTOR_PARSERS, type NormalizedActorQuery } from './validate-actors'
+import {
+  asRecord,
+  invalid,
+  listOf,
+  oneOf,
+  optionalInt,
+  positiveId,
+} from './validate-base'
 import { parseJavSettings } from './validate-jav'
-import { LibraryError } from './wire'
+import { parseAutomationPatch, parseUpdateLibrary } from './validate-library'
 import { validateTemplate } from '../writer/template'
 
 /** 默认每页条数。 */
@@ -35,6 +45,7 @@ export interface NormalizedLibraryQuery {
   libraryId?: number
   types: TopLevelItemType[]
   search?: string
+  actorId?: number
   yearFrom?: number
   yearTo?: number
   matchStates?: MatchState[]
@@ -59,59 +70,6 @@ const MATCH_STATES: readonly MatchState[] = [
   'locked',
 ]
 const LIBRARY_KINDS: readonly LibraryKind[] = ['movie', 'tv']
-
-const invalid = (message: string): never => {
-  throw new LibraryError('invalid-params', message)
-}
-
-function asRecord(value: unknown, what: string): Record<string, unknown> {
-  if (value === undefined || value === null) return {}
-  if (typeof value !== 'object' || Array.isArray(value)) {
-    return invalid(`${what} 必须是对象`)
-  }
-  return value as Record<string, unknown>
-}
-
-function positiveId(value: unknown, name: string): number {
-  if (!Number.isSafeInteger(value) || (value as number) <= 0) {
-    return invalid(`${name} 必须是正整数`)
-  }
-  return value as number
-}
-
-function optionalInt(
-  value: unknown,
-  name: string,
-  min: number
-): number | undefined {
-  if (value === undefined || value === null) return undefined
-  if (!Number.isSafeInteger(value) || (value as number) < min) {
-    return invalid(`${name} 必须是不小于 ${min} 的整数`)
-  }
-  return value as number
-}
-
-function oneOf<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  name: string
-): T {
-  if (!allowed.includes(value as T)) {
-    return invalid(`${name} 只能是 ${allowed.join(' / ')}`)
-  }
-  return value as T
-}
-
-function listOf<T extends string>(
-  value: unknown,
-  allowed: readonly T[],
-  name: string
-): T[] | undefined {
-  if (value === undefined || value === null) return undefined
-  if (!Array.isArray(value)) return invalid(`${name} 必须是数组`)
-  const unique = [...new Set(value.map(v => oneOf(v, allowed, name)))]
-  return unique.length ? unique : undefined
-}
 
 /** 解析并补全列表查询：默认按片名升序、每页 200 条。 */
 export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
@@ -138,6 +96,8 @@ export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
         : positiveId(q.libraryId, 'libraryId'),
     types: listOf(q.types, TOP_LEVEL_TYPES, 'types') ?? [...TOP_LEVEL_TYPES],
     search,
+    actorId:
+      q.actorId === undefined ? undefined : positiveId(q.actorId, 'actorId'),
     yearFrom: optionalInt(q.yearFrom, 'yearFrom', 0),
     yearTo: optionalInt(q.yearTo, 'yearTo', 0),
     matchStates: listOf(q.matchStates, MATCH_STATES, 'matchStates'),
@@ -168,6 +128,7 @@ function parseAddLibrary(input: unknown): AddLibraryRequest {
     kind,
     name: (r.name as string | undefined)?.trim() || undefined,
     source,
+    automation: parseAutomationPatch(r.automation),
   }
 }
 
@@ -251,11 +212,7 @@ function parseApplyMatch(input: unknown): ApplyMatchRequest {
 
 function parseSetToken(input: unknown): SetProviderTokenRequest {
   const r = asRecord(input, 'setProviderToken 参数')
-  const provider = oneOf(
-    r.provider,
-    ['tmdb', 'opensubtitles'] as const,
-    'provider'
-  )
+  const provider = oneOf(r.provider, TOKEN_PROVIDERS, 'provider')
   if (
     r.token !== null &&
     r.token !== undefined &&
@@ -330,7 +287,9 @@ const itemIdParam = (input: unknown): { itemId: number } => ({
 /** 解析后的参数类型：query 补全了默认值，其余与契约一致。 */
 export type ParsedRpcParams<M extends LibraryMethod> = M extends 'query'
   ? NormalizedLibraryQuery
-  : LibraryRpcMap[M]['params']
+  : M extends 'actors.list'
+    ? NormalizedActorQuery
+    : LibraryRpcMap[M]['params']
 
 /** 每个方法的参数解析器。 */
 const PARAM_PARSERS: {
@@ -341,6 +300,7 @@ const PARAM_PARSERS: {
   removeLibrary: input => ({
     libraryId: positiveId(asRecord(input, '参数').libraryId, 'libraryId'),
   }),
+  updateLibrary: parseUpdateLibrary,
   scan: parseScan,
   query: normalizeLibraryQuery,
   getItem: itemIdParam,
@@ -372,6 +332,7 @@ const PARAM_PARSERS: {
   'writer.listOrganizeBatches': () => undefined,
   'jav.getSettings': () => undefined,
   'jav.setSettings': parseJavSettings,
+  ...ACTOR_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */

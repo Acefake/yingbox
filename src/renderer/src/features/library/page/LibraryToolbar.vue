@@ -83,7 +83,7 @@
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏：标题与数量、资料库 / 待确认切换、搜索、筛选、媒体库、排序与方向、扫描 / 识别 / 设置。
+ * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、媒体库、排序与方向、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  */
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -100,7 +100,7 @@ import {
 } from '../state/query-state'
 
 /** 页面视图。 */
-export type LibraryView = 'wall' | 'review'
+export type LibraryView = 'wall' | 'actors' | 'review'
 
 defineProps<{
   kindLabel: string

@@ -1,11 +1,10 @@
 /**
- * 插件宿主：Amane / Lada / mpv 这类「主进程托管的外部程序」统一登记在这里。
+ * 插件宿主：Lada / mpv 这类「主进程托管的外部程序」统一登记在这里。
  *
- * - 启动：各插件都只在第一次被用到时启动（Amane 进入片库页、lada 开始任务、
- *   mpv 打开文件）；参数各不相同，所以 start 仍由各插件自己实现。
+ * - 启动：各插件都只在第一次被用到时启动（lada 开始任务、mpv 打开文件）；参数各不相同，所以 start 仍由各插件自己实现。
  * - 停止 / 健康 / 日志：统一接口，日志统一加 `[插件名]` 前缀。
  * - 退出清理：应用退出时宿主先拦住退出，并行停掉所有插件（每个最多等 STOP_TIMEOUT_MS），
- *   全部结束后再放行。原先三处各自 `app.on('before-quit')` 只发信号不等退出，
+ *   全部结束后再放行。原先各处各自 `app.on('before-quit')` 只发信号不等退出，
  *   进程可能在影盒退出后残留。
  */
 
@@ -27,7 +26,7 @@ export interface Plugin {
   health(): PluginHealth
 }
 
-/** 插件日志：统一前缀，避免各处手写 `[Amane]`、`[lada]`。 */
+/** 插件日志：统一前缀，避免各处手写 `[lada]`、`[mpv]`。 */
 export interface PluginLogger {
   info(...args: unknown[]): void
   error(...args: unknown[]): void

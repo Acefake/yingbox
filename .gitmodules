@@ -1,3 +1,0 @@
-[submodule "packages/amane/upstream"]
-	path = packages/amane/upstream
-	url = https://github.com/sqzw-x/amane.git

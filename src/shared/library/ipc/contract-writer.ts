@@ -4,6 +4,7 @@
  * 只有类型和常量，由 contract.ts 统一再导出。
  */
 import { DEFAULT_MOVIE_TEMPLATE, DEFAULT_TV_TEMPLATE } from '../writer/template'
+import type { JobAccepted } from './contract'
 
 /**
  * 写出设置：NFO、图片、识别后自动写出、整理（改名移动）。
@@ -116,4 +117,21 @@ export interface OrganizeBatchInfo {
   itemIds: number[]
   /** 最后一个错误。 */
   error: string | null
+}
+
+/** window.api.library.writer。 */
+export interface LibraryWriterBridge {
+  getSettings(): Promise<WriterSettings>
+  /** 保存并返回生效的设置；模板不合法时以 invalid-params 拒绝。 */
+  setSettings(settings: WriterSettings): Promise<WriterSettings>
+  /** 为这些条目（电影 / 剧集，传季 / 集按所属剧集处理）写 NFO 与图片，排队执行。 */
+  write(itemIds: number[]): Promise<JobAccepted>
+  /** 按模板生成整理计划（只读，不动文件）。 */
+  previewOrganize(itemIds: number[]): Promise<OrganizePlan>
+  /** 执行计划里没有冲突的项，记录批次日志；整理未开启或计划过期时拒绝。 */
+  applyOrganize(planId: string): Promise<OrganizeAccepted>
+  /** 按批次日志倒序移回原处。 */
+  undoOrganize(batchId: number): Promise<JobAccepted>
+  /** 最近的整理批次，新的在前。 */
+  listOrganizeBatches(): Promise<OrganizeBatchInfo[]>
 }

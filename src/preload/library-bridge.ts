@@ -11,6 +11,7 @@ import {
   type LibraryEvent,
   type LibraryMethod,
   type LibraryRpcMap,
+  createActorsBridge,
   encodeErrorMessage,
 } from '../shared/library/ipc'
 
@@ -75,6 +76,7 @@ export function createLibraryBridge(
     listLibraries: () => call('listLibraries'),
     addLibrary: request => call('addLibrary', request),
     removeLibrary: libraryId => call('removeLibrary', { libraryId }),
+    updateLibrary: request => call('updateLibrary', request),
     scan: request => call('scan', request),
     query: (query = {}) => call('query', query),
     getItem: itemId => call('getItem', { itemId }),
@@ -97,7 +99,10 @@ export function createLibraryBridge(
     jav: {
       getSettings: () => call('jav.getSettings'),
       setSettings: settings => call('jav.setSettings', settings),
+      setCredential: (provider, token) =>
+        call('setProviderToken', { provider, token }),
     },
+    actors: createActorsBridge(call),
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       const { port1, port2 } = createChannel()
       port1.onmessage = event => listener(event.data as LibraryEvent)

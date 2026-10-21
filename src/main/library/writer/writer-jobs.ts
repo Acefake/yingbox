@@ -9,6 +9,7 @@ import type {
 } from '../../../shared/library/ipc'
 import type { CatalogQuery } from '../catalog/query'
 import { type JobContext, PermanentJobError } from '../jobs/queue'
+import type { NfoActorLookup } from '../actors/actor-store'
 import type { LibraryStore } from '../libraries/library-store'
 import type { OrganizeCounts, OrganizeRunner } from './organize/organize-runner'
 import { type PlannedOutput, planOutputs } from './write/output-plan'
@@ -32,6 +33,8 @@ export interface WriterJobDeps {
   catalogQuery: CatalogQuery
   libraries: LibraryStore
   settings: () => WriterSettings
+  /** 条目演员的资料（名字 → 资料）；缺省不补。 */
+  actorProfiles?: (itemId: number) => NfoActorLookup
   emit: (event: LibraryEvent) => void
   log?: (message: string) => void
 }
@@ -70,6 +73,7 @@ export async function runWrite(
         libraryRoot: library.root,
         settings,
         sharedDir: dir => deps.store.foreignVideosIn(dir, id).length > 0,
+        actors: deps.actorProfiles?.(id),
       }),
     })
   }

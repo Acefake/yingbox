@@ -20,7 +20,7 @@ describe('设置分区注册表', () => {
   it('其它 feature 登记的分区按 order 插到原来的位置', () => {
     registerSettingsSection(section('lada', 70))
     registerSettingsSection(section('sources', 50))
-    registerSettingsSection(section('amane', 90))
+    registerSettingsSection(section('extra', 90))
     expect(ids()).toEqual([
       'appearance',
       'images',
@@ -30,7 +30,7 @@ describe('设置分区注册表', () => {
       'player',
       'lada',
       'update',
-      'amane',
+      'extra',
     ])
   })
 

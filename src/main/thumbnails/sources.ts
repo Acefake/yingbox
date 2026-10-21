@@ -1,7 +1,6 @@
 /**
  * 取缩略图原图（依赖注入，便于测试；接线在 index.ts）：
  * - file:///…：本地图片，直接给路径（nativeImage 读文件）；
- * - 插件登记的协议（如 amane:）：交给插件的处理函数；
  * - http(s)：主进程带 SSRF 防护出网，只给名单里的防盗链 CDN 带 Referer。
  * 响应必须是图片且不超过大小上限。
  */
@@ -17,8 +16,6 @@ export interface SourceDeps {
   fetchImage(url: string): Promise<Response>
   /** 按上限读完响应体，超出抛错 */
   readLimited(response: Response, maxBytes: number): Promise<Uint8Array>
-  /** 非 http(s) 来源的取图函数，按协议（含冒号）登记 */
-  loaders: ReadonlyMap<string, (source: string) => Promise<Response>>
 }
 
 /** WebP 文件头：RIFF????WEBP */
@@ -52,8 +49,6 @@ export function createSourceLoader(
   return async source => {
     const scheme = new URL(source).protocol
     if (scheme === 'file:') return { path: fileURLToPath(source) }
-    const loader = deps.loaders.get(scheme)
-    if (loader) return readImage(await loader(source), deps)
     if (scheme !== 'http:' && scheme !== 'https:')
       throw new Error(`不支持的来源：${scheme}`)
     return readImage(await deps.fetchImage(source), deps)

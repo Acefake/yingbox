@@ -18,6 +18,7 @@ features/library/
   detail/     ItemDetail.vue（Apple TV 风格，载入与操作）+ 头图 / 剧集 / 演职员 / 信息区块组件、详情纯规则、播放列表构造
   review/     待确认队列、匹配对照面板（本地一侧 / 候选卡片）、匹配操作 composable
   writer/     写出与整理的状态机、整理预览面板
+  actors/     演员库（番号库）：演员列表、演员详情（资料头 + 作品墙）、编辑锁定面板、界面纯规则
   settings/   媒体库设置（System Settings 风格；写出与整理两组单独成组件）、TMDB 令牌迁移
   shared/     模态面板、格式化
 ```
@@ -71,6 +72,24 @@ TMDB 令牌现在存在引擎（`setProviderToken` / `getProviderStatus`）。�
 整理流程：`previewOrganize(itemIds)` → 表格预览（冲突项标红不执行、跨盘标注、已符合模板计数，超过 500 行只显示前 500）
 → `applyOrganize(planId)`（整理开关关闭时按钮置灰并提示去设置开启）→ 完成页可 `undoOrganize(batchId)`。
 `writer-progress` 进度并入页面顶部的后台任务进度条。网页版没有 writer 时入口置灰。
+
+## 演员库（番号库）
+
+有番号文件夹时工具栏多一个「演员」视图。
+
+- **演员列表**（`actors/ActorsView.vue`）：圆形头像 + 名字 + 作品数，`UiVirtualGrid` 只渲染视口附近的卡片；
+  搜索名字 / 别名（引擎 trigram FTS，短词退回 LIKE）、按作品数 / 名字 / 最近入库排序；列表按 1000 条一页拉全，
+  `actors-changed` / `items-changed` 事件防抖 1 秒重拉。右上角「重新获取全部演员资料」排后台任务。
+- **演员详情**（`actors/ActorDetail.vue`，路由 `?actor=`）：资料头（大头像、名字、别名、生日与年龄、身高、三围、罩杯、出身地、
+  简介，资料还没查到时一句状态说明）放在海报墙的 `before` 插槽里，作品墙直接复用 `PosterWall` + `usePagedQuery`
+  （`query({ actorId })`），大量作品同样虚拟化。点作品打开条目详情（叠在演员详情上，后退回到演员）。
+- **条目详情 → 演员**：番号库条目的演职员里，演员库里有记录的演员可点（`actors.forItem`），头像换成本地缓存的；
+  点开时去掉 `?item=` 换成 `?actor=`，后退回到条目。
+- **编辑与锁定**（`actors/ActorEditSheet.vue`）：每个字段一行、右侧锁定开关；只提交改过的字段，改过的自动加锁，
+  之后的自动 / 手动刷新都保留锁定字段（规则在 `actors/actor-rules.ts`，引擎侧在 `src/main/library/actors/actor-rules.ts`）。
+- **设置**：媒体库设置里「演员资料」一组（`settings/ActorSourcesGroup.vue`）：自动获取开关、来源开关与优先级。
+- 网页端经 `http-bridge` 同样可用（两个 transport 共用 `createActorsBridge`）。e2e：`scripts/web-e2e.mjs` 走一遍
+  演员列表 → 详情 → 编辑锁定 → 作品 → 条目详情点演员。
 
 ## 删除
 

@@ -60,7 +60,7 @@
 
 <script setup lang="ts">
 /**
- * 海报卡：全应用唯一的海报样式（首页、搜索、片源、收藏、AV、Amane）。
+ * 海报卡：全应用唯一的海报样式（首页、搜索、片源、收藏、AV）。
  *
  * 只放三样东西：图、标题、一行副标题。评分在图上左下角，
  * 收藏和其他操作悬停时出现在右上角。更多信息放到详情页。
@@ -83,7 +83,7 @@ const props = withDefaults(
     /** portrait 2:3 海报；landscape 16:9 剧照/封面 */
     shape?: 'portrait' | 'landscape'
     /**
-     * 用 WebP 缩略图（yingbox-media://thumb/，见 services/thumbnails）。网络 / Amane / 本地封面都可开；
+     * 用 WebP 缩略图（yingbox-media://thumb/，见 services/thumbnails）。网络 / 本地封面都可开；
      * 缩略图加载失败时自动退回原图。
      */
     thumb?: boolean

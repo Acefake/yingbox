@@ -88,6 +88,7 @@ beforeAll(async () => {
     mediaRoots: [media],
     webDir: join(work, 'web'),
     fetch: { kind: 'node' },
+    monitor: { watchMode: 'off', scanIntervalMs: 0, settleMs: 0 },
   }
   app = await createServerApp(config, {
     fetch: fakeFetch as never,

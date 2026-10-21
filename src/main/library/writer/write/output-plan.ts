@@ -35,6 +35,7 @@ import {
   buildTvShowNfo,
 } from '../nfo/nfo-builder'
 import type { XmlNode } from '../nfo/xml'
+import type { NfoActorLookup } from '../../actors/actor-store'
 
 /** 一个要写的 sidecar。 */
 export type PlannedOutput =
@@ -48,6 +49,8 @@ export interface PlanContext {
   settings: WriterSettings
   /** 某目录里是否有别的条目的视频（电影是否独占文件夹）。 */
   sharedDir: (dir: string) => boolean
+  /** 番号库条目演员的资料（演员库）：头像优先用它，NFO 写扩展字段。 */
+  actors?: NfoActorLookup
 }
 
 /** 图片尺寸：海报 / 背景图与 P3 缓存的尺寸一致，直接复用已下载的原图。 */
@@ -104,14 +107,15 @@ class Outputs {
     }
   }
 
-  actors(dir: string, meta: MediaMetadata): void {
+  actors(dir: string, meta: MediaMetadata, profiles?: NfoActorLookup): void {
     for (const person of meta.cast) {
-      if (!person.profilePath) continue
+      const thumb = profiles?.get(person.name)?.thumb ?? person.profilePath
+      if (!thumb) continue
       const file = actorFile(person.name)
       if (file) {
         this.image(
           [join(dir, '.actors', file)],
-          TmdbProvider.imageUrl(person.profilePath, SIZE.profile)
+          TmdbProvider.imageUrl(thumb, SIZE.profile)
         )
       }
     }
@@ -138,10 +142,12 @@ function planMovie(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
     const own = dir !== ctx.libraryRoot && !ctx.sharedDir(dir)
     if (nfo.enabled) {
       if (own && videos.length > 1)
-        out.nfo(join(dir, 'movie.nfo'), [buildMovieNfo(meta)])
+        out.nfo(join(dir, 'movie.nfo'), [buildMovieNfo(meta, ctx.actors)])
       else
         for (const v of videos)
-          out.nfo(join(dir, `${stem(v)}.nfo`), [buildMovieNfo(meta)])
+          out.nfo(join(dir, `${stem(v)}.nfo`), [
+            buildMovieNfo(meta, ctx.actors),
+          ])
     }
     const names = own ? [''] : videos.map(v => `${stem(v)}-`)
     for (const prefix of names) {
@@ -160,7 +166,7 @@ function planMovie(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
       if (artwork.fanart) out.image([join(dir, `${prefix}fanart.jpg`)], fanart)
       if (artwork.logo) out.image([join(dir, `${prefix}clearlogo.png`)], logo)
     }
-    if (artwork.actors) out.actors(dir, meta)
+    if (artwork.actors) out.actors(dir, meta, ctx.actors)
   }
   return out.list
 }
