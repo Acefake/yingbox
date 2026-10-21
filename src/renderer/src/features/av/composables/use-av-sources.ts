@@ -88,7 +88,7 @@ export function useAvSources() {
   )
 
   const allSources = computed(() => [...AV_SOURCES, ...remoteAvSources.value])
-  const addSources = (sources: AvSite[]) => {
+  const addSources = (sources: AvSite[]): number => {
     const known = new Set(allSources.value.map(source => source.api))
     const additions = sources.filter(
       source => source.api && !known.has(source.api)

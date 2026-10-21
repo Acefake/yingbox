@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createNetClient } from '../src/shared/net/client'
+import { type NetClient, createNetClient } from '../src/shared/net/client'
 import {
   ResolveError,
   extractStream,
@@ -13,8 +13,10 @@ import { createAvHandlers } from '../src/engine/av'
 import { refererFor } from '../src/main/media-headers'
 import type { EngineContext } from '../src/engine/rpc'
 
-const lookup = async () => [{ address: '93.184.216.34' }]
-const net = (routes: Record<string, () => Response>) =>
+const lookup = async (): Promise<{ address: string }[]> => [
+  { address: '93.184.216.34' },
+]
+const net = (routes: Record<string, () => Response>): NetClient =>
   createNetClient({
     lookup,
     fetch: async url =>

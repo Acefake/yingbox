@@ -5,7 +5,10 @@ import {
   isValidPlaybackRate,
   shouldResume,
 } from '../src/renderer/src/features/player/utils/art-options'
-import { usePlayerSubtitles } from '../src/renderer/src/features/player/composables/use-player-subtitles'
+import {
+  type PlayerSubtitles,
+  usePlayerSubtitles,
+} from '../src/renderer/src/features/player/composables/use-player-subtitles'
 
 describe('播放规则', () => {
   it('续播：5 秒以后、离结尾 10 秒以上、视频长于 15 秒才跳', () => {
@@ -46,7 +49,8 @@ describe('在线字幕', () => {
 
   const subs = (
     search = { title: '默认片名', imdbId: 'tt1', season: 1, episode: 2 }
-  ) => usePlayerSubtitles({ player: () => null, search: () => search })
+  ): PlayerSubtitles =>
+    usePlayerSubtitles({ player: () => null, search: () => search })
 
   it('输入框为空时用默认片名搜索，并带上 IMDB 与季集', async () => {
     const searchOnline = vi.fn(async () => ({

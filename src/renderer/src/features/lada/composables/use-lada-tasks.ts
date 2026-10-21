@@ -5,7 +5,11 @@
  * AppLayout 启动时接一次 IPC 推送，Amane 页面与后台任务面板读同一份数据。
  */
 import { computed, h, ref } from 'vue'
-import type { LadaJob, LadaLiveStatus } from '../../../../../shared/lada'
+import type {
+  LadaJob,
+  LadaLiveStatus,
+  LadaResumeProgress,
+} from '../../../../../shared/lada'
 import { confirmDialog, toast } from '@/components/ui'
 import UiInput from '@/components/ui/UiInput.vue'
 import { readRange } from '../utils/range-input'
@@ -165,7 +169,9 @@ export function useLadaTasks() {
   }
 
   /** 该片子是否有可继续的进度（界面上用来显示「继续」） */
-  async function getResumeInfo(filePath: string) {
+  async function getResumeInfo(
+    filePath: string
+  ): Promise<LadaResumeProgress | null> {
     const api = window.api?.lada
     if (!api?.resumeInfo) return null
     return api.resumeInfo(filePath).catch(() => null)

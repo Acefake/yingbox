@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest'
+import { getVodList } from '../src/renderer/src/utils/vod-data'
 import {
   MISSAV_SOURCE,
   browseCacheKey,
@@ -21,7 +22,6 @@ import {
   nextEpisode,
   nextInList,
   parseCmsEpisodes,
-  parsePluginSearchList,
   playTitle,
   searchCacheKey,
   toggleFavorite,
@@ -256,15 +256,13 @@ describe('AV 播放与搜索规则', () => {
     expect(searchCacheKey('k', ['a'])).not.toBe(searchCacheKey('k2', ['a']))
   })
 
-  it('插件搜索返回：最多解两层 JSON 字符串，取 list 或 data.list', () => {
+  it('插件搜索返回（与在线页共用 getVodList）：最多解两层 JSON 字符串，取 list 或 data.list', () => {
     const list = [{ vod_name: 'x' }]
-    expect(parsePluginSearchList({ list })).toEqual(list)
-    expect(parsePluginSearchList({ data: { list } })).toEqual(list)
-    expect(
-      parsePluginSearchList(JSON.stringify(JSON.stringify({ list })))
-    ).toEqual(list)
-    expect(parsePluginSearchList('{坏')).toEqual([])
-    expect(parsePluginSearchList(null)).toEqual([])
+    expect(getVodList({ list })).toEqual(list)
+    expect(getVodList({ data: { list } })).toEqual(list)
+    expect(getVodList(JSON.stringify(JSON.stringify({ list })))).toEqual(list)
+    expect(getVodList('{坏')).toEqual([])
+    expect(getVodList(null)).toEqual([])
   })
 
   it('收藏切换按 _uid', () => {

@@ -93,7 +93,7 @@ export function useAvBrowse(options: {
     }
   )
 
-  const cacheKey = (p: number) =>
+  const cacheKey = (p: number): string =>
     makeCacheKey({
       sourceApi: sourceApi.value,
       byName: isPlugin.value || isMissav.value,
@@ -103,7 +103,7 @@ export function useAvBrowse(options: {
       sort: sort.value,
     })
 
-  const onScroll = () => {
+  const onScroll = (): void => {
     const el = scrollEl.value
     if (!options.isActive() || !el || loading.value || loadingMore.value) return
     if (moreError.value || !hasMore.value) return
@@ -111,7 +111,7 @@ export function useAvBrowse(options: {
       void load(false, true)
   }
 
-  const saveVisit = () => {
+  const saveVisit = (): void => {
     if (!sourceApi.value) return
     visits.value[sourceApi.value] = {
       categoryId: categoryId.value,
@@ -120,7 +120,7 @@ export function useAvBrowse(options: {
     }
   }
 
-  const restoreVisit = () => {
+  const restoreVisit = (): void => {
     const saved = visits.value[sourceApi.value]
     categories.value = categoryCache.value[sourceApi.value] ?? allCategories()
     categoryId.value = saved?.categoryId ?? null
@@ -129,7 +129,11 @@ export function useAvBrowse(options: {
     sort.value = saved?.sort ?? 'latest'
   }
 
-  const applyEntry = (entry: BrowseCacheEntry, append: boolean, p: number) => {
+  const applyEntry = (
+    entry: BrowseCacheEntry,
+    append: boolean,
+    p: number
+  ): void => {
     videos.value = mergePage(videos.value, entry.items, append)
     page.value = p
     pageCount.value = entry.items.length ? entry.pageCount : p
@@ -148,14 +152,15 @@ export function useAvBrowse(options: {
     append: boolean,
     fetchPage: () => Promise<() => BrowseCacheEntry>,
     clearOnError: boolean
-  ) => {
+  ): Promise<void> => {
     const controller = new AbortController()
     abort = controller
     activeKey = cacheKey(p)
     loading.value = !append
     loadingMore.value = append
     error.value = ''
-    const isCurrent = () => !controller.signal.aborted && abort === controller
+    const isCurrent = (): boolean =>
+      !controller.signal.aborted && abort === controller
     try {
       const finish = await fetchPage()
       if (!isCurrent()) return
@@ -235,7 +240,7 @@ export function useAvBrowse(options: {
   }
 
   /** 切换到插件源时，先取回它的分类（CatSpider 的 tabs）再加载内容。 */
-  const setupPlugin = async () => {
+  const setupPlugin = async (): Promise<void> => {
     const entry = currentEntry.value
     abort?.abort()
     videos.value = []
@@ -263,7 +268,7 @@ export function useAvBrowse(options: {
     await load()
   }
 
-  const applyMissavCategories = () => {
+  const applyMissavCategories = (): void => {
     const saved = visits.value[MISSAV_SOURCE]
     const { categories: list, match } = missavCategoriesFor(saved)
     categories.value = list
@@ -273,7 +278,7 @@ export function useAvBrowse(options: {
   }
 
   /** 按当前数据源的类型准备分类并加载。 */
-  const enterSource = async () => {
+  const enterSource = async (): Promise<void> => {
     if (isMissav.value) {
       applyMissavCategories()
       await load()
@@ -284,7 +289,7 @@ export function useAvBrowse(options: {
     }
   }
 
-  const selectCategory = (category: BrowseCategory) => {
+  const selectCategory = (category: BrowseCategory): void => {
     if (categoryName.value === category.name) return
     categoryId.value = category.id
     categoryName.value = category.name
@@ -293,7 +298,7 @@ export function useAvBrowse(options: {
     void load()
   }
 
-  const onFilterChange = (value: Record<string, string>) => {
+  const onFilterChange = (value: Record<string, string>): void => {
     if (value.source && value.source !== sourceApi.value)
       sourceApi.value = value.source
     if (value.sort && value.sort !== sort.value)
@@ -307,7 +312,7 @@ export function useAvBrowse(options: {
   }
 
   /** 已选数据源不在清单里时退回第一个。 */
-  const reconcileSource = () => {
+  const reconcileSource = (): void => {
     if (options.entries.value.some(entry => entry.api === sourceApi.value))
       return
     sourceApi.value = options.entries.value[0]?.api ?? ''
@@ -327,7 +332,7 @@ export function useAvBrowse(options: {
   })
 
   /** 页面挂载：首次使用默认选 MissAV；数据源未变化时由这里加载（变化了交给 watcher）。 */
-  const init = async () => {
+  const init = async (): Promise<void> => {
     if (!localStorage.getItem('av_missav_catalog_v1')) {
       localStorage.setItem('av_missav_catalog_v1', '1')
       sourceApi.value = MISSAV_SOURCE

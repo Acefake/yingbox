@@ -26,14 +26,14 @@ interface VODTrackRequest {
   siteName: string
   url: string
   ext?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface VODPlayRequest {
   siteName: string
   url: string
   ext?: string
-  [key: string]: any
+  [key: string]: unknown
 }
 
 interface VODParseResponse {
@@ -42,7 +42,8 @@ interface VODParseResponse {
   url?: string
   site?: string
   videoID?: string
-  data?: any
+  /** 插件原样返回的数据（对象或 JSON 字符串），用 utils/vod-payload 解析 */
+  data?: unknown
 }
 
 // 插件解析（含 Cloudflare 挑战时走浏览器代抓）可能超过 10s，前端超时需留出余量。

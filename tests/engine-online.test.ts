@@ -2,7 +2,7 @@ import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
-import { createNetClient } from '../src/shared/net/client'
+import { type NetClient, createNetClient } from '../src/shared/net/client'
 import { runCatSpider } from '../src/engine/online/catspider'
 import { SITES, createOnlineHandlers, findM3u8 } from '../src/engine/online'
 import {
@@ -11,9 +11,13 @@ import {
 } from '../src/engine/online/plugin-cache'
 import type { EngineContext } from '../src/engine/rpc'
 
-const lookup = async () => [{ address: '93.184.216.34' }]
+const lookup = async (): Promise<{ address: string }[]> => [
+  { address: '93.184.216.34' },
+]
 /** 路由表式的假网络：url → 响应体（或返回 Response 的函数） */
-const fakeNet = (routes: Record<string, string | (() => Response)>) =>
+const fakeNet = (
+  routes: Record<string, string | (() => Response)>
+): NetClient =>
   createNetClient({
     lookup,
     fetch: async url => {

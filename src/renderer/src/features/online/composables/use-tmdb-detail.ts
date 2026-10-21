@@ -12,14 +12,17 @@ export function useTmdbDetail() {
   const images = ref<any[]>([])
   const loading = ref(true)
 
-  const reset = () => {
+  const reset = (): void => {
     detail.value = null
     cast.value = []
     directors.value = []
     images.value = []
   }
 
-  const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
+  const fetchTmdb = async (
+    name: string,
+    mediaType: 'movie' | 'tv'
+  ): Promise<void> => {
     loading.value = true
     const zh = { language: 'zh-CN' }
     try {

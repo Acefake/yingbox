@@ -1,6 +1,9 @@
 /**
  * 在线域共用的数据形状：CMS / CatSpider 搜索条目、播放线路分组、站点配置。
  */
+import type { PluginExt } from '@/utils/vod-data'
+
+export type { PluginExt, RawVod } from '@/utils/vod-data'
 
 /** 聚合后的一个 CMS 来源（同名条目的其它站点）。 */
 export interface CmsSource {
@@ -25,13 +28,20 @@ export interface CmsItem {
   sources?: CmsSource[]
   _source?: 'cms' | 'catspider'
   _siteName?: string
-  _ext?: Record<string, any>
+  _ext?: PluginExt
+}
+
+/** 一集：名称、地址，插件线路还带插件参数。 */
+export interface Episode {
+  name: string
+  url: string
+  ext?: PluginExt
 }
 
 /** 一条播放线路：同一来源下的一组剧集。 */
 export interface EpisodeGroup {
   label: string
-  episodes: { name: string; url: string; ext?: Record<string, any> }[]
+  episodes: Episode[]
   hasDirect: boolean
   _source?: 'cms' | 'catspider'
   _siteName?: string

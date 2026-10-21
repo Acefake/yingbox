@@ -28,8 +28,10 @@ describe('isPrivateIPLiteral', () => {
 })
 
 describe('assertPublicTarget', () => {
-  const publicDns = async () => [{ address: '93.184.216.34' }]
-  const privateDns = async () => [
+  const publicDns = async (): Promise<{ address: string }[]> => [
+    { address: '93.184.216.34' },
+  ]
+  const privateDns = async (): Promise<{ address: string }[]> => [
     { address: '93.184.216.34' },
     { address: '192.168.1.10' },
   ]
@@ -47,7 +49,7 @@ describe('assertPublicTarget', () => {
   })
 
   it('解析失败拒绝、非 http 协议拒绝、带账号密码拒绝、localhost 拒绝', async () => {
-    const failing = async () => {
+    const failing = async (): Promise<never> => {
       throw new Error('ENOTFOUND')
     }
     await expect(

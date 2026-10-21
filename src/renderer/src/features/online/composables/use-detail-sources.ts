@@ -47,7 +47,7 @@ export function useDetailSources() {
   )
 
   /** 按片名加载播放源；directItem 是打开详情时命中的那条（可为空）。 */
-  const load = async (directItem: any, searchTitle: string) => {
+  const load = async (directItem: any, searchTitle: string): Promise<void> => {
     searching.value = true
     episodeGroups.value = []
     activeGroup.value = 0
@@ -55,7 +55,7 @@ export function useDetailSources() {
       const targetTitle = normalizeTitle(searchTitle)
       const seen = new Set<string>()
       const pending = new Set<Promise<void>>()
-      const appendDetail = (candidate: any) => {
+      const appendDetail = (candidate: any): void => {
         const key = sourceKey(candidate)
         if (seen.has(key)) return
         seen.add(key)
@@ -99,18 +99,18 @@ export function useDetailSources() {
     }
   }
 
-  const switchSourceType = (type: SourceType) => {
+  const switchSourceType = (type: SourceType): void => {
     currentSourceType.value = type
     activeGroup.value = 0
     activeSite.value = 0
     activeLine.value = 0
   }
-  const switchSite = (index: number) => {
+  const switchSite = (index: number): void => {
     activeSite.value = index
     activeLine.value = 0
     activeGroup.value = 0
   }
-  const switchLine = (index: number) => {
+  const switchLine = (index: number): void => {
     activeLine.value = index
   }
 

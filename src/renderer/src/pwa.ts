@@ -4,7 +4,7 @@ export function registerPwa(): void {
   if (typeof window.api?.win !== 'undefined') return
   if (!('serviceWorker' in navigator)) return
 
-  const register = () => {
+  const register = (): void => {
     const swUrl = `${import.meta.env.BASE_URL}sw.js`
     navigator.serviceWorker.register(swUrl).catch(err => {
       console.warn('[pwa] sw register failed', err)
