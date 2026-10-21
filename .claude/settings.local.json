@@ -6,10 +6,8 @@
       "Bash(pnpm typecheck:node)",
       "Bash(bash scripts/check-issues.sh)",
       "Bash(bash scripts/auto-fix.sh)",
-      "Bash(pnpm build:backend)",
       "Bash(pnpm build:unpack)",
-      "Bash(npx electron-builder *)",
-      "Bash(go build *)"
+      "Bash(npx electron-builder *)"
     ]
   }
 }
