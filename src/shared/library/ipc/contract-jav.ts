@@ -28,6 +28,13 @@ export type JavSiteId =
   | 'dmm_api'
   | 'mgstage'
   | 'getchu'
+  | 'avbase'
+  | 'fc2'
+  | 'freejavbt'
+  | 'airav'
+  | 'iqqtv'
+  | 'fc2club'
+  | 'fc2ppvdb'
 
 /** 站点显示名与说明（设置页用）。 */
 export const JAV_SITES: ReadonlyArray<{
