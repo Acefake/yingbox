@@ -5,7 +5,7 @@
 - **本地媒体库**：扫描电影、剧集目录，从 TMDB 刮削元数据，写入 Kodi 标准 NFO 与图片
 - **在线播放**：聚合 CMS 站点（`cms-sites.json`）与 CatSpider 插件站点
 - **内置播放器**：本地文件（`local://`，支持 Range）、HLS/m3u8、外挂字幕，可选 mpv
-- **番号库**：电影库可添加番号文件夹，TS 实现的 25 个番号站点刮削 + 演员资料、目录监控自动入库与整理（取代原 Amane 侧车），见 [docs/library-server.md](docs/library-server.md)
+- **番号库**：独立的「番号」页（成人模式下出现在侧栏「本地媒体」里），TS 实现的 25 个番号站点刮削 + 演员资料、目录监控自动入库与整理（取代原 Amane 侧车），见 [docs/library-server.md](docs/library-server.md)
 - **片库服务（网页端 / NAS）**：同一套媒体库核心以独立 Node 服务运行，浏览器访问，可用 Docker 部署到 NAS，见 [docs/library-server.md](docs/library-server.md)
 
 ## 技术栈

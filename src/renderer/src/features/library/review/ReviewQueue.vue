@@ -69,7 +69,6 @@ import { computed, onMounted, ref, shallowRef, watch } from 'vue'
 
 import type {
   LibraryItemSummary,
-  LibraryKind,
   MatchState,
 } from '../../../../../shared/library/ipc'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
@@ -78,13 +77,14 @@ import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 
 import { MATCH_STATE_LABEL } from '../shared/format'
+import type { LibrarySection } from '../state/library-section'
 import { reviewQuery } from '../state/query-state'
 import { usePagedQuery } from '../state/use-paged-query'
 import MatchPane from './MatchPane.vue'
 
 const props = defineProps<{
-  kind: LibraryKind
-  /** 本类型媒体库的 id，用来过滤 items-changed 事件。 */
+  section: LibrarySection
+  /** 本分区媒体库的 id，用来过滤 items-changed 事件。 */
   libraryIds: number[]
 }>()
 
@@ -105,7 +105,7 @@ const OVERSCAN = 6
 
 const scope = ref<Scope>('both')
 const { list, version, total, ready, setVisible } = usePagedQuery(
-  () => reviewQuery(props.kind, SCOPE_STATES[scope.value]),
+  () => reviewQuery(props.section, SCOPE_STATES[scope.value]),
   event => props.libraryIds.includes(event.libraryId),
   100
 )

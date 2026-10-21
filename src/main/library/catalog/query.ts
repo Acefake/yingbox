@@ -87,6 +87,11 @@ function compileWhere(q: NormalizedLibraryQuery): {
     clauses.push('i.library_id = ?')
     params.push(q.libraryId)
   }
+  if (q.source !== undefined) {
+    // 库只有寥寥几个，子查询结果很小；按来源把番号库与普通片库分开
+    clauses.push('i.library_id IN (SELECT id FROM libraries WHERE source = ?)')
+    params.push(q.source)
+  }
   if (q.actorId !== undefined) {
     clauses.push('i.id IN (SELECT item_id FROM item_actors WHERE actor_id = ?)')
     params.push(q.actorId)
