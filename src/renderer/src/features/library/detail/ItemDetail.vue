@@ -34,6 +34,7 @@
       <DetailPeople v-if="people.length" :people="people" />
       <DetailInfo :info-rows="infoRows" :files="files" />
     </template>
+    <WebPlayer />
   </div>
 </template>
 
@@ -75,6 +76,7 @@ import {
   play,
   playableEpisodes,
 } from './playback'
+import WebPlayer from './WebPlayer.vue'
 
 const props = defineProps<{ itemId: number }>()
 const emit = defineEmits<{

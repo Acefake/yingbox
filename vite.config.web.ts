@@ -1,12 +1,29 @@
 import { resolve } from 'path'
-import { defineConfig } from 'vite'
+import { type ProxyOptions, defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 
 /** Standalone web / PWA build (no Electron main/preload). */
 
 /** 同源代理:浏览器(手机)只访问 vite,由 vite 在 PC 本机回源,Amane 无需暴露局域网。 */
 const amaneTarget = process.env.AMANE_PROXY_TARGET || 'http://127.0.0.1:18180'
+
+/**
+ * 独立片库服务（pnpm dev:server，src/server）：网页端的媒体库 API、事件流、海报与视频都走同源 /api、/media。
+ * 去掉 Origin 头：浏览器的 Origin 是 vite 的地址，服务的跨站写保护按 Host 比对，经代理时两者必然不同。
+ */
+const libraryTarget =
+  process.env.YINGBOX_SERVER_TARGET || 'http://127.0.0.1:31480'
+const libraryProxy: ProxyOptions = {
+  target: libraryTarget,
+  changeOrigin: true,
+  configure: proxy => {
+    proxy.on('proxyReq', req => req.removeHeader('origin'))
+  },
+}
+
 const localProxy = {
+  '/api': libraryProxy,
+  '/media': libraryProxy,
   '/amane-api': {
     target: amaneTarget,
     changeOrigin: true,

@@ -22,9 +22,12 @@
     <ActivityBar :activity="activity" />
 
     <main class="lib-main">
+      <!-- 网页端：片库服务连不上 / 需要登录 -->
+      <ServerConnect v-if="serverGate" :state="serverState" :kind="kind" />
+
       <!-- 不在桌面版 -->
       <LibraryEmpty
-        v-if="!available"
+        v-else-if="!available"
         :icon="kind"
         :title="`本地${kindLabel}库仅在桌面版可用`"
         text="媒体库需要读取本机文件夹，请在影盒桌面版中使用。"
@@ -137,6 +140,7 @@ import type {
   LibraryKind,
 } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
+import { libraryServerState } from '@/services/library-server'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 
 import ItemDetail from './detail/ItemDetail.vue'
@@ -144,6 +148,8 @@ import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
 import LibraryToolbar, { type LibraryView } from './page/LibraryToolbar.vue'
 import SelectionBar from './page/SelectionBar.vue'
+import ServerConnect from './page/ServerConnect.vue'
+import { usesLibraryServer } from './api/bridge'
 import {
   type ActivateModifiers,
   emptyTitleFor,
@@ -194,6 +200,11 @@ const {
   identifyAll: identifyLibraries,
 } = useLibraries(props.kind)
 const hasLibraries = computed(() => libraries.value.length > 0)
+// 网页端：片库服务就绪前（探测中 / 连不上 / 未登录）不显示海报墙
+const serverState = libraryServerState()
+const serverGate = computed(
+  () => usesLibraryServer() && serverState.value !== 'online'
+)
 const libraryIds = computed(() => libraries.value.map(lib => lib.id))
 
 // —— 查询条件 ——
