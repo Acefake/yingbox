@@ -37,7 +37,8 @@ export class MpvSocket extends EventEmitter {
         await this.tryConnect()
         return
       } catch {
-        if (i === retries - 1) throw new Error('mpv IPC 连接超时，请确认 mpv 已正常启动')
+        if (i === retries - 1)
+          throw new Error('mpv IPC 连接超时，请确认 mpv 已正常启动')
       }
     }
   }
@@ -66,7 +67,9 @@ export class MpvSocket extends EventEmitter {
       if (!line.trim()) continue
       try {
         this.dispatch(JSON.parse(line) as Record<string, unknown>)
-      } catch { /* 忽略非法 JSON */ }
+      } catch {
+        /* 忽略非法 JSON */
+      }
     }
   }
 

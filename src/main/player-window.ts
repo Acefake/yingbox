@@ -2,8 +2,11 @@ import { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import { emit, implement } from './rpc'
-import { type PlayerOpenPayload, type PlayerSourceItem, player } from '../shared/contract/player'
-
+import {
+  type PlayerOpenPayload,
+  type PlayerSourceItem,
+  player,
+} from '../shared/contract/player'
 
 /** 队列长度上限，避免渲染层发送超大数组 */
 const MAX_PLAYLIST = 500
@@ -196,12 +199,16 @@ export function registerPlayerWindowIpc(): void {
   implement(player, {
     open: (_, payload) => {
       const normalized = normalizePayload(payload)
-      if (!normalized) return { success: false, error: 'filePath or url required' }
+      if (!normalized)
+        return { success: false, error: 'filePath or url required' }
       try {
         openPlayerWindow(normalized)
         return { success: true }
       } catch (error) {
-        return { success: false, error: error instanceof Error ? error.message : String(error) }
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        }
       }
     },
     close: () => {
