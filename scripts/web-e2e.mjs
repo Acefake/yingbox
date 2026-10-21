@@ -1,6 +1,7 @@
 /**
  * 网页端端到端检查（手动跑，不进 CI）：启动 out/server，用 Playwright 驱动 dist-web，
- * 走一遍 登录 → 目录浏览加电影库 → 经 API 加番号库 → 事件推送刷新海报墙 → 详情 → 网页播放器。
+ * 走一遍 登录 → 目录浏览加电影库 → 经 API 加番号库 → 事件推送刷新海报墙 → 演员库（列表 → 演员详情 →
+ * 编辑并锁定 → 作品 → 条目详情里点演员回到演员详情）→ 详情 → 网页播放器。
  *
  * 出网走 scripts/smoke/fixture-fetch.mjs（离线夹具），不碰真实网络。
  *
@@ -135,6 +136,50 @@ try {
     `事件推送刷新海报墙，番号海报经 /media/image 加载：${await poster.getAttribute('src')}`
   )
   await page.screenshot({ path: shot('5-wall-jav') })
+
+  // 演员库：番号库识别后演员入库，「演员」视图出现
+  await page.getByRole('tab', { name: '演员' }).click()
+  const actorCard = page.locator('.lib-actor-card', { hasText: '鷲尾めい' })
+  await actorCard.waitFor({ timeout: 15000 })
+  const cards = await page.locator('.lib-actor-card').count()
+  step(
+    `演员视图：${cards} 位演员，含「鷲尾めい」（${await actorCard.locator('.lib-actor-works').innerText()}）`
+  )
+  await page.screenshot({ path: shot('5a-actors') })
+  await actorCard.click()
+  const actorWall = page.getByRole('grid', { name: '鷲尾めい的作品' })
+  await actorWall
+    .getByRole('gridcell', { name: /SSIS-497/ })
+    .waitFor({ timeout: 10000 })
+  step(`演员详情：作品墙有 SSIS-497，地址 ${new URL(page.url()).hash}`)
+  await page.screenshot({ path: shot('5b-actor-detail') })
+  await page.getByRole('button', { name: '编辑资料' }).click()
+  await page.locator('#actor-height').fill('155')
+  await page.locator('#actor-birthday').fill('1998-09-02')
+  await page.getByRole('button', { name: '保存', exact: true }).click()
+  await page.locator('.lib-actor-fact', { hasText: '155 cm' }).waitFor()
+  await page.getByText('已锁定 2 项').waitFor()
+  await page
+    .getByRole('dialog', { name: '编辑演员资料' })
+    .waitFor({ state: 'hidden' })
+  step('编辑资料：身高、生日保存后显示并自动锁定 2 项')
+  await page.screenshot({ path: shot('5c-actor-edited') })
+  await actorWall.getByRole('gridcell', { name: /SSIS-497/ }).click()
+  const person = page.locator('.lib-person-target.is-link', {
+    hasText: '鷲尾めい',
+  })
+  await person.waitFor({ timeout: 10000 })
+  await page.screenshot({ path: shot('5d-item-cast') })
+  await person.click()
+  await actorWall.waitFor({ timeout: 10000 })
+  step('条目详情的演职员里点演员 → 回到演员详情')
+  // 后退两次：演员详情 → 条目详情 → 演员详情（第一次打开的），再关掉演员详情回到海报墙
+  await page.goBack()
+  await page.locator('.lib-hero-actions').waitFor()
+  await page.goBack()
+  await page.goBack()
+  await page.getByRole('tab', { name: '资料库' }).click()
+  await poster.waitFor({ timeout: 10000 })
 
   await poster.click()
   const play = page

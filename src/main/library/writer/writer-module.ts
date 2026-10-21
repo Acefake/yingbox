@@ -55,6 +55,8 @@ export interface WriterModuleOptions {
   emit: (event: LibraryEvent) => void
   /** 原图缓存（复用识别模块的 ImageCache）；没有时不写图片。 */
   images?: ImageSource
+  /** 番号库条目演员的资料（演员库），NFO 的 <actor> 据此补头像与生日等扩展字段。 */
+  actorProfiles?: WriterJobDeps['actorProfiles']
   /** 整理时的底层 rename（测试注入以模拟跨盘）。 */
   moveOps?: MoveOps
   /** 设备号（测试注入以模拟跨盘预览）。 */
@@ -94,6 +96,7 @@ export class WriterModule {
       catalogQuery: options.catalogQuery,
       libraries: options.libraries,
       settings: () => this.settings.get(),
+      actorProfiles: options.actorProfiles,
       emit: options.emit,
       log: options.log,
     }

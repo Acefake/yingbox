@@ -6,16 +6,15 @@
  */
 import type { SiteContext } from '../types'
 
-/** 内置的演员资料来源。 */
-export type ActorSourceId =
-  | 'gfriends'
-  | 'minnano'
-  | 'wikipedia'
-  | 'javdb'
-  | 'avbase'
-  | 'theporndb'
-
-export type ActorGender = 'female' | 'male'
+/** 内置的演员资料来源与性别：与 IPC 契约共用一份定义（设置页按 id 列来源）。 */
+export type {
+  ActorGender,
+  ActorSourceId,
+} from '../../../../../shared/library/ipc'
+import type {
+  ActorGender,
+  ActorSourceId,
+} from '../../../../../shared/library/ipc'
 
 /** 一个来源查到的演员资料。字段都可缺省，聚合时按来源优先级逐字段取第一个非空值。 */
 export interface ActorProfile {
