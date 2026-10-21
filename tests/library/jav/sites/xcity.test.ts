@@ -10,14 +10,14 @@ import {
   parseXcitySearch,
   xcity,
   xcitySearchUrl,
-} from '../src/main/library/providers/jav/sites/xcity'
+} from '../../../../src/main/library/providers/jav/sites/xcity'
 import type {
   PageOptions,
   SiteContext,
-} from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const SEARCH = 'https://xcity.jp/result_published/?q=STARS874&sg=main&num=30'
 const DETAIL = 'https://xcity.jp/avod/detail/?id=184340'

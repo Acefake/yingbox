@@ -4,16 +4,16 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   iqqtv,
   parseIqqtvDetail,
   pickIqqtvSearch,
-} from '../src/main/library/providers/jav/sites/iqqtv'
-import type { SiteContext } from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/sites/iqqtv'
+import type { SiteContext } from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const DETAIL = 'https://iqq5.xyz/cn/player.php?uuid=3iHjPe5oG4v&cat=19'
 

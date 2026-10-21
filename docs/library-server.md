@@ -76,6 +76,9 @@
 | `--settle`               | `YINGBOX_SETTLE_SECONDS`                  | `10`（秒）                    | 写入稳定判定：新文件大小与 mtime 保持这么久不变才入库；`0` 不判定                        |
 | —                        | `YINGBOX_SERVER_TOKEN`                    | 首次启动生成                  | 访问令牌（只读覆盖，不写回文件）                                                         |
 | —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要，番号库不需要）。网页端设置里填写的令牌优先           |
+| —                        | `YINGBOX_THEPORNDB_TOKEN`                 | 无                            | ThePornDB API 令牌；不填就不查 ThePornDB。网页端设置「站点凭据」里填的优先              |
+| —                        | `YINGBOX_JAVDB_COOKIE`                    | 无                            | JavDB 登录后的 Cookie（可选）；填了才用 JavDB 查 FC2                                     |
+| —                        | `DMM_API_ID` + `DMM_AFFILIATE_ID`         | 无                            | DMM 官方商品 API 凭据（可选，两个都要）；不填就跳过 dmm_api 站点                         |
 | —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别，可选）                                        |
 | —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                         |
 | —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                              |
@@ -200,6 +203,17 @@ docker compose logs yingbox          # 首次启动的地址与令牌
 - 媒体目录是宿主机本地盘（群晖 / 威联通的存储池）并 bind mount 进容器：默认 `auto` 即可，事件可用。
 - 媒体目录是挂进容器的 NFS / SMB 网络盘：`auto` 会自动只用定时扫描；可以把 `YINGBOX_SCAN_INTERVAL` 调到 `60`–`120`。
 - 下载器和片库服务在同一台 NAS 上、下载完直接移进媒体目录：同盘移动是原子改名，几秒内入库；跨盘复制会等写入稳定后入库。
+
+## 番号站点
+
+内置 25 个番号站点（JavBus、FANZA、AVBase、R18.dev、JavDB、厂商官网、MGS、XCITY、AVSOX、FC2 等），
+设置页「番号站点」里调开关与优先级：同一字段先取排在前面的站点。默认关掉了防护严或数据差的几个
+（JAVLibrary、iQQTV、AIRAV、FreeJavBT、Getchu、FC2CLUB）。
+
+- 只查自家番号的厂商站（PRESTIGE、FALENO、DAHLIA、GIGA、kin8、厂商官网）按前缀过滤，其它番号不发请求；
+- 出网按主机各自限速（每站 2 次/秒、并发 2），一个慢站不拖住其它站；被 Cloudflare 拦的站按主机熔断跳过；
+- FANZA 网页版、MGS、PRESTIGE、FALENO、Getchu 只对日本 IP 开放，代理需要把这些主机分流到日本节点；
+- 站点没给头像的演员，用 gfriends 头像库补（索引首次从 raw.githubusercontent.com 下载，约 6.5 MB，之后在内存里查表）。
 
 ## 代理
 

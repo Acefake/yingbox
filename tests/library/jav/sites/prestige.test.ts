@@ -9,11 +9,11 @@ import {
   prestige,
   prestigeRecord,
   prestigeSkus,
-} from '../src/main/library/providers/jav/sites/prestige'
-import type { SiteContext } from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/sites/prestige'
+import type { SiteContext } from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 const BASE = 'https://www.prestige-av.com'
 const UUID = '5c0f6d47-2c1a-4bb5-9a43-0c8c3f5d9e21'

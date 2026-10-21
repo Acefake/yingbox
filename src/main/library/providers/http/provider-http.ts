@@ -24,10 +24,16 @@ export type FetchLike = (
     /** 缺省 GET；番号站点的站内搜索 / JSON 接口用 POST。 */
     method?: 'GET' | 'POST'
     body?: string
+    /** 缺省 follow；只有领取 Cookie（getCookies）用 manual，要读 302 响应自己的 Set-Cookie。 */
+    redirect?: 'follow' | 'manual'
   }
 ) => Promise<{
   status: number
-  headers: { get(name: string): string | null }
+  headers: {
+    get(name: string): string | null
+    /** 标准 Headers 有；没有时按 get('set-cookie') 退化（多个 Cookie 会被逗号拼在一起）。 */
+    getSetCookie?(): string[]
+  }
   text(): Promise<string>
   /** 有就用它按页面声明的字符集解码（EUC-JP / Shift_JIS 的老站）；测试里的假 fetch 可以没有。 */
   arrayBuffer?(): Promise<ArrayBuffer>
@@ -97,7 +103,9 @@ export interface TextRequest {
 }
 
 /** 实际方法：显式给了用显式的，否则有请求体就是 POST。 */
-export function methodOf(request: Pick<TextRequest, 'method' | 'body'>): 'GET' | 'POST' {
+export function methodOf(
+  request: Pick<TextRequest, 'method' | 'body'>
+): 'GET' | 'POST' {
   return request.method ?? (request.body !== undefined ? 'POST' : 'GET')
 }
 
@@ -231,6 +239,45 @@ export class ProviderHttp {
   /** 取纯文本（HTML）；404 返回 null。限速、并发、重试与 getJson 相同。 */
   async getText(request: TextRequest): Promise<string | null> {
     return (await this.send(request, undefined, TEXT_DECODER)) as string | null
+  }
+
+  /**
+   * 发一次不跟随重定向的 GET，返回响应下发的 Cookie（`name=value`，去掉属性）。
+   * 给需要先领会话的站点用（如 GIGA 的年龄确认入口在 302 上下发 Cookie）；同样受并发与限速约束，不重试。
+   */
+  async getCookies(request: {
+    url: string
+    headers?: Record<string, string>
+    signal?: AbortSignal
+  }): Promise<string[]> {
+    const { signal } = request
+    const release = await this.slots.acquire()
+    try {
+      await this.bucket.acquire(signal)
+      this.stats.requests++
+      const timeout = AbortSignal.timeout(this.timeoutMs)
+      const response = await this.options.fetch(request.url, {
+        headers: { ...request.headers },
+        signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
+        redirect: 'manual',
+      })
+      await response.text().catch(() => '')
+      const raw =
+        response.headers.getSetCookie?.() ??
+        (response.headers.get('set-cookie') ?? '')
+          .split(/,(?=\s*[^;,=\s]+=)/)
+          .filter(Boolean)
+      return raw
+        .map(line => line.split(';')[0]?.trim() ?? '')
+        .filter(pair => pair.includes('='))
+    } catch (error) {
+      if (signal?.aborted) throw error
+      throw new ProviderHttpError(
+        `请求失败：${(error as Error).message || String(error)}`
+      )
+    } finally {
+      release()
+    }
   }
 
   /** 发请求（含重试），处理缓存写回。 */

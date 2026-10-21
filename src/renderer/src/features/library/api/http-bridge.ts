@@ -108,6 +108,8 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
     jav: {
       getSettings: () => call('jav.getSettings'),
       setSettings: settings => call('jav.setSettings', settings),
+      setCredential: (provider, token) =>
+        call('setProviderToken', { provider, token }),
     },
     subscribe(listener) {
       listeners.add(listener)

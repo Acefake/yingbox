@@ -12,6 +12,11 @@ import type {
 import type { LibraryEvent } from './contract-events'
 import type { JavSettings, LibrarySource } from './contract-jav'
 import type {
+  JavCredentialProvider,
+  ProviderStatus,
+  SetProviderTokenRequest,
+} from './contract-provider'
+import type {
   AddLibraryRequest,
   LibraryAutomation,
   UpdateLibraryRequest,
@@ -26,6 +31,7 @@ import type {
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-jav'
+export * from './contract-provider'
 export * from './contract-library'
 export * from './contract-writer'
 
@@ -255,18 +261,6 @@ export interface ApplyMatchResult {
   candidates: MatchCandidateInfo[]
 }
 
-/** 设置元数据源令牌；token 为 null 或空串表示清除。 */
-export interface SetProviderTokenRequest {
-  provider: 'tmdb' | 'opensubtitles'
-  token: string | null
-}
-
-/** 元数据源配置状态（不回传令牌本身）。 */
-export interface ProviderStatus {
-  tmdb: { configured: boolean }
-  opensubtitles: { configured: boolean }
-}
-
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
 export interface LibraryRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
@@ -367,10 +361,15 @@ export interface LibraryBridge {
   setProviderToken?(token: string | null): Promise<ProviderStatus>
   /** 写出层：NFO / 图片 / 整理（改名移动）。进度见 writer-progress 事件。 */
   writer: LibraryWriterBridge
-  /** 番号站点设置（开关与优先级）。 */
+  /** 番号站点设置（开关与优先级）与站点凭据。 */
   jav: {
     getSettings(): Promise<JavSettings>
     setSettings(settings: JavSettings): Promise<JavSettings>
+    /** 设置 / 清除（null）一个番号站点的凭据，返回配置状态（不回传凭据本身）。 */
+    setCredential(
+      provider: JavCredentialProvider,
+      value: string | null
+    ): Promise<ProviderStatus>
   }
   /** 订阅引擎事件，返回取消订阅函数。事件经 MessagePort 直达，不经主进程转发。 */
   subscribe(listener: (event: LibraryEvent) => void): () => void

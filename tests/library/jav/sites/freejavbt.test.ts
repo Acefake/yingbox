@@ -5,17 +5,17 @@
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   freejavbt,
   freejavbtCandidates,
   parseFreejavbtDetail,
   pickFreejavbtSearch,
-} from '../src/main/library/providers/jav/sites/freejavbt'
-import type { SiteContext } from '../src/main/library/providers/jav/types'
+} from '../../../../src/main/library/providers/jav/sites/freejavbt'
+import type { SiteContext } from '../../../../src/main/library/providers/jav/types'
 
 const fixture = (name: string): string =>
-  readFileSync(join(__dirname, 'fixtures/jav', name), 'utf8')
+  readFileSync(join(__dirname, '../../../fixtures/jav', name), 'utf8')
 
 /** 按 URL 返回页面的假上下文；没登记的地址当 404。 */
 function pages(map: Record<string, string>): SiteContext & { seen: string[] } {

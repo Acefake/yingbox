@@ -5,7 +5,7 @@
  * 卡片结构与搜索结果相同。
  */
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   createJavdb,
   javdb,
@@ -13,8 +13,8 @@ import {
   javdbSearchUrl,
   parseJavdbDetail,
   pickJavdbSearch,
-} from '../src/main/library/providers/jav/sites/javdb'
-import { fixture, pages } from './jav-site-helpers'
+} from '../../../../src/main/library/providers/jav/sites/javdb'
+import { fixture, pages } from './site-helpers'
 
 describe('JavDB 解析', () => {
   it('详情页：全部字段，只取女优，头像按演员 id 拼', () => {

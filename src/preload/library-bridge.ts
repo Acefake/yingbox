@@ -98,6 +98,8 @@ export function createLibraryBridge(
     jav: {
       getSettings: () => call('jav.getSettings'),
       setSettings: settings => call('jav.setSettings', settings),
+      setCredential: (provider, token) =>
+        call('setProviderToken', { provider, token }),
     },
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       const { port1, port2 } = createChannel()

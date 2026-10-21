@@ -33,7 +33,11 @@ import type {
   SiteContext,
 } from '../types'
 
-export const JAV321_BASE = 'https://www.jav321.com'
+/**
+ * 走 http：站点的 HTTPS 证书 2026-10-14 已过期，https 请求会被拒绝；http 同样可用（只读公开页面，不带凭据）。
+ * 证书续上后改回 https。
+ */
+export const JAV321_BASE = 'http://www.jav321.com'
 const SITE_ID: JavSiteId = 'jav321'
 
 /** 搜索请求：表单 POST。 */
@@ -49,12 +53,15 @@ export function jav321SearchOptions(code: string): PageOptions {
   }
 }
 
-/** 图片地址规整：http → https，路径里的连续斜杠合一；占位图丢掉。 */
+/** 图片地址规整：外站图（DMM 等）http → https、站点自家图跟 JAV321_BASE 的协议，路径里的连续斜杠合一；占位图丢掉。 */
 export function jav321Image(src: string | undefined): string | undefined {
   const url = absolute(JAV321_BASE, src)
   if (!url || isPlaceholder(url)) return undefined
   const parsed = new URL(url)
-  parsed.protocol = 'https:'
+  parsed.protocol =
+    parsed.hostname === new URL(JAV321_BASE).hostname
+      ? new URL(JAV321_BASE).protocol
+      : 'https:'
   parsed.pathname = parsed.pathname.replace(/\/{2,}/g, '/')
   return parsed.toString()
 }

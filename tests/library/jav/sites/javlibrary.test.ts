@@ -3,7 +3,7 @@
  * 录制页面来自 web.archive.org 2024 年的快照（沙箱直连被 Cloudflare 拦截）。
  */
 import { describe, expect, it } from 'vitest'
-import { parseJavCode } from '../src/main/library/providers/jav/number'
+import { parseJavCode } from '../../../../src/main/library/providers/jav/number'
 import {
   createJavlibrary,
   isJavlibraryDetail,
@@ -11,8 +11,8 @@ import {
   javlibrarySearchUrl,
   parseJavlibraryDetail,
   pickJavlibrarySearch,
-} from '../src/main/library/providers/jav/sites/javlibrary'
-import { fixture, pages } from './jav-site-helpers'
+} from '../../../../src/main/library/providers/jav/sites/javlibrary'
+import { fixture, pages } from './site-helpers'
 
 describe('JAVLibrary 解析', () => {
   it('详情页：字段按 id 取，标题去掉识别码与末尾演员名，地址取 canonical', () => {

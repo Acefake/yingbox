@@ -36,6 +36,12 @@ export interface LibraryPlatform {
 export interface LibraryEnvSecrets {
   tmdbToken?: string
   opensubtitlesKey?: string
+  /** ThePornDB 令牌。 */
+  theporndbToken?: string
+  /** JavDB 登录 Cookie。 */
+  javdbCookie?: string
+  /** DMM 官方 API 凭据，"API_ID:AFFILIATE_ID"。 */
+  dmmApi?: string
 }
 
 /** 从环境变量读令牌（桌面端与独立服务同一套变量名）。 */
@@ -44,6 +50,12 @@ export function envSecrets(env: NodeJS.ProcessEnv): LibraryEnvSecrets {
     tmdbToken:
       env.YINGBOX_TMDB_TOKEN || env.VITE_TMDB_ACCESS_TOKEN || undefined,
     opensubtitlesKey: env.YINGBOX_OPENSUBTITLES_KEY || undefined,
+    theporndbToken: env.YINGBOX_THEPORNDB_TOKEN || undefined,
+    javdbCookie: env.YINGBOX_JAVDB_COOKIE || undefined,
+    dmmApi:
+      env.DMM_API_ID && env.DMM_AFFILIATE_ID
+        ? `${env.DMM_API_ID}:${env.DMM_AFFILIATE_ID}`
+        : undefined,
   }
 }
 
