@@ -11,6 +11,7 @@ import { ItemChanges } from '../catalog/catalog-store'
 import { transaction } from '../db/database'
 import { summarizeEpisodes } from './episode-mapping'
 import type { IdentifyTarget } from './identify-store'
+import { applyManualJav } from './runner-jav'
 import { manualParsed } from './runner-rules'
 import type { RunnerContext } from './runner-types'
 
@@ -28,6 +29,9 @@ export async function applyManualMatch(
   request: ApplyMatchRequest,
   signal?: AbortSignal
 ): Promise<ManualMatchResult> {
+  if (target.source === 'jav') {
+    return applyManualJav(ctx, target, request, signal)
+  }
   const { provider } = ctx.deps
   const kind = target.type === 'movie' ? 'movie' : 'tv'
   const changes = new ItemChanges()

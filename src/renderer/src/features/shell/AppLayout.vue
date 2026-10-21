@@ -112,7 +112,7 @@ const queuePanelVisible = ref(false)
 // 成人模式（设置 app.adultMode，任一窗口切换后所有窗口同步）
 const adultMode = useSetting('app.adultMode')
 watch(adultMode, enabled => {
-  if (!enabled && ['/av', '/amane'].includes(route.path)) router.push('/')
+  if (!enabled && route.path === '/av') router.push('/')
 })
 
 const navState = computed<NavState>(() => ({

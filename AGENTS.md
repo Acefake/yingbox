@@ -10,7 +10,7 @@ This file provides guidance to coding agents working with code in this repositor
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
 - **内置播放器** — dedicated player window: local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
-Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, MissAV, HLS downloads) reached through the IPC contract. There is no HTTP backend and no Go/Python runtime.
+Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, MissAV, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; the desktop app never talks to it.
 
 ## Common commands
 
@@ -28,6 +28,11 @@ pnpm build:mac      # macOS dmg
 pnpm check          # scripts/check-issues.sh
 pnpm check:case     # import case-sensitivity check (Windows-safe against mac/Linux breakage)
 pnpm start          # electron-vite preview (production-like)
+pnpm dev:server     # standalone library server (tsx watch, 127.0.0.1:31480)
+pnpm dev:web        # web build; proxies /api and /media to the library server
+pnpm build:server   # → out/server/server.js
+pnpm build:web      # → dist-web/
+pnpm smoke:server   # offline end-to-end smoke of the library server (fixture fetch)
 ```
 
 ## Architecture
@@ -47,7 +52,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
 - `config.ts` — `userData/config.json` (`downloadPath`, read-only for now: no UI sets it); validates writability (real write probe) on load
 - `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine (only passable challenges are ever shown; hard blocks such as 1020 / "Sorry, you have been blocked" destroy the window unseen and trip a per-host 30-min breaker); `media-headers.ts` injects Referer for direct stream/cover requests
-- `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/amane/` (rules / connection / service / api) and `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
+- `plugins/` — plugin host for lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. Both start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
   - `dialog-ipc.ts` (`dialog:*`, `shell:openPath`)
   - `app-ipc.ts` (`win:*`, `app:networkIps`, `update:*` + electron-updater status events)
@@ -62,26 +67,34 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 
 ### Preload (`src/preload/index.ts`)
 
-Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`.
+Exposes `window.api` only, namespaced: `file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`.
 
 **Sandboxed preload:** only `electron` may be imported — no npm packages (a sandboxed preload cannot `require` them).
 
 ### Renderer (`src/renderer/src/`)
 
-Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
+Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/av`, `/player-popout`; catch-all → `/`.
 
-- `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `av` (MissAV), `download`, `amane`, `lada`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
-- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
-- `features/library/` — movie / TV library UI (poster wall, detail, match review, writer / organize, library settings), talking to the library engine through `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract)
+- `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `av` (MissAV), `download`, `lada`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
+- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `services/library-server` is exempt)
+- `features/library/` — movie / TV library UI (poster wall, detail, match review, writer / organize, library settings), talking to the library engine through `api/bridge.ts`: on desktop `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract), on the web the HTTP transport to the library server
 - shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-context-menu`, `use-platform`), `utils/`
 
 ### Engine (`src/engine/`)
 
 Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`. Domains: `online` (CMS sites, CatSpider plugins, VOD parse), `av` (MissAV catalogue + resolver), `download` (site → m3u8 lookup, HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard); `cf-page.ts` classifies challenge vs hard-block pages and `host-breaker.ts` is the per-host breaker, both shared with the main process. Plugin sources that trip report `unavailable` to the renderer, which skips them in search and marks them in the source list. Replaces the former Go backend on 127.0.0.1:31471, removed in p3d.
 
-### Amane
+### 番号库 replaces the Amane sidecar
 
-`src/main/plugins/amane/` (rules / connection / service / api) supervises the pinned Amane 0.20.1 backend via bounded IPC; `src/renderer/src/features/amane` provides the Vue section with horizontal navigation and advanced search. Upstream is the `packages/amane/upstream` submodule; in development the manager runs that Python source directly (edits apply on backend restart), while packaged builds use the pinned `Amane.Server`. Playback resolves indexed media IDs through the existing player; no community playback plugin is required. Build-time runtime preparation and GPL source delivery: `packages/amane/README.md`. Legacy AV metadata scraping endpoints and Python scrapers are removed; online browsing and downloading remain.
+The former Amane Python sidecar (`plugins/amane`, `features/amane`, the `packages/amane` submodule) has been removed. 番号 scraping, actors, library monitoring and auto-organize are the TypeScript implementation below and the library server; see [docs/library-server.md](docs/library-server.md). De-mosaic (lada) is started from the library item detail (`features/library/detail/use-restore.ts`, adult mode, desktop movies).
+
+### 番号库（JAV 刮削）
+
+A movie library can be added with `source: 'jav'` (「添加番号文件夹…」 in library settings; fixed at creation, migration v4 adds `libraries.source`). The scanner then parses a 番号 from each file name (`src/main/library/providers/jav/number.ts`; falls back to folder names) and groups files by it; identification skips TMDB search/scoring and asks the 番号 sites directly (`identify/runner-jav.ts`), no TMDB token needed. Sites live in `providers/jav/sites/` (javbus, avbase, fc2), fetched through `ProviderHttp.getText` (Electron `net.fetch`) with per-host breaker and Cloudflare page detection; `aggregate.ts` merges per field by the user's site priority (`jav.getSettings` / `jav.setSettings`, stored in `settings` as `provider.jav.settings`). For these items `media_items.tmdb_id` holds the 番号 and `matches.provider` is `jav`; image paths are absolute URLs (`TmdbProvider.imageUrl` passes them through); NFO writes `<uniqueid type="num">`. **演员库**（migration v6, `src/main/library/actors/`）: `actors` (one row per normalized name, aggregated profile JSON fields, `locked_fields`, `field_sources`, cached `photo`) + `item_actors` (top-level jav item ↔ actor, synced from metadata `cast` after identify / refresh / manual match; TMDB libraries are not linked). A low-priority cancellable `actor-profile` job looks up pending actors through `providers/jav/actors` (per-source cache `actor:<source>:<name>`: found 7 d, missing 1 d, errors not cached; sources picked by settings `actors.getSettings` and gender), merges with stored values (locked fields kept) and caches the first avatar via `ImageCache`; the gfriends index persists to `<dataDir>/gfriends-index.json`. IPC `actors.*` (contract `contract-actors.ts`, validation `validate-actors.ts`), `query({ actorId })` lists an actor's works, NFO `<actor>` gets the avatar thumb plus `birthdate/birthplace/height/measurements/cup`. UI: `features/library/actors/`. Behaviour is modelled on Amane's scrapers but independently implemented (no GPL code copied).
+
+### Library server (`src/server/`, web / NAS)
+
+The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480`, token from `YINGBOX_SERVER_TOKEN` or generated into `<dataDir>/secrets.json`. Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`, `detail/WebPlayer.vue`. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy (`HTTPS_PROXY` + `NODE_USE_ENV_PROXY=1`), Docker: `docs/library-server.md`. Checks: `scripts/smoke-server.mjs` (CI-able, offline), `scripts/web-e2e.mjs` (Playwright, manual).
 
 ### App settings
 
@@ -95,7 +108,7 @@ Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`.
 
 ### Build pipeline
 
-`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). `extraResources` ships Amane and mpv only.
+`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). `extraResources` ships mpv only.
 
 Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm build`.
 
@@ -124,7 +137,7 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
   - Shadows: `--shadow-sm/md/lg`, `--focus-ring`, `--focus-ring-danger`, `--focus-ring-offset`.
 - Shared controls live in `src/renderer/src/components/ui/`: `UiButton`, `UiIconButton` (icon + required `label`, shown as tooltip), `UiSegmented` (tabs), `UiNavItem` (sidebar / settings / tab-bar navigation; `collapsed` hides the label and shows it as tooltip, `layout="stack"` for the phone bottom bar, `current="page" | "pressed" | "none"`), `UiListRow` (clickable multi-line row; `role` / `aria-*` pass through, e.g. `menuitemradio`), `UiChip` (small gray pill for actors/tags; put a separate `UiIconButton` next to it for remove), `UiPressable` (unstyled button for image/card targets; pass `label` when the content has no text), `UiPosterCard` + `.ui-poster-grid`, `UiIcon`, `v-tooltip`.
 - Long lists (unbounded: infinite scroll, aggregated search, favourites, queues) go through `UiVirtualGrid` (`class` = the grid/list class, `:items`, `:item-key`, default slot `{ item }`; `tag="ul"` for lists). It reads the column count from `grid-template-columns`, needs rows of equal height, and owns the container's vertical padding. `tests/virtual-lists.test.ts` lists the wired lists.
-- Posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `yingbox-media://thumb/?w=&src=` (`services/thumbnails`). Main (`src/main/thumbnails`) fetches the original, resizes with `nativeImage` (WebP originals decoded by wasm first), encodes WebP in a `worker_threads` worker (`@jsquash/webp`) and caches it in `userData/library/media/thumb` (one 512 MB LRU shared with the library's `yingbox-media://image/<key>?w=` thumbnails). Sources: http(s), `amane://image/`, local `file:///…` images. On error the card falls back to the original URL.
+- Posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `yingbox-media://thumb/?w=&src=` (`services/thumbnails`). Main (`src/main/thumbnails`) fetches the original, resizes with `nativeImage` (WebP originals decoded by wasm first), encodes WebP in a `worker_threads` worker (`@jsquash/webp`) and caches it in `userData/library/media/thumb` (one 512 MB LRU shared with the library's `yingbox-media://image/<key>?w=` thumbnails). Sources: http(s) and local `file:///…` images. On error the card falls back to the original URL.
 - No raw `<button>` in `.vue` files outside `components/ui/` — pick one of the components above (`UiPressable` when nothing else fits). `pnpm check:style` fails on violations.
 - Form controls: `UiInput` (`size` sm/md, `variant` default/filled, `icon` / `#leading`, `clearable` + `@clear`, `invalid`), `UiTextarea` (`autosize`), `UiSelect` (`options` or `<option>` slot), `UiSwitch`, `UiCheckbox`, `UiRadio`. They accept `v-model` or `:value`/`:checked` + native events; `UiInput`/`UiSelect` put `class` on the wrapper and every other attr/listener on the native element, and expose `focus()`. No raw `<input>` / `<select>` / `<textarea>` outside `components/ui/` except `type="file|range|hidden"` — `pnpm check:style` enforces it.
 - No static `style="..."` in templates (use a class + tokens; dynamic `:style` is fine) and no emoji as status icons (use `UiIcon` or plain text) — `pnpm check:style` enforces the inline-style rule.

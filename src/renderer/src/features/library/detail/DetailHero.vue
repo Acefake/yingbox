@@ -94,6 +94,30 @@
             @click="emit('organize', [node.id])"
           />
         </span>
+        <template v-if="restorable">
+          <UiIconButton
+            icon="sparkle"
+            variant="secondary"
+            size="lg"
+            label="去码"
+            :disabled="restoreRunning"
+            @click="emit('restore', 'restore')"
+          />
+          <UiIconButton
+            icon="range"
+            variant="secondary"
+            size="lg"
+            label="去码一段"
+            @click="emit('restore', 'range')"
+          />
+          <UiIconButton
+            icon="livePlay"
+            variant="secondary"
+            size="lg"
+            label="边跑边看"
+            @click="emit('restore', 'live')"
+          />
+        </template>
       </div>
       <p v-if="tagline" class="lib-hero-tagline">{{ tagline }}</p>
       <p
@@ -111,7 +135,8 @@
 <script setup lang="ts">
 /**
  * 详情头图：780w 背景图渐隐、标志（加载失败退回片名）、信息行与待确认角标、
- * 播放 / 修正匹配 / 锁定 / 重新获取 / 写出 / 整理，标语与可展开的简介。
+ * 播放 / 修正匹配 / 锁定 / 重新获取 / 写出 / 整理、去码入口（成人模式，桌面端电影），
+ * 标语与可展开的简介。
  * 换条目时重置标志失败与简介展开状态。
  */
 import { ref, watch } from 'vue'
@@ -123,6 +148,7 @@ import { vTooltip } from '@/components/ui/tooltip'
 
 import { MATCH_STATE_LABEL } from '../shared/format'
 import { WRITER_UNAVAILABLE } from '../writer/use-writer'
+import type { RestoreAction } from './use-restore'
 
 const props = defineProps<{
   node: LibraryItemNode
@@ -135,6 +161,10 @@ const props = defineProps<{
   /** 进行中的操作（lock / refresh / write），null 表示空闲。 */
   busy: string | null
   writerAvailable: boolean
+  /** 显示去码入口（见 use-restore） */
+  restorable: boolean
+  /** 整片去码正在跑：去码按钮置灰 */
+  restoreRunning: boolean
 }>()
 
 const emit = defineEmits<{
@@ -145,6 +175,7 @@ const emit = defineEmits<{
   refresh: []
   write: []
   organize: [itemIds: number[]]
+  restore: [action: RestoreAction]
 }>()
 
 const logoBroken = ref(false)

@@ -7,8 +7,9 @@ import { type LibraryDb, transaction } from '../db/database'
 import type { JobContext } from '../jobs/queue'
 import type { LibraryRecord } from '../libraries/library-store'
 import { PARSER_VERSION, parseLibraryFile } from '../scanner/parse'
-import { scanLibrary } from '../scanner/scan-library'
+import { type UnsettledFiles, scanLibrary } from '../scanner/scan-library'
 import type { ScanStore } from '../scanner/scan-store'
+import type { SettleTracker } from '../scanner/settle'
 import {
   BACKGROUND_BATCH,
   FINGERPRINT_CONCURRENCY,
@@ -30,8 +31,14 @@ export interface LibraryJobDeps {
   onLibraryScanned: (libraryId: number) => void
   emitItems: (libraryId: number, changes: ItemChanges) => void
   enqueueFingerprint: (libraryId: number) => void
-  /** 有新增 / 变化的条目时排自动识别。 */
+  /** 有新增 / 变化的条目时排自动识别（库设置关闭自动识别时忽略）。 */
   enqueueIdentify: (libraryId: number) => void
+  /** 这个库的写入稳定判定；null 表示不判定。 */
+  settleFor: (
+    library: LibraryRecord
+  ) => { tracker: SettleTracker; initial: boolean } | null
+  /** 有还在写入、这一轮没入库的文件：排定向复扫。 */
+  onUnsettled: (libraryId: number, unsettled: UnsettledFiles) => void
   log: (message: string) => void
 }
 
@@ -55,8 +62,10 @@ export async function runScan(
       scope: payload.dirs,
       signal: ctx.signal,
       onProgress: ctx.progress,
+      settle: deps.settleFor(lib) ?? undefined,
     }
   )
+  if (summary.unsettled) deps.onUnsettled(lib.id, summary.unsettled)
   for (const warning of summary.warnings.slice(0, SCAN_WARNING_LOG_LIMIT)) {
     deps.log(warning)
   }
@@ -75,7 +84,12 @@ export async function runParse(
 ): Promise<void> {
   const { db, scanStore, catalog } = deps
   const lib = deps.libraryFor(payload.libraryId)
-  const parseCtx = { libraryId: lib.id, kind: lib.kind, rootKey: lib.rootKey }
+  const parseCtx = {
+    libraryId: lib.id,
+    kind: lib.kind,
+    rootKey: lib.rootKey,
+    source: lib.source,
+  }
   const changes = new ItemChanges()
   let afterId = 0
   for (;;) {

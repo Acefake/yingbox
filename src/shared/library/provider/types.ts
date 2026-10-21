@@ -5,8 +5,8 @@
 /** 条目大类：电影或剧集（剧集指整部剧，不是单集）。 */
 export type MediaKind = 'movie' | 'tv'
 
-/** 已接入的元数据源名称。 */
-export type ProviderName = 'tmdb'
+/** 已接入的元数据源名称：tmdb，或番号站点聚合 jav（id 为番号）。 */
+export type ProviderName = 'tmdb' | 'jav'
 
 /** 指向元数据源里一个条目的引用。 */
 export interface MediaRef {

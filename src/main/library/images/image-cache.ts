@@ -4,11 +4,13 @@
  * key = URL 的 SHA-1 前 32 位，同一 URL 只下载一次；images 表记录状态，失败的最多重试 3 次。
  * 缩略图由主进程生成：下载完成后经 onCached 通知主进程预热（见 src/main/thumbnails）。
  * key 与路径规则和主进程共用 thumbnails/paths.ts，两边算出同一个文件。
+ * 防盗链图床（如番号库的 JavBus 图片）按 shared/net/media-referer 的名单带上 Referer。
  */
 import { randomUUID } from 'node:crypto'
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
 import { mediaImageUrl } from '../../../shared/media-url'
+import { refererFor } from '../../../shared/net/media-referer'
 import { imageKey, originalPath } from '../../thumbnails/paths'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { Semaphore } from '../providers/http/rate-limiter'
@@ -16,7 +18,7 @@ import { Semaphore } from '../providers/http/rate-limiter'
 /** 下载图片用的 fetch 子集。 */
 export type BinaryFetch = (
   url: string,
-  init: { signal?: AbortSignal }
+  init: { headers?: Record<string, string>; signal?: AbortSignal }
 ) => Promise<{
   status: number
   headers: { get(name: string): string | null }
@@ -27,6 +29,18 @@ export type BinaryFetch = (
 const MAX_BYTES = 15 * 1024 * 1024
 /** 失败几次后不再尝试。 */
 const MAX_ATTEMPTS = 3
+
+/** 按文件头判断是不是常见图片格式（JPEG / PNG / GIF / WebP）。 */
+export function looksLikeImage(b: Uint8Array): boolean {
+  const ascii = (from: number, to: number): string =>
+    String.fromCharCode(...b.subarray(from, to))
+  return (
+    (b[0] === 0xff && b[1] === 0xd8) ||
+    (b[0] === 0x89 && ascii(1, 4) === 'PNG') ||
+    ascii(0, 4) === 'GIF8' ||
+    (ascii(0, 4) === 'RIFF' && ascii(8, 12) === 'WEBP')
+  )
+}
 
 /** 构造参数。 */
 export interface ImageCacheOptions {
@@ -129,12 +143,16 @@ export class ImageCache {
     try {
       signal?.throwIfAborted()
       const timeout = AbortSignal.timeout(this.options.timeoutMs ?? 30_000)
+      const referer = refererFor(url)
       const response = await this.options.fetch(url, {
+        ...(referer ? { headers: { Referer: referer } } : {}),
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       })
       if (response.status !== 200) throw new Error(`HTTP ${response.status}`)
       const type = response.headers.get('content-type') ?? ''
-      if (type && !type.startsWith('image/')) {
+      // 个别图床（如 mgstage）给图片标 binary/octet-stream，下载后再按文件头确认
+      const opaque = /octet-stream/i.test(type)
+      if (type && !type.startsWith('image/') && !opaque) {
         throw new Error(`不是图片：${type}`)
       }
       const length = Number(response.headers.get('content-length') ?? 0)
@@ -143,6 +161,7 @@ export class ImageCache {
       if (!bytes.length || bytes.length > MAX_BYTES) {
         throw new Error('图片为空或过大')
       }
+      if (opaque && !looksLikeImage(bytes)) throw new Error(`不是图片：${type}`)
       await mkdir(dirname(target), { recursive: true })
       await writeFile(temp, bytes)
       await rename(temp, target)

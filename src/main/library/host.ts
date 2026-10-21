@@ -17,6 +17,7 @@ import {
   isLibraryMethod,
 } from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
+import { libraryPaths } from './platform/paths'
 
 /** 引擎数据目录。 */
 const libraryDir = (): string => join(app.getPath('userData'), 'library')
@@ -37,8 +38,7 @@ class LibraryEngineHost {
   /** 确保引擎在运行。 */
   private ensure(): UtilityProcess {
     if (this.child) return this.child
-    const dbPath = join(libraryDir(), 'library.db')
-    const mediaDir = join(libraryDir(), 'media')
+    const { dbPath, mediaDir } = libraryPaths(libraryDir())
     const child = utilityProcess.fork(
       join(__dirname, 'library-engine.js'),
       [dbPath, mediaDir],

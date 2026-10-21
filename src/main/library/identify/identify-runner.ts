@@ -4,6 +4,7 @@
  * - 电影：见 runner-movie（按文件分组识别，不同影片拆成多个条目）；
  * - 剧集：见 runner-series（剧集文件夹层识别一次）；匹配后这里按 季 / 集
  *   （绝对集数按剧集分组顺序）写每季每集的元数据；
+ * - 番号库：见 runner-jav（按文件名里的番号直接查番号站点）；
  * - 手动匹配：见 runner-manual；
  * - 锁定的条目永不被自动识别覆盖，只在刷新元数据时更新元数据本身。
  *
@@ -33,6 +34,7 @@ import {
 } from './identify-store'
 import type { ItemImages } from './metadata-writer'
 import { type ManualMatchResult, applyManualMatch } from './runner-manual'
+import { identifyJav } from './runner-jav'
 import { identifyMovie } from './runner-movie'
 import { defaultReadText, reusableRef, workerCount } from './runner-rules'
 import { identifySeries } from './runner-series'
@@ -147,6 +149,8 @@ export class IdentifyRunner implements RunnerContext {
       return 'matched'
     }
     if (mode === 'refresh' || target.matchState === 'locked') return 'skipped'
+    if (target.source === 'jav')
+      return identifyJav(this, target, changes, signal)
     return target.type === 'movie'
       ? identifyMovie(this, target, changes, signal)
       : identifySeries(this, target, changes, signal)
@@ -190,10 +194,13 @@ export class IdentifyRunner implements RunnerContext {
     changes: ItemChanges,
     signal?: AbortSignal
   ): Promise<MediaMetadata> {
-    const { provider } = this.deps
-    const meta = await provider.metadata(ref, signal)
+    const meta = await this.metadataOf(ref, signal)
     if (!meta) {
-      throw new LibraryError('not-found', `TMDB 上找不到 ${ref.kind} ${ref.id}`)
+      const where = ref.provider === 'jav' ? '番号站点' : 'TMDB'
+      throw new LibraryError(
+        'not-found',
+        `${where}上找不到 ${ref.kind} ${ref.id}`
+      )
     }
     const children =
       ref.kind === 'tv' ? this.deps.store.children(target.id) : []
@@ -256,6 +263,17 @@ export class IdentifyRunner implements RunnerContext {
       })
     }
     return meta
+  }
+
+  /** 按引用的来源取元数据：番号走番号站点，其余走 TMDB。 */
+  private metadataOf(
+    ref: MediaRef,
+    signal?: AbortSignal
+  ): Promise<MediaMetadata | null> {
+    if (ref.provider !== 'jav') return this.deps.provider.metadata(ref, signal)
+    return this.deps.jav
+      ? this.deps.jav.metadata(ref.id, signal)
+      : Promise.resolve(null)
   }
 
   /** 取本地出现过的各季详情（绝对集数先换算成季 / 集）。 */

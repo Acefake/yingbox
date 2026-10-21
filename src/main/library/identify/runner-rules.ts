@@ -169,7 +169,8 @@ export function seriesTitles(
  * 只重拉 / 补元数据，不重新识别。其余返回 null。
  */
 export function reusableRef(
-  target: Pick<IdentifyTarget, 'tmdbId' | 'matchState' | 'type'>,
+  target: Pick<IdentifyTarget, 'tmdbId' | 'matchState' | 'type'> &
+    Partial<Pick<IdentifyTarget, 'source'>>,
   mode: RunMode
 ): { ref: MediaRef; state: 'auto' | 'locked' } | null {
   if (
@@ -184,7 +185,7 @@ export function reusableRef(
   }
   return {
     ref: {
-      provider: 'tmdb',
+      provider: target.source === 'jav' ? 'jav' : 'tmdb',
       kind: target.type === 'movie' ? 'movie' : 'tv',
       id: target.tmdbId,
     },

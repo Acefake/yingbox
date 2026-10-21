@@ -7,7 +7,9 @@
  * - 评分：`<ratings><rating name="themoviedb" default="true">`（Kodi / Jellyfin）+ 顶层 `<rating>`（Emby）；
  * - 分级写 `<mpaa>`，三家都读；国家写中文名（Kodi 直接显示该文本）；
  * - 剧集季名写进 tvshow.nfo 的 `<namedseason>`（Kodi 不读 season.nfo），同时另写 season.nfo（Jellyfin / Emby）；
- * - `<thumb>` / `<fanart>` 给出 TMDB 原图地址，本地图片缺失时播放器可以自己下载。
+ * - `<thumb>` / `<fanart>` 给出 TMDB 原图地址，本地图片缺失时播放器可以自己下载；
+ * - 番号库（ref.provider = jav）：id 写 `<uniqueid type="num">` + `<num>`，类别另写 `<tag>`，
+ *   剧照进 `<fanart>`，演员不写 TMDB 链接。
  * 字段顺序固定，快照测试据此比对。
  */
 import type {
@@ -16,6 +18,7 @@ import type {
   PersonCredit,
   SeasonMetadata,
 } from '../../../../shared/library/provider'
+import type { NfoActorLookup, NfoActorProfile } from '../../actors/actor-store'
 import { TmdbProvider } from '../../providers/tmdb/tmdb-provider'
 import { XML_DECLARATION, type XmlNode, el, group, renderNode } from './xml'
 
@@ -62,8 +65,14 @@ function ratings(rating?: number, votes?: number): Array<XmlNode | undefined> {
   ]
 }
 
-/** 外部 id：uniqueid 三种 + 旧式标签。 */
+/** 外部 id：uniqueid 三种 + 旧式标签；番号库写番号。 */
 function ids(meta: MediaMetadata): Array<XmlNode | undefined> {
+  if (meta.ref.provider === 'jav') {
+    return [
+      el('uniqueid', meta.ref.id, { type: 'num', default: true }),
+      el('num', meta.ref.id),
+    ]
+  }
   const tmdb = meta.externalIds.tmdb ?? meta.ref.id
   const { imdb, tvdb } = meta.externalIds
   return [
@@ -89,16 +98,45 @@ function imageOf(
 
 /** `<thumb aspect=…>` 与 `<fanart><thumb>`。 */
 function artwork(meta: MediaMetadata): Array<XmlNode | undefined> {
-  const fanart = imageOf(meta, 'backdrop')
+  const fanart = [
+    imageOf(meta, 'backdrop'),
+    // 番号库的剧照（TMDB 条目不带 still，这里只会是番号站点的）
+    ...meta.images.filter(i => i.role === 'still').map(i => i.path),
+  ].filter(isPresent)
   return [
     el('thumb', imageOf(meta, 'poster'), { aspect: 'poster' }),
     el('thumb', imageOf(meta, 'logo'), { aspect: 'clearlogo' }),
-    fanart ? group('fanart', [el('thumb', fanart)]) : undefined,
+    fanart.length
+      ? group(
+          'fanart',
+          fanart.map(url => el('thumb', url))
+        )
+      : undefined,
   ]
 }
 
-/** 一位演员。 */
-function actor(person: PersonCredit, index: number): XmlNode | undefined {
+/**
+ * 一位演员。番号库演员有演员库资料时：thumb 用演员库的首选头像（远程地址，本地 .actors/ 由播放器自己找），
+ * 另写扩展字段 birthdate / birthplace / height / measurements / cup（Kodi / Jellyfin 不认识的标签会忽略）。
+ */
+function actor(
+  person: PersonCredit,
+  index: number,
+  jav = false,
+  profile?: NfoActorProfile
+): XmlNode | undefined {
+  if (jav) {
+    return group('actor', [
+      el('name', person.name),
+      el('order', person.order ?? index),
+      el('thumb', profile?.thumb ?? person.profilePath),
+      el('birthdate', profile?.birthday),
+      el('birthplace', profile?.birthplace),
+      el('height', profile?.height),
+      el('measurements', profile?.measurements),
+      el('cup', profile?.cup),
+    ])
+  }
   return group('actor', [
     el('name', person.name),
     el('role', person.character),
@@ -144,8 +182,11 @@ function common(meta: MediaMetadata): Array<XmlNode | undefined> {
   ]
 }
 
-/** movie.nfo / <视频名>.nfo。 */
-export function buildMovieNfo(meta: MediaMetadata): XmlNode {
+/** movie.nfo / <视频名>.nfo；actors 为番号库条目演员的演员库资料（按名字）。 */
+export function buildMovieNfo(
+  meta: MediaMetadata,
+  actors?: NfoActorLookup
+): XmlNode {
   return {
     tag: 'movie',
     children: [
@@ -153,13 +194,20 @@ export function buildMovieNfo(meta: MediaMetadata): XmlNode {
       ...crewNames(meta, j => j === 'Director').map(n => el('director', n)),
       ...crewNames(meta, j => WRITER_JOBS.has(j)).map(n => el('credits', n)),
       meta.collection
-        ? group('set', [el('name', meta.collection.name)], {
-            tmdbcolid: meta.collection.id,
-          })
+        ? group(
+            'set',
+            [el('name', meta.collection.name)],
+            meta.ref.provider === 'jav' ? {} : { tmdbcolid: meta.collection.id }
+          )
         : undefined,
       ...ids(meta),
       ...artwork(meta),
-      ...meta.cast.map(actor),
+      ...meta.cast.map((p, i) =>
+        actor(p, i, meta.ref.provider === 'jav', actors?.get(p.name))
+      ),
+      ...(meta.ref.provider === 'jav'
+        ? meta.genres.map(g => el('tag', g))
+        : []),
     ].filter(isPresent),
   }
 }
@@ -195,7 +243,7 @@ export function buildTvShowNfo(
       ),
       ...ids(meta),
       ...artwork(meta),
-      ...meta.cast.map(actor),
+      ...meta.cast.map((p, i) => actor(p, i)),
     ].filter(isPresent),
   }
 }

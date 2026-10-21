@@ -2,7 +2,7 @@ import { type ChildProcess, spawn } from 'child_process'
 
 /**
  * 插件子进程的公共工具：结束进程树、等待退出、按行转发日志、跑一次性命令。
- * Amane / Lada / mpv 原先各写一份 taskkill 与退出等待，统一收在这里。
+ * Lada / mpv 原先各写一份 taskkill 与退出等待，统一收在这里。
  */
 
 /** 子进程是否已经退出（exitCode 或 signalCode 任一有值）。 */
@@ -35,7 +35,7 @@ export function waitForExit(
 
 /**
  * 强制结束子进程及其子孙进程。
- * Windows 用 `taskkill /T /F` 收整棵树（PyInstaller 打包的 Amane、lada 都会再起子进程）；
+ * Windows 用 `taskkill /T /F` 收整棵树（lada 会再起子进程）；
  * taskkill 起不来时退回 child.kill()。其它平台直接 child.kill()。
  * 返回时终止信号已发出，但进程不一定已退出；要确认退出请再 await waitForExit。
  */

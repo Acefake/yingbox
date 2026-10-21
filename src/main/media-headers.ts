@@ -1,28 +1,14 @@
 /**
  * 给少数需要防盗链头的媒体 CDN 注入 Referer，让渲染层直接播放 / 显示：
- * MissAV 的视频分片（surrit.com）与封面（fourhoi.com）。
+ * MissAV 的视频分片（surrit.com）与封面（fourhoi.com），以及番号库用到的 JavBus 图片（校验同源 Referer）。
  *
  * 取代原 Go 后端的 /api/missav/stream 与 /api/missav/cover 代理：请求仍走 Chromium，
- * 只改请求头，不经任何本地 HTTP 服务。只匹配下面列出的主机。
+ * 只改请求头，不经任何本地 HTTP 服务。名单与规则在 src/shared/net/media-referer.ts（媒体库与独立服务共用）。
  */
 import type { Session } from 'electron'
+import { MEDIA_REFERERS, refererFor } from '../shared/net/media-referer'
 
-/** 主机 → 需要的 Referer */
-export const MEDIA_REFERERS: Readonly<Record<string, string>> = {
-  'surrit.com': 'https://missav.ai/',
-  'fourhoi.com': 'https://missav.ai/',
-}
-
-/** 给定请求地址，返回需要注入的 Referer；不在名单里返回 undefined。 */
-export function refererFor(rawUrl: string): string | undefined {
-  try {
-    const url = new URL(rawUrl)
-    if (url.protocol !== 'https:') return undefined
-    return MEDIA_REFERERS[url.hostname]
-  } catch {
-    return undefined
-  }
-}
+export { MEDIA_REFERERS, refererFor }
 
 /** 在会话上安装请求头注入。 */
 export function installMediaHeaders(session: Session): void {
