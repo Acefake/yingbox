@@ -13,9 +13,6 @@ importers:
       '@jsquash/webp':
         specifier: ^1.5.0
         version: 1.5.0
-      '@tdanks2000/tmdb-wrapper':
-        specifier: ^1.3.3
-        version: 1.6.0
       '@vueuse/core':
         specifier: ^14.2.1
         version: 14.2.1(vue@3.5.32(typescript@5.9.3))
@@ -1667,14 +1664,6 @@ packages:
       {
         integrity: sha512-n4goKQbW8RVXIbNKRB/45LzyUqN451deQK0nzIeauVEqjlI49slUlgKYJM2QyUzap/PcpnS7kzSUmPb1sCRvYQ==,
       }
-
-  '@tdanks2000/tmdb-wrapper@1.6.0':
-    resolution:
-      {
-        integrity: sha512-eaSWwYOhrkRfZ1FW7FPRUmCRbacajDqgQKOet8+GTy7LI9UQgT9AscGMrSWuAxuSeBkWXCeJimNGD0qFdpUaBQ==,
-      }
-    engines: { node: '>=16' }
-    deprecated: Package has moved to @api-wrappers/tmdb-wrapper. Please update your dependencies.
 
   '@tootallnate/once@2.0.0':
     resolution:
@@ -6320,8 +6309,6 @@ snapshots:
       '@tailwindcss/oxide': 4.2.2
       postcss: 8.5.10
       tailwindcss: 4.2.2
-
-  '@tdanks2000/tmdb-wrapper@1.6.0': {}
 
   '@tootallnate/once@2.0.0': {}
 

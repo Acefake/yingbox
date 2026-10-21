@@ -61,7 +61,7 @@ const step = (delta: number): void =>
 /* 灯箱 */
 .lb-fade-enter-active,
 .lb-fade-leave-active {
-  transition: opacity 0.2s;
+  transition: opacity var(--duration-normal);
 }
 
 .lb-fade-enter-from,
@@ -72,7 +72,7 @@ const step = (delta: number): void =>
 .lb-mask {
   position: fixed;
   inset: 0;
-  z-index: 2060;
+  z-index: var(--z-lightbox);
   background: var(--overlay-scrim-strong);
   display: flex;
   align-items: center;
@@ -93,11 +93,11 @@ const step = (delta: number): void =>
 }
 
 .lb-prev {
-  left: 16px;
+  left: var(--space-4);
 }
 
 .lb-next {
-  right: 16px;
+  right: var(--space-4);
 }
 
 .lb-close {

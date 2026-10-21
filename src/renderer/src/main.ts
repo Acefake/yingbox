@@ -10,10 +10,9 @@ import { registerPwa } from '@/pwa'
 import { amaneSettingsSection, setAmanePhoneToken } from '@/features/amane'
 import { ladaSettingsSection } from '@/features/lada'
 import { sourcesSettingsSection } from '@/features/online'
-import { registerSettingsSection } from '@/features/settings'
+import { loadTmdbToken, registerSettingsSection } from '@/features/settings'
 import { libraryBridge } from '@/features/library/api/bridge'
-import { migrateLegacyTmdbToken } from '@/features/library/settings/provider-token'
-import { startLegacyLibraryMirror } from '@/features/settings/legacy-library-mirror'
+import { syncTmdbTokenToEngine } from '@/features/library/settings/provider-token'
 
 /**
  * 手机接入(桌面客户端 → Amane 设置 → "手机接入"):地址栏一次性携带
@@ -36,7 +35,6 @@ function bindPhoneBootstrap(): void {
 
 if (!window.api?.file) bindPhoneBootstrap()
 
-startLegacyLibraryMirror()
 initTheme()
 
 // 各 feature 自己定义设置分区，在应用入口组合进设置面板（按 order 排位）
@@ -56,5 +54,5 @@ app.mount('#app')
 
 registerPwa()
 
-// 媒体库令牌存在引擎里；旧版本存在 localStorage 的令牌在这里一次性迁过去
-void migrateLegacyTmdbToken(libraryBridge())
+// TMDB 令牌（设置密钥）读进内存供在线页面同步取用，并补给还没配置令牌的媒体库引擎
+void loadTmdbToken().then(() => syncTmdbTokenToEngine(libraryBridge()))

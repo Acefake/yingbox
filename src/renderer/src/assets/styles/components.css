@@ -189,7 +189,7 @@
   }
 }
 
-/* 应用内本地播放器浮层：必须压过侧栏抽屉、刮削队列和设置窗口（层级见 tokens.css） */
+/* 应用内本地播放器浮层：必须压过侧栏抽屉、后台任务面板和设置窗口（层级见 tokens.css） */
 .yb-local-player-overlay {
   position: fixed;
   inset: 0;

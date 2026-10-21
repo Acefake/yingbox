@@ -8,7 +8,11 @@
  */
 import { promises as fs } from 'node:fs'
 import { atomicWrite } from '../file-operations'
-import { type LegacySettings, fromLegacy } from '../../shared/settings/legacy'
+import {
+  type LegacySettings,
+  fromLegacy,
+  legacySecrets,
+} from '../../shared/settings/legacy'
 import {
   type SecretKey,
   type SettingChange,
@@ -162,6 +166,14 @@ export async function openSettingsStore(
         // 已经在新存储里设置过的值优先，旧值只填空位
         if (!(key in state.values))
           (state.values as Record<string, unknown>)[key] = value
+      }
+      // 旧明文密钥（TMDB 令牌）：加密后填空位；系统密钥存储不可用时放弃，不落明文
+      if (codec.available()) {
+        for (const [key, plain] of Object.entries(legacySecrets(legacy)) as Array<
+          [SecretKey, string]
+        >) {
+          if (!state.secrets[key]) state.secrets[key] = codec.encrypt(plain)
+        }
       }
       state.legacyMigrated = true
       void persist()

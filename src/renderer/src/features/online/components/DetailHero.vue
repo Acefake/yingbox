@@ -136,9 +136,9 @@ const onImgError = (e: Event): void => {
 
 .dw-hero {
   display: flex;
-  gap: 28px;
+  gap: var(--space-6_5);
   align-items: flex-start;
-  margin-bottom: 32px;
+  margin-bottom: var(--space-7);
 }
 
 .dw-poster-wrap {
@@ -232,13 +232,13 @@ const onImgError = (e: Event): void => {
 .dw-meta-table {
   display: flex;
   flex-direction: column;
-  gap: 6px;
-  margin-bottom: 20px;
+  gap: var(--space-2);
+  margin-bottom: var(--space-5);
 }
 
 .dw-meta-item {
   display: flex;
-  gap: 10px;
+  gap: var(--space-2);
 }
 
 .dw-meta-label {

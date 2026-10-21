@@ -38,7 +38,7 @@
       <UiNavItem
         class="sidebar-item"
         data-queue-anchor
-        :label="queueLabel"
+        :label="hasRuntime ? '打开后台任务（进行中）' : '打开后台任务'"
         current="pressed"
         :active="queueOpen"
         :collapsed="collapsed"
@@ -47,24 +47,10 @@
         <template #icon>
           <span class="footer-queue-icon" aria-hidden="true">
             <UiIcon name="list" size="lg" />
-            <span v-if="queueBusy" class="footer-pulse" />
+            <span v-if="hasRuntime" class="footer-pulse" />
           </span>
         </template>
-        刮削队列
-        <template #trailing>
-          <span v-if="activeCount > 0" class="footer-badge">{{
-            activeCount
-          }}</span>
-        </template>
-        <template #extra>
-          <span
-            v-if="processingCount > 0"
-            class="footer-progress"
-            :style="{
-              width: Math.max(14, Math.round(progress * 100)) + '%',
-            }"
-          />
-        </template>
+        后台任务
       </UiNavItem>
       <!-- 可见文字「设置」，无障碍名称「打开设置」，active 只是外观，不输出 aria-current -->
       <UiNavItem
@@ -84,16 +70,13 @@
 
 <script setup lang="ts">
 /**
- * 应用侧栏：品牌、分组导航、页脚的刮削队列入口（带进度）和设置入口。
+ * 应用侧栏：品牌、分组导航、页脚的后台任务入口（运行时带提示）和设置入口。
  * 桌面端可收起为图标栏（v-model:minimized），手机上由外壳当作抽屉显示。
  */
-import { computed } from 'vue'
-
 import logoUrl from '@/assets/imgs/logo.svg'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
-import { useGlobalQueue } from '@/composables/use-global-queue'
 import { usePlatform } from '@/composables/use-platform'
 import { useLadaTasks } from '@/features/lada'
 
@@ -104,7 +87,7 @@ defineProps<{
   navGroups: NavGroup[]
   /** 实际是否以图标栏显示（手机上恒为 false） */
   collapsed: boolean
-  /** 刮削队列面板是否打开 */
+  /** 后台任务面板是否打开 */
   queueOpen: boolean
   /** 设置窗口是否打开 */
   settingsOpen: boolean
@@ -121,22 +104,15 @@ const minimized = defineModel<boolean>('minimized', { required: true })
 const appName = '影盒'
 const { isPhone } = usePlatform()
 
-const { activeCount, processingCount, progress } = useGlobalQueue()
-// 去码 / 边跑边看跟刮削队列同住一个面板，运行时按钮上一起给个提示
+// 去码 / 边跑边看在后台跑时，按钮上给个提示
 const { hasRuntime } = useLadaTasks()
-const queueBusy = computed(() => processingCount.value > 0 || hasRuntime.value)
-const queueLabel = computed(() =>
-  processingCount.value > 0 || !hasRuntime.value
-    ? '打开刮削队列'
-    : '打开刮削队列（后台任务进行中）'
-)
 </script>
 
 <style scoped>
 /* ── 侧栏：桌面端在文档流里，不覆盖内容 ── */
 .app-sidebar {
   position: relative;
-  z-index: 2;
+  z-index: var(--z-raised);
   display: flex;
   flex: 0 0 var(--sidebar-width);
   flex-direction: column;
@@ -149,10 +125,10 @@ const queueLabel = computed(() =>
   color: var(--text-secondary);
   -webkit-app-region: no-drag;
   transition:
-    width 150ms ease,
-    flex-basis 150ms ease,
-    max-width 150ms ease,
-    transform 180ms ease;
+    width var(--duration-fast) ease,
+    flex-basis var(--duration-fast) ease,
+    max-width var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
 }
 
 .sidebar-brand {
@@ -181,7 +157,7 @@ const queueLabel = computed(() =>
   display: flex;
   flex: 1;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   min-height: 0;
   overflow-y: auto;
 }
@@ -193,11 +169,11 @@ const queueLabel = computed(() =>
 }
 .sidebar-divider {
   height: 1px;
-  margin: var(--space-3) var(--space-3) 2px;
+  margin: var(--space-3) var(--space-3) var(--space-0_5);
   background: var(--separator);
 }
 
-/* 导航项（UiNavItem，含页脚的刮削队列 / 设置）：侧栏版更高、更大字号，未选中为次要色 */
+/* 导航项（UiNavItem，含页脚的后台任务 / 设置）：侧栏版更高、更大字号，未选中为次要色 */
 .sidebar-item {
   gap: var(--space-3);
   height: auto;
@@ -219,7 +195,7 @@ const queueLabel = computed(() =>
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
-  gap: 2px;
+  gap: var(--space-0_5);
   margin-top: var(--space-3);
   padding-top: var(--space-3);
   border-top: 1px solid var(--separator);
@@ -233,45 +209,20 @@ const queueLabel = computed(() =>
 }
 .footer-pulse {
   position: absolute;
-  top: -2px;
-  right: -2px;
+  top: calc(var(--space-0_5) * -1);
+  right: calc(var(--space-0_5) * -1);
   width: 6px;
   height: 6px;
   border-radius: var(--radius-full);
   background: var(--accent);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-  animation: queue-pulse 1.4s ease-out infinite;
+  animation: queue-pulse var(--duration-pulse) ease-out infinite;
 }
 @keyframes queue-pulse {
   70%,
   100% {
     box-shadow: 0 0 0 6px transparent;
   }
-}
-.footer-badge {
-  position: absolute;
-  top: 2px;
-  right: 2px;
-  min-width: 15px;
-  height: 15px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  color: var(--text-on-accent);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: 15px;
-  text-align: center;
-  pointer-events: none;
-}
-.footer-progress {
-  position: absolute;
-  bottom: 0;
-  left: 0;
-  height: 2px;
-  background: var(--accent);
-  opacity: 0.85;
-  transition: width 0.35s var(--ease-out);
 }
 
 .app-sidebar.is-collapsed .sidebar-brand {
