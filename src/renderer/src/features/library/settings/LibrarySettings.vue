@@ -109,149 +109,35 @@
       </SettingsRow>
     </SettingsGroup>
 
-    <!-- 写出 -->
-    <SettingsGroup
-      title="写出 NFO 与图片"
-      :footer="
-        writer.available
-          ? 'NFO 与图片写在视频旁边，Kodi、Jellyfin、Emby 可直接读取。'
-          : WRITER_UNAVAILABLE
-      "
-    >
-      <SettingsRow title="写出 NFO">
-        <UiSwitch
-          :model-value="writer.settings.value.nfo.enabled"
-          label="写出 NFO"
-          :disabled="!writer.available"
-          @update:model-value="v => writer.update(s => (s.nfo.enabled = v))"
-        />
-      </SettingsRow>
-      <SettingsRow title="已有 NFO" description="合并会保留你手动改过的字段">
-        <UiSegmented
-          :model-value="writer.settings.value.nfo.mode"
-          size="sm"
-          label="已有 NFO 的处理方式"
-          :options="NFO_MODE_OPTIONS"
-          @update:model-value="v => writer.update(s => (s.nfo.mode = v))"
-        />
-      </SettingsRow>
-      <SettingsRow
-        v-for="row in ARTWORK_ROWS"
-        :key="row.key"
-        :title="row.title"
-      >
-        <UiSwitch
-          :model-value="writer.settings.value.artwork[row.key]"
-          :label="row.title"
-          :disabled="!writer.available"
-          @update:model-value="
-            v => writer.update(s => (s.artwork[row.key] = v))
-          "
-        />
-      </SettingsRow>
-      <SettingsRow
-        title="识别后自动写出"
-        description="自动匹配或手动确认后立即写出"
-      >
-        <UiSwitch
-          :model-value="writer.settings.value.autoWriteAfterIdentify"
-          label="识别后自动写出"
-          :disabled="!writer.available"
-          @update:model-value="
-            v => writer.update(s => (s.autoWriteAfterIdentify = v))
-          "
-        />
-      </SettingsRow>
-    </SettingsGroup>
-
-    <!-- 整理 -->
-    <SettingsGroup
-      title="整理"
-      footer="整理会按模板重命名并移动文件。每次执行前都会先预览，执行后可以撤销。"
-    >
-      <SettingsRow title="允许整理文件" description="默认关闭">
-        <UiSwitch
-          :model-value="writer.settings.value.organize.enabled"
-          label="允许整理文件"
-          :disabled="!writer.available"
-          @update:model-value="
-            v => writer.update(s => (s.organize.enabled = v))
-          "
-        />
-      </SettingsRow>
-      <SettingsRow :title="`${kindLabel}路径模板`" stacked>
-        <template #description>
-          可用变量：<code class="lib-code">{{ templateVariables }}</code>
-        </template>
-        <UiInput
-          :model-value="templateValue"
-          :aria-label="`${kindLabel}路径模板`"
-          class="lib-template"
-          :invalid="Boolean(templateError)"
-          :disabled="!writer.available"
-          @update:model-value="setTemplate"
-        />
-        <p v-if="templateError" class="lib-template-error">
-          {{ templateError }}
-        </p>
-      </SettingsRow>
-      <SettingsRow
-        v-for="batch in batches"
-        :key="batch.batchId"
-        :title="batchTitle(batch)"
-        :description="batchDescription(batch)"
-      >
-        <UiButton
-          v-if="batch.state === 'done' || batch.state === 'partial'"
-          size="sm"
-          variant="plain"
-          label="撤销"
-          @click="undo(batch.batchId)"
-        />
-      </SettingsRow>
-    </SettingsGroup>
-    <p v-if="writer.error.value" class="lib-settings-error">
-      {{ writer.error.value }}
-    </p>
+    <WriterSettingsGroups :open="open" :kind="kind" :kind-label="kindLabel" />
   </LibrarySheet>
 </template>
 
 <script setup lang="ts">
 /**
  * 媒体库设置（macOS 系统设置式分组）：文件夹管理、TMDB 令牌与识别、写出 NFO 与图片、整理模板。
- * 写出与整理走 window.api.library.writer，不可用（网页版）时整组置灰并在组尾说明。
+ * 写出与整理两组在 WriterSettingsGroups，走 window.api.library.writer。
  */
 import { message } from 'ant-design-vue'
-import { computed, ref, shallowRef, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type {
   LibraryInfo,
   LibraryKind,
-  OrganizeBatchInfo,
-  WriterSettings,
 } from '../../../../../shared/library/ipc'
-import {
-  TEMPLATE_VARIABLES,
-  validateTemplate,
-} from '../../../../../shared/library/writer'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
-import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
-import UiSegmented from '@/components/ui/UiSegmented.vue'
-import UiSwitch from '@/components/ui/UiSwitch.vue'
 import { confirmDialog } from '@/utils/confirm-dialog'
 
 import { errorText, libraryBridge } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
+import { guarded } from '../shared/guarded'
 import { useLibraries } from '../state/use-libraries'
-import {
-  WRITER_UNAVAILABLE,
-  useWriter,
-  useWriterSettings,
-} from '../writer/use-writer'
+import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import { saveLibraryTmdbToken } from './provider-token'
+import { folderDescription, tokenStatus } from './settings-rules'
 
 const props = defineProps<{ open: boolean; kind: LibraryKind }>()
 const emit = defineEmits<{ close: [] }>()
@@ -267,31 +153,6 @@ const {
   identifyAll: startIdentify,
   refreshAll: startRefresh,
 } = useLibraries(props.kind)
-
-// —— 文件夹 ——
-const dateFormat = new Intl.DateTimeFormat('zh-CN', {
-  dateStyle: 'medium',
-  timeStyle: 'short',
-})
-
-function folderDescription(lib: LibraryInfo): string {
-  const scanned = lib.lastScanAt
-    ? `上次扫描 ${dateFormat.format(lib.lastScanAt)}`
-    : '尚未扫描'
-  return `${lib.root} · ${scanned}`
-}
-
-async function guarded(
-  task: () => Promise<unknown>,
-  done?: string
-): Promise<void> {
-  try {
-    await task()
-    if (done) message.success(done)
-  } catch (error) {
-    message.error(errorText(error))
-  }
-}
 
 function addFolder(): void {
   void guarded(async () => {
@@ -328,11 +189,7 @@ const tokenConfigured = ref(false)
 const tokenInput = ref('')
 const tokenSaving = ref(false)
 const tokenStatusText = computed(() =>
-  !available
-    ? '仅桌面版可用'
-    : tokenConfigured.value
-      ? '已配置'
-      : '尚未配置，无法识别'
+  tokenStatus(available, tokenConfigured.value)
 )
 
 async function loadTokenStatus(): Promise<void> {
@@ -359,98 +216,10 @@ async function saveToken(): Promise<void> {
   }
 }
 
-// —— 写出与整理 ——
-const writer = useWriterSettings()
-const { listBatches, undoOrganize } = useWriter()
-const batches = shallowRef<OrganizeBatchInfo[]>([])
-
-const NFO_MODE_OPTIONS: SegmentedOption<'merge' | 'overwrite'>[] = [
-  { value: 'merge', label: '合并' },
-  { value: 'overwrite', label: '覆盖' },
-]
-
-type ArtworkKey = keyof WriterSettings['artwork']
-const ARTWORK_ROWS: Array<{ key: ArtworkKey; title: string }> = [
-  { key: 'poster', title: '海报' },
-  { key: 'fanart', title: '背景图' },
-  { key: 'logo', title: '标志' },
-  { key: 'seasonArt', title: '季海报与剧集缩略图' },
-  { key: 'actors', title: '演员头像' },
-  { key: 'legacyNames', title: '兼容旧播放器的文件名' },
-]
-
-/** 电影模板用不到剧集变量，剧集模板全部可用。 */
-const TV_ONLY = new Set(['series', 'season', 'episode', 'episodeTitle'])
-const templateVariables = computed(() =>
-  TEMPLATE_VARIABLES.filter(v => props.kind === 'tv' || !TV_ONLY.has(v))
-    .map(v => `{${v}}`)
-    .join(' ')
-)
-const templateError = computed(() =>
-  validateTemplate(templateValue.value, props.kind)
-)
-const templateValue = computed(
-  () =>
-    templateDraft.value ??
-    (props.kind === 'movie'
-      ? writer.settings.value.organize.movieTemplate
-      : writer.settings.value.organize.tvTemplate)
-)
-
-/** 模板逐字编辑：不合法时只在界面上提示，不下发（引擎也会拒绝）。 */
-const templateDraft = ref<string | null>(null)
-
-function setTemplate(value: string | number | null | undefined): void {
-  const text = String(value ?? '')
-  templateDraft.value = text
-  if (validateTemplate(text, props.kind)) return
-  templateDraft.value = null
-  writer.update(s => {
-    if (props.kind === 'movie') s.organize.movieTemplate = text
-    else s.organize.tvTemplate = text
-  })
-}
-
-const BATCH_STATE: Record<OrganizeBatchInfo['state'], string> = {
-  running: '进行中',
-  done: '已完成',
-  partial: '部分完成',
-  failed: '失败',
-  undoing: '撤销中',
-  undone: '已撤销',
-}
-
-function batchTitle(batch: OrganizeBatchInfo): string {
-  return `${dateFormat.format(batch.createdAt)} · ${BATCH_STATE[batch.state]}`
-}
-
-function batchDescription(batch: OrganizeBatchInfo): string {
-  const failed = batch.failed ? `，${batch.failed} 个失败` : ''
-  return `移动 ${batch.moved} / ${batch.total} 个文件${failed}`
-}
-
-async function loadBatches(): Promise<void> {
-  if (!writer.available) return
-  try {
-    batches.value = (await listBatches()).slice(0, 5)
-  } catch {
-    batches.value = []
-  }
-}
-
-function undo(batchId: number): void {
-  void guarded(async () => {
-    await undoOrganize(batchId)
-    await loadBatches()
-  }, '已开始撤销')
-}
-
 watch(
   () => props.open,
   open => {
-    if (!open) return
-    void loadTokenStatus()
-    void loadBatches()
+    if (open) void loadTokenStatus()
   },
   { immediate: true }
 )
@@ -463,22 +232,5 @@ watch(
 }
 .lib-token > :first-child {
   flex: 1 1 auto;
-}
-.lib-template {
-  font-family: var(--font-mono);
-}
-.lib-template-error {
-  margin: 0;
-  color: var(--danger);
-  font-size: var(--text-xs);
-}
-.lib-code {
-  font-family: var(--font-mono);
-  font-size: var(--text-2xs);
-}
-.lib-settings-error {
-  margin: var(--space-4) 0 0;
-  color: var(--danger);
-  font-size: var(--text-xs);
 }
 </style>
