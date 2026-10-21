@@ -35,6 +35,7 @@ export type JavSiteId =
   | 'iqqtv'
   | 'fc2club'
   | 'fc2ppvdb'
+export type JavSiteId = 'javbus' | 'avbase' | 'fc2' | 'theporndb' | 'r18dev'
 
 /** 站点显示名与说明（设置页用）。 */
 export const JAV_SITES: ReadonlyArray<{
