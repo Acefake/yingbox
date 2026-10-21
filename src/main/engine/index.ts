@@ -6,6 +6,8 @@ import { join } from 'node:path'
 import { broadcastChannel, implement } from '../rpc'
 import { browserFetch } from '../browser-fetch'
 import { getDownloadPath } from '../config'
+import { settingsStore } from '../settings'
+import { TMDB_SECRET, effectiveTmdbToken } from '../tmdb'
 import { av } from '../../shared/contract/av'
 import { download } from '../../shared/contract/download'
 import { online } from '../../shared/contract/online'
@@ -25,6 +27,8 @@ export function registerEngine(): EngineHost {
       browserFetch: (url, waitMs) => browserFetch(url, waitMs),
       downloadDir: async () =>
         getDownloadPath() || join(app.getPath('videos'), '影盒下载'),
+      tmdbToken: async () =>
+        effectiveTmdbToken(settingsStore().getSecret(TMDB_SECRET)),
     },
   })
   implement(online, forwardTo(host, online))

@@ -11,6 +11,8 @@ import {
   type EngineMessage,
   type InvokeResult,
   LIBRARY_CHANNELS,
+  type LibraryMethod,
+  type LibraryRpcMap,
   type RpcError,
   isLibraryMethod,
 } from '../../shared/library/ipc'
@@ -109,10 +111,21 @@ class LibraryEngineHost {
 }
 
 /**
+/** 主进程内直接调引擎（如下发 TMDB 令牌）；引擎报错时抛出。 */
+export interface LibraryEngineClient {
+  call<M extends LibraryMethod>(
+    method: M,
+    params: LibraryRpcMap[M]['params']
+  ): Promise<LibraryRpcMap[M]['result']>
+}
+
+/**
  * 注册媒体库 IPC：library:invoke（调用）与 library:subscribe（事件端口）。
- * 须在 app ready 之后调用。
+ * 须在 app ready 之后调用。返回主进程内用的调用口。
  */
-export function registerLibraryIpc(thumbnails: ThumbnailService): void {
+export function registerLibraryIpc(
+  thumbnails: ThumbnailService
+): LibraryEngineClient {
   const host = new LibraryEngineHost(thumbnails)
   ipcMain.handle(
     LIBRARY_CHANNELS.invoke,
@@ -123,4 +136,11 @@ export function registerLibraryIpc(thumbnails: ThumbnailService): void {
     if (port) host.subscribe(port)
   })
   app.on('will-quit', () => host.shutdown())
+  return {
+    async call(method, params) {
+      const response = await host.invoke(method, params)
+      if (!response.ok) throw new Error(response.error.message)
+      return response.result as never
+    },
+  }
 }
