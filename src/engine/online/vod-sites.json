@@ -22,7 +22,10 @@
       "name": "LIBVIO",
       "type": 3,
       "api": "csp_libvio",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/libvio.js"
+      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/libvio.js",
+      "patch": {
+        "https://www.libvios.com": "https://www.libvio.to"
+      }
     },
     {
       "name": "ギリギリ动漫",
@@ -61,12 +64,6 @@
       "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/jpyy.js"
     },
     {
-      "name": "燒火電影",
-      "type": 3,
-      "api": "csp_saohuo",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/saohuo.js"
-    },
-    {
       "name": "NO視頻",
       "type": 3,
       "api": "csp_novipnoad",
@@ -89,18 +86,6 @@
       "type": 3,
       "api": "csp_iyftv",
       "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/iyftv.js"
-    },
-    {
-      "name": "影视天堂",
-      "type": 3,
-      "api": "csp_ystt",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ystt.js"
-    },
-    {
-      "name": "嗷嗚動漫",
-      "type": 3,
-      "api": "csp_aowu",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/aowu.js"
     },
     {
       "name": "荐片",
@@ -131,12 +116,6 @@
       "type": 3,
       "api": "csp_7sefun",
       "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/7sefun.js"
-    },
-    {
-      "name": "茶杯狐",
-      "type": 3,
-      "api": "csp_cupfox",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js"
     },
     {
       "name": "路漫漫",

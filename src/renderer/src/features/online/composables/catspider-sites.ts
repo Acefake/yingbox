@@ -14,10 +14,10 @@ import {
 // 后端不可用时仍可使用的精选源；完整列表由后端内嵌的 vod.json 提供。
 const FALLBACK_CATSPIDER_SITES: CatSpiderSite[] = [
   {
-    name: '茶杯狐',
+    name: '欧乐🪜',
     type: 3,
-    api: 'csp_cupfox',
-    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js',
+    api: 'csp_Olevod',
+    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ole.js',
   },
   {
     name: '荐片',
