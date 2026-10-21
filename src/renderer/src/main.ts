@@ -31,7 +31,7 @@ function bindPhoneBootstrap(): void {
   )
 }
 
-if (!window.api?.file) bindPhoneBootstrap()
+if (!window.api?.win) bindPhoneBootstrap()
 
 initTheme()
 

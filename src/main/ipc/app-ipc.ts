@@ -1,9 +1,7 @@
-import { BrowserWindow, app as electronApp } from 'electron'
+import { BrowserWindow } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
-import * as fs from 'fs/promises'
 import { networkInterfaces } from 'node:os'
-import * as path from 'path'
 import { emit, implement } from '../rpc'
 import { app } from '../../shared/contract/app'
 import { type UpdateStatusEvent, update } from '../../shared/contract/update'
@@ -42,7 +40,6 @@ export function registerAppIpc(
   })
 
   implement(app, {
-    getUserDataPath: () => electronApp.getPath('userData'),
     networkIps: () => {
       const ips: string[] = []
       for (const list of Object.values(networkInterfaces())) {
@@ -51,25 +48,6 @@ export function registerAppIpc(
         }
       }
       return ips
-    },
-    getVersion: async () => {
-      try {
-        const packageJsonPath = path.join(__dirname, '../../package.json')
-        const packageJson = JSON.parse(
-          await fs.readFile(packageJsonPath, 'utf-8')
-        )
-        return {
-          success: true,
-          data: {
-            name: packageJson.name,
-            version: packageJson.version,
-            description: packageJson.description,
-            author: packageJson.author,
-          },
-        }
-      } catch (error) {
-        return { success: false, error: (error as Error).message, data: null }
-      }
     },
   })
 

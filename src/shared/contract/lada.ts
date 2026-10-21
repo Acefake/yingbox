@@ -7,13 +7,6 @@ import type {
 } from '../lada'
 import { call, defineDomain, event, num, record, str } from './define'
 
-/** 另一个影盒实例持有的任务锁 */
-export interface LadaOtherJob {
-  pid: number
-  input?: string
-  startedAt?: number
-}
-
 const filePath = (a: readonly unknown[]): [filePath: string] => [
   str(a[0], 'filePath'),
 ]
@@ -37,8 +30,6 @@ export const lada = defineDomain(
     cancel: call<{ success: boolean }>(),
     /** 当前任务快照 */
     status: call<LadaJob | null>(),
-    /** 别的影盒实例是否在跑任务（跨实例可见） */
-    otherJob: call<LadaOtherJob | null>(),
     /** 播放时优先返回已修复的产物 */
     playablePath: call<[filePath: string], { path: string; restored: boolean }>(
       filePath
@@ -59,15 +50,6 @@ export const lada = defineDomain(
       [filePath: string],
       { success: boolean; error?: string; doneSeconds?: number }
     >(filePath),
-    /** 接管 lada 写在临时目录里的半成品 */
-    adoptPartial: call<
-      [filePath: string, partialPath: string],
-      LadaResumeProgress | null
-    >(a => [str(a[0], 'filePath'), str(a[1], 'partialPath')]),
-    /** 清理可再生的缓存（保留暂停任务的进度） */
-    clearCache: call<{ success: boolean; freed?: number }>(),
-    /** 缓存目录总字节数 */
-    cacheSize: call<number>(),
     /** 区间去码：只处理 [起点, 终点]，终点 <= 0 表示到片尾 */
     startRange: call<
       [filePath: string, startSeconds: number, endSeconds: number],
@@ -93,7 +75,5 @@ export const lada = defineDomain(
     live: event<LadaLiveStatus | null>(),
     /** 区间产物拼好（成功给 path，失败给 error） */
     rangeReady: event<LadaRangeReady>(),
-    /** 给用户看的一次性提示 */
-    notice: event<string>(),
   }
 )

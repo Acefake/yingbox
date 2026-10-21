@@ -34,20 +34,6 @@ function bool(fallback: boolean): ValueSpec<boolean> {
   }
 }
 
-/** [min, max] 内的整数 */
-function int(min: number, max: number, fallback: number): ValueSpec<number> {
-  return {
-    kind: 'value',
-    default: fallback,
-    parse: raw =>
-      Number.isSafeInteger(raw) &&
-      (raw as number) >= min &&
-      (raw as number) <= max
-        ? (raw as number)
-        : undefined,
-  }
-}
-
 /** [min, max] 内的有限数字 */
 function num(min: number, max: number, fallback: number): ValueSpec<number> {
   return {
@@ -122,8 +108,6 @@ export const settingsSchema = {
     ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'] as const,
     'zh-CN'
   ),
-  /** 刮削并发任务数（旧刮削队列用；队列已删，暂无消费方，保留以免丢用户值） */
-  'scrape.concurrency': int(1, 8, 3),
   /** 海报下载尺寸 */
   'scrape.imageSize.poster': oneOf(IMAGE_SIZES, 'original'),
   /** 背景图下载尺寸 */

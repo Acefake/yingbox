@@ -1,11 +1,9 @@
 import { dialog as electronDialog, shell as electronShell } from 'electron'
-import { setDownloadPath } from '../config'
 import { implement } from '../rpc'
-import { config } from '../../shared/contract/config'
 import { dialog } from '../../shared/contract/dialog'
 import { shell } from '../../shared/contract/shell'
 
-/** 实现 dialog / config / shell 三个与系统交互的小域 */
+/** 实现 dialog / shell 两个与系统交互的小域 */
 export function registerDialogIpc(): void {
   implement(dialog, {
     openDirectory: async () => {
@@ -63,33 +61,6 @@ export function registerDialogIpc(): void {
           filePaths: [],
         }
       }
-    },
-
-    saveFile: async (_, options) => {
-      try {
-        const result = await electronDialog.showSaveDialog({
-          title: '保存文件',
-          ...options,
-        })
-        return {
-          success: true,
-          canceled: result.canceled,
-          filePath: result.filePath ?? '',
-        }
-      } catch (error) {
-        return {
-          success: false,
-          error: (error as Error).message,
-          canceled: true,
-          filePath: '',
-        }
-      }
-    },
-  })
-
-  implement(config, {
-    setDownloadPath: async (_, path) => {
-      await setDownloadPath(path)
     },
   })
 

@@ -62,19 +62,17 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 
 **Main process** ([src/main/index.ts](src/main/index.ts)) bootstraps the window and wires per-domain modules:
 
-- `config.ts` — Reads/writes `userData/config.json` (`downloadPath`), validates writability (write probe) on load and set
+- `config.ts` — Reads `userData/config.json` (`downloadPath`; no UI sets it yet), validates writability (write probe) on load
 - `engine/` — Hosts the engine utilityProcess (online sources, MissAV, downloads), started on demand
 - `plugins/` — Host for external programs (`host.ts`, `process.ts`) plus `plugins/amane/` (Amane backend: rules / connection / service / api) and `plugins/lada/` (de-mosaic: rules / tools / temp / lock / job / cache / resume / range / live / live-media)
 - `ipc/` — IPC channel registrations:
-  - `file-ipc.ts` — `file:*` (read, write, delete, exists, mkdir, readdir, scanMediaDirectory, stat, copy, move, readImage) and `path:*` (join, resolve, dirname, basename, extname)
-  - `http-ipc.ts` — `http:*` (fetch for JSON, fetchImage to bypass hotlink, download)
-  - `dialog-ipc.ts` — `dialog:*` (openDirectory, selectDirectory, openFile, saveFile), `config:setDownloadPath`, `shell:openPath`
-  - `app-ipc.ts` — `win:*`, `app:*`, `update:*` (electron-updater status via `update:status`)
+  - `dialog-ipc.ts` — `dialog:*` (openDirectory, selectDirectory, openFile), `shell:openPath`
+  - `app-ipc.ts` — `win:*`, `app:networkIps`, `update:*` (electron-updater status via `update:status`)
   - `subtitle-ipc.ts` — `subtitle:find/read` (only accepts `local://` URLs)
 - `local://` protocol handler for streaming local video files to the unified renderer player
 - DevTools shortcuts: F12 or Ctrl+Shift+I (Cmd+Option+I on Mac)
 
-**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` with namespaced methods: `file.*`, `http.*`, `path.*`, `dialog.*`, `config.*`, `app.*`, `update.*`, `shell.*`, `win.*`, `player.*`, `subtitle.*`. Types are in [src/preload/index.d.ts](src/preload/index.d.ts). The preload is **sandboxed**: only `electron` may be imported — never add npm imports here.
+**Preload** ([src/preload/index.ts](src/preload/index.ts)) exposes `window.api` generated from the single contract in `src/shared/contract` (one domain per file; no generic file / http / path channels). The preload is **sandboxed**: only `electron` may be imported — never add npm imports here.
 
 ### Renderer: Vue 3 SPA
 
