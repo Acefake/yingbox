@@ -27,7 +27,7 @@
         <UiPosterCard
           thumb
           shape="landscape"
-          :title="fav.vod_name"
+          :title="fav.vod_name ?? ''"
           :cover="coverSrc(fav)"
           :subtitle="fav._source"
           :favorite="true"
@@ -54,14 +54,15 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 
+import type { AvVideo } from '../utils/av-catalog'
 import { coverSrc } from '../utils/av-media'
 import StatusState from '@/components/StatusState.vue'
 
-defineProps<{ favorites: any[] }>()
+defineProps<{ favorites: AvVideo[] }>()
 
 const emit = defineEmits<{
-  play: [video: any]
-  'toggle-favorite': [video: any]
+  play: [video: AvVideo]
+  'toggle-favorite': [video: AvVideo]
   clear: []
 }>()
 </script>

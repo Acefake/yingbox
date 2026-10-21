@@ -4,12 +4,24 @@
  */
 import { ref } from 'vue'
 import { tmdb } from '../api/online'
+import type { TmdbCastMember, TmdbDetail, TmdbImage } from '../types'
+
+/** TMDB /search 的返回：只用第一条的 id */
+interface TmdbSearchResult {
+  results?: { id: number }[]
+}
+
+/** TMDB /credits 的返回 */
+interface TmdbCredits {
+  cast?: TmdbCastMember[]
+  crew?: { job?: string; name: string }[]
+}
 
 export function useTmdbDetail() {
-  const detail = ref<any>(null)
-  const cast = ref<any[]>([])
+  const detail = ref<TmdbDetail | null>(null)
+  const cast = ref<TmdbCastMember[]>([])
   const directors = ref<string[]>([])
-  const images = ref<any[]>([])
+  const images = ref<TmdbImage[]>([])
   const loading = ref(true)
 
   const reset = (): void => {
@@ -26,7 +38,7 @@ export function useTmdbDetail() {
     loading.value = true
     const zh = { language: 'zh-CN' }
     try {
-      const sr = await tmdb<any>(`/search/${mediaType}`, {
+      const sr = await tmdb<TmdbSearchResult>(`/search/${mediaType}`, {
         query: name,
         ...zh,
         page: 1,
@@ -41,15 +53,17 @@ export function useTmdbDetail() {
       if (!first) return
       const base = `/${mediaType}/${first.id}`
       const [dr, cr] = await Promise.all([
-        tmdb<any>(base, zh),
-        tmdb<any>(`${base}/credits`, zh),
+        tmdb<TmdbDetail>(base, zh),
+        tmdb<TmdbCredits>(`${base}/credits`, zh),
       ])
       detail.value = dr
       cast.value = cr?.cast || []
       directors.value = (cr?.crew || [])
-        .filter((c: any) => c.job === 'Director')
-        .map((c: any) => c.name)
-      const ir = await tmdb<any>(`${base}/images`).catch(() => null)
+        .filter(c => c.job === 'Director')
+        .map(c => c.name)
+      const ir = await tmdb<{ backdrops?: TmdbImage[] }>(
+        `${base}/images`
+      ).catch(() => null)
       images.value = (ir?.backdrops || []).slice(0, 30)
     } catch {
       /* silent */

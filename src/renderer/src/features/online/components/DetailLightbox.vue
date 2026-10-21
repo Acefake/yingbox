@@ -40,7 +40,9 @@
  */
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
-const props = defineProps<{ images: any[]; index: number | null }>()
+import type { TmdbImage } from '../types'
+
+const props = defineProps<{ images: TmdbImage[]; index: number | null }>()
 const emit = defineEmits<{ (e: 'update:index', index: number | null): void }>()
 
 const close = (): void => emit('update:index', null)

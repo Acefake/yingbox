@@ -50,6 +50,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import { getJson, tmdb } from '../api/online'
+import type { TmdbDetail } from '../types'
 import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
@@ -181,7 +182,10 @@ const fetchDouban = async () => {
     // 引擎没有令牌时 tmdb() 返回 null：整批停下，不逐条重试
     const NO_TOKEN = new Error('TMDB 未配置令牌')
     const searchFirst = async (path: string, q: string) => {
-      const res = await tmdb<any>(path, {
+      // /search/multi 的结果多一个 media_type
+      const res = await tmdb<{
+        results?: (TmdbDetail & { media_type?: string })[]
+      }>(path, {
         query: q,
         language: 'zh-CN',
         page: 1,

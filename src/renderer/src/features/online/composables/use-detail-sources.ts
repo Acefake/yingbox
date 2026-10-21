@@ -4,7 +4,7 @@
  * 选择分三层：来源类型（插件 / CMS）→ 站点 → 线路。
  */
 import { computed, ref } from 'vue'
-import type { EpisodeGroup } from '../types'
+import type { CmsItem, EpisodeGroup } from '../types'
 import {
   type SourceType,
   groupBySite,
@@ -47,7 +47,10 @@ export function useDetailSources() {
   )
 
   /** 按片名加载播放源；directItem 是打开详情时命中的那条（可为空）。 */
-  const load = async (directItem: any, searchTitle: string): Promise<void> => {
+  const load = async (
+    directItem: CmsItem | null,
+    searchTitle: string
+  ): Promise<void> => {
     searching.value = true
     episodeGroups.value = []
     activeGroup.value = 0
@@ -55,7 +58,7 @@ export function useDetailSources() {
       const targetTitle = normalizeTitle(searchTitle)
       const seen = new Set<string>()
       const pending = new Set<Promise<void>>()
-      const appendDetail = (candidate: any): void => {
+      const appendDetail = (candidate: CmsItem): void => {
         const key = sourceKey(candidate)
         if (seen.has(key)) return
         seen.add(key)
@@ -79,10 +82,8 @@ export function useDetailSources() {
       await search(searchTitle, {
         allVod: false,
         onItems: items => {
-          for (const result of items as any[]) {
-            const title = normalizeTitle(
-              result?.vod_name || result?.title || result?.name
-            )
+          for (const result of items) {
+            const title = normalizeTitle(result.vod_name)
             if (titleMatches(title, targetTitle)) appendDetail(result)
           }
         },

@@ -58,7 +58,7 @@ describe('AV 浏览规则', () => {
       { id: 2, vod_hits_week: 50, vod_score: 1, vod_time_add: '2025-01-01' },
       { id: 3, vod_hits_week: 0, vod_score: 5, vod_time: '2023-01-01' },
     ]
-    const ids = (list: any[]) => list.map(v => v.id)
+    const ids = (list: { id: number }[]): number[] => list.map(v => v.id)
     expect(ids(sortBrowseVideos(videos, 'hot', false))).toEqual([2, 1, 3])
     expect(ids(sortBrowseVideos(videos, 'rating', false))).toEqual([1, 3, 2])
     expect(ids(sortBrowseVideos(videos, 'latest', false))).toEqual([2, 1, 3])
