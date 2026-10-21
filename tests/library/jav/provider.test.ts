@@ -309,8 +309,8 @@ describe('番号站点设置', () => {
     ).toEqual({
       sites: [
         { id: 'fc2', enabled: false },
-        { id: 'javbus', enabled: true },
-        { id: 'avbase', enabled: true },
+        // 其余站点按默认顺序与默认开关补在后面
+        ...DEFAULT_JAV_SETTINGS.sites.filter(s => s.id !== 'fc2'),
       ],
     })
     expect(mergeJavSettings(undefined)).toEqual(DEFAULT_JAV_SETTINGS)

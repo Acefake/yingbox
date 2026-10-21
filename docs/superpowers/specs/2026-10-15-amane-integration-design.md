@@ -1,3 +1,5 @@
+> **已被 TS 实现取代**：Amane 侧车已删除，番号刮削见 `src/main/library/providers/jav/` 与 [docs/library-server.md](../../library-server.md)。本文仅作历史记录。
+
 # yingbox 独立 Amane 板块
 
 ## 用户要求

@@ -87,6 +87,10 @@ function compileWhere(q: NormalizedLibraryQuery): {
     clauses.push('i.library_id = ?')
     params.push(q.libraryId)
   }
+  if (q.actorId !== undefined) {
+    clauses.push('i.id IN (SELECT item_id FROM item_actors WHERE actor_id = ?)')
+    params.push(q.actorId)
+  }
   if (q.yearFrom !== undefined) {
     clauses.push('i.year >= ?')
     params.push(q.yearFrom)

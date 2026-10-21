@@ -10,6 +10,9 @@ import { type LibraryDb, StatementCache } from '../db/database'
 export const SETTING_KEYS = {
   tmdbToken: 'provider.tmdb.token',
   opensubtitlesKey: 'provider.opensubtitles.key',
+  theporndbToken: 'provider.theporndb.token',
+  javdbCookie: 'provider.javdb.cookie',
+  dmmApi: 'provider.dmm_api.credentials',
 } as const
 
 /** 键值设置仓库，读取有内存缓存。 */

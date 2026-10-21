@@ -3,6 +3,7 @@
  * 不依赖 Vue，便于单测。
  */
 import type {
+  LibraryAutoWrite,
   LibraryInfo,
   LibraryKind,
   OrganizeBatchInfo,
@@ -56,6 +57,25 @@ export const ARTWORK_ROWS: Array<{
   { key: 'actors', title: '演员头像' },
   { key: 'legacyNames', title: '兼容旧播放器的文件名' },
 ]
+
+/** 自动写出的选项：跟随写出设置里的「识别后自动写出」，或这个文件夹单独开 / 关。 */
+export const AUTO_WRITE_OPTIONS: Array<{
+  value: LibraryAutoWrite
+  label: string
+}> = [
+  { value: 'inherit', label: '跟随全局' },
+  { value: 'on', label: '开' },
+  { value: 'off', label: '关' },
+]
+
+/** 「自动识别」行的描述：番号库按番号刮削，其他按片名匹配 TMDB。 */
+export function autoIdentifyDescription(
+  lib: Pick<LibraryInfo, 'source'>
+): string {
+  return lib.source === 'jav'
+    ? '新文件入库后按番号刮削'
+    : '新文件入库后自动匹配 TMDB（需要令牌）'
+}
 
 /** 电影模板用不到剧集变量，剧集模板全部可用。 */
 const TV_ONLY = new Set(['series', 'season', 'episode', 'episodeTitle'])

@@ -1,0 +1,16 @@
+node_modules
+out
+dist
+dist-web
+dist-renderer
+coverage
+.git
+.github
+.claude
+.codex_tmp
+.tmp
+.eslintcache
+resources/mpv
+*.log
+.env
+.env.*

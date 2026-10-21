@@ -4,16 +4,6 @@
  */
 export const routes = [
   {
-    path: '/amane',
-    name: 'Amane',
-    component: () => import('@/features/amane/views/AmaneView.vue'),
-    meta: {
-      title: 'Amane',
-      description: '私人片库、扫描与刮削',
-      adultOnly: true,
-    },
-  },
-  {
     path: '/',
     name: 'Online',
     component: () => import('@/features/online/views/OnlineView.vue'),
