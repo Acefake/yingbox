@@ -4,6 +4,7 @@
  */
 import type { Ref } from 'vue'
 import { getJson, useVODParser } from '@/features/online'
+import { getVodList } from '@/utils/vod-data'
 import { listMissav } from '../api/missav'
 import {
   type AvEntry,
@@ -51,8 +52,7 @@ export function createPageFetchers(state: {
     return (): BrowseCacheEntry => {
       if (!r.success || !r.data)
         throw new Error(r.error || `${entry.name} 没有返回可用内容`)
-      const list = r.data.list || r.data.data?.list || []
-      const items = toPluginItems(list, entry.name)
+      const items = toPluginItems(getVodList(r.data), entry.name)
       return {
         items,
         pageCount: items.length ? p + 1 : p,

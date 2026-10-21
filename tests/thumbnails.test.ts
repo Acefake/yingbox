@@ -405,7 +405,7 @@ describe('WebP 编解码（wasm）', () => {
   })
 
   it('WebP 文件头校验（同为 RIFF 的 WAV 不算）', () => {
-    const tag = (s: string) => [...s].map(c => c.charCodeAt(0))
+    const tag = (s: string): number[] => [...s].map(c => c.charCodeAt(0))
     const webp = new Uint8Array(16)
     webp.set(tag('RIFF'), 0)
     webp.set(tag('WEBP'), 8)

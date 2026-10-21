@@ -76,7 +76,7 @@ const PLAN: OrganizePlan = {
   ],
 }
 
-function installWriter(writer: Partial<LibraryWriterBridge> | undefined) {
+function installWriter(writer: Partial<LibraryWriterBridge> | undefined): void {
   vi.stubGlobal('window', {
     api: {
       library: {

@@ -2,11 +2,11 @@ import { describe, expect, it, vi } from 'vitest'
 import { createNetClient } from '../src/shared/net/client'
 
 /** 只解析 internal.test 到内网，其余都是公网 */
-const lookup = async (host: string) => [
+const lookup = async (host: string): Promise<{ address: string }[]> => [
   { address: host === 'internal.test' ? '10.0.0.5' : '93.184.216.34' },
 ]
 
-const text = (body: string, init: ResponseInit = {}) =>
+const text = (body: string, init: ResponseInit = {}): Response =>
   new Response(body, { status: 200, ...init })
 
 describe('createNetClient', () => {
@@ -51,7 +51,7 @@ describe('createNetClient', () => {
   })
 
   it('超时中止请求', async () => {
-    const fetch = (_url: string, init: RequestInit) =>
+    const fetch = (_url: string, init: RequestInit): Promise<Response> =>
       new Promise<Response>((_resolve, reject) => {
         init.signal?.addEventListener('abort', () =>
           reject(init.signal?.reason)

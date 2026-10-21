@@ -3,8 +3,33 @@
  * 以及 CMS / 插件 / MissAV 三种返回数据到统一条目的整理。
  */
 import type { MediaFilterRow } from '@/components/MediaFilterBar.vue'
+import { asText } from '@/utils/json'
+import {
+  type PluginExt,
+  type RawVod,
+  asRawVod,
+  pluginTabs,
+} from '@/utils/vod-data'
 import type { MissavCatalogItem } from '../api/missav'
 import { missavCover } from '../api/missav'
+
+/**
+ * AV 条目：CMS、插件、MissAV 三种来源整理成同一形状，浏览、搜索、播放、收藏、历史都用它。
+ * 原始字段（vod_*）照搬来源，下划线字段是整理时补的。
+ */
+export interface AvVideo extends RawVod {
+  vod_id: string | number
+  /** 来源名（CMS 站名 / 插件名 / MissAV） */
+  _source: string
+  /** 去重键：来源 + vod_id */
+  _uid: string
+  /** 插件条目：播放要先经插件取线路 */
+  _isPlugin?: boolean
+  _siteName?: string
+  _ext?: PluginExt
+  /** MissAV 番号：播放时现解析 */
+  _missavInput?: string
+}
 
 /** 浏览数据源：MissAV 目录、AV CMS 源、成人插件源。 */
 export type AvEntry = {
@@ -16,7 +41,7 @@ export type BrowseSort = 'latest' | 'hot' | 'rating'
 export type BrowseCategory = {
   id: number | null
   name: string
-  ext?: Record<string, any>
+  ext?: PluginExt
 }
 /** 每个数据源上次停留的分类与排序。 */
 export type BrowseVisit = {
@@ -26,7 +51,7 @@ export type BrowseVisit = {
 }
 /** 一页浏览结果（内存缓存的单元）。 */
 export type BrowseCacheEntry = {
-  items: any[]
+  items: AvVideo[]
   pageCount: number
   total: number
   categories: BrowseCategory[]
@@ -101,11 +126,11 @@ export const buildFilterRows = (
 ]
 
 /** 本地排序：热度看周点击、评分看分数、默认按添加时间倒序。MissAV 由服务端排好，不动。 */
-export const sortBrowseVideos = (
-  videos: any[],
+export const sortBrowseVideos = <T extends RawVod>(
+  videos: T[],
   sort: BrowseSort,
   serverSorted: boolean
-): any[] => {
+): T[] => {
   if (serverSorted) return videos
   return [...videos].sort((a, b) => {
     if (sort === 'hot')
@@ -121,7 +146,7 @@ export const sortBrowseVideos = (
 /** 把条目里出现的新分类（type_id / type_name）并入已有分类，「全部」在前，其余按中文排序。 */
 export const mergeCategories = (
   existing: BrowseCategory[],
-  items: any[]
+  items: RawVod[]
 ): BrowseCategory[] => {
   const byId = new Map<number, BrowseCategory>(
     existing
@@ -175,38 +200,40 @@ export const rememberBounded = <V>(
 }
 
 /** 追加或替换一页，并按 _uid 去重（后出现的覆盖先出现的，位置保留在首次出现处）。 */
-export const mergePage = (current: any[], page: any[], append: boolean) => {
+export const mergePage = <T extends { _uid: string }>(
+  current: T[],
+  page: T[],
+  append: boolean
+): T[] => {
   const items = append ? [...current, ...page] : page
   return Array.from(new Map(items.map(item => [item._uid, item])).values())
 }
 
 /** CatSpider 配置里的 tabs → 分类（无名称时叫「分类N」）。 */
-export const parsePluginTabs = (data: any): BrowseCategory[] => {
-  const config = data?.config || data?.data?.config || data
-  const tabList = Array.isArray(config?.tabs) ? config.tabs : []
-  return tabList.map((tab: any, index: number) => ({
+export const parsePluginTabs = (data: unknown): BrowseCategory[] =>
+  pluginTabs(data).map((tab, index) => ({
     id: index,
     name: tab.name || `分类${index + 1}`,
-    ext: tab.ext || {},
+    ext: tab.ext,
   }))
-}
 
 /** 插件条目：vod_id 缺失时用 ext.url，标记 _isPlugin 供播放走插件解析。 */
-export const toPluginItems = (list: any[], siteName: string): any[] =>
-  list.map(item => ({
+export const toPluginItems = (list: unknown[], siteName: string): AvVideo[] =>
+  list.map(asRawVod).map(item => ({
     ...item,
-    vod_id: item.vod_id || item.ext?.url || '',
+    vod_id: item.vod_id || asText(item.ext?.url),
     _source: siteName,
-    _uid: `${siteName}-${item.vod_id || item.ext?.url || ''}`,
+    _uid: `${siteName}-${item.vod_id || asText(item.ext?.url)}`,
     _isPlugin: true,
     _siteName: siteName,
     _ext: item.ext || {},
   }))
 
 /** CMS 条目：补上来源名与唯一键。 */
-export const toCmsItems = (list: any[], sourceName: string): any[] =>
-  list.map(item => ({
+export const toCmsItems = (list: unknown[], sourceName: string): AvVideo[] =>
+  list.map(asRawVod).map(item => ({
     ...item,
+    vod_id: item.vod_id ?? '',
     _source: sourceName,
     _uid: `${sourceName}-${item.vod_id}`,
   }))
@@ -215,7 +242,7 @@ export const toCmsItems = (list: any[], sourceName: string): any[] =>
 export const toMissavItems = (
   items: MissavCatalogItem[],
   categoryName: string
-): any[] =>
+): AvVideo[] =>
   items.map(item => ({
     vod_id: item.code,
     vod_name: item.title,
@@ -236,7 +263,9 @@ export const missavSlug = (
   String(categories.find(c => c.name === categoryName)?.ext?.slug || 'new')
 
 /** MissAV 分类（拷贝一份）以及上次停留的分类（没有就第一个）。 */
-export const missavCategoriesFor = (saved?: BrowseVisit) => {
+export const missavCategoriesFor = (
+  saved?: BrowseVisit
+): { categories: BrowseCategory[]; match: BrowseCategory } => {
   const categories = MISSAV_CATEGORIES.map(c => ({ ...c, ext: { ...c.ext } }))
   const match =
     categories.find(c => c.name === saved?.categoryName) || categories[0]

@@ -6,17 +6,20 @@
 import { toast } from '@/components/ui'
 import { ref } from 'vue'
 import { useStorage } from '@vueuse/core'
-import { useOnlineSearch } from '@/features/online'
+import { type Episode, useOnlineSearch } from '@/features/online'
+import type { PluginExt } from '@/utils/vod-data'
 import {
   canOpenElectronPlayer,
   getMediaProgress,
   openMediaPlayer,
 } from '@/features/player'
 import { type MissavStream, resolveMissav } from '../api/missav'
+import type { AvVideo } from '../utils/av-catalog'
 import { coverSrc } from '../utils/av-media'
 import {
   type AvPlayRecord,
   type MergedGroup,
+  type PlayingVideo,
   needsPluginResolve,
   nextEpisode,
   nextInList,
@@ -30,12 +33,12 @@ type PlayGroup = Pick<MergedGroup, 'vod_name' | 'vod_pic' | 'items'>
 export function useAvPlayback(options: {
   findGroup: (name: string) => MergedGroup | null
   /** 当前视图里可连播的列表（一部片没有下一集时播列表里的下一部） */
-  upNext: () => { items: any[] }[]
+  upNext: () => { items: AvVideo[] }[]
 }) {
   const { fetchDetail, resolvePlayUrl } = useOnlineSearch()
   const playHistory = useStorage<AvPlayRecord[]>('av_play_history', [])
   const showPlayer = ref(false)
-  const playingVideo = ref<any>(null)
+  const playingVideo = ref<PlayingVideo | null>(null)
   const playingUrl = ref('')
   const playerMessage = ref('')
   /** 页内兜底播放层的 <video>（独立播放窗模式下为 null） */
@@ -46,10 +49,10 @@ export function useAvPlayback(options: {
   /** 页内播放层加载元数据后跳到的位置 */
   let resumeTime = 0
 
-  const groupFor = (video: any): PlayGroup =>
-    options.findGroup(video.vod_name) || {
-      vod_name: video.vod_name,
-      vod_pic: video.vod_pic,
+  const groupFor = (video: AvVideo): PlayGroup =>
+    options.findGroup(video.vod_name ?? '') || {
+      vod_name: video.vod_name ?? '',
+      vod_pic: video.vod_pic ?? '',
       items: [video],
     }
 
@@ -57,10 +60,10 @@ export function useAvPlayback(options: {
   const startPlay = async (
     url: string,
     epName = '',
-    ext?: Record<string, any>,
+    ext?: PluginExt,
     siteName?: string,
     resumeAt?: number
-  ) => {
+  ): Promise<void> => {
     let playUrl = url
     if (needsPluginResolve(url, siteName)) {
       const resolved = await resolvePlayUrl(siteName!, { ...(ext || {}), url })
@@ -88,7 +91,7 @@ export function useAvPlayback(options: {
   }
 
   /** 插件源：先用 getTracks 取回线路，再由 startPlay 解析成可播放地址。 */
-  const playPluginVideo = async (video: any) => {
+  const playPluginVideo = async (video: AvVideo): Promise<void> => {
     playerMessage.value = ''
     const groups = await fetchDetail({
       vod_id: video.vod_id,
@@ -116,7 +119,10 @@ export function useAvPlayback(options: {
     await startPlay(first.url, first.name, first.ext, video._siteName)
   }
 
-  const playMissavStream = async (stream: MissavStream, startAt = 0) => {
+  const playMissavStream = async (
+    stream: MissavStream,
+    startAt = 0
+  ): Promise<void> => {
     const video = {
       vod_id: stream.input,
       vod_name: stream.title,
@@ -140,10 +146,10 @@ export function useAvPlayback(options: {
     await startPlay(stream.url, '在线播放', undefined, undefined, startAt)
   }
 
-  const playListedMissav = async (video: any) => {
+  const playListedMissav = async (video: AvVideo): Promise<void> => {
     const hide = toast.loading('正在解析 MissAV…')
     try {
-      const stream = await resolveMissav(video._missavInput)
+      const stream = await resolveMissav(video._missavInput ?? '')
       await playMissavStream({
         ...stream,
         title: video.vod_name || stream.title,
@@ -156,7 +162,7 @@ export function useAvPlayback(options: {
     }
   }
 
-  const playVideo = async (video: any) => {
+  const playVideo = async (video: AvVideo): Promise<void> => {
     if (video._missavInput) return playListedMissav(video)
     if (video._isPlugin) {
       attempted.clear()
@@ -177,7 +183,10 @@ export function useAvPlayback(options: {
   }
 
   /** 换到同名的另一个来源；automatic 时提示「已切换到 X」。 */
-  const switchSource = async (video: any, automatic: boolean) => {
+  const switchSource = async (
+    video: AvVideo,
+    automatic: boolean
+  ): Promise<void> => {
     const notice = automatic ? `当前线路不可用，已切换到 ${video._source}` : ''
     if (video._isPlugin) {
       playerMessage.value = notice
@@ -196,7 +205,7 @@ export function useAvPlayback(options: {
   }
 
   /** 播放出错：按顺序试同组里还没试过的来源。 */
-  const tryNextSource = async () => {
+  const tryNextSource = async (): Promise<void> => {
     if (switching) return
     const next = playingGroup.value?.items.find(
       item => !attempted.has(item._uid)
@@ -213,7 +222,7 @@ export function useAvPlayback(options: {
     }
   }
 
-  const resumeHistory = async (record: AvPlayRecord) => {
+  const resumeHistory = async (record: AvPlayRecord): Promise<void> => {
     const video = record.video
     if (video._missavInput) {
       try {
@@ -241,8 +250,8 @@ export function useAvPlayback(options: {
   }
 
   /** 播完：有下一集播下一集，否则播当前列表里的下一部。 */
-  const onEnded = async () => {
-    const next = nextEpisode<any>(
+  const onEnded = async (): Promise<void> => {
+    const next = nextEpisode<Episode>(
       playingVideo.value?.episodes ?? [],
       playingUrl.value
     )
@@ -266,16 +275,16 @@ export function useAvPlayback(options: {
   // ── 页内兜底播放层（非 Electron）：音量记忆、续播、进度回写、快捷键 ──
   const volume = useStorage<number>('av_volume', 1)
   let lastProgressSave = 0
-  const applyVolume = () => {
+  const applyVolume = (): void => {
     const el = videoEl.value
     if (el) el.volume = Math.min(1, Math.max(0, Number(volume.value) || 0))
   }
-  const onPlayerReady = (video: HTMLVideoElement) => {
+  const onPlayerReady = (video: HTMLVideoElement): void => {
     videoEl.value = video
     applyVolume()
   }
   /** 加载元数据后续播（5 秒以后、离结尾 10 秒以上）。 */
-  const onLoadedMetadata = () => {
+  const onLoadedMetadata = (): void => {
     const el = videoEl.value
     if (!el) return
     applyVolume()
@@ -284,7 +293,7 @@ export function useAvPlayback(options: {
     resumeTime = 0
   }
   /** 每秒最多一次把进度写回播放历史。 */
-  const onTimeUpdate = () => {
+  const onTimeUpdate = (): void => {
     const el = videoEl.value
     if (!el || !playingVideo.value || !playingUrl.value) return
     if (Date.now() - lastProgressSave < 1000) return
@@ -295,12 +304,12 @@ export function useAvPlayback(options: {
     record.duration = Number.isFinite(el.duration) ? el.duration : 0
     record.timestamp = Date.now()
   }
-  const onVolumeChange = () => {
+  const onVolumeChange = (): void => {
     const el = videoEl.value
     if (el && !el.muted) volume.value = el.volume
   }
   /** 空格播放 / 暂停，左右方向键 ±10 秒，M 静音。 */
-  const onKeydown = (event: KeyboardEvent) => {
+  const onKeydown = (event: KeyboardEvent): void => {
     const el = videoEl.value
     if (!el) return
     if (event.key === ' ') {
@@ -316,7 +325,7 @@ export function useAvPlayback(options: {
     }
   }
 
-  const closePlayer = () => {
+  const closePlayer = (): void => {
     showPlayer.value = false
     playingVideo.value = null
     playingUrl.value = ''
@@ -327,7 +336,7 @@ export function useAvPlayback(options: {
   }
 
   /** 全局「后退」：正在播放时先关播放器。 */
-  const onNavigateBack = (event: Event) => {
+  const onNavigateBack = (event: Event): void => {
     if (!showPlayer.value && !playingUrl.value) return
     closePlayer()
     event.preventDefault()

@@ -1,11 +1,15 @@
 import { computed, ref } from 'vue'
+import { mapWithConcurrency } from '@/utils/concurrency'
+import { asText } from '@/utils/json'
+import {
+  type PluginExt,
+  type PluginTab,
+  asRawVod,
+  getVodList,
+  pluginTabs,
+} from '@/utils/vod-data'
 import { useVODParser } from './use-vod-parser'
 import type { CatSpiderSite, CmsItem } from './use-online-search'
-
-interface VodTab {
-  name: string
-  ext: Record<string, any>
-}
 
 export interface VodCard {
   vod_id: string
@@ -13,33 +17,14 @@ export interface VodCard {
   vod_pic: string
   vod_remarks: string
   type_name: string
-  ext: Record<string, any>
+  ext: PluginExt
   _siteName: string
 }
 
 interface VodSource {
   site: CatSpiderSite
-  tabs: VodTab[]
+  tabs: PluginTab[]
   loaded: boolean
-}
-
-const mapWithConcurrency = async <T, R>(
-  items: T[],
-  limit: number,
-  mapper: (item: T) => Promise<R>
-): Promise<R[]> => {
-  const results = new Array<R>(items.length)
-  let nextIndex = 0
-  const worker = async (): Promise<void> => {
-    while (nextIndex < items.length) {
-      const index = nextIndex++
-      results[index] = await mapper(items[index])
-    }
-  }
-  await Promise.all(
-    Array.from({ length: Math.min(limit, items.length) }, worker)
-  )
-  return results
 }
 
 /**
@@ -76,16 +61,8 @@ export function useVodBrowse() {
         const r = await getConfig(site.name)
         if (!r.success || !r.data) return { site, tabs: [], loaded: false }
 
-        const config = r.data.config || r.data.data?.config || r.data
-        const tabList = config.tabs || []
-        return {
-          site,
-          tabs: tabList.map((t: any) => ({
-            name: t.name || '',
-            ext: t.ext || {},
-          })),
-          loaded: tabList.length > 0,
-        }
+        const tabs = pluginTabs(r.data)
+        return { site, tabs, loaded: tabs.length > 0 }
       } catch {
         return { site, tabs: [], loaded: false }
       }
@@ -164,7 +141,7 @@ export function useVodBrowse() {
     try {
       const r = await getCards({
         siteName: src.site.name,
-        url: tab.ext.url,
+        url: asText(tab.ext.url) || undefined,
         ext: JSON.stringify(tab.ext),
         page,
       })
@@ -175,16 +152,17 @@ export function useVodBrowse() {
         return
       }
 
-      const list = r.data.list || r.data.data?.list || []
-      const newCards: VodCard[] = list.map((item: any) => ({
-        vod_id: item.vod_id || '',
-        vod_name: item.vod_name || '',
-        vod_pic: item.vod_pic || '',
-        vod_remarks: item.vod_remarks || '',
-        type_name: item.type_name || item.vod_class || '',
-        ext: item.ext || {},
-        _siteName: src.site.name,
-      }))
+      const newCards: VodCard[] = getVodList(r.data)
+        .map(asRawVod)
+        .map(item => ({
+          vod_id: asText(item.vod_id),
+          vod_name: item.vod_name || '',
+          vod_pic: item.vod_pic || '',
+          vod_remarks: item.vod_remarks || '',
+          type_name: item.type_name || asText(item.vod_class),
+          ext: item.ext || {},
+          _siteName: src.site.name,
+        }))
 
       if (page === 1) {
         cards.value = newCards

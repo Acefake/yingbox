@@ -1,13 +1,15 @@
 import { describe, expect, it } from 'vitest'
 import {
   cmsDetailSources,
-  firstPlayUrl,
-  getVodList,
-  normalizeVodPayload,
   parseCatSpiderGroups,
   parseCmsGroups,
   toCatSpiderSearchItems,
 } from '../src/renderer/src/features/online/utils/vod-payload'
+import {
+  firstPlayUrl,
+  getVodList,
+  normalizeVodPayload,
+} from '../src/renderer/src/utils/vod-data'
 import {
   migrateCmsApis,
   planCatSpiderSelection,
@@ -35,7 +37,15 @@ import {
 } from '../src/renderer/src/features/online/utils/source-rules'
 import type { EpisodeGroup } from '../src/renderer/src/features/online/types'
 
-const site = (api: string, name = api) => ({ api, name, type: 3, ext: '' })
+const site = (
+  api: string,
+  name = api
+): { api: string; name: string; type: number; ext: string } => ({
+  api,
+  name,
+  type: 3,
+  ext: '',
+})
 
 describe('在线返回数据解析', () => {
   it('payload：最多解两层 JSON 字符串，非对象返回 null', () => {
@@ -139,7 +149,9 @@ describe('在线返回数据解析', () => {
 
 describe('站点启用列表', () => {
   const sites = [site('a'), site('b'), site('csp_jable')]
-  const plan = (o: Partial<Parameters<typeof planCatSpiderSelection>[0]>) =>
+  const plan = (
+    o: Partial<Parameters<typeof planCatSpiderSelection>[0]>
+  ): string[] =>
     planCatSpiderSelection({
       sites,
       stored: [],

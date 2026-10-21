@@ -4,13 +4,13 @@
  */
 import { getSetting } from '@/features/settings'
 import { mapWithConcurrency } from '@/utils/concurrency'
+import { asText } from '@/utils/json'
+import { firstPlayUrl, getVodList } from '@/utils/vod-data'
 import { getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getJson } from '../api/online'
 import type { ApiSite, CatSpiderSite, CmsItem, EpisodeGroup } from '../types'
 import {
   cmsDetailSources,
-  firstPlayUrl,
-  getVodList,
   parseCatSpiderGroups,
   parseCmsGroups,
   toCatSpiderSearchItems,
@@ -72,12 +72,13 @@ export function useOnlineSearch() {
     searchController?.abort()
     const controller = new AbortController()
     searchController = controller
-    const current = () => requestId === generation && !controller.signal.aborted
+    const current = (): boolean =>
+      requestId === generation && !controller.signal.aborted
     keyword.value = q
     loading.value = true
     error.value = ''
     results.value = []
-    const publish = (items: CmsItem[]) => {
+    const publish = (items: CmsItem[]): void => {
       if (!current() || !items.length) return
       results.value = [...results.value, ...items]
       options.onItems?.(items)
@@ -141,7 +142,7 @@ export function useOnlineSearch() {
     if (item._source === 'catspider' && item._siteName) {
       try {
         const ext = item._ext || {}
-        const url = ext.url || String(item.vod_id)
+        const url = asText(ext.url) || String(item.vod_id)
         const r = await getTracks({
           siteName: item._siteName,
           url,

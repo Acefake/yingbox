@@ -31,7 +31,9 @@ export const sourceKey = (value: any): string =>
   `${value?._source || 'unknown'}:${value?._siteName || value?.api_url || value?.vod_id || ''}`
 
 /** 按来源类型拆开；没有 _source 的线路归 CMS。 */
-export const splitBySourceType = (groups: EpisodeGroup[]) => ({
+export const splitBySourceType = (
+  groups: EpisodeGroup[]
+): { catspider: EpisodeGroup[]; cms: EpisodeGroup[] } => ({
   catspider: groups.filter(g => g._source === 'catspider'),
   cms: groups.filter(g => g._source === 'cms' || !g._source),
 })

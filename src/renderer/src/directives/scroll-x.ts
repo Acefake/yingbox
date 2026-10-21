@@ -1,6 +1,6 @@
 import type { Directive } from 'vue'
 
-const handler = (e: WheelEvent) => {
+const handler = (e: WheelEvent): void => {
   const el = e.currentTarget as HTMLElement
   if (e.deltaY === 0) return
   e.preventDefault()
