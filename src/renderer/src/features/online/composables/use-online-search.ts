@@ -8,7 +8,13 @@ import { asText } from '@/utils/json'
 import { firstPlayUrl, getVodList } from '@/utils/vod-data'
 import { getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getJson } from '../api/online'
-import type { ApiSite, CatSpiderSite, CmsItem, EpisodeGroup } from '../types'
+import type {
+  ApiSite,
+  CatSpiderSite,
+  CmsItem,
+  EpisodeGroup,
+  PluginExt,
+} from '../types'
 import {
   cmsDetailSources,
   parseCatSpiderGroups,
@@ -33,6 +39,12 @@ export type {
   EpisodeGroup,
 } from '../types'
 export { CATSPIDER_SITES, DEFAULT_SITES, loadCatSpiderSites }
+
+/** 苹果 CMS 列表 / 详情接口的返回（ac=videolist） */
+interface CmsListResponse {
+  code?: number
+  list?: CmsItem[]
+}
 
 export function useOnlineSearch() {
   const keyword = ref('')
@@ -96,7 +108,9 @@ export function useOnlineSearch() {
           const url = new URL(site.api)
           url.searchParams.set('ac', 'videolist')
           url.searchParams.set('wd', q)
-          const data = await getJson<any>(String(url), { timeoutMs: 10000 })
+          const data = await getJson<CmsListResponse>(String(url), {
+            timeoutMs: 10000,
+          })
           if (!Array.isArray(data?.list)) return []
           const items = toCmsSearchItems(data.list, site)
           publish(items)
@@ -161,7 +175,7 @@ export function useOnlineSearch() {
     const tasks = sources.map(async src => {
       try {
         const url = `${src.api_url}?ac=videolist&ids=${src.vod_id}`
-        const data = await getJson<any>(url, { timeoutMs: 10000 })
+        const data = await getJson<CmsListResponse>(url, { timeoutMs: 10000 })
         return parseCmsGroups(data?.list?.[0], src.source_name)
       } catch {
         return []
@@ -178,10 +192,10 @@ export function useOnlineSearch() {
    */
   const resolvePlayUrl = async (
     siteName: string,
-    ext: Record<string, any>
+    ext: PluginExt
   ): Promise<string> => {
     try {
-      const r = await getPlayinfo({ siteName, url: ext.url || '', ...ext })
+      const r = await getPlayinfo({ siteName, url: asText(ext.url), ...ext })
       if (!r.success || !r.data) return ''
       return firstPlayUrl(r.data)
     } catch {

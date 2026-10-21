@@ -15,6 +15,7 @@ import { useStorage } from '@vueuse/core'
 import { useVODParser } from '@/features/online'
 import {
   type AvEntry,
+  type AvVideo,
   type BrowseCacheEntry,
   type BrowseCategory,
   type BrowseSort,
@@ -46,7 +47,7 @@ export function useAvBrowse(options: {
   const categoryName = ref('全部')
   const categories = ref<BrowseCategory[]>(allCategories())
   const sort = ref<BrowseSort>('latest')
-  const videos = shallowRef<any[]>([])
+  const videos = shallowRef<AvVideo[]>([])
   const page = ref(1)
   const pageCount = ref(0)
   const total = ref(0)

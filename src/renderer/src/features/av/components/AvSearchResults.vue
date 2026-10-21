@@ -70,6 +70,7 @@ import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import StatusState from '@/components/StatusState.vue'
 import AvSkeletonGrid from './AvSkeletonGrid.vue'
 import { coverSrc } from '../utils/av-media'
+import type { AvVideo } from '../utils/av-catalog'
 import type { MergedGroup } from '../utils/av-playback'
 
 defineProps<{
@@ -83,10 +84,10 @@ defineProps<{
   /** 进度条分母沿用原实现：只算 CMS 源 */
   cmsSourceCount: number
   canRetry: boolean
-  isFavorite: (video: any) => boolean
+  isFavorite: (video: AvVideo) => boolean
 }>()
 const emit = defineEmits<{
-  (e: 'play' | 'toggle-favorite', video: any): void
+  (e: 'play' | 'toggle-favorite', video: AvVideo): void
   (e: 'retry'): void
 }>()
 </script>

@@ -25,7 +25,7 @@
       <template #default="{ item: entry }">
         <UiPosterCard
           thumb
-          :title="entry.item.vod_name"
+          :title="entry.item.vod_name ?? ''"
           :cover="entry.item.vod_pic"
           :subtitle="
             [entry.typeLabel, entry.epName || entry.item.vod_year]
@@ -58,26 +58,19 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSegmented, {
   type SegmentedOption,
 } from '@/components/ui/UiSegmented.vue'
+import { asRecord, asText } from '@/utils/json'
 import { readStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
-import type { CmsItem } from '../composables/use-online-search'
+import type { OnlineDetailItem, OnlinePlayRecord } from '../types'
 
-type RecentPlayRecord = {
-  url?: string
-  epName?: string
-  progress?: number
-  timestamp?: number
-  item?: CmsItem
-  vod_name?: string
-  vod_pic?: string
-  [key: string]: unknown
-}
+/** 收藏与最近播放共用一种记录形状 */
+type RecentPlayRecord = OnlinePlayRecord
 
 type CollectionEntry = {
   id: string
   typeLabel: string
-  item: CmsItem
+  item: OnlineDetailItem
   epName?: string
   url?: string
   progress?: number
@@ -86,7 +79,7 @@ type CollectionEntry = {
 
 const props = defineProps<{ kind: 'favorites' | 'recent' }>()
 const emit = defineEmits<{
-  open: [item: CmsItem]
+  open: [item: OnlineDetailItem]
   resume: [record: RecentPlayRecord]
 }>()
 
@@ -105,22 +98,23 @@ const tabs: SegmentedOption[] = [
   { label: '电视剧', value: 'tv' },
 ]
 
-const typeOf = (item: any) =>
+const typeOf = (item: OnlineDetailItem): 'tv' | 'movie' =>
   item?.type_name === 'tv' || item?.type_name?.includes('剧') ? 'tv' : 'movie'
 
-const normalizeItem = (entry: RecentPlayRecord): CmsItem => {
-  const raw: any = entry.item || entry
-  if (raw?.vod_name) return raw as CmsItem
+const normalizeItem = (entry: RecentPlayRecord): OnlineDetailItem => {
+  // 新记录的条目在 item 里；旧记录和豆瓣卡片的字段平铺在记录上（豆瓣用 title / cover / type / year）
+  const raw = asRecord(entry.item) ?? entry
+  if (raw.vod_name) return raw as OnlineDetailItem
   return {
     ...raw,
     _source: 'douban',
-    vod_id: raw.url || raw.title,
-    vod_name: raw.title,
-    vod_pic: raw.cover,
-    type_name: raw.type,
-    vod_year: raw.year || '',
+    vod_id: asText(raw.url) || asText(raw.title),
+    vod_name: asText(raw.title),
+    vod_pic: asText(raw.cover),
+    type_name: asText(raw.type),
+    vod_year: asText(raw.year),
     vod_remarks: '',
-  } as CmsItem
+  } as OnlineDetailItem
 }
 
 const read = () => {

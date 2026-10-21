@@ -16,6 +16,7 @@ export interface VodCard {
   vod_name: string
   vod_pic: string
   vod_remarks: string
+  vod_year: string
   type_name: string
   ext: PluginExt
   _siteName: string
@@ -159,6 +160,7 @@ export function useVodBrowse() {
           vod_name: item.vod_name || '',
           vod_pic: item.vod_pic || '',
           vod_remarks: item.vod_remarks || '',
+          vod_year: asText(item.vod_year),
           type_name: item.type_name || asText(item.vod_class),
           ext: item.ext || {},
           _siteName: src.site.name,

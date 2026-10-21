@@ -64,6 +64,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 import { coverSrc, formatTime } from '../utils/av-media'
+import type { PlayingVideo } from '../utils/av-playback'
 import StatusState from '@/components/StatusState.vue'
 
 /** 历史记录的展示字段（完整结构见 Index.vue 的 AvPlayRecord）。 */
@@ -76,7 +77,7 @@ interface AvHistoryRecord {
   timestamp: number
   progress: number
   duration: number
-  video: any
+  video: PlayingVideo
 }
 
 defineProps<{ records: AvHistoryRecord[] }>()

@@ -1,6 +1,7 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 import { computed, reactive, ref } from 'vue'
+import { asRecord, asText } from '@/utils/json'
 import { getJson } from '../api/online'
 import { useAvSources } from '@/features/av'
 import {
@@ -111,9 +112,18 @@ export const syncAvSources = async (showMessage = true): Promise<void> => {
     )
     const entries = Array.isArray(response?.data) ? response.data : []
     const sources = entries
-      .map((entry: any) => {
-        const name = String(entry.name || entry.title || '在线资源站').trim()
-        const api = String(entry.api || entry.url || entry.link || '').trim()
+      .map(item => {
+        const entry = asRecord(item) ?? {}
+        const name = (
+          asText(entry.name) ||
+          asText(entry.title) ||
+          '在线资源站'
+        ).trim()
+        const api = (
+          asText(entry.api) ||
+          asText(entry.url) ||
+          asText(entry.link)
+        ).trim()
         return { name, api }
       })
       .filter(

@@ -4,7 +4,7 @@
  */
 import type { Ref } from 'vue'
 import { getJson, useVODParser } from '@/features/online'
-import { getVodList } from '@/utils/vod-data'
+import { type PluginExt, getVodList } from '@/utils/vod-data'
 import { listMissav } from '../api/missav'
 import {
   type AvEntry,
@@ -18,6 +18,14 @@ import {
   toMissavItems,
   toPluginItems,
 } from '../utils/av-catalog'
+
+/** AV CMS 列表接口的返回（ac=videolist）：code=1 表示成功 */
+interface CmsPage {
+  code?: number
+  list?: unknown[]
+  pagecount?: number | string
+  total?: number | string
+}
 
 export function createPageFetchers(state: {
   sourceApi: Ref<string>
@@ -40,12 +48,12 @@ export function createPageFetchers(state: {
   /** 插件源分类内容：走 CatSpider 的 getCards；下一页存在与否只看这页有没有内容。 */
   const fetchPluginPage = async (
     entry: AvEntry,
-    ext: Record<string, any>,
+    ext: PluginExt,
     p: number
-  ) => {
+  ): Promise<() => BrowseCacheEntry> => {
     const r = await getCards({
       siteName: entry.name,
-      url: ext.url,
+      url: typeof ext.url === 'string' ? ext.url : undefined,
       ext: JSON.stringify(ext),
       page: p,
     })
@@ -76,13 +84,13 @@ export function createPageFetchers(state: {
   /** CMS 源：code=1 且有 list 才算成功；新出现的分类并入分类栏。 */
   const fetchCmsPage = async (source: AvEntry, p: number) => {
     const url = createBrowseUrl(source.api, p, categoryId.value)
-    const data = await getJson<any>(url, { timeoutMs: 10000 }).then(
-      (d: any) => (d.code === 1 && Array.isArray(d.list) ? d : null),
+    const data = await getJson<CmsPage>(url, { timeoutMs: 10000 }).then(
+      d => (d.code === 1 && Array.isArray(d.list) ? d : null),
       () => null
     )
     return (): BrowseCacheEntry => {
       if (!data) throw new Error('所有启用数据源均未返回可用内容')
-      const items = toCmsItems(data.list, source.name)
+      const items = toCmsItems(data.list ?? [], source.name)
       categories.value = mergeCategories(categories.value, items)
       if (sourceApi.value)
         categoryCache.value[sourceApi.value] = categories.value

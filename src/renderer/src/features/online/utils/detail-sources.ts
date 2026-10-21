@@ -3,7 +3,7 @@
  * 独立播放窗的连播队列与同集备用线路、播放历史合并。
  */
 import type { PlayerSourceItem } from '@/features/player'
-import type { EpisodeGroup } from '../types'
+import type { CmsItem, EpisodeGroup, OnlinePlayRecord } from '../types'
 
 export type SourceType = 'cms' | 'catspider'
 
@@ -27,7 +27,11 @@ export const titleMatches = (title: string, target: string): boolean =>
   (title === target || title.includes(target) || target.includes(title))
 
 /** 来源去重键：每个站点只取一条，避免同一站点重复请求和重复线路。 */
-export const sourceKey = (value: any): string =>
+export const sourceKey = (
+  value: Partial<
+    Pick<CmsItem, '_source' | '_siteName' | 'api_url' | 'vod_id'>
+  > | null
+): string =>
   `${value?._source || 'unknown'}:${value?._siteName || value?.api_url || value?.vod_id || ''}`
 
 /** 按来源类型拆开；没有 _source 的线路归 CMS。 */
@@ -43,7 +47,10 @@ export const preferredSourceType = (groups: EpisodeGroup[]): SourceType =>
   groups.some(g => g._source === 'catspider') ? 'catspider' : 'cms'
 
 /** 来源类型切换项（只列出有线路的类型，插件在前）。 */
-export const sourceTypeOptions = (catspider: number, cms: number) => [
+export const sourceTypeOptions = (
+  catspider: number,
+  cms: number
+): { value: SourceType; label: string }[] => [
   ...(catspider
     ? [{ value: 'catspider' as const, label: `插件源 · ${catspider}` }]
     : []),
@@ -112,7 +119,7 @@ export const buildFallbacks = (
 }
 
 /** 播放历史里一条记录对应的影片键。 */
-const historyEntryKey = (entry: any): string =>
+const historyEntryKey = (entry: OnlinePlayRecord): string =>
   String(
     entry?.item?.vod_id ||
       entry?.vod_id ||
@@ -124,10 +131,10 @@ const historyEntryKey = (entry: any): string =>
 
 /** 新记录放最前；同一部片（或同一地址）只保留这一条，最多 30 条。 */
 export const mergeOnlineHistory = (
-  history: Record<string, any>[],
-  record: Record<string, any>,
+  history: OnlinePlayRecord[],
+  record: OnlinePlayRecord,
   mediaKey: string
-): Record<string, any>[] =>
+): OnlinePlayRecord[] =>
   [
     record,
     ...history.filter(entry => {
