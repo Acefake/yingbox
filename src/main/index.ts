@@ -39,6 +39,16 @@ if (is.dev) app.setPath('userData', join(app.getPath('appData'), 'yingbox'))
 
 Menu.setApplicationMenu(null)
 
+/**
+ * 关掉 Chromium 网络栈自己的 ERROR 日志（ssl_client_socket_impl handshake failed、
+ * cert_issuer_source_aia 等）：来自在线源插件请求的第三方站点（证书过期、握手失败），
+ * 请求方已经拿到错误并自行处理，这些行只是刷屏。渲染进程 console 仍在 DevTools 里。
+ * 排查网络问题时设 YINGBOX_CHROMIUM_LOG=1 恢复。
+ */
+if (!process.env.YINGBOX_CHROMIUM_LOG) {
+  app.commandLine.appendSwitch('log-level', '3')
+}
+
 app.commandLine.appendSwitch(
   'enable-features',
   'EnableDrDc,CanvasOopRasterization'

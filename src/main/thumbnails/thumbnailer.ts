@@ -60,6 +60,8 @@ export class Thumbnailer {
   private running = 0
   private warmQueue: Array<{ key: string; load: OriginalLoader }> = []
   private warming = false
+  /** 已打印过的警告：同一原因（如编码器缺失）每张图都会碰到，只记一次。 */
+  private readonly warned = new Set<string>()
 
   constructor(
     private readonly cache: ThumbCache,
@@ -67,6 +69,12 @@ export class Thumbnailer {
     private readonly encode: ThumbEncoder | undefined,
     private readonly log: (message: string) => void = () => {}
   ) {}
+
+  private warnOnce(message: string): void {
+    if (this.warned.has(message)) return
+    this.warned.add(message)
+    this.log(message)
+  }
 
   /** 取缩略图，不在缓存里就用 load 取原图生成；原图不存在或解不了返回 null。 */
   ensure(
@@ -154,7 +162,7 @@ export class Thumbnailer {
       )
       file = { data, ext: 'webp' }
     } catch (error) {
-      this.log(`WebP 编码失败，改用 JPEG：${(error as Error).message}`)
+      this.warnOnce(`WebP 编码失败，改用 JPEG：${(error as Error).message}`)
       file = { data: await resized.jpeg(QUALITY), ext: 'jpg' }
     }
     const path = await this.cache.put(

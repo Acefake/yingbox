@@ -3,7 +3,8 @@
  *
  * 主进程不做媒体库计算，只做四件事：fork、按 id 配对请求与响应、把 MessagePort 交给引擎、
  * 把引擎「原图已下载」的通知转给缩略图服务预热（协议本身在 src/main/thumbnails）。
- * 引擎崩溃时挂起的调用以 engine-unavailable 失败，下一次调用自动重启引擎。
+ * 引擎崩溃时挂起的调用以 engine-unavailable 失败，下一次调用自动重启引擎；
+ * 缺依赖或连续秒退时不再重启（见 crash-guard.ts），之后的调用直接带原因失败。
  */
 import { type UtilityProcess, app, ipcMain, utilityProcess } from 'electron'
 import { join } from 'node:path'
@@ -17,6 +18,7 @@ import {
   isLibraryMethod,
 } from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
+import { CrashGuard } from './crash-guard'
 import { libraryPaths } from './platform/paths'
 
 /** 引擎数据目录。 */
@@ -32,29 +34,41 @@ class LibraryEngineHost {
   private child: UtilityProcess | undefined
   private readonly pending = new Map<number, (result: InvokeResult) => void>()
   private nextId = 1
+  private readonly guard = new CrashGuard()
 
   constructor(private readonly thumbnails?: ThumbnailService) {}
 
-  /** 确保引擎在运行。 */
-  private ensure(): UtilityProcess {
+  /** 确保引擎在运行；不该再重启时返回原因。 */
+  private ensure(): UtilityProcess | string {
     if (this.child) return this.child
+    const blocked = this.guard.blocked()
+    if (blocked) return blocked
     const { dbPath, mediaDir } = libraryPaths(libraryDir())
     const child = utilityProcess.fork(
       join(__dirname, 'library-engine.js'),
       [dbPath, mediaDir],
       {
         serviceName: 'yingbox-library',
-        stdio: 'inherit',
+        // stderr 要过一遍崩溃守卫（认出缺依赖），再原样转到终端
+        stdio: ['ignore', 'inherit', 'pipe'],
         // node:sqlite 在 Node 22 仍标记为实验特性，屏蔽每次启动的提示
         execArgv: ['--disable-warning=ExperimentalWarning'],
       }
     )
+    this.guard.started()
+    child.stderr?.on('data', (chunk: Buffer) => {
+      process.stderr.write(chunk)
+      this.guard.observe(chunk.toString('utf8'))
+    })
     child.on('message', (message: EngineMessage) => this.onMessage(message))
     child.on('exit', code => {
       if (this.child === child) this.child = undefined
+      this.guard.exited()
+      const blocked = this.guard.blocked()
+      if (blocked) console.error(`[library] ${blocked}`)
       const result = failure(
         'engine-unavailable',
-        `媒体库引擎已退出（code ${code}）`
+        blocked ?? `媒体库引擎已退出（code ${code}）`
       )
       for (const settle of this.pending.values()) settle(result)
       this.pending.clear()
@@ -87,6 +101,9 @@ class LibraryEngineHost {
       )
     }
     const child = this.ensure()
+    if (typeof child === 'string') {
+      return Promise.resolve(failure('engine-unavailable', child))
+    }
     const id = this.nextId++
     return new Promise(resolve => {
       this.pending.set(id, resolve)
@@ -101,7 +118,9 @@ class LibraryEngineHost {
 
   /** 把渲染进程的 MessagePort 交给引擎作为事件订阅方。 */
   subscribe(port: Electron.MessagePortMain): void {
-    this.ensure().postMessage({ kind: 'subscribe' }, [port])
+    const child = this.ensure()
+    if (typeof child === 'string') port.close()
+    else child.postMessage({ kind: 'subscribe' }, [port])
   }
 
   /** 通知引擎关闭数据库并退出。 */

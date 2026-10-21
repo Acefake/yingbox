@@ -96,6 +96,7 @@ async function setup(
     encoder?: boolean
     maxBytes?: number
     loadSource?: (source: string) => Promise<OriginalImage>
+    log?: (message: string) => void
   } = {}
 ): Promise<{
   resize: ReturnType<typeof fakeResizer>
@@ -109,7 +110,8 @@ async function setup(
   const thumbnailer = new Thumbnailer(
     cache,
     resize,
-    options.encoder === false ? undefined : await loadWebpEncoder()
+    options.encoder === false ? undefined : await loadWebpEncoder(),
+    options.log
   )
   const loadSource = vi.fn(
     options.loadSource ?? (async () => ({ bytes: new Uint8Array(JPEG) }))
@@ -261,6 +263,16 @@ describe('媒体库原图（image/<key>）', () => {
     expect(
       (await handler(new Request(mediaImageUrl('cd'.repeat(16))))).status
     ).toBe(404)
+  })
+
+  it('编码器缺失的警告只打一次，不随每张图刷屏', async () => {
+    const log = vi.fn()
+    const { handler } = await setup({ encoder: false, log })
+    for (const width of [300, 780] as const) {
+      await handler(new Request(mediaImageUrl(KEY, width)))
+    }
+    expect(log).toHaveBeenCalledTimes(1)
+    expect(log.mock.calls[0]?.[0]).toContain('改用 JPEG')
   })
 
   it('缓存文件被外部删掉后重新生成', async () => {
