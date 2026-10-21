@@ -32,9 +32,29 @@ describe('toLibraryQuery', () => {
     expect(toLibraryQuery('tv', defaultWallQuery()).types).toEqual(['series'])
   })
 
+  it('按分区限定来源：电影页只查 tmdb 库，番号页只查 jav 库', () => {
+    const base = defaultWallQuery()
+    expect(toLibraryQuery('movie', base)).toMatchObject({
+      types: ['movie'],
+      source: 'tmdb',
+    })
+    expect(toLibraryQuery('jav', base)).toMatchObject({
+      types: ['movie'],
+      source: 'jav',
+    })
+    expect(toLibraryQuery('tv', base).source).toBe('tmdb')
+    expect(reviewQuery('movie').source).toBe('tmdb')
+    expect(reviewQuery('jav').source).toBe('jav')
+    // 引擎校验认这个参数
+    expect(normalizeLibraryQuery(toLibraryQuery('jav', base)).source).toBe(
+      'jav'
+    )
+  })
+
   it('默认按添加时间倒序，没有多余条件', () => {
     expect(toLibraryQuery('movie', defaultWallQuery())).toEqual({
       types: ['movie'],
+      source: 'tmdb',
       sort: 'addedAt',
       order: 'desc',
     })
@@ -81,6 +101,7 @@ describe('toLibraryQuery', () => {
   it('待确认队列：待确认与未匹配，按片名', () => {
     expect(reviewQuery('tv')).toEqual({
       types: ['series'],
+      source: 'tmdb',
       matchStates: ['review', 'unmatched'],
       sort: 'title',
       order: 'asc',
@@ -89,7 +110,7 @@ describe('toLibraryQuery', () => {
 })
 
 describe('排序记忆', () => {
-  it('每种媒体库各记一份，非法值忽略', () => {
+  it('每个分区各记一份，非法值忽略', () => {
     const storage = memoryStorage()
     expect(loadSavedSort('movie', storage)).toBeNull()
     saveSort('movie', { sort: 'year', order: 'asc' }, storage)
@@ -98,6 +119,7 @@ describe('排序记忆', () => {
       order: 'asc',
     })
     expect(loadSavedSort('tv', storage)).toBeNull()
+    expect(loadSavedSort('jav', storage)).toBeNull()
     storage.setItem('library.wall.tv', '{"sort":"bogus"}')
     expect(loadSavedSort('tv', storage)).toBeNull()
     storage.setItem('library.wall.tv', 'not json')

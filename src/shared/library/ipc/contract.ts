@@ -147,6 +147,11 @@ export type LibrarySortField =
 export interface LibraryQuery {
   /** 只查某个媒体库；缺省查全部。 */
   libraryId?: number
+  /**
+   * 只查这种来源的媒体库（tmdb = 普通电影 / 剧集，jav = 番号库）；缺省两种都要。
+   * 「电影」页传 tmdb、「番号」页传 jav，两边互不露出对方的条目。
+   */
+  source?: LibrarySource
   /** 顶层类型筛选；缺省电影和剧集都要。 */
   types?: TopLevelItemType[]
   /** 片名搜索（FTS5，繁简与大小写不敏感）。 */

@@ -4,6 +4,8 @@
  */
 import { createRouter, createWebHashHistory } from 'vue-router'
 import { routes } from '@/router/routers'
+import { getSetting } from '@/features/settings'
+import { adultRedirect } from '@/router/adult-guard'
 
 /**
  * 创建路由实例
@@ -28,6 +30,12 @@ const router = createRouter({
  * 在每次路由跳转前执行
  */
 router.beforeEach((to, _from, next) => {
+  // 成人页面（番号库、AV）在成人模式关闭时挡回首页：直接打开的旧链接也不会露出内容
+  const redirect = adultRedirect(to, getSetting('app.adultMode'))
+  if (redirect) {
+    next(redirect)
+    return
+  }
   // 设置页面标题
   if (to.meta?.title) {
     document.title = `影盒 - ${to.meta.title}`

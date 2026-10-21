@@ -1,5 +1,5 @@
 /**
- * 媒体库管理：某类型（电影 / 剧集）的媒体库列表、添加 / 移除文件夹、扫描、识别全部，
+ * 媒体库管理：某分区（电影 / 剧集 / 番号，见 library-section.ts）的媒体库列表、添加 / 移除文件夹、扫描、识别全部，
  * 以及后台任务进度（扫描任务、识别进度）。
  *
  * 模块级单例：海报墙、设置页、待确认队列看到的是同一份状态，事件只订阅一次。
@@ -10,12 +10,11 @@ import type {
   IdentifyProgressEvent,
   LibraryAutomation,
   LibraryInfo,
-  LibraryKind,
-  LibrarySource,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
 import { pickLibraryFolder } from '../settings/folder-picker'
 import { onLibraryEvent } from './library-events'
+import { type LibrarySection, SECTIONS, librariesIn } from './library-section'
 
 /** 后台活动：界面顶部的细进度条与状态文字。 */
 export interface LibraryActivity {
@@ -88,8 +87,8 @@ export interface UseLibraries {
   loaded: Ref<boolean>
   error: Ref<string | null>
   activity: ComputedRef<LibraryActivity | null>
-  /** 选文件夹并添加；source 为 jav 时是番号文件夹（只用于电影库）。 */
-  addFolder: (source?: LibrarySource) => Promise<LibraryInfo | null>
+  /** 选文件夹并添加为本分区的库（番号页添加的就是番号库）。 */
+  addFolder: () => Promise<LibraryInfo | null>
   removeLibrary: (libraryId: number) => Promise<void>
   /** 改一个库的自动化设置（只改给出的字段）。 */
   updateAutomation: (
@@ -101,11 +100,17 @@ export interface UseLibraries {
   refreshAll: () => Promise<void>
 }
 
-/** 某类型媒体库的管理状态与操作。 */
-export function useLibraries(kind: LibraryKind): UseLibraries {
+/** 按 id 找媒体库（任何分区）；列表还没加载或不存在时为 undefined。 */
+export function findLibrary(libraryId: number): LibraryInfo | undefined {
+  return all.value.find(lib => lib.id === libraryId)
+}
+
+/** 某分区媒体库的管理状态与操作。 */
+export function useLibraries(section: LibrarySection): UseLibraries {
   const bridge = libraryBridge()
   startOnce()
-  const libraries = computed(() => all.value.filter(lib => lib.kind === kind))
+  const { kind, source } = SECTIONS[section]
+  const libraries = computed(() => librariesIn(all.value, section))
 
   const activity = computed<LibraryActivity | null>(() => {
     if (identify.value) return identifyActivity(identify.value)
@@ -123,9 +128,7 @@ export function useLibraries(kind: LibraryKind): UseLibraries {
     }
   }
 
-  async function addFolder(
-    source: LibrarySource = 'tmdb'
-  ): Promise<LibraryInfo | null> {
+  async function addFolder(): Promise<LibraryInfo | null> {
     if (!bridge) return null
     const root = await pickLibraryFolder()
     if (!root) return null

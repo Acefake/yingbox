@@ -23,12 +23,12 @@
 
     <main class="lib-main">
       <!-- 网页端：片库服务连不上 / 需要登录 -->
-      <ServerConnect v-if="serverGate" :state="serverState" :kind="kind" />
+      <ServerConnect v-if="serverGate" :state="serverState" :icon="spec.icon" />
 
       <!-- 不在桌面版 -->
       <LibraryEmpty
         v-else-if="!available"
-        :icon="kind"
+        :icon="spec.icon"
         :title="`本地${kindLabel}库仅在桌面版可用`"
         text="媒体库需要读取本机文件夹，请在影盒桌面版中使用。"
       />
@@ -36,9 +36,9 @@
       <!-- 还没有文件夹 -->
       <LibraryEmpty
         v-else-if="librariesLoaded && !hasLibraries"
-        :icon="kind"
-        :title="`添加你的${kindLabel}文件夹`"
-        text="影盒会扫描文件夹里的视频，自动识别片名并补全海报、简介和演职员。"
+        :icon="spec.icon"
+        :title="noFolder.title"
+        :text="noFolder.text"
       >
         <UiButton
           variant="primary"
@@ -74,22 +74,25 @@
         </PosterWall>
         <ReviewQueue
           v-if="view === 'review'"
-          :kind="kind"
+          :section="section"
           :library-ids="libraryIds"
         />
-        <ActorsView v-if="view === 'actors'" @open="id => openActor(id)" />
+        <ActorsView
+          v-if="section === 'jav' && view === 'actors'"
+          @open="id => openActor(id)"
+        />
       </template>
     </main>
 
     <!-- 演员详情与条目详情覆盖整页（海报墙留在下面，返回时滚动位置不变）；条目详情在上层 -->
     <ActorDetail
-      v-if="actorId !== null"
+      v-if="section === 'jav' && actorId !== null"
       :actor-id="actorId"
       @close="closeActor"
       @open-item="openDetail"
     />
     <ItemDetail
-      v-if="detailId !== null"
+      v-if="detailId !== null && detailReady"
       :item-id="detailId"
       @close="closeDetail"
       @fix-match="openMatchSheet"
@@ -109,7 +112,7 @@
     <LibrarySettings
       v-if="settingsMounted"
       :open="settingsOpen"
-      :kind="kind"
+      :section="section"
       @close="settingsOpen = false"
     />
     <LibrarySheet
@@ -132,10 +135,11 @@
 
 <script setup lang="ts">
 /**
- * 本地媒体库页面（电影与剧集共用，按 kind 区分）：工具栏、后台任务进度、海报墙 / 待确认队列、
+ * 本地媒体库页面（电影 / 剧集 / 番号三个分区共用，按 section 区分，见 state/library-section.ts）：工具栏、后台任务进度、海报墙 / 待确认队列、
  * 详情（覆盖在海报墙上，返回时保留滚动位置）、设置、修正匹配、整理。
  *
- * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙。
+ * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。
+ * 每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。
  * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts。
  */
 import { toast } from '@/components/ui'
@@ -143,20 +147,16 @@ import { useDebounceFn } from '@vueuse/core'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import type {
-  LibraryItemSummary,
-  LibraryKind,
-} from '../../../../shared/library/ipc'
+import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import { libraryServerState } from '@/services/library-server'
-import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 
 import ActorDetail from './actors/ActorDetail.vue'
 import ActorsView from './actors/ActorsView.vue'
 import ItemDetail from './detail/ItemDetail.vue'
 import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
-import LibraryToolbar, { type LibraryView } from './page/LibraryToolbar.vue'
+import LibraryToolbar from './page/LibraryToolbar.vue'
 import SelectionBar from './page/SelectionBar.vue'
 import ServerConnect from './page/ServerConnect.vue'
 import { usesLibraryServer } from './api/bridge'
@@ -164,10 +164,12 @@ import {
   type ActivateModifiers,
   emptyTitleFor,
   libraryOptionsFor,
-  reviewTabLabel,
+  noFolderCopy,
 } from './page/page-rules'
 import { useOverlayRoute } from './page/use-overlay-route'
 import { useLibraryActions } from './page/use-library-actions'
+import { useLibraryViews } from './page/use-library-views'
+import { useSectionGuard } from './page/use-section-guard'
 import { useWallSelection } from './page/use-wall-selection'
 import MatchPane from './review/MatchPane.vue'
 import ReviewQueue from './review/ReviewQueue.vue'
@@ -179,10 +181,10 @@ import {
   defaultOrder,
   defaultWallQuery,
   loadSavedSort,
-  reviewQuery,
   saveSort,
   toLibraryQuery,
 } from './state/query-state'
+import { type LibrarySection, SECTIONS } from './state/library-section'
 import { useLibraries } from './state/use-libraries'
 import { usePagedQuery } from './state/use-paged-query'
 import PosterWall from './wall/PosterWall.vue'
@@ -193,10 +195,14 @@ import {
   writerActivity,
 } from './writer/use-writer'
 
-const props = defineProps<{ kind: LibraryKind }>()
+const props = defineProps<{ section: LibrarySection }>()
 
 const route = useRoute()
-const kindLabel = computed(() => (props.kind === 'movie' ? '电影' : '剧集'))
+// 分区在页面生命周期内不变（每个分区是一个路由组件）
+const section = props.section
+const spec = SECTIONS[section]
+const kindLabel = spec.label
+const noFolder = noFolderCopy(section)
 
 // —— 媒体库 ——
 const {
@@ -207,7 +213,7 @@ const {
   addFolder: pickFolder,
   scanAll: scanLibraries,
   identifyAll: identifyLibraries,
-} = useLibraries(props.kind)
+} = useLibraries(section)
 const hasLibraries = computed(() => libraries.value.length > 0)
 // 网页端：片库服务就绪前（探测中 / 连不上 / 未登录）不显示海报墙
 const serverState = libraryServerState()
@@ -219,7 +225,7 @@ const libraryIds = computed(() => libraries.value.map(lib => lib.id))
 // —— 查询条件 ——
 const state = reactive<WallQueryState>({
   ...defaultWallQuery(),
-  ...loadSavedSort(props.kind),
+  ...loadSavedSort(section),
 })
 const searchText = ref('')
 const applySearch = useDebounceFn((text: string) => {
@@ -246,12 +252,12 @@ const libraryChoice = computed({
 function setSort(value: WallSort): void {
   state.sort = value
   state.order = defaultOrder(value)
-  saveSort(props.kind, state)
+  saveSort(section, state)
 }
 
 function toggleOrder(): void {
   state.order = state.order === 'asc' ? 'desc' : 'asc'
-  saveSort(props.kind, state)
+  saveSort(section, state)
 }
 
 const wall = ref<InstanceType<typeof PosterWall> | null>(null)
@@ -263,7 +269,7 @@ const {
   error: queryError,
   setVisible,
 } = usePagedQuery(
-  () => toLibraryQuery(props.kind, state),
+  () => toLibraryQuery(section, state),
   event => libraryIds.value.includes(event.libraryId)
 )
 
@@ -274,23 +280,8 @@ watch(
 )
 const emptyTitle = computed(() => emptyTitleFor(state))
 
-// —— 待确认数量（视图切换上的角标）——
-const reviewCount = usePagedQuery(
-  () => ({ ...reviewQuery(props.kind), limit: 1 }),
-  event => libraryIds.value.includes(event.libraryId),
-  1
-)
-const view = ref<LibraryView>('wall')
-// 演员库只属于番号文件夹
-const hasJav = computed(() => libraries.value.some(l => l.source === 'jav'))
-const viewOptions = computed<SegmentedOption<LibraryView>[]>(() => [
-  { value: 'wall', label: '资料库' },
-  ...(hasJav.value ? [{ value: 'actors' as const, label: '演员' }] : []),
-  { value: 'review', label: reviewTabLabel(reviewCount.total.value) },
-])
-watch(hasJav, has => {
-  if (!has && view.value === 'actors') view.value = 'wall'
-})
+// —— 视图切换（资料库 / 演员 / 待确认）——
+const { view, viewOptions } = useLibraryViews(section, libraryIds)
 
 // —— 多选 ——
 const { selection, selectionVersion, clearSelection, activate } =
@@ -320,6 +311,12 @@ const {
   open: openActor,
   close: closeActor,
 } = useOverlayRoute('actor')
+const { detailReady } = useSectionGuard(
+  section,
+  detailId,
+  actorId,
+  id => list.indexOfId(id) >= 0
+)
 
 // —— 面板 ——
 const settingsOpen = ref(false)

@@ -22,6 +22,7 @@ describe('normalizeLibraryQuery', () => {
   it('缺省：电影 + 剧集、片名升序、每页 200', () => {
     expect(normalizeLibraryQuery(undefined)).toEqual({
       libraryId: undefined,
+      source: undefined,
       types: ['movie', 'series'],
       search: undefined,
       yearFrom: undefined,
@@ -54,6 +55,7 @@ describe('normalizeLibraryQuery', () => {
     [{ types: ['episode'] }],
     [{ libraryId: 1.5 }],
     [{ search: 42 }],
+    [{ source: 'imdb' }],
     ['not an object'],
   ])('非法参数 %j 抛 invalid-params', input => {
     expect(() => normalizeLibraryQuery(input)).toThrow(

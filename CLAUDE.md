@@ -79,7 +79,8 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/routers.ts)):
 
 - `/` → Online search & streaming ([features/online/views/OnlineView.vue](src/renderer/src/features/online/views/OnlineView.vue))
-- `/movie` → Movie library ([features/library/MovieLibraryPage.vue](src/renderer/src/features/library/MovieLibraryPage.vue))
+- `/movie` → Movie library ([features/library/MovieLibraryPage.vue](src/renderer/src/features/library/MovieLibraryPage.vue)), TMDB libraries only
+- `/jav` → 番号 library ([features/library/JavLibraryPage.vue](src/renderer/src/features/library/JavLibraryPage.vue)), `source: 'jav'` libraries, actors view and 番号 site settings; adult mode only
 - `/tv` → TV library ([features/library/TvLibraryPage.vue](src/renderer/src/features/library/TvLibraryPage.vue))
 - `/av` → Adult video resources online playback ([features/av/views/AvView.vue](src/renderer/src/features/av/views/AvView.vue))
 - `/player-popout` → Dedicated player window ([features/player/views/PlayerPopout.vue](src/renderer/src/features/player/views/PlayerPopout.vue))
