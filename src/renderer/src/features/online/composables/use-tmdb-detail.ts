@@ -3,10 +3,7 @@
  * 未配置 TMDB Access Token 时跳过；任何失败都静默（详情页仍可只靠来源数据展示）。
  */
 import { ref } from 'vue'
-import { getTmdbAccessToken } from '@/features/settings'
-import { getJson, withQuery } from '../api/online'
-
-const TMDB = 'https://api.themoviedb.org/3'
+import { tmdb } from '../api/online'
 
 export function useTmdbDetail() {
   const detail = ref<any>(null)
@@ -24,40 +21,32 @@ export function useTmdbDetail() {
 
   const fetchTmdb = async (name: string, mediaType: 'movie' | 'tv') => {
     loading.value = true
-    const token = getTmdbAccessToken()
-    if (!token) {
-      console.warn(
-        '[TMDB] 未配置 Access Token，已跳过 TMDB 查询（请在设置中填写）'
-      )
-      loading.value = false
-      return
-    }
-    const options = {
-      headers: { Authorization: `Bearer ${token}` },
-      timeoutMs: 8000,
-    }
+    const zh = { language: 'zh-CN' }
     try {
-      const sr = await getJson<any>(
-        withQuery(`${TMDB}/search/${mediaType}`, {
-          query: name,
-          language: 'zh-CN',
-          page: 1,
-        }),
-        options
-      )
+      const sr = await tmdb<any>(`/search/${mediaType}`, {
+        query: name,
+        ...zh,
+        page: 1,
+      })
+      if (sr === null) {
+        console.warn(
+          '[TMDB] 未配置 Access Token，已跳过 TMDB 查询（请在设置中填写）'
+        )
+        return
+      }
       const first = sr?.results?.[0]
       if (!first) return
-      const base = `${TMDB}/${mediaType}/${first.id}`
+      const base = `/${mediaType}/${first.id}`
       const [dr, cr] = await Promise.all([
-        getJson<any>(`${base}?language=zh-CN`, options),
-        getJson<any>(`${base}/credits?language=zh-CN`, options),
+        tmdb<any>(base, zh),
+        tmdb<any>(`${base}/credits`, zh),
       ])
       detail.value = dr
       cast.value = cr?.cast || []
       directors.value = (cr?.crew || [])
         .filter((c: any) => c.job === 'Director')
         .map((c: any) => c.name)
-      const ir = await getJson<any>(`${base}/images`, options).catch(() => null)
+      const ir = await tmdb<any>(`${base}/images`).catch(() => null)
       images.value = (ir?.backdrops || []).slice(0, 30)
     } catch {
       /* silent */

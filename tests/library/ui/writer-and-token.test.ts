@@ -3,14 +3,10 @@ import { effectScope } from 'vue'
 
 // 设置层在 import 时会读快照（需要 window / localStorage），这里只测媒体库一侧的编排
 vi.mock('@/features/settings', () => ({
-  getTmdbAccessToken: () => '',
   setTmdbToken: vi.fn(),
 }))
 
-import {
-  saveLibraryTmdbToken,
-  syncTmdbTokenToEngine,
-} from '../../../src/renderer/src/features/library/settings/provider-token'
+import { saveLibraryTmdbToken } from '../../../src/renderer/src/features/library/settings/provider-token'
 import type {
   LibraryWriterBridge,
   OrganizePlan,
@@ -26,53 +22,28 @@ const status = (configured: boolean) => ({
   opensubtitles: { configured: false },
 })
 
-describe('syncTmdbTokenToEngine', () => {
-  it('引擎未配置、设置里有令牌：下发（去掉首尾空白）', async () => {
-    const bridge = {
-      getProviderStatus: vi.fn(async () => status(false)),
-      setProviderToken: vi.fn(async () => status(true)),
-    }
-    expect(await syncTmdbTokenToEngine(bridge, () => ' eyJold ')).toBe(true)
-    expect(bridge.setProviderToken).toHaveBeenCalledWith('tmdb', 'eyJold')
-  })
-
-  it('引擎已配置：不覆盖', async () => {
-    const bridge = {
-      getProviderStatus: vi.fn(async () => status(true)),
-      setProviderToken: vi.fn(),
-    }
-    expect(await syncTmdbTokenToEngine(bridge, () => 'eyJold')).toBe(false)
-    expect(bridge.setProviderToken).not.toHaveBeenCalled()
-  })
-
-  it('设置里没有令牌：不查引擎也不写', async () => {
-    const bridge = {
-      getProviderStatus: vi.fn(async () => status(false)),
-      setProviderToken: vi.fn(),
-    }
-    expect(await syncTmdbTokenToEngine(bridge, () => '  ')).toBe(false)
-    expect(bridge.getProviderStatus).not.toHaveBeenCalled()
-    expect(bridge.setProviderToken).not.toHaveBeenCalled()
-  })
-
-  it('没有引擎（网页版）：什么也不做', async () => {
-    expect(await syncTmdbTokenToEngine(null, () => 'eyJold')).toBe(false)
-  })
-})
-
 describe('saveLibraryTmdbToken', () => {
-  it('先存设置密钥再写引擎；清空时两边一起清', async () => {
+  it('先交主进程保存（去掉首尾空白），再读引擎状态；不自己写引擎', async () => {
     const calls: string[] = []
-    const save = vi.fn(async (value: string) => void calls.push(`save:${value}`))
+    const save = vi.fn(
+      async (value: string) => void calls.push(`save:${value}`)
+    )
+    let configured = false
     const bridge = {
-      setProviderToken: vi.fn(async (_p: 'tmdb', token: string | null) => {
-        calls.push(`engine:${token}`)
-        return status(token !== null)
+      getProviderStatus: vi.fn(async () => {
+        calls.push('status')
+        return status(configured)
       }),
     }
-    expect((await saveLibraryTmdbToken(bridge, ' eyJnew ', save)).tmdb.configured).toBe(true)
-    expect((await saveLibraryTmdbToken(bridge, '', save)).tmdb.configured).toBe(false)
-    expect(calls).toEqual(['save:eyJnew', 'engine:eyJnew', 'save:', 'engine:null'])
+    configured = true
+    expect(
+      (await saveLibraryTmdbToken(bridge, ' eyJnew ', save)).tmdb.configured
+    ).toBe(true)
+    configured = false
+    expect((await saveLibraryTmdbToken(bridge, '', save)).tmdb.configured).toBe(
+      false
+    )
+    expect(calls).toEqual(['save:eyJnew', 'status', 'save:', 'status'])
   })
 })
 

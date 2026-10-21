@@ -19,6 +19,17 @@ export function getJson<T = unknown>(
   return onlineApi().getJson(url, options) as Promise<T>
 }
 
+/**
+ * 请求 TMDB v3 接口（路径如 `/search/movie`、`/movie/603/credits`）。令牌在引擎里加，
+ * 渲染层拿不到；未配置令牌时返回 null。
+ */
+export function tmdb<T = unknown>(
+  path: string,
+  query?: Record<string, string | number>
+): Promise<T | null> {
+  return onlineApi().tmdb(path, query) as Promise<T | null>
+}
+
 /** 拼接查询串。 */
 export function withQuery(
   url: string,

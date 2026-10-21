@@ -92,7 +92,7 @@ Key directories under `src/renderer/src/`:
 
 - `features/<x>/` — non-library features, each self-contained (`views/ components/ composables/ api/ utils/`): `online`, `av`, `download`, `amane`, `lada`, `player`, `settings`, `shell`. Cross-feature imports only via `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`); `main.ts` / `App.vue` / `router/` compose features and may point at view files for lazy routes
 - `features/library/` — movie / TV library UI on top of the library engine (`src/main/library`, `window.api.library`)
-- TMDB token — settings secret `scrape.tmdbToken`; read with `getTmdbAccessToken()` from `@/features/settings`
+- TMDB token — settings secret `scrape.tmdbToken`, write-only from the renderer (`setTmdbToken`); TMDB requests use `online.tmdb(path, query)`, the engine adds the token (see `src/main/tmdb.ts`)
 - `composables/` — Global composables:
   - `use-error-handler.ts` — `safeExecute` / `safeExecuteSync` wrappers with Ant Design message toasts
   - `use-context-menu.ts` — MenuItem interface definition
