@@ -117,7 +117,7 @@ const normalizeItem = (entry: RecentPlayRecord): OnlineDetailItem => {
   } as OnlineDetailItem
 }
 
-const read = () => {
+const read = (): void => {
   const key =
     props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
   const own = readStoredArray<RecentPlayRecord>(key)
@@ -148,7 +148,7 @@ const filteredItems = computed(() =>
     : items.value.filter(entry => typeOf(entry.item) === category.value)
 )
 
-const onOpen = (entry: CollectionEntry) => {
+const onOpen = (entry: CollectionEntry): void => {
   if (props.kind === 'recent' && entry.url) {
     emit('resume', entry.record)
     return
@@ -156,7 +156,7 @@ const onOpen = (entry: CollectionEntry) => {
   emit('open', entry.item)
 }
 
-const clear = () => {
+const clear = (): void => {
   localStorage.removeItem(
     props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
   )

@@ -65,7 +65,7 @@ import { getMediaProgress, openMediaPlayer } from '@/features/player'
 
 const route = useRoute()
 const inlineDetailItem = ref<OnlineDetailItem | null>(null)
-const handleNavigateBack = (event: Event) => {
+const handleNavigateBack = (event: Event): void => {
   if (!inlineDetailItem.value) return
   inlineDetailItem.value = null
   event.preventDefault()
@@ -127,7 +127,7 @@ const resumeRecentPlay = async (record: OnlinePlayRecord): Promise<void> => {
   }
 }
 
-const openDoubanDetail = (item: DoubanItem) => {
+const openDoubanDetail = (item: DoubanItem): void => {
   inlineDetailItem.value = JSON.parse(
     JSON.stringify({
       _source: 'douban',

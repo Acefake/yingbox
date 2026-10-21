@@ -41,7 +41,11 @@ async function getTracks() { throw new Error('插件炸了') }
 const deps = (
   net: ReturnType<typeof fakeNet>,
   browserFetch = vi.fn(async () => '')
-) => ({
+): {
+  net: typeof net
+  browserFetch: typeof browserFetch
+  loadPlugin: () => Promise<string>
+} => ({
   net,
   browserFetch,
   loadPlugin: async () => PLUGIN,
@@ -99,7 +103,9 @@ describe('在线域 handlers', () => {
     host: vi.fn(async () => ''),
     emit: vi.fn(),
   } as unknown as EngineContext
-  const handlers = (routes: Record<string, string | (() => Response)>) =>
+  const handlers = (
+    routes: Record<string, string | (() => Response)>
+  ): ReturnType<typeof createOnlineHandlers> =>
     createOnlineHandlers({
       net: fakeNet(routes),
       loadPlugin: async () => PLUGIN,

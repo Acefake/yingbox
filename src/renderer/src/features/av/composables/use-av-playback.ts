@@ -4,8 +4,8 @@
  * Electron 下一律打开独立播放窗；页内播放层只是非 Electron 的兜底。
  */
 import { toast } from '@/components/ui'
-import { ref } from 'vue'
-import { useStorage } from '@vueuse/core'
+import { type Ref, ref } from 'vue'
+import { type RemovableRef, useStorage } from '@vueuse/core'
 import { type Episode, useOnlineSearch } from '@/features/online'
 import type { PluginExt } from '@/utils/vod-data'
 import {
@@ -30,11 +30,32 @@ import {
 
 type PlayGroup = Pick<MergedGroup, 'vod_name' | 'vod_pic' | 'items'>
 
+/** AV 播放：播放历史、页内兜底播放层的状态，以及开播 / 换源 / 连播操作 */
+export interface UseAvPlaybackReturn {
+  playHistory: RemovableRef<AvPlayRecord[]>
+  showPlayer: Ref<boolean>
+  playingVideo: Ref<PlayingVideo | null>
+  playingUrl: Ref<string>
+  playerMessage: Ref<string>
+  videoEl: Ref<HTMLVideoElement | null>
+  playVideo: (video: AvVideo) => Promise<void>
+  resumeHistory: (record: AvPlayRecord) => Promise<void>
+  tryNextSource: () => Promise<void>
+  onEnded: () => Promise<void>
+  onPlayerReady: (video: HTMLVideoElement) => void
+  onLoadedMetadata: () => void
+  onTimeUpdate: () => void
+  onVolumeChange: () => void
+  onKeydown: (event: KeyboardEvent) => void
+  closePlayer: () => void
+  onNavigateBack: (event: Event) => void
+}
+
 export function useAvPlayback(options: {
   findGroup: (name: string) => MergedGroup | null
   /** 当前视图里可连播的列表（一部片没有下一集时播列表里的下一部） */
   upNext: () => { items: AvVideo[] }[]
-}) {
+}): UseAvPlaybackReturn {
   const { fetchDetail, resolvePlayUrl } = useOnlineSearch()
   const playHistory = useStorage<AvPlayRecord[]>('av_play_history', [])
   const showPlayer = ref(false)

@@ -1,5 +1,5 @@
 import { useStorage } from '@vueuse/core'
-import { computed } from 'vue'
+import { type ComputedRef, computed } from 'vue'
 
 export interface AvSite {
   name: string
@@ -69,8 +69,24 @@ if (ordinaryRemote.length) {
   )
 }
 
-export function useAvSources() {
-  const enabledApis = {
+/** 已启用的 AV 源（按 api 地址），像 Set 一样增删查 */
+export interface EnabledApis {
+  has: (api: string) => boolean
+  add: (api: string) => void
+  delete: (api: string) => void
+}
+
+/** AV CMS 源清单与启用状态 */
+export interface UseAvSourcesReturn {
+  enabledApis: EnabledApis
+  getActiveSources: () => AvSite[]
+  activeSources: ComputedRef<AvSite[]>
+  allSources: ComputedRef<AvSite[]>
+  addSources: (sources: AvSite[]) => number
+}
+
+export function useAvSources(): UseAvSourcesReturn {
+  const enabledApis: EnabledApis = {
     has: (api: string) => enabledApiList.value.includes(api),
     add: (api: string) => {
       if (!enabledApiList.value.includes(api)) enabledApiList.value.push(api)

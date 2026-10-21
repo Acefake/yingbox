@@ -2,11 +2,12 @@
  * 在线搜索：并发检索已启用的 CMS 与 CatSpider 站点、取详情线路、解析插件播放地址。
  * 站点清单与启用列表在 ./cms-sites、./catspider-sites；返回数据的解析在 ../utils/vod-payload。
  */
+import type { RemovableRef } from '@vueuse/core'
 import { getSetting } from '@/features/settings'
 import { mapWithConcurrency } from '@/utils/concurrency'
 import { asText } from '@/utils/json'
 import { firstPlayUrl, getVodList } from '@/utils/vod-data'
-import { getCurrentScope, onScopeDispose, ref } from 'vue'
+import { type Ref, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getJson } from '../api/online'
 import type {
   ApiSite,
@@ -46,7 +47,29 @@ interface CmsListResponse {
   list?: CmsItem[]
 }
 
-export function useOnlineSearch() {
+/** 在线搜索：站点清单、搜索结果、取线路与解析播放地址 */
+export interface UseOnlineSearchReturn {
+  keyword: Ref<string>
+  results: Ref<CmsItem[]>
+  loading: Ref<boolean>
+  error: Ref<string>
+  selectedSites: typeof selectedSites
+  customSites: RemovableRef<ApiSite[]>
+  DEFAULT_SITES: ApiSite[]
+  CATSPIDER_SITES: Ref<CatSpiderSite[]>
+  selectedCatSpider: RemovableRef<string[]>
+  loadCatSpiderSites: () => Promise<void>
+  isAdultCatSpiderSite: (site: CatSpiderSite) => boolean
+  activeCatSpiderSites: () => CatSpiderSite[]
+  search: (
+    kw?: string,
+    options?: { allVod?: boolean; onItems?: (items: CmsItem[]) => void }
+  ) => Promise<void>
+  fetchDetail: (item: CmsItem) => Promise<EpisodeGroup[]>
+  resolvePlayUrl: (siteName: string, ext: PluginExt) => Promise<string>
+}
+
+export function useOnlineSearch(): UseOnlineSearchReturn {
   const keyword = ref('')
   const results = ref<CmsItem[]>([])
   const loading = ref(false)

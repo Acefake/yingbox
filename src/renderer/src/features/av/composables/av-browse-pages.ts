@@ -27,6 +27,17 @@ interface CmsPage {
   total?: number | string
 }
 
+/** 三种数据源的分页请求：先发请求，返回的函数在确认请求仍有效后才写状态 */
+export interface AvPageFetchers {
+  fetchPluginPage: (
+    entry: AvEntry,
+    ext: PluginExt,
+    p: number
+  ) => Promise<() => BrowseCacheEntry>
+  fetchMissavPage: (p: number) => Promise<() => BrowseCacheEntry>
+  fetchCmsPage: (source: AvEntry, p: number) => Promise<() => BrowseCacheEntry>
+}
+
 export function createPageFetchers(state: {
   sourceApi: Ref<string>
   categories: Ref<BrowseCategory[]>
@@ -34,7 +45,7 @@ export function createPageFetchers(state: {
   categoryName: Ref<string>
   sort: Ref<BrowseSort>
   categoryCache: Ref<Record<string, BrowseCategory[]>>
-}) {
+}): AvPageFetchers {
   const { getCards } = useVODParser()
   const {
     sourceApi,

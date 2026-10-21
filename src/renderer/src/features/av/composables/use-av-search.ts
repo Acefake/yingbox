@@ -2,7 +2,14 @@
  * AV 聚合搜索：同时检索全部启用的 AV CMS 源与成人插件源（限并发），
  * 每个站点返回后立即按片名合并展示；结果按「关键词 + 站点集合」缓存 5 分钟。
  */
-import { type ComputedRef, computed, ref, shallowRef } from 'vue'
+import {
+  type ComputedRef,
+  type Ref,
+  type ShallowRef,
+  computed,
+  ref,
+  shallowRef,
+} from 'vue'
 import { type CatSpiderSite, getJson, useVODParser } from '@/features/online'
 import { getVodList } from '@/utils/vod-data'
 import { mapWithConcurrency } from '@/utils/concurrency'
@@ -18,11 +25,26 @@ import { type AvVideo, toCmsItems, toPluginItems } from '../utils/av-catalog'
 const SEARCH_CACHE_TTL = 5 * 60 * 1000
 const SEARCH_CACHE_LIMIT = 30
 
+/** AV 聚合搜索的状态与操作 */
+export interface UseAvSearchReturn {
+  keyword: Ref<string>
+  loading: Ref<boolean>
+  hasSearched: Ref<boolean>
+  doneCount: Ref<number>
+  error: Ref<string>
+  groups: ShallowRef<MergedGroup[]>
+  sourceCount: ComputedRef<number>
+  findGroup: (name: string) => MergedGroup | null
+  search: () => Promise<void>
+  reset: () => void
+  dispose: () => void
+}
+
 export function useAvSearch(options: {
   cmsSources: () => AvSite[]
   pluginSources: ComputedRef<CatSpiderSite[]>
   cmsCount: () => number
-}) {
+}): UseAvSearchReturn {
   const { search: vodSearch } = useVODParser()
   const keyword = ref('')
   const videos = shallowRef<AvVideo[]>([])
@@ -49,7 +71,11 @@ export function useAvSearch(options: {
     groupMap.get(titleKey(name)) || null
 
   /** 单个 CMS 站点：失败计入 failedCount，返回空。 */
-  const fetchCms = async (source: AvSite, kw: string, signal: AbortSignal) => {
+  const fetchCms = async (
+    source: AvSite,
+    kw: string,
+    signal: AbortSignal
+  ): Promise<AvVideo[]> => {
     try {
       const url = kw
         ? `${source.api}?ac=detail&wd=${encodeURIComponent(kw)}`
@@ -71,7 +97,7 @@ export function useAvSearch(options: {
     site: CatSpiderSite,
     kw: string,
     signal: AbortSignal
-  ) => {
+  ): Promise<AvVideo[]> => {
     try {
       const r = await vodSearch({ siteName: site.name, keyword: kw }, signal)
       if (!r.success || !r.data) {
@@ -119,7 +145,7 @@ export function useAvSearch(options: {
     }
 
     // 每个站点返回后立即合并结果，不等待全部站点完成。
-    const collect = async (items: AvVideo[]) => {
+    const collect = async (items: AvVideo[]): Promise<AvVideo[]> => {
       if (!signal.aborted) {
         doneCount.value++
         if (items.length) {

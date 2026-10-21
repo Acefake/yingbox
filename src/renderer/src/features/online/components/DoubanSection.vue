@@ -51,6 +51,9 @@ import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import { getJson, tmdb } from '../api/online'
 import type { TmdbDetail } from '../types'
+
+/** TMDB 搜索结果的一条（/search/multi 多一个 media_type） */
+type TmdbHit = TmdbDetail & { media_type?: string }
 import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
@@ -130,28 +133,28 @@ const filterRows = computed<MediaFilterRow[]>(() => [
     options: currentTags.value.map(tag => ({ label: tag, value: tag })),
   },
 ])
-const applyFilter = (next: Record<string, string>) => {
+const applyFilter = (next: Record<string, string>): void => {
   if (next.type && next.type !== doubanType.value)
     switchType(next.type as DoubanType)
   if (next.tag && next.tag !== doubanTag.value) switchTag(next.tag)
 }
-const isFavorite = (item: DoubanItem) =>
+const isFavorite = (item: DoubanItem): boolean =>
   favorites.value.some(entry => entry.url === item.url)
-const toggleFavorite = (item: DoubanItem) => {
+const toggleFavorite = (item: DoubanItem): void => {
   favorites.value = isFavorite(item)
     ? favorites.value.filter(entry => entry.url !== item.url)
     : [item, ...favorites.value]
   saveStoredArray('media_favorites', favorites.value)
 }
 
-const fetchDouban = async () => {
+const fetchDouban = async (): Promise<void> => {
   doubanLoading.value = true
   doubanError.value = false
   const apiUrl = `https://movie.douban.com/j/search_subjects?type=${doubanType.value}&tag=${encodeURIComponent(doubanTag.value)}&sort=recommend&page_limit=${PAGE_SIZE}&page_start=${doubanPage.value * PAGE_SIZE}`
 
   type RawSubject = { title: string; cover: string; rate: string; url: string }
 
-  const stripSeason = (t: string) =>
+  const stripSeason = (t: string): string =>
     t
       .replace(
         /\s*(第[一二三四五六七八九十百\d]+季|Season\s*\d+|[Ss]\d+)\s*/g,
@@ -159,7 +162,7 @@ const fetchDouban = async () => {
       )
       .trim()
 
-  const parseSubjects = (data: { subjects?: RawSubject[] }) => {
+  const parseSubjects = (data: { subjects?: RawSubject[] }): void => {
     doubanItems.value = (data.subjects || []).map(s => ({
       title: s.title,
       searchTitle: s.title,
@@ -175,17 +178,18 @@ const fetchDouban = async () => {
     loadCoversViaTmdb()
   }
 
-  const loadCoversViaTmdb = async () => {
+  const loadCoversViaTmdb = async (): Promise<void> => {
     const items = doubanItems.value
     const imgBase = 'https://images.tmdb.org/t/p/w342'
     const isTv = doubanType.value === 'tv'
     // 引擎没有令牌时 tmdb() 返回 null：整批停下，不逐条重试
     const NO_TOKEN = new Error('TMDB 未配置令牌')
-    const searchFirst = async (path: string, q: string) => {
+    const searchFirst = async (
+      path: string,
+      q: string
+    ): Promise<TmdbHit | null> => {
       // /search/multi 的结果多一个 media_type
-      const res = await tmdb<{
-        results?: (TmdbDetail & { media_type?: string })[]
-      }>(path, {
+      const res = await tmdb<{ results?: TmdbHit[] }>(path, {
         query: q,
         language: 'zh-CN',
         page: 1,
@@ -225,10 +229,10 @@ const fetchDouban = async () => {
       return Array.from(new Set(variants))
     }
 
-    const queryTmdb = (q: string) =>
+    const queryTmdb = (q: string): Promise<TmdbHit | null> =>
       searchFirst(isTv ? '/search/tv' : '/search/movie', q)
 
-    const searchTmdb = async (title: string) => {
+    const searchTmdb = async (title: string): Promise<TmdbHit | null> => {
       for (const v of buildVariants(title)) {
         const r = await queryTmdb(v)
         if (r) return r
@@ -238,7 +242,7 @@ const fetchDouban = async () => {
 
     const concurrency = 4
     let idx = 0
-    const worker = async () => {
+    const worker = async (): Promise<void> => {
       while (idx < items.length) {
         const i = idx++
         const item = items[i]
@@ -298,20 +302,20 @@ const fetchDouban = async () => {
   }
 }
 
-const switchType = (t: DoubanType) => {
+const switchType = (t: DoubanType): void => {
   doubanType.value = t
   doubanTag.value = '热门'
   doubanPage.value = 0
   fetchDouban()
 }
 
-const switchTag = (tag: string) => {
+const switchTag = (tag: string): void => {
   doubanTag.value = tag
   doubanPage.value = 0
   fetchDouban()
 }
 
-const nextPage = () => {
+const nextPage = (): void => {
   doubanPage.value = (doubanPage.value + 1) % 10
   fetchDouban()
 }

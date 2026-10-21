@@ -10,14 +10,21 @@ import { createTokenDraft } from '../src/renderer/src/features/settings/tmdb-tok
 import { TMDB_PATH_RE, online } from '../src/shared/contract/online'
 import { settings } from '../src/shared/contract/settings'
 import { createNetClient } from '../src/shared/net/client'
+import type { ProviderStatus } from '../src/shared/library/ipc'
 
-const status = (configured: boolean) => ({
+const status = (configured: boolean): ProviderStatus => ({
   tmdb: { configured },
   opensubtitles: { configured: false },
 })
 
 describe('TMDB 请求在引擎发出（online.tmdb）', () => {
-  const setup = (token: string) => {
+  const setup = (
+    token: string
+  ): {
+    seen: Array<{ url: string; auth: string | null }>
+    ctx: EngineContext
+    handlers: ReturnType<typeof createOnlineHandlers>
+  } => {
     const seen: Array<{ url: string; auth: string | null }> = []
     const net = createNetClient({
       lookup: async () => [{ address: '93.184.216.34' }],
