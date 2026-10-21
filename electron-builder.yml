@@ -39,8 +39,6 @@ files:
 asarUnpack:
   - resources/**
 extraResources:
-  - from: resources/amane
-    to: amane
   - from: resources/mpv
     to: mpv
 win:

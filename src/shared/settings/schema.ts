@@ -93,7 +93,7 @@ const IMAGE_SIZES = ['w342', 'w780', 'original'] as const
 export const settingsSchema = {
   /** 界面主题 */
   'app.theme': oneOf(['dark', 'light'] as const, 'dark'),
-  /** 成人模式：显示 AV / Amane 入口与成人源 */
+  /** 成人模式：显示 AV / 去马赛克入口与成人源 */
   'app.adultMode': bool(false),
 
   /** 播放引擎 */
@@ -124,9 +124,6 @@ export const settingsSchema = {
   'scrape.customBaseUrl': text('', 2048),
   /** 自定义刮削服务 API Key */
   'scrape.customApiKey': text(''),
-
-  /** Amane 后台 API Token */
-  'amane.token': secret(),
 } as const satisfies Record<string, ValueSpec<unknown> | SecretSpec>
 
 /** 设置项的键 */
