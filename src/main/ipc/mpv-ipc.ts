@@ -37,10 +37,6 @@ export function registerMpvIpc(): void {
     setSubTrack: (_, id) => done(mpvPlayer.setSubTrack(id)),
     setAudioTrack: (_, id) => done(mpvPlayer.setAudioTrack(id)),
     addSubFile: (_, filePath) => done(mpvPlayer.addSubFile(filePath)),
-    playlistNext: () => done(mpvPlayer.playlistNext()),
-    playlistPrev: () => done(mpvPlayer.playlistPrev()),
-    playlistPlay: (_, index) => done(mpvPlayer.playlistPlay(index)),
-    getStatus: () => mpvPlayer.getStatus(),
     quit: () => {
       void mpvPlayer.quit()
       return ok

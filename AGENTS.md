@@ -45,17 +45,16 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 ### Main process (`src/main/`)
 
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
-- `config.ts` — `userData/config.json` (`downloadPath`); validates writability (real write probe) on load and on set
+- `config.ts` — `userData/config.json` (`downloadPath`, read-only for now: no UI sets it); validates writability (real write probe) on load
 - `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine; `media-headers.ts` injects Referer for direct stream/cover requests
 - `plugins/` — plugin host for Amane / lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/amane/` (rules / connection / service / api) and `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. All three start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
-  - `file-ipc.ts` (`file:*` incl. incremental `scanMediaDirectory`, `path:*`; `readImage` capped at 16MB)
-  - `http-ipc.ts` (`http:fetch/fetchImage/download`; image proxy capped at 8MB)
-  - `dialog-ipc.ts` (`dialog:*`, `config:setDownloadPath`, `shell:openPath`)
-  - `app-ipc.ts` (`win:*`, `app:*`, `update:*` + electron-updater status events)
+  - `dialog-ipc.ts` (`dialog:*`, `shell:openPath`)
+  - `app-ipc.ts` (`win:*`, `app:networkIps`, `update:*` + electron-updater status events)
+  - The renderer has no generic `file:*` / `http:*` / `path:*` / `config:*` channels (removed: no callers). Add a narrow domain method when a feature needs one
   - `subtitle-ipc.ts` (`subtitle:find/read`; only accepts `local://` URLs)
-- `file-operations.ts` — atomic write / atomic replace / move with per-path locks
-- `http-client.ts` — SSRF-guarded fetch (private-IP blocking incl. DNS resolution, manual redirect hops), size-limited reads, atomic downloads
+- `file-operations.ts` — atomic write (temp file + replace, per-path locks)
+- `http-client.ts` — SSRF-guarded fetch for main's own requests (subtitles, thumbnail originals): private-IP blocking incl. DNS resolution, manual redirect hops, size-limited reads
 - `local-media.ts` — `local://` URL ↔ filesystem path + HTTP Range streaming (206/416)
 - `media-scanner.ts` — incremental library scan (directory-mtime short-circuit + cache reuse)
 - `player-window.ts` — singleton player window; normalizes payloads, caps playlists at 500 items

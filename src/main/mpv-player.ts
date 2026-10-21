@@ -374,9 +374,6 @@ class MpvPlayer extends EventEmitter {
   async addSubFile(filePath: string): Promise<void> { await this.cmd('sub-add', filePath, 'select') }
 
   // ——— 播放列表 ———
-  async playlistNext(): Promise<void> { await this.cmd('playlist-next') }
-  async playlistPrev(): Promise<void> { await this.cmd('playlist-prev') }
-  async playlistPlay(index: number): Promise<void> { await this.cmd('playlist-play-index', index) }
 
   /** 退出 mpv：先发 quit 命令，1.5 秒内没退出就强杀进程树；返回时进程已退出或已放弃等待。 */
   async quit(): Promise<void> {

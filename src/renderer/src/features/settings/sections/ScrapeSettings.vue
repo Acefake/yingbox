@@ -17,7 +17,6 @@
 <script setup lang="ts">
 /**
  * 设置 · 刮削：TMDB 元数据语言（scrape.metadataLanguage）。
- * scrape.concurrency 原供旧刮削队列使用，队列删除后暂无消费方，设置键保留以免丢用户值。
  */
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'

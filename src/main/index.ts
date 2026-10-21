@@ -17,8 +17,6 @@ import { loadConfig } from './config'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
-import { registerFileIpc } from './ipc/file-ipc'
-import { registerHttpIpc } from './ipc/http-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { registerAmaneIpc } from './plugins/amane'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
@@ -160,8 +158,6 @@ app.whenReady().then(async () => {
   await initSettings()
 
   // IPC 按域注册；窗口生命周期由本文件负责
-  registerFileIpc()
-  registerHttpIpc()
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()

@@ -10,14 +10,12 @@ import {
   readFileSync,
   readdirSync,
   renameSync,
-  rmSync,
-  statSync,
   writeFileSync,
 } from 'node:fs'
 import { join } from 'node:path'
 import type { LadaResumeProgress } from '../../../shared/lada'
 import { runTool } from '../process'
-import { isResumeProgressFile, parseDuration, sortParts } from './rules'
+import { parseDuration, sortParts } from './rules'
 
 export const cacheRoot = (): string =>
   join(app.getPath('userData'), 'lada-cache')
@@ -81,61 +79,4 @@ export async function durationOf(
   ])
   if (code !== 0) return null
   return parseDuration(out)
-}
-
-/** 缓存目录总字节数 */
-export function cacheSize(): number {
-  try {
-    let total = 0
-    for (const dir of readdirSync(cacheRoot())) {
-      const path = join(cacheRoot(), dir)
-      for (const name of readdirSync(path)) {
-        try {
-          total += statSync(join(path, name)).size
-        } catch {
-          /* ignore */
-        }
-      }
-    }
-    return total
-  } catch {
-    return 0
-  }
-}
-
-/** 清理可再生的缓存，保留暂停任务的进度 */
-export function clearCache(): { success: boolean; freed: number } {
-  // 只清"可再生"的东西：区间产物、拼接中间文件、转 TS 的碎片。
-  // part*.mp4 与 progress.json 是**暂停任务的进度**，清掉就等于让人白跑，必须留着。
-  let freed = 0
-  const drop = (path: string, dir: boolean): void => {
-    try {
-      freed += dir ? 0 : statSync(path).size
-      rmSync(path, { recursive: dir, force: true })
-    } catch {
-      /* 占用中就留给下次 */
-    }
-  }
-  drop(join(cacheRoot(), 'ranges'), true)
-  let keys: string[] = []
-  try {
-    keys = readdirSync(cacheRoot())
-  } catch {
-    return { success: true, freed }
-  }
-  for (const key of keys) {
-    if (key === 'ranges') continue
-    const dir = join(cacheRoot(), key)
-    let names: string[] = []
-    try {
-      names = readdirSync(dir)
-    } catch {
-      continue
-    }
-    for (const name of names) {
-      if (isResumeProgressFile(name)) continue
-      drop(join(dir, name), false)
-    }
-  }
-  return { success: true, freed }
 }
