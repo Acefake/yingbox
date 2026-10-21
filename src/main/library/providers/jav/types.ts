@@ -49,6 +49,8 @@ export interface PageOptions {
   cookie?: string
   /** 附加请求头（如 Accept-Language）。 */
   headers?: Record<string, string>
+  /** 请求体：给了就发 POST（如 DMM 的 GraphQL 查询），Content-Type 放进 headers。 */
+  body?: string
 }
 
 /** 站点拿网页用的上下文：限速、重试、熔断、防护页识别都在这一层。 */

@@ -13,11 +13,15 @@ import { folderDescription } from '../../../src/renderer/src/features/library/se
 describe('番号站点设置规则', () => {
   it('站点行：名称、优先级、能否上下移', () => {
     const rows = javSiteRows(DEFAULT_JAV_SETTINGS)
-    expect(rows.map(r => [r.id, r.name, r.rank, r.canUp, r.canDown])).toEqual([
+    // 站点会陆续增加：只核对前几个与首尾的上下移规则
+    expect(
+      rows.slice(0, 3).map(r => [r.id, r.name, r.rank, r.canUp, r.canDown])
+    ).toEqual([
       ['javbus', 'JavBus', 1, false, true],
       ['avbase', 'AVBase', 2, true, true],
-      ['fc2', 'FC2', 3, true, false],
+      ['fc2', 'FC2', 3, true, rows.length > 3],
     ])
+    expect(rows.at(-1)).toMatchObject({ rank: rows.length, canDown: false })
   })
 
   it('开关与移动返回新设置，不改原对象；越界原样返回', () => {
@@ -25,7 +29,11 @@ describe('番号站点设置规则', () => {
     expect(off.sites[1]).toEqual({ id: 'avbase', enabled: false })
     expect(DEFAULT_JAV_SETTINGS.sites[1].enabled).toBe(true)
     const moved = moveJavSite(DEFAULT_JAV_SETTINGS, 'fc2', -1)
-    expect(moved.sites.map(s => s.id)).toEqual(['javbus', 'fc2', 'avbase'])
+    expect(moved.sites.slice(0, 3).map(s => s.id)).toEqual([
+      'javbus',
+      'fc2',
+      'avbase',
+    ])
     expect(moveJavSite(DEFAULT_JAV_SETTINGS, 'javbus', -1)).toBe(
       DEFAULT_JAV_SETTINGS
     )
