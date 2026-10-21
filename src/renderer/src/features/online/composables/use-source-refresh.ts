@@ -9,6 +9,7 @@ import {
   loadCatSpiderSites,
   useOnlineSearch,
 } from './use-online-search'
+import { subscribedSites, syncSubscription } from './cms-subscription'
 
 import type { SiteStatus } from '../utils/source-rules'
 export type { SiteStatus }
@@ -31,6 +32,7 @@ export const avStatusOf = (api: string): SiteStatus =>
 
 export const onlineApis = computed(() => [
   ...DEFAULT_SITES.map(site => site.api),
+  ...subscribedSites.value.map(site => site.api),
   ...customSites.value.map(site => site.api),
 ])
 
@@ -138,7 +140,10 @@ export const syncAvSources = async (showMessage = true): Promise<void> => {
     const avOnlySources = sources.filter(
       source => !ORDINARY_CMS_NAMES.test(source.name)
     )
-    const knownCmsApis = new Set(DEFAULT_SITES.map(site => site.api))
+    const knownCmsApis = new Set([
+      ...DEFAULT_SITES.map(site => site.api),
+      ...subscribedSites.value.map(site => site.api),
+    ])
     let addedCms = 0
     for (const source of ordinaryCmsSources) {
       if (
@@ -185,7 +190,11 @@ export const refreshSources = (): Promise<void> => {
   if (!refreshing) {
     refreshing = (async () => {
       try {
-        await Promise.all([loadCatSpiderSites(), syncAvSources(false)])
+        await Promise.all([
+          loadCatSpiderSites(),
+          syncAvSources(false),
+          syncSubscription().catch(() => 0),
+        ])
         await checkAll()
       } catch {
         // 刷新失败不影响其余功能，下次触发时重试。

@@ -32,6 +32,7 @@ import {
 import { DEFAULT_SITES, customSites, selectedSites } from './cms-sites'
 import { splitByHealth } from '../utils/plugin-health'
 import { pluginSearchHealthOf } from './plugin-health'
+import { subscribedSites } from './cms-subscription'
 import { useVODParser } from './use-vod-parser'
 
 export type {
@@ -89,7 +90,11 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
     })
 
   const activeSites = (): ApiSite[] => {
-    const all = [...DEFAULT_SITES, ...customSites.value]
+    const all = [
+      ...DEFAULT_SITES,
+      ...subscribedSites.value,
+      ...customSites.value,
+    ]
     return all.filter(s => selectedSites.has(s.api))
   }
 
