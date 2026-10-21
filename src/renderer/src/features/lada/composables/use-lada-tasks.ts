@@ -2,7 +2,7 @@
  * 去马赛克（lada）与「边跑边看」的后台任务状态。
  *
  * 两个任务都在主进程里跑，跟当前停留在哪个页面无关，所以状态放在模块级单例里：
- * AppLayout 启动时接一次 IPC 推送，Amane 页面与后台任务面板读同一份数据。
+ * AppLayout 启动时接一次 IPC 推送，片库详情页与后台任务面板读同一份数据。
  */
 import { type ComputedRef, type Ref, type VNode, computed, h, ref } from 'vue'
 import type {

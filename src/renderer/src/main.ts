@@ -6,21 +6,16 @@ import router from '@/router/index'
 import { setupDirectives } from '@/directives'
 import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
-import { amaneSettingsSection, setAmanePhoneToken } from '@/features/amane'
 import { ladaSettingsSection } from '@/features/lada'
 import { sourcesSettingsSection } from '@/features/online'
 import { registerSettingsSection } from '@/features/settings'
 
 /**
- * 手机接入(桌面客户端 → Amane 设置 → "手机接入"):地址栏一次性携带
- * `?amane=<token>`,写入本地存储并清理参数。旧链接里的 `key`（Go 后端密钥）一并清掉。
+ * 网页端：清掉旧链接地址栏里一次性携带的密钥参数 `key`（Go 后端密钥），不留在历史记录里。
  */
 function bindPhoneBootstrap(): void {
   const params = new URLSearchParams(window.location.search)
-  const amane = params.get('amane') || ''
-  if (!amane && !params.has('key')) return
-  if (amane) setAmanePhoneToken(amane)
-  params.delete('amane')
+  if (!params.has('key')) return
   params.delete('key')
   const rest = params.toString()
   window.history.replaceState(
@@ -35,11 +30,7 @@ if (!window.api?.win) bindPhoneBootstrap()
 initTheme()
 
 // 各 feature 自己定义设置分区，在应用入口组合进设置面板（按 order 排位）
-for (const section of [
-  sourcesSettingsSection,
-  ladaSettingsSection,
-  amaneSettingsSection,
-]) {
+for (const section of [sourcesSettingsSection, ladaSettingsSection]) {
   registerSettingsSection(section)
 }
 

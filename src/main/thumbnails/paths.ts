@@ -8,7 +8,7 @@
 import { createHash } from 'node:crypto'
 import { join } from 'node:path'
 
-/** 来源（远程 URL、amane://、file:///）→ 缓存 key：SHA-1 前 32 位。 */
+/** 来源（远程 URL、file:///）→ 缓存 key：SHA-1 前 32 位。 */
 export function imageKey(source: string): string {
   return createHash('sha1').update(source).digest('hex').slice(0, 32)
 }

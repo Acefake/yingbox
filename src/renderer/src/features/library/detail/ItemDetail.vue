@@ -17,6 +17,8 @@
         :can-play="Boolean(primaryPlay)"
         :busy="busy"
         :writer-available="writerAvailable"
+        :restorable="restore.available.value"
+        :restore-running="restore.running.value"
         @close="emit('close')"
         @play="playPrimary"
         @fix-match="emit('fix-match', $event)"
@@ -24,6 +26,7 @@
         @refresh="refreshMetadata"
         @write="writeOut"
         @organize="emit('organize', $event)"
+        @restore="restore.start"
       />
       <DetailSeasons
         v-if="seasons.length"
@@ -45,7 +48,8 @@
 <script setup lang="ts">
 /**
  * 条目详情（Apple TV 风格）：780w 背景图渐隐、标志或片名、年份 · 时长 · 分级 · 评分、简介，
- * 剧集按季分段与集列表，演职员横滑，信息与文件。播放接现有 openMediaPlayer（内置 / mpv）。
+ * 剧集按季分段与集列表，演职员横滑，信息与文件。播放接现有 openMediaPlayer（内置 / mpv），
+ * 去码接 features/lada（use-restore）。
  *
  * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailPeople / DetailInfo，
  * 纯规则在 detail-rules.ts。
@@ -85,6 +89,7 @@ import {
   play,
   playableEpisodes,
 } from './playback'
+import { useRestore } from './use-restore'
 import WebPlayer from './WebPlayer.vue'
 
 const props = defineProps<{ itemId: number }>()
@@ -102,6 +107,7 @@ const node = shallowRef<LibraryItemNode | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const busy = ref<string | null>(null)
+const restore = useRestore(node)
 
 async function load(resetView: boolean): Promise<void> {
   if (!bridge) return

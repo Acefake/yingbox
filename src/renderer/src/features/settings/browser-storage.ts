@@ -3,7 +3,7 @@
  *
  * 1. 首启迁移：读出旧版散落在 localStorage 的设置，交给主进程并入 settings.json。只读不删。
  * 2. Web / PWA 手机模式：没有主进程，设置只能存在浏览器里（单个键 `yingbox.settings`）。
- *    密钥（TMDB / Amane 令牌）只在桌面端主进程保存，网页版不存。
+ *    密钥（TMDB 令牌）只在桌面端主进程保存，网页版不存。
  */
 import {
   LEGACY_SETTING_KEYS,
