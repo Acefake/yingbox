@@ -8,7 +8,18 @@ import { basename, isAbsolute, join } from 'node:path'
 import type { LadaJob } from '../../../shared/lada'
 
 /** 允许处理的视频扩展名 */
-export const VIDEO_EXTS = ['.mp4', '.mkv', '.avi', '.wmv', '.mov', '.m4v', '.ts', '.m2ts', '.flv', '.webm']
+export const VIDEO_EXTS = [
+  '.mp4',
+  '.mkv',
+  '.avi',
+  '.wmv',
+  '.mov',
+  '.m4v',
+  '.ts',
+  '.m2ts',
+  '.flv',
+  '.webm',
+]
 /** 与用户确认过的默认编码预设（NVIDIA 硬件编码） */
 export const ENCODING_PRESET = 'hevc-nvidia-gpu-hq'
 /** 「边跑边看」每个分片的秒数。够小才能尽快出画，够大才不至于切得太碎 */
@@ -22,8 +33,12 @@ export function sanitizeOverrides(raw: unknown): Overrides | null {
   if (!raw || typeof raw !== 'object') return null
   const value = raw as Overrides
   return {
-    ...(typeof value.cli === 'string' && isAbsolute(value.cli) ? { cli: value.cli } : {}),
-    ...(typeof value.ffmpeg === 'string' && isAbsolute(value.ffmpeg) ? { ffmpeg: value.ffmpeg } : {}),
+    ...(typeof value.cli === 'string' && isAbsolute(value.cli)
+      ? { cli: value.cli }
+      : {}),
+    ...(typeof value.ffmpeg === 'string' && isAbsolute(value.ffmpeg)
+      ? { ffmpeg: value.ffmpeg }
+      : {}),
   }
 }
 
@@ -49,23 +64,36 @@ export function foreignJobMessage(input?: string): string {
 }
 
 /** lada-cli 命令行参数 */
-export function ladaArgs(source: string, output: string, tempDir: string): string[] {
+export function ladaArgs(
+  source: string,
+  output: string,
+  tempDir: string
+): string[] {
   return [
-    '--input', source,
-    '--output', output,
-    '--temporary-directory', tempDir,
-    '--encoding-preset', ENCODING_PRESET,
+    '--input',
+    source,
+    '--output',
+    output,
+    '--temporary-directory',
+    tempDir,
+    '--encoding-preset',
+    ENCODING_PRESET,
     '--mp4-fast-start',
   ]
 }
 
 /** lada 非零退出时的错误信息（带上最后一条进度文字） */
 export function exitError(code: number | null, message: string): string {
-  return message ? `lada 退出（代码 ${code}）：${message}` : `lada 退出（代码 ${code}）`
+  return message
+    ? `lada 退出（代码 ${code}）：${message}`
+    : `lada 退出（代码 ${code}）`
 }
 
 /** tqdm 用 \r 刷新同一行，所以 \r 和 \n 都要当分隔符；返回完整行与剩下的半行 */
-export function splitProgress(buffer: string): { lines: string[]; rest: string } {
+export function splitProgress(buffer: string): {
+  lines: string[]
+  rest: string
+} {
   const parts = buffer.split(/[\r\n]/)
   const rest = parts.pop() ?? ''
   return { lines: parts, rest }
@@ -93,7 +121,8 @@ export function classifyTempEntry(name: string): TempEntryKind {
 }
 
 /** 归属记录对应的半成品文件名 */
-export const sidecarVideo = (name: string): string => name.slice(0, -'.owner.json'.length)
+export const sidecarVideo = (name: string): string =>
+  name.slice(0, -'.owner.json'.length)
 
 /** 从 ffprobe 输出里读一个正数字段（如 duration=12.3） */
 export function probeNumber(out: string, field: string): number {
@@ -107,16 +136,21 @@ export function parseDuration(out: string): number | null {
 }
 
 /** ffprobe 的 format=start_time,duration 输出 → 起点与时长；读不到返回 null */
-export function parseSegmentProbe(out: string): { start: number; duration: number } | null {
+export function parseSegmentProbe(
+  out: string
+): { start: number; duration: number } | null {
   const start = probeNumber(out, 'start_time')
   const duration = probeNumber(out, 'duration')
-  if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0) return null
+  if (!Number.isFinite(start) || !Number.isFinite(duration) || duration <= 0)
+    return null
   return { start, duration }
 }
 
 /** 拼接 / 区间产物的时长自检：偏差超过 5% 视为异常 */
-export const durationMismatch = (done: number | null, want: number | null): boolean =>
-  Boolean(done && want && Math.abs(done - want) / want > 0.05)
+export const durationMismatch = (
+  done: number | null,
+  want: number | null
+): boolean => Boolean(done && want && Math.abs(done - want) / want > 0.05)
 
 /** 把秒数写成 1h02m03s / 12m34s 这种给人看的形式 */
 export function fmtClock(seconds: number): string {
@@ -139,18 +173,29 @@ export function rangeStart(startSeconds: unknown): number {
  * 区间终点（片长未知时 duration 为 null）：起点不能落在片尾 1 秒内；
  * end <= 0 视为"到片尾"，超出片长截到片尾。
  */
-export function rangeStop(start: number, endSeconds: unknown, duration: number | null): number {
+export function rangeStop(
+  start: number,
+  endSeconds: unknown,
+  duration: number | null
+): number {
   if (duration && start >= duration - 1) throw new Error('起点已经超出片长')
   const requested = Number(endSeconds)
-  const stop = Number.isFinite(requested) && requested > 0
-    ? (duration ? Math.min(requested, duration) : requested)
-    : (duration ?? 0)
+  const stop =
+    Number.isFinite(requested) && requested > 0
+      ? duration
+        ? Math.min(requested, duration)
+        : requested
+      : (duration ?? 0)
   if (!stop || stop <= start) throw new Error('终点要大于起点')
   return stop
 }
 
 /** 区间产物文件名：<原名>.<起>-<止>.restored.mp4 */
-export function rangeOutputName(file: string, start: number, stop: number): string {
+export function rangeOutputName(
+  file: string,
+  start: number,
+  stop: number
+): string {
   const stem = basename(file).replace(/\.[^.]+$/, '')
   return `${stem}.${fmtClock(start)}-${fmtClock(stop)}.restored.mp4`
 }
@@ -167,15 +212,25 @@ export const isResumeProgressFile = (name: string): boolean =>
   /^part\d+\.mp4$/i.test(name) || name === 'progress.json'
 
 /** 分片文件名 seg00000.ts */
-export const segmentName = (index: number): string => `seg${String(index).padStart(5, '0')}.ts`
+export const segmentName = (index: number): string =>
+  `seg${String(index).padStart(5, '0')}.ts`
 
 /** 追播 HTTP 服务只放行这种文件名（防路径穿越） */
-export const isServableName = (name: string): boolean => /^[A-Za-z0-9._-]+$/.test(name)
+export const isServableName = (name: string): boolean =>
+  /^[A-Za-z0-9._-]+$/.test(name)
 
 /** EVENT 型 HLS 播放列表：只增不减，正是边处理边看的语义；EXTINF 写实测时长 */
-export function buildPlaylist(segments: { name: string; duration: number }[], ended: boolean): string {
-  const lines = ['#EXTM3U', '#EXT-X-VERSION:3', `#EXT-X-TARGETDURATION:${SEGMENT_SECONDS + 2}`,
-    '#EXT-X-MEDIA-SEQUENCE:0', '#EXT-X-PLAYLIST-TYPE:EVENT']
+export function buildPlaylist(
+  segments: { name: string; duration: number }[],
+  ended: boolean
+): string {
+  const lines = [
+    '#EXTM3U',
+    '#EXT-X-VERSION:3',
+    `#EXT-X-TARGETDURATION:${SEGMENT_SECONDS + 2}`,
+    '#EXT-X-MEDIA-SEQUENCE:0',
+    '#EXT-X-PLAYLIST-TYPE:EVENT',
+  ]
   for (const seg of segments) {
     lines.push(`#EXTINF:${seg.duration.toFixed(3)},`)
     lines.push(seg.name)
@@ -191,7 +246,10 @@ export type SegmentVerdict = 'publish' | 'retry' | 'finish'
  * 判断切出来的一段：数据不足时 -c copy 只会切出很短的一截。
  * lada 还在跑 → 丢掉等下一轮；已结束 → 这段就是片尾，短点也收下（太短则收尾）。
  */
-export function segmentVerdict(duration: number, ladaRunning: boolean): SegmentVerdict {
+export function segmentVerdict(
+  duration: number,
+  ladaRunning: boolean
+): SegmentVerdict {
   if (duration >= SEGMENT_SECONDS * 0.95) return 'publish'
   if (ladaRunning) return 'retry'
   return duration < 0.5 ? 'finish' : 'publish'

@@ -13,7 +13,13 @@ import { runTool } from '../process'
 import { durationOf, rangeDirFor } from './cache'
 import { onJobFinished, startJob } from './job'
 import { notify } from './resume'
-import { durationMismatch, fmtClock, rangeOutputName, rangeStart, rangeStop } from './rules'
+import {
+  durationMismatch,
+  fmtClock,
+  rangeOutputName,
+  rangeStart,
+  rangeStop,
+} from './rules'
 import { ffprobeFor, ladaPaths } from './tools'
 
 interface RangeJob {
@@ -45,26 +51,57 @@ function broadcastRangeReady(info: {
 }
 
 /** lada 跑完这一段后：补音轨 → 时长自检 → 通知界面；无论成败都清掉中间文件 */
-async function finishRange(active: RangeJob, ffmpeg: string, ffprobe: string): Promise<void> {
+async function finishRange(
+  active: RangeJob,
+  ffmpeg: string,
+  ffprobe: string
+): Promise<void> {
   const file = active.input
   try {
     // 音轨统一从裁出来的区间素材上取，不指望 lada 的产物带声
-    const mux = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
-      '-i', active.part, '-i', active.source,
-      '-map', '0:v:0', '-map', '1:a:0?', '-c', 'copy', '-movflags', '+faststart', active.output])
+    const mux = await runTool(ffmpeg, [
+      '-y',
+      '-loglevel',
+      'error',
+      '-i',
+      active.part,
+      '-i',
+      active.source,
+      '-map',
+      '0:v:0',
+      '-map',
+      '1:a:0?',
+      '-c',
+      'copy',
+      '-movflags',
+      '+faststart',
+      active.output,
+    ])
     if (mux.code !== 0) throw new Error(`合并音轨失败：${mux.out.slice(-200)}`)
     const [done, want] = await Promise.all([
       durationOf(ffprobe, active.output),
       durationOf(ffprobe, active.source),
     ])
     if (done && want && durationMismatch(done, want)) {
-      throw new Error(`这一段时长异常（${fmtClock(done)} vs ${fmtClock(want)}）`)
+      throw new Error(
+        `这一段时长异常（${fmtClock(done)} vs ${fmtClock(want)}）`
+      )
     }
-    broadcastRangeReady({ input: file, start: active.start, end: active.end, path: active.output })
+    broadcastRangeReady({
+      input: file,
+      start: active.start,
+      end: active.end,
+      path: active.output,
+    })
     notify(`区间去码完成：${fmtClock(active.start)} - ${fmtClock(active.end)}`)
   } catch (error) {
     const reason = error instanceof Error ? error.message : String(error)
-    broadcastRangeReady({ input: file, start: active.start, end: active.end, error: reason })
+    broadcastRangeReady({
+      input: file,
+      start: active.start,
+      end: active.end,
+      error: reason,
+    })
     notify(`区间去码收尾失败：${reason}`)
   }
 }
@@ -73,10 +110,17 @@ export async function startRange(
   input: unknown,
   startSeconds: unknown,
   endSeconds: unknown
-): Promise<{ success: boolean; error?: string; output?: string; start?: number; end?: number }> {
+): Promise<{
+  success: boolean
+  error?: string
+  output?: string
+  start?: number
+  end?: number
+}> {
   try {
     if (range) throw new Error('已经有一个区间去码在进行中')
-    if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
+    if (typeof input !== 'string' || !input.trim())
+      throw new Error('缺少文件路径')
     const file = input.trim()
     if (!existsSync(file)) throw new Error('文件不存在')
     const { ffmpeg } = ladaPaths()
@@ -97,9 +141,22 @@ export async function startRange(
 
     const source = join(dir, `src-${Date.now()}.mp4`)
     // -ss 放在 -i 前面是快速定位（不重编码，落在最近的关键帧上，误差通常不到 1 秒）
-    const trim = await runTool(ffmpeg, ['-y', '-loglevel', 'error',
-      '-ss', start.toFixed(3), '-t', seconds.toFixed(3),
-      '-i', file, '-c', 'copy', '-avoid_negative_ts', 'make_zero', source])
+    const trim = await runTool(ffmpeg, [
+      '-y',
+      '-loglevel',
+      'error',
+      '-ss',
+      start.toFixed(3),
+      '-t',
+      seconds.toFixed(3),
+      '-i',
+      file,
+      '-c',
+      'copy',
+      '-avoid_negative_ts',
+      'make_zero',
+      source,
+    ])
     if (trim.code !== 0 || !existsSync(source)) {
       throw new Error(`裁出这一段失败：${trim.out.slice(-200)}`)
     }
@@ -118,10 +175,12 @@ export async function startRange(
     onJobFinished(async finished => {
       const active = range
       // 只认自己这一段的结束事件（finished.output 指向本段产物）
-      if (!active || active.input !== file || finished.output !== active.part) return
+      if (!active || active.input !== file || finished.output !== active.part)
+        return
       range = null
       try {
-        if (finished.state === 'done') await finishRange(active, ffmpeg, ffprobe)
+        if (finished.state === 'done')
+          await finishRange(active, ffmpeg, ffprobe)
       } finally {
         rmSync(active.source, { force: true })
         rmSync(active.part, { force: true })
@@ -130,6 +189,9 @@ export async function startRange(
 
     return { success: true, output, start, end: stop }
   } catch (error) {
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }

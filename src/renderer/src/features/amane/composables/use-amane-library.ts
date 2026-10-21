@@ -41,7 +41,49 @@ export interface LibraryHooks {
   onFilmsReplaced: (films: AmaneFilm[]) => void
 }
 
-export function useAmaneLibrary(hooks: LibraryHooks) {
+/** useAmaneLibrary 的返回值：各标签页的列表、筛选排序、分页与选择 */
+export interface AmaneLibraryState {
+  tab: Ref<AmaneTab>
+  busy: Ref<boolean>
+  loading: Ref<boolean>
+  loadingMore: Ref<boolean>
+  error: Ref<string>
+  search: Ref<string>
+  taskStatus: Ref<string>
+  page: Ref<number>
+  total: Ref<number>
+  actorFilter: Ref<number | null>
+  tagFilter: Ref<number | null>
+  filterLabel: Ref<string>
+  films: Ref<AmaneFilm[]>
+  actors: Ref<AmaneActor[]>
+  libraries: Ref<AmaneLibrary[]>
+  tasks: Ref<AmaneTask[]>
+  files: Ref<AmaneFile[]>
+  selectedIds: Ref<number[]>
+  workerPaused: Ref<boolean>
+  advancedOpen: Ref<boolean>
+  advancedFilters: Ref<Record<string, string[]>>
+  sortField: Ref<MetadataSortField>
+  sortOrder: Ref<SortOrder>
+  sortOpen: Ref<boolean>
+  run: (action: () => Promise<void>) => Promise<void>
+  load: (silent?: boolean, append?: boolean) => Promise<void>
+  switchTab: (next: AmaneTab) => void
+  searchNow: () => void
+  chooseSort: (field: MetadataSortField) => void
+  applyAdvanced: (filters: Record<string, string[]>) => void
+  changePage: (delta: number) => void
+  onListScroll: (event: Event) => void
+  toggleSelect: (id: number) => void
+  filterActor: (actor: { id: number; name: string }) => void
+  filterTag: (name: string, id: number) => void
+  clearFilters: () => void
+  browseLibrary: (library: AmaneLibrary) => void
+  dispose: () => void
+}
+
+export function useAmaneLibrary(hooks: LibraryHooks): AmaneLibraryState {
   const tab = ref<AmaneTab>('films'),
     busy = ref(false),
     loading = ref(false),

@@ -12,12 +12,12 @@
     <div class="ui-poster-media">
       <img
         v-if="cover && !broken"
-        :src="cover"
+        :src="src"
         :alt="title"
         loading="lazy"
         decoding="async"
         referrerpolicy="no-referrer"
-        @error="broken = true"
+        @error="onError"
       />
       <div v-else class="ui-poster-placeholder">
         <UiIcon name="movie" size="lg" />
@@ -65,12 +65,17 @@
  * 只放三样东西：图、标题、一行副标题。评分在图上左下角，
  * 收藏和其他操作悬停时出现在右上角。更多信息放到详情页。
  */
-import { ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
 
+import {
+  ensureThumbnail,
+  pickThumbWidth,
+  thumbSrc,
+} from '@/services/thumbnails'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
 
-withDefaults(
+const props = withDefaults(
   defineProps<{
     title: string
     cover?: string
@@ -81,13 +86,52 @@ withDefaults(
     favorite?: boolean
     /** portrait 2:3 海报；landscape 16:9 剧照/封面 */
     shape?: 'portrait' | 'landscape'
+    /**
+     * 用 WebP 缩略图缓存（thumb://，见 services/thumbnails）。只给非影视的网络 / Amane 封面开；
+     * 缩略图加载失败时自动退回原图。
+     */
+    thumb?: boolean
   }>(),
-  { favorite: undefined, shape: 'portrait' }
+  { favorite: undefined, shape: 'portrait', thumb: false }
 )
 
 const emit = defineEmits<{ open: []; 'toggle-favorite': [] }>()
 
 const broken = ref(false)
+/** 缩略图地址加载失败，改用原图 */
+const useOriginal = ref(false)
+
+/** 卡片大致的显示宽度（CSS px）：竖版约 200，横版约 360 */
+const thumbWidth = computed(() =>
+  pickThumbWidth(
+    props.shape === 'landscape' ? 360 : 200,
+    typeof window === 'undefined' ? 1 : window.devicePixelRatio
+  )
+)
+const src = computed(() =>
+  props.cover && props.thumb && !useOriginal.value
+    ? thumbSrc(props.cover, thumbWidth.value)
+    : props.cover
+)
+
+function onError(): void {
+  if (src.value !== props.cover) useOriginal.value = true
+  else broken.value = true
+}
+
+function requestThumbnail(): void {
+  if (props.thumb && props.cover) ensureThumbnail(props.cover, thumbWidth.value)
+}
+
+onMounted(requestThumbnail)
+watch(
+  () => props.cover,
+  () => {
+    broken.value = false
+    useOriginal.value = false
+    requestThumbnail()
+  }
+)
 </script>
 
 <style>

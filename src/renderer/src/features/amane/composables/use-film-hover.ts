@@ -16,7 +16,21 @@ export interface FilmHoverOptions {
   openFilm: (id: number) => Promise<void>
 }
 
-export function useFilmHover(options: FilmHoverOptions) {
+/** useFilmHover 的返回值：海报悬停预览卡的位置、内容与操作 */
+export interface FilmHover {
+  hoverFilm: Ref<AmaneFilm | null>
+  hoverStyle: Ref<Record<string, string>>
+  hoverActionBusy: Ref<boolean>
+  hideHover: () => void
+  filmHoverEnter: (film: AmaneFilm, event: PointerEvent) => void
+  filmHoverLeave: () => void
+  hoverCardEnter: () => void
+  hoverOpen: () => void
+  hoverFileAction: (action: (fileId: number) => Promise<void>) => Promise<void>
+  onFilmsReplaced: (films: AmaneFilm[]) => void
+}
+
+export function useFilmHover(options: FilmHoverOptions): FilmHover {
   const hoverFilm = ref<AmaneFilm | null>(null)
   const hoverStyle = ref<Record<string, string>>({})
   const hoverActionBusy = ref(false)

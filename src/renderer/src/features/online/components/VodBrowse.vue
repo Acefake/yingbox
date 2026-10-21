@@ -53,20 +53,26 @@
     </div>
 
     <!-- 内容卡片网格 -->
-    <div v-if="filteredCards.length" class="ui-poster-grid">
-      <UiPosterCard
-        v-for="card in filteredCards"
-        :key="card.vod_id + card._siteName"
-        :title="card.vod_name"
-        :cover="card.vod_pic"
-        :subtitle="card.vod_remarks"
-        @open="handleOpenCard(card)"
-      >
-        <template #badges
-          ><span class="ui-poster-badge">{{ card._siteName }}</span></template
+    <UiVirtualGrid
+      v-if="filteredCards.length"
+      :items="filteredCards"
+      class="ui-poster-grid"
+      :item-key="card => card.vod_id + card._siteName"
+    >
+      <template #default="{ item: card }">
+        <UiPosterCard
+          thumb
+          :title="card.vod_name"
+          :cover="card.vod_pic"
+          :subtitle="card.vod_remarks"
+          @open="handleOpenCard(card)"
         >
-      </UiPosterCard>
-    </div>
+          <template #badges
+            ><span class="ui-poster-badge">{{ card._siteName }}</span></template
+          >
+        </UiPosterCard>
+      </template>
+    </UiVirtualGrid>
 
     <!-- 加载更多 -->
     <div v-if="filteredCards.length && hasMore" class="load-more">
@@ -96,6 +102,7 @@
 
 <script setup lang="ts">
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'

@@ -6,12 +6,24 @@
  *  2. 分片时间戳必须**连续**（用 -copyts），一旦每个分片从 0 开始就会反复播同一段
  *  3. 本地文件路径的 HLS 在 Windows 上走不通 → 起一个只绑 127.0.0.1 的 HTTP 服务
  */
-import { createReadStream, existsSync, renameSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  createReadStream,
+  existsSync,
+  renameSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { join } from 'node:path'
 import type { LadaLiveState } from '../../../shared/lada'
 import { runTool } from '../process'
-import { buildPlaylist, isServableName, parseSegmentProbe, segmentName } from './rules'
+import {
+  buildPlaylist,
+  isServableName,
+  parseSegmentProbe,
+  segmentName,
+} from './rules'
 
 /** 一次追播会话 */
 export interface LiveSession {
@@ -40,9 +52,12 @@ export async function probeSegment(
   file: string
 ): Promise<{ start: number; duration: number } | null> {
   const { code, out } = await runTool(ffprobe, [
-    '-v', 'error',
-    '-show_entries', 'format=start_time,duration',
-    '-of', 'default=noprint_wrappers=1',
+    '-v',
+    'error',
+    '-show_entries',
+    'format=start_time,duration',
+    '-of',
+    'default=noprint_wrappers=1',
     file,
   ])
   if (code !== 0) return null
@@ -72,7 +87,8 @@ export function writePlaylist(s: LiveSession, ended: boolean): void {
   writeFileSync(s.playlist, body)
 }
 
-const tooSmall = (file: string): boolean => !existsSync(file) || statSync(file).size < MIN_SEGMENT_BYTES
+const tooSmall = (file: string): boolean =>
+  !existsSync(file) || statSync(file).size < MIN_SEGMENT_BYTES
 
 /**
  * 切一个分片。分两趟走：
@@ -97,10 +113,22 @@ export async function cutSegment(
   rmSync(videoOnly, { force: true })
 
   const cut = await runTool(ffmpeg, [
-    '-y', '-loglevel', 'error',
-    '-ss', start.toFixed(3), '-to', end.toFixed(3), '-i', s.tempVideo,
-    '-an', '-c', 'copy', '-copyts',
-    '-f', 'mpegts', videoOnly,
+    '-y',
+    '-loglevel',
+    'error',
+    '-ss',
+    start.toFixed(3),
+    '-to',
+    end.toFixed(3),
+    '-i',
+    s.tempVideo,
+    '-an',
+    '-c',
+    'copy',
+    '-copyts',
+    '-f',
+    'mpegts',
+    videoOnly,
   ])
   if (cut.code !== 0 || tooSmall(videoOnly)) {
     rmSync(videoOnly, { force: true })
@@ -114,12 +142,27 @@ export async function cutSegment(
 
   const audioTo = info.start + info.duration
   const mux = await runTool(ffmpeg, [
-    '-y', '-loglevel', 'error',
-    '-ss', info.start.toFixed(3), '-to', audioTo.toFixed(3), '-i', s.input,
-    '-i', videoOnly,
-    '-map', '1:v:0', '-map', '0:a:0',
-    '-c', 'copy', '-copyts',
-    '-f', 'mpegts', file,
+    '-y',
+    '-loglevel',
+    'error',
+    '-ss',
+    info.start.toFixed(3),
+    '-to',
+    audioTo.toFixed(3),
+    '-i',
+    s.input,
+    '-i',
+    videoOnly,
+    '-map',
+    '1:v:0',
+    '-map',
+    '0:a:0',
+    '-c',
+    'copy',
+    '-copyts',
+    '-f',
+    'mpegts',
+    file,
   ])
   rmSync(videoOnly, { force: true })
   if (mux.code !== 0 || tooSmall(file)) {
@@ -132,7 +175,10 @@ export async function cutSegment(
 /** 起只绑 127.0.0.1 的 HTTP 服务，只放行会话目录里的播放列表和分片；返回端口 */
 export function serve(s: LiveSession): Promise<number> {
   const server = createServer((req, res) => {
-    const name = decodeURIComponent((req.url || '/').split('?')[0]).replace(/^\//, '')
+    const name = decodeURIComponent((req.url || '/').split('?')[0]).replace(
+      /^\//,
+      ''
+    )
     // Node 的 res.end() 返回 this，直接 return 会触发 "not all code paths return a value"
     if (name && !isServableName(name)) {
       res.statusCode = 400
@@ -145,7 +191,10 @@ export function serve(s: LiveSession): Promise<number> {
       res.end()
       return
     }
-    res.setHeader('Content-Type', name.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t')
+    res.setHeader(
+      'Content-Type',
+      name.endsWith('.m3u8') ? 'application/vnd.apple.mpegurl' : 'video/mp2t'
+    )
     res.setHeader('Cache-Control', 'no-store')
     createReadStream(file).pipe(res)
   })

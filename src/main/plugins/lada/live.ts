@@ -16,7 +16,13 @@ import { lada } from '../../../shared/contract/lada'
 import { emit } from '../../rpc'
 import { registerPlugin } from '../host'
 import { cancelCurrentJob, currentJob, startJob, waitForLadaExit } from './job'
-import { type LiveSession, cutSegment, probeSegment, serve, writePlaylist } from './live-media'
+import {
+  type LiveSession,
+  cutSegment,
+  probeSegment,
+  serve,
+  writePlaylist,
+} from './live-media'
 import { adoptPartial } from './resume'
 import { SEGMENT_SECONDS, segmentVerdict } from './rules'
 import { ladaTempVideo, tempDirPath } from './temp'
@@ -56,10 +62,18 @@ async function tickOnce(): Promise<void> {
   const ffprobe = ffprobeFor(ffmpeg)
   const job = currentJob()
   const ladaRunning = job?.state === 'running'
-  const waitOrFinish = (): void => (ladaRunning ? schedule(RETRY_MS) : finishUp())
+  const waitOrFinish = (): void =>
+    ladaRunning ? schedule(RETRY_MS) : finishUp()
 
   const start = s.nextStart
-  const name = await cutSegment(s, ffmpeg, ffprobe, s.segments.length, start, start + SEGMENT_SECONDS)
+  const name = await cutSegment(
+    s,
+    ffmpeg,
+    ffprobe,
+    s.segments.length,
+    start,
+    start + SEGMENT_SECONDS
+  )
   // 数据还不够切满一段：lada 还在跑就等；已经结束了就直接收尾
   if (!name) return waitOrFinish()
 
@@ -95,7 +109,9 @@ function finishUp(): void {
 function schedule(ms: number): void {
   const s = session
   if (!s || s.stopping) return
-  s.timer = setTimeout(() => { void tick() }, ms)
+  s.timer = setTimeout(() => {
+    void tick()
+  }, ms)
 }
 
 function statusOf(s: LiveSession): LadaLiveStatus {
@@ -120,14 +136,18 @@ function broadcastStatus(s: LiveSession): void {
  *  - 已经有一个**普通去码任务**在跑同一部片子 → 直接追播它，不再起第二个 lada
  *  - 有别的普通任务在跑 → 同样先暂停并登记进度
  */
-export async function startLive(input: unknown): Promise<{ success: boolean; url?: string; error?: string }> {
+export async function startLive(
+  input: unknown
+): Promise<{ success: boolean; url?: string; error?: string }> {
   try {
-    if (typeof input !== 'string' || !input.trim()) throw new Error('缺少文件路径')
+    if (typeof input !== 'string' || !input.trim())
+      throw new Error('缺少文件路径')
     const file = input.trim()
 
     // 1) 正在追播的就是它：直接复用地址，别报"已有一个"
     if (session && session.input === file && session.state !== 'cancelled') {
-      if (session.segments.length > 0) return { success: true, url: statusOf(session).url }
+      if (session.segments.length > 0)
+        return { success: true, url: statusOf(session).url }
       return await waitForFirstSegment(session)
     }
 
@@ -149,10 +169,17 @@ export async function startLive(input: unknown): Promise<{ success: boolean; url
     mkdirSync(workDir, { recursive: true })
 
     const live: LiveSession = {
-      input: file, output: job.output, tempVideo: ladaTempVideo(job.output), workDir,
+      input: file,
+      output: job.output,
+      tempVideo: ladaTempVideo(job.output),
+      workDir,
       playlist: join(workDir, 'index.m3u8'),
-      segments: [], nextStart: 0, port: 0,
-      state: 'preparing', server: null, stopping: false,
+      segments: [],
+      nextStart: 0,
+      port: 0,
+      state: 'preparing',
+      server: null,
+      stopping: false,
     }
     session = live
     live.port = await serve(live)
@@ -161,12 +188,17 @@ export async function startLive(input: unknown): Promise<{ success: boolean; url
     return await waitForFirstSegment(live)
   } catch (error) {
     stopLive()
-    return { success: false, error: error instanceof Error ? error.message : String(error) }
+    return {
+      success: false,
+      error: error instanceof Error ? error.message : String(error),
+    }
   }
 }
 
 /** 等首批分片出现再交给播放器：空播放列表播不了 */
-async function waitForFirstSegment(live: LiveSession): Promise<{ success: boolean; url?: string; error?: string }> {
+async function waitForFirstSegment(
+  live: LiveSession
+): Promise<{ success: boolean; url?: string; error?: string }> {
   const deadline = Date.now() + FIRST_SEGMENT_TIMEOUT_MS
   while (Date.now() < deadline) {
     if (live.segments.length > 0) {
