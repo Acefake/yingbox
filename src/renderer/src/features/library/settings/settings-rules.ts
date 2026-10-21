@@ -1,0 +1,109 @@
+/**
+ * 媒体库设置的纯规则与选项：文件夹描述、令牌状态文字、模板变量、整理批次标题 / 描述 / 可撤销。
+ * 不依赖 Vue，便于单测。
+ */
+import type {
+  LibraryInfo,
+  LibraryKind,
+  OrganizeBatchInfo,
+  WriterSettings,
+} from '../../../../../shared/library/ipc'
+import { TEMPLATE_VARIABLES } from '../../../../../shared/library/writer'
+
+/** 设置里的日期时间格式。 */
+export const dateFormat = new Intl.DateTimeFormat('zh-CN', {
+  dateStyle: 'medium',
+  timeStyle: 'short',
+})
+
+/** 文件夹行的描述：路径 · 上次扫描时间（没扫过时「尚未扫描」）。 */
+export function folderDescription(
+  lib: Pick<LibraryInfo, 'root' | 'lastScanAt'>,
+  format: (time: number) => string = t => dateFormat.format(t)
+): string {
+  const scanned = lib.lastScanAt
+    ? `上次扫描 ${format(lib.lastScanAt)}`
+    : '尚未扫描'
+  return `${lib.root} · ${scanned}`
+}
+
+/** TMDB 令牌状态文字。 */
+export function tokenStatus(available: boolean, configured: boolean): string {
+  if (!available) return '仅桌面版可用'
+  return configured ? '已配置' : '尚未配置，无法识别'
+}
+
+/** 已有 NFO 的处理方式。 */
+export const NFO_MODE_OPTIONS: Array<{
+  value: WriterSettings['nfo']['mode']
+  label: string
+}> = [
+  { value: 'merge', label: '合并' },
+  { value: 'overwrite', label: '覆盖' },
+]
+
+/** 图片开关行（顺序即界面顺序）。 */
+export const ARTWORK_ROWS: Array<{
+  key: keyof WriterSettings['artwork']
+  title: string
+}> = [
+  { key: 'poster', title: '海报' },
+  { key: 'fanart', title: '背景图' },
+  { key: 'logo', title: '标志' },
+  { key: 'seasonArt', title: '季海报与剧集缩略图' },
+  { key: 'actors', title: '演员头像' },
+  { key: 'legacyNames', title: '兼容旧播放器的文件名' },
+]
+
+/** 电影模板用不到剧集变量，剧集模板全部可用。 */
+const TV_ONLY = new Set(['series', 'season', 'episode', 'episodeTitle'])
+
+/** 模板可用变量的提示文字：`{title} {year} …`。 */
+export function templateVariablesFor(kind: LibraryKind): string {
+  return TEMPLATE_VARIABLES.filter(v => kind === 'tv' || !TV_ONLY.has(v))
+    .map(v => `{${v}}`)
+    .join(' ')
+}
+
+/** 当前类型用的路径模板。 */
+export function templateOf(
+  settings: WriterSettings,
+  kind: LibraryKind
+): string {
+  return kind === 'movie'
+    ? settings.organize.movieTemplate
+    : settings.organize.tvTemplate
+}
+
+/** 批次状态文字。 */
+export const BATCH_STATE: Record<OrganizeBatchInfo['state'], string> = {
+  running: '进行中',
+  done: '已完成',
+  partial: '部分完成',
+  failed: '失败',
+  undoing: '撤销中',
+  undone: '已撤销',
+}
+
+/** 设置里最多列出几个最近的整理批次。 */
+export const RECENT_BATCHES = 5
+
+/** 批次标题：时间 · 状态。 */
+export function batchTitle(
+  batch: Pick<OrganizeBatchInfo, 'createdAt' | 'state'>,
+  format: (time: number) => string = t => dateFormat.format(t)
+): string {
+  return `${format(batch.createdAt)} · ${BATCH_STATE[batch.state]}`
+}
+
+/** 批次描述：移动 x / y 个文件（，n 个失败）。 */
+export function batchDescription(
+  batch: Pick<OrganizeBatchInfo, 'moved' | 'total' | 'failed'>
+): string {
+  const failed = batch.failed ? `，${batch.failed} 个失败` : ''
+  return `移动 ${batch.moved} / ${batch.total} 个文件${failed}`
+}
+
+/** 设置里给「撤销」按钮的批次：已完成或部分完成。 */
+export const showUndo = (state: OrganizeBatchInfo['state']): boolean =>
+  state === 'done' || state === 'partial'

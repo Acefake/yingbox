@@ -13,9 +13,9 @@ src/main/library/
     opensubtitles/   moviehash 反查（有 API key 才启用）
     settings-store   引擎侧设置（TMDB 令牌持久化在这里）
   identify/
-    identify-module  组装 + identify 任务 + 识别相关 IPC 方法
-    identify-runner  执行器：电影按文件组识别、剧集按文件夹识别、拆分临时合并的电影、写季 / 集
-    identify-store   选目标、读文件 / 子条目 / NFO、写 matches
+    identify-module  组装 + 识别相关 IPC 方法（纯规则在 identify-rules，任务执行在 identify-job）
+    identify-runner  执行器：批量执行、应用匹配、写季 / 集；电影 / 剧集 / 手动匹配在 runner-movie / runner-series / runner-manual，纯规则在 runner-rules
+    identify-store   选目标、读文件 / 子条目 / NFO、写 matches（行转换在 identify-rows）
     metadata-writer  元数据写入 media_items（常用字段成列，完整元数据存 JSON）
     episode-mapping  本地集 → (季, 集)，绝对集数按剧集分组顺序
     media-duration   只读容器头取时长（mkv / mp4 / mov），不依赖 ffprobe

@@ -1,0 +1,133 @@
+/* 海报墙（PosterWall.vue）的 scoped 样式。 */
+.lib-wall {
+  position: relative;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  overscroll-behavior: contain;
+}
+.lib-wall-grid {
+  position: relative;
+  margin: 0 var(--content-padding-x) var(--space-10);
+  contain: layout style;
+}
+.lib-cell {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: var(--cell-w);
+  height: calc(var(--media-h) + var(--poster-text-height));
+  outline: none;
+  cursor: pointer;
+  contain: layout style;
+  content-visibility: auto;
+  contain-intrinsic-size: var(--cell-w)
+    calc(var(--media-h) + var(--poster-text-height));
+  will-change: transform;
+}
+.lib-cell-media {
+  position: relative;
+  height: var(--media-h);
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-fill-secondary);
+  box-shadow: var(--shadow-sm);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+.lib-cell:hover .lib-cell-media {
+  transform: translateY(-4px) scale(1.02);
+}
+.lib-cell:focus-visible .lib-cell-media {
+  box-shadow: var(--focus-ring-offset);
+}
+.lib-cell.is-selected .lib-cell-media {
+  box-shadow:
+    0 0 0 3px var(--bg-content),
+    0 0 0 5px var(--accent);
+}
+.lib-cell-media img {
+  display: block;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease;
+}
+.lib-cell-media img[data-loaded] {
+  opacity: 1;
+}
+.lib-cell-fallback {
+  display: flex;
+  align-items: flex-end;
+  height: 100%;
+  padding: var(--space-4);
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-family: var(--font-display);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
+  word-break: break-word;
+}
+.lib-cell-badge,
+.lib-cell-rating {
+  position: absolute;
+  padding: var(--space-0_5) var(--space-2);
+  border-radius: var(--radius-xs);
+  background: var(--overlay-scrim);
+  color: var(--media-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+}
+.lib-cell-badge {
+  top: var(--space-2);
+  left: var(--space-2);
+}
+.lib-cell-rating {
+  bottom: var(--space-2);
+  left: var(--space-2);
+}
+.lib-cell-check {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  width: 22px;
+  height: 22px;
+}
+.lib-cell-check circle {
+  fill: var(--accent);
+  stroke: var(--media-text);
+  stroke-width: 1.5;
+}
+.lib-cell-check path {
+  fill: none;
+  stroke: var(--text-on-accent);
+  stroke-width: 2.2;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+.lib-cell-title {
+  margin-top: var(--space-3);
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  line-height: var(--leading-tight);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.lib-cell-sub {
+  margin-top: var(--space-1);
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  line-height: var(--leading-tight);
+  white-space: nowrap;
+}
+@media (prefers-reduced-motion: reduce) {
+  .lib-cell-media img {
+    opacity: 1;
+  }
+}
