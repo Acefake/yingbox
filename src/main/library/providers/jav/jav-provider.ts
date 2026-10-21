@@ -20,8 +20,11 @@ import { type ProviderHttp, ProviderHttpError } from '../http/provider-http'
 import { type JavMovie, aggregate, toMetadata } from './aggregate'
 import { type JavCode, parseJavCode } from './number'
 import { avbase } from './sites/avbase'
+import { dmm, dmmApi } from './sites/dmm'
 import { fc2 } from './sites/fc2'
+import { getchu } from './sites/getchu'
 import { javbus } from './sites/javbus'
+import { mgstage } from './sites/mgstage'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
 
 const DAY = 86_400_000
@@ -48,7 +51,15 @@ export function pageVerdict(
 }
 
 /** 内置站点。 */
-export const JAV_SITE_IMPLS: readonly JavSite[] = [javbus, avbase, fc2]
+export const JAV_SITE_IMPLS: readonly JavSite[] = [
+  javbus,
+  avbase,
+  fc2,
+  dmm,
+  mgstage,
+  dmmApi,
+  getchu,
+]
 
 /** 构造参数。 */
 export interface JavProviderOptions {
@@ -188,6 +199,7 @@ export class JavProvider {
           ...(options.cookie ? { Cookie: options.cookie } : {}),
           ...options.headers,
         },
+        ...(options.body !== undefined ? { body: options.body } : {}),
         signal,
       })
     } catch (error) {

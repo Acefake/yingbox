@@ -52,7 +52,12 @@ export { type IdentifyPayload, mergeIdentifyPayload } from './identify-rules'
 /** 文本与二进制都能取的 fetch（标准 fetch / Electron net.fetch 都满足）。 */
 export type HttpFetch = (
   url: string,
-  init: { headers?: Record<string, string>; signal?: AbortSignal }
+  init: {
+    headers?: Record<string, string>
+    signal?: AbortSignal
+    method?: 'GET' | 'POST'
+    body?: string
+  }
 ) => ReturnType<FetchLike> & ReturnType<BinaryFetch>
 
 /** 模块参数。 */

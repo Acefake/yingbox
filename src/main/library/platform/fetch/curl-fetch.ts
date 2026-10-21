@@ -68,7 +68,8 @@ export function curlArgs(
   url: string,
   headers: Record<string, string>,
   maxBytes: number,
-  timeoutMs: number
+  timeoutMs: number,
+  body?: string
 ): string[] {
   const args = [
     '--silent',
@@ -89,6 +90,8 @@ export function curlArgs(
     if (/[\r\n]/.test(name + value)) continue
     args.push('--header', `${name}: ${value}`)
   }
+  // 带请求体即 POST（--data-binary 原样发送，不做 URL 编码；重定向后保持 POST 语义）
+  if (body !== undefined) args.push('--data-binary', body)
   args.push('--', url)
   return args
 }
@@ -104,7 +107,11 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
   const run = options.spawnImpl ?? spawn
   return ((
     url: string,
-    init: { headers?: Record<string, string>; signal?: AbortSignal }
+    init: {
+      headers?: Record<string, string>
+      signal?: AbortSignal
+      body?: string
+    }
   ) =>
     new Promise<Response>((resolve, reject) => {
       if (!/^https?:\/\//i.test(url)) {
@@ -114,7 +121,7 @@ export function createCurlFetch(options: CurlFetchOptions = {}): HttpFetch {
       init.signal?.throwIfAborted()
       const child = run(
         binary,
-        curlArgs(url, init.headers ?? {}, maxBytes, timeoutMs),
+        curlArgs(url, init.headers ?? {}, maxBytes, timeoutMs, init.body),
         {
           stdio: ['ignore', 'pipe', 'pipe'],
           windowsHide: true,

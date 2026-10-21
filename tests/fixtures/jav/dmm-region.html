@@ -1,0 +1,80 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<script>
+window.dataLayer = window.dataLayer || [];
+window.dmm_mkbase_ga_util = window.dmm_mkbase_ga_util || {};
+window.dmm_mkbase_ga_util.merge_common_data = window.dmm_mkbase_ga_util.merge_common_data || function (data) {
+  window.rawDatas = window.rawDatas || [];
+　window.rawDatas.push(data);
+　return
+};
+const host = window.location.hostname;
+let i3_p_env;
+let gmt_id;
+if (host === 'stg.special.dmm.co.jp' || host === 'stg.special.fanza.jp') {
+  // STG
+  i3_p_env = 'staging';
+  gmt_id = 'GTM-MNZB3FCD'
+} else if (host === 'special.dmm.co.jp' || host === 'special.fanza.jp') {
+  // 本番
+  i3_p_env = 'production';
+  gmt_id = 'GTM-PLC9LTZ'
+}
+function gtag(){dataLayer.push(arguments);}
+    gtag('set', {
+        'i3_p_page_type': 'other',
+        'i3_p_env': i3_p_env,
+        'i3_p_device': 'pc',
+        'i3_p_aff': '0',
+        'i3_p_i3': '0'
+    });
+</script>
+ 
+<!-- Google Tag Manager -->
+<script>(function(w,d,s,l,i){w[l]=w[l]||[];w[l].push({'gtm.start':
+new Date().getTime(),event:'gtm.js'});var f=d.getElementsByTagName(s)[0],
+j=d.createElement(s),dl=l!='dataLayer'?'&l='+l:'';j.async=true;j.src=
+'https://www.googletagmanager.com/gtm.js?id='+i+dl;f.parentNode.insertBefore(j,f);
+})(window,document,'script','dataLayer',gmt_id);</script>
+<!-- End Google Tag Manager -->
+
+    <title>このページはお住まいの地域からご利用になれません。 - FANZA</title>
+    <meta http-equiv="Content-Type" content="text/html; charset=UTF-8">
+    <meta name="robots" content="noindex">
+    <link href="/not-available-in-your-region/css/error_area.css" media="screen" rel="stylesheet" type="text/css">
+</head>
+<body>
+<!-- Google Tag Manager (noscript) -->
+<noscript><iframe src="https://www.googletagmanager.com/ns.html?id=GTM-PLC9LTZ"
+height="0" width="0" style="display:none;visibility:hidden"></iframe></noscript>
+<!-- End Google Tag Manager (noscript) -->
+<div id="fn-special-wrapper">
+    <main>
+        <div class="foreignError">
+            <div class="foreignError__content">
+                <div class="foreignError__inner">
+                    <img class="foreignError__icon" src="//p.dmm.co.jp/p/pf/icon/exclamation.svg" alt="警告アイコン" width="48px" height="48px">
+                    <div class="foreignError__inner--secondary">
+                        <p class="foreignError__desc">このサービスはお住まいの地域からは<br>ご利用になれません。</p>
+                        <p class="foreignError__en">Sorry! This content is not available in your region.</p>
+                    </div>
+                </div>
+                <div class="foreignError__btn foreignError__btn--secondary">
+                    <a href="https://support.dmm.co.jp/accounts/article/45804">
+                        ご利用可能なサービス一覧
+                        <span class="foreignError__en">Available contents</span>
+                    </a>
+                </div>
+                <div class="foreignError__link">
+                    <a href="https://www.dmm.com/">
+                        トップへ戻る
+                    </a>
+                    <p class="foreignError__en">Return to the top page</p>
+                </div>
+            </div>
+        </div>
+    </main>
+</div>
+</body>
+</html>
