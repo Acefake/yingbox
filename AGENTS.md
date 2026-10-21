@@ -72,11 +72,9 @@ Exposes `window.api` only, namespaced: `amane.* file.* http.* path.* dialog.* co
 Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/amane`, `/av`, `/player-popout`; catch-all → `/`.
 
 - `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `av` (MissAV), `download`, `amane`, `lada`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
-- `api/tmdb.ts` (token from settings or `VITE_TMDB_ACCESS_TOKEN`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
-- `services/nfo-service.ts` — Kodi NFO parse/generate
-- `stores/scrape-provider-store.ts` — provider config in localStorage (`scrapeProviderConfig`)
-- `views/Movie|TV/` — library (file tree + scraping, owned by the library project); `components/UnifiedVideoPlayer.vue`, `composables/use-media-player.ts`, `composables/use-lada-tasks.ts` are one-line re-exports kept for it (delete after the library merge)
-- shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-global-queue`, `use-error-handler`, `use-context-menu`, `use-platform`), `utils/`
+- TMDB token: secret `scrape.tmdbToken` (main-process safeStorage); renderer reads it via `getTmdbAccessToken()` from `@/features/settings` (falls back to `VITE_TMDB_ACCESS_TOKEN`), the library engine keeps its own copy (`features/library/settings/provider-token.ts`). Renderer code must not call `fetch` directly (eslint; only `features/amane/api/amane.ts` is exempt)
+- `features/library/` — movie / TV library UI (poster wall, detail, match review, writer / organize, library settings), talking to the library engine through `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract)
+- shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-error-handler`, `use-context-menu`, `use-platform`), `utils/`
 
 ### Engine (`src/engine/`)
 

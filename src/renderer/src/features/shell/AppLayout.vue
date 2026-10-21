@@ -46,8 +46,8 @@
       @close="settingsVisible = false"
     />
 
-    <!-- 全局刮削队列面板 -->
-    <ScrapeQueuePanel
+    <!-- 全局后台任务面板（去码 / 边跑边看） -->
+    <BackgroundTasksPanel
       :visible="queuePanelVisible"
       @close="queuePanelVisible = false"
     />
@@ -74,13 +74,12 @@
 <script setup lang="ts">
 /**
  * 应用外壳：组合侧栏（可收起为图标栏，手机上为抽屉）、顶部工具栏、主内容插槽，
- * 以及全局的设置窗口和刮削队列浮层。手机上额外显示底部标签栏。
+ * 以及全局的设置窗口和后台任务浮层。手机上额外显示底部标签栏。
  * 侧栏、工具栏各自是组件，导航项与搜索规则是纯函数（composables/），这里只管布局状态与全局快捷键。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import ScrapeQueuePanel from '@/components/ScrapeQueuePanel.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import { usePlatform } from '@/composables/use-platform'
 import { refreshSources } from '@/features/online'
@@ -88,6 +87,7 @@ import { SettingsPanel, useSetting } from '@/features/settings'
 
 import AppSidebar from './components/AppSidebar.vue'
 import AppToolbar from './components/AppToolbar.vue'
+import BackgroundTasksPanel from './components/BackgroundTasksPanel.vue'
 import {
   type NavState,
   buildBottomNav,

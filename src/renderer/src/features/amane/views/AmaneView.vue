@@ -327,7 +327,7 @@ onDeactivated(() => {
 })
 onMounted(() => {
   library.search.value = typeof route.query.q === 'string' ? route.query.q : ''
-  // 去码进度与边跑边看状态由 useLadaTasks 统一接推送（刮削队列面板也在用）
+  // 去码进度与边跑边看状态由 useLadaTasks 统一接推送（后台任务面板也在用）
   void connection.start()
 })
 onBeforeUnmount(() => {

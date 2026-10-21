@@ -107,8 +107,8 @@ const emit = defineEmits<{
 .dw-loading-sources {
   display: inline-flex;
   align-items: center;
-  gap: 8px;
-  padding: 8px 16px;
+  gap: var(--space-2);
+  padding: var(--space-2) var(--space-4);
   font-size: var(--text-sm);
   color: var(--text-secondary);
 }
@@ -120,7 +120,7 @@ const emit = defineEmits<{
 .ep-empty {
   font-size: var(--text-sm);
   color: var(--text-tertiary);
-  padding: 16px 0;
+  padding: var(--space-4) 0;
   text-align: center;
 }
 
@@ -130,7 +130,7 @@ const emit = defineEmits<{
   border-radius: 50%;
   border: 2px solid var(--border-strong);
   border-top-color: var(--text-primary);
-  animation: spin 0.7s linear infinite;
+  animation: spin var(--duration-spin) linear infinite;
   flex-shrink: 0;
 }
 
@@ -138,7 +138,7 @@ const emit = defineEmits<{
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .source-type-tabs {

@@ -26,7 +26,6 @@ export const EXEMPT = {
   'src/renderer/src/features/library/detail/ItemDetail.vue': 932,
   'src/main/library/identify/identify-runner.ts': 756,
   'src/renderer/src/features/library/LibraryPage.vue': 718,
-  'src/renderer/src/components/ScrapeQueuePanel.vue': 717,
   'src/shared/library/ipc/contract.ts': 558,
   'src/main/library/identify/identify-module.ts': 507,
   'src/main/library/engine/service.ts': 490,

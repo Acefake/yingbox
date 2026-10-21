@@ -78,8 +78,10 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 服务：刮削服务（TMDB / 自定义）与 TMDB Token。每个字段即改即存（scrape.*）。
+ * 设置 · 服务：刮削服务（TMDB / 自定义）与 TMDB Token。普通字段即改即存（scrape.*），
+ * TMDB Token 是密钥（加密存放，同步给媒体库引擎）。
  */
+import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiTextarea from '@/components/ui/UiTextarea.vue'
@@ -90,6 +92,7 @@ import SettingsRadioList, {
   type SettingsRadioOption,
 } from '../ui/SettingsRadioList.vue'
 import SettingsRow from '../ui/SettingsRow.vue'
+import { setTmdbToken, userTmdbToken } from '../tmdb-token'
 import { resetSettings, useSetting } from '../use-setting'
 
 const providerOptions: SettingsRadioOption<SettingValue<'scrape.provider'>>[] =
@@ -103,7 +106,31 @@ const providerOptions: SettingsRadioOption<SettingValue<'scrape.provider'>>[] =
   ]
 
 const currentProvider = useSetting('scrape.provider')
-const tmdbAccessToken = useSetting('scrape.tmdbToken')
+/** TMDB 令牌是密钥：输入先进草稿，停顿 600ms 后加密保存并下发给媒体库引擎 */
+const tmdbDraft = ref(userTmdbToken())
+watch(userTmdbToken, value => {
+  if (!saveTimer) tmdbDraft.value = value
+})
+let saveTimer: ReturnType<typeof setTimeout> | undefined
+const tmdbAccessToken = computed({
+  get: () => tmdbDraft.value,
+  set: value => {
+    tmdbDraft.value = value
+    clearTimeout(saveTimer)
+    saveTimer = setTimeout(() => {
+      saveTimer = undefined
+      setTmdbToken(value).catch(error =>
+        console.warn('[settings] 保存 TMDB 令牌失败', error)
+      )
+    }, 600)
+  },
+})
+onBeforeUnmount(() => {
+  if (!saveTimer) return
+  clearTimeout(saveTimer)
+  saveTimer = undefined
+  void setTmdbToken(tmdbDraft.value)
+})
 const customProviderName = useSetting('scrape.customName')
 const customBaseUrl = useSetting('scrape.customBaseUrl')
 const customApiKey = useSetting('scrape.customApiKey')
@@ -111,11 +138,14 @@ const customApiKey = useSetting('scrape.customApiKey')
 const resetProviderConfig = (): void => {
   void resetSettings([
     'scrape.provider',
-    'scrape.tmdbToken',
     'scrape.customName',
     'scrape.customBaseUrl',
     'scrape.customApiKey',
   ])
+  clearTimeout(saveTimer)
+  saveTimer = undefined
+  tmdbDraft.value = ''
+  void setTmdbToken('')
 }
 </script>
 

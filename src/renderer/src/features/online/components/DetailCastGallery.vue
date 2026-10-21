@@ -63,18 +63,18 @@ const onActorImgError = (e: Event): void => {
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--text-primary);
-  margin-bottom: 12px;
+  margin-bottom: var(--space-3);
 }
 
 .dw-cast-section {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-6_5);
 }
 
 .dw-cast-list {
   display: flex;
-  gap: 12px;
+  gap: var(--space-3);
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
 }
 
 .dw-cast-list::-webkit-scrollbar {
@@ -109,19 +109,19 @@ const onActorImgError = (e: Event): void => {
 .dw-actor-char {
   font-size: var(--text-2xs);
   color: var(--text-tertiary);
-  margin-top: 2px;
+  margin-top: var(--space-0_5);
 }
 
 /* 图库 */
 .dw-gallery-section {
-  margin-bottom: 28px;
+  margin-bottom: var(--space-6_5);
 }
 
 .dw-gallery {
   display: flex;
-  gap: 8px;
+  gap: var(--space-2);
   overflow-x: auto;
-  padding-bottom: 8px;
+  padding-bottom: var(--space-2);
 }
 
 .dw-gallery::-webkit-scrollbar {
@@ -140,8 +140,8 @@ const onActorImgError = (e: Event): void => {
   overflow: hidden;
   cursor: pointer;
   transition:
-    transform 0.15s,
-    box-shadow 0.15s;
+    transform var(--duration-fast),
+    box-shadow var(--duration-fast);
   border: 1px solid var(--border-subtle);
 }
 

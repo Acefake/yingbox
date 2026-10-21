@@ -7,11 +7,6 @@ const FILM_PROTECTED = [
   /^src\/shared\/library\//,
   /^src\/renderer\/src\/features\/library\//,
   /^src\/preload\/library-bridge\.ts$/,
-  /^src\/renderer\/src\/api\/tmdb\.ts$/,
-  /^src\/renderer\/src\/stores\/scrape-provider-store\.ts$/,
-  /^src\/renderer\/src\/components\/ScrapeQueuePanel\.vue$/,
-  /^src\/renderer\/src\/composables\/use-global-queue\.ts$/,
-  /^src\/renderer\/src\/features\/settings\/legacy-library-mirror\.ts$/,
 ]
 
 describe('check:size 分类', () => {

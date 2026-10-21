@@ -31,5 +31,13 @@ export async function initSettings(): Promise<void> {
     set: (_, key, value) => {
       opened.set(key, value)
     },
+    setSecret: async (_, key, value) => {
+      await opened.setSecret(key, value)
+      emit(settings, 'secretChanged', {
+        key,
+        configured: opened.snapshot().secrets[key],
+      })
+    },
+    readSecret: (_, key) => opened.getSecret(key),
   })
 }

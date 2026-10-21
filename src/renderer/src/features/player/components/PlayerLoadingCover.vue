@@ -23,7 +23,7 @@ defineProps<{
 .unified-player-loading {
   position: absolute;
   inset: 0;
-  z-index: 5;
+  z-index: var(--z-above);
   display: flex;
   align-items: center;
   justify-content: center;
@@ -43,13 +43,13 @@ defineProps<{
 
 .unified-player-loading-spin {
   position: absolute;
-  bottom: 28px;
+  bottom: var(--space-6_5);
   width: 22px;
   height: 22px;
   border: 2px solid var(--media-track);
   border-top-color: var(--media-text-secondary);
   border-radius: 50%;
-  animation: unified-player-spin 0.8s linear infinite;
+  animation: unified-player-spin var(--duration-spin) linear infinite;
 }
 
 @keyframes unified-player-spin {
