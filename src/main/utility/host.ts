@@ -7,6 +7,8 @@
  * - ready：子进程报 ready 时回调 onReady，带上 fork → ready 的耗时。调用不等 ready，消息由
  *   utilityProcess 排队。
  * - 调用表：按 id 配对请求与结果；子进程崩溃时挂起的调用全部失败，下一次调用再重启。
+ * - 崩溃守卫（crash-guard.ts）：缺依赖或连续秒退时不再 fork，之后的调用直接带原因失败，
+ *   避免启动即崩时每次调用都 fork 一个新进程（fork 风暴会拖死整机）。
  * - 关停：发关停消息，stopTimeoutMs 内没退出就 kill；关停中来的调用等旧进程退完再 fork，
  *   不会两个同类进程同时在跑。关停时还挂着的调用失败。
  * - 空闲退出：idleMs > 0 时，没有挂起的调用、子进程也没报忙（busy 消息）时，最后一次调用
@@ -15,6 +17,7 @@
  *
  * 线协议见 shared/utility/protocol.ts，两种子进程共用；各自的方法表由调用方决定。
  */
+import { CrashGuard } from './crash-guard'
 import type {
   FromUtility,
   ToUtility,
@@ -27,6 +30,10 @@ export interface UtilityChild {
   on(event: 'message', listener: (message: FromUtility) => void): void
   on(event: 'exit', listener: (code: number) => void): void
   kill(): boolean
+  /** 子进程的 stderr（fork 时 stdio 第三项为 'pipe' 才有）：交给崩溃守卫认出缺依赖，再原样转到终端。 */
+  stderr?: {
+    on(event: 'data', listener: (chunk: Buffer | string) => void): void
+  } | null
 }
 
 /** 调用失败：子进程报错（code 由子进程给）、崩溃或关停（code 为 unavailable）。 */
@@ -60,8 +67,12 @@ export interface UtilityHostOptions {
   idleMs?: number
   /** 关停超时，默认 UTILITY_STOP_TIMEOUT_MS */
   stopTimeoutMs?: number
-  /** 时钟（测 ready 耗时），默认 Date.now */
+  /** 时钟（测 ready 耗时、秒退判定），默认 Date.now */
   now?(): number
+  /** stderr 的去处，默认写到主进程 stderr */
+  writeStderr?(chunk: Buffer | string): void
+  /** 守卫停止重启时（只调一次） */
+  onBlocked?(reason: string): void
 }
 
 /** 一个 utilityProcess 的宿主。 */
@@ -79,9 +90,17 @@ export class UtilityHost {
   private stopping: Promise<void> | undefined
 
   private readonly now: () => number
+  private readonly guard: CrashGuard
+  private blockedReported = false
 
   constructor(private readonly opts: UtilityHostOptions) {
     this.now = opts.now ?? Date.now
+    this.guard = new CrashGuard(opts.name, this.now)
+  }
+
+  /** 守卫已停止重启时的原因；能正常 fork 时 undefined。 */
+  get blocked(): string | undefined {
+    return this.guard.blocked()
   }
 
   /** 子进程是否在运行（不含正在关停的旧进程） */
@@ -94,23 +113,43 @@ export class UtilityHost {
     return this.child
   }
 
-  /** 确保子进程在运行；关停中则等旧进程退完再 fork。 */
+  /** 确保子进程在运行；关停中则等旧进程退完再 fork。守卫停止重启时什么都不做。 */
   start(): void {
-    if (this.stopping) void this.stopping.then(() => this.ensure())
-    else this.ensure()
+    const run = (): void => {
+      if (!this.guard.blocked()) this.ensure()
+    }
+    if (this.stopping) void this.stopping.then(run)
+    else run()
   }
 
+  /** 拿到在跑的子进程，必要时 fork；守卫停止重启时抛 unavailable。 */
   private ensure(): UtilityChild {
     if (this.child) return this.child
+    const blocked = this.guard.blocked()
+    if (blocked) throw new UtilityCallError(blocked, 'unavailable')
     const forkedAt = this.now()
     const child = this.opts.fork()
+    this.guard.started(forkedAt)
+    const write =
+      this.opts.writeStderr ??
+      ((chunk: Buffer | string) => process.stderr.write(chunk))
+    child.stderr?.on('data', chunk => {
+      write(chunk)
+      this.guard.observe(chunk.toString())
+    })
     child.on('message', message => this.onMessage(child, message, forkedAt))
     child.on('exit', code => {
       if (this.child !== child) return // 关停中的旧进程：由 stop() 收尾
       this.child = undefined
       this.busy = false
       clearTimeout(this.idleTimer)
-      this.failPending(`${this.opts.name}已退出（code ${code}）`)
+      this.guard.exited()
+      const blocked = this.guard.blocked()
+      if (blocked && !this.blockedReported) {
+        this.blockedReported = true
+        this.opts.onBlocked?.(blocked)
+      }
+      this.failPending(blocked ?? `${this.opts.name}已退出（code ${code}）`)
     })
     this.child = child
     this.opts.onStart?.(child)
@@ -189,7 +228,12 @@ export class UtilityHost {
     clearTimeout(this.idleTimer)
     this.idleTimer = undefined
     const send = (): Promise<unknown> => {
-      const child = this.ensure()
+      let child: UtilityChild
+      try {
+        child = this.ensure()
+      } catch (error) {
+        return Promise.reject(error)
+      }
       const id = this.nextId++
       return new Promise((resolve, reject) => {
         this.pending.set(id, { resolve, reject })
