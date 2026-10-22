@@ -1,7 +1,7 @@
 # ADR-0013 海报人脸取景：启发式焦点 + FaceDetector 细化，用 object-position 不重编码
 
 - 状态：已采纳（2026-10-22）
-- 相关：PR（feat/face-crop）
+- 相关：PR #83（feat/face-crop）
 
 ## 背景
 
