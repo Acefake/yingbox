@@ -46,6 +46,33 @@ describe('groupFile', () => {
     )
   })
 
+  it('剧集：分类文件夹下的多部剧按各自的作品文件夹分开，不并成一部', () => {
+    const a = group(
+      'tv',
+      '韩剧/鬼謎東宮(2026)/Season 1/鬼謎東宮-S01E02-第 2 集.mkv'
+    )
+    const b = group(
+      'tv',
+      '韩剧/努力克服自卑的我们(2026)/Season 1/努力克服自卑的我们-S01E01-可以把你的剧本给我看吗.mkv'
+    )
+    expect(keys(a)[0]).toBe('series:1:d:韩剧/鬼謎東宮(2026)')
+    expect(keys(b)[0]).toBe('series:1:d:韩剧/努力克服自卑的我们(2026)')
+    // 没有季文件夹、集直接放在作品文件夹里
+    expect(keys(group('tv', '美剧/Severance/Severance.S02E01.mkv'))[0]).toBe(
+      'series:1:d:美剧/Severance'
+    )
+    // Specials 与 Season 1 同属一部剧
+    expect(
+      keys(group('tv', '韩剧/鬼謎東宮(2026)/Specials/鬼謎東宮-S00E01.mkv'))[0]
+    ).toBe('series:1:d:韩剧/鬼謎東宮(2026)')
+  })
+
+  it('剧集：只套了季文件夹、没有作品文件夹的按剧名分组', () => {
+    expect(keys(group('tv', 'Season 1/Severance.S01E01.mkv'))[0]).toBe(
+      'series:1:t:severance'
+    )
+  })
+
   it('剧集：绝对集数挂在剧下、无季；多集文件对应多个叶子', () => {
     const abs = group('tv', 'One Piece/[Sub] One Piece - 1071 [1080p].mkv')
     expect(abs.ancestors.map(i => i.type)).toEqual(['series'])
