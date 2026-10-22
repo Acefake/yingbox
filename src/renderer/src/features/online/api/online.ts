@@ -2,7 +2,10 @@
  * 渲染层访问在线域的唯一入口。请求全部在后台引擎经 net 出网（SSRF 防护、超时、大小上限）。
  * Web / PWA 模式没有引擎，调用时抛出可读错误。
  */
-import type { GetJsonOptions } from '../../../../../shared/contract/online'
+import type {
+  DetailImage,
+  GetJsonOptions,
+} from '../../../../../shared/contract/online'
 import type {
   DoubanPage,
   DoubanQuery,
@@ -30,6 +33,14 @@ export function doubanBrowse(
 ): Promise<DoubanPage> {
   // 条件常来自 Vue ref（响应式 Proxy），IPC 结构化克隆不了 Proxy，会在渲染层直接抛错；先拷成普通对象
   return onlineApi().doubanBrowse({ ...query }, start)
+}
+
+/** 豆瓣剧照（详情页剧照条的兜底）；失败返回空数组。 */
+export function doubanPhotos(
+  subjectId: string,
+  kind: 'movie' | 'tv'
+): Promise<DetailImage[]> {
+  return onlineApi().doubanPhotos(subjectId, kind)
 }
 
 /**

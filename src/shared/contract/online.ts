@@ -69,6 +69,12 @@ export interface VodResponse {
 export const TMDB_PATH_RE =
   /^\/(?:search\/(?:movie|tv|multi)|(?:movie|tv)\/\d{1,9}(?:\/(?:credits|images))?)$/
 
+/** 详情页的一张剧照：缩略图与原图的完整地址（TMDB 或豆瓣）。 */
+export interface DetailImage {
+  thumb: string
+  full: string
+}
+
 /** online.getJson 的选项。 */
 export interface GetJsonOptions {
   headers?: Record<string, string>
@@ -103,6 +109,23 @@ export const online = defineDomain('online', {
       throw new ContractError(`不允许的 TMDB 路径：${path}`)
     return [path, optRecord<Record<string, string | number>>(a[1], 'query')]
   }),
+  /**
+   * 豆瓣剧照（详情页剧照条的兜底）：subjectId 同 doubanTrailer，kind 缺省 movie。
+   * 请求失败 / 熔断中返回空数组。见 engine/online/douban-photos.ts
+   */
+  doubanPhotos: call<[subjectId: string, kind?: 'movie' | 'tv'], DetailImage[]>(
+    a => {
+      const id = str(a[0], 'subjectId')
+      if (!/^\d{1,12}$/.test(id))
+        throw new ContractError(`豆瓣条目 ID 不合法：${id}`)
+      return [
+        id,
+        a[1] === undefined
+          ? 'movie'
+          : oneOf(a[1], 'kind', ['movie', 'tv'] as const),
+      ]
+    }
+  ),
   /**
    * 豆瓣预告片 mp4（豆瓣卡悬停预览）：subjectId 是 movie.douban.com/subject/<id>/ 里的数字，
    * kind 缺省 movie。无预告 / 请求失败 / 熔断中返回 null。见 engine/online/douban-trailer.ts

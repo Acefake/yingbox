@@ -58,6 +58,10 @@ export interface OnlineDetailItem extends Partial<Omit<CmsItem, '_source'>> {
   overview?: string
   /** 豆瓣卡片用来搜源的片名（可能和展示名不同） */
   searchTitle?: string
+  /** 豆瓣条目地址 movie.douban.com/subject/<id>/（取豆瓣剧照兜底） */
+  doubanUrl?: string
+  /** 豆瓣条目类型（豆瓣卡来自「电影」还是「电视剧」分类） */
+  doubanKind?: 'movie' | 'tv'
 }
 
 /** 在线播放历史（localStorage online_play_history）的一条：条目字段平铺 + item 原样 + 播放位置 */
@@ -102,10 +106,8 @@ export interface TmdbCastMember {
   profile_path?: string | null
 }
 
-/** TMDB 的一张剧照 */
-export interface TmdbImage {
-  file_path: string
-}
+/** 详情页的一张剧照（TMDB 或豆瓣），缩略图与原图都是完整地址 */
+export type { DetailImage } from '../../../../shared/contract/online'
 
 /** 苹果 CMS 站点。 */
 export interface ApiSite {
