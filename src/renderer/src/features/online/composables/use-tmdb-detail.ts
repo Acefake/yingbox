@@ -13,6 +13,11 @@ interface TmdbSearchResult {
   results?: { id: number }[]
 }
 
+/** TMDB 的图片列表（/images 或详情的 append_to_response=images）：只用背景图 */
+interface TmdbImages {
+  backdrops?: { file_path: string }[]
+}
+
 /** TMDB /credits 的返回 */
 interface TmdbCredits {
   cast?: TmdbCastMember[]
@@ -80,8 +85,14 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
       const first = sr?.results?.[0]
       if (!first) return
       const base = `/${mediaType}/${first.id}`
+      // 剧照随详情一起取，并只要中文 / 英文 / 无文字的图：不过滤的 /images 会带上所有语言的海报与标志，
+      // 热门条目动辄上百 KB，经代理容易超时，剧照就整段丢了
       const [dr, cr] = await Promise.all([
-        tmdb<TmdbDetail>(base, zh),
+        tmdb<TmdbDetail & { images?: TmdbImages }>(base, {
+          ...zh,
+          append_to_response: 'images',
+          include_image_language: 'zh,en,null',
+        }),
         tmdb<TmdbCredits>(`${base}/credits`, zh),
       ])
       detail.value = dr
@@ -89,10 +100,14 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
       directors.value = (cr?.crew || [])
         .filter(c => c.job === 'Director')
         .map(c => c.name)
-      const ir = await tmdb<{ backdrops?: { file_path: string }[] }>(
-        `${base}/images`
-      ).catch(() => null)
-      images.value = (ir?.backdrops || []).slice(0, 30).map(b => ({
+      let backdrops = dr?.images?.backdrops ?? []
+      if (!backdrops.length) {
+        const ir = await tmdb<TmdbImages>(`${base}/images`).catch(() => null)
+        backdrops = ir?.backdrops ?? []
+      }
+      if (!backdrops.length && dr?.backdrop_path)
+        backdrops = [{ file_path: dr.backdrop_path }]
+      images.value = backdrops.slice(0, 30).map(b => ({
         thumb: tmdbImage('w500', b.file_path),
         full: tmdbImage('original', b.file_path),
       }))
