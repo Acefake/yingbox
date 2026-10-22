@@ -1,6 +1,8 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
+import { openInlinePlayer } from '../inline/inline-player'
+
 /** 播放列表条目：用于自动连播与失败换源 */
 export type PlayerSourceItem = {
   url?: string
@@ -30,9 +32,9 @@ type MediaPlayerOpenOptions = {
   engine?: 'built-in' | 'mpv'
 }
 
-/** Whether Electron dedicated player window IPC is available. */
+/** 桌面端（Electron）：内置播放器能直接播本地文件与在线地址；网页端返回 false，由调用方走页内播放。 */
 export function canOpenElectronPlayer(): boolean {
-  return Boolean(typeof window !== 'undefined' && window.api?.player?.open)
+  return Boolean(typeof window !== 'undefined' && window.api?.win)
 }
 
 /**
@@ -65,9 +67,9 @@ function notifyMpvFallback(detail?: string): void {
 }
 
 /**
- * Open the shared media player surface.
- * - If engine is 'mpv', launches/controls mpv player
- * - Otherwise: dedicated `player` BrowserWindow via `api.player.open`
+ * 打开播放器：
+ * - 引擎为 mpv：启动 / 控制 mpv 独立播放器（不可用时提示并回退到内置）
+ * - 否则：应用内播放器，盖住主窗口播放（inline/InlinePlayer）
  */
 export async function openMediaPlayer(
   options: MediaPlayerOpenOptions
@@ -132,20 +134,15 @@ export async function openMediaPlayer(
 
   if (!canOpenElectronPlayer()) return false
 
-  try {
-    const result = await window.api.player.open({
-      ...(filePath ? { filePath } : {}),
-      ...(url ? { url } : {}),
-      ...(title ? { title } : {}),
-      ...(poster ? { poster } : {}),
-      ...(typeof startAt === 'number' ? { startAt } : {}),
-      ...(playlist ? { playlist } : {}),
-      ...(typeof index === 'number' ? { index } : {}),
-      ...(fallbacks ? { fallbacks } : {}),
-    })
-    return Boolean(result?.success)
-  } catch (error) {
-    console.warn('[openMediaPlayer] failed', error)
-    return false
-  }
+  openInlinePlayer({
+    ...(filePath ? { filePath } : {}),
+    ...(url ? { url } : {}),
+    ...(title ? { title } : {}),
+    ...(poster ? { poster } : {}),
+    ...(typeof startAt === 'number' ? { startAt } : {}),
+    ...(playlist ? { playlist } : {}),
+    ...(typeof index === 'number' ? { index } : {}),
+    ...(fallbacks ? { fallbacks } : {}),
+  })
+  return true
 }

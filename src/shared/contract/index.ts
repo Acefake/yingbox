@@ -13,7 +13,6 @@ import { lada } from './lada'
 import { libraryNotify } from './library-notify'
 import { mpv } from './mpv'
 import { online } from './online'
-import { player } from './player'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
@@ -30,7 +29,6 @@ export const contract = {
   libraryNotify,
   mpv,
   online,
-  player,
   settings,
   shell,
   subtitle,

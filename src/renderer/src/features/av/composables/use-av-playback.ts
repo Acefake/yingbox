@@ -10,6 +10,7 @@ import { type Episode, useOnlineSearch } from '@/features/online'
 import type { PluginExt } from '@/utils/vod-data'
 import {
   canOpenElectronPlayer,
+  closeInlinePlayer,
   getMediaProgress,
   openMediaPlayer,
 } from '@/features/player'
@@ -105,7 +106,7 @@ export function useAvPlayback(options: {
       const ok = await openMediaPlayer({ url: playUrl, title, poster, startAt })
       showPlayer.value = false
       videoEl.value = null
-      if (!ok) toast.error('无法打开独立播放窗口，请完全重启应用后再试')
+      if (!ok) toast.error('无法打开播放器，请完全重启应用后再试')
       return
     }
     showPlayer.value = true
@@ -266,7 +267,7 @@ export function useAvPlayback(options: {
     attempted.add(video._uid)
     resumeTime = record.progress
     playerMessage.value = record.progress > 5 ? '继续上次播放' : ''
-    // Electron 独立窗口无法回写进度；仅页内层模式支持 resumeTime
+    // Electron 内置播放器自己存进度；仅页内层模式支持 resumeTime
     await startPlay(record.url, record.epName)
   }
 
@@ -353,7 +354,7 @@ export function useAvPlayback(options: {
     playerMessage.value = ''
     resumeTime = 0
     if (videoEl.value) videoEl.value.src = ''
-    void window.api?.player?.close?.()
+    closeInlinePlayer()
   }
 
   /** 全局「后退」：正在播放时先关播放器。 */
