@@ -19,10 +19,9 @@
   height: calc(var(--media-h) + var(--poster-text-height));
   outline: none;
   cursor: pointer;
+  /* 不加 content-visibility / contain: paint：它们把绘制裁在格子内，悬停上浮放大时海报上沿被切成直角；
+     屏幕外的格子已由虚拟网格回收，不需要再跳过渲染 */
   contain: layout style;
-  content-visibility: auto;
-  contain-intrinsic-size: var(--cell-w)
-    calc(var(--media-h) + var(--poster-text-height));
   will-change: transform;
 }
 .lib-cell-media {
