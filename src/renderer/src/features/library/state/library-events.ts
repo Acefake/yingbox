@@ -1,7 +1,8 @@
 /**
  * 引擎事件的单一订阅：整个渲染进程只开一个 MessagePort，按需分发给各组件。
  *
- * 第一个监听者出现时订阅，最后一个离开时退订。
+ * 第一个监听者出现时订阅，最后一个离开时退订。引擎崩溃重启后的重新挂接由 bridge 负责
+ * （桌面端主进程会推新端口，preload 自动换上；网页端 SSE 自动重连），这里不用感知。
  */
 import { getCurrentScope, onScopeDispose } from 'vue'
 
