@@ -1,3 +1,4 @@
+// test-affected: repo-wide（读 src 源码文本或跑 eslint，vitest 依赖图看不到这层依赖）
 /**
  * 统一线协议（src/shared/utility/protocol.ts）：两种 utilityProcess 子进程的真实入口都说同一套信封，
  * 旧信封（在线引擎的 ToEngine / FromEngine、媒体库的 HostMessage / EngineMessage / RpcRequest /

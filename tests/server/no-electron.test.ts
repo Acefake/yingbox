@@ -1,3 +1,4 @@
+// test-affected: repo-wide（读 src 源码文本或跑 eslint，vitest 依赖图看不到这层依赖）
 /**
  * 核心与宿主分离的守卫：从独立服务入口出发，沿相对 import 走完整张依赖图，任何文件都不能 import electron
  * （类型导入也不行——核心应只依赖接口，Electron 实现只在桌面宿主文件里）。

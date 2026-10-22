@@ -1,3 +1,4 @@
+// test-affected: repo-wide（读 src 源码文本或跑 eslint，vitest 依赖图看不到这层依赖）
 import { readFileSync, readdirSync } from 'node:fs'
 import { join, relative } from 'node:path'
 import { type DirectiveBinding, effectScope, ref } from 'vue'

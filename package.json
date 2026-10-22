@@ -34,9 +34,11 @@
     "check:style": "node scripts/style-tokens.mjs",
     "check:case": "node scripts/check-import-case.mjs",
     "check:size": "node scripts/check-size.mjs --strict",
+    "check:copy": "node scripts/check-copy.mjs",
     "perf:static": "node scripts/measure-static.mjs",
     "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
     "test": "vitest run",
+    "test:affected": "node scripts/test-affected.mjs",
     "test:watch": "vitest",
     "bench:library": "tsx scripts/bench-library.ts",
     "bench:identify": "tsx scripts/bench-identify.ts"

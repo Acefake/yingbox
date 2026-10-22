@@ -1,3 +1,4 @@
+// test-affected: repo-wide（读 src 源码文本或跑 eslint，vitest 依赖图看不到这层依赖）
 import { describe, expect, it } from 'vitest'
 import { measureLines, oversizedFiles } from '../scripts/check-size.mjs'
 

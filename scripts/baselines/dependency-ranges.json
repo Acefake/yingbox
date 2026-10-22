@@ -1,0 +1,40 @@
+{
+  "dependencies": [
+    "@electron-toolkit/utils",
+    "@jsquash/jpeg",
+    "@jsquash/png",
+    "@jsquash/resize",
+    "@jsquash/webp",
+    "@vueuse/core",
+    "artplayer",
+    "cheerio",
+    "crypto-js",
+    "electron-updater",
+    "hls.js",
+    "opencc-js",
+    "vue-router"
+  ],
+  "devDependencies": [
+    "@electron-toolkit/eslint-config-ts",
+    "@electron-toolkit/tsconfig",
+    "@tailwindcss/postcss",
+    "@types/node",
+    "@vitejs/plugin-vue",
+    "autoprefixer",
+    "electron",
+    "electron-builder",
+    "electron-vite",
+    "eslint",
+    "eslint-plugin-vue",
+    "postcss",
+    "prettier",
+    "tailwindcss",
+    "tsx",
+    "typescript",
+    "vite",
+    "vitest",
+    "vue",
+    "vue-eslint-parser",
+    "vue-tsc"
+  ]
+}
