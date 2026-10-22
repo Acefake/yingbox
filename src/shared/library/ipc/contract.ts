@@ -12,7 +12,7 @@ import type {
 import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { LibraryEvent } from './contract-events'
-import type { JavSettings, LibrarySource } from './contract-jav'
+import type { JavKind, JavSettings, LibrarySource } from './contract-jav'
 import type {
   JavCredentialProvider,
   ProviderStatus,
@@ -151,11 +151,10 @@ export type LibrarySortField =
 export interface LibraryQuery {
   /** 只查某个媒体库；缺省查全部。 */
   libraryId?: number
-  /**
-   * 只查这种来源的媒体库（tmdb = 普通电影 / 剧集，jav = 番号库）；缺省两种都要。
-   * 「电影」页传 tmdb、「番号」页传 jav，两边互不露出对方的条目。
-   */
+  /** 只要这种来源的媒体库（电影页传 tmdb、番号页传 jav，互不露出）；缺省两种都要。 */
   source?: LibrarySource
+  /** 番号库：只要这些类别（按番号判定，未识别的条目没有类别）；缺省不限。 */
+  javKinds?: JavKind[]
   /** 顶层类型筛选；缺省电影和剧集都要。 */
   types?: TopLevelItemType[]
   /** 片名搜索（FTS5，繁简与大小写不敏感）。 */

@@ -14,9 +14,10 @@
  * 识别 -C / -UC / 中文字幕（字幕版）与 CD1 / part2 / -1（分段），这些不进番号。
  * 行为参考 Amane 的 parsing（GPL-3.0），规则与代码均为独立实现。
  */
+import type { JavKind } from '../../../../shared/library/ipc'
 
-/** 番号类别：决定去哪些站点查。 */
-export type JavCodeKind = 'censored' | 'uncensored' | 'fc2' | 'amateur'
+/** 番号类别：决定去哪些站点查（定义在共享契约，番号页的「类型」筛选也用它）。 */
+export type JavCodeKind = JavKind
 
 /** 解析结果。 */
 export interface JavCode {

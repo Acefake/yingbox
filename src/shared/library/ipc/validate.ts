@@ -7,6 +7,8 @@ import {
   type AddLibraryRequest,
   type ApplyMatchRequest,
   type IdentifyRequest,
+  JAV_KINDS,
+  type JavKind,
   LIBRARY_METHODS,
   LIBRARY_SOURCES,
   type LibraryKind,
@@ -55,6 +57,7 @@ export interface NormalizedLibraryQuery {
   yearFrom?: number
   yearTo?: number
   matchStates?: MatchState[]
+  javKinds?: JavKind[]
   sort: LibrarySortField
   order: 'asc' | 'desc'
   offset: number
@@ -111,6 +114,7 @@ export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
     yearFrom: optionalInt(q.yearFrom, 'yearFrom', 0),
     yearTo: optionalInt(q.yearTo, 'yearTo', 0),
     matchStates: listOf(q.matchStates, MATCH_STATES, 'matchStates'),
+    javKinds: listOf(q.javKinds, JAV_KINDS, 'javKinds'),
     sort,
     order,
     offset: optionalInt(q.offset, 'offset', 0) ?? 0,

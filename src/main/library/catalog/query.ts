@@ -1,5 +1,5 @@
 /**
- * 条目查询：海报墙分页列表（筛选、排序、FTS 片名搜索）与单个条目详情树。
+ * 条目查询：海报墙分页列表（筛选、番号类别、排序、FTS 片名搜索）与单个条目详情树。
  */
 import type {
   ItemMetadata,
@@ -15,6 +15,7 @@ import type {
 import type { NormalizedLibraryQuery } from '../../../shared/library/ipc'
 import { normalizeTitle } from '../../../shared/library/scoring'
 import { type LibraryDb, StatementCache } from '../db/database'
+import { registerJavKind } from './jav-kind'
 
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
   i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
@@ -104,6 +105,13 @@ function compileWhere(q: NormalizedLibraryQuery): {
     clauses.push('i.year <= ?')
     params.push(q.yearTo)
   }
+  if (q.javKinds) {
+    // jav_kind 见 jav-kind.ts；未识别的条目 tmdb_id 为空，不属于任何类别
+    clauses.push(
+      `jav_kind(i.tmdb_id) IN (${q.javKinds.map(() => '?').join(', ')})`
+    )
+    params.push(...q.javKinds)
+  }
   if (q.matchStates) {
     clauses.push(
       `i.match_state IN (${q.matchStates.map(() => '?').join(', ')})`
@@ -130,6 +138,7 @@ export class CatalogQuery {
   private readonly sql: StatementCache
 
   constructor(db: LibraryDb) {
+    registerJavKind(db)
     this.sql = new StatementCache(db)
   }
 

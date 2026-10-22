@@ -1,10 +1,11 @@
 /**
- * 海报墙的查询条件：排序、匹配状态筛选、媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
+ * 海报墙的查询条件：排序、匹配状态筛选、番号类型筛选、媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
  *
  * 每个查询都带分区的类型与来源（见 library-section.ts）。
  * 纯数据 + 纯函数，便于单测；响应式包装在 use-paged-query.ts。
  */
 import type {
+  JavKind,
   LibraryKind,
   LibraryQuery,
   LibrarySortField,
@@ -27,6 +28,8 @@ export interface WallQueryState {
   sort: WallSort
   order: 'asc' | 'desc'
   filter: MatchFilter
+  /** 番号库的类型筛选（有码 / 无码 / FC2 / 素人）；其他分区忽略。 */
+  javKind: JavKind | 'all'
   /** null 表示该类型的全部媒体库。 */
   libraryId: number | null
   search: string
@@ -52,6 +55,18 @@ export const FILTER_OPTIONS: ReadonlyArray<{
   { value: 'locked', label: '已锁定' },
 ]
 
+/** 番号类型筛选选项。 */
+export const JAV_KIND_OPTIONS: ReadonlyArray<{
+  value: JavKind | 'all'
+  label: string
+}> = [
+  { value: 'all', label: '全部类型' },
+  { value: 'censored', label: '有码' },
+  { value: 'uncensored', label: '无码' },
+  { value: 'fc2', label: 'FC2' },
+  { value: 'amateur', label: '素人' },
+]
+
 /** 每种排序的自然方向：片名升序，其余（新的、近的、高分的在前）降序。 */
 export function defaultOrder(sort: WallSort): 'asc' | 'desc' {
   return sort === 'title' ? 'asc' : 'desc'
@@ -63,6 +78,7 @@ export function defaultWallQuery(): WallQueryState {
     sort: 'addedAt',
     order: 'desc',
     filter: 'all',
+    javKind: 'all',
     libraryId: null,
     search: '',
   }
@@ -89,6 +105,11 @@ export function sectionQuery(
   return { types: [topLevelType(spec.kind)], source: spec.source }
 }
 
+/** 筛选条件（不含排序）的比较键：变了就清空多选、回到顶部。 */
+export function filterKeyOf(state: WallQueryState): unknown[] {
+  return [state.filter, state.javKind, state.libraryId, state.search]
+}
+
 /** 界面条件 → 引擎查询（不含 offset / limit，由分页列表补）。 */
 export function toLibraryQuery(
   section: LibrarySection,
@@ -101,6 +122,8 @@ export function toLibraryQuery(
   }
   const matchStates = FILTER_STATES[state.filter]
   if (matchStates) query.matchStates = matchStates
+  if (section === 'jav' && state.javKind !== 'all')
+    query.javKinds = [state.javKind]
   if (state.libraryId !== null) query.libraryId = state.libraryId
   const search = state.search.trim()
   if (search) query.search = search

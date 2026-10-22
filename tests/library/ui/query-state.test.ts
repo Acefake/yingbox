@@ -157,3 +157,13 @@ describe('canPatchInPlace（diff 事件局部更新）', () => {
     ).toBe(false)
   })
 })
+
+describe('番号类型筛选', () => {
+  it('番号页选了类型才带 javKinds；其它分区忽略', async () => {
+    const { toLibraryQuery: q, defaultWallQuery: d } =
+      await import('../../../src/renderer/src/features/library/state/query-state')
+    expect(q('jav', d()).javKinds).toBeUndefined()
+    expect(q('jav', { ...d(), javKind: 'fc2' }).javKinds).toEqual(['fc2'])
+    expect(q('movie', { ...d(), javKind: 'fc2' }).javKinds).toBeUndefined()
+  })
+})

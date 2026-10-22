@@ -35,6 +35,14 @@
           :options="filterOptions"
         />
         <UiSelect
+          v-if="showJavKind"
+          v-model="javKind"
+          class="lib-select"
+          size="sm"
+          aria-label="类型"
+          :options="javKindOptions"
+        />
+        <UiSelect
           v-if="libraryOptions.length > 2"
           v-model="library"
           class="lib-select"
@@ -90,7 +98,7 @@
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
+ * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、类型（番号库）、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  */
 import UiButton from '@/components/ui/UiButton.vue'
@@ -99,8 +107,10 @@ import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 
+import type { JavKind } from '../../../../../shared/library/ipc'
 import {
   FILTER_OPTIONS,
+  JAV_KIND_OPTIONS,
   type MatchFilter,
   SORT_OPTIONS,
   type WallSort,
@@ -119,11 +129,14 @@ defineProps<{
   libraryOptions: Array<{ value: number; label: string }>
   sort: WallSort
   order: 'asc' | 'desc'
+  /** 显示番号类型筛选（番号库）。 */
+  showJavKind?: boolean
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
 const search = defineModel<string>('search', { required: true })
 const filter = defineModel<MatchFilter>('filter', { required: true })
+const javKind = defineModel<JavKind | 'all'>('javKind', { default: 'all' })
 /** 0 表示全部文件夹。 */
 const library = defineModel<number>('library', { required: true })
 
@@ -138,6 +151,7 @@ const emit = defineEmits<{
 
 const sortOptions = SORT_OPTIONS.map(o => ({ ...o }))
 const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
+const javKindOptions = JAV_KIND_OPTIONS.map(o => ({ ...o }))
 </script>
 
 <style scoped>

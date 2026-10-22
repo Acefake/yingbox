@@ -13,6 +13,17 @@ export type LibrarySource = 'tmdb' | 'jav'
 /** 全部来源，校验用。 */
 export const LIBRARY_SOURCES: readonly LibrarySource[] = ['tmdb', 'jav']
 
+/** 番号类别：有码 / 无码 / FC2 / 素人。决定去哪些站点查，也是番号页的「类型」筛选。 */
+export type JavKind = 'censored' | 'uncensored' | 'fc2' | 'amateur'
+
+/** 全部番号类别，校验用。 */
+export const JAV_KINDS: readonly JavKind[] = [
+  'censored',
+  'uncensored',
+  'fc2',
+  'amateur',
+]
+
 /** 内置番号站点。 */
 export type JavSiteId =
   | 'javbus'

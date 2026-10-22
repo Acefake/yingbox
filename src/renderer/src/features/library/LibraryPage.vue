@@ -4,7 +4,9 @@
       v-model:view="view"
       v-model:search="searchText"
       v-model:filter="state.filter"
+      v-model:jav-kind="state.javKind"
       v-model:library="libraryChoice"
+      :show-jav-kind="section === 'jav'"
       :kind-label="kindLabel"
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"
@@ -191,6 +193,7 @@ import {
   type WallSort,
   defaultOrder,
   defaultWallQuery,
+  filterKeyOf,
   loadSavedSort,
   saveSort,
   toLibraryQuery,
@@ -286,9 +289,9 @@ const {
   event => libraryIds.value.includes(event.libraryId)
 )
 
-// 换查询条件回到顶部
+// 换查询条件回到顶部；换筛选（不含排序）清空多选
 watch(
-  () => [state.sort, state.order, state.filter, state.libraryId, state.search],
+  () => [state.sort, state.order, ...filterKeyOf(state)],
   () => wall.value?.scrollToTop()
 )
 const emptyTitle = computed(() => emptyTitleFor(state))
@@ -309,7 +312,7 @@ function onActivate(
 }
 
 watch(
-  () => [state.filter, state.libraryId, state.search],
+  () => filterKeyOf(state),
   () => clearSelection()
 )
 
