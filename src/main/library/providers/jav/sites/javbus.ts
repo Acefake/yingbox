@@ -6,7 +6,8 @@
  * 图片校验同源 Referer，见 media-headers 与图片缓存。
  * 页面结构参考 Amane 的 javbus 爬虫行为，代码独立实现。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import {

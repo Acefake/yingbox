@@ -9,7 +9,8 @@
  * 图片校验同源 Referer（media-referer 名单里加了 www.getchu.com）。Getchu 只对日本出口开放（美国出口 403）。
  * 行为参考 Amane 的 getchu 爬虫，代码独立实现；页面结构未用真实页面验证。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, isPlaceholder, unique } from '../html'

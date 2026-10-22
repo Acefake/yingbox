@@ -10,7 +10,8 @@
  * 需要 age_check_done=1 Cookie 跳过年龄确认；日本以外的出口会被 302 到地区限制页，此时抛错而不是当成查无此片。
  * 行为参考 Amane 的 dmm 爬虫，代码独立实现；页面结构未用真实页面验证（沙箱出口被地区限制）。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../../shared/html/cheerio'
 import {
   absolute,
   clean,
