@@ -31,7 +31,7 @@ import {
 } from './catspider-sites'
 import { DEFAULT_SITES, customSites, selectedSites } from './cms-sites'
 import { splitByHealth } from '../utils/plugin-health'
-import { pluginHealthOf } from './plugin-health'
+import { pluginSearchHealthOf } from './plugin-health'
 import { useVODParser } from './use-vod-parser'
 
 export type {
@@ -156,7 +156,7 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
       // 冷却期内的不可用源直接跳过，搜索页列出跳过了哪些，而不是让它们各自卡到超时。
       const { usable: csSites, skipped } = splitByHealth(
         candidates,
-        pluginHealthOf,
+        pluginSearchHealthOf,
         Date.now()
       )
       skippedPlugins.value = skipped.map(site => site.name)
