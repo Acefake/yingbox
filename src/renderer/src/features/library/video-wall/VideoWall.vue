@@ -53,10 +53,10 @@
           label="同时播放"
           :options="wall.liveOptions"
         />
-        <UiIconButton
+        <UiButton
           :icon="wall.paused.value ? 'play' : 'pause'"
           :label="wall.paused.value ? '继续' : '暂停'"
-          variant="overlay"
+          variant="secondary"
           @click="wall.togglePause"
         />
         <UiIconButton
@@ -80,6 +80,7 @@
 import { onBeforeUnmount, ref } from 'vue'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'

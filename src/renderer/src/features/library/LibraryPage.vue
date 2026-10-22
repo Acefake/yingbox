@@ -63,6 +63,8 @@
           :show-state-badge="state.filter === 'all'"
           @visible="setVisible"
           @activate="onActivate"
+          @open="openDetail"
+          @identify="id => actions.identifySelected([id], () => {})"
         >
           <template #after>
             <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />

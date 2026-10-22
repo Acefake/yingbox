@@ -22,7 +22,7 @@
               {{ formatBytes(file.size) }} · {{ dirName(file.path) }}
             </div>
           </div>
-          <UiIconButton
+          <UiButton
             icon="externalLink"
             size="sm"
             label="在文件夹中显示"
@@ -38,7 +38,7 @@
 <script setup lang="ts">
 /** 详情里的信息与文件区块：信息表（原名、上映、编剧……），视频文件列表与「在文件夹中显示」。 */
 import type { LibraryItemFile } from '../../../../../shared/library/ipc'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 
 import { baseName, dirName, formatBytes } from '../shared/format'
 

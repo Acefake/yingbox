@@ -26,7 +26,9 @@ defineProps<{
 </script>
 
 <style scoped>
+/* flex: none：页面是纵向 flex，海报墙内容很高时不让任务条被挤成 0 高（之前进度被海报墙压住） */
 .lib-activity {
+  flex: none;
   display: flex;
   align-items: center;
   gap: var(--space-3);

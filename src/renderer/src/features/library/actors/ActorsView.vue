@@ -21,10 +21,10 @@
       <span v-if="loaded" class="lib-actors-count">
         {{ total.toLocaleString('zh-CN') }} 位
       </span>
-      <UiIconButton
+      <UiButton
         icon="refresh"
         size="sm"
-        label="重新获取全部演员资料"
+        label="刷新全部资料"
         :loading="refreshing"
         @click="refreshAll"
       />
@@ -78,7 +78,7 @@
 import { toast } from '@/components/ui'
 import { ref } from 'vue'
 
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
