@@ -173,28 +173,33 @@ describe('聚合', () => {
       crew: [{ name: '导演', job: 'Director' }],
       externalIds: {},
     })
-    // 有码：先用封面裁右侧的派生海报，站点小海报排第二
+    // 缺省用站点海报；'crop' 时封面裁出的派生图排第一，站点海报兜底
     expect(meta.images.map(i => [i.role, i.path])).toEqual([
-      ['poster', 'https://a/c.jpg#yingbox=poster-right'],
       ['poster', 'https://a/t.jpg'],
       ['backdrop', 'https://a/c.jpg'],
       ['still', 'https://a/1.jpg'],
     ])
-    const coverOnly = aggregate([
-      record('javbus', { cover: 'https://a/c.jpg' }),
-    ])!
-    expect(toMetadata(coverOnly).images[0]).toMatchObject({
-      role: 'poster',
-      path: 'https://a/c.jpg#yingbox=poster-right',
-    })
-    expect(toMetadata(coverOnly).title).toBe('SSIS-497')
-    // 无码 / FC2 的封面没有固定版式：只用站点海报，没有时封面原样顶上
+    const cropped = toMetadata(
+      aggregate([
+        record('javbus', {
+          cover: 'https://a/c.jpg',
+          poster: 'https://a/t.jpg',
+        }),
+      ])!,
+      'crop'
+    )
     expect(
-      toMetadata(coverOnly, 'uncensored').images.map(i => [i.role, i.path])
-    ).toEqual([
-      ['poster', 'https://a/c.jpg'],
-      ['backdrop', 'https://a/c.jpg'],
-    ])
+      cropped.images.filter(i => i.role === 'poster').map(i => i.path)
+    ).toEqual(['https://a/c.jpg#yingbox=poster-right', 'https://a/t.jpg'])
+    // 没有竖版海报时封面顶上
+    const noPoster = toMetadata(
+      aggregate([record('javbus', { cover: 'https://a/c.jpg' })])!
+    )
+    expect(noPoster.images[0]).toMatchObject({
+      role: 'poster',
+      path: 'https://a/c.jpg',
+    })
+    expect(noPoster.title).toBe('SSIS-497')
   })
 })
 
