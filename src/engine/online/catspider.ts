@@ -11,6 +11,7 @@ import { constants, privateDecrypt, publicEncrypt } from 'node:crypto'
 import type { NetClient } from '../../shared/net/client'
 import { classifyPage } from '../../shared/net/cf-page'
 import { cheerio, load } from '../../shared/html/cheerio'
+import { type PluginCache, createPluginStorage } from './plugin-storage'
 import {
   type HostBreaker,
   type HostTrip,
@@ -31,6 +32,8 @@ export interface CatSpiderDeps {
   breaker?: HostBreaker
   /** 本次运行碰到熔断（硬封锁 / 连续失败）时回报，供上层标记站点不可用 */
   onTrip?: (trip: HostTrip) => void
+  /** 注入给插件的 $cache（按插件隔离、持久化，见 plugin-storage.ts）；缺省时每次运行一个空的 */
+  cache?: PluginCache
   /** 调试输出 */
   log?: (line: string) => void
 }
@@ -321,7 +324,7 @@ export async function runCatSpider(
 ): Promise<unknown> {
   const log = deps.log ?? (() => {})
   const code = applyPatch(await deps.loadPlugin(pluginUrl), patch)
-  const cacheStore = new Map<string, unknown>()
+  const cache = deps.cache ?? createPluginStorage().forPlugin(pluginUrl)
   const $fetch = makeFetch(deps) as {
     get: (u: string, o?: PluginFetchOptions) => Promise<unknown>
   }
@@ -341,9 +344,9 @@ export async function runCatSpider(
     createCryptoJS: () => CryptoJS,
     $html: makeHtmlHelpers(),
     $cache: {
-      get: (key: string) => cacheStore.get(key),
-      set: (key: string, value: unknown) => cacheStore.set(key, value),
-      remove: (key: string) => cacheStore.delete(key),
+      get: (key: string) => cache.get(key),
+      set: (key: string, value: unknown) => cache.set(key, value),
+      remove: (key: string) => cache.remove(key),
     },
     $utils: {
       toastInfo: (m: string) => print('[info]', m),
