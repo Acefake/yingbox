@@ -21,6 +21,7 @@ vi.stubGlobal('localStorage', {
 // 在线页组件的外部依赖：只替换网络与路由，组件本身真渲染
 vi.mock('@/features/online/api/online', () => ({
   getJson: vi.fn(() => new Promise(() => {})),
+  doubanBrowse: vi.fn(() => new Promise(() => {})),
   tmdb: vi.fn(() => Promise.resolve(null)),
   onlineApi: vi.fn(),
 }))

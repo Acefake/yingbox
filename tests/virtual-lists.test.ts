@@ -13,7 +13,7 @@ const LONG_LISTS: Record<string, string[]> = {
   'features/online/components/SearchTab.vue': ['vodResults', 'cmsResults'],
   'features/online/components/VodBrowse.vue': ['filteredCards'],
   'features/online/components/LibraryCollection.vue': ['filteredItems'],
-  'features/online/components/DoubanSection.vue': ['doubanItems'],
+  'features/online/components/DoubanSection.vue': ['items'],
   'features/download/components/DownloadsView.vue': ['rows'],
   'features/library/actors/ActorsView.vue': ['actors'],
 }
