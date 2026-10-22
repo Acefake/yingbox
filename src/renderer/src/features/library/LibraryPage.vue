@@ -98,6 +98,7 @@
     <ItemDetail
       v-if="detailId !== null && detailReady"
       :item-id="detailId"
+      :section="section"
       @close="closeDetail"
       @fix-match="openMatchSheet"
       @organize="openOrganize"

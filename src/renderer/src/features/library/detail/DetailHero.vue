@@ -38,6 +38,7 @@
           >{{ MATCH_STATE_LABEL[node.matchState] }}</span
         >
       </p>
+      <!-- 主操作留文字（播放；番号库再加去码），其余收成图标按钮，悬停看名字 -->
       <div class="lib-hero-actions">
         <UiButton
           variant="primary"
@@ -47,52 +48,6 @@
           :disabled="!canPlay"
           @click="emit('play')"
         />
-        <UiButton
-          icon="wand"
-          variant="secondary"
-          size="lg"
-          label="修正匹配"
-          @click="emit('fix-match', node.id)"
-        />
-        <UiButton
-          :icon="node.matchState === 'locked' ? 'lock' : 'pin'"
-          variant="secondary"
-          size="lg"
-          :label="node.matchState === 'locked' ? '解除锁定' : '锁定匹配'"
-          :disabled="!node.providerIds.tmdb"
-          :loading="busy === 'lock'"
-          @click="emit('toggle-lock')"
-        />
-        <UiButton
-          icon="refresh"
-          variant="secondary"
-          size="lg"
-          label="重新获取"
-          :disabled="!node.providerIds.tmdb"
-          :loading="busy === 'refresh'"
-          @click="emit('refresh')"
-        />
-        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiButton
-            icon="save"
-            variant="secondary"
-            size="lg"
-            label="写出 NFO"
-            :disabled="!writerAvailable || !node.providerIds.tmdb"
-            :loading="busy === 'write'"
-            @click="emit('write')"
-          />
-        </span>
-        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiButton
-            icon="folder"
-            variant="secondary"
-            size="lg"
-            label="整理…"
-            :disabled="!writerAvailable"
-            @click="emit('organize', [node.id])"
-          />
-        </span>
         <template v-if="restorable">
           <UiButton
             icon="sparkle"
@@ -102,21 +57,70 @@
             :disabled="restoreRunning"
             @click="emit('restore', 'restore')"
           />
-          <UiButton
+          <UiIconButton
             icon="range"
             variant="secondary"
             size="lg"
             label="去码一段"
             @click="emit('restore', 'range')"
           />
-          <UiButton
+          <UiIconButton
             icon="livePlay"
             variant="secondary"
             size="lg"
             label="边跑边看"
             @click="emit('restore', 'live')"
           />
+          <span class="lib-hero-actions-divider" aria-hidden="true" />
         </template>
+        <UiIconButton
+          icon="wand"
+          variant="secondary"
+          size="lg"
+          label="修正匹配"
+          @click="emit('fix-match', node.id)"
+        />
+        <UiIconButton
+          v-if="!jav"
+          :icon="node.matchState === 'locked' ? 'lock' : 'pin'"
+          variant="secondary"
+          size="lg"
+          :label="node.matchState === 'locked' ? '解除锁定' : '锁定匹配'"
+          :active="node.matchState === 'locked'"
+          :disabled="!matched"
+          :loading="busy === 'lock'"
+          @click="emit('toggle-lock')"
+        />
+        <UiIconButton
+          icon="refresh"
+          variant="secondary"
+          size="lg"
+          label="重新获取"
+          :disabled="!matched"
+          :loading="busy === 'refresh'"
+          @click="emit('refresh')"
+        />
+        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
+          <UiIconButton
+            icon="save"
+            variant="secondary"
+            size="lg"
+            label="写出 NFO"
+            :disabled="!writerAvailable || !matched"
+            :loading="busy === 'write'"
+            @click="emit('write')"
+          />
+        </span>
+        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
+          <UiIconButton
+            icon="folder"
+            variant="secondary"
+            size="lg"
+            label="整理…"
+            :disabled="!writerAvailable"
+            @click="emit('organize', [node.id])"
+          />
+        </span>
       </div>
       <p v-if="tagline" class="lib-hero-tagline">{{ tagline }}</p>
       <p
@@ -133,9 +137,14 @@
 
 <script setup lang="ts">
 /**
- * 详情头图：780w 背景图渐隐、标志（加载失败退回片名）、信息行与待确认角标、
- * 播放 / 修正匹配 / 锁定 / 重新获取 / 写出 / 整理、去码入口（成人模式，桌面端电影），
+ * 详情头图：780w 背景图渐隐、标志（加载失败退回片名）、信息行与待确认角标、操作区、
  * 标语与可展开的简介。
+ *
+ * 操作区按分区区分：
+ * - 电影 / 剧集（TMDB）：播放 + 修正匹配 / 锁定匹配 / 重新获取 / 写出 NFO / 整理（图标按钮）
+ * - 番号：播放 + 去码（文字）、去码一段 / 边跑边看，再接修正匹配 / 重新获取 / 写出 NFO / 整理；
+ *   不显示锁定（锁定只认 TMDB 匹配）
+ * 「已匹配」由调用方给出：TMDB 条目看 tmdb id，番号条目看是否已有番号元数据。
  * 换条目时重置标志失败与简介展开状态。
  */
 import { ref, watch } from 'vue'
@@ -157,6 +166,10 @@ const props = defineProps<{
   metaLine: string[]
   playLabel: string
   canPlay: boolean
+  /** 番号库条目：不显示锁定（只认 TMDB 匹配） */
+  jav: boolean
+  /** 已有匹配：重新获取 / 锁定 / 写出 NFO 才可用 */
+  matched: boolean
   /** 进行中的操作（lock / refresh / write），null 表示空闲。 */
   busy: string | null
   writerAvailable: boolean
@@ -286,11 +299,18 @@ function onFadeIn(event: Event): void {
 .lib-hero-actions {
   display: flex;
   align-items: center;
+  flex-wrap: wrap;
   gap: var(--space-3);
   margin-bottom: var(--space-5);
 }
 .lib-hero-actions > span {
   display: inline-flex;
+}
+/* 去码组与通用操作之间的细分隔 */
+.lib-hero-actions-divider {
+  width: 1px;
+  height: var(--space-6);
+  background: var(--border-strong);
 }
 .lib-hero-tagline {
   margin: 0 0 var(--space-2);
