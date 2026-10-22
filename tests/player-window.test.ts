@@ -8,7 +8,33 @@ vi.mock('electron', () => ({
 }))
 vi.mock('@electron-toolkit/utils', () => ({ is: { dev: false } }))
 
-import { normalizePayload } from '../src/main/player-window'
+import {
+  TITLE_BAR_HEIGHT,
+  framelessOptions,
+  normalizePayload,
+} from '../src/main/player-window'
+
+describe('framelessOptions', () => {
+  it('Windows / Linux 隐藏标题栏，系统按钮用透明底 titleBarOverlay', () => {
+    for (const platform of ['win32', 'linux'] as const) {
+      const options = framelessOptions(platform)
+      expect(options.titleBarStyle).toBe('hidden')
+      expect(options.titleBarOverlay).toEqual({
+        color: '#00000000',
+        symbolColor: '#ffffff',
+        height: TITLE_BAR_HEIGHT,
+      })
+      expect(options.frame).toBeUndefined()
+    }
+  })
+
+  it('macOS 保留红绿灯，竖直居中在顶栏里', () => {
+    const options = framelessOptions('darwin')
+    expect(options.titleBarStyle).toBe('hidden')
+    expect(options.titleBarOverlay).toBeUndefined()
+    expect(options.trafficLightPosition?.y).toBe((TITLE_BAR_HEIGHT - 16) / 2)
+  })
+})
 
 describe('normalizePayload', () => {
   it('returns null without any playable source', () => {

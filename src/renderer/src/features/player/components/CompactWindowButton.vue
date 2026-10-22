@@ -13,9 +13,8 @@
 
 <script setup lang="ts">
 /**
- * 独立播放窗口右上角的「缩小置顶」：整个窗口缩到屏幕右下角并保持在最前，再点还原。
+ * 独立播放窗口顶栏里的「缩小置顶」：整个窗口缩到屏幕右下角并保持在最前，再点还原。
  * 和画中画（播放器控制栏里）互补：画中画只有画面，这个保留字幕、控制条与自动连播。
- * 指针移到窗口上才显示。
  */
 import { ref } from 'vue'
 
@@ -29,19 +28,3 @@ const toggle = async (): Promise<void> => {
   if (result.success) compact.value = result.compact
 }
 </script>
-
-<style scoped>
-.compact-window-button {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-  z-index: var(--z-overlay);
-  opacity: 0;
-  transition: opacity var(--duration-fast) ease;
-}
-
-:global(.player-popout:hover) .compact-window-button,
-.compact-window-button:focus-visible {
-  opacity: 1;
-}
-</style>
