@@ -59,7 +59,7 @@ const downloads = createDownloadHandlers({
   ctx: server.context,
 })
 server.implement(download, downloads.handlers)
-void downloads.queue.load()
+void downloads.load()
 
 // 模块加载完、各域注册好：主进程据此记录 fork → ready 的耗时
 port.postMessage({ kind: 'ready' })

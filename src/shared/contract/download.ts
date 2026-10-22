@@ -11,8 +11,14 @@ export interface DownloadTask {
   site?: string
   /** 完成后的文件路径 */
   file?: string
+  /**
+   * 下载根目录：第一次开始时按当时的设置定下，之后失败重试、重启续下、移除清理都用它
+   * （中途改下载目录不会遗留或重下已开始的任务）
+   */
+  dir?: string
   error?: string
-  progress?: { done: number; total: number; bytes: number }
+  /** 进度：done / total 是分片数（HLS）或字节数（直链）；总量未知时没有 total */
+  progress?: { done: number; total?: number; bytes: number }
   /** 毫秒时间戳 */
   updatedAt: number
 }

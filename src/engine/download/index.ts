@@ -12,6 +12,7 @@ import { downloadHls } from './hls'
 import { DownloadQueue, type DownloadRunner } from './queue'
 import { discardResumeTemps } from './resume'
 import { pageGetter, resolveSource } from './sources'
+import { sweepOrphanTemps } from './sweep'
 
 /**
  * 有 ffmpeg 时把 .ts 无损转成 .mp4（-c copy），成功后删 .ts；没有 ffmpeg 或失败保留 .ts。
@@ -66,10 +67,12 @@ export interface DownloadDeps {
 export function createDownloadHandlers(deps: DownloadDeps): {
   handlers: EngineHandlers<typeof download>
   queue: DownloadQueue
+  /** 引擎启动时调用一次：恢复队列并清扫孤儿临时文件 */
+  load: () => Promise<void>
 } {
-  const run: DownloadRunner = async (code, report, signal) => {
-    const { ctx } = deps
-    const dir = join(await ctx.host('downloadDir'), code)
+  const { ctx } = deps
+  const run: DownloadRunner = async (code, report, signal, root) => {
+    const dir = join(root, code)
     await mkdir(dir, { recursive: true })
     const source = await resolveSource(
       code,
@@ -90,9 +93,10 @@ export function createDownloadHandlers(deps: DownloadDeps): {
       result.container === 'ts' ? await remuxToMp4(result.file) : result.file
     return { file, site: source.site }
   }
-  // 任务被移除：丢掉续传临时文件（失败 / 取消时它们留着给下次续传）
-  const discard = async (code: string): Promise<void> =>
-    discardResumeTemps(join(await deps.ctx.host('downloadDir'), code))
+  // 任务被移除：丢掉续传临时文件（失败 / 取消时它们留着给下次续传）。
+  // 没开始过的任务没有记下目录，按当前目录找（老版本留下的临时文件也在那里）
+  const discard = async (code: string, dir?: string): Promise<void> =>
+    discardResumeTemps(join(dir ?? (await ctx.host('downloadDir')), code))
 
   // 进度很密：合并成最多每 500ms 推一次
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -103,24 +107,51 @@ export function createDownloadHandlers(deps: DownloadDeps): {
     const nowBusy = Boolean(snapshot.active) || snapshot.queued.length > 0
     if (nowBusy !== busy) {
       busy = nowBusy
-      deps.ctx.busy(busy)
+      ctx.busy(busy)
     }
     latest = snapshot
     if (timer) return
     timer = setTimeout(() => {
       timer = undefined
-      if (latest) deps.ctx.emit(download, 'changed', latest)
+      if (latest) ctx.emit(download, 'changed', latest)
     }, 500)
   }
 
   const queue = new DownloadQueue({
     file: deps.stateFile,
+    downloadDir: () => ctx.host('downloadDir'),
     run,
     discard,
     onChange,
   })
+  /**
+   * 启动：读盘恢复队列，再清扫孤儿临时文件（当前下载目录 + 各任务记下的目录）。
+   * 读不到当前下载目录时只扫任务记下的；清扫出错只记日志。
+   */
+  const load = async (): Promise<void> => {
+    await queue.load()
+    const { active, queued, completed, failed } = queue.snapshot()
+    const tasks = [
+      ...(active ? [active] : []),
+      ...queued,
+      ...completed,
+      ...failed,
+    ]
+    const current = await ctx.host('downloadDir').catch(() => undefined)
+    const roots = [current, ...tasks.map(t => t.dir)].filter(
+      (d): d is string => typeof d === 'string'
+    )
+    const pending = (code: string): boolean => {
+      const s = queue.snapshot()
+      return s.active?.id === code || s.queued.some(t => t.id === code)
+    }
+    await sweepOrphanTemps(roots, pending).catch(error =>
+      console.error('[download] 清扫孤儿临时文件失败', error)
+    )
+  }
   return {
     queue,
+    load,
     handlers: {
       list: () => queue.snapshot(),
       add: (_ctx, code) => queue.add(code),
