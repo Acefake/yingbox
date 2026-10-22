@@ -180,7 +180,7 @@ export function createOnlineHandlers(
         target.searchParams.set(key, String(value))
       return deps.net.getJson(String(target), {
         headers: { Authorization: `Bearer ${token}` },
-        timeoutMs: 8000,
+        timeoutMs: 15_000,
         ttlMs: 60_000,
       })
     },
