@@ -1,7 +1,7 @@
 # ADR-0010 NAS / Docker 部署：容器化独立片库服务，默认只听本机
 
 - 状态：已采纳（2026-10-22）
-- 相关：PR #71；部署说明 docs/deploy/nas.md
+- 相关：PR #72；部署说明 docs/deploy/nas.md
 
 ## 背景
 
@@ -24,7 +24,7 @@
 
 - 镜像 360 MB → 338 MB（arm64 实测），运行镜像里没有 pnpm；升级 Node 要同时改两处 `FROM` 的版本号与摘要。
 - 原来用 `--host 0.0.0.0` 跑、靠自动生成令牌的本机部署，升级后要显式设 `YINGBOX_SERVER_TOKEN` 才能启动。
-- 原来挂 `/data` 的容器要改挂法：旧目录挂到 `/config`，并把 `YINGBOX_CACHE_DIR` 设为 `/config`（或把旧目录里的 `media/` 移到新的缓存卷），见 docs/deploy/nas.md。
+- 原来挂 `/data` 的容器要改挂法：旧目录挂到 `/config`，并把 `YINGBOX_CACHE_DIR` 设为 `/config`（或把旧目录里的 `media/`、`gfriends-index.json` 移到新的缓存卷），见 docs/deploy/nas.md。
 - `:ro` 管不到容器启动后才传播进来的子挂载（CloudDrive2 掉盘重挂、`rslave`），`bind-recursive=readonly` 又要求 `rprivate`，与 `rslave` 不能同用：网盘的只读要在 CloudDrive2 挂载选项里勾「只读」。
 - 片库只读时写 NFO / 图片、整理改名会失败（按需去掉 `:ro`）；对外访问要用户自己配 HTTPS 反向代理。
 
