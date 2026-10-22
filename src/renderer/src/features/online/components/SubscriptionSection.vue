@@ -33,10 +33,10 @@
   <div class="sub-url">
     <UiInput
       v-model="draftUrl"
+      v-enter="save"
       size="sm"
       icon="link"
       placeholder="订阅地址，留空关闭"
-      @keydown.enter="save"
       @blur="save"
     />
     <p class="sub-hint">{{ hint }}</p>
@@ -52,6 +52,7 @@ import { toast } from '@/components/ui'
 import { computed, ref } from 'vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
+import { vEnter } from '@/directives/enter'
 import SourceSection from './SourceSection.vue'
 import SourceSiteRow from './SourceSiteRow.vue'
 import { selectedSites, toggleSite } from '../composables/cms-sites'
