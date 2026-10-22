@@ -181,3 +181,19 @@ export function playLabelOf(
   if (type !== 'series' || episodeName === null) return '播放'
   return `播放 ${episodeName ?? ''}`
 }
+
+/** 详情页剧照区最多显示的张数。 */
+export const MAX_STILLS = 30
+
+/**
+ * 详情页剧照：元数据里的剧照（番号库各站点的样图）；没有剧照的电影 / 剧集退回除头图外的背景图。
+ * 按路径去重，最多 MAX_STILLS 张。
+ */
+export function stillsOf(meta: TitleMeta | null): string[] {
+  if (!meta) return []
+  const pick = (role: 'still' | 'backdrop'): string[] =>
+    meta.images.filter(img => img.role === role).map(img => img.path)
+  let paths = pick('still')
+  if (!paths.length) paths = pick('backdrop').slice(1)
+  return [...new Set(paths)].slice(0, MAX_STILLS)
+}

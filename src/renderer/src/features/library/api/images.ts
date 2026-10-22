@@ -66,3 +66,13 @@ export function tmdbImage(
     ? remoteImage(path, PROXY_WIDTH)
     : `${TMDB_IMAGE}/${size}${path}`
 }
+
+/**
+ * 剧照：番号站点的绝对地址（网页端经服务代取，桌面端原样）或 TMDB 相对路径。
+ * thumb 用于详情页横排缩略图，full 用于灯箱大图。
+ */
+export function stillImage(path: string, size: 'thumb' | 'full'): string {
+  if (/^https?:\/\//.test(path))
+    return remoteImage(path, size === 'thumb' ? 480 : 780)
+  return `${TMDB_IMAGE}/${size === 'thumb' ? 'w500' : 'original'}${path}`
+}
