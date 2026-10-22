@@ -128,7 +128,8 @@ export function createDoubanFeed(deps: DoubanFeedDeps): DoubanFeed {
         if (next === null) break
       }
       status.value = next === null ? 'ended' : 'ready'
-    } catch {
+    } catch (error) {
+      console.warn('[douban] 浏览失败', error)
       if (gen === generation) status.value = 'error'
     } finally {
       if (gen === generation) refreshing.value = false
