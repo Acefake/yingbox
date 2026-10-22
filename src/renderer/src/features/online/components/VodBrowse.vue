@@ -3,10 +3,8 @@
     <div class="vod-header">
       <PageHeader title="媒体库" :count="filteredCards.length">
         <template #status
-          ><span v-if="loadingSources" class="loading-hint"
-            >加载中...</span
-          ></template
-        >
+          ><UiLoadingDots v-if="loadingSources" label="正在加载源"
+        /></template>
         <template #actions
           ><UiIconButton
             icon="refresh"
@@ -84,19 +82,7 @@
     </div>
 
     <!-- 首次加载骨架 -->
-    <div
-      v-if="loading && !cards.length"
-      class="ui-poster-grid"
-      aria-busy="true"
-    >
-      <div v-for="i in 8" :key="i" class="ui-poster">
-        <div class="ui-poster-media" />
-        <div class="ui-poster-text">
-          <div class="yb-poster-skel-line skel-line--long" />
-          <div class="yb-poster-skel-line skel-line--short" />
-        </div>
-      </div>
-    </div>
+    <UiSkeleton v-if="loading && !cards.length" :count="8" />
   </div>
 </template>
 
@@ -106,6 +92,8 @@ import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
+import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import { computed, onMounted, ref } from 'vue'
 import MediaFilterBar, {
   type MediaFilterRow,
@@ -336,13 +324,6 @@ onMounted(() => {
 </script>
 
 <style scoped>
-.skel-line--long {
-  width: 80%;
-}
-.skel-line--short {
-  width: 50%;
-  margin-top: var(--space-2);
-}
 .vod-browse {
   display: flex;
   flex-direction: column;
@@ -360,12 +341,6 @@ onMounted(() => {
   padding-bottom: var(--space-6);
 
   border-bottom: 1px solid var(--border-subtle);
-}
-
-.loading-hint {
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-  margin-left: var(--space-2);
 }
 
 /* ── 加载更多 ── */

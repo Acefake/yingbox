@@ -15,7 +15,8 @@
       @update:model-value="applyFilter"
     />
 
-    <div v-if="doubanLoading" class="db-loading">加载中...</div>
+    <!-- 首屏骨架；换一批 / 换分类时保留旧海报直到新一批到达（不塌高、不改滚动位置） -->
+    <UiSkeleton v-if="waiting === 'skeleton'" :count="PAGE_SIZE" />
     <div v-else-if="doubanError" class="db-error">
       <UiIcon name="warning" /> 豆瓣数据加载失败，请稍后重试
     </div>
@@ -23,6 +24,8 @@
       v-else
       :items="doubanItems"
       class="ui-poster-grid"
+      :class="{ 'is-refreshing': waiting === 'more' }"
+      :aria-busy="waiting === 'more' || undefined"
       :item-key="item => item.url"
     >
       <template #default="{ item }">
@@ -48,6 +51,8 @@ import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import UiSkeleton from '@/components/ui/UiSkeleton.vue'
+import { listWaiting } from '@/components/ui/feedback'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import { getJson, tmdb } from '../api/online'
@@ -112,11 +117,16 @@ const PAGE_SIZE = 16
 const doubanType = ref<DoubanType>('movie')
 const doubanTag = ref('热门')
 const doubanItems = ref<DoubanItem[]>([])
-const doubanLoading = ref(false)
+// 挂载即开始加载：初始就是「加载中」，首屏直接出骨架
+const doubanLoading = ref(true)
 const doubanError = ref(false)
 const doubanPage = ref(0)
 const favorites = ref<DoubanItem[]>(
   readStoredArray<DoubanItem>('media_favorites')
+)
+
+const waiting = computed(() =>
+  listWaiting(doubanLoading.value, doubanItems.value.length)
 )
 
 const currentTags = computed(() =>
@@ -335,11 +345,9 @@ onMounted(fetchDouban)
   gap: var(--space-6);
 }
 
-.db-loading {
-  text-align: center;
-  padding: var(--space-8);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
+.ui-poster-grid.is-refreshing {
+  opacity: 0.6;
+  transition: opacity var(--duration-fast) ease;
 }
 
 .db-error {

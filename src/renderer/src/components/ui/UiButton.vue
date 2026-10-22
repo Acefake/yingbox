@@ -3,8 +3,10 @@
     type="button"
     class="ui-button"
     :class="[`is-${variant}`, `is-${size}`, { 'is-loading': loading }]"
-    :disabled="disabled || loading"
+    :disabled="disabled"
     :aria-busy="loading || undefined"
+    :aria-disabled="loading || undefined"
+    @click="blockBusyClick(loading, $event)"
   >
     <UiIcon
       v-if="icon || loading"
@@ -22,7 +24,9 @@
  * 带文字的按钮。一个区域里最多一个 primary（例如详情页的「播放」），
  * 其余操作优先用 UiIconButton，只有在图标表达不清时才用带文字的 secondary。
  * danger 只给破坏性操作的确认（如确认框里的「删除」）。
+ * loading：转圈 + aria-busy / aria-disabled，按钮保持可聚焦（不加 disabled），点击被拦下（见 feedback.ts）。
  */
+import { blockBusyClick } from './feedback'
 import type { IconName } from './icons'
 import UiIcon from './UiIcon.vue'
 
@@ -101,7 +105,7 @@ withDefaults(
 .ui-button.is-plain:hover:not(:disabled) {
   background: var(--accent-soft);
 }
-.ui-button:active:not(:disabled) {
+.ui-button:active:not(:disabled, .is-loading) {
   transform: scale(0.97);
 }
 .ui-button:focus-visible {
@@ -111,6 +115,9 @@ withDefaults(
 .ui-button:disabled {
   opacity: 0.4;
   cursor: default;
+}
+.ui-button.is-loading {
+  cursor: progress;
 }
 .ui-button.is-loading .app-icon {
   animation: yb-icon-spin var(--duration-spin) linear infinite;

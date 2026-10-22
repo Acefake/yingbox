@@ -81,6 +81,7 @@ import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import UiNavItem from '@/components/ui/UiNavItem.vue'
+import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { usePlatform } from '@/composables/use-platform'
 import { refreshSources } from '@/features/online'
 import { SettingsPanel, useSetting } from '@/features/settings'
@@ -136,9 +137,10 @@ const navigateTo = (path: string): void => {
   router.push(path)
 }
 
-const onDrawerEscape = (event: KeyboardEvent): void => {
-  if (event.key === 'Escape' && sidebarOpen.value) sidebarOpen.value = false
-}
+useEscapeLayer(
+  () => sidebarOpen.value,
+  () => (sidebarOpen.value = false)
+)
 const onSettingsShortcut = (event: KeyboardEvent): void => {
   if ((event.ctrlKey || event.metaKey) && event.key === ',') {
     event.preventDefault()
@@ -159,7 +161,6 @@ if (typeof window !== 'undefined') {
 
 onMounted(() => {
   window.addEventListener('keydown', onSettingsShortcut)
-  window.addEventListener('keydown', onDrawerEscape)
   // 每次启动自动同步并检测数据源（静默，失败不影响其余功能）。
   // 浏览器/PWA 模式下跨域受限，检测会全部失败，因此仅在桌面端执行。
   if (isElectron) void refreshSources()
@@ -168,7 +169,6 @@ onMounted(() => {
 onUnmounted(() => {
   window.removeEventListener('app:open-settings', onOpenSettings)
   window.removeEventListener('keydown', onSettingsShortcut)
-  window.removeEventListener('keydown', onDrawerEscape)
 })
 </script>
 

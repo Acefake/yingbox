@@ -135,9 +135,12 @@ export function useVodBrowse(): UseVodBrowseReturn {
     )
   }
 
-  /** 重新加载当前数据源和分类，供页面顶部刷新使用。 */
+  /**
+   * 重新加载当前数据源和分类，供页面顶部刷新使用。
+   * 不先清空卡片：旧卡片留到第一页到达再整批替换（loadCards 第 1 页直接赋值），
+   * 网格高度不塌，用户的滚动位置不变。
+   */
   const reload = async (): Promise<void> => {
-    cards.value = []
     currentPage.value = 1
     hasMore.value = true
     await loadCards(activeSourceIdx.value, activeTabIdx.value, 1)

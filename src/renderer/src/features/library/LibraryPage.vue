@@ -64,8 +64,9 @@
           @activate="onActivate"
         >
           <template #after>
+            <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
             <LibraryEmpty
-              v-if="ready && total === 0"
+              v-else-if="total === 0"
               inline
               :title="emptyTitle"
               :text="queryError || undefined"
@@ -149,6 +150,7 @@ import { useRoute } from 'vue-router'
 
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import { libraryServerState } from '@/services/library-server'
 
 import ActorDetail from './actors/ActorDetail.vue'
@@ -388,5 +390,8 @@ function writeSelected(): void {
   position: relative;
   flex: 1 1 auto;
   min-height: 0;
+}
+.lib-wall-skeleton {
+  margin: 0 var(--content-padding-x);
 }
 </style>
