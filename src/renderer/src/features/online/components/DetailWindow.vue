@@ -113,6 +113,7 @@ import {
 import { useOnlineSearch } from '../composables/use-online-search'
 import { useDetailSources } from '../composables/use-detail-sources'
 import { useTmdbDetail } from '../composables/use-tmdb-detail'
+import { doubanSubjectId } from '../utils/douban-preview'
 import DetailCastGallery from './DetailCastGallery.vue'
 import DetailHero from './DetailHero.vue'
 import DetailLightbox from './DetailLightbox.vue'
@@ -154,7 +155,12 @@ const loadData = async (raw: unknown): Promise<void> => {
   sources.episodeGroups.value = []
   currentUrl.value = ''
   const type = guessMediaType(data.type_name || '')
-  await tmdb.fetchTmdb(searchTitle.value || itemName.value, type)
+  const doubanId = doubanSubjectId(data.doubanUrl || '')
+  await tmdb.fetchTmdb(
+    searchTitle.value || itemName.value,
+    type,
+    doubanId ? { id: doubanId, kind: data.doubanKind ?? type } : null
+  )
   // 自动加载播放源：先保留打开详情时命中的条目，再按片名检索全部已启用源
   const direct = data._source === 'cms' || data._source === 'catspider'
   // _source 是 cms / catspider 的就是搜索 / 浏览结果里的 CmsItem

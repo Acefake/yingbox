@@ -137,6 +137,7 @@ const ADDED_API: Record<string, string[]> = {
     'tmdb',
     'doubanTrailer',
     'doubanBrowse',
+    'doubanPhotos',
     'resolvePage',
   ],
   av: ['list', 'resolve'],

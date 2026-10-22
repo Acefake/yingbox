@@ -29,10 +29,7 @@
         class="dw-gallery-item"
         @click="emit('open', idx)"
       >
-        <img
-          :src="`https://images.tmdb.org/t/p/w500${img.file_path}`"
-          class="dw-gallery-img"
-        />
+        <img :src="img.thumb" class="dw-gallery-img" loading="lazy" />
       </div>
     </div>
   </div>
@@ -43,9 +40,9 @@
  * 在线详情页的演员条（最多 14 位）与剧照条（最多 20 张，点击打开灯箱）。
  * 多根节点组件，两段各自在没有数据时不渲染。
  */
-import type { TmdbCastMember, TmdbImage } from '../types'
+import type { DetailImage, TmdbCastMember } from '../types'
 
-defineProps<{ cast: TmdbCastMember[]; images: TmdbImage[] }>()
+defineProps<{ cast: TmdbCastMember[]; images: DetailImage[] }>()
 const emit = defineEmits<{ (e: 'open', index: number): void }>()
 
 const onActorImgError = (e: Event): void => {
