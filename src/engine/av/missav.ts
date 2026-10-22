@@ -201,7 +201,7 @@ export function coverUrl(code: string): string {
 /** 解析器依赖。 */
 export interface MissavDeps {
   net: NetClient
-  browserFetch: (url: string, waitMs?: number) => Promise<string>
+  browserFetch: (url: string) => Promise<string>
 }
 
 /**
@@ -226,7 +226,7 @@ async function fetchDocument(
       'MissAV 拒绝了当前网络的访问（Cloudflare 封锁，与 IP / 地区有关），换个网络后再试'
     )
   if (res.status === 403 || res.status === 429 || verdict === 'challenge') {
-    const rendered = await deps.browserFetch(res.url, 20000)
+    const rendered = await deps.browserFetch(res.url)
     if (!rendered)
       throw new ResolveError(
         'SITE_VERIFICATION_REQUIRED',
