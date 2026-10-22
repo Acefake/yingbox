@@ -28,7 +28,9 @@ function wire(): {
     broadcast: (channel, payload) => broadcasts.push([channel, payload]),
     hostMethods: {
       browserFetch: async url => `<html>${url}</html>`,
+      resetBrowserFetch: async () => {},
       downloadDir: async () => '/tmp',
+      tmdbToken: async () => '',
     },
     fork: () => {
       forks++

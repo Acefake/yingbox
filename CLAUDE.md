@@ -13,9 +13,10 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 pnpm dev
 
 # Type checking
-pnpm typecheck          # both node (tsc) and web (vue-tsc) targets
+pnpm typecheck          # node (tsc), web (vue-tsc) and tests (vue-tsc)
 pnpm typecheck:node     # tsc for main/preload
 pnpm typecheck:web      # vue-tsc for renderer
+pnpm typecheck:tests    # vue-tsc for tests/ (tsconfig.tests.json)
 
 # Lint / format
 pnpm lint               # eslint --cache --max-warnings 0（warning 也算失败）+ check:size --strict（单文件 ≤ 400 行，无豁免）

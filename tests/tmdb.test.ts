@@ -15,6 +15,9 @@ import type { ProviderStatus } from '../src/shared/library/ipc'
 const status = (configured: boolean): ProviderStatus => ({
   tmdb: { configured },
   opensubtitles: { configured: false },
+  javdb: { configured: false },
+  theporndb: { configured: false },
+  dmm_api: { configured: false },
 })
 
 describe('TMDB 请求在引擎发出（online.tmdb）', () => {

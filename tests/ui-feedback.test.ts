@@ -3,7 +3,7 @@ import { h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-import { createConfirmFlow } from '@/components/ui/confirm'
+import { type ConfirmOptions, createConfirmFlow } from '@/components/ui/confirm'
 import UiConfirmDialog from '@/components/ui/UiConfirmDialog.vue'
 import {
   MAX_TOASTS,
@@ -169,12 +169,7 @@ describe('确认流程', () => {
 })
 
 describe('UiConfirmDialog 渲染', () => {
-  const render = (
-    options: Parameters<typeof createConfirmFlow>[0] extends unknown
-      ? Record<string, unknown>
-      : never,
-    error = ''
-  ): Promise<string> => {
+  const render = (options: ConfirmOptions, error = ''): Promise<string> => {
     const flow = createConfirmFlow(undefined, () => {})
     flow.state.error = error
     return renderToString(h(UiConfirmDialog, { options, flow }))
