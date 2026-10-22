@@ -3,6 +3,10 @@
  * Web / PWA 模式没有引擎，调用时抛出可读错误。
  */
 import type { GetJsonOptions } from '../../../../../shared/contract/online'
+import type {
+  DoubanPage,
+  DoubanQuery,
+} from '../../../../../shared/douban/query'
 
 /** 在线域 API；Web 模式下抛错。 */
 export function onlineApi(): Window['api']['online'] {
@@ -17,6 +21,14 @@ export function getJson<T = unknown>(
   options?: GetJsonOptions
 ): Promise<T> {
   return onlineApi().getJson(url, options) as Promise<T>
+}
+
+/** 豆瓣浏览一页（引擎按条件选接口、缓存、熔断）；失败 reject。 */
+export function doubanBrowse(
+  query: DoubanQuery,
+  start: number
+): Promise<DoubanPage> {
+  return onlineApi().doubanBrowse(query, start)
 }
 
 /**

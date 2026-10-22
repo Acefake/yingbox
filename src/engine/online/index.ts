@@ -1,5 +1,5 @@
 /**
- * 在线域的引擎实现：CatSpider 插件、通用 JSON GET、豆瓣预告片、播放页解析。
+ * 在线域的引擎实现：CatSpider 插件、通用 JSON GET、豆瓣浏览与预告片、播放页解析。
  */
 import type { NetClient } from '../../shared/net/client'
 import {
@@ -18,6 +18,7 @@ import {
 } from '../../shared/contract/online'
 import type { EngineContext, EngineHandlers } from '../rpc'
 import { runCatSpider } from './catspider'
+import { type DoubanBrowse, createDoubanBrowse } from './douban-browse'
 import { type DoubanTrailers, createDoubanTrailers } from './douban-trailer'
 import { type PluginStorage, createPluginStorage } from './plugin-storage'
 import sitesFile from './vod-sites.json'
@@ -51,6 +52,8 @@ export interface OnlineDeps {
   pluginStorage?: PluginStorage
   /** 豆瓣预告片（内存 + 落盘缓存、熔断）；缺省新建一份只在内存里的 */
   doubanTrailers?: DoubanTrailers
+  /** 豆瓣浏览（内存缓存、熔断）；缺省按 net 新建 */
+  doubanBrowse?: DoubanBrowse
   log?: (line: string) => void
 }
 
@@ -84,6 +87,7 @@ export function createOnlineHandlers(
   const pluginStorage = deps.pluginStorage ?? createPluginStorage()
   const trailers =
     deps.doubanTrailers ?? createDoubanTrailers({ net: deps.net })
+  const douban = deps.doubanBrowse ?? createDoubanBrowse({ net: deps.net })
   /** 下载失败的插件脚本：地址 → 失败时间；冷却期内直接判失败 */
   const pluginFailures = new Map<string, number>()
   const loadPlugin = async (url: string): Promise<string> => {
@@ -178,6 +182,8 @@ export function createOnlineHandlers(
     },
 
     doubanTrailer: (_ctx, id, kind = 'movie') => trailers.get(id, kind),
+
+    doubanBrowse: (_ctx, query, start) => douban.page(query, start),
 
     async resolvePage(_ctx, url) {
       if (!url || MEDIA_URL.test(url)) return url
