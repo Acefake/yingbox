@@ -38,7 +38,7 @@ vi.mock('electron', () => ({
  * 减去 opt/a 逐个 grep 确认没有调用方而删掉的：file / http / path / config 四个域、
  * dialog.saveFile、app.getUserDataPath / getVersion、lada.otherJob / adoptPartial / clearCache /
  * cacheSize / notice 事件、mpv.playlistNext / playlistPrev / playlistPlay / getStatus；
- * 加上之后新增的 player.setCompact / mpv.setCompact（缩小置顶）。
+ * 加上之后新增的 mpv.setCompact（缩小置顶）；player 域随内置播放器改回主窗口内播放（#98）整域删除。
  */
 const LEGACY_API: Record<string, string[]> = {
   dialog: ['openDirectory', 'openFile'],
@@ -46,7 +46,6 @@ const LEGACY_API: Record<string, string[]> = {
   update: ['check', 'download', 'install', 'onStatus', 'offStatus'],
   shell: ['openPath'],
   win: ['minimize', 'maximize', 'close', 'isMaximized'],
-  player: ['open', 'close', 'getPending', 'setCompact', 'onLoad', 'offLoad'],
   subtitle: ['find', 'read', 'searchOnline', 'downloadOnline'],
   lada: [
     'paths',
