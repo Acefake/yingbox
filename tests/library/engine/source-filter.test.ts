@@ -47,10 +47,7 @@ describe('按来源查询（真实服务 + preload bridge）', () => {
     return createLibraryBridge({
       async invoke(channel, method, params): Promise<InvokeResult> {
         expect(channel).toBe(LIBRARY_CHANNELS.invoke)
-        const response = await handleRpc(service, { id: 1, method, params })
-        return response.ok
-          ? { ok: true, result: response.result }
-          : { ok: false, error: response.error }
+        return handleRpc(service, { method, params })
       },
       // 本测试不订阅事件
       send: () => undefined,

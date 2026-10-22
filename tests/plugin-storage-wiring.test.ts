@@ -6,7 +6,7 @@ import { existsSync, mkdtempSync, readdirSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import type { FromEngine, ToEngine } from '../src/engine/protocol'
+import type { FromUtility, ToUtility } from '../src/shared/utility/protocol'
 import { SITES } from '../src/engine/online'
 
 const env = vi.hoisted(() => ({ requests: [] as string[], plugin: '' }))
@@ -36,7 +36,7 @@ async function search() {
   return jsonify({ token: argsify(auth).token })
 }`
 
-type Listener = (e: { data: ToEngine }) => void
+type Listener = (e: { data: ToUtility }) => void
 const realArgv = process.argv
 const proc = process as unknown as { parentPort?: unknown }
 
@@ -46,13 +46,13 @@ async function bootEngine(
 ): Promise<(siteName: string) => Promise<unknown>> {
   vi.resetModules()
   let listener: Listener = () => {}
-  const pending = new Map<number, (m: FromEngine) => void>()
+  const pending = new Map<number, (m: FromUtility) => void>()
   proc.parentPort = {
-    postMessage: (m: FromEngine) => {
+    postMessage: (m: FromUtility) => {
       if (m.kind === 'result') pending.get(m.id)?.(m)
       if (m.kind === 'host')
         listener({
-          data: { kind: 'hostResult', id: m.id, ok: true, value: userData },
+          data: { kind: 'reply', id: m.id, ok: true, value: userData },
         })
     },
     on: (_event: string, fn: Listener) => (listener = fn),
@@ -68,7 +68,7 @@ async function bootEngine(
         data: {
           kind: 'call',
           id: callId,
-          channel: 'online:vod',
+          method: 'online:vod',
           args: [{ action: 'search', siteName, keyword: 'x' }],
         },
       })

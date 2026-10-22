@@ -24,12 +24,14 @@ import {
   createLibraryBridge,
 } from '../../../src/preload/library-bridge'
 import {
-  type EngineMessage,
-  type HostMessage,
   LIBRARY_CHANNELS,
   type LibraryBridge,
   type LibraryEvent,
 } from '../../../src/shared/library/ipc'
+import type {
+  FromUtility,
+  ToUtility,
+} from '../../../src/shared/utility/protocol'
 import { tempTree } from './helpers'
 
 /** 同进程的「引擎进程」：消息分派与 engine/entry.ts 一致。 */
@@ -37,7 +39,7 @@ class FakeEngine implements LibraryChild {
   readonly service: LibraryService
   private readonly ports: MessagePort[] = []
   private readonly listeners = {
-    message: [] as Array<(m: EngineMessage) => void>,
+    message: [] as Array<(m: FromUtility) => void>,
     exit: [] as Array<(c: number) => void>,
   }
   readonly requests: string[] = []
@@ -47,13 +49,13 @@ class FakeEngine implements LibraryChild {
     this.service = new LibraryService({ dbPath, watch: false })
   }
 
-  on(event: 'message', listener: (message: EngineMessage) => void): void
+  on(event: 'message', listener: (message: FromUtility) => void): void
   on(event: 'exit', listener: (code: number) => void): void
   on(event: 'message' | 'exit', listener: never): void {
     ;(this.listeners[event] as unknown[]).push(listener)
   }
 
-  postMessage(message: HostMessage, transfer: unknown[] = []): void {
+  postMessage(message: ToUtility, transfer: unknown[] = []): void {
     if (this.dead) return
     switch (message.kind) {
       case 'subscribe':
@@ -63,10 +65,26 @@ class FakeEngine implements LibraryChild {
           this.ports.push(port)
         }
         break
-      case 'request':
+      case 'call':
         this.requests.push(message.method)
-        void handleRpc(this.service, message).then(response => {
-          if (!this.dead) for (const l of this.listeners.message) l(response)
+        void handleRpc(this.service, {
+          method: message.method,
+          params: message.args[0],
+        }).then(outcome => {
+          const result: FromUtility = outcome.ok
+            ? {
+                kind: 'result',
+                id: message.id,
+                ok: true,
+                value: outcome.result,
+              }
+            : {
+                kind: 'result',
+                id: message.id,
+                ok: false,
+                error: outcome.error,
+              }
+          if (!this.dead) for (const l of this.listeners.message) l(result)
         })
         break
       case 'shutdown':

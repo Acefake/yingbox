@@ -10,7 +10,7 @@
  */
 import type { CallContext, Handlers } from '../rpc'
 import { type Domain, channelOf } from '../../shared/contract/define'
-import type { FromEngine, HostMethods, ToEngine } from '../../engine/protocol'
+import type { HostMethods } from '../../engine/protocol'
 import {
   UTILITY_STOP_TIMEOUT_MS,
   type UtilityChild,
@@ -18,7 +18,7 @@ import {
 } from '../utility/host'
 
 /** 子进程句柄（Electron UtilityProcess 的子集）。 */
-export type EngineChild = UtilityChild<ToEngine, FromEngine>
+export type EngineChild = UtilityChild
 
 /** 默认空闲多久退出引擎。 */
 export const ENGINE_IDLE_MS = 5 * 60_000
@@ -33,6 +33,8 @@ export interface EngineHostDeps {
   /** 关停超时，默认 ENGINE_STOP_TIMEOUT_MS */
   stopTimeoutMs?: number
   broadcast: (channel: string, payload: unknown) => void
+  /** 引擎就绪（模块加载完）；elapsedMs 为 fork → ready 的耗时 */
+  onReady?: (elapsedMs: number) => void
   hostMethods: {
     [M in keyof HostMethods]: (
       ...args: Parameters<HostMethods[M]>
@@ -40,36 +42,19 @@ export interface EngineHostDeps {
   }
 }
 
-/** 一次契约调用：通道名 + 已解析的参数。 */
-interface EngineCall {
-  channel: string
-  args: unknown[]
-}
-
-/** 引擎宿主：生命周期交给 UtilityHost，这里只认引擎自己的消息（事件、主进程代办、忙碌）。 */
+/** 引擎宿主：生命周期与线协议交给 UtilityHost，这里只接引擎的事件广播与主进程能力表。 */
 export class EngineHost {
-  private readonly utility: UtilityHost<ToEngine, FromEngine, EngineCall>
+  private readonly utility: UtilityHost
 
-  constructor(private readonly deps: EngineHostDeps) {
+  constructor(deps: EngineHostDeps) {
     this.utility = new UtilityHost({
       name: '后台引擎',
       fork: deps.fork,
       idleMs: deps.idleMs ?? ENGINE_IDLE_MS,
       stopTimeoutMs: deps.stopTimeoutMs,
-      shutdown: { kind: 'shutdown' },
-      encodeCall: (id, { channel, args }) => ({
-        kind: 'call',
-        id,
-        channel,
-        args,
-      }),
-      decodeReply: m =>
-        m.kind !== 'result'
-          ? undefined
-          : m.ok
-            ? { id: m.id, ok: true, value: m.value }
-            : { id: m.id, ok: false, message: m.error ?? '' },
-      onMessage: (message, child) => this.onMessage(message, child),
+      onEvent: deps.broadcast,
+      onReady: deps.onReady,
+      host: deps.hostMethods,
     })
   }
 
@@ -78,40 +63,9 @@ export class EngineHost {
     return this.utility.running
   }
 
-  private onMessage(message: FromEngine, child: EngineChild): void {
-    if (message.kind === 'busy') {
-      this.utility.setBusy(child, message.busy)
-      return
-    }
-    if (message.kind === 'event') {
-      this.deps.broadcast(message.channel, message.payload)
-      return
-    }
-    if (message.kind !== 'host') return
-    const method = this.deps.hostMethods[message.method] as (
-      ...args: unknown[]
-    ) => Promise<unknown>
-    const reply = (ok: boolean, value?: unknown, error?: string): void =>
-      child.postMessage({
-        kind: 'hostResult',
-        id: message.id,
-        ok,
-        value,
-        error,
-      })
-    if (!method) {
-      reply(false, undefined, `未知主进程能力：${String(message.method)}`)
-      return
-    }
-    method(...message.args).then(
-      value => reply(true, value),
-      (error: unknown) => reply(false, undefined, String(error))
-    )
-  }
-
   /** 转发一次调用（参数已在 IPC 边界解析）。引擎空闲退出中时等它退完再拉起新的。 */
   invoke(channel: string, args: unknown[]): Promise<unknown> {
-    return this.utility.call({ channel, args })
+    return this.utility.call(channel, args)
   }
 
   /** 通知引擎收尾并退出（应用退出时）；超时 kill。 */

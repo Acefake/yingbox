@@ -3,7 +3,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { FromEngine, ToEngine } from '../src/engine/protocol'
+import type { FromUtility, ToUtility } from '../src/shared/utility/protocol'
 
 /**
  * 主进程接线：settings.chooseDownloadDir 经 IPC 弹对话框并保存；启动时并入旧 config.json；
@@ -19,7 +19,7 @@ const env = vi.hoisted(() => ({
   owner: { id: 'main-window' },
   engine: undefined as
     | undefined
-    | { toHost: (m: FromEngine) => void; posted: ToEngine[] },
+    | { toHost: (m: FromUtility) => void; posted: ToUtility[] },
 }))
 
 vi.mock('electron', () => ({
@@ -59,12 +59,12 @@ vi.mock('electron', () => ({
   safeStorage: { isEncryptionAvailable: () => false },
   utilityProcess: {
     fork: () => {
-      const listeners: Array<(m: FromEngine) => void> = []
-      const posted: ToEngine[] = []
+      const listeners: Array<(m: FromUtility) => void> = []
+      const posted: ToUtility[] = []
       env.engine = { toHost: m => listeners.forEach(l => l(m)), posted }
       return {
-        postMessage: (m: ToEngine) => posted.push(m),
-        on: (event: string, l: (m: FromEngine) => void) => {
+        postMessage: (m: ToUtility) => posted.push(m),
+        on: (event: string, l: (m: FromUtility) => void) => {
           if (event === 'message') listeners.push(l)
         },
         kill: () => true,
@@ -88,9 +88,9 @@ async function engineAsksDownloadDir(): Promise<unknown> {
   const engine = env.engine!
   engine.toHost({ kind: 'host', id: 99, method: 'downloadDir', args: [] })
   await vi.waitFor(() =>
-    expect(engine.posted.some(m => m.kind === 'hostResult')).toBe(true)
+    expect(engine.posted.some(m => m.kind === 'reply')).toBe(true)
   )
-  const reply = engine.posted.find(m => m.kind === 'hostResult')
+  const reply = engine.posted.find(m => m.kind === 'reply')
   engine.posted.length = 0
   return reply
 }
@@ -189,7 +189,7 @@ describe('启动时续下（registerEngine）', () => {
     fresh.registerEngine()
     await vi.waitFor(() =>
       expect(env.engine?.posted).toContainEqual(
-        expect.objectContaining({ kind: 'call', channel: 'download:list' })
+        expect.objectContaining({ kind: 'call', method: 'download:list' })
       )
     )
   })
