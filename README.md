@@ -49,7 +49,7 @@ pnpm build:server && pnpm build:web && pnpm start:server
 pnpm smoke:server   # 离线冒烟
 ```
 
-部署（本机 / NAS Docker）、配置、代理与 curl-impersonate 见 [docs/library-server.md](docs/library-server.md)。
+部署（本机）、配置、代理与 curl-impersonate 见 [docs/library-server.md](docs/library-server.md)；NAS / Docker 见 [docs/deploy/nas.md](docs/deploy/nas.md)。
 
 需要 Node 22+、pnpm 10。更多架构说明见 [AGENTS.md](AGENTS.md)。
 

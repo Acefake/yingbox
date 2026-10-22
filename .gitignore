@@ -27,3 +27,6 @@ __pycache__/
 
 # Local verification/scratch output (browser profiles, screenshots, built binaries)
 /output/
+
+# docker-compose.yml 的数据目录（片库数据库、访问令牌、缓存）
+/yingbox/

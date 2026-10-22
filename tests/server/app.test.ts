@@ -3,9 +3,11 @@
  * 鉴权 → 建库（根目录限制）→ 扫描 + 番号识别（录制页面回放）→ 查询 → 海报缩略图（wasm）→ 视频 Range → SSE → 网页托管。
  */
 import {
+  existsSync,
   mkdirSync,
   mkdtempSync,
   readFileSync,
+  readdirSync,
   rmSync,
   writeFileSync,
 } from 'node:fs'
@@ -85,6 +87,8 @@ beforeAll(async () => {
     host: '127.0.0.1',
     port: 31480,
     dataDir: join(work, 'data'),
+    // 与 Docker 的 /config + /cache 两个卷相同：图片缓存单独放
+    cacheDir: join(work, 'cache'),
     mediaRoots: [media],
     webDir: join(work, 'web'),
     fetch: { kind: 'node' },
@@ -205,6 +209,13 @@ describe('片库流程', () => {
     })
     expect(again.status).toBe(304)
     expect((await call(`/media/image/${key}?w=123`)).status).toBe(404)
+    // 原图与缩略图都落在缓存目录，数据目录里只有数据库与密钥
+    const cached = (dir: string): string[] =>
+      existsSync(dir) ? readdirSync(dir, { recursive: true }).map(String) : []
+    expect(cached(join(work, 'cache/media')).some(p => p.includes(key))).toBe(
+      true
+    )
+    expect(existsSync(join(work, 'data/media'))).toBe(false)
   })
 
   it('远程图片代理只接受 http(s)', async () => {

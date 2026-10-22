@@ -20,7 +20,7 @@ import {
   parseCurlOutput,
 } from '../../src/main/library/platform/fetch/curl-fetch'
 import { parseFetchSpec } from '../../src/main/library/platform/fetch'
-import { loadConfig } from '../../src/server/config'
+import { loadConfig, serverPaths } from '../../src/server/config'
 import { createAuth, readCookie, sameOrigin } from '../../src/server/http/auth'
 import { Router } from '../../src/server/http/router'
 import { resolveStatic } from '../../src/server/http/static'
@@ -139,6 +139,7 @@ describe('服务配置', () => {
       host: '127.0.0.1',
       port: 31480,
       dataDir: '/home/u/.yingbox-server',
+      cacheDir: '/home/u/.yingbox-server',
       mediaRoots: ['/home/u'],
       webDir: null,
       fetch: { kind: 'node' },
@@ -173,6 +174,42 @@ describe('服务配置', () => {
       fetch: { kind: 'curl' },
     })
     expect(() => loadConfig(['--port', 'abc'], {}, defaults)).toThrow(/端口/)
+  })
+
+  it('缓存目录默认跟数据目录走，可用环境变量 / 参数单独放（Docker 的 /cache 卷）', () => {
+    expect(
+      loadConfig([], { YINGBOX_DATA_DIR: '/config' }, defaults).cacheDir
+    ).toBe('/config')
+    expect(
+      loadConfig(
+        [],
+        { YINGBOX_DATA_DIR: '/config', YINGBOX_CACHE_DIR: '/cache' },
+        defaults
+      ).cacheDir
+    ).toBe('/cache')
+    expect(
+      loadConfig(['--cache-dir=c'], { YINGBOX_CACHE_DIR: '/cache' }, defaults)
+        .cacheDir
+    ).toBe('/srv/c')
+  })
+
+  it('数据库与密钥在数据目录，图片缓存在缓存目录', () => {
+    const config = loadConfig(
+      [],
+      { YINGBOX_DATA_DIR: '/config', YINGBOX_CACHE_DIR: '/cache' },
+      defaults
+    )
+    expect(serverPaths(config)).toEqual({
+      dbPath: '/config/library.db',
+      secretsPath: '/config/secrets.json',
+      mediaDir: '/cache/media',
+    })
+    // 不单独设缓存目录时与原来的布局一字不差
+    expect(serverPaths(loadConfig([], {}, defaults))).toEqual({
+      dbPath: '/home/u/.yingbox-server/library.db',
+      secretsPath: '/home/u/.yingbox-server/secrets.json',
+      mediaDir: '/home/u/.yingbox-server/media',
+    })
   })
 })
 

@@ -2,12 +2,14 @@
  * 影盒片库服务入口：`node out/server/server.js [--host 0.0.0.0] [--port 31480] [--data-dir …] [--media-root …]`
  *
  * 片库 + 刮削核心以 Node 宿主独立运行，给网页端（以及 NAS / Docker）用；桌面端不经过这里。
- * 配置见 config.ts，接口见 shared/library/ipc/contract-http.ts，部署见 docs/library-server.md。
+ * 配置见 config.ts，对外监听的门槛见 exposure.ts，接口见 shared/library/ipc/contract-http.ts，
+ * 部署见 docs/library-server.md 与 docs/deploy/nas.md。
  */
 import { createServer } from 'node:http'
 import { describeFetch } from '../main/library/platform/fetch'
 import { createServerApp } from './app'
 import { describeMonitor, loadConfig } from './config'
+import { exposureProblem } from './exposure'
 import { createNodeListener } from './http/adapter'
 
 const log = (message: string): void => console.log(`[yingbox] ${message}`)
@@ -20,6 +22,9 @@ function displayHost(host: string): string {
 
 async function main(): Promise<void> {
   const config = loadConfig(process.argv.slice(2), process.env)
+  // 对外监听要显式令牌（ADR-0010）：在打开数据库、生成令牌之前拦下
+  const problem = exposureProblem(config.host, process.env)
+  if (problem) throw new Error(problem)
   const app = await createServerApp(config, {
     log: message => console.warn(`[yingbox] ${message}`),
   })
@@ -37,6 +42,7 @@ async function main(): Promise<void> {
   const base = `http://${displayHost(config.host)}:${port}`
   log(`片库服务已启动：${base}`)
   log(`数据目录：${config.dataDir}`)
+  if (config.cacheDir !== config.dataDir) log(`缓存目录：${config.cacheDir}`)
   log(`媒体根目录：${config.mediaRoots.join('、')}`)
   log(`出网：${describeFetch(config.fetch)}`)
   log(`目录监控：${describeMonitor(config.monitor)}`)
