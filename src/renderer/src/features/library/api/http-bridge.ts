@@ -114,6 +114,7 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
         call('setProviderToken', { provider, token }),
     },
     actors: createActorsBridge(call),
+    facets: { list: request => call('facets.list', request) },
     subscribe(listener) {
       listeners.add(listener)
       stream ??= deps.openEvents(LIBRARY_HTTP.events, data => {
