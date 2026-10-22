@@ -21,16 +21,30 @@
  * UiTextarea / UiSwitch / UiCheckbox / UiRadio。只有 type 为 file / range / hidden 的
  * <input> 允许保留原生。模板里也不能写静态 style="..."，请改用类名和令牌
  * （动态 :style 绑定不受限）。这几项 --fix 无法自动修复。
+ *
+ * 视觉纪律（字重 3 档、圆角只用令牌、颜色只用令牌、选中态不加边框）见 style-visual.mjs，
+ * 现存违规记在 scripts/baselines/style-visual.json，只减不增：
+ *   node scripts/style-tokens.mjs --update-baseline   修掉违规后收紧基线
  */
 import { readdirSync, readFileSync, statSync, writeFileSync } from 'node:fs'
 import path from 'node:path'
 import { fileURLToPath } from 'node:url'
+import {
+  compareCounts,
+  countFindings,
+  describeRatchet,
+  readBaseline,
+  writeBaseline,
+} from './ratchet.mjs'
+import { visualFindings } from './style-visual.mjs'
 
 const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
 const srcDir = path.join(root, 'src/renderer/src')
 const tokensFile = path.join(srcDir, 'assets/styles/tokens.css')
 const uiDir = path.join(srcDir, 'components/ui') + path.sep
 const fix = process.argv.includes('--fix')
+const updateBaseline = process.argv.includes('--update-baseline')
+const baselineFile = path.join(root, 'scripts/baselines/style-visual.json')
 
 /** 字号 px → 令牌（就近取档，最小 11px） */
 const FONT_SIZE = new Map([
@@ -297,8 +311,10 @@ function inlineStyleLines(text) {
 let dirty = 0
 const leftovers = []
 const rawControls = []
+const visual = []
 for (const file of walk(srcDir)) {
   const text = readFileSync(file, 'utf8')
+  const rel = path.relative(root, file).split(path.sep).join('/')
   if (file.endsWith('.vue') && !file.startsWith(uiDir)) {
     for (const line of rawButtonLines(text))
       rawControls.push(
@@ -322,9 +338,12 @@ for (const file of walk(srcDir)) {
     result +=
       text.slice(cursor, start) + transformCss(text.slice(start, end), report)
     cursor = end
+    const lineOffset = text.slice(0, start).split('\n').length - 1
+    visual.push(
+      ...visualFindings(text.slice(start, end), { file: rel, lineOffset })
+    )
   }
   result += text.slice(cursor)
-  const rel = path.relative(root, file)
   if (result !== text) {
     dirty++
     if (fix) writeFileSync(file, result)
@@ -333,9 +352,24 @@ for (const file of walk(srcDir)) {
   for (const item of report) leftovers.push(`${rel}: ${item}（无对应令牌）`)
 }
 
+const visualCounts = countFindings(visual)
+if (updateBaseline) {
+  writeBaseline(baselineFile, visualCounts)
+  console.log(`已写入视觉纪律基线：${visual.length} 处`)
+}
+const ratchet = compareCounts(readBaseline(baselineFile), visualCounts)
+const grownKeys = new Set(ratchet.grown.map(e => `${e.file}\0${e.rule}`))
+for (const f of visual.filter(f => grownKeys.has(`${f.file}\0${f.rule}`)))
+  console.log(`${f.file}:${f.line}: ${f.rule} ${f.text}`)
+const ratchetLines = describeRatchet(
+  ratchet,
+  'node scripts/style-tokens.mjs --update-baseline'
+)
+
 for (const line of leftovers) console.log(line)
 for (const line of rawControls) console.log(line)
+for (const line of ratchetLines) console.log(line)
 if (fix) console.log(`已迁移 ${dirty} 个文件`)
-if (rawControls.length) process.exit(1)
+if (rawControls.length || ratchetLines.length) process.exit(1)
 if (!fix && (dirty || leftovers.length)) process.exit(1)
 if (!fix) console.log('样式令牌检查通过')
