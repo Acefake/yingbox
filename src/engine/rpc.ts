@@ -10,12 +10,17 @@ import {
   type ResultOf,
   channelOf,
 } from '../shared/contract/define'
-import type { FromEngine, HostMethods, ToEngine } from './protocol'
+import type {
+  FromUtility,
+  ToUtility,
+  UtilityOutcome,
+} from '../shared/utility/protocol'
+import type { HostMethods } from './protocol'
 
 /** 引擎与主进程之间的端口（parentPort 的最小子集）。 */
 export interface EnginePort {
-  postMessage(message: FromEngine): void
-  on(event: 'message', listener: (e: { data: ToEngine }) => void): void
+  postMessage(message: FromUtility): void
+  on(event: 'message', listener: (e: { data: ToUtility }) => void): void
 }
 
 /** 引擎内 handler 的上下文。 */
@@ -93,31 +98,30 @@ export function serveEngine(port: EnginePort): EngineServer {
       for (const listener of shutdownListeners) listener()
       return
     }
-    if (data.kind === 'hostResult') {
+    if (data.kind === 'reply') {
       const pending = pendingHost.get(data.id)
       if (!pending) return
       pendingHost.delete(data.id)
       if (data.ok) pending.resolve(data.value)
-      else pending.reject(new Error(data.error))
+      else pending.reject(new Error(data.error.message))
       return
     }
-    const handler = table.get(data.channel)
-    const reply = (ok: boolean, value?: unknown, error?: string): void =>
-      port.postMessage({ kind: 'result', id: data.id, ok, value, error })
+    if (data.kind !== 'call') return
+    const handler = table.get(data.method)
+    const reply = (outcome: UtilityOutcome): void =>
+      port.postMessage({ kind: 'result', id: data.id, ...outcome })
+    const fail = (message: string): void =>
+      reply({ ok: false, error: { message } })
     if (!handler) {
-      reply(false, undefined, `[engine] 未实现 ${data.channel}`)
+      fail(`[engine] 未实现 ${data.method}`)
       return
     }
     Promise.resolve()
       .then(() => handler(ctx, ...data.args))
       .then(
-        value => reply(true, value),
+        value => reply({ ok: true, value }),
         (error: unknown) =>
-          reply(
-            false,
-            undefined,
-            error instanceof Error ? error.message : String(error)
-          )
+          fail(error instanceof Error ? error.message : String(error))
       )
   })
 

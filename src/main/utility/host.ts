@@ -9,25 +9,25 @@
  * - 调用表：按 id 配对请求与结果；子进程崩溃时挂起的调用全部失败，下一次调用再重启。
  * - 关停：发关停消息，stopTimeoutMs 内没退出就 kill；关停中来的调用等旧进程退完再 fork，
  *   不会两个同类进程同时在跑。关停时还挂着的调用失败。
- * - 空闲退出：idleMs > 0 时，没有挂起的调用、子进程也没报忙（setBusy）时，最后一次调用结束
- *   idleMs 后自动关停。
+ * - 空闲退出：idleMs > 0 时，没有挂起的调用、子进程也没报忙（busy 消息）时，最后一次调用
+ *   结束 idleMs 后自动关停。
+ * - 事件交给 onEvent；代办请求（host）交给 host，结果回给发请求的那个子进程。
  *
- * 线协议由两端各自决定：宿主只通过 encodeCall / decodeReply / isReady 认识调用与结果，
- * 其余消息原样交给 onMessage。
+ * 线协议见 shared/utility/protocol.ts，两种子进程共用；各自的方法表由调用方决定。
  */
+import type {
+  FromUtility,
+  ToUtility,
+  UtilityOutcome,
+} from '../../shared/utility/protocol'
 
 /** 子进程句柄的最小形状（Electron UtilityProcess 的子集）。 */
-export interface UtilityChild<In, Out> {
-  postMessage(message: In, transfer?: unknown[]): void
-  on(event: 'message', listener: (message: Out) => void): void
+export interface UtilityChild {
+  postMessage(message: ToUtility, transfer?: unknown[]): void
+  on(event: 'message', listener: (message: FromUtility) => void): void
   on(event: 'exit', listener: (code: number) => void): void
   kill(): boolean
 }
-
-/** 子进程回来的一次调用结果。 */
-export type UtilityReply =
-  | { id: number; ok: true; value: unknown }
-  | { id: number; ok: false; message: string; code?: string }
 
 /** 调用失败：子进程报错（code 由子进程给）、崩溃或关停（code 为 unavailable）。 */
 export class UtilityCallError extends Error {
@@ -43,25 +43,19 @@ export class UtilityCallError extends Error {
 /** 默认关停多久没退出就 kill。 */
 export const UTILITY_STOP_TIMEOUT_MS = 5_000
 
-/** 宿主选项。In / Out 是两个方向的消息类型，C 是一次调用的载荷。 */
-export interface UtilityHostOptions<In, Out, C> {
+/** 宿主选项。 */
+export interface UtilityHostOptions {
   /** 进程的中文名，用在错误消息里（如「后台引擎」） */
   name: string
-  fork(): UtilityChild<In, Out>
-  /** 把一次调用编码成发给子进程的消息 */
-  encodeCall(id: number, call: C): In
-  /** 从子进程消息里认出调用结果；不是结果时返回 undefined */
-  decodeReply(message: Out): UtilityReply | undefined
-  /** 认出 ready 消息；不给则不跟踪 ready */
-  isReady?(message: Out): boolean
-  /** 让子进程收尾退出的消息 */
-  shutdown: In
-  /** 调用结果与 ready 之外的消息；关停中的旧进程发来的也会到这里，child 用来区分 */
-  onMessage?(message: Out, child: UtilityChild<In, Out>): void
+  fork(): UtilityChild
   /** 新进程 fork 之后、转发任何调用之前 */
-  onStart?(child: UtilityChild<In, Out>): void
+  onStart?(child: UtilityChild): void
   /** 子进程报 ready；elapsedMs 为 fork → ready 的耗时 */
   onReady?(elapsedMs: number): void
+  /** 子进程推来的事件（关停中的旧进程发来的也算） */
+  onEvent?(channel: string, payload: unknown): void
+  /** 子进程能请主进程代办的事（方法名 → 实现）；不在表里的回「未知主进程能力」 */
+  host?: Readonly<Record<string, (...args: never[]) => Promise<unknown>>>
   /** 空闲多久自动关停；不给或 0 表示不空闲退出 */
   idleMs?: number
   /** 关停超时，默认 UTILITY_STOP_TIMEOUT_MS */
@@ -71,8 +65,8 @@ export interface UtilityHostOptions<In, Out, C> {
 }
 
 /** 一个 utilityProcess 的宿主。 */
-export class UtilityHost<In, Out, C> {
-  private child: UtilityChild<In, Out> | undefined
+export class UtilityHost {
+  private child: UtilityChild | undefined
   private readonly pending = new Map<
     number,
     { resolve: (v: unknown) => void; reject: (e: Error) => void }
@@ -84,7 +78,11 @@ export class UtilityHost<In, Out, C> {
   /** 正在关停的旧进程：退出（或被 kill）后 resolve */
   private stopping: Promise<void> | undefined
 
-  constructor(private readonly opts: UtilityHostOptions<In, Out, C>) {}
+  private readonly now: () => number
+
+  constructor(private readonly opts: UtilityHostOptions) {
+    this.now = opts.now ?? Date.now
+  }
 
   /** 子进程是否在运行（不含正在关停的旧进程） */
   get running(): boolean {
@@ -92,7 +90,7 @@ export class UtilityHost<In, Out, C> {
   }
 
   /** 当前子进程（不含正在关停的旧进程） */
-  get current(): UtilityChild<In, Out> | undefined {
+  get current(): UtilityChild | undefined {
     return this.child
   }
 
@@ -102,20 +100,11 @@ export class UtilityHost<In, Out, C> {
     else this.ensure()
   }
 
-  private ensure(): UtilityChild<In, Out> {
+  private ensure(): UtilityChild {
     if (this.child) return this.child
-    const now = this.opts.now ?? Date.now
-    const forkedAt = now()
+    const forkedAt = this.now()
     const child = this.opts.fork()
-    child.on('message', message => {
-      const reply = this.opts.decodeReply(message)
-      if (reply) return this.settle(reply)
-      if (this.opts.isReady?.(message)) {
-        if (this.child === child) this.opts.onReady?.(now() - forkedAt)
-        return
-      }
-      this.opts.onMessage?.(message, child)
-    })
+    child.on('message', message => this.onMessage(child, message, forkedAt))
     child.on('exit', code => {
       if (this.child !== child) return // 关停中的旧进程：由 stop() 收尾
       this.child = undefined
@@ -128,25 +117,61 @@ export class UtilityHost<In, Out, C> {
     return child
   }
 
+  private onMessage(
+    child: UtilityChild,
+    message: FromUtility,
+    forkedAt: number
+  ): void {
+    switch (message.kind) {
+      case 'result':
+        return this.settle(message)
+      case 'ready':
+        if (this.child === child) this.opts.onReady?.(this.now() - forkedAt)
+        return
+      case 'busy':
+        // 只认当前进程：关停中的旧进程发来的迟到消息不算到新进程头上
+        if (this.child !== child) return
+        this.busy = message.busy
+        return this.armIdle()
+      case 'event':
+        return this.opts.onEvent?.(message.channel, message.payload)
+      case 'host': {
+        const reply = (outcome: UtilityOutcome): void =>
+          child.postMessage({ kind: 'reply', id: message.id, ...outcome })
+        const method = this.opts.host?.[message.method] as
+          | ((...args: unknown[]) => Promise<unknown>)
+          | undefined
+        if (!method) {
+          reply({
+            ok: false,
+            error: { message: `未知主进程能力：${message.method}` },
+          })
+          return
+        }
+        method(...message.args).then(
+          value => reply({ ok: true, value }),
+          (error: unknown) =>
+            reply({ ok: false, error: { message: String(error) } })
+        )
+      }
+    }
+  }
+
   private failPending(reason: string): void {
     const error = new UtilityCallError(reason, 'unavailable')
     for (const { reject } of this.pending.values()) reject(error)
     this.pending.clear()
   }
 
-  private settle(reply: UtilityReply): void {
-    const settle = this.pending.get(reply.id)
+  private settle(result: Extract<FromUtility, { kind: 'result' }>): void {
+    const settle = this.pending.get(result.id)
     if (!settle) return
-    this.pending.delete(reply.id)
-    if (reply.ok) settle.resolve(reply.value)
-    else settle.reject(new UtilityCallError(reply.message, reply.code))
-    this.armIdle()
-  }
-
-  /** 子进程报告忙碌状态；只认当前子进程，关停中的旧进程发来的忽略。 */
-  setBusy(child: UtilityChild<In, Out>, busy: boolean): void {
-    if (this.child !== child) return
-    this.busy = busy
+    this.pending.delete(result.id)
+    if (result.ok) settle.resolve(result.value)
+    else
+      settle.reject(
+        new UtilityCallError(result.error.message, result.error.code)
+      )
     this.armIdle()
   }
 
@@ -160,7 +185,7 @@ export class UtilityHost<In, Out, C> {
   }
 
   /** 转发一次调用。子进程关停中时等它退完再拉起新的。 */
-  call(payload: C): Promise<unknown> {
+  call(method: string, args: unknown[]): Promise<unknown> {
     clearTimeout(this.idleTimer)
     this.idleTimer = undefined
     const send = (): Promise<unknown> => {
@@ -168,7 +193,7 @@ export class UtilityHost<In, Out, C> {
       const id = this.nextId++
       return new Promise((resolve, reject) => {
         this.pending.set(id, { resolve, reject })
-        child.postMessage(this.opts.encodeCall(id, payload))
+        child.postMessage({ kind: 'call', id, method, args })
       })
     }
     return this.stopping ? this.stopping.then(send) : send()
@@ -191,7 +216,7 @@ export class UtilityHost<In, Out, C> {
         clearTimeout(timer)
         resolve()
       })
-      child.postMessage(this.opts.shutdown)
+      child.postMessage({ kind: 'shutdown' })
     }).finally(() => {
       // 新进程等 stopping 结束才 fork，这时还挂着的调用都属于旧进程
       this.failPending(`${this.opts.name}已关停`)

@@ -99,10 +99,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       pushPort: port => onPort?.({ ports: [port] }),
       async invoke(channel, method, params) {
         expect(channel).toBe(LIBRARY_CHANNELS.invoke)
-        const response = await handleRpc(service, { id: 1, method, params })
-        return response.ok
-          ? { ok: true, result: response.result }
-          : { ok: false, error: response.error }
+        return handleRpc(service, { method, params })
       },
       send(channel) {
         sent.push(channel)
@@ -154,15 +151,12 @@ describe('引擎 RPC 与 preload bridge', () => {
 
   it('未知方法与非法参数返回带错误码的失败响应，不抛出', async () => {
     expect(
-      await handleRpc(service, { id: 7, method: 'dropTables', params: {} })
+      await handleRpc(service, { method: 'dropTables', params: {} })
     ).toEqual({
-      kind: 'response',
-      id: 7,
       ok: false,
       error: expect.objectContaining({ code: 'unknown-method' }),
     })
     const bad = await handleRpc(service, {
-      id: 8,
       method: 'getItem',
       params: { itemId: 'x' },
     })
