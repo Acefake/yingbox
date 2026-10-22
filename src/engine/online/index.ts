@@ -8,6 +8,7 @@ import {
   HostUnavailableError,
   createHostBreaker,
   hostOf,
+  pathScope,
 } from '../../shared/net/host-breaker'
 import {
   type CatSpiderSite,
@@ -42,7 +43,7 @@ const TMDB_API = 'https://api.themoviedb.org/3'
 export interface OnlineDeps {
   net: NetClient
   loadPlugin: (url: string) => Promise<string>
-  /** 插件请求的主机熔断；缺省新建一份（30 分钟冷却、连续 3 次失败） */
+  /** 插件请求的熔断（主机 + 路径类别）；缺省新建一份不落盘的（30 分钟冷却、连续 3 次失败） */
   breaker?: HostBreaker
   log?: (line: string) => void
 }
@@ -73,7 +74,7 @@ function pluginArgs(request: VodRequest): Record<string, unknown> {
 export function createOnlineHandlers(
   deps: OnlineDeps
 ): EngineHandlers<typeof online> {
-  const breaker = deps.breaker ?? createHostBreaker()
+  const breaker = deps.breaker ?? createHostBreaker({ scopeOf: pathScope })
   /** 下载失败的插件脚本：地址 → 失败时间；冷却期内直接判失败 */
   const pluginFailures = new Map<string, number>()
   const loadPlugin = async (url: string): Promise<string> => {

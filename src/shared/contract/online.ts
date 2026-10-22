@@ -10,7 +10,7 @@ import {
 } from './define'
 import type { HostTrip } from '../net/host-breaker'
 
-export type { HostTrip, TripReason } from '../net/host-breaker'
+export type { HostScope, HostTrip, TripReason } from '../net/host-breaker'
 
 /** CatSpider（XPTV）插件站点。 */
 export interface CatSpiderSite {

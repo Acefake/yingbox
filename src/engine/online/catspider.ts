@@ -15,6 +15,7 @@ import {
   type HostTrip,
   HostUnavailableError,
   createHostBreaker,
+  pathScope,
 } from '../../shared/net/host-breaker'
 import type { CatSpiderAction } from '../../shared/contract/online'
 
@@ -25,7 +26,7 @@ export interface CatSpiderDeps {
   browserFetch: (url: string) => Promise<string>
   /** 读插件源码（带本地缓存），见 plugin-cache.ts */
   loadPlugin: (url: string) => Promise<string>
-  /** 按主机熔断；在线域跨请求共用一份，缺省时每次运行各建一份 */
+  /** 按主机 + 路径类别熔断；在线域跨请求共用一份，缺省时每次运行各建一份 */
   breaker?: HostBreaker
   /** 本次运行碰到熔断（硬封锁 / 连续失败）时回报，供上层标记站点不可用 */
   onTrip?: (trip: HostTrip) => void
@@ -215,7 +216,7 @@ function makeHtmlHelpers(): Record<string, unknown> {
  */
 function makeFetch(deps: CatSpiderDeps): unknown {
   const log = deps.log ?? (() => {})
-  const breaker = deps.breaker ?? createHostBreaker()
+  const breaker = deps.breaker ?? createHostBreaker({ scopeOf: pathScope })
   const report = (trip: HostTrip | null): void => {
     if (!trip) return
     log(`[host-breaker] ${trip.host} ${trip.reason}`)
