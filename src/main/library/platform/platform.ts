@@ -35,6 +35,8 @@ export interface LibraryPlatform {
   deriveImage?: IdentifyModuleOptions['deriveImage']
   /** 环境变量兜底的令牌（设置里没有时使用）。 */
   env?: LibraryEnvSecrets
+  /** 按画面搜的像素转换（原图 → 224×224 RGBA）；宿主用编解码线程实现，见 visual/clip-pixels.ts。 */
+  clipPixels?: (bytes: Uint8Array) => Promise<Uint8Array>
 }
 
 /** 环境变量里的令牌。 */
@@ -81,5 +83,6 @@ export function createLibraryService(
       deriveImage: platform.deriveImage,
       env: platform.env,
     },
+    visual: { ...extra.visual, pixels: platform.clipPixels },
   })
 }

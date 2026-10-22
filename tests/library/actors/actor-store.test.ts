@@ -33,7 +33,7 @@ function syncAll(store: ActorStore): void {
 describe('演员库存储', () => {
   it('迁移到 V6：演员表、关联表与检索表都在', () => {
     const { db } = memoryDb()
-    expect(schemaVersion(db)).toBe(6)
+    expect(schemaVersion(db)).toBe(7)
     const names = db
       .prepare("SELECT name FROM sqlite_master WHERE type IN ('table')")
       .all()

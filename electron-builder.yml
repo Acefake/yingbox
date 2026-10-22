@@ -38,10 +38,16 @@ files:
   - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
   - resources/**
+  # 按画面搜的推理运行时（原生模块 + 动态库）不能留在 asar 里
+  - node_modules/onnxruntime-node/bin/**
 extraResources:
   - from: resources/mpv
     to: mpv
 win:
+  # 只带本平台 / 架构的推理运行时（每份 30–60 MB）
+  files:
+    - '!node_modules/onnxruntime-node/bin/napi-v6/{darwin,linux}/**'
+    - '!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**'
   executableName: 影盒
   icon: resources/logo.ico
   requestedExecutionLevel: asInvoker
@@ -68,6 +74,8 @@ nsis:
   createDesktopShortcut: always
   createStartMenuShortcut: true
 mac:
+  files:
+    - '!node_modules/onnxruntime-node/bin/napi-v6/{win32,linux}/**'
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
     - NSCameraUsageDescription: Application requests access to the device's camera.
@@ -78,6 +86,8 @@ mac:
 dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
+  files:
+    - '!node_modules/onnxruntime-node/bin/napi-v6/{win32,darwin}/**'
   target:
     - AppImage
     - snap

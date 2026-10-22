@@ -118,6 +118,11 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
     },
     actors: createActorsBridge(call),
     facets: { list: request => call('facets.list', request) },
+    visual: {
+      status: () => call('visual.status'),
+      index: () => call('visual.index'),
+      search: request => call('visual.search', request),
+    },
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       listeners.add(listener)
       if (listeners.size === 1) ipc.send(LIBRARY_CHANNELS.subscribe)

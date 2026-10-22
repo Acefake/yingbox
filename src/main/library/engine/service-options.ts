@@ -3,6 +3,7 @@
  */
 import type { IdentifyModuleOptions } from '../identify/identify-module'
 import type { MoveOps } from '../writer/fs/file-ops'
+import type { VisualOptions } from '../visual/visual-setup'
 import type { WatchMode } from './library-monitor'
 
 /** 服务参数。 */
@@ -43,6 +44,8 @@ export interface LibraryServiceOptions {
     | 'http'
     | 'concurrency'
   >
+  /** 按画面搜的注入项（推理后端、像素转换），见 visual/visual-setup.ts。 */
+  visual?: VisualOptions
   /** 写出层的注入项（测试模拟跨盘）。 */
   writer?: {
     moveOps?: MoveOps

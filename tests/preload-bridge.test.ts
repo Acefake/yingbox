@@ -111,6 +111,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'jav',
     'actors',
     'facets',
+    'visual',
     'subscribe',
   ],
 }

@@ -32,6 +32,7 @@ import type {
   UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
 import { ActorModule } from '../actors/actor-module'
+import { type VisualModule, createVisualModule } from '../visual/visual-setup'
 import { KeyedMutex } from '../jobs/keyed-mutex'
 import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
@@ -78,6 +79,8 @@ export class LibraryService {
   readonly writer: WriterModule
   /** 演员库（番号库的演员资料）。 */
   readonly actors: ActorModule
+  /** 按画面搜（番号库封面与剧照的 CLIP 索引）。 */
+  readonly visual: VisualModule
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
   private readonly watch: LibraryWatch
@@ -155,9 +158,11 @@ export class LibraryService {
       followups: itemIds => [
         ...this.actors.identifiedFollowups(itemIds),
         ...this.writer.autoFollowups(itemIds),
+        ...this.visual.identifiedFollowups(itemIds),
       ],
       log: this.log,
     })
+    this.visual = createVisualModule(options, this)
     this.writer = new WriterModule({
       db: this.db,
       queue: this.queue,

@@ -157,6 +157,29 @@ export async function resizeToWidth(
   }
 }
 
+/** 缩放到固定宽高（不保持比例；CLIP 输入就是这样拉伸的）。Catmull-Rom 滤波，接近 PIL 的双三次。 */
+export async function resizeExact(
+  image: RgbaImage,
+  width: number,
+  height: number
+): Promise<RgbaImage> {
+  const out = (await resizer())(
+    image.rgba,
+    image.width,
+    image.height,
+    width,
+    height,
+    1,
+    true,
+    false
+  )
+  return {
+    rgba: new Uint8Array(out.buffer, out.byteOffset, out.byteLength),
+    width,
+    height,
+  }
+}
+
 /** RGBA → JPEG（WebP 编码不可用时的兜底）。 */
 export async function encodeJpeg(
   image: RgbaImage,
