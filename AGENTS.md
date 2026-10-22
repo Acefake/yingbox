@@ -19,6 +19,7 @@ pnpm dev            # Electron (engine starts on demand)
 pnpm typecheck      # tsc (main/preload) + vue-tsc (renderer) + vue-tsc (tests)
 pnpm lint           # eslint --cache + check:size --strict
 pnpm test           # vitest run (tests/)
+pnpm test:affected  # only tests affected by changes vs origin/main (see Engineering gates)
 pnpm format         # prettier --write .
 pnpm build          # typecheck + electron-vite build
 pnpm build:nocheck  # electron-vite build only
@@ -27,6 +28,7 @@ pnpm build:win:full # Windows NSIS installer
 pnpm build:mac      # macOS dmg
 pnpm check          # scripts/check-issues.sh
 pnpm check:case     # import case-sensitivity check (Windows-safe against mac/Linux breakage)
+pnpm check:copy     # copy / comments describe the final state only (ratchet baseline)
 pnpm start          # electron-vite preview (production-like)
 pnpm dev:server     # standalone library server (tsx watch, 127.0.0.1:31480)
 pnpm dev:web        # web build; proxies /api and /media to the library server
@@ -130,6 +132,27 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
 | Library           | utilityProcess engine, `node:sqlite`                             |
 | CatSpider runtime | cheerio, crypto-js (required inside the engine's plugin sandbox) |
 | Tests             | Vitest 5                                                         |
+
+## Engineering gates
+
+- **Affected tests while iterating:** `pnpm test:affected [--plan] [--base <ref>] [-- <vitest args>]` diffs the working tree (incl. untracked) against the merge-base with `origin/main`. Comment / whitespace / format-only edits are skipped (TS/JS compared as a TypeScript syntax-tree fingerprint; `.vue` per block; `.json` parsed); shared infrastructure (`package.json`, lockfile, vite / vitest / tsconfig / eslint config, `src/shared/**`, `scripts/**`, test setup) or a deleted source file runs everything; other code goes through vitest's import graph (`related`), plus every test marked `test-affected: repo-wide` (tests that read source text or run eslint — mark new ones the same way); non-code files run the tests that mention their name. **Before merging, run the full suite** (typecheck, `pnpm test`, build, `check:style` / `check:case` / `check:size`).
+- **Ratchet baselines (only shrink):** `scripts/baselines/style-visual.json` (`check:style`: font weight 400/500/600 only, radius only `--radius-*` / `0` / `50%`, colors only tokens, selected states fill with `--bg-active` and add no border) and `scripts/baselines/copy-final-state.json` (`check:copy`: UI copy and comments state the final behaviour, no 改为 / 原先 / 之前是 / 旧版 comparisons). Fixing a violation means running the script with `--update-baseline` in the same change; a new violation fails. Per-line escapes: `/* style-tokens: visual（reason） */`, `copy-lint: ok`.
+- **Dependencies:** new entries in `package.json` use exact versions; the caret ranges that predate the rule are listed in `scripts/baselines/dependency-ranges.json` and may only be pinned or removed (`tests/dev-gates/dependency-policy.test.ts`).
+- **Context budget:** this file and `CLAUDE.md` have line / byte / longest-line budgets in `tests/dev-gates/context-budget.test.ts`. Move detail into `docs/` instead of growing them; raising a budget needs a dated entry with a reason.
+
+## Decisions (ADR)
+
+Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案). **Changing one of them requires a new ADR** that supersedes it — do not silently redo or revert it.
+
+- [0001](docs/adr/0001-keep-two-utility-processes.md) 两个 utilityProcess 不合并
+- [0002](docs/adr/0002-no-impit.md) 不引入 impit 伪装 TLS 指纹
+- [0003](docs/adr/0003-overseas-probe-not-source-failure.md) 海外探测失败不当作源失效（以国内实测为准）
+- [0004](docs/adr/0004-cf-breaker-scope-persist.md) CF 熔断按主机 + 用途、落盘、硬封锁不弹窗
+- [0005](docs/adr/0005-cf-session-fast-path.md) 过挑战后 25 分钟内走 session.fetch 快路径
+- [0006](docs/adr/0006-download-resume-and-leftovers.md) 下载断点续传、任务记目录、7 天孤儿临时文件清扫
+- [0007](docs/adr/0007-engine-idle-exit.md) 后台引擎空闲 5 分钟退出
+- [0008](docs/adr/0008-scan-time-slicing.md) 媒体库扫描按 16 ms 时间片让出
+- [0009](docs/adr/0009-utility-wire-protocol.md) 两个 utilityProcess 统一线协议
 
 ## UI conventions
 

@@ -1,0 +1,29 @@
+{
+  "src/renderer/src/components/ui/UiIconButton.vue": {
+    "color": 4
+  },
+  "src/renderer/src/components/ui/UiPosterCard.vue": {
+    "color": 4
+  },
+  "src/renderer/src/components/ui/UiSegmented.vue": {
+    "color": 1
+  },
+  "src/renderer/src/components/ui/ui.css": {
+    "color": 1
+  },
+  "src/renderer/src/features/library/actors/ActorProfile.vue": {
+    "font-weight": 1
+  },
+  "src/renderer/src/features/library/detail/DetailHero.vue": {
+    "font-weight": 1
+  },
+  "src/renderer/src/features/library/detail/WebPlayer.vue": {
+    "color": 2
+  },
+  "src/renderer/src/features/library/page/LibraryToolbar.vue": {
+    "font-weight": 1
+  },
+  "src/renderer/src/features/online/components/DetailHero.vue": {
+    "font-weight": 1
+  }
+}
