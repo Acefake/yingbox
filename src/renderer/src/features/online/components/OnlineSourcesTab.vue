@@ -51,8 +51,8 @@
       />
     </template>
     <SourceSiteRow
-      v-for="(s, i) in sortedCustomSites"
-      :key="s.api + i"
+      v-for="s in sortedCustomSites"
+      :key="s.api"
       :name="s.name"
       :api="s.api"
       badge="自定义"
@@ -63,7 +63,7 @@
       deletable
       @toggle="toggleSite(s.api)"
       @check="checkOnlineSite(s.api)"
-      @delete="removeCustom(i)"
+      @delete="removeCustom(s.api)"
     />
   </SourceSection>
 </template>
@@ -103,8 +103,13 @@ const sortedCustomSites = computed(() =>
   sortByConnection(customSites.value, statusOf)
 )
 
-const removeCustom = (idx: number): void => {
-  const site = customSites.value[idx]
+/**
+ * 删除一个自定义源。按 api 认源（添加时已保证不重复）：列表是排序后显示的，
+ * 不能拿显示位置去删存储数组。
+ */
+const removeCustom = (api: string): void => {
+  const site = customSites.value.find(s => s.api === api)
+  if (!site) return
   void confirmDialog({
     title: `删除数据源“${site.name}”？`,
     content: '删除后需要重新填写地址才能恢复。',
@@ -113,7 +118,7 @@ const removeCustom = (idx: number): void => {
     onOk: () => {
       selectedSites.delete(site.api)
       delete statusMap[site.api]
-      customSites.value = customSites.value.filter((_, i) => i !== idx)
+      customSites.value = customSites.value.filter(s => s.api !== api)
     },
   })
 }
