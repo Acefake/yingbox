@@ -6,6 +6,7 @@
  * | --host          | YINGBOX_HOST         | 127.0.0.1（只本机可访问）              |
  * | --port          | YINGBOX_PORT         | 31480                                  |
  * | --data-dir      | YINGBOX_DATA_DIR     | ~/.yingbox-server                      |
+ * | --cache-dir     | YINGBOX_CACHE_DIR    | 同数据目录（图片缓存放在其下 media/）  |
  * | --media-root …  | YINGBOX_MEDIA_ROOTS  | 用户主目录（多个用系统路径分隔符 : / ;） |
  * | --web-dir       | YINGBOX_WEB_DIR      | 包旁边的 dist-web（存在时）；off 关闭   |
  * | --fetch         | YINGBOX_FETCH        | node（见 library/platform/fetch）       |
@@ -24,13 +25,16 @@ import {
   type WatchMode,
 } from '../main/library/engine/library-monitor'
 import { type FetchSpec, parseFetchSpec } from '../main/library/platform/fetch'
+import { libraryPaths } from '../main/library/platform/paths'
 
 /** 服务配置。 */
 export interface ServerConfig {
   host: string
   port: number
-  /** 数据目录：library.db、media/（原图与缩略图）、secrets.json。 */
+  /** 数据目录：library.db、secrets.json。 */
   dataDir: string
+  /** 缓存目录：media/（海报原图与缩略图）、演员头像索引；默认同数据目录。 */
+  cacheDir: string
   /** 允许浏览、添加为媒体库的根目录（已解析为绝对路径）。 */
   mediaRoots: string[]
   /** 网页端静态文件目录；null 表示不托管网页（只提供 API）。 */
@@ -147,18 +151,35 @@ export function loadConfig(
           ? bundledWeb
           : null
 
+  const dataDir = abs(
+    flag('data-dir') ??
+      nonEmpty(env.YINGBOX_DATA_DIR) ??
+      join(defaults.home, '.yingbox-server')
+  )
+  const cacheSetting = flag('cache-dir') ?? nonEmpty(env.YINGBOX_CACHE_DIR)
+
   return {
     host: flag('host') ?? nonEmpty(env.YINGBOX_HOST) ?? '127.0.0.1',
     port,
-    dataDir: abs(
-      flag('data-dir') ??
-        nonEmpty(env.YINGBOX_DATA_DIR) ??
-        join(defaults.home, '.yingbox-server')
-    ),
+    dataDir,
+    cacheDir: cacheSetting ? abs(cacheSetting) : dataDir,
     mediaRoots: [...new Set(rootList.map(abs))],
     webDir,
     fetch: parseFetchSpec(flag('fetch') ?? env.YINGBOX_FETCH),
     monitor: loadMonitor(flag, env),
+  }
+}
+
+/** 服务落盘的位置：数据库与密钥在数据目录，图片缓存在缓存目录（Docker 里分别是 /config、/cache 两个卷）。 */
+export function serverPaths(config: ServerConfig): {
+  dbPath: string
+  secretsPath: string
+  mediaDir: string
+} {
+  return {
+    dbPath: libraryPaths(config.dataDir).dbPath,
+    secretsPath: join(config.dataDir, 'secrets.json'),
+    mediaDir: libraryPaths(config.cacheDir).mediaDir,
   }
 }
 
