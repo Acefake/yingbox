@@ -17,6 +17,4 @@ export const dialog = defineDomain('dialog', {
   openFile: call<[options?: OpenDialogOptions], OpenDialogResult>(a => [
     optRecord<OpenDialogOptions>(a[0], 'options'),
   ]),
-  /** 选择目录（只返回路径，取消为 null） */
-  selectDirectory: call<string | null>(),
 })

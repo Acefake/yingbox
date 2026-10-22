@@ -44,6 +44,8 @@ export const settings = defineDomain(
       oneOfKeys(a[0], secretKeys, 'key'),
       str(a[1], 'value'),
     ]),
+    /** 弹出系统选择文件夹对话框；选中的目录通过可写校验后存为 download.dir 并返回。取消返回 null，不可写时抛错 */
+    chooseDownloadDir: call<string | null>(),
   },
   {
     /** 任一窗口改了设置后广播给所有窗口 */
