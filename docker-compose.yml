@@ -39,7 +39,8 @@ services:
       # HTTP_PROXY: 'http://192.168.1.2:7890'
       # NO_PROXY: 'localhost,127.0.0.1'
       # NODE_USE_ENV_PROXY: '1'
-      # 目录监控：auto 本地盘用文件系统事件、网络盘（含 CloudDrive2 等 FUSE 挂载）只用定时扫描
+      # 目录监控：auto 本地盘用文件系统事件；网络盘 / FUSE 挂载（含 CloudDrive2）的库存储为「自动」时按网盘处理，
+      # 不监听、不定时扫描，靠变更通知或手动扫描（见 docs/deploy/nas.md「CloudDrive2」）
       # YINGBOX_WATCH: 'auto'
       # 定时增量扫描间隔（秒）；网盘挂载目录很多时别太短
       # YINGBOX_SCAN_INTERVAL: '300'
