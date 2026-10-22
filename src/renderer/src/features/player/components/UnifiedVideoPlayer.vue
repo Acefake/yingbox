@@ -66,6 +66,7 @@ import {
 import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
+import '../styles/art-skin.css'
 
 const props = withDefaults(
   defineProps<{
@@ -162,6 +163,9 @@ const sink: ArtSink = {
     pendingSeek = 0
   },
   autoplay: () => props.autoplay,
+  subtitles: () => {
+    if (!subtitles.panelOpen.value) subtitles.togglePanel()
+  },
 }
 
 /** 拆掉自己持有的实例；交给小窗的实例（连同字幕 blob）不归这里，由小窗拆除 */
