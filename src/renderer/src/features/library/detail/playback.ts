@@ -10,6 +10,7 @@ import { type PlayerSourceItem, openMediaPlayer } from '@/features/player'
 
 import { usesLibraryServer } from '../api/bridge'
 import { baseName, episodeCode } from '../shared/format'
+import { sortedSeasons } from './detail-rules'
 import { openWebPlayer } from './web-player'
 
 /** 节点自身的视频文件（按路径排序：分段 / 多版本按文件名顺序）。 */
@@ -79,6 +80,16 @@ export function episodePlayRequest(
     fileIds: firsts.map(file => file.id),
     index,
   }
+}
+
+/** 条目的主播放：电影连播全部文件；剧集从排序后第一个有文件的季的第一集开始。没有文件返回 null。 */
+export function primaryPlayRequest(node: LibraryItemNode): PlayRequest | null {
+  if (node.type === 'movie') return moviePlayRequest(node)
+  for (const season of sortedSeasons(node)) {
+    const first = playableEpisodes(season)[0]
+    if (first) return episodePlayRequest(node, season, first)
+  }
+  return null
 }
 
 /** 打开播放器；没有可用播放器返回 false。 */
