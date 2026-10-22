@@ -67,9 +67,9 @@ export function createDownloadHandlers(deps: DownloadDeps): {
   handlers: EngineHandlers<typeof download>
   queue: DownloadQueue
 } {
-  const run: DownloadRunner = async (code, report, signal) => {
-    const { ctx } = deps
-    const dir = join(await ctx.host('downloadDir'), code)
+  const { ctx } = deps
+  const run: DownloadRunner = async (code, report, signal, root) => {
+    const dir = join(root, code)
     await mkdir(dir, { recursive: true })
     const source = await resolveSource(
       code,
@@ -90,9 +90,10 @@ export function createDownloadHandlers(deps: DownloadDeps): {
       result.container === 'ts' ? await remuxToMp4(result.file) : result.file
     return { file, site: source.site }
   }
-  // 任务被移除：丢掉续传临时文件（失败 / 取消时它们留着给下次续传）
-  const discard = async (code: string): Promise<void> =>
-    discardResumeTemps(join(await deps.ctx.host('downloadDir'), code))
+  // 任务被移除：丢掉续传临时文件（失败 / 取消时它们留着给下次续传）。
+  // 没开始过的任务没有记下目录，按当前目录找（老版本留下的临时文件也在那里）
+  const discard = async (code: string, dir?: string): Promise<void> =>
+    discardResumeTemps(join(dir ?? (await ctx.host('downloadDir')), code))
 
   // 进度很密：合并成最多每 500ms 推一次
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -103,18 +104,19 @@ export function createDownloadHandlers(deps: DownloadDeps): {
     const nowBusy = Boolean(snapshot.active) || snapshot.queued.length > 0
     if (nowBusy !== busy) {
       busy = nowBusy
-      deps.ctx.busy(busy)
+      ctx.busy(busy)
     }
     latest = snapshot
     if (timer) return
     timer = setTimeout(() => {
       timer = undefined
-      if (latest) deps.ctx.emit(download, 'changed', latest)
+      if (latest) ctx.emit(download, 'changed', latest)
     }, 500)
   }
 
   const queue = new DownloadQueue({
     file: deps.stateFile,
+    downloadDir: () => ctx.host('downloadDir'),
     run,
     discard,
     onChange,
