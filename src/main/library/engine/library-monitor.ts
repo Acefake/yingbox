@@ -7,8 +7,11 @@
  * 2. 定时增量扫描：每 pollIntervalMs 对整库做一次增量扫描（目录 mtime 短路，无变化时只 stat 目录）。
  *    网络盘（NFS / SMB / FUSE / 9p）上别的机器写入的文件没有事件、事件缓冲溢出、休眠唤醒，都由它兜住。
  *
- * 模式：
- * - auto（默认）：本地盘用事件 + 定时扫描；网络盘或事件启动失败 / 运行中出错时只用定时扫描；
+ * 网盘模式的库（见 engine/storage-mode.ts）两条都不用：通道记为 external，只靠外部变更通知
+ * （engine/external-changes.ts）和手动扫描，启动时也不补扫——网盘上整库遍历是一次大规模网络列目录。
+ *
+ * 模式（只管本地盘；网盘模式的库在任何模式下都是 external）：
+ * - auto（默认）：本地盘用事件 + 定时扫描；网络盘（存储改选「本地盘」时）或事件启动失败 / 运行中出错时只用定时扫描；
  * - events：总是尝试事件（失败仍退回定时扫描），用于确认网络盘事件可用的环境；
  * - poll：只用定时扫描；
  * - off：都不用，只能手动扫描。
@@ -41,8 +44,8 @@ export const DEFAULT_MONITOR: {
   readonly settleMs: number
 } = { watchMode: 'auto', scanIntervalMs: 5 * 60_000, settleMs: 10_000 }
 
-/** 一个库实际在用的通道。 */
-export type MonitorChannel = 'events' | 'poll' | 'off'
+/** 一个库实际在用的通道：external 是网盘模式（只靠外部变更通知与手动扫描）。 */
+export type MonitorChannel = 'events' | 'poll' | 'external' | 'off'
 
 /** 监控参数。 */
 export interface MonitorOptions {
@@ -114,11 +117,21 @@ export class LibraryMonitor {
   /**
    * 开始监控一个库；已在监控时什么都不做。
    * @param catchUp 立即排一次整库增量扫描（启动时补上停机期间的变化）
+   * @param cloud 网盘模式：不监听、不定时扫描、不补扫，通道记为 external
    */
-  async add(libraryId: number, root: string, catchUp = false): Promise<void> {
+  async add(
+    libraryId: number,
+    root: string,
+    catchUp = false,
+    cloud = false
+  ): Promise<void> {
     if (this.closed || this.entries.has(libraryId)) return
     const { mode, pollIntervalMs, log } = this.options
     if (mode === 'off') return
+    if (cloud) {
+      this.entries.set(libraryId, { root, channel: 'external' })
+      return
+    }
     const entry: Entry = { root, channel: 'poll' }
     this.entries.set(libraryId, entry)
     let reason: string | undefined

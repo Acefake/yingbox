@@ -1,10 +1,11 @@
 /**
  * 媒体库服务：把数据库、任务队列、扫描器、监控组装起来，实现 IPC 契约的每个方法，
- * 并把变化广播给订阅方。新文件的链路：监控（事件 / 定时扫描）→ 增量扫描（写入稳定判定）→
+ * 并把变化广播给订阅方。新文件的链路：监控（事件 / 定时扫描 / 外部变更通知）→ 增量扫描（写入稳定判定）→
  * 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」）。
  *
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。
- * 扫描 / 解析 / 指纹任务的实现在 library-jobs，纯规则在 service-rules。
+ * 扫描 / 解析 / 指纹任务的实现在 library-jobs，纯规则在 service-rules，变化入口在 library-watch。
+ * 网盘模式的库不读视频内容：后台指纹跳过，识别时的时长探测 / 哈希限速（见 cloud-reads）。
  */
 import type {
   ApplyMatchRequest,
@@ -19,6 +20,8 @@ import type {
   LibraryRpcMap,
   MatchCandidatesResult,
   NormalizedLibraryQuery,
+  NotifyChangesRequest,
+  NotifyChangesResult,
   ProviderStatus,
   RefreshMetadataRequest,
   ScanAccepted,
@@ -32,6 +35,7 @@ import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
 import { IdentifyModule } from '../identify/identify-module'
+import { probeFileDuration } from '../identify/media-duration'
 import { JobStore } from '../jobs/job-store'
 import { JobQueue, PermanentJobError } from '../jobs/queue'
 import {
@@ -42,21 +46,15 @@ import {
 import { fingerprintFile } from '../scanner/fingerprint'
 import { PARSER_VERSION } from '../scanner/parse'
 import { ScanStore } from '../scanner/scan-store'
-import { SettleTracker } from '../scanner/settle'
-import { LibraryMonitor } from './library-monitor'
+import { Pacer, forCloud } from './cloud-reads'
+import { LibraryWatch } from './library-watch'
 import type { LibraryServiceOptions } from './service-options'
-import {
-  type LibraryJobDeps,
-  runFingerprint,
-  runParse,
-  runScan,
-} from './library-jobs'
+import { type LibraryJobDeps, registerLibraryJobs } from './library-jobs'
 import {
   type LibraryPayload,
   PRIORITY,
   type ScanPayload,
   itemsChangedEvent,
-  mergeScanPayload,
   scanJobKey,
 } from './service-rules'
 
@@ -79,9 +77,7 @@ export class LibraryService {
   readonly actors: ActorModule
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
-  private readonly monitor: LibraryMonitor
-  private readonly settle = new Map<number, SettleTracker>()
-  private readonly settleMs: number
+  private readonly watch: LibraryWatch
   private readonly listeners = new Set<(event: LibraryEvent) => void>()
   private readonly fingerprint: (path: string) => Promise<string | undefined>
   private readonly log: (message: string) => void
@@ -94,7 +90,17 @@ export class LibraryService {
     this.catalogQuery = new CatalogQuery(this.db)
     this.fingerprint = options.fingerprint ?? fingerprintFile
     this.log = options.log ?? (() => {})
-    this.settleMs = options.settleMs ?? 0
+    this.watch = new LibraryWatch(
+      options,
+      this.log,
+      () => this.libraries.list(),
+      (libraryId, dirs) => this.onWatchChange(libraryId, dirs)
+    )
+    const isCloudPath = (path: string): Promise<boolean> =>
+      this.watch.isCloudPath(path)
+    // 网盘上：后台批量读视频跳过，识别时按需读限速
+    const backgroundRead = forCloud(p => this.fingerprint(p), isCloudPath)
+    const pacer = new Pacer(options.cloudReadIntervalMs)
     this.queue = new JobQueue(new JobStore(this.db), {
       concurrency: options.concurrency,
       onEvent: event => this.emit(event),
@@ -103,38 +109,27 @@ export class LibraryService {
       db: this.db,
       scanStore: this.scanStore,
       catalog: this.catalog,
-      fingerprint: path => this.fingerprint(path),
+      fingerprint: backgroundRead,
       libraryFor: id => this.libraryFor(id),
       onLibraryScanned: id => {
         this.libraries.markScanned(id, Date.now())
         this.emitLibraries()
       },
       emitItems: (id, changes) => this.emitItems(id, changes),
-      enqueueFingerprint: id => this.enqueueLibraryJob('fingerprint', id),
+      // 网盘不读视频内容：不排指纹任务
+      enqueueFingerprint: id =>
+        void this.isCloudLibrary(id).then(
+          cloud => cloud || this.enqueueLibraryJob('fingerprint', id)
+        ),
       enqueueIdentify: id => {
         if (this.libraries.find(id)?.automation.identify)
           this.identifier.enqueueAuto(id)
       },
-      settleFor: lib => this.settleFor(lib),
-      onUnsettled: (id, u) => this.monitor.recheck(id, u.dirs, u.retryInMs),
+      settleFor: lib => this.watch.settleFor(lib),
+      onUnsettled: (id, u) => this.watch.recheck(id, u.dirs, u.retryInMs),
       log: this.log,
     }
-    this.queue.register(
-      'scan',
-      (p, ctx) =>
-        this.locks.run((p as ScanPayload).libraryId, () =>
-          runScan(jobs, p as ScanPayload, ctx)
-        ),
-      { merge: mergeScanPayload }
-    )
-    this.queue.register('parse', (p, ctx) =>
-      this.locks.run((p as LibraryPayload).libraryId, () =>
-        runParse(jobs, p as LibraryPayload, ctx)
-      )
-    )
-    this.queue.register('fingerprint', (p, ctx) =>
-      runFingerprint(jobs, p as LibraryPayload, ctx)
-    )
+    registerLibraryJobs(this.queue, this.locks, jobs)
     this.actors = new ActorModule({
       db: this.db,
       queue: this.queue,
@@ -145,12 +140,17 @@ export class LibraryService {
     })
     this.identifier = new IdentifyModule({
       ...options.identify,
+      probeDuration: forCloud(
+        options.identify?.probeDuration ?? probeFileDuration,
+        isCloudPath,
+        pacer
+      ),
       avatars: this.actors.avatars,
       db: this.db,
       queue: this.queue,
       catalogQuery: this.catalogQuery,
       emit: event => this.emit(event),
-      fingerprint: path => this.fingerprint(path),
+      fingerprint: forCloud(p => this.fingerprint(p), isCloudPath, pacer),
       onIdentified: itemIds => {
         this.actors.onIdentified(itemIds)
         this.writer.enqueueAuto(itemIds)
@@ -170,15 +170,6 @@ export class LibraryService {
       deviceOf: options.writer?.deviceOf,
       log: this.log,
     })
-    this.monitor = new LibraryMonitor(
-      {
-        mode: options.watch === false ? 'off' : (options.watchMode ?? 'auto'),
-        pollIntervalMs: options.scanIntervalMs ?? 0,
-        quietMs: options.watchQuietMs,
-        log: this.log,
-      },
-      (libraryId, dirs) => this.onWatchChange(libraryId, dirs)
-    )
   }
 
   /** 启动：恢复中断的任务，旧解析版本的文件排重解析，开始监控（并补扫停机期间的变化）。 */
@@ -191,12 +182,14 @@ export class LibraryService {
     this.identifier.start()
     this.actors.start()
     this.queue.start()
-    for (const lib of this.libraries.list()) this.startWatching(lib, true)
+    const libs = this.libraries.list()
+    for (const lib of libs) this.watch.start(lib, true)
+    this.emitLibrariesWhenJudged(libs)
   }
 
   /** 停止任务和监控，关闭数据库。 */
   async close(): Promise<void> {
-    this.monitor.close()
+    this.watch.close()
     await this.queue.stop()
     this.db.close()
   }
@@ -211,7 +204,9 @@ export class LibraryService {
 
   /** 全部媒体库。 */
   listLibraries(): LibraryInfo[] {
-    return this.libraries.list().map(toLibraryInfo)
+    return this.libraries
+      .list()
+      .map(lib => toLibraryInfo(lib, this.watch.storage.known(lib)))
   }
 
   /** 添加媒体库并立即排一次整库扫描。 */
@@ -221,26 +216,30 @@ export class LibraryService {
     const lib = this.libraries.add(request, Date.now())
     this.enqueueScan({ libraryId: lib.id }, PRIORITY.scan)
     this.emitLibraries()
-    this.startWatching(lib, false)
-    return toLibraryInfo(lib)
+    this.watch.start(lib, false)
+    this.emitLibrariesWhenJudged([lib])
+    return toLibraryInfo(lib, this.watch.storage.known(lib))
   }
 
-  /** 改名 / 改自动化设置；监控开关立即生效，打开时补一次增量扫描。 */
+  /** 改名 / 改自动化设置；监控开关与存储立即生效（本地盘补一次增量扫描）。 */
   async updateLibrary(request: UpdateLibraryRequest): Promise<LibraryInfo> {
     const before = this.libraries.get(request.libraryId)
     const lib = this.libraries.update(request)
-    if (before.automation.watch !== lib.automation.watch) {
-      this.monitor.remove(lib.id)
-      this.startWatching(lib, true)
-    }
+    const { watch, storage } = lib.automation
+    if (
+      before.automation.watch !== watch ||
+      before.automation.storage !== storage
+    )
+      this.watch.restart(lib)
     this.emitLibraries()
-    return toLibraryInfo(lib)
+    if (before.automation.storage !== storage)
+      this.emitLibrariesWhenJudged([lib], true)
+    return toLibraryInfo(lib, this.watch.storage.known(lib))
   }
 
   /** 删除媒体库及其全部数据。 */
   async removeLibrary({ libraryId }: { libraryId: number }): Promise<void> {
-    this.monitor.remove(libraryId)
-    this.settle.delete(libraryId)
+    this.watch.remove(libraryId)
     transaction(this.db, () => this.libraries.remove(libraryId))
     this.emitLibraries()
   }
@@ -307,6 +306,11 @@ export class LibraryService {
     return this.identifier.getProviderStatus()
   }
 
+  /** 外部文件变更通知：对应到库目录、去抖合并后按目录增量扫描。 */
+  notifyChanges(request: NotifyChangesRequest): NotifyChangesResult {
+    return this.watch.notify(request)
+  }
+
   // —————————————————————————— 宿主用（不在 IPC 契约里） ——————————————————————————
 
   /** 片库里登记过的视频文件路径；不存在或不是视频返回 null（独立服务据此决定能不能给出视频流）。 */
@@ -317,6 +321,12 @@ export class LibraryService {
     return row ? String(row.path) : null
   }
 
+  /** 库是否按网盘处理（悬停预览据此不给视频）；库不存在按网盘处理。 */
+  isCloudLibrary(libraryId: number): Promise<boolean> {
+    const lib = this.libraries.find(libraryId)
+    return lib ? this.watch.isCloud(lib) : Promise.resolve(true)
+  }
+
   // —————————————————————————— 内部 ——————————————————————————
 
   private emit(event: LibraryEvent): void {
@@ -325,6 +335,19 @@ export class LibraryService {
 
   private emitLibraries(): void {
     this.emit({ type: 'libraries-changed', libraries: this.listLibraries() })
+  }
+
+  /** 存储判定完后再广播一次列表；fingerprint：判为本地盘的库补排指纹（补上按网盘处理期间跳过的）。 */
+  private emitLibrariesWhenJudged(
+    libs: LibraryRecord[],
+    fingerprint = false
+  ): void {
+    void Promise.all(libs.map(lib => this.watch.isCloud(lib))).then(clouds => {
+      this.emitLibraries()
+      for (const [i, lib] of libs.entries())
+        if (fingerprint && !clouds[i])
+          this.enqueueLibraryJob('fingerprint', lib.id)
+    })
   }
 
   private emitItems(libraryId: number, changes: ItemChanges): void {
@@ -351,28 +374,6 @@ export class LibraryService {
       payload: { libraryId } satisfies LibraryPayload,
       priority: PRIORITY[type],
     })
-  }
-
-  /** 按库设置开始监控（catchUp：立即补一次增量扫描）。 */
-  private startWatching(lib: LibraryRecord, catchUp: boolean): void {
-    if (!lib.automation.watch) return
-    void this.monitor.add(lib.id, lib.root, catchUp).catch(error => {
-      this.log(`监控 ${lib.root} 失败：${(error as Error).message}`)
-    })
-  }
-
-  /** 这个库的写入稳定判定（settleMs 为 0 时不判定）。 */
-  private settleFor(lib: LibraryRecord): {
-    tracker: SettleTracker
-    initial: boolean
-  } | null {
-    if (this.settleMs <= 0) return null
-    let tracker = this.settle.get(lib.id)
-    if (!tracker) {
-      tracker = new SettleTracker(this.settleMs)
-      this.settle.set(lib.id, tracker)
-    }
-    return { tracker, initial: lib.lastScanAt === null }
   }
 
   /** 监控发现变化：重读涉及的目录；dirs 为 null（事件丢失 / 定时扫描）时整库增量扫描。 */

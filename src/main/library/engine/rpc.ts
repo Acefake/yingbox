@@ -15,7 +15,7 @@ import {
 import { createItemPreviews } from '../catalog/item-preview'
 import type { LibraryService } from './service'
 
-/** 每个服务一份预览查询（按库根目录缓存 fs-type 判定）。 */
+/** 每个服务一份预览查询（网盘判定见 engine/storage-mode.ts）。 */
 const previews = new WeakMap<
   LibraryService,
   ReturnType<typeof createItemPreviews>
@@ -26,7 +26,7 @@ function previewsFor(s: LibraryService): ReturnType<typeof createItemPreviews> {
   if (!found) {
     found = createItemPreviews({
       getItem: itemId => s.getItem({ itemId }),
-      libraryRoot: id => s.listLibraries().find(lib => lib.id === id)?.root,
+      isCloud: id => s.isCloudLibrary(id),
     })
     previews.set(s, found)
   }
@@ -58,6 +58,7 @@ const HANDLERS: Handlers = {
   refreshMetadata: (s, p) => s.refreshMetadata(p),
   setProviderToken: (s, p) => s.setProviderToken(p),
   getProviderStatus: s => s.getProviderStatus(),
+  notifyChanges: (s, p) => s.notifyChanges(p),
   'writer.getSettings': s => s.writer.getSettings(),
   'writer.setSettings': (s, p) => s.writer.setSettings(p),
   'writer.write': (s, p) => s.writer.write(p.itemIds),

@@ -140,6 +140,7 @@ const ADDED_API: Record<string, string[]> = {
   ],
   av: ['list', 'resolve'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
+  libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
 }
 
 beforeAll(async () => {
@@ -147,7 +148,7 @@ beforeAll(async () => {
 })
 
 describe('通用 preload', () => {
-  it('重构前的 window.api 域与方法一个不少、一个不多；新增域只有 settings', () => {
+  it('重构前的 window.api 域与方法一个不少、一个不多；新增的域与方法都登记在 ADDED_API', () => {
     const actual = Object.fromEntries(
       Object.entries(exposed).map(([domain, api]) => [
         domain,

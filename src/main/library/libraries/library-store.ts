@@ -49,12 +49,12 @@ function toRecord(row: Record<string, unknown>): LibraryRecord {
   }
 }
 
-/** 去掉内部字段，得到发给渲染进程的 LibraryInfo。 */
-export function toLibraryInfo({
-  rootKey: _,
-  ...info
-}: LibraryRecord): LibraryInfo {
-  return info
+/** 去掉内部字段，得到发给渲染进程的 LibraryInfo；cloud 是存储判定结论（还没判定完时省略）。 */
+export function toLibraryInfo(
+  { rootKey: _, ...info }: LibraryRecord,
+  cloud?: boolean
+): LibraryInfo {
+  return cloud === undefined ? info : { ...info, cloud }
 }
 
 /** 媒体库仓库。 */
