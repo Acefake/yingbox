@@ -35,6 +35,8 @@ export interface EngineHostDeps {
   broadcast: (channel: string, payload: unknown) => void
   /** 引擎就绪（模块加载完）；elapsedMs 为 fork → ready 的耗时 */
   onReady?: (elapsedMs: number) => void
+  /** 崩溃守卫停止重启（缺依赖 / 连续秒退）时，带原因调用一次 */
+  onBlocked?: (reason: string) => void
   hostMethods: {
     [M in keyof HostMethods]: (
       ...args: Parameters<HostMethods[M]>
@@ -54,6 +56,7 @@ export class EngineHost {
       stopTimeoutMs: deps.stopTimeoutMs,
       onEvent: deps.broadcast,
       onReady: deps.onReady,
+      onBlocked: deps.onBlocked,
       host: deps.hostMethods,
     })
   }

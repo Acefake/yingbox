@@ -23,10 +23,15 @@ export function registerEngine(): EngineHost {
       utilityProcess.fork(
         join(__dirname, 'engine.js'),
         [app.getPath('userData')],
-        { serviceName: 'yingbox-engine', stdio: 'inherit' }
+        {
+          serviceName: 'yingbox-engine',
+          // stderr 先过崩溃守卫（认出缺依赖），再原样转到终端
+          stdio: ['ignore', 'inherit', 'pipe'],
+        }
       ) as unknown as EngineChild,
     broadcast: broadcastChannel,
     onReady: ms => console.info(`[engine] 引擎就绪（${ms} ms）`),
+    onBlocked: reason => console.error(`[engine] ${reason}`),
     hostMethods: {
       browserFetch: url => browserFetch(url),
       resetBrowserFetch: async host => resetBrowserFetch(host),
