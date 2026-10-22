@@ -1,7 +1,9 @@
 /**
- * 条目查询：海报墙分页列表（筛选、排序、FTS 片名搜索）与单个条目详情树。
+ * 条目查询：海报墙分页列表（筛选、分面、排序、FTS 片名搜索）与单个条目详情树。
  */
 import type {
+  FacetListRequest,
+  FacetValue,
   ItemMetadata,
   LibraryFileKind,
   LibraryItemFile,
@@ -15,6 +17,8 @@ import type {
 import type { NormalizedLibraryQuery } from '../../../shared/library/ipc'
 import { normalizeTitle } from '../../../shared/library/scoring'
 import { type LibraryDb, StatementCache } from '../db/database'
+import { facetClauses, listFacetValues } from './facet-sql'
+import { registerJavKind } from './jav-kind'
 
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
   i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
@@ -122,6 +126,9 @@ function compileWhere(q: NormalizedLibraryQuery): {
       params.push(likePattern(term))
     }
   }
+  const facets = facetClauses(q.facets)
+  clauses.push(...facets.clauses)
+  params.push(...facets.params)
   return { where: clauses.join(' AND '), params }
 }
 
@@ -130,6 +137,7 @@ export class CatalogQuery {
   private readonly sql: StatementCache
 
   constructor(db: LibraryDb) {
+    registerJavKind(db)
     this.sql = new StatementCache(db)
   }
 
@@ -157,6 +165,11 @@ export class CatalogQuery {
       offset: q.offset,
       limit: q.limit,
     }
+  }
+
+  /** 某个分面的取值与条目数（筛选面板用）。 */
+  facetValues(request: FacetListRequest): FacetValue[] {
+    return listFacetValues(this.sql, request)
   }
 
   /** 单个条目的列表形状；不存在返回 null。 */

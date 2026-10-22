@@ -5,13 +5,23 @@
  */
 import type {
   EpisodeMetadata,
-  MediaKind,
   MediaMetadata,
   SeasonMetadata,
 } from '../provider'
 import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { LibraryEvent } from './contract-events'
+import type {
+  FacetFilter,
+  FacetRpcMap,
+  LibraryFacetsBridge,
+} from './contract-facets'
+import { FACET_METHODS } from './contract-facets'
+import type {
+  ApplyMatchRequest,
+  ApplyMatchResult,
+  MatchCandidatesResult,
+} from './contract-match'
 import type { JavSettings, LibrarySource } from './contract-jav'
 import type {
   JavCredentialProvider,
@@ -36,7 +46,9 @@ import type {
 export * from './contract-actors'
 export * from './contract-events'
 export * from './contract-http'
+export * from './contract-facets'
 export * from './contract-jav'
+export * from './contract-match'
 export * from './contract-provider'
 export * from './contract-library'
 export * from './contract-writer'
@@ -151,11 +163,10 @@ export type LibrarySortField =
 export interface LibraryQuery {
   /** 只查某个媒体库；缺省查全部。 */
   libraryId?: number
-  /**
-   * 只查这种来源的媒体库（tmdb = 普通电影 / 剧集，jav = 番号库）；缺省两种都要。
-   * 「电影」页传 tmdb、「番号」页传 jav，两边互不露出对方的条目。
-   */
+  /** 只要这种来源的媒体库（电影页传 tmdb、番号页传 jav，互不露出）；缺省两种都要。 */
   source?: LibrarySource
+  /** 分面筛选（类型 / 标签 / 演员 / 制作商 / 系列 / 导演），见 contract-facets.ts。 */
+  facets?: FacetFilter
   /** 顶层类型筛选；缺省电影和剧集都要。 */
   types?: TopLevelItemType[]
   /** 片名搜索（FTS5，繁简与大小写不敏感）。 */
@@ -225,59 +236,9 @@ export interface JobAccepted {
   jobId: number
 }
 
-/** 一个匹配候选（待确认列表、手动搜索结果）。 */
-export interface MatchCandidateInfo {
-  provider: 'tmdb'
-  kind: MediaKind
-  id: string
-  title: string
-  originalTitle: string | null
-  year: number | null
-  /** 0–1。 */
-  confidence: number
-  /** 各信号得分（title / year / runtime / episodes）。 */
-  breakdown: Record<string, number>
-  /** TMDB 海报远程地址（w185），候选还没缓存，直接用远程图。 */
-  poster: string | null
-  /** 简介摘要（最多 160 字）；搜索结果没有简介为 null。 */
-  overview: string | null
-}
-
-/** 某条目当前的匹配与候选。 */
-export interface MatchCandidatesResult {
-  itemId: number
-  matchState: MatchState
-  /** 当前匹配（auto / locked）；没有为 null。 */
-  current: MatchCandidateInfo | null
-  /** 待确认 / 未匹配时保存的前几名候选。 */
-  candidates: MatchCandidateInfo[]
-}
-
-/**
- * 手动匹配：三选一——
- * - tmdbId：直接指定（kind 缺省取条目类型）；
- * - imdbId / tvdbId：反查后指定；
- * - query：用给定标题（和年份）重新搜索打分，够自信自动应用，否则返回候选。
- */
-export interface ApplyMatchRequest {
-  itemId: number
-  tmdbId?: string
-  imdbId?: string
-  tvdbId?: string
-  query?: { title: string; year?: number }
-  /** 指定 id 时是否锁定，默认 true（手动选择的结果之后不被自动识别覆盖）。 */
-  lock?: boolean
-}
-
-/** 手动匹配结果。 */
-export interface ApplyMatchResult {
-  status: 'matched' | 'review' | 'unmatched'
-  item: LibraryItemSummary | null
-  candidates: MatchCandidateInfo[]
-}
-
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
-export interface LibraryRpcMap extends ActorRpcMap, LibraryNotifyRpcMap {
+export interface LibraryRpcMap
+  extends ActorRpcMap, FacetRpcMap, LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
@@ -346,13 +307,14 @@ export const LIBRARY_METHODS = [
   'jav.getSettings',
   'jav.setSettings',
   ...ACTOR_METHODS,
+  ...FACET_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
  * 渲染进程看到的 window.api.library。
  * 方法失败时 reject 一个 Error，错误码用 libraryErrorCode(error) 取（见 wire.ts）。
  */
-export interface LibraryBridge {
+export interface LibraryBridge extends LibraryFacetsBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>

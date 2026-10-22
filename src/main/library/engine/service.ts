@@ -11,6 +11,8 @@
 import type {
   ApplyMatchRequest,
   ApplyMatchResult,
+  FacetListRequest,
+  FacetValue,
   IdentifyRequest,
   JobAccepted,
   LibraryEvent,
@@ -256,6 +258,11 @@ export class LibraryService {
   /** 分页查询顶层条目。 */
   query(query: NormalizedLibraryQuery): LibraryQueryResult {
     return this.catalogQuery.list(query)
+  }
+
+  /** 分面取值与条目数（海报墙筛选面板）。 */
+  facetValues(request: FacetListRequest): FacetValue[] {
+    return this.catalogQuery.facetValues(request)
   }
 
   /** 条目详情。 */

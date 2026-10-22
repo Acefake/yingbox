@@ -24,6 +24,15 @@
           aria-label="筛选"
           :options="filterOptions"
         />
+        <UiButton
+          v-if="facetScope"
+          icon="filter"
+          size="sm"
+          :label="facetCount ? `筛选 ${facetCount}` : '筛选'"
+          class="lib-facets-button"
+          :aria-expanded="facetsOpen"
+          @click="facetsOpen = !facetsOpen"
+        />
         <UiSelect
           v-if="libraryOptions.length > 2"
           v-model="library"
@@ -75,12 +84,26 @@
         @click="emit('settings')"
       />
     </div>
+    <!-- 分面筛选（番号库）：已选条件常驻，面板按「筛选」展开 -->
+    <div
+      v-if="facetScope && hasLibraries && view === 'wall'"
+      class="lib-toolbar-facets"
+    >
+      <ActiveFacets v-model="facets" />
+      <FacetPanel
+        v-if="facetsOpen"
+        v-model="facets"
+        :scope="facetScope"
+        :open="facetsOpen"
+        @close="facetsOpen = false"
+      />
+    </div>
   </header>
 </template>
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、筛选、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
+ * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、筛选、分面筛选（番号库）、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  * 搜索用顶栏全局搜索（按 ?q= 在本页过滤），工具栏不再放第二个搜索框。
  */
@@ -89,6 +112,14 @@ import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 
+import { computed, ref } from 'vue'
+import type {
+  FacetFilter,
+  FacetListRequest,
+} from '../../../../../shared/library/ipc'
+import ActiveFacets from '../facets/ActiveFacets.vue'
+import FacetPanel from '../facets/FacetPanel.vue'
+import { activeCount } from '../facets/facet-rules'
 import {
   FILTER_OPTIONS,
   type MatchFilter,
@@ -109,10 +140,15 @@ defineProps<{
   libraryOptions: Array<{ value: number; label: string }>
   sort: WallSort
   order: 'asc' | 'desc'
+  /** 分面筛选的取值范围；不传表示该分区没有分面筛选。 */
+  facetScope?: Omit<FacetListRequest, 'field'>
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
 const filter = defineModel<MatchFilter>('filter', { required: true })
+const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
+const facetsOpen = ref(false)
+const facetCount = computed(() => activeCount(facets.value))
 /** 0 表示全部文件夹。 */
 const library = defineModel<number>('library', { required: true })
 
@@ -163,6 +199,18 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
+}
+.lib-facets-button[aria-expanded='true'] {
+  background: var(--bg-active);
+}
+.lib-toolbar-facets {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.lib-toolbar-facets:empty {
+  display: none;
 }
 /* 下拉按内容宽度，不被拉伸 */
 .lib-select {

@@ -6,6 +6,7 @@
 import {
   type AddLibraryRequest,
   type ApplyMatchRequest,
+  type FacetFilter,
   type IdentifyRequest,
   LIBRARY_METHODS,
   LIBRARY_SOURCES,
@@ -32,6 +33,7 @@ import {
   optionalInt,
   positiveId,
 } from './validate-base'
+import { FACET_PARSERS, parseFacetFilter } from './validate-facets'
 import { parseJavSettings } from './validate-jav'
 import {
   parseAutomationPatch,
@@ -55,6 +57,7 @@ export interface NormalizedLibraryQuery {
   yearFrom?: number
   yearTo?: number
   matchStates?: MatchState[]
+  facets?: FacetFilter
   sort: LibrarySortField
   order: 'asc' | 'desc'
   offset: number
@@ -111,6 +114,7 @@ export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
     yearFrom: optionalInt(q.yearFrom, 'yearFrom', 0),
     yearTo: optionalInt(q.yearTo, 'yearTo', 0),
     matchStates: listOf(q.matchStates, MATCH_STATES, 'matchStates'),
+    facets: parseFacetFilter(q.facets),
     sort,
     order,
     offset: optionalInt(q.offset, 'offset', 0) ?? 0,
@@ -345,6 +349,7 @@ const PARAM_PARSERS: {
   'jav.getSettings': () => undefined,
   'jav.setSettings': parseJavSettings,
   ...ACTOR_PARSERS,
+  ...FACET_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */
