@@ -14,6 +14,7 @@ import { online } from '../shared/contract/online'
 import { createAvHandlers } from './av'
 import { createDownloadHandlers } from './download'
 import { createOnlineHandlers } from './online'
+import { createPersistentBreaker } from './online/breaker-store'
 import { createPluginLoader } from './online/plugin-cache'
 import { type EnginePort, serveEngine } from './rpc'
 
@@ -41,6 +42,7 @@ server.implement(
   createOnlineHandlers({
     net: httpClient,
     loadPlugin: createPluginLoader(httpClient, join(userData, 'plugin-cache')),
+    breaker: createPersistentBreaker(join(userData, 'online', 'breaker.json')),
     log,
   })
 )
