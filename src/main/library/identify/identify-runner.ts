@@ -54,8 +54,8 @@ const REMOTE_SIZE = {
   backdrop: 'w1280',
   still: 'w300',
 } as const
-/** 下载到本地缓存的原图尺寸（够生成 780w 缩略图）。 */
-const CACHE_SIZE = { poster: 'w780', backdrop: 'w1280' } as const
+/** 下载到本地缓存的原图尺寸：海报够生成 780w 缩略图；背景图铺满详情页头部，取 TMDB 原图。 */
+const CACHE_SIZE = { poster: 'w780', backdrop: 'original' } as const
 
 /** 识别与刮削执行器。 */
 export class IdentifyRunner implements RunnerContext {

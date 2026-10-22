@@ -65,7 +65,7 @@ import type {
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { errorText, libraryBridge } from '../api/bridge'
-import { itemImage, tmdbImage } from '../api/images'
+import { heroImage, itemImage, tmdbImage } from '../api/images'
 import { onLibraryEvent } from '../state/library-events'
 import { useWriter } from '../writer/use-writer'
 import DetailHero from './DetailHero.vue'
@@ -151,7 +151,7 @@ onLibraryEvent(event => {
 const titleMeta = computed(() => titleMetaOf(node.value))
 const stills = computed(() => stillsOf(titleMeta.value))
 
-const backdrop = computed(() => itemImage(node.value?.backdrop ?? null, 780))
+const backdrop = computed(() => heroImage(node.value?.backdrop ?? null))
 const logo = computed(() => node.value?.logo ?? null)
 const tagline = computed(() => titleMeta.value?.tagline ?? '')
 const seasons = computed(() => sortedSeasons(node.value))
