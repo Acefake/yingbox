@@ -54,6 +54,7 @@ export function registerLibraryIpc(
     createChannel: () => new MessageChannelMain(),
     onImagesCached: keys =>
       thumbnails.warm(keys.filter(k => /^[0-9a-f]{32}$/.test(k))),
+    onReady: ms => console.info(`[library] 引擎就绪（${ms} ms）`),
   })
   ipcMain.handle(
     LIBRARY_CHANNELS.invoke,
@@ -82,7 +83,7 @@ export function registerLibraryIpc(
   ipcMain.on(LIBRARY_CHANNELS.unsubscribe, ({ sender }) =>
     host.unsubscribe(sender.id)
   )
-  app.on('will-quit', () => host.shutdown())
+  app.on('will-quit', () => void host.shutdown())
   return {
     async call(method, params) {
       const response = await host.invoke(method, params)
