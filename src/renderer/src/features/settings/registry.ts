@@ -67,7 +67,7 @@ const coreSections: SettingsSection[] = [
     id: 'player',
     title: '播放器',
     icon: 'play',
-    keywords: 'mpv 引擎 artplayer 超分',
+    keywords: 'mpv 引擎 artplayer 超分 小窗 画中画 置顶',
     load: () => import('./sections/PlayerSettings.vue'),
     order: 60,
   },

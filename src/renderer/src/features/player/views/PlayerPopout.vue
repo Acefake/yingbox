@@ -25,6 +25,7 @@
       <span>{{ emptyText }}</span>
     </div>
     <p v-if="notice" class="player-popout-notice">{{ notice }}</p>
+    <CompactWindowButton />
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
     <div v-if="failure" class="player-popout-error" role="alert">
       <p class="player-popout-error-title">播放失败</p>
@@ -56,6 +57,7 @@
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
 import { useRoute } from 'vue-router'
+import CompactWindowButton from '../components/CompactWindowButton.vue'
 import UnifiedVideoPlayer from '../components/UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'

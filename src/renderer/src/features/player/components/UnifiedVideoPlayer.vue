@@ -46,24 +46,24 @@
 <script setup lang="ts">
 /**
  * 统一播放器：Artplayer 外壳 + hls.js（HLS）+ 字幕（本地自动挂载 / 在线搜索）+ 续播与倍速记忆。
- * 构造参数与纯规则在 utils/art-options.ts，字幕在 usePlayerSubtitles，这里只管加载、销毁与事件转发。
+ * 实例在 utils/art-core.ts（可交接），构造参数与纯规则在 utils/art-options.ts，字幕在 usePlayerSubtitles；
+ * 这里只管加载、销毁、事件转发，以及应用内小窗的交接（离开详情时交出实例、回来时认领）。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import Artplayer from 'artplayer'
 import Hls from 'hls.js'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import { getSetting, setSetting } from '@/features/settings'
 
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
+import { claimMini, dockMini, preemptMini } from '../mini/mini-dock'
+import { useMiniHost } from '../mini/mini-host'
 import {
-  applyPlaybackRate,
-  artOptions,
-  isHlsUrl,
-  isValidPlaybackRate,
-  shouldResume,
-} from '../utils/art-options'
-import { createHlsSession } from '../utils/hls-session'
+  type ArtCore,
+  type ArtSink,
+  createArtCore,
+  destroyArtCore,
+} from '../utils/art-core'
+import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
 
@@ -120,15 +120,14 @@ const containerEl = ref<HTMLDivElement | null>(null)
 const video = ref<HTMLVideoElement | null>(null)
 const isLoading = ref(false)
 
-let art: Artplayer | null = null
+/** 当前持有的实例；交给小窗后为 null，docked 为 true */
+let core: ArtCore | null = null
+let docked = false
 let loadToken = 0
 let pendingSeek = 0
 
-/** 上一次使用的播放倍速（跨会话记忆，设置 player.playbackRate） */
-const readStoredRate = (): number => getSetting('player.playbackRate')
-
 const subtitles = usePlayerSubtitles({
-  player: () => art,
+  player: () => core?.art ?? null,
   search: () => ({
     title: props.subtitleSearchTitle || props.title || '',
     imdbId: props.subtitleImdbId,
@@ -137,41 +136,86 @@ const subtitles = usePlayerSubtitles({
   }),
 })
 
-const storeRate = (rate: number): void => {
-  if (isValidPlaybackRate(rate)) void setSetting('player.playbackRate', rate)
-}
+const posterSrc = computed(() => props.poster?.trim() || '')
 
-const hlsSession = createHlsSession()
-
-const destroyPlayer = (): void => {
-  hlsSession.destroy()
-  subtitles.dispose()
-  if (art) {
+/** 本组件作为实例的事件去向 */
+const sink: ArtSink = {
+  event: (name, event) => {
+    // emit 的重载按事件名区分，这几种事件的载荷都是 Event
+    ;(emit as (n: typeof name, e: Event) => void)(name, event)
+  },
+  error: () => {
+    isLoading.value = false
+    emit('error', new Event('error'))
+  },
+  keydown: event => emit('keydown', event),
+  started: () => {
+    isLoading.value = false
+  },
+  seek: videoEl => {
+    if (!shouldResume(pendingSeek, videoEl.duration)) return
     try {
-      art.destroy(false)
+      videoEl.currentTime = pendingSeek
     } catch {
       // ignore
     }
-    art = null
+    pendingSeek = 0
+  },
+  autoplay: () => props.autoplay,
+}
+
+/** 拆掉自己持有的实例；交给小窗的实例（连同字幕 blob）不归这里，由小窗拆除 */
+const destroyPlayer = (): void => {
+  if (core) {
+    subtitles.dispose()
+    destroyArtCore(core)
   }
+  core = null
   video.value = null
 }
 
-const posterSrc = computed(() => props.poster?.trim() || '')
-
-const hideLoading = (): void => {
+/** 认领一个实例：节点搬进自己的容器，事件改由本组件转发 */
+const adopt = (claimed: ArtCore): void => {
+  core = claimed
+  docked = false
+  claimed.sink.current = sink
+  containerEl.value?.appendChild(claimed.node)
+  video.value = claimed.art.video
   isLoading.value = false
 }
 
-const applySeekIfNeeded = (videoEl: HTMLVideoElement): void => {
-  if (!shouldResume(pendingSeek, videoEl.duration)) return
-  try {
-    videoEl.currentTime = pendingSeek
-  } catch {
-    // ignore
-  }
-  pendingSeek = 0
-}
+/** 小窗交接：离开详情时交出播放中的实例，详情重新显示时认领回来 */
+const host = useMiniHost({
+  dock: () => {
+    const current = core
+    if (!current || !host) return false
+    const ok = dockMini({
+      key: props.src,
+      title: props.title || '正在播放',
+      node: current.node,
+      video: current.art.video,
+      payload: current,
+      restore: host.restoreFn(),
+      teardown: () => {
+        destroyArtCore(current)
+        docked = false
+        emit('close')
+      },
+    })
+    if (!ok) return false
+    // 字幕 blob 跟实例走，最终拆除时再释放
+    current.disposers.push(subtitles.dispose)
+    core = null
+    video.value = null
+    docked = true
+    return true
+  },
+  reclaim: () => {
+    if (!docked) return
+    const claimed = claimMini(props.src)
+    if (claimed) adopt(claimed.payload as ArtCore)
+  },
+})
 
 const createPlayer = async (source: string): Promise<void> => {
   const container = containerEl.value
@@ -179,10 +223,19 @@ const createPlayer = async (source: string): Promise<void> => {
 
   const token = ++loadToken
   destroyPlayer()
+  docked = false
   if (!source) {
     isLoading.value = false
     return
   }
+  // 小窗里正播着同一个地址：认领回来，不重建、不重新请求
+  const claimed = claimMini(source)
+  if (claimed) {
+    adopt(claimed.payload as ArtCore)
+    emit('ready', claimed.video)
+    return
+  }
+  preemptMini(source)
 
   isLoading.value = true
 
@@ -201,81 +254,21 @@ const createPlayer = async (source: string): Promise<void> => {
 
   pendingSeek =
     typeof props.startAt === 'number' && props.startAt > 0 ? props.startAt : 0
-  const useHls = Hls.isSupported() && isHlsUrl(resolved)
-
-  // HLS 走 hls.js 自定义类型；其余格式交给 Artplayer 按扩展名自动识别。
-  // 注意：Artplayer 5.x 会校验 type/customType 的类型，传 undefined 会在构造函数
-  // 直接抛错（option.customType require 'object'），导致本地文件与直链 mp4/flv
-  // 连 <video> 都创建不出来——因此这两项只在 HLS 时通过展开提供。
-  const hlsCustomType = useHls
-    ? hlsSession.customType({
-        onManifestParsed: videoEl => {
-          applySeekIfNeeded(videoEl)
-          if (props.autoplay) videoEl.play().catch(() => {})
-        },
-        onFatalError: instance => {
-          hideLoading()
-          emit('error', new Event('error'))
-          instance.notice.show = '播放失败'
-        },
-      })
-    : null
 
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
-  art = new Artplayer(
-    artOptions({
-      container: containerEl.value,
-      url: resolved,
-      autoplay: props.autoplay,
-      controls: props.controls,
-      hls: useHls ? hlsCustomType : null,
-    })
-  )
-
-  video.value = art.video
-  emit('ready', art.video)
-
-  // 恢复上次使用的倍速，并记住本次改动（跨集/跨会话）
-  // 注意：video.load() 会把 playbackRate 重置为 defaultPlaybackRate，故两者都要设，
-  // 并在每次 loadedmetadata 时重新应用，保证自动连播换集后倍速不丢。
-  const initialRate = readStoredRate()
-  applyPlaybackRate(art.video, initialRate)
-  art.on('video:ratechange', () => {
-    if (art?.video) storeRate(art.video.playbackRate)
+  core = createArtCore({
+    url: resolved,
+    useHls: Hls.isSupported() && isHlsUrl(resolved),
+    autoplay: props.autoplay,
+    controls: props.controls,
+    sink,
   })
+  containerEl.value.appendChild(core.node)
+  video.value = core.art.video
+  emit('ready', core.art.video)
 
   // 本地视频：自动挂载同目录字幕（srt/ass/vtt，含 GBK 编码转换）
-  void subtitles.applyLocal(art, resolved)
-
-  art.on('video:loadedmetadata', (event: Event) => {
-    if (art?.video) applySeekIfNeeded(art.video)
-    emit('loadedmetadata', event)
-  })
-  art.on('video:playing', () => hideLoading())
-  art.on('video:play', (event: Event) => {
-    hideLoading()
-    emit('play', event)
-  })
-  art.on('video:timeupdate', (event: Event) => {
-    const el = art?.video
-    if (el && el.currentTime > 0.2) hideLoading()
-    emit('timeupdate', event)
-  })
-  art.on('video:volumechange', (event: Event) => emit('volumechange', event))
-  art.on('video:error', () => {
-    hideLoading()
-    emit('error', new Event('error'))
-  })
-  art.on('video:ended', (event: Event) => emit('ended', event))
-  art.on('video:pause', (event: Event) => emit('pause', event))
-
-  const onKeydown = (event: KeyboardEvent): void => {
-    emit('keydown', event)
-  }
-  art.template.$player.addEventListener('keydown', onKeydown)
-  art.on('destroy', () => {
-    art?.template?.$player?.removeEventListener('keydown', onKeydown)
-  })
+  void subtitles.applyLocal(core.art, resolved)
 }
 
 watch(
@@ -328,6 +321,11 @@ defineExpose({ video })
   position: absolute;
   inset: 0;
   background: var(--media-bg);
+}
+
+.unified-player-video-area :deep(.unified-player-core) {
+  position: absolute;
+  inset: 0;
 }
 
 .unified-player-video-area :deep(.artplayer-app),

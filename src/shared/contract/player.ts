@@ -1,4 +1,4 @@
-import { call, defineDomain, event, record } from './define'
+import { bool, call, defineDomain, event, record } from './define'
 
 /** 播放列表条目：用于自动连播与失败换源 */
 export interface PlayerSourceItem {
@@ -40,6 +40,13 @@ export const player = defineDomain(
     close: call<{ success: boolean }>(),
     /** 播放窗口启动后取待播载荷 */
     getPending: call<PlayerOpenPayload | null>(),
+    /**
+     * 缩小置顶：缩到当前屏幕右下角并保持在最前（on = false 还原原来的位置大小）。
+     * 画中画只有画面，这个保留字幕、控制条与自动连播。没有播放窗口时 success 为 false。
+     */
+    setCompact: call<[on: boolean], { success: boolean; compact: boolean }>(
+      a => [bool(a[0], 'on')]
+    ),
   },
   {
     /** 已打开的播放窗口收到新的载荷 */

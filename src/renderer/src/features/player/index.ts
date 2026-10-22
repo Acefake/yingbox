@@ -8,6 +8,10 @@ import { defineAsyncComponent } from 'vue'
 export const UnifiedVideoPlayer = defineAsyncComponent(
   () => import('./components/UnifiedVideoPlayer.vue')
 )
+/** 应用内小窗（应用根组件挂载一次） */
+export { default as MiniPlayer } from './mini/MiniPlayer.vue'
+export { provideMiniHost } from './mini/mini-host'
+export { claimMini, dockMini, miniSession, preemptMini } from './mini/mini-dock'
 /** mpv 启动中的全局遮罩（应用根组件挂载） */
 export { default as MpvLoadingOverlay } from './components/MpvLoadingOverlay.vue'
 export {
@@ -18,3 +22,4 @@ export {
 } from './composables/use-media-player'
 export { useMpvPlayer } from './composables/use-mpv-player'
 export { getMediaProgress } from './utils/play-progress'
+export { pipSupported } from './utils/art-options'

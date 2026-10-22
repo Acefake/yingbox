@@ -26,16 +26,45 @@
     >
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
+    <SettingsRow
+      v-if="mpvState.running"
+      title="缩小置顶"
+      description="把 mpv 窗口缩到屏幕右下角并保持在最前；在 mpv 窗口里按 Alt+P 也能切换"
+    >
+      <UiSwitch
+        :model-value="Boolean(mpvState.compact)"
+        label="缩小置顶"
+        @update:model-value="setMpvCompact"
+      />
+    </SettingsRow>
+  </SettingsGroup>
+
+  <SettingsGroup
+    v-if="inPagePlayback"
+    title="小窗"
+    footer="只在网页端有：桌面版在独立播放窗口里播放，离开详情不影响播放。"
+  >
+    <SettingsRow
+      title="离开详情时用小窗继续播"
+      description="播放中关闭详情或切到别的页面，画面移到右下角小窗接着播，不重新加载"
+    >
+      <UiSwitch v-model="miniPlayer" label="应用内小窗" />
+    </SettingsRow>
   </SettingsGroup>
 </template>
 
 <script setup lang="ts">
 /**
- * 设置 · 播放器：播放引擎（player.engine）与 mpv 下的 RTX 视频超分开关（player.rtxVsr）。
+ * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）与缩小置顶，
+ * 网页端的应用内小窗（ui.miniPlayer）。
  */
 import { computed, watch } from 'vue'
 
-import { syncRtxVsr, useMpvPlayer } from '@/features/player'
+import {
+  canOpenElectronPlayer,
+  syncRtxVsr,
+  useMpvPlayer,
+} from '@/features/player'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
@@ -64,7 +93,14 @@ const playerEngineOptions: SettingsRadioOption<PlayerEngine>[] = [
 const preferredPlayerEngine = useSetting('player.engine')
 
 // ── RTX 视频超分（NVIDIA） ─────────────────────────────────
-const { status: mpvState } = useMpvPlayer()
+const { status: mpvState, setCompact } = useMpvPlayer()
+const setMpvCompact = (on: boolean): void => {
+  void setCompact(on).catch(() => {})
+}
+
+// ── 应用内小窗：只有页内播放（网页端）才有 ─────────────────
+const inPagePlayback = !canOpenElectronPlayer()
+const miniPlayer = useSetting('ui.miniPlayer')
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
 

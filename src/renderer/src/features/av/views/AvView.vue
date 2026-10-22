@@ -181,6 +181,7 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useRoute } from 'vue-router'
+import { provideMiniHost } from '@/features/player'
 import AvFavoritesView from '../components/AvFavoritesView.vue'
 import AvHistoryView from '../components/AvHistoryView.vue'
 import AvPlayerOverlay from '../components/AvPlayerOverlay.vue'
@@ -230,6 +231,9 @@ const search = useAvSearch({
   pluginSources: pluginAvSources,
   cmsCount: () => activeSources.value.length,
 })
+// 页内播放层（网页端）播放中切走路由：进应用内小窗，回来时认领
+provideMiniHost()
+
 const playback = useAvPlayback({
   findGroup: search.findGroup,
   upNext: () =>
