@@ -40,7 +40,7 @@ vi.mock('electron', () => ({
  * cacheSize / notice 事件、mpv.playlistNext / playlistPrev / playlistPlay / getStatus。
  */
 const LEGACY_API: Record<string, string[]> = {
-  dialog: ['selectDirectory', 'openDirectory', 'openFile'],
+  dialog: ['openDirectory', 'openFile'],
   app: ['networkIps'],
   update: ['check', 'download', 'install', 'onStatus', 'offStatus'],
   shell: ['openPath'],
@@ -119,6 +119,7 @@ const ADDED_API: Record<string, string[]> = {
     'migrateLegacy',
     'set',
     'setSecret',
+    'chooseDownloadDir',
     'onChanged',
     'offChanged',
     'onSecretChanged',

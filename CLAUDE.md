@@ -63,11 +63,11 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 
 **Main process** ([src/main/index.ts](src/main/index.ts)) bootstraps the window and wires per-domain modules:
 
-- `config.ts` — Reads `userData/config.json` (`downloadPath`; no UI sets it yet), validates writability (write probe) on load
+- `download-dir.ts` — Download directory = setting `download.dir` (empty → `Videos/影盒下载`); `settings.chooseDownloadDir` picks + write-probes + saves; migrates legacy `userData/config.json` once
 - `engine/` — Hosts the engine utilityProcess (online sources, MissAV, downloads), started on demand
 - `plugins/` — Host for external programs (`host.ts`, `process.ts`) plus `plugins/lada/` (de-mosaic: rules / tools / temp / lock / job / cache / resume / range / live / live-media)
 - `ipc/` — IPC channel registrations:
-  - `dialog-ipc.ts` — `dialog:*` (openDirectory, selectDirectory, openFile), `shell:openPath`
+  - `dialog-ipc.ts` — `dialog:*` (openDirectory, openFile), `shell:openPath`
   - `app-ipc.ts` — `win:*`, `app:networkIps`, `update:*` (electron-updater status via `update:status`)
   - `subtitle-ipc.ts` — `subtitle:find/read` (only accepts `local://` URLs)
 - `local://` protocol handler for streaming local video files to the unified renderer player
@@ -112,7 +112,7 @@ User settings are stored in `localStorage` (renderer side). Key keys:
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
 - `metadataLanguage`
 
-Config in `userData/config.json` (main process): `downloadPath`.
+Download directory: setting `download.dir` in `settings.json` (Settings → 下载).
 
 ### Build pipeline
 

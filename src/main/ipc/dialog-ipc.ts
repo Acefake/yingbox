@@ -27,20 +27,6 @@ export function registerDialogIpc(): void {
       }
     },
 
-    selectDirectory: async () => {
-      try {
-        const result = await electronDialog.showOpenDialog({
-          properties: ['openDirectory'],
-          title: '选择下载目录',
-        })
-        if (result.canceled || result.filePaths.length === 0) return null
-        return result.filePaths[0]
-      } catch (error) {
-        console.error('Failed to select directory:', error)
-        return null
-      }
-    },
-
     openFile: async (_, options) => {
       try {
         const result = await electronDialog.showOpenDialog({

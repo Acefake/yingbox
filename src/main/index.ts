@@ -13,7 +13,6 @@ import { join } from 'path'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { registerPlayerWindowIpc } from './player-window'
-import { loadConfig } from './config'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
@@ -149,7 +148,6 @@ app.whenReady().then(async () => {
     optimizer.watchWindowShortcuts(window)
   })
 
-  await loadConfig()
   await initSettings()
 
   // IPC 按域注册；窗口生命周期由本文件负责
