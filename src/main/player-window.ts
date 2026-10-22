@@ -36,10 +36,10 @@ function normalizeSourceItem(raw: unknown): PlayerSourceItem | null {
   }
 }
 
-export function normalizePayload(
-  payload: PlayerOpenPayload | null | undefined
-): PlayerOpenPayload | null {
-  if (!payload || typeof payload !== 'object') return null
+/** 规范化渲染层发来的打开请求（IPC 数据不可信，按 unknown 逐字段收窄）；无可播目标返回 null。 */
+export function normalizePayload(raw: unknown): PlayerOpenPayload | null {
+  if (!raw || typeof raw !== 'object') return null
+  const payload = raw as Record<string, unknown>
   const filePath =
     typeof payload.filePath === 'string' ? payload.filePath.trim() : ''
   const url = typeof payload.url === 'string' ? payload.url.trim() : ''

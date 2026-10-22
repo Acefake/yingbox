@@ -98,9 +98,13 @@ describe('HLS 下载', () => {
         seenReferer.push((init.headers as Record<string, string>).Referer)
         // 乱序完成：后面的分片先回来，验证仍按序写入
         await new Promise(r => setTimeout(r, url.endsWith('a.ts') ? 20 : 0))
-        return new Response(routes[url] ?? 'nf', {
-          status: routes[url] ? 200 : 404,
-        })
+        const body = routes[url]
+        return new Response(
+          typeof body === 'string' ? body : body ? new Uint8Array(body) : 'nf',
+          {
+            status: body ? 200 : 404,
+          }
+        )
       },
     })
     const dir = await tmp()

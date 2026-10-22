@@ -85,10 +85,8 @@ function fakeResizer(): ImageResizer & {
       height,
       jpeg: () => Uint8Array.from([0xff, 0xd8, 0xff]),
     }
-  }) as ImageResizer & { calls: number[]; originals: OriginalImage[] }
-  fn.calls = calls
-  fn.originals = originals
-  return fn
+  }) satisfies ImageResizer
+  return Object.assign(fn, { calls, originals })
 }
 
 async function setup(

@@ -166,7 +166,9 @@ describe('插件进程工具', () => {
 
   it('体面退出成功时不强杀', async () => {
     const child = fakeChild()
-    const graceful = vi.fn(() => setTimeout(() => child.exit(), 2))
+    const graceful = vi.fn(() => {
+      setTimeout(() => child.exit(), 2)
+    })
     expect(await stopProcess(child, { graceful, graceMs: 100 })).toBe(true)
     expect(child.kill).not.toHaveBeenCalled()
   })

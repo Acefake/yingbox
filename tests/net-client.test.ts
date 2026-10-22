@@ -1,5 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
-import { createNetClient } from '../src/shared/net/client'
+import { type FetchImpl, createNetClient } from '../src/shared/net/client'
 
 /** 只解析 internal.test 到内网，其余都是公网 */
 const lookup = async (host: string): Promise<{ address: string }[]> => [
@@ -11,7 +11,7 @@ const text = (body: string, init: ResponseInit = {}): Response =>
 
 describe('createNetClient', () => {
   it('手动跟随重定向，每一跳都过 SSRF 校验：302 指向内网被拒', async () => {
-    const fetch = vi.fn(async (url: string) =>
+    const fetch = vi.fn<FetchImpl>(async url =>
       url === 'https://a.test/'
         ? new Response(null, {
             status: 302,
