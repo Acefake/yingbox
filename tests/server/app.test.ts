@@ -12,13 +12,20 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type {
   InvokeResult,
   LibraryItemSummary,
 } from '../../src/shared/library/ipc'
 import { inProcessCodec } from '../../src/main/thumbnails/codec-client'
+import { LIBRARY_HTTP } from '../../src/shared/library/ipc'
+import {
+  FOCUS_VERSION,
+  type MediaFocus,
+  parseFocus,
+} from '../../src/shared/media-focus'
 import { type ServerApp, createServerApp } from '../../src/server/app'
 import type { ServerConfig } from '../../src/server/config'
 
@@ -216,6 +223,65 @@ describe('片库流程', () => {
       true
     )
     expect(existsSync(join(work, 'data/media'))).toBe(false)
+  })
+
+  it('海报焦点：POST /media/focus 按网页地址取（随缩略图缓存），/media/focus/save 写回人脸结果', async () => {
+    const key = ssis.poster!.split('/').pop()!
+    const ask = (urls: string[]): Promise<Response> =>
+      call(LIBRARY_HTTP.focus, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ urls }),
+      })
+    // 本地文件不对网页开放：即使文件存在、是能解码的图，也不给焦点
+    const local = pathToFileURL(
+      resolve('tests/fixtures/images/cover-800x538.jpg')
+    ).href
+    const res = await ask([
+      `/media/image/${key}?w=300`,
+      `/media/thumb?w=300&src=${encodeURIComponent(local)}`,
+      'nope',
+    ])
+    expect(res.status).toBe(200)
+    const { focus } = (await res.json()) as { focus: Array<MediaFocus | null> }
+    expect(focus).toHaveLength(3)
+    expect(parseFocus(focus[0])).not.toBeNull()
+    expect(focus.slice(1)).toEqual([null, null])
+
+    const face: MediaFocus = { v: FOCUS_VERSION, x: 0.7, y: 0.2, by: 'face' }
+    const save = (body: unknown): Promise<Response> =>
+      call(LIBRARY_HTTP.focusSave, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify(body),
+      })
+    expect(
+      (await save({ url: `/media/image/${key}?w=300`, focus: face })).status
+    ).toBe(204)
+    expect(
+      (
+        (await (await ask([`/media/image/${key}?w=300`])).json()) as {
+          focus: unknown[]
+        }
+      ).focus
+    ).toEqual([face])
+    expect(
+      (
+        await save({
+          url: `/media/image/${key}?w=300`,
+          focus: { ...face, x: 9 },
+        })
+      ).status
+    ).toBe(400)
+    expect(
+      (
+        await call(LIBRARY_HTTP.focus, {
+          auth: false,
+          method: 'POST',
+          body: '{"urls":[]}',
+        })
+      ).status
+    ).toBe(401)
   })
 
   it('远程图片代理只接受 http(s)', async () => {

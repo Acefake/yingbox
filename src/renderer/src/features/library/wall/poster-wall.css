@@ -51,7 +51,10 @@
   border-radius: inherit;
   object-fit: cover;
   opacity: 0;
-  transition: opacity var(--duration-fast) ease;
+  /* 焦点（取景）到得比图晚一点时平移过去，不跳 */
+  transition:
+    opacity var(--duration-fast) ease,
+    object-position var(--duration-normal) var(--ease-out);
 }
 .lib-cell-media img[data-loaded] {
   opacity: 1;

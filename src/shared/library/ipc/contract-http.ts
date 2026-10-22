@@ -28,6 +28,10 @@ export const LIBRARY_HTTP = {
   thumb: '/media/thumb',
   /** GET /media/files/<fileId> → 视频文件（支持 Range） */
   file: '/media/files/',
+  /** POST { urls } → { focus: Array<MediaFocus | null> }：海报取景的焦点（urls 是上面两种图片地址） */
+  focus: '/media/focus',
+  /** POST { url, focus } → 204：写回人脸检测的焦点 */
+  focusSave: '/media/focus/save',
 } as const
 
 /** 健康检查。 */

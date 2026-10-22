@@ -8,8 +8,14 @@
 import { readFile } from 'node:fs/promises'
 import { exists } from './cache'
 import { parseMediaUrl } from '../../shared/media-url'
-import { imageKey, originalPath } from './paths'
-import type { OriginalImage, ThumbFile, Thumbnailer } from './thumbnailer'
+import { originalPath, targetKey } from './paths'
+import type { MediaTarget } from '../../shared/media-url'
+import type {
+  OriginalImage,
+  OriginalLoader,
+  ThumbFile,
+  Thumbnailer,
+} from './thumbnailer'
 
 /** Response 构造参数里的 body 类型（主进程 tsconfig 没有 DOM 的 BodyInit）。 */
 type Body = ConstructorParameters<typeof Response>[0]
@@ -39,25 +45,34 @@ function sniff(bytes: Uint8Array): string {
 const status = (code: number, text: string): Response =>
   new Response(text, { status: code })
 
+/**
+ * 某个地址的原图来源：媒体库原图；任意来源先看媒体库是否已下载过（key 算法相同），没有再去取。
+ */
+export function originalLoader(
+  deps: Pick<MediaHandlerDeps, 'mediaDir' | 'loadSource'>,
+  target: MediaTarget
+): OriginalLoader {
+  const key = targetKey(target)
+  const library = async (): Promise<OriginalImage | null> => {
+    const path = originalPath(deps.mediaDir, key)
+    return (await exists(path)) ? { path } : null
+  }
+  if (target.kind === 'image') return library
+  const { source } = target
+  return async () => (await library()) ?? deps.loadSource(source)
+}
+
 /** 创建协议处理函数。 */
 export function createMediaHandler(
   deps: MediaHandlerDeps
 ): (request: Request) => Promise<Response> {
-  /** 媒体库原图（不存在返回 null）。 */
-  const libraryOriginal = async (
-    key: string
-  ): Promise<OriginalImage | null> => {
-    const path = originalPath(deps.mediaDir, key)
-    return (await exists(path)) ? { path } : null
-  }
-
   return async request => {
     if (request.method !== 'GET' && request.method !== 'HEAD') {
       return status(405, 'Method Not Allowed')
     }
     const target = parseMediaUrl(request.url)
     if (!target) return status(404, 'Not Found')
-    const key = target.kind === 'image' ? target.key : imageKey(target.source)
+    const key = targetKey(target)
     const etag = `"${key}-${target.width ?? 'o'}"`
     if (request.headers.get('if-none-match') === etag) {
       return new Response(null, {
@@ -72,20 +87,11 @@ export function createMediaHandler(
         body = await readFile(originalPath(deps.mediaDir, key))
         type = sniff(body)
       } else {
-        let thumb: ThumbFile | null
-        if (target.kind === 'image') {
-          thumb = await deps.thumbnailer.ensure(key, target.width, () =>
-            libraryOriginal(key)
-          )
-        } else {
-          const { source } = target
-          // 同一个远程地址媒体库已经下载过原图时直接用（key 算法相同）
-          thumb = await deps.thumbnailer.ensure(
-            key,
-            target.width,
-            async () => (await libraryOriginal(key)) ?? deps.loadSource(source)
-          )
-        }
+        const thumb: ThumbFile | null = await deps.thumbnailer.ensure(
+          key,
+          target.width,
+          originalLoader(deps, target)
+        )
         if (!thumb) return status(404, 'Not Found')
         body = await readFile(thumb.path)
         type = thumb.contentType
