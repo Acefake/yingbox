@@ -1,7 +1,8 @@
 /**
  * 详情页的去马赛克入口（接 features/lada）：整片去码、去码一段、边跑边看。
  *
- * 只在桌面端（有 window.api.lada、不是网页端的片库服务）、成人模式开启、条目是有视频文件的电影时可用；
+ * 只在桌面端（有 window.api.lada、不是网页端的片库服务）、成人模式开启、番号库里有视频文件的电影时可用；
+ * 普通电影 / 剧集不显示。
  * 处理的是第一个视频文件（分段电影的 CD1）。进度与产物在「后台任务」面板。
  */
 import { type ComputedRef, type Ref, computed } from 'vue'
@@ -27,7 +28,10 @@ export interface UseRestore {
   start: (action: RestoreAction) => Promise<void>
 }
 
-export function useRestore(node: Ref<LibraryItemNode | null>): UseRestore {
+export function useRestore(
+  node: Ref<LibraryItemNode | null>,
+  jav: Readonly<Ref<boolean>>
+): UseRestore {
   const adultMode = useSetting('app.adultMode')
   const lada = useLadaTasks()
   const desktop = Boolean(window.api?.lada) && !usesLibraryServer()
@@ -37,7 +41,7 @@ export function useRestore(node: Ref<LibraryItemNode | null>): UseRestore {
     return n?.type === 'movie' ? (videoFiles(n)[0] ?? null) : null
   })
   const available = computed(
-    () => desktop && adultMode.value && Boolean(target.value)
+    () => desktop && adultMode.value && jav.value && Boolean(target.value)
   )
 
   async function start(action: RestoreAction): Promise<void> {
