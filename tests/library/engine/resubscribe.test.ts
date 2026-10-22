@@ -75,6 +75,11 @@ class FakeEngine implements LibraryChild {
     }
   }
 
+  kill(): boolean {
+    void this.exit(-1)
+    return true
+  }
+
   /** 模拟进程退出：库关闭、引擎端端口随进程失效、宿主收到 exit。 */
   async exit(code: number): Promise<void> {
     if (this.dead) return
