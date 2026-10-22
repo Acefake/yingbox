@@ -133,7 +133,8 @@ function findFold(s: Sample, aspect: number): number | null {
   let best = 0
   for (let x = lo; x <= hi; x++) best = Math.max(best, ridge[x]!)
   if (best < FOLD_RIDGE || best < median * FOLD_CONTRAST) return null
-  for (let x = hi; x >= lo; x--) if (ridge[x]! >= best * FOLD_RIVAL) return x + 1
+  for (let x = hi; x >= lo; x--)
+    if (ridge[x]! >= best * FOLD_RIVAL) return x + 1
   return null
 }
 
