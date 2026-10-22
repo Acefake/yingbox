@@ -119,6 +119,8 @@ describe('MissAV 解析流程', () => {
     ).resolves.toMatchObject({
       url: `https://surrit.com/${UUID}/playlist.m3u8`,
     })
+    // 只要原始 HTML，不声明等待时长：主进程用默认挑战时限，过过挑战的主机走会话快路径
+    expect(browserFetch).toHaveBeenCalledWith('https://missav.ai/cn/abc-1')
     await expect(
       resolveStream(
         { net: n, browserFetch: async () => '' },
@@ -141,6 +143,20 @@ describe('MissAV 解析流程', () => {
         'https://missav.ai/cn/abc-1'
       )
     ).rejects.toThrow('不允许访问')
+  })
+
+  it('目录被挑战时经宿主 browserFetch 代抓，只传地址', async () => {
+    const n = net({
+      'https://missav.ai/cn/new': () =>
+        new Response('<title>Just a moment</title>', { status: 403 }),
+    })
+    const host = vi.fn(async () => CATALOG)
+    const ctx = { host, emit: () => {} } as unknown as EngineContext
+    const page = await createAvHandlers(n).list(ctx, 'new', 1, 'latest')
+    expect(page.items[0]).toMatchObject({ code: 'abp-001' })
+    expect(host.mock.calls).toEqual([
+      ['browserFetch', 'https://missav.ai/cn/new'],
+    ])
   })
 
   it('目录 2 分钟内命中缓存', async () => {
