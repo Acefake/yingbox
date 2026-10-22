@@ -109,6 +109,8 @@ const normalizeItem = (entry: RecentPlayRecord): OnlineDetailItem => {
     ...raw,
     _source: 'douban',
     vod_id: asText(raw.url) || asText(raw.title),
+    doubanUrl: asText(raw.url),
+    doubanKind: raw.kind === 'tv' ? 'tv' : undefined,
     vod_name: asText(raw.title),
     vod_pic: asText(raw.cover),
     type_name: asText(raw.type),

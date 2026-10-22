@@ -168,6 +168,8 @@ const openDoubanDetail = (item: DoubanItem): void => {
       vod_year: item.year,
       overview: item.overview,
       searchTitle: item.searchTitle,
+      doubanUrl: item.url,
+      doubanKind: item.kind,
     })
   )
 }

@@ -10,10 +10,7 @@
         size="lg"
         @click="step(-1)"
       />
-      <img
-        :src="`https://images.tmdb.org/t/p/original${images[index!].file_path}`"
-        class="lb-img"
-      />
+      <img :src="images[index!].full" class="lb-img" />
       <UiIconButton
         class="lb-arrow lb-next"
         icon="forward"
@@ -40,9 +37,9 @@
  */
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
-import type { TmdbImage } from '../types'
+import type { DetailImage } from '../types'
 
-const props = defineProps<{ images: TmdbImage[]; index: number | null }>()
+const props = defineProps<{ images: DetailImage[]; index: number | null }>()
 const emit = defineEmits<{ (e: 'update:index', index: number | null): void }>()
 
 const close = (): void => emit('update:index', null)
