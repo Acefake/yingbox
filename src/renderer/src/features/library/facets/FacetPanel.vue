@@ -1,10 +1,6 @@
 <template>
   <!-- 筛选面板：类型一行直接点；下面按分面切页签，搜索 + 点选取值，即点即生效 -->
-  <section
-    class="facet-panel"
-    aria-label="筛选"
-    @keydown.esc.stop="emit('close')"
-  >
+  <section class="facet-panel" aria-label="筛选" @keydown="onKeydown">
     <div class="facet-row">
       <span class="facet-row-label">类型</span>
       <div class="facet-chips">
@@ -78,6 +74,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
+import { isDismissKey } from '@/utils/keyboard'
 import type {
   FacetField,
   FacetFilter,
@@ -119,6 +116,13 @@ const shown = computed(() => {
 
 function toggle(field: FacetField, value: string): void {
   facets.value = toggleValue(facets.value, field, value)
+}
+
+/** Esc 关面板（输入法组字中的 Esc 只取消组字），不再冒泡到外层浮层。 */
+function onKeydown(event: KeyboardEvent): void {
+  if (!isDismissKey(event)) return
+  event.stopPropagation()
+  emit('close')
 }
 </script>
 

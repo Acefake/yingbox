@@ -238,7 +238,6 @@ export class IdentifyModule {
   }
 
   // —————————————————————————— 契约方法 ——————————————————————————
-
   /** 识别条目（排队）。 */
   identify(request: IdentifyRequest): JobAccepted {
     this.requireToken(request)
@@ -357,7 +356,6 @@ export class IdentifyModule {
   }
 
   // —————————————————————————— 内部 ——————————————————————————
-
   private requireTarget(itemId: number): IdentifyTarget {
     const target = this.store.target(itemId)
     if (!target) {
