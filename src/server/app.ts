@@ -17,6 +17,7 @@ import { join } from 'node:path'
 import type { LibraryService } from '../main/library/engine/service'
 import type { HttpFetch } from '../main/library/identify/identify-module'
 import { codecDeriver } from '../main/library/images/derived'
+import { codecClipPixels } from '../main/library/visual/clip-pixels'
 import { createFetch, describeFetch } from '../main/library/platform/fetch'
 import {
   createLibraryService,
@@ -99,6 +100,7 @@ export async function createServerApp(
       fetch: options.fetch ?? (await createFetch(config.fetch)),
       log: message => log(`[library] ${message}`),
       deriveImage: codecDeriver(codec),
+      clipPixels: codecClipPixels(codec),
       onImagesCached: keys => thumbnails.warm(keys),
       env: envSecrets(env),
     },

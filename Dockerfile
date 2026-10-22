@@ -27,6 +27,8 @@ RUN pnpm build:server && pnpm build:web
 # ---- prod-deps：只装运行依赖 ----
 FROM base AS prod-deps
 RUN pnpm install --prod --frozen-lockfile --ignore-scripts
+# 按画面搜的推理运行时只留 Linux 版（其他平台的二进制有两百多 MB）
+RUN find node_modules/.pnpm -path '*onnxruntime-node/bin/napi-v6/*' -maxdepth 6 -mindepth 6 \( -name darwin -o -name win32 \) -prune -exec rm -rf {} + || true
 
 # ---- runtime：不带 pnpm / 源码 / 开发依赖 ----
 FROM node:22.23.4-bookworm-slim@sha256:de170b39439eb0e5a3444ad7d60b015614a381e10fecae2e30ec9e735122f38d AS runtime

@@ -19,6 +19,7 @@
       @identify="identifyAll"
       @settings="openSettings"
       @video-wall="videoWall.open"
+      @open-item="openDetail"
     />
 
     <ActivityBar :activity="activity" />
