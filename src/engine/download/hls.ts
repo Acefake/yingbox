@@ -112,10 +112,10 @@ export function decryptSegment(data: Buffer, key: Buffer, iv: Buffer): Buffer {
   return Buffer.concat([decipher.update(data), decipher.final()])
 }
 
-/** 下载进度。 */
+/** 下载进度：done / total 是单元数（HLS）或字节数（直链）；total 未知时省略（直链没有 Content-Length）。 */
 export interface HlsProgress {
   done: number
-  total: number
+  total?: number
   bytes: number
 }
 

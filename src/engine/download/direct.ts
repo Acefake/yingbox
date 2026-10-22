@@ -190,11 +190,7 @@ async function streamTo(
       arm()
       await handle.write(value, 0, value.byteLength, position)
       position += value.byteLength
-      onProgress?.({
-        done: position,
-        total: total ?? position,
-        bytes: position,
-      })
+      onProgress?.({ done: position, total, bytes: position })
     }
     if (total !== undefined && position !== total)
       throw new Error(`下载不完整：${position}/${total}`)

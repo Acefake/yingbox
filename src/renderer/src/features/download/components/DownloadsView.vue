@@ -50,12 +50,19 @@
             <div
               v-if="task.status === 'active' && task.progress"
               class="av-dl-progress"
+              :class="{ 'is-indeterminate': percent(task) === undefined }"
               role="progressbar"
               :aria-valuenow="percent(task)"
               aria-valuemin="0"
               aria-valuemax="100"
             >
-              <div :style="{ transform: `scaleX(${percent(task) / 100})` }" />
+              <div
+                :style="
+                  percent(task) === undefined
+                    ? undefined
+                    : { transform: `scaleX(${percent(task)! / 100})` }
+                "
+              />
             </div>
             <!-- 占位：所有行等高（虚拟列表按统一行距排） -->
             <div
@@ -112,19 +119,21 @@ const rows = computed<DownloadTask[]>(() => {
   ]
 })
 
-const percent = (task: DownloadTask): number =>
-  task.progress
+/** 百分比；总量未知（直链没有 Content-Length）时为 undefined。 */
+const percent = (task: DownloadTask): number | undefined =>
+  task.progress?.total
     ? Math.round((task.progress.done / task.progress.total) * 100)
-    : 0
+    : undefined
 
 const mb = (bytes: number): string => `${(bytes / 1024 / 1024).toFixed(1)} MB`
 
 const describe = (task: DownloadTask): string => {
   switch (task.status) {
     case 'active':
-      return task.progress
-        ? `下载中 ${percent(task)}% · ${mb(task.progress.bytes)}`
-        : '正在查找视频源…'
+      if (!task.progress) return '正在查找视频源…'
+      return percent(task) === undefined
+        ? `下载中 · ${mb(task.progress.bytes)}`
+        : `下载中 ${percent(task)}% · ${mb(task.progress.bytes)}`
     case 'queued':
       return '等待中'
     case 'failed':
@@ -206,5 +215,25 @@ const submit = async (): Promise<void> => {
   background: var(--accent);
   transform-origin: left;
   transition: transform var(--duration-normal) var(--ease-out);
+}
+/* 总量未知：一小段来回滑动 */
+.av-dl-progress.is-indeterminate > div {
+  width: 30%;
+  animation: av-dl-indeterminate var(--duration-pulse) var(--ease-out) infinite;
+}
+@keyframes av-dl-indeterminate {
+  from {
+    transform: translateX(-100%);
+  }
+  to {
+    transform: translateX(340%);
+  }
+}
+@media (prefers-reduced-motion: reduce) {
+  .av-dl-progress.is-indeterminate > div {
+    width: 100%;
+    animation: none;
+    opacity: 0.4;
+  }
 }
 </style>
