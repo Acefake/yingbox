@@ -4,7 +4,13 @@
 import type { ItemMetadata, LibrarySource } from '../../../shared/library/ipc'
 import { type LibraryDb, StatementCache, transaction } from '../db/database'
 import { CLIP_DIM } from './clip-encoder'
-import { imageSignature, indexImages } from './visual-rules'
+import {
+  type QuantizedVector,
+  imageSignature,
+  indexImages,
+  packVector,
+  unpackVector,
+} from './visual-rules'
 
 /** 待索引的条目。 */
 export interface VisualCandidate {
@@ -18,6 +24,8 @@ export interface VisualMatrix {
   itemIds: Int32Array
   images: string[]
   vectors: Int8Array
+  /** 每行的量化缩放系数。 */
+  scales: Float32Array
 }
 
 export class VisualStore {
@@ -63,7 +71,7 @@ export class VisualStore {
       .map(({ itemId, images, signature }) => ({ itemId, images, signature }))
   }
 
-  /** 某来源下有元数据的电影数与已用当前模型索引的条目数（只数行，不解析元数据，状态轮询用）。 */
+  /** 某来源下有封面或剧照的电影数与已用当前模型索引的条目数（纯 SQL，状态轮询用）。 */
   counts(
     source: LibrarySource,
     model: string
@@ -74,7 +82,9 @@ export class VisualStore {
          FROM media_items i
          JOIN libraries l ON l.id = i.library_id
          LEFT JOIN visual_items v ON v.item_id = i.id AND v.model = ?
-         WHERE l.source = ? AND i.type = 'movie' AND i.metadata IS NOT NULL`
+         WHERE l.source = ? AND i.type = 'movie' AND i.metadata IS NOT NULL
+           AND EXISTS (SELECT 1 FROM json_each(i.metadata, '$.images') j
+             WHERE json_extract(j.value, '$.role') IN ('backdrop', 'still'))`
       )
       .get(model, source)
     return {
@@ -116,7 +126,7 @@ export class VisualStore {
     itemId: number,
     model: string,
     signature: string,
-    vectors: ReadonlyArray<{ image: string; vec: Int8Array }>,
+    vectors: ReadonlyArray<{ image: string; vec: QuantizedVector }>,
     now = Date.now()
   ): void {
     transaction(this.db, () => {
@@ -124,7 +134,7 @@ export class VisualStore {
       const insert = this.sql.get(
         'INSERT INTO visual_vectors (item_id, image, vec) VALUES (?, ?, ?)'
       )
-      for (const v of vectors) insert.run(itemId, v.image, v.vec)
+      for (const v of vectors) insert.run(itemId, v.image, packVector(v.vec))
       this.sql
         .get(
           `INSERT INTO visual_items (item_id, model, signature, images, indexed_at)
@@ -149,15 +159,12 @@ export class VisualStore {
     const itemIds = new Int32Array(rows.length)
     const images: string[] = []
     const vectors = new Int8Array(rows.length * CLIP_DIM)
+    const scales = new Float32Array(rows.length)
     rows.forEach((row, i) => {
       itemIds[i] = Number(row.item_id)
       images.push(String(row.image))
-      const vec = row.vec as Uint8Array
-      vectors.set(
-        new Int8Array(vec.buffer, vec.byteOffset, CLIP_DIM),
-        i * CLIP_DIM
-      )
+      scales[i] = unpackVector(row.vec as Uint8Array, vectors, i)
     })
-    return { itemIds, images, vectors }
+    return { itemIds, images, vectors, scales }
   }
 }

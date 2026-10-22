@@ -2,7 +2,7 @@
  * 按画面搜模块：给番号条目的封面和剧照建 CLIP 向量索引，用一句话按画面内容找片。
  *
  * 链路：用户在搜索面板点「建立索引」→ visual-index 任务（缺模型先下载）→ 逐部取图（原图缓存，没下载的顺便下载）
- * → 编解码线程拉成 224×224 → 批量编码 → int8 入库。之后识别出的新片由识别后继自动补索引（用户启用过才排）。
+ * → 编解码线程拉成 224×224 → 批量编码 → 按向量缩放量化成 int8 入库（每张约 0.5 KB）。之后识别出的新片由识别后继自动补索引（用户启用过才排）。
  * 搜索：文字编码一次，和内存里的全部向量做点积（10 万张图约几十毫秒），每部取最像的那张图排序。
  *
  * LibraryService 只做转发。
@@ -23,7 +23,7 @@ import {
   PermanentJobError,
 } from '../jobs/queue'
 import type { VisualBackend } from './clip-backend'
-import { quantize, similarity } from './visual-rules'
+import { type QuantizedVector, quantize, similarity } from './visual-rules'
 import {
   type VisualCandidate,
   type VisualMatrix,
@@ -106,7 +106,7 @@ export class VisualModule {
     for (let row = 0; row < matrix.itemIds.length; row++) {
       const itemId = matrix.itemIds[row]!
       if (!allowed.has(itemId)) continue
-      const score = similarity(matrix.vectors, row, query)
+      const score = similarity(matrix.vectors, row, matrix.scales[row]!, query)
       const current = best.get(itemId)
       if (!current || score > current.score)
         best.set(itemId, { score, image: matrix.images[row]! })
@@ -197,7 +197,7 @@ export class VisualModule {
       (x): x is { image: string; rgba: Uint8Array } => x !== null
     )
     if (!ok.length) return false
-    const vectors: Array<{ image: string; vec: Int8Array }> = []
+    const vectors: Array<{ image: string; vec: QuantizedVector }> = []
     for (let i = 0; i < ok.length; i += BATCH) {
       signal.throwIfAborted()
       const batch = ok.slice(i, i + BATCH)
