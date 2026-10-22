@@ -9,11 +9,7 @@
         <label class="yb-label add-label">名称</label>
         <UiInput v-model="newName" placeholder="名称" />
         <label class="yb-label add-label">API 地址</label>
-        <UiInput
-          v-model="newApi"
-          placeholder="API 地址"
-          @keydown.enter="addCustom"
-        />
+        <UiInput v-model="newApi" v-enter="addCustom" placeholder="API 地址" />
         <div class="add-actions">
           <UiButton label="取消" @click="emit('close')" />
           <UiButton
@@ -34,6 +30,7 @@
  * 已知源（自定义 / AV）重复时只提示，不重复添加。
  */
 import { toast } from '@/components/ui'
+import { vEnter } from '@/directives/enter'
 import { ref } from 'vue'
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'

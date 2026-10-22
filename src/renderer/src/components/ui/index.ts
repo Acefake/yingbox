@@ -4,6 +4,7 @@
  * 也不要手写 <input> / <select> / <textarea>（用 UiInput / UiSelect / UiTextarea /
  * UiSwitch / UiCheckbox / UiRadio；文件、滑块、隐藏字段除外）。
  * 轻提示用 toast，确认用 confirmDialog（都是命令式，不用在模板里放组件）。
+ * 等待反馈的分工（转圈 / 三点 / 骨架 / 进度条）见 feedback.ts。
  */
 export { default as UiButton } from './UiButton.vue'
 export { confirmDialog, type ConfirmOptions } from './confirm'
@@ -13,6 +14,7 @@ export { default as UiIcon } from './UiIcon.vue'
 export { default as UiIconButton } from './UiIconButton.vue'
 export { default as UiInput } from './UiInput.vue'
 export { default as UiListRow } from './UiListRow.vue'
+export { default as UiLoadingDots } from './UiLoadingDots.vue'
 export { default as UiNavItem } from './UiNavItem.vue'
 export { default as UiPosterCard } from './UiPosterCard.vue'
 export { default as UiPressable } from './UiPressable.vue'
@@ -21,6 +23,7 @@ export { default as UiSegmented } from './UiSegmented.vue'
 export type { SegmentedOption } from './UiSegmented.vue'
 export { default as UiSelect } from './UiSelect.vue'
 export type { SelectOption } from './UiSelect.vue'
+export { default as UiSkeleton } from './UiSkeleton.vue'
 export { default as UiSwitch } from './UiSwitch.vue'
 export { default as UiTextarea } from './UiTextarea.vue'
 export {

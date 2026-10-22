@@ -137,17 +137,6 @@ watch(
 </script>
 
 <style>
-.ui-poster-grid {
-  display: grid;
-  grid-template-columns: repeat(
-    auto-fill,
-    minmax(var(--poster-min-width), 1fr)
-  );
-  gap: var(--poster-gap-y) var(--poster-gap-x);
-}
-.ui-poster-grid.is-landscape {
-  --poster-min-width: 260px;
-}
 .ui-poster {
   min-width: 0;
   outline: none;

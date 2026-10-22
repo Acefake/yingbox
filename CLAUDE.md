@@ -95,9 +95,10 @@ Key directories under `src/renderer/src/`:
 - TMDB token — settings secret `scrape.tmdbToken`, write-only from the renderer (`setTmdbToken`); TMDB requests use `online.tmdb(path, query)`, the engine adds the token (see `src/main/tmdb.ts`)
 - `composables/` — Global composables:
   - `use-context-menu.ts` — MenuItem interface definition
+  - `use-escape-layer.ts` — Esc closes only the topmost overlay (layer stack)
 - `components/` — Shared UI: page chrome (`PageHeader`, `DialogTitlebar`, `StatusState`); reusable controls in `components/ui/`, including the imperative `toast` and `confirmDialog` (no Ant Design).
 - `types/window-api.d.ts` — `window.api` type (generated from the contract, plus `library`)
-- `directives/` — Custom Vue directives: `v-context-menu`, `v-scroll-x`
+- `directives/` — Custom Vue directives: `v-context-menu`, `v-scroll-x`, `v-enter` (Enter that ignores IME composition)
 
 ### Engine ([src/engine/](src/engine/))
 
@@ -154,4 +155,6 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 - Posters/covers pass `thumb` to `UiPosterCard`: the `<img>` loads `yingbox-media://thumb/?w=&src=` (`services/thumbnails`). Main (`src/main/thumbnails`) fetches the original, resizes with `nativeImage` (WebP originals decoded by wasm first), encodes WebP in a `worker_threads` worker (`@jsquash/webp`) and caches it in `userData/library/media/thumb` (one 512 MB LRU shared with the library's `yingbox-media://image/<key>?w=` thumbnails). Sources: http(s) and local `file:///…` images. On error the card falls back to the original URL.
 - No raw `<button>` in `.vue` files outside `components/ui/` — pick one of the components above (`UiPressable` when nothing else fits). `pnpm check:style` fails on violations.
 - New `components/ui` styles wrap state/modifier selectors in `:where()`, so a single page class overrides sizing and colors.
+- Waiting feedback, one kind per wait (`components/ui/feedback.ts`): a user-triggered wait is the `loading` spinner on `UiButton` / `UiIconButton` (stays focusable — `aria-busy` + `aria-disabled`, repeat clicks blocked, no `disabled`); background work is `UiLoadingDots`, placed after the content; a first-screen wait for known structure is `UiSkeleton` (poster grid, static under reduced motion); a known total is a real `role="progressbar"`. Refreshing or appending keeps the old content until the new content arrives (`listWaiting`), so the reader's scroll position never moves.
+- Keys: Enter-to-submit on text fields uses `v-enter` (`@/directives/enter`), never `@keydown.enter`, so an IME commit (`isComposing` / keyCode 229) does not submit. Overlays close on Esc by registering `useEscapeLayer(() => open, close)` (`@/composables/use-escape-layer`): one Esc closes only the topmost layer, and never while the IME is composing. No per-component window keydown listeners and no direct `'Escape'` comparisons (`utils/keyboard.ts` has the helpers).
 - Prefer `UiIconButton` over text buttons; keep at most one `UiButton variant="primary"` per area (e.g. Play).

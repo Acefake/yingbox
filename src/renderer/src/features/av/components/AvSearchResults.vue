@@ -11,7 +11,7 @@
         />
       </div>
     </div>
-    <AvSkeletonGrid v-if="loading && groups.length === 0" />
+    <UiSkeleton v-if="loading && groups.length === 0" landscape />
     <StatusState v-if="error" :title="error" tone="danger">
       <UiButton
         v-if="canRetry"
@@ -66,9 +66,9 @@
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import StatusState from '@/components/StatusState.vue'
-import AvSkeletonGrid from './AvSkeletonGrid.vue'
 import { coverSrc } from '../utils/av-media'
 import type { AvVideo } from '../utils/av-catalog'
 import type { MergedGroup } from '../utils/av-playback'

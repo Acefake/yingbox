@@ -1,12 +1,7 @@
 <template>
   <Teleport to="body">
     <Transition name="lib-sheet">
-      <div
-        v-if="open"
-        class="lib-sheet-backdrop"
-        @click.self="emit('close')"
-        @keydown.esc.stop="emit('close')"
-      >
+      <div v-if="open" class="lib-sheet-backdrop" @click.self="emit('close')">
         <section
           ref="panel"
           class="lib-sheet"
@@ -41,6 +36,7 @@
 import { nextTick, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import { useEscapeLayer } from '@/composables/use-escape-layer'
 import type { IconName } from '@/components/ui/icons'
 
 const props = withDefaults(
@@ -54,6 +50,10 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ close: [] }>()
 const panel = ref<HTMLElement | null>(null)
+useEscapeLayer(
+  () => props.open,
+  () => emit('close')
+)
 
 watch(
   () => props.open,

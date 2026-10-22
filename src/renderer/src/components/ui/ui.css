@@ -133,3 +133,29 @@ textarea:where(.ui-textarea) {
 .ui-preview-media.is-visible {
   opacity: 1;
 }
+
+/* 只给读屏的文字（UiSkeleton / UiLoadingDots）：不占位，网格里也不占格 */
+.ui-sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/*
+ * 海报网格（UiPosterCard、UiSkeleton、页面里的 UiVirtualGrid 共用）。放在全局：
+ * 只用骨架、还没渲染海报卡的页面（如媒体库首屏）也要有网格布局。
+ */
+.ui-poster-grid {
+  display: grid;
+  grid-template-columns: repeat(
+    auto-fill,
+    minmax(var(--poster-min-width), 1fr)
+  );
+  gap: var(--poster-gap-y) var(--poster-gap-x);
+}
+.ui-poster-grid.is-landscape {
+  --poster-min-width: 260px;
+}

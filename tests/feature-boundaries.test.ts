@@ -22,7 +22,7 @@ describe('feature 边界判定', () => {
 
   it('同 feature、共享模块、第三方包、feature 之外的组合层不受限', () => {
     expect(
-      boundaryViolation(AV_VIEW, '../components/AvSkeletonGrid.vue')
+      boundaryViolation(AV_VIEW, '../components/AvSearchResults.vue')
     ).toBeNull()
     expect(
       boundaryViolation(AV_VIEW, '@/features/av/utils/av-media')
