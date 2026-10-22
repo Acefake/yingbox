@@ -15,6 +15,8 @@ import {
   HostUnavailableError,
   createHostBreaker,
 } from '../../../../shared/net/host-breaker'
+import type { BinaryFetch } from '../../images/image-cache'
+import { type ImageProbe, createImageProbe } from '../../images/image-size'
 import type { ResponseCache } from '../http/provider-cache'
 import {
   type FetchLike,
@@ -30,6 +32,8 @@ import { type JavCredentials, createJavSites } from './sites/registry'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
 
 const DAY = 86_400_000
+/** 站点海报高度达到它就算原生高清，不再从封面裁（封面裁出的海报高 538）。 */
+export const HD_POSTER_HEIGHT = 500
 /** 站点结果缓存时长。 */
 export const JAV_TTL = { found: 7 * DAY, missing: DAY } as const
 
@@ -87,6 +91,8 @@ export interface JavProviderOptions {
   /** 站点实现，测试注入；缺省为内置站点。 */
   sites?: readonly JavSite[]
   breaker?: HostBreaker
+  /** 探测站点海报尺寸（决定要不要从封面裁）；缺省不探测，有码片一律裁。 */
+  probeImage?: ImageProbe
   now?: () => number
   log?: (message: string) => void
 }
@@ -196,7 +202,25 @@ export class JavProvider {
   ): Promise<MediaMetadata | null> {
     const parsed = codeOf(code)
     const movie = await this.scrape(parsed, signal)
-    return movie ? toMetadata(movie, parsed.kind) : null
+    if (!movie) return null
+    return toMetadata(movie, await this.posterPlan(movie, parsed, signal))
+  }
+
+  /**
+   * 有码片的封面是 DMM 版式（右半是正面）：站点海报缺失、太小、不是竖图或探测不到尺寸时从封面裁；
+   * 站点给的是原生高清竖版海报（高 ≥ HD_POSTER_HEIGHT）就直接用。无码 / FC2 / 素人不裁。
+   */
+  private async posterPlan(
+    movie: JavMovie,
+    code: JavCode,
+    signal?: AbortSignal
+  ): Promise<'native' | 'crop'> {
+    if (code.kind !== 'censored' || !movie.cover) return 'native'
+    if (!movie.poster || !this.options.probeImage) return 'crop'
+    const size = await this.options.probeImage(movie.poster, signal)
+    // 个别站标成海报的其实是横图（如 MGStage 的 pb_e），也按不可用处理
+    const portrait = size && size.height > size.width
+    return portrait && size.height >= HD_POSTER_HEIGHT ? 'native' : 'crop'
   }
 
   /** 查一个站点：命中缓存直接用；查无此片为 null；网络失败 / 被拦为 undefined（不缓存）。 */
@@ -344,7 +368,8 @@ export interface CreateJavProviderOptions extends Pick<
   JavProviderOptions,
   'cache' | 'settings' | 'credentials' | 'avatars' | 'log'
 > {
-  fetch: FetchLike
+  /** 站点页面与图片探测共用（探测站点海报尺寸要读二进制）。 */
+  fetch: FetchLike & BinaryFetch
   clock?: Clock
 }
 
@@ -358,6 +383,7 @@ export function createJavProvider(
   const { fetch, clock, ...rest } = options
   return new JavProvider({
     ...rest,
+    probeImage: createImageProbe(fetch),
     http: perHost(
       () =>
         new ProviderHttp({
