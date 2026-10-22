@@ -270,6 +270,7 @@ describe('下载域接线（createDownloadHandlers）', () => {
       await import('../src/engine/download/index')
     const ctx = {
       emit: () => {},
+      busy: () => {},
       host: (async () => root) as never,
     }
     const { queue } = createDownloadHandlers({
