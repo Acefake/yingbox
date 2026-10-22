@@ -22,6 +22,7 @@ import type {
   AddLibraryRequest,
   ItemPreview,
   LibraryAutomation,
+  LibraryNotifyRpcMap,
   UpdateLibraryRequest,
 } from './contract-library'
 import type {
@@ -75,8 +76,10 @@ export interface LibraryInfo {
   createdAt: number
   /** 最近一次扫描完成的时间；从未扫描为 null。 */
   lastScanAt: number | null
-  /** 自动化：监控、自动识别、自动写出、自动整理。 */
+  /** 自动化：监控、自动识别、自动写出、自动整理、存储。 */
   automation: LibraryAutomation
+  /** 实际是否按网盘处理（storage 为 auto 时是判定结果）；还没判定完时缺省。 */
+  cloud?: boolean
 }
 
 /** 外部数据库 ID；尚未识别时为空对象。 */
@@ -274,7 +277,7 @@ export interface ApplyMatchResult {
 }
 
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
-export interface LibraryRpcMap extends ActorRpcMap {
+export interface LibraryRpcMap extends ActorRpcMap, LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
@@ -332,6 +335,7 @@ export const LIBRARY_METHODS = [
   'refreshMetadata',
   'setProviderToken',
   'getProviderStatus',
+  'notifyChanges',
   'writer.getSettings',
   'writer.setSettings',
   'writer.write',

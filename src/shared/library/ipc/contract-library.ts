@@ -11,6 +11,14 @@ import type { LibrarySource } from './contract-jav'
 /** 识别后自动写出 NFO 与图片：inherit 跟随写出设置里的「识别后自动写出」。 */
 export type LibraryAutoWrite = 'inherit' | 'on' | 'off'
 
+/**
+ * 文件夹在哪种存储上：auto 按根目录判定（UNC 网络路径，或 Linux 上 nfs / cifs / fuse 等事件不可靠的
+ * 文件系统，见 scanner/fs-type.ts，判为网盘）；local / cloud 是用户指定。
+ * 网盘模式：不定时扫描、不靠文件系统事件，只按外部变更通知或手动扫描入库；不读视频内容
+ * （不算指纹、不拉悬停预览视频，时长探测与 OpenSubtitles 哈希在识别时按需、限速）。
+ */
+export type LibraryStorage = 'auto' | 'local' | 'cloud'
+
 /** 一个媒体库的自动化设置。 */
 export interface LibraryAutomation {
   /**
@@ -27,6 +35,8 @@ export interface LibraryAutomation {
    * 每次记一个可撤销的批次。还要求写出设置里「允许整理文件」已开启。
    */
   organize: boolean
+  /** 存储：自动判定 / 本地盘 / 网盘（挂载盘）。 */
+  storage: LibraryStorage
 }
 
 /** 自动化默认值：监控 + 自动识别，写出跟随全局设置，不自动整理。 */
@@ -35,7 +45,15 @@ export const DEFAULT_LIBRARY_AUTOMATION: LibraryAutomation = {
   identify: true,
   write: 'inherit',
   organize: false,
+  storage: 'auto',
 }
+
+/** 存储的取值。 */
+export const LIBRARY_STORAGE: readonly LibraryStorage[] = [
+  'auto',
+  'local',
+  'cloud',
+]
 
 /** 自动写出的取值。 */
 export const LIBRARY_AUTO_WRITE: readonly LibraryAutoWrite[] = [
@@ -75,7 +93,50 @@ export function withAutomationDefaults(
       ? (s.write as LibraryAutoWrite)
       : d.write,
     organize: typeof s.organize === 'boolean' ? s.organize : d.organize,
+    storage: LIBRARY_STORAGE.includes(s.storage as LibraryStorage)
+      ? (s.storage as LibraryStorage)
+      : d.storage,
   }
+}
+
+/** 外部文件变更通知的动作（CloudDrive2 webhook 的 action 取值）。 */
+export type FileChangeAction = 'create' | 'modify' | 'delete' | 'rename'
+
+/** 文件变更通知的动作取值。 */
+export const FILE_CHANGE_ACTIONS: readonly FileChangeAction[] = [
+  'create',
+  'modify',
+  'delete',
+  'rename',
+]
+
+/** 一条外部文件变更：path 是变化项（改名时是原路径），destination 是改名 / 移动后的路径。 */
+export interface FileChangeNotice {
+  action: FileChangeAction
+  path: string
+  destination?: string
+}
+
+/**
+ * 外部变更通知（主进程本地 HTTP 端点收到后转给引擎，见 src/main/library/notify）。
+ * 路径可以是本机路径，也可以是网盘工具自己的路径（CloudDrive2 的 /115/电影/…）：
+ * 引擎先试 mountRoot 拼接，再试直接落在库目录下，最后按「库目录末尾几段 = 通知路径开头几段」对齐。
+ */
+export interface NotifyChangesRequest {
+  changes: FileChangeNotice[]
+  /** 网盘工具的根在本机挂载到哪里（如 D:\CloudDrive）；可选。 */
+  mountRoot?: string
+}
+
+/** 通知受理结果：对应到某个库的条数与对不上任何库的条数。 */
+export interface NotifyChangesResult {
+  accepted: number
+  ignored: number
+}
+
+/** 外部变更通知的 RPC（主进程 HTTP 端点转来）：对应到库目录后去抖合并，再按目录增量扫描。 */
+export interface LibraryNotifyRpcMap {
+  notifyChanges: { params: NotifyChangesRequest; result: NotifyChangesResult }
 }
 
 /**

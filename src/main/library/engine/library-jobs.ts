@@ -4,7 +4,8 @@
  */
 import { type CatalogStore, ItemChanges } from '../catalog/catalog-store'
 import { type LibraryDb, transaction } from '../db/database'
-import type { JobContext } from '../jobs/queue'
+import type { KeyedMutex } from '../jobs/keyed-mutex'
+import type { JobContext, JobQueue } from '../jobs/queue'
 import type { LibraryRecord } from '../libraries/library-store'
 import { PARSER_VERSION, parseLibraryFile } from '../scanner/parse'
 import { type UnsettledFiles, scanLibrary } from '../scanner/scan-library'
@@ -17,6 +18,7 @@ import {
   SCAN_WARNING_LOG_LIMIT,
   type ScanPayload,
   chunks,
+  mergeScanPayload,
 } from './service-rules'
 
 /** 后台任务需要的服务能力。 */
@@ -153,4 +155,28 @@ export async function runFingerprint(
       }
     })
   }
+}
+
+/** 把扫描 / 解析 / 指纹三种任务注册进队列：同一媒体库的扫描与解析经 locks 互斥，扫描载荷可合并。 */
+export function registerLibraryJobs(
+  queue: JobQueue,
+  locks: KeyedMutex<number>,
+  deps: LibraryJobDeps
+): void {
+  queue.register(
+    'scan',
+    (p, ctx) =>
+      locks.run((p as ScanPayload).libraryId, () =>
+        runScan(deps, p as ScanPayload, ctx)
+      ),
+    { merge: mergeScanPayload }
+  )
+  queue.register('parse', (p, ctx) =>
+    locks.run((p as LibraryPayload).libraryId, () =>
+      runParse(deps, p as LibraryPayload, ctx)
+    )
+  )
+  queue.register('fingerprint', (p, ctx) =>
+    runFingerprint(deps, p as LibraryPayload, ctx)
+  )
 }
