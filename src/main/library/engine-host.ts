@@ -7,24 +7,26 @@
  * 一端随 subscribe 发给引擎、另一端经 library:port 发给窗口，所以重启后事件照常到达。
  * 新端口在转发任何调用之前发出，触发重启的那次调用产生的事件也不会丢。
  *
- * 引擎崩溃时挂起的调用以 engine-unavailable 失败；下一次调用（或新的订阅）才重启引擎，
- * 不会因为有订阅方就在崩溃后立即重启，避免启动即崩时反复 fork。
+ * 进程生命周期由 UtilityHost（main/utility/host.ts）负责：引擎崩溃时挂起的调用以
+ * engine-unavailable 失败；下一次调用（或新的订阅）才重启引擎，不会因为有订阅方就在崩溃后
+ * 立即重启，避免启动即崩时反复 fork。关停超时 kill；媒体库引擎不空闲退出（目录监控要常驻）。
  */
 import type {
   EngineMessage,
   HostMessage,
   InvokeResult,
-  RpcError,
+  LibraryErrorCode,
   RpcRequest,
 } from '../../shared/library/ipc'
 import { isLibraryMethod } from '../../shared/library/ipc'
+import {
+  UtilityCallError,
+  type UtilityChild,
+  UtilityHost,
+} from '../utility/host'
 
-/** 引擎子进程句柄的最小形状（Electron UtilityProcess 的子集）。 */
-export interface LibraryChild {
-  postMessage(message: HostMessage, transfer?: unknown[]): void
-  on(event: 'message', listener: (message: EngineMessage) => void): void
-  on(event: 'exit', listener: (code: number) => void): void
-}
+/** 引擎子进程句柄（Electron UtilityProcess 的子集）。 */
+export type LibraryChild = UtilityChild<HostMessage, EngineMessage>
 
 /** 一条事件通道：port1 交给引擎，port2 交给订阅窗口（Electron MessageChannelMain 的子集）。 */
 export interface LibraryEventChannel {
@@ -37,52 +39,75 @@ export interface LibrarySubscriber {
   deliver(port: unknown): void
 }
 
-/** 宿主依赖：fork 引擎、建事件通道、处理「原图已下载」通知。 */
+/** 宿主依赖：fork 引擎、建事件通道、处理「原图已下载」通知、引擎就绪。 */
 export interface LibraryHostDeps {
   fork(): LibraryChild
   createChannel(): LibraryEventChannel
   onImagesCached?(keys: string[]): void
+  /** 引擎初始化完成（数据库已打开）；elapsedMs 为 fork → ready 的耗时 */
+  onReady?(elapsedMs: number): void
+  /** 关停超时，默认 UtilityHost 的 5 秒 */
+  stopTimeoutMs?: number
 }
 
-const failure = (code: RpcError['code'], message: string): InvokeResult => ({
+/** 一次调用：方法名已过白名单，参数由引擎解析。 */
+interface LibraryCall {
+  method: RpcRequest['method']
+  params: RpcRequest['params']
+}
+
+const failure = (code: LibraryErrorCode, message: string): InvokeResult => ({
   ok: false,
   error: { code, message },
 })
 
-/** 媒体库引擎宿主。 */
+/** 媒体库引擎宿主：生命周期交给 UtilityHost，这里只管订阅方名单与错误码。 */
 export class LibraryEngineHost {
-  private child: LibraryChild | undefined
-  private readonly pending = new Map<number, (result: InvokeResult) => void>()
+  private readonly utility: UtilityHost<HostMessage, EngineMessage, LibraryCall>
   /** 订阅方名单，键由调用方给（主进程里是 webContents.id）。 */
   private readonly subscribers = new Map<number, LibrarySubscriber>()
-  private nextId = 1
 
-  constructor(private readonly deps: LibraryHostDeps) {}
+  constructor(private readonly deps: LibraryHostDeps) {
+    this.utility = new UtilityHost({
+      name: '媒体库引擎',
+      fork: deps.fork,
+      stopTimeoutMs: deps.stopTimeoutMs,
+      shutdown: { kind: 'shutdown' },
+      encodeCall: (id, { method, params }) => ({
+        kind: 'request',
+        id,
+        method,
+        params,
+      }),
+      decodeReply: m =>
+        m.kind !== 'response'
+          ? undefined
+          : m.ok
+            ? { id: m.id, ok: true, value: m.result }
+            : {
+                id: m.id,
+                ok: false,
+                message: m.error.message,
+                code: m.error.code,
+              },
+      isReady: m => m.kind === 'ready',
+      onReady: deps.onReady,
+      // 新 fork 的引擎先给全部订阅方接上事件通道，再转发任何调用
+      onStart: child => {
+        for (const subscriber of this.subscribers.values()) {
+          this.connect(child, subscriber)
+        }
+      },
+      onMessage: message => {
+        if (message.kind === 'images-cached')
+          this.deps.onImagesCached?.(message.keys)
+      },
+    })
+  }
 
   /** 引擎是否在运行。 */
   get running(): boolean {
-    return this.child !== undefined
-  }
-
-  /** 确保引擎在运行；新 fork 的引擎先给全部订阅方接上事件通道。 */
-  private ensure(): LibraryChild {
-    if (this.child) return this.child
-    const child = this.deps.fork()
-    child.on('message', message => this.onMessage(message))
-    child.on('exit', code => {
-      if (this.child === child) this.child = undefined
-      const result = failure(
-        'engine-unavailable',
-        `媒体库引擎已退出（code ${code}）`
-      )
-      for (const settle of this.pending.values()) settle(result)
-      this.pending.clear()
-    })
-    this.child = child
-    for (const subscriber of this.subscribers.values()) {
-      this.connect(child, subscriber)
-    }
-    return child
+    return this.utility.running
   }
 
   /** 新建一条通道，一端交给引擎作为事件订阅方，另一端交给窗口。 */
@@ -92,41 +117,29 @@ export class LibraryEngineHost {
     subscriber.deliver(port2)
   }
 
-  private onMessage(message: EngineMessage): void {
-    if (message.kind === 'images-cached') {
-      this.deps.onImagesCached?.(message.keys)
-      return
-    }
-    if (message.kind !== 'response') return
-    const settle = this.pending.get(message.id)
-    if (!settle) return
-    this.pending.delete(message.id)
-    settle(
-      message.ok
-        ? { ok: true, result: message.result }
-        : { ok: false, error: message.error }
-    )
-  }
-
-  /** 转发一次调用。方法名不在白名单内直接拒绝，参数由引擎解析。 */
-  invoke(method: unknown, params: unknown): Promise<InvokeResult> {
+  /**
+   * 转发一次调用。方法名不在白名单内直接拒绝，参数在引擎内由 handleRpc 解析（同一份解析被
+   * HTTP 服务复用），这里原样转发。错误以数据返回：引擎崩溃 / 关停为 engine-unavailable。
+   */
+  async invoke(method: unknown, params: unknown): Promise<InvokeResult> {
     if (!isLibraryMethod(method)) {
-      return Promise.resolve(
-        failure('unknown-method', `未知方法：${String(method)}`)
-      )
+      return failure('unknown-method', `未知方法：${String(method)}`)
     }
-    const child = this.ensure()
-    const id = this.nextId++
-    return new Promise(resolve => {
-      this.pending.set(id, resolve)
-      // 参数在引擎内由 handleRpc 解析（同一份解析被 HTTP 服务复用），这里原样转发
-      child.postMessage({
-        kind: 'request',
-        id,
+    try {
+      const result = await this.utility.call({
         method,
         params: params as RpcRequest['params'],
       })
-    })
+      return { ok: true, result }
+    } catch (error) {
+      const { message, code } = error as UtilityCallError
+      return failure(
+        code === 'unavailable' || !code
+          ? 'engine-unavailable'
+          : (code as LibraryErrorCode),
+        message
+      )
+    }
   }
 
   /**
@@ -134,10 +147,10 @@ export class LibraryEngineHost {
    * 会替换旧的登记；旧通道的窗口端随旧页面关闭，引擎端随之退订。
    */
   subscribe(key: number, subscriber: LibrarySubscriber): void {
-    const running = this.child
+    const running = this.utility.current
     this.subscribers.set(key, subscriber)
     if (running) this.connect(running, subscriber)
-    else this.ensure()
+    else this.utility.start() // 新进程 fork 后由 onStart 接通道
   }
 
   /** 移除订阅方：之后引擎重启不再给它发端口。已发出的端口由窗口自己关闭。 */
@@ -145,8 +158,8 @@ export class LibraryEngineHost {
     this.subscribers.delete(key)
   }
 
-  /** 通知引擎关闭数据库并退出。 */
-  shutdown(): void {
-    this.child?.postMessage({ kind: 'shutdown' })
+  /** 通知引擎关闭数据库并退出；超时 kill。 */
+  shutdown(): Promise<void> {
+    return this.utility.stop()
   }
 }
