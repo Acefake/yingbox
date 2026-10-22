@@ -77,3 +77,14 @@ export function withAutomationDefaults(
     organize: typeof s.organize === 'boolean' ? s.organize : d.organize,
   }
 }
+
+/**
+ * 海报墙悬停预览的数据（getPreview）。库根目录在本机可靠磁盘上时给第一个视频文件，渲染层从片中 10%
+ * 处播几秒；网盘 / 网络路径（UNC，或 fs-type 判定为 nfs / cifs / fuse 等）不给视频，只轮播已缓存的图片。
+ */
+export interface ItemPreview {
+  /** 可直接播放的视频文件；网络路径或没有视频文件时为 null */
+  video: { fileId: number; path: string } | null
+  /** 已缓存的图片（yingbox-media://image/<key>，背景图与季 / 集图），不含海报，最多 8 张 */
+  images: string[]
+}

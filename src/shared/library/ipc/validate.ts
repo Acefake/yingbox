@@ -310,6 +310,7 @@ const PARAM_PARSERS: {
   scan: parseScan,
   query: normalizeLibraryQuery,
   getItem: itemIdParam,
+  getPreview: itemIdParam,
   identify: input => parseTargets(input, 'identify'),
   getMatchCandidates: itemIdParam,
   applyMatch: parseApplyMatch,

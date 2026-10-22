@@ -45,6 +45,7 @@
             class="lib-cell-fallback"
             >{{ cell.item.title }}</span
           >
+          <div v-if="cell.item" class="lib-cell-preview ui-preview-layer" />
           <span v-if="cell.badge" class="lib-cell-badge">{{ cell.badge }}</span>
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
@@ -77,15 +78,20 @@
  *   每格没有自己的监听器和组件实例；
  * - 每格只有 transform 随位置变化，宽高走网格上的 CSS 变量；
  * - 海报取 300w 本地缩略图，loading=lazy + decoding=async，解码不占主线程；
- * - 格子构造、方向键、修饰键等纯规则在 wall-cells.ts，样式在 poster-wall.css。
+ * - 格子构造、方向键、修饰键等纯规则在 wall-cells.ts，样式在 poster-wall.css；
+ * - 悬停预览也委托在网格上（useGridPreview，来源见 wall-preview.ts），多选时不起；
+ *   格子被回收（滚出渲染区间、换查询）时停止。
  */
-import { type CSSProperties, computed, ref, toRef, watch } from 'vue'
+import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
+
+import { useGridPreview } from '@/components/ui/hover-preview'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
 import { itemImage } from '../api/images'
 import { formatRating } from '../shared/format'
 import type { PagedList } from './paged-list'
 import { useVirtualGrid } from './use-virtual-grid'
+import { wallPreviewSource } from './wall-preview'
 import {
   type Cell,
   arrowTarget,
@@ -180,6 +186,21 @@ const cells = computed<Cell[]>(() => {
     rating: formatRating,
   })
 })
+
+const preview = useGridPreview(grid, {
+  cell: '.lib-cell',
+  host: '.lib-cell-preview',
+  source: cell => {
+    const item = props.list.at(Number(cell.dataset.index))
+    return item ? wallPreviewSource(item) : null
+  },
+  disabled: () => props.selected.size > 0,
+})
+watch([range, () => props.version], () =>
+  nextTick(() => {
+    if (preview.activeCell()?.isConnected === false) preview.stop()
+  })
+)
 
 function cellFrom(event: Event): {
   index: number

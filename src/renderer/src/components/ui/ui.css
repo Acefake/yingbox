@@ -111,3 +111,25 @@
 textarea:where(.ui-textarea) {
   font-size: var(--text-sm);
 }
+
+/*
+ * 悬停预览层（hover-preview/）：盖在卡片封面上、在角标之下；全局复用的 <video> / <img>
+ * 开始播放后才淡入，之前一直看到静态封面。
+ */
+.ui-preview-layer {
+  position: absolute;
+  inset: 0;
+  pointer-events: none;
+}
+.ui-preview-media {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  opacity: 0;
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.ui-preview-media.is-visible {
+  opacity: 1;
+}

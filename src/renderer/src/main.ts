@@ -9,7 +9,8 @@ import { registerPwa } from '@/pwa'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { sourcesSettingsSection } from '@/features/online'
-import { registerSettingsSection } from '@/features/settings'
+import { getSetting, registerSettingsSection } from '@/features/settings'
+import { configureHoverPreview } from '@/components/ui/hover-preview'
 
 /**
  * 网页端：清掉旧链接地址栏里一次性携带的密钥参数 `key`（Go 后端密钥），不留在历史记录里。
@@ -38,6 +39,12 @@ for (const section of [
 ]) {
   registerSettingsSection(section)
 }
+
+// 卡片悬停预览读设置里的开关与等待时间（每次悬停时读，改了立即生效）
+configureHoverPreview(() => ({
+  enabled: getSetting('ui.hoverPreview'),
+  delayMs: getSetting('ui.hoverPreviewDelay'),
+}))
 
 const app = createApp(App)
 app.use(router)
