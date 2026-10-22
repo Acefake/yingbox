@@ -9,7 +9,6 @@
 - **在线观看**：聚合苹果 CMS 资源站（内置 `cms-sites.json` + 订阅远程清单 + 自定义源）与 CatSpider 插件站点，可检测可用性；豆瓣片单浏览与筛选，详情页剧照（TMDB，豆瓣兜底）
 - **内置播放器**：本地文件（`local://`，支持 Range）、HLS/m3u8、外挂字幕，可选 mpv、弹出窗口、应用内迷你播放器
 - **下载**：HLS（含 AES-128）与直链下载，断点续传，下载目录可在设置里改
-- **番号库**（成人模式）：独立「番号」页，TypeScript 实现的番号站点刮削与演员资料、目录监控自动入库与整理、按画面搜（本地中文 CLIP，见 [docs/library-refactor/visual-search.md](docs/library-refactor/visual-search.md)）
 - **片库服务（网页端 / NAS）**：同一套媒体库核心以独立 Node 服务运行，浏览器访问，可用 Docker 部署，见 [docs/library-server.md](docs/library-server.md)、[docs/deploy/nas.md](docs/deploy/nas.md)
 
 ## 技术栈
@@ -20,8 +19,8 @@ Electron 37 · Vue 3 + TypeScript · 自带 UI 组件库 + Tailwind CSS 4 · 两
 
 ```
 src/
-  main/        Electron 主进程：窗口、IPC、设置、引擎宿主、片库引擎、缩略图、mpv / lada 插件宿主
-  engine/      引擎（utilityProcess）：在线源解析、豆瓣、MissAV、下载
+  main/        Electron 主进程：窗口、IPC、设置、引擎宿主、片库引擎、缩略图、mpv 插件宿主
+  engine/      引擎（utilityProcess）：在线源解析、豆瓣、下载
   preload/     沙箱预加载，暴露 window.api
   renderer/    Vue 3 界面，按功能放在 src/features/ 下
   server/      独立片库服务（Node）：HTTP RPC / SSE / 媒体流 / 鉴权，托管网页端
