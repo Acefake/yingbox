@@ -21,6 +21,7 @@ import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
+import { registerLibraryNotify } from './library/notify'
 import { registerEngine } from './engine'
 import { installMediaHeaders } from './media-headers'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
@@ -157,7 +158,10 @@ app.whenReady().then(async () => {
   registerPlayerWindowIpc()
   registerMpvIpc()
   await registerLadaIpc()
-  const library = libraryTokenTarget(registerLibraryIpc(thumbnails))
+  const libraryClient = registerLibraryIpc(thumbnails)
+  const library = libraryTokenTarget(libraryClient)
+  // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
+  registerLibraryNotify(libraryClient)
   // TMDB 令牌：用户改了就下发给媒体库引擎；启动时补给还没配置的引擎（老用户迁移来的令牌）
   onSecretSaved(async (key, value) => {
     if (key === TMDB_SECRET)

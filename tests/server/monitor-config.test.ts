@@ -51,10 +51,19 @@ describe('监控配置', () => {
         settleMs: 10_000,
       })
     ).toBe(
-      '自动（本地盘用文件系统事件，网络盘只用定时扫描），每 300 秒增量扫描，文件 10 秒不变再入库'
+      '自动（本地盘用文件系统事件，网络盘 / 挂载盘按网盘处理），每 300 秒增量扫描，文件 10 秒不变再入库；网盘不监听、不定时扫描，只按变更通知与手动扫描'
     )
     expect(
       describeMonitor({ watchMode: 'off', scanIntervalMs: 1, settleMs: 1 })
     ).toBe('关闭（只能手动扫描）')
+    expect(
+      describeMonitor({
+        watchMode: 'poll',
+        scanIntervalMs: 60_000,
+        settleMs: 0,
+      })
+    ).toBe(
+      '只用定时扫描，每 60 秒增量扫描，不等文件写完；网盘不监听、不定时扫描，只按变更通知与手动扫描'
+    )
   })
 })

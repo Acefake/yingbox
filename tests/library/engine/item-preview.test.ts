@@ -3,7 +3,6 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   buildItemPreview,
   createItemPreviews,
-  isNetworkPath,
 } from '../../../src/main/library/catalog/item-preview'
 import { handleRpc } from '../../../src/main/library/engine/rpc'
 import { LibraryService } from '../../../src/main/library/engine/service'
@@ -18,7 +17,7 @@ import { tempTree } from './helpers'
 
 /**
  * 海报墙悬停预览的数据：本机可靠磁盘上给第一个视频文件（渲染层从片中 10% 处播几秒），
- * 网盘 / 网络路径（UNC，或 fs-type 判定为事件不可靠的 nfs / cifs / fuse …）只给已缓存的图片，不拉视频。
+ * 网盘（用户指定，或 UNC / fs-type 判定为 nfs / cifs / fuse …）只给已缓存的图片，不拉视频。
  */
 
 const img = (n: number): string =>
@@ -63,17 +62,6 @@ const file = (
   kind,
   size: 1,
   mtime: 0,
-})
-
-describe('isNetworkPath', () => {
-  it.each([
-    ['\\\\nas\\movies\\a.mkv', true],
-    ['//nas/movies/a.mkv', true],
-    ['D:\\Movies\\a.mkv', false],
-    ['/mnt/media/a.mkv', false],
-  ])('%s → %s', (path, expected) => {
-    expect(isNetworkPath(path)).toBe(expected)
-  })
 })
 
 describe('buildItemPreview', () => {
@@ -170,39 +158,20 @@ describe('createItemPreviews', () => {
     files: [file(10, '/mnt/nas/a.mkv')],
   })
 
-  it('库根目录在不可靠文件系统上（fs-type）：只给图片；判定按根目录缓存', async () => {
-    const detectFs = vi.fn(async () => 'cifs')
+  it('库按网盘处理时只给图片，本地盘给视频；条目不存在为 null（判定见 cloud-mode.test 的 StorageModes）', async () => {
+    const isCloud = vi.fn(async (id: number) => id === 3)
     const previews = createItemPreviews({
-      getItem: id => (id === 7 ? movie : null),
-      libraryRoot: id => (id === 3 ? '/mnt/nas' : undefined),
-      detectFs,
+      getItem: id =>
+        id === 7 ? movie : id === 8 ? { ...movie, libraryId: 4 } : null,
+      isCloud,
     })
     expect(await previews.get(7)).toEqual({ video: null, images: [img(2)] })
-    await previews.get(7)
-    expect(detectFs).toHaveBeenCalledTimes(1)
-    expect(detectFs).toHaveBeenCalledWith('/mnt/nas')
-    expect(await previews.get(8)).toBeNull()
-  })
-
-  it('UNC 根目录不查 fs-type 也算网络；可靠磁盘给视频', async () => {
-    const detectFs = vi.fn(async () => undefined)
-    const unc = createItemPreviews({
-      getItem: () => movie,
-      libraryRoot: () => '\\\\nas\\movies',
-      detectFs,
-    })
-    expect((await unc.get(7))?.video).toBeNull()
-    expect(detectFs).not.toHaveBeenCalled()
-
-    const local = createItemPreviews({
-      getItem: () => movie,
-      libraryRoot: () => '/mnt/local',
-      detectFs,
-    })
-    expect((await local.get(7))?.video).toEqual({
+    expect(isCloud).toHaveBeenCalledWith(3)
+    expect((await previews.get(8))?.video).toEqual({
       fileId: 10,
       path: '/mnt/nas/a.mkv',
     })
+    expect(await previews.get(9)).toBeNull()
   })
 })
 

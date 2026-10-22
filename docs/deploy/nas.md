@@ -86,7 +86,7 @@ docker run -d --name yingbox-library --restart unless-stopped \
 
 - Unraid 的惯例是 `nobody:users`，即 `99:100`；共享默认对这个身份可读。
 - 缓存放在缓存池（`/mnt/cache/...`）上，避免缩略图频繁唤醒阵列硬盘。
-- `/mnt/user` 是 shfs（FUSE）：默认的 `YINGBOX_WATCH=auto` 会只用定时扫描。想要秒级入库，可以把片库改成直接挂某块盘或缓存池的路径（`/mnt/disk1/...`、`/mnt/cache/...`），或者设 `YINGBOX_WATCH=events` 并确认新文件都是 Unraid 本机写入的。
+- `/mnt/user` 是 shfs（FUSE）：库的「存储」保持「自动」时会被判为网盘——不监听、不定时扫描、悬停预览不播视频，新文件只靠手动扫描（`YINGBOX_WATCH` 管不到网盘库）。片库放在 `/mnt/user` 上时，在网页端「媒体库设置 → 自动入库 → 存储」里改选「本地盘」，回到定时扫描（默认 5 分钟）；想要秒级入库，可以把片库改成直接挂某块盘或缓存池的路径（`/mnt/disk1/...`、`/mnt/cache/...`），或者改选「本地盘」后再设 `YINGBOX_WATCH=events` 并确认新文件都是 Unraid 本机写入的。
 - Docker 页面里显示的健康状态来自镜像自带的健康检查。
 
 ## 反向代理与 HTTPS
@@ -135,8 +135,29 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
    网页端建库时选 `/media/cloud/115/...`。路径要在 `/media` 以内，否则网页端看不到。
 2. **只读要在 CD2 里设**：`read_only` / `:ro` 只管挂载根，管不到容器启动之后才传播进来的子挂载（CD2 的每个网盘就是这种子挂载），而 Docker 的 `bind-recursive=readonly` 不能和 `rslave` 一起用。不想让片库服务写网盘，就在 CD2 的挂载设置里勾「只读」。
 3. **权限**：CD2 Linux 挂载的「高级设置」可以指定 UID、GID 和权限（默认 `0755`，其他用户可读）。设成与 `PUID` / `PGID` 相同最省事；保持默认也能读，但写 NFO / 整理会失败。
-4. **扫描频率**：网盘是 FUSE 文件系统，默认的 `YINGBOX_WATCH=auto` 只用定时扫描，每次扫描要对每个目录 `stat` 一次，对网盘就是一次次 API 请求。目录多时把 `YINGBOX_SCAN_INTERVAL` 调大（比如 `1800`），新文件靠手动扫描或等下一轮。
-5. **悬停预览与播放**：网盘上的条目悬停时只显示已缓存的图片，不读视频；页内播放经服务转发 Range 请求，速度取决于 CD2 的缓存与网盘限速。
+4. **存储与扫描**：CD2 挂载是 FUSE，库的「存储」保持「自动」就按网盘处理：不监听、不定时扫描、启动不补扫，只在添加库时扫一次，之后新文件靠下面的变更通知或手动扫描入库（`YINGBOX_WATCH` / `YINGBOX_SCAN_INTERVAL` 只管本地盘库）。不想配通知、宁可轮询，就在「媒体库设置 → 自动入库 → 存储」里改选「本地盘」，回到定时扫描；每轮要对每个目录 `stat` 一次，对网盘就是一次次 API 请求，目录多时把 `YINGBOX_SCAN_INTERVAL` 调大（比如 `1800`）。
+5. **变更通知**（CD2 的文件变更 webhook 是会员功能）：容器里没有桌面版那个 CD2 格式的通知地址（桌面版见 [网盘模式说明](../library-cloud-mode.md)），通知走片库服务自己的 API——`POST /api/library/rpc`，请求头 `Authorization: Bearer <YINGBOX_SERVER_TOKEN>`，请求体：
+   ```json
+   {
+     "method": "notifyChanges",
+     "params": {
+       "changes": [
+         { "action": "create", "path": "/115/电影/A (2001)/A.mkv" },
+         {
+           "action": "rename",
+           "path": "/115/电影/旧.mkv",
+           "destination": "/115/电影/新.mkv"
+         }
+       ]
+     }
+   }
+   ```
+
+   - `action` 只认 `create` / `modify` / `delete` / `rename`（小写）；一次最多 10 000 条。回包 `{ "ok": true, "result": { "accepted": 对应到库的条数, "ignored": 对不上的条数 } }`，令牌不对 401。
+   - **路径映射**：通知里写 CD2 自己的路径（`/115/电影/...`）即可。库建在 `/media/cloud/115/电影` 时，按「库目录末尾几段 = 路径开头几段」自动对上；库目录就是挂载根（`/media/cloud`）、或两个库末尾同名时对不上，在 `params` 里加 `"mountRoot": "/media/cloud"`（CD2 的挂载根在**片库容器里**的路径，即上面 volumes 的 `target`）。对上后约 2 秒按目录增量扫描。
+   - **地址**：CD2 与片库都用默认 bridge 网络时，把两者放进同一个 Docker 网络，地址写 `http://yingbox:31480/api/library/rpc`（compose 的服务名）；CD2 用 host 网络时写 `http://127.0.0.1:31480/api/library/rpc`（compose 默认就映射到宿主 `127.0.0.1:31480`）。CD2 跑在另一台机器上才需要局域网可达，按上文改 `ports`，令牌照旧必带。
+   - CD2 的默认 webhook 请求体是 `{ "data": [{ "action", "source_file", "destination_file", ... }] }`，与上面的格式不同，需要在 CD2 的 webhook 配置（`webhook.toml`）里改请求体模板与请求头，或用一个小脚本转发；具体模板写法以 CD2 文档为准。只在 CD2 里发生的改动（挂载盘、它的网页、WebDAV、离线下载）才有通知，在网盘 App 里直接改的文件仍要手动扫描。
+6. **悬停预览与播放**：网盘库悬停时只轮播已缓存的图片，不读视频，也不算指纹（识别时探测时长 / 算字幕哈希按需读，两次至少隔 1 秒）；页内播放经服务转发 Range 请求，速度取决于 CD2 的缓存与网盘限速。
 
 ## 备份、迁移与排错
 

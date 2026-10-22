@@ -33,7 +33,11 @@ import {
   positiveId,
 } from './validate-base'
 import { parseJavSettings } from './validate-jav'
-import { parseAutomationPatch, parseUpdateLibrary } from './validate-library'
+import {
+  parseAutomationPatch,
+  parseNotifyChanges,
+  parseUpdateLibrary,
+} from './validate-library'
 import { validateTemplate } from '../writer/template'
 
 /** 默认每页条数。 */
@@ -322,6 +326,7 @@ const PARAM_PARSERS: {
   },
   setProviderToken: parseSetToken,
   getProviderStatus: () => undefined,
+  notifyChanges: parseNotifyChanges,
   'writer.getSettings': () => undefined,
   'writer.setSettings': parseWriterSettings,
   'writer.write': requiredItemIds,

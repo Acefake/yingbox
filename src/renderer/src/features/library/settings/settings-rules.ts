@@ -6,6 +6,7 @@ import type {
   LibraryAutoWrite,
   LibraryInfo,
   LibraryKind,
+  LibraryStorage,
   OrganizeBatchInfo,
   WriterSettings,
 } from '../../../../../shared/library/ipc'
@@ -129,3 +130,27 @@ export function batchDescription(
 /** 设置里给「撤销」按钮的批次：已完成或部分完成。 */
 export const showUndo = (state: OrganizeBatchInfo['state']): boolean =>
   state === 'done' || state === 'partial'
+
+/** 存储选项（文件夹在本地盘还是网盘 / 挂载盘）。 */
+export const STORAGE_OPTIONS: Array<{ value: LibraryStorage; label: string }> =
+  [
+    { value: 'auto', label: '自动' },
+    { value: 'local', label: '本地盘' },
+    { value: 'cloud', label: '网盘' },
+  ]
+
+/** 网盘模式的说明。 */
+const CLOUD_TEXT = '不定时扫描、不读视频内容，靠变更通知或手动扫描入库'
+
+/** 存储行的描述：用户选的模式，auto 时带上判定结果。 */
+export function storageDescription(
+  lib: Pick<LibraryInfo, 'automation' | 'cloud'>
+): string {
+  const { storage } = lib.automation
+  if (storage === 'cloud') return CLOUD_TEXT
+  if (storage === 'local') return '监控文件变化，网络盘定时检查兜底'
+  if (lib.cloud === undefined) return '按文件夹所在的磁盘自动判断'
+  return lib.cloud
+    ? `判断为网盘：${CLOUD_TEXT}`
+    : '判断为本地盘；CloudDrive2 等挂载的盘符请选「网盘」'
+}

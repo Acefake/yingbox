@@ -9,6 +9,15 @@
       />
     </SettingsRow>
     <template v-if="current">
+      <SettingsRow title="存储" :description="storageDescription(current)">
+        <UiSegmented
+          :model-value="current.automation.storage"
+          size="sm"
+          label="存储"
+          :options="STORAGE_OPTIONS"
+          @update:model-value="v => patch({ storage: v })"
+        />
+      </SettingsRow>
       <SettingsRow title="监控文件夹" description="新文件写完后自动入库">
         <UiSwitch
           :model-value="current.automation.watch"
@@ -51,7 +60,7 @@
 
 <script setup lang="ts">
 /**
- * 媒体库设置里的「自动入库」组：按文件夹设置监控、自动识别 / 刮削、自动写出、自动整理
+ * 媒体库设置里的「自动入库」组：按文件夹设置存储（本地盘 / 网盘）、监控、自动识别 / 刮削、自动写出、自动整理
  * （库级自动化，见 shared/library/ipc/contract-library.ts）。多个文件夹时先选文件夹。
  * 桌面端与网页端走同一个 updateLibrary 方法。
  */
@@ -67,7 +76,12 @@ import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import { guarded } from '../shared/guarded'
-import { AUTO_WRITE_OPTIONS, autoIdentifyDescription } from './settings-rules'
+import {
+  AUTO_WRITE_OPTIONS,
+  STORAGE_OPTIONS,
+  autoIdentifyDescription,
+  storageDescription,
+} from './settings-rules'
 
 const props = defineProps<{
   libraries: LibraryInfo[]
@@ -78,7 +92,7 @@ const props = defineProps<{
 }>()
 
 const AUTOMATION_FOOTER =
-  '收不到文件变化通知的网络盘（NAS 共享、Docker 挂载）每隔几分钟自动检查一次；正在复制的文件等写完再入库。'
+  '本地盘收不到文件变化通知时（NAS 共享、Docker 挂载）每隔几分钟自动检查一次；网盘只按变更通知或手动扫描入库。正在复制的文件等写完再入库。'
 
 const selectedId = ref<number | null>(props.libraries[0]?.id ?? null)
 const current = computed(

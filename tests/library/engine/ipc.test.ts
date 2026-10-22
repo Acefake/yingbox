@@ -129,6 +129,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'refreshMetadata',
       'setProviderToken',
       'getProviderStatus',
+      'notifyChanges',
       'writer.getSettings',
       'writer.setSettings',
       'writer.write',
