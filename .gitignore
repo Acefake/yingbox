@@ -12,8 +12,6 @@ coverage
 *.tsbuildinfo
 out
 .eslintcache
-.claude/worktrees/
-.codex_tmp/
 .tmp/
 
 dist-web/
@@ -30,3 +28,35 @@ __pycache__/
 
 # docker-compose.yml 的数据目录（片库数据库、访问令牌、缓存）
 /yingbox/
+
+# 日志
+logs/
+*.log
+npm-debug.log*
+pnpm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# AI 编码工具的本地配置、记忆与会话日志（AGENTS.md / CLAUDE.md 是项目约定，仍入库）
+.claude/
+CLAUDE.local.md
+.codex/
+.codex_tmp/
+.commandcode/
+.workbuddy/
+.cursor/
+.cursorrules
+.windsurf/
+.qoder/
+.trae/
+.kiro/
+.continue/
+.cline/
+.clinerules
+.roo/
+.aider*
+.gemini/
+.serena/
+.specstory/
+.superpowers/
+docs/superpowers/
