@@ -18,6 +18,7 @@ import {
 } from '../../shared/contract/online'
 import type { EngineContext, EngineHandlers } from '../rpc'
 import { runCatSpider } from './catspider'
+import { type PluginStorage, createPluginStorage } from './plugin-storage'
 import sitesFile from './vod-sites.json'
 
 /** 内置站点表（只保留解析器支持的 type 3）。 */
@@ -45,6 +46,8 @@ export interface OnlineDeps {
   loadPlugin: (url: string) => Promise<string>
   /** 插件请求的熔断（主机 + 路径类别）；缺省新建一份不落盘的（30 分钟冷却、连续 3 次失败） */
   breaker?: HostBreaker
+  /** 插件 $cache 的存储（按插件隔离）；缺省只在内存里，跨调用共用、不跨重启 */
+  pluginStorage?: PluginStorage
   log?: (line: string) => void
 }
 
@@ -75,6 +78,7 @@ export function createOnlineHandlers(
   deps: OnlineDeps
 ): EngineHandlers<typeof online> {
   const breaker = deps.breaker ?? createHostBreaker({ scopeOf: pathScope })
+  const pluginStorage = deps.pluginStorage ?? createPluginStorage()
   /** 下载失败的插件脚本：地址 → 失败时间；冷却期内直接判失败 */
   const pluginFailures = new Map<string, number>()
   const loadPlugin = async (url: string): Promise<string> => {
@@ -130,6 +134,7 @@ export function createOnlineHandlers(
             browserFetch: url => ctx.host('browserFetch', url),
             breaker,
             onTrip,
+            cache: pluginStorage.forPlugin(site.ext),
             log: deps.log,
           },
           site.ext,

@@ -16,6 +16,7 @@ import { createDownloadHandlers } from './download'
 import { createOnlineHandlers } from './online'
 import { createPersistentBreaker } from './online/breaker-store'
 import { createPluginLoader } from './online/plugin-cache'
+import { createPluginStorage } from './online/plugin-storage'
 import { type EnginePort, serveEngine } from './rpc'
 
 const userData = process.argv[2]
@@ -43,6 +44,9 @@ server.implement(
     net: httpClient,
     loadPlugin: createPluginLoader(httpClient, join(userData, 'plugin-cache')),
     breaker: createPersistentBreaker(join(userData, 'online', 'breaker.json')),
+    pluginStorage: createPluginStorage({
+      dir: join(userData, 'online', 'plugin-storage'),
+    }),
     log,
   })
 )
