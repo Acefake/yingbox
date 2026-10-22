@@ -133,6 +133,7 @@ const ADDED_API: Record<string, string[]> = {
     'getJson',
     'tmdb',
     'doubanTrailer',
+    'doubanBrowse',
     'resolvePage',
   ],
   av: ['list', 'resolve'],
