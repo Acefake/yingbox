@@ -97,7 +97,14 @@ export function createDownloadHandlers(deps: DownloadDeps): {
   // 进度很密：合并成最多每 500ms 推一次
   let timer: ReturnType<typeof setTimeout> | undefined
   let latest: DownloadSnapshot | undefined
+  // 忙碌状态不节流：有任务在跑或排队时主进程不能空闲退出引擎
+  let busy = false
   const onChange = (snapshot: DownloadSnapshot): void => {
+    const nowBusy = Boolean(snapshot.active) || snapshot.queued.length > 0
+    if (nowBusy !== busy) {
+      busy = nowBusy
+      deps.ctx.busy(busy)
+    }
     latest = snapshot
     if (timer) return
     timer = setTimeout(() => {

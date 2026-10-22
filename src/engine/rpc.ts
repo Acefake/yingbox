@@ -26,6 +26,8 @@ export interface EngineContext {
     event: K,
     payload: PayloadOf<D['events'][K]>
   ): void
+  /** 报告调用之外的后台工作（如下载队列）是否在进行；忙时主进程不会空闲退出引擎 */
+  busy(busy: boolean): void
   /** 请主进程代办 */
   host<M extends keyof HostMethods>(
     method: M,
@@ -70,6 +72,9 @@ export function serveEngine(port: EnginePort): EngineServer {
         channel: channelOf(domain.name, event),
         payload,
       })
+    },
+    busy(busy) {
+      port.postMessage({ kind: 'busy', busy })
     },
     host(method, ...args) {
       const id = nextHostId++
