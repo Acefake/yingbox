@@ -22,7 +22,7 @@ export function createAvHandlers(
       const result = await listCatalog(
         {
           net,
-          browserFetch: (url, wait) => ctx.host('browserFetch', url, wait),
+          browserFetch: url => ctx.host('browserFetch', url),
         },
         category,
         page,
@@ -36,7 +36,7 @@ export function createAvHandlers(
       resolveStream(
         {
           net,
-          browserFetch: (url, wait) => ctx.host('browserFetch', url, wait),
+          browserFetch: url => ctx.host('browserFetch', url),
         },
         input
       ),

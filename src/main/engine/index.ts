@@ -28,7 +28,7 @@ export function registerEngine(): EngineHost {
     broadcast: broadcastChannel,
     onReady: ms => console.info(`[engine] 引擎就绪（${ms} ms）`),
     hostMethods: {
-      browserFetch: (url, waitMs) => browserFetch(url, waitMs),
+      browserFetch: url => browserFetch(url),
       resetBrowserFetch: async host => resetBrowserFetch(host),
       downloadDir: async () =>
         resolveDownloadDir(
