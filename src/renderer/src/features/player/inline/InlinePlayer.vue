@@ -77,7 +77,11 @@ useEscapeLayer(() => payload.value !== null, closeInlinePlayer)
   gap: var(--space-2);
   height: var(--titlebar-height);
   padding: 0 var(--space-3);
-  background: linear-gradient(to bottom, rgba(0, 0, 0, 0.6), transparent);
+  background: linear-gradient(
+    to bottom,
+    color-mix(in srgb, var(--media-bg) 60%, transparent),
+    transparent
+  );
   opacity: 0;
   transition: opacity var(--duration-normal) ease;
   -webkit-app-region: drag;
