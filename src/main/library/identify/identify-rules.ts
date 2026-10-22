@@ -19,6 +19,7 @@ import {
   OVERVIEW_SUMMARY_MAX,
   type StoredCandidate,
 } from './identify-store'
+import type { FollowupSpec } from '../jobs/followups'
 import type { RunMode, RunSummary } from './runner-types'
 
 /** identify 任务载荷。 */
@@ -47,6 +48,17 @@ export function identifyJobKey(payload: IdentifyPayload): string {
   const scope = payload.itemIds ? 'items' : `library:${payload.libraryId}`
   return `identify:${payload.mode}:${scope}`
 }
+
+/** identify 任务（键按模式与范围，同键合并）。 */
+export const identifyJobSpec = (
+  payload: IdentifyPayload,
+  priority: number
+): FollowupSpec => ({
+  type: 'identify',
+  key: identifyJobKey(payload),
+  payload,
+  priority,
+})
 
 /** 执行模式对应的目标范围：刷新取已匹配的，强制取全部，识别取待识别的。 */
 export function targetScope(mode: RunMode): 'matched' | 'force' | 'pending' {

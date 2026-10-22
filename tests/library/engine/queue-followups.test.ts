@@ -5,7 +5,11 @@
  */
 import { describe, expect, it } from 'vitest'
 import { openLibraryDb } from '../../../src/main/library/db/database'
-import { JobStore } from '../../../src/main/library/jobs/job-store'
+import type { FollowupSpec } from '../../../src/main/library/jobs/followups'
+import {
+  type JobRecord,
+  JobStore,
+} from '../../../src/main/library/jobs/job-store'
 import { JobQueue } from '../../../src/main/library/jobs/queue'
 
 const tick = (ms = 0): Promise<void> => new Promise(r => setTimeout(r, ms))
@@ -36,13 +40,13 @@ function setup(concurrency = 2): {
 }
 
 /** 一条 child 后继。 */
-const child = (ids: number[], key = 'child:1') => ({
+const child = (ids: number[], key = 'child:1'): FollowupSpec => ({
   type: 'child',
   key,
   payload: ids,
 })
 
-const rows = (store: JobStore, n = 50) =>
+const rows = (store: JobStore, n = 50): JobRecord[] =>
   Array.from({ length: n }, (_, i) => store.get(i + 1)).filter(
     (j): j is NonNullable<typeof j> => !!j
   )

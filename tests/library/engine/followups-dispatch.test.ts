@@ -11,6 +11,10 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import {
+  type LibraryJobDeps,
+  changeFollowups,
+} from '../../../src/main/library/engine/library-jobs'
+import {
   LibraryService,
   type LibraryServiceOptions,
 } from '../../../src/main/library/engine/service'
@@ -62,7 +66,10 @@ afterEach(async () => {
 
 /** 起一个引擎：默认 TMDB 有令牌、本地盘（不查 fs-type）、指纹固定值。 */
 async function engine(
-  options: { token?: boolean; jav?: boolean } & Partial<LibraryServiceOptions> = {}
+  options: {
+    token?: boolean
+    jav?: boolean
+  } & Partial<LibraryServiceOptions> = {}
 ): Promise<LibraryService> {
   const { token = true, jav = false, ...rest } = options
   const tmdb = new FakeTmdb({ token: FAKE_TOKEN })
@@ -128,21 +135,21 @@ const add = (
     automation: { storage: 'local', ...automation },
   })
 
-const SCAN = (libraryId: number) => ({
+const SCAN = (libraryId: number): Omit<JobRow, 'state'> => ({
   type: 'scan',
   key: `library:${libraryId}`,
   payload: { libraryId },
   priority: 20,
   maxAttempts: 3,
 })
-const FINGERPRINT = (libraryId: number) => ({
+const FINGERPRINT = (libraryId: number): Omit<JobRow, 'state'> => ({
   type: 'fingerprint',
   key: `fingerprint:${libraryId}`,
   payload: { libraryId },
   priority: 0,
   maxAttempts: 3,
 })
-const IDENTIFY = (libraryId: number) => ({
+const IDENTIFY = (libraryId: number): Omit<JobRow, 'state'> => ({
   type: 'identify',
   key: `identify:identify:library:${libraryId}`,
   payload: { mode: 'identify', libraryId },
@@ -194,7 +201,10 @@ describe('扫描后的后继', () => {
     const service = await engine({ token: false })
     const lib = await add(service)
     await settle(service)
-    expect(dispatched(service).map(j => j.type)).toEqual(['fingerprint', 'scan'])
+    expect(dispatched(service).map(j => j.type)).toEqual([
+      'fingerprint',
+      'scan',
+    ])
 
     const jav = tempTree()
     try {
@@ -327,7 +337,9 @@ describe('识别后的后继', () => {
     })
     await add(service, { organize: true, write: 'on' })
     await settle(service)
-    const item = Number(service.db.prepare('SELECT id FROM media_items').get()!.id)
+    const item = Number(
+      service.db.prepare('SELECT id FROM media_items').get()!.id
+    )
     const rows = jobs(service)
     const organize = rows.findIndex(j => j.type === 'writer-auto-organize')
     const write = rows.findIndex(j => j.type === 'writer-write')
@@ -389,7 +401,9 @@ describe('手动匹配后的后继', () => {
     const service = await engine()
     await add(service, { identify: false, write: 'on' })
     await settle(service)
-    const item = Number(service.db.prepare('SELECT id FROM media_items').get()!.id)
+    const item = Number(
+      service.db.prepare('SELECT id FROM media_items').get()!.id
+    )
     expect(dispatched(service).map(j => j.type)).not.toContain('writer-write')
     const result = await service.applyMatch({
       itemId: item,
@@ -406,5 +420,56 @@ describe('手动匹配后的后继', () => {
         maxAttempts: 3,
       },
     ])
+  })
+})
+
+describe('扫描 / 重解析的后继规则', () => {
+  const deps = (
+    cloud: boolean,
+    identify = true
+  ): Pick<LibraryJobDeps, 'identifyFollowup' | 'isCloudLibrary'> => ({
+    identifyFollowup: (id: number) =>
+      identify
+        ? {
+            type: 'identify',
+            key: `identify:identify:library:${id}`,
+            payload: { mode: 'identify', libraryId: id },
+            priority: 3,
+          }
+        : null,
+    isCloudLibrary: async () => cloud,
+  })
+
+  it('条目有变化排识别；文件有新增 / 变化且不在网盘上再排指纹', async () => {
+    const both = { libraryId: 4, itemsChanged: true, filesChanged: true }
+    expect((await changeFollowups(deps(false), both)).map(s => s.key)).toEqual([
+      'identify:identify:library:4',
+      'fingerprint:4',
+    ])
+    expect((await changeFollowups(deps(true), both)).map(s => s.key)).toEqual([
+      'identify:identify:library:4',
+    ])
+    expect(
+      (await changeFollowups(deps(false, false), both)).map(s => s.key)
+    ).toEqual(['fingerprint:4'])
+  })
+
+  it('重解析（不读文件）只排识别；没有变化什么都不排', async () => {
+    expect(
+      (
+        await changeFollowups(deps(false), {
+          libraryId: 2,
+          itemsChanged: true,
+          filesChanged: false,
+        })
+      ).map(s => s.type)
+    ).toEqual(['identify'])
+    expect(
+      await changeFollowups(deps(false), {
+        libraryId: 2,
+        itemsChanged: false,
+        filesChanged: false,
+      })
+    ).toEqual([])
   })
 })
