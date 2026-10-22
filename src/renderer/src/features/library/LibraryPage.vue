@@ -17,6 +17,7 @@
       @scan="scanAll"
       @identify="identifyAll"
       @settings="openSettings"
+      @video-wall="videoWall.open"
     />
 
     <ActivityBar :activity="activity" />
@@ -125,6 +126,12 @@
     >
       <MatchPane :item-id="matchItemId" @resolved="matchItemId = null" />
     </LibrarySheet>
+    <VideoWall
+      v-if="videoWall.items.value.length"
+      :items="videoWall.items.value"
+      @close="videoWall.close"
+      @open="id => (videoWall.close(), openDetail(id))"
+    />
     <OrganizeSheet
       v-if="organizeIds.length"
       :open="organizeIds.length > 0"
@@ -141,7 +148,7 @@
  *
  * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。
  * 每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。
- * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts。
+ * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts；视频墙在 video-wall/。
  */
 import { toast } from '@/components/ui'
 import { useDebounceFn } from '@vueuse/core'
@@ -189,6 +196,8 @@ import {
 import { type LibrarySection, SECTIONS } from './state/library-section'
 import { useLibraries } from './state/use-libraries'
 import { usePagedQuery } from './state/use-paged-query'
+import VideoWall from './video-wall/VideoWall.vue'
+import { useWallEntry } from './video-wall/use-wall-entry'
 import PosterWall from './wall/PosterWall.vue'
 import OrganizeSheet from './writer/OrganizeSheet.vue'
 import {
@@ -302,6 +311,13 @@ watch(
   () => clearSelection()
 )
 
+// —— 视频墙（选中项或当前筛选结果）——
+const videoWall = useWallEntry({
+  selection,
+  list,
+  query: () => toLibraryQuery(section, state),
+})
+
 // —— 条目详情 / 演员详情（路由驱动）——
 const {
   id: detailId,
@@ -375,23 +391,4 @@ function writeSelected(): void {
 }
 </script>
 
-<style scoped>
-.lib-page {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  height: 100%;
-  min-height: 0;
-  background: var(--bg-content);
-}
-
-/* —— 内容 —— */
-.lib-main {
-  position: relative;
-  flex: 1 1 auto;
-  min-height: 0;
-}
-.lib-wall-skeleton {
-  margin: 0 var(--content-padding-x);
-}
-</style>
+<style scoped src="./page/library-page.css"></style>

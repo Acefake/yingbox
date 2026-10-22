@@ -58,6 +58,13 @@
         />
       </template>
       <UiIconButton
+        v-if="hasLibraries && view === 'wall' && count"
+        icon="grid"
+        size="sm"
+        label="视频墙"
+        @click="emit('video-wall')"
+      />
+      <UiIconButton
         v-if="hasLibraries"
         icon="refresh"
         size="sm"
@@ -83,7 +90,7 @@
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、媒体库、排序与方向、扫描 / 识别 / 设置。
+ * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  */
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -126,6 +133,7 @@ const emit = defineEmits<{
   scan: []
   identify: []
   settings: []
+  'video-wall': []
 }>()
 
 const sortOptions = SORT_OPTIONS.map(o => ({ ...o }))
