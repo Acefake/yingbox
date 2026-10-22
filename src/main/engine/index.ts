@@ -26,6 +26,7 @@ export function registerEngine(): EngineHost {
         { serviceName: 'yingbox-engine', stdio: 'inherit' }
       ) as unknown as EngineChild,
     broadcast: broadcastChannel,
+    onReady: ms => console.info(`[engine] 引擎就绪（${ms} ms）`),
     hostMethods: {
       browserFetch: (url, waitMs) => browserFetch(url, waitMs),
       resetBrowserFetch: async host => resetBrowserFetch(host),

@@ -1,16 +1,18 @@
 /**
  * 引擎进程入口（Electron utilityProcess）——片库核心的桌面宿主。
  *
- * 启动参数：argv[2] 为数据库文件路径，argv[3] 为图片缓存目录。主进程经 parentPort 发 HostMessage：
- * request → 调服务并回 response；subscribe → 消息附带的 MessagePort 成为事件订阅方，
- * 之后事件直接经该端口推给渲染进程；shutdown → 关闭数据库后退出。
+ * 启动参数：argv[2] 为数据库文件路径，argv[3] 为图片缓存目录。主进程经 parentPort 按
+ * shared/utility/protocol.ts 的线协议发消息：call → 调服务（参数为 args[0]）并回 result；
+ * subscribe → 消息附带的 MessagePort 成为事件订阅方，之后事件直接经该端口推给渲染进程；
+ * shutdown → 关闭数据库后退出。
  *
  * 宿主能力（见 platform/platform.ts）：网络用 Electron net.fetch（Chromium 网络栈，走系统代理，
  * 国内访问 TMDB 通常需要），不可用时退回 Node fetch；原图落盘后通知主进程预热缩略图。
  * 独立服务（src/server）用同一个 createLibraryService，只是注入 Node 实现。
  */
 import { type MessagePortMain, net } from 'electron'
-import type { EngineMessage, HostMessage } from '../../../shared/library/ipc'
+import { LIBRARY_IMAGES_CACHED } from '../../../shared/library/ipc'
+import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
@@ -24,7 +26,7 @@ if (!dbPath) {
 }
 
 const parentPort = process.parentPort
-const post = (message: EngineMessage): void => parentPort.postMessage(message)
+const post = (message: FromUtility): void => parentPort.postMessage(message)
 const fetchImpl: HttpFetch =
   typeof net?.fetch === 'function'
     ? (((url, init) => net.fetch(url, init)) as HttpFetch)
@@ -34,7 +36,8 @@ const service = createLibraryService({
   mediaDir,
   fetch: fetchImpl,
   log: message => console.warn(`[library] ${message}`),
-  onImagesCached: keys => post({ kind: 'images-cached', keys }),
+  onImagesCached: keys =>
+    post({ kind: 'event', channel: LIBRARY_IMAGES_CACHED, payload: keys }),
   env: envSecrets(process.env),
 })
 
@@ -47,10 +50,29 @@ function attachSubscriber(port: MessagePortMain): void {
 
 let shuttingDown = false
 parentPort.on('message', ({ data, ports }) => {
-  const message = data as HostMessage
+  const message = data as ToUtility
   switch (message.kind) {
-    case 'request':
-      void handleRpc(service, message).then(post)
+    case 'call':
+      void handleRpc(service, {
+        method: message.method,
+        params: message.args[0],
+      }).then(outcome =>
+        post(
+          outcome.ok
+            ? {
+                kind: 'result',
+                id: message.id,
+                ok: true,
+                value: outcome.result,
+              }
+            : {
+                kind: 'result',
+                id: message.id,
+                ok: false,
+                error: outcome.error,
+              }
+        )
+      )
       break
     case 'subscribe':
       for (const port of ports) attachSubscriber(port)

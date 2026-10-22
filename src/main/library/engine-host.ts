@@ -11,14 +11,12 @@
  * engine-unavailable 失败；下一次调用（或新的订阅）才重启引擎，不会因为有订阅方就在崩溃后
  * 立即重启，避免启动即崩时反复 fork。关停超时 kill；媒体库引擎不空闲退出（目录监控要常驻）。
  */
-import type {
-  EngineMessage,
-  HostMessage,
-  InvokeResult,
-  LibraryErrorCode,
-  RpcRequest,
+import {
+  type InvokeResult,
+  LIBRARY_IMAGES_CACHED,
+  type LibraryErrorCode,
+  isLibraryMethod,
 } from '../../shared/library/ipc'
-import { isLibraryMethod } from '../../shared/library/ipc'
 import {
   UtilityCallError,
   type UtilityChild,
@@ -26,7 +24,7 @@ import {
 } from '../utility/host'
 
 /** 引擎子进程句柄（Electron UtilityProcess 的子集）。 */
-export type LibraryChild = UtilityChild<HostMessage, EngineMessage>
+export type LibraryChild = UtilityChild
 
 /** 一条事件通道：port1 交给引擎，port2 交给订阅窗口（Electron MessageChannelMain 的子集）。 */
 export interface LibraryEventChannel {
@@ -50,12 +48,6 @@ export interface LibraryHostDeps {
   stopTimeoutMs?: number
 }
 
-/** 一次调用：方法名已过白名单，参数由引擎解析。 */
-interface LibraryCall {
-  method: RpcRequest['method']
-  params: RpcRequest['params']
-}
-
 const failure = (code: LibraryErrorCode, message: string): InvokeResult => ({
   ok: false,
   error: { code, message },
@@ -63,7 +55,7 @@ const failure = (code: LibraryErrorCode, message: string): InvokeResult => ({
 
 /** 媒体库引擎宿主：生命周期交给 UtilityHost，这里只管订阅方名单与错误码。 */
 export class LibraryEngineHost {
-  private readonly utility: UtilityHost<HostMessage, EngineMessage, LibraryCall>
+  private readonly utility: UtilityHost
   /** 订阅方名单，键由调用方给（主进程里是 webContents.id）。 */
   private readonly subscribers = new Map<number, LibrarySubscriber>()
 
@@ -72,25 +64,6 @@ export class LibraryEngineHost {
       name: '媒体库引擎',
       fork: deps.fork,
       stopTimeoutMs: deps.stopTimeoutMs,
-      shutdown: { kind: 'shutdown' },
-      encodeCall: (id, { method, params }) => ({
-        kind: 'request',
-        id,
-        method,
-        params,
-      }),
-      decodeReply: m =>
-        m.kind !== 'response'
-          ? undefined
-          : m.ok
-            ? { id: m.id, ok: true, value: m.result }
-            : {
-                id: m.id,
-                ok: false,
-                message: m.error.message,
-                code: m.error.code,
-              },
-      isReady: m => m.kind === 'ready',
       onReady: deps.onReady,
       // 新 fork 的引擎先给全部订阅方接上事件通道，再转发任何调用
       onStart: child => {
@@ -98,9 +71,9 @@ export class LibraryEngineHost {
           this.connect(child, subscriber)
         }
       },
-      onMessage: message => {
-        if (message.kind === 'images-cached')
-          this.deps.onImagesCached?.(message.keys)
+      onEvent: (channel, payload) => {
+        if (channel === LIBRARY_IMAGES_CACHED)
+          deps.onImagesCached?.(payload as string[])
       },
     })
   }
@@ -126,10 +99,7 @@ export class LibraryEngineHost {
       return failure('unknown-method', `未知方法：${String(method)}`)
     }
     try {
-      const result = await this.utility.call({
-        method,
-        params: params as RpcRequest['params'],
-      })
+      const result = await this.utility.call(method, [params])
       return { ok: true, result }
     } catch (error) {
       const { message, code } = error as UtilityCallError

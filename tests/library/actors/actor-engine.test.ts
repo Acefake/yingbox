@@ -53,7 +53,7 @@ describe('演员库（引擎）', () => {
     await service.queue.idle()
 
     const call = async (method: string, params?: unknown): Promise<unknown> => {
-      const res = await handleRpc(service, { id: 1, method, params })
+      const res = await handleRpc(service, { method, params })
       if (!res.ok) throw new Error(res.error.message)
       return res.result
     }
