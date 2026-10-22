@@ -14,9 +14,10 @@ import { parseJavCode } from '../providers/jav/number'
 import type { ParsedColumns } from './scan-store'
 
 /**
- * 解析器版本。解析规则有实质改动时 +1，引擎启动时会排一个解析任务重解析旧版本的文件。
+ * 解析器版本。解析或分组规则有实质改动时 +1，引擎启动时会排一个解析任务重解析旧版本的文件。
+ * 2：剧集按作品文件夹分组，不再按根下第一层（分类文件夹下的多部剧曾被并成一部）。
  */
-export const PARSER_VERSION = 1
+export const PARSER_VERSION = 2
 
 /** 一个文件的解析产物。 */
 export interface FileParse {
