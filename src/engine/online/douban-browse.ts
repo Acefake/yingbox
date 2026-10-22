@@ -1,14 +1,15 @@
 /**
  * 豆瓣浏览（在线首页的豆瓣卡）：按条件取一页，映射成统一卡片。
  *
- * 1. 没动筛选（快捷标签）：movie.douban.com/j/search_subjects?type&tag&sort=recommend&page_limit=20&page_start；
- * 2. 动了筛选：m.douban.com/rexxar/api/v2/<movie|tv>/recommend（豆瓣「选电影 / 选剧集」页用的接口），
+ * 全部走 m.douban.com/rexxar/api/v2（只要 Referer；旧 movie.douban.com/j/search_subjects 已一律 302 到验证页）：
+ * 1. 没动筛选（快捷标签）：按 douban-quick.ts 的映射走 /subject/recent_hot 热门榜或 /recommend；
+ * 2. 动了筛选：/<movie|tv>/recommend（豆瓣「选电影 / 选剧集」页用的接口），
  *    类型 / 地区 / 年代拼进 tags（逗号分隔），类型 / 地区另写进 selected_categories，
  *    评分下限 score_range=<min>,10（本地再筛一遍），排序 sort=U|T|R|S，start / count=20。
  *
  * 条件先经 shared/douban/query.ts 白名单收过，这里只拼白名单里的值。
  * 同一页（同一地址）缓存 10 分钟、并发合并；失败不缓存。按主机熔断（连续 3 次失败，冷却 10 分钟），
- * 冷却期内直接抛 HostUnavailableError，不发请求。沙箱在海外，豆瓣会 302 到验证页，真实行为以国内实测为准。
+ * 冷却期内直接抛 HostUnavailableError，不发请求。
  */
 import {
   DOUBAN_MAX_START,
@@ -25,13 +26,13 @@ import {
   HostUnavailableError,
   createHostBreaker,
 } from '../../shared/net/host-breaker'
+import { quickSource } from './douban-quick'
 
 /** 一页结果缓存 10 分钟 */
 export const BROWSE_TTL_MS = 10 * 60 * 1000
 /** 内存里最多留的页数（超出丢最早的） */
 const MAX_PAGES = 120
 
-const SEARCH_SUBJECTS = 'https://movie.douban.com/j/search_subjects'
 const REXXAR = 'https://m.douban.com/rexxar/api/v2'
 
 /** 一次请求 */
@@ -40,40 +41,67 @@ export interface DoubanRequest {
   headers: Record<string, string>
 }
 
+const REFERER = { Referer: 'https://movie.douban.com/explore' }
+
+/** /recommend 的地址 */
+function recommendUrl(
+  kind: DoubanKind,
+  start: number,
+  params: {
+    tags: string
+    categories: Record<string, string>
+    sort: string
+    minRating: number
+  }
+): string {
+  const search = new URLSearchParams({
+    refresh: '0',
+    start: String(start),
+    count: String(DOUBAN_PAGE_SIZE),
+    selected_categories: JSON.stringify(params.categories),
+    uncollect: 'false',
+    score_range: `${params.minRating},10`,
+    tags: params.tags,
+    sort: params.sort,
+  })
+  return `${REXXAR}/${kind}/recommend?${search}`
+}
+
 /** 按条件拼请求（条件须已经过 normalizeDoubanQuery） */
 export function buildDoubanRequest(
   query: DoubanQuery,
   start: number
 ): DoubanRequest {
   if (!hasFilters(query)) {
-    const params = new URLSearchParams({
-      type: query.kind,
-      tag: query.tag,
-      sort: 'recommend',
-      page_limit: String(DOUBAN_PAGE_SIZE),
-      page_start: String(start),
-    })
+    const source = quickSource(query.kind, query.tag)
+    if (source.api === 'recent_hot') {
+      const params = new URLSearchParams({
+        start: String(start),
+        limit: String(DOUBAN_PAGE_SIZE),
+        category: source.category,
+        type: source.type,
+      })
+      return {
+        url: `${REXXAR}/subject/recent_hot/${query.kind}?${params}`,
+        headers: REFERER,
+      }
+    }
     return {
-      url: `${SEARCH_SUBJECTS}?${params}`,
-      headers: { Referer: 'https://movie.douban.com/' },
+      url: recommendUrl(query.kind, start, { ...source, minRating: 0 }),
+      headers: REFERER,
     }
   }
   const categories: Record<string, string> = {}
   if (query.genre) categories['类型'] = query.genre
   if (query.region) categories['地区'] = query.region
-  const params = new URLSearchParams({
-    refresh: '0',
-    start: String(start),
-    count: String(DOUBAN_PAGE_SIZE),
-    selected_categories: JSON.stringify(categories),
-    uncollect: 'false',
-    score_range: `${query.minRating},10`,
-    tags: [query.genre, query.region, query.era].filter(Boolean).join(','),
-    sort: query.sort,
-  })
   return {
-    url: `${REXXAR}/${query.kind}/recommend?${params}`,
-    headers: { Referer: 'https://movie.douban.com/explore' },
+    url: recommendUrl(query.kind, start, {
+      tags: [query.genre, query.region, query.era].filter(Boolean).join(','),
+      categories,
+      sort: query.sort,
+      minRating: query.minRating,
+    }),
+    headers: REFERER,
   }
 }
 
@@ -96,42 +124,13 @@ function nextStart(start: number, got: number, more: boolean): number | null {
   return got > 0 && more && next <= DOUBAN_MAX_START ? next : null
 }
 
-/** 解析快捷标签接口；不是 {subjects: []} 抛错 */
-export function parseSearchSubjects(
-  json: unknown,
-  kind: DoubanKind,
-  start: number
-): DoubanPage {
-  const raw = asObject(json)?.subjects
-  if (!Array.isArray(raw)) throw new Error('豆瓣返回的不是条目列表')
-  const items: DoubanSubject[] = []
-  for (const entry of raw) {
-    const s = asObject(entry)
-    const id = text(s?.id)
-    if (!s || !/^\d{1,12}$/.test(id)) continue
-    items.push({
-      id,
-      title: text(s.title),
-      cover: text(s.cover),
-      rate: text(s.rate),
-      url: subjectUrl(id),
-      year: '',
-      kind,
-    })
-  }
-  return {
-    items,
-    next: nextStart(start, raw.length, raw.length >= DOUBAN_PAGE_SIZE),
-  }
-}
-
 /** rexxar 条目的年份：year 字段，其次副标题（「2023 / 中国大陆 / 科幻」）里的四位年份 */
 const yearOf = (s: Json): string =>
   /^\d{4}$/.test(text(s.year))
     ? text(s.year)
     : (/\b(?:19|20)\d{2}\b/.exec(text(s.card_subtitle))?.[0] ?? '')
 
-/** 解析探索接口；不是 {items: []} 抛错。评分低于 minRating 的在本地丢掉 */
+/** 解析 rexxar 列表（recent_hot 与 recommend 同一形状）；不是 {items: []} 抛错。评分低于 minRating 的在本地丢掉 */
 export function parseRecommend(
   json: unknown,
   kind: DoubanKind,
@@ -202,9 +201,7 @@ export function createDoubanBrowse(options: DoubanBrowseOptions): DoubanBrowse {
         headers: request.headers,
         timeoutMs: 10_000,
       })
-      const page = hasFilters(query)
-        ? parseRecommend(json, query.kind, start, query.minRating)
-        : parseSearchSubjects(json, query.kind, start)
+      const page = parseRecommend(json, query.kind, start, query.minRating)
       breaker.succeed(request.url)
       return page
     } catch (error) {
