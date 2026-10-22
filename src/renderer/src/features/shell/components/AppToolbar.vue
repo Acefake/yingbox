@@ -29,12 +29,12 @@
           <UiInput
             ref="globalSearchInput"
             v-model="globalSearch"
+            v-enter="submitGlobalSearch"
             class="global-search-field"
             variant="filled"
             clearable
             clear-label="清空搜索"
             :placeholder="globalSearchPlaceholder"
-            @keydown.enter.prevent="submitGlobalSearch"
             @clear="clearGlobalSearch"
           >
             <template #leading><UiIcon name="search" size="md" /></template>
@@ -62,6 +62,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import { usePlatform } from '@/composables/use-platform'
+import { vEnter } from '@/directives/enter'
 import { useSetting } from '@/features/settings'
 
 import {

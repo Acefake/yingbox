@@ -1,5 +1,6 @@
 import { DirectiveBinding, ObjectDirective } from 'vue'
 import { MenuItem } from '@/composables/use-context-menu'
+import { isDismissKey } from '@/utils/keyboard'
 
 // 右键菜单指令配置接口
 interface ContextMenuConfig<T = unknown> {
@@ -59,10 +60,11 @@ class ContextMenuManager {
         this.hideMenu()
       }
     })
+    // 菜单是最上面一层：Esc 只收起菜单，截断冒泡，window 上的 Esc 层栈不再关下面的浮层
     document.addEventListener('keydown', e => {
-      if (e.key === 'Escape') {
-        this.hideMenu()
-      }
+      if (!this.isVisible || !isDismissKey(e)) return
+      e.stopPropagation()
+      this.hideMenu()
     })
   }
 

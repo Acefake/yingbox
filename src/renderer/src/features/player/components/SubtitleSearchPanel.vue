@@ -8,10 +8,10 @@
     <div class="usp-search-row">
       <UiInput
         v-model="query"
+        v-enter="() => emit('search')"
         class="usp-input"
         size="sm"
         placeholder="影视名称…"
-        @keydown.enter="emit('search')"
       />
       <UiButton
         size="sm"
@@ -58,6 +58,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
+import { vEnter } from '@/directives/enter'
 
 import type { OnlineSubtitleHit } from '../composables/use-player-subtitles'
 

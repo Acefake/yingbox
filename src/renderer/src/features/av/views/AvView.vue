@@ -23,7 +23,7 @@
       class="av-scroll primary-scroll"
       @scroll="browse.onScroll"
     >
-      <AvSkeletonGrid v-if="browse.loading.value" />
+      <UiSkeleton v-if="browse.loading.value" landscape />
       <StatusState
         v-else-if="browse.error.value"
         :title="browse.error.value"
@@ -165,6 +165,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
+import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import UiSegmented, {
   type SegmentedOption,
@@ -184,7 +185,6 @@ import AvFavoritesView from '../components/AvFavoritesView.vue'
 import AvHistoryView from '../components/AvHistoryView.vue'
 import AvPlayerOverlay from '../components/AvPlayerOverlay.vue'
 import AvSearchResults from '../components/AvSearchResults.vue'
-import AvSkeletonGrid from '../components/AvSkeletonGrid.vue'
 import { useAvBrowse } from '../composables/use-av-browse'
 import { useAvPlayback } from '../composables/use-av-playback'
 import { useAvSearch } from '../composables/use-av-search'
