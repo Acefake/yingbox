@@ -1,6 +1,10 @@
 import { BrowserWindow, screen, session } from 'electron'
 import { classifyPage } from '../shared/net/cf-page'
-import { createHostBreaker, hostOf } from '../shared/net/host-breaker'
+import {
+  createHostBreaker,
+  hostOf,
+  pathScope,
+} from '../shared/net/host-breaker'
 
 /**
  * 浏览器级抓取：引擎经 MessagePort 请求主进程代抓页面。
@@ -11,7 +15,7 @@ import { createHostBreaker, hostOf } from '../shared/net/host-breaker'
  * 已随 Go 后端一起删除。
  *
  * 只有「可通过的挑战页」才把窗口短暂显示出来；硬封锁页（Sorry, you have been blocked、
- * Error 1020 等）一经识别立即销毁窗口、绝不显示，并按主机熔断 30 分钟，期间同一主机的
+ * Error 1020 等）一经识别立即销毁窗口、绝不显示，并按主机 + 路径类别熔断 30 分钟，期间同类
  * 请求直接返回空串，不再开窗口。
  */
 
@@ -27,8 +31,11 @@ const LOAD_TIMEOUT_MS = 25000
 let queue: Promise<unknown> = Promise.resolve()
 /** 同一地址正在排队 / 进行中的请求：重复请求共用结果，不再多开窗口。 */
 const pending = new Map<string, Promise<string>>()
-/** 浏览器代抓的主机熔断：硬封锁立即熔断，挑战连续 3 次没过也熔断。 */
-const breaker = createHostBreaker()
+/**
+ * 浏览器代抓的熔断（主机 + 路径类别，与引擎一致）：硬封锁立即熔断，挑战连续 3 次没过也熔断。
+ * 只在内存里；重启后的拦截由引擎落盘的熔断负责（引擎熔断期内不会来请求代抓）。
+ */
+const breaker = createHostBreaker({ scopeOf: pathScope })
 
 const delay = (ms: number): Promise<void> =>
   new Promise(resolve => setTimeout(resolve, ms))

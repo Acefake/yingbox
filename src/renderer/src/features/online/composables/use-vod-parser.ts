@@ -1,7 +1,7 @@
 import { type Ref, ref } from 'vue'
 import { onlineApi } from '../api/online'
 import type { VodRequest } from '../../../../../shared/contract/online'
-import type { PluginHealth } from '../utils/plugin-health'
+import { type PluginHealth, scopeOfAction } from '../utils/plugin-health'
 import { markPluginOk, markPluginUnavailable } from './plugin-health'
 
 interface VODParseRequest {
@@ -50,10 +50,12 @@ interface VODParseResponse {
   unavailable?: PluginHealth
 }
 
-/** 按引擎回报更新源的可用性：有熔断记为不可用，正常返回则清掉旧记录。 */
-function trackHealth(siteName: string, result: VODParseResponse): void {
-  if (result.unavailable) markPluginUnavailable(siteName, result.unavailable)
-  else if (result.success) markPluginOk(siteName)
+/** 按引擎回报更新源的可用性：有熔断记为不可用，正常返回则清掉同类别的旧记录。 */
+function trackHealth(body: VodRequest, result: VODParseResponse): void {
+  if (result.unavailable)
+    markPluginUnavailable(body.siteName, result.unavailable)
+  else if (result.success)
+    markPluginOk(body.siteName, scopeOfAction(body.action))
 }
 
 // 插件解析（含 Cloudflare 挑战时走浏览器代抓）可能超过 10s，前端超时需留出余量。
@@ -103,7 +105,7 @@ export function useVODParser(): UseVODParserReturn {
         }),
       ])
       const response = result as VODParseResponse
-      trackHealth(body.siteName, response)
+      trackHealth(body, response)
       return response
     } catch (e) {
       const err = e as Error
