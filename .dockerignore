@@ -1,16 +1,24 @@
+# 构建上下文只要源码与清单（Dockerfile 的 COPY . . 之后跑 build:server / build:web）
+# 依赖与构建产物：镜像里重新装、重新构建
 node_modules
 out
 dist
 dist-web
 dist-renderer
 coverage
+# 仓库与工具目录
 .git
 .github
 .claude
 .codex_tmp
 .tmp
 .eslintcache
-resources/mpv
 *.log
+# 本地密钥：compose 读的 .env 不能进镜像
 .env
 .env.*
+# compose 示例的数据目录（数据库、密钥、缓存），以及构建用不到的大文件
+yingbox
+resources/mpv
+tests
+docs

@@ -57,6 +57,7 @@
 - Cookie 是 `HttpOnly` + `SameSite=Strict`，页面脚本拿不到令牌，`<img>` / `<video>` / `EventSource` 自动带上；令牌不出现在资源地址里。
 - 改写类请求校验同源（`Origin`），防跨站调用。
 - 令牌来源：`YINGBOX_SERVER_TOKEN` 环境变量；没设时首次启动随机生成（32 字节），存进 `<数据目录>/secrets.json` 并打印在启动日志里。
+- 对外监听（`--host` 不是 `127.0.0.1` / `::1` / `localhost`）时必须用环境变量显式设置令牌：至少 24 个字符、不是示例占位串，否则服务拒绝启动（`src/server/exposure.ts`，ADR-0010）。
 - 启动日志里的 `http://…/?token=…` 只需打开一次：服务把它换成 Cookie 并从地址栏去掉令牌。
 
 ## 配置
@@ -65,18 +66,19 @@
 
 | 参数                     | 环境变量                                  | 默认                          | 说明                                                                                     |
 | ------------------------ | ----------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`                                     |
+| `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，这时必须设 `YINGBOX_SERVER_TOKEN`  |
 | `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
-| `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`media/`（原图与缩略图缓存）、`secrets.json`                               |
+| `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
+| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）、`gfriends-index.json`；Docker 里是 `/cache` 卷             |
 | `--media-root`（可多次） | `YINGBOX_MEDIA_ROOTS`                     | 用户主目录                    | 允许浏览和建库的根目录；环境变量里多个用系统路径分隔符（Linux / macOS `:`，Windows `;`） |
 | `--web-dir`              | `YINGBOX_WEB_DIR`                         | 包旁边的 `dist-web`（存在时） | 托管的网页端目录；`off` 只提供 API                                                       |
 | `--fetch`                | `YINGBOX_FETCH`                           | `node`                        | 出网实现：`node` / `curl` / `curl:<路径>` / `module:<路径>`，见下文                      |
 | `--watch`                | `YINGBOX_WATCH`                           | `auto`                        | 目录监控模式：`auto` / `events` / `poll` / `off`，见「自动入库」                         |
 | `--scan-interval`        | `YINGBOX_SCAN_INTERVAL`                   | `300`（秒）                   | 定时增量扫描间隔；`0` 关闭（网络盘上就只能手动扫描了）                                   |
 | `--settle`               | `YINGBOX_SETTLE_SECONDS`                  | `10`（秒）                    | 写入稳定判定：新文件大小与 mtime 保持这么久不变才入库；`0` 不判定                        |
-| —                        | `YINGBOX_SERVER_TOKEN`                    | 首次启动生成                  | 访问令牌（只读覆盖，不写回文件）                                                         |
+| —                        | `YINGBOX_SERVER_TOKEN`                    | 首次启动生成                  | 访问令牌（只读覆盖，不写回文件）；对外监听时必填，至少 24 个字符                         |
 | —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要，番号库不需要）。网页端设置里填写的令牌优先           |
-| —                        | `YINGBOX_THEPORNDB_TOKEN`                 | 无                            | ThePornDB API 令牌；不填就不查 ThePornDB。网页端设置「站点凭据」里填的优先              |
+| —                        | `YINGBOX_THEPORNDB_TOKEN`                 | 无                            | ThePornDB API 令牌；不填就不查 ThePornDB。网页端设置「站点凭据」里填的优先               |
 | —                        | `YINGBOX_JAVDB_COOKIE`                    | 无                            | JavDB 登录后的 Cookie（可选）；填了才用 JavDB 查 FC2                                     |
 | —                        | `DMM_API_ID` + `DMM_AFFILIATE_ID`         | 无                            | DMM 官方商品 API 凭据（可选，两个都要）；不填就跳过 dmm_api 站点                         |
 | —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别，可选）                                        |
@@ -98,7 +100,7 @@ node --disable-warning=ExperimentalWarning out/server/server.js \
   --media-root ~/Movies --media-root /Volumes/Video
 ```
 
-浏览器打开日志里的 `http://127.0.0.1:31480/?token=…`。默认只监听 `127.0.0.1`，同一台机器以外访问不到；要给局域网用，加 `--host 0.0.0.0`，并确认令牌足够长。
+浏览器打开日志里的 `http://127.0.0.1:31480/?token=…`。默认只监听 `127.0.0.1`，同一台机器以外访问不到；要给局域网用，加 `--host 0.0.0.0`，并用 `YINGBOX_SERVER_TOKEN` 设一个至少 24 个字符的随机令牌（不设服务拒绝启动）。
 
 需要 Node 22+（用到 `node:sqlite`；`--disable-warning=ExperimentalWarning` 只是去掉它的实验提示）。
 
@@ -119,22 +121,8 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 
 ### NAS（Docker）
 
-仓库根目录有 `Dockerfile` 和 `docker-compose.example.yml`。镜像只含服务和网页端，没有原生依赖（`node:sqlite` + wasm），amd64 / arm64 都能构建。
-
-```bash
-cp docker-compose.example.yml docker-compose.yml
-# 改：YINGBOX_SERVER_TOKEN、user（UID:GID）、媒体目录挂载
-docker compose up -d --build
-docker compose logs yingbox          # 首次启动的地址与令牌
-```
-
-要点：
-
-- 容器里默认 `YINGBOX_HOST=0.0.0.0`、`YINGBOX_DATA_DIR=/data`、`YINGBOX_MEDIA_ROOTS=/media`；把媒体目录挂到 `/media/...` 下面，数据目录挂到 `/data`。
-- `user:` 设成媒体文件属主的 UID:GID（群晖 / 威联通在用户管理里能查到），否则写 NFO、整理改名会没有权限。
-- 媒体目录可以只读挂载（`:ro`）：浏览、扫描、刮削、播放都正常，只是写出和整理会失败。
-- 镜像自带 `HEALTHCHECK`（`/api/health`）。
-- 想从外网访问，放在反向代理（HTTPS）后面，不要直接把端口暴露到公网。
+仓库根目录的 `Dockerfile`（多阶段、固定基础镜像、入口降权、健康检查）和 `docker-compose.yml`（默认只映射到宿主 127.0.0.1、令牌必填、片库只读）。
+步骤、目录映射、群晖 / 威联通 / Unraid、反向代理与 HTTPS、CloudDrive2 网盘见 [在 NAS 上用 Docker 部署](deploy/nas.md)；决策见 [ADR-0010](adr/0010-docker-nas-deploy.md)。
 
 ## 自动入库
 
