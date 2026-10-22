@@ -1,3 +1,4 @@
+// test-affected: repo-wide（读 src 源码文本或跑 eslint，vitest 依赖图看不到这层依赖）
 /**
  * cheerio 按需加载（src/shared/html/cheerio.ts）：
  * - 导入两个引擎的解析代码（媒体库核心 + 番号站点 / 演员来源、CatSpider 运行时）时不加载 cheerio；
