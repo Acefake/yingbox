@@ -1,11 +1,12 @@
 /**
- * 海报墙的查询条件：排序、匹配状态筛选、番号类型筛选、媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
+ * 海报墙的查询条件：排序、匹配状态筛选、分面筛选（番号库）、媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
  *
  * 每个查询都带分区的类型与来源（见 library-section.ts）。
  * 纯数据 + 纯函数，便于单测；响应式包装在 use-paged-query.ts。
  */
 import type {
-  JavKind,
+  FacetFilter,
+  FacetListRequest,
   LibraryKind,
   LibraryQuery,
   LibrarySortField,
@@ -28,8 +29,8 @@ export interface WallQueryState {
   sort: WallSort
   order: 'asc' | 'desc'
   filter: MatchFilter
-  /** 番号库的类型筛选（有码 / 无码 / FC2 / 素人）；其他分区忽略。 */
-  javKind: JavKind | 'all'
+  /** 分面筛选（类型 / 标签 / 演员 / 制作商 / 系列 / 导演）；只有番号库用，其他分区忽略。 */
+  facets: FacetFilter
   /** null 表示该类型的全部媒体库。 */
   libraryId: number | null
   search: string
@@ -55,18 +56,6 @@ export const FILTER_OPTIONS: ReadonlyArray<{
   { value: 'locked', label: '已锁定' },
 ]
 
-/** 番号类型筛选选项。 */
-export const JAV_KIND_OPTIONS: ReadonlyArray<{
-  value: JavKind | 'all'
-  label: string
-}> = [
-  { value: 'all', label: '全部类型' },
-  { value: 'censored', label: '有码' },
-  { value: 'uncensored', label: '无码' },
-  { value: 'fc2', label: 'FC2' },
-  { value: 'amateur', label: '素人' },
-]
-
 /** 每种排序的自然方向：片名升序，其余（新的、近的、高分的在前）降序。 */
 export function defaultOrder(sort: WallSort): 'asc' | 'desc' {
   return sort === 'title' ? 'asc' : 'desc'
@@ -78,7 +67,7 @@ export function defaultWallQuery(): WallQueryState {
     sort: 'addedAt',
     order: 'desc',
     filter: 'all',
-    javKind: 'all',
+    facets: {},
     libraryId: null,
     search: '',
   }
@@ -107,7 +96,27 @@ export function sectionQuery(
 
 /** 筛选条件（不含排序）的比较键：变了就清空多选、回到顶部。 */
 export function filterKeyOf(state: WallQueryState): unknown[] {
-  return [state.filter, state.javKind, state.libraryId, state.search]
+  return [
+    state.filter,
+    JSON.stringify(state.facets),
+    state.libraryId,
+    state.search,
+  ]
+}
+
+/** 有分面筛选的分区（番号库）。 */
+const usesFacets = (section: LibrarySection): boolean => section === 'jav'
+
+/** 分面面板的取值范围：与海报墙同一来源 / 媒体库；不用分面的分区返回 undefined。 */
+export function facetScopeOf(
+  section: LibrarySection,
+  state: Pick<WallQueryState, 'libraryId'>
+): Omit<FacetListRequest, 'field'> | undefined {
+  if (!usesFacets(section)) return undefined
+  return {
+    source: SECTIONS[section].source,
+    ...(state.libraryId !== null ? { libraryId: state.libraryId } : {}),
+  }
 }
 
 /** 界面条件 → 引擎查询（不含 offset / limit，由分页列表补）。 */
@@ -122,8 +131,8 @@ export function toLibraryQuery(
   }
   const matchStates = FILTER_STATES[state.filter]
   if (matchStates) query.matchStates = matchStates
-  if (section === 'jav' && state.javKind !== 'all')
-    query.javKinds = [state.javKind]
+  if (usesFacets(section) && Object.keys(state.facets).length)
+    query.facets = JSON.parse(JSON.stringify(state.facets)) as FacetFilter
   if (state.libraryId !== null) query.libraryId = state.libraryId
   const search = state.search.trim()
   if (search) query.search = search

@@ -137,6 +137,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'writer.applyOrganize',
       'writer.undoOrganize',
       'writer.listOrganizeBatches',
+      'facets.list',
       'jav.getSettings',
       'jav.setSettings',
       'actors.list',

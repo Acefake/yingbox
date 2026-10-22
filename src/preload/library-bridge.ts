@@ -117,6 +117,7 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
         call('setProviderToken', { provider, token }),
     },
     actors: createActorsBridge(call),
+    facets: { list: request => call('facets.list', request) },
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       listeners.add(listener)
       if (listeners.size === 1) ipc.send(LIBRARY_CHANNELS.subscribe)

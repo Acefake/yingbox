@@ -34,13 +34,14 @@
           aria-label="筛选"
           :options="filterOptions"
         />
-        <UiSelect
-          v-if="showJavKind"
-          v-model="javKind"
-          class="lib-select"
+        <UiButton
+          v-if="facetScope"
+          icon="filter"
           size="sm"
-          aria-label="类型"
-          :options="javKindOptions"
+          :label="facetCount ? `筛选 ${facetCount}` : '筛选'"
+          class="lib-facets-button"
+          :aria-expanded="facetsOpen"
+          @click="facetsOpen = !facetsOpen"
         />
         <UiSelect
           v-if="libraryOptions.length > 2"
@@ -93,12 +94,26 @@
         @click="emit('settings')"
       />
     </div>
+    <!-- 分面筛选（番号库）：已选条件常驻，面板按「筛选」展开 -->
+    <div
+      v-if="facetScope && hasLibraries && view === 'wall'"
+      class="lib-toolbar-facets"
+    >
+      <ActiveFacets v-model="facets" />
+      <FacetPanel
+        v-if="facetsOpen"
+        v-model="facets"
+        :scope="facetScope"
+        :open="facetsOpen"
+        @close="facetsOpen = false"
+      />
+    </div>
   </header>
 </template>
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、类型（番号库）、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
+ * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、分面筛选（番号库）、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  */
 import UiButton from '@/components/ui/UiButton.vue'
@@ -107,10 +122,16 @@ import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 
-import type { JavKind } from '../../../../../shared/library/ipc'
+import { computed, ref } from 'vue'
+import type {
+  FacetFilter,
+  FacetListRequest,
+} from '../../../../../shared/library/ipc'
+import ActiveFacets from '../facets/ActiveFacets.vue'
+import FacetPanel from '../facets/FacetPanel.vue'
+import { activeCount } from '../facets/facet-rules'
 import {
   FILTER_OPTIONS,
-  JAV_KIND_OPTIONS,
   type MatchFilter,
   SORT_OPTIONS,
   type WallSort,
@@ -129,14 +150,16 @@ defineProps<{
   libraryOptions: Array<{ value: number; label: string }>
   sort: WallSort
   order: 'asc' | 'desc'
-  /** 显示番号类型筛选（番号库）。 */
-  showJavKind?: boolean
+  /** 分面筛选的取值范围；不传表示该分区没有分面筛选。 */
+  facetScope?: Omit<FacetListRequest, 'field'>
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
 const search = defineModel<string>('search', { required: true })
 const filter = defineModel<MatchFilter>('filter', { required: true })
-const javKind = defineModel<JavKind | 'all'>('javKind', { default: 'all' })
+const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
+const facetsOpen = ref(false)
+const facetCount = computed(() => activeCount(facets.value))
 /** 0 表示全部文件夹。 */
 const library = defineModel<number>('library', { required: true })
 
@@ -151,7 +174,6 @@ const emit = defineEmits<{
 
 const sortOptions = SORT_OPTIONS.map(o => ({ ...o }))
 const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
-const javKindOptions = JAV_KIND_OPTIONS.map(o => ({ ...o }))
 </script>
 
 <style scoped>
@@ -191,6 +213,18 @@ const javKindOptions = JAV_KIND_OPTIONS.map(o => ({ ...o }))
 }
 .lib-search {
   flex: 0 0 200px;
+}
+.lib-facets-button[aria-expanded='true'] {
+  background: var(--bg-active);
+}
+.lib-toolbar-facets {
+  display: flex;
+  flex: 1 0 100%;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+.lib-toolbar-facets:empty {
+  display: none;
 }
 /* 下拉按内容宽度，不被拉伸 */
 .lib-select {

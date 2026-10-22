@@ -158,12 +158,22 @@ describe('canPatchInPlace（diff 事件局部更新）', () => {
   })
 })
 
-describe('番号类型筛选', () => {
-  it('番号页选了类型才带 javKinds；其它分区忽略', async () => {
-    const { toLibraryQuery: q, defaultWallQuery: d } =
-      await import('../../../src/renderer/src/features/library/state/query-state')
-    expect(q('jav', d()).javKinds).toBeUndefined()
-    expect(q('jav', { ...d(), javKind: 'fc2' }).javKinds).toEqual(['fc2'])
-    expect(q('movie', { ...d(), javKind: 'fc2' }).javKinds).toBeUndefined()
+describe('分面筛选', () => {
+  it('番号页选了条件才带 facets（普通对象，可跨进程传）；其它分区忽略', async () => {
+    const {
+      toLibraryQuery: q,
+      defaultWallQuery: d,
+      facetScopeOf,
+    } = await import('../../../src/renderer/src/features/library/state/query-state')
+    expect(q('jav', d()).facets).toBeUndefined()
+    const facets = { kind: ['fc2' as const], tag: ['巨乳'] }
+    expect(q('jav', { ...d(), facets }).facets).toEqual(facets)
+    expect(q('jav', { ...d(), facets }).facets).not.toBe(facets)
+    expect(q('movie', { ...d(), facets }).facets).toBeUndefined()
+    expect(facetScopeOf('jav', { libraryId: 3 })).toEqual({
+      source: 'jav',
+      libraryId: 3,
+    })
+    expect(facetScopeOf('movie', { libraryId: null })).toBeUndefined()
   })
 })

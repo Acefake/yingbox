@@ -48,6 +48,7 @@ const HANDLERS: Handlers = {
   updateLibrary: (s, p) => s.updateLibrary(p),
   scan: (s, p) => s.scan(p),
   query: (s, p) => s.query(p),
+  'facets.list': (s, p) => s.facetValues(p),
   getItem: (s, p) => s.getItem(p),
   getPreview: (s, p) => previewsFor(s).get(p.itemId),
   identify: (s, p) => s.identify(p),

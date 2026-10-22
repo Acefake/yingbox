@@ -4,9 +4,9 @@
       v-model:view="view"
       v-model:search="searchText"
       v-model:filter="state.filter"
-      v-model:jav-kind="state.javKind"
+      v-model:facets="state.facets"
       v-model:library="libraryChoice"
-      :show-jav-kind="section === 'jav'"
+      :facet-scope="facetScopeOf(section, state)"
       :kind-label="kindLabel"
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"
@@ -193,6 +193,7 @@ import {
   type WallSort,
   defaultOrder,
   defaultWallQuery,
+  facetScopeOf,
   filterKeyOf,
   loadSavedSort,
   saveSort,
@@ -311,10 +312,7 @@ function onActivate(
   activate(index, item, modifiers, openDetail)
 }
 
-watch(
-  () => filterKeyOf(state),
-  () => clearSelection()
-)
+watch(() => filterKeyOf(state), clearSelection)
 
 // —— 视频墙（选中项或当前筛选结果）——
 const videoWall = useWallEntry({
