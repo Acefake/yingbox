@@ -183,10 +183,14 @@ export function serverPaths(config: ServerConfig): {
   }
 }
 
-/** 启动日志里的目录监控说明。 */
+/**
+ * 启动日志里的目录监控说明。
+ * 监控模式只管本地盘：存储为网盘的库（库设置里选「网盘」，或「自动」判为 NFS / SMB / FUSE 等挂载盘，
+ * 见 main/library/engine/storage-mode.ts）不论哪种模式都不监听、不定时扫描。
+ */
 export function describeMonitor(m: MonitorConfig): string {
   const mode = {
-    auto: '自动（本地盘用文件系统事件，网络盘只用定时扫描）',
+    auto: '自动（本地盘用文件系统事件，网络盘 / 挂载盘按网盘处理）',
     events: '文件系统事件',
     poll: '只用定时扫描',
     off: '关闭（只能手动扫描）',
@@ -198,5 +202,5 @@ export function describeMonitor(m: MonitorConfig): string {
   const settle = m.settleMs
     ? `文件 ${m.settleMs / 1000} 秒不变再入库`
     : '不等文件写完'
-  return `${mode}，${poll}，${settle}`
+  return `${mode}，${poll}，${settle}；网盘不监听、不定时扫描，只按变更通知与手动扫描`
 }
