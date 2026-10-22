@@ -24,6 +24,7 @@ import {
   inProcessCodec,
   startCodec,
 } from '../../thumbnails/codec-client'
+import { withExplicitReferrer } from '../../../shared/net/referrer'
 
 const dbPath = process.argv[2]
 const mediaDir = process.argv[3]
@@ -36,7 +37,7 @@ const parentPort = process.parentPort
 const post = (message: FromUtility): void => parentPort.postMessage(message)
 const fetchImpl: HttpFetch =
   typeof net?.fetch === 'function'
-    ? (((url, init) => net.fetch(url, init)) as HttpFetch)
+    ? (((url, init) => net.fetch(url, withExplicitReferrer(init))) as HttpFetch)
     : createNodeFetch()
 /**
  * 加工派生图（封面裁海报）的编解码线程：第一次用到才起，和主进程缩略图共用 webp-worker.js；
