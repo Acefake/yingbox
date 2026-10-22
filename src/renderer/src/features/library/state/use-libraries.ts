@@ -1,6 +1,7 @@
 /**
  * 媒体库管理：某分区（电影 / 剧集 / 番号，见 library-section.ts）的媒体库列表、添加 / 移除文件夹、扫描、识别全部，
- * 以及后台任务进度（扫描任务、识别进度）。
+ * 以及后台任务进度：扫描进度给分区页面顶部的细进度条；识别进度跨分区（一次识别会覆盖所有库），
+ * 只在侧栏「后台任务」里显示（useIdentifyActivity），不再挤在每个分区页面上。
  *
  * 模块级单例：海报墙、设置页、待确认队列看到的是同一份状态，事件只订阅一次。
  */
@@ -80,6 +81,17 @@ export function identifyActivity(
   }
 }
 
+/**
+ * 识别 / 刷新元数据的全局进度，给侧栏「后台任务」入口和面板用；没有在跑时为 null。
+ * 没有媒体库能力（网页端未接片库服务）时恒为 null。
+ */
+export function useIdentifyActivity(): ComputedRef<LibraryActivity | null> {
+  if (libraryBridge()) startOnce()
+  return computed(() =>
+    identify.value ? identifyActivity(identify.value) : null
+  )
+}
+
 /** useLibraries 的返回值。 */
 export interface UseLibraries {
   available: boolean
@@ -112,11 +124,9 @@ export function useLibraries(section: LibrarySection): UseLibraries {
   const { kind, source } = SECTIONS[section]
   const libraries = computed(() => librariesIn(all.value, section))
 
-  const activity = computed<LibraryActivity | null>(() => {
-    if (identify.value) return identifyActivity(identify.value)
-    if (scanJobs.size > 0) return { label: '正在扫描文件夹…' }
-    return null
-  })
+  const activity = computed<LibraryActivity | null>(() =>
+    scanJobs.size > 0 ? { label: '正在扫描文件夹…' } : null
+  )
 
   async function run(task: () => Promise<unknown>): Promise<void> {
     try {
