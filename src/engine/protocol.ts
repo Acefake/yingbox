@@ -4,6 +4,8 @@
  * - call / result：主进程把已在 IPC 边界解析过的调用转给引擎，引擎回结果。
  * - event：引擎推契约事件，主进程原样广播给窗口。
  * - host / hostResult：引擎请主进程代办只有主进程能做的事（浏览器代抓、读下载目录与 TMDB 令牌）。
+ * - busy：引擎有调用之外的后台工作（下载在跑或排队）时报 true、做完报 false；
+ *   主进程据此决定能否空闲退出引擎。
  */
 
 /** 引擎能请主进程代办的事。 */
@@ -40,3 +42,4 @@ export type FromEngine =
       method: keyof HostMethods
       args: unknown[]
     }
+  | { kind: 'busy'; busy: boolean }

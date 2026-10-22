@@ -41,7 +41,7 @@ export function registerEngine(): EngineHost {
   implement(online, forwardTo(host, online))
   implement(av, forwardTo(host, av))
   implement(download, forwardTo(host, download))
-  app.on('will-quit', () => host.shutdown())
+  app.on('will-quit', () => void host.shutdown())
   void resumePendingDownloads(
     join(app.getPath('userData'), 'downloads', 'queue.json'),
     () => host.invoke(channelOf(download.name, 'list'), [])
