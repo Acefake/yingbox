@@ -44,6 +44,8 @@ export interface LibraryHostDeps {
   onImagesCached?(keys: string[]): void
   /** 引擎初始化完成（数据库已打开）；elapsedMs 为 fork → ready 的耗时 */
   onReady?(elapsedMs: number): void
+  /** 崩溃守卫停止重启（缺依赖 / 连续秒退）时，带原因调用一次 */
+  onBlocked?(reason: string): void
   /** 关停超时，默认 UtilityHost 的 5 秒 */
   stopTimeoutMs?: number
 }
@@ -65,6 +67,7 @@ export class LibraryEngineHost {
       fork: deps.fork,
       stopTimeoutMs: deps.stopTimeoutMs,
       onReady: deps.onReady,
+      onBlocked: deps.onBlocked,
       // 新 fork 的引擎先给全部订阅方接上事件通道，再转发任何调用
       onStart: child => {
         for (const subscriber of this.subscribers.values()) {
