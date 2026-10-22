@@ -71,7 +71,3 @@ pnpm build:linux
 ```
 
 架构与约定见 [AGENTS.md](AGENTS.md)。
-
-## 许可
-
-`src/engine/download/sources.ts` 的站点解析逻辑移植自 [NASSAV](https://github.com/Satoing/NASSAV)（MIT，见 `src/engine/download/LICENSE-NASSAV`）。
