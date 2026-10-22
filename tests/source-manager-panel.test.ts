@@ -37,9 +37,7 @@ import {
 
 /** 去掉 scoped 样式属性与注释锚点，只比结构和文字。 */
 const normalize = (html: string): string =>
-  html
-    .replace(/ data-v-[0-9a-f]{8}(="")?/g, '')
-    .replace(/<!--[\s\S]*?-->/g, '')
+  html.replace(/ data-v-[0-9a-f]{8}(="")?/g, '').replace(/<!--[\s\S]*?-->/g, '')
 
 const render = async (): Promise<string> =>
   normalize(
