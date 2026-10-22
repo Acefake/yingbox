@@ -27,13 +27,12 @@ import type { Clock } from '../http/rate-limiter'
 import type { ActorContext, ActorSource } from './actors'
 import { createGfriendsSource } from './actors/sources/gfriends'
 import { type JavMovie, aggregate, toMetadata } from './aggregate'
+import { planPoster } from './poster-plan'
 import { type JavCode, parseJavCode } from './number'
 import { type JavCredentials, createJavSites } from './sites/registry'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
 
 const DAY = 86_400_000
-/** 站点海报高度达到它就算原生高清，不再从封面裁（封面裁出的海报高 538）。 */
-export const HD_POSTER_HEIGHT = 500
 /** 站点结果缓存时长。 */
 export const JAV_TTL = { found: 7 * DAY, missing: DAY } as const
 
@@ -203,24 +202,13 @@ export class JavProvider {
     const parsed = codeOf(code)
     const movie = await this.scrape(parsed, signal)
     if (!movie) return null
-    return toMetadata(movie, await this.posterPlan(movie, parsed, signal))
-  }
-
-  /**
-   * 有码片的封面是 DMM 版式（右半是正面）：站点海报缺失、太小、不是竖图或探测不到尺寸时从封面裁；
-   * 站点给的是原生高清竖版海报（高 ≥ HD_POSTER_HEIGHT）就直接用。无码 / FC2 / 素人不裁。
-   */
-  private async posterPlan(
-    movie: JavMovie,
-    code: JavCode,
-    signal?: AbortSignal
-  ): Promise<'native' | 'crop'> {
-    if (code.kind !== 'censored' || !movie.cover) return 'native'
-    if (!movie.poster || !this.options.probeImage) return 'crop'
-    const size = await this.options.probeImage(movie.poster, signal)
-    // 个别站标成海报的其实是横图（如 MGStage 的 pb_e），也按不可用处理
-    const portrait = size && size.height > size.width
-    return portrait && size.height >= HD_POSTER_HEIGHT ? 'native' : 'crop'
+    const plan = await planPoster(
+      movie,
+      parsed,
+      this.options.probeImage,
+      signal
+    )
+    return toMetadata(plan.movie, plan.poster)
   }
 
   /** 查一个站点：命中缓存直接用；查无此片为 null；网络失败 / 被拦为 undefined（不缓存）。 */

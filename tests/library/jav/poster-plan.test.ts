@@ -66,10 +66,14 @@ describe('番号海报选择', () => {
   })
 
   it('站点海报太小、是横图或探测失败：先用封面裁出的图，站点海报兜底', async () => {
+    const sized =
+      (poster: { width: number; height: number } | undefined) =>
+      async (url: string) =>
+        url === COVER ? { width: 800, height: 538 } : poster
     const small = provider(
       'SSIS-497',
       { cover: COVER, poster: POSTER },
-      async () => ({ width: 147, height: 200 })
+      sized({ width: 147, height: 200 })
     )
     expect(await posters(small, 'SSIS-497')).toEqual([
       `${COVER}#yingbox=poster-right`,
@@ -78,7 +82,7 @@ describe('番号海报选择', () => {
     const wide = provider(
       'SSIS-497',
       { cover: COVER, poster: POSTER },
-      async () => ({ width: 1680, height: 944 })
+      sized({ width: 1680, height: 944 })
     )
     expect((await posters(wide, 'SSIS-497'))[0]).toBe(
       `${COVER}#yingbox=poster-right`
@@ -86,20 +90,59 @@ describe('番号海报选择', () => {
     const failed = provider(
       'SSIS-497',
       { cover: COVER, poster: POSTER },
-      async () => undefined
+      sized(undefined)
     )
     expect((await posters(failed, 'SSIS-497'))[0]).toBe(
       `${COVER}#yingbox=poster-right`
     )
   })
 
-  it('站点没有海报：从封面裁，不探测', async () => {
-    const probe = vi.fn()
-    const p = provider('SSIS-497', { cover: COVER }, probe)
+  it('站点没有海报：从封面裁', async () => {
+    const p = provider('SSIS-497', { cover: COVER }, async url =>
+      url === COVER ? { width: 800, height: 538 } : undefined
+    )
     expect(await posters(p, 'SSIS-497')).toEqual([
       `${COVER}#yingbox=poster-right`,
     ])
-    expect(probe).not.toHaveBeenCalled()
+  })
+
+  it('DMM 高清图床有原生高清海报：直接用高清 ps.jpg，封面也换高清', async () => {
+    const pics = 'https://pics.dmm.co.jp/digital/video/ipzz00300/ipzz00300'
+    const aws =
+      'https://awsimgsrc.dmm.co.jp/pics_dig/digital/video/ipzz00300/ipzz00300'
+    const sizes: Record<string, { width: number; height: number }> = {
+      [`${aws}pl.jpg`]: { width: 2184, height: 1468 },
+      [`${aws}ps.jpg`]: { width: 1032, height: 1468 },
+      [`${pics}pl.jpg`]: { width: 800, height: 538 },
+      [`${pics}ps.jpg`]: { width: 147, height: 200 },
+    }
+    const p = provider(
+      'IPZZ-300',
+      { cover: `${pics}pl.jpg`, poster: `${pics}ps.jpg` },
+      async url => sizes[url]
+    )
+    const meta = await p.metadata('IPZZ-300')
+    const of = (role: string): string[] =>
+      (meta?.images ?? []).filter(i => i.role === role).map(i => i.path)
+    expect(of('poster')).toEqual([`${aws}ps.jpg`])
+    expect(of('backdrop')).toEqual([`${aws}pl.jpg`])
+  })
+
+  it('高清图床缺图（老片）：退回标准图床，从封面裁', async () => {
+    const pics = 'https://pics.dmm.co.jp/digital/video/ssis00497/ssis00497'
+    const sizes: Record<string, { width: number; height: number }> = {
+      [`${pics}pl.jpg`]: { width: 800, height: 538 },
+      [`${pics}ps.jpg`]: { width: 147, height: 200 },
+    }
+    const p = provider(
+      'SSIS-497',
+      { cover: `${pics}pl.jpg`, poster: `${pics}ps.jpg` },
+      async url => sizes[url]
+    )
+    expect(await posters(p, 'SSIS-497')).toEqual([
+      `${pics}pl.jpg#yingbox=poster-right`,
+      `${pics}ps.jpg`,
+    ])
   })
 
   it('无码封面没有固定版式：不裁', async () => {
