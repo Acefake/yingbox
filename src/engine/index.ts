@@ -61,6 +61,9 @@ const downloads = createDownloadHandlers({
 server.implement(download, downloads.handlers)
 void downloads.queue.load()
 
+// 模块加载完、各域注册好：主进程据此记录 fork → ready 的耗时
+port.postMessage({ kind: 'ready' })
+
 server.onShutdown(() => {
   downloads.queue.stop()
   void downloads.queue.flush().finally(() => process.exit(0))

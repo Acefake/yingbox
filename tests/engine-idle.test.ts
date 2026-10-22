@@ -1,7 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EngineHost } from '../src/main/engine/host'
 import { type EngineContext, serveEngine } from '../src/engine/rpc'
-import type { FromEngine, ToEngine } from '../src/engine/protocol'
+import type { FromUtility, ToUtility } from '../src/shared/utility/protocol'
 import { call, defineDomain, str } from '../src/shared/contract/define'
 
 const demo = defineDomain('demo', {
@@ -45,8 +45,8 @@ function wire(
     fork: () => {
       const n = ++forks
       log.push(`fork ${n}`)
-      const toHost: Array<(m: FromEngine) => void> = []
-      const toEngine: Array<(e: { data: ToEngine }) => void> = []
+      const toHost: Array<(m: FromUtility) => void> = []
+      const toEngine: Array<(e: { data: ToUtility }) => void> = []
       const exits: Array<(code: number) => void> = []
       let alive = true
       const die = (code: number): void => {
@@ -79,7 +79,7 @@ function wire(
         postMessage: m =>
           queueMicrotask(() => alive && toEngine.forEach(l => l({ data: m }))),
         on: (e: string, l: (x: never) => void) => {
-          if (e === 'message') toHost.push(l as (m: FromEngine) => void)
+          if (e === 'message') toHost.push(l as (m: FromUtility) => void)
           else exits.push(l as (code: number) => void)
         },
         kill: () => {

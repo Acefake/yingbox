@@ -1,13 +1,14 @@
 /**
  * 引擎的 RPC 入口：解析请求参数（系统边界）、调用服务方法、把结果或错误包成响应。
- * 纯函数式，不依赖 Electron，单测直接喂 RpcRequest。
+ * 纯函数式，不依赖 Electron：桌面端引擎入口（entry.ts）与独立服务（server/routes/library.ts）共用，
+ * 单测直接喂 { method, params }。结果就是 library:invoke 的 InvokeResult。
  */
 import {
+  type InvokeResult,
   LibraryError,
   type LibraryMethod,
   type LibraryRpcMap,
   type ParsedRpcParams,
-  type RpcResponse,
   isLibraryMethod,
   parseRpcParams,
 } from '../../../shared/library/ipc'
@@ -56,11 +57,11 @@ const HANDLERS: Handlers = {
   'actors.setSettings': (s, p) => s.actors.setSettings(p),
 }
 
-/** 处理一次调用，永不抛出：任何错误都变成 ok: false 的响应。 */
+/** 处理一次调用，永不抛出：任何错误都变成 ok: false 的结果。 */
 export async function handleRpc(
   service: LibraryService,
-  request: { id: number; method: unknown; params: unknown }
-): Promise<RpcResponse> {
+  request: { method: unknown; params: unknown }
+): Promise<InvokeResult> {
   try {
     if (!isLibraryMethod(request.method)) {
       throw new LibraryError(
@@ -75,12 +76,10 @@ export async function handleRpc(
       p: typeof params
     ) => unknown
     const result = await handler(service, params)
-    return { kind: 'response', id: request.id, ok: true, result }
+    return { ok: true, result }
   } catch (error) {
     const known = error instanceof LibraryError
     return {
-      kind: 'response',
-      id: request.id,
       ok: false,
       error: {
         code: known ? error.code : 'internal',

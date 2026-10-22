@@ -9,7 +9,6 @@ import {
   type InvokeResult,
   LibraryError,
   type LibraryEvent,
-  type RpcResponse,
 } from '../../shared/library/ipc'
 import type { LibraryService } from '../../main/library/engine/service'
 import { handleRpc } from '../../main/library/engine/rpc'
@@ -26,11 +25,6 @@ export interface LibraryRouteDeps {
 
 /** SSE 心跳间隔：低于常见反向代理的 60 s 空闲超时。 */
 const HEARTBEAT_MS = 25_000
-
-const toInvokeResult = (response: RpcResponse): InvokeResult =>
-  response.ok
-    ? { ok: true, result: response.result }
-    : { ok: false, error: response.error }
 
 const rejected = (error: LibraryError): InvokeResult => ({
   ok: false,
@@ -68,9 +62,7 @@ async function invoke(
     if (error instanceof LibraryError) return rejected(error)
     throw error
   }
-  const result = toInvokeResult(
-    await handleRpc(deps.service, { id: 0, method, params })
-  )
+  const result = await handleRpc(deps.service, { method, params })
   // 只有 TMDB 令牌另存进服务的密钥文件（与桌面端 safeStorage 对应）；番号站点凭据存在片库设置里
   if (method === 'setProviderToken' && result.ok) {
     const request = params as { provider?: string; token?: string | null }

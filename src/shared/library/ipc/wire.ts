@@ -1,32 +1,11 @@
 /**
- * 主进程与引擎进程（utilityProcess）之间的消息格式。
+ * 媒体库的 IPC 通道名、调用结果与错误码。
  *
- * 渲染进程不直接接触这些消息：它通过 ipcRenderer.invoke 调主进程，主进程把调用包成
- * RpcRequest 转给引擎，再把 RpcResponse 拆回去。事件订阅：主进程建 MessageChannelMain，
- * 一端随 SubscribeMessage 交给引擎、另一端经 library:port 推给渲染进程；引擎重启后重新下发。
+ * 渲染进程通过 ipcRenderer.invoke 调主进程，主进程按 shared/utility/protocol.ts 的线协议
+ * 转给引擎（call / result，参数为 args[0]），再拆回 InvokeResult。事件订阅：主进程建
+ * MessageChannelMain，一端随 subscribe 消息交给引擎、另一端经 library:port 推给渲染进程；
+ * 引擎重启后重新下发。
  */
-import type { LibraryMethod, LibraryRpcMap } from './contract'
-
-/** 主进程 → 引擎：一次方法调用。 */
-export interface RpcRequest<M extends LibraryMethod = LibraryMethod> {
-  kind: 'request'
-  id: number
-  method: M
-  params: LibraryRpcMap[M]['params']
-}
-
-/** 主进程 → 引擎：消息附带的 MessagePort 是一个新的事件订阅方。 */
-export interface SubscribeMessage {
-  kind: 'subscribe'
-}
-
-/** 主进程 → 引擎：应用退出，关闭数据库后自行退出。 */
-export interface ShutdownMessage {
-  kind: 'shutdown'
-}
-
-/** 主进程发给引擎的全部消息。 */
-export type HostMessage = RpcRequest | SubscribeMessage | ShutdownMessage
 
 /** 可序列化的错误。code 供调用方分支，message 给人看。 */
 export interface RpcError {
@@ -43,24 +22,11 @@ export type LibraryErrorCode =
   | 'engine-unavailable'
   | 'internal'
 
-/** 引擎 → 主进程：一次调用的结果。 */
-export type RpcResponse =
-  | { kind: 'response'; id: number; ok: true; result: unknown }
-  | { kind: 'response'; id: number; ok: false; error: RpcError }
-
-/** 引擎 → 主进程：初始化完成，可以接收请求。 */
-export interface ReadyMessage {
-  kind: 'ready'
-}
-
-/** 引擎 → 主进程：一批原图已下载到缓存目录，主进程据此预热缩略图。 */
-export interface ImagesCachedMessage {
-  kind: 'images-cached'
-  keys: string[]
-}
-
-/** 引擎发给主进程的全部消息。 */
-export type EngineMessage = RpcResponse | ReadyMessage | ImagesCachedMessage
+/**
+ * 引擎 → 主进程的事件通道（线协议 event，见 shared/utility/protocol.ts）：一批原图已下载到缓存目录，
+ * payload 为图片 key 数组，主进程据此预热缩略图。
+ */
+export const LIBRARY_IMAGES_CACHED = 'library:images-cached'
 
 /** 渲染进程 ↔ 主进程的 IPC 通道名。 */
 export const LIBRARY_CHANNELS = {
