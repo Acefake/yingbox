@@ -14,6 +14,31 @@ export type SessionPage =
   | { kind: 'ok'; html: string }
   | { kind: 'challenge' | 'blocked' | 'miss' }
 
+/**
+ * 会话里是否已有这个地址可用、未过期的 cf_clearance。
+ * partition 是持久化的，所以重启后、或离上次开窗口过挑战已久，只要 Cloudflare 发的 cookie
+ * 还没到期，就能直接带着它取页，不必再弹验证窗口。读不到 cookie 一律当作没有。
+ * @param url 目标地址
+ * @param nowMs 当前时间（毫秒）
+ */
+export async function hasClearance(
+  url: string,
+  nowMs: number
+): Promise<boolean> {
+  try {
+    const cookies = await session
+      .fromPartition(PARTITION)
+      .cookies.get({ url, name: 'cf_clearance' })
+    return cookies.some(
+      cookie =>
+        cookie.expirationDate === undefined ||
+        cookie.expirationDate * 1000 > nowMs + 60_000
+    )
+  } catch {
+    return false
+  }
+}
+
 /** 取一页；从不抛错，判定交给调用方决定退回窗口还是熔断。 */
 export async function fetchViaSession(url: string): Promise<SessionPage> {
   const controller = new AbortController()
