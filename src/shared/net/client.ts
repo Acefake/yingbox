@@ -6,6 +6,7 @@
  * 主进程的 http 域（影视在用）注入 Node fetch。本文件不 import 任何 node / electron 模块。
  */
 import { type LookupAll, assertPublicTarget } from './guard'
+import { withExplicitReferrer } from './referrer'
 
 /** 宿主提供的 fetch（WHATWG 形状，必须支持 `redirect: 'manual'` 返回 3xx 原响应）。 */
 export type FetchImpl = (url: string, init: RequestInit) => Promise<Response>
@@ -142,13 +143,16 @@ export function createNetClient(deps: NetDeps): NetClient {
       const target = await assertPublicTarget(current, deps.lookup)
       if (req.allow && !req.allow(target))
         throw new Error(`不允许访问：${target.host}`)
-      const response = await deps.fetch(current, {
-        method,
-        headers,
-        body,
-        signal,
-        redirect: 'manual',
-      })
+      const response = await deps.fetch(
+        current,
+        withExplicitReferrer({
+          method,
+          headers,
+          body,
+          signal,
+          redirect: 'manual',
+        })
+      )
       if (!REDIRECTS.has(response.status)) return { response, url: current }
       const location = response.headers.get('location')
       await response.body?.cancel().catch(() => {})
