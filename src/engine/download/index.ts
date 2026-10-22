@@ -12,6 +12,7 @@ import { downloadHls } from './hls'
 import { DownloadQueue, type DownloadRunner } from './queue'
 import { discardResumeTemps } from './resume'
 import { pageGetter, resolveSource } from './sources'
+import { sweepOrphanTemps } from './sweep'
 
 /**
  * 有 ffmpeg 时把 .ts 无损转成 .mp4（-c copy），成功后删 .ts；没有 ffmpeg 或失败保留 .ts。
@@ -66,6 +67,8 @@ export interface DownloadDeps {
 export function createDownloadHandlers(deps: DownloadDeps): {
   handlers: EngineHandlers<typeof download>
   queue: DownloadQueue
+  /** 引擎启动时调用一次：恢复队列并清扫孤儿临时文件 */
+  load: () => Promise<void>
 } {
   const { ctx } = deps
   const run: DownloadRunner = async (code, report, signal, root) => {
@@ -121,8 +124,34 @@ export function createDownloadHandlers(deps: DownloadDeps): {
     discard,
     onChange,
   })
+  /**
+   * 启动：读盘恢复队列，再清扫孤儿临时文件（当前下载目录 + 各任务记下的目录）。
+   * 读不到当前下载目录时只扫任务记下的；清扫出错只记日志。
+   */
+  const load = async (): Promise<void> => {
+    await queue.load()
+    const { active, queued, completed, failed } = queue.snapshot()
+    const tasks = [
+      ...(active ? [active] : []),
+      ...queued,
+      ...completed,
+      ...failed,
+    ]
+    const current = await ctx.host('downloadDir').catch(() => undefined)
+    const roots = [current, ...tasks.map(t => t.dir)].filter(
+      (d): d is string => typeof d === 'string'
+    )
+    const pending = (code: string): boolean => {
+      const s = queue.snapshot()
+      return s.active?.id === code || s.queued.some(t => t.id === code)
+    }
+    await sweepOrphanTemps(roots, pending).catch(error =>
+      console.error('[download] 清扫孤儿临时文件失败', error)
+    )
+  }
   return {
     queue,
+    load,
     handlers: {
       list: () => queue.snapshot(),
       add: (_ctx, code) => queue.add(code),
