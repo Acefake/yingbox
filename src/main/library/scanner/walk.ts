@@ -11,6 +11,7 @@
 import type { Dirent, Stats } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
+import { setImmediate as yieldToLoop } from 'node:timers/promises'
 import { fileKindOf, isIgnoredName, parentKey, pathKey } from './rules'
 import type {
   DirChange,
@@ -39,10 +40,19 @@ export interface WalkOptions {
    * 之后同一时间片内的再次改动不会改变 mtime。这类目录记一个哨兵值，下次扫描强制重读。
    */
   racyWindowMs?: number
+  /** 同步读库最多连续占用事件循环多久（毫秒），默认 SCAN_SLICE_MS。 */
+  sliceMs?: number
 }
 
 /** 不可信 mtime 的哨兵值：任何真实 mtime 都不等于它，下次必然重读。 */
 export const RACY_MTIME = -1
+
+/**
+ * 扫描时同步读写库一次最多连续占用事件循环多久（毫秒）。node:sqlite 是同步 API，
+ * 到点就提交 / 让出一次。16 ms 下 5 万文件冷扫最长卡顿 <50 ms，CPU 只多约一成；
+ * 8 ms 时提交次数翻倍，热点索引页反复写 WAL，CPU 多两三成。
+ */
+export const SCAN_SLICE_MS = 16
 
 /** readdir 得到的一个目录的直接内容。 */
 interface Listing {
@@ -160,11 +170,9 @@ export async function walkLibrary(
       const wasKnown = known.delete(subKey)
       if (!wasKnown || descendKnown) next.push(sub)
     }
+    // 子树里的文件遍历完再分片读（一次删掉几百个目录时，同步全读会卡住事件循环）
     for (const gone of known.values()) {
-      diff.removedDirs.push({
-        key: gone.key,
-        files: snapshot.filesUnder(gone.key),
-      })
+      diff.removedDirs.push({ key: gone.key, files: [] })
     }
 
     const unchanged =
@@ -272,5 +280,16 @@ export async function walkLibrary(
     }
     pump()
   })
+
+  const sliceMs = options.sliceMs ?? SCAN_SLICE_MS
+  let deadline = performance.now() + sliceMs
+  for (const gone of diff.removedDirs) {
+    gone.files = snapshot.filesUnder(gone.key)
+    if (performance.now() >= deadline) {
+      await yieldToLoop()
+      options.signal?.throwIfAborted()
+      deadline = performance.now() + sliceMs
+    }
+  }
   return diff
 }

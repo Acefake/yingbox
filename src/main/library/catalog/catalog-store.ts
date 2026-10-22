@@ -35,10 +35,12 @@ WHERE fm.file_id = ?`
 
 /** 回收某类没有文件、没有子条目、未锁定的条目。 */
 const GC_SQL = `
-DELETE FROM media_items
+DELETE FROM media_items WHERE id IN (
+SELECT id FROM media_items
 WHERE library_id = ? AND type = ? AND match_state <> 'locked'
   AND NOT EXISTS (SELECT 1 FROM file_media fm WHERE fm.item_id = media_items.id)
   AND NOT EXISTS (SELECT 1 FROM media_items c WHERE c.parent_id = media_items.id)
+LIMIT ?)
 RETURNING id`
 
 /** 条目写入仓库。 */
@@ -152,16 +154,35 @@ export class CatalogStore {
    * 被删的顶层条目记入 changes.removed。
    */
   collectGarbage(libraryId: number, changes: ItemChanges): void {
+    for (const _ of this.garbageChunks(libraryId, changes, -1));
+  }
+
+  /**
+   * 分块回收（同 collectGarbage）：每删一块（最多 limit 条，-1 不限）yield 一次，
+   * 调用方可以在块之间提交事务、让出事件循环。
+   */
+  *garbageChunks(
+    libraryId: number,
+    changes: ItemChanges,
+    limit = 256
+  ): Generator<void> {
     const gc = this.sql.get(GC_SQL)
     for (const type of ['episode', 'season', 'series', 'movie'] as const) {
-      for (const row of gc.all(libraryId, type)) {
+      let deleted: number
+      do {
+        const rows = gc.all(libraryId, type, limit)
+        deleted = rows.length
         if (type === 'series' || type === 'movie') {
-          const id = Number(row.id)
-          changes.updated.delete(id)
-          if (!changes.added.delete(id)) changes.removed.add(id)
+          for (const row of rows) {
+            const id = Number(row.id)
+            changes.updated.delete(id)
+            if (!changes.added.delete(id)) changes.removed.add(id)
+          }
         }
-      }
+        // 缓存里可能有刚删的条目；块之间别的任务可能用到它
+        this.ids.clear()
+        yield
+      } while (deleted === limit)
     }
-    this.ids.clear()
   }
 }
