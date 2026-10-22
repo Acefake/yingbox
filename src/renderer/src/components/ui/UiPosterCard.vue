@@ -18,6 +18,7 @@
         loading="lazy"
         decoding="async"
         referrerpolicy="no-referrer"
+        @load="onLoad"
         @error="onError"
       />
       <div v-else class="ui-poster-placeholder">
@@ -69,10 +70,12 @@
  *
  * 给了 preview（预览来源）的卡支持悬停预览：悬停 / 键盘聚焦满设置的延时后在图上静音循环播放，
  * 全局只播一张；离开、滚出视口、被虚拟网格回收、页面切走时停止并释放（见 hover-preview/）。
+ *
+ * 图的比例和卡不同（横版剧照进竖卡）时按焦点取景，不切掉人脸（services/thumbnails/focus.ts）。
  */
 import { computed, ref, watch } from 'vue'
 
-import { pickThumbWidth, thumbSrc } from '@/services/thumbnails'
+import { applyFocus, pickThumbWidth, thumbSrc } from '@/services/thumbnails'
 import { type PreviewSource, useCardPreview } from './hover-preview'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
@@ -122,6 +125,15 @@ const src = computed(() =>
     : props.cover
 )
 
+/** 卡的宽高比（与 .ui-poster-media 的 aspect-ratio 一致）。 */
+const frameAspect = computed(() =>
+  props.shape === 'landscape' ? 16 / 9 : 2 / 3
+)
+
+function onLoad(event: Event): void {
+  applyFocus(event.target as HTMLImageElement, frameAspect.value)
+}
+
 function onError(): void {
   if (src.value !== props.cover) useOriginal.value = true
   else broken.value = true
@@ -162,6 +174,7 @@ watch(
   width: 100%;
   height: 100%;
   object-fit: cover;
+  transition: object-position var(--duration-normal) var(--ease-out);
 }
 .ui-poster-placeholder {
   display: grid;

@@ -3,6 +3,7 @@
  * 生成 WebP、落盘后返回（流程见 src/shared/media-url.ts 与 src/main/thumbnails）。
  *
  * Web/PWA（没有主进程）或来源不支持时原样返回原图地址。
+ * 图片加载后交给 applyFocus 按焦点取景（focus.ts）。
  */
 import {
   type ThumbWidth,
@@ -11,6 +12,7 @@ import {
 } from '../../../../shared/media-url'
 
 export { pickThumbWidth }
+export { applyFocus } from './focus'
 
 /** <img> 的地址：桌面端走缩略图协议，否则原图 */
 export function thumbSrc(source: string, width: ThumbWidth): string {
