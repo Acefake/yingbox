@@ -1,0 +1,120 @@
+{
+  "src/engine/download/index.ts": {
+    "old-version": 1
+  },
+  "src/engine/download/sweep.ts": {
+    "old-version": 1
+  },
+  "src/engine/online/plugin-storage.ts": {
+    "history": 1
+  },
+  "src/main/download-dir.ts": {
+    "old-version": 2
+  },
+  "src/main/library/engine/service-rules.ts": {
+    "changed-to": 1
+  },
+  "src/main/library/identify/identify-store.ts": {
+    "changed-to": 1
+  },
+  "src/main/library/identify/runner-types.ts": {
+    "history": 1
+  },
+  "src/main/library/platform/fetch/curl-fetch.ts": {
+    "changed-to": 1
+  },
+  "src/main/library/providers/jav/actors/sources/theporndb.ts": {
+    "old-version": 1
+  },
+  "src/main/library/providers/jav/sites/dmm/web.ts": {
+    "old-version": 1
+  },
+  "src/main/library/providers/jav/sites/fc2ppvdb.ts": {
+    "old-version": 1
+  },
+  "src/main/library/providers/jav/sites/jav321.ts": {
+    "changed-to": 1
+  },
+  "src/main/library/scanner/parse.ts": {
+    "old-version": 1
+  },
+  "src/main/library/writer/nfo/nfo-builder.ts": {
+    "old-version": 1
+  },
+  "src/main/library/writer/write/output-plan.ts": {
+    "old-version": 1
+  },
+  "src/main/library/writer/writer-settings.ts": {
+    "old-version": 1
+  },
+  "src/main/plugins/host.ts": {
+    "history": 1
+  },
+  "src/main/plugins/lada/job.ts": {
+    "changed-to": 1
+  },
+  "src/main/plugins/process.ts": {
+    "history": 1
+  },
+  "src/main/settings/index.ts": {
+    "old-version": 1
+  },
+  "src/main/settings/store.ts": {
+    "old-version": 1
+  },
+  "src/main/thumbnails/index.ts": {
+    "old-version": 1
+  },
+  "src/renderer/src/components/MediaFilterBar.vue": {
+    "changed-to": 1
+  },
+  "src/renderer/src/components/ui/UiNavItem.vue": {
+    "changed-to": 1
+  },
+  "src/renderer/src/components/ui/UiPressable.vue": {
+    "changed-to": 1
+  },
+  "src/renderer/src/components/ui/hover-preview/types.ts": {
+    "changed-to": 1
+  },
+  "src/renderer/src/features/av/components/AvHistoryView.vue": {
+    "changed-to": 1
+  },
+  "src/renderer/src/features/library/api/bridge.ts": {
+    "old-version": 1
+  },
+  "src/renderer/src/features/library/page/use-overlay-route.ts": {
+    "changed-to": 1
+  },
+  "src/renderer/src/features/library/page/use-section-guard.ts": {
+    "history": 1
+  },
+  "src/renderer/src/features/online/composables/use-source-refresh.ts": {
+    "history": 1
+  },
+  "src/renderer/src/features/online/utils/site-selection.ts": {
+    "changed-to": 1,
+    "old-version": 3
+  },
+  "src/renderer/src/features/online/views/OnlineView.vue": {
+    "changed-to": 1
+  },
+  "src/renderer/src/features/player/composables/use-media-player.ts": {
+    "old-version": 1
+  },
+  "src/renderer/src/features/settings/browser-storage.ts": {
+    "old-version": 3
+  },
+  "src/renderer/src/features/shell/AppLayout.vue": {
+    "changed-to": 1
+  },
+  "src/shared/library/ipc/contract-library.ts": {
+    "old-version": 1
+  },
+  "src/shared/net/cf-page.ts": {
+    "old-version": 1
+  },
+  "src/shared/settings/legacy.ts": {
+    "old-version": 3
+  }
+}
