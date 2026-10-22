@@ -85,9 +85,8 @@ import {
 import {
   type PlayRequest,
   episodePlayRequest,
-  moviePlayRequest,
   play,
-  playableEpisodes,
+  primaryPlayRequest,
 } from './playback'
 import { useRestore } from './use-restore'
 import WebPlayer from './WebPlayer.vue'
@@ -155,16 +154,9 @@ const seasons = computed(() => sortedSeasons(node.value))
 const metaLine = computed(() => metaLineOf(node.value, seasons.value))
 
 // —— 播放 ——
-const primaryPlay = computed<PlayRequest | null>(() => {
-  const n = node.value
-  if (!n) return null
-  if (n.type === 'movie') return moviePlayRequest(n)
-  for (const season of seasons.value) {
-    const first = playableEpisodes(season)[0]
-    if (first) return episodePlayRequest(n, season, first)
-  }
-  return null
-})
+const primaryPlay = computed<PlayRequest | null>(() =>
+  node.value ? primaryPlayRequest(node.value) : null
+)
 
 const playLabel = computed(() => {
   const request = primaryPlay.value

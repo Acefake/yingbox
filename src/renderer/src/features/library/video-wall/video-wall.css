@@ -1,0 +1,93 @@
+/* 视频墙（VideoWall.vue）的 scoped 样式：黑底、细缝、格子等分整屏。 */
+.video-wall {
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-player-overlay);
+  background: var(--media-bg);
+  color: var(--media-text);
+}
+.video-wall.is-idle {
+  cursor: none;
+}
+.video-wall-grid {
+  display: grid;
+  grid-template-columns: repeat(var(--wall-columns), minmax(0, 1fr));
+  grid-auto-rows: minmax(0, 1fr);
+  gap: var(--space-0_5);
+  height: 100%;
+}
+.video-wall-tile {
+  position: relative;
+  overflow: hidden;
+  background: var(--bg-fill-secondary);
+}
+.video-wall-poster {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.video-wall-open {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+/* 片名与「播放」：悬停或键盘选中时浮现在底部 */
+.video-wall-caption {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-8) var(--space-5) var(--space-4);
+  background: linear-gradient(transparent, var(--overlay-scrim));
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity var(--duration-fast) var(--ease-out);
+}
+.video-wall-tile:hover .video-wall-caption,
+.video-wall-tile.is-selected .video-wall-caption {
+  opacity: 1;
+}
+.video-wall-tile:hover .video-wall-caption :deep(button) {
+  pointer-events: auto;
+}
+.video-wall-tile.is-selected {
+  box-shadow: inset 0 0 0 2px var(--media-accent);
+}
+.video-wall-title {
+  flex: 1 1 auto;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右上角控件：鼠标静止后隐去 */
+.video-wall-bar {
+  position: absolute;
+  top: var(--space-5);
+  right: var(--space-5);
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  transition: opacity var(--duration-normal) var(--ease-out);
+}
+.video-wall.is-idle .video-wall-bar {
+  opacity: 0;
+  pointer-events: none;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .video-wall-caption,
+  .video-wall-bar {
+    transition: none;
+  }
+}
