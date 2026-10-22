@@ -1,4 +1,9 @@
-import { BrowserWindow, type Rectangle, screen } from 'electron'
+import {
+  BrowserWindow,
+  type BrowserWindowConstructorOptions,
+  type Rectangle,
+  screen,
+} from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import { emit, implement } from './rpc'
@@ -22,6 +27,33 @@ let playerWindow: BrowserWindow | null = null
 let pendingPayload: PlayerOpenPayload | null = null
 /** 缩小置顶前的位置大小；没在缩小置顶时为 null */
 let normalBounds: Rectangle | null = null
+
+/** 顶栏高度：和渲染层 PlayerTitleBar 的拖拽条一致 */
+export const TITLE_BAR_HEIGHT = 36
+
+/**
+ * 无边框但保留系统原生的窗口按钮：标题栏隐藏，画面铺满整个窗口。
+ * Windows / Linux 用 titleBarOverlay（系统画的最小化 / 最大化 / 关闭，透明底白色图标，叠在画面右上角）；
+ * macOS 用红绿灯，往下挪到拖拽条中间。
+ */
+export function framelessOptions(
+  platform: NodeJS.Platform
+): BrowserWindowConstructorOptions {
+  if (platform === 'darwin') {
+    return {
+      titleBarStyle: 'hidden',
+      trafficLightPosition: { x: 14, y: (TITLE_BAR_HEIGHT - 16) / 2 },
+    }
+  }
+  return {
+    titleBarStyle: 'hidden',
+    titleBarOverlay: {
+      color: '#00000000',
+      symbolColor: '#ffffff',
+      height: TITLE_BAR_HEIGHT,
+    },
+  }
+}
 
 /** 缩小置顶的位置：贴工作区（不含任务栏）右下角，留边距 */
 export function compactBounds(workArea: Rectangle): Rectangle {
@@ -187,7 +219,7 @@ function openPlayerWindow(payload: PlayerOpenPayload): void {
     minWidth: NORMAL_MIN.width,
     minHeight: NORMAL_MIN.height,
     show: false,
-    frame: true,
+    ...framelessOptions(process.platform),
     title: windowTitle(payload),
     backgroundColor: '#000000',
     autoHideMenuBar: true,
