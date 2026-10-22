@@ -142,6 +142,10 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 | CatSpider runtime | cheerio, crypto-js (engine plugin sandbox) |
 | Package manager   | pnpm                                       |
 
+## Engineering gates and decisions
+
+Same as `AGENTS.md` → "Engineering gates" and "Decisions (ADR)": iterate with `pnpm test:affected`, run the full suite before merging; style / copy / dependency baselines only shrink; settled decisions are in `docs/adr/`, and **changing one requires a new ADR**.
+
 ## UI conventions
 
 - Look: Apple-like restraint, generous whitespace; neutral grays, color comes from posters. Accent blue only for focus, links and toggles; selected states use `--bg-active`.
