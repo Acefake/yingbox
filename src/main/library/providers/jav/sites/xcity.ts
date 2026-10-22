@@ -9,7 +9,8 @@
  * Cookie adc=1 跳过年龄确认。
  * 行为参考 Amane 的 xcity 爬虫，代码独立实现。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, minutesOf, unique } from '../html'

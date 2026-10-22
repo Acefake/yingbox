@@ -8,7 +8,7 @@
  * 站点在 Cloudflare 之后，海外 IP 常被挑战；大陆需代理。
  * 行为参考 Amane 的 javdb 演员爬虫，代码独立实现。
  */
-import { load } from 'cheerio'
+import { load } from '../../../../../../shared/html/cheerio'
 import { absolute, clean } from '../../html'
 import type { PageOptions } from '../../types'
 import { hasName, normalizeName, uniqueNames } from '../names'

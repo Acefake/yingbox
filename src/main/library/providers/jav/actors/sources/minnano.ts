@@ -9,7 +9,8 @@
  * 年龄确认弹层靠预置 Cookie age_verified=1 跳过。站点在 Cloudflare 之后，海外 IP 常被挑战。
  * 行为参考 Amane 的 minnano 演员爬虫，代码独立实现。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../../shared/html/cheerio'
 import { absolute, clean } from '../../html'
 import type { PageOptions } from '../../types'
 import {

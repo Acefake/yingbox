@@ -82,7 +82,7 @@ Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/jav` (本地番号�
 
 ### Engine (`src/engine/`)
 
-Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`. Domains: `online` (CMS sites, CatSpider plugins, VOD parse), `av` (MissAV catalogue + resolver), `download` (site → m3u8 lookup, HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard); `cf-page.ts` classifies challenge vs hard-block pages and `host-breaker.ts` is the per-host breaker, both shared with the main process. Plugin sources that trip report `unavailable` to the renderer, which skips them in search and marks them in the source list. Replaces the former Go backend on 127.0.0.1:31471, removed in p3d.
+Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`. Domains: `online` (CMS sites, CatSpider plugins, VOD parse), `av` (MissAV catalogue + resolver), `download` (site → m3u8 lookup, HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard); `cf-page.ts` classifies challenge vs hard-block pages and `host-breaker.ts` is the per-host breaker, both shared with the main process. Plugin sources that trip report `unavailable` to the renderer, which skips them in search and marks them in the source list. Replaces the former Go backend on 127.0.0.1:31471, removed in p3d. cheerio is loaded on first HTML parse only, through `src/shared/html/cheerio.ts` (both utilityProcesses and the standalone server); elsewhere import it as `import type` only.
 
 ### 番号库 replaces the Amane sidecar
 

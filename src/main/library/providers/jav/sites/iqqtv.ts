@@ -11,7 +11,7 @@
  *
  * 行为参考 Amane 的 iqqtv 爬虫，代码独立实现。
  */
-import { load } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, isPlaceholder, unique } from '../html'
 import type { JavRecord, JavSite, SiteContext } from '../types'

@@ -7,7 +7,7 @@
  * 作品不存在时站点回 404。站点要求 Accept 带 text/html，否则同一地址也回 404。
  * 行为参考 Amane 的 kin8 爬虫，代码独立实现。
  */
-import { load } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'
 import { absolute, clean, unique } from '../html'
 import type { JavRecord, JavSite, JavSiteId, SiteContext } from '../types'
