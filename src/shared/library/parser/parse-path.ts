@@ -24,6 +24,8 @@ const DISC_FOLDER_RE = /^(?:cd|dvd|disc|disk)[\s._-]*(\d{1,2})$/i
 interface FolderContext {
   /** 最近的承载片名的文件夹（电影文件夹 / 剧集文件夹）。 */
   owner?: NameInfo
+  /** owner 在 folders 里的下标。 */
+  ownerIndex?: number
   season?: number
   part?: number
   /** 文件位于附加内容文件夹（Featurettes、Sample、花絮…）里。 */
@@ -60,6 +62,7 @@ function readFolders(folders: string[]): FolderContext {
       continue
     }
     ctx.owner = parseFolderName(name)
+    ctx.ownerIndex = i
     break
   }
   return ctx
@@ -69,6 +72,17 @@ function readFolders(folders: string[]): FolderContext {
 const parseFolderName = memoize((name: string) =>
   parseName(name, { folder: true })
 )
+
+/**
+ * 承载片名的文件夹在路径里的深度：folders[0..depth) 就是作品文件夹（含上层分类文件夹）。
+ *
+ * 跳过季（Season 1、S01、第一季、Specials）、碟片、附加内容和结构性文件夹；
+ * 没有承载片名的文件夹（文件直接放在根下或只套了季文件夹）时为 0。
+ */
+export function ownerFolderDepth(folders: string[]): number {
+  const index = readFolders(folders).ownerIndex
+  return index === undefined ? 0 : index + 1
+}
 
 const normTitle = (s: string | undefined): string =>
   (s ?? '').toLowerCase().replace(/[^\p{L}\p{N}]+/gu, '')
