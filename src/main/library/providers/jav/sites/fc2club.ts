@@ -11,7 +11,8 @@
  *
  * 行为参考 Amane 的 fc2club 爬虫，代码独立实现。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, isPlaceholder, unique } from '../html'
 import type { JavRecord, JavSite, SiteContext } from '../types'

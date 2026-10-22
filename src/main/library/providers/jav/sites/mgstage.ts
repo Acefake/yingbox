@@ -10,7 +10,8 @@
  * MGS 只对日本出口开放（CloudFront 地区限制，美国出口 403）。
  * 行为参考 Amane 的 mgstage 爬虫，代码独立实现；页面结构未用真实页面验证。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import {

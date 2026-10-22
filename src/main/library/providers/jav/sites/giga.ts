@@ -12,7 +12,7 @@
  * 只查前缀表里的 GIGA 番号，其它番号不发请求。
  * 行为参考 Amane 的 giga 爬虫，代码独立实现。
  */
-import { load } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, minutesOf, unique } from '../html'

@@ -13,7 +13,8 @@
  * 有码 / 素人；无码与 FC2 不在 FANZA，不查。
  * 行为参考 Amane 的 jav321 爬虫（它直取 /video/<番号>，这里按站点实际的表单搜索实现），代码独立实现。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import {

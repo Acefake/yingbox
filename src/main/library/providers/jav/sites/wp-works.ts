@@ -11,7 +11,7 @@
  * 只查配置里列出的番号前缀，其它番号不发请求。
  * 行为参考 Amane 的 wp_works / faleno / dahlia 爬虫，代码独立实现。
  */
-import { load } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, minutesOf, str, unique } from '../html'
 import type { JavRecord, JavSite, JavSiteId, SiteContext } from '../types'

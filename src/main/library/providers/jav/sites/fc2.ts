@@ -6,7 +6,7 @@
  * 商品已下架时页面标题是「お探しの商品が見つかりませんでした」，按没有处理。
  * 行为参考 Amane 的 fc2 爬虫，代码独立实现。
  */
-import { load } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'
 import { absolute, clean, dateOf, minutesOf, unique } from '../html'
 import type { JavRecord, JavSite, SiteContext } from '../types'
