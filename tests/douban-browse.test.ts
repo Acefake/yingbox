@@ -6,12 +6,13 @@ import {
   buildDoubanRequest,
   createDoubanBrowse,
   parseRecommend,
-  parseSearchSubjects,
 } from '../src/engine/online/douban-browse'
+import { QUICK_SOURCES } from '../src/engine/online/douban-quick'
 import { createOnlineHandlers } from '../src/engine/online'
 import { online } from '../src/shared/contract/online'
 import {
   type DoubanQuery,
+  QUICK_TAGS,
   defaultDoubanQuery,
   normalizeDoubanQuery,
 } from '../src/shared/douban/query'
@@ -20,9 +21,9 @@ import { HttpStatusError } from '../src/shared/net/client'
 import { HostUnavailableError } from '../src/shared/net/host-breaker'
 
 /**
- * 豆瓣多维浏览（引擎）：快捷标签走 movie.douban.com/j/search_subjects，多维筛选走
- * m.douban.com/rexxar/api/v2/<movie|tv>/recommend；参数白名单、结果映射成统一卡片、缓存、熔断。
- * 沙箱在海外、豆瓣会 302 到验证页，这里全部用假网络 + 按真实接口结构手写的夹具（tests/fixtures/douban）。
+ * 豆瓣多维浏览（引擎）：全部走 m.douban.com/rexxar——快捷标签走 /subject/recent_hot 热门榜或 /recommend，
+ * 多维筛选走 /<movie|tv>/recommend；参数白名单、结果映射成统一卡片、缓存、熔断。
+ * 全部用假网络 + 按真实接口结构写的夹具（tests/fixtures/douban）。
  */
 
 const fixture = (name: string): unknown =>
@@ -58,26 +59,52 @@ function fakeNet(routes: Record<string, unknown>): NetClient & {
   }
 }
 
-const SEARCH = 'https://movie.douban.com/j/search_subjects'
+const HOT = 'https://m.douban.com/rexxar/api/v2/subject/recent_hot'
 const MOVIE_RECOMMEND = 'https://m.douban.com/rexxar/api/v2/movie/recommend'
 const TV_RECOMMEND = 'https://m.douban.com/rexxar/api/v2/tv/recommend'
 
 describe('拼请求', () => {
-  it('没动筛选：快捷标签接口，type / tag / 20 条一页 / page_start', () => {
+  it('没动筛选：热门榜类标签走 recent_hot，category / type / 20 条一页 / start', () => {
     const { url, headers } = buildDoubanRequest(
       query({ kind: 'tv', tag: '美剧' }),
       40
     )
     const u = new URL(url)
-    expect(`${u.origin}${u.pathname}`).toBe(SEARCH)
+    expect(`${u.origin}${u.pathname}`).toBe(`${HOT}/tv`)
     expect(Object.fromEntries(u.searchParams)).toEqual({
-      type: 'tv',
-      tag: '美剧',
-      sort: 'recommend',
-      page_limit: '20',
-      page_start: '40',
+      start: '40',
+      limit: '20',
+      category: 'tv',
+      type: 'tv_american',
     })
-    expect(headers.Referer).toBe('https://movie.douban.com/')
+    expect(headers.Referer).toBe('https://movie.douban.com/explore')
+  })
+
+  it('没动筛选：类型 / 地区标签走 recommend，等同于筛选面板选了该项', () => {
+    const movie = new URL(buildDoubanRequest(query({ tag: '喜剧' }), 0).url)
+    expect(`${movie.origin}${movie.pathname}`).toBe(MOVIE_RECOMMEND)
+    expect(movie.searchParams.get('tags')).toBe('喜剧')
+    expect(JSON.parse(movie.searchParams.get('selected_categories')!)).toEqual({
+      类型: '喜剧',
+    })
+    const tv = new URL(
+      buildDoubanRequest(query({ kind: 'tv', tag: '港剧' }), 20).url
+    )
+    expect(`${tv.origin}${tv.pathname}`).toBe(TV_RECOMMEND)
+    expect(tv.searchParams.get('tags')).toBe('中国香港')
+    expect(tv.searchParams.get('start')).toBe('20')
+  })
+
+  it('每个快捷标签都有取数方式，且不再请求会 302 的 movie.douban.com/j', () => {
+    for (const kind of ['movie', 'tv'] as const) {
+      expect(Object.keys(QUICK_SOURCES[kind]).sort()).toEqual(
+        [...QUICK_TAGS[kind]].sort()
+      )
+      for (const tag of QUICK_TAGS[kind]) {
+        const { url } = buildDoubanRequest(query({ kind, tag }), 0)
+        expect(url.startsWith('https://m.douban.com/rexxar/api/v2/')).toBe(true)
+      }
+    }
   })
 
   it('动了筛选：rexxar 探索接口，类型 / 地区 / 年代进 tags，评分下限进 score_range，排序进 sort', () => {
@@ -194,8 +221,8 @@ describe('映射成卡片', () => {
     expect(page.next).toBe(20)
   })
 
-  it('快捷标签接口：subjects 映射，空评分为空串；满 20 条才有下一页', () => {
-    const page = parseSearchSubjects(fixture('search-subjects'), 'movie', 0)
+  it('热门榜：items 映射，未开分为空串，年份取副标题；不足 total 才有下一页', () => {
+    const page = parseRecommend(fixture('recent-hot-movie'), 'movie', 0, 0)
     expect(page.items[0]).toEqual({
       id: '35267208',
       title: '流浪地球2',
@@ -203,32 +230,24 @@ describe('映射成卡片', () => {
         'https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2885955777.jpg',
       rate: '8.3',
       url: 'https://movie.douban.com/subject/35267208/',
-      year: '',
+      year: '2023',
       kind: 'movie',
     })
     expect(page.items[1].rate).toBe('')
-    expect(page.next).toBeNull()
-    const full = {
-      subjects: Array.from({ length: 20 }, (_, i) => ({
-        id: String(100 + i),
-        title: `t${i}`,
-        cover: '',
-        rate: '7.0',
-        url: `https://movie.douban.com/subject/${100 + i}/`,
-      })),
-    }
-    expect(parseSearchSubjects(full, 'tv', 980).next).toBe(1000)
-    // 到上限不再翻
-    expect(parseSearchSubjects(full, 'tv', 1000).next).toBeNull()
+    expect(page.next).toBe(20)
+    expect(
+      parseRecommend(fixture('recent-hot-movie'), 'movie', 300, 0).next
+    ).toBeNull()
   })
 
   it('不是接口数据（验证页、错误 JSON）抛错，ID 不是数字的条目丢掉', () => {
     expect(() => parseRecommend({ msg: 'need_login' }, 'movie', 0, 0)).toThrow()
-    expect(() => parseSearchSubjects('<html>', 'movie', 0)).toThrow()
+    expect(() => parseRecommend('<html>', 'movie', 0, 0)).toThrow()
     expect(
-      parseSearchSubjects(
-        { subjects: [{ id: 'x/../1', title: 'a', url: 'https://evil.test/' }] },
+      parseRecommend(
+        { items: [{ id: 'x/../1', title: 'a', type: 'movie' }] },
         'movie',
+        0,
         0
       ).items
     ).toEqual([])
@@ -254,8 +273,8 @@ describe('取一页', () => {
     let t = 0
     let fail = true
     const net = fakeNet({
-      [SEARCH]: () =>
-        fail ? new HttpStatusError(403) : fixture('search-subjects'),
+      [HOT]: () =>
+        fail ? new HttpStatusError(403) : fixture('recent-hot-movie'),
     })
     const browse = createDoubanBrowse({ net, now: () => t })
     const q = query()
@@ -298,7 +317,7 @@ describe('契约与接线', () => {
   })
 
   it('在线域 handler 把条件交给引擎里的豆瓣浏览', async () => {
-    const net = fakeNet({ [SEARCH]: fixture('search-subjects') })
+    const net = fakeNet({ [HOT]: fixture('recent-hot-movie') })
     const handlers = createOnlineHandlers({
       net,
       loadPlugin: () => Promise.reject(new Error('unused')),
@@ -309,7 +328,7 @@ describe('契约与接线', () => {
       40
     )
     expect(page.items.map(i => i.title)).toEqual(['流浪地球2', '新片未开分'])
-    expect(net.requests[0].url).toContain('tag=%E7%83%AD%E9%97%A8')
-    expect(net.requests[0].url).toContain('page_start=40')
+    expect(net.requests[0].url).toContain('category=%E7%83%AD%E9%97%A8')
+    expect(net.requests[0].url).toContain('start=40')
   })
 })
