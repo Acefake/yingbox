@@ -5,11 +5,12 @@
  * 取代原来 Go → Python → Node 子进程的三级调用；插件的网络请求全部经引擎 net，
  * 遇到 Cloudflare 挑战页时请主进程用浏览器代抓（替代原临时文件 + 本机端口发现）。
  */
-import * as cheerio from 'cheerio'
+import type { Cheerio } from 'cheerio'
 import CryptoJS from 'crypto-js'
 import { constants, privateDecrypt, publicEncrypt } from 'node:crypto'
 import type { NetClient } from '../../shared/net/client'
 import { classifyPage } from '../../shared/net/cf-page'
+import { cheerio, load } from '../../shared/html/cheerio'
 import {
   type HostBreaker,
   type HostTrip,
@@ -185,23 +186,23 @@ function loadJSEncrypt(): unknown {
 }
 
 function makeHtmlHelpers(): Record<string, unknown> {
-  const select = (root: string, selector?: string): cheerio.Cheerio<never> => {
-    const $ = cheerio.load(root)
-    return (selector ? $(selector) : $.root()) as cheerio.Cheerio<never>
+  const select = (root: string, selector?: string): Cheerio<never> => {
+    const $ = load(root)
+    return (selector ? $(selector) : $.root()) as Cheerio<never>
   }
   return {
     elements: (html: string, selector: string) =>
       select(html, selector).toArray(),
     text(root: unknown, selector?: string): string {
       if (typeof root === 'string') return select(root, selector).text().trim()
-      const $ = cheerio.load(root as never)
+      const $ = load(root as never)
       const node = $(root as never)
       return (selector ? node.find(selector) : node).text().trim()
     },
     attr(root: unknown, selector: string, name: string): string {
       if (typeof root === 'string')
         return select(root, selector).attr(name) || ''
-      const $ = cheerio.load(root as never)
+      const $ = load(root as never)
       const node = $(root as never)
       return (selector ? node.find(selector).first() : node).attr(name) || ''
     },
@@ -336,7 +337,7 @@ export async function runCatSpider(
     argsify,
     jsonify: (obj: unknown) => obj,
     $print: print,
-    createCheerio: () => cheerio,
+    createCheerio: () => cheerio(),
     createCryptoJS: () => CryptoJS,
     $html: makeHtmlHelpers(),
     $cache: {

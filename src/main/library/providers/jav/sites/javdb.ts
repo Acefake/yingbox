@@ -11,7 +11,8 @@
  * - 站点在 Cloudflare 后面，部分地区（如美国机房）直接给挑战页，由上层熔断跳过。
  * 行为参考 Amane 的 javdb 爬虫，代码独立实现。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'
 import type { JavCode } from '../number'
 import {

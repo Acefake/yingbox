@@ -11,7 +11,8 @@
  *
  * 行为参考 Amane 的 freejavbt 爬虫，代码独立实现（Amane 的选择器已与现站不符，按现站页面重写）。
  */
-import { type CheerioAPI, load } from 'cheerio'
+import type { CheerioAPI } from 'cheerio'
+import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'
 import {
   absolute,
