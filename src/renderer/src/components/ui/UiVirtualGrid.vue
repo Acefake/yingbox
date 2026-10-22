@@ -34,6 +34,8 @@
  * - 滚动容器：默认找最近的 overflow-y 为 auto / scroll 的祖先（找不到用窗口），也可用 scroller 指定。
  *   上方可以有标题等其他内容，偏移按 getBoundingClientRect 实时算。
  * - 上下用 padding 撑出被跳过的行，滚动条长度与全部渲染时一致，外层「滚到底加载更多」不用改。
+ * - 无限滚动：渲染区间到了最后一条时发 reach-end（量好行距之后；条数变了仍在底部会再发一次，
+ *   这样一页不够铺满视口时会接着要下一页）。外层自己防重复（加载中、到底、失败时忽略）。
  */
 import {
   type Ref,
@@ -45,7 +47,12 @@ import {
   ref,
   watch,
 } from 'vue'
-import { countColumns, measureStride, visibleRange } from './virtual-range'
+import {
+  countColumns,
+  isAtEnd,
+  measureStride,
+  visibleRange,
+} from './virtual-range'
 
 const props = withDefaults(
   defineProps<{
@@ -63,6 +70,7 @@ const props = withDefaults(
 )
 
 defineSlots<{ default(props: { item: T; index: number }): unknown }>()
+const emit = defineEmits<{ 'reach-end': [] }>()
 
 const root = ref<HTMLElement | null>(null)
 const columns = ref(1)
@@ -177,6 +185,16 @@ onBeforeUnmount(unbind)
 watch(
   () => props.scroller,
   () => nextTick(bind)
+)
+// 到底（或到底后条数变了仍在底）通知外层加载更多
+watch(
+  [
+    () => isAtEnd(range.value, props.items.length, stride.value),
+    () => props.items.length,
+  ],
+  ([atEnd]) => {
+    if (atEnd) emit('reach-end')
+  }
 )
 // 列表整体替换（换分类、重新搜索）后视口位置可能已经变了
 watch(

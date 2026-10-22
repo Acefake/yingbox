@@ -95,3 +95,15 @@ export function measureStride(
     return firstHeight + (Number.isFinite(rowGap) ? rowGap : 0)
   return 0
 }
+
+/**
+ * 是否渲染到了最后一条（UiVirtualGrid 据此发 reach-end，外层加载下一页）。
+ * 视口下方还有 overscan 行余量，所以离底还差一两行时就会触发；没量到行距（首帧先渲染一批）不算。
+ */
+export function isAtEnd(
+  range: VisibleRange,
+  count: number,
+  stride: number
+): boolean {
+  return count > 0 && stride > 0 && range.end >= count
+}

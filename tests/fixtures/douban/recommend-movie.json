@@ -1,0 +1,41 @@
+{
+  "count": 20,
+  "start": 0,
+  "total": 500,
+  "items": [
+    {
+      "id": "35267208",
+      "type": "movie",
+      "title": "流浪地球2",
+      "year": "2023",
+      "rating": { "count": 1300000, "max": 10, "star_count": 4.0, "value": 8.3 },
+      "pic": {
+        "large": "https://img1.doubanio.com/view/photo/m_ratio_poster/public/p2885955777.jpg",
+        "normal": "https://img1.doubanio.com/view/photo/s_ratio_poster/public/p2885955777.jpg"
+      },
+      "card_subtitle": "2023 / 中国大陆 / 科幻 冒险 灾难 / 郭帆 / 吴京 刘德华",
+      "uri": "douban://douban.com/movie/35267208"
+    },
+    {
+      "id": "1292052",
+      "type": "movie",
+      "title": "肖申克的救赎",
+      "rating": { "count": 3000000, "max": 10, "value": 9.7 },
+      "pic": { "normal": "https://img2.doubanio.com/view/photo/s_ratio_poster/public/p480747492.jpg" },
+      "card_subtitle": "1994 / 美国 / 剧情 犯罪 / 弗兰克·德拉邦特 / 蒂姆·罗宾斯"
+    },
+    {
+      "id": "9000001",
+      "type": "ad",
+      "title": "推广"
+    },
+    {
+      "id": "3000001",
+      "type": "movie",
+      "title": "暂无评分的片",
+      "rating": null,
+      "pic": { "normal": "https://img3.doubanio.com/view/photo/s_ratio_poster/public/p1.jpg" },
+      "card_subtitle": "2026 / 日本 / 剧情"
+    }
+  ]
+}

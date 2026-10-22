@@ -62,7 +62,7 @@ describe('在线「媒体库」刷新', () => {
   })
 })
 
-describe('豆瓣热门「换一批」/ 换分类', () => {
+describe('豆瓣换条件 / 加载下一页', () => {
   it('海报网格只在没有内容时让位给骨架，刷新期间保留旧海报', () => {
     const text = readFileSync(
       'src/renderer/src/features/online/components/DoubanSection.vue',
@@ -70,8 +70,8 @@ describe('豆瓣热门「换一批」/ 换分类', () => {
     )
     expect(text).toMatch(/<UiSkeleton\s+v-if="waiting === 'skeleton'"/)
     expect(text).toMatch(
-      /const waiting = computed\(\(\) =>\s*listWaiting\(doubanLoading\.value, doubanItems\.value\.length\)/
+      /const waiting = computed\(\(\) =>\s*listWaiting\(pending\.value, items\.value\.length\)/
     )
-    expect(text).not.toMatch(/v-if="doubanLoading"/)
+    expect(text).not.toMatch(/v-if="pending"/)
   })
 })
