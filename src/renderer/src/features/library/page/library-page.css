@@ -1,0 +1,19 @@
+/* 媒体库页面（LibraryPage.vue）的 scoped 样式。 */
+.lib-page {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  background: var(--bg-content);
+}
+
+/* —— 内容 —— */
+.lib-main {
+  position: relative;
+  flex: 1 1 auto;
+  min-height: 0;
+}
+.lib-wall-skeleton {
+  margin: 0 var(--content-padding-x);
+}
