@@ -4,10 +4,16 @@
  *
  * - encode / decode：WebP 编码与解码（桌面端与独立服务都用）；
  * - resize / jpeg：纯 wasm 的解码 + 缩放与 JPEG 兜底编码，独立服务没有 nativeImage 时用（见 wasm-resizer.ts）；
+ * - clip：解码并拉伸成按画面搜的模型输入（片库引擎用，见 library/visual）；
  * - poster：横版封面裁右侧作竖版海报，编成 JPEG（片库原图缓存的派生图，见 library/images/derived.ts）。
  */
 import { cropPosterRight } from '../library/images/derived'
-import { decodeImage, encodeJpeg, resizeToWidth } from './image-codec'
+import {
+  decodeImage,
+  encodeJpeg,
+  resizeExact,
+  resizeToWidth,
+} from './image-codec'
 import { loadWebpDecoder, loadWebpEncoder } from './webp-codec'
 
 /** 编解码任务。 */
@@ -33,6 +39,8 @@ export type CodecJob =
       quality: number
     }
 
+  /** JPEG / PNG / WebP 原图 → 拉伸到 size×size 的 RGBA（按画面搜的模型输入，见 library/visual） */
+  | { op: 'clip'; bytes: Uint8Array; size: number }
   /** JPEG / PNG / WebP 封面 → 裁右侧的竖版海报 JPEG（不是横版时原尺寸重编码） */
   | { op: 'poster'; bytes: Uint8Array; quality: number }
 
@@ -60,6 +68,11 @@ export async function runCodecJob(
         request.width
       )
       return { id, data: image.rgba, width: image.width, height: image.height }
+    }
+    case 'clip': {
+      const image = await decodeImage(request.bytes)
+      const out = await resizeExact(image, request.size, request.size)
+      return { id, data: out.rgba, width: out.width, height: out.height }
     }
     case 'jpeg':
       return { id, data: await encodeJpeg(request, request.quality) }
