@@ -8,7 +8,10 @@
  *   缩略图由服务进程里的 wasm 管线生成。
  * 两种宿主都经 createLibraryService 构造同一个 LibraryService，行为一致。
  */
-import type { HttpFetch } from '../identify/identify-module'
+import type {
+  HttpFetch,
+  IdentifyModuleOptions,
+} from '../identify/identify-module'
 import { DEFAULT_MONITOR } from '../engine/library-monitor'
 import { LibraryService, type LibraryServiceOptions } from '../engine/service'
 
@@ -28,6 +31,8 @@ export interface LibraryPlatform {
   log: (message: string) => void
   /** 一批原图落盘后回调（宿主据此预热缩略图）。 */
   onImagesCached?: (keys: string[]) => void
+  /** 加工派生图（番号封面裁海报）；宿主用编解码线程实现，见 images/derived.ts 的 codecDeriver。 */
+  deriveImage?: IdentifyModuleOptions['deriveImage']
   /** 环境变量兜底的令牌（设置里没有时使用）。 */
   env?: LibraryEnvSecrets
 }
@@ -73,6 +78,7 @@ export function createLibraryService(
       fetch: platform.fetch,
       mediaDir: platform.mediaDir,
       onImagesCached: platform.onImagesCached,
+      deriveImage: platform.deriveImage,
       env: platform.env,
     },
   })

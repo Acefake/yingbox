@@ -3,8 +3,10 @@
  * 线程起不来时（或单测里）codec-client 的 inProcessCodec 直接在当前线程调用。
  *
  * - encode / decode：WebP 编码与解码（桌面端与独立服务都用）；
- * - resize / jpeg：纯 wasm 的解码 + 缩放与 JPEG 兜底编码，独立服务没有 nativeImage 时用（见 wasm-resizer.ts）。
+ * - resize / jpeg：纯 wasm 的解码 + 缩放与 JPEG 兜底编码，独立服务没有 nativeImage 时用（见 wasm-resizer.ts）；
+ * - poster：横版封面裁右侧作竖版海报，编成 JPEG（片库原图缓存的派生图，见 library/images/derived.ts）。
  */
+import { cropPosterRight } from '../library/images/derived'
 import { decodeImage, encodeJpeg, resizeToWidth } from './image-codec'
 import { loadWebpDecoder, loadWebpEncoder } from './webp-codec'
 
@@ -30,6 +32,9 @@ export type CodecJob =
       height: number
       quality: number
     }
+
+  /** JPEG / PNG / WebP 封面 → 裁右侧的竖版海报 JPEG（不是横版时原尺寸重编码） */
+  | { op: 'poster'; bytes: Uint8Array; quality: number }
 
 /** 编解码请求（带配对用的 id）。 */
 export type CodecRequest = CodecJob & { id: number }
@@ -58,6 +63,11 @@ export async function runCodecJob(
     }
     case 'jpeg':
       return { id, data: await encodeJpeg(request, request.quality) }
+    case 'poster': {
+      const image = cropPosterRight(await decodeImage(request.bytes))
+      const data = await encodeJpeg(image, request.quality)
+      return { id, data, width: image.width, height: image.height }
+    }
     case 'encode': {
       const encode = await loadWebpEncoder()
       const data = await encode(
