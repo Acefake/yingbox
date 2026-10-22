@@ -54,9 +54,14 @@
 <script setup lang="ts">
 import { toast } from '@/components/ui'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
-import type { CmsItem, OnlineDetailItem, OnlinePlayRecord } from '../types'
+import type {
+  CmsItem,
+  DoubanItem,
+  OnlineDetailItem,
+  OnlinePlayRecord,
+} from '../types'
 import { useRoute } from 'vue-router'
-import DoubanSection, { type DoubanItem } from '../components/DoubanSection.vue'
+import DoubanSection from '../components/DoubanSection.vue'
 import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'

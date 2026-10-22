@@ -8,6 +8,12 @@ import {
   record,
   str,
 } from './define'
+import {
+  type DoubanPage,
+  type DoubanQuery,
+  normalizeDoubanQuery,
+  parseDoubanStart,
+} from '../douban/query'
 import type { HostTrip } from '../net/host-breaker'
 
 export type { HostScope, HostTrip, TripReason } from '../net/host-breaker'
@@ -69,7 +75,7 @@ export interface GetJsonOptions {
   timeoutMs?: number
 }
 
-/** 在线域：CMS / 豆瓣（含预告片）/ TMDB 请求与 CatSpider 插件，全部在引擎经 net 出网。 */
+/** 在线域：CMS / 豆瓣（浏览、预告片）/ TMDB 请求与 CatSpider 插件，全部在引擎经 net 出网。 */
 export const online = defineDomain('online', {
   /** 内置 CatSpider 站点表 */
   sites: call<CatSpiderSite[]>(),
@@ -114,6 +120,15 @@ export const online = defineDomain('online', {
         ? 'movie'
         : oneOf(a[1], 'kind', ['movie', 'tv'] as const),
     ]
+  }),
+  /**
+   * 豆瓣浏览一页（在线首页）：条件按 shared/douban/query.ts 白名单收（不认识的值退回默认），
+   * start 为 0–1000 的整数。失败 / 熔断中 reject。见 engine/online/douban-browse.ts
+   */
+  doubanBrowse: call<[query: DoubanQuery, start: number], DoubanPage>(a => {
+    const start = parseDoubanStart(a[1])
+    if (start === null) throw new ContractError(`豆瓣 start 不合法：${a[1]}`)
+    return [normalizeDoubanQuery(record(a[0], 'query')), start]
   }),
   /** 播放页 → 媒体直链：跟随跳转后从 HTML 中找 m3u8；找不到原样返回 */
   resolvePage: call<[url: string], string>(a => [str(a[0], 'url')]),
