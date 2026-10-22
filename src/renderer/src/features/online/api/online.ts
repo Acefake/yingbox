@@ -28,7 +28,8 @@ export function doubanBrowse(
   query: DoubanQuery,
   start: number
 ): Promise<DoubanPage> {
-  return onlineApi().doubanBrowse(query, start)
+  // 条件常来自 Vue ref（响应式 Proxy），IPC 结构化克隆不了 Proxy，会在渲染层直接抛错；先拷成普通对象
+  return onlineApi().doubanBrowse({ ...query }, start)
 }
 
 /**
