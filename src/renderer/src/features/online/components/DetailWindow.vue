@@ -11,7 +11,7 @@
       <div class="dw-backdrop">
         <img
           v-if="tmdbDetail?.backdrop_path"
-          :src="tmdbImage('w1280', tmdbDetail.backdrop_path)"
+          :src="tmdbImage('original', tmdbDetail.backdrop_path)"
           class="dw-backdrop-img"
         />
         <div class="dw-backdrop-overlay" />
@@ -68,7 +68,7 @@
             <UnifiedVideoPlayer
               :src="currentUrl"
               :resolve-url="resolvePageToMedia"
-              :poster="tmdbImage('w1280', tmdbDetail?.backdrop_path)"
+              :poster="tmdbImage('original', tmdbDetail?.backdrop_path)"
               :title="itemName"
               :subtitle-search-title="searchTitle || itemName"
               :subtitle-imdb-id="

@@ -56,6 +56,19 @@ export function itemImage(
   return remoteImage(url, width)
 }
 
+/**
+ * 详情页头图：铺满整宽，缩略图会被拉糊，一律取原图。
+ * 已缓存取本地原图；TMDB 远程换成 original；其他远程桌面端原样（网页端经服务代取最大档）。
+ */
+export function heroImage(url: string | null): string | null {
+  if (!url) return null
+  const key = MEDIA_KEY_RE.exec(url)?.[1]
+  if (key) return cachedImage(key)
+  const path = TMDB_RE.exec(url)?.[1]
+  if (path) return `${TMDB_IMAGE}/original${path}`
+  return remoteImage(url, 780)
+}
+
 /** TMDB 相对路径（/abc.jpg）→ 远程地址；已是绝对地址（番号站点图片）原样返回；路径为空返回 null。 */
 export function tmdbImage(
   path: string | null | undefined,
