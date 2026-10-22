@@ -4,8 +4,14 @@
  * 取代原 Python 下载器调用的 m3u8-Downloader-Go 外部程序。解析部分是纯函数，单测直接覆盖。
  */
 import { createDecipheriv } from 'node:crypto'
-import { type FileHandle, open, rename, rm } from 'node:fs/promises'
+import { access, rename, rm } from 'node:fs/promises'
 import type { NetClient } from '../../shared/net/client'
+import {
+  SEGMENT_LOG_SUFFIX,
+  type SegmentWriter,
+  openSegmentWriter,
+  playlistFingerprint,
+} from './resume'
 
 /** 分片加密信息。 */
 export interface SegmentKey {
@@ -131,6 +137,10 @@ export interface HlsResult {
 /**
  * 下载整个 HLS 流到 `outBase` + 扩展名。先写 .partial，完成后原子改名。
  * 分片并发下载、按序写入，内存里最多同时持有 concurrency 个分片。
+ *
+ * 断点续传：每写完一个分片在 `.partial.segs` 记一笔（见 resume.ts）。中途失败、取消或
+ * 进程被杀都保留 .partial，下次调用校验已下分片后从断点继续；成品已存在（上次改名后、
+ * 转封装前被打断）时直接返回。
  */
 export async function downloadHls(
   net: NetClient,
@@ -173,6 +183,8 @@ export async function downloadHls(
   const container = playlist.map ? 'mp4' : 'ts'
   const file = `${outBase}.${container}`
   const partial = `${file}.partial`
+  if (await isCompleteFile(file, partial)) return { file, container }
+
   const keys = new Map<string, Buffer>()
   const keyFor = async (k: SegmentKey): Promise<Buffer> => {
     let key = keys.get(k.uri)
@@ -193,39 +205,62 @@ export async function downloadHls(
     )
   }
 
+  // 写入单元：初始化段（有的话）排在最前，之后是各分片；续传按单元序号对齐
+  const fetchers: Array<() => Promise<Buffer>> = playlist.segments.map(
+    segment => () => fetchSegment(segment)
+  )
+  const uris = playlist.segments.map(s => s.uri)
+  if (playlist.map) {
+    const map = playlist.map
+    fetchers.unshift(() => get(map, 16 * 1024 * 1024))
+    uris.unshift(map)
+  }
+  const offset = playlist.map ? 1 : 0
   const total = playlist.segments.length
   const concurrency = Math.max(1, options.concurrency ?? 6)
-  let handle: FileHandle | undefined
+  let writer: SegmentWriter | undefined
   try {
-    handle = await open(partial, 'w')
-    let bytes = 0
-    if (playlist.map) {
-      const init = await get(playlist.map, 16 * 1024 * 1024)
-      await handle.write(init)
-      bytes += init.length
-    }
+    writer = await openSegmentWriter(partial, playlistFingerprint(uris))
+    let bytes = writer.bytes
+    if (writer.start > offset)
+      options.onProgress?.({ done: writer.start - offset, total, bytes })
     const inflight = new Map<number, Promise<Buffer>>()
-    let next = 0
-    for (let i = 0; i < total; i++) {
-      while (next < total && next < i + concurrency) {
-        const pending = fetchSegment(playlist.segments[next])
+    let next = writer.start
+    for (let i = writer.start; i < fetchers.length; i++) {
+      while (next < fetchers.length && next < i + concurrency) {
+        const pending = fetchers[next]()
         pending.catch(() => {}) // 失败在按序 await 时抛出，这里只防未处理拒绝
         inflight.set(next, pending)
         next++
       }
       const data = await inflight.get(i)!
       inflight.delete(i)
-      await handle.write(data)
+      options.signal?.throwIfAborted()
+      await writer.write(i, data)
       bytes += data.length
-      options.onProgress?.({ done: i + 1, total, bytes })
+      if (i >= offset)
+        options.onProgress?.({ done: i + 1 - offset, total, bytes })
     }
-    await handle.close()
-    handle = undefined
+    await writer.close()
+    writer = undefined
     await rename(partial, file)
+    await rm(partial + SEGMENT_LOG_SUFFIX, { force: true })
     return { file, container }
-  } catch (error) {
-    await handle?.close().catch(() => {})
-    await rm(partial, { force: true })
-    throw error
+  } finally {
+    // 失败 / 取消：保留 .partial 与进度记录，下次续传；丢弃由任务移除负责
+    await writer?.close()
   }
+}
+
+/** 成品已在、且没有未完成的 .partial：上次已下完（改名之后被打断）。 */
+export async function isCompleteFile(
+  file: string,
+  partial: string
+): Promise<boolean> {
+  const exists = (p: string): Promise<boolean> =>
+    access(p).then(
+      () => true,
+      () => false
+    )
+  return (await exists(file)) && !(await exists(partial))
 }
