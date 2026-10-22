@@ -2,7 +2,6 @@
   <div class="lib-page">
     <LibraryToolbar
       v-model:view="view"
-      v-model:search="searchText"
       v-model:filter="state.filter"
       v-model:facets="state.facets"
       v-model:library="libraryChoice"
@@ -100,6 +99,7 @@
     <ItemDetail
       v-if="detailId !== null && detailReady"
       :item-id="detailId"
+      :section="section"
       @close="closeDetail"
       @fix-match="openMatchSheet"
       @organize="openOrganize"
@@ -155,7 +155,6 @@
  * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts；视频墙在 video-wall/。
  */
 import { toast } from '@/components/ui'
-import { useDebounceFn } from '@vueuse/core'
 import { computed, reactive, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
@@ -244,17 +243,11 @@ const state = reactive<WallQueryState>({
   ...defaultWallQuery(),
   ...loadSavedSort(section),
 })
-const searchText = ref('')
-const applySearch = useDebounceFn((text: string) => {
-  state.search = text
-}, 200)
-watch(searchText, text => void applySearch(text))
-
-// 顶栏全局搜索（Ctrl + K）把关键词放在 ?q= 里
+// 搜索只在顶栏（Ctrl + K，已防抖）：关键词放在 ?q= 里，清空时 q 被去掉，这里跟着清空
 watch(
   () => route.query.q,
   q => {
-    if (typeof q === 'string') searchText.value = q
+    state.search = typeof q === 'string' ? q : ''
   },
   { immediate: true }
 )

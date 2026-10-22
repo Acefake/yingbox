@@ -15,6 +15,8 @@
         :meta-line="metaLine"
         :play-label="playLabel"
         :can-play="Boolean(primaryPlay)"
+        :jav="jav"
+        :matched="matched"
         :busy="busy"
         :writer-available="writerAvailable"
         :restorable="restore.available.value"
@@ -65,8 +67,9 @@ import type {
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { errorText, libraryBridge } from '../api/bridge'
-import { itemImage, tmdbImage } from '../api/images'
+import { heroImage, itemImage, tmdbImage } from '../api/images'
 import { onLibraryEvent } from '../state/library-events'
+import type { LibrarySection } from '../state/library-section'
 import { useWriter } from '../writer/use-writer'
 import DetailHero from './DetailHero.vue'
 import DetailInfo from './DetailInfo.vue'
@@ -94,7 +97,11 @@ import {
 import { useRestore } from './use-restore'
 import WebPlayer from './WebPlayer.vue'
 
-const props = defineProps<{ itemId: number }>()
+const props = defineProps<{
+  itemId: number
+  /** 所在分区：番号区显示去码、隐藏锁定（见 DetailHero） */
+  section?: LibrarySection
+}>()
 const emit = defineEmits<{
   close: []
   'fix-match': [itemId: number]
@@ -109,7 +116,6 @@ const node = shallowRef<LibraryItemNode | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const busy = ref<string | null>(null)
-const restore = useRestore(node)
 
 async function load(resetView: boolean): Promise<void> {
   if (!bridge) return
@@ -149,9 +155,20 @@ onLibraryEvent(event => {
 })
 
 const titleMeta = computed(() => titleMetaOf(node.value))
+/** 番号库条目：在番号区打开，或元数据来自番号刮削 */
+const jav = computed(
+  () => props.section === 'jav' || titleMeta.value?.ref.provider === 'jav'
+)
+/** 已有匹配：TMDB 条目有 tmdb id，番号条目有番号元数据 */
+const matched = computed(() =>
+  Boolean(
+    node.value?.providerIds.tmdb || titleMeta.value?.ref.provider === 'jav'
+  )
+)
+const restore = useRestore(node, jav)
 const stills = computed(() => stillsOf(titleMeta.value))
 
-const backdrop = computed(() => itemImage(node.value?.backdrop ?? null, 780))
+const backdrop = computed(() => heroImage(node.value?.backdrop ?? null))
 const logo = computed(() => node.value?.logo ?? null)
 const tagline = computed(() => titleMeta.value?.tagline ?? '')
 const seasons = computed(() => sortedSeasons(node.value))

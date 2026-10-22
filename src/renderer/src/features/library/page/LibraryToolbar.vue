@@ -17,16 +17,6 @@
     />
     <div class="lib-toolbar-tools">
       <template v-if="hasLibraries && view === 'wall'">
-        <UiInput
-          v-model="search"
-          class="lib-search"
-          variant="filled"
-          size="sm"
-          icon="search"
-          clearable
-          :placeholder="`搜索${kindLabel}`"
-          :aria-label="`搜索${kindLabel}`"
-        />
         <UiSelect
           v-model="filter"
           class="lib-select"
@@ -113,11 +103,11 @@
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、分面筛选（番号库）、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
+ * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、筛选、分面筛选（番号库）、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
+ * 搜索用顶栏全局搜索（按 ?q= 在本页过滤），工具栏不再放第二个搜索框。
  */
 import UiButton from '@/components/ui/UiButton.vue'
-import UiInput from '@/components/ui/UiInput.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
@@ -155,7 +145,6 @@ defineProps<{
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
-const search = defineModel<string>('search', { required: true })
 const filter = defineModel<MatchFilter>('filter', { required: true })
 const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
 const facetsOpen = ref(false)
@@ -211,9 +200,6 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
   justify-content: flex-end;
   gap: var(--space-2);
 }
-.lib-search {
-  flex: 0 0 200px;
-}
 .lib-facets-button[aria-expanded='true'] {
   background: var(--bg-active);
 }
@@ -230,11 +216,5 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
 .lib-select {
   flex: 0 0 auto;
   width: auto;
-}
-
-@media (max-width: 1100px) {
-  .lib-search {
-    flex-basis: 160px;
-  }
 }
 </style>

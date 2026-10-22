@@ -5,6 +5,7 @@ import {
   buildNavGroups,
 } from '../src/renderer/src/features/shell/composables/nav-items'
 import {
+  filtersInPlace,
   searchLocation,
   searchPlaceholder,
 } from '../src/renderer/src/features/shell/composables/global-search'
@@ -97,6 +98,15 @@ describe('全局搜索规则', () => {
       path: '/movie',
       query: {},
     })
+  })
+
+  it('只有本地片库页边输入边过滤', () => {
+    expect(filtersInPlace('Movie')).toBe(true)
+    expect(filtersInPlace('TV')).toBe(true)
+    expect(filtersInPlace('Jav')).toBe(true)
+    expect(filtersInPlace('AV')).toBe(false)
+    expect(filtersInPlace('Online')).toBe(false)
+    expect(filtersInPlace(undefined)).toBe(false)
   })
 
   it('AV 页跳 AV 搜索标签，其余页面跳在线搜索标签', () => {
