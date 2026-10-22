@@ -119,7 +119,7 @@ describe('直链断点续传（HTTP Range）', () => {
 
     server.state.cutAt = Infinity
     server.state.seen = []
-    const progress: number[] = []
+    const progress: Array<number | undefined> = []
     const { file } = await downloadDirect(
       server.net,
       'https://c.test/v/a.mp4?sig=new',

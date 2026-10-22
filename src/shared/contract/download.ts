@@ -12,7 +12,8 @@ export interface DownloadTask {
   /** 完成后的文件路径 */
   file?: string
   error?: string
-  progress?: { done: number; total: number; bytes: number }
+  /** 进度：done / total 是分片数（HLS）或字节数（直链）；总量未知时没有 total */
+  progress?: { done: number; total?: number; bytes: number }
   /** 毫秒时间戳 */
   updatedAt: number
 }

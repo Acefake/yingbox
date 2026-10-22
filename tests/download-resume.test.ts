@@ -91,7 +91,7 @@ describe('HLS 断点续传', () => {
 
     server.state.failFrom = Infinity
     server.state.requested = []
-    const progress: Array<[number, number]> = []
+    const progress: Array<[number, number | undefined]> = []
     const result = await downloadHls(
       server.net,
       'https://cdn.test/v/i.m3u8',
