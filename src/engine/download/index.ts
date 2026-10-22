@@ -2,21 +2,25 @@
  * 下载域的引擎实现：把站点解析、HLS 下载、ffmpeg 转封装接到队列上。
  */
 import { spawn } from 'node:child_process'
-import { mkdir, rm } from 'node:fs/promises'
+import { mkdir, rename, rm } from 'node:fs/promises'
 import { join } from 'node:path'
 import type { NetClient } from '../../shared/net/client'
 import { type DownloadSnapshot, download } from '../../shared/contract/download'
 import type { EngineContext, EngineHandlers } from '../rpc'
+import { directExtension, downloadDirect } from './direct'
 import { downloadHls } from './hls'
 import { DownloadQueue, type DownloadRunner } from './queue'
+import { discardResumeTemps } from './resume'
 import { pageGetter, resolveSource } from './sources'
 
 /**
  * 有 ffmpeg 时把 .ts 无损转成 .mp4（-c copy），成功后删 .ts；没有 ffmpeg 或失败保留 .ts。
+ * 先写 `.mp4.partial` 再改名：转到一半被打断不会留下看似完整的 .mp4，下次从 .ts 重转。
  * 不打包 ffmpeg：原 Python 下载器引用的 tools/ffmpeg.exe 从未随安装包分发。
  */
 export function remuxToMp4(tsFile: string, ffmpeg = 'ffmpeg'): Promise<string> {
   const mp4 = tsFile.replace(/\.ts$/, '.mp4')
+  const partial = `${mp4}.partial`
   return new Promise(resolve => {
     const child = spawn(
       ffmpeg,
@@ -30,17 +34,21 @@ export function remuxToMp4(tsFile: string, ffmpeg = 'ffmpeg'): Promise<string> {
         'copy',
         '-f',
         'mp4',
-        mp4,
+        partial,
       ],
       {
         stdio: 'ignore',
         windowsHide: true,
       }
     )
-    child.on('error', () => resolve(tsFile))
+    const keepTs = (): void =>
+      void rm(partial, { force: true }).then(() => resolve(tsFile))
+    child.on('error', keepTs)
     child.on('exit', code => {
-      if (code === 0) void rm(tsFile, { force: true }).then(() => resolve(mp4))
-      else void rm(mp4, { force: true }).then(() => resolve(tsFile))
+      if (code !== 0) return keepTs()
+      rename(partial, mp4)
+        .then(() => rm(tsFile, { force: true }))
+        .then(() => resolve(mp4), keepTs)
     })
   })
 }
@@ -71,15 +79,20 @@ export function createDownloadHandlers(deps: DownloadDeps): {
       })
     )
     if (signal.aborted) throw new Error('已取消')
-    const result = await downloadHls(deps.net, source.m3u8, join(dir, code), {
-      referer: source.referer,
-      signal,
-      onProgress: report,
-    })
+    const options = { referer: source.referer, signal, onProgress: report }
+    const out = join(dir, code)
+    if (directExtension(source.m3u8)) {
+      const { file } = await downloadDirect(deps.net, source.m3u8, out, options)
+      return { file, site: source.site }
+    }
+    const result = await downloadHls(deps.net, source.m3u8, out, options)
     const file =
       result.container === 'ts' ? await remuxToMp4(result.file) : result.file
     return { file, site: source.site }
   }
+  // 任务被移除：丢掉续传临时文件（失败 / 取消时它们留着给下次续传）
+  const discard = async (code: string): Promise<void> =>
+    discardResumeTemps(join(await deps.ctx.host('downloadDir'), code))
 
   // 进度很密：合并成最多每 500ms 推一次
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -93,7 +106,12 @@ export function createDownloadHandlers(deps: DownloadDeps): {
     }, 500)
   }
 
-  const queue = new DownloadQueue({ file: deps.stateFile, run, onChange })
+  const queue = new DownloadQueue({
+    file: deps.stateFile,
+    run,
+    discard,
+    onChange,
+  })
   return {
     queue,
     handlers: {

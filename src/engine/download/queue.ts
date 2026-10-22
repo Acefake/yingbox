@@ -2,7 +2,7 @@
  * 下载队列：单工作者串行下载，状态持久化为 JSON（写临时文件再改名，原子写）。
  *
  * 取代 Go 的 download_queue.txt + work 标记 + Python downloaded.db。重启后进行中的任务
- * 回到队首继续。真正的下载由注入的 runner 完成，队列本身只管状态机，便于单测。
+ * 回到队首，由 runner 从磁盘上的 .partial 断点续传。真正的下载由注入的 runner 完成，队列本身只管状态机，便于单测。
  */
 import { mkdir, readFile, rename, writeFile } from 'node:fs/promises'
 import { dirname } from 'node:path'
@@ -30,6 +30,8 @@ export interface QueueDeps {
   /** 持久化文件路径 */
   file: string
   run: DownloadRunner
+  /** 任务被移除（未完成的）时丢弃其续传临时文件；进行中的任务在下载停下后才调用 */
+  discard?: (code: string) => Promise<void>
   /** 快照变化时调用（调用方负责节流） */
   onChange: (snapshot: DownloadSnapshot) => void
   now?: () => number
@@ -115,8 +117,16 @@ export class DownloadQueue {
     const task = this.tasks.find(t => t.id === id)
     if (!task) return
     if (task.status === 'active') this.abort?.abort()
+    // 进行中的要等 runner 停下、文件句柄关掉再删（Windows 删不掉打开的文件），见 pump
+    else if (task.status !== 'done') this.discard(id)
     this.tasks = this.tasks.filter(t => t.id !== id)
     this.changed()
+  }
+
+  private discard(id: string): void {
+    this.deps
+      .discard?.(id)
+      .catch(error => console.error('[download] 清理临时文件失败', error))
   }
 
   /** 等待所有待写的持久化完成（测试与退出用）。 */
@@ -187,6 +197,7 @@ export class DownloadQueue {
       .finally(() => {
         this.running = false
         this.abort = undefined
+        if (!this.tasks.some(t => t.id === next.id)) this.discard(next.id)
         this.pump()
       })
   }
