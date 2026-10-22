@@ -14,6 +14,8 @@
     />
   </SourceSection>
 
+  <SubscriptionSection />
+
   <SourceSection
     title="插件视频源"
     :count="plugins.length"
@@ -70,7 +72,7 @@
 
 <script setup lang="ts">
 /**
- * 数据源面板的「在线源」分类：内置 CMS 源、插件视频源（不含成人插件）、自定义源。
+ * 数据源面板的「在线源」分类：内置 CMS 源、订阅源、插件视频源（不含成人插件）、自定义源。
  * 「添加自定义源」只发 add 事件，对话框由面板持有（切换分类时保留已填内容）。
  */
 import { computed } from 'vue'
@@ -90,6 +92,7 @@ import {
 import { sortByConnection } from '../utils/source-rules'
 import SourceSection from './SourceSection.vue'
 import SourceSiteRow from './SourceSiteRow.vue'
+import SubscriptionSection from './SubscriptionSection.vue'
 
 defineProps<{ plugins: CatSpiderSite[] }>()
 const emit = defineEmits<{ (e: 'add'): void }>()
