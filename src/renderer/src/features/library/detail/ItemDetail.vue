@@ -34,6 +34,7 @@
         :seasons="seasons"
         @play-episode="playEpisode"
       />
+      <DetailStills v-if="stills.length" :stills="stills" />
       <DetailPeople
         v-if="people.length"
         :people="people"
@@ -48,7 +49,7 @@
 <script setup lang="ts">
 /**
  * 条目详情（Apple TV 风格）：780w 背景图渐隐、标志或片名、年份 · 时长 · 分级 · 评分、简介，
- * 剧集按季分段与集列表，演职员横滑，信息与文件。播放接现有 openMediaPlayer（内置 / mpv），
+ * 剧集按季分段与集列表，剧照横滑（点开灯箱），演职员横滑，信息与文件。播放接现有 openMediaPlayer（内置 / mpv），
  * 去码接 features/lada（use-restore）。
  *
  * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailPeople / DetailInfo，
@@ -70,6 +71,7 @@ import { useWriter } from '../writer/use-writer'
 import DetailHero from './DetailHero.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailPeople from './DetailPeople.vue'
+import DetailStills from './DetailStills.vue'
 import DetailSeasons from './DetailSeasons.vue'
 import {
   type ActorLink,
@@ -80,6 +82,7 @@ import {
   personKey,
   playLabelOf,
   sortedSeasons,
+  stillsOf,
   titleMetaOf,
 } from './detail-rules'
 import {
@@ -146,6 +149,7 @@ onLibraryEvent(event => {
 })
 
 const titleMeta = computed(() => titleMetaOf(node.value))
+const stills = computed(() => stillsOf(titleMeta.value))
 
 const backdrop = computed(() => itemImage(node.value?.backdrop ?? null, 780))
 const logo = computed(() => node.value?.logo ?? null)
