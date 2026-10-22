@@ -4,7 +4,7 @@ import {
   pathScope,
 } from '../../shared/net/host-breaker'
 import { BlockedPageError, isUsablePage } from './page'
-import { fetchViaSession } from './session'
+import { fetchViaSession, hasClearance } from './session'
 import { fetchViaWindow } from './window'
 
 /**
@@ -15,7 +15,8 @@ import { fetchViaWindow } from './window'
  *   多个窗口同时闪出既打扰用户，同一出口频繁撞挑战还会被升级成必须人工点的 Turnstile。
  * - 会话直取（session.ts）：主机刚由窗口过过挑战（cf_clearance 约 30 分钟、绑 UA + 出口 IP）时，
  *   先用 session.fetch 带着 cookie 直接取页，不开窗口、可并发。拿到挑战页就作废记录、退回窗口；
- *   离窗口过挑战超过 25 分钟也直接走窗口。
+ *   离窗口过挑战超过 25 分钟、或刚重启时，只要会话里还有没过期的 cf_clearance cookie，
+ *   也先走会话直取（partition 持久化，cookie 跨重启保留），避免验证窗口反复弹出。
  *
  * 调用方（MissAV、下载源、CatSpider 插件 $fetch）要的都是服务器发的原始 HTML，直连没被拦时
  * 解析的也是它，所以两条路的结果对调用方等价。
@@ -31,6 +32,8 @@ export interface BrowserFetchOptions {
   /** 窗口过挑战后多久之内先走会话直取，默认 25 分钟（留出 cf_clearance 30 分钟寿命的余量） */
   clearanceTtlMs?: number
   now?: () => number
+  /** 会话里是否有可用的 cf_clearance（测试注入），默认读 partition 的 cookie */
+  hasClearance?: (url: string, nowMs: number) => Promise<boolean>
 }
 
 /** 一套代抓：熔断、排队、过挑战记录都在实例里。 */
@@ -59,6 +62,7 @@ export function createBrowserFetch(
   const challengeWaitMs = options.challengeWaitMs ?? DEFAULT_CHALLENGE_WAIT_MS
   const clearanceTtlMs = options.clearanceTtlMs ?? DEFAULT_CLEARANCE_TTL_MS
   const now = options.now ?? Date.now
+  const clearanceCookie = options.hasClearance ?? hasClearance
   /** 窗口串行；会话直取不进队列。 */
   let queue: Promise<unknown> = Promise.resolve()
   /** 同一地址正在进行中的请求：重复请求共用结果。 */
@@ -78,6 +82,10 @@ export function createBrowserFetch(
     const record = cleared.get(hostOf(url))
     return record !== undefined && now() - record.at < clearanceTtlMs
   }
+
+  /** 值得先试会话直取：窗口刚过过挑战，或会话里还有没过期的 cf_clearance。 */
+  const worthSession = async (url: string): Promise<boolean> =>
+    fresh(url) || (await clearanceCookie(url, now()))
 
   /** 会话直取：正常页返回 HTML；挑战页作废记录、其余没取到返回 null（退回窗口）；硬封锁抛错。 */
   const viaSession = async (url: string): Promise<string | null> => {
@@ -120,7 +128,7 @@ export function createBrowserFetch(
   }
 
   const run = async (url: string): Promise<string> => {
-    if (!fresh(url)) return viaWindow(url)
+    if (!(await worthSession(url))) return viaWindow(url)
     const tried = cleared.get(hostOf(url))
     try {
       return (await viaSession(url)) ?? (await viaWindow(url, tried))
