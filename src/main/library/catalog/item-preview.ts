@@ -3,28 +3,19 @@
  *
  * - 本机可靠磁盘：给第一个视频文件（电影按路径排序；剧集取第一季第一集，特别篇排最后），
  *   渲染层经 local:// 协议（Range 流）从片中 10% 处播几秒；
- * - 网盘 / 网络路径：根目录是 UNC（\\server\share、//server/share），或 fs-type 判定为事件不可靠的
- *   文件系统（nfs / cifs / fuse …，与目录监控同一判定，见 scanner/fs-type.ts）——不拉视频，
- *   只给已缓存的图片轮播（读网盘上的视频要整段走网络，CloudDrive 等挂载会真的去下载）。
- *
- * 判定按根目录缓存（库存在期间根目录所在的文件系统不会变）。
+ * - 网盘：库按网盘处理（用户指定，或自动判定为 UNC / nfs / cifs / fuse …，见 engine/storage-mode.ts）——
+ *   不拉视频，只给已缓存的图片轮播（读网盘上的视频要整段走网络，CloudDrive 等挂载会真的去下载）。
  */
 import type {
   ItemPreview,
   LibraryItemFile,
   LibraryItemNode,
 } from '../../../shared/library/ipc'
-import { detectUnreliableFs } from '../scanner/fs-type'
 
 /** 最多给几张图 */
 const MAX_IMAGES = 8
 /** 只算已缓存到本地的图（远程地址在网盘场景里同样要走网络） */
 const CACHED_IMAGE = /^yingbox-media:\/\/image\/[0-9a-f]{32}/
-
-/** UNC 路径（Windows 网络共享）。 */
-export function isNetworkPath(path: string): boolean {
-  return /^(?:\\\\|\/\/)[^\\/]/.test(path)
-}
 
 const byPath = (a: LibraryItemFile, b: LibraryItemFile): number =>
   a.path.localeCompare(b.path, undefined, { numeric: true })
@@ -68,7 +59,7 @@ function cachedImages(node: LibraryItemNode): string[] {
   return out
 }
 
-/** 由条目详情树得到预览数据；network 为真时不给视频。 */
+/** 由条目详情树得到预览数据；network（网盘）为真时不给视频。 */
 export function buildItemPreview(
   node: LibraryItemNode,
   network: boolean
@@ -83,37 +74,19 @@ export function buildItemPreview(
 /** 预览查询的依赖。 */
 export interface ItemPreviewDeps {
   getItem: (itemId: number) => LibraryItemNode | null
-  /** 媒体库根目录；库已删除返回 undefined */
-  libraryRoot: (libraryId: number) => string | undefined
-  /** fs-type 判定（测试注入）；缺省 detectUnreliableFs */
-  detectFs?: (root: string) => Promise<string | undefined>
+  /** 库是否按网盘处理；库已删除时应返回 true */
+  isCloud: (libraryId: number) => Promise<boolean>
 }
 
 /** 创建预览查询。 */
 export function createItemPreviews(deps: ItemPreviewDeps): {
   get(itemId: number): Promise<ItemPreview | null>
 } {
-  const detect = deps.detectFs ?? (root => detectUnreliableFs(root))
-  const network = new Map<string, Promise<boolean>>()
-  const isNetwork = (root: string): Promise<boolean> => {
-    let found = network.get(root)
-    if (!found) {
-      found = isNetworkPath(root)
-        ? Promise.resolve(true)
-        : detect(root).then(Boolean, () => false)
-      network.set(root, found)
-    }
-    return found
-  }
   return {
     async get(itemId) {
       const node = deps.getItem(itemId)
       if (!node) return null
-      const root = deps.libraryRoot(node.libraryId)
-      return buildItemPreview(
-        node,
-        root === undefined || (await isNetwork(root))
-      )
+      return buildItemPreview(node, await deps.isCloud(node.libraryId))
     },
   }
 }

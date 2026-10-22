@@ -59,6 +59,8 @@
       :update="updateAutomation"
     />
 
+    <LibraryNotifyGroup v-if="notifyAvailable && libraries.length" />
+
     <!-- 元数据源 -->
     <SettingsGroup title="元数据">
       <SettingsRow v-if="!isJav" title="TMDB 令牌" stacked>
@@ -147,7 +149,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 
-import { errorText, libraryBridge } from '../api/bridge'
+import { errorText, libraryBridge, usesLibraryServer } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
 import { type LibrarySection, SECTIONS } from '../state/library-section'
@@ -156,6 +158,7 @@ import ActorSourcesGroup from './ActorSourcesGroup.vue'
 import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
+import LibraryNotifyGroup from './LibraryNotifyGroup.vue'
 import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import { saveLibraryTmdbToken } from './provider-token'
 import { folderDescription, tokenStatus } from './settings-rules'
@@ -164,6 +167,9 @@ const props = defineProps<{ open: boolean; section: LibrarySection }>()
 const emit = defineEmits<{ close: [] }>()
 
 const bridge = libraryBridge()
+/** 网盘变更通知端点在桌面端主进程里，网页端的片库服务没有。 */
+const notifyAvailable =
+  Boolean(window.api?.libraryNotify) && !usesLibraryServer()
 // 分区在面板生命周期内不变
 const spec = SECTIONS[props.section]
 const kindLabel = spec.label

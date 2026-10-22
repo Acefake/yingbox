@@ -149,6 +149,17 @@ export const settingsSchema = {
 
   /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
   'download.dir': absolutePath(),
+
+  /** 媒体库外部变更通知（CloudDrive2 webhook 等）：主进程本地 HTTP 端点，见 src/main/library/notify */
+  'library.notify.enabled': bool(false),
+  /** 允许局域网访问（监听 0.0.0.0）；关闭时只监听 127.0.0.1 */
+  'library.notify.lan': bool(false),
+  /** 端口；被占用时主进程换一个空闲端口并写回 */
+  'library.notify.port': num(1024, 65535, 47291),
+  /** 鉴权令牌（随机生成，填在通知地址里）；空串表示还没生成 */
+  'library.notify.token': text('', 128),
+  /** 网盘工具的根在本机的挂载目录（如 D:\CloudDrive）；可选，帮助把通知路径对应到库目录 */
+  'library.notify.mountRoot': absolutePath(),
 } as const satisfies Record<string, ValueSpec<unknown> | SecretSpec>
 
 /** 设置项的键 */

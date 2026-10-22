@@ -19,6 +19,12 @@ export interface LibraryServiceOptions {
   settleMs?: number
   /** 监听去抖静默时间，默认 1000 ms。 */
   watchQuietMs?: number
+  /** 外部变更通知的合批静默时间，默认 2000 ms（见 external-changes）。 */
+  notifyQuietMs?: number
+  /** 网盘上两次按需读视频之间的最短间隔，默认 1000 ms（见 cloud-reads）。 */
+  cloudReadIntervalMs?: number
+  /** 存储为 auto 时判断根目录文件系统（测试注入），缺省 detectUnreliableFs。 */
+  detectFs?: (root: string) => Promise<string | undefined>
   /** 同时运行的任务数，默认 2。 */
   concurrency?: number
   /** 指纹实现（文件路径 → hash），测试注入。 */

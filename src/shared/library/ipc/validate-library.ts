@@ -1,11 +1,17 @@
 /**
- * IPC 边界上媒体库自动化相关参数的解析：自动化设置（部分字段）、updateLibrary。
+ * IPC 边界上媒体库自动化相关参数的解析：自动化设置（部分字段）、updateLibrary、外部变更通知。
  * 非法时抛 LibraryError（invalid-params）。
  */
 import {
+  FILE_CHANGE_ACTIONS,
+  type FileChangeAction,
+  type FileChangeNotice,
   LIBRARY_AUTO_WRITE,
+  LIBRARY_STORAGE,
   type LibraryAutoWrite,
   type LibraryAutomation,
+  type LibraryStorage,
+  type NotifyChangesRequest,
   type UpdateLibraryRequest,
 } from './contract-library'
 import { LibraryError } from './wire'
@@ -36,7 +42,57 @@ export function parseAutomationPatch(
     }
     out.write = input.write as LibraryAutoWrite
   }
+  if (input.storage !== undefined) {
+    if (!LIBRARY_STORAGE.includes(input.storage as LibraryStorage)) {
+      invalid(`automation.storage 只能是 ${LIBRARY_STORAGE.join(' / ')}`)
+    }
+    out.storage = input.storage as LibraryStorage
+  }
   return out
+}
+
+/** 一次变更通知最多几条（网盘整季离线完成也就几百条）。 */
+export const MAX_CHANGE_NOTICES = 10_000
+
+/** 非空、单行、不超过 4096 字符的路径。 */
+function noticePath(value: unknown, name: string): string {
+  if (
+    typeof value !== 'string' ||
+    !value.trim() ||
+    value.length > 4096 ||
+    /[\0\r\n]/.test(value)
+  ) {
+    return invalid(`${name} 必须是非空路径`)
+  }
+  return value.trim()
+}
+
+/** 解析 notifyChanges：changes 非空数组，每条 action / path 必填，destination 可选。 */
+export function parseNotifyChanges(input: unknown): NotifyChangesRequest {
+  if (!isRecord(input)) return invalid('notifyChanges 参数必须是对象')
+  const list = input.changes
+  if (!Array.isArray(list) || !list.length) invalid('changes 必须是非空数组')
+  if ((list as unknown[]).length > MAX_CHANGE_NOTICES) {
+    invalid(`changes 一次最多 ${MAX_CHANGE_NOTICES} 条`)
+  }
+  const changes = (list as unknown[]).map((raw): FileChangeNotice => {
+    if (!isRecord(raw)) return invalid('changes 的每一项必须是对象')
+    if (!FILE_CHANGE_ACTIONS.includes(raw.action as FileChangeAction)) {
+      invalid(`action 只能是 ${FILE_CHANGE_ACTIONS.join(' / ')}`)
+    }
+    const notice: FileChangeNotice = {
+      action: raw.action as FileChangeAction,
+      path: noticePath(raw.path, 'path'),
+    }
+    if (raw.destination !== undefined && raw.destination !== '')
+      notice.destination = noticePath(raw.destination, 'destination')
+    return notice
+  })
+  const mountRoot =
+    input.mountRoot === undefined || input.mountRoot === ''
+      ? undefined
+      : noticePath(input.mountRoot, 'mountRoot')
+  return mountRoot ? { changes, mountRoot } : { changes }
 }
 
 /** 解析 updateLibrary：libraryId 必填，name / automation 至少给一个。 */

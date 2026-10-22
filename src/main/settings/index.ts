@@ -7,7 +7,7 @@ import { join } from 'node:path'
 import { chooseDownloadDir, migrateLegacyConfig } from '../download-dir'
 import { emit, implement } from '../rpc'
 import { settings } from '../../shared/contract/settings'
-import type { SecretKey } from '../../shared/settings/schema'
+import type { SecretKey, SettingChange } from '../../shared/settings/schema'
 import { safeStorageCodec } from './secrets'
 import { type SettingsStore, openSettingsStore } from './store'
 
@@ -16,6 +16,16 @@ let store: SettingsStore | null = null
 const secretListeners = new Set<
   (key: SecretKey, value: string) => Promise<void> | void
 >()
+
+/** 普通设置变更后要跑的主进程逻辑（如外部变更通知端点按开关启停） */
+const changeListeners = new Set<(change: SettingChange) => void>()
+
+/** 订阅普通设置变更（任一窗口或主进程自己写入后触发） */
+export function onSettingChanged(
+  listener: (change: SettingChange) => void
+): void {
+  changeListeners.add(listener)
+}
 
 /** 订阅密钥保存：settings.setSecret 等这些回调跑完才返回给渲染层 */
 export function onSecretSaved(
@@ -35,7 +45,10 @@ export async function initSettings(): Promise<void> {
   store = await openSettingsStore({
     file: join(app.getPath('userData'), 'settings.json'),
     codec: safeStorageCodec,
-    onChange: change => emit(settings, 'changed', change),
+    onChange: change => {
+      emit(settings, 'changed', change)
+      for (const listener of changeListeners) listener(change)
+    },
   })
   const opened = store
   // 老版本的下载目录在 config.json；userData 此时已固定，按当前 profile 解析

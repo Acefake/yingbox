@@ -10,6 +10,7 @@ import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { download } from './download'
 import { lada } from './lada'
+import { libraryNotify } from './library-notify'
 import { mpv } from './mpv'
 import { online } from './online'
 import { player } from './player'
@@ -26,6 +27,7 @@ export const contract = {
   dialog,
   download,
   lada,
+  libraryNotify,
   mpv,
   online,
   player,
