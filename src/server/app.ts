@@ -20,7 +20,6 @@ import { createFetch, describeFetch } from '../main/library/platform/fetch'
 import {
   createLibraryService,
   envSecrets,
-  libraryPaths,
 } from '../main/library/platform/platform'
 import { syncTmdbTokenToLibrary } from '../main/library/platform/token-sync'
 import {
@@ -30,7 +29,7 @@ import {
 } from '../main/thumbnails/codec-client'
 import { createThumbnailPipeline } from '../main/thumbnails/pipeline'
 import { createWasmResizer } from '../main/thumbnails/wasm-resizer'
-import type { ServerConfig } from './config'
+import { type ServerConfig, serverPaths } from './config'
 import type { Handler } from './http/adapter'
 import { createAuth, sameOrigin } from './http/auth'
 import { HttpError, Router, fail } from './http/router'
@@ -80,11 +79,11 @@ export async function createServerApp(
   const log = options.log ?? (message => console.warn(`[server] ${message}`))
   const env = options.env ?? process.env
   mkdirSync(config.dataDir, { recursive: true })
-  const secrets = new FileSecretStore(join(config.dataDir, 'secrets.json'), env)
+  const { dbPath, secretsPath, mediaDir } = serverPaths(config)
+  const secrets = new FileSecretStore(secretsPath, env)
   const { token, generated } = ensureServerToken(secrets)
   const auth = createAuth(token)
 
-  const { dbPath, mediaDir } = libraryPaths(config.dataDir)
   const codec = options.codec ?? defaultCodec(log)
   const thumbnails = createThumbnailPipeline({
     mediaDir,
