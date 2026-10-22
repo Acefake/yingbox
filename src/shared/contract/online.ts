@@ -69,7 +69,7 @@ export interface GetJsonOptions {
   timeoutMs?: number
 }
 
-/** 在线域：CMS / 豆瓣 / TMDB 请求与 CatSpider 插件，全部在引擎经 net 出网。 */
+/** 在线域：CMS / 豆瓣（含预告片）/ TMDB 请求与 CatSpider 插件，全部在引擎经 net 出网。 */
 export const online = defineDomain('online', {
   /** 内置 CatSpider 站点表 */
   sites: call<CatSpiderSite[]>(),
@@ -96,6 +96,24 @@ export const online = defineDomain('online', {
     if (!TMDB_PATH_RE.test(path))
       throw new ContractError(`不允许的 TMDB 路径：${path}`)
     return [path, optRecord<Record<string, string | number>>(a[1], 'query')]
+  }),
+  /**
+   * 豆瓣预告片 mp4（豆瓣卡悬停预览）：subjectId 是 movie.douban.com/subject/<id>/ 里的数字，
+   * kind 缺省 movie。无预告 / 请求失败 / 熔断中返回 null。见 engine/online/douban-trailer.ts
+   */
+  doubanTrailer: call<
+    [subjectId: string, kind?: 'movie' | 'tv'],
+    string | null
+  >(a => {
+    const id = str(a[0], 'subjectId')
+    if (!/^\d{1,12}$/.test(id))
+      throw new ContractError(`豆瓣条目 ID 不合法：${id}`)
+    return [
+      id,
+      a[1] === undefined
+        ? 'movie'
+        : oneOf(a[1], 'kind', ['movie', 'tv'] as const),
+    ]
   }),
   /** 播放页 → 媒体直链：跟随跳转后从 HTML 中找 m3u8；找不到原样返回 */
   resolvePage: call<[url: string], string>(a => [str(a[0], 'url')]),

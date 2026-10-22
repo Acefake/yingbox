@@ -1,5 +1,6 @@
 <template>
   <article
+    ref="root"
     class="ui-poster"
     :class="`is-${shape}`"
     tabindex="0"
@@ -22,6 +23,7 @@
       <div v-else class="ui-poster-placeholder">
         <UiIcon name="movie" size="lg" />
       </div>
+      <div v-if="preview" ref="previewHost" class="ui-preview-layer" />
 
       <span v-if="rating" class="ui-poster-rating">
         <UiIcon name="star" size="sm" filled />{{ rating }}
@@ -64,10 +66,14 @@
  *
  * 只放三样东西：图、标题、一行副标题。评分在图上左下角，
  * 收藏和其他操作悬停时出现在右上角。更多信息放到详情页。
+ *
+ * 给了 preview（预览来源）的卡支持悬停预览：悬停 / 键盘聚焦满设置的延时后在图上静音循环播放，
+ * 全局只播一张；离开、滚出视口、被虚拟网格回收、页面切走时停止并释放（见 hover-preview/）。
  */
 import { computed, ref, watch } from 'vue'
 
 import { pickThumbWidth, thumbSrc } from '@/services/thumbnails'
+import { type PreviewSource, useCardPreview } from './hover-preview'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
 
@@ -87,11 +93,17 @@ const props = withDefaults(
      * 缩略图加载失败时自动退回原图。
      */
     thumb?: boolean
+    /** 悬停预览来源；不给或为 null 时不预览（如多选模式） */
+    preview?: PreviewSource | null
   }>(),
-  { favorite: undefined, shape: 'portrait', thumb: false }
+  { favorite: undefined, shape: 'portrait', thumb: false, preview: null }
 )
 
 const emit = defineEmits<{ open: []; 'toggle-favorite': [] }>()
+
+const root = ref<HTMLElement | null>(null)
+const previewHost = ref<HTMLElement | null>(null)
+useCardPreview(root, previewHost, () => props.preview)
 
 const broken = ref(false)
 /** 缩略图地址加载失败，改用原图 */

@@ -33,6 +33,7 @@
           :rating="item.rate"
           :subtitle="[item.year, item.type].filter(Boolean).join(' · ')"
           :favorite="isFavorite(item)"
+          :preview="doubanPreviewSource(item)"
           @open="emit('open', item)"
           @toggle-favorite="toggleFavorite(item)"
         />
@@ -51,6 +52,7 @@ import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref } from 'vue'
 import { getJson, tmdb } from '../api/online'
 import type { TmdbDetail } from '../types'
+import { doubanPreviewSource } from '../utils/douban-preview'
 
 /** TMDB 搜索结果的一条（/search/multi 多一个 media_type） */
 type TmdbHit = TmdbDetail & { media_type?: string }
@@ -69,6 +71,8 @@ export interface DoubanItem {
   year: string
   type: string
   overview: string
+  /** 来自「电影」还是「电视剧」分类（取预告片时用；旧收藏里没有，按电影取） */
+  kind?: 'movie' | 'tv'
 }
 
 const emit = defineEmits<{ (e: 'open', item: DoubanItem): void }>()
@@ -174,6 +178,7 @@ const fetchDouban = async (): Promise<void> => {
       year: '',
       type: '',
       overview: '',
+      kind: doubanType.value,
     }))
     loadCoversViaTmdb()
   }
