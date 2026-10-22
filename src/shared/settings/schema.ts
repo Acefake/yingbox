@@ -74,6 +74,21 @@ function oneOf<const T extends readonly string[]>(
   }
 }
 
+/** 本机绝对路径（Windows 盘符 / UNC / POSIX），空串表示用默认值 */
+function absolutePath(): ValueSpec<string> {
+  return {
+    kind: 'value',
+    default: '',
+    parse: raw => {
+      if (typeof raw !== 'string' || raw.length > 4096) return undefined
+      const path = raw.trim()
+      if (!path) return ''
+      if (/[\0\r\n]/.test(path)) return undefined
+      return /^(?:[A-Za-z]:[\\/]|\\\\|\/)/.test(path) ? path : undefined
+    },
+  }
+}
+
 /** 密钥：单行、非空白字符，长度上限 4096 */
 function secret(): SecretSpec {
   return {
@@ -124,6 +139,9 @@ export const settingsSchema = {
   'scrape.customBaseUrl': text('', 2048),
   /** 自定义刮削服务 API Key */
   'scrape.customApiKey': text(''),
+
+  /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
+  'download.dir': absolutePath(),
 } as const satisfies Record<string, ValueSpec<unknown> | SecretSpec>
 
 /** 设置项的键 */

@@ -1,9 +1,10 @@
 /**
- * 主进程设置模块：打开 settings.json，实现 settings 域，并把变更广播给所有窗口。
+ * 主进程设置模块：打开 settings.json（首启并入旧 config.json 的下载目录），实现 settings 域，并把变更广播给所有窗口。
  * 其他主进程模块经 {@link settingsStore} 读写（例如 TMDB 令牌）。
  */
-import { app } from 'electron'
+import { BrowserWindow, type OpenDialogOptions, app, dialog } from 'electron'
 import { join } from 'node:path'
+import { chooseDownloadDir, migrateLegacyConfig } from '../download-dir'
 import { emit, implement } from '../rpc'
 import { settings } from '../../shared/contract/settings'
 import type { SecretKey } from '../../shared/settings/schema'
@@ -37,6 +38,11 @@ export async function initSettings(): Promise<void> {
     onChange: change => emit(settings, 'changed', change),
   })
   const opened = store
+  // 老版本的下载目录在 config.json；userData 此时已固定，按当前 profile 解析
+  await migrateLegacyConfig(
+    opened,
+    join(app.getPath('userData'), 'config.json')
+  )
   implement(settings, {
     snapshot: () => opened.snapshot(),
     migrateLegacy: (_, legacy) => opened.migrateLegacy(legacy),
@@ -51,5 +57,22 @@ export async function initSettings(): Promise<void> {
         configured: opened.snapshot().secrets[key],
       })
     },
+    chooseDownloadDir: ({ sender }) =>
+      chooseDownloadDir({
+        store: opened,
+        videosDir: app.getPath('videos'),
+        pickFolder: async defaultPath => {
+          const options: OpenDialogOptions = {
+            title: '选择下载目录',
+            defaultPath,
+            properties: ['openDirectory', 'createDirectory'],
+          }
+          const owner = BrowserWindow.fromWebContents(sender)
+          const result = owner
+            ? await dialog.showOpenDialog(owner, options)
+            : await dialog.showOpenDialog(options)
+          return result.canceled ? null : (result.filePaths[0] ?? null)
+        },
+      }),
   })
 }

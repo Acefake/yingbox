@@ -50,7 +50,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 ### Main process (`src/main/`)
 
 - `index.ts` — bootstrap only: window creation (frameless, `sandbox: true`), CSP hardening, `local://` protocol registration, DevTools shortcuts, wiring the modules below
-- `config.ts` — `userData/config.json` (`downloadPath`, read-only for now: no UI sets it); validates writability (real write probe) on load
+- `download-dir.ts` — download directory = setting `download.dir` (empty → `Videos/影盒下载`); `settings.chooseDownloadDir` opens the folder dialog, write-probes the folder, saves it; migrates the legacy `userData/config.json` `downloadPath` once and deletes that file
 - `engine/` — hosts the engine `utilityProcess` (on demand, MessagePort RPC); `browser-fetch.ts` renders Cloudflare-protected pages in a hidden Chromium window for the engine (only passable challenges are ever shown; hard blocks such as 1020 / "Sorry, you have been blocked" destroy the window unseen and trip a per-host 30-min breaker); `media-headers.ts` injects Referer for direct stream/cover requests
 - `plugins/` — plugin host for lada / mpv: `host.ts` (register stop/health, prefixed logs, quit cleanup that waits for every running plugin) and `process.ts` (kill process tree, wait for exit, line log relay, one-shot `runTool`). Plugin code lives beside them: `plugins/lada/` (rules / tools / temp / lock / job / cache / resume / range / live / live-media); pure rules sit in each `rules.ts` with tests. Both start on demand; do not add `app.on('before-quit')` elsewhere in `src/main` (a test enforces it)
 - `ipc/` — per-domain IPC registrations, called from `index.ts`:
@@ -99,7 +99,7 @@ The same library core runs in a plain Node process for the web build. Host diffe
 ### App settings
 
 - localStorage: `scrapeProviderConfig` (provider, TMDB token; legacy backend URL/key kept only for the library mirror), `imageDownloadSize_*`, `folderContent_*` (tree cache), `metadataLanguage`, `player_playback_rate`
-- `userData/config.json` (main process): `downloadPath`
+- Download directory: setting `download.dir` in `settings.json` (Settings → 下载, adult mode)
 - Env: `VITE_TMDB_ACCESS_TOKEN` (or `YINGBOX_TMDB_TOKEN`) — optional dev-only default TMDB token, read by the main process / library engine at runtime; never commit a real one (see `.env.example`)
 
 ### Tests

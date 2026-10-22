@@ -6,6 +6,7 @@ import router from '@/router/index'
 import { setupDirectives } from '@/directives'
 import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
+import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { sourcesSettingsSection } from '@/features/online'
 import { registerSettingsSection } from '@/features/settings'
@@ -30,7 +31,11 @@ if (!window.api?.win) bindPhoneBootstrap()
 initTheme()
 
 // 各 feature 自己定义设置分区，在应用入口组合进设置面板（按 order 排位）
-for (const section of [sourcesSettingsSection, ladaSettingsSection]) {
+for (const section of [
+  sourcesSettingsSection,
+  ladaSettingsSection,
+  downloadSettingsSection,
+]) {
   registerSettingsSection(section)
 }
 
