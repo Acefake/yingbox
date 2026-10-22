@@ -364,6 +364,7 @@ describe('转封装与临时文件清理', () => {
     let stopped = false
     const queue = new DownloadQueue({
       file,
+      downloadDir: async () => '/downloads',
       onChange: () => {},
       discard: async code => {
         discarded.push(code === 'RUN-1' ? `${code}:${stopped}` : code)
@@ -387,6 +388,7 @@ describe('转封装与临时文件清理', () => {
     await new Promise(r => setTimeout(r, 10))
     queue.add('run-1')
     queue.add('wait-1')
+    await new Promise(r => setTimeout(r, 0)) // 等 RUN-1 定下目录、runner 跑起来
     queue.remove('ok-1')
     queue.remove('bad-1')
     queue.remove('wait-1')

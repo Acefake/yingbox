@@ -18,20 +18,29 @@ export function normalizeCode(raw: string): string | undefined {
   return /^[A-Z0-9_-]{1,80}$/.test(code) ? code : undefined
 }
 
-/** 一次下载的执行者：返回完成的文件与站点；出错抛异常；signal 中止时尽快退出。 */
+/**
+ * 一次下载的执行者：在下载根目录 dir 下工作，返回完成的文件与站点；出错抛异常；
+ * signal 中止时尽快退出。
+ */
 export type DownloadRunner = (
   code: string,
   report: (progress: NonNullable<DownloadTask['progress']>) => void,
-  signal: AbortSignal
+  signal: AbortSignal,
+  dir: string
 ) => Promise<{ file: string; site: string }>
 
 /** 队列依赖。 */
 export interface QueueDeps {
   /** 持久化文件路径 */
   file: string
+  /** 当前设置的下载根目录；任务第一次开始时取一次并记住（见 DownloadTask.dir） */
+  downloadDir: () => Promise<string>
   run: DownloadRunner
-  /** 任务被移除（未完成的）时丢弃其续传临时文件；进行中的任务在下载停下后才调用 */
-  discard?: (code: string) => Promise<void>
+  /**
+   * 任务被移除（未完成的）时丢弃其续传临时文件；进行中的任务在下载停下后才调用。
+   * dir 是任务记住的下载根目录，没开始过的任务没有。
+   */
+  discard?: (code: string, dir: string | undefined) => Promise<void>
   /** 快照变化时调用（调用方负责节流） */
   onChange: (snapshot: DownloadSnapshot) => void
   now?: () => number
@@ -99,7 +108,13 @@ export class DownloadQueue {
     )
       return { added: false, reason: 'full' }
     this.tasks = this.tasks.filter(t => t.id !== id)
-    this.tasks.push({ id, status: 'queued', updatedAt: this.now() })
+    // 失败重试沿用原目录：续传数据在那里
+    this.tasks.push({
+      id,
+      status: 'queued',
+      dir: existing?.dir,
+      updatedAt: this.now(),
+    })
     this.changed()
     this.pump()
     return { added: true }
@@ -118,14 +133,14 @@ export class DownloadQueue {
     if (!task) return
     if (task.status === 'active') this.abort?.abort()
     // 进行中的要等 runner 停下、文件句柄关掉再删（Windows 删不掉打开的文件），见 pump
-    else if (task.status !== 'done') this.discard(id)
+    else if (task.status !== 'done') this.discard(id, task.dir)
     this.tasks = this.tasks.filter(t => t.id !== id)
     this.changed()
   }
 
-  private discard(id: string): void {
+  private discard(id: string, dir: string | undefined): void {
     this.deps
-      .discard?.(id)
+      .discard?.(id, dir)
       .catch(error => console.error('[download] 清理临时文件失败', error))
   }
 
@@ -172,12 +187,22 @@ export class DownloadQueue {
     const controller = new AbortController()
     this.abort = controller
     this.update(next.id, { status: 'active', error: undefined })
-    this.deps
-      .run(
+    let dir = next.dir
+    const start = async (): Promise<{ file: string; site: string }> => {
+      // 第一次开始时定下目录并记住：之后改了下载目录，续传、清理仍在这里
+      if (dir === undefined) {
+        dir = await this.deps.downloadDir()
+        this.update(next.id, { dir })
+      }
+      controller.signal.throwIfAborted()
+      return this.deps.run(
         next.id,
         progress => this.update(next.id, { progress }),
-        controller.signal
+        controller.signal,
+        dir
       )
+    }
+    start()
       .then(
         ({ file, site }) =>
           this.update(next.id, {
@@ -197,7 +222,7 @@ export class DownloadQueue {
       .finally(() => {
         this.running = false
         this.abort = undefined
-        if (!this.tasks.some(t => t.id === next.id)) this.discard(next.id)
+        if (!this.tasks.some(t => t.id === next.id)) this.discard(next.id, dir)
         this.pump()
       })
   }
