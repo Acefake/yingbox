@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* eslint-disable vue/one-component-per-file -- 测试里就地拼宿主页面 */
 import {
   type Component,
   KeepAlive,
@@ -79,7 +80,9 @@ const fakes = vi.hoisted(() => {
     attachMedia(el: HTMLVideoElement): void {
       this.media = el
     }
-    on(): void {}
+    on(): void {
+      // 替身不需要 hls 事件
+    }
     destroy(): void {
       this.destroyed++
     }
@@ -113,6 +116,9 @@ let settings: typeof import('../src/renderer/src/features/settings')
 
 beforeEach(async () => {
   vi.resetModules()
+  // jsdom 没实现媒体播放：停止 / 重载换成空操作，免得刷屏
+  HTMLMediaElement.prototype.pause = (): void => {}
+  HTMLMediaElement.prototype.load = (): void => {}
   fakes.arts.length = 0
   fakes.hlsList.length = 0
   localStorage.clear()
@@ -128,7 +134,9 @@ afterEach(() => {
 /** 一个最小会话：节点里放一个 <video> */
 function makeSession(
   key: string,
-  over: Partial<import('../src/renderer/src/features/player/mini/mini-dock').MiniSession> = {}
+  over: Partial<
+    import('../src/renderer/src/features/player/mini/mini-dock').MiniSession
+  > = {}
 ): import('../src/renderer/src/features/player/mini/mini-dock').MiniSession {
   const node = document.createElement('div')
   const video = document.createElement('video')
@@ -515,10 +523,31 @@ describe('UnifiedVideoPlayer 交接', () => {
     video.pause = pause
     await t.router.push('/elsewhere')
     await settle()
-    document
-      .querySelector<HTMLButtonElement>('[aria-label="暂停"]')!
-      .click()
+    document.querySelector<HTMLButtonElement>('[aria-label="暂停"]')!.click()
     expect(pause).toHaveBeenCalledTimes(1)
+    t.unmount()
+  })
+})
+
+describe('小窗与 Esc 层栈', () => {
+  it('焦点在小窗里按 Esc 关闭小窗；焦点在别处时 Esc 不关', async () => {
+    const t = await mountHarness()
+    const art = fakes.arts[0]
+    setPlaying(art.video)
+    await t.router.push('/elsewhere')
+    await settle()
+    const esc = (): void => {
+      window.dispatchEvent(new KeyboardEvent('keydown', { key: 'Escape' }))
+    }
+    esc()
+    await settle()
+    expect(dock.miniSession().value).not.toBeNull()
+    document.querySelector<HTMLButtonElement>('[aria-label="暂停"]')!.focus()
+    await settle()
+    esc()
+    await settle()
+    expect(dock.miniSession().value).toBeNull()
+    expect(art.destroyed).toBe(1)
     t.unmount()
   })
 })
