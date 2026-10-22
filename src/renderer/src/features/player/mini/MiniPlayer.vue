@@ -216,6 +216,16 @@ onBeforeUnmount(() => {
   bottom: var(--space-6);
 }
 
+/* 手机宽度（与 usePlatform 的 isPhone 同一断点）网页版有底部导航：靠下的两个角让到导航之上 */
+@media (max-width: 768px) {
+  .is-bottom-left,
+  .is-bottom-right {
+    bottom: calc(
+      var(--bottom-nav-height) + var(--safe-bottom) + var(--space-3)
+    );
+  }
+}
+
 .mini-player__slot {
   position: absolute;
   inset: 0;
