@@ -5,8 +5,11 @@
 
 /** 引擎能请主进程代办的事。 */
 export interface HostMethods {
-  /** 用 Chromium 窗口打开页面，等 Cloudflare 挑战结束后返回 HTML；失败返回空串。 */
-  browserFetch(url: string, waitMs?: number): string
+  /**
+   * 代抓 Cloudflare 后面的页面，返回原始 HTML：刚过过挑战的主机用同一会话直接取，否则开 Chromium
+   * 窗口等挑战结束。失败返回空串。
+   */
+  browserFetch(url: string): string
   /** 解除浏览器代抓的主机熔断；不给主机则全部解除 */
   resetBrowserFetch(host?: string): void
   /** 当前下载目录（用户设置，可能随时改变） */
