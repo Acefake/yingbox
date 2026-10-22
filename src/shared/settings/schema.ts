@@ -111,6 +111,11 @@ export const settingsSchema = {
   /** 成人模式：显示 AV / 去马赛克入口与成人源 */
   'app.adultMode': bool(false),
 
+  /** 卡片悬停预览：悬停一会儿在卡内静音播放预告 / 片段（系统「减少动态效果」时始终不播） */
+  'ui.hoverPreview': bool(true),
+  /** 悬停多久开始预览（毫秒） */
+  'ui.hoverPreviewDelay': num(200, 2000, 600),
+
   /** 播放引擎 */
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */

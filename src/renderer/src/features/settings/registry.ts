@@ -35,7 +35,7 @@ const coreSections: SettingsSection[] = [
     id: 'appearance',
     title: '外观',
     icon: 'sun',
-    keywords: '主题 深色 浅色',
+    keywords: '主题 深色 浅色 悬停 预览 预告片',
     load: () => import('./sections/AppearanceSettings.vue'),
     order: 10,
   },
