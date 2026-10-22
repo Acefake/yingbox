@@ -3,15 +3,17 @@
  *
  * 桌面端（index.ts）把 handle 注册成 yingbox-media:// 协议，缩放器用 nativeImage；
  * 独立服务（src/server）把 /media/... 请求改写成 yingbox-media:// 地址交给同一个 handle，缩放器用 wasm。
- * 一个缓存目录 <mediaDir>/thumb、一个 LRU 上限（cache.ts），两种宿主的磁盘布局完全相同。
+ * 一个缓存目录 <mediaDir>/thumb、一个 LRU 上限（cache.ts），两种宿主的磁盘布局完全相同；
+ * 海报取景的焦点（focus/service.ts）也存在这里，生成缩略图时顺手算。
  */
 import { join } from 'node:path'
 import { refererFor } from '../../shared/net/media-referer'
 import { fetchHttp, readLimited } from '../http-client'
 import { ThumbCache, exists } from './cache'
 import type { Codec } from './codec-client'
-import { originalPath } from './paths'
-import { createMediaHandler } from './protocol'
+import { FocusService } from './focus/service'
+import { originalPath, targetKey } from './paths'
+import { createMediaHandler, originalLoader } from './protocol'
 import { createSourceLoader } from './sources'
 import {
   type ImageResizer,
@@ -36,6 +38,10 @@ export interface ThumbnailPipeline {
   handle(request: Request): Promise<Response>
   /** 媒体库下载好一批原图后调用，后台生成全部宽度的缩略图。 */
   warm(keys: string[]): void
+  /** 海报取景的焦点（IPC media 域 / 片库服务 /media/focus 用）。 */
+  focus: Pick<FocusService, 'get' | 'save'>
+  /** 预热与焦点计算是否都已结束（测试用）。 */
+  idle(): Promise<void>
 }
 
 /** 带防盗链 Referer 与 SSRF 防护的原图下载（与 <img referrerpolicy="no-referrer"> 一致，只给名单里的 CDN 带 Referer）。 */
@@ -67,18 +73,37 @@ export function createThumbnailPipeline(
           ])
         ).data
     : undefined
-  const thumbnailer = new Thumbnailer(
-    new ThumbCache(join(mediaDir, 'thumb')),
-    options.resizer,
-    encode,
-    log
-  )
+  const cache = new ThumbCache(join(mediaDir, 'thumb'))
   const loadSource = createSourceLoader({
     readLimited,
     fetchImage,
   })
+  const focus = new FocusService({
+    cache,
+    codec,
+    log,
+    thumbnail: async target =>
+      (await thumbnailer.cached(targetKey(target))) ??
+      thumbnailer.ensure(
+        targetKey(target),
+        300,
+        originalLoader({ mediaDir, loadSource }, target)
+      ),
+  })
+  const thumbnailer = new Thumbnailer(
+    cache,
+    options.resizer,
+    encode,
+    log,
+    focus.observe
+  )
   return {
     handle: createMediaHandler({ mediaDir, thumbnailer, loadSource }),
+    focus,
+    idle: async () => {
+      await thumbnailer.idle()
+      await focus.idle()
+    },
     warm: keys =>
       thumbnailer.warm(
         keys.map(key => ({

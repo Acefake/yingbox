@@ -7,12 +7,22 @@ import { type CodecJob, type CodecResponse, runCodecJob } from './codec-jobs'
 
 /** 编解码成功的结果（decode / resize 带宽高）。 */
 export type CodecResult = Extract<CodecResponse, { data: Uint8Array }>
+/** 焦点任务的结果。 */
+export type FocusResult = Extract<CodecResponse, { focus: unknown }>
+
+/** 某个任务的结果类型：focus 回焦点，其余回字节。 */
+export type ResultOf<J extends CodecJob> = J extends { op: 'focus' }
+  ? FocusResult
+  : CodecResult
 
 /** 向编解码线程发一个请求；transfer 里的缓冲区转移给线程。 */
-export type Codec = (
-  request: CodecJob,
+export type Codec = <J extends CodecJob>(
+  request: J,
   transfer: ArrayBuffer[]
-) => Promise<CodecResult>
+) => Promise<ResultOf<J>>
+
+/** 线程回来的消息是否成功。 */
+type Success = Exclude<CodecResponse, { error: string }>
 
 /** 启动编解码线程；线程起不来时返回 undefined（调用方退回不编码 WebP）。 */
 export function startCodec(
@@ -30,14 +40,14 @@ export function startCodec(
   let nextId = 1
   const pending = new Map<
     number,
-    { resolve: (r: CodecResult) => void; reject: (e: Error) => void }
+    { resolve: (r: Success) => void; reject: (e: Error) => void }
   >()
   worker.on('message', (message: CodecResponse) => {
     const entry = pending.get(message.id)
     if (!entry) return
     pending.delete(message.id)
-    if ('data' in message) entry.resolve(message)
-    else entry.reject(new Error(message.error))
+    if ('error' in message) entry.reject(new Error(message.error))
+    else entry.resolve(message)
   })
   let dead: Error | undefined
   const failAll = (error: Error): void => {
@@ -53,7 +63,7 @@ export function startCodec(
     dead = new Error(`图片编解码线程已退出（code ${code}）`)
     failAll(dead)
   })
-  return (request, transfer) =>
+  const send = (request: CodecJob, transfer: ArrayBuffer[]): Promise<Success> =>
     new Promise((resolve, reject) => {
       if (dead) {
         reject(dead)
@@ -63,14 +73,17 @@ export function startCodec(
       pending.set(id, { resolve, reject })
       worker.postMessage({ ...request, id }, transfer)
     })
+  // 结果类型由任务的 op 决定（线程按 op 分派），这里收窄
+  return send as Codec
 }
 
 /** 在当前线程执行编解码（会占用事件循环，只作兜底与测试用）。 */
 export function inProcessCodec(): Codec {
   let nextId = 1
-  return async request => {
+  const run = async (request: CodecJob): Promise<Success> => {
     const response = await runCodecJob({ ...request, id: nextId++ })
-    if (!('data' in response)) throw new Error(response.error)
+    if ('error' in response) throw new Error(response.error)
     return response
   }
+  return run as Codec
 }
