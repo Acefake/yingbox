@@ -120,3 +120,25 @@ export interface CatSpiderSite {
   api: string
   ext: string
 }
+
+/** 豆瓣卡片（在线首页；也原样存进收藏 media_favorites） */
+export interface DoubanItem {
+  title: string
+  /** 用来搜源的片名：TMDB 找到条目时换成 TMDB 的中文名 */
+  searchTitle: string
+  original_title: string
+  /** 显示用封面：TMDB 海报，找不到退回豆瓣封面；补全前为空 */
+  cover: string
+  /** 豆瓣封面 */
+  coverSrc: string
+  /** 评分文字，无评分为「暂无」 */
+  rate: string
+  /** movie.douban.com/subject/<id>/（去重键、取预告片用） */
+  url: string
+  year: string
+  /** 「电影」/「剧集」，TMDB 补全后才有 */
+  type: string
+  overview: string
+  /** 来自「电影」还是「电视剧」分类（取预告片时用；旧收藏里没有，按电影取） */
+  kind?: 'movie' | 'tv'
+}
