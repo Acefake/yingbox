@@ -23,7 +23,7 @@ import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
 import { registerEngine } from './engine'
-import { installMediaHeaders } from './media-headers'
+import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 
@@ -138,6 +138,8 @@ app.whenReady().then(async () => {
 
   // MissAV 视频分片与封面需要 Referer，渲染层直连时由这里注入
   installMediaHeaders(session.defaultSession)
+  // 图床缺图时的占位图不显示（剧照等远程图直接走加载失败）
+  blockPlaceholderImages(session.defaultSession)
 
   // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
   protocol.handle('local', serveLocalMedia)

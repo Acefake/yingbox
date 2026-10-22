@@ -5,7 +5,7 @@
  * - 标准图床 pics.dmm.co.jp：ps.jpg 竖版海报只有 147×200，pl.jpg 横版封面 800×538；
  * - 高清图床 awsimgsrc.dmm.co.jp/pics_dig：较新的片 ps.jpg 是原生高清竖版海报（如 1032×1468），
  *   pl.jpg 也更大（如 2184×1468）。老片在高清图床与标准图床同尺寸，个别条目反而更小或缺图（404）。
- * 所以高清地址排前、标准地址兜底，由下载 / 探测按序回退；标准图床缺图时 302 到占位图（见 images/placeholder.ts）。
+ * 所以高清地址排前、标准地址兜底，由下载 / 探测按序回退；标准图床缺图时 302 到占位图（见 shared/net/placeholder-image.ts）。
  *
  * 路径差别：mono（DVD）地址在 cid 前多一层分类目录（adult / amateur …），高清图床只认省去这层的路径；
  * digital/video、digital/amateur 路径原样；其余分类（电子书等）高清图床没有副本。

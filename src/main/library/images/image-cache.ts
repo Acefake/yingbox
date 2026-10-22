@@ -16,7 +16,7 @@ import { imageKey, originalPath } from '../../thumbnails/paths'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { Semaphore } from '../providers/http/rate-limiter'
 import { type DeriveImage, parseDerived } from './derived'
-import { isPlaceholderImage } from './placeholder'
+import { isPlaceholderImage } from '../../../shared/net/placeholder-image'
 
 /** 下载图片用的 fetch 子集。 */
 export type BinaryFetch = (

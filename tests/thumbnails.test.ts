@@ -388,6 +388,19 @@ describe('取原图', () => {
     expect(d.readLimited.mock.calls[0][1]).toBe(MAX_ORIGINAL_BYTES)
   })
 
+  it('重定向到图床占位图（DMM now_printing）时拒绝，不缩成缩略图', async () => {
+    const placeholder = image()
+    Object.defineProperty(placeholder, 'url', {
+      value:
+        'https://imgsrc.dmm.com/pics/mono/movie/n/now_printing/now_printing.jpg',
+    })
+    await expect(
+      createSourceLoader(deps(placeholder))(
+        'https://pics.dmm.co.jp/digital/video/pgd00630/pgd00630jp-1.jpg'
+      )
+    ).rejects.toThrow('占位图')
+  })
+
   it('不是图片、超大小上限、不支持的协议都拒绝', async () => {
     await expect(
       createSourceLoader(deps(image('text/html')))('https://a.com/x')

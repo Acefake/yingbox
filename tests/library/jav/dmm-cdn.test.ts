@@ -1,6 +1,6 @@
 /** DMM 图床地址规则（sites/dmm/cdn.ts）与占位图识别。 */
 import { describe, expect, it } from 'vitest'
-import { isPlaceholderImage } from '../../../src/main/library/images/placeholder'
+import { isPlaceholderImage } from '../../../src/shared/net/placeholder-image'
 import {
   highResUrl,
   imageCandidates,
