@@ -16,6 +16,7 @@ import { imageKey, originalPath } from '../../thumbnails/paths'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { Semaphore } from '../providers/http/rate-limiter'
 import { type DeriveImage, parseDerived } from './derived'
+import { isPlaceholderImage } from './placeholder'
 
 /** 下载图片用的 fetch 子集。 */
 export type BinaryFetch = (
@@ -23,6 +24,8 @@ export type BinaryFetch = (
   init: { headers?: Record<string, string>; signal?: AbortSignal }
 ) => Promise<{
   status: number
+  /** 跟随重定向后的最终地址（认占位图用）；实现不给时不判断。 */
+  url?: string
   headers: { get(name: string): string | null }
   arrayBuffer(): Promise<ArrayBuffer>
 }>
@@ -154,6 +157,8 @@ export class ImageCache {
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       })
       if (response.status !== 200) throw new Error(`HTTP ${response.status}`)
+      if (isPlaceholderImage(response.url))
+        throw new Error('图床占位图（缺图）')
       const type = response.headers.get('content-type') ?? ''
       // 个别图床（如 mgstage）给图片标 binary/octet-stream，下载后再按文件头确认
       const opaque = /octet-stream/i.test(type)

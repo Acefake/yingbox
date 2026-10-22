@@ -8,6 +8,7 @@
 import { refererFor } from '../../../shared/net/media-referer'
 import type { BinaryFetch } from './image-cache'
 import { parseDerived } from './derived'
+import { isPlaceholderImage } from './placeholder'
 
 /** 图片尺寸。 */
 export interface ImageSize {
@@ -102,7 +103,8 @@ export function createImageProbe(fetch: BinaryFetch, limit = 500): ImageProbe {
         },
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       })
-      if (response.status === 200 || response.status === 206) {
+      const real = response.status === 200 || response.status === 206
+      if (real && !isPlaceholderImage(response.url)) {
         const bytes = new Uint8Array(await response.arrayBuffer())
         size = imageSize(bytes.subarray(0, PROBE_BYTES))
       }
