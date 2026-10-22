@@ -2,7 +2,8 @@
  * 主进程与引擎进程（utilityProcess）之间的消息格式。
  *
  * 渲染进程不直接接触这些消息：它通过 ipcRenderer.invoke 调主进程，主进程把调用包成
- * RpcRequest 转给引擎，再把 RpcResponse 拆回去。事件订阅则是把 MessagePort 转交给引擎。
+ * RpcRequest 转给引擎，再把 RpcResponse 拆回去。事件订阅：主进程建 MessageChannelMain，
+ * 一端随 SubscribeMessage 交给引擎、另一端经 library:port 推给渲染进程；引擎重启后重新下发。
  */
 import type { LibraryMethod, LibraryRpcMap } from './contract'
 
@@ -65,8 +66,15 @@ export type EngineMessage = RpcResponse | ReadyMessage | ImagesCachedMessage
 export const LIBRARY_CHANNELS = {
   /** ipcRenderer.invoke(channel, method, params) → InvokeResult */
   invoke: 'library:invoke',
-  /** ipcRenderer.postMessage(channel, null, [port])：转交事件端口 */
+  /** ipcRenderer.send(channel)：本窗口登记为事件订阅方（重复发送等于重新订阅） */
   subscribe: 'library:subscribe',
+  /** ipcRenderer.send(channel)：本窗口退订，之后引擎重启不再下发端口 */
+  unsubscribe: 'library:unsubscribe',
+  /**
+   * 主进程 → 渲染进程 webContents.postMessage(channel, null, [port])：一条直达引擎的事件端口。
+   * 每次（重新）订阅、每次引擎重启都会下发新端口，渲染进程用新的替换旧的。
+   */
+  port: 'library:port',
 } as const
 
 /**

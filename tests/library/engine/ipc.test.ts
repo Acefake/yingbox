@@ -13,7 +13,7 @@ import {
 import { handleRpc } from '../../../src/main/library/engine/rpc'
 import { LibraryService } from '../../../src/main/library/engine/service'
 import {
-  type EventChannel,
+  type EventPort,
   createLibraryBridge,
 } from '../../../src/preload/library-bridge'
 import { tempTree } from './helpers'
@@ -84,16 +84,19 @@ describe('引擎 RPC 与 preload bridge', () => {
       method: unknown,
       params: unknown
     ) => Promise<InvokeResult>
-    postMessage: (
+    send: (channel: string) => void
+    on: (
       channel: string,
-      message: unknown,
-      transfer?: unknown[]
+      listener: (event: { ports: readonly unknown[] }) => void
     ) => void
-    posted: Array<{ channel: string; transfer?: unknown[] }>
+    sent: string[]
+    pushPort: (port: EventPort) => void
   } {
-    const posted: Array<{ channel: string; transfer?: unknown[] }> = []
+    const sent: string[] = []
+    let onPort: ((event: { ports: readonly unknown[] }) => void) | undefined
     return {
-      posted,
+      sent,
+      pushPort: port => onPort?.({ ports: [port] }),
       async invoke(channel, method, params) {
         expect(channel).toBe(LIBRARY_CHANNELS.invoke)
         const response = await handleRpc(service, { id: 1, method, params })
@@ -101,8 +104,12 @@ describe('引擎 RPC 与 preload bridge', () => {
           ? { ok: true, result: response.result }
           : { ok: false, error: response.error }
       },
-      postMessage(channel, _message, transfer) {
-        posted.push({ channel, transfer })
+      send(channel) {
+        sent.push(channel)
+      },
+      on(channel, listener) {
+        expect(channel).toBe(LIBRARY_CHANNELS.port)
+        onPort = listener
       },
     }
   }
@@ -196,9 +203,9 @@ describe('引擎 RPC 与 preload bridge', () => {
     expect((await api.query()).total).toBe(0)
   })
 
-  it('bridge.subscribe 把 port2 交给 library:subscribe，port1 收到的事件转给监听者', () => {
+  it('bridge.subscribe 发 library:subscribe 登记，主进程推来的端口收到的事件转给监听者', () => {
     const ipc = fakeIpc()
-    const port1 = {
+    const port = {
       onmessage: null as ((e: { data: unknown }) => void) | null,
       started: false,
       closed: false,
@@ -209,22 +216,22 @@ describe('引擎 RPC 与 preload bridge', () => {
         this.closed = true
       },
     }
-    const port2 = { id: 'port2' }
-    const channel: EventChannel = { port1, port2 }
-    const api = createLibraryBridge(ipc, () => channel)
+    const api = createLibraryBridge(ipc)
     const received: LibraryEvent[] = []
 
     const unsubscribe = api.subscribe(e => received.push(e))
+    ipc.pushPort(port)
     const event: LibraryEvent = { type: 'libraries-changed', libraries: [] }
-    port1.onmessage!({ data: event })
+    port.onmessage!({ data: event })
     unsubscribe()
 
-    expect(ipc.posted).toEqual([
-      { channel: LIBRARY_CHANNELS.subscribe, transfer: [port2] },
+    expect(ipc.sent).toEqual([
+      LIBRARY_CHANNELS.subscribe,
+      LIBRARY_CHANNELS.unsubscribe,
     ])
-    expect(port1.started).toBe(true)
+    expect(port.started).toBe(true)
     expect(received).toEqual([event])
-    expect(port1.closed).toBe(true)
+    expect(port.closed).toBe(true)
   })
 
   it('服务事件：增库广播 libraries-changed，扫描广播任务进度与 items-changed', async () => {
