@@ -1,0 +1,11 @@
+/**
+ * 图床占位图：图不存在时不报 404，而是重定向到一张「准备中」的通用图。
+ * 这种图下载下来是合法 JPEG，不认出来就会当成海报存进库里，候选回退也不会发生。
+ *
+ * 目前只有 DMM：pics.dmm.co.jp 缺图时 302 到 imgsrc.dmm.com/…/now_printing/now_printing.jpg。
+ */
+
+/** 最终地址（跟随重定向之后）是不是占位图。 */
+export function isPlaceholderImage(finalUrl: string | undefined): boolean {
+  return Boolean(finalUrl && /\/now_printing\//i.test(finalUrl))
+}
