@@ -20,6 +20,7 @@ import type {
 } from './contract-provider'
 import type {
   AddLibraryRequest,
+  ItemPreview,
   LibraryAutomation,
   UpdateLibraryRequest,
 } from './contract-library'
@@ -281,6 +282,7 @@ export interface LibraryRpcMap extends ActorRpcMap {
   scan: { params: ScanRequest; result: ScanAccepted }
   query: { params: LibraryQuery; result: LibraryQueryResult }
   getItem: { params: { itemId: number }; result: LibraryItemNode | null }
+  getPreview: { params: { itemId: number }; result: ItemPreview | null }
   identify: { params: IdentifyRequest; result: JobAccepted }
   getMatchCandidates: {
     params: { itemId: number }
@@ -321,6 +323,7 @@ export const LIBRARY_METHODS = [
   'scan',
   'query',
   'getItem',
+  'getPreview',
   'identify',
   'getMatchCandidates',
   'applyMatch',
@@ -354,6 +357,8 @@ export interface LibraryBridge {
   scan(request: ScanRequest): Promise<ScanAccepted>
   query(query?: LibraryQuery): Promise<LibraryQueryResult>
   getItem(itemId: number): Promise<LibraryItemNode | null>
+  /** 海报墙悬停预览：本地视频或已缓存图片；条目不存在为 null。 */
+  getPreview(itemId: number): Promise<ItemPreview | null>
   /** 识别条目（排队执行，进度见 identify-progress 事件）。 */
   identify(request: IdentifyRequest): Promise<JobAccepted>
   getMatchCandidates(itemId: number): Promise<MatchCandidatesResult>

@@ -17,6 +17,7 @@ import { createOnlineHandlers } from './online'
 import { createPersistentBreaker } from './online/breaker-store'
 import { createPluginLoader } from './online/plugin-cache'
 import { createPluginStorage } from './online/plugin-storage'
+import { createDoubanTrailers } from './online/douban-trailer'
 import { type EnginePort, serveEngine } from './rpc'
 
 const userData = process.argv[2]
@@ -46,6 +47,10 @@ server.implement(
     breaker: createPersistentBreaker(join(userData, 'online', 'breaker.json')),
     pluginStorage: createPluginStorage({
       dir: join(userData, 'online', 'plugin-storage'),
+    }),
+    doubanTrailers: createDoubanTrailers({
+      net: httpClient,
+      file: join(userData, 'online', 'douban-trailers.json'),
     }),
     log,
   })

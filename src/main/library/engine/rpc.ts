@@ -12,7 +12,26 @@ import {
   isLibraryMethod,
   parseRpcParams,
 } from '../../../shared/library/ipc'
+import { createItemPreviews } from '../catalog/item-preview'
 import type { LibraryService } from './service'
+
+/** 每个服务一份预览查询（按库根目录缓存 fs-type 判定）。 */
+const previews = new WeakMap<
+  LibraryService,
+  ReturnType<typeof createItemPreviews>
+>()
+
+function previewsFor(s: LibraryService): ReturnType<typeof createItemPreviews> {
+  let found = previews.get(s)
+  if (!found) {
+    found = createItemPreviews({
+      getItem: itemId => s.getItem({ itemId }),
+      libraryRoot: id => s.listLibraries().find(lib => lib.id === id)?.root,
+    })
+    previews.set(s, found)
+  }
+  return found
+}
 
 /** 每个方法如何调用服务。参数已经过 parseRpcParams 解析。 */
 type Handlers = {
@@ -30,6 +49,7 @@ const HANDLERS: Handlers = {
   scan: (s, p) => s.scan(p),
   query: (s, p) => s.query(p),
   getItem: (s, p) => s.getItem(p),
+  getPreview: (s, p) => previewsFor(s).get(p.itemId),
   identify: (s, p) => s.identify(p),
   getMatchCandidates: (s, p) => s.getMatchCandidates(p),
   applyMatch: (s, p) => s.applyMatch(p),
