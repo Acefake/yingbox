@@ -169,3 +169,28 @@ describe('引擎读下载目录（宿主方法 downloadDir）', () => {
     })
   })
 })
+
+describe('启动时续下（registerEngine）', () => {
+  it('队列里有没下完的任务：启动即拉起引擎调 download.list；没有则不拉起', async () => {
+    await boot()
+    const { registerEngine } = await import('../src/main/engine')
+    registerEngine()
+    await new Promise(r => setTimeout(r, 20))
+    expect(env.engine).toBeUndefined()
+
+    vi.resetModules()
+    mkdirSync(join(env.userData, 'downloads'), { recursive: true })
+    writeFileSync(
+      join(env.userData, 'downloads', 'queue.json'),
+      JSON.stringify({ tasks: [{ id: 'ABC-1', status: 'active' }] })
+    )
+    await boot()
+    const fresh = await import('../src/main/engine')
+    fresh.registerEngine()
+    await vi.waitFor(() =>
+      expect(env.engine?.posted).toContainEqual(
+        expect.objectContaining({ kind: 'call', channel: 'download:list' })
+      )
+    )
+  })
+})
