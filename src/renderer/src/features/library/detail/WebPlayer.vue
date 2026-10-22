@@ -6,7 +6,6 @@
       role="dialog"
       aria-modal="true"
       :aria-label="playback.title"
-      @keydown.esc="closeWebPlayer"
     >
       <header class="web-player__bar">
         <span class="web-player__title">
@@ -66,9 +65,11 @@
 import { computed, nextTick, ref, watch } from 'vue'
 
 import { UiIconButton } from '@/components/ui'
+import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { closeWebPlayer, seekWebPlayer, webPlayback } from './web-player'
 
 const playback = webPlayback()
+useEscapeLayer(() => playback.value !== null, closeWebPlayer)
 const current = computed(() =>
   playback.value ? playback.value.sources[playback.value.index] : null
 )

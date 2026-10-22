@@ -11,7 +11,9 @@
     :aria-label="label"
     :aria-pressed="active === undefined ? undefined : active"
     :aria-busy="loading || undefined"
-    :disabled="disabled || loading"
+    :aria-disabled="loading || undefined"
+    :disabled="disabled"
+    @click="blockBusyClick(loading, $event)"
   >
     <UiIcon
       :name="loading ? 'refresh' : icon"
@@ -29,7 +31,10 @@
  * - plain：透明底，工具栏默认
  * - secondary：浅填充底，和文字按钮并排时用
  * - overlay：半透明深色圆底，叠在海报和图片上
+ *
+ * loading：图标转圈 + aria-busy / aria-disabled，保持可聚焦（不加 disabled），点击被拦下（见 feedback.ts）。
  */
+import { blockBusyClick } from './feedback'
 import type { IconName } from './icons'
 import { vTooltip } from './tooltip'
 import UiIcon from './UiIcon.vue'
@@ -93,7 +98,7 @@ withDefaults(
   background: rgba(0, 0, 0, 0.64);
   color: #fff;
 }
-.yb-icon-button:active:not(:disabled) {
+.yb-icon-button:active:not(:disabled, .is-loading) {
   transform: scale(0.94);
 }
 .yb-icon-button:focus-visible {
@@ -111,6 +116,9 @@ withDefaults(
 .yb-icon-button.is-danger:hover:not(:disabled) {
   background: color-mix(in srgb, var(--danger) 12%, transparent);
   color: var(--danger);
+}
+.yb-icon-button.is-loading {
+  cursor: progress;
 }
 .yb-icon-button.is-loading .app-icon {
   animation: yb-icon-spin var(--duration-spin) linear infinite;

@@ -61,9 +61,10 @@
  * 分区可 defineExpose({ canLeave }) 拦截切换与关闭（如未保存的修改）。
  * 软件更新状态需要在窗口关闭时也持续接收，所以这里一创建就启动 useUpdateStatus。
  */
-import { type Component, onBeforeUnmount, ref, shallowRef, watch } from 'vue'
+import { type Component, ref, shallowRef, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import { useEscapeLayer } from '@/composables/use-escape-layer'
 
 import { settingsSections } from './registry'
 import SettingsNav from './ui/SettingsNav.vue'
@@ -122,23 +123,14 @@ watch(
 )
 
 // ── 打开/关闭行为 ───────────────────────────────────────────
-const onKeydown = (e: KeyboardEvent): void => {
-  if (e.key === 'Escape') requestClose()
-}
+useEscapeLayer(() => props.visible, requestClose)
 
 watch(
   () => props.visible,
   v => {
-    if (v) {
-      navQuery.value = ''
-      window.addEventListener('keydown', onKeydown)
-    } else {
-      window.removeEventListener('keydown', onKeydown)
-    }
+    if (v) navQuery.value = ''
   }
 )
-
-onBeforeUnmount(() => window.removeEventListener('keydown', onKeydown))
 </script>
 
 <style scoped>

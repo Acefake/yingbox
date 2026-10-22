@@ -14,11 +14,11 @@
         <span
           v-for="kw in searchHistory"
           :key="kw"
+          v-enter="() => handleSearch(kw)"
           class="history-tag"
           role="button"
           tabindex="0"
           @click="handleSearch(kw)"
-          @keydown.enter="handleSearch(kw)"
         >
           {{ kw }}
           <UiIconButton
@@ -59,6 +59,9 @@
       </svg>
       <p>输入关键词搜索</p>
     </div>
+
+    <!-- 首屏：还没有任何结果时的骨架 -->
+    <UiSkeleton v-if="waiting === 'skeleton'" :count="8" label="正在搜索" />
 
     <!-- 插件视频源结果 -->
     <div v-if="vodResults.length" class="source-section">
@@ -125,16 +128,27 @@
         </template>
       </UiVirtualGrid>
     </div>
+
+    <!-- 已有结果、其他源还在搜：放在最后，出现 / 消失不推动正在看的结果 -->
+    <UiLoadingDots
+      v-if="waiting === 'more'"
+      class="search-more"
+      label="仍在搜索其他源"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 import { confirmDialog } from '@/components/ui'
+import { vEnter } from '@/directives/enter'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageTitle from '@/components/PageTitle.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
+import UiSkeleton from '@/components/ui/UiSkeleton.vue'
+import { listWaiting } from '@/components/ui/feedback'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { computed, ref, watch } from 'vue'
 
@@ -156,6 +170,7 @@ const {
 const route = useRoute()
 const router = useRouter()
 
+const waiting = computed(() => listWaiting(loading.value, results.value.length))
 const vodResults = computed(() =>
   results.value.filter(item => item._source === 'catspider')
 )
@@ -293,19 +308,7 @@ defineExpose({ handleSearch, saveHistory })
   font-size: var(--text-md);
 }
 
-.spinner {
-  width: 16px;
-  height: 16px;
-  border: 2px solid var(--border-default);
-  border-top-color: var(--text-primary);
-  border-radius: 50%;
-  animation: spin var(--duration-spin) linear infinite;
-  display: inline-block;
-}
-
-@keyframes spin {
-  to {
-    transform: rotate(360deg);
-  }
+.search-more {
+  align-self: center;
 }
 </style>

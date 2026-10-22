@@ -102,10 +102,11 @@
  * 后台任务浮层：从侧栏「后台任务」按钮上方弹出，展示去码 / 边跑边看。
  * 任务状态在主进程里，这里只读展示，提供取消 / 停止 / 关闭。
  */
-import { nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
+import { nextTick, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useLadaTasks } from '@/features/lada'
 
 const props = defineProps<{ visible: boolean }>()
@@ -148,12 +149,10 @@ const {
   dismissLive,
 } = useLadaTasks()
 
-const onKeydown = (e: KeyboardEvent): void => {
-  if (e.key === 'Escape') emit('close')
-}
-
-onMounted(() => window.addEventListener('keydown', onKeydown))
-onUnmounted(() => window.removeEventListener('keydown', onKeydown))
+useEscapeLayer(
+  () => props.visible,
+  () => emit('close')
+)
 </script>
 
 <style scoped>

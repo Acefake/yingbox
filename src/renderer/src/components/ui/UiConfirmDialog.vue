@@ -6,6 +6,7 @@
     :style="{ width: `${options.width ?? 360}px` }"
     :aria-labelledby="titleId"
     @cancel.prevent="flow.cancel()"
+    @keydown="guardDialogEscape"
   >
     <h2 :id="titleId" class="ui-confirm__title">{{ options.title }}</h2>
     <p v-if="typeof options.content === 'string'" class="ui-confirm__content">
@@ -49,6 +50,7 @@ import {
   useId,
 } from 'vue'
 
+import { guardDialogEscape } from '@/composables/use-escape-layer'
 import type { ConfirmFlow, ConfirmOptions } from './confirm'
 import UiButton from './UiButton.vue'
 
