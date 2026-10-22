@@ -7,7 +7,7 @@
  */
 import * as cheerio from 'cheerio'
 import CryptoJS from 'crypto-js'
-import { constants, privateDecrypt } from 'node:crypto'
+import { constants, privateDecrypt, publicEncrypt } from 'node:crypto'
 import type { NetClient } from '../../shared/net/client'
 import { classifyPage } from '../../shared/net/cf-page'
 import {
@@ -33,10 +33,43 @@ export interface CatSpiderDeps {
   log?: (line: string) => void
 }
 
-/** $fetch 返回给插件的结果。 */
+/**
+ * $fetch 返回给插件的结果，形状照 XPTV：data、status、respHeaders；headers 是早期本宿主的叫法，保留。
+ * respHeaders 同时给 iOS 风格的首字母大写键（Set-Cookie 多条用 ", " 连接）和小写键
+ * （set-cookie 是数组），插件里两种写法都有。
+ */
 interface Fetched {
   data: string
+  status: number
   headers: Record<string, string>
+  respHeaders: Record<string, string | string[]>
+}
+
+/** content-type → Content-Type */
+const canonicalHeader = (name: string): string =>
+  name.replace(
+    /(^|-)([a-z])/g,
+    (_, dash: string, c: string) => dash + c.toUpperCase()
+  )
+
+/** 把响应头转成插件用的两种记录。 */
+export function pluginHeaders(
+  source: Headers
+): Pick<Fetched, 'headers' | 'respHeaders'> {
+  const headers: Record<string, string> = {}
+  const respHeaders: Record<string, string | string[]> = {}
+  source.forEach((value, key) => {
+    headers[key] = value
+    if (key === 'set-cookie') return
+    respHeaders[key] = value
+    respHeaders[canonicalHeader(key)] = value
+  })
+  const cookies = source.getSetCookie()
+  if (cookies.length) {
+    respHeaders['set-cookie'] = cookies
+    respHeaders['Set-Cookie'] = cookies.join(', ')
+  }
+  return { headers, respHeaders }
 }
 
 /** 插件调用 $fetch 的选项。 */
@@ -108,12 +141,33 @@ export function applyPatch(
   return out
 }
 
-/** XPTV 旧插件依赖的 JSEncrypt 最小兼容（只用到私钥解密）。 */
+/**
+ * XPTV 插件依赖的 JSEncrypt 最小兼容：RSA PKCS#1 v1.5，密文 base64。
+ * 与 JSEncrypt 一样，公钥 / 私钥都经 setKey 存一份；私钥也能加密（node 会从私钥导出公钥）。
+ * 失败时 encrypt 返回 false、decrypt 返回 null，插件按假值判断。
+ */
 function loadJSEncrypt(): unknown {
   return class JSEncryptCompat {
     private key = ''
+    setKey(key: string): void {
+      this.key = key
+    }
+    setPublicKey(key: string): void {
+      this.key = key
+    }
     setPrivateKey(key: string): void {
       this.key = key
+    }
+    encrypt(value: string): string | false {
+      if (!this.key) return false
+      try {
+        return publicEncrypt(
+          { key: this.key, padding: constants.RSA_PKCS1_PADDING },
+          Buffer.from(String(value), 'utf8')
+        ).toString('base64')
+      } catch {
+        return false
+      }
     }
     decrypt(value: string): string | null {
       if (!this.key || !value) return null
@@ -170,7 +224,7 @@ function makeFetch(deps: CatSpiderDeps): unknown {
   const raw = async (
     url: string,
     options: PluginFetchOptions
-  ): Promise<Fetched & { status: number }> => {
+  ): Promise<Fetched> => {
     if (!url || typeof url !== 'string') throw new Error(`Invalid URL: ${url}`)
     const method = (options.method || 'GET').toUpperCase() as 'GET' | 'POST'
     const res = await deps.net.request(url, {
@@ -182,10 +236,8 @@ function makeFetch(deps: CatSpiderDeps): unknown {
           : undefined,
       timeoutMs: options.timeout || 15000,
     })
-    const headers: Record<string, string> = {}
-    res.headers.forEach((value, key) => (headers[key] = value))
     const data = new TextDecoder().decode(res.body)
-    return { data, headers, status: res.status }
+    return { data, status: res.status, ...pluginHeaders(res.headers) }
   }
   const viaBrowser = async (
     url: string,
@@ -195,7 +247,7 @@ function makeFetch(deps: CatSpiderDeps): unknown {
     if (html && classifyPage(html) === 'ok') {
       log(`[browser-fetch] ${url}`)
       breaker.succeed(url)
-      return { data: html, headers: {} }
+      return { data: html, status: 200, headers: {}, respHeaders: {} }
     }
     report(breaker.fail(url, reason))
     return null
@@ -211,7 +263,7 @@ function makeFetch(deps: CatSpiderDeps): unknown {
     }
     const canFallback =
       (options.method || 'GET').toUpperCase() === 'GET' && !options.body
-    let result: Fetched & { status: number }
+    let result: Fetched
     try {
       result = await raw(url, options)
     } catch (error) {
@@ -229,11 +281,11 @@ function makeFetch(deps: CatSpiderDeps): unknown {
     }
     if (verdict === 'challenge') {
       const fallback = canFallback ? await viaBrowser(url, 'challenge') : null
-      return fallback ?? { data: result.data, headers: result.headers }
+      return fallback ?? result
     }
     if (result.status >= 500) report(breaker.fail(url))
     else breaker.succeed(url)
-    return { data: result.data, headers: result.headers }
+    return result
   }
   const $fetch = (
     url: string,
