@@ -18,8 +18,31 @@
       >
         <DialogTitlebar title="后台任务" icon="list" @close="emit('close')" />
 
-        <!-- 去码 / 边跑边看：主进程里的后台任务，这里只读展示并可停止 -->
-        <div v-if="hasRuntime" class="sqp-runtime-body">
+        <!-- 媒体库识别 / 刷新元数据（跨电影、剧集、番号分区）；去码 / 边跑边看：主进程里的后台任务，只读展示并可停止 -->
+        <div v-if="hasRuntime || identifying" class="sqp-runtime-body">
+          <div
+            v-if="identifying"
+            class="sqp-row sqp-job is-processing"
+            role="status"
+            aria-live="polite"
+          >
+            <div class="sqp-status" aria-hidden="true">
+              <span class="sqp-spin" />
+            </div>
+            <div class="sqp-info">
+              <div class="sqp-name">媒体库 · {{ identifying.label }}</div>
+              <div class="sqp-job-detail">
+                <span class="sqp-job-track" aria-hidden="true">
+                  <span
+                    class="sqp-job-fill"
+                    :style="{ width: `${identifyPercent}%` }"
+                  />
+                </span>
+                <span class="sqp-job-value">{{ identifyPercent }}%</span>
+              </div>
+            </div>
+          </div>
+
           <div
             v-if="restoreRunning"
             class="sqp-row sqp-job is-processing"
@@ -90,7 +113,7 @@
         </div>
         <div v-else class="sqp-empty">
           <p>暂无后台任务</p>
-          <span>去码、边跑边看开始后会显示在这里</span>
+          <span>媒体库识别、去码、边跑边看开始后会显示在这里</span>
         </div>
       </aside>
     </Transition>
@@ -99,15 +122,16 @@
 
 <script setup lang="ts">
 /**
- * 后台任务浮层：从侧栏「后台任务」按钮上方弹出，展示去码 / 边跑边看。
- * 任务状态在主进程里，这里只读展示，提供取消 / 停止 / 关闭。
+ * 后台任务浮层：从侧栏「后台任务」按钮上方弹出，展示媒体库识别进度、去码 / 边跑边看。
+ * 任务状态在主进程 / 媒体库引擎里，这里只读展示，提供取消 / 停止 / 关闭。
  */
-import { nextTick, ref, watch } from 'vue'
+import { computed, nextTick, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useLadaTasks } from '@/features/lada'
+import { useIdentifyActivity } from '@/features/library'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: [] }>()
@@ -148,6 +172,11 @@ const {
   stopLive,
   dismissLive,
 } = useLadaTasks()
+
+const identifying = useIdentifyActivity()
+const identifyPercent = computed(() =>
+  Math.round((identifying.value?.progress ?? 0) * 100)
+)
 
 useEscapeLayer(
   () => props.visible,
