@@ -1,12 +1,13 @@
 /**
  * 数据源面板工具栏用的全局统计与批量操作：全部源数量、失效源数量、
- * 一键更新（同步 + 解除插件熔断 + 全部检测）、停用全部失效源。AV 源只在成人模式下计入。
+ * 一键更新（同步清单与订阅 + 解除插件熔断 + 全部检测）、停用全部失效源。AV 源只在成人模式下计入。
  */
 import { type ComputedRef, computed } from 'vue'
-import { confirmDialog } from '@/components/ui'
+import { confirmDialog, toast } from '@/components/ui'
 import { useAvSources } from '@/features/av'
 import { useSetting } from '@/features/settings'
 import { countFailed } from '../utils/source-rules'
+import { syncSubscription, syncingSubscription } from './cms-subscription'
 import { retryAllPlugins } from './plugin-health'
 import { useOnlineSearch } from './use-online-search'
 import {
@@ -48,11 +49,21 @@ export function useSourceTotals(): SourceTotals {
         : 0)
   )
 
-  /** 一键更新：拉取远程源清单合并新源，再重新检测全部源（自动启用可用源、停用失效源）。 */
-  const updatingSources = computed(() => syncingAv.value || checkingAll.value)
+  /**
+   * 一键更新：拉取远程源清单与订阅合并新源，再重新检测全部源（自动启用可用源、停用失效源）。
+   * 订阅失败只提示，沿用上次缓存的订阅源。
+   */
+  const updatingSources = computed(
+    () => syncingAv.value || syncingSubscription.value || checkingAll.value
+  )
   const updateSources = async (): Promise<void> => {
     if (updatingSources.value) return
-    await syncAvSources(true)
+    await Promise.all([
+      syncAvSources(true),
+      syncSubscription().catch((error: unknown) => {
+        toast.error(error instanceof Error ? error.message : '订阅同步失败')
+      }),
+    ])
     await retryAllPlugins().catch(() => {})
     await checkAll()
   }
