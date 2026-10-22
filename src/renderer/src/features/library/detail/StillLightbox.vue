@@ -56,6 +56,7 @@
 import { useEventListener } from '@vueuse/core'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { isDismissKey } from '@/utils/keyboard'
 
 import { stillImage } from '../api/images'
 
@@ -76,7 +77,7 @@ useEventListener(
   'keydown',
   (event: KeyboardEvent) => {
     if (index.value === null) return
-    if (event.key === 'Escape') close()
+    if (isDismissKey(event)) close()
     else if (event.key === 'ArrowLeft') step(-1)
     else if (event.key === 'ArrowRight') step(1)
     else return
