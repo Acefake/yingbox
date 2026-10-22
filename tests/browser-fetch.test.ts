@@ -426,3 +426,40 @@ describe('browserFetch：过过挑战的主机先用会话直接取页', () => {
     ])
   })
 })
+
+describe('browserFetch：会话里留着 cf_clearance 时不弹窗', () => {
+  it('重启后（内存无记录）有未过期 cookie：直接会话取页，不开窗口', async () => {
+    const bf = make({ hasClearance: async () => true })
+    state.responses.push({ status: 200, body: page('cookie-ok') })
+    const html = await bf.browserFetch('https://cf.test/a')
+    expect(html).toContain('cookie-ok')
+    expect(state.windows).toHaveLength(0)
+  })
+
+  it('cookie 失效（会话拿到挑战页）：退回开窗口', async () => {
+    const bf = make({ hasClearance: async () => true })
+    state.responses.push({ status: 403, body: challenge })
+    state.pages.push([page('window-ok')])
+    const html = await bf.browserFetch('https://cf.test/a')
+    expect(html).toContain('window-ok')
+    expect(state.windows).toHaveLength(1)
+  })
+
+  it('过挑战超过 25 分钟但 cookie 仍有效：继续走会话', async () => {
+    const bf = make({ hasClearance: async () => true })
+    state.responses.push({ status: 403, body: challenge })
+    state.pages.push([page('window-ok')])
+    await bf.browserFetch('https://cf.test/a')
+    clock += 26 * 60 * 1000
+    state.responses.push({ status: 200, body: page('later') })
+    expect(await bf.browserFetch('https://cf.test/b')).toContain('later')
+    expect(state.windows).toHaveLength(1)
+  })
+
+  it('没有 cookie：照旧开窗口', async () => {
+    const bf = make({ hasClearance: async () => false })
+    state.pages.push([page('window-ok')])
+    expect(await bf.browserFetch('https://cf.test/a')).toContain('window-ok')
+    expect(state.fetches).toHaveLength(0)
+  })
+})
