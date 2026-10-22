@@ -1,4 +1,4 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, type Rectangle, screen } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { join } from 'path'
 import { emit, implement } from './rpc'
@@ -11,8 +11,48 @@ import {
 /** 队列长度上限，避免渲染层发送超大数组 */
 const MAX_PLAYLIST = 500
 
+/** 播放窗口的最小尺寸（正常 / 缩小置顶时） */
+const NORMAL_MIN = { width: 640, height: 360 }
+const COMPACT_MIN = { width: 320, height: 180 }
+/** 缩小置顶后的大小（16:9）与离工作区边缘的距离 */
+const COMPACT_SIZE = { width: 480, height: 270 }
+const COMPACT_MARGIN = 24
+
 let playerWindow: BrowserWindow | null = null
 let pendingPayload: PlayerOpenPayload | null = null
+/** 缩小置顶前的位置大小；没在缩小置顶时为 null */
+let normalBounds: Rectangle | null = null
+
+/** 缩小置顶的位置：贴工作区（不含任务栏）右下角，留边距 */
+export function compactBounds(workArea: Rectangle): Rectangle {
+  return {
+    x: workArea.x + workArea.width - COMPACT_SIZE.width - COMPACT_MARGIN,
+    y: workArea.y + workArea.height - COMPACT_SIZE.height - COMPACT_MARGIN,
+    ...COMPACT_SIZE,
+  }
+}
+
+/**
+ * 缩小置顶 / 还原。画中画只有画面；这个保留整个播放窗口（字幕、控制条、自动连播），
+ * 缩到当前屏幕右下角并保持在最前。还原回到缩小前的位置大小。
+ */
+function setCompact(on: boolean): { success: boolean; compact: boolean } {
+  const win = playerWindow
+  if (!win || win.isDestroyed()) return { success: false, compact: false }
+  if (on) {
+    normalBounds ??= win.getBounds()
+    const { workArea } = screen.getDisplayMatching(win.getBounds())
+    win.setMinimumSize(COMPACT_MIN.width, COMPACT_MIN.height)
+    win.setBounds(compactBounds(workArea))
+    win.setAlwaysOnTop(true, 'floating')
+  } else {
+    win.setAlwaysOnTop(false)
+    win.setMinimumSize(NORMAL_MIN.width, NORMAL_MIN.height)
+    if (normalBounds) win.setBounds(normalBounds)
+    normalBounds = null
+  }
+  return { success: true, compact: on }
+}
 
 /** 规范化单个队列条目，非法条目返回 null */
 function normalizeSourceItem(raw: unknown): PlayerSourceItem | null {
@@ -144,8 +184,8 @@ function openPlayerWindow(payload: PlayerOpenPayload): void {
   playerWindow = new BrowserWindow({
     width: 960,
     height: 600,
-    minWidth: 640,
-    minHeight: 360,
+    minWidth: NORMAL_MIN.width,
+    minHeight: NORMAL_MIN.height,
     show: false,
     frame: true,
     title: windowTitle(payload),
@@ -162,6 +202,7 @@ function openPlayerWindow(payload: PlayerOpenPayload): void {
   playerWindow.on('closed', () => {
     playerWindow = null
     pendingPayload = null
+    normalBounds = null
   })
 
   const deliverPending = (): void => {
@@ -192,6 +233,7 @@ function closePlayerWindow(): void {
   }
   playerWindow = null
   pendingPayload = null
+  normalBounds = null
 }
 
 /** 实现 player 域 */
@@ -216,5 +258,6 @@ export function registerPlayerWindowIpc(): void {
       return { success: true }
     },
     getPending: () => pendingPayload,
+    setCompact: (_, on) => setCompact(on),
   })
 }

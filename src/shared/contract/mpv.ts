@@ -46,6 +46,8 @@ export const mpv = defineDomain(
     setAudioTrack: call<[id: number], Ok>(a => [int(a[0], 'id')]),
     /** 挂载外挂字幕文件 */
     addSubFile: call<[filePath: string], Ok>(a => [str(a[0], 'filePath')]),
+    /** 缩小置顶：mpv 窗口缩到屏幕右下角并保持在最前（mpv 没有画中画）；on = false 还原 */
+    setCompact: call<[on: boolean], Ok>(a => [bool(a[0], 'on')]),
     /** 退出 mpv */
     quit: call<Ok>(),
   },

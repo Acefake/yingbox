@@ -1,4 +1,5 @@
 // @vitest-environment jsdom
+/* eslint-disable vue/one-component-per-file -- 测试里就地拼宿主页面 */
 import { type Component, createApp, defineComponent, h, nextTick } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -32,6 +33,9 @@ let dock: typeof import('../src/renderer/src/features/player/mini/mini-dock')
 
 beforeEach(async () => {
   vi.resetModules()
+  // jsdom 没实现媒体播放：停止 / 重载换成空操作，免得刷屏
+  HTMLMediaElement.prototype.pause = (): void => {}
+  HTMLMediaElement.prototype.load = (): void => {}
   localStorage.clear()
   document.body.innerHTML = ''
   web = await import('../src/renderer/src/features/library/detail/web-player')
@@ -80,8 +84,7 @@ const open = (): void => {
     index: 0,
   })
 }
-const overlay = (): HTMLElement | null =>
-  document.querySelector('.web-player')
+const overlay = (): HTMLElement | null => document.querySelector('.web-player')
 const slot = (): HTMLElement | null =>
   document.querySelector('[data-mini-slot]')
 
@@ -170,7 +173,11 @@ describe('网页端媒体库播放器 → 小窗', () => {
     await t.router.push('/movie')
     await settle()
     expect(dock.miniSession().value).not.toBeNull()
-    web.openWebPlayer({ title: '另一部', files: [{ fileId: 9, name: '' }], index: 0 })
+    web.openWebPlayer({
+      title: '另一部',
+      files: [{ fileId: 9, name: '' }],
+      index: 0,
+    })
     await settle()
     expect(dock.miniSession().value).toBeNull()
     expect(web.webPlayback().value?.title).toBe('另一部')
@@ -188,9 +195,7 @@ describe('网页端媒体库播放器 → 小窗', () => {
     const video = overlay()!.querySelector('video')!
     const request = vi.fn(async () => ({}) as PictureInPictureWindow)
     video.requestPictureInPicture = request
-    document
-      .querySelector<HTMLButtonElement>('[aria-label="画中画"]')!
-      .click()
+    document.querySelector<HTMLButtonElement>('[aria-label="画中画"]')!.click()
     expect(request).toHaveBeenCalledTimes(1)
     t.unmount()
   })

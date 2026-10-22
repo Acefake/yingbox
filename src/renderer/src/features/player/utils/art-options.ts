@@ -43,6 +43,10 @@ export const ART_ICONS = {
   setting: artIcon('settings'),
 }
 
+/** 系统画中画可用（document.pictureInPictureEnabled）：可用时才显示画中画按钮 */
+export const pipSupported = (): boolean =>
+  typeof document !== 'undefined' && document.pictureInPictureEnabled === true
+
 /** 地址是否为 HLS（.m3u8，可带查询串） */
 export const isHlsUrl = (url: string): boolean => /\.m3u8(?:$|\?)/i.test(url)
 
@@ -108,7 +112,8 @@ export function artOptions(input: ArtOptionsInput): ArtOption {
     screenshot: false,
     setting: true,
     hotkey: false,
-    pip: false,
+    // 画中画用 Artplayer 自带控件（内部即 video.requestPictureInPicture）
+    pip: pipSupported(),
     mutex: true,
     backdrop: true,
     fullscreen: input.controls,

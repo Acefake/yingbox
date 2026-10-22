@@ -115,6 +115,8 @@ export const settingsSchema = {
   'ui.hoverPreview': bool(true),
   /** 悬停多久开始预览（毫秒） */
   'ui.hoverPreviewDelay': num(200, 2000, 600),
+  /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
+  'ui.miniPlayer': bool(true),
 
   /** 播放引擎 */
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),

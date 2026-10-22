@@ -35,6 +35,8 @@ export interface MpvStatus {
   tracks: MpvTrack[]
   playlist: MpvPlaylistEntry[]
   playlistPos: number
+  /** 处于「缩小置顶」（右下角小窗、保持在最前） */
+  compact?: boolean
   /** RTX 视频超分滤镜当前是否已挂载（仅 Windows + NVIDIA 且片源低于 1080p 时为 true） */
   vsr?: boolean
   /** 当前片源分辨率（解码后的实际尺寸） */

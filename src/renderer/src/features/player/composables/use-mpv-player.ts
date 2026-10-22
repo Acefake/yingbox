@@ -53,6 +53,8 @@ export interface UseMpvPlayerReturn {
   setSubTrack: (id: number | false) => Promise<void>
   setAudioTrack: (id: number) => Promise<void>
   addSubFile: (filePath: string) => Promise<void>
+  /** 缩小置顶 / 还原 mpv 窗口 */
+  setCompact: (on: boolean) => Promise<void>
   quit: () => Promise<void>
 }
 
@@ -135,6 +137,11 @@ export function useMpvPlayer(): UseMpvPlayerReturn {
     await window.api.mpv.addSubFile(filePath)
   }
 
+  const setCompact = async (on: boolean): Promise<void> => {
+    if (!canUseMpv()) return
+    await window.api.mpv.setCompact(on)
+  }
+
   const quit = async (): Promise<void> => {
     if (!canUseMpv()) return
     await window.api.mpv.quit()
@@ -162,6 +169,7 @@ export function useMpvPlayer(): UseMpvPlayerReturn {
     setSubTrack,
     setAudioTrack,
     addSubFile,
+    setCompact,
     quit,
   }
 }

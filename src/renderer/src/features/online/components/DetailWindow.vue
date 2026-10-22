@@ -99,6 +99,7 @@ import {
   UnifiedVideoPlayer,
   canOpenElectronPlayer,
   getMediaProgress,
+  miniSession,
   openMediaPlayer,
 } from '@/features/player'
 import { resolvePageToMedia } from '../utils/play-source'
@@ -155,7 +156,6 @@ const loadData = async (raw: unknown): Promise<void> => {
   const type = guessMediaType(data.type_name || '')
   await tmdb.fetchTmdb(searchTitle.value || itemName.value, type)
   // 自动加载播放源：先保留打开详情时命中的条目，再按片名检索全部已启用源
-  currentUrl.value = ''
   const direct = data._source === 'cms' || data._source === 'catspider'
   // _source 是 cms / catspider 的就是搜索 / 浏览结果里的 CmsItem
   await sources.load(direct ? (data as CmsItem) : null, searchTitle.value)
@@ -168,6 +168,18 @@ watch(
     if (data) loadData(data)
   }
 )
+
+/**
+ * 小窗「回到详情」：重新打开播放层，地址用小窗里那一路，播放器挂载时认领同一个实例（不重新请求）。
+ * 只由宿主（OnlineView）在恢复这个条目时调用。
+ */
+const resumeMini = (): void => {
+  const docked = miniSession().value
+  if (!docked) return
+  currentUrl.value = docked.key
+  showPlaySheet.value = true
+}
+defineExpose({ resumeMini })
 
 let playGeneration = 0
 watch(showPlaySheet, visible => {

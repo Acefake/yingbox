@@ -37,6 +37,7 @@ export function registerMpvIpc(): void {
     setSubTrack: (_, id) => done(mpvPlayer.setSubTrack(id)),
     setAudioTrack: (_, id) => done(mpvPlayer.setAudioTrack(id)),
     addSubFile: (_, filePath) => done(mpvPlayer.addSubFile(filePath)),
+    setCompact: (_, on) => done(mpvPlayer.setCompact(on)),
     quit: () => {
       void mpvPlayer.quit()
       return ok
