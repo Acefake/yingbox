@@ -1,7 +1,8 @@
 /**
  * 写出层模块：组装设置、写出、整理，注册任务类型（writer-write / writer-organize / writer-undo /
  * writer-auto-organize），实现 writer.* IPC 方法并推送 writer-progress。LibraryService 只做转发。
- * 识别后的自动写出 / 自动整理按条目所在媒体库的自动化设置分组（见 auto-rules）。
+ * 识别后的自动写出 / 自动整理按条目所在媒体库的自动化设置分组，作为识别任务的后继给出（见 auto-rules）；
+ * 自动整理结束后的写出写在 writer-auto-organize 的任务定义里。
  *
  * 不形成循环：写出的 nfo / 图片不关联任何条目，扫描器收录它们不会让条目变化，
  * 也就不会触发识别和“识别后自动写出”；内容未变的文件直接跳过、不改 mtime。
@@ -21,10 +22,15 @@ import {
 import type { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, transaction } from '../db/database'
 import type { KeyedMutex } from '../jobs/keyed-mutex'
+import type { FollowupSpec } from '../jobs/followups'
 import type { JobQueue } from '../jobs/queue'
 import type { LibraryStore } from '../libraries/library-store'
 import { SettingsStore } from '../providers/settings-store'
-import { autoFollowups, mergeAutoOrganizePayload } from './auto-rules'
+import {
+  afterAutoOrganize,
+  autoFollowups,
+  mergeAutoOrganizePayload,
+} from './auto-rules'
 import type { AutoOrganizePayload } from './auto-rules'
 import type { MoveOps } from './fs/file-ops'
 import { runAutoOrganize } from './organize/auto-organize'
@@ -40,6 +46,7 @@ import {
   expiredPlans,
   mergeWritePayload,
   organizeOps,
+  writeJobSpec,
 } from './writer-rules'
 import { WriterSettingsStore } from './writer-settings'
 import { WriterStore } from './writer-store'
@@ -111,16 +118,19 @@ export class WriterModule {
     options.queue.register('writer-undo', (p, ctx) =>
       runBatch(jobs, (p as BatchPayload).batchId, 'undo', ctx)
     )
-    const autoJobs = {
-      ...jobs,
-      db: options.db,
-      deviceOf: options.deviceOf,
-      enqueueWrite: (ids: number[]) => this.enqueueWrite(ids, PRIORITY.auto),
-    }
+    const autoJobs = { ...jobs, db: options.db, deviceOf: options.deviceOf }
     options.queue.register(
       'writer-auto-organize',
       (p, ctx) => runAutoOrganize(autoJobs, p as AutoOrganizePayload, ctx),
-      { merge: mergeAutoOrganizePayload }
+      {
+        merge: mergeAutoOrganizePayload,
+        // 整理失败也写出：NFO 与图片写到条目现在的位置
+        followups: {
+          when: 'settled',
+          next: ({ payload }) =>
+            afterAutoOrganize(payload as AutoOrganizePayload),
+        },
+      }
     )
   }
 
@@ -136,28 +146,16 @@ export class WriterModule {
 
   /** 写出这些条目（排队）。 */
   write(itemIds: number[]): JobAccepted {
-    return this.enqueueWrite(itemIds, PRIORITY.user)
+    const job = this.options.queue.enqueue(writeJobSpec(itemIds, PRIORITY.user))
+    return { jobId: job.id }
   }
 
-  /** 识别后的自动后续：按库设置自动写出 / 先整理再写出（都关闭时什么都不做）。 */
-  enqueueAuto(itemIds: number[]): void {
-    if (!itemIds.length) return
-    const followups = autoFollowups(itemIds, this.settings.get(), {
+  /** 识别后的后继：按库设置自动写出 / 先整理再写出（都关闭时为空）。 */
+  autoFollowups(itemIds: number[]): FollowupSpec[] {
+    return autoFollowups(itemIds, this.settings.get(), {
       libraryOf: id => this.store.libraryOf(id),
       automationOf: id => this.options.libraries.find(id)?.automation,
     })
-    if (followups.write.length) {
-      this.enqueueWrite(followups.write, PRIORITY.auto)
-    }
-    if (followups.organize) {
-      this.options.queue.enqueue({
-        type: 'writer-auto-organize',
-        key: 'writer-auto-organize',
-        payload: followups.organize,
-        priority: PRIORITY.auto,
-        maxAttempts: 1,
-      })
-    }
   }
 
   /** 整理预览。 */
@@ -233,16 +231,6 @@ export class WriterModule {
   }
 
   // —————————————————————————— 任务 ——————————————————————————
-
-  private enqueueWrite(itemIds: number[], priority: number): JobAccepted {
-    const job = this.options.queue.enqueue({
-      type: 'writer-write',
-      key: 'writer-write',
-      payload: { itemIds } satisfies WritePayload,
-      priority,
-    })
-    return { jobId: job.id }
-  }
 
   private prunePlans(): void {
     for (const id of expiredPlans(this.plans, Date.now())) this.plans.delete(id)

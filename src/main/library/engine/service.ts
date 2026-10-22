@@ -2,6 +2,7 @@
  * 媒体库服务：把数据库、任务队列、扫描器、监控组装起来，实现 IPC 契约的每个方法，
  * 并把变化广播给订阅方。新文件的链路：监控（事件 / 定时扫描 / 外部变更通知）→ 增量扫描（写入稳定判定）→
  * 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」）。
+ * 这条链写成各任务定义里的后继（followups，规则见 jobs/followups.ts），由任务队列统一派发。
  *
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。
  * 扫描 / 解析 / 指纹任务的实现在 library-jobs，纯规则在 service-rules，变化入口在 library-watch。
@@ -51,10 +52,10 @@ import { LibraryWatch } from './library-watch'
 import type { LibraryServiceOptions } from './service-options'
 import { type LibraryJobDeps, registerLibraryJobs } from './library-jobs'
 import {
-  type LibraryPayload,
   PRIORITY,
   type ScanPayload,
   itemsChangedEvent,
+  libraryJobSpec,
   scanJobKey,
 } from './service-rules'
 
@@ -104,6 +105,7 @@ export class LibraryService {
     this.queue = new JobQueue(new JobStore(this.db), {
       concurrency: options.concurrency,
       onEvent: event => this.emit(event),
+      log: this.log,
     })
     const jobs: LibraryJobDeps = {
       db: this.db,
@@ -116,15 +118,12 @@ export class LibraryService {
         this.emitLibraries()
       },
       emitItems: (id, changes) => this.emitItems(id, changes),
+      identifyFollowup: id =>
+        this.libraries.find(id)?.automation.identify
+          ? this.identifier.autoFollowup(id)
+          : null,
       // 网盘不读视频内容：不排指纹任务
-      enqueueFingerprint: id =>
-        void this.isCloudLibrary(id).then(
-          cloud => cloud || this.enqueueLibraryJob('fingerprint', id)
-        ),
-      enqueueIdentify: id => {
-        if (this.libraries.find(id)?.automation.identify)
-          this.identifier.enqueueAuto(id)
-      },
+      isCloudLibrary: id => this.isCloudLibrary(id),
       settleFor: lib => this.watch.settleFor(lib),
       onUnsettled: (id, u) => this.watch.recheck(id, u.dirs, u.retryInMs),
       log: this.log,
@@ -151,10 +150,10 @@ export class LibraryService {
       catalogQuery: this.catalogQuery,
       emit: event => this.emit(event),
       fingerprint: forCloud(p => this.fingerprint(p), isCloudPath, pacer),
-      onIdentified: itemIds => {
-        this.actors.onIdentified(itemIds)
-        this.writer.enqueueAuto(itemIds)
-      },
+      followups: itemIds => [
+        ...this.actors.identifiedFollowups(itemIds),
+        ...this.writer.autoFollowups(itemIds),
+      ],
       log: this.log,
     })
     this.writer = new WriterModule({
@@ -176,7 +175,7 @@ export class LibraryService {
   async start(): Promise<void> {
     for (const lib of this.libraries.list()) {
       if (this.scanStore.staleParsed(lib.id, PARSER_VERSION, 0, 1).length) {
-        this.enqueueLibraryJob('parse', lib.id)
+        this.queue.enqueue(libraryJobSpec('parse', lib.id))
       }
     }
     this.identifier.start()
@@ -346,7 +345,7 @@ export class LibraryService {
       this.emitLibraries()
       for (const [i, lib] of libs.entries())
         if (fingerprint && !clouds[i])
-          this.enqueueLibraryJob('fingerprint', lib.id)
+          this.queue.enqueue(libraryJobSpec('fingerprint', lib.id))
     })
   }
 
@@ -361,18 +360,6 @@ export class LibraryService {
       key: scanJobKey(payload.libraryId),
       payload,
       priority,
-    })
-  }
-
-  private enqueueLibraryJob(
-    type: 'parse' | 'fingerprint',
-    libraryId: number
-  ): void {
-    this.queue.enqueue({
-      type,
-      key: `${type}:${libraryId}`,
-      payload: { libraryId } satisfies LibraryPayload,
-      priority: PRIORITY[type],
     })
   }
 

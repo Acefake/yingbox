@@ -23,6 +23,7 @@ import { ItemChanges } from '../catalog/catalog-store'
 import type { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, transaction } from '../db/database'
 import { type BinaryFetch, ImageCache } from '../images/image-cache'
+import type { FollowupSpec } from '../jobs/followups'
 import type { JobQueue } from '../jobs/queue'
 import { SqliteResponseCache } from '../providers/http/provider-cache'
 import { type FetchLike, ProviderHttp } from '../providers/http/provider-http'
@@ -38,12 +39,12 @@ import type { Clock } from '../providers/http/rate-limiter'
 import { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
 import { SETTING_KEYS, SettingsStore } from '../providers/settings-store'
 import { TmdbProvider } from '../providers/tmdb/tmdb-provider'
-import { runIdentifyJob } from './identify-job'
+import { type IdentifyResult, runIdentifyJob } from './identify-job'
 import { TOKEN_SETTING_KEYS, readJavCredentials } from './provider-credentials'
 import {
   type IdentifyPayload,
   candidateInfo,
-  identifyJobKey,
+  identifyJobSpec,
   itemsChangedEvents,
   mergeIdentifyPayload,
   scoredInfo,
@@ -93,8 +94,8 @@ export interface IdentifyModuleOptions {
   concurrency?: number
   /** 给番号站点没带头像的演员补头像的来源（演员库共用的 gfriends）；缺省 JavProvider 自建。 */
   avatars?: ActorSource
-  /** 识别 / 刷新 / 手动匹配后有元数据变化的顶层条目（写出层据此自动写 NFO）。 */
-  onIdentified?: (itemIds: number[]) => void
+  /** 识别 / 刷新 / 手动匹配后，元数据有变化的顶层条目（可能为空，此时应给出空列表）要派的后继。 */
+  followups?: (itemIds: number[]) => readonly FollowupSpec[]
   log?: (message: string) => void
 }
 
@@ -189,12 +190,17 @@ export class IdentifyModule {
             emit: options.emit,
             emitChanges: changes => this.emitChanges(changes),
             concurrency: options.concurrency,
-            onIdentified: options.onIdentified,
           },
           p as IdentifyPayload,
           ctx
         ),
-      { merge: mergeIdentifyPayload }
+      {
+        merge: mergeIdentifyPayload,
+        followups: {
+          next: ({ result }) =>
+            options.followups?.((result as IdentifyResult).changed) ?? [],
+        },
+      }
     )
   }
 
@@ -209,19 +215,14 @@ export class IdentifyModule {
     return this.provider.configured
   }
 
-  /** 扫描后自动识别新增 / 变化的条目（TMDB 库没有令牌时不排；番号库不需要令牌）。 */
-  enqueueAuto(libraryId: number): void {
-    if (!this.configured && this.store.needsTmdb({ libraryId })) return
-    this.enqueue({ mode: 'identify', libraryId }, PRIORITY.auto)
+  /** 扫描后自动识别新增 / 变化条目的后继（TMDB 库没有令牌时没有；番号库不需要令牌）。 */
+  autoFollowup(libraryId: number): FollowupSpec | null {
+    if (!this.configured && this.store.needsTmdb({ libraryId })) return null
+    return identifyJobSpec({ mode: 'identify', libraryId }, PRIORITY.auto)
   }
 
   private enqueue(payload: IdentifyPayload, priority: number): JobAccepted {
-    const job = this.options.queue.enqueue({
-      type: 'identify',
-      key: identifyJobKey(payload),
-      payload,
-      priority,
-    })
+    const job = this.options.queue.enqueue(identifyJobSpec(payload, priority))
     return { jobId: job.id }
   }
 
@@ -284,7 +285,8 @@ export class IdentifyModule {
     try {
       const result = await this.runner.applyManual(target, request)
       this.emitChanges(result.changes)
-      if (result.status === 'matched') this.options.onIdentified?.([target.id])
+      if (result.status === 'matched')
+        this.options.queue.dispatch(this.options.followups?.([target.id]) ?? [])
       return {
         status: result.status,
         item: this.options.catalogQuery.summary(target.id),

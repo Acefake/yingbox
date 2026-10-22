@@ -1,10 +1,15 @@
 /**
- * 通用任务队列：优先级、并发上限、同 key 互斥、取消、失败指数退避重试，状态持久化在 jobs 表。
+ * 通用任务队列：优先级、并发上限、同 key 互斥、取消、失败指数退避重试，状态持久化在 jobs 表；
+ * 任务定义里声明的后继（followups）在父任务结束后由队列统一派发（规则见 followups.ts）。
  *
- * 本 PR 用于扫描、解析和指纹；P3 识别注册新的任务类型即可复用。
  * 任务处理函数应当幂等：引擎崩溃或重启后，没跑完的任务会从头再跑一次。
  */
 import type { JobEvent } from '../../../shared/library/ipc'
+import {
+  type FollowupRule,
+  type FollowupSpec,
+  shouldDispatch,
+} from './followups'
 import type { JobRecord, JobSpec, JobStore, PayloadMerger } from './job-store'
 
 /** 处理函数拿到的上下文。 */
@@ -16,13 +21,15 @@ export interface JobContext {
   progress(fraction: number): void
 }
 
-/** 任务处理函数。 */
-export type JobHandler = (payload: unknown, ctx: JobContext) => Promise<void>
+/** 任务处理函数；返回值交给后继定义（followups.next 的 result）。 */
+export type JobHandler = (payload: unknown, ctx: JobContext) => Promise<unknown>
 
-/** 注册任务类型时的选项。 */
+/** 注册任务类型时的选项（任务定义）。 */
 export interface JobTypeOptions {
   /** 同 key 任务排队时如何合并载荷；缺省用新载荷覆盖。 */
   merge?: PayloadMerger
+  /** 结束后派发的后继任务。 */
+  followups?: FollowupRule
 }
 
 /** 队列参数。 */
@@ -33,6 +40,8 @@ export interface JobQueueOptions {
   backoff?: (attempt: number) => number
   /** 状态变化回调（推给订阅方）。 */
   onEvent?: (event: JobEvent) => void
+  /** 日志（算后继出错时记一笔）。 */
+  log?: (message: string) => void
   /** 时钟，测试注入。 */
   now?: () => number
 }
@@ -96,6 +105,15 @@ export class JobQueue {
     this.emit(job, 'queued')
     this.pump()
     return job
+  }
+
+  /**
+   * 派发后继：逐条按 key 入队。同 key 已排队就合并进那一条（载荷按该类型的 merge 合并、优先级取高）；
+   * 同 key 正在跑时排一条在它后面——进行中的任务开工时已取定目标（识别取待识别条目、指纹取未算的文件），
+   * 不排就会漏掉它开工后才出现的新条目。不在任务里的入口（手动匹配、改设置）也走这里。
+   */
+  dispatch(specs: readonly FollowupSpec[]): void {
+    for (const spec of specs) this.enqueue(spec)
   }
 
   /** 取消任务：排队中的直接取消，运行中的发出取消信号。返回是否找到可取消的任务。 */
@@ -178,11 +196,16 @@ export class JobQueue {
       await null
       try {
         if (!entry) throw new PermanentJobError(`未注册的任务类型：${job.type}`)
-        await entry.handler(job.payload, ctx)
+        const result = await entry.handler(job.payload, ctx)
         this.store.finish(job.id, 'done', this.now())
         this.emit(job, 'done', { progress: 1 })
+        await this.followUp(job, controller.signal, { failed: false, result })
       } catch (error) {
-        this.settleFailure(job, controller.signal, error)
+        if (this.settleFailure(job, controller.signal, error))
+          await this.followUp(job, controller.signal, {
+            failed: true,
+            result: undefined,
+          })
       } finally {
         this.running.delete(job.id)
         this.pump()
@@ -191,27 +214,46 @@ export class JobQueue {
     this.running.set(job.id, { controller, key: job.key, done })
   }
 
+  /** 按任务定义派发后继；父任务被取消 / 引擎退出时不派。算后继出错只记日志，不改父任务状态。 */
+  private async followUp(
+    job: JobRecord,
+    signal: AbortSignal,
+    outcome: { failed: boolean; result: unknown }
+  ): Promise<void> {
+    const rule = this.handlers.get(job.type)?.options.followups
+    if (!rule || !shouldDispatch(rule, outcome.failed, signal.aborted)) return
+    try {
+      this.dispatch(await rule.next({ payload: job.payload, ...outcome }))
+    } catch (error) {
+      this.options.log?.(
+        `任务 ${job.type}#${job.id} 的后继派发失败：${(error as Error).message}`
+      )
+    }
+  }
+
+  /** 记下失败（取消 / 重试 / 失败）；返回是否最终失败（不再重试）。 */
   private settleFailure(
     job: JobRecord,
     signal: AbortSignal,
     error: unknown
-  ): void {
+  ): boolean {
     const message = error instanceof Error ? error.message : String(error)
     if (signal.aborted) {
       // 引擎退出：保持 running，下次启动恢复；用户取消：记为取消
-      if (this.stopping) return
+      if (this.stopping) return false
       this.store.finish(job.id, 'cancelled', this.now())
       this.emit(job, 'cancelled')
-      return
+      return false
     }
     const permanent = error instanceof PermanentJobError
     if (!permanent && job.attempts < job.maxAttempts) {
       const runAfter = this.now() + this.backoff(job.attempts)
       this.store.retry(job.id, runAfter, this.now(), message)
       this.emit(job, 'queued', { error: message })
-      return
+      return false
     }
     this.store.finish(job.id, 'failed', this.now(), message)
     this.emit(job, 'failed', { error: message })
+    return true
   }
 }

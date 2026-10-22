@@ -3,7 +3,7 @@
  *
  * 与手动整理走同一条路（预览计划 → 去掉冲突项 → 记批次 → 按批次执行，可撤销），区别只是
  * 不等用户确认：只整理确定匹配（auto / locked）的条目，有冲突的项原样留下、只记日志。
- * 整理结束（无论成败）后为 writeAfter 里的条目排写出，NFO 与图片写到最终位置。
+ * 整理结束（无论成败）后为 writeAfter 里的条目排写出是任务定义里的后继（auto-rules 的 afterAutoOrganize）。
  */
 import { transaction } from '../../db/database'
 import type { LibraryDb } from '../../db/database'
@@ -18,8 +18,6 @@ export interface AutoOrganizeDeps extends WriterJobDeps {
   db: LibraryDb
   /** 设备号（测试注入以模拟跨盘）。 */
   deviceOf?: (path: string) => Promise<number | undefined>
-  /** 排写出（自动优先级）。 */
-  enqueueWrite: (itemIds: number[]) => void
 }
 
 /** 执行一次自动整理。 */
@@ -28,13 +26,7 @@ export async function runAutoOrganize(
   payload: AutoOrganizePayload,
   ctx: JobContext
 ): Promise<void> {
-  try {
-    await organizeConfident(deps, payload.itemIds, ctx)
-  } finally {
-    if (payload.writeAfter.length && !ctx.signal.aborted) {
-      deps.enqueueWrite(payload.writeAfter)
-    }
-  }
+  await organizeConfident(deps, payload.itemIds, ctx)
 }
 
 /** 规划并执行确定匹配条目的整理（全局「允许整理文件」关闭时什么都不做）。 */
