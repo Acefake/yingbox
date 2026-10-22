@@ -19,6 +19,7 @@ import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
 import { createLibraryService, envSecrets } from '../platform/platform'
 import { codecDeriver } from '../images/derived'
+import { codecClipPixels } from '../visual/clip-pixels'
 import {
   type Codec,
   inProcessCodec,
@@ -60,6 +61,7 @@ const service = createLibraryService({
   onImagesCached: keys =>
     post({ kind: 'event', channel: LIBRARY_IMAGES_CACHED, payload: keys }),
   deriveImage: codecDeriver(lazyCodec),
+  clipPixels: codecClipPixels(lazyCodec),
   env: envSecrets(process.env),
 })
 

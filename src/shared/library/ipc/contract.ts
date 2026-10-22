@@ -17,6 +17,8 @@ import type {
   LibraryFacetsBridge,
 } from './contract-facets'
 import { FACET_METHODS } from './contract-facets'
+import type { LibraryVisualBridge, VisualRpcMap } from './contract-visual'
+import { VISUAL_METHODS } from './contract-visual'
 import type {
   ApplyMatchRequest,
   ApplyMatchResult,
@@ -47,6 +49,7 @@ export * from './contract-actors'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-facets'
+export * from './contract-visual'
 export * from './contract-jav'
 export * from './contract-match'
 export * from './contract-provider'
@@ -238,7 +241,7 @@ export interface JobAccepted {
 
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
 export interface LibraryRpcMap
-  extends ActorRpcMap, FacetRpcMap, LibraryNotifyRpcMap {
+  extends ActorRpcMap, FacetRpcMap, VisualRpcMap, LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
@@ -308,13 +311,15 @@ export const LIBRARY_METHODS = [
   'jav.setSettings',
   ...ACTOR_METHODS,
   ...FACET_METHODS,
+  ...VISUAL_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
  * 渲染进程看到的 window.api.library。
  * 方法失败时 reject 一个 Error，错误码用 libraryErrorCode(error) 取（见 wire.ts）。
  */
-export interface LibraryBridge extends LibraryFacetsBridge {
+export interface LibraryBridge
+  extends LibraryFacetsBridge, LibraryVisualBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>

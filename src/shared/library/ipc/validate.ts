@@ -34,6 +34,7 @@ import {
   positiveId,
 } from './validate-base'
 import { FACET_PARSERS, parseFacetFilter } from './validate-facets'
+import { VISUAL_PARSERS } from './validate-visual'
 import { parseJavSettings } from './validate-jav'
 import {
   parseAutomationPatch,
@@ -350,6 +351,7 @@ const PARAM_PARSERS: {
   'jav.setSettings': parseJavSettings,
   ...ACTOR_PARSERS,
   ...FACET_PARSERS,
+  ...VISUAL_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */

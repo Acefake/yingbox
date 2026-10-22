@@ -115,6 +115,11 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
     },
     actors: createActorsBridge(call),
     facets: { list: request => call('facets.list', request) },
+    visual: {
+      status: () => call('visual.status'),
+      index: () => call('visual.index'),
+      search: request => call('visual.search', request),
+    },
     subscribe(listener) {
       listeners.add(listener)
       stream ??= deps.openEvents(LIBRARY_HTTP.events, data => {
