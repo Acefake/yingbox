@@ -124,7 +124,7 @@ describe('HLS 下载', () => {
     expect(new Set(seenReferer)).toEqual(new Set(['https://site.test/']))
   })
 
-  it('分片失败（重试用尽）时删除 .partial，不留半个文件', async () => {
+  it('分片失败（重试用尽）时不留成品，保留 .partial 与分片记录供续传', async () => {
     const net = createNetClient({
       lookup,
       fetch: async url =>
@@ -138,7 +138,10 @@ describe('HLS 下载', () => {
         retries: 0,
       })
     ).rejects.toThrow('HTTP 500')
-    expect(await readdir(dir)).toEqual([])
+    expect((await readdir(dir)).sort()).toEqual([
+      'X.ts.partial',
+      'X.ts.partial.segs',
+    ])
   })
 })
 
