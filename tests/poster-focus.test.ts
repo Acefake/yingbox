@@ -291,3 +291,39 @@ describe('取景：FaceDetector 细化（Windows / macOS）', () => {
     expect(detect).toHaveBeenCalledTimes(1)
   })
 })
+
+describe('网页端传输：片库服务 /media/focus', () => {
+  it('serverFocus / serverSaveFocus 发同源 JSON POST', async () => {
+    const { serverFocus, serverSaveFocus } =
+      await import('../src/renderer/src/services/library-server')
+    const { LIBRARY_HTTP } = await import('../src/shared/library/ipc')
+    const fetch = vi.fn(
+      async (_path: string, _init: RequestInit) =>
+        new Response(JSON.stringify({ focus: [skin(0.4), null] }), {
+          status: 200,
+        })
+    )
+    vi.stubGlobal('fetch', fetch)
+    try {
+      expect(await serverFocus(['/media/image/a', 'x'])).toEqual([
+        skin(0.4),
+        null,
+      ])
+      expect(fetch.mock.calls[0]![0]).toBe(LIBRARY_HTTP.focus)
+      expect(JSON.parse(String(fetch.mock.calls[0]![1].body))).toEqual({
+        urls: ['/media/image/a', 'x'],
+      })
+      fetch.mockResolvedValueOnce(new Response(null, { status: 204 }))
+      await serverSaveFocus('/media/image/a', skin(0.5, { by: 'face' }))
+      expect(fetch.mock.calls[1]![0]).toBe(LIBRARY_HTTP.focusSave)
+      expect(JSON.parse(String(fetch.mock.calls[1]![1].body))).toEqual({
+        url: '/media/image/a',
+        focus: skin(0.5, { by: 'face' }),
+      })
+      fetch.mockResolvedValueOnce(new Response('{}', { status: 500 }))
+      await expect(serverFocus(['x'])).rejects.toThrow()
+    } finally {
+      vi.unstubAllGlobals()
+    }
+  })
+})

@@ -68,6 +68,11 @@ describe('analyzeFocus：合成图', () => {
     })
   })
 
+  it('正红（红毯、红布）不算皮肤', () => {
+    const c = rect(canvas(1280, 720), 0, 0.6, 1, 1, [200, 30, 40])
+    expect(run(c).by).not.toBe('skin')
+  })
+
   it('散落的小肤色点不算人', () => {
     const c = canvas(1280, 720)
     for (let i = 0; i < 12; i++)
@@ -108,6 +113,11 @@ describe('analyzeFocus：番号封套（背面 | 书脊 | 正面）', () => {
     const focus = run(c)
     expect(focus.box).toBeUndefined()
     expect(Math.abs(focus.x - 0.3)).toBeLessThan(0.05)
+  })
+
+  it('满是纹理的封套比例图（老照片颗粒）：到处都是竖边，不当书脊', () => {
+    const c = checker(canvas(800, 538), 0, 0, 1, 1, 3)
+    expect(run(c).box).toBeUndefined()
   })
 
   it('封套比例但没有折痕：不框（不猜正面在右）', () => {

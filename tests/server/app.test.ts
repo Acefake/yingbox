@@ -12,7 +12,8 @@ import {
   writeFileSync,
 } from 'node:fs'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
+import { pathToFileURL } from 'node:url'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import type {
   InvokeResult,
@@ -232,9 +233,13 @@ describe('片库流程', () => {
         headers: { 'content-type': 'application/json' },
         body: JSON.stringify({ urls }),
       })
+    // 本地文件不对网页开放：即使文件存在、是能解码的图，也不给焦点
+    const local = pathToFileURL(
+      resolve('tests/fixtures/images/cover-800x538.jpg')
+    ).href
     const res = await ask([
       `/media/image/${key}?w=300`,
-      '/media/thumb?w=300&src=file%3A%2F%2F%2Fetc%2Fa.jpg',
+      `/media/thumb?w=300&src=${encodeURIComponent(local)}`,
       'nope',
     ])
     expect(res.status).toBe(200)

@@ -120,13 +120,13 @@ describe('焦点：计算与持久化', () => {
     expect(again.codec.ops).toEqual([])
   })
 
-  it('已有缩略图（升级前生成的）没有焦点：解码缓存的缩略图现算，不重新生成', async () => {
+  it('已有缩略图（升级前生成的，哪一档都行）没有焦点：解码缓存的缩略图现算，不重新生成', async () => {
     const small = scale(landscape(), 300)
     const webp = await (
       await loadWebpEncoder()
     )(small.rgba, small.width, small.height, 80)
     mkdirSync(join(dir, 'thumb', 'cd'), { recursive: true })
-    writeFileSync(join(dir, 'thumb', thumbName(KEY, 300, 'webp')), webp)
+    writeFileSync(join(dir, 'thumb', thumbName(KEY, 480, 'webp')), webp)
     const { p, resize, codec } = pipeline(landscape())
     const [focus] = await p.focus.get([url])
     expect(resize.calls).toBe(0)
