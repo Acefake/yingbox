@@ -53,8 +53,10 @@
 <script setup lang="ts">
 /**
  * 顶部工具栏：前进 / 后退 / 刷新、全局搜索（Ctrl + K 聚焦）和窗口控制，整条保留窗口拖拽区域。
- * 搜索框与当前路由的 ?q= 同步；输入成人模式口令回车会切换成人模式。
+ * 搜索框与当前路由的 ?q= 同步；本地片库页（电影 / 剧集 / 番号）边输入边过滤（200ms 防抖），
+ * 其余页面回车后跳到搜索标签。输入成人模式口令回车会切换成人模式。
  */
+import { useDebounceFn } from '@vueuse/core'
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
@@ -67,6 +69,7 @@ import { useSetting } from '@/features/settings'
 
 import {
   ADULT_MODE_PASSPHRASE,
+  filtersInPlace,
   searchLocation,
   searchPlaceholder,
 } from '../composables/global-search'
@@ -92,6 +95,20 @@ watch(
   },
   { immediate: true }
 )
+
+// 本地片库页边输入边过滤：防抖后写回 ?q=（和路由里一样时不动，避免回环）
+const applyInPlace = useDebounceFn((text: string) => {
+  const name = route.name?.toString()
+  if (!filtersInPlace(name)) return
+  const query = text.trim()
+  if (query.toLowerCase() === ADULT_MODE_PASSPHRASE) return
+  const current = typeof route.query.q === 'string' ? route.query.q : ''
+  if (query === current) return
+  router.replace(searchLocation(name, route.path, query))
+}, 200)
+watch(globalSearch, text => {
+  if (filtersInPlace(route.name?.toString())) void applyInPlace(text)
+})
 
 /** 后退前先广播 app:navigate-back，页面可 preventDefault 自己处理（如关闭详情层） */
 const navigateBack = (): void => {
