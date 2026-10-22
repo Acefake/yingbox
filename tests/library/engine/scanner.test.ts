@@ -1,6 +1,8 @@
 import { mkdirSync, renameSync, rmSync, writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { ItemChanges } from '../../../src/main/library/catalog/catalog-store'
+import { walkLibrary } from '../../../src/main/library/scanner/walk'
 import { normalizeLibraryQuery } from '../../../src/shared/library/ipc'
 import { ageTree, count, scanEnv, tempTree } from './helpers'
 
@@ -167,7 +169,7 @@ describe('scanLibrary：电影库', () => {
     let batches = 0
     await expect(
       env.scan({
-        batchSize: 5,
+        sliceMs: 0,
         signal: controller.signal,
         onProgress: () => {
           if (++batches === 2) controller.abort(new Error('中断'))
@@ -183,6 +185,176 @@ describe('scanLibrary：电影库', () => {
     expect(resumed.added).toBe(30 - partial)
     expect(count(env.db, 'SELECT COUNT(*) FROM files')).toBe(30)
     expect(env.query.list(allQuery).total).toBe(30)
+  })
+})
+
+describe('scanLibrary：按时间片写入，不长时间占住事件循环', () => {
+  /** 从现在起数事件循环转了几圈（每圈一个 setImmediate）。 */
+  const countTicks = (): { stop: () => number } => {
+    let ticks = 0
+    let spinning = true
+    const spin = (): void => {
+      if (!spinning) return
+      ticks++
+      setImmediate(spin)
+    }
+    spin()
+    return {
+      stop: () => {
+        spinning = false
+        return ticks
+      },
+    }
+  }
+
+  /** 一个目录下 n 个视频（目录 mtime 调旧，确保记的是真实 mtime 而不是不可信哨兵）。 */
+  const bigDir = (n: number): void => {
+    for (let i = 0; i < n; i++) tree.write(`Big/Clip ${i}.mkv`)
+    ageTree(tree.root)
+  }
+
+  it('同一目录的文件也分多个事务写入，相邻两次进度之间事件循环转过', async () => {
+    bigDir(40)
+    const env = scanEnv(tree.root)
+    let ticks = 0
+    let spinning = true
+    const spin = (): void => {
+      if (!spinning) return
+      ticks++
+      setImmediate(spin)
+    }
+    spin()
+    const seen: Array<[number, number]> = []
+
+    const summary = await env.scan({
+      sliceMs: 0,
+      onProgress: fraction => seen.push([fraction, ticks]),
+    })
+    spinning = false
+
+    expect(summary.added).toBe(40)
+    expect(seen.length).toBeGreaterThanOrEqual(40)
+    for (let i = 1; i < seen.length; i++) {
+      expect(seen[i][0]).toBeGreaterThanOrEqual(seen[i - 1][0])
+      expect(seen[i][1]).toBeGreaterThan(seen[i - 1][1])
+    }
+    expect(seen.at(-1)![0]).toBe(1)
+  })
+
+  it('默认时间片下，2000 个文件的目录不会在一个事务里写完', async () => {
+    bigDir(2000)
+    const env = scanEnv(tree.root)
+    let progress = 0
+
+    const summary = await env.scan({ onProgress: () => progress++ })
+
+    expect(summary.added).toBe(2000)
+    expect(progress).toBeGreaterThan(1)
+    expect(count(env.db, 'SELECT COUNT(*) FROM files')).toBe(2000)
+  })
+
+  it('在一个目录写到一半时中断，重扫会重读该目录并补齐', async () => {
+    bigDir(30)
+    const env = scanEnv(tree.root)
+    const controller = new AbortController()
+    let slices = 0
+    await expect(
+      env.scan({
+        sliceMs: 0,
+        signal: controller.signal,
+        onProgress: () => {
+          if (++slices === 5) controller.abort(new Error('中断'))
+        },
+      })
+    ).rejects.toThrow('中断')
+    const partial = count(env.db, 'SELECT COUNT(*) FROM files')
+    expect(partial).toBeGreaterThan(0)
+    expect(partial).toBeLessThan(30)
+
+    const resumed = await env.scan()
+
+    expect(resumed.added).toBe(30 - partial)
+    expect(count(env.db, 'SELECT COUNT(*) FROM files')).toBe(30)
+    // 补齐之后目录记的是真实 mtime：再扫一次走短路，不读任何文件
+    const again = await env.scan()
+    expect(again.stats.filesStatted).toBe(0)
+  })
+
+  it('大量删除也分片提交，事务之间事件循环转过，条目全部回收', async () => {
+    for (let i = 0; i < 40; i++) tree.write(`M${i} (2000)/M${i} (2000).mkv`)
+    const env = scanEnv(tree.root)
+    await env.scan()
+    for (let i = 0; i < 40; i++) {
+      rmSync(join(tree.root, `M${i} (2000)`), { recursive: true })
+    }
+    const ticks = countTicks()
+
+    const summary = await env.scan({ sliceMs: 0 })
+
+    // 遍历读删除目录 40 圈 + 删 40 个文件和 40 个目录各一片；不分片删除只剩 40 多圈
+    expect(ticks.stop()).toBeGreaterThanOrEqual(100)
+    expect(summary.removed).toBe(40)
+    expect(summary.changes.removed.size).toBe(40)
+    expect(count(env.db, 'SELECT COUNT(*) FROM files')).toBe(0)
+    expect(count(env.db, 'SELECT COUNT(*) FROM media_items')).toBe(0)
+  })
+
+  it('写完之后才取消：空条目照样回收完，不留下没有文件的条目', async () => {
+    for (let i = 0; i < 10; i++) tree.write(`M${i} (2000)/M${i} (2000).mkv`)
+    ageTree(tree.root) // 根目录记真实 mtime，删除后它进入第 2 步（会报进度）
+    const env = scanEnv(tree.root)
+    await env.scan()
+    for (let i = 0; i < 10; i++) {
+      rmSync(join(tree.root, `M${i} (2000)`), { recursive: true })
+    }
+    const controller = new AbortController()
+
+    const summary = await env.scan({
+      sliceMs: 0,
+      signal: controller.signal,
+      onProgress: fraction => {
+        if (fraction === 1) controller.abort(new Error('取消'))
+      },
+    })
+
+    expect(controller.signal.aborted).toBe(true)
+    expect(summary.changes.removed.size).toBe(10)
+    expect(count(env.db, 'SELECT COUNT(*) FROM media_items')).toBe(0)
+  })
+
+  it('遍历时被删目录的文件分片读取，事件循环转过', async () => {
+    for (let i = 0; i < 20; i++) tree.write(`M${i} (2000)/M${i} (2000).mkv`)
+    const env = scanEnv(tree.root)
+    await env.scan()
+    for (let i = 0; i < 20; i++) {
+      rmSync(join(tree.root, `M${i} (2000)`), { recursive: true })
+    }
+    const snapshot = env.scanStore.snapshot(env.library.id)
+    const ticks = countTicks()
+
+    const diff = await walkLibrary(tree.root, snapshot, { sliceMs: 0 })
+
+    expect(ticks.stop()).toBeGreaterThanOrEqual(20)
+    expect(diff.removedDirs).toHaveLength(20)
+    expect(diff.removedDirs.every(d => d.files.length === 1)).toBe(true)
+  })
+
+  it('空条目分块回收：每块最多 limit 条，逐层向上直到剧集', async () => {
+    for (let e = 1; e <= 10; e++) {
+      tree.write(`Show/Season 1/Show S01E${String(e).padStart(2, '0')}.mkv`)
+    }
+    const env = scanEnv(tree.root, 'tv')
+    await env.scan()
+    const [series] = env.query.list(allQuery).items
+    env.db.exec('DELETE FROM files')
+    const changes = new ItemChanges()
+
+    const chunks = [...env.catalog.garbageChunks(env.library.id, changes, 3)]
+
+    // 集 10 条：3+3+3+1 四块；季、剧集各一块；电影一块
+    expect(chunks).toHaveLength(7)
+    expect(count(env.db, 'SELECT COUNT(*) FROM media_items')).toBe(0)
+    expect([...changes.removed]).toEqual([series.id])
   })
 })
 

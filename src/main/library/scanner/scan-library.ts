@@ -3,10 +3,11 @@
  *
  * 写回顺序保证崩溃后重跑能收敛到同一结果：
  * 1. 第一个事务处理移动和删除（需要全局视图）；
- * 2. 之后每批若干目录一个事务，目录的 mtime 与它的文件变化在同一事务里提交——
- *    没提交的目录下次 mtime 不匹配，会被重新读取，所以中断的扫描重跑时从断点继续；
+ * 2. 之后按时间片分事务写入（每片默认 ≤SCAN_SLICE_MS，大目录也会被切开），目录的真实 mtime
+ *    与它的最后一个文件在同一事务里提交，写到一半的目录记不可信 mtime——
+ *    没写完的目录下次 mtime 不匹配，会被重新读取，所以中断的扫描重跑时从断点继续；
  * 3. 最后回收空条目、记录扫描时间。
- * 批与批之间让出事件循环，扫描期间查询照常响应。
+ * 片与片之间让出事件循环，扫描期间查询、事件照常响应（同步的 node:sqlite 不会长时间独占线程）。
  *
  * 写入稳定判定（可选，见 settle.ts）：还在复制中的视频这一轮不写，所在目录记不可信 mtime，
  * 摘要里给出这些目录和建议的复查时间，由服务层排一次定向复扫。移动识别在判定之前做：
@@ -21,7 +22,7 @@ import { type ParseContext, parseLibraryFile } from './parse'
 import type { ScanStore } from './scan-store'
 import type { SettleTracker } from './settle'
 import type { DirChange, ScanDiff, ScannedFile, StoredFile } from './types'
-import { RACY_MTIME, walkLibrary } from './walk'
+import { RACY_MTIME, SCAN_SLICE_MS, walkLibrary } from './walk'
 
 /** 扫描参数。 */
 export interface ScanOptions {
@@ -29,8 +30,11 @@ export interface ScanOptions {
   /** 只重读这些目录（来自文件监听）。 */
   scope?: string[]
   signal?: AbortSignal
-  /** 每个事务最多写多少个文件，默认 2000。 */
-  batchSize?: number
+  /**
+   * 每个写事务最多占用事件循环多久（毫秒），默认 SCAN_SLICE_MS；到点在文件边界提交并让出。
+   * 0 表示每个事务只写一个文件（测试用）。
+   */
+  sliceMs?: number
   /** 进度回调，0–1。 */
   onProgress?: (fraction: number) => void
   /** 时钟，测试注入。 */
@@ -116,7 +120,6 @@ export async function scanLibrary(
   options: ScanOptions = {}
 ): Promise<ScanSummary> {
   const now = options.now ?? Date.now
-  const batchSize = options.batchSize ?? 2000
   const { db, scanStore, catalog } = deps
   const ctx: ParseContext = {
     libraryId: library.id,
@@ -131,6 +134,7 @@ export async function scanLibrary(
     scope: options.scope,
     signal: options.signal,
     racyWindowMs: options.racyWindowMs,
+    sliceMs: options.sliceMs,
   })
   const t1 = performance.now()
 
@@ -151,83 +155,146 @@ export async function scanLibrary(
   let needsGc = false
   let removed = 0
 
-  // 1) 移动与删除
-  transaction(db, () => {
-    const at = now()
-    for (const move of moves) {
+  const sliceMs = options.sliceMs ?? SCAN_SLICE_MS
+  /**
+   * 按时间片分事务执行：每个事务里反复调用 step（返回 false 表示做完），
+   * 占用超过 sliceMs 就提交、让出事件循环再继续。endSlice 在每个事务提交前调用，
+   * afterSlice 在提交后调用；给了 signal 时每片开始前检查取消。
+   */
+  const inSlices = async (
+    step: () => boolean,
+    hooks: {
+      endSlice?: () => void
+      afterSlice?: () => void
+      signal?: AbortSignal
+    } = {}
+  ): Promise<void> => {
+    const { endSlice, afterSlice, signal } = hooks
+    let more = true
+    while (more) {
+      signal?.throwIfAborted()
+      transaction(db, () => {
+        const deadline = performance.now() + sliceMs
+        do more = step()
+        while (more && performance.now() < deadline)
+        endSlice?.()
+      })
+      afterSlice?.()
+      if (more) await yieldToLoop()
+    }
+  }
+
+  // 1) 移动与删除。可以分片：没删完的文件所在目录的 mtime 要到第 2 步才更新，
+  //    中断后重扫会重读这些目录、再次认出删除和移动
+  const removals: Array<() => void> = []
+  for (const move of moves) {
+    removals.push(() => {
       // 保留原记录（id、关联、匹配）；路径变了重新解析，但不改关联
       const { columns } = parseLibraryFile(ctx, move.to)
       scanStore.updateFile(
         move.from.id,
         move.to,
         columns,
-        at,
+        now(),
         move.fingerprint ?? move.from.fingerprint
       )
-    }
-    for (const file of removedFiles) {
-      if (movedFrom.has(file.id)) continue
+    })
+  }
+  for (const file of removedFiles) {
+    if (movedFrom.has(file.id)) continue
+    removals.push(() => {
       for (const id of catalog.topLevelOfFile(file.id)) changes.touch(id)
       scanStore.deleteFile(file.id)
       removed++
       needsGc = true
-    }
-    for (const dir of diff.removedDirs) scanStore.deleteSubtree(dir.key)
-  })
+    })
+  }
+  for (const dir of diff.removedDirs) {
+    removals.push(() => scanStore.deleteSubtree(dir.key))
+  }
+  let removalIndex = 0
+  if (removals.length) {
+    await inSlices(
+      () => {
+        removals[removalIndex++]()
+        return removalIndex < removals.length
+      },
+      { signal: options.signal }
+    )
+  }
 
-  // 2) 按目录分批写入新增与变更
+  // 2) 新增与变更。目录的真实 mtime 只和它的最后一个文件同事务提交；写到一半的目录
+  //    先记不可信 mtime，中断后重扫会重读它，已写入的文件与磁盘一致、不会重复
   let added = 0
   let changed = 0
   const total = diff.dirChanges.reduce(
     (n, c) => n + c.added.length + c.changed.length,
     0
   )
-  let index = 0
-  while (index < diff.dirChanges.length) {
-    options.signal?.throwIfAborted()
-    transaction(db, () => {
-      const at = now()
-      let written = 0
-      while (index < diff.dirChanges.length && written < batchSize) {
-        const change = diff.dirChanges[index++]
-        scanStore.upsertDir(library.id, change.dir)
-        for (const file of change.added) {
-          if (movedTo.has(file.key)) continue
-          const parse = parseLibraryFile(ctx, file)
-          const id = scanStore.insertFile(library.id, file, parse.columns, at)
-          catalog.linkFile(library.id, id, parse.grouping, true, at, changes)
-          added++
-        }
-        for (const file of change.changed) {
-          const parse = parseLibraryFile(ctx, file)
-          scanStore.updateFile(file.id, file, parse.columns, at, null)
-          if (
-            catalog.linkFile(
-              library.id,
-              file.id,
-              parse.grouping,
-              false,
-              at,
-              changes
-            )
-          ) {
-            needsGc = true
+  /** 写一个新增文件（移动目标已在第 1 步更新过，跳过）。 */
+  const writeAdded = (file: ScannedFile): void => {
+    if (movedTo.has(file.key)) return
+    const at = now()
+    const parse = parseLibraryFile(ctx, file)
+    const id = scanStore.insertFile(library.id, file, parse.columns, at)
+    catalog.linkFile(library.id, id, parse.grouping, true, at, changes)
+    added++
+  }
+  /** 写一个变更文件：重新解析，关联变了需要回收空条目。 */
+  const writeChanged = (file: DirChange['changed'][number]): void => {
+    const at = now()
+    const parse = parseLibraryFile(ctx, file)
+    scanStore.updateFile(file.id, file, parse.columns, at, null)
+    if (
+      catalog.linkFile(library.id, file.id, parse.grouping, false, at, changes)
+    ) {
+      needsGc = true
+    }
+    changed++
+  }
+  let dirIndex = 0
+  /** 当前目录里已写到第几个文件（先新增、后变更）。 */
+  let fileIndex = 0
+  if (diff.dirChanges.length) {
+    await inSlices(
+      () => {
+        const change = diff.dirChanges[dirIndex]
+        const count = change.added.length + change.changed.length
+        if (fileIndex < count) {
+          if (fileIndex < change.added.length) {
+            writeAdded(change.added[fileIndex])
+          } else {
+            writeChanged(change.changed[fileIndex - change.added.length])
           }
-          changed++
+          fileIndex++
         }
-        written += change.added.length + change.changed.length + 1
+        if (fileIndex >= count) {
+          scanStore.upsertDir(library.id, change.dir)
+          dirIndex++
+          fileIndex = 0
+        }
+        return dirIndex < diff.dirChanges.length
+      },
+      {
+        endSlice: () => {
+          if (fileIndex > 0) {
+            const partial = diff.dirChanges[dirIndex].dir
+            scanStore.upsertDir(library.id, { ...partial, mtime: RACY_MTIME })
+          }
+        },
+        afterSlice: () =>
+          options.onProgress?.(total ? (added + changed) / total : 1),
+        signal: options.signal,
       }
-    })
-    options.onProgress?.(total ? (added + changed) / total : 1)
-    await yieldToLoop()
+    )
   }
 
-  // 3) 回收空条目、记录变化时间
-  transaction(db, () => {
-    const at = now()
-    if (needsGc) catalog.collectGarbage(library.id, changes)
-    catalog.bumpUpdated(changes, at)
-  })
+  // 3) 回收空条目（分块分片；不响应取消：文件已删，它们的空条目必须回收完）、记录变化时间
+  if (needsGc) {
+    const chunks = catalog.garbageChunks(library.id, changes)
+    await inSlices(() => !chunks.next().done)
+  }
+  transaction(db, () => catalog.bumpUpdated(changes, now()))
   const t3 = performance.now()
 
   return {
