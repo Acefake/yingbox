@@ -32,6 +32,7 @@ function isCjk(cp: number): boolean {
 }
 
 const PUNCT = /^\p{P}$/u
+
 /** BERT 把 ASCII 里非字母数字的可见符号都算标点。 */
 function isPunct(ch: string, cp: number): boolean {
   return (
