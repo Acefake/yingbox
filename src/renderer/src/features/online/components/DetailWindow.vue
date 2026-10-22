@@ -217,7 +217,7 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     if (generation !== playGeneration) return
     if (resolved) playUrl = resolved
   }
-  // 预解析跳转/页面内 m3u8，便于 Electron 独立窗口直接播放
+  // 预解析跳转/页面内 m3u8，便于内置播放器直接播放
   playUrl = await resolvePageToMedia(playUrl)
   if (generation !== playGeneration) return
 
@@ -250,7 +250,7 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     ...(fallbacks.length ? { fallbacks } : {}),
   })
   showPlaySheet.value = false
-  if (!ok) toast.error('无法打开独立播放窗口，请完全重启应用后再试')
+  if (!ok) toast.error('无法打开播放器，请完全重启应用后再试')
 }
 </script>
 

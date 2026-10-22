@@ -153,7 +153,7 @@ const resumeRecentPlay = async (record: OnlinePlayRecord): Promise<void> => {
       : getMediaProgress(url)
   const ok = await openMediaPlayer({ url, title, poster, startAt: stored })
   if (!ok) {
-    toast.error('无法打开播放窗口，已改为进入详情')
+    toast.error('无法打开播放器，已改为进入详情')
     if (item?.vod_name) openDetailWindow(item)
   }
 }

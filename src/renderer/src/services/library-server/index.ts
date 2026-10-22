@@ -10,6 +10,7 @@
 import { type Ref, ref } from 'vue'
 
 import { LIBRARY_HTTP, type ServerHealth } from '../../../../shared/library/ipc'
+import type { MediaFocus } from '../../../../shared/media-focus'
 
 /** 连接状态：未知（还没探测）/ 已连接 / 需要登录 / 连不上。 */
 export type LibraryServerState =
@@ -103,4 +104,30 @@ export function serverThumbUrl(source: string, width: number): string {
 /** 片库视频文件的流地址（支持 Range）。 */
 export function serverFileUrl(fileId: number): string {
   return `${LIBRARY_HTTP.file}${fileId}`
+}
+
+/** 海报取景的焦点（urls 是 serverImageUrl / serverThumbUrl 给出的地址）；失败时抛错。 */
+export async function serverFocus(
+  urls: string[]
+): Promise<Array<MediaFocus | null>> {
+  const response = await serverFetch(LIBRARY_HTTP.focus, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ urls }),
+  })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return ((await response.json()) as { focus: Array<MediaFocus | null> }).focus
+}
+
+/** 写回人脸检测的焦点；失败时抛错。 */
+export async function serverSaveFocus(
+  url: string,
+  focus: MediaFocus
+): Promise<void> {
+  const response = await serverFetch(LIBRARY_HTTP.focusSave, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ url, focus }),
+  })
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
 }

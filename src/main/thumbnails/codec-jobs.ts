@@ -5,9 +5,12 @@
  * - encode / decode：WebP 编码与解码（桌面端与独立服务都用）；
  * - resize / jpeg：纯 wasm 的解码 + 缩放与 JPEG 兜底编码，独立服务没有 nativeImage 时用（见 wasm-resizer.ts）；
  * - clip：解码并拉伸成按画面搜的模型输入（片库引擎用，见 library/visual）；
- * - poster：横版封面裁右侧作竖版海报，编成 JPEG（片库原图缓存的派生图，见 library/images/derived.ts）。
+ * - poster：横版封面裁右侧作竖版海报，编成 JPEG（片库原图缓存的派生图，见 library/images/derived.ts）；
+ * - focus：海报取景的焦点（纯 TS，见 focus/analyze.ts），放在这里是为了不占宿主事件循环。
  */
 import { cropPosterRight } from '../library/images/derived'
+import type { MediaFocus } from '../../shared/media-focus'
+import { analyzeFocus } from './focus/analyze'
 import {
   decodeImage,
   encodeJpeg,
@@ -38,6 +41,8 @@ export type CodecJob =
       height: number
       quality: number
     }
+  /** RGBA → 焦点 */
+  | { op: 'focus'; rgba: Uint8Array; width: number; height: number }
 
   /** JPEG / PNG / WebP 原图 → 拉伸到 size×size 的 RGBA（按画面搜的模型输入，见 library/visual） */
   | { op: 'clip'; bytes: Uint8Array; size: number }
@@ -47,9 +52,10 @@ export type CodecJob =
 /** 编解码请求（带配对用的 id）。 */
 export type CodecRequest = CodecJob & { id: number }
 
-/** 编解码结果（decode / resize 带宽高）。 */
+/** 编解码结果（decode / resize 带宽高；focus 带焦点）。 */
 export type CodecResponse =
   | { id: number; data: Uint8Array; width?: number; height?: number }
+  | { id: number; focus: MediaFocus }
   | { id: number; error: string }
 
 /** 执行一个编解码任务；失败抛错。 */
@@ -74,6 +80,11 @@ export async function runCodecJob(
       const out = await resizeExact(image, request.size, request.size)
       return { id, data: out.rgba, width: out.width, height: out.height }
     }
+    case 'focus':
+      return {
+        id,
+        focus: analyzeFocus(request.rgba, request.width, request.height),
+      }
     case 'jpeg':
       return { id, data: await encodeJpeg(request, request.quality) }
     case 'poster': {

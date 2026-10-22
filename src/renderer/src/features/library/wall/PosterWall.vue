@@ -90,6 +90,7 @@
  *   每格没有自己的监听器和组件实例；
  * - 每格只有 transform 随位置变化，宽高走网格上的 CSS 变量；
  * - 海报取 300w 本地缩略图，loading=lazy + decoding=async，解码不占主线程；
+ *   加载后按焦点取景（横版封面裁成竖版时留住人脸，services/thumbnails/focus.ts）；
  * - 格子构造、方向键、修饰键等纯规则在 wall-cells.ts，样式在 poster-wall.css；
  * - 悬停预览也委托在网格上（useGridPreview，来源见 wall-preview.ts），多选时不起；
  *   格子被回收（滚出渲染区间、换查询）时停止；
@@ -98,6 +99,7 @@
 import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
 import { useGridPreview } from '@/components/ui/hover-preview'
+import { applyFocus } from '@/services/thumbnails'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
 import { itemImage } from '../api/images'
@@ -148,6 +150,8 @@ const grid = ref<HTMLElement | null>(null)
 
 /** 文字区高度：标题 + 年份 + 上间距（与样式一致）。 */
 const TEXT_HEIGHT = 52
+/** 海报高宽比（与网格的 aspect 一致）。 */
+const POSTER_ASPECT = 1.5
 
 const { metrics, range, fast, height, offset, scrollToIndex } = useVirtualGrid({
   scroller,
@@ -158,7 +162,7 @@ const { metrics, range, fast, height, offset, scrollToIndex } = useVirtualGrid({
     gapX: 24,
     gapY: 32,
     textHeight: TEXT_HEIGHT,
-    aspect: 1.5,
+    aspect: POSTER_ASPECT,
   },
   overscan: 2,
 })
@@ -299,7 +303,9 @@ function onKeydown(event: KeyboardEvent): void {
 }
 
 function onImageLoad(event: Event): void {
-  ;(event.target as HTMLElement).dataset.loaded = ''
+  const img = event.target as HTMLImageElement
+  img.dataset.loaded = ''
+  applyFocus(img, 1 / POSTER_ASPECT)
 }
 
 defineExpose({

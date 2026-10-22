@@ -1,24 +1,17 @@
 <template>
-  <template v-if="isPlayerPopout">
-    <router-view />
-  </template>
-  <AppLayout v-else>
+  <AppLayout>
     <router-view v-slot="{ Component }">
       <keep-alive>
         <component :is="Component" />
       </keep-alive>
     </router-view>
   </AppLayout>
-  <MpvLoadingOverlay v-if="!isPlayerPopout" />
-  <MiniPlayer v-if="!isPlayerPopout" />
+  <MpvLoadingOverlay />
+  <MiniPlayer />
+  <InlinePlayer />
 </template>
 
 <script setup lang="ts">
-import { computed } from 'vue'
-import { useRoute } from 'vue-router'
 import { AppLayout } from '@/features/shell'
-import { MiniPlayer, MpvLoadingOverlay } from '@/features/player'
-
-const route = useRoute()
-const isPlayerPopout = computed(() => route.name === 'PlayerPopout')
+import { InlinePlayer, MiniPlayer, MpvLoadingOverlay } from '@/features/player'
 </script>

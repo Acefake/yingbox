@@ -149,7 +149,7 @@ export class ThumbCache {
           await rm(full, { force: true })
           continue
         }
-        if (!/\.(webp|jpg)$/.test(file)) continue
+        if (!/\.(webp|jpg|focus\.json)$/.test(file)) continue
         try {
           const info = await stat(full)
           index.set(name, { name, size: info.size, usedAt: info.mtimeMs })

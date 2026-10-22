@@ -12,7 +12,6 @@ import {
 import { join } from 'path'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
-import { registerPlayerWindowIpc } from './player-window'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
@@ -43,6 +42,9 @@ app.commandLine.appendSwitch(
   'enable-features',
   'EnableDrDc,CanvasOopRasterization'
 )
+// Shape Detection 的 FaceDetector（海报人脸取景，见 renderer/services/thumbnails/focus.ts）：
+// 只开这一项，不开 enable-experimental-web-platform-features。Windows / macOS 有系统实现，Linux 会报 NotSupportedError
+app.commandLine.appendSwitch('enable-blink-features', 'FaceDetector')
 
 protocol.registerSchemesAsPrivileged([
   {
@@ -157,7 +159,6 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
-  registerPlayerWindowIpc()
   registerMpvIpc()
   await registerLadaIpc()
   const libraryClient = registerLibraryIpc(thumbnails)

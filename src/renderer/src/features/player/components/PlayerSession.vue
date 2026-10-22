@@ -1,5 +1,5 @@
 <template>
-  <div class="player-popout">
+  <div class="player-session">
     <UnifiedVideoPlayer
       v-if="src"
       :src="src"
@@ -19,25 +19,24 @@
     />
     <div
       v-else
-      class="player-popout-empty flex flex-col items-center justify-center gap-4"
+      class="player-session-empty flex flex-col items-center justify-center gap-4"
     >
-      <img v-if="poster" class="player-popout-poster" :src="poster" alt="" />
+      <img v-if="poster" class="player-session-poster" :src="poster" alt="" />
       <span>{{ emptyText }}</span>
     </div>
-    <p v-if="notice" class="player-popout-notice">{{ notice }}</p>
-    <CompactWindowButton />
+    <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
-    <div v-if="failure" class="player-popout-error" role="alert">
-      <p class="player-popout-error-title">播放失败</p>
-      <p class="player-popout-error-msg">{{ failure }}</p>
+    <div v-if="failure" class="player-session-error" role="alert">
+      <p class="player-session-error-title">播放失败</p>
+      <p class="player-session-error-msg">{{ failure }}</p>
       <p
         v-if="failedSource"
-        class="player-popout-error-src"
+        class="player-session-error-src"
         :title="failedSource"
       >
         {{ failedSource }}
       </p>
-      <div class="player-popout-error-actions">
+      <div class="player-session-error-actions">
         <UiButton
           variant="primary"
           icon="refresh"
@@ -52,13 +51,12 @@
 
 <script setup lang="ts">
 /**
- * 独立播放窗口：接收主窗口发来的播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
- * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/popout-queue、useProgressSaver。
+ * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
+ * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
+ * 载荷换了（播别的）就重新开始；当前条目名通过 title 事件交给外层的顶栏。
  */
-import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
-import { useRoute } from 'vue-router'
-import CompactWindowButton from '../components/CompactWindowButton.vue'
-import UnifiedVideoPlayer from '../components/UnifiedVideoPlayer.vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
@@ -68,10 +66,12 @@ import {
   type PlaylistEntry,
   normalizePlayerPayload,
   playlistEntryLabel,
-} from '../utils/popout-queue'
+} from '../utils/play-queue'
 import { resolvePlaySource } from '@/features/online'
 
-const route = useRoute()
+const props = defineProps<{ payload: PlayerPayload }>()
+const emit = defineEmits<{ title: [title: string] }>()
+
 const src = ref('')
 const poster = ref('')
 const startAt = ref(0)
@@ -174,7 +174,7 @@ const loadEntry = async (
       ? seededStartAt
       : stored
   src.value = resolved
-  document.title = `影盒 - ${entryLabel(entry)}`
+  emit('title', entryLabel(entry))
 }
 
 /** 自动连播：切到当前线路的下一集 */
@@ -242,60 +242,35 @@ const applyPayload = (payload: PlayerPayload): void => {
   void loadEntry(queue.seededUrl, queue.startAt)
 }
 
-onMounted(() => {
-  const qPath =
-    typeof route.query.filePath === 'string' ? route.query.filePath : ''
-  const qUrl = typeof route.query.url === 'string' ? route.query.url : ''
-  const qTitle =
-    typeof route.query.title === 'string' ? route.query.title : undefined
-  const qStartRaw =
-    typeof route.query.startAt === 'string' ? Number(route.query.startAt) : 0
-  if (qUrl || qPath) {
-    applyPayload({
-      filePath: qPath,
-      url: qUrl,
-      title: qTitle,
-      startAt: Number.isFinite(qStartRaw) ? qStartRaw : 0,
-    })
-  }
+watch(() => props.payload, applyPayload, { immediate: true })
 
-  window.api?.player?.onLoad?.(payload => {
-    applyPayload(payload)
-  })
-
-  void window.api?.player?.getPending?.().then(pending => {
-    if (pending?.url || pending?.filePath || pending?.playlist?.length) {
-      applyPayload(pending)
-    }
-  })
-
-  window.addEventListener('beforeunload', progress.flush)
-})
+onMounted(() => window.addEventListener('beforeunload', progress.flush))
 
 onBeforeUnmount(() => {
   progress.flush()
   window.removeEventListener('beforeunload', progress.flush)
-  window.api?.player?.offLoad?.()
+  if (noticeTimer) window.clearTimeout(noticeTimer)
 })
 </script>
 
 <style scoped>
-.player-popout {
+.player-session {
+  position: relative;
   display: flex;
   flex-direction: column;
-  width: 100vw;
-  height: 100vh;
+  width: 100%;
+  height: 100%;
   background: var(--media-bg);
   color: var(--media-text);
   overflow: hidden;
 }
 
-.player-popout :deep(.unified-player) {
+.player-session :deep(.unified-player) {
   width: 100%;
   height: 100%;
 }
 
-.player-popout-empty {
+.player-session-empty {
   margin: auto;
   display: flex;
   flex-direction: column;
@@ -305,7 +280,7 @@ onBeforeUnmount(() => {
   font-size: var(--text-md);
 }
 
-.player-popout-poster {
+.player-session-poster {
   max-width: min(72%, 420px);
   max-height: min(60vh, 520px);
   width: auto;
@@ -316,7 +291,7 @@ onBeforeUnmount(() => {
 }
 
 /* 短暂提示（自动换线路 / 连播） */
-.player-popout-notice {
+.player-session-notice {
   position: absolute;
   top: var(--space-4);
   left: 50%;
@@ -332,7 +307,7 @@ onBeforeUnmount(() => {
 }
 
 /* 播放失败：可操作错误面板 */
-.player-popout-error {
+.player-session-error {
   position: absolute;
   inset: 0;
   z-index: var(--z-overlay-top);
@@ -346,14 +321,14 @@ onBeforeUnmount(() => {
   background: var(--overlay-scrim-strong);
 }
 
-.player-popout-error-title {
+.player-session-error-title {
   margin: 0;
   font-size: var(--text-md);
   font-weight: 600;
   color: var(--danger);
 }
 
-.player-popout-error-msg {
+.player-session-error-msg {
   margin: 0;
   max-width: 560px;
   font-size: var(--text-sm);
@@ -361,7 +336,7 @@ onBeforeUnmount(() => {
   color: var(--media-text-secondary);
 }
 
-.player-popout-error-src {
+.player-session-error-src {
   margin: 0;
   max-width: 560px;
   overflow: hidden;
@@ -371,7 +346,7 @@ onBeforeUnmount(() => {
   color: var(--media-text-tertiary);
 }
 
-.player-popout-error-actions {
+.player-session-error-actions {
   margin-top: var(--space-2);
 }
 </style>

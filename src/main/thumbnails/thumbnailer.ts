@@ -6,7 +6,8 @@
  *   独立服务用编解码线程里的 wasm（wasm-resizer.ts，无原生依赖）；
  * - 编码：WebP 由独立 worker 线程编码（wasm libwebp），不占宿主事件循环；
  *   编码器不可用时退回缩放器给的 JPEG，文件扩展名随之是 .jpg；
- * - 同一张图同一宽度的生成在途去重，同时生成数受限；预热（引擎下载完原图后通知）串行执行。
+ * - 同一张图同一宽度的生成在途去重，同时生成数受限；预热（引擎下载完原图后通知）串行执行；
+ * - 缩放出像素后先交给 observe（海报取景顺手算焦点，见 focus/service.ts），再编码。
  *
  * 宿主差异经 ImageResizer 注入，单测用假的实现。
  */
@@ -39,6 +40,11 @@ export type ThumbEncoder = (
   quality: number
 ) => Promise<Uint8Array>
 
+/**
+ * 缩放出像素、编码之前调用（同步）。像素随后会转移给编码线程，要留用必须当场复制。
+ */
+export type PixelObserver = (key: string, image: ResizedImage) => void
+
 /** 取原图；原图不存在返回 null。 */
 export type OriginalLoader = () => Promise<OriginalImage | null>
 
@@ -65,7 +71,8 @@ export class Thumbnailer {
     private readonly cache: ThumbCache,
     private readonly resize: ImageResizer,
     private readonly encode: ThumbEncoder | undefined,
-    private readonly log: (message: string) => void = () => {}
+    private readonly log: (message: string) => void = () => {},
+    private readonly observe?: PixelObserver
   ) {}
 
   /** 取缩略图，不在缓存里就用 load 取原图生成；原图不存在或解不了返回 null。 */
@@ -83,6 +90,15 @@ export class Thumbnailer {
       this.inflight.set(id, pending)
     }
     return pending
+  }
+
+  /** 缓存里已有的任一档缩略图（从小到大找）；都没有返回 null。 */
+  async cached(key: string): Promise<ThumbFile | null> {
+    for (const width of THUMB_WIDTHS) {
+      const hit = await this.lookup(key, width)
+      if (hit) return hit
+    }
+    return null
   }
 
   /** 预热：后台依次为这些原图生成全部宽度的缩略图。 */
@@ -143,6 +159,7 @@ export class Thumbnailer {
     if (!original) return null
     const resized = await this.resize(original, width)
     if (!resized) return null
+    this.observe?.(key, resized)
     let file: { data: Uint8Array; ext: 'webp' | 'jpg' }
     try {
       if (!this.encode) throw new Error('WebP 编码器不可用')

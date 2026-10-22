@@ -2,13 +2,13 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   normalizePlayerPayload,
   playlistEntryLabel,
-} from '../src/renderer/src/features/player/utils/popout-queue'
+} from '../src/renderer/src/features/player/utils/play-queue'
 import {
   type ProgressSaver,
   useProgressSaver,
 } from '../src/renderer/src/features/player/composables/use-progress-saver'
 
-describe('独立播放窗口的播放队列', () => {
+describe('播放队列', () => {
   it('没有列表也没有地址时忽略', () => {
     expect(normalizePlayerPayload({ title: 'x' })).toBeNull()
     expect(normalizePlayerPayload({ url: '  ', playlist: [] })).toBeNull()

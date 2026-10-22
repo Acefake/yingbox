@@ -11,9 +11,9 @@ import { dialog } from './dialog'
 import { download } from './download'
 import { lada } from './lada'
 import { libraryNotify } from './library-notify'
+import { media } from './media'
 import { mpv } from './mpv'
 import { online } from './online'
-import { player } from './player'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
@@ -28,9 +28,9 @@ export const contract = {
   download,
   lada,
   libraryNotify,
+  media,
   mpv,
   online,
-  player,
   settings,
   shell,
   subtitle,
