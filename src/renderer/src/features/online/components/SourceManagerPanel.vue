@@ -14,105 +14,15 @@
             icon="database"
             @close="emit('close')"
           />
-          <div class="smp-toolbar">
-            <UiSegmented
-              v-if="tabs.length > 1"
-              v-model="activeTab"
-              size="sm"
-              label="数据源分类"
-              :options="tabs"
-            />
-            <span v-if="checkingAll" class="smp-status" role="status">
-              检测中 {{ checkedCount }}/{{ totalSources }}
-            </span>
-            <div class="smp-toolbar-actions">
-              <UiButton
-                v-if="totalFail"
-                class="smp-fail-btn"
-                size="sm"
-                :label="`停用失效源（${totalFail}）`"
-                @click="disableAllFailed"
-              />
-              <UiIconButton
-                icon="refresh"
-                label="一键更新：同步并检测全部数据源"
-                :loading="updatingSources"
-                @click="updateSources"
-              />
-            </div>
-          </div>
+          <SourceManagerToolbar v-model="activeTab" :tabs="tabs" />
 
           <div class="smp-body">
             <!-- 在线 CMS / 插件 / 自定义源 -->
-            <template v-if="activeTab === 'online'">
-              <SourceSection title="内置 CMS 源" :count="DEFAULT_SITES.length">
-                <SourceSiteRow
-                  v-for="s in sortedDefaultSites"
-                  :key="s.api"
-                  :name="s.name"
-                  :api="s.api"
-                  badge="CMS"
-                  :enabled="selectedSites.has(s.api)"
-                  :status="statusOf(s.api)"
-                  :checking="checkingSet.has(s.api)"
-                  @toggle="toggleSite(s.api)"
-                  @check="checkOnlineSite(s.api)"
-                />
-              </SourceSection>
-
-              <SourceSection
-                title="插件视频源"
-                :count="visibleCatSpiderSites.length"
-                :empty="visibleCatSpiderSites.length === 0"
-                empty-text="暂无插件源"
-                spaced
-              >
-                <SourceSiteRow
-                  v-for="s in visibleCatSpiderSites"
-                  :key="s.api"
-                  :name="s.name"
-                  :api="s.api"
-                  badge="插件"
-                  badge-color="purple"
-                  :enabled="selectedCatSpider.includes(s.api)"
-                  v-bind="pluginRowProps(s.name)"
-                  @toggle="toggleCatSpider(s.api)"
-                  @check="retryPlugin(s.name)"
-                />
-              </SourceSection>
-
-              <SourceSection
-                title="自定义源"
-                :empty="customSites.length === 0"
-                empty-text="暂无自定义源"
-                spaced
-              >
-                <template #action>
-                  <UiIconButton
-                    class="section-action"
-                    icon="plus"
-                    size="sm"
-                    label="添加自定义源"
-                    @click="showAdd = true"
-                  />
-                </template>
-                <SourceSiteRow
-                  v-for="(s, i) in sortedCustomSites"
-                  :key="s.api + i"
-                  :name="s.name"
-                  :api="s.api"
-                  badge="自定义"
-                  badge-color="amber"
-                  :enabled="selectedSites.has(s.api)"
-                  :status="statusOf(s.api)"
-                  :checking="checkingSet.has(s.api)"
-                  deletable
-                  @toggle="toggleSite(s.api)"
-                  @check="checkOnlineSite(s.api)"
-                  @delete="removeCustom(i)"
-                />
-              </SourceSection>
-            </template>
+            <OnlineSourcesTab
+              v-if="activeTab === 'online'"
+              :plugins="visibleCatSpiderSites"
+              @add="showAdd = true"
+            />
 
             <!-- AV 源 -->
             <AvSourcesTab
@@ -133,118 +43,35 @@
 /**
  * 数据源管理：在线 CMS / 插件 / 自定义源，以及成人模式下的 AV 源。
  * 既能作为独立侧滑面板，也能 embedded 嵌入设置窗口的「数据源」分区。
- * AV 分类、分组外框、添加对话框分别是 AvSourcesTab / SourceSection / AddSourceDialog。
+ * 本组件只管外框、分类与打开时的刷新；工具栏、在线源、AV 源、分组外框、添加对话框分别是
+ * SourceManagerToolbar / OnlineSourcesTab / AvSourcesTab / SourceSection / AddSourceDialog。
  */
-import { confirmDialog } from '@/components/ui'
 import { computed, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import AddSourceDialog from './AddSourceDialog.vue'
 import AvSourcesTab from './AvSourcesTab.vue'
-import SourceSection from './SourceSection.vue'
-import SourceSiteRow from './SourceSiteRow.vue'
+import OnlineSourcesTab from './OnlineSourcesTab.vue'
+import SourceManagerToolbar from './SourceManagerToolbar.vue'
 import { useSetting } from '@/features/settings'
-import UiButton from '@/components/ui/UiButton.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiSegmented from '@/components/ui/UiSegmented.vue'
-import { useOnlineSearch } from '../composables/use-online-search'
-import { toggleCatSpider } from '../composables/catspider-sites'
-import {
-  pluginRowProps,
-  retryAllPlugins,
-  retryPlugin,
-} from '../composables/plugin-health'
-import { toggleSite } from '../composables/cms-sites'
 import { useAvSources } from '@/features/av'
-import {
-  avStatusMap,
-  checkAll,
-  checkOnlineSite,
-  checkedCount,
-  checkingAll,
-  checkingSet,
-  onlineApis,
-  refreshSources,
-  statusMap,
-  statusOf,
-  syncAvSources,
-  syncingAv,
-} from '../composables/use-source-refresh'
-import {
-  type SourceTab,
-  countFailed,
-  sortByConnection,
-  sourceTabs,
-} from '../utils/source-rules'
+import { useOnlineSearch } from '../composables/use-online-search'
+import { onlineApis, refreshSources } from '../composables/use-source-refresh'
+import { type SourceTab, sourceTabs } from '../utils/source-rules'
 
 const props = defineProps<{ visible: boolean; embedded?: boolean }>()
 const emit = defineEmits<{ (e: 'close'): void }>()
 
 const adultMode = useSetting('app.adultMode')
 
-// ── 在线源 ───────────────────────────────────────────────────
-const {
-  selectedSites,
-  customSites,
-  DEFAULT_SITES,
-  CATSPIDER_SITES,
-  selectedCatSpider,
-  isAdultCatSpiderSite,
-} = useOnlineSearch()
-// 成人插件源统一归入 AV 源标签，不再出现在在线源的插件列表中。
+// ── 插件源：成人插件统一归入 AV 源分类，不出现在在线源的插件列表中 ──
+const { CATSPIDER_SITES, isAdultCatSpiderSite } = useOnlineSearch()
 const adultCatSpiderSites = computed(() =>
   CATSPIDER_SITES.value.filter(site => isAdultCatSpiderSite(site))
 )
 const visibleCatSpiderSites = computed(() =>
   CATSPIDER_SITES.value.filter(site => !isAdultCatSpiderSite(site))
 )
-const sortedDefaultSites = computed(() =>
-  sortByConnection(DEFAULT_SITES, statusOf)
-)
-const sortedCustomSites = computed(() =>
-  sortByConnection(customSites.value, statusOf)
-)
-
-// ── 全部源统计（AV 源只在成人模式下计入） ──────────────────────
-const { enabledApis: avEnabledApis, allSources: avSources } = useAvSources()
-const totalSources = computed(
-  () => onlineApis.value.length + (adultMode.value ? avSources.value.length : 0)
-)
-const totalFail = computed(
-  () =>
-    countFailed(onlineApis.value, statusMap) +
-    (adultMode.value
-      ? countFailed(
-          avSources.value.map(s => s.api),
-          avStatusMap
-        )
-      : 0)
-)
-
-/** 一键更新：拉取远程源清单合并新源，再重新检测全部源（自动启用可用源、停用失效源）。 */
-const updatingSources = computed(() => syncingAv.value || checkingAll.value)
-const updateSources = async (): Promise<void> => {
-  if (updatingSources.value) return
-  await syncAvSources(true)
-  await retryAllPlugins().catch(() => {})
-  await checkAll()
-}
-
-const disableAllFailed = (): void => {
-  void confirmDialog({
-    title: `禁用 ${totalFail.value} 个失效数据源？`,
-    content: '只会停用这些数据源，不会删除自定义配置。',
-    okText: '禁用',
-    onOk: () => {
-      for (const a of onlineApis.value) {
-        if (statusMap[a] === 'fail') selectedSites.delete(a)
-      }
-      for (const s of avSources.value) {
-        if (avStatusMap[s.api] === 'fail') avEnabledApis.delete(s.api)
-      }
-    },
-  })
-}
 
 // ── 启动与打开面板时自动同步并检测 ───────────────────────────
 watch(
@@ -255,6 +82,7 @@ watch(
 )
 
 // ── 分类 ────────────────────────────────────────────────────
+const { allSources: avSources } = useAvSources()
 const activeTab = ref<SourceTab>('online')
 const tabs = computed(() =>
   sourceTabs(
@@ -269,22 +97,8 @@ watch(adultMode, on => {
   if (!on) activeTab.value = 'online'
 })
 
-// ── 自定义源 ─────────────────────────────────────────────────
+// ── 添加自定义源 ─────────────────────────────────────────────
 const showAdd = ref(false)
-const removeCustom = (idx: number): void => {
-  const site = customSites.value[idx]
-  void confirmDialog({
-    title: `删除数据源“${site.name}”？`,
-    content: '删除后需要重新填写地址才能恢复。',
-    okText: '删除',
-    danger: true,
-    onOk: () => {
-      selectedSites.delete(site.api)
-      delete statusMap[site.api]
-      customSites.value = customSites.value.filter((_, i) => i !== idx)
-    },
-  })
-}
 </script>
 
 <style scoped>
@@ -326,32 +140,6 @@ const removeCustom = (idx: number): void => {
   min-height: 0;
 }
 
-.smp-toolbar {
-  display: flex;
-  flex-shrink: 0;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-}
-.smp-embedded .smp-toolbar {
-  padding: 0 0 var(--space-4);
-}
-.smp-toolbar-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin-left: auto;
-}
-.smp-status {
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.smp-fail-btn {
-  color: var(--danger);
-}
-
 .smp-body {
   flex: 1;
   padding: 0 var(--space-5) var(--space-7);
@@ -359,10 +147,6 @@ const removeCustom = (idx: number): void => {
 }
 .smp-embedded .smp-body {
   padding: 0 var(--space-2) var(--space-6) 0;
-}
-
-.section-action {
-  margin-left: auto;
 }
 
 .panel-fade-enter-active,
