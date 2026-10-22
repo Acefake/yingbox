@@ -80,6 +80,8 @@
   --media-text-secondary: rgba(255, 255, 255, 0.85);
   --media-text-tertiary: rgba(255, 255, 255, 0.5);
   --media-track: rgba(255, 255, 255, 0.25);
+  /* 播放器控件的悬停底色 */
+  --media-hover: rgba(255, 255, 255, 0.16);
   /* 播放器进度条等控件的主题色 */
   --media-accent: #f5f5f7;
   --overlay-scrim: rgba(0, 0, 0, 0.72);
@@ -297,6 +299,7 @@
   --media-text-secondary: rgba(255, 255, 255, 0.85);
   --media-text-tertiary: rgba(255, 255, 255, 0.5);
   --media-track: rgba(255, 255, 255, 0.25);
+  --media-hover: rgba(255, 255, 255, 0.16);
   --media-accent: #f5f5f7;
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);

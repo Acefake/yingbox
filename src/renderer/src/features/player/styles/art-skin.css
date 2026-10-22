@@ -1,0 +1,236 @@
+/*
+ * 播放器控制栏皮肤：细圆角进度条、圆形悬停底、横向音量条、清晰度角标。
+ * 只作用于 UnifiedVideoPlayer 创建的实例（.unified-player-core），控件逻辑见 utils/art-skin.ts。
+ */
+
+.unified-player-core .art-video-player {
+  --art-padding: var(--space-3);
+  --art-control-height: 40px;
+  --art-control-icon-size: 22px;
+  --art-control-icon-scale: 1;
+  --art-control-opacity: 0.92;
+  --art-bottom-height: 160px;
+  --art-bottom-gap: var(--space-1);
+  --art-bottom-offset: var(--space-2);
+  --art-progress-height: 14px;
+  --art-indicator-size: 12px;
+  --art-progress-color: var(--media-track);
+  --art-loaded-color: var(--media-track);
+  --art-hover-color: var(--media-track);
+  --art-tip-background: var(--overlay-scrim);
+  --art-widget-background: var(--overlay-scrim-strong);
+  --art-border-radius: var(--radius-md);
+  --art-transition-duration: var(--duration-fast);
+
+  font-family: var(--font-sans);
+}
+
+/* 底部渐变：更长、更柔 */
+.unified-player-core .art-video-player .art-bottom {
+  padding: 0 var(--space-4) var(--space-2);
+  background-image: linear-gradient(
+    to top,
+    var(--overlay-scrim),
+    var(--overlay-scrim-soft) 45%,
+    transparent
+  );
+}
+
+/* ── 进度条：4px 圆角细条，悬停加粗并露出圆点 ── */
+.unified-player-core .art-control-progress .art-control-progress-inner {
+  height: 4px;
+  border-radius: var(--radius-full);
+  transition: height var(--duration-fast) var(--ease-out);
+}
+
+.unified-player-core .art-control-progress:hover .art-control-progress-inner {
+  height: 6px;
+}
+
+.unified-player-core .art-progress-hover,
+.unified-player-core .art-progress-loaded,
+.unified-player-core .art-progress-played {
+  border-radius: var(--radius-full);
+}
+
+.unified-player-core .art-progress-indicator {
+  background: var(--media-text);
+  box-shadow: var(--shadow-sm);
+}
+
+.unified-player-core .art-progress-indicator .art-icon {
+  display: none;
+}
+
+.unified-player-core .art-progress-tip {
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  border-radius: var(--radius-sm);
+}
+
+/* ── 控件：圆形悬停底 ── */
+.unified-player-core .art-controls .art-control {
+  position: relative;
+  border-radius: var(--radius-full);
+  transition:
+    background-color var(--duration-fast) ease,
+    opacity var(--duration-fast) ease;
+}
+
+.unified-player-core .art-controls .art-control:hover {
+  background: var(--media-hover);
+}
+
+.unified-player-core .art-controls .art-control.is-active::after {
+  content: '';
+  position: absolute;
+  left: 30%;
+  right: 30%;
+  bottom: var(--space-1);
+  height: 2px;
+  border-radius: var(--radius-full);
+  background: var(--media-text);
+}
+
+.unified-player-core .art-controls .art-control-time {
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+  color: var(--media-text-secondary);
+  cursor: default;
+}
+
+.unified-player-core .art-controls .art-control-time:hover {
+  background: transparent;
+}
+
+/* Artplayer 自带的竖向音量弹层由 ybVolume 取代 */
+.unified-player-core .art-control-volume {
+  display: none !important;
+}
+
+/* ── 横向音量条：悬停展开 ── */
+.unified-player-core .art-control-ybVolume {
+  --yb-volume: 100%;
+
+  justify-content: flex-start;
+  gap: 0;
+  padding: 0 var(--space-2);
+}
+
+.unified-player-core .art-control-ybVolume:hover {
+  background: transparent;
+}
+
+.unified-player-core .yb-volume__icon {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 22px;
+  height: 22px;
+}
+
+.unified-player-core .yb-volume__icon--off,
+.unified-player-core .art-control-ybVolume.is-muted .yb-volume__icon--on {
+  display: none;
+}
+
+.unified-player-core .art-control-ybVolume.is-muted .yb-volume__icon--off {
+  display: flex;
+}
+
+.unified-player-core .yb-volume__track {
+  position: relative;
+  display: flex;
+  align-items: center;
+  width: 0;
+  height: 100%;
+  margin-left: 0;
+  opacity: 0;
+  cursor: pointer;
+  transition:
+    width var(--duration-normal) var(--ease-out),
+    margin var(--duration-normal) var(--ease-out),
+    opacity var(--duration-fast) ease;
+}
+
+.unified-player-core .art-control-ybVolume:hover .yb-volume__track,
+.unified-player-core .art-control-ybVolume.is-dragging .yb-volume__track {
+  width: 72px;
+  margin-left: var(--space-2);
+  opacity: 1;
+}
+
+.unified-player-core .yb-volume__rail {
+  position: relative;
+  width: 100%;
+  height: 4px;
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  background: var(--media-track);
+}
+
+.unified-player-core .yb-volume__fill {
+  position: absolute;
+  inset: 0 auto 0 0;
+  width: var(--yb-volume);
+  background: var(--media-text);
+}
+
+.unified-player-core .yb-volume__thumb {
+  position: absolute;
+  left: var(--yb-volume);
+  top: 50%;
+  width: 12px;
+  height: 12px;
+  border-radius: var(--radius-full);
+  background: var(--media-text);
+  box-shadow: var(--shadow-sm);
+  transform: translate(-50%, -50%);
+}
+
+.unified-player-core .yb-volume__tip {
+  position: absolute;
+  bottom: 18px; /* style-tokens: layout（圆点上方） */
+  left: 50%;
+  padding: var(--space-1) var(--space-2);
+  font-size: var(--text-xs);
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  color: var(--media-text);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-scrim);
+  opacity: 0;
+  pointer-events: none;
+  transform: translateX(-50%) translateY(var(--space-1));
+  transition:
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out);
+}
+
+.unified-player-core .yb-volume__track:hover .yb-volume__tip,
+.unified-player-core .art-control-ybVolume.is-dragging .yb-volume__tip {
+  opacity: 1;
+  transform: translateX(-50%) translateY(0);
+}
+
+/* ── 设置按钮上的清晰度角标 ── */
+.unified-player-core .yb-quality-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: 0;
+  padding: 1px var(--space-1);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+  color: var(--media-bg);
+  border-radius: var(--radius-xs);
+  background: var(--media-text);
+  pointer-events: none;
+}
+
+.unified-player-core .yb-quality-badge[hidden] {
+  display: none;
+}
