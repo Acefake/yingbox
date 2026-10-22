@@ -38,7 +38,7 @@
       <UiNavItem
         class="sidebar-item"
         data-queue-anchor
-        :label="hasRuntime ? '打开后台任务（进行中）' : '打开后台任务'"
+        :label="queueLabel"
         current="pressed"
         :active="queueOpen"
         :collapsed="collapsed"
@@ -47,7 +47,12 @@
         <template #icon>
           <span class="footer-queue-icon" aria-hidden="true">
             <UiIcon name="list" size="lg" />
-            <span v-if="hasRuntime" class="footer-pulse" />
+            <span
+              v-if="identifying"
+              class="footer-ring"
+              :style="{ '--ring-progress': identifying.progress ?? 0 }"
+            />
+            <span v-else-if="hasRuntime" class="footer-pulse" />
           </span>
         </template>
         后台任务
@@ -70,15 +75,19 @@
 
 <script setup lang="ts">
 /**
- * 应用侧栏：品牌、分组导航、页脚的后台任务入口（运行时带提示）和设置入口。
+ * 应用侧栏：品牌、分组导航、页脚的后台任务入口（运行时带提示：媒体库识别显示进度环，
+ * 去码 / 边跑边看显示呼吸点）和设置入口。
  * 桌面端可收起为图标栏（v-model:minimized），手机上由外壳当作抽屉显示。
  */
+import { computed } from 'vue'
+
 import logoUrl from '@/assets/imgs/logo.svg'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import { usePlatform } from '@/composables/use-platform'
 import { useLadaTasks } from '@/features/lada'
+import { useIdentifyActivity } from '@/features/library'
 
 import type { NavGroup } from '../composables/nav-items'
 
@@ -106,6 +115,12 @@ const { isPhone } = usePlatform()
 
 // 去码 / 边跑边看在后台跑时，按钮上给个提示
 const { hasRuntime } = useLadaTasks()
+// 媒体库识别在跑时，按钮上显示进度环（进度条不再挤在各分区页面上）
+const identifying = useIdentifyActivity()
+const queueLabel = computed(() => {
+  if (identifying.value) return `打开后台任务（${identifying.value.label}）`
+  return hasRuntime.value ? '打开后台任务（进行中）' : '打开后台任务'
+})
 </script>
 
 <style scoped>
@@ -217,6 +232,22 @@ const { hasRuntime } = useLadaTasks()
   background: var(--accent);
   box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
   animation: queue-pulse var(--duration-pulse) ease-out infinite;
+}
+/* 识别进度环：conic-gradient 画出已完成的弧，中间挖空成环 */
+.footer-ring {
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  right: calc(var(--space-1) * -1);
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: conic-gradient(
+    var(--accent) calc(var(--ring-progress) * 1turn),
+    var(--bg-fill-secondary) 0
+  );
+  /* 遮罩只看不透明度：外圈保留、中间 2.5px 挖空 */
+  mask: radial-gradient(circle, transparent 2.5px, var(--accent) 3px);
+  transition: background var(--duration-normal) var(--ease-out);
 }
 @keyframes queue-pulse {
   70%,
