@@ -53,7 +53,8 @@ describe('按来源查询（真实服务 + preload bridge）', () => {
           : { ok: false, error: response.error }
       },
       // 本测试不订阅事件
-      postMessage: () => undefined,
+      send: () => undefined,
+      on: () => undefined,
     })
   }
 

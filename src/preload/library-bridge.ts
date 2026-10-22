@@ -1,8 +1,11 @@
 /**
- * window.api.library 的实现：invoke 走 library:invoke，subscribe 新建 MessageChannel，
- * 把一端经 library:subscribe 交给主进程转给引擎，事件从另一端直达，不经主进程转发。
+ * window.api.library 的实现：invoke 走 library:invoke；subscribe 经 library:subscribe 登记本窗口，
+ * 主进程把一条直达引擎的 MessagePort 经 library:port 推过来，事件从这个端口直达，不经主进程转发。
  *
- * 依赖以参数注入（ipcRenderer、MessageChannel），单测可以用假的实现。
+ * 引擎崩溃重启后主进程会再推一个新端口：这里收到新端口就关掉旧的、把现有监听者全部挂到新端口上，
+ * 渲染层的监听者不用感知重启。
+ *
+ * 依赖以参数注入（ipcRenderer 子集），单测可以用假的实现。
  */
 import {
   type InvokeResult,
@@ -22,23 +25,16 @@ export interface EventPort {
   close(): void
 }
 
-/** MessageChannel 的最小形状：port1 留在本地收事件，port2 交给引擎。 */
-export interface EventChannel {
-  port1: EventPort
-  port2: unknown
-}
-
 /** bridge 需要的 ipcRenderer 子集。 */
 export interface LibraryIpc {
   invoke(channel: string, ...args: unknown[]): Promise<unknown>
-  postMessage(channel: string, message: unknown, transfer?: unknown[]): void
+  send(channel: string, ...args: unknown[]): void
+  on(
+    channel: string,
+    // ports 用 unknown：preload 没有 DOM 类型，带 DOM 的 tsconfig 里 MessagePort 又和 EventPort 不兼容
+    listener: (event: { ports: readonly unknown[] }) => void
+  ): unknown
 }
-
-/** 用渲染环境自带的 MessageChannel 建通道。 */
-const domChannel = (): EventChannel =>
-  new (
-    globalThis as unknown as { MessageChannel: new () => EventChannel }
-  ).MessageChannel()
 
 /**
  * 引擎返回的错误。preload 内部带 code 属性；到了渲染进程（contextBridge 之后）只剩 message，
@@ -49,10 +45,7 @@ export interface LibraryBridgeError extends Error {
 }
 
 /** 创建 library bridge。 */
-export function createLibraryBridge(
-  ipc: LibraryIpc,
-  createChannel: () => EventChannel = domChannel
-): LibraryBridge {
+export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
   const call = async <M extends LibraryMethod>(
     method: M,
     params?: LibraryRpcMap[M]['params']
@@ -71,6 +64,26 @@ export function createLibraryBridge(
     error.code = response.error.code
     throw error
   }
+
+  const listeners = new Set<(event: LibraryEvent) => void>()
+  let port: EventPort | null = null
+  const dispatch = (event: LibraryEvent): void => {
+    for (const listener of listeners) listener(event)
+  }
+  // 每次（重新）订阅、每次引擎重启，主进程都推一个新端口：换掉旧的；已经没人听了就直接关掉
+  ipc.on(LIBRARY_CHANNELS.port, ({ ports }) => {
+    const next = ports[0] as EventPort | undefined
+    if (!next) return
+    port?.close()
+    port = null
+    if (listeners.size === 0) {
+      next.close()
+      return
+    }
+    next.onmessage = event => dispatch(event.data as LibraryEvent)
+    next.start()
+    port = next
+  })
 
   return {
     listLibraries: () => call('listLibraries'),
@@ -104,11 +117,14 @@ export function createLibraryBridge(
     },
     actors: createActorsBridge(call),
     subscribe(listener: (event: LibraryEvent) => void): () => void {
-      const { port1, port2 } = createChannel()
-      port1.onmessage = event => listener(event.data as LibraryEvent)
-      port1.start()
-      ipc.postMessage(LIBRARY_CHANNELS.subscribe, null, [port2])
-      return () => port1.close()
+      listeners.add(listener)
+      if (listeners.size === 1) ipc.send(LIBRARY_CHANNELS.subscribe)
+      return () => {
+        if (!listeners.delete(listener) || listeners.size > 0) return
+        port?.close()
+        port = null
+        ipc.send(LIBRARY_CHANNELS.unsubscribe)
+      }
     },
   }
 }
