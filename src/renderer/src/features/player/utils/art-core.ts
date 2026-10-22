@@ -13,6 +13,7 @@ import {
   artOptions,
   isValidPlaybackRate,
 } from './art-options'
+import { artSkinControls, installQualityBadge } from './art-skin'
 import { type HlsSession, createHlsSession } from './hls-session'
 
 /** 转给组件的播放器事件 */
@@ -37,6 +38,8 @@ export interface ArtSink {
   seek: (video: HTMLVideoElement) => void
   /** 清单就绪后是否自动播放 */
   autoplay: () => boolean
+  /** 没有字幕时点了控制栏的 CC：打开在线字幕搜索 */
+  subtitles: () => void
 }
 
 /** 一个可交接的播放器实例 */
@@ -81,15 +84,19 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
       })
     : null
 
-  const art = new Artplayer(
-    artOptions({
+  const art = new Artplayer({
+    ...artOptions({
       container: node,
       url: input.url,
       autoplay: input.autoplay,
       controls: input.controls,
       hls: hlsType,
-    })
-  )
+    }),
+    controls: input.controls
+      ? artSkinControls(() => sink.current.subtitles())
+      : [],
+  })
+  installQualityBadge(art)
 
   // 恢复上次使用的倍速，并记住本次改动（跨集 / 跨会话）
   applyPlaybackRate(art.video, getSetting('player.playbackRate'))
