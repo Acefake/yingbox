@@ -21,6 +21,9 @@ import {
 const status = (configured: boolean): ProviderStatus => ({
   tmdb: { configured },
   opensubtitles: { configured: false },
+  javdb: { configured: false },
+  theporndb: { configured: false },
+  dmm_api: { configured: false },
 })
 
 describe('saveLibraryTmdbToken', () => {

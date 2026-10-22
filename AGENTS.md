@@ -16,7 +16,7 @@ Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`
 
 ```bash
 pnpm dev            # Electron (engine starts on demand)
-pnpm typecheck      # tsc (main/preload) + vue-tsc (renderer)
+pnpm typecheck      # tsc (main/preload) + vue-tsc (renderer) + vue-tsc (tests)
 pnpm lint           # eslint --cache + check:size --strict
 pnpm test           # vitest run (tests/)
 pnpm format         # prettier --write .

@@ -1,0 +1,26 @@
+// tests/ 的类型检查（pnpm typecheck:tests）：测试横跨主进程、引擎与渲染层，
+// 所以用 bundler 解析 + DOM/Node/Electron 类型，路径别名与 vitest.config.ts 一致。
+// allowJs 让测试 import 的 scripts/*.mjs 也有推断类型。
+{
+  "extends": "@electron-toolkit/tsconfig/tsconfig.json",
+  "compilerOptions": {
+    "noEmit": true,
+    "allowJs": true,
+    "checkJs": false,
+    "moduleResolution": "bundler",
+    "lib": ["ES2023", "DOM", "DOM.Iterable"],
+    "types": ["node", "electron"],
+    "baseUrl": ".",
+    "paths": {
+      "@/*": ["src/renderer/src/*"],
+      "@main/*": ["src/main/*"],
+      "@shared/*": ["src/shared/*"]
+    }
+  },
+  "include": [
+    "tests/**/*.ts",
+    "src/renderer/src/**/*.d.ts",
+    "src/shared/**/*.d.ts",
+    "vitest.config.ts"
+  ]
+}
