@@ -50,38 +50,38 @@
           :options="sortOptions"
           @update:model-value="emit('sort', $event)"
         />
-        <UiIconButton
+        <UiButton
           :icon="order === 'asc' ? 'arrowUp' : 'arrowDown'"
           size="sm"
           :label="order === 'asc' ? '升序' : '降序'"
           @click="emit('toggle-order')"
         />
       </template>
-      <UiIconButton
+      <UiButton
         v-if="hasLibraries && view === 'wall' && count"
         icon="grid"
         size="sm"
         label="视频墙"
         @click="emit('video-wall')"
       />
-      <UiIconButton
+      <UiButton
         v-if="hasLibraries"
         icon="refresh"
         size="sm"
-        label="扫描文件夹"
+        label="扫描"
         @click="emit('scan')"
       />
-      <UiIconButton
+      <UiButton
         v-if="hasLibraries"
         icon="sparkle"
         size="sm"
         label="识别全部"
         @click="emit('identify')"
       />
-      <UiIconButton
+      <UiButton
         icon="settings"
         size="sm"
-        :label="`${kindLabel}库设置`"
+        label="设置"
         @click="emit('settings')"
       />
     </div>
@@ -93,7 +93,7 @@
  * 媒体库页面工具栏：标题与数量、资料库 / 演员（番号库）/ 待确认切换、搜索、筛选、媒体库、排序与方向、视频墙、扫描 / 识别 / 设置。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  */
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
@@ -142,6 +142,7 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
 
 <style scoped>
 .lib-toolbar {
+  flex: none;
   display: flex;
   flex-wrap: wrap;
   align-items: center;

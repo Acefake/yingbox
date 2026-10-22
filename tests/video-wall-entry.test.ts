@@ -146,7 +146,7 @@ describe('工具栏入口', () => {
   }
 
   it('海报墙有条目时显示「视频墙」', async () => {
-    expect(await render({})).toContain('aria-label="视频墙"')
+    expect(await render({})).toContain('视频墙')
   })
 
   it('没有条目或不在海报墙视图时不显示', async () => {

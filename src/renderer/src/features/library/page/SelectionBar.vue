@@ -30,12 +30,7 @@
           @click="emit('organize')"
         />
       </span>
-      <UiIconButton
-        icon="close"
-        size="sm"
-        label="取消选择"
-        @click="emit('clear')"
-      />
+      <UiButton icon="close" size="sm" label="取消" @click="emit('clear')" />
     </div>
   </Transition>
 </template>
@@ -43,7 +38,6 @@
 <script setup lang="ts">
 /** 海报墙多选后浮在底部的操作条：重新识别、写出、整理、取消选择。count 为 0 时淡出。 */
 import UiButton from '@/components/ui/UiButton.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 
 import { WRITER_UNAVAILABLE } from '../writer/use-writer'
