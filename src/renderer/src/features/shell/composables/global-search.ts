@@ -6,6 +6,11 @@
 /** 在本页用 ?q= 过滤的路由 */
 const LOCAL_FILTER_ROUTES = new Set(['Movie', 'TV', 'Jav'])
 
+/** 是否在本页按 ?q= 过滤（本地片库页）：这些页边输入边过滤，不用回车 */
+export function filtersInPlace(routeName: string | undefined): boolean {
+  return Boolean(routeName && LOCAL_FILTER_ROUTES.has(routeName))
+}
+
 const PLACEHOLDERS: Record<string, string> = {
   Movie: '搜索本地电影',
   TV: '搜索本地电视剧',
@@ -41,7 +46,7 @@ export function searchLocation(
   routePath: string,
   query: string
 ): SearchLocation {
-  if (routeName && LOCAL_FILTER_ROUTES.has(routeName)) {
+  if (filtersInPlace(routeName)) {
     return { path: routePath, query: query ? { q: query } : {} }
   }
   return {
