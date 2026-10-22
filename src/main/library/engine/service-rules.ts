@@ -7,6 +7,7 @@ import {
   type ItemsChangedEvent,
 } from '../../../shared/library/ipc'
 import type { ItemChanges } from '../catalog/catalog-store'
+import type { FollowupSpec } from '../jobs/followups'
 
 /** 扫描任务载荷。 */
 export interface ScanPayload {
@@ -50,6 +51,17 @@ export function mergeScanPayload(a: unknown, b: unknown): ScanPayload {
 
 /** 扫描任务的排队键：同一媒体库的扫描合并。 */
 export const scanJobKey = (libraryId: number): string => `library:${libraryId}`
+
+/** 一个库的解析 / 指纹任务（键 <类型>:<库>，同库合并）。 */
+export const libraryJobSpec = (
+  type: 'parse' | 'fingerprint',
+  libraryId: number
+): FollowupSpec => ({
+  type,
+  key: `${type}:${libraryId}`,
+  payload: { libraryId } satisfies LibraryPayload,
+  priority: PRIORITY[type],
+})
 
 /**
  * 一个媒体库的 items-changed 事件；没有变化返回 null。

@@ -189,6 +189,8 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 
 同时开了自动整理和自动写出时，先整理、再写出，NFO 与图片直接写到最终位置。设置的含义对齐 Amane 的库设置（`automation` 的 none / watch / scrape、`auto_organize`、`write_nfo`）。
 
+代码里这条链写在各后台任务定义的后继（`followups`）里，由任务队列统一派发：父任务成功才派（自动整理成功或失败都派写出），取消不派，同一任务类型 + 目标已排队就合并；规则与当前链见 [ADR-0012](adr/0012-library-job-followups.md)。
+
 ### Docker / NAS 建议
 
 - 媒体目录是宿主机本地盘（群晖 / 威联通的存储池）并 bind mount 进容器：默认 `auto` 即可，事件可用。

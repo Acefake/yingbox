@@ -2,8 +2,8 @@
  * 演员库模块：把演员仓库、资料来源、来源设置、actor-profile 任务组装起来，实现演员相关的 IPC 方法。
  * LibraryService 只做转发。
  *
- * 链路：识别 / 刷新 / 手动匹配完成（onIdentified）→ 按条目演员表同步 item_actors（新名字建演员行）→
- * 设置允许时排一个低优先级 auto 任务，为待查的演员查资料（见 actor-job）。影片入库不等它。
+ * 链路：识别 / 刷新 / 手动匹配完成（识别的后继 identifiedFollowups）→ 按条目演员表同步 item_actors（新名字建演员行）→
+ * 设置允许时派一个低优先级 auto 任务，为待查的演员查资料（见 actor-job）。影片入库不等它。
  */
 import { join } from 'node:path'
 import {
@@ -20,6 +20,7 @@ import {
 } from '../../../shared/library/ipc'
 import { type LibraryDb, transaction } from '../db/database'
 import type { IdentifyModule } from '../identify/identify-module'
+import type { FollowupSpec } from '../jobs/followups'
 import type { JobContext, JobQueue } from '../jobs/queue'
 import { SqliteResponseCache } from '../providers/http/provider-cache'
 import { type ActorSource, createActorSources } from '../providers/jav/actors'
@@ -113,14 +114,14 @@ export class ActorModule {
       this.sync(null)
       this.kv.set(BACKFILL_KEY, '1', Date.now())
     }
-    this.enqueueAuto()
+    this.options.queue.dispatch(this.autoFollowups())
   }
 
-  /** 识别后：同步这些条目的演员关联，推送变化，按设置排自动查资料。 */
-  onIdentified(itemIds: number[]): void {
-    if (!itemIds.length) return
+  /** 识别后的后继：先同步这些条目的演员关联并推送变化，再按设置给出自动查资料任务。 */
+  identifiedFollowups(itemIds: number[]): FollowupSpec[] {
+    if (!itemIds.length) return []
     this.sync(itemIds)
-    this.enqueueAuto()
+    return this.autoFollowups()
   }
 
   /** 条目演员的 NFO 资料（写出层用）。 */
@@ -199,7 +200,7 @@ export class ActorModule {
   /** 保存来源设置；打开自动查资料时立即补查待查的演员。 */
   setSettings(value: ActorSettings): ActorSettings {
     const saved = this.settings.set(value, Date.now())
-    this.enqueueAuto()
+    this.options.queue.dispatch(this.autoFollowups())
     return saved
   }
 
@@ -231,16 +232,18 @@ export class ActorModule {
     if (touched.size) this.emitActors([...touched])
   }
 
-  /** 设置允许、且有待查的演员时排 auto 任务（同键合并，不会排出一串）。 */
-  private enqueueAuto(): void {
-    if (!this.settings.get().autoLookup) return
-    if (!this.store.pendingIds(Date.now()).length) return
-    this.options.queue.enqueue({
-      type: ACTOR_JOB,
-      key: actorJobKey('auto'),
-      payload: { mode: 'auto' } satisfies ActorJobPayload,
-      priority: PRIORITY.auto,
-    })
+  /** 设置允许、且有待查的演员时的 auto 任务（同键合并，不会排出一串）。 */
+  private autoFollowups(): FollowupSpec[] {
+    if (!this.settings.get().autoLookup) return []
+    if (!this.store.pendingIds(Date.now()).length) return []
+    return [
+      {
+        type: ACTOR_JOB,
+        key: actorJobKey('auto'),
+        payload: { mode: 'auto' } satisfies ActorJobPayload,
+        priority: PRIORITY.auto,
+      },
+    ]
   }
 
   private run(payload: ActorJobPayload, ctx: JobContext): Promise<void> {

@@ -100,7 +100,7 @@ A movie library can be added with `source: 'jav'` (「添加文件夹…」 in t
 
 ### Library server (`src/server/`, web / NAS)
 
-The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480` (any other host needs an explicit ≥24-char token, `exposure.ts`), token from `YINGBOX_SERVER_TOKEN` or generated into `<dataDir>/secrets.json`. Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`, `detail/WebPlayer.vue`. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy (`HTTPS_PROXY` + `NODE_USE_ENV_PROXY=1`): `docs/library-server.md`; Docker / NAS: `docs/deploy/nas.md` (ADR-0010). Checks: `scripts/smoke-server.mjs` (CI-able, offline), `scripts/web-e2e.mjs` (Playwright, manual).
+The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480` (any other host needs an explicit ≥24-char token, `exposure.ts`; token sources in the doc). Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`, `detail/WebPlayer.vue`. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy: `docs/library-server.md`; Docker / NAS: `docs/deploy/nas.md` (ADR-0010). Checks: `scripts/smoke-server.mjs` (CI-able, offline), `scripts/web-e2e.mjs` (Playwright, manual).
 
 ### App settings
 
@@ -154,7 +154,8 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0008](docs/adr/0008-scan-time-slicing.md) 媒体库扫描按 16 ms 时间片让出
 - [0009](docs/adr/0009-utility-wire-protocol.md) 两个 utilityProcess 统一线协议
 - [0010](docs/adr/0010-docker-nas-deploy.md) NAS / Docker：容器化片库服务、默认只听本机、入口降权
-- [0011](docs/adr/0011-library-cloud-mode.md) 媒体库网盘模式与外部变更通知（docs/library-cloud-mode.md）
+- [0011](docs/adr/0011-library-cloud-mode.md) 媒体库网盘模式与外部变更通知
+- [0012](docs/adr/0012-library-job-followups.md) 媒体库任务后继写在任务定义里
 
 ## UI conventions
 

@@ -6,6 +6,7 @@ import type {
   ItemsChangedEvent,
   OrganizeBatchState,
 } from '../../../shared/library/ipc'
+import type { FollowupSpec } from '../jobs/followups'
 import type { PlannedMove } from './organize/organize-planner'
 import type { OrganizeCounts } from './organize/organize-runner'
 import type { OrganizeOp } from './writer-store'
@@ -29,6 +30,17 @@ export interface BatchPayload {
 }
 
 /** 合并排队中的写出：条目取并集。 */
+/** writer-write 任务（全局一个键，排队中的条目取并集）。 */
+export const writeJobSpec = (
+  itemIds: number[],
+  priority: number
+): FollowupSpec => ({
+  type: 'writer-write',
+  key: 'writer-write',
+  payload: { itemIds } satisfies WritePayload,
+  priority,
+})
+
 export const mergeWritePayload = (a: unknown, b: unknown): WritePayload => ({
   itemIds: [
     ...new Set([

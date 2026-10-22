@@ -73,7 +73,7 @@ describe('演员库模块', () => {
     const env = setup([gfriends, avbase])
     const a = addMovie(env.db, env.libraryId, 'A-1', ['Mia', 'Nobody'])
     const b = addMovie(env.db, env.libraryId, 'A-2', ['Mia'])
-    env.actors.onIdentified([a, b])
+    env.queue.dispatch(env.actors.identifiedFollowups([a, b]))
     await env.queue.idle()
     expect(avbase.calls.sort()).toEqual(['Mia', 'Nobody'])
     expect(gfriends.calls.sort()).toEqual(['Mia', 'Nobody'])
@@ -101,7 +101,7 @@ describe('演员库模块', () => {
     )
     const env = setup([src])
     const a = addMovie(env.db, env.libraryId, 'A-1', ['Mia', 'Ghost'])
-    env.actors.onIdentified([a])
+    env.queue.dispatch(env.actors.identifiedFollowups([a]))
     await env.queue.idle()
     const mia = env.idOf('Mia')
     expect(env.actors.get(mia)!.profileState).toBe('error')
@@ -128,7 +128,7 @@ describe('演员库模块', () => {
     expect(src.calls.sort()).toEqual(['Ghost', 'Mia'])
     // 自动任务不会重查已有结论的演员
     src.calls.length = 0
-    env.actors.onIdentified([a])
+    env.queue.dispatch(env.actors.identifiedFollowups([a]))
     await env.queue.idle()
     expect(src.calls).toEqual([])
   })
@@ -139,7 +139,7 @@ describe('演员库模块', () => {
     })
     const env = setup([src])
     addMovie(env.db, env.libraryId, 'A-1', ['Mia'])
-    env.actors.onIdentified([1])
+    env.queue.dispatch(env.actors.identifiedFollowups([1]))
     await env.queue.idle()
     const id = env.idOf('Mia')
     const edited = await env.actors.update({
@@ -179,7 +179,7 @@ describe('演员库模块', () => {
     )
     const env = setup([src])
     addMovie(env.db, env.libraryId, 'A-1', ['Mia'])
-    env.actors.onIdentified([1])
+    env.queue.dispatch(env.actors.identifiedFollowups([1]))
     for (let i = 0; i < 50 && !started.length; i++)
       await new Promise(r => setTimeout(r, 5))
     expect(env.actors.cancelRefresh().cancelled).toBe(1)
@@ -197,7 +197,7 @@ describe('演员库模块', () => {
     const both = fakeSource('wikipedia', {})
     const env = setup([female, both])
     addMovie(env.db, env.libraryId, 'A-1', ['Ken'])
-    env.actors.onIdentified([1])
+    env.queue.dispatch(env.actors.identifiedFollowups([1]))
     await env.queue.idle()
     const id = env.idOf('Ken')
     await env.actors.update({
@@ -221,7 +221,7 @@ describe('演员库模块', () => {
     })
     both.calls.length = 0
     addMovie(env.db, env.libraryId, 'A-2', ['New'])
-    env.actors.onIdentified([2])
+    env.queue.dispatch(env.actors.identifiedFollowups([2]))
     await env.queue.idle()
     expect(
       env.db
