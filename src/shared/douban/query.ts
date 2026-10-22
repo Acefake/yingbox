@@ -2,7 +2,7 @@
  * 豆瓣浏览的查询条件：渲染层筛选面板、IPC 契约校验、引擎拼请求共用这一份白名单。
  *
  * 两种取数方式（引擎按条件自动选，见 engine/online/douban-browse.ts）：
- * - 快捷标签（热门、最新、华语…）：movie.douban.com/j/search_subjects，tag 单选；
+ * - 快捷标签（热门、最新、华语…）：rexxar 热门榜或 recommend，tag 单选（映射见 engine/online/douban-quick.ts）；
  * - 多维筛选（类型 × 地区 × 年代 × 排序 × 评分下限）：m.douban.com/rexxar/api/v2/<movie|tv>/recommend。
  * 筛选全为默认值时就是快捷标签模式；动了任一筛选，快捷标签清空。
  *
@@ -42,7 +42,7 @@ export interface DoubanSubject {
   rate: string
   /** movie.douban.com/subject/<id>/ */
   url: string
-  /** 年份；快捷标签接口不给，为空 */
+  /** 年份；接口没给时为空 */
   year: string
   kind: DoubanKind
 }
