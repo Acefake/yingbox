@@ -120,6 +120,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'scan',
       'query',
       'getItem',
+      'getPreview',
       'identify',
       'getMatchCandidates',
       'applyMatch',
