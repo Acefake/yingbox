@@ -13,16 +13,16 @@
         :title="lib.name"
         :description="folderDescription(lib)"
       >
-        <UiIconButton
+        <UiButton
           icon="refresh"
           size="sm"
           label="扫描"
           @click="scan(lib.id, false)"
         />
-        <UiIconButton
+        <UiButton
           icon="trash"
           size="sm"
-          danger
+          variant="danger"
           label="移除文件夹"
           @click="confirmRemove(lib)"
         />
@@ -146,7 +146,6 @@ import { computed, ref, watch } from 'vue'
 import type { LibraryInfo } from '../../../../../shared/library/ipc'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 
 import { errorText, libraryBridge, usesLibraryServer } from '../api/bridge'

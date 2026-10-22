@@ -47,45 +47,44 @@
           :disabled="!canPlay"
           @click="emit('play')"
         />
-        <UiIconButton
+        <UiButton
           icon="wand"
           variant="secondary"
           size="lg"
           label="修正匹配"
           @click="emit('fix-match', node.id)"
         />
-        <UiIconButton
+        <UiButton
           :icon="node.matchState === 'locked' ? 'lock' : 'pin'"
           variant="secondary"
           size="lg"
-          :active="node.matchState === 'locked'"
           :label="node.matchState === 'locked' ? '解除锁定' : '锁定匹配'"
           :disabled="!node.providerIds.tmdb"
           :loading="busy === 'lock'"
           @click="emit('toggle-lock')"
         />
-        <UiIconButton
+        <UiButton
           icon="refresh"
           variant="secondary"
           size="lg"
-          label="重新获取元数据"
+          label="重新获取"
           :disabled="!node.providerIds.tmdb"
           :loading="busy === 'refresh'"
           @click="emit('refresh')"
         />
         <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiIconButton
+          <UiButton
             icon="save"
             variant="secondary"
             size="lg"
-            label="写出 NFO 与图片"
+            label="写出 NFO"
             :disabled="!writerAvailable || !node.providerIds.tmdb"
             :loading="busy === 'write'"
             @click="emit('write')"
           />
         </span>
         <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiIconButton
+          <UiButton
             icon="folder"
             variant="secondary"
             size="lg"
@@ -95,7 +94,7 @@
           />
         </span>
         <template v-if="restorable">
-          <UiIconButton
+          <UiButton
             icon="sparkle"
             variant="secondary"
             size="lg"
@@ -103,14 +102,14 @@
             :disabled="restoreRunning"
             @click="emit('restore', 'restore')"
           />
-          <UiIconButton
+          <UiButton
             icon="range"
             variant="secondary"
             size="lg"
             label="去码一段"
             @click="emit('restore', 'range')"
           />
-          <UiIconButton
+          <UiButton
             icon="livePlay"
             variant="secondary"
             size="lg"

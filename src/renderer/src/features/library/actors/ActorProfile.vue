@@ -34,14 +34,14 @@
           {{ stateText }}
         </p>
         <div class="lib-actor-hero-actions">
-          <UiIconButton
+          <UiButton
             icon="edit"
             variant="secondary"
             size="lg"
             label="编辑资料"
             @click="emit('edit')"
           />
-          <UiIconButton
+          <UiButton
             icon="refresh"
             variant="secondary"
             size="lg"
@@ -76,6 +76,7 @@ import { computed, ref, watch } from 'vue'
 
 import type { ActorDetail } from '../../../../../shared/library/ipc'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 import { itemImage } from '../api/images'

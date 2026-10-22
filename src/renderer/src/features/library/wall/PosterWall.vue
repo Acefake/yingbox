@@ -12,6 +12,8 @@
       @dblclick="onDoubleClick"
       @keydown="onKeydown"
       @contextmenu="onContextMenu"
+      @pointerover="hover.onPointerOver"
+      @pointerout="hover.onPointerOut"
     >
       <div
         v-for="cell in cells"
@@ -67,6 +69,16 @@
       </div>
     </div>
     <slot name="after" />
+    <HoverCard
+      :item="hover.item.value"
+      :node="hover.node.value"
+      :position="hover.position.value"
+      @enter="hover.keep"
+      @leave="hover.leave"
+      @open="id => (hover.hide(), emit('open', id))"
+      @identify="id => (hover.hide(), emit('identify', id))"
+      @played="hover.hide"
+    />
   </div>
 </template>
 
@@ -80,7 +92,8 @@
  * - 海报取 300w 本地缩略图，loading=lazy + decoding=async，解码不占主线程；
  * - 格子构造、方向键、修饰键等纯规则在 wall-cells.ts，样式在 poster-wall.css；
  * - 悬停预览也委托在网格上（useGridPreview，来源见 wall-preview.ts），多选时不起；
- *   格子被回收（滚出渲染区间、换查询）时停止。
+ *   格子被回收（滚出渲染区间、换查询）时停止；
+ * - 悬停详情卡（HoverCard，显隐在 use-hover-card.ts）同样委托在网格上，滚动、多选、换查询时收起。
  */
 import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
@@ -91,6 +104,8 @@ import { itemImage } from '../api/images'
 import { formatRating } from '../shared/format'
 import type { PagedList } from './paged-list'
 import { useVirtualGrid } from './use-virtual-grid'
+import HoverCard from './HoverCard.vue'
+import { useHoverCard } from './use-hover-card'
 import { wallPreviewSource } from './wall-preview'
 import {
   type Cell,
@@ -122,6 +137,10 @@ const emit = defineEmits<{
     modifiers: { toggle: boolean; range: boolean; double: boolean },
   ]
   contextmenu: [index: number, item: LibraryItemSummary, event: MouseEvent]
+  /** 悬停卡上的「详情」。 */
+  open: [itemId: number]
+  /** 悬停卡上的「重新识别」。 */
+  identify: [itemId: number]
 }>()
 
 const scroller = ref<HTMLElement | null>(null)
@@ -200,6 +219,22 @@ watch([range, () => props.version], () =>
   nextTick(() => {
     if (preview.activeCell()?.isConnected === false) preview.stop()
   })
+)
+
+const hover = useHoverCard({
+  grid,
+  itemAt: i => props.list.at(i),
+  disabled: () => props.selected.size > 0,
+})
+// 滚动、多选、换查询时收起；列表换版本（重新识别后）详情缓存作废
+watch(range, () => hover.hide())
+watch(
+  () => props.version,
+  () => hover.invalidate()
+)
+watch(
+  () => props.selected.size,
+  size => size && hover.hide()
 )
 
 function cellFrom(event: Event): {
