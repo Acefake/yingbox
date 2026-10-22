@@ -1,6 +1,6 @@
 /**
- * 独立播放窗口的播放队列：主窗口发来的载荷（或地址栏参数）在这里校验并整理成队列。
- * 外部数据只在这里解析，之后窗口内部只处理整理好的 PopoutQueue。
+ * 应用内播放器的播放队列：调用方发来的载荷在这里校验并整理成队列。
+ * 外部数据只在这里解析，之后播放器只处理整理好的 PlayQueue。
  */
 
 /** 单个播放条目（集 / 文件 / 备用线路） */
@@ -12,7 +12,7 @@ export type PlaylistEntry = {
   siteName?: string
 }
 
-/** 主窗口发来的播放载荷（字段都可能缺失或类型不对） */
+/** 调用方发来的播放载荷（字段都可能缺失或类型不对） */
 export type PlayerPayload = {
   filePath?: string
   url?: string
@@ -25,14 +25,14 @@ export type PlayerPayload = {
 }
 
 /** 整理后的播放队列 */
-export interface PopoutQueue {
+export interface PlayQueue {
   /** 当前线路的播放队列（自动连播用）；单条目时长度为 1 */
   playlist: PlaylistEntry[]
   /** 起始集下标 */
   position: number
   /** 同集备用线路（失败自动换线路用） */
   fallbacks: PlaylistEntry[]
-  /** 窗口默认标题 */
+  /** 默认标题 */
   title: string
   poster: string
   /** 起始续播秒数（未给出时为 undefined，用已存进度） */
@@ -47,7 +47,7 @@ const text = (value: unknown): string =>
 /** 把载荷整理成队列；既没有列表也没有地址 / 文件时返回 null（忽略这次载荷） */
 export function normalizePlayerPayload(
   payload: PlayerPayload
-): PopoutQueue | null {
+): PlayQueue | null {
   const filePath = text(payload.filePath)
   const url = text(payload.url)
   const incoming = Array.isArray(payload.playlist)
@@ -88,7 +88,7 @@ export function normalizePlayerPayload(
   }
 }
 
-/** 条目显示名：优先 name，其次文件名，最后用窗口默认标题 */
+/** 条目显示名：优先 name，其次文件名，最后用默认标题 */
 export function playlistEntryLabel(
   entry: PlaylistEntry | null | undefined,
   fallback: string

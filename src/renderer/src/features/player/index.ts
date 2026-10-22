@@ -1,5 +1,5 @@
 /**
- * 播放器 feature 的公共出口：内置播放器组件、外部播放器（mpv / 独立窗口）调度、播放进度。
+ * 播放器 feature 的公共出口：内置播放器组件、应用内播放器与 mpv 的调度、播放进度。
  * 其它 feature 只能从这里引用播放器。
  */
 import { defineAsyncComponent } from 'vue'
@@ -12,6 +12,9 @@ export const UnifiedVideoPlayer = defineAsyncComponent(
 export { default as MiniPlayer } from './mini/MiniPlayer.vue'
 export { provideMiniHost } from './mini/mini-host'
 export { claimMini, dockMini, miniSession, preemptMini } from './mini/mini-dock'
+/** 应用内播放器（应用根组件挂载一次）与关闭入口 */
+export { default as InlinePlayer } from './inline/InlinePlayer.vue'
+export { closeInlinePlayer } from './inline/inline-player'
 /** mpv 启动中的全局遮罩（应用根组件挂载） */
 export { default as MpvLoadingOverlay } from './components/MpvLoadingOverlay.vue'
 export {

@@ -52,16 +52,6 @@ export const routes = [
   },
 
   {
-    path: '/player-popout',
-    name: 'PlayerPopout',
-    component: () => import('@/features/player/views/PlayerPopout.vue'),
-    meta: {
-      title: '播放器',
-      description: '独立播放窗口',
-      popout: true,
-    },
-  },
-  {
     path: '/:pathMatch(.*)*',
     redirect: '/',
   },

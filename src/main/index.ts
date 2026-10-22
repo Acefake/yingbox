@@ -12,7 +12,6 @@ import {
 import { join } from 'path'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
-import { registerPlayerWindowIpc } from './player-window'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
@@ -157,7 +156,6 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
-  registerPlayerWindowIpc()
   registerMpvIpc()
   await registerLadaIpc()
   const libraryClient = registerLibraryIpc(thumbnails)

@@ -42,7 +42,7 @@
   <SettingsGroup
     v-if="inPagePlayback"
     title="小窗"
-    footer="只在网页端有：桌面版在独立播放窗口里播放，离开详情不影响播放。"
+    footer="只在网页端有：桌面版的播放器盖住整个窗口，关掉才回到页面，不需要小窗。"
   >
     <SettingsRow
       title="离开详情时用小窗继续播"

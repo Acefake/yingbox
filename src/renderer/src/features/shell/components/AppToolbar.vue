@@ -73,7 +73,7 @@ import {
   searchLocation,
   searchPlaceholder,
 } from '../composables/global-search'
-import WinControls from './WinControls.vue'
+import WinControls from '@/components/WinControls.vue'
 
 const emit = defineEmits<{ 'open-menu': [] }>()
 
