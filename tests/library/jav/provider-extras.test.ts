@@ -106,6 +106,7 @@ describe('JavProvider 附加能力', () => {
     const asked: string[] = []
     const avatars: ActorSource = {
       id: 'gfriends',
+      label: 'gfriends',
       capability: 'image',
       genders: ['female'],
       fetch: async name => {

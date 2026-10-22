@@ -4,7 +4,7 @@
  */
 import {
   ITEMS_CHANGED_LIMIT,
-  type LibraryEvent,
+  type ItemsChangedEvent,
 } from '../../../shared/library/ipc'
 import type { ItemChanges } from '../catalog/catalog-store'
 
@@ -58,7 +58,7 @@ export const scanJobKey = (libraryId: number): string => `library:${libraryId}`
 export function itemsChangedEvent(
   libraryId: number,
   changes: ItemChanges
-): LibraryEvent | null {
+): ItemsChangedEvent | null {
   if (changes.empty) return null
   const count = changes.added.size + changes.updated.size + changes.removed.size
   const reset = count > ITEMS_CHANGED_LIMIT
