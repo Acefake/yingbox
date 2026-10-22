@@ -1,7 +1,6 @@
 /**
  * 识别与刮削模块：把元数据源、HTTP 层、图片缓存、识别执行器组装起来，
  * 注册 identify 任务，实现识别相关的 IPC 方法。LibraryService 只做转发。
- *
  * 纯规则在 identify-rules，任务执行在 identify-job。
  */
 import {
@@ -22,6 +21,7 @@ import {
 import { ItemChanges } from '../catalog/catalog-store'
 import type { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, transaction } from '../db/database'
+import type { DeriveImage } from '../images/derived'
 import { type BinaryFetch, ImageCache } from '../images/image-cache'
 import type { FollowupSpec } from '../jobs/followups'
 import type { JobQueue } from '../jobs/queue'
@@ -80,8 +80,9 @@ export interface IdentifyModuleOptions {
   fetch?: HttpFetch
   /** 图片缓存目录；缺省不缓存图片（只存远程地址）。 */
   mediaDir?: string
-  /** 原图落盘后回调（主进程生成缩略图）。 */
+  /** 原图落盘后回调（主进程生成缩略图）；deriveImage 加工派生图（番号封面裁海报），缺省存源图。 */
   onImagesCached?: (keys: string[]) => void
+  deriveImage?: DeriveImage
   /** 视频时长探测，测试注入。 */
   probeDuration?: (path: string) => Promise<number | undefined>
   /** 文件指纹（OpenSubtitles hash）。 */
@@ -165,6 +166,7 @@ export class IdentifyModule {
           mediaDir: options.mediaDir,
           fetch: fetchImpl,
           onCached: options.onImagesCached,
+          derive: options.deriveImage,
         })
       : undefined
     this.runner = new IdentifyRunner({

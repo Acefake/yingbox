@@ -15,6 +15,8 @@ import {
   HostUnavailableError,
   createHostBreaker,
 } from '../../../../shared/net/host-breaker'
+import type { BinaryFetch } from '../../images/image-cache'
+import { type ImageProbe, createImageProbe } from '../../images/image-size'
 import type { ResponseCache } from '../http/provider-cache'
 import {
   type FetchLike,
@@ -25,6 +27,7 @@ import type { Clock } from '../http/rate-limiter'
 import type { ActorContext, ActorSource } from './actors'
 import { createGfriendsSource } from './actors/sources/gfriends'
 import { type JavMovie, aggregate, toMetadata } from './aggregate'
+import { planPoster } from './poster-plan'
 import { type JavCode, parseJavCode } from './number'
 import { type JavCredentials, createJavSites } from './sites/registry'
 import type { JavRecord, JavSite, PageOptions, SiteContext } from './types'
@@ -87,6 +90,8 @@ export interface JavProviderOptions {
   /** 站点实现，测试注入；缺省为内置站点。 */
   sites?: readonly JavSite[]
   breaker?: HostBreaker
+  /** 探测站点海报尺寸（决定要不要从封面裁）；缺省不探测，有码片一律裁。 */
+  probeImage?: ImageProbe
   now?: () => number
   log?: (message: string) => void
 }
@@ -194,8 +199,16 @@ export class JavProvider {
     code: string,
     signal?: AbortSignal
   ): Promise<MediaMetadata | null> {
-    const movie = await this.scrape(codeOf(code), signal)
-    return movie ? toMetadata(movie) : null
+    const parsed = codeOf(code)
+    const movie = await this.scrape(parsed, signal)
+    if (!movie) return null
+    const plan = await planPoster(
+      movie,
+      parsed,
+      this.options.probeImage,
+      signal
+    )
+    return toMetadata(plan.movie, plan.poster)
   }
 
   /** 查一个站点：命中缓存直接用；查无此片为 null；网络失败 / 被拦为 undefined（不缓存）。 */
@@ -343,7 +356,8 @@ export interface CreateJavProviderOptions extends Pick<
   JavProviderOptions,
   'cache' | 'settings' | 'credentials' | 'avatars' | 'log'
 > {
-  fetch: FetchLike
+  /** 站点页面与图片探测共用（探测站点海报尺寸要读二进制）。 */
+  fetch: FetchLike & BinaryFetch
   clock?: Clock
 }
 
@@ -357,6 +371,7 @@ export function createJavProvider(
   const { fetch, clock, ...rest } = options
   return new JavProvider({
     ...rest,
+    probeImage: createImageProbe(fetch),
     http: perHost(
       () =>
         new ProviderHttp({

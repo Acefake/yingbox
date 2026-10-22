@@ -5,6 +5,7 @@
  * 缩略图由主进程生成：下载完成后经 onCached 通知主进程预热（见 src/main/thumbnails）。
  * key 与路径规则和主进程共用 thumbnails/paths.ts，两边算出同一个文件。
  * 防盗链图床（如番号库的 JavBus 图片）按 shared/net/media-referer 的名单带上 Referer。
+ * 派生图（地址带 #yingbox=…，见 derived.ts）下载源图后经 derive 加工再落盘；没注入 derive 时存源图。
  */
 import { randomUUID } from 'node:crypto'
 import { access, mkdir, rename, rm, writeFile } from 'node:fs/promises'
@@ -14,6 +15,8 @@ import { refererFor } from '../../../shared/net/media-referer'
 import { imageKey, originalPath } from '../../thumbnails/paths'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { Semaphore } from '../providers/http/rate-limiter'
+import { type DeriveImage, parseDerived } from './derived'
+import { isPlaceholderImage } from './placeholder'
 
 /** 下载图片用的 fetch 子集。 */
 export type BinaryFetch = (
@@ -21,6 +24,8 @@ export type BinaryFetch = (
   init: { headers?: Record<string, string>; signal?: AbortSignal }
 ) => Promise<{
   status: number
+  /** 跟随重定向后的最终地址（认占位图用）；实现不给时不判断。 */
+  url?: string
   headers: { get(name: string): string | null }
   arrayBuffer(): Promise<ArrayBuffer>
 }>
@@ -54,6 +59,8 @@ export interface ImageCacheOptions {
   onCached?: (keys: string[]) => void
   /** 单次下载超时，默认 30 s。 */
   timeoutMs?: number
+  /** 加工派生图（宿主放到编解码线程里做）；加工失败按下载失败记。 */
+  derive?: DeriveImage
 }
 
 /** 原图缓存。 */
@@ -143,12 +150,15 @@ export class ImageCache {
     try {
       signal?.throwIfAborted()
       const timeout = AbortSignal.timeout(this.options.timeoutMs ?? 30_000)
-      const referer = refererFor(url)
-      const response = await this.options.fetch(url, {
+      const { source, op } = parseDerived(url)
+      const referer = refererFor(source)
+      const response = await this.options.fetch(source, {
         ...(referer ? { headers: { Referer: referer } } : {}),
         signal: signal ? AbortSignal.any([signal, timeout]) : timeout,
       })
       if (response.status !== 200) throw new Error(`HTTP ${response.status}`)
+      if (isPlaceholderImage(response.url))
+        throw new Error('图床占位图（缺图）')
       const type = response.headers.get('content-type') ?? ''
       // 个别图床（如 mgstage）给图片标 binary/octet-stream，下载后再按文件头确认
       const opaque = /octet-stream/i.test(type)
@@ -157,11 +167,13 @@ export class ImageCache {
       }
       const length = Number(response.headers.get('content-length') ?? 0)
       if (length > MAX_BYTES) throw new Error('图片过大')
-      const bytes = new Uint8Array(await response.arrayBuffer())
+      let bytes: Uint8Array = new Uint8Array(await response.arrayBuffer())
       if (!bytes.length || bytes.length > MAX_BYTES) {
         throw new Error('图片为空或过大')
       }
       if (opaque && !looksLikeImage(bytes)) throw new Error(`不是图片：${type}`)
+      if (op && this.options.derive)
+        bytes = await this.options.derive(op, bytes)
       await mkdir(dirname(target), { recursive: true })
       await writeFile(temp, bytes)
       await rename(temp, target)

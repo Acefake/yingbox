@@ -257,8 +257,15 @@ export class IdentifyRunner implements RunnerContext {
         [urls.poster, urls.backdrop].filter((u): u is string => Boolean(u)),
         signal
       )
+      let cachedPoster = urls.poster ? cached.get(urls.poster) : null
+      // 派生海报（番号封面裁右侧）加工失败时退回下一张海报（站点自带的小图）
+      const fallback = meta.images.filter(i => i.role === 'poster')[1]
+      if (!cachedPoster && fallback) {
+        const url = TmdbProvider.imageUrl(fallback.path, CACHE_SIZE.poster)
+        cachedPoster = (await this.deps.images.ensure([url], signal)).get(url)
+      }
       this.deps.writer.writeImages(target.id, {
-        poster: urls.poster ? cached.get(urls.poster) : null,
+        poster: cachedPoster ?? null,
         backdrop: urls.backdrop ? cached.get(urls.backdrop) : null,
       })
     }
