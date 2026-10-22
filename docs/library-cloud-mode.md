@@ -75,4 +75,4 @@ enabled = true
 
 - CloudDrive2 只通知经它发生的改动（挂载盘、它的网页、WebDAV、离线下载）；在网盘 App / 网站里直接改的文件没有通知，要手动扫描。
 - 文件变更 webhook 是 CloudDrive2 会员功能。
-- 端点只在桌面版；独立片库服务（网页端）可直接调 `POST /api/library/rpc` 的 `notifyChanges`。
+- 端点只在桌面版；独立片库服务（网页端 / Docker）直接调 `POST /api/library/rpc` 的 `notifyChanges`，写法与容器里的路径映射见 [NAS 部署 · CloudDrive2](deploy/nas.md#clouddrive2-挂载的网盘)。
