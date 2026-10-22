@@ -1,9 +1,9 @@
 <template>
   <!-- 剧照：横向滑动，点开灯箱 -->
-  <section class="lib-section">
+  <section v-if="shown.length" class="lib-section">
     <h2 class="lib-section-title">剧照</h2>
     <ul class="lib-stills custom-scrollbar">
-      <li v-for="(path, i) in stills" :key="path" class="lib-still">
+      <li v-for="(path, i) in shown" :key="path" class="lib-still">
         <UiPressable
           block
           class="lib-still-target"
@@ -16,21 +16,22 @@
             loading="lazy"
             decoding="async"
             referrerpolicy="no-referrer"
-            @error="hide"
+            @error="failed.add(path)"
           />
         </UiPressable>
       </li>
     </ul>
-    <StillLightbox v-model:index="open" :stills="stills" />
+    <StillLightbox v-model:index="open" :stills="shown" />
   </section>
 </template>
 
 <script setup lang="ts">
 /**
  * 详情里的剧照区块（接回原番号详情页的剧照）：横排缩略图，点开灯箱看大图。
- * 剧照来源与回退规则见 detail-rules.ts 的 stillsOf；加载失败的缩略图隐藏，不留破图。
+ * 剧照来源与回退规则见 detail-rules.ts 的 stillsOf；加载失败的剧照（含被主进程拦掉的图床占位图）
+ * 从缩略图和灯箱里一起去掉，全部失败时整个区块不显示。
  */
-import { ref, watch } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 
 import UiPressable from '@/components/ui/UiPressable.vue'
 
@@ -41,15 +42,16 @@ const props = defineProps<{ stills: string[] }>()
 
 /** 灯箱当前张；null 为关闭。 */
 const open = ref<number | null>(null)
+/** 加载失败的剧照。 */
+const failed = reactive(new Set<string>())
+const shown = computed(() => props.stills.filter(path => !failed.has(path)))
 watch(
   () => props.stills,
-  () => (open.value = null)
+  () => {
+    open.value = null
+    failed.clear()
+  }
 )
-
-function hide(event: Event): void {
-  const li = (event.target as HTMLElement).closest('li')
-  if (li) li.hidden = true
-}
 </script>
 
 <style scoped src="./detail-section.css"></style>

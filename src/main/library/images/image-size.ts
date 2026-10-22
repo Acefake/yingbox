@@ -8,7 +8,7 @@
 import { refererFor } from '../../../shared/net/media-referer'
 import type { BinaryFetch } from './image-cache'
 import { parseDerived } from './derived'
-import { isPlaceholderImage } from './placeholder'
+import { isPlaceholderImage } from '../../../shared/net/placeholder-image'
 
 /** 图片尺寸。 */
 export interface ImageSize {

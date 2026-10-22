@@ -2,9 +2,10 @@
  * 取缩略图原图（依赖注入，便于测试；接线在 index.ts）：
  * - file:///…：本地图片，直接给路径（nativeImage 读文件）；
  * - http(s)：主进程带 SSRF 防护出网，只给名单里的防盗链 CDN 带 Referer。
- * 响应必须是图片且不超过大小上限。
+ * 响应必须是图片、不是图床占位图，且不超过大小上限。
  */
 import { fileURLToPath } from 'node:url'
+import { isPlaceholderImage } from '../../shared/net/placeholder-image'
 import type { OriginalImage } from './thumbnailer'
 
 /** 原图大小上限 */
@@ -31,6 +32,10 @@ async function readImage(
   deps: SourceDeps
 ): Promise<OriginalImage> {
   if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  if (isPlaceholderImage(response.url)) {
+    await response.body?.cancel().catch(() => {})
+    throw new Error('图床占位图（缺图）')
+  }
   const type = response.headers.get('content-type')?.split(';')[0] || ''
   const length = Number(response.headers.get('content-length') || 0)
   if (!type.startsWith('image/') || length > MAX_ORIGINAL_BYTES) {
