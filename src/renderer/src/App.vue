@@ -10,13 +10,14 @@
     </router-view>
   </AppLayout>
   <MpvLoadingOverlay v-if="!isPlayerPopout" />
+  <MiniPlayer v-if="!isPlayerPopout" />
 </template>
 
 <script setup lang="ts">
 import { computed } from 'vue'
 import { useRoute } from 'vue-router'
 import { AppLayout } from '@/features/shell'
-import { MpvLoadingOverlay } from '@/features/player'
+import { MiniPlayer, MpvLoadingOverlay } from '@/features/player'
 
 const route = useRoute()
 const isPlayerPopout = computed(() => route.name === 'PlayerPopout')

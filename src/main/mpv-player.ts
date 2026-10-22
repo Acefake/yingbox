@@ -2,12 +2,15 @@ import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import { findMpvExecutable } from './mpv-locate'
 import {
+  COMPACT_KEY,
+  COMPACT_MESSAGE,
   DEFAULT_STATUS,
   WATCH_PROPS,
   parsePlaylist,
   parseTracks,
 } from './mpv-props'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
+import { MpvWindow } from './mpv-window'
 import { refererFor } from './media-headers'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
@@ -21,8 +24,6 @@ const VSR_SCALE = 2
 const VSR_FILTER = `d3d11vpp=scale=${VSR_SCALE}:scaling-mode=nvidia`
 /** VSR 生效后在播放窗口显示「片源 → 超分后分辨率」的时长 */
 const VSR_OSD_MS = 4500
-/** 新播放时窗口「一瞬间置顶」的时长，之后自动取消置顶 */
-const ONTOP_FLASH_MS = 1000
 
 /**
  * mpv 播放器进程管理器。
@@ -43,8 +44,10 @@ class MpvPlayer extends EventEmitter {
   private videoWidth = 0
   /** VSR 正在跟随时给的 OSD 提示定时器 */
   private vsrOsdTimer: ReturnType<typeof setTimeout> | null = null
-  /** 「一瞬间置顶」的还原定时器 */
-  private ontopTimer: ReturnType<typeof setTimeout> | null = null
+  /** 窗口置顶：新播放时顶到最前、缩小置顶 */
+  private readonly window = new MpvWindow((name, value) =>
+    this.setProp(name, value)
+  )
 
   constructor() {
     super()
@@ -79,7 +82,7 @@ class MpvPlayer extends EventEmitter {
           await this.setProp('time-pos', options.startAt)
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
-        await this.bringToFront()
+        await this.window.bringToFront()
       } else {
         await this.spawnProcess(options)
       }
@@ -87,28 +90,6 @@ class MpvPlayer extends EventEmitter {
       this._status.loading = false
       this.emit('status', this.getStatus())
       throw error
-    }
-  }
-
-  /**
-   * 把 mpv 窗口提到最前（每次新播放时调用）。
-   * 用「一瞬间置顶」实现：取消最小化 → 置顶把窗口顶到最前 → 短暂延时后
-   * 自动取消置顶，避免播放窗口一直压在其他窗口上面。
-   */
-  private async bringToFront(): Promise<void> {
-    try {
-      await this.setProp('window-minimized', false)
-      await this.setProp('ontop', false)
-      await this.setProp('ontop', true)
-      if (this.ontopTimer) clearTimeout(this.ontopTimer)
-      this.ontopTimer = setTimeout(() => {
-        this.ontopTimer = null
-        void this.setProp('ontop', false).catch(() => {
-          // 还原置顶失败不影响播放
-        })
-      }, ONTOP_FLASH_MS)
-    } catch {
-      // 置顶失败不应影响播放
     }
   }
 
@@ -165,6 +146,12 @@ class MpvPlayer extends EventEmitter {
         command: ['observe_property', i + 1, WATCH_PROPS[i]],
       })
     }
+    // mpv 窗口里按快捷键切换缩小置顶（mpv 不支持 keybind 命令时忽略）
+    await this.sock
+      .send({
+        command: ['keybind', COMPACT_KEY, `script-message ${COMPACT_MESSAGE}`],
+      })
+      .catch(() => {})
     this.emit('status', this.getStatus())
   }
 
@@ -179,6 +166,12 @@ class MpvPlayer extends EventEmitter {
       this._status.loading = true
       this.emit('status', this.getStatus())
       this.emit('start-file')
+    } else if (
+      msg.event === 'client-message' &&
+      Array.isArray(msg.args) &&
+      msg.args[0] === COMPACT_MESSAGE
+    ) {
+      void this.setCompact(!this.window.compact).catch(() => {})
     } else if (msg.event === 'playback-restart') {
       this._status.loading = false
       this.emit('status', this.getStatus())
@@ -281,6 +274,16 @@ class MpvPlayer extends EventEmitter {
     }, 700)
   }
 
+  /**
+   * 缩小置顶：mpv 窗口缩到屏幕右下角并保持在最前（mpv 是独立窗口，没有画中画）；on = false 还原。
+   * mpv 没在运行时什么都不做。
+   */
+  async setCompact(on: boolean): Promise<void> {
+    if (!this.child) return
+    await this.window.setCompact(on)
+    this.emit('status', this.getStatus())
+  }
+
   /** 设置 RTX 视频超分开关（来自渲染层的「设置 → 播放器」）。 */
   async setVsrEnabled(enabled: boolean): Promise<void> {
     if (this.vsrEnabled === enabled) return
@@ -296,10 +299,7 @@ class MpvPlayer extends EventEmitter {
   }
 
   private cleanupProcess(): void {
-    if (this.ontopTimer) {
-      clearTimeout(this.ontopTimer)
-      this.ontopTimer = null
-    }
+    this.window.reset()
     if (this.vsrOsdTimer) {
       clearTimeout(this.vsrOsdTimer)
       this.vsrOsdTimer = null
@@ -320,6 +320,7 @@ class MpvPlayer extends EventEmitter {
     return {
       ...this._status,
       running: Boolean(this.child),
+      compact: this.window.compact,
       vsr: this.vsrActive,
       videoWidth: w || undefined,
       videoHeight: h || undefined,

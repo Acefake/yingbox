@@ -31,6 +31,27 @@ export const WATCH_PROPS = [
   'video-params',
 ]
 
+/** mpv 窗口里切换「缩小置顶」的快捷键（运行时用 keybind 绑定，发 script-message 给影盒） */
+export const COMPACT_KEY = 'Alt+p'
+/** 快捷键发来的 client-message 名 */
+export const COMPACT_MESSAGE = 'yingbox-compact'
+
+/**
+ * 「缩小置顶」要设的 mpv 属性（按顺序）。
+ * 开：置顶 + 480×270 贴屏幕右下角（留 24 像素）；关：取消置顶 + 回到首次打开时的 1600×900 并居中。
+ */
+export function compactProps(on: boolean): Array<[string, unknown]> {
+  return on
+    ? [
+        ['ontop', true],
+        ['geometry', '480x270-24-24'],
+      ]
+    : [
+        ['ontop', false],
+        ['geometry', '1600x900+50%+50%'],
+      ]
+}
+
 /** mpv 的 track-list → 音轨 / 字幕轨列表 */
 export function parseTracks(raw: Record<string, unknown>[]): MpvTrack[] {
   if (!Array.isArray(raw)) return []
