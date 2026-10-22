@@ -8,8 +8,12 @@ import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { openLibraryDb } from '../../../src/main/library/db/database'
 import { LibraryService } from '../../../src/main/library/engine/service'
+import type { FollowupSpec } from '../../../src/main/library/jobs/followups'
 import { LibraryStore } from '../../../src/main/library/libraries/library-store'
-import { autoFollowups } from '../../../src/main/library/writer/auto-rules'
+import {
+  afterAutoOrganize,
+  autoFollowups,
+} from '../../../src/main/library/writer/auto-rules'
 import {
   DEFAULT_LIBRARY_AUTOMATION,
   DEFAULT_WRITER_SETTINGS,
@@ -44,25 +48,42 @@ describe('autoFollowups', () => {
     automationOf: (id: number) => libs.get(id),
   }
 
-  it('inherit 跟随全局「识别后自动写出」，on / off 以库为准', () => {
-    expect(autoFollowups([11, 21], DEFAULT_WRITER_SETTINGS, deps)).toEqual({
-      write: [21],
-      organize: null,
-    })
-    const auto = settings(s => (s.autoWriteAfterIdentify = true))
-    expect(autoFollowups([11, 21, 99], auto, deps).write).toEqual([11, 21])
+  const write = (itemIds: number[]): FollowupSpec => ({
+    type: 'writer-write',
+    key: 'writer-write',
+    payload: { itemIds },
+    priority: 2,
   })
 
-  it('整理要库开关和全局总闸都开；要写出的条目放到整理之后', () => {
-    expect(autoFollowups([31, 41], DEFAULT_WRITER_SETTINGS, deps)).toEqual({
-      write: [41],
-      organize: null,
-    })
+  it('inherit 跟随全局「识别后自动写出」，on / off 以库为准', () => {
+    expect(autoFollowups([11, 21], DEFAULT_WRITER_SETTINGS, deps)).toEqual([
+      write([21]),
+    ])
+    const auto = settings(s => (s.autoWriteAfterIdentify = true))
+    expect(autoFollowups([11, 21, 99], auto, deps)).toEqual([write([11, 21])])
+  })
+
+  it('整理要库开关和全局总闸都开；要写出的条目放到整理之后（整理只试一次）', () => {
+    expect(autoFollowups([31, 41], DEFAULT_WRITER_SETTINGS, deps)).toEqual([
+      write([41]),
+    ])
     const on = settings(s => (s.organize.enabled = true))
-    expect(autoFollowups([31, 41, 41, 11], on, deps)).toEqual({
-      write: [],
-      organize: { itemIds: [31, 41], writeAfter: [41] },
-    })
+    expect(autoFollowups([31, 41, 41, 11], on, deps)).toEqual([
+      {
+        type: 'writer-auto-organize',
+        key: 'writer-auto-organize',
+        payload: { itemIds: [31, 41], writeAfter: [41] },
+        priority: 2,
+        maxAttempts: 1,
+      },
+    ])
+  })
+
+  it('自动整理的后继：writeAfter 有条目才写出', () => {
+    expect(afterAutoOrganize({ itemIds: [31, 41], writeAfter: [41] })).toEqual([
+      write([41]),
+    ])
+    expect(afterAutoOrganize({ itemIds: [31], writeAfter: [] })).toEqual([])
   })
 })
 

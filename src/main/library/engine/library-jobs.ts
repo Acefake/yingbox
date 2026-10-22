@@ -1,9 +1,11 @@
 /**
  * 媒体库后台任务：扫描、重解析、计算指纹。由 LibraryService 注册进任务队列，
  * 同一媒体库的扫描 / 解析由服务层的 KeyedMutex 互斥。
+ * 扫描 / 重解析的后继写在任务定义里（changeFollowups）：有变化排识别，扫描有新增 / 变化再排指纹（网盘不排）。
  */
 import { type CatalogStore, ItemChanges } from '../catalog/catalog-store'
 import { type LibraryDb, transaction } from '../db/database'
+import type { FollowupSpec } from '../jobs/followups'
 import type { KeyedMutex } from '../jobs/keyed-mutex'
 import type { JobContext, JobQueue } from '../jobs/queue'
 import type { LibraryRecord } from '../libraries/library-store'
@@ -18,8 +20,18 @@ import {
   SCAN_WARNING_LOG_LIMIT,
   type ScanPayload,
   chunks,
+  libraryJobSpec,
   mergeScanPayload,
 } from './service-rules'
+
+/** 扫描 / 重解析的结果，后继据此决定派什么。 */
+export interface LibraryChangeResult {
+  libraryId: number
+  /** 条目有新增 / 变化 / 删除。 */
+  itemsChanged: boolean
+  /** 有新增或内容变了的文件（要补指纹）；重解析不读文件，恒为 false。 */
+  filesChanged: boolean
+}
 
 /** 后台任务需要的服务能力。 */
 export interface LibraryJobDeps {
@@ -32,9 +44,10 @@ export interface LibraryJobDeps {
   /** 整库扫描完成：记扫描时间并广播媒体库列表。 */
   onLibraryScanned: (libraryId: number) => void
   emitItems: (libraryId: number, changes: ItemChanges) => void
-  enqueueFingerprint: (libraryId: number) => void
-  /** 有新增 / 变化的条目时排自动识别（库设置关闭自动识别时忽略）。 */
-  enqueueIdentify: (libraryId: number) => void
+  /** 这个库的自动识别后继；库关了自动识别、或 TMDB 库没令牌时为 null。 */
+  identifyFollowup: (libraryId: number) => FollowupSpec | null
+  /** 库是否按网盘处理（网盘不读视频内容、不排指纹）。 */
+  isCloudLibrary: (libraryId: number) => Promise<boolean>
   /** 这个库的写入稳定判定；null 表示不判定。 */
   settleFor: (
     library: LibraryRecord
@@ -49,7 +62,7 @@ export async function runScan(
   deps: LibraryJobDeps,
   payload: ScanPayload,
   ctx: JobContext
-): Promise<void> {
+): Promise<LibraryChangeResult> {
   const lib = deps.libraryFor(payload.libraryId)
   const summary = await scanLibrary(
     {
@@ -73,9 +86,11 @@ export async function runScan(
   }
   if (!payload.dirs) deps.onLibraryScanned(lib.id)
   deps.emitItems(lib.id, summary.changes)
-  if (summary.added || summary.changed) deps.enqueueFingerprint(lib.id)
-  // 有新增 / 变化的条目就排自动识别（只处理没识别过或文件变过的）
-  if (!summary.changes.empty) deps.enqueueIdentify(lib.id)
+  return {
+    libraryId: lib.id,
+    itemsChanged: !summary.changes.empty,
+    filesChanged: summary.added > 0 || summary.changed > 0,
+  }
 }
 
 /** 重解析解析版本落后的文件，并按新结果重新分组。 */
@@ -83,7 +98,7 @@ export async function runParse(
   deps: LibraryJobDeps,
   payload: LibraryPayload,
   ctx: JobContext
-): Promise<void> {
+): Promise<LibraryChangeResult> {
   const { db, scanStore, catalog } = deps
   const lib = deps.libraryFor(payload.libraryId)
   const parseCtx = {
@@ -119,7 +134,26 @@ export async function runParse(
     catalog.bumpUpdated(changes, Date.now())
   })
   deps.emitItems(lib.id, changes)
-  if (!changes.empty) deps.enqueueIdentify(lib.id)
+  return {
+    libraryId: lib.id,
+    itemsChanged: !changes.empty,
+    filesChanged: false,
+  }
+}
+
+/** 扫描 / 重解析的后继：条目有变化排识别（只处理没识别过或文件变过的），文件有新增 / 变化排指纹（网盘不排）。 */
+export async function changeFollowups(
+  deps: Pick<LibraryJobDeps, 'identifyFollowup' | 'isCloudLibrary'>,
+  result: LibraryChangeResult
+): Promise<FollowupSpec[]> {
+  const specs: FollowupSpec[] = []
+  const identify = result.itemsChanged
+    ? deps.identifyFollowup(result.libraryId)
+    : null
+  if (identify) specs.push(identify)
+  if (result.filesChanged && !(await deps.isCloudLibrary(result.libraryId)))
+    specs.push(libraryJobSpec('fingerprint', result.libraryId))
+  return specs
 }
 
 /** 为还没有指纹的视频文件分批计算指纹（读头尾各 64 KiB）；算不出的本轮不再重试。 */
@@ -163,18 +197,25 @@ export function registerLibraryJobs(
   locks: KeyedMutex<number>,
   deps: LibraryJobDeps
 ): void {
+  const followups = {
+    next: ({ result }: { result: unknown }) =>
+      changeFollowups(deps, result as LibraryChangeResult),
+  }
   queue.register(
     'scan',
     (p, ctx) =>
       locks.run((p as ScanPayload).libraryId, () =>
         runScan(deps, p as ScanPayload, ctx)
       ),
-    { merge: mergeScanPayload }
+    { merge: mergeScanPayload, followups }
   )
-  queue.register('parse', (p, ctx) =>
-    locks.run((p as LibraryPayload).libraryId, () =>
-      runParse(deps, p as LibraryPayload, ctx)
-    )
+  queue.register(
+    'parse',
+    (p, ctx) =>
+      locks.run((p as LibraryPayload).libraryId, () =>
+        runParse(deps, p as LibraryPayload, ctx)
+      ),
+    { followups }
   )
   queue.register('fingerprint', (p, ctx) =>
     runFingerprint(deps, p as LibraryPayload, ctx)

@@ -1,6 +1,6 @@
 /**
  * identify 任务的执行：取目标 → （刷新时让缓存过期）→ 跑执行器，
- * 期间节流推送进度与条目变化（海报墙边识别边刷新），结束后通知写出层。
+ * 期间节流推送进度与条目变化（海报墙边识别边刷新），结束时交出有变化的条目（后继据此派发，见 identify-module）。
  */
 import type { LibraryEvent } from '../../../shared/library/ipc'
 import type { ItemChanges } from '../catalog/catalog-store'
@@ -30,7 +30,12 @@ export interface IdentifyJobDeps {
   /** 按媒体库拆分变化并推送 items-changed。 */
   emitChanges: (changes: ItemChanges) => void
   concurrency?: number
-  onIdentified?: (itemIds: number[]) => void
+}
+
+/** identify 任务的结果。 */
+export interface IdentifyResult {
+  /** 元数据有变化的顶层条目。 */
+  changed: number[]
 }
 
 /** 执行一个 identify 任务。 */
@@ -38,7 +43,7 @@ export async function runIdentifyJob(
   deps: IdentifyJobDeps,
   payload: IdentifyPayload,
   ctx: JobContext
-): Promise<void> {
+): Promise<IdentifyResult> {
   const mode = payload.mode
   const targets = deps.store.targets(targetScope(mode), {
     libraryId: payload.libraryId,
@@ -89,6 +94,5 @@ export async function runIdentifyJob(
   }
   flush(summary.changes)
   progress(summary, true)
-  const changed = [...summary.changes.added, ...summary.changes.updated]
-  if (changed.length) deps.onIdentified?.(changed)
+  return { changed: [...summary.changes.added, ...summary.changes.updated] }
 }

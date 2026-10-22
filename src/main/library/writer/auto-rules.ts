@@ -1,5 +1,6 @@
 /**
- * 识别后的自动后续（纯规则）：按条目所在媒体库的自动化设置，决定哪些条目自动写出、哪些自动整理。
+ * 识别后的自动后续（纯规则）：按条目所在媒体库的自动化设置，给出识别任务的后继——哪些条目自动写出、
+ * 哪些自动整理（整理任务自己的后继是整理后写出，见 writer-module 的任务定义）。
  *
  * - 写出：库设置 write 为 on / off 时以库为准；inherit 跟随写出设置里的「识别后自动写出」。
  * - 整理：库设置 organize 开启，且写出设置里「允许整理文件」也开启（全局总闸，默认关）。
@@ -12,6 +13,8 @@ import type {
   MatchState,
   WriterSettings,
 } from '../../../shared/library/ipc'
+import type { FollowupSpec } from '../jobs/followups'
+import { PRIORITY, writeJobSpec } from './writer-rules'
 
 /** 自动整理任务载荷。 */
 export interface AutoOrganizePayload {
@@ -19,14 +22,6 @@ export interface AutoOrganizePayload {
   itemIds: number[]
   /** 整理结束后再写出的条目。 */
   writeAfter: number[]
-}
-
-/** 自动后续的分组结果。 */
-export interface AutoFollowups {
-  /** 立即写出。 */
-  write: number[]
-  /** 自动整理（载荷里带着整理后要写出的条目）；没有要整理的条目时为 null。 */
-  organize: AutoOrganizePayload | null
 }
 
 /** 分组需要的查询。 */
@@ -37,12 +32,12 @@ export interface AutoFollowupDeps {
   automationOf: (libraryId: number) => LibraryAutomation | undefined
 }
 
-/** 按库设置把识别出变化的条目分成“立即写出”和“先整理再写出”。 */
+/** 按库设置把识别出变化的条目分成“立即写出”和“先整理再写出”两种后继（都是自动优先级）。 */
 export function autoFollowups(
   itemIds: readonly number[],
   settings: WriterSettings,
   deps: AutoFollowupDeps
-): AutoFollowups {
+): FollowupSpec[] {
   const write: number[] = []
   const organize: number[] = []
   const writeAfter: number[] = []
@@ -66,11 +61,31 @@ export function autoFollowups(
       write.push(id)
     }
   }
-  return {
-    write,
-    organize: organize.length ? { itemIds: organize, writeAfter } : null,
-  }
+  const specs: FollowupSpec[] = []
+  if (write.length) specs.push(writeJobSpec(write, PRIORITY.auto))
+  if (organize.length)
+    specs.push(autoOrganizeSpec({ itemIds: organize, writeAfter }))
+  return specs
 }
+
+/** writer-auto-organize 任务：全局一个键，只试一次（改名移动失败不自动重来）。 */
+export const autoOrganizeSpec = (
+  payload: AutoOrganizePayload
+): FollowupSpec => ({
+  type: 'writer-auto-organize',
+  key: 'writer-auto-organize',
+  payload,
+  priority: PRIORITY.auto,
+  maxAttempts: 1,
+})
+
+/** 自动整理结束（成功或失败）后的后继：整理时带上的条目写出到最终位置。 */
+export const afterAutoOrganize = (
+  payload: AutoOrganizePayload
+): FollowupSpec[] =>
+  payload.writeAfter.length
+    ? [writeJobSpec(payload.writeAfter, PRIORITY.auto)]
+    : []
 
 /** 合并排队中的自动整理：两组条目各取并集。 */
 export const mergeAutoOrganizePayload = (
