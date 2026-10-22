@@ -31,6 +31,8 @@ function fileServer(opts: {
   body: string
   range: boolean
   etag?: string
+  /** 不发 Content-Length（分块传输） */
+  noLength?: boolean
 }): FileServer {
   const state = {
     /** 206 却从别的位置开始（不守规矩的服务器） */
@@ -73,9 +75,9 @@ function fileServer(opts: {
           else c.close()
         },
       })
-      const h: Record<string, string> = {
-        'content-length': String(part.length),
-      }
+      const h: Record<string, string> = opts.noLength
+        ? {}
+        : { 'content-length': String(part.length) }
       if (state.etag) h.etag = state.etag
       if (useRange)
         h['content-range'] =
@@ -117,7 +119,7 @@ describe('直链断点续传（HTTP Range）', () => {
 
     server.state.cutAt = Infinity
     server.state.seen = []
-    const progress: number[] = []
+    const progress: Array<number | undefined> = []
     const { file } = await downloadDirect(
       server.net,
       'https://c.test/v/a.mp4?sig=new',
@@ -284,5 +286,26 @@ describe('直链：206 起点对不上', () => {
       'bytes=300-',
       undefined,
     ])
+  })
+})
+
+describe('直链：服务器不给 Content-Length', () => {
+  it('进度不报总量（不再显示 100%），只报已下字节', async () => {
+    const dir = await tmp()
+    const body = 'CHUNKED'.repeat(50)
+    const server = fileServer({ body, range: false, noLength: true })
+    const progress: Array<{ total?: number; bytes: number }> = []
+
+    const { file } = await downloadDirect(
+      server.net,
+      'https://c.test/v/n.mp4',
+      join(dir, 'N'),
+      { retries: 0, onProgress: p => progress.push(p) }
+    )
+
+    expect(await readFile(file, 'utf-8')).toBe(body)
+    expect(progress.length).toBeGreaterThan(0)
+    expect(progress.every(p => p.total === undefined)).toBe(true)
+    expect(progress.at(-1)!.bytes).toBe(body.length)
   })
 })

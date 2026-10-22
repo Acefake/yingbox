@@ -205,6 +205,7 @@ describe('下载队列', () => {
     const snapshots: string[] = []
     const queue = new DownloadQueue({
       file,
+      downloadDir: async () => '/downloads',
       run,
       onChange: s =>
         snapshots.push(`${s.active?.id ?? '-'}|${s.queued.length}`),
@@ -260,6 +261,7 @@ describe('下载队列', () => {
     const ran: string[] = []
     const restarted = new DownloadQueue({
       file,
+      downloadDir: async () => '/downloads',
       run: async code => {
         ran.push(code)
         return { file: code, site: 's' }
@@ -299,6 +301,7 @@ describe('下载队列', () => {
         })
     )
     queue.add('x-1')
+    await settle() // 等任务定下目录、runner 跑起来
     queue.remove('x-1')
     await settle()
     expect(aborted).toBe(true)
