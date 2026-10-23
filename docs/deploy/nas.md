@@ -91,6 +91,8 @@ docker run -d --name yingbox-library --restart unless-stopped \
 
 ## 反向代理与 HTTPS
 
+在 compose 的 `environment:` 中设置 `YINGBOX_PUBLIC_ORIGIN: https://media.example.com`，填浏览器实际访问的协议、域名与端口，不带路径。服务据此写入 `Secure` Cookie 并校验完整同源，不信任 `X-Forwarded-*` 头。启用后在 HTTPS 地址重新登录；后端端口仅供可信反向代理访问。本地 HTTP 部署不设置此项。
+
 - **不要把 31480 直接映射到公网**。外网访问优先用 Tailscale / WireGuard 回家；确实要公网访问，走 HTTPS 反向代理，令牌就是唯一的门。
 - 反代和服务在同一台机器上时，保持 compose 里的 `127.0.0.1:31480:31480`，反代连 `127.0.0.1:31480`（反代自己也在容器里时，把两者放进同一个 Docker 网络，反代连 `yingbox:31480`，并删掉 `ports`）。
 - 要原样转发 `Host` 头（含非默认端口）：服务对改写类请求检查 `Origin` 与 `Host` 同源，Host 被改写或丢了端口，登录等请求会得到「跨站请求被拒绝」（403）。

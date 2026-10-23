@@ -55,7 +55,8 @@
 
 - 所有接口（`/api/health`、`/api/session` 与网页静态文件除外）都要令牌：`Authorization: Bearer <令牌>`，或登录后服务写入的 Cookie。
 - Cookie 是 `HttpOnly` + `SameSite=Strict`，页面脚本拿不到令牌，`<img>` / `<video>` / `EventSource` 自动带上；令牌不出现在资源地址里。
-- 改写类请求校验同源（`Origin`），防跨站调用。
+- 改写类请求校验完整同源（协议、主机和端口），防跨站调用。
+- HTTPS 反向代理部署时设置 `YINGBOX_PUBLIC_ORIGIN=https://media.example.com`（或 `--public-origin`），登录和退出 Cookie 带 `Secure`，同源检查使用此固定源。服务不采用客户端的 `X-Forwarded-*` 头；只在本地用 HTTP 时无需设置。
 - 令牌来源：`YINGBOX_SERVER_TOKEN` 环境变量；没设时首次启动随机生成（32 字节），存进 `<数据目录>/secrets.json` 并打印在启动日志里。
 - 对外监听（`--host` 不是 `127.0.0.1` / `::1` / `localhost`）时必须用环境变量显式设置令牌：至少 24 个字符、不是示例占位串，否则服务拒绝启动（`src/server/exposure.ts`，ADR-0010）。
 - 启动日志里的 `http://…/?token=…` 只需打开一次：服务把它换成 Cookie 并从地址栏去掉令牌。
@@ -67,6 +68,7 @@
 | 参数                     | 环境变量                                  | 默认                          | 说明                                                                                     |
 | ------------------------ | ----------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，这时必须设 `YINGBOX_SERVER_TOKEN`  |
+| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                  | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`       |
 | `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
 | `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
 | `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                             |

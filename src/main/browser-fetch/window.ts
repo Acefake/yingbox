@@ -1,4 +1,5 @@
-import { BrowserWindow, screen, session } from 'electron'
+import { BrowserWindow, screen } from 'electron'
+import { guardedBrowserSession } from './network-guard'
 import { classifyPage } from '../../shared/net/cf-page'
 import { BlockedPageError, CHROME_UA, PARTITION, isUsablePage } from './page'
 
@@ -45,7 +46,7 @@ export async function fetchViaWindow(
   url: string,
   waitMs: number
 ): Promise<string> {
-  session.fromPartition(PARTITION).setUserAgent(CHROME_UA)
+  guardedBrowserSession().setUserAgent(CHROME_UA)
 
   const win = new BrowserWindow({
     show: false,

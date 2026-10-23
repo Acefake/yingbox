@@ -24,6 +24,8 @@ services:
       # 宿主机地址:宿主机端口:容器端口。127.0.0.1 = 只本机（反代同机）可访问
       - '127.0.0.1:31480:31480'
     environment:
+      # HTTPS 反向代理部署时设为浏览器访问的源（含非默认端口，不带路径）：
+      # YINGBOX_PUBLIC_ORIGIN: https://media.example.com
       # 服务进程的 UID / GID（入口以 root 整理 /config、/cache 属主后降权）。
       # 设成媒体文件的属主（群晖 / 威联通在用户管理里查，或 ssh 上去 id <用户名>），否则读不到片库
       PUID: '1000'

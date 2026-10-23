@@ -1,4 +1,5 @@
 import { session } from 'electron'
+import { guardedBrowserSession } from './network-guard'
 import { classifyPage } from '../../shared/net/cf-page'
 import { CHROME_UA, PARTITION, isUsablePage } from './page'
 
@@ -44,7 +45,7 @@ export async function fetchViaSession(url: string): Promise<SessionPage> {
   const controller = new AbortController()
   const timer = setTimeout(() => controller.abort(), SESSION_TIMEOUT_MS)
   try {
-    const res = await session.fromPartition(PARTITION).fetch(url, {
+    const res = await guardedBrowserSession().fetch(url, {
       // 必须带上会话 cookie（cf_clearance）。Electron 37 不写也会带（e2e 实测），但 net.request 的
       // 文档默认是不带，显式写明不依赖这层默认值的翻译。
       credentials: 'include',
