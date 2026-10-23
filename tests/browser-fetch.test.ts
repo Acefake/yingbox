@@ -8,6 +8,8 @@ const state = vi.hoisted(() => ({
   pages: [] as string[][],
   windows: [] as Array<{
     shown: boolean
+    opacity: number
+    clickThrough: boolean
     destroyed: boolean
     url: string
     ua: string
@@ -21,7 +23,14 @@ const state = vi.hoisted(() => ({
 
 vi.mock('electron', () => {
   class FakeWindow {
-    private record = { shown: false, destroyed: false, url: '', ua: '' }
+    private record = {
+      shown: false,
+      destroyed: false,
+      url: '',
+      ua: '',
+      opacity: 1,
+      clickThrough: false,
+    }
     private html: string[]
     webContents: unknown
     constructor() {
@@ -54,6 +63,12 @@ vi.mock('electron', () => {
     }
     isVisible(): boolean {
       return this.record.shown
+    }
+    setOpacity(value: number): void {
+      this.record.opacity = value
+    }
+    setIgnoreMouseEvents(value: boolean): void {
+      this.record.clickThrough = value
     }
     showInactive(): void {
       this.record.shown = true
@@ -133,12 +148,17 @@ describe('browserFetch：窗口流程', () => {
     expect(state.fetches).toHaveLength(0)
   })
 
-  it('命中挑战页时显示窗口并等到挑战通过', async () => {
+  it('命中挑战页时以透明、鼠标穿透方式显示窗口并等到挑战通过', async () => {
     const { browserFetch } = make({ challengeWaitMs: 3000 })
     state.pages.push([challenge, page('passed')])
     const html = await browserFetch('https://example.com/cf')
     expect(html).toContain('passed')
-    expect(state.windows[0]).toMatchObject({ shown: true, destroyed: true })
+    expect(state.windows[0]).toMatchObject({
+      shown: true,
+      opacity: 0,
+      clickThrough: true,
+      destroyed: true,
+    })
   })
 
   it('挑战未通过返回空串', async () => {
