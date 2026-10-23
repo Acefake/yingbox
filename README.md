@@ -7,7 +7,7 @@
 - **本地媒体库**：扫描电影、剧集目录，识别片名与季集，从 TMDB 刮削元数据，写入 Kodi 标准 NFO 与图片，可按模板整理文件；海报墙按人脸取景，卡片悬停预览，视频墙多格同时播放
 - **网盘 / 挂载盘**：每个库可设为本地盘或网盘；网盘库不监控、不定时扫描，可接 CloudDrive2 变更通知按目录增量扫描，见 [docs/library-cloud-mode.md](docs/library-cloud-mode.md)
 - **在线观看**：聚合苹果 CMS 资源站（内置 `cms-sites.json` + 订阅远程清单 + 自定义源）与 CatSpider 插件站点，可检测可用性；豆瓣片单浏览与筛选，详情页剧照（TMDB，豆瓣兜底）
-- **内置播放器**：本地文件（`local://`，支持 Range）、HLS/m3u8、外挂字幕，可选 mpv、弹出窗口、应用内迷你播放器
+- **内置播放器**：本地文件（`local://`，支持 Range）、HLS/m3u8、外挂字幕；应用内播放弹窗，可缩成角落小窗，可选 mpv
 - **下载**：HLS（含 AES-128）与直链下载，断点续传，下载目录可在设置里改
 - **片库服务（网页端 / NAS）**：同一套媒体库核心以独立 Node 服务运行，浏览器访问，可用 Docker 部署，见 [docs/library-server.md](docs/library-server.md)、[docs/deploy/nas.md](docs/deploy/nas.md)
 

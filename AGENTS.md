@@ -8,7 +8,7 @@ This file provides guidance to coding agents working with code in this repositor
 
 - **本地媒体库** — scans movie/TV folders, scrapes TMDB metadata, writes Kodi-standard NFO + images
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
-- **内置播放器** — dedicated player window: local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
+- **内置播放器** — in-app player modal (desktop and web, ADR-0015): local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
 Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; the desktop app never talks to it.
 
@@ -65,7 +65,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 - `http-client.ts` — SSRF-guarded fetch for main's own requests (subtitles, thumbnail originals): private-IP blocking incl. DNS resolution, manual redirect hops, size-limited reads
 - `local-media.ts` — `local://` URL ↔ filesystem path + HTTP Range streaming (206/416)
 - `media-scanner.ts` — incremental library scan (directory-mtime short-circuit + cache reuse)
-- `player-window.ts` — singleton player window; normalizes payloads, caps playlists at 500 items; `player.setCompact` shrinks it to the bottom-right corner, always on top (mpv: `mpv.setCompact`, `mpv-window.ts`)
+- `mpv-window.ts` — `mpv.setCompact` shrinks the external mpv window to the bottom-right corner, always on top
 - `subtitle.ts` — sidecar subtitle discovery, encoding detection (UTF-8/UTF-16/GB18030), srt/ass → WebVTT
 
 ### Preload (`src/preload/index.ts`)
@@ -76,9 +76,9 @@ Exposes `window.api` only, namespaced: `file.* http.* path.* dialog.* config.* a
 
 ### Renderer (`src/renderer/src/`)
 
-Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`, `/player-popout`; catch-all → `/`.
+Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`; catch-all → `/`.
 
-- `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `download`, `player` (`UnifiedVideoPlayer`, mpv/popout, play progress, `mini/` in-app mini player: in-page players hand the same instance to it on leaving a detail and claim it back), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
+- `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `download`, `player` (every entry calls `openMediaPlayer` → mpv or `modal/PlayerModal`, the one in-app player over the current page: Esc / close button, backdrop click does nothing, minimize moves the same session node into `mini/` and back, route changes minimize it; `PlayerSession` queue / fallbacks / progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
 - TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `services/library-server` is exempt)
 - `features/library/` — movie / TV library UI (poster wall, video wall, detail, match review, writer / organize, library settings), talking to the library engine through `api/bridge.ts`: on desktop `window.api.library` (`src/preload/library-bridge.ts`, its own invoke channel + MessagePort event stream, not part of the generic contract; main owns the event ports: a window registers with `library:subscribe`, main (`src/main/library/engine-host.ts`, on `UtilityHost`: `onStart` reconnects every subscriber before any call reaches a new engine; no idle exit, shutdown killed after 5 s) pushes a port on `library:port` and pushes a fresh one to every subscribed window whenever the engine is re-forked after a crash, so subscriptions survive engine restarts), on the web the HTTP transport to the library server
 - shared: `components/ui/` (design system), `components/` (page chrome, `StatusState`), `composables/` (`use-context-menu`, `use-escape-layer`, `use-platform`), `utils/`
@@ -96,7 +96,7 @@ Movie libraries carry a `source` fixed at creation (migration v4 adds `libraries
 
 ### Library server (`src/server/`, web / NAS)
 
-The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480` (any other host needs an explicit ≥24-char token, `exposure.ts`; token sources in the doc). Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`, `detail/WebPlayer.vue`. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy: `docs/library-server.md`; Docker / NAS: `docs/deploy/nas.md` (ADR-0010). Checks: `scripts/smoke-server.mjs` (offline, manual), `scripts/web-e2e.mjs` (Playwright, manual).
+The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480` (any other host needs an explicit ≥24-char token, `exposure.ts`; token sources in the doc). Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`; playback goes through `openMediaPlayer` with `/media/files` URLs. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy: `docs/library-server.md`; Docker / NAS: `docs/deploy/nas.md` (ADR-0010). Checks: `scripts/smoke-server.mjs` (offline, manual), `scripts/web-e2e.mjs` (Playwright, manual).
 
 ### App settings
 
@@ -154,6 +154,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0012](docs/adr/0012-library-job-followups.md) 媒体库任务后继写在任务定义里
 - [0013](docs/adr/0013-poster-face-focus.md) 海报人脸取景
 - [0014](docs/adr/0014-plugin-isolation-and-session-origin.md) 插件隔离与会话来源
+- [0015](docs/adr/0015-in-app-player-modal.md) 应用内播放弹窗 + 角落小窗，桌面与网页一套，不开独立窗口
 
 ## UI conventions
 

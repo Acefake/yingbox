@@ -276,7 +276,7 @@ try {
   await play.waitFor({ timeout: 10000 })
   step('打开详情')
   await play.click()
-  const video = page.locator('video.web-player__video')
+  const video = page.locator('.player-modal video')
   await video.waitFor({ timeout: 10000 })
   const src = await video.getAttribute('src')
   const cookie = (await page.context().cookies())[0]
@@ -286,7 +286,7 @@ try {
       range: 'bytes=0-15',
     },
   })
-  step(`网页播放器：<video src=${src}>，Range 请求 → HTTP ${range.status}`)
+  step(`播放弹窗：<video src=${src}>，Range 请求 → HTTP ${range.status}`)
   if (range.status !== 206)
     throw new Error(`视频流不支持 Range：${range.status}`)
   await page.screenshot({ path: shot('10-player') })

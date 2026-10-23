@@ -135,23 +135,6 @@
       v-if="activeTab === 'downloads'"
       class="av-scroll primary-scroll"
     />
-
-    <!-- 播放器（非 Electron 兜底） -->
-    <AvPlayerOverlay
-      :show="playback.showPlayer.value"
-      :message="playback.playerMessage.value"
-      :src="playback.playingUrl.value"
-      :poster="coverSrc(playback.playingVideo.value)"
-      :title="playback.playingVideo.value?.vod_name || '正在播放'"
-      @ready="playback.onPlayerReady"
-      @loadedmetadata="playback.onLoadedMetadata"
-      @timeupdate="playback.onTimeUpdate"
-      @volumechange="playback.onVolumeChange"
-      @error="playback.tryNextSource"
-      @ended="playback.onEnded"
-      @keydown="playback.onKeydown"
-      @close="playback.closePlayer"
-    />
   </div>
 </template>
 
@@ -181,10 +164,8 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useRoute } from 'vue-router'
-import { provideMiniHost } from '@/features/player'
 import AvFavoritesView from '../components/AvFavoritesView.vue'
 import AvHistoryView from '../components/AvHistoryView.vue'
-import AvPlayerOverlay from '../components/AvPlayerOverlay.vue'
 import AvSearchResults from '../components/AvSearchResults.vue'
 import { useAvBrowse } from '../composables/use-av-browse'
 import { useAvPlayback } from '../composables/use-av-playback'
@@ -231,18 +212,7 @@ const search = useAvSearch({
   pluginSources: pluginAvSources,
   cmsCount: () => activeSources.value.length,
 })
-// 页内播放层（网页端）播放中切走路由：进应用内小窗，回来时认领
-provideMiniHost()
-
-const playback = useAvPlayback({
-  findGroup: search.findGroup,
-  upNext: () =>
-    activeTab.value === 'search'
-      ? search.groups.value
-      : activeTab.value === 'browse'
-        ? browse.sortedVideos.value.map(video => ({ items: [video] }))
-        : [],
-})
+const playback = useAvPlayback()
 
 // ─── 收藏 ─────────────────────────────────────────────────────
 const favorites = useStorage<AvVideo[]>('av_favorites', [])
