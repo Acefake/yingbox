@@ -247,7 +247,7 @@ describe('接线：回车 / Esc 都经过输入法判断', () => {
       'features/shell/components/BackgroundTasksPanel.vue',
       'features/shell/AppLayout.vue',
       'features/library/shared/LibrarySheet.vue',
-      'features/library/detail/WebPlayer.vue',
+      'features/player/modal/PlayerModal.vue',
     ]) {
       expect(read(file), file).toMatch(/useEscapeLayer\(/)
     }
