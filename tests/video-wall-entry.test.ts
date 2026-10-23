@@ -13,12 +13,9 @@ import {
 } from '../src/renderer/src/features/library/video-wall/wall-pool'
 import { primaryPlayRequest } from '../src/renderer/src/features/library/detail/playback'
 
-// 播放入口（播放器窗口 / 页内播放器）与这里的纯规则无关
+// 播放入口（应用内播放弹窗 / mpv）与这里的纯规则无关
 vi.mock('../src/renderer/src/features/player', () => ({
   openMediaPlayer: vi.fn(),
-}))
-vi.mock('../src/renderer/src/features/library/detail/web-player', () => ({
-  openWebPlayer: vi.fn(),
 }))
 
 /**
