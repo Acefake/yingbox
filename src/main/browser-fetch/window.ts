@@ -4,8 +4,9 @@ import { BlockedPageError, CHROME_UA, PARTITION, isUsablePage } from './page'
 
 /**
  * 窗口渲染：用 Electron 自带的 Chromium 开一个窗口取页面，等 Cloudflare 挑战结束后把渲染后的
- * HTML 交回。只有「可通过的挑战页」才把窗口短暂显示出来（不抢焦点）；硬封锁页一经识别立即
- * 销毁窗口、绝不显示，抛 BlockedPageError 交由调用方熔断。
+ * HTML 交回。挑战脚本要求页面「可见」，所以命中挑战页时窗口会被显示，但完全透明、不抢焦点、
+ * 不接收鼠标、无边框、不进任务栏——用户看不到也点不到。需要人工点选的 Turnstile 因此不会通过，
+ * 按挑战失败处理（连续 3 次熔断该主机）。硬封锁页一经识别立即销毁窗口，抛 BlockedPageError。
  */
 
 const LOAD_TIMEOUT_MS = 25000
@@ -49,6 +50,9 @@ export async function fetchViaWindow(
   const win = new BrowserWindow({
     show: false,
     skipTaskbar: true,
+    frame: false,
+    focusable: false,
+    resizable: false,
     ...getWindowBounds(),
     webPreferences: {
       partition: PARTITION,
@@ -108,10 +112,13 @@ export async function fetchViaWindow(
     let html = await readHtml()
     // 硬封锁：窗口从未显示，直接销毁（finally）并交由调用方熔断。
     if (classifyPage(html) === 'blocked') throw new BlockedPageError(url)
-    // Cloudflare 的挑战脚本要求页面处于可见状态才会继续；命中挑战页时才把窗口
-    // 短暂显示出来（不抢焦点），通过后立即销毁；普通站点全程不出现窗口。
+    // Cloudflare 的挑战脚本要求页面处于可见状态才会继续；命中挑战页时才把窗口以
+    // 透明、鼠标穿透的方式显示（隐藏窗口的 visibilityState 是 hidden，挑战不会跑），
+    // 通过后立即销毁；普通站点全程不显示。
     const needsVisible = !isUsablePage(html)
     if (needsVisible && !win.isVisible() && !win.isDestroyed()) {
+      win.setOpacity(0)
+      win.setIgnoreMouseEvents(true)
       win.showInactive()
     }
 
