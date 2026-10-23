@@ -26,7 +26,7 @@
       />
       <UiIconButton
         icon="maximize"
-        label="回到详情"
+        label="展开"
         variant="overlay"
         size="sm"
         @click="returnFromMini"
@@ -44,8 +44,8 @@
 
 <script setup lang="ts">
 /**
- * 应用内小窗：右下角浮动，可拖动、松手吸附到最近的角；播放 / 暂停、回到详情、关闭。
- * 只是外壳——播放器实例由页内播放器交来（mini-dock），这里不创建任何播放器。
+ * 应用内小窗：右下角浮动，可拖动、松手吸附到最近的角；播放 / 暂停、展开回播放弹窗、关闭。
+ * 只是外壳——播放会话由播放弹窗交来（mini-dock），这里不创建任何播放器。
  * 设置 ui.miniPlayer 关掉时立即拆除。吸附的过渡用 --duration-normal，减少动态效果时为 0。
  * Esc：只有焦点在小窗里时才是一层（接入全局 Esc 层栈），关掉小窗；焦点在别处时 Esc 不会误关后台播放。
  */
@@ -176,7 +176,7 @@ onBeforeUnmount(() => {
 <style scoped>
 .mini-player {
   position: fixed;
-  z-index: var(--z-modal);
+  z-index: var(--z-player);
   width: min(320px, 50vw);
   aspect-ratio: 16 / 9;
   overflow: hidden;

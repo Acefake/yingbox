@@ -8,10 +8,10 @@
   </AppLayout>
   <MpvLoadingOverlay />
   <MiniPlayer />
-  <InlinePlayer />
+  <PlayerModal />
 </template>
 
 <script setup lang="ts">
 import { AppLayout } from '@/features/shell'
-import { InlinePlayer, MiniPlayer, MpvLoadingOverlay } from '@/features/player'
+import { MiniPlayer, MpvLoadingOverlay, PlayerModal } from '@/features/player'
 </script>

@@ -32,7 +32,6 @@
           <DetailSourcePicker
             :searching="sources.searching.value"
             :has-groups="sources.episodeGroups.value.length > 0"
-            :show-empty="showPlaySheet"
             :source-type-options="sources.typeOptions.value"
             :current-source-type="sources.currentSourceType.value"
             :site-groups="sources.siteGroups.value"
@@ -55,32 +54,6 @@
     </div>
 
     <DetailLightbox v-model:index="lightboxIdx" :images="tmdb.images.value" />
-
-    <!-- 播放弹窗（非 Electron 兜底） -->
-    <Transition name="sheet-fade">
-      <div
-        v-if="showPlaySheet"
-        class="sheet-mask"
-        @click.self="showPlaySheet = false"
-      >
-        <div class="play-sheet">
-          <div class="player-wrap">
-            <UnifiedVideoPlayer
-              :src="currentUrl"
-              :resolve-url="resolvePageToMedia"
-              :poster="tmdbImage('original', tmdbDetail?.backdrop_path)"
-              :title="itemName"
-              :subtitle-search-title="searchTitle || itemName"
-              :subtitle-imdb-id="
-                tmdbDetail?.imdb_id ? String(tmdbDetail.imdb_id) : ''
-              "
-              closable
-              @close="showPlaySheet = false"
-            />
-          </div>
-        </div>
-      </div>
-    </Transition>
   </div>
 </template>
 
@@ -95,13 +68,7 @@ import { asText } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '@/utils/vod-data'
 import { computed, onMounted, ref, watch } from 'vue'
-import {
-  UnifiedVideoPlayer,
-  canOpenElectronPlayer,
-  getMediaProgress,
-  miniSession,
-  openMediaPlayer,
-} from '@/features/player'
+import { getMediaProgress, openMediaPlayer } from '@/features/player'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
   buildFallbacks,
@@ -138,8 +105,9 @@ const itemPic = ref('')
 const itemOverview = ref('')
 const searchTitle = ref('')
 const lightboxIdx = ref<number | null>(null)
-const showPlaySheet = ref(false)
 const currentUrl = ref('')
+/** 播放世代：换条目或再点一集时丢弃上一次还没解析完的播放 */
+let playGeneration = 0
 
 const loadData = async (raw: unknown): Promise<void> => {
   if (!raw) return
@@ -151,7 +119,7 @@ const loadData = async (raw: unknown): Promise<void> => {
   itemOverview.value = data.overview || data.vod_content || data.vod_desc || ''
   searchTitle.value = data.searchTitle || data.vod_name || ''
   tmdb.reset()
-  showPlaySheet.value = false
+  playGeneration++
   sources.episodeGroups.value = []
   currentUrl.value = ''
   const type = guessMediaType(data.type_name || '')
@@ -175,23 +143,6 @@ watch(
   }
 )
 
-/**
- * 小窗「回到详情」：重新打开播放层，地址用小窗里那一路，播放器挂载时认领同一个实例（不重新请求）。
- * 只由宿主（OnlineView）在恢复这个条目时调用。
- */
-const resumeMini = (): void => {
-  const docked = miniSession().value
-  if (!docked) return
-  currentUrl.value = docked.key
-  showPlaySheet.value = true
-}
-defineExpose({ resumeMini })
-
-let playGeneration = 0
-watch(showPlaySheet, visible => {
-  if (!visible) playGeneration++
-})
-
 /** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）。 */
 const recordHistory = (playUrl: string, ext?: PluginExt): void => {
   const item = itemData.value
@@ -212,7 +163,7 @@ const recordHistory = (playUrl: string, ext?: PluginExt): void => {
   saveStoredArray(HISTORY_KEY, mergeOnlineHistory(history, record, mediaKey))
 }
 
-/** 播放一集：插件线路先解析地址，再预解析跳转 / 页面内 m3u8，然后打开独立播放窗。 */
+/** 播放一集：插件线路先解析地址，再预解析跳转 / 页面内 m3u8，然后打开播放弹窗。 */
 const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   const generation = ++playGeneration
   currentUrl.value = ''
@@ -233,11 +184,6 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     [itemName.value, asText(ext?.name)].filter(Boolean).join(' · ') ||
     itemName.value ||
     '正在播放'
-  // Electron 下强制独立播放窗；非 Electron（纯网页）才用页内播放层
-  if (!canOpenElectronPlayer()) {
-    showPlaySheet.value = true
-    return
-  }
   // 带上当前线路的剧集队列与同集备用线路：播放器据此自动连播/失败换线路
   const playlist = buildPlaylist(sources.currentLine.value)
   const epIndex = playlist.findIndex(item => item.url === url)
@@ -255,7 +201,6 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
     ...(fallbacks.length ? { fallbacks } : {}),
   })
-  showPlaySheet.value = false
   if (!ok) toast.error('无法打开播放器，请完全重启应用后再试')
 }
 </script>
@@ -344,46 +289,5 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   position: relative;
   margin-top: -260px; /* style-tokens: layout（内容上移盖住背景图） */
   padding: 0 var(--content-padding-x) var(--space-9);
-}
-
-/* 播放弹窗 */
-.sheet-fade-enter-active,
-.sheet-fade-leave-active {
-  transition: opacity var(--duration-normal);
-}
-
-.sheet-fade-enter-from,
-.sheet-fade-leave-to {
-  opacity: 0;
-}
-
-.sheet-mask {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-sheet);
-  background: var(--overlay-scrim);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-}
-
-.play-sheet {
-  width: min(1200px, 92vw);
-  height: 78vh;
-  max-height: 92vh;
-  background: var(--bg-elevated);
-  border-radius: var(--radius-xl);
-  border: 1px solid var(--border-default);
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  box-shadow: var(--shadow-lg);
-}
-
-.player-wrap {
-  flex: 1;
-  min-height: 0;
-  height: 100%;
-  background: var(--media-bg);
 }
 </style>

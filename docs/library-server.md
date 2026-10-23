@@ -35,7 +35,7 @@
 | `nativeImage` 缩放               | wasm 解码 + 缩放（编解码线程）                        |
 | safeStorage 存 TMDB 令牌         | `<数据目录>/secrets.json`（0600）+ 环境变量           |
 | 系统文件夹对话框                 | `/api/fs/dirs`：只在媒体根目录内浏览                  |
-| 内置播放器 / mpv                 | 网页 `<video>` + `/media/files/<id>` Range 流         |
+| 内置播放器 / mpv                 | 同一个播放弹窗 + `/media/files/<id>` Range 流         |
 
 ### 接口一览
 
@@ -71,7 +71,7 @@
 | `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                  | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`       |
 | `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
 | `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
-| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                             |
+| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                              |
 | `--media-root`（可多次） | `YINGBOX_MEDIA_ROOTS`                     | 用户主目录                    | 允许浏览和建库的根目录；环境变量里多个用系统路径分隔符（Linux / macOS `:`，Windows `;`） |
 | `--web-dir`              | `YINGBOX_WEB_DIR`                         | 包旁边的 `dist-web`（存在时） | 托管的网页端目录；`off` 只提供 API                                                       |
 | `--fetch`                | `YINGBOX_FETCH`                           | `node`                        | 出网实现：`node` / `curl` / `curl:<路径>` / `module:<路径>`，见下文                      |
@@ -182,7 +182,7 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 存储       | 自动     | 自动：UNC 路径或 NFS / SMB / FUSE 等挂载判为网盘，其余按本地盘。网盘不监听、不定时扫描、不读视频内容，只按变更通知与手动扫描入库；要轮询就选「本地盘」 |
 | 监控文件夹 | 开       | 关闭后这个库不监听、不定时扫描，只在手动扫描时入库                                                                                                     |
-| 自动识别   | 开       | 新入库 / 文件变化的条目自动识别；TMDB 库需要令牌                                                                                                      |
+| 自动识别   | 开       | 新入库 / 文件变化的条目自动识别；TMDB 库需要令牌                                                                                                       |
 | 自动写出   | 跟随全局 | 识别后写 NFO 与图片。「跟随全局」用写出设置里的「识别后自动写出」，也可以对这个库单独开 / 关                                                           |
 | 自动整理   | 关       | 识别后按模板改名移动。只整理自动匹配 / 已锁定的条目，有冲突的项不动；每次记一个批次，可在设置里撤销。还要求写出设置里「允许整理文件」开启              |
 
@@ -244,8 +244,8 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 
 不能做（或受限）：
 
-- 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时界面提示改用桌面版。没有服务端转码。
-- 没有 mpv、内置播放器窗口、外挂字幕自动挂载。
+- 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时播放器显示错误面板（可改用桌面版）。没有服务端转码。
+- 没有 mpv、外挂字幕自动挂载。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
 - 在线播放、下载这些板块不在片库服务里，网页端仍不可用。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。

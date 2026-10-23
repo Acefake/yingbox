@@ -1,7 +1,7 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
-import { openInlinePlayer } from '../inline/inline-player'
+import { openPlayerModal } from '../modal/player-modal'
 
 /** 播放列表条目：用于自动连播与失败换源 */
 export type PlayerSourceItem = {
@@ -28,13 +28,8 @@ type MediaPlayerOpenOptions = {
   index?: number
   /** 同集备用线路：播放失败时优先尝试 */
   fallbacks?: PlayerSourceItem[]
-  /** 播放引擎：'built-in' 为内置 Artplayer 窗口，'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
+  /** 播放引擎：'built-in' 为应用内播放弹窗，'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
   engine?: 'built-in' | 'mpv'
-}
-
-/** 桌面端（Electron）：内置播放器能直接播本地文件与在线地址；网页端返回 false，由调用方走页内播放。 */
-export function canOpenElectronPlayer(): boolean {
-  return Boolean(typeof window !== 'undefined' && window.api?.win)
 }
 
 /**
@@ -69,7 +64,7 @@ function notifyMpvFallback(detail?: string): void {
 /**
  * 打开播放器：
  * - 引擎为 mpv：启动 / 控制 mpv 独立播放器（不可用时提示并回退到内置）
- * - 否则：应用内播放器，盖住主窗口播放（inline/InlinePlayer）
+ * - 否则：应用内播放弹窗（modal/PlayerModal），桌面与网页一样
  */
 export async function openMediaPlayer(
   options: MediaPlayerOpenOptions
@@ -132,9 +127,7 @@ export async function openMediaPlayer(
     }
   }
 
-  if (!canOpenElectronPlayer()) return false
-
-  openInlinePlayer({
+  openPlayerModal({
     ...(filePath ? { filePath } : {}),
     ...(url ? { url } : {}),
     ...(title ? { title } : {}),

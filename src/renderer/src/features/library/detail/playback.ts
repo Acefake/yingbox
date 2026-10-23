@@ -1,6 +1,6 @@
 /**
- * 从条目详情树得到播放列表，交给运行环境的播放能力：
- * 桌面端 openMediaPlayer（内置播放器窗口或 mpv），网页端页内 <video>（web-player.ts，片库服务的 Range 流）。
+ * 从条目详情树得到播放列表，交给 openMediaPlayer（应用内播放弹窗或 mpv）：
+ * 桌面端给本地文件路径，网页端给片库服务的 Range 流地址（/media/files/<id>）。
  */
 import type {
   LibraryItemFile,
@@ -8,10 +8,11 @@ import type {
 } from '../../../../../shared/library/ipc'
 import { type PlayerSourceItem, openMediaPlayer } from '@/features/player'
 
+import { serverFileUrl } from '@/services/library-server'
+
 import { usesLibraryServer } from '../api/bridge'
 import { baseName, episodeCode } from '../shared/format'
 import { sortedSeasons } from './detail-rules'
-import { openWebPlayer } from './web-player'
 
 /** 节点自身的视频文件（按路径排序：分段 / 多版本按文件名顺序）。 */
 export function videoFileEntries(node: LibraryItemNode): LibraryItemFile[] {
@@ -97,16 +98,19 @@ export async function play(
   request: PlayRequest,
   poster?: string
 ): Promise<boolean> {
-  if (usesLibraryServer())
-    return openWebPlayer({
+  if (usesLibraryServer()) {
+    const playlist = request.playlist.map((item, i) => ({
+      url: serverFileUrl(request.fileIds[i]),
+      name: item.name,
+    }))
+    return openMediaPlayer({
+      url: playlist[request.index].url,
       title: request.title,
       poster,
-      files: request.playlist.map((item, i) => ({
-        fileId: request.fileIds[i],
-        name: item.name ?? '',
-      })),
+      playlist,
       index: request.index,
     })
+  }
   const first = request.playlist[request.index]
   return openMediaPlayer({
     filePath: first.filePath,

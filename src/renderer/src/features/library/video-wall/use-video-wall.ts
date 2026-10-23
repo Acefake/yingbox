@@ -223,7 +223,7 @@ export function useVideoWall(options: VideoWallOptions): VideoWallState {
     event.preventDefault()
   }
 
-  /** 播放：取条目详情，交给现有播放入口（桌面 openMediaPlayer / 网页页内播放器）。 */
+  /** 播放：取条目详情，交给 openMediaPlayer（播放弹窗 / mpv，桌面与网页同一入口）。 */
   async function playItem(itemId: number): Promise<void> {
     paused.value = true
     const node = await libraryBridge()?.getItem(itemId)
