@@ -138,7 +138,7 @@ main 进程 JS 变大是预期的：原来 Go 后端（2198 行 Go）+ Python �
 | src/ 下 ts/vue/mjs 总行数 | 41,550 | 49,269 |
 | 测试 | 24 个文件 · 170 个用例 | 50 个文件 · 473 个用例 |
 | 删除的 Go / Python / runner 代码 | — | `packages/backend` 整个删除：30 个文件 4,623 行（Go 2,198、Python 1,509、CatSpider runner JS 565，其余为 go.mod/go.sum/配置/许可） |
-| lint | — | 0 error；`pnpm lint` 含 `check:size --strict`，CI（`.github/workflows/ci.yml`）跑全套 |
+| lint | — | 0 error；`pnpm lint` 含 `check:size --strict`，合并前在本地跑全套检查 |
 
 src/ 总行数增加约 7.7k：Go/Python 的 4.3k 行迁成 TypeScript 引擎（带类型、参数校验与测试替身注入），加上契约层、设置注册表、插件宿主和阶段 5 的虚拟列表 / 缩略图。删掉的是重复实现与跨语言胶水，新增的大多是可测的纯函数与类型。
 
