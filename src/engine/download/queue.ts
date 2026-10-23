@@ -56,6 +56,7 @@ export class DownloadQueue {
   private running = false
   private abort: AbortController | undefined
   private saving: Promise<void> = Promise.resolve()
+  private progressTimer: ReturnType<typeof setTimeout> | undefined
   private readonly now: () => number
 
   constructor(private readonly deps: QueueDeps) {
@@ -146,6 +147,11 @@ export class DownloadQueue {
 
   /** 等待所有待写的持久化完成（测试与退出用）。 */
   flush(): Promise<void> {
+    if (this.progressTimer) {
+      clearTimeout(this.progressTimer)
+      this.progressTimer = undefined
+      this.persist()
+    }
     return this.saving
   }
 
@@ -154,11 +160,28 @@ export class DownloadQueue {
     this.abort?.abort()
   }
 
-  private changed(): void {
+  private changed(progressOnly = false): void {
     const snapshot = this.snapshot()
     const keep = this.deps.keepDone ?? 200
     const done = snapshot.completed.slice(keep).map(t => t.id)
     if (done.length) this.tasks = this.tasks.filter(t => !done.includes(t.id))
+    if (progressOnly) {
+      if (!this.progressTimer) {
+        this.progressTimer = setTimeout(() => {
+          this.progressTimer = undefined
+          this.persist()
+        }, 500)
+        this.progressTimer.unref?.()
+      }
+    } else {
+      clearTimeout(this.progressTimer)
+      this.progressTimer = undefined
+      this.persist()
+    }
+    this.deps.onChange(this.snapshot())
+  }
+
+  private persist(): void {
     const body = JSON.stringify({ tasks: this.tasks })
     const file = this.deps.file
     this.saving = this.saving
@@ -169,14 +192,17 @@ export class DownloadQueue {
         await rename(tmp, file)
       })
       .catch(error => console.error('[download] 队列保存失败', error))
-    this.deps.onChange(this.snapshot())
   }
 
-  private update(id: string, patch: Partial<DownloadTask>): void {
+  private update(
+    id: string,
+    patch: Partial<DownloadTask>,
+    progressOnly = false
+  ): void {
     this.tasks = this.tasks.map(t =>
       t.id === id ? { ...t, ...patch, updatedAt: this.now() } : t
     )
-    this.changed()
+    this.changed(progressOnly)
   }
 
   private pump(): void {
@@ -192,25 +218,30 @@ export class DownloadQueue {
       // 第一次开始时定下目录并记住：之后改了下载目录，续传、清理仍在这里
       if (dir === undefined) {
         dir = await this.deps.downloadDir()
-        this.update(next.id, { dir })
+        if (!controller.signal.aborted) this.update(next.id, { dir })
       }
       controller.signal.throwIfAborted()
       return this.deps.run(
         next.id,
-        progress => this.update(next.id, { progress }),
+        progress => {
+          if (!controller.signal.aborted)
+            this.update(next.id, { progress }, true)
+        },
         controller.signal,
         dir
       )
     }
     start()
       .then(
-        ({ file, site }) =>
+        ({ file, site }) => {
+          if (controller.signal.aborted) return
           this.update(next.id, {
             status: 'done',
             file,
             site,
             progress: undefined,
-          }),
+          })
+        },
         (error: unknown) => {
           if (!controller.signal.aborted)
             this.update(next.id, {

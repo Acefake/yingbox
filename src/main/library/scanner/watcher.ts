@@ -13,7 +13,7 @@
  * 系统报告溢出（filename 为空）时直接排整库扫描。启动失败直接抛出、运行中出错走 onError，
  * 由调用方决定降级。
  */
-import { type FSWatcher, watch } from 'node:fs'
+import { type FSWatcher, statSync, watch } from 'node:fs'
 import { dirname, join } from 'node:path'
 import { KeyedBatcher } from './batcher'
 import { fileKindOf, isIgnoredName, pathKey } from './rules'
@@ -78,6 +78,8 @@ export class LibraryWatcher {
   /** 开始监听一个媒体库根目录；已在监听时什么都不做。根目录不存在等错误直接抛出。 */
   watch(libraryId: number, root: string): void {
     if (this.watchers.has(libraryId)) return
+    // 部分 Node 版本的递归 watch 不会对不存在的根目录同步报错。
+    if (!statSync(root).isDirectory()) throw new Error('媒体库根路径不是目录')
     const batcher = new KeyedBatcher<string>(
       dirs => this.onChange(libraryId, dirs.includes(FULL_SCAN) ? null : dirs),
       { quietMs: this.quietMs }
