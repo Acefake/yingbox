@@ -84,7 +84,7 @@ export async function createServerApp(
   const { dbPath, secretsPath, mediaDir } = serverPaths(config)
   const secrets = new FileSecretStore(secretsPath, env)
   const { token, generated } = ensureServerToken(secrets)
-  const auth = createAuth(token)
+  const auth = createAuth(token, config.publicOrigin)
 
   const codec = options.codec ?? defaultCodec(log)
   const thumbnails = createThumbnailPipeline({
@@ -144,12 +144,13 @@ export async function createServerApp(
       if (candidate !== null && auth.matches(candidate))
         return new Response(null, {
           status: 302,
-          headers: { Location: '/', 'Set-Cookie': auth.loginCookie() },
+          headers: { Location: '/', 'Set-Cookie': auth.loginCookie(request) },
         })
       return serveStatic(request, url)
     }
     if (route === 'method-not-allowed') return fail(405, '不支持的方法')
-    if (!sameOrigin(request)) return fail(403, '跨站请求被拒绝')
+    if (!sameOrigin(request, config.publicOrigin))
+      return fail(403, '跨站请求被拒绝')
     if (!route.public && !auth.check(request)) return fail(401, '需要登录')
     try {
       return await route.handler(request, { url, params: route.params })

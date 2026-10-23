@@ -91,7 +91,10 @@ const fakes = vi.hoisted(() => {
 })
 
 vi.mock('artplayer', () => ({ default: fakes.FakeArt }))
-vi.mock('hls.js', () => ({ default: fakes.FakeHls }))
+vi.mock('hls.js', async importOriginal => ({
+  ...(await importOriginal<typeof import('hls.js')>()),
+  default: fakes.FakeHls,
+}))
 
 const SRC = 'https://cdn.example/a/index.m3u8'
 const OTHER = 'https://cdn.example/b/index.m3u8'

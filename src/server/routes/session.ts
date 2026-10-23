@@ -31,7 +31,7 @@ export function registerSessionRoutes(
       if (!auth.matches(token)) return fail(401, '令牌不正确')
       return new Response(null, {
         status: 204,
-        headers: { 'Set-Cookie': auth.loginCookie() },
+        headers: { 'Set-Cookie': auth.loginCookie(request) },
       })
     },
     { public: true }
@@ -39,10 +39,10 @@ export function registerSessionRoutes(
   router.add(
     'DELETE',
     '/api/session',
-    () =>
+    request =>
       new Response(null, {
         status: 204,
-        headers: { 'Set-Cookie': auth.logoutCookie() },
+        headers: { 'Set-Cookie': auth.logoutCookie(request) },
       }),
     { public: true }
   )
