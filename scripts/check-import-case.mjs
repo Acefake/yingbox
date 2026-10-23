@@ -1,7 +1,7 @@
 // 检查源码中 import 路径的大小写与磁盘是否一致。
 // 背景：Windows 文件系统不区分大小写，写错大小写的 import 在本地能跑，
 // 但 mac/Linux 构建会报 TS1149 / Vite 解析失败。用 tsc 拦不住（Windows 下不报错），
-// 所以用本脚本逐段比对磁盘真实名称，在 CI（或提交前）提前拦截。
+// 所以用本脚本逐段比对磁盘真实名称，在提交前提前拦截。
 // 用法：node scripts/check-import-case.mjs
 
 import { readdirSync, statSync } from 'node:fs'
