@@ -57,6 +57,7 @@
     "hls.js": "^1.6.16",
     "onnxruntime-node": "1.23.2",
     "opencc-js": "^1.4.2",
+    "quickjs-emscripten": "0.32.0",
     "vue-router": "^4.5.1"
   },
   "devDependencies": {

@@ -80,6 +80,7 @@ vi.mock('electron', () => {
   }
   const fromPartition = (partition: string): unknown => ({
     setUserAgent: () => {},
+    webRequest: { onBeforeRequest: () => {} },
     fetch: async (url: string, init: RequestInit) => {
       state.fetches.push({ url, init, partition })
       await new Promise(resolve => setTimeout(resolve, state.fetchDelayMs))

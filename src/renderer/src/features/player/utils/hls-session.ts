@@ -4,6 +4,7 @@
  */
 import type Artplayer from 'artplayer'
 import Hls from 'hls.js'
+import { DesktopHlsLoader } from './hls-loader'
 
 import type { ArtOption } from './art-options'
 
@@ -38,7 +39,10 @@ export function createHlsSession(): HlsSession {
   ): NonNullable<ArtOption['customType']> => ({
     m3u8(videoEl: HTMLVideoElement, url: string, instance: Artplayer): void {
       destroy()
-      hls = new Hls({ enableWorker: true })
+      hls = new Hls({
+        enableWorker: true,
+        ...(window.api ? { loader: DesktopHlsLoader } : {}),
+      })
       hls.loadSource(url)
       hls.attachMedia(videoEl)
       hls.on(Hls.Events.MANIFEST_PARSED, () =>

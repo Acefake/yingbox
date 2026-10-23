@@ -6,11 +6,11 @@
  * 遇到 Cloudflare 挑战页时请主进程用浏览器代抓（替代原临时文件 + 本机端口发现）。
  */
 import type { Cheerio } from 'cheerio'
-import CryptoJS from 'crypto-js'
 import { constants, privateDecrypt, publicEncrypt } from 'node:crypto'
 import type { NetClient } from '../../shared/net/client'
+import { BlockedTargetError } from '../../shared/net/guard'
 import { classifyPage } from '../../shared/net/cf-page'
-import { cheerio, load } from '../../shared/html/cheerio'
+import { load } from '../../shared/html/cheerio'
 import { type PluginCache, createPluginStorage } from './plugin-storage'
 import {
   type HostBreaker,
@@ -19,6 +19,7 @@ import {
   createHostBreaker,
   pathScope,
 } from '../../shared/net/host-breaker'
+import { runPlugin } from './plugin-runtime'
 import type { CatSpiderAction } from '../../shared/contract/online'
 
 /** 运行时依赖（便于单测替换）。 */
@@ -218,7 +219,7 @@ function makeHtmlHelpers(): Record<string, unknown> {
  * - 拿到硬封锁页：熔断该主机并抛错，不找浏览器（浏览器也过不去，只会弹窗打扰）；
  * - 拿到可通过的挑战页或直连出错：GET 请求改由浏览器代抓，代抓也失败记一次失败。
  */
-function makeFetch(deps: CatSpiderDeps): unknown {
+function makeFetch(deps: CatSpiderDeps, signal: AbortSignal): unknown {
   const log = deps.log ?? (() => {})
   const breaker = deps.breaker ?? createHostBreaker({ scopeOf: pathScope })
   const report = (trip: HostTrip | null): void => {
@@ -240,6 +241,7 @@ function makeFetch(deps: CatSpiderDeps): unknown {
           ? encodeBody(options.body, options.headers)
           : undefined,
       timeoutMs: options.timeout || 15000,
+      signal,
     })
     const data = new TextDecoder().decode(res.body)
     return { data, status: res.status, ...pluginHeaders(res.headers) }
@@ -272,6 +274,7 @@ function makeFetch(deps: CatSpiderDeps): unknown {
     try {
       result = await raw(url, options)
     } catch (error) {
+      if (error instanceof BlockedTargetError || signal.aborted) throw error
       const fallback = canFallback ? await viaBrowser(url, 'unreachable') : null
       if (fallback) return fallback
       if (!canFallback && typeof url === 'string' && url)
@@ -306,11 +309,6 @@ function makeFetch(deps: CatSpiderDeps): unknown {
   return $fetch
 }
 
-/** 插件导出的入口函数表。 */
-type PluginApi = Partial<
-  Record<CatSpiderAction, (ext?: string) => Promise<unknown> | unknown>
->
-
 /**
  * 运行一次插件动作。插件异常不抛出，按原 runner 约定包进 data（success:false）。
  * 只有插件源码下载失败等宿主错误才 reject。
@@ -325,7 +323,8 @@ export async function runCatSpider(
   const log = deps.log ?? (() => {})
   const code = applyPatch(await deps.loadPlugin(pluginUrl), patch)
   const cache = deps.cache ?? createPluginStorage().forPlugin(pluginUrl)
-  const $fetch = makeFetch(deps) as {
+  const controller = new AbortController()
+  const $fetch = makeFetch(deps, controller.signal) as {
     get: (u: string, o?: PluginFetchOptions) => Promise<unknown>
   }
   const print = (...args: unknown[]): void =>
@@ -335,13 +334,13 @@ export async function runCatSpider(
         .join(' ')
     )
   const extJson = JSON.stringify(ext)
+  const htmlApi = { load }
   const sandbox: Record<string, unknown> = {
     $fetch,
     argsify,
     jsonify: (obj: unknown) => obj,
     $print: print,
-    createCheerio: () => cheerio(),
-    createCryptoJS: () => CryptoJS,
+    createCheerio: () => htmlApi,
     $html: makeHtmlHelpers(),
     $cache: {
       get: (key: string) => cache.get(key),
@@ -358,25 +357,40 @@ export async function runCatSpider(
     },
     $config_str: extJson,
     loadJSEncrypt,
-    Buffer,
+    Buffer: {
+      from: (value: string | number[], encoding?: BufferEncoding) => {
+        if (typeof value !== 'string' && !Array.isArray(value))
+          throw new Error('Buffer.from 仅支持字符串或字节数组')
+        if (value.length > 4 * 1024 * 1024) throw new Error('Buffer 内容过大')
+        const bytes =
+          typeof value === 'string'
+            ? Buffer.from(value, encoding)
+            : Buffer.from(value)
+        const result = Buffer.alloc(bytes.length)
+        bytes.copy(result)
+        return result
+      },
+      alloc: (size: number, fill?: number) => {
+        if (!Number.isSafeInteger(size) || size < 0 || size > 4 * 1024 * 1024)
+          throw new Error('Buffer 大小不合法')
+        return Buffer.alloc(size, fill)
+      },
+      isBuffer: Buffer.isBuffer,
+    },
     console: { log: print, error: print, warn: print },
-    setTimeout,
   }
-  // 插件是第三方脚本，与原 Node runner 同等信任级别：只注入上面的宿主 API。
-  const factory = new Function(
-    ...Object.keys(sandbox),
-    `"use strict";\n${code}\n;return { getConfig: typeof getConfig === 'function' ? getConfig : undefined, getCards: typeof getCards === 'function' ? getCards : undefined, getTracks: typeof getTracks === 'function' ? getTracks : undefined, getPlayinfo: typeof getPlayinfo === 'function' ? getPlayinfo : undefined, search: typeof search === 'function' ? search : undefined };`
-  ) as (...values: unknown[]) => PluginApi
-  const api = factory(...Object.values(sandbox))
-  const fn = api[action]
-  if (typeof fn !== 'function')
-    return { success: false, error: `${action} function not found in JS` }
   const normalized = normalizeActionExt(ext)
   try {
-    const result =
-      action === 'getConfig' ? await fn() : await fn(JSON.stringify(normalized))
+    const result = await runPlugin(
+      code,
+      sandbox,
+      action,
+      action === 'getConfig' ? undefined : JSON.stringify(normalized)
+    )
     return normalizePluginResult(result)
   } catch (error) {
     return { success: false, error: (error as Error).message }
+  } finally {
+    controller.abort()
   }
 }

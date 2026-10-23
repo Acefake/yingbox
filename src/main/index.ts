@@ -4,12 +4,18 @@ import {
   Menu,
   app,
   globalShortcut,
+  net,
   protocol,
   screen,
   session,
   shell,
 } from 'electron'
 import { join } from 'path'
+import { lookup } from 'node:dns/promises'
+import { createNetClient } from '../shared/net/client'
+import { STREAM_SCHEME } from '../shared/stream-url'
+import { createStreamHandler } from './stream-proxy'
+import { installWindowSecurity } from './window-security'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
@@ -53,6 +59,16 @@ protocol.registerSchemesAsPrivileged([
   },
   // 缓存图片与缩略图（媒体库海报、在线 / AV 封面），见 src/main/thumbnails
   MEDIA_SCHEME_PRIVILEGES,
+  {
+    scheme: STREAM_SCHEME,
+    privileges: {
+      secure: true,
+      standard: true,
+      supportFetchAPI: true,
+      corsEnabled: true,
+      stream: true,
+    },
+  },
 ])
 
 let mainWindow: BrowserWindow | null = null
@@ -83,9 +99,7 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
-      // 保留 webSecurity: false：在线页（CMS/豆瓣/TMDB）在渲染层直接跨域请求，
-      // 开 CORS 会中断在线搜索；跨域收敛到主进程 http:fetch 代理后再开启。
-      webSecurity: false,
+      webSecurity: true,
     },
   })
 
@@ -98,10 +112,7 @@ function createWindow(): void {
     checkForUpdatesOnStartup()
   })
 
-  mainWindow.webContents.setWindowOpenHandler(details => {
-    shell.openExternal(details.url)
-    return { action: 'deny' }
-  })
+  installWindowSecurity(mainWindow.webContents, url => shell.openExternal(url))
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -133,7 +144,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss: yingbox-stream:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
     ]
     callback({ responseHeaders: headers })
   })
@@ -145,6 +156,15 @@ app.whenReady().then(async () => {
 
   // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
   protocol.handle('local', serveLocalMedia)
+  protocol.handle(
+    STREAM_SCHEME,
+    createStreamHandler(
+      createNetClient({
+        fetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
+        lookup: host => lookup(host, { all: true }),
+      })
+    )
+  )
 
   // 注册 yingbox-media:// 协议（全应用的缓存图片与 WebP 缩略图）
   const thumbnails = registerThumbnails()
