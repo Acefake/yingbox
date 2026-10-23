@@ -126,7 +126,7 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
 | Metadata          | @tdanks2000/tmdb-wrapper                                         |
 | Engine            | Electron utilityProcess, `net.fetch`                             |
 | Library           | utilityProcess engine, `node:sqlite`                             |
-| CatSpider runtime | cheerio, crypto-js (required inside the engine's plugin sandbox) |
+| CatSpider runtime | QuickJS WASM + restricted host APIs (ADR-0014) |
 | Tests             | Vitest 5                                                         |
 
 ## Engineering gates
@@ -153,6 +153,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0011](docs/adr/0011-library-cloud-mode.md) 媒体库网盘模式与外部变更通知
 - [0012](docs/adr/0012-library-job-followups.md) 媒体库任务后继写在任务定义里
 - [0013](docs/adr/0013-poster-face-focus.md) 海报人脸取景
+- [0014](docs/adr/0014-plugin-isolation-and-session-origin.md) 插件隔离与会话来源
 
 ## UI conventions
 

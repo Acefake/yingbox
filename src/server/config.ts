@@ -30,6 +30,8 @@ import { libraryPaths } from '../main/library/platform/paths'
 /** 服务配置。 */
 export interface ServerConfig {
   host: string
+  /** 对外访问的固定源（HTTPS 反向代理部署时显式指定）。 */
+  publicOrigin?: string
   port: number
   /** 数据目录：library.db、secrets.json。 */
   dataDir: string
@@ -113,6 +115,27 @@ function loadMonitor(
   }
 }
 
+/** 公网访问地址只允许 HTTP(S) 的源，不接受路径、凭据或查询参数。 */
+export function parsePublicOrigin(
+  value: string | undefined
+): string | undefined {
+  if (!value) return undefined
+  const url = new URL(value)
+  if (
+    !['http:', 'https:'].includes(url.protocol) ||
+    url.username ||
+    url.password ||
+    url.pathname !== '/' ||
+    url.search ||
+    url.hash
+  ) {
+    throw new Error(
+      '公网访问地址应为 HTTP(S) 源，例如 https://media.example.com'
+    )
+  }
+  return url.origin
+}
+
 /** 解析配置；不合法的端口、监控参数直接抛错。 */
 export function loadConfig(
   argv: string[],
@@ -160,6 +183,9 @@ export function loadConfig(
 
   return {
     host: flag('host') ?? nonEmpty(env.YINGBOX_HOST) ?? '127.0.0.1',
+    publicOrigin: parsePublicOrigin(
+      flag('public-origin') ?? nonEmpty(env.YINGBOX_PUBLIC_ORIGIN)
+    ),
     port,
     dataDir,
     cacheDir: cacheSetting ? abs(cacheSetting) : dataDir,

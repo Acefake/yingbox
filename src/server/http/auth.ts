@@ -6,7 +6,7 @@
  * - Cookie `yingbox_token`：网页端。登录（POST /api/session，或打开带 ?token= 的地址）后由服务写入，
  *   HttpOnly + SameSite=Strict，<img> / <video> / EventSource 自动带上，令牌不出现在页面脚本和资源地址里。
  * 比较用定长哈希 + timingSafeEqual，不泄露长度与前缀。
- * 跨站写请求：带 Origin 且与 Host 不一致的非 GET 请求直接拒绝（SameSite 之外再挡一层）。
+ * 跨站写请求：带 Origin 且与配置的公网源（或请求源）不一致的非 GET 请求直接拒绝（SameSite 之外再挡一层）。
  */
 import { createHash, timingSafeEqual } from 'node:crypto'
 
@@ -46,13 +46,19 @@ export interface Auth {
   /** 请求是否带了正确的令牌（Bearer 或 Cookie）。 */
   check(request: Request): boolean
   /** 写入令牌的 Set-Cookie 值。 */
-  loginCookie(): string
+  loginCookie(request?: Request): string
   /** 清除令牌的 Set-Cookie 值。 */
-  logoutCookie(): string
+  logoutCookie(request?: Request): string
 }
 
 /** 创建鉴权器。 */
-export function createAuth(token: string): Auth {
+export function createAuth(token: string, publicOrigin?: string): Auth {
+  const secure = (request?: Request): string =>
+    (publicOrigin
+      ? new URL(publicOrigin).protocol
+      : request && new URL(request.url).protocol) === 'https:'
+      ? '; Secure'
+      : ''
   const expected = digest(token)
   const matches = (candidate: string | undefined | null): boolean =>
     Boolean(candidate) && timingSafeEqual(digest(candidate!), expected)
@@ -66,20 +72,25 @@ export function createAuth(token: string): Auth {
         matches(readCookie(request.headers.get('cookie'), TOKEN_COOKIE))
       )
     },
-    loginCookie: () =>
-      `${TOKEN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE}`,
-    logoutCookie: () =>
-      `${TOKEN_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0`,
+    loginCookie: request =>
+      `${TOKEN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE}${secure(request)}`,
+    logoutCookie: request =>
+      `${TOKEN_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure(request)}`,
   }
 }
 
-/** 非 GET / HEAD 请求的来源检查：没有 Origin（非浏览器）放行，有则必须与 Host 同源。 */
-export function sameOrigin(request: Request): boolean {
+/** 非 GET / HEAD 请求校验完整源；只信任显式公网配置，不采用转发头。 */
+export function sameOrigin(request: Request, publicOrigin?: string): boolean {
   if (request.method === 'GET' || request.method === 'HEAD') return true
   const origin = request.headers.get('origin')
   if (!origin) return true
   try {
-    return new URL(origin).host === request.headers.get('host')
+    const url = new URL(request.url)
+    const expected =
+      publicOrigin ??
+      new URL(`${url.protocol}//${request.headers.get('host') ?? url.host}`)
+        .origin
+    return new URL(origin).origin === origin && origin === expected
   } catch {
     return false
   }
