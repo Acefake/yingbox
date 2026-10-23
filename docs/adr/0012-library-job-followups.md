@@ -5,10 +5,10 @@
 
 ## 背景
 
-媒体库的后台任务（扫描、重解析、指纹、识别 / 刮削、自动整理、写出、演员查资料）结束后要接着排下一步，原来是在各处手写串联：
+媒体库的后台任务（扫描、重解析、指纹、识别 / 刮削、自动整理、写出）结束后要接着排下一步，原来是在各处手写串联：
 
 - 扫描 / 重解析的处理函数末尾调 `enqueueFingerprint` / `enqueueIdentify`（服务层闭包里再判库设置、令牌、网盘）；
-- 识别处理函数末尾调 `onIdentified`，服务层再转给演员模块（同步关联 + 排查资料）和写出层 `enqueueAuto`（按 `autoFollowups` 分组后排写出 / 自动整理）；
+- 识别处理函数末尾调 `onIdentified`，服务层再转给写出层 `enqueueAuto`（按 `autoFollowups` 分组后排写出 / 自动整理）；
 - 自动整理在 `finally` 里自己排写出，手动匹配成功再单独调一次 `onIdentified`。
 
 整条链散在五个文件里，「取消了还派不派」「失败派不派」「同一目标会不会排两条」各处各自处理，加一步就要再找一处插调用。
@@ -18,8 +18,8 @@
 1. 后继写在任务定义里：`queue.register(type, handler, { merge, followups })`，`followups = { when?, next(outcome) }`。处理函数只返回结果（扫描 / 重解析返回 `LibraryChangeResult`，识别返回有变化的条目），`next` 根据结果算出要派的任务（可异步，例如先判定库在不在网盘上）。父任务结束后由队列统一派发，`idle()` 会等派发落库。
 2. 统一规则：成功派；失败按定义——`when: 'done'`（缺省）不派，`'settled'` 在最终失败（不再重试）时也派，重试中不派；父任务被取消、引擎退出都不派（处理函数吞掉中止正常返回也算取消）；算后继出错只记日志，不改父任务状态。
 3. 去重按 key（任务类型 + 目标），后继的 key 必填（`FollowupSpec`）：同 key 已排队就合并进那一条（载荷按类型的 merge 合并、优先级取高）；同 key 正在跑时最多再排一条在它后面。
-4. 当前的链（与改前行为等价，`tests/library/engine/followups-dispatch.test.ts` 锁住）：扫描 / 重解析有条目变化 → 自动识别（库开了自动识别、TMDB 库要有令牌）；扫描有新增 / 变化的文件 → 指纹（沿用 ADR-0011 的存储判定，网盘不排）；识别有变化 → 演员自动查资料（先同步演员关联）+ 按库设置写出 / 先整理再写出；自动整理 `settled` → 写出。不在任务里的入口（手动匹配成功、演员设置变更、存储改回本地盘、启动时补重解析）直接 `queue.dispatch` / `enqueue` 同一批任务规格。
-5. 旧的手写路径全部删除：`enqueueFingerprint` / `enqueueIdentify` 依赖、`IdentifyModule.enqueueAuto`、`onIdentified`（识别模块选项与演员模块方法）、`WriterModule.enqueueAuto`、自动整理的 `enqueueWrite` 依赖。
+4. 当前的链（与改前行为等价，`tests/library/engine/followups-dispatch.test.ts` 锁住）：扫描 / 重解析有条目变化 → 自动识别（库开了自动识别、TMDB 库要有令牌）；扫描有新增 / 变化的文件 → 指纹（沿用 ADR-0011 的存储判定，网盘不排）；识别有变化 → 按库设置写出 / 先整理再写出；自动整理 `settled` → 写出。不在任务里的入口（手动匹配成功、存储改回本地盘、启动时补重解析）直接 `queue.dispatch` / `enqueue` 同一批任务规格。
+5. 旧的手写路径全部删除：`enqueueFingerprint` / `enqueueIdentify` 依赖、`IdentifyModule.enqueueAuto`、`onIdentified`、`WriterModule.enqueueAuto`、自动整理的 `enqueueWrite` 依赖。
 
 ## 后果
 

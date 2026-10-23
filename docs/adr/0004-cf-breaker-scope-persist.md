@@ -10,7 +10,7 @@
 ## 决策
 
 - `src/shared/net/cf-page.ts` 把页面分为 ok / challenge / blocked，封锁优先；硬封锁立即熔断，从不显示窗口（窗口在挑战途中跳到封锁页也立即销毁）。
-- 熔断键是主机 + 用途（pathScope：search / browse，按地址判断）；连续 3 次失败也熔断，冷却 30 分钟，可一键重置。番号刮削仍按主机。
+- 熔断键是主机 + 用途（pathScope：search / browse，按地址判断）；连续 3 次失败也熔断，冷却 30 分钟，可一键重置。
 - 引擎熔断状态写入 `userData/online/breaker.json`，重启后仍生效。
 
 ## 后果

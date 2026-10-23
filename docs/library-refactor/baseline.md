@@ -64,7 +64,7 @@
 
 比较规则见 `compare.ts`：片名忽略大小写、折叠空白；其余字段严格相等；extra 只比较类型、所属作品片名和年份。
 
-旧逻辑：`avid.cleanSearchParams`（电影片名清洗）、`use-tv-file-management.ts` 与 `use-tv-scraping.ts`
+旧逻辑：`cleanSearchParams`（电影片名清洗）、`use-tv-file-management.ts` 与 `use-tv-scraping.ts`
 两处 `extractEpisodeNumber`、`extractSeasonFromFilename`。两处 `extractEpisodeNumber` 是 composable
 内部闭包，基准脚本里原样复制了一份快照。
 
