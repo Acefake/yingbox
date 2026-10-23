@@ -1,8 +1,7 @@
 /**
  * 一个播放器实例：Artplayer + 它的 hls.js 会话 + 承载它们的节点。
  *
- * 实例和创建它的组件分开：应用内小窗交接时，节点整体搬进小窗、之后搬进认领它的新组件，
- * 实例本身不重建；事件经 sink 转发，交接时把 sink 指向新组件即可。
+ * 构造参数与纯规则在 art-options；事件经 sink 转给创建它的组件。
  */
 import Artplayer from 'artplayer'
 
@@ -25,7 +24,7 @@ export type ArtEventName =
   | 'play'
   | 'pause'
 
-/** 实例的事件去向（当前持有它的组件） */
+/** 实例的事件去向（创建它的组件） */
 export interface ArtSink {
   /** 普通事件，原样转成组件事件 */
   event: (name: ArtEventName, event: Event) => void
@@ -42,16 +41,12 @@ export interface ArtSink {
   subtitles: () => void
 }
 
-/** 一个可交接的播放器实例 */
+/** 一个播放器实例 */
 export interface ArtCore {
   art: Artplayer
   hls: HlsSession
-  /** Artplayer 的容器，交接时整体搬移 */
+  /** Artplayer 的容器 */
   node: HTMLDivElement
-  /** 事件去向：当前持有实例的组件 */
-  sink: { current: ArtSink }
-  /** 最终拆除时额外要释放的东西（例如创建方挂的字幕 blob） */
-  disposers: Array<() => void>
 }
 
 /** createArtCore 的输入 */
@@ -67,18 +62,18 @@ export interface ArtCoreInput {
 export function createArtCore(input: ArtCoreInput): ArtCore {
   const node = document.createElement('div')
   node.className = 'unified-player-core'
-  const sink = { current: input.sink }
+  const sink = input.sink
   const hls = createHlsSession()
 
   // HLS 走 hls.js 自定义类型；其余格式交给 Artplayer 按扩展名自动识别（见 artOptions）。
   const hlsType = input.useHls
     ? hls.customType({
         onManifestParsed: video => {
-          sink.current.seek(video)
-          if (sink.current.autoplay()) video.play().catch(() => {})
+          sink.seek(video)
+          if (sink.autoplay()) video.play().catch(() => {})
         },
         onFatalError: instance => {
-          sink.current.error()
+          sink.error()
           instance.notice.show = '播放失败'
         },
       })
@@ -92,9 +87,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
       controls: input.controls,
       hls: hlsType,
     }),
-    controls: input.controls
-      ? artSkinControls(() => sink.current.subtitles())
-      : [],
+    controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
 
@@ -106,38 +99,37 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   })
 
   art.on('video:loadedmetadata', (event: Event) => {
-    sink.current.seek(art.video)
-    sink.current.event('loadedmetadata', event)
+    sink.seek(art.video)
+    sink.event('loadedmetadata', event)
   })
-  art.on('video:playing', () => sink.current.started())
+  art.on('video:playing', () => sink.started())
   art.on('video:play', (event: Event) => {
-    sink.current.started()
-    sink.current.event('play', event)
+    sink.started()
+    sink.event('play', event)
   })
   art.on('video:timeupdate', (event: Event) => {
-    if (art.video.currentTime > 0.2) sink.current.started()
-    sink.current.event('timeupdate', event)
+    if (art.video.currentTime > 0.2) sink.started()
+    sink.event('timeupdate', event)
   })
   art.on('video:volumechange', (event: Event) =>
-    sink.current.event('volumechange', event)
+    sink.event('volumechange', event)
   )
-  art.on('video:error', () => sink.current.error())
-  art.on('video:ended', (event: Event) => sink.current.event('ended', event))
-  art.on('video:pause', (event: Event) => sink.current.event('pause', event))
+  art.on('video:error', () => sink.error())
+  art.on('video:ended', (event: Event) => sink.event('ended', event))
+  art.on('video:pause', (event: Event) => sink.event('pause', event))
 
-  const onKeydown = (event: KeyboardEvent): void => sink.current.keydown(event)
+  const onKeydown = (event: KeyboardEvent): void => sink.keydown(event)
   art.template.$player.addEventListener('keydown', onKeydown)
   art.on('destroy', () => {
     art.template?.$player?.removeEventListener('keydown', onKeydown)
   })
 
-  return { art, hls, node, sink, disposers: [] }
+  return { art, hls, node }
 }
 
 /** 最终拆除：销毁 hls 与 Artplayer，节点移出文档 */
 export function destroyArtCore(core: ArtCore): void {
   core.hls.destroy()
-  for (const dispose of core.disposers) dispose()
   try {
     core.art.destroy(false)
   } catch {

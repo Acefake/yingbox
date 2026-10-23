@@ -1,28 +1,17 @@
 /**
- * 播放器 feature 的公共出口：内置播放器组件、应用内播放器与 mpv 的调度、播放进度。
- * 其它 feature 只能从这里引用播放器。
+ * 播放器 feature 的公共出口：应用内播放弹窗与小窗、mpv 的调度、播放进度。
+ * 其它 feature 只能从这里引用播放器；播放一律经 openMediaPlayer。
  */
-import { defineAsyncComponent } from 'vue'
-
-/** 统一播放器组件（ArtPlayer + hls.js，体积大，首次渲染时才加载） */
-export const UnifiedVideoPlayer = defineAsyncComponent(
-  () => import('./components/UnifiedVideoPlayer.vue')
-)
-/** 应用内小窗（应用根组件挂载一次） */
+/** 应用内播放弹窗与角落小窗（应用根组件各挂载一次） */
+export { default as PlayerModal } from './modal/PlayerModal.vue'
 export { default as MiniPlayer } from './mini/MiniPlayer.vue'
-export { provideMiniHost } from './mini/mini-host'
-export { claimMini, dockMini, miniSession, preemptMini } from './mini/mini-dock'
-/** 应用内播放器（应用根组件挂载一次）与关闭入口 */
-export { default as InlinePlayer } from './inline/InlinePlayer.vue'
-export { closeInlinePlayer } from './inline/inline-player'
+export { closePlayerModal, playerModal } from './modal/player-modal'
 /** mpv 启动中的全局遮罩（应用根组件挂载） */
 export { default as MpvLoadingOverlay } from './components/MpvLoadingOverlay.vue'
 export {
   type PlayerSourceItem,
-  canOpenElectronPlayer,
   openMediaPlayer,
   syncRtxVsr,
 } from './composables/use-media-player'
 export { useMpvPlayer } from './composables/use-mpv-player'
 export { getMediaProgress } from './utils/play-progress'
-export { pipSupported } from './utils/art-options'

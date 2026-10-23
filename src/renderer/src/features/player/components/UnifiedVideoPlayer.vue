@@ -47,7 +47,7 @@
 /**
  * 统一播放器：Artplayer 外壳 + hls.js（HLS）+ 字幕（本地自动挂载 / 在线搜索）+ 续播与倍速记忆。
  * 实例在 utils/art-core.ts（可交接），构造参数与纯规则在 utils/art-options.ts，字幕在 usePlayerSubtitles；
- * 这里只管加载、销毁、事件转发，以及应用内小窗的交接（离开详情时交出实例、回来时认领）。
+ * 这里只管加载、销毁与事件转发。缩成小窗时整个组件随播放弹窗的节点一起搬走，实例不重建。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import Hls from 'hls.js'
@@ -55,8 +55,6 @@ import Hls from 'hls.js'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
-import { claimMini, dockMini, preemptMini } from '../mini/mini-dock'
-import { useMiniHost } from '../mini/mini-host'
 import {
   type ArtCore,
   type ArtSink,
@@ -121,9 +119,8 @@ const containerEl = ref<HTMLDivElement | null>(null)
 const video = ref<HTMLVideoElement | null>(null)
 const isLoading = ref(false)
 
-/** 当前持有的实例；交给小窗后为 null，docked 为 true */
+/** 当前持有的实例 */
 let core: ArtCore | null = null
-let docked = false
 let loadToken = 0
 let pendingSeek = 0
 
@@ -168,7 +165,7 @@ const sink: ArtSink = {
   },
 }
 
-/** 拆掉自己持有的实例；交给小窗的实例（连同字幕 blob）不归这里，由小窗拆除 */
+/** 拆掉实例（连同字幕 blob） */
 const destroyPlayer = (): void => {
   if (core) {
     subtitles.dispose()
@@ -178,69 +175,16 @@ const destroyPlayer = (): void => {
   video.value = null
 }
 
-/** 认领一个实例：节点搬进自己的容器，事件改由本组件转发 */
-const adopt = (claimed: ArtCore): void => {
-  core = claimed
-  docked = false
-  claimed.sink.current = sink
-  containerEl.value?.appendChild(claimed.node)
-  video.value = claimed.art.video
-  isLoading.value = false
-}
-
-/** 小窗交接：离开详情时交出播放中的实例，详情重新显示时认领回来 */
-const host = useMiniHost({
-  dock: () => {
-    const current = core
-    if (!current || !host) return false
-    const ok = dockMini({
-      key: props.src,
-      title: props.title || '正在播放',
-      node: current.node,
-      video: current.art.video,
-      payload: current,
-      restore: host.restoreFn(),
-      teardown: () => {
-        destroyArtCore(current)
-        docked = false
-        emit('close')
-      },
-    })
-    if (!ok) return false
-    // 字幕 blob 跟实例走，最终拆除时再释放
-    current.disposers.push(subtitles.dispose)
-    core = null
-    video.value = null
-    docked = true
-    return true
-  },
-  reclaim: () => {
-    if (!docked) return
-    const claimed = claimMini(props.src)
-    if (claimed) adopt(claimed.payload as ArtCore)
-  },
-})
-
 const createPlayer = async (source: string): Promise<void> => {
   const container = containerEl.value
   if (!container) return
 
   const token = ++loadToken
   destroyPlayer()
-  docked = false
   if (!source) {
     isLoading.value = false
     return
   }
-  // 小窗里正播着同一个地址：认领回来，不重建、不重新请求
-  const claimed = claimMini(source)
-  if (claimed) {
-    adopt(claimed.payload as ArtCore)
-    emit('ready', claimed.video)
-    return
-  }
-  preemptMini(source)
-
   isLoading.value = true
 
   let resolved: string

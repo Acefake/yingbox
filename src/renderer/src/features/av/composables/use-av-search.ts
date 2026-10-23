@@ -18,7 +18,6 @@ import {
   type MergedGroup,
   mergeByTitle,
   searchCacheKey,
-  titleKey,
 } from '../utils/av-playback'
 import { type AvVideo, toCmsItems, toPluginItems } from '../utils/av-catalog'
 
@@ -34,7 +33,6 @@ export interface UseAvSearchReturn {
   error: Ref<string>
   groups: ShallowRef<MergedGroup[]>
   sourceCount: ComputedRef<number>
-  findGroup: (name: string) => MergedGroup | null
   search: () => Promise<void>
   reset: () => void
   dispose: () => void
@@ -65,10 +63,6 @@ export function useAvSearch(options: {
     groupMap = mergeByTitle(videos.value)
     groups.value = Array.from(groupMap.values())
   }
-
-  /** 按片名找合并组（播放时用来确定可切换的备用来源）。 */
-  const findGroup = (name: string): MergedGroup | null =>
-    groupMap.get(titleKey(name)) || null
 
   /** 单个 CMS 站点：失败计入 failedCount，返回空。 */
   const fetchCms = async (
@@ -193,7 +187,6 @@ export function useAvSearch(options: {
     error,
     groups,
     sourceCount,
-    findGroup,
     search,
     reset,
     dispose: () => abort?.abort(),

@@ -39,14 +39,10 @@
     </SettingsRow>
   </SettingsGroup>
 
-  <SettingsGroup
-    v-if="inPagePlayback"
-    title="小窗"
-    footer="只在网页端有：桌面版的播放器盖住整个窗口，关掉才回到页面，不需要小窗。"
-  >
+  <SettingsGroup title="小窗">
     <SettingsRow
-      title="离开详情时用小窗继续播"
-      description="播放中关闭详情或切到别的页面，画面移到右下角小窗接着播，不重新加载"
+      title="播放弹窗可缩成小窗"
+      description="点缩小或切到别的页面时，画面移到角落小窗接着播，不重新加载"
     >
       <UiSwitch v-model="miniPlayer" label="应用内小窗" />
     </SettingsRow>
@@ -56,15 +52,11 @@
 <script setup lang="ts">
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）与缩小置顶，
- * 网页端的应用内小窗（ui.miniPlayer）。
+ * 播放弹窗的角落小窗（ui.miniPlayer）。
  */
 import { computed, watch } from 'vue'
 
-import {
-  canOpenElectronPlayer,
-  syncRtxVsr,
-  useMpvPlayer,
-} from '@/features/player'
+import { syncRtxVsr, useMpvPlayer } from '@/features/player'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
@@ -98,8 +90,6 @@ const setMpvCompact = (on: boolean): void => {
   void setCompact(on).catch(() => {})
 }
 
-// ── 应用内小窗：只有页内播放（网页端）才有 ─────────────────
-const inPagePlayback = !canOpenElectronPlayer()
 const miniPlayer = useSetting('ui.miniPlayer')
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())

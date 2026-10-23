@@ -182,24 +182,3 @@
     -webkit-backdrop-filter: none;
   }
 }
-
-/* 应用内本地播放器浮层：必须压过侧栏抽屉、后台任务面板和设置窗口（层级见 tokens.css） */
-.yb-local-player-overlay {
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-player-overlay);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  background: var(--overlay-scrim);
-}
-.yb-local-player-stage {
-  position: relative;
-  width: min(92vw, 1200px);
-  height: 78vh;
-  max-height: 92vh;
-  overflow: hidden;
-  border-radius: var(--radius-xl);
-  background: var(--media-bg);
-  box-shadow: var(--shadow-lg);
-}

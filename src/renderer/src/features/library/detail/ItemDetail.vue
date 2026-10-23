@@ -44,14 +44,13 @@
       />
       <DetailInfo :info-rows="infoRows" :files="files" />
     </template>
-    <WebPlayer />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
  * 条目详情（Apple TV 风格）：780w 背景图渐隐、标志或片名、年份 · 时长 · 分级 · 评分、简介，
- * 剧集按季分段与集列表，剧照横滑（点开灯箱），演职员横滑，信息与文件。播放接现有 openMediaPlayer（内置 / mpv），
+ * 剧集按季分段与集列表，剧照横滑（点开灯箱），演职员横滑，信息与文件。播放接 openMediaPlayer（播放弹窗 / mpv），
  * 去码接 features/lada（use-restore）。
  *
  * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailPeople / DetailInfo，
@@ -95,7 +94,6 @@ import {
   primaryPlayRequest,
 } from './playback'
 import { useRestore } from './use-restore'
-import WebPlayer from './WebPlayer.vue'
 
 const props = defineProps<{
   itemId: number
