@@ -45,7 +45,7 @@
         class="inline-detail-page"
         aria-label="内容详情"
       >
-        <DetailWindow ref="detailWindow" :item="inlineDetailItem" />
+        <DetailWindow :item="inlineDetailItem" />
       </section>
     </Transition>
   </div>
@@ -53,7 +53,7 @@
 
 <script setup lang="ts">
 import { toast } from '@/components/ui'
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   CmsItem,
   DoubanItem,
@@ -66,36 +66,11 @@ import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
-import {
-  getMediaProgress,
-  openMediaPlayer,
-  provideMiniHost,
-} from '@/features/player'
+import { getMediaProgress, openMediaPlayer } from '@/features/player'
 
 const route = useRoute()
 const inlineDetailItem = ref<OnlineDetailItem | null>(null)
-const detailWindow = ref<InstanceType<typeof DetailWindow> | null>(null)
 
-// ─── 应用内小窗（网页端页内播放层） ─────────────────────────
-// 播放中关闭详情或切走路由：播放器进小窗；「回到详情」重新打开这个条目和播放层。
-const mini = provideMiniHost({
-  capture: () => {
-    const item = inlineDetailItem.value
-    if (!item) return undefined
-    return () => {
-      if (inlineDetailItem.value !== item) inlineDetailItem.value = item
-      void nextTick(() => detailWindow.value?.resumeMini())
-    }
-  },
-})
-// 同步触发：详情卸载之前，<video> 还在文档里
-watch(
-  inlineDetailItem,
-  (next, prev) => {
-    if (prev && !next) mini.leave()
-  },
-  { flush: 'sync' }
-)
 const handleNavigateBack = (event: Event): void => {
   if (!inlineDetailItem.value) return
   inlineDetailItem.value = null

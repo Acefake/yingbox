@@ -305,6 +305,13 @@ const modalVisible = (): boolean => {
   const el = modal()
   return Boolean(el && el.style.display !== 'none')
 }
+
+/** 隐藏有淡出过渡（jsdom 里没有样式，过渡在两帧后结束）：等它收起 */
+async function hiddenSoon(): Promise<boolean> {
+  await until(() => !modalVisible())
+  return !modalVisible()
+}
+
 const miniSlot = (): HTMLElement | null =>
   document.querySelector('[data-mini-slot]')
 const button = (label: string): HTMLButtonElement | null =>
@@ -314,6 +321,7 @@ const esc = (init: KeyboardEventInit = {}): void => {
     new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, ...init })
   )
 }
+
 /** 让播放器收到一次 timeupdate（替身的事件没有 target，补上） */
 function tick(art: InstanceType<typeof fakes.FakeArt>, at: number): void {
   Object.defineProperty(art.video, 'currentTime', {
@@ -335,15 +343,26 @@ async function openOne(
     title: '片名',
   }
 ): Promise<boolean> {
+  const before = fakes.arts.length
   const ok = await player.openMediaPlayer(options)
-  await settle()
+  // 播放会话是按需加载的组件：第一次打开要等它加载完、建好播放器
+  await until(() => fakes.arts.length > before)
   return ok
+}
+
+/** 等到条件成立（最多约 3 秒） */
+async function until(done: () => boolean): Promise<void> {
+  for (let i = 0; i < 300 && !done(); i++) {
+    await nextTick()
+    await new Promise(resolve => setTimeout(resolve, 10))
+  }
+  await settle()
 }
 
 describe('播放弹窗', () => {
   it('openMediaPlayer 打开盖在页面上的弹窗（网页端没有 window.api 也一样），Artplayer 只建一次', async () => {
     const t = await mountApp()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(await openOne()).toBe(true)
     expect(modalVisible()).toBe(true)
     expect(fakes.arts).toHaveLength(1)
@@ -369,7 +388,7 @@ describe('播放弹窗', () => {
     tick(art, 130)
     esc()
     await settle()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(art.destroyed).toBe(1)
     expect(fakes.hlsList[0].destroyed).toBeGreaterThan(0)
     expect(art.video.isConnected).toBe(false)
@@ -385,7 +404,7 @@ describe('播放弹窗', () => {
     expect(modalVisible()).toBe(true)
     button('关闭播放器')!.click()
     await settle()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(fakes.arts[0].destroyed).toBe(1)
     t.unmount()
   })
@@ -397,7 +416,7 @@ describe('播放弹窗', () => {
     const video = art.video
     button('缩小到小窗')!.click()
     await settle()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(miniSlot()?.contains(video)).toBe(true)
     expect(video.isConnected).toBe(true)
     expect(art.destroyed).toBe(0)
@@ -432,7 +451,7 @@ describe('播放弹窗', () => {
     await settle()
     expect(art.destroyed).toBe(1)
     expect(dock.miniSession().value).toBeNull()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(player.getMediaProgress(SRC)).toBe(61)
 
     await openOne({ url: OTHER, title: '另一部' })
@@ -461,11 +480,11 @@ describe('播放弹窗', () => {
     const video = fakes.arts[0].video
     await t.router.push('/b')
     await settle()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(miniSlot()?.contains(video)).toBe(true)
     await t.router.push('/a')
     await settle()
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     expect(miniSlot()?.contains(video)).toBe(true)
     expect(fakes.arts).toHaveLength(1)
     t.unmount()
@@ -517,8 +536,9 @@ describe('播放弹窗', () => {
     expect(fakes.arts).toHaveLength(2)
     const next = fakes.arts[1].video
     expect(miniSlot()?.contains(next)).toBe(true)
-    expect(modalVisible()).toBe(false)
+    expect(await hiddenSoon()).toBe(true)
     setPlaying(next)
+    next.dispatchEvent(new Event('play'))
     const pause = vi.fn()
     next.pause = pause
     await settle()
@@ -552,9 +572,12 @@ describe('播放弹窗', () => {
       mpv: { open, setVsr: async () => {} },
     }
     try {
-      expect(await openOne()).toBe(true)
+      expect(await player.openMediaPlayer({ url: SRC, title: '片名' })).toBe(
+        true
+      )
+      await settle()
       expect(open).toHaveBeenCalledTimes(1)
-      expect(modalVisible()).toBe(false)
+      expect(await hiddenSoon()).toBe(true)
       expect(fakes.arts).toHaveLength(0)
     } finally {
       delete (window as unknown as { api?: unknown }).api

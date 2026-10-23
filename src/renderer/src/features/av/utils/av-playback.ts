@@ -103,25 +103,6 @@ export const mergeByTitle = (videos: AvVideo[]): Map<string, MergedGroup> => {
   return map
 }
 
-/** 当前集的下一集；当前地址不在列表里时没有下一集。 */
-export const nextEpisode = <T extends { url: string }>(
-  episodes: T[],
-  currentUrl: string
-): T | null => {
-  const index = episodes.findIndex(episode => episode.url === currentUrl)
-  return index >= 0 ? (episodes[index + 1] ?? null) : null
-}
-
-/** 列表里当前片之后的那一部（按片名定位）。 */
-export const nextInList = <T extends { vod_name?: string }>(
-  groups: { items: T[] }[],
-  currentName: unknown
-): T | null => {
-  const key = titleKey(currentName)
-  const index = groups.findIndex(g => titleKey(g.items[0]?.vod_name) === key)
-  return index >= 0 ? (groups[index + 1]?.items[0] ?? null) : null
-}
-
 /** 聚合搜索缓存键：关键词 + 排序后的站点集合。 */
 export const searchCacheKey = (keyword: string, apis: string[]): string =>
   `${keyword}|${[...apis].sort().join(',')}`

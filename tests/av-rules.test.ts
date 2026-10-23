@@ -20,8 +20,6 @@ import {
 import {
   mergeByTitle,
   needsPluginResolve,
-  nextEpisode,
-  nextInList,
   parseCmsEpisodes,
   playTitle,
   searchCacheKey,
@@ -238,19 +236,9 @@ describe('AV 播放与搜索规则', () => {
     expect(many[0].url).toBe('x39')
   })
 
-  it('标题、下一集、列表下一部', () => {
+  it('标题', () => {
     expect(playTitle('片', '第1集')).toBe('片 · 第1集')
     expect(playTitle('', '')).toBe('正在播放')
-    const eps = [{ url: 'a' }, { url: 'b' }]
-    expect(nextEpisode(eps, 'a')).toEqual({ url: 'b' })
-    expect(nextEpisode(eps, 'b')).toBeNull()
-    expect(nextEpisode(eps, 'z')).toBeNull()
-    const groups = [
-      { items: [{ vod_name: ' A ' }] },
-      { items: [{ vod_name: 'B' }] },
-    ]
-    expect(nextInList(groups, 'a')).toEqual({ vod_name: 'B' })
-    expect(nextInList(groups, 'B')).toBeNull()
   })
 
   it('同名合并：忽略大小写与首尾空白，保持首次出现的顺序', () => {

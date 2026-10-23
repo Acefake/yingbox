@@ -10,6 +10,7 @@
       :show-footer="false"
       autoplay
       controls
+      @ready="emit('video', $event)"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -53,7 +54,7 @@
 /**
  * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
  * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
- * 载荷换了（播别的）就重新开始；当前条目名通过 title 事件交给外层的顶栏。
+ * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
  */
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
@@ -70,7 +71,11 @@ import {
 import { resolvePlaySource } from '@/features/online'
 
 const props = defineProps<{ payload: PlayerPayload }>()
-const emit = defineEmits<{ title: [title: string] }>()
+const emit = defineEmits<{
+  title: [title: string]
+  /** 播放器的 <video>（每集换一个；小窗的播放 / 暂停控制它） */
+  video: [video: HTMLVideoElement]
+}>()
 
 const src = ref('')
 const poster = ref('')

@@ -63,9 +63,6 @@
       <div v-if="!currentEpisodes.length" class="ep-empty">无可用剧集</div>
     </div>
   </div>
-  <div v-else-if="!searching && showEmpty" class="dw-sources-section">
-    <div class="ep-empty">未找到可用播放源</div>
-  </div>
 </template>
 
 <script setup lang="ts">
@@ -81,8 +78,6 @@ import type { SiteGroup, SourceType } from '../utils/detail-sources'
 defineProps<{
   searching: boolean
   hasGroups: boolean
-  /** 没有任何线路时是否显示「未找到可用播放源」（只在播放层打开时） */
-  showEmpty: boolean
   sourceTypeOptions: { value: SourceType; label: string }[]
   currentSourceType: SourceType
   siteGroups: SiteGroup[]
