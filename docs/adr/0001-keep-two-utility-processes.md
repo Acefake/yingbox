@@ -5,7 +5,7 @@
 
 ## 背景
 
-桌面端有两个 utilityProcess：后台引擎（在线源 / CatSpider 插件、MissAV、HLS 下载）与媒体库引擎（扫描、识别刮削、写出、`node:sqlite`）。两套宿主和线协议几乎同形，有人提议合成一个进程省内存。
+桌面端有两个 utilityProcess：后台引擎（在线源 / CatSpider 插件、HLS 下载）与媒体库引擎（扫描、识别刮削、写出、`node:sqlite`）。两套宿主和线协议几乎同形，有人提议合成一个进程省内存。
 
 ## 决策
 

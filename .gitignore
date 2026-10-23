@@ -40,6 +40,7 @@ yarn-error.log*
 # AI 编码工具的本地配置、记忆与会话日志（AGENTS.md / CLAUDE.md 是项目约定，仍入库）
 .claude/
 CLAUDE.local.md
+AGENTS.local.md
 .codex/
 .codex_tmp/
 .commandcode/

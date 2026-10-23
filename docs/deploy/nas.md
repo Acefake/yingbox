@@ -1,6 +1,6 @@
 # 在 NAS 上用 Docker 部署片库服务
 
-片库服务是影盒媒体库（电影、剧集、番号库）的独立 Node 版本，浏览器访问，能扫描、刮削、写 NFO、整理和在页内播放。
+片库服务是影盒媒体库（电影、剧集）的独立 Node 版本，浏览器访问，能扫描、刮削、写 NFO、整理和在页内播放。
 它能做什么、不能做什么，以及全部配置项，见 [片库服务](../library-server.md)；为什么这样部署，见 [ADR-0010](../adr/0010-docker-nas-deploy.md)。
 
 镜像里只有 Node 服务和网页端，不含 Electron，amd64 / arm64 都能构建。目前没有发布好的镜像，需要在 NAS 上从源码构建。
@@ -17,7 +17,7 @@
 | 容器内          | 放什么                                                   | 建议                                                                                   |
 | --------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `/config`       | `library.db`（片库数据库）、`secrets.json`（令牌，0600） | 必须持久化、必须备份；只让服务用户可读                                                 |
-| `/cache`        | `media/`（海报原图、缩略图）、`gfriends-index.json`      | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
+| `/cache`        | `media/`（海报原图、缩略图）等缓存                      | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
 | `/media/<名字>` | 片库目录，可以挂多个                                     | 默认 `:ro`。网页端只能在 `/media` 以内浏览和建库                                       |
 
 `./yingbox/` 是 compose 示例的数据目录，已写进 `.gitignore` 与 `.dockerignore`，不会进 git 也不会进镜像。
@@ -41,7 +41,7 @@ docker compose ps                  # STATUS 里出现 (healthy) 即启动完成�
 
 - 拉 `node` 基础镜像慢或失败时，给 Docker 配镜像加速。Dockerfile 用摘要固定了基础镜像，加速源返回的内容不一致会直接报错，不会悄悄换成别的镜像。
 - 装依赖慢时，在 compose 的 `build.args` 里设 `NPM_REGISTRY: https://registry.npmmirror.com`（示例里有注释好的几行）。
-- 访问 TMDB / 番号站点要代理时，在 `environment` 里设 `HTTPS_PROXY` 等变量，并一起设 `NODE_USE_ENV_PROXY: '1'`，见 [代理](../library-server.md#代理)。
+- 访问 TMDB 等元数据站点要代理时，在 `environment` 里设 `HTTPS_PROXY` 等变量，并一起设 `NODE_USE_ENV_PROXY: '1'`，见 [代理](../library-server.md#代理)。
 
 升级：`git pull && docker compose up -d --build`。`/config`、`/cache` 不受影响。
 
@@ -162,7 +162,7 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 ## 备份、迁移与排错
 
 - 备份 `/config`（必须）和 `/cache`（建议）。停容器后复制目录即可；不停也行，但 `library.db` 用 WAL，要连同 `-wal`、`-shm` 一起复制。
-- **从只有 `/data` 一个卷的老配置迁移**：把老目录挂到 `/config`，并在 `environment` 里设 `YINGBOX_CACHE_DIR: /config`，数据原样可用；想拆开，就停容器、把老目录里的 `media/` 和 `gfriends-index.json` 移到新的缓存目录，再按示例挂 `/cache`。
+- **从只有 `/data` 一个卷的老配置迁移**：把老目录挂到 `/config`，并在 `environment` 里设 `YINGBOX_CACHE_DIR: /config`，数据原样可用；想拆开，就停容器、把老目录里的 `media/` 及其它缓存文件移到新的缓存目录，再按示例挂 `/cache`。
 - 启动后立即退出、日志里是「对外监听（0.0.0.0）必须设置访问令牌」：`.env` 没被读到或令牌太短。`docker compose config | grep TOKEN` 看实际值。
 - 日志里是「PUID / PGID 应为数字」或「不能是 0」：改 `PUID` / `PGID`。
 - 网页端看得到文件夹、看不到文件，或扫描报权限错误：`PUID` / `PGID` 没有读权限。`docker compose exec yingbox setpriv --reuid=<PUID> --regid=<PGID> --clear-groups ls /media/<名字>` 可以按服务的身份试读。
