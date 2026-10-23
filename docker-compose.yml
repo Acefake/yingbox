@@ -32,9 +32,9 @@ services:
       YINGBOX_HOST: '0.0.0.0'
       # 访问令牌：从 .env 读，没设置时 compose 直接报错
       YINGBOX_SERVER_TOKEN: '${YINGBOX_SERVER_TOKEN:?请在 .env 里设置 YINGBOX_SERVER_TOKEN（至少 24 个字符的随机串）}'
-      # TMDB 读访问令牌（电影 / 剧集库需要；番号库不需要），也可以在网页端的媒体库设置里填写
+      # TMDB 读访问令牌（电影 / 剧集库需要），也可以在网页端的媒体库设置里填写
       # YINGBOX_TMDB_TOKEN: ''
-      # 需要代理才能访问 TMDB / 番号站点时（NODE_USE_ENV_PROXY 必须一起设）：
+      # 需要代理才能访问 TMDB / 刮削站点时（NODE_USE_ENV_PROXY 必须一起设）：
       # HTTPS_PROXY: 'http://192.168.1.2:7890'
       # HTTP_PROXY: 'http://192.168.1.2:7890'
       # NO_PROXY: 'localhost,127.0.0.1'
@@ -52,7 +52,7 @@ services:
       - ./yingbox/cache:/cache
       # 片库：挂在 /media 下面，只读。要写 NFO / 图片或整理改名时去掉 :ro
       - /volume1/video/movies:/media/movies:ro
-      - /volume1/video/jav:/media/jav:ro
+      - /volume1/video/tv:/media/tv:ro
       # CloudDrive2 挂载的网盘（docs/deploy/nas.md「CloudDrive2」）：映射 CloudDrive2 的挂载根目录，
       # 传播用 rslave，CloudDrive2 重启 / 掉盘重挂后容器里才看得到新挂载
       # - type: bind

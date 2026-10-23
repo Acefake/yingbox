@@ -1,4 +1,4 @@
-# 影盒片库服务（网页端 + 片库 / 番号刮削 API），给 NAS / Docker 用；桌面端不需要它。决策见 docs/adr/0010-docker-nas-deploy.md。
+# 影盒片库服务（网页端 + 片库 / 刮削 API），给 NAS / Docker 用；桌面端不需要它。决策见 docs/adr/0010-docker-nas-deploy.md。
 # 构建：docker build -t yingbox-library .（国内可加 --build-arg NPM_REGISTRY=https://registry.npmmirror.com）
 # 运行：docker-compose.yml 与 docs/deploy/nas.md
 #
