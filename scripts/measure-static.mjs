@@ -1,6 +1,6 @@
 #!/usr/bin/env node
 /**
- * 静态性能指标（pnpm perf:static）：沙箱/CI 里不需要启动 Electron 就能测的部分。
+ * 静态性能指标（pnpm perf:static）：沙箱里不需要启动 Electron 就能测的部分。
  *
  * - 依赖数：pnpm 解析出的生产依赖 / 全部依赖（去重后的包目录数）
  * - out/ 构建产物：main、preload、renderer 各进程体积（原始 + gzip）

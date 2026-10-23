@@ -63,6 +63,8 @@ pnpm check:copy     # 文案只写最终状态
 
 ## 打包
 
+检查和安装包构建在本地运行；发布时手动将构建产物上传到 GitHub Releases。
+
 ```bash
 pnpm build:win        # Windows zip
 pnpm build:win:full   # Windows 安装包

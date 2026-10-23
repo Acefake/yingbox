@@ -114,7 +114,7 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 
 - `pnpm smoke:server`：起一个临时服务，出网用离线夹具（`scripts/smoke/fixture-fetch.mjs`），走一遍 登录 → 目录浏览 → SSE → 建库 → 识别 → 详情 → 图片 → Range 流 → 根目录限制 → 托管网页。
 - `node scripts/smoke-server.mjs --online`：同上，但用真实网络，看元数据站点在当前网络下是否可达（被 Cloudflare 拦下属正常，按主机熔断后跳过）。
-- `node scripts/web-e2e.mjs`：用 Playwright 驱动网页端完整走一遍（需先 `build:web`、`build:server`；Playwright 不是项目依赖，用 `PLAYWRIGHT_MODULE` 指向自备的模块）。不进 CI。
+- `node scripts/web-e2e.mjs`：用 Playwright 驱动网页端完整走一遍（需先 `build:web`、`build:server`；Playwright 不是项目依赖，用 `PLAYWRIGHT_MODULE` 指向自备的模块）。在本地手动运行。
 
 ### NAS（Docker）
 
