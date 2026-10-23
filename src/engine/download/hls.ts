@@ -68,6 +68,12 @@ export function parseMediaPlaylist(text: string, base: string): MediaPlaylist {
   for (const raw of text.split(/\r?\n/)) {
     const line = raw.trim()
     if (!line) continue
+    if (
+      line.startsWith('#EXT-X-BYTERANGE:') ||
+      (line.startsWith('#EXT-X-MAP:') && attr(line, 'BYTERANGE') !== undefined)
+    ) {
+      throw new Error('暂不支持 HLS 字节范围清单（BYTERANGE）')
+    }
     if (line.startsWith('#EXT-X-MEDIA-SEQUENCE:')) {
       sequence = Number(line.split(':')[1]) || 0
     } else if (line.startsWith('#EXT-X-KEY:')) {
