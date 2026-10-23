@@ -30,35 +30,29 @@
 | preload | 1 | 10.5 KB | 2.9 KB |
 | renderer（js/css/html） | 26 | 5764.2 KB | 1213.5 KB |
 
-### renderer chunk（前 10）
+### renderer chunk（前 10 中的节选）
 
 | chunk | 内容 | 原始 | gzip |
 |---|---|---|---|
 | `index-*.js` | 入口（含 antd、artplayer 以外的全部同步依赖） | 3743.8 KB | 782.3 KB |
 | `UnifiedVideoPlayer-*.js` | 播放器（artplayer + hls.js） | 1317.0 KB | 279.2 KB |
-| `Index-*.js` | Amane 页 | 150.0 KB | 29.6 KB |
 | `index-*.css` | 全局样式 | 121.8 KB | 22.3 KB |
 | `ScrapeWorkbenchModal-*.js` | 刮削工作台 | 75.1 KB | 16.7 KB |
 | `Index-*.js` | 在线详情页 | 73.9 KB | 16.7 KB |
-| `Index-*.js` | AV 页 | 61.4 KB | 14.0 KB |
 | `index-*.js` | 电影页 | 56.5 KB | 13.0 KB |
 | `index-*.js` | 剧集页 | 54.5 KB | 12.1 KB |
-| `Index-*.css` | Amane 页样式 | 39.1 KB | 7.8 KB |
 
 入口 chunk 3.7 MB 是首屏最大的成本，主要是 ant-design-vue 全量注册（`app.use(Antd)`）。UI 项目收尾删 antd 后应明显下降。
 
-### 单文件行数（前 10）
+### 单文件行数（前 10 中的节选）
 
 | 行数 | 文件 |
 |---|---|
-| 1714 | src/renderer/src/views/Amane/Index.vue |
-| 1631 | src/renderer/src/views/av/Index.vue |
 | 1408 | src/renderer/src/views/TV/composables/use-tv-scraping.ts |
 | 1272 | src/renderer/src/views/online/DetailWindow.vue |
 | 977 | src/renderer/src/views/TV/composables/use-tv-file-management.ts |
 | 841 | src/renderer/src/components/UnifiedVideoPlayer.vue |
 | 839 | src/renderer/src/components/Layout/AppLayout.vue |
-| 737 | src/renderer/src/views/Amane/AgentPanel.vue |
 | 718 | src/renderer/src/components/ScrapeQueuePanel.vue |
 | 690 | src/renderer/src/views/Movie/composables/use-file-management.ts |
 
@@ -80,7 +74,7 @@
 2. **主进程长任务**：以 `--inspect=9229` 启动应用，在 `chrome://inspect` 打开 Node 调试器的 Performance 面板录 30 秒：启动、打开电影库、触发一次扫描、打开播放器。记录超过 50 ms 的任务数量和最长一次时长。
 3. **空闲内存**：启动后停在首页 2 分钟不操作，打开任务管理器「详细信息」页，把所有 `影盒.exe`、`main.exe`（Go 后端）、`python`、`node` 子进程的「内存（专用工作集）」相加。
 4. **1 万项滚动帧率**：准备一个含 1 万个视频文件的目录（可用空文件 + 正确扩展名生成），加入电影库。DevTools → Performance 勾选 Screenshots，录制匀速滚动海报墙 10 秒，记录 FPS 曲线的中位数和最低值，以及最长的一帧耗时。
-5. **安装包体积**：`pnpm build:win:full` 后看 `dist/` 下 NSIS 安装包的字节数，另记 `dist/win-unpacked/` 目录总大小，以及其中 `resources/backend`、`resources/mpv`、`resources/amane` 各自的大小。
+5. **安装包体积**：`pnpm build:win:full` 后看 `dist/` 下 NSIS 安装包的字节数，另记 `dist/win-unpacked/` 目录总大小，以及其中 `resources/backend`、`resources/mpv` 各自的大小。
 
 ## 三、阶段 5：整条重构链（p0 → p5）前后对比
 
@@ -118,31 +112,27 @@ main 进程拆开看：
 
 main 进程 JS 变大是预期的：原来 Go 后端（2198 行 Go）+ Python 下载器（1509 行）+ CatSpider runner（565 行 JS）在 JS 包之外，现在由引擎和插件宿主承担，换来的是安装包里不再带 Go 可执行文件与 Python 运行时（体积差见实机项 5）。
 
-### renderer chunk（前 10）
+### renderer chunk（前 10 中的节选）
 
 | main @ 5fe2b7f | 原始 / gzip | p5 | 原始 / gzip |
 |---|---|---|---|
 | `index`（入口） | 3743.8 / 782.3 KB | `index`（入口） | 3543.3 / 738.1 KB |
 | `UnifiedVideoPlayer` | 1317.0 / 279.2 KB | `UnifiedVideoPlayer` | 1318.8 / 279.9 KB |
-| `Index`（Amane 页） | 150.0 / 29.6 KB | `AmaneView` | 165.1 / 34.8 KB |
 | `index.css` | 121.7 / 22.3 KB | `OnlineView` | 76.5 / 17.5 KB |
 | `ScrapeWorkbenchModal` | 75.2 / 16.7 KB | `ScrapeWorkbenchModal`（影视，未动） | 75.3 / 16.7 KB |
 | `Index`（在线详情） | 73.7 / 16.7 KB | `index.css` | 74.0 / 14.5 KB |
-| `Index`（AV 页） | 61.4 / 14.0 KB | `AmaneSettingsSection` | 68.9 / 16.4 KB |
-| `index`（电影页） | 56.5 / 13.0 KB | `AvView` | 64.5 / 16.4 KB |
-| `index`（剧集页） | 54.5 / 12.1 KB | `index`（电影页） | 56.7 / 13.0 KB |
-| `Index.css`（Amane） | 39.1 / 7.8 KB | `index`（剧集页） | 54.7 / 12.2 KB |
+| `index`（电影页） | 56.5 / 13.0 KB | `index`（电影页） | 56.7 / 13.0 KB |
+| `index`（剧集页） | 54.5 / 12.1 KB | `index`（剧集页） | 54.7 / 12.2 KB |
 
-- 入口 chunk −200 KB（gzip −44 KB）：可以确认的来源是去掉 axios，以及 Amane 设置分区等拆成了异步块（`AmaneSettingsSection` 68.9 KB 现在单独成块）；没有逐模块做 bundle 分析。ant-design-vue 仍在入口里（迁移条件不满足，见 #28），是剩下最大的一块。
+- 入口 chunk −200 KB（gzip −44 KB）：可以确认的来源是去掉 axios，以及部分设置分区拆成了异步块；没有逐模块做 bundle 分析。ant-design-vue 仍在入口里（迁移条件不满足，见 #28），是剩下最大的一块。
 - 全局 `index.css` −48 KB：阶段 4 拆分时 feature 样式改成跟着组件走（scoped / 异步块），没有逐条核对。
-- Amane 页 +15 KB：拆成 30 多个子组件 / 组合函数后多了模块包装与 scoped 样式哈希，属于拆分成本。
 - 新增 `thumb.worker-*.js` 2.2 KB（缩略图 Worker，按需加载）。
 
 ### 代码规模与质量门槛
 
 | 指标 | main @ 5fe2b7f | p5 |
 |---|---|---|
-| 最大单文件（行） | 1714（Amane/Index.vue） | 1408（影视 use-tv-scraping.ts，受保护） |
+| 最大单文件（行） | 1714 | 1408（影视 use-tv-scraping.ts，受保护） |
 | 最大非影视文件（行） | 1714 | 394（online/SourceManagerPanel.vue） |
 | 超过 400 行的文件 | 26 | 9（全是影视受保护文件，`check:size --strict` 豁免且只许变短） |
 | src/ 下 ts/vue/mjs 总行数 | 41,550 | 49,269 |
@@ -159,12 +149,12 @@ src/ 总行数增加约 7.7k：Go/Python 的 4.3k 行迁成 TypeScript 引擎（
 | 冷启动到首屏 | 待测 | 待测 | 见第二部分 1 |
 | 空闲内存（全部进程） | 待测 | 待测 | 见第二部分 3；p5 没有 Go / Python 进程，引擎与插件按需启动，空闲时只有 Electron 自身进程 |
 | 安装包体积 | 待测 | 待测 | 见第二部分 5；p5 的 `resources/` 下应已没有 `backend` |
-| AV 分类浏览滚动 1000 条的 DOM 节点数 | 待测 | 待测 | 见 6 |
-| AV / 在线长列表滚动帧率 | 待测 | 待测 | 见 7 |
+| 长列表滚动 1000 条的 DOM 节点数 | 待测 | 待测 | 见 6 |
+| 在线长列表滚动帧率 | 待测 | 待测 | 见 7 |
 | 海报首屏解码耗时与缩略图命中 | 待测 | 待测 | 见 8 |
 | 缩略图缓存目录大小 | — | 待测 | 见 9 |
 
-6. **DOM 节点数**：打开 AV「分类浏览」，一直滚到底直到「已加载」≥ 1000 条。DevTools Console 执行 `document.querySelectorAll('.ui-poster').length`。main 上应等于已加载条数；p5 上应只有视口附近几行（与条数无关，通常 < 60）。在线搜索、Amane 影片墙、下载队列同法。
+6. **DOM 节点数**：打开一个可无限滚动的海报列表，一直滚到底直到「已加载」≥ 1000 条。DevTools Console 执行 `document.querySelectorAll('.ui-poster').length`。main 上应等于已加载条数；p5 上应只有视口附近几行（与条数无关，通常 < 60）。其它长列表（在线搜索、下载队列）同法。
 7. **滚动帧率**：同一页面加载到 1000 条后，DevTools → Performance 勾选 Screenshots，录制匀速滚动 10 秒，记录 FPS 中位数、最低值和最长一帧。也可在 Rendering 面板打开「Frame Rendering Stats」看实时帧率。
-8. **海报解码**：清空 `userData/library/media/thumb` 后打开 AV 浏览，Performance 面板录首屏加载，统计 `Decode Image` 事件的总耗时；关掉应用再打开同一页面重录一次（这次应命中 WebP 缓存）。Network 面板筛 `yingbox-media:` 可看每张图的大小（都应是 WebP）。
+8. **海报解码**：清空 `userData/library/media/thumb` 后打开一个海报列表，Performance 面板录首屏加载，统计 `Decode Image` 事件的总耗时；关掉应用再打开同一页面重录一次（这次应命中 WebP 缓存）。Network 面板筛 `yingbox-media:` 可看每张图的大小（都应是 WebP）。
 9. **缓存大小**：浏览几个分类后看 `%APPDATA%/影盒/library/media/thumb`（mac：`~/Library/Application Support/影盒/library/media/thumb`）的文件数与总大小（打包版目录名是 productName「影盒」，开发模式是 `yingbox`）；上限 512 MB，超出后应回落到约 460 MB。

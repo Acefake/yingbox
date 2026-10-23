@@ -1,6 +1,6 @@
 # 片库服务（网页端 / NAS）
 
-影盒的本地媒体库（电影、剧集、番号库）原来只能在桌面版里用：扫描、刮削、写 NFO 都在 Electron 的 utilityProcess 里跑。
+影盒的本地媒体库（电影、剧集）原来只能在桌面版里用：扫描、刮削、写 NFO 都在 Electron 的 utilityProcess 里跑。
 片库服务把这套核心原样搬到一个独立的 Node 进程里，通过 HTTP 提供给网页端，可以跑在本机、开发机或 NAS 的 Docker 里。
 
 桌面版不需要它，也不会连它：桌面端照旧走 IPC。
@@ -21,7 +21,7 @@
                                         └─────────────────────────────────────────────┘
 ```
 
-- **同一个片库核心**：扫描、识别（TMDB / 番号站点）、刮削、写出 NFO 与图片、整理改名，全部来自 `src/main/library`。
+- **同一个片库核心**：扫描、识别（TMDB 等元数据源）、刮削、写出 NFO 与图片、整理改名，全部来自 `src/main/library`。
   宿主差异只在 `src/main/library/platform`（`LibraryPlatform` 接口）：桌面端注入 Electron `net.fetch`，服务端注入 Node 的出网实现。
 - **同一份契约**：`POST /api/library/rpc` 的 `{ method, params }` 与桌面端 IPC 的方法、参数、返回值一字不差（参数校验复用 `engine/rpc.ts`）；
   事件经 SSE（`GET /api/library/events`）推送，每条 `data` 是一个 `LibraryEvent`。线格式见 `src/shared/library/ipc/contract-http.ts`。
@@ -69,7 +69,7 @@
 | `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，这时必须设 `YINGBOX_SERVER_TOKEN`  |
 | `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
 | `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
-| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）、`gfriends-index.json`；Docker 里是 `/cache` 卷             |
+| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                             |
 | `--media-root`（可多次） | `YINGBOX_MEDIA_ROOTS`                     | 用户主目录                    | 允许浏览和建库的根目录；环境变量里多个用系统路径分隔符（Linux / macOS `:`，Windows `;`） |
 | `--web-dir`              | `YINGBOX_WEB_DIR`                         | 包旁边的 `dist-web`（存在时） | 托管的网页端目录；`off` 只提供 API                                                       |
 | `--fetch`                | `YINGBOX_FETCH`                           | `node`                        | 出网实现：`node` / `curl` / `curl:<路径>` / `module:<路径>`，见下文                      |
@@ -77,10 +77,7 @@
 | `--scan-interval`        | `YINGBOX_SCAN_INTERVAL`                   | `300`（秒）                   | 定时增量扫描间隔；`0` 关闭（网络盘上就只能手动扫描了）                                   |
 | `--settle`               | `YINGBOX_SETTLE_SECONDS`                  | `10`（秒）                    | 写入稳定判定：新文件大小与 mtime 保持这么久不变才入库；`0` 不判定                        |
 | —                        | `YINGBOX_SERVER_TOKEN`                    | 首次启动生成                  | 访问令牌（只读覆盖，不写回文件）；对外监听时必填，至少 24 个字符                         |
-| —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要，番号库不需要）。网页端设置里填写的令牌优先           |
-| —                        | `YINGBOX_THEPORNDB_TOKEN`                 | 无                            | ThePornDB API 令牌；不填就不查 ThePornDB。网页端设置「站点凭据」里填的优先               |
-| —                        | `YINGBOX_JAVDB_COOKIE`                    | 无                            | JavDB 登录后的 Cookie（可选）；填了才用 JavDB 查 FC2                                     |
-| —                        | `DMM_API_ID` + `DMM_AFFILIATE_ID`         | 无                            | DMM 官方商品 API 凭据（可选，两个都要）；不填就跳过 dmm_api 站点                         |
+| —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要）。网页端设置里填写的令牌优先                         |
 | —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别，可选）                                        |
 | —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                         |
 | —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                              |
@@ -115,8 +112,8 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 
 检查脚本：
 
-- `pnpm smoke:server`：起一个临时服务，出网用离线夹具（`scripts/smoke/fixture-fetch.mjs`），走一遍 登录 → 目录浏览 → SSE → 建番号库 → 识别 → 详情 → 图片 → Range 流 → 根目录限制 → 托管网页。
-- `node scripts/smoke-server.mjs --online`：同上，但用真实网络，看番号站点在当前网络下是否可达（被 Cloudflare 拦下属正常，按主机熔断后跳过）。
+- `pnpm smoke:server`：起一个临时服务，出网用离线夹具（`scripts/smoke/fixture-fetch.mjs`），走一遍 登录 → 目录浏览 → SSE → 建库 → 识别 → 详情 → 图片 → Range 流 → 根目录限制 → 托管网页。
+- `node scripts/smoke-server.mjs --online`：同上，但用真实网络，看元数据站点在当前网络下是否可达（被 Cloudflare 拦下属正常，按主机熔断后跳过）。
 - `node scripts/web-e2e.mjs`：用 Playwright 驱动网页端完整走一遍（需先 `build:web`、`build:server`；Playwright 不是项目依赖，用 `PLAYWRIGHT_MODULE` 指向自备的模块）。不进 CI。
 
 ### NAS（Docker）
@@ -132,8 +129,8 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 发现变化 ──▶ 增量扫描 ──▶ 写入稳定？──否──▶ 这一轮不收，过一会儿定向复扫
  事件 / 定时     目录 mtime 短路     │是
                                      ▼
-                     入库（解析片名 / 番号、分组）──▶ 自动识别（库设置「自动识别」）
-                                                       │ 番号库按番号刮削番号站点，TMDB 库要令牌
+                            入库（解析片名、分组）──▶ 自动识别（库设置「自动识别」）
+                                                       │ TMDB 库要令牌
                                                        ▼
                                自动整理（库设置「自动整理」+ 全局「允许整理文件」）
                                                        ▼
@@ -183,11 +180,11 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 | ---------- | -------- | ------------------------------------------------------------------------------------------------------------------------------------------------------ |
 | 存储       | 自动     | 自动：UNC 路径或 NFS / SMB / FUSE 等挂载判为网盘，其余按本地盘。网盘不监听、不定时扫描、不读视频内容，只按变更通知与手动扫描入库；要轮询就选「本地盘」 |
 | 监控文件夹 | 开       | 关闭后这个库不监听、不定时扫描，只在手动扫描时入库                                                                                                     |
-| 自动识别   | 开       | 新入库 / 文件变化的条目自动识别。番号库按文件名里的番号刮削；TMDB 库需要令牌                                                                           |
+| 自动识别   | 开       | 新入库 / 文件变化的条目自动识别；TMDB 库需要令牌                                                                                                      |
 | 自动写出   | 跟随全局 | 识别后写 NFO 与图片。「跟随全局」用写出设置里的「识别后自动写出」，也可以对这个库单独开 / 关                                                           |
 | 自动整理   | 关       | 识别后按模板改名移动。只整理自动匹配 / 已锁定的条目，有冲突的项不动；每次记一个批次，可在设置里撤销。还要求写出设置里「允许整理文件」开启              |
 
-同时开了自动整理和自动写出时，先整理、再写出，NFO 与图片直接写到最终位置。设置的含义对齐 Amane 的库设置（`automation` 的 none / watch / scrape、`auto_organize`、`write_nfo`）。
+同时开了自动整理和自动写出时，先整理、再写出，NFO 与图片直接写到最终位置。
 
 代码里这条链写在各后台任务定义的后继（`followups`）里，由任务队列统一派发：父任务成功才派（自动整理成功或失败都派写出），取消不派，同一任务类型 + 目标已排队就合并；规则与当前链见 [ADR-0012](adr/0012-library-job-followups.md)。
 
@@ -197,20 +194,9 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 - 媒体目录是挂进容器的 NFS / SMB 网络盘：存储「自动」会判为网盘、不再定时扫描。靠轮询入库就把这些库的存储改成「本地盘」（只用定时扫描），可以把 `YINGBOX_SCAN_INTERVAL` 调到 `60`–`120`。
 - 下载器和片库服务在同一台 NAS 上、下载完直接移进媒体目录：同盘移动是原子改名，几秒内入库；跨盘复制会等写入稳定后入库。
 
-## 番号站点
-
-内置 25 个番号站点（JavBus、FANZA、AVBase、R18.dev、JavDB、厂商官网、MGS、XCITY、AVSOX、FC2 等），
-设置页「番号站点」里调开关与优先级：同一字段先取排在前面的站点。默认关掉了防护严或数据差的几个
-（JAVLibrary、iQQTV、AIRAV、FreeJavBT、Getchu、FC2CLUB）。
-
-- 只查自家番号的厂商站（PRESTIGE、FALENO、DAHLIA、GIGA、kin8、厂商官网）按前缀过滤，其它番号不发请求；
-- 出网按主机各自限速（每站 2 次/秒、并发 2），一个慢站不拖住其它站；被 Cloudflare 拦的站按主机熔断跳过；
-- FANZA 网页版、MGS、PRESTIGE、FALENO、Getchu 只对日本 IP 开放，代理需要把这些主机分流到日本节点；
-- 站点没给头像的演员，用 gfriends 头像库补（索引首次从 raw.githubusercontent.com 下载，约 6.5 MB，之后在内存里查表）。
-
 ## 代理
 
-服务端的 Node fetch（undici）默认**不读**代理环境变量。需要代理才能访问 TMDB / 番号站点时：
+服务端的 Node fetch（undici）默认**不读**代理环境变量。需要代理才能访问 TMDB 等元数据站点时：
 
 ```bash
 HTTPS_PROXY=http://192.168.1.2:7890 \
@@ -226,7 +212,7 @@ pnpm start:server
 
 ## curl-impersonate
 
-部分番号站点用 Cloudflare 按 TLS / HTTP2 指纹拦截非浏览器客户端。桌面版用的是 Chromium 网络栈，不受影响；服务端的 Node fetch 指纹和浏览器不同，可能被拦。
+部分刮削站点用 Cloudflare 按 TLS / HTTP2 指纹拦截非浏览器客户端。桌面版用的是 Chromium 网络栈，不受影响；服务端的 Node fetch 指纹和浏览器不同，可能被拦。
 这时可以改用 [curl-impersonate](https://github.com/lwthiker/curl-impersonate)（或其维护分支），它的包装脚本与普通 curl 命令行兼容：
 
 ```bash
@@ -238,7 +224,7 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 
 - `--fetch curl` 用系统 curl（指纹和 Node 差不多，主要用来验证接线）。
 - 一次请求一个 curl 进程，超时 30 秒、响应体上限 32 MB；取消请求会结束子进程。
-- 不管用哪种实现，被 Cloudflare 硬封锁时都会由番号源的按主机熔断跳过，不会反复请求。
+- 不管用哪种实现，被 Cloudflare 硬封锁时都会由刮削源的按主机熔断跳过，不会反复请求。
 - Docker 镜像里没有 curl-impersonate；需要的话基于镜像加一层安装，再设 `YINGBOX_FETCH`。
 - `module:<路径>`：自定义模块，导出 `createFetch()`（返回 `HttpFetch`），用于接其它实现或离线回放。
 
@@ -247,10 +233,10 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 能做：
 
 - 登录片库服务（令牌一次，之后靠 Cookie）。
-- 在媒体根目录内浏览文件夹，添加电影 / 剧集 / 番号库；删除库、扫描、识别全部、刷新元数据。
+- 在媒体根目录内浏览文件夹，添加电影 / 剧集库；删除库、扫描、识别全部、刷新元数据。
 - 海报墙（排序、筛选、搜索、分库）、待确认队列、修正匹配、锁定。后台进度与条目变化经 SSE 实时刷新。
 - 条目详情；在页内 `<video>` 播放（分段电影、一季的集按顺序连播），视频经 Range 流拖动。
-- 媒体库设置里填写 TMDB 令牌（存在服务端）、番号站点优先级。
+- 媒体库设置里填写 TMDB 令牌（存在服务端）。
 - 写出 NFO / 图片、整理改名：在服务端执行，需要媒体目录可写。
 - 按文件夹设置自动入库（监控、自动识别 / 刮削、自动写出、自动整理），见「自动入库」。
 
@@ -259,5 +245,5 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时界面提示改用桌面版。没有服务端转码。
 - 没有 mpv、内置播放器窗口、外挂字幕自动挂载。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
-- 在线播放、MissAV、下载、lada 这些板块不在片库服务里，网页端仍不可用。
+- 在线播放、下载这些板块不在片库服务里，网页端仍不可用。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。

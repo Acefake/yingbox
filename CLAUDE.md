@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Overview
 
-影盒 (yingbox) is an Electron desktop app (Windows/Mac) for media resource management, online streaming, and metadata scraping. It has a Vue 3 + TypeScript frontend, an Electron main-process shell, and an engine `utilityProcess` for online sources, MissAV and downloads.
+影盒 (yingbox) is an Electron desktop app (Windows/Mac) for media resource management, online streaming, and metadata scraping. It has a Vue 3 + TypeScript frontend, an Electron main-process shell, and an engine `utilityProcess` for online sources and downloads.
 
 ## Common commands
 
@@ -64,8 +64,8 @@ Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from 
 **Main process** ([src/main/index.ts](src/main/index.ts)) bootstraps the window and wires per-domain modules:
 
 - `download-dir.ts` — Download directory = setting `download.dir` (empty → `Videos/影盒下载`); `settings.chooseDownloadDir` picks + write-probes + saves; migrates legacy `userData/config.json` once
-- `engine/` — Hosts the engine utilityProcess (online sources, MissAV, downloads), started on demand
-- `plugins/` — Host for external programs (`host.ts`, `process.ts`) plus `plugins/lada/` (de-mosaic: rules / tools / temp / lock / job / cache / resume / range / live / live-media)
+- `engine/` — Hosts the engine utilityProcess (online sources, downloads), started on demand
+- `plugins/` — Host for external programs (`host.ts`, `process.ts`), one folder per plugin beside them
 - `ipc/` — IPC channel registrations:
   - `dialog-ipc.ts` — `dialog:*` (openDirectory, openFile), `shell:openPath`
   - `app-ipc.ts` — `win:*`, `app:networkIps`, `update:*` (electron-updater status via `update:status`)
@@ -81,17 +81,15 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 
 - `/` → Online search & streaming ([features/online/views/OnlineView.vue](src/renderer/src/features/online/views/OnlineView.vue))
 - `/movie` → Movie library ([features/library/MovieLibraryPage.vue](src/renderer/src/features/library/MovieLibraryPage.vue)), TMDB libraries only
-- `/jav` → 番号 library ([features/library/JavLibraryPage.vue](src/renderer/src/features/library/JavLibraryPage.vue)), `source: 'jav'` libraries, actors view and 番号 site settings; adult mode only
 - `/tv` → TV library ([features/library/TvLibraryPage.vue](src/renderer/src/features/library/TvLibraryPage.vue))
-- `/av` → Adult video resources online playback ([features/av/views/AvView.vue](src/renderer/src/features/av/views/AvView.vue))
 - `/player-popout` → Dedicated player window ([features/player/views/PlayerPopout.vue](src/renderer/src/features/player/views/PlayerPopout.vue))
 
 `App.vue` wraps routes in `AppLayout` with `<keep-alive>`. `DetailWindow` renders inline as the online content page.
 
 Key directories under `src/renderer/src/`:
 
-- `features/<x>/` — non-library features, each self-contained (`views/ components/ composables/ api/ utils/`): `online`, `av`, `download`, `lada`, `player`, `settings`, `shell`. Cross-feature imports only via `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`); `main.ts` / `App.vue` / `router/` compose features and may point at view files for lazy routes
-- `features/library/` — movie / TV / 番号 library UI on top of the library engine (`src/main/library`, `window.api.library`); 番号 scraping is the TS implementation in `src/main/library/providers/jav/` (it replaced the former Amane sidecar), see [docs/library-server.md](docs/library-server.md). The detail page also starts lada de-mosaic (`detail/use-restore.ts`)
+- `features/<x>/` — non-library features, each self-contained (`views/ components/ composables/ api/ utils/`): `online`, `download`, `player`, `settings`, `shell`. Cross-feature imports only via `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`); `main.ts` / `App.vue` / `router/` compose features and may point at view files for lazy routes
+- `features/library/` — movie / TV library UI on top of the library engine (`src/main/library`, `window.api.library`), see [docs/library-server.md](docs/library-server.md)
 - TMDB token — settings secret `scrape.tmdbToken`, write-only from the renderer (`setTmdbToken`); TMDB requests use `online.tmdb(path, query)`, the engine adds the token (see `src/main/tmdb.ts`)
 - `composables/` — Global composables:
   - `use-context-menu.ts` — MenuItem interface definition
@@ -102,13 +100,13 @@ Key directories under `src/renderer/src/`:
 
 ### Engine ([src/engine/](src/engine/))
 
-The former Go backend (port 31471) was removed in p3d; its routes now live in engine domains `online`, `av` and `download`, run in an Electron utilityProcess. See AGENTS.md.
+The former Go backend (port 31471) was removed in p3d; its routes now live in engine domains `online` and `download`, run in an Electron utilityProcess. See AGENTS.md.
 
 ### App settings
 
 User settings are stored in `localStorage` (renderer side). Key keys:
 
-- `scrapeProviderConfig` — provider type, TMDB token, MetaTube config (legacy backend URL kept for the library mirror)
+- `scrapeProviderConfig` — provider type, TMDB token (legacy backend URL kept for the library mirror)
 - `imageDownloadSize_poster` / `imageDownloadSize_backdrop` / `imageDownloadSize_actor`
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
 - `metadataLanguage`
@@ -125,7 +123,7 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 - **Prettier:** single quotes, no semicolons, trailing commas (es5), 2-space indent, LF line endings
 - **ESLint:** TypeScript + Vue recommended rules, `prefer-template` enforced, import sorting (`sort-imports`), padding-line-between-statements (blank lines required around functions, consts, types, and after imports)
 - **TypeScript:** `noUnusedLocals`, `noUnusedParameters`, `noImplicitAny` are enabled; no `any` (lint warns, and warnings fail `pnpm lint`); functions declare return types, composables export a `UseXxxReturn` interface
-- **External data** (plugin / CMS / TMDB responses, old localStorage records): type it `unknown` and narrow with `utils/json.ts` (`asRecord` / `asArray` / `asText`); raw plugin/CMS shapes and parsers shared by online and AV live in `utils/vod-data.ts`
+- **External data** (plugin / CMS / TMDB responses, old localStorage records): type it `unknown` and narrow with `utils/json.ts` (`asRecord` / `asArray` / `asText`); raw plugin/CMS shapes and parsers live in `utils/vod-data.ts`
 - Vue SFC `<script>` blocks must use `lang="ts"`
 
 ### Tech stack summary
