@@ -7,6 +7,7 @@ import {
   bestVideoRange,
   needsExternalPlayer,
   parseFfprobeVideo,
+  videoProbeTag,
   videoRangeBadge,
 } from '../src/shared/video-range'
 
@@ -54,9 +55,7 @@ describe('ffprobe 输出解析', () => {
 
   it('没有视频流或输出不像样时返回 null', () => {
     expect(parseFfprobeVideo({ streams: [] })).toBeNull()
-    expect(
-      parseFfprobeVideo({ streams: [{ codec_type: 'audio' }] })
-    ).toBeNull()
+    expect(parseFfprobeVideo({ streams: [{ codec_type: 'audio' }] })).toBeNull()
     expect(parseFfprobeVideo('oops')).toBeNull()
     expect(parseFfprobeVideo(null)).toBeNull()
   })
@@ -83,6 +82,19 @@ describe('标记与汇总', () => {
     expect(videoRangeBadge('hlg')).toBe('HLG')
     expect(videoRangeBadge('sdr')).toBe('')
     expect(videoRangeBadge(null)).toBe('')
+  })
+
+  it('详情小标：杜比视界带 profile', () => {
+    expect(videoProbeTag({ range: 'dv', dvProfile: 5, dvCompat: 0 })).toBe(
+      'DV P5'
+    )
+    expect(
+      videoProbeTag({ range: 'dv', dvProfile: null, dvCompat: null })
+    ).toBe('DV')
+    expect(
+      videoProbeTag({ range: 'hlg', dvProfile: null, dvCompat: null })
+    ).toBe('HLG')
+    expect(videoProbeTag(null)).toBe('')
   })
 
   it('多个文件取最好的一档：DV > HDR10 > HLG > SDR', () => {

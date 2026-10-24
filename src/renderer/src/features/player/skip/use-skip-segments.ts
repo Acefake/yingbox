@@ -1,5 +1,6 @@
 /**
- * 播放器里的跳过片头片尾：右键菜单标记、进度条区间、「跳过片头」按钮、自动跳过、片尾「下一集」倒计时。
+ * 播放器里的跳过片头片尾：右键菜单标记、进度条区间与悬停段名、「跳过片头」按钮、自动跳过、
+ * 片尾「下一集」倒计时，以及播完（ended）后的「下一集」倒计时卡片（可取消）。
  *
  * 每集一个 Artplayer 实例：attach 时重置这一集的状态（自动跳过是否用掉、片尾卡片是否被关掉），
  * 实例销毁时自动断开。标记按剧存（skip-store），同一部剧每集通用。
@@ -21,6 +22,8 @@ import {
 
 import { getSetting } from '@/features/settings'
 
+import { createCountdown } from './next-countdown'
+import { installHoverTip } from './hover-tip'
 import { drawSkipSpans } from './progress-spans'
 import {
   type SkipMarks,
@@ -36,6 +39,8 @@ import { clearSkipMarks, getSkipMarks, setSkipMarks } from './skip-store'
 
 /** 片尾「下一集」倒计时（秒） */
 export const NEXT_COUNTDOWN = 8
+/** 播完后「下一集」倒计时（秒） */
+export const ENDED_COUNTDOWN = 5
 
 /** useSkipSegments 的输入 */
 export interface SkipSegmentsInput {
@@ -45,6 +50,10 @@ export interface SkipSegmentsInput {
   hasNext: () => boolean
   /** 播放下一集（PlayerSession 的 playNext）；返回 Promise 时等它完成才结束切集中 */
   playNext: () => Promise<unknown> | void
+  /** 这一集已播完、等着连播（PlayerSession 判定：有下一集、睡眠定时没拦、不在小窗） */
+  ended?: () => boolean
+  /** 播完卡片上点了「取消」 */
+  onCancelEnded?: () => void
 }
 
 /** useSkipSegments 交给界面层的状态与动作 */
@@ -53,8 +62,10 @@ export interface SkipSegments {
   art: ShallowRef<Artplayer | null>
   /** 在片头里时该跳到的秒数，否则 null */
   introTarget: ComputedRef<number | null>
-  /** 是否显示片尾「下一集」卡片 */
+  /** 是否显示「下一集」卡片（片尾里或已播完） */
   showNext: ComputedRef<boolean>
+  /** 卡片因播完而出现（按钮显示「取消」而不是「看完片尾」） */
+  endedNext: ComputedRef<boolean>
   /** 倒计时剩余秒数 */
   countdown: Ref<number>
   /** 切集中：已触发下一集、还没切完（「立即播放」按钮显示 loading） */
@@ -65,7 +76,7 @@ export interface SkipSegments {
   skipIntro: () => void
   /** 「立即播放」 */
   playNow: () => void
-  /** 「看完片尾」：关掉卡片，本集不再出现 */
+  /** 「看完片尾」/ 播完时的「取消」：关掉卡片，本集不再出现 */
   watchCredits: () => void
 }
 
@@ -79,16 +90,25 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
   const switching = ref(false)
   /** 这一集的自动跳过是否已用掉 */
   let autoConsumed = false
-  let timer: number | undefined
 
   const marks = computed<SkipMarks>(() => getSkipMarks(input.key()))
   const introTarget = computed(() => introSkipTarget(marks.value, time.value))
-  const showNext = computed(
+  /** 播完卡片：点了「取消」后本集不再出现（与片尾卡片的「看完片尾」分开记） */
+  const endedDismissed = ref(false)
+  const endedNext = computed(
     () =>
       !!art.value &&
       input.hasNext() &&
-      !creditsDismissed.value &&
-      inOutro(marks.value, time.value, duration.value)
+      !endedDismissed.value &&
+      Boolean(input.ended?.())
+  )
+  const showNext = computed(
+    () =>
+      endedNext.value ||
+      (!!art.value &&
+        input.hasNext() &&
+        !creditsDismissed.value &&
+        inOutro(marks.value, time.value, duration.value))
   )
 
   const notice = (text: string): void => {
@@ -190,9 +210,14 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     redraw()
   }
 
+  // 片尾里暂停时停表；播完后视频本来就停着，照常走
+  const timer = createCountdown({
+    onTick: left => (countdown.value = left),
+    onDone: () => void goNext(),
+    paused: () => !endedNext.value && art.value?.video.paused === true,
+  })
   const stopCountdown = (): void => {
-    if (timer) window.clearInterval(timer)
-    timer = undefined
+    timer.stop()
     countdown.value = NEXT_COUNTDOWN
   }
 
@@ -220,6 +245,7 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     detach()
     autoConsumed = false
     creditsDismissed.value = false
+    endedDismissed.value = false
     if (!player) return
     art.value = player
     // 没有右键菜单层的实例（例如测试替身）只是不挂菜单
@@ -238,22 +264,18 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     player.on('destroy', () => {
       if (art.value === player) detach()
     })
+    installHoverTip(player, () => marks.value)
     onDuration()
   }
 
   // 标记变了（本窗口或别的窗口）就重画进度条
   watch(marks, redraw)
 
-  // 片尾卡片出现时开始倒计时（暂停时不走），到 0 播下一集
+  // 卡片出现时开始倒计时（片尾里暂停时不走），到 0 播下一集
   watch(showNext, visible => {
     stopCountdown()
     if (!visible || switching.value) return
-    timer = window.setInterval(() => {
-      if (art.value?.video.paused) return
-      countdown.value -= 1
-      if (countdown.value > 0) return
-      void goNext()
-    }, 1000)
+    timer.start(endedNext.value ? ENDED_COUNTDOWN : NEXT_COUNTDOWN)
   })
 
   onBeforeUnmount(detach)
@@ -262,6 +284,7 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     art,
     introTarget,
     showNext,
+    endedNext,
     countdown,
     switching,
     attach,
@@ -272,7 +295,12 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
       void goNext()
     },
     watchCredits: (): void => {
-      creditsDismissed.value = true
+      if (!endedNext.value) {
+        creditsDismissed.value = true
+        return
+      }
+      endedDismissed.value = true
+      input.onCancelEnded?.()
     },
   }
 }

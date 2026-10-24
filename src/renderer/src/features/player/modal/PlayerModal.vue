@@ -15,16 +15,11 @@
         <section class="player-modal__card">
           <!-- 播放会话所在的节点挂在这里；缩小时整体搬进小窗 -->
           <div ref="stageHost" class="player-modal__stage" />
-          <header class="player-modal__bar" :class="{ 'is-visible': !idle }">
+          <header
+            class="player-modal__bar"
+            :class="{ 'is-visible': !idle || paused }"
+          >
             <span class="player-modal__title">{{ title }}</span>
-            <UiIconButton
-              v-if="miniEnabled"
-              icon="chevronDown"
-              label="缩小到小窗"
-              variant="overlay"
-              :disabled="!video"
-              @click="minimize"
-            />
             <UiIconButton
               icon="close"
               label="关闭播放器"
@@ -44,6 +39,7 @@
       :mini="state.minimized"
       @title="title = $event"
       @video="onVideo"
+      @minimize="minimize"
     />
   </Teleport>
 </template>
@@ -54,7 +50,8 @@
  *
  * - 关闭：Esc（输入法组字中的不算，走全局 Esc 层栈）或关闭按钮；点遮罩不关，免得误触丢掉播放。
  *   播放会话卸载时保存进度、拆除 Artplayer / hls.js。
- * - 缩小：播放会话所在的节点（shell）整体搬进角落小窗，播放器不重建；小窗里「展开」再搬回来。
+ * - 缩小：控制栏「小窗」按钮或快捷键 I（播放会话发 minimize）；播放会话所在的节点（shell）整体搬进角落小窗，
+ *   播放器不重建；小窗里「展开」再搬回来。
  *   切路由时自动缩成小窗，小窗跨路由保持；设置关掉小窗时没有缩小按钮，切路由时弹窗保持。
  * - 画中画用播放器控制条自带的按钮（浏览器支持时显示）。
  *
@@ -74,7 +71,6 @@ import { useRoute } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
 import { UiIconButton } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
-import { useSetting } from '@/features/settings'
 
 import { claimMini, dockMini, swapMiniVideo } from '../mini/mini-dock'
 import {
@@ -88,14 +84,15 @@ const PlayerSession = defineAsyncComponent(
   () => import('../components/PlayerSession.vue')
 )
 
-/** 指针多久不动后隐藏顶栏 */
-const IDLE_MS = 2500
+/** 指针多久不动后隐藏顶栏（与控制栏的自动隐藏一致，暂停时常显） */
+const IDLE_MS = 3000
 
 const state = playerModal()
 const title = ref('')
 const video = shallowRef<HTMLVideoElement | null>(null)
+/** 当前视频暂停中：顶栏常显 */
+const paused = ref(true)
 const stageHost = ref<HTMLElement | null>(null)
-const miniEnabled = useSetting('ui.miniPlayer')
 const isElectron = Boolean(window.api?.win)
 const visible = computed(() => Boolean(state.value && !state.value.minimized))
 
@@ -139,8 +136,17 @@ const minimize = (): void => {
   if (ok) setPlayerModalMinimized(true)
 }
 
+const syncPaused = (event: Event): void => {
+  paused.value = (event.target as HTMLVideoElement).paused
+}
+
 const onVideo = (el: HTMLVideoElement): void => {
+  video.value?.removeEventListener('play', syncPaused)
+  video.value?.removeEventListener('pause', syncPaused)
   video.value = el
+  paused.value = el.paused
+  el.addEventListener('play', syncPaused)
+  el.addEventListener('pause', syncPaused)
   const current = state.value
   if (current?.minimized) swapMiniVideo(keyOf(current.id), el)
 }

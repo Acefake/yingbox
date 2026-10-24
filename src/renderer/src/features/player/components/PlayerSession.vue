@@ -2,6 +2,7 @@
   <div class="player-session">
     <UnifiedVideoPlayer
       v-if="src"
+      ref="player"
       :src="src"
       :poster="poster"
       :start-at="startAt"
@@ -15,7 +16,7 @@
       controls
       @ready="media.attach"
       @art="art = $event"
-      @play="clearFailure"
+      @play="onPlay"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
       @pause="progress.flush"
@@ -37,6 +38,8 @@
         playlist[position + 1] ? entryLabel(playlist[position + 1]) : ''
       "
       :play-next="playNext"
+      :ended="endedPrompt"
+      @cancel-ended="onCancelEnded"
     />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
@@ -68,6 +71,7 @@
  * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
  * 续播进度、可操作的错误面板与跳过片头片尾（skip/）。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
  * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
+ * 每集的 Artplayer 上装「下一集」「小窗」按钮与快捷键（controls/、hotkeys/）；播完有下一集时给倒计时卡片。
  */
 import {
   computed,
@@ -79,6 +83,7 @@ import {
 } from 'vue'
 import type Artplayer from 'artplayer'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
+import { useSessionShortcuts } from '../controls/use-session-shortcuts'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { usePlayerMediaControls } from '../composables/use-media-controls'
@@ -105,6 +110,8 @@ const props = defineProps<{
   mini?: boolean
 }>()
 const emit = defineEmits<{
+  /** 控制栏「小窗」按钮 / 快捷键 I：请播放弹窗缩成小窗 */
+  minimize: []
   title: [title: string]
   /** 播放器的 <video>（每集换一个；小窗的播放 / 暂停控制它） */
   video: [video: HTMLVideoElement]
@@ -126,6 +133,9 @@ const fallbacks = ref<PlaylistEntry[]>([])
 /** 当前使用的备用线路下标；-1 = 主线路 */
 const activeFallback = ref(-1)
 const defaultTitle = ref('正在播放')
+
+/** 播完、等着连播：「下一集」倒计时卡片（可取消，见 SkipOverlay） */
+const endedPrompt = ref(false)
 
 /** 播放失败且已无备用线路时展示的可操作错误信息 */
 const failure = ref('')
@@ -156,6 +166,7 @@ const progress = useProgressSaver(
 let loadToken = 0
 let noticeTimer: number | undefined
 const art = shallowRef<Artplayer | null>(null)
+const player = ref<InstanceType<typeof UnifiedVideoPlayer> | null>(null)
 
 const currentEntry = computed<PlaylistEntry | null>(() => {
   if (activeFallback.value >= 0)
@@ -205,6 +216,7 @@ const loadEntry = async (
   const entry = currentEntry.value
   progress.reset()
   clearFailure()
+  endedPrompt.value = false
 
   if (!entry) {
     src.value = ''
@@ -265,12 +277,28 @@ const onEnded = async (event: Event): Promise<void> => {
     return
   }
   const next = playlist.value[position.value + 1]
-  if (next) {
-    showNotice(`即将播放：${entryLabel(next)}`)
-    await playNext()
+  if (!next) {
+    emptyText.value = '已播放完最后一集'
     return
   }
-  emptyText.value = '已播放完最后一集'
+  // 弹窗里先给倒计时卡片（可取消）；小窗里放不下卡片，直接连播
+  if (!props.mini) {
+    endedPrompt.value = true
+    return
+  }
+  showNotice(`即将播放：${entryLabel(next)}`)
+  await playNext()
+}
+
+/** 开播：清掉错误面板；播完卡片出现后又手动播放（拖回去重看）时收起卡片 */
+const onPlay = (): void => {
+  clearFailure()
+  endedPrompt.value = false
+}
+
+/** 播完卡片上点了「取消」：停在本集 */
+const onCancelEnded = (): void => {
+  endedPrompt.value = false
 }
 
 /** 卡顿 / 出错自动换到同集的下一条备用源，从当前进度继续 */
@@ -340,6 +368,16 @@ const applyPayload = (payload: PlayerPayload): void => {
 }
 
 watch(() => props.payload, applyPayload, { immediate: true })
+
+// 每集的 Artplayer 上装「下一集」「小窗」按钮与快捷键 / 双击手势（照 YouTube）
+useSessionShortcuts({
+  art,
+  next: () =>
+    playlist.value[position.value + 1] ? () => void playNext() : null,
+  minimize: () => emit('minimize'),
+  active: () => !props.mini,
+  toggleSubtitle: () => player.value?.toggleSubtitle(),
+})
 
 onMounted(() => window.addEventListener('beforeunload', progress.flush))
 

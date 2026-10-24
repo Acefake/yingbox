@@ -3,6 +3,7 @@
  * 桌面端给本地文件路径，网页端给片库服务的 Range 流地址（/media/files/<id>）。
  */
 import { isAnimeEntry } from '../../../../../shared/anime4k'
+import type { VideoProbe } from '../../../../../shared/video-range'
 import type {
   LibraryItemFile,
   LibraryItemNode,
@@ -58,6 +59,8 @@ export interface PlayRequest {
   item: LibraryItemNode
   /** 只是作品的一部分（后面还有季）：播完不算整部看完 */
   partial?: boolean
+  /** 起始文件的动态范围（杜比视界 P5 据此改走 mpv）；没探测过时缺省 */
+  video?: VideoProbe | null
 }
 
 /** 电影：全部视频文件按顺序连播（分段电影 CD1 / CD2）。 */
@@ -73,6 +76,7 @@ export function moviePlayRequest(node: LibraryItemNode): PlayRequest | null {
     fileIds: files.map(file => file.id),
     index: 0,
     item: node,
+    ...(files[0].video ? { video: files[0].video } : {}),
   }
 }
 
@@ -113,6 +117,7 @@ export function episodePlayRequest(
     index,
     item: series,
     ...(hasLaterSeason(series, season) ? { partial: true } : {}),
+    ...(firsts[index].video ? { video: firsts[index].video } : {}),
   }
 }
 
@@ -180,5 +185,6 @@ export async function play(
     index: request.index,
     continueAs,
     anime,
+    ...(request.video ? { video: request.video } : {}),
   })
 }

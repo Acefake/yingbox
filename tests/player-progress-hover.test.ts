@@ -9,7 +9,7 @@ describe('进度条悬停时间点', () => {
       label: '',
       text: '5:00',
     })
-    expect(hoverInfo(0.25, 7200, {})?.text).toBe('0:30:00')
+    expect(hoverInfo(0.75, 7200, {})?.text).toBe('1:30:00')
   })
 
   it('比例夹在 0–1，时长未知不显示', () => {

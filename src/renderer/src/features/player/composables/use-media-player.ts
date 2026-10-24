@@ -1,10 +1,16 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
+import type { VideoProbe } from '../../../../../shared/video-range'
 import { syncAnime4k } from '../anime4k/anime4k-sync'
 import type { ContinueMeta } from '../continue/continue-rules'
 import { startContinue } from '../continue/continue-store'
 import { openPlayerModal } from '../modal/player-modal'
+import {
+  DV_NOTICE_TEXT,
+  dvNotice,
+  playbackRoute,
+} from '../utils/playback-route'
 
 /** 播放列表条目：用于自动连播与失败换源 */
 export type PlayerSourceItem = {
@@ -45,6 +51,8 @@ type MediaPlayerOpenOptions = {
   engine?: 'built-in' | 'mpv'
   /** 条目是动画（mpv 的「Anime4K 仅动画类条目」据此启用，判断见 shared/anime4k isAnimeEntry） */
   anime?: boolean
+  /** 起始文件的动态范围（媒体库扫描时 ffprobe 探测）：杜比视界 P5 据此改走 mpv，见 utils/playback-route */
+  video?: VideoProbe | null
 }
 
 /**
@@ -64,6 +72,8 @@ const PRIVATE_SECTIONS: ReadonlySet<string> = new Set(['av', 'jav'])
 
 /** 每个会话只提示一次 mpv 回退，避免每次播放都弹 */
 let mpvFallbackNotified = false
+/** 每个会话只提示一次「杜比视界 P5 建议安装 mpv」 */
+let dvInstallNotified = false
 
 /**
  * mpv 不可用时（最常见的是系统未安装 mpv）给出一次可见提示。
@@ -81,7 +91,7 @@ function notifyMpvFallback(detail?: string): void {
 
 /**
  * 打开播放器：
- * - 引擎为 mpv：启动 / 控制 mpv 独立播放器（不可用时提示并回退到内置）
+ * - 引擎为 mpv，或视频是杜比视界 P5 且开着自动用 mpv：启动 / 控制 mpv 独立播放器（不可用时提示并回退到内置）
  * - 否则：应用内播放弹窗（modal/PlayerModal），桌面与网页一样
  */
 export async function openMediaPlayer(
@@ -127,13 +137,17 @@ export async function openMediaPlayer(
       )
     : ''
 
-  const selectedEngine = options.engine || getSetting('player.engine')
-
-  if (
-    selectedEngine === 'mpv' &&
-    typeof window !== 'undefined' &&
-    window.api?.mpv
-  ) {
+  const engine = options.engine || getSetting('player.engine')
+  const autoMpvForDv = getSetting('player.dvAutoMpv')
+  const route = playbackRoute({
+    engine,
+    video: options.video,
+    autoMpvForDv,
+    mpvBridge: typeof window !== 'undefined' && Boolean(window.api?.mpv),
+  })
+  let mpv: 'ok' | 'failed' | 'skipped' = 'skipped'
+  let mpvError: string | undefined
+  if (route.tryMpv && window.api?.mpv) {
     try {
       // 先同步超分开关，保证首次启动 mpv 时启动参数正确
       syncRtxVsr()
@@ -155,13 +169,22 @@ export async function openMediaPlayer(
         ...(typeof index === 'number' ? { index } : {}),
         ...(options.anime ? { anime: true } : {}),
       })
-      if (res?.success) return true
       // 主进程以失败结果返回（例如未安装 mpv）：提示并回退
-      notifyMpvFallback(res?.error)
+      mpv = res?.success ? 'ok' : 'failed'
+      mpvError = res?.error
     } catch (e) {
-      notifyMpvFallback(e instanceof Error ? e.message : String(e))
+      mpv = 'failed'
+      mpvError = e instanceof Error ? e.message : String(e)
     }
   }
+
+  const notice = dvNotice(route, mpv, { engine, autoMpvForDv })
+  if (notice === 'mpv-used') toast.info(DV_NOTICE_TEXT['mpv-used'])
+  if (mpv === 'ok') return true
+  if (notice === 'install-mpv') {
+    if (!dvInstallNotified) toast.warning(DV_NOTICE_TEXT['install-mpv'])
+    dvInstallNotified = true
+  } else if (mpv === 'failed') notifyMpvFallback(mpvError)
 
   openPlayerModal({
     ...(filePath ? { filePath } : {}),

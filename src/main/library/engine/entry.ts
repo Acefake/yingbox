@@ -10,14 +10,14 @@
  *
  * 宿主能力（见 platform/platform.ts）：网络用 Electron net.fetch（Chromium 网络栈，走系统代理，
  * 国内访问 TMDB 通常需要），不可用时退回 Node fetch；原图落盘后通知主进程预热缩略图；
- * AI 识别兜底的大模型调用经 host / reply 请主进程代办（host-calls.ts）。
+ * AI 识别兜底的大模型调用与 ffprobe 定位经 host / reply 请主进程代办（host-calls.ts）。
  * 独立服务（src/server）用同一个 createLibraryService，只是注入 Node 实现。
  */
 import { type MessagePortMain, net } from 'electron'
 import { join } from 'node:path'
 import { LIBRARY_IMAGES_CACHED } from '../../../shared/library/ipc'
 import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
-import { hostAi } from './host-calls'
+import { hostAi, hostFfprobePath } from './host-calls'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
@@ -25,6 +25,7 @@ import { createHostCaller, hostRemoteClients } from '../remote/host-remote'
 import { createLibraryService, envSecrets } from '../platform/platform'
 import { codecDeriver } from '../images/derived'
 import { codecClipPixels } from '../visual/clip-pixels'
+import { createVideoProber } from '../scanner/video-probe'
 import {
   type Codec,
   inProcessCodec,
@@ -71,6 +72,8 @@ const service = createLibraryService({
   clipPixels: codecClipPixels(lazyCodec),
   env: envSecrets(process.env),
   ai: hostAi(host),
+  // 视频动态范围：ffprobe 路径向主进程要（没有 ffmpeg 时为空串，探测任务直接结束）
+  probeVideo: createVideoProber({ binary: hostFfprobePath(host) }),
   // 局域网 NAS / Alist：Node fetch 直连（不走系统代理），凭据每次扫描向主进程要
   remote: hostRemoteClients(host, (url, init) => fetch(url, init)),
 })

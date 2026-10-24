@@ -42,6 +42,8 @@ export interface LibraryPlatform {
   ai?: IdentifyModuleOptions['ai']
   /** 远程源（WebDAV / Alist）客户端；桌面端向主进程要凭据后建，独立服务不提供。 */
   remote?: RemoteClients
+  /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；桌面端提供，独立服务不提供。 */
+  probeVideo?: LibraryServiceOptions['probeVideo']
 }
 
 /** 环境变量里的令牌。 */
@@ -82,6 +84,7 @@ export function createLibraryService(
     dbPath: platform.dbPath,
     log: platform.log,
     remote: platform.remote ?? extra.remote,
+    probeVideo: platform.probeVideo ?? extra.probeVideo,
     identify: {
       fetch: platform.fetch,
       mediaDir: platform.mediaDir,

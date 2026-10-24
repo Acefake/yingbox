@@ -3,6 +3,7 @@
  */
 import type { IdentifyModuleOptions } from '../identify/identify-module'
 import type { RemoteClients } from '../scanner/scan-library'
+import type { VideoProbeOutcome } from '../scanner/video-probe'
 import type { MoveOps } from '../writer/fs/file-ops'
 import type { VisualOptions } from '../visual/visual-setup'
 import type { WatchMode } from './library-monitor'
@@ -31,6 +32,8 @@ export interface LibraryServiceOptions {
   concurrency?: number
   /** 指纹实现（文件路径 → hash），测试注入。 */
   fingerprint?: (path: string) => Promise<string | undefined>
+  /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；不给时不探测。 */
+  probeVideo?: (path: string) => Promise<VideoProbeOutcome>
   /** 写日志（告警、监听失败）。 */
   log?: (message: string) => void
   /** 远程源（WebDAV / Alist）的客户端，宿主提供；没有时远程媒体库扫描报错。 */

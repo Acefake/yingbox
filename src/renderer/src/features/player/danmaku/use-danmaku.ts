@@ -8,7 +8,14 @@ import artplayerPluginDanmuku, {
   type Option as DanmukuOption,
   type Result as DanmukuPlugin,
 } from 'artplayer-plugin-danmuku'
-import { type Ref, computed, ref, shallowRef, watch } from 'vue'
+import {
+  type ComputedRef,
+  type Ref,
+  computed,
+  ref,
+  shallowRef,
+  watch,
+} from 'vue'
 
 import { getSetting, setSetting } from '@/features/settings'
 
@@ -16,7 +23,6 @@ import type {
   DanmakuAnime,
   DanmakuComment,
 } from '../../../../../shared/contract/danmaku'
-import { type ArtControl, danmakuControl } from './danmaku-control'
 import {
   type DanmakuBinding,
   type DanmakuTarget,
@@ -68,8 +74,9 @@ export interface DanmakuController {
   attach: (instance: Artplayer) => Promise<void>
   /** 实例销毁前拆下 */
   detach: () => void
-  /** 控制栏「弹」按钮 */
-  control: () => ArtControl
+  /** 弹幕开关（设置 danmaku.enabled；齿轮菜单「弹幕」显示它） */
+  enabled: ComputedRef<boolean>
+  /** 开关弹幕；没填凭据时打开面板提示 */
   toggle: () => void
   openPanel: () => void
   setQuery: (value: string) => void
@@ -97,7 +104,6 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
 
   let art: Artplayer | null = null
   let plugin: DanmukuPlugin | null = null
-  let buttons: HTMLElement[] = []
   /** 当前条目的原始弹幕（未屏蔽） */
   let raw: DanmakuComment[] = []
   /** 当前条目的加载状态：只有成功才算完成，失败后可重试 */
@@ -116,10 +122,6 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
   const blockRules = computed(() =>
     parseBlockWords(getSetting('danmaku.blockWords'))
   )
-
-  const renderButtons = (): void => {
-    for (const el of buttons) el.classList.toggle('is-active', enabled.value)
-  }
 
   /** 把弹幕（屏蔽、偏移后）交给插件 */
   const pushComments = (): void => {
@@ -219,7 +221,6 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     token++
     art = null
     plugin = null
-    buttons = []
     raw = []
     loads.reset()
     state.source.value = null
@@ -228,7 +229,7 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     state.message.value = ''
   }
 
-  /** 单击「弹」：没填凭据时打开面板提示，否则开关 */
+  /** 开关弹幕：没填凭据时打开面板提示，否则开关 */
   const toggle = (): void => {
     if (!state.ready.value) {
       state.panelOpen.value = true
@@ -241,17 +242,6 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
   const openPanel = (): void => {
     state.panelOpen.value = true
   }
-
-  /** 控制栏按钮（每个实例一个） */
-  const control = (): ArtControl =>
-    danmakuControl({
-      toggle,
-      openPanel,
-      mounted: $el => {
-        buttons.push($el)
-        renderButtons()
-      },
-    })
 
   /** 面板里搜索作品 */
   const search = async (): Promise<void> => {
@@ -296,7 +286,6 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
   }
 
   watch(enabled, on => {
-    renderButtons()
     if (!plugin) return
     if (on) {
       plugin.show()
@@ -332,7 +321,7 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     state,
     attach,
     detach,
-    control,
+    enabled,
     toggle,
     openPanel,
     setQuery,

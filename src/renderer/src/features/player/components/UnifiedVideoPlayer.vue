@@ -73,7 +73,6 @@ import Hls from 'hls.js'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 import AiSubtitleSection from '../ai-subtitle/AiSubtitleSection.vue'
-import { installSubtitlePanelEntry } from '../ai-subtitle/art-entry'
 import { useAiSubtitle } from '../ai-subtitle/use-ai-subtitle'
 import RecapLayer from '../recap/RecapLayer.vue'
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
@@ -88,6 +87,7 @@ import {
   destroyArtCore,
 } from '../utils/art-core'
 import { installSeekThumbnails } from '../seek-thumbnails/seek-thumbnails'
+import { installSettingsMenu } from '../settings-menu/install-menu'
 import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
@@ -153,7 +153,6 @@ const emit = defineEmits<{
   (name: 'ended', event: Event): void
   (name: 'play', event: Event): void
   (name: 'pause', event: Event): void
-  (name: 'keydown', event: KeyboardEvent): void
   (name: 'close'): void
 }>()
 
@@ -206,7 +205,6 @@ const sink: ArtSink = {
     isLoading.value = false
     emit('error', new Event('error'))
   },
-  keydown: event => emit('keydown', event),
   started: () => {
     isLoading.value = false
   },
@@ -270,14 +268,28 @@ const createPlayer = async (source: string): Promise<void> => {
     autoplay: props.autoplay,
     controls: props.controls,
     sink,
-    extraControls:
-      props.danmakuTarget && danmakuSupported() ? [danmaku.control()] : [],
   })
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
   emit('ready', core.art.video)
   currentSource.value = resolved
-  installSubtitlePanelEntry(core.art, openSubtitlePanel)
+  installSettingsMenu(core.art, {
+    subtitles: {
+      tracks: subtitles.tracks,
+      active: subtitles.active,
+      select: subtitles.selectTrack,
+      openPanel: openSubtitlePanel,
+    },
+    danmaku:
+      props.danmakuTarget && danmakuSupported()
+        ? {
+            enabled: danmaku.enabled,
+            toggle: danmaku.toggle,
+            openPanel: danmaku.openPanel,
+          }
+        : null,
+    hls: () => core?.hls.instance() ?? null,
+  })
   emit('art', core.art)
 
   if (props.danmakuTarget) void danmaku.attach(core.art)
@@ -312,88 +324,19 @@ onBeforeUnmount(() => {
   destroyPlayer()
 })
 
-defineExpose({ video })
+/** 字幕开关（快捷键 C）：挂着字幕时切显示，没有字幕时打开在线字幕面板 */
+const toggleSubtitle = (): void => {
+  const art = core?.art
+  if (!art) return
+  if (!subtitles.active.value) {
+    openSubtitlePanel()
+    return
+  }
+  art.subtitle.show = !art.subtitle.show
+  art.notice.show = art.subtitle.show ? '字幕：开' : '字幕：关'
+}
+
+defineExpose({ video, toggleSubtitle })
 </script>
 
-<style scoped>
-.unified-player {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  background: var(--media-bg);
-  overflow: hidden;
-}
-
-.unified-player-stage {
-  position: relative;
-  flex: 1;
-  min-height: 0;
-  width: 100%;
-  background: var(--media-bg);
-}
-
-.unified-player-video-area {
-  position: absolute;
-  inset: 0;
-  /* Artplayer 内部的层级（遮罩 50、控制栏 60、菜单 90/120）关在这里，前情提要层才能盖在它们之上 */
-  isolation: isolate;
-  background: var(--media-bg);
-}
-
-.unified-player-video-area :deep(.unified-player-core) {
-  position: absolute;
-  inset: 0;
-}
-
-.unified-player-video-area :deep(.artplayer-app),
-.unified-player-video-area :deep(.art-video-player),
-.unified-player-video-area :deep(.art-video),
-.unified-player-video-area :deep(video) {
-  width: 100% !important;
-  height: 100% !important;
-  background: var(--media-bg) !important;
-}
-
-.unified-player-video-area :deep(.art-poster) {
-  display: none !important;
-}
-
-.unified-player--no-controls :deep(.art-controls),
-.unified-player--no-controls :deep(.art-bottom),
-.unified-player--no-controls :deep(.art-mask),
-.unified-player--no-controls :deep(.art-notice) {
-  display: none !important;
-}
-
-.unified-player-footer {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  position: relative;
-  z-index: var(--z-raised);
-  flex-shrink: 0;
-  min-height: 48px;
-  padding: 0 var(--space-4);
-  color: var(--text-primary);
-  background: var(--bg-main);
-  border-top: 1px solid var(--border-default);
-}
-
-.unified-player-title {
-  min-width: 0;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-}
-
-.unified-player-footer-actions {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  flex: 0 0 auto;
-}
-</style>
+<style scoped src="./unified-video-player.css"></style>
