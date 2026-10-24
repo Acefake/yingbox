@@ -142,6 +142,7 @@ const ADDED_API: Record<string, string[]> = {
     'probeStream',
   ],
   av: ['list', 'resolve'],
+  danmaku: ['match', 'search', 'comments'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: [

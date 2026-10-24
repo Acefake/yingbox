@@ -40,6 +40,14 @@
       @pick="subtitles.applyOnline"
       @close="subtitles.panelOpen.value = false"
     />
+    <DanmakuPanel
+      v-if="danmaku.state.panelOpen.value"
+      :state="danmaku.state"
+      @close="danmaku.state.panelOpen.value = false"
+      @query="danmaku.setQuery"
+      @search="danmaku.search"
+      @bind="danmaku.bind"
+    />
   </div>
 </template>
 
@@ -55,6 +63,10 @@ import Hls from 'hls.js'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
+import DanmakuPanel from '../danmaku/DanmakuPanel.vue'
+import type { DanmakuTarget } from '../danmaku/danmaku-rules'
+import { danmakuSupported } from '../danmaku/danmaku-store'
+import { useDanmaku } from '../danmaku/use-danmaku'
 import {
   type ArtCore,
   type ArtSink,
@@ -66,6 +78,7 @@ import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
 import '../styles/art-skin.css'
+import '../danmaku/danmaku.css'
 
 const props = withDefaults(
   defineProps<{
@@ -86,6 +99,8 @@ const props = withDefaults(
     /** 在线字幕季/集（剧集用） */
     subtitleSeason?: number
     subtitleEpisode?: number
+    /** 弹幕匹配用的当前条目；不传则不显示弹幕 */
+    danmakuTarget?: DanmakuTarget | null
   }>(),
   {
     src: '',
@@ -100,6 +115,7 @@ const props = withDefaults(
     subtitleImdbId: '',
     subtitleSeason: undefined,
     subtitleEpisode: undefined,
+    danmakuTarget: null,
   }
 )
 
@@ -134,6 +150,8 @@ const subtitles = usePlayerSubtitles({
     episode: props.subtitleEpisode,
   }),
 })
+
+const danmaku = useDanmaku({ target: () => props.danmakuTarget })
 
 const posterSrc = computed(() => props.poster?.trim() || '')
 
@@ -170,6 +188,7 @@ const sink: ArtSink = {
 const destroyPlayer = (): void => {
   if (core) {
     subtitles.dispose()
+    danmaku.detach()
     destroyArtCore(core)
   }
   core = null
@@ -211,10 +230,14 @@ const createPlayer = async (source: string): Promise<void> => {
     autoplay: props.autoplay,
     controls: props.controls,
     sink,
+    extraControls:
+      props.danmakuTarget && danmakuSupported() ? [danmaku.control()] : [],
   })
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
   emit('ready', core.art.video)
+
+  if (props.danmakuTarget) void danmaku.attach(core.art)
 
   // 本地视频：自动挂载同目录字幕（srt/ass/vtt，含 GBK 编码转换）
   void subtitles.applyLocal(core.art, resolved)
