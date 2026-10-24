@@ -1,6 +1,6 @@
 <template>
   <div ref="root" class="home-section">
-    <PageHeader title="豆瓣">
+    <PageHeader :title="query.kind === 'movie' ? '热门电影' : '热门剧集'">
       <template #actions>
         <UiSegmented
           size="sm"
