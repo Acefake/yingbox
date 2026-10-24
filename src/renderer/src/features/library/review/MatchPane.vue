@@ -74,6 +74,13 @@
           :loading="busy === 'refresh'"
           @click="refresh"
         />
+        <AiIdentifyButton
+          v-if="ai && stateSupportsAi(node.matchState)"
+          :scope="{ itemIds: [node.id] }"
+          label="用 AI 识别"
+          :disabled="busy !== null"
+          @done="reload"
+        />
         <span v-if="error" class="match-error">{{ error }}</span>
       </footer>
     </template>
@@ -83,7 +90,8 @@
 <script setup lang="ts">
 /**
  * 匹配对照面板：左边本地文件名，右边前 3 名候选（海报、年份、简介摘要、置信度），
- * 一键采用、手动搜索、锁定 / 解锁、重新获取元数据。待确认队列和详情页的“修正匹配”共用。
+ * 一键采用、手动搜索、锁定 / 解锁、重新获取元数据，待确认队列里还可以「用 AI 识别」。
+ * 待确认队列和详情页的“修正匹配”共用。
  *
  * 本地一侧见 MatchLocal，候选卡片见 MatchCandidate，纯规则在 match-rules.ts。
  */
@@ -94,13 +102,19 @@ import type { MatchCandidateInfo } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 
+import AiIdentifyButton from '../ai-scrape/AiIdentifyButton.vue'
+import { stateSupportsAi } from '../ai-scrape/ai-scrape-rules'
 import { libraryBridge } from '../api/bridge'
 import MatchCandidate from './MatchCandidate.vue'
 import MatchLocal from './MatchLocal.vue'
 import { SHOWN_CANDIDATES, candidateKeyIndex } from './match-rules'
 import { type ReviewOutcome, useMatchReview } from './use-match-review'
 
-const props = defineProps<{ itemId: number | null }>()
+const props = defineProps<{
+  itemId: number | null
+  /** 显示「用 AI 识别」（待确认队列里、非番号分区、桌面端）。 */
+  ai?: boolean
+}>()
 const emit = defineEmits<{
   /** 条目已确认（采用 / 搜索命中 / 锁定）：队列据此跳到下一条。 */
   resolved: [itemId: number]
@@ -117,6 +131,7 @@ const {
   search,
   setLocked,
   refreshMetadata,
+  reload,
 } = useMatchReview(toRef(props, 'itemId'), libraryBridge())
 
 const query = ref('')

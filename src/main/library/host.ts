@@ -1,6 +1,7 @@
 /**
  * 主进程侧：把媒体库引擎宿主（engine-host.ts）接到 Electron——utilityProcess.fork、
- * MessageChannelMain、library:* 三条 IPC 通道，以及「原图已下载」转给缩略图服务预热。
+ * MessageChannelMain、library:* 三条 IPC 通道、「原图已下载」转给缩略图服务预热，
+ * 以及替引擎代办 AI 调用（ai-host.ts）。
  *
  * 主进程不做媒体库计算。事件订阅：窗口发 library:subscribe 登记，主进程建通道，一端给引擎、
  * 一端经 library:port 推给窗口；引擎重启后自动给每个登记的窗口重新推一次端口。
@@ -13,6 +14,7 @@ import {
   type LibraryRpcMap,
 } from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
+import { libraryAiHost } from './ai-host'
 import { type LibraryChild, LibraryEngineHost } from './engine-host'
 import { libraryPaths } from './platform/paths'
 
@@ -57,6 +59,8 @@ export function registerLibraryIpc(
       thumbnails.warm(keys.filter(k => /^[0-9a-f]{32}$/.test(k))),
     onReady: ms => console.info(`[library] 引擎就绪（${ms} ms）`),
     onBlocked: reason => console.error(`[library] ${reason}`),
+    // 引擎里的 AI 识别兜底经主进程的 aiService 调大模型
+    host: libraryAiHost(),
   })
   ipcMain.handle(
     LIBRARY_CHANNELS.invoke,

@@ -21,6 +21,7 @@ import {
   UtilityCallError,
   type UtilityChild,
   UtilityHost,
+  type UtilityHostOptions,
 } from '../utility/host'
 
 /** 引擎子进程句柄（Electron UtilityProcess 的子集）。 */
@@ -48,6 +49,8 @@ export interface LibraryHostDeps {
   onBlocked?(reason: string): void
   /** 关停超时，默认 UtilityHost 的 5 秒 */
   stopTimeoutMs?: number
+  /** 引擎能请主进程代办的事（方法名 → 实现），见 engine/host-calls.ts */
+  host?: UtilityHostOptions['host']
 }
 
 const failure = (code: LibraryErrorCode, message: string): InvokeResult => ({
@@ -68,6 +71,7 @@ export class LibraryEngineHost {
       stopTimeoutMs: deps.stopTimeoutMs,
       onReady: deps.onReady,
       onBlocked: deps.onBlocked,
+      host: deps.host,
       // 新 fork 的引擎先给全部订阅方接上事件通道，再转发任何调用
       onStart: child => {
         for (const subscriber of this.subscribers.values()) {
