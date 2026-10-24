@@ -13,7 +13,11 @@ import {
   type LibraryRpcMap,
 } from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
-import { type LibraryChild, LibraryEngineHost } from './engine-host'
+import {
+  type LibraryChild,
+  LibraryEngineHost,
+  type LibraryHostDeps,
+} from './engine-host'
 import { libraryPaths } from './platform/paths'
 
 /** 引擎数据目录。 */
@@ -45,12 +49,14 @@ export interface LibraryEngineClient {
 
 /**
  * 注册媒体库 IPC：library:invoke（调用）、library:subscribe / library:unsubscribe（事件订阅登记）。
- * 须在 app ready 之后调用。返回主进程内用的调用口。
+ * 须在 app ready 之后调用。hostMethods 是引擎能请主进程代办的事（远程源凭据）。返回主进程内用的调用口。
  */
 export function registerLibraryIpc(
-  thumbnails: ThumbnailService
+  thumbnails: ThumbnailService,
+  hostMethods?: LibraryHostDeps['host']
 ): LibraryEngineClient {
   const host = new LibraryEngineHost({
+    host: hostMethods,
     fork: forkEngine,
     createChannel: () => new MessageChannelMain(),
     onImagesCached: keys =>

@@ -10,6 +10,18 @@ import { type Overrides, sanitizeOverrides } from './rules'
 
 let overrides: Overrides = {}
 
+/** 工具路径覆盖变化后要通知的模块（如截图的 ffmpeg 缓存） */
+const changeListeners = new Set<() => void>()
+
+/**
+ * 订阅工具路径覆盖的变化（setPathOverrides 成功后触发）。
+ * @returns 取消订阅
+ */
+export function onPathOverridesChange(listener: () => void): () => void {
+  changeListeners.add(listener)
+  return () => changeListeners.delete(listener)
+}
+
 const settingsPath = (): string => join(app.getPath('userData'), 'lada.json')
 
 /** 扫描常见的 ffmpeg 安装位置（只看顶层目录，不递归） */
@@ -108,6 +120,7 @@ export async function setPathOverrides(changes: Overrides): Promise<LadaPaths> {
     else next[key] = text
   }
   overrides = next
+  for (const listener of changeListeners) listener()
   await saveOverrides()
   return ladaPaths()
 }
