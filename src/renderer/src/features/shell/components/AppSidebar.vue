@@ -36,10 +36,16 @@
           @click="emit('navigate', item.path)"
         >
           {{ item.label }}
-          <template v-if="item.badge" #trailing>
-            <span class="sidebar-badge" aria-hidden="true">{{
+          <template v-if="item.badge || isPathLocked(item.path)" #trailing>
+            <span v-if="item.badge" class="sidebar-badge" aria-hidden="true">{{
               badgeText(item.badge)
             }}</span>
+            <UiIcon
+              v-if="isPathLocked(item.path)"
+              name="lock"
+              size="sm"
+              class="sidebar-lock"
+            />
           </template>
         </UiNavItem>
       </template>
@@ -116,6 +122,7 @@ import { usePlatform } from '@/composables/use-platform'
 import { incognitoState, toggleIncognito } from '@/features/incognito'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
+import { isPathLocked } from '@/features/section-lock'
 
 import type { NavGroup, NavItem } from '../composables/nav-items'
 
@@ -239,6 +246,18 @@ const queueLabel = computed(() => {
 }
 .sidebar-item :deep(.app-icon) {
   color: inherit;
+}
+/* 已锁定的板块：尾部小锁；收起成图标栏时不显示 */
+.sidebar-item .sidebar-lock {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+.app-sidebar.is-collapsed .sidebar-lock {
+  display: none;
+}
+/* 角标与小锁同时出现时并排 */
+.sidebar-item .sidebar-badge + .sidebar-lock {
+  margin-left: var(--space-1);
 }
 
 /* 数字角标（追剧日历的未看新集数）：收起成图标栏时缩成图标右上角的小圆点数字 */

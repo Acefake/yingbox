@@ -36,6 +36,7 @@ import {
 } from './webdav'
 import { registerEngine } from './engine'
 import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
+import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 import { installTray } from './tray'
@@ -200,6 +201,8 @@ app.whenReady().then(async () => {
   registerCaptureIpc()
   registerDanmakuIpc()
   registerMpvIpc()
+  // 板块密码锁：应用密码哈希与系统认证
+  await registerSectionLockIpc()
   await registerLadaIpc()
   // WebDAV / Alist 源：设置、yingbox-dav 播放协议、媒体库引擎扫描时取凭据
   registerWebDav()
