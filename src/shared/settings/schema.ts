@@ -117,6 +117,8 @@ export const settingsSchema = {
   'ui.hoverPreviewDelay': num(200, 2000, 600),
   /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
   'ui.miniPlayer': bool(true),
+  /** 防剧透：剧集详情里没看过的集剧照模糊、简介折叠，悬停才显示 */
+  'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
   'ui.videoWallMaxLive': num(1, 9, 4),
 
@@ -168,6 +170,11 @@ export const settingsSchema = {
 
   /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
   'download.dir': absolutePath(),
+
+  /** 在线播放卡顿 / 出错时自动换到下一个可用源的同一集，从当前进度继续 */
+  'online.autoSwitchSource': bool(true),
+  /** 卡顿判定：缓冲持续多少秒算卡顿 */
+  'online.stallSeconds': num(2, 30, 5),
 
   /** 媒体库外部变更通知（CloudDrive2 webhook 等）：主进程本地 HTTP 端点，见 src/main/library/notify */
   'library.notify.enabled': bool(false),

@@ -139,12 +139,19 @@ const ADDED_API: Record<string, string[]> = {
     'doubanBrowse',
     'doubanPhotos',
     'resolvePage',
+    'probeStream',
   ],
   av: ['list', 'resolve'],
   danmaku: ['match', 'search', 'comments'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
-  media: ['focus', 'saveFocus'],
+  media: [
+    'focus',
+    'saveFocus',
+    'seekThumbnails',
+    'onSeekReady',
+    'offSeekReady',
+  ],
 }
 
 beforeAll(async () => {
