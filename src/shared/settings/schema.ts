@@ -220,6 +220,12 @@ export const settingsSchema = {
   'ai.speech.model': text('large-v3-turbo', 200),
   /** 云端转写接口地址；空串 = 与对话同一个接口地址 */
   'ai.speech.baseUrl': text('', 2048),
+  /** whisper.cpp 可执行文件（whisper-cli）；空串 = 在 PATH 里找 whisper-cli */
+  'ai.speech.whisperBin': absolutePath(),
+  /** whisper.cpp 模型文件（ggml-*.bin）；空串 = userData/ai/whisper/ggml-<识别模型>.bin */
+  'ai.speech.whisperModelPath': absolutePath(),
+  /** AI 字幕输出：中文 / 双语 / 原文 */
+  'ai.subtitle.mode': oneOf(['zh', 'bilingual', 'original'] as const, 'zh'),
   /** 各服务商的 API Key（密钥：主进程 safeStorage，只在 src/main/ai 使用） */
   'ai.apiKey.openai': secret(),
   'ai.apiKey.deepseek': secret(),

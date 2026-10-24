@@ -1,17 +1,15 @@
 <template>
   <div class="unified-player-subtitle-panel">
-    <DialogTitlebar
-      title="在线字幕 (OpenSubtitles)"
-      icon="subtitle"
-      @close="emit('close')"
-    />
+    <DialogTitlebar title="字幕" icon="subtitle" @close="emit('close')" />
+    <!-- 面板顶部的附加区（AI 生成字幕） -->
+    <slot />
     <div class="usp-search-row">
       <UiInput
         v-model="query"
         v-enter="() => emit('search')"
         class="usp-input"
         size="sm"
-        placeholder="影视名称…"
+        placeholder="在线搜索（OpenSubtitles）…"
       />
       <UiButton
         size="sm"
@@ -51,7 +49,8 @@
 
 <script setup lang="ts">
 /**
- * 在线字幕（OpenSubtitles）搜索面板：搜索框 + 结果列表。只负责展示，状态与下载在 usePlayerSubtitles。
+ * 字幕面板：顶部附加区（默认插槽，放 AI 生成字幕）+ 在线字幕（OpenSubtitles）搜索框与结果列表。
+ * 只负责展示，状态与下载在 usePlayerSubtitles。
  */
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'

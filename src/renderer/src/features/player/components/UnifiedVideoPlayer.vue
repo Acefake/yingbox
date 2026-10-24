@@ -39,7 +39,9 @@
       @search="subtitles.search"
       @pick="subtitles.applyOnline"
       @close="subtitles.panelOpen.value = false"
-    />
+    >
+      <AiSubtitleSection :state="aiSubtitle" />
+    </SubtitleSearchPanel>
     <DanmakuPanel
       v-if="danmaku.state.panelOpen.value"
       :state="danmaku.state"
@@ -63,6 +65,9 @@ import Hls from 'hls.js'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
+import AiSubtitleSection from '../ai-subtitle/AiSubtitleSection.vue'
+import { installSubtitlePanelEntry } from '../ai-subtitle/art-entry'
+import { useAiSubtitle } from '../ai-subtitle/use-ai-subtitle'
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
 import DanmakuPanel from '../danmaku/DanmakuPanel.vue'
 import type { DanmakuTarget } from '../danmaku/danmaku-rules'
@@ -100,6 +105,8 @@ const props = withDefaults(
     /** 在线字幕季/集（剧集用） */
     subtitleSeason?: number
     subtitleEpisode?: number
+    /** 来自私密板块：AI 字幕的翻译 / 云端转写只发给本地模型（按设置） */
+    aiPrivate?: boolean
     /** 弹幕匹配用的当前条目；不传则不显示弹幕 */
     danmakuTarget?: DanmakuTarget | null
     /** 强制按 HLS 播放（直播接口地址常不带 .m3u8 扩展名） */
@@ -118,6 +125,7 @@ const props = withDefaults(
     subtitleImdbId: '',
     subtitleSeason: undefined,
     subtitleEpisode: undefined,
+    aiPrivate: false,
     danmakuTarget: null,
     hls: false,
   }
@@ -157,6 +165,19 @@ const subtitles = usePlayerSubtitles({
   }),
 })
 
+/** 当前实例的播放地址（解析后；AI 字幕据此判断是否本地文件） */
+const currentSource = ref('')
+
+const aiSubtitle = useAiSubtitle({
+  source: () => currentSource.value,
+  isPrivate: () => props.aiPrivate,
+  title: () => props.subtitleSearchTitle || props.title || '',
+  load: (path, name) => subtitles.applyFile(path, name),
+})
+
+const openSubtitlePanel = (): void => {
+  if (!subtitles.panelOpen.value) subtitles.togglePanel()
+}
 const danmaku = useDanmaku({ target: () => props.danmakuTarget })
 
 const posterSrc = computed(() => props.poster?.trim() || '')
@@ -185,9 +206,7 @@ const sink: ArtSink = {
     pendingSeek = 0
   },
   autoplay: () => props.autoplay,
-  subtitles: () => {
-    if (!subtitles.panelOpen.value) subtitles.togglePanel()
-  },
+  subtitles: openSubtitlePanel,
 }
 
 /** 拆掉实例（连同字幕 blob） */
@@ -199,6 +218,7 @@ const destroyPlayer = (): void => {
   }
   core = null
   video.value = null
+  currentSource.value = ''
 }
 
 const createPlayer = async (source: string): Promise<void> => {
@@ -242,6 +262,8 @@ const createPlayer = async (source: string): Promise<void> => {
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
   emit('ready', core.art.video)
+  currentSource.value = resolved
+  installSubtitlePanelEntry(core.art, openSubtitlePanel)
   emit('art', core.art)
 
   if (props.danmakuTarget) void danmaku.attach(core.art)

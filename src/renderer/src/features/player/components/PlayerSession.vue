@@ -9,6 +9,7 @@
       title=""
       :closable="false"
       :show-footer="false"
+      :ai-private="payload.private === true"
       autoplay
       controls
       @ready="media.attach"
