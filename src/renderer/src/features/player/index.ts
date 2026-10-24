@@ -14,9 +14,10 @@ export {
   syncRtxVsr,
 } from './composables/use-media-player'
 export { useMpvPlayer } from './composables/use-mpv-player'
-export { getMediaProgress } from './utils/play-progress'
+export { getMediaProgress, readMediaProgress } from './utils/play-progress'
 /** 「继续播放」：各板块顶部的横排卡片与记录 */
 export { default as ContinueRow } from './continue/ContinueRow.vue'
+export { continueRecords } from './continue/continue-store'
 export type {
   ContinueMeta,
   ContinueRecord,
