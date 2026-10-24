@@ -68,7 +68,7 @@ export const libraryJobSpec = (
 
 /**
  * 存储判定完后本地盘的库要补排的读文件任务：动态范围探测（启动时补上没探测过的；宿主不能探测时任务直接结束），
- * fingerprint 时再补指纹（存储改回本地盘，补上按网盘处理期间跳过的）；网盘不补。
+ * fingerprint 时再补指纹（存储从网盘回到本地盘，补上按网盘处理期间跳过的）；网盘不补。
  */
 export function backfillJobs(
   cloud: boolean,

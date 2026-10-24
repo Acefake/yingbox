@@ -37,7 +37,6 @@ export interface SettingsMenuSources {
   hls: () => Hls | null
 }
 
-
 /** 一级列表按 SETTING_ORDER 重排：原地改数组（Artplayer 按数组缓存面板），再按新顺序挪 DOM */
 function reorder(art: Artplayer): void {
   const setting = art.setting as unknown as {

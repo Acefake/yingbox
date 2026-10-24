@@ -62,13 +62,17 @@ describe('齿轮设置菜单：二级页面', () => {
     expect(list.map(c => c.value)).toEqual(['-1', '1', '0', '2'])
     expect(list.filter(c => c.default).map(c => c.html)).toEqual(['1080p'])
     expect(choiceTooltip(list)).toBe('1080p')
-    expect(choiceTooltip(qualityChoices(
-      [
-        { height: 720, bitrate: 2 },
-        { height: 1080, bitrate: 5 },
-      ],
-      -1
-    ))).toBe('自动')
+    expect(
+      choiceTooltip(
+        qualityChoices(
+          [
+            { height: 720, bitrate: 2 },
+            { height: 1080, bitrate: 5 },
+          ],
+          -1
+        )
+      )
+    ).toBe('自动')
   })
 
   it('音轨：少于两条不出现；名称缺省用语言或序号', () => {
@@ -84,7 +88,12 @@ describe('齿轮设置菜单：二级页面', () => {
       { name: 'English.srt', path: '/b.srt' },
     ]
     const shown = subtitleChoices(tracks, '/b.srt', true)
-    expect(shown.map(c => c.value)).toEqual(['off', '/a.srt', '/b.srt', 'panel'])
+    expect(shown.map(c => c.value)).toEqual([
+      'off',
+      '/a.srt',
+      '/b.srt',
+      'panel',
+    ])
     expect(shown.at(-1)!.html).toBe('在线字幕与 AI 字幕…')
     expect(choiceTooltip(shown)).toBe('English.srt')
     const hidden = subtitleChoices(tracks, '/b.srt', false)

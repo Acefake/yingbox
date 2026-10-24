@@ -67,34 +67,55 @@ describe('播放路由决策', () => {
 describe('DV 提示', () => {
   it('因 DV 自动切到 mpv 并成功：说明原因', () => {
     expect(
-      dvNotice({ tryMpv: true, dv: true }, 'ok', { engine: 'built-in', autoMpvForDv: true })
+      dvNotice({ tryMpv: true, dv: true }, 'ok', {
+        engine: 'built-in',
+        autoMpvForDv: true,
+      })
     ).toBe('mpv-used')
   })
 
   it('mpv 起不来或没有 mpv 桥：内置播放并建议安装 mpv', () => {
     expect(
-      dvNotice({ tryMpv: true, dv: true }, 'failed', { engine: 'built-in', autoMpvForDv: true })
+      dvNotice({ tryMpv: true, dv: true }, 'failed', {
+        engine: 'built-in',
+        autoMpvForDv: true,
+      })
     ).toBe('install-mpv')
     expect(
-      dvNotice({ tryMpv: false, dv: true }, 'skipped', { engine: 'built-in', autoMpvForDv: true })
+      dvNotice({ tryMpv: false, dv: true }, 'skipped', {
+        engine: 'built-in',
+        autoMpvForDv: true,
+      })
     ).toBe('install-mpv')
   })
 
   it('用户关掉了自动 mpv：不打扰；不是 DV P5：不提示', () => {
     expect(
-      dvNotice({ tryMpv: false, dv: true }, 'skipped', { engine: 'built-in', autoMpvForDv: false })
+      dvNotice({ tryMpv: false, dv: true }, 'skipped', {
+        engine: 'built-in',
+        autoMpvForDv: false,
+      })
     ).toBeNull()
     expect(
-      dvNotice({ tryMpv: true, dv: false }, 'ok', { engine: 'mpv', autoMpvForDv: true })
+      dvNotice({ tryMpv: true, dv: false }, 'ok', {
+        engine: 'mpv',
+        autoMpvForDv: true,
+      })
     ).toBeNull()
     expect(
-      dvNotice({ tryMpv: false, dv: false }, 'skipped', { engine: 'built-in', autoMpvForDv: true })
+      dvNotice({ tryMpv: false, dv: false }, 'skipped', {
+        engine: 'built-in',
+        autoMpvForDv: true,
+      })
     ).toBeNull()
   })
 
   it('用户选了 mpv 但起不来、视频是 DV P5：同样建议安装 mpv', () => {
     expect(
-      dvNotice({ tryMpv: true, dv: true }, 'failed', { engine: 'mpv', autoMpvForDv: false })
+      dvNotice({ tryMpv: true, dv: true }, 'failed', {
+        engine: 'mpv',
+        autoMpvForDv: false,
+      })
     ).toBe('install-mpv')
   })
 })

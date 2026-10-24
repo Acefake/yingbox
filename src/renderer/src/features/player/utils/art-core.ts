@@ -62,7 +62,7 @@ export interface ArtCoreInput {
 
 /**
  * 双击：Artplayer 自带的双击全屏关掉（它是全局开关），每个实例默认自己切全屏；
- * 播放弹窗的会话认领后改成按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
+ * 播放弹窗的会话认领后按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
  */
 Artplayer.DBCLICK_FULLSCREEN = false
 const dblclickClaimed = new WeakSet<Artplayer>()

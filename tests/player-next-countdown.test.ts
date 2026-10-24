@@ -71,7 +71,8 @@ const fakeArt = (): { art: Artplayer; video: { paused: boolean } } => {
     video,
     notice: {},
     template: {},
-    on(): void {},
+    /** 本测试不关心事件订阅 */
+    on: vi.fn(),
   } as unknown as Artplayer
   return { art, video }
 }
