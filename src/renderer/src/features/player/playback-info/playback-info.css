@@ -1,0 +1,79 @@
+/*
+ * 播放信息浮层：播放器左上角的半透明面板，等宽数字，逻辑见 playback-info.ts。
+ */
+
+.unified-player-core .yb-info {
+  display: none;
+  position: absolute;
+  top: var(--space-3);
+  left: var(--space-3);
+  flex-direction: column;
+  gap: var(--space-2);
+  min-width: 280px;
+  max-width: calc(100% - var(--space-6));
+  padding: var(--space-3) var(--space-4);
+  border-radius: var(--radius-md);
+  color: var(--media-text);
+  background: var(--overlay-scrim);
+  font-size: var(--text-xs);
+  text-shadow: none;
+}
+
+.unified-player-core .yb-info.is-open {
+  display: flex;
+}
+
+.unified-player-core .yb-info__head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-3);
+}
+
+.unified-player-core .yb-info__title {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.unified-player-core .yb-info__close {
+  display: inline-flex;
+  cursor: pointer;
+  color: var(--media-text-secondary);
+  border-radius: var(--radius-full);
+}
+
+.unified-player-core .yb-info__close:hover {
+  color: var(--media-text);
+  background: var(--media-hover);
+}
+
+.unified-player-core .yb-info__close:focus-visible {
+  outline: none;
+  box-shadow: var(--focus-ring);
+}
+
+.unified-player-core .yb-info__close svg {
+  width: 16px;
+  height: 16px;
+}
+
+.unified-player-core .yb-info__list {
+  display: grid;
+  grid-template-columns: max-content minmax(0, 1fr);
+  gap: var(--space-1) var(--space-4);
+  margin: 0;
+}
+
+.unified-player-core .yb-info__list dt {
+  color: var(--media-text-tertiary);
+}
+
+.unified-player-core .yb-info__list dd {
+  margin: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-family: var(--font-mono);
+  font-variant-numeric: tabular-nums;
+  user-select: text;
+}
