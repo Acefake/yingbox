@@ -25,6 +25,7 @@
             variant="primary"
             size="sm"
             label="立即播放"
+            :loading="skip.switching.value"
             @click="skip.playNow"
           />
           <UiButton
@@ -47,6 +48,7 @@
  * - art：当前这一集的 Artplayer 实例（UnifiedVideoPlayer 的 art 事件给出）
  * - series：标记属于哪部剧（skipKey()）
  * - upNext：下一集的名字；空串表示没有下一集
+ * - playNext：切到下一集（PlayerSession 的 playNext），等它完成前「立即播放」显示 loading
  */
 import type Artplayer from 'artplayer'
 import { computed, watch } from 'vue'
@@ -59,13 +61,13 @@ const props = defineProps<{
   art: Artplayer | null
   series: string
   upNext: string
+  playNext: () => Promise<unknown>
 }>()
-const emit = defineEmits<{ 'play-next': [] }>()
 
 const skip = useSkipSegments({
   key: () => props.series,
   hasNext: () => !!props.upNext,
-  playNext: () => emit('play-next'),
+  playNext: () => props.playNext(),
 })
 
 watch(() => props.art, skip.attach, { immediate: true })
