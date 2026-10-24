@@ -112,6 +112,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'actors',
     'facets',
     'visual',
+    'calendar',
     'subscribe',
   ],
 }

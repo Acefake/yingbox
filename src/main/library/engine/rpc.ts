@@ -12,6 +12,7 @@ import {
   isLibraryMethod,
   parseRpcParams,
 } from '../../../shared/library/ipc'
+import { CalendarModule } from '../calendar/calendar-module'
 import { createItemPreviews } from '../catalog/item-preview'
 import type { LibraryService } from './service'
 
@@ -29,6 +30,21 @@ function previewsFor(s: LibraryService): ReturnType<typeof createItemPreviews> {
       isCloud: id => s.isCloudLibrary(id),
     })
     previews.set(s, found)
+  }
+  return found
+}
+
+/** 每个服务一份追剧日历（TMDB 走识别模块的 provider，共用限速与缓存）。 */
+const calendars = new WeakMap<LibraryService, CalendarModule>()
+
+function calendarFor(s: LibraryService): CalendarModule {
+  let found = calendars.get(s)
+  if (!found) {
+    found = new CalendarModule({
+      db: s.db,
+      provider: () => s.identifier.provider,
+    })
+    calendars.set(s, found)
   }
   return found
 }
@@ -52,6 +68,7 @@ const HANDLERS: Handlers = {
   'visual.status': s => s.visual.status(),
   'visual.index': s => s.visual.index(),
   'visual.search': (s, p) => s.visual.search(p),
+  'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
   getItem: (s, p) => s.getItem(p),
   getPreview: (s, p) => previewsFor(s).get(p.itemId),
   identify: (s, p) => s.identify(p),
