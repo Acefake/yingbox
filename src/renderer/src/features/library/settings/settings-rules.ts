@@ -11,6 +11,7 @@ import type {
   WriterSettings,
 } from '../../../../../shared/library/ipc'
 import { TEMPLATE_VARIABLES } from '../../../../../shared/library/writer'
+import { parseRemotePath } from '../../../../../shared/webdav/remote-path'
 
 /** 设置里的日期时间格式。 */
 export const dateFormat = new Intl.DateTimeFormat('zh-CN', {
@@ -28,7 +29,10 @@ export function folderDescription(
     ? `上次扫描 ${format(lib.lastScanAt)}`
     : '尚未扫描'
   const prefix = lib.source === 'jav' ? '番号 · ' : ''
-  return `${prefix}${lib.root} · ${scanned}`
+  // 远程库（WebDAV）只显示源里的路径，并标明只读
+  const remote = parseRemotePath(lib.root)
+  const where = remote ? `WebDAV · 只读 · ${remote.path}` : lib.root
+  return `${prefix}${where} · ${scanned}`
 }
 
 /** TMDB 令牌状态文字。 */
