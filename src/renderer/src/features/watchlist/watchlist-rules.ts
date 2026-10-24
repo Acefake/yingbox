@@ -32,7 +32,7 @@ export interface WatchlistEntry extends WatchlistMeta {
 
 /** 最多保留几条（所有板块合计）。 */
 export const WATCHLIST_LIMIT = 200
-/** 每个板块顶部最多显示几张。 */
+/** 每个板块顶部横排最多显示几张；更多的点「查看全部」展开成完整列表。 */
 export const WATCHLIST_ROW_LIMIT = 30
 
 export const watchlistId = (section: WatchlistSection, key: string): string =>
@@ -82,15 +82,25 @@ export function toggleEntry(
     : addEntry(entries, meta, now)
 }
 
-/** 某板块顶部要显示的条目（最近加入的在前）。 */
+/** 某板块的全部条目（最近加入的在前）。 */
 export function entriesFor(
   entries: readonly WatchlistEntry[],
   section: WatchlistSection
 ): WatchlistEntry[] {
-  return entries
-    .filter(entry => entry.section === section)
-    .slice(0, WATCHLIST_ROW_LIMIT)
+  return entries.filter(entry => entry.section === section)
 }
+
+/** 横排实际渲染的条目：收起时取前 WATCHLIST_ROW_LIMIT 条，展开（查看全部）时全部。 */
+export function visibleEntries(
+  all: readonly WatchlistEntry[],
+  expanded: boolean
+): readonly WatchlistEntry[] {
+  return expanded ? all : all.slice(0, WATCHLIST_ROW_LIMIT)
+}
+
+/** 收起时横排之外还有几条（「查看全部」入口上显示）。 */
+export const hiddenCount = (all: readonly WatchlistEntry[]): number =>
+  Math.max(0, all.length - WATCHLIST_ROW_LIMIT)
 
 /** 卡片用的图：海报优先，没有就用横版封面。 */
 export const entryImage = (entry: WatchlistEntry): string =>

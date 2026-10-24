@@ -5,8 +5,15 @@ import { join } from 'node:path'
 import { type App, createApp, h, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { LibraryItemNode } from '../src/shared/library/ipc'
+import { metaOf } from '../src/renderer/src/features/player/continue/continue-rules'
+import {
+  episodePlayRequest,
+  hasLaterSeason,
+} from '../src/renderer/src/features/library/detail/playback'
 import {
   WATCHLIST_LIMIT,
+  WATCHLIST_ROW_LIMIT,
   type WatchlistEntry,
   type WatchlistMeta,
   type WatchlistSection,
@@ -14,9 +21,11 @@ import {
   entriesFor,
   entryImage,
   hasEntry,
+  hiddenCount,
   removeEntry,
   sanitizeEntries,
   toggleEntry,
+  visibleEntries,
 } from '../src/renderer/src/features/watchlist/watchlist-rules'
 
 /**
@@ -83,6 +92,66 @@ describe('watchlist-rules', () => {
       sanitizeEntries([list[0], list[0], { id: 1 }, null, 'x', list[1]])
     ).toEqual([list[0], list[1]])
     expect(sanitizeEntries({})).toEqual([])
+  })
+
+  it('板块条目不截断；横排收起时截前 WATCHLIST_ROW_LIMIT 条，展开全部', () => {
+    let list: WatchlistEntry[] = []
+    for (let i = 0; i < WATCHLIST_ROW_LIMIT + 5; i++)
+      list = addEntry(list, meta('tv', String(i)), i)
+    const all = entriesFor(list, 'tv')
+    expect(all).toHaveLength(WATCHLIST_ROW_LIMIT + 5)
+    expect(visibleEntries(all, false)).toHaveLength(WATCHLIST_ROW_LIMIT)
+    expect(visibleEntries(all, true)).toHaveLength(WATCHLIST_ROW_LIMIT + 5)
+    expect(hiddenCount(all)).toBe(5)
+    expect(hiddenCount(all.slice(0, 3))).toBe(0)
+  })
+})
+
+describe('多季剧：只播了一部分不算整部看完', () => {
+  const node = (over: Partial<LibraryItemNode>): LibraryItemNode =>
+    ({
+      id: 1,
+      type: 'series',
+      title: '剧',
+      files: [],
+      children: [],
+      seasonNumber: null,
+      episodeNumber: null,
+      ...over,
+    }) as LibraryItemNode
+  const ep = (id: number, s: number, e: number): LibraryItemNode =>
+    node({
+      id,
+      type: 'episode',
+      seasonNumber: s,
+      episodeNumber: e,
+      files: [{ id, path: `/s${s}e${e}.mkv`, kind: 'video' }] as never,
+    })
+  const season = (s: number, eps: LibraryItemNode[]): LibraryItemNode =>
+    node({ id: 50 + s, type: 'season', seasonNumber: s, children: eps })
+  const s0 = season(0, [ep(90, 0, 1)])
+  const s1 = season(1, [ep(10, 1, 1), ep(11, 1, 2)])
+  const s2 = season(2, [ep(20, 2, 1)])
+  const s3empty = season(3, [node({ id: 30, type: 'episode' })])
+  const series = node({ children: [s0, s2, s1, s3empty] })
+
+  it('后面还有有文件的正片季才算一部分；特别篇不算结尾', () => {
+    expect(hasLaterSeason(series, s1)).toBe(true)
+    expect(hasLaterSeason(series, s2)).toBe(false)
+    expect(hasLaterSeason(series, s0)).toBe(true)
+    expect(hasLaterSeason(node({ children: [s0] }), s0)).toBe(false)
+    expect(episodePlayRequest(series, s1, s1.children[0])?.partial).toBe(true)
+    expect(episodePlayRequest(series, s2, s2.children[0])).not.toHaveProperty(
+      'partial'
+    )
+  })
+
+  it('continueAs 带 partial：重新开播时保留', () => {
+    const record = { ...meta('tv', '1'), partial: true, id: 'tv:1' }
+    expect(metaOf(record as never)).toMatchObject({ partial: true })
+    expect(
+      metaOf({ ...record, partial: undefined } as never)
+    ).not.toHaveProperty('partial')
   })
 })
 
@@ -161,6 +230,26 @@ describe('watchlist-store', () => {
     expect(watch.inWatchlist('online', '繁花')).toBe(true)
     cont.updateContinue(id, { index: 1, progress: 99, duration: 100 })
     expect(watch.inWatchlist('online', '繁花')).toBe(false)
+  })
+
+  it('多季剧看完非最后一季不移除；看完最后一季才移出', async () => {
+    const { watch, cont } = await stores()
+    watch.installWatchlist()
+    watch.toggleWatchlist(meta('tv', '5'))
+    const playlist = [{ filePath: '/s1e1.mkv', name: 'S01E01' }]
+    let id = cont.startContinue(meta('tv', '5', { partial: true }), {
+      playlist,
+      index: 0,
+    })
+    cont.updateContinue(id, { index: 0, progress: 99, duration: 100 })
+    expect(cont.continueRecords().value.some(r => r.id === id)).toBe(false)
+    expect(watch.inWatchlist('tv', '5')).toBe(true)
+    id = cont.startContinue(meta('tv', '5'), {
+      playlist: [{ filePath: '/s2e1.mkv', name: 'S02E01' }],
+      index: 0,
+    })
+    cont.updateContinue(id, { index: 0, progress: 99, duration: 100 })
+    expect(watch.inWatchlist('tv', '5')).toBe(false)
   })
 
   it('手动移除继续播放记录不算看完', async () => {
@@ -249,6 +338,41 @@ describe('WatchlistRow', () => {
     await nextTick()
     expect(el.querySelectorAll('.wl-card')).toHaveLength(1)
     expect(document.querySelector('.wl-menu')).toBeNull()
+  })
+
+  it('超过横排上限：计数是真实总数，末尾「查看全部」展开完整列表', async () => {
+    let list: WatchlistEntry[] = []
+    const total = WATCHLIST_ROW_LIMIT + 2
+    for (let i = 0; i < total; i++)
+      list = addEntry(list, meta('movie', String(i)), i)
+    localStorage.setItem('watchlist', JSON.stringify(list))
+    const el = await mount('movie')
+    expect(el.querySelector('.wl-count')?.textContent).toBe(`${total} 部`)
+    expect(el.querySelectorAll('.wl-card:not(.wl-more)')).toHaveLength(
+      WATCHLIST_ROW_LIMIT
+    )
+    const more = el.querySelector('.wl-more')
+    expect(more?.textContent).toContain('还有 2 部')
+    ;(more?.querySelector('.wl-thumb') as HTMLElement).click()
+    await nextTick()
+    expect(el.querySelectorAll('.wl-card')).toHaveLength(total)
+    expect(el.querySelector('.wl-track.is-grid')).not.toBeNull()
+    // 最早加入的那条也能打开
+    expect(el.textContent).toContain('片 0')
+    const toggle = el.querySelector('.wl-toggle') as HTMLElement
+    expect(toggle.textContent?.trim()).toBe('收起')
+    toggle.click()
+    await nextTick()
+    expect(el.querySelectorAll('.wl-card:not(.wl-more)')).toHaveLength(
+      WATCHLIST_ROW_LIMIT
+    )
+  })
+
+  it('不超过上限时没有「查看全部」', async () => {
+    seed()
+    const el = await mount('online')
+    expect(el.querySelector('.wl-more')).toBeNull()
+    expect(el.querySelector('.wl-toggle')).toBeNull()
   })
 })
 
