@@ -37,6 +37,18 @@ export function mediaProgressKey(input: {
   return url || filePath
 }
 
+/** 进度表里的一条（位置与总时长，秒）；没有记录返回 null。看完时位置记成 0、时长保留。 */
+export function readMediaProgress(
+  key: string
+): { progress: number; duration: number } | null {
+  const hit = key ? readProgressMap()[key] : undefined
+  if (!hit || typeof hit.progress !== 'number') return null
+  return {
+    progress: hit.progress,
+    duration: typeof hit.duration === 'number' ? hit.duration : 0,
+  }
+}
+
 export function getMediaProgress(key: string): number {
   if (!key) return 0
   const mapped = readProgressMap()[key]?.progress
