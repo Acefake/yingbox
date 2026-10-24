@@ -70,11 +70,7 @@
           @identify="id => actions.identifySelected([id], () => {})"
         >
           <template #before>
-            <ContinueRow
-              class="lib-continue"
-              :section="section"
-              @detail="r => openDetail((r.detail as { itemId: number }).itemId)"
-            />
+            <LibraryTopRows :section="section" @open="openDetail" />
           </template>
           <template #after>
             <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
@@ -169,7 +165,6 @@ import { useRoute } from 'vue-router'
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
-import { ContinueRow } from '@/features/player'
 import { libraryServerState } from '@/services/library-server'
 
 import ActorDetail from './actors/ActorDetail.vue'
@@ -177,6 +172,7 @@ import ActorsView from './actors/ActorsView.vue'
 import ItemDetail from './detail/ItemDetail.vue'
 import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
+import LibraryTopRows from './page/LibraryTopRows.vue'
 import LibraryToolbar from './page/LibraryToolbar.vue'
 import SelectionBar from './page/SelectionBar.vue'
 import ServerConnect from './page/ServerConnect.vue'

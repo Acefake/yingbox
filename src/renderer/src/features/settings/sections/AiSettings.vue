@@ -163,7 +163,7 @@ import {
   aiProviderPreset,
   formatMonthUsage,
   getAiUsage,
-  isLocalEndpoint,
+  isLocalAiProvider,
   onAiUsageChanged,
   setAiKey,
   testAiConnection,
@@ -189,12 +189,8 @@ const speechModel = useSetting('ai.speech.model')
 const speechBaseUrl = useSetting('ai.speech.baseUrl')
 
 const preset = computed(() => aiProviderPreset(provider.value))
-/** 当前服务商是否算本地（Ollama，或地址指向本机 / 局域网） */
-const isLocal = computed(
-  () =>
-    provider.value === 'ollama' ||
-    isLocalEndpoint(baseUrl.value || preset.value.baseUrl)
-)
+/** 当前服务商是否算本地：与主进程同一判定，只看实际生效的接口地址 */
+const isLocal = computed(() => isLocalAiProvider(provider.value, baseUrl.value))
 const providerHint = computed(() =>
   isLocal.value
     ? '本地模型：内容不离开本机 / 局域网'
