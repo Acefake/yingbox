@@ -64,8 +64,9 @@
           >
         </span>
       </div>
-      <div v-if="currentEpisodes.length" class="dw-actions">
+      <div class="dw-actions">
         <UiButton
+          v-if="currentEpisodes.length"
           variant="primary"
           size="lg"
           icon="play"
@@ -76,6 +77,7 @@
           "
           @click="emit('play', currentEpisodes[0].url, currentEpisodes[0].ext)"
         />
+        <slot name="actions" />
       </div>
       <p v-if="tmdbDetail?.overview || itemOverview" class="dw-overview">
         {{ tmdbDetail?.overview || itemOverview }}
@@ -103,7 +105,7 @@
 <script setup lang="ts">
 /**
  * 在线详情页的主信息块：海报、标题、评分 / 年份 / 类型 / 来源标签、播放按钮、简介和导演地区。
- * 播放源选择通过默认插槽放在信息列的末尾。
+ * 播放源选择通过默认插槽放在信息列的末尾；actions 插槽接在播放按钮后面（如「想看」）。
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'

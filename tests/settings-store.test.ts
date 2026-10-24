@@ -58,6 +58,7 @@ describe('默认值', () => {
       'ai.apiKey.deepseek': false,
       'ai.apiKey.openrouter': false,
       'ai.apiKey.custom': false,
+      'danmaku.appSecret': false,
     })
     expect(legacyMigrated).toBe(false)
     expect(existsSync(file)).toBe(false)

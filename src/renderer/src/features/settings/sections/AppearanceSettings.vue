@@ -34,12 +34,24 @@
       />
     </SettingsRow>
   </SettingsGroup>
+
+  <SettingsGroup
+    title="防剧透"
+    footer="根据播放进度和继续播放记录判断哪些集看过。"
+  >
+    <SettingsRow
+      title="遮住未看的剧集"
+      description="剧集详情里没看过的集剧照模糊、简介折叠，鼠标悬停才显示"
+    >
+      <UiSwitch v-model="spoilerGuard" label="遮住未看的剧集" />
+    </SettingsRow>
+  </SettingsGroup>
 </template>
 
 <script setup lang="ts">
 /**
  * 设置 · 外观：深色 / 浅色主题（由 utils/theme 持久化），卡片悬停预览的开关与等待时间
- * （ui.hoverPreview / ui.hoverPreviewDelay，经主进程写入）。
+ * （ui.hoverPreview / ui.hoverPreviewDelay，经主进程写入），防剧透开关（ui.spoilerGuard）。
  */
 import { computed } from 'vue'
 
@@ -61,6 +73,7 @@ const themeOptions: SegmentedOption<AppTheme>[] = [
 
 const previewEnabled = useSetting('ui.hoverPreview')
 const delaySetting = useSetting('ui.hoverPreviewDelay')
+const spoilerGuard = useSetting('ui.spoilerGuard')
 /** 分段控件只认字符串：毫秒数 ↔ 字符串 */
 const previewDelay = computed({
   get: () => String(delaySetting.value),

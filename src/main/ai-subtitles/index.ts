@@ -29,6 +29,8 @@ import { emit, implement } from '../rpc'
 import { settingsStore } from '../settings'
 import {
   cacheSubtitlePath,
+  mergeOutputs,
+  ownedOutputs,
   parseRecords,
   recordFor,
   siblingSubtitlePath,
@@ -152,7 +154,10 @@ function recognizer(job: AiSubtitleJob): PipelineDeps['recognize'] {
   throw new Error('语音识别已关闭：请在「设置 → AI → 语音识别」里选择识别方式')
 }
 
-/** 写 SRT：视频旁边可写就写旁边，否则写字幕缓存 */
+/**
+ * 写 SRT：视频旁边有可用文件名且可写就写旁边，否则写字幕缓存。
+ * 只覆盖本功能为这个视频写过的文件，用户已有的同名字幕一律跳过。
+ */
 async function writeSubtitle(
   videoPath: string,
   mode: AiSubtitleMode,
@@ -160,21 +165,31 @@ async function writeSubtitle(
   srt: string
 ): Promise<string> {
   const previous = recordFor(await loadRecords(), videoPath)
+  const owned = new Set(ownedOutputs(previous))
   const sibling = siblingSubtitlePath(
     videoPath,
     mode,
     language,
-    path => existsSync(path) && path !== previous?.path
+    path => existsSync(path) && !owned.has(path)
   )
-  let path = sibling
+  let path = sibling ?? ''
   try {
+    if (!sibling) throw new Error('视频旁边没有可用的字幕文件名')
     await atomicWrite(sibling, srt)
   } catch {
     path = cacheSubtitlePath(join(root(), 'cache'), videoPath, mode)
     await fs.mkdir(dirname(path), { recursive: true })
     await atomicWrite(path, srt)
   }
-  await saveRecord({ videoPath, path, mode, language, updatedAt: Date.now() })
+  const outputs = mergeOutputs(previous, path)
+  await saveRecord({
+    videoPath,
+    path,
+    mode,
+    language,
+    updatedAt: Date.now(),
+    outputs,
+  })
   return path
 }
 

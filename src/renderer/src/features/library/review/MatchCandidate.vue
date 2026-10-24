@@ -15,6 +15,7 @@
     <div class="match-candidate-body">
       <h3 class="match-candidate-title">{{ candidate.title }}</h3>
       <p class="match-candidate-sub">
+        <span v-if="candidate.source === 'ai'" class="match-ai">AI 推断</span>
         <span v-if="candidate.year">{{ candidate.year }}</span>
         <span
           v-if="
@@ -186,5 +187,9 @@ const emit = defineEmits<{ adopt: [candidate: MatchCandidateInfo] }>()
 .match-adopt {
   align-self: flex-start;
   margin-top: auto;
+}
+.match-ai {
+  color: var(--accent-text);
+  font-weight: var(--font-weight-medium);
 }
 </style>

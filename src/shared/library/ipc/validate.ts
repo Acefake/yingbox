@@ -13,6 +13,7 @@ import {
   type LibraryKind,
   type LibraryMethod,
   type LibraryQuery,
+  type LibraryQueryFilters,
   type LibraryRpcMap,
   type LibrarySortField,
   type LibrarySource,
@@ -33,7 +34,9 @@ import {
   optionalInt,
   positiveId,
 } from './validate-base'
+import { CALENDAR_PARSERS } from './validate-calendar'
 import { FACET_PARSERS, parseFacetFilter } from './validate-facets'
+import { parseQueryFilters } from './validate-filters'
 import { VISUAL_PARSERS } from './validate-visual'
 import { parseJavSettings } from './validate-jav'
 import {
@@ -49,7 +52,7 @@ export const DEFAULT_PAGE_SIZE = 200
 export const MAX_PAGE_SIZE = 1000
 
 /** 归一化后的查询：分页、排序都有确定值。 */
-export interface NormalizedLibraryQuery {
+export interface NormalizedLibraryQuery extends LibraryQueryFilters {
   libraryId?: number
   source?: LibrarySource
   types: TopLevelItemType[]
@@ -116,6 +119,7 @@ export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
     yearTo: optionalInt(q.yearTo, 'yearTo', 0),
     matchStates: listOf(q.matchStates, MATCH_STATES, 'matchStates'),
     facets: parseFacetFilter(q.facets),
+    ...parseQueryFilters(q),
     sort,
     order,
     offset: optionalInt(q.offset, 'offset', 0) ?? 0,
@@ -175,7 +179,7 @@ function parseTargets(input: unknown, what: string): IdentifyRequest {
   if (libraryId === undefined && !itemIds?.length) {
     invalid('libraryId 与 itemIds 至少提供一个')
   }
-  return { libraryId, itemIds, force: !!r.force }
+  return { libraryId, itemIds, force: !!r.force, ...(r.ai ? { ai: true } : {}) }
 }
 
 const optionalText = (
@@ -352,6 +356,7 @@ const PARAM_PARSERS: {
   ...ACTOR_PARSERS,
   ...FACET_PARSERS,
   ...VISUAL_PARSERS,
+  ...CALENDAR_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */

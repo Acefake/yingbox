@@ -2,6 +2,7 @@
  * LibraryService 的构造参数。单独成文件：宿主（platform.ts）与测试只需要类型，不必读服务实现。
  */
 import type { IdentifyModuleOptions } from '../identify/identify-module'
+import type { RemoteClients } from '../scanner/scan-library'
 import type { MoveOps } from '../writer/fs/file-ops'
 import type { VisualOptions } from '../visual/visual-setup'
 import type { WatchMode } from './library-monitor'
@@ -32,6 +33,8 @@ export interface LibraryServiceOptions {
   fingerprint?: (path: string) => Promise<string | undefined>
   /** 写日志（告警、监听失败）。 */
   log?: (message: string) => void
+  /** 远程源（WebDAV / Alist）的客户端，宿主提供；没有时远程媒体库扫描报错。 */
+  remote?: RemoteClients
   /** 识别与刮削的注入项（网络、图片缓存目录、令牌兜底、限速），见 IdentifyModuleOptions。 */
   identify?: Pick<
     IdentifyModuleOptions,
@@ -43,6 +46,7 @@ export interface LibraryServiceOptions {
     | 'env'
     | 'http'
     | 'concurrency'
+    | 'ai'
   >
   /** 按画面搜的注入项（推理后端、像素转换），见 visual/visual-setup.ts。 */
   visual?: VisualOptions
