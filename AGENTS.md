@@ -1,6 +1,8 @@
 # AGENTS.md
 
-This file provides guidance to coding agents working with code in this repository.
+## Review guidelines
+
+代码审查（含自动审查的结论、行内评论与修复建议）、PR 标题与说明、提交信息一律使用简体中文。代码标识符、文件路径、命令、错误原文及 P1/P2 等优先级标记保留原文。
 
 ## Overview
 
