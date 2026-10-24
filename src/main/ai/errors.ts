@@ -71,3 +71,28 @@ export function httpError(
     retryAfterMs: Number.isFinite(seconds) ? seconds * 1000 : undefined,
   })
 }
+
+/**
+ * 流式响应里的错误事件（HTTP 200 但 data: {"error":…}）转成 AiError。
+ * error.code / status 是数字时按 HTTP 状态处理（决定能否重试），否则记为 bad_response。
+ */
+export function streamError(
+  raw: { message?: unknown; code?: unknown; status?: unknown } | string
+): AiError {
+  const detail =
+    typeof raw === 'string'
+      ? raw
+      : typeof raw.message === 'string'
+        ? raw.message
+        : ''
+  const code = typeof raw === 'string' ? NaN : Number(raw.code ?? raw.status)
+  const message = detail
+    ? `AI 接口在流式响应中报错：${detail.slice(0, 200)}`
+    : 'AI 接口在流式响应中报错'
+  if (Number.isInteger(code) && code >= 400 && code <= 599)
+    return new AiError('http', message, {
+      status: code,
+      retryable: isRetryableStatus(code),
+    })
+  return new AiError('bad_response', message)
+}

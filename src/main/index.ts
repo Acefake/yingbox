@@ -21,18 +21,29 @@ import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
+import { registerIptvIpc } from './ipc/iptv-ipc'
+import { registerCaptureIpc } from './capture'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
+import { registerDanmakuIpc } from './ipc/danmaku-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
+import { registerIntroDetectIpc } from './intro-detect'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
+import {
+  REMOTE_SCHEME_PRIVILEGES,
+  registerWebDav,
+  webdavHostMethods,
+} from './webdav'
 import { registerEngine } from './engine'
 import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
+import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
 import { registerAiSubtitles } from './ai-subtitles'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
+import { installTray } from './tray'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -61,6 +72,8 @@ protocol.registerSchemesAsPrivileged([
   },
   // 缓存图片与缩略图（媒体库海报、在线 / AV 封面），见 src/main/thumbnails
   MEDIA_SCHEME_PRIVILEGES,
+  // WebDAV / Alist 远程媒体（主进程带凭据转发，支持 Range），见 src/main/webdav
+  REMOTE_SCHEME_PRIVILEGES,
   {
     scheme: STREAM_SCHEME,
     privileges: {
@@ -123,6 +136,14 @@ function createWindow(): void {
   }
 }
 
+/** 显示并聚焦主窗口（托盘菜单「显示主窗口」）；已关闭时重新创建 */
+function showMainWindow(): void {
+  if (!mainWindow) return createWindow()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
 function registerDevToolsShortcut(): void {
   // F12 切换 DevTools
   globalShortcut.register('F12', () => {
@@ -181,9 +202,17 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
+  registerIptvIpc()
+  registerCaptureIpc()
+  registerDanmakuIpc()
   registerMpvIpc()
+  // 板块密码锁：应用密码哈希与系统认证
+  await registerSectionLockIpc()
   await registerLadaIpc()
-  const libraryClient = registerLibraryIpc(thumbnails)
+  // WebDAV / Alist 源：设置、yingbox-dav 播放协议、媒体库引擎扫描时取凭据
+  registerWebDav()
+  const libraryClient = registerLibraryIpc(thumbnails, webdavHostMethods)
+  registerIntroDetectIpc()
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
   registerLibraryNotify(libraryClient)
@@ -208,6 +237,8 @@ app.whenReady().then(async () => {
 
   createWindow()
   registerDevToolsShortcut()
+  // 托盘 + 全局媒体键（内置播放器正在播放时）
+  installTray({ getMainWindow: () => mainWindow, showMainWindow })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

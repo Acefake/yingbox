@@ -131,8 +131,21 @@ export interface TmdbMovieDetails extends TmdbDetailsBase {
   }
 }
 
+/** 剧集详情里的上一集 / 下一集（追剧日历用）。 */
+export interface TmdbAiringEpisode {
+  season_number: number
+  episode_number: number
+  name?: string
+  air_date?: string | null
+  still_path?: string | null
+}
+
 /** 剧集详情。 */
 export interface TmdbTvDetails extends TmdbDetailsBase {
+  /** 最近播出的一集；没播过为 null。 */
+  last_episode_to_air?: TmdbAiringEpisode | null
+  /** 下一集（已排期）；没有为 null。 */
+  next_episode_to_air?: TmdbAiringEpisode | null
   name?: string
   original_name?: string
   first_air_date?: string

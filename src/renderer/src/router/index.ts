@@ -6,6 +6,7 @@ import { createRouter, createWebHashHistory } from 'vue-router'
 import { routes } from '@/router/routers'
 import { getSetting } from '@/features/settings'
 import { adultRedirect } from '@/router/adult-guard'
+import { installSectionLockGuard } from '@/features/section-lock'
 
 /**
  * 创建路由实例
@@ -42,6 +43,9 @@ router.beforeEach((to, _from, next) => {
   }
   next()
 })
+
+// 板块密码锁：进入已锁定的板块前要求解锁（排在成人模式守卫之后）
+installSectionLockGuard(router)
 
 /**
  * 全局后置钩子

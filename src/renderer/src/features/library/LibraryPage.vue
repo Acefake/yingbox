@@ -6,6 +6,7 @@
       v-model:facets="state.facets"
       v-model:library="libraryChoice"
       :facet-scope="facetScopeOf(section, state)"
+      :tonight="section !== 'jav'"
       :kind-label="kindLabel"
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"
@@ -69,11 +70,7 @@
           @identify="id => actions.identifySelected([id], () => {})"
         >
           <template #before>
-            <ContinueRow
-              class="lib-continue"
-              :section="section"
-              @detail="r => openDetail((r.detail as { itemId: number }).itemId)"
-            />
+            <LibraryTopRows :section="section" @open="openDetail" />
           </template>
           <template #after>
             <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
@@ -158,8 +155,7 @@
  * 本地媒体库页面（电影 / 剧集 / 番号三个分区共用，按 section 区分，见 state/library-section.ts）：工具栏、后台任务进度、海报墙 / 待确认队列、
  * 详情（覆盖在海报墙上，返回时保留滚动位置）、设置、修正匹配、整理。
  *
- * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。
- * 每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。
+ * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。
  * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts；视频墙在 video-wall/。
  */
 import { toast } from '@/components/ui'
@@ -169,7 +165,6 @@ import { useRoute } from 'vue-router'
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
-import { ContinueRow } from '@/features/player'
 import { libraryServerState } from '@/services/library-server'
 
 import ActorDetail from './actors/ActorDetail.vue'
@@ -177,6 +172,7 @@ import ActorsView from './actors/ActorsView.vue'
 import ItemDetail from './detail/ItemDetail.vue'
 import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
+import LibraryTopRows from './page/LibraryTopRows.vue'
 import LibraryToolbar from './page/LibraryToolbar.vue'
 import SelectionBar from './page/SelectionBar.vue'
 import ServerConnect from './page/ServerConnect.vue'
