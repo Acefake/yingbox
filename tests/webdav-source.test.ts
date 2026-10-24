@@ -16,6 +16,7 @@ import { forwardRemote, parseProxyPath } from '../src/main/webdav/proxy'
 import { WebDavSourceStore } from '../src/main/webdav/source-store'
 import { normalizeLibraryQuery } from '../src/shared/library/ipc'
 import {
+  type DavAccess,
   DavError,
   authHeader,
   createDavClient,
@@ -48,8 +49,18 @@ interface FakeNode {
   etag?: string
 }
 
+/** 假服务端：目录树、请求记录、造文件的方法、fetch 与正确的凭据。 */
+interface FakeServer {
+  nodes: Map<string, FakeNode>
+  calls: Array<{ method: string; path: string; depth?: string }>
+  put: (path: string, size?: number, mtime?: number) => void
+  touchParent: (path: string, mtime: number) => void
+  fetch: (url: string, init: RequestInit) => Promise<Response>
+  access: DavAccess
+}
+
 /** 内存里的远程目录树（键是解码后的绝对路径，含 basePath 之后的部分）+ 假 fetch。 */
-function fakeServer(base = '/dav') {
+function fakeServer(base = '/dav'): FakeServer {
   const nodes = new Map<string, FakeNode>([['/', { dir: true, mtime: 1 }]])
   const calls: Array<{ method: string; path: string; depth?: string }> = []
   const old = Date.UTC(2024, 0, 1)
@@ -112,8 +123,24 @@ function fakeServer(base = '/dav') {
   return { nodes, calls, put, touchParent, fetch, access }
 }
 
+/** 一次扫描可换的参数：全量、fetch、密码。 */
+interface ScanWithOptions {
+  full?: boolean
+  fetch?: FakeServer['fetch']
+  password?: string
+}
+
+/** 远程媒体库环境 */
+interface RemoteEnv {
+  db: ReturnType<typeof openLibraryDb>
+  library: ReturnType<LibraryStore['add']>
+  query: CatalogQuery
+  scanWith: (options?: ScanWithOptions) => ReturnType<typeof scanLibrary>
+  scan: (full?: boolean) => ReturnType<typeof scanLibrary>
+}
+
 /** 远程媒体库 + 内存数据库。 */
-function remoteEnv(server: ReturnType<typeof fakeServer>) {
+function remoteEnv(server: FakeServer): RemoteEnv {
   const db = openLibraryDb(':memory:')
   const library = new LibraryStore(db).add(
     { root: remotePath('ab12cd34', '/电影'), kind: 'movie' },
@@ -123,12 +150,8 @@ function remoteEnv(server: ReturnType<typeof fakeServer>) {
   const catalog = new CatalogStore(db)
   /** 用给定的 fetch / 凭据扫一次（缺省用假服务端和正确的凭据）。 */
   const scanWith = (
-    options: {
-      full?: boolean
-      fetch?: typeof server.fetch
-      password?: string
-    } = {}
-  ) =>
+    options: ScanWithOptions = {}
+  ): ReturnType<typeof scanLibrary> =>
     scanLibrary(
       {
         db,
@@ -372,7 +395,10 @@ describe('增量判定', () => {
     expect(server.calls.filter(c => c.depth === '1')).toHaveLength(2)
 
     // 子目录 A 出错，根目录正常
-    const brokenFetch = async (url: string, init: RequestInit) =>
+    const brokenFetch = async (
+      url: string,
+      init: RequestInit
+    ): Promise<Response> =>
       new URL(url).pathname.includes('A%20')
         ? new Response(null, { status: 500 })
         : server.fetch(url, init)
@@ -436,7 +462,7 @@ describe('207 里的资源级失败与失败子目录重试', () => {
     server.put('/电影/A (2001)/A (2001).mkv')
     const env = remoteEnv(server)
     await env.scan()
-    const forbidden = async () =>
+    const forbidden = async (): Promise<Response> =>
       new Response(
         '<D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/%E7%94%B5%E5%BD%B1/</D:href>' +
           '<D:status>HTTP/1.1 403 Forbidden</D:status></D:response></D:multistatus>',
@@ -486,7 +512,7 @@ describe('207 里的资源级失败与失败子目录重试', () => {
     // 非根目录「合集」下新出现子目录 B（合集的版本戳随之变化），第一次列 B 时 500
     server.put('/电影/合集/B (2002)/B (2002).mkv', 10, Date.UTC(2024, 5, 1))
     server.touchParent('/电影/合集/B (2002)', Date.UTC(2024, 5, 1))
-    const flaky = async (url: string, init: RequestInit) =>
+    const flaky = async (url: string, init: RequestInit): Promise<Response> =>
       new URL(url).pathname.includes('B%20')
         ? new Response(null, { status: 500 })
         : server.fetch(url, init)
@@ -580,7 +606,7 @@ describe('播放代理的 Range 转发', () => {
 
   it('forwardRemote：加凭据转发 Range，206 流式回给播放器；HEAD 不带正文；源不存在 404', async () => {
     const seen: Array<{ url: string; headers: Headers; method?: string }> = []
-    const fetch = async (url: string, init: RequestInit) => {
+    const fetch = async (url: string, init: RequestInit): Promise<Response> => {
       seen.push({
         url,
         headers: new Headers(init.headers),
@@ -595,7 +621,7 @@ describe('播放代理的 Range 转发', () => {
         },
       })
     }
-    const lookup = async (id: string) =>
+    const lookup = async (id: string): Promise<DavAccess | null> =>
       id === 'ab12'
         ? { url: 'http://nas/dav', username: 'u', password: 'p' }
         : null

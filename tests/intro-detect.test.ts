@@ -16,6 +16,7 @@ import {
 import { PCM_RATE, pcmFingerprint } from '../src/main/intro-detect/pcm-print'
 import { createDetectQueue } from '../src/main/intro-detect/queue'
 import {
+  type Candidate,
   introCandidates,
   minSupport,
   outroCandidates,
@@ -289,7 +290,7 @@ describe('多集投票', () => {
 
   it('端到端：4 集合成指纹 → 两两比对 → 投票出片头', async () => {
     const eps = [1, 2, 3, 4].map(seed => episode(seed + 40, INTRO, 40))
-    const cands = []
+    const cands: Candidate[] = []
     for (const pair of pairsFor(eps.length)) {
       const m = await compareClips(
         eps[pair[0]],

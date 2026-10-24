@@ -110,10 +110,20 @@ const TARGET: IdentifyTarget = {
 
 const FILE_NAME = '[BD]Gekijouban.Hibike.2016.1080p.x265-FRDS.mkv'
 
+/** 假执行器上下文与它记下的调用。 */
+interface FakeContext {
+  ctx: RunnerContext
+  applied: Array<{ id: string; breakdown: Record<string, number> }>
+  undecided: Array<{ state: string; ids: string[]; ai: unknown[] }>
+}
+
 /** 假执行器上下文：记录 applyRef / writeUndecided 的调用。 */
-function fakeContext(provider: MetadataProvider, fileName = FILE_NAME) {
-  const applied: Array<{ id: string; breakdown: Record<string, number> }> = []
-  const undecided: Array<{ state: string; ids: string[]; ai: unknown[] }> = []
+function fakeContext(
+  provider: MetadataProvider,
+  fileName = FILE_NAME
+): FakeContext {
+  const applied: FakeContext['applied'] = []
+  const undecided: FakeContext['undecided'] = []
   const ctx = {
     deps: {
       provider,
@@ -336,7 +346,10 @@ describe('guessToInput', () => {
 // —————————————————————————— TMDB 验证 ——————————————————————————
 
 describe('acceptAiMatch（TMDB 验证匹配规则）', () => {
-  const run = (g: AiGuess, pool = [HIBIKE, HIBIKE_2017]) =>
+  const run = (
+    g: AiGuess,
+    pool = [HIBIKE, HIBIKE_2017]
+  ): ReturnType<typeof identify> =>
     identify(guessToInput(g, 'movie'), { provider: fakeTmdb(pool) })
 
   it('标题与年份都对上才采用', async () => {
@@ -597,7 +610,7 @@ describe('createLimiter（限速）', () => {
     const limit = createLimiter(2)
     let running = 0
     let peak = 0
-    const task = () =>
+    const task = (): Promise<number> =>
       limit(async () => {
         running++
         peak = Math.max(peak, running)
@@ -700,7 +713,22 @@ describe('引擎集成', () => {
     confidence: 0.9,
   }
 
-  async function engine(status: { configured: boolean; fallback: boolean }) {
+  /** media_items 里本测试关心的列 */
+  type ItemRow = {
+    id: number
+    tmdb_id: string | null
+    match_state: string
+  }
+
+  async function engine(status: {
+    configured: boolean
+    fallback: boolean
+  }): Promise<{
+    tree: ReturnType<typeof tempTree>
+    service: LibraryService
+    ai: ReturnType<typeof fakeAi>
+    item: () => ItemRow
+  }> {
     const tree = tempTree()
     tree.write('Gisaengchung.2019.1080p.mkv', '')
     const tmdb = new FakeTmdb({ token: FAKE_TOKEN })
@@ -718,12 +746,12 @@ describe('引擎集成', () => {
     await service.start()
     await service.addLibrary({ root: tree.root, kind: 'movie' })
     await service.queue.idle()
-    const item = () =>
+    const item = (): ItemRow =>
       service.db
         .prepare(
           'SELECT id, tmdb_id, match_state FROM media_items WHERE parent_id IS NULL'
         )
-        .get() as { id: number; tmdb_id: string | null; match_state: string }
+        .get() as ItemRow
     return { tree, service, ai, item }
   }
 

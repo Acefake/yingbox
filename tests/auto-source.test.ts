@@ -261,14 +261,14 @@ describe('引擎测速', () => {
   })
 
   /** 每 188 字节一个 0x47 同步字节的 TS 数据 */
-  const tsBytes = (size: number): Uint8Array =>
+  const tsBytes = (size: number): Uint8Array<ArrayBuffer> =>
     Uint8Array.from({ length: size }, (_, i) => (i % 188 === 0 ? 0x47 : 0))
 
   /** 按地址返回固定内容的假网络客户端 */
   const fakeNet = (
     routes: Record<
       string,
-      { status?: number; body: string | Uint8Array; type?: string }
+      { status?: number; body: string | Uint8Array<ArrayBuffer>; type?: string }
     >
   ): { net: NetClient; calls: string[] } => {
     const calls: string[] = []

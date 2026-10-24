@@ -1,4 +1,5 @@
 import { describe, expect, it, vi } from 'vitest'
+import type { AiSubtitleRecord } from '../src/shared/ai-subtitles/types'
 import {
   SIBLING_ATTEMPTS,
   cacheSubtitlePath,
