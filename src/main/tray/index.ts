@@ -29,6 +29,7 @@ import {
   trayMenu,
   trayTooltip,
 } from './rules'
+import { watchReporter } from './reporter'
 
 /** installTray 需要的窗口操作（窗口生命周期归 src/main/index.ts） */
 export interface TrayHost {
@@ -59,6 +60,7 @@ export function installTray(host: TrayHost): void {
   let tray: Tray | null = null
   let state: NowPlaying | null = null
   let reporter: WebContents | null = null
+  let unwatchReporter: (() => void) | null = null
   let warnedPermission = false
 
   const send = (command: MediaCommand): void => {
@@ -127,10 +129,12 @@ export function installTray(host: TrayHost): void {
       state = next
       if (reporter !== sender) {
         reporter = sender
-        // 窗口关掉 / 渲染进程崩溃：当作停止播放，释放媒体键
-        sender.once('destroyed', () => {
+        unwatchReporter?.()
+        // 窗口关掉 / 渲染进程崩溃 / 页面重载：当作停止播放，清空托盘并释放媒体键
+        unwatchReporter = watchReporter(sender, () => {
           if (reporter !== sender) return
           reporter = null
+          unwatchReporter = null
           state = null
           refresh()
         })

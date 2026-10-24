@@ -4,6 +4,10 @@
  *
  * PlayerSession 只调用一次并把 UnifiedVideoPlayer 的 ready 交给 attach；换集、状态上报、
  * 卸载时清理都在这里。网页端没有 window.api，只设置 mediaSession。
+ *
+ * 手动换集时下一集可能要异步解析地址，旧 <video> 在解析完成前仍在页面上：换集前先暂停并「退役」它，
+ * 退役视频再被播放会立即暂停。换集加载期间的 ended / error（播放器的 error 不带 target）一律丢弃，
+ * 之后退役视频的事件也经 accepts 过滤，不会推动已经改过的队列。
  */
 import {
   type Ref,
@@ -52,8 +56,14 @@ const SESSION_ACTIONS: MediaSessionAction[] = [
 
 export function usePlayerMediaControls(source: MediaControlsSource): {
   attach: (video: HTMLVideoElement) => void
+  accepts: (event: Event | undefined) => boolean
 } {
   const video = shallowRef<HTMLVideoElement | null>(null)
+  /** 手动换集时退役的旧视频：它们的事件不再驱动播放队列 */
+  const retired = new WeakSet<EventTarget>()
+  /** 手动换集的世代；switching 为真表示最近一次换集的加载还没结束 */
+  let switchSeq = 0
+  let switching = false
   const playing = shallowRef(false)
   const pass = createCommandGate()
   const bridge =
@@ -84,6 +94,17 @@ export function usePlayerMediaControls(source: MediaControlsSource): {
     source.onVideo(next)
   }
 
+  /** 停下并退役旧视频：之后再被播放会立即暂停 */
+  const retire = (el: HTMLVideoElement): void => {
+    retired.add(el)
+    el.addEventListener('play', () => el.pause())
+    el.pause()
+  }
+
+  /** 视频事件是否仍属于当前会话：换集加载中、或来自退役视频的事件一律忽略 */
+  const accepts = (event: Event | undefined): boolean =>
+    !switching && !(event?.target && retired.has(event.target))
+
   const step = (delta: number): void => {
     const target = stepTarget(
       source.position.value,
@@ -91,9 +112,18 @@ export function usePlayerMediaControls(source: MediaControlsSource): {
       delta
     )
     if (target === null) return
+    // 先停旧视频再改队列位置：异步解析期间旧视频播完也不会再触发连播
+    if (video.value) retire(video.value)
     source.activeFallback.value = -1
     source.position.value = target
-    void source.load()
+    const seq = ++switchSeq
+    switching = true
+    void source
+      .load()
+      .catch(() => {})
+      .finally(() => {
+        if (seq === switchSeq) switching = false
+      })
   }
 
   /** 播放 / 暂停；不传 want 时切换 */
@@ -171,5 +201,5 @@ export function usePlayerMediaControls(source: MediaControlsSource): {
     }
   })
 
-  return { attach }
+  return { attach, accepts }
 }

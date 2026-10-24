@@ -1,9 +1,11 @@
 // @vitest-environment jsdom
+import { EventEmitter } from 'node:events'
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { createApp, defineComponent, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
+import { resetsSession, watchReporter } from '../src/main/tray/reporter'
 import {
   MEDIA_KEY_COMMANDS,
   clipTitle,
@@ -150,12 +152,13 @@ describe('usePlayerMediaControls', () => {
     delete (window as { api?: unknown }).api
   })
 
-  function mount(): {
+  function mount(loadImpl: () => Promise<void> = async () => {}): {
     position: ReturnType<typeof ref<number>>
     load: ReturnType<typeof vi.fn>
     report: ReturnType<typeof vi.fn>
     send: (command: string) => void
     attach: (video: HTMLVideoElement) => void
+    accepts: (event: Event | undefined) => boolean
     onVideo: ReturnType<typeof vi.fn>
     unmount: () => void
   } {
@@ -172,13 +175,13 @@ describe('usePlayerMediaControls', () => {
       },
     }
     const position = ref(1)
-    const load = vi.fn(async () => {})
+    const load = vi.fn(loadImpl)
     const onVideo = vi.fn()
-    let attach: (video: HTMLVideoElement) => void = () => {}
+    let controls: ReturnType<typeof usePlayerMediaControls> | null = null
     const app = createApp(
       defineComponent({
         setup() {
-          attach = usePlayerMediaControls({
+          controls = usePlayerMediaControls({
             playlist: ref(['a', 'b', 'c']),
             position,
             activeFallback: ref(0),
@@ -186,7 +189,7 @@ describe('usePlayerMediaControls', () => {
             title: () => `集 ${position.value}`,
             poster: ref(''),
             onVideo,
-          }).attach
+          })
           return () => null
         },
       })
@@ -197,7 +200,8 @@ describe('usePlayerMediaControls', () => {
       load,
       report,
       send: command => listener?.(command),
-      attach: video => attach(video),
+      attach: video => controls?.attach(video),
+      accepts: event => controls?.accepts(event) ?? false,
       onVideo,
       unmount: () => app.unmount(),
     }
@@ -246,6 +250,106 @@ describe('usePlayerMediaControls', () => {
         ?.nowPlaying.offCommand
     ).toHaveBeenCalled()
   })
+
+  const fakeVideo = (): HTMLVideoElement => {
+    const video = document.createElement('video')
+    video.pause = vi.fn()
+    return video
+  }
+  const endedOf = (video: HTMLVideoElement): Event => {
+    const event = new Event('ended')
+    Object.defineProperty(event, 'target', { value: video })
+    return event
+  }
+
+  it('先暂停旧视频再改位置；加载期间丢弃 ended / error，之后只丢退役视频的事件', async () => {
+    let finish: () => void = () => {}
+    const pending = new Promise<void>(resolve => {
+      finish = resolve
+    })
+    let pausedAt = -1
+    // eslint-disable-next-line prefer-const -- 下面的闭包要先引用
+    let ctx: ReturnType<typeof mount>
+    const old = fakeVideo()
+    ;(old.pause as ReturnType<typeof vi.fn>).mockImplementation(() => {
+      if (pausedAt < 0) pausedAt = ctx.position.value ?? -1
+    })
+    ctx = mount(() => pending)
+    ctx.attach(old)
+    expect(ctx.accepts(endedOf(old))).toBe(true)
+
+    ctx.send('next')
+    expect(pausedAt).toBe(1) // 暂停发生在位置变成 2 之前
+    expect(ctx.position.value).toBe(2)
+    // 异步解析中：旧视频播完、播放器报错都不能推动队列
+    expect(ctx.accepts(endedOf(old))).toBe(false)
+    expect(ctx.accepts(new Event('error'))).toBe(false)
+    // 旧视频被再次播放会立即暂停
+    const pauses = (old.pause as ReturnType<typeof vi.fn>).mock.calls.length
+    old.dispatchEvent(new Event('play'))
+    expect(old.pause).toHaveBeenCalledTimes(pauses + 1)
+
+    finish()
+    await pending
+    await nextTick()
+    const fresh = fakeVideo()
+    ctx.attach(fresh)
+    expect(ctx.accepts(endedOf(old))).toBe(false)
+    expect(ctx.accepts(endedOf(fresh))).toBe(true)
+    expect(ctx.accepts(new Event('error'))).toBe(true)
+    ctx.unmount()
+  })
+})
+
+describe('上报页面失效', () => {
+  it('只有主框架的跨文档导航算会话失效', () => {
+    expect(resetsSession({ isMainFrame: true, isSameDocument: false })).toBe(
+      true
+    )
+    expect(resetsSession({ isMainFrame: true, isSameDocument: true })).toBe(
+      false
+    )
+    expect(resetsSession({ isMainFrame: false, isSameDocument: false })).toBe(
+      false
+    )
+    expect(resetsSession(undefined)).toBe(false)
+  })
+
+  it('渲染进程崩溃、主框架重载、窗口销毁都清理一次；取消后不再触发', () => {
+    for (const fire of [
+      (e: EventEmitter) => e.emit('render-process-gone', {}, {}, {}),
+      (e: EventEmitter) =>
+        e.emit('did-start-navigation', {
+          isMainFrame: true,
+          isSameDocument: false,
+        }),
+      (e: EventEmitter) => e.emit('destroyed'),
+    ]) {
+      const sender = new EventEmitter()
+      const gone = vi.fn()
+      watchReporter(sender, gone)
+      sender.emit('did-start-navigation', {
+        isMainFrame: true,
+        isSameDocument: true,
+      })
+      sender.emit('did-start-navigation', {
+        isMainFrame: false,
+        isSameDocument: false,
+      })
+      expect(gone).not.toHaveBeenCalled()
+      fire(sender)
+      fire(sender)
+      sender.emit('destroyed')
+      expect(gone).toHaveBeenCalledTimes(1)
+      expect(sender.eventNames()).toEqual([])
+    }
+    const sender = new EventEmitter()
+    const gone = vi.fn()
+    watchReporter(sender, gone)()
+    sender.emit('render-process-gone')
+    expect(gone).not.toHaveBeenCalled()
+    expect(sender.eventNames()).toEqual([])
+  })
 })
 
 describe('接线', () => {
@@ -256,6 +360,7 @@ describe('接线', () => {
     expect(tray).toMatch(/emit\(nowPlaying, 'command'/)
     expect(tray).not.toMatch(/\.send\(/)
     expect(tray).not.toMatch(/before-quit/)
+    expect(tray).toMatch(/watchReporter\(sender/)
   })
 
   it('PlayerSession 只接一次 composable，<video> 经 attach 交出去', () => {
@@ -264,6 +369,13 @@ describe('接线', () => {
     )
     expect(session).toMatch(/usePlayerMediaControls\(\{/)
     expect(session).toMatch(/@ready="media\.attach"/)
+    // 换集期间旧视频的 ended / error 不推动队列
+    expect(session).toMatch(
+      /onEnded = async[^]*?if \(!media\.accepts\(event\)\) return/
+    )
+    expect(session).toMatch(
+      /onError = async[^]*?if \(!media\.accepts\(event\)\) return/
+    )
   })
 
   it('设置：两个开关在 schema 里，播放器设置页桌面端显示', () => {

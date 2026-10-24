@@ -213,6 +213,7 @@ const playNext = async (): Promise<boolean> => {
 }
 
 const onEnded = async (event: Event): Promise<void> => {
+  if (!media.accepts(event)) return
   const el = event.target as HTMLVideoElement | null
   progress.markFinished(el)
   const next = playlist.value[position.value + 1]
@@ -225,7 +226,8 @@ const onEnded = async (event: Event): Promise<void> => {
 }
 
 /** 播放失败：自动切换到同集的下一条备用线路 */
-const onError = async (): Promise<void> => {
+const onError = async (event?: Event): Promise<void> => {
+  if (!media.accepts(event)) return
   const nextFallback = activeFallback.value + 1
   if (nextFallback < fallbacks.value.length) {
     activeFallback.value = nextFallback
