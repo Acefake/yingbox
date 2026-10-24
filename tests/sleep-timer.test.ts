@@ -10,6 +10,7 @@ import {
   keepSleepOnAttach,
   sleepChoiceLabel,
   sleepChoiceOf,
+  sleepEndsAtVideoEnd,
   sleepFadeFactor,
   sleepRemainingMs,
   sleepStep,
@@ -121,5 +122,13 @@ describe('睡眠定时规则', () => {
     expect(keepSleepOnAttach(null, 5)).toBe(true)
     expect(keepSleepOnAttach(1000, 1000 + SLEEP_REATTACH_MS)).toBe(true)
     expect(keepSleepOnAttach(1000, 1001 + SLEEP_REATTACH_MS)).toBe(false)
+  })
+
+  it('播放结束时：看完本集一定生效，按分钟只在到点后生效', () => {
+    expect(sleepEndsAtVideoEnd(null, 0)).toBe(false)
+    expect(sleepEndsAtVideoEnd({ mode: 'episode' }, 0)).toBe(true)
+    const s = startSleep(30, 0)!
+    expect(sleepEndsAtVideoEnd(s, 1_799_999)).toBe(false)
+    expect(sleepEndsAtVideoEnd(s, 1_800_000)).toBe(true)
   })
 })

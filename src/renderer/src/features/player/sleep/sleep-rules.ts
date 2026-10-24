@@ -139,6 +139,22 @@ export function sleepStep(
 }
 
 /**
+ * 播放到结尾（ended）时睡眠定时是否该生效：「看完本集」一定生效；按分钟计时已到点也生效。
+ * 生效即本次暂停、不连播下一集，并清掉定时。片尾前的轮询可能被拖动进度或主线程卡顿错过，
+ * 所以结束事件 / 自动连播入口要同步再判一次。
+ * @param state 计时状态
+ * @param now 当前时刻（毫秒）
+ */
+export function sleepEndsAtVideoEnd(
+  state: SleepState | null,
+  now: number
+): boolean {
+  if (!state) return false
+  if (state.mode === 'episode') return true
+  return state.deadline - now <= 0
+}
+
+/**
  * 剩余时间的短文案（菜单右侧提示）：「剩 29:05」「剩 1:02:00」。
  * @param remainingMs 剩余毫秒
  */

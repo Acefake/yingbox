@@ -16,6 +16,7 @@ import {
   keepSleepOnAttach,
   sleepChoiceLabel,
   sleepChoiceOf,
+  sleepEndsAtVideoEnd,
   sleepRemainingMs,
   sleepStep,
   startSleep,
@@ -30,9 +31,25 @@ let state: SleepState | null = null
 /** 上一个播放器拆掉的时刻；有播放器挂着时为 null */
 let detachedAt: number | null = null
 
+/** 当前挂着的播放器在定时被结束事件消费后的收尾（恢复音量、刷新菜单）；没有播放器为 null */
+let onConsumed: (() => void) | null = null
+
 /** 当前定时（测试与调试用） */
 export function currentSleep(): SleepState | null {
   return state
+}
+
+/**
+ * 播放结束（ended）时同步检查并消费睡眠定时：生效则清掉定时并返回 true，
+ * 调用方据此停在本集、不自动连播；之后新挂上的播放器不会再沿用这次的定时。
+ * 由自动连播入口（PlayerSession 的 onEnded）在 playNext 之前调用。
+ * @param now 当前时刻（毫秒）
+ */
+export function consumeSleepAtEnd(now = Date.now()): boolean {
+  if (!sleepEndsAtVideoEnd(state, now)) return false
+  state = null
+  onConsumed?.()
+  return true
 }
 
 /** 菜单右侧的提示：选中项，按分钟计时时换成剩余时间 */
@@ -128,10 +145,17 @@ export function installSleepTimer(art: Artplayer): void {
     }
   }
 
+  const consumed = (): void => {
+    restoreVolume()
+    refreshMenu()
+  }
+
   art.setting.add(settingConfig(art, pick))
+  onConsumed = consumed
   const timer = window.setInterval(tick, TICK_MS)
   art.on('destroy', () => {
     window.clearInterval(timer)
+    if (onConsumed === consumed) onConsumed = null
     restoreVolume()
     detachedAt = Date.now()
   })
