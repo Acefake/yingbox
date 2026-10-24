@@ -159,6 +159,18 @@
     </SettingsRow>
   </SettingsGroup>
 
+  <SettingsGroup
+    title="前情提要 · 问剧情"
+    footer="只用当前进度之前的字幕（AI 字幕或外挂 srt），没有字幕时用分集简介；问剧情在播放器设置菜单或右键里打开"
+  >
+    <SettingsRow
+      title="开播时提示前情提要"
+      description="剧集第 2 集起从头播放时，在播放器左上角浮出提示，点开再生成"
+    >
+      <UiSwitch v-model="recapPrompt" label="开播时提示前情提要" />
+    </SettingsRow>
+  </SettingsGroup>
+
   <SettingsGroup title="用量">
     <SettingsRow
       title="本月用量"
@@ -217,6 +229,7 @@ const speechModel = useSetting('ai.speech.model')
 const speechBaseUrl = useSetting('ai.speech.baseUrl')
 const whisperBin = useSetting('ai.speech.whisperBin')
 const whisperModelPath = useSetting('ai.speech.whisperModelPath')
+const recapPrompt = useSetting('ai.recap.prompt')
 
 /** 路径输入失焦 / 回车后才保存（逐字保存会把半截路径当成不合法） */
 function inputText(event: Event): string {

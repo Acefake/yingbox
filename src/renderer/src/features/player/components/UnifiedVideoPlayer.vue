@@ -8,6 +8,12 @@
       <div ref="containerEl" class="unified-player-video-area" />
       <!-- 仅加载中显示自适应海报；开播后纯黑，不留背景 -->
       <PlayerLoadingCover v-if="isLoading" :poster="posterSrc" />
+      <RecapLayer
+        :source="currentSource"
+        :private="aiPrivate"
+        :start-at="startAt"
+        :player="artInstance"
+      />
     </div>
     <div v-if="showFooter && (closable || title)" class="unified-player-footer">
       <span class="unified-player-title">{{ title || '正在播放' }}</span>
@@ -59,6 +65,7 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import AiSubtitleSection from '../ai-subtitle/AiSubtitleSection.vue'
 import { installSubtitlePanelEntry } from '../ai-subtitle/art-entry'
 import { useAiSubtitle } from '../ai-subtitle/use-ai-subtitle'
+import RecapLayer from '../recap/RecapLayer.vue'
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
 import {
   type ArtCore,
@@ -151,6 +158,9 @@ const aiSubtitle = useAiSubtitle({
   title: () => props.subtitleSearchTitle || props.title || '',
   load: (path, name) => subtitles.applyFile(path, name),
 })
+
+/** 当前 Artplayer 实例（前情提要 / 问剧情读进度、加菜单入口） */
+const artInstance = (): ArtCore['art'] | null => core?.art ?? null
 
 const openSubtitlePanel = (): void => {
   if (!subtitles.panelOpen.value) subtitles.togglePanel()

@@ -16,6 +16,7 @@ import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
 import { online } from './online'
+import { recap } from './recap'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
@@ -35,6 +36,7 @@ export const contract = {
   media,
   mpv,
   online,
+  recap,
   settings,
   shell,
   subtitle,
