@@ -74,24 +74,6 @@ function oneOf<const T extends readonly string[]>(
   }
 }
 
-/** 名字列表（路由名等标识符），去重，最多 max 个 */
-function names(max: number): ValueSpec<string[]> {
-  return {
-    kind: 'value',
-    default: [],
-    parse: raw => {
-      if (!Array.isArray(raw) || raw.length > max) return undefined
-      if (
-        !raw.every(
-          item => typeof item === 'string' && /^[A-Za-z][\w-]{0,63}$/.test(item)
-        )
-      )
-        return undefined
-      return [...new Set(raw as string[])]
-    },
-  }
-}
-
 /** 本机绝对路径（Windows 盘符 / UNC / POSIX），空串表示用默认值 */
 function absolutePath(): ValueSpec<string> {
   return {
@@ -128,11 +110,6 @@ export const settingsSchema = {
   'app.theme': oneOf(['dark', 'light'] as const, 'dark'),
   /** 成人模式：显示 AV / 去马赛克入口与成人源 */
   'app.adultMode': bool(false),
-
-  /** 板块密码锁：进入时要解锁的板块（路由名）；没设应用密码时不生效 */
-  'lock.sections': names(32),
-  /** 解锁后离开板块（或窗口隐藏）多少分钟重新锁定；0 = 本次运行内一直有效 */
-  'lock.relockMinutes': num(0, 1440, 0),
 
   /** 卡片悬停预览：悬停一会儿在卡内静音播放预告 / 片段（系统「减少动态效果」时始终不播） */
   'ui.hoverPreview': bool(true),

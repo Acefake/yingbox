@@ -1,5 +1,5 @@
 /**
- * 板块密码锁的主进程纯规则：连续输错的限流。
+ * 板块密码锁的主进程纯规则：连续输错的限流、一次性验证凭据。
  */
 
 /** 连续输错多少次后暂停 */
@@ -34,6 +34,41 @@ export function createAttemptLimiter(
       failures = 0
       blockedUntil = now() + Math.min(LOCKOUT_MS * 2 ** rounds, MAX_LOCKOUT_MS)
       rounds += 1
+    },
+  }
+}
+
+/** 一次性验证凭据的有效期：验证通过后这么久内要用掉 */
+export const GRANT_TTL_MS = 60_000
+
+/** 一次性验证凭据：issue 在验证通过后签发，consume 校验并作废（过期、用过、伪造都不通过） */
+export interface GrantStore {
+  issue(): string
+  consume(grant: string): boolean
+}
+
+export function createGrantStore(
+  token: () => string,
+  now: () => number = Date.now
+): GrantStore {
+  const grants = new Map<string, number>()
+  const prune = (): void => {
+    const time = now()
+    for (const [grant, expiresAt] of grants)
+      if (expiresAt <= time) grants.delete(grant)
+  }
+  return {
+    issue: () => {
+      prune()
+      const grant = token()
+      grants.set(grant, now() + GRANT_TTL_MS)
+      return grant
+    },
+    consume: grant => {
+      prune()
+      if (!grant || !grants.has(grant)) return false
+      grants.delete(grant)
+      return true
     },
   }
 }

@@ -1,13 +1,5 @@
 <template>
   <SettingsGroup title="应用密码" :footer="passwordFooter">
-    <SettingsRow v-if="status.passwordSet" stacked>
-      <UiInput
-        v-model="current"
-        type="password"
-        placeholder="当前密码"
-        autocomplete="current-password"
-      />
-    </SettingsRow>
     <SettingsRow stacked>
       <UiInput
         v-model="next"
@@ -23,34 +15,32 @@
           variant="primary"
           :label="status.passwordSet ? '修改密码' : '设置密码'"
           :loading="saving"
-          :disabled="!nextValid || (status.passwordSet && !current)"
+          :disabled="!nextValid"
           @click="savePassword"
         />
         <UiButton
           v-if="status.passwordSet"
           variant="danger"
           label="清除密码"
-          :disabled="!current || saving"
+          :disabled="saving"
           @click="clearPassword"
         />
       </div>
     </SettingsRow>
   </SettingsGroup>
 
-  <SettingsGroup
-    title="锁定的板块"
-    footer="进入时需要输入应用密码或通过系统认证；解锁在本次运行中有效"
-  >
+  <SettingsGroup title="锁定的板块" :footer="sectionsFooter">
     <SettingsRow
       v-for="section in sections"
       :key="section.name"
       :title="section.title"
     >
       <UiSwitch
-        :model-value="locked.includes(section.name)"
+        :key="revision"
+        :model-value="status.sections.includes(section.name)"
         :label="`锁定${section.title}`"
         :disabled="!status.passwordSet"
-        @update:model-value="toggle(section.name, $event)"
+        @update:model-value="toggle(section, $event)"
       />
     </SettingsRow>
     <SettingsRow
@@ -58,9 +48,11 @@
       description="解锁后离开板块或窗口隐藏超过这段时间，再进入时重新验证"
     >
       <UiSelect
-        v-model="relockMinutes"
+        :key="revision"
+        :model-value="status.relockMinutes"
         :options="relockOptions"
         :disabled="!status.passwordSet"
+        @update:model-value="setRelock"
       />
     </SettingsRow>
   </SettingsGroup>
@@ -69,30 +61,30 @@
 <script setup lang="ts">
 /**
  * 设置 · 板块锁：设置 / 修改 / 清除应用密码（主进程 scrypt 哈希保存），
- * 勾选要锁的板块（lock.sections，列表读应用入口传入的路由表），离开后多久重新锁定（lock.relockMinutes）。
- * 没设密码时不能开锁；清除密码会一并取消全部锁定。
+ * 勾选要锁的板块（列表读应用入口传入的路由表），离开后多久重新锁定；锁的配置保存在主进程。
+ *
+ * 降低保护的操作（修改 / 清除密码、取消某个板块的锁定、放宽重新锁定）先弹解锁界面验证身份
+ * （应用密码或 Touch ID），拿到主进程签发的一次性凭据再写入；主进程写入时再校验凭据。
+ * 增加锁定、收紧重新锁定不需要验证。没设密码时不能开锁；清除密码会一并取消全部锁定。
  */
 import { computed, onMounted, ref } from 'vue'
 
 import { UiButton, UiInput, UiSelect, UiSwitch, toast } from '@/components/ui'
-import {
-  SettingsGroup,
-  SettingsRow,
-  getSetting,
-  setSetting,
-  useSetting,
-} from '@/features/settings'
+import { SettingsGroup, SettingsRow, getSetting } from '@/features/settings'
 
+import { parseLockPassword } from '../../../../shared/section-lock'
 import {
-  type LockVerifyResult,
-  parseLockPassword,
-} from '../../../../shared/section-lock'
-import { refreshLockStatus, sectionLockStatus } from './lock-state'
+  type GuardedWrite,
+  refreshLockStatus,
+  requestAuthorization,
+  saveLockConfig,
+  sectionLockStatus,
+} from './lock-state'
 import {
   type LockableRoute,
+  type LockableSection,
   RELOCK_OPTIONS,
   lockableSections,
-  retryText,
 } from './rules'
 
 const props = defineProps<{
@@ -101,16 +93,15 @@ const props = defineProps<{
 }>()
 
 const status = sectionLockStatus()
-const relockMinutes = useSetting('lock.relockMinutes')
 const relockOptions = RELOCK_OPTIONS.map(option => ({ ...option }))
-const locked = computed(() => getSetting('lock.sections'))
 const sections = computed(() =>
   lockableSections(props.routes, getSetting('app.adultMode'))
 )
 
-const current = ref('')
 const next = ref('')
 const saving = ref(false)
+/** 每次写入结束 +1：取消验证或被拒时让开关 / 下拉框回到实际保存的值 */
+const revision = ref(0)
 const nextValid = computed(() => parseLockPassword(next.value) !== undefined)
 
 const passwordFooter = computed(() => {
@@ -118,59 +109,83 @@ const passwordFooter = computed(() => {
     status.value.systemAuth === 'touchid'
       ? '解锁时也可以用 Touch ID。'
       : '当前系统没有可调用的系统认证，解锁时输入应用密码。'
-  return `密码至少 4 个字符，只保存加密哈希，忘记后只能清除重设（需当前密码）。${system}`
+  return `密码至少 4 个字符，只保存加密哈希。修改或清除密码前需要先验证。${system}`
 })
+const sectionsFooter =
+  '进入时需要输入应用密码或通过系统认证；取消锁定或放宽自动锁定前需要先验证'
 
 onMounted(() => void refreshLockStatus().catch(() => {}))
 
-/** 处理一次密码校验结果；通过返回 true */
-function accepted(result: LockVerifyResult): boolean {
-  if (result.ok) return true
-  toast.error(
-    result.retryAfterMs > 0 ? retryText(result.retryAfterMs) : '当前密码不正确'
-  )
-  return false
+/** 提示一次受保护写入的结果 */
+function report(result: GuardedWrite, success?: string): void {
+  if (result === 'saved' && success) toast.success(success)
+  if (result === 'rejected') toast.error('验证已失效，请重新操作')
 }
 
-async function savePassword(): Promise<void> {
-  const bridge = window.api?.sectionLock
-  if (!bridge || !nextValid.value) return
+/** 已设密码时先验证身份拿凭据；没设密码时不需要（空串）。取消返回 null */
+async function authorize(reason: string): Promise<string | null> {
+  if (!status.value.passwordSet) return ''
+  return (await requestAuthorization(reason)) || null
+}
+
+async function guarded(
+  run: () => Promise<GuardedWrite>,
+  success?: string
+): Promise<void> {
   saving.value = true
   try {
-    if (!accepted(await bridge.setPassword(current.value, next.value))) return
-    current.value = ''
-    next.value = ''
-    await refreshLockStatus()
-    toast.success('应用密码已保存')
+    report(await run(), success)
   } catch (error) {
     toast.error((error as Error).message)
   } finally {
     saving.value = false
+    revision.value += 1
   }
 }
 
-async function clearPassword(): Promise<void> {
+function savePassword(): Promise<void> {
   const bridge = window.api?.sectionLock
-  if (!bridge) return
-  saving.value = true
-  try {
-    if (!accepted(await bridge.clearPassword(current.value))) return
-    current.value = ''
-    await setSetting('lock.sections', [])
+  const value = next.value
+  if (!bridge || parseLockPassword(value) === undefined)
+    return Promise.resolve()
+  return guarded(async () => {
+    const grant = await authorize('修改应用密码前需要验证')
+    if (grant === null) return 'cancelled'
+    const ok = await bridge.setPassword(grant, value)
     await refreshLockStatus()
-    toast.success('应用密码已清除，板块锁已全部关闭')
-  } catch (error) {
-    toast.error((error as Error).message)
-  } finally {
-    saving.value = false
-  }
+    if (ok) next.value = ''
+    return ok ? 'saved' : 'rejected'
+  }, '应用密码已保存')
 }
 
-function toggle(name: string, on: boolean): void {
-  const rest = locked.value.filter(item => item !== name)
-  void setSetting('lock.sections', on ? [...rest, name] : rest).catch(error =>
-    toast.error((error as Error).message)
+function clearPassword(): Promise<void> {
+  const bridge = window.api?.sectionLock
+  if (!bridge) return Promise.resolve()
+  return guarded(async () => {
+    const grant = await authorize('清除应用密码前需要验证')
+    if (grant === null) return 'cancelled'
+    const ok = await bridge.clearPassword(grant)
+    await refreshLockStatus()
+    return ok ? 'saved' : 'rejected'
+  }, '应用密码已清除，板块锁已全部关闭')
+}
+
+function toggle(section: LockableSection, on: boolean): Promise<void> {
+  const { sections: locked, relockMinutes } = status.value
+  const rest = locked.filter(item => item !== section.name)
+  const config = {
+    sections: on ? [...rest, section.name] : rest,
+    relockMinutes,
+  }
+  return guarded(() =>
+    saveLockConfig(config, `取消「${section.title}」的锁定前需要验证`)
   )
+}
+
+function setRelock(value: unknown): Promise<void> {
+  const minutes = Number(value)
+  const config = { sections: status.value.sections, relockMinutes: minutes }
+  return guarded(() => saveLockConfig(config, '放宽自动重新锁定前需要验证'))
 }
 </script>
 

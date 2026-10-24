@@ -1,8 +1,10 @@
 import {
   LOCK_PASSWORD_MAX,
   LOCK_PASSWORD_MIN,
+  type LockConfig,
   type LockVerifyResult,
   type SectionLockStatus,
+  parseLockConfig,
   parseLockPassword,
 } from '../section-lock'
 import { ContractError, call, defineDomain, str } from './define'
@@ -15,29 +17,43 @@ function attempt(value: unknown, name: string): string {
   return text
 }
 
-/** 板块密码锁：应用密码（主进程 scrypt 哈希保存，不存明文）与系统认证（macOS Touch ID）。 */
+/** 一次性凭据：verify / promptSystem 通过时签发；没有时传空串 */
+function grantArg(value: unknown): string {
+  const text = str(value, 'grant')
+  if (text.length > 128) throw new ContractError('参数 grant 过长')
+  return text
+}
+
+/**
+ * 板块密码锁：应用密码（主进程 scrypt 哈希保存，不存明文）、锁的配置与系统认证（macOS Touch ID）。
+ * 验证通过时签发一次性凭据（短时有效、用一次作废）；设了密码后，降低保护的写入必须带凭据，主进程校验。
+ */
 export const sectionLock = defineDomain('sectionLock', {
-  /** 是否已设密码、可用的系统认证 */
+  /** 是否已设密码、可用的系统认证、锁的配置 */
   status: call<SectionLockStatus>(),
-  /** 校验应用密码；连续输错会被暂时拒绝（retryAfterMs） */
+  /** 校验应用密码，通过时签发凭据；连续输错会被暂时拒绝（retryAfterMs） */
   verify: call<[password: string], LockVerifyResult>(a => [
     attempt(a[0], 'password'),
   ]),
-  /** 设置 / 修改应用密码；已有密码时 current 必须正确（没有时传空串） */
-  setPassword: call<[current: string, next: string], LockVerifyResult>(a => {
+  /** 设置 / 修改应用密码；已有密码时要有效凭据。写入返回 true，被拒返回 false */
+  setPassword: call<[grant: string, next: string], boolean>(a => {
     const next = parseLockPassword(a[1])
     if (next === undefined)
       throw new ContractError(
         `新密码应为 ${LOCK_PASSWORD_MIN}–${LOCK_PASSWORD_MAX} 个字符`
       )
-    return [attempt(a[0], 'current'), next]
+    return [grantArg(a[0]), next]
   }),
-  /** 清除应用密码；current 必须正确 */
-  clearPassword: call<[current: string], LockVerifyResult>(a => [
-    attempt(a[0], 'current'),
-  ]),
-  /** 弹出系统认证（Touch ID）；通过返回 true，取消 / 失败 / 不可用返回 false */
-  promptSystem: call<[reason: string], boolean>(a => {
+  /** 清除应用密码并取消全部板块锁定；要有效凭据 */
+  clearPassword: call<[grant: string], boolean>(a => [grantArg(a[0])]),
+  /** 改锁的配置（整份）；设了密码且取消锁定 / 放宽重新锁定时要有效凭据 */
+  setConfig: call<[config: LockConfig, grant: string], boolean>(a => {
+    const config = parseLockConfig(a[0])
+    if (!config) throw new ContractError('参数 config 不合法')
+    return [config, grantArg(a[1])]
+  }),
+  /** 弹出系统认证（Touch ID），通过时签发凭据；取消 / 失败 / 不可用时 ok 为 false */
+  promptSystem: call<[reason: string], LockVerifyResult>(a => {
     const reason = str(a[0], 'reason').trim().slice(0, 120)
     if (!reason) throw new ContractError('参数 reason 不能为空')
     return [reason]
