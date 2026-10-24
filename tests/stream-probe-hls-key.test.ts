@@ -15,7 +15,7 @@ import { parseM3u8, probeStream } from '../src/engine/online/stream-probe'
 import type { NetClient } from '../src/shared/net/client'
 
 /** 每 188 字节一个 0x47 同步字节的 TS 数据 */
-const tsBytes = (size: number): Uint8Array =>
+const tsBytes = (size: number): Uint8Array<ArrayBuffer> =>
   Uint8Array.from({ length: size }, (_, i) => (i % 188 === 0 ? 0x47 : i % 251))
 
 const KEY = Uint8Array.from({ length: 16 }, (_, i) => i + 1)
@@ -27,12 +27,16 @@ const encrypt = (
   data: Uint8Array,
   key: Uint8Array,
   iv: Uint8Array
-): Uint8Array => {
+): Uint8Array<ArrayBuffer> => {
   const cipher = createCipheriv('aes-128-cbc', key, iv)
   return Uint8Array.from(Buffer.concat([cipher.update(data), cipher.final()]))
 }
 
-type Route = { status?: number; body: string | Uint8Array; type?: string }
+type Route = {
+  status?: number
+  body: string | Uint8Array<ArrayBuffer>
+  type?: string
+}
 
 /** 按地址返回固定内容的假网络客户端 */
 const fakeNet = (
