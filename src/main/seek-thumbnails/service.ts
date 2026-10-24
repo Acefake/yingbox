@@ -5,6 +5,7 @@
  *   最多排 MAX_QUEUE 个，多出来的丢掉（下次打开再排）。
  * - 先写到同级的 .partial 临时目录，成功后整体改名，清单最后写入；中途失败或超时不留半成品。
  * - 找不到 ffmpeg、生成失败都静默：渲染层拿不到清单就不显示缩略图。
+ * - 退出：stop() 之后不再排队、不再启动 ffmpeg，并等当前任务（含准备阶段与子进程）真正结束。
  */
 import { type ChildProcess, spawn } from 'node:child_process'
 import { randomUUID } from 'node:crypto'
@@ -77,7 +78,12 @@ interface SeekJob {
 export class SeekThumbnailService {
   private readonly queue: SeekJob[] = []
   private readonly pending = new Set<string>()
+  /** 当前任务：从出队起算（含定位 ffmpeg、扫缓存），到子进程退出、落盘完成为止。 */
   private running: { key: string; child: ChildProcess | null } | null = null
+  /** 当前任务的 Promise，stop() 等它结束。 */
+  private task: Promise<void> | null = null
+  /** stop() 后置位：不再排队、不再启动 ffmpeg。 */
+  private stopped = false
   private swept = false
 
   constructor(private readonly deps: SeekServiceDeps) {}
@@ -100,14 +106,14 @@ export class SeekThumbnailService {
     const cached = await this.readManifest(key)
     if (cached) return { key, manifest: cached }
     if (!shouldGenerateSeek(duration)) return null
-    if (!this.pending.has(key) && this.running?.key !== key) {
+    if (!this.stopped && !this.pending.has(key) && this.running?.key !== key) {
       this.pending.add(key)
       this.queue.push({ key, path, duration })
       while (this.queue.length > MAX_QUEUE) {
         const dropped = this.queue.shift()!
         this.pending.delete(dropped.key)
       }
-      void this.pump()
+      this.pump()
     }
     return { key, manifest: null }
   }
@@ -133,16 +139,21 @@ export class SeekThumbnailService {
     }
   }
 
-  /** 是否有 ffmpeg 在跑（退出清理用）。 */
+  /** 是否有生成任务在进行（准备阶段也算；退出清理据此决定要不要等）。 */
   get busy(): boolean {
-    return Boolean(this.running?.child)
+    return this.running !== null
   }
 
-  /** 清空队列并结束正在跑的 ffmpeg（应用退出时）。 */
-  stop(): void {
+  /**
+   * 应用退出时调用：清空队列、置取消标记（之后不再启动 ffmpeg）、结束正在跑的 ffmpeg，
+   * 并等当前任务与子进程真正退出后才返回。
+   */
+  async stop(): Promise<void> {
+    this.stopped = true
     this.queue.length = 0
     this.pending.clear()
     this.running?.child?.kill()
+    await this.task
   }
 
   private async readManifest(key: string): Promise<SeekManifest | null> {
@@ -163,12 +174,21 @@ export class SeekThumbnailService {
     }
   }
 
-  private async pump(): Promise<void> {
-    if (this.running) return
+  /** 没有任务在跑时取出队尾一部开始生成；结束后接着做下一部。 */
+  private pump(): void {
+    if (this.running || this.stopped) return
     const job = this.queue.pop()
     if (!job) return
     this.pending.delete(job.key)
     this.running = { key: job.key, child: null }
+    this.task = this.runJob(job).finally(() => {
+      this.running = null
+      this.task = null
+      this.pump()
+    })
+  }
+
+  private async runJob(job: SeekJob): Promise<void> {
     try {
       if (!this.swept) {
         this.swept = true
@@ -177,18 +197,17 @@ export class SeekThumbnailService {
       const manifest = await this.generate(job)
       if (manifest) {
         this.deps.notify(manifest)
-        await this.sweep(new Set([job.key]))
+        if (!this.stopped) await this.sweep(new Set([job.key]))
       }
     } catch (error) {
       this.deps.log(`生成失败：${(error as Error).message}`)
-    } finally {
-      this.running = null
-      void this.pump()
     }
   }
 
   private async generate(job: SeekJob): Promise<SeekManifest | null> {
+    if (this.stopped) return null
     const ffmpeg = await this.deps.locateFfmpeg()
+    if (this.stopped) return null
     if (!ffmpeg) {
       // 没有 ffmpeg：后面排着的也做不了
       this.queue.length = 0
@@ -230,6 +249,11 @@ export class SeekThumbnailService {
 
   private runFfmpeg(bin: string, args: string[]): Promise<boolean> {
     return new Promise(resolve => {
+      // 准备阶段里被 stop() 取消：不再启动子进程
+      if (this.stopped) {
+        resolve(false)
+        return
+      }
       const child = spawn(bin, args, {
         stdio: ['ignore', 'ignore', 'pipe'],
         windowsHide: true,
