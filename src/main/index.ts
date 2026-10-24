@@ -21,6 +21,7 @@ import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
+import { registerIptvIpc } from './ipc/iptv-ipc'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
@@ -179,6 +180,7 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
+  registerIptvIpc()
   registerMpvIpc()
   await registerLadaIpc()
   const libraryClient = registerLibraryIpc(thumbnails)

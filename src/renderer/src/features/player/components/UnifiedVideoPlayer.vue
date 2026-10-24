@@ -85,6 +85,8 @@ const props = withDefaults(
     /** 在线字幕季/集（剧集用） */
     subtitleSeason?: number
     subtitleEpisode?: number
+    /** 强制按 HLS 播放（直播接口地址常不带 .m3u8 扩展名） */
+    hls?: boolean
   }>(),
   {
     src: '',
@@ -99,6 +101,7 @@ const props = withDefaults(
     subtitleImdbId: '',
     subtitleSeason: undefined,
     subtitleEpisode: undefined,
+    hls: false,
   }
 )
 
@@ -206,7 +209,7 @@ const createPlayer = async (source: string): Promise<void> => {
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
   core = createArtCore({
     url: resolved,
-    useHls: Hls.isSupported() && isHlsUrl(resolved),
+    useHls: Hls.isSupported() && (props.hls || isHlsUrl(resolved)),
     autoplay: props.autoplay,
     controls: props.controls,
     sink,
