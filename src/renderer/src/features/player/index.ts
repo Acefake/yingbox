@@ -6,6 +6,8 @@
 export { default as PlayerModal } from './modal/PlayerModal.vue'
 export { default as MiniPlayer } from './mini/MiniPlayer.vue'
 export { closePlayerModal, playerModal } from './modal/player-modal'
+/** 统一播放器组件（直播页直接内嵌，不经播放弹窗） */
+export { default as UnifiedVideoPlayer } from './components/UnifiedVideoPlayer.vue'
 /** mpv 启动中的全局遮罩（应用根组件挂载） */
 export { default as MpvLoadingOverlay } from './components/MpvLoadingOverlay.vue'
 export {

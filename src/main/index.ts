@@ -21,6 +21,7 @@ import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
+import { registerIptvIpc } from './ipc/iptv-ipc'
 import { registerCaptureIpc } from './capture'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { registerDanmakuIpc } from './ipc/danmaku-ipc'
@@ -198,6 +199,7 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
+  registerIptvIpc()
   registerCaptureIpc()
   registerDanmakuIpc()
   registerMpvIpc()

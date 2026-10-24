@@ -40,6 +40,15 @@ export const routes = [
     },
   },
   {
+    path: '/live',
+    name: 'Live',
+    component: () => import('@/features/live/views/LiveView.vue'),
+    meta: {
+      title: '直播',
+      description: 'IPTV 直播与节目单',
+    },
+  },
+  {
     path: '/jav',
     name: 'Jav',
     component: () => import('@/features/library/JavLibraryPage.vue'),

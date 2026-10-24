@@ -165,6 +165,13 @@ const ADDED_API: Record<string, string[]> = {
     'setConfig',
     'promptSystem',
   ],
+  iptv: [
+    'fetchPlaylist',
+    'pickPlaylistFile',
+    'readPlaylistFile',
+    'loadEpg',
+    'epgProgrammes',
+  ],
 }
 
 beforeAll(async () => {

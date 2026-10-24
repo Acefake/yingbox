@@ -1,6 +1,6 @@
 /**
  * 侧栏与手机底部标签栏的导航项（纯函数，按当前路由与平台能力算出）。
- * 本地媒体只在有本地片库的平台显示；其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
+ * 本地媒体与直播只在有本地片库的平台（桌面端）显示；其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
  */
 import type { IconName } from '@/components/ui/icons'
 
@@ -108,6 +108,19 @@ export function buildNavGroups(state: NavState): NavGroup[] {
       heading: '本地媒体',
       divider: true,
       items: local,
+    })
+  if (state.hasLocalLibrary)
+    groups.push({
+      key: 'live',
+      divider: true,
+      items: [
+        {
+          label: '直播',
+          icon: 'livePlay',
+          path: '/live',
+          active: state.routeName === 'Live',
+        },
+      ],
     })
   if (state.adultMode)
     groups.push({
