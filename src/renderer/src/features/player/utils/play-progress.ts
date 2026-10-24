@@ -46,6 +46,19 @@ export function getMediaProgress(key: string): number {
   return typeof hit?.progress === 'number' ? hit.progress : 0
 }
 
+/** 某个媒体的进度与总时长（秒）；没有记录为 null。追剧日历据此判断一集看没看完。 */
+export function getMediaProgressEntry(
+  key: string
+): { progress: number; duration: number } | null {
+  if (!key) return null
+  const hit = readProgressMap()[key]
+  if (!hit || typeof hit.progress !== 'number') return null
+  return {
+    progress: hit.progress,
+    duration: typeof hit.duration === 'number' ? hit.duration : 0,
+  }
+}
+
 export function saveMediaProgress(
   key: string,
   progress: number,
