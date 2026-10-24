@@ -22,6 +22,8 @@ export interface HlsSession {
   customType: (callbacks: HlsCallbacks) => NonNullable<ArtOption['customType']>
   /** 销毁当前 Hls 实例（没有则什么都不做） */
   destroy: () => void
+  /** 当前的 Hls 实例（播放信息面板读档位用）；非 HLS 或已销毁为 null */
+  instance: () => Hls | null
 }
 
 /** 创建一个 hls.js 会话 */
@@ -55,5 +57,5 @@ export function createHlsSession(): HlsSession {
     },
   })
 
-  return { customType, destroy }
+  return { customType, destroy, instance: () => hls }
 }
