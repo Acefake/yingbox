@@ -3,7 +3,7 @@
  *
  * - 接口地址 / 模型：设置里填了用设置，空串用服务商预设；自定义服务商两者必填。
  * - API Key：每个服务商各存一份密钥（ai.apiKey.<id>），切换服务商不用重填。
- * - 本地：Ollama，或接口地址指向本机 / 局域网（见 isLocalEndpoint）。
+ * - 本地：只看最终生效的接口地址是否指向本机 / 局域网（见 isLocalAiProvider），与服务商无关。
  * - 私密：调用方标记 private 且设置「私密板块只用本地模型」打开时，非本地服务商直接拒绝。
  */
 import {
@@ -29,7 +29,7 @@ export interface AiConfig {
   baseUrl: string
   model: string
   apiKey: string
-  /** 本机 / 局域网服务商 */
+  /** 接口地址指向本机 / 局域网 */
   local: boolean
   /** 支持 response_format: json_schema */
   jsonSchema: boolean
