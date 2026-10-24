@@ -12,6 +12,7 @@ import {
   artOptions,
   isValidPlaybackRate,
 } from './art-options'
+import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
 import { artSkinControls, installQualityBadge } from './art-skin'
 import { type HlsSession, createHlsSession } from './hls-session'
@@ -91,6 +92,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
+  installPlaybackInfo(art, hls.instance)
   installSleepTimer(art)
 
   // 恢复上次使用的倍速，并记住本次改动（跨集 / 跨会话）
