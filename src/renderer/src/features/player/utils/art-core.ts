@@ -12,6 +12,7 @@ import {
   artOptions,
   isValidPlaybackRate,
 } from './art-options'
+import { installScreenshot } from '../screenshot/screenshot'
 import { artSkinControls, installQualityBadge } from './art-skin'
 import { type HlsSession, createHlsSession } from './hls-session'
 
@@ -90,6 +91,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
+  installScreenshot(art, input.controls)
 
   // 恢复上次使用的倍速，并记住本次改动（跨集 / 跨会话）
   applyPlaybackRate(art.video, getSetting('player.playbackRate'))
