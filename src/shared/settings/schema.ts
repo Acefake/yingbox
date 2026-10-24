@@ -152,6 +152,11 @@ export const settingsSchema = {
   /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
   'download.dir': absolutePath(),
 
+  /** 在线播放卡顿 / 出错时自动换到下一个可用源的同一集，从当前进度继续 */
+  'online.autoSwitchSource': bool(true),
+  /** 卡顿判定：缓冲持续多少秒算卡顿 */
+  'online.stallSeconds': num(2, 30, 5),
+
   /** 媒体库外部变更通知（CloudDrive2 webhook 等）：主进程本地 HTTP 端点，见 src/main/library/notify */
   'library.notify.enabled': bool(false),
   /** 允许局域网访问（监听 0.0.0.0）；关闭时只监听 127.0.0.1 */

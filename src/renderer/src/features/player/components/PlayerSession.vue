@@ -10,7 +10,7 @@
       :show-footer="false"
       autoplay
       controls
-      @ready="emit('video', $event)"
+      @ready="onVideo"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 /**
- * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
+ * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
  * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
  * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
  */
@@ -61,6 +61,7 @@ import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
+import { useSourceSwitch } from '../composables/use-source-switch'
 import { updateContinue } from '../continue/continue-store'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
@@ -229,17 +230,26 @@ const onEnded = async (event: Event): Promise<void> => {
   emptyText.value = '已播放完最后一集'
 }
 
-/** 播放失败：自动切换到同集的下一条备用线路 */
+/** 卡顿 / 出错自动换到同集的下一条备用源，从当前进度继续 */
+const switcher = useSourceSwitch({
+  fallbacks,
+  activeFallback,
+  current: () => currentEntry.value,
+  notify: showNotice,
+  load: at => {
+    progress.flush()
+    return loadEntry(undefined, at)
+  },
+})
+
+const onVideo = (video: HTMLVideoElement): void => {
+  switcher.attach(video)
+  emit('video', video)
+}
+
+/** 播放失败（含 hls 致命错误）：自动切换到同集的下一条备用源 */
 const onError = async (): Promise<void> => {
-  const nextFallback = activeFallback.value + 1
-  if (nextFallback < fallbacks.value.length) {
-    activeFallback.value = nextFallback
-    showNotice(
-      `播放失败，切换线路：${entryLabel(fallbacks.value[nextFallback])}`
-    )
-    await loadEntry()
-    return
-  }
+  if (await switcher.switchSource('error')) return
   // 备用线路也失败：给出可操作的错误界面
   failure.value = fallbacks.value.length
     ? '当前线路与备用线路均无法播放。'
@@ -280,6 +290,7 @@ onMounted(() => window.addEventListener('beforeunload', progress.flush))
 
 onBeforeUnmount(() => {
   progress.flush()
+  switcher.detach()
   window.removeEventListener('beforeunload', progress.flush)
   if (noticeTimer) window.clearTimeout(noticeTimer)
 })
