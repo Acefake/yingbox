@@ -245,7 +245,7 @@ describe('播放器接入（源码）', () => {
     )
     const session = read('features/player/components/PlayerSession.vue')
     expect(session).toContain('<SkipOverlay')
-    expect(session).toContain('@play-next="playNext"')
+    expect(session).toContain(':play-next="playNext"')
     expect(session.split('\n').length).toBeLessThanOrEqual(400)
   })
 
