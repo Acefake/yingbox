@@ -34,9 +34,9 @@ export function createStreamHandler(
         'Access-Control-Expose-Headers': STREAM_RESPONSE_URL,
         [STREAM_RESPONSE_URL]: finalUrl,
       })
+      // fetch 的响应体已解码，流式转发时不声明上游编码后的 Content-Length。
       for (const name of [
         'content-type',
-        'content-length',
         'content-range',
         'accept-ranges',
         'cache-control',
