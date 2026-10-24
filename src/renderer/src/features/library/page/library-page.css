@@ -14,10 +14,6 @@
   flex: 1 1 0;
   min-height: 0;
 }
-/* 海报墙上方的「继续播放」「想看」横排：与网格同样的左右边距 */
-.lib-page .lib-continue {
-  margin: var(--space-4) var(--content-padding-x) var(--space-6);
-}
 .lib-wall-skeleton {
   margin: 0 var(--content-padding-x);
 }
