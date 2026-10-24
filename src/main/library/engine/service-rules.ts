@@ -8,6 +8,7 @@ import {
 } from '../../../shared/library/ipc'
 import type { ItemChanges } from '../catalog/catalog-store'
 import type { FollowupSpec } from '../jobs/followups'
+import type { LibraryServiceOptions } from './service-options'
 
 /** 扫描任务载荷。 */
 export interface ScanPayload {
@@ -67,15 +68,20 @@ export const libraryJobSpec = (
 })
 
 /**
- * 存储判定完后本地盘的库要补排的读文件任务：动态范围探测（启动时补上没探测过的；宿主不能探测时任务直接结束），
+ * 存储判定完后本地盘的库要补排的读文件任务：宿主提供了 probeVideo 时补动态范围探测（启动时补上没探测过的），
  * fingerprint 时再补指纹（存储从网盘回到本地盘，补上按网盘处理期间跳过的）；网盘不补。
  */
 export function backfillJobs(
   cloud: boolean,
-  fingerprint: boolean
+  fingerprint: boolean,
+  host: Pick<LibraryServiceOptions, 'probeVideo'>
 ): Array<'fingerprint' | 'probe'> {
   if (cloud) return []
-  return fingerprint ? ['fingerprint', 'probe'] : ['probe']
+  const jobs: Array<'fingerprint' | 'probe'> = fingerprint
+    ? ['fingerprint']
+    : []
+  if (host.probeVideo) jobs.push('probe')
+  return jobs
 }
 
 /**

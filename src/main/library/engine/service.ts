@@ -87,7 +87,7 @@ export class LibraryService {
   private readonly fingerprint: (path: string) => Promise<string | undefined>
   private readonly log: (message: string) => void
 
-  constructor(options: LibraryServiceOptions) {
+  constructor(private readonly options: LibraryServiceOptions) {
     this.db = openLibraryDb(options.dbPath)
     this.libraries = new LibraryStore(this.db)
     this.scanStore = new ScanStore(this.db)
@@ -357,7 +357,7 @@ export class LibraryService {
     void Promise.all(libs.map(lib => this.watch.isCloud(lib))).then(clouds => {
       this.emitLibraries()
       for (const [i, lib] of libs.entries())
-        for (const type of backfillJobs(clouds[i], fingerprint))
+        for (const type of backfillJobs(clouds[i], fingerprint, this.options))
           this.queue.enqueue(libraryJobSpec(type, lib.id))
     })
   }
