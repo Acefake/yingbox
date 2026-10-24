@@ -74,19 +74,33 @@
       <UiSwitch v-model="miniPlayer" label="应用内小窗" />
     </SettingsRow>
   </SettingsGroup>
+
+  <SettingsGroup v-if="isElectron" title="系统集成">
+    <SettingsRow
+      title="显示托盘图标"
+      description="托盘菜单显示正在播放的内容，可播放 / 暂停、下一集、显示主窗口、退出"
+    >
+      <UiSwitch v-model="trayIcon" label="显示托盘图标" />
+    </SettingsRow>
+    <SettingsRow title="媒体键控制播放" :description="mediaKeysHint">
+      <UiSwitch v-model="mediaKeys" label="媒体键控制播放" />
+    </SettingsRow>
+  </SettingsGroup>
 </template>
 
 <script setup lang="ts">
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
  * Anime4K 超分（Anime4kRows）与缩小置顶，
- * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），播放弹窗的角落小窗（ui.miniPlayer）。
+ * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），播放弹窗的角落小窗（ui.miniPlayer），
+ * 桌面端的托盘图标（app.tray）与媒体键（player.mediaKeys）。
  */
 import { computed, watch } from 'vue'
 
 import { mpvInfoRows, syncRtxVsr, useMpvPlayer } from '@/features/player'
 import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
+import { usePlatform } from '@/composables/use-platform'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
 import Anime4kRows from './Anime4kRows.vue'
@@ -127,6 +141,14 @@ const stallOptions = [3, 5, 8, 10, 15].map(value => ({
   value,
   label: `${value} 秒`,
 }))
+
+// ── 系统集成（桌面端） ─────────────────────────────────────
+const { isElectron } = usePlatform()
+const trayIcon = useSetting('app.tray')
+const mediaKeys = useSetting('player.mediaKeys')
+const mediaKeysHint = navigator.userAgent.includes('Mac')
+  ? '内置播放器播放时，键盘的播放 / 暂停、上一集、下一集键控制播放；需在「系统设置 → 隐私与安全性 → 辅助功能」中允许影盒'
+  : '内置播放器播放时，键盘的播放 / 暂停、上一集、下一集键控制播放；不在播放时不占用'
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
 
