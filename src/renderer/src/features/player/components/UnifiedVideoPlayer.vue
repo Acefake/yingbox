@@ -61,6 +61,7 @@ import {
   createArtCore,
   destroyArtCore,
 } from '../utils/art-core'
+import { installSeekThumbnails } from '../seek-thumbnails/seek-thumbnails'
 import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
@@ -217,6 +218,8 @@ const createPlayer = async (source: string): Promise<void> => {
 
   // 本地视频：自动挂载同目录字幕（srt/ass/vtt，含 GBK 编码转换）
   void subtitles.applyLocal(core.art, resolved)
+  // 本地视频：进度条悬停缩略图（主进程 ffmpeg 后台生成，没有 ffmpeg 时不显示）
+  installSeekThumbnails(core.art, resolved)
 }
 
 watch(
