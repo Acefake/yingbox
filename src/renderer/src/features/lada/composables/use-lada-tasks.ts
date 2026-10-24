@@ -67,12 +67,14 @@ function attach(): void {
       toast.error(info?.error || '这一段没处理成功')
       return
     }
-    void openMediaPlayer({ filePath: info.path, title: info.title }).then(
-      opened => {
-        if (opened) toast.success('这一段已经去码完成，正在播放')
-        else toast.warning(`这一段已处理完，但播放器没打开。文件：${info.path}`)
-      }
-    )
+    void openMediaPlayer({
+      filePath: info.path,
+      title: info.title,
+      private: true,
+    }).then(opened => {
+      if (opened) toast.success('这一段已经去码完成，正在播放')
+      else toast.warning(`这一段已处理完，但播放器没打开。文件：${info.path}`)
+    })
   })
   void api
     .status?.()
@@ -276,7 +278,7 @@ export function useLadaTasks(): UseLadaTasksReturn {
       if (!result?.success || !result.url)
         throw new Error(result?.error || '无法启动边跑边看')
       const title = `${fileName(filePath)}（去码中）`
-      if (!(await openMediaPlayer({ url: result.url, title })))
+      if (!(await openMediaPlayer({ url: result.url, title, private: true })))
         throw new Error('无法打开播放器（本功能需要 mpv 引擎）')
       toast.success('已开始：处理到哪，就能看到哪')
     } catch (error) {

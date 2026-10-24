@@ -58,6 +58,8 @@ export interface PlayerSubtitles {
   applyOnline: (hit: OnlineSubtitleHit) => Promise<void>
   /** 为本地视频自动挂载同目录字幕 */
   applyLocal: (instance: Artplayer, source: string) => Promise<void>
+  /** 挂载一个字幕文件（AI 字幕生成后用）；成功返回 true */
+  applyFile: (path: string, name: string) => Promise<boolean>
   /** 释放当前字幕的 blob URL */
   dispose: () => void
 }
@@ -234,6 +236,27 @@ export function usePlayerSubtitles(
     }
   }
 
+  const applyFile = async (path: string, name: string): Promise<boolean> => {
+    const api = window.api?.subtitle
+    const instance = options.player()
+    if (!api?.read || !instance) return false
+    try {
+      const read = await api.read(path)
+      if (!read?.success || !read.data || options.player() !== instance)
+        return false
+      dispose()
+      objectUrl = URL.createObjectURL(
+        new Blob([read.data], { type: 'text/vtt' })
+      )
+      await instance.subtitle.switch(objectUrl, { name, type: 'vtt' })
+      instance.subtitle.show = true
+      instance.notice.show = `字幕：${name}`
+      return true
+    } catch {
+      return false
+    }
+  }
+
   return {
     panelOpen,
     query,
@@ -245,6 +268,7 @@ export function usePlayerSubtitles(
     search,
     applyOnline,
     applyLocal,
+    applyFile,
     dispose,
   }
 }

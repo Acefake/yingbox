@@ -5,6 +5,7 @@
  * 渲染层的 `window.api` 类型由 {@link Api} 推导。
  */
 import { ai } from './ai'
+import { aiSubtitles } from './ai-subtitles'
 import { app } from './app'
 import { av } from './av'
 import type { ApiOf } from './define'
@@ -24,6 +25,7 @@ import { win } from './win'
 /** 全部域，键与域名一致 */
 export const contract = {
   ai,
+  aiSubtitles,
   app,
   av,
   dialog,
