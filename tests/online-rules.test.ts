@@ -277,9 +277,10 @@ describe('在线详情页规则', () => {
       ]),
       line('D', 'D', [['x', '']]),
     ])
+    // 别的站点在前，当前站点的其它线路在后
     expect(buildFallbacks(sg, cur, '第1集', 0)).toEqual([
-      { url: 'b1', name: 'A · A-2', siteName: 'A' },
       { url: 'c1', name: 'C · C' },
+      { url: 'b1', name: 'A · A-2', siteName: 'A' },
     ])
     expect(buildFallbacks(sg, cur, '', 5)).toEqual([])
   })

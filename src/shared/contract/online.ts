@@ -75,6 +75,17 @@ export interface DetailImage {
   full: string
 }
 
+/** online.probeStream 的结果：一集直链的首包延迟、下载速度、（主清单里有的话）分辨率高度。 */
+export interface StreamProbe {
+  ok: boolean
+  latencyMs?: number
+  /** 字节 / 秒 */
+  speedBps?: number
+  /** 画面高度（1080 / 720 …），拿不到时缺省 */
+  height?: number
+  error?: string
+}
+
 /** online.getJson 的选项。 */
 export interface GetJsonOptions {
   headers?: Record<string, string>
@@ -155,4 +166,6 @@ export const online = defineDomain('online', {
   }),
   /** 播放页 → 媒体直链：跟随跳转后从 HTML 中找 m3u8；找不到原样返回 */
   resolvePage: call<[url: string], string>(a => [str(a[0], 'url')]),
+  /** 播放源测速：首包延迟 + 约 2 秒下载速度（m3u8 取首个分片）；失败返回 ok: false。见 engine/online/stream-probe.ts */
+  probeStream: call<[url: string], StreamProbe>(a => [str(a[0], 'url')]),
 })

@@ -31,6 +31,24 @@ export const routes = [
     },
   },
   {
+    path: '/calendar',
+    name: 'Calendar',
+    component: () => import('@/features/calendar/views/CalendarView.vue'),
+    meta: {
+      title: '追剧日历',
+      description: '媒体库与在线剧集按播出日期排成一周',
+    },
+  },
+  {
+    path: '/live',
+    name: 'Live',
+    component: () => import('@/features/live/views/LiveView.vue'),
+    meta: {
+      title: '直播',
+      description: 'IPTV 直播与节目单',
+    },
+  },
+  {
     path: '/jav',
     name: 'Jav',
     component: () => import('@/features/library/JavLibraryPage.vue'),

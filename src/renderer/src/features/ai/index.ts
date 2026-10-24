@@ -18,6 +18,7 @@ export { formatMonthUsage, formatTokens } from './format'
 export {
   AI_PROVIDERS,
   aiProviderPreset,
+  isLocalAiProvider,
   isLocalEndpoint,
 } from '../../../../shared/ai/providers'
 export type * from './types'
