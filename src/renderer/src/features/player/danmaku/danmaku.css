@@ -1,0 +1,12 @@
+/**
+ * 弹幕：控制栏「弹」按钮的字形，隐藏插件自带的开关与设置（由「弹」按钮和弹幕面板代替）。
+ */
+.unified-player-core .art-control-ybDanmaku .yb-danmaku-glyph {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1;
+}
+
+.unified-player-core .artplayer-plugin-danmuku {
+  display: none !important;
+}
