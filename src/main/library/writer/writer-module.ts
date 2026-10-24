@@ -7,6 +7,8 @@
  * 不形成循环：写出的 nfo / 图片不关联任何条目，扫描器收录它们不会让条目变化，
  * 也就不会触发识别和“识别后自动写出”；内容未变的文件直接跳过、不改 mtime。
  *
+ * 远程源（WebDAV / Alist）库只读：手动写出跳过它的条目、整理直接拒绝、不给自动写出 / 整理后继。
+ *
  * 任务执行在 writer-jobs，纯规则在 writer-rules。
  */
 import { randomUUID } from 'node:crypto'
@@ -19,6 +21,7 @@ import {
   type OrganizePlan,
   type WriterSettings,
 } from '../../../shared/library/ipc'
+import { isRemotePath } from '../../../shared/webdav/remote-path'
 import type { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, transaction } from '../db/database'
 import type { KeyedMutex } from '../jobs/keyed-mutex'
@@ -50,6 +53,10 @@ import {
 } from './writer-rules'
 import { WriterSettingsStore } from './writer-settings'
 import { WriterStore } from './writer-store'
+
+/** 远程源库只读的提示。 */
+const REMOTE_READ_ONLY =
+  'WebDAV 媒体库只读：只刮削到影盒的库里，不写 NFO / 图片、不整理文件'
 
 /** 模块依赖。 */
 export interface WriterModuleOptions {
@@ -144,9 +151,13 @@ export class WriterModule {
     return this.settings.set(value, Date.now())
   }
 
-  /** 写出这些条目（排队）。 */
+  /** 写出这些条目（排队）；远程源（WebDAV）库的条目只读，跳过。 */
   write(itemIds: number[]): JobAccepted {
-    const job = this.options.queue.enqueue(writeJobSpec(itemIds, PRIORITY.user))
+    const writable = itemIds.filter(id => !this.inRemoteLibrary(id))
+    if (!writable.length) throw new LibraryError('conflict', REMOTE_READ_ONLY)
+    const job = this.options.queue.enqueue(
+      writeJobSpec(writable, PRIORITY.user)
+    )
     return { jobId: job.id }
   }
 
@@ -154,7 +165,11 @@ export class WriterModule {
   autoFollowups(itemIds: number[]): FollowupSpec[] {
     return autoFollowups(itemIds, this.settings.get(), {
       libraryOf: id => this.store.libraryOf(id),
-      automationOf: id => this.options.libraries.find(id)?.automation,
+      // 远程源库只读：不自动写出、不自动整理
+      automationOf: id => {
+        const lib = this.options.libraries.find(id)
+        return lib && !isRemotePath(lib.root) ? lib.automation : undefined
+      },
     })
   }
 
@@ -163,6 +178,8 @@ export class WriterModule {
     this.prunePlans()
     const top = this.store.topLevelIds(itemIds)
     if (!top.length) throw new LibraryError('not-found', '条目不存在')
+    if (top.some(id => this.inRemoteLibrary(id)))
+      throw new LibraryError('conflict', REMOTE_READ_ONLY)
     const preview = await planOrganize(top, this.settings.get(), {
       getItem: id => this.options.catalogQuery.getItem(id),
       library: id => this.options.libraries.get(id),
@@ -231,6 +248,14 @@ export class WriterModule {
   }
 
   // —————————————————————————— 任务 ——————————————————————————
+
+  /** 条目是否在远程源（WebDAV）库里。 */
+  private inRemoteLibrary(itemId: number): boolean {
+    const libraryId = this.store.libraryOf(itemId)
+    if (libraryId === undefined) return false
+    const lib = this.options.libraries.find(libraryId)
+    return lib !== undefined && isRemotePath(lib.root)
+  }
 
   private prunePlans(): void {
     for (const id of expiredPlans(this.plans, Date.now())) this.plans.delete(id)

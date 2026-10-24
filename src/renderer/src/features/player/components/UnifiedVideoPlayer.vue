@@ -39,6 +39,16 @@
       @search="subtitles.search"
       @pick="subtitles.applyOnline"
       @close="subtitles.panelOpen.value = false"
+    >
+      <AiSubtitleSection :state="aiSubtitle" />
+    </SubtitleSearchPanel>
+    <DanmakuPanel
+      v-if="danmaku.state.panelOpen.value"
+      :state="danmaku.state"
+      @close="danmaku.state.panelOpen.value = false"
+      @query="danmaku.setQuery"
+      @search="danmaku.search"
+      @bind="danmaku.bind"
     />
   </div>
 </template>
@@ -50,21 +60,31 @@
  * 这里只管加载、销毁与事件转发。缩成小窗时整个组件随播放弹窗的节点一起搬走，实例不重建。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type Artplayer from 'artplayer'
 import Hls from 'hls.js'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 
+import AiSubtitleSection from '../ai-subtitle/AiSubtitleSection.vue'
+import { installSubtitlePanelEntry } from '../ai-subtitle/art-entry'
+import { useAiSubtitle } from '../ai-subtitle/use-ai-subtitle'
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
+import DanmakuPanel from '../danmaku/DanmakuPanel.vue'
+import type { DanmakuTarget } from '../danmaku/danmaku-rules'
+import { danmakuSupported } from '../danmaku/danmaku-store'
+import { useDanmaku } from '../danmaku/use-danmaku'
 import {
   type ArtCore,
   type ArtSink,
   createArtCore,
   destroyArtCore,
 } from '../utils/art-core'
+import { installSeekThumbnails } from '../seek-thumbnails/seek-thumbnails'
 import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
 import '../styles/art-skin.css'
+import '../danmaku/danmaku.css'
 
 const props = withDefaults(
   defineProps<{
@@ -85,6 +105,12 @@ const props = withDefaults(
     /** 在线字幕季/集（剧集用） */
     subtitleSeason?: number
     subtitleEpisode?: number
+    /** 来自私密板块：AI 字幕的翻译 / 云端转写只发给本地模型（按设置） */
+    aiPrivate?: boolean
+    /** 弹幕匹配用的当前条目；不传则不显示弹幕 */
+    danmakuTarget?: DanmakuTarget | null
+    /** 强制按 HLS 播放（直播接口地址常不带 .m3u8 扩展名） */
+    hls?: boolean
   }>(),
   {
     src: '',
@@ -99,11 +125,16 @@ const props = withDefaults(
     subtitleImdbId: '',
     subtitleSeason: undefined,
     subtitleEpisode: undefined,
+    aiPrivate: false,
+    danmakuTarget: null,
+    hls: false,
   }
 )
 
 const emit = defineEmits<{
   (name: 'ready', video: HTMLVideoElement): void
+  /** 新建的 Artplayer 实例（每次换地址一个；外层据此挂右键菜单、进度条标记等） */
+  (name: 'art', art: Artplayer): void
   (name: 'loadedmetadata', event: Event): void
   (name: 'timeupdate', event: Event): void
   (name: 'volumechange', event: Event): void
@@ -134,6 +165,21 @@ const subtitles = usePlayerSubtitles({
   }),
 })
 
+/** 当前实例的播放地址（解析后；AI 字幕据此判断是否本地文件） */
+const currentSource = ref('')
+
+const aiSubtitle = useAiSubtitle({
+  source: () => currentSource.value,
+  isPrivate: () => props.aiPrivate,
+  title: () => props.subtitleSearchTitle || props.title || '',
+  load: (path, name) => subtitles.applyFile(path, name),
+})
+
+const openSubtitlePanel = (): void => {
+  if (!subtitles.panelOpen.value) subtitles.togglePanel()
+}
+const danmaku = useDanmaku({ target: () => props.danmakuTarget })
+
 const posterSrc = computed(() => props.poster?.trim() || '')
 
 /** 本组件作为实例的事件去向 */
@@ -160,19 +206,19 @@ const sink: ArtSink = {
     pendingSeek = 0
   },
   autoplay: () => props.autoplay,
-  subtitles: () => {
-    if (!subtitles.panelOpen.value) subtitles.togglePanel()
-  },
+  subtitles: openSubtitlePanel,
 }
 
 /** 拆掉实例（连同字幕 blob） */
 const destroyPlayer = (): void => {
   if (core) {
     subtitles.dispose()
+    danmaku.detach()
     destroyArtCore(core)
   }
   core = null
   video.value = null
+  currentSource.value = ''
 }
 
 const createPlayer = async (source: string): Promise<void> => {
@@ -206,17 +252,26 @@ const createPlayer = async (source: string): Promise<void> => {
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
   core = createArtCore({
     url: resolved,
-    useHls: Hls.isSupported() && isHlsUrl(resolved),
+    useHls: Hls.isSupported() && (props.hls || isHlsUrl(resolved)),
     autoplay: props.autoplay,
     controls: props.controls,
     sink,
+    extraControls:
+      props.danmakuTarget && danmakuSupported() ? [danmaku.control()] : [],
   })
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
   emit('ready', core.art.video)
+  currentSource.value = resolved
+  installSubtitlePanelEntry(core.art, openSubtitlePanel)
+  emit('art', core.art)
+
+  if (props.danmakuTarget) void danmaku.attach(core.art)
 
   // 本地视频：自动挂载同目录字幕（srt/ass/vtt，含 GBK 编码转换）
   void subtitles.applyLocal(core.art, resolved)
+  // 本地视频：进度条悬停缩略图（主进程 ffmpeg 后台生成，没有 ffmpeg 时不显示）
+  installSeekThumbnails(core.art, resolved)
 }
 
 watch(
