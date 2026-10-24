@@ -1,6 +1,8 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
+import type { ContinueMeta } from '../continue/continue-rules'
+import { startContinue } from '../continue/continue-store'
 import { openPlayerModal } from '../modal/player-modal'
 
 /** 播放列表条目：用于自动连播与失败换源 */
@@ -28,6 +30,11 @@ type MediaPlayerOpenOptions = {
   index?: number
   /** 同集备用线路：播放失败时优先尝试 */
   fallbacks?: PlayerSourceItem[]
+  /**
+   * 记进「继续播放」：哪个板块、哪一条、打开详情用的数据。不给就不记（如临时预览、lada 任务）。
+   * mpv 只在开播时登记（进度由 mpv 自己续播）；应用内播放器会持续更新进度、看完换下一集。
+   */
+  continueAs?: ContinueMeta
   /** 播放引擎：'built-in' 为应用内播放弹窗，'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
   engine?: 'built-in' | 'mpv'
 }
@@ -93,6 +100,20 @@ export async function openMediaPlayer(
 
   if (!filePath && !url && !playlist) return false
 
+  const continueId = options.continueAs
+    ? startContinue(
+        options.continueAs,
+        {
+          ...(url ? { url } : {}),
+          ...(filePath ? { filePath } : {}),
+          ...(playlist ? { playlist } : {}),
+          ...(typeof index === 'number' ? { index } : {}),
+          ...(fallbacks ? { fallbacks } : {}),
+        },
+        startAt ?? 0
+      )
+    : ''
+
   const selectedEngine = options.engine || getSetting('player.engine')
 
   if (
@@ -136,6 +157,7 @@ export async function openMediaPlayer(
     ...(playlist ? { playlist } : {}),
     ...(typeof index === 'number' ? { index } : {}),
     ...(fallbacks ? { fallbacks } : {}),
+    ...(continueId ? { continueId } : {}),
   })
   return true
 }

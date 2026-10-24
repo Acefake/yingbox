@@ -1,5 +1,6 @@
 /**
  * 播放进度的节流保存：timeupdate 每 2 秒最多写一次，窗口关闭 / 切集前 flush，看完清零续播点。
+ * 每次写入同时回调 onSave（「继续播放」记录跟着更新）。
  */
 import { saveMediaProgress } from '../utils/play-progress'
 
@@ -18,14 +19,23 @@ export interface ProgressSaver {
   reset: () => void
 }
 
+/** 每次写入后的回调：位置、总时长、是否播到结尾 */
+export type ProgressListener = (
+  progress: number,
+  duration: number,
+  ended: boolean
+) => void
+
 /**
  * 创建进度保存器。
  * @param key 当前条目的进度键（空串表示不记录）
  * @param now 取当前时间（测试可替换）
+ * @param onSave 每次写入后回调
  */
 export function useProgressSaver(
   key: () => string,
-  now: () => number = Date.now
+  now: () => number = Date.now,
+  onSave: ProgressListener = () => {}
 ): ProgressSaver {
   let lastPersist = 0
   let lastTime = 0
@@ -40,17 +50,22 @@ export function useProgressSaver(
     if (at - lastPersist < PERSIST_INTERVAL) return
     lastPersist = at
     saveMediaProgress(key(), lastTime, lastDuration)
+    onSave(lastTime, lastDuration, false)
   }
 
   const flush = (): void => {
     if (!key() || !(lastTime > 1)) return
     saveMediaProgress(key(), lastTime, lastDuration)
+    onSave(lastTime, lastDuration, false)
   }
 
   const markFinished = (video: HTMLVideoElement | null): void => {
     const duration =
       video && Number.isFinite(video.duration) ? video.duration : lastDuration
-    if (key()) saveMediaProgress(key(), 0, duration)
+    if (key()) {
+      saveMediaProgress(key(), 0, duration)
+      onSave(duration, duration, true)
+    }
     lastTime = 0
   }
 

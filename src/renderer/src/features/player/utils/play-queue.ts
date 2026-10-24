@@ -22,6 +22,8 @@ export type PlayerPayload = {
   playlist?: PlaylistEntry[]
   index?: number
   fallbacks?: PlaylistEntry[]
+  /** 「继续播放」记录 id（openMediaPlayer 带 continueAs 时生成） */
+  continueId?: string
 }
 
 /** 整理后的播放队列 */
@@ -39,6 +41,8 @@ export interface PlayQueue {
   startAt?: number
   /** 调用方已解析好的起始集地址（复用，避免二次解析） */
   seededUrl?: string
+  /** 「继续播放」记录 id；空串表示不记 */
+  continueId: string
 }
 
 const text = (value: unknown): string =>
@@ -85,6 +89,7 @@ export function normalizePlayerPayload(
         ? Math.max(0, payload.startAt)
         : undefined,
     seededUrl: url || undefined,
+    continueId: text(payload.continueId),
   }
 }
 
