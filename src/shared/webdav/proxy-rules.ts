@@ -81,7 +81,7 @@ const ENCODED_BYTE_HEADERS: ReadonlySet<string> = new Set([
 
 /**
  * 回给播放器的响应头；mime 为按扩展名推断的类型，上游没给 Content-Type 或给的是通用类型时用它。
- * 上游带内容编码时不转发长度与 Range 相关头，改为 Accept-Ranges: none（正文按解压后的流式发送）。
+ * 上游带内容编码时不转发长度与 Range 相关头，只回 Accept-Ranges: none（正文按解压后的流式发送）。
  */
 export function downstreamHeaders(
   get: HeaderGet,
