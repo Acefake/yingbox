@@ -89,9 +89,6 @@
   "src/renderer/src/features/library/page/use-section-guard.ts": {
     "history": 1
   },
-  "src/renderer/src/features/online/composables/use-source-refresh.ts": {
-    "history": 1
-  },
   "src/renderer/src/features/online/utils/site-selection.ts": {
     "changed-to": 1,
     "old-version": 3

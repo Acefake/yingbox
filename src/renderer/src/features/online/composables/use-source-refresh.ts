@@ -2,7 +2,7 @@ import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 import { computed, reactive, ref } from 'vue'
 import { asRecord, asText } from '@/utils/json'
-import { getJson } from '../api/online'
+import { getJson, withQuery } from '../api/online'
 import { useAvSources } from '@/features/av'
 import {
   DEFAULT_SITES,
@@ -36,19 +36,26 @@ export const onlineApis = computed(() => [
   ...customSites.value.map(site => site.api),
 ])
 
+const builtinApis = new Set(DEFAULT_SITES.map(site => site.api))
+
 export const checkOnlineSite = async (api: string): Promise<void> => {
   if (checkingSet.has(api)) return
   checkingSet.add(api)
   statusMap[api] = 'checking'
   try {
     const data = await getJson<{ list?: unknown }>(
-      `${api}?ac=videolist&wd=test`,
+      withQuery(api, { ac: 'videolist', pg: 1 }),
       { timeoutMs: 8000 }
     )
-    statusMap[api] = data?.list !== undefined ? 'ok' : 'fail'
+    statusMap[api] = Array.isArray(data?.list) ? 'ok' : 'fail'
   } catch {
     statusMap[api] = 'fail'
   } finally {
+    // 内置源按本次检测自动启停；失败的源仍留在清单中，恢复后能再次开启。
+    if (builtinApis.has(api)) {
+      if (statusMap[api] === 'ok') selectedSites.add(api)
+      else selectedSites.delete(api)
+    }
     checkingSet.delete(api)
   }
 }
@@ -70,12 +77,8 @@ export const checkAvSite = async (api: string): Promise<void> => {
 }
 
 /**
- * 检测全部源，只写状态。AV 源仅在成人模式下参与。
- *
- * 探测结果不代表用户意愿：连不上可能只是对方临时挂了、被墙，或者本机网络受限。
- * 早先这里会按结果 add/delete 用户的启用集合，于是每次启动都会静默改写用户手选的数据源，
- * 连得上的被强行开启、连不上的被删除——用户看到的就是“设置又自己变回去了”。
- * 启用与否归用户（数据源面板），这里只负责把状态显示出来。
+ * 检测全部源：内置 CMS 源按结果自动启停，其余源只更新状态。
+ * AV 源仅在成人模式下参与。
  */
 export const checkAll = async (): Promise<void> => {
   if (checkingAll.value) return
@@ -183,14 +186,14 @@ export const syncAvSources = async (showMessage = true): Promise<void> => {
 let refreshing: Promise<void> | null = null
 
 /**
- * 同步远程清单、加载插件源并检测全部源（含自动启用/停用）。
+ * 同步远程清单、加载插件源并检测全部源（内置 CMS 源自动启用/停用）。
  * 影盒每次启动与数据源面板打开时调用；进行中重复调用会复用同一次刷新。
  */
 export const refreshSources = (): Promise<void> => {
   if (!refreshing) {
     refreshing = (async () => {
       try {
-        await Promise.all([
+        await Promise.allSettled([
           loadCatSpiderSites(),
           syncAvSources(false),
           syncSubscription().catch(() => 0),
