@@ -29,6 +29,9 @@
           :current-episodes="sources.currentEpisodes.value"
           @play="playEp"
         >
+          <template #actions>
+            <WatchlistButton :meta="watchlistMeta" />
+          </template>
           <DetailSourcePicker
             :searching="sources.searching.value"
             :has-groups="sources.episodeGroups.value.length > 0"
@@ -69,6 +72,7 @@ import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '@/utils/vod-data'
 import { computed, onMounted, ref, watch } from 'vue'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
+import { WatchlistButton, type WatchlistMeta } from '@/features/watchlist'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
   buildFallbacks,
@@ -142,6 +146,22 @@ watch(
     if (data) loadData(data)
   }
 )
+
+/** 「想看」登记：键与继续播放相同（片名），整部看完时据此移出清单；海报优先 TMDB 竖版。 */
+const watchlistMeta = computed<WatchlistMeta | null>(() => {
+  if (!itemData.value || !itemName.value) return null
+  return {
+    section: 'online',
+    key: itemName.value,
+    title: itemName.value,
+    poster:
+      tmdbImage('w342', tmdbDetail.value?.poster_path) ||
+      itemPic.value ||
+      undefined,
+    cover: tmdbImage('w780', tmdbDetail.value?.backdrop_path) || undefined,
+    detail: itemData.value,
+  }
+})
 
 /** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）。 */
 const recordHistory = (playUrl: string, ext?: PluginExt): void => {
