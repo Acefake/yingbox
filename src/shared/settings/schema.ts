@@ -110,6 +110,8 @@ export const settingsSchema = {
   'app.theme': oneOf(['dark', 'light'] as const, 'dark'),
   /** 成人模式：显示 AV / 去马赛克入口与成人源 */
   'app.adultMode': bool(false),
+  /** 系统托盘图标：菜单显示正在播放、播放 / 暂停、下一集、显示主窗口、退出（桌面端） */
+  'app.tray': bool(true),
 
   /** 卡片悬停预览：悬停一会儿在卡内静音播放预告 / 片段（系统「减少动态效果」时始终不播） */
   'ui.hoverPreview': bool(true),
@@ -126,6 +128,8 @@ export const settingsSchema = {
   'player.rtxVsr': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
+  /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
+  'player.mediaKeys': bool(true),
 
   /** TMDB 元数据语言 */
   'scrape.metadataLanguage': oneOf(

@@ -10,7 +10,7 @@
       :show-footer="false"
       autoplay
       controls
-      @ready="emit('video', $event)"
+      @ready="media.attach"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -60,6 +60,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
+import { usePlayerMediaControls } from '../composables/use-media-controls'
 import { useProgressSaver } from '../composables/use-progress-saver'
 import { updateContinue } from '../continue/continue-store'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
@@ -253,6 +254,17 @@ const retry = async (): Promise<void> => {
     retrying.value = false
   }
 }
+
+/** 托盘 / 媒体键 / 系统媒体控件 → 本会话 */
+const media = usePlayerMediaControls({
+  playlist,
+  position,
+  activeFallback,
+  poster,
+  load: loadEntry,
+  title: () => entryLabel(currentEntry.value),
+  onVideo: video => emit('video', video),
+})
 
 const applyPayload = (payload: PlayerPayload): void => {
   const queue = normalizePlayerPayload(payload)
