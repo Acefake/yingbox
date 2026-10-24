@@ -18,6 +18,7 @@ import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
 import { update } from './update'
+import { webdav } from './webdav'
 import { win } from './win'
 
 /** 全部域，键与域名一致 */
@@ -35,6 +36,7 @@ export const contract = {
   shell,
   subtitle,
   update,
+  webdav,
   win,
 } as const
 
