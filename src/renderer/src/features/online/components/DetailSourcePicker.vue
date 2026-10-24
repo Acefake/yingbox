@@ -17,20 +17,15 @@
       :options="sourceTypeOptions"
       @update:model-value="emit('switch-type', $event)"
     />
-    <!-- 层级一：源 -->
-    <div class="px-2 py-1 mb-1 yb-label">源</div>
-    <div class="group-tabs">
-      <UiButton
-        v-for="(sg, si) in siteGroups"
-        :key="si"
-        size="sm"
-        class="dw-chip"
-        :class="{ 'is-selected': activeSite === si }"
-        :aria-pressed="activeSite === si"
-        :label="sg.siteName"
-        @click="emit('switch-site', si)"
-      />
-    </div>
+    <!-- 层级一：源（测速结果、按速度排序） -->
+    <DetailSourceList
+      :site-groups="siteGroups"
+      :active-site="activeSite"
+      :probes="probes"
+      :probing="probing"
+      @switch-site="emit('switch-site', $event)"
+      @reprobe="emit('reprobe')"
+    />
     <!-- 层级二：线路（多条时才显示） -->
     <template v-if="siteGroups[activeSite]?.lines.length > 1">
       <div class="px-2 py-1 mb-1 mt-2 yb-label">线路</div>
@@ -69,11 +64,14 @@
 /**
  * 在线详情页的播放源选择：来源类型（插件 / CMS）→ 站点 → 线路 → 剧集。
  * 多根节点组件，直接排在详情信息列里；状态在 useDetailSources，这里只展示和发事件。
+ * 源一层带测速结果，在 DetailSourceList。
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import type { Episode, PluginExt } from '../types'
+import type { SourceProbe } from '../utils/auto-source'
 import type { SiteGroup, SourceType } from '../utils/detail-sources'
+import DetailSourceList from './DetailSourceList.vue'
 
 defineProps<{
   searching: boolean
@@ -85,11 +83,14 @@ defineProps<{
   activeLine: number
   currentEpisodes: Episode[]
   currentUrl: string
+  probes: Record<string, SourceProbe>
+  probing: boolean
 }>()
 const emit = defineEmits<{
   (e: 'switch-type', type: SourceType): void
   (e: 'switch-site' | 'switch-line', index: number): void
   (e: 'play', url: string, ext?: PluginExt): void
+  (e: 'reprobe'): void
 }>()
 </script>
 

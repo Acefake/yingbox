@@ -10,7 +10,11 @@ import type { KeyedMutex } from '../jobs/keyed-mutex'
 import type { JobContext, JobQueue } from '../jobs/queue'
 import type { LibraryRecord } from '../libraries/library-store'
 import { PARSER_VERSION, parseLibraryFile } from '../scanner/parse'
-import { type UnsettledFiles, scanLibrary } from '../scanner/scan-library'
+import {
+  type RemoteClients,
+  type UnsettledFiles,
+  scanLibrary,
+} from '../scanner/scan-library'
 import type { ScanStore } from '../scanner/scan-store'
 import type { SettleTracker } from '../scanner/settle'
 import {
@@ -39,6 +43,8 @@ export interface LibraryJobDeps {
   scanStore: ScanStore
   catalog: CatalogStore
   fingerprint: (path: string) => Promise<string | undefined>
+  /** 远程源（WebDAV）的客户端；宿主没提供时远程媒体库扫描报错。 */
+  remote?: RemoteClients
   /** 取媒体库；已被删除时抛 PermanentJobError（任务直接失败、不重试）。 */
   libraryFor: (libraryId: number) => LibraryRecord
   /** 整库扫描完成：记扫描时间并广播媒体库列表。 */
@@ -70,6 +76,7 @@ export async function runScan(
       scanStore: deps.scanStore,
       catalog: deps.catalog,
       fingerprint: f => deps.fingerprint(f.displayPath),
+      remote: deps.remote,
     },
     lib,
     {
