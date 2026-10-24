@@ -73,6 +73,7 @@ import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
+import { pendingOnlineDetail, takeOnlineDetail } from '../utils/detail-request'
 import {
   ContinueRow,
   getMediaProgress,
@@ -118,6 +119,14 @@ watch(
 const openDetailWindow = (item: CmsItem | OnlineDetailItem): void => {
   inlineDetailItem.value = JSON.parse(JSON.stringify(item))
 }
+// 别的页面（追剧日历）请求打开的详情：跳到本页后取走
+watch(
+  pendingOnlineDetail(),
+  item => {
+    if (item) openDetailWindow(takeOnlineDetail() as OnlineDetailItem)
+  },
+  { immediate: true }
+)
 const resumeRecentPlay = async (record: OnlinePlayRecord): Promise<void> => {
   const url = typeof record?.url === 'string' ? record.url.trim() : ''
   // 旧记录没有 item，条目字段平铺在记录上

@@ -25,13 +25,20 @@
           v-for="item in group.items"
           :key="item.path"
           class="sidebar-item"
-          :label="item.label"
+          :label="navLabel(item)"
           :icon="item.icon"
           icon-size="lg"
           :active="item.active"
           :collapsed="collapsed"
           @click="emit('navigate', item.path)"
-        />
+        >
+          {{ item.label }}
+          <template v-if="item.badge" #trailing>
+            <span class="sidebar-badge" aria-hidden="true">{{
+              badgeText(item.badge)
+            }}</span>
+          </template>
+        </UiNavItem>
       </template>
     </nav>
     <div class="sidebar-footer">
@@ -89,7 +96,7 @@ import { usePlatform } from '@/composables/use-platform'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
 
-import type { NavGroup } from '../composables/nav-items'
+import type { NavGroup, NavItem } from '../composables/nav-items'
 
 defineProps<{
   /** 导航分组 */
@@ -117,6 +124,12 @@ const { isPhone } = usePlatform()
 const { hasRuntime } = useLadaTasks()
 // 媒体库识别在跑时，按钮上显示进度环（进度条不再挤在各分区页面上）
 const identifying = useIdentifyActivity()
+/** 带角标的导航项：无障碍名称和收起时的悬停提示带上数字 */
+const navLabel = (item: NavItem): string =>
+  item.badge ? `${item.label}（${item.badge} 集未看）` : item.label
+const badgeText = (count: number): string =>
+  count > 99 ? '99+' : String(count)
+
 const queueLabel = computed(() => {
   if (identifying.value) return `打开后台任务（${identifying.value.label}）`
   return hasRuntime.value ? '打开后台任务（进行中）' : '打开后台任务'
@@ -204,6 +217,30 @@ const queueLabel = computed(() => {
 }
 .sidebar-item :deep(.app-icon) {
   color: inherit;
+}
+
+/* 数字角标（追剧日历的未看新集数）：收起成图标栏时缩成图标右上角的小圆点数字 */
+.sidebar-badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  color: var(--text-on-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.app-sidebar.is-collapsed .sidebar-badge {
+  position: absolute;
+  top: var(--space-0_5);
+  right: var(--space-0_5);
+  min-width: 14px;
+  padding: 0 var(--space-0_5);
+  line-height: 14px;
 }
 
 .sidebar-footer {
