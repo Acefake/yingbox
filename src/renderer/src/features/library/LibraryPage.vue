@@ -21,6 +21,7 @@
       @video-wall="videoWall.open"
       @open-item="openDetail"
     />
+    <NlSearchBar v-if="view === 'wall' && hasLibraries" :nl="nl" />
 
     <ActivityBar :activity="activity" />
 
@@ -164,7 +165,6 @@
  */
 import { toast } from '@/components/ui'
 import { computed, reactive, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
 
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -192,6 +192,8 @@ import { useLibraryActions } from './page/use-library-actions'
 import { useLibraryViews } from './page/use-library-views'
 import { useSectionGuard } from './page/use-section-guard'
 import { useWallSelection } from './page/use-wall-selection'
+import NlSearchBar from './nl-search/NlSearchBar.vue'
+import { useNlSearch } from './nl-search/use-nl-search'
 import MatchPane from './review/MatchPane.vue'
 import ReviewQueue from './review/ReviewQueue.vue'
 import LibrarySettings from './settings/LibrarySettings.vue'
@@ -222,7 +224,6 @@ import {
 
 const props = defineProps<{ section: LibrarySection }>()
 
-const route = useRoute()
 // 分区在页面生命周期内不变（每个分区是一个路由组件）
 const section = props.section
 const spec = SECTIONS[section]
@@ -252,14 +253,9 @@ const state = reactive<WallQueryState>({
   ...defaultWallQuery(),
   ...loadSavedSort(section),
 })
-// 搜索只在顶栏（Ctrl + K，已防抖）：关键词放在 ?q= 里，清空时 q 被去掉，这里跟着清空
-watch(
-  () => route.query.q,
-  q => {
-    state.search = typeof q === 'string' ? q : ''
-  },
-  { immediate: true }
-)
+// 搜索只在顶栏（?q=）：像一句描述时交给 AI 解析成条件（nl-search/），否则按片名搜索
+const nl = useNlSearch(section, () => toLibraryQuery(section, state))
+watch(nl.search, q => (state.search = q), { immediate: true })
 const libraryOptions = computed(() => libraryOptionsFor(libraries.value))
 const libraryChoice = computed({
   get: () => state.libraryId ?? 0,
@@ -287,17 +283,14 @@ const {
   ready,
   error: queryError,
   setVisible,
-} = usePagedQuery(
-  () => toLibraryQuery(section, state),
-  event => libraryIds.value.includes(event.libraryId)
-)
+} = usePagedQuery(nl.query, event => libraryIds.value.includes(event.libraryId))
 
 // 换查询条件回到顶部；换筛选（不含排序）清空多选
 watch(
-  () => [state.sort, state.order, ...filterKeyOf(state)],
+  () => [state.sort, state.order, ...filterKeyOf(state), nl.key.value],
   () => wall.value?.scrollToTop()
 )
-const emptyTitle = computed(() => emptyTitleFor(state))
+const emptyTitle = computed(() => nl.emptyTitle.value ?? emptyTitleFor(state))
 
 // —— 视图切换（资料库 / 演员 / 待确认）——
 const { view, viewOptions } = useLibraryViews(section, libraryIds)
@@ -314,13 +307,13 @@ function onActivate(
   activate(index, item, modifiers, openDetail)
 }
 
-watch(() => filterKeyOf(state), clearSelection)
+watch(() => [...filterKeyOf(state), nl.key.value], clearSelection)
 
 // —— 视频墙（选中项或当前筛选结果）——
 const videoWall = useWallEntry({
   selection,
   list,
-  query: () => toLibraryQuery(section, state),
+  query: nl.query,
 })
 
 // —— 条目详情 / 演员详情（路由驱动）——

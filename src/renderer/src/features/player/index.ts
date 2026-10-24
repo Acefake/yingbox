@@ -22,3 +22,4 @@ export type {
   ContinueRecord,
   ContinueSection,
 } from './continue/continue-rules'
+export { continueRecords } from './continue/continue-store'
