@@ -65,10 +65,11 @@ export interface ContinueLike {
   nextUp?: boolean
 }
 
-/** 一个文件的播放进度（秒）。 */
+/** 一个文件的播放进度（秒）；finished 为播放器记下的独立「已看完」标记。 */
 export interface ProgressLike {
   progress: number
   duration: number
+  finished?: boolean
 }
 
 const pad2 = (n: number): string => String(n).padStart(2, '0')
@@ -95,12 +96,15 @@ export function episodeStatus(
   return watched ? 'watched' : 'unwatched'
 }
 
-/** 进度是否算看完（总时长未知不算）。 */
+/** 进度是否算看完：有「已看完」标记，或进度过了 95%（总时长未知不算）。 */
 export const progressFinished = (p: ProgressLike | null | undefined): boolean =>
-  !!p && p.duration > 0 && p.progress >= p.duration * WATCHED_RATIO
+  !!p &&
+  (p.finished === true ||
+    (p.duration > 0 && p.progress >= p.duration * WATCHED_RATIO))
 
 /**
  * 媒体库的一集看过没有：
+ * - 这个文件在「已看完」集合里（播放器看完时记录，续播点清零、继续播放记录删掉后仍在）；或
  * - 这个文件的播放进度过了 95%；或
  * - 这部剧的「继续播放」记录里，这一集排在当前集之前（看完一集记录会前进到下一集）。
  */

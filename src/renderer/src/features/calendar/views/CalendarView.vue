@@ -148,8 +148,8 @@ const notice = computed(() => {
   return ''
 })
 
-// 打开页面、换周、过了零点都按当前周加载（同一天已加载过的不再请求）
-watch(cal.start, () => void cal.load(), { immediate: true })
+// 打开页面、换周、过了零点（同一周内也算）都按当前区间的缓存键加载（同一天已加载过的不再请求）
+watch(cal.rangeKey, () => void cal.load(), { immediate: true })
 onActivated(() => void cal.load())
 
 function prev(): void {
