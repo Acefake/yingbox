@@ -1,6 +1,8 @@
 import type { JsonRecord } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 
+import { isWatched } from '../watched'
+
 const ONLINE_KEY = 'online_play_history'
 const PROGRESS_MAP_KEY = 'media_play_progress'
 
@@ -37,6 +39,24 @@ export function mediaProgressKey(input: {
   return url || filePath
 }
 
+/**
+ * 一个进度键的观看情况：位置与总时长（秒），以及是否看完（「已看完」集合里的独立标记，
+ * 不从位置 0 推断）。进度表没有记录且没看完返回 null。
+ */
+export function readMediaProgress(
+  key: string
+): { progress: number; duration: number; finished: boolean } | null {
+  const hit = key ? readProgressMap()[key] : undefined
+  const finished = !!key && isWatched(key)
+  const has = !!hit && typeof hit.progress === 'number'
+  if (!has && !finished) return null
+  return {
+    progress: has ? hit.progress : 0,
+    duration: has && typeof hit.duration === 'number' ? hit.duration : 0,
+    finished,
+  }
+}
+
 export function getMediaProgress(key: string): number {
   if (!key) return 0
   const mapped = readProgressMap()[key]?.progress
@@ -44,19 +64,6 @@ export function getMediaProgress(key: string): number {
   const history = readStoredArray<JsonRecord>(ONLINE_KEY)
   const hit = history.find(entry => entry?.url === key)
   return typeof hit?.progress === 'number' ? hit.progress : 0
-}
-
-/** 某个媒体的进度与总时长（秒）；没有记录为 null。追剧日历据此判断一集看没看完。 */
-export function getMediaProgressEntry(
-  key: string
-): { progress: number; duration: number } | null {
-  if (!key) return null
-  const hit = readProgressMap()[key]
-  if (!hit || typeof hit.progress !== 'number') return null
-  return {
-    progress: hit.progress,
-    duration: typeof hit.duration === 'number' ? hit.duration : 0,
-  }
 }
 
 export function saveMediaProgress(

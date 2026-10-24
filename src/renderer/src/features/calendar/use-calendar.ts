@@ -4,7 +4,7 @@
  * - 媒体库部分：按日期区间向片库要播出数据（calendar.episodes）。引擎侧每部剧每天最多刷新一次 TMDB；
  *   这里再按「今天 + 区间」记住结果，同一天来回切页不重复调用。
  * - 在线部分：直接读「继续播放」记录（响应式），不联网。
- * - 已看 / 未看：「继续播放」记录 + 文件播放进度（规则见 calendar-rules.ts）。
+ * - 已看 / 未看：「已看完」标记 + 「继续播放」记录 + 文件播放进度（规则见 calendar-rules.ts）。
  * - 「今天」每分钟和窗口获得焦点时校正一次，过了零点角标与高亮自动跟上。
  */
 import { type Ref, computed, ref, shallowRef, watch } from 'vue'
@@ -14,11 +14,12 @@ import type {
   CalendarResult,
 } from '../../../../shared/library/ipc'
 import { fetchCalendarEpisodes, libraryProgressKey } from '@/features/library'
-import { continueRecords, getMediaProgressEntry } from '@/features/player'
+import { continueRecords, readMediaProgress } from '@/features/player'
 
 import { addDays, dateKey, weekStart } from './calendar-dates'
 import {
   type CalendarEntry,
+  type ProgressLike,
   badgeCount,
   badgeRange,
   compareEntries,
@@ -92,13 +93,10 @@ function loadRange(from: string, to: string, force = false): Promise<void> {
   return job
 }
 
-/** 一集的文件播放进度。 */
-function progressOf(ep: CalendarEpisode): {
-  progress: number
-  duration: number
-} | null {
+/** 一集的文件播放进度与「已看完」标记。 */
+function progressOf(ep: CalendarEpisode): ProgressLike | null {
   const key = libraryProgressKey(ep.fileId, ep.filePath)
-  return key ? getMediaProgressEntry(key) : null
+  return key ? readMediaProgress(key) : null
 }
 
 /** 某段日期的全部卡片（媒体库 + 在线），已排序。 */
@@ -154,6 +152,8 @@ export interface CalendarState {
   /** 当前周的周一 / 周日 */
   start: Readonly<Ref<string>>
   end: Readonly<Ref<string>>
+  /** 当前显示区间的缓存键（今天|周一|周日）；跨零点或换周都会变，页面据此重新加载 */
+  rangeKey: Readonly<Ref<string>>
   /** 这一周的媒体库卡片 + 全部在线剧卡片，已排序 */
   entries: Readonly<Ref<CalendarEntry[]>>
   loading: Readonly<Ref<boolean>>
@@ -170,9 +170,8 @@ export function useCalendar(): CalendarState {
   startClock()
   const start = computed(() => shownWeek.value ?? weekStart(today.value))
   const end = computed(() => addDays(start.value, 6))
-  const state = computed(() =>
-    ranges.value.get(rangeKey(start.value, end.value))
-  )
+  const key = computed(() => rangeKey(start.value, end.value))
+  const state = computed(() => ranges.value.get(key.value))
 
   /** 加载当前周（翻周、回到本周时调用）。 */
   const load = (force = false): Promise<void> =>
@@ -183,6 +182,7 @@ export function useCalendar(): CalendarState {
     mode,
     start,
     end,
+    rangeKey: key,
     entries: computed(() => entriesFor(state.value)),
     loading: computed(() => state.value?.loading ?? false),
     error: computed(() => state.value?.error ?? null),
