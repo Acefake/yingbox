@@ -24,6 +24,8 @@ export type PlayerPayload = {
   fallbacks?: PlaylistEntry[]
   /** 「继续播放」记录 id（openMediaPlayer 带 continueAs 时生成） */
   continueId?: string
+  /** 来自私密板块（AI 字幕只用本地模型，按设置） */
+  private?: boolean
 }
 
 /** 整理后的播放队列 */

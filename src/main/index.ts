@@ -41,6 +41,7 @@ import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
 import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
+import { registerAiSubtitles } from './ai-subtitles'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 import { installTray } from './tray'
 
@@ -229,6 +230,8 @@ app.whenReady().then(async () => {
   registerEngine()
   // AI 基础层：OpenAI 兼容接口 + 用量统计（所有 AI 功能的入口，见 src/main/ai）
   registerAi()
+  // AI 字幕：ffmpeg + Whisper 识别 + 大模型翻译，主进程任务队列（见 src/main/ai-subtitles）
+  registerAiSubtitles()
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 
