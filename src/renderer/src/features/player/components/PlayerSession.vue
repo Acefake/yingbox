@@ -5,6 +5,7 @@
       :src="src"
       :poster="poster"
       :start-at="startAt"
+      :danmaku-target="danmakuTarget"
       title=""
       :closable="false"
       :show-footer="false"
@@ -61,6 +62,7 @@ import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
+import type { DanmakuTarget } from '../danmaku/danmaku-rules'
 import { updateContinue } from '../continue/continue-store'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import {
@@ -129,6 +131,22 @@ const currentEntry = computed<PlaylistEntry | null>(() => {
   if (activeFallback.value >= 0)
     return fallbacks.value[activeFallback.value] || null
   return playlist.value[position.value] || null
+})
+
+/** 弹幕匹配用的当前条目：剧名 + 集名（列表多于一项时带序号），本地带文件路径 */
+const danmakuTarget = computed<DanmakuTarget | null>(() => {
+  const entry = playlist.value[position.value]
+  if (!entry) return null
+  const multi = playlist.value.length > 1
+  return {
+    title:
+      defaultTitle.value === '正在播放'
+        ? entryLabel(entry)
+        : defaultTitle.value,
+    episode: multi ? entry.name?.trim() || undefined : undefined,
+    index: multi ? position.value + 1 : undefined,
+    filePath: currentEntry.value?.filePath || undefined,
+  }
 })
 
 const showNotice = (text: string): void => {

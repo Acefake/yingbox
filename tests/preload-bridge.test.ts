@@ -141,6 +141,7 @@ const ADDED_API: Record<string, string[]> = {
     'resolvePage',
   ],
   av: ['list', 'resolve'],
+  danmaku: ['match', 'search', 'comments'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: ['focus', 'saveFocus'],

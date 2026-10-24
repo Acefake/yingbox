@@ -72,6 +72,14 @@ const coreSections: SettingsSection[] = [
     order: 60,
   },
   {
+    id: 'danmaku',
+    title: '弹幕',
+    icon: 'subtitle',
+    keywords: '弹幕 弹弹play dandanplay appid appsecret',
+    load: () => import('./sections/DanmakuSettings.vue'),
+    order: 65,
+  },
+  {
     id: 'update',
     title: '软件更新',
     icon: 'refresh',
