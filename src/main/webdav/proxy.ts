@@ -27,6 +27,8 @@ import {
 import {
   PROXY_METHODS,
   downstreamHeaders,
+  encodedStatus,
+  isEncoded,
   proxyStatus,
   upstreamHeaders,
 } from '../../shared/webdav/proxy-rules'
@@ -81,13 +83,15 @@ export async function forwardRemote(
   } catch {
     return new Response(null, { status: 502 })
   }
-  const status = proxyStatus(upstream.status)
+  const read = (name: string): string | null => upstream.headers.get(name)
+  const proxied = proxyStatus(upstream.status)
+  const status = isEncoded(read) ? encodedStatus(proxied) : proxied
   if (status === 502 || status === 404) {
     await upstream.body?.cancel()
     return new Response(null, { status })
   }
   const headers = downstreamHeaders(
-    name => upstream.headers.get(name),
+    read,
     MIME[extname(target.path).toLowerCase()]
   )
   const body =
