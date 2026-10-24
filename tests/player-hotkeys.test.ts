@@ -101,12 +101,13 @@ describe('播放器快捷键映射', () => {
 
 describe('倍速档位', () => {
   it('按档位升降，到头不再变', () => {
-    expect(RATE_STEPS[0]).toBe(0.25)
-    expect(RATE_STEPS.at(-1)).toBe(2)
+    // 与 Artplayer 内置「播放速度」菜单同一组档位（art-core 把 Artplayer.PLAYBACK_RATE 设为它）
+    expect(RATE_STEPS).toEqual([0.5, 0.75, 1, 1.25, 1.5, 2])
     expect(stepRate(1, 1)).toBe(1.25)
     expect(stepRate(1, -1)).toBe(0.75)
     expect(stepRate(2, 1)).toBe(2)
-    expect(stepRate(0.25, -1)).toBe(0.25)
+    expect(stepRate(0.5, -1)).toBe(0.5)
+    expect(stepRate(0.25, 1)).toBe(0.5)
   })
 
   it('不在档位上的倍速吸到相邻档位', () => {

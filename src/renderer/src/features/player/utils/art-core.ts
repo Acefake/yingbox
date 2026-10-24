@@ -12,6 +12,7 @@ import {
   artOptions,
   isValidPlaybackRate,
 } from './art-options'
+import { RATE_STEPS } from '../hotkeys/hotkey-map'
 import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
 import { installScreenshot } from '../screenshot/screenshot'
@@ -65,6 +66,8 @@ export interface ArtCoreInput {
  * 播放弹窗的会话认领后按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
  */
 Artplayer.DBCLICK_FULLSCREEN = false
+/** 内置「播放速度」菜单与 < / > 快捷键同一组档位（全局静态，只此一处设） */
+Artplayer.PLAYBACK_RATE = [...RATE_STEPS]
 const dblclickClaimed = new WeakSet<Artplayer>()
 
 /** 由调用方接管这个实例的双击（不再默认切全屏） */

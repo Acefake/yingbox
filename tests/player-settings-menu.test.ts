@@ -7,7 +7,6 @@ import {
   danmakuChoices,
   orderSettings,
   qualityChoices,
-  rateLabel,
   subtitleChoices,
 } from '../src/renderer/src/features/player/settings-menu/menu-rules'
 
@@ -15,13 +14,13 @@ describe('齿轮设置菜单：一级列表顺序', () => {
   it('按 YouTube 的顺序：字幕、播放速度、画质、音轨、弹幕在前，其余在后', () => {
     expect(SETTING_ORDER.slice(0, 5)).toEqual([
       'ybSubtitles',
-      'playbackRate',
+      'playback-rate',
       'ybQuality',
       'ybAudio',
       'ybDanmaku',
     ])
     const items = [
-      { name: 'playbackRate' },
+      { name: 'playback-rate' },
       { name: 'ybPlaybackInfo' },
       { name: 'ybSleep' },
       { name: 'custom-a' },
@@ -31,7 +30,7 @@ describe('齿轮设置菜单：一级列表顺序', () => {
     ]
     expect(orderSettings(items).map(i => i.name)).toEqual([
       'ybSubtitles',
-      'playbackRate',
+      'playback-rate',
       'ybDanmaku',
       'ybSleep',
       'ybPlaybackInfo',
@@ -109,11 +108,5 @@ describe('齿轮设置菜单：二级页面', () => {
     expect(on.map(c => c.value)).toEqual(['on', 'off', 'panel'])
     expect(choiceTooltip(on)).toBe('开启')
     expect(choiceTooltip(danmakuChoices(false))).toBe('关闭')
-  })
-
-  it('播放速度标签：1 倍为「正常」', () => {
-    expect(rateLabel(1)).toBe('正常')
-    expect(rateLabel(1.5)).toBe('1.5')
-    expect(rateLabel(0.25)).toBe('0.25')
   })
 })

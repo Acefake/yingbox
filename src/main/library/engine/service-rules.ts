@@ -31,12 +31,10 @@ export const PRIORITY = {
   fingerprint: 0,
   probe: 0,
 } as const
-/** 指纹 / 解析任务每批处理的文件数。 */
+/** 指纹 / 解析 / 动态范围探测任务每批处理的文件数。 */
 export const BACKGROUND_BATCH = 500
 /** 同时读取的文件数：每个读 128 KiB，网络盘上并发过高反而更慢。 */
 export const FINGERPRINT_CONCURRENCY = 8
-/** 同时运行的 ffprobe 进程数（每个只读文件头，但要起进程） */
-export const PROBE_CONCURRENCY = 2
 /** 一次扫描最多写进日志的告警条数。 */
 export const SCAN_WARNING_LOG_LIMIT = 20
 

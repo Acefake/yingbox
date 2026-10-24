@@ -95,16 +95,5 @@ export function videoProbeTag(probe: VideoProbe | null | undefined): string {
     : badge
 }
 
-/** 多个文件（分段电影、剧集各集）里最好的一档：DV > HDR10 > HLG > SDR；全部未知为 null */
-export function bestVideoRange(
-  ranges: ReadonlyArray<VideoRange | null | undefined>
-): VideoRange | null {
-  let best: VideoRange | null = null
-  for (const range of ranges) {
-    if (range && (best === null || RANK[range] > RANK[best])) best = range
-  }
-  return best
-}
-
-/** SQL 里按档位取最好一档时用的排名（与 bestVideoRange 同序） */
+/** SQL 里按档位取最好一档时用的排名：DV > HDR10 > HLG > SDR（多个文件取最好一档，见 catalog/query） */
 export const VIDEO_RANGE_RANK: Readonly<Record<VideoRange, number>> = RANK

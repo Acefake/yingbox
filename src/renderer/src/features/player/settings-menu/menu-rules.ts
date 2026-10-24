@@ -9,7 +9,8 @@
  */
 export const SETTING_ORDER: readonly string[] = [
   'ybSubtitles',
-  'playbackRate',
+  // Artplayer 内置「播放速度」（art-options 的 playbackRate: true）的名字
+  'playback-rate',
   'ybQuality',
   'ybAudio',
   'ybDanmaku',
@@ -44,11 +45,6 @@ export function orderSettings<T extends { name?: string }>(items: T[]): T[] {
 /** 一级列表右侧的当前值：当前项的文字 */
 export function choiceTooltip(choices: readonly MenuChoice[]): string {
   return choices.find(c => c.default)?.html ?? ''
-}
-
-/** 播放速度的显示：1 倍为「正常」 */
-export function rateLabel(rate: number): string {
-  return rate === 1 ? '正常' : String(rate)
 }
 
 /**
