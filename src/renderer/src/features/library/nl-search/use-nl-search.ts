@@ -22,6 +22,7 @@ import type { LibraryQuery } from '../../../../../shared/library/ipc'
 import {
   AiCallError,
   aiAvailable,
+  aiConfigured,
   aiKeyConfigured,
   chatJson,
 } from '@/features/ai'
@@ -46,7 +47,6 @@ import {
 } from './nl-filter'
 import {
   NlCache,
-  aiConfigured,
   applyNlFilter,
   cacheKey,
   isPrivateSection,

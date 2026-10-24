@@ -7,6 +7,7 @@ import { routes } from '@/router/routers'
 import { setupDirectives } from '@/directives'
 import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
+import { assistantSettingsSection } from '@/features/assistant'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
@@ -40,6 +41,7 @@ initTheme()
 
 // 各 feature 自己定义设置分区，在应用入口组合进设置面板（按 order 排位）
 for (const section of [
+  assistantSettingsSection,
   sourcesSettingsSection,
   ladaSettingsSection,
   downloadSettingsSection,

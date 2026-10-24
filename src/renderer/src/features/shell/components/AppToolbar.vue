@@ -134,7 +134,8 @@ const clearGlobalSearch = (): void => {
 }
 
 const onGlobalSearchShortcut = (event: KeyboardEvent): void => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+  // Cmd/Ctrl+K 留给 AI 助手；搜索框用 Cmd/Ctrl+F
+  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'f') {
     event.preventDefault()
     globalSearchInput.value?.focus()
   }

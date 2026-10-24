@@ -122,8 +122,13 @@ async function probeDuration(
   return duration
 }
 
-/** 按设置组装识别器 */
-function recognizer(job: AiSubtitleJob): PipelineDeps['recognize'] {
+/**
+ * 按设置组装识别器（AI 字幕任务与 AI 助手的语音输入共用）。
+ * @param job 只看 private：私密内容按「私密板块只用本地模型」拦截云端转写
+ */
+export function speechRecognizer(
+  job: Pick<AiSubtitleJob, 'private'>
+): PipelineDeps['recognize'] {
   const store = settingsStore()
   const speech = aiService().speechConfig()
   if (speech.engine === 'local-whisper')
@@ -216,7 +221,7 @@ function pipelineDeps(job: AiSubtitleJob, signal: AbortSignal): PipelineDeps {
           `ffmpeg 抽取音频失败：${result.tail.slice(-2).join(' / ') || result.code}`
         )
     },
-    recognize: recognizer(job),
+    recognize: speechRecognizer(job),
     checkTranslate: () => {
       const config = service.config()
       assertUsable(config)
