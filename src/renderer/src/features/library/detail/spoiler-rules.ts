@@ -3,7 +3,8 @@
  *
  * 一集的「键」是它视频文件的播放进度键（桌面端文件路径，网页端片库服务的流地址），与播放器记进度用的一致。
  * 看过的依据（任一成立即可）：
- * - 播放进度表里这个键播过至少 SEEN_MIN_PROGRESS 秒，或带着「看完」标记（位置 0、时长已知）；
+ * - 这个键带着「看完」标记（播放器看完一集时记入「已看完」集合），或进度表里播过至少 SEEN_MIN_PROGRESS 秒；
+ *   进度表里位置 0 不算（可能只是拖回了开头）；
  * - 这部剧的「继续播放」记录：连播列表里当前集之前的都算看过；当前集已开始看（不是「下一集」）也算。
  * 不依赖 Vue 和存储，取数在 use-spoiler-guard.ts。
  */
@@ -12,19 +13,18 @@ import type { ContinueRecord } from '@/features/player'
 /** 播过这么多秒就算看过这一集（误点进来马上关掉不算）。 */
 export const SEEN_MIN_PROGRESS = 10
 
-/** 播放进度表里的一条。 */
+/** 一个进度键的观看情况（readMediaProgress 的返回值）。 */
 export interface ProgressEntry {
   progress: number
   duration: number
+  /** 「已看完」集合里的独立标记；没有这个字段按没看完处理 */
+  finished?: boolean
 }
 
-/** 进度表的一条是否说明看过：播过一段，或看完标记（看完时位置记成 0、时长保留）。 */
+/** 这条观看情况是否说明看过：有看完标记，或播过至少 SEEN_MIN_PROGRESS 秒。 */
 export function progressSeen(entry: ProgressEntry | null | undefined): boolean {
   if (!entry) return false
-  return (
-    entry.progress >= SEEN_MIN_PROGRESS ||
-    (entry.progress === 0 && entry.duration > 0)
-  )
+  return entry.finished === true || entry.progress >= SEEN_MIN_PROGRESS
 }
 
 /** 连播列表一项的进度键（与 mediaProgressKey 相同：地址优先，其次文件路径）。 */

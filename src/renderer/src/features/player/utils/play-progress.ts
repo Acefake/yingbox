@@ -1,6 +1,8 @@
 import type { JsonRecord } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 
+import { isWatched } from '../watched'
+
 const ONLINE_KEY = 'online_play_history'
 const PROGRESS_MAP_KEY = 'media_play_progress'
 
@@ -37,15 +39,21 @@ export function mediaProgressKey(input: {
   return url || filePath
 }
 
-/** 进度表里的一条（位置与总时长，秒）；没有记录返回 null。看完时位置记成 0、时长保留。 */
+/**
+ * 一个进度键的观看情况：位置与总时长（秒），以及是否看完（「已看完」集合里的独立标记，
+ * 不从位置 0 推断）。进度表没有记录且没看完返回 null。
+ */
 export function readMediaProgress(
   key: string
-): { progress: number; duration: number } | null {
+): { progress: number; duration: number; finished: boolean } | null {
   const hit = key ? readProgressMap()[key] : undefined
-  if (!hit || typeof hit.progress !== 'number') return null
+  const finished = !!key && isWatched(key)
+  const has = !!hit && typeof hit.progress === 'number'
+  if (!has && !finished) return null
   return {
-    progress: hit.progress,
-    duration: typeof hit.duration === 'number' ? hit.duration : 0,
+    progress: has ? hit.progress : 0,
+    duration: has && typeof hit.duration === 'number' ? hit.duration : 0,
+    finished,
   }
 }
 
