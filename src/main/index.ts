@@ -23,6 +23,7 @@ import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
 import { registerCaptureIpc } from './capture'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
+import { registerDanmakuIpc } from './ipc/danmaku-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
@@ -181,6 +182,7 @@ app.whenReady().then(async () => {
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
   registerCaptureIpc()
+  registerDanmakuIpc()
   registerMpvIpc()
   await registerLadaIpc()
   const libraryClient = registerLibraryIpc(thumbnails)

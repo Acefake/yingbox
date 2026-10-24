@@ -16,16 +16,34 @@ const fakes = vi.hoisted(() => {
   type Handler = (...args: unknown[]) => void
   const arts: FakeArt[] = []
   const hlsList: FakeHls[] = []
-  /** layers / controls / contextmenu 的最小桩：add 返回一个元素并记下名字 */
+  /**
+   * layers / controls / setting / contextmenu 的最小桩：add 返回一个元素并记下该项；
+   * setting 菜单还要 update / find（睡眠定时会改菜单项文字）。
+   */
   class FakeComponent {
     show = false
-    names: string[] = []
-    add(option: { name?: string }): HTMLElement {
-      this.names.push(option.name ?? '')
-      return document.createElement('div')
+    items: { name?: string; html?: string }[] = []
+    constructor(private readonly host?: () => HTMLElement) {}
+    get names(): string[] {
+      return this.items.map(it => it.name ?? '')
+    }
+    add(item: { name?: string; html?: string }): HTMLElement {
+      this.items.push(item)
+      const el = document.createElement('div')
+      el.innerHTML = item.html ?? ''
+      this.host?.().appendChild(el)
+      return el
+    }
+    update(item: { name?: string }): void {
+      const i = this.items.findIndex(it => it.name === item.name)
+      if (i >= 0) this.items[i] = item
+      else this.items.push(item)
+    }
+    find(name: string): { $tooltip?: HTMLElement } | undefined {
+      return this.items.some(it => it.name === name) ? {} : undefined
     }
     remove(name: string): void {
-      this.names = this.names.filter(n => n !== name)
+      this.items = this.items.filter(it => it.name !== name)
     }
   }
   class FakeArt {
@@ -35,8 +53,10 @@ const fakes = vi.hoisted(() => {
     destroyed = 0
     notice = { show: '' }
     subtitle = { switch: async (): Promise<void> => {} }
-    layers = new FakeComponent()
+    /** 浮层挂到播放器根节点（播放信息会在里面查元素） */
+    layers = new FakeComponent(() => this.template.$player)
     controls = new FakeComponent()
+    setting = new FakeComponent()
     contextmenu = new FakeComponent()
     private handlers = new Map<string, Handler[]>()
     constructor(option: Record<string, unknown>) {
@@ -388,6 +408,12 @@ describe('播放弹窗', () => {
     expect(fakes.arts[0].contextmenu.names).toEqual(
       expect.arrayContaining(['ybScreenshot', 'ybScreenshotGif'])
     )
+    // 播放器核心还装上了播放信息的浮层、设置项与右键菜单项
+    const art = fakes.arts[0]
+    for (const part of [art.layers, art.setting, art.contextmenu])
+      expect(part.items.map(it => it.name)).toContain('ybPlaybackInfo')
+    // 以及睡眠定时菜单项
+    expect(art.setting.items.map(it => it.name)).toContain('ybSleep')
     // 页面还在（弹窗只是盖在上面）
     expect(t.root.textContent).toContain('甲页')
     t.unmount()
