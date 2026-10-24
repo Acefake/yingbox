@@ -86,11 +86,12 @@ const sseResponse = (parts: string[]): Response =>
 const noSleep = async (_ms: number, _signal: AbortSignal): Promise<void> => {}
 
 describe('服务商预设与配置', () => {
-  it('五个预设，Ollama 不需要 Key 也没有密钥项', () => {
+  it('六个预设，Ollama 不需要 Key 也没有密钥项', () => {
     expect(AI_PROVIDERS.map(p => p.id)).toEqual([
       'openai',
       'deepseek',
       'openrouter',
+      'opencode-go',
       'ollama',
       'custom',
     ])
@@ -112,6 +113,27 @@ describe('服务商预设与配置', () => {
       jsonSchema: true,
     })
     expect(getSecret).toHaveBeenCalledWith('ai.apiKey.openrouter')
+  })
+
+  it('OpenCode Go：Chat Completions 接口、便宜的 chat 模型、独立密钥、JSON 模式', () => {
+    const getSecret = vi.fn(() => 'oc-key')
+    const c = resolveAiConfig(
+      { provider: 'opencode-go', baseUrl: '', model: '' },
+      getSecret
+    )
+    expect(c).toMatchObject({
+      provider: 'opencode-go',
+      baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+      model: 'glm-5.3-flash',
+      apiKey: 'oc-key',
+      local: false,
+      jsonSchema: false,
+    })
+    expect(getSecret).toHaveBeenCalledWith('ai.apiKey.opencode-go')
+    expect(aiKeySecret('opencode-go')).toBe('ai.apiKey.opencode-go')
+    const preset = AI_PROVIDERS.find(p => p.id === 'opencode-go')
+    expect(preset).toMatchObject({ label: 'OpenCode Go', needsKey: true })
+    expect(preset?.modelHint).toContain('Chat Completions')
   })
 
   it('自定义地址去掉结尾斜杠；指向局域网算本地', () => {
@@ -219,6 +241,35 @@ describe('请求构造', () => {
     expect(
       buildHeaders(config({ provider: 'openrouter' }), false)['X-Title']
     ).toBe('yingbox')
+  })
+
+  it('OpenCode Go：Bearer 鉴权、自报 User-Agent，请求发到 /chat/completions', async () => {
+    const oc = config({
+      provider: 'opencode-go',
+      baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+      model: 'glm-5.3-flash',
+      apiKey: 'oc-key',
+    })
+    const headers = buildHeaders(oc, false)
+    expect(headers.Authorization).toBe('Bearer oc-key')
+    expect(headers['User-Agent']).toBe('yingbox')
+    expect(buildHeaders(config(), false)['User-Agent']).toBeUndefined()
+
+    const fetch = vi.fn(async (_url: string, _init?: RequestInit) =>
+      completion('好')
+    )
+    const result = await chatCompletion(
+      oc,
+      { messages: [{ role: 'user', content: 'q' }] },
+      { fetch }
+    )
+    expect(fetch.mock.calls[0][0]).toBe(
+      'https://opencode.ai/inference/go/openai/v1/chat/completions'
+    )
+    expect(JSON.parse(String(fetch.mock.calls[0][1]!.body)).model).toBe(
+      'glm-5.3-flash'
+    )
+    expect(result).toMatchObject({ content: '好', provider: 'opencode-go' })
   })
 
   it('流式要求返回 usage；请求里的 model 覆盖设置', () => {

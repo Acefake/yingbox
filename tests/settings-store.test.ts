@@ -57,6 +57,7 @@ describe('默认值', () => {
       'ai.apiKey.openai': false,
       'ai.apiKey.deepseek': false,
       'ai.apiKey.openrouter': false,
+      'ai.apiKey.opencode-go': false,
       'ai.apiKey.custom': false,
       'danmaku.appSecret': false,
     })
@@ -121,6 +122,16 @@ describe('写入校验', () => {
     expect(() => store.set('player.playbackRate', 5)).toThrow('不合法')
     expect(() => store.set('scrape.tmdbToken', 'x')).toThrow('不合法')
     expect(store.snapshot().values).toEqual((await open()).snapshot().values)
+  })
+
+  it('AI 服务商可选 OpenCode Go，其 Key 走密钥存储', async () => {
+    const store = await open()
+    store.set('ai.provider', 'opencode-go')
+    await store.setSecret('ai.apiKey.opencode-go', 'oc-key')
+    await store.flush()
+    expect(store.get('ai.provider')).toBe('opencode-go')
+    expect(store.snapshot().secrets['ai.apiKey.opencode-go']).toBe(true)
+    expect(readFileSync(file, 'utf8')).not.toContain('oc-key')
   })
 
   it('重新打开后读到上次写入的值', async () => {
