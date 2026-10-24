@@ -1,5 +1,6 @@
 /**
  * 媒体库（根目录）的增删查改。根目录之间不允许嵌套，否则同一个文件会属于两个库。
+ * 根目录是本地路径，或远程源路径 yingbox-dav://<源 id>/<路径>（见 shared/webdav/remote-path）。
  * 自动化设置整份存 JSON，读取时与默认值合并（旧数据、缺字段都能用）。
  */
 import { basename, resolve } from 'node:path'
@@ -13,6 +14,11 @@ import {
   type UpdateLibraryRequest,
   withAutomationDefaults,
 } from '../../../shared/library/ipc'
+import {
+  isRemotePath,
+  parseRemotePath,
+  remotePath,
+} from '../../../shared/webdav/remote-path'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { pathKey } from '../scanner/rules'
 
@@ -23,6 +29,15 @@ export interface LibraryRecord extends LibraryInfo {
 
 const SELECT = `SELECT id, name, root, root_display, kind, source, created_at,
   last_scan_at, automation FROM libraries`
+
+/** 规范根目录：本地路径转绝对路径；远程源路径（yingbox-dav://）检查格式后规范斜杠。 */
+function libraryRoot(raw: string): string {
+  if (!isRemotePath(raw)) return resolve(raw)
+  const parsed = parseRemotePath(raw)
+  if (!parsed)
+    throw new LibraryError('invalid-params', `远程路径格式不对：${raw}`)
+  return remotePath(parsed.sourceId, parsed.path)
+}
 
 /** 存储里的自动化 JSON → 补全默认值；坏数据按默认值处理。 */
 function parseAutomation(raw: unknown): LibraryAutomation {
@@ -85,7 +100,7 @@ export class LibraryStore {
 
   /** 添加媒体库；与已有根目录相同或互相嵌套时抛 conflict。 */
   add(request: AddLibraryRequest, now: number): LibraryRecord {
-    const root = resolve(request.root)
+    const root = libraryRoot(request.root)
     const key = pathKey(root)
     for (const lib of this.list()) {
       const nested =
