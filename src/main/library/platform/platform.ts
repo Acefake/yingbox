@@ -38,6 +38,8 @@ export interface LibraryPlatform {
   env?: LibraryEnvSecrets
   /** 按画面搜的像素转换（原图 → 224×224 RGBA）；宿主用编解码线程实现，见 visual/clip-pixels.ts。 */
   clipPixels?: (bytes: Uint8Array) => Promise<Uint8Array>
+  /** 大模型调用口（AI 识别兜底）：桌面端经主进程 aiService 代办；独立服务没有。 */
+  ai?: IdentifyModuleOptions['ai']
   /** 远程源（WebDAV / Alist）客户端；桌面端向主进程要凭据后建，独立服务不提供。 */
   remote?: RemoteClients
 }
@@ -86,6 +88,7 @@ export function createLibraryService(
       onImagesCached: platform.onImagesCached,
       deriveImage: platform.deriveImage,
       env: platform.env,
+      ai: platform.ai,
     },
     visual: { ...extra.visual, pixels: platform.clipPixels },
   })

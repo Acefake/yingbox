@@ -61,6 +61,8 @@ export interface ScoreBreakdown {
   year?: number
   runtime?: number
   episodes?: number
+  /** AI 推断的把握（0–1）；有这一项表示候选来自 AI 识别兜底。 */
+  ai?: number
 }
 
 /** 带分数的候选。 */

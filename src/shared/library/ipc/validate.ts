@@ -179,7 +179,7 @@ function parseTargets(input: unknown, what: string): IdentifyRequest {
   if (libraryId === undefined && !itemIds?.length) {
     invalid('libraryId 与 itemIds 至少提供一个')
   }
-  return { libraryId, itemIds, force: !!r.force }
+  return { libraryId, itemIds, force: !!r.force, ...(r.ai ? { ai: true } : {}) }
 }
 
 const optionalText = (

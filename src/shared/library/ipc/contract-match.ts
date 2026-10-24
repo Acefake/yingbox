@@ -22,6 +22,8 @@ export interface MatchCandidateInfo {
   poster: string | null
   /** 简介摘要（最多 160 字）；搜索结果没有简介为 null。 */
   overview: string | null
+  /** 'ai'：候选由 AI 识别兜底推断后经 TMDB 验证得到；常规识别没有这一项。 */
+  source?: 'ai'
 }
 
 /** 某条目当前的匹配与候选。 */

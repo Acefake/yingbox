@@ -135,6 +135,11 @@ export class IdentifyRunner implements RunnerContext {
     changes: ItemChanges,
     signal?: AbortSignal
   ): Promise<Outcome> {
+    if (mode === 'ai') {
+      return this.deps.ai
+        ? this.deps.ai.manual(this, target, changes, signal)
+        : 'skipped'
+    }
     // 已有匹配：识别模式下只补元数据（新增的集等），刷新模式下重新拉取
     const reuse = reusableRef(target, mode)
     if (reuse) {
@@ -151,9 +156,13 @@ export class IdentifyRunner implements RunnerContext {
     if (mode === 'refresh' || target.matchState === 'locked') return 'skipped'
     if (target.source === 'jav')
       return identifyJav(this, target, changes, signal)
-    return target.type === 'movie'
+    const outcome = await (target.type === 'movie'
       ? identifyMovie(this, target, changes, signal)
-      : identifySeries(this, target, changes, signal)
+      : identifySeries(this, target, changes, signal))
+    // 待确认 / 未匹配时交给 AI 识别兜底（开关与配置在 AiScraper 里判断）
+    return this.deps.ai
+      ? this.deps.ai.fallback(this, target, outcome, changes, signal)
+      : outcome
   }
 
   // —————————————————————————— 写入 ——————————————————————————
