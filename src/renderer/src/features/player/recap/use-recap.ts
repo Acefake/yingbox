@@ -1,19 +1,22 @@
 /**
  * 播放器里的前情提要：开播时探测（不调模型），第 2 集起从头播放就在左上角浮出提示卡；
  * 点开后先要之前 1–3 集的摘要（主进程现算并缓存），再流式生成 150–250 字的要点，结果按集缓存。
+ *
+ * 两个计数：session 跟着换集走（作废探测结果），run 跟着每次生成走；关闭卡片立刻推进 run、
+ * loading 归零，迟到的结果按 run 丢弃，prepare 经 requestId 在主进程一并取消。
  */
 import {
   type ComputedRef,
   type Ref,
   type ShallowRef,
   computed,
-  onBeforeUnmount,
+  onScopeDispose,
   ref,
   shallowRef,
   watch,
 } from 'vue'
 
-import { chatStream, toAiError } from '@/features/ai'
+import { aiKeyConfigured, chatStream, toAiError } from '@/features/ai'
 import { useSetting } from '@/features/settings'
 
 import { recapMessages } from '../../../../../shared/recap/prompts'
@@ -26,6 +29,8 @@ import {
 } from './recap-api'
 import {
   CARD_AUTO_HIDE_MS,
+  isAbortError,
+  recapAiReady,
   recapErrorText,
   shouldOfferRecap,
 } from './recap-rules'
@@ -54,6 +59,8 @@ export interface RecapState {
   text: Ref<string>
   loading: Ref<boolean>
   error: Ref<string>
+  /** 给读屏的一句状态（生成完成 / 失败时写入） */
+  announcement: Ref<string>
   open: () => void
   show: () => void
   close: () => void
@@ -63,15 +70,20 @@ export interface RecapState {
 /** 创建前情提要状态 */
 export function useRecap(options: RecapOptions): RecapState {
   const enabled = useSetting('ai.recap.prompt')
+  const provider = useSetting('ai.provider')
+  const baseUrl = useSetting('ai.baseUrl')
+  const model = useSetting('ai.model')
   const probe = shallowRef<RecapProbe | null>(null)
   const visible = ref(false)
   const expanded = ref(false)
   const text = ref('')
   const loading = ref(false)
   const error = ref('')
+  const announcement = ref('')
   const available = computed(() => Boolean(probe.value?.previous.length))
 
-  let generation = 0
+  let session = 0
+  let run = 0
   let controller: AbortController | null = null
   let hideTimer: number | undefined
 
@@ -80,13 +92,16 @@ export function useRecap(options: RecapOptions): RecapState {
     hideTimer = undefined
   }
 
+  /** 放弃正在进行的生成：推进 run、取消请求、loading 归零 */
   const abort = (): void => {
+    run += 1
     controller?.abort()
     controller = null
+    loading.value = false
   }
 
   const reset = (): void => {
-    generation += 1
+    session += 1
     abort()
     clearTimer()
     probe.value = null
@@ -95,6 +110,7 @@ export function useRecap(options: RecapOptions): RecapState {
     text.value = ''
     loading.value = false
     error.value = ''
+    announcement.value = ''
   }
 
   watch(
@@ -102,15 +118,22 @@ export function useRecap(options: RecapOptions): RecapState {
     async source => {
       reset()
       if (!recapAvailable() || !source.startsWith('local://')) return
-      const token = generation
+      const token = session
       const found = await probeRecap(source, options.isPrivate()).catch(
         () => null
       )
-      if (token !== generation) return
+      if (token !== session) return
       probe.value = found
+      const aiReady = recapAiReady({
+        provider: provider.value,
+        baseUrl: baseUrl.value,
+        model: model.value,
+        keySaved: aiKeyConfigured(provider.value),
+      })
       if (
         shouldOfferRecap({
           enabled: enabled.value,
+          aiReady,
           probe: found,
           startAt: options.startAt(),
         })
@@ -126,22 +149,29 @@ export function useRecap(options: RecapOptions): RecapState {
 
   const generate = async (): Promise<void> => {
     const source = options.source()
-    const token = generation
     const isPrivate = options.isPrivate()
     abort()
+    const token = run
     const current = new AbortController()
     controller = current
     loading.value = true
     error.value = ''
     text.value = ''
+    announcement.value = ''
+    const live = (): boolean => token === run
     try {
-      const context = await prepareRecap(source, {
-        purpose: 'recap',
-        ...(isPrivate ? { private: true } : {}),
-      })
-      if (token !== generation || current.signal.aborted) return
+      const context = await prepareRecap(
+        source,
+        {
+          purpose: 'recap',
+          ...(isPrivate ? { private: true } : {}),
+        },
+        current.signal
+      )
+      if (!live()) return
       if (!context.previous.length) {
         error.value = '之前几集没有可用的字幕或分集简介'
+        announcement.value = error.value
         return
       }
       const result = await chatStream(
@@ -154,12 +184,13 @@ export function useRecap(options: RecapOptions): RecapState {
         {
           signal: current.signal,
           onDelta: delta => {
-            if (token === generation) text.value += delta
+            if (live()) text.value += delta
           },
         }
       )
-      if (token !== generation) return
+      if (!live()) return
       text.value = result.content.trim() || text.value.trim()
+      announcement.value = '前情提要已生成'
       if (text.value && context.cacheKey) {
         void saveRecap({
           cacheKey: context.cacheKey,
@@ -169,13 +200,20 @@ export function useRecap(options: RecapOptions): RecapState {
         if (probe.value) probe.value = { ...probe.value, cached: text.value }
       }
     } catch (err) {
-      if (token !== generation) return
-      const failure = toAiError(err)
+      if (!live()) return
+      const failure = isAbortError(err)
+        ? { code: 'cancelled' as const, message: '' }
+        : toAiError(err)
       if (failure.code === 'cancelled') text.value = ''
-      else error.value = recapErrorText(failure)
+      else {
+        error.value = recapErrorText(failure)
+        announcement.value = error.value
+      }
     } finally {
-      if (token === generation) loading.value = false
-      if (controller === current) controller = null
+      if (live()) {
+        loading.value = false
+        controller = null
+      }
     }
   }
 
@@ -196,16 +234,19 @@ export function useRecap(options: RecapOptions): RecapState {
     open()
   }
 
-  /** 关掉提示卡（生成中的请求一并取消） */
+  /** 关掉提示卡：生成中的请求一并取消，没生成完的半截正文丢掉（再打开时重新生成） */
   const close = (): void => {
-    abort()
+    if (loading.value) {
+      abort()
+      text.value = ''
+    }
     clearTimer()
     visible.value = false
     expanded.value = false
   }
 
-  onBeforeUnmount(() => {
-    generation += 1
+  onScopeDispose(() => {
+    session += 1
     abort()
     clearTimer()
   })
@@ -218,6 +259,7 @@ export function useRecap(options: RecapOptions): RecapState {
     text,
     loading,
     error,
+    announcement,
     open,
     show,
     close,

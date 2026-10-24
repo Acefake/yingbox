@@ -1,14 +1,17 @@
 /**
  * 播放器里的问剧情：侧面板里提问，主进程准备「之前各集摘要 + 本集当前进度之前的台词」，
  * 渲染层流式回答。会话随本集：换集或关掉播放器就清空。
+ *
+ * 每次提问一个 generation：停止 / 换集立刻推进 generation、busy 归零，
+ * 之后才到的 prepare 结果与流式增量按 generation 丢弃；prepare 经 requestId 在主进程一并取消。
  */
-import { type Ref, onBeforeUnmount, ref, watch } from 'vue'
+import { type Ref, onScopeDispose, ref, watch } from 'vue'
 
 import { chatStream, toAiError } from '@/features/ai'
 
 import { type QaTurn, qaMessages } from '../../../../../shared/recap/prompts'
 import { prepareRecap, recapAvailable } from './recap-api'
-import { recapErrorText } from './recap-rules'
+import { isAbortError, recapErrorText } from './recap-rules'
 
 /** 面板里的一条消息 */
 export interface QaMessage extends QaTurn {
@@ -37,10 +40,19 @@ export interface PlotQaState {
   messages: Ref<QaMessage[]>
   input: Ref<string>
   busy: Ref<boolean>
+  /** 给读屏的一句状态（回答完成 / 失败 / 已停止时写入） */
+  announcement: Ref<string>
   openPanel: () => void
   close: () => void
   ask: () => Promise<void>
   stop: () => void
+}
+
+/** 正在进行的一次提问 */
+interface Running {
+  token: number
+  controller: AbortController
+  answer: QaMessage
 }
 
 /** 创建问剧情状态 */
@@ -49,52 +61,71 @@ export function usePlotQa(options: PlotQaOptions): PlotQaState {
   const messages = ref<QaMessage[]>([])
   const input = ref('')
   const busy = ref(false)
+  const announcement = ref('')
   let nextId = 0
   let generation = 0
-  let controller: AbortController | null = null
+  let running: Running | null = null
 
   const supported = (): boolean =>
     recapAvailable() && options.source().startsWith('local://')
 
+  /** 放弃当前提问：推进 generation、取消请求、busy 归零；返回被放弃的回答 */
+  const abandon = (): QaMessage | null => {
+    generation += 1
+    const current = running
+    running = null
+    busy.value = false
+    current?.controller.abort()
+    return current?.answer ?? null
+  }
+
   const stop = (): void => {
-    controller?.abort()
-    controller = null
+    const answer = abandon()
+    if (!answer) return
+    answer.text = answer.text.trim() || '已停止'
+    announcement.value = '已停止'
   }
 
   // 会话随本集：换集清空
   watch(options.source, () => {
-    generation += 1
-    stop()
+    abandon()
     messages.value = []
     input.value = ''
-    busy.value = false
+    announcement.value = ''
   })
 
   const ask = async (): Promise<void> => {
     const question = input.value.trim()
-    if (!question || busy.value || !supported()) return
+    if (!question || running || !supported()) return
     const source = options.source()
     const isPrivate = options.isPrivate()
     const seconds = Math.max(0, options.currentTime() || 0)
-    const token = generation
     const history: QaTurn[] = messages.value
       .filter(item => !item.error)
       .map(item => ({ role: item.role, text: item.text }))
     input.value = ''
+    announcement.value = ''
     messages.value.push({ id: ++nextId, role: 'user', text: question, seconds })
     messages.value.push({ id: ++nextId, role: 'assistant', text: '' })
+    // 取回响应式代理，之后的修改才会刷新界面
     const answer = messages.value[messages.value.length - 1]
-    const current = new AbortController()
-    controller = current
+    generation += 1
+    const token = generation
+    const controller = new AbortController()
+    running = { token, controller, answer }
     busy.value = true
+    const live = (): boolean => token === generation
     try {
-      const context = await prepareRecap(source, {
-        purpose: 'qa',
-        seconds,
-        ...(isPrivate ? { private: true } : {}),
-      })
-      if (token !== generation || current.signal.aborted)
-        throw new DOMException('aborted', 'AbortError')
+      const context = await prepareRecap(
+        source,
+        {
+          purpose: 'qa',
+          seconds,
+          ...(isPrivate ? { private: true } : {}),
+        },
+        controller.signal
+      )
+      if (!live()) return
       const result = await chatStream(
         {
           messages: qaMessages({ context, question, history }),
@@ -103,29 +134,33 @@ export function usePlotQa(options: PlotQaOptions): PlotQaState {
           ...(isPrivate ? { private: true } : {}),
         },
         {
-          signal: current.signal,
+          signal: controller.signal,
           onDelta: delta => {
-            if (token === generation) answer.text += delta
+            if (live()) answer.text += delta
           },
         }
       )
-      if (token === generation)
-        answer.text = result.content.trim() || answer.text.trim()
+      if (!live()) return
+      answer.text = result.content.trim() || answer.text.trim()
+      announcement.value = '回答已生成'
     } catch (err) {
-      if (token !== generation) return
-      const failure =
-        err instanceof DOMException
-          ? { code: 'cancelled' as const, message: '' }
-          : toAiError(err)
+      if (!live()) return
+      const failure = isAbortError(err)
+        ? { code: 'cancelled' as const, message: '' }
+        : toAiError(err)
       if (failure.code === 'cancelled') {
         answer.text = answer.text.trim() || '已停止'
+        announcement.value = '已停止'
       } else {
         answer.text = recapErrorText(failure)
         answer.error = true
+        announcement.value = '回答失败'
       }
     } finally {
-      if (token === generation) busy.value = false
-      if (controller === current) controller = null
+      if (live()) {
+        running = null
+        busy.value = false
+      }
     }
   }
 
@@ -137,9 +172,8 @@ export function usePlotQa(options: PlotQaOptions): PlotQaState {
     open.value = false
   }
 
-  onBeforeUnmount(() => {
-    generation += 1
-    stop()
+  onScopeDispose(() => {
+    abandon()
   })
 
   return {
@@ -148,6 +182,7 @@ export function usePlotQa(options: PlotQaOptions): PlotQaState {
     messages,
     input,
     busy,
+    announcement,
     openPanel,
     close,
     ask,

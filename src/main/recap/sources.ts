@@ -2,8 +2,9 @@
  * 前情提要的素材定位：同目录里认出各集，再给每集找素材，优先级
  * AI 字幕 → 外挂中文 / 英文 srt → 同名 NFO 的 <plot>（媒体库刮削写入的 TMDB 分集简介）→ 联网查 TMDB 分集简介。
  *
- * 定位（{@link locateMaterial}）只看文件名和修改时间，得到缓存键；真正读内容在 read() 里，
- * 这样开播探测不读字幕、不联网。不依赖 Electron：文件读写与 TMDB 请求由 index.ts 注入。
+ * 定位（{@link locateMaterial}）看文件名和修改时间，并读同目录的 NFO（确认有 <plot>）与 tvshow.nfo
+ * （找 TMDB id），得到缓存键；字幕与联网查简介放在 read() 里，所以开播探测不读字幕、不联网。
+ * 不依赖 Electron：文件读写与 TMDB 请求由 index.ts 注入。
  */
 import { dirname, join } from 'node:path'
 import { parseSrt } from '../../shared/ai-subtitles/srt'

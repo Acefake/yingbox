@@ -1,7 +1,8 @@
 /**
  * 播放器里前情提要 / 问剧情的纯规则：什么时候浮出提示卡、错误怎么说。
  */
-import type { AiErrorCode } from '../../../../../shared/ai/types'
+import { aiProviderPreset } from '../../../../../shared/ai/providers'
+import type { AiErrorCode, AiProviderId } from '../../../../../shared/ai/types'
 import type { RecapProbe } from '../../../../../shared/recap/types'
 
 /** 起播位置不超过这么多秒算「从头开始播」（与续播阈值一致） */
@@ -9,16 +10,35 @@ export const FROM_BEGINNING_SECONDS = 5
 /** 提示卡没点开时多久自动收起 */
 export const CARD_AUTO_HIDE_MS = 15_000
 
+/**
+ * AI 是否已配置到能发请求（与主进程 assertUsable 的判断一致：地址、模型、需要 Key 的服务商有 Key）。
+ * 只看设置，不测连通性。
+ */
+export function recapAiReady(input: {
+  provider: AiProviderId
+  baseUrl: string
+  model: string
+  /** 当前服务商的 Key 是否已保存 */
+  keySaved: boolean
+}): boolean {
+  const preset = aiProviderPreset(input.provider)
+  if (!(input.baseUrl.trim() || preset.baseUrl)) return false
+  if (!(input.model.trim() || preset.model)) return false
+  return !preset.needsKey || input.keySaved
+}
+
 /** 开播时要不要浮出「前情提要」提示卡 */
 export function shouldOfferRecap(input: {
   /** 设置 ai.recap.prompt */
   enabled: boolean
+  /** AI 已配置（见 {@link recapAiReady}）；没配置时不弹，免得点开才报错 */
+  aiReady: boolean
   probe: RecapProbe | null
   /** 起播位置（秒） */
   startAt: number
 }): boolean {
   const { probe } = input
-  if (!input.enabled || !probe?.episode) return false
+  if (!input.enabled || !input.aiReady || !probe?.episode) return false
   if (!probe.previous.length) return false
   return !(input.startAt > FROM_BEGINNING_SECONDS)
 }
@@ -30,6 +50,11 @@ export function stripIpcPrefix(message: string): string {
     .replace(/^(?:Error:\s*)+/, '')
     .replace(/^\[[a-z]+:[a-z_]+\]\s*/, '')
     .trim()
+}
+
+/** 是不是取消导致的 AbortError（prepareRecap 被中止时抛出） */
+export function isAbortError(error: unknown): boolean {
+  return (error as { name?: unknown } | null)?.name === 'AbortError'
 }
 
 /** 失败时给用户看的一句话 */

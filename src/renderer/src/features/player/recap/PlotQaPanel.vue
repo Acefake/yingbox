@@ -2,7 +2,7 @@
   <aside class="plot-qa" aria-label="问剧情">
     <DialogTitlebar title="问剧情" icon="sparkle" @close="state.close" />
     <p class="plot-qa-scope">只根据当前进度之前的剧情回答，不剧透</p>
-    <div ref="listEl" class="plot-qa-list" aria-live="polite">
+    <div ref="listEl" class="plot-qa-list">
       <p v-if="!state.messages.value.length" class="plot-qa-empty">
         比如：戴眼镜的那个人是谁？他为什么缺钱？
       </p>

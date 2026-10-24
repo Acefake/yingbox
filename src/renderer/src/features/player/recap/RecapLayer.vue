@@ -1,6 +1,13 @@
 <template>
   <RecapCard v-if="recap.visible.value" :state="recap" />
   <PlotQaPanel v-if="qa.open.value" :state="qa" />
+  <!-- 读屏：流式正文不逐字播报，只在生成完成 / 失败 / 停止时说一句 -->
+  <span class="ui-sr-only" role="status" aria-live="polite">
+    {{ recap.announcement.value }}
+  </span>
+  <span class="ui-sr-only" role="status" aria-live="polite">
+    {{ qa.announcement.value }}
+  </span>
 </template>
 
 <script setup lang="ts">

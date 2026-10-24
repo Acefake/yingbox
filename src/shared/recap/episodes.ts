@@ -72,9 +72,14 @@ export function episodeOf(path: string): EpisodeFile | null {
 /** 季号比较：没写季号的按第 1 季算（「第 3 集」与「S01E03」同季） */
 const seasonOf = (file: EpisodeFile): number => file.season ?? 1
 
+/** 剧名比较用的形式：小写、去掉空白 */
+export function normalizeShow(show: string): string {
+  return show.toLowerCase().replace(/\s+/g, '')
+}
+
 /**
- * 同目录里当前集之前的几集（旧 → 新，最多 max 集）：同一季、集号更小、离当前集最近。
- * 同一集有多个版本时取路径排序第一个。
+ * 同目录里当前集之前的几集（旧 → 新，最多 max 集）：同一部剧（剧名见 {@link normalizeShow}）、
+ * 同一季、集号更小、离当前集最近。同一集有多个版本时取路径排序第一个。
  */
 export function previousEpisodes(
   current: EpisodeFile,
@@ -83,8 +88,10 @@ export function previousEpisodes(
 ): EpisodeFile[] {
   const byEpisode = new Map<number, EpisodeFile>()
   const sorted = [...siblings].sort((a, b) => a.path.localeCompare(b.path))
+  const show = normalizeShow(current.show)
   for (const file of sorted) {
     if (file.path === current.path) continue
+    if (normalizeShow(file.show) !== show) continue
     if (seasonOf(file) !== seasonOf(current)) continue
     if (file.episode >= current.episode) continue
     if (!byEpisode.has(file.episode)) byEpisode.set(file.episode, file)
@@ -103,7 +110,7 @@ const EN_TAG = /^(en|eng|english|英文|英)$/i
 
 /**
  * 在同目录文件名里挑这集的外挂 srt：中文优先，其次英文，再其次同名无语言标记的。
- * 只认与视频同名或以「视频名.」开头的 .srt；别的语言（日文等）不用。
+ * 只认与视频同名或以「视频名.」开头的 .srt；别的语言（日文等）和 forced 轨（通常只有外语对白）不用。
  */
 export function pickSidecarSrt(
   videoPath: string,
@@ -118,10 +125,10 @@ export function pickSidecarSrt(
     if (base === stem) rank = 2
     else if (base.startsWith(`${stem}.`)) {
       const tags = base.slice(stem.length + 1).split('.')
+      if (tags.includes('forced')) continue
       if (tags.some(tag => ZH_TAG.test(tag))) rank = 0
       else if (tags.some(tag => EN_TAG.test(tag))) rank = 1
-      else if (tags.every(tag => /^(ai|default|forced|\d+)$/.test(tag)))
-        rank = 2
+      else if (tags.every(tag => /^(ai|default|\d+)$/.test(tag))) rank = 2
       else continue
     } else continue
     if (

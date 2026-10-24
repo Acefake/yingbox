@@ -4,8 +4,9 @@
  * - 只处理本地文件（local:// 地址）；在线播放不支持。
  * - 摘要经 aiService().chat 发出，私密内容带 private（按设置只用本地模型），缓存只放内存、不联网查 TMDB。
  * - 最终的前情提要 / 回答由渲染层流式生成（ai.chat），这里只准备上下文并缓存结果。
+ * - prepare 按「窗口 + requestId」登记，recap.cancel 或窗口销毁时中止，剩下的分段摘要不再发。
  */
-import { app } from 'electron'
+import { type WebContents, app } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 import { RECAP_MAX_PREVIOUS, recapKey } from '../../shared/recap/budget'
@@ -13,6 +14,8 @@ import { previousEpisodes } from '../../shared/recap/episodes'
 import type {
   RecapContext,
   RecapEpisodeRef,
+  RecapEpisodeSummary,
+  RecapPrepareOptions,
   RecapProbe,
 } from '../../shared/recap/types'
 import { recap } from '../../shared/contract/recap'
@@ -39,7 +42,16 @@ import {
 
 const TMDB_API = 'https://api.themoviedb.org/3'
 
-/** TMDB 分集简介：先中文，没有再英文 */
+/** 错误信息里出现的令牌换成 *** */
+export function redactToken(message: string, token: string): string {
+  return token ? message.split(token).join('***') : message
+}
+
+/**
+ * TMDB 分集简介：先中文，没有再英文。
+ * v4 读访问令牌（eyJ 开头）走 Bearer；v3 API Key 只能放在 URL 的 api_key 里。
+ * fetchHttp 的错误不带 URL，这里仍对抛出的信息脱敏，避免令牌进日志。
+ */
 async function tmdbOverview(
   tvId: string,
   season: number,
@@ -48,19 +60,25 @@ async function tmdbOverview(
   const token = effectiveTmdbToken(settingsStore().getSecret(TMDB_SECRET))
   if (!token) return null
   const bearer = token.startsWith('eyJ')
-  for (const language of ['zh-CN', 'en-US']) {
-    const query = new URLSearchParams({ language })
-    if (!bearer) query.set('api_key', token)
-    const response = await fetchHttp(
-      `${TMDB_API}/tv/${tvId}/season/${season}/episode/${episode}?${query}`,
-      { headers: bearer ? { Authorization: `Bearer ${token}` } : {} },
-      15_000
+  try {
+    for (const language of ['zh-CN', 'en-US']) {
+      const query = new URLSearchParams({ language })
+      if (!bearer) query.set('api_key', token)
+      const response = await fetchHttp(
+        `${TMDB_API}/tv/${tvId}/season/${season}/episode/${episode}?${query}`,
+        { headers: bearer ? { Authorization: `Bearer ${token}` } : {} },
+        15_000
+      )
+      const body = JSON.parse(
+        (await readLimited(response, 1024 * 1024)).toString('utf8')
+      ) as { overview?: unknown }
+      if (typeof body.overview === 'string' && body.overview.trim())
+        return body.overview.trim()
+    }
+  } catch (error) {
+    throw new Error(
+      redactToken(error instanceof Error ? error.message : String(error), token)
     )
-    const body = JSON.parse(
-      (await readLimited(response, 1024 * 1024)).toString('utf8')
-    ) as { overview?: unknown }
-    if (typeof body.overview === 'string' && body.overview.trim())
-      return body.overview.trim()
   }
   return null
 }
@@ -95,7 +113,10 @@ const refOf = (item: LocatedMaterial): RecapEpisodeRef => ({
   ...(item.file.season === undefined ? {} : { season: item.file.season }),
 })
 
-/** 定位当前集与之前几集的素材（不读内容、不调模型）；withCurrent 时连本集素材一起定位 */
+/**
+ * 定位当前集与之前几集的素材：看文件名、修改时间，读同目录的 NFO 与 tvshow.nfo；
+ * 不读字幕、不联网、不调模型。withCurrent 时连本集素材一起定位。
+ */
 async function gather(
   localUrl: string,
   isPrivate: boolean,
@@ -143,6 +164,30 @@ async function gather(
   }
 }
 
+/** 渲染层发起、还没结束的 prepare：键为「webContents id:requestId」 */
+const inflight = new Map<string, AbortController>()
+
+/** 登记一次 prepare 的取消器；窗口销毁时一并取消 */
+function track(
+  sender: WebContents,
+  requestId: string | undefined
+): { signal: AbortSignal; done: () => void } {
+  const controller = new AbortController()
+  if (!requestId) return { signal: controller.signal, done: () => {} }
+  const key = `${sender.id}:${requestId}`
+  inflight.get(key)?.abort()
+  inflight.set(key, controller)
+  const onDestroyed = (): void => controller.abort()
+  sender.once('destroyed', onDestroyed)
+  return {
+    signal: controller.signal,
+    done: () => {
+      if (inflight.get(key) === controller) inflight.delete(key)
+      sender.removeListener('destroyed', onDestroyed)
+    },
+  }
+}
+
 /** 注册 recap 域（registerAi、registerAiSubtitles 之后调用一次） */
 export function registerRecap(): void {
   const file = (): string =>
@@ -160,16 +205,56 @@ export function registerRecap(): void {
     cache,
     chat: async (messages, options) =>
       (
-        await aiService().chat({
-          messages,
-          maxTokens: options.maxTokens,
-          private: options.private,
-          temperature: 0.3,
-          timeoutMs: 180_000,
-        })
+        await aiService().chat(
+          {
+            messages,
+            maxTokens: options.maxTokens,
+            private: options.private,
+            temperature: 0.3,
+            timeoutMs: 180_000,
+          },
+          { signal: options.signal }
+        )
       ).content,
     warn: message => console.warn('[recap]', message),
   })
+
+  /** 准备上下文：之前各集顺序摘要（避免本地模型被并发压垮），问剧情再加本集已播部分 */
+  const prepare = async (
+    localUrl: string,
+    options: RecapPrepareOptions,
+    signal: AbortSignal
+  ): Promise<RecapContext> => {
+    const isPrivate = options.private === true
+    const qa = options.purpose === 'qa'
+    const found = await gather(localUrl, isPrivate, qa)
+    if (!found) throw new Error('前情提要只支持本地视频文件')
+    const call = { private: isPrivate, signal }
+    const previous: RecapEpisodeSummary[] = []
+    for (const item of found.previous) {
+      const summary = await summarizer.episode(found.show, item, call)
+      if (summary) previous.push(summary)
+    }
+    const context: RecapContext = {
+      show: found.show,
+      episode: found.episode,
+      previous,
+      cacheKey: found.episode
+        ? recapKey(
+            found.videoPath,
+            found.previous.map(item => item.key)
+          )
+        : '',
+    }
+    if (qa)
+      context.current = await summarizer.current(
+        found.show,
+        found.current,
+        options.seconds ?? 0,
+        call
+      )
+    return context
+  }
 
   implement(recap, {
     probe: async (_, localUrl, options): Promise<RecapProbe> => {
@@ -197,36 +282,19 @@ export function registerRecap(): void {
       }
     },
 
-    prepare: async (_, localUrl, options): Promise<RecapContext> => {
-      const isPrivate = options.private === true
-      const qa = options.purpose === 'qa'
-      const found = await gather(localUrl, isPrivate, qa)
-      if (!found) throw new Error('前情提要只支持本地视频文件')
-      const call = { private: isPrivate }
-      const previous = (
-        await Promise.all(
-          found.previous.map(item => summarizer.episode(found.show, item, call))
-        )
-      ).filter(item => item !== null)
-      const context: RecapContext = {
-        show: found.show,
-        episode: found.episode,
-        previous,
-        cacheKey: found.episode
-          ? recapKey(
-              found.videoPath,
-              found.previous.map(item => item.key)
-            )
-          : '',
+    prepare: async ({ sender }, localUrl, options): Promise<RecapContext> => {
+      const { signal, done } = track(sender, options.requestId)
+      try {
+        return await prepare(localUrl, options, signal)
+      } finally {
+        done()
       }
-      if (qa)
-        context.current = await summarizer.current(
-          found.show,
-          found.current,
-          options.seconds ?? 0,
-          call
-        )
-      return context
+    },
+
+    cancel: ({ sender }, requestId) => {
+      const controller = inflight.get(`${sender.id}:${requestId}`)
+      controller?.abort()
+      return Boolean(controller)
     },
 
     save: async (_, options) => {
