@@ -99,7 +99,7 @@ function createWindow(): void {
     webPreferences: {
       preload: join(__dirname, '../preload/index.js'),
       sandbox: true,
-      webSecurity: true,
+      webSecurity: false, // 临时排查：悬停预览是否因 #107 开启 webSecurity 失效，勿合并
     },
   })
 
