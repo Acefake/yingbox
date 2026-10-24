@@ -11,7 +11,7 @@
       :show-footer="false"
       autoplay
       controls
-      @ready="onVideo"
+      @ready="media.attach"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -61,6 +61,7 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
+import { usePlayerMediaControls } from '../composables/use-media-controls'
 import { useProgressSaver } from '../composables/use-progress-saver'
 import { useSourceSwitch } from '../composables/use-source-switch'
 import { danmakuTargetFor } from '../danmaku/danmaku-target'
@@ -227,6 +228,7 @@ const playNext = async (): Promise<boolean> => {
 }
 
 const onEnded = async (event: Event): Promise<void> => {
+  if (!media.accepts(event)) return
   const el = event.target as HTMLVideoElement | null
   progress.markFinished(el)
   // 睡眠定时（看完本集 / 已到点）在连播前同步消费：停在本集
@@ -261,7 +263,8 @@ const onVideo = (video: HTMLVideoElement): void => {
 }
 
 /** 播放失败（含 hls 致命错误）：自动切换到同集的下一条备用源 */
-const onError = async (): Promise<void> => {
+const onError = async (event?: Event): Promise<void> => {
+  if (!media.accepts(event)) return
   if (await switcher.switchSource('error')) return
   // 备用线路也失败：给出可操作的错误界面
   failure.value = fallbacks.value.length
@@ -282,6 +285,17 @@ const retry = async (): Promise<void> => {
     retrying.value = false
   }
 }
+
+/** 托盘 / 媒体键 / 系统媒体控件 → 本会话 */
+const media = usePlayerMediaControls({
+  playlist,
+  position,
+  activeFallback,
+  poster,
+  load: loadEntry,
+  title: () => entryLabel(currentEntry.value),
+  onVideo,
+})
 
 const applyPayload = (payload: PlayerPayload): void => {
   const queue = normalizePlayerPayload(payload)

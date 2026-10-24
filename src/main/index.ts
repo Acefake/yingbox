@@ -38,6 +38,7 @@ import { registerEngine } from './engine'
 import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
+import { installTray } from './tray'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -130,6 +131,14 @@ function createWindow(): void {
   }
 }
 
+/** 显示并聚焦主窗口（托盘菜单「显示主窗口」）；已关闭时重新创建 */
+function showMainWindow(): void {
+  if (!mainWindow) return createWindow()
+  if (mainWindow.isMinimized()) mainWindow.restore()
+  mainWindow.show()
+  mainWindow.focus()
+}
+
 function registerDevToolsShortcut(): void {
   // F12 切换 DevTools
   globalShortcut.register('F12', () => {
@@ -215,6 +224,8 @@ app.whenReady().then(async () => {
 
   createWindow()
   registerDevToolsShortcut()
+  // 托盘 + 全局媒体键（内置播放器正在播放时）
+  installTray({ getMainWindow: () => mainWindow, showMainWindow })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
