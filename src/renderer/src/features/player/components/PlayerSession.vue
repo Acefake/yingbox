@@ -5,12 +5,13 @@
       :src="src"
       :poster="poster"
       :start-at="startAt"
+      :danmaku-target="danmakuTarget"
       title=""
       :closable="false"
       :show-footer="false"
       autoplay
       controls
-      @ready="emit('video', $event)"
+      @ready="media.attach"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -52,7 +53,7 @@
 
 <script setup lang="ts">
 /**
- * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
+ * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
  * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
  * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
  */
@@ -60,8 +61,12 @@ import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
+import { usePlayerMediaControls } from '../composables/use-media-controls'
 import { useProgressSaver } from '../composables/use-progress-saver'
+import { useSourceSwitch } from '../composables/use-source-switch'
+import { danmakuTargetFor } from '../danmaku/danmaku-target'
 import { updateContinue } from '../continue/continue-store'
+import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import {
   type PlayerPayload,
@@ -130,6 +135,17 @@ const currentEntry = computed<PlaylistEntry | null>(() => {
     return fallbacks.value[activeFallback.value] || null
   return playlist.value[position.value] || null
 })
+
+/** 弹幕匹配用的当前条目（规则见 danmakuTargetFor） */
+const danmakuTarget = computed(() =>
+  danmakuTargetFor({
+    playlist: playlist.value,
+    position: position.value,
+    title: defaultTitle.value,
+    current: currentEntry.value,
+    label: entryLabel,
+  })
+)
 
 const showNotice = (text: string): void => {
   notice.value = text
@@ -212,8 +228,14 @@ const playNext = async (): Promise<boolean> => {
 }
 
 const onEnded = async (event: Event): Promise<void> => {
+  if (!media.accepts(event)) return
   const el = event.target as HTMLVideoElement | null
   progress.markFinished(el)
+  // 睡眠定时（看完本集 / 已到点）在连播前同步消费：停在本集
+  if (consumeSleepAtEnd()) {
+    showNotice('睡眠定时到了，已停止连播')
+    return
+  }
   const next = playlist.value[position.value + 1]
   if (next) {
     showNotice(`即将播放：${entryLabel(next)}`)
@@ -223,17 +245,27 @@ const onEnded = async (event: Event): Promise<void> => {
   emptyText.value = '已播放完最后一集'
 }
 
-/** 播放失败：自动切换到同集的下一条备用线路 */
-const onError = async (): Promise<void> => {
-  const nextFallback = activeFallback.value + 1
-  if (nextFallback < fallbacks.value.length) {
-    activeFallback.value = nextFallback
-    showNotice(
-      `播放失败，切换线路：${entryLabel(fallbacks.value[nextFallback])}`
-    )
-    await loadEntry()
-    return
-  }
+/** 卡顿 / 出错自动换到同集的下一条备用源，从当前进度继续 */
+const switcher = useSourceSwitch({
+  fallbacks,
+  activeFallback,
+  current: () => currentEntry.value,
+  notify: showNotice,
+  load: at => {
+    progress.flush()
+    return loadEntry(undefined, at)
+  },
+})
+
+const onVideo = (video: HTMLVideoElement): void => {
+  switcher.attach(video)
+  emit('video', video)
+}
+
+/** 播放失败（含 hls 致命错误）：自动切换到同集的下一条备用源 */
+const onError = async (event?: Event): Promise<void> => {
+  if (!media.accepts(event)) return
+  if (await switcher.switchSource('error')) return
   // 备用线路也失败：给出可操作的错误界面
   failure.value = fallbacks.value.length
     ? '当前线路与备用线路均无法播放。'
@@ -253,6 +285,17 @@ const retry = async (): Promise<void> => {
     retrying.value = false
   }
 }
+
+/** 托盘 / 媒体键 / 系统媒体控件 → 本会话 */
+const media = usePlayerMediaControls({
+  playlist,
+  position,
+  activeFallback,
+  poster,
+  load: loadEntry,
+  title: () => entryLabel(currentEntry.value),
+  onVideo,
+})
 
 const applyPayload = (payload: PlayerPayload): void => {
   const queue = normalizePlayerPayload(payload)
@@ -274,105 +317,10 @@ onMounted(() => window.addEventListener('beforeunload', progress.flush))
 
 onBeforeUnmount(() => {
   progress.flush()
+  switcher.detach()
   window.removeEventListener('beforeunload', progress.flush)
   if (noticeTimer) window.clearTimeout(noticeTimer)
 })
 </script>
 
-<style scoped>
-.player-session {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  background: var(--media-bg);
-  color: var(--media-text);
-  overflow: hidden;
-}
-
-.player-session :deep(.unified-player) {
-  width: 100%;
-  height: 100%;
-}
-
-.player-session-empty {
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  opacity: 0.85;
-  font-size: var(--text-md);
-}
-
-.player-session-poster {
-  max-width: min(72%, 420px);
-  max-height: min(60vh, 520px);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-/* 短暂提示（自动换线路 / 连播） */
-.player-session-notice {
-  position: absolute;
-  top: var(--space-4);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-overlay);
-  margin: 0;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--media-text);
-  background: var(--overlay-scrim);
-  pointer-events: none;
-}
-
-/* 播放失败：可操作错误面板 */
-.player-session-error {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-overlay-top);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-7);
-  text-align: center;
-  background: var(--overlay-scrim-strong);
-}
-
-.player-session-error-title {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--danger);
-}
-
-.player-session-error-msg {
-  margin: 0;
-  max-width: 560px;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--media-text-secondary);
-}
-
-.player-session-error-src {
-  margin: 0;
-  max-width: 560px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-2xs);
-  color: var(--media-text-tertiary);
-}
-
-.player-session-error-actions {
-  margin-top: var(--space-2);
-}
-</style>
+<style scoped src="./player-session.css"></style>

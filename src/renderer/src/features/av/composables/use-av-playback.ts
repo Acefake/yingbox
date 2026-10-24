@@ -5,6 +5,7 @@
 import { toast } from '@/components/ui'
 import { type Ref, ref } from 'vue'
 import { type RemovableRef, useStorage } from '@vueuse/core'
+import { isIncognito } from '@/features/incognito'
 import { useOnlineSearch } from '@/features/online'
 import type { ContinueRecord } from '@/features/player'
 import type { PluginExt } from '@/utils/vod-data'
@@ -69,7 +70,8 @@ export function useAvPlayback(): UseAvPlaybackReturn {
       if (resolved) playUrl = resolved
     }
     playingUrl.value = playUrl
-    if (playingVideo.value)
+    // 无痕模式不记播放历史
+    if (playingVideo.value && !isIncognito())
       playHistory.value = upsertPlayHistory(
         playHistory.value,
         playingVideo.value,

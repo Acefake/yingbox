@@ -15,6 +15,7 @@ import {
   sectionLockSettingsSection,
 } from '@/features/section-lock'
 import { getSetting, registerSettingsSection } from '@/features/settings'
+import { installWatchlist } from '@/features/watchlist'
 import { configureHoverPreview } from '@/components/ui/hover-preview'
 
 /**
@@ -53,6 +54,9 @@ configureHoverPreview(() => ({
   enabled: getSetting('ui.hoverPreview'),
   delayMs: getSetting('ui.hoverPreviewDelay'),
 }))
+
+// 「想看」清单：整部看完的条目自动移出
+installWatchlist()
 
 const app = createApp(App)
 app.use(router)

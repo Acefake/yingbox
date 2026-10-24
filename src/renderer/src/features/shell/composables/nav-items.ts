@@ -11,6 +11,8 @@ export interface NavItem {
   /** 目标路由；手机底栏的「菜单」为空串，点击打开侧栏抽屉 */
   path: string
   active: boolean
+  /** 尾部数字角标（追剧日历的未看新集数）；0 或缺省不显示 */
+  badge?: number
 }
 
 /** 侧栏里的一组导航项 */
@@ -36,6 +38,8 @@ export interface NavState {
   hasLocalLibrary: boolean
   /** 成人模式 */
   adultMode: boolean
+  /** 追剧日历的未看新集数（侧栏角标） */
+  calendarBadge?: number
 }
 
 const isOnlineTab = (state: NavState, tab?: string): boolean =>
@@ -69,6 +73,13 @@ export function buildNavGroups(state: NavState): NavGroup[] {
           icon: 'heart',
           path: '/?tab=favorites',
           active: isOnlineTab(state, 'favorites'),
+        },
+        {
+          label: '追剧日历',
+          icon: 'calendar',
+          path: '/calendar',
+          active: state.routeName === 'Calendar',
+          badge: state.calendarBadge ?? 0,
         },
       ],
     },

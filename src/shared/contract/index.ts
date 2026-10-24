@@ -6,6 +6,8 @@
  */
 import { app } from './app'
 import { av } from './av'
+import { capture } from './capture'
+import { danmaku } from './danmaku'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { download } from './download'
@@ -13,30 +15,36 @@ import { lada } from './lada'
 import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
+import { nowPlaying } from './now-playing'
 import { online } from './online'
 import { sectionLock } from './section-lock'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
 import { update } from './update'
+import { webdav } from './webdav'
 import { win } from './win'
 
 /** 全部域，键与域名一致 */
 export const contract = {
   app,
   av,
+  capture,
+  danmaku,
   dialog,
   download,
   lada,
   libraryNotify,
   media,
   mpv,
+  nowPlaying,
   online,
   sectionLock,
   settings,
   shell,
   subtitle,
   update,
+  webdav,
   win,
 } as const
 
