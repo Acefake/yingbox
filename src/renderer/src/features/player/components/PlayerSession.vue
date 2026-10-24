@@ -12,6 +12,7 @@
       autoplay
       controls
       @ready="media.attach"
+      @art="art = $event"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -26,6 +27,14 @@
       <img v-if="poster" class="player-session-poster" :src="poster" alt="" />
       <span>{{ emptyText }}</span>
     </div>
+    <SkipOverlay
+      :art
+      :series="skipKey(continueId, defaultTitle)"
+      :up-next="
+        playlist[position + 1] ? entryLabel(playlist[position + 1]) : ''
+      "
+      :play-next="playNext"
+    />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
     <div v-if="failure" class="player-session-error" role="alert">
@@ -54,10 +63,18 @@
 <script setup lang="ts">
 /**
  * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
- * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
+ * 续播进度、可操作的错误面板与跳过片头片尾（skip/）。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
  * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from 'vue'
+import type Artplayer from 'artplayer'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
@@ -66,8 +83,11 @@ import { useProgressSaver } from '../composables/use-progress-saver'
 import { useSourceSwitch } from '../composables/use-source-switch'
 import { danmakuTargetFor } from '../danmaku/danmaku-target'
 import { updateContinue } from '../continue/continue-store'
+import SkipOverlay from '../skip/SkipOverlay.vue'
+import { skipKey } from '../skip/skip-rules'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
+import { singleFlight } from '../utils/single-flight'
 import {
   type PlayerPayload,
   type PlaylistEntry,
@@ -98,7 +118,6 @@ const position = ref(0)
 const fallbacks = ref<PlaylistEntry[]>([])
 /** 当前使用的备用线路下标；-1 = 主线路 */
 const activeFallback = ref(-1)
-
 const defaultTitle = ref('正在播放')
 
 /** 播放失败且已无备用线路时展示的可操作错误信息 */
@@ -129,6 +148,7 @@ const progress = useProgressSaver(
 /** 加载世代：丢弃过期的异步解析结果 */
 let loadToken = 0
 let noticeTimer: number | undefined
+const art = shallowRef<Artplayer | null>(null)
 
 const currentEntry = computed<PlaylistEntry | null>(() => {
   if (activeFallback.value >= 0)
@@ -218,17 +238,18 @@ const loadEntry = async (
   emit('title', entryLabel(entry))
 }
 
-/** 自动连播：切到当前线路的下一集 */
-const playNext = async (): Promise<boolean> => {
+/** 自动连播：切到当前线路的下一集；解析地址期间再触发复用同一次，不会多跳一集 */
+const playNext = singleFlight(async (): Promise<boolean> => {
   if (position.value + 1 >= playlist.value.length) return false
   activeFallback.value = -1
   position.value += 1
   await loadEntry()
   return true
-}
+})
 
 const onEnded = async (event: Event): Promise<void> => {
-  if (!media.accepts(event)) return
+  if (playNext.pending()) return // 切集中：旧视频自然结束不再记完播、不再切集
+  if (!media.accepts(event)) return // 托盘 / 媒体键换集时退役的旧视频
   const el = event.target as HTMLVideoElement | null
   progress.markFinished(el)
   // 睡眠定时（看完本集 / 已到点）在连播前同步消费：停在本集

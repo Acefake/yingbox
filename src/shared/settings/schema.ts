@@ -138,6 +138,8 @@ export const settingsSchema = {
   'player.anime4kAnimeOnly': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
+  /** 内置播放器进入已标记的片头时自动跳过 */
+  'player.autoSkipIntro': bool(false),
   /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
   'player.mediaKeys': bool(true),
 
