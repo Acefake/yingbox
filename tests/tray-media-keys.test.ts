@@ -5,7 +5,11 @@ import { join } from 'node:path'
 import { createApp, defineComponent, nextTick, ref } from 'vue'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 
-import { resetsSession, watchReporter } from '../src/main/tray/reporter'
+import {
+  type ReporterEmitter,
+  resetsSession,
+  watchReporter,
+} from '../src/main/tray/reporter'
 import {
   MEDIA_KEY_COMMANDS,
   clipTitle,
@@ -20,6 +24,15 @@ import {
   stepTarget,
 } from '../src/renderer/src/features/player/utils/media-commands'
 import { type NowPlaying, parseNowPlaying } from '../src/shared/now-playing'
+
+/** EventEmitter 的监听器形状 */
+type Listener = (...args: unknown[]) => void
+
+/** 用 Node 的 EventEmitter 充当 WebContents 的事件订阅面 */
+const asReporter = (e: EventEmitter): ReporterEmitter => ({
+  on: (event, listener) => e.on(event, listener as Listener),
+  off: (event, listener) => e.off(event, listener as Listener),
+})
 
 /**
  * 托盘 + 全局媒体键：菜单与提示文字、媒体键注册条件、播放命令规则、状态解析，
@@ -327,7 +340,7 @@ describe('上报页面失效', () => {
     ]) {
       const sender = new EventEmitter()
       const gone = vi.fn()
-      watchReporter(sender, gone)
+      watchReporter(asReporter(sender), gone)
       sender.emit('did-start-navigation', {
         isMainFrame: true,
         isSameDocument: true,
@@ -345,7 +358,7 @@ describe('上报页面失效', () => {
     }
     const sender = new EventEmitter()
     const gone = vi.fn()
-    watchReporter(sender, gone)()
+    watchReporter(asReporter(sender), gone)()
     sender.emit('render-process-gone')
     expect(gone).not.toHaveBeenCalled()
     expect(sender.eventNames()).toEqual([])
