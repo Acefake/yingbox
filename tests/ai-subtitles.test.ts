@@ -1,7 +1,11 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  SIBLING_ATTEMPTS,
   cacheSubtitlePath,
+  mergeOutputs,
+  ownedOutputs,
   parseRecords,
+  siblingCandidates,
   siblingSubtitlePath,
   upsertRecord,
 } from '../src/main/ai-subtitles/output'
@@ -336,6 +340,59 @@ describe('输出位置与记录', () => {
         p.endsWith('Movie.zh.srt')
       )
     ).toBe('/v/Movie.zh.ai.srt')
+  })
+
+  it('.zh.srt 与 .zh.ai.srt 都被占用时选下一个未占用的编号名', () => {
+    const taken = new Set(['/v/Movie.zh.srt', '/v/Movie.zh.ai.srt'])
+    expect(
+      siblingSubtitlePath('/v/Movie.mkv', 'zh', 'en', p => taken.has(p))
+    ).toBe('/v/Movie.zh.ai.2.srt')
+    taken.add('/v/Movie.zh.ai.2.srt')
+    expect(
+      siblingSubtitlePath('/v/Movie.mkv', 'zh', 'en', p => taken.has(p))
+    ).toBe('/v/Movie.zh.ai.3.srt')
+  })
+
+  it('候选名全部被占用时返回 null（改写字幕缓存），候选数有上限', () => {
+    const list = siblingCandidates('/v/Movie.mkv', 'zh', 'en')
+    expect(list).toHaveLength(SIBLING_ATTEMPTS + 1)
+    expect(list.at(-1)).toBe(`/v/Movie.zh.ai.${SIBLING_ATTEMPTS}.srt`)
+    expect(siblingSubtitlePath('/v/Movie.mkv', 'zh', 'en', () => true)).toBe(
+      null
+    )
+  })
+
+  it('只有本功能为这个视频记录过的文件可以覆盖', () => {
+    const previous: AiSubtitleRecord = {
+      videoPath: '/v/Movie.mkv',
+      path: '/v/Movie.zh.ai.srt',
+      mode: 'zh',
+      language: 'en',
+      updatedAt: 1,
+      outputs: ['/v/Movie.zh.ai.srt', '/v/Movie.zh.ja.srt'],
+    }
+    const owned = new Set(ownedOutputs(previous))
+    const onDisk = new Set(['/v/Movie.zh.srt', '/v/Movie.zh.ai.srt'])
+    const occupied = (p: string): boolean => onDisk.has(p) && !owned.has(p)
+    // 用户的 .zh.srt 跳过，本功能写过的 .zh.ai.srt 覆盖
+    expect(siblingSubtitlePath('/v/Movie.mkv', 'zh', 'en', occupied)).toBe(
+      '/v/Movie.zh.ai.srt'
+    )
+    // 旧记录没有 outputs 时只认 path
+    expect(ownedOutputs({ ...previous, outputs: undefined })).toEqual([
+      '/v/Movie.zh.ai.srt',
+    ])
+    expect(ownedOutputs(null)).toEqual([])
+    // 已写文件列表：新的在前、去重
+    expect(mergeOutputs(previous, '/v/Movie.zh.ja.srt')).toEqual([
+      '/v/Movie.zh.ja.srt',
+      '/v/Movie.zh.ai.srt',
+    ])
+    expect(mergeOutputs(null, '/c/a.srt')).toEqual(['/c/a.srt'])
+    expect(parseRecords(JSON.stringify([previous]))).toEqual([previous])
+    expect(
+      parseRecords(JSON.stringify([{ ...previous, outputs: [1] }]))
+    ).toEqual([])
   })
 
   it('缓存路径按视频路径哈希，同视频同模式稳定', () => {
