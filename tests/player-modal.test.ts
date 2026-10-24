@@ -353,9 +353,7 @@ const button = (label: string): HTMLButtonElement | null =>
   document.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)
 /** 控制栏「小窗」按钮（Artplayer 控件，替身里只记下配置；点击即调用它的 click） */
 const miniControl = (): { click: () => void } | undefined =>
-  fakes.arts
-    .at(-1)
-    ?.controls.items.find(item => item.name === 'ybMini') as
+  fakes.arts.at(-1)?.controls.items.find(item => item.name === 'ybMini') as
     | { click: () => void }
     | undefined
 const esc = (init: KeyboardEventInit = {}): void => {
