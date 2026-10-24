@@ -84,6 +84,13 @@
   --media-hover: rgba(255, 255, 255, 0.16);
   /* 播放器进度条等控件的主题色 */
   --media-accent: #f5f5f7;
+  /* 进度条上的片头（紫）/ 片尾（橙）区间 */
+  --media-intro: rgba(191, 90, 242, 0.85);
+  --media-outro: rgba(255, 159, 10, 0.85);
+  /* 视频上的玻璃按钮 / 卡片 */
+  --media-glass: rgba(28, 28, 30, 0.62);
+  --media-glass-border: rgba(255, 255, 255, 0.14);
+  --blur-media: 20px;
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
   /* 普通弹窗背后的轻遮罩 */
@@ -302,6 +309,10 @@
   --media-track: rgba(255, 255, 255, 0.25);
   --media-hover: rgba(255, 255, 255, 0.16);
   --media-accent: #f5f5f7;
+  --media-intro: rgba(191, 90, 242, 0.85);
+  --media-outro: rgba(255, 159, 10, 0.85);
+  --media-glass: rgba(28, 28, 30, 0.62);
+  --media-glass-border: rgba(255, 255, 255, 0.14);
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
   --overlay-scrim-soft: rgba(0, 0, 0, 0.24);

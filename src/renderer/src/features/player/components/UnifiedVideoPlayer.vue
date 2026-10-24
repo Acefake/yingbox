@@ -58,6 +58,7 @@
  * 这里只管加载、销毁与事件转发。缩成小窗时整个组件随播放弹窗的节点一起搬走，实例不重建。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import type Artplayer from 'artplayer'
 import Hls from 'hls.js'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -124,6 +125,8 @@ const props = withDefaults(
 
 const emit = defineEmits<{
   (name: 'ready', video: HTMLVideoElement): void
+  /** 新建的 Artplayer 实例（每次换地址一个；外层据此挂右键菜单、进度条标记等） */
+  (name: 'art', art: Artplayer): void
   (name: 'loadedmetadata', event: Event): void
   (name: 'timeupdate', event: Event): void
   (name: 'volumechange', event: Event): void
@@ -239,6 +242,7 @@ const createPlayer = async (source: string): Promise<void> => {
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
   emit('ready', core.art.video)
+  emit('art', core.art)
 
   if (props.danmakuTarget) void danmaku.attach(core.art)
 
