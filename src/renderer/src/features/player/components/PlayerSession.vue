@@ -10,6 +10,7 @@
       :closable="false"
       :show-footer="false"
       :ai-private="payload.private === true"
+      :compact="mini"
       autoplay
       controls
       @ready="media.attach"
@@ -98,7 +99,11 @@ import {
 } from '../utils/play-queue'
 import { resolvePlaySource } from '@/features/online'
 
-const props = defineProps<{ payload: PlayerPayload }>()
+const props = defineProps<{
+  payload: PlayerPayload
+  /** 缩在角落小窗里（播放器上的浮层按小窗收敛） */
+  mini?: boolean
+}>()
 const emit = defineEmits<{
   title: [title: string]
   /** 播放器的 <video>（每集换一个；小窗的播放 / 暂停控制它） */

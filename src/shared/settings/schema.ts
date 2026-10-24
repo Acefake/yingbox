@@ -228,6 +228,8 @@ export const settingsSchema = {
   'ai.speech.whisperModelPath': absolutePath(),
   /** AI 字幕输出：中文 / 双语 / 原文 */
   'ai.subtitle.mode': oneOf(['zh', 'bilingual', 'original'] as const, 'zh'),
+  /** 剧集第 2 集起从头开播时，在播放器左上角提示「前情提要」 */
+  'ai.recap.prompt': bool(true),
   /** 各服务商的 API Key（密钥：主进程 safeStorage，只在 src/main/ai 使用） */
   'ai.apiKey.openai': secret(),
   'ai.apiKey.deepseek': secret(),
