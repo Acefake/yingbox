@@ -31,7 +31,11 @@
           :active="item.active"
           :collapsed="collapsed"
           @click="emit('navigate', item.path)"
-        />
+        >
+          <template v-if="isPathLocked(item.path)" #trailing>
+            <UiIcon name="lock" size="sm" class="sidebar-lock" />
+          </template>
+        </UiNavItem>
       </template>
     </nav>
     <div class="sidebar-footer">
@@ -88,6 +92,7 @@ import UiNavItem from '@/components/ui/UiNavItem.vue'
 import { usePlatform } from '@/composables/use-platform'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
+import { isPathLocked } from '@/features/section-lock'
 
 import type { NavGroup } from '../composables/nav-items'
 
@@ -204,6 +209,14 @@ const queueLabel = computed(() => {
 }
 .sidebar-item :deep(.app-icon) {
   color: inherit;
+}
+/* 已锁定的板块：尾部小锁；收起成图标栏时不显示 */
+.sidebar-item .sidebar-lock {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+.app-sidebar.is-collapsed .sidebar-lock {
+  display: none;
 }
 
 .sidebar-footer {

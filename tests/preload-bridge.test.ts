@@ -144,6 +144,13 @@ const ADDED_API: Record<string, string[]> = {
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: ['focus', 'saveFocus'],
+  sectionLock: [
+    'status',
+    'verify',
+    'setPassword',
+    'clearPassword',
+    'promptSystem',
+  ],
 }
 
 beforeAll(async () => {
