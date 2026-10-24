@@ -36,6 +36,7 @@ describe('TMDB 补全', () => {
       results: [
         {
           poster_path: '/p.jpg',
+          backdrop_path: '/scene.jpg',
           release_date: '2023-01-22',
           overview: '太阳即将毁灭',
           original_title: 'The Wandering Earth II',
@@ -47,6 +48,7 @@ describe('TMDB 补全', () => {
     await enrichFromTmdb(items, 'movie', tmdb)
     expect(items[0]).toMatchObject({
       cover: 'https://images.tmdb.org/t/p/w342/p.jpg',
+      backdrop: 'https://images.tmdb.org/t/p/w1280/scene.jpg',
       year: '2023',
       type: '电影',
       overview: '太阳即将毁灭',

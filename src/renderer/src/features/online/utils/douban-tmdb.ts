@@ -94,6 +94,9 @@ export async function enrichFromTmdb(
 
   const apply = (item: DoubanItem, hit: TmdbHit | null): void => {
     item.cover = hit?.poster_path ? IMG_BASE + hit.poster_path : item.coverSrc
+    item.backdrop = hit?.backdrop_path
+      ? `https://images.tmdb.org/t/p/w1280${hit.backdrop_path}`
+      : undefined
     if (!hit) return
     const date = hit.release_date || hit.first_air_date || ''
     item.year = date ? date.slice(0, 4) : item.year
