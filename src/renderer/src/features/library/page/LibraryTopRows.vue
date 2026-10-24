@@ -28,3 +28,10 @@ const emit = defineEmits<{ open: [itemId: number] }>()
 const itemIdOf = (detail: unknown): number =>
   (detail as { itemId: number }).itemId
 </script>
+
+<style scoped>
+/* 横排与工具栏、海报墙共用内容边距。 */
+.lib-continue {
+  margin: var(--space-4) var(--content-padding-x) var(--space-6);
+}
+</style>
