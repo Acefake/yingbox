@@ -12,6 +12,7 @@ import {
   openMediaPlayer,
 } from '@/features/player'
 
+import type { WatchlistMeta } from '@/features/watchlist'
 import { serverFileUrl } from '@/services/library-server'
 
 import { usesLibraryServer } from '../api/bridge'
@@ -115,6 +116,13 @@ export function continueMetaOf(item: LibraryItemNode): ContinueMeta {
       itemImage(item.backdrop, 780) ?? itemImage(item.poster, 780) ?? undefined,
     detail: { itemId: item.id },
   }
+}
+
+/** 「想看」登记：分区、键与继续播放相同（整部看完时据此移出清单），另带竖版海报。 */
+export function watchlistMetaOf(item: LibraryItemNode): WatchlistMeta {
+  const { section, key, title, cover, detail } = continueMetaOf(item)
+  const poster = itemImage(item.poster, 300) ?? undefined
+  return { section, key, title, poster, cover, detail }
 }
 
 /** 打开播放器；没有可用播放器返回 false。 */

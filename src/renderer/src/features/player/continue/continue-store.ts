@@ -3,7 +3,8 @@
  *
  * - openMediaPlayer 带 continueAs 开播时 startContinue 建 / 更新记录；
  * - 应用内播放器记进度时 updateContinue（与续播进度同一节流），看完自动换下一集或删除；
- * - 其它窗口改了存储（storage 事件）时同步。
+ * - 其它窗口改了存储（storage 事件）时同步；
+ * - 整部看完（单片或最后一集播到 95%）时通知 onContinueFinished 的订阅者（如「想看」清单）。
  * 规则都在 continue-rules.ts。
  */
 import { type Ref, ref } from 'vue'
@@ -72,10 +73,24 @@ export function startContinue(
   return next[0].id
 }
 
+type FinishedListener = (id: string) => void
+const finishedListeners = new Set<FinishedListener>()
+
+/** 订阅「整部看完」：记录因看完最后一集 / 单片被移除时回调记录 id；返回取消订阅。 */
+export function onContinueFinished(listener: FinishedListener): () => void {
+  finishedListeners.add(listener)
+  return () => finishedListeners.delete(listener)
+}
+
 /** 播放器记进度。 */
 export function updateContinue(id: string, update: ProgressUpdate): void {
   if (!id) return
-  commit(applyProgress(state().value, id, update, Date.now()))
+  const before = state().value
+  const next = applyProgress(before, id, update, Date.now())
+  commit(next)
+  // applyProgress 只在看完最后一集（或单片）时删掉记录
+  if (before.some(r => r.id === id) && !next.some(r => r.id === id))
+    finishedListeners.forEach(listener => listener(id))
 }
 
 /** 标记看完：剧集换成下一集，最后一集或单片直接移除。 */
