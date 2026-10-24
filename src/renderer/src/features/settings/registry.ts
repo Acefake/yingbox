@@ -80,6 +80,15 @@ const coreSections: SettingsSection[] = [
     order: 65,
   },
   {
+    id: 'ai',
+    title: 'AI',
+    icon: 'sparkle',
+    keywords:
+      'ai 模型 openai deepseek openrouter ollama key 语音识别 whisper 用量 私密',
+    load: () => import('./sections/AiSettings.vue'),
+    order: 67,
+  },
+  {
     id: 'update',
     title: '软件更新',
     icon: 'refresh',

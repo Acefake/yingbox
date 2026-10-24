@@ -173,6 +173,17 @@ const ADDED_API: Record<string, string[]> = {
     'loadEpg',
     'epgProgrammes',
   ],
+  ai: [
+    'chat',
+    'chatJson',
+    'cancel',
+    'testConnection',
+    'usage',
+    'onDelta',
+    'offDelta',
+    'onUsageChanged',
+    'offUsageChanged',
+  ],
 }
 
 beforeAll(async () => {
