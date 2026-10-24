@@ -117,11 +117,13 @@ describe('可锁定的板块', () => {
     expect(lockableSections(routes, false).map(item => item.name)).toEqual([
       'Movie',
       'TV',
+      'Calendar',
     ])
     const adult = lockableSections(routes, true)
     expect(adult.map(item => [item.name, item.title, item.adultOnly])).toEqual([
       ['Movie', '电影', false],
       ['TV', '剧集', false],
+      ['Calendar', '追剧日历', false],
       ['Jav', '番号', true],
       ['AV', 'AV资源', true],
     ])

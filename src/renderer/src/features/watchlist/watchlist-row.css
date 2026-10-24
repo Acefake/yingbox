@@ -1,0 +1,166 @@
+/* 「想看」横排（WatchlistRow.vue）：标题行、滚动与菜单沿用「继续播放」横排，卡片是竖版海报 */
+.wl-row {
+  margin-bottom: var(--space-8);
+}
+.wl-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  margin-bottom: var(--space-3);
+}
+.wl-title {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.wl-nav {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+}
+.wl-count {
+  margin-right: var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+/* 横向滚动；上下留白给悬停放大和阴影 */
+.wl-track {
+  display: flex;
+  gap: var(--space-4);
+  margin: calc(var(--space-3) * -1) calc(var(--space-2) * -1);
+  padding: var(--space-3) var(--space-2);
+  overflow-x: auto;
+  overscroll-behavior-x: contain;
+  scroll-behavior: smooth;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.wl-track::-webkit-scrollbar {
+  display: none;
+}
+
+/* 查看全部：换行铺开完整列表，不再横向滚动 */
+.wl-track.is-grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, 140px);
+  row-gap: var(--space-5);
+  overflow-x: visible;
+  scroll-snap-type: none;
+}
+
+.wl-card {
+  position: relative;
+  flex: none;
+  width: 140px;
+  scroll-snap-align: start;
+}
+
+.wl-thumb {
+  position: relative;
+  aspect-ratio: 2 / 3;
+  overflow: hidden;
+  border-radius: var(--radius-lg);
+  background: var(--bg-fill-secondary);
+  box-shadow: var(--shadow-sm);
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
+}
+.wl-thumb img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border-radius: inherit;
+  object-fit: cover;
+}
+.wl-placeholder {
+  position: absolute;
+  inset: 0;
+  display: grid;
+  place-items: center;
+  color: var(--text-quaternary);
+}
+.wl-card:hover .wl-thumb,
+.wl-thumb:focus-visible {
+  transform: scale(1.04);
+  box-shadow: var(--shadow-lg);
+}
+
+/* 横排末尾的「查看全部」卡 */
+.wl-more-thumb {
+  box-shadow: none;
+}
+.wl-more-body {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-2);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+}
+.wl-more-count {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.wl-remove {
+  position: absolute;
+  top: var(--space-2);
+  right: var(--space-2);
+  z-index: var(--z-raised);
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease;
+}
+.wl-card:hover .wl-remove,
+.wl-remove:focus-visible {
+  opacity: 1;
+}
+
+.wl-name {
+  margin: 0;
+  padding: var(--space-2) var(--space-0_5) 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 右键菜单 */
+.wl-menu {
+  position: fixed;
+  z-index: var(--z-popover);
+  min-width: 180px;
+  padding: var(--space-1);
+  border-radius: var(--radius-md);
+  background: var(--bg-elevated);
+  box-shadow: var(--shadow-panel);
+  backdrop-filter: blur(20px);
+}
+.wl-menu-sep {
+  height: 1px;
+  margin: var(--space-1) var(--space-2);
+  border: 0;
+  background: var(--bg-fill-secondary);
+}
+.wl-menu-danger {
+  color: var(--danger);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wl-track {
+    scroll-behavior: auto;
+  }
+  .wl-card:hover .wl-thumb,
+  .wl-thumb:focus-visible {
+    transform: none;
+  }
+}
