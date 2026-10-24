@@ -28,6 +28,8 @@ export interface ContinueMeta {
   cover?: string
   /** 「打开详情」时交回页面的数据（媒体库是 { itemId }，在线是详情条目）；须可 JSON 序列化 */
   detail?: unknown
+  /** 播放列表只是作品的一部分（如多季剧里后面还有季）：播完照样删记录，但不算整部看完 */
+  partial?: boolean
 }
 
 /** 一条继续播放记录。 */
@@ -172,8 +174,15 @@ const entryName = (entry: PlaylistEntry | undefined): string | undefined =>
 
 /** 记录里属于 ContinueMeta 的部分（重新开播时交回 openMediaPlayer）。 */
 export function metaOf(record: ContinueRecord): ContinueMeta {
-  const { section, key, title, cover, detail } = record
-  return { section, key, title, ...(cover ? { cover } : {}), detail }
+  const { section, key, title, cover, detail, partial } = record
+  return {
+    section,
+    key,
+    title,
+    ...(cover ? { cover } : {}),
+    detail,
+    ...(partial ? { partial } : {}),
+  }
 }
 
 /** 再次打开时交给 openMediaPlayer 的参数。 */

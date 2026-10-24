@@ -1,3 +1,7 @@
+import { once } from 'node:events'
+import { createServer } from 'node:http'
+import { type AddressInfo } from 'node:net'
+import { brotliCompressSync, gzipSync } from 'node:zlib'
 import { describe, expect, it, vi } from 'vitest'
 import { createStreamHandler } from '../src/main/stream-proxy'
 import { createNetClient } from '../src/shared/net/client'
@@ -43,6 +47,52 @@ describe('桌面 HLS 公网传输', () => {
     expect(headers.get('cookie')).toBeNull()
     expect(headers.get('authorization')).toBeNull()
   })
+
+  it.each([
+    ['gzip', gzipSync],
+    ['br', brotliCompressSync],
+  ] as const)(
+    '%s 解压后的流不携带上游压缩长度，清单内容完整',
+    async (encoding, compress) => {
+      const body = '#EXTM3U\n#EXTINF:5,\nsegment.ts\n'.repeat(64)
+      const compressed = compress(Buffer.from(body))
+      const server = createServer((_request, response) => {
+        response.writeHead(200, {
+          'content-type': 'application/vnd.apple.mpegurl',
+          'content-encoding': encoding,
+          'content-length': String(compressed.length),
+        })
+        response.end(compressed)
+      })
+      server.listen(0, '127.0.0.1')
+      await once(server, 'listening')
+      const port = (server.address() as AddressInfo).port
+      try {
+        const handler = createStreamHandler(
+          createNetClient({
+            lookup,
+            // 使用真实 fetch 读取本机压缩夹具，验证与 Chromium 相同的自动解压语义。
+            fetch: (_url, init) =>
+              fetch(`http://127.0.0.1:${port}/list.m3u8`, init),
+          })
+        )
+        const response = await handler(
+          new Request(streamUrl('https://cdn.test/list.m3u8'))
+        )
+        expect(compressed.length).not.toBe(Buffer.byteLength(body))
+        expect(response.status).toBe(200)
+        expect(await response.text()).toBe(body)
+        expect(response.headers.get('content-encoding')).toBeNull()
+        expect(response.headers.get('content-length')).toBeNull()
+        expect(response.headers.get('content-type')).toBe(
+          'application/vnd.apple.mpegurl'
+        )
+      } finally {
+        server.closeAllConnections()
+        await new Promise<void>(resolve => server.close(() => resolve()))
+      }
+    }
+  )
 
   it('内网、DNS 内网记录和重定向到内网都被拦截', async () => {
     const fetch = vi.fn(
