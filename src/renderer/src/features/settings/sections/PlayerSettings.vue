@@ -39,6 +39,18 @@
     </SettingsRow>
   </SettingsGroup>
 
+  <SettingsGroup
+    title="片头片尾"
+    footer="在内置播放器里右键标记片头开始 / 结束、片尾开始，同一部剧每集通用。"
+  >
+    <SettingsRow
+      title="自动跳过片头"
+      description="进入已标记的片头时直接跳到片头结束；关闭时只显示「跳过片头」按钮"
+    >
+      <UiSwitch v-model="autoSkipIntro" label="自动跳过片头" />
+    </SettingsRow>
+  </SettingsGroup>
+
   <SettingsGroup title="小窗">
     <SettingsRow
       title="播放弹窗可缩成小窗"
@@ -52,7 +64,7 @@
 <script setup lang="ts">
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）与缩小置顶，
- * 播放弹窗的角落小窗（ui.miniPlayer）。
+ * 内置播放器自动跳过片头（player.autoSkipIntro），播放弹窗的角落小窗（ui.miniPlayer）。
  */
 import { computed, watch } from 'vue'
 
@@ -91,6 +103,7 @@ const setMpvCompact = (on: boolean): void => {
 }
 
 const miniPlayer = useSetting('ui.miniPlayer')
+const autoSkipIntro = useSetting('player.autoSkipIntro')
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
 

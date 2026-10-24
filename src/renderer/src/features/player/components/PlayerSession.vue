@@ -11,6 +11,7 @@
       autoplay
       controls
       @ready="emit('video', $event)"
+      @art="art = $event"
       @play="clearFailure"
       @loadedmetadata="clearFailure"
       @timeupdate="progress.onTimeUpdate"
@@ -25,6 +26,14 @@
       <img v-if="poster" class="player-session-poster" :src="poster" alt="" />
       <span>{{ emptyText }}</span>
     </div>
+    <SkipOverlay
+      :art
+      :series="skipKey(continueId, defaultTitle)"
+      :up-next="
+        playlist[position + 1] ? entryLabel(playlist[position + 1]) : ''
+      "
+      @play-next="playNext"
+    />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
     <div v-if="failure" class="player-session-error" role="alert">
@@ -52,16 +61,26 @@
 
 <script setup lang="ts">
 /**
- * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、
- * 续播进度与可操作的错误面板。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
- * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
+ * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败换线路、续播进度、错误面板与跳过片头片尾（skip/）。
+ * 队列解析 / 进度节流在 utils/play-queue、useProgressSaver；载荷换了（播别的）就重新开始；
+ * 当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
  */
-import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import {
+  computed,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  shallowRef,
+  watch,
+} from 'vue'
+import type Artplayer from 'artplayer'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
 import { updateContinue } from '../continue/continue-store'
+import SkipOverlay from '../skip/SkipOverlay.vue'
+import { skipKey } from '../skip/skip-rules'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import {
   type PlayerPayload,
@@ -124,6 +143,8 @@ const progress = useProgressSaver(
 /** 加载世代：丢弃过期的异步解析结果 */
 let loadToken = 0
 let noticeTimer: number | undefined
+
+const art = shallowRef<Artplayer | null>(null)
 
 const currentEntry = computed<PlaylistEntry | null>(() => {
   if (activeFallback.value >= 0)
