@@ -77,6 +77,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
 import { WatchlistButton, type WatchlistMeta } from '@/features/watchlist'
+import { isAnimeEntry } from '../../../../../shared/anime4k'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
   buildFallbacks,
@@ -223,6 +224,11 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     startAt: getMediaProgress(playUrl),
     ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
     ...(fallbacks.length ? { fallbacks } : {}),
+    // mpv 的「Anime4K 仅动画类条目」：站点分类或 TMDB 类型含动画
+    anime: isAnimeEntry({
+      typeName: itemData.value?.type_name,
+      genres: tmdbDetail.value?.genres?.map(genre => genre.name),
+    }),
     // 继续播放：按片名合并（换源后仍是同一张卡），封面优先 TMDB 横版背景图
     continueAs: {
       section: 'online',
