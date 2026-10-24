@@ -1,6 +1,6 @@
 /**
  * 侧栏与手机底部标签栏的导航项（纯函数，按当前路由与平台能力算出）。
- * 本地媒体只在有本地片库的平台显示；其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
+ * 本地媒体与直播只在有本地片库的平台（桌面端）显示；其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
  */
 import type { IconName } from '@/components/ui/icons'
 
@@ -11,6 +11,8 @@ export interface NavItem {
   /** 目标路由；手机底栏的「菜单」为空串，点击打开侧栏抽屉 */
   path: string
   active: boolean
+  /** 尾部数字角标（追剧日历的未看新集数）；0 或缺省不显示 */
+  badge?: number
 }
 
 /** 侧栏里的一组导航项 */
@@ -36,6 +38,8 @@ export interface NavState {
   hasLocalLibrary: boolean
   /** 成人模式 */
   adultMode: boolean
+  /** 追剧日历的未看新集数（侧栏角标） */
+  calendarBadge?: number
 }
 
 const isOnlineTab = (state: NavState, tab?: string): boolean =>
@@ -70,6 +74,13 @@ export function buildNavGroups(state: NavState): NavGroup[] {
           path: '/?tab=favorites',
           active: isOnlineTab(state, 'favorites'),
         },
+        {
+          label: '追剧日历',
+          icon: 'calendar',
+          path: '/calendar',
+          active: state.routeName === 'Calendar',
+          badge: state.calendarBadge ?? 0,
+        },
       ],
     },
   ]
@@ -97,6 +108,19 @@ export function buildNavGroups(state: NavState): NavGroup[] {
       heading: '本地媒体',
       divider: true,
       items: local,
+    })
+  if (state.hasLocalLibrary)
+    groups.push({
+      key: 'live',
+      divider: true,
+      items: [
+        {
+          label: '直播',
+          icon: 'livePlay',
+          path: '/live',
+          active: state.routeName === 'Live',
+        },
+      ],
     })
   if (state.adultMode)
     groups.push({

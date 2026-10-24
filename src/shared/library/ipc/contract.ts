@@ -10,7 +10,10 @@ import type {
 } from '../provider'
 import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
+import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
+import { CALENDAR_METHODS } from './contract-calendar'
 import type { LibraryEvent } from './contract-events'
+import type { LibraryQueryFilters } from './contract-filters'
 import type {
   FacetFilter,
   FacetRpcMap,
@@ -46,9 +49,11 @@ import type {
 } from './contract-writer'
 
 export * from './contract-actors'
+export * from './contract-calendar'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-facets'
+export * from './contract-filters'
 export * from './contract-visual'
 export * from './contract-jav'
 export * from './contract-match'
@@ -163,7 +168,7 @@ export type LibrarySortField =
   | 'updatedAt'
 
 /** 列表查询。所有字段可选，缺省时取 normalizeLibraryQuery 的默认值。 */
-export interface LibraryQuery {
+export interface LibraryQuery extends LibraryQueryFilters {
   /** 只查某个媒体库；缺省查全部。 */
   libraryId?: number
   /** 只要这种来源的媒体库（电影页传 tmdb、番号页传 jav，互不露出）；缺省两种都要。 */
@@ -246,7 +251,12 @@ export interface JobAccepted {
 
 /** 渲染进程可调用的方法：方法名 → 参数与返回值。 */
 export interface LibraryRpcMap
-  extends ActorRpcMap, FacetRpcMap, VisualRpcMap, LibraryNotifyRpcMap {
+  extends
+    ActorRpcMap,
+    CalendarRpcMap,
+    FacetRpcMap,
+    VisualRpcMap,
+    LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
@@ -317,6 +327,7 @@ export const LIBRARY_METHODS = [
   ...ACTOR_METHODS,
   ...FACET_METHODS,
   ...VISUAL_METHODS,
+  ...CALENDAR_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -324,7 +335,7 @@ export const LIBRARY_METHODS = [
  * 方法失败时 reject 一个 Error，错误码用 libraryErrorCode(error) 取（见 wire.ts）。
  */
 export interface LibraryBridge
-  extends LibraryFacetsBridge, LibraryVisualBridge {
+  extends LibraryFacetsBridge, LibraryVisualBridge, LibraryCalendarBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>

@@ -14,6 +14,7 @@ import type {
 } from '../identify/identify-module'
 import { DEFAULT_MONITOR } from '../engine/library-monitor'
 import { LibraryService, type LibraryServiceOptions } from '../engine/service'
+import type { RemoteClients } from '../scanner/scan-library'
 
 export { DEFAULT_MONITOR } from '../engine/library-monitor'
 
@@ -39,6 +40,8 @@ export interface LibraryPlatform {
   clipPixels?: (bytes: Uint8Array) => Promise<Uint8Array>
   /** 大模型调用口（AI 识别兜底）：桌面端经主进程 aiService 代办；独立服务没有。 */
   ai?: IdentifyModuleOptions['ai']
+  /** 远程源（WebDAV / Alist）客户端；桌面端向主进程要凭据后建，独立服务不提供。 */
+  remote?: RemoteClients
 }
 
 /** 环境变量里的令牌。 */
@@ -78,6 +81,7 @@ export function createLibraryService(
     ...extra,
     dbPath: platform.dbPath,
     log: platform.log,
+    remote: platform.remote ?? extra.remote,
     identify: {
       fetch: platform.fetch,
       mediaDir: platform.mediaDir,

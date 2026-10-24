@@ -88,6 +88,19 @@ export function aiKeySecret(id: AiProviderId): AiKeySecret | null {
   return id === 'ollama' ? null : `ai.apiKey.${id}`
 }
 
+/** 实际生效的接口地址：设置里填了用设置，空串用服务商预设；去掉结尾斜杠 */
+export function effectiveAiBaseUrl(id: AiProviderId, baseUrl: string): string {
+  return (baseUrl.trim() || aiProviderPreset(id).baseUrl).replace(/\/+$/, '')
+}
+
+/**
+ * 服务商是否算本地：只看实际生效的接口地址（见 {@link isLocalEndpoint}），
+ * 不按服务商名称放行（Ollama 填了公网地址就是云端）。主进程与设置页共用这一判定。
+ */
+export function isLocalAiProvider(id: AiProviderId, baseUrl: string): boolean {
+  return isLocalEndpoint(effectiveAiBaseUrl(id, baseUrl))
+}
+
 /**
  * 接口地址是否指向本机或局域网（视为「本地模型」，私密内容可以发）。
  * 本机：localhost / 127.0.0.0/8 / ::1；局域网：10/8、172.16/12、192.168/16、169.254/16、fc00::/7、*.local。

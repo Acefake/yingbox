@@ -6,6 +6,8 @@
  * subscribe → 消息附带的 MessagePort 成为事件订阅方，之后事件直接经该端口推给渲染进程；
  * shutdown → 关闭数据库后退出。
  *
+ * reply → 主进程对代办（host）的回复：远程源凭据（remote/host-remote.ts）与 AI 识别兜底（host-calls.ts）。
+ *
  * 宿主能力（见 platform/platform.ts）：网络用 Electron net.fetch（Chromium 网络栈，走系统代理，
  * 国内访问 TMDB 通常需要），不可用时退回 Node fetch；原图落盘后通知主进程预热缩略图；
  * AI 识别兜底的大模型调用经 host / reply 请主进程代办（host-calls.ts）。
@@ -15,10 +17,11 @@ import { type MessagePortMain, net } from 'electron'
 import { join } from 'node:path'
 import { LIBRARY_IMAGES_CACHED } from '../../../shared/library/ipc'
 import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
-import { createHostCaller, hostAi } from './host-calls'
+import { hostAi } from './host-calls'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
+import { createHostCaller, hostRemoteClients } from '../remote/host-remote'
 import { createLibraryService, envSecrets } from '../platform/platform'
 import { codecDeriver } from '../images/derived'
 import { codecClipPixels } from '../visual/clip-pixels'
@@ -38,7 +41,7 @@ if (!dbPath) {
 
 const parentPort = process.parentPort
 const post = (message: FromUtility): void => parentPort.postMessage(message)
-/** 请主进程代办（大模型调用）。 */
+/** 向主进程代办（远程源凭据、大模型调用）。 */
 const host = createHostCaller(post)
 const fetchImpl: HttpFetch =
   typeof net?.fetch === 'function'
@@ -68,6 +71,8 @@ const service = createLibraryService({
   clipPixels: codecClipPixels(lazyCodec),
   env: envSecrets(process.env),
   ai: hostAi(host),
+  // 局域网 NAS / Alist：Node fetch 直连（不走系统代理），凭据每次扫描向主进程要
+  remote: hostRemoteClients(host, (url, init) => fetch(url, init)),
 })
 
 /** 把一个 MessagePort 接成事件订阅方，端口关闭时自动退订。 */
@@ -80,6 +85,7 @@ function attachSubscriber(port: MessagePortMain): void {
 let shuttingDown = false
 parentPort.on('message', ({ data, ports }) => {
   const message = data as ToUtility
+  if (host.settle(message)) return
   switch (message.kind) {
     case 'call':
       void handleRpc(service, {
@@ -102,9 +108,6 @@ parentPort.on('message', ({ data, ports }) => {
               }
         )
       )
-      break
-    case 'reply':
-      host.settle(message)
       break
     case 'subscribe':
       for (const port of ports) attachSubscriber(port)

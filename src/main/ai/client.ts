@@ -11,7 +11,7 @@ import type {
   AiTokenUsage,
 } from '../../shared/ai/types'
 import type { AiConfig } from './config'
-import { AiError, httpError } from './errors'
+import { AiError, httpError, streamError } from './errors'
 import { type StreamChunk, createSseParser } from './sse'
 
 /** 注入的 fetch（Response 只用到标准字段） */
@@ -264,7 +264,7 @@ async function readJson(
   }
 }
 
-/** 流式响应：逐块解析 SSE，增量回调，结束时汇总 */
+/** 流式响应：逐块解析 SSE，增量回调，结束时汇总；流里出现 error 事件立即抛 AiError，不返回部分内容 */
 async function readStream(
   config: AiConfig,
   request: AiChatRequest,
@@ -278,6 +278,7 @@ async function readStream(
   let usage: AiTokenUsage | null = null
   const parser = createSseParser({
     onChunk: chunk => {
+      if (chunk.error) throw streamError(chunk.error)
       if (chunk.model) model = chunk.model
       const choice = chunk.choices?.[0]
       const delta = choice?.delta?.content
@@ -292,13 +293,18 @@ async function readStream(
   })
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
-  for (;;) {
-    const { done, value } = await reader.read()
-    if (done) break
-    parser.push(decoder.decode(value, { stream: true }))
+  try {
+    for (;;) {
+      const { done, value } = await reader.read()
+      if (done) break
+      parser.push(decoder.decode(value, { stream: true }))
+    }
+    parser.push(decoder.decode())
+    parser.end()
+  } catch (error) {
+    reader.cancel().catch(() => {})
+    throw error
   }
-  parser.push(decoder.decode())
-  parser.end()
   return {
     content,
     model: model || request.model || config.model,

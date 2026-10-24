@@ -29,6 +29,9 @@ importers:
       artplayer:
         specifier: ^5.4.0
         version: 5.4.0
+      artplayer-plugin-danmuku:
+        specifier: 5.3.0
+        version: 5.3.0
       cheerio:
         specifier: ^1.2.0
         version: 1.2.0
@@ -1436,6 +1439,9 @@ packages:
 
   argparse@2.0.1:
     resolution: {integrity: sha512-8+9WqebbFzpX9OR+Wa6O29asIogeRMzcGtAINdpMHHyAg10f05aSFVBbcEqGf/PXw1EjAZ+q2/bEBg3DvurK3Q==}
+
+  artplayer-plugin-danmuku@5.3.0:
+    resolution: {integrity: sha512-a76bU1cWEZr53hD1X8IHfOzS4QawGHn8dQ3fIYyJ5TsyhTSnznhi2WzkS8M7LL3H02ekXRZTUFan9+9EERk12g==}
 
   artplayer@5.4.0:
     resolution: {integrity: sha512-2B+plbx8N2yNsjK4nJU3+EOG8TULm1LRZk/QPkWRAMEX2Ee/MSnZG/WJYz8kcoZxZuLKcQ3uXifqLuPxZOH29A==}
@@ -4609,6 +4615,8 @@ snapshots:
       readable-stream: 3.6.2
 
   argparse@2.0.1: {}
+
+  artplayer-plugin-danmuku@5.3.0: {}
 
   artplayer@5.4.0:
     dependencies:

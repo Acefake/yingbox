@@ -1,6 +1,7 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
+import { syncAnime4k } from '../anime4k/anime4k-sync'
 import type { ContinueMeta } from '../continue/continue-rules'
 import { startContinue } from '../continue/continue-store'
 import { openPlayerModal } from '../modal/player-modal'
@@ -35,8 +36,15 @@ type MediaPlayerOpenOptions = {
    * mpv 只在开播时登记（进度由 mpv 自己续播）；应用内播放器会持续更新进度、看完换下一集。
    */
   continueAs?: ContinueMeta
+  /**
+   * 来自私密板块（AV / 番号 / lada 等）：AI 字幕的翻译与云端转写只发给本地模型（按设置）。
+   * 不给时按 continueAs 的板块判断（av、jav 为私密）。
+   */
+  private?: boolean
   /** 播放引擎：'built-in' 为应用内播放弹窗，'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
   engine?: 'built-in' | 'mpv'
+  /** 条目是动画（mpv 的「Anime4K 仅动画类条目」据此启用，判断见 shared/anime4k isAnimeEntry） */
+  anime?: boolean
 }
 
 /**
@@ -50,6 +58,9 @@ export function syncRtxVsr(): void {
     /* 非 Electron 或旧版本预加载：静默忽略 */
   })
 }
+
+/** 私密板块：开播时自动标记 private */
+const PRIVATE_SECTIONS: ReadonlySet<string> = new Set(['av', 'jav'])
 
 /** 每个会话只提示一次 mpv 回退，避免每次播放都弹 */
 let mpvFallbackNotified = false
@@ -99,6 +110,8 @@ export async function openMediaPlayer(
       : undefined
 
   if (!filePath && !url && !playlist) return false
+  const isPrivate =
+    options.private ?? PRIVATE_SECTIONS.has(options.continueAs?.section ?? '')
 
   const continueId = options.continueAs
     ? startContinue(
@@ -124,6 +137,7 @@ export async function openMediaPlayer(
     try {
       // 先同步超分开关，保证首次启动 mpv 时启动参数正确
       syncRtxVsr()
+      syncAnime4k()
       const res = await window.api.mpv.open({
         ...(filePath ? { filePath } : {}),
         ...(url ? { url } : {}),
@@ -139,6 +153,7 @@ export async function openMediaPlayer(
             }
           : {}),
         ...(typeof index === 'number' ? { index } : {}),
+        ...(options.anime ? { anime: true } : {}),
       })
       if (res?.success) return true
       // 主进程以失败结果返回（例如未安装 mpv）：提示并回退
@@ -158,6 +173,7 @@ export async function openMediaPlayer(
     ...(typeof index === 'number' ? { index } : {}),
     ...(fallbacks ? { fallbacks } : {}),
     ...(continueId ? { continueId } : {}),
+    ...(isPrivate ? { private: true } : {}),
   })
   return true
 }

@@ -18,6 +18,7 @@ import type { NormalizedLibraryQuery } from '../../../shared/library/ipc'
 import { normalizeTitle } from '../../../shared/library/scoring'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { facetClauses, listFacetValues } from './facet-sql'
+import { filterClauses } from './filter-sql'
 import { registerJavKind } from './jav-kind'
 
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
@@ -129,6 +130,9 @@ function compileWhere(q: NormalizedLibraryQuery): {
   const facets = facetClauses(q.facets)
   clauses.push(...facets.clauses)
   params.push(...facets.params)
+  const filters = filterClauses(q)
+  clauses.push(...filters.clauses)
+  params.push(...filters.params)
   return { where: clauses.join(' AND '), params }
 }
 

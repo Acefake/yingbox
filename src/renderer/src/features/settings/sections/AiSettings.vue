@@ -117,6 +117,34 @@
       />
     </SettingsRow>
     <SettingsRow
+      v-if="speechEngine === 'local-whisper'"
+      title="whisper-cli 路径"
+      description="whisper.cpp 的可执行文件（绝对路径）；留空在 PATH 里找 whisper-cli"
+    >
+      <UiInput
+        :value="whisperBin"
+        type="text"
+        aria-label="whisper-cli 路径"
+        placeholder="whisper-cli"
+        class="settings-field is-inline"
+        @change="onWhisperBinChange"
+      />
+    </SettingsRow>
+    <SettingsRow
+      v-if="speechEngine === 'local-whisper'"
+      title="模型文件"
+      description="ggml 模型文件（绝对路径）；留空用 AI 数据目录 whisper 文件夹里的 ggml-<识别模型>.bin"
+    >
+      <UiInput
+        :value="whisperModelPath"
+        type="text"
+        aria-label="Whisper 模型文件"
+        placeholder="ggml-large-v3-turbo.bin"
+        class="settings-field is-inline"
+        @change="onWhisperModelChange"
+      />
+    </SettingsRow>
+    <SettingsRow
       v-if="speechEngine === 'cloud'"
       title="转写接口地址"
       description="OpenAI 兼容 /audio/transcriptions；留空与对话用同一个接口和 Key"
@@ -163,7 +191,7 @@ import {
   aiProviderPreset,
   formatMonthUsage,
   getAiUsage,
-  isLocalEndpoint,
+  isLocalAiProvider,
   onAiUsageChanged,
   setAiKey,
   testAiConnection,
@@ -171,7 +199,7 @@ import {
 
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRow from '../ui/SettingsRow.vue'
-import { useSetting } from '../use-setting'
+import { setSetting, useSetting } from '../use-setting'
 
 const providerOptions = AI_PROVIDERS.map(p => ({ value: p.id, label: p.label }))
 const speechOptions = [
@@ -187,14 +215,36 @@ const privateLocalOnly = useSetting('ai.privateLocalOnly')
 const speechEngine = useSetting('ai.speech.engine')
 const speechModel = useSetting('ai.speech.model')
 const speechBaseUrl = useSetting('ai.speech.baseUrl')
+const whisperBin = useSetting('ai.speech.whisperBin')
+const whisperModelPath = useSetting('ai.speech.whisperModelPath')
+
+/** 路径输入失焦 / 回车后才保存（逐字保存会把半截路径当成不合法） */
+function inputText(event: Event): string {
+  return (event.target as HTMLInputElement).value.trim()
+}
+
+async function savePath(
+  key: 'ai.speech.whisperBin' | 'ai.speech.whisperModelPath',
+  event: Event
+): Promise<void> {
+  try {
+    await setSetting(key, inputText(event))
+  } catch {
+    toast.error('请填写完整的绝对路径')
+  }
+}
+
+function onWhisperBinChange(event: Event): void {
+  void savePath('ai.speech.whisperBin', event)
+}
+
+function onWhisperModelChange(event: Event): void {
+  void savePath('ai.speech.whisperModelPath', event)
+}
 
 const preset = computed(() => aiProviderPreset(provider.value))
-/** 当前服务商是否算本地（Ollama，或地址指向本机 / 局域网） */
-const isLocal = computed(
-  () =>
-    provider.value === 'ollama' ||
-    isLocalEndpoint(baseUrl.value || preset.value.baseUrl)
-)
+/** 当前服务商是否算本地：与主进程同一判定，只看实际生效的接口地址 */
+const isLocal = computed(() => isLocalAiProvider(provider.value, baseUrl.value))
 const providerHint = computed(() =>
   isLocal.value
     ? '本地模型：内容不离开本机 / 局域网'
