@@ -14,6 +14,7 @@ export {
   syncRtxVsr,
 } from './composables/use-media-player'
 export { useMpvPlayer } from './composables/use-mpv-player'
+export { syncAnime4k } from './anime4k/anime4k-sync'
 export { getMediaProgress } from './utils/play-progress'
 /** 「继续播放」：各板块顶部的横排卡片与记录 */
 export { default as ContinueRow } from './continue/ContinueRow.vue'

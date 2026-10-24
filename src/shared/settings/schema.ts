@@ -124,6 +124,14 @@ export const settingsSchema = {
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
+  /** mpv 下的 Anime4K 超分（着色器按需下载，见 shared/anime4k.ts） */
+  'player.anime4k': bool(false),
+  /** Anime4K 模式：A / B / C */
+  'player.anime4kMode': oneOf(['a', 'b', 'c'] as const, 'a'),
+  /** Anime4K 档位：画质（VL 网络）/ 性能（M 网络） */
+  'player.anime4kQuality': oneOf(['hq', 'fast'] as const, 'fast'),
+  /** Anime4K 只对动画类条目启用（媒体库看 TMDB 类型，在线看站点分类） */
+  'player.anime4kAnimeOnly': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
 

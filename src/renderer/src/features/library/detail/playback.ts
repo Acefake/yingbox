@@ -2,6 +2,7 @@
  * 从条目详情树得到播放列表，交给 openMediaPlayer（应用内播放弹窗或 mpv）：
  * 桌面端给本地文件路径，网页端给片库服务的 Range 流地址（/media/files/<id>）。
  */
+import { isAnimeEntry } from '@shared/anime4k'
 import type {
   LibraryItemFile,
   LibraryItemNode,
@@ -123,6 +124,7 @@ export async function play(
   poster?: string
 ): Promise<boolean> {
   const continueAs = continueMetaOf(request.item)
+  const anime = isAnimeEntry({ genres: request.item.genres })
   if (usesLibraryServer()) {
     const playlist = request.playlist.map((item, i) => ({
       url: serverFileUrl(request.fileIds[i]),
@@ -135,6 +137,7 @@ export async function play(
       playlist,
       index: request.index,
       continueAs,
+      anime,
     })
   }
   const first = request.playlist[request.index]
@@ -145,5 +148,6 @@ export async function play(
     playlist: request.playlist,
     index: request.index,
     continueAs,
+    anime,
   })
 }
