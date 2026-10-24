@@ -6,11 +6,18 @@ import type {
   LibraryItemFile,
   LibraryItemNode,
 } from '../../../../../shared/library/ipc'
-import { type PlayerSourceItem, openMediaPlayer } from '@/features/player'
+import {
+  type ContinueMeta,
+  type PlayerSourceItem,
+  openMediaPlayer,
+} from '@/features/player'
 
 import { serverFileUrl } from '@/services/library-server'
 
 import { usesLibraryServer } from '../api/bridge'
+import { itemImage } from '../api/images'
+import { sectionOf } from '../state/library-section'
+import { findLibrary } from '../state/use-libraries'
 import { baseName, episodeCode } from '../shared/format'
 import { sortedSeasons } from './detail-rules'
 
@@ -45,6 +52,8 @@ export interface PlayRequest {
   playlist: PlayerSourceItem[]
   fileIds: number[]
   index: number
+  /** 所属条目（电影本身 / 剧集的剧），记「继续播放」用 */
+  item: LibraryItemNode
 }
 
 /** 电影：全部视频文件按顺序连播（分段电影 CD1 / CD2）。 */
@@ -59,6 +68,7 @@ export function moviePlayRequest(node: LibraryItemNode): PlayRequest | null {
     })),
     fileIds: files.map(file => file.id),
     index: 0,
+    item: node,
   }
 }
 
@@ -80,6 +90,7 @@ export function episodePlayRequest(
     })),
     fileIds: firsts.map(file => file.id),
     index,
+    item: series,
   }
 }
 
@@ -93,11 +104,25 @@ export function primaryPlayRequest(node: LibraryItemNode): PlayRequest | null {
   return null
 }
 
+/** 「继续播放」登记：分区按条目所在媒体库，封面优先横版背景图。 */
+export function continueMetaOf(item: LibraryItemNode): ContinueMeta {
+  const lib = findLibrary(item.libraryId)
+  return {
+    section: lib ? sectionOf(lib) : item.type === 'series' ? 'tv' : 'movie',
+    key: String(item.id),
+    title: item.title,
+    cover:
+      itemImage(item.backdrop, 780) ?? itemImage(item.poster, 780) ?? undefined,
+    detail: { itemId: item.id },
+  }
+}
+
 /** 打开播放器；没有可用播放器返回 false。 */
 export async function play(
   request: PlayRequest,
   poster?: string
 ): Promise<boolean> {
+  const continueAs = continueMetaOf(request.item)
   if (usesLibraryServer()) {
     const playlist = request.playlist.map((item, i) => ({
       url: serverFileUrl(request.fileIds[i]),
@@ -109,6 +134,7 @@ export async function play(
       poster,
       playlist,
       index: request.index,
+      continueAs,
     })
   }
   const first = request.playlist[request.index]
@@ -118,5 +144,6 @@ export async function play(
     poster,
     playlist: request.playlist,
     index: request.index,
+    continueAs,
   })
 }

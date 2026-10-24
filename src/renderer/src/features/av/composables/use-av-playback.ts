@@ -6,6 +6,7 @@ import { toast } from '@/components/ui'
 import { type Ref, ref } from 'vue'
 import { type RemovableRef, useStorage } from '@vueuse/core'
 import { useOnlineSearch } from '@/features/online'
+import type { ContinueRecord } from '@/features/player'
 import type { PluginExt } from '@/utils/vod-data'
 import {
   closePlayerModal,
@@ -25,13 +26,25 @@ import {
   upsertPlayHistory,
 } from '../utils/av-playback'
 
+/** 「继续播放」记录里存的条目（重新解析用） */
+interface ContinueDetail {
+  video: PlayingVideo
+  epName: string
+  url: string
+}
+
 /** AV 播放：播放历史与正在播的条目，以及开播 / 续播操作 */
 export interface UseAvPlaybackReturn {
   playHistory: RemovableRef<AvPlayRecord[]>
   playingVideo: Ref<PlayingVideo | null>
   playingUrl: Ref<string>
   playVideo: (video: AvVideo) => Promise<void>
-  resumeHistory: (record: AvPlayRecord) => Promise<void>
+  resumeHistory: (record: AvPlayRecord, resumeAt?: number) => Promise<void>
+  /** 「继续播放」卡片：按记录里的条目重新解析再播（MissAV 等地址会过期） */
+  resumeContinue: (
+    record: ContinueRecord,
+    fromStart: boolean
+  ) => Promise<boolean>
   closePlayer: () => void
   onNavigateBack: (event: Event) => void
 }
@@ -66,7 +79,24 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     const title = playTitle(playingVideo.value?.vod_name, epName)
     const poster = coverSrc(playingVideo.value) || undefined
     const startAt = resumeAt ?? getMediaProgress(playUrl)
-    const ok = await openMediaPlayer({ url: playUrl, title, poster, startAt })
+    const video = playingVideo.value
+    const ok = await openMediaPlayer({
+      url: playUrl,
+      title,
+      poster,
+      startAt,
+      ...(video
+        ? {
+            continueAs: {
+              section: 'av' as const,
+              key: video._uid || `${video._source}-${video.vod_id}`,
+              title: video.vod_name || title,
+              cover: poster,
+              detail: { video, epName, url: playUrl } satisfies ContinueDetail,
+            },
+          }
+        : {}),
+    })
     if (!ok) toast.error('无法打开播放器，请完全重启应用后再试')
   }
 
@@ -138,12 +168,15 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     await startPlay(episodes[0].url, episodes[0].name)
   }
 
-  const resumeHistory = async (record: AvPlayRecord): Promise<void> => {
+  const resumeHistory = async (
+    record: AvPlayRecord,
+    resumeAt?: number
+  ): Promise<void> => {
     const video = record.video
     if (video._missavInput) {
       try {
         const stream = await resolveMissav(video._missavInput)
-        await playMissavStream(stream, record.progress)
+        await playMissavStream(stream, resumeAt ?? record.progress)
       } catch (error) {
         toast.error(
           error instanceof Error ? error.message : 'MissAV 重新解析失败'
@@ -155,7 +188,30 @@ export function useAvPlayback(): UseAvPlaybackReturn {
       ? video.episodes
       : parseCmsEpisodes(video)
     playingVideo.value = { ...video, episodes }
-    await startPlay(record.url, record.epName)
+    await startPlay(record.url, record.epName, undefined, undefined, resumeAt)
+  }
+
+  const resumeContinue = async (
+    record: ContinueRecord,
+    fromStart: boolean
+  ): Promise<boolean> => {
+    const detail = record.detail as ContinueDetail | undefined
+    if (!detail?.video || !detail.url) return false
+    await resumeHistory(
+      {
+        vod_name: record.title,
+        vod_pic: record.cover || '',
+        _source: detail.video._source || '',
+        epName: detail.epName,
+        url: detail.url,
+        timestamp: record.updatedAt,
+        progress: record.progress,
+        duration: record.duration,
+        video: detail.video,
+      },
+      fromStart ? 0 : record.progress
+    )
+    return true
   }
 
   const closePlayer = (): void => {
@@ -178,6 +234,7 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     playingUrl,
     playVideo,
     resumeHistory,
+    resumeContinue,
     closePlayer,
     onNavigateBack,
   }

@@ -68,6 +68,13 @@
           @open="openDetail"
           @identify="id => actions.identifySelected([id], () => {})"
         >
+          <template #before>
+            <ContinueRow
+              class="lib-continue"
+              :section="section"
+              @detail="r => openDetail((r.detail as { itemId: number }).itemId)"
+            />
+          </template>
           <template #after>
             <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
             <LibraryEmpty
@@ -162,6 +169,7 @@ import { useRoute } from 'vue-router'
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
+import { ContinueRow } from '@/features/player'
 import { libraryServerState } from '@/services/library-server'
 
 import ActorDetail from './actors/ActorDetail.vue'
