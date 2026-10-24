@@ -554,7 +554,9 @@ describe('播放代理的 Range 转发', () => {
       'If-Range': '"e1"',
       Authorization: 'Basic aaa',
     })
-    expect(upstreamHeaders(get({ range: 'items=1-2' }), undefined)).toEqual({})
+    expect(upstreamHeaders(get({ range: 'items=1-2' }), undefined)).toEqual({
+      'Accept-Encoding': 'identity',
+    })
   })
 
   it('状态：200 / 206 / 416 原样，认证失败与 5xx 回 502；响应头去掉认证质询并补视频类型', () => {
