@@ -68,13 +68,19 @@
 
   <SettingsGroup
     title="片头片尾"
-    footer="在内置播放器里右键标记片头开始 / 结束、片尾开始，同一部剧每集通用。"
+    footer="在内置播放器里右键标记片头开始 / 结束、片尾开始，同一部剧每集通用；也可在媒体库剧集详情里「检测片头片尾」。"
   >
     <SettingsRow
       title="自动跳过片头"
       description="进入已标记的片头时直接跳到片头结束；关闭时只显示「跳过片头」按钮"
     >
       <UiSwitch v-model="autoSkipIntro" label="自动跳过片头" />
+    </SettingsRow>
+    <SettingsRow
+      title="播放剧集时自动检测本季"
+      description="播放本地剧集时在后台比对各集音频，找出共同的片头片尾；手动标记的不会被覆盖。需要 ffmpeg"
+    >
+      <UiSwitch v-model="autoDetectIntro" label="播放剧集时自动检测本季" />
     </SettingsRow>
   </SettingsGroup>
 
@@ -104,7 +110,8 @@
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
  * Anime4K 超分（Anime4kRows）与缩小置顶，
- * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），内置播放器自动跳过片头（player.autoSkipIntro），
+ * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），
+ * 内置播放器自动跳过片头（player.autoSkipIntro）与播放时自动检测片头片尾（player.autoDetectIntro），
  * 播放弹窗的角落小窗（ui.miniPlayer），桌面端的托盘图标（app.tray）与媒体键（player.mediaKeys）。
  */
 import { computed, watch } from 'vue'
@@ -148,6 +155,7 @@ const setMpvCompact = (on: boolean): void => {
 
 const miniPlayer = useSetting('ui.miniPlayer')
 const autoSkipIntro = useSetting('player.autoSkipIntro')
+const autoDetectIntro = useSetting('player.autoDetectIntro')
 const autoSwitchSource = useSetting('online.autoSwitchSource')
 const stallSeconds = useSetting('online.stallSeconds')
 const stallOptions = [3, 5, 8, 10, 15].map(value => ({

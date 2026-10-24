@@ -12,11 +12,18 @@ export interface IntroMark {
   end: number
 }
 
+/** 标记来源：手动标记 / 自动检测（自动结果不覆盖手动的，见 detect-merge.ts） */
+export type SkipSource = 'manual' | 'auto'
+
 /** 一部剧的片头片尾标记 */
 export interface SkipMarks {
   intro?: IntroMark
   /** 片尾长度：最后多少秒算片尾 */
   outro?: number
+  /** 片头来源；缺省按手动算（自动检测之前只有手动标记） */
+  introSource?: SkipSource
+  /** 片尾来源；缺省同上 */
+  outroSource?: SkipSource
 }
 
 /** 存储里的一条记录 */
@@ -184,10 +191,19 @@ export function putRecord(
   const rest = records.filter(r => r.key !== key)
   if (!key || !hasMarks(marks)) return rest
   const record: SkipRecord = { key, updatedAt: now }
-  if (validIntro(marks.intro)) record.intro = { ...marks.intro }
-  if (validOutro(marks.outro)) record.outro = marks.outro
+  if (validIntro(marks.intro)) {
+    record.intro = { ...marks.intro }
+    if (marks.introSource) record.introSource = marks.introSource
+  }
+  if (validOutro(marks.outro)) {
+    record.outro = marks.outro
+    if (marks.outroSource) record.outroSource = marks.outroSource
+  }
   return [record, ...rest].slice(0, MAX_SKIP_RECORDS)
 }
+
+const isSource = (value: unknown): value is SkipSource =>
+  value === 'manual' || value === 'auto'
 
 /** 读回存储时校验：形状不对的丢掉，不像样的单项去掉。 */
 export function sanitizeSkipRecords(raw: unknown): SkipRecord[] {
@@ -201,9 +217,14 @@ export function sanitizeSkipRecords(raw: unknown): SkipRecord[] {
       key: r.key,
       updatedAt: finite(r.updatedAt) ? r.updatedAt : 0,
     }
-    if (validIntro(r.intro))
+    if (validIntro(r.intro)) {
       record.intro = { start: r.intro.start, end: r.intro.end }
-    if (validOutro(r.outro)) record.outro = r.outro
+      if (isSource(r.introSource)) record.introSource = r.introSource
+    }
+    if (validOutro(r.outro)) {
+      record.outro = r.outro
+      if (isSource(r.outroSource)) record.outroSource = r.outroSource
+    }
     if (hasMarks(record)) out.push(record)
   }
   return out.slice(0, MAX_SKIP_RECORDS)

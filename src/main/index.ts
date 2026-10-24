@@ -28,6 +28,7 @@ import { registerDanmakuIpc } from './ipc/danmaku-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
+import { registerIntroDetectIpc } from './intro-detect'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
 import {
@@ -209,6 +210,7 @@ app.whenReady().then(async () => {
   // WebDAV / Alist 源：设置、yingbox-dav 播放协议、媒体库引擎扫描时取凭据
   registerWebDav()
   const libraryClient = registerLibraryIpc(thumbnails, webdavHostMethods)
+  registerIntroDetectIpc()
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
   registerLibraryNotify(libraryClient)

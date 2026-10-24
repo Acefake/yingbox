@@ -145,6 +145,7 @@ const ADDED_API: Record<string, string[]> = {
   av: ['list', 'resolve'],
   danmaku: ['match', 'search', 'comments'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
+  introDetect: ['status', 'detect', 'cancel', 'onProgress', 'offProgress'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: [
     'focus',
