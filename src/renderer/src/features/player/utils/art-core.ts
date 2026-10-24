@@ -8,6 +8,7 @@ import Artplayer from 'artplayer'
 import { getSetting, setSetting } from '@/features/settings'
 
 import {
+  type ArtOption,
   applyPlaybackRate,
   artOptions,
   isValidPlaybackRate,
@@ -56,6 +57,8 @@ export interface ArtCoreInput {
   autoplay: boolean
   controls: boolean
   sink: ArtSink
+  /** 追加到控制栏的控件（如弹幕的「弹」按钮） */
+  extraControls?: NonNullable<ArtOption['controls']>
 }
 
 /** 创建实例。节点还没挂到文档上，调用方把 core.node 放进自己的容器。 */
@@ -87,7 +90,12 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
       controls: input.controls,
       hls: hlsType,
     }),
-    controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
+    controls: input.controls
+      ? [
+          ...artSkinControls(() => sink.subtitles()),
+          ...(input.extraControls ?? []),
+        ]
+      : [],
   })
   installQualityBadge(art)
 
