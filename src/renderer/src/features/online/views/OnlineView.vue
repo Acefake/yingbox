@@ -5,8 +5,12 @@
       v-show="!inlineDetailItem && activeTab === 'home'"
       class="content-area primary-scroll home-content-area"
     >
+      <HomeCarousel
+        :active="activeTab === 'home' && !inlineDetailItem"
+        @open="openDoubanDetail"
+      />
       <ContinueRow
-        class="online-continue"
+        class="online-continue home-resume"
         section="online"
         @detail="
           r => r.detail && openDetailWindow(r.detail as OnlineDetailItem)
@@ -74,6 +78,7 @@ import type {
 } from '../types'
 import { useRoute } from 'vue-router'
 import DoubanSection from '../components/DoubanSection.vue'
+import HomeCarousel from '../components/HomeCarousel.vue'
 import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
@@ -202,6 +207,15 @@ const openDoubanDetail = (item: DoubanItem): void => {
   flex: none;
   min-width: 0;
   margin-bottom: 0;
+}
+
+.home-resume :deep(.cw-card) {
+  width: calc((100% - var(--space-4)) / 2);
+  min-width: 260px;
+}
+
+.home-resume :deep(.cw-thumb) {
+  aspect-ratio: 3.2;
 }
 
 .home-content-area {

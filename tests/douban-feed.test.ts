@@ -218,6 +218,17 @@ describe('换条件', () => {
     expect(feed.query.value).toEqual(defaultDoubanQuery('tv'))
   })
 
+  it('跨分类选择标签只请求一次并保留目标标签', () => {
+    const net = deferredBrowse()
+    const feed = createDoubanFeed({ browse: net.browse, storage: null })
+    void feed.setQuery({ kind: 'tv', tag: '日本动画' })
+    expect(feed.query.value).toEqual({
+      ...defaultDoubanQuery('tv'),
+      tag: '日本动画',
+    })
+    expect(net.calls).toHaveLength(1)
+  })
+
   it('条件没变不重取', async () => {
     const net = deferredBrowse()
     const feed = createDoubanFeed({ browse: net.browse, storage: null })

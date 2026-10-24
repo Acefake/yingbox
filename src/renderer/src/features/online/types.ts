@@ -133,6 +133,8 @@ export interface DoubanItem {
   cover: string
   /** 豆瓣封面 */
   coverSrc: string
+  /** 首页轮播横向剧照（TMDB）；缺失时使用封面 */
+  backdrop?: string
   /** 评分文字，无评分为「暂无」 */
   rate: string
   /** movie.douban.com/subject/<id>/（去重键、取预告片用） */

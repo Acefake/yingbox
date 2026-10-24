@@ -161,7 +161,7 @@ export function createDoubanFeed(deps: DoubanFeedDeps): DoubanFeed {
     setQuery(patch) {
       const merged =
         patch.kind && patch.kind !== query.value.kind
-          ? defaultDoubanQuery(patch.kind)
+          ? { ...defaultDoubanQuery(patch.kind), ...patch }
           : // 点快捷标签：清空多维筛选
             patch.tag
             ? { ...defaultDoubanQuery(query.value.kind), tag: patch.tag }
