@@ -12,7 +12,7 @@ import {
   type SeekManifest,
   seekFrameAt,
   seekSpriteUrl,
-} from '@shared/seek-thumbnails'
+} from '../../../../../shared/seek-thumbnails'
 
 type SeekWaiter = (manifest: SeekManifest) => void
 
