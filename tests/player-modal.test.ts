@@ -23,6 +23,21 @@ const fakes = vi.hoisted(() => {
     destroyed = 0
     notice = { show: '' }
     subtitle = { switch: async (): Promise<void> => {} }
+    /** 设置菜单替身：只记下加了哪些项（睡眠定时会往里加菜单项） */
+    setting = {
+      items: [] as { name?: string }[],
+      add(item: { name?: string }): void {
+        this.items.push(item)
+      },
+      update(item: { name?: string }): void {
+        const i = this.items.findIndex(it => it.name === item.name)
+        if (i >= 0) this.items[i] = item
+        else this.items.push(item)
+      },
+      find(name: string): { $tooltip?: HTMLElement } | undefined {
+        return this.items.some(it => it.name === name) ? {} : undefined
+      },
+    }
     private handlers = new Map<string, Handler[]>()
     constructor(option: Record<string, unknown>) {
       this.option = option
@@ -368,6 +383,8 @@ describe('播放弹窗', () => {
     expect(fakes.arts).toHaveLength(1)
     expect(modal()?.contains(fakes.arts[0].video)).toBe(true)
     expect(fakes.hlsList[0].loads).toEqual([SRC])
+    // 播放器核心装上了睡眠定时菜单项
+    expect(fakes.arts[0].setting.items.map(it => it.name)).toContain('ybSleep')
     // 页面还在（弹窗只是盖在上面）
     expect(t.root.textContent).toContain('甲页')
     t.unmount()
