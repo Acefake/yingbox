@@ -5,7 +5,8 @@
  * - 增量：目录版本戳（etag / getlastmodified，见 remote-rules）没变就不列它，只对已知子目录逐个取
  *   版本戳；列父目录时已经拿到了子目录的版本戳，这些子目录不再单独请求；
  * - 并发：同时最多 concurrency 个请求（默认 4，NAS 和 Alist 后面的网盘都扛得住），单次请求有超时；
- * - 安全：根目录列不到直接抛错（NAS 掉线不能当成“全删了”）；非根目录失败只告警、保留旧记录。
+ * - 安全：根目录列不到直接抛错（NAS 掉线不能当成“全删了”）；非根目录失败只告警、保留旧记录，
+ *   并把它父目录的版本戳记成 RACY：父目录下次必然重列，首次就失败、快照里还没有的子目录也会被重试。
  * 远程源不监听变化，只在手动扫描（或以后的定时扫描）时调用。
  */
 import { setImmediate as yieldToLoop } from 'node:timers/promises'
@@ -16,8 +17,8 @@ import { parseRemotePath, remotePath } from '../../../shared/webdav/remote-path'
 import { diffDirectory } from './diff-dir'
 import { canReuseDir, dirStamp, fileMtime } from './remote-rules'
 import { fileKindOf, isIgnoredName, parentKey, pathKey } from './rules'
-import type { ScanDiff, ScanSnapshot, ScannedFile } from './types'
-import { SCAN_SLICE_MS } from './walk'
+import type { DirChange, ScanDiff, ScanSnapshot, ScannedFile } from './types'
+import { RACY_MTIME, SCAN_SLICE_MS } from './walk'
 
 /** 远程遍历参数。 */
 export interface RemoteWalkOptions {
@@ -63,6 +64,10 @@ export async function walkRemoteLibrary(
     stats: { dirsVisited: 0, dirsReused: 0, filesStatted: 0 },
   }
   const visited = new Set<string>()
+  /** 本次列过的目录记录（父目录失效时要用）。 */
+  const listed = new Map<string, DirChange['dir']>()
+  /** 有子目录读取失败的父目录键。 */
+  const staleParents = new Set<string>()
   const display = (path: string): string => remotePath(sourceId, path)
 
   /** 子目录任务：快照里的已知目录换回远程路径。 */
@@ -78,8 +83,10 @@ export async function walkRemoteLibrary(
   const failed = (path: string, key: string, error: unknown): Task[] => {
     if (signal?.aborted) throw signal.reason
     if (key === rootKey) throw error
-    if (!(error instanceof DavError && error.code === 'not-found'))
+    if (!(error instanceof DavError && error.code === 'not-found')) {
       diff.warnings.push(`${display(path)}: ${(error as Error).message}`)
+      staleParents.add(parentKey(key))
+    }
     return []
   }
 
@@ -142,18 +149,14 @@ export async function walkRemoteLibrary(
     }
     diff.stats.filesStatted += files.length
     const subKeys = subdirs.map(sub => pathKey(display(sub.path)))
-    const result = diffDirectory(
-      snapshot,
-      {
-        key,
-        displayPath,
-        parent: key === rootKey ? null : parentKey(key),
-        mtime: dirStamp(self, racyBefore),
-      },
-      prev?.mtime,
-      files,
-      subKeys
-    )
+    const dir: DirChange['dir'] = {
+      key,
+      displayPath,
+      parent: key === rootKey ? null : parentKey(key),
+      mtime: dirStamp(self, racyBefore),
+    }
+    listed.set(key, dir)
+    const result = diffDirectory(snapshot, dir, prev?.mtime, files, subKeys)
     diff.removedDirs.push(...result.removedDirs)
     if (result.change) diff.dirChanges.push(result.change)
     return subdirs.filter(
@@ -206,6 +209,8 @@ export async function walkRemoteLibrary(
     pump()
   })
 
+  invalidateParents(diff, listed, staleParents)
+
   const sliceMs = options.sliceMs ?? SCAN_SLICE_MS
   let deadline = performance.now() + sliceMs
   for (const gone of diff.removedDirs) {
@@ -217,4 +222,23 @@ export async function walkRemoteLibrary(
     }
   }
   return diff
+}
+
+/**
+ * 子目录读取失败时，让本次列过的父目录版本戳不可复用（记成 RACY），下次扫描必然重列父目录、
+ * 重新下钻失败的子目录。父目录本次没有变化时补一条只写版本戳的空变化。
+ * 没列过的父目录（版本戳复用了）不用处理：失败的子目录本来就在快照里，下次照样会访问。
+ */
+function invalidateParents(
+  diff: ScanDiff,
+  listed: Map<string, DirChange['dir']>,
+  staleParents: Set<string>
+): void {
+  for (const key of staleParents) {
+    const dir = listed.get(key)
+    if (!dir) continue
+    dir.mtime = RACY_MTIME
+    if (!diff.dirChanges.some(change => change.dir === dir))
+      diff.dirChanges.push({ dir, added: [], changed: [], removed: [] })
+  }
 }

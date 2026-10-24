@@ -387,6 +387,131 @@ describe('增量判定', () => {
   })
 })
 
+describe('207 里的资源级失败与失败子目录重试', () => {
+  it('解析：response 自带失败 status、propstat 全部失败都标 failure；部分 404 的 propstat 不算失败', () => {
+    const xml =
+      '<D:multistatus xmlns:D="DAV:">' +
+      '<D:response><D:href>/dav/</D:href><D:status>HTTP/1.1 403 Forbidden</D:status></D:response>' +
+      '<D:response><D:href>/dav/a.mkv</D:href><D:propstat><D:prop><D:getetag/></D:prop>' +
+      '<D:status>HTTP/1.1 403 Forbidden</D:status></D:propstat></D:response>' +
+      '<D:response><D:href>/dav/b.mkv</D:href>' +
+      '<D:propstat><D:prop><D:getcontentlength>5</D:getcontentlength></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat>' +
+      '<D:propstat><D:prop><D:getetag/></D:prop><D:status>HTTP/1.1 404 Not Found</D:status></D:propstat></D:response>' +
+      '</D:multistatus>'
+    const entries = parseMultistatus(xml, '/dav')
+    expect(entries.map(e => [e.path, e.failure])).toEqual([
+      ['/', 403],
+      ['/a.mkv', 403],
+      ['/b.mkv', undefined],
+    ])
+    expect(entries[2].size).toBe(5)
+  })
+
+  it('客户端：目录本身 403 按 auth 抛错，子项失败按 http 抛错（不当成空目录）', async () => {
+    let body = ''
+    const client = createDavClient(
+      { url: 'http://nas/dav', username: 'u', password: 'p' },
+      async () => new Response(body, { status: 207 })
+    )
+    body =
+      '<D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/</D:href>' +
+      '<D:status>HTTP/1.1 403 Forbidden</D:status></D:response></D:multistatus>'
+    await expect(client.propfind('/', 1)).rejects.toMatchObject({
+      code: 'auth',
+      status: 403,
+    })
+    body =
+      '<D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/x/</D:href><D:propstat><D:prop>' +
+      '<D:resourcetype><D:collection/></D:resourcetype></D:prop><D:status>HTTP/1.1 200 OK</D:status></D:propstat></D:response>' +
+      '<D:response><D:href>/dav/x/y/</D:href><D:propstat><D:prop><D:resourcetype/></D:prop>' +
+      '<D:status>HTTP/1.1 404 Not Found</D:status></D:propstat></D:response></D:multistatus>'
+    await expect(client.propfind('/x', 1)).rejects.toMatchObject({
+      code: 'http',
+      status: 404,
+    })
+  })
+
+  it('扫描：根目录在 207 里报 403 时扫描失败，已有记录不删', async () => {
+    const server = fakeServer()
+    server.put('/电影/A (2001)/A (2001).mkv')
+    const env = remoteEnv(server)
+    await env.scan()
+    const forbidden = async () =>
+      new Response(
+        '<D:multistatus xmlns:D="DAV:"><D:response><D:href>/dav/%E7%94%B5%E5%BD%B1/</D:href>' +
+          '<D:status>HTTP/1.1 403 Forbidden</D:status></D:response></D:multistatus>',
+        { status: 207 }
+      )
+    await expect(env.scanWith({ fetch: forbidden })).rejects.toMatchObject({
+      code: 'auth',
+    })
+    const count = env.db
+      .prepare("SELECT COUNT(*) AS n FROM files WHERE kind = 'video'")
+      .get()
+    expect(Number(count?.n)).toBe(1)
+  })
+
+  it('扫描：子目录 207 内 propstat 403 只告警、保留旧记录', async () => {
+    const server = fakeServer()
+    server.put('/电影/A (2001)/A (2001).mkv')
+    server.put('/电影/B (2002)/B (2002).mkv')
+    const env = remoteEnv(server)
+    await env.scan()
+    server.put('/电影/A (2001)/A2.mkv', 1, Date.UTC(2024, 4, 1))
+    const partial = async (
+      url: string,
+      init: RequestInit
+    ): Promise<Response> => {
+      const { pathname } = new URL(url)
+      if (!pathname.includes('A%20')) return server.fetch(url, init)
+      return new Response(
+        `<D:multistatus xmlns:D="DAV:"><D:response><D:href>${pathname}</D:href>` +
+          '<D:propstat><D:prop/><D:status>HTTP/1.1 403 Forbidden</D:status></D:propstat>' +
+          '</D:response></D:multistatus>',
+        { status: 207 }
+      )
+    }
+    const summary = await env.scanWith({ fetch: partial })
+    expect(summary.removed).toBe(0)
+    expect(summary.warnings.join()).toContain('A (2001)')
+    expect(summary.warnings.join()).toContain('没有访问权限')
+  })
+
+  it('首次读取失败的新子目录：父目录版本戳不可复用，服务端恢复后下次普通扫描会重试并入库', async () => {
+    const server = fakeServer()
+    server.put('/电影/合集/A (2001)/A (2001).mkv')
+    const env = remoteEnv(server)
+    await env.scan()
+
+    // 非根目录「合集」下新出现子目录 B（合集的版本戳随之变化），第一次列 B 时 500
+    server.put('/电影/合集/B (2002)/B (2002).mkv', 10, Date.UTC(2024, 5, 1))
+    server.touchParent('/电影/合集/B (2002)', Date.UTC(2024, 5, 1))
+    const flaky = async (url: string, init: RequestInit) =>
+      new URL(url).pathname.includes('B%20')
+        ? new Response(null, { status: 500 })
+        : server.fetch(url, init)
+    const first = await env.scanWith({ fetch: flaky })
+    expect(first.added).toBe(0)
+    expect(first.warnings.join()).toContain('服务器返回 500')
+
+    // 服务端恢复、远程没有再变：普通扫描必须重列「合集」并下钻 B
+    server.calls.length = 0
+    const second = await env.scan()
+    expect(second.added).toBe(1)
+    const listed = server.calls.filter(c => c.depth === '1').map(c => c.path)
+    expect(listed).toContain('/电影/合集')
+    expect(listed).toContain('/电影/合集/B (2002)')
+
+    // 之后回到正常增量：没有变化就不再重列
+    server.calls.length = 0
+    const third = await env.scan()
+    expect(third.added + third.changed + third.removed).toBe(0)
+    expect(server.calls.filter(c => c.depth === '1').map(c => c.path)).toEqual([
+      '/电影',
+    ])
+  })
+})
+
 // ———————————————————————— 客户端与播放代理 ————————————————————————
 
 describe('WebDAV 客户端', () => {
