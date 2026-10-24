@@ -6,6 +6,8 @@
  * subscribe → 消息附带的 MessagePort 成为事件订阅方，之后事件直接经该端口推给渲染进程；
  * shutdown → 关闭数据库后退出。
  *
+ * reply → 主进程对代办（host）的回复，目前只有远程源凭据（remote/host-remote.ts）。
+ *
  * 宿主能力（见 platform/platform.ts）：网络用 Electron net.fetch（Chromium 网络栈，走系统代理，
  * 国内访问 TMDB 通常需要），不可用时退回 Node fetch；原图落盘后通知主进程预热缩略图。
  * 独立服务（src/server）用同一个 createLibraryService，只是注入 Node 实现。
@@ -17,6 +19,7 @@ import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
+import { createHostCaller, hostRemoteClients } from '../remote/host-remote'
 import { createLibraryService, envSecrets } from '../platform/platform'
 import { codecDeriver } from '../images/derived'
 import { codecClipPixels } from '../visual/clip-pixels'
@@ -36,6 +39,8 @@ if (!dbPath) {
 
 const parentPort = process.parentPort
 const post = (message: FromUtility): void => parentPort.postMessage(message)
+/** 向主进程代办（远程源凭据）。 */
+const host = createHostCaller(post)
 const fetchImpl: HttpFetch =
   typeof net?.fetch === 'function'
     ? (((url, init) => net.fetch(url, withExplicitReferrer(init))) as HttpFetch)
@@ -63,6 +68,8 @@ const service = createLibraryService({
   deriveImage: codecDeriver(lazyCodec),
   clipPixels: codecClipPixels(lazyCodec),
   env: envSecrets(process.env),
+  // 局域网 NAS / Alist：Node fetch 直连（不走系统代理），凭据每次扫描向主进程要
+  remote: hostRemoteClients(host, (url, init) => fetch(url, init)),
 })
 
 /** 把一个 MessagePort 接成事件订阅方，端口关闭时自动退订。 */
@@ -75,6 +82,7 @@ function attachSubscriber(port: MessagePortMain): void {
 let shuttingDown = false
 parentPort.on('message', ({ data, ports }) => {
   const message = data as ToUtility
+  if (host.settle(message)) return
   switch (message.kind) {
     case 'call':
       void handleRpc(service, {

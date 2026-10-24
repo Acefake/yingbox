@@ -7,6 +7,9 @@
     <div class="sidebar-brand">
       <img class="brand-mark" :src="logoUrl" alt="" aria-hidden="true" />
       <span class="brand-name">{{ appName }}</span>
+      <span v-if="incognito" class="sidebar-incognito" role="status">
+        <UiIcon name="eyeOff" size="sm" />无痕
+      </span>
       <UiIconButton
         class="sidebar-toggle"
         icon="panel"
@@ -25,16 +28,45 @@
           v-for="item in group.items"
           :key="item.path"
           class="sidebar-item"
-          :label="item.label"
+          :label="navLabel(item)"
           :icon="item.icon"
           icon-size="lg"
           :active="item.active"
           :collapsed="collapsed"
           @click="emit('navigate', item.path)"
-        />
+        >
+          {{ item.label }}
+          <template v-if="item.badge || isPathLocked(item.path)" #trailing>
+            <span v-if="item.badge" class="sidebar-badge" aria-hidden="true">{{
+              badgeText(item.badge)
+            }}</span>
+            <UiIcon
+              v-if="isPathLocked(item.path)"
+              name="lock"
+              size="sm"
+              class="sidebar-lock"
+            />
+          </template>
+        </UiNavItem>
       </template>
     </nav>
     <div class="sidebar-footer">
+      <UiNavItem
+        class="sidebar-item"
+        :label="incognito ? '关闭无痕模式' : '开启无痕模式'"
+        current="pressed"
+        :active="incognito"
+        :collapsed="collapsed"
+        @click="toggleIncognito"
+      >
+        <template #icon>
+          <span class="footer-incognito-icon" aria-hidden="true">
+            <UiIcon name="eyeOff" size="lg" />
+            <span v-if="incognito" class="footer-dot" />
+          </span>
+        </template>
+        无痕模式
+      </UiNavItem>
       <UiNavItem
         class="sidebar-item"
         data-queue-anchor
@@ -75,7 +107,8 @@
 
 <script setup lang="ts">
 /**
- * 应用侧栏：品牌、分组导航、页脚的后台任务入口（运行时带提示：媒体库识别显示进度环，
+ * 应用侧栏：品牌、分组导航、页脚的无痕模式开关（会话级，打开时品牌旁显示「无痕」标识、
+ * 收起成图标栏时图标带圆点）、后台任务入口（运行时带提示：媒体库识别显示进度环，
  * 去码 / 边跑边看显示呼吸点）和设置入口。
  * 桌面端可收起为图标栏（v-model:minimized），手机上由外壳当作抽屉显示。
  */
@@ -86,10 +119,12 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import { usePlatform } from '@/composables/use-platform'
+import { incognitoState, toggleIncognito } from '@/features/incognito'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
+import { isPathLocked } from '@/features/section-lock'
 
-import type { NavGroup } from '../composables/nav-items'
+import type { NavGroup, NavItem } from '../composables/nav-items'
 
 defineProps<{
   /** 导航分组 */
@@ -112,11 +147,18 @@ const minimized = defineModel<boolean>('minimized', { required: true })
 
 const appName = '影盒'
 const { isPhone } = usePlatform()
+const incognito = incognitoState()
 
 // 去码 / 边跑边看在后台跑时，按钮上给个提示
 const { hasRuntime } = useLadaTasks()
 // 媒体库识别在跑时，按钮上显示进度环（进度条不再挤在各分区页面上）
 const identifying = useIdentifyActivity()
+/** 带角标的导航项：无障碍名称和收起时的悬停提示带上数字 */
+const navLabel = (item: NavItem): string =>
+  item.badge ? `${item.label}（${item.badge} 集未看）` : item.label
+const badgeText = (count: number): string =>
+  count > 99 ? '99+' : String(count)
+
 const queueLabel = computed(() => {
   if (identifying.value) return `打开后台任务（${identifying.value.label}）`
   return hasRuntime.value ? '打开后台任务（进行中）' : '打开后台任务'
@@ -205,6 +247,42 @@ const queueLabel = computed(() => {
 .sidebar-item :deep(.app-icon) {
   color: inherit;
 }
+/* 已锁定的板块：尾部小锁；收起成图标栏时不显示 */
+.sidebar-item .sidebar-lock {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+.app-sidebar.is-collapsed .sidebar-lock {
+  display: none;
+}
+/* 角标与小锁同时出现时并排 */
+.sidebar-item .sidebar-badge + .sidebar-lock {
+  margin-left: var(--space-1);
+}
+
+/* 数字角标（追剧日历的未看新集数）：收起成图标栏时缩成图标右上角的小圆点数字 */
+.sidebar-badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--danger);
+  color: var(--text-on-accent);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.app-sidebar.is-collapsed .sidebar-badge {
+  position: absolute;
+  top: var(--space-0_5);
+  right: var(--space-0_5);
+  min-width: 14px;
+  padding: 0 var(--space-0_5);
+  line-height: 14px;
+}
 
 .sidebar-footer {
   display: flex;
@@ -218,9 +296,31 @@ const queueLabel = computed(() => {
 .sidebar-footer .sidebar-item {
   font-size: var(--text-sm);
 }
-.footer-queue-icon {
+.footer-queue-icon,
+.footer-incognito-icon {
   position: relative;
   display: inline-flex;
+}
+/* 无痕标识：品牌名旁的小胶囊；收起成图标栏时只剩开关图标上的圆点 */
+.sidebar-incognito {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0_5) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-secondary);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+}
+.footer-dot {
+  position: absolute;
+  top: calc(var(--space-0_5) * -1);
+  right: calc(var(--space-0_5) * -1);
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
 }
 .footer-pulse {
   position: absolute;
@@ -262,6 +362,7 @@ const queueLabel = computed(() => {
   padding-left: 0;
 }
 .app-sidebar.is-collapsed .brand-name,
+.app-sidebar.is-collapsed .sidebar-incognito,
 .app-sidebar.is-collapsed .brand-mark,
 .app-sidebar.is-collapsed .sidebar-heading {
   display: none;

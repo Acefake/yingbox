@@ -1,5 +1,6 @@
 /**
  * 一次媒体库扫描：遍历得到差异 → 识别移动 → 分批事务写回 dirs / files / 条目关联。
+ * 本地目录用 walk.ts 遍历，远程源（WebDAV / Alist）用 remote-walk.ts，差异形状相同，之后的步骤共用。
  *
  * 写回顺序保证崩溃后重跑能收敛到同一结果：
  * 1. 第一个事务处理移动和删除（需要全局视图）；
@@ -14,6 +15,8 @@
  * 同盘改名是原子的，不需要等。
  */
 import { setImmediate as yieldToLoop } from 'node:timers/promises'
+import type { DavClient } from '../../../shared/webdav/client'
+import { parseRemotePath } from '../../../shared/webdav/remote-path'
 import { type LibraryDb, transaction } from '../db/database'
 import { CatalogStore, ItemChanges } from '../catalog/catalog-store'
 import type { LibraryRecord } from '../libraries/library-store'
@@ -21,7 +24,14 @@ import { type FileMove, type Fingerprinter, detectMoves } from './moves'
 import { type ParseContext, parseLibraryFile } from './parse'
 import type { ScanStore } from './scan-store'
 import type { SettleTracker } from './settle'
-import type { DirChange, ScanDiff, ScannedFile, StoredFile } from './types'
+import { walkRemoteLibrary } from './remote-walk'
+import type {
+  DirChange,
+  ScanDiff,
+  ScanSnapshot,
+  ScannedFile,
+  StoredFile,
+} from './types'
 import { RACY_MTIME, SCAN_SLICE_MS, walkLibrary } from './walk'
 
 /** 扫描参数。 */
@@ -59,6 +69,32 @@ export interface ScanDeps {
   scanStore: ScanStore
   catalog: CatalogStore
   fingerprint: Fingerprinter
+  /** 远程源（WebDAV）的客户端；没有时远程媒体库扫描报错。 */
+  remote?: RemoteClients
+}
+
+/** 按源 id 取 WebDAV 客户端（源不存在时抛错）。 */
+export type RemoteClients = (sourceId: string) => Promise<DavClient>
+
+/** 遍历媒体库：本地目录走 walk.ts，远程源走 remote-walk.ts。 */
+async function walkAny(
+  deps: ScanDeps,
+  library: LibraryRecord,
+  snapshot: ScanSnapshot,
+  options: ScanOptions
+): Promise<ScanDiff> {
+  const walkOptions = {
+    full: options.full,
+    scope: options.scope,
+    signal: options.signal,
+    racyWindowMs: options.racyWindowMs,
+    sliceMs: options.sliceMs,
+  }
+  const remote = parseRemotePath(library.root)
+  if (!remote) return walkLibrary(library.root, snapshot, walkOptions)
+  if (!deps.remote) throw new Error('这里不支持 WebDAV 媒体库')
+  const client = await deps.remote(remote.sourceId)
+  return walkRemoteLibrary(library.root, snapshot, client, walkOptions)
 }
 
 /** 扫描结果摘要。 */
@@ -129,13 +165,12 @@ export async function scanLibrary(
   }
 
   const t0 = performance.now()
-  const diff = await walkLibrary(library.root, scanStore.snapshot(library.id), {
-    full: options.full,
-    scope: options.scope,
-    signal: options.signal,
-    racyWindowMs: options.racyWindowMs,
-    sliceMs: options.sliceMs,
-  })
+  const diff = await walkAny(
+    deps,
+    library,
+    scanStore.snapshot(library.id),
+    options
+  )
   const t1 = performance.now()
 
   const removedFiles: StoredFile[] = []
