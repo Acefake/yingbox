@@ -35,7 +35,7 @@ const coreSections: SettingsSection[] = [
     id: 'appearance',
     title: '外观',
     icon: 'sun',
-    keywords: '主题 深色 浅色 悬停 预览 预告片',
+    keywords: '主题 深色 浅色 悬停 预览 预告片 防剧透 剧照 简介',
     load: () => import('./sections/AppearanceSettings.vue'),
     order: 10,
   },
@@ -70,6 +70,14 @@ const coreSections: SettingsSection[] = [
     keywords: 'mpv 引擎 artplayer 超分 小窗 画中画 置顶',
     load: () => import('./sections/PlayerSettings.vue'),
     order: 60,
+  },
+  {
+    id: 'danmaku',
+    title: '弹幕',
+    icon: 'subtitle',
+    keywords: '弹幕 弹弹play dandanplay appid appsecret',
+    load: () => import('./sections/DanmakuSettings.vue'),
+    order: 65,
   },
   {
     id: 'update',

@@ -37,6 +37,32 @@
         @update:model-value="setMpvCompact"
       />
     </SettingsRow>
+    <SettingsRow
+      v-if="mpvInfoText"
+      title="播放信息"
+      :description="`${mpvInfoText}。在 mpv 窗口里按 I 可查看码率、丢帧、硬解等完整统计`"
+    />
+  </SettingsGroup>
+
+  <SettingsGroup title="在线播放">
+    <SettingsRow
+      title="卡顿自动换源"
+      description="内置播放器缓冲太久或出错时，换到下一个可用源的同一集，从当前进度继续"
+    >
+      <UiSwitch v-model="autoSwitchSource" label="卡顿自动换源" />
+    </SettingsRow>
+    <SettingsRow
+      v-if="autoSwitchSource"
+      title="卡顿判定"
+      description="连续缓冲超过这个时长就换源"
+    >
+      <UiSelect
+        v-model="stallSeconds"
+        size="sm"
+        aria-label="卡顿判定秒数"
+        :options="stallOptions"
+      />
+    </SettingsRow>
   </SettingsGroup>
 
   <SettingsGroup title="小窗">
@@ -52,11 +78,12 @@
 <script setup lang="ts">
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）与缩小置顶，
- * 播放弹窗的角落小窗（ui.miniPlayer）。
+ * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），播放弹窗的角落小窗（ui.miniPlayer）。
  */
 import { computed, watch } from 'vue'
 
-import { syncRtxVsr, useMpvPlayer } from '@/features/player'
+import { mpvInfoRows, syncRtxVsr, useMpvPlayer } from '@/features/player'
+import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
@@ -91,8 +118,21 @@ const setMpvCompact = (on: boolean): void => {
 }
 
 const miniPlayer = useSetting('ui.miniPlayer')
+const autoSwitchSource = useSetting('online.autoSwitchSource')
+const stallSeconds = useSetting('online.stallSeconds')
+const stallOptions = [3, 5, 8, 10, 15].map(value => ({
+  value,
+  label: `${value} 秒`,
+}))
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
+
+/** mpv 播放信息（编码、分辨率、超分、地址类型），没在播放时为空 */
+const mpvInfoText = computed(() =>
+  mpvInfoRows(mpvState.value)
+    .map(row => `${row.label}：${row.value}`)
+    .join(' · ')
+)
 
 /** 当前播放分辨率文案：片源 →（超分后） */
 const mpvResolutionText = computed(() => {

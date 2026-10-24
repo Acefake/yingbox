@@ -12,6 +12,11 @@
           r => r.detail && openDetailWindow(r.detail as OnlineDetailItem)
         "
       />
+      <WatchlistRow
+        class="online-continue"
+        section="online"
+        @open="e => e.detail && openDetailWindow(e.detail as OnlineDetailItem)"
+      />
       <DoubanSection @open="openDoubanDetail" />
     </div>
 
@@ -79,6 +84,7 @@ import {
   getMediaProgress,
   openMediaPlayer,
 } from '@/features/player'
+import { WatchlistRow } from '@/features/watchlist'
 
 const route = useRoute()
 const inlineDetailItem = ref<OnlineDetailItem | null>(null)

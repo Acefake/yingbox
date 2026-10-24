@@ -3,6 +3,7 @@
  */
 import { extname } from 'node:path'
 import type { LibraryFileKind } from '../../../shared/library/ipc'
+import { isRemotePath } from '../../../shared/webdav/remote-path'
 
 /** 视频扩展名（小写，带点）。 */
 export const VIDEO_EXTENSIONS: ReadonlySet<string> = new Set([
@@ -59,12 +60,14 @@ export function isWantedEntry(
 const CASE_INSENSITIVE = process.platform === 'win32'
 
 /**
- * 路径键：正斜杠、去掉结尾斜杠，Windows 下转小写。
+ * 路径键：正斜杠、去掉结尾斜杠，Windows 下转小写（远程源上的路径区分大小写，不转）。
  * 数据库唯一索引和子树前缀查询都基于它，任何写入前都要先转换。
  */
 export function pathKey(path: string): string {
   const normalized = path.replace(/\\/g, '/').replace(/\/+$/, '')
-  return CASE_INSENSITIVE ? normalized.toLowerCase() : normalized
+  return CASE_INSENSITIVE && !isRemotePath(normalized)
+    ? normalized.toLowerCase()
+    : normalized
 }
 
 /** 路径键的父目录键；已经是根时返回空串。 */
