@@ -12,7 +12,11 @@ import {
 import { type AddressInfo } from 'node:net'
 import { gzipSync } from 'node:zlib'
 import { afterEach, describe, expect, it } from 'vitest'
-import { createMpvProxy, forwardRemote } from '../src/main/webdav/proxy'
+import {
+  type AccessLookup,
+  createMpvProxy,
+  forwardRemote,
+} from '../src/main/webdav/proxy'
 
 /** 8 KiB 的可压缩正文（压缩后远小于原长）。 */
 const BODY = Buffer.from('yingbox-'.repeat(1024))
@@ -28,7 +32,7 @@ afterEach(async () => {
 /** 起一个本机上游，记录收到的请求头；返回 fetch 用的 lookup。 */
 async function upstream(handler: Handler): Promise<{
   seen: IncomingHttpHeaders[]
-  lookup: (id: string) => Promise<{ url: string } | null>
+  lookup: AccessLookup
 }> {
   const seen: IncomingHttpHeaders[] = []
   const server = createServer((req, res) => {
@@ -45,7 +49,9 @@ async function upstream(handler: Handler): Promise<{
   return {
     seen,
     lookup: async id =>
-      id === 'ab12' ? { url: `http://127.0.0.1:${port}/dav` } : null,
+      id === 'ab12'
+        ? { url: `http://127.0.0.1:${port}/dav`, username: '', password: '' }
+        : null,
   }
 }
 
