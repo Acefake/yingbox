@@ -15,6 +15,7 @@ import {
 } from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
 import { libraryAiHost } from './ai-host'
+import { libraryToolsHost } from './tools-host'
 import {
   type LibraryChild,
   LibraryEngineHost,
@@ -51,7 +52,7 @@ export interface LibraryEngineClient {
 
 /**
  * 注册媒体库 IPC：library:invoke（调用）、library:subscribe / library:unsubscribe（事件订阅登记）。
- * 须在 app ready 之后调用。hostMethods 是引擎能请主进程代办的事（远程源凭据），AI 识别兜底的代办（ai-host.ts）总会加上。返回主进程内用的调用口。
+ * 须在 app ready 之后调用。hostMethods 是引擎能请主进程代办的事（远程源凭据），AI 识别兜底（ai-host.ts）与 ffprobe 定位（tools-host.ts）的代办总会加上。返回主进程内用的调用口。
  */
 export function registerLibraryIpc(
   thumbnails: ThumbnailService,
@@ -59,7 +60,7 @@ export function registerLibraryIpc(
 ): LibraryEngineClient {
   const host = new LibraryEngineHost({
     // 代办：调用方给的（远程源凭据）+ 引擎里的 AI 识别兜底经主进程的 aiService 调大模型
-    host: { ...libraryAiHost(), ...hostMethods },
+    host: { ...libraryAiHost(), ...libraryToolsHost(), ...hostMethods },
     fork: forkEngine,
     createChannel: () => new MessageChannelMain(),
     onImagesCached: keys =>

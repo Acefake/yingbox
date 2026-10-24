@@ -19,6 +19,9 @@
               {{ baseName(file.path) }}
             </div>
             <div class="lib-file-meta">
+              <span v-if="videoProbeTag(file.video)" class="lib-file-range">{{
+                videoProbeTag(file.video)
+              }}</span>
               {{ formatBytes(file.size) }} · {{ dirName(file.path) }}
             </div>
           </div>
@@ -36,8 +39,9 @@
 </template>
 
 <script setup lang="ts">
-/** 详情里的信息与文件区块：信息表（原名、上映、编剧……），视频文件列表与「在文件夹中显示」。 */
+/** 详情里的信息与文件区块：信息表（原名、上映、编剧……），视频文件列表（含 HDR / 杜比视界小标）与「在文件夹中显示」。 */
 import type { LibraryItemFile } from '../../../../../shared/library/ipc'
+import { videoProbeTag } from '../../../../../shared/video-range'
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { baseName, dirName, formatBytes } from '../shared/format'
@@ -73,6 +77,17 @@ function reveal(path: string): void {
   margin: 0;
   color: var(--text-primary);
   word-break: break-word;
+}
+.lib-file-range {
+  display: inline-block;
+  margin-right: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 .lib-files {
   margin: 0;

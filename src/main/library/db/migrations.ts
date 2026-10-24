@@ -283,6 +283,19 @@ const V5_SCHEMA = `
 ALTER TABLE libraries ADD COLUMN automation TEXT NOT NULL DEFAULT '{}';
 `
 
+/**
+ * v8：视频动态范围（ffprobe 探测，见 scanner/video-probe.ts 与 shared/video-range.ts）。
+ * video_range 为 NULL 表示还没探测，'' 表示探测过但读不出视频流；内容变了（扫描判定）清回 NULL。
+ */
+const V8_SCHEMA = `
+ALTER TABLE files ADD COLUMN video_range TEXT
+  CHECK (video_range IN ('', 'sdr', 'hdr10', 'hlg', 'dv'));
+ALTER TABLE files ADD COLUMN dv_profile INTEGER;
+ALTER TABLE files ADD COLUMN dv_compat INTEGER;
+CREATE INDEX files_unprobed ON files (library_id)
+  WHERE kind = 'video' AND video_range IS NULL;
+`
+
 /** 全部迁移，按版本升序。 */
 export const MIGRATIONS: readonly Migration[] = [
   { version: 1, description: '初始表结构与片名 FTS', sql: V1_SCHEMA },
@@ -296,6 +309,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 5, description: '媒体库自动化设置', sql: V5_SCHEMA },
   { version: 6, description: '演员库（演员资料与作品关联）', sql: V6_SCHEMA },
   { version: 7, description: '按画面搜的图片向量', sql: V7_SCHEMA },
+  { version: 8, description: '视频动态范围（HDR / 杜比视界）', sql: V8_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

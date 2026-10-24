@@ -28,6 +28,7 @@ import type {
   MatchCandidatesResult,
 } from './contract-match'
 import type { JavSettings, LibrarySource } from './contract-jav'
+import type { VideoProbe, VideoRange } from '../../video-range'
 import type {
   JavCredentialProvider,
   ProviderStatus,
@@ -130,6 +131,8 @@ export interface LibraryItemSummary {
   rating: number | null
   addedAt: number
   updatedAt: number
+  /** 视频动态范围（全部文件里最好的一档，见 shared/video-range）；没探测过或没有 ffprobe 时缺省。 */
+  videoRange?: VideoRange | null
 }
 
 /** 条目关联的一个文件。 */
@@ -139,6 +142,8 @@ export interface LibraryItemFile {
   kind: LibraryFileKind
   size: number
   mtime: number
+  /** 视频文件的动态范围探测结果；没探测过 / 读不出时缺省。 */
+  video?: VideoProbe | null
 }
 
 /** 条目详情树中的一个节点：剧集 → 季 → 集，电影没有子节点。 */

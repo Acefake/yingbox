@@ -1,5 +1,6 @@
 /*
- * 播放器控制栏皮肤：细圆角进度条、圆形悬停底、横向音量条、清晰度角标。
+ * 播放器控制栏皮肤（照 YouTube 的布局，苹果式的克制）：细圆角进度条（悬停加粗、已缓冲段可见）、
+ * 圆形悬停底、横向音量条、清晰度角标。
  * 只作用于 UnifiedVideoPlayer 创建的实例（.unified-player-core），控件逻辑见 utils/art-skin.ts。
  */
 
@@ -15,8 +16,9 @@
   --art-progress-height: 14px;
   --art-indicator-size: 12px;
   --art-progress-color: var(--media-track);
-  --art-loaded-color: var(--media-track);
-  --art-hover-color: var(--media-track);
+  /* 已缓冲段、悬停段比轨道亮一档，看得出缓冲到哪 */
+  --art-loaded-color: color-mix(in srgb, var(--media-text) 40%, transparent);
+  --art-hover-color: color-mix(in srgb, var(--media-text) 30%, transparent);
   --art-tip-background: var(--overlay-scrim);
   --art-widget-background: var(--overlay-scrim-strong);
   --art-border-radius: var(--radius-md);

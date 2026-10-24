@@ -17,7 +17,8 @@
         aria-live="polite"
       >
         <p class="skip-next-title">
-          下一集 · {{ skip.countdown.value }} 秒后播放
+          {{ skip.endedNext.value ? '即将播放' : '下一集' }} ·
+          {{ skip.countdown.value }} 秒后播放
         </p>
         <p class="skip-next-name" :title="upNext">{{ upNext }}</p>
         <div class="skip-next-actions">
@@ -31,7 +32,7 @@
           <UiButton
             class="skip-next-later"
             size="sm"
-            label="看完片尾"
+            :label="skip.endedNext.value ? '取消' : '看完片尾'"
             @click="skip.watchCredits"
           />
         </div>
@@ -42,7 +43,7 @@
 
 <script setup lang="ts">
 /**
- * 跳过片头片尾的界面层：片头里右下角的「跳过片头」，片尾里有下一集时的「下一集」倒计时卡片。
+ * 跳过片头片尾的界面层：片头里右下角的「跳过片头」，片尾里或播完后有下一集时的「下一集」倒计时卡片。
  * 状态与右键菜单、进度条区间都在 useSkipSegments；这里只负责摆放。
  *
  * - art：当前这一集的 Artplayer 实例（UnifiedVideoPlayer 的 art 事件给出）
@@ -50,6 +51,7 @@
  * - upNext：下一集的名字；空串表示没有下一集
  * - queue：播放队列；设置开着时据此在后台自动检测本季片头片尾（use-auto-detect，只认有「继续播放」记录的剧）
  * - playNext：切到下一集（PlayerSession 的 playNext），等它完成前「立即播放」显示 loading
+ * - ended：这一集已播完、等着连播（卡片上是「取消」）；cancel-ended：点了「取消」
  */
 import type Artplayer from 'artplayer'
 import { computed, watch } from 'vue'
@@ -66,12 +68,16 @@ const props = defineProps<{
   upNext: string
   queue?: readonly PlaylistEntry[]
   playNext: () => Promise<unknown>
+  ended?: boolean
 }>()
+const emit = defineEmits<{ 'cancel-ended': [] }>()
 
 const skip = useSkipSegments({
   key: () => props.series,
   hasNext: () => !!props.upNext,
   playNext: () => props.playNext(),
+  ended: () => props.ended === true,
+  onCancelEnded: () => emit('cancel-ended'),
 })
 
 watch(() => props.art, skip.attach, { immediate: true })
