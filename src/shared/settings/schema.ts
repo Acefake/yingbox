@@ -174,6 +174,8 @@ export const settingsSchema = {
   'ai.model': text('', 200),
   /** 私密板块只用本地模型：私密内容遇到非本地服务商直接拒绝 */
   'ai.privateLocalOnly': bool(true),
+  /** AI 识别兜底：常规识别失败或把握不够时，让大模型从文件名推断片名，再经 TMDB 验证 */
+  'ai.scrapeFallback': bool(false),
   /** 语音识别（AI 字幕用）：关闭 / 本地 Whisper / 云端转写接口 */
   'ai.speech.engine': oneOf(['off', 'local-whisper', 'cloud'] as const, 'off'),
   /** 语音识别模型（本地 Whisper 模型名，或云端转写模型） */

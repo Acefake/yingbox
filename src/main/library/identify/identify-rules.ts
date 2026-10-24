@@ -18,6 +18,7 @@ import {
   type IdentifyTarget,
   OVERVIEW_SUMMARY_MAX,
   type StoredCandidate,
+  type TargetMode,
 } from './identify-store'
 import type { FollowupSpec } from '../jobs/followups'
 import type { RunMode, RunSummary } from './runner-types'
@@ -60,9 +61,11 @@ export const identifyJobSpec = (
   priority,
 })
 
-/** 执行模式对应的目标范围：刷新取已匹配的，强制取全部，识别取待识别的。 */
-export function targetScope(mode: RunMode): 'matched' | 'force' | 'pending' {
-  return mode === 'refresh' ? 'matched' : mode === 'force' ? 'force' : 'pending'
+/** 执行模式对应的目标范围：刷新取已匹配的，强制取全部，AI 取待确认 / 未匹配的，识别取待识别的。 */
+export function targetScope(mode: RunMode): TargetMode {
+  if (mode === 'refresh') return 'matched'
+  if (mode === 'ai') return 'undecided'
+  return mode === 'force' ? 'force' : 'pending'
 }
 
 /** 刷新元数据时要过期的 TMDB 响应缓存键前缀（走 ETag 条件请求拿最新数据）。 */
@@ -160,6 +163,7 @@ export function candidateInfo(
     breakdown: c.breakdown ?? {},
     poster: c.posterPath ? TmdbProvider.imageUrl(c.posterPath, 'w185') : null,
     overview: c.overview ?? null,
+    ...(c.breakdown?.ai !== undefined ? { source: 'ai' as const } : {}),
   }
 }
 

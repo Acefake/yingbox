@@ -43,6 +43,7 @@ export interface LibraryServiceOptions {
     | 'env'
     | 'http'
     | 'concurrency'
+    | 'ai'
   >
   /** 按画面搜的注入项（推理后端、像素转换），见 visual/visual-setup.ts。 */
   visual?: VisualOptions

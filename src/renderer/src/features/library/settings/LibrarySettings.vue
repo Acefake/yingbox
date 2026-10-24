@@ -115,6 +115,7 @@
           @click="refreshAll"
         />
       </SettingsRow>
+      <AiScrapeSettingRow v-if="aiRowShown" />
     </SettingsGroup>
 
     <!-- 番号站点、站点凭据、演员资料来源只在番号页 -->
@@ -153,6 +154,10 @@ import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
 import { type LibrarySection, SECTIONS } from '../state/library-section'
 import { useLibraries } from '../state/use-libraries'
+import { aiAvailable } from '@/features/ai'
+
+import AiScrapeSettingRow from '../ai-scrape/AiScrapeSettingRow.vue'
+import { sectionSupportsAi } from '../ai-scrape/ai-scrape-rules'
 import ActorSourcesGroup from './ActorSourcesGroup.vue'
 import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
@@ -175,6 +180,9 @@ const kindLabel = spec.label
 const isJav = props.section === 'jav'
 /** 整理路径模板按库类型存：番号库与电影共用电影模板。 */
 const templateLabel = isJav ? '电影与番号' : kindLabel
+/** AI 识别兜底开关：桌面端（主进程有 AI 服务）的电影 / 剧集分区。 */
+const aiRowShown =
+  aiAvailable() && !usesLibraryServer() && sectionSupportsAi(props.section)
 const {
   available,
   libraries,

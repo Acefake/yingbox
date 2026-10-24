@@ -45,11 +45,12 @@ import {
   type IdentifyPayload,
   candidateInfo,
   identifyJobSpec,
-  itemsChangedEvents,
   mergeIdentifyPayload,
   scoredInfo,
   toLibraryError,
 } from './identify-rules'
+import { type LibraryAi, aiScraper, requireAiConfigured } from './ai/ai-scraper'
+import { emitItemChanges } from './identify-events'
 import { IdentifyRunner } from './identify-runner'
 import { IdentifyStore, type IdentifyTarget } from './identify-store'
 import { probeFileDuration } from './media-duration'
@@ -97,6 +98,8 @@ export interface IdentifyModuleOptions {
   avatars?: ActorSource
   /** 识别 / 刷新 / 手动匹配后，元数据有变化的顶层条目（可能为空，此时应给出空列表）要派的后继。 */
   followups?: (itemIds: number[]) => readonly FollowupSpec[]
+  /** 大模型调用口（AI 识别兜底）；缺省没有 AI 识别。 */
+  ai?: LibraryAi
   log?: (message: string) => void
 }
 
@@ -179,6 +182,7 @@ export class IdentifyModule {
       images: this.images,
       probeDuration: options.probeDuration ?? probeFileDuration,
       fingerprint: options.fingerprint,
+      ai: aiScraper(options.ai, this.cache, this.log),
       log: this.log,
     })
     options.queue.register(
@@ -249,6 +253,14 @@ export class IdentifyModule {
       },
       PRIORITY.user
     )
+  }
+
+  /** 用 AI 识别待确认 / 未匹配的条目（排队）；没有配置 AI 时报错。 */
+  async aiIdentify(request: IdentifyRequest): Promise<JobAccepted> {
+    await requireAiConfigured(this.runner.deps.ai)
+    this.requireToken(request)
+    const { libraryId, itemIds } = request
+    return this.enqueue({ mode: 'ai', libraryId, itemIds }, PRIORITY.user)
   }
 
   /** 刷新元数据（排队）。 */
@@ -382,18 +394,6 @@ export class IdentifyModule {
 
   /** 按媒体库拆分变化并推送 items-changed。 */
   private emitChanges(changes: ItemChanges): void {
-    if (changes.empty) return
-    const ids = [...changes.added, ...changes.updated]
-    const libraryOf = new Map<number, number>()
-    for (const row of this.options.db
-      .prepare(
-        'SELECT id, library_id FROM media_items WHERE id IN (SELECT value FROM json_each(?))'
-      )
-      .all(JSON.stringify(ids))) {
-      libraryOf.set(Number(row.id), Number(row.library_id))
-    }
-    for (const event of itemsChangedEvents(changes, libraryOf)) {
-      this.options.emit(event)
-    }
+    emitItemChanges(this.options.db, this.options.emit, changes)
   }
 }

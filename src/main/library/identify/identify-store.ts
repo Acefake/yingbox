@@ -41,6 +41,7 @@ const MODE_WHERE: Record<TargetMode, string> = {
     AND (identified_at IS NULL OR updated_at > identified_at)`,
   force: `match_state <> 'locked'`,
   matched: `tmdb_id IS NOT NULL`,
+  undecided: `match_state IN ('review', 'unmatched')`,
 }
 
 /** 识别仓库。 */
@@ -168,6 +169,17 @@ export class IdentifyStore {
       out.set(String(r.name).toLowerCase(), String(r.display_path))
     }
     return out
+  }
+
+  /** 某目录下的视频文件名（AI 识别兜底的线索），按名称排序，最多 limit 个。 */
+  videoNamesIn(dirKey: string, limit = 20): string[] {
+    return this.sql
+      .get(
+        `SELECT name FROM files WHERE dir = ? AND kind = 'video'
+         ORDER BY name LIMIT ?`
+      )
+      .all(dirKey, limit)
+      .map(r => String(r.name))
   }
 
   /** 媒体库根目录键。 */

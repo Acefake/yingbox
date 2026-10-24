@@ -226,6 +226,11 @@ export interface IdentifyRequest {
   itemIds?: number[]
   /** 为 true 时已自动匹配 / 待确认的也重新识别（锁定的永远不动）。 */
   force?: boolean
+  /**
+   * 为 true 时只对其中待确认 / 未匹配的条目做 AI 识别（大模型推断片名后经 TMDB 验证），
+   * 不受设置「AI 识别兜底」开关影响；没有配置 AI 时报错。
+   */
+  ai?: boolean
 }
 
 /** 刷新元数据：重新拉取已匹配条目（含锁定）的元数据与图片，不改匹配。 */

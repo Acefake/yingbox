@@ -10,6 +10,12 @@
         />
         <span class="review-count">{{ total }} 项</span>
       </div>
+      <div v-if="aiShown && total > 0" class="review-ai">
+        <AiIdentifyButton
+          :scope="{ libraryIds: [...libraryIds] }"
+          label="用 AI 识别全部"
+        />
+      </div>
       <div
         ref="scroller"
         class="review-list custom-scrollbar"
@@ -55,7 +61,7 @@
       </div>
     </aside>
     <section class="review-detail custom-scrollbar">
-      <MatchPane :item-id="selectedId" @resolved="advance" />
+      <MatchPane :item-id="selectedId" :ai="aiShown" @resolved="advance" />
     </section>
   </div>
 </template>
@@ -63,6 +69,7 @@
 <script setup lang="ts">
 /**
  * 待确认队列：左侧是待确认 / 未匹配条目（虚拟列表，按需分页），右侧是匹配对照面板。
+ * 桌面端的电影 / 剧集分区可以「用 AI 识别全部」（本分区全部待确认 / 未匹配条目）。
  * 确认一条后自动跳到下一条；↑ / ↓ 切换条目，1 / 2 / 3 采用候选。
  */
 import { computed, onMounted, ref, shallowRef, watch } from 'vue'
@@ -76,6 +83,11 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 
+import { aiAvailable } from '@/features/ai'
+
+import AiIdentifyButton from '../ai-scrape/AiIdentifyButton.vue'
+import { sectionSupportsAi } from '../ai-scrape/ai-scrape-rules'
+import { usesLibraryServer } from '../api/bridge'
 import { MATCH_STATE_LABEL } from '../shared/format'
 import type { LibrarySection } from '../state/library-section'
 import { reviewQuery } from '../state/query-state'
@@ -87,6 +99,10 @@ const props = defineProps<{
   /** 本分区媒体库的 id，用来过滤 items-changed 事件。 */
   libraryIds: number[]
 }>()
+
+/** AI 识别只在桌面端（主进程有 AI 服务）、非番号分区提供。 */
+const aiShown =
+  aiAvailable() && !usesLibraryServer() && sectionSupportsAi(props.section)
 
 type Scope = 'review' | 'unmatched' | 'both'
 const SCOPE_OPTIONS: SegmentedOption<Scope>[] = [
@@ -231,6 +247,9 @@ function onKeydown(event: KeyboardEvent): void {
   align-items: center;
   justify-content: space-between;
   gap: var(--space-3);
+  padding: 0 var(--space-3) var(--space-3) 0;
+}
+.review-ai {
   padding: 0 var(--space-3) var(--space-3) 0;
 }
 .review-count {
