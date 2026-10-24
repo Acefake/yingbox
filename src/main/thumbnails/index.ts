@@ -7,6 +7,7 @@
  *   不在渲染层 Worker 生成：file:// 页面里起 Worker 有打包风险，且本地图片本来就要主进程读。
  * 管线本身与宿主无关（pipeline.ts），独立服务用同一条管线、换成 wasm 缩放器。
  * 海报取景的焦点经 IPC media 域给渲染层（focus/service.ts）。
+ * 本地视频的进度条缩略图（seek/…）也走这个协议，由 ../seek-thumbnails 生成与提供。
  */
 import { join } from 'node:path'
 import { rm } from 'node:fs/promises'
@@ -14,6 +15,7 @@ import { app, protocol } from 'electron'
 import { media } from '../../shared/contract/media'
 import { MEDIA_SCHEME } from '../../shared/media-url'
 import { implement } from '../rpc'
+import { createSeekThumbnails } from '../seek-thumbnails'
 import { startCodec } from './codec-client'
 import { createNativeResizer } from './native-resizer'
 import { createThumbnailPipeline } from './pipeline'
@@ -45,10 +47,16 @@ export function registerThumbnails(
     resizer: createNativeResizer(codec),
     log,
   })
-  protocol.handle(MEDIA_SCHEME, pipeline.handle)
+  const seek = createSeekThumbnails(mediaDir(), log)
+  protocol.handle(
+    MEDIA_SCHEME,
+    async request =>
+      (await seek.service.handle(request)) ?? pipeline.handle(request)
+  )
   implement(media, {
     focus: (_, urls) => pipeline.focus.get(urls),
     saveFocus: (_, url, focus) => pipeline.focus.save(url, focus),
+    seekThumbnails: (_, localUrl, duration) => seek.request(localUrl, duration),
   })
   // 旧版独立缩略图缓存（thumb:// 时期，userData/thumb-cache）已不再使用
   void rm(join(app.getPath('userData'), 'thumb-cache'), {

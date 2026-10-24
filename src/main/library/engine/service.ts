@@ -117,6 +117,7 @@ export class LibraryService {
       scanStore: this.scanStore,
       catalog: this.catalog,
       fingerprint: backgroundRead,
+      remote: options.remote,
       libraryFor: id => this.libraryFor(id),
       onLibraryScanned: id => {
         this.libraries.markScanned(id, Date.now())

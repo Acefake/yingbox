@@ -19,19 +19,28 @@ const state = (patch: Partial<NavState> = {}): NavState => ({
 })
 
 describe('侧栏导航项', () => {
-  it('桌面端：资料库 + 本地媒体；成人模式多出番号与 AV', () => {
+  it('桌面端：资料库 + 本地媒体 + 直播；成人模式多出番号与 AV', () => {
     const normal = buildNavGroups(state())
-    expect(normal.map(g => g.key)).toEqual(['library', 'local'])
+    expect(normal.map(g => g.key)).toEqual(['library', 'local', 'live'])
     expect(normal[1].items.map(i => i.path)).toEqual(['/movie', '/tv'])
     const adult = buildNavGroups(state({ adultMode: true }))
-    expect(adult.map(g => g.key)).toEqual(['library', 'local', 'adult'])
+    expect(adult.map(g => g.key)).toEqual(['library', 'local', 'live', 'adult'])
     expect(adult[1].items.map(i => i.path)).toEqual(['/movie', '/tv', '/jav'])
     expect(adult[1].items[2]).toMatchObject({ label: '番号', icon: 'tag' })
     const onJav = buildNavGroups(state({ adultMode: true, routeName: 'Jav' }))
     expect(onJav[1].items.map(i => i.active)).toEqual([false, false, true])
   })
 
-  it('没有本地片库时不显示本地媒体组（成人模式下也不显示）', () => {
+  it('直播入口：桌面端显示，选中态跟随 /live 路由', () => {
+    const live = buildNavGroups(state({ routeName: 'Live' })).find(
+      g => g.key === 'live'
+    )
+    expect(live?.items).toEqual([
+      { label: '直播', icon: 'livePlay', path: '/live', active: true },
+    ])
+  })
+
+  it('没有本地片库时不显示本地媒体组与直播（成人模式下也不显示）', () => {
     const groups = buildNavGroups(
       state({ hasLocalLibrary: false, adultMode: true })
     )
@@ -40,12 +49,28 @@ describe('侧栏导航项', () => {
 
   it('选中态跟随路由与在线页标签', () => {
     const home = buildNavGroups(state())[0].items
-    expect(home.map(i => i.active)).toEqual([true, false, false])
+    expect(home.map(i => i.active)).toEqual([true, false, false, false])
     const fav = buildNavGroups(state({ onlineTab: 'favorites' }))[0].items
-    expect(fav.map(i => i.active)).toEqual([false, false, true])
+    expect(fav.map(i => i.active)).toEqual([false, false, true, false])
     const movie = buildNavGroups(state({ routeName: 'Movie' }))
     expect(movie[0].items.some(i => i.active)).toBe(false)
     expect(movie[1].items[0].active).toBe(true)
+  })
+
+  it('资料库组末尾是追剧日历，角标取未看新集数，选中态跟随路由', () => {
+    const items = buildNavGroups(state({ calendarBadge: 3 }))[0].items
+    expect(items.at(-1)).toMatchObject({
+      label: '追剧日历',
+      icon: 'calendar',
+      path: '/calendar',
+      active: false,
+      badge: 3,
+    })
+    const onCalendar = buildNavGroups(state({ routeName: 'Calendar' }))[0]
+    expect(onCalendar.items.at(-1)).toMatchObject({ active: true, badge: 0 })
+    // 没有本地片库（网页端）也有追剧日历：在线剧同样纳入
+    const web = buildNavGroups(state({ hasLocalLibrary: false }))[0].items
+    expect(web.map(i => i.path)).toContain('/calendar')
   })
 
   it('手机底栏：菜单项无路径，选中态即抽屉是否打开', () => {
