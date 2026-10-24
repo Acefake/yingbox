@@ -52,7 +52,13 @@ describe('默认值', () => {
     // 已删除的设置（旧刮削队列的并发数）不再出现
     expect(values).not.toHaveProperty('scrape.concurrency')
     expect(values).not.toHaveProperty('backend.url')
-    expect(secrets).toEqual({ 'scrape.tmdbToken': false })
+    expect(secrets).toEqual({
+      'scrape.tmdbToken': false,
+      'ai.apiKey.openai': false,
+      'ai.apiKey.deepseek': false,
+      'ai.apiKey.openrouter': false,
+      'ai.apiKey.custom': false,
+    })
     expect(legacyMigrated).toBe(false)
     expect(existsSync(file)).toBe(false)
   })
