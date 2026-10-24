@@ -1,5 +1,5 @@
 /**
- * 「今晚看什么」的候选来源：媒体库里没看完的电影 + 继续播放里在看的剧（以及看了一半的电影）。
+ * 「今晚看什么」的候选来源：媒体库里没看完的电影（已看完标记或进度到片尾的不算） + 继续播放里在看的剧（以及看了一半的电影）。
  *
  * - 只查 TMDB 来源的库（query.source = tmdb），继续播放只取 movie / tv 板块：番号库与私密板块不进候选；
  * - 时长 / 类型 / 简介只在详情里，先按评分抽一池（samplePool）再逐条 getItem，并发 6；
@@ -10,6 +10,7 @@ import {
   type ContinueRecord,
   continueRecords,
   getMediaProgress,
+  isWatched,
 } from '@/features/player'
 import { serverFileUrl } from '@/services/library-server'
 
@@ -19,6 +20,7 @@ import { findLibrary } from '../state/use-libraries'
 import {
   type TonightCandidate,
   type TonightProgress,
+  type TonightWatch,
   movieCandidate,
   samplePool,
   seriesCandidate,
@@ -50,13 +52,15 @@ function progressOf(record: ContinueRecord): TonightProgress {
   }
 }
 
-/** 电影第一个视频文件记下的已播秒数（桌面端按路径，网页端按流地址） */
-function watchedSeconds(node: LibraryItemNode): number {
+/**
+ * 电影第一个视频文件的观看情况（桌面端按路径，网页端按流地址，与播放器的进度键一致）：
+ * 已播秒数 + 是否在「已看完」集合里。
+ */
+function watchOf(node: LibraryItemNode): TonightWatch {
   const first = videoFileEntries(node)[0]
-  if (!first) return 0
-  return getMediaProgress(
-    usesLibraryServer() ? serverFileUrl(first.id) : first.path
-  )
+  if (!first) return { seconds: 0, finished: false }
+  const key = usesLibraryServer() ? serverFileUrl(first.id) : first.path
+  return { seconds: getMediaProgress(key), finished: isWatched(key) }
 }
 
 /** 并发受限地逐个处理 */
@@ -121,11 +125,7 @@ export async function loadTonightCandidates(
         ? record
           ? seriesCandidate(node, progressOf(record))
           : null
-        : movieCandidate(
-            node,
-            watchedSeconds(node),
-            record && progressOf(record)
-          )
+        : movieCandidate(node, watchOf(node), record && progressOf(record))
     if (candidate) list.push(candidate)
   }
   cache = { at: Date.now(), list }
