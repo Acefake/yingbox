@@ -260,9 +260,16 @@ describe('引擎测速', () => {
     ).toBe('seg0.ts')
   })
 
+  /** 每 188 字节一个 0x47 同步字节的 TS 数据 */
+  const tsBytes = (size: number): Uint8Array =>
+    Uint8Array.from({ length: size }, (_, i) => (i % 188 === 0 ? 0x47 : 0))
+
   /** 按地址返回固定内容的假网络客户端 */
   const fakeNet = (
-    routes: Record<string, { status?: number; body: string; type?: string }>
+    routes: Record<
+      string,
+      { status?: number; body: string | Uint8Array; type?: string }
+    >
   ): { net: NetClient; calls: string[] } => {
     const calls: string[] = []
     const net = {
@@ -290,7 +297,7 @@ describe('引擎测速', () => {
       'https://cdn.test/v/hd/index.m3u8': {
         body: '#EXTM3U\n#EXTINF:4,\n/seg/0.ts\n',
       },
-      'https://cdn.test/seg/0.ts': { body: 'x'.repeat(4096) },
+      'https://cdn.test/seg/0.ts': { body: tsBytes(4096) },
     })
     const result = await probeStream(net, 'https://cdn.test/v/index.m3u8', {
       sampleMs: 50,
@@ -308,7 +315,10 @@ describe('引擎测速', () => {
 
   it('mp4 直链直接采样；HTTP 错误、连接失败、空清单都返回 ok: false', async () => {
     const { net } = fakeNet({
-      'https://a.test/v.mp4': { body: 'y'.repeat(2048), type: 'video/mp4' },
+      'https://a.test/v.mp4': {
+        body: `\0\0\0\x18ftypisom${'y'.repeat(2048)}`,
+        type: 'video/mp4',
+      },
       'https://a.test/404.m3u8': { status: 404, body: '' },
       'https://a.test/empty.m3u8': { body: '#EXTM3U\n' },
     })
@@ -324,5 +334,42 @@ describe('引擎测速', () => {
       ok: false,
       error: '连接失败',
     })
+  })
+
+  it('HTTP 200 的网页 / JSON / 非媒体数据不算成功源', async () => {
+    const html = '<!doctype html><html><body>请登录</body></html>'
+    const { net } = fakeNet({
+      'https://a.test/play/1': { body: html, type: 'text/html; charset=utf-8' },
+      'https://a.test/api': { body: '{"code":403}', type: 'application/json' },
+      'https://a.test/bare': { body: html },
+      'https://a.test/fake.mp4': { body: html, type: 'video/mp4' },
+      'https://a.test/v/index.m3u8': { body: '#EXTM3U\n#EXTINF:4,\nseg.ts' },
+      'https://a.test/v/seg.ts': { body: html, type: 'text/html' },
+      'https://a.test/hls': {
+        body: '\uFEFF#EXTM3U\n#EXTINF:4,\nseg.ts',
+        type: 'text/plain',
+      },
+    })
+    const probe = (url: string): Promise<{ ok: boolean; error?: string }> =>
+      probeStream(net, url, { sampleMs: 50 })
+    expect(await probe('https://a.test/play/1')).toMatchObject({
+      ok: false,
+      error: '不是媒体（text/html）',
+    })
+    expect(await probe('https://a.test/api')).toMatchObject({
+      ok: false,
+      error: '不是媒体（application/json）',
+    })
+    for (const url of ['https://a.test/bare', 'https://a.test/fake.mp4'])
+      expect(await probe(url)).toMatchObject({
+        ok: false,
+        error: '不是媒体数据',
+      })
+    expect(await probe('https://a.test/v/index.m3u8')).toMatchObject({
+      ok: false,
+      error: '不是媒体（text/html）',
+    })
+    // 没带扩展名、text/plain 的直链按首字节认出 m3u8
+    expect((await probe('https://a.test/hls')).ok).toBe(true)
   })
 })
