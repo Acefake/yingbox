@@ -65,7 +65,27 @@ function extractBalanced(text: string): string | null {
   return null
 }
 
-/** 去掉对象 / 数组结尾多余的逗号（不处理字符串内部） */
-function removeTrailingCommas(text: string): string {
-  return text.replace(/,(\s*[}\]])/g, '$1')
+/**
+ * 去掉对象 / 数组结尾多余的逗号：逐字扫描并跟踪字符串 / 转义状态，
+ * 只删字符串外、后面（跳过空白）紧跟 } 或 ] 的逗号，字符串内容原样保留。
+ */
+export function removeTrailingCommas(text: string): string {
+  let out = ''
+  let inString = false
+  let escaped = false
+  for (let i = 0; i < text.length; i++) {
+    const ch = text[i]
+    if (inString) {
+      if (escaped) escaped = false
+      else if (ch === '\\') escaped = true
+      else if (ch === '"') inString = false
+    } else if (ch === '"') inString = true
+    else if (ch === ',') {
+      let j = i + 1
+      while (j < text.length && /\s/.test(text[j])) j++
+      if (text[j] === '}' || text[j] === ']') continue
+    }
+    out += ch
+  }
+  return out
 }
