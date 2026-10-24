@@ -83,6 +83,7 @@ import { useRoute, useRouter } from 'vue-router'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { usePlatform } from '@/composables/use-platform'
+import { useCalendarBadge } from '@/features/calendar'
 import { refreshSources } from '@/features/online'
 import { SettingsPanel, useSetting } from '@/features/settings'
 
@@ -117,11 +118,14 @@ watch(adultMode, enabled => {
   if (!enabled && route.meta.adultOnly) router.push('/')
 })
 
+// 追剧日历的未看新集数（侧栏角标）
+const calendarBadge = useCalendarBadge()
 const navState = computed<NavState>(() => ({
   routeName: route.name?.toString(),
   onlineTab: typeof route.query.tab === 'string' ? route.query.tab : undefined,
   hasLocalLibrary: hasLocalLibrary.value,
   adultMode: adultMode.value,
+  calendarBadge: calendarBadge.value,
 }))
 const navGroups = computed(() => buildNavGroups(navState.value))
 const bottomNavItems = computed(() =>

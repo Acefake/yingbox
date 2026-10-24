@@ -26,7 +26,10 @@
         v-for="ep in episodes"
         :key="ep.id"
         class="lib-episode"
-        :class="{ 'is-missing': !hasFile(ep) }"
+        :class="{
+          'is-missing': !hasFile(ep),
+          'is-spoiler': spoilerIds.has(ep.id),
+        }"
       >
         <UiPressable
           class="lib-episode-still"
@@ -55,6 +58,11 @@
             <span v-if="ep.airDate">{{ ep.airDate }}</span>
             <span v-if="ep.runtime">{{ formatRuntime(ep.runtime) }}</span>
             <span v-if="!hasFile(ep)">本地缺失</span>
+            <span
+              v-if="spoilerIds.has(ep.id) && ep.overview"
+              class="lib-episode-spoiler-hint"
+              >未看 · 悬停显示简介</span
+            >
           </div>
           <p v-if="ep.overview" class="lib-episode-overview">
             {{ ep.overview }}
@@ -69,6 +77,7 @@
 /**
  * 详情里的剧集区块：季切换（8 季以内分段控件，更多用下拉）、季简介、集列表
  * （剧照、集号与标题、播出日期、时长、本地缺失）。换条目时回到默认季。
+ * 防剧透（设置 ui.spoilerGuard）打开时，没看过的集剧照模糊、简介折叠，悬停或键盘聚焦到这一集时显示（use-spoiler-guard）。
  */
 import { computed, ref, watch } from 'vue'
 
@@ -81,6 +90,7 @@ import UiSelect from '@/components/ui/UiSelect.vue'
 import { formatRuntime } from '../shared/format'
 import { defaultSeasonKey, seasonEpisodes, seasonName } from './detail-rules'
 import { videoFiles } from './playback'
+import { useSpoilerGuard } from './use-spoiler-guard'
 
 const props = defineProps<{
   /** 剧集条目（季在 children 里）。 */
@@ -109,6 +119,10 @@ const currentSeason = computed(
 )
 const seasonOverview = computed(() => currentSeason.value?.overview ?? '')
 const episodes = computed(() => seasonEpisodes(currentSeason.value))
+const spoilerIds = useSpoilerGuard(
+  () => props.node,
+  () => episodes.value
+)
 
 const hasFile = (ep: LibraryItemNode): boolean => videoFiles(ep).length > 0
 </script>
@@ -199,6 +213,34 @@ const hasFile = (ep: LibraryItemNode): boolean => videoFiles(ep).length > 0
   -webkit-box-orient: vertical;
   -webkit-line-clamp: 2;
   line-clamp: 2;
+}
+
+/* —— 防剧透：没看过的集剧照模糊、简介折叠，悬停 / 聚焦时显示 —— */
+.lib-episode.is-spoiler .lib-episode-still img {
+  filter: blur(18px);
+  transform: scale(1.1);
+  transition:
+    filter var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out);
+}
+.lib-episode.is-spoiler .lib-episode-overview {
+  display: none;
+}
+.lib-episode-spoiler-hint {
+  color: var(--text-quaternary);
+}
+.lib-episode.is-spoiler:hover .lib-episode-still img,
+.lib-episode.is-spoiler:focus-within .lib-episode-still img {
+  filter: none;
+  transform: none;
+}
+.lib-episode.is-spoiler:hover .lib-episode-overview,
+.lib-episode.is-spoiler:focus-within .lib-episode-overview {
+  display: -webkit-box;
+}
+.lib-episode.is-spoiler:hover .lib-episode-spoiler-hint,
+.lib-episode.is-spoiler:focus-within .lib-episode-spoiler-hint {
+  display: none;
 }
 
 @media (max-width: 720px) {

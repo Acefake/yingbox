@@ -46,6 +46,8 @@ export const TMDB_TTL = {
   settled: 30 * DAY,
   season: 7 * DAY,
   episodeGroup: 7 * DAY,
+  /** 追剧日历的播出信息：每部剧每天最多刷新一次。 */
+  airing: DAY,
 } as const
 
 /** 剧集分组类型：绝对集数。 */
@@ -99,13 +101,15 @@ export class TmdbProvider implements MetadataProvider {
   }
 
   /**
-   * GET 一个 API 路径。缓存键 = 路径 + 排序后的参数（不含令牌）。
+   * GET 一个 API 路径。缓存键 = 路径 + 排序后的参数（不含令牌）；
+   * tag 给同一请求另起一份缓存（追剧日历要按天刷新，不能沿用识别用的 7 天缓存）。
    */
   private get<T>(
     path: string,
     params: Record<string, string | number | undefined>,
     ttl: (body: unknown) => number,
-    signal?: AbortSignal
+    signal?: AbortSignal,
+    tag?: string
   ): Promise<T | null> {
     const token = this.options.token()
     if (!token) {
@@ -116,7 +120,7 @@ export class TmdbProvider implements MetadataProvider {
       const value = params[key]
       if (value !== undefined && value !== '') query.set(key, String(value))
     }
-    const cacheKey = `tmdb:${path}?${query}`
+    const cacheKey = `tmdb:${path}?${query}${tag ? `#${tag}` : ''}`
     const bearer = isBearer(token)
     if (!bearer) query.set('api_key', token)
     return this.options.http.getJson<T>({
@@ -232,6 +236,45 @@ export class TmdbProvider implements MetadataProvider {
       signal
     )
     return raw ? seasonFromTmdb(raw) : null
+  }
+
+  /**
+   * 追剧日历用的剧集详情（不带 append，含 next / last_episode_to_air 与各季播出日）。
+   * 连载中的剧缓存一天，已完结 / 已取消的按 settled 缓存。
+   */
+  async airing(
+    tvId: string,
+    signal?: AbortSignal
+  ): Promise<TmdbTvDetails | null> {
+    if (!/^\d+$/.test(tvId)) return null
+    return this.get<TmdbTvDetails>(
+      `/tv/${tvId}`,
+      { language: this.language },
+      body =>
+        settledTv(body as TmdbTvDetails) ? TMDB_TTL.settled : TMDB_TTL.airing,
+      signal,
+      'airing'
+    )
+  }
+
+  /** 追剧日历用的季详情（原始形状，含每集播出日与剧照）：最多缓存一天，定型的季按 settled。 */
+  async airingSeason(
+    tvId: string,
+    season: number,
+    signal?: AbortSignal
+  ): Promise<TmdbSeason | null> {
+    if (!/^\d+$/.test(tvId)) return null
+    return this.get<TmdbSeason>(
+      `/tv/${tvId}/season/${season}`,
+      { language: this.language },
+      body => {
+        const last = (body as TmdbSeason | null)?.episodes?.at(-1)?.air_date
+        const settled = last && Date.now() - Date.parse(last) > 180 * DAY
+        return settled ? TMDB_TTL.settled : TMDB_TTL.airing
+      },
+      signal,
+      'airing'
+    )
   }
 
   /** 剧集分组详情。 */

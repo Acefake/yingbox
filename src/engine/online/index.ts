@@ -22,6 +22,7 @@ import { type DoubanBrowse, createDoubanBrowse } from './douban-browse'
 import { type DoubanPhotos, createDoubanPhotos } from './douban-photos'
 import { type DoubanTrailers, createDoubanTrailers } from './douban-trailer'
 import { type PluginStorage, createPluginStorage } from './plugin-storage'
+import { probeStream } from './stream-probe'
 import sitesFile from './vod-sites.json'
 
 /** 内置站点表（只保留解析器支持的 type 3）。 */
@@ -204,5 +205,7 @@ export function createOnlineHandlers(
         return url
       }
     },
+
+    probeStream: (_ctx, url) => probeStream(deps.net, url),
   }
 }
