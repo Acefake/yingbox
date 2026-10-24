@@ -94,7 +94,11 @@ export function usePlayerSubtitles(
     objectUrl = null
   }
 
+  /** 切集 / 销毁的世代号：挂载等待 switch 期间变了就丢弃结果 */
+  let generation = 0
+
   const dispose = (): void => {
+    generation++
     revoke()
     tracks.value = []
     active.value = null
@@ -113,9 +117,16 @@ export function usePlayerSubtitles(
     vtt: string
   ): Promise<boolean> => {
     if (options.player() !== instance) return false
+    const started = generation
     revoke()
-    objectUrl = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }))
-    await instance.subtitle.switch(objectUrl, { name: track.name, type: 'vtt' })
+    const url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }))
+    objectUrl = url
+    await instance.subtitle.switch(url, { name: track.name, type: 'vtt' })
+    // 等待期间切集 / 关弹窗：不复活上一集的字幕轨；dispose 已释放过时不重复释放
+    if (generation !== started || options.player() !== instance) {
+      if (objectUrl === url) revoke()
+      return false
+    }
     loaded.set(track.path, vtt)
     addTrack(track)
     active.value = track.path

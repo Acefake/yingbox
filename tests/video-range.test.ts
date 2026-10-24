@@ -2,9 +2,11 @@ import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 
-import { createVideoProber } from '../src/main/library/scanner/video-probe'
 import {
-  bestVideoRange,
+  PROBE_MAX_PROCESSES,
+  createVideoProber,
+} from '../src/main/library/scanner/video-probe'
+import {
   needsExternalPlayer,
   parseFfprobeVideo,
   videoProbeTag,
@@ -96,13 +98,6 @@ describe('标记与汇总', () => {
     ).toBe('HLG')
     expect(videoProbeTag(null)).toBe('')
   })
-
-  it('多个文件取最好的一档：DV > HDR10 > HLG > SDR', () => {
-    expect(bestVideoRange(['sdr', 'hlg', 'hdr10'])).toBe('hdr10')
-    expect(bestVideoRange(['dv', 'hdr10'])).toBe('dv')
-    expect(bestVideoRange(['sdr', null])).toBe('sdr')
-    expect(bestVideoRange([])).toBeNull()
-  })
 })
 
 describe('ffprobe 调用', () => {
@@ -137,13 +132,68 @@ describe('ffprobe 调用', () => {
     expect(await empty('/m/a.mkv')).toBe('unavailable')
   })
 
-  it('单个文件探测失败（坏文件、超时）记为 null', async () => {
-    const probe = createVideoProber({
+  /** execFile 的失败：数字 code 是退出码，killed / signal 是被杀（超时） */
+  const failing = (
+    error: Record<string, unknown>
+  ): ReturnType<typeof createVideoProber> =>
+    createVideoProber({
       binary: () => 'ffprobe',
       run: async () => {
-        throw new Error('Invalid data found when processing input')
+        throw Object.assign(new Error('ffprobe failed'), error)
       },
     })
-    expect(await probe('/m/bad.mkv')).toBeNull()
+
+  it("ffprobe 正常跑完：没有正片视频流、或判定为坏数据，记为 null（写 ''，不再重试）", async () => {
+    const noVideo = createVideoProber({
+      binary: () => 'ffprobe',
+      run: async () => JSON.stringify({ streams: [{ codec_type: 'audio' }] }),
+    })
+    expect(await noVideo('/m/a.mka')).toBeNull()
+    expect(
+      await failing({
+        code: 1,
+        stderr: '/m/bad.mkv: Invalid data found when processing input\n',
+      })('/m/bad.mkv')
+    ).toBeNull()
+  })
+
+  it('瞬时失败（超时被杀、权限 / I/O 错误、读不到文件的非零退出）记为 failed，下一轮再试', async () => {
+    expect(
+      await failing({ killed: true, signal: 'SIGTERM', code: null })('/m/a.mkv')
+    ).toBe('failed')
+    expect(await failing({ code: 'EACCES' })('/m/a.mkv')).toBe('failed')
+    expect(await failing({ code: 'EPERM' })('/m/a.mkv')).toBe('failed')
+    expect(
+      await failing({
+        code: 1,
+        stderr: '/Volumes/NAS/a.mkv: No such file or directory\n',
+      })('/Volumes/NAS/a.mkv')
+    ).toBe('failed')
+    expect(
+      await failing({ code: 1, stderr: 'a.mkv: Input/output error\n' })('a.mkv')
+    ).toBe('failed')
+  })
+
+  it('同一进程里最多同时跑 PROBE_MAX_PROCESSES 个 ffprobe（跨库共用）', async () => {
+    let active = 0
+    let peak = 0
+    const release: Array<() => void> = []
+    const run = vi.fn(async () => {
+      active++
+      peak = Math.max(peak, active)
+      await new Promise<void>(resolve => release.push(resolve))
+      active--
+      return JSON.stringify(fixture('sdr'))
+    })
+    const probe = createVideoProber({ binary: () => 'ffprobe', run })
+    const all = Promise.all([1, 2, 3, 4, 5].map(i => probe(`/m/${i}.mkv`)))
+    for (let i = 0; i < 20 && run.mock.calls.length < 5; i++) {
+      await new Promise(resolve => setTimeout(resolve, 0))
+      release.splice(0).forEach(fn => fn())
+    }
+    const results = await all
+    expect(run).toHaveBeenCalledTimes(5)
+    expect(peak).toBe(PROBE_MAX_PROCESSES)
+    expect(results.every(r => r !== null && typeof r === 'object')).toBe(true)
   })
 })

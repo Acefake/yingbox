@@ -31,10 +31,11 @@ export interface HotkeyEvent {
   target?: EventTarget | null
 }
 
-/** 倍速档位 */
-export const RATE_STEPS: readonly number[] = [
-  0.25, 0.5, 0.75, 1, 1.25, 1.5, 1.75, 2,
-]
+/**
+ * 倍速档位：< / > 快捷键与 Artplayer 内置「播放速度」菜单共用（art-core 把 Artplayer.PLAYBACK_RATE 设为它）。
+ * 不放 0.25 / 1.75：内置菜单按 toFixed(1) 显示，会变成「0.3」「1.8」。
+ */
+export const RATE_STEPS: readonly number[] = [0.5, 0.75, 1, 1.25, 1.5, 2]
 
 /** 单字母键（不分大小写） */
 const LETTER_ACTIONS: Record<string, HotkeyAction> = {

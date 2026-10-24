@@ -5,6 +5,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type Artplayer from 'artplayer'
 
 import { createCountdown } from '../src/renderer/src/features/player/skip/next-countdown'
+import { setSkipMarks } from '../src/renderer/src/features/player/skip/skip-store'
 import {
   ENDED_COUNTDOWN,
   useSkipSegments,
@@ -123,6 +124,41 @@ describe('播完自动下一集倒计时', () => {
     await nextTick()
     expect(skip.showNext.value).toBe(false)
     expect(onCancel).toHaveBeenCalledTimes(1)
+    vi.advanceTimersByTime(20_000)
+    expect(playNext).not.toHaveBeenCalled()
+    scope.stop()
+  })
+
+  it('有片尾标记：播完卡片点「取消」后卡片关掉（不退回片尾卡片）、倒计时停住', async () => {
+    localStorage.clear()
+    setSkipMarks('t:credits', { outro: 60 })
+    const scope = effectScope()
+    const ended = ref(false)
+    const playNext = vi.fn(async () => true)
+    const handlers = new Map<string, () => void>()
+    const { art } = fakeArt()
+    art.video.currentTime = 950
+    ;(art as unknown as { on: unknown }).on = (name: string, fn: () => void) =>
+      handlers.set(name, fn)
+    const skip = scope.run(() =>
+      useSkipSegments({
+        key: () => 't:credits',
+        hasNext: () => true,
+        playNext,
+        ended: () => ended.value,
+      })
+    )!
+    skip.attach(art)
+    handlers.get('video:timeupdate')!() // 落在片尾区间：片尾卡片出现
+    await nextTick()
+    expect(skip.showNext.value).toBe(true)
+    ended.value = true // 片尾倒计时没走完就播完了
+    await nextTick()
+    expect(skip.endedNext.value).toBe(true)
+    skip.watchCredits()
+    await nextTick()
+    expect(skip.showNext.value).toBe(false)
+    expect(skip.endedNext.value).toBe(false)
     vi.advanceTimersByTime(20_000)
     expect(playNext).not.toHaveBeenCalled()
     scope.stop()

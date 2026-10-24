@@ -1,7 +1,8 @@
 /**
  * 媒体库后台任务：扫描、重解析、计算指纹、探测视频动态范围。由 LibraryService 注册进任务队列，
- * 同一媒体库的扫描 / 解析由服务层的 KeyedMutex 互斥。
- * 扫描 / 重解析的后继写在任务定义里（changeFollowups）：有变化排识别，扫描有新增 / 变化再排指纹与探测（网盘不排）。
+ * 同一媒体库的扫描 / 解析由服务层的 KeyedMutex 互斥；探测按小批进同一把锁（避开整理任务移文件）。
+ * 扫描 / 重解析的后继写在任务定义里（changeFollowups）：有变化排识别，扫描有新增 / 变化再排指纹；
+ * 本地库每次都补排探测（没有待探测的文件时是空转），装上 ffmpeg 后重扫即可补上。
  */
 import { type CatalogStore, ItemChanges } from '../catalog/catalog-store'
 import { type LibraryDb, transaction } from '../db/database'
@@ -16,13 +17,15 @@ import {
   scanLibrary,
 } from '../scanner/scan-library'
 import type { ScanStore } from '../scanner/scan-store'
-import type { VideoProbeOutcome } from '../scanner/video-probe'
+import {
+  PROBE_MAX_PROCESSES,
+  type VideoProbeOutcome,
+} from '../scanner/video-probe'
 import type { SettleTracker } from '../scanner/settle'
 import {
   BACKGROUND_BATCH,
   FINGERPRINT_CONCURRENCY,
   type LibraryPayload,
-  PROBE_CONCURRENCY,
   SCAN_WARNING_LOG_LIMIT,
   type ScanPayload,
   chunks,
@@ -152,7 +155,10 @@ export async function runParse(
   }
 }
 
-/** 扫描 / 重解析的后继：条目有变化排识别（只处理没识别过或文件变过的），文件有新增 / 变化排指纹与探测（网盘不排）。 */
+/**
+ * 扫描 / 重解析的后继：条目有变化排识别（只处理没识别过或文件变过的），文件有新增 / 变化排指纹；
+ * 本地库无条件补排探测（上一轮因没有 ffprobe 停下、或有瞬时失败的文件，这次补上）。网盘都不排。
+ */
 export async function changeFollowups(
   deps: Pick<
     LibraryJobDeps,
@@ -165,21 +171,24 @@ export async function changeFollowups(
     ? deps.identifyFollowup(result.libraryId)
     : null
   if (identify) specs.push(identify)
-  if (result.filesChanged && !(await deps.isCloudLibrary(result.libraryId))) {
+  if (!result.filesChanged && !deps.probeVideo) return specs
+  if (await deps.isCloudLibrary(result.libraryId)) return specs
+  if (result.filesChanged)
     specs.push(libraryJobSpec('fingerprint', result.libraryId))
-    if (deps.probeVideo) specs.push(libraryJobSpec('probe', result.libraryId))
-  }
+  if (deps.probeVideo) specs.push(libraryJobSpec('probe', result.libraryId))
   return specs
 }
 
 /**
- * 为还没探测的视频文件读动态范围（ffprobe）。没有 ffprobe 时整轮停下、什么都不写，
- * 下次扫描再补；单个文件读不出视频流记为 ''，不再重试。
+ * 为还没探测的视频文件读动态范围（ffprobe）。没有 ffprobe 时整轮停下、什么都不写，下次扫描再补。
+ * 读不出视频流记 ''，不再重试；瞬时失败（'failed'）保持未探测，下一轮再试——本轮按 id 游标往后走，
+ * 每个文件最多试一次，不会原地反复重试。每一小批在库锁里跑，避开整理任务改名 / 移动文件。
  */
 export async function runProbe(
   deps: LibraryJobDeps,
   payload: LibraryPayload,
-  ctx: JobContext
+  ctx: JobContext,
+  locks: KeyedMutex<number>
 ): Promise<void> {
   const probe = deps.probeVideo
   if (!probe) return
@@ -193,20 +202,22 @@ export async function runProbe(
     if (!batch.length) return
     for (const chunk of [
       batch.slice(0, width),
-      ...chunks(batch.slice(width), PROBE_CONCURRENCY),
+      ...chunks(batch.slice(width), PROBE_MAX_PROCESSES),
     ]) {
       if (!chunk.length) continue
       width = 0
       ctx.signal.throwIfAborted()
-      const results = await Promise.all(chunk.map(f => probe(f.displayPath)))
-      if (results.includes('unavailable')) return
-      transaction(deps.db, () => {
-        for (const [i, result] of results.entries())
-          deps.scanStore.setVideoProbe(
-            chunk[i].id,
-            result === 'unavailable' ? null : result
-          )
+      const stop = await locks.run(lib.id, async () => {
+        const results = await Promise.all(chunk.map(f => probe(f.displayPath)))
+        if (results.includes('unavailable')) return true
+        transaction(deps.db, () => {
+          for (const [i, result] of results.entries())
+            if (result !== 'failed' && result !== 'unavailable')
+              deps.scanStore.setVideoProbe(chunk[i].id, result)
+        })
+        return false
       })
+      if (stop) return
     }
     afterId = batch.at(-1)!.id
   }
@@ -247,7 +258,7 @@ export async function runFingerprint(
   }
 }
 
-/** 把扫描 / 解析 / 指纹 / 探测四种任务注册进队列：同一媒体库的扫描与解析经 locks 互斥，扫描载荷可合并。 */
+/** 把扫描 / 解析 / 指纹 / 探测四种任务注册进队列：同一媒体库的扫描、解析与探测（按小批）经 locks 互斥，扫描载荷可合并。 */
 export function registerLibraryJobs(
   queue: JobQueue,
   locks: KeyedMutex<number>,
@@ -276,5 +287,7 @@ export function registerLibraryJobs(
   queue.register('fingerprint', (p, ctx) =>
     runFingerprint(deps, p as LibraryPayload, ctx)
   )
-  queue.register('probe', (p, ctx) => runProbe(deps, p as LibraryPayload, ctx))
+  queue.register('probe', (p, ctx) =>
+    runProbe(deps, p as LibraryPayload, ctx, locks)
+  )
 }

@@ -142,7 +142,7 @@ export class ScanStore {
 
   /**
    * 更新已有文件的位置、大小、时间与解析结果。
-   * 内容变了（大小或 mtime 不同）时清掉指纹，等指纹任务重算；时长与动态范围同理清空，之后重新探测。
+   * 内容变了（大小或 mtime 不同）时清掉指纹，等指纹任务重算；时长与动态范围三列（video_range / dv_profile / dv_compat）同理清空，之后重新探测。
    */
   updateFile(
     id: number,
@@ -157,7 +157,9 @@ export class ScanStore {
            mtime = ?, parsed = ?, parser_version = ?, state = ?, updated_at = ?,
            fingerprint = ?,
            duration = CASE WHEN size = ? AND mtime = ? THEN duration END,
-           video_range = CASE WHEN size = ? AND mtime = ? THEN video_range END
+           video_range = CASE WHEN size = ? AND mtime = ? THEN video_range END,
+           dv_profile = CASE WHEN size = ? AND mtime = ? THEN dv_profile END,
+           dv_compat = CASE WHEN size = ? AND mtime = ? THEN dv_compat END
          WHERE id = ?`
       )
       .run(
@@ -172,6 +174,10 @@ export class ScanStore {
         parsed.state,
         now,
         fingerprint,
+        file.size,
+        file.mtime,
+        file.size,
+        file.mtime,
         file.size,
         file.mtime,
         file.size,
@@ -207,7 +213,7 @@ export class ScanStore {
       .map(r => ({ id: Number(r.id), displayPath: String(r.display_path) }))
   }
 
-  /** 写入动态范围探测结果；probe 为 null 表示读不出视频流（记 ''，不再重试）。 */
+  /** 写入动态范围探测结果；probe 为 null 表示 ffprobe 读完了但没有正片视频流（记 ''，不再重试）。瞬时失败不写。 */
   setVideoProbe(id: number, probe: VideoProbe | null): void {
     this.sql
       .get(

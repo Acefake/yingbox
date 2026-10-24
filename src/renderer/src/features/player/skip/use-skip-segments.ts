@@ -299,7 +299,10 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
         creditsDismissed.value = true
         return
       }
+      // 播完时进度必然落在片尾区间：片尾卡片也一并关掉，否则卡片会退回片尾分支挂着
       endedDismissed.value = true
+      creditsDismissed.value = true
+      stopCountdown()
       input.onCancelEnded?.()
     },
   }
