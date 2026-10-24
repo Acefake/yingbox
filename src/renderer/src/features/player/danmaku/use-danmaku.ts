@@ -30,7 +30,12 @@ import {
   resolveSource,
   searchAnimes,
 } from './danmaku-source'
-import { danmakuReady, danmakuSupported } from './danmaku-store'
+import {
+  danmakuCredentialsRevision,
+  danmakuReady,
+  danmakuSupported,
+} from './danmaku-store'
+import { createLoadTracker } from './load-tracker'
 
 /** 面板与播放器共用的弹幕状态 */
 export interface DanmakuState {
@@ -95,7 +100,8 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
   let buttons: HTMLElement[] = []
   /** 当前条目的原始弹幕（未屏蔽） */
   let raw: DanmakuComment[] = []
-  let loadedFor = ''
+  /** 当前条目的加载状态：只有成功才算完成，失败后可重试 */
+  const loads = createLoadTracker()
   let token = 0
 
   const enabled = computed(() => getSetting('danmaku.enabled'))
@@ -129,31 +135,40 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     void plugin.load()
   }
 
-  /** 取一个弹幕库的弹幕 */
+  /** 取一个弹幕库的弹幕；返回是否成功（被新一轮加载取代时也算失败） */
   const loadComments = async (
     binding: DanmakuBinding,
     run: number
-  ): Promise<void> => {
+  ): Promise<boolean> => {
     state.loading.value = true
     state.message.value = '正在加载弹幕…'
     const reply = await fetchComments(binding.episodeId)
-    if (run !== token) return
+    if (run !== token) return false
     state.loading.value = false
     if (!reply.success) {
       state.message.value = reply.error || '弹幕加载失败'
-      return
+      return false
     }
     raw = reply.data ?? []
     state.source.value = binding
     state.message.value = raw.length ? '' : '这一集还没有弹幕'
     pushComments()
+    return true
+  }
+
+  /** 记下一轮加载的结果；已被新一轮取代时不动记录 */
+  const settle = (key: string, run: number, ok: boolean): void => {
+    if (run !== token) return
+    if (ok) loads.succeed(key)
+    else loads.fail(key)
   }
 
   /** 为当前条目找弹幕库并加载 */
   const resolve = async (notify: boolean, force = false): Promise<void> => {
     const target = options.target()
     if (!plugin || !target || !danmakuSupported()) return
-    if (!force && loadedFor === JSON.stringify(target)) return
+    const key = JSON.stringify(target)
+    if (!loads.needs(key, force)) return
     if (!state.ready.value) {
       state.message.value = '先在设置 · 弹幕里填写弹弹play AppId 和 AppSecret'
       if (notify && art)
@@ -161,7 +176,7 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
       return
     }
     const run = ++token
-    loadedFor = JSON.stringify(target)
+    loads.start(key)
     state.loading.value = true
     state.message.value = '正在匹配弹幕…'
     state.query.value = target.title
@@ -171,9 +186,11 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     if (!found.binding) {
       state.message.value =
         found.error || '没找到对应的弹幕，可以右键「弹」按钮搜索'
+      // 出错（网络、凭据）允许重试；确实没匹配到算完成
+      settle(key, run, !found.error)
       return
     }
-    await loadComments(found.binding, run)
+    settle(key, run, await loadComments(found.binding, run))
     if (run === token && found.uncertain && art)
       art.notice.show = `弹幕：${found.binding.animeTitle} ${found.binding.episodeTitle}（不对可右键「弹」搜索）`
   }
@@ -204,7 +221,7 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     plugin = null
     buttons = []
     raw = []
-    loadedFor = ''
+    loads.reset()
     state.source.value = null
     state.count.value = 0
     state.loading.value = false
@@ -269,11 +286,13 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
       episodeId: episode.episodeId,
       episodeTitle: episode.episodeTitle,
     })
-    loadedFor = JSON.stringify(target)
+    const key = JSON.stringify(target)
+    const run = ++token
+    loads.start(key)
     state.panelOpen.value = false
     state.results.value = []
     if (!enabled.value) void setSetting('danmaku.enabled', true)
-    await loadComments(binding, ++token)
+    settle(key, run, await loadComments(binding, run))
   }
 
   watch(enabled, on => {
@@ -281,8 +300,8 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
     if (!plugin) return
     if (on) {
       plugin.show()
-      const target = options.target()
-      if (target && loadedFor !== JSON.stringify(target)) void resolve(true)
+      // 未加载或上次失败的条目重新加载
+      void resolve(true)
     } else plugin.hide()
   })
   watch(look, value => plugin?.config({ ...value } as DanmukuOption))
@@ -293,10 +312,17 @@ export function useDanmaku(options: DanmakuOptions): DanmakuController {
       if (plugin && enabled.value) void resolve(false)
     }
   )
-  // 凭据刚填好：当前条目补加载
-  watch(state.ready, ok => {
-    if (ok && plugin && enabled.value) void resolve(false)
-  })
+  // 凭据填好或改过：当前条目没加载成功时补加载
+  watch(
+    [
+      state.ready,
+      () => getSetting('danmaku.appId'),
+      danmakuCredentialsRevision,
+    ],
+    () => {
+      if (state.ready.value && plugin && enabled.value) void resolve(false)
+    }
+  )
 
   const setQuery = (value: string): void => {
     state.query.value = value

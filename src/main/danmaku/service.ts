@@ -16,6 +16,7 @@ import {
   type DandanCredentials,
   businessError,
   commentUrl,
+  commentsError,
   dandanHeaders,
   hasCredentials,
   httpErrorMessage,
@@ -118,6 +119,9 @@ export function createDanmakuService(deps: DanmakuServiceDeps): DanmakuService {
         const body = await requestJson(creds, commentUrl(episodeId), {
           maxBytes: MAX_COMMENT_BYTES,
         })
+        // 只缓存有效响应：业务错误不能被当成空弹幕缓存 7 天
+        const failure = commentsError(body)
+        if (failure) throw new Error(failure)
         const comments = parseComments(body)
         await deps.cache
           .write(episodeId, comments)
