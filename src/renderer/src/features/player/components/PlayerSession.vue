@@ -62,6 +62,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
 import { updateContinue } from '../continue/continue-store'
+import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import {
   type PlayerPayload,
@@ -214,6 +215,11 @@ const playNext = async (): Promise<boolean> => {
 const onEnded = async (event: Event): Promise<void> => {
   const el = event.target as HTMLVideoElement | null
   progress.markFinished(el)
+  // 睡眠定时（看完本集 / 已到点）在连播前同步消费：停在本集
+  if (consumeSleepAtEnd()) {
+    showNotice('睡眠定时到了，已停止连播')
+    return
+  }
   const next = playlist.value[position.value + 1]
   if (next) {
     showNotice(`即将播放：${entryLabel(next)}`)
