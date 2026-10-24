@@ -153,6 +153,7 @@ const ADDED_API: Record<string, string[]> = {
     'offSeekReady',
   ],
   capture: ['savePng', 'frame', 'gifAvailable', 'gif', 'reveal'],
+  webdav: ['list', 'save', 'remove', 'test', 'listDirs'],
 }
 
 beforeAll(async () => {
