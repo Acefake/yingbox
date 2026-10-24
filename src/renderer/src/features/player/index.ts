@@ -30,3 +30,12 @@ export type {
   ContinueRecord,
   ContinueSection,
 } from './continue/continue-rules'
+/** 自动检测片头片尾（媒体库剧集详情的「检测片头片尾」） */
+export {
+  cancelDetect,
+  detectProgressOf,
+  detectSeason,
+  introDetectStatus,
+  introDetectSupported,
+  skipKeyOf,
+} from './skip/intro-detect'

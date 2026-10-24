@@ -11,6 +11,7 @@ import { danmaku } from './danmaku'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { download } from './download'
+import { introDetect } from './intro-detect'
 import { iptv } from './iptv'
 import { lada } from './lada'
 import { libraryNotify } from './library-notify'
@@ -34,6 +35,7 @@ export const contract = {
   danmaku,
   dialog,
   download,
+  introDetect,
   iptv,
   lada,
   libraryNotify,

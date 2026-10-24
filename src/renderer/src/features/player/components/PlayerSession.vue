@@ -30,6 +30,7 @@
     <SkipOverlay
       :art
       :series="skipKey(continueId, defaultTitle)"
+      :queue="playlist"
       :up-next="
         playlist[position + 1] ? entryLabel(playlist[position + 1]) : ''
       "
