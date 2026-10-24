@@ -69,6 +69,8 @@ export function useVirtualGrid(params: {
   count: Ref<number>
   options: GridOptions
   overscan?: number
+  /** 网格上方的内容（如「继续播放」横排）：高度变了网格的起点跟着变 */
+  header?: Ref<HTMLElement | null>
 }): VirtualGrid {
   const { scroller, grid, count } = params
   const overscan = params.overscan ?? 3
@@ -146,6 +148,7 @@ export function useVirtualGrid(params: {
     observer = new ResizeObserver(() => measure())
     if (grid.value) observer.observe(grid.value)
     if (scroller.value) observer.observe(scroller.value)
+    if (params.header?.value) observer.observe(params.header.value)
     measure()
   })
 

@@ -1,6 +1,6 @@
 <template>
   <div ref="scroller" class="lib-wall custom-scrollbar">
-    <slot name="before" />
+    <div ref="header"><slot name="before" /></div>
     <div
       ref="grid"
       class="lib-wall-grid"
@@ -147,6 +147,8 @@ const emit = defineEmits<{
 
 const scroller = ref<HTMLElement | null>(null)
 const grid = ref<HTMLElement | null>(null)
+/** 网格上方的插槽内容（「继续播放」等），高度变化时重新定位网格 */
+const header = ref<HTMLElement | null>(null)
 
 /** 文字区高度：标题 + 年份 + 上间距（与样式一致）。 */
 const TEXT_HEIGHT = 52
@@ -165,6 +167,7 @@ const { metrics, range, fast, height, offset, scrollToIndex } = useVirtualGrid({
     aspect: POSTER_ASPECT,
   },
   overscan: 2,
+  header,
 })
 
 const rows = computed(() => Math.ceil(props.count / metrics.value.columns))

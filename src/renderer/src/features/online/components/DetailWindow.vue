@@ -200,6 +200,17 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     startAt: getMediaProgress(playUrl),
     ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
     ...(fallbacks.length ? { fallbacks } : {}),
+    // 继续播放：按片名合并（换源后仍是同一张卡），封面优先 TMDB 横版背景图
+    continueAs: {
+      section: 'online',
+      key: itemName.value || playUrl,
+      title: itemName.value || title,
+      cover:
+        tmdbImage('w780', tmdbDetail.value?.backdrop_path) ||
+        itemPic.value ||
+        undefined,
+      detail: itemData.value ?? undefined,
+    },
   })
   if (!ok) toast.error('无法打开播放器，请完全重启应用后再试')
 }

@@ -5,6 +5,13 @@
       v-show="!inlineDetailItem && activeTab === 'home'"
       class="content-area primary-scroll home-content-area"
     >
+      <ContinueRow
+        class="online-continue"
+        section="online"
+        @detail="
+          r => r.detail && openDetailWindow(r.detail as OnlineDetailItem)
+        "
+      />
       <DoubanSection @open="openDoubanDetail" />
     </div>
 
@@ -66,7 +73,11 @@ import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
-import { getMediaProgress, openMediaPlayer } from '@/features/player'
+import {
+  ContinueRow,
+  getMediaProgress,
+  openMediaPlayer,
+} from '@/features/player'
 
 const route = useRoute()
 const inlineDetailItem = ref<OnlineDetailItem | null>(null)
@@ -170,6 +181,12 @@ const openDoubanDetail = (item: DoubanItem): void => {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
+}
+
+.content-area .online-continue {
+  flex: none;
+  min-width: 0;
+  margin-bottom: 0;
 }
 
 .home-content-area {
