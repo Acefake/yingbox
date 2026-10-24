@@ -255,7 +255,9 @@ describe('请求构造', () => {
     expect(headers['User-Agent']).toBe('yingbox')
     expect(buildHeaders(config(), false)['User-Agent']).toBeUndefined()
 
-    const fetch = vi.fn(async () => completion('好'))
+    const fetch = vi.fn(async (_url: string, _init?: RequestInit) =>
+      completion('好')
+    )
     const result = await chatCompletion(
       oc,
       { messages: [{ role: 'user', content: 'q' }] },
@@ -264,7 +266,7 @@ describe('请求构造', () => {
     expect(fetch.mock.calls[0][0]).toBe(
       'https://opencode.ai/inference/go/openai/v1/chat/completions'
     )
-    expect(JSON.parse(String(fetch.mock.calls[0][1].body)).model).toBe(
+    expect(JSON.parse(String(fetch.mock.calls[0][1]!.body)).model).toBe(
       'glm-5.3-flash'
     )
     expect(result).toMatchObject({ content: '好', provider: 'opencode-go' })
