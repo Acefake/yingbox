@@ -1,6 +1,9 @@
 /**
  * 播放中自动换源：卡顿（useStallWatch）或出错时换到同集的下一条备用源，从当前进度继续，
  * 并给出「X 卡顿，已切换到 Y · 从 mm:ss 继续」提示。规则在 utils/source-switch。
+ *
+ * 续播位置按「一轮换源」保留：从主源开始换的那一刻记下目标位置，之后连续换源（备用源还没开播就失败，
+ * 新 <video> 的 currentTime 仍是 0）都用这个位置；直到某个源真正开播（playing）才结束这一轮。
  */
 import type { Ref } from 'vue'
 
@@ -35,14 +38,24 @@ export interface SourceSwitch {
 }
 
 export function useSourceSwitch(deps: SourceSwitchDeps): SourceSwitch {
+  /** 本轮换源的目标续播位置（秒）；null = 不在换源中 */
+  let resumeAt: number | null = null
+  let video: HTMLVideoElement | null = null
+
   const switchSource = async (reason: SwitchReason): Promise<boolean> => {
+    // 从主源换起（含重试 / 连播后）是新的一轮，丢掉上一轮的位置
+    if (deps.activeFallback.value < 0) resumeAt = null
     const next = nextFallbackIndex(
       deps.activeFallback.value,
       deps.fallbacks.value.length
     )
-    if (next < 0) return false
+    if (next < 0) {
+      resumeAt = null
+      return false
+    }
     const from = deps.current()
-    const at = stall.currentTime()
+    const at = resumeAt ?? stall.currentTime()
+    resumeAt = at
     deps.activeFallback.value = next
     const to = deps.fallbacks.value[next]
     deps.notify(
@@ -56,5 +69,23 @@ export function useSourceSwitch(deps: SourceSwitchDeps): SourceSwitch {
     void switchSource('stall')
   })
 
-  return { switchSource, attach: stall.attach, detach: stall.detach }
+  /** 新源真正开播：这一轮换源结束，之后再卡顿按当时的进度换 */
+  const onPlaying = (): void => {
+    resumeAt = null
+  }
+
+  const detach = (): void => {
+    video?.removeEventListener('playing', onPlaying)
+    video = null
+    stall.detach()
+  }
+
+  const attach = (el: HTMLVideoElement): void => {
+    detach()
+    video = el
+    el.addEventListener('playing', onPlaying)
+    stall.attach(el)
+  }
+
+  return { switchSource, attach, detach }
 }

@@ -3,13 +3,15 @@
  *
  * - m3u8：取清单（主清单选码率最高的子清单，顺带读分辨率）→ 首个分片下载 sampleMs 毫秒；
  * - mp4 / flv 等直链：直接下载 sampleMs 毫秒；
- * - 延迟 = 第一个请求从发出到收到响应头的毫秒数。
+ * - 延迟 = 第一个请求从发出到收到响应头的毫秒数；
+ * - 只有确认是媒体（media-sniff：Content-Type + 首字节）才算成功，HTTP 200 的网页 / JSON 返回 ok: false。
  * 请求都经 shared/net（SSRF 防护），防盗链 CDN 按 media-referer 名单带 Referer。
  * 失败不抛错，返回 ok: false 与原因。
  */
 import type { NetClient } from '../../shared/net/client'
 import { refererFor } from '../../shared/net/media-referer'
 import type { StreamProbe } from '../../shared/contract/online'
+import { SNIFF_BYTES, isNonMediaType, mediaError } from './media-sniff'
 
 /** 测速参数。 */
 export interface ProbeOptions {
@@ -106,15 +108,16 @@ const concat = (chunks: Uint8Array[], size: number): Uint8Array => {
   return out
 }
 
-/** 读 body 至多 sampleMs 毫秒，返回字节数与实际耗时（毫秒）。 */
+/** 读 body 至多 sampleMs 毫秒，返回字节数、实际耗时（毫秒）与正文首部（嗅探用）。 */
 async function sample(
   response: Response,
   sampleMs: number,
   now: () => number
-): Promise<{ bytes: number; elapsed: number }> {
+): Promise<{ bytes: number; elapsed: number; head: Uint8Array }> {
   const start = now()
   let bytes = 0
-  if (!response.body) return { bytes, elapsed: 0 }
+  const head = new Uint8Array(SNIFF_BYTES)
+  if (!response.body) return { bytes, elapsed: 0, head: head.subarray(0, 0) }
   const reader = response.body.getReader()
   const timer = setTimeout(() => {
     void reader.cancel().catch(() => {})
@@ -123,6 +126,8 @@ async function sample(
     for (;;) {
       const { value, done } = await reader.read()
       if (done) break
+      if (bytes < SNIFF_BYTES)
+        head.set(value.subarray(0, SNIFF_BYTES - bytes), bytes)
       bytes += value.byteLength
       if (now() - start >= sampleMs) break
     }
@@ -132,7 +137,26 @@ async function sample(
     clearTimeout(timer)
     await reader.cancel().catch(() => {})
   }
-  return { bytes, elapsed: Math.max(1, now() - start) }
+  return {
+    bytes,
+    elapsed: Math.max(1, now() - start),
+    head: head.subarray(0, Math.min(bytes, SNIFF_BYTES)),
+  }
+}
+
+/** 响应不能用（HTTP 错误 / 明确不是媒体的 Content-Type）时的原因，并丢弃正文。 */
+async function rejectReason(
+  response: Response,
+  prefix = ''
+): Promise<string | undefined> {
+  const type = response.headers.get('content-type') || ''
+  const reason = !response.ok
+    ? `${prefix}HTTP ${response.status}`
+    : isNonMediaType(type)
+      ? mediaError(type, new Uint8Array())
+      : undefined
+  if (reason) await response.body?.cancel().catch(() => {})
+  return reason
 }
 
 const fail = (error: string, latencyMs?: number): StreamProbe => ({
@@ -158,10 +182,8 @@ export async function probeStream(
     const started = now()
     let { response, url: finalUrl } = await open(url)
     latencyMs = Math.max(0, Math.round(now() - started))
-    if (!response.ok) {
-      await response.body?.cancel().catch(() => {})
-      return fail(`HTTP ${response.status}`, latencyMs)
-    }
+    const rejected = await rejectReason(response)
+    if (rejected) return fail(rejected, latencyMs)
     let height: number | undefined
     const contentType = response.headers.get('content-type') || ''
     if (looksLikeM3u8(finalUrl, contentType)) {
@@ -179,20 +201,21 @@ export async function probeStream(
         ;({ response, url: finalUrl } = await open(
           new URL(variant.uri, finalUrl).href
         ))
-        if (!response.ok) {
-          await response.body?.cancel().catch(() => {})
-          return fail(`HTTP ${response.status}`, latencyMs)
-        }
+        const nested = await rejectReason(response)
+        if (nested) return fail(nested, latencyMs)
       }
       if (!segment) return fail('清单里没有分片', latencyMs)
       ;({ response } = await open(segment))
-      if (!response.ok) {
-        await response.body?.cancel().catch(() => {})
-        return fail(`分片 HTTP ${response.status}`, latencyMs)
-      }
+      const bad = await rejectReason(response, '分片 ')
+      if (bad) return fail(bad, latencyMs)
     }
-    const { bytes, elapsed } = await sample(response, sampleMs, now)
+    const { bytes, elapsed, head } = await sample(response, sampleMs, now)
     if (!bytes) return fail('没有下载到数据', latencyMs)
+    const notMedia = mediaError(
+      response.headers.get('content-type') || '',
+      head
+    )
+    if (notMedia) return fail(notMedia, latencyMs)
     return {
       ok: true,
       latencyMs,
