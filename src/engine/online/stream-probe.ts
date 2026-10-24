@@ -4,13 +4,22 @@
  * - m3u8：取清单（主清单选码率最高的子清单，顺带读分辨率）→ 首个分片下载 sampleMs 毫秒；
  * - mp4 / flv 等直链：直接下载 sampleMs 毫秒；
  * - 延迟 = 第一个请求从发出到收到响应头的毫秒数；
- * - 只有确认是媒体（media-sniff：Content-Type + 首字节）才算成功，HTTP 200 的网页 / JSON 返回 ok: false。
+ * - 只有确认是媒体（media-sniff：Content-Type + 首字节）才算成功，HTTP 200 的网页 / JSON 返回 ok: false；
+ * - 加密 HLS（hls-key）：AES-128 拉密钥解密首分片开头再嗅探；SAMPLE-AES 或密钥拿不到时无法校验魔数，
+ *   只排除明显的 HTML / JSON 错误页（Content-Type 与开头文本）。
  * 请求都经 shared/net（SSRF 防护），防盗链 CDN 按 media-referer 名单带 Referer。
  * 失败不抛错，返回 ok: false 与原因。
  */
 import type { NetClient } from '../../shared/net/client'
 import { refererFor } from '../../shared/net/media-referer'
 import type { StreamProbe } from '../../shared/contract/online'
+import {
+  type HlsKey,
+  decryptHead,
+  keyIv,
+  looksLikeErrorPage,
+  parseKeyTag,
+} from './hls-key'
 import { SNIFF_BYTES, isNonMediaType, mediaError } from './media-sniff'
 
 /** 测速参数。 */
@@ -27,6 +36,8 @@ export interface ProbeOptions {
 const PLAYLIST_MAX_BYTES = 1024 * 1024
 /** 主清单 → 子清单最多跟几层 */
 const MAX_NESTED = 2
+/** 密钥响应读取上限（AES-128 密钥是 16 字节） */
+const KEY_MAX_BYTES = 64
 
 /** 主清单里的一个子清单。 */
 export interface HlsVariant {
@@ -35,16 +46,31 @@ export interface HlsVariant {
   height?: number
 }
 
-/** 解析 m3u8：主清单返回 variants，媒体清单返回首个分片地址（都是原始写法，未补全）。 */
-export function parseM3u8(text: string): {
+/** parseM3u8 的结果。 */
+export interface ParsedM3u8 {
   variants: HlsVariant[]
   firstSegment?: string
-} {
+  /** 首个分片的媒体序号（EXT-X-MEDIA-SEQUENCE，缺省 0），算默认 IV 用 */
+  sequence?: number
+  /** 首个分片生效的加密信息 */
+  key?: HlsKey
+}
+
+/**
+ * 解析 m3u8：主清单返回 variants；媒体清单返回首个分片地址、媒体序号和它生效的 EXT-X-KEY
+ * （地址都是原始写法，未补全）。
+ */
+export function parseM3u8(text: string): ParsedM3u8 {
   const lines = text.split(/\r?\n/).map(line => line.trim())
   const variants: HlsVariant[] = []
   let firstSegment: string | undefined
+  let sequence = 0
+  let key: HlsKey | undefined
   for (let i = 0; i < lines.length; i++) {
     const line = lines[i]
+    if (!firstSegment && line.startsWith('#EXT-X-MEDIA-SEQUENCE:'))
+      sequence = Number(line.split(':')[1]) || 0
+    if (!firstSegment && line.startsWith('#EXT-X-KEY:')) key = parseKeyTag(line)
     if (line.startsWith('#EXT-X-STREAM-INF')) {
       const uri = lines.slice(i + 1).find(next => next && !next.startsWith('#'))
       if (!uri) continue
@@ -59,7 +85,8 @@ export function parseM3u8(text: string): {
       if (!prev.startsWith('#EXT-X-STREAM-INF')) firstSegment = line
     }
   }
-  return variants.length ? { variants } : { variants, firstSegment }
+  if (variants.length) return { variants }
+  return { variants, firstSegment, sequence, ...(key ? { key } : {}) }
 }
 
 /** 主清单里选码率最高（同码率取分辨率高）的子清单。 */
@@ -77,14 +104,17 @@ const headersFor = (url: string): Record<string, string> => {
   return referer ? { Referer: referer } : {}
 }
 
-/** 读文本（上限 PLAYLIST_MAX_BYTES，超出截断）。 */
-async function readText(response: Response): Promise<string> {
-  if (!response.body) return ''
+/** 读正文至多约 maxBytes 字节（超出截断）。 */
+async function readBytes(
+  response: Response,
+  maxBytes: number
+): Promise<Uint8Array> {
+  if (!response.body) return new Uint8Array()
   const reader = response.body.getReader()
   const chunks: Uint8Array[] = []
   let size = 0
   try {
-    while (size < PLAYLIST_MAX_BYTES) {
+    while (size < maxBytes) {
       const { value, done } = await reader.read()
       if (done) break
       chunks.push(value)
@@ -93,10 +123,12 @@ async function readText(response: Response): Promise<string> {
   } finally {
     await reader.cancel().catch(() => {})
   }
-  return new TextDecoder().decode(
-    chunks.length === 1 ? chunks[0] : concat(chunks, size)
-  )
+  return chunks.length === 1 ? chunks[0] : concat(chunks, size)
 }
+
+/** 读清单文本（上限 PLAYLIST_MAX_BYTES）。 */
+const readText = async (response: Response): Promise<string> =>
+  new TextDecoder().decode(await readBytes(response, PLAYLIST_MAX_BYTES))
 
 const concat = (chunks: Uint8Array[], size: number): Uint8Array => {
   const out = new Uint8Array(size)
@@ -159,6 +191,45 @@ async function rejectReason(
   return reason
 }
 
+/** 首个分片的加密信息（密钥地址已补全）。 */
+interface SegmentCipher {
+  method: string
+  keyUrl?: string
+  iv: Uint8Array
+}
+
+const cipherOf = (
+  parsed: ParsedM3u8,
+  base: string
+): SegmentCipher | undefined => {
+  const { key } = parsed
+  if (!key) return undefined
+  let keyUrl: string | undefined
+  try {
+    keyUrl = key.uri ? new URL(key.uri, base).href : undefined
+  } catch {
+    keyUrl = undefined
+  }
+  return { method: key.method, keyUrl, iv: keyIv(key, parsed.sequence ?? 0) }
+}
+
+/**
+ * 加密分片的校验：先排除文本错误页；AES-128 拿到 16 字节密钥时解密开头再嗅探魔数，
+ * 拿不到密钥或 SAMPLE-AES 等无法解密时不要求魔数。
+ */
+async function encryptedError(
+  contentType: string,
+  head: Uint8Array,
+  cipher: SegmentCipher,
+  fetchKey: (url: string) => Promise<Uint8Array | undefined>
+): Promise<string | undefined> {
+  if (looksLikeErrorPage(head)) return '分片是错误页面'
+  if (cipher.method !== 'AES-128' || !cipher.keyUrl) return undefined
+  const key = await fetchKey(cipher.keyUrl)
+  const plain = key && decryptHead(head, key, cipher.iv)
+  return plain ? mediaError(contentType, plain) : undefined
+}
+
 const fail = (error: string, latencyMs?: number): StreamProbe => ({
   ok: false,
   error,
@@ -176,6 +247,20 @@ export async function probeStream(
   const now = options.now ?? Date.now
   const open = (target: string): ReturnType<NetClient['open']> =>
     net.open(target, { headers: headersFor(target), timeoutMs })
+  /** 拉 AES-128 密钥（同样走 SSRF 防护）；失败或不是 16 字节返回 undefined。 */
+  const fetchKey = async (target: string): Promise<Uint8Array | undefined> => {
+    try {
+      const { response } = await open(target)
+      if (!response.ok) {
+        await response.body?.cancel().catch(() => {})
+        return undefined
+      }
+      const key = await readBytes(response, KEY_MAX_BYTES)
+      return key.byteLength === 16 ? key : undefined
+    } catch {
+      return undefined
+    }
+  }
 
   let latencyMs: number | undefined
   try {
@@ -185,6 +270,7 @@ export async function probeStream(
     const rejected = await rejectReason(response)
     if (rejected) return fail(rejected, latencyMs)
     let height: number | undefined
+    let cipher: SegmentCipher | undefined
     const contentType = response.headers.get('content-type') || ''
     if (looksLikeM3u8(finalUrl, contentType)) {
       let segment: string | undefined
@@ -192,6 +278,7 @@ export async function probeStream(
         const parsed = parseM3u8(await readText(response))
         if (parsed.firstSegment) {
           segment = new URL(parsed.firstSegment, finalUrl).href
+          cipher = cipherOf(parsed, finalUrl)
           break
         }
         const variant = pickVariant(parsed.variants)
@@ -211,10 +298,10 @@ export async function probeStream(
     }
     const { bytes, elapsed, head } = await sample(response, sampleMs, now)
     if (!bytes) return fail('没有下载到数据', latencyMs)
-    const notMedia = mediaError(
-      response.headers.get('content-type') || '',
-      head
-    )
+    const type = response.headers.get('content-type') || ''
+    const notMedia = cipher
+      ? await encryptedError(type, head, cipher, fetchKey)
+      : mediaError(type, head)
     if (notMedia) return fail(notMedia, latencyMs)
     return {
       ok: true,
