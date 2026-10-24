@@ -118,17 +118,26 @@ export async function ensureAnime4kShaders(
   )
 }
 
+/** mpv 里的着色器列表处于半途（挂载被打断或命令失败），下次同步必须重新清空。 */
+const PARTIAL = '\0partial'
+
 /**
  * 一个 mpv 会话里的 Anime4K 状态：设置（setConfig）与当前条目（apply）任一变化都重新计算；
  * 应挂载的着色器列表没变就不重复发命令。
+ *
+ * 挂载串行执行（链式 Promise）：同一时间只有一个任务在发 clr / append。
+ * 每条命令返回后都核对 generation，过期就停下，由排在后面的最新任务按最新配置重来，
+ * 所以最终的 mpv 着色器列表总与最后一次设置一致。
  */
 export class Anime4kSync {
   private config: Anime4kConfig = { ...ANIME4K_OFF }
   private anime: boolean | undefined
-  /** 当前已挂载的列表签名（空串 = 未挂载） */
+  /** mpv 里实际的列表签名（空串 = 未挂载，PARTIAL = 半途）；只在挂载队列里改写 */
   private active = ''
-  /** 每次重新计算加一，丢弃过期的异步结果 */
+  /** 每次重新计算加一，丢弃过期的任务 */
   private generation = 0
+  /** 挂载队列的尾部 */
+  private queue: Promise<void> = Promise.resolve()
 
   constructor(
     private readonly command: MpvCommand,
@@ -156,9 +165,19 @@ export class Anime4kSync {
     this.generation++
   }
 
-  private async sync(): Promise<void> {
+  /** 排进挂载队列；返回的 Promise 在这次（或被更新的任务取代后）结束时完成。 */
+  private sync(): Promise<void> {
     const generation = ++this.generation
-    if (!this.running()) return
+    if (!this.running()) return this.queue
+    this.queue = this.queue.then(() => this.mount(generation))
+    return this.queue
+  }
+
+  /** 实际挂载：按执行时的最新配置计算，每步等待后若已过期就停下。 */
+  private async mount(generation: number): Promise<void> {
+    const stale = (): boolean =>
+      generation !== this.generation || !this.running()
+    if (stale()) return
     const { mode, quality } = this.config
     const files = shouldApplyAnime4k(this.config, this.anime)
       ? anime4kShaders(mode, quality)
@@ -166,24 +185,26 @@ export class Anime4kSync {
     const signature = files.join('|')
     if (signature === this.active) return
     try {
-      if (!files.length) {
-        await this.command('change-list', 'glsl-shaders', 'clr', '')
-        this.active = ''
-        return
-      }
-      const paths = await ensureAnime4kShaders(files)
-      if (generation !== this.generation) return
+      const paths = files.length ? await ensureAnime4kShaders(files) : []
+      if (stale()) return
+      this.active = PARTIAL
       await this.command('change-list', 'glsl-shaders', 'clr', '')
       for (const path of paths) {
+        if (stale()) return
         await this.command('change-list', 'glsl-shaders', 'append', path)
       }
+      if (stale()) return
       this.active = signature
-      void this.command('show-text', anime4kLabel(mode, quality), OSD_MS).catch(
-        () => {}
-      )
+      if (files.length) {
+        void this.command(
+          'show-text',
+          anime4kLabel(mode, quality),
+          OSD_MS
+        ).catch(() => {})
+      }
     } catch (error) {
       this.log(`挂载失败：${(error as Error).message}`)
-      if (files.length) {
+      if (files.length && !stale()) {
         void this.command(
           'show-text',
           'Anime4K 着色器下载失败，已按原画播放',

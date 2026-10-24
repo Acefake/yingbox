@@ -236,4 +236,84 @@ describe('Anime4kSync：经 glsl-shaders 挂载 / 清除', () => {
     await b.sync.apply(true)
     expect(b.sent).toEqual([])
   })
+
+  /** 命令延迟返回：每条命令都要等到 release() 才完成，模拟 mpv IPC 慢。 */
+  const setupDelayed = async (): Promise<
+    Harness & { release: () => Promise<void> }
+  > => {
+    const { Anime4kSync } = await import('../src/main/mpv-anime4k')
+    const sent: unknown[][] = []
+    const waiting: (() => void)[] = []
+    const sync = new Anime4kSync(
+      (...args) =>
+        new Promise<void>(resolve => {
+          sent.push(args)
+          waiting.push(resolve)
+        }),
+      () => true,
+      () => {}
+    )
+    const release = async (): Promise<void> => {
+      // 一直放行直到没有新命令（含下载等微任务之后发出的命令）
+      for (let idle = 0; idle < 20; ) {
+        await new Promise(r => setTimeout(r, 5))
+        if (waiting.length) {
+          idle = 0
+          waiting.splice(0).forEach(r => r())
+        } else idle++
+      }
+    }
+    /** 按命令重放 mpv 里最终的着色器列表 */
+    const shaderCommands = (): unknown[][] =>
+      sent.filter(c => c[0] === 'change-list').map(c => [c[2], c[3]])
+    return { sync, sent, shaderCommands, release }
+  }
+
+  /** 按发出的 clr / append 推出 mpv 最终的列表 */
+  const finalList = (commands: unknown[][]): unknown[] =>
+    commands.reduce<unknown[]>(
+      (list, [op, path]) => (op === 'clr' ? [] : [...list, path]),
+      []
+    )
+
+  const shaderPaths = (mode: 'a' | 'b' | 'c'): string[] =>
+    anime4kShaders(mode, 'fast').map(name =>
+      join(fake.dir, 'anime4k', 'v4.0.1', name)
+    )
+
+  it('首次挂载途中关闭：命令延迟返回也不残留着色器', async () => {
+    const { sync, shaderCommands, release } = await setupDelayed()
+    const done = [sync.setConfig({ ...ANIME4K_OFF, enabled: true, mode: 'a' })]
+    await new Promise(r => setTimeout(r, 20))
+    // 第一条 clr 还没返回时关闭
+    done.push(sync.setConfig(ANIME4K_OFF))
+    await release()
+    await Promise.all(done)
+    expect(finalList(shaderCommands())).toEqual([])
+    expect(shaderCommands().at(-1)).toEqual(['clr', ''])
+  })
+
+  it('快速切换模式：最终列表与最后一次设置一致，不混合也不重复', async () => {
+    const { sync, shaderCommands, release } = await setupDelayed()
+    const done = [sync.setConfig({ ...ANIME4K_OFF, enabled: true, mode: 'a' })]
+    await new Promise(r => setTimeout(r, 20))
+    done.push(sync.setConfig({ ...ANIME4K_OFF, enabled: true, mode: 'b' }))
+    done.push(sync.setConfig({ ...ANIME4K_OFF, enabled: true, mode: 'c' }))
+    await release()
+    await Promise.all(done)
+    expect(finalList(shaderCommands())).toEqual(shaderPaths('c'))
+    // 串行：任一 clr 之后的 append 只属于同一套模式
+    const runs = shaderCommands().reduce<unknown[][]>(
+      (acc, [op, path]) =>
+        op === 'clr' ? [...acc, []] : (acc.at(-1)!.push(path), acc),
+      []
+    )
+    for (const run of runs) {
+      expect(new Set(run).size).toBe(run.length)
+      const owner = (['a', 'b', 'c'] as const).find(m =>
+        run.every(p => shaderPaths(m).includes(p as string))
+      )
+      expect(owner).toBeDefined()
+    }
+  })
 })
