@@ -23,6 +23,39 @@ const fakes = vi.hoisted(() => {
     destroyed = 0
     notice = { show: '' }
     subtitle = { switch: async (): Promise<void> => {} }
+    /** 浮层 / 设置菜单 / 右键菜单替身：只记下加了哪些项（播放信息会往里加） */
+    layers = {
+      items: [] as { name?: string }[],
+      add: (item: { name?: string; html?: string }): HTMLElement => {
+        this.layers.items.push(item)
+        const el = document.createElement('div')
+        el.innerHTML = item.html ?? ''
+        this.template.$player.appendChild(el)
+        return el
+      },
+    }
+    setting = {
+      show: false,
+      items: [] as { name?: string }[],
+      add(item: { name?: string }): void {
+        this.items.push(item)
+      },
+      update(item: { name?: string }): void {
+        const i = this.items.findIndex(it => it.name === item.name)
+        if (i >= 0) this.items[i] = item
+        else this.items.push(item)
+      },
+      find(name: string): { $tooltip?: HTMLElement } | undefined {
+        return this.items.some(it => it.name === name) ? {} : undefined
+      },
+    }
+    contextmenu = {
+      show: false,
+      items: [] as { name?: string }[],
+      add(item: { name?: string }): void {
+        this.items.push(item)
+      },
+    }
     private handlers = new Map<string, Handler[]>()
     constructor(option: Record<string, unknown>) {
       this.option = option
@@ -368,6 +401,12 @@ describe('播放弹窗', () => {
     expect(fakes.arts).toHaveLength(1)
     expect(modal()?.contains(fakes.arts[0].video)).toBe(true)
     expect(fakes.hlsList[0].loads).toEqual([SRC])
+    // 播放器核心装上了播放信息的浮层、设置项与右键菜单项
+    const art = fakes.arts[0]
+    for (const part of [art.layers, art.setting, art.contextmenu])
+      expect(part.items.map(it => it.name)).toContain('ybPlaybackInfo')
+    // 以及睡眠定时菜单项
+    expect(art.setting.items.map(it => it.name)).toContain('ybSleep')
     // 页面还在（弹窗只是盖在上面）
     expect(t.root.textContent).toContain('甲页')
     t.unmount()
