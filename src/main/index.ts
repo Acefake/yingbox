@@ -29,6 +29,7 @@ import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
 import { registerEngine } from './engine'
 import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
+import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 
@@ -180,6 +181,8 @@ app.whenReady().then(async () => {
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
   registerMpvIpc()
+  // 板块密码锁：应用密码哈希与系统认证
+  await registerSectionLockIpc()
   await registerLadaIpc()
   const libraryClient = registerLibraryIpc(thumbnails)
   const library = libraryTokenTarget(libraryClient)

@@ -14,6 +14,7 @@ import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
 import { online } from './online'
+import { sectionLock } from './section-lock'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
@@ -31,6 +32,7 @@ export const contract = {
   media,
   mpv,
   online,
+  sectionLock,
   settings,
   shell,
   subtitle,
