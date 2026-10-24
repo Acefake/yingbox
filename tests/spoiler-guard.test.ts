@@ -1,9 +1,23 @@
 // test-affected: repo-wide
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 
 import { settingsSchema } from '../src/shared/settings/schema'
+import { useProgressSaver } from '../src/renderer/src/features/player/composables/use-progress-saver'
+import { readMediaProgress } from '../src/renderer/src/features/player/utils/play-progress'
+import {
+  WATCHED_STORAGE_KEY,
+  isWatched,
+  markWatched,
+  unmarkWatched,
+} from '../src/renderer/src/features/player/watched'
+import {
+  addWatched,
+  hasWatched,
+  isWatchedEntry,
+  removeWatched,
+} from '../src/renderer/src/features/player/watched/watched-rules'
 import {
   type ProgressEntry,
   SEEN_MIN_PROGRESS,
@@ -39,8 +53,15 @@ describe('spoiler-rules', () => {
     expect(progressSeen({ progress: SEEN_MIN_PROGRESS, duration: 0 })).toBe(
       true
     )
-    expect(progressSeen({ progress: 0, duration: 1500 })).toBe(true)
+    // 位置 0 不再当看完（可能只是拖回开头），只认独立的看完标记
+    expect(progressSeen({ progress: 0, duration: 1500 })).toBe(false)
     expect(progressSeen({ progress: 0, duration: 0 })).toBe(false)
+    expect(progressSeen({ progress: 0, duration: 1500, finished: true })).toBe(
+      true
+    )
+    expect(progressSeen({ progress: 0, duration: 1500, finished: false })).toBe(
+      false
+    )
   })
 
   it('继续播放：当前集之前都算看过，当前集开始看了也算', () => {
@@ -122,5 +143,75 @@ describe('设置与接线', () => {
     const page = src('features/settings/sections/AppearanceSettings.vue')
     expect(page).toContain("useSetting('ui.spoilerGuard')")
     expect(page).toContain('<UiSwitch v-model="spoilerGuard"')
+  })
+})
+
+describe('已看完集合', () => {
+  afterEach(() => vi.unstubAllGlobals())
+
+  const stubStorage = (): Record<string, string> => {
+    const store: Record<string, string> = {}
+    vi.stubGlobal('localStorage', {
+      getItem: (k: string) => store[k] ?? null,
+      setItem: (k: string, v: string) => (store[k] = v),
+    })
+    return store
+  }
+
+  it('规则：去重、最新在前、有上限，坏数据丢弃', () => {
+    let list = addWatched([], 'a', 1)
+    list = addWatched(list, 'b', 2)
+    list = addWatched(list, 'a', 3)
+    expect(list).toEqual([
+      { key: 'a', at: 3 },
+      { key: 'b', at: 2 },
+    ])
+    expect(addWatched(list, 'c', 4, 2).map(e => e.key)).toEqual(['c', 'a'])
+    expect(addWatched(list, '  ', 5)).toEqual(list)
+    expect(hasWatched(list, 'b')).toBe(true)
+    expect(hasWatched(removeWatched(list, 'b'), 'b')).toBe(false)
+    expect(isWatchedEntry({ key: 'a', at: 1 })).toBe(true)
+    expect(isWatchedEntry({ key: '', at: 1 })).toBe(false)
+    expect(isWatchedEntry({ key: 'a' })).toBe(false)
+  })
+
+  it('存储：标记 / 取消，老数据（只有进度表）照常读', () => {
+    const store = stubStorage()
+    store.media_play_progress = JSON.stringify({
+      old: { progress: 300, duration: 1500, updatedAt: 1 },
+    })
+    expect(readMediaProgress('old')).toEqual({
+      progress: 300,
+      duration: 1500,
+      finished: false,
+    })
+    expect(readMediaProgress('none')).toBeNull()
+    markWatched('ep')
+    expect(isWatched('ep')).toBe(true)
+    expect(JSON.parse(store[WATCHED_STORAGE_KEY])[0].key).toBe('ep')
+    unmarkWatched('ep')
+    expect(isWatched('ep')).toBe(false)
+  })
+
+  it('零秒进度不算看完，markFinished 之后算看完', () => {
+    stubStorage()
+    const saver = useProgressSaver(() => '/tv/e1.mkv')
+    saver.onTimeUpdate({
+      target: { currentTime: 0, duration: 1500 },
+    } as never)
+    const zero = readMediaProgress('/tv/e1.mkv')
+    expect(zero).toEqual({ progress: 0, duration: 1500, finished: false })
+    expect(progressSeen(zero)).toBe(false)
+    expect(
+      spoilerHidden(true, ['/tv/e1.mkv'], new Set(), readMediaProgress)
+    ).toBe(true)
+
+    saver.markFinished({ duration: 1500 } as HTMLVideoElement)
+    const done = readMediaProgress('/tv/e1.mkv')
+    expect(done).toEqual({ progress: 0, duration: 1500, finished: true })
+    expect(progressSeen(done)).toBe(true)
+    expect(
+      spoilerHidden(true, ['/tv/e1.mkv'], new Set(), readMediaProgress)
+    ).toBe(false)
   })
 })
