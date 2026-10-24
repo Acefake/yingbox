@@ -1,3 +1,4 @@
+import { isIncognito } from '@/features/incognito'
 import type { JsonRecord } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 
@@ -71,7 +72,8 @@ export function saveMediaProgress(
   progress: number,
   duration = 0
 ): void {
-  if (!key) return
+  // 无痕模式不留续播进度
+  if (!key || isIncognito()) return
   if (!Number.isFinite(progress) || progress < 0) return
 
   const map = readProgressMap()
