@@ -39,3 +39,4 @@ export {
   introDetectSupported,
   skipKeyOf,
 } from './skip/intro-detect'
+export { metaOf, replayOptions } from './continue/continue-rules'
