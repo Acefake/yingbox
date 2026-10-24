@@ -7,7 +7,7 @@ import { promises as fs } from 'node:fs'
 import { basename, extname, join } from 'node:path'
 
 import { localUrlToFilePath } from '../local-media'
-import { ladaPaths } from '../plugins/lada/tools'
+import { ladaPaths, onPathOverridesChange } from '../plugins/lada/tools'
 import { runTool } from '../plugins/process'
 import { implement } from '../rpc'
 import { type CaptureResult, capture } from '../../shared/contract/capture'
@@ -22,29 +22,18 @@ import {
   isPng,
   numberedName,
 } from './rules'
+import { createFfmpegCache } from './ffmpeg-cache'
 
 /** 没找到 ffmpeg 时多久内不再重新探测（探测是同步的，会卡主进程） */
 const FFMPEG_RETRY_MS = 60_000
 
-let ffmpegCache: { path: string; at: number } | null = null
+/** ffmpeg 路径缓存；用户在设置里改工具路径时作废 */
+const ffmpegCache = createFfmpegCache(() => ladaPaths().ffmpeg, FFMPEG_RETRY_MS)
+onPathOverridesChange(() => ffmpegCache.invalidate())
 
-/** 当前可用的 ffmpeg；找不到返回空串（失败结果缓存一分钟） */
+/** 当前可用的 ffmpeg；找不到返回空串 */
 function ffmpegPath(): string {
-  const now = Date.now()
-  if (
-    ffmpegCache &&
-    (ffmpegCache.path || now - ffmpegCache.at < FFMPEG_RETRY_MS)
-  ) {
-    return ffmpegCache.path
-  }
-  let path = ''
-  try {
-    path = ladaPaths().ffmpeg
-  } catch {
-    path = ''
-  }
-  ffmpegCache = { path, at: now }
-  return path
+  return ffmpegCache.get()
 }
 
 /** 截图目录（不存在就建） */
@@ -82,6 +71,8 @@ async function runFfmpeg(
   const bin = ffmpegPath()
   if (!bin) return { success: false, error: '没有找到 ffmpeg' }
   const result = await runTool(bin, args)
+  // 启动失败（程序被移走 / 删除）：作废缓存，下次重新探测
+  if (result.code === -1) ffmpegCache.invalidate()
   if (result.code === 0) {
     try {
       const stat = await fs.stat(target)
