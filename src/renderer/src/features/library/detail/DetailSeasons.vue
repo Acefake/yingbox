@@ -3,20 +3,38 @@
   <section class="lib-section">
     <div class="lib-section-head">
       <h2 class="lib-section-title">剧集</h2>
-      <UiSegmented
-        v-if="seasons.length <= 8"
-        v-model="seasonKey"
-        size="sm"
-        label="选择季"
-        :options="seasonOptions"
-      />
-      <UiSelect
-        v-else
-        v-model="seasonKey"
-        size="sm"
-        aria-label="选择季"
-        :options="seasonOptions.map(o => ({ value: o.value, label: o.label! }))"
-      />
+      <div class="lib-season-tools">
+        <span
+          v-if="detectVisible"
+          v-tooltip="detectBlocked"
+          class="lib-season-detect"
+        >
+          <UiButton
+            size="sm"
+            :variant="detectRunning ? 'secondary' : 'plain'"
+            icon="scan"
+            :label="detectLabel"
+            :disabled="!detectRunning && !!detectBlocked"
+            @click="toggleDetect"
+          />
+        </span>
+        <UiSegmented
+          v-if="seasons.length <= 8"
+          v-model="seasonKey"
+          size="sm"
+          label="选择季"
+          :options="seasonOptions"
+        />
+        <UiSelect
+          v-else
+          v-model="seasonKey"
+          size="sm"
+          aria-label="选择季"
+          :options="
+            seasonOptions.map(o => ({ value: o.value, label: o.label! }))
+          "
+        />
+      </div>
     </div>
     <p v-if="seasonOverview" class="lib-season-overview">
       {{ seasonOverview }}
@@ -69,18 +87,22 @@
 /**
  * 详情里的剧集区块：季切换（8 季以内分段控件，更多用下拉）、季简介、集列表
  * （剧照、集号与标题、播出日期、时长、本地缺失）。换条目时回到默认季。
+ * 桌面端在季切换旁给「检测片头片尾」（use-intro-detect）。
  */
 import { computed, ref, watch } from 'vue'
 
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
+import { vTooltip } from '@/components/ui/tooltip'
 
 import { formatRuntime } from '../shared/format'
 import { defaultSeasonKey, seasonEpisodes, seasonName } from './detail-rules'
 import { videoFiles } from './playback'
+import { useIntroDetect } from './use-intro-detect'
 
 const props = defineProps<{
   /** 剧集条目（季在 children 里）。 */
@@ -111,10 +133,26 @@ const seasonOverview = computed(() => currentSeason.value?.overview ?? '')
 const episodes = computed(() => seasonEpisodes(currentSeason.value))
 
 const hasFile = (ep: LibraryItemNode): boolean => videoFiles(ep).length > 0
+
+const {
+  visible: detectVisible,
+  blocked: detectBlocked,
+  label: detectLabel,
+  running: detectRunning,
+  toggle: toggleDetect,
+} = useIntroDetect(
+  () => props.node,
+  () => currentSeason.value
+)
 </script>
 
 <style scoped src="./detail-section.css"></style>
 <style scoped>
+.lib-season-tools {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
 .lib-season-overview {
   max-width: 720px;
   margin: 0 0 var(--space-5);

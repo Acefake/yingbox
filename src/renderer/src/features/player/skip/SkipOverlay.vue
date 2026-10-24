@@ -47,18 +47,22 @@
  * - art：当前这一集的 Artplayer 实例（UnifiedVideoPlayer 的 art 事件给出）
  * - series：标记属于哪部剧（skipKey()）
  * - upNext：下一集的名字；空串表示没有下一集
+ * - queue：播放队列；设置开着时据此在后台自动检测本季片头片尾（use-auto-detect，只认有「继续播放」记录的剧）
  */
 import type Artplayer from 'artplayer'
 import { computed, watch } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 
+import type { PlaylistEntry } from '../utils/play-queue'
+import { useAutoIntroDetect } from './use-auto-detect'
 import { useSkipSegments } from './use-skip-segments'
 
 const props = defineProps<{
   art: Artplayer | null
   series: string
   upNext: string
+  queue?: readonly PlaylistEntry[]
 }>()
 const emit = defineEmits<{ 'play-next': [] }>()
 
@@ -69,6 +73,13 @@ const skip = useSkipSegments({
 })
 
 watch(() => props.art, skip.attach, { immediate: true })
+
+// 片名每集不同、认不准是哪部剧，所以只认「继续播放」记录（c: 开头的 key）
+useAutoIntroDetect(
+  () => (props.series.startsWith('c:') ? props.series : ''),
+  () => props.queue ?? [],
+  () => props.queue?.[0]?.name ?? ''
+)
 
 const host = computed<HTMLElement | null>(
   () => skip.art.value?.template?.$player ?? null
