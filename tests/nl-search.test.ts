@@ -9,9 +9,9 @@ import {
   NL_FILTER_SCHEMA,
   sanitizeNlFilter,
 } from '../src/renderer/src/features/library/nl-search/nl-filter'
+import { aiConfigured } from '../src/renderer/src/features/ai/ready'
 import {
   NlCache,
-  aiConfigured,
   applyNlFilter,
   cacheKey,
   looksNatural,
@@ -334,7 +334,8 @@ const ai = vi.hoisted(() => ({
 }))
 
 vi.mock('vue-router', () => ({ useRoute: () => route }))
-vi.mock('@/features/ai', () => {
+vi.mock('@/features/ai', async () => {
+  const { aiConfigured } = await import('../src/renderer/src/features/ai/ready')
   class AiCallError extends Error {
     constructor(
       readonly code: string,
@@ -346,6 +347,7 @@ vi.mock('@/features/ai', () => {
   return {
     AiCallError,
     aiAvailable: () => ai.ready,
+    aiConfigured,
     aiKeyConfigured: () => true,
     chatJson: ai.chatJson,
   }

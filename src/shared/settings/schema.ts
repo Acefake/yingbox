@@ -260,6 +260,8 @@ export const settingsSchema = {
   'ai.subtitle.mode': oneOf(['zh', 'bilingual', 'original'] as const, 'zh'),
   /** 剧集第 2 集起从头开播时，在播放器左上角提示「前情提要」 */
   'ai.recap.prompt': bool(true),
+  /** AI 助手的全局快捷键（Electron accelerator，如 Alt+Space）；空串 = 不注册全局快捷键 */
+  'assistant.shortcut': text('Alt+Space', 64),
   /** 各服务商的 API Key（密钥：主进程 safeStorage，只在 src/main/ai 使用） */
   'ai.apiKey.openai': secret(),
   'ai.apiKey.deepseek': secret(),

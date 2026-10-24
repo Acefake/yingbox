@@ -95,6 +95,7 @@ import SkipOverlay from '../skip/SkipOverlay.vue'
 import { skipKey } from '../skip/skip-rules'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { useDolbyVision } from '../dolby-vision/use-dolby-vision'
+import { usePlayerRemote } from '../remote/use-player-remote'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import { singleFlight } from '../utils/single-flight'
 import {
@@ -385,6 +386,13 @@ useSessionShortcuts({
   active: () => !props.mini,
   toggleSubtitle: () => player.value?.toggleSubtitle(),
 })
+
+// AI 助手等外部入口的遥控：每换一个 Artplayer 实例重新登记
+usePlayerRemote(art, () => ({
+  skipKey: () => skipKey(continueId.value, defaultTitle.value),
+  title: () => entryLabel(currentEntry.value),
+  private: props.payload.private === true,
+}))
 
 onMounted(() => window.addEventListener('beforeunload', progress.flush))
 

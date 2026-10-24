@@ -197,6 +197,14 @@ const ADDED_API: Record<string, string[]> = {
     'dirs',
   ],
   dolbyVision: ['probe', 'start', 'stop'],
+  assistant: [
+    'shortcutStatus',
+    'transcribe',
+    'onSummon',
+    'offSummon',
+    'onShortcutChanged',
+    'offShortcutChanged',
+  ],
 }
 
 beforeAll(async () => {

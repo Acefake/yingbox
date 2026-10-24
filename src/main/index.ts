@@ -47,6 +47,7 @@ import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 import { installTray } from './tray'
+import { registerAssistant } from './assistant'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -247,6 +248,8 @@ app.whenReady().then(async () => {
   registerDevToolsShortcut()
   // 托盘 + 全局媒体键（内置播放器正在播放时）
   installTray({ getMainWindow: () => mainWindow, showMainWindow })
+  // AI 助手：全局快捷键唤起（默认 Alt+Space）与语音转写（见 src/main/assistant）
+  registerAssistant({ getMainWindow: () => mainWindow, showMainWindow })
 
   app.on('activate', function () {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()
