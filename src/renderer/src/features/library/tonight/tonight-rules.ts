@@ -106,7 +106,7 @@ export interface TonightProgress {
   nextUp?: boolean
 }
 
-/** 播到这个比例算看完（与继续播放一致） */
+/** 播到这个比例也算看完（辅助：没有看完标记的老数据） */
 const WATCHED_RATIO = 0.95
 /** 精简后简介最多几个字 */
 export const OVERVIEW_CHARS = 80
@@ -131,21 +131,31 @@ function base(
   }
 }
 
+/** 一部电影的观看情况（候选判断用） */
+export interface TonightWatch {
+  /** 播放进度表里的已播秒数（没有记 0） */
+  seconds: number
+  /** 「已看完」集合里有这部片（播放结束时由播放器记下，续播点清零也不丢） */
+  finished: boolean
+}
+
 /**
- * 电影 → 候选。看完的（继续播放里没有，且记下的进度已到片尾）和没有视频文件的返回 null。
+ * 电影 → 候选。没有视频文件的返回 null；不在继续播放里且已看完的也返回 null：
+ * 以「已看完」标记为准，进度已到片尾（≥ 95%）的同样算看完。
+ * 在继续播放里的（看了一半，包括重看）照常进候选。
  *
- * @param watchedSeconds 播放进度表里这部片的已播秒数（没有记 0）
+ * @param watch 这部片的观看情况
  * @param record 继续播放里的记录（看了一半）
  */
 export function movieCandidate(
   node: LibraryItemNode,
-  watchedSeconds: number,
+  watch: TonightWatch,
   record?: TonightProgress
 ): TonightCandidate | null {
   if (node.type !== 'movie' || !hasVideo(node)) return null
   const runtime = node.runtime && node.runtime > 0 ? node.runtime : null
-  if (!record && runtime && watchedSeconds >= runtime * 60 * WATCHED_RATIO)
-    return null
+  const nearEnd = !!runtime && watch.seconds >= runtime * 60 * WATCHED_RATIO
+  if (!record && (watch.finished || nearEnd)) return null
   let minutes = runtime
   if (record) {
     const total = record.duration > 0 ? record.duration / 60 : runtime

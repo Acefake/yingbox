@@ -1,7 +1,10 @@
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { UseTonight } from '../src/renderer/src/features/library/tonight/use-tonight'
 
+import { useProgressSaver } from '../src/renderer/src/features/player/composables/use-progress-saver'
+import { getMediaProgress } from '../src/renderer/src/features/player/utils/play-progress'
+import { isWatched } from '../src/renderer/src/features/player/watched'
 import type { LibraryItemNode } from '../src/shared/library/ipc'
 import {
   CANDIDATE_LIMIT,
@@ -76,24 +79,64 @@ function cand(over: Partial<TonightCandidate> = {}): TonightCandidate {
   }
 }
 
+/** 没看过 */
+const unseen = { seconds: 0, finished: false }
+
 describe('候选', () => {
   it('没看完的电影进候选，时长取 runtime', () => {
-    const c = movieCandidate(node(), 0)
+    const c = movieCandidate(node(), unseen)
     expect(c).toMatchObject({ id: 1, kind: 'movie', minutes: 113 })
   })
 
   it('进度已到片尾的电影排除，没有视频文件的也排除', () => {
-    expect(movieCandidate(node(), 113 * 60)).toBeNull()
-    expect(movieCandidate(node({ files: [] }), 0)).toBeNull()
+    expect(
+      movieCandidate(node(), { seconds: 113 * 60, finished: false })
+    ).toBeNull()
+    expect(movieCandidate(node({ files: [] }), unseen)).toBeNull()
   })
 
   it('看了一半的电影按剩余时长，带继续播放 id', () => {
-    const c = movieCandidate(node(), 0, {
+    const c = movieCandidate(node(), unseen, {
       id: 'movie:1',
       progress: 60 * 60,
       duration: 113 * 60,
     })
     expect(c).toMatchObject({ minutes: 53, continueId: 'movie:1' })
+  })
+
+  it('有已看完标记的电影排除（续播点已清零），在继续播放里重看的照常进', () => {
+    expect(movieCandidate(node(), { seconds: 0, finished: true })).toBeNull()
+    const c = movieCandidate(
+      node(),
+      { seconds: 0, finished: true },
+      { id: 'movie:1', progress: 600, duration: 113 * 60 }
+    )
+    expect(c).toMatchObject({ continueId: 'movie:1' })
+  })
+
+  describe('播放结束后', () => {
+    afterEach(() => vi.unstubAllGlobals())
+
+    it('markFinished 之后不再成为候选（进度清零也不影响）', () => {
+      const store: Record<string, string> = {}
+      vi.stubGlobal('localStorage', {
+        getItem: (k: string) => store[k] ?? null,
+        setItem: (k: string, v: string) => (store[k] = v),
+      })
+      const key = '/movies/film.mkv'
+      const watchOf = (): { seconds: number; finished: boolean } => ({
+        seconds: getMediaProgress(key),
+        finished: isWatched(key),
+      })
+      const saver = useProgressSaver(() => key)
+      saver.onTimeUpdate({
+        target: { currentTime: 3000, duration: 113 * 60 },
+      } as never)
+      expect(movieCandidate(node(), watchOf())).not.toBeNull()
+      saver.markFinished({ duration: 113 * 60 } as HTMLVideoElement)
+      expect(getMediaProgress(key)).toBe(0)
+      expect(movieCandidate(node(), watchOf())).toBeNull()
+    })
   })
 
   it('在看的剧：一集时长取剧或第一集的 runtime；当前集看了一半算剩余', () => {
