@@ -10,6 +10,7 @@ import type { ImageCache } from '../images/image-cache'
 import type { JavProvider } from '../providers/jav/jav-provider'
 import type { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
 import type { TmdbProvider } from '../providers/tmdb/tmdb-provider'
+import type { AiScraper } from './ai/ai-scraper'
 import type { IdentifyStore, IdentifyTarget } from './identify-store'
 import type { MetadataWriter } from './metadata-writer'
 
@@ -29,6 +30,8 @@ export interface IdentifyRunnerDeps {
   probeDuration?: (path: string) => Promise<number | undefined>
   /** 计算 OpenSubtitles moviehash（文件还没有指纹时）。 */
   fingerprint?: (path: string) => Promise<string | undefined>
+  /** AI 识别兜底；没有时不做 AI 识别（独立服务）。 */
+  ai?: AiScraper
   now?: () => number
   log?: (message: string) => void
 }
@@ -45,8 +48,11 @@ export interface RunSummary {
   changes: ItemChanges
 }
 
-/** 执行模式：identify 识别（已自动匹配的只补季 / 集）；force 全部重识别；refresh 只刷新元数据。 */
-export type RunMode = 'identify' | 'force' | 'refresh'
+/**
+ * 执行模式：identify 识别（已自动匹配的只补季 / 集）；force 全部重识别；refresh 只刷新元数据；
+ * ai 只对待确认 / 未匹配的条目做 AI 识别（见 ai/ai-scraper）。
+ */
+export type RunMode = 'identify' | 'force' | 'refresh' | 'ai'
 
 /** 单个条目的结果。 */
 export type Outcome = 'matched' | 'review' | 'unmatched' | 'skipped'

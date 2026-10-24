@@ -74,6 +74,8 @@ export type TargetMode =
   | 'force'
   /** 已有 tmdb_id 的条目（含锁定），刷新元数据用。 */
   | 'matched'
+  /** 待确认 / 未匹配的条目（手动 AI 识别用）。 */
+  | 'undecided'
 
 /** 数据库行。 */
 type Row = Record<string, unknown>
