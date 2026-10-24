@@ -22,3 +22,5 @@ export type {
   ContinueRecord,
   ContinueSection,
 } from './continue/continue-rules'
+export { metaOf, replayOptions } from './continue/continue-rules'
+export { continueRecords } from './continue/continue-store'
