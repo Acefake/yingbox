@@ -7,6 +7,7 @@
 import { app } from './app'
 import { av } from './av'
 import { capture } from './capture'
+import { danmaku } from './danmaku'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { download } from './download'
@@ -26,6 +27,7 @@ export const contract = {
   app,
   av,
   capture,
+  danmaku,
   dialog,
   download,
   lada,
