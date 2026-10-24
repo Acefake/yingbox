@@ -49,12 +49,28 @@ describe('侧栏导航项', () => {
 
   it('选中态跟随路由与在线页标签', () => {
     const home = buildNavGroups(state())[0].items
-    expect(home.map(i => i.active)).toEqual([true, false, false])
+    expect(home.map(i => i.active)).toEqual([true, false, false, false])
     const fav = buildNavGroups(state({ onlineTab: 'favorites' }))[0].items
-    expect(fav.map(i => i.active)).toEqual([false, false, true])
+    expect(fav.map(i => i.active)).toEqual([false, false, true, false])
     const movie = buildNavGroups(state({ routeName: 'Movie' }))
     expect(movie[0].items.some(i => i.active)).toBe(false)
     expect(movie[1].items[0].active).toBe(true)
+  })
+
+  it('资料库组末尾是追剧日历，角标取未看新集数，选中态跟随路由', () => {
+    const items = buildNavGroups(state({ calendarBadge: 3 }))[0].items
+    expect(items.at(-1)).toMatchObject({
+      label: '追剧日历',
+      icon: 'calendar',
+      path: '/calendar',
+      active: false,
+      badge: 3,
+    })
+    const onCalendar = buildNavGroups(state({ routeName: 'Calendar' }))[0]
+    expect(onCalendar.items.at(-1)).toMatchObject({ active: true, badge: 0 })
+    // 没有本地片库（网页端）也有追剧日历：在线剧同样纳入
+    const web = buildNavGroups(state({ hasLocalLibrary: false }))[0].items
+    expect(web.map(i => i.path)).toContain('/calendar')
   })
 
   it('手机底栏：菜单项无路径，选中态即抽屉是否打开', () => {
