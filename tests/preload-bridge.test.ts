@@ -144,6 +144,17 @@ const ADDED_API: Record<string, string[]> = {
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: ['focus', 'saveFocus'],
+  ai: [
+    'chat',
+    'chatJson',
+    'cancel',
+    'testConnection',
+    'usage',
+    'onDelta',
+    'offDelta',
+    'onUsageChanged',
+    'offUsageChanged',
+  ],
 }
 
 beforeAll(async () => {

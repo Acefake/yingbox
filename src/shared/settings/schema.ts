@@ -162,6 +162,29 @@ export const settingsSchema = {
   'library.notify.token': text('', 128),
   /** 网盘工具的根在本机的挂载目录（如 D:\CloudDrive）；可选，帮助把通知路径对应到库目录 */
   'library.notify.mountRoot': absolutePath(),
+
+  /** AI 服务商（OpenAI 兼容接口，见 src/shared/ai/providers.ts） */
+  'ai.provider': oneOf(
+    ['openai', 'deepseek', 'openrouter', 'ollama', 'custom'] as const,
+    'deepseek'
+  ),
+  /** AI 接口地址（含 /v1）；空串 = 服务商预设地址，自定义服务商必填 */
+  'ai.baseUrl': text('', 2048),
+  /** AI 对话模型；空串 = 服务商预设模型 */
+  'ai.model': text('', 200),
+  /** 私密板块只用本地模型：私密内容遇到非本地服务商直接拒绝 */
+  'ai.privateLocalOnly': bool(true),
+  /** 语音识别（AI 字幕用）：关闭 / 本地 Whisper / 云端转写接口 */
+  'ai.speech.engine': oneOf(['off', 'local-whisper', 'cloud'] as const, 'off'),
+  /** 语音识别模型（本地 Whisper 模型名，或云端转写模型） */
+  'ai.speech.model': text('large-v3-turbo', 200),
+  /** 云端转写接口地址；空串 = 与对话同一个接口地址 */
+  'ai.speech.baseUrl': text('', 2048),
+  /** 各服务商的 API Key（密钥：主进程 safeStorage，只在 src/main/ai 使用） */
+  'ai.apiKey.openai': secret(),
+  'ai.apiKey.deepseek': secret(),
+  'ai.apiKey.openrouter': secret(),
+  'ai.apiKey.custom': secret(),
 } as const satisfies Record<string, ValueSpec<unknown> | SecretSpec>
 
 /** 设置项的键 */
