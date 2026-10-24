@@ -141,6 +141,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'visual.status',
       'visual.index',
       'visual.search',
+      'calendar.episodes',
       'jav.getSettings',
       'jav.setSettings',
       'actors.list',

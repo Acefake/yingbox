@@ -26,6 +26,7 @@
     >
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
+    <Anime4kRows />
     <SettingsRow
       v-if="mpvState.running"
       title="缩小置顶"
@@ -37,6 +38,50 @@
         @update:model-value="setMpvCompact"
       />
     </SettingsRow>
+    <SettingsRow
+      v-if="mpvInfoText"
+      title="播放信息"
+      :description="`${mpvInfoText}。在 mpv 窗口里按 I 可查看码率、丢帧、硬解等完整统计`"
+    />
+  </SettingsGroup>
+
+  <SettingsGroup title="在线播放">
+    <SettingsRow
+      title="卡顿自动换源"
+      description="内置播放器缓冲太久或出错时，换到下一个可用源的同一集，从当前进度继续"
+    >
+      <UiSwitch v-model="autoSwitchSource" label="卡顿自动换源" />
+    </SettingsRow>
+    <SettingsRow
+      v-if="autoSwitchSource"
+      title="卡顿判定"
+      description="连续缓冲超过这个时长就换源"
+    >
+      <UiSelect
+        v-model="stallSeconds"
+        size="sm"
+        aria-label="卡顿判定秒数"
+        :options="stallOptions"
+      />
+    </SettingsRow>
+  </SettingsGroup>
+
+  <SettingsGroup
+    title="片头片尾"
+    footer="在内置播放器里右键标记片头开始 / 结束、片尾开始，同一部剧每集通用；也可在媒体库剧集详情里「检测片头片尾」。"
+  >
+    <SettingsRow
+      title="自动跳过片头"
+      description="进入已标记的片头时直接跳到片头结束；关闭时只显示「跳过片头」按钮"
+    >
+      <UiSwitch v-model="autoSkipIntro" label="自动跳过片头" />
+    </SettingsRow>
+    <SettingsRow
+      title="播放剧集时自动检测本季"
+      description="播放本地剧集时在后台比对各集音频，找出共同的片头片尾；手动标记的不会被覆盖。需要 ffmpeg"
+    >
+      <UiSwitch v-model="autoDetectIntro" label="播放剧集时自动检测本季" />
+    </SettingsRow>
   </SettingsGroup>
 
   <SettingsGroup title="小窗">
@@ -47,19 +92,37 @@
       <UiSwitch v-model="miniPlayer" label="应用内小窗" />
     </SettingsRow>
   </SettingsGroup>
+
+  <SettingsGroup v-if="isElectron" title="系统集成">
+    <SettingsRow
+      title="显示托盘图标"
+      description="托盘菜单显示正在播放的内容，可播放 / 暂停、下一集、显示主窗口、退出"
+    >
+      <UiSwitch v-model="trayIcon" label="显示托盘图标" />
+    </SettingsRow>
+    <SettingsRow title="媒体键控制播放" :description="mediaKeysHint">
+      <UiSwitch v-model="mediaKeys" label="媒体键控制播放" />
+    </SettingsRow>
+  </SettingsGroup>
 </template>
 
 <script setup lang="ts">
 /**
- * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）与缩小置顶，
- * 播放弹窗的角落小窗（ui.miniPlayer）。
+ * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
+ * Anime4K 超分（Anime4kRows）与缩小置顶，
+ * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），
+ * 内置播放器自动跳过片头（player.autoSkipIntro）与播放时自动检测片头片尾（player.autoDetectIntro），
+ * 播放弹窗的角落小窗（ui.miniPlayer），桌面端的托盘图标（app.tray）与媒体键（player.mediaKeys）。
  */
 import { computed, watch } from 'vue'
 
-import { syncRtxVsr, useMpvPlayer } from '@/features/player'
+import { mpvInfoRows, syncRtxVsr, useMpvPlayer } from '@/features/player'
+import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
+import { usePlatform } from '@/composables/use-platform'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
+import Anime4kRows from './Anime4kRows.vue'
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRadioList, {
   type SettingsRadioOption,
@@ -91,8 +154,31 @@ const setMpvCompact = (on: boolean): void => {
 }
 
 const miniPlayer = useSetting('ui.miniPlayer')
+const autoSkipIntro = useSetting('player.autoSkipIntro')
+const autoDetectIntro = useSetting('player.autoDetectIntro')
+const autoSwitchSource = useSetting('online.autoSwitchSource')
+const stallSeconds = useSetting('online.stallSeconds')
+const stallOptions = [3, 5, 8, 10, 15].map(value => ({
+  value,
+  label: `${value} 秒`,
+}))
+
+// ── 系统集成（桌面端） ─────────────────────────────────────
+const { isElectron } = usePlatform()
+const trayIcon = useSetting('app.tray')
+const mediaKeys = useSetting('player.mediaKeys')
+const mediaKeysHint = navigator.userAgent.includes('Mac')
+  ? '内置播放器播放时，键盘的播放 / 暂停、上一集、下一集键控制播放；需在「系统设置 → 隐私与安全性 → 辅助功能」中允许影盒'
+  : '内置播放器播放时，键盘的播放 / 暂停、上一集、下一集键控制播放；不在播放时不占用'
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
+
+/** mpv 播放信息（编码、分辨率、超分、地址类型），没在播放时为空 */
+const mpvInfoText = computed(() =>
+  mpvInfoRows(mpvState.value)
+    .map(row => `${row.label}：${row.value}`)
+    .join(' · ')
+)
 
 /** 当前播放分辨率文案：片源 →（超分后） */
 const mpvResolutionText = computed(() => {
