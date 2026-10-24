@@ -144,6 +144,7 @@ const ADDED_API: Record<string, string[]> = {
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: ['focus', 'saveFocus'],
+  capture: ['savePng', 'frame', 'gifAvailable', 'gif', 'reveal'],
 }
 
 beforeAll(async () => {
