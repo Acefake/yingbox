@@ -288,7 +288,7 @@ describe('提示词', () => {
     expect(system.content).toContain('150–250')
     expect(system.content).toContain('不要推测或透露之后的剧情')
     expect(user.content).toContain('《漫长的季节》')
-    expect(user.content).toContain('【S01E07】王响发现卷宗')
+    expect(user.content).toContain('<material>\n【S01E07】王响发现卷宗')
     expect(user.content).toContain('【S01E08（分集简介）】')
   })
 
@@ -314,10 +314,14 @@ describe('提示词', () => {
     expect(system).toContain('32:10')
     expect(system).toContain('绝不能透露')
     expect(system).toContain('我不确定')
-    expect(system).toContain('最近台词')
-    expect(system).toContain('【第 1 段】开头')
+    // 素材不在 system 里，而是单独一条 user 消息，用 <material> 包起来
+    expect(system).not.toContain('最近台词')
+    expect(messages[1].role).toBe('user')
+    expect(messages[1].content).toContain('最近台词')
+    expect(messages[1].content).toContain('【第 1 段】开头')
+    expect(messages[2].role).toBe('assistant')
     expect(messages.at(-1)).toEqual({ role: 'user', content: '他是谁？' })
-    expect(messages.length).toBe(1 + 6 + 1)
+    expect(messages.length).toBe(1 + 2 + 6 + 1)
   })
 
   it('时间与范围文案', () => {

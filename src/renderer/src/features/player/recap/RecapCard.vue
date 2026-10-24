@@ -91,8 +91,7 @@ const teaser = computed(() => {
   position: absolute;
   top: var(--space-4);
   left: var(--space-4);
-  z-index: var(--z-popover);
-  width: min(320px, 70vw);
+  width: min(320px, calc(100cqw - 2 * var(--space-4)));
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
@@ -105,8 +104,8 @@ const teaser = computed(() => {
 }
 
 .recap-card.is-expanded {
-  width: min(380px, 80vw);
-  max-height: min(420px, 70vh);
+  width: min(380px, calc(100cqw - 2 * var(--space-4)));
+  max-height: min(420px, calc(100cqh - 2 * var(--space-4)));
 }
 
 .recap-card-head {

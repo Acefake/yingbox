@@ -1,5 +1,10 @@
 <template>
-  <aside class="plot-qa" aria-label="问剧情">
+  <aside
+    class="plot-qa"
+    :class="{ 'is-compact': compact }"
+    aria-label="问剧情"
+    @pointerdown.stop
+  >
     <DialogTitlebar title="问剧情" icon="sparkle" @close="state.close" />
     <p class="plot-qa-scope">只根据当前进度之前的剧情回答，不剧透</p>
     <div ref="listEl" class="plot-qa-list">
@@ -24,6 +29,7 @@
     </div>
     <div class="plot-qa-input">
       <UiInput
+        ref="inputRef"
         v-model="input"
         v-enter="submit"
         class="plot-qa-field"
@@ -55,9 +61,10 @@
 <script setup lang="ts">
 /**
  * 播放器右侧的「问剧情」面板：消息列表 + 输入框，回答流式出现。
- * 状态与请求在 usePlotQa，这里只负责展示、Esc 关闭和自动滚到底。
+ * 状态与请求在 usePlotQa，这里只负责展示、打开时聚焦输入框、Esc 关闭和自动滚到底。
+ * 尺寸按播放区容器（cqw / cqh）算；缩在小窗里（compact）铺满小窗、去掉说明行。
  */
-import { nextTick, ref, watch } from 'vue'
+import { nextTick, onMounted, ref, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -69,9 +76,17 @@ import { vEnter } from '@/directives/enter'
 import { formatClock } from '../../../../../shared/recap/prompts'
 import type { PlotQaState } from './use-plot-qa'
 
-const props = defineProps<{ state: PlotQaState }>()
+const props = withDefaults(
+  defineProps<{
+    state: PlotQaState
+    /** 缩在角落小窗里 */
+    compact?: boolean
+  }>(),
+  { compact: false }
+)
 
 const listEl = ref<HTMLElement | null>(null)
+const inputRef = ref<InstanceType<typeof UiInput> | null>(null)
 /** 输入框内容（usePlotQa 的 ref，直接双向绑定） */
 const input = props.state.input
 
@@ -79,6 +94,12 @@ useEscapeLayer(
   () => props.state.open.value,
   () => props.state.close()
 )
+
+// 从设置菜单 / 右键菜单打开后焦点还停在已隐藏的菜单上：直接放到输入框
+onMounted(async () => {
+  await nextTick()
+  inputRef.value?.focus({ preventScroll: true })
+})
 
 const submit = (): void => {
   void props.state.ask()
@@ -104,8 +125,7 @@ watch(
   top: var(--space-3);
   right: var(--space-3);
   bottom: 56px; /* style-tokens: layout（避开底部控制栏） */
-  z-index: var(--z-popover);
-  width: min(340px, 86vw);
+  width: min(340px, calc(100cqw - 2 * var(--space-3)));
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
@@ -114,6 +134,17 @@ watch(
   box-shadow: var(--shadow-lg);
   color: var(--text-primary);
   overflow: hidden;
+}
+
+/* 小窗：Artplayer 控制栏已隐藏，面板铺满小窗，底部让出小窗自己的悬停控制条 */
+.plot-qa.is-compact {
+  inset: var(--space-1) var(--space-1) 44px; /* style-tokens: layout（避开小窗控制条） */
+  width: auto;
+  border-radius: var(--radius-md);
+}
+
+.plot-qa.is-compact .plot-qa-scope {
+  display: none;
 }
 
 .plot-qa-scope {

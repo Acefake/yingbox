@@ -41,6 +41,7 @@
       v-if="state"
       :key="state.id"
       :payload="state.payload"
+      :mini="state.minimized"
       @title="title = $event"
       @video="onVideo"
     />

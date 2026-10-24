@@ -150,7 +150,14 @@ const ENTITIES: Record<string, string> = {
   nbsp: ' ',
 }
 
-/** 读 NFO 里的 <plot>（容忍 CDATA、实体与多余空白）；没有或为空时返回 null */
+/** 数字实体可解码的码点：0..0x10ffff 且不在代理区 0xd800–0xdfff */
+function isValidCodePoint(n: number): boolean {
+  return (
+    Number.isInteger(n) && n >= 0 && n <= 0x10ffff && (n < 0xd800 || n > 0xdfff)
+  )
+}
+
+/** 读 NFO 里的 <plot>（容忍 CDATA、实体与多余空白，越界的数字实体原样保留）；没有或为空时返回 null */
 export function nfoPlot(content: string): string | null {
   const match = /<plot>([\s\S]*?)<\/plot>/i.exec(content)
   if (!match) return null
@@ -162,7 +169,7 @@ export function nfoPlot(content: string): string | null {
         code[1] === 'x' || code[1] === 'X'
           ? parseInt(code.slice(2), 16)
           : parseInt(code.slice(1), 10)
-      return Number.isFinite(n) ? String.fromCodePoint(n) : all
+      return isValidCodePoint(n) ? String.fromCodePoint(n) : all
     })
     .replace(/\s+/g, ' ')
     .trim()

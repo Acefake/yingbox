@@ -116,3 +116,55 @@ export function isLocalEndpoint(baseUrl: string): boolean {
     (a === 169 && b === 254)
   )
 }
+
+/** 设置值按服务商预设兜底后的接口地址 / 模型，以及是否本地 */
+export interface AiEndpoint {
+  /** 接口地址，已去掉结尾斜杠 */
+  baseUrl: string
+  model: string
+  /** 本机 / 局域网服务商 */
+  local: boolean
+}
+
+/** 设置里的接口地址 / 模型：空串用服务商预设；Ollama 或指向本机 / 局域网算本地 */
+export function resolveAiEndpoint(values: {
+  provider: AiProviderId
+  baseUrl: string
+  model: string
+}): AiEndpoint {
+  const preset = aiProviderPreset(values.provider)
+  const baseUrl = (values.baseUrl.trim() || preset.baseUrl).replace(/\/+$/, '')
+  return {
+    baseUrl,
+    model: values.model.trim() || preset.model,
+    local: preset.id === 'ollama' || isLocalEndpoint(baseUrl),
+  }
+}
+
+/**
+ * 已解析的配置能否发请求；能发时返回 null，否则返回原因（主进程 assertUsable 与渲染层共用这一处判定）。
+ * 不做兜底：接口地址 / 模型应先经 {@link resolveAiEndpoint}。
+ */
+export function aiConfigProblem(input: {
+  provider: AiProviderId
+  baseUrl: string
+  model: string
+  local: boolean
+  hasKey: boolean
+}): string | null {
+  if (!input.baseUrl) return '还没有填写 AI 接口地址'
+  let url: URL
+  try {
+    url = new URL(input.baseUrl)
+  } catch {
+    return 'AI 接口地址格式不对'
+  }
+  if (url.protocol !== 'https:' && url.protocol !== 'http:')
+    return 'AI 接口地址只支持 http / https'
+  if (url.protocol === 'http:' && !input.local)
+    return '非本地的 AI 接口需要 https 地址'
+  if (!input.model.trim()) return '还没有填写对话模型'
+  if (aiProviderPreset(input.provider).needsKey && !input.hasKey)
+    return '还没有填写 API Key'
+  return null
+}
