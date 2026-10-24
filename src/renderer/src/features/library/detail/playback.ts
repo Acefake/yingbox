@@ -12,6 +12,7 @@ import {
   openMediaPlayer,
 } from '@/features/player'
 
+import type { WatchlistMeta } from '@/features/watchlist'
 import { serverFileUrl } from '@/services/library-server'
 
 import { usesLibraryServer } from '../api/bridge'
@@ -19,7 +20,7 @@ import { itemImage } from '../api/images'
 import { sectionOf } from '../state/library-section'
 import { findLibrary } from '../state/use-libraries'
 import { baseName, episodeCode } from '../shared/format'
-import { sortedSeasons } from './detail-rules'
+import { seasonOrder, sortedSeasons } from './detail-rules'
 
 /** 节点自身的视频文件（按路径排序：分段 / 多版本按文件名顺序）。 */
 export function videoFileEntries(node: LibraryItemNode): LibraryItemFile[] {
@@ -54,6 +55,8 @@ export interface PlayRequest {
   index: number
   /** 所属条目（电影本身 / 剧集的剧），记「继续播放」用 */
   item: LibraryItemNode
+  /** 只是作品的一部分（后面还有季）：播完不算整部看完 */
+  partial?: boolean
 }
 
 /** 电影：全部视频文件按顺序连播（分段电影 CD1 / CD2）。 */
@@ -72,7 +75,24 @@ export function moviePlayRequest(node: LibraryItemNode): PlayRequest | null {
   }
 }
 
-/** 剧集：从某一集开始，按本季顺序连播。 */
+/**
+ * 这一季播完后剧集是否还没看完：后面还有有文件的正片季。
+ * 特别篇（第 0 季）排在最后，但只要有正片季就不算整部的结尾。
+ */
+export function hasLaterSeason(
+  series: LibraryItemNode,
+  season: LibraryItemNode
+): boolean {
+  return sortedSeasons(series).some(
+    other =>
+      other.id !== season.id &&
+      other.seasonNumber !== 0 &&
+      (season.seasonNumber === 0 || seasonOrder(other) > seasonOrder(season)) &&
+      playableEpisodes(other).length > 0
+  )
+}
+
+/** 剧集：从某一集开始，按本季顺序连播；后面还有季时标 partial。 */
 export function episodePlayRequest(
   series: LibraryItemNode,
   season: LibraryItemNode,
@@ -91,6 +111,7 @@ export function episodePlayRequest(
     fileIds: firsts.map(file => file.id),
     index,
     item: series,
+    ...(hasLaterSeason(series, season) ? { partial: true } : {}),
   }
 }
 
@@ -117,12 +138,22 @@ export function continueMetaOf(item: LibraryItemNode): ContinueMeta {
   }
 }
 
+/** 「想看」登记：分区、键与继续播放相同（整部看完时据此移出清单），另带竖版海报。 */
+export function watchlistMetaOf(item: LibraryItemNode): WatchlistMeta {
+  const { section, key, title, cover, detail } = continueMetaOf(item)
+  const poster = itemImage(item.poster, 300) ?? undefined
+  return { section, key, title, poster, cover, detail }
+}
+
 /** 打开播放器；没有可用播放器返回 false。 */
 export async function play(
   request: PlayRequest,
   poster?: string
 ): Promise<boolean> {
-  const continueAs = continueMetaOf(request.item)
+  const continueAs = {
+    ...continueMetaOf(request.item),
+    ...(request.partial ? { partial: true } : {}),
+  }
   if (usesLibraryServer()) {
     const playlist = request.playlist.map((item, i) => ({
       url: serverFileUrl(request.fileIds[i]),
