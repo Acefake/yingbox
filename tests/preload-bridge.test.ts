@@ -144,6 +144,7 @@ const ADDED_API: Record<string, string[]> = {
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
   media: ['focus', 'saveFocus'],
+  mpv: [...LEGACY_API['mpv']!, 'setAnime4k'],
 }
 
 beforeAll(async () => {

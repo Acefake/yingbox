@@ -26,6 +26,7 @@
     >
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
+    <Anime4kRows />
     <SettingsRow
       v-if="mpvState.running"
       title="缩小置顶"
@@ -51,7 +52,8 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）与缩小置顶，
+ * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
+ * Anime4K 超分（Anime4kRows）与缩小置顶，
  * 播放弹窗的角落小窗（ui.miniPlayer）。
  */
 import { computed, watch } from 'vue'
@@ -60,6 +62,7 @@ import { syncRtxVsr, useMpvPlayer } from '@/features/player'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
+import Anime4kRows from './Anime4kRows.vue'
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRadioList, {
   type SettingsRadioOption,
