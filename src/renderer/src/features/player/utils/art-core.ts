@@ -15,6 +15,7 @@ import {
 } from './art-options'
 import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
+import { installScreenshot } from '../screenshot/screenshot'
 import { artSkinControls, installQualityBadge } from './art-skin'
 import { type HlsSession, createHlsSession } from './hls-session'
 
@@ -102,6 +103,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   installQualityBadge(art)
   installPlaybackInfo(art, hls.instance)
   installSleepTimer(art)
+  installScreenshot(art, input.controls)
 
   // 恢复上次使用的倍速，并记住本次改动（跨集 / 跨会话）
   applyPlaybackRate(art.video, getSetting('player.playbackRate'))
