@@ -18,6 +18,8 @@ export interface AiProviderPreset {
   needsKey: boolean
   /** 是否支持 response_format: json_schema */
   jsonSchema: boolean
+  /** 对话模型一栏的说明；省略用通用说明 */
+  modelHint?: string
 }
 
 /** 全部预设（设置页按此顺序列出） */
@@ -45,6 +47,18 @@ export const AI_PROVIDERS: readonly AiProviderPreset[] = [
     model: 'openai/gpt-4o-mini',
     needsKey: true,
     jsonSchema: true,
+  },
+  {
+    // OpenCode Go 订阅（https://opencode.ai/docs/go）：只接 Chat Completions 那一类模型，
+    // 走 Anthropic /messages、OpenAI /responses 的模型（Qwen、MiniMax M3、Grok、GPT Luna 等）不支持
+    id: 'opencode-go',
+    label: 'OpenCode Go',
+    baseUrl: 'https://opencode.ai/inference/go/openai/v1',
+    model: 'glm-5.3-flash',
+    needsKey: true,
+    jsonSchema: false,
+    modelHint:
+      '留空用 glm-5.3-flash；只支持 Chat Completions 模型（GLM、Kimi、DeepSeek、MiMo 等）',
   },
   {
     id: 'ollama',
@@ -81,6 +95,7 @@ export type AiKeySecret =
   | 'ai.apiKey.openai'
   | 'ai.apiKey.deepseek'
   | 'ai.apiKey.openrouter'
+  | 'ai.apiKey.opencode-go'
   | 'ai.apiKey.custom'
 
 /** 服务商对应的 Key 密钥名；Ollama 为 null */

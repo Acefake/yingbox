@@ -10,6 +10,7 @@ export type AiProviderId =
   | 'openai'
   | 'deepseek'
   | 'openrouter'
+  | 'opencode-go'
   | 'ollama'
   | 'custom'
 

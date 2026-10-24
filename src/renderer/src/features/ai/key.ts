@@ -5,18 +5,20 @@
  * 启动快照里的密钥状态，之后跟随 secretChanged 事件（任一窗口修改都会广播）。
  */
 import { reactive } from 'vue'
-import { aiKeySecret } from '../../../../shared/ai/providers'
+import { AI_PROVIDERS, aiKeySecret } from '../../../../shared/ai/providers'
 import type { AiProviderId } from './types'
 
 const bridge = typeof window !== 'undefined' ? window.api?.settings : undefined
 const snapshot = bridge?.snapshot().secrets
 
-const configured = reactive<Record<string, boolean>>({
-  'ai.apiKey.openai': snapshot?.['ai.apiKey.openai'] ?? false,
-  'ai.apiKey.deepseek': snapshot?.['ai.apiKey.deepseek'] ?? false,
-  'ai.apiKey.openrouter': snapshot?.['ai.apiKey.openrouter'] ?? false,
-  'ai.apiKey.custom': snapshot?.['ai.apiKey.custom'] ?? false,
-})
+const configured = reactive<Record<string, boolean>>(
+  Object.fromEntries(
+    AI_PROVIDERS.flatMap(p => {
+      const key = aiKeySecret(p.id)
+      return key ? [[key, snapshot?.[key] ?? false]] : []
+    })
+  )
+)
 
 bridge?.onSecretChanged(change => {
   if (change.key in configured) configured[change.key] = change.configured

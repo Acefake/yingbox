@@ -63,7 +63,10 @@
         />
       </template>
     </SettingsRow>
-    <SettingsRow title="对话模型" description="留空使用服务商推荐模型">
+    <SettingsRow
+      title="对话模型"
+      :description="preset.modelHint ?? '留空使用服务商推荐模型'"
+    >
       <UiInput
         v-model="model"
         type="text"
