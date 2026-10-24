@@ -95,6 +95,23 @@ export function davStatusError(status: number): DavError {
   return new DavError('http', `服务器返回 ${status}`, status)
 }
 
+/**
+ * 207 里有资源级失败时抛错：请求的目录本身失败按它的状态码分类（403 → auth 等）；
+ * 子项失败按 http 类处理（不归为 not-found，免得调用方把整个目录当成已删除）。
+ * 不能把失败项当空目录交出去，否则扫描会把已有记录全部删掉。
+ */
+function throwOnFailure(entries: DavEntry[], path: string): void {
+  for (const entry of entries) {
+    if (entry.failure === undefined) continue
+    if (entry.path === path) throw davStatusError(entry.failure)
+    throw new DavError(
+      'http',
+      `子项 ${entry.path} 读取失败（服务器返回 ${entry.failure}）`,
+      entry.failure
+    )
+  }
+}
+
 /** PROPFIND 客户端。 */
 export interface DavClient {
   /** 列目录（Depth: 1）或只取目录本身（Depth: 0），结果路径相对源根目录。 */
@@ -149,7 +166,9 @@ export function createDavClient(
             )
           : davStatusError(response.status)
       }
-      return parseMultistatus(await response.text(), basePath)
+      const entries = parseMultistatus(await response.text(), basePath)
+      throwOnFailure(entries, normalizeRemotePath(path))
+      return entries
     },
   }
 }

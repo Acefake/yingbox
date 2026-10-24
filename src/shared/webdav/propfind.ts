@@ -4,6 +4,10 @@
  * 兼容常见服务端的写法差异：命名空间前缀任意（D: / d: / lp1: / 无前缀）、href 是绝对地址或绝对路径、
  * href 编码或不编码、目录的 href 带不带结尾斜杠、找不到的属性放在 404 的 propstat 里（空元素）。
  * Alist 的 WebDAV、群晖 / 威联通 WebDAV Server、Apache mod_dav、nginx-dav-ext、rclone serve webdav 都是这种格式。
+ *
+ * 外层 207 只说明请求被处理了，单个资源仍可能失败：`<response>` 自带非 2xx 的 `<status>`，
+ * 或所有 propstat 都是失败状态（如 403）。这类项带 failure（HTTP 状态码），由调用方当成读取失败，
+ * 不能当成空目录或普通文件。
  */
 import { normalizeRemotePath } from './remote-path'
 
@@ -27,6 +31,8 @@ export interface DavEntry {
   lastModified: number | null
   /** getetag 原文（去掉弱校验前缀和引号）；没给为 null。 */
   etag: string | null
+  /** 资源级失败的 HTTP 状态码（如 403）；成功的项没有这个字段。 */
+  failure?: number
 }
 
 const ENTITIES: Record<string, string> = {
@@ -76,10 +82,36 @@ function firstText(xml: string, local: string): string | null {
   return null
 }
 
+/** status 行（如 HTTP/1.1 403 Forbidden）里的状态码；没有或解析不了为 null。 */
+function statusCode(line: string | null): number | null {
+  const match = line && /(?:^|\s)(\d{3})(?:\s|$)/.exec(line)
+  return match ? Number(match[1]) : null
+}
+
 /** propstat 是否成功（没有 status 元素时按成功处理）。 */
 function propstatOk(block: string): boolean {
-  const status = firstText(block, 'status')
-  return !status || /\s2\d\d(\s|$)/.test(` ${status}`)
+  const code = statusCode(firstText(block, 'status'))
+  return code === null || (code >= 200 && code < 300)
+}
+
+/**
+ * 资源级失败的状态码：response 自身的 status 非 2xx，或有 propstat 但全部失败（取第一个失败码）；
+ * 成功时为 null。
+ */
+function responseFailure(block: string, propstats: string[]): number | null {
+  const own = statusCode(
+    firstText(
+      block.replace(
+        /<(?:[\w.-]+:)?propstat[\s\S]*?<\/(?:[\w.-]+:)?propstat\s*>/gi,
+        ''
+      ),
+      'status'
+    )
+  )
+  if (own !== null && (own < 200 || own >= 300)) return own
+  if (propstats.length && !propstats.some(propstatOk))
+    return statusCode(firstText(propstats[0], 'status'))
+  return null
 }
 
 /** href → 解码后的绝对路径（去掉协议与主机）；解码失败时按原文处理。 */
@@ -129,8 +161,16 @@ export function parseMultistatus(xml: string, basePath: string): DavEntry[] {
     if (!href) continue
     const path = relativeToBase(hrefPath(href), basePath)
     if (path === null) continue
+    const name = path === '/' ? '' : path.slice(path.lastIndexOf('/') + 1)
+    const propstats = elements(block, 'propstat')
+    const failure = responseFailure(block, propstats)
+    if (failure !== null) {
+      const base = { path, name, size: 0, lastModified: null, etag: null }
+      entries.push({ ...base, isDir: /\/$/.test(href), failure })
+      continue
+    }
     // 只取成功的 propstat 里的属性
-    const props = elements(block, 'propstat').filter(propstatOk).join('\n')
+    const props = propstats.filter(propstatOk).join('\n')
     const source = props || block
     const isDir =
       /<(?:[\w.-]+:)?collection[\s/>]/i.test(
@@ -139,7 +179,7 @@ export function parseMultistatus(xml: string, basePath: string): DavEntry[] {
     const size = Number(firstText(source, 'getcontentlength') ?? 0)
     entries.push({
       path,
-      name: path === '/' ? '' : path.slice(path.lastIndexOf('/') + 1),
+      name,
       isDir,
       size: isDir || !Number.isFinite(size) || size < 0 ? 0 : size,
       lastModified: parseHttpDate(firstText(source, 'getlastmodified')),
