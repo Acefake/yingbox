@@ -19,6 +19,7 @@ export { getMediaProgress } from './utils/play-progress'
 export { mpvInfoRows } from './playback-info/info-rules'
 /** 「继续播放」：各板块顶部的横排卡片与记录 */
 export { default as ContinueRow } from './continue/ContinueRow.vue'
+export { onContinueFinished } from './continue/continue-store'
 export type {
   ContinueMeta,
   ContinueRecord,

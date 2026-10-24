@@ -40,6 +40,14 @@ const fakes = vi.hoisted(() => {
       add(item: { name?: string }): void {
         this.items.push(item)
       },
+      update(item: { name?: string }): void {
+        const i = this.items.findIndex(it => it.name === item.name)
+        if (i >= 0) this.items[i] = item
+        else this.items.push(item)
+      },
+      find(name: string): { $tooltip?: HTMLElement } | undefined {
+        return this.items.some(it => it.name === name) ? {} : undefined
+      },
     }
     contextmenu = {
       show: false,
@@ -397,6 +405,8 @@ describe('播放弹窗', () => {
     const art = fakes.arts[0]
     for (const part of [art.layers, art.setting, art.contextmenu])
       expect(part.items.map(it => it.name)).toContain('ybPlaybackInfo')
+    // 以及睡眠定时菜单项
+    expect(art.setting.items.map(it => it.name)).toContain('ybSleep')
     // 页面还在（弹窗只是盖在上面）
     expect(t.root.textContent).toContain('甲页')
     t.unmount()
