@@ -1,10 +1,11 @@
 /**
- * 海报墙的纯规则：渲染格的构造（快速滚动时推迟图片）、状态角标、方向键移动、点击修饰键。
+ * 海报墙的纯规则：渲染格的构造（快速滚动时推迟图片）、状态角标、动态范围小标、方向键移动、点击修饰键。
  * 不依赖 Vue / DOM，便于单测。
  */
 import type { CSSProperties } from 'vue'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
+import { videoRangeBadge } from '../../../../../shared/video-range'
 
 /** 一个渲染格。 */
 export interface Cell {
@@ -14,6 +15,8 @@ export interface Cell {
   src: string | null
   badge: string
   rating: string
+  /** 动态范围小标（DV / HDR / HLG）；SDR 与没探测过为空串 */
+  range: string
   selected: boolean
   style: CSSProperties
 }
@@ -62,6 +65,7 @@ export function buildCells(input: CellInput): Cell[] {
           ? (STATE_BADGES[item.matchState] ?? '')
           : '',
       rating: item ? input.rating(item.rating) : '',
+      range: videoRangeBadge(item?.videoRange),
       selected: item ? input.selected.has(item.id) : false,
       style: { transform: `translate3d(${x}px, ${y}px, 0)` },
     })

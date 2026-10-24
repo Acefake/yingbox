@@ -52,6 +52,7 @@
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
           }}</span>
+          <span v-if="cell.range" class="lib-cell-range">{{ cell.range }}</span>
           <svg
             v-if="cell.selected"
             class="lib-cell-check"

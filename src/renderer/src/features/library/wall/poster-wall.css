@@ -74,7 +74,8 @@
   word-break: break-word;
 }
 .lib-cell-badge,
-.lib-cell-rating {
+.lib-cell-rating,
+.lib-cell-range {
   position: absolute;
   padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
@@ -91,6 +92,11 @@
 .lib-cell-rating {
   bottom: var(--space-2);
   left: var(--space-2);
+}
+/* 动态范围小标：右下角，和评分一左一右 */
+.lib-cell-range {
+  right: var(--space-2);
+  bottom: var(--space-2);
 }
 .lib-cell-check {
   position: absolute;

@@ -8,11 +8,11 @@ import Artplayer from 'artplayer'
 import { getSetting, setSetting } from '@/features/settings'
 
 import {
-  type ArtOption,
   applyPlaybackRate,
   artOptions,
   isValidPlaybackRate,
 } from './art-options'
+import { RATE_STEPS } from '../hotkeys/hotkey-map'
 import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
 import { installScreenshot } from '../screenshot/screenshot'
@@ -34,7 +34,6 @@ export interface ArtSink {
   event: (name: ArtEventName, event: Event) => void
   /** 播放失败（地址解析之后的任何错误） */
   error: () => void
-  keydown: (event: KeyboardEvent) => void
   /** 开播：收起加载层 */
   started: () => void
   /** 元数据 / HLS 清单就绪：跳到续播位置 */
@@ -60,8 +59,20 @@ export interface ArtCoreInput {
   autoplay: boolean
   controls: boolean
   sink: ArtSink
-  /** 追加到控制栏的控件（如弹幕的「弹」按钮） */
-  extraControls?: NonNullable<ArtOption['controls']>
+}
+
+/**
+ * 双击：Artplayer 自带的双击全屏关掉（它是全局开关），每个实例默认自己切全屏；
+ * 播放弹窗的会话认领后按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
+ */
+Artplayer.DBCLICK_FULLSCREEN = false
+/** 内置「播放速度」菜单与 < / > 快捷键同一组档位（全局静态，只此一处设） */
+Artplayer.PLAYBACK_RATE = [...RATE_STEPS]
+const dblclickClaimed = new WeakSet<Artplayer>()
+
+/** 由调用方接管这个实例的双击（不再默认切全屏） */
+export function claimDblclick(art: Artplayer): void {
+  dblclickClaimed.add(art)
 }
 
 /** 创建实例。节点还没挂到文档上，调用方把 core.node 放进自己的容器。 */
@@ -93,12 +104,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
       controls: input.controls,
       hls: hlsType,
     }),
-    controls: input.controls
-      ? [
-          ...artSkinControls(() => sink.subtitles()),
-          ...(input.extraControls ?? []),
-        ]
-      : [],
+    controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
   installPlaybackInfo(art, hls.instance)
@@ -132,10 +138,8 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   art.on('video:ended', (event: Event) => sink.event('ended', event))
   art.on('video:pause', (event: Event) => sink.event('pause', event))
 
-  const onKeydown = (event: KeyboardEvent): void => sink.keydown(event)
-  art.template.$player.addEventListener('keydown', onKeydown)
-  art.on('destroy', () => {
-    art.template?.$player?.removeEventListener('keydown', onKeydown)
+  art.on('dblclick', () => {
+    if (!dblclickClaimed.has(art)) art.fullscreen = !art.fullscreen
   })
 
   return { art, hls, node }

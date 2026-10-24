@@ -8,6 +8,7 @@ import {
 } from '../../../shared/library/ipc'
 import type { ItemChanges } from '../catalog/catalog-store'
 import type { FollowupSpec } from '../jobs/followups'
+import type { LibraryServiceOptions } from './service-options'
 
 /** 扫描任务载荷。 */
 export interface ScanPayload {
@@ -22,14 +23,15 @@ export interface LibraryPayload {
   libraryId: number
 }
 
-/** 任务优先级：用户手动扫描 > 监听触发 > 解析 > 指纹。 */
+/** 任务优先级：用户手动扫描 > 监听触发 > 解析 > 指纹 / 动态范围探测。 */
 export const PRIORITY = {
   scan: 20,
   watch: 10,
   parse: 5,
   fingerprint: 0,
+  probe: 0,
 } as const
-/** 指纹 / 解析任务每批处理的文件数。 */
+/** 指纹 / 解析 / 动态范围探测任务每批处理的文件数。 */
 export const BACKGROUND_BATCH = 500
 /** 同时读取的文件数：每个读 128 KiB，网络盘上并发过高反而更慢。 */
 export const FINGERPRINT_CONCURRENCY = 8
@@ -52,9 +54,9 @@ export function mergeScanPayload(a: unknown, b: unknown): ScanPayload {
 /** 扫描任务的排队键：同一媒体库的扫描合并。 */
 export const scanJobKey = (libraryId: number): string => `library:${libraryId}`
 
-/** 一个库的解析 / 指纹任务（键 <类型>:<库>，同库合并）。 */
+/** 一个库的解析 / 指纹 / 动态范围探测任务（键 <类型>:<库>，同库合并）。 */
 export const libraryJobSpec = (
-  type: 'parse' | 'fingerprint',
+  type: 'parse' | 'fingerprint' | 'probe',
   libraryId: number
 ): FollowupSpec => ({
   type,
@@ -62,6 +64,23 @@ export const libraryJobSpec = (
   payload: { libraryId } satisfies LibraryPayload,
   priority: PRIORITY[type],
 })
+
+/**
+ * 存储判定完后本地盘的库要补排的读文件任务：宿主提供了 probeVideo 时补动态范围探测（启动时补上没探测过的），
+ * fingerprint 时再补指纹（存储从网盘回到本地盘，补上按网盘处理期间跳过的）；网盘不补。
+ */
+export function backfillJobs(
+  cloud: boolean,
+  fingerprint: boolean,
+  host: Pick<LibraryServiceOptions, 'probeVideo'>
+): Array<'fingerprint' | 'probe'> {
+  if (cloud) return []
+  const jobs: Array<'fingerprint' | 'probe'> = fingerprint
+    ? ['fingerprint']
+    : []
+  if (host.probeVideo) jobs.push('probe')
+  return jobs
+}
 
 /**
  * 一个媒体库的 items-changed 事件；没有变化返回 null。

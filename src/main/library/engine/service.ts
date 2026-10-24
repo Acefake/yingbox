@@ -1,12 +1,10 @@
 /**
  * 媒体库服务：把数据库、任务队列、扫描器、监控组装起来，实现 IPC 契约的每个方法，
  * 并把变化广播给订阅方。新文件的链路：监控（事件 / 定时扫描 / 外部变更通知）→ 增量扫描（写入稳定判定）→
- * 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」）。
- * 这条链写成各任务定义里的后继（followups，规则见 jobs/followups.ts），由任务队列统一派发。
+ * 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」）。这条链写成各任务定义里的后继（followups，规则见 jobs/followups.ts），由任务队列统一派发。
  *
- * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。
- * 扫描 / 解析 / 指纹任务的实现在 library-jobs，纯规则在 service-rules，变化入口在 library-watch。
- * 网盘模式的库不读视频内容：后台指纹跳过，识别时的时长探测 / 哈希限速（见 cloud-reads）。
+ * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。扫描 / 解析 / 指纹 / 动态范围探测任务在 library-jobs，纯规则在 service-rules，变化入口在 library-watch。
+ * 网盘模式的库不读视频内容：后台指纹 / 动态范围探测跳过，识别时的时长探测 / 哈希限速（见 cloud-reads）。
  */
 import type {
   ApplyMatchRequest,
@@ -57,6 +55,7 @@ import { type LibraryJobDeps, registerLibraryJobs } from './library-jobs'
 import {
   PRIORITY,
   type ScanPayload,
+  backfillJobs,
   itemsChangedEvent,
   libraryJobSpec,
   scanJobKey,
@@ -88,7 +87,7 @@ export class LibraryService {
   private readonly fingerprint: (path: string) => Promise<string | undefined>
   private readonly log: (message: string) => void
 
-  constructor(options: LibraryServiceOptions) {
+  constructor(private readonly options: LibraryServiceOptions) {
     this.db = openLibraryDb(options.dbPath)
     this.libraries = new LibraryStore(this.db)
     this.scanStore = new ScanStore(this.db)
@@ -117,6 +116,7 @@ export class LibraryService {
       scanStore: this.scanStore,
       catalog: this.catalog,
       fingerprint: backgroundRead,
+      probeVideo: options.probeVideo,
       remote: options.remote,
       libraryFor: id => this.libraryFor(id),
       onLibraryScanned: id => {
@@ -349,7 +349,7 @@ export class LibraryService {
     this.emit({ type: 'libraries-changed', libraries: this.listLibraries() })
   }
 
-  /** 存储判定完后再广播一次列表；fingerprint：判为本地盘的库补排指纹（补上按网盘处理期间跳过的）。 */
+  /** 存储判定完后再广播一次列表；判为本地盘的库补排读文件任务（见 backfillJobs）。 */
   private emitLibrariesWhenJudged(
     libs: LibraryRecord[],
     fingerprint = false
@@ -357,8 +357,8 @@ export class LibraryService {
     void Promise.all(libs.map(lib => this.watch.isCloud(lib))).then(clouds => {
       this.emitLibraries()
       for (const [i, lib] of libs.entries())
-        if (fingerprint && !clouds[i])
-          this.queue.enqueue(libraryJobSpec('fingerprint', lib.id))
+        for (const type of backfillJobs(clouds[i], fingerprint, this.options))
+          this.queue.enqueue(libraryJobSpec(type, lib.id))
     })
   }
 

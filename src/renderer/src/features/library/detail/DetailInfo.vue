@@ -13,12 +13,13 @@
     <div class="lib-info-block">
       <h2 class="lib-section-title">文件</h2>
       <ul class="lib-files">
-        <li v-for="file in files" :key="file.id" class="lib-file">
+        <li v-for="{ file, tag } in rows" :key="file.id" class="lib-file">
           <div class="lib-file-text">
             <div class="lib-file-name" :title="file.path">
               {{ baseName(file.path) }}
             </div>
             <div class="lib-file-meta">
+              <span v-if="tag" class="lib-file-range">{{ tag }}</span>
               {{ formatBytes(file.size) }} · {{ dirName(file.path) }}
             </div>
           </div>
@@ -36,16 +37,24 @@
 </template>
 
 <script setup lang="ts">
-/** 详情里的信息与文件区块：信息表（原名、上映、编剧……），视频文件列表与「在文件夹中显示」。 */
+/** 详情里的信息与文件区块：信息表（原名、上映、编剧……），视频文件列表（含 HDR / 杜比视界小标）与「在文件夹中显示」。 */
+import { computed } from 'vue'
+
 import type { LibraryItemFile } from '../../../../../shared/library/ipc'
+import { videoProbeTag } from '../../../../../shared/video-range'
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { baseName, dirName, formatBytes } from '../shared/format'
 
-defineProps<{
+const props = defineProps<{
   infoRows: Array<{ label: string; value: string }>
   files: LibraryItemFile[]
 }>()
+
+/** 文件行：动态范围小标在这里算一次 */
+const rows = computed(() =>
+  props.files.map(file => ({ file, tag: videoProbeTag(file.video) }))
+)
 
 function reveal(path: string): void {
   void window.api?.shell?.openPath(dirName(path))
@@ -73,6 +82,17 @@ function reveal(path: string): void {
   margin: 0;
   color: var(--text-primary);
   word-break: break-word;
+}
+.lib-file-range {
+  display: inline-block;
+  margin-right: var(--space-1);
+  padding: 0 var(--space-1);
+  border: 1px solid var(--border-default);
+  border-radius: var(--radius-xs);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.5;
+  color: var(--text-secondary);
 }
 .lib-files {
   margin: 0;

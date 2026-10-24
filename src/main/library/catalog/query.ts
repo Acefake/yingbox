@@ -16,14 +16,34 @@ import type {
 } from '../../../shared/library/ipc'
 import type { NormalizedLibraryQuery } from '../../../shared/library/ipc'
 import { normalizeTitle } from '../../../shared/library/scoring'
+import { VIDEO_RANGE_RANK, type VideoRange } from '../../../shared/video-range'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { facetClauses, listFacetValues } from './facet-sql'
 import { filterClauses } from './filter-sql'
 import { registerJavKind } from './jav-kind'
 
+/**
+ * 条目自身及子孙（季 / 集）全部文件里最好的动态范围档位；一个都没探测过为 NULL。
+ * 树最多三层（剧 → 季 → 集），用两层子查询代替递归。
+ */
+const RANGE_RANK_COLUMN = `(SELECT MAX(CASE f.video_range
+    WHEN 'dv' THEN ${VIDEO_RANGE_RANK.dv} WHEN 'hdr10' THEN ${VIDEO_RANGE_RANK.hdr10}
+    WHEN 'hlg' THEN ${VIDEO_RANGE_RANK.hlg} WHEN 'sdr' THEN ${VIDEO_RANGE_RANK.sdr} END)
+  FROM file_media fm JOIN files f ON f.id = fm.file_id
+  WHERE fm.item_id = i.id OR fm.item_id IN (
+    SELECT c.id FROM media_items c WHERE c.parent_id = i.id
+    UNION ALL
+    SELECT e.id FROM media_items e JOIN media_items s ON e.parent_id = s.id
+    WHERE s.parent_id = i.id)) AS range_rank`
+
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
   i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
-  i.added_at, i.updated_at`
+  i.added_at, i.updated_at, ${RANGE_RANK_COLUMN}`
+
+/** 档位排名 → 动态范围（与 VIDEO_RANGE_RANK 同序；0 = SDR）。 */
+const RANGE_BY_RANK = Object.fromEntries(
+  Object.entries(VIDEO_RANGE_RANK).map(([range, rank]) => [rank, range])
+) as Record<number, VideoRange>
 
 /** 详情额外的列。 */
 const DETAIL_COLUMNS = `i.parent_id, i.season_number, i.episode_number, i.overview,
@@ -39,6 +59,21 @@ const SORT_COLUMN: Record<LibrarySortField, string> = {
 
 /** trigram 至少 3 个字符才能用 FTS；更短的查询退回 LIKE。 */
 const TRIGRAM_MIN = 3
+
+/** 文件行里的探测结果；没探测过（NULL）或读不出（''）时不带。 */
+function fileVideo(
+  row: Record<string, unknown>
+): Pick<LibraryItemFile, 'video'> {
+  const range = row.video_range
+  if (typeof range !== 'string' || !range) return {}
+  return {
+    video: {
+      range: range as VideoRange,
+      dvProfile: row.dv_profile === null ? null : Number(row.dv_profile),
+      dvCompat: row.dv_compat === null ? null : Number(row.dv_compat),
+    },
+  }
+}
 
 function toSummary(row: Record<string, unknown>): LibraryItemSummary {
   const providerIds: LibraryItemSummary['providerIds'] = {}
@@ -57,6 +92,9 @@ function toSummary(row: Record<string, unknown>): LibraryItemSummary {
     providerIds,
     poster: row.poster === null ? null : String(row.poster),
     backdrop: row.backdrop === null ? null : String(row.backdrop),
+    ...(row.range_rank === null || row.range_rank === undefined
+      ? {}
+      : { videoRange: RANGE_BY_RANK[Number(row.range_rank)] ?? null }),
     rating: row.rating === null ? null : Number(row.rating),
     addedAt: Number(row.added_at),
     updatedAt: Number(row.updated_at),
@@ -222,7 +260,8 @@ export class CatalogQuery {
     const ids = [...nodes.keys()]
     const files = this.sql
       .get(
-        `SELECT fm.item_id, f.id, f.display_path, f.kind, f.size, f.mtime
+        `SELECT fm.item_id, f.id, f.display_path, f.kind, f.size, f.mtime,
+                f.video_range, f.dv_profile, f.dv_compat
          FROM file_media fm JOIN files f ON f.id = fm.file_id
          WHERE fm.item_id IN (SELECT value FROM json_each(?))
          ORDER BY f.display_path`
@@ -235,6 +274,7 @@ export class CatalogQuery {
         kind: row.kind as LibraryFileKind,
         size: Number(row.size),
         mtime: Number(row.mtime),
+        ...fileVideo(row),
       }
       nodes.get(Number(row.item_id))?.files.push(file)
     }
