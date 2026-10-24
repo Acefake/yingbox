@@ -39,8 +39,12 @@ export function installScreenshot(art: Artplayer, withControls: boolean): void {
   let ffmpeg: boolean | null = null
   let savedTimer: number | undefined
   let savedPath = ''
+  // 精简实例（测试替身、裁剪过插件的构建）可能缺少这些 API：缺哪个就跳过哪部分
+  const { layers, controls, contextmenu } = art as Partial<
+    Pick<Artplayer, 'layers' | 'controls' | 'contextmenu'>
+  >
 
-  const saved = art.layers.add({
+  const saved = layers?.add?.({
     name: 'ybCaptureSaved',
     html: `<span class="yb-capture__text"></span><span class="yb-capture__reveal" role="button" tabindex="0">在文件夹中显示</span>`,
   })
@@ -143,7 +147,7 @@ export function installScreenshot(art: Artplayer, withControls: boolean): void {
   }
 
   if (withControls) {
-    art.controls.add({
+    controls?.add?.({
       name: 'ybScreenshot',
       position: 'right',
       index: 24,
@@ -152,7 +156,7 @@ export function installScreenshot(art: Artplayer, withControls: boolean): void {
       click: () => void shoot(),
     })
   }
-  art.contextmenu.add({
+  contextmenu?.add?.({
     name: 'ybScreenshot',
     html: '截图',
     click() {
@@ -160,7 +164,7 @@ export function installScreenshot(art: Artplayer, withControls: boolean): void {
       void shoot()
     },
   })
-  const gifItem = art.contextmenu.add({
+  const gifItem = contextmenu?.add?.({
     name: 'ybScreenshotGif',
     html: '截 GIF（前后 2.5 秒）',
     click() {

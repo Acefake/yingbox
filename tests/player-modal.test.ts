@@ -16,6 +16,18 @@ const fakes = vi.hoisted(() => {
   type Handler = (...args: unknown[]) => void
   const arts: FakeArt[] = []
   const hlsList: FakeHls[] = []
+  /** layers / controls / contextmenu 的最小桩：add 返回一个元素并记下名字 */
+  class FakeComponent {
+    show = false
+    names: string[] = []
+    add(option: { name?: string }): HTMLElement {
+      this.names.push(option.name ?? '')
+      return document.createElement('div')
+    }
+    remove(name: string): void {
+      this.names = this.names.filter(n => n !== name)
+    }
+  }
   class FakeArt {
     option: Record<string, unknown>
     video: HTMLVideoElement
@@ -23,6 +35,9 @@ const fakes = vi.hoisted(() => {
     destroyed = 0
     notice = { show: '' }
     subtitle = { switch: async (): Promise<void> => {} }
+    layers = new FakeComponent()
+    controls = new FakeComponent()
+    contextmenu = new FakeComponent()
     private handlers = new Map<string, Handler[]>()
     constructor(option: Record<string, unknown>) {
       this.option = option
@@ -368,6 +383,11 @@ describe('播放弹窗', () => {
     expect(fakes.arts).toHaveLength(1)
     expect(modal()?.contains(fakes.arts[0].video)).toBe(true)
     expect(fakes.hlsList[0].loads).toEqual([SRC])
+    // 截图插件装上了：保存提示层、右键「截图」「截 GIF」
+    expect(fakes.arts[0].layers.names).toContain('ybCaptureSaved')
+    expect(fakes.arts[0].contextmenu.names).toEqual(
+      expect.arrayContaining(['ybScreenshot', 'ybScreenshotGif'])
+    )
     // 页面还在（弹窗只是盖在上面）
     expect(t.root.textContent).toContain('甲页')
     t.unmount()
