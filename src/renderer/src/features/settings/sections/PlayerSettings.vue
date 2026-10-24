@@ -37,6 +37,11 @@
         @update:model-value="setMpvCompact"
       />
     </SettingsRow>
+    <SettingsRow
+      v-if="mpvInfoText"
+      title="播放信息"
+      :description="`${mpvInfoText}。在 mpv 窗口里按 I 可查看码率、丢帧、硬解等完整统计`"
+    />
   </SettingsGroup>
 
   <SettingsGroup title="小窗">
@@ -56,7 +61,7 @@
  */
 import { computed, watch } from 'vue'
 
-import { syncRtxVsr, useMpvPlayer } from '@/features/player'
+import { mpvInfoRows, syncRtxVsr, useMpvPlayer } from '@/features/player'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
@@ -93,6 +98,13 @@ const setMpvCompact = (on: boolean): void => {
 const miniPlayer = useSetting('ui.miniPlayer')
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
+
+/** mpv 播放信息（编码、分辨率、超分、地址类型），没在播放时为空 */
+const mpvInfoText = computed(() =>
+  mpvInfoRows(mpvState.value)
+    .map(row => `${row.label}：${row.value}`)
+    .join(' · ')
+)
 
 /** 当前播放分辨率文案：片源 →（超分后） */
 const mpvResolutionText = computed(() => {

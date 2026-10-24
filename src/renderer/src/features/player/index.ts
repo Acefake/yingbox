@@ -15,6 +15,8 @@ export {
 } from './composables/use-media-player'
 export { useMpvPlayer } from './composables/use-mpv-player'
 export { getMediaProgress } from './utils/play-progress'
+/** mpv 播放信息行（设置 · 播放器里显示） */
+export { mpvInfoRows } from './playback-info/info-rules'
 /** 「继续播放」：各板块顶部的横排卡片与记录 */
 export { default as ContinueRow } from './continue/ContinueRow.vue'
 export type {
