@@ -152,6 +152,7 @@ const ADDED_API: Record<string, string[]> = {
     'onSeekReady',
     'offSeekReady',
   ],
+  capture: ['savePng', 'frame', 'gifAvailable', 'gif', 'reveal'],
 }
 
 beforeAll(async () => {

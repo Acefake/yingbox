@@ -21,6 +21,7 @@ import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
+import { registerCaptureIpc } from './capture'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { registerDanmakuIpc } from './ipc/danmaku-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
@@ -180,6 +181,7 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
+  registerCaptureIpc()
   registerDanmakuIpc()
   registerMpvIpc()
   await registerLadaIpc()
