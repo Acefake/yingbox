@@ -23,6 +23,7 @@
       class="av-scroll primary-scroll"
       @scroll="browse.onScroll"
     >
+      <ContinueRow section="av" :resume="playback.resumeContinue" />
       <UiSkeleton v-if="browse.loading.value" landscape />
       <StatusState
         v-else-if="browse.error.value"
@@ -164,6 +165,7 @@ import {
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useRoute } from 'vue-router'
+import { ContinueRow } from '@/features/player'
 import AvFavoritesView from '../components/AvFavoritesView.vue'
 import AvHistoryView from '../components/AvHistoryView.vue'
 import AvSearchResults from '../components/AvSearchResults.vue'

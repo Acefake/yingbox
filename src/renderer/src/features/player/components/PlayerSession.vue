@@ -61,6 +61,7 @@ import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
+import { updateContinue } from '../continue/continue-store'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import {
   type PlayerPayload,
@@ -100,7 +101,26 @@ const failure = ref('')
 const failedSource = ref('')
 const retrying = ref(false)
 
-const progress = useProgressSaver(() => progressKey.value)
+/** 「继续播放」记录 id（载荷带了才记） */
+const continueId = ref('')
+
+const progress = useProgressSaver(
+  () => progressKey.value,
+  Date.now,
+  (time, duration, ended) => {
+    // 只记主线路的位置：备用线路是同一集，下标不变
+    updateContinue(continueId.value, {
+      index: position.value,
+      episode:
+        playlist.value.length > 1
+          ? entryLabel(playlist.value[position.value])
+          : undefined,
+      progress: time,
+      duration,
+      ended,
+    })
+  }
+)
 /** 加载世代：丢弃过期的异步解析结果 */
 let loadToken = 0
 let noticeTimer: number | undefined
@@ -243,6 +263,7 @@ const applyPayload = (payload: PlayerPayload): void => {
   fallbacks.value = queue.fallbacks
   activeFallback.value = -1
   poster.value = queue.poster
+  continueId.value = queue.continueId
   // 起始项地址已由调用方解析过，直接复用以避免二次解析（url 始终对应 index 指向的那一集）
   void loadEntry(queue.seededUrl, queue.startAt)
 }

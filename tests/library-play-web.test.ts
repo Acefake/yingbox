@@ -17,6 +17,21 @@ vi.mock('../src/renderer/src/features/library/api/bridge', () => ({
 vi.mock('../src/renderer/src/services/library-server', () => ({
   serverFileUrl: (id: number) => `https://nas.local/media/files/${id}`,
 }))
+vi.mock('../src/renderer/src/features/library/api/images', () => ({
+  itemImage: (url: string | null) => url,
+}))
+vi.mock('../src/renderer/src/features/library/state/use-libraries', () => ({
+  findLibrary: () => ({ id: 3, kind: 'tv', source: 'tmdb' }),
+}))
+
+/** 记进「继续播放」：剧集分区、按剧的 id、封面优先背景图 */
+const continueAs = {
+  section: 'tv',
+  key: '7',
+  title: '剧',
+  cover: 'b.jpg',
+  detail: { itemId: 7 },
+}
 
 const request: PlayRequest = {
   title: '剧 S01E02',
@@ -26,6 +41,14 @@ const request: PlayRequest = {
   ],
   fileIds: [11, 12],
   index: 1,
+  item: {
+    id: 7,
+    libraryId: 3,
+    type: 'series',
+    title: '剧',
+    backdrop: 'b.jpg',
+    poster: 'p.jpg',
+  } as PlayRequest['item'],
 }
 
 beforeEach(() => openMediaPlayer.mockClear())
@@ -42,6 +65,7 @@ describe('媒体库播放入口', () => {
       poster: 'p.jpg',
       playlist: request.playlist,
       index: 1,
+      continueAs,
     })
   })
 
@@ -59,6 +83,7 @@ describe('媒体库播放入口', () => {
         { url: 'https://nas.local/media/files/12', name: 'S01E02' },
       ],
       index: 1,
+      continueAs,
     })
   })
 })
