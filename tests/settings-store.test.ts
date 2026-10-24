@@ -54,6 +54,10 @@ describe('默认值', () => {
     expect(values).not.toHaveProperty('backend.url')
     expect(secrets).toEqual({
       'scrape.tmdbToken': false,
+      'ai.apiKey.openai': false,
+      'ai.apiKey.deepseek': false,
+      'ai.apiKey.openrouter': false,
+      'ai.apiKey.custom': false,
       'danmaku.appSecret': false,
     })
     expect(legacyMigrated).toBe(false)

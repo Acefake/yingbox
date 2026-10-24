@@ -4,6 +4,7 @@
  * 主进程用 `implement(域, handlers)` 注册（src/main/rpc），preload 按本表生成 `window.api`，
  * 渲染层的 `window.api` 类型由 {@link Api} 推导。
  */
+import { ai } from './ai'
 import { app } from './app'
 import { av } from './av'
 import { capture } from './capture'
@@ -29,6 +30,7 @@ import { win } from './win'
 
 /** 全部域，键与域名一致 */
 export const contract = {
+  ai,
   app,
   av,
   capture,

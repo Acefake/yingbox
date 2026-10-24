@@ -40,6 +40,7 @@ import { registerEngine } from './engine'
 import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
 import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
+import { registerAi } from './ai'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 import { installTray } from './tray'
 
@@ -226,6 +227,8 @@ app.whenReady().then(async () => {
     console.warn('[tmdb] 同步令牌到媒体库引擎失败', (error as Error).message)
   )
   registerEngine()
+  // AI 基础层：OpenAI 兼容接口 + 用量统计（所有 AI 功能的入口，见 src/main/ai）
+  registerAi()
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 
