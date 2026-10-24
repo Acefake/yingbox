@@ -351,6 +351,11 @@ const miniSlot = (): HTMLElement | null =>
   document.querySelector('[data-mini-slot]')
 const button = (label: string): HTMLButtonElement | null =>
   document.querySelector<HTMLButtonElement>(`[aria-label="${label}"]`)
+/** 控制栏「小窗」按钮（Artplayer 控件，替身里只记下配置；点击即调用它的 click） */
+const miniControl = (): { click: () => void } | undefined =>
+  fakes.arts.at(-1)?.controls.items.find(item => item.name === 'ybMini') as
+    | { click: () => void }
+    | undefined
 const esc = (init: KeyboardEventInit = {}): void => {
   window.dispatchEvent(
     new KeyboardEvent('keydown', { key: 'Escape', cancelable: true, ...init })
@@ -460,7 +465,7 @@ describe('播放弹窗', () => {
     await openOne()
     const art = fakes.arts[0]
     const video = art.video
-    button('缩小到小窗')!.click()
+    miniControl()!.click()
     await settle()
     expect(await hiddenSoon()).toBe(true)
     expect(miniSlot()?.contains(video)).toBe(true)
@@ -490,7 +495,7 @@ describe('播放弹窗', () => {
     await openOne()
     const art = fakes.arts[0]
     tick(art, 42)
-    button('缩小到小窗')!.click()
+    miniControl()!.click()
     await settle()
     tick(art, 61)
     button('关闭小窗')!.click()
@@ -513,7 +518,7 @@ describe('播放弹窗', () => {
     setPlaying(video)
     const pause = vi.fn()
     video.pause = pause
-    button('缩小到小窗')!.click()
+    miniControl()!.click()
     await settle()
     button('暂停')!.click()
     expect(pause).toHaveBeenCalledTimes(1)
@@ -540,7 +545,7 @@ describe('播放弹窗', () => {
     await settings.setSetting('ui.miniPlayer', false)
     const t = await mountApp()
     await openOne()
-    expect(button('缩小到小窗')).toBeNull()
+    expect(miniControl()).toBeUndefined()
     await t.router.push('/b')
     await settle()
     expect(modalVisible()).toBe(true)
@@ -552,7 +557,7 @@ describe('播放弹窗', () => {
   it('缩小时又播放别的：旧会话拆除，新的在弹窗里展开', async () => {
     const t = await mountApp()
     await openOne()
-    button('缩小到小窗')!.click()
+    miniControl()!.click()
     await settle()
     await openOne({ url: OTHER, title: '另一部' })
     expect(fakes.arts[0].destroyed).toBe(1)
@@ -575,7 +580,7 @@ describe('播放弹窗', () => {
       ],
       index: 0,
     })
-    button('缩小到小窗')!.click()
+    miniControl()!.click()
     await settle()
     fakes.arts[0].emit('video:ended', new Event('ended'))
     await settle()
@@ -638,7 +643,7 @@ describe('小窗与 Esc 层栈', () => {
     await openOne()
     const art = fakes.arts[0]
     setPlaying(art.video)
-    button('缩小到小窗')!.click()
+    miniControl()!.click()
     await settle()
     esc()
     await settle()

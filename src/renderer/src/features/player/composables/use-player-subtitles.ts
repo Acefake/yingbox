@@ -1,5 +1,6 @@
 /**
- * 播放器字幕：本地同目录字幕自动挂载（多个候选时加切换菜单）与在线字幕（OpenSubtitles）搜索 / 下载。
+ * 播放器字幕：本地同目录字幕自动挂载、在线字幕（OpenSubtitles）搜索 / 下载、AI 字幕挂载，
+ * 以及齿轮菜单「字幕」二级页要列的字幕轨（tracks / active，菜单见 settings-menu/install-menu.ts）。
  * 字幕统一由主进程转成 WebVTT，以 blob URL 交给 Artplayer；切集或销毁期间返回的结果直接丢弃。
  */
 import { type Ref, ref } from 'vue'
@@ -10,6 +11,13 @@ export interface LocalSubtitle {
   name: string
   path: string
   ext: string
+}
+
+/** 一条可选的字幕轨（本地候选、下载过的在线字幕、AI 字幕） */
+export interface SubtitleTrack {
+  name: string
+  /** 本地文件路径；在线字幕为 online:<fileId> */
+  path: string
 }
 
 /** 在线字幕搜索结果的一项 */
@@ -60,7 +68,13 @@ export interface PlayerSubtitles {
   applyLocal: (instance: Artplayer, source: string) => Promise<void>
   /** 挂载一个字幕文件（AI 字幕生成后用）；成功返回 true */
   applyFile: (path: string, name: string) => Promise<boolean>
-  /** 释放当前字幕的 blob URL */
+  /** 这一集可选的字幕轨 */
+  tracks: Ref<SubtitleTrack[]>
+  /** 当前挂着的字幕轨路径；没有为 null */
+  active: Ref<string | null>
+  /** 切到某条字幕轨（菜单里选的）；成功返回 true */
+  selectTrack: (path: string) => Promise<boolean>
+  /** 切集 / 销毁：释放 blob URL、清空字幕轨 */
   dispose: () => void
 }
 
@@ -69,11 +83,62 @@ export function usePlayerSubtitles(
   options: PlayerSubtitlesOptions
 ): PlayerSubtitles {
   let objectUrl: string | null = null
+  const tracks = ref<SubtitleTrack[]>([])
+  const active = ref<string | null>(null)
+  /** 已转成 WebVTT 的字幕：切回来时不用再读 / 再下载 */
+  const loaded = new Map<string, string>()
 
-  const dispose = (): void => {
+  const revoke = (): void => {
     if (!objectUrl) return
     URL.revokeObjectURL(objectUrl)
     objectUrl = null
+  }
+
+  /** 切集 / 销毁的世代号：挂载等待 switch 期间变了就丢弃结果 */
+  let generation = 0
+
+  const dispose = (): void => {
+    generation++
+    revoke()
+    tracks.value = []
+    active.value = null
+    loaded.clear()
+  }
+
+  const addTrack = (track: SubtitleTrack): void => {
+    if (!tracks.value.some(t => t.path === track.path))
+      tracks.value = [...tracks.value, track]
+  }
+
+  /** 把一段 WebVTT 挂到实例上并记为当前字幕轨 */
+  const mount = async (
+    instance: Artplayer,
+    track: SubtitleTrack,
+    vtt: string
+  ): Promise<boolean> => {
+    if (options.player() !== instance) return false
+    const started = generation
+    revoke()
+    const url = URL.createObjectURL(new Blob([vtt], { type: 'text/vtt' }))
+    objectUrl = url
+    await instance.subtitle.switch(url, { name: track.name, type: 'vtt' })
+    // 等待期间切集 / 关弹窗：不复活上一集的字幕轨；dispose 已释放过时不重复释放
+    if (generation !== started || options.player() !== instance) {
+      if (objectUrl === url) revoke()
+      return false
+    }
+    loaded.set(track.path, vtt)
+    addTrack(track)
+    active.value = track.path
+    return true
+  }
+
+  /** 读本地字幕文件（主进程转成 WebVTT，含 GBK 编码转换） */
+  const readFile = async (path: string): Promise<string | null> => {
+    const cached = loaded.get(path)
+    if (cached) return cached
+    const read = await window.api?.subtitle?.read(path)
+    return read?.success && read.data ? read.data : null
   }
 
   const isLocalSource = (url: string): boolean => url.startsWith('local://')
@@ -145,15 +210,9 @@ export function usePlayerSubtitles(
           : downloaded?.error || '下载失败'
         return
       }
-      if (options.player() !== instance) return
-      dispose()
-      objectUrl = URL.createObjectURL(
-        new Blob([downloaded.data], { type: 'text/vtt' })
-      )
-      await instance.subtitle.switch(objectUrl, {
-        name: hit.name,
-        type: 'vtt',
-      })
+      const track = { name: hit.name, path: `online:${hit.fileId}` }
+      if (!(await mount(instance, track, downloaded.data))) return
+      instance.subtitle.show = true
       instance.notice.show = `字幕：${hit.name}`
       panelOpen.value = false
     } catch (error) {
@@ -187,70 +246,42 @@ export function usePlayerSubtitles(
     // 等待期间可能已切集/销毁播放器，此时放弃挂载
     if (!list.length || options.player() !== instance) return
 
-    const switchTo = async (item: LocalSubtitle): Promise<boolean> => {
-      if (options.player() !== instance) return false
-      try {
-        const read = await subtitleApi.read(item.path)
-        if (!read?.success || !read.data) return false
-        if (options.player() !== instance) return false
-        dispose()
-        objectUrl = URL.createObjectURL(
-          new Blob([read.data], { type: 'text/vtt' })
-        )
-        await instance.subtitle.switch(objectUrl, {
-          name: item.name,
-          type: 'vtt',
-        })
-        return true
-      } catch {
-        return false
-      }
-    }
-
-    // 默认加载最佳匹配（与视频同名者优先）
-    const applied = await switchTo(list[0])
-    if (!applied || options.player() !== instance) return
-
-    // 多个候选时提供字幕切换菜单；菜单失败不应影响已生效的字幕
-    if (list.length > 1) {
-      try {
-        instance.setting.add({
-          name: 'localSubtitle',
-          html: '字幕',
-          selector: list.map(item => ({
-            html: item.name,
-            subtitlePath: item.path,
-          })),
-          onSelect(
-            this: Artplayer,
-            item: { html: string; subtitlePath?: string }
-          ) {
-            const target = list.find(sub => sub.path === item.subtitlePath)
-            if (target) void switchTo(target)
-            this.notice.show = `字幕：${item.html}`
-          },
-        })
-      } catch {
-        // ignore
-      }
+    for (const item of list) addTrack({ name: item.name, path: item.path })
+    // 默认加载最佳匹配（与视频同名者优先）；切换在齿轮菜单「字幕」里
+    try {
+      const vtt = await readFile(list[0].path)
+      if (vtt) await mount(instance, list[0], vtt)
+    } catch {
+      // 读不出就只列出候选
     }
   }
 
   const applyFile = async (path: string, name: string): Promise<boolean> => {
-    const api = window.api?.subtitle
     const instance = options.player()
-    if (!api?.read || !instance) return false
+    if (!window.api?.subtitle?.read || !instance) return false
     try {
-      const read = await api.read(path)
-      if (!read?.success || !read.data || options.player() !== instance)
-        return false
-      dispose()
-      objectUrl = URL.createObjectURL(
-        new Blob([read.data], { type: 'text/vtt' })
-      )
-      await instance.subtitle.switch(objectUrl, { name, type: 'vtt' })
+      const vtt = await readFile(path)
+      if (!vtt || !(await mount(instance, { name, path }, vtt))) return false
       instance.subtitle.show = true
       instance.notice.show = `字幕：${name}`
+      return true
+    } catch {
+      return false
+    }
+  }
+
+  const selectTrack = async (path: string): Promise<boolean> => {
+    const instance = options.player()
+    const track = tracks.value.find(t => t.path === path)
+    if (!instance || !track) return false
+    if (active.value === path) {
+      instance.subtitle.show = true
+      return true
+    }
+    try {
+      const vtt = await readFile(path)
+      if (!vtt || !(await mount(instance, track, vtt))) return false
+      instance.subtitle.show = true
       return true
     } catch {
       return false
@@ -269,6 +300,9 @@ export function usePlayerSubtitles(
     applyOnline,
     applyLocal,
     applyFile,
+    tracks,
+    active,
+    selectTrack,
     dispose,
   }
 }

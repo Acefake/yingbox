@@ -3,6 +3,7 @@
  * 写方法都应在调用方的事务里执行。
  */
 import type { LibraryFileKind } from '../../../shared/library/ipc'
+import type { VideoProbe } from '../../../shared/video-range'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { subtreeRange } from './rules'
 import type {
@@ -141,7 +142,7 @@ export class ScanStore {
 
   /**
    * 更新已有文件的位置、大小、时间与解析结果。
-   * 内容变了（大小或 mtime 不同）时清掉指纹，等指纹任务重算；时长同理清空，下次识别重新探测。
+   * 内容变了（大小或 mtime 不同）时清掉指纹，等指纹任务重算；时长与动态范围三列（video_range / dv_profile / dv_compat）同理清空，之后重新探测。
    */
   updateFile(
     id: number,
@@ -155,7 +156,10 @@ export class ScanStore {
         `UPDATE files SET path = ?, display_path = ?, dir = ?, name = ?, size = ?,
            mtime = ?, parsed = ?, parser_version = ?, state = ?, updated_at = ?,
            fingerprint = ?,
-           duration = CASE WHEN size = ? AND mtime = ? THEN duration END
+           duration = CASE WHEN size = ? AND mtime = ? THEN duration END,
+           video_range = CASE WHEN size = ? AND mtime = ? THEN video_range END,
+           dv_profile = CASE WHEN size = ? AND mtime = ? THEN dv_profile END,
+           dv_compat = CASE WHEN size = ? AND mtime = ? THEN dv_compat END
          WHERE id = ?`
       )
       .run(
@@ -170,6 +174,12 @@ export class ScanStore {
         parsed.state,
         now,
         fingerprint,
+        file.size,
+        file.mtime,
+        file.size,
+        file.mtime,
+        file.size,
+        file.mtime,
         file.size,
         file.mtime,
         id
@@ -200,6 +210,36 @@ export class ScanStore {
          ORDER BY id LIMIT ?`
       )
       .all(libraryId, limit)
+      .map(r => ({ id: Number(r.id), displayPath: String(r.display_path) }))
+  }
+
+  /** 写入动态范围探测结果；probe 为 null 表示 ffprobe 读完了但没有正片视频流（记 ''，不再重试）。瞬时失败不写。 */
+  setVideoProbe(id: number, probe: VideoProbe | null): void {
+    this.sql
+      .get(
+        'UPDATE files SET video_range = ?, dv_profile = ?, dv_compat = ? WHERE id = ?'
+      )
+      .run(
+        probe?.range ?? '',
+        probe?.dvProfile ?? null,
+        probe?.dvCompat ?? null,
+        id
+      )
+  }
+
+  /** 一批还没探测动态范围的视频文件（id 大于 afterId，按 id 升序）。 */
+  unprobed(
+    libraryId: number,
+    afterId: number,
+    limit: number
+  ): Array<{ id: number; displayPath: string }> {
+    return this.sql
+      .get(
+        `SELECT id, display_path FROM files
+         WHERE library_id = ? AND kind = 'video' AND video_range IS NULL AND id > ?
+         ORDER BY id LIMIT ?`
+      )
+      .all(libraryId, afterId, limit)
       .map(r => ({ id: Number(r.id), displayPath: String(r.display_path) }))
   }
 

@@ -136,6 +136,8 @@ function mountSubtitle(
     loaded = true
     render()
   })
+  // 齿轮菜单 / 快捷键 C 切换显示后同步激活态
+  art.on('subtitle', render)
   $el.addEventListener('click', () => {
     if (!loaded) {
       onRequest()

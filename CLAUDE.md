@@ -83,7 +83,7 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 - `/movie` → Movie library ([features/library/MovieLibraryPage.vue](src/renderer/src/features/library/MovieLibraryPage.vue)), TMDB libraries only
 - `/tv` → TV library ([features/library/TvLibraryPage.vue](src/renderer/src/features/library/TvLibraryPage.vue))
 
-`App.vue` wraps routes in `AppLayout` with `<keep-alive>` and mounts the in-app player modal + mini player once (`features/player`, ADR-0015). `DetailWindow` renders inline as the online content page.
+`App.vue` wraps routes in `AppLayout` with `<keep-alive>` and mounts the in-app player modal + mini player once (`features/player`, ADR-0015; hotkeys / gear menu / DV P5 routing in `hotkeys/`, `settings-menu/`, `utils/playback-route.ts`, ADR-0016). `DetailWindow` renders inline as the online content page.
 
 Key directories under `src/renderer/src/`:
 

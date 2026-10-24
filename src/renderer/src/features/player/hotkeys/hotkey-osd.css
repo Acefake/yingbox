@@ -1,0 +1,50 @@
+/*
+ * 快捷键反馈：画面中央的半透明圆角块（图标 + 一行文字），出现后约 0.65 秒淡出。
+ */
+.unified-player-core .yb-osd {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 72px;
+  padding: var(--space-3) var(--space-4);
+  color: var(--media-text);
+  border-radius: var(--radius-xl);
+  background: var(--overlay-scrim);
+  opacity: 0;
+  transform: translate(-50%, -50%) scale(0.92);
+  transition:
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out);
+  pointer-events: none;
+}
+
+.unified-player-core .yb-osd.is-visible {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+
+.unified-player-core .yb-osd__icon {
+  display: flex;
+  width: 32px;
+  height: 32px;
+}
+
+.unified-player-core .yb-osd__icon svg {
+  width: 100%;
+  height: 100%;
+}
+
+.unified-player-core .yb-osd__text {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+.unified-player-core .yb-osd__text:empty {
+  display: none;
+}

@@ -10,7 +10,7 @@
 
 - **本地媒体库** — scans movie/TV folders, scrapes TMDB metadata, writes Kodi-standard NFO + images
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
-- **内置播放器** — in-app player modal (desktop and web, ADR-0015): local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
+- **内置播放器** — in-app player modal (desktop and web, ADR-0015; YouTube-style keys / gear menu / next-episode countdown and HDR / Dolby Vision detection with DV P5 → mpv, ADR-0016): local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
 Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; the desktop app never talks to it.
 
@@ -157,6 +157,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0013](docs/adr/0013-poster-face-focus.md) 海报人脸取景
 - [0014](docs/adr/0014-plugin-isolation-and-session-origin.md) 插件隔离与会话来源
 - [0015](docs/adr/0015-in-app-player-modal.md) 应用内播放弹窗 + 角落小窗，桌面与网页一套，不开独立窗口
+- [0016](docs/adr/0016-youtube-style-player-and-video-range.md) 播放器交互照 YouTube；媒体库识别 HDR / 杜比视界，P5 交给 mpv
 
 ## UI conventions
 
