@@ -1,7 +1,10 @@
 /**
  * 播放器里前情提要 / 问剧情的纯规则：什么时候浮出提示卡、错误怎么说。
  */
-import { aiProviderPreset } from '../../../../../shared/ai/providers'
+import {
+  aiConfigProblem,
+  resolveAiEndpoint,
+} from '../../../../../shared/ai/providers'
 import type { AiErrorCode, AiProviderId } from '../../../../../shared/ai/types'
 import type { RecapProbe } from '../../../../../shared/recap/types'
 
@@ -11,7 +14,7 @@ export const FROM_BEGINNING_SECONDS = 5
 export const CARD_AUTO_HIDE_MS = 15_000
 
 /**
- * AI 是否已配置到能发请求（与主进程 assertUsable 的判断一致：地址、模型、需要 Key 的服务商有 Key）。
+ * AI 是否已配置到能发请求：设置按预设兜底后交给 shared 的 aiConfigProblem，与主进程 assertUsable 同一处判定。
  * 只看设置，不测连通性。
  */
 export function recapAiReady(input: {
@@ -21,10 +24,14 @@ export function recapAiReady(input: {
   /** 当前服务商的 Key 是否已保存 */
   keySaved: boolean
 }): boolean {
-  const preset = aiProviderPreset(input.provider)
-  if (!(input.baseUrl.trim() || preset.baseUrl)) return false
-  if (!(input.model.trim() || preset.model)) return false
-  return !preset.needsKey || input.keySaved
+  const endpoint = resolveAiEndpoint(input)
+  return (
+    aiConfigProblem({
+      provider: input.provider,
+      ...endpoint,
+      hasKey: input.keySaved,
+    }) === null
+  )
 }
 
 /** 开播时要不要浮出「前情提要」提示卡 */

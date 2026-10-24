@@ -9,8 +9,6 @@
 import { type WebContents, app } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
-import { RECAP_MAX_PREVIOUS, recapKey } from '../../shared/recap/budget'
-import { previousEpisodes } from '../../shared/recap/episodes'
 import type {
   RecapContext,
   RecapEpisodeRef,
@@ -30,22 +28,10 @@ import { decodeSubtitleText } from '../subtitle'
 import { TMDB_SECRET, effectiveTmdbToken } from '../tmdb'
 import { createRecapCache } from './cache'
 import { type Summarizer, createSummarizer } from './summarize'
-import {
-  type LocatedMaterial,
-  type SourceDeps,
-  findTvshowTmdbId,
-  listEpisodes,
-  locateMaterial,
-  once,
-  standaloneFile,
-} from './sources'
+import { type Gathered, gatherMaterial, gatheredCacheKey } from './gather'
+import { type LocatedMaterial, type SourceDeps, redactToken } from './sources'
 
 const TMDB_API = 'https://api.themoviedb.org/3'
-
-/** 错误信息里出现的令牌换成 *** */
-export function redactToken(message: string, token: string): string {
-  return token ? message.split(token).join('***') : message
-}
 
 /**
  * TMDB 分集简介：先中文，没有再英文。
@@ -98,25 +84,13 @@ const sourceDeps: SourceDeps = {
   tmdbOverview,
 }
 
-/** 一次请求定位到的素材 */
-interface Gathered {
-  videoPath: string
-  show: string
-  episode: RecapEpisodeRef | null
-  current: LocatedMaterial | null
-  previous: LocatedMaterial[]
-}
-
 const refOf = (item: LocatedMaterial): RecapEpisodeRef => ({
   label: item.file.label,
   episode: item.file.episode,
   ...(item.file.season === undefined ? {} : { season: item.file.season }),
 })
 
-/**
- * 定位当前集与之前几集的素材：看文件名、修改时间，读同目录的 NFO 与 tvshow.nfo；
- * 不读字幕、不联网、不调模型。withCurrent 时连本集素材一起定位。
- */
+/** 本地地址 → 素材汇总；不是本地文件时返回 null */
 async function gather(
   localUrl: string,
   isPrivate: boolean,
@@ -124,44 +98,7 @@ async function gather(
 ): Promise<Gathered | null> {
   const videoPath = localUrlToFilePath(localUrl)
   if (!videoPath) return null
-  const listing = await listEpisodes(videoPath, sourceDeps)
-  const current = listing.current
-  const options = {
-    allowNetwork: !isPrivate,
-    tmdbId: once(() => findTvshowTmdbId(videoPath, sourceDeps)),
-  }
-  const candidates = current
-    ? previousEpisodes(current, listing.siblings, RECAP_MAX_PREVIOUS)
-    : []
-  const previous = (
-    await Promise.all(
-      candidates.map(file =>
-        locateMaterial(file, listing.names, sourceDeps, options)
-      )
-    )
-  ).filter((item): item is LocatedMaterial => item !== null)
-  // 本集只用台词（分集简介会剧透），所以本集不联网
-  const currentMaterial = withCurrent
-    ? await locateMaterial(
-        current ?? standaloneFile(videoPath),
-        listing.names,
-        sourceDeps,
-        { ...options, allowNetwork: false }
-      )
-    : null
-  return {
-    videoPath,
-    show: current?.show ?? standaloneFile(videoPath).show,
-    episode: current
-      ? {
-          label: current.label,
-          episode: current.episode,
-          ...(current.season === undefined ? {} : { season: current.season }),
-        }
-      : null,
-    current: currentMaterial,
-    previous,
-  }
+  return gatherMaterial(videoPath, sourceDeps, { isPrivate, withCurrent })
 }
 
 /** 渲染层发起、还没结束的 prepare：键为「webContents id:requestId」 */
@@ -239,12 +176,7 @@ export function registerRecap(): void {
       show: found.show,
       episode: found.episode,
       previous,
-      cacheKey: found.episode
-        ? recapKey(
-            found.videoPath,
-            found.previous.map(item => item.key)
-          )
-        : '',
+      cacheKey: gatheredCacheKey(found),
     }
     if (qa)
       context.current = await summarizer.current(
@@ -267,10 +199,7 @@ export function registerRecap(): void {
           cacheKey: '',
           cached: null,
         }
-      const cacheKey = recapKey(
-        found.videoPath,
-        found.previous.map(item => item.key)
-      )
+      const cacheKey = gatheredCacheKey(found)
       return {
         show: found.show,
         episode: found.episode,
@@ -288,6 +217,10 @@ export function registerRecap(): void {
         return await prepare(localUrl, options, signal)
       } finally {
         done()
+        // 这次 prepare 里新写的摘要合并成一次落盘（不阻塞返回）
+        void cache.flush().catch(error => {
+          console.warn('[recap] 写摘要缓存失败', error)
+        })
       }
     },
 
@@ -299,6 +232,7 @@ export function registerRecap(): void {
 
     save: async (_, options) => {
       await cache.set(options.cacheKey, options.text, options.private !== true)
+      await cache.flush()
     },
   })
 }

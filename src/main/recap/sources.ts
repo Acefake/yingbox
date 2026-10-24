@@ -100,6 +100,15 @@ export interface LocateOptions {
   tmdbId: () => Promise<string | null>
 }
 
+/** 解析 NFO 简介；任何解析异常都当作没有简介 */
+function safeNfoPlot(content: string): string | null {
+  try {
+    return nfoPlot(content)
+  } catch {
+    return null
+  }
+}
+
 const located = (
   file: EpisodeFile,
   identity: MaterialIdentity,
@@ -152,7 +161,7 @@ export async function locateMaterial(
   const nfoName = names.find(name => name.toLowerCase() === `${stem}.nfo`)
   if (nfoName) {
     const nfoPath = join(dir, nfoName)
-    const plot = nfoPlot(await deps.readText(nfoPath).catch(() => ''))
+    const plot = safeNfoPlot(await deps.readText(nfoPath).catch(() => ''))
     const info = plot ? await deps.stat(nfoPath) : null
     if (plot && info)
       return located(
@@ -203,6 +212,11 @@ export async function findTvshowTmdbId(
     dir = parent
   }
   return null
+}
+
+/** 错误信息里出现的令牌换成 ***（TMDB 请求失败时脱敏，避免令牌进日志） */
+export function redactToken(message: string, token: string): string {
+  return token ? message.split(token).join('***') : message
 }
 
 /** 懒加载且只查一次 */

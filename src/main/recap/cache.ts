@@ -2,6 +2,7 @@
  * 前情提要的摘要缓存：分段摘要、整集摘要、前情提要都按键存一份文本。
  *
  * - 普通内容落盘（userData/recap/cache.json，原子写、串行），超过上限按最早写入淘汰；
+ *   set 只改内存并标脏，写盘合并成一次：调用方在一次 prepare / 保存结束时 flush，兜底再按延迟自动写；
  * - 私密板块的内容只放内存（persist=false），关掉应用就没了，不留在磁盘上。
  * 不依赖 Electron：读写由 index.ts 注入，测试可替换。
  */
@@ -13,14 +14,18 @@ export interface RecapCacheDeps {
   write: (text: string) => Promise<void>
   /** 落盘条目上限（默认 3000） */
   maxEntries?: number
+  /** set 之后没人 flush 时，多久自动写盘（默认 2000ms） */
+  flushDelayMs?: number
   now?: () => number
 }
 
 /** 摘要缓存 */
 export interface RecapCache {
   get(key: string): Promise<string | undefined>
-  /** persist 为 false 时只放内存（私密内容） */
+  /** persist 为 false 时只放内存（私密内容）；落盘的条目先标脏，由 flush / 延迟写盘合并写入 */
   set(key: string, text: string, persist: boolean): Promise<void>
+  /** 有未写盘的条目时立即写一次（串行；没有改动时不写） */
+  flush(): Promise<void>
 }
 
 interface Entry {
@@ -62,10 +67,13 @@ export function pruneEntries(
 /** 创建摘要缓存 */
 export function createRecapCache(deps: RecapCacheDeps): RecapCache {
   const max = deps.maxEntries ?? 3000
+  const delay = deps.flushDelayMs ?? 2000
   const now = deps.now ?? Date.now
   const memory = new Map<string, string>()
   let loaded: Promise<Map<string, Entry>> | null = null
   let chain: Promise<unknown> = Promise.resolve()
+  let dirty = false
+  let timer: ReturnType<typeof setTimeout> | null = null
 
   const load = (): Promise<Map<string, Entry>> => {
     loaded ??= deps
@@ -73,6 +81,40 @@ export function createRecapCache(deps: RecapCacheDeps): RecapCache {
       .catch(() => null)
       .then(parseCacheFile)
     return loaded
+  }
+
+  const flush = (): Promise<void> => {
+    if (timer) {
+      clearTimeout(timer)
+      timer = null
+    }
+    const next = chain.then(async () => {
+      if (!dirty) return
+      dirty = false
+      const entries = await load()
+      try {
+        await deps.write(
+          JSON.stringify({
+            version: FILE_VERSION,
+            entries: Object.fromEntries(entries),
+          })
+        )
+      } catch (error) {
+        dirty = true
+        throw error
+      }
+    })
+    chain = next.catch(() => {})
+    return next
+  }
+
+  const schedule = (): void => {
+    if (timer) return
+    timer = setTimeout(() => {
+      timer = null
+      flush().catch(() => {})
+    }, delay)
+    ;(timer as { unref?: () => void }).unref?.()
   }
 
   return {
@@ -87,21 +129,17 @@ export function createRecapCache(deps: RecapCacheDeps): RecapCache {
         memory.set(key, text)
         return
       }
-      const next = chain.then(async () => {
-        const entries = pruneEntries(
-          (await load()).set(key, { text, at: now() }),
-          max
-        )
-        loaded = Promise.resolve(entries)
-        await deps.write(
-          JSON.stringify({
-            version: FILE_VERSION,
-            entries: Object.fromEntries(entries),
-          })
-        )
-      })
-      chain = next.catch(() => {})
-      await next
+      // 原地淘汰：并发的 set 拿到的始终是同一个 Map
+      const entries = (await load()).set(key, { text, at: now() })
+      if (entries.size > max) {
+        const kept = pruneEntries(entries, max)
+        entries.clear()
+        for (const [k, v] of kept) entries.set(k, v)
+      }
+      dirty = true
+      schedule()
     },
+
+    flush,
   }
 }

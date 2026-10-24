@@ -353,6 +353,8 @@ describe('摘要缓存', () => {
     const cache = createRecapCache({ read: async () => null, write })
     await cache.set('k1', '普通', true)
     await cache.set('k2', '私密', false)
+    expect(write).not.toHaveBeenCalled()
+    await cache.flush()
     expect(await cache.get('k1')).toBe('普通')
     expect(await cache.get('k2')).toBe('私密')
     expect(write).toHaveBeenCalledTimes(1)
