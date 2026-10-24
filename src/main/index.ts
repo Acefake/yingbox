@@ -25,6 +25,7 @@ import { registerSubtitleIpc } from './ipc/subtitle-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
+import { registerIntroDetectIpc } from './intro-detect'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
 import { registerEngine } from './engine'
@@ -181,6 +182,7 @@ app.whenReady().then(async () => {
   registerSubtitleIpc()
   registerMpvIpc()
   await registerLadaIpc()
+  registerIntroDetectIpc()
   const libraryClient = registerLibraryIpc(thumbnails)
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描

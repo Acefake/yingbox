@@ -128,6 +128,8 @@ export const settingsSchema = {
   'player.playbackRate': num(0.25, 4, 1),
   /** 内置播放器进入已标记的片头时自动跳过 */
   'player.autoSkipIntro': bool(false),
+  /** 播放本地剧集时在后台自动检测本季片头片尾 */
+  'player.autoDetectIntro': bool(false),
 
   /** TMDB 元数据语言 */
   'scrape.metadataLanguage': oneOf(

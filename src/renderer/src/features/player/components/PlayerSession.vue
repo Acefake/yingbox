@@ -29,6 +29,7 @@
     <SkipOverlay
       :art
       :series="skipKey(continueId, defaultTitle)"
+      :queue="playlist"
       :up-next="
         playlist[position + 1] ? entryLabel(playlist[position + 1]) : ''
       "
@@ -112,7 +113,6 @@ const position = ref(0)
 const fallbacks = ref<PlaylistEntry[]>([])
 /** 当前使用的备用线路下标；-1 = 主线路 */
 const activeFallback = ref(-1)
-
 const defaultTitle = ref('正在播放')
 
 /** 播放失败且已无备用线路时展示的可操作错误信息 */

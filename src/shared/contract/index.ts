@@ -9,6 +9,7 @@ import { av } from './av'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { download } from './download'
+import { introDetect } from './intro-detect'
 import { lada } from './lada'
 import { libraryNotify } from './library-notify'
 import { media } from './media'
@@ -26,6 +27,7 @@ export const contract = {
   av,
   dialog,
   download,
+  introDetect,
   lada,
   libraryNotify,
   media,
