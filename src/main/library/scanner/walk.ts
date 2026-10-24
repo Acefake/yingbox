@@ -12,14 +12,9 @@ import type { Dirent, Stats } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
 import { join, resolve } from 'node:path'
 import { setImmediate as yieldToLoop } from 'node:timers/promises'
+import { diffDirectory } from './diff-dir'
 import { fileKindOf, isIgnoredName, parentKey, pathKey } from './rules'
-import type {
-  DirChange,
-  ScanDiff,
-  ScanSnapshot,
-  ScannedFile,
-  StoredDir,
-} from './types'
+import type { ScanDiff, ScanSnapshot, ScannedFile, StoredDir } from './types'
 
 /** 遍历参数。 */
 export interface WalkOptions {
@@ -130,7 +125,7 @@ export async function walkLibrary(
   const visited = new Set<string>()
 
   /** 根据 readdir 结果对比快照，记录差异，返回需要继续下钻的子目录。 */
-  const diffDirectory = (
+  const diffListing = (
     displayPath: string,
     key: string,
     dirStats: Stats,
@@ -139,49 +134,26 @@ export async function walkLibrary(
     descendKnown: boolean
   ): string[] => {
     diff.stats.filesStatted += listing.files.length
-    const oldFiles = new Map(snapshot.filesIn(key).map(f => [f.key, f]))
-    const change: DirChange = {
-      dir: {
-        key,
-        displayPath,
-        parent: key === rootKey ? null : parentKey(key),
-        mtime: dirStats.mtimeMs > racyBefore ? RACY_MTIME : dirStats.mtimeMs,
-      },
-      added: [],
-      changed: [],
-      removed: [],
+    const dir = {
+      key,
+      displayPath,
+      parent: key === rootKey ? null : parentKey(key),
+      mtime: dirStats.mtimeMs > racyBefore ? RACY_MTIME : dirStats.mtimeMs,
     }
-    for (const file of listing.files) {
-      const old = oldFiles.get(file.key)
-      if (!old) change.added.push(file)
-      else {
-        oldFiles.delete(file.key)
-        if (old.size !== file.size || old.mtime !== file.mtime) {
-          change.changed.push({ ...file, id: old.id })
-        }
-      }
-    }
-    change.removed.push(...oldFiles.values())
-
-    const known = new Map(snapshot.childDirs(key).map(d => [d.key, d]))
-    const next: string[] = []
-    for (const sub of listing.subdirs) {
-      const subKey = pathKey(sub)
-      const wasKnown = known.delete(subKey)
-      if (!wasKnown || descendKnown) next.push(sub)
-    }
+    const subKeys = listing.subdirs.map(sub => pathKey(sub))
+    const { change, knownSubdirs, removedDirs } = diffDirectory(
+      snapshot,
+      dir,
+      prev?.mtime,
+      listing.files,
+      subKeys
+    )
     // 子树里的文件遍历完再分片读（一次删掉几百个目录时，同步全读会卡住事件循环）
-    for (const gone of known.values()) {
-      diff.removedDirs.push({ key: gone.key, files: [] })
-    }
-
-    const unchanged =
-      prev?.mtime === change.dir.mtime &&
-      change.added.length === 0 &&
-      change.changed.length === 0 &&
-      change.removed.length === 0
-    if (!unchanged) diff.dirChanges.push(change)
-    return next
+    diff.removedDirs.push(...removedDirs)
+    if (change) diff.dirChanges.push(change)
+    return listing.subdirs.filter(
+      (_, i) => descendKnown || !knownSubdirs.get(subKeys[i])
+    )
   }
 
   /**
@@ -223,14 +195,7 @@ export async function walkLibrary(
       diff.warnings.push(`${displayPath}: ${(error as Error).message}`)
       return []
     }
-    return diffDirectory(
-      displayPath,
-      key,
-      dirStats,
-      listing,
-      prev,
-      descendKnown
-    )
+    return diffListing(displayPath, key, dirStats, listing, prev, descendKnown)
   }
 
   /** 待处理目录：force 跳过短路，descendKnown 决定是否下钻已知子目录。 */

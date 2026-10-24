@@ -75,4 +75,6 @@ export interface AiSubtitleRecord {
   /** 原文语言（ISO 639-1；未知为空串） */
   language: string
   updatedAt: number
+  /** 本功能为这个视频写过的字幕文件（新的在前）；只有这些允许被再次覆盖 */
+  outputs?: string[]
 }

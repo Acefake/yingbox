@@ -28,6 +28,7 @@ describe('设置分区注册表', () => {
       'provider',
       'sources',
       'player',
+      'danmaku',
       'ai',
       'lada',
       'update',
