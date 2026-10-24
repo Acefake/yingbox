@@ -3,13 +3,19 @@ import './assets/main.css'
 import { createApp } from 'vue'
 import App from '@/App.vue'
 import router from '@/router/index'
+import { routes } from '@/router/routers'
 import { setupDirectives } from '@/directives'
 import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { sourcesSettingsSection } from '@/features/online'
+import {
+  sectionLockAvailable,
+  sectionLockSettingsSection,
+} from '@/features/section-lock'
 import { getSetting, registerSettingsSection } from '@/features/settings'
+import { installWatchlist } from '@/features/watchlist'
 import { configureHoverPreview } from '@/components/ui/hover-preview'
 
 /**
@@ -39,12 +45,18 @@ for (const section of [
 ]) {
   registerSettingsSection(section)
 }
+// 板块锁只在桌面端（主进程保存密码哈希）；可锁的板块读路由表
+if (sectionLockAvailable)
+  registerSettingsSection(sectionLockSettingsSection(routes))
 
 // 卡片悬停预览读设置里的开关与等待时间（每次悬停时读，改了立即生效）
 configureHoverPreview(() => ({
   enabled: getSetting('ui.hoverPreview'),
   delayMs: getSetting('ui.hoverPreviewDelay'),
 }))
+
+// 「想看」清单：整部看完的条目自动移出
+installWatchlist()
 
 const app = createApp(App)
 app.use(router)

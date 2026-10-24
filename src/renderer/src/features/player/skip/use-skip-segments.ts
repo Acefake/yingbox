@@ -3,6 +3,9 @@
  *
  * 每集一个 Artplayer 实例：attach 时重置这一集的状态（自动跳过是否用掉、片尾卡片是否被关掉），
  * 实例销毁时自动断开。标记按剧存（skip-store），同一部剧每集通用。
+ *
+ * 切集：「立即播放」或倒计时结束后进入切集中（switching），暂停旧视频、停掉倒计时，
+ * 直到 playNext 完成；期间再点或再到时都不重复切集（下一集可能要异步解析地址）。
  */
 import type Artplayer from 'artplayer'
 import {
@@ -40,8 +43,8 @@ export interface SkipSegmentsInput {
   key: () => string
   /** 有没有下一集 */
   hasNext: () => boolean
-  /** 播放下一集（PlayerSession 的 playNext） */
-  playNext: () => void
+  /** 播放下一集（PlayerSession 的 playNext）；返回 Promise 时等它完成才结束切集中 */
+  playNext: () => Promise<unknown> | void
 }
 
 /** useSkipSegments 交给界面层的状态与动作 */
@@ -54,6 +57,8 @@ export interface SkipSegments {
   showNext: ComputedRef<boolean>
   /** 倒计时剩余秒数 */
   countdown: Ref<number>
+  /** 切集中：已触发下一集、还没切完（「立即播放」按钮显示 loading） */
+  switching: Ref<boolean>
   /** 接管新一集的实例 */
   attach: (player: Artplayer | null) => void
   /** 「跳过片头」按钮 */
@@ -71,6 +76,7 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
   /** 片尾卡片：用户点了「看完片尾」后本集不再出现 */
   const creditsDismissed = ref(false)
   const countdown = ref(NEXT_COUNTDOWN)
+  const switching = ref(false)
   /** 这一集的自动跳过是否已用掉 */
   let autoConsumed = false
   let timer: number | undefined
@@ -190,6 +196,19 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     countdown.value = NEXT_COUNTDOWN
   }
 
+  /** 切到下一集：只认第一次触发，暂停旧视频，等 playNext 完成 */
+  const goNext = async (): Promise<void> => {
+    if (switching.value) return
+    switching.value = true
+    stopCountdown()
+    art.value?.video.pause()
+    try {
+      await input.playNext()
+    } finally {
+      switching.value = false
+    }
+  }
+
   const detach = (): void => {
     stopCountdown()
     art.value = null
@@ -228,13 +247,12 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
   // 片尾卡片出现时开始倒计时（暂停时不走），到 0 播下一集
   watch(showNext, visible => {
     stopCountdown()
-    if (!visible) return
+    if (!visible || switching.value) return
     timer = window.setInterval(() => {
       if (art.value?.video.paused) return
       countdown.value -= 1
       if (countdown.value > 0) return
-      stopCountdown()
-      input.playNext()
+      void goNext()
     }, 1000)
   })
 
@@ -245,13 +263,13 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     introTarget,
     showNext,
     countdown,
+    switching,
     attach,
     skipIntro: (): void => {
       if (introTarget.value !== null) seekTo(introTarget.value)
     },
     playNow: (): void => {
-      stopCountdown()
-      input.playNext()
+      void goNext()
     },
     watchCredits: (): void => {
       creditsDismissed.value = true

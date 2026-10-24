@@ -29,6 +29,9 @@
           :current-episodes="sources.currentEpisodes.value"
           @play="playEp"
         >
+          <template #actions>
+            <WatchlistButton :meta="watchlistMeta" />
+          </template>
           <DetailSourcePicker
             :searching="sources.searching.value"
             :has-groups="sources.episodeGroups.value.length > 0"
@@ -39,9 +42,12 @@
             :active-line="sources.activeLine.value"
             :current-episodes="sources.currentEpisodes.value"
             :current-url="currentUrl"
+            :probes="sources.probes.value"
+            :probing="sources.probing.value"
             @switch-type="sources.switchSourceType"
             @switch-site="sources.switchSite"
             @switch-line="sources.switchLine"
+            @reprobe="sources.reprobe"
             @play="playEp"
           />
         </DetailHero>
@@ -68,7 +74,10 @@ import { asText } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '@/utils/vod-data'
 import { computed, onMounted, ref, watch } from 'vue'
+import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
+import { WatchlistButton, type WatchlistMeta } from '@/features/watchlist'
+import { isAnimeEntry } from '../../../../../shared/anime4k'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
   buildFallbacks,
@@ -143,8 +152,25 @@ watch(
   }
 )
 
-/** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）。 */
+/** 「想看」登记：键与继续播放相同（片名），整部看完时据此移出清单；海报优先 TMDB 竖版。 */
+const watchlistMeta = computed<WatchlistMeta | null>(() => {
+  if (!itemData.value || !itemName.value) return null
+  return {
+    section: 'online',
+    key: itemName.value,
+    title: itemName.value,
+    poster:
+      tmdbImage('w342', tmdbDetail.value?.poster_path) ||
+      itemPic.value ||
+      undefined,
+    cover: tmdbImage('w780', tmdbDetail.value?.backdrop_path) || undefined,
+    detail: itemData.value,
+  }
+})
+
+/** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）；无痕模式不记。 */
 const recordHistory = (playUrl: string, ext?: PluginExt): void => {
+  if (isIncognito()) return
   const item = itemData.value
   const mediaKey = String(
     item?.vod_id || item?.vod_name || itemName.value || playUrl
@@ -169,6 +195,9 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   currentUrl.value = ''
   let playUrl = url
   const siteName = sources.currentSiteName.value
+  // 测速中源列表会重排：线路与备用源按点击时的状态取
+  const line = sources.currentLine.value
+  const siteGroups = sources.siteGroups.value
   if (sources.currentSourceType.value === 'catspider' && siteName && ext) {
     const resolved = await resolvePlayUrl(siteName, ext)
     if (generation !== playGeneration) return
@@ -184,15 +213,10 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     [itemName.value, asText(ext?.name)].filter(Boolean).join(' · ') ||
     itemName.value ||
     '正在播放'
-  // 带上当前线路的剧集队列与同集备用线路：播放器据此自动连播/失败换线路
-  const playlist = buildPlaylist(sources.currentLine.value)
+  // 带上当前线路的剧集队列与同集备用源（已按测速排序）：播放器据此自动连播、卡顿 / 失败换源
+  const playlist = buildPlaylist(line)
   const epIndex = playlist.findIndex(item => item.url === url)
-  const fallbacks = buildFallbacks(
-    sources.siteGroups.value,
-    sources.currentLine.value,
-    asText(ext?.name),
-    epIndex
-  )
+  const fallbacks = buildFallbacks(siteGroups, line, asText(ext?.name), epIndex)
   const ok = await openMediaPlayer({
     url: playUrl,
     title,
@@ -200,6 +224,11 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     startAt: getMediaProgress(playUrl),
     ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
     ...(fallbacks.length ? { fallbacks } : {}),
+    // mpv 的「Anime4K 仅动画类条目」：站点分类或 TMDB 类型含动画
+    anime: isAnimeEntry({
+      typeName: itemData.value?.type_name,
+      genres: tmdbDetail.value?.genres?.map(genre => genre.name),
+    }),
     // 继续播放：按片名合并（换源后仍是同一张卡），封面优先 TMDB 横版背景图
     continueAs: {
       section: 'online',
