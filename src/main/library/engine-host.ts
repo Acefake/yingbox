@@ -49,7 +49,7 @@ export interface LibraryHostDeps {
   onBlocked?(reason: string): void
   /** 关停超时，默认 UtilityHost 的 5 秒 */
   stopTimeoutMs?: number
-  /** 引擎能请主进程代办的事（方法名 → 实现），见 engine/host-calls.ts */
+  /** 引擎能请主进程代办的事（方法名 → 实现）：远程源凭据 webdavAccess、AI 识别兜底（见 engine/host-calls.ts） */
   host?: UtilityHostOptions['host']
 }
 

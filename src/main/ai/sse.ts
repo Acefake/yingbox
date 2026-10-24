@@ -15,11 +15,14 @@ export interface StreamChunk {
     completion_tokens?: number
     total_tokens?: number
   } | null
+  /** 部分服务商在 HTTP 200 的流里用 data: {"error":…} 报错（字符串或 { message, code }） */
+  error?: { message?: unknown; code?: unknown; type?: unknown } | string | null
 }
 
 /**
  * 增量 SSE 解析器：push 任意切分的文本，按行凑出完整事件。
  * `data: [DONE]` 触发 onDone；无法解析的 data 行忽略（部分服务商会发心跳注释）。
+ * onChunk 抛出的错误原样冒泡到 push / end 的调用方（用于中止读流）。
  */
 export function createSseParser(handlers: {
   onChunk: (chunk: StreamChunk) => void
@@ -36,11 +39,14 @@ export function createSseParser(handlers: {
       handlers.onDone()
       return
     }
+    let chunk: StreamChunk
     try {
-      handlers.onChunk(JSON.parse(payload) as StreamChunk)
+      chunk = JSON.parse(payload) as StreamChunk
     } catch {
       // 非 JSON 的 data 行（心跳等）忽略
+      return
     }
+    if (chunk && typeof chunk === 'object') handlers.onChunk(chunk)
   }
 
   const line = (raw: string): void => {
