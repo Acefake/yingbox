@@ -1,5 +1,6 @@
 // @vitest-environment jsdom
 import { type App, createApp, h, nextTick } from 'vue'
+import type ContinueRowComponent from '../src/renderer/src/features/player/continue/ContinueRow.vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
@@ -45,13 +46,23 @@ function seed(): void {
 let app: App | null = null
 let host: HTMLElement
 
-async function mount(props: Record<string, unknown>): Promise<HTMLElement> {
+async function mount(
+  props: InstanceType<typeof ContinueRowComponent>['$props'],
+  onOuterEscape?: () => void
+): Promise<HTMLElement> {
   vi.resetModules()
   const { default: ContinueRow } =
     await import('../src/renderer/src/features/player/continue/ContinueRow.vue')
   host = document.createElement('div')
   document.body.appendChild(host)
-  app = createApp({ render: () => h(ContinueRow, props) })
+  const { useEscapeLayer } =
+    await import('../src/renderer/src/composables/use-escape-layer')
+  app = createApp({
+    setup() {
+      if (onOuterEscape) useEscapeLayer(() => true, onOuterEscape)
+      return () => h(ContinueRow, props)
+    },
+  })
   app.mount(host)
   await nextTick()
   return host
@@ -122,6 +133,36 @@ describe('继续播放横排', () => {
       expect.objectContaining({ startAt: 0 })
     )
     expect(document.querySelector('.cw-menu')).toBeNull()
+  })
+
+  it('输入法组字中的 Esc 不关菜单，普通 Esc 一次只关闭最上层', async () => {
+    seed()
+    const closeOuter = vi.fn()
+    const el = await mount({ section: 'movie' }, closeOuter)
+    el.querySelector('.cw-card')!.dispatchEvent(
+      new MouseEvent('contextmenu', { bubbles: true })
+    )
+    await nextTick()
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', {
+        key: 'Escape',
+        isComposing: true,
+        cancelable: true,
+      })
+    )
+    await nextTick()
+    expect(document.querySelector('.cw-menu')).not.toBeNull()
+    expect(closeOuter).not.toHaveBeenCalled()
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    )
+    await nextTick()
+    expect(document.querySelector('.cw-menu')).toBeNull()
+    expect(closeOuter).not.toHaveBeenCalled()
+    window.dispatchEvent(
+      new KeyboardEvent('keydown', { key: 'Escape', cancelable: true })
+    )
+    expect(closeOuter).toHaveBeenCalledOnce()
   })
 
   it('页面监听 detail 时菜单有「打开详情」；板块自己的 resume 优先', async () => {

@@ -138,6 +138,7 @@ import {
 } from 'vue'
 
 import { toast } from '@/components/ui'
+import { useEscapeLayer } from '@/composables/use-escape-layer'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
@@ -219,23 +220,17 @@ function resumeLabel(record: ContinueRecord): string {
 // —— 右键菜单 ——
 const menu = ref<{ x: number; y: number; record: ContinueRecord } | null>(null)
 const menuEl = ref<HTMLElement | null>(null)
+useEscapeLayer(() => menu.value !== null, closeMenu)
 
 function closeMenu(): void {
   menu.value = null
   window.removeEventListener('pointerdown', onOutside, true)
-  window.removeEventListener('keydown', onKey, true)
   window.removeEventListener('blur', closeMenu)
   window.removeEventListener('scroll', closeMenu, true)
 }
 
 function onOutside(event: PointerEvent): void {
   if (!menuEl.value?.contains(event.target as Node)) closeMenu()
-}
-
-function onKey(event: KeyboardEvent): void {
-  if (event.key !== 'Escape') return
-  event.stopPropagation()
-  closeMenu()
 }
 
 async function openMenu(
@@ -245,7 +240,6 @@ async function openMenu(
   closeMenu()
   menu.value = { x: event.clientX, y: event.clientY, record }
   window.addEventListener('pointerdown', onOutside, true)
-  window.addEventListener('keydown', onKey, true)
   window.addEventListener('blur', closeMenu)
   window.addEventListener('scroll', closeMenu, true)
   // 贴着右 / 下边缘时往回收
