@@ -83,7 +83,8 @@ export const buildPlaylist = (line?: EpisodeGroup): PlayerSourceItem[] => {
 }
 
 /**
- * 同集其它线路：当前线路播放失败时自动尝试。
+ * 同集其它线路：当前线路卡顿 / 播放失败时按顺序自动尝试。
+ * 顺序跟随 siteGroups（详情页已按测速排好），当前站点的其它线路排在别的站点之后（同站多半同一 CDN）。
  * 优先按集名匹配；各源命名差异大（"第01集" vs "01"），失败时退化为按集序匹配。
  */
 export const buildFallbacks = (
@@ -94,7 +95,13 @@ export const buildFallbacks = (
 ): PlayerSourceItem[] => {
   const out: PlayerSourceItem[] = []
   const seen = new Set<string>()
-  for (const sg of siteGroups) {
+  const isCurrent = (sg: SiteGroup): boolean =>
+    !!currentLine && sg.lines.includes(currentLine)
+  const ordered = [
+    ...siteGroups.filter(sg => !isCurrent(sg)),
+    ...siteGroups.filter(isCurrent),
+  ]
+  for (const sg of ordered) {
     for (const line of sg.lines) {
       if (line === currentLine) continue
       const eps = line.episodes || []
