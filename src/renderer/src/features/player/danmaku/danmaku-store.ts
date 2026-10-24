@@ -41,8 +41,12 @@ const settingsBridge =
 const secretConfigured = ref(
   settingsBridge ? settingsBridge.snapshot().secrets[SECRET_KEY] : false
 )
+/** AppSecret 每保存一次加一，凭据改过后让失败的加载重试 */
+export const danmakuCredentialsRevision = ref(0)
 settingsBridge?.onSecretChanged(change => {
-  if (change.key === SECRET_KEY) secretConfigured.value = change.configured
+  if (change.key !== SECRET_KEY) return
+  secretConfigured.value = change.configured
+  danmakuCredentialsRevision.value++
 })
 
 /** 弹幕功能是否可用：桌面端且 AppId、AppSecret 都已填写（响应式） */

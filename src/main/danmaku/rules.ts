@@ -134,6 +134,14 @@ export function businessError(body: unknown): string | null {
   return null
 }
 
+/** 弹幕响应能不能用：业务错误或缺少 comments 数组时返回原因（这类响应不能缓存） */
+export function commentsError(body: unknown): string | null {
+  const failure = businessError(body)
+  if (failure) return failure
+  const comments = (body as { comments?: unknown }).comments
+  return Array.isArray(comments) ? null : '弹幕服务返回格式不对'
+}
+
 /** 整理 /api/v2/match 响应 */
 export function parseMatchResponse(body: unknown): DanmakuMatchResult {
   const data = (body ?? {}) as { isMatched?: unknown; matches?: unknown }
