@@ -119,6 +119,8 @@ export const settingsSchema = {
   'ui.hoverPreviewDelay': num(200, 2000, 600),
   /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
   'ui.miniPlayer': bool(true),
+  /** 防剧透：剧集详情里没看过的集剧照模糊、简介折叠，悬停才显示 */
+  'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
   'ui.videoWallMaxLive': num(1, 9, 4),
 
@@ -126,10 +128,35 @@ export const settingsSchema = {
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
+  /** mpv 下的 Anime4K 超分（着色器按需下载，见 shared/anime4k.ts） */
+  'player.anime4k': bool(false),
+  /** Anime4K 模式：A / B / C */
+  'player.anime4kMode': oneOf(['a', 'b', 'c'] as const, 'a'),
+  /** Anime4K 档位：画质（VL 网络）/ 性能（M 网络） */
+  'player.anime4kQuality': oneOf(['hq', 'fast'] as const, 'fast'),
+  /** Anime4K 只对动画类条目启用（媒体库看 TMDB 类型，在线看站点分类） */
+  'player.anime4kAnimeOnly': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
   /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
   'player.mediaKeys': bool(true),
+
+  /** 弹幕总开关（控制栏「弹」按钮） */
+  'danmaku.enabled': bool(true),
+  /** 弹幕不透明度 */
+  'danmaku.opacity': num(0.1, 1, 0.85),
+  /** 弹幕显示区域：顶部 1/4、半屏、全屏 */
+  'danmaku.area': oneOf(['quarter', 'half', 'full'] as const, 'half'),
+  /** 弹幕速度 */
+  'danmaku.speed': oneOf(['slow', 'normal', 'fast'] as const, 'normal'),
+  /** 弹幕字号（像素） */
+  'danmaku.fontSize': num(14, 40, 24),
+  /** 弹幕屏蔽词：每行一个，/…/ 包起来按正则匹配 */
+  'danmaku.blockWords': text('', 4096),
+  /** 弹弹play 开放平台 AppId（用户自己申请） */
+  'danmaku.appId': text('', 200),
+  /** 弹弹play AppSecret（密钥：主进程 safeStorage，只用于给请求签名，见 src/main/danmaku） */
+  'danmaku.appSecret': secret(),
 
   /** TMDB 元数据语言 */
   'scrape.metadataLanguage': oneOf(
@@ -155,6 +182,11 @@ export const settingsSchema = {
 
   /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
   'download.dir': absolutePath(),
+
+  /** 在线播放卡顿 / 出错时自动换到下一个可用源的同一集，从当前进度继续 */
+  'online.autoSwitchSource': bool(true),
+  /** 卡顿判定：缓冲持续多少秒算卡顿 */
+  'online.stallSeconds': num(2, 30, 5),
 
   /** 媒体库外部变更通知（CloudDrive2 webhook 等）：主进程本地 HTTP 端点，见 src/main/library/notify */
   'library.notify.enabled': bool(false),

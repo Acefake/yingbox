@@ -21,12 +21,19 @@ import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
 import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
+import { registerCaptureIpc } from './capture'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
+import { registerDanmakuIpc } from './ipc/danmaku-ipc'
 import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
+import {
+  REMOTE_SCHEME_PRIVILEGES,
+  registerWebDav,
+  webdavHostMethods,
+} from './webdav'
 import { registerEngine } from './engine'
 import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
@@ -60,6 +67,8 @@ protocol.registerSchemesAsPrivileged([
   },
   // 缓存图片与缩略图（媒体库海报、在线 / AV 封面），见 src/main/thumbnails
   MEDIA_SCHEME_PRIVILEGES,
+  // WebDAV / Alist 远程媒体（主进程带凭据转发，支持 Range），见 src/main/webdav
+  REMOTE_SCHEME_PRIVILEGES,
   {
     scheme: STREAM_SCHEME,
     privileges: {
@@ -188,9 +197,13 @@ app.whenReady().then(async () => {
   registerDialogIpc()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
+  registerCaptureIpc()
+  registerDanmakuIpc()
   registerMpvIpc()
   await registerLadaIpc()
-  const libraryClient = registerLibraryIpc(thumbnails)
+  // WebDAV / Alist 源：设置、yingbox-dav 播放协议、媒体库引擎扫描时取凭据
+  registerWebDav()
+  const libraryClient = registerLibraryIpc(thumbnails, webdavHostMethods)
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
   registerLibraryNotify(libraryClient)
