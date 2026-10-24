@@ -4,7 +4,10 @@
 import { describe, expect, it } from 'vitest'
 import { ActorStore } from '../../../src/main/library/actors/actor-store'
 import { CatalogQuery } from '../../../src/main/library/catalog/query'
-import { schemaVersion } from '../../../src/main/library/db/migrations'
+import {
+  MIGRATIONS,
+  schemaVersion,
+} from '../../../src/main/library/db/migrations'
 import {
   type ActorProfileValues,
   type ItemMetadata,
@@ -33,7 +36,7 @@ function syncAll(store: ActorStore): void {
 describe('演员库存储', () => {
   it('迁移到 V6：演员表、关联表与检索表都在', () => {
     const { db } = memoryDb()
-    expect(schemaVersion(db)).toBe(7)
+    expect(schemaVersion(db)).toBe(MIGRATIONS.at(-1)!.version)
     const names = db
       .prepare("SELECT name FROM sqlite_master WHERE type IN ('table')")
       .all()
