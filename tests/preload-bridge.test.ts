@@ -143,7 +143,13 @@ const ADDED_API: Record<string, string[]> = {
   av: ['list', 'resolve'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
-  media: ['focus', 'saveFocus'],
+  media: [
+    'focus',
+    'saveFocus',
+    'seekThumbnails',
+    'onSeekReady',
+    'offSeekReady',
+  ],
 }
 
 beforeAll(async () => {
