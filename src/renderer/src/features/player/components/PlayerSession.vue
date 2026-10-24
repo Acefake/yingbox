@@ -5,6 +5,7 @@
       :src="src"
       :poster="poster"
       :start-at="startAt"
+      :danmaku-target="danmakuTarget"
       title=""
       :closable="false"
       :show-footer="false"
@@ -62,6 +63,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import { toLocalUrl } from '@/utils/local-url'
 import { useProgressSaver } from '../composables/use-progress-saver'
 import { useSourceSwitch } from '../composables/use-source-switch'
+import { danmakuTargetFor } from '../danmaku/danmaku-target'
 import { updateContinue } from '../continue/continue-store'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
@@ -132,6 +134,17 @@ const currentEntry = computed<PlaylistEntry | null>(() => {
     return fallbacks.value[activeFallback.value] || null
   return playlist.value[position.value] || null
 })
+
+/** 弹幕匹配用的当前条目（规则见 danmakuTargetFor） */
+const danmakuTarget = computed(() =>
+  danmakuTargetFor({
+    playlist: playlist.value,
+    position: position.value,
+    title: defaultTitle.value,
+    current: currentEntry.value,
+    label: entryLabel,
+  })
+)
 
 const showNotice = (text: string): void => {
   notice.value = text
@@ -296,100 +309,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-.player-session {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  width: 100%;
-  height: 100%;
-  background: var(--media-bg);
-  color: var(--media-text);
-  overflow: hidden;
-}
-
-.player-session :deep(.unified-player) {
-  width: 100%;
-  height: 100%;
-}
-
-.player-session-empty {
-  margin: auto;
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  opacity: 0.85;
-  font-size: var(--text-md);
-}
-
-.player-session-poster {
-  max-width: min(72%, 420px);
-  max-height: min(60vh, 520px);
-  width: auto;
-  height: auto;
-  object-fit: contain;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
-}
-
-/* 短暂提示（自动换线路 / 连播） */
-.player-session-notice {
-  position: absolute;
-  top: var(--space-4);
-  left: 50%;
-  transform: translateX(-50%);
-  z-index: var(--z-overlay);
-  margin: 0;
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  font-size: var(--text-sm);
-  color: var(--media-text);
-  background: var(--overlay-scrim);
-  pointer-events: none;
-}
-
-/* 播放失败：可操作错误面板 */
-.player-session-error {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-overlay-top);
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  padding: var(--space-7);
-  text-align: center;
-  background: var(--overlay-scrim-strong);
-}
-
-.player-session-error-title {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: 600;
-  color: var(--danger);
-}
-
-.player-session-error-msg {
-  margin: 0;
-  max-width: 560px;
-  font-size: var(--text-sm);
-  line-height: 1.6;
-  color: var(--media-text-secondary);
-}
-
-.player-session-error-src {
-  margin: 0;
-  max-width: 560px;
-  overflow: hidden;
-  text-overflow: ellipsis;
-  white-space: nowrap;
-  font-size: var(--text-2xs);
-  color: var(--media-text-tertiary);
-}
-
-.player-session-error-actions {
-  margin-top: var(--space-2);
-}
-</style>
+<style scoped src="./player-session.css"></style>

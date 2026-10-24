@@ -129,6 +129,23 @@ export const settingsSchema = {
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
 
+  /** 弹幕总开关（控制栏「弹」按钮） */
+  'danmaku.enabled': bool(true),
+  /** 弹幕不透明度 */
+  'danmaku.opacity': num(0.1, 1, 0.85),
+  /** 弹幕显示区域：顶部 1/4、半屏、全屏 */
+  'danmaku.area': oneOf(['quarter', 'half', 'full'] as const, 'half'),
+  /** 弹幕速度 */
+  'danmaku.speed': oneOf(['slow', 'normal', 'fast'] as const, 'normal'),
+  /** 弹幕字号（像素） */
+  'danmaku.fontSize': num(14, 40, 24),
+  /** 弹幕屏蔽词：每行一个，/…/ 包起来按正则匹配 */
+  'danmaku.blockWords': text('', 4096),
+  /** 弹弹play 开放平台 AppId（用户自己申请） */
+  'danmaku.appId': text('', 200),
+  /** 弹弹play AppSecret（密钥：主进程 safeStorage，只用于给请求签名，见 src/main/danmaku） */
+  'danmaku.appSecret': secret(),
+
   /** TMDB 元数据语言 */
   'scrape.metadataLanguage': oneOf(
     ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'] as const,
