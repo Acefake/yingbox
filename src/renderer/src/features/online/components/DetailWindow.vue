@@ -68,6 +68,7 @@ import { asText } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '@/utils/vod-data'
 import { computed, onMounted, ref, watch } from 'vue'
+import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
@@ -143,8 +144,9 @@ watch(
   }
 )
 
-/** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）。 */
+/** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）；无痕模式不记。 */
 const recordHistory = (playUrl: string, ext?: PluginExt): void => {
+  if (isIncognito()) return
   const item = itemData.value
   const mediaKey = String(
     item?.vod_id || item?.vod_name || itemName.value || playUrl
