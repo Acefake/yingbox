@@ -126,6 +126,8 @@ export const settingsSchema = {
   'player.rtxVsr': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
+  /** 内置播放器进入已标记的片头时自动跳过 */
+  'player.autoSkipIntro': bool(false),
 
   /** TMDB 元数据语言 */
   'scrape.metadataLanguage': oneOf(

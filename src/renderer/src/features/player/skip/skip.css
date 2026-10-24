@@ -1,0 +1,27 @@
+/*
+ * 进度条上的片头（紫）/ 片尾（橙）区间。由 progress-spans.ts 插进 Artplayer 的
+ * .art-control-progress-inner：Artplayer 自己的层是 已播放 20、高亮 30、指示点在其上，
+ * 区间压在「已播放」之上、高亮与指示点之下，并且不拦截拖动。
+ */
+.skip-spans {
+  position: absolute;
+  inset: 0;
+  z-index: calc(var(--z-dropdown) + 1);
+  pointer-events: none;
+  border-radius: inherit;
+  overflow: hidden;
+}
+
+.skip-span {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+}
+
+.skip-span--intro {
+  background: var(--media-intro);
+}
+
+.skip-span--outro {
+  background: var(--media-outro);
+}
