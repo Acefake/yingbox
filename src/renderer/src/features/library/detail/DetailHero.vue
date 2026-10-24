@@ -48,6 +48,7 @@
           :disabled="!canPlay"
           @click="emit('play')"
         />
+        <WatchlistButton :meta="watchlistMeta" />
         <template v-if="restorable">
           <UiButton
             icon="sparkle"
@@ -140,22 +141,24 @@
  * 详情头图：780w 背景图渐隐、标志（加载失败退回片名）、信息行与待确认角标、操作区、
  * 标语与可展开的简介。
  *
- * 操作区按分区区分：
+ * 操作区按分区区分（播放后面都紧跟「想看」书签按钮，见 features/watchlist）：
  * - 电影 / 剧集（TMDB）：播放 + 修正匹配 / 锁定匹配 / 重新获取 / 写出 NFO / 整理（图标按钮）
  * - 番号：播放 + 去码（文字）、去码一段 / 边跑边看，再接修正匹配 / 重新获取 / 写出 NFO / 整理；
  *   不显示锁定（锁定只认 TMDB 匹配）
  * 「已匹配」由调用方给出：TMDB 条目看 tmdb id，番号条目看是否已有番号元数据。
  * 换条目时重置标志失败与简介展开状态。
  */
-import { ref, watch } from 'vue'
+import { computed, ref, watch } from 'vue'
 
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { vTooltip } from '@/components/ui/tooltip'
+import { WatchlistButton } from '@/features/watchlist'
 
 import { MATCH_STATE_LABEL } from '../shared/format'
 import { WRITER_UNAVAILABLE } from '../writer/use-writer'
+import { watchlistMetaOf } from './playback'
 import type { RestoreAction } from './use-restore'
 
 const props = defineProps<{
@@ -190,6 +193,7 @@ const emit = defineEmits<{
   restore: [action: RestoreAction]
 }>()
 
+const watchlistMeta = computed(() => watchlistMetaOf(props.node))
 const logoBroken = ref(false)
 const overviewOpen = ref(false)
 

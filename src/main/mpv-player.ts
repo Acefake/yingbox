@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
+import { Anime4kSync } from './mpv-anime4k'
 import { findMpvExecutable } from './mpv-locate'
 import {
   COMPACT_KEY,
@@ -14,6 +15,7 @@ import { MpvWindow } from './mpv-window'
 import { refererFor } from './media-headers'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
+import type { Anime4kConfig } from '../shared/anime4k'
 import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
 
 /** RTX 视频超分：仅对低于该高度（1080p）的片源自动挂载 */
@@ -47,6 +49,11 @@ class MpvPlayer extends EventEmitter {
   /** 窗口置顶：新播放时顶到最前、缩小置顶 */
   private readonly window = new MpvWindow((name, value) =>
     this.setProp(name, value)
+  )
+  /** Anime4K 着色器（设置 + 当前条目是否动画） */
+  private readonly anime4k = new Anime4kSync(
+    (...args) => this.cmd(...args),
+    () => Boolean(this.child) && this.sock.connected
   )
 
   constructor() {
@@ -86,6 +93,7 @@ class MpvPlayer extends EventEmitter {
       } else {
         await this.spawnProcess(options)
       }
+      void this.anime4k.apply(options.anime === true)
     } catch (error) {
       this._status.loading = false
       this.emit('status', this.getStatus())
@@ -291,6 +299,11 @@ class MpvPlayer extends EventEmitter {
     await this.syncVsr()
   }
 
+  /** 设置 Anime4K（来自渲染层的「设置 → 播放器」）。 */
+  async setAnime4k(config: Anime4kConfig): Promise<void> {
+    await this.anime4k.setConfig(config)
+  }
+
   private onSocketClose(): void {
     if (this.child) {
       this._status = { ...DEFAULT_STATUS }
@@ -300,6 +313,7 @@ class MpvPlayer extends EventEmitter {
 
   private cleanupProcess(): void {
     this.window.reset()
+    this.anime4k.reset()
     if (this.vsrOsdTimer) {
       clearTimeout(this.vsrOsdTimer)
       this.vsrOsdTimer = null

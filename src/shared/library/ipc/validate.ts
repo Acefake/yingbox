@@ -33,6 +33,7 @@ import {
   optionalInt,
   positiveId,
 } from './validate-base'
+import { CALENDAR_PARSERS } from './validate-calendar'
 import { FACET_PARSERS, parseFacetFilter } from './validate-facets'
 import { VISUAL_PARSERS } from './validate-visual'
 import { parseJavSettings } from './validate-jav'
@@ -352,6 +353,7 @@ const PARAM_PARSERS: {
   ...ACTOR_PARSERS,
   ...FACET_PARSERS,
   ...VISUAL_PARSERS,
+  ...CALENDAR_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */
