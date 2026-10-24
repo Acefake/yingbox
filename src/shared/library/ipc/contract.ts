@@ -11,6 +11,7 @@ import type {
 import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { LibraryEvent } from './contract-events'
+import type { LibraryQueryFilters } from './contract-filters'
 import type {
   FacetFilter,
   FacetRpcMap,
@@ -49,6 +50,7 @@ export * from './contract-actors'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-facets'
+export * from './contract-filters'
 export * from './contract-visual'
 export * from './contract-jav'
 export * from './contract-match'
@@ -163,7 +165,7 @@ export type LibrarySortField =
   | 'updatedAt'
 
 /** 列表查询。所有字段可选，缺省时取 normalizeLibraryQuery 的默认值。 */
-export interface LibraryQuery {
+export interface LibraryQuery extends LibraryQueryFilters {
   /** 只查某个媒体库；缺省查全部。 */
   libraryId?: number
   /** 只要这种来源的媒体库（电影页传 tmdb、番号页传 jav，互不露出）；缺省两种都要。 */
