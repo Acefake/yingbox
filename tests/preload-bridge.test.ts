@@ -149,6 +149,7 @@ const ADDED_API: Record<string, string[]> = {
     'verify',
     'setPassword',
     'clearPassword',
+    'setConfig',
     'promptSystem',
   ],
 }

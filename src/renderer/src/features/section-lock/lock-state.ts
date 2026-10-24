@@ -1,15 +1,18 @@
 /**
- * 板块密码锁的运行时状态（全应用一份）：锁的现状（是否设了密码、系统认证）、本次运行的解锁记录、
- * 正在等待的解锁请求；以及挂到路由上的守卫与窗口隐藏时的计时。
+ * 板块密码锁的运行时状态（全应用一份）：锁的现状（是否设了密码、系统认证、锁哪些板块，读自主进程）、
+ * 本次运行的解锁记录、正在等待的验证请求（进入板块解锁，或设置里降低保护前的身份验证）；
+ * 以及挂到路由上的守卫与窗口隐藏时的计时。
  *
  * 解锁只存在内存里：重启应用（或刷新渲染层）后重新锁定。
  */
 import { shallowRef } from 'vue'
 import type { Router } from 'vue-router'
 
-import { getSetting } from '@/features/settings'
-
-import type { SectionLockStatus } from '../../../../shared/section-lock'
+import {
+  type LockConfig,
+  type SectionLockStatus,
+  weakensLock,
+} from '../../../../shared/section-lock'
 import {
   type UnlockLedger,
   isLockActive,
@@ -20,17 +23,24 @@ import {
   needsUnlock,
 } from './rules'
 
-/** 一个等待解锁的板块；SectionLockGate 显示它，结束时 resolve */
+/**
+ * 一个等待验证的请求；SectionLockGate 显示它，结束时 resolve 主进程签发的一次性凭据（取消为空串）。
+ * kind 'enter'：进入锁定板块；'authorize'：设置里降低保护前验证身份。
+ */
 export interface UnlockRequest {
-  name: string
+  kind: 'enter' | 'authorize'
   title: string
-  resolve: (ok: boolean) => void
+  /** authorize 时显示的说明 */
+  reason?: string
+  resolve: (grant: string) => void
 }
 
 const bridge =
   typeof window !== 'undefined' ? window.api?.sectionLock : undefined
 
 const status = shallowRef<SectionLockStatus>({
+  sections: [],
+  relockMinutes: 0,
   passwordSet: false,
   systemAuth: null,
 })
@@ -51,12 +61,12 @@ export function sectionLockStatus(): Readonly<typeof status> {
   return status
 }
 
-/** 当前等待解锁的请求（响应式） */
+/** 当前等待验证的请求（响应式） */
 export function unlockRequest(): Readonly<typeof request> {
   return request
 }
 
-/** 重新读取锁的现状（改密码后调用） */
+/** 重新读取锁的现状（改密码 / 改配置后调用） */
 export async function refreshLockStatus(): Promise<void> {
   if (!bridge) return
   status.value = await bridge.status()
@@ -68,13 +78,13 @@ function ensureStatus(): Promise<void> {
 }
 
 function lockedNames(): string[] {
-  return getSetting('lock.sections')
+  return status.value.sections
 }
 
 /** 板块此刻是否锁着（侧栏锁图标用；在 computed 里调用是响应式的） */
 export function isSectionLocked(name: string): boolean {
   if (!isLockActive(name, lockedNames(), status.value.passwordSet)) return false
-  const relock = getSetting('lock.relockMinutes')
+  const relock = status.value.relockMinutes
   return !isUnlocked(ledger.value, name, relock, clock.value)
 }
 
@@ -84,21 +94,64 @@ export function isPathLocked(path: string): boolean {
   return Boolean(name) && isSectionLocked(name)
 }
 
-/** 请求解锁一个板块：弹出解锁界面，解锁成功返回 true；已有请求时先取消它 */
-export function requestUnlock(name: string, title: string): Promise<boolean> {
-  request.value?.resolve(false)
+/** 弹出验证界面，返回凭据（取消为空串）；已有请求时先取消它 */
+function openRequest(init: Omit<UnlockRequest, 'resolve'>): Promise<string> {
+  request.value?.resolve('')
   return new Promise(resolve => {
     const pending: UnlockRequest = {
-      name,
-      title,
-      resolve: ok => {
+      ...init,
+      resolve: grant => {
         if (request.value === pending) request.value = null
-        if (ok) ledger.value = markUnlocked(ledger.value, name)
-        resolve(ok)
+        resolve(grant)
       },
     }
     request.value = pending
   })
+}
+
+/** 请求解锁一个板块：解锁成功返回 true */
+export async function requestUnlock(
+  name: string,
+  title: string
+): Promise<boolean> {
+  const grant = await openRequest({ kind: 'enter', title })
+  if (grant) ledger.value = markUnlocked(ledger.value, name)
+  return Boolean(grant)
+}
+
+/**
+ * 降低保护前验证身份（密码或 Touch ID，与进入板块同一个界面）：
+ * 返回主进程签发的一次性凭据，取消返回空串。凭据交给对应写入接口，由主进程校验。
+ */
+export function requestAuthorization(reason: string): Promise<string> {
+  return openRequest({ kind: 'authorize', title: '验证身份', reason })
+}
+
+/** 一次受保护写入的结果：已写入 / 用户取消验证 / 主进程拒绝（凭据过期等） */
+export type GuardedWrite = 'saved' | 'cancelled' | 'rejected'
+
+/**
+ * 写入锁的配置：设了密码且降低保护（取消锁定、放宽重新锁定）时先验证身份拿凭据；
+ * 主进程会再校验一遍，这里只是先弹验证界面。
+ */
+export async function saveLockConfig(
+  next: LockConfig,
+  reason: string
+): Promise<GuardedWrite> {
+  if (!bridge) return 'rejected'
+  const current = status.value
+  let grant = ''
+  if (current.passwordSet && weakensLock(current, next)) {
+    grant = await requestAuthorization(reason)
+    if (!grant) return 'cancelled'
+  }
+  const config = {
+    sections: [...next.sections],
+    relockMinutes: next.relockMinutes,
+  }
+  const ok = await bridge.setConfig(config, grant)
+  await refreshLockStatus()
+  return ok ? 'saved' : 'rejected'
 }
 
 async function shouldPrompt(name: string): Promise<boolean> {
@@ -109,7 +162,7 @@ async function shouldPrompt(name: string): Promise<boolean> {
     lockedNames: lockedNames(),
     passwordSet: status.value.passwordSet,
     ledger: ledger.value,
-    relockMinutes: getSetting('lock.relockMinutes'),
+    relockMinutes: status.value.relockMinutes,
     now: Date.now(),
   })
 }

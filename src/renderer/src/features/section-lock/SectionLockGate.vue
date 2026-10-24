@@ -5,14 +5,14 @@
       class="section-lock"
       role="dialog"
       aria-modal="true"
-      :aria-label="`解锁${pending.title}`"
+      :aria-label="heading"
     >
       <div v-if="isElectron" class="section-lock__titlebar">
         <WinControls />
       </div>
       <form class="section-lock__card" @submit.prevent="submit">
         <UiIcon name="lock" size="lg" class="section-lock__icon" />
-        <p class="section-lock__title">「{{ pending.title }}」已锁定</p>
+        <p class="section-lock__title">{{ heading }}</p>
         <p class="section-lock__hint">{{ hint }}</p>
         <UiInput
           ref="input"
@@ -38,7 +38,7 @@
           <UiButton label="取消" :disabled="busy" @click="cancel" />
           <UiButton
             variant="primary"
-            label="解锁"
+            :label="pending.kind === 'authorize' ? '验证' : '解锁'"
             :loading="busy"
             :disabled="!password || waiting"
             @click="submit"
@@ -51,8 +51,9 @@
 
 <script setup lang="ts">
 /**
- * 板块解锁界面（应用根组件挂载一次）：有解锁请求时盖住窗口，输入应用密码或用 Touch ID 解锁。
- * 打开时如果可用 Touch ID 会先自动弹一次系统认证；Esc / 取消放弃进入。
+ * 板块解锁 / 身份验证界面（应用根组件挂载一次）：有验证请求时盖住窗口，输入应用密码或用 Touch ID。
+ * 进入锁定板块与设置里降低保护前的验证共用这里；通过时把主进程签发的一次性凭据交给请求方。
+ * 打开时如果可用 Touch ID 会先自动弹一次系统认证；Esc / 取消放弃（凭据为空）。
  */
 import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
@@ -77,19 +78,29 @@ const waiting = ref(false)
 const input = ref<{ focus: () => void } | null>(null)
 let waitTimer: number | undefined
 
-const hint = computed(() =>
-  touchId.value ? '输入应用密码，或使用 Touch ID 解锁' : '输入应用密码解锁'
-)
+const heading = computed(() => {
+  const current = pending.value
+  if (!current) return ''
+  return current.kind === 'authorize'
+    ? current.title
+    : `「${current.title}」已锁定`
+})
+const hint = computed(() => {
+  const way = touchId.value ? '输入应用密码，或使用 Touch ID' : '输入应用密码'
+  const reason = pending.value?.reason
+  return reason ? `${reason}：${way}` : `${way}解锁`
+})
 
-function finish(ok: boolean): void {
+/** 结束请求：grant 为主进程签发的凭据，取消时为空串 */
+function finish(grant: string): void {
   const current = request.value
   password.value = ''
   error.value = ''
-  current?.resolve(ok)
+  current?.resolve(grant)
 }
 
 function cancel(): void {
-  finish(false)
+  finish('')
 }
 
 function pause(retryAfterMs: number): void {
@@ -108,7 +119,7 @@ async function submit(): Promise<void> {
   busy.value = true
   try {
     const result = await bridge.verify(password.value)
-    if (result.ok) return finish(true)
+    if (result.ok) return finish(result.grant)
     password.value = ''
     if (result.retryAfterMs > 0) pause(result.retryAfterMs)
     else error.value = '密码不正确'
@@ -125,8 +136,12 @@ async function promptTouchId(): Promise<void> {
   if (!bridge || !current || busy.value) return
   busy.value = true
   try {
-    const ok = await bridge.promptSystem(`解锁「${current.title}」`)
-    if (ok && request.value === current) finish(true)
+    const reason =
+      current.kind === 'authorize'
+        ? (current.reason ?? current.title)
+        : `解锁「${current.title}」`
+    const result = await bridge.promptSystem(reason)
+    if (result.ok && request.value === current) finish(result.grant)
   } finally {
     busy.value = false
   }

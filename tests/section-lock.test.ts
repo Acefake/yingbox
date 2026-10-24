@@ -24,8 +24,11 @@ import {
   retryText,
 } from '../src/renderer/src/features/section-lock/rules'
 import { routes } from '../src/renderer/src/router/routers'
-import { parseLockPassword } from '../src/shared/section-lock'
-import { parseSetting } from '../src/shared/settings/schema'
+import {
+  parseLockConfig,
+  parseLockPassword,
+  weakensLock,
+} from '../src/shared/section-lock'
 
 /**
  * 板块密码锁：scrypt 哈希与校验、输错限流、新密码规则、可锁板块列表、
@@ -182,16 +185,35 @@ describe('解锁记录', () => {
   })
 })
 
-describe('设置项', () => {
-  it('lock.sections 只收路由名列表并去重；lock.relockMinutes 0–1440', () => {
-    expect(parseSetting('lock.sections', ['AV', 'Jav', 'AV'])).toEqual({
-      key: 'lock.sections',
-      value: ['AV', 'Jav'],
-    })
-    expect(parseSetting('lock.sections', ['../x'])).toBeUndefined()
-    expect(parseSetting('lock.sections', 'AV')).toBeUndefined()
-    expect(parseSetting('lock.relockMinutes', 15)?.value).toBe(15)
-    expect(parseSetting('lock.relockMinutes', -1)).toBeUndefined()
+describe('锁的配置', () => {
+  it('板块只收路由名列表并去重；重新锁定 0–1440 分钟整数', () => {
+    expect(
+      parseLockConfig({ sections: ['AV', 'Jav', 'AV'], relockMinutes: 15 })
+    ).toEqual({ sections: ['AV', 'Jav'], relockMinutes: 15 })
+    expect(
+      parseLockConfig({ sections: ['../x'], relockMinutes: 0 })
+    ).toBeUndefined()
+    expect(
+      parseLockConfig({ sections: 'AV', relockMinutes: 0 })
+    ).toBeUndefined()
+    expect(parseLockConfig({ sections: [], relockMinutes: -1 })).toBeUndefined()
+    expect(
+      parseLockConfig({ sections: [], relockMinutes: 1.5 })
+    ).toBeUndefined()
+  })
+
+  it('取消锁定、放宽重新锁定算降低保护；增加锁定、收紧不算', () => {
+    const base = { sections: ['AV', 'Jav'], relockMinutes: 5 }
+    expect(weakensLock(base, { ...base, sections: ['AV'] })).toBe(true)
+    expect(weakensLock(base, { ...base, relockMinutes: 0 })).toBe(true)
+    expect(weakensLock(base, { ...base, relockMinutes: 15 })).toBe(true)
+    expect(weakensLock(base, { ...base, sections: ['Jav', 'AV', 'X'] })).toBe(
+      false
+    )
+    expect(weakensLock(base, { ...base, relockMinutes: 1 })).toBe(false)
+    expect(
+      weakensLock({ ...base, relockMinutes: 0 }, { ...base, relockMinutes: 5 })
+    ).toBe(false)
   })
 })
 
@@ -202,7 +224,8 @@ describe('接线', () => {
     )
     const main = read('src/main/section-lock/index.ts')
     expect(main).toMatch(/implement\(sectionLock/)
-    expect(main).toMatch(/save\(await hashPassword\(next\)\)/)
+    expect(main).toMatch(/createSectionLockStore\(/)
+    expect(main).toMatch(/store\.grantForSystemAuth\(\)/)
     expect(main).toMatch(/promptTouchID/)
   })
 
