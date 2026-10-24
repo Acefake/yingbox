@@ -39,9 +39,12 @@
             :active-line="sources.activeLine.value"
             :current-episodes="sources.currentEpisodes.value"
             :current-url="currentUrl"
+            :probes="sources.probes.value"
+            :probing="sources.probing.value"
             @switch-type="sources.switchSourceType"
             @switch-site="sources.switchSite"
             @switch-line="sources.switchLine"
+            @reprobe="sources.reprobe"
             @play="playEp"
           />
         </DetailHero>
@@ -169,6 +172,9 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   currentUrl.value = ''
   let playUrl = url
   const siteName = sources.currentSiteName.value
+  // 测速中源列表会重排：线路与备用源按点击时的状态取
+  const line = sources.currentLine.value
+  const siteGroups = sources.siteGroups.value
   if (sources.currentSourceType.value === 'catspider' && siteName && ext) {
     const resolved = await resolvePlayUrl(siteName, ext)
     if (generation !== playGeneration) return
@@ -184,15 +190,10 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     [itemName.value, asText(ext?.name)].filter(Boolean).join(' · ') ||
     itemName.value ||
     '正在播放'
-  // 带上当前线路的剧集队列与同集备用线路：播放器据此自动连播/失败换线路
-  const playlist = buildPlaylist(sources.currentLine.value)
+  // 带上当前线路的剧集队列与同集备用源（已按测速排序）：播放器据此自动连播、卡顿 / 失败换源
+  const playlist = buildPlaylist(line)
   const epIndex = playlist.findIndex(item => item.url === url)
-  const fallbacks = buildFallbacks(
-    sources.siteGroups.value,
-    sources.currentLine.value,
-    asText(ext?.name),
-    epIndex
-  )
+  const fallbacks = buildFallbacks(siteGroups, line, asText(ext?.name), epIndex)
   const ok = await openMediaPlayer({
     url: playUrl,
     title,

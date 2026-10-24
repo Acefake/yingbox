@@ -139,6 +139,7 @@ const ADDED_API: Record<string, string[]> = {
     'doubanBrowse',
     'doubanPhotos',
     'resolvePage',
+    'probeStream',
   ],
   av: ['list', 'resolve'],
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
