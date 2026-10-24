@@ -185,6 +185,7 @@ const ADDED_API: Record<string, string[]> = {
     'offUsageChanged',
   ],
   aiSubtitles: ['start', 'cancel', 'list', 'find', 'onChanged', 'offChanged'],
+  recap: ['probe', 'prepare', 'cancel', 'save'],
 }
 
 beforeAll(async () => {

@@ -7,10 +7,10 @@
  * - 私密：调用方标记 private 且设置「私密板块只用本地模型」打开时，非本地服务商直接拒绝。
  */
 import {
+  aiConfigProblem,
   aiKeySecret,
   aiProviderPreset,
-  effectiveAiBaseUrl,
-  isLocalAiProvider,
+  resolveAiEndpoint,
 } from '../../shared/ai/providers'
 import type { AiProviderId } from '../../shared/ai/types'
 import { AiError } from './errors'
@@ -41,35 +41,28 @@ export function resolveAiConfig(
   getSecret: (key: NonNullable<ReturnType<typeof aiKeySecret>>) => string
 ): AiConfig {
   const preset = aiProviderPreset(values.provider)
-  const baseUrl = effectiveAiBaseUrl(preset.id, values.baseUrl)
+  const endpoint = resolveAiEndpoint(values)
   const secret = aiKeySecret(values.provider)
   return {
     provider: preset.id,
-    baseUrl,
-    model: values.model.trim() || preset.model,
+    baseUrl: endpoint.baseUrl,
+    model: endpoint.model,
     apiKey: secret ? getSecret(secret).trim() : '',
-    local: isLocalAiProvider(preset.id, baseUrl),
+    local: endpoint.local,
     jsonSchema: preset.jsonSchema,
   }
 }
 
-/** 配置能否发请求；不能时抛 not_configured */
+/** 配置能否发请求；不能时抛 not_configured（判定见 shared 的 aiConfigProblem，渲染层共用） */
 export function assertUsable(config: AiConfig, model = config.model): void {
-  if (!config.baseUrl)
-    throw new AiError('not_configured', '还没有填写 AI 接口地址')
-  let url: URL
-  try {
-    url = new URL(config.baseUrl)
-  } catch {
-    throw new AiError('not_configured', 'AI 接口地址格式不对')
-  }
-  if (url.protocol !== 'https:' && url.protocol !== 'http:')
-    throw new AiError('not_configured', 'AI 接口地址只支持 http / https')
-  if (url.protocol === 'http:' && !config.local)
-    throw new AiError('not_configured', '非本地的 AI 接口需要 https 地址')
-  if (!model.trim()) throw new AiError('not_configured', '还没有填写对话模型')
-  if (aiProviderPreset(config.provider).needsKey && !config.apiKey)
-    throw new AiError('not_configured', '还没有填写 API Key')
+  const problem = aiConfigProblem({
+    provider: config.provider,
+    baseUrl: config.baseUrl,
+    model,
+    local: config.local,
+    hasKey: Boolean(config.apiKey),
+  })
+  if (problem) throw new AiError('not_configured', problem)
 }
 
 /** 私密内容的去向检查：不允许时抛 private_blocked */

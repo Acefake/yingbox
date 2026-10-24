@@ -8,6 +8,13 @@
       <div ref="containerEl" class="unified-player-video-area" />
       <!-- 仅加载中显示自适应海报；开播后纯黑，不留背景 -->
       <PlayerLoadingCover v-if="isLoading" :poster="posterSrc" />
+      <RecapLayer
+        :source="currentSource"
+        :private="aiPrivate"
+        :start-at="startAt"
+        :player="artInstance"
+        :compact="compact"
+      />
     </div>
     <div v-if="showFooter && (closable || title)" class="unified-player-footer">
       <span class="unified-player-title">{{ title || '正在播放' }}</span>
@@ -68,6 +75,7 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import AiSubtitleSection from '../ai-subtitle/AiSubtitleSection.vue'
 import { installSubtitlePanelEntry } from '../ai-subtitle/art-entry'
 import { useAiSubtitle } from '../ai-subtitle/use-ai-subtitle'
+import RecapLayer from '../recap/RecapLayer.vue'
 import { usePlayerSubtitles } from '../composables/use-player-subtitles'
 import DanmakuPanel from '../danmaku/DanmakuPanel.vue'
 import type { DanmakuTarget } from '../danmaku/danmaku-rules'
@@ -107,6 +115,8 @@ const props = withDefaults(
     subtitleEpisode?: number
     /** 来自私密板块：AI 字幕的翻译 / 云端转写只发给本地模型（按设置） */
     aiPrivate?: boolean
+    /** 缩在小窗里：前情提要提示卡不挂，问剧情面板按容器收窄 */
+    compact?: boolean
     /** 弹幕匹配用的当前条目；不传则不显示弹幕 */
     danmakuTarget?: DanmakuTarget | null
     /** 强制按 HLS 播放（直播接口地址常不带 .m3u8 扩展名） */
@@ -126,6 +136,7 @@ const props = withDefaults(
     subtitleSeason: undefined,
     subtitleEpisode: undefined,
     aiPrivate: false,
+    compact: false,
     danmakuTarget: null,
     hls: false,
   }
@@ -174,6 +185,9 @@ const aiSubtitle = useAiSubtitle({
   title: () => props.subtitleSearchTitle || props.title || '',
   load: (path, name) => subtitles.applyFile(path, name),
 })
+
+/** 当前 Artplayer 实例（前情提要 / 问剧情读进度、加菜单入口） */
+const artInstance = (): ArtCore['art'] | null => core?.art ?? null
 
 const openSubtitlePanel = (): void => {
   if (!subtitles.panelOpen.value) subtitles.togglePanel()
@@ -323,6 +337,8 @@ defineExpose({ video })
 .unified-player-video-area {
   position: absolute;
   inset: 0;
+  /* Artplayer 内部的层级（遮罩 50、控制栏 60、菜单 90/120）关在这里，前情提要层才能盖在它们之上 */
+  isolation: isolate;
   background: var(--media-bg);
 }
 

@@ -42,6 +42,7 @@ import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
 import { registerAiSubtitles } from './ai-subtitles'
+import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 import { installTray } from './tray'
 
@@ -232,6 +233,8 @@ app.whenReady().then(async () => {
   registerAi()
   // AI 字幕：ffmpeg + Whisper 识别 + 大模型翻译，主进程任务队列（见 src/main/ai-subtitles）
   registerAiSubtitles()
+  // 前情提要 / 问剧情：之前各集字幕摘要与缓存（见 src/main/recap）
+  registerRecap()
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 
