@@ -3,7 +3,6 @@
     class="recap-card"
     :class="{ 'is-expanded': state.expanded.value }"
     aria-label="前情提要"
-    aria-live="polite"
   >
     <header class="recap-card-head">
       <span class="recap-card-title">

@@ -27,14 +27,44 @@ export async function probeRecap(
   return api.probe(localUrl, isPrivate ? { private: true } : {})
 }
 
-/** 准备上下文（之前各集摘要，问剧情再加本集已播部分） */
-export function prepareRecap(
+let sequence = 0
+
+/** 本窗口内唯一的请求标识 */
+function newRequestId(): string {
+  sequence += 1
+  return globalThis.crypto?.randomUUID?.() ?? `recap-${Date.now()}-${sequence}`
+}
+
+/**
+ * 准备上下文（之前各集摘要，问剧情再加本集已播部分）。
+ * signal 中止时经 recap.cancel 让主进程停掉还没发出的分段摘要，并立刻以 AbortError 结束。
+ */
+export async function prepareRecap(
   localUrl: string,
-  options: RecapPrepareOptions
+  options: RecapPrepareOptions,
+  signal?: AbortSignal
 ): Promise<RecapContext> {
   const api = bridge()
-  if (!api) return Promise.reject(new Error('前情提要需要桌面端'))
-  return api.prepare(localUrl, { ...options })
+  if (!api) throw new Error('前情提要需要桌面端')
+  const aborted = (): DOMException => new DOMException('已取消', 'AbortError')
+  if (signal?.aborted) throw aborted()
+  const requestId = newRequestId()
+  let onAbort = (): void => {}
+  const cancelled = new Promise<never>((_, reject) => {
+    onAbort = () => {
+      void api.cancel(requestId).catch(() => {})
+      reject(aborted())
+    }
+    signal?.addEventListener('abort', onAbort, { once: true })
+  })
+  try {
+    return await Promise.race([
+      api.prepare(localUrl, { ...options, requestId }),
+      cancelled,
+    ])
+  } finally {
+    signal?.removeEventListener('abort', onAbort)
+  }
 }
 
 /** 生成完的前情提要按集缓存（失败不影响展示） */

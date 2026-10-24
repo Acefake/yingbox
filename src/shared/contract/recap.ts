@@ -17,6 +17,13 @@ export function parseProbeOptions(raw: unknown): RecapProbeOptions {
   return input.private === true ? { private: true } : {}
 }
 
+/** 校验请求标识（字母数字与连字符，最长 64） */
+export function parseRequestId(raw: unknown, name = 'requestId'): string {
+  const id = str(raw, name)
+  if (!/^[\w-]{1,64}$/.test(id)) throw new ContractError(`参数 ${name} 不合法`)
+  return id
+}
+
 /** 校验 prepare 选项（只保留认识的字段） */
 export function parsePrepareOptions(raw: unknown): RecapPrepareOptions {
   const input = record<Record<string, unknown>>(raw, 'options')
@@ -32,6 +39,8 @@ export function parsePrepareOptions(raw: unknown): RecapPrepareOptions {
       throw new ContractError('参数 options.seconds 应为非负数')
     options.seconds = seconds
   }
+  if (input.requestId !== undefined)
+    options.requestId = parseRequestId(input.requestId, 'options.requestId')
   return options
 }
 
@@ -65,6 +74,8 @@ export const recap = defineDomain('recap', {
   prepare: call<[localUrl: string, options: RecapPrepareOptions], RecapContext>(
     a => [str(a[0], 'localUrl'), parsePrepareOptions(a[1])]
   ),
+  /** 取消本窗口发起、还在跑的 prepare（按 requestId）；返回是否找到并取消 */
+  cancel: call<[requestId: string], boolean>(a => [parseRequestId(a[0])]),
   /** 生成完的前情提要按集缓存 */
   save: call<[options: RecapSaveOptions], void>(a => [parseSaveOptions(a[0])]),
 })

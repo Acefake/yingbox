@@ -99,15 +99,27 @@ export function chunkLines(
   return chunks
 }
 
+/** {@link closedChunks} 的结果 */
+export interface ClosedChunks {
+  /** 已封口的段 */
+  chunks: string[][]
+  /** 这些段覆盖了前缀的前多少行（之后的行才是「最近台词」） */
+  covered: number
+}
+
 /**
- * 截到某个进度的台词前缀里「已封口」的段数：最后一段后面还可能接台词，不算封口。
+ * 截到某个进度的台词前缀里「已封口」的段：最后一段后面还可能接台词，不算封口。
  * 这些段与整集分段的前几段逐字相同。
  */
 export function closedChunks(
   prefixLines: readonly string[],
   budget = CHUNK_TOKENS
-): string[][] {
-  return chunkLines(prefixLines, budget).slice(0, -1)
+): ClosedChunks {
+  const chunks = chunkLines(prefixLines, budget).slice(0, -1)
+  return {
+    chunks,
+    covered: chunks.reduce((sum, chunk) => sum + chunk.length, 0),
+  }
 }
 
 /** 从末尾往前取，不超过 budget tokens 的最近几行（保持原顺序） */

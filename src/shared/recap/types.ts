@@ -75,6 +75,8 @@ export interface RecapPrepareOptions extends RecapProbeOptions {
   purpose: RecapPurpose
   /** 问剧情：当前播放进度（秒），本集只取这之前的台词 */
   seconds?: number
+  /** 本窗口内的请求标识：recap.cancel 用它中止还在跑的摘要 */
+  requestId?: string
 }
 
 /** recap.save 的参数：生成完的前情提要按集缓存 */
