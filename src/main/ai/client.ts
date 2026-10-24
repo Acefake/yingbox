@@ -44,7 +44,7 @@ export interface ClientOptions {
 export const DEFAULT_TIMEOUT_MS = 60_000
 export const DEFAULT_STREAM_TIMEOUT_MS = 120_000
 
-/** 请求头：Bearer Key（有才带）+ OpenRouter 的来源标识 */
+/** 请求头：Bearer Key（有才带）+ OpenRouter 来源标识 + OpenCode Go 自报 User-Agent */
 export function buildHeaders(
   config: AiConfig,
   stream: boolean
@@ -58,6 +58,7 @@ export function buildHeaders(
     headers['HTTP-Referer'] = 'https://github.com/Acefake/yingbox'
     headers['X-Title'] = 'yingbox'
   }
+  if (config.provider === 'opencode-go') headers['User-Agent'] = 'yingbox'
   return headers
 }
 

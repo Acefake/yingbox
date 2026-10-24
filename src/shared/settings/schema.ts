@@ -207,7 +207,14 @@ export const settingsSchema = {
 
   /** AI 服务商（OpenAI 兼容接口，见 src/shared/ai/providers.ts） */
   'ai.provider': oneOf(
-    ['openai', 'deepseek', 'openrouter', 'ollama', 'custom'] as const,
+    [
+      'openai',
+      'deepseek',
+      'openrouter',
+      'opencode-go',
+      'ollama',
+      'custom',
+    ] as const,
     'deepseek'
   ),
   /** AI 接口地址（含 /v1）；空串 = 服务商预设地址，自定义服务商必填 */
@@ -236,6 +243,7 @@ export const settingsSchema = {
   'ai.apiKey.openai': secret(),
   'ai.apiKey.deepseek': secret(),
   'ai.apiKey.openrouter': secret(),
+  'ai.apiKey.opencode-go': secret(),
   'ai.apiKey.custom': secret(),
 } as const satisfies Record<string, ValueSpec<unknown> | SecretSpec>
 
