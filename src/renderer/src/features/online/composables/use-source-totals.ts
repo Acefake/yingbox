@@ -50,7 +50,7 @@ export function useSourceTotals(): SourceTotals {
   )
 
   /**
-   * 一键更新：拉取远程源清单与订阅合并新源，再重新检测全部源（自动启用可用源、停用失效源）。
+   * 一键更新：同步源清单与订阅，再检测全部源；内置 CMS 源按检测结果自动启停。
    * 订阅失败只提示，沿用上次缓存的订阅源。
    */
   const updatingSources = computed(
