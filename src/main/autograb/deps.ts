@@ -8,6 +8,7 @@ import type {
   FileChangeNotice,
 } from '../../shared/library/ipc'
 import type { DriveEntry, DriveSpace } from '../pan115/client'
+import type { GateKind } from './gate'
 import type { AutograbState, EpisodeRecord } from './state'
 
 /** 依赖 */
@@ -48,4 +49,13 @@ export interface AutograbDeps {
   log(message: string): void
   /** 转存过的集入库了（日历里这一集有了文件），推送通知用 */
   landed?(records: EpisodeRecord[]): void
+}
+
+/** 与追更共用的 115 闸门和拉黑表（库外发现复用，不另起一套限速 / 熔断） */
+export interface Pan115Guard {
+  run<T>(kind: GateKind, task: () => Promise<T>): Promise<T>
+  /** 闸门暂停的原因；没暂停为 null */
+  pauseReason(): string | null
+  blocked(shareCode: string): boolean
+  block(shareCode: string): void
 }

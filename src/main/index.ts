@@ -49,6 +49,7 @@ import { registerNotify } from './notify'
 import { registerAutograbMovies } from './autograb/movies'
 import { createPanAdapter } from './autograb/upgrade/pan-adapter'
 import { registerAutograbUpgrade } from './autograb/upgrade'
+import { registerDiscover } from './discover'
 import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
@@ -260,6 +261,8 @@ app.whenReady().then(async () => {
   const autograbPan = createPanAdapter(pan115Service)
   registerAutograbUpgrade(libraryClient, autograbPan, autograbGate)
   registerAutograbMovies(libraryClient, autograbPan, autograbGate)
+  // 库外发现：助手 / 豆瓣卡「找 115 资源」，复用追更的闸门（见 src/main/discover）
+  registerDiscover(libraryClient, pan115Service, autograb)
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 
