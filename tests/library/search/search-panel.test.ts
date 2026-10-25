@@ -33,6 +33,7 @@ vi.mock('../../../src/renderer/src/features/library/api/bridge', () => ({
   errorText: (error: Error) => error.message,
 }))
 import Panel from '../../../src/renderer/src/features/library/search/UnifiedSearchPanel.vue'
+import { visualSearchSource } from '../../../src/renderer/src/features/library/visual/visual-source'
 
 let app: App | null = null
 const settle = async (): Promise<void> => {
@@ -41,6 +42,7 @@ const settle = async (): Promise<void> => {
   await nextTick()
 }
 beforeEach(() => {
+  visualSearchSource.value = 'all'
   localStorage.clear()
   vi.useFakeTimers()
   vi.resetAllMocks()
@@ -193,4 +195,21 @@ it('面板卸载后恢复打开前的焦点', async () => {
   app!.unmount()
   app = null
   expect(document.activeElement).toBe(previous)
+})
+
+it('CLIP 范围切换传到召回请求，并且不会触发 AI', async () => {
+  await mount(true)
+  const select = document.querySelector<HTMLSelectElement>(
+    '[aria-label="CLIP 搜索范围"]'
+  )!
+  expect(select.value).toBe('all')
+  select.value = 'video'
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+  await settle()
+  expect(search.mock.lastCall?.[0].visualSource).toBe('video')
+  expect(enhance).not.toHaveBeenCalled()
+  select.value = 'image'
+  select.dispatchEvent(new Event('change', { bubbles: true }))
+  await settle()
+  expect(search.mock.lastCall?.[0].visualSource).toBe('image')
 })

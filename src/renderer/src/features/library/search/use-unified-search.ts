@@ -8,7 +8,10 @@ import {
   shallowRef,
   watch,
 } from 'vue'
-import type { ActorSummary } from '../../../../../shared/library/ipc'
+import type {
+  ActorSummary,
+  VisualSearchSource,
+} from '../../../../../shared/library/ipc'
 import { errorText } from '../api/bridge'
 import type { NlFilter } from '../nl-search/nl-filter'
 import { enhanceConditions } from './ai-conditions'
@@ -39,6 +42,7 @@ export function useUnifiedSearch(options: {
   scope: () => SearchScope
   open: () => boolean
   ai: () => boolean
+  visualSource?: () => VisualSearchSource
 }): UnifiedSearchState {
   const batches = shallowRef<RecallBatch[]>([])
   const filter = shallowRef<NlFilter>({})
@@ -80,6 +84,7 @@ export function useUnifiedSearch(options: {
     const request: SearchRequest = {
       text,
       scope: options.scope(),
+      visualSource: options.visualSource?.() ?? 'all',
       filter: override ?? ruleFilter(text),
       signal: current.signal,
     }
@@ -164,6 +169,16 @@ export function useUnifiedSearch(options: {
     stop()
     if (options.open()) void run()
   })
+  if (options.visualSource)
+    watch(
+      options.visualSource,
+      () => {
+        stop()
+        batches.value = batches.value.filter(batch => batch.kind !== 'visual')
+        if (options.open()) void run(false, filter.value)
+      },
+      { flush: 'sync' }
+    )
   onScopeDispose(stop)
   return {
     hits,

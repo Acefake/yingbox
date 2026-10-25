@@ -4,6 +4,7 @@ import type {
   LibraryItemSummary,
   LibraryQuery,
   VisualHit,
+  VisualSearchSource,
 } from '../../../../../shared/library/ipc'
 import type { NlFilter } from '../nl-search/nl-filter'
 import type { LibrarySection } from '../state/library-section'
@@ -13,6 +14,7 @@ export type RecallKind = 'title' | 'people' | 'conditions' | 'visual'
 export interface SearchRequest {
   text: string
   scope: SearchScope
+  visualSource?: VisualSearchSource
   filter?: NlFilter
   signal: AbortSignal
 }

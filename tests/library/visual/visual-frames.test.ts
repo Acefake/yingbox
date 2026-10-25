@@ -224,6 +224,32 @@ describe('视频关键帧', () => {
     expect(cover).toMatchObject({ itemId: item, image: 'https://img/3.jpg' })
     expect(cover!.frame).toBeUndefined()
     expect(cover!.moments).toHaveLength(3)
+    const images = await service.visual.search({
+      text: 'k=3',
+      source: 'image',
+      limit: 1,
+    })
+    expect(images).toHaveLength(1)
+    expect(images[0]).toMatchObject({
+      itemId: item,
+      image: 'https://img/3.jpg',
+      score: 1,
+    })
+    expect(images[0].frame).toBeUndefined()
+    expect(images[0].moments).toBeUndefined()
+    // 最高分是图片，视频模式仍返回一条抽帧命中：过滤必须发生在 limit 之前。
+    const videos = await service.visual.search({
+      text: 'k=3',
+      source: 'video',
+      limit: 1,
+    })
+    expect(videos).toHaveLength(1)
+    expect(videos[0].frame).toBeDefined()
+    expect(videos[0].image).not.toBe('https://img/3.jpg')
+    expect(videos[0].moments?.length).toBeGreaterThan(0)
+    expect(await service.visual.search({ text: 'k=3', source: 'all' })).toEqual(
+      await service.visual.search({ text: 'k=3' })
+    )
   })
 
   it('暂停后断点续跑：从停下的那批接着抽，不重抽已入库的帧', async () => {
