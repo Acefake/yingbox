@@ -118,19 +118,13 @@
       :library-id="facetScope.libraryId ?? null"
       @open-item="id => ((visualOpen = false), emit('open-item', id))"
     />
-    <TonightSheet
-      v-if="tonightMounted"
-      :open="tonightOpen"
-      @close="tonightOpen = false"
-      @open-item="id => emit('open-item', id)"
-    />
   </header>
 </template>
 
 <script setup lang="ts">
 /**
  * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧图标 + 文字按钮（排序、升降、筛选、扫描、识别），
- * 其余操作（按画面、今晚看什么、视频墙、设置）收进「更多」，摆放规则见 page-rules.ts toolbarActions；
+ * 其余操作（按画面搜、视频墙、设置）收进「更多」，摆放规则见 page-rules.ts toolbarActions；
  * 第二行把视图切换（资料库 / 演员，番号页才有）和筛选胶囊排成一行：匹配状态（「待确认」带数量，选它进入待确认队列），
  * 媒体库多于一个时接着列出各媒体库。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
@@ -153,7 +147,6 @@ import type {
 import ActiveFacets from '../facets/ActiveFacets.vue'
 import FacetPanel from '../facets/FacetPanel.vue'
 import { activeCount } from '../facets/facet-rules'
-import TonightSheet from '../tonight/TonightSheet.vue'
 import VisualSearch from '../visual/VisualSearch.vue'
 import {
   FILTER_OPTIONS,
@@ -184,8 +177,6 @@ const props = defineProps<{
   order: 'asc' | 'desc'
   /** 分面筛选的取值范围；不传表示该分区没有分面筛选。 */
   facetScope?: Omit<FacetListRequest, 'field'>
-  /** 显示「今晚看什么」（电影 / 剧集分区）。 */
-  tonight?: boolean
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
@@ -194,15 +185,6 @@ const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
 const facetsOpen = ref(false)
 const visualOpen = ref(false)
 const facetCount = computed(() => activeCount(facets.value))
-/** 「今晚看什么」面板：第一次打开才挂载，之后保留（再打开时条件和结果还在） */
-const tonightOpen = ref(false)
-const tonightMounted = ref(false)
-
-function openTonight(): void {
-  tonightMounted.value = true
-  tonightOpen.value = true
-}
-
 /** 0 表示全部文件夹。 */
 const library = defineModel<number>('library', { required: true })
 
@@ -255,7 +237,6 @@ const actions = computed(() =>
     hasLibraries: props.hasLibraries,
     count: props.count,
     facets: !!props.facetScope,
-    tonight: !!props.tonight,
   })
 )
 const shows = (action: ToolbarAction): boolean =>
@@ -268,7 +249,6 @@ const MORE: Partial<Record<ToolbarAction, Omit<MenuButtonItem, 'key'>>> = {
     icon: 'image',
     onSelect: () => (visualOpen.value = true),
   },
-  tonight: { label: '今晚看什么', icon: 'moon', onSelect: openTonight },
   'video-wall': {
     label: '视频墙',
     icon: 'grid',
