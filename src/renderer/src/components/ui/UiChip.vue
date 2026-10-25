@@ -2,7 +2,7 @@
   <button
     type="button"
     class="ui-chip"
-    :class="{ 'is-selected': selected }"
+    :class="[`is-${size}`, { 'is-selected': selected }]"
     :aria-pressed="selected === undefined ? undefined : selected"
     :disabled="disabled"
   >
@@ -20,6 +20,8 @@
  * - 不提供内嵌删除按钮（button 里不能再嵌按钮）；需要删除时，
  *   在芯片旁边放一个 UiIconButton icon="close"。
  *
+ * - size="lg"：页面级筛选胶囊（片库、直播分组），34px 高、卡片实色底，选中时反色（白底黑字）。
+ *
  * 插槽：leading 前置图标或符号；默认插槽覆盖 label。
  */
 withDefaults(
@@ -27,8 +29,10 @@ withDefaults(
     label?: string
     selected?: boolean
     disabled?: boolean
+    /** sm：行内小胶囊；lg：页面筛选胶囊 */
+    size?: 'sm' | 'lg'
   }>(),
-  { selected: undefined }
+  { selected: undefined, size: 'sm' }
 )
 </script>
 
@@ -58,6 +62,25 @@ withDefaults(
 .ui-chip:where(.is-selected) {
   background: var(--bg-active);
   font-weight: var(--font-weight-medium);
+}
+.ui-chip:where(.is-lg) {
+  flex: none;
+  gap: var(--space-1_5);
+  min-height: 34px;
+  padding: 0 var(--space-3_5);
+  background: var(--bg-fill-tertiary);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
+}
+.ui-chip:where(.is-lg:hover:not(:disabled)) {
+  background: var(--bg-fill-secondary);
+}
+.ui-chip:where(.is-lg.is-selected) {
+  background: var(--text-primary);
+  color: var(--bg-content);
+  font-weight: var(--font-weight-semibold);
 }
 .ui-chip:where(:focus-visible) {
   outline: none;

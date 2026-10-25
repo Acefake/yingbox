@@ -120,11 +120,14 @@ describe('设置与接线', () => {
   })
 
   it('剧集列表按遮挡集合加 is-spoiler，剧照模糊、简介折叠、悬停 / 聚焦显示', () => {
-    const seasons = src('features/library/detail/DetailSeasons.vue')
+    // 剧集区块的样式拆在 detail-seasons.css
+    const seasons =
+      src('features/library/detail/DetailSeasons.vue') +
+      src('features/library/detail/detail-seasons.css')
     expect(seasons).toContain("'is-spoiler': spoilerIds.has(ep.id)")
     expect(seasons).toContain('useSpoilerGuard(')
     expect(seasons).toMatch(
-      /\.is-spoiler \.lib-episode-still img \{\s+filter: blur/
+      /\.is-spoiler \.lib-episode-still,\s+\.lib-episode\.is-spoiler \.lib-episode-fill \{\s+filter: blur/
     )
     expect(seasons).toMatch(
       /\.is-spoiler \.lib-episode-overview \{\s+display: none/

@@ -40,13 +40,29 @@ describe('侧栏导航项', () => {
       g => g.key === 'live'
     )
     expect(live?.items).toEqual([
-      { label: '直播', icon: 'livePlay', path: '/live', active: true },
-      { label: '网盘', icon: 'database', path: '/netdisk', active: false },
+      { label: '直播', icon: 'broadcast', path: '/live', active: true },
+      { label: '网盘', icon: 'cloud', path: '/netdisk', active: false },
     ])
     const netdisk = buildNavGroups(state({ routeName: 'Netdisk' })).find(
       g => g.key === 'live'
     )
     expect(netdisk?.items.map(i => i.active)).toEqual([false, true])
+  })
+
+  it('分组标题：资料库 / 本地媒体 / 在线，只有成人组用分隔线', () => {
+    const groups = buildNavGroups(state({ adultMode: true }))
+    expect(groups.map(g => g.heading)).toEqual([
+      '资料库',
+      '本地媒体',
+      '在线',
+      undefined,
+    ])
+    expect(groups.map(g => Boolean(g.divider))).toEqual([
+      false,
+      false,
+      false,
+      true,
+    ])
   })
 
   it('没有本地片库时不显示本地媒体组与直播（成人模式下也不显示）', () => {
@@ -60,7 +76,7 @@ describe('侧栏导航项', () => {
     const noLibrary = buildNavGroups(state({ hasLocalLibrary: false }))
     expect(noLibrary.map(g => g.key)).toEqual(['library', 'live'])
     expect(noLibrary[1].items).toEqual([
-      { label: '网盘', icon: 'database', path: '/netdisk', active: false },
+      { label: '网盘', icon: 'cloud', path: '/netdisk', active: false },
     ])
     const web = buildNavGroups(state({ hasNetdisk: false }))
     expect(web.find(g => g.key === 'live')?.items.map(i => i.path)).toEqual([

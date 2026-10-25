@@ -39,6 +39,9 @@ const ICONS = {
   av: ['film-reel', 'fill'],
   globe: ['globe', 'fill'],
   database: ['database', 'fill'],
+  broadcast: ['broadcast', 'fill'],
+  cloud: ['cloud', 'fill'],
+  tasks: ['list-checks', 'fill'],
   settings: ['gear-six', 'fill'],
   panel: ['sidebar-simple', 'fill'],
   // 媒体与播放
@@ -98,6 +101,7 @@ const ICONS = {
   sort: ['arrows-down-up', 'bold'],
   refresh: ['arrow-clockwise', 'bold'],
   link: ['link', 'bold'],
+  share: ['export', 'bold'],
   externalLink: ['arrow-square-out', 'bold'],
   scan: ['scan', 'bold'],
   // 窗口键
