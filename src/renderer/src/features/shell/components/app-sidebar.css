@@ -1,0 +1,287 @@
+/*
+ * 应用侧栏（AppSidebar.vue / SidebarSearch.vue）的样式，选择器都挂在 .app-sidebar 下。
+ * 浮动玻璃侧栏（效果图 C-3 / E-1 / F-3）：离窗口边 --shell-inset，内容区从它后面透过来。
+ * 底色、模糊、阴影全部来自 .yb-glass，这里不写 background；手机抽屉的位置由 AppLayout 改写。
+ */
+.app-sidebar {
+  position: absolute;
+  top: var(--shell-inset);
+  bottom: var(--shell-inset);
+  left: var(--shell-inset);
+  z-index: var(--z-float);
+  display: flex;
+  flex-direction: column;
+  width: var(--sidebar-width);
+  min-height: 0;
+  padding: var(--space-4) var(--space-3);
+  border-radius: var(--radius-2xl);
+  color: var(--text-secondary);
+  -webkit-app-region: no-drag;
+  transition:
+    width var(--duration-fast) ease,
+    padding var(--duration-fast) ease,
+    transform var(--duration-fast) ease;
+}
+
+.app-sidebar .sidebar-brand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2_5);
+  height: 36px;
+  margin-bottom: var(--space-3);
+  padding: 0 var(--space-1) 0 var(--space-2);
+  color: var(--text-primary);
+}
+.app-sidebar .brand-mark {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+}
+.app-sidebar .brand-name {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.02em;
+}
+.app-sidebar .sidebar-toggle {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+
+/* 搜索 + 助手入口一组 */
+.app-sidebar .sidebar-tools {
+  display: flex;
+  flex: none;
+  align-items: center;
+  gap: var(--space-2);
+  margin-bottom: var(--space-1_5);
+}
+/* 图标工具钮（收起时的搜索、助手 sparkle）：44px 圆，浅玻璃底 */
+.app-sidebar .sidebar-tool {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 36px;
+  height: 36px;
+  border-radius: 50%;
+  background: var(--bg-glass-hover);
+  box-shadow: inset 0 0 0 0.5px var(--border-glass);
+  color: var(--text-primary);
+  transition: var(--transition-fast);
+}
+.app-sidebar .sidebar-tool:hover {
+  background: var(--bg-active);
+}
+.app-sidebar .sidebar-tool.is-assistant[aria-expanded='true'] {
+  background: var(--bg-active);
+}
+
+.app-sidebar .sidebar-nav {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-0_5);
+  min-height: 0;
+  overflow-y: auto;
+}
+
+.app-sidebar .sidebar-heading {
+  padding: var(--space-3) var(--space-3) var(--space-1_5);
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+}
+.app-sidebar .sidebar-divider {
+  height: 0.5px;
+  margin: var(--space-3);
+  background: var(--separator);
+}
+
+/* 导航项（UiNavItem，含页脚的后台任务 / 设置）：36px 胶囊，选中为更亮的内胶囊 */
+.app-sidebar .sidebar-item {
+  gap: var(--space-3);
+  height: 36px;
+  min-height: 36px;
+  padding: 0 var(--space-3);
+  overflow: hidden;
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+}
+.app-sidebar .sidebar-item .app-icon {
+  color: var(--text-secondary);
+}
+.app-sidebar .sidebar-item:hover:not(:disabled) {
+  background: var(--bg-active-soft);
+}
+.app-sidebar .sidebar-item.is-active {
+  background: var(--bg-active);
+  font-weight: var(--font-weight-semibold);
+}
+.app-sidebar .sidebar-item.is-active .app-icon {
+  color: var(--text-primary);
+}
+/* 已锁定的板块：尾部小锁；收起成图标列时不显示 */
+.app-sidebar .sidebar-item .sidebar-lock {
+  margin-left: auto;
+  color: var(--text-tertiary);
+}
+.app-sidebar.is-collapsed .sidebar-lock {
+  display: none;
+}
+/* 角标与小锁同时出现时并排 */
+.app-sidebar .sidebar-item .sidebar-badge + .sidebar-lock {
+  margin-left: var(--space-1);
+}
+
+/* 数字角标（追剧日历的未看新集数）：白底黑字小胶囊；收起成图标列时缩成图标右上角 */
+.app-sidebar .sidebar-badge {
+  flex: 0 0 auto;
+  min-width: 18px;
+  margin-left: auto;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-full);
+  background: var(--action-bg);
+  color: var(--action-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 18px;
+  text-align: center;
+  font-variant-numeric: tabular-nums;
+}
+.app-sidebar.is-collapsed .sidebar-badge {
+  position: absolute;
+  top: var(--space-1);
+  right: var(--space-1);
+  min-width: 16px;
+  padding: 0 var(--space-1);
+  line-height: 16px;
+}
+
+.app-sidebar .sidebar-footer {
+  display: flex;
+  flex: 0 0 auto;
+  flex-direction: column;
+  gap: var(--space-0_5);
+  margin-top: var(--space-3);
+}
+.app-sidebar .footer-queue-icon,
+.app-sidebar .footer-incognito-icon {
+  position: relative;
+  display: inline-flex;
+}
+/* 无痕标识：品牌名旁的小胶囊；收起成图标列时只剩开关图标上的圆点 */
+.app-sidebar .sidebar-incognito {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  padding: var(--space-0_5) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+}
+.app-sidebar .footer-dot {
+  position: absolute;
+  top: calc(var(--space-0_5) * -1);
+  right: calc(var(--space-0_5) * -1);
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+}
+.app-sidebar .footer-pulse {
+  position: absolute;
+  top: calc(var(--space-0_5) * -1);
+  right: calc(var(--space-0_5) * -1);
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--accent);
+  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
+  animation: queue-pulse var(--duration-pulse) ease-out infinite;
+}
+/* 识别进度环：conic-gradient 画出已完成的弧，中间挖空成环 */
+.app-sidebar .footer-ring {
+  position: absolute;
+  top: calc(var(--space-1) * -1);
+  right: calc(var(--space-1) * -1);
+  width: 10px;
+  height: 10px;
+  border-radius: var(--radius-full);
+  background: conic-gradient(
+    var(--accent) calc(var(--ring-progress) * 1turn),
+    var(--bg-fill-secondary) 0
+  );
+  /* 遮罩只看不透明度：外圈保留、中间 2.5px 挖空 */
+  mask: radial-gradient(circle, transparent 2.5px, var(--accent) 3px);
+  transition: background var(--duration-normal) var(--ease-out);
+}
+@keyframes queue-pulse {
+  70%,
+  100% {
+    box-shadow: 0 0 0 6px transparent;
+  }
+}
+
+/* ── 收起：64px 图标列，品牌只留标志与展开钮，搜索与助手入口一组 ── */
+.app-sidebar.is-collapsed {
+  align-items: center;
+  width: var(--sidebar-width-collapsed);
+  padding: var(--space-3) 0;
+}
+.app-sidebar.is-collapsed .sidebar-brand {
+  flex-direction: column;
+  gap: var(--space-1_5);
+  height: auto;
+  margin-bottom: 0;
+  padding: var(--space-1) 0 0;
+}
+.app-sidebar.is-collapsed .brand-name,
+.app-sidebar.is-collapsed .sidebar-incognito,
+.app-sidebar.is-collapsed .sidebar-heading {
+  display: none;
+}
+.app-sidebar.is-collapsed .brand-mark {
+  width: 32px;
+  height: 32px;
+}
+.app-sidebar.is-collapsed .sidebar-toggle {
+  --ib-size: 44px;
+  margin-left: 0;
+  border-radius: 50%;
+}
+.app-sidebar.is-collapsed .sidebar-tools {
+  flex-direction: column;
+  gap: var(--space-0_5);
+  margin: 0;
+  padding: var(--space-2) 0;
+  border-top: 0.5px solid var(--separator);
+  border-bottom: 0.5px solid var(--separator);
+}
+.app-sidebar.is-collapsed .sidebar-tool {
+  width: 44px;
+  height: 44px;
+}
+.app-sidebar.is-collapsed .sidebar-nav {
+  align-items: center;
+  width: 100%;
+  padding-top: var(--space-2);
+}
+.app-sidebar.is-collapsed .sidebar-item {
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  padding: 0;
+}
+.app-sidebar.is-collapsed .sidebar-divider {
+  width: 28px;
+  margin: var(--space-2) auto;
+}
+.app-sidebar.is-collapsed .sidebar-footer {
+  align-items: center;
+}
+.app-sidebar.is-phone .sidebar-toggle {
+  display: none;
+}

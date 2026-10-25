@@ -1,6 +1,6 @@
 <template>
   <aside
-    class="app-sidebar"
+    class="app-sidebar yb-glass"
     :class="{ 'is-collapsed': collapsed, 'is-phone': isPhone }"
     aria-label="媒体中心导航"
   >
@@ -17,6 +17,19 @@
         :label="minimized ? '展开侧边栏' : '收起侧边栏'"
         @click="minimized = !minimized"
       />
+    </div>
+    <div class="sidebar-tools">
+      <SidebarSearch :collapsed="collapsed" @expand="minimized = false" />
+      <UiPressable
+        v-if="assistantReady"
+        v-tooltip.right="`AI 助手（${ASSISTANT_HOTKEY_LABEL}）`"
+        class="sidebar-tool is-assistant"
+        label="AI 助手"
+        :aria-expanded="assistantOpen"
+        @click="openAssistant"
+      >
+        <UiIcon name="sparkle" size="lg" />
+      </UiPressable>
     </div>
     <nav class="sidebar-nav">
       <template v-for="group in navGroups" :key="group.key">
@@ -107,10 +120,12 @@
 
 <script setup lang="ts">
 /**
- * 应用侧栏：品牌、分组导航、页脚的无痕模式开关（会话级，打开时品牌旁显示「无痕」标识、
+ * 应用侧栏（浮动玻璃 .yb-glass，降低透明度时为实色）：品牌、全局搜索（SidebarSearch）与 AI 助手 sparkle 入口、
+ * 分组导航、页脚的无痕模式开关（会话级，打开时品牌旁显示「无痕」标识、
  * 收起成图标栏时图标带圆点）、后台任务入口（运行时带提示：媒体库识别显示进度环，
  * 去码 / 边跑边看显示呼吸点）和设置入口。
- * 桌面端可收起为图标栏（v-model:minimized），手机上由外壳当作抽屉显示。
+ * 桌面端可收起为 64px 图标列（v-model:minimized；搜索与助手入口一组，悬停提示在右侧并带快捷键），
+ * 手机上由外壳当作抽屉显示。
  */
 import { computed } from 'vue'
 
@@ -118,13 +133,23 @@ import logoUrl from '@/assets/imgs/logo.svg'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
+import UiPressable from '@/components/ui/UiPressable.vue'
+import { vTooltip } from '@/components/ui/tooltip'
 import { usePlatform } from '@/composables/use-platform'
+import { aiAvailable } from '@/features/ai'
+import {
+  ASSISTANT_HOTKEY_LABEL,
+  assistantOpen,
+  openAssistant,
+} from '@/features/assistant'
 import { incognitoState, toggleIncognito } from '@/features/incognito'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
 import { isPathLocked } from '@/features/section-lock'
 
 import type { NavGroup, NavItem } from '../composables/nav-items'
+import SidebarSearch from './SidebarSearch.vue'
+import './app-sidebar.css'
 
 defineProps<{
   /** 导航分组 */
@@ -149,6 +174,9 @@ const appName = '影盒'
 const { isPhone } = usePlatform()
 const incognito = incognitoState()
 
+/** AI 助手入口只在桌面端出现（AI 调用需要主进程） */
+const assistantReady = aiAvailable()
+
 // 去码 / 边跑边看在后台跑时，按钮上给个提示
 const { hasRuntime } = useLadaTasks()
 // 媒体库识别在跑时，按钮上显示进度环（进度条不再挤在各分区页面上）
@@ -164,220 +192,3 @@ const queueLabel = computed(() => {
   return hasRuntime.value ? '打开后台任务（进行中）' : '打开后台任务'
 })
 </script>
-
-<style scoped>
-/* ── 侧栏：桌面端在文档流里，不覆盖内容 ── */
-.app-sidebar {
-  position: relative;
-  z-index: var(--z-raised);
-  display: flex;
-  flex: 0 0 var(--sidebar-width);
-  flex-direction: column;
-  width: var(--sidebar-width);
-  max-width: var(--sidebar-width);
-  height: 100%;
-  min-height: 0;
-  padding: var(--space-5) var(--space-3);
-  background: var(--bg-sidebar);
-  color: var(--text-secondary);
-  -webkit-app-region: no-drag;
-  transition:
-    width var(--duration-fast) ease,
-    flex-basis var(--duration-fast) ease,
-    max-width var(--duration-fast) ease,
-    transform var(--duration-fast) ease;
-}
-
-.sidebar-brand {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  min-height: 42px;
-  padding: var(--space-1) var(--space-1) var(--space-5) var(--space-2);
-  color: var(--text-primary);
-}
-.brand-mark {
-  flex: 0 0 auto;
-  width: 32px;
-  height: 32px;
-}
-.brand-name {
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-medium);
-  letter-spacing: -0.01em;
-}
-.sidebar-toggle {
-  margin-left: auto;
-}
-
-.sidebar-nav {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-0_5);
-  min-height: 0;
-  overflow-y: auto;
-}
-
-.sidebar-heading {
-  padding: var(--space-4) var(--space-3) var(--space-1);
-  color: var(--text-tertiary);
-  font-size: var(--text-2xs);
-}
-.sidebar-divider {
-  height: 1px;
-  margin: var(--space-3) var(--space-3) var(--space-0_5);
-  background: var(--separator);
-}
-
-/* 导航项（UiNavItem，含页脚的后台任务 / 设置）：侧栏版更高、更大字号，未选中为次要色 */
-.sidebar-item {
-  gap: var(--space-3);
-  height: auto;
-  min-height: 36px;
-  padding: 0 var(--space-3);
-  overflow: hidden;
-  color: var(--text-secondary);
-  font-size: var(--text-md);
-}
-.sidebar-item:hover:not(:disabled),
-.sidebar-item.is-active {
-  color: var(--text-primary);
-}
-.sidebar-item :deep(.app-icon) {
-  color: inherit;
-}
-/* 已锁定的板块：尾部小锁；收起成图标栏时不显示 */
-.sidebar-item .sidebar-lock {
-  margin-left: auto;
-  color: var(--text-tertiary);
-}
-.app-sidebar.is-collapsed .sidebar-lock {
-  display: none;
-}
-/* 角标与小锁同时出现时并排 */
-.sidebar-item .sidebar-badge + .sidebar-lock {
-  margin-left: var(--space-1);
-}
-
-/* 数字角标（追剧日历的未看新集数）：收起成图标栏时缩成图标右上角的小圆点数字 */
-.sidebar-badge {
-  flex: 0 0 auto;
-  min-width: 18px;
-  margin-left: auto;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
-  background: var(--danger);
-  color: var(--text-on-accent);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-semibold);
-  line-height: 18px;
-  text-align: center;
-  font-variant-numeric: tabular-nums;
-}
-.app-sidebar.is-collapsed .sidebar-badge {
-  position: absolute;
-  top: var(--space-0_5);
-  right: var(--space-0_5);
-  min-width: 14px;
-  padding: 0 var(--space-0_5);
-  line-height: 14px;
-}
-
-.sidebar-footer {
-  display: flex;
-  flex: 0 0 auto;
-  flex-direction: column;
-  gap: var(--space-0_5);
-  margin-top: var(--space-3);
-  padding-top: var(--space-3);
-  border-top: 1px solid var(--separator);
-}
-.sidebar-footer .sidebar-item {
-  font-size: var(--text-sm);
-}
-.footer-queue-icon,
-.footer-incognito-icon {
-  position: relative;
-  display: inline-flex;
-}
-/* 无痕标识：品牌名旁的小胶囊；收起成图标栏时只剩开关图标上的圆点 */
-.sidebar-incognito {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-0_5) var(--space-2);
-  border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
-  color: var(--text-secondary);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-medium);
-}
-.footer-dot {
-  position: absolute;
-  top: calc(var(--space-0_5) * -1);
-  right: calc(var(--space-0_5) * -1);
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-}
-.footer-pulse {
-  position: absolute;
-  top: calc(var(--space-0_5) * -1);
-  right: calc(var(--space-0_5) * -1);
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-  animation: queue-pulse var(--duration-pulse) ease-out infinite;
-}
-/* 识别进度环：conic-gradient 画出已完成的弧，中间挖空成环 */
-.footer-ring {
-  position: absolute;
-  top: calc(var(--space-1) * -1);
-  right: calc(var(--space-1) * -1);
-  width: 10px;
-  height: 10px;
-  border-radius: var(--radius-full);
-  background: conic-gradient(
-    var(--accent) calc(var(--ring-progress) * 1turn),
-    var(--bg-fill-secondary) 0
-  );
-  /* 遮罩只看不透明度：外圈保留、中间 2.5px 挖空 */
-  mask: radial-gradient(circle, transparent 2.5px, var(--accent) 3px);
-  transition: background var(--duration-normal) var(--ease-out);
-}
-@keyframes queue-pulse {
-  70%,
-  100% {
-    box-shadow: 0 0 0 6px transparent;
-  }
-}
-
-.app-sidebar.is-collapsed .sidebar-brand {
-  justify-content: center;
-  padding-right: 0;
-  padding-left: 0;
-}
-.app-sidebar.is-collapsed .brand-name,
-.app-sidebar.is-collapsed .sidebar-incognito,
-.app-sidebar.is-collapsed .brand-mark,
-.app-sidebar.is-collapsed .sidebar-heading {
-  display: none;
-}
-.app-sidebar.is-collapsed .sidebar-toggle {
-  margin-left: 0;
-}
-.app-sidebar.is-collapsed .sidebar-item {
-  padding: 0;
-}
-.app-sidebar.is-collapsed .sidebar-divider {
-  margin-right: var(--space-2);
-  margin-left: var(--space-2);
-}
-.app-sidebar.is-phone .sidebar-toggle {
-  display: none;
-}
-</style>

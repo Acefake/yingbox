@@ -1,82 +1,55 @@
 /*
- * AI 助手面板：底部居中卡片（sheet）与播放器内右侧面板（side）、顶部光球与上下文胶囊、
- * 你说的话与回答、结果卡片（封面 + 角标 + 规格 + 进度条）、建议胶囊与输入框。
- * 颜色、间距、圆角全部来自 tokens.css；动画只用 transform / opacity。
+ * AI 助手面板内容（对照效果图 F-1 / F-2）：待命时的大标题与快捷键提示、上下文胶囊行、
+ * 提问与回答、影片结果列表（小海报 + 规格标签 + 播放 / 继续）、动作回执、输入胶囊与技能胶囊。
+ * 全部中性灰阶令牌，彩色只有 assistant.css 里输入胶囊上沿的渐变发丝。
  */
 
-/* ── 面板 ── */
-.assistant-sheet {
-  position: absolute;
-  bottom: var(--space-6);
-  left: 50%;
+/* ── 待命：大标题、快捷键提示 ── */
+.assistant-hello {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  text-align: center;
+}
+.assistant-hints {
   display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-  width: min(var(--assistant-sheet-width), calc(100% - var(--space-8)));
-  max-height: calc(100% - var(--space-10));
-  overflow: hidden;
-  padding: var(--space-5);
-  border: 1px solid var(--border-glass-light);
-  border-radius: var(--radius-2xl);
-  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
-  backdrop-filter: blur(30px) saturate(1.4);
-  box-shadow: var(--shadow-lg);
-  color: var(--text-primary);
-  transform: translateX(-50%);
-  transition:
-    transform var(--duration-assistant-sheet) var(--ease-spring),
-    opacity var(--duration-normal) ease;
+  justify-content: center;
+  gap: var(--space-5);
+  margin: var(--space-6) 0 0;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.assistant-hints span {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
 }
 
-/* 播放器内：右侧整高面板，不加遮罩，画面照常可见可点 */
-.assistant[data-layout='side'] {
-  pointer-events: none;
-}
-.assistant[data-layout='side'] .assistant-sheet {
-  top: var(--space-5);
-  right: var(--space-5);
-  bottom: var(--space-5);
-  left: auto;
-  width: min(var(--assistant-side-width), calc(100% - var(--space-8)));
-  max-height: none;
-  pointer-events: auto;
-  transform: none;
-}
-.assistant[data-layout='side'] .edge-glow {
-  opacity: 0.55;
-}
-.assistant[data-layout='side'] .edge-glow-layer.is-halo {
-  display: none;
+/* 键帽：Esc 关闭、快捷键提示共用 */
+.assistant-esc,
+.assistant-hints kbd {
+  padding: var(--space-0_5) var(--space-2);
+  border: 0.5px solid var(--border-strong);
+  border-radius: var(--radius-sm);
+  color: var(--text-secondary);
+  font-family: inherit;
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
 }
 
-/* 进出场：遮罩与光圈淡入，面板从底部（侧栏从右侧）弹簧滑入 */
-.assistant-enter-from .assistant-scrim,
-.assistant-leave-to .assistant-scrim,
-.assistant-enter-from .edge-glow,
-.assistant-leave-to .edge-glow {
-  opacity: 0;
-}
-.assistant-enter-from .assistant-sheet,
-.assistant-leave-to .assistant-sheet {
-  opacity: 0.6;
-  transform: translate(-50%, calc(100% + var(--space-8)));
-}
-.assistant-enter-from[data-layout='side'] .assistant-sheet,
-.assistant-leave-to[data-layout='side'] .assistant-sheet {
-  transform: translateX(calc(100% + var(--space-8)));
-}
-.assistant-leave-active .assistant-sheet {
-  transition:
-    transform var(--duration-normal) var(--ease-out),
-    opacity var(--duration-normal) ease;
-}
-
-/* ── 顶部：光球、胶囊、Esc ── */
+/* ── 上下文行：页面 · 模型 · 私密，右侧 Esc ── */
 .assistant-head {
   display: flex;
   flex: none;
   align-items: center;
-  gap: var(--space-3);
+  gap: var(--space-2);
+  min-height: 28px;
+  margin-bottom: var(--space-3);
+  padding: 0 var(--space-1_5);
+}
+.assistant[data-expanded='true'] .assistant-head {
+  margin-bottom: var(--space-1_5);
 }
 .assistant-chips {
   display: flex;
@@ -88,65 +61,55 @@
 .assistant-chip {
   display: inline-flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-1_5);
   max-width: 100%;
-  padding: var(--space-1) var(--space-2);
+  height: 26px;
+  padding: 0 var(--space-3);
   overflow: hidden;
-  border: 1px solid var(--border-glass-light);
   border-radius: var(--radius-full);
-  background: var(--bg-glass);
+  background: var(--bg-glass-hover);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
   color: var(--text-secondary);
   font-size: var(--text-xs);
+  font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assistant-chip.is-context {
-  border-color: var(--assistant-accent-line);
-  background: var(--assistant-accent-fill);
-  color: var(--text-primary);
+.assistant-chip .app-icon {
+  color: var(--text-tertiary);
 }
-.assistant[data-private='true'] .assistant-chip.is-context {
-  border-color: var(--assistant-private-line);
-  background: var(--assistant-private-fill);
-  color: var(--success);
-}
-.assistant-chip-dot {
-  flex: none;
-  width: 6px;
-  height: 6px;
-  border-radius: 50%;
-  background: currentColor;
+.assistant-chip.is-ghost {
+  background: transparent;
+  box-shadow: inset 0 0 0 0.5px var(--border-strong);
+  color: var(--text-tertiary);
 }
 .assistant-close {
   flex: none;
-  align-self: flex-start;
-}
-.assistant-esc {
-  display: inline-block;
-  padding: var(--space-0_5) var(--space-1);
-  border: 1px solid var(--border-glass-light);
-  border-radius: var(--radius-sm);
-  color: var(--text-tertiary);
-  font-family: inherit;
-  font-size: var(--text-xs);
 }
 .assistant-close:hover .assistant-esc {
   color: var(--text-primary);
 }
 
-/* ── 中间可滚动区：顶部关闭按钮与底部输入框不随内容滚走 ── */
+/* ── 中间可滚动区：上下文行与底部输入框不随内容滚走；待命时不占位 ── */
 .assistant-body {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
   gap: var(--space-3);
   min-height: 0;
+  padding: var(--space-1_5) var(--space-2) 0;
   overflow-y: auto;
   overscroll-behavior: contain;
 }
+.assistant[data-expanded='false'] .assistant-body {
+  flex: none;
+  padding: 0;
+  overflow: visible;
+}
 
 /* ── 文字 ── */
-.assistant-status {
+.assistant-status,
+.assistant-transcript.is-empty {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -188,101 +151,105 @@
   display: flex;
 }
 
-/* ── 结果卡片 ── */
+/* ── 影片结果：一块浅底列表，每行小海报 + 信息 + 按钮 ── */
 .assistant-card-in {
   animation: assistant-card-in var(--duration-assistant-sheet)
     var(--ease-spring) both;
   animation-delay: calc(var(--i, 0) * var(--duration-instant));
 }
 .assistant-cards {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-.assistant-card {
-  position: relative;
-  display: flex;
-  flex-direction: column;
-  overflow: hidden;
-  border: 1px solid var(--border-glass-light);
+  margin: 0;
+  padding: var(--space-1);
   border-radius: var(--radius-xl);
   background: var(--bg-glass);
-  transition:
-    transform var(--duration-fast) var(--ease-out),
-    border-color var(--duration-fast) ease;
+  list-style: none;
+}
+.assistant-card {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  min-height: 80px;
+  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
+  border-radius: var(--radius-lg);
+  transition: opacity var(--duration-fast) ease;
+}
+.assistant-card + .assistant-card {
+  box-shadow: 0 -0.5px 0 var(--separator);
 }
 .assistant-card:hover {
-  border-color: var(--assistant-accent-line);
-  transform: translateY(-2px);
+  background: var(--bg-active-soft);
 }
 .assistant-cards.is-busy .assistant-card:not(.is-busy) {
   opacity: 0.5;
 }
 .assistant-card-cover {
   position: relative;
-  display: block;
-  aspect-ratio: 16 / 9;
-  background: linear-gradient(
-    135deg,
-    var(--assistant-indigo),
-    var(--bg-fill-secondary)
-  );
+  flex: none;
+  width: 44px;
+  height: 66px;
+  overflow: hidden;
+  border-radius: var(--radius-sm);
+  background: var(--bg-fill-secondary);
+  box-shadow: inset 0 0 0 0.5px var(--border-strong);
 }
 .assistant-card-cover img {
+  display: block;
   width: 100%;
   height: 100%;
   object-fit: cover;
 }
-.assistant-card-badge {
-  position: absolute;
-  right: var(--space-2);
-  bottom: var(--space-2);
-  padding: var(--space-0_5) var(--space-1);
-  border-radius: var(--radius-sm);
-  background: var(--overlay-scrim-strong);
-  color: var(--media-text);
-  font-size: var(--text-xs);
-}
 .assistant-card-body {
   display: flex;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-0_5);
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  min-width: 0;
 }
 .assistant-card-title {
   overflow: hidden;
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assistant-card-meta,
-.assistant-card-action {
+.assistant-card-meta {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-card-specs {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-width: 0;
+  margin-top: var(--space-0_5);
+}
+.assistant-card-why {
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assistant-card-action {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  clip-path: inset(50%);
+.assistant-card-play {
+  flex: none;
 }
 .assistant-progress {
   position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  right: var(--space-1);
+  bottom: var(--space-1);
+  left: var(--space-1);
   height: 3px;
   overflow: hidden;
-  background: var(--bg-active);
+  border-radius: var(--radius-full);
+  background: var(--border-strong);
 }
 .assistant-progress-fill {
   display: block;
   height: 100%;
-  background: var(--assistant-violet);
+  background: var(--media-text);
   transform: scaleX(var(--progress, 0));
   transform-origin: left;
   animation: assistant-progress var(--duration-assistant-sheet) var(--ease-out)
@@ -290,63 +257,119 @@
   animation-delay: var(--duration-slow);
 }
 
-/* 右侧面板里卡片横排：缩略图在左 */
-.assistant[data-layout='side'] .assistant-cards {
-  grid-template-columns: minmax(0, 1fr);
-}
-.assistant[data-layout='side'] .assistant-card {
-  flex-direction: row;
-  align-items: center;
-}
-.assistant[data-layout='side'] .assistant-card-cover {
-  flex: none;
-  width: 112px;
-  margin: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-md);
-}
-
+/* ── 动作回执：圆形图标 + 一句话 ── */
 .assistant-done {
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
+  min-height: 40px;
   margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-full);
-  background: var(--bg-glass);
+  padding: 0 var(--space-3) 0 var(--space-2);
+  color: var(--text-primary);
   font-size: var(--text-sm);
+}
+.assistant-done-icon {
+  display: grid;
+  flex: none;
+  place-items: center;
+  width: 28px;
+  height: 28px;
+  border-radius: 50%;
+  background: var(--bg-active);
 }
 .assistant-done.is-failed {
   color: var(--text-secondary);
 }
 
-/* ── 建议与输入框 ── */
+/* ── 输入胶囊：待命时独立玻璃（.yb-glass），展开后是面板底部的内凹胶囊 ── */
 .assistant-composer {
   display: flex;
   flex: none;
   flex-direction: column;
-  gap: var(--space-3);
-  margin-top: auto;
+  gap: var(--space-4);
+}
+.assistant[data-expanded='true'] .assistant-composer {
+  margin-top: var(--space-3);
+}
+.assistant-field {
+  position: relative;
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  height: var(--assistant-composer-height);
+  padding: 0 var(--space-2_5) 0 var(--space-5);
+  border-radius: var(--radius-full);
+}
+.assistant-field:not(.yb-glass) {
+  height: 56px;
+  padding-left: var(--space-4);
+  background: var(--assistant-inset);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
+}
+.assistant-spark {
+  flex: none;
+  color: var(--text-primary);
+}
+/* 胶囊里的输入框：去掉表单外壳的底色与描边 */
+.assistant-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-lg);
+}
+.assistant-input:hover,
+.assistant-input:focus-within {
+  background: transparent;
+  box-shadow: none;
+}
+.assistant-tool {
+  --ib-size: 40px;
+  border-radius: 50%;
+  color: var(--text-primary);
+}
+.assistant-mic {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.assistant-send {
+  --ib-size: 44px;
+  background: var(--action-bg);
+  color: var(--action-text);
+}
+.assistant-send:disabled {
+  background: var(--bg-active);
+  color: var(--text-tertiary);
+  opacity: 1;
 }
 .assistant-suggestions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: center;
   gap: var(--space-2);
 }
-.assistant-input {
-  --control-height: var(--space-9);
+.assistant-suggestions .ui-chip {
+  height: 34px;
+  padding: 0 var(--space-3_5);
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
+  color: var(--text-primary);
 }
-.assistant-tool {
-  margin-left: var(--space-1);
+.assistant-suggestions .ui-chip .app-icon {
+  color: var(--text-tertiary);
 }
-.assistant-send:not(:disabled) {
-  background: var(--assistant-violet);
-  color: var(--text-on-accent);
+
+/* 右侧面板（播放器旁）：建议与提示不显示，列表更紧凑 */
+.assistant[data-layout='side'] .assistant-card {
+  min-height: 72px;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-sheet,
-  .assistant-card {
+  .assistant-card,
+  .assistant-mic {
     transition: none;
   }
   .assistant-card-in,
