@@ -85,15 +85,16 @@ import type Artplayer from 'artplayer'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import { useSessionShortcuts } from '../controls/use-session-shortcuts'
 import UiButton from '@/components/ui/UiButton.vue'
-import { toLocalUrl } from '@/utils/local-url'
 import { usePlayerMediaControls } from '../composables/use-media-controls'
 import { useProgressSaver } from '../composables/use-progress-saver'
 import { useSourceSwitch } from '../composables/use-source-switch'
+import { useTimedNotice } from '../composables/use-timed-notice'
 import { danmakuTargetFor } from '../danmaku/danmaku-target'
 import { updateContinue } from '../continue/continue-store'
 import SkipOverlay from '../skip/SkipOverlay.vue'
 import { skipKey } from '../skip/skip-rules'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
+import { useDolbyVision } from '../dolby-vision/use-dolby-vision'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import { singleFlight } from '../utils/single-flight'
 import {
@@ -122,8 +123,8 @@ const poster = ref('')
 const startAt = ref(0)
 const progressKey = ref('')
 const emptyText = ref('等待加载视频…')
-/** 短暂提示（自动换线路 / 连播时可见） */
-const notice = ref('')
+/** 短暂提示（自动换线路 / 连播 / 杜比视界色彩提示） */
+const { notice, show: showNotice } = useTimedNotice()
 
 /** 当前线路的播放队列（自动连播用） */
 const playlist = ref<PlaylistEntry[]>([])
@@ -162,9 +163,10 @@ const progress = useProgressSaver(
     })
   }
 )
+/** 杜比视界 P5：主进程重建；做不了时按设置回退 mpv 或直接播 */
+const dolbyVision = useDolbyVision({ src, emptyText, notify: showNotice })
 /** 加载世代：丢弃过期的异步解析结果 */
 let loadToken = 0
-let noticeTimer: number | undefined
 const art = shallowRef<Artplayer | null>(null)
 const player = ref<InstanceType<typeof UnifiedVideoPlayer> | null>(null)
 
@@ -184,14 +186,6 @@ const danmakuTarget = computed(() =>
     label: entryLabel,
   })
 )
-
-const showNotice = (text: string): void => {
-  notice.value = text
-  if (noticeTimer) window.clearTimeout(noticeTimer)
-  noticeTimer = window.setTimeout(() => {
-    notice.value = ''
-  }, 4000)
-}
 
 /** 恢复播放后清掉错误面板 */
 const clearFailure = (): void => {
@@ -214,6 +208,7 @@ const loadEntry = async (
 ): Promise<void> => {
   const token = ++loadToken
   const entry = currentEntry.value
+  dolbyVision.release()
   progress.reset()
   clearFailure()
   endedPrompt.value = false
@@ -226,8 +221,15 @@ const loadEntry = async (
 
   let resolved = ''
   if (entry.filePath) {
-    resolved = toLocalUrl(entry.filePath)
     progressKey.value = mediaProgressKey({ filePath: entry.filePath })
+    resolved = await dolbyVision.resolve({
+      filePath: entry.filePath,
+      title: entryLabel(entry),
+      startAt: seededStartAt || getMediaProgress(progressKey.value),
+      known: entry.video,
+      isCurrent: () => token === loadToken,
+    })
+    if (token !== loadToken || !resolved) return
   } else if (seeded || entry.url) {
     resolved = seeded || (await resolvePlaySource(entry))
     if (token !== loadToken) return
@@ -321,6 +323,11 @@ const onVideo = (video: HTMLVideoElement): void => {
 /** 播放失败（含 hls 致命错误）：自动切换到同集的下一条备用源 */
 const onError = async (event?: Event): Promise<void> => {
   if (!media.accepts(event)) return
+  // 杜比视界重建会话出错：退到 mpv，或重新加载同一文件、直接播
+  const at = art.value?.currentTime || getMediaProgress(progressKey.value)
+  const dv = await dolbyVision.recover(at)
+  if (dv === 'reload') return loadEntry(undefined, at)
+  if (dv) return
   if (await switcher.switchSource('error')) return
   // 备用线路也失败：给出可操作的错误界面
   failure.value = fallbacks.value.length
@@ -385,7 +392,6 @@ onBeforeUnmount(() => {
   progress.flush()
   switcher.detach()
   window.removeEventListener('beforeunload', progress.flush)
-  if (noticeTimer) window.clearTimeout(noticeTimer)
 })
 </script>
 

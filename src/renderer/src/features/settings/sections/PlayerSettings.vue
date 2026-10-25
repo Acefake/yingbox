@@ -45,12 +45,22 @@
     />
   </SettingsGroup>
 
-  <SettingsGroup v-if="isElectron" title="HDR 与杜比视界">
+  <SettingsGroup
+    v-if="isElectron"
+    title="HDR 与杜比视界"
+    footer="进入内置播放器的 Profile 5 片源由 ffmpeg 的 libplacebo 重建色彩（需要 Vulkan）：HDR 显示器输出 HDR10，其他显示器色调映射到 SDR。重建做不了时，开着上面的开关就改用 mpv，否则直接播放并提示颜色可能不正确。"
+  >
     <SettingsRow
       title="杜比视界 P5 自动用 mpv"
       description="内置播放器放杜比视界 Profile 5 会偏绿偏紫；装了 mpv 时这类视频自动用 mpv 播放。需要 ffmpeg（媒体库扫描时识别）"
     >
       <UiSwitch v-model="dvAutoMpv" label="杜比视界 P5 自动用 mpv" />
+    </SettingsRow>
+    <SettingsRow
+      title="应用动态元数据"
+      description="应用内重建时按杜比视界 RPU 逐场景映射色彩；关闭后只按片源的静态色彩信息转换"
+    >
+      <UiSwitch v-model="applyDolbyVision" label="应用杜比视界动态元数据" />
     </SettingsRow>
   </SettingsGroup>
 
@@ -120,6 +130,7 @@
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
  * Anime4K 超分（Anime4kRows）与缩小置顶，杜比视界 P5 自动用 mpv（player.dvAutoMpv），
  * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），
+ * 杜比视界 P5 重建是否应用 RPU 动态元数据（player.applyDolbyVision），
  * 内置播放器自动跳过片头（player.autoSkipIntro）与播放时自动检测片头片尾（player.autoDetectIntro），
  * 播放弹窗的角落小窗（ui.miniPlayer），桌面端的托盘图标（app.tray）与媒体键（player.mediaKeys）。
  */
@@ -166,6 +177,7 @@ const miniPlayer = useSetting('ui.miniPlayer')
 const autoSkipIntro = useSetting('player.autoSkipIntro')
 const dvAutoMpv = useSetting('player.dvAutoMpv')
 const autoDetectIntro = useSetting('player.autoDetectIntro')
+const applyDolbyVision = useSetting('player.applyDolbyVision')
 const autoSwitchSource = useSetting('online.autoSwitchSource')
 const stallSeconds = useSetting('online.stallSeconds')
 const stallOptions = [3, 5, 8, 10, 15].map(value => ({
