@@ -162,7 +162,7 @@ import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
 import { dayLabel, dayParts, groupByWeek, weekLabel } from '../calendar-dates'
-import { type CalendarEntry, listGroups } from '../calendar-rules'
+import { type CalendarEntry, listGroups, weekSummary } from '../calendar-rules'
 import CalendarCard from '../components/CalendarCard.vue'
 import { type CalendarMode, useCalendar } from '../use-calendar'
 
@@ -216,13 +216,14 @@ const weekBuckets = computed(() =>
 const groups = computed(() =>
   listGroups(cal.entries.value, cal.start.value, cal.today.value)
 )
-/** 页头说明：本周（当前显示的这一周）有几集、几部剧更新 */
-const summary = computed(() => {
-  const items = weekBuckets.value.flatMap(day => day.items)
-  if (!items.length) return ''
-  const shows = new Set(items.map(entry => entry.title)).size
-  return `本周 ${shows} 部剧 · ${items.length} 集更新`
-})
+/** 页头说明：当前显示的这一周有几部剧、几集更新（按剧的唯一标识去重） */
+const summary = computed(() =>
+  weekSummary(
+    weekBuckets.value.flatMap(day => day.items),
+    cal.start.value,
+    cal.today.value
+  )
+)
 const undated = computed(() =>
   cal.entries.value.filter(entry => entry.airDate === null)
 )
@@ -283,141 +284,4 @@ async function activate(entry: CalendarEntry): Promise<void> {
 }
 </script>
 
-<style scoped>
-.calendar-page {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-6);
-  height: 100%;
-  padding: var(--content-padding-y) var(--content-padding-x) var(--space-8);
-  overflow-y: auto;
-}
-
-.cal-nav {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-1);
-  min-width: 260px;
-  height: 44px;
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
-}
-.cal-nav :deep(.yb-icon-button) {
-  border-radius: var(--radius-full);
-}
-.cal-week-label {
-  min-width: 0;
-  color: var(--text-primary);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  white-space: nowrap;
-}
-.cal-pill {
-  border-radius: var(--radius-full);
-}
-.cal-pill.is-on {
-  background: var(--text-primary);
-  color: var(--bg-content);
-}
-/* 图标按钮基类是透明底，玻璃底色在这里补上（模糊与阴影来自 .yb-glass） */
-.cal-round {
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-}
-
-.cal-notice {
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
-/* ── 周视图：七列剧照卡；最小窗口（1200 宽）也放得下，更窄时横向滚动 ── */
-.cal-week {
-  display: grid;
-  grid-template-columns: repeat(7, minmax(112px, 1fr));
-  gap: var(--space-3);
-  overflow-x: auto;
-}
-.cal-day {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2_5);
-  min-width: 0;
-}
-.cal-day-head {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  height: 40px;
-  padding: 0 var(--space-1_5) 0 var(--space-1);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-regular);
-}
-.cal-day-num {
-  width: 32px;
-  height: 32px;
-  border-radius: 50%;
-  color: var(--text-primary);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  line-height: 32px;
-  text-align: center;
-}
-.cal-day.is-today .cal-day-name {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-}
-.cal-day.is-today .cal-day-num {
-  background: var(--text-primary);
-  color: var(--bg-content);
-}
-/* 今天的卡：白色细圈画在卡内侧的伪元素上（压在剧照与模糊层之上，不被横向滚动的容器裁掉） */
-.cal-day.is-today .cal-day-list :deep(.cal-card)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 2px var(--text-primary);
-  pointer-events: none;
-}
-.cal-day-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2_5);
-}
-.cal-day-empty {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 8 / 9;
-  border: 1px dashed var(--border-glass-light);
-  border-radius: var(--radius-card);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
-/* ── 列表视图与「更新日期未知」：自适应网格 ── */
-.cal-list {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-7);
-}
-.cal-group {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.cal-group-label {
-  color: var(--text-primary);
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-semibold);
-  letter-spacing: var(--tracking-tight);
-}
-.cal-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-4);
-}
-</style>
+<style scoped src="./calendar-view.css"></style>

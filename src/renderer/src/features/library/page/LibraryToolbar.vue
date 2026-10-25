@@ -19,9 +19,10 @@
       <template v-if="hasLibraries && view === 'wall'">
         <label class="lib-sort yb-glass">
           <UiIcon name="sort" size="sm" />
-          <select
-            class="lib-sort-select"
+          <UiSelect
+            class="lib-sort-field"
             aria-label="排序"
+            :options="sortOptions"
             :value="sort"
             @change="
               emit(
@@ -29,12 +30,7 @@
                 ($event.target as HTMLSelectElement).value as WallSort
               )
             "
-          >
-            <option v-for="o in sortOptions" :key="o.value" :value="o.value">
-              {{ o.label }}
-            </option>
-          </select>
-          <UiIcon class="lib-sort-caret" name="chevronDown" size="sm" />
+          />
         </label>
         <UiIconButton
           class="lib-round yb-glass"
@@ -164,6 +160,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
+import UiSelect from '@/components/ui/UiSelect.vue'
 
 import { computed, ref } from 'vue'
 import type {
@@ -272,7 +269,7 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
   justify-content: flex-end;
   gap: var(--space-2_5);
 }
-/* 排序：玻璃胶囊里放原生下拉（键盘、读屏照旧），图标与箭头只是装饰 */
+/* 排序：玻璃胶囊里放 UiSelect（原生下拉，键盘、读屏照旧），左侧图标只是装饰 */
 .lib-sort {
   position: relative;
   display: inline-flex;
@@ -287,27 +284,30 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
 .lib-sort:focus-within {
   box-shadow: var(--focus-ring);
 }
-.lib-sort-select {
-  appearance: none;
-  padding: 0 var(--space-5) 0 0;
+/* UiSelect 外壳去掉边框与底色，融进玻璃胶囊；自带的下拉箭头贴右 */
+.lib-sort-field {
+  width: auto;
+  height: 100%;
+  padding: 0;
   border: 0;
   background: transparent;
   color: inherit;
-  font: inherit;
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
-  cursor: pointer;
-  outline: none;
 }
-.lib-sort-select option {
+.lib-sort-field:focus-within {
+  box-shadow: none;
+}
+.lib-sort-field :deep(.ui-select-native) {
+  padding: 0 var(--space-5) 0 0;
+  color: inherit;
+}
+.lib-sort-field :deep(.ui-select-chevron) {
+  right: 0;
+}
+.lib-sort-field :deep(option) {
   background: var(--bg-elevated);
   color: var(--text-primary);
-}
-.lib-sort-caret {
-  position: absolute;
-  right: var(--space-3);
-  color: var(--text-tertiary);
-  pointer-events: none;
 }
 /* 图标按钮基类是透明底，玻璃底色在这里补上（模糊与阴影来自 .yb-glass） */
 .lib-round {
@@ -317,7 +317,8 @@ const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
   background: var(--glass-bg);
   color: var(--text-primary);
 }
-.lib-round:hover:not(:disabled) {
+/* 已高亮的圆钮悬停时保持反色底，不被玻璃悬停色盖掉 */
+.lib-round:hover:not(:disabled):not(.is-active) {
   background: var(--glass-bg-hover);
 }
 .lib-round.is-active {
