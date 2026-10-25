@@ -7,6 +7,15 @@
         <span v-if="count !== null" class="lib-toolbar-count">{{
           count.toLocaleString('zh-CN')
         }}</span>
+        <UiSegmented
+          v-if="showSwitch && hasLibraries"
+          class="lib-toolbar-switch"
+          size="sm"
+          :model-value="view === 'actors' ? 'actors' : 'wall'"
+          label="视图"
+          :options="viewOptions"
+          @update:model-value="view = $event"
+        />
       </div>
       <div class="lib-toolbar-tools">
         <label v-if="shows('sort')" class="lib-sort">
@@ -53,49 +62,37 @@
         <UiMenuButton :items="moreItems" />
       </div>
     </div>
-    <!-- 视图切换与筛选胶囊排成一行：资料库 / 演员 | 匹配状态（待确认带数量）| 各媒体库 -->
+    <!-- 筛选胶囊一行：匹配状态（待确认带数量）| 各媒体库；视图切换在标题旁 -->
     <div
-      v-if="hasLibraries && (showSwitch || view !== 'actors')"
+      v-if="hasLibraries && view !== 'actors'"
       v-scroll-x
       class="lib-toolbar-row"
     >
-      <UiSegmented
-        v-if="showSwitch"
-        :model-value="view === 'actors' ? 'actors' : 'wall'"
-        label="视图"
-        :options="viewOptions"
-        @update:model-value="view = $event"
-      />
-      <template v-if="view !== 'actors'">
-        <span v-if="showSwitch" class="lib-row-divider" aria-hidden="true" />
-        <div class="lib-chips" role="group" aria-label="匹配状态">
+      <div class="lib-chips" role="group" aria-label="匹配状态">
+        <UiChip
+          v-for="o in filterOptions"
+          :key="o.value"
+          size="md"
+          :label="o.label"
+          :count="
+            o.value === 'review' ? reviewChipCount(reviewCount ?? 0) : undefined
+          "
+          :selected="chipSelected(o.value)"
+          @click="pickFilter(o.value)"
+        />
+      </div>
+      <template v-if="view === 'wall' && libraryOptions.length > 2">
+        <span class="lib-row-divider" aria-hidden="true" />
+        <div class="lib-chips" role="group" aria-label="媒体库">
           <UiChip
-            v-for="o in filterOptions"
-            :key="o.value"
+            v-for="o in libraryOptions"
+            :key="`lib-${o.value}`"
             size="md"
             :label="o.label"
-            :count="
-              o.value === 'review'
-                ? reviewChipCount(reviewCount ?? 0)
-                : undefined
-            "
-            :selected="chipSelected(o.value)"
-            @click="pickFilter(o.value)"
+            :selected="library === o.value"
+            @click="library = o.value"
           />
         </div>
-        <template v-if="view === 'wall' && libraryOptions.length > 2">
-          <span class="lib-row-divider" aria-hidden="true" />
-          <div class="lib-chips" role="group" aria-label="媒体库">
-            <UiChip
-              v-for="o in libraryOptions"
-              :key="`lib-${o.value}`"
-              size="md"
-              :label="o.label"
-              :selected="library === o.value"
-              @click="library = o.value"
-            />
-          </div>
-        </template>
       </template>
     </div>
     <!-- 分面筛选（番号库）：已选条件常驻，面板按「筛选」展开 -->
@@ -125,7 +122,7 @@
 /**
  * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧图标 + 文字按钮（排序、升降、筛选、扫描、识别），
  * 其余操作（按画面搜、视频墙、设置）收进「更多」，摆放规则见 page-rules.ts toolbarActions；
- * 第二行把视图切换（资料库 / 演员，番号页才有）和筛选胶囊排成一行：匹配状态（「待确认」带数量，选它进入待确认队列），
+ * 视图切换（资料库 / 演员，番号页才有）在标题旁；第二行是筛选胶囊：匹配状态（「待确认」带数量，选它进入待确认队列），
  * 媒体库多于一个时接着列出各媒体库。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  * 搜索用顶栏全局搜索（按 ?q= 在本页过滤），工具栏不再放第二个搜索框。

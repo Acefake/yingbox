@@ -4,7 +4,7 @@
       ref="root"
       class="lib-detail-scroll"
       tabindex="-1"
-      @scroll.passive="onScroll"
+      @scroll.passive="(onScroll(), heroEdge.onScroll())"
     >
       <div v-if="!node && loading" class="lib-detail-status">正在载入…</div>
       <div v-else-if="!node" class="lib-detail-status">
@@ -77,12 +77,17 @@
       </template>
     </div>
 
-    <!-- 浮动控件：顶部渐隐带、返回圆钮、底部分区胶囊 -->
-    <div class="lib-detail-edge" aria-hidden="true" />
+    <!-- 浮动控件：顶部渐隐带、返回圆钮（Hero 在身后时取深色，滚到页面底色上回主题色）、底部分区胶囊 -->
+    <div
+      class="lib-detail-edge yb-media-swap"
+      :class="{ 'yb-on-media': edgeOnMedia }"
+      aria-hidden="true"
+    />
     <UiIconButton
-      class="lib-float-button lib-detail-back"
+      class="lib-float-button lib-detail-back yb-media-swap"
+      :class="{ 'yb-on-media': edgeOnMedia }"
       icon="back"
-      variant="overlay"
+      variant="glass"
       label="返回"
       @click="emit('close')"
     />
@@ -156,6 +161,7 @@ import {
 import { prepareProgress } from '../progress/progress-cache'
 import { useActorLinks } from './use-actor-links'
 import { useDetailTabs } from './use-detail-tabs'
+import { useHeroBackdrop } from './use-hero-backdrop'
 import { useRestore } from './use-restore'
 import { showVersions } from './version-rules'
 
@@ -204,6 +210,7 @@ async function load(resetView: boolean): Promise<void> {
       root.value?.focus({ preventScroll: true })
       resetTabs()
     }
+    void nextTick(heroEdge.update)
   } catch (e) {
     error.value = errorText(e)
   } finally {
@@ -326,6 +333,7 @@ const {
   jumpTo,
   reset: resetTabs,
 } = useDetailTabs(root, tabs)
+const { edgeOnMedia, ...heroEdge } = useHeroBackdrop(root)
 
 // —— 操作 ——
 async function run(name: string, task: () => Promise<unknown>): Promise<void> {
