@@ -45,6 +45,8 @@ export interface LibraryPlatform {
   remote?: RemoteClients
   /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；桌面端提供，独立服务不提供。 */
   probeVideo?: LibraryServiceOptions['probeVideo']
+  /** ffmpeg 路径（按画面搜的视频抽帧用）；没有为空串。桌面端向主进程要，独立服务读环境变量 / PATH。 */
+  ffmpegPath?: () => Promise<string>
   /** 新入库宣布、自动字幕设置、字幕流探测（见 arrivals/intake.ts）；桌面端提供，独立服务不提供。 */
   intake?: IntakeOptions
 }
@@ -97,6 +99,10 @@ export function createLibraryService(
       env: platform.env,
       ai: platform.ai,
     },
-    visual: { ...extra.visual, pixels: platform.clipPixels },
+    visual: {
+      ...extra.visual,
+      pixels: platform.clipPixels,
+      frames: { ffmpegPath: platform.ffmpegPath, ...extra.visual?.frames },
+    },
   })
 }

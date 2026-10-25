@@ -1,12 +1,16 @@
 /**
- * 按画面搜面板的状态：引擎状态（打开时取一次，下载 / 索引中每秒轮询）、建立索引、
- * 输入防抖搜索（300 ms，请求带序号防乱序）。
+ * 按画面搜面板的状态：引擎状态（打开时取一次，下载 / 索引 / 抽帧中每秒轮询）、建立索引、
+ * 视频画面开关、输入防抖搜索（300 ms，请求带序号防乱序）。
  *
  * 搜索词和结果放在模块级：点开一部片再回来，结果还在。
  */
 import { useDebounceFn } from '@vueuse/core'
 import { type Ref, onBeforeUnmount, ref, watch } from 'vue'
-import type { VisualHit, VisualStatus } from '../../../../../shared/library/ipc'
+import type {
+  VisualFramesSettings,
+  VisualHit,
+  VisualStatus,
+} from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
 
 /** 轮询间隔。 */
@@ -25,6 +29,7 @@ export function useVisualSearch(options: {
   searching: Ref<boolean>
   error: Ref<string>
   startIndex: () => Promise<void>
+  setFrames: (patch: Partial<VisualFramesSettings>) => Promise<void>
 } {
   const status = ref<VisualStatus | null>(null)
   const searching = ref(false)
@@ -42,9 +47,13 @@ export function useVisualSearch(options: {
     if (!visual || !options.open.value) return
     try {
       const next = await visual.status()
-      const finished = status.value?.indexing && !next.indexing
+      const before = status.value
+      const finished =
+        (before?.indexing && !next.indexing) ||
+        (before?.frames.running && !next.frames.running)
       status.value = next
-      if (next.indexing) timer = setTimeout(() => void refresh(), POLL_MS)
+      if (next.indexing || next.frames.running)
+        timer = setTimeout(() => void refresh(), POLL_MS)
       // 索引刚跑完：用新索引重搜一次
       if (finished && text.value.trim()) void search()
     } catch (e) {
@@ -88,6 +97,20 @@ export function useVisualSearch(options: {
     await refresh()
   }
 
+  async function setFrames(
+    patch: Partial<VisualFramesSettings>
+  ): Promise<void> {
+    const visual = api()
+    if (!visual) return
+    error.value = ''
+    try {
+      status.value = await visual.setFrames(patch)
+    } catch (e) {
+      error.value = errorText(e)
+    }
+    await refresh()
+  }
+
   const searchLater = useDebounceFn(() => void search(), 300)
   watch(text, () => void searchLater())
   watch(
@@ -98,5 +121,5 @@ export function useVisualSearch(options: {
   watch(options.libraryId, () => void search())
   onBeforeUnmount(() => clearTimeout(timer))
 
-  return { status, text, hits, searching, error, startIndex }
+  return { status, text, hits, searching, error, startIndex, setFrames }
 }

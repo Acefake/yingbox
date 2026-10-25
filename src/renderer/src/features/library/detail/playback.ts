@@ -80,6 +80,8 @@ export interface PlayRequest {
   partial?: boolean
   /** 起始文件的动态范围（杜比视界 P5 据此改走 mpv）；没探测过时缺省 */
   video?: VideoProbe | null
+  /** 从起始文件的第几秒开始播（按画面搜点了某个视频画面）；缺省按观看进度续播 / 从头 */
+  startAt?: number
   /** 剧集播完本地最后一集时的提示 */
   endHint?: EndHint
 }
@@ -235,7 +237,8 @@ export async function play(
   await prepareProgress(request.item)
   const playlist = playerPlaylist(request)
   const first = playlist[request.index]
-  const startAt = resumeAt(request.refs[request.index])
+  // 按画面搜指定的时间点优先，其次续播进度
+  const startAt = request.startAt ?? resumeAt(request.refs[request.index])
   return openMediaPlayer({
     ...(first.url ? { url: first.url } : { filePath: first.filePath }),
     title: request.title,

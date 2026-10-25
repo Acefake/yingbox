@@ -95,6 +95,7 @@ const HANDLERS: Handlers = {
   'visual.status': s => s.visual.status(),
   'visual.index': s => s.visual.index(),
   'visual.search': (s, p) => s.visual.search(p),
+  'visual.setFrames': (s, p) => s.visual.setFrames(p),
   'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
   'progress.list': (s, p) => progressFor(s).list(p.itemIds),
   'progress.save': (s, p) => progressFor(s).save(p.reports),
