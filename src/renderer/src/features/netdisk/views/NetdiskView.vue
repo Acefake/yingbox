@@ -105,7 +105,8 @@ async function search(): Promise<void> {
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
-  max-width: 960px;
+  max-width: calc(960px + 2 * var(--content-padding-x));
+  padding: var(--content-padding-y) var(--content-padding-x);
 }
 .netdisk-search {
   display: flex;
