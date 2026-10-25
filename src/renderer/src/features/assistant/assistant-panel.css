@@ -1,17 +1,17 @@
 /*
- * AI 助手侧栏的内容：头部（光球、标题、场景副标题、Esc 键帽）、中间可滚动的对话流
- * （问候、右对齐强调色气泡、左对齐回答、紧凑结果卡片、回执）、底部建议芯片与输入框。
- * 颜色、间距、圆角全部来自 tokens.css；动画只用 transform / opacity。
+ * AI 助手侧栏的内容：头部（标题、场景副标题、Esc 键帽）、中间可滚动的对话流（问候、你说的话、回答、
+ * 结果列表与回执见 assistant-results.css）、底部输入胶囊与技能胶囊。
+ * 全部中性灰阶令牌，彩色只有 assistant.css 里输入胶囊上沿的渐变发丝。
  */
 
-/* ── 头部 ── */
+/* ── 头部：标题 + 场景副标题，右侧 Esc 键帽 ── */
 .assistant-head {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-3);
   padding: var(--space-4) var(--space-4) var(--space-3);
-  border-bottom: 1px solid var(--border-subtle);
+  box-shadow: 0 0.5px 0 var(--separator);
 }
 .assistant-heading {
   display: flex;
@@ -26,31 +26,38 @@
   font-weight: var(--font-weight-semibold);
   line-height: var(--leading-tight);
 }
+/* 副标题：私密模式前面一枚锁图标，颜色仍是中性灰（不靠颜色传达私密） */
 .assistant-subtitle {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  min-width: 0;
   margin: 0;
-  overflow: hidden;
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-size: var(--text-xs);
   line-height: var(--leading-normal);
+}
+.assistant-subtitle-text {
+  overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assistant[data-private='true'] .assistant-subtitle {
-  color: var(--success);
+.assistant-subtitle .app-icon {
+  flex: none;
+  color: var(--text-tertiary);
 }
 .assistant-close {
   flex: none;
 }
 .assistant-esc {
-  display: inline-block;
-  padding: var(--space-0_5) var(--space-1);
-  border: 1px solid var(--border-default);
+  padding: var(--space-0_5) var(--space-2);
+  border: 0.5px solid var(--border-strong);
   border-radius: var(--radius-sm);
-  background: var(--bg-glass);
-  color: var(--text-tertiary);
+  color: var(--text-secondary);
   font-family: inherit;
-  font-size: var(--text-xs);
-  line-height: var(--leading-tight);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  line-height: 1.3;
 }
 .assistant-close:hover .assistant-esc {
   color: var(--text-primary);
@@ -67,14 +74,6 @@
   overflow-y: auto;
   overscroll-behavior: contain;
 }
-.assistant-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
 
 /* 空闲时的问候 */
 .assistant-greeting {
@@ -85,7 +84,7 @@
 }
 .assistant-greeting-title {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-semibold);
   line-height: var(--leading-tight);
 }
@@ -96,7 +95,7 @@
   line-height: var(--leading-normal);
 }
 
-/* 一轮：你说的话 + 回答 */
+/* 一轮：你说的话（右对齐中性气泡）+ 回答 */
 .assistant-turn {
   display: flex;
   flex-direction: column;
@@ -109,8 +108,8 @@
   padding: var(--space-2) var(--space-3);
   border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xs)
     var(--radius-xl);
-  background: var(--assistant-bubble);
-  color: var(--assistant-bubble-text);
+  background: var(--bg-active);
+  color: var(--text-primary);
   font-size: var(--text-md);
   line-height: var(--leading-normal);
   white-space: pre-wrap;
@@ -120,17 +119,29 @@
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
-  max-width: 94%;
+}
+.assistant-thinking {
+  align-self: flex-start;
+}
+
+/* ── 文字 ── */
+.assistant-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
 }
 .assistant-answer {
   margin: 0;
   color: var(--text-primary);
   font-size: var(--text-md);
-  line-height: 1.7;
+  line-height: var(--leading-normal);
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.assistant-answer.is-typing::after {
+.assistant-answer:where(.is-typing)::after {
   content: '';
   display: inline-block;
   width: 2px;
@@ -148,212 +159,97 @@
 .assistant-setup {
   display: flex;
 }
-.assistant-thinking {
-  align-self: flex-start;
-  color: var(--text-tertiary);
-}
 
-/* ── 结果卡片：紧凑横排 ── */
-.assistant-card-in {
-  animation: assistant-card-in var(--duration-assistant-drawer) var(--ease-out)
-    both;
-  animation-delay: calc(var(--i, 0) * var(--duration-instant) * 0.6);
-}
-.assistant-cards {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.assistant-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2);
-  padding-right: var(--space-3);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--bg-glass);
-  text-align: left;
-  transition:
-    background-color var(--duration-fast) ease,
-    border-color var(--duration-fast) ease,
-    opacity var(--duration-fast) ease;
-}
-.assistant-card:hover {
-  border-color: var(--border-default);
-  background: var(--bg-glass-hover);
-}
-.assistant-cards.is-busy .assistant-card:not(.is-busy) {
-  opacity: 0.5;
-}
-.assistant-card-cover {
-  position: relative;
-  display: block;
-  flex: none;
-  width: 104px;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  background: linear-gradient(
-    135deg,
-    var(--assistant-indigo),
-    var(--bg-fill-secondary)
-  );
-}
-.assistant-card-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.assistant-card-badge {
-  position: absolute;
-  right: var(--space-1);
-  bottom: var(--space-1);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-xs);
-  background: var(--overlay-scrim);
-  color: var(--media-text);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-.assistant-card-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-0_5);
-  min-width: 0;
-}
-.assistant-card-title {
-  overflow: hidden;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-card-meta {
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-card-action {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
-}
-.assistant-card-play {
-  display: grid;
-  flex: none;
-  place-items: center;
-  width: var(--space-7);
-  height: var(--space-7);
-  border-radius: 50%;
-  background: var(--bg-active);
-  color: var(--text-primary);
-  transition: background-color var(--duration-fast) ease;
-}
-.assistant-card:hover .assistant-card-play {
-  background: var(--assistant-send-bg);
-  color: var(--assistant-send-fg);
-}
-.assistant-progress {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: 3px;
-  overflow: hidden;
-  background: var(--overlay-scrim-soft);
-}
-.assistant-progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--assistant-violet);
-  transform: scaleX(var(--progress, 0));
-  transform-origin: left;
-  animation: assistant-progress var(--duration-slow) var(--ease-out) both;
-  animation-delay: var(--duration-assistant-drawer);
-}
-
-.assistant-result.is-done {
-  display: flex;
-  align-items: flex-start;
-}
-.assistant-done {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-full);
-  background: var(--bg-glass);
-  font-size: var(--text-sm);
-}
-.assistant-done.is-failed {
-  color: var(--text-secondary);
-}
-
-/* ── 底部：建议芯片与输入框 ── */
+/* ── 底部：技能胶囊在上，输入胶囊（侧栏里是内凹胶囊；floating 时是独立玻璃 .yb-glass）在下 ── */
 .assistant-composer {
   display: flex;
   flex: none;
-  flex-direction: column;
+  flex-direction: column-reverse;
+  gap: var(--space-3);
+  padding: var(--space-3) var(--space-4) var(--space-4);
+}
+.assistant-field {
+  position: relative;
+  display: flex;
+  align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3) var(--space-3);
+  height: var(--assistant-composer-height);
+  padding: 0 var(--space-2_5) 0 var(--space-5);
+  border-radius: var(--radius-full);
+}
+.assistant-field:not(.yb-glass) {
+  height: 56px;
+  padding-left: var(--space-4);
+  background: var(--assistant-inset);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
+}
+.assistant-spark {
+  flex: none;
+  color: var(--text-primary);
+}
+/* 胶囊里的输入框：去掉表单外壳的底色与描边 */
+.assistant-input {
+  flex: 1;
+  min-width: 0;
+  height: 100%;
+  padding: 0;
+  border: 0;
+  background: transparent;
+  box-shadow: none;
+  font-size: var(--text-lg);
+}
+.assistant-input:hover,
+.assistant-input:focus-within {
+  background: transparent;
+  box-shadow: none;
+}
+/* 焦点环挂在整条胶囊上（输入框自身的外壳已去掉），键盘用户能看清焦点位置 */
+.assistant-field:focus-within {
+  box-shadow:
+    inset 0 0 0 0.5px var(--border-default),
+    var(--focus-ring);
+}
+.assistant-tool {
+  --ib-size: 40px;
+  border-radius: 50%;
+  color: var(--text-primary);
+}
+.assistant-mic {
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+.assistant-send {
+  --ib-size: 44px;
+  background: var(--action-bg);
+  color: var(--action-text);
+}
+.assistant-send:disabled {
+  background: var(--bg-active);
+  color: var(--text-tertiary);
+  opacity: 1;
 }
 .assistant-suggestions {
   display: flex;
   flex-wrap: wrap;
+  justify-content: flex-start;
   gap: var(--space-2);
 }
 .assistant-suggestions .ui-chip {
-  padding: var(--space-1) var(--space-3);
-  border: 1px solid var(--border-default);
-  background: transparent;
-  color: var(--text-secondary);
-}
-.assistant-suggestions .ui-chip:hover:not(:disabled) {
-  background: var(--bg-glass-hover);
+  height: 34px;
+  padding: 0 var(--space-3_5);
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
   color: var(--text-primary);
 }
-.assistant-input {
-  --control-height: var(--space-9);
-  padding-right: var(--space-2);
-  border-radius: var(--radius-xl);
-}
-.assistant-input.ui-field.is-filled:focus-within {
-  border-color: var(--border-default);
-  background: var(--bg-glass-hover);
-  box-shadow: none;
-}
-.assistant-tool {
-  margin-left: var(--space-1);
-}
-.assistant-composer .assistant-tool.is-active {
-  background: var(--assistant-bubble);
-  color: var(--assistant-bubble-text);
-}
-.assistant-composer .assistant-send {
-  border-radius: 50%;
-  background: var(--assistant-send-bg);
-  color: var(--assistant-send-fg);
-}
-.assistant-composer .assistant-send:disabled {
-  opacity: 0.35;
+.assistant-suggestions .ui-chip .app-icon {
+  color: var(--text-tertiary);
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-card,
-  .assistant-card-play {
+  .assistant-mic {
     transition: none;
   }
-  .assistant-card-in,
-  .assistant-progress-fill,
-  .assistant-answer.is-typing::after {
+  .assistant-answer:where(.is-typing)::after {
     animation: none;
   }
 }

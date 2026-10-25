@@ -2,7 +2,7 @@
  * AI 助手的录音：麦克风 → MediaRecorder 录一段 → 解码后重采样成 16 kHz 单声道 16 位 WAV，
  * 交给主进程用「设置 → AI → 语音识别」的配置转写（assistant.transcribe）。
  *
- * 聆听时用 AnalyserNode 读真实音量（每帧一次 rAF），光球随之起伏；停止或取消时关掉麦克风、
+ * 聆听时用 AnalyserNode 读真实音量（每帧一次 rAF），麦克风按钮随之缩放；停止或取消时关掉麦克风、
  * AudioContext 与 rAF。录到 ASSISTANT_VOICE_MAX_SECONDS 秒自动停止录制，解码时也按这个上限截断。
  */
 import { ASSISTANT_VOICE_MAX_SECONDS } from '../../../../shared/assistant'
@@ -139,7 +139,7 @@ export async function startVoice(
     let smooth = 0
     const tick = (): void => {
       analyser.getFloatTimeDomainData(frame)
-      // 起得快、落得慢，光球不抖
+      // 起得快、落得慢，按钮不抖
       const next = rmsLevel(frame)
       smooth = next > smooth ? next : smooth * 0.85 + next * 0.15
       onLevel(smooth)

@@ -11,7 +11,10 @@ import {
   useSkipSegments,
 } from '../src/renderer/src/features/player/skip/use-skip-segments'
 
-vi.mock('@/features/settings', () => ({ getSetting: () => false }))
+const settings = vi.hoisted(() => ({ autoNext: true }))
+vi.mock('@/features/settings', () => ({
+  getSetting: (key: string) => key === 'player.autoNext' && settings.autoNext,
+}))
 
 beforeEach(() => vi.useFakeTimers())
 afterEach(() => vi.useRealTimers())
@@ -101,6 +104,31 @@ describe('播完自动下一集倒计时', () => {
     await Promise.resolve()
     expect(playNext).toHaveBeenCalledTimes(1)
     scope.stop()
+  })
+
+  it('自动连播关着：卡片照常出现但不倒计时，点「立即播放」才切', async () => {
+    settings.autoNext = false
+    const scope = effectScope()
+    const playNext = vi.fn(async () => true)
+    const skip = scope.run(() =>
+      useSkipSegments({
+        key: () => 'c:demo',
+        hasNext: () => true,
+        playNext,
+        ended: () => true,
+      })
+    )!
+    skip.attach(fakeArt().art)
+    await nextTick()
+    expect(skip.showNext.value).toBe(true)
+    expect(skip.counting.value).toBe(false)
+    vi.advanceTimersByTime(20_000)
+    expect(playNext).not.toHaveBeenCalled()
+    skip.playNow()
+    await Promise.resolve()
+    expect(playNext).toHaveBeenCalledTimes(1)
+    scope.stop()
+    settings.autoNext = true
   })
 
   it('取消后卡片消失、不切集', async () => {

@@ -1,8 +1,6 @@
 /**
- * 媒体库服务：把数据库、任务队列、扫描器、监控组装起来，实现 IPC 契约的每个方法，
- * 并把变化广播给订阅方。新文件的链路：监控（事件 / 定时扫描 / 外部变更通知）→ 增量扫描（写入稳定判定）→
- * 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」）。这条链写成各任务定义里的后继（followups，规则见 jobs/followups.ts），由任务队列统一派发。
- *
+ * 媒体库服务：把数据库、任务队列、扫描器、监控组装起来，实现 IPC 契约的每个方法，并把变化广播给订阅方。
+ * 新文件的链路：监控（事件 / 定时扫描 / 外部变更通知）→ 增量扫描（写入稳定判定）→ 按库设置自动识别 → 识别后按库设置自动整理 / 写出（见 docs/library-server.md「自动入库」），写成各任务定义里的后继（followups，规则见 jobs/followups.ts），由任务队列统一派发；入库之后的宣布与自动字幕在 intake（arrivals/intake.ts），只看事件、不进任务链。
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。扫描 / 解析 / 指纹 / 动态范围探测任务在 library-jobs，纯规则在 service-rules，变化入口在 library-watch。
  * 网盘模式的库不读视频内容：后台指纹 / 动态范围探测跳过，识别时的时长探测 / 哈希限速（见 cloud-reads）。
  */
@@ -30,6 +28,7 @@ import type {
   UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
 import { ActorModule } from '../actors/actor-module'
+import { type Intake, createIntake } from '../arrivals/intake'
 import { type VisualModule, createVisualModule } from '../visual/visual-setup'
 import { KeyedMutex } from '../jobs/keyed-mutex'
 import { WriterModule } from '../writer/writer-module'
@@ -80,6 +79,7 @@ export class LibraryService {
   readonly actors: ActorModule
   /** 按画面搜（番号库封面与剧照的 CLIP 索引）。 */
   readonly visual: VisualModule
+  readonly intake: Intake
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
   private readonly watch: LibraryWatch
@@ -177,6 +177,7 @@ export class LibraryService {
       deviceOf: options.writer?.deviceOf,
       log: this.log,
     })
+    this.intake = createIntake(options, this)
   }
 
   /** 启动：恢复中断的任务，旧解析版本的文件排重解析，开始监控（并补扫停机期间的变化）。 */
@@ -192,10 +193,12 @@ export class LibraryService {
     const libs = this.libraries.list()
     for (const lib of libs) this.watch.start(lib, true)
     this.emitLibrariesWhenJudged(libs)
+    this.intake.start()
   }
 
   /** 停止任务和监控，关闭数据库。 */
   async close(): Promise<void> {
+    this.intake.close()
     this.watch.close()
     await this.queue.stop()
     this.db.close()
@@ -327,10 +330,7 @@ export class LibraryService {
 
   /** 片库里登记过的视频文件路径；不存在或不是视频返回 null（独立服务据此决定能不能给出视频流）。 */
   videoFilePath(fileId: number): string | null {
-    const row = this.db
-      .prepare("SELECT path FROM files WHERE id = ? AND kind = 'video'")
-      .get(fileId)
-    return row ? String(row.path) : null
+    return this.catalogQuery.videoFilePath(fileId)
   }
 
   /** 库是否按网盘处理（悬停预览据此不给视频）；库不存在按网盘处理。 */
@@ -339,9 +339,9 @@ export class LibraryService {
     return lib ? this.watch.isCloud(lib) : Promise.resolve(true)
   }
 
-  // —————————————————————————— 内部 ——————————————————————————
+  // ———————————— 内部（emit 也给 rpc 层的合并模块用，见 catalog/merge） ————————————
 
-  private emit(event: LibraryEvent): void {
+  emit(event: LibraryEvent): void {
     for (const listener of this.listeners) listener(event)
   }
 

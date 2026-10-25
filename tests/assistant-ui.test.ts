@@ -1,17 +1,27 @@
 // @vitest-environment jsdom
 /**
- * AI 助手入口与侧栏的挂载：光球按钮打开、Cmd/Ctrl+K 与全局快捷键事件唤起、Esc / Esc 键帽 / 点变暗区收起、
- * 未配置 AI 时显示「去设置 AI」、播放弹窗在时不显示光球；右侧侧栏（普通页面模态、播放器前台时不拦点击与焦点）；
- * 对话流（你说的话气泡、上一轮归档）；没有边缘光圈；
- * 普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的副标题、占位文字与靛蓝色调；
- * 私密模式切换时收起并清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到光球、
+ * AI 助手入口与侧栏的挂载：openAssistant（侧栏 sparkle 入口）打开、Cmd/Ctrl+K 与全局快捷键事件唤起、
+ * Esc / Esc 键帽 / 点遮罩收起、未配置 AI 时显示「去设置 AI」；右侧玻璃侧栏（普通页面模态 + 遮罩，
+ * 播放器前台时没有遮罩、整层不拦点击、侧栏不做模态）；对话流（你说的话气泡、上一轮回答归档）；
+ * 没有光球与边缘光圈；普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的副标题与占位文字（不换色调）；
+ * 私密模式切换或收起时清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到打开前的元素、
  * 模态面板的焦点陷阱、按住 Cmd/Ctrl+K 的自动重复不算。AI、播放器、媒体库换成替身。
  */
-import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
+import {
+  afterEach,
+  beforeAll,
+  beforeEach,
+  describe,
+  expect,
+  it,
+  vi,
+} from 'vitest'
 import { type App, createApp, defineComponent, h, nextTick } from 'vue'
 import { createMemoryHistory, createRouter } from 'vue-router'
 
 const fakes = vi.hoisted(() => ({
+  chatJson: vi.fn(),
+  chatStream: vi.fn(),
   configured: true,
   player: null as unknown,
   summon: null as null | (() => void),
@@ -24,8 +34,8 @@ vi.mock('@/features/ai', () => ({
   aiAvailable: () => true,
   aiConfigured: () => fakes.configured,
   aiKeyConfigured: () => true,
-  chatJson: vi.fn(),
-  chatStream: vi.fn(),
+  chatJson: fakes.chatJson,
+  chatStream: fakes.chatStream,
 }))
 
 vi.mock('@/features/player', async () => {
@@ -72,8 +82,10 @@ vi.mock('@/features/settings', () => ({
 
 import { SENSITIVE } from './assistant-fixtures'
 import AssistantLauncher from '../src/renderer/src/features/assistant/AssistantLauncher.vue'
+import { openAssistant } from '../src/renderer/src/features/assistant/assistant-open'
 import {
   assistantSessionSize,
+  clearAssistantSession,
   recordAssistantTurn,
 } from '../src/renderer/src/features/assistant/assistant-session'
 import { assistantSkills } from '../src/renderer/src/features/assistant/skills/skill-registry'
@@ -133,15 +145,20 @@ async function mount(path = '/'): Promise<void> {
 }
 
 const overlay = (): Element | null => document.querySelector('.assistant')
-const fab = (): HTMLElement | null => document.querySelector('.assistant-fab')
-/** 光球用 v-show：节点常驻，看 display */
-const fabShown = (): boolean => !!fab() && fab()!.style.display !== 'none'
 
 function key(init: KeyboardEventInit): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }))
 }
 
+// 侧栏是异步组件：先把它的模块加载好，免得第一条用例在高负载下等第一次下载超时
+beforeAll(async () => {
+  await import('../src/renderer/src/features/assistant/AssistantOverlay.vue')
+}, 30_000)
+
 beforeEach(() => {
+  fakes.chatJson.mockReset()
+  fakes.chatStream.mockReset()
+  clearAssistantSession()
   fakes.configured = true
   fakes.player = null
   fakes.modal = null
@@ -171,12 +188,24 @@ afterEach(() => {
 })
 
 describe('AssistantLauncher', () => {
-  it('点光球打开侧栏：标题、场景副标题、Esc 键帽、问候、输入框「问影盒…」、建议芯片', async () => {
+  it('openAssistant 打开侧栏：玻璃面板、标题、场景副标题、Esc 键帽、问候、输入框「问影盒…」、建议胶囊', async () => {
     await mount()
     expect(overlay()).toBeNull()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-layout')).toBe('page')
+    // 侧栏本身是玻璃，输入胶囊在面板里是内凹胶囊；没有光球与整圈边缘光，只有输入胶囊上沿的渐变
+    expect(
+      document
+        .querySelector('.assistant-drawer')!
+        .classList.contains('yb-glass')
+    ).toBe(true)
+    expect(
+      document.querySelector('.assistant-field')!.classList.contains('yb-glass')
+    ).toBe(false)
+    expect(document.querySelector('.assistant-orb')).toBeNull()
+    expect(document.querySelector('.edge-glow')).toBeNull()
+    expect(document.querySelector('.assistant-streak')).not.toBeNull()
     expect(overlay()!.getAttribute('data-private')).toBe('false')
     expect(document.querySelector('.assistant-drawer')).not.toBeNull()
     expect(document.querySelector('.assistant-title')?.textContent).toBe(
@@ -186,11 +215,6 @@ describe('AssistantLauncher', () => {
     expect(subtitle?.textContent?.trim()).toBe('在线 · 当前页面')
     expect(subtitle?.getAttribute('title')).toBe('deepseek-chat')
     expect(document.querySelector('.assistant-esc')?.textContent).toBe('Esc')
-    expect(
-      document.querySelector('.assistant-orb')?.getAttribute('data-phase')
-    ).toBe('idle')
-    // 没有整窗边缘光圈，也不做背景模糊
-    expect(document.querySelector('.edge-glow')).toBeNull()
     // 状态行只给读屏：待命未提问时为空，不与问候重复
     expect(document.querySelector('.assistant-status')?.textContent).toBe('')
     expect(
@@ -205,12 +229,11 @@ describe('AssistantLauncher', () => {
     expect(
       document.querySelectorAll('.assistant-suggestions .ui-chip').length
     ).toBe(4)
-    expect(fabShown()).toBe(false)
   })
 
   it('Esc 收起浮层', async () => {
     await mount()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     key({ key: 'Escape' })
     await settle(100)
@@ -219,12 +242,12 @@ describe('AssistantLauncher', () => {
 
   it('Esc 键帽与点变暗区收起', async () => {
     await mount()
-    fab()!.click()
-    await settle()
+    openAssistant()
+    await waitFor(() => overlay() !== null)
     ;(document.querySelector('.assistant-close') as HTMLElement).click()
     await settle(100)
     expect(overlay()).toBeNull()
-    fab()!.click()
+    openAssistant()
     await settle()
     ;(document.querySelector('.assistant-scrim') as HTMLElement).click()
     await settle(100)
@@ -244,11 +267,11 @@ describe('AssistantLauncher', () => {
     expect(overlay()).not.toBeNull()
   })
 
-  it('未配置 AI：提问后显示「去设置 AI」', async () => {
+  it('未配置 AI：你说的话进对话流，并显示「去设置 AI」', async () => {
     fakes.configured = false
     await mount()
-    fab()!.click()
-    await settle()
+    openAssistant()
+    await waitFor(() => overlay() !== null)
     const input = document.querySelector(
       '.assistant-input input'
     ) as HTMLInputElement
@@ -268,10 +291,18 @@ describe('AssistantLauncher', () => {
     )
   })
 
-  it('再问一句：上一轮留在对话流里，新的一句接在后面', async () => {
-    fakes.configured = false
+  it('再问一句：上一轮的问话与模型回答都归档在对话流里，新的一句接在后面', async () => {
+    // 配置好 AI：归意图返回「直接回答」，每次回答写明是第几次
+    fakes.chatJson.mockResolvedValue({ data: {} })
+    let calls = 0
+    fakes.chatStream.mockImplementation(
+      async (_request: unknown, options: { onDelta: (d: string) => void }) => {
+        calls += 1
+        options.onDelta(`回答 ${calls}`)
+      }
+    )
     await mount()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     const input = document.querySelector(
       '.assistant-input input'
@@ -289,18 +320,24 @@ describe('AssistantLauncher', () => {
       el => el.textContent
     )
     expect(bubbles).toEqual(['第一句', '第二句'])
-    expect(document.querySelectorAll('.assistant-answer').length).toBe(2)
+    const answers = [...document.querySelectorAll('.assistant-answer')].map(
+      el => el.textContent?.trim()
+    )
+    expect(answers).toEqual(['回答 1', '回答 2'])
+    // 第一轮已归档：它在第二轮的气泡前面，且不是「去设置 AI」那条说明
+    expect(document.querySelectorAll('.assistant-turn').length).toBe(2)
+    expect(document.querySelector('.assistant-setup')).toBeNull()
   })
 
   it('普通模式：DOM 里没有敏感词（私密技能已登记也不出现）', async () => {
     await mount()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     expect(document.body.textContent).not.toMatch(SENSITIVE)
     expect(document.body.innerHTML).not.toMatch(SENSITIVE)
   })
 
-  it('私密模式：靛蓝色调、副标题「私密 · 仅本地模型 · 无痕」、私密技能的建议与占位文字', async () => {
+  it('私密模式：副标题「私密 · 仅本地模型 · 无痕」、私密技能的建议与占位文字', async () => {
     await mount('/secret')
     key({ key: 'k', ctrlKey: true })
     await waitFor(() => overlay() !== null)
@@ -329,7 +366,7 @@ describe('AssistantLauncher', () => {
     expect(assistantSessionSize()).toBe(0)
   })
 
-  it('内置播放器在前台：同一个侧栏，变暗区不拦点击、侧栏不做模态', async () => {
+  it('内置播放器在前台：同一个侧栏，没有遮罩、整层不拦点击、侧栏不做模态', async () => {
     fakes.player = { id: 1, payload: {}, minimized: false }
     await mount()
     key({ key: 'k', ctrlKey: true })
@@ -339,15 +376,41 @@ describe('AssistantLauncher', () => {
     expect(
       document.querySelector('.assistant-drawer')!.getAttribute('aria-modal')
     ).toBe('false')
+    // 不拦点击：没有遮罩元素；整层 pointer-events: none 的样式约束见 assistant-drawer.test.ts
+    expect(document.querySelector('.assistant-scrim')).toBeNull()
+    // 不拦焦点：焦点移到侧栏外（播放器控件）后不会被拉回
+    const control = document.createElement('button')
+    document.body.appendChild(control)
+    await settle(50)
+    control.focus()
+    await settle()
+    expect(document.activeElement).toBe(control)
     key({ key: 'Escape' })
     await settle(100)
     expect(overlay()).toBeNull()
   })
 
-  it('播放弹窗在时（含缩进角落小窗）不显示光球', async () => {
-    fakes.player = { id: 1, payload: {}, minimized: true }
+  it('私密模式下收起侧栏：清空对话上下文（关掉就不留记录）', async () => {
+    await mount('/secret')
+    key({ key: 'k', ctrlKey: true })
+    await waitFor(() => overlay() !== null)
+    recordAssistantTurn('问', '答', true)
+    expect(assistantSessionSize()).toBe(1)
+    key({ key: 'Escape' })
+    await settle(100)
+    expect(overlay()).toBeNull()
+    expect(assistantSessionSize()).toBe(0)
+  })
+
+  it('普通模式下收起侧栏：对话上下文保留', async () => {
     await mount()
-    expect(fabShown()).toBe(false)
+    openAssistant()
+    await waitFor(() => overlay() !== null)
+    recordAssistantTurn('问', '答', false)
+    key({ key: 'Escape' })
+    await settle(100)
+    expect(overlay()).toBeNull()
+    expect(assistantSessionSize()).toBe(1)
   })
 
   it('全局快捷键新建了窗口：挂载后取走待处理的唤起并打开', async () => {
@@ -357,15 +420,17 @@ describe('AssistantLauncher', () => {
     expect(fakes.pendingSummon).toBe(false)
   })
 
-  it('从光球打开、收起后焦点回到光球', async () => {
+  it('收起后焦点回到打开前的元素（侧栏入口）', async () => {
+    const trigger = document.createElement('button')
+    document.body.appendChild(trigger)
     await mount()
-    fab()!.focus()
-    fab()!.click()
+    trigger.focus()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     key({ key: 'Escape' })
     await settle(100)
-    expect(fabShown()).toBe(true)
-    expect(document.activeElement).toBe(fab())
+    expect(overlay()).toBeNull()
+    expect(document.activeElement).toBe(trigger)
   })
 
   it('按住 Cmd/Ctrl+K 的自动重复不反复开合', async () => {
