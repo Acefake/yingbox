@@ -1,6 +1,7 @@
 <template>
   <div
     class="assistant"
+    data-focus-scope
     :data-layout="layout"
     :data-private="context.private"
     :data-playing="player !== null"
@@ -82,6 +83,7 @@
  * 对话流 = 本次打开期间归档的几轮（assistant-thread.ts）+ 当前这一轮；新内容出现时，只有贴近底部时
  * 才自动滚到底部，用户上滚回看时不打扰，回到底部附近再恢复（assistant-scroll.ts）。
  * 「正在打开播放器」在所有轮次的结果间共享（assistant-opening.ts）。
+ * 根上的 data-focus-scope 让下面播放弹窗的焦点陷阱放行：点进助手输入框不会被拉回播放器。
  * 私密模式（data-private="true"）副标题写「私密 · 仅本地模型 · 无痕」，不换色调。
  * 状态行只给读屏用：待命且还没提问时为空。
  *
@@ -94,6 +96,7 @@ import { useRoute, useRouter } from 'vue-router'
 
 import { UiButton, UiLoadingDots } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
+import { useFocusTrap } from '@/composables/use-focus-trap'
 import { playerModal } from '@/features/player'
 import { getSetting } from '@/features/settings'
 
@@ -114,7 +117,6 @@ import { ensureCoreSkills } from './skills/core-skills'
 import { skillPlaceholder, skillSuggestions } from './skills/skill-prompt'
 import { assistantSkills } from './skills/skill-registry'
 import { PHASE_LABELS, useAssistant } from './use-assistant'
-import { useFocusTrap } from './use-focus-trap'
 import './assistant.css'
 import './assistant-panel.css'
 import './assistant-results.css'

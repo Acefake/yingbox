@@ -1,96 +1,59 @@
 <template>
-  <section v-if="items.length" class="wl-row" aria-label="想看">
-    <header class="wl-head">
-      <h2 class="wl-title">想看</h2>
-      <div class="wl-nav">
-        <span class="wl-count">{{ all.length }} 部</span>
-        <UiButton
-          v-if="hidden > 0 || expanded"
-          class="wl-toggle"
-          size="sm"
-          variant="plain"
-          :aria-expanded="expanded"
-          @click="toggleExpanded"
-        >
-          {{ expanded ? '收起' : '查看全部' }}
-        </UiButton>
-        <template v-if="!expanded">
-          <UiIconButton
-            icon="back"
-            label="向左滚动"
-            size="sm"
-            variant="secondary"
-            :disabled="atStart"
-            @click="scrollBy(-1)"
-          />
-          <UiIconButton
-            icon="forward"
-            label="向右滚动"
-            size="sm"
-            variant="secondary"
-            :disabled="atEnd"
-            @click="scrollBy(1)"
-          />
-        </template>
-      </div>
-    </header>
-
-    <div
-      ref="track"
-      class="wl-track"
-      :class="{ 'is-grid': expanded }"
-      @scroll.passive="syncEdges"
-    >
-      <article
-        v-for="entry in items"
-        :key="entry.id"
-        class="wl-card"
-        @contextmenu.prevent="openMenu($event, entry)"
+  <UiShelf
+    v-if="items.length"
+    class="wl-row"
+    title="想看"
+    kind="portrait"
+    :grid="expanded"
+  >
+    <template #actions>
+      <span class="wl-count">{{ all.length }} 部</span>
+      <UiButton
+        v-if="hidden > 0 || expanded"
+        class="wl-toggle"
+        size="sm"
+        variant="plain"
+        :aria-expanded="expanded"
+        @click="toggleExpanded"
       >
-        <UiPressable
-          block
-          class="wl-thumb"
-          :label="`打开 ${entry.title} 详情`"
-          @click="open(entry)"
-        >
-          <img
-            v-if="entryImage(entry) && !broken.has(entry.id)"
-            :src="entryImage(entry)"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerpolicy="no-referrer"
-            @error="broken.add(entry.id)"
-          />
-          <span v-else class="wl-placeholder"
-            ><UiIcon name="bookmark" size="lg"
-          /></span>
-        </UiPressable>
+        {{ expanded ? '收起' : '查看全部' }}
+      </UiButton>
+    </template>
+    <UiPosterCard
+      v-for="entry in items"
+      :key="entry.id"
+      class="wl-card"
+      thumb
+      :title="entry.title"
+      :cover="entryImage(entry) || undefined"
+      @open="open(entry)"
+      @contextmenu.prevent="openMenu($event, entry)"
+    >
+      <template #actions>
         <UiIconButton
           class="wl-remove"
           icon="close"
           label="从想看中移除"
           size="sm"
           variant="overlay"
-          @click="removeFromWatchlist(entry.id)"
+          @click.stop="removeFromWatchlist(entry.id)"
         />
-        <h3 class="wl-name" :title="entry.title">{{ entry.title }}</h3>
-      </article>
-      <article v-if="!expanded && hidden > 0" class="wl-card wl-more">
-        <UiPressable
-          block
-          class="wl-thumb wl-more-thumb"
-          :label="`查看全部 ${all.length} 部想看`"
-          @click="toggleExpanded"
-        >
-          <span class="wl-more-body">
-            <UiIcon name="grid" size="lg" />
-            <span>查看全部</span>
-            <span class="wl-more-count">还有 {{ hidden }} 部</span>
-          </span>
-        </UiPressable>
-      </article>
-    </div>
+      </template>
+    </UiPosterCard>
+    <article v-if="!expanded && hidden > 0" class="wl-card wl-more">
+      <UiPressable
+        block
+        class="wl-more-thumb"
+        :label="`查看全部 ${all.length} 部想看`"
+        @click="toggleExpanded"
+      >
+        <span class="wl-more-body">
+          <UiIcon name="grid" size="lg" />
+          <span>查看全部</span>
+          <span class="wl-more-count">还有 {{ hidden }} 部</span>
+        </span>
+      </UiPressable>
+    </article>
 
     <Teleport to="body">
       <div
@@ -112,7 +75,7 @@
         </UiListRow>
       </div>
     </Teleport>
-  </section>
+  </UiShelf>
 </template>
 
 <script setup lang="ts">
@@ -124,16 +87,18 @@
  * - 右键菜单：打开详情 / 从想看中移除；
  * - 横排只放前 WATCHLIST_ROW_LIMIT 张，标题行计数是本板块真实总数；超出时标题行与横排末尾
  *   有「查看全部」，展开成换行的完整列表（再点「收起」回到横排）。
- * 视觉沿用 ContinueRow（标题行、左右滚动、右键菜单），条目与规则见 watchlist-store.ts / watchlist-rules.ts。
+ * 一排与标题用 UiShelf（超出时标题行出左右滚动键），卡片是 UiPosterCard；条目与规则见 watchlist-store.ts / watchlist-rules.ts。
  */
-import { computed, nextTick, onBeforeUnmount, reactive, ref, watch } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
 
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
+import UiShelf from '@/components/ui/UiShelf.vue'
 
 import {
   type WatchlistEntry,
@@ -157,28 +122,6 @@ const hidden = computed(() => hiddenCount(all.value))
 
 function toggleExpanded(): void {
   expanded.value = !expanded.value
-}
-
-/** 封面加载失败的条目 */
-const broken = reactive(new Set<string>())
-
-// —— 横向滚动 ——
-const track = ref<HTMLElement | null>(null)
-const atStart = ref(true)
-const atEnd = ref(true)
-
-function syncEdges(): void {
-  const el = track.value
-  if (!el) return
-  atStart.value = el.scrollLeft <= 1
-  atEnd.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
-}
-
-watch(items, () => nextTick(syncEdges), { immediate: true })
-
-function scrollBy(direction: 1 | -1): void {
-  const el = track.value
-  if (el) el.scrollBy({ left: direction * el.clientWidth * 0.8 })
 }
 
 function open(entry: WatchlistEntry): void {

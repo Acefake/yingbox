@@ -1,27 +1,35 @@
 <template>
-  <div class="online-view h-full min-h-0 bg-yb-bg text-yb-text">
-    <!-- 首页 -->
+  <div
+    class="online-view h-full min-h-0 bg-yb-bg text-yb-text"
+    :class="{ 'is-bleed': !inlineDetailItem && activeTab === 'home' }"
+  >
+    <!-- 首页：Hero 铺到浮动侧栏和顶栏胶囊下面，下面几排按 --home-x 让开侧栏 -->
     <div
       v-show="!inlineDetailItem && activeTab === 'home'"
-      class="content-area primary-scroll home-content-area"
+      class="content-area primary-scroll home-page"
+      :class="{ 'has-hero': hero.slides.value.length || hero.loading.value }"
     >
-      <HomeCarousel
+      <HomeHero
+        :slides="hero.slides.value"
+        :loading="hero.loading.value"
         :active="activeTab === 'home' && !inlineDetailItem"
-        @open="openDoubanDetail"
       />
-      <ContinueRow
-        class="online-continue home-resume"
-        section="online"
-        @detail="
-          r => r.detail && openDetailWindow(r.detail as OnlineDetailItem)
-        "
-      />
-      <WatchlistRow
-        class="online-continue"
-        section="online"
-        @open="e => e.detail && openDetailWindow(e.detail as OnlineDetailItem)"
-      />
-      <DoubanSection @open="openDoubanDetail" />
+      <div class="home-rows">
+        <ContinueRow
+          :section="HOME_CONTINUE"
+          more-label="打开最近播放"
+          @more="router.push({ path: '/', query: { tab: 'recent' } })"
+          @detail="openContinueDetail"
+        />
+        <RecentlyAddedRow />
+        <WatchlistRow
+          section="online"
+          @open="
+            e => e.detail && openDetailWindow(e.detail as OnlineDetailItem)
+          "
+        />
+        <DoubanSection @open="openDoubanDetail" />
+      </div>
     </div>
 
     <!-- VOD 浏览 -->
@@ -76,22 +84,28 @@ import type {
   OnlineDetailItem,
   OnlinePlayRecord,
 } from '../types'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 import DoubanSection from '../components/DoubanSection.vue'
-import HomeCarousel from '../components/HomeCarousel.vue'
+import HomeHero from '../components/HomeHero.vue'
 import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
 import { pendingOnlineDetail, takeOnlineDetail } from '../utils/detail-request'
+import { RecentlyAddedRow, libraryItemLocation } from '@/features/library'
 import {
+  type ContinueRecord,
   ContinueRow,
+  type ContinueSection,
   getMediaProgress,
   openMediaPlayer,
 } from '@/features/player'
 import { WatchlistRow } from '@/features/watchlist'
+import { useHomeHero } from '../composables/use-home-hero'
+import { doubanDetail } from '../utils/douban-detail'
 
 const route = useRoute()
+const router = useRouter()
 const inlineDetailItem = ref<OnlineDetailItem | null>(null)
 
 const handleNavigateBack = (event: Event): void => {
@@ -165,19 +179,24 @@ const resumeRecentPlay = async (record: OnlinePlayRecord): Promise<void> => {
 }
 
 const openDoubanDetail = (item: DoubanItem): void => {
-  inlineDetailItem.value = JSON.parse(
-    JSON.stringify({
-      _source: 'douban',
-      vod_name: item.title,
-      vod_pic: item.cover,
-      type_name: item.type,
-      vod_year: item.year,
-      overview: item.overview,
-      searchTitle: item.searchTitle,
-      doubanUrl: item.url,
-      doubanKind: item.kind,
-    })
-  )
+  inlineDetailItem.value = doubanDetail(item)
+}
+
+// ─── 首页 ───────────────────────────────────────────────
+const hero = useHomeHero(openDoubanDetail)
+/** 首页的「继续观看」合并在线与片库电影、剧集 */
+const HOME_CONTINUE: ContinueSection[] = ['online', 'movie', 'tv']
+/** 继续观看的「打开详情」：在线条目在本页打开，片库条目去片库页（?item=） */
+const openContinueDetail = (record: ContinueRecord): void => {
+  if (record.section === 'online') {
+    if (record.detail) openDetailWindow(record.detail as OnlineDetailItem)
+    return
+  }
+  const itemId = (record.detail as { itemId?: number } | undefined)?.itemId
+  if (typeof itemId === 'number')
+    void router.push(
+      libraryItemLocation(record.section === 'tv' ? 'series' : 'movie', itemId)
+    )
 }
 </script>
 
@@ -203,24 +222,37 @@ const openDoubanDetail = (item: DoubanItem): void => {
   gap: var(--space-6);
 }
 
-.content-area .online-continue {
-  flex: none;
-  min-width: 0;
-  margin-bottom: 0;
-}
-
-.home-resume :deep(.cw-card) {
-  width: calc((100% - var(--space-4)) / 2);
-  min-width: 260px;
-}
-
-.home-resume :deep(.cw-thumb) {
-  aspect-ratio: 3.2;
-}
-
 .home-content-area {
   padding: var(--space-7) var(--space-8) var(--space-8);
   gap: var(--space-7);
+}
+
+/*
+ * 首页铺满窗口：整页往左上让回外壳留出的 --shell-left / --shell-top，Hero 从窗口左上角开始，
+ * 浮动侧栏和顶栏胶囊压在它上面（这里不建层叠上下文，侧栏、胶囊的 z-index 才比得过）。
+ * Hero 文案和下面几排的左边距 --home-x = 侧栏让出的宽度 + 28px。
+ */
+.online-view.is-bleed {
+  --home-x: calc(var(--shell-left) + var(--space-6_5));
+  z-index: auto;
+  height: calc(100% + var(--shell-top));
+  margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
+}
+.home-page:where(.has-hero) {
+  padding: 0 0 var(--space-11);
+  gap: 0;
+}
+.home-page:where(.has-hero) .home-rows {
+  padding: var(--space-8) var(--space-8) 0 var(--home-x);
+}
+.home-page:where(:not(.has-hero)) {
+  padding: var(--shell-top) var(--space-8) var(--space-8) var(--home-x);
+}
+.home-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
 }
 
 .inline-detail-page {
@@ -246,8 +278,11 @@ const openDoubanDetail = (item: DoubanItem): void => {
 }
 
 @media (max-width: 860px) {
-  .home-content-area {
-    padding: var(--space-4) var(--space-5) var(--space-6);
+  .online-view.is-bleed {
+    --home-x: calc(var(--shell-left) + var(--space-5));
+  }
+  .home-page:where(.has-hero) .home-rows {
+    padding: var(--space-6) var(--space-5) 0 var(--home-x);
   }
 }
 
