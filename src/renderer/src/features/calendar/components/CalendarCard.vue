@@ -1,50 +1,60 @@
 <template>
-  <UiPressable
-    class="cal-card"
-    :class="[`is-${entry.status}`, { 'is-compact': compact }]"
-    block
-    @click="emit('activate', entry)"
-  >
-    <span class="cal-card-media">
-      <img
-        v-if="imageUrl && !broken"
-        class="cal-card-img"
-        :src="imageUrl"
-        alt=""
-        loading="lazy"
-        decoding="async"
-        @error="broken = true"
-      />
-      <span v-else class="cal-card-placeholder" aria-hidden="true">
-        <UiIcon name="tv" size="lg" />
+  <div class="cal-card-wrap">
+    <UiPressable
+      class="cal-card"
+      :class="[`is-${entry.status}`, { 'is-compact': compact }]"
+      block
+      @click="emit('activate', entry)"
+    >
+      <span class="cal-card-media">
+        <img
+          v-if="imageUrl && !broken"
+          class="cal-card-img"
+          :src="imageUrl"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          @error="broken = true"
+        />
+        <span v-else class="cal-card-placeholder" aria-hidden="true">
+          <UiIcon name="tv" size="lg" />
+        </span>
+        <span class="cal-card-shade" aria-hidden="true" />
+        <span class="cal-card-status">{{ STATUS_LABEL[entry.status] }}</span>
+        <span v-if="actionIcon" class="cal-card-action" aria-hidden="true">
+          <UiIcon :name="actionIcon" size="sm" />
+        </span>
       </span>
-      <span class="cal-card-shade" aria-hidden="true" />
-      <span class="cal-card-status">{{ STATUS_LABEL[entry.status] }}</span>
-      <span v-if="actionIcon" class="cal-card-action" aria-hidden="true">
-        <UiIcon :name="actionIcon" size="sm" />
+      <span class="cal-card-text">
+        <span class="cal-card-title">{{ entry.title }}</span>
+        <span class="cal-card-meta">
+          <span class="cal-card-code">{{ entry.code }}</span>
+          <span v-if="entry.episodeTitle" class="cal-card-ep">{{
+            entry.episodeTitle
+          }}</span>
+        </span>
       </span>
-    </span>
-    <span class="cal-card-text">
-      <span class="cal-card-title">{{ entry.title }}</span>
-      <span class="cal-card-meta">
-        <span class="cal-card-code">{{ entry.code }}</span>
-        <span v-if="entry.episodeTitle" class="cal-card-ep">{{
-          entry.episodeTitle
-        }}</span>
-      </span>
-    </span>
-  </UiPressable>
+    </UiPressable>
+    <AutograbMarkChip
+      v-if="mark"
+      class="cal-card-mark"
+      :mark="mark"
+      @open="key => emit('mark', key)"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 /**
  * 追剧日历的一张卡：16:9 背景图（剧照优先，没有用剧的背景图 / 在线封面）、剧名、集号、状态。
  * 点卡片交给页面（有本地文件就播放，否则打开详情）；图片地址按来源换成缩略图。
+ * 追更中的集左上角有追更小标记（mark），点它交给页面打开追更面板（与卡片本身是两个按钮，不嵌套）。
  */
 import { computed, ref, watch } from 'vue'
 
 import { UiIcon, UiPressable } from '@/components/ui'
 import type { IconName } from '@/components/ui/icons'
+import { type AutograbMark, AutograbMarkChip } from '@/features/autograb'
 import { libraryImage } from '@/features/library'
 import { thumbSrc } from '@/services/thumbnails'
 
@@ -54,8 +64,13 @@ const props = defineProps<{
   entry: CalendarEntry
   /** 周视图的窄列：文字更紧凑 */
   compact?: boolean
+  /** 追更状态小标记 */
+  mark?: AutograbMark | null
 }>()
-const emit = defineEmits<{ activate: [entry: CalendarEntry] }>()
+const emit = defineEmits<{
+  activate: [entry: CalendarEntry]
+  mark: [key: string]
+}>()
 
 const broken = ref(false)
 watch(
@@ -76,6 +91,17 @@ const actionIcon = computed<IconName | null>(() =>
 </script>
 
 <style scoped>
+.cal-card-wrap {
+  position: relative;
+  min-width: 0;
+}
+
+.cal-card-mark {
+  position: absolute;
+  top: var(--space-1);
+  left: var(--space-1);
+}
+
 .cal-card {
   display: flex;
   flex-direction: column;

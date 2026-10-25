@@ -55,6 +55,16 @@ describe('追剧日历界面', () => {
     expect(view).toContain('requestOnlineDetail')
   })
 
+  it('追更小标记：卡片外另一个按钮（不嵌套），点了展开追更面板并定位', () => {
+    const card = read('features/calendar/components/CalendarCard.vue')
+    const pressableEnd = card.indexOf('</UiPressable>')
+    expect(card.indexOf('<AutograbMarkChip')).toBeGreaterThan(pressableEnd)
+    expect(card).toContain("from '@/features/autograb'")
+    const view = read('features/calendar/views/CalendarView.vue')
+    expect(view).toContain('@mark="openAutograb"')
+    expect(view).toContain(':focus-key="autograbFocus"')
+  })
+
   it('侧栏角标：数字放在 trailing 插槽，无障碍名称带上未看集数', () => {
     const sidebar = read('features/shell/components/AppSidebar.vue')
     expect(sidebar).toContain('#trailing')
