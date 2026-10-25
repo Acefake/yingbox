@@ -1,0 +1,109 @@
+/* 洗版 / 电影面板共用的版式：和追更面板同一套（卡片底、分隔线、小号次要文字） */
+.grab-panel {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  padding: var(--space-4) var(--space-5);
+  border: 1px solid var(--border-subtle);
+  border-radius: var(--radius-lg);
+  background: var(--bg-fill-tertiary);
+}
+
+.grab-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+
+.grab-head-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.grab-title {
+  margin: 0;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.grab-sub,
+.grab-meta {
+  margin: 0;
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+.grab-notice {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--warning);
+}
+
+.grab-list {
+  display: flex;
+  flex-direction: column;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.grab-row {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-2) 0;
+  border-top: 1px solid var(--separator);
+}
+
+.grab-row-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+
+.grab-name {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grab-status {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+}
+
+.grab-status[data-tone='accent'] {
+  color: var(--accent-text);
+}
+
+.grab-cand {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-1) 0 var(--space-1) var(--space-3);
+}
+
+.grab-cand-main {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  min-width: 0;
+}
+
+.grab-cand-file {
+  overflow: hidden;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.grab-picker {
+  padding-left: var(--space-3);
+}
