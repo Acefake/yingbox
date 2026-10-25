@@ -88,12 +88,14 @@ describe('注册表', () => {
     const registry = coreRegistry()
     expect(registry.list().map(s => s.id)).toEqual([
       'library',
+      'discover',
       'player',
       'navigation',
     ])
     registry.register(secret)
     expect(registry.active(idle).map(s => s.id)).toEqual([
       'library',
+      'discover',
       'player',
       'navigation',
     ])
@@ -134,6 +136,7 @@ describe('提示词与 Schema 动态拼出', () => {
       'library.recommend',
       'library.continue',
       'library.search',
+      'discover.discover',
       'player.control',
       'player.plot',
       'navigation.navigate',

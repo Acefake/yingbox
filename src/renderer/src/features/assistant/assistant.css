@@ -1,26 +1,59 @@
 /*
- * AI 助手侧栏的外框：轻度变暗的背景、右侧侧栏本体、进出场动画、头部小光球（AssistantOrb）与私密模式的靛蓝色调。
- * 头部、对话流、结果卡片与输入框在 assistant-panel.css。
- * 背景不做模糊、不加边缘光圈，页面与播放器在侧栏后面照常可见；动画只用 transform / opacity。
- * 颜色全部来自 tokens.css（--assistant-* 与中性灰阶）。进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动。
+ * AI 助手侧栏的框架：遮罩、右侧侧栏的位置与尺寸、输入胶囊上沿的渐变发丝（唯一的彩色）与进出场。
+ * 侧栏内容在 assistant-panel.css。
+ * 玻璃一律用 .yb-glass（底色、模糊、阴影都在那里，这里不写 background）；降低透明度时它自动变实色。
+ * 动画只用 transform / opacity；进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动，
+ * 时长是 --duration-assistant-drawer（减少动态效果时为 0）。
  */
 .assistant {
   position: fixed;
   inset: 0;
   z-index: var(--z-assistant);
+  color: var(--text-primary);
 }
 
-/* ── 背后的轻度变暗 ── */
+/* ── 遮罩（只在普通页面）：压暗 + 轻模糊；小窗在播时不做实时模糊 ── */
 .assistant-scrim {
   position: absolute;
   inset: 0;
-  background: var(--assistant-drawer-scrim);
-  /* 单独成层：淡入走合成，也保证盖在播放器的视频层之上 */
-  will-change: opacity;
+  background: var(--assistant-scrim);
+  -webkit-backdrop-filter: blur(8px) saturate(0.9);
+  backdrop-filter: blur(8px) saturate(0.9);
   transition: opacity var(--duration-assistant-drawer) ease;
 }
+.assistant[data-playing='true'] .assistant-scrim {
+  background: var(--overlay-scrim);
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+:root[data-transparency='reduced'] .assistant-scrim {
+  -webkit-backdrop-filter: none;
+  backdrop-filter: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .assistant-scrim {
+    -webkit-backdrop-filter: none;
+    backdrop-filter: none;
+  }
+}
 
-/* 内置播放器在前台：变暗只是视觉，点击与焦点照常交给播放器 */
+/* ── 侧栏：固定在右侧，整高，离窗口边缘 --space-3_5 ── */
+.assistant-drawer {
+  position: absolute;
+  top: var(--space-3_5);
+  right: var(--space-3_5);
+  bottom: var(--space-3_5);
+  display: flex;
+  flex-direction: column;
+  width: min(var(--assistant-drawer-width), calc(100% - var(--space-3_5) * 2));
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+  transition:
+    transform var(--duration-assistant-drawer) var(--ease-out),
+    opacity var(--duration-assistant-drawer) ease;
+}
+
+/* 播放器在前台：没有遮罩，整层不拦点击，只有侧栏本身可点，画面照常可见可点 */
 .assistant[data-layout='player'] {
   pointer-events: none;
 }
@@ -28,39 +61,58 @@
   pointer-events: auto;
 }
 
-/* ── 右侧侧栏 ── */
-.assistant-drawer {
-  position: absolute;
-  top: var(--assistant-drawer-inset);
-  right: var(--assistant-drawer-inset);
-  bottom: var(--assistant-drawer-inset);
-  display: flex;
-  flex-direction: column;
-  width: min(
-    var(--assistant-drawer-width),
-    calc(100% - var(--assistant-drawer-inset) * 2)
-  );
-  overflow: hidden;
-  border: 1px solid var(--border-glass-light);
-  border-radius: var(--radius-2xl);
-  background: var(--assistant-drawer-bg);
-  box-shadow: var(--assistant-drawer-shadow);
-  color: var(--text-primary);
-  /* 单独成层：滑入动画走合成，也保证盖在页面里已提升成层的卡片之上 */
-  will-change: transform;
-  transition:
-    transform var(--duration-assistant-drawer) var(--ease-out),
-    opacity var(--duration-assistant-drawer) ease;
-}
-
-/* 窄窗口：侧栏占满宽度（减去两侧边距） */
+/* 窄窗口：侧栏宽度为 100% 减两侧边距 */
 @media (max-width: 719px) {
   .assistant-drawer {
-    width: calc(100% - var(--assistant-drawer-inset) * 2);
+    width: calc(100% - var(--space-3_5) * 2);
   }
 }
 
-/* 进出场：变暗区淡入，侧栏从右侧滑入 */
+/* ── 输入胶囊上沿的 1px 渐变发丝：左段蓝紫粉，往下淡出；思考 / 回答中变亮右移 ── */
+.assistant-streak {
+  position: absolute;
+  inset: 0;
+  z-index: var(--z-raised);
+  padding: 1px;
+  border-radius: inherit;
+  background: linear-gradient(
+    90deg,
+    transparent 6%,
+    var(--assistant-streak-blue) 18%,
+    var(--assistant-streak-violet) 30%,
+    var(--assistant-streak-pink) 40%,
+    transparent 54%
+  );
+  background-size: 140% 100%;
+  background-position: 0 0;
+  opacity: 0.7;
+  pointer-events: none;
+  mask:
+    linear-gradient(var(--media-bg) 0 30%, transparent 62%) intersect,
+    linear-gradient(var(--media-bg) 0 0) content-box exclude,
+    linear-gradient(var(--media-bg) 0 0);
+  transition:
+    opacity var(--duration-slow) ease,
+    background-position var(--duration-slow) var(--ease-out);
+}
+.assistant-field:where(.is-busy) .assistant-streak {
+  background-position: 100% 0;
+  opacity: 1;
+  animation: assistant-streak var(--duration-pulse) ease-in-out infinite;
+}
+@keyframes assistant-streak {
+  50% {
+    opacity: 0.75;
+  }
+}
+
+/* ── 进出场：遮罩淡入，侧栏从右侧滑入；will-change 只在过渡期间挂上，结束即释放 ── */
+.assistant-enter-active .assistant-drawer,
+.assistant-leave-active .assistant-drawer,
+.assistant-enter-active .assistant-scrim,
+.assistant-leave-active .assistant-scrim {
+  will-change: transform, opacity;
+}
 .assistant-enter-from .assistant-scrim,
 .assistant-leave-to .assistant-scrim {
   opacity: 0;
@@ -68,137 +120,9 @@
 .assistant-enter-from .assistant-drawer,
 .assistant-leave-to .assistant-drawer {
   opacity: 0;
-  transform: translateX(calc(100% + var(--assistant-drawer-inset)));
+  transform: translateX(calc(100% + var(--space-3_5)));
 }
 
-/* ── 头部小光球 ── */
-.assistant-orb {
-  position: relative;
-  flex: none;
-  width: 32px;
-  height: 32px;
-}
-.assistant-orb-scale {
-  position: absolute;
-  inset: 0;
-  transition: transform var(--duration-fast) var(--ease-out);
-}
-.assistant-orb-ball {
-  position: absolute;
-  inset: 0;
-  overflow: hidden;
-  border-radius: 50%;
-  background: var(--assistant-orb-core);
-  box-shadow:
-    0 0 12px var(--assistant-glow),
-    inset 0 0 0 1px var(--border-glass-light);
-}
-.assistant-orb-ball::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: 50%;
-  background: radial-gradient(
-    circle at 35% 25%,
-    var(--assistant-orb-highlight),
-    transparent 40%
-  );
-}
-.assistant-orb-spin {
-  position: absolute;
-  inset: 0;
-}
-.assistant-orb-blob {
-  position: absolute;
-  width: 72%;
-  height: 72%;
-  border-radius: 50%;
-  filter: blur(5px);
-  mix-blend-mode: screen;
-  opacity: 0.95;
-  animation: var(--blob-name) var(--duration-assistant-orb) ease-in-out infinite;
-}
-.assistant-orb-blob.is-violet {
-  --blob-name: assistant-blob-1;
-  top: 6%;
-  left: 2%;
-  background: var(--assistant-violet);
-}
-.assistant-orb-blob.is-pink {
-  --blob-name: assistant-blob-2;
-  top: 18%;
-  right: 0;
-  background: var(--assistant-pink);
-  animation-duration: calc(var(--duration-assistant-orb) * 1.1);
-}
-.assistant-orb-blob.is-cyan {
-  --blob-name: assistant-blob-3;
-  bottom: -4%;
-  left: 16%;
-  background: var(--assistant-cyan);
-  animation-duration: calc(var(--duration-assistant-orb) * 0.92);
-}
-.assistant-orb-blob.is-amber {
-  --blob-name: assistant-blob-4;
-  right: 10%;
-  bottom: 6%;
-  width: 46%;
-  height: 46%;
-  background: var(--assistant-amber);
-  opacity: 0.7;
-  animation-duration: calc(var(--duration-assistant-orb) * 0.82);
-}
-.assistant-orb[data-phase='listening'] .assistant-orb-blob {
-  animation-duration: calc(var(--duration-assistant-orb) * 0.6);
-}
-.assistant-orb[data-phase='thinking'] .assistant-orb-spin {
-  animation: assistant-rotate calc(var(--duration-spin) * 2) linear infinite;
-}
-.assistant-orb[data-phase='answering'] .assistant-orb-ball {
-  animation: assistant-pulse calc(var(--duration-pulse) * 1.6) ease-in-out
-    infinite;
-}
-
-/* ── 私密模式：光球换成低调靛蓝 ── */
-.assistant[data-private='true'] {
-  --assistant-violet: var(--assistant-private-violet);
-  --assistant-indigo: var(--assistant-private-indigo);
-  --assistant-pink: var(--assistant-private-blue);
-  --assistant-cyan: var(--assistant-private-mist);
-  --assistant-amber: var(--assistant-private-indigo);
-  --assistant-glow: var(--assistant-private-glow);
-}
-
-@keyframes assistant-rotate {
-  to {
-    transform: rotate(360deg);
-  }
-}
-@keyframes assistant-blob-1 {
-  50% {
-    transform: translate(18%, 12%) scale(1.1) rotate(30deg);
-  }
-}
-@keyframes assistant-blob-2 {
-  50% {
-    transform: translate(-20%, 14%) scale(0.9);
-  }
-}
-@keyframes assistant-blob-3 {
-  50% {
-    transform: translate(12%, -22%) scale(1.12);
-  }
-}
-@keyframes assistant-blob-4 {
-  50% {
-    transform: translate(-30%, -24%) scale(1.2);
-  }
-}
-@keyframes assistant-pulse {
-  50% {
-    transform: scale(1.04);
-  }
-}
 @keyframes assistant-caret {
   50% {
     opacity: 0;
@@ -207,7 +131,7 @@
 @keyframes assistant-card-in {
   from {
     opacity: 0;
-    transform: translateY(8px);
+    transform: translateY(16px);
   }
 }
 @keyframes assistant-progress {
@@ -223,7 +147,7 @@
   }
   .assistant-drawer,
   .assistant-scrim,
-  .assistant-orb-scale {
+  .assistant-streak {
     transition: none;
   }
 }

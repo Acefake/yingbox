@@ -16,6 +16,10 @@ import { serverFileUrl } from '@/services/library-server'
 
 import { libraryBridge, usesLibraryServer } from '../api/bridge'
 import { videoFileEntries } from '../detail/playback'
+import {
+  progressOf as libraryProgressOf,
+  loadProgress,
+} from '../progress/progress-cache'
 import { findLibrary } from '../state/use-libraries'
 import {
   type TonightCandidate,
@@ -53,10 +57,12 @@ function progressOf(record: ContinueRecord): TonightProgress {
 }
 
 /**
- * 电影第一个视频文件的观看情况（桌面端按路径，网页端按流地址，与播放器的进度键一致）：
- * 已播秒数 + 是否在「已看完」集合里。
+ * 电影的观看情况：片库里的进度（已播秒数 + 是否看完）；片库没有时看本地进度表
+ * （第一个视频文件，桌面端按路径，网页端按流地址）。
  */
 function watchOf(node: LibraryItemNode): TonightWatch {
+  const stored = libraryProgressOf(node.id)
+  if (stored) return { seconds: stored.position, finished: stored.watched }
   const first = videoFileEntries(node)[0]
   if (!first) return { seconds: 0, finished: false }
   const key = usesLibraryServer() ? serverFileUrl(first.id) : first.path
@@ -112,9 +118,10 @@ export async function loadTonightCandidates(
     POOL_SIZE
   )
   const ids = [...watching.keys(), ...pool]
-  const nodes = await mapLimit(ids, CONCURRENCY, id =>
-    bridge.getItem(id).catch(() => null)
-  )
+  const [nodes] = await Promise.all([
+    mapLimit(ids, CONCURRENCY, id => bridge.getItem(id).catch(() => null)),
+    loadProgress(ids).catch(() => {}),
+  ])
 
   const list: TonightCandidate[] = []
   for (const node of nodes) {

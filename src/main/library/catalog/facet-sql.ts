@@ -29,54 +29,78 @@ interface ValueSource {
   where?: string
 }
 
-const VALUE_SOURCES: Record<FacetField, ValueSource> = {
-  kind: { value: 'jav_kind(i.tmdb_id)' },
-  tag: { each: 'json_each(i.genres) j', value: 'j.value' },
-  actor: {
-    join: 'JOIN item_actors ia ON ia.item_id = i.id JOIN actors a ON a.id = ia.actor_id',
-    value: 'a.name',
-  },
-  studio: { each: "json_each(i.metadata, '$.companies') j", value: 'j.value' },
-  series: { value: "json_extract(i.metadata, '$.collection.name')" },
-  director: {
-    each: "json_each(i.metadata, '$.crew') j",
-    value: "json_extract(j.value, '$.name')",
-    where: "json_extract(j.value, '$.job') = 'Director'",
-  },
+/** 各分面的取值来源；a 是条目表别名（海报墙用 i，合并去重的子查询用 o）。 */
+function valueSource(field: FacetField, a: string): ValueSource {
+  switch (field) {
+    case 'kind':
+      return { value: `jav_kind(${a}.tmdb_id)` }
+    case 'tag':
+      return { each: `json_each(${a}.genres) j`, value: 'j.value' }
+    case 'actor':
+      return {
+        join: `JOIN item_actors ia ON ia.item_id = ${a}.id JOIN actors a ON a.id = ia.actor_id`,
+        value: 'a.name',
+      }
+    case 'studio':
+      return {
+        each: `json_each(${a}.metadata, '$.companies') j`,
+        value: 'j.value',
+      }
+    case 'series':
+      return { value: `json_extract(${a}.metadata, '$.collection.name')` }
+    case 'director':
+      return {
+        each: `json_each(${a}.metadata, '$.crew') j`,
+        value: "json_extract(j.value, '$.name')",
+        where: "json_extract(j.value, '$.job') = 'Director'",
+      }
+  }
 }
 
+const FACET_FIELDS: readonly FacetField[] = [
+  'kind',
+  'tag',
+  'actor',
+  'studio',
+  'series',
+  'director',
+]
+
 /** 条目在某分面上「取值属于这 n 个之一」的条件（参数由调用方按序追加）。 */
-function anyOf(field: FacetField, n: number): string {
-  const src = VALUE_SOURCES[field]
+function anyOf(field: FacetField, n: number, a: string): string {
+  const src = valueSource(field, a)
   const inList = `${src.value} IN (${marks(n)})`
   if (src.join) {
-    return `i.id IN (SELECT ia.item_id FROM item_actors ia JOIN actors a ON a.id = ia.actor_id WHERE ${inList})`
+    return `${a}.id IN (SELECT ia.item_id FROM item_actors ia JOIN actors a ON a.id = ia.actor_id WHERE ${inList})`
   }
   if (!src.each) return inList
-  // 多值字段：子查询展开当前条目（i 来自外层）
+  // 多值字段：子查询展开当前条目（a 来自外层）
   const where = [src.where, inList].filter(Boolean).join(' AND ')
   return `EXISTS (SELECT 1 FROM ${src.each} WHERE ${where})`
 }
 
 /** FacetFilter → WHERE 子句（AND 连接）与参数；没选任何分面返回空数组。 */
-export function facetClauses(filter: FacetFilter | undefined): {
+export function facetClauses(
+  filter: FacetFilter | undefined,
+  alias = 'i'
+): {
   clauses: string[]
   params: Params
 } {
   const clauses: string[] = []
   const params: Params = []
   if (!filter) return { clauses, params }
-  for (const field of Object.keys(VALUE_SOURCES) as FacetField[]) {
+  for (const field of FACET_FIELDS) {
     const values = filter[field]
     if (!values?.length) continue
     if (field === 'tag') {
       // 标签要全部带上：每个标签一个条件
       for (const tag of values) {
-        clauses.push(anyOf('tag', 1))
+        clauses.push(anyOf('tag', 1, alias))
         params.push(tag)
       }
     } else {
-      clauses.push(anyOf(field, values.length))
+      clauses.push(anyOf(field, values.length, alias))
       params.push(...values)
     }
   }
@@ -87,12 +111,15 @@ export function facetClauses(filter: FacetFilter | undefined): {
 const likePattern = (text: string): string =>
   `%${text.replace(/[\\%_]/g, c => `\\${c}`)}%`
 
-/** 列出分面取值：范围是顶层条目（可限定来源 / 媒体库），按条目数降序、取值升序。 */
+/**
+ * 列出分面取值：范围是顶层条目（可限定来源 / 媒体库），按条目数降序、取值升序。
+ * 合并展示的同一作品只算一次（按 merge_key 去重计数）。
+ */
 export function listFacetValues(
   sql: StatementCache,
   request: FacetListRequest
 ): FacetValue[] {
-  const src = VALUE_SOURCES[request.field]
+  const src = valueSource(request.field, 'i')
   const where = [
     "i.type IN ('movie', 'series')",
     `${src.value} IS NOT NULL`,
@@ -114,7 +141,7 @@ export function listFacetValues(
   }
   const rows = sql
     .get(
-      `SELECT ${src.value} AS v, COUNT(DISTINCT i.id) AS n
+      `SELECT ${src.value} AS v, COUNT(DISTINCT COALESCE(i.merge_key, i.id)) AS n
        FROM media_items i${src.each ? `, ${src.each}` : ''} ${src.join ?? ''}
        WHERE ${where.join(' AND ')}
        GROUP BY v ORDER BY n DESC, v LIMIT ?`

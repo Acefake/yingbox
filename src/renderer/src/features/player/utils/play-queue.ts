@@ -3,6 +3,7 @@
  * 外部数据只在这里解析，之后播放器只处理整理好的 PlayQueue。
  */
 import type { VideoProbe } from '../../../../../shared/video-range'
+import type { LibraryRef } from '../progress/library-sink'
 
 /** 单个播放条目（集 / 文件 / 备用线路） */
 export type PlaylistEntry = {
@@ -13,6 +14,15 @@ export type PlaylistEntry = {
   siteName?: string
   /** 本地文件的动态范围（媒体库存的探测结果）；有它时杜比视界判断不必开播前再探测 */
   video?: VideoProbe | null
+  /** 媒体库条目：进度只记进片库（见 progress/library-sink） */
+  library?: LibraryRef
+}
+
+/** 片库播完最后一集时的提示（如「没有下一集的文件」+ 去追更） */
+export interface EndHint {
+  text: string
+  /** 提示上的按钮：跳到应用内某个地址 */
+  action?: { label: string; to: string }
 }
 
 /** 调用方发来的播放载荷（字段都可能缺失或类型不对） */
@@ -31,6 +41,8 @@ export type PlayerPayload = {
   private?: boolean
   /** 单个本地文件（没有 playlist 时）的动态范围 */
   video?: VideoProbe | null
+  /** 播完最后一集时的提示 */
+  endHint?: EndHint
 }
 
 /** 整理后的播放队列 */
@@ -50,6 +62,8 @@ export interface PlayQueue {
   seededUrl?: string
   /** 「继续播放」记录 id；空串表示不记 */
   continueId: string
+  /** 播完最后一集时的提示 */
+  endHint: EndHint | null
 }
 
 const text = (value: unknown): string =>
@@ -103,7 +117,21 @@ export function normalizePlayerPayload(
         : undefined,
     seededUrl: url || undefined,
     continueId: text(payload.continueId),
+    endHint: parseEndHint(payload.endHint),
   }
+}
+
+/** 播完提示：文字必填；按钮只认应用内地址（# 路由，以 / 开头） */
+function parseEndHint(raw: unknown): EndHint | null {
+  const hint = raw as Partial<EndHint> | undefined
+  const text = typeof hint?.text === 'string' ? hint.text.trim() : ''
+  if (!text) return null
+  const action = hint?.action
+  return typeof action?.label === 'string' &&
+    typeof action.to === 'string' &&
+    action.to.startsWith('/')
+    ? { text, action: { label: action.label, to: action.to } }
+    : { text }
 }
 
 /** 条目显示名：优先 name，其次文件名，最后用默认标题 */

@@ -8,6 +8,7 @@ import type { LibraryQuery } from '../../../../../shared/library/ipc'
 import { type LibrarySection, SECTIONS } from '../state/library-section'
 import { topLevelType } from '../state/query-state'
 import type { NlFilter } from './nl-filter'
+import { type TitlePick, titlePickApplies } from './nl-title-pick'
 
 /** 输入的去向：none 空、plain 普通片名搜索、ai 交给模型解析。 */
 export type NlIntent =
@@ -150,6 +151,8 @@ export interface NlQueryContext {
   genres: readonly string[]
   /** 看过 / 在看的条目 id（继续播放记录） */
   watchedIds: readonly number[]
+  /** 按片名判断的结果（见 nl-title-pick）；类型 / 地区与条件一致、查询范围没变时替换类型 / 地区条件 */
+  titlePick?: TitlePick | null
 }
 
 /** 引擎 ids / excludeIds 上限（与 MAX_FILTER_IDS 一致）。 */
@@ -157,7 +160,8 @@ const MAX_IDS = 1000
 
 /**
  * 条件 → 引擎查询：在海报墙的基础查询（分区、匹配筛选、媒体库、排序）上叠加。
- * type 与分区冲突时忽略（条件条上会标出）；关键词替换片名搜索。
+ * type 与分区冲突时忽略（条件条上会标出）；关键词替换片名搜索；
+ * 有适用的按片名判断结果时，类型 / 地区条件换成挑中的 id（与「看过」的 id 取交集）。
  */
 export function applyNlFilter(
   base: LibraryQuery,
@@ -166,7 +170,10 @@ export function applyNlFilter(
 ): LibraryQuery {
   const query: LibraryQuery = { ...base }
   delete query.search
-  if (filter.genres?.length) {
+  const pick = titlePickApplies(ctx.titlePick, filter, base)
+    ? ctx.titlePick
+    : null
+  if (filter.genres?.length && !pick) {
     const tags = filter.genres.map(g => resolveGenre(g, ctx.genres))
     const merged = [...new Set([...(base.facets?.tag ?? []), ...tags])]
     query.facets = { ...base.facets, tag: merged }
@@ -175,10 +182,16 @@ export function applyNlFilter(
   if (filter.yearTo !== undefined) query.yearTo = filter.yearTo
   if (filter.ratingMin !== undefined) query.ratingMin = filter.ratingMin
   if (filter.people?.length) query.people = [...filter.people]
-  if (filter.countries?.length) query.countries = [...filter.countries]
+  if (filter.countries?.length && !pick) query.countries = [...filter.countries]
   if (filter.watched === true) query.ids = ctx.watchedIds.slice(0, MAX_IDS)
   else if (filter.watched === false && ctx.watchedIds.length)
     query.excludeIds = ctx.watchedIds.slice(0, MAX_IDS)
+  if (pick) {
+    // ids 为 [] 时引擎按「白名单为空」返回 0 条（validate-filters / filter-sql），不会退化成不过滤
+    const watched = query.ids && new Set(query.ids)
+    const ids = watched ? pick.ids.filter(id => watched.has(id)) : pick.ids
+    query.ids = ids.slice(0, MAX_IDS)
+  }
   if (filter.sort) {
     query.sort = filter.sort.field
     query.order = filter.sort.order

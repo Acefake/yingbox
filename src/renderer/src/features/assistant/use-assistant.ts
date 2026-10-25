@@ -21,7 +21,7 @@ import type {
   SkillEnv,
 } from './skills/skill-types'
 
-/** 光球与状态文字对应的阶段 */
+/** 助手的阶段（状态文字、输入胶囊渐变的亮度跟着变） */
 export type AssistantPhase = 'idle' | 'listening' | 'thinking' | 'answering'
 
 /** 推动阶段变化的事件 */
