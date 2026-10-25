@@ -3,7 +3,8 @@
  * AI 助手入口与浮层的挂载：光球按钮打开、Cmd/Ctrl+K 与全局快捷键事件唤起、Esc / Esc 提示 / 点外部收起、
  * 未配置 AI 时显示「去设置 AI」、播放弹窗在时不显示光球；底部面板与播放器内右侧面板两种布局；
  * 普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的胶囊、占位文字与靛蓝色调；
- * 私密模式切换时收起并清空对话上下文。AI、播放器、媒体库换成替身。
+ * 私密模式切换时收起并清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到光球、
+ * 模态面板的焦点陷阱、按住 Cmd/Ctrl+K 的自动重复不算。AI、播放器、媒体库换成替身。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { type App, createApp, defineComponent, h, nextTick } from 'vue'
@@ -13,6 +14,7 @@ const fakes = vi.hoisted(() => ({
   configured: true,
   player: null as unknown,
   summon: null as null | (() => void),
+  pendingSummon: false,
   modal: null as null | { value: unknown },
 }))
 
@@ -131,6 +133,8 @@ async function mount(path = '/'): Promise<void> {
 
 const overlay = (): Element | null => document.querySelector('.assistant')
 const fab = (): HTMLElement | null => document.querySelector('.assistant-fab')
+/** 光球用 v-show：节点常驻，看 display */
+const fabShown = (): boolean => !!fab() && fab()!.style.display !== 'none'
 
 function key(init: KeyboardEventInit): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }))
@@ -142,12 +146,18 @@ beforeEach(() => {
   fakes.modal = null
   assistantSkills.register(secretSkill)
   fakes.summon = null
+  fakes.pendingSummon = false
   ;(window as unknown as { api: unknown }).api = {
     assistant: {
       onSummon: (cb: () => void) => {
         fakes.summon = cb
       },
       offSummon: vi.fn(),
+      takeSummon: vi.fn(async () => {
+        const pending = fakes.pendingSummon
+        fakes.pendingSummon = false
+        return pending
+      }),
     },
   }
 })
@@ -166,7 +176,7 @@ describe('AssistantLauncher', () => {
     fab()!.click()
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-layout')).toBe('sheet')
-    expect(overlay()!.hasAttribute('data-private')).toBe(false)
+    expect(overlay()!.getAttribute('data-private')).toBe('false')
     expect(
       document.querySelector('.assistant-chip.is-context')?.textContent
     ).toContain('在线')
@@ -178,9 +188,11 @@ describe('AssistantLauncher', () => {
       document.querySelector('.assistant-orb')?.getAttribute('data-phase')
     ).toBe('idle')
     expect(document.querySelector('.edge-glow')).not.toBeNull()
-    expect(document.querySelector('.assistant-status')?.textContent).toContain(
-      '有什么可以帮你'
-    )
+    // 状态行只给读屏：待命未提问时为空，不与大标题重复
+    expect(document.querySelector('.assistant-status')?.textContent).toBe('')
+    expect(
+      document.querySelector('.assistant-transcript')?.textContent
+    ).toContain('有什么可以帮你')
     expect(
       document
         .querySelector('.assistant-input input')
@@ -189,7 +201,7 @@ describe('AssistantLauncher', () => {
     expect(
       document.querySelectorAll('.assistant-suggestions .ui-chip').length
     ).toBe(4)
-    expect(fab()).toBeNull()
+    expect(fabShown()).toBe(false)
   })
 
   it('Esc 收起浮层', async () => {
@@ -263,7 +275,7 @@ describe('AssistantLauncher', () => {
     await mount('/secret')
     key({ key: 'k', ctrlKey: true })
     await waitFor(() => overlay() !== null)
-    expect(overlay()!.hasAttribute('data-private')).toBe(true)
+    expect(overlay()!.getAttribute('data-private')).toBe('true')
     expect(
       document.querySelector('.assistant-chip.is-context')?.textContent
     ).toContain('私密 · 仅本地模型')
@@ -303,9 +315,52 @@ describe('AssistantLauncher', () => {
     expect(overlay()).toBeNull()
   })
 
-  it('播放弹窗在时不显示光球', async () => {
+  it('播放弹窗在时（含缩进角落小窗）不显示光球', async () => {
     fakes.player = { id: 1, payload: {}, minimized: true }
     await mount()
-    expect(fab()).toBeNull()
+    expect(fabShown()).toBe(false)
+  })
+
+  it('全局快捷键新建了窗口：挂载后取走待处理的唤起并打开', async () => {
+    fakes.pendingSummon = true
+    await mount()
+    await waitFor(() => overlay() !== null)
+    expect(fakes.pendingSummon).toBe(false)
+  })
+
+  it('从光球打开、收起后焦点回到光球', async () => {
+    await mount()
+    fab()!.focus()
+    fab()!.click()
+    await waitFor(() => overlay() !== null)
+    key({ key: 'Escape' })
+    await settle(100)
+    expect(fabShown()).toBe(true)
+    expect(document.activeElement).toBe(fab())
+  })
+
+  it('按住 Cmd/Ctrl+K 的自动重复不反复开合', async () => {
+    await mount()
+    key({ key: 'k', ctrlKey: true })
+    await settle()
+    key({ key: 'k', ctrlKey: true, repeat: true })
+    await settle(100)
+    expect(overlay()).not.toBeNull()
+  })
+
+  it('底部面板是模态：焦点被移到面板外时拉回面板', async () => {
+    const outside = document.createElement('input')
+    document.body.appendChild(outside)
+    await mount()
+    key({ key: 'k', ctrlKey: true })
+    await waitFor(() => overlay() !== null)
+    await settle(50)
+    outside.focus()
+    await settle()
+    expect(
+      document
+        .querySelector('.assistant-sheet')!
+        .contains(document.activeElement)
+    ).toBe(true)
   })
 })

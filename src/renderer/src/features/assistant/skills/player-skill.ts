@@ -31,7 +31,7 @@ export function parsePlayerCommand(raw: SkillRaw): PlayerRemoteCommand | null {
   switch (raw.command) {
     case 'danmaku':
     case 'subtitle':
-      return on === null ? null : { kind: raw.command, on }
+      return typeof on === 'boolean' ? { kind: raw.command, on } : null
     case 'danmakuOpacity': {
       // 模型偶尔给百分数（50 表示 50%）
       const ratio =
@@ -82,8 +82,9 @@ const control = defineAction<PlayerRemoteCommand>({
   },
   async run(command) {
     const outcome = runPlayerCommand(command)
+    // 回执只放在结果卡片里，不再逐字重复一遍（逐字部分用模型的 reply）
     return {
-      message: outcome.text,
+      message: '',
       result: {
         kind: 'done',
         ok: outcome.ok,

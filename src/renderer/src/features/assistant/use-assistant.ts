@@ -4,7 +4,9 @@
  * - 一次提问：取当前状态与生效技能，用 chatJson 把话归成某个技能的动作（严格校验 + 路由，见 skills/skill-prompt.ts），
  *   动作由技能自己的执行器执行并逐字显示回复；只回答文字的走 chatStream 流式显示；
  * - 每轮问答交给 remember 记进内存里的对话上下文（不落盘，私密 / 普通切换时清空）；
- * - 新提问、关闭、Esc 都会取消上一轮（AbortController + 世代号丢弃迟到的结果），关闭时停掉录音与逐字计时器；
+ * - 新提问、关闭、Esc 都会取消上一轮（AbortController + 世代号丢弃迟到的结果），关闭时停掉录音与逐字计时器，
+ *   正在逐字显示的那次 reveal 当场结算，ask() 不会悬在 await 上；
+ * - 录满上限自动停止并转写；停止录音后被取消的，录音不会再交去转写；
  * - 依赖全部经 {@link AssistantDeps} 注入，测试可替换（模型、动作、录音）。
  */
 import { type Ref, ref, shallowRef } from 'vue'
@@ -60,8 +62,11 @@ export interface VoiceSession {
 
 /** 语音输入的依赖（没有可用的语音识别时不提供） */
 export interface VoiceDeps {
-  /** 开始录音；onLevel 每帧给 0–1 的音量 */
-  start(onLevel: (level: number) => void): Promise<VoiceSession>
+  /** 开始录音；onLevel 每帧给 0–1 的音量，录满上限时调 onLimit */
+  start(
+    onLevel: (level: number) => void,
+    onLimit?: () => void
+  ): Promise<VoiceSession>
   transcribe(audio: Uint8Array, isPrivate: boolean): Promise<string>
 }
 
@@ -160,14 +165,20 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
   let controller: AbortController | null = null
   let voice: VoiceSession | null = null
   let revealTimer: ReturnType<typeof setInterval> | undefined
+  /** 正在进行的逐字显示的结算函数 */
+  let revealDone: (() => void) | null = null
 
   const send = (event: AssistantEvent): void => {
     phase.value = nextPhase(phase.value, event)
   }
 
+  /** 停掉逐字计时器，并结算正在等它的 reveal() */
   const stopReveal = (): void => {
     if (revealTimer !== undefined) clearInterval(revealTimer)
     revealTimer = undefined
+    const done = revealDone
+    revealDone = null
+    done?.()
   }
 
   /** 逐字显示一段话，显示完回到待命 */
@@ -185,18 +196,17 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
       let shown = 0
       answer.value = ''
       stopReveal()
+      revealDone = resolve
       revealTimer = setInterval(() => {
         if (token !== generation) {
           stopReveal()
-          resolve()
           return
         }
         shown += 1
         answer.value = chars.slice(0, shown).join('')
         if (shown >= chars.length) {
-          stopReveal()
           send('finish')
-          resolve()
+          stopReveal()
         }
       }, step)
     })
@@ -271,7 +281,8 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
       const outcome = await action.run(params, deps.env(current.signal))
       if (!live()) return
       result.value = outcome.result
-      remember(outcome.message || parsed.reply)
+      const receipt = outcome.result?.kind === 'done' ? outcome.result.text : ''
+      remember(outcome.message || parsed.reply || receipt)
       if (outcome.close) {
         send('finish')
         deps.close()
@@ -300,9 +311,14 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
     result.value = null
     notice.value = ''
     try {
-      const session = await deps.voice.start(value => {
-        if (token === generation) level.value = value
-      })
+      const session = await deps.voice.start(
+        value => {
+          if (token === generation) level.value = value
+        },
+        () => {
+          if (token === generation && voice === session) void stopListening()
+        }
+      )
       if (token !== generation) {
         session.cancel()
         return
@@ -324,6 +340,8 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
     send('submit')
     try {
       const audio = await session.stop()
+      // 停止期间被取消（关闭、Esc、新提问）：录音不再交去转写
+      if (token !== generation) return
       const text = await deps.voice.transcribe(audio, deps.context().private)
       if (token !== generation) return
       if (!text.trim()) {

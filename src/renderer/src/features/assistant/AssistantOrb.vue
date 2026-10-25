@@ -24,7 +24,7 @@
  *
  * 各阶段的动画：待命缓慢漂移；聆听中随真实音量（level，0–1）放大；思考中整体旋转、漂移加快；
  * 回答中轻微脉动。全部是 CSS 的 transform / opacity 动画，聆听时只改一个元素的 transform。
- * 样式在 assistant.css；减少动态效果时只保留静态光球。
+ * 样式在 assistant.css；减少动态效果时只保留静态光球（CSS 动画关掉，音量缩放也不做）。
  */
 import { computed } from 'vue'
 
@@ -40,9 +40,13 @@ const props = withDefaults(
   { level: 0, compact: false }
 )
 
-/** 聆听时按音量放大（最多 1.22 倍） */
+/** 减少动态效果：光球不随音量缩放 */
+const reducedMotion =
+  window.matchMedia?.('(prefers-reduced-motion: reduce)').matches === true
+
+/** 聆听时按音量放大（最多 1.22 倍）；减少动态效果时不缩放 */
 const scaleStyle = computed(() =>
-  props.phase === 'listening'
+  props.phase === 'listening' && !reducedMotion
     ? {
         transform: `scale(${(1 + Math.min(1, props.level) * 0.22).toFixed(3)})`,
       }

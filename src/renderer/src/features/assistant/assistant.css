@@ -2,6 +2,8 @@
  * AI 助手浮层的样式：窗口边缘光圈（EdgeGlow）、背景遮罩、光球（AssistantOrb）、私密模式的靛蓝色调、动画。
  * 面板、胶囊、结果卡片与输入框在 assistant-panel.css。
  * 动画只用 transform / opacity；颜色全部来自 tokens.css（--assistant-* 与中性灰阶）。
+ * 光圈层 contain: strict 隔离重绘，旋转层提示合成；有播放会话（含小窗）时遮罩不做实时模糊、
+ * 光圈不加外发光，避免每帧对正在播放的视频重新模糊。
  * 进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动。
  */
 .assistant {
@@ -23,6 +25,7 @@
 .edge-glow {
   position: absolute;
   inset: 0;
+  contain: strict;
   pointer-events: none;
   transition: opacity var(--duration-assistant-sheet) ease;
 }
@@ -54,6 +57,7 @@
   width: 160vmax;
   height: 160vmax;
   margin: -80vmax 0 0 -80vmax;
+  will-change: transform;
   background: conic-gradient(
     from 0deg,
     var(--assistant-violet),
@@ -75,6 +79,15 @@
 }
 .edge-glow[data-phase='listening'] .is-halo {
   animation: assistant-glow-pulse var(--duration-pulse) ease-in-out infinite;
+}
+
+/* 播放中（小窗在角落播）：遮罩改静态暗色，去掉大面积实时模糊的外发光层 */
+.assistant[data-playing='true'] .assistant-scrim {
+  background: var(--overlay-scrim);
+  backdrop-filter: none;
+}
+.assistant[data-playing='true'] .edge-glow-layer.is-halo {
+  display: none;
 }
 
 /* ── 大光球 ── */
@@ -185,7 +198,7 @@
 }
 
 /* ── 私密模式：同一套光圈与光球换成低调靛蓝 ── */
-.assistant[data-private] {
+.assistant[data-private='true'] {
   --assistant-violet: var(--assistant-private-violet);
   --assistant-indigo: var(--assistant-private-indigo);
   --assistant-pink: var(--assistant-private-blue);
@@ -193,7 +206,7 @@
   --assistant-amber: var(--assistant-private-indigo);
   --assistant-glow: var(--assistant-private-glow);
 }
-.assistant[data-private] .edge-glow-layer.is-halo {
+.assistant[data-private='true'] .edge-glow-layer.is-halo {
   opacity: 0.6;
 }
 

@@ -18,9 +18,11 @@ export interface AssistantShortcutStatus {
   registered: boolean
   /** 没注册成功的原因；关闭或成功时省略 */
   problem?: AssistantShortcutProblem
+  /** 新写法没注册成功时，仍在生效的上一个组合 */
+  active?: string
 }
 
-/** 一次录音转写最长多少秒（再长的录音渲染层先截断） */
+/** 一次录音最长多少秒：到点渲染层自动停止录音并转写 */
 export const ASSISTANT_VOICE_MAX_SECONDS = 30
 
 /** 一次录音转写最多多少字节（16 kHz 单声道 16 位 WAV 约 1 MB / 30 秒） */

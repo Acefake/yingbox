@@ -1,15 +1,16 @@
 <template>
   <template v-if="enabled">
     <UiPressable
-      v-if="showOrb"
+      v-show="showOrb"
+      ref="fabRef"
       class="assistant-fab"
       label="AI 助手"
       @click="openAssistant"
     >
       <UiIcon name="sparkle" />
     </UiPressable>
-    <Transition name="assistant" :duration="{ enter: 550, leave: 240 }">
-      <AssistantOverlay v-if="open" @close="closeAssistant" />
+    <Transition name="assistant" :duration="transitionMs">
+      <AssistantOverlay v-if="open" @close="onOverlayClose" />
     </Transition>
   </template>
 </template>
@@ -21,12 +22,16 @@
  *
  * - 只在桌面端出现（AI 调用需要主进程）；
  * - 播放弹窗或角落小窗在时不显示光球（小窗也在右下角），快捷键照常可用；
- * - 收起时把焦点还给打开前的元素；
- * - 私密模式（私密路由或在播私密内容）切换时清空对话上下文并收起浮层，私密对话不会带进普通模式。
+ * - 光球用 v-show（节点常驻），收起时等它重新显示后把焦点还给打开前的元素；
+ * - 全局快捷键新建了窗口时，挂载后经 takeSummon 取走待处理的唤起；
+ * - 减少动态效果时进出场不等动画；
+ * - 私密模式（私密路由或在播私密内容）切换时清空对话上下文并收起浮层，私密对话不会带进普通模式；
+ *   私密技能的开关关掉时，私密技能卸载也会清空（private-skills.ts）。
  */
 import {
   computed,
   defineAsyncComponent,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -57,6 +62,13 @@ const privateNow = computed(
   () => isPrivateRoute(route) || player.value?.payload.private === true
 )
 
+/** 减少动态效果时进出场不等动画 */
+const transitionMs = window.matchMedia?.('(prefers-reduced-motion: reduce)')
+  .matches
+  ? 0
+  : { enter: 550, leave: 240 }
+
+const fabRef = ref<{ $el: HTMLElement } | null>(null)
 let returnFocus: HTMLElement | null = null
 
 function openAssistant(): void {
@@ -68,31 +80,42 @@ function openAssistant(): void {
   open.value = true
 }
 
-function closeAssistant(): void {
+async function closeAssistant(): Promise<void> {
   if (!open.value) return
   open.value = false
-  returnFocus?.focus({ preventScroll: true })
+  const target = returnFocus
   returnFocus = null
+  // 等光球（v-show）重新显示后再聚焦，否则落到 body
+  await nextTick()
+  const fallback = showOrb.value ? fabRef.value?.$el : null
+  const next = target?.isConnected ? target : fallback
+  next?.focus({ preventScroll: true })
+}
+
+function onOverlayClose(): void {
+  void closeAssistant()
 }
 
 function onKeydown(event: KeyboardEvent): void {
   if (!isAssistantHotkey(event)) return
   event.preventDefault()
-  if (open.value) closeAssistant()
+  // 按住不放的自动重复不算（isAssistantHotkey 已排除 repeat）
+  if (open.value) void closeAssistant()
   else openAssistant()
 }
 
 watch(privateNow, () => {
   clearAssistantSession()
-  closeAssistant()
+  void closeAssistant()
 })
 
 const bridge = window.api?.assistant
 
-onMounted(() => {
+onMounted(async () => {
   if (!enabled) return
   window.addEventListener('keydown', onKeydown)
   bridge?.onSummon(openAssistant)
+  if (await bridge?.takeSummon().catch(() => false)) openAssistant()
 })
 
 onBeforeUnmount(() => {

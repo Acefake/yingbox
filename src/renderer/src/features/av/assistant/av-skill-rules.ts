@@ -4,11 +4,14 @@
 
 /** 番号库所在的板块与路由 */
 export const PRIVATE_LIBRARY = { section: 'jav', path: '/jav' } as const
-/** 私密的「继续播放」板块（番号库与在线资源） */
-export const PRIVATE_CONTINUE_SECTIONS: ReadonlySet<string> = new Set([
-  'jav',
-  'av',
-])
+
+/**
+ * 私密库自然语言搜索的跳转 query：搜索框写成「? + 描述」，并带 localOnly=1，
+ * 让该页的自然语言搜索同样只发给本地模型（不看「私密板块只用本地模型」设置）。
+ */
+export function privateSearchQuery(text: string): Record<string, string> {
+  return { q: `?${text}`, localOnly: '1' }
+}
 
 /**
  * 把各种写法的番号规整成「字母-数字」大写（abc123 / ABC_123 / abc-00123 → ABC-123）；认不出返回 null。

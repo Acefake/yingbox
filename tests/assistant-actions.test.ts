@@ -211,7 +211,7 @@ describe('搜索、跳转与设置', () => {
 })
 
 describe('播放器与问剧情', () => {
-  it('播放器命令交给遥控，回执带结果；失败时标成失败', async () => {
+  it('播放器命令交给遥控，回执只放结果卡片；失败时标成失败', async () => {
     fakes.runPlayerCommand.mockReturnValue({ ok: true, text: '已切到 2 倍速' })
     const outcome = await run({
       action: 'player.control',
@@ -228,6 +228,8 @@ describe('播放器与问剧情', () => {
       icon: 'play',
       text: '已切到 2 倍速',
     })
+    // 回执只在结果卡片里，不再逐字重复
+    expect(outcome.message).toBe('')
     fakes.runPlayerCommand.mockReturnValue({ ok: false, text: '不行' })
     expect(
       (await run({ action: 'player.control', command: 'skipIntro' })).result

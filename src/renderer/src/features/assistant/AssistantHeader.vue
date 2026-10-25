@@ -36,7 +36,7 @@ const props = defineProps<{
   phase: AssistantPhase
   level: number
   context: AssistantContext
-  /** 当前对话模型（服务商 · 模型名） */
+  /** 当前对话模型名（设置 ai.model；空串时不显示） */
   modelLabel: string
 }>()
 const emit = defineEmits<{ close: [] }>()

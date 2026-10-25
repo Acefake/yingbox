@@ -4,7 +4,8 @@
  *
  * - 输入停 600ms 再调模型，新输入会取消旧请求；同一分区同一个问题的解析结果缓存。
  * - 解析中保留上一次的结果，不闪全库；AI 未配置 / 失败时退回片名搜索并给出提示。
- * - 番号页（私密分区）请求带 private: true。
+ * - 番号页（私密分区）请求带 private: true；从 AI 助手的私密模式跳来（路由带 localOnly=1）时再带 localOnly，
+ *   不看「私密板块只用本地模型」设置，只发给本地模型。
  * 规则在 nl-rules.ts / nl-chips.ts / nl-filter.ts。
  */
 import {
@@ -194,6 +195,9 @@ export function useNlSearch(
           temperature: 0,
           maxTokens: 400,
           private: isPrivateSection(section),
+          ...(isPrivateSection(section) && route.query.localOnly === '1'
+            ? { localOnly: true }
+            : {}),
         },
         { signal }
       )

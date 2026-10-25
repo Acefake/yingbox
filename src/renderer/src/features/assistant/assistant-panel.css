@@ -14,8 +14,7 @@
   gap: var(--space-3);
   width: min(var(--assistant-sheet-width), calc(100% - var(--space-8)));
   max-height: calc(100% - var(--space-10));
-  overflow-y: auto;
-  overscroll-behavior: contain;
+  overflow: hidden;
   padding: var(--space-5);
   border: 1px solid var(--border-glass-light);
   border-radius: var(--radius-2xl);
@@ -75,6 +74,7 @@
 /* ── 顶部：光球、胶囊、Esc ── */
 .assistant-head {
   display: flex;
+  flex: none;
   align-items: center;
   gap: var(--space-3);
 }
@@ -105,7 +105,7 @@
   background: var(--assistant-accent-fill);
   color: var(--text-primary);
 }
-.assistant[data-private] .assistant-chip.is-context {
+.assistant[data-private='true'] .assistant-chip.is-context {
   border-color: var(--assistant-private-line);
   background: var(--assistant-private-fill);
   color: var(--success);
@@ -132,6 +132,17 @@
 }
 .assistant-close:hover .assistant-esc {
   color: var(--text-primary);
+}
+
+/* ── 中间可滚动区：顶部关闭按钮与底部输入框不随内容滚走 ── */
+.assistant-body {
+  display: flex;
+  flex: 1 1 auto;
+  flex-direction: column;
+  gap: var(--space-3);
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
 }
 
 /* ── 文字 ── */
@@ -204,8 +215,8 @@
   border-color: var(--assistant-accent-line);
   transform: translateY(-2px);
 }
-.assistant-card.is-busy {
-  opacity: 0.7;
+.assistant-cards.is-busy .assistant-card:not(.is-busy) {
+  opacity: 0.5;
 }
 .assistant-card-cover {
   position: relative;
@@ -312,6 +323,7 @@
 /* ── 建议与输入框 ── */
 .assistant-composer {
   display: flex;
+  flex: none;
   flex-direction: column;
   gap: var(--space-3);
   margin-top: auto;
@@ -336,5 +348,10 @@
   .assistant-sheet,
   .assistant-card {
     transition: none;
+  }
+  .assistant-card-in,
+  .assistant-progress-fill,
+  .assistant-answer.is-typing::after {
+    animation: none;
   }
 }

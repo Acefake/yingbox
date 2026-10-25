@@ -32,10 +32,18 @@ import {
 } from './assistant-fixtures'
 import { routes } from '../src/renderer/src/router/routers'
 import {
+  ensureCoreSkills,
+  privateRouteSections,
   privateSections,
   registerCoreSkills,
 } from '../src/renderer/src/features/assistant/skills/core-skills'
-import { assistantPages } from '../src/renderer/src/features/assistant/skills/navigation-skill'
+import { durationBadge } from '../src/renderer/src/features/assistant/skills/library-skill'
+import {
+  assistantPages,
+  isPrivateRoute,
+  resolvedRoutes,
+} from '../src/renderer/src/features/assistant/skills/navigation-skill'
+import { parsePlayerCommand } from '../src/renderer/src/features/assistant/skills/player-skill'
 import {
   ASK_CHARS,
   type AssistantIntent,
@@ -277,5 +285,63 @@ describe('routeIntent：动作自己的门槛', () => {
       kind: 'run',
       intent: { kind: 'answer' },
     })
+  })
+})
+
+describe('路由 meta 合并与内置技能只登记一次', () => {
+  /** 父路由带 adultOnly、子路由自身没有：getRoutes() 看不到，resolve 合并后才有 */
+  const table = {
+    getRoutes: () => [
+      { path: '/movie', meta: { title: '电影' } },
+      { path: '/hidden', meta: { title: 'x' } },
+      { path: '/item/:id', meta: {} },
+    ],
+    resolve: (path: string) => ({
+      path,
+      meta: path === '/hidden' ? { title: 'x', adultOnly: true } : {},
+      matched: [],
+    }),
+  }
+
+  it('resolvedRoutes 带上父路由的 adultOnly，私密页面不进跳转清单', () => {
+    expect([...privateRouteSections(table)]).toEqual(['hidden'])
+    expect(assistantPages(resolvedRoutes(table)).map(p => p.id)).toEqual([
+      'movie',
+    ])
+    expect(
+      isPrivateRoute({ path: '/a', matched: [{ meta: { adultOnly: true } }] })
+    ).toBe(true)
+  })
+
+  it('ensureCoreSkills 已登记过就不再重复登记', () => {
+    const registry = createSkillRegistry()
+    ensureCoreSkills(registry, table)
+    const first = registry.list()
+    ensureCoreSkills(registry, table)
+    expect(registry.list()).toBe(first)
+  })
+})
+
+describe('卡片角标与播放器参数', () => {
+  it('durationBadge 先取整到分钟，不会出现 60m', () => {
+    expect(durationBadge(59.6)).toBe('1h 00m')
+    expect(durationBadge(44.6)).toBe('45m')
+    expect(durationBadge(99)).toBe('1h 39m')
+    expect(durationBadge(0.2)).toBe('1m')
+    expect(durationBadge(null)).toBeUndefined()
+  })
+
+  it('弹幕 / 字幕开关只认布尔 on', () => {
+    const base = { text: '', target: '', value: null, command: 'danmaku' }
+    expect(parsePlayerCommand({ ...base, on: false })).toEqual({
+      kind: 'danmaku',
+      on: false,
+    })
+    for (const on of [null, undefined, 'true', 1])
+      expect(
+        parsePlayerCommand({ ...base, on } as unknown as Parameters<
+          typeof parsePlayerCommand
+        >[0])
+      ).toBeNull()
   })
 })

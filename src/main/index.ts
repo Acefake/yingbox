@@ -257,10 +257,13 @@ app.whenReady().then(async () => {
 })
 
 app.on('window-all-closed', () => {
-  // 注销所有快捷键
-  globalShortcut.unregisterAll()
-
+  // 全局快捷键留到退出时才注销：macOS 关窗不退出，AI 助手的快捷键要能重新唤起窗口
   if (process.platform !== 'darwin') {
     app.quit()
   }
+})
+
+app.on('will-quit', () => {
+  // 注销所有快捷键
+  globalShortcut.unregisterAll()
 })

@@ -3,7 +3,7 @@
  * 交给主进程用「设置 → AI → 语音识别」的配置转写（assistant.transcribe）。
  *
  * 聆听时用 AnalyserNode 读真实音量（每帧一次 rAF），光球随之起伏；停止或取消时关掉麦克风、
- * AudioContext 与 rAF。录音超过 ASSISTANT_VOICE_MAX_SECONDS 的部分截掉。
+ * AudioContext 与 rAF。录到 ASSISTANT_VOICE_MAX_SECONDS 秒自动停止录制，解码时也按这个上限截断。
  */
 import { ASSISTANT_VOICE_MAX_SECONDS } from '../../../../shared/assistant'
 import type { VoiceSession } from './use-assistant'
@@ -85,68 +85,105 @@ async function toMono16k(
   return rendered.getChannelData(0)
 }
 
+/** 录音被取消时 stop() 抛出的错误 */
+export class VoiceCancelledError extends Error {
+  constructor() {
+    super('录音已取消')
+    this.name = 'VoiceCancelledError'
+  }
+}
+
 /**
- * 开始录音。
+ * 开始录音。麦克风打开后任何一步失败都会先关掉麦克风与 AudioContext 再抛错；
+ * 录满 {@link ASSISTANT_VOICE_MAX_SECONDS} 秒自动停止录制并调用 onLimit（调用方接着 stop() 转写）。
+ * stop() 解码期间被 cancel()：等解码结束后释放，stop() 抛 {@link VoiceCancelledError}。
  * @param onLevel 每帧的音量（0–1）
+ * @param onLimit 录满上限时调用
  */
 export async function startVoice(
-  onLevel: (level: number) => void
+  onLevel: (level: number) => void,
+  onLimit?: () => void
 ): Promise<VoiceSession> {
   const stream = await navigator.mediaDevices.getUserMedia({
     audio: { channelCount: 1, echoCancellation: true, noiseSuppression: true },
   })
-  const context = new AudioContext()
-  const analyser = context.createAnalyser()
-  analyser.fftSize = 512
-  context.createMediaStreamSource(stream).connect(analyser)
-  const frame = new Float32Array(analyser.fftSize)
-  const recorder = new MediaRecorder(stream)
-  const chunks: Blob[] = []
-  recorder.addEventListener('dataavailable', event => {
-    if (event.data.size) chunks.push(event.data)
-  })
-
+  let context: AudioContext | null = null
   let raf = 0
-  let smooth = 0
-  const tick = (): void => {
-    analyser.getFloatTimeDomainData(frame)
-    // 起得快、落得慢，光球不抖
-    const next = rmsLevel(frame)
-    smooth = next > smooth ? next : smooth * 0.85 + next * 0.15
-    onLevel(smooth)
-    raf = requestAnimationFrame(tick)
-  }
-  raf = requestAnimationFrame(tick)
-  recorder.start()
-
+  let limitTimer: ReturnType<typeof setTimeout> | undefined
   let closed = false
   const release = (): void => {
     if (closed) return
     closed = true
+    clearTimeout(limitTimer)
     cancelAnimationFrame(raf)
     stream.getTracks().forEach(track => track.stop())
-    void context.close().catch(() => {})
+    void context?.close().catch(() => {})
   }
+
+  let recorder: MediaRecorder
+  let stopped: Promise<void>
+  const chunks: Blob[] = []
+  try {
+    context = new AudioContext()
+    const analyser = context.createAnalyser()
+    analyser.fftSize = 512
+    context.createMediaStreamSource(stream).connect(analyser)
+    const frame = new Float32Array(analyser.fftSize)
+    recorder = new MediaRecorder(stream)
+    recorder.addEventListener('dataavailable', event => {
+      if (event.data.size) chunks.push(event.data)
+    })
+    stopped = new Promise<void>(resolve =>
+      recorder.addEventListener('stop', () => resolve(), { once: true })
+    )
+    let smooth = 0
+    const tick = (): void => {
+      analyser.getFloatTimeDomainData(frame)
+      // 起得快、落得慢，光球不抖
+      const next = rmsLevel(frame)
+      smooth = next > smooth ? next : smooth * 0.85 + next * 0.15
+      onLevel(smooth)
+      raf = requestAnimationFrame(tick)
+    }
+    recorder.start()
+    raf = requestAnimationFrame(tick)
+    limitTimer = setTimeout(() => {
+      if (recorder.state !== 'inactive') recorder.stop()
+      onLimit?.()
+    }, ASSISTANT_VOICE_MAX_SECONDS * 1000)
+  } catch (error) {
+    release()
+    throw error
+  }
+
+  /** stop() 正在解码 */
+  let stopping = false
+  /** 解码期间被取消 */
+  let cancelled = false
 
   return {
     async stop() {
-      if (recorder.state !== 'inactive') {
-        const stopped = new Promise<void>(resolve =>
-          recorder.addEventListener('stop', () => resolve(), { once: true })
-        )
-        recorder.stop()
-        await stopped
-      }
+      if (closed) throw new VoiceCancelledError()
+      stopping = true
+      clearTimeout(limitTimer)
       try {
+        if (recorder.state !== 'inactive') recorder.stop()
+        await stopped
+        if (cancelled || !context) throw new VoiceCancelledError()
         const blob = new Blob(chunks, { type: recorder.mimeType })
-        return encodeWav(await toMono16k(blob, context), VOICE_SAMPLE_RATE)
+        const samples = await toMono16k(blob, context)
+        if (cancelled) throw new VoiceCancelledError()
+        return encodeWav(samples, VOICE_SAMPLE_RATE)
       } finally {
+        stopping = false
         release()
       }
     },
     cancel() {
       if (recorder.state !== 'inactive') recorder.stop()
-      release()
+      cancelled = true
+      // 解码中先不关 AudioContext，由 stop() 结束时释放
+      if (!stopping) release()
     },
   }
 }
