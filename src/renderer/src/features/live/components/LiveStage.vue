@@ -192,6 +192,8 @@ onBeforeUnmount(clearStartTimer)
 
 <style scoped>
 .live-stage {
+  /* 播放区按这块的高度限宽：尺寸查询容器（本组件是 grid 行里拉伸的格子，高度由外层给定） */
+  container-type: size;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -202,8 +204,10 @@ onBeforeUnmount(clearStartTimer)
 .live-stage-player {
   position: relative;
   flex: none;
+  align-self: flex-start;
+  /* 宽度取「整行」与「58% 高度对应的 16:9 宽度」中较小者，矮窗口里整体缩小而不是被截成宽扁框 */
+  width: min(100%, 58cqh * 16 / 9);
   aspect-ratio: 16 / 9;
-  max-height: 58%;
   overflow: hidden;
   border-radius: var(--radius-xl);
   background: var(--bg-fill-tertiary);

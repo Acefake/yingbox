@@ -106,5 +106,13 @@ describe('netdisk-rules', () => {
     expect(texts('封神第一部 HDR10 IMAX')).toEqual(['solid:HDR'])
     // DV 只认独立的词，不误认 DVD
     expect(texts('老电影 DVDRip')).toEqual([])
+    // 点分隔的 Dolby.Vision 也认，且和 HDR 同时出现时只留杜比视界
+    expect(texts('Dune.Part.Two.2024.2160p.Dolby.Vision.HDR.mkv')).toEqual([
+      'solid:4K',
+      'dolby:VISION',
+    ])
+    // HDRip 是片源标签，不是动态范围
+    expect(texts('某电影.2019.1080p.HDRip.x264')).toEqual(['outline:1080P'])
+    expect(texts('封神第一部 HDR10+')).toEqual(['solid:HDR'])
   })
 })
