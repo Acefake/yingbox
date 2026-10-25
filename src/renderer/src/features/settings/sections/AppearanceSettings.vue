@@ -11,7 +11,7 @@
     </SettingsRow>
     <SettingsRow
       title="降低透明度"
-      description="海报上的圆形按钮和提示条改用实色，不做背景模糊，低配电脑更流畅。系统开启「降低透明度」时自动使用实色"
+      description="侧栏、AI 助手、海报上的圆形按钮和提示条改用实色，不做背景模糊，低配电脑更流畅。系统开启「降低透明度」时自动使用实色"
     >
       <UiSwitch v-model="reduceTransparency" label="降低透明度" />
     </SettingsRow>
