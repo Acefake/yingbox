@@ -1,9 +1,10 @@
 /**
  * 网盘页的纯函数：显示格式与扫码轮询循环。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, describe, expect, expectTypeOf, it, vi } from 'vitest'
 
 import {
+  type LoginOutcome,
   formatBytes,
   formatDay,
   pollLogin,
@@ -11,17 +12,35 @@ import {
 } from '../../src/renderer/src/features/netdisk/utils/netdisk-rules'
 import type { Pan115LoginPoll } from '../../src/shared/contract/pan115'
 
+afterEach(() => {
+  vi.unstubAllEnvs()
+})
+
 describe('netdisk-rules', () => {
   it('formatBytes / formatDay / sourceLabel', () => {
     expect(formatBytes(0)).toBe('')
     expect(formatBytes(512)).toBe('512 B')
     expect(formatBytes(1536 * 1024 * 1024)).toBe('1.5 GB')
-    expect(formatDay('2026-10-01T08:00:00Z')).toMatch(/^2026-10-0[12]$/)
     expect(formatDay('bad')).toBe('')
     expect(formatDay(undefined)).toBe('')
     expect(sourceLabel('tg:Channel_Shares_115')).toBe('TG · Channel_Shares_115')
     expect(sourceLabel('plugin:hdr4k')).toBe('插件 · hdr4k')
     expect(sourceLabel('unknown')).toBe('')
+  })
+
+  it('formatDay 按本地时区取日期（固定时区断言，不依赖跑测试的机器）', () => {
+    vi.stubEnv('TZ', 'Asia/Shanghai')
+    expect(formatDay('2026-09-30T16:30:00Z')).toBe('2026-10-01')
+    vi.stubEnv('TZ', 'America/Los_Angeles')
+    expect(formatDay('2026-10-01T05:00:00Z')).toBe('2026-09-30')
+    vi.stubEnv('TZ', 'UTC')
+    expect(formatDay('2026-10-01T00:00:00Z')).toBe('2026-10-01')
+  })
+
+  it('LoginOutcome 只剩终态（类型断言）', () => {
+    expectTypeOf<LoginOutcome['status']>().toEqualTypeOf<
+      'expired' | 'canceled' | 'done' | 'error'
+    >()
   })
 
   it('pollLogin：等到 done 为止，并报告每次状态', async () => {

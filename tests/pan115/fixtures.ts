@@ -3,6 +3,8 @@
  */
 import { vi } from 'vitest'
 
+import type { Pan115Transport } from '../../src/main/pan115/transport'
+
 /** 一次请求的记录 */
 export interface SentRequest {
   url: string
@@ -35,7 +37,10 @@ export function fakeFetch(
       .find(prefix => url.startsWith(prefix))
     if (!key) return new Response('not found', { status: 404 })
     const route = routes[key]
-    const value = typeof route === 'function' ? route(req) : route
+    // 路由函数可以返回 Promise（模拟晚到的响应）
+    const value: unknown = await (typeof route === 'function'
+      ? route(req)
+      : route)
     if (value instanceof Response) return value
     return new Response(JSON.stringify(value), {
       headers: { 'content-type': 'application/json' },
@@ -168,4 +173,64 @@ export const FILES_ROOT = {
     { cid: '11', pid: '0', n: '剧集' },
     { fid: '12', cid: '0', n: 'readme.txt' },
   ],
+}
+
+/**
+ * 假 115 传输层：fetch 按路由返回，并像分区 Cookie 罐一样给每个请求带上 useCookie 写入的那份 Cookie。
+ * jar.history 记录每次 useCookie 的参数（null = 清空）。
+ */
+export function fakeTransport(
+  routes: Record<string, unknown | ((req: SentRequest) => unknown)>
+): {
+  transport: Pan115Transport
+  sent: SentRequest[]
+  jar: { cookie: string | null; history: Array<string | null> }
+} {
+  const jar = { cookie: null as string | null, history: [] as Array<string | null> }
+  const inner = fakeFetch(routes)
+  const transport: Pan115Transport = {
+    fetch: (url, init) => {
+      const headers = new Headers(init?.headers)
+      if (jar.cookie) headers.set('cookie', jar.cookie)
+      return inner.fetch(url, { ...init, headers })
+    },
+    useCookie: async cookie => {
+      jar.cookie = cookie
+      jar.history.push(cookie)
+    },
+  }
+  return { transport, sent: inner.sent, jar }
+}
+
+/** 一页分享快照：从 start 起 size 个文件（id = f<序号>）；count 为 undefined 时不返回 count 字段 */
+export function snapPage(start: number, size: number, count?: number): unknown {
+  return {
+    state: true,
+    errno: 0,
+    data: {
+      shareinfo: { share_title: '大分享' },
+      ...(count === undefined ? {} : { count }),
+      list: Array.from({ length: size }, (_, i) => ({
+        fid: `f${start + i}`,
+        cid: '0',
+        n: `第${start + i}集.mkv`,
+        s: 1,
+      })),
+    },
+  }
+}
+
+/** 一页文件夹列表：从 start 起 size 个文件夹（cid = d<序号>），count 为总数 */
+export function dirsPage(start: number, size: number, count: number): unknown {
+  return {
+    state: true,
+    errno: 0,
+    count,
+    path: [{ cid: 0, name: '根目录' }],
+    data: Array.from({ length: size }, (_, i) => ({
+      cid: `d${start + i}`,
+      pid: '0',
+      n: `文件夹${start + i}`,
+    })),
+  }
 }
