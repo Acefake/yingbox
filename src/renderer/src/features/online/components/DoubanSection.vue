@@ -1,23 +1,21 @@
 <template>
   <div ref="root" class="home-section">
-    <PageHeader :title="query.kind === 'movie' ? '热门电影' : '热门剧集'">
-      <template #actions>
-        <UiSegmented
-          size="sm"
-          label="电影或电视剧"
-          :model-value="query.kind"
-          :options="KIND_OPTIONS"
-          @update:model-value="kind => feed.setQuery({ kind })"
-        />
-        <UiIconButton
-          icon="filter"
-          label="筛选"
-          :active="panelOpen || filtersOn"
-          :aria-expanded="panelOpen"
-          @click="panelOpen = !panelOpen"
-        />
-      </template>
-    </PageHeader>
+    <!-- 与首页其它分区同一种分区标题；右侧切换与筛选同为 36px 的胶囊控件 -->
+    <UiSectionHeader :title="query.kind === 'movie' ? '热门电影' : '热门剧集'">
+      <UiSegmented
+        label="电影或电视剧"
+        :model-value="query.kind"
+        :options="KIND_OPTIONS"
+        @update:model-value="kind => feed.setQuery({ kind })"
+      />
+      <UiButton
+        icon="filter"
+        label="筛选"
+        :pressed="panelOpen || filtersOn"
+        :aria-expanded="panelOpen"
+        @click="panelOpen = !panelOpen"
+      />
+    </UiSectionHeader>
 
     <!-- 默认一行快捷标签；动了多维筛选时快捷标签都不选中 -->
     <MediaFilterBar
@@ -113,7 +111,7 @@ import { listWaiting } from '@/components/ui/feedback'
 import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
-import PageHeader from '@/components/PageHeader.vue'
+import UiSectionHeader from '@/components/ui/UiSectionHeader.vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import {
   computed,

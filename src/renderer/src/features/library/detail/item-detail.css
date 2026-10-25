@@ -3,6 +3,7 @@
 .lib-detail {
   --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
   --detail-gutter: var(--space-8);
+  --shelf-bleed: var(--detail-gutter);
   position: fixed;
   inset: 0;
   z-index: var(--z-float);
