@@ -28,13 +28,20 @@
   position: relative;
   height: var(--media-h);
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-fill-secondary);
-  box-shadow: var(--shadow-sm);
-  transition: transform var(--duration-normal) var(--ease-out);
+  border-radius: var(--radius-card);
+  background: var(--bg-fill-tertiary);
+  /* 发丝描边：深色海报在纯黑底上也有边界 */
+  box-shadow: inset 0 0 0 0.5px var(--border-glass-light);
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    box-shadow var(--duration-normal) var(--ease-out);
 }
+/* 悬停：放大抬起 + 白色细圈（Apple TV 焦点态） */
 .lib-cell:hover .lib-cell-media {
-  transform: translateY(-4px) scale(1.02);
+  transform: scale(1.04);
+  box-shadow:
+    var(--shadow-lg),
+    0 0 0 2px var(--text-primary);
 }
 .lib-cell:focus-visible .lib-cell-media {
   box-shadow: var(--focus-ring-offset);
@@ -126,17 +133,19 @@
   color: var(--text-on-accent);
 }
 .lib-cell-title {
-  margin-top: var(--space-3);
+  margin-top: var(--space-2_5);
+  padding: 0 var(--space-0_5);
   overflow: hidden;
   color: var(--text-primary);
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
   line-height: var(--leading-tight);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .lib-cell-sub {
-  margin-top: var(--space-1);
+  margin-top: var(--space-0_5);
+  padding: 0 var(--space-0_5);
   overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--text-xs);
