@@ -96,15 +96,11 @@ import { ref } from 'vue'
 
 import { UiButton, UiChip, UiInput, toast } from '@/components/ui'
 import { vEnter } from '@/directives/enter'
-import { metaOf, openMediaPlayer, replayOptions } from '@/features/player'
 
-import { libraryBridge } from '../api/bridge'
-import { itemImage } from '../api/images'
-import { play, primaryPlayRequest } from '../detail/playback'
 import TonightCard from './TonightCard.vue'
 import { NOTE_CHARS, type TonightPick } from './tonight-picks'
 import { TONIGHT_MOODS, TONIGHT_TIMES, type TonightTime } from './tonight-rules'
-import { watchingRecord } from './tonight-source'
+import { playTonightPick } from './tonight-play'
 import { useTonight } from './use-tonight'
 
 defineProps<{ open: boolean }>()
@@ -151,25 +147,11 @@ function openPick(pick: TonightPick): void {
   emit('open-item', pick.candidate.id)
 }
 
-/** 在看的续播；其余按条目主播放（电影连播全部文件，剧从第一集） */
-async function startPick(pick: TonightPick): Promise<boolean> {
-  const record = watchingRecord(pick.candidate.continueId)
-  if (record)
-    return openMediaPlayer({
-      ...replayOptions(record),
-      continueAs: metaOf(record),
-    })
-  const node = await libraryBridge()?.getItem(pick.candidate.id)
-  const request = node ? primaryPlayRequest(node) : null
-  if (!node || !request) return false
-  return play(request, itemImage(node.poster, 780) ?? undefined)
-}
-
 async function playPick(pick: TonightPick): Promise<void> {
   if (playingId.value !== null) return
   playingId.value = pick.candidate.id
   try {
-    if (await startPick(pick)) close()
+    if (await playTonightPick(pick)) close()
     else toast.warning('没有找到能播放的文件')
   } catch {
     toast.error('无法打开播放器')

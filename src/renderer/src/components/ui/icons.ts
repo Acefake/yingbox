@@ -84,6 +84,7 @@ export const ICON_PATHS = {
   volumeOff: 'M11 5 6 9H2v6h4l5 4ZM23 9l-6 6M17 9l6 6',
   pip: 'M3 5h18v14H3ZM12 12h7v5h-7Z',
   minus: 'M5 12h14',
+  mic: 'M12 3a3 3 0 0 0-3 3v6a3 3 0 0 0 6 0V6a3 3 0 0 0-3-3ZM19 11a7 7 0 0 1-14 0M12 18v3',
 } as const
 
 export type IconName = keyof typeof ICON_PATHS

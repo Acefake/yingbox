@@ -23,8 +23,9 @@
  * 尺寸按本层容器（cqw / cqh）算，不按应用窗口；缩进小窗（compact）时不挂提示卡，问剧情面板铺满小窗。
  */
 import type Artplayer from 'artplayer'
-import { watch } from 'vue'
+import { onScopeDispose, watch } from 'vue'
 
+import { attachPlotQa } from '../remote/player-remote'
 import { installRecapEntry } from './art-entries'
 import PlotQaPanel from './PlotQaPanel.vue'
 import RecapCard from './RecapCard.vue'
@@ -64,6 +65,17 @@ const openQa = (): void => {
   recap.close()
   qa.openPanel()
 }
+
+// AI 助手转来的剧情问题：打开面板并直接提问（当前视频不支持时交还给助手自己回答）
+onScopeDispose(
+  attachPlotQa(question => {
+    if (!qa.supported() || qa.busy.value) return false
+    openQa()
+    qa.input.value = question
+    void qa.ask()
+    return true
+  })
+)
 
 // 本地视频：设置菜单 / 右键加「问剧情」；之前几集有素材时再加「前情提要」
 watch(

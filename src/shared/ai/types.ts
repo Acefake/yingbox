@@ -36,6 +36,11 @@ export interface AiChatRequest {
    */
   private?: boolean
   /**
+   * 只发给本地模型，不看「私密板块只用本地模型」的设置：非本地服务商一律拒绝（private_blocked）。
+   * 给出时同时视为 private。
+   */
+  localOnly?: boolean
+  /**
    * 同一段对话的稳定标识（多轮问答共用一个）。目前只有 OpenCode Go 用它做路由与缓存
    * （x-opencode-session 头）；省略时用本次运行的标识。
    */

@@ -34,6 +34,19 @@ let detachedAt: number | null = null
 /** 当前挂着的播放器在定时被结束事件消费后的收尾（恢复音量、刷新菜单）；没有播放器为 null */
 let onConsumed: (() => void) | null = null
 
+/** 当前挂着的播放器上「选一项」的入口（同时刷新菜单）；没有播放器为 null */
+let pickOnPlayer: ((choice: SleepChoice) => void) | null = null
+
+/**
+ * 从播放器外面（AI 助手）设睡眠定时，效果与在设置菜单里选同一项一样。
+ * @returns 有播放器挂着并已设置时为 true
+ */
+export function setSleepChoice(choice: SleepChoice): boolean {
+  if (!pickOnPlayer) return false
+  pickOnPlayer(choice)
+  return true
+}
+
 /** 当前定时（测试与调试用） */
 export function currentSleep(): SleepState | null {
   return state
@@ -150,12 +163,19 @@ export function installSleepTimer(art: Artplayer): void {
     refreshMenu()
   }
 
+  const pickAndRefresh = (choice: SleepChoice): void => {
+    pick(choice)
+    refreshMenu()
+  }
+
   art.setting.add(settingConfig(art, pick))
   onConsumed = consumed
+  pickOnPlayer = pickAndRefresh
   const timer = window.setInterval(tick, TICK_MS)
   art.on('destroy', () => {
     window.clearInterval(timer)
     if (onConsumed === consumed) onConsumed = null
+    if (pickOnPlayer === pickAndRefresh) pickOnPlayer = null
     restoreVolume()
     detachedAt = Date.now()
   })
