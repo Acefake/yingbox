@@ -339,9 +339,9 @@ export class LibraryService {
     return lib ? this.watch.isCloud(lib) : Promise.resolve(true)
   }
 
-  // —————————————————————————— 内部 ——————————————————————————
+  // ———————————— 内部（emit 也给 rpc 层的合并模块用，见 catalog/merge） ————————————
 
-  private emit(event: LibraryEvent): void {
+  emit(event: LibraryEvent): void {
     for (const listener of this.listeners) listener(event)
   }
 

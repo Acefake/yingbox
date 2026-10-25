@@ -36,6 +36,7 @@ import {
 } from './validate-base'
 import { CALENDAR_PARSERS } from './validate-calendar'
 import { FACET_PARSERS, parseFacetFilter } from './validate-facets'
+import { MERGE_PARSERS } from './validate-merge'
 import { parseQueryFilters } from './validate-filters'
 import { VISUAL_PARSERS } from './validate-visual'
 import { parseJavSettings } from './validate-jav'
@@ -357,6 +358,7 @@ const PARAM_PARSERS: {
   ...FACET_PARSERS,
   ...VISUAL_PARSERS,
   ...CALENDAR_PARSERS,
+  ...MERGE_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */
