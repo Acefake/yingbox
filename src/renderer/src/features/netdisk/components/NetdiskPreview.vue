@@ -5,7 +5,8 @@
     :aria-labelledby="titleId"
     @cancel.prevent="emit('close')"
     @keydown="guardDialogEscape"
-    @click.self="emit('close')"
+    @pointerdown="pressedOnBackdrop = $event.target === $event.currentTarget"
+    @click.self="closeFromBackdrop"
   >
     <!-- 内容包一层：点在浮层内边距上不算点外面（只有背景幕的点击落在 dialog 自身） -->
     <div class="netdisk-preview-body">
@@ -58,18 +59,21 @@
       </template>
 
       <footer class="netdisk-preview-actions">
+        <!-- 打开时焦点在「取消」：转存只能由用户显式点按，误按 Enter 只会关掉浮层 -->
         <UiButton
+          ref="cancelButton"
           class="netdisk-preview-cancel"
           label="取消"
+          autofocus
           @click="emit('close')"
         />
+        <!-- 读取中禁用（先看到文件再转存）；转存中用 loading，按钮保持可聚焦 -->
         <UiButton
           class="netdisk-preview-save"
           icon="download"
           :label="saved ? '已转存' : '转存到我的 115'"
-          :disabled="saved || saving"
+          :disabled="saved || loading"
           :loading="saving"
-          autofocus
           @click="emit('save')"
         />
       </footer>
@@ -81,8 +85,16 @@
 /**
  * 网盘页的分享预览浮层（原生 <dialog> 模态，玻璃材质）：当前查看的分享的顶层文件与大小，可直接转存或关闭。
  * Esc、点浮层外、取消、关闭按钮都收起；放在结果列表之外，结果行保持等高（虚拟列表要求）。
+ * 打开时聚焦「取消」，转存必须用户自己点按；转存完成后按钮禁用，焦点挪到「取消」不丢到 body。
  */
-import { onBeforeUnmount, onMounted, ref, useId } from 'vue'
+import {
+  type ComponentPublicInstance,
+  onBeforeUnmount,
+  onMounted,
+  ref,
+  useId,
+  watch,
+} from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
@@ -95,7 +107,7 @@ import type {
 
 import { formatBytes } from '../utils/netdisk-rules'
 
-defineProps<{
+const props = defineProps<{
   item: NetdiskItem
   snap: ShareSnap | null
   loading: boolean
@@ -106,8 +118,31 @@ const emit = defineEmits<{ save: []; close: [] }>()
 
 const titleId = useId()
 const dialogEl = ref<HTMLDialogElement | null>(null)
+const cancelButton = ref<ComponentPublicInstance | null>(null)
 onMounted(() => dialogEl.value?.showModal())
 onBeforeUnmount(() => dialogEl.value?.close())
+
+/** 按下点是否就在背景幕上：从文件行拖选到背景幕松手时 click 也落在 dialog 上，不能算点外面 */
+const pressedOnBackdrop = ref(false)
+
+function closeFromBackdrop(): void {
+  if (pressedOnBackdrop.value) emit('close')
+  pressedOnBackdrop.value = false
+}
+
+/** 转存完成、按钮变禁用时，焦点若停在禁用按钮上或已丢出浮层，就放回「取消」 */
+watch(
+  () => props.saved,
+  saved => {
+    const dialog = dialogEl.value
+    const active = document.activeElement as HTMLButtonElement | null
+    if (!saved || !dialog) return
+    if (active && dialog.contains(active) && !active.disabled) return
+    const cancel = cancelButton.value?.$el as HTMLElement | undefined
+    cancel?.focus()
+  },
+  { flush: 'post' }
+)
 </script>
 
 <style scoped>

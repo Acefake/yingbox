@@ -36,9 +36,11 @@ export function titleSpecs(title: string): SpecBadge[] {
   const specs: SpecBadge[] = []
   if (/4k|2160p|uhd/.test(t)) specs.push({ variant: 'solid', text: '4K' })
   else if (/1080p/.test(t)) specs.push({ variant: 'outline', text: '1080P' })
-  const dv = /杜比视界|dolby\s*vision|(^|[^a-z])dv([^a-z]|$)|dovi/.test(t)
+  // 杜比视界允许空格 / 点 / 下划线 / 连字符分隔；HDR 要求前后不是字母（HDR10 / HDR10+ 算，HDRip 片源标签不算）
+  const dv = /杜比视界|dolby[\s._-]*vision|(^|[^a-z])dv([^a-z]|$)|dovi/.test(t)
   if (dv) specs.push({ variant: 'dolby', text: 'VISION' })
-  else if (/hdr/.test(t)) specs.push({ variant: 'solid', text: 'HDR' })
+  else if (/(^|[^a-z])hdr([^a-z]|$)/.test(t))
+    specs.push({ variant: 'solid', text: 'HDR' })
   if (/atmos|全景声/.test(t)) specs.push({ variant: 'dolby', text: 'ATMOS' })
   if (/中字|中英|简繁|简中|繁中|中文字幕|双语字幕/.test(t))
     specs.push({ variant: 'outline', text: '中字' })
