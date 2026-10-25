@@ -3,7 +3,8 @@
  */
 import type { SettingsSection } from '@/features/settings'
 
-export { getJson } from './api/online'
+/** 库外发现用：豆瓣浏览与 TMDB 请求（都在后台引擎发出） */
+export { doubanBrowse, getJson, tmdb } from './api/online'
 export { useVODParser } from './composables/use-vod-parser'
 export {
   type CatSpiderSite,

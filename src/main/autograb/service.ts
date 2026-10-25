@@ -19,7 +19,7 @@ import {
   mergePrefs,
 } from '../../shared/contract/autograb-prefs'
 import type { CalendarEpisode } from '../../shared/library/ipc'
-import type { AutograbDeps } from './deps'
+import type { AutograbDeps, Pan115Guard } from './deps'
 import { createFinder } from './finder'
 import { type Gate, createGate } from './gate'
 import { AUTO_SCORE, matchPrefsOf } from './match-rules'
@@ -69,6 +69,8 @@ export interface AutograbService {
   gate(): Promise<Gate>
   /** 这一集是不是追更转存的、还在等入库（推送据此把新集标成追更） */
   isSaved(seriesId: number, season: number, episode: number): boolean
+  /** 共用的闸门与拉黑表（状态加载后才返回；库外发现用） */
+  guard(): Promise<Pan115Guard>
 }
 
 /** 创建追更服务 */
@@ -361,6 +363,22 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     isSaved(seriesId: number, season: number, episode: number): boolean {
       const key = episodeKey(seriesId, season, episode)
       return state.episodes[key]?.status === 'saved'
+    },
+    async guard(): Promise<Pan115Guard> {
+      await ensureLoaded()
+      return {
+        // 闸门在加载后会重建：每次调用都取当前的那一个
+        run: (kind, task) => gateRef.run(kind, task),
+        pauseReason: () =>
+          gateRef.paused()
+            ? (state.gate.pauseReason ?? '115 闸门已暂停')
+            : null,
+        blocked: code => (state.blacklist[code] ?? 0) > deps.now(),
+        block: code => {
+          state.blacklist[code] = deps.now() + BLOCK_MS
+          dirty()
+        },
+      }
     },
   }
 }

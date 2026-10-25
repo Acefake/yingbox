@@ -236,6 +236,20 @@
 .assistant-card-play {
   flex: none;
 }
+.assistant-card-buttons {
+  display: flex;
+  flex: none;
+  flex-direction: column;
+  align-items: stretch;
+  gap: var(--space-1);
+}
+.assistant-panel-slot {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+}
 .assistant-progress {
   position: absolute;
   right: var(--space-1);

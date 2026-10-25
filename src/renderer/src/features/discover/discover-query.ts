@@ -1,0 +1,194 @@
+/**
+ * 把模型给的筛选串转成豆瓣浏览条件（纯函数）。
+ *
+ * 模型在 command 槽里写「类型=科幻;地区=美国;年代=90年代;排序=评分」，键值用 = 或 :，
+ * 分隔用 ; ， , 或空格；value 槽可给评分下限。每个值都按 shared/douban/query.ts 的白名单收，
+ * 认不出的丢掉（常见别名先换成白名单写法：香港 → 中国香港、1990s → 90年代、高分 → 评分排序）。
+ * 一个条件都没认出来时返回 null，由助手降级成只回答文字。
+ *
+ * 豆瓣的年代档只到「80年代」，再往前只有「更早」：70 年代、60 年代这类要求照样落到「更早」去取片单，
+ * 另由 {@link requestedYears} 给出真正的年份范围，助手拿到片单后按年份再筛一遍，不把范围放宽。
+ * 类型取模型写法里最早出现的那个白名单类型（「动画喜剧」→ 动画），不按白名单顺序挑。
+ */
+import {
+  type DoubanKind,
+  type DoubanQuery,
+  type DoubanSort,
+  GENRES,
+  MIN_RATINGS,
+  REGIONS,
+  hasFilters,
+  normalizeDoubanQuery,
+} from '../../../../shared/douban/query'
+
+const KEY_ALIASES: Record<string, keyof Filters> = {
+  类型: 'genre',
+  genre: 'genre',
+  地区: 'region',
+  region: 'region',
+  国家: 'region',
+  年代: 'era',
+  年份: 'era',
+  era: 'era',
+  year: 'era',
+  排序: 'sort',
+  sort: 'sort',
+}
+
+const REGION_ALIASES: Record<string, string> = {
+  香港: '中国香港',
+  港: '中国香港',
+  港片: '中国香港',
+  大陆: '中国大陆',
+  内地: '中国大陆',
+  国产: '中国大陆',
+  台湾: '中国台湾',
+  台: '中国台湾',
+  美: '美国',
+  好莱坞: '美国',
+  英: '英国',
+  法: '法国',
+  德: '德国',
+  韩: '韩国',
+  日: '日本',
+  欧洲: '欧美',
+}
+
+const SORT_ALIASES: Record<string, DoubanSort> = {
+  综合: 'U',
+  热度: 'T',
+  热门: 'T',
+  近期热度: 'T',
+  最新: 'R',
+  时间: 'R',
+  上映时间: 'R',
+  评分: 'S',
+  高分: 'S',
+  u: 'U',
+  t: 'T',
+  r: 'R',
+  s: 'S',
+}
+
+/** 认出来的筛选（都是白名单里的写法） */
+interface Filters {
+  genre: string
+  region: string
+  era: string
+  sort: DoubanSort | ''
+}
+
+/** 年代写法 → 起始年份（90年代 / 1990s / 90s → 1990；00年代 → 2000）；不是年代写法返回 null */
+function decadeOf(raw: string): number | null {
+  const m = /^(?:(19|20))?(\d)0(?:年代|s|'s)$/i.exec(raw)
+  if (!m) return null
+  const century =
+    m[1] ?? (m[2] === '0' || m[2] === '1' || m[2] === '2' ? '20' : '19')
+  return Number(`${century}${m[2]}0`)
+}
+
+/**
+ * 年代写法统一成豆瓣的档：90年代 / 1990年代 / 1990s / 90s → 90年代；2010s → 2010年代；1997 → 1997；
+ * 早于 80 年代的豆瓣只有「更早」（真正的范围见 {@link eraYears}）。
+ */
+export function normalizeEra(text: string): string {
+  const raw = text.trim().replace(/\s+/g, '')
+  if (/^(?:19|20)\d{2}$/.test(raw)) return raw
+  const decade = decadeOf(raw)
+  if (decade === null) return raw === '更早' ? raw : ''
+  if (decade >= 2000) return `${decade}年代`
+  if (decade >= 1980) return `${String(decade).slice(2)}年代`
+  return '更早'
+}
+
+/** 豆瓣档表达不了的年代（早于 80 年代）→ 年份范围（含两端）；其他写法返回 null */
+export function eraYears(text: string): [number, number] | null {
+  const decade = decadeOf(text.trim().replace(/\s+/g, ''))
+  return decade !== null && decade < 1980 ? [decade, decade + 9] : null
+}
+
+/** 拆出键值对 */
+function pairs(command: string): Array<[string, string]> {
+  return command
+    .split(/[;；,，\s]+/)
+    .map(part => part.split(/[=:：]/))
+    .filter(kv => kv.length === 2 && kv[0].trim() && kv[1].trim())
+    .map(([k, v]) => [k.trim().toLowerCase(), v.trim()])
+}
+
+/** 类型：完全一致优先，其次去掉「片 / 电影 / 剧」后缀，再取写法里最早出现的（同位置取更长的） */
+export function pickGenre(value: string, kind: DoubanKind): string {
+  const list = GENRES[kind]
+  if (list.includes(value)) return value
+  const bare = value.replace(/(?:电影|片|剧)$/, '')
+  if (list.includes(bare)) return bare
+  let best = ''
+  let bestAt = Infinity
+  for (const genre of list) {
+    const at = value.indexOf(genre)
+    if (at < 0) continue
+    if (at < bestAt || (at === bestAt && genre.length > best.length)) {
+      best = genre
+      bestAt = at
+    }
+  }
+  return best
+}
+
+/** 收一个值：白名单里有就用，有别名就换，否则空串 */
+function pickValue(
+  key: keyof Filters,
+  value: string,
+  kind: DoubanKind
+): string {
+  if (key === 'genre') return pickGenre(value, kind)
+  if (key === 'region') {
+    const alias = REGION_ALIASES[value] ?? value
+    return REGIONS[kind].includes(alias) ? alias : ''
+  }
+  if (key === 'era') return normalizeEra(value)
+  return SORT_ALIASES[value.toLowerCase()] ?? ''
+}
+
+/** 筛选串里第一个年代条件要求的年份范围（只有豆瓣档表达不了时才有，见 {@link eraYears}） */
+export function requestedYears(command: string): [number, number] | null {
+  const era = pairs(command).find(([key]) => KEY_ALIASES[key] === 'era')
+  return era ? eraYears(era[1]) : null
+}
+
+/**
+ * 模型的参数槽 → 豆瓣浏览条件。
+ * @param target movie 或 tv（其他值返回 null）
+ * @param command 筛选串
+ * @param minRating 评分下限（只取 6 / 7 / 8 / 9，其他忽略）
+ */
+export function parseDiscoverQuery(
+  target: string,
+  command: string,
+  minRating: number | null
+): DoubanQuery | null {
+  if (target !== 'movie' && target !== 'tv') return null
+  const kind: DoubanKind = target
+  const filters: Filters = { genre: '', region: '', era: '', sort: '' }
+  for (const [key, value] of pairs(command)) {
+    const field = KEY_ALIASES[key]
+    if (!field || filters[field]) continue
+    filters[field] = pickValue(field, value, kind) as never
+  }
+  const rating =
+    minRating !== null && (MIN_RATINGS as readonly number[]).includes(minRating)
+      ? minRating
+      : 0
+  const query = normalizeDoubanQuery({
+    kind,
+    genre: filters.genre,
+    region: filters.region,
+    era: filters.era,
+    // 有筛选没排序时按评分排，挑出来的更像「推荐」
+    sort: filters.sort || 'S',
+    minRating: rating,
+  })
+  const named =
+    filters.genre || filters.region || filters.era || filters.sort || rating > 0
+  return named && hasFilters(query) ? query : null
+}
