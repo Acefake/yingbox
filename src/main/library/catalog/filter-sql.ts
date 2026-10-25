@@ -1,5 +1,5 @@
 /**
- * 海报墙附加筛选（LibraryQueryFilters）的 SQL：评分下限、制片国家、人名、条目 id 白 / 黑名单。
+ * 海报墙附加筛选（LibraryQueryFilters）的 SQL：评分下限、制片国家、人名、条目 id 白 / 黑名单、有无类型。
  *
  * 国家是 metadata.countries（ISO 代码数组）；人名查 metadata.cast / metadata.crew 的 name 与
  * originalName（包含匹配，不分大小写），番号库再查 item_actors + actors 的演员名。
@@ -26,6 +26,10 @@ const personClause = (a: string): string => `(
   OR ${a}.id IN (SELECT ia.item_id FROM item_actors ia JOIN actors a ON a.id = ia.actor_id
     WHERE lower(a.name) LIKE ? ESCAPE '\\')
 )`
+
+/** 条目有类型：genres 是非空 JSON 数组。alias 是条目表别名。 */
+const hasGenres = (alias: string): string =>
+  `(${alias}.genres IS NOT NULL AND json_array_length(${alias}.genres) > 0)`
 
 /** 附加筛选 → WHERE 子句（AND 连接）与参数；什么都没给返回空数组。alias 是条目表别名。 */
 export function filterClauses(
@@ -62,6 +66,9 @@ export function filterClauses(
   if (q.excludeIds?.length) {
     clauses.push(`${alias}.id NOT IN (SELECT value FROM json_each(?))`)
     params.push(JSON.stringify(q.excludeIds))
+  }
+  if (q.hasGenres !== undefined) {
+    clauses.push(q.hasGenres ? hasGenres(alias) : `NOT ${hasGenres(alias)}`)
   }
   return { clauses, params }
 }

@@ -1,5 +1,5 @@
 /**
- * 媒体库 IPC 契约 · 海报墙查询的附加筛选：评分下限、制片国家、人名、条目 id 白名单 / 黑名单。
+ * 媒体库 IPC 契约 · 海报墙查询的附加筛选：评分下限、制片国家、人名、条目 id 白名单 / 黑名单、有无类型。
  *
  * 自然语言搜索把一句话解析成这些条件（见 renderer features/library/nl-search）；
  * 普通查询不带它们时行为不变。只有类型，由 contract.ts 统一再导出。
@@ -20,6 +20,8 @@ export interface LibraryQueryFilters {
   ids?: number[]
   /** 排除这些条目。 */
   excludeIds?: number[]
+  /** true 只要有类型（genres 非空）的条目，false 只要没有类型的；缺省不限。 */
+  hasGenres?: boolean
 }
 
 /** ids / excludeIds 最多几个。 */

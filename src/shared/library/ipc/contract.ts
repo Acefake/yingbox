@@ -4,10 +4,10 @@
  * 只有类型和常量，不依赖 Node / Electron，主进程、引擎进程、preload、渲染进程共用。
  */
 import type {
-  EpisodeMetadata,
-  MediaMetadata,
-  SeasonMetadata,
-} from '../provider'
+  IdentifyRequest,
+  ItemMetadata,
+  RefreshMetadataRequest,
+} from './contract-identify'
 import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
@@ -54,6 +54,7 @@ import type {
 } from './contract-writer'
 
 export * from './contract-actors'
+export * from './contract-identify'
 export * from './contract-calendar'
 export * from './contract-progress'
 export * from './contract-events'
@@ -221,34 +222,6 @@ export interface ScanRequest {
 /** 扫描已排入任务队列。 */
 export interface ScanAccepted {
   jobId: number
-}
-
-/**
- * 条目上存的完整元数据：电影 / 剧集是 MediaMetadata，季是 SeasonMetadata（不含 episodes），
- * 集是 EpisodeMetadata。绝对集数的集额外带 mapped（映射到的 季 / 集）。
- */
-export type ItemMetadata =
-  | ({ level: 'title' } & MediaMetadata)
-  | ({ level: 'season' } & Omit<SeasonMetadata, 'episodes'>)
-  | ({ level: 'episode' } & EpisodeMetadata & { mapped?: boolean })
-
-/** 识别请求：给 itemIds 只识别这些条目；只给 libraryId 识别该库里需要识别的条目。 */
-export interface IdentifyRequest {
-  libraryId?: number
-  itemIds?: number[]
-  /** 为 true 时已自动匹配 / 待确认的也重新识别（锁定的永远不动）。 */
-  force?: boolean
-  /**
-   * 为 true 时只对其中待确认 / 未匹配的条目做 AI 识别（大模型推断片名后经 TMDB 验证），
-   * 不受设置「AI 识别兜底」开关影响；没有配置 AI 时报错。
-   */
-  ai?: boolean
-}
-
-/** 刷新元数据：重新拉取已匹配条目（含锁定）的元数据与图片，不改匹配。 */
-export interface RefreshMetadataRequest {
-  libraryId?: number
-  itemIds?: number[]
 }
 
 /** 任务已排入队列。 */
