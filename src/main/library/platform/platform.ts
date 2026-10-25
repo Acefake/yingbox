@@ -15,6 +15,7 @@ import type {
 import { DEFAULT_MONITOR } from '../engine/library-monitor'
 import { LibraryService, type LibraryServiceOptions } from '../engine/service'
 import type { RemoteClients } from '../scanner/scan-library'
+import type { IntakeOptions } from '../arrivals/intake'
 
 export { DEFAULT_MONITOR } from '../engine/library-monitor'
 
@@ -46,6 +47,8 @@ export interface LibraryPlatform {
   probeVideo?: LibraryServiceOptions['probeVideo']
   /** ffmpeg 路径（按画面搜的视频抽帧用）；没有为空串。桌面端向主进程要，独立服务读环境变量 / PATH。 */
   ffmpegPath?: () => Promise<string>
+  /** 新入库宣布、自动字幕设置、字幕流探测（见 arrivals/intake.ts）；桌面端提供，独立服务不提供。 */
+  intake?: IntakeOptions
 }
 
 /** 环境变量里的令牌。 */
@@ -87,6 +90,7 @@ export function createLibraryService(
     log: platform.log,
     remote: platform.remote ?? extra.remote,
     probeVideo: platform.probeVideo ?? extra.probeVideo,
+    intake: platform.intake ?? extra.intake,
     identify: {
       fetch: platform.fetch,
       mediaDir: platform.mediaDir,

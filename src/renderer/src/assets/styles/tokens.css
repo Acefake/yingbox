@@ -1,8 +1,9 @@
 /*
  * 影盒设计令牌（design tokens）。
  *
- * 方向：苹果式的克制与留白。界面本身是中性灰阶，色彩交给海报；
- * 强调色只用于选中、焦点和链接，主按钮在深色下为白底黑字（Apple TV 风格）。
+ * 方向：Apple TV（iOS 26）风格，深色优先。纯黑底，内容卡片用 #1c1c1e 系实色分层，
+ * 色彩交给海报；只有浮动控件（侧栏、圆钮、胶囊、浮层）用玻璃材质（--glass-*，.yb-glass）。
+ * 强调色只用于选中、焦点和链接，主按钮在深色下为白底黑字。
  *
  * 规则：组件里不写裸的字号、圆角、阴影和颜色，一律引用这里的变量。
  * 深色为默认，浅色通过 [data-theme="light"] 切换。
@@ -10,13 +11,13 @@
 :root {
   color-scheme: dark;
 
-  /* ── 背景层次（由深到浅：内容 < 侧栏 < 浮层 < 填充） ── */
-  --bg-base: #121214;
-  --bg-main: #121214;
-  --bg-content: #121214;
-  --bg-sidebar: #18181a;
-  --bg-sidebar-solid: #18181a;
-  --bg-titlebar: #121214;
+  /* ── 背景层次（由深到浅：纯黑底 < 侧栏 < 卡片 / 浮层 < 填充） ── */
+  --bg-base: #000000;
+  --bg-main: #000000;
+  --bg-content: #000000;
+  --bg-sidebar: #0e0e10;
+  --bg-sidebar-solid: #0e0e10;
+  --bg-titlebar: #000000;
   --bg-elevated: #1c1c1e;
   --bg-panel: #1c1c1e;
   --bg-glass: rgba(255, 255, 255, 0.05);
@@ -34,11 +35,11 @@
   --border-glass-light: rgba(255, 255, 255, 0.12);
   --separator: rgba(255, 255, 255, 0.08);
 
-  /* ── 文字层级（tertiary 仍满足 4.5:1） ── */
-  --text-primary: #f5f5f7;
-  --text-secondary: rgba(235, 235, 245, 0.68);
-  --text-tertiary: rgba(235, 235, 245, 0.55);
-  --text-quaternary: rgba(235, 235, 245, 0.32);
+  /* ── 文字三级 + 占位（纯黑底上 tertiary 仍满足 4.5:1） ── */
+  --text-primary: #ffffff;
+  --text-secondary: rgba(255, 255, 255, 0.64);
+  --text-tertiary: rgba(255, 255, 255, 0.5);
+  --text-quaternary: rgba(255, 255, 255, 0.3);
   --text-main: var(--text-primary);
   --text-muted: var(--text-secondary);
   --text-dim: var(--text-tertiary);
@@ -109,6 +110,8 @@
     ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
 
   /* ── 字号：参照 macOS 文字样式 ── */
+  --text-4xs: 8px; /* 只给规格字标的小字（DOLBY 下的 VISION / ATMOS），正文不用 */
+  --text-3xs: 9px; /* 只给规格字标（分级圆标 16+），正文不用 */
   --text-2xs: 11px; /* 角标、辅助说明 */
   --text-xs: 12px; /* 次要信息 */
   --text-sm: 13px; /* 正文、控件 */
@@ -132,8 +135,11 @@
    */
   --space-0_5: 2px;
   --space-1: 4px;
+  --space-1_5: 6px;
   --space-2: 8px;
+  --space-2_5: 10px;
   --space-3: 12px;
+  --space-3_5: 14px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
@@ -144,19 +150,26 @@
   --space-10: 64px;
   --space-11: 80px; /* 空状态的大留白 */
 
-  /* ── 圆角：角标 4 / 小控件 6 / 控件 8 / 卡片海报 12 / 弹窗 16 ── */
+  /* ── 圆角：角标 4 / 小控件 6 / 控件 10 / 卡片海报 14 / 弹窗 20；胶囊与圆钮用 full ── */
   --radius-xs: 4px;
   --radius-sm: 6px;
-  --radius-md: 8px;
-  --radius-lg: 12px;
-  --radius-xl: 16px;
+  --radius-md: 10px;
+  --radius-lg: 14px;
+  --radius-xl: 20px;
   --radius-2xl: 28px; /* 大号浮层面板（AI 助手） */
   --radius-full: 999px;
 
   /* ── 布局 ── */
-  --sidebar-width: 232px;
-  --sidebar-width-collapsed: 68px;
+  /* 浮动玻璃侧栏：离窗口边 12px，展开 224 / 收起成 64 的图标列；内容区左侧让出侧栏 + 间距 */
+  --shell-inset: 12px;
+  --sidebar-width: 224px;
+  --sidebar-width-collapsed: 64px;
   --titlebar-height: 52px;
+  --shell-pill-height: 44px; /* 顶部前进后退、窗口键玻璃胶囊 */
+  /* 内容区顶部让出浮动胶囊（左侧让出多少由外壳按侧栏展开 / 收起写进 --shell-left） */
+  --shell-top: calc(
+    var(--shell-inset) + var(--shell-pill-height) + var(--space-2)
+  );
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -171,24 +184,41 @@
   --poster-gap-x: 24px;
   --poster-gap-y: 32px;
 
-  /* ── 图标：统一线宽与三档尺寸 ── */
+  /* ── 图标：三档尺寸（Phosphor 实心路径，见 components/ui/icons.ts） ── */
   --icon-sm: 14px;
   --icon-md: 16px;
   --icon-lg: 18px;
-  --icon-stroke: 1.75;
   --media-sidebar-width: 280px;
   --media-row-height: 36px;
 
-  /* ── 材质：侧栏与标题栏可用毛玻璃，其余实色 ── */
-  --blur-sidebar: 0px;
-  --blur-titlebar: 0px;
-  --blur-panel: 0px;
-  --saturate-vibrancy: 100%;
+  /*
+   * ── 玻璃材质（.yb-glass，只给浮动控件）──
+   * 轻底色 + 背景模糊提饱和 + 顶部内高光 + 0.5px 发丝边 + 投影。
+   * is-media 是压在画面上的版本（海报、视频上的圆钮），两套主题都是深色。
+   * 系统「降低透明度」或设置 ui.reduceTransparency 打开时换成 --glass-solid 实色（见文件末尾）。
+   */
+  --glass-bg: rgba(36, 36, 40, 0.38);
+  --glass-bg-hover: rgba(58, 58, 62, 0.46);
+  --glass-solid: #1c1c1e;
+  --glass-solid-hover: #2c2c2e;
+  --glass-filter: blur(24px) saturate(1.8);
+  --glass-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.1),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 10px 30px rgba(0, 0, 0, 0.35);
+  --glass-media-bg: rgba(36, 36, 40, 0.38);
+  --glass-media-bg-hover: rgba(58, 58, 62, 0.5);
+  --glass-media-shadow: var(--glass-shadow);
 
-  /* ── 阴影：只有两档真正的层级 ── */
-  --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.24);
-  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.32);
-  --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.5);
+  /* ── 阴影：卡片 / 浮层 / 大浮层三档 ── */
+  --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
+  --shadow-lg: 0 30px 60px rgba(0, 0, 0, 0.6), 0 8px 18px rgba(0, 0, 0, 0.35);
+
+  /* ── 规格标签（UiSpecBadge）：浅灰实心小方块、描边小方块、分级圆标 ── */
+  --spec-bg: rgba(255, 255, 255, 0.72);
+  --spec-text: #000000;
+  --spec-line: rgba(255, 255, 255, 0.66);
   --shadow-panel: var(--shadow-lg);
   --focus-ring: 0 0 0 3px var(--accent-glow);
   /* 校验失败的输入框外圈 */
@@ -229,40 +259,17 @@
 
   /*
    * ── AI 助手 ──
-   * 光圈与光球的品牌色（深浅主题一致）：紫 / 靛 / 粉 / 青 / 琥珀；面板本身仍用中性灰阶令牌。
+   * 面板与输入胶囊用统一玻璃（.yb-glass）；唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变（思考时变亮）。
    */
-  --assistant-violet: #8b6cff;
-  --assistant-indigo: #4527d9;
-  --assistant-pink: #ff5fa2;
-  --assistant-cyan: #3dd6ff;
-  --assistant-amber: #ffb547;
-  --assistant-orb-core: #0c0a16;
-  --assistant-orb-highlight: rgba(255, 255, 255, 0.45);
-  --assistant-glow: rgba(139, 108, 255, 0.45);
-  --assistant-ring-width: 3px; /* 窗口边缘光圈的线宽 */
-  --assistant-ring-blur: 22px; /* 光圈外发光的模糊半径 */
-  --duration-assistant-ring: 5s; /* 光圈旋转一周（思考中加快） */
-  --duration-assistant-ring-fast: 0.9s;
-  --duration-assistant-orb: 4.6s; /* 光球里色块漂移一个周期 */
-  --duration-assistant-breathe: 3.2s; /* 光球按钮呼吸一个周期 */
-  --duration-assistant-sheet: 550ms; /* 面板弹簧滑入 */
-  /* 私密模式：光圈换低调靛蓝，光球同色系 */
-  --assistant-private-violet: #5b5fd6;
-  --assistant-private-indigo: #2b2d7a;
-  --assistant-private-blue: #3d52b8;
-  --assistant-private-mist: #7c80c9;
-  --assistant-private-glow: rgba(91, 95, 214, 0.32);
-  --assistant-accent-fill: rgba(139, 108, 255, 0.16); /* 上下文胶囊底色 */
-  --assistant-accent-line: rgba(139, 108, 255, 0.45); /* 上下文胶囊描边 */
-  --assistant-private-fill: rgba(
-    48,
-    209,
-    88,
-    0.12
-  ); /* 「仅本地模型」胶囊底色 */
-  --assistant-private-line: rgba(48, 209, 88, 0.4);
-  --assistant-sheet-width: 600px; /* 底部卡片式面板宽度 */
+  --assistant-streak-blue: rgba(110, 170, 255, 0.95);
+  --assistant-streak-violet: rgba(190, 150, 255, 0.95);
+  --assistant-streak-pink: rgba(255, 160, 200, 0.85);
+  --assistant-scrim: rgba(0, 0, 0, 0.56); /* 唤起时压暗背景 */
+  --assistant-inset: rgba(0, 0, 0, 0.22); /* 面板里内凹的输入胶囊 */
+  --assistant-sheet-width: 720px; /* 输入胶囊 / 结果面板宽度 */
   --assistant-side-width: 400px; /* 播放器内右侧面板宽度 */
+  --assistant-composer-height: 64px;
+  --duration-assistant-sheet: 550ms; /* 面板弹簧滑入 */
 
   /*
    * ── 层级（z-index）──
@@ -360,8 +367,50 @@
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.16);
 
+  --glass-bg: rgba(255, 255, 255, 0.62);
+  --glass-bg-hover: rgba(255, 255, 255, 0.78);
+  --glass-solid: #f2f2f4;
+  --glass-solid-hover: #e8e8ed;
+  --glass-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.9),
+    inset 0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 10px 30px rgba(0, 0, 0, 0.12);
+  /* 画面上的玻璃两套主题一致，内高光取深色版 */
+  --glass-media-shadow:
+    inset 0 1px 0.5px rgba(255, 255, 255, 0.3),
+    inset 0 -1px 0.5px rgba(255, 255, 255, 0.1),
+    inset 0 0 0 0.5px rgba(255, 255, 255, 0.14), 0 10px 30px rgba(0, 0, 0, 0.35);
+
+  --spec-bg: rgba(0, 0, 0, 0.62);
+  --spec-text: #ffffff;
+  --spec-line: rgba(0, 0, 0, 0.5);
+
+  --assistant-scrim: rgba(0, 0, 0, 0.32);
+  --assistant-inset: rgba(0, 0, 0, 0.05);
+
   --scrollbar-thumb: rgba(0, 0, 0, 0.2);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
+}
+
+/*
+ * 降低透明度：系统偏好（prefers-reduced-transparency）或设置 ui.reduceTransparency（根节点 data-transparency）。
+ * 玻璃换成同层级的实色，不再做背景模糊（低配机器上 backdrop-filter 开销大）。
+ * 写在主题块之后，两套主题下都生效。
+ */
+:root[data-transparency='reduced'] {
+  --glass-bg: var(--glass-solid);
+  --glass-bg-hover: var(--glass-solid-hover);
+  --glass-media-bg: #1c1c1e;
+  --glass-media-bg-hover: #2c2c2e;
+  --glass-filter: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  :root {
+    --glass-bg: var(--glass-solid);
+    --glass-bg-hover: var(--glass-solid-hover);
+    --glass-media-bg: #1c1c1e;
+    --glass-media-bg-hover: #2c2c2e;
+    --glass-filter: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

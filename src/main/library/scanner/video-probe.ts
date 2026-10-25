@@ -35,7 +35,8 @@ export const PROBE_MAX_PROCESSES = 2
 const CORRUPT_INPUT =
   /Invalid data found when processing input|moov atom not found/i
 
-const runFfprobe: RunFfprobe = (binary, args, timeoutMs) =>
+/** 缺省的 ffprobe 运行方式（execFile；自动字幕读字幕流也用它） */
+export const runFfprobe: RunFfprobe = (binary, args, timeoutMs) =>
   new Promise((resolve, reject) => {
     execFile(
       binary,

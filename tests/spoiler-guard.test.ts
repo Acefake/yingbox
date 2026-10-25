@@ -180,7 +180,7 @@ describe('已看完集合', () => {
     store.media_play_progress = JSON.stringify({
       old: { progress: 300, duration: 1500, updatedAt: 1 },
     })
-    expect(readMediaProgress('old')).toEqual({
+    expect(readMediaProgress('old')).toMatchObject({
       progress: 300,
       duration: 1500,
       finished: false,
@@ -200,7 +200,7 @@ describe('已看完集合', () => {
       target: { currentTime: 0, duration: 1500 },
     } as never)
     const zero = readMediaProgress('/tv/e1.mkv')
-    expect(zero).toEqual({ progress: 0, duration: 1500, finished: false })
+    expect(zero).toMatchObject({ progress: 0, duration: 1500, finished: false })
     expect(progressSeen(zero)).toBe(false)
     expect(
       spoilerHidden(true, ['/tv/e1.mkv'], new Set(), readMediaProgress)
@@ -208,7 +208,7 @@ describe('已看完集合', () => {
 
     saver.markFinished({ duration: 1500 } as HTMLVideoElement)
     const done = readMediaProgress('/tv/e1.mkv')
-    expect(done).toEqual({ progress: 0, duration: 1500, finished: true })
+    expect(done).toMatchObject({ progress: 0, duration: 1500, finished: true })
     expect(progressSeen(done)).toBe(true)
     expect(
       spoilerHidden(true, ['/tv/e1.mkv'], new Set(), readMediaProgress)

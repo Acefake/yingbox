@@ -29,6 +29,7 @@ import {
   scanMediaDirectory,
 } from './legacy/media-scanner'
 import { CatalogStore } from '../src/main/library/catalog/catalog-store'
+import { MergeModule } from '../src/main/library/catalog/merge/merge-module'
 import { CatalogQuery } from '../src/main/library/catalog/query'
 import { type LibraryDb, openLibraryDb } from '../src/main/library/db/database'
 import {
@@ -558,6 +559,9 @@ async function benchEngine(): Promise<string> {
       0
     )
 
+    // 合并展示：全部顶层条目标成已匹配，其中 20% 两两共用一个 TMDB id（同一作品在两个文件夹里）
+    const merged = benchMerged(engine.db, engine.query, shapes)
+
     // 深层变更：某季目录里加一集、删一集
     const added = join(lib.deepDir, 'Show 0 S02E99.mkv')
     writeFileSync(added, '')
@@ -589,11 +593,99 @@ async function benchEngine(): Promise<string> {
       '| 查询 | 耗时 (ms) | 命中总数 |',
       '| --- | ---: | ---: |',
       ...shapeRows,
+      '',
+      merged,
     ].join('\n')
   } finally {
     rmSync(lib.root, { recursive: true, force: true })
     rmSync(dbDir, { recursive: true, force: true })
   }
+}
+
+/**
+ * 合并展示的查询开销：把全部顶层条目标成已匹配（每条一个 TMDB id），再让 20% 两两共用 id，
+ * 重跑同一组查询形态；另测一部合并了两个文件夹的剧的合并详情。在 engine 的库上原地改，调用方随后关库。
+ */
+function benchMerged(
+  db: LibraryDb,
+  query: CatalogQuery,
+  shapes: Array<[string, Record<string, unknown>]>
+): string {
+  db.exec(
+    "UPDATE media_items SET match_state = 'auto', tmdb_id = CAST(id AS TEXT) WHERE parent_id IS NULL"
+  )
+  // 同类型按 id 排，每 10 条里第 0、1 条共用一个 id：20% 的条目成对合并
+  const pair = db.prepare('UPDATE media_items SET tmdb_id = ? WHERE id = ?')
+  db.exec('BEGIN')
+  for (const type of ['movie', 'series']) {
+    const ids = db
+      .prepare(
+        'SELECT id FROM media_items WHERE parent_id IS NULL AND type = ? ORDER BY id'
+      )
+      .all(type)
+      .map(r => Number(r.id))
+    for (let k = 0; k + 1 < ids.length; k += 10)
+      pair.run(String(ids[k]), ids[k + 1])
+  }
+  db.exec('COMMIT')
+  const pairs = Number(
+    db
+      .prepare(
+        `SELECT COUNT(*) AS n FROM (SELECT merge_key FROM media_items
+         WHERE merge_key IS NOT NULL GROUP BY merge_key HAVING COUNT(*) > 1)`
+      )
+      .get()!.n
+  )
+  const rows: string[] = []
+  for (const [label, q] of shapes) {
+    const normalized = normalizeLibraryQuery(q)
+    query.list(normalized)
+    const runs: number[] = []
+    let total = 0
+    for (let i = 0; i < 20; i++) {
+      const start = performance.now()
+      total = query.list(normalized).total
+      runs.push(performance.now() - start)
+    }
+    rows.push(`| ${label} | ${median(runs).toFixed(2)} | ${total} |`)
+  }
+  const pairedSeries = db
+    .prepare(
+      `SELECT MIN(id) AS id FROM media_items WHERE type = 'series'
+       AND merge_key IN (SELECT merge_key FROM media_items WHERE merge_key IS NOT NULL
+         GROUP BY merge_key HAVING COUNT(*) > 1)`
+    )
+    .get()?.id
+  const merge = new MergeModule({ db, emit: () => {} })
+  let detail = ''
+  if (pairedSeries !== null && pairedSeries !== undefined) {
+    const id = Number(pairedSeries)
+    merge.getItem(id)
+    const runs: number[] = []
+    let episodes = 0
+    for (let i = 0; i < 20; i++) {
+      const start = performance.now()
+      const node = merge.getItem(id)!
+      runs.push(performance.now() - start)
+      episodes = node.children.reduce((n, s) => n + s.children.length, 0)
+    }
+    const raw: number[] = []
+    for (let i = 0; i < 20; i++) {
+      const start = performance.now()
+      query.getItem(id)
+      raw.push(performance.now() - start)
+    }
+    detail = `合并详情（一部剧 + 另一个文件夹里的同一部剧，合并后 ${episodes} 集，含版本）：${median(runs).toFixed(2)} ms；同一部剧不合并的 getItem：${median(raw).toFixed(2)} ms。`
+  }
+  return [
+    `合并展示（全部顶层条目已匹配，${pairs} 对条目共用 TMDB id，海报墙各只出现一次；热连接，20 次中位数）：`,
+    '',
+    '| 查询 | 耗时 (ms) | 命中总数 |',
+    '| --- | ---: | ---: |',
+    ...rows,
+    '',
+    detail,
+  ].join('\n')
 }
 
 async function main(): Promise<void> {

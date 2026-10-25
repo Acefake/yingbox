@@ -2,6 +2,7 @@
  * 按画面搜面板的纯规则：状态文案、要不要轮询、能不能搜、视频画面的时间点与播放请求。
  */
 import type {
+  LibraryItemNode,
   VisualFramesStatus,
   VisualStatus,
 } from '../../../../../shared/library/ipc'
@@ -79,10 +80,22 @@ export function momentRequest(
     title: request.title,
     playlist: request.playlist,
     fileIds: request.fileIds,
+    refs: request.refs,
     item: request.item,
     index,
     startAt: at,
     ...(request.partial ? { partial: true } : {}),
     ...(video ? { video } : {}),
   }
+}
+
+/**
+ * 画面所在文件属于哪个版本（同一作品多版本合并展示时）：返回该版本的键，交给 moviePlayRequest 选版本；
+ * 没有多版本或找不到时为 null（按默认最佳版本）。
+ */
+export function momentVersion(
+  node: LibraryItemNode,
+  fileId: number
+): string | null {
+  return node.versions?.find(v => v.fileIds.includes(fileId))?.key ?? null
 }

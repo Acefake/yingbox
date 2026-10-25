@@ -89,6 +89,16 @@ function absolutePath(): ValueSpec<string> {
   }
 }
 
+/** 数字串或空串（空 = 跟随另一项设置） */
+function optionalDigits(): ValueSpec<string> {
+  return {
+    kind: 'value',
+    default: '',
+    parse: raw =>
+      typeof raw === 'string' && /^\d{0,32}$/.test(raw) ? raw : undefined,
+  }
+}
+
 /** 只含数字的 id（如 115 文件夹 cid） */
 function digits(fallback: string): ValueSpec<string> {
   return {
@@ -129,6 +139,8 @@ export const settingsSchema = {
   'ui.hoverPreviewDelay': num(200, 2000, 600),
   /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
   'ui.miniPlayer': bool(true),
+  /** 降低透明度：浮动控件的玻璃材质用实色、不做背景模糊（系统「降低透明度」打开时也是实色） */
+  'ui.reduceTransparency': bool(false),
   /** 防剧透：剧集详情里没看过的集剧照模糊、简介折叠，悬停才显示 */
   'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
@@ -138,13 +150,13 @@ export const settingsSchema = {
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
-  /** mpv 下的 Anime4K 超分（着色器按需下载，见 shared/anime4k.ts） */
+  /** mpv 下的影盒超分（着色器按需下载，见 shared/anime4k.ts） */
   'player.anime4k': bool(false),
-  /** Anime4K 模式：A / B / C */
+  /** 影盒超分模式：A / B / C */
   'player.anime4kMode': oneOf(['a', 'b', 'c'] as const, 'a'),
-  /** Anime4K 档位：画质（VL 网络）/ 性能（M 网络） */
+  /** 影盒超分档位：画质（VL 网络）/ 性能（M 网络） */
   'player.anime4kQuality': oneOf(['hq', 'fast'] as const, 'fast'),
-  /** Anime4K 只对动画类条目启用（媒体库看 TMDB 类型，在线看站点分类） */
+  /** 影盒超分只对动画类条目启用（媒体库看 TMDB 类型，在线看站点分类） */
   'player.anime4kAnimeOnly': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
@@ -156,6 +168,8 @@ export const settingsSchema = {
   'player.dvAutoMpv': bool(true),
   /** 杜比视界 P5 应用内重建时应用 RPU 动态元数据（libplacebo apply_dolbyvision） */
   'player.applyDolbyVision': bool(true),
+  /** 剧集播完（或进入片尾）后倒计时 5 秒自动播放下一集 */
+  'player.autoNext': bool(true),
   /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
   'player.mediaKeys': bool(true),
 
@@ -207,6 +221,10 @@ export const settingsSchema = {
   'pan115.targetCid': digits('0'),
   /** 目标文件夹的显示名（只用于设置页展示） */
   'pan115.targetName': text('', 500),
+  /** 助手转存目标文件夹 cid（库外发现转存电影用）；空串 = 跟随上面的转存目标 */
+  'pan115.movieCid': optionalDigits(),
+  /** 助手转存目标文件夹的显示名 */
+  'pan115.movieName': text('', 500),
   /** 115 扫码登录会话（JSON：Cookie + 账号 id / 名），只有主进程读 */
   'pan115.session': secret(),
 
@@ -225,6 +243,32 @@ export const settingsSchema = {
   'library.notify.token': text('', 128),
   /** 网盘工具的根在本机的挂载目录（如 D:\CloudDrive）；可选，帮助把通知路径对应到库目录 */
   'library.notify.mountRoot': absolutePath(),
+  /** 观看进度同步的片库服务地址（如 http://nas:31480）；空串 = 不同步。见 src/main/library/progress-sync */
+  'library.progressServer': text('', 2048),
+  /** 片库服务的访问令牌（Bearer） */
+  'library.progressServerToken': secret(),
+
+  /** 新条目入库后没有中文字幕时，自动从 OpenSubtitles 下一份放到视频旁边（见 src/main/library/subtitles） */
+  'subtitles.auto.enabled': bool(false),
+  /** 自动字幕每天最多下载几份（OpenSubtitles 免费额度很紧） */
+  'subtitles.auto.dailyLimit': num(1, 100, 5),
+
+  /** 入库推送（见 src/main/notify）：系统通知 */
+  'notify.system': bool(false),
+  /** Bark 推送：开关、服务器地址（自建或官方 https://api.day.app）、设备 key（密钥） */
+  'notify.bark.enabled': bool(false),
+  'notify.bark.server': text('https://api.day.app', 2048),
+  'notify.bark.key': secret(),
+  /** Telegram Bot 推送：开关、chat id、Bot token（密钥） */
+  'notify.telegram.enabled': bool(false),
+  'notify.telegram.chatId': text('', 64),
+  'notify.telegram.token': secret(),
+  /** 推送哪几类：追更转存的集入库、片库新增剧集、片库新增电影 */
+  'notify.on.autograb': bool(true),
+  'notify.on.episode': bool(true),
+  'notify.on.movie': bool(true),
+  /** 1 分钟内的多条合并成一条 */
+  'notify.merge': bool(true),
 
   /** AI 服务商（OpenAI 兼容接口，见 src/shared/ai/providers.ts） */
   'ai.provider': oneOf(

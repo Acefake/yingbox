@@ -5,6 +5,7 @@ import { join } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it, vi } from 'vitest'
 
 import {
+  ANIME4K_FAILED_TEXT,
   ANIME4K_FILES,
   ANIME4K_MODES,
   ANIME4K_OFF,
@@ -147,8 +148,23 @@ describe('下载来源与配置校验', () => {
   })
 
   it('提示文案', () => {
-    expect(anime4kLabel('a', 'hq')).toBe('Anime4K：模式 A（画质）')
-    expect(anime4kLabel('c', 'fast')).toBe('Anime4K：模式 C（性能）')
+    expect(anime4kLabel('a', 'hq')).toBe('影盒超分：模式 A（画质）')
+    expect(anime4kLabel('c', 'fast')).toBe('影盒超分：模式 C（性能）')
+    expect(ANIME4K_FAILED_TEXT).toBe('影盒超分着色器下载失败，已按原画播放')
+  })
+
+  it('设置页文案只叫「影盒超分」，不出现 Anime4K', async () => {
+    const { readFile } = await import('node:fs/promises')
+    const vue = await readFile(
+      join(
+        __dirname,
+        '../src/renderer/src/features/settings/sections/Anime4kRows.vue'
+      ),
+      'utf8'
+    )
+    const template = vue.slice(0, vue.indexOf('<script'))
+    expect(template).toContain('影盒超分')
+    expect(template).not.toMatch(/anime4k/i)
   })
 })
 
@@ -235,6 +251,21 @@ describe('Anime4kSync：经 glsl-shaders 挂载 / 清除', () => {
     await b.sync.setConfig(animeOnly)
     await b.sync.apply(true)
     expect(b.sent).toEqual([])
+  })
+
+  it('挂载失败：mpv 窗口提示影盒超分失败文案', async () => {
+    const { Anime4kSync } = await import('../src/main/mpv-anime4k')
+    const texts: unknown[] = []
+    const sync = new Anime4kSync(
+      async (...args) => {
+        if (args[0] === 'change-list') throw new Error('mpv 拒绝')
+        if (args[0] === 'show-text') texts.push(args[1])
+      },
+      () => true,
+      () => {}
+    )
+    await sync.setConfig({ ...ANIME4K_OFF, enabled: true })
+    expect(texts).toContain(ANIME4K_FAILED_TEXT)
   })
 
   /** 命令延迟返回：每条命令都要等到 release() 才完成，模拟 mpv IPC 慢。 */

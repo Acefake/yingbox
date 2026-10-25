@@ -14,7 +14,22 @@ import {
 } from '../../../shared/library/ipc'
 import { CalendarModule } from '../calendar/calendar-module'
 import { createItemPreviews } from '../catalog/item-preview'
+import { ProgressStore } from '../progress/progress-store'
+import { MergeModule } from '../catalog/merge/merge-module'
 import type { LibraryService } from './service'
+
+/** 每个服务一份合并展示（详情合并、版本、拆分），事件经服务推送。 */
+const merges = new WeakMap<LibraryService, MergeModule>()
+
+/** 服务的合并模块（第一次用时创建）。 */
+export function mergeFor(s: LibraryService): MergeModule {
+  let found = merges.get(s)
+  if (!found) {
+    found = new MergeModule({ db: s.db, emit: event => s.emit(event) })
+    merges.set(s, found)
+  }
+  return found
+}
 
 /** 每个服务一份预览查询（网盘判定见 engine/storage-mode.ts）。 */
 const previews = new WeakMap<
@@ -26,7 +41,7 @@ function previewsFor(s: LibraryService): ReturnType<typeof createItemPreviews> {
   let found = previews.get(s)
   if (!found) {
     found = createItemPreviews({
-      getItem: itemId => s.getItem({ itemId }),
+      getItem: itemId => mergeFor(s).getItem(itemId),
       isCloud: id => s.isCloudLibrary(id),
     })
     previews.set(s, found)
@@ -45,6 +60,18 @@ function calendarFor(s: LibraryService): CalendarModule {
       provider: () => s.identifier.provider,
     })
     calendars.set(s, found)
+  }
+  return found
+}
+
+/** 每个服务一份观看进度表。 */
+const progress = new WeakMap<LibraryService, ProgressStore>()
+
+function progressFor(s: LibraryService): ProgressStore {
+  let found = progress.get(s)
+  if (!found) {
+    found = new ProgressStore(s.db)
+    progress.set(s, found)
   }
   return found
 }
@@ -70,7 +97,16 @@ const HANDLERS: Handlers = {
   'visual.search': (s, p) => s.visual.search(p),
   'visual.setFrames': (s, p) => s.visual.setFrames(p),
   'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
-  getItem: (s, p) => s.getItem(p),
+  'progress.list': (s, p) => progressFor(s).list(p.itemIds),
+  'progress.save': (s, p) => progressFor(s).save(p.reports),
+  'progress.summary': (s, p) => progressFor(s).summary(p.itemIds),
+  'progress.recent': (s, p) => progressFor(s).recent(p.limit),
+  'progress.export': (s, p) => progressFor(s).export(p.since),
+  'progress.import': (s, p) =>
+    progressFor(s).import(p.entries, p.preferIncoming),
+  'merge.split': (s, p) => mergeFor(s).split(p),
+  'merge.join': (s, p) => mergeFor(s).join(p),
+  getItem: (s, p) => mergeFor(s).getItem(p.itemId),
   getPreview: (s, p) => previewsFor(s).get(p.itemId),
   identify: (s, p) => (p.ai ? s.identifier.aiIdentify(p) : s.identify(p)),
   getMatchCandidates: (s, p) => s.getMatchCandidates(p),

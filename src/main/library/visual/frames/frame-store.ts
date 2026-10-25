@@ -1,6 +1,6 @@
 /**
  * 视频关键帧的仓库：可抽帧的视频文件、每个文件的抽帧进度（visual_frames）与帧向量
- * （visual_vectors 里 source = 'frame' 的行，见 db/schema-visual.ts 的 V9）。
+ * （visual_vectors 里 source = 'frame' 的行，见 db/schema-visual.ts 的 V11）。
  */
 import type { LibrarySource } from '../../../../shared/library/ipc'
 import { type LibraryDb, StatementCache, transaction } from '../../db/database'
