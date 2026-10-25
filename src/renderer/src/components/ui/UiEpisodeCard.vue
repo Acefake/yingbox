@@ -106,7 +106,7 @@ watch(
   position: absolute;
   inset: 0;
   border-radius: inherit;
-  box-shadow: inset 0 0 0 0.5px var(--media-glass-border);
+  box-shadow: inset 0 0 0 0.5px var(--glass-media-edge);
   content: '';
   pointer-events: none;
 }
