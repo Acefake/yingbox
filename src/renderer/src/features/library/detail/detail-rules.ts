@@ -150,7 +150,9 @@ export function infoRowsOf(
     rows.push({ label: '出品', value: meta.companies.slice(0, 3).join('、') })
   }
   if (meta?.status) rows.push({ label: '状态', value: meta.status })
-  rows.push({ label: '匹配', value: MATCH_STATE_LABEL[node.matchState] })
+  // 未知状态（旧数据 / 假数据）没有文案：整行不显示，不留空值
+  const match = MATCH_STATE_LABEL[node.matchState] as string | undefined
+  if (match) rows.push({ label: '匹配', value: match })
   if (node.providerIds.tmdb) {
     const jav = meta?.ref?.provider === 'jav'
     rows.push({ label: jav ? '番号' : 'TMDB', value: node.providerIds.tmdb })
