@@ -1,6 +1,7 @@
 /**
  * 从条目详情树得到播放列表，交给 openMediaPlayer（应用内播放弹窗或 mpv）：
  * 桌面端给本地文件路径，网页端给片库服务的 Range 流地址（/media/files/<id>）。
+ * 每一项带媒体库标记（条目 id + 文件 id），进度只记进片库；开播前先读出这部作品的进度，从上次的位置接着播。
  */
 import { isAnimeEntry } from '../../../../../shared/anime4k'
 import type { VideoProbe } from '../../../../../shared/video-range'
@@ -8,8 +9,11 @@ import type {
   LibraryItemFile,
   LibraryItemNode,
 } from '../../../../../shared/library/ipc'
+import { autograbAvailable } from '@/features/autograb'
 import {
   type ContinueMeta,
+  type EndHint,
+  type LibraryRef,
   type PlayerSourceItem,
   openMediaPlayer,
 } from '@/features/player'
@@ -21,6 +25,7 @@ import { usesLibraryServer } from '../api/bridge'
 import { itemImage } from '../api/images'
 import { sectionOf } from '../state/library-section'
 import { findLibrary } from '../state/use-libraries'
+import { prepareProgress, resumeAt } from '../progress/progress-cache'
 import { baseName, episodeCode } from '../shared/format'
 import { seasonOrder, sortedSeasons } from './detail-rules'
 import { pickVersion } from './version-rules'
@@ -66,6 +71,8 @@ export interface PlayRequest {
   title: string
   playlist: PlayerSourceItem[]
   fileIds: number[]
+  /** 每一项的媒体库标记（与 playlist 一一对应） */
+  refs: LibraryRef[]
   index: number
   /** 所属条目（电影本身 / 剧集的剧），记「继续播放」用 */
   item: LibraryItemNode
@@ -73,6 +80,8 @@ export interface PlayRequest {
   partial?: boolean
   /** 起始文件的动态范围（杜比视界 P5 据此改走 mpv）；没探测过时缺省 */
   video?: VideoProbe | null
+  /** 剧集播完本地最后一集时的提示 */
+  endHint?: EndHint
 }
 
 /** 电影：选中版本的文件按顺序连播（分段电影 CD1 / CD2）。 */
@@ -90,6 +99,7 @@ export function moviePlayRequest(
       ...(file.video ? { video: file.video } : {}),
     })),
     fileIds: files.map(file => file.id),
+    refs: files.map(file => ({ itemId: node.id, fileId: file.id })),
     index: 0,
     item: node,
     ...(files[0].video ? { video: files[0].video } : {}),
@@ -113,7 +123,32 @@ export function hasLaterSeason(
   )
 }
 
-/** 剧集：从某一集开始，按本季顺序连播（每集取选中来源的版本）；后面还有季时标 partial。 */
+/**
+ * 本季播完本地最后一集、后面也没有季时的提示：本季后面有没文件的集就点名那一集，否则说播完了本地的最后一集；
+ * 桌面端给「去追更」（追剧日历页的追更面板）。
+ */
+export function seasonEndHint(
+  season: LibraryItemNode,
+  episodes: readonly LibraryItemNode[]
+): EndHint {
+  const last = episodes.at(-1)?.episodeNumber ?? 0
+  const missing = season.children
+    .filter(
+      ep =>
+        ep.type === 'episode' &&
+        (ep.episodeNumber ?? 0) > last &&
+        videoFiles(ep).length === 0
+    )
+    .sort((a, b) => (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0))[0]
+  const text = missing
+    ? `本地还没有 ${episodeCode(missing.seasonNumber, missing.episodeNumber) || '下一集'} 的文件`
+    : '已播完本地的最后一集'
+  return autograbAvailable
+    ? { text, action: { label: '去追更', to: '/calendar?autograb=1' } }
+    : { text }
+}
+
+/** 剧集：从某一集开始，按本季顺序连播（每集取选中来源的版本）；后面还有季时标 partial，否则带播完提示。 */
 export function episodePlayRequest(
   series: LibraryItemNode,
   season: LibraryItemNode,
@@ -132,9 +167,12 @@ export function episodePlayRequest(
       ...(firsts[i].video ? { video: firsts[i].video } : {}),
     })),
     fileIds: firsts.map(file => file.id),
+    refs: episodes.map((ep, i) => ({ itemId: ep.id, fileId: firsts[i].id })),
     index,
     item: series,
-    ...(hasLaterSeason(series, season) ? { partial: true } : {}),
+    ...(hasLaterSeason(series, season)
+      ? { partial: true }
+      : { endHint: seasonEndHint(season, episodes) }),
     ...(firsts[index].video ? { video: firsts[index].video } : {}),
   }
 }
@@ -172,7 +210,20 @@ export function watchlistMetaOf(item: LibraryItemNode): WatchlistMeta {
   return { section, key, title, poster, cover, detail }
 }
 
-/** 打开播放器；没有可用播放器返回 false。 */
+/** 交给播放器的播放列表：桌面端是文件路径，网页端是片库服务的流地址；每项带媒体库标记。 */
+export function playerPlaylist(request: PlayRequest): PlayerSourceItem[] {
+  return request.playlist.map((item, i) =>
+    usesLibraryServer()
+      ? {
+          url: serverFileUrl(request.fileIds[i]),
+          name: item.name,
+          library: request.refs[i],
+        }
+      : { ...item, library: request.refs[i] }
+  )
+}
+
+/** 打开播放器；没有可用播放器返回 false。从片库记的位置接着播（看完的从头）。 */
 export async function play(
   request: PlayRequest,
   poster?: string
@@ -181,31 +232,20 @@ export async function play(
     ...continueMetaOf(request.item),
     ...(request.partial ? { partial: true } : {}),
   }
-  const anime = isAnimeEntry({ genres: request.item.genres })
-  if (usesLibraryServer()) {
-    const playlist = request.playlist.map((item, i) => ({
-      url: serverFileUrl(request.fileIds[i]),
-      name: item.name,
-    }))
-    return openMediaPlayer({
-      url: playlist[request.index].url,
-      title: request.title,
-      poster,
-      playlist,
-      index: request.index,
-      continueAs,
-      anime,
-    })
-  }
-  const first = request.playlist[request.index]
+  await prepareProgress(request.item)
+  const playlist = playerPlaylist(request)
+  const first = playlist[request.index]
+  const startAt = resumeAt(request.refs[request.index])
   return openMediaPlayer({
-    filePath: first.filePath,
+    ...(first.url ? { url: first.url } : { filePath: first.filePath }),
     title: request.title,
     poster,
-    playlist: request.playlist,
+    playlist,
     index: request.index,
     continueAs,
-    anime,
-    ...(request.video ? { video: request.video } : {}),
+    anime: isAnimeEntry({ genres: request.item.genres }),
+    ...(startAt !== undefined ? { startAt } : {}),
+    ...(request.endHint ? { endHint: request.endHint } : {}),
+    ...(!usesLibraryServer() && request.video ? { video: request.video } : {}),
   })
 }

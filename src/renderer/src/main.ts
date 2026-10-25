@@ -15,6 +15,7 @@ import { aiAvailable } from '@/features/ai'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
+import { notifyAvailable, notifySettingsSection } from '@/features/notify'
 import { sourcesSettingsSection } from '@/features/online'
 import {
   sectionLockAvailable,
@@ -22,6 +23,7 @@ import {
 } from '@/features/section-lock'
 import { getSetting, registerSettingsSection } from '@/features/settings'
 import { installWatchlist } from '@/features/watchlist'
+import { installLibraryProgress } from '@/features/library'
 import { configureHoverPreview } from '@/components/ui/hover-preview'
 
 /**
@@ -54,6 +56,8 @@ for (const section of [
 }
 // 网盘（115 登录、转存）只在桌面端
 if (netdiskAvailable) registerSettingsSection(netdiskSettingsSection)
+// 入库推送与自动字幕只在桌面端（主进程 / 媒体库引擎）
+if (notifyAvailable) registerSettingsSection(notifySettingsSection)
 // 板块锁只在桌面端（主进程保存密码哈希）；可锁的板块读路由表
 if (sectionLockAvailable)
   registerSettingsSection(sectionLockSettingsSection(routes))
@@ -66,6 +70,9 @@ configureHoverPreview(() => ({
 
 // 「想看」清单：整部看完的条目自动移出
 installWatchlist()
+
+// 媒体库条目的观看进度记进片库（播放器上报、继续播放从片库补）
+installLibraryProgress()
 
 // AI 助手的私密技能：设置打开时才下载并登记（独立 chunk），关闭时卸载并清空对话上下文
 installPrivateSkills({

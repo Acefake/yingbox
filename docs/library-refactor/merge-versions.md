@@ -6,7 +6,7 @@
 
 ## 什么算同一作品
 
-`media_items.merge_key`（虚拟生成列，迁移 v9，`src/main/library/db/schema-merge.ts`）：
+`media_items.merge_key`（虚拟生成列，迁移 v10，`src/main/library/db/schema-merge.ts`）：
 
 | 条件                                                    | merge_key      |
 | ------------------------------------------------------- | -------------- |

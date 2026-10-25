@@ -1,4 +1,4 @@
-/** 主题：明暗切换。颜色等令牌全在 tokens.css，按 data-theme 生效 */
+/** 主题：明暗切换与降低透明度。颜色等令牌全在 tokens.css，按根节点的 data-theme / data-transparency 生效 */
 import { type ComputedRef, computed, watchEffect } from 'vue'
 import { getSetting, setSetting } from '@/features/settings/use-setting'
 
@@ -14,7 +14,14 @@ function applyTheme(theme: AppTheme): void {
   else root.removeAttribute('data-theme')
   const themeColor = document.querySelector('meta[name="theme-color"]')
   if (themeColor)
-    themeColor.setAttribute('content', theme === 'dark' ? '#171717' : '#fafaf8')
+    themeColor.setAttribute('content', theme === 'dark' ? '#000000' : '#ffffff')
+}
+
+/** 降低透明度（设置 ui.reduceTransparency）：根节点 data-transparency="reduced"，玻璃令牌换成实色 */
+function applyTransparency(reduced: boolean): void {
+  const root = document.documentElement
+  if (reduced) root.setAttribute('data-transparency', 'reduced')
+  else root.removeAttribute('data-transparency')
 }
 
 /** 切换主题（写入设置，界面经 initTheme 的监听自动更新） */
@@ -29,9 +36,10 @@ export function toggleTheme(): AppTheme {
   return next
 }
 
-/** 启动时调用一次：立即应用当前主题，之后设置变化时自动重新应用 */
+/** 启动时调用一次：立即应用当前主题与透明度，之后设置变化时自动重新应用 */
 export function initTheme(): void {
   watchEffect(() => applyTheme(themeRef.value))
+  watchEffect(() => applyTransparency(getSetting('ui.reduceTransparency')))
 }
 
 export interface UseThemeReturn {

@@ -5,6 +5,7 @@
  * 不依赖 Vue、存储和播放器：调用方把播放记录、文件进度以普通数据传进来。日期规则在 calendar-dates.ts。
  */
 import type { CalendarEpisode } from '../../../../shared/library/ipc'
+import { WATCHED_RATIO } from '../../../../shared/library/watch-progress'
 import { addDays, dayLabel, daysBetween, weekDays } from './calendar-dates'
 
 /** 卡片状态。 */
@@ -19,8 +20,8 @@ export const STATUS_LABEL: Record<EpisodeStatus, string> = {
 
 /** 徽标只数最近几天（含今天）播出的未看集。 */
 export const BADGE_DAYS = 7
-/** 播到这个比例算看完（与「继续播放」的看完判定一致）。 */
-export const WATCHED_RATIO = 0.95
+/** 播到这个比例算看完（与片库观看进度、「继续播放」同一个阈值）。 */
+export { WATCHED_RATIO }
 
 /** 一张日历卡。 */
 export interface CalendarEntry {
@@ -105,7 +106,7 @@ export const progressFinished = (p: ProgressLike | null | undefined): boolean =>
 /**
  * 媒体库的一集看过没有：
  * - 这个文件在「已看完」集合里（播放器看完时记录，续播点清零、继续播放记录删掉后仍在）；或
- * - 这个文件的播放进度过了 95%；或
+ * - 这个文件的播放进度过了 90%；或
  * - 这部剧的「继续播放」记录里，这一集排在当前集之前（看完一集记录会前进到下一集）。
  */
 export function libraryEpisodeWatched(

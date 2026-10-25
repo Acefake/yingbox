@@ -87,8 +87,8 @@ describe('UiToastHost 渲染', () => {
         ],
       })
     )
-    expect(html).toMatch(/class="is-error ui-toast" role="alert"/)
-    expect(html).toMatch(/class="is-success ui-toast" role="status"/)
+    expect(html).toMatch(/class="is-error ui-toast yb-glass" role="alert"/)
+    expect(html).toMatch(/class="is-success ui-toast yb-glass" role="status"/)
     expect(html).toContain('ui-toast__spinner')
     expect(html.match(/ui-toast__icon/g)).toHaveLength(2)
     expect(html).toContain('出错了')

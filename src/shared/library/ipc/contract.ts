@@ -12,13 +12,11 @@ import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
 import { CALENDAR_METHODS } from './contract-calendar'
+import type { LibraryProgressBridge, ProgressRpcMap } from './contract-progress'
+import { PROGRESS_METHODS } from './contract-progress'
 import type { LibraryEvent } from './contract-events'
-import {
-  type LibraryMergeBridge,
-  MERGE_METHODS,
-  type MergeRpcMap,
-  type NodeMergeFields,
-} from './contract-merge'
+import type { LibraryMergeBridge, MergeRpcMap } from './contract-merge'
+import { MERGE_METHODS, type NodeMergeFields } from './contract-merge'
 import type { LibraryQueryFilters } from './contract-filters'
 import type {
   FacetFilter,
@@ -57,6 +55,7 @@ import type {
 
 export * from './contract-actors'
 export * from './contract-calendar'
+export * from './contract-progress'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-facets'
@@ -215,10 +214,7 @@ export interface LibraryQueryResult {
 /** 触发扫描。 */
 export interface ScanRequest {
   libraryId: number
-  /**
-   * 为 true 时不走目录 mtime 短路，逐个 stat 全部文件。
-   * 用于怀疑有“只改内容不改目录”的文件变化时。
-   */
+  /** 为 true 时不走目录 mtime 短路，逐个 stat 全部文件（怀疑有“只改内容不改目录”的变化时用）。 */
   full?: boolean
 }
 
@@ -265,6 +261,7 @@ export interface LibraryRpcMap
   extends
     ActorRpcMap,
     CalendarRpcMap,
+    ProgressRpcMap,
     FacetRpcMap,
     MergeRpcMap,
     VisualRpcMap,
@@ -340,6 +337,7 @@ export const LIBRARY_METHODS = [
   ...FACET_METHODS,
   ...VISUAL_METHODS,
   ...CALENDAR_METHODS,
+  ...PROGRESS_METHODS,
   ...MERGE_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
@@ -352,6 +350,7 @@ export interface LibraryBridge
     LibraryFacetsBridge,
     LibraryVisualBridge,
     LibraryCalendarBridge,
+    LibraryProgressBridge,
     LibraryMergeBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
