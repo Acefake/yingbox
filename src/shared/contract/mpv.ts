@@ -40,7 +40,7 @@ export const mpv = defineDomain(
     speed: call<[spd: number], Ok>(a => [num(a[0], 'spd')]),
     /** RTX 视频超分开关 */
     setVsr: call<[enabled: boolean], Ok>(a => [bool(a[0], 'enabled')]),
-    /** Anime4K 超分设置（开关、模式、档位、仅动画类条目） */
+    /** 影盒超分设置（开关、模式、档位、仅动画类条目） */
     setAnime4k: call<[config: Anime4kConfig], Ok>(a => {
       try {
         return [parseAnime4kConfig(a[0])]

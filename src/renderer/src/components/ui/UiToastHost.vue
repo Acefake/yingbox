@@ -3,8 +3,9 @@
     <div
       v-for="item in items"
       :key="item.id"
-      class="ui-toast"
-      :class="`is-${item.kind}`"
+      :ref="el => measure(item.id, el)"
+      class="ui-toast yb-glass"
+      :class="[`is-${item.kind}`, { 'is-multiline': multiline.has(item.id) }]"
       :role="item.kind === 'error' ? 'alert' : 'status'"
       :aria-live="item.kind === 'error' ? 'assertive' : 'polite'"
     >
@@ -28,12 +29,43 @@
 /**
  * toast 的宿主：由 toast.ts 在第一次提示时挂到 body，页面里不要直接使用。
  * 只负责把队列画出来，增删和计时都在 toast.ts。
+ * 单行是胶囊；文字折成多行时换成 --radius-lg（胶囊圆角会把多行提示条撑成气泡）。
  */
+import { type ComponentPublicInstance, reactive } from 'vue'
+
 import type { IconName } from './icons'
 import type { ToastItem, ToastKind } from './toast'
 import UiIcon from './UiIcon.vue'
 
 defineProps<{ items: readonly Readonly<ToastItem>[] }>()
+
+/** 文字折成多行的 toast id */
+const multiline = reactive(new Set<number>())
+
+/**
+ * 渲染后量一次文字高度，超过一行半就记为多行；元素卸载时清掉记录。
+ * @param id toast id
+ * @param el 函数 ref 给的元素，卸载时为 null
+ */
+function measure(
+  id: number,
+  el: Element | ComponentPublicInstance | null
+): void {
+  if (!(el instanceof HTMLElement)) {
+    multiline.delete(id)
+    return
+  }
+  requestAnimationFrame(() => {
+    const text = el.querySelector('.ui-toast__text')
+    if (!text) return
+    const line = parseFloat(getComputedStyle(text).lineHeight)
+    const multi = text.clientHeight > line * 1.5
+    if (multi !== multiline.has(id)) {
+      if (multi) multiline.add(id)
+      else multiline.delete(id)
+    }
+  })
+}
 
 const ICONS: Record<Exclude<ToastKind, 'loading'>, IconName> = {
   success: 'check',
@@ -69,16 +101,14 @@ const ICONS: Record<Exclude<ToastKind, 'loading'>, IconName> = {
   gap: var(--space-2);
   max-width: min(480px, calc(100vw - var(--space-8)));
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  border-radius: var(--radius-full);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
+}
+.ui-toast.is-multiline {
+  border-radius: var(--radius-lg);
 }
 .ui-toast__text {
   min-width: 0;

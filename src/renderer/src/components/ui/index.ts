@@ -24,6 +24,13 @@ export type { SegmentedOption } from './UiSegmented.vue'
 export { default as UiSelect } from './UiSelect.vue'
 export type { SelectOption } from './UiSelect.vue'
 export { default as UiSkeleton } from './UiSkeleton.vue'
+export { default as UiSpecBadge } from './UiSpecBadge.vue'
+export {
+  type SpecBadge,
+  type SpecVariant,
+  videoProbeSpec,
+  videoRangeSpec,
+} from './spec-badge'
 export { default as UiSwitch } from './UiSwitch.vue'
 export { default as UiTextarea } from './UiTextarea.vue'
 export {
@@ -32,6 +39,6 @@ export {
   type ToastKind,
   type ToastOptions,
 } from './toast'
-export { ICON_PATHS, type IconName } from './icons'
+export type { IconName } from './icons'
 export { vTooltip } from './tooltip'
 export { default as UiVirtualGrid } from './UiVirtualGrid.vue'

@@ -9,6 +9,12 @@
         @update:model-value="setTheme"
       />
     </SettingsRow>
+    <SettingsRow
+      title="降低透明度"
+      description="海报上的圆形按钮和提示条改用实色，不做背景模糊，低配电脑更流畅。系统开启「降低透明度」时自动使用实色"
+    >
+      <UiSwitch v-model="reduceTransparency" label="降低透明度" />
+    </SettingsRow>
   </SettingsGroup>
 
   <SettingsGroup
@@ -50,7 +56,7 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 外观：深色 / 浅色主题（由 utils/theme 持久化），卡片悬停预览的开关与等待时间
+ * 设置 · 外观：深色 / 浅色主题与降低透明度（ui.reduceTransparency，由 utils/theme 应用到根节点），卡片悬停预览的开关与等待时间
  * （ui.hoverPreview / ui.hoverPreviewDelay，经主进程写入），防剧透开关（ui.spoilerGuard）。
  */
 import { computed } from 'vue'
@@ -74,6 +80,7 @@ const themeOptions: SegmentedOption<AppTheme>[] = [
 const previewEnabled = useSetting('ui.hoverPreview')
 const delaySetting = useSetting('ui.hoverPreviewDelay')
 const spoilerGuard = useSetting('ui.spoilerGuard')
+const reduceTransparency = useSetting('ui.reduceTransparency')
 /** 分段控件只认字符串：毫秒数 ↔ 字符串 */
 const previewDelay = computed({
   get: () => String(delaySetting.value),

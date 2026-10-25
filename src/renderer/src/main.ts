@@ -15,6 +15,7 @@ import { aiAvailable } from '@/features/ai'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
+import { notifyAvailable, notifySettingsSection } from '@/features/notify'
 import { sourcesSettingsSection } from '@/features/online'
 import {
   sectionLockAvailable,
@@ -55,6 +56,8 @@ for (const section of [
 }
 // 网盘（115 登录、转存）只在桌面端
 if (netdiskAvailable) registerSettingsSection(netdiskSettingsSection)
+// 入库推送与自动字幕只在桌面端（主进程 / 媒体库引擎）
+if (notifyAvailable) registerSettingsSection(notifySettingsSection)
 // 板块锁只在桌面端（主进程保存密码哈希）；可锁的板块读路由表
 if (sectionLockAvailable)
   registerSettingsSection(sectionLockSettingsSection(routes))
