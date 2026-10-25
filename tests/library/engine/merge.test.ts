@@ -133,6 +133,18 @@ describe('电影：两个盘里的同一部电影', () => {
     return { env, idA, idB }
   }
 
+  it('多路检索的不同代表条目共享合并键，手动拆分后键为空', async () => {
+    const { env, idA, idB } = await setup()
+    const a = list(env, { libraryId: env.libA.id }).items.find(
+      item => item.id === idA
+    )!
+    const b = list(env, { search: '盗火线' }).items[0]
+    expect(a.mergeKey).toBeTruthy()
+    expect(b.mergeKey).toBe(a.mergeKey)
+    env.merge.split({ itemId: idB })
+    expect(list(env, { search: '盗火线' }).items[0].mergeKey).toBeNull()
+  })
+
   it('识别前各自显示；识别到同一 id 后海报墙只出现一次，总数随之变化', async () => {
     const env = twoLibraries('movie')
     cleanup = env.cleanup

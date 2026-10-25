@@ -1,6 +1,6 @@
 /**
  * 助手浮层的开合状态（模块单例）：应用根的 AssistantLauncher 挂浮层，侧栏的 sparkle 入口、
- * 应用内 Cmd/Ctrl+K 与主进程全局快捷键都经这里开合。
+ * 应用内 Cmd/Ctrl+Shift+K 与主进程全局快捷键都经这里开合。
  * 打开时记下当前焦点，收起后还给它（元素已不在页面上时不抢焦点）。
  */
 import { nextTick, readonly, ref } from 'vue'

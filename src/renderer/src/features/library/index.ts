@@ -43,3 +43,6 @@ export {
   libraryItemLocation,
   recentLibraryItems,
 } from './home/home-links'
+/** 统一搜索：顶部入口和命令面板共用本地召回与 AI 增强。 */
+export { UnifiedSearchPanel } from './search/panel'
+export { searchLibrary } from './search/search-service'

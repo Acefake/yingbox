@@ -6,7 +6,7 @@
 
 <script setup lang="ts">
 /**
- * AI 助手的入口（应用根组件挂一次）：应用内 Cmd/Ctrl+K、主进程全局快捷键（assistant.summon，
+ * AI 助手的入口（应用根组件挂一次）：应用内 Cmd/Ctrl+Shift+K、主进程全局快捷键（assistant.summon，
  * 窗口已被唤到前台）和侧栏的 sparkle 按钮都经 assistant-open.ts 开合，打开的是同一个右侧侧栏
  * （AssistantOverlay）；侧栏按需加载（defineAsyncComponent），第一次打开才下载。
  *

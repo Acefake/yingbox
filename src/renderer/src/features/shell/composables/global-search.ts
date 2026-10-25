@@ -18,8 +18,8 @@ const PLACEHOLDERS: Record<string, string> = {
   AV: '搜索 AV 资源',
 }
 
-/** 聚焦搜索框的快捷键文字（Cmd/Ctrl+K 归 AI 助手，见 features/assistant/assistant-hotkey） */
-const SEARCH_SHORTCUT_LABEL = 'Ctrl + F'
+/** 聚焦搜索框的快捷键文字（Cmd/Ctrl+K 打开统一搜索） */
+const SEARCH_SHORTCUT_LABEL = '⌘K / Ctrl+K'
 
 /** isSearchShortcut 用到的按键字段 */
 export interface SearchShortcutEvent {
@@ -39,7 +39,12 @@ export interface SearchShortcutEvent {
 export function isSearchShortcut(event: SearchShortcutEvent): boolean {
   if (!(event.ctrlKey || event.metaKey) || event.shiftKey || event.altKey)
     return false
-  if (event.isComposing || event.key.toLowerCase() !== 'f') return false
+  if (
+    event.isComposing ||
+    !['f', 'k'].includes(event.key.toLowerCase()) ||
+    ('repeat' in event && event.repeat)
+  )
+    return false
   const target = event.target as { closest?: (s: string) => unknown } | null
   return !target?.closest?.('[role="dialog"]')
 }
