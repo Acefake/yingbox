@@ -1,8 +1,9 @@
 /**
- * 内置技能包的登记：媒体库、播放器、页面跳转与设置。助手浮层打开时调 {@link ensureCoreSkills}，
+ * 内置技能包的登记：媒体库、库外发现、播放器、页面跳转与设置。助手浮层打开时调 {@link ensureCoreSkills}，
  * 只在第一次真正登记（浮层按需加载，这些技能用到的媒体库 / 推荐模块也就跟着按需加载，不进主包）。
  * 私密板块一律由路由表的 meta.adultOnly 推出（{@link privateRouteSections}），助手内外只有这一份名单。
  */
+import { createDiscoverSkill } from './discover-skill'
 import { createLibrarySkill } from './library-skill'
 import {
   type RouteLike,
@@ -28,7 +29,7 @@ export function privateRouteSections(router: RouteTable): Set<string> {
 }
 
 /** 内置技能包的 id（登记过就不再重复登记） */
-const CORE_SKILL_IDS = ['library', 'player', 'navigation'] as const
+const CORE_SKILL_IDS = ['library', 'discover', 'player', 'navigation'] as const
 
 /**
  * 内置技能包还没登记时登记一次（每次打开浮层都会调）。
@@ -54,6 +55,7 @@ export function registerCoreSkills(
 ): void {
   const hidden = privateSections(routes)
   registry.register(createLibrarySkill(section => hidden.has(section)))
+  registry.register(createDiscoverSkill())
   registry.register(playerSkill)
   registry.register(createNavigationSkill(assistantPages(routes)))
 }

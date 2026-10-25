@@ -61,15 +61,6 @@
   background: var(--scrollbar-thumb-hover);
 }
 
-.glass-panel-floating {
-  background: var(--bg-panel);
-  backdrop-filter: blur(var(--blur-panel)) saturate(var(--saturate-vibrancy));
-  -webkit-backdrop-filter: blur(var(--blur-panel))
-    saturate(var(--saturate-vibrancy));
-  border: 1px solid var(--border-glass-light);
-  box-shadow: var(--shadow-panel);
-}
-
 @media (prefers-reduced-motion: reduce) {
   *,
   *::before,
