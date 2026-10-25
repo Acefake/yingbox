@@ -1,8 +1,11 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  eraYears,
   normalizeEra,
   parseDiscoverQuery,
+  pickGenre,
+  requestedYears,
 } from '../src/renderer/src/features/discover/discover-query'
 import {
   type DiscoverTitle,
@@ -141,6 +144,25 @@ describe('库外发现 · discover 参数解析', () => {
     expect(normalizeEra('70年代')).toBe('更早')
     expect(normalizeEra('1997')).toBe('1997')
     expect(normalizeEra('很久以前')).toBe('')
+  })
+
+  it('80 年代以前：豆瓣档落到「更早」，另给出真正的年份范围', () => {
+    expect(eraYears('70年代')).toEqual([1970, 1979])
+    expect(eraYears('1960s')).toEqual([1960, 1969])
+    expect(eraYears('90年代')).toBeNull()
+    expect(eraYears('1997')).toBeNull()
+    expect(requestedYears('类型=科幻;年代=70年代')).toEqual([1970, 1979])
+    expect(requestedYears('类型=科幻;年代=90年代')).toBeNull()
+    expect(requestedYears('类型=科幻')).toBeNull()
+  })
+
+  it('类型：取写法里最早出现的白名单类型，不按白名单顺序', () => {
+    expect(pickGenre('动画喜剧', 'movie')).toBe('动画')
+    expect(pickGenre('犯罪剧情', 'movie')).toBe('犯罪')
+    expect(pickGenre('喜剧片', 'movie')).toBe('喜剧')
+    expect(pickGenre('剧情片', 'movie')).toBe('剧情')
+    expect(pickGenre('古装剧', 'tv')).toBe('古装')
+    expect(pickGenre('不存在', 'movie')).toBe('')
   })
 })
 

@@ -24,7 +24,7 @@
     <ul v-if="stage === 'list'" class="discover-cands-list">
       <li
         v-for="(cand, index) in candidates"
-        :key="cand.fileName"
+        :key="`${index}:${cand.fileName}`"
         class="discover-cand"
       >
         <div class="discover-cand-main">

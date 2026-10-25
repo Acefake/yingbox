@@ -25,6 +25,7 @@ import type { DiscoverTitle } from '../src/renderer/src/features/discover/discov
 import {
   createDiscoverSkill,
   discoverMessage,
+  inYears,
   missingActions,
   missingCard,
 } from '../src/renderer/src/features/assistant/skills/discover-skill'
@@ -49,7 +50,14 @@ describe('库外发现技能包', () => {
     const raw = { text: '', target: 'movie', on: null }
     expect(
       action.parse({ ...raw, command: '类型=科幻;年代=90年代', value: null })
-    ).toMatchObject({ kind: 'movie', genre: '科幻', era: '90年代' })
+    ).toMatchObject({
+      query: { kind: 'movie', genre: '科幻', era: '90年代' },
+      years: null,
+    })
+    // 70 年代：豆瓣取「更早」，再按 1970–1979 筛
+    expect(
+      action.parse({ ...raw, command: '类型=科幻;年代=70年代', value: null })
+    ).toMatchObject({ query: { era: '更早' }, years: [1970, 1979] })
     expect(action.parse({ ...raw, command: '', value: null })).toBeNull()
   })
 
@@ -92,5 +100,21 @@ describe('库外发现技能包', () => {
       discoverMessage(1, 3, 'movie'),
     ])
       expect(SENSITIVE.test(text)).toBe(false)
+  })
+
+  it('库内数量照实说：卡片只列前 3 部时说明', () => {
+    expect(discoverMessage(5, 2, 'movie')).toContain(
+      '本地库里有 5 部（先列 3 部）'
+    )
+    expect(discoverMessage(5, 0, 'movie')).toContain('先列 3 部')
+    expect(discoverMessage(2, 2, 'movie')).not.toContain('先列')
+  })
+
+  it('年份范围：没有范围都算在，有范围时年份未知的不算', () => {
+    expect(inYears(1999, null)).toBe(true)
+    expect(inYears(null, null)).toBe(true)
+    expect(inYears(1975, [1970, 1979])).toBe(true)
+    expect(inYears(1965, [1970, 1979])).toBe(false)
+    expect(inYears(null, [1970, 1979])).toBe(false)
   })
 })

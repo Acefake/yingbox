@@ -2,7 +2,8 @@
  * 库外发现的纯规则 · 认电影文件：分享里的一个文件是不是要找的那部电影、给它打几分。
  *
  * 只认单个正片视频：扩展名是视频、片名（中文或原名）对得上、年份对得上（允许差一年，豆瓣与 TMDB 的
- * 年份常差一年）、不带预告 / 花絮 / 枪版 / CAM 之类的字眼、体积在 {@link MIN_MOVIE_SIZE}–{@link MAX_MOVIE_SIZE}。
+ * 年份常差一年；不知道上映年份时不核对，也不加分）、不带预告 / 花絮 / 枪版 / CAM 之类的字眼、体积在 {@link MIN_MOVIE_SIZE}–{@link MAX_MOVIE_SIZE}。
+ * 片名可以由文件名、所在文件夹担保；分享标题只在同一层只有一个视频时担保（合集分享的标题不替其它影片担保）。
  * 打分：片名在文件名里、年份完全一致、分辨率、中字、片源、体积。排除字眼与剧名比较沿用追更的规则。
  */
 import { parseMediaPath } from '../../shared/library/parser'
@@ -37,6 +38,28 @@ export interface MovieTarget {
   year: number | null
 }
 
+/** 认电影文件时的上下文：在追更的基础上多一个「分享标题能否担保片名」 */
+export interface MovieFileContext extends FileContext {
+  /** 分享标题能否替文件担保片名与年份（同一层多个视频的合集为 false）；缺省为 true */
+  shareVouches?: boolean
+}
+
+/** 文件名是不是视频 */
+export function isVideoName(name: string): boolean {
+  return VIDEO_EXT_RE.test(name)
+}
+
+/** 一层里像正片的视频有几个（预告、样片这类小文件与带排除字眼的不算） */
+export function featureVideoCount(files: readonly ShareFileLike[]): number {
+  return files.filter(
+    f =>
+      !f.isDir &&
+      isVideoName(f.name) &&
+      !(f.size > 0 && f.size < MIN_MOVIE_SIZE) &&
+      !excludedWord(f.name)
+  ).length
+}
+
 /** 一段文字里出现的年份（1900–2099） */
 export function yearsIn(text: string): number[] {
   return [...text.matchAll(YEAR_RE)].map(m => Number(m[1]))
@@ -58,15 +81,18 @@ function resolutionScore(name: string): [number, string | null] {
   return [0, null]
 }
 
-/** 年份核对：exact = 完全一致，near = 差一年，miss = 对不上，none = 哪里都没写 */
+/**
+ * 年份核对：exact = 完全一致，near = 差一年，miss = 对不上，none = 哪里都没写，
+ * unchecked = 不知道上映年份、没法核对
+ */
 function yearCheck(
   parsed: number | undefined,
   context: string,
   target: number | null
-): 'exact' | 'near' | 'miss' | 'none' {
+): 'exact' | 'near' | 'miss' | 'none' | 'unchecked' {
   const years = parsed !== undefined ? [parsed] : yearsIn(context)
   if (!years.length) return 'none'
-  if (target === null) return 'near'
+  if (target === null) return 'unchecked'
   if (years.includes(target)) return 'exact'
   return years.some(y => Math.abs(y - target) === 1) ? 'near' : 'miss'
 }
@@ -77,10 +103,10 @@ function yearCheck(
 export function matchMovieFile(
   file: ShareFileLike,
   target: MovieTarget,
-  context: FileContext
+  context: MovieFileContext
 ): FileMatch {
   if (file.isDir) return { ok: false, reason: '是文件夹' }
-  if (!VIDEO_EXT_RE.test(file.name)) return { ok: false, reason: '不是视频' }
+  if (!isVideoName(file.name)) return { ok: false, reason: '不是视频' }
   const excluded = excludedWord(`${context.folder} ${file.name}`)
   if (excluded) return { ok: false, reason: `含「${excluded}」` }
   if (file.size > 0 && file.size < MIN_MOVIE_SIZE)
@@ -96,14 +122,15 @@ export function matchMovieFile(
   const ownTitle = [parsed.title, parsed.altTitle ?? ''].some(t =>
     movieTitleMatches(t, target)
   )
+  const shareTitle = context.shareVouches === false ? '' : context.shareTitle
   const nearTitle =
     movieTitleMatches(context.folder, target) ||
-    movieTitleMatches(context.shareTitle, target)
+    movieTitleMatches(shareTitle, target)
   if (!ownTitle && !nearTitle) return { ok: false, reason: '片名对不上' }
 
   const year = yearCheck(
     parsed.year,
-    `${context.folder} ${context.shareTitle}`,
+    `${context.folder} ${shareTitle}`,
     target.year
   )
   if (year === 'miss') return { ok: false, reason: '年份对不上' }
@@ -118,7 +145,8 @@ export function matchMovieFile(
   if (year === 'exact') {
     score += 10
     reasons.push(`${target.year} 年`)
-  } else reasons.push('年份差一年')
+  } else if (year === 'near') reasons.push('年份差一年')
+  else reasons.push('年份未核对')
   const [resolution, label] = resolutionScore(file.name)
   score += resolution
   if (label) reasons.push(label)
