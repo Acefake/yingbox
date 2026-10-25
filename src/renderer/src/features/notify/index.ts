@@ -13,6 +13,7 @@ export const notifySettingsSection: SettingsSection = {
   id: 'arrivals',
   title: '新入库',
   icon: 'send',
+  tint: 'red',
   keywords:
     '推送 通知 系统通知 bark telegram 机器人 新集 新电影 追更 合并 字幕 中文字幕 opensubtitles 自动下载',
   load: () => import('./NotifySettings.vue'),

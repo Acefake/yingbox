@@ -11,6 +11,7 @@ export const netdiskSettingsSection: SettingsSection = {
   id: 'netdisk',
   title: '网盘',
   icon: 'database',
+  tint: 'blue',
   keywords: '网盘 115 PanSou 搜索 扫码 登录 转存 文件夹',
   load: () => import('./components/NetdiskSettings.vue'),
   order: 72,
