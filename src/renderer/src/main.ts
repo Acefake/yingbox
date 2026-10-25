@@ -23,6 +23,7 @@ import {
 } from '@/features/section-lock'
 import { getSetting, registerSettingsSection } from '@/features/settings'
 import { installWatchlist } from '@/features/watchlist'
+import { installLibraryProgress } from '@/features/library'
 import { configureHoverPreview } from '@/components/ui/hover-preview'
 
 /**
@@ -69,6 +70,9 @@ configureHoverPreview(() => ({
 
 // 「想看」清单：整部看完的条目自动移出
 installWatchlist()
+
+// 媒体库条目的观看进度记进片库（播放器上报、继续播放从片库补）
+installLibraryProgress()
 
 // AI 助手的私密技能：设置打开时才下载并登记（独立 chunk），关闭时卸载并清空对话上下文
 installPrivateSkills({

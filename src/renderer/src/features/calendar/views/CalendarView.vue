@@ -125,10 +125,11 @@
 /**
  * 追剧日历页（/calendar）：周视图（周一到周日，可前后翻周，今天高亮）与列表视图。
  * 数据见 use-calendar.ts；点卡片：媒体库里有本地文件就播放这一集，否则打开剧的详情；在线剧打开在线详情。
+ * 带 ?autograb=1 打开（播放器播完本地最后一集时的「去追更」）时展开追更面板。
  * 追更中的集卡片上有追更小标记，点它展开追更面板并定位到那一集。
  */
 import { computed, nextTick, onActivated, ref, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
@@ -165,6 +166,17 @@ const router = useRouter()
 const cal = useCalendar()
 /** 追更面板展开 */
 const showAutograb = ref(false)
+const route = useRoute()
+watch(
+  () => route.query.autograb,
+  flag => {
+    if (flag !== '1') return
+    if (autograbAvailable) showAutograb.value = true
+    void router.replace({ query: { ...route.query, autograb: undefined } })
+  },
+  { immediate: true }
+)
+
 /** 追更面板里要定位的一集 */
 const autograbFocus = ref<string | null>(null)
 const marks = useAutograbMarks()

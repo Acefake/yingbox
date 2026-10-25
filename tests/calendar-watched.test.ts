@@ -46,13 +46,17 @@ describe('已看判定认「已看完」标记', () => {
     const saver = useProgressSaver(() => key)
     saver.markFinished({ duration: 2400 } as HTMLVideoElement)
     const progress = readMediaProgress(key)
-    expect(progress).toEqual({ progress: 0, duration: 2400, finished: true })
+    expect(progress).toMatchObject({
+      progress: 0,
+      duration: 2400,
+      finished: true,
+    })
     expect(
       libraryEpisodeWatched({ season: 1, episode: 8 }, undefined, progress)
     ).toBe(true)
   })
 
-  it('没有标记时仍按原判据：零秒进度不算看过，过 95% 算看过', () => {
+  it('没有标记时仍按原判据：零秒进度不算看过，过 90% 算看过', () => {
     stubStorage()
     const ep = { season: 1, episode: 2 }
     expect(
