@@ -18,7 +18,8 @@
 <script setup lang="ts">
 /**
  * AI 助手的入口（应用根组件挂一次）：右下角的光球按钮、应用内 Cmd/Ctrl+K、主进程全局快捷键
- * （assistant.summon，窗口已被唤到前台）。浮层按需加载（defineAsyncComponent），第一次打开才下载。
+ * （assistant.summon，窗口已被唤到前台）。三种入口打开的是同一个右侧侧栏（AssistantOverlay），
+ * 按需加载（defineAsyncComponent），第一次打开才下载。
  *
  * - 只在桌面端出现（AI 调用需要主进程）；
  * - 播放弹窗或角落小窗在时不显示光球（小窗也在右下角），快捷键照常可用；
@@ -62,11 +63,14 @@ const privateNow = computed(
   () => isPrivateRoute(route) || player.value?.payload.private === true
 )
 
+/** 侧栏滑入 / 滑出的时长（与 tokens.css 的 --duration-assistant-drawer 一致） */
+const DRAWER_MS = 220
+
 /** 减少动态效果时进出场不等动画 */
 const transitionMs = window.matchMedia?.('(prefers-reduced-motion: reduce)')
   .matches
   ? 0
-  : { enter: 550, leave: 240 }
+  : DRAWER_MS
 
 const fabRef = ref<{ $el: HTMLElement } | null>(null)
 let returnFocus: HTMLElement | null = null

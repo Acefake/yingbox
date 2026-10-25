@@ -11,6 +11,7 @@ import {
 } from '@/features/player'
 
 import {
+  type AssistantContext,
   type AssistantSkill,
   type SkillGate,
   type SkillRaw,
@@ -115,13 +116,21 @@ const plot = defineAction<string>({
   },
 })
 
+/**
+ * 播放器内的建议：能问剧情时（本地视频且之前的集有 AI 字幕）先给「前情提要 / 刚才发生了什么」，
+ * 其余是播放控制；不能问剧情时只给控制类建议，不出没有能力支撑的入口。
+ * @param context 当前状态
+ */
+export function playerSuggestions(context: AssistantContext): string[] {
+  if (!context.playing) return []
+  const controls = ['关掉弹幕', '1.5 倍速', '30 分钟后停止播放']
+  return context.plotQa ? ['前情提要', '刚才发生了什么', ...controls] : controls
+}
+
 /** 播放器技能包 */
 export const playerSkill: AssistantSkill = {
   id: 'player',
   scope: 'any',
   actions: [control, plot],
-  suggestions: context =>
-    context.playing
-      ? ['关掉弹幕', '1.5 倍速', '30 分钟后停止播放', '刚才发生了什么']
-      : [],
+  suggestions: playerSuggestions,
 }

@@ -150,7 +150,7 @@
   --radius-md: 8px;
   --radius-lg: 12px;
   --radius-xl: 16px;
-  --radius-2xl: 28px; /* 大号浮层面板（AI 助手） */
+  --radius-2xl: 22px; /* 大号浮层面板（AI 助手侧栏） */
   --radius-full: 999px;
 
   /* ── 布局 ── */
@@ -229,7 +229,7 @@
 
   /*
    * ── AI 助手 ──
-   * 光圈与光球的品牌色（深浅主题一致）：紫 / 靛 / 粉 / 青 / 琥珀；面板本身仍用中性灰阶令牌。
+   * 光球的品牌色（深浅主题一致）：紫 / 靛 / 粉 / 青 / 琥珀；侧栏本身用下方的面板令牌（浅色主题另有一套）。
    */
   --assistant-violet: #8b6cff;
   --assistant-indigo: #4527d9;
@@ -239,30 +239,26 @@
   --assistant-orb-core: #0c0a16;
   --assistant-orb-highlight: rgba(255, 255, 255, 0.45);
   --assistant-glow: rgba(139, 108, 255, 0.45);
-  --assistant-ring-width: 3px; /* 窗口边缘光圈的线宽 */
-  --assistant-ring-blur: 22px; /* 光圈外发光的模糊半径 */
-  --duration-assistant-ring: 5s; /* 光圈旋转一周（思考中加快） */
-  --duration-assistant-ring-fast: 0.9s;
   --duration-assistant-orb: 4.6s; /* 光球里色块漂移一个周期 */
   --duration-assistant-breathe: 3.2s; /* 光球按钮呼吸一个周期 */
-  --duration-assistant-sheet: 550ms; /* 面板弹簧滑入 */
-  /* 私密模式：光圈换低调靛蓝，光球同色系 */
+  --duration-assistant-drawer: 220ms; /* 侧栏从右侧滑入 */
+  /* 私密模式：光球换低调靛蓝 */
   --assistant-private-violet: #5b5fd6;
   --assistant-private-indigo: #2b2d7a;
   --assistant-private-blue: #3d52b8;
   --assistant-private-mist: #7c80c9;
   --assistant-private-glow: rgba(91, 95, 214, 0.32);
-  --assistant-accent-fill: rgba(139, 108, 255, 0.16); /* 上下文胶囊底色 */
-  --assistant-accent-line: rgba(139, 108, 255, 0.45); /* 上下文胶囊描边 */
-  --assistant-private-fill: rgba(
-    48,
-    209,
-    88,
-    0.12
-  ); /* 「仅本地模型」胶囊底色 */
-  --assistant-private-line: rgba(48, 209, 88, 0.4);
-  --assistant-sheet-width: 600px; /* 底部卡片式面板宽度 */
-  --assistant-side-width: 400px; /* 播放器内右侧面板宽度 */
+  /* 侧栏：宽度、离窗口边缘的距离、面板底色、左侧投影、背后的轻度变暗 */
+  --assistant-drawer-width: 400px;
+  --assistant-drawer-inset: 14px;
+  --assistant-drawer-bg: rgba(22, 22, 28, 0.98);
+  --assistant-drawer-shadow: -16px 0 48px rgba(0, 0, 0, 0.45);
+  --assistant-drawer-scrim: rgba(0, 0, 0, 0.28);
+  /* 你说的话（气泡）与白色圆形发送按钮 */
+  --assistant-bubble: #6d4fe8;
+  --assistant-bubble-text: #ffffff;
+  --assistant-send-bg: #ffffff;
+  --assistant-send-fg: #111114;
 
   /*
    * ── 层级（z-index）──
@@ -362,6 +358,13 @@
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.2);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
+
+  /* AI 助手侧栏：浅色面板、更淡的投影，发送按钮反色 */
+  --assistant-drawer-bg: rgba(255, 255, 255, 0.98);
+  --assistant-drawer-shadow: -16px 0 48px rgba(0, 0, 0, 0.14);
+  --assistant-drawer-scrim: rgba(0, 0, 0, 0.16);
+  --assistant-send-bg: #1d1d1f;
+  --assistant-send-fg: #ffffff;
 }
 
 @media (prefers-reduced-motion: reduce) {
@@ -370,5 +373,6 @@
     --duration-fast: 0ms;
     --duration-normal: 0ms;
     --duration-slow: 0ms;
+    --duration-assistant-drawer: 0ms;
   }
 }
