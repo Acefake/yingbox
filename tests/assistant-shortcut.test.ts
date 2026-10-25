@@ -1,6 +1,6 @@
 /**
  * AI 助手的全局快捷键与语音：写法校验与规整、注册 / 冲突 / 写法不对 / 关闭 / 换绑、
- * 应用内 Cmd/Ctrl+K 判定与设置页提示、WAV 编码与时长、转写文字拼接。
+ * 应用内 Cmd/Ctrl+Shift+K 判定与设置页提示、WAV 编码与时长、转写文字拼接。
  */
 import { describe, expect, it, vi } from 'vitest'
 
@@ -145,18 +145,18 @@ describe('应用内快捷键与设置页提示', () => {
     key: k,
     ctrlKey: false,
     metaKey: false,
-    shiftKey: false,
+    shiftKey: true,
     altKey: false,
     ...mods,
   })
 
-  it('Cmd/Ctrl+K 唤起，带 Shift / Alt 或输入法组字中不算', () => {
+  it('Cmd/Ctrl+Shift+K 唤起，不带 Shift 或带 Alt 或输入法组字中不算', () => {
     expect(isAssistantHotkey(key('k', { ctrlKey: true }))).toBe(true)
     expect(isAssistantHotkey(key('K', { metaKey: true }))).toBe(true)
     expect(isAssistantHotkey(key('k'))).toBe(false)
-    expect(isAssistantHotkey(key('k', { ctrlKey: true, shiftKey: true }))).toBe(
-      false
-    )
+    expect(
+      isAssistantHotkey(key('k', { ctrlKey: true, shiftKey: false }))
+    ).toBe(false)
     expect(
       isAssistantHotkey({ ...key('k', { ctrlKey: true }), isComposing: true })
     ).toBe(false)

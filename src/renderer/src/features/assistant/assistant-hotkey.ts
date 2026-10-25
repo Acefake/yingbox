@@ -1,13 +1,13 @@
 /**
- * AI 助手快捷键的纯规则：应用内 Cmd/Ctrl+K 的判定，全局快捷键状态的提示文字。
+ * AI 助手快捷键的纯规则：应用内 Cmd/Ctrl+Shift+K 的判定，全局快捷键状态的提示文字。
  */
 import type { AssistantShortcutStatus } from '../../../../shared/assistant'
 
 /** 应用内快捷键的键帽文字（侧栏入口的悬停提示、助手里的快捷键提示） */
 export const ASSISTANT_HOTKEY_LABEL =
   typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
-    ? '⌘ K'
-    : 'Ctrl K'
+    ? '⌘ ⇧ K'
+    : 'Ctrl Shift K'
 
 /** 判定按键需要的字段（测试可传普通对象） */
 export interface HotkeyInput {
@@ -21,11 +21,11 @@ export interface HotkeyInput {
   repeat?: boolean
 }
 
-/** 应用内唤起 / 收起助手：Cmd+K（macOS）或 Ctrl+K，不带 Shift / Alt；输入法组字中与按住自动重复不算 */
+/** 应用内唤起 / 收起助手：Cmd+K（macOS）或 Ctrl+K，带 Shift、不带 Alt；输入法组字中与按住自动重复不算 */
 export function isAssistantHotkey(event: HotkeyInput): boolean {
   return (
     (event.ctrlKey || event.metaKey) &&
-    !event.shiftKey &&
+    event.shiftKey &&
     !event.altKey &&
     !event.isComposing &&
     !event.repeat &&
@@ -45,7 +45,7 @@ export function shortcutStatusText(status: AssistantShortcutStatus | null): {
   if (!status.accelerator)
     return {
       kind: 'off',
-      text: '全局快捷键已关闭，应用内仍可用 Cmd/Ctrl+K 或侧栏的 AI 助手按钮唤起。',
+      text: '全局快捷键已关闭，应用内仍可用 Cmd/Ctrl+Shift+K 或侧栏的 AI 助手按钮唤起。',
     }
   if (status.registered)
     return {

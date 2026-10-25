@@ -95,7 +95,7 @@ describe('全局快捷键', () => {
       key: 'k',
       ctrlKey: true,
       metaKey: false,
-      shiftKey: false,
+      shiftKey: true,
       altKey: false,
     }
     expect(isAssistantHotkey(base)).toBe(true)

@@ -118,6 +118,8 @@ export interface ProviderIds {
 
 /** 列表里的一条顶层条目（海报墙一格所需的全部字段）。 */
 export interface LibraryItemSummary {
+  /** 引擎的作品合并键；null 表示独立条目（含手动拆分），缺省兼容未提供此字段的服务。 */
+  mergeKey?: string | null
   id: number
   libraryId: number
   type: MediaItemType
