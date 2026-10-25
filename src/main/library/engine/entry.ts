@@ -16,8 +16,15 @@
 import { type MessagePortMain, net } from 'electron'
 import { join } from 'node:path'
 import { LIBRARY_IMAGES_CACHED } from '../../../shared/library/ipc'
+import { LIBRARY_ARRIVALS } from '../../../shared/library/arrivals'
 import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
-import { hostAi, hostFfprobePath } from './host-calls'
+import {
+  hostAi,
+  hostFfmpegPath,
+  hostFfprobePath,
+  hostSubtitleSettings,
+} from './host-calls'
+import { createStreamProber } from '../subtitles/stream-probe'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
@@ -74,8 +81,17 @@ const service = createLibraryService({
   ai: hostAi(host),
   // 视频动态范围：ffprobe 路径向主进程要（没有 ffmpeg 时为空串，探测任务直接结束）
   probeVideo: createVideoProber({ binary: hostFfprobePath(host) }),
+  // 按画面搜抽视频帧：ffmpeg 路径同样向主进程要
+  ffmpegPath: hostFfmpegPath(host),
   // 局域网 NAS / Alist：Node fetch 直连（不走系统代理），凭据每次扫描向主进程要
   remote: hostRemoteClients(host, (url, init) => fetch(url, init)),
+  // 新入库交给主进程推送；自动字幕的开关在主进程设置里
+  intake: {
+    onArrivals: arrivals =>
+      post({ kind: 'event', channel: LIBRARY_ARRIVALS, payload: arrivals }),
+    subtitleSettings: hostSubtitleSettings(host),
+    probeStreams: createStreamProber({ binary: hostFfprobePath(host) }),
+  },
 })
 
 /** 把一个 MessagePort 接成事件订阅方，端口关闭时自动退订。 */

@@ -17,7 +17,11 @@ import type {
   Pan115Result,
   ShareSnap,
 } from '../../shared/contract/pan115'
-import { type Pan115Session, create115Client } from './client'
+import {
+  type Pan115Client,
+  type Pan115Session,
+  create115Client,
+} from './client'
 import { LOGIN_EXPIRED_CODES, Pan115Error } from './errors'
 import type { FetchLike } from './http'
 import { searchPanSou } from './pansou'
@@ -83,6 +87,13 @@ export interface Pan115Service {
   dirs(cid: string): Promise<Pan115Result<Pan115DirListing>>
   /** 启动时把保存的会话 Cookie 恢复进传输层分区（没有会话时清空分区） */
   restore(): Promise<void>
+  /**
+   * 主进程内直接用 115 客户端（追更）：未登录或请求失败时抛 {@link Pan115Error}（保留 errno），
+   * 登录失效的处理与界面调用相同。
+   */
+  use<T>(run: (client: Pan115Client) => Promise<T>): Promise<T>
+  /** 主进程内直接搜 PanSou（追更）：失败时抛 {@link Pan115Error} */
+  searchRaw(keyword: string): Promise<NetdiskItem[]>
 }
 
 /** 创建网盘服务 */
@@ -276,6 +287,24 @@ export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
 
     restore(): Promise<void> {
       return useCookie(deps.session.read()?.cookie ?? null)
+    },
+
+    async use<T>(run: (client: Pan115Client) => Promise<T>): Promise<T> {
+      const session = deps.session.read()
+      if (!session) throw new Pan115Error(NOT_LOGGED_IN)
+      try {
+        await useCookie(session.cookie)
+        return await run(create115Client(deps.transport.fetch, session))
+      } catch (error) {
+        await failure(error, session.cookie)
+        throw error
+      }
+    },
+
+    async searchRaw(keyword: string): Promise<NetdiskItem[]> {
+      const base = deps.settings.pansouUrl().trim()
+      if (!base) throw new Pan115Error('请先在设置 · 网盘里填写 PanSou 地址')
+      return searchPanSou(deps.pansouFetch, base, keyword)
     },
   }
 }

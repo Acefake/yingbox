@@ -11,7 +11,9 @@ import {
 } from '../src/renderer/src/features/player/skip/use-skip-segments'
 import { singleFlight } from '../src/renderer/src/features/player/utils/single-flight'
 
-vi.mock('@/features/settings', () => ({ getSetting: () => false }))
+vi.mock('@/features/settings', () => ({
+  getSetting: (key: string) => key === 'player.autoNext',
+}))
 
 /**
  * 切集中：下一集异步解析地址时，「立即播放」/ 倒计时 / 旧视频结束只能真正切一次（PR #117 审查）。

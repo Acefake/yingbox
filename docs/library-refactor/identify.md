@@ -81,6 +81,23 @@ TMDB 令牌：渲染进程启动时与修改设置时经 `setProviderToken` 下�
 tmdb_id / imdb_id / tvdb_id），完整元数据存 `media_items.metadata`（JSON，`level: title | season | episode`）。
 检索文本合并本地标题与元数据标题，按文件名里的写法和 TMDB 中文名都能搜到。
 
+### 本地补全（NFO / 豆瓣）
+
+每个电影 / 剧集识别完（不论匹配与否、是否配了 TMDB），`identify/nfo-fill.ts` 再读一次本地 NFO（电影按各文件的同名 .nfo
+或 movie.nfo 依次读，取第一份有描述信息的；剧集 tvshow.nfo），用 `<genre>`、`<country>`、`<rating>` / `<ratings>`、`<plot>` / `<outline>`、`<year>` /
+`<premiered>` 补空着的 genres、overview、rating、year（`MetadataWriter.fillLocal`，TMDB 已有的值不覆盖）；制片国家换成
+ISO 代码（`shared/library/identify/country-codes.ts`）写进 metadata：已刮削的补进 `countries`，没刮削的写
+`{ level: 'local', countries, source }`（不算匹配，写出 / 整理 / 演员库都只认 `level: title`）。没配 TMDB 时，库里有 NFO
+才在扫描后排识别任务，此时只做本地补全、不请求 TMDB（AI / 强制 / 刷新不在此列，会报未配置令牌）；补过且之后没变化
+（`updated_at` 不变）的条目本进程内不再重读 NFO。补全写字段时，已是最新识别的条目 `identified_at` 一并前移，
+补全本身不会让条目下次扫描重新识别。
+
+识别任务结束后，本次涉及的 TMDB 库条目里仍然没有类型的，`identify/genre-fill.ts` 按片名 + 年份查豆瓣
+（`m.douban.com/rexxar/api/v2/search/movie`，带 Referer 与移动 UA），从卡片副标题读地区和类型补上（开头的年份段跳过；
+片名两边都去掉「第 X 季」再比）：串行、两次请求至少隔 2 秒、单次任务最多 50 个请求（命中缓存不算，名额用完后命中缓存的
+照常补）、结果按 电影 / 剧集 + 片名 + 年份 缓存 30 天，出错即停，补全阶段的异常不会让识别任务失败；番号库不碰。海报墙查询的 `hasGenres` 筛选
+（有 / 没有类型）给自然语言搜索判断类型覆盖率用。
+
 ## 图片
 
 引擎把每个电影 / 剧集选中的海报（w780）和背景图（w1280）下载到 `<userData>/library/media/orig/`，key 是 URL 的

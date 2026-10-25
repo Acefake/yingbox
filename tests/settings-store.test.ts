@@ -60,7 +60,10 @@ describe('默认值', () => {
       'ai.apiKey.opencode-go': false,
       'ai.apiKey.custom': false,
       'danmaku.appSecret': false,
+      'library.progressServerToken': false,
       'pan115.session': false,
+      'notify.bark.key': false,
+      'notify.telegram.token': false,
     })
     expect(legacyMigrated).toBe(false)
     expect(existsSync(file)).toBe(false)

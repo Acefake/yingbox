@@ -1,8 +1,9 @@
 /**
- * 防剧透的取数：读设置 ui.spoilerGuard、这部剧的「继续播放」记录与播放进度表，
+ * 防剧透的取数：读设置 ui.spoilerGuard、这部剧的「继续播放」记录与片库观看进度，
  * 算出当前季里要遮住的集（剧照模糊、简介折叠，悬停显示）。规则在 spoiler-rules.ts。
  *
- * 继续播放记录是响应式的：播完一集回到详情，遮挡跟着更新（进度表本身不是响应式，随记录变化一起重读）。
+ * 片库进度与继续播放记录都是响应式的：播完一集回到详情，遮挡跟着更新。
+ * 片库里还没有进度的集（还没搬进片库的）看本地进度表。
  */
 import { type ComputedRef, computed } from 'vue'
 
@@ -12,6 +13,7 @@ import { useSetting } from '@/features/settings'
 import { serverFileUrl } from '@/services/library-server'
 
 import { usesLibraryServer } from '../api/bridge'
+import { progressOf } from '../progress/progress-cache'
 import { continueMetaOf, videoFileEntries } from './playback'
 import { seenKeysFromContinue, spoilerHidden } from './spoiler-rules'
 
@@ -41,9 +43,17 @@ export function useSpoilerGuard(
     const seen = seenKeysFromContinue(records.value.find(r => r.id === id))
     return new Set(
       episodes()
-        .filter(ep =>
-          spoilerHidden(true, episodeKeys(ep), seen, readMediaProgress)
-        )
+        .filter(ep => {
+          const stored = progressOf(ep.id)
+          const read = stored
+            ? () => ({
+                progress: stored.position,
+                duration: stored.duration,
+                finished: stored.watched,
+              })
+            : readMediaProgress
+          return spoilerHidden(true, episodeKeys(ep), seen, read)
+        })
         .map(ep => ep.id)
     )
   })
