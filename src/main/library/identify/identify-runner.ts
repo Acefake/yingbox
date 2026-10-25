@@ -141,15 +141,15 @@ export class IdentifyRunner implements RunnerContext {
     return outcome
   }
 
-  /** 识别 / 刮削一个顶层条目；没配 TMDB 时 TMDB 库的条目跳过（只做本地补全）。 */
+  /** 识别 / 刮削一个顶层条目；没配 TMDB 时只有自动识别跳过 TMDB 库条目（只做本地补全），AI / 强制 / 刷新照常走、由 TMDB 报未配置。 */
   private async identifyTarget(
     target: IdentifyTarget,
     mode: RunMode,
     changes: ItemChanges,
     signal?: AbortSignal
   ): Promise<Outcome> {
-    if (target.source !== 'jav' && !this.deps.provider.configured)
-      return 'skipped'
+    const local = target.source !== 'jav' && !this.deps.provider.configured
+    if (local && mode === 'identify') return 'skipped'
     if (mode === 'ai') {
       return this.deps.ai
         ? this.deps.ai.manual(this, target, changes, signal)

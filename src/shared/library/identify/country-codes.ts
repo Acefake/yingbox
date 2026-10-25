@@ -63,7 +63,7 @@ const NAMES: Record<string, readonly string[]> = {
   ID: ['印度尼西亚', '印尼', 'indonesia'],
   VN: ['越南', 'vietnam', 'viet nam'],
   TR: ['土耳其', 'turkey', 'türkiye'],
-  IR: ['伊朗', 'iran'],
+  IR: ['伊朗', 'iran', 'iran, islamic republic of'],
   PL: ['波兰', 'poland'],
 }
 
@@ -78,8 +78,10 @@ export function countryCode(name: string): string | undefined {
   if (!text) return undefined
   const hit = BY_NAME.get(text.toLowerCase())
   if (hit) return hit
-  return /^[A-Za-z]{2}$/.test(text) && text.toUpperCase() in NAMES
-    ? text.toUpperCase()
+  // 两位代码大小写都认（「us」「Us」→ US）；只认表里有的代码，用 hasOwn 不碰原型链
+  const code = text.toUpperCase()
+  return /^[A-Z]{2}$/.test(code) && Object.hasOwn(NAMES, code)
+    ? code
     : undefined
 }
 

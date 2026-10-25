@@ -5,7 +5,8 @@
  * - 只碰 TMDB 来源的库，番号 / 私密库（source jav）不查；
  * - 低频：豆瓣请求串行、两次之间至少 2 秒（专用的低速 ProviderHttp），单次任务最多发 50 个请求，
  *   命中缓存的不占名额；查询结果（含查无此片）缓存 30 天；
- * - 豆瓣出错（被拦截、验证页、网络失败）就停下，不影响识别任务本身；
+ * - 豆瓣出错（被拦截、验证页、网络失败）就停下；补全阶段的任何异常（含读写库）都只记日志，
+ *   不让已完成的识别任务变成失败（取消除外）；
  * - 识别模块只在注入了网络实现时启用（桌面端 / 独立服务都会注入；测试缺省不联网）。
  */
 import { type LibraryDb, StatementCache, transaction } from '../db/database'
@@ -79,7 +80,8 @@ export async function fillGenresFromDouban(
   for (const item of pendingItems(deps.db, itemIds)) {
     signal?.throwIfAborted()
     if (!deps.lookup.cached(item.query)) {
-      if (requests >= GENRE_FILL_REQUEST_LIMIT) break
+      // 名额用完只跳过要发请求的，后面命中缓存的照常补
+      if (requests >= GENRE_FILL_REQUEST_LIMIT) continue
       requests++
     }
     let found
@@ -102,6 +104,7 @@ export async function fillGenresFromDouban(
 
 /**
  * 组装识别任务用的补全函数：专用低速 HTTP 层（串行、0.5 次 / 秒、不重试），与 TMDB 共用响应缓存。
+ * 返回的函数只在取消时抛出，其余异常记日志后当作没有补到。
  */
 export function createGenreFill(options: {
   db: LibraryDb
@@ -118,10 +121,14 @@ export function createGenreFill(options: {
     maxRetries: 0,
   })
   const lookup = new DoubanGenreLookup(http, options.cache)
-  return (itemIds, signal) =>
-    fillGenresFromDouban(
-      { db: options.db, lookup, log: options.log },
-      itemIds,
-      signal
-    )
+  const deps = { db: options.db, lookup, log: options.log }
+  return async (itemIds, signal) => {
+    try {
+      return await fillGenresFromDouban(deps, itemIds, signal)
+    } catch (error) {
+      if (signal?.aborted) throw error
+      options.log?.(`豆瓣补类型失败：${(error as Error).message}`)
+      return []
+    }
+  }
 }

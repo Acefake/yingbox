@@ -151,7 +151,7 @@ export interface NlQueryContext {
   genres: readonly string[]
   /** 看过 / 在看的条目 id（继续播放记录） */
   watchedIds: readonly number[]
-  /** 按片名判断的结果（见 nl-title-pick）；类型与条件一致时替换类型 / 地区条件 */
+  /** 按片名判断的结果（见 nl-title-pick）；类型 / 地区与条件一致、查询范围没变时替换类型 / 地区条件 */
   titlePick?: TitlePick | null
 }
 
@@ -170,7 +170,9 @@ export function applyNlFilter(
 ): LibraryQuery {
   const query: LibraryQuery = { ...base }
   delete query.search
-  const pick = titlePickApplies(ctx.titlePick, filter) ? ctx.titlePick : null
+  const pick = titlePickApplies(ctx.titlePick, filter, base)
+    ? ctx.titlePick
+    : null
   if (filter.genres?.length && !pick) {
     const tags = filter.genres.map(g => resolveGenre(g, ctx.genres))
     const merged = [...new Set([...(base.facets?.tag ?? []), ...tags])]
@@ -185,6 +187,7 @@ export function applyNlFilter(
   else if (filter.watched === false && ctx.watchedIds.length)
     query.excludeIds = ctx.watchedIds.slice(0, MAX_IDS)
   if (pick) {
+    // ids 为 [] 时引擎按「白名单为空」返回 0 条（validate-filters / filter-sql），不会退化成不过滤
     const watched = query.ids && new Set(query.ids)
     const ids = watched ? pick.ids.filter(id => watched.has(id)) : pick.ids
     query.ids = ids.slice(0, MAX_IDS)

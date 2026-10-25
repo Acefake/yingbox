@@ -6,7 +6,8 @@
  * - 解析中保留上一次的结果，不闪全库；AI 未配置 / 失败时退回片名搜索并给出提示。
  * - 番号页（私密分区）请求带 private: true；从 AI 助手的私密模式跳来（路由带 localOnly=1）时再带 localOnly，
  *   不看「私密板块只用本地模型」设置，只发给本地模型。
- * - 条件里有类型而本库类型信息不全时，再问一次模型「按片名判断」（nl-title-pick.ts，隐私设置同上）。
+ * - 条件里有类型而本库类型信息不全时，再问一次模型「按片名判断」（nl-title-pick-run.ts，隐私设置同上）；
+ *   查询范围（媒体库、匹配筛选等）变了就重新判断。
  * 规则在 nl-rules.ts / nl-chips.ts / nl-filter.ts / nl-title-pick.ts。
  */
 import {
@@ -55,12 +56,8 @@ import {
   isPrivateSection,
   nlIntent,
 } from './nl-rules'
-import {
-  TITLE_PICK_SCHEMA,
-  type TitlePick,
-  looseFilter,
-  resolveTitlePick,
-} from './nl-title-pick'
+import { type TitlePick, titlePickScope } from './nl-title-pick'
+import { runTitlePick } from './nl-title-pick-run'
 
 /** 输入停多久再调模型。 */
 const AI_DELAY_MS = 600
@@ -72,8 +69,6 @@ export type NlStatus = 'idle' | 'loading' | 'done' | 'error' | 'unconfigured'
 
 /** 全应用共用一份缓存（切页面回来不重新问）。 */
 const cache = new NlCache<NlFilter>()
-/** 按片名判断的结果缓存（同一个键；null 表示不需要兜底）。 */
-const pickCache = new NlCache<TitlePick | null>()
 /** 按片名判断生效时的说明。 */
 const PICK_NOTE = '本库类型信息不全，已让 AI 按片名判断'
 
@@ -200,60 +195,39 @@ export function useNlSearch(
 
   /** 本库类型信息不全时按片名判断；失败保留类型筛选（只提示）。 */
   async function pickByTitle(
-    key: string,
     question: string,
     parsed: NlFilter,
     signal: AbortSignal
   ): Promise<TitlePick | null> {
-    if (!parsed.genres?.length) return null
-    const hit = pickCache.get(key)
-    if (hit !== undefined) return hit
-    const api = libraryBridge()
-    if (!api?.query) return null
-    const ctx = context()
-    const base: LibraryQuery = { ...applyNlFilter(baseQuery(), {}, ctx) }
     try {
-      const pick = await resolveTitlePick(
+      return await runTitlePick({
+        key: cacheKey(section, question),
         question,
         parsed,
-        {
-          strict: applyNlFilter(base, parsed, ctx),
-          section: base,
-          loose: applyNlFilter(base, looseFilter(parsed), ctx),
-        },
-        {
-          query: query => api.query(JSON.parse(JSON.stringify(query))),
-          chat: async messages =>
-            (
-              await chatJson(
-                {
-                  messages,
-                  schema: TITLE_PICK_SCHEMA,
-                  schemaName: 'library_title_pick',
-                  temperature: 0,
-                  maxTokens: 1200,
-                  ...privacy(),
-                },
-                { signal }
-              )
-            ).data,
-        }
-      )
-      if (!signal.aborted) pickCache.set(key, pick)
-      return pick
+        base: baseQuery(),
+        ctx: context(),
+        privacy: privacy(),
+        signal,
+      })
     } catch {
       if (!signal.aborted) message.value = '按片名判断失败，先按类型筛选'
       return null
     }
   }
 
+  /** 换上按片名判断的结果（提示跟着换；不覆盖失败提示）。 */
+  function usePick(pick: TitlePick | null): void {
+    titlePick.value = pick
+    if (pick) message.value = PICK_NOTE
+    else if (message.value === PICK_NOTE) message.value = ''
+  }
+
   /** 让一组条件生效（含按片名判断的结果）。 */
   function settle(parsed: NlFilter, pick: TitlePick | null): void {
     filter.value = parsed
-    titlePick.value = pick
     plain.value = ''
     status.value = 'done'
-    if (pick) message.value = PICK_NOTE
+    usePick(pick)
   }
 
   async function parse(question: string): Promise<void> {
@@ -262,7 +236,7 @@ export function useNlSearch(
     const signal = controller.signal
     const hit = cache.get(key)
     if (hit) {
-      const pick = await pickByTitle(key, question, hit, signal)
+      const pick = await pickByTitle(question, hit, signal)
       if (!signal.aborted) settle(hit, pick)
       return
     }
@@ -292,7 +266,7 @@ export function useNlSearch(
         return
       }
       cache.set(key, parsed)
-      const pick = await pickByTitle(key, question, parsed, signal)
+      const pick = await pickByTitle(question, parsed, signal)
       if (!signal.aborted) settle(parsed, pick)
     } catch (error) {
       if (signal.aborted) return
@@ -336,6 +310,22 @@ export function useNlSearch(
       plain.value = next.kind === 'plain' ? next.text : ''
     },
     { immediate: true }
+  )
+  // 查询范围（媒体库、匹配筛选等）变了：旧的按片名判断结果不再适用，重新判断
+  watch(
+    () => titlePickScope(baseQuery()),
+    () => {
+      const parsed = filter.value
+      const now = intent.value
+      if (!parsed?.genres?.length || now.kind !== 'ai') return
+      if (status.value !== 'done') return
+      cancel()
+      controller = new AbortController()
+      const signal = controller.signal
+      void pickByTitle(now.question, parsed, signal).then(pick => {
+        if (!signal.aborted) usePick(pick)
+      })
+    }
   )
   onScopeDispose(cancel)
 

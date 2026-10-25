@@ -119,6 +119,11 @@ describe('NFO 补全', () => {
     expect(row.genres).toEqual(['犯罪', '剧情'])
     expect(row.overview).toBe('NFO 简介')
     expect((row.metadata as { countries: string[] }).countries).toEqual(['US'])
+    // 补全不让已识别的条目变成「待识别」（identified_at 跟着前移）
+    const stamps = service.db
+      .prepare('SELECT identified_at, updated_at FROM media_items')
+      .get() as { identified_at: number; updated_at: number }
+    expect(stamps.identified_at).toBeGreaterThanOrEqual(stamps.updated_at)
     await service.close()
   })
 
@@ -131,6 +136,45 @@ describe('NFO 补全', () => {
     expect(row.state).toBe('unmatched')
     expect(row.genres).toEqual(['喜剧', '剧情', '犯罪'])
     expect(tmdb.count('/search')).toBe(0)
+    await service.close()
+  })
+
+  it('没配 TMDB：补过且没变化的条目，再次扫描不重读 NFO；条目变了才重读', async () => {
+    const { service, rows } = await engine(
+      { 'Wuming.Waizhuan.mkv': '', 'Wuming.Waizhuan.nfo': NFO },
+      { token: false }
+    )
+    expect(rows()[0].genres).toEqual(['喜剧', '剧情', '犯罪'])
+    // 清掉类型（不动 updated_at）：若重读 NFO 会被补回来
+    service.db.prepare('UPDATE media_items SET genres = NULL').run()
+    const lib = service.listLibraries()[0]
+    tree.write('Other.Film.2003.mkv', '')
+    service.scan({ libraryId: lib.id })
+    await service.queue.idle()
+    const first = rows().find(r => r.title !== 'Other Film')!
+    expect(first.genres).toEqual([])
+    // 条目有变化（updated_at 前移）后再进识别任务：重读 NFO 补上
+    service.db
+      .prepare('UPDATE media_items SET updated_at = updated_at + 1000')
+      .run()
+    tree.write('Third.Film.2004.mkv', '')
+    service.scan({ libraryId: lib.id })
+    await service.queue.idle()
+    expect(rows()[0].genres).toEqual(['喜剧', '剧情', '犯罪'])
+    await service.close()
+  })
+
+  it('多文件电影：第一份 NFO 没有描述信息时接着读下一份', async () => {
+    const { service, rows } = await engine({
+      'Wuming.Waizhuan.2001.cd1.mkv': '',
+      'Wuming.Waizhuan.2001.cd1.nfo':
+        '<movie><uniqueid type="imdb">tt0000001</uniqueid></movie>',
+      'Wuming.Waizhuan.2001.cd2.mkv': '',
+      'Wuming.Waizhuan.2001.cd2.nfo': NFO,
+    })
+    const all = rows()
+    expect(all).toHaveLength(1)
+    expect(all[0].genres).toEqual(['喜剧', '剧情', '犯罪'])
     await service.close()
   })
 })

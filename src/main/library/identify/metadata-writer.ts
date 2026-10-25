@@ -132,6 +132,7 @@ export class MetadataWriter {
   /**
    * 用本地信息补空着的字段：类型、简介、评分、年份各自只在为空时写；制片国家补进 metadata
    * （没有元数据时写 level = local 的小对象）。返回是否有改动。
+   * 已是最新识别（identified_at ≥ updated_at）的条目，identified_at 跟着前移，补全不会让它下次扫描重新识别。
    */
   fillLocal(
     itemId: number,
@@ -164,10 +165,13 @@ export class MetadataWriter {
       return false
     this.sql
       .get(
-        `UPDATE media_items SET genres = COALESCE(?, genres),
-           overview = COALESCE(?, overview), rating = COALESCE(?, rating),
-           year = COALESCE(?, year), metadata = COALESCE(?, metadata), updated_at = ?
-         WHERE id = ?`
+        `UPDATE media_items SET genres = COALESCE(?1, genres),
+           overview = COALESCE(?2, overview), rating = COALESCE(?3, rating),
+           year = COALESCE(?4, year), metadata = COALESCE(?5, metadata),
+           identified_at = CASE WHEN identified_at >= updated_at THEN ?6
+             ELSE identified_at END,
+           updated_at = ?6
+         WHERE id = ?7`
       )
       .run(genres, overview, rating, year, metadata, now, itemId)
     return true
