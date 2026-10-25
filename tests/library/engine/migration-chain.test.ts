@@ -1,6 +1,6 @@
 /**
  * 迁移链：版本号从 1 连续递增；停在任意旧版本的库都能顺序升级到最新，旧数据保留，
- * 新加的表 / 列在升级后可用（v9 观看进度、v10 合并展示）。
+ * 新加的表 / 列在升级后可用（v9 观看进度、v10 合并展示、v11 视频关键帧）。
  */
 import { DatabaseSync } from 'node:sqlite'
 import { describe, expect, it } from 'vitest'
@@ -47,7 +47,7 @@ const columns = (db: DatabaseSync, table: string): string[] =>
     .map(r => String(r.name))
 
 describe('迁移链', () => {
-  it('版本号从 1 连续递增，v9 观看进度、v10 合并展示', () => {
+  it('版本号从 1 连续递增，v9 观看进度、v10 合并展示、v11 视频关键帧', () => {
     expect(MIGRATIONS.map(m => m.version)).toEqual(
       MIGRATIONS.map((_, i) => i + 1)
     )
@@ -55,6 +55,10 @@ describe('迁移链', () => {
     expect(MIGRATIONS.find(m => m.version === 10)?.description).toBe(
       '同一作品多版本合并展示'
     )
+    expect(MIGRATIONS.find(m => m.version === 11)?.description).toBe(
+      '按画面搜的视频关键帧'
+    )
+    expect(LATEST).toBeGreaterThanOrEqual(11)
   })
 
   it('停在任意旧版本的库都能顺序升级到最新', () => {
@@ -62,6 +66,26 @@ describe('迁移链', () => {
       const db = dbAt(v)
       expect(migrate(db), `从 v${v} 升级`).toBe(LATEST)
       expect(schemaVersion(db)).toBe(LATEST)
+      db.close()
+    }
+  })
+
+  it('v0–v10 旧库都能升到 v11：视频关键帧的列与进度表可用', () => {
+    for (let v = 0; v <= 10; v++) {
+      const db = dbAt(v)
+      migrate(db)
+      expect(schemaVersion(db), `从 v${v} 升级`).toBeGreaterThanOrEqual(11)
+      expect(columns(db, 'visual_vectors')).toEqual(
+        expect.arrayContaining(['source', 'file_id', 'at_ms'])
+      )
+      expect(columns(db, 'visual_frames')).toEqual(
+        expect.arrayContaining([
+          'file_id',
+          'item_id',
+          'signature',
+          'next_index',
+        ])
+      )
       db.close()
     }
   })
