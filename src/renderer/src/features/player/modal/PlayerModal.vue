@@ -175,7 +175,9 @@ watch(
 
 // 全屏时 Esc 由浏览器先退出全屏，不会走到这里
 useEscapeLayer(() => visible.value, closePlayerModal)
-// 模态：Tab 只在播放弹窗里循环；缩成小窗或关闭后焦点还给打开前的元素
+// 模态：Tab 只在播放弹窗里循环；缩成小窗或关闭后焦点还给打开前的元素。
+// Artplayer 控制条与齿轮菜单（画质 / 字幕 / 音轨）都渲染在 shell 里，属于弹窗内部；挂到 body 上的
+// 只有不可聚焦的 tooltip、popover 提示与 <dialog> 确认框，侧栏助手带 data-focus-scope，陷阱都放行
 const modalRef = ref<HTMLElement | null>(null)
 const trapTab = useModalFocus(modalRef, () => visible.value)
 </script>

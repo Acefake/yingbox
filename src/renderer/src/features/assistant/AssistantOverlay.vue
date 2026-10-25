@@ -1,6 +1,7 @@
 <template>
   <div
     class="assistant"
+    data-focus-scope
     :data-phase="phase"
     :data-layout="layout"
     :data-private="context.private"
@@ -77,6 +78,7 @@
  * - sheet：背景压暗轻模糊；还没提问时窗口中间偏上一条玻璃输入胶囊 + 技能胶囊 + 快捷键提示，
  *   提问后同一个面板展开成玻璃面板（.yb-glass），输入框收进面板底部。模态（aria-modal + 焦点陷阱，use-focus-trap.ts）；
  * - side：内置播放器在前台时用右侧玻璃面板，不加遮罩、不挡画面，不拦焦点。
+ *   根上的 data-focus-scope 让下面播放弹窗的焦点陷阱放行：点进助手输入框不会被拉回播放器。
  * 面板顶部（上下文胶囊、关闭）与底部输入框固定，只有中间的回答与结果区滚动。
  * 唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变，思考 / 回答时变亮；小窗在播时（data-playing）遮罩不做实时模糊。
  * 私密模式（data-private="true"）只在上下文胶囊里写「私密 · 仅本地模型」与无痕提示，不换色调。
