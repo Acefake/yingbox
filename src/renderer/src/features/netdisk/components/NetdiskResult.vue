@@ -16,13 +16,13 @@
     </div>
     <div class="netdisk-result-actions">
       <UiIconButton
-        class="netdisk-result-round"
+        variant="solid"
         icon="link"
         label="复制链接"
         @click="emit('copy')"
       />
       <UiIconButton
-        class="netdisk-result-round"
+        variant="solid"
         icon="eye"
         :label="previewing ? '收起文件' : '查看文件'"
         :active="previewing"
@@ -30,7 +30,6 @@
         @click="emit('preview')"
       />
       <UiButton
-        class="netdisk-result-save"
         icon="download"
         :label="saved ? '已转存' : '转存'"
         :disabled="saved || saving"
@@ -121,14 +120,5 @@ const specs = computed(() => titleSpecs(props.item.title))
   flex: none;
   align-items: center;
   gap: var(--space-2);
-}
-.netdisk-result-round {
-  border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
-}
-.netdisk-result-save {
-  border-radius: var(--radius-full);
-  background: var(--text-primary);
-  color: var(--bg-content);
 }
 </style>
