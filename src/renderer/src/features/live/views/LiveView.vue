@@ -1,19 +1,17 @@
 <template>
   <div class="live-view">
-    <PageHeader
-      title="直播"
-      :count="channels.length || undefined"
-      description="导入 m3u / txt 直播源，边看直播边看节目单"
-    >
+    <PageHeader title="直播" :count="channels.length || undefined">
       <template #actions>
         <!-- 还没有直播源时管理面板常开，开关与刷新都没有意义，不显示 -->
         <template v-if="available && sources.length">
           <UiButton
+            class="live-head-pill yb-glass"
             icon="list"
             :label="panelOpen ? '收起直播源' : '直播源'"
             @click="togglePanel"
           />
           <UiIconButton
+            class="live-head-round yb-glass"
             icon="refresh"
             label="刷新直播源与节目单"
             :loading="anyLoading || epgLoading"
@@ -36,33 +34,33 @@
       </p>
 
       <div v-if="sources.length" class="live-body">
-        <nav class="live-groups" aria-label="频道分组">
-          <UiListRow
-            v-for="group in groups"
-            :key="group.key"
-            class="live-group"
-            :selected="group.key === activeGroup"
-            @click="pickGroup(group.key)"
-          >
-            {{ group.label }}
-            <template #trailing>
+        <div class="live-side">
+          <nav v-scroll-x class="live-groups" aria-label="频道分组">
+            <UiChip
+              v-for="group in groups"
+              :key="group.key"
+              size="lg"
+              :selected="group.key === activeGroup"
+              @click="pickGroup(group.key)"
+            >
+              {{ group.label }}
               <span class="live-group-count">{{ group.count }}</span>
-            </template>
-          </UiListRow>
-        </nav>
+            </UiChip>
+          </nav>
 
-        <LiveChannelList
-          v-model:query="query"
-          class="live-list"
-          :channels="visibleChannels"
-          :selected-id="selectedId"
-          :programmes="programmes"
-          :now="now"
-          :favorites="favorites"
-          :empty-text="emptyText"
-          @select="select"
-          @toggle-favorite="toggleFavorite"
-        />
+          <LiveChannelList
+            v-model:query="query"
+            class="live-list"
+            :channels="visibleChannels"
+            :selected-id="selectedId"
+            :programmes="programmes"
+            :now="now"
+            :favorites="favorites"
+            :empty-text="emptyText"
+            @select="select"
+            @toggle-favorite="toggleFavorite"
+          />
+        </div>
 
         <LiveStage
           class="live-player"
@@ -80,7 +78,7 @@
 
 <script setup lang="ts">
 /**
- * 直播页（/live）：左侧分组 + 频道列表，右侧播放器与今日节目单；顶部管理直播源。
+ * 直播页（/live）：左栏分组胶囊 + 搜索 + 频道卡片列表，右侧播放器与今日节目单；顶部玻璃胶囊管理直播源。
  * 源与收藏在 useLiveSources（模块单例），节目单在 useLiveEpg（随页面挂载 / 卸载）。
  */
 import { computed, onMounted, ref } from 'vue'
@@ -89,7 +87,7 @@ import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiListRow from '@/components/ui/UiListRow.vue'
+import UiChip from '@/components/ui/UiChip.vue'
 
 import LiveChannelList from '../components/LiveChannelList.vue'
 import LiveSourcePanel from '../components/LiveSourcePanel.vue'
@@ -175,9 +173,20 @@ onMounted(() => live.ensureStarted())
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: var(--space-4);
+  gap: var(--space-5);
   padding: var(--content-padding-y) var(--content-padding-x);
   overflow: hidden;
+}
+
+.live-head-pill {
+  min-width: 148px;
+  border-radius: var(--radius-full);
+}
+
+/* 图标按钮基类是透明底，玻璃底色在这里补上（模糊与阴影来自 .yb-glass） */
+.live-head-round {
+  border-radius: var(--radius-full);
+  background: var(--glass-bg);
 }
 
 .live-epg-error {
@@ -189,30 +198,34 @@ onMounted(() => live.ensureStarted())
 .live-body {
   display: grid;
   flex: 1;
-  grid-template-columns: minmax(120px, 160px) minmax(240px, 320px) minmax(
-      0,
-      1fr
-    );
+  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
   grid-template-rows: minmax(0, 1fr);
   gap: var(--space-5);
   min-height: 0;
 }
 
-.live-groups {
+.live-side {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: var(--space-0_5);
-  overflow-y: auto;
+  gap: var(--space-3);
+}
+
+.live-groups {
+  display: flex;
+  flex: none;
+  gap: var(--space-1_5);
+  overflow-x: auto;
+  scrollbar-width: none;
 }
 
 .live-group-count {
-  font-size: var(--text-xs);
   font-variant-numeric: tabular-nums;
 }
 
 .live-list,
 .live-player {
+  flex: 1;
   min-height: 0;
 }
 </style>

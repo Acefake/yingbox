@@ -6,7 +6,8 @@
       description="用 PanSou 搜 115 分享，查看文件后一键转存到自己的 115"
     >
       <template #actions>
-        <UiIconButton
+        <UiButton
+          class="netdisk-head-pill yb-glass"
           icon="settings"
           label="网盘设置"
           :disabled="!available"
@@ -33,6 +34,7 @@
       <form class="netdisk-search" role="search" @submit.prevent="search">
         <UiInput
           v-model="keyword"
+          class="netdisk-search-input"
           variant="filled"
           icon="search"
           clearable
@@ -41,7 +43,8 @@
         />
         <!-- UiButton 固定 type="button"：点击只走 @click，回车走表单 submit，不会一次搜两遍 -->
         <UiButton
-          variant="primary"
+          class="netdisk-search-go"
+          size="lg"
           label="搜索"
           :loading="loading"
           :disabled="!keyword.trim()"
@@ -98,13 +101,12 @@
 <script setup lang="ts">
 /**
  * 网盘搜索页：关键词 → PanSou（只要 115）→ 结果列表（虚拟列表，行等高）；
- * 查看文件在列表上方的预览区，转存在结果行与预览区上。
+ * 查看文件是一个玻璃浮层（NetdiskPreview），转存在结果卡片与浮层上。
  * 没填 PanSou 地址时引导去设置；需要 115 登录的操作未登录时由主进程返回提示。
  */
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import { toast } from '@/components/ui/toast'
@@ -139,13 +141,32 @@ function togglePreview(item: NetdiskItem): void {
 .netdisk-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
-  max-width: calc(960px + 2 * var(--content-padding-x));
+  gap: var(--space-5);
+  max-width: calc(1136px + 2 * var(--content-padding-x));
   padding: var(--content-padding-y) var(--content-padding-x);
+}
+.netdisk-head-pill {
+  min-width: 148px;
+  border-radius: var(--radius-full);
 }
 .netdisk-search {
   display: flex;
   gap: var(--space-3);
+}
+.netdisk-search-input {
+  flex: 1;
+  height: 48px;
+  padding: 0 var(--space-4) 0 var(--space-5);
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-tertiary);
+  font-size: var(--text-md);
+}
+.netdisk-search-go {
+  flex: none;
+  padding: 0 var(--space-6_5);
+  border-radius: var(--radius-full);
+  background: var(--text-primary);
+  color: var(--bg-content);
 }
 .netdisk-results {
   margin: 0;
