@@ -11,23 +11,31 @@
         tabindex="-1"
         @keydown="trapTab"
       >
-        <!-- 遮罩盖住了标题栏：顶部留一条可拖动窗口的区域和窗口按钮 -->
-        <div v-if="isElectron" class="player-modal__titlebar">
-          <WinControls />
-        </div>
         <section class="player-modal__card">
           <!-- 播放会话所在的节点挂在这里；缩小时整体搬进小窗 -->
           <div ref="stageHost" class="player-modal__stage" />
+          <!-- 顶栏：关闭圆钮 + 标题胶囊；中间留空可拖动窗口，右侧窗口键胶囊（桌面端） -->
           <header
             class="player-modal__bar"
-            :class="{ 'is-visible': !idle || paused }"
+            :class="{
+              'is-visible': !idle || paused,
+              'is-electron': isElectron,
+            }"
           >
-            <span class="player-modal__title">{{ title }}</span>
             <UiIconButton
+              class="player-modal__close"
               icon="close"
               label="关闭播放器"
               variant="overlay"
+              size="lg"
               @click="closePlayerModal"
+            />
+            <span class="player-modal__title yb-glass is-media">{{
+              title
+            }}</span>
+            <WinControls
+              v-if="isElectron"
+              class="player-modal__window yb-glass is-media"
             />
           </header>
         </section>
@@ -50,6 +58,7 @@
 <script setup lang="ts">
 /**
  * 应用内播放弹窗：盖在当前页面上播放（页面状态不变），桌面与网页同一个组件，应用根组件挂载一次。
+ * 铺满窗口；顶栏是压在画面上的玻璃控件（关闭圆钮、标题胶囊、窗口键胶囊），指针不动 3 秒后隐去，暂停时常显。
  *
  * - 关闭：Esc（输入法组字中的不算，走全局 Esc 层栈）或关闭按钮；点遮罩不关，免得误触丢掉播放。
  *   播放会话卸载时保存进度、拆除 Artplayer / hls.js。
@@ -183,40 +192,25 @@ const trapTab = useModalFocus(modalRef, () => visible.value)
 </script>
 
 <style scoped>
+/* 全窗口的深色播放层，控件都是压在画面上的玻璃（.yb-glass is-media） */
 .player-modal {
   outline: none;
   position: fixed;
   inset: 0;
   z-index: var(--z-player);
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: var(--space-6);
-  background: var(--overlay-scrim);
-}
-
-.player-modal__titlebar {
-  position: absolute;
-  inset: 0 0 auto;
-  display: flex;
-  align-items: center;
-  justify-content: flex-end;
-  height: var(--titlebar-height);
-  padding: 0 var(--space-3);
-  -webkit-app-region: drag;
+  background: var(--media-bg);
 }
 
 .player-modal__card {
-  /* 顶部标题条的高度：关闭按钮 + 上下留白；播放信息浮层据此避开（playback-info.css） */
-  --player-modal-bar-height: calc(var(--control-height) + 2 * var(--space-2));
-  position: relative;
-  width: min(1200px, 100%, calc((100vh - 2 * var(--titlebar-height)) * 16 / 9));
-  aspect-ratio: 16 / 9;
+  /* 顶部标题条的高度：玻璃胶囊 + 上下留白；播放信息浮层据此避开（playback-info.css） */
+  --player-modal-bar-height: calc(
+    var(--shell-pill-height) + 2 * var(--space-5)
+  );
+  position: absolute;
+  inset: 0;
   overflow: hidden;
-  border-radius: var(--radius-xl);
   background: var(--media-bg);
   color: var(--media-text);
-  box-shadow: var(--shadow-lg);
 }
 
 .player-modal__stage {
@@ -230,16 +224,17 @@ const trapTab = useModalFocus(modalRef, () => visible.value)
   z-index: var(--z-overlay);
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   height: var(--player-modal-bar-height);
-  padding: 0 var(--space-3);
-  background: linear-gradient(
-    to bottom,
-    color-mix(in srgb, var(--media-bg) 60%, transparent),
-    transparent
-  );
+  padding: 0 var(--space-5);
   opacity: 0;
   transition: opacity var(--duration-normal) ease;
+  pointer-events: none;
+}
+
+/* 桌面端：顶栏空白处可拖动窗口，控件本身不可拖 */
+.player-modal__bar.is-electron {
+  -webkit-app-region: drag;
 }
 
 .player-modal__bar.is-visible,
@@ -247,24 +242,56 @@ const trapTab = useModalFocus(modalRef, () => visible.value)
   opacity: 1;
 }
 
+.player-modal__bar > * {
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+
+.player-modal__close.yb-icon-button {
+  --ib-size: var(--shell-pill-height);
+}
+
 .player-modal__title {
-  flex: 1 1 auto;
+  flex: 0 1 auto;
   min-width: 0;
+  max-width: min(560px, 50%);
+  height: var(--shell-pill-height);
+  padding: 0 var(--space-5);
   overflow: hidden;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
+  border-radius: var(--radius-full);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--shell-pill-height);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-/* 手机宽度：铺满宽度，不留圆角 */
+.player-modal__window {
+  display: flex;
+  align-items: center;
+  gap: var(--space-0_5);
+  height: var(--shell-pill-height);
+  margin-left: auto;
+  padding: 0 var(--space-1_5);
+  border-radius: var(--radius-full);
+}
+
+.player-modal__window :deep(.yb-icon-button) {
+  --ib-size: 36px;
+  border-radius: var(--radius-full);
+  color: var(--media-text);
+}
+
+.player-modal__window :deep(.yb-icon-button:hover:not(:disabled)) {
+  background: var(--media-hover);
+  color: var(--media-text);
+}
+
+/* 手机宽度：顶栏贴边更紧 */
 @media (max-width: 768px) {
-  .player-modal {
-    padding: 0;
-  }
-  .player-modal__card {
-    width: 100%;
-    border-radius: 0;
+  .player-modal__bar {
+    gap: var(--space-2);
+    padding: var(--safe-top, 0) var(--space-3) 0;
   }
 }
 

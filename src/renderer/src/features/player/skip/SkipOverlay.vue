@@ -148,19 +148,19 @@ const host = computed<HTMLElement | null>(
   pointer-events: auto;
 }
 
-/* 视频上的玻璃材质：深色半透明 + 背景模糊，两套主题一致 */
+/* 视频上的玻璃材质：画面玻璃令牌（--glass-media-*），两套主题一致 */
 .skip-glass,
 .skip-intro.ui-button.is-secondary {
   color: var(--media-text);
-  background: var(--media-glass);
-  border: 1px solid var(--media-glass-border);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(var(--blur-media));
-  -webkit-backdrop-filter: blur(var(--blur-media));
+  background: var(--glass-media-bg);
+  border: 0;
+  box-shadow: var(--glass-media-shadow);
+  backdrop-filter: var(--glass-filter);
+  -webkit-backdrop-filter: var(--glass-filter);
 }
 
 .skip-intro.ui-button:hover:not(:disabled) {
-  background: var(--media-hover);
+  background: var(--glass-media-bg-hover);
 }
 
 .skip-next {

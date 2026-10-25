@@ -28,6 +28,8 @@
 .unified-player-video-area :deep(.unified-player-core) {
   position: absolute;
   inset: 0;
+  /* 控制栏按播放区宽度换样式（art-skin.css 的 @container yb-player） */
+  container: yb-player / inline-size;
 }
 
 .unified-player-video-area :deep(.artplayer-app),
