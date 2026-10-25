@@ -46,45 +46,40 @@
       <AutograbPanel :focus-key="autograbFocus" />
     </AutograbTabs>
 
-    <section
-      v-if="cal.mode.value === 'week'"
-      class="cal-week"
-      aria-label="周视图"
-    >
-      <div
-        v-for="day in weekBuckets"
-        :key="day.date"
-        class="cal-day"
-        :class="{ 'is-today': day.isToday }"
-        :aria-current="day.isToday ? 'date' : undefined"
-      >
-        <h3 class="cal-day-label">{{ dayLabel(day.date, cal.today.value) }}</h3>
-        <ul v-if="day.items.length" class="cal-day-list">
-          <li v-for="entry in day.items" :key="entry.id">
-            <CalendarCard
-              :entry="entry"
-              compact
-              :mark="markOf(entry)"
-              @activate="activate"
-              @mark="openAutograb"
-            />
-          </li>
-        </ul>
-        <span v-else class="cal-day-empty">无更新</span>
-      </div>
-    </section>
-    <StatusState
-      v-if="
-        cal.mode.value === 'week' &&
-        !cal.entries.value.length &&
-        !cal.loading.value &&
-        !cal.error.value
-      "
-      icon="calendar"
-      title="还没有在追的剧"
-      hint="剧集库里已识别的剧和继续播放里的在线剧会按播出日期排在这里"
-    />
-
+    <template v-if="cal.mode.value === 'week'">
+      <!-- 整周无剧时只出一个整体空状态，不再叠 7 个「无更新」空列 -->
+      <StatusState
+        v-if="weekEmpty"
+        icon="calendar"
+        title="还没有在追的剧"
+        hint="剧集库里已识别的剧和继续播放里的在线剧会按播出日期排在这里"
+      />
+      <section v-else class="cal-week" aria-label="周视图">
+        <div
+          v-for="day in weekBuckets"
+          :key="day.date"
+          class="cal-day"
+          :class="{ 'is-today': day.isToday }"
+          :aria-current="day.isToday ? 'date' : undefined"
+        >
+          <h3 class="cal-day-label">
+            {{ dayLabel(day.date, cal.today.value) }}
+          </h3>
+          <ul v-if="day.items.length" class="cal-day-list">
+            <li v-for="entry in day.items" :key="entry.id">
+              <CalendarCard
+                :entry="entry"
+                compact
+                :mark="markOf(entry)"
+                @activate="activate"
+                @mark="openAutograb"
+              />
+            </li>
+          </ul>
+          <span v-else class="cal-day-empty">无更新</span>
+        </div>
+      </section>
+    </template>
     <section v-else class="cal-list" aria-label="列表视图">
       <div
         v-for="group in groups"
@@ -105,7 +100,7 @@
         </ul>
       </div>
       <StatusState
-        v-if="!groups.length && !cal.loading.value"
+        v-if="!groups.length && !cal.loading.value && !cal.error.value"
         icon="calendar"
         title="这一周没有剧集更新"
         hint="剧集库里已识别的剧和继续播放里的在线剧会出现在这里"
@@ -220,6 +215,10 @@ const groups = computed(() =>
 )
 const undated = computed(() =>
   cal.entries.value.filter(entry => entry.airDate === null)
+)
+/** 周视图整体为空：这一周没有任何条目，且不在加载中、也没有出错（出错由顶部说明提示） */
+const weekEmpty = computed(
+  () => !cal.entries.value.length && !cal.loading.value && !cal.error.value
 )
 
 /** 顶部一行说明：没配 TMDB 令牌、部分剧获取失败、请求出错 */

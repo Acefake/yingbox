@@ -116,6 +116,20 @@ describe('createHttpLibraryBridge', () => {
     const fallback = await spa.bridge.listLibraries().catch(e => e)
     expect(libraryErrorCode(fallback)).toBe('engine-unavailable')
     expect(fallback.message).not.toContain('<')
+    expect(fallback.message).toContain(
+      '片库服务返回的不是 JSON（HTTP 200），可能没有部署片库服务'
+    )
+    expect(fallback.message).not.toContain('出错')
+  })
+
+  it('JSON 合法但不是 InvokeResult 时，按「不是 JSON」报引擎不可用', async () => {
+    for (const body of ['{}', '{"ok":false}', '[]', '"ok"']) {
+      const { bridge } = harness(() => new Response(body, { status: 200 }))
+      const error = await bridge.listLibraries().catch(e => e)
+      expect(libraryErrorCode(error)).toBe('engine-unavailable')
+      expect(error.message).toContain('片库服务返回的不是 JSON（HTTP 200）')
+      expect(error.message).not.toContain('undefined')
+    }
   })
 
   it('多个订阅方共用一条 SSE，最后一个退订时关闭', () => {
