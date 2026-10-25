@@ -63,7 +63,7 @@ export function parsePanSouResponse(json: unknown): NetdiskItem[] {
 
 /**
  * 包一层 fetch：重定向手动跟随，只允许同一主机（http → https 升级也算），最多 3 跳；
- * 307 / 308 保留方法与请求体，其余改成 GET。跨主机时抛错。
+ * 307 / 308 保留方法与请求体，其余一律用 GET 且不带请求体。跨主机时抛错。
  */
 export function sameHostFetch(fetch: FetchLike): FetchLike {
   return async (url, init = {}) => {
