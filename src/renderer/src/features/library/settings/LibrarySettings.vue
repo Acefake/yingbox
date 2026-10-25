@@ -61,6 +61,8 @@
 
     <LibraryNotifyGroup v-if="notifyAvailable && libraries.length" />
 
+    <ProgressSyncGroup v-if="progressSyncAvailable" />
+
     <WebDavGroup v-if="webdavAvailable" :section="section" />
 
     <!-- 元数据源 -->
@@ -165,6 +167,7 @@ import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
 import LibraryNotifyGroup from './LibraryNotifyGroup.vue'
+import ProgressSyncGroup from './ProgressSyncGroup.vue'
 import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import WebDavGroup from '../webdav/WebDavGroup.vue'
 import { webdavApi } from '../webdav/webdav-api'
@@ -178,6 +181,9 @@ const bridge = libraryBridge()
 /** 网盘变更通知端点在桌面端主进程里，网页端的片库服务没有。 */
 const notifyAvailable =
   Boolean(window.api?.libraryNotify) && !usesLibraryServer()
+/** 观看进度同步由桌面端主进程连片库服务；网页端本来就直接读写服务端。 */
+const progressSyncAvailable =
+  Boolean(window.api?.progressSync) && !usesLibraryServer()
 /** WebDAV / Alist 源在桌面端主进程里，网页端没有。 */
 const webdavAvailable = Boolean(webdavApi())
 // 分区在面板生命周期内不变

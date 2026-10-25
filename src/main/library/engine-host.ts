@@ -18,6 +18,10 @@ import {
   isLibraryMethod,
 } from '../../shared/library/ipc'
 import {
+  LIBRARY_ARRIVALS,
+  type LibraryArrival,
+} from '../../shared/library/arrivals'
+import {
   UtilityCallError,
   type UtilityChild,
   UtilityHost,
@@ -43,6 +47,8 @@ export interface LibraryHostDeps {
   fork(): LibraryChild
   createChannel(): LibraryEventChannel
   onImagesCached?(keys: string[]): void
+  /** 一批新入库（引擎的 intake 宣布，见 shared/library/arrivals.ts） */
+  onArrivals?(arrivals: LibraryArrival[]): void
   /** 引擎初始化完成（数据库已打开）；elapsedMs 为 fork → ready 的耗时 */
   onReady?(elapsedMs: number): void
   /** 崩溃守卫停止重启（缺依赖 / 连续秒退）时，带原因调用一次 */
@@ -81,6 +87,8 @@ export class LibraryEngineHost {
       onEvent: (channel, payload) => {
         if (channel === LIBRARY_IMAGES_CACHED)
           deps.onImagesCached?.(payload as string[])
+        else if (channel === LIBRARY_ARRIVALS)
+          deps.onArrivals?.(payload as LibraryArrival[])
       },
     })
   }

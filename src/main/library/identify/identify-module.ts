@@ -39,6 +39,7 @@ import type { Clock } from '../providers/http/rate-limiter'
 import { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
 import { SETTING_KEYS, SettingsStore } from '../providers/settings-store'
 import { TmdbProvider } from '../providers/tmdb/tmdb-provider'
+import { createGenreFill } from './genre-fill'
 import { type IdentifyResult, runIdentifyJob } from './identify-job'
 import { TOKEN_SETTING_KEYS, readJavCredentials } from './provider-credentials'
 import {
@@ -185,6 +186,14 @@ export class IdentifyModule {
       ai: aiScraper(options.ai, this.cache, this.log),
       log: this.log,
     })
+    const genreFill =
+      options.fetch &&
+      createGenreFill({
+        db,
+        fetch: fetchImpl,
+        cache: this.cache,
+        log: this.log,
+      })
     options.queue.register(
       'identify',
       (p, ctx) =>
@@ -196,6 +205,7 @@ export class IdentifyModule {
             emit: options.emit,
             emitChanges: changes => this.emitChanges(changes),
             concurrency: options.concurrency,
+            genreFill,
           },
           p as IdentifyPayload,
           ctx
@@ -221,9 +231,10 @@ export class IdentifyModule {
     return this.provider.configured
   }
 
-  /** 扫描后自动识别新增 / 变化条目的后继（TMDB 库没有令牌时没有；番号库不需要令牌）。 */
+  /** 扫描后自动识别的后继；TMDB 库没有令牌时只在库里有 NFO 时排（只做本地补全）。 */
   autoFollowup(libraryId: number): FollowupSpec | null {
-    if (!this.configured && this.store.needsTmdb({ libraryId })) return null
+    if (!this.configured && this.store.needsTmdb({ libraryId }))
+      if (!this.store.hasNfo(libraryId)) return null
     return identifyJobSpec({ mode: 'identify', libraryId }, PRIORITY.auto)
   }
 
@@ -245,14 +256,9 @@ export class IdentifyModule {
   /** 识别条目（排队）。 */
   identify(request: IdentifyRequest): JobAccepted {
     this.requireToken(request)
-    return this.enqueue(
-      {
-        mode: request.force ? 'force' : 'identify',
-        libraryId: request.libraryId,
-        itemIds: request.itemIds,
-      },
-      PRIORITY.user
-    )
+    const { libraryId, itemIds } = request
+    const mode = request.force ? 'force' : 'identify'
+    return this.enqueue({ mode, libraryId, itemIds }, PRIORITY.user)
   }
 
   /** 用 AI 识别待确认 / 未匹配的条目（排队）；没有配置 AI 时报错。 */
@@ -266,14 +272,8 @@ export class IdentifyModule {
   /** 刷新元数据（排队）。 */
   refreshMetadata(request: RefreshMetadataRequest): JobAccepted {
     this.requireToken(request)
-    return this.enqueue(
-      {
-        mode: 'refresh',
-        libraryId: request.libraryId,
-        itemIds: request.itemIds,
-      },
-      PRIORITY.user
-    )
+    const { libraryId, itemIds } = request
+    return this.enqueue({ mode: 'refresh', libraryId, itemIds }, PRIORITY.user)
   }
 
   /** 条目当前匹配与保存的候选。 */

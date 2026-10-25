@@ -619,8 +619,9 @@ describe('播放弹窗', () => {
     const t = await mountApp()
     await settings.setSetting('player.engine', 'mpv')
     const open = vi.fn(async () => ({ success: true }))
+    const onStatus = vi.fn(() => () => {})
     ;(window as unknown as { api: unknown }).api = {
-      mpv: { open, setVsr: async () => {} },
+      mpv: { open, setVsr: async () => {}, onStatus },
     }
     try {
       expect(await player.openMediaPlayer({ url: SRC, title: '片名' })).toBe(
@@ -628,6 +629,8 @@ describe('播放弹窗', () => {
       )
       await settle()
       expect(open).toHaveBeenCalledTimes(1)
+      // 交给 mpv 后跟着它推来的状态记进度、连播下一集
+      expect(onStatus).toHaveBeenCalledTimes(1)
       expect(await hiddenSoon()).toBe(true)
       expect(fakes.arts).toHaveLength(0)
     } finally {

@@ -13,6 +13,10 @@ let server = false
 vi.mock('../src/renderer/src/features/player', () => ({ openMediaPlayer }))
 vi.mock('../src/renderer/src/features/library/api/bridge', () => ({
   usesLibraryServer: () => server,
+  libraryBridge: () => null,
+}))
+vi.mock('../src/renderer/src/features/autograb', () => ({
+  autograbAvailable: false,
 }))
 vi.mock('../src/renderer/src/services/library-server', () => ({
   serverFileUrl: (id: number) => `https://nas.local/media/files/${id}`,
@@ -40,6 +44,10 @@ const request: PlayRequest = {
     { filePath: '/m/e2.mkv', name: 'S01E02' },
   ],
   fileIds: [11, 12],
+  refs: [
+    { itemId: 71, fileId: 11 },
+    { itemId: 72, fileId: 12 },
+  ],
   index: 1,
   item: {
     id: 7,
@@ -48,7 +56,9 @@ const request: PlayRequest = {
     title: '剧',
     backdrop: 'b.jpg',
     poster: 'p.jpg',
-  } as PlayRequest['item'],
+    files: [],
+    children: [],
+  } as unknown as PlayRequest['item'],
 }
 
 beforeEach(() => openMediaPlayer.mockClear())
@@ -63,10 +73,14 @@ describe('媒体库播放入口', () => {
       filePath: '/m/e2.mkv',
       title: '剧 S01E02',
       poster: 'p.jpg',
-      playlist: request.playlist,
+      // 每一项带媒体库标记：进度只记进片库
+      playlist: [
+        { filePath: '/m/e1.mkv', name: 'S01E01', library: request.refs[0] },
+        { filePath: '/m/e2.mkv', name: 'S01E02', library: request.refs[1] },
+      ],
       index: 1,
       continueAs,
-      // 媒体库条目不是动画类型：Anime4K「只对动画启用」时不开
+      // 媒体库条目不是动画类型：影盒超分「只对动画启用」时不开
       anime: false,
     })
   })
@@ -81,12 +95,20 @@ describe('媒体库播放入口', () => {
       title: '剧 S01E02',
       poster: undefined,
       playlist: [
-        { url: 'https://nas.local/media/files/11', name: 'S01E01' },
-        { url: 'https://nas.local/media/files/12', name: 'S01E02' },
+        {
+          url: 'https://nas.local/media/files/11',
+          name: 'S01E01',
+          library: request.refs[0],
+        },
+        {
+          url: 'https://nas.local/media/files/12',
+          name: 'S01E02',
+          library: request.refs[1],
+        },
       ],
       index: 1,
       continueAs,
-      // 媒体库条目不是动画类型：Anime4K「只对动画启用」时不开
+      // 媒体库条目不是动画类型：影盒超分「只对动画启用」时不开
       anime: false,
     })
   })

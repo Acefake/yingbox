@@ -6,6 +6,7 @@
     :class="[
       `is-${variant}`,
       `is-${size}`,
+      { 'yb-glass is-media': variant === 'overlay' },
       { 'is-active': active, 'is-danger': danger, 'is-loading': loading },
     ]"
     :aria-label="label"
@@ -30,7 +31,7 @@
  * variant：
  * - plain：透明底，工具栏默认
  * - secondary：浅填充底，和文字按钮并排时用
- * - overlay：半透明深色圆底，叠在海报和图片上
+ * - overlay：深色玻璃圆钮（.yb-glass is-media），叠在海报和图片上
  *
  * loading：图标转圈 + aria-busy / aria-disabled，保持可聚焦（不加 disabled），点击被拦下（见 feedback.ts）。
  */
@@ -83,20 +84,19 @@ withDefaults(
   background: var(--bg-glass);
   color: var(--text-primary);
 }
+/* 底色和字色在这里显式写（双类压过基类的透明底），不靠和 .yb-glass 的加载顺序；模糊、阴影仍来自 .yb-glass */
 .yb-icon-button.is-overlay {
   border-radius: var(--radius-full);
-  background: rgba(0, 0, 0, 0.48);
-  color: #fff;
-  backdrop-filter: blur(12px) saturate(160%);
-  -webkit-backdrop-filter: blur(12px) saturate(160%);
+  background: var(--glass-media-bg);
+  color: var(--media-text);
 }
 .yb-icon-button:hover:not(:disabled) {
   background: var(--bg-glass-hover);
   color: var(--text-primary);
 }
 .yb-icon-button.is-overlay:hover:not(:disabled) {
-  background: rgba(0, 0, 0, 0.64);
-  color: #fff;
+  background: var(--glass-media-bg-hover);
+  color: var(--media-text);
 }
 .yb-icon-button:active:not(:disabled, .is-loading) {
   transform: scale(0.94);

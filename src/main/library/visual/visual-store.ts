@@ -1,5 +1,6 @@
 /**
- * 按画面搜的向量仓库（visual_vectors / visual_items，见 db/schema-visual.ts）。
+ * 按画面搜的向量仓库（visual_vectors / visual_items，见 db/schema-visual.ts）：
+ * 封面与剧照的向量在这里写；视频帧的向量由 frames/frame-store.ts 写，检索时一起读出。
  */
 import type { ItemMetadata, LibrarySource } from '../../../shared/library/ipc'
 import { type LibraryDb, StatementCache, transaction } from '../db/database'
@@ -23,6 +24,10 @@ export interface VisualCandidate {
 export interface VisualMatrix {
   itemIds: Int32Array
   images: string[]
+  /** 视频帧所在的文件；封面 / 剧照为 0。 */
+  fileIds: Int32Array
+  /** 视频帧的时间点（毫秒）；封面 / 剧照为 0。 */
+  atMs: Int32Array
   vectors: Int8Array
   /** 每行的量化缩放系数。 */
   scales: Float32Array
@@ -108,11 +113,11 @@ export class VisualStore {
     return new Map(rows.map(r => [Number(r.id), String(r.title)]))
   }
 
-  /** 范围内（来源、可选媒体库）的条目 id。 */
+  /** 范围内（来源、可选媒体库）有向量的条目 id（封面 / 剧照或视频帧）。 */
   scope(source: LibrarySource, libraryId?: number): Set<number> {
     const rows = this.sql
       .get(
-        `SELECT v.item_id AS id FROM visual_items v
+        `SELECT DISTINCT v.item_id AS id FROM visual_vectors v
          JOIN media_items i ON i.id = v.item_id
          JOIN libraries l ON l.id = i.library_id
          WHERE l.source = ? AND (? IS NULL OR i.library_id = ?)`
@@ -121,7 +126,7 @@ export class VisualStore {
     return new Set(rows.map(r => Number(r.id)))
   }
 
-  /** 写入一个条目的向量（整体替换）。 */
+  /** 写入一个条目的封面 / 剧照向量（整体替换；视频帧不动）。 */
   save(
     itemId: number,
     model: string,
@@ -130,7 +135,11 @@ export class VisualStore {
     now = Date.now()
   ): void {
     transaction(this.db, () => {
-      this.sql.get('DELETE FROM visual_vectors WHERE item_id = ?').run(itemId)
+      this.sql
+        .get(
+          "DELETE FROM visual_vectors WHERE item_id = ? AND source = 'image'"
+        )
+        .run(itemId)
       const insert = this.sql.get(
         'INSERT INTO visual_vectors (item_id, image, vec) VALUES (?, ?, ?)'
       )
@@ -147,24 +156,34 @@ export class VisualStore {
     })
   }
 
-  /** 读出全部向量。 */
+  /** 读出当前模型的全部向量：封面 / 剧照按 visual_items 的模型，视频帧按 visual_frames 的模型。 */
   matrix(model: string): VisualMatrix {
     const rows = this.sql
       .get(
-        `SELECT v.item_id, v.image, v.vec FROM visual_vectors v
+        `SELECT v.item_id, v.image, v.vec, 0 AS file_id, 0 AS at_ms
+         FROM visual_vectors v
          JOIN visual_items s ON s.item_id = v.item_id
-         WHERE s.model = ?`
+         WHERE v.source = 'image' AND s.model = ?
+         UNION ALL
+         SELECT v.item_id, v.image, v.vec, v.file_id, v.at_ms
+         FROM visual_vectors v
+         JOIN visual_frames f ON f.file_id = v.file_id
+         WHERE v.source = 'frame' AND f.model = ?`
       )
-      .all(model)
+      .all(model, model)
     const itemIds = new Int32Array(rows.length)
+    const fileIds = new Int32Array(rows.length)
+    const atMs = new Int32Array(rows.length)
     const images: string[] = []
     const vectors = new Int8Array(rows.length * CLIP_DIM)
     const scales = new Float32Array(rows.length)
     rows.forEach((row, i) => {
       itemIds[i] = Number(row.item_id)
+      fileIds[i] = Number(row.file_id)
+      atMs[i] = Number(row.at_ms)
       images.push(String(row.image))
       scales[i] = unpackVector(row.vec as Uint8Array, vectors, i)
     })
-    return { itemIds, images, vectors, scales }
+    return { itemIds, images, fileIds, atMs, vectors, scales }
   }
 }
