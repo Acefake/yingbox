@@ -23,7 +23,7 @@
           :variant="showAutograb ? 'primary' : 'secondary'"
           icon="download"
           label="追更"
-          @click="showAutograb = !showAutograb"
+          @click="toggleAutograb"
         />
         <UiIconButton
           icon="refresh"
@@ -42,7 +42,10 @@
 
     <p v-if="notice" class="cal-notice">{{ notice }}</p>
 
-    <AutograbPanel v-if="autograbAvailable && showAutograb" />
+    <AutograbPanel
+      v-if="autograbAvailable && showAutograb"
+      :focus-key="autograbFocus"
+    />
 
     <section
       v-if="cal.mode.value === 'week'"
@@ -59,7 +62,13 @@
         <h3 class="cal-day-label">{{ dayLabel(day.date, cal.today.value) }}</h3>
         <ul v-if="day.items.length" class="cal-day-list">
           <li v-for="entry in day.items" :key="entry.id">
-            <CalendarCard :entry="entry" compact @activate="activate" />
+            <CalendarCard
+              :entry="entry"
+              compact
+              :mark="markOf(entry)"
+              @activate="activate"
+              @mark="openAutograb"
+            />
           </li>
         </ul>
         <span v-else class="cal-day-empty">无更新</span>
@@ -76,7 +85,12 @@
         <h3 class="cal-group-label">{{ group.label }}</h3>
         <ul class="cal-grid">
           <li v-for="entry in group.items" :key="entry.id">
-            <CalendarCard :entry="entry" @activate="activate" />
+            <CalendarCard
+              :entry="entry"
+              :mark="markOf(entry)"
+              @activate="activate"
+              @mark="openAutograb"
+            />
           </li>
         </ul>
       </div>
@@ -96,7 +110,12 @@
       <h3 class="cal-group-label">在线追剧 · 更新日期未知</h3>
       <ul class="cal-grid">
         <li v-for="entry in undated" :key="entry.id">
-          <CalendarCard :entry="entry" @activate="activate" />
+          <CalendarCard
+            :entry="entry"
+            :mark="markOf(entry)"
+            @activate="activate"
+            @mark="openAutograb"
+          />
         </li>
       </ul>
     </section>
@@ -107,6 +126,7 @@
 /**
  * 追剧日历页（/calendar）：周视图（周一到周日，可前后翻周，今天高亮）与列表视图。
  * 数据见 use-calendar.ts；点卡片：媒体库里有本地文件就播放这一集，否则打开剧的详情；在线剧打开在线详情。
+ * 追更中的集卡片上有追更小标记，点它展开追更面板并定位到那一集。
  */
 import { computed, nextTick, onActivated, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
@@ -121,7 +141,13 @@ import {
   UiSegmented,
   toast,
 } from '@/components/ui'
-import { AutograbPanel, autograbAvailable } from '@/features/autograb'
+import {
+  type AutograbMark,
+  AutograbPanel,
+  autograbAvailable,
+  markKey,
+  useAutograbMarks,
+} from '@/features/autograb'
 import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
@@ -139,6 +165,28 @@ const router = useRouter()
 const cal = useCalendar()
 /** 追更面板展开 */
 const showAutograb = ref(false)
+/** 追更面板里要定位的一集 */
+const autograbFocus = ref<string | null>(null)
+const marks = useAutograbMarks()
+
+/** 媒体库条目的追更小标记 */
+function markOf(entry: CalendarEntry): AutograbMark | null {
+  const lib = entry.library
+  if (!lib) return null
+  return marks.value.get(markKey(lib.seriesId, lib.season, lib.episode)) ?? null
+}
+
+/** 顶部「追更」按钮：开关面板（不定位） */
+function toggleAutograb(): void {
+  autograbFocus.value = null
+  showAutograb.value = !showAutograb.value
+}
+
+/** 点小标记：展开追更面板并定位到这一集 */
+function openAutograb(key: string): void {
+  autograbFocus.value = key
+  showAutograb.value = true
+}
 
 const weekTitle = computed(() => weekLabel(cal.start.value, cal.today.value))
 const weekBuckets = computed(() =>
