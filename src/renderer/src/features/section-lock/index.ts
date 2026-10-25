@@ -19,7 +19,6 @@ export function sectionLockSettingsSection(
     id: 'section-lock',
     title: '板块锁',
     icon: 'lock',
-    tint: 'gray',
     keywords: '密码 锁定 隐私 touch id 解锁 板块',
     load: () => import('./SectionLockSettings.vue'),
     props: { routes },

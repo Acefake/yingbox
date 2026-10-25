@@ -10,7 +10,6 @@ export const ladaSettingsSection: SettingsSection = {
   id: 'lada',
   title: '去马赛克',
   icon: 'wand',
-  tint: 'gray',
   keywords: 'lada 去码 马赛克 无码 mpv 路径',
   load: () => import('./components/LadaSettings.vue'),
   adultOnly: true,

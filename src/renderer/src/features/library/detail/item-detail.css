@@ -1,4 +1,4 @@
-/* 条目详情（ItemDetail）的外框与浮动控件：铺满窗口的滚动层、顶部渐隐带、返回 / 更多玻璃圆钮。 */
+/* 条目详情（ItemDetail）的外框与浮动控件：铺满窗口的滚动层、顶部渐隐带、返回玻璃圆钮。 */
 /* 铺满整个窗口（侧栏与外壳胶囊浮在上面），左边距随侧栏宽度 */
 .lib-detail {
   --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
@@ -46,7 +46,7 @@
   pointer-events: none;
 }
 
-/* 玻璃圆钮（返回 / 更多）：44px，与外壳胶囊同高同一条线 */
+/* 玻璃返回圆钮：44px，与外壳胶囊同高同一条线；不可拖（Electron 拖拽区里的点击到不了页面） */
 .lib-detail :deep(.lib-float-button) {
   --ib-size: var(--shell-pill-height);
   border-radius: var(--radius-full);
@@ -55,16 +55,7 @@
   position: absolute;
   top: var(--shell-pill-top);
   left: var(--detail-x);
-}
-.lib-detail-more {
-  position: absolute;
-  top: var(--shell-pill-top);
-  right: var(--shell-pill-right);
-}
-.lib-detail-more.beside-window {
-  right: calc(
-    var(--shell-pill-right) + var(--shell-win-width) + var(--space-3)
-  );
+  -webkit-app-region: no-drag;
 }
 
 @media (max-width: 720px) {
@@ -72,8 +63,7 @@
     --detail-x: var(--space-4);
     --detail-gutter: var(--space-4);
   }
-  .lib-detail-back,
-  .lib-detail-more {
+  .lib-detail-back {
     top: calc(var(--safe-top) + var(--space-2));
   }
 }

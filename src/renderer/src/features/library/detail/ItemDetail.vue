@@ -28,7 +28,22 @@
           :restore-running="restore.running.value"
           @play="playPrimary"
           @restore="restore.start"
-        />
+        >
+          <template #tools>
+            <DetailActions
+              :node="node"
+              :jav="jav"
+              :matched="matched"
+              :busy="busy"
+              :writer-available="writerAvailable"
+              @fix-match="emit('fix-match', $event)"
+              @toggle-lock="toggleLock"
+              @refresh="refreshMetadata"
+              @write="writeOut"
+              @organize="emit('organize', $event)"
+            />
+          </template>
+        </DetailHero>
         <DetailSeasons
           v-if="seasons.length"
           data-tab="episodes"
@@ -62,7 +77,7 @@
       </template>
     </div>
 
-    <!-- 浮动控件：顶部渐隐带、返回圆钮、右上角「更多」（排在外壳窗口键胶囊左边）、底部分区胶囊 -->
+    <!-- 浮动控件：顶部渐隐带、返回圆钮、底部分区胶囊 -->
     <div class="lib-detail-edge" aria-hidden="true" />
     <UiIconButton
       class="lib-float-button lib-detail-back"
@@ -70,21 +85,6 @@
       variant="overlay"
       label="返回"
       @click="emit('close')"
-    />
-    <DetailActions
-      v-if="node"
-      class="lib-detail-more"
-      :class="{ 'beside-window': isElectron }"
-      :node="node"
-      :jav="jav"
-      :matched="matched"
-      :busy="busy"
-      :writer-available="writerAvailable"
-      @fix-match="emit('fix-match', $event)"
-      @toggle-lock="toggleLock"
-      @refresh="refreshMetadata"
-      @write="writeOut"
-      @organize="emit('organize', $event)"
     />
     <DetailTabs
       v-if="node && tabs.length > 2"
@@ -100,7 +100,8 @@
  * 条目详情（Apple TV 式，效果图 D-1 / D-2 / D-3）：铺满整个窗口（侧栏浮在上面），纯黑底。
  * 头图（大背景 + 渐进模糊、标志、播放 / 想看、简介、规格行与主演导演），剧集卡横排（按季切换），
  * 剧照横排（点开灯箱），圆头像演职员，版本，关于（信息卡 + 文件卡）。
- * 浮动控件：左上玻璃返回圆钮（外壳的前进 / 后退胶囊此时让位，use-shell-chrome），右上「更多」管理操作，
+ * 浮动控件：左上玻璃返回圆钮（外壳的前进 / 后退胶囊此时让位，并在窗口拖拽条上让出不可拖的一块，use-shell-chrome），
+ * 管理操作在头图操作行下面（DetailActions），
  * 底部玻璃胶囊做页内分区导航（滚动时跟随当前分区，点了滚过去）。
  * 播放接 openMediaPlayer（播放弹窗 / mpv），去码接 features/lada（use-restore）。
  *
@@ -116,7 +117,6 @@ import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import { usePlatform } from '@/composables/use-platform'
 import { useOwnBackButton } from '@/composables/use-shell-chrome'
 
 import { errorText, libraryBridge } from '../api/bridge'
@@ -173,7 +173,6 @@ const emit = defineEmits<{
 }>()
 
 const bridge = libraryBridge()
-const { isElectron } = usePlatform()
 useOwnBackButton()
 const { available: writerAvailable, write } = useWriter()
 const root = ref<HTMLElement | null>(null)

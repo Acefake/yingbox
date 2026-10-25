@@ -68,11 +68,8 @@
   --danger: #ff453a;
   --rating: #ffd60a;
   --favorite: #ff375f;
-  /* 角标点缀色（例如数据源类型、设置导航的彩色图标块），只用于小面积标签 */
+  /* 角标点缀色（例如数据源类型），只用于小面积标签 */
   --tint-purple: #bf5af2;
-  --tint-indigo: #5e5ce6;
-  --tint-teal: #30b0c7;
-  --tint-gray: #8e8e93;
 
   /*
    * ── 媒体与遮罩 ──
@@ -396,9 +393,6 @@
   --rating: #f5a700;
   --favorite: #ff2d55;
   --tint-purple: #af52de;
-  --tint-indigo: #5856d6;
-  --tint-teal: #30b0c7;
-  --tint-gray: #8e8e93;
 
   /* 媒体画布在浅色主题下仍是深色，取值与深色主题一致 */
   --media-bg: #000000;
