@@ -159,13 +159,8 @@ import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
 import { dayLabel, dayParts, groupByWeek, weekLabel } from '../calendar-dates'
-import {
-  type CalendarEntry,
-  type ShowDayGroup,
-  groupShowsByDay,
-  listGroups,
-  weekSummary,
-} from '../calendar-rules'
+import { type CalendarEntry, listGroups, weekSummary } from '../calendar-rules'
+import { type ShowDayGroup, groupShowsByDay } from '../calendar-rows'
 import CalendarRow from '../components/CalendarRow.vue'
 import { type CalendarMode, useCalendar } from '../use-calendar'
 

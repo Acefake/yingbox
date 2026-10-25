@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 /**
- * 追剧日历的一行：同一天同一部剧的几集合并成一行（calendar-rules.ts groupShowsByDay），
+ * 追剧日历的一行：同一天同一部剧的几集合并成一行（calendar-rows.ts groupShowsByDay），
  * 左边小剧照（剧照优先，没有用剧的背景图 / 在线封面），右边剧名与集号区间（S01E09–E10）；
  * 有未看的集在剧照左下角放一个小「新」标，已看 / 待播的行整体淡一档（状态字只给读屏）。
  * 点行交给页面（本地有文件就播放第一集未看的，否则打开详情）；本地能播时剧照上悬停出播放图标。
@@ -65,11 +65,8 @@ import { type AutograbMark, AutograbMarkChip } from '@/features/autograb'
 import { libraryImage } from '@/features/library'
 import { thumbSrc } from '@/services/thumbnails'
 
-import {
-  type CalendarEntry,
-  STATUS_LABEL,
-  type ShowDayGroup,
-} from '../calendar-rules'
+import { type CalendarEntry, STATUS_LABEL } from '../calendar-rules'
+import type { ShowDayGroup } from '../calendar-rows'
 
 const props = defineProps<{
   group: ShowDayGroup
