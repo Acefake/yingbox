@@ -12,6 +12,8 @@ import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
 import { CALENDAR_METHODS } from './contract-calendar'
+import type { LibraryProgressBridge, ProgressRpcMap } from './contract-progress'
+import { PROGRESS_METHODS } from './contract-progress'
 import type { LibraryEvent } from './contract-events'
 import type { LibraryQueryFilters } from './contract-filters'
 import type {
@@ -51,6 +53,7 @@ import type {
 
 export * from './contract-actors'
 export * from './contract-calendar'
+export * from './contract-progress'
 export * from './contract-events'
 export * from './contract-http'
 export * from './contract-facets'
@@ -259,6 +262,7 @@ export interface LibraryRpcMap
   extends
     ActorRpcMap,
     CalendarRpcMap,
+    ProgressRpcMap,
     FacetRpcMap,
     VisualRpcMap,
     LibraryNotifyRpcMap {
@@ -333,6 +337,7 @@ export const LIBRARY_METHODS = [
   ...FACET_METHODS,
   ...VISUAL_METHODS,
   ...CALENDAR_METHODS,
+  ...PROGRESS_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -340,7 +345,11 @@ export const LIBRARY_METHODS = [
  * 方法失败时 reject 一个 Error，错误码用 libraryErrorCode(error) 取（见 wire.ts）。
  */
 export interface LibraryBridge
-  extends LibraryFacetsBridge, LibraryVisualBridge, LibraryCalendarBridge {
+  extends
+    LibraryFacetsBridge,
+    LibraryVisualBridge,
+    LibraryCalendarBridge,
+    LibraryProgressBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>

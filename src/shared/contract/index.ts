@@ -27,6 +27,7 @@ import { notifications } from './notifications'
 import { nowPlaying } from './now-playing'
 import { online } from './online'
 import { pan115 } from './pan115'
+import { progressSync } from './progress-sync'
 import { recap } from './recap'
 import { sectionLock } from './section-lock'
 import { settings } from './settings'
@@ -61,6 +62,7 @@ export const contract = {
   nowPlaying,
   online,
   pan115,
+  progressSync,
   recap,
   sectionLock,
   settings,

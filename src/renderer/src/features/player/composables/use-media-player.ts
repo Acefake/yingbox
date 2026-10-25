@@ -5,6 +5,9 @@ import type { VideoProbe } from '../../../../../shared/video-range'
 import { syncAnime4k } from '../anime4k/anime4k-sync'
 import type { ContinueMeta } from '../continue/continue-rules'
 import { startContinue } from '../continue/continue-store'
+import { trackMpvSession } from '../mpv-session/mpv-session'
+import type { LibraryRef } from '../progress/library-sink'
+import type { EndHint } from '../utils/play-queue'
 import { openPlayerModal } from '../modal/player-modal'
 import {
   DV_NOTICE_TEXT,
@@ -24,6 +27,8 @@ export type PlayerSourceItem = {
   siteName?: string
   /** 本地文件的动态范围（媒体库存的探测结果）：杜比视界 P5 进内置播放器时据此直接决定是否重建 */
   video?: VideoProbe | null
+  /** 媒体库条目（条目 id + 文件 id）：进度只记进片库 */
+  library?: LibraryRef
 }
 
 type MediaPlayerOpenOptions = {
@@ -41,7 +46,7 @@ type MediaPlayerOpenOptions = {
   fallbacks?: PlayerSourceItem[]
   /**
    * 记进「继续播放」：哪个板块、哪一条、打开详情用的数据。不给就不记（如临时预览、lada 任务）。
-   * mpv 只在开播时登记（进度由 mpv 自己续播）；应用内播放器会持续更新进度、看完换下一集。
+   * 应用内播放器与 mpv（mpv-session 跟着 mpv 的状态）都会持续更新进度、看完换下一集。
    */
   continueAs?: ContinueMeta
   /**
@@ -55,6 +60,8 @@ type MediaPlayerOpenOptions = {
   anime?: boolean
   /** 起始文件的动态范围（媒体库扫描时 ffprobe 探测）：杜比视界 P5 据此改走 mpv，见 utils/playback-route */
   video?: VideoProbe | null
+  /** 播完最后一集时的提示（如媒体库剧集「没有下一集的文件」+ 去追更） */
+  endHint?: EndHint
 }
 
 /**
@@ -186,6 +193,21 @@ export async function openMediaPlayer(
     rebuild: typeof window !== 'undefined' && Boolean(window.api?.dolbyVision),
   })
   if (notice === 'mpv-used') toast.info(DV_NOTICE_TEXT['mpv-used'])
+  // mpv 播放：跟着它的状态记进度、连播；改用内置播放器时不再跟
+  trackMpvSession(
+    mpv === 'ok'
+      ? {
+          continueId,
+          playlist: playlist ?? [
+            { ...(filePath ? { filePath } : {}), ...(url ? { url } : {}) },
+          ],
+          index: index ?? 0,
+          title: title ?? '',
+          endHint: options.endHint,
+          anime: options.anime,
+        }
+      : null
+  )
   if (mpv === 'ok') return true
   if (notice === 'install-mpv') {
     if (!dvInstallNotified) toast.warning(DV_NOTICE_TEXT['install-mpv'])
@@ -202,6 +224,7 @@ export async function openMediaPlayer(
     ...(typeof index === 'number' ? { index } : {}),
     ...(fallbacks ? { fallbacks } : {}),
     ...(continueId ? { continueId } : {}),
+    ...(options.endHint ? { endHint: options.endHint } : {}),
     ...(isPrivate ? { private: true } : {}),
     ...(filePath && !playlist && options.video ? { video: options.video } : {}),
   })

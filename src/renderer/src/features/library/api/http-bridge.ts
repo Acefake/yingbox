@@ -121,6 +121,12 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
       search: request => call('visual.search', request),
     },
     calendar: { episodes: request => call('calendar.episodes', request) },
+    progress: {
+      list: itemIds => call('progress.list', { itemIds }),
+      save: reports => call('progress.save', { reports }),
+      summary: itemIds => call('progress.summary', { itemIds }),
+      recent: limit => call('progress.recent', limit ? { limit } : {}),
+    },
     subscribe(listener) {
       listeners.add(listener)
       stream ??= deps.openEvents(LIBRARY_HTTP.events, data => {
