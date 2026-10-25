@@ -158,7 +158,7 @@ watch(
   position: relative;
   aspect-ratio: 2 / 3;
   overflow: hidden;
-  border-radius: var(--radius-lg);
+  border-radius: var(--radius-card);
   background: var(--bg-fill-secondary);
   box-shadow: var(--shadow-sm);
   transition:
