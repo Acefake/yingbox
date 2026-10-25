@@ -19,8 +19,8 @@
       clear-label="清空搜索"
       :placeholder="placeholder"
       @clear="clear"
-      @click="searchOpen = true"
-      @input="searchOpen = true"
+      @click="searchOpen = !isSearchCommand(text)"
+      @input="searchOpen = !isSearchCommand(text)"
     >
       <template #leading><UiIcon name="search" size="md" /></template>
     </UiInput>
@@ -45,7 +45,7 @@
  * 侧栏收起成图标列时只显示搜索图标：点它或按快捷键先展开侧栏（emit expand）再聚焦输入框。
  */
 import { computed, nextTick, onMounted, onUnmounted, ref, watch } from 'vue'
-import { useRoute } from 'vue-router'
+import { useRoute, useRouter } from 'vue-router'
 
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiInput from '@/components/ui/UiInput.vue'
@@ -53,6 +53,7 @@ import UiPressable from '@/components/ui/UiPressable.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 import { usePlatform } from '@/composables/use-platform'
 import { vEnter } from '@/directives/enter'
+import { isSearchCommand } from '@/utils/search-command'
 import { useSetting } from '@/features/settings'
 import { UnifiedSearchPanel } from '@/features/library'
 import { playerModal } from '@/features/player'
@@ -70,6 +71,7 @@ const props = defineProps<{
 const emit = defineEmits<{ expand: [] }>()
 
 const route = useRoute()
+const router = useRouter()
 const { isPhone } = usePlatform()
 const adultMode = useSetting('app.adultMode')
 
@@ -126,6 +128,10 @@ const submit = (): void => {
 
 const clear = (): void => {
   text.value = ''
+  void router.replace({
+    path: route.path,
+    query: { ...route.query, q: undefined, searchFilter: undefined },
+  })
   nextTick(() => inputRef.value?.focus())
 }
 

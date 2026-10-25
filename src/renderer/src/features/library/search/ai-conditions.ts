@@ -1,3 +1,4 @@
+import { isSearchCommand } from '@/utils/search-command'
 /** 云端增强只接收当前查询与固定字段说明；不发送片库、路径、观看记录或字幕。 */
 import {
   aiAvailable,
@@ -16,12 +17,15 @@ import {
 import { NlCache } from '../nl-search/nl-rules'
 import type { SearchScope } from './types'
 
+import { SearchSetupError } from './search-errors'
+
 const cache = new NlCache<NlFilter>()
 export async function enhanceConditions(
   text: string,
   scope: SearchScope,
   signal: AbortSignal
 ): Promise<NlFilter> {
+  if (isSearchCommand(text)) throw new Error('仅在本地处理的界面命令。')
   if (scope === 'jav') throw new Error('私密范围仅使用本地搜索。')
   const provider = getSetting('ai.provider')
   const model = getSetting('ai.model')
@@ -35,7 +39,7 @@ export async function enhanceConditions(
       keyConfigured: aiKeyConfigured(provider),
     })
   )
-    throw new Error('请先在设置中配置 AI；本地搜索仍可使用。')
+    throw new SearchSetupError('请先在设置中配置 AI；本地搜索仍可使用。')
   const key = JSON.stringify([
     scope,
     provider,

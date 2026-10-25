@@ -1,3 +1,4 @@
+import { isSearchCommand } from '@/utils/search-command'
 /** 并行召回、逐路发布；任何一路失败不阻塞其他结果，取消后不发布迟到结果。 */
 import type { LibraryQuery } from '../../../../../shared/library/ipc'
 import { continueRecords } from '@/features/player'
@@ -24,7 +25,7 @@ export async function searchLibrary(
   providers: SearchRecall[] = recalls
 ): Promise<void> {
   const text = request.text.trim().slice(0, 500)
-  if (!text || request.signal.aborted) return
+  if (!text || isSearchCommand(text) || request.signal.aborted) return
   const filter = request.filter ?? ruleFilter(text)
   const scope = request.scope
   const base = accessibleQuery(scope)

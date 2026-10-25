@@ -3,7 +3,9 @@ import { libraryBridge } from '../../api/bridge'
 import type { SearchRecall } from '../types'
 export const recallPeople: SearchRecall = async request => {
   const api = libraryBridge()
-  const name = request.text.replace(/(主演|导演|演的|拍的)/g, '').trim()
+  const name = request.text
+    .replace(/(主演|导演|演的|拍的)\s*[：:]?/g, '')
+    .replace(/^[\s：:]+|[\s：:]+$/g, '')
   if (!api || !name) return { kind: 'people', candidates: [] }
   const [page, actors] = await Promise.all([
     api.query({

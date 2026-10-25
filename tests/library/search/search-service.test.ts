@@ -77,9 +77,7 @@ describe('统一搜索并行召回', () => {
           finish = resolve
         }),
     ])
-    await Promise.resolve()
-    await Promise.resolve()
-    expect(published[0].kind).toBe('title')
+    await vi.waitFor(() => expect(published[0]?.kind).toBe('title'))
     finish({ kind: 'visual', candidates: [] })
     await pending
   })
@@ -160,4 +158,76 @@ it('锁定板块不参与全局搜索，指定锁定范围不发起查询', asyn
   await searchLibrary({ ...request(), scope: 'tv' }, publish)
   expect(query).not.toHaveBeenCalled()
   expect(publish.mock.calls[0][0].message).toContain('锁定')
+})
+
+it('全库的类型条件和编辑后的筛选先映射到 base，条件召回使用同一份查询', async () => {
+  const publish = vi.fn()
+  await searchLibrary(
+    {
+      ...request(),
+      text: '科幻电视剧',
+      filter: {
+        type: 'series',
+        yearFrom: 1990,
+        ratingMin: 8,
+        genres: ['科幻'],
+      },
+    },
+    publish
+  )
+  expect(query).toHaveBeenCalled()
+  const condition = query.mock.calls
+    .map(([params]) => params)
+    .find(params => !params.search && !params.people)
+  expect(condition).toMatchObject({
+    source: 'tmdb',
+    types: ['series'],
+    yearFrom: 1990,
+    ratingMin: 8,
+    facets: { tag: ['科幻'] },
+  })
+})
+it('人物名前缀的中英文冒号不进入人名过滤条件', async () => {
+  for (const text of ['主演：周星驰', '导演:周星驰']) {
+    query.mockClear()
+    await searchLibrary({ ...request(), text }, () => {})
+    expect(
+      query.mock.calls.some(([params]) => params.people?.includes('周星驰'))
+    ).toBe(true)
+  }
+})
+it('画面命中用一次批量查询保留各版本，而非每条回查', async () => {
+  visual.mockResolvedValue(
+    [1, 2, 1].map(itemId => ({
+      itemId,
+      title: '命中',
+      score: 0.8,
+      image: 'img',
+    }))
+  )
+  await searchLibrary({ ...request(), scope: 'jav' }, () => {})
+  const batch = query.mock.calls
+    .map(([params]) => params)
+    .filter(params => params.includeVersions)
+  expect(batch).toHaveLength(1)
+  expect(batch[0]).toMatchObject({ ids: [1, 2], limit: 2 })
+})
+it('范围在等待期间被锁定，不发布迟到候选', async () => {
+  let finish!: (batch: RecallBatch) => void
+  const publish = vi.fn()
+  const pending = searchLibrary(request(), publish, [
+    () =>
+      new Promise(resolve => {
+        finish = resolve
+      }),
+  ])
+  locked.add('/tv')
+  finish({ kind: 'title', candidates: [{ item: film, reason: '标题' }] })
+  await pending
+  expect(publish).not.toHaveBeenCalled()
+})
+it('界面口令不进入任何本地召回', async () => {
+  await searchLibrary({ ...request(), text: 'getav' }, () => {})
+  expect(query).not.toHaveBeenCalled()
+  expect(visual).not.toHaveBeenCalled()
 })
