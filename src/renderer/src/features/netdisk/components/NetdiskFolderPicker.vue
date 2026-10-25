@@ -1,16 +1,15 @@
 <template>
   <div class="netdisk-picker">
     <nav class="netdisk-picker-path" aria-label="当前位置">
-      <button
+      <UiButton
         v-for="(dir, index) in listing?.path ?? []"
         :key="dir.cid"
-        type="button"
-        class="netdisk-picker-crumb"
+        variant="plain"
+        size="sm"
+        :label="dir.name || '根目录'"
         :disabled="index === (listing?.path.length ?? 0) - 1"
         @click="open(dir.cid)"
-      >
-        {{ dir.name || '根目录' }}
-      </button>
+      />
     </nav>
     <p v-if="error" class="netdisk-picker-note" role="status">{{ error }}</p>
     <p v-else-if="loading" class="netdisk-picker-note">正在读取…</p>
@@ -93,23 +92,6 @@ onMounted(() => open('0'))
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-1);
-}
-.netdisk-picker-crumb {
-  border: 0;
-  padding: 0;
-  background: transparent;
-  color: var(--accent-text);
-  font: inherit;
-  font-size: var(--text-sm);
-  cursor: pointer;
-}
-.netdisk-picker-crumb:not(:last-child)::after {
-  content: ' /';
-  color: var(--text-tertiary);
-}
-.netdisk-picker-crumb:disabled {
-  color: var(--text-primary);
-  cursor: default;
 }
 .netdisk-picker-list {
   width: 100%;
