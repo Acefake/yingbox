@@ -1,5 +1,5 @@
 /**
- * 把 Anime4K 设置（player.anime4k*）同步给主进程。
+ * 把影盒超分设置（player.anime4k*）同步给主进程。
  * 主进程据此在 mpv 播放时按需下载并挂载着色器；开播前与设置变化时各调用一次。
  */
 import { getSetting } from '@/features/settings'

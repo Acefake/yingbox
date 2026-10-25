@@ -11,7 +11,7 @@ import type {
   LibraryVersion,
   MergeMember,
 } from '../../../../../shared/library/ipc'
-import { videoRangeBadge } from '../../../../../shared/video-range'
+import { videoRangeSpec } from '@/components/ui/spec-badge'
 import { formatBytes } from '../shared/format'
 
 /** 来源选择的键。 */
@@ -33,11 +33,18 @@ export function pickVersion(
   return versions[0]
 }
 
+/** 版本里的动态范围文字：取规格标签的同一份映射，杜比视界在一行文字里写作 DV */
+function rangeText(range: LibraryVersion['range']): string {
+  const spec = videoRangeSpec(range)
+  if (!spec) return ''
+  return spec.variant === 'dolby' ? 'DV' : spec.text
+}
+
 /** 版本规格：「2160p · DV · 23.4 GB」；分辨率读不出时省略。 */
 export function versionLabel(version: LibraryVersion): string {
   return [
     version.height ? `${version.height}p` : '',
-    videoRangeBadge(version.range),
+    rangeText(version.range),
     version.fileIds.length > 1 ? `${version.fileIds.length} 段` : '',
     formatBytes(version.size),
   ]

@@ -1,5 +1,5 @@
 /**
- * mpv 的 Anime4K 超分：按需下载官方着色器（userData/anime4k/<版本>/，SHA-256 校验），
+ * mpv 的影盒超分：按需下载着色器（userData/anime4k/<版本>/，SHA-256 校验），
  * 按设置与当前条目通过 mpv 的 glsl-shaders 属性挂载 / 清除。
  *
  * 规则（模式 → 着色器列表、是否启用）在 src/shared/anime4k.ts；这里只管下载、落盘与发 mpv 命令。
@@ -10,6 +10,7 @@ import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, rm, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
 import {
+  ANIME4K_FAILED_TEXT,
   ANIME4K_FILES,
   ANIME4K_LICENSE,
   ANIME4K_OFF,
@@ -122,7 +123,7 @@ export async function ensureAnime4kShaders(
 const PARTIAL = '\0partial'
 
 /**
- * 一个 mpv 会话里的 Anime4K 状态：设置（setConfig）与当前条目（apply）任一变化都重新计算；
+ * 一个 mpv 会话里的影盒超分状态：设置（setConfig）与当前条目（apply）任一变化都重新计算；
  * 应挂载的着色器列表没变就不重复发命令。
  *
  * 挂载串行执行（链式 Promise）：同一时间只有一个任务在发 clr / append。
@@ -205,11 +206,9 @@ export class Anime4kSync {
     } catch (error) {
       this.log(`挂载失败：${(error as Error).message}`)
       if (files.length && !stale()) {
-        void this.command(
-          'show-text',
-          'Anime4K 着色器下载失败，已按原画播放',
-          OSD_MS
-        ).catch(() => {})
+        void this.command('show-text', ANIME4K_FAILED_TEXT, OSD_MS).catch(
+          () => {}
+        )
       }
     }
   }

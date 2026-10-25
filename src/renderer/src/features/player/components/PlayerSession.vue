@@ -18,8 +18,8 @@
       @art="art = $event"
       @play="onPlay"
       @loadedmetadata="clearFailure"
-      @timeupdate="progress.onTimeUpdate"
-      @pause="progress.flush"
+      @timeupdate="progress.saver.onTimeUpdate"
+      @pause="progress.saver.flush"
       @ended="onEnded"
       @error="onError"
     />
@@ -39,7 +39,9 @@
       "
       :play-next="playNext"
       :ended="endedPrompt"
+      :end-hint="endHint"
       @cancel-ended="endedPrompt = false"
+      @close-hint="endHint = null"
     />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
@@ -86,19 +88,20 @@ import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import { useSessionShortcuts } from '../controls/use-session-shortcuts'
 import UiButton from '@/components/ui/UiButton.vue'
 import { usePlayerMediaControls } from '../composables/use-media-controls'
-import { useProgressSaver } from '../composables/use-progress-saver'
+import { useSessionProgress } from '../composables/use-session-progress'
 import { useSourceSwitch } from '../composables/use-source-switch'
 import { useTimedNotice } from '../composables/use-timed-notice'
 import { danmakuTargetFor } from '../danmaku/danmaku-target'
-import { updateContinue } from '../continue/continue-store'
 import SkipOverlay from '../skip/SkipOverlay.vue'
 import { skipKey } from '../skip/skip-rules'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { useDolbyVision } from '../dolby-vision/use-dolby-vision'
 import { usePlayerRemote } from '../remote/use-player-remote'
-import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
+import { mediaProgressKey } from '../utils/play-progress'
 import { singleFlight } from '../utils/single-flight'
+import { getSetting } from '@/features/settings'
 import {
+  type EndHint,
   type PlayerPayload,
   type PlaylistEntry,
   normalizePlayerPayload,
@@ -138,6 +141,9 @@ const defaultTitle = ref('正在播放')
 
 /** 播完、等着连播：「下一集」倒计时卡片（可取消，见 SkipOverlay） */
 const endedPrompt = ref(false)
+/** 载荷带的「播完最后一集」提示，与正在显示的那一份 */
+let queueEndHint: EndHint | null = null
+const endHint = ref<EndHint | null>(null)
 
 /** 播放失败且已无备用线路时展示的可操作错误信息 */
 const failure = ref('')
@@ -147,23 +153,14 @@ const retrying = ref(false)
 /** 「继续播放」记录 id（载荷带了才记） */
 const continueId = ref('')
 
-const progress = useProgressSaver(
-  () => progressKey.value,
-  Date.now,
-  (time, duration, ended) => {
-    // 只记主线路的位置：备用线路是同一集，下标不变
-    updateContinue(continueId.value, {
-      index: position.value,
-      episode:
-        playlist.value.length > 1
-          ? entryLabel(playlist.value[position.value])
-          : undefined,
-      progress: time,
-      duration,
-      ended,
-    })
-  }
-)
+const progress = useSessionProgress({
+  progressKey,
+  continueId,
+  playlist,
+  position,
+  current: () => currentEntry.value,
+  label: entry => entryLabel(entry),
+})
 /** 杜比视界 P5：主进程重建；做不了时按设置回退 mpv 或直接播 */
 const dolbyVision = useDolbyVision({ src, emptyText, notify: showNotice })
 /** 加载世代：丢弃过期的异步解析结果 */
@@ -210,9 +207,10 @@ const loadEntry = async (
   const token = ++loadToken
   const entry = currentEntry.value
   dolbyVision.release()
-  progress.reset()
+  progress.saver.reset()
   clearFailure()
   endedPrompt.value = false
+  endHint.value = null
 
   if (!entry) {
     src.value = ''
@@ -226,7 +224,7 @@ const loadEntry = async (
     resolved = await dolbyVision.resolve({
       filePath: entry.filePath,
       title: entryLabel(entry),
-      startAt: seededStartAt || getMediaProgress(progressKey.value),
+      startAt: progress.startAt(seededStartAt),
       known: entry.video,
       isCurrent: () => token === loadToken,
     })
@@ -251,11 +249,7 @@ const loadEntry = async (
     return
   }
 
-  const stored = getMediaProgress(progressKey.value)
-  startAt.value =
-    typeof seededStartAt === 'number' && seededStartAt > 0
-      ? seededStartAt
-      : stored
+  startAt.value = progress.startAt(seededStartAt)
   src.value = resolved
   emit('title', entryLabel(entry))
 }
@@ -273,7 +267,7 @@ const onEnded = async (event: Event): Promise<void> => {
   if (playNext.pending()) return // 切集中：旧视频自然结束不再记完播、不再切集
   if (!media.accepts(event)) return // 托盘 / 媒体键换集时退役的旧视频
   const el = event.target as HTMLVideoElement | null
-  progress.markFinished(el)
+  progress.saver.markFinished(el)
   // 睡眠定时（看完本集 / 已到点）在连播前同步消费：停在本集
   if (consumeSleepAtEnd()) {
     showNotice('睡眠定时到了，已停止连播')
@@ -282,13 +276,15 @@ const onEnded = async (event: Event): Promise<void> => {
   const next = playlist.value[position.value + 1]
   if (!next) {
     emptyText.value = '已播放完最后一集'
+    endHint.value = queueEndHint
     return
   }
-  // 弹窗里先给倒计时卡片（可取消）；小窗里放不下卡片，直接连播
+  // 弹窗里先给「下一集」卡片（可取消；自动连播关着时不倒计时）；小窗里放不下卡片，开着自动连播时直接连播
   if (!props.mini) {
     endedPrompt.value = true
     return
   }
+  if (!getSetting('player.autoNext')) return
   showNotice(`即将播放：${entryLabel(next)}`)
   await playNext()
 }
@@ -297,6 +293,7 @@ const onEnded = async (event: Event): Promise<void> => {
 const onPlay = (): void => {
   clearFailure()
   endedPrompt.value = false
+  endHint.value = null
 }
 
 /** 卡顿 / 出错自动换到同集的下一条备用源，从当前进度继续 */
@@ -306,7 +303,7 @@ const switcher = useSourceSwitch({
   current: () => currentEntry.value,
   notify: showNotice,
   load: at => {
-    progress.flush()
+    progress.saver.flush()
     return loadEntry(undefined, at)
   },
 })
@@ -320,7 +317,7 @@ const onVideo = (video: HTMLVideoElement): void => {
 const onError = async (event?: Event): Promise<void> => {
   if (!media.accepts(event)) return
   // 杜比视界重建会话出错：退到 mpv，或重新加载同一文件、直接播
-  const at = art.value?.currentTime || getMediaProgress(progressKey.value)
+  const at = art.value?.currentTime || progress.startAt()
   const dv = await dolbyVision.recover(at)
   if (dv === 'reload') return loadEntry(undefined, at)
   if (dv) return
@@ -366,6 +363,7 @@ const applyPayload = (payload: PlayerPayload): void => {
   activeFallback.value = -1
   poster.value = queue.poster
   continueId.value = queue.continueId
+  queueEndHint = queue.endHint
   // 起始项地址已由调用方解析过，直接复用以避免二次解析（url 始终对应 index 指向的那一集）
   void loadEntry(queue.seededUrl, queue.startAt)
 }
@@ -387,12 +385,12 @@ usePlayerRemote(art, () => ({
   private: props.payload.private === true,
 }))
 
-onMounted(() => window.addEventListener('beforeunload', progress.flush))
+onMounted(() => window.addEventListener('beforeunload', progress.saver.flush))
 
 onBeforeUnmount(() => {
-  progress.flush()
+  progress.saver.flush()
   switcher.detach()
-  window.removeEventListener('beforeunload', progress.flush)
+  window.removeEventListener('beforeunload', progress.saver.flush)
 })
 </script>
 
