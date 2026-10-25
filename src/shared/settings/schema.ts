@@ -129,6 +129,8 @@ export const settingsSchema = {
   'ui.hoverPreviewDelay': num(200, 2000, 600),
   /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
   'ui.miniPlayer': bool(true),
+  /** 降低透明度：浮动控件的玻璃材质用实色、不做背景模糊（系统「降低透明度」打开时也是实色） */
+  'ui.reduceTransparency': bool(false),
   /** 防剧透：剧集详情里没看过的集剧照模糊、简介折叠，悬停才显示 */
   'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
