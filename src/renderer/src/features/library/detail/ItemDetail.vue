@@ -86,22 +86,12 @@
       @write="writeOut"
       @organize="emit('organize', $event)"
     />
-    <nav
+    <DetailTabs
       v-if="node && tabs.length > 2"
-      class="lib-detail-tabs yb-glass"
-      aria-label="页内分区"
-    >
-      <button
-        v-for="tab in tabs"
-        :key="tab.key"
-        type="button"
-        class="lib-detail-tab"
-        :aria-current="tab.key === activeTab ? 'true' : undefined"
-        @click="jumpTo(tab.key)"
-      >
-        {{ tab.label }}
-      </button>
-    </nav>
+      :tabs="tabs"
+      :active="activeTab"
+      @jump="jumpTo"
+    />
   </div>
 </template>
 
@@ -117,22 +107,13 @@
  * 同一作品在几个文件夹里时引擎已合并成一棵树，DetailVersions 选播放哪个版本 / 来源、拆出误合并的。
  *
  * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailVersions / DetailPeople / DetailInfo，
- * 纯规则在 detail-rules.ts / version-rules.ts。
+ * 底部胶囊在 DetailTabs（状态在 use-detail-tabs），样式在 item-detail.css，
+ * 纯规则在 detail-rules.ts / detail-view.ts / version-rules.ts。
  */
 import { toast } from '@/components/ui'
-import {
-  computed,
-  nextTick,
-  onBeforeUnmount,
-  ref,
-  shallowRef,
-  watch,
-} from 'vue'
+import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 
-import type {
-  ActorSummary,
-  LibraryItemNode,
-} from '../../../../../shared/library/ipc'
+import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { usePlatform } from '@/composables/use-platform'
@@ -148,15 +129,14 @@ import DetailHero from './DetailHero.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailPeople from './DetailPeople.vue'
 import DetailStills from './DetailStills.vue'
+import DetailTabs from './DetailTabs.vue'
 import DetailSeasons from './DetailSeasons.vue'
 import DetailVersions from './DetailVersions.vue'
 import {
-  type ActorLink,
   allVideoFiles,
   infoRowsOf,
   metaLineOf,
   peopleOf,
-  personKey,
   playLabelOf,
   sortedSeasons,
   stillsOf,
@@ -169,14 +149,14 @@ import {
   primaryPlayRequest,
 } from './playback'
 import {
-  type DetailTabKey,
-  activeTabAt,
   creditLinesOf,
   detailTabsOf,
   heroMetaParts,
   heroSpecsOf,
 } from './detail-view'
 import { prepareProgress } from '../progress/progress-cache'
+import { useActorLinks } from './use-actor-links'
+import { useDetailTabs } from './use-detail-tabs'
 import { useRestore } from './use-restore'
 import { showVersions } from './version-rules'
 
@@ -225,7 +205,7 @@ async function load(resetView: boolean): Promise<void> {
       await nextTick()
       root.value?.scrollTo({ top: 0 })
       root.value?.focus({ preventScroll: true })
-      activeTab.value = 'overview'
+      resetTabs()
     }
   } catch (e) {
     error.value = errorText(e)
@@ -320,32 +300,12 @@ function playEpisode(season: LibraryItemNode, ep: LibraryItemNode): void {
   if (request) void startPlayback(request)
 }
 
-// 番号库条目：演员库里的演员可点开详情，头像换成本地缓存的；后台查到资料（actors-changed）时重取
-const actorLinks = shallowRef<ReadonlyMap<string, ActorLink>>(new Map())
-const javItemId = computed(() =>
-  titleMeta.value?.ref.provider === 'jav' ? node.value?.id : undefined
-)
-
-async function loadActorLinks(): Promise<void> {
-  const id = javItemId.value
-  if (!id || !bridge?.actors) {
-    actorLinks.value = new Map()
-    return
-  }
-  const actors = await bridge.actors.forItem(id).catch((): ActorSummary[] => [])
-  if (id !== javItemId.value) return
-  actorLinks.value = new Map(
-    actors.map((a): [string, ActorLink] => [
-      personKey(a.name),
-      { id: a.id, photo: itemImage(a.photo, 300) },
-    ])
+// 番号库条目：演员库里的演员可点开详情（use-actor-links）
+const actorLinks = useActorLinks(
+  computed(() =>
+    titleMeta.value?.ref.provider === 'jav' ? node.value?.id : undefined
   )
-}
-
-watch(javItemId, () => void loadActorLinks(), { immediate: true })
-onLibraryEvent(event => {
-  if (event.type === 'actors-changed' && javItemId.value) void loadActorLinks()
-})
+)
 const people = computed(() =>
   peopleOf(titleMeta.value, path => tmdbImage(path), actorLinks.value)
 )
@@ -363,55 +323,12 @@ const tabs = computed(() =>
       })
     : []
 )
-const activeTab = ref<DetailTabKey>('overview')
-/** 胶囊点击滚动途中不跟随滚动改选中，滚完再跟 */
-let jumping: ReturnType<typeof setTimeout> | null = null
-let frame = 0
-
-function sectionTops(): Array<{ key: DetailTabKey; top: number }> {
-  const el = root.value
-  if (!el) return []
-  return [...el.querySelectorAll<HTMLElement>(':scope > [data-tab]')].map(
-    section => ({
-      key: section.dataset.tab as DetailTabKey,
-      top: section.offsetTop,
-    })
-  )
-}
-
-function onScroll(): void {
-  if (frame || jumping) return
-  frame = requestAnimationFrame(() => {
-    frame = 0
-    const el = root.value
-    if (!el) return
-    const key = activeTabAt(
-      sectionTops(),
-      el.scrollTop,
-      el.clientHeight,
-      el.scrollHeight
-    )
-    if (key) activeTab.value = key
-  })
-}
-
-function jumpTo(key: DetailTabKey): void {
-  const el = root.value
-  const section = el?.querySelector<HTMLElement>(`:scope > [data-tab="${key}"]`)
-  if (!el || !section) return
-  activeTab.value = key
-  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
-  el.scrollTo({
-    top: key === 'overview' ? 0 : section.offsetTop - 24,
-    behavior: reduce ? 'auto' : 'smooth',
-  })
-  if (jumping) clearTimeout(jumping)
-  jumping = setTimeout(() => (jumping = null), reduce ? 0 : 700)
-}
-onBeforeUnmount(() => {
-  if (frame) cancelAnimationFrame(frame)
-  if (jumping) clearTimeout(jumping)
-})
+const {
+  activeTab,
+  onScroll,
+  jumpTo,
+  reset: resetTabs,
+} = useDetailTabs(root, tabs)
 
 // —— 操作 ——
 async function run(name: string, task: () => Promise<unknown>): Promise<void> {
@@ -474,122 +391,4 @@ function writeOut(): void {
 }
 </script>
 
-<style scoped>
-/* 铺满整个窗口（侧栏与外壳胶囊浮在上面），左边距随侧栏宽度 */
-.lib-detail {
-  --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
-  --detail-gutter: var(--space-8);
-  position: fixed;
-  inset: 0;
-  z-index: var(--z-float);
-  background: var(--bg-content);
-}
-.lib-detail-scroll {
-  position: absolute;
-  inset: 0;
-  overflow-x: hidden;
-  overflow-y: auto;
-  outline: none;
-  overscroll-behavior: contain;
-}
-.lib-detail-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  height: 100%;
-  padding-left: var(--shell-left, 0px);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-
-/* 顶部滚动边缘：浮动控件后面一条压暗 + 轻模糊的渐隐带 */
-.lib-detail-edge {
-  position: absolute;
-  top: 0;
-  right: 0;
-  left: 0;
-  height: 104px;
-  background: linear-gradient(
-    color-mix(in srgb, var(--bg-content) 62%, transparent),
-    transparent
-  );
-  -webkit-backdrop-filter: blur(10px);
-  backdrop-filter: blur(10px);
-  -webkit-mask: linear-gradient(#000 30%, transparent);
-  mask: linear-gradient(#000 30%, transparent);
-  pointer-events: none;
-}
-
-/* 玻璃圆钮（返回 / 更多）：44px，与外壳胶囊同高同一条线 */
-.lib-detail :deep(.lib-float-button) {
-  --ib-size: var(--shell-pill-height);
-  border-radius: var(--radius-full);
-}
-.lib-detail-back {
-  position: absolute;
-  top: var(--shell-pill-top);
-  left: var(--detail-x);
-}
-.lib-detail-more {
-  position: absolute;
-  top: var(--shell-pill-top);
-  right: var(--shell-pill-right);
-}
-.lib-detail-more.beside-window {
-  right: calc(
-    var(--shell-pill-right) + var(--shell-win-width) + var(--space-3)
-  );
-}
-
-/* 底部玻璃胶囊：页内分区导航，选中项是更亮的内胶囊；在内容区（侧栏右边）居中 */
-.lib-detail-tabs {
-  position: absolute;
-  bottom: var(--space-5);
-  left: calc(var(--shell-left, 0px) + (100% - var(--shell-left, 0px)) / 2);
-  display: flex;
-  align-items: center;
-  gap: var(--space-1);
-  height: 56px;
-  padding: 0 var(--space-1_5);
-  border-radius: var(--radius-full);
-  /* 压在文字上，玻璃要更厚才读得清（降低透明度时 --glass-bg 即实色，结果仍是实色） */
-  background: color-mix(in srgb, var(--glass-solid) 70%, var(--glass-bg));
-  transform: translateX(-50%);
-}
-.lib-detail-tab {
-  height: var(--shell-pill-height);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-full);
-  color: var(--text-secondary);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-  white-space: nowrap;
-  transition:
-    background var(--duration-fast) ease,
-    color var(--duration-fast) ease;
-}
-.lib-detail-tab:hover {
-  color: var(--text-primary);
-}
-.lib-detail-tab[aria-current='true'] {
-  background: var(--bg-active);
-  box-shadow: inset 0 1px 0.5px var(--border-glass-light);
-  color: var(--text-primary);
-}
-
-@media (max-width: 720px) {
-  .lib-detail {
-    --detail-x: var(--space-4);
-    --detail-gutter: var(--space-4);
-  }
-  .lib-detail-back,
-  .lib-detail-more {
-    top: calc(var(--safe-top) + var(--space-2));
-  }
-  .lib-detail-tabs {
-    display: none;
-  }
-}
-</style>
+<style scoped src="./item-detail.css"></style>

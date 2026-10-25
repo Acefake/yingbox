@@ -10,6 +10,7 @@ import {
   detailTabsOf,
   heroMetaParts,
   heroSpecsOf,
+  keepTab,
 } from '../../../src/renderer/src/features/library/detail/detail-view'
 
 const meta = (patch: Partial<TitleMeta> = {}): TitleMeta =>
@@ -37,6 +38,10 @@ describe('详情头图规格', () => {
       '★ 8.7',
     ])
     expect(heroMetaParts(['2023'], null)).toEqual(['2023'])
+    // 分级带空白时也要去掉，不与圆标重复
+    expect(
+      heroMetaParts(['2023', ' 16+ '], meta({ certification: '16+ ' }))
+    ).toEqual(['2023'])
     expect(heroSpecsOf({ videoRange: 'dv' }, meta())).toEqual([
       { variant: 'rating', text: '16+' },
       { variant: 'dolby', text: 'VISION' },
@@ -83,5 +88,19 @@ describe('详情底部分区胶囊', () => {
     expect(activeTabAt(sections, 1000, 900, 2400)).toBe('cast')
     expect(activeTabAt(sections, 1500, 900, 2400)).toBe('about')
     expect(activeTabAt([], 0, 900, 900)).toBeNull()
+    // 内容不足一屏：不算滚到底，仍是概览
+    expect(activeTabAt(sections, 0, 900, 900)).toBe('overview')
+    expect(activeTabAt(sections, 0, 900, 600)).toBe('overview')
+  })
+})
+
+describe('分区列表变化后校正当前分区', () => {
+  const tabs = detailTabsOf({ episodes: true, cast: true })
+  it('还在就不动，消失了取它前面最近的一个', () => {
+    expect(keepTab(tabs, 'cast')).toBe('cast')
+    expect(keepTab(tabs, 'stills')).toBe('episodes')
+    expect(keepTab(tabs, 'versions')).toBe('cast')
+    expect(keepTab(detailTabsOf({}), 'episodes')).toBe('overview')
+    expect(keepTab([], 'cast')).toBe('cast')
   })
 })

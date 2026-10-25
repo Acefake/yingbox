@@ -22,9 +22,7 @@
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: var(--text-xl);
-  font-weight: var(
-    --font-weight-bold
-  ); /* style-tokens: visual（分区大标题，与 UiSectionHeader 一致） */
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（分区标题） */
   line-height: 1.2;
   letter-spacing: 0.005em;
 }
