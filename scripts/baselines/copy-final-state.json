@@ -102,9 +102,6 @@
   "src/renderer/src/features/settings/browser-storage.ts": {
     "old-version": 3
   },
-  "src/renderer/src/features/shell/AppLayout.vue": {
-    "changed-to": 1
-  },
   "src/shared/library/ipc/contract-library.ts": {
     "old-version": 1
   },

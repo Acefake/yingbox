@@ -15,26 +15,31 @@ import type {
   MediaItemType,
 } from '../../../shared/library/ipc'
 import type { NormalizedLibraryQuery } from '../../../shared/library/ipc'
-import { normalizeTitle } from '../../../shared/library/scoring'
 import { VIDEO_RANGE_RANK, type VideoRange } from '../../../shared/video-range'
 import { type LibraryDb, StatementCache } from '../db/database'
-import { facetClauses, listFacetValues } from './facet-sql'
-import { filterClauses } from './filter-sql'
+import { listFacetValues } from './facet-sql'
 import { registerJavKind } from './jav-kind'
+import { compileListWhere } from './where-sql'
 
 /**
  * 条目自身及子孙（季 / 集）全部文件里最好的动态范围档位；一个都没探测过为 NULL。
- * 树最多三层（剧 → 季 → 集），用两层子查询代替递归。
+ * 合并展示的条目把同键的其它本地条目（另一个文件夹里的同一作品）也算上。
+ *
+ * 树最多三层（剧 → 季 → 集）：先列出整组的节点 id（成员、子、孙），再按 file_media(item_id) 索引取文件。
+ * 不能写成「fm.item_id = … OR fm.item_id IN (…)」：OR 让 file_media 走全表扫描，一部剧就是一遍全表。
  */
+const GROUP_MEMBERS = `SELECT i.id UNION
+    SELECT m.id FROM media_items m WHERE m.merge_key = i.merge_key`
+const GROUP_CHILDREN = `SELECT c.id FROM media_items c WHERE c.parent_id IN (${GROUP_MEMBERS})`
 const RANGE_RANK_COLUMN = `(SELECT MAX(CASE f.video_range
     WHEN 'dv' THEN ${VIDEO_RANGE_RANK.dv} WHEN 'hdr10' THEN ${VIDEO_RANGE_RANK.hdr10}
     WHEN 'hlg' THEN ${VIDEO_RANGE_RANK.hlg} WHEN 'sdr' THEN ${VIDEO_RANGE_RANK.sdr} END)
   FROM file_media fm JOIN files f ON f.id = fm.file_id
-  WHERE fm.item_id = i.id OR fm.item_id IN (
-    SELECT c.id FROM media_items c WHERE c.parent_id = i.id
-    UNION ALL
-    SELECT e.id FROM media_items e JOIN media_items s ON e.parent_id = s.id
-    WHERE s.parent_id = i.id)) AS range_rank`
+  WHERE fm.item_id IN (
+    ${GROUP_MEMBERS}
+    UNION ALL ${GROUP_CHILDREN}
+    UNION ALL SELECT e.id FROM media_items e WHERE e.parent_id IN (${GROUP_CHILDREN})
+  )) AS range_rank`
 
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
   i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
@@ -56,9 +61,6 @@ const SORT_COLUMN: Record<LibrarySortField, string> = {
   addedAt: 'i.added_at',
   updatedAt: 'i.updated_at',
 }
-
-/** trigram 至少 3 个字符才能用 FTS；更短的查询退回 LIKE。 */
-const TRIGRAM_MIN = 3
 
 /** 文件行里的探测结果；没探测过（NULL）或读不出（''）时不带。 */
 function fileVideo(
@@ -110,70 +112,6 @@ function parseJson<T>(text: unknown): T | null {
   }
 }
 
-/** FTS5 短语：整体加双引号，内部双引号转义，避免用户输入被当成查询语法。 */
-const ftsPhrase = (text: string): string => `"${text.replace(/"/g, '""')}"`
-
-/** LIKE 模式转义。 */
-const likePattern = (text: string): string =>
-  `%${text.replace(/[\\%_]/g, c => `\\${c}`)}%`
-
-/** 把查询条件编译成 WHERE 子句与参数。 */
-function compileWhere(q: NormalizedLibraryQuery): {
-  where: string
-  params: Array<string | number>
-} {
-  const clauses: string[] = []
-  const params: Array<string | number> = []
-  clauses.push(`i.type IN (${q.types.map(() => '?').join(', ')})`)
-  params.push(...q.types)
-  if (q.libraryId !== undefined) {
-    clauses.push('i.library_id = ?')
-    params.push(q.libraryId)
-  }
-  if (q.source !== undefined) {
-    // 库只有寥寥几个，子查询结果很小；按来源把番号库与普通片库分开
-    clauses.push('i.library_id IN (SELECT id FROM libraries WHERE source = ?)')
-    params.push(q.source)
-  }
-  if (q.actorId !== undefined) {
-    clauses.push('i.id IN (SELECT item_id FROM item_actors WHERE actor_id = ?)')
-    params.push(q.actorId)
-  }
-  if (q.yearFrom !== undefined) {
-    clauses.push('i.year >= ?')
-    params.push(q.yearFrom)
-  }
-  if (q.yearTo !== undefined) {
-    clauses.push('i.year <= ?')
-    params.push(q.yearTo)
-  }
-  if (q.matchStates) {
-    clauses.push(
-      `i.match_state IN (${q.matchStates.map(() => '?').join(', ')})`
-    )
-    params.push(...q.matchStates)
-  }
-  if (q.search) {
-    const term = normalizeTitle(q.search) || q.search.toLowerCase()
-    if ([...term].length >= TRIGRAM_MIN) {
-      clauses.push(
-        'i.id IN (SELECT rowid FROM media_items_fts WHERE media_items_fts MATCH ?)'
-      )
-      params.push(ftsPhrase(term))
-    } else {
-      clauses.push("i.search_text LIKE ? ESCAPE '\\'")
-      params.push(likePattern(term))
-    }
-  }
-  const facets = facetClauses(q.facets)
-  clauses.push(...facets.clauses)
-  params.push(...facets.params)
-  const filters = filterClauses(q)
-  clauses.push(...filters.clauses)
-  params.push(...filters.params)
-  return { where: clauses.join(' AND '), params }
-}
-
 /** 条目查询仓库。 */
 export class CatalogQuery {
   private readonly sql: StatementCache
@@ -183,26 +121,41 @@ export class CatalogQuery {
     this.sql = new StatementCache(db)
   }
 
-  /** 分页列出顶层条目。排序带 id 兜底，翻页稳定；年份 / 评分为空的排在最后。 */
+  /**
+   * 分页列出顶层条目。排序带 id 兜底，翻页稳定；年份 / 评分为空的排在最后。
+   *
+   * 先只排序取这一页的 id，再给这一页取列表列：动态范围档位是逐行子查询，
+   * 排序走不了索引（多类型、按添加时间等）时若和排序写在一起，会对全部命中行都算一遍。
+   */
   list(q: NormalizedLibraryQuery): LibraryQueryResult {
-    const { where, params } = compileWhere(q)
+    const { with: cte, where, params } = compileListWhere(q)
     const dir = q.order === 'asc' ? 'ASC' : 'DESC'
     const column = SORT_COLUMN[q.sort]
     const nulls =
       q.sort === 'year' || q.sort === 'rating' ? `${column} IS NULL, ` : ''
-    const rows = this.sql
+    const ids = this.sql
       .get(
-        `SELECT ${SUMMARY_COLUMNS} FROM media_items i WHERE ${where}
+        `${cte} SELECT i.id FROM media_items i WHERE ${where}
          ORDER BY ${nulls}${column} ${dir}, i.id ${dir} LIMIT ? OFFSET ?`
       )
       .all(...params, q.limit, q.offset)
+      .map(r => Number(r.id))
+    const byId = new Map<number, LibraryItemSummary>()
+    for (const row of this.sql
+      .get(
+        `SELECT ${SUMMARY_COLUMNS} FROM media_items i
+         WHERE i.id IN (SELECT value FROM json_each(?))`
+      )
+      .all(JSON.stringify(ids))) {
+      byId.set(Number(row.id), toSummary(row))
+    }
     const total = Number(
       this.sql
-        .get(`SELECT COUNT(*) AS n FROM media_items i WHERE ${where}`)
+        .get(`${cte} SELECT COUNT(*) AS n FROM media_items i WHERE ${where}`)
         .get(...params)!.n
     )
     return {
-      items: rows.map(toSummary),
+      items: ids.flatMap(id => byId.get(id) ?? []),
       total,
       offset: q.offset,
       limit: q.limit,
@@ -285,5 +238,13 @@ export class CatalogQuery {
         ?.children.push(nodes.get(Number(row.id))!)
     }
     return nodes.get(id)!
+  }
+
+  /** 片库里登记过的视频文件路径；不存在或不是视频返回 null。 */
+  videoFilePath(fileId: number): string | null {
+    const row = this.sql
+      .get("SELECT path FROM files WHERE id = ? AND kind = 'video'")
+      .get(fileId)
+    return row ? String(row.path) : null
   }
 }

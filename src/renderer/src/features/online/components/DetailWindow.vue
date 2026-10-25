@@ -31,6 +31,9 @@
         >
           <template #actions>
             <WatchlistButton :meta="watchlistMeta" />
+            <MovieTrackButton
+              :tmdb-id="tmdbDetail?.title ? tmdbDetail.id : null"
+            />
           </template>
           <DetailSourcePicker
             :searching="sources.searching.value"
@@ -77,6 +80,7 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
 import { WatchlistButton, type WatchlistMeta } from '@/features/watchlist'
+import { MovieTrackButton } from '@/features/autograb-upgrade'
 import { isAnimeEntry } from '../../../../../shared/anime4k'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
@@ -224,7 +228,7 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
     startAt: getMediaProgress(playUrl),
     ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
     ...(fallbacks.length ? { fallbacks } : {}),
-    // mpv 的「Anime4K 仅动画类条目」：站点分类或 TMDB 类型含动画
+    // mpv 的「影盒超分仅动画类条目」：站点分类或 TMDB 类型含动画
     anime: isAnimeEntry({
       typeName: itemData.value?.type_name,
       genres: tmdbDetail.value?.genres?.map(genre => genre.name),

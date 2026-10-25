@@ -1,6 +1,6 @@
 <template>
   <button
-    v-tooltip="collapsed ? label : undefined"
+    v-tooltip.right="collapsed ? label : undefined"
     type="button"
     class="ui-nav-item"
     :class="[

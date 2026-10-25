@@ -4,6 +4,7 @@
  * 链路：用户在搜索面板点「建立索引」→ visual-index 任务（缺模型先下载）→ 逐部取图（原图缓存，没下载的顺便下载）
  * → 编解码线程拉成 224×224 → 批量编码 → 按向量缩放量化成 int8 入库（每张约 0.5 KB）。之后识别出的新片由识别后继自动补索引（用户启用过才排）。
  * 搜索：文字编码一次，和内存里的全部向量做点积（10 万张图约几十毫秒），每部取最像的那张图排序。
+ * 视频关键帧（frames/）：打开后后台从本地视频抽帧入同一张向量表，搜索结果带时间点（合并规则见 visual-rank.ts）。
  *
  * LibraryService 只做转发。
  */
@@ -11,6 +12,7 @@ import { readFile } from 'node:fs/promises'
 import {
   type JobAccepted,
   LibraryError,
+  type VisualFramesSettings,
   type VisualHit,
   type VisualSearchRequest,
   type VisualStatus,
@@ -23,6 +25,8 @@ import {
   PermanentJobError,
 } from '../jobs/queue'
 import type { VisualBackend } from './clip-backend'
+import { type FrameHostOptions, FrameIndexer } from './frames/frame-indexer'
+import { type ScoredRow, rankHits } from './visual-rank'
 import { type QuantizedVector, quantize, similarity } from './visual-rules'
 import {
   type VisualCandidate,
@@ -48,18 +52,40 @@ export interface VisualModuleOptions {
   imageFile: (url: string, signal?: AbortSignal) => Promise<string | null>
   /** 原图字节 → 224×224 RGBA（编解码线程）；解不了抛错。 */
   pixels: (bytes: Uint8Array) => Promise<Uint8Array>
+  /** 图片缓存根目录（帧缩略图放在 orig/ 下）；没有时不抽帧。 */
+  mediaDir?: string
+  /** 库是否按网盘处理（抽帧默认跳过）。 */
+  isCloudLibrary?: (libraryId: number) => Promise<boolean>
+  /** 视频关键帧的宿主注入项（ffmpeg 路径等）。 */
+  frames?: FrameHostOptions
   log?: (message: string) => void
 }
 
 export class VisualModule {
   private readonly store: VisualStore
+  private readonly frames: FrameIndexer
   private matrix: VisualMatrix | null = null
   private running: { downloading: boolean; progress: number } | null = null
   private lastError: string | null = null
 
   constructor(private readonly options: VisualModuleOptions) {
     this.store = new VisualStore(options.db)
-    options.queue.register(VISUAL_JOB, (_p, ctx) => this.run(ctx))
+    options.queue.register(VISUAL_JOB, (_p, ctx) => this.run(ctx), {
+      // 新片的图片索引好了，接着抽它们的视频帧（打开了才排）
+      followups: { next: () => this.frames.followups() },
+    })
+    this.frames = new FrameIndexer({
+      ...options.frames,
+      db: options.db,
+      queue: options.queue,
+      backend: options.backend,
+      mediaDir: options.mediaDir,
+      isCloudLibrary: options.isCloudLibrary ?? (async () => false),
+      onChanged: () => (this.matrix = null),
+      log: options.log,
+    })
+    // 上次没抽完的帧接着抽（打开了才排；队列开始调度后才会跑）
+    this.frames.schedule()
   }
 
   // —————————————————————————— 契约方法 ——————————————————————————
@@ -79,7 +105,14 @@ export class VisualModule {
       progress: this.running?.progress ?? null,
       ...counts,
       error: this.lastError,
+      frames: await this.frames.status(backend.model),
     }
+  }
+
+  /** 改视频关键帧设置。 */
+  async setFrames(patch: Partial<VisualFramesSettings>): Promise<VisualStatus> {
+    this.frames.setSettings(patch)
+    return this.status()
   }
 
   /** 排一个索引任务（缺模型先下载）。 */
@@ -101,26 +134,21 @@ export class VisualModule {
     const query = await backend.embedText(request.text)
     const matrix = (this.matrix ??= this.store.matrix(backend.model))
     const allowed = this.store.scope('jav', request.libraryId)
-    // 每部取最像的一张
-    const best = new Map<number, { score: number; image: string }>()
+    const rows: ScoredRow[] = []
     for (let row = 0; row < matrix.itemIds.length; row++) {
       const itemId = matrix.itemIds[row]!
       if (!allowed.has(itemId)) continue
-      const score = similarity(matrix.vectors, row, matrix.scales[row]!, query)
-      const current = best.get(itemId)
-      if (!current || score > current.score)
-        best.set(itemId, { score, image: matrix.images[row]! })
+      const fileId = matrix.fileIds[row]!
+      rows.push({
+        itemId,
+        score: similarity(matrix.vectors, row, matrix.scales[row]!, query),
+        image: matrix.images[row]!,
+        ...(fileId ? { frame: { fileId, atMs: matrix.atMs[row]! } } : {}),
+      })
     }
-    const top = [...best.entries()]
-      .sort((a, b) => b[1].score - a[1].score)
-      .slice(0, request.limit ?? 60)
-    const titles = this.store.titlesOf(top.map(([id]) => id))
-    return top.map(([itemId, hit]) => ({
-      itemId,
-      title: titles.get(itemId) ?? '',
-      score: Math.round(hit.score * 1000) / 1000,
-      image: hit.image,
-    }))
+    const top = rankHits(rows, request.limit ?? 60)
+    const titles = this.store.titlesOf(top.map(hit => hit.itemId))
+    return top.map(hit => ({ ...hit, title: titles.get(hit.itemId) ?? '' }))
   }
 
   /** 识别后的后继：用户启用过（有索引）且模型在，就排一个低优先级的补索引任务。 */

@@ -5,7 +5,7 @@ import type { Directive } from 'vue'
  *
  * 全局只用一个浮层元素，挂在 body 上，不会被父级 overflow 裁掉。
  * 悬停 500ms 后出现（与 macOS 一致），键盘聚焦立即出现；点击、离开、滚动时隐藏。
- * 绑定值为空时不显示。
+ * 绑定值为空时不显示。v-tooltip.right 显示在元素右侧（侧栏图标列），默认在上方（放不下时在下方）。
  */
 
 const SHOW_DELAY = 500
@@ -16,6 +16,7 @@ let timer: number | undefined
 let anchor: HTMLElement | null = null
 
 const texts = new WeakMap<HTMLElement, string>()
+const toRight = new WeakSet<HTMLElement>()
 const cleanups = new WeakMap<HTMLElement, () => void>()
 
 function ensureTip(): HTMLDivElement {
@@ -30,6 +31,11 @@ function ensureTip(): HTMLDivElement {
 function place(el: HTMLElement, node: HTMLDivElement): void {
   const rect = el.getBoundingClientRect()
   const { offsetWidth: w, offsetHeight: h } = node
+  if (toRight.has(el)) {
+    const top = rect.top + rect.height / 2 - h / 2
+    node.style.transform = `translate(${Math.round(rect.right + GAP)}px, ${Math.round(top)}px)`
+    return
+  }
   const below = rect.top - h - GAP < 4
   const top = below ? rect.bottom + GAP : rect.top - h - GAP
   const left = Math.min(
@@ -58,6 +64,7 @@ function hide(): void {
 export const vTooltip: Directive<HTMLElement, string | undefined> = {
   mounted(el, binding) {
     texts.set(el, binding.value ?? '')
+    if (binding.modifiers.right) toRight.add(el)
     const onEnter = (): void => {
       window.clearTimeout(timer)
       timer = window.setTimeout(() => show(el), SHOW_DELAY)

@@ -66,6 +66,10 @@
           <span class="lib-episode-play" aria-hidden="true">
             <UiIcon name="play" filled />
           </span>
+          <!-- 进度条沿用「继续播放」卡片的样式（continue-row.css） -->
+          <span v-if="markOf(ep)?.ratio" class="cw-progress" aria-hidden="true">
+            <i :style="{ width: ratioWidth(markOf(ep)!.ratio) }" />
+          </span>
         </UiPressable>
         <div class="lib-episode-text">
           <div class="lib-episode-head">
@@ -76,6 +80,7 @@
             <span v-if="ep.airDate">{{ ep.airDate }}</span>
             <span v-if="ep.runtime">{{ formatRuntime(ep.runtime) }}</span>
             <span v-if="!hasFile(ep)">本地缺失</span>
+            <span v-if="markOf(ep)">{{ markOf(ep)!.label }}</span>
             <span
               v-if="spoilerIds.has(ep.id) && ep.overview"
               class="lib-episode-spoiler-hint"
@@ -95,6 +100,7 @@
 /**
  * 详情里的剧集区块：季切换（8 季以内分段控件，更多用下拉）、季简介、集列表
  * （剧照、集号与标题、播出日期、时长、本地缺失）。换条目时回到默认季。
+ * 每集带观看标记（片库观看进度：「已看」或「看到 12:30」加进度条，见 progress/watch-marks）。
  * 防剧透（设置 ui.spoilerGuard）打开时，没看过的集剧照模糊、简介折叠，悬停或键盘聚焦到这一集时显示（use-spoiler-guard）。
  * 桌面端在季切换旁给「检测片头片尾」（use-intro-detect）。
  */
@@ -108,6 +114,8 @@ import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 
+import { progressOf } from '../progress/progress-cache'
+import { type WatchMark, itemMark, ratioWidth } from '../progress/watch-marks'
 import { formatRuntime } from '../shared/format'
 import { defaultSeasonKey, seasonEpisodes, seasonName } from './detail-rules'
 import { videoFiles } from './playback'
@@ -147,6 +155,8 @@ const spoilerIds = useSpoilerGuard(
 )
 
 const hasFile = (ep: LibraryItemNode): boolean => videoFiles(ep).length > 0
+const markOf = (ep: LibraryItemNode): WatchMark | null =>
+  itemMark(progressOf(ep.id))
 
 const {
   visible: detectVisible,

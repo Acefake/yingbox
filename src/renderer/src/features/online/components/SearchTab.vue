@@ -45,20 +45,11 @@
       }}
     </p>
 
-    <div v-if="!results.length && !loading && !error" class="empty-search">
-      <svg
-        viewBox="0 0 24 24"
-        width="48"
-        height="48"
-        fill="none"
-        stroke="var(--text-quaternary)"
-        stroke-width="1.5"
-      >
-        <circle cx="11" cy="11" r="8" />
-        <path d="m21 21-4.35-4.35" />
-      </svg>
-      <p>输入关键词搜索</p>
-    </div>
+    <StatusState
+      v-if="!results.length && !loading && !error"
+      icon="search"
+      title="输入关键词搜索"
+    />
 
     <!-- 首屏：还没有任何结果时的骨架 -->
     <UiSkeleton v-if="waiting === 'skeleton'" :count="8" label="正在搜索" />
@@ -144,6 +135,7 @@ import { vEnter } from '@/directives/enter'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageTitle from '@/components/PageTitle.vue'
+import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
@@ -296,16 +288,6 @@ defineExpose({ handleSearch, saveHistory })
 .history-tag:hover .del-tag,
 .del-tag:focus-visible {
   opacity: 1;
-}
-
-.empty-search {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding-top: var(--space-11);
-  color: var(--text-tertiary);
-  font-size: var(--text-md);
 }
 
 .search-more {

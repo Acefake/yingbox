@@ -42,6 +42,13 @@
         :people="people"
         @open-actor="emit('open-actor', $event)"
       />
+      <DetailVersions
+        v-if="showVersions(node)"
+        v-model="versionChoice"
+        :node="node"
+        @split="splitMember"
+        @join="joinMember"
+      />
       <DetailInfo :info-rows="infoRows" :files="files" />
     </template>
   </div>
@@ -53,8 +60,10 @@
  * 剧集按季分段与集列表，剧照横滑（点开灯箱），演职员横滑，信息与文件。播放接 openMediaPlayer（播放弹窗 / mpv），
  * 去码接 features/lada（use-restore）。
  *
- * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailPeople / DetailInfo，
- * 纯规则在 detail-rules.ts。
+ * 同一作品在几个文件夹里时引擎已合并成一棵树，DetailVersions 选播放哪个版本 / 来源、拆出误合并的。
+ *
+ * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailVersions / DetailPeople / DetailInfo，
+ * 纯规则在 detail-rules.ts / version-rules.ts。
  */
 import { toast } from '@/components/ui'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
@@ -75,6 +84,7 @@ import DetailInfo from './DetailInfo.vue'
 import DetailPeople from './DetailPeople.vue'
 import DetailStills from './DetailStills.vue'
 import DetailSeasons from './DetailSeasons.vue'
+import DetailVersions from './DetailVersions.vue'
 import {
   type ActorLink,
   allVideoFiles,
@@ -93,7 +103,9 @@ import {
   play,
   primaryPlayRequest,
 } from './playback'
+import { prepareProgress } from '../progress/progress-cache'
 import { useRestore } from './use-restore'
+import { showVersions } from './version-rules'
 
 const props = defineProps<{
   itemId: number
@@ -114,6 +126,14 @@ const node = shallowRef<LibraryItemNode | null>(null)
 const loading = ref(false)
 const error = ref<string | null>(null)
 const busy = ref<string | null>(null)
+/** 选中的版本 / 来源（见 version-rules.ts）；换条目时回到默认 */
+const versionChoice = ref<string | null>(null)
+/** 合并展示的本地条目 id（含自身）：任何一个变了都要重取，写出 / 刷新也对它们全部做 */
+const memberIds = computed(() =>
+  node.value
+    ? (node.value.merge?.members.map(m => m.itemId) ?? [node.value.id])
+    : []
+)
 
 async function load(resetView: boolean): Promise<void> {
   if (!bridge) return
@@ -124,6 +144,8 @@ async function load(resetView: boolean): Promise<void> {
     if (id !== props.itemId) return
     node.value = item
     error.value = null
+    // 观看标记与防剧透读片库进度（读失败不影响详情）
+    if (item) void prepareProgress(item)
     if (resetView) {
       await nextTick()
       root.value?.scrollTo({ top: 0 })
@@ -138,7 +160,10 @@ async function load(resetView: boolean): Promise<void> {
 
 watch(
   () => props.itemId,
-  () => void load(true),
+  () => {
+    versionChoice.value = null
+    void load(true)
+  },
   { immediate: true }
 )
 
@@ -146,7 +171,10 @@ watch(
 onLibraryEvent(event => {
   if (
     event.type === 'items-changed' &&
-    (event.reset || event.updated.includes(props.itemId))
+    (event.reset ||
+      event.updated.some(
+        id => id === props.itemId || memberIds.value.includes(id)
+      ))
   ) {
     void load(false)
   }
@@ -174,7 +202,7 @@ const metaLine = computed(() => metaLineOf(node.value, seasons.value))
 
 // —— 播放 ——
 const primaryPlay = computed<PlayRequest | null>(() =>
-  node.value ? primaryPlayRequest(node.value) : null
+  node.value ? primaryPlayRequest(node.value, versionChoice.value) : null
 )
 
 const playLabel = computed(() => {
@@ -200,7 +228,7 @@ function playPrimary(): void {
 function playEpisode(season: LibraryItemNode, ep: LibraryItemNode): void {
   const n = node.value
   if (!n) return
-  const request = episodePlayRequest(n, season, ep)
+  const request = episodePlayRequest(n, season, ep, versionChoice.value)
   if (request) void startPlayback(request)
 }
 
@@ -263,8 +291,26 @@ function refreshMetadata(): void {
   const n = node.value
   if (!n || !bridge) return
   void run('refresh', async () => {
-    await bridge.refreshMetadata({ itemIds: [n.id] })
+    await bridge.refreshMetadata({ itemIds: memberIds.value })
     toast.info('已开始重新获取元数据')
+  })
+}
+
+/** 拆出误合并的一处 / 恢复合并：引擎推送 items-changed 后详情与海报墙重取。 */
+function splitMember(itemId: number): void {
+  if (!bridge) return
+  void run('merge', async () => {
+    await bridge.merge.split(itemId)
+    versionChoice.value = null
+    toast.info('已拆出，单独显示在片库里')
+  })
+}
+
+function joinMember(itemId: number): void {
+  if (!bridge) return
+  void run('merge', async () => {
+    await bridge.merge.join(itemId)
+    toast.info('已恢复合并')
   })
 }
 
@@ -272,7 +318,7 @@ function writeOut(): void {
   const n = node.value
   if (!n) return
   void run('write', async () => {
-    const failure = await write([n.id])
+    const failure = await write(memberIds.value)
     if (failure) throw new Error(failure)
     toast.info('已开始写出 NFO 与图片')
   })

@@ -120,6 +120,8 @@ describe('写入点都经 isIncognito()', () => {
     const allowed = new Set([
       'features/player/utils/play-progress.ts',
       'features/player/composables/use-progress-saver.ts',
+      'features/player/composables/use-session-progress.ts',
+      'features/player/mpv-session/mpv-session.ts',
       'features/player/composables/use-media-player.ts',
       'features/player/components/PlayerSession.vue',
       'features/player/continue/continue-store.ts',
