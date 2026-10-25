@@ -1,8 +1,9 @@
 /*
- * AI 助手浮层的框架：遮罩、面板位置（待命的输入胶囊 / 展开的玻璃面板 / 播放器旁的右侧面板）、
- * 输入胶囊上沿的渐变发丝（唯一的彩色）与进出场。面板内容在 assistant-panel.css。
+ * AI 助手侧栏的框架：遮罩、右侧侧栏的位置与尺寸、输入胶囊上沿的渐变发丝（唯一的彩色）与进出场。
+ * 侧栏内容在 assistant-panel.css。
  * 玻璃一律用 .yb-glass（底色、模糊、阴影都在那里，这里不写 background）；降低透明度时它自动变实色。
- * 动画只用 transform / opacity；进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动。
+ * 动画只用 transform / opacity；进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动，
+ * 时长是 --duration-assistant-drawer（减少动态效果时为 0）。
  */
 .assistant {
   position: fixed;
@@ -11,14 +12,14 @@
   color: var(--text-primary);
 }
 
-/* ── 遮罩：压暗 + 轻模糊；小窗在播时不做实时模糊 ── */
+/* ── 遮罩（只在普通页面）：压暗 + 轻模糊；小窗在播时不做实时模糊 ── */
 .assistant-scrim {
   position: absolute;
   inset: 0;
   background: var(--assistant-scrim);
   -webkit-backdrop-filter: blur(8px) saturate(0.9);
   backdrop-filter: blur(8px) saturate(0.9);
-  transition: opacity var(--duration-slow) ease;
+  transition: opacity var(--duration-assistant-drawer) ease;
 }
 .assistant[data-playing='true'] .assistant-scrim {
   background: var(--overlay-scrim);
@@ -36,47 +37,35 @@
   }
 }
 
-/* ── 面板：待命时只是一列（标题、上下文、输入胶囊、技能、提示），没有底色 ── */
-.assistant-sheet {
+/* ── 侧栏：固定在右侧，整高，离窗口边缘 --space-3_5 ── */
+.assistant-drawer {
   position: absolute;
-  top: 22vh;
-  left: 50%;
+  top: var(--space-3_5);
+  right: var(--space-3_5);
+  bottom: var(--space-3_5);
   display: flex;
   flex-direction: column;
-  width: min(var(--assistant-sheet-width), calc(100% - var(--space-8)));
-  max-height: calc(100% - 22vh - var(--space-6));
-  transform: translateX(-50%);
-  transition:
-    transform var(--duration-assistant-sheet) var(--ease-spring),
-    opacity var(--duration-normal) ease;
-}
-
-/* 提问后展开成玻璃面板（.yb-glass 由模板加上） */
-.assistant[data-expanded='true'] .assistant-sheet {
-  top: var(--space-11);
-  width: min(
-    calc(var(--assistant-sheet-width) + var(--space-7)),
-    calc(100% - var(--space-8))
-  );
-  max-height: calc(100% - var(--space-11) * 2);
-  padding: var(--space-4) var(--space-4) var(--space-3);
+  width: min(var(--assistant-drawer-width), calc(100% - var(--space-3_5) * 2));
   overflow: hidden;
   border-radius: var(--radius-2xl);
+  transition:
+    transform var(--duration-assistant-drawer) var(--ease-out),
+    opacity var(--duration-assistant-drawer) ease;
 }
 
-/* 播放器内：右侧整高面板，不加遮罩，画面照常可见可点 */
-.assistant[data-layout='side'] {
+/* 播放器在前台：没有遮罩，整层不拦点击，只有侧栏本身可点，画面照常可见可点 */
+.assistant[data-layout='player'] {
   pointer-events: none;
 }
-.assistant[data-layout='side'] .assistant-sheet {
-  top: var(--space-5);
-  right: var(--space-5);
-  bottom: var(--space-5);
-  left: auto;
-  width: min(var(--assistant-side-width), calc(100% - var(--space-8)));
-  max-height: none;
+.assistant[data-layout='player'] .assistant-drawer {
   pointer-events: auto;
-  transform: none;
+}
+
+/* 窄窗口：侧栏宽度为 100% 减两侧边距 */
+@media (max-width: 719px) {
+  .assistant-drawer {
+    width: calc(100% - var(--space-3_5) * 2);
+  }
 }
 
 /* ── 输入胶囊上沿的 1px 渐变发丝：左段蓝紫粉，往下淡出；思考 / 回答中变亮右移 ── */
@@ -117,24 +106,21 @@
   }
 }
 
-/* ── 进出场：遮罩淡入，面板从下方弹簧滑入（右侧面板从右侧） ── */
+/* ── 进出场：遮罩淡入，侧栏从右侧滑入；will-change 只在过渡期间挂上，结束即释放 ── */
+.assistant-enter-active .assistant-drawer,
+.assistant-leave-active .assistant-drawer,
+.assistant-enter-active .assistant-scrim,
+.assistant-leave-active .assistant-scrim {
+  will-change: transform, opacity;
+}
 .assistant-enter-from .assistant-scrim,
 .assistant-leave-to .assistant-scrim {
   opacity: 0;
 }
-.assistant-enter-from .assistant-sheet,
-.assistant-leave-to .assistant-sheet {
+.assistant-enter-from .assistant-drawer,
+.assistant-leave-to .assistant-drawer {
   opacity: 0;
-  transform: translate(-50%, var(--space-8)) scale(0.98);
-}
-.assistant-enter-from[data-layout='side'] .assistant-sheet,
-.assistant-leave-to[data-layout='side'] .assistant-sheet {
-  transform: translateX(calc(100% + var(--space-8)));
-}
-.assistant-leave-active .assistant-sheet {
-  transition:
-    transform var(--duration-normal) var(--ease-out),
-    opacity var(--duration-normal) ease;
+  transform: translateX(calc(100% + var(--space-3_5)));
 }
 
 @keyframes assistant-caret {
@@ -159,7 +145,7 @@
   .assistant *::after {
     animation: none !important;
   }
-  .assistant-sheet,
+  .assistant-drawer,
   .assistant-scrim,
   .assistant-streak {
     transition: none;

@@ -1,13 +1,11 @@
 <template>
   <header class="assistant-head">
-    <div class="assistant-chips">
-      <span class="assistant-chip is-context">
-        <UiIcon :name="contextIcon" size="sm" />{{ contextLabel }}
-      </span>
-      <span v-if="modelLabel" class="assistant-chip">{{ modelLabel }}</span>
-      <span v-if="isPrivate" class="assistant-chip is-ghost">
-        <UiIcon name="eyeOff" size="sm" />无痕：不留对话记录
-      </span>
+    <div class="assistant-heading">
+      <h2 class="assistant-title">影盒助手</h2>
+      <p class="assistant-subtitle" :title="modelLabel || undefined">
+        <UiIcon :name="contextIcon" size="sm" />
+        <span class="assistant-subtitle-text">{{ subtitle }}</span>
+      </p>
     </div>
     <UiPressable
       class="assistant-close"
@@ -21,14 +19,16 @@
 
 <script setup lang="ts">
 /**
- * 助手面板顶部的上下文行：上下文胶囊（当前页面或在播片名 · 时间点；私密模式显示
- * 「私密 · 仅本地模型」与无痕提示）、模型名、Esc 关闭提示（可点）。全部中性灰，不带彩色。
+ * 侧栏头部：标题「影盒助手」、一行场景副标题（在播片名 · 时间点、当前页面；私密模式写
+ * 「私密 · 仅本地模型 · 无痕」，见 assistant-copy.ts）、右侧 Esc 键帽（可点关闭）。
+ * 副标题前一枚图标（私密为锁、在播为播放、否则主页），全部中性灰，不靠颜色区分私密。
+ * 当前对话模型名放在副标题的悬停提示里。
  */
 import { computed } from 'vue'
 
 import { type IconName, UiIcon, UiPressable } from '@/components/ui'
 
-import { clockText } from './skills/skill-prompt'
+import { assistantSubtitle } from './assistant-copy'
 import type { AssistantContext } from './skills/skill-types'
 
 const props = defineProps<{
@@ -38,16 +38,7 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ close: [] }>()
 
-const isPrivate = computed(() => props.context.private)
-
-/** 上下文胶囊：私密 → 仅本地模型；在播 → 片名与时间点；否则页面名 */
-const contextLabel = computed(() => {
-  const { context } = props
-  if (context.private) return '私密 · 仅本地模型'
-  if (context.nowPlaying)
-    return `在播 · ${context.nowPlaying.title} ${clockText(context.nowPlaying.seconds)}`
-  return `${context.route.title} · ${context.playing ? '播放中' : '当前页面'}`
-})
+const subtitle = computed(() => assistantSubtitle(props.context))
 const contextIcon = computed<IconName>(() => {
   if (props.context.private) return 'lock'
   return props.context.nowPlaying || props.context.playing ? 'play' : 'home'
