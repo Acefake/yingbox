@@ -13,6 +13,12 @@ import { ACTOR_METHODS } from './contract-actors'
 import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
 import { CALENDAR_METHODS } from './contract-calendar'
 import type { LibraryEvent } from './contract-events'
+import {
+  type LibraryMergeBridge,
+  MERGE_METHODS,
+  type MergeRpcMap,
+  type NodeMergeFields,
+} from './contract-merge'
 import type { LibraryQueryFilters } from './contract-filters'
 import type {
   FacetFilter,
@@ -146,8 +152,8 @@ export interface LibraryItemFile {
   video?: VideoProbe | null
 }
 
-/** 条目详情树中的一个节点：剧集 → 季 → 集，电影没有子节点。 */
-export interface LibraryItemNode extends LibraryItemSummary {
+/** 条目详情树中的一个节点：剧集 → 季 → 集，电影没有子节点；版本与合并信息见 contract-merge.ts。 */
+export interface LibraryItemNode extends LibraryItemSummary, NodeMergeFields {
   seasonNumber: number | null
   episodeNumber: number | null
   overview: string | null
@@ -260,6 +266,7 @@ export interface LibraryRpcMap
     ActorRpcMap,
     CalendarRpcMap,
     FacetRpcMap,
+    MergeRpcMap,
     VisualRpcMap,
     LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
@@ -333,6 +340,7 @@ export const LIBRARY_METHODS = [
   ...FACET_METHODS,
   ...VISUAL_METHODS,
   ...CALENDAR_METHODS,
+  ...MERGE_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -340,7 +348,11 @@ export const LIBRARY_METHODS = [
  * 方法失败时 reject 一个 Error，错误码用 libraryErrorCode(error) 取（见 wire.ts）。
  */
 export interface LibraryBridge
-  extends LibraryFacetsBridge, LibraryVisualBridge, LibraryCalendarBridge {
+  extends
+    LibraryFacetsBridge,
+    LibraryVisualBridge,
+    LibraryCalendarBridge,
+    LibraryMergeBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>
