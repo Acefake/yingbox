@@ -134,6 +134,10 @@ describe('继续播放：展示', () => {
     expect(recordsFor(list, 'tv')).toHaveLength(CONTINUE_ROW_LIMIT)
     expect(recordsFor(list, 'online')).toHaveLength(1)
     expect(recordsFor(list, 'movie')).toHaveLength(0)
+    // 首页合并几个板块：仍按更新时间倒序、总数封顶
+    const merged = recordsFor(list, ['online', 'tv'])
+    expect(merged).toHaveLength(CONTINUE_ROW_LIMIT)
+    expect(merged[0].section).toBe('online')
   })
 
   it('剩余时间与进度比例', () => {
@@ -144,9 +148,9 @@ describe('继续播放：展示', () => {
       2
     )
     expect(progressRatio(record)).toBe(0.5)
-    expect(remainingLabel(record)).toBe('剩 20 分钟')
+    expect(remainingLabel(record)).toBe('剩余 20 分钟')
     expect(remainingLabel({ ...record, duration: 6000 })).toBe(
-      '剩 1 小时 20 分'
+      '剩余 1 小时 20 分'
     )
     expect(remainingLabel({ ...record, duration: 0 })).toBe('')
   })
@@ -167,9 +171,15 @@ describe('继续播放：展示', () => {
     )
   })
 
-  it('副标题：集名 + 上次时间；下一集写上一集已看完', () => {
+  it('副标题：集名；电影写电影，其余写上次时间；下一集写上一集已看完', () => {
     const [record] = started()
-    expect(subtitleOf(record, 1000)).toBe('S01E01 · 上次 刚刚')
+    expect(subtitleOf(record, 1000)).toBe('S01E01')
+    expect(subtitleOf({ ...record, episode: undefined }, 1000)).toBe(
+      '上次 刚刚'
+    )
+    expect(
+      subtitleOf({ ...record, episode: undefined, section: 'movie' }, 1000)
+    ).toBe('电影')
     expect(subtitleOf({ ...record, nextUp: true }, 1000)).toBe(
       '上一集已看完 · 上次 刚刚'
     )

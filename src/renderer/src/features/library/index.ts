@@ -34,3 +34,12 @@ export {
   loadProgress as loadLibraryProgress,
   progressOf as libraryItemProgress,
 } from './progress/progress-cache'
+/** 首页用：「最近添加」一排、Hero 轮播的片库条目、条目详情路由 */
+export { default as RecentlyAddedRow } from './home/RecentlyAddedRow.vue'
+export {
+  type LibraryHighlight,
+  type RecentLibraryItem,
+  libraryHighlights,
+  libraryItemLocation,
+  recentLibraryItems,
+} from './home/home-links'
