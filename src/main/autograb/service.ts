@@ -21,7 +21,7 @@ import type {
   FileChangeNotice,
 } from '../../shared/library/ipc'
 import { createFinder } from './finder'
-import { createGate } from './gate'
+import { type Gate, createGate } from './gate'
 import { AUTO_SCORE } from './match-rules'
 import {
   addDays,
@@ -91,6 +91,8 @@ export interface AutograbService {
   skip(key: string): Promise<void>
   retry(key: string): Promise<void>
   resume(): Promise<void>
+  /** 状态加载后的闸门：洗版、电影追踪的 115 请求也走它（同一队列、同一份限额与熔断） */
+  gate(): Promise<Gate>
 }
 
 /** 创建追更服务 */
@@ -358,6 +360,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     async resume(): Promise<void> {
       await ensureLoaded()
       gateRef.resume()
+    },
+    async gate(): Promise<Gate> {
+      await ensureLoaded()
+      return gateRef
     },
   }
 }
