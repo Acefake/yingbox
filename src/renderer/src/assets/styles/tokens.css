@@ -177,9 +177,10 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --content-padding-x: 40px;
   --content-padding-y: 32px;
+  /* 控件高度三档（按钮、分段切换、筛选胶囊、输入框共用）：sm 行内 / md 页头工具条 / lg 主操作 */
   --control-height-sm: 28px;
-  --control-height: 32px;
-  --control-height-lg: 40px;
+  --control-height: 36px;
+  --control-height-lg: 44px;
   --poster-min-width: 160px;
   --poster-gap-x: 24px;
   --poster-gap-y: 32px;
