@@ -14,7 +14,12 @@
       aria-label="设置"
       @click.stop
     >
-      <div class="settings-frame">
+      <div
+        ref="frameRef"
+        class="settings-frame"
+        tabindex="-1"
+        @keydown="trapTab"
+      >
         <DialogTitlebar title="设置" icon="settings" @close="requestClose" />
         <div class="settings-body">
           <SettingsNav
@@ -65,6 +70,7 @@ import { type Component, ref, shallowRef, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
+import { useModalFocus } from '@/composables/use-focus-trap'
 
 import { settingsSections } from './registry'
 import SettingsNav from './ui/SettingsNav.vue'
@@ -124,6 +130,9 @@ watch(
 
 // ── 打开/关闭行为 ───────────────────────────────────────────
 useEscapeLayer(() => props.visible, requestClose)
+// 模态：焦点移进窗口、Tab 不跑到背后的页面、关闭后还回去
+const frameRef = ref<HTMLElement | null>(null)
+const trapTab = useModalFocus(frameRef, () => props.visible)
 
 watch(
   () => props.visible,
@@ -154,6 +163,7 @@ watch(
 }
 
 .settings-frame {
+  outline: none;
   display: flex;
   flex-direction: column;
   width: min(980px, calc(100vw - 48px));
