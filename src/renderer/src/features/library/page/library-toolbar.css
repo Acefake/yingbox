@@ -50,9 +50,14 @@
   height: var(--control-height);
   padding: 0 var(--space-4);
   border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg);
   color: var(--text-primary);
+  box-shadow: var(--shadow-control);
   cursor: pointer;
+  transition: var(--transition-fast);
+}
+.lib-sort:hover {
+  background: var(--control-bg-hover);
 }
 .lib-sort:focus-within {
   box-shadow: var(--focus-ring);

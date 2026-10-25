@@ -73,18 +73,20 @@ withDefaults(
   gap: var(--space-1_5);
   min-height: var(--control-height);
   padding: 0 var(--space-4);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
   color: var(--text-primary);
+  box-shadow: var(--shadow-control);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 .ui-chip:where(.is-md:hover:not(:disabled)) {
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg-hover);
 }
 .ui-chip:where(.is-md.is-selected) {
   background: var(--text-primary);
-  color: var(--bg-content);
+  color: var(--bg-elevated);
+  box-shadow: none;
   font-weight: var(--font-weight-semibold);
 }
 .ui-chip-count {

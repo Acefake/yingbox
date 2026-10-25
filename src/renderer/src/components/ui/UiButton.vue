@@ -100,15 +100,12 @@ withDefaults(
   background: var(--action-hover);
 }
 .ui-button.is-secondary {
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg);
   color: var(--text-primary);
+  box-shadow: var(--shadow-control);
 }
 .ui-button.is-secondary:hover:not(:disabled) {
-  background: color-mix(
-    in srgb,
-    var(--bg-fill-secondary) 84%,
-    var(--text-primary)
-  );
+  background: var(--control-bg-hover);
 }
 /* 玻璃：模糊与阴影来自 .yb-glass，底色在双类里显式写（压过基类） */
 .ui-button.is-glass {
@@ -122,7 +119,8 @@ withDefaults(
 .ui-button.is-pressed,
 .ui-button.is-pressed:hover:not(:disabled) {
   background: var(--text-primary);
-  color: var(--bg-content);
+  color: var(--bg-elevated);
+  box-shadow: none;
 }
 .ui-button.is-danger {
   background: var(--danger);

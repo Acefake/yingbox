@@ -8,7 +8,7 @@
   overflow-y: auto;
 }
 
-/* 周切换：与 UiButton secondary 同高同色的胶囊，里面两枚小圆钮夹着日期区间 */
+/* 周切换：与 UiButton secondary 同高同色同投影的胶囊，里面两枚小圆钮夹着日期区间 */
 .cal-nav {
   display: flex;
   flex: none;
@@ -19,7 +19,8 @@
   height: var(--control-height);
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg);
+  box-shadow: var(--shadow-control);
 }
 .cal-nav :deep(.yb-icon-button) {
   border-radius: var(--radius-full);
@@ -54,9 +55,10 @@
   padding-bottom: var(--space-2);
   border-radius: var(--radius-md);
 }
-/* 今天：整列极淡的底，日期数字浅灰圆底，不用白色描边和实心白圆 */
+/* 今天：整列一张很淡的卡片（深色接近底色，浅色是带轻投影的白卡），日期数字浅灰圆底 */
 .cal-day.is-today {
-  background: var(--bg-glass);
+  background: color-mix(in srgb, var(--bg-card) 60%, transparent);
+  box-shadow: var(--shadow-card);
 }
 .cal-day-head {
   display: flex;

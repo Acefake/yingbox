@@ -62,7 +62,8 @@ watch(
   gap: var(--space-1_5);
   padding: var(--space-3_5) var(--space-2) var(--space-2);
   border-radius: var(--radius-xl);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
 }
 
 .live-schedule-title {
