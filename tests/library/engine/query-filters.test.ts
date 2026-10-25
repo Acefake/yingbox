@@ -1,5 +1,5 @@
 /**
- * 海报墙附加筛选（自然语言搜索用）：参数校验，以及真实服务上按评分下限、制片国家、
+ * 海报墙附加筛选（自然语言搜索用）：参数校验，以及真实服务上按评分下限、制片国家、有无类型、
  * 人名（演职员名 / 原名包含匹配）、条目 id 白名单 / 黑名单过滤。
  */
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
@@ -29,7 +29,10 @@ describe('附加筛选参数校验', () => {
     expect(plain).not.toHaveProperty('countries')
     expect(plain).not.toHaveProperty('ratingMin')
     expect(normalizeLibraryQuery({ ids: [] }).ids).toEqual([])
+    expect(normalizeLibraryQuery({ hasGenres: false }).hasGenres).toBe(false)
+    expect(plain).not.toHaveProperty('hasGenres')
     const bad = expect.objectContaining({ code: 'invalid-params' })
+    expect(() => normalizeLibraryQuery({ hasGenres: 'yes' })).toThrow(bad)
     expect(() => normalizeLibraryQuery({ ratingMin: 11 })).toThrow(bad)
     expect(() => normalizeLibraryQuery({ people: [1] })).toThrow(bad)
     expect(() => normalizeLibraryQuery({ ids: [0] })).toThrow(bad)
@@ -145,5 +148,18 @@ describe('按附加筛选查询（真实服务）', () => {
     expect(
       titles({ people: ['诺兰'], ratingMin: 8, countries: ['US'] })
     ).toEqual(['Inception'])
+  })
+
+  it('有无类型：genres 非空才算有，空数组与 NULL 都算没有', async () => {
+    const ids = await setup()
+    const setGenres = (title: string, genres: string | null): void => {
+      service.db
+        .prepare('UPDATE media_items SET genres = ? WHERE id = ?')
+        .run(genres, ids.get(title)!)
+    }
+    setGenres('Inception', '["科幻"]')
+    setGenres('Parasite', '[]')
+    expect(titles({ hasGenres: true })).toEqual(['Inception'])
+    expect(titles({ hasGenres: false })).toEqual(['Parasite', 'Tenet'])
   })
 })

@@ -11,12 +11,12 @@ import type { NfoInfo } from '../../../shared/library/identify'
 import type { ItemChanges } from '../catalog/catalog-store'
 import { transaction } from '../db/database'
 import type { IdentifyTarget, TargetFile } from './identify-store'
+import { movieNfoPath } from './nfo-fill'
 import {
   type GroupResult,
   groupMovieFiles,
   mergeMatchedByRef,
   pickUndecided,
-  stem,
 } from './runner-rules'
 import type { Outcome, RunnerContext } from './runner-types'
 
@@ -90,15 +90,12 @@ async function identifyMovieFile(
   )
 }
 
-/** 电影 NFO：同名 .nfo 优先，其次 movie.nfo。 */
+/** 电影 NFO：同名 .nfo 优先，其次 movie.nfo（定位见 nfo-fill）。 */
 async function movieNfo(
   ctx: RunnerContext,
   file: TargetFile
 ): Promise<NfoInfo | undefined> {
-  const nfos = ctx.deps.store.nfoFiles(file.dir)
-  if (!nfos.size) return undefined
-  const path =
-    nfos.get(`${stem(file.name)}.nfo`.toLowerCase()) ?? nfos.get('movie.nfo')
+  const path = movieNfoPath(ctx.deps.store, file)
   const text = path ? await ctx.readText(path) : undefined
   return text ? parseNfo(text) : undefined
 }
