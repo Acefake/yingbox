@@ -17,6 +17,14 @@
         </div>
       </template>
       <template #actions>
+        <UiButton
+          v-if="autograbAvailable"
+          size="sm"
+          :variant="showAutograb ? 'primary' : 'secondary'"
+          icon="download"
+          label="追更"
+          @click="showAutograb = !showAutograb"
+        />
         <UiIconButton
           icon="refresh"
           label="重新获取播出信息"
@@ -33,6 +41,8 @@
     </PageHeader>
 
     <p v-if="notice" class="cal-notice">{{ notice }}</p>
+
+    <AutograbPanel v-if="autograbAvailable && showAutograb" />
 
     <section
       v-if="cal.mode.value === 'week'"
@@ -98,7 +108,7 @@
  * 追剧日历页（/calendar）：周视图（周一到周日，可前后翻周，今天高亮）与列表视图。
  * 数据见 use-calendar.ts；点卡片：媒体库里有本地文件就播放这一集，否则打开剧的详情；在线剧打开在线详情。
  */
-import { computed, nextTick, onActivated, watch } from 'vue'
+import { computed, nextTick, onActivated, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
@@ -111,6 +121,7 @@ import {
   UiSegmented,
   toast,
 } from '@/components/ui'
+import { AutograbPanel, autograbAvailable } from '@/features/autograb'
 import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
@@ -126,6 +137,8 @@ const MODE_OPTIONS: SegmentedOption<CalendarMode>[] = [
 
 const router = useRouter()
 const cal = useCalendar()
+/** 追更面板展开 */
+const showAutograb = ref(false)
 
 const weekTitle = computed(() => weekLabel(cal.start.value, cal.today.value))
 const weekBuckets = computed(() =>
