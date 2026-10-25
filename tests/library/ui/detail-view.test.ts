@@ -59,7 +59,7 @@ describe('详情头图规格', () => {
     ])
     expect(
       creditLinesOf(
-        meta({ cast: [], crew: [{ id: 1, name: '刘慈欣', job: 'Creator' }] })
+        meta({ cast: [], crew: [{ id: '1', name: '刘慈欣', job: 'Creator' }] })
       )
     ).toEqual([{ label: '主创', names: '刘慈欣' }])
     expect(creditLinesOf(null)).toEqual([])
