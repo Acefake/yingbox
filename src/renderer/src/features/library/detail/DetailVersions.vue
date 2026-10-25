@@ -1,7 +1,7 @@
 <template>
   <!-- 版本：同一作品的多份文件（不同分辨率 / 不同文件夹），选哪一份播放；误合并时拆出 -->
   <section class="lib-section">
-    <h2 class="lib-section-title">版本</h2>
+    <UiSectionHeader title="版本" />
     <p v-if="splitFrom" class="lib-version-note">
       已单独显示，同一作品另有 {{ splitFrom }} 处文件
       <UiButton
@@ -54,6 +54,7 @@ import { computed } from 'vue'
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiRadio from '@/components/ui/UiRadio.vue'
+import UiSectionHeader from '@/components/ui/UiSectionHeader.vue'
 
 import {
   pickVersion,

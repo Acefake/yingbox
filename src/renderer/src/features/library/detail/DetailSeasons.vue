@@ -81,7 +81,7 @@
           <span v-else class="lib-episode-placeholder" aria-hidden="true"
             ><UiIcon name="tv" size="lg"
           /></span>
-          <span class="lib-pblur lib-episode-blur" aria-hidden="true"
+          <span class="yb-pblur lib-episode-blur" aria-hidden="true"
             ><i /><i /><i /><i
           /></span>
           <span class="lib-episode-copy">
@@ -256,7 +256,7 @@ const {
   width: 100%;
   height: 100%;
   overflow: hidden;
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-card);
   background: var(--bg-fill-secondary);
   color: var(--media-text);
   text-align: left;
@@ -307,11 +307,6 @@ const {
 }
 .lib-episode-blur {
   --pblur-height: 64%;
-  --pblur-tint: linear-gradient(
-    transparent 0%,
-    color-mix(in srgb, var(--media-bg) 22%, transparent) 45%,
-    color-mix(in srgb, var(--media-bg) 42%, transparent) 100%
-  );
 }
 .lib-episode-copy {
   position: absolute;

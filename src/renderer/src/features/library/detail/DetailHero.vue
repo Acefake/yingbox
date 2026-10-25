@@ -9,7 +9,7 @@
       decoding="async"
       @load="onFadeIn"
     />
-    <span class="lib-pblur lib-hero-blur" aria-hidden="true"
+    <span class="yb-pblur lib-hero-blur" aria-hidden="true"
       ><i /><i /><i /><i
     /></span>
     <div class="lib-hero-side" aria-hidden="true" />
