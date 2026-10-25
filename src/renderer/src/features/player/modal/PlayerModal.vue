@@ -3,10 +3,13 @@
     <Transition name="player-modal">
       <div
         v-show="visible"
+        ref="modalRef"
         class="player-modal"
         role="dialog"
         aria-modal="true"
         :aria-label="title"
+        tabindex="-1"
+        @keydown="trapTab"
       >
         <!-- 遮罩盖住了标题栏：顶部留一条可拖动窗口的区域和窗口按钮 -->
         <div v-if="isElectron" class="player-modal__titlebar">
@@ -71,6 +74,7 @@ import { useRoute } from 'vue-router'
 import WinControls from '@/components/WinControls.vue'
 import { UiIconButton } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
+import { useModalFocus } from '@/composables/use-focus-trap'
 
 import { claimMini, dockMini, swapMiniVideo } from '../mini/mini-dock'
 import {
@@ -171,10 +175,14 @@ watch(
 
 // 全屏时 Esc 由浏览器先退出全屏，不会走到这里
 useEscapeLayer(() => visible.value, closePlayerModal)
+// 模态：Tab 只在播放弹窗里循环；缩成小窗或关闭后焦点还给打开前的元素
+const modalRef = ref<HTMLElement | null>(null)
+const trapTab = useModalFocus(modalRef, () => visible.value)
 </script>
 
 <style scoped>
 .player-modal {
+  outline: none;
   position: fixed;
   inset: 0;
   z-index: var(--z-player);
