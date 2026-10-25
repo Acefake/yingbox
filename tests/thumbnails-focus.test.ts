@@ -207,3 +207,32 @@ describe('焦点：预热时顺手算', () => {
     expect(codec.ops).not.toContain('focus')
   })
 })
+
+it('后台焦点计算晚于人脸保存完成时，返回值与持久化结果都保留人脸焦点', async () => {
+  let release!: () => void
+  let begin!: () => void
+  const waiting = new Promise<void>(resolve => {
+    release = resolve
+  })
+  const started = new Promise<void>(resolve => {
+    begin = resolve
+  })
+  const inner = inProcessCodec()
+  const codec: Codec = async (job, transfer) => {
+    if (job.op === 'focus') {
+      begin()
+      await waiting
+    }
+    return inner(job, transfer)
+  }
+  const { p } = pipeline(landscape(), codec)
+  const pending = p.focus.get([url])
+  await started
+  const face = { v: FOCUS_VERSION, x: 0.62, y: 0.25, by: 'face' as const }
+  await p.focus.save(url, face)
+  release()
+  expect(await pending).toEqual([face])
+  await p.idle()
+  expect(await p.focus.get([url])).toEqual([face])
+  expect(JSON.parse(readFileSync(sidecar(), 'utf8'))).toEqual(face)
+})

@@ -43,7 +43,10 @@ describe('按画面搜面板阶段', () => {
   it('不可用 / 待建索引 / 进行中 / 可搜', () => {
     expect(stageOf({ ...base, runtime: false })).toBe('unavailable')
     expect(stageOf({ ...base, model: 'missing', indexed: 0 })).toBe('setup')
-    expect(stageOf({ ...base, indexed: 0 })).toBe('setup')
+    expect(
+      stageOf({ ...base, indexed: 0, frames: { ...frames, frames: 0 } })
+    ).toBe('setup')
+    expect(stageOf({ ...base, indexed: 0 })).toBe('ready')
     expect(stageOf({ ...base, indexing: true })).toBe('working')
     expect(stageOf(base)).toBe('ready')
     expect(stageOf(null)).toBe('setup')

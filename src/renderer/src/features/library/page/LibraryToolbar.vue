@@ -56,13 +56,6 @@
         />
       </template>
       <UiIconButton
-        v-if="hasLibraries && tonight"
-        class="lib-round yb-glass"
-        icon="moon"
-        label="今晚看什么"
-        @click="openTonight"
-      />
-      <UiIconButton
         v-if="hasLibraries && view === 'wall' && count"
         class="lib-round yb-glass"
         icon="grid"
@@ -138,19 +131,13 @@
       :library-id="facetScope.libraryId ?? null"
       @open-item="id => ((visualOpen = false), emit('open-item', id))"
     />
-    <TonightSheet
-      v-if="tonightMounted"
-      :open="tonightOpen"
-      @close="tonightOpen = false"
-      @open-item="id => emit('open-item', id)"
-    />
   </header>
 </template>
 
 <script setup lang="ts">
 /**
  * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧资料库 / 演员（番号库）/ 待确认切换、玻璃排序胶囊与方向、
- * 分面筛选与按画面搜（番号库）、今晚看什么（电影 / 剧集）、视频墙、扫描 / 识别 / 设置（玻璃圆钮，文字在提示里）；
+ * 分面筛选与按画面搜（番号库）、视频墙、扫描 / 识别 / 设置（玻璃圆钮，文字在提示里）；
  * 第二行筛选胶囊（匹配状态，媒体库多于一个时接着列出各媒体库）。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  * 搜索用顶栏全局搜索（按 ?q= 在本页过滤），工具栏不再放第二个搜索框。
@@ -170,7 +157,6 @@ import type {
 import ActiveFacets from '../facets/ActiveFacets.vue'
 import FacetPanel from '../facets/FacetPanel.vue'
 import { activeCount } from '../facets/facet-rules'
-import TonightSheet from '../tonight/TonightSheet.vue'
 import VisualSearch from '../visual/VisualSearch.vue'
 import {
   FILTER_OPTIONS,
@@ -194,8 +180,6 @@ defineProps<{
   order: 'asc' | 'desc'
   /** 分面筛选的取值范围；不传表示该分区没有分面筛选。 */
   facetScope?: Omit<FacetListRequest, 'field'>
-  /** 显示「今晚看什么」（电影 / 剧集分区）。 */
-  tonight?: boolean
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
@@ -204,14 +188,6 @@ const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
 const facetsOpen = ref(false)
 const visualOpen = ref(false)
 const facetCount = computed(() => activeCount(facets.value))
-/** 「今晚看什么」面板：第一次打开才挂载，之后保留（再打开时条件和结果还在） */
-const tonightOpen = ref(false)
-const tonightMounted = ref(false)
-
-function openTonight(): void {
-  tonightMounted.value = true
-  tonightOpen.value = true
-}
 
 /** 0 表示全部文件夹。 */
 const library = defineModel<number>('library', { required: true })

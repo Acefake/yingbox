@@ -117,7 +117,6 @@ import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { usePlatform } from '@/composables/use-platform'
-import { useOwnBackButton } from '@/composables/use-shell-chrome'
 
 import { errorText, libraryBridge } from '../api/bridge'
 import { heroImage, itemImage, tmdbImage } from '../api/images'
@@ -174,7 +173,6 @@ const emit = defineEmits<{
 
 const bridge = libraryBridge()
 const { isElectron } = usePlatform()
-useOwnBackButton()
 const { available: writerAvailable, write } = useWriter()
 const root = ref<HTMLElement | null>(null)
 const node = shallowRef<LibraryItemNode | null>(null)

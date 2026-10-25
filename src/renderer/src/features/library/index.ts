@@ -12,13 +12,6 @@ export {
   libraryProgressKey,
   playLibraryEpisode,
 } from './detail/calendar-links'
-/** AI 助手用：「今晚看什么」推荐与播放 */
-export {
-  type TonightSuggestion,
-  type TonightSuggestions,
-  playTonightPick,
-  suggestTonight,
-} from './tonight/tonight-play'
 /** AI 助手技能包用：按来源查条目、随机一条、播放条目、取视频文件 */
 export {
   type LibraryLookup,
@@ -43,3 +36,6 @@ export {
   libraryItemLocation,
   recentLibraryItems,
 } from './home/home-links'
+/** 统一搜索：顶部入口和命令面板共用本地召回与 AI 增强。 */
+export { UnifiedSearchPanel } from './search/panel'
+export { searchLibrary } from './search/search-service'

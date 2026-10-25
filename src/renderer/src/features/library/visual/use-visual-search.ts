@@ -4,7 +4,6 @@
  *
  * 搜索词和结果放在模块级：点开一部片再回来，结果还在。
  */
-import { useDebounceFn } from '@vueuse/core'
 import { type Ref, onBeforeUnmount, ref, watch } from 'vue'
 import type {
   VisualFramesSettings,
@@ -12,6 +11,8 @@ import type {
   VisualStatus,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
+import { visualRequest } from './visual-request'
+import { visualSearchSource } from './visual-source'
 
 /** 轮询间隔。 */
 const POLL_MS = 1000
@@ -36,6 +37,8 @@ export function useVisualSearch(options: {
   const error = ref('')
   let timer: ReturnType<typeof setTimeout> | undefined
   let seq = 0
+  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  let disposed = false
 
   const api = ():
     | NonNullable<ReturnType<typeof libraryBridge>>['visual']
@@ -47,6 +50,7 @@ export function useVisualSearch(options: {
     if (!visual || !options.open.value) return
     try {
       const next = await visual.status()
+      if (disposed || !options.open.value) return
       const before = status.value
       const finished =
         (before?.indexing && !next.indexing) ||
@@ -65,7 +69,8 @@ export function useVisualSearch(options: {
     const visual = api()
     const query = text.value.trim()
     const id = ++seq
-    if (!visual || !query) {
+    if (!visual || !query || !options.open.value) {
+      searching.value = false
       hits.value = []
       return
     }
@@ -73,11 +78,16 @@ export function useVisualSearch(options: {
     error.value = ''
     try {
       const libraryId = options.libraryId()
-      const found = await visual.search({
-        text: query,
-        ...(libraryId ? { libraryId } : {}),
-      })
-      if (id === seq) hits.value = found
+      const found = await visualRequest(
+        () => id === seq && !disposed && options.open.value,
+        () =>
+          visual.search({
+            text: query,
+            source: visualSearchSource.value,
+            ...(libraryId ? { libraryId } : {}),
+          })
+      )
+      if (id === seq && found) hits.value = found
     } catch (e) {
       if (id === seq) error.value = errorText(e)
     } finally {
@@ -111,15 +121,41 @@ export function useVisualSearch(options: {
     await refresh()
   }
 
-  const searchLater = useDebounceFn(() => void search(), 300)
-  watch(text, () => void searchLater())
+  function searchLater(): void {
+    seq++
+    clearTimeout(searchTimer)
+    if (options.open.value) searchTimer = setTimeout(() => void search(), 300)
+  }
+
+  watch(text, searchLater, { flush: 'sync' })
+  watch(
+    visualSearchSource,
+    () => {
+      hits.value = []
+      searchLater()
+    },
+    { flush: 'sync' }
+  )
   watch(
     () => options.open.value,
-    open => (open ? void refresh() : clearTimeout(timer)),
+    open => {
+      seq++
+      clearTimeout(searchTimer)
+      searching.value = false
+      if (open) {
+        void refresh()
+        if (text.value.trim()) void search()
+      } else clearTimeout(timer)
+    },
     { immediate: true }
   )
-  watch(options.libraryId, () => void search())
-  onBeforeUnmount(() => clearTimeout(timer))
+  watch(options.libraryId, searchLater)
+  onBeforeUnmount(() => {
+    disposed = true
+    seq++
+    clearTimeout(timer)
+    clearTimeout(searchTimer)
+  })
 
   return { status, text, hits, searching, error, startIndex, setFrames }
 }

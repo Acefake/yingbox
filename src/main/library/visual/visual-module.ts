@@ -139,6 +139,8 @@ export class VisualModule {
       const itemId = matrix.itemIds[row]!
       if (!allowed.has(itemId)) continue
       const fileId = matrix.fileIds[row]!
+      if (request.source === 'image' && fileId) continue
+      if (request.source === 'video' && !fileId) continue
       rows.push({
         itemId,
         score: similarity(matrix.vectors, row, matrix.scales[row]!, query),
