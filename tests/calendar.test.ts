@@ -20,11 +20,13 @@ import type {
 import {
   addDays,
   dayLabel,
+  dayParts,
   daysBetween,
   groupByWeek,
   shiftWeek,
   weekDays,
   weekLabel,
+  weekPrefix,
   weekStart,
 } from '../src/renderer/src/features/calendar/calendar-dates'
 import {
@@ -38,6 +40,8 @@ import {
   listGroups,
   onlineEntries,
   parseRemarks,
+  showKey,
+  weekSummary,
 } from '../src/renderer/src/features/calendar/calendar-rules'
 
 const TODAY = '2026-10-24' // 周六
@@ -103,6 +107,17 @@ describe('日历日期：周一开头的周', () => {
     expect(weekLabel('2026-12-28', TODAY)).toBe('2026年12月28日 – 2027年1月3日')
     expect(dayLabel(TODAY, TODAY)).toBe('今天 · 周六 24')
     expect(dayLabel('2026-10-19', TODAY)).toBe('周一 19')
+    expect(dayParts('2026-10-19')).toEqual({ weekday: '周一', day: '19' })
+    expect(dayParts('2026-10-25')).toEqual({ weekday: '周日', day: '25' })
+    expect(dayParts('bad')).toEqual({ weekday: 'bad', day: '' })
+  })
+
+  it('页头周称呼：本周 / 下周 / 上周，更远的周写那周周一，跨年带年份', () => {
+    expect(weekPrefix('2026-10-19', TODAY)).toBe('本周')
+    expect(weekPrefix('2026-10-26', TODAY)).toBe('下周')
+    expect(weekPrefix('2026-10-12', TODAY)).toBe('上周')
+    expect(weekPrefix('2026-11-02', TODAY)).toBe('11月2日那周')
+    expect(weekPrefix('2027-01-04', TODAY)).toBe('2027年1月4日那周')
   })
 
   it('按周分组：七个格子，今天标记，别的周和没日期的不进格子', () => {
@@ -281,6 +296,37 @@ describe('徽标与列表分组', () => {
     ]
     expect(badgeCount(entries, TODAY)).toBe(5)
     expect(badgeRange(TODAY)).toEqual({ from: '2026-10-18', to: TODAY })
+  })
+
+  it('页头统计按剧的唯一标识去重：同名不同剧分开算，同一部剧多集只算一次', () => {
+    const lib = (
+      seriesId: number,
+      episode: number
+    ): CalendarEntry['library'] => ({
+      seriesId,
+      season: 1,
+      episode,
+      playable: true,
+    })
+    const items = [
+      entry({ title: '同名剧', library: lib(1, 1) }),
+      entry({ title: '同名剧', library: lib(1, 2) }),
+      entry({ title: '同名剧', library: lib(2, 1) }),
+      entry({
+        source: 'online',
+        title: '同名剧',
+        online: { recordId: 'r1', detail: null },
+      }),
+    ]
+    expect(showKey(items[0])).toBe('library:1')
+    expect(showKey(entry({ title: 'Y' }))).toBe('title:Y')
+    expect(weekSummary(items, '2026-10-19', TODAY)).toBe(
+      '本周 3 部剧 · 4 集更新'
+    )
+    expect(weekSummary(items, '2026-10-26', TODAY)).toBe(
+      '下周 3 部剧 · 4 集更新'
+    )
+    expect(weekSummary([], '2026-10-19', TODAY)).toBe('')
   })
 
   it('列表视图按日期分组，今天标记，没日期的在线剧在最后', () => {

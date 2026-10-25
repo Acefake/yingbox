@@ -82,6 +82,25 @@ export function weekLabel(start: string, today: string): string {
   return `${fmt(ds, withYear)} – ${fmt(de, withYear)}`
 }
 
+/**
+ * 页头统计用的周称呼：本周 / 下周 / 上周，更远的周写「10月27日那周」（不在今年时带年份）。
+ * @param start 那周的任意一天（按所在周的周一算）
+ * @param today 今天的日期键
+ */
+export function weekPrefix(start: string, today: string): string {
+  const diff = daysBetween(weekStart(today), weekStart(start)) / 7
+  if (diff === 0) return '本周'
+  if (diff === 1) return '下周'
+  if (diff === -1) return '上周'
+  const date = parseDateKey(weekStart(start))
+  if (!date) return '这一周'
+  const year =
+    date.getFullYear() === parseDateKey(today)?.getFullYear()
+      ? ''
+      : `${date.getFullYear()}年`
+  return `${year}${date.getMonth() + 1}月${date.getDate()}日那周`
+}
+
 /** 一天的展示名：「今天 · 周六 24」或「周一 20」。 */
 export function dayLabel(key: string, today: string): string {
   const date = parseDateKey(key)
@@ -89,6 +108,19 @@ export function dayLabel(key: string, today: string): string {
   const name = WEEKDAY_NAMES[(date.getDay() + 6) % 7]
   const prefix = key === today ? '今天 · ' : ''
   return `${prefix}${name} ${date.getDate()}`
+}
+
+/**
+ * 周视图列头的两部分：星期名与几号（「周一」「19」）；日期不合法时星期名为原字符串、几号为空。
+ * @param key YYYY-MM-DD
+ */
+export function dayParts(key: string): { weekday: string; day: string } {
+  const date = parseDateKey(key)
+  if (!date) return { weekday: key, day: '' }
+  return {
+    weekday: WEEKDAY_NAMES[(date.getDay() + 6) % 7],
+    day: String(date.getDate()),
+  }
 }
 
 /** 一周里的一天和当天的条目。 */
