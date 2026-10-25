@@ -1,21 +1,31 @@
 <template>
   <div class="library-collection">
-    <PageHeader :title="title" :description="description">
+    <PageHeader
+      :title="title"
+      :count="items.length || undefined"
+      :description="description"
+    >
       <template #actions
-        ><UiIconButton
+        ><UiButton
           v-if="items.length"
           icon="trash"
-          label="清空记录"
-          danger
+          :label="kind === 'favorites' ? '清空收藏' : '清空记录'"
           @click="clear"
       /></template>
     </PageHeader>
-    <UiSegmented
-      v-model="category"
-      class="collection-tabs"
-      label="媒体类型"
-      :options="tabs"
-    />
+    <!-- 媒体类型：与片库、直播同一种页面筛选胶囊（带数量） -->
+    <nav class="collection-tabs" aria-label="媒体类型">
+      <UiChip
+        v-for="tab in tabs"
+        :key="tab.value"
+        size="md"
+        :count="countOf(tab.value)"
+        :selected="tab.value === category"
+        @click="category = tab.value"
+      >
+        {{ tab.label }}
+      </UiChip>
+    </nav>
     <UiVirtualGrid
       v-if="filteredItems.length"
       :items="filteredItems"
@@ -52,10 +62,8 @@ import { confirmDialog } from '@/components/ui'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
-import UiSegmented, {
-  type SegmentedOption,
-} from '@/components/ui/UiSegmented.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiChip from '@/components/ui/UiChip.vue'
 import { asRecord, asText } from '@/utils/json'
 import { readStoredArray } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
@@ -90,7 +98,7 @@ const title = computed(() =>
 const description = computed(() =>
   props.kind === 'favorites' ? '收藏的影片与剧集' : '点击卡片直接继续上次播放'
 )
-const tabs: SegmentedOption[] = [
+const tabs: { label: string; value: 'all' | 'movie' | 'tv' }[] = [
   { label: '全部', value: 'all' },
   { label: '电影', value: 'movie' },
   { label: '电视剧', value: 'tv' },
@@ -141,6 +149,12 @@ const read = (): void => {
     entry => entry.item?.vod_name && entry.item?.vod_pic
   )
 }
+
+/** 每个媒体类型胶囊上的数量 */
+const countOf = (value: string): number =>
+  value === 'all'
+    ? items.value.length
+    : items.value.filter(entry => typeOf(entry.item) === value).length
 
 const filteredItems = computed(() =>
   category.value === 'all'
@@ -203,7 +217,9 @@ watch(() => [route.query.tab, props.kind], read)
 }
 
 .collection-tabs {
-  align-self: flex-start;
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
 }
 
 .collection-empty {

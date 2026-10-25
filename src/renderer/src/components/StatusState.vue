@@ -36,7 +36,9 @@ withDefaults(
   text-align: center;
   color: var(--text-tertiary);
 }
-.av-status-icon {
+.av-status .av-status-icon {
+  width: 40px;
+  height: 40px;
   margin-bottom: var(--space-2);
   color: var(--text-quaternary);
 }
