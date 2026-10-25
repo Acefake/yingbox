@@ -17,7 +17,7 @@ import { type MessagePortMain, net } from 'electron'
 import { join } from 'node:path'
 import { LIBRARY_IMAGES_CACHED } from '../../../shared/library/ipc'
 import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
-import { hostAi, hostFfprobePath } from './host-calls'
+import { hostAi, hostFfmpegPath, hostFfprobePath } from './host-calls'
 import { handleRpc } from './rpc'
 import type { HttpFetch } from '../identify/identify-module'
 import { createNodeFetch } from '../platform/fetch/node-fetch'
@@ -74,6 +74,8 @@ const service = createLibraryService({
   ai: hostAi(host),
   // 视频动态范围：ffprobe 路径向主进程要（没有 ffmpeg 时为空串，探测任务直接结束）
   probeVideo: createVideoProber({ binary: hostFfprobePath(host) }),
+  // 按画面搜抽视频帧：ffmpeg 路径同样向主进程要
+  ffmpegPath: hostFfmpegPath(host),
   // 局域网 NAS / Alist：Node fetch 直连（不走系统代理），凭据每次扫描向主进程要
   remote: hostRemoteClients(host, (url, init) => fetch(url, init)),
 })

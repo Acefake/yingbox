@@ -61,6 +61,8 @@ export interface PlayRequest {
   partial?: boolean
   /** 起始文件的动态范围（杜比视界 P5 据此改走 mpv）；没探测过时缺省 */
   video?: VideoProbe | null
+  /** 从起始文件的第几秒开始播（按画面搜点了某个视频画面）；缺省从头 / 续播 */
+  startAt?: number
 }
 
 /** 电影：全部视频文件按顺序连播（分段电影 CD1 / CD2）。 */
@@ -176,6 +178,7 @@ export async function play(
       index: request.index,
       continueAs,
       anime,
+      ...(request.startAt !== undefined ? { startAt: request.startAt } : {}),
     })
   }
   const first = request.playlist[request.index]
@@ -188,5 +191,6 @@ export async function play(
     continueAs,
     anime,
     ...(request.video ? { video: request.video } : {}),
+    ...(request.startAt !== undefined ? { startAt: request.startAt } : {}),
   })
 }

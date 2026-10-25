@@ -68,6 +68,7 @@ const HANDLERS: Handlers = {
   'visual.status': s => s.visual.status(),
   'visual.index': s => s.visual.index(),
   'visual.search': (s, p) => s.visual.search(p),
+  'visual.setFrames': (s, p) => s.visual.setFrames(p),
   'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
   getItem: (s, p) => s.getItem(p),
   getPreview: (s, p) => previewsFor(s).get(p.itemId),
