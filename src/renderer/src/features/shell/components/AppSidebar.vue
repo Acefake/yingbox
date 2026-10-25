@@ -132,7 +132,7 @@
 <script setup lang="ts">
 /**
  * 应用侧栏（浮动玻璃 .yb-glass，降低透明度时为实色）：品牌行（彩色 Logo + 收起钮）、
- * 全局搜索（SidebarSearch，带 Ctrl/⌘ F 键帽）与旁边的 AI 助手 sparkle 圆钮（Cmd/Ctrl+K）、
+ * 全局搜索（SidebarSearch，带 Ctrl/⌘ F 键帽）与旁边的 AI 助手 sparkle 圆钮（悬停提示带快捷键）、
  * 分组导航（资料库 / 本地媒体 / 在线），贴在侧栏底部的页脚：无痕模式开关（会话级，打开时品牌旁显示「无痕」标识、
  * 收起成图标栏时图标带圆点）、后台任务入口（正在跑的任务数角标，媒体库识别另带进度环）和设置入口。
  * 桌面端可收起为 64px 图标列（v-model:minimized，外壳负责 Cmd/Ctrl+B 与持久化）：组间用分隔线，
