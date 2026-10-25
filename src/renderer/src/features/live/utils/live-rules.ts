@@ -158,3 +158,15 @@ export function toggleFavorite(list: readonly string[], id: string): string[] {
 export function newSourceId(now = Date.now()): string {
   return `src-${now.toString(36)}-${Math.random().toString(36).slice(2, 8)}`
 }
+
+/**
+ * 没有台标时台标位显示的短名：取第一个空格前的部分（「CCTV-1 综合」→「CCTV-1」），
+ * 否则去掉「卫视 / 频道 / 台」后缀（「北京卫视」→「北京」），最多 7 个字符。
+ * @param name 频道名
+ */
+export function logoText(name: string): string {
+  const trimmed = name.trim()
+  const head = trimmed.split(/\s+/)[0] || trimmed
+  const short = head === trimmed ? head.replace(/(卫视|频道|台)$/, '') : head
+  return [...(short || head)].slice(0, 7).join('')
+}

@@ -9,6 +9,7 @@ import {
   formatDay,
   pollLogin,
   sourceLabel,
+  titleSpecs,
 } from '../../src/renderer/src/features/netdisk/utils/netdisk-rules'
 import type { Pan115LoginPoll } from '../../src/shared/contract/pan115'
 
@@ -83,5 +84,27 @@ describe('netdisk-rules', () => {
     )
     expect(outcome).toEqual({ status: 'canceled' })
     expect(seen).toEqual([])
+  })
+
+  it('titleSpecs：从分享标题认出分辨率、动态范围、音轨与中字', () => {
+    const texts = (title: string): string[] =>
+      titleSpecs(title).map(s => `${s.variant}:${s.text}`)
+    expect(texts('三体 (2023) 4K 杜比视界 全30集 国语中字 腾讯版')).toEqual([
+      'solid:4K',
+      'dolby:VISION',
+      'outline:中字',
+    ])
+    expect(
+      texts('三体 3 Body Problem S01 2160p WEB-DL DDP5.1 Atmos 中英双字')
+    ).toEqual(['solid:4K', 'dolby:ATMOS', 'outline:中字'])
+    expect(texts('漫长的季节 (2023) 1080P 全12集')).toEqual(['outline:1080P'])
+    expect(texts('繁花 2160p HDR DV 内封简繁')).toEqual([
+      'solid:4K',
+      'dolby:VISION',
+      'outline:中字',
+    ])
+    expect(texts('封神第一部 HDR10 IMAX')).toEqual(['solid:HDR'])
+    // DV 只认独立的词，不误认 DVD
+    expect(texts('老电影 DVDRip')).toEqual([])
   })
 })
