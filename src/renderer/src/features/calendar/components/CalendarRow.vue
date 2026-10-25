@@ -92,7 +92,7 @@ watch(
 const imageUrl = computed(() => {
   const { image, imageKind } = props.group
   if (!image) return null
-  return imageKind === 'library' ? libraryImage(image) : thumbSrc(image, 160)
+  return imageKind === 'library' ? libraryImage(image) : thumbSrc(image, 300)
 })
 
 /** 点开的那一集本地有文件：剧照上悬停出播放图标 */
