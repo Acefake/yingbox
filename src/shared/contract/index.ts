@@ -23,6 +23,7 @@ import { lada } from './lada'
 import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
+import { notifications } from './notifications'
 import { nowPlaying } from './now-playing'
 import { online } from './online'
 import { pan115 } from './pan115'
@@ -56,6 +57,7 @@ export const contract = {
   libraryNotify,
   media,
   mpv,
+  notifications,
   nowPlaying,
   online,
   pan115,

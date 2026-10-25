@@ -286,4 +286,12 @@ export class CatalogQuery {
     }
     return nodes.get(id)!
   }
+
+  /** 片库里登记过的视频文件路径；不存在或不是视频返回 null。 */
+  videoFilePath(fileId: number): string | null {
+    const row = this.sql
+      .get("SELECT path FROM files WHERE id = ? AND kind = 'video'")
+      .get(fileId)
+    return row ? String(row.path) : null
+  }
 }

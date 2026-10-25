@@ -8,7 +8,7 @@ import type {
   FileChangeNotice,
 } from '../../shared/library/ipc'
 import type { DriveEntry, DriveSpace } from '../pan115/client'
-import type { AutograbState } from './state'
+import type { AutograbState, EpisodeRecord } from './state'
 
 /** 依赖 */
 export interface AutograbDeps {
@@ -46,4 +46,6 @@ export interface AutograbDeps {
   sleep(ms: number): Promise<void>
   emit(): void
   log(message: string): void
+  /** 转存过的集入库了（日历里这一集有了文件），推送通知用 */
+  landed?(records: EpisodeRecord[]): void
 }
