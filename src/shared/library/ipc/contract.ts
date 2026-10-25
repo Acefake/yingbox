@@ -4,10 +4,10 @@
  * 只有类型和常量，不依赖 Node / Electron，主进程、引擎进程、preload、渲染进程共用。
  */
 import type {
-  EpisodeMetadata,
-  MediaMetadata,
-  SeasonMetadata,
-} from '../provider'
+  IdentifyRequest,
+  ItemMetadata,
+  RefreshMetadataRequest,
+} from './contract-identify'
 import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
@@ -15,6 +15,8 @@ import { CALENDAR_METHODS } from './contract-calendar'
 import type { LibraryProgressBridge, ProgressRpcMap } from './contract-progress'
 import { PROGRESS_METHODS } from './contract-progress'
 import type { LibraryEvent } from './contract-events'
+import type { LibraryMergeBridge, MergeRpcMap } from './contract-merge'
+import { MERGE_METHODS, type NodeMergeFields } from './contract-merge'
 import type { LibraryQueryFilters } from './contract-filters'
 import type {
   FacetFilter,
@@ -52,6 +54,7 @@ import type {
 } from './contract-writer'
 
 export * from './contract-actors'
+export * from './contract-identify'
 export * from './contract-calendar'
 export * from './contract-progress'
 export * from './contract-events'
@@ -149,8 +152,8 @@ export interface LibraryItemFile {
   video?: VideoProbe | null
 }
 
-/** 条目详情树中的一个节点：剧集 → 季 → 集，电影没有子节点。 */
-export interface LibraryItemNode extends LibraryItemSummary {
+/** 条目详情树中的一个节点：剧集 → 季 → 集，电影没有子节点；版本与合并信息见 contract-merge.ts。 */
+export interface LibraryItemNode extends LibraryItemSummary, NodeMergeFields {
   seasonNumber: number | null
   episodeNumber: number | null
   overview: string | null
@@ -212,53 +215,13 @@ export interface LibraryQueryResult {
 /** 触发扫描。 */
 export interface ScanRequest {
   libraryId: number
-  /**
-   * 为 true 时不走目录 mtime 短路，逐个 stat 全部文件。
-   * 用于怀疑有“只改内容不改目录”的文件变化时。
-   */
+  /** 为 true 时不走目录 mtime 短路，逐个 stat 全部文件（怀疑有“只改内容不改目录”的变化时用）。 */
   full?: boolean
 }
 
 /** 扫描已排入任务队列。 */
 export interface ScanAccepted {
   jobId: number
-}
-
-/**
- * 条目上存的完整元数据：电影 / 剧集是 MediaMetadata，季是 SeasonMetadata（不含 episodes），
- * 集是 EpisodeMetadata。绝对集数的集额外带 mapped（映射到的 季 / 集）。
- * 没刮削上的电影 / 剧集可能带 local：只有本地 NFO / 豆瓣补来的制片国家（供地区筛选），不算匹配。
- */
-export type ItemMetadata =
-  | ({ level: 'title' } & MediaMetadata)
-  | ({ level: 'season' } & Omit<SeasonMetadata, 'episodes'>)
-  | ({ level: 'episode' } & EpisodeMetadata & { mapped?: boolean })
-  | LocalItemMetadata
-
-/** 本地补全的元数据：制片国家（ISO 3166-1）与来源。 */
-export interface LocalItemMetadata {
-  level: 'local'
-  countries: string[]
-  source: 'nfo' | 'douban'
-}
-
-/** 识别请求：给 itemIds 只识别这些条目；只给 libraryId 识别该库里需要识别的条目。 */
-export interface IdentifyRequest {
-  libraryId?: number
-  itemIds?: number[]
-  /** 为 true 时已自动匹配 / 待确认的也重新识别（锁定的永远不动）。 */
-  force?: boolean
-  /**
-   * 为 true 时只对其中待确认 / 未匹配的条目做 AI 识别（大模型推断片名后经 TMDB 验证），
-   * 不受设置「AI 识别兜底」开关影响；没有配置 AI 时报错。
-   */
-  ai?: boolean
-}
-
-/** 刷新元数据：重新拉取已匹配条目（含锁定）的元数据与图片，不改匹配。 */
-export interface RefreshMetadataRequest {
-  libraryId?: number
-  itemIds?: number[]
 }
 
 /** 任务已排入队列。 */
@@ -273,6 +236,7 @@ export interface LibraryRpcMap
     CalendarRpcMap,
     ProgressRpcMap,
     FacetRpcMap,
+    MergeRpcMap,
     VisualRpcMap,
     LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
@@ -347,6 +311,7 @@ export const LIBRARY_METHODS = [
   ...VISUAL_METHODS,
   ...CALENDAR_METHODS,
   ...PROGRESS_METHODS,
+  ...MERGE_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
@@ -358,7 +323,8 @@ export interface LibraryBridge
     LibraryFacetsBridge,
     LibraryVisualBridge,
     LibraryCalendarBridge,
-    LibraryProgressBridge {
+    LibraryProgressBridge,
+    LibraryMergeBridge {
   listLibraries(): Promise<LibraryInfo[]>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>

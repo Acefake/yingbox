@@ -28,12 +28,24 @@ import { findLibrary } from '../state/use-libraries'
 import { prepareProgress, resumeAt } from '../progress/progress-cache'
 import { baseName, episodeCode } from '../shared/format'
 import { seasonOrder, sortedSeasons } from './detail-rules'
+import { pickVersion } from './version-rules'
 
-/** 节点自身的视频文件（按路径排序：分段 / 多版本按文件名顺序）。 */
-export function videoFileEntries(node: LibraryItemNode): LibraryItemFile[] {
-  return node.files
+/**
+ * 节点要播放的视频文件：有版本时是选中版本（缺省最好的那个）的文件，按分段顺序；
+ * 没有版本信息时是全部视频文件按路径排序。
+ * @param prefer 用户选的版本或来源（见 version-rules.ts）
+ */
+export function videoFileEntries(
+  node: LibraryItemNode,
+  prefer?: string | null
+): LibraryItemFile[] {
+  const all = node.files
     .filter(file => file.kind === 'video')
     .sort((a, b) => a.path.localeCompare(b.path, undefined, { numeric: true }))
+  const version = pickVersion(node, prefer)
+  if (!version) return all
+  const byId = new Map(all.map(file => [file.id, file]))
+  return version.fileIds.flatMap(id => byId.get(id) ?? [])
 }
 
 /** 节点自身的视频文件路径（顺序同 videoFileEntries）。 */
@@ -72,9 +84,12 @@ export interface PlayRequest {
   endHint?: EndHint
 }
 
-/** 电影：全部视频文件按顺序连播（分段电影 CD1 / CD2）。 */
-export function moviePlayRequest(node: LibraryItemNode): PlayRequest | null {
-  const files = videoFileEntries(node)
+/** 电影：选中版本的文件按顺序连播（分段电影 CD1 / CD2）。 */
+export function moviePlayRequest(
+  node: LibraryItemNode,
+  prefer?: string | null
+): PlayRequest | null {
+  const files = videoFileEntries(node, prefer)
   if (!files.length) return null
   return {
     title: node.title,
@@ -133,16 +148,17 @@ export function seasonEndHint(
     : { text }
 }
 
-/** 剧集：从某一集开始，按本季顺序连播；后面还有季时标 partial，否则带播完提示。 */
+/** 剧集：从某一集开始，按本季顺序连播（每集取选中来源的版本）；后面还有季时标 partial，否则带播完提示。 */
 export function episodePlayRequest(
   series: LibraryItemNode,
   season: LibraryItemNode,
-  episode: LibraryItemNode
+  episode: LibraryItemNode,
+  prefer?: string | null
 ): PlayRequest | null {
   const episodes = playableEpisodes(season)
   const index = episodes.findIndex(ep => ep.id === episode.id)
   if (index < 0) return null
-  const firsts = episodes.map(ep => videoFileEntries(ep)[0])
+  const firsts = episodes.map(ep => videoFileEntries(ep, prefer)[0])
   return {
     title: `${series.title} ${episodeLabel(episode)}`,
     playlist: episodes.map((ep, i) => ({
@@ -161,12 +177,15 @@ export function episodePlayRequest(
   }
 }
 
-/** 条目的主播放：电影连播全部文件；剧集从排序后第一个有文件的季的第一集开始。没有文件返回 null。 */
-export function primaryPlayRequest(node: LibraryItemNode): PlayRequest | null {
-  if (node.type === 'movie') return moviePlayRequest(node)
+/** 条目的主播放：电影连播选中版本的文件；剧集从排序后第一个有文件的季的第一集开始。没有文件返回 null。 */
+export function primaryPlayRequest(
+  node: LibraryItemNode,
+  prefer?: string | null
+): PlayRequest | null {
+  if (node.type === 'movie') return moviePlayRequest(node, prefer)
   for (const season of sortedSeasons(node)) {
     const first = playableEpisodes(season)[0]
-    if (first) return episodePlayRequest(node, season, first)
+    if (first) return episodePlayRequest(node, season, first, prefer)
   }
   return null
 }

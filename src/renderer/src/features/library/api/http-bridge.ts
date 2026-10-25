@@ -127,6 +127,10 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
       summary: itemIds => call('progress.summary', { itemIds }),
       recent: limit => call('progress.recent', limit ? { limit } : {}),
     },
+    merge: {
+      split: itemId => call('merge.split', { itemId }),
+      join: itemId => call('merge.join', { itemId }),
+    },
     subscribe(listener) {
       listeners.add(listener)
       stream ??= deps.openEvents(LIBRARY_HTTP.events, data => {
