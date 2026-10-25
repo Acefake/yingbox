@@ -1,12 +1,11 @@
 <template>
   <header class="assistant-head">
-    <AssistantOrb compact :phase="phase" :level="level" />
-    <div class="assistant-chips">
-      <span class="assistant-chip is-context">
-        <i class="assistant-chip-dot" aria-hidden="true" />{{ contextLabel }}
-      </span>
-      <span v-if="modelLabel" class="assistant-chip">{{ modelLabel }}</span>
-      <span v-if="isPrivate" class="assistant-chip">无痕：不留对话记录</span>
+    <AssistantOrb :phase="phase" :level="level" />
+    <div class="assistant-heading">
+      <h2 class="assistant-title">影盒助手</h2>
+      <p class="assistant-subtitle" :title="modelLabel || undefined">
+        {{ subtitle }}
+      </p>
     </div>
     <UiPressable
       class="assistant-close"
@@ -20,15 +19,16 @@
 
 <script setup lang="ts">
 /**
- * 助手面板顶部：小光球（各阶段动画）、上下文胶囊（当前页面或在播片名 · 时间点；私密模式显示
- * 「私密 · 仅本地模型」与无痕提示）、模型名、Esc 关闭提示（可点）。
+ * 侧栏头部：小光球（各阶段动画）、标题「影盒助手」、一行场景副标题（在播片名 · 时间点、当前页面，
+ * 私密模式写「私密 · 仅本地模型 · 无痕」，见 assistant-copy.ts）、右侧 Esc 键帽（可点关闭）。
+ * 当前对话模型名放在副标题的悬停提示里。
  */
 import { computed } from 'vue'
 
 import { UiPressable } from '@/components/ui'
 
+import { assistantSubtitle } from './assistant-copy'
 import AssistantOrb from './AssistantOrb.vue'
-import { clockText } from './skills/skill-prompt'
 import type { AssistantContext } from './skills/skill-types'
 import type { AssistantPhase } from './use-assistant'
 
@@ -41,14 +41,5 @@ const props = defineProps<{
 }>()
 const emit = defineEmits<{ close: [] }>()
 
-const isPrivate = computed(() => props.context.private)
-
-/** 上下文胶囊：私密 → 仅本地模型；在播 → 片名与时间点；否则页面名 */
-const contextLabel = computed(() => {
-  const { context } = props
-  if (context.private) return '私密 · 仅本地模型'
-  if (context.nowPlaying)
-    return `在播 · ${context.nowPlaying.title} ${clockText(context.nowPlaying.seconds)}`
-  return `${context.route.title} · ${context.playing ? '播放中' : '当前页面'}`
-})
+const subtitle = computed(() => assistantSubtitle(props.context))
 </script>

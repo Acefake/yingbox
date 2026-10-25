@@ -1,8 +1,9 @@
 // @vitest-environment jsdom
 /**
- * AI 助手入口与浮层的挂载：光球按钮打开、Cmd/Ctrl+K 与全局快捷键事件唤起、Esc / Esc 提示 / 点外部收起、
- * 未配置 AI 时显示「去设置 AI」、播放弹窗在时不显示光球；底部面板与播放器内右侧面板两种布局；
- * 普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的胶囊、占位文字与靛蓝色调；
+ * AI 助手入口与侧栏的挂载：光球按钮打开、Cmd/Ctrl+K 与全局快捷键事件唤起、Esc / Esc 键帽 / 点变暗区收起、
+ * 未配置 AI 时显示「去设置 AI」、播放弹窗在时不显示光球；右侧侧栏（普通页面模态、播放器前台时不拦点击与焦点）；
+ * 对话流（你说的话气泡、上一轮归档）；没有边缘光圈；
+ * 普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的副标题、占位文字与靛蓝色调；
  * 私密模式切换时收起并清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到光球、
  * 模态面板的焦点陷阱、按住 Cmd/Ctrl+K 的自动重复不算。AI、播放器、媒体库换成替身。
  */
@@ -170,29 +171,32 @@ afterEach(() => {
 })
 
 describe('AssistantLauncher', () => {
-  it('点光球打开浮层：底部面板、上下文胶囊、Esc 提示、输入框「问影盒…」、建议胶囊', async () => {
+  it('点光球打开侧栏：标题、场景副标题、Esc 键帽、问候、输入框「问影盒…」、建议芯片', async () => {
     await mount()
     expect(overlay()).toBeNull()
     fab()!.click()
     await waitFor(() => overlay() !== null)
-    expect(overlay()!.getAttribute('data-layout')).toBe('sheet')
+    expect(overlay()!.getAttribute('data-layout')).toBe('page')
     expect(overlay()!.getAttribute('data-private')).toBe('false')
-    expect(
-      document.querySelector('.assistant-chip.is-context')?.textContent
-    ).toContain('在线')
-    expect(document.querySelector('.assistant-head')?.textContent).toContain(
-      'deepseek-chat'
+    expect(document.querySelector('.assistant-drawer')).not.toBeNull()
+    expect(document.querySelector('.assistant-title')?.textContent).toBe(
+      '影盒助手'
     )
+    const subtitle = document.querySelector('.assistant-subtitle')
+    expect(subtitle?.textContent?.trim()).toBe('在线 · 当前页面')
+    expect(subtitle?.getAttribute('title')).toBe('deepseek-chat')
     expect(document.querySelector('.assistant-esc')?.textContent).toBe('Esc')
     expect(
       document.querySelector('.assistant-orb')?.getAttribute('data-phase')
     ).toBe('idle')
-    expect(document.querySelector('.edge-glow')).not.toBeNull()
-    // 状态行只给读屏：待命未提问时为空，不与大标题重复
+    // 没有整窗边缘光圈，也不做背景模糊
+    expect(document.querySelector('.edge-glow')).toBeNull()
+    // 状态行只给读屏：待命未提问时为空，不与问候重复
     expect(document.querySelector('.assistant-status')?.textContent).toBe('')
     expect(
-      document.querySelector('.assistant-transcript')?.textContent
+      document.querySelector('.assistant-greeting')?.textContent
     ).toContain('有什么可以帮你')
+    expect(document.querySelector('.assistant-bubble')).toBeNull()
     expect(
       document
         .querySelector('.assistant-input input')
@@ -213,7 +217,7 @@ describe('AssistantLauncher', () => {
     expect(overlay()).toBeNull()
   })
 
-  it('关闭按钮与点面板外收起', async () => {
+  it('Esc 键帽与点变暗区收起', async () => {
     await mount()
     fab()!.click()
     await settle()
@@ -255,12 +259,37 @@ describe('AssistantLauncher', () => {
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
     )
     await settle(50)
-    expect(
-      document.querySelector('.assistant-transcript')?.textContent
-    ).toContain('今晚看什么')
+    expect(document.querySelector('.assistant-bubble')?.textContent).toContain(
+      '今晚看什么'
+    )
+    expect(document.querySelector('.assistant-greeting')).toBeNull()
     expect(document.querySelector('.assistant-setup')?.textContent).toContain(
       '去设置 AI'
     )
+  })
+
+  it('再问一句：上一轮留在对话流里，新的一句接在后面', async () => {
+    fakes.configured = false
+    await mount()
+    fab()!.click()
+    await waitFor(() => overlay() !== null)
+    const input = document.querySelector(
+      '.assistant-input input'
+    ) as HTMLInputElement
+    for (const text of ['第一句', '第二句']) {
+      input.value = text
+      input.dispatchEvent(new Event('input'))
+      await nextTick()
+      input.dispatchEvent(
+        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      )
+      await settle(50)
+    }
+    const bubbles = [...document.querySelectorAll('.assistant-bubble')].map(
+      el => el.textContent
+    )
+    expect(bubbles).toEqual(['第一句', '第二句'])
+    expect(document.querySelectorAll('.assistant-answer').length).toBe(2)
   })
 
   it('普通模式：DOM 里没有敏感词（私密技能已登记也不出现）', async () => {
@@ -271,17 +300,14 @@ describe('AssistantLauncher', () => {
     expect(document.body.innerHTML).not.toMatch(SENSITIVE)
   })
 
-  it('私密模式：靛蓝色调、「私密 · 仅本地模型」、私密技能的建议与占位文字', async () => {
+  it('私密模式：靛蓝色调、副标题「私密 · 仅本地模型 · 无痕」、私密技能的建议与占位文字', async () => {
     await mount('/secret')
     key({ key: 'k', ctrlKey: true })
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-private')).toBe('true')
     expect(
-      document.querySelector('.assistant-chip.is-context')?.textContent
-    ).toContain('私密 · 仅本地模型')
-    expect(document.querySelector('.assistant-head')?.textContent).toContain(
-      '无痕'
-    )
+      document.querySelector('.assistant-subtitle')?.textContent
+    ).toContain('私密 · 仅本地模型 · 无痕')
     expect(
       document
         .querySelector('.assistant-input input')
@@ -303,13 +329,16 @@ describe('AssistantLauncher', () => {
     expect(assistantSessionSize()).toBe(0)
   })
 
-  it('内置播放器在前台时改为右侧面板，没有遮罩', async () => {
+  it('内置播放器在前台：同一个侧栏，变暗区不拦点击、侧栏不做模态', async () => {
     fakes.player = { id: 1, payload: {}, minimized: false }
     await mount()
     key({ key: 'k', ctrlKey: true })
     await waitFor(() => overlay() !== null)
-    expect(overlay()!.getAttribute('data-layout')).toBe('side')
-    expect(document.querySelector('.assistant-scrim')).toBeNull()
+    expect(overlay()!.getAttribute('data-layout')).toBe('player')
+    expect(document.querySelector('.assistant-drawer')).not.toBeNull()
+    expect(
+      document.querySelector('.assistant-drawer')!.getAttribute('aria-modal')
+    ).toBe('false')
     key({ key: 'Escape' })
     await settle(100)
     expect(overlay()).toBeNull()
@@ -348,7 +377,7 @@ describe('AssistantLauncher', () => {
     expect(overlay()).not.toBeNull()
   })
 
-  it('底部面板是模态：焦点被移到面板外时拉回面板', async () => {
+  it('普通页面的侧栏是模态：焦点被移到侧栏外时拉回侧栏', async () => {
     const outside = document.createElement('input')
     document.body.appendChild(outside)
     await mount()
@@ -359,7 +388,7 @@ describe('AssistantLauncher', () => {
     await settle()
     expect(
       document
-        .querySelector('.assistant-sheet')!
+        .querySelector('.assistant-drawer')!
         .contains(document.activeElement)
     ).toBe(true)
   })

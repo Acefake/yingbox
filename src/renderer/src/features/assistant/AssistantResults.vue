@@ -21,6 +21,13 @@
           <span v-if="card.badge" class="assistant-card-badge">
             {{ card.badge }}
           </span>
+          <span
+            v-if="card.progress !== undefined"
+            class="assistant-progress"
+            aria-hidden="true"
+          >
+            <i class="assistant-progress-fill" />
+          </span>
         </span>
         <span class="assistant-card-body">
           <span class="assistant-card-title">{{ card.title }}</span>
@@ -30,12 +37,8 @@
           </span>
           <span class="assistant-card-action">{{ card.playLabel }}</span>
         </span>
-        <span
-          v-if="card.progress !== undefined"
-          class="assistant-progress"
-          aria-hidden="true"
-        >
-          <i class="assistant-progress-fill" />
+        <span class="assistant-card-play" aria-hidden="true">
+          <UiIcon name="play" size="sm" filled />
         </span>
       </UiPressable>
     </div>
@@ -53,8 +56,9 @@
 
 <script setup lang="ts">
 /**
- * 助手面板里的结果（弹簧滑入，逐张错开）：封面卡片（角标写时长或看到多少，下面一行类型 · 评分 · 规格，
- * 有进度时底部一条进度条，整张可点开播），以及一次性动作的回执。开始播放后通知外层收起助手。
+ * 回答下面的结果（轻微上滑淡入，逐张错开）：紧凑横排卡片（左侧 16:9 缩略图，角标写时长或看到多少，
+ * 有进度时缩略图底部一条进度条；右侧片名与「类型 · 评分 · 规格」，最右一个播放图标），整张可点开播；
+ * 以及一次性动作的回执。开始播放后通知外层收起助手。
  * 打开播放器期间：被点的卡片在说明行显示「正在打开…」并标 aria-busy，其余卡片变淡并标 aria-disabled
  * （保持可聚焦，点击不重复打开）。
  */
