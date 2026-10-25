@@ -22,6 +22,7 @@ import {
   askPlotQuestion,
   attachPlayerRemote,
   attachPlotQa,
+  playerNowPlaying,
   playerRemoteState,
   runPlayerCommand,
 } from '../src/renderer/src/features/player/remote/player-remote'
@@ -100,6 +101,7 @@ describe('播放中', () => {
     detach = attachPlayerRemote({
       art: art as unknown as Artplayer,
       skipKey: () => '',
+      title: () => '测试片',
       private: false,
     })
     expect(runPlayerCommand({ kind: 'danmaku', on: false })).toEqual({
@@ -118,6 +120,7 @@ describe('播放中', () => {
     detach = attachPlayerRemote({
       art: art as unknown as Artplayer,
       skipKey: () => '',
+      title: () => '测试片',
       private: false,
     })
     expect(runPlayerCommand({ kind: 'subtitle', on: true }).ok).toBe(false)
@@ -132,6 +135,7 @@ describe('播放中', () => {
     detach = attachPlayerRemote({
       art: art as unknown as Artplayer,
       skipKey: () => '',
+      title: () => '测试片',
       private: false,
     })
     runPlayerCommand({ kind: 'rate', value: 1.6 })
@@ -147,6 +151,7 @@ describe('播放中', () => {
     detach = attachPlayerRemote({
       art: art as unknown as Artplayer,
       skipKey: () => '剧:test',
+      title: () => '测试片',
       private: false,
     })
     expect(runPlayerCommand({ kind: 'skipIntro' })).toEqual({
@@ -163,6 +168,7 @@ describe('播放中', () => {
     detach = attachPlayerRemote({
       art: fakeArt() as unknown as Artplayer,
       skipKey: () => '',
+      title: () => '测试片',
       private: false,
     })
     expect(runPlayerCommand({ kind: 'sleep', choice: 30 }).ok).toBe(false)
@@ -174,14 +180,21 @@ describe('播放中', () => {
     detach = attachPlayerRemote({
       art: art as unknown as Artplayer,
       skipKey: () => '',
+      title: () => '测试片',
       private: true,
     })
     expect(playerRemoteState()).toMatchObject({
       controllable: true,
       private: true,
     })
+    expect(playerNowPlaying()).toEqual({
+      title: '测试片',
+      seconds: 30,
+      private: true,
+    })
     art.emit('destroy')
     expect(playerRemoteState().controllable).toBe(false)
+    expect(playerNowPlaying()).toBeNull()
   })
 })
 

@@ -1,8 +1,9 @@
 /**
  * AI 助手的状态机：待命（idle）→ 聆听中（listening）→ 思考中（thinking）→ 回答中（answering）→ 待命。
  *
- * - 一次提问：先用 chatJson 把话归成意图（严格校验 + 路由，见 assistant-intents.ts），
- *   动作交给 assistant-actions 执行并逐字显示回复；只回答文字的走 chatStream 流式显示；
+ * - 一次提问：取当前状态与生效技能，用 chatJson 把话归成某个技能的动作（严格校验 + 路由，见 skills/skill-prompt.ts），
+ *   动作由技能自己的执行器执行并逐字显示回复；只回答文字的走 chatStream 流式显示；
+ * - 每轮问答交给 remember 记进内存里的对话上下文（不落盘，私密 / 普通切换时清空）；
  * - 新提问、关闭、Esc 都会取消上一轮（AbortController + 世代号丢弃迟到的结果），关闭时停掉录音与逐字计时器；
  * - 依赖全部经 {@link AssistantDeps} 注入，测试可替换（模型、动作、录音）。
  */
@@ -10,14 +11,13 @@ import { type Ref, ref, shallowRef } from 'vue'
 
 import { AiCallError } from '@/features/ai'
 
-import type { ActionOutcome, AssistantResult } from './assistant-actions'
-import {
-  type AssistantContext,
-  type AssistantIntent,
-  type ParsedIntent,
-  clipText,
-  routeIntent,
-} from './assistant-intents'
+import { type ParsedIntent, clipText, routeIntent } from './skills/skill-prompt'
+import type {
+  AssistantContext,
+  AssistantResult,
+  AssistantSkill,
+  SkillEnv,
+} from './skills/skill-types'
 
 /** 光球与状态文字对应的阶段 */
 export type AssistantPhase = 'idle' | 'listening' | 'thinking' | 'answering'
@@ -67,13 +67,16 @@ export interface VoiceDeps {
 
 /** useAssistant 的依赖 */
 export interface AssistantDeps {
-  /** 当前状态（播放中、私密等） */
+  /** 当前状态（页面、播放中、私密等） */
   context(): AssistantContext
+  /** 当前状态下生效的技能包 */
+  skills(context: AssistantContext): AssistantSkill[]
   /** AI 是否已配置 */
   aiReady(): boolean
   classify(
     text: string,
     context: AssistantContext,
+    skills: AssistantSkill[],
     signal: AbortSignal
   ): Promise<ParsedIntent>
   stream(
@@ -82,10 +85,15 @@ export interface AssistantDeps {
     onDelta: (delta: string) => void,
     signal: AbortSignal
   ): Promise<void>
-  execute(intent: AssistantIntent, signal: AbortSignal): Promise<ActionOutcome>
+  /** 执行动作时交给技能的应用能力 */
+  env(signal: AbortSignal): SkillEnv
+  /** 记一轮问答到对话上下文 */
+  remember?(user: string, reply: string, isPrivate: boolean): void
   /** 动作要求收起助手（跳转页面、打开设置等） */
   close(): void
   voice?: VoiceDeps | null
+  /** 当前模式下能不能用语音（私密模式只允许本地识别）；缺省可用 */
+  voiceReady?(isPrivate: boolean): boolean
   /** 逐字显示的间隔（毫秒）；0 表示一次显示完（减少动态效果时） */
   revealMs?: () => number
 }
@@ -135,6 +143,10 @@ export function errorText(error: unknown): string | null {
 /** 默认逐字间隔（毫秒） */
 const REVEAL_MS = 28
 
+/**
+ * 助手的一次会话（浮层挂载期间）：提问、语音、取消与显示状态。
+ * @param deps 模型、技能、动作环境与录音等依赖
+ */
 export function useAssistant(deps: AssistantDeps): UseAssistant {
   const phase = ref<AssistantPhase>('idle')
   const transcript = ref('')
@@ -225,10 +237,18 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
     }
     try {
       const context = deps.context()
-      const parsed = await deps.classify(text, context, current.signal)
+      const remember = (reply: string): void =>
+        deps.remember?.(text, reply, context.private)
+      const parsed = await deps.classify(
+        text,
+        context,
+        deps.skills(context),
+        current.signal
+      )
       if (!live()) return
       const route = routeIntent(parsed.intent, context)
       if (route.kind === 'explain') {
+        remember(route.text)
         await reveal(route.text, token)
         return
       }
@@ -242,12 +262,16 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
           },
           current.signal
         )
-        if (live()) send('finish')
+        if (!live()) return
+        remember(answer.value)
+        send('finish')
         return
       }
-      const outcome = await deps.execute(route.intent, current.signal)
+      const { action, params } = route.intent
+      const outcome = await action.run(params, deps.env(current.signal))
       if (!live()) return
       result.value = outcome.result
+      remember(outcome.message || parsed.reply)
       if (outcome.close) {
         send('finish')
         deps.close()
@@ -268,6 +292,7 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
 
   async function listen(): Promise<void> {
     if (!deps.voice || phase.value === 'listening') return
+    if (deps.voiceReady && !deps.voiceReady(deps.context().private)) return
     cancel()
     const token = generation
     transcript.value = ''

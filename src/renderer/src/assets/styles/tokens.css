@@ -246,6 +246,23 @@
   --duration-assistant-orb: 4.6s; /* 光球里色块漂移一个周期 */
   --duration-assistant-breathe: 3.2s; /* 光球按钮呼吸一个周期 */
   --duration-assistant-sheet: 550ms; /* 面板弹簧滑入 */
+  /* 私密模式：光圈换低调靛蓝，光球同色系 */
+  --assistant-private-violet: #5b5fd6;
+  --assistant-private-indigo: #2b2d7a;
+  --assistant-private-blue: #3d52b8;
+  --assistant-private-mist: #7c80c9;
+  --assistant-private-glow: rgba(91, 95, 214, 0.32);
+  --assistant-accent-fill: rgba(139, 108, 255, 0.16); /* 上下文胶囊底色 */
+  --assistant-accent-line: rgba(139, 108, 255, 0.45); /* 上下文胶囊描边 */
+  --assistant-private-fill: rgba(
+    48,
+    209,
+    88,
+    0.12
+  ); /* 「仅本地模型」胶囊底色 */
+  --assistant-private-line: rgba(48, 209, 88, 0.4);
+  --assistant-sheet-width: 600px; /* 底部卡片式面板宽度 */
+  --assistant-side-width: 400px; /* 播放器内右侧面板宽度 */
 
   /*
    * ── 层级（z-index）──

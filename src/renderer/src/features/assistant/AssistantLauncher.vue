@@ -21,7 +21,8 @@
  *
  * - 只在桌面端出现（AI 调用需要主进程）；
  * - 播放弹窗或角落小窗在时不显示光球（小窗也在右下角），快捷键照常可用；
- * - 收起时把焦点还给打开前的元素。
+ * - 收起时把焦点还给打开前的元素；
+ * - 私密模式（私密路由或在播私密内容）切换时清空对话上下文并收起浮层，私密对话不会带进普通模式。
  */
 import {
   computed,
@@ -29,13 +30,17 @@ import {
   onBeforeUnmount,
   onMounted,
   ref,
+  watch,
 } from 'vue'
+import { useRoute } from 'vue-router'
 
 import { UiIcon, UiPressable } from '@/components/ui'
 import { aiAvailable } from '@/features/ai'
 import { playerModal } from '@/features/player'
 
 import { isAssistantHotkey } from './assistant-hotkey'
+import { clearAssistantSession } from './assistant-session'
+import { isPrivateRoute } from './skills/navigation-skill'
 
 const AssistantOverlay = defineAsyncComponent(
   () => import('./AssistantOverlay.vue')
@@ -45,6 +50,12 @@ const enabled = aiAvailable()
 const open = ref(false)
 const player = playerModal()
 const showOrb = computed(() => !open.value && player.value === null)
+const route = useRoute()
+
+/** 当前是否私密模式（与 assistantContext 的判断一致） */
+const privateNow = computed(
+  () => isPrivateRoute(route) || player.value?.payload.private === true
+)
 
 let returnFocus: HTMLElement | null = null
 
@@ -70,6 +81,11 @@ function onKeydown(event: KeyboardEvent): void {
   if (open.value) closeAssistant()
   else openAssistant()
 }
+
+watch(privateNow, () => {
+  clearAssistantSession()
+  closeAssistant()
+})
 
 const bridge = window.api?.assistant
 

@@ -1,5 +1,6 @@
 /*
- * AI 助手浮层的样式：窗口边缘光圈（EdgeGlow）、背景遮罩、底部面板、大光球（AssistantOrb）、结果卡片。
+ * AI 助手浮层的样式：窗口边缘光圈（EdgeGlow）、背景遮罩、光球（AssistantOrb）、私密模式的靛蓝色调、动画。
+ * 面板、胶囊、结果卡片与输入框在 assistant-panel.css。
  * 动画只用 transform / opacity；颜色全部来自 tokens.css（--assistant-* 与中性灰阶）。
  * 进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动。
  */
@@ -74,54 +75,6 @@
 }
 .edge-glow[data-phase='listening'] .is-halo {
   animation: assistant-glow-pulse var(--duration-pulse) ease-in-out infinite;
-}
-
-/* ── 底部面板 ── */
-.assistant-sheet {
-  position: absolute;
-  bottom: var(--space-6);
-  left: 50%;
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  width: min(560px, calc(100% - var(--space-8)));
-  max-height: calc(100% - var(--space-10));
-  overflow-y: auto;
-  overscroll-behavior: contain;
-  padding: var(--space-4) var(--space-5) var(--space-5);
-  border: 1px solid var(--border-glass-light);
-  border-radius: var(--radius-2xl);
-  background: color-mix(in srgb, var(--bg-elevated) 84%, transparent);
-  backdrop-filter: blur(30px) saturate(1.4);
-  box-shadow: var(--shadow-lg);
-  color: var(--text-primary);
-  transform: translateX(-50%);
-  transition:
-    transform var(--duration-assistant-sheet) var(--ease-spring),
-    opacity var(--duration-normal) ease;
-}
-.assistant-close {
-  position: absolute;
-  top: var(--space-3);
-  right: var(--space-3);
-}
-
-/* 进出场：遮罩与光圈淡入，面板从底部弹簧滑上来 */
-.assistant-enter-from .assistant-scrim,
-.assistant-leave-to .assistant-scrim,
-.assistant-enter-from .edge-glow,
-.assistant-leave-to .edge-glow {
-  opacity: 0;
-}
-.assistant-enter-from .assistant-sheet,
-.assistant-leave-to .assistant-sheet {
-  opacity: 0.6;
-  transform: translate(-50%, calc(100% + var(--space-8)));
-}
-.assistant-leave-active .assistant-sheet {
-  transition:
-    transform var(--duration-normal) var(--ease-out),
-    opacity var(--duration-normal) ease;
 }
 
 /* ── 大光球 ── */
@@ -216,169 +169,32 @@
     infinite;
 }
 
-/* ── 文字 ── */
-.assistant-status {
+/* 面板顶部的小号光球 */
+.assistant-orb.is-compact {
+  width: 44px;
+  height: 44px;
   margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  letter-spacing: 0.06em;
-  text-align: center;
 }
-.assistant-status::before {
-  content: '';
-  display: inline-block;
-  width: 6px;
-  height: 6px;
-  margin-right: var(--space-2);
-  border-radius: 50%;
-  background: var(--assistant-violet);
-  box-shadow: 0 0 8px var(--assistant-violet);
-  vertical-align: 2px;
+.assistant-orb.is-compact .assistant-orb-ball {
+  box-shadow:
+    0 0 18px var(--assistant-glow),
+    inset 0 0 0 1px var(--border-glass-light);
 }
-.assistant-transcript {
-  margin: var(--space-1) 0 0;
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-tight);
-  text-align: center;
-  overflow-wrap: anywhere;
-}
-.assistant-answer {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-md);
-  line-height: 1.6;
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.assistant-answer.is-typing::after {
-  content: '';
-  display: inline-block;
-  width: 2px;
-  height: 1.1em;
-  margin-left: var(--space-0_5);
-  background: var(--text-primary);
-  vertical-align: -3px;
-  animation: assistant-caret var(--duration-pulse) steps(1) infinite;
-}
-.assistant-notice {
-  margin: 0;
-  color: var(--warning);
-  font-size: var(--text-sm);
-  text-align: center;
-}
-.assistant-setup {
-  display: flex;
-  justify-content: center;
-}
-.assistant-suggestions {
-  display: flex;
-  flex-wrap: wrap;
-  justify-content: center;
-  gap: var(--space-2);
-  margin-top: var(--space-2);
-}
-.assistant-input {
-  margin-top: var(--space-1);
+.assistant-orb.is-compact .assistant-orb-blob {
+  filter: blur(6px);
 }
 
-/* ── 结果卡片 ── */
-.assistant-result {
-  margin-top: var(--space-1);
+/* ── 私密模式：同一套光圈与光球换成低调靛蓝 ── */
+.assistant[data-private] {
+  --assistant-violet: var(--assistant-private-violet);
+  --assistant-indigo: var(--assistant-private-indigo);
+  --assistant-pink: var(--assistant-private-blue);
+  --assistant-cyan: var(--assistant-private-mist);
+  --assistant-amber: var(--assistant-private-indigo);
+  --assistant-glow: var(--assistant-private-glow);
 }
-.assistant-card-in {
-  animation: assistant-card-in var(--duration-assistant-sheet)
-    var(--ease-spring) both;
-  animation-delay: calc(var(--i, 0) * var(--duration-instant));
-}
-.assistant-picks {
-  display: grid;
-  grid-template-columns: repeat(3, minmax(0, 1fr));
-  gap: var(--space-3);
-}
-.assistant-pick-reason {
-  margin: var(--space-1) 0 0;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  line-height: var(--leading-normal);
-}
-.assistant-continue {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.assistant-continue-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-3);
-  border-radius: var(--radius-xl);
-  background: var(--bg-glass);
-}
-.assistant-continue-cover {
-  flex: none;
-  width: 96px;
-  aspect-ratio: 16 / 9;
-  overflow: hidden;
-  border-radius: var(--radius-md);
-  background: var(--bg-fill-secondary);
-}
-.assistant-continue-cover img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-}
-.assistant-continue-body {
-  flex: 1;
-  min-width: 0;
-}
-.assistant-continue-title {
-  margin: 0;
-  overflow: hidden;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-continue-meta {
-  margin: var(--space-0_5) 0 0;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-}
-.assistant-progress {
-  height: 4px;
-  margin-top: var(--space-2);
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--bg-active);
-}
-.assistant-progress-fill {
-  display: block;
-  height: 100%;
-  background: linear-gradient(
-    90deg,
-    var(--assistant-violet),
-    var(--assistant-pink)
-  );
-  transform: scaleX(var(--progress, 0));
-  transform-origin: left;
-  animation: assistant-progress var(--duration-assistant-sheet) var(--ease-out)
-    both;
-  animation-delay: var(--duration-slow);
-}
-.assistant-done {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-full);
-  background: var(--bg-glass);
-  font-size: var(--text-sm);
-}
-.assistant-done.is-failed {
-  color: var(--text-secondary);
+.assistant[data-private] .edge-glow-layer.is-halo {
+  opacity: 0.6;
 }
 
 @keyframes assistant-rotate {

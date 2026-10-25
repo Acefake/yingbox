@@ -1,0 +1,340 @@
+/*
+ * AI 助手面板：底部居中卡片（sheet）与播放器内右侧面板（side）、顶部光球与上下文胶囊、
+ * 你说的话与回答、结果卡片（封面 + 角标 + 规格 + 进度条）、建议胶囊与输入框。
+ * 颜色、间距、圆角全部来自 tokens.css；动画只用 transform / opacity。
+ */
+
+/* ── 面板 ── */
+.assistant-sheet {
+  position: absolute;
+  bottom: var(--space-6);
+  left: 50%;
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  width: min(var(--assistant-sheet-width), calc(100% - var(--space-8)));
+  max-height: calc(100% - var(--space-10));
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  padding: var(--space-5);
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-2xl);
+  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  backdrop-filter: blur(30px) saturate(1.4);
+  box-shadow: var(--shadow-lg);
+  color: var(--text-primary);
+  transform: translateX(-50%);
+  transition:
+    transform var(--duration-assistant-sheet) var(--ease-spring),
+    opacity var(--duration-normal) ease;
+}
+
+/* 播放器内：右侧整高面板，不加遮罩，画面照常可见可点 */
+.assistant[data-layout='side'] {
+  pointer-events: none;
+}
+.assistant[data-layout='side'] .assistant-sheet {
+  top: var(--space-5);
+  right: var(--space-5);
+  bottom: var(--space-5);
+  left: auto;
+  width: min(var(--assistant-side-width), calc(100% - var(--space-8)));
+  max-height: none;
+  pointer-events: auto;
+  transform: none;
+}
+.assistant[data-layout='side'] .edge-glow {
+  opacity: 0.55;
+}
+.assistant[data-layout='side'] .edge-glow-layer.is-halo {
+  display: none;
+}
+
+/* 进出场：遮罩与光圈淡入，面板从底部（侧栏从右侧）弹簧滑入 */
+.assistant-enter-from .assistant-scrim,
+.assistant-leave-to .assistant-scrim,
+.assistant-enter-from .edge-glow,
+.assistant-leave-to .edge-glow {
+  opacity: 0;
+}
+.assistant-enter-from .assistant-sheet,
+.assistant-leave-to .assistant-sheet {
+  opacity: 0.6;
+  transform: translate(-50%, calc(100% + var(--space-8)));
+}
+.assistant-enter-from[data-layout='side'] .assistant-sheet,
+.assistant-leave-to[data-layout='side'] .assistant-sheet {
+  transform: translateX(calc(100% + var(--space-8)));
+}
+.assistant-leave-active .assistant-sheet {
+  transition:
+    transform var(--duration-normal) var(--ease-out),
+    opacity var(--duration-normal) ease;
+}
+
+/* ── 顶部：光球、胶囊、Esc ── */
+.assistant-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+.assistant-chips {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+  min-width: 0;
+}
+.assistant-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  max-width: 100%;
+  padding: var(--space-1) var(--space-2);
+  overflow: hidden;
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-full);
+  background: var(--bg-glass);
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-chip.is-context {
+  border-color: var(--assistant-accent-line);
+  background: var(--assistant-accent-fill);
+  color: var(--text-primary);
+}
+.assistant[data-private] .assistant-chip.is-context {
+  border-color: var(--assistant-private-line);
+  background: var(--assistant-private-fill);
+  color: var(--success);
+}
+.assistant-chip-dot {
+  flex: none;
+  width: 6px;
+  height: 6px;
+  border-radius: 50%;
+  background: currentColor;
+}
+.assistant-close {
+  flex: none;
+  align-self: flex-start;
+}
+.assistant-esc {
+  display: inline-block;
+  padding: var(--space-0_5) var(--space-1);
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-sm);
+  color: var(--text-tertiary);
+  font-family: inherit;
+  font-size: var(--text-xs);
+}
+.assistant-close:hover .assistant-esc {
+  color: var(--text-primary);
+}
+
+/* ── 文字 ── */
+.assistant-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+.assistant-transcript {
+  margin: 0;
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  overflow-wrap: anywhere;
+}
+.assistant-answer {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: var(--leading-normal);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-answer.is-typing::after {
+  content: '';
+  display: inline-block;
+  width: 2px;
+  height: 1.1em;
+  margin-left: var(--space-0_5);
+  background: var(--text-primary);
+  vertical-align: -3px;
+  animation: assistant-caret var(--duration-pulse) steps(1) infinite;
+}
+.assistant-notice {
+  margin: 0;
+  color: var(--warning);
+  font-size: var(--text-sm);
+}
+.assistant-setup {
+  display: flex;
+}
+
+/* ── 结果卡片 ── */
+.assistant-card-in {
+  animation: assistant-card-in var(--duration-assistant-sheet)
+    var(--ease-spring) both;
+  animation-delay: calc(var(--i, 0) * var(--duration-instant));
+}
+.assistant-cards {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-3);
+}
+.assistant-card {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  overflow: hidden;
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+  transition:
+    transform var(--duration-fast) var(--ease-out),
+    border-color var(--duration-fast) ease;
+}
+.assistant-card:hover {
+  border-color: var(--assistant-accent-line);
+  transform: translateY(-2px);
+}
+.assistant-card.is-busy {
+  opacity: 0.7;
+}
+.assistant-card-cover {
+  position: relative;
+  display: block;
+  aspect-ratio: 16 / 9;
+  background: linear-gradient(
+    135deg,
+    var(--assistant-indigo),
+    var(--bg-fill-secondary)
+  );
+}
+.assistant-card-cover img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+}
+.assistant-card-badge {
+  position: absolute;
+  right: var(--space-2);
+  bottom: var(--space-2);
+  padding: var(--space-0_5) var(--space-1);
+  border-radius: var(--radius-sm);
+  background: var(--overlay-scrim-strong);
+  color: var(--media-text);
+  font-size: var(--text-xs);
+}
+.assistant-card-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0_5);
+  padding: var(--space-2) var(--space-3) var(--space-3);
+}
+.assistant-card-title {
+  overflow: hidden;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-card-meta,
+.assistant-card-action {
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.assistant-card-action {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  clip-path: inset(50%);
+}
+.assistant-progress {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: 3px;
+  overflow: hidden;
+  background: var(--bg-active);
+}
+.assistant-progress-fill {
+  display: block;
+  height: 100%;
+  background: var(--assistant-violet);
+  transform: scaleX(var(--progress, 0));
+  transform-origin: left;
+  animation: assistant-progress var(--duration-assistant-sheet) var(--ease-out)
+    both;
+  animation-delay: var(--duration-slow);
+}
+
+/* 右侧面板里卡片横排：缩略图在左 */
+.assistant[data-layout='side'] .assistant-cards {
+  grid-template-columns: minmax(0, 1fr);
+}
+.assistant[data-layout='side'] .assistant-card {
+  flex-direction: row;
+  align-items: center;
+}
+.assistant[data-layout='side'] .assistant-card-cover {
+  flex: none;
+  width: 112px;
+  margin: var(--space-2);
+  overflow: hidden;
+  border-radius: var(--radius-md);
+}
+
+.assistant-done {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  padding: var(--space-2) var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--bg-glass);
+  font-size: var(--text-sm);
+}
+.assistant-done.is-failed {
+  color: var(--text-secondary);
+}
+
+/* ── 建议与输入框 ── */
+.assistant-composer {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin-top: auto;
+}
+.assistant-suggestions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-2);
+}
+.assistant-input {
+  --control-height: var(--space-9);
+}
+.assistant-tool {
+  margin-left: var(--space-1);
+}
+.assistant-send:not(:disabled) {
+  background: var(--assistant-violet);
+  color: var(--text-on-accent);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .assistant-sheet,
+  .assistant-card {
+    transition: none;
+  }
+}

@@ -40,6 +40,12 @@ export interface TonightSuggestion {
   reason: string
   /** 在「继续播放」里（按钮写「继续播放」） */
   resume: boolean
+  /** 时长（分钟；剧集是一集） */
+  minutes: number | null
+  /** 第一个类型 */
+  genre: string | null
+  /** 评分 0–10 */
+  rating: number | null
 }
 
 /** 一批推荐与提示（AI 未配置 / 出错时 notice 说明退回了本地规则） */
@@ -74,6 +80,9 @@ export async function suggestTonight(
     meta: candidateMeta(pick.candidate),
     reason: pick.reason,
     resume: Boolean(pick.candidate.continueId),
+    minutes: pick.candidate.minutes,
+    genre: pick.candidate.genres[0] ?? null,
+    rating: pick.candidate.rating,
   }))
   return { suggestions, notice: tonight.notice.value?.text ?? null }
 }

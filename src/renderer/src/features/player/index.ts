@@ -46,7 +46,9 @@ export {
   type PlayerRemoteCommand,
   type PlayerRemoteResult,
   type PlayerRemoteState,
+  type PlayerNowPlaying,
   askPlotQuestion,
+  playerNowPlaying,
   playerRemoteState,
   runPlayerCommand,
 } from './remote/player-remote'

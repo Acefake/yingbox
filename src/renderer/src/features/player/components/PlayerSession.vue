@@ -387,7 +387,6 @@ useSessionShortcuts({
   toggleSubtitle: () => player.value?.toggleSubtitle(),
 })
 
-// AI 助手等外部入口的遥控：每换一个 Artplayer 实例重新登记
 usePlayerRemote(art, () => ({
   skipKey: () => skipKey(continueId.value, defaultTitle.value),
   title: () => entryLabel(currentEntry.value),
