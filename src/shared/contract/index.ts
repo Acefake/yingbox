@@ -9,6 +9,7 @@ import { aiSubtitles } from './ai-subtitles'
 import { app } from './app'
 import { assistant } from './assistant'
 import { autograb } from './autograb'
+import { autograbMovies, autograbUpgrade } from './autograb-upgrade'
 import { av } from './av'
 import { capture } from './capture'
 import { danmaku } from './danmaku'
@@ -23,6 +24,7 @@ import { lada } from './lada'
 import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
+import { notifications } from './notifications'
 import { nowPlaying } from './now-playing'
 import { online } from './online'
 import { pan115 } from './pan115'
@@ -42,6 +44,8 @@ export const contract = {
   app,
   assistant,
   autograb,
+  autograbMovies,
+  autograbUpgrade,
   av,
   capture,
   danmaku,
@@ -55,6 +59,7 @@ export const contract = {
   libraryNotify,
   media,
   mpv,
+  notifications,
   nowPlaying,
   online,
   pan115,

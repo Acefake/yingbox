@@ -31,13 +31,18 @@ export function registerDiscover(
       loggedIn: async () => (await pan115.account()).loggedIn,
       pansouReady: () => Boolean(store.get('pan115.pansouUrl').trim()),
       search: keyword => pan115.searchRaw(keyword),
-      snap: (url, password, dirCid) =>
-        pan115.use(client => client.snapDir(shareOf(url, password), dirCid)),
+      snap: (url, password, dirCid, offset) =>
+        pan115.use(client =>
+          client.snapDir(shareOf(url, password), dirCid, offset)
+        ),
       receive: (url, password, ids, cid) =>
         pan115.use(client =>
           client.receiveFiles(shareOf(url, password), ids, cid)
         ),
-      names: cid => pan115.use(client => client.names(cid)),
+      names: cid =>
+        pan115.use(async client =>
+          (await client.entries(cid)).map(e => e.name)
+        ),
       dirPath: cid =>
         pan115.use(async client => {
           const listing = await client.dirs(cid)

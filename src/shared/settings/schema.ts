@@ -242,6 +242,28 @@ export const settingsSchema = {
   /** 网盘工具的根在本机的挂载目录（如 D:\CloudDrive）；可选，帮助把通知路径对应到库目录 */
   'library.notify.mountRoot': absolutePath(),
 
+  /** 新条目入库后没有中文字幕时，自动从 OpenSubtitles 下一份放到视频旁边（见 src/main/library/subtitles） */
+  'subtitles.auto.enabled': bool(false),
+  /** 自动字幕每天最多下载几份（OpenSubtitles 免费额度很紧） */
+  'subtitles.auto.dailyLimit': num(1, 100, 5),
+
+  /** 入库推送（见 src/main/notify）：系统通知 */
+  'notify.system': bool(false),
+  /** Bark 推送：开关、服务器地址（自建或官方 https://api.day.app）、设备 key（密钥） */
+  'notify.bark.enabled': bool(false),
+  'notify.bark.server': text('https://api.day.app', 2048),
+  'notify.bark.key': secret(),
+  /** Telegram Bot 推送：开关、chat id、Bot token（密钥） */
+  'notify.telegram.enabled': bool(false),
+  'notify.telegram.chatId': text('', 64),
+  'notify.telegram.token': secret(),
+  /** 推送哪几类：追更转存的集入库、片库新增剧集、片库新增电影 */
+  'notify.on.autograb': bool(true),
+  'notify.on.episode': bool(true),
+  'notify.on.movie': bool(true),
+  /** 1 分钟内的多条合并成一条 */
+  'notify.merge': bool(true),
+
   /** AI 服务商（OpenAI 兼容接口，见 src/shared/ai/providers.ts） */
   'ai.provider': oneOf(
     [

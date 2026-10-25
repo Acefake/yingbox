@@ -20,7 +20,7 @@ import type { FileChangeNotice } from '../../shared/library/ipc'
 import { isDeadShare } from '../autograb/finder'
 import { GateClosed } from '../autograb/gate'
 import { ALREADY_RECEIVED, NOTIFY_AFTER_MS } from '../autograb/saver'
-import type { Pan115Guard } from '../autograb/service'
+import type { Pan115Guard } from '../autograb/deps'
 import { parseShareLink } from '../pan115/share-link'
 import { createMovieFinder } from './movie-finder'
 
@@ -35,13 +35,19 @@ export interface DiscoverDeps {
     loggedIn(): Promise<boolean>
     pansouReady(): boolean
     search(keyword: string): Promise<NetdiskItem[]>
-    snap(url: string, password: string, dirCid: string): Promise<ShareSnap>
+    snap(
+      url: string,
+      password: string,
+      dirCid: string,
+      offset: number
+    ): Promise<ShareSnap>
     receive(
       url: string,
       password: string,
       fileIds: string[],
       cid: string
     ): Promise<void>
+    /** 文件夹 cid 第一页条目的文件名（查重用） */
     names(cid: string): Promise<string[]>
     /** 文件夹 cid 从根开始的各级名字（不含根） */
     dirPath(cid: string): Promise<string[]>
@@ -93,9 +99,9 @@ export function createDiscoverService(deps: DiscoverDeps): DiscoverService {
 
   const finder = createMovieFinder({
     search: keyword => deps.pan.search(keyword),
-    snap: async (item, dir) =>
+    snap: async (item, dir, offset) =>
       (await guard()).run('snap', () =>
-        deps.pan.snap(item.url, item.receiveCode, dir)
+        deps.pan.snap(item.url, item.receiveCode, dir, offset)
       ),
     blocked: code => guardRef?.blocked(code) ?? false,
     block: code => guardRef?.block(code),
