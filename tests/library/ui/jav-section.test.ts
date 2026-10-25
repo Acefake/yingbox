@@ -10,6 +10,7 @@ import {
 } from '../../../src/renderer/src/features/library/state/library-section'
 import {
   noFolderCopy,
+  toolbarActions,
   viewOptionsFor,
 } from '../../../src/renderer/src/features/library/page/page-rules'
 import { guardStep } from '../../../src/renderer/src/features/library/page/use-section-guard'
@@ -45,17 +46,37 @@ describe('片库分区', () => {
 })
 
 describe('页面规则', () => {
-  it('演员视图只在番号页', () => {
-    expect(viewOptionsFor('movie', 0).map(o => o.value)).toEqual([
-      'wall',
-      'review',
-    ])
-    expect(viewOptionsFor('jav', 3).map(o => o.value)).toEqual([
-      'wall',
-      'actors',
-      'review',
-    ])
-    expect(viewOptionsFor('jav', 3)[2].label).toBe('待确认 3')
+  it('页头切换只有资料库 / 演员，演员只在番号页；待确认不是切换项', () => {
+    expect(viewOptionsFor('movie').map(o => o.value)).toEqual(['wall'])
+    expect(viewOptionsFor('jav').map(o => o.label)).toEqual(['资料库', '演员'])
+  })
+
+  it('工具栏：常用操作排在页头，按画面 / 今晚 / 视频墙 / 设置收进「更多」', () => {
+    const jav = toolbarActions({
+      view: 'wall',
+      hasLibraries: true,
+      count: 5,
+      facets: true,
+      tonight: false,
+    })
+    expect(jav.inline).toEqual(['sort', 'order', 'facets', 'scan', 'identify'])
+    expect(jav.more).toEqual(['visual', 'video-wall', 'settings'])
+    const empty = toolbarActions({
+      view: 'wall',
+      hasLibraries: false,
+      count: null,
+      facets: false,
+      tonight: true,
+    })
+    expect(empty).toEqual({ inline: [], more: ['settings'] })
+    const review = toolbarActions({
+      view: 'review',
+      hasLibraries: true,
+      count: 5,
+      facets: true,
+      tonight: false,
+    })
+    expect(review.inline).toEqual(['scan', 'identify'])
   })
 
   it('番号页空状态引导添加番号文件夹', () => {

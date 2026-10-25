@@ -8,6 +8,7 @@
   >
     <slot name="leading" />
     <slot>{{ label }}</slot>
+    <span v-if="count !== undefined" class="ui-chip-count">{{ count }}</span>
   </button>
 </template>
 
@@ -20,7 +21,9 @@
  * - 不提供内嵌删除按钮（button 里不能再嵌按钮）；需要删除时，
  *   在芯片旁边放一个 UiIconButton icon="close"。
  *
- * - size="lg"：页面级筛选胶囊（片库、直播分组），34px 高、卡片实色底，选中时反色（白底黑字）。
+ * - size="md"：页面级筛选胶囊（片库匹配状态、直播分组），高度取 --control-height（36），
+ *   实色灰底，选中时反色（白底黑字）；和 UiSegmented、UiButton 排在同一行时等高。
+ * - count：文字后面的数量（如「待确认 691」），比文字淡一档。
  *
  * 插槽：leading 前置图标或符号；默认插槽覆盖 label。
  */
@@ -29,8 +32,10 @@ withDefaults(
     label?: string
     selected?: boolean
     disabled?: boolean
-    /** sm：行内小胶囊；lg：页面筛选胶囊 */
-    size?: 'sm' | 'lg'
+    /** sm：行内小胶囊；md：页面筛选胶囊 */
+    size?: 'sm' | 'md'
+    /** 数量，显示在文字后面 */
+    count?: number | string
   }>(),
   { selected: undefined, size: 'sm' }
 )
@@ -63,24 +68,33 @@ withDefaults(
   background: var(--bg-active);
   font-weight: var(--font-weight-medium);
 }
-.ui-chip:where(.is-lg) {
+.ui-chip:where(.is-md) {
   flex: none;
   gap: var(--space-1_5);
-  min-height: 34px;
-  padding: 0 var(--space-3_5);
+  min-height: var(--control-height);
+  padding: 0 var(--space-4);
   background: var(--bg-fill-tertiary);
   color: var(--text-primary);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
-.ui-chip:where(.is-lg:hover:not(:disabled)) {
+.ui-chip:where(.is-md:hover:not(:disabled)) {
   background: var(--bg-fill-secondary);
 }
-.ui-chip:where(.is-lg.is-selected) {
+.ui-chip:where(.is-md.is-selected) {
   background: var(--text-primary);
   color: var(--bg-content);
   font-weight: var(--font-weight-semibold);
+}
+.ui-chip-count {
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+  font-weight: var(--font-weight-medium);
+}
+.ui-chip:where(.is-selected) .ui-chip-count {
+  color: inherit;
+  opacity: 0.6;
 }
 .ui-chip:where(:focus-visible) {
   outline: none;
