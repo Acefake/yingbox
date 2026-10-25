@@ -28,6 +28,7 @@ import { revertEpisode } from './revert'
 import {
   addDays,
   calendarRange,
+  episodeKey,
   isDue,
   localDate,
   nextTry,
@@ -66,6 +67,8 @@ export interface AutograbService {
   resume(): Promise<void>
   /** 状态加载后的闸门：洗版、电影追踪的 115 请求也走它（同一队列、同一份限额与熔断） */
   gate(): Promise<Gate>
+  /** 这一集是不是追更转存的、还在等入库（推送据此把新集标成追更） */
+  isSaved(seriesId: number, season: number, episode: number): boolean
 }
 
 /** 创建追更服务 */
@@ -140,7 +143,12 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
 
   function syncRecords(episodes: CalendarEpisode[], now: number): void {
     airing = new Map(episodes.map(e => [e.seriesId, e.seriesTitle]))
+    const saved = Object.values(state.episodes).filter(
+      r => r.status === 'saved'
+    )
     if (applyCalendar(state, episodes, localDate(now))) dirty()
+    const landed = saved.filter(r => r.status === 'done')
+    if (landed.length) deps.landed?.(landed)
   }
 
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
@@ -349,6 +357,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     async gate(): Promise<Gate> {
       await ensureLoaded()
       return gateRef
+    },
+    isSaved(seriesId: number, season: number, episode: number): boolean {
+      const key = episodeKey(seriesId, season, episode)
+      return state.episodes[key]?.status === 'saved'
     },
   }
 }

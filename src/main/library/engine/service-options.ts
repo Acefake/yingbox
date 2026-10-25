@@ -1,6 +1,7 @@
 /**
  * LibraryService 的构造参数。单独成文件：宿主（platform.ts）与测试只需要类型，不必读服务实现。
  */
+import type { IntakeOptions } from '../arrivals/intake'
 import type { IdentifyModuleOptions } from '../identify/identify-module'
 import type { RemoteClients } from '../scanner/scan-library'
 import type { VideoProbeOutcome } from '../scanner/video-probe'
@@ -53,6 +54,8 @@ export interface LibraryServiceOptions {
   >
   /** 按画面搜的注入项（推理后端、像素转换），见 visual/visual-setup.ts。 */
   visual?: VisualOptions
+  /** 入库之后：新入库交给宿主推送、自动字幕，见 arrivals/intake.ts。 */
+  intake?: IntakeOptions
   /** 写出层的注入项（测试模拟跨盘）。 */
   writer?: {
     moveOps?: MoveOps
