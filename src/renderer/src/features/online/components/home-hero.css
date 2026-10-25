@@ -10,12 +10,12 @@
   --spec-line: var(--spec-media-line);
   position: relative;
   flex: none;
-  height: clamp(
-    440px,
-    62vh,
-    680px
-  ); /* style-tokens: layout（Hero 随窗口高度） */
+  height: calc(
+    clamp(440px, 62vh, 680px) + var(--hero-edge-fade)
+  ); /* style-tokens: layout（Hero 随窗口高度；浅色加下沿渐隐段） */
   overflow: hidden;
+  -webkit-mask-image: var(--hero-edge-mask);
+  mask-image: var(--hero-edge-mask);
   background: var(--media-bg);
   color: var(--media-text);
   isolation: isolate;
@@ -40,7 +40,9 @@
 
 .home-hero-copy {
   position: absolute;
-  bottom: 30px; /* style-tokens: layout（Apple TV Hero 文案下沿） */
+  bottom: calc(
+    30px + var(--hero-edge-fade)
+  ); /* style-tokens: layout（Apple TV Hero 文案下沿） */
   left: var(--home-x, var(--space-8));
   width: min(600px, calc(100% - var(--home-x, var(--space-8)) - 160px));
 }
@@ -144,7 +146,9 @@
 .home-hero-dots {
   position: absolute;
   right: var(--space-8);
-  bottom: 30px; /* style-tokens: layout（与文案下沿对齐） */
+  bottom: calc(
+    30px + var(--hero-edge-fade)
+  ); /* style-tokens: layout（与文案下沿对齐） */
   display: flex;
   align-items: center;
 }
@@ -185,11 +189,11 @@
 @media (max-width: 860px) {
   .home-hero-copy {
     width: calc(100% - var(--home-x, var(--space-5)) - var(--space-5));
-    bottom: var(--space-11);
+    bottom: calc(var(--space-11) + var(--hero-edge-fade));
   }
   .home-hero-dots {
     right: auto;
-    bottom: var(--space-5);
+    bottom: calc(var(--space-5) + var(--hero-edge-fade));
     left: var(--home-x, var(--space-5));
   }
   .home-hero-meta {
