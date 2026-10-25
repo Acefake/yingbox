@@ -221,7 +221,7 @@ describe('接线：回车 / Esc 都经过输入法判断', () => {
     for (const file of [
       'features/online/components/SearchTab.vue',
       'features/online/components/AddSourceDialog.vue',
-      'features/shell/components/AppToolbar.vue',
+      'features/shell/components/SidebarSearch.vue',
       'features/player/components/SubtitleSearchPanel.vue',
     ]) {
       const text = read(file)

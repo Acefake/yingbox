@@ -67,7 +67,17 @@
             :preview="doubanPreviewSource(item)"
             @open="emit('open', item)"
             @toggle-favorite="toggleFavorite(item)"
-          />
+          >
+            <template v-if="doubanDiscoverReady && item.kind !== 'tv'" #actions>
+              <UiIconButton
+                icon="download"
+                variant="overlay"
+                size="sm"
+                label="找 115 资源"
+                @click.stop="openDoubanDiscover(item)"
+              />
+            </template>
+          </UiPosterCard>
         </template>
       </UiVirtualGrid>
       <!-- 列表之后的状态行：加载下一页 / 下一页失败 / 到底 -->
@@ -88,6 +98,7 @@
 /**
  * 在线首页的豆瓣区：电影 / 电视剧切换、一行快捷标签，「筛选」展开多维面板（类型、地区、年代、排序、评分下限）。
  * 列表滚到底自动取下一页（UiVirtualGrid 的 reach-end），失败可重试。
+ * 桌面端电影卡右上角多一个「找 115 资源」，打开与 AI 助手共用的候选面板。
  * 状态在 use-douban-feed 的模块级单例里（会话级记住条件）；在线页被 keep-alive 切走时记下滚动位置，回来恢复。
  */
 import UiButton from '@/components/ui/UiButton.vue'
@@ -127,6 +138,11 @@ import {
 } from '../../../../../shared/douban/query'
 import { useDoubanFeed } from '../composables/use-douban-feed'
 import type { DoubanItem } from '../types'
+import {
+  doubanDiscoverReady,
+  loadDoubanDiscover,
+  openDoubanDiscover,
+} from '../utils/douban-discover'
 import { doubanPreviewSource } from '../utils/douban-preview'
 
 const emit = defineEmits<{ (e: 'open', item: DoubanItem): void }>()
@@ -258,6 +274,7 @@ onMounted(() => {
   scrollEl?.addEventListener('scroll', rememberScroll, { passive: true })
   restoreScroll()
   void feed.start()
+  void loadDoubanDiscover()
 })
 onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', rememberScroll))
 onDeactivated(() => (tracking = false))

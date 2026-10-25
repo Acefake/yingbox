@@ -4,7 +4,8 @@
  * - 媒体库部分：按日期区间向片库要播出数据（calendar.episodes）。引擎侧每部剧每天最多刷新一次 TMDB；
  *   这里再按「今天 + 区间」记住结果，同一天来回切页不重复调用。
  * - 在线部分：直接读「继续播放」记录（响应式），不联网。
- * - 已看 / 未看：「已看完」标记 + 「继续播放」记录 + 文件播放进度（规则见 calendar-rules.ts）。
+ * - 已看 / 未看：片库里这一集的观看进度（读到区间数据后按剧读进来）+ 「继续播放」记录；
+ *   片库还没有的（还在本地进度表里、没搬进片库的）看本地进度表与「已看完」标记（规则见 calendar-rules.ts）。
  * - 「今天」每分钟和窗口获得焦点时校正一次，过了零点角标与高亮自动跟上。
  */
 import { type Ref, computed, ref, shallowRef, watch } from 'vue'
@@ -13,7 +14,12 @@ import type {
   CalendarEpisode,
   CalendarResult,
 } from '../../../../shared/library/ipc'
-import { fetchCalendarEpisodes, libraryProgressKey } from '@/features/library'
+import {
+  fetchCalendarEpisodes,
+  libraryItemProgress,
+  libraryProgressKey,
+  loadLibraryProgress,
+} from '@/features/library'
 import { continueRecords, readMediaProgress } from '@/features/player'
 
 import { addDays, dateKey, weekStart } from './calendar-dates'
@@ -80,7 +86,11 @@ function loadRange(from: string, to: string, force = false): Promise<void> {
   }
   setRange(key, { result: old?.result ?? null, loading: true, error: null })
   const job = request
-    .then(result => setRange(key, { result, loading: false, error: null }))
+    .then(result => {
+      setRange(key, { result, loading: false, error: null })
+      const series = new Set(result.episodes.map(ep => ep.seriesId))
+      void loadLibraryProgress([...series]).catch(() => {})
+    })
     .catch(error =>
       setRange(key, {
         result: old?.result ?? null,
@@ -93,8 +103,15 @@ function loadRange(from: string, to: string, force = false): Promise<void> {
   return job
 }
 
-/** 一集的文件播放进度与「已看完」标记。 */
+/** 一集的观看进度：片库里的（响应式），没有时看本地进度表。 */
 function progressOf(ep: CalendarEpisode): ProgressLike | null {
+  const stored = ep.itemId === null ? null : libraryItemProgress(ep.itemId)
+  if (stored)
+    return {
+      progress: stored.position,
+      duration: stored.duration,
+      finished: stored.watched,
+    }
   const key = libraryProgressKey(ep.fileId, ep.filePath)
   return key ? readMediaProgress(key) : null
 }

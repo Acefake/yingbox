@@ -49,19 +49,36 @@
           >
           <div v-if="cell.item" class="lib-cell-preview ui-preview-layer" />
           <span v-if="cell.badge" class="lib-cell-badge">{{ cell.badge }}</span>
+          <span
+            v-if="cell.progress"
+            class="lib-cell-progress"
+            aria-hidden="true"
+          >
+            <i :style="{ width: cell.progress }" />
+          </span>
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
           }}</span>
-          <span v-if="cell.range" class="lib-cell-range">{{ cell.range }}</span>
-          <svg
-            v-if="cell.selected"
-            class="lib-cell-check"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
+          <span
+            v-if="cell.range"
+            class="lib-cell-range yb-spec"
+            :class="`is-${cell.range.variant}`"
           >
-            <circle cx="12" cy="12" r="11" />
-            <path d="M7 12.5l3.2 3.2L17 9" />
-          </svg>
+            <template v-if="cell.range.variant === 'dolby'">
+              <span class="yb-spec-brand">DOLBY</span>
+              <span class="yb-spec-line">{{ cell.range.text }}</span>
+            </template>
+            <template v-else>{{ cell.range.text }}</template>
+          </span>
+          <span v-if="cell.selected" class="lib-cell-check">
+            <svg
+              class="app-icon app-icon--sm"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+            >
+              <path :d="CHECK_PATH" />
+            </svg>
+          </span>
         </div>
         <template v-if="cell.item">
           <div class="lib-cell-title">{{ cell.item.title }}</div>
@@ -95,15 +112,18 @@
  * - 格子构造、方向键、修饰键等纯规则在 wall-cells.ts，样式在 poster-wall.css；
  * - 悬停预览也委托在网格上（useGridPreview，来源见 wall-preview.ts），多选时不起；
  *   格子被回收（滚出渲染区间、换查询）时停止；
- * - 悬停详情卡（HoverCard，显隐在 use-hover-card.ts）同样委托在网格上，滚动、多选、换查询时收起。
+ * - 悬停详情卡（HoverCard，显隐在 use-hover-card.ts）同样委托在网格上，滚动、多选、换查询时收起；
+ * - 观看标记：看完的角标「已看」，看了一部分的底边进度条（片库观看进度，useWallProgress 按可见区间取）。
  */
 import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
 import { useGridPreview } from '@/components/ui/hover-preview'
+import { iconPath } from '@/components/ui/icons'
 import { applyFocus } from '@/services/thumbnails'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
 import { itemImage } from '../api/images'
+import { useWallProgress } from '../progress/use-wall-progress'
 import { formatRating } from '../shared/format'
 import type { PagedList } from './paged-list'
 import { useVirtualGrid } from './use-virtual-grid'
@@ -117,6 +137,9 @@ import {
   clickModifiers,
   loadedIds,
 } from './wall-cells'
+
+/** 选中角标的对勾路径：内联 svg，格子不建 UiIcon 实例 */
+const CHECK_PATH = iconPath('check')
 
 const props = defineProps<{
   list: PagedList
@@ -197,6 +220,13 @@ watch(
   { immediate: true }
 )
 
+const watchMark = useWallProgress(() => {
+  void props.version
+  return [
+    ...loadedIds(range.value.start, range.value.end, i => props.list.at(i)),
+  ]
+})
+
 const cells = computed<Cell[]>(() => {
   void props.version
   void props.selectionVersion
@@ -211,6 +241,7 @@ const cells = computed<Cell[]>(() => {
     showStateBadge: Boolean(props.showStateBadge),
     image: poster => itemImage(poster, 300),
     rating: formatRating,
+    mark: watchMark,
   })
 })
 

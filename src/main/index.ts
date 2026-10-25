@@ -32,6 +32,7 @@ import { registerIntroDetectIpc } from './intro-detect'
 import { registerDolbyVisionIpc } from './dolby-vision'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
+import { registerProgressSync } from './library/progress-sync'
 import {
   REMOTE_SCHEME_PRIVILEGES,
   registerWebDav,
@@ -43,6 +44,12 @@ import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
 import { registerPan115 } from './pan115'
+import { registerAutograb } from './autograb'
+import { registerNotify } from './notify'
+import { registerAutograbMovies } from './autograb/movies'
+import { createPanAdapter } from './autograb/upgrade/pan-adapter'
+import { registerAutograbUpgrade } from './autograb/upgrade'
+import { registerDiscover } from './discover'
 import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
@@ -221,6 +228,8 @@ app.whenReady().then(async () => {
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
   registerLibraryNotify(libraryClient)
+  // 观看进度与片库服务（NAS）双向合并：设置了地址才同步
+  registerProgressSync(libraryClient)
   // TMDB 令牌：用户改了就下发给媒体库引擎；启动时补给还没配置的引擎（老用户迁移来的令牌）
   onSecretSaved(async (key, value) => {
     if (key === TMDB_SECRET)
@@ -240,7 +249,20 @@ app.whenReady().then(async () => {
   // 前情提要 / 问剧情：之前各集字幕摘要与缓存（见 src/main/recap）
   registerRecap()
   // 网盘搜索（PanSou）+ 115 扫码登录与转存（见 src/main/pan115）
-  registerPan115()
+  const pan115Service = registerPan115()
+  // 追更：剧集新集播出后搜 115 分享、验过文件只转存那一集（见 src/main/autograb）
+  const autograb = registerAutograb(libraryClient, pan115Service, {
+    landed: records => notify.landed(records),
+  })
+  // 入库推送：新集 / 新电影入库发系统通知、Bark、Telegram（见 src/main/notify）；追更转存的集标成追更
+  const notify = registerNotify((...episode) => autograb.isSaved(...episode))
+  // 洗版 / 电影上线追踪：115 请求共用追更闸门（见 src/main/autograb/upgrade、movies）
+  const autograbGate = (): ReturnType<typeof autograb.gate> => autograb.gate()
+  const autograbPan = createPanAdapter(pan115Service)
+  registerAutograbUpgrade(libraryClient, autograbPan, autograbGate)
+  registerAutograbMovies(libraryClient, autograbPan, autograbGate)
+  // 库外发现：助手 / 豆瓣卡「找 115 资源」，复用追更的闸门（见 src/main/discover）
+  registerDiscover(libraryClient, pan115Service, autograb)
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 
