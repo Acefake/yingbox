@@ -67,5 +67,9 @@ export function parseQueryFilters(input: unknown): LibraryQueryFilters {
   }
   const excludeIds = idList(r.excludeIds, 'excludeIds')
   if (excludeIds) out.excludeIds = excludeIds
+  if (r.hasGenres !== undefined && r.hasGenres !== null) {
+    if (typeof r.hasGenres !== 'boolean') invalid('hasGenres 必须是布尔值')
+    out.hasGenres = r.hasGenres as boolean
+  }
   return out
 }

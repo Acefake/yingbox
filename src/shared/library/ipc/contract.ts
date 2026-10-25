@@ -224,11 +224,20 @@ export interface ScanAccepted {
 /**
  * 条目上存的完整元数据：电影 / 剧集是 MediaMetadata，季是 SeasonMetadata（不含 episodes），
  * 集是 EpisodeMetadata。绝对集数的集额外带 mapped（映射到的 季 / 集）。
+ * 没刮削上的电影 / 剧集可能带 local：只有本地 NFO / 豆瓣补来的制片国家（供地区筛选），不算匹配。
  */
 export type ItemMetadata =
   | ({ level: 'title' } & MediaMetadata)
   | ({ level: 'season' } & Omit<SeasonMetadata, 'episodes'>)
   | ({ level: 'episode' } & EpisodeMetadata & { mapped?: boolean })
+  | LocalItemMetadata
+
+/** 本地补全的元数据：制片国家（ISO 3166-1）与来源。 */
+export interface LocalItemMetadata {
+  level: 'local'
+  countries: string[]
+  source: 'nfo' | 'douban'
+}
 
 /** 识别请求：给 itemIds 只识别这些条目；只给 libraryId 识别该库里需要识别的条目。 */
 export interface IdentifyRequest {

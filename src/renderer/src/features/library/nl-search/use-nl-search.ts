@@ -6,7 +6,8 @@
  * - 解析中保留上一次的结果，不闪全库；AI 未配置 / 失败时退回片名搜索并给出提示。
  * - 番号页（私密分区）请求带 private: true；从 AI 助手的私密模式跳来（路由带 localOnly=1）时再带 localOnly，
  *   不看「私密板块只用本地模型」设置，只发给本地模型。
- * 规则在 nl-rules.ts / nl-chips.ts / nl-filter.ts。
+ * - 条件里有类型而本库类型信息不全时，再问一次模型「按片名判断」（nl-title-pick.ts，隐私设置同上）。
+ * 规则在 nl-rules.ts / nl-chips.ts / nl-filter.ts / nl-title-pick.ts。
  */
 import {
   type ComputedRef,
@@ -48,11 +49,18 @@ import {
 } from './nl-filter'
 import {
   NlCache,
+  type NlQueryContext,
   applyNlFilter,
   cacheKey,
   isPrivateSection,
   nlIntent,
 } from './nl-rules'
+import {
+  TITLE_PICK_SCHEMA,
+  type TitlePick,
+  looseFilter,
+  resolveTitlePick,
+} from './nl-title-pick'
 
 /** 输入停多久再调模型。 */
 const AI_DELAY_MS = 600
@@ -64,6 +72,10 @@ export type NlStatus = 'idle' | 'loading' | 'done' | 'error' | 'unconfigured'
 
 /** 全应用共用一份缓存（切页面回来不重新问）。 */
 const cache = new NlCache<NlFilter>()
+/** 按片名判断的结果缓存（同一个键；null 表示不需要兜底）。 */
+const pickCache = new NlCache<TitlePick | null>()
+/** 按片名判断生效时的说明。 */
+const PICK_NOTE = '本库类型信息不全，已让 AI 按片名判断'
 
 export interface NlSearch {
   /** 交给海报墙的片名搜索词（走 AI 时为空，或退回时是原句） */
@@ -95,11 +107,11 @@ export interface NlSearch {
 
 /**
  * @param section 当前分区
- * @param base 海报墙的基础查询（分区、匹配筛选、媒体库、排序、片名搜索）
+ * @param baseQuery 海报墙的基础查询（分区、匹配筛选、媒体库、排序、片名搜索）
  */
 export function useNlSearch(
   section: LibrarySection,
-  base: () => LibraryQuery
+  baseQuery: () => LibraryQuery
 ): NlSearch {
   const route = useRoute()
   const provider = useSetting('ai.provider')
@@ -122,6 +134,8 @@ export function useNlSearch(
   /** 当前生效的片名搜索词 */
   const plain = ref('')
   const genres = shallowRef<string[] | null>(null)
+  /** 按片名判断的结果（只在类型与当前条件一致时生效） */
+  const titlePick = shallowRef<TitlePick | null>(null)
 
   const ready = (): boolean =>
     aiConfigured({
@@ -163,22 +177,95 @@ export function useNlSearch(
   /** 退回片名搜索并说明原因。 */
   function fallback(question: string, next: NlStatus, why: string): void {
     filter.value = null
+    titlePick.value = null
     plain.value = question
     status.value = next
     message.value = why
   }
 
+  /** 两次模型请求共用的隐私选项（私密分区带 private，必要时只发本地模型）。 */
+  const privacy = (): { private: boolean; localOnly?: true } => ({
+    private: isPrivateSection(section),
+    ...(isPrivateSection(section) && route.query.localOnly === '1'
+      ? { localOnly: true as const }
+      : {}),
+  })
+
+  const context = (pick: TitlePick | null = null): NlQueryContext => ({
+    section,
+    genres: genres.value ?? [],
+    watchedIds: watchedIds.value,
+    titlePick: pick,
+  })
+
+  /** 本库类型信息不全时按片名判断；失败保留类型筛选（只提示）。 */
+  async function pickByTitle(
+    key: string,
+    question: string,
+    parsed: NlFilter,
+    signal: AbortSignal
+  ): Promise<TitlePick | null> {
+    if (!parsed.genres?.length) return null
+    const hit = pickCache.get(key)
+    if (hit !== undefined) return hit
+    const api = libraryBridge()
+    if (!api?.query) return null
+    const ctx = context()
+    const base: LibraryQuery = { ...applyNlFilter(baseQuery(), {}, ctx) }
+    try {
+      const pick = await resolveTitlePick(
+        question,
+        parsed,
+        {
+          strict: applyNlFilter(base, parsed, ctx),
+          section: base,
+          loose: applyNlFilter(base, looseFilter(parsed), ctx),
+        },
+        {
+          query: query => api.query(JSON.parse(JSON.stringify(query))),
+          chat: async messages =>
+            (
+              await chatJson(
+                {
+                  messages,
+                  schema: TITLE_PICK_SCHEMA,
+                  schemaName: 'library_title_pick',
+                  temperature: 0,
+                  maxTokens: 1200,
+                  ...privacy(),
+                },
+                { signal }
+              )
+            ).data,
+        }
+      )
+      if (!signal.aborted) pickCache.set(key, pick)
+      return pick
+    } catch {
+      if (!signal.aborted) message.value = '按片名判断失败，先按类型筛选'
+      return null
+    }
+  }
+
+  /** 让一组条件生效（含按片名判断的结果）。 */
+  function settle(parsed: NlFilter, pick: TitlePick | null): void {
+    filter.value = parsed
+    titlePick.value = pick
+    plain.value = ''
+    status.value = 'done'
+    if (pick) message.value = PICK_NOTE
+  }
+
   async function parse(question: string): Promise<void> {
     const key = cacheKey(section, question)
-    const hit = cache.get(key)
-    if (hit) {
-      filter.value = hit
-      plain.value = ''
-      status.value = 'done'
-      return
-    }
     controller = new AbortController()
     const signal = controller.signal
+    const hit = cache.get(key)
+    if (hit) {
+      const pick = await pickByTitle(key, question, hit, signal)
+      if (!signal.aborted) settle(hit, pick)
+      return
+    }
     try {
       const vocabulary = await loadGenres()
       const result = await chatJson(
@@ -194,10 +281,7 @@ export function useNlSearch(
           schemaName: 'library_filter',
           temperature: 0,
           maxTokens: 400,
-          private: isPrivateSection(section),
-          ...(isPrivateSection(section) && route.query.localOnly === '1'
-            ? { localOnly: true }
-            : {}),
+          ...privacy(),
         },
         { signal }
       )
@@ -208,9 +292,8 @@ export function useNlSearch(
         return
       }
       cache.set(key, parsed)
-      filter.value = parsed
-      plain.value = ''
-      status.value = 'done'
+      const pick = await pickByTitle(key, question, parsed, signal)
+      if (!signal.aborted) settle(parsed, pick)
     } catch (error) {
       if (signal.aborted) return
       const err = error instanceof AiCallError ? error : null
@@ -247,6 +330,7 @@ export function useNlSearch(
         return
       }
       filter.value = null
+      titlePick.value = null
       status.value = 'idle'
       message.value = ''
       plain.value = next.kind === 'plain' ? next.text : ''
@@ -262,11 +346,7 @@ export function useNlSearch(
 
   const apply = (query: LibraryQuery): LibraryQuery =>
     filter.value
-      ? applyNlFilter(query, filter.value, {
-          section,
-          genres: genres.value ?? [],
-          watchedIds: watchedIds.value,
-        })
+      ? applyNlFilter(query, filter.value, context(titlePick.value))
       : query
 
   return {
@@ -281,7 +361,7 @@ export function useNlSearch(
       filter.value ? '没有符合这些条件的条目' : null
     ),
     apply,
-    query: () => apply(base()),
+    query: () => apply(baseQuery()),
     ask() {
       if (intent.value.kind === 'ai') {
         cancel()
