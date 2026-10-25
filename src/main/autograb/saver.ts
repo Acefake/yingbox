@@ -30,7 +30,7 @@ export const NOTIFY_AFTER_MS = 10 * 60_000
 /** 转存后多久还没入库就报错 */
 export const STALE_AFTER_MS = 24 * 3_600_000
 /** 115 说「已经接收过」 */
-const ALREADY_RECEIVED = 4100024
+export const ALREADY_RECEIVED = 4100024
 /** 转存后至少还要剩这么多空间 */
 export const SPACE_MARGIN = 1024 ** 3
 
