@@ -49,7 +49,6 @@
           <UiButton
             v-if="isPresetSubscribed(preset, sources)"
             size="sm"
-            variant="plain"
             label="已订阅"
             disabled
           />
