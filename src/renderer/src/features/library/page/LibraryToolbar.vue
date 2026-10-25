@@ -75,7 +75,9 @@
             size="md"
             :label="o.label"
             :count="
-              o.value === 'review' ? reviewChipCount(reviewCount) : undefined
+              o.value === 'review'
+                ? reviewChipCount(reviewCount ?? 0)
+                : undefined
             "
             :selected="chipSelected(o.value)"
             @click="pickFilter(o.value)"
