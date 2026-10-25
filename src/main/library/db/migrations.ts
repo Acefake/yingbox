@@ -4,6 +4,7 @@
  * 规则：已发布的迁移永远不改，只追加新的。
  */
 import type { DatabaseSync } from 'node:sqlite'
+import { MERGE_SCHEMA } from './schema-merge'
 import { V6_SCHEMA } from './schema-actors'
 import { V9_SCHEMA } from './schema-progress'
 import { V7_SCHEMA } from './schema-visual'
@@ -312,6 +313,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 7, description: '按画面搜的图片向量', sql: V7_SCHEMA },
   { version: 8, description: '视频动态范围（HDR / 杜比视界）', sql: V8_SCHEMA },
   { version: 9, description: '观看进度', sql: V9_SCHEMA },
+  { version: 10, description: '同一作品多版本合并展示', sql: MERGE_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

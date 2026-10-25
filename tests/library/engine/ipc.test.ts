@@ -158,6 +158,8 @@ describe('引擎 RPC 与 preload bridge', () => {
       'progress.recent',
       'progress.export',
       'progress.import',
+      'merge.split',
+      'merge.join',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })
