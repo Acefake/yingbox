@@ -20,8 +20,16 @@ function parseSearch(input: unknown): VisualSearchRequest {
   const text = (r.text as string).trim()
   if (!text) invalid('text 不能为空')
   if (text.length > MAX_TEXT) invalid(`text 最长 ${MAX_TEXT} 字`)
+  if (
+    r.source !== undefined &&
+    !['all', 'image', 'video'].includes(r.source as string)
+  )
+    invalid('source 必须是 all、image 或 video')
   return {
     text,
+    ...(r.source === undefined
+      ? {}
+      : { source: r.source as VisualSearchRequest['source'] }),
     ...(r.libraryId === undefined
       ? {}
       : { libraryId: positiveId(r.libraryId, 'libraryId') }),

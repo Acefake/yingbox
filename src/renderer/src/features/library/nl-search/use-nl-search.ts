@@ -33,6 +33,7 @@ import { continueRecords } from '@/features/player'
 import { useSetting } from '@/features/settings'
 
 import { libraryBridge } from '../api/bridge'
+import { filterReader } from '../search/route-filter'
 import type { LibrarySection } from '../state/library-section'
 import {
   type NlChip,
@@ -119,8 +120,11 @@ export function useNlSearch(
   )
   /** 点过「AI 理解」的那段文字（文字变了就失效） */
   const forcedFor = ref<string | null>(null)
+  const transferred = computed(filterReader(() => route.query.searchFilter))
   const intent = computed(() =>
-    nlIntent(text.value, forcedFor.value === text.value)
+    transferred.value
+      ? { kind: 'plain' as const, text: text.value }
+      : nlIntent(text.value, forcedFor.value === text.value)
   )
   const status = ref<NlStatus>('idle')
   const message = ref('')
@@ -296,9 +300,19 @@ export function useNlSearch(
   }
 
   watch(
-    intent,
-    next => {
+    [intent, transferred],
+    ([next, incoming], previous) => {
       cancel()
+      if (incoming) {
+        if (incoming === previous?.[1]) return
+        void loadGenres()
+        filter.value = incoming
+        titlePick.value = null
+        plain.value = ''
+        status.value = 'done'
+        message.value = ''
+        return
+      }
       if (next.kind === 'ai') {
         start(next.question)
         return
@@ -329,7 +343,9 @@ export function useNlSearch(
   )
   onScopeDispose(cancel)
 
-  const active = computed(() => intent.value.kind === 'ai')
+  const active = computed(
+    () => transferred.value !== null || intent.value.kind === 'ai'
+  )
   const chips = computed(() =>
     filter.value ? nlChips(filter.value, section) : []
   )
@@ -342,7 +358,9 @@ export function useNlSearch(
   return {
     search: computed(() => plain.value),
     active,
-    canAsk: computed(() => intent.value.kind === 'plain'),
+    canAsk: computed(
+      () => transferred.value === null && intent.value.kind === 'plain'
+    ),
     status,
     message,
     chips,

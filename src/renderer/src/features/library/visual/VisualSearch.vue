@@ -44,13 +44,25 @@
             aria-label="描述画面"
           />
           <UiButton
-            v-if="stage === 'ready' && status && hasPending(status)"
+            v-if="
+              stage === 'ready' &&
+              status &&
+              (hasPending(status) || status.indexed === 0)
+            "
             size="sm"
             icon="refresh"
-            :label="`补索引 ${status.total - status.indexed} 部`"
+            :label="
+              status.indexed === 0
+                ? '建立图片索引'
+                : `补索引 ${status.total - status.indexed} 部`
+            "
             @click="startIndex"
           />
         </div>
+        <VisualSourceSelect />
+        <p v-if="status && !status.indexed" class="visual-note">
+          尚无图片索引，当前可搜索已建立的视频抽帧索引；可点击“建立图片索引”补充图片。
+        </p>
         <p
           v-if="stage === 'working' && status"
           class="visual-note"
@@ -103,6 +115,7 @@ import UiChip from '@/components/ui/UiChip.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import FramesSettings from './FramesSettings.vue'
+import VisualSourceSelect from './VisualSourceSelect.vue'
 import VisualHitCard from './VisualHitCard.vue'
 import { playMoment } from './play-moment'
 import { useVisualSearch } from './use-visual-search'

@@ -41,7 +41,7 @@ const RANGE_RANK_COLUMN = `(SELECT MAX(CASE f.video_range
     UNION ALL SELECT e.id FROM media_items e WHERE e.parent_id IN (${GROUP_CHILDREN})
   )) AS range_rank`
 
-const SUMMARY_COLUMNS = `i.id, i.library_id, i.type, i.title, i.original_title, i.year,
+const SUMMARY_COLUMNS = `i.id, i.library_id, i.merge_key, i.type, i.title, i.original_title, i.year,
   i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
   i.added_at, i.updated_at, ${RANGE_RANK_COLUMN}`
 
@@ -84,6 +84,7 @@ function toSummary(row: Record<string, unknown>): LibraryItemSummary {
   if (row.tvdb_id !== null) providerIds.tvdb = String(row.tvdb_id)
   return {
     id: Number(row.id),
+    mergeKey: typeof row.merge_key === 'string' ? row.merge_key : null,
     libraryId: Number(row.library_id),
     type: row.type as MediaItemType,
     title: String(row.title),

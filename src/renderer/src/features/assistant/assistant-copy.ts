@@ -28,7 +28,7 @@ export function assistantGreetingHint(context: AssistantContext): string {
     return context.plotQa
       ? '可以问问正在看的剧情，或者让我控制播放。'
       : '可以让我调倍速、开关弹幕或定时停止播放。'
-  return '可以让我推荐今晚看什么、在媒体库里找片，或者接着上次看的。'
+  return '可以让我在媒体库里找片，或者接着上次看的。'
 }
 
 /**
