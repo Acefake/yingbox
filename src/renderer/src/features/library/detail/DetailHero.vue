@@ -1,5 +1,5 @@
 <template>
-  <!-- 头图：背景图渐隐到页面底色，标志 / 片名、信息行、操作、简介叠在上面 -->
+  <!-- 头图（效果图 D-1）：大背景铺满窗口（含侧栏后面），下部渐进模糊并压暗到页面底色，文案压在左下 -->
   <header class="lib-hero">
     <img
       v-if="backdrop"
@@ -9,14 +9,10 @@
       decoding="async"
       @load="onFadeIn"
     />
-    <div class="lib-hero-fade" />
-    <UiIconButton
-      class="lib-hero-back"
-      icon="back"
-      variant="overlay"
-      label="返回"
-      @click="emit('close')"
-    />
+    <span class="yb-pblur lib-hero-blur" aria-hidden="true"
+      ><i /><i /><i /><i
+    /></span>
+    <div class="lib-hero-side" aria-hidden="true" />
     <div class="lib-hero-content">
       <img
         v-if="logo && !logoBroken"
@@ -28,19 +24,10 @@
         @error="logoBroken = true"
       />
       <h1 v-else class="lib-hero-title">{{ node.title }}</h1>
-      <p v-if="metaLine.length" class="lib-hero-meta">
-        <span v-for="part in metaLine" :key="part" class="lib-hero-meta-part">
-          {{ part }}
-        </span>
-        <span
-          v-if="node.matchState === 'review' || node.matchState === 'unmatched'"
-          class="lib-hero-state"
-          >{{ MATCH_STATE_LABEL[node.matchState] }}</span
-        >
-      </p>
-      <!-- 主操作留文字（播放；番号库再加去码），其余收成图标按钮，悬停看名字 -->
+      <!-- 主操作：白色播放胶囊 + 想看；番号库再加去码组。管理操作在右上角「更多」里 -->
       <div class="lib-hero-actions">
         <UiButton
+          class="lib-hero-play"
           variant="primary"
           size="lg"
           icon="play"
@@ -48,89 +35,65 @@
           :disabled="!canPlay"
           @click="emit('play')"
         />
-        <WatchlistButton :meta="watchlistMeta" />
+        <WatchlistButton
+          class="lib-hero-circle yb-glass"
+          :meta="watchlistMeta"
+        />
         <template v-if="restorable">
           <UiButton
+            class="lib-hero-glass yb-glass"
             icon="sparkle"
-            variant="secondary"
             size="lg"
             label="去码"
             :disabled="restoreRunning"
             @click="emit('restore', 'restore')"
           />
           <UiIconButton
+            class="lib-hero-circle yb-glass"
             icon="range"
-            variant="secondary"
             size="lg"
             label="去码一段"
             @click="emit('restore', 'range')"
           />
           <UiIconButton
+            class="lib-hero-circle yb-glass"
             icon="livePlay"
-            variant="secondary"
             size="lg"
             label="边跑边看"
             @click="emit('restore', 'live')"
           />
-          <span class="lib-hero-actions-divider" aria-hidden="true" />
         </template>
-        <UiIconButton
-          icon="wand"
-          variant="secondary"
-          size="lg"
-          label="修正匹配"
-          @click="emit('fix-match', node.id)"
-        />
-        <UiIconButton
-          v-if="!jav"
-          :icon="node.matchState === 'locked' ? 'lock' : 'pin'"
-          variant="secondary"
-          size="lg"
-          :label="node.matchState === 'locked' ? '解除锁定' : '锁定匹配'"
-          :active="node.matchState === 'locked'"
-          :disabled="!matched"
-          :loading="busy === 'lock'"
-          @click="emit('toggle-lock')"
-        />
-        <UiIconButton
-          icon="refresh"
-          variant="secondary"
-          size="lg"
-          label="重新获取"
-          :disabled="!matched"
-          :loading="busy === 'refresh'"
-          @click="emit('refresh')"
-        />
-        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiIconButton
-            icon="save"
-            variant="secondary"
-            size="lg"
-            label="写出 NFO"
-            :disabled="!writerAvailable || !matched"
-            :loading="busy === 'write'"
-            @click="emit('write')"
-          />
-        </span>
-        <span v-tooltip="writerAvailable ? '' : WRITER_UNAVAILABLE">
-          <UiIconButton
-            icon="folder"
-            variant="secondary"
-            size="lg"
-            label="整理…"
-            :disabled="!writerAvailable"
-            @click="emit('organize', [node.id])"
-          />
-        </span>
       </div>
       <p v-if="tagline" class="lib-hero-tagline">{{ tagline }}</p>
       <p
         v-if="node.overview"
         class="lib-hero-overview"
         :class="{ 'is-expanded': overviewOpen }"
+        :title="overviewOpen ? '' : '点击展开'"
         @click="overviewOpen = !overviewOpen"
       >
         {{ node.overview }}
+      </p>
+      <p v-if="metaParts.length || specs.length" class="lib-hero-meta">
+        <span v-for="part in metaParts" :key="part" class="lib-hero-meta-part">
+          {{ part }}
+        </span>
+        <span v-if="specs.length" class="lib-hero-specs">
+          <UiSpecBadge
+            v-for="spec in specs"
+            :key="`${spec.variant}:${spec.text}`"
+            v-bind="spec"
+          />
+        </span>
+        <span
+          v-if="node.matchState === 'review' || node.matchState === 'unmatched'"
+          class="lib-hero-state"
+          >{{ MATCH_STATE_LABEL[node.matchState] }}</span
+        >
+      </p>
+      <p v-for="line in credits" :key="line.label" class="lib-hero-credit">
+        <span class="lib-hero-credit-label">{{ line.label }}</span
+        >{{ line.names }}
       </p>
     </div>
   </header>
@@ -138,26 +101,23 @@
 
 <script setup lang="ts">
 /**
- * 详情头图：780w 背景图渐隐、标志（加载失败退回片名）、信息行与待确认角标、操作区、
- * 标语与可展开的简介。
- *
- * 操作区按分区区分（播放后面都紧跟「想看」书签按钮，见 features/watchlist）：
- * - 电影 / 剧集（TMDB）：播放 + 修正匹配 / 锁定匹配 / 重新获取 / 写出 NFO / 整理（图标按钮）
- * - 番号：播放 + 去码（文字）、去码一段 / 边跑边看，再接修正匹配 / 重新获取 / 写出 NFO / 整理；
- *   不显示锁定（锁定只认 TMDB 匹配）
- * 「已匹配」由调用方给出：TMDB 条目看 tmdb id，番号条目看是否已有番号元数据。
+ * 详情头图（Apple TV 式，效果图 D-1）：背景图铺满窗口，下部三层渐进模糊 + 压暗到页面底色，左侧再压一层暗，
+ * 文案在左下：标志（加载失败退回片名）、白色播放胶囊 + 想看玻璃圆钮（番号库再加去码 / 去码一段 / 边跑边看）、
+ * 标语与两行简介（点击展开）、规格行（年份 · 时长或季数 · 评分 · 类型 + 分级圆标与动态范围标签 + 待确认角标）、
+ * 主演 / 导演行。返回圆钮、管理操作（修正匹配、锁定、重新获取、写出 NFO、整理）在 ItemDetail 的浮动控件里。
  * 换条目时重置标志失败与简介展开状态。
  */
 import { computed, ref, watch } from 'vue'
 
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
+import type { SpecBadge } from '@/components/ui/spec-badge'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import { vTooltip } from '@/components/ui/tooltip'
+import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import { WatchlistButton } from '@/features/watchlist'
 
 import { MATCH_STATE_LABEL } from '../shared/format'
-import { WRITER_UNAVAILABLE } from '../writer/use-writer'
+import type { CreditLine } from './detail-view'
 import { watchlistMetaOf } from './playback'
 import type { RestoreAction } from './use-restore'
 
@@ -166,16 +126,14 @@ const props = defineProps<{
   backdrop: string | null
   logo: string | null
   tagline: string
-  metaLine: string[]
+  /** 规格行文字（不含分级） */
+  metaParts: string[]
+  /** 规格标签（分级圆标、动态范围） */
+  specs: SpecBadge[]
+  /** 主演 / 导演行 */
+  credits: CreditLine[]
   playLabel: string
   canPlay: boolean
-  /** 番号库条目：不显示锁定（只认 TMDB 匹配） */
-  jav: boolean
-  /** 已有匹配：重新获取 / 锁定 / 写出 NFO 才可用 */
-  matched: boolean
-  /** 进行中的操作（lock / refresh / write），null 表示空闲。 */
-  busy: string | null
-  writerAvailable: boolean
   /** 显示去码入口（见 use-restore） */
   restorable: boolean
   /** 整片去码正在跑：去码按钮置灰 */
@@ -183,13 +141,7 @@ const props = defineProps<{
 }>()
 
 const emit = defineEmits<{
-  close: []
   play: []
-  'fix-match': [itemId: number]
-  'toggle-lock': []
-  refresh: []
-  write: []
-  organize: [itemIds: number[]]
   restore: [action: RestoreAction]
 }>()
 
@@ -210,14 +162,17 @@ function onFadeIn(event: Event): void {
 }
 </script>
 
+<style scoped src="./detail-section.css"></style>
 <style scoped>
 .lib-hero {
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: max(440px, 62vh);
-  padding: var(--space-10) var(--content-padding-x) var(--space-8);
+  min-height: max(560px, 88vh);
+  padding: var(--space-10) var(--detail-gutter) var(--space-7) var(--detail-x);
   overflow: hidden;
+  background: var(--bg-fill-secondary);
+  isolation: isolate;
 }
 .lib-hero-image {
   position: absolute;
@@ -232,57 +187,116 @@ function onFadeIn(event: Event): void {
 .lib-hero-image[data-loaded] {
   opacity: 1;
 }
-/* 底部与左侧渐隐到页面底色，文字落在实色上，亮暗主题都清楚 */
-.lib-hero-fade {
+/* 下部渐进模糊，最上层从透明压到页面底色，文字落在实色上，亮暗主题都清楚 */
+.lib-hero-blur {
+  --pblur-height: 50%;
+  --pblur-tint: linear-gradient(
+    transparent 0%,
+    color-mix(in srgb, var(--bg-content) 42%, transparent) 38%,
+    color-mix(in srgb, var(--bg-content) 80%, transparent) 80%,
+    var(--bg-content) 100%
+  );
+}
+.lib-hero-side {
   position: absolute;
   inset: 0;
-  background:
-    linear-gradient(
-      to top,
-      var(--bg-content) 0%,
-      color-mix(in srgb, var(--bg-content) 70%, transparent) 30%,
-      transparent 65%
-    ),
-    linear-gradient(
-      to right,
-      color-mix(in srgb, var(--bg-content) 85%, transparent) 0%,
-      transparent 60%
-    );
-}
-.lib-hero-back {
-  position: absolute;
-  top: var(--space-6);
-  left: var(--content-padding-x);
-  z-index: var(--z-raised);
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg-content) 55%, transparent) 0%,
+    color-mix(in srgb, var(--bg-content) 35%, transparent) 30%,
+    transparent 58%
+  );
+  pointer-events: none;
 }
 .lib-hero-content {
   position: relative;
   z-index: var(--z-raised);
-  max-width: 640px;
+  width: min(640px, 100%);
 }
 .lib-hero-logo {
   display: block;
-  max-width: min(420px, 70%);
-  max-height: 140px;
+  max-width: min(320px, 70%);
+  max-height: 150px;
   margin-bottom: var(--space-5);
   object-fit: contain;
   object-position: left bottom;
+  filter: var(--media-logo-shadow);
 }
 .lib-hero-title {
-  margin: 0 0 var(--space-4);
+  margin: 0 0 var(--space-5);
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: var(--text-3xl);
-  font-weight: var(--font-weight-bold);
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（片名大标题） */
   line-height: var(--leading-tight);
   letter-spacing: var(--tracking-tight);
 }
+
+/* —— 操作：48px 白色播放胶囊 + 玻璃圆钮 —— */
+.lib-hero-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-3);
+  margin-bottom: var(--space-5);
+}
+.lib-hero-play {
+  height: var(--space-9);
+  padding: 0 var(--space-6_5) 0 var(--space-5);
+  font-size: var(--text-md);
+}
+.lib-hero-glass {
+  height: var(--space-9);
+  color: var(--text-primary);
+}
+.lib-hero-circle {
+  --ib-size: var(--space-9);
+  border-radius: var(--radius-full);
+  color: var(--text-primary);
+}
+/* 按钮基类自带底色，玻璃底色在这里显式写回（见 ui.css .yb-glass 的说明） */
+.lib-hero-circle,
+.lib-hero-glass {
+  background: var(--glass-bg);
+}
+.lib-hero-circle:hover:not(:disabled),
+.lib-hero-glass:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+}
+.lib-hero-circle.is-active {
+  background: var(--bg-active);
+}
+
+.lib-hero-tagline {
+  margin: 0 0 var(--space-1);
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+}
+.lib-hero-overview {
+  display: -webkit-box;
+  width: min(600px, 100%);
+  margin: 0 0 var(--space-3_5);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.62;
+  cursor: pointer;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+.lib-hero-overview.is-expanded {
+  display: block;
+}
+
+/* —— 规格行：年份 · 类型 · 季数 + 标签 —— */
 .lib-hero-meta {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-1) 0;
-  margin: 0 0 var(--space-5);
+  margin: 0;
   color: var(--text-secondary);
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
@@ -290,6 +304,12 @@ function onFadeIn(event: Event): void {
 .lib-hero-meta-part + .lib-hero-meta-part::before {
   margin: 0 var(--space-2);
   content: '·';
+}
+.lib-hero-specs {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  margin-left: var(--space-3);
 }
 .lib-hero-state {
   margin-left: var(--space-3);
@@ -300,41 +320,25 @@ function onFadeIn(event: Event): void {
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
 }
-.lib-hero-actions {
-  display: flex;
-  align-items: center;
-  flex-wrap: wrap;
-  gap: var(--space-3);
-  margin-bottom: var(--space-5);
-}
-.lib-hero-actions > span {
-  display: inline-flex;
-}
-/* 去码组与通用操作之间的细分隔 */
-.lib-hero-actions-divider {
-  width: 1px;
-  height: var(--space-6);
-  background: var(--border-strong);
-}
-.lib-hero-tagline {
-  margin: 0 0 var(--space-2);
-  color: var(--text-primary);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-medium);
-}
-.lib-hero-overview {
-  display: -webkit-box;
-  margin: 0;
+.lib-hero-credit {
+  margin: var(--space-2_5) 0 0;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-  cursor: pointer;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
-  line-clamp: 3;
+  text-overflow: ellipsis;
+  white-space: nowrap;
 }
-.lib-hero-overview.is-expanded {
-  display: block;
+.lib-hero-credit + .lib-hero-credit {
+  margin-top: var(--space-1);
+}
+.lib-hero-credit-label {
+  margin-right: var(--space-1_5);
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 720px) {
+  .lib-hero {
+    min-height: max(480px, 70vh);
+  }
 }
 </style>
