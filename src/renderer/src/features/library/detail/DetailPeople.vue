@@ -1,9 +1,8 @@
 <template>
   <!-- 演职员：横向滑动 -->
   <section class="lib-section">
-    <h2 class="lib-section-title">演职员</h2>
-    <ul class="lib-row lib-cast">
-      <li v-for="person in people" :key="person.key" class="lib-person">
+    <UiShelf title="演职员" class="lib-cast">
+      <div v-for="person in people" :key="person.key" class="lib-person">
         <component
           :is="person.actorId ? UiPressable : 'div'"
           class="lib-person-target"
@@ -24,17 +23,18 @@
           <div class="lib-person-name">{{ person.name }}</div>
           <div class="lib-person-role">{{ person.role }}</div>
         </component>
-      </li>
-    </ul>
+      </div>
+    </UiShelf>
   </section>
 </template>
 
 <script setup lang="ts">
 /**
- * 详情里的演职员区块（效果图 D-3）：132px 圆形头像（没有时显示名字首字）、姓名、职务 / 角色，横向滑动。
+ * 详情里的演职员区块（效果图 D-3）：UiShelf 横排圆形头像（一屏约 8 位，没有头像时显示名字首字）、姓名、职务 / 角色。
  * 番号库条目的演员在演员库里有记录时可点，打开演员详情。
  */
 import UiPressable from '@/components/ui/UiPressable.vue'
+import UiShelf from '@/components/ui/UiShelf.vue'
 
 import type { PersonCard } from './detail-rules'
 
@@ -44,11 +44,10 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
 
 <style scoped src="./detail-section.css"></style>
 <style scoped>
-.lib-cast {
-  gap: var(--space-6_5);
+.lib-cast :deep(.yb-shelf-track) {
+  --shelf-cols: 8;
 }
 .lib-person {
-  width: 132px;
   text-align: center;
 }
 .lib-person-target {
@@ -67,9 +66,10 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
 .lib-person-photo {
   position: relative;
   display: grid;
-  width: 132px;
-  height: 132px;
-  margin-bottom: var(--space-3);
+  width: 100%;
+  max-width: 140px;
+  aspect-ratio: 1;
+  margin: 0 auto var(--space-3);
   overflow: hidden;
   place-items: center;
   border-radius: 50%;
@@ -108,13 +108,9 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-@media (max-width: 720px) {
-  .lib-person,
-  .lib-person-photo {
-    width: 104px;
-  }
-  .lib-person-photo {
-    height: 104px;
+@container (max-width: 820px) {
+  .lib-cast :deep(.yb-shelf-track) {
+    --shelf-cols: 5.5;
   }
 }
 </style>

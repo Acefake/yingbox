@@ -1,6 +1,8 @@
 /*
  * 详情页各区块共用的版式（ItemDetail 及其区块组件 scoped 引入）。效果图 D-2 / D-3：
- * 左边距与侧栏右沿留 --detail-x（ItemDetail 按侧栏宽度写入），横排卡片一直铺到窗口右沿。
+ * 左边距与侧栏右沿留 --detail-x（ItemDetail 按侧栏宽度写入）；剧集卡横排一直铺到窗口右沿，
+ * 其余横排用 UiShelf，分区标题用 UiSectionHeader（剧集标题带选季下拉，单独写成同样的字号）。
+ * 渐进模糊用全局的 .yb-pblur（ui.css）。
  */
 .lib-section {
   padding: var(--space-9) var(--detail-gutter) 0 var(--detail-x);
@@ -12,15 +14,17 @@
   justify-content: space-between;
   gap: var(--space-4);
   min-height: var(--control-height);
-  margin-bottom: var(--space-4);
+  margin-bottom: var(--space-3_5);
 }
 /* 分区标题：粗体大字（Apple TV 式） */
 .lib-section-title {
   margin: 0 0 var(--space-4);
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
-  font-weight: var(--font-weight-bold); /* style-tokens: visual（分区大标题） */
+  font-size: var(--text-xl);
+  font-weight: var(
+    --font-weight-bold
+  ); /* style-tokens: visual（分区大标题，与 UiSectionHeader 一致） */
   line-height: 1.2;
   letter-spacing: 0.005em;
 }
@@ -46,51 +50,4 @@
 .lib-row > * {
   flex: none;
   scroll-snap-align: start;
-}
-
-/*
- * 渐进模糊（剧集卡、头图底部）：三层递增的背景模糊各自用 mask 渐显，最上一层暗化。
- * 结构：<span class="lib-pblur"><i /><i /><i /><i /></span>，高度 --pblur-height，暗化 --pblur-tint。
- * 降低透明度时只留暗化（多层 backdrop-filter 在低配机器上开销大）。
- */
-.lib-pblur {
-  position: absolute;
-  right: 0;
-  bottom: 0;
-  left: 0;
-  height: var(--pblur-height, 60%);
-  pointer-events: none;
-}
-.lib-pblur > i {
-  position: absolute;
-  inset: 0;
-}
-.lib-pblur > i:nth-child(1) {
-  -webkit-backdrop-filter: blur(4px);
-  backdrop-filter: blur(4px);
-  -webkit-mask: linear-gradient(transparent 0%, #000 22%);
-  mask: linear-gradient(transparent 0%, #000 22%);
-}
-.lib-pblur > i:nth-child(2) {
-  -webkit-backdrop-filter: blur(12px) saturate(1.2);
-  backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-mask: linear-gradient(transparent 12%, #000 42%);
-  mask: linear-gradient(transparent 12%, #000 42%);
-}
-.lib-pblur > i:nth-child(3) {
-  -webkit-backdrop-filter: blur(30px) saturate(1.35);
-  backdrop-filter: blur(30px) saturate(1.35);
-  -webkit-mask: linear-gradient(transparent 28%, #000 62%);
-  mask: linear-gradient(transparent 28%, #000 62%);
-}
-.lib-pblur > i:nth-child(4) {
-  background: var(--pblur-tint);
-}
-:root[data-transparency='reduced'] .lib-pblur > i:not(:last-child) {
-  display: none;
-}
-@media (prefers-reduced-transparency: reduce) {
-  .lib-pblur > i:not(:last-child) {
-    display: none;
-  }
 }

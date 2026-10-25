@@ -554,6 +554,8 @@ function writeOut(): void {
   height: 56px;
   padding: 0 var(--space-1_5);
   border-radius: var(--radius-full);
+  /* 压在文字上，玻璃要更厚才读得清（降低透明度时 --glass-bg 即实色，结果仍是实色） */
+  background: color-mix(in srgb, var(--glass-solid) 70%, var(--glass-bg));
   transform: translateX(-50%);
 }
 .lib-detail-tab {

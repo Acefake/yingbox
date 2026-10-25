@@ -1,7 +1,7 @@
 <template>
   <!-- 关于（效果图 D-3）：实色圆角卡片，左边片名、类型与完整简介，右边两列信息表；下面是视频文件卡 -->
   <section class="lib-section lib-about">
-    <h2 class="lib-section-title">关于</h2>
+    <UiSectionHeader title="关于" />
     <div class="lib-about-card">
       <div class="lib-about-main">
         <h3 class="lib-about-title">{{ title }}</h3>
@@ -16,7 +16,7 @@
       </dl>
     </div>
 
-    <h2 class="lib-section-title lib-files-title">文件</h2>
+    <UiSectionHeader class="lib-files-title" title="文件" />
     <ul class="lib-files">
       <li v-for="{ file, tag } in rows" :key="file.id">
         <UiPressable
@@ -62,6 +62,7 @@ import type { LibraryItemFile } from '../../../../../shared/library/ipc'
 import { videoProbeSpec } from '@/components/ui/spec-badge'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
+import UiSectionHeader from '@/components/ui/UiSectionHeader.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 
 import { baseName, dirName, formatBytes } from '../shared/format'
