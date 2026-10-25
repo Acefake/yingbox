@@ -25,6 +25,7 @@ const INTERVAL_MS = 30 * 60_000
 /**
  * 注册追更（registerLibraryIpc 与 registerPan115 之后调用一次）。
  * @param hooks.landed 转存过的集入库了（推送通知）
+ * @returns 追更服务（gate() 是共用闸门的取法，洗版、电影追踪注册时传进去；isSaved 给推送用）
  */
 export function registerAutograb(
   library: LibraryEngineClient,
@@ -58,13 +59,18 @@ export function registerAutograb(
       loggedIn: () => loggedIn,
       pansouReady: () => Boolean(store.get('pan115.pansouUrl').trim()),
       search: keyword => pan115.searchRaw(keyword),
-      snap: (url, password, dirCid) =>
-        pan115.use(client => client.snapDir(shareOf(url, password), dirCid)),
+      snap: (url, password, dirCid, offset) =>
+        pan115.use(client =>
+          client.snapDir(shareOf(url, password), dirCid, offset)
+        ),
       receive: (url, password, ids, cid) =>
         pan115.use(client =>
           client.receiveFiles(shareOf(url, password), ids, cid)
         ),
-      names: cid => pan115.use(client => client.names(cid)),
+      entries: cid => pan115.use(client => client.entries(cid)),
+      space: () => pan115.use(client => client.space()),
+      remove: (cid, fileId) =>
+        pan115.use(client => client.deleteFile(cid, fileId)),
       dirPath: cid =>
         pan115.use(async client => {
           const listing = await client.dirs(cid)
@@ -100,7 +106,9 @@ export function registerAutograb(
     },
     setEnabled: (_, enabled) => service.setEnabled(enabled),
     setSeries: (_, seriesId, patch) => service.setSeries(seriesId, patch),
+    setPrefs: (_, prefs) => service.setPrefs(prefs),
     grab: (_, key, index) => service.grab(key, index),
+    revert: (_, key) => service.revert(key),
     skip: (_, key) => service.skip(key),
     retry: (_, key) => service.retry(key),
     runNow: async () => run(),

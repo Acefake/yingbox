@@ -9,6 +9,9 @@ import type { AutograbState } from './state'
 /**
  * 日历 → 记录：本地有文件的集记为已入库；追更中的剧已播出、本地没有的正片集（不含第 0 季）建一条等待记录。
  * 已有记录不重建（每集一条，幂等）。返回是否有改动。
+ *
+ * 撤销过的集：媒体库刷新前日历里还挂着被删的那个文件，文件名对得上就仍当缺集；
+ * 日历里换成了别的文件才算入库，文件消失后清掉这个标记。
  */
 export function applyCalendar(
   state: AutograbState,
@@ -20,6 +23,13 @@ export function applyCalendar(
     const setting = state.series[String(ep.seriesId)]
     const key = episodeKey(ep.seriesId, ep.season, ep.episode)
     const record = state.episodes[key]
+    if (record?.revertedName) {
+      const stale =
+        ep.fileId !== null && baseName(ep.filePath) === record.revertedName
+      if (stale) continue
+      record.revertedName = null
+      changed = true
+    }
     if (ep.fileId !== null) {
       if (record && record.status !== 'done') {
         record.status = 'done'
@@ -47,10 +57,20 @@ export function applyCalendar(
       savedName: null,
       savedCid: null,
       notified: false,
+      savedFileId: null,
+      savedSize: null,
+      savedFrom: null,
+      banned: [],
+      revertedName: null,
     }
     changed = true
   }
   return changed
+}
+
+/** 路径的最后一段（日历的 filePath 可能是本机路径或网盘路径） */
+function baseName(path: string | null): string {
+  return (path ?? '').split(/[\\/]/).pop() ?? ''
 }
 
 /** 界面上的剧列表：最近日历里出现的剧 + 设过追更的剧；在追的排前面，再按剧名 */
@@ -72,6 +92,7 @@ export function seriesList(
         cid: setting?.cid ?? '',
         cidName: setting?.cidName ?? '',
         confirmed: setting?.confirmed ?? 0,
+        prefs: setting?.prefs ?? {},
       }
     })
     .sort(

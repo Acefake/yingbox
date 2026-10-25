@@ -129,6 +129,8 @@ export const settingsSchema = {
   'ui.hoverPreviewDelay': num(200, 2000, 600),
   /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
   'ui.miniPlayer': bool(true),
+  /** 降低透明度：浮动控件的玻璃材质用实色、不做背景模糊（系统「降低透明度」打开时也是实色） */
+  'ui.reduceTransparency': bool(false),
   /** 防剧透：剧集详情里没看过的集剧照模糊、简介折叠，悬停才显示 */
   'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
@@ -138,13 +140,13 @@ export const settingsSchema = {
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
-  /** mpv 下的 Anime4K 超分（着色器按需下载，见 shared/anime4k.ts） */
+  /** mpv 下的影盒超分（着色器按需下载，见 shared/anime4k.ts） */
   'player.anime4k': bool(false),
-  /** Anime4K 模式：A / B / C */
+  /** 影盒超分模式：A / B / C */
   'player.anime4kMode': oneOf(['a', 'b', 'c'] as const, 'a'),
-  /** Anime4K 档位：画质（VL 网络）/ 性能（M 网络） */
+  /** 影盒超分档位：画质（VL 网络）/ 性能（M 网络） */
   'player.anime4kQuality': oneOf(['hq', 'fast'] as const, 'fast'),
-  /** Anime4K 只对动画类条目启用（媒体库看 TMDB 类型，在线看站点分类） */
+  /** 影盒超分只对动画类条目启用（媒体库看 TMDB 类型，在线看站点分类） */
   'player.anime4kAnimeOnly': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),

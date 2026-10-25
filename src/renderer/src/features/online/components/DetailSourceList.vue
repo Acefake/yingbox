@@ -25,7 +25,16 @@
         <span class="dsl-dot" :class="`is-${row.status}`" />
       </template>
       {{ row.siteName }}
-      <template #description>{{ row.detail }}</template>
+      <template #description>
+        <span class="dsl-detail">
+          <UiSpecBadge
+            v-if="row.resolution"
+            variant="solid"
+            :text="row.resolution"
+          />
+          {{ row.detail }}
+        </span>
+      </template>
       <template v-if="row.fastest" #trailing>
         <span class="dsl-badge">最快</span>
       </template>
@@ -35,12 +44,13 @@
 
 <script setup lang="ts">
 /**
- * 详情页的源列表：每个源一行，状态点 + 名称 + 分辨率 · 延迟 · 速度，最快的标「最快」，
+ * 详情页的源列表：每个源一行，状态点 + 名称 + 分辨率规格标签 + 延迟 · 速度，最快的标「最快」，
  * 测速失败的灰掉（顺序已由 useDetailSources 排好，失败的在最后）。
  */
 import { computed } from 'vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
+import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import {
   type SourceProbe,
   fastestSite,
@@ -72,17 +82,14 @@ const rows = computed(() => {
     const status = probe?.status ?? 'pending'
     let detail = '测速中…'
     if (status === 'ok')
-      detail = [
-        resolutionLabel(probe?.height),
-        formatLatency(probe?.latencyMs),
-        formatSpeed(probe?.speedBps),
-      ]
+      detail = [formatLatency(probe?.latencyMs), formatSpeed(probe?.speedBps)]
         .filter(Boolean)
         .join(' · ')
     else if (status === 'fail') detail = '超时或无法播放'
     return {
       siteName: sg.siteName,
       status,
+      resolution: status === 'ok' ? resolutionLabel(probe?.height) : '',
       detail,
       fastest: !!fastest && sg.siteName === fastest,
     }
@@ -112,6 +119,12 @@ const rows = computed(() => {
   max-height: 264px;
   overflow-y: auto;
   margin-bottom: var(--space-3);
+}
+
+.dsl-detail {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
 }
 
 .dsl-row.is-failed {
