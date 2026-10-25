@@ -7,65 +7,73 @@
     @keydown="guardDialogEscape"
     @click.self="emit('close')"
   >
-    <header class="netdisk-preview-head">
-      <div class="netdisk-preview-heading">
-        <h2 :id="titleId" class="netdisk-preview-title">分享内容</h2>
-        <p class="netdisk-preview-sub" :title="snap?.title || item.title">
-          {{ snap?.title || item.title }}
-        </p>
-      </div>
-      <UiIconButton
-        class="netdisk-preview-close"
-        icon="close"
-        label="关闭"
-        size="sm"
-        @click="emit('close')"
-      />
-    </header>
+    <!-- 内容包一层：点在浮层内边距上不算点外面（只有背景幕的点击落在 dialog 自身） -->
+    <div class="netdisk-preview-body">
+      <header class="netdisk-preview-head">
+        <div class="netdisk-preview-heading">
+          <h2 :id="titleId" class="netdisk-preview-title">分享内容</h2>
+          <p class="netdisk-preview-sub" :title="snap?.title || item.title">
+            {{ snap?.title || item.title }}
+          </p>
+        </div>
+        <UiIconButton
+          class="netdisk-preview-close"
+          icon="close"
+          label="关闭"
+          size="sm"
+          @click="emit('close')"
+        />
+      </header>
 
-    <p v-if="loading" class="netdisk-preview-note" role="status">
-      正在读取分享…
-    </p>
-    <template v-else-if="snap">
-      <p class="netdisk-preview-count">共 {{ snap.count }} 项</p>
-      <ul class="netdisk-preview-files">
-        <li
-          v-for="file in snap.files"
-          :key="file.id"
-          class="netdisk-preview-file"
-        >
-          <UiIcon
-            class="netdisk-preview-icon"
-            :name="file.isDir ? 'folder' : 'file'"
-            size="sm"
-          />
-          <span class="netdisk-preview-name" :title="file.name">{{
-            file.name
-          }}</span>
-          <span class="netdisk-preview-size">{{ formatBytes(file.size) }}</span>
-        </li>
-        <li v-if="snap.count > snap.files.length" class="netdisk-preview-more">
-          还有 {{ snap.count - snap.files.length }} 项，转存时一并保存
-        </li>
-      </ul>
-    </template>
+      <p v-if="loading" class="netdisk-preview-note" role="status">
+        正在读取分享…
+      </p>
+      <template v-else-if="snap">
+        <p class="netdisk-preview-count">共 {{ snap.count }} 项</p>
+        <ul class="netdisk-preview-files">
+          <li
+            v-for="file in snap.files"
+            :key="file.id"
+            class="netdisk-preview-file"
+          >
+            <UiIcon
+              class="netdisk-preview-icon"
+              :name="file.isDir ? 'folder' : 'file'"
+              size="sm"
+            />
+            <span class="netdisk-preview-name" :title="file.name">{{
+              file.name
+            }}</span>
+            <span class="netdisk-preview-size">{{
+              formatBytes(file.size)
+            }}</span>
+          </li>
+          <li
+            v-if="snap.count > snap.files.length"
+            class="netdisk-preview-more"
+          >
+            还有 {{ snap.count - snap.files.length }} 项，转存时一并保存
+          </li>
+        </ul>
+      </template>
 
-    <footer class="netdisk-preview-actions">
-      <UiButton
-        class="netdisk-preview-cancel"
-        label="取消"
-        @click="emit('close')"
-      />
-      <UiButton
-        class="netdisk-preview-save"
-        icon="download"
-        :label="saved ? '已转存' : '转存到我的 115'"
-        :disabled="saved || saving"
-        :loading="saving"
-        autofocus
-        @click="emit('save')"
-      />
-    </footer>
+      <footer class="netdisk-preview-actions">
+        <UiButton
+          class="netdisk-preview-cancel"
+          label="取消"
+          @click="emit('close')"
+        />
+        <UiButton
+          class="netdisk-preview-save"
+          icon="download"
+          :label="saved ? '已转存' : '转存到我的 115'"
+          :disabled="saved || saving"
+          :loading="saving"
+          autofocus
+          @click="emit('save')"
+        />
+      </footer>
+    </div>
   </dialog>
 </template>
 
@@ -105,19 +113,21 @@ onBeforeUnmount(() => dialogEl.value?.close())
 <style scoped>
 .netdisk-preview {
   box-sizing: border-box;
-  display: flex;
-  flex-direction: column;
   width: min(600px, calc(100vw - var(--space-8)));
   max-height: min(600px, calc(100vh - var(--space-10)));
   margin: auto;
-  padding: var(--space-5) var(--space-5) var(--space-4);
+  padding: 0;
   border: 0;
   border-radius: var(--radius-2xl);
   color: var(--text-primary);
   font-family: var(--font-sans);
 }
-.netdisk-preview:not([open]) {
-  display: none;
+.netdisk-preview-body {
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  max-height: inherit;
+  padding: var(--space-5) var(--space-5) var(--space-4);
 }
 .netdisk-preview::backdrop {
   background: var(--overlay-scrim-soft);
