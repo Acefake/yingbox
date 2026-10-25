@@ -25,6 +25,7 @@ import {
   epgUrlsFor,
   filterChannels,
   isLikelyHls,
+  logoText,
   nextLine,
   sanitizeSource,
   toggleFavorite,
@@ -353,5 +354,18 @@ describe('节目单缓存（主进程）', () => {
     })
     const result = await store.load('https://x/e.xml', false)
     expect(result.ok).toBe(false)
+  })
+})
+
+describe('logoText', () => {
+  it('没有台标时的短名：空格前一段，再去掉卫视 / 频道后缀，最多 7 个字符', () => {
+    expect(logoText('CCTV-1 综合')).toBe('CCTV-1')
+    expect(logoText('CCTV-13 新闻')).toBe('CCTV-13')
+    expect(logoText('北京卫视')).toBe('北京')
+    expect(logoText('凤凰卫视中文台')).toBe('凤凰卫视中文')
+    expect(logoText('  Discovery Channel ')).toBe('Discove')
+    expect(logoText('卫视')).toBe('卫视')
+    expect(logoText('湖南卫视 高清')).toBe('湖南')
+    expect(logoText('北京 卫视')).toBe('北京')
   })
 })

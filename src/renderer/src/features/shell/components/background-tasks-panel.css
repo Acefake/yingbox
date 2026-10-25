@@ -3,9 +3,11 @@
   inset: 0;
   z-index: var(--z-sheet);
   background: var(--overlay-scrim-soft);
+  -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
 }
 
+/* 玻璃材质（底色、模糊、内高光、投影）来自 .yb-glass，这里只管形状与布局 */
 .sqp-panel {
   position: fixed;
   z-index: calc(var(--z-sheet) + 1);
@@ -13,77 +15,191 @@
   flex-direction: column;
   /* 锚定值走变量，窄屏的媒体查询才会真正接管定位 */
   left: var(--sqp-left, var(--space-3));
-  bottom: var(
-    --sqp-anchor-bottom,
-    96px
-  ); /* style-tokens: layout（由 JS 锚定的回退值） */
+  bottom: var(--sqp-anchor-bottom, var(--space-3));
   width: min(380px, calc(100vw - 24px));
-  max-height: min(560px, calc(100vh - var(--sqp-anchor-bottom, 96px) - 16px));
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-lg);
+  max-height: min(560px, calc(100vh - var(--sqp-anchor-bottom, 12px) - 16px));
+  padding: var(--space-4) var(--space-2_5) var(--space-2_5);
+  border-radius: var(--radius-2xl);
+  color: var(--text-primary);
   overflow: hidden;
   -webkit-app-region: no-drag;
 }
 
-.sqp-runtime-body {
+/* ── 标题行：后台任务 + N 项进行中 + 关闭 ── */
+.sqp-head {
   display: flex;
-  flex-direction: column;
-}
-
-.sqp-job-detail {
-  display: flex;
+  flex: 0 0 auto;
   align-items: center;
   gap: var(--space-2);
-  margin-top: var(--space-2);
+  padding: 0 var(--space-2_5) var(--space-2);
 }
 
-.sqp-job-track {
-  flex: 1 1 auto;
-  height: 4px;
-  border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
-  overflow: hidden;
+.sqp-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
 }
 
-.sqp-job-fill {
-  display: block;
-  height: 100%;
-  border-radius: inherit;
-  background: var(--accent);
-  transition: width var(--duration-normal) var(--ease-out);
+.sqp-count {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
-.sqp-job-value {
-  flex: 0 1 auto;
-  min-width: 0;
+.sqp-close {
+  margin-left: auto;
+}
+
+.sqp-body {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  overflow-y: auto;
+}
+
+/* ── 分组小标题（进行中 / 需要处理） ── */
+.sqp-group {
+  margin: 0;
+  padding: var(--space-2) var(--space-2_5) var(--space-1);
   font-size: var(--text-2xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+  color: var(--text-tertiary);
 }
 
-.sqp-dot.is-live {
-  border-color: var(--accent);
+/* ── 一条任务：状态 · 名称 / 说明 / 进度 · 操作圆钮 ── */
+.sqp-job {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+  padding: var(--space-2) var(--space-2_5);
+  border-radius: var(--radius-lg);
+}
+
+.sqp-job.is-running {
+  margin-bottom: var(--space-1);
+  background: var(--bg-glass);
+}
+
+.sqp-status {
+  display: grid;
+  flex: 0 0 22px;
+  place-items: center;
+}
+
+.sqp-spin {
+  width: 18px;
+  height: 18px;
+  border: 2px solid var(--bg-active);
+  border-top-color: var(--text-primary);
+  border-right-color: var(--text-primary);
+  border-radius: 50%;
+  animation: sqp-spin var(--duration-spin) linear infinite;
+}
+
+@keyframes sqp-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.sqp-dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--success);
   animation: sqp-live-pulse var(--duration-pulse) ease-out infinite;
 }
 
 @keyframes sqp-live-pulse {
   0%,
   100% {
-    box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 35%, transparent);
+    box-shadow: 0 0 0 0 color-mix(in srgb, var(--success) 40%, transparent);
   }
   50% {
-    box-shadow: 0 0 0 3px color-mix(in srgb, var(--accent) 10%, transparent);
+    box-shadow: 0 0 0 4px color-mix(in srgb, var(--success) 10%, transparent);
   }
 }
 
-@media (prefers-reduced-motion: reduce) {
-  .sqp-dot.is-live {
-    animation: none;
-  }
+.sqp-warn {
+  color: var(--warning);
+}
+
+.sqp-info {
+  flex: 1;
+  min-width: 0;
+}
+
+.sqp-name {
+  display: flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-width: 0;
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sqp-kind {
+  flex: 0 0 auto;
+  color: var(--text-tertiary);
+}
+
+.sqp-name-text {
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sqp-meta {
+  margin-top: 1px;
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.sqp-bar {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin-top: var(--space-1_5);
+}
+
+.sqp-track {
+  flex: 1 1 auto;
+  height: 4px;
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  overflow: hidden;
+}
+
+.sqp-fill {
+  display: block;
+  height: 100%;
+  border-radius: inherit;
+  background: var(--text-primary);
+  transition: width var(--duration-normal) var(--ease-out);
+}
+
+.sqp-value {
+  flex: 0 1 auto;
+  min-width: 30px;
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
+  color: var(--text-secondary);
+  text-align: right;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* 操作圆钮：比玻璃底亮一档的实心圆 */
+.sqp-action.yb-icon-button {
+  flex: 0 0 auto;
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+  color: var(--text-primary);
 }
 
 .sqp-empty {
@@ -91,7 +207,7 @@
   flex-direction: column;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-9) var(--space-5);
+  padding: var(--space-8) var(--space-5) var(--space-9);
   color: var(--text-tertiary);
   text-align: center;
 }
@@ -106,84 +222,10 @@
   font-size: var(--text-xs);
 }
 
-.sqp-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-bottom: 1px solid var(--separator);
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.sqp-row:last-child {
-  border-bottom: 0;
-}
-
-.sqp-row.is-processing {
-  background: var(--bg-active-soft);
-}
-
-.sqp-status {
-  width: 18px;
-  height: 18px;
-  flex: 0 0 auto;
-  display: grid;
-  place-items: center;
-}
-
-.sqp-spin {
-  width: 13px;
-  height: 13px;
-  border-radius: var(--radius-full);
-  border: 2px solid color-mix(in srgb, var(--accent) 28%, transparent);
-  border-top-color: var(--accent);
-  animation: sqp-spin var(--duration-spin) linear infinite;
-}
-
-@keyframes sqp-spin {
-  to {
-    transform: rotate(360deg);
+@media (prefers-reduced-motion: reduce) {
+  .sqp-dot {
+    animation: none;
   }
-}
-
-.sqp-dot {
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full);
-  border: 1.5px solid var(--text-quaternary, var(--text-tertiary));
-}
-
-.sqp-info {
-  flex: 1;
-  min-width: 0;
-}
-
-.sqp-name {
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-primary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sqp-meta {
-  margin-top: var(--space-0_5);
-  font-size: var(--text-2xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
-.sqp-meta.is-error {
-  color: var(--danger);
-}
-
-.sqp-actions {
-  display: flex;
-  gap: var(--space-0_5);
-  flex-shrink: 0;
 }
 
 .sqp-fade-enter-active,
@@ -210,12 +252,12 @@
 
 .sqp-slide-enter-from {
   opacity: 0;
-  transform: translateY(8px) scale(0.98);
+  transform: translateX(-8px) scale(0.98);
 }
 
 .sqp-slide-leave-to {
   opacity: 0;
-  transform: translateY(6px) scale(0.99);
+  transform: translateX(-6px) scale(0.99);
 }
 
 @media (max-width: 768px) {
@@ -224,7 +266,6 @@
     left: 0;
     width: 100%;
     max-height: min(70vh, 520px);
-    border-radius: var(--radius-lg, var(--radius-xl))
-      var(--radius-lg, var(--radius-xl)) 0 0;
+    border-radius: var(--radius-2xl) var(--radius-2xl) 0 0;
   }
 }
