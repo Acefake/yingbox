@@ -21,6 +21,7 @@ import { media } from './media'
 import { mpv } from './mpv'
 import { nowPlaying } from './now-playing'
 import { online } from './online'
+import { pan115 } from './pan115'
 import { recap } from './recap'
 import { sectionLock } from './section-lock'
 import { settings } from './settings'
@@ -48,6 +49,7 @@ export const contract = {
   mpv,
   nowPlaying,
   online,
+  pan115,
   recap,
   sectionLock,
   settings,

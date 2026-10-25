@@ -49,6 +49,15 @@ export const routes = [
     },
   },
   {
+    path: '/netdisk',
+    name: 'Netdisk',
+    component: () => import('@/features/netdisk/views/NetdiskView.vue'),
+    meta: {
+      title: '网盘',
+      description: '网盘搜索与 115 转存',
+    },
+  },
+  {
     path: '/jav',
     name: 'Jav',
     component: () => import('@/features/library/JavLibraryPage.vue'),
