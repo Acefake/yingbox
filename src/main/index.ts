@@ -45,6 +45,9 @@ import { registerAi } from './ai'
 import { registerPan115 } from './pan115'
 import { registerAutograb } from './autograb'
 import { registerNotify } from './notify'
+import { registerAutograbMovies } from './autograb/movies'
+import { createPanAdapter } from './autograb/upgrade/pan-adapter'
+import { registerAutograbUpgrade } from './autograb/upgrade'
 import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
@@ -249,6 +252,11 @@ app.whenReady().then(async () => {
   })
   // 入库推送：新集 / 新电影入库发系统通知、Bark、Telegram（见 src/main/notify）；追更转存的集标成追更
   const notify = registerNotify((...episode) => autograb.isSaved(...episode))
+  // 洗版 / 电影上线追踪：115 请求共用追更闸门（见 src/main/autograb/upgrade、movies）
+  const autograbGate = (): ReturnType<typeof autograb.gate> => autograb.gate()
+  const autograbPan = createPanAdapter(pan115Service)
+  registerAutograbUpgrade(libraryClient, autograbPan, autograbGate)
+  registerAutograbMovies(libraryClient, autograbPan, autograbGate)
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 

@@ -1,116 +1,7 @@
-import { describe, expect, it, vi } from 'vitest'
+import { describe, expect, it } from 'vitest'
 
-import {
-  type AutograbDeps,
-  type AutograbService,
-  createAutograbService,
-} from '../src/main/autograb/service'
-import { searchStart } from '../src/main/autograb/schedule-rules'
 import { Pan115Error } from '../src/main/pan115/errors'
-import type { CalendarEpisode } from '../src/shared/library/ipc'
-
-const GB = 1024 ** 3
-const AIR = '2026-10-20'
-
-function episode(n: number, fileId: number | null = null): CalendarEpisode {
-  return {
-    seriesId: 7,
-    libraryId: 1,
-    seriesTitle: '繁花',
-    season: 1,
-    episode: n,
-    title: null,
-    airDate: AIR,
-    still: null,
-    backdrop: null,
-    itemId: null,
-    fileId,
-    filePath: null,
-  }
-}
-
-interface Harness {
-  service: AutograbService
-  deps: AutograbDeps
-  clock: { t: number }
-  received: string[][]
-  notified: string[]
-  files: Map<string, string[]>
-}
-
-function setup(episodes: CalendarEpisode[], initial: unknown = null): Harness {
-  const clock = { t: searchStart(AIR) + 60_000 }
-  const files = new Map<string, string[]>()
-  const received: string[][] = []
-  const notified: string[] = []
-  let saved: unknown = initial
-  const deps: AutograbDeps = {
-    calendar: async () => ({
-      episodes,
-      configured: true,
-      series: 1,
-      failed: 0,
-    }),
-    notify: async changes => void notified.push(...changes.map(c => c.path)),
-    pan: {
-      loggedIn: () => true,
-      pansouReady: () => true,
-      search: vi.fn(async () => [
-        {
-          title: '繁花 2160p 中字',
-          source: 'x',
-          url: 'https://115.com/s/abc?password=1234',
-          shareCode: 'abc',
-          receiveCode: '1234',
-        },
-      ]),
-      snap: async () => ({
-        title: '繁花',
-        count: 2,
-        files: [
-          {
-            id: '101',
-            name: '繁花.第05集.2160p.WEB-DL.mkv',
-            size: 2 * GB,
-            isDir: false,
-          },
-          {
-            id: '102',
-            name: '繁花.第06集.2160p.WEB-DL.mkv',
-            size: 2 * GB,
-            isDir: false,
-          },
-        ],
-      }),
-      receive: async (_url, _pwd, ids, cid) => {
-        received.push(ids)
-        files.set(cid, [
-          ...(files.get(cid) ?? []),
-          ...ids.map(id =>
-            id === '101' ? '繁花.第05集.2160p.WEB-DL.mkv' : id
-          ),
-        ])
-      },
-      names: async cid => files.get(cid) ?? [],
-      dirPath: async () => ['剧集', '繁花'],
-    },
-    defaultCid: () => '0',
-    load: async () => saved,
-    save: async state => void (saved = JSON.parse(JSON.stringify(state))),
-    now: () => clock.t,
-    sleep: async ms => void (clock.t += ms),
-    emit: () => {},
-    log: () => {},
-  }
-  return {
-    service: createAutograbService(deps),
-    deps,
-    clock,
-    received,
-    notified,
-    files,
-  }
-}
+import { FILE_05, episode, namesIn, setup } from './autograb-harness'
 
 describe('追更服务', () => {
   it('不追的剧不搜', async () => {
@@ -156,10 +47,11 @@ describe('追更服务', () => {
         },
       },
     }
-    const { service, received, files } = setup([episode(5)], initial)
+    const h = setup([episode(5)], initial)
+    const { service, received } = h
     await service.tick()
     expect(received).toEqual([['101']])
-    expect(files.get('55')).toEqual(['繁花.第05集.2160p.WEB-DL.mkv'])
+    expect(namesIn(h, '55')).toEqual([FILE_05])
     const record = (await service.overview()).episodes.find(
       e => e.key === '7:1:5'
     )!
@@ -184,7 +76,7 @@ describe('追更服务', () => {
     await service.grab('7:1:5', 0)
     clock.t += 11 * 60_000
     await service.tick()
-    expect(notified).toEqual(['/剧集/繁花/繁花.第05集.2160p.WEB-DL.mkv'])
+    expect(notified).toEqual([`create /剧集/繁花/${FILE_05}`])
   })
 
   it('分享失效：拉黑并回到等待', async () => {
