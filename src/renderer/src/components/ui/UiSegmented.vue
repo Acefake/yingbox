@@ -89,13 +89,10 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
   color: var(--text-primary);
 }
 .ui-segmented-item.is-active {
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg);
   color: var(--text-primary);
   font-weight: var(--font-weight-medium);
-  box-shadow: var(--shadow-sm);
-}
-[data-theme='light'] .ui-segmented-item.is-active {
-  background: #fff;
+  box-shadow: var(--shadow-sm), var(--shadow-control);
 }
 .ui-segmented-item:focus-visible {
   outline: none;

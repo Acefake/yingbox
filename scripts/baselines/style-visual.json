@@ -1,13 +1,4 @@
 {
-  "src/renderer/src/components/ui/UiPosterCard.vue": {
-    "color": 4
-  },
-  "src/renderer/src/components/ui/UiSegmented.vue": {
-    "color": 1
-  },
-  "src/renderer/src/components/ui/ui.css": {
-    "color": 1
-  },
   "src/renderer/src/features/library/actors/ActorProfile.vue": {
     "font-weight": 1
   },

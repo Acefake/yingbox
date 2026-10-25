@@ -84,7 +84,8 @@ const specs = computed(() => titleSpecs(props.item.title))
   margin-bottom: var(--space-3);
   padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
   border-radius: var(--radius-xl);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
 }
 .netdisk-result-text {
   flex: 1;

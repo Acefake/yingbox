@@ -140,8 +140,10 @@ function choose(item: ActionItem): void {
 .lib-actions-slot {
   display: inline-flex;
 }
+/* 不可用：不叠加按钮基类的半透明，只把字和图标压成四级灰，玻璃底保持完整，画面上仍看得清是哪一项 */
 .lib-actions-button.ui-button:disabled {
   color: var(--text-quaternary);
+  opacity: 1;
   cursor: default;
 }
 </style>

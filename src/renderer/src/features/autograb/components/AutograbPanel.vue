@@ -212,7 +212,8 @@ async function pickFolder(seriesId: number, dir: Pan115Dir): Promise<void> {
   padding: var(--space-4) var(--space-5);
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-lg);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
 }
 
 .autograb-head {
