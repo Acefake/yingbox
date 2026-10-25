@@ -97,6 +97,7 @@
     <!-- 筛选胶囊：匹配状态，媒体库多于一个时后面接媒体库 -->
     <div
       v-if="hasLibraries && view === 'wall'"
+      v-scroll-x
       class="lib-toolbar-chips"
       role="group"
       aria-label="筛选"
