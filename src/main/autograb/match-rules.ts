@@ -4,7 +4,14 @@
  * 只认单集视频：扩展名是视频、文件名（连同所在文件夹）用片库同一个解析器解出同一集、剧名对得上、
  * 不带预告 / 花絮 / 枪版之类的字眼、体积不离谱。季号缺省时从文件夹名 / 分享标题里找，
  * 都没写时只接受第 1 季。分数 0–100，过 {@link AUTO_SCORE} 才允许全自动转存。
+ *
+ * 用户偏好（{@link MatchPrefs}）接进同一套规则：排除词命中即拒、体积上下限替换默认范围、
+ * 首选分辨率与偏好词改分数。
  */
+import type {
+  AutograbPrefs,
+  AutograbResolution,
+} from '../../shared/contract/autograb-prefs'
 import { parseMediaPath } from '../../shared/library/parser'
 import { NUMBER_PATTERN, parseNumber } from '../../shared/library/parser/cjk'
 
@@ -64,6 +71,43 @@ export interface FileContext {
   folder: string
 }
 
+/** 认文件时用的偏好（体积已换成字节） */
+export interface MatchPrefs {
+  resolution: AutograbResolution
+  preferWords: string[]
+  excludeWords: string[]
+  minSize: number
+  maxSize: number
+}
+
+/** 首选分辨率命中加几分；是别的已知分辨率扣几分 */
+const PREFERRED_RES_SCORE = 15
+const OTHER_RES_PENALTY = 5
+/** 每个偏好词加几分、最多加几分 */
+const PREFER_WORD_SCORE = 6
+const PREFER_WORD_MAX = 18
+
+/** 没设偏好时的规则 */
+export const DEFAULT_MATCH_PREFS: MatchPrefs = {
+  resolution: 'any',
+  preferWords: [],
+  excludeWords: [],
+  minSize: MIN_SIZE,
+  maxSize: MAX_SIZE,
+}
+
+/** 界面上的偏好（MB）→ 认文件用的偏好（字节） */
+export function matchPrefsOf(prefs: AutograbPrefs): MatchPrefs {
+  const mb = 1024 * 1024
+  return {
+    resolution: prefs.resolution,
+    preferWords: prefs.preferWords,
+    excludeWords: prefs.excludeWords,
+    minSize: prefs.minMb !== null ? prefs.minMb * mb : MIN_SIZE,
+    maxSize: prefs.maxMb !== null ? prefs.maxMb * mb : MAX_SIZE,
+  }
+}
+
 /** 认文件的结果 */
 export type FileMatch =
   | { ok: true; score: number; reasons: string[] }
@@ -106,12 +150,34 @@ export function excludedWord(text: string): string | null {
   return token ? token[0].replace(/[^a-z-]/g, '').toUpperCase() : null
 }
 
-/** 分辨率加分 */
-function resolutionScore(name: string): [number, string | null] {
-  if (/2160p|4k|uhd/i.test(name)) return [10, '4K']
-  if (/1080[pi]/i.test(name)) return [8, '1080p']
-  if (/720p/i.test(name)) return [2, '720p']
-  return [0, null]
+/** 文件名里的分辨率 */
+function resolutionOf(name: string): Exclude<AutograbResolution, 'any'> | null {
+  if (/2160p|4k|uhd/i.test(name)) return '2160p'
+  if (/1080[pi]/i.test(name)) return '1080p'
+  if (/720p/i.test(name)) return '720p'
+  return null
+}
+
+const RES_LABEL = { '2160p': '4K', '1080p': '1080p', '720p': '720p' } as const
+const RES_DEFAULT_SCORE = { '2160p': 10, '1080p': 8, '720p': 2 } as const
+
+/** 分辨率加分：没有首选时越清晰越高；有首选时命中加分、别的分辨率扣分 */
+function resolutionScore(
+  name: string,
+  preferred: AutograbResolution
+): [number, string | null] {
+  const res = resolutionOf(name)
+  if (!res) return [0, null]
+  if (preferred === 'any') return [RES_DEFAULT_SCORE[res], RES_LABEL[res]]
+  return res === preferred
+    ? [PREFERRED_RES_SCORE, `首选 ${RES_LABEL[res]}`]
+    : [-OTHER_RES_PENALTY, RES_LABEL[res]]
+}
+
+/** 用户的词（不分大小写、按子串）在文字里命中哪些 */
+function wordHits(words: string[], text: string): string[] {
+  const lower = text.toLowerCase()
+  return words.filter(w => lower.includes(w.toLowerCase()))
 }
 
 const SUB_RE = /中字|中文字幕|简中|繁中|简繁|双语|中英|字幕组|chs|cht/i
@@ -123,15 +189,19 @@ const SOURCE_RE = /web-?dl|webrip|blu-?ray|bdrip|remux/i
 export function matchFile(
   file: ShareFileLike,
   target: EpisodeTarget,
-  context: FileContext
+  context: FileContext,
+  prefs: MatchPrefs = DEFAULT_MATCH_PREFS
 ): FileMatch {
   if (file.isDir) return { ok: false, reason: '是文件夹' }
   if (!VIDEO_EXT_RE.test(file.name)) return { ok: false, reason: '不是视频' }
-  const excluded = excludedWord(`${context.folder} ${file.name}`)
+  const own = `${context.folder} ${file.name}`
+  const excluded = excludedWord(own)
   if (excluded) return { ok: false, reason: `含「${excluded}」` }
-  if (file.size > 0 && file.size < MIN_SIZE)
+  const userExcluded = wordHits(prefs.excludeWords, own)[0]
+  if (userExcluded) return { ok: false, reason: `含排除词「${userExcluded}」` }
+  if (file.size > 0 && file.size < prefs.minSize)
     return { ok: false, reason: '体积太小' }
-  if (file.size > MAX_SIZE) return { ok: false, reason: '体积太大' }
+  if (file.size > prefs.maxSize) return { ok: false, reason: '体积太大' }
 
   const path = context.folder ? `${context.folder}/${file.name}` : file.name
   const parsed = parseMediaPath(path)
@@ -162,10 +232,16 @@ export function matchFile(
     score += 5
     reasons.push(`第 ${season} 季`)
   }
-  const [resolution, label] = resolutionScore(file.name)
+  const [resolution, label] = resolutionScore(file.name, prefs.resolution)
   score += resolution
   if (label) reasons.push(label)
-  if (SUB_RE.test(`${file.name} ${context.folder} ${context.shareTitle}`)) {
+  const all = `${file.name} ${context.folder} ${context.shareTitle}`
+  const liked = wordHits(prefs.preferWords, all)
+  if (liked.length) {
+    score += Math.min(PREFER_WORD_MAX, liked.length * PREFER_WORD_SCORE)
+    reasons.push(...liked.map(w => `偏好「${w}」`))
+  }
+  if (SUB_RE.test(all)) {
     score += 8
     reasons.push('中文字幕')
   }
@@ -177,7 +253,7 @@ export function matchFile(
     score += 5
     reasons.push('体积正常')
   }
-  return { ok: true, score: Math.min(100, score), reasons }
+  return { ok: true, score: Math.max(0, Math.min(100, score)), reasons }
 }
 
 /** 分享里值得点进去看的子文件夹：名字对得上剧名、季号相符或是「第 N 季」这类季文件夹 */
