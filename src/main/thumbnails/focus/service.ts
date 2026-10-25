@@ -47,6 +47,8 @@ export class FocusService {
   private readonly fromPixels = new Map<string, Promise<MediaFocus | null>>()
   /** 解码 + 计算排成一队，一次一张。 */
   private tail: Promise<unknown> = Promise.resolve()
+  /** 同一图片的写入有序，人脸检测结果不被较晚的启发式计算降级。 */
+  private readonly writes = new Map<string, Promise<MediaFocus>>()
 
   constructor(private readonly deps: FocusServiceDeps) {}
 
@@ -84,10 +86,11 @@ export class FocusService {
 
   /** 在途计算是否都已结束（测试用）。 */
   async idle(): Promise<void> {
-    while (this.inflight.size || this.fromPixels.size)
+    while (this.inflight.size || this.fromPixels.size || this.writes.size)
       await Promise.allSettled([
         ...this.inflight.values(),
         ...this.fromPixels.values(),
+        ...this.writes.values(),
       ])
   }
 
@@ -147,8 +150,7 @@ export class FocusService {
       { op: 'focus', rgba, width, height },
       [rgba.buffer as ArrayBuffer]
     )
-    await this.write(key, focus)
-    return focus
+    return this.write(key, focus)
   }
 
   private queued<T>(task: () => Promise<T>): Promise<T> {
@@ -171,10 +173,25 @@ export class FocusService {
     }
   }
 
-  private async write(key: string, focus: MediaFocus): Promise<void> {
-    await this.deps.cache.put(
-      focusName(key),
-      Buffer.from(JSON.stringify(focus))
-    )
+  private write(key: string, focus: MediaFocus): Promise<MediaFocus> {
+    const previous = this.writes.get(key) ?? Promise.resolve()
+    const run = previous
+      .catch(() => {})
+      .then(async () => {
+        const stored = await this.read(key)
+        if (stored?.by === 'face' && focus.by !== 'face') return stored
+        await this.deps.cache.put(
+          focusName(key),
+          Buffer.from(JSON.stringify(focus))
+        )
+        return focus
+      })
+    this.writes.set(key, run)
+    void run
+      .finally(() => {
+        if (this.writes.get(key) === run) this.writes.delete(key)
+      })
+      .catch(() => {})
+    return run
   }
 }

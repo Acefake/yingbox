@@ -55,6 +55,7 @@ export const MAX_PAGE_SIZE = 1000
 
 /** 归一化后的查询：分页、排序都有确定值。 */
 export interface NormalizedLibraryQuery extends LibraryQueryFilters {
+  includeVersions?: boolean
   libraryId?: number
   source?: LibrarySource
   types: TopLevelItemType[]
@@ -104,7 +105,12 @@ export function normalizeLibraryQuery(input: unknown): NormalizedLibraryQuery {
   if (q.search !== undefined && typeof q.search !== 'string') {
     invalid('search 必须是字符串')
   }
+  if (q.includeVersions !== undefined && typeof q.includeVersions !== 'boolean')
+    invalid('includeVersions 必须是布尔值')
   return {
+    ...(q.includeVersions === undefined
+      ? {}
+      : { includeVersions: q.includeVersions }),
     libraryId:
       q.libraryId === undefined
         ? undefined

@@ -61,8 +61,13 @@ export interface VisualMoment {
   score: number
 }
 
+/** CLIP 召回范围：图片（封面 / 剧照）、视频关键帧或全部。 */
+export type VisualSearchSource = 'all' | 'image' | 'video'
+
 /** 搜索请求。 */
 export interface VisualSearchRequest {
+  /** 默认 all；在相似度排序和截取 limit 之前过滤。 */
+  source?: VisualSearchSource
   /** 画面描述，如「高跟鞋」「黑丝 办公室」。 */
   text: string
   /** 只搜某个媒体库；缺省全部番号库。 */

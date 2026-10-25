@@ -1,64 +1,15 @@
-/* Custom Scrollbar Styles */
-.custom-scrollbar::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
+/* 全局隐藏滚动条，保留容器的原生滚动与键盘操作。 */
+* {
+  scrollbar-width: none !important;
+  scrollbar-gutter: auto !important;
 }
-
-.custom-scrollbar::-webkit-scrollbar-track {
-  background: var(--scrollbar-track);
-  border-radius: var(--radius-xs);
+*::-webkit-scrollbar {
+  display: none !important;
+  width: 0 !important;
+  height: 0 !important;
 }
-
-.custom-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--radius-xs);
-  transition: var(--transition-fast);
-}
-
-.custom-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
-}
-
-/* Primary Color Scrollbar */
-.primary-scrollbar::-webkit-scrollbar-thumb {
-  background: var(--primary-glass);
-}
-
-.primary-scrollbar::-webkit-scrollbar-thumb:hover {
-  background: var(--accent-glow);
-}
-
-/* Firefox Support */
-.custom-scrollbar {
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) var(--scrollbar-track);
-}
-
-.primary-scrollbar {
-  scrollbar-color: var(--primary-glass) var(--scrollbar-track);
-}
-
-/* One predictable scroll contract for page-level content panes. */
 .primary-scroll {
-  scrollbar-gutter: stable;
   overscroll-behavior: contain;
-  scrollbar-width: thin;
-  scrollbar-color: var(--scrollbar-thumb) transparent;
-}
-
-.primary-scroll::-webkit-scrollbar {
-  width: 6px;
-  height: 6px;
-}
-.primary-scroll::-webkit-scrollbar-track {
-  background: transparent;
-}
-.primary-scroll::-webkit-scrollbar-thumb {
-  background: var(--scrollbar-thumb);
-  border-radius: var(--radius-full);
-}
-.primary-scroll::-webkit-scrollbar-thumb:hover {
-  background: var(--scrollbar-thumb-hover);
 }
 
 @media (prefers-reduced-motion: reduce) {

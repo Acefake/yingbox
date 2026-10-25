@@ -136,10 +136,10 @@ describe('侧栏导航项', () => {
 describe('全局搜索规则', () => {
   it('占位文字按页面区分，桌面端带快捷键提示', () => {
     expect(searchPlaceholder('Movie', true)).toBe('搜索本地电影')
-    expect(searchPlaceholder('AV', false)).toBe('搜索 AV 资源（Ctrl + F）')
+    expect(searchPlaceholder('AV', false)).toBe('搜索 AV 资源（⌘K / Ctrl+K）')
     expect(searchPlaceholder('Online', true)).toBe('搜索')
     expect(searchPlaceholder(undefined, false)).toBe(
-      '搜索电影、电视剧（Ctrl + F）'
+      '搜索电影、电视剧（⌘K / Ctrl+K）'
     )
   })
 
@@ -156,12 +156,23 @@ describe('全局搜索规则', () => {
       ...patch,
     }) as Parameters<typeof isSearchShortcut>[0]
 
-  it('Cmd/Ctrl+F 聚焦搜索框；Cmd/Ctrl+K 归 AI 助手，两边不重叠；播放器单键不受修饰键组合影响', () => {
+  it('Cmd/Ctrl+K 或 F 打开搜索；Shift+K 打开助手；播放器单键不受影响', () => {
     for (const mod of [{ ctrlKey: true }, { metaKey: true }]) {
       expect(isSearchShortcut(keys('f', mod))).toBe(true)
       expect(isSearchShortcut(keys('F', mod))).toBe(true)
-      expect(isSearchShortcut(keys('k', mod))).toBe(false)
-      expect(isAssistantHotkey(keys('k', mod))).toBe(true)
+      expect(isSearchShortcut(keys('k', mod))).toBe(true)
+      expect(isSearchShortcut(keys('k', { ...mod, shiftKey: true }))).toBe(
+        false
+      )
+      expect(
+        isSearchShortcut({ ...keys('k', mod), repeat: true } as Parameters<
+          typeof isSearchShortcut
+        >[0])
+      ).toBe(false)
+      expect(isAssistantHotkey(keys('k', mod))).toBe(false)
+      expect(isAssistantHotkey(keys('k', { ...mod, shiftKey: true }))).toBe(
+        true
+      )
       expect(isAssistantHotkey(keys('f', mod))).toBe(false)
       // 播放器的 K（播放暂停）/ F（全屏）只认不带修饰键的单键
       expect(resolveHotkey(keys('k', mod))).toBeNull()

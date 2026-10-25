@@ -100,7 +100,7 @@
  * 条目详情（Apple TV 式，效果图 D-1 / D-2 / D-3）：铺满整个窗口（侧栏浮在上面），纯黑底。
  * 头图（大背景 + 渐进模糊、标志、播放 / 想看、简介、规格行与主演导演），剧集卡横排（按季切换），
  * 剧照横排（点开灯箱），圆头像演职员，版本，关于（信息卡 + 文件卡）。
- * 浮动控件：左上玻璃返回圆钮（外壳的前进 / 后退胶囊此时让位，并在窗口拖拽条上让出不可拖的一块，use-shell-chrome），
+ * 浮动控件：左上玻璃返回圆钮（外壳拖拽条在这一块不可拖，见 AppToolbar 的 .toolbar-hole），
  * 管理操作在头图操作行下面（DetailActions），
  * 底部玻璃胶囊做页内分区导航（滚动时跟随当前分区，点了滚过去）。
  * 播放接 openMediaPlayer（播放弹窗 / mpv），去码接 features/lada（use-restore）。
@@ -117,7 +117,6 @@ import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import { useOwnBackButton } from '@/composables/use-shell-chrome'
 
 import { errorText, libraryBridge } from '../api/bridge'
 import { heroImage, itemImage, tmdbImage } from '../api/images'
@@ -173,7 +172,6 @@ const emit = defineEmits<{
 }>()
 
 const bridge = libraryBridge()
-useOwnBackButton()
 const { available: writerAvailable, write } = useWriter()
 const root = ref<HTMLElement | null>(null)
 const node = shallowRef<LibraryItemNode | null>(null)

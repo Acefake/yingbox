@@ -1,7 +1,7 @@
 <template>
   <SettingsGroup
     title="唤起方式"
-    footer="应用内按 Cmd/Ctrl+K 或点侧栏的 AI 助手按钮也能唤起助手。助手用的模型与语音识别在「AI」分区里设置。"
+    footer="应用内按 Cmd/Ctrl+Shift+K 或点侧栏的 AI 助手按钮也能唤起助手。助手用的模型与语音识别在「AI」分区里设置。"
   >
     <SettingsRow
       v-if="!bridge"

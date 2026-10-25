@@ -1,5 +1,5 @@
 /**
- * AI 助手内置技能包的执行器与隐私：推荐 / 继续播放的卡片（私密板块的记录不出现）、搜索与跳转的路由、
+ * AI 助手内置技能包的执行器与隐私：继续播放的卡片（私密板块的记录不出现）、搜索与跳转的路由、
  * 播放器命令、问剧情转交；私密模式下模型请求带 private + localOnly，语音只允许本地识别；
  * 上下文带当前页面与在播片名 / 时间点。媒体库、播放器、AI 模块都换成替身。
  */
@@ -21,14 +21,9 @@ const fakes = vi.hoisted(() => ({
   runPlayerCommand: vi.fn(),
   askPlotQuestion: vi.fn(),
   openMediaPlayer: vi.fn(async () => true),
-  suggestTonight: vi.fn(),
-  playTonightPick: vi.fn(async () => true),
 }))
 
-vi.mock('@/features/library', () => ({
-  suggestTonight: fakes.suggestTonight,
-  playTonightPick: fakes.playTonightPick,
-}))
+vi.mock('@/features/library', () => ({}))
 
 vi.mock('@/features/player', () => ({
   askPlotQuestion: fakes.askPlotQuestion,
@@ -126,46 +121,7 @@ beforeEach(() => {
   }
 })
 
-describe('推荐与继续播放', () => {
-  it('推荐：今晚看什么的结果变成卡片（时长角标、类型 · 评分），点击播放', async () => {
-    const pick = { candidate: { id: 7 } }
-    fakes.suggestTonight.mockResolvedValue({
-      suggestions: [
-        {
-          pick,
-          title: '花样年华',
-          image: 'poster.jpg',
-          meta: '98 分钟',
-          reason: '安静的晚上',
-          resume: true,
-          minutes: 99,
-          genre: '爱情',
-          rating: 8.6,
-        },
-      ],
-      notice: null,
-    })
-    const outcome = await run({ action: 'library.recommend', text: '安静' })
-    expect(fakes.suggestTonight).toHaveBeenCalledWith('安静', signal)
-    const [card] = cardsOf(outcome)
-    expect(card).toMatchObject({
-      id: '7',
-      title: '花样年华',
-      badge: '1h 39m',
-      meta: '爱情 · 8.6',
-      playLabel: '继续播放',
-    })
-    await card.play()
-    expect(fakes.playTonightPick).toHaveBeenCalledWith(pick)
-  })
-
-  it('推荐不到时只给说明', async () => {
-    fakes.suggestTonight.mockResolvedValue({ suggestions: [], notice: null })
-    const outcome = await run({ action: 'library.recommend' })
-    expect(outcome.result).toBeNull()
-    expect(outcome.message).toContain('挑不出')
-  })
-
+describe('继续播放', () => {
   it('继续播放：私密路由的板块记录不出现，最多 3 张，带进度', async () => {
     fakes.records = [
       record('a', 'jav'),
