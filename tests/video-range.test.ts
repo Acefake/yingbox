@@ -7,7 +7,7 @@ import {
   createVideoProber,
 } from '../src/main/library/scanner/video-probe'
 import {
-  needsExternalPlayer,
+  needsDvColorFix,
   parseFfprobeVideo,
   videoProbeTag,
   videoRangeBadge,
@@ -63,17 +63,17 @@ describe('ffprobe 输出解析', () => {
   })
 })
 
-describe('是否需要外部播放器', () => {
+describe('直接放是否偏色（needsDvColorFix）', () => {
   it('P5 与兼容号为 0 的杜比视界需要；P7 / P8 / HDR10 / HLG / SDR 不需要', () => {
-    expect(needsExternalPlayer({ dvProfile: 5, dvCompat: 0 })).toBe(true)
-    expect(needsExternalPlayer({ dvProfile: 5, dvCompat: null })).toBe(true)
-    expect(needsExternalPlayer({ dvProfile: 10, dvCompat: 0 })).toBe(true)
-    expect(needsExternalPlayer({ dvProfile: 7, dvCompat: 6 })).toBe(false)
-    expect(needsExternalPlayer({ dvProfile: 8, dvCompat: 1 })).toBe(false)
-    expect(needsExternalPlayer({ dvProfile: 8, dvCompat: 4 })).toBe(false)
-    expect(needsExternalPlayer({ dvProfile: null, dvCompat: null })).toBe(false)
-    expect(needsExternalPlayer(null)).toBe(false)
-    expect(needsExternalPlayer(undefined)).toBe(false)
+    expect(needsDvColorFix({ dvProfile: 5, dvCompat: 0 })).toBe(true)
+    expect(needsDvColorFix({ dvProfile: 5, dvCompat: null })).toBe(true)
+    expect(needsDvColorFix({ dvProfile: 10, dvCompat: 0 })).toBe(true)
+    expect(needsDvColorFix({ dvProfile: 7, dvCompat: 6 })).toBe(false)
+    expect(needsDvColorFix({ dvProfile: 8, dvCompat: 1 })).toBe(false)
+    expect(needsDvColorFix({ dvProfile: 8, dvCompat: 4 })).toBe(false)
+    expect(needsDvColorFix({ dvProfile: null, dvCompat: null })).toBe(false)
+    expect(needsDvColorFix(null)).toBe(false)
+    expect(needsDvColorFix(undefined)).toBe(false)
   })
 })
 

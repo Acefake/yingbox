@@ -1,6 +1,6 @@
 /**
  * 杜比视界播放：滤镜与编码参数（HDR 输出 / SDR 色调映射 / 关闭 apply_dolbyvision / nvenc 恒定质量 /
- * HDR10 元数据 / 每轮 -t）、渲染层规则（要不要重建、退到 mpv 还是直接播、本机流前缀）、
+ * HDR10 元数据 / 每轮 -t）、渲染层规则（选输出、退到 mpv 还是直接播、本机流前缀；要不要重建见 video-range.test.ts 的 needsDvColorFix）、
  * HLS 播放列表与分片调度。能力探测见 dolby-vision-capability.test.ts，会话生命周期见 dolby-vision-session.test.ts。
  */
 import { posix } from 'node:path'
@@ -25,28 +25,12 @@ import {
   resumeFrom,
   segmentCount,
 } from '../src/main/dolby-vision/playlist'
-import type { VideoHdrInfo } from '../src/shared/dolby-vision'
 import {
   chooseOutput,
   dvFallback,
-  knownNeedsRebuild,
   localStreamPrefix,
-  needsRebuild,
   planFromStart,
 } from '../src/renderer/src/features/player/dolby-vision/dv-rules'
-
-const P5: VideoHdrInfo = {
-  hdr: 'dolby-vision',
-  doviLabel: 'Profile 5',
-  needsRpuRebuild: true,
-  dovi: { profile: 5, level: 6, rpu: true, el: false, bl: true, compatId: 0 },
-}
-const P81: VideoHdrInfo = {
-  hdr: 'dolby-vision',
-  doviLabel: 'Profile 8.1',
-  needsRpuRebuild: false,
-  baseLayer: 'hdr10',
-}
 
 describe('libplacebo 滤镜', () => {
   it('HDR 输出：apply_dolbyvision=1，bt2020nc / bt2020 / smpte2084，10bit；硬件编码器再转 p010', () => {
@@ -144,22 +128,6 @@ describe('libplacebo 滤镜', () => {
 })
 
 describe('渲染层规则', () => {
-  it('开播前识别：P5 要重建，P8.1 / SDR / 读不到直接播', () => {
-    expect(needsRebuild(P5)).toBe(true)
-    expect(needsRebuild(P81)).toBe(false)
-    expect(needsRebuild({ hdr: 'sdr', needsRpuRebuild: false })).toBe(false)
-    expect(needsRebuild(null)).toBe(false)
-  })
-
-  it('媒体库已存动态范围时直接决定，不知道才识别', () => {
-    expect(knownNeedsRebuild({ dvProfile: 5, dvCompat: 0 })).toBe(true)
-    expect(knownNeedsRebuild({ dvProfile: 8, dvCompat: 1 })).toBe(false)
-    expect(knownNeedsRebuild({ dvProfile: 7, dvCompat: 6 })).toBe(false)
-    expect(knownNeedsRebuild({ dvProfile: null, dvCompat: null })).toBe(false)
-    expect(knownNeedsRebuild(null)).toBeUndefined()
-    expect(knownNeedsRebuild(undefined)).toBeUndefined()
-  })
-
   it('HDR 显示器且能解 HEVC Main10 才出 HDR10，否则 SDR', () => {
     expect(chooseOutput({ hdrDisplay: true, hevcMain10: true })).toBe('hdr10')
     expect(chooseOutput({ hdrDisplay: true, hevcMain10: false })).toBe('sdr')

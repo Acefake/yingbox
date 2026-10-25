@@ -1,7 +1,7 @@
 /**
  * 杜比视界应用内播放（主进程）：实现 dolbyVision 域。
  *
- * probe.ts 解析 ffprobe JSON，capability.ts 探测 libplacebo / Vulkan / 编码器，
+ * probe.ts 开播前读动态范围（解析与媒体库共用 shared/video-range）与片长 / 尺寸，capability.ts 探测 libplacebo / Vulkan / 编码器，
  * filters.ts 构造滤镜与编码参数，playlist.ts 管分片调度，encoder.ts 启停编码器，transcode.ts 管会话与本机 HLS 服务。
  * ffmpeg / ffprobe 沿用去码插件的定位（ladaPaths / ffprobeFor），用户改工具路径时作废路径、能力与识别缓存。
  *
@@ -11,12 +11,9 @@
 import { promises as fs } from 'node:fs'
 import { isAbsolute } from 'node:path'
 
-import type {
-  DvStartRequest,
-  DvStartResult,
-  VideoHdrInfo,
-} from '../../shared/dolby-vision'
+import type { DvStartRequest, DvStartResult } from '../../shared/dolby-vision'
 import { dolbyVision } from '../../shared/contract/dolby-vision'
+import { needsDvColorFix } from '../../shared/video-range'
 import { createFfmpegCache } from '../capture/ffmpeg-cache'
 import { registerPlugin } from '../plugins/host'
 import {
@@ -27,7 +24,8 @@ import {
 import { implement } from '../rpc'
 
 import { createCapabilityCache, pickOutput } from './capability'
-import { probeVideoHdr, runWithTimeout } from './tool'
+import { type RebuildProbe, probeForRebuild } from './probe'
+import { runWithTimeout } from './tool'
 import {
   sessionRunning,
   startSession,
@@ -44,10 +42,10 @@ const ffmpegCache = createFfmpegCache(() => ladaPaths().ffmpeg, FFMPEG_RETRY_MS)
 const capabilities = createCapabilityCache(runWithTimeout)
 
 /** 识别结果缓存：键为路径 + 大小 + 修改时间，文件变了自然失效；只存 ffprobe 成功跑完的结果。 */
-const probeCache = new Map<string, VideoHdrInfo | null>()
+const probeCache = new Map<string, RebuildProbe | null>()
 
 /** 识别本地文件；不是存在的绝对路径普通文件、或这次没探测成功，返回 null。 */
-async function probeFile(filePath: string): Promise<VideoHdrInfo | null> {
+async function probeFile(filePath: string): Promise<RebuildProbe | null> {
   if (!isAbsolute(filePath) || filePath.includes('://')) return null
   const stat = await fs.stat(filePath).catch(() => null)
   if (!stat?.isFile()) return null
@@ -55,7 +53,7 @@ async function probeFile(filePath: string): Promise<VideoHdrInfo | null> {
   if (probeCache.has(key)) return probeCache.get(key) ?? null
   const ffmpeg = ffmpegCache.get()
   if (!ffmpeg) return null
-  const info = await probeVideoHdr(filePath, ffprobeFor(ffmpeg))
+  const info = await probeForRebuild(filePath, ffprobeFor(ffmpeg))
   // ffprobe 缺失 / 超时 / 输出不完整：不缓存，下次开播重探
   if (info === undefined) return null
   if (probeCache.size >= PROBE_CACHE_LIMIT) {
@@ -78,7 +76,8 @@ async function start(request: DvStartRequest): Promise<DvStartResult> {
   const stale = (): boolean => ticket !== latestStart
   const info = await probeFile(request.filePath)
   if (stale()) return SUPERSEDED
-  if (!info?.needsRpuRebuild)
+  // 与媒体库 / 打开播放器时同一条判定（ADR-0016）：只有 P5 这类直接放偏色的才重建
+  if (!info || !needsDvColorFix(info.video))
     return { kind: 'fallback', reason: '没能识别出需要重建的杜比视界' }
   if (!info.duration)
     return { kind: 'fallback', reason: '读不到片长，无法在应用内重建杜比视界' }
@@ -124,7 +123,7 @@ export function registerDolbyVisionIpc(): void {
   })
   void sweepLeftovers()
   implement(dolbyVision, {
-    probe: (_, filePath) => probeFile(filePath),
+    probe: async (_, filePath) => (await probeFile(filePath))?.video ?? null,
     start: (_, request) => start(request),
     stop: (_, id) => stopSession(id),
   })

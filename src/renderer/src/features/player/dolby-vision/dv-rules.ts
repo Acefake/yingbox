@@ -1,15 +1,11 @@
 /**
- * 杜比视界播放的渲染层规则（纯函数）：要不要重建、选输出、把主进程结果翻成播放计划、做不了时怎么退、界面文案。
+ * 杜比视界播放的渲染层规则（纯函数）：选输出、把主进程结果翻成播放计划、做不了时怎么退、界面文案。
+ * 要不要重建用 shared/video-range 的 needsDvColorFix（与打开播放器时的 mpv 路由同一条判定）。
  */
 import type {
   DvOutput,
   DvStartResult,
-  VideoHdrInfo,
 } from '../../../../../shared/dolby-vision'
-import {
-  type VideoProbe,
-  needsExternalPlayer,
-} from '../../../../../shared/video-range'
 
 /** 识别超过这么久才在播放区显示「正在识别视频…」（本地盘通常几十毫秒，不闪） */
 export const DV_PROBE_FEEDBACK_MS = 300
@@ -25,21 +21,6 @@ export const DV_DIRECT_WARNING = '杜比视界无法在应用内重建，画面�
 export const DV_RUNTIME_FAILURE = '杜比视界重建播放中断'
 /** 主进程表示这次开播已被更新的开播取代 */
 export const DV_SUPERSEDED = 'superseded'
-
-/**
- * 已知的动态范围（媒体库存的探测结果）能否直接决定要不要重建。
- * @returns true 要重建（P5 等没有兼容基础层的）；false 不用；undefined 不知道，要开播前识别
- */
-export function knownNeedsRebuild(
-  known: Pick<VideoProbe, 'dvProfile' | 'dvCompat'> | null | undefined
-): boolean | undefined {
-  if (!known) return undefined
-  return needsExternalPlayer(known)
-}
-
-/** 开播前识别的结果是否要走杜比视界重建（P5 等无兼容层的）。 */
-export const needsRebuild = (info: VideoHdrInfo | null): boolean =>
-  info?.needsRpuRebuild === true
 
 /** 浏览器端能力：显示器是否 HDR、能否解 HEVC Main10。 */
 export interface DisplayCaps {

@@ -25,7 +25,8 @@ const { useDolbyVision } =
 const { DV_DIRECT_WARNING, DV_HANDED_OFF_TEXT } =
   await import('../src/renderer/src/features/player/dolby-vision/dv-rules')
 
-const P5_INFO = { hdr: 'dolby-vision', needsRpuRebuild: true, duration: 60 }
+/** 主进程 probe 的返回与媒体库存的同一形状（shared/video-range 的 VideoProbe） */
+const P5_INFO = { range: 'dv', dvProfile: 5, dvCompat: 0 }
 const STREAM = {
   kind: 'stream',
   id: 's1',
@@ -101,6 +102,16 @@ describe('useDolbyVision', () => {
     )
     expect(url).toBe(STREAM.url)
     expect(dv.probe).not.toHaveBeenCalled()
+    expect(dv.start).toHaveBeenCalledOnce()
+  })
+
+  it('媒体库没探测过：请主进程识别，P8.1 直接播、P5 才开重建', async () => {
+    dv.probe.mockResolvedValueOnce({ range: 'dv', dvProfile: 8, dvCompat: 1 })
+    const { control } = setup()
+    expect(await control.resolve(request())).toBe(DIRECT)
+    expect(dv.start).not.toHaveBeenCalled()
+    expect(await control.resolve(request())).toBe(STREAM.url)
+    expect(dv.probe).toHaveBeenCalledTimes(2)
     expect(dv.start).toHaveBeenCalledOnce()
   })
 

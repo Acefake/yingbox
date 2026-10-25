@@ -1,8 +1,5 @@
-import type {
-  DvStartRequest,
-  DvStartResult,
-  VideoHdrInfo,
-} from '../dolby-vision'
+import type { DvStartRequest, DvStartResult } from '../dolby-vision'
+import type { VideoProbe } from '../video-range'
 import {
   bool,
   call,
@@ -35,8 +32,8 @@ function parseStart(value: unknown): [DvStartRequest] {
  * 渲染层按设置改用 mpv 或直接播放并提示。
  */
 export const dolbyVision = defineDomain('dolbyVision', {
-  /** 识别本地文件的 HDR 类型与杜比视界 Profile（ffprobe 读文件头，成功的结果按文件缓存）；读不到为 null */
-  probe: call<[filePath: string], VideoHdrInfo | null>(a => [
+  /** 识别本地文件的动态范围（与媒体库存的同一形状；ffprobe 读文件头，成功的结果按文件缓存）；读不到为 null */
+  probe: call<[filePath: string], VideoProbe | null>(a => [
     str(a[0], 'filePath'),
   ]),
   /** 开一路重建播放（同一时间只有一路，开新的会停旧的） */
