@@ -73,8 +73,7 @@ export function createStreamHandler(
         const value = response.headers.get(name)
         if (value) result.set(name, value)
       }
-      if (response.status >= 400)
-        logFailure(source, `HTTP ${response.status}`)
+      if (response.status >= 400) logFailure(source, `HTTP ${response.status}`)
       return new Response(response.body, {
         status: response.status,
         headers: result,
