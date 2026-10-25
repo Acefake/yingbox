@@ -1,10 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
-import {
-  SIDEBAR_COLLAPSED_KEY,
-  isSidebarShortcut,
-  readSidebarCollapsed,
-} from '../src/renderer/src/features/shell/composables/sidebar-state'
+import { settingsSchema } from '../src/shared/settings/schema'
+import { isSidebarShortcut } from '../src/renderer/src/features/shell/composables/sidebar-state'
 
 const key = (
   k: string,
@@ -40,19 +37,7 @@ describe('侧栏收起状态', () => {
     ).toBe(false)
   })
 
-  it('读出上次的状态：只有 "1" 是收起，存储出错时展开', () => {
-    const store = (v: string | null) => ({
-      getItem: (k: string) => (k === SIDEBAR_COLLAPSED_KEY ? v : null),
-    })
-    expect(readSidebarCollapsed(store('1'))).toBe(true)
-    expect(readSidebarCollapsed(store('0'))).toBe(false)
-    expect(readSidebarCollapsed(store(null))).toBe(false)
-    expect(
-      readSidebarCollapsed({
-        getItem: () => {
-          throw new Error('denied')
-        },
-      })
-    ).toBe(false)
+  it('收起状态存在设置 ui.sidebarCollapsed 里，默认展开', () => {
+    expect(settingsSchema['ui.sidebarCollapsed'].default).toBe(false)
   })
 })
