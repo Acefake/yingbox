@@ -84,8 +84,11 @@ withDefaults(
   background: var(--bg-glass);
   color: var(--text-primary);
 }
+/* 底色和字色在这里显式写（双类压过基类的透明底），不靠和 .yb-glass 的加载顺序；模糊、阴影仍来自 .yb-glass */
 .yb-icon-button.is-overlay {
   border-radius: var(--radius-full);
+  background: var(--glass-media-bg);
+  color: var(--media-text);
 }
 .yb-icon-button:hover:not(:disabled) {
   background: var(--bg-glass-hover);

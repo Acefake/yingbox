@@ -110,6 +110,8 @@
     ui-monospace, 'SF Mono', 'Cascadia Code', Menlo, Consolas, monospace;
 
   /* ── 字号：参照 macOS 文字样式 ── */
+  --text-4xs: 8px; /* 只给规格字标的小字（DOLBY 下的 VISION / ATMOS），正文不用 */
+  --text-3xs: 9px; /* 只给规格字标（分级圆标 16+），正文不用 */
   --text-2xs: 11px; /* 角标、辅助说明 */
   --text-xs: 12px; /* 次要信息 */
   --text-sm: 13px; /* 正文、控件 */

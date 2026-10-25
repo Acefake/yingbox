@@ -32,7 +32,9 @@
       v-if="!loading && !error && !filteredCards.length && !loadingSources"
       icon="play"
       :title="
-        sources.length ? '暂无内容' : '无法加载插件视频源，请检查后端是否运行'
+        sources.length
+          ? '暂无内容'
+          : '无法加载插件视频源，请检查插件源是否已安装并启用'
       "
     />
 
@@ -336,5 +338,4 @@ onMounted(() => {
   justify-content: center;
   padding: var(--space-2) 0 var(--space-4);
 }
-/* ── 空状态 ── */
 </style>

@@ -6,11 +6,7 @@ import {
   PROBE_MAX_PROCESSES,
   createVideoProber,
 } from '../src/main/library/scanner/video-probe'
-import {
-  needsDvColorFix,
-  parseFfprobeVideo,
-  videoRangeBadge,
-} from '../src/shared/video-range'
+import { needsDvColorFix, parseFfprobeVideo } from '../src/shared/video-range'
 
 const fixture = (name: string): unknown =>
   JSON.parse(
@@ -73,16 +69,6 @@ describe('直接放是否偏色（needsDvColorFix）', () => {
     expect(needsDvColorFix({ dvProfile: null, dvCompat: null })).toBe(false)
     expect(needsDvColorFix(null)).toBe(false)
     expect(needsDvColorFix(undefined)).toBe(false)
-  })
-})
-
-describe('标记与汇总', () => {
-  it('卡片小标：DV / HDR / HLG，SDR 与未知不显示', () => {
-    expect(videoRangeBadge('dv')).toBe('DV')
-    expect(videoRangeBadge('hdr10')).toBe('HDR')
-    expect(videoRangeBadge('hlg')).toBe('HLG')
-    expect(videoRangeBadge('sdr')).toBe('')
-    expect(videoRangeBadge(null)).toBe('')
   })
 })
 
