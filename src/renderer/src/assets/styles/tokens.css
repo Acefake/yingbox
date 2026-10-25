@@ -237,6 +237,10 @@
     rgba(0, 0, 0, 0.22) 45%,
     rgba(0, 0, 0, 0.42) 100%
   );
+  /* 渐进模糊三层各自的渐显遮罩（.yb-pblur；mask 只取透明度） */
+  --pblur-mask-1: linear-gradient(transparent 0%, #000 22%);
+  --pblur-mask-2: linear-gradient(transparent 12%, #000 42%);
+  --pblur-mask-3: linear-gradient(transparent 28%, #000 62%);
   --media-kicker: rgba(255, 255, 255, 0.72); /* Hero 片名上的小标签行 */
   --media-dot: rgba(255, 255, 255, 0.35); /* Hero 分页点 */
   --glass-light-bg: rgba(

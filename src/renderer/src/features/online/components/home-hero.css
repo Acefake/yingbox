@@ -48,9 +48,7 @@
   margin-bottom: var(--space-2_5);
   color: var(--media-kicker);
   font-size: var(--text-xs);
-  font-weight: var(
-    --font-weight-bold
-  ); /* style-tokens: visual（Hero 标签行） */
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（标签行） */
   letter-spacing: 0.08em;
 }
 .home-hero-logo {
@@ -69,7 +67,7 @@
   overflow: hidden;
   font-family: var(--font-display);
   font-size: calc(var(--text-3xl) * 1.35);
-  font-weight: var(--font-weight-bold); /* style-tokens: visual（Hero 片名） */
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（片名） */
   line-height: 1.1;
   letter-spacing: 0.02em;
   text-shadow: 0 2px 16px var(--overlay-scrim-soft);
