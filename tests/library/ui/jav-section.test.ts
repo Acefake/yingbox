@@ -51,13 +51,12 @@ describe('页面规则', () => {
     expect(viewOptionsFor('jav').map(o => o.label)).toEqual(['资料库', '演员'])
   })
 
-  it('工具栏：常用操作排在页头，按画面 / 今晚 / 视频墙 / 设置收进「更多」', () => {
+  it('工具栏：常用操作排在页头，按画面 / 视频墙 / 设置收进「更多」', () => {
     const jav = toolbarActions({
       view: 'wall',
       hasLibraries: true,
       count: 5,
       facets: true,
-      tonight: false,
     })
     expect(jav.inline).toEqual(['sort', 'order', 'facets', 'scan', 'identify'])
     expect(jav.more).toEqual(['visual', 'video-wall', 'settings'])
@@ -66,7 +65,6 @@ describe('页面规则', () => {
       hasLibraries: false,
       count: null,
       facets: false,
-      tonight: true,
     })
     expect(empty).toEqual({ inline: [], more: ['settings'] })
     const review = toolbarActions({
@@ -74,7 +72,6 @@ describe('页面规则', () => {
       hasLibraries: true,
       count: 5,
       facets: true,
-      tonight: false,
     })
     expect(review.inline).toEqual(['scan', 'identify'])
   })

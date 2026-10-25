@@ -64,7 +64,6 @@ export type ToolbarAction =
   | 'order'
   | 'facets'
   | 'visual'
-  | 'tonight'
   | 'video-wall'
   | 'scan'
   | 'identify'
@@ -78,8 +77,6 @@ export interface ToolbarContext {
   count: number | null
   /** 有分面筛选（番号页） */
   facets: boolean
-  /** 有「今晚看什么」（电影 / 剧集页） */
-  tonight: boolean
 }
 
 /**
@@ -97,7 +94,6 @@ export function toolbarActions(ctx: ToolbarContext): {
   if (wall && ctx.facets) inline.push('facets')
   if (ctx.hasLibraries) inline.push('scan', 'identify')
   if (wall && ctx.facets) more.push('visual')
-  if (ctx.hasLibraries && ctx.tonight) more.push('tonight')
   if (wall && ctx.count) more.push('video-wall')
   more.push('settings')
   return { inline, more }

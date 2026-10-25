@@ -150,7 +150,6 @@ describe('工具栏入口', () => {
     hasLibraries: true,
     count: 12,
     facets: false,
-    tonight: true,
   }
 
   it('海报墙有条目时「更多」里有「视频墙」，工具栏带「更多」按钮', async () => {
