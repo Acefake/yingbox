@@ -24,7 +24,18 @@ export { isWatched, markWatched, unmarkWatched } from './watched'
 export { syncAnime4k } from './anime4k/anime4k-sync'
 /** 「继续播放」：各板块顶部的横排卡片与记录 */
 export { default as ContinueRow } from './continue/ContinueRow.vue'
-export { continueRecords, onContinueFinished } from './continue/continue-store'
+export {
+  continueRecords,
+  mergeContinue,
+  onContinueFinished,
+} from './continue/continue-store'
+/** 媒体库条目的进度去向（媒体库 feature 启动时接上片库） */
+export {
+  type LibraryProgressSink,
+  type LibraryRef,
+  setLibraryProgressSink,
+} from './progress/library-sink'
+export type { EndHint } from './utils/play-queue'
 export type {
   ContinueMeta,
   ContinueRecord,

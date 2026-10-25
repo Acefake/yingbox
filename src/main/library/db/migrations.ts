@@ -5,6 +5,7 @@
  */
 import type { DatabaseSync } from 'node:sqlite'
 import { V6_SCHEMA } from './schema-actors'
+import { V9_SCHEMA } from './schema-progress'
 import { V7_SCHEMA } from './schema-visual'
 
 /** 一条迁移。 */
@@ -310,6 +311,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 6, description: '演员库（演员资料与作品关联）', sql: V6_SCHEMA },
   { version: 7, description: '按画面搜的图片向量', sql: V7_SCHEMA },
   { version: 8, description: '视频动态范围（HDR / 杜比视界）', sql: V8_SCHEMA },
+  { version: 9, description: '观看进度', sql: V9_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

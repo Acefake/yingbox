@@ -49,6 +49,13 @@
           >
           <div v-if="cell.item" class="lib-cell-preview ui-preview-layer" />
           <span v-if="cell.badge" class="lib-cell-badge">{{ cell.badge }}</span>
+          <span
+            v-if="cell.progress"
+            class="lib-cell-progress"
+            aria-hidden="true"
+          >
+            <i :style="{ width: cell.progress }" />
+          </span>
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
           }}</span>
@@ -95,7 +102,8 @@
  * - 格子构造、方向键、修饰键等纯规则在 wall-cells.ts，样式在 poster-wall.css；
  * - 悬停预览也委托在网格上（useGridPreview，来源见 wall-preview.ts），多选时不起；
  *   格子被回收（滚出渲染区间、换查询）时停止；
- * - 悬停详情卡（HoverCard，显隐在 use-hover-card.ts）同样委托在网格上，滚动、多选、换查询时收起。
+ * - 悬停详情卡（HoverCard，显隐在 use-hover-card.ts）同样委托在网格上，滚动、多选、换查询时收起；
+ * - 观看标记：看完的角标「已看」，看了一部分的底边进度条（片库观看进度，useWallProgress 按可见区间取）。
  */
 import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
@@ -104,6 +112,7 @@ import { applyFocus } from '@/services/thumbnails'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
 import { itemImage } from '../api/images'
+import { useWallProgress } from '../progress/use-wall-progress'
 import { formatRating } from '../shared/format'
 import type { PagedList } from './paged-list'
 import { useVirtualGrid } from './use-virtual-grid'
@@ -197,6 +206,13 @@ watch(
   { immediate: true }
 )
 
+const watchMark = useWallProgress(() => {
+  void props.version
+  return [
+    ...loadedIds(range.value.start, range.value.end, i => props.list.at(i)),
+  ]
+})
+
 const cells = computed<Cell[]>(() => {
   void props.version
   void props.selectionVersion
@@ -211,6 +227,7 @@ const cells = computed<Cell[]>(() => {
     showStateBadge: Boolean(props.showStateBadge),
     image: poster => itemImage(poster, 300),
     rating: formatRating,
+    mark: watchMark,
   })
 })
 

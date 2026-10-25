@@ -3,6 +3,7 @@
  *
  * 不依赖 Vue 和 localStorage，存取在 continue-store.ts，界面在 ContinueRow.vue。
  */
+import { WATCHED_RATIO } from '../../../../../shared/library/watch-progress'
 import type { PlaylistEntry } from '../utils/play-queue'
 
 /** 板块：媒体库三个分区 + 在线 + AV；每个板块顶部只列自己的记录。 */
@@ -52,8 +53,8 @@ export interface ContinueRecord extends ContinueMeta {
 export const CONTINUE_LIMIT = 40
 /** 每个板块顶部最多显示几张。 */
 export const CONTINUE_ROW_LIMIT = 12
-/** 播到这个比例算看完。 */
-export const FINISHED_RATIO = 0.95
+/** 播到这个比例算看完（与片库的观看进度同一个阈值）。 */
+export const FINISHED_RATIO = WATCHED_RATIO
 /** 播放不到这么多秒不算开始看（误点进来马上关掉不记）。 */
 export const MIN_PROGRESS = 10
 
@@ -253,6 +254,43 @@ export function clock(seconds: number): string {
   const m = Math.floor((s % 3600) / 60)
   const sec = String(s % 60).padStart(2, '0')
   return h ? `${h}:${String(m).padStart(2, '0')}:${sec}` : `${m}:${sec}`
+}
+
+/** 移除记录的墓碑：id → 移除时间。从片库补回记录时，不早于墓碑的不补。 */
+export type ContinueTombstones = Record<string, number>
+
+/** 墓碑最多留多少条（超出丢最早的）。 */
+export const TOMBSTONE_LIMIT = 200
+
+/** 记一块墓碑（同 id 覆盖），超出上限丢最早的。 */
+export function addTombstone(
+  stones: ContinueTombstones,
+  id: string,
+  at: number
+): ContinueTombstones {
+  const entries = Object.entries({ ...stones, [id]: at })
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, TOMBSTONE_LIMIT)
+  return Object.fromEntries(entries)
+}
+
+/**
+ * 并入别处来的记录（片库按观看进度生成的「继续看」）：每个 id 后写胜出（updatedAt 更大的留下），
+ * 不晚于墓碑的不并入；结果按时间倒序、截到上限。没有变化时返回原数组。
+ */
+export function mergeRecords(
+  records: ContinueRecord[],
+  incoming: readonly ContinueRecord[],
+  stones: ContinueTombstones
+): ContinueRecord[] {
+  let next = records
+  for (const record of incoming) {
+    if ((stones[record.id] ?? -1) >= record.updatedAt) continue
+    const old = next.find(r => r.id === record.id)
+    if (old && old.updatedAt >= record.updatedAt) continue
+    next = put(next, record)
+  }
+  return next
 }
 
 /** 读回存储时校验：形状不对的丢掉。 */

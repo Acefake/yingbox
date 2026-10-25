@@ -1,8 +1,13 @@
 /**
  * 播放进度的节流保存：timeupdate 每 2 秒最多写一次，窗口关闭 / 切集前 flush，看完清零续播点。
  * 每次写入同时回调 onSave（「继续播放」记录跟着更新）。
+ * 媒体库条目（library 给出标记）只上报片库（progress/library-sink），不写本地进度表与「已看完」集合。
  */
 import { isIncognito } from '@/features/incognito'
+import {
+  flushLibraryProgress,
+  reportLibraryProgress,
+} from '../progress/library-sink'
 import { saveMediaProgress } from '../utils/play-progress'
 import { markWatched } from '../watched'
 
@@ -33,15 +38,23 @@ export type ProgressListener = (
  * @param key 当前条目的进度键（空串表示不记录）
  * @param now 取当前时间（测试可替换）
  * @param onSave 每次写入后回调
+ * @param library 当前条目的媒体库标记（不是媒体库条目时为 undefined）
  */
 export function useProgressSaver(
   key: () => string,
   now: () => number = Date.now,
-  onSave: ProgressListener = () => {}
+  onSave: ProgressListener = () => {},
+  library: () => unknown = () => undefined
 ): ProgressSaver {
   let lastPersist = 0
   let lastTime = 0
   let lastDuration = 0
+
+  /** 写一次：媒体库条目交给片库，其余写本地进度表 */
+  const persist = (time: number, duration: number): void => {
+    if (!reportLibraryProgress(library(), time, duration))
+      saveMediaProgress(key(), time, duration)
+  }
 
   const onTimeUpdate = (event: Event): void => {
     const el = event.target as HTMLVideoElement | null
@@ -51,23 +64,28 @@ export function useProgressSaver(
     const at = now()
     if (at - lastPersist < PERSIST_INTERVAL) return
     lastPersist = at
-    saveMediaProgress(key(), lastTime, lastDuration)
+    persist(lastTime, lastDuration)
     onSave(lastTime, lastDuration, false)
   }
 
   const flush = (): void => {
     if (!key() || !(lastTime > 1)) return
-    saveMediaProgress(key(), lastTime, lastDuration)
+    persist(lastTime, lastDuration)
     onSave(lastTime, lastDuration, false)
+    flushLibraryProgress()
   }
 
   const markFinished = (video: HTMLVideoElement | null): void => {
     const duration =
       video && Number.isFinite(video.duration) ? video.duration : lastDuration
     if (key()) {
-      saveMediaProgress(key(), 0, duration)
-      // 无痕模式不记「已看完」（与不写进度、不记历史一致）
-      if (!isIncognito()) markWatched(key())
+      if (reportLibraryProgress(library(), duration, duration, true)) {
+        flushLibraryProgress()
+      } else {
+        saveMediaProgress(key(), 0, duration)
+        // 无痕模式不记「已看完」（与不写进度、不记历史一致）
+        if (!isIncognito()) markWatched(key())
+      }
       onSave(duration, duration, true)
     }
     lastTime = 0

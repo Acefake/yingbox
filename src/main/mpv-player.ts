@@ -380,6 +380,10 @@ class MpvPlayer extends EventEmitter {
   async addSubFile(filePath: string): Promise<void> {
     await this.cmd('sub-add', filePath, 'select')
   }
+  /** 画面上显示一行提示（OSD）；mpv 没在跑时不做 */
+  async showText(text: string, ms: number): Promise<void> {
+    if (this.child) await this.cmd('show-text', text, ms)
+  }
 
   // ——— 播放列表 ———
 
