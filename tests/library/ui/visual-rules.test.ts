@@ -11,6 +11,7 @@ import {
   framesText,
   hasPending,
   momentRequest,
+  momentVersion,
   progressText,
   stageOf,
 } from '../../../src/renderer/src/features/library/visual/visual-rules'
@@ -104,6 +105,10 @@ describe('视频画面', () => {
         { filePath: '/v/cd2.mp4', name: 'cd2', video: HDR },
       ],
       fileIds: [7, 8],
+      refs: [
+        { itemId: 1, fileId: 7 },
+        { itemId: 1, fileId: 8 },
+      ],
       index: 0,
       item: { id: 1 } as LibraryItemNode,
     }
@@ -120,5 +125,19 @@ describe('视频画面', () => {
     expect(momentRequest(request, 7, 10)).not.toHaveProperty('video')
     expect(momentRequest(request, 9, 10)).toBeNull()
     expect(momentRequest(null, 7, 10)).toBeNull()
+  })
+
+  it('多版本合并的片按画面所在文件选版本，找不到时交给默认版本', () => {
+    const node = {
+      id: 1,
+      versions: [
+        { key: 'f7', fileIds: [7, 8] },
+        { key: 'f20', fileIds: [20] },
+      ],
+    } as unknown as LibraryItemNode
+    expect(momentVersion(node, 20)).toBe('f20')
+    expect(momentVersion(node, 8)).toBe('f7')
+    expect(momentVersion(node, 99)).toBeNull()
+    expect(momentVersion({ id: 2 } as LibraryItemNode, 7)).toBeNull()
   })
 })

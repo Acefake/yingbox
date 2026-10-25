@@ -1,10 +1,11 @@
 /**
  * 按画面搜点了某个视频画面：取条目详情，从那个文件的那个时间点开始播（电影的分段文件照常连播）。
+ * 多版本合并的片按画面所在文件选版本，不落到默认最佳版本上。
  */
 import { toast } from '@/components/ui'
 import { libraryBridge } from '../api/bridge'
 import { moviePlayRequest, play } from '../detail/playback'
-import { momentRequest } from './visual-rules'
+import { momentRequest, momentVersion } from './visual-rules'
 
 /** 播放某部片的某个文件、从 at 秒开始；条目或文件已不在时提示。 */
 export async function playMoment(
@@ -14,7 +15,7 @@ export async function playMoment(
 ): Promise<void> {
   const node = await libraryBridge()?.getItem(itemId)
   const request = momentRequest(
-    node ? moviePlayRequest(node) : null,
+    node ? moviePlayRequest(node, momentVersion(node, fileId)) : null,
     fileId,
     at
   )

@@ -23,7 +23,7 @@ CREATE TABLE visual_items (
 `
 
 /**
- * V9：视频关键帧（见 library/visual/frames）。
+ * V11：视频关键帧（见 library/visual/frames）。
  *
  * - visual_vectors 加帧来源：source = 'image'（封面 / 剧照，image 是远程地址）或 'frame'
  *   （视频帧，image 是帧缩略图的 yingbox-media 地址，file_id / at_ms 是它在哪个文件的第几毫秒）；
@@ -31,7 +31,7 @@ CREATE TABLE visual_items (
  * - visual_frames：每个视频文件的抽帧进度。signature 是模型 + 文件大小 / 修改时间 + 抽帧规则的摘要，
  *   变了就整份重抽；next_index 是计划里已处理到第几帧（断点续跑从这里接着抽）。
  */
-export const V9_SCHEMA = `
+export const V11_SCHEMA = `
 ALTER TABLE visual_vectors ADD COLUMN source TEXT NOT NULL DEFAULT 'image'
   CHECK (source IN ('image', 'frame'));
 ALTER TABLE visual_vectors ADD COLUMN file_id INTEGER

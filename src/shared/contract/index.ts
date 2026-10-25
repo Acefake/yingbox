@@ -9,9 +9,11 @@ import { aiSubtitles } from './ai-subtitles'
 import { app } from './app'
 import { assistant } from './assistant'
 import { autograb } from './autograb'
+import { autograbMovies, autograbUpgrade } from './autograb-upgrade'
 import { av } from './av'
 import { capture } from './capture'
 import { danmaku } from './danmaku'
+import { discover } from './discover'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { dolbyVision } from './dolby-vision'
@@ -22,9 +24,11 @@ import { lada } from './lada'
 import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
+import { notifications } from './notifications'
 import { nowPlaying } from './now-playing'
 import { online } from './online'
 import { pan115 } from './pan115'
+import { progressSync } from './progress-sync'
 import { recap } from './recap'
 import { sectionLock } from './section-lock'
 import { settings } from './settings'
@@ -41,10 +45,13 @@ export const contract = {
   app,
   assistant,
   autograb,
+  autograbMovies,
+  autograbUpgrade,
   av,
   capture,
   danmaku,
   dialog,
+  discover,
   dolbyVision,
   download,
   introDetect,
@@ -53,9 +60,11 @@ export const contract = {
   libraryNotify,
   media,
   mpv,
+  notifications,
   nowPlaying,
   online,
   pan115,
+  progressSync,
   recap,
   sectionLock,
   settings,

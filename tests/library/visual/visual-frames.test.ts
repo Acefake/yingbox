@@ -1,6 +1,6 @@
 /**
  * 视频关键帧（真实服务 + 假推理后端 + 假取帧）：打开后抽帧入库、去掉相近帧、搜索带时间点、
- * 图片重建不动帧、暂停后断点续跑、有别的任务时让出、网盘默认跳过、文件变了整份重抽、V9 迁移保留旧向量。
+ * 图片重建不动帧、暂停后断点续跑、有别的任务时让出、网盘默认跳过、文件变了整份重抽、V11 迁移保留旧向量。
  *
  * 假取帧：帧的「内容」k 写在像素第 0 字节，按时间每 60 秒换一个画面（30 秒一帧，相邻两帧相同会被去重）；
  * SSIS-2 的画面编号整体加 20。假后端把 k 编成第 k 维的单位向量，文字 "k=12" 编成第 12 维。
@@ -308,11 +308,11 @@ describe('视频关键帧', () => {
   })
 })
 
-describe('V9 迁移', () => {
+describe('V11 迁移', () => {
   it('旧库的图片向量记为 image 来源，帧列为空', () => {
     const db = new DatabaseSync(':memory:')
     db.exec('PRAGMA foreign_keys = ON')
-    migrate(db, MIGRATIONS.slice(0, 8))
+    migrate(db, MIGRATIONS.slice(0, 10))
     const now = Date.now()
     db.exec(
       `INSERT INTO libraries (id, root, root_display, kind, name, created_at)

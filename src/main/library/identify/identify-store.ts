@@ -93,6 +93,17 @@ export class IdentifyStore {
       .map(toTarget)
   }
 
+  /** 媒体库里有没有 NFO 文件（没配 TMDB 时，有 NFO 才值得跑一次本地补全）。 */
+  hasNfo(libraryId: number): boolean {
+    return Boolean(
+      this.sql
+        .get(
+          "SELECT 1 FROM files WHERE library_id = ? AND kind = 'nfo' LIMIT 1"
+        )
+        .get(libraryId)
+    )
+  }
+
   /**
    * 这次识别 / 刷新是否涉及 TMDB 库（需要令牌）。番号库不需要令牌。
    * 范围：指定条目 → 这些条目所属的库；指定库 → 该库；都没指定 → 全部库。

@@ -153,6 +153,14 @@ describe('引擎 RPC 与 preload bridge', () => {
       'actors.cancelRefresh',
       'actors.getSettings',
       'actors.setSettings',
+      'progress.list',
+      'progress.save',
+      'progress.summary',
+      'progress.recent',
+      'progress.export',
+      'progress.import',
+      'merge.split',
+      'merge.join',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })

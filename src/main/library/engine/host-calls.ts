@@ -10,6 +10,7 @@
 import type { AiJsonRequest } from '../../../shared/ai/types'
 import type { LibraryAi, LibraryAiStatus } from '../identify/ai/ai-scrape-rules'
 import type { HostCaller } from '../remote/host-remote'
+import type { AutoSubtitleSettings } from '../subtitles/auto-subtitles'
 
 /** 主进程为媒体库引擎实现的代办方法名。 */
 export const LIBRARY_HOST_METHODS = {
@@ -19,6 +20,8 @@ export const LIBRARY_HOST_METHODS = {
   ffprobePath: 'ffprobePath',
   /** ffmpeg 路径（按画面搜抽视频帧用，同上）；没有时为空串 */
   ffmpegPath: 'ffmpegPath',
+  /** 自动字幕设置（主进程设置 subtitles.auto.*，实现见 src/main/library/subtitles-host.ts） */
+  subtitleSettings: 'subtitleSettings',
 } as const
 
 /** 经主进程代办的大模型调用口。 */
@@ -29,6 +32,25 @@ export function hostAi(host: HostCaller): LibraryAi {
     chatJson: (request: AiJsonRequest) =>
       host.call(LIBRARY_HOST_METHODS.aiChatJson, [request]),
   }
+}
+
+/** 经主进程读自动字幕设置；主进程没回应时按关闭处理。 */
+export function hostSubtitleSettings(
+  host: HostCaller
+): () => Promise<AutoSubtitleSettings> {
+  return () =>
+    (
+      host.call(LIBRARY_HOST_METHODS.subtitleSettings, []) as Promise<
+        Partial<AutoSubtitleSettings>
+      >
+    ).then(
+      value => ({
+        enabled: value?.enabled === true,
+        dailyLimit:
+          typeof value?.dailyLimit === 'number' ? value.dailyLimit : 0,
+      }),
+      () => ({ enabled: false, dailyLimit: 0 })
+    )
 }
 
 /** 经主进程查工具路径；主进程没回应时按没有处理。 */

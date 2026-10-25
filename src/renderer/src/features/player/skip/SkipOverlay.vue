@@ -17,8 +17,10 @@
         aria-live="polite"
       >
         <p class="skip-next-title">
-          {{ skip.endedNext.value ? '即将播放' : '下一集' }} ·
-          {{ skip.countdown.value }} 秒后播放
+          {{ skip.endedNext.value ? '即将播放' : '下一集' }}
+          <template v-if="skip.counting.value">
+            · {{ skip.countdown.value }} 秒后播放
+          </template>
         </p>
         <p class="skip-next-name" :title="upNext">{{ upNext }}</p>
         <div class="skip-next-actions">
@@ -37,6 +39,30 @@
           />
         </div>
       </div>
+      <div
+        v-else-if="endHint"
+        class="skip-glass skip-next"
+        role="status"
+        aria-live="polite"
+      >
+        <p class="skip-next-title">已播完</p>
+        <p class="skip-next-name" :title="endHint.text">{{ endHint.text }}</p>
+        <div class="skip-next-actions">
+          <UiButton
+            v-if="endHint.action"
+            variant="primary"
+            size="sm"
+            :label="endHint.action.label"
+            @click="goHint(endHint.action.to)"
+          />
+          <UiButton
+            class="skip-next-later"
+            size="sm"
+            label="关闭"
+            @click="emit('close-hint')"
+          />
+        </div>
+      </div>
     </div>
   </Teleport>
 </template>
@@ -52,13 +78,17 @@
  * - queue：播放队列；设置开着时据此在后台自动检测本季片头片尾（use-auto-detect，只认有「继续播放」记录的剧）
  * - playNext：切到下一集（PlayerSession 的 playNext），等它完成前「立即播放」显示 loading
  * - ended：这一集已播完、等着连播（卡片上是「取消」）；cancel-ended：点了「取消」
+ * - endHint：播完最后一集时的提示（如媒体库剧集「没有下一集的文件」+「去追更」，按钮跳应用内地址，
+ *   跳转时播放弹窗按路由规则缩成小窗）；close-hint：关掉提示
+ * 设置 player.autoNext 关着时卡片照常出现，但不倒计时，要点「立即播放」。
  */
 import type Artplayer from 'artplayer'
 import { computed, watch } from 'vue'
+import { useRouter } from 'vue-router'
 
 import UiButton from '@/components/ui/UiButton.vue'
 
-import type { PlaylistEntry } from '../utils/play-queue'
+import type { EndHint, PlaylistEntry } from '../utils/play-queue'
 import { useAutoIntroDetect } from './use-auto-detect'
 import { useSkipSegments } from './use-skip-segments'
 
@@ -69,8 +99,15 @@ const props = defineProps<{
   queue?: readonly PlaylistEntry[]
   playNext: () => Promise<unknown>
   ended?: boolean
+  endHint?: EndHint | null
 }>()
-const emit = defineEmits<{ 'cancel-ended': [] }>()
+const emit = defineEmits<{ 'cancel-ended': []; 'close-hint': [] }>()
+const router = useRouter()
+
+function goHint(to: string): void {
+  emit('close-hint')
+  void router.push(to)
+}
 
 const skip = useSkipSegments({
   key: () => props.series,

@@ -11,7 +11,7 @@
 - 分词：自写 BERT WordPiece（`src/main/library/visual/clip-tokenizer.ts`），与 transformers.js 输出一致；不引 transformers.js（会带上 sharp）。
 - 像素：编解码线程里 wasm 解码，拉伸到 224×224（codec 的 `clip` 任务）。
 - 存储：`visual_vectors`（每张图 4 字节缩放系数 + 512 维 int8）、`visual_items`（按图片地址签名判断要不要重建），迁移 V7。
-  V9 给 `visual_vectors` 加帧来源 `source`（`image` / `frame`）、`file_id`、`at_ms`，另建 `visual_frames` 记每个视频的抽帧进度。
+  V11 给 `visual_vectors` 加帧来源 `source`（`image` / `frame`）、`file_id`、`at_ms`，另建 `visual_frames` 记每个视频的抽帧进度。
 - 检索：内存里全量点积。封面、剧照、视频帧按条目合并，每部取最像的一个画面排序；抽过帧的片另带最像的 3 个时间点
   （`visual-rank.ts`）。
 
@@ -53,7 +53,7 @@
 
 - `tests/library/visual/frame-rules.test.ts`：抽帧计划、相近帧去重、签名、设置与参数解析、ffmpeg 时长与取帧参数
 - `tests/library/visual/visual-rank.test.ts`：图片与视频帧合并排序、时间点
-- `tests/library/visual/visual-frames.test.ts`：真实服务 + 假取帧：抽帧入库、搜索、图片重建不动帧、暂停续跑、让出、网盘跳过、文件变了重抽、V9 迁移
+- `tests/library/visual/visual-frames.test.ts`：真实服务 + 假取帧：抽帧入库、搜索、图片重建不动帧、暂停续跑、让出、网盘跳过、文件变了重抽、V11 迁移
 - `tests/library/visual/frame-ffmpeg.test.ts`：真 ffmpeg 取帧（没有 ffmpeg 时跳过）
 
 ## 以后
