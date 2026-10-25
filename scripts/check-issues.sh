@@ -72,6 +72,21 @@ CONSOLE_LOGS=$(grep -r "console\.log" src/renderer/src --include="*.ts" --includ
 echo "发现 $CONSOLE_LOGS 个 console.log 语句"
 echo ""
 
+# 6. AI 助手打包隔离（需要构建产物；没有产物时退出码 2，跳过）
+echo "6. 检查 AI 助手打包隔离..."
+echo "-----------------------------------------"
+node scripts/check-assistant-chunks.mjs
+CHUNK_STATUS=$?
+if [ $CHUNK_STATUS -eq 2 ]; then
+    echo -e "${YELLOW}⚠️ 没有构建产物，跳过（先跑 pnpm build:nocheck）${NC}"
+elif [ $CHUNK_STATUS -ne 0 ]; then
+    echo -e "${RED}❌ AI 助手打包隔离检查未通过${NC}"
+    ERRORS=$((ERRORS + 1))
+else
+    echo -e "${GREEN}✅ AI 助手打包隔离检查通过${NC}"
+fi
+echo ""
+
 # 总结
 echo "========================================="
 echo "  检查完成"

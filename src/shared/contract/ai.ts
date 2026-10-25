@@ -56,6 +56,10 @@ export function parseChatRequest(raw: unknown): AiChatRequest {
   request.maxTokens = optNum('maxTokens', 1, 1_000_000)
   request.timeoutMs = optNum('timeoutMs', 1000, 30 * 60_000)
   if (input.private === true) request.private = true
+  if (input.localOnly === true) {
+    request.localOnly = true
+    request.private = true
+  }
   if (typeof input.sessionId === 'string' && input.sessionId.trim())
     request.sessionId = input.sessionId.trim().slice(0, 100)
   if (input.stream === true) request.stream = true

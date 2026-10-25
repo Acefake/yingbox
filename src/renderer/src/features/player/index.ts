@@ -40,3 +40,16 @@ export {
   skipKeyOf,
 } from './skip/intro-detect'
 export { metaOf, replayOptions } from './continue/continue-rules'
+export { progressRatio } from './continue/continue-rules'
+/** 遥控当前播放（AI 助手）：弹幕、字幕、睡眠定时、跳过片头、倍速与问剧情 */
+export {
+  type PlayerRemoteCommand,
+  type PlayerRemoteResult,
+  type PlayerRemoteState,
+  type PlayerNowPlaying,
+  askPlotQuestion,
+  playerNowPlaying,
+  playerRemoteState,
+  runPlayerCommand,
+} from './remote/player-remote'
+export { SLEEP_CHOICES, type SleepChoice } from './sleep/sleep-rules'

@@ -52,7 +52,7 @@
 
 <script setup lang="ts">
 /**
- * 顶部工具栏：前进 / 后退 / 刷新、全局搜索（Ctrl + K 聚焦）和窗口控制，整条保留窗口拖拽区域。
+ * 顶部工具栏：前进 / 后退 / 刷新、全局搜索（Cmd/Ctrl + F 聚焦；Cmd/Ctrl + K 归 AI 助手）和窗口控制，整条保留窗口拖拽区域。
  * 搜索框与当前路由的 ?q= 同步；本地片库页（电影 / 剧集 / 番号）边输入边过滤（200ms 防抖），
  * 其余页面回车后跳到搜索标签。输入成人模式口令回车会切换成人模式。
  */
@@ -70,6 +70,7 @@ import { useSetting } from '@/features/settings'
 import {
   ADULT_MODE_PASSPHRASE,
   filtersInPlace,
+  isSearchShortcut,
   searchLocation,
   searchPlaceholder,
 } from '../composables/global-search'
@@ -134,7 +135,7 @@ const clearGlobalSearch = (): void => {
 }
 
 const onGlobalSearchShortcut = (event: KeyboardEvent): void => {
-  if ((event.ctrlKey || event.metaKey) && event.key.toLowerCase() === 'k') {
+  if (isSearchShortcut(event)) {
     event.preventDefault()
     globalSearchInput.value?.focus()
   }

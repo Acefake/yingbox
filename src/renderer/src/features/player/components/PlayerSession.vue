@@ -39,7 +39,7 @@
       "
       :play-next="playNext"
       :ended="endedPrompt"
-      @cancel-ended="onCancelEnded"
+      @cancel-ended="endedPrompt = false"
     />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
@@ -71,7 +71,7 @@
  * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
  * 续播进度、可操作的错误面板与跳过片头片尾（skip/）。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
  * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
- * 每集的 Artplayer 上装「下一集」「小窗」按钮与快捷键（controls/、hotkeys/）；播完有下一集时给倒计时卡片。
+ * 每集的 Artplayer 上装按钮、快捷键与双击手势（controls/、hotkeys/）和 AI 助手遥控（remote/）；播完有下一集时给倒计时卡片。
  */
 import {
   computed,
@@ -95,6 +95,7 @@ import SkipOverlay from '../skip/SkipOverlay.vue'
 import { skipKey } from '../skip/skip-rules'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { useDolbyVision } from '../dolby-vision/use-dolby-vision'
+import { usePlayerRemote } from '../remote/use-player-remote'
 import { getMediaProgress, mediaProgressKey } from '../utils/play-progress'
 import { singleFlight } from '../utils/single-flight'
 import {
@@ -298,11 +299,6 @@ const onPlay = (): void => {
   endedPrompt.value = false
 }
 
-/** 播完卡片上点了「取消」：停在本集 */
-const onCancelEnded = (): void => {
-  endedPrompt.value = false
-}
-
 /** 卡顿 / 出错自动换到同集的下一条备用源，从当前进度继续 */
 const switcher = useSourceSwitch({
   fallbacks,
@@ -376,7 +372,6 @@ const applyPayload = (payload: PlayerPayload): void => {
 
 watch(() => props.payload, applyPayload, { immediate: true })
 
-// 每集的 Artplayer 上装「下一集」「小窗」按钮与快捷键 / 双击手势（照 YouTube）
 useSessionShortcuts({
   art,
   next: () =>
@@ -385,6 +380,12 @@ useSessionShortcuts({
   active: () => !props.mini,
   toggleSubtitle: () => player.value?.toggleSubtitle(),
 })
+
+usePlayerRemote(art, () => ({
+  skipKey: () => skipKey(continueId.value, defaultTitle.value),
+  title: () => entryLabel(currentEntry.value),
+  private: props.payload.private === true,
+}))
 
 onMounted(() => window.addEventListener('beforeunload', progress.flush))
 

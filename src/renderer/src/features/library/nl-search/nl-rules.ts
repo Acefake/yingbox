@@ -1,12 +1,10 @@
 /**
  * 自然语言搜索的纯规则：一段输入走 AI 还是普通片名搜索、解析结果缓存、
- * 条件 → 引擎 LibraryQuery 的映射（类型名对齐本库取值）、AI 是否已配置。
+ * 条件 → 引擎 LibraryQuery 的映射（类型名对齐本库取值）。
  *
  * 不依赖 Vue / IPC，便于测试；响应式与调用在 use-nl-search.ts。
  */
 import type { LibraryQuery } from '../../../../../shared/library/ipc'
-import { aiProviderPreset } from '../../../../../shared/ai/providers'
-import type { AiProviderId } from '../../../../../shared/ai/types'
 import { type LibrarySection, SECTIONS } from '../state/library-section'
 import { topLevelType } from '../state/query-state'
 import type { NlFilter } from './nl-filter'
@@ -188,26 +186,6 @@ export function applyNlFilter(
   const keyword = filter.keywords?.[0]
   if (keyword) query.search = keyword
   return query
-}
-
-/** 判断 AI 是否可用所需的设置值。 */
-export interface AiSetup {
-  /** 桌面端（有主进程） */
-  available: boolean
-  provider: AiProviderId
-  baseUrl: string
-  model: string
-  /** 该服务商的 Key 是否已保存 */
-  keyConfigured: boolean
-}
-
-/** AI 是否已配置到能发请求（与主进程 assertUsable 同一口径的粗检查）。 */
-export function aiConfigured(setup: AiSetup): boolean {
-  if (!setup.available) return false
-  const preset = aiProviderPreset(setup.provider)
-  if (!(setup.baseUrl.trim() || preset.baseUrl)) return false
-  if (!(setup.model.trim() || preset.model)) return false
-  return !preset.needsKey || setup.keyConfigured
 }
 
 /** 私密分区（番号）：请求带 private，设置要求时只发给本地模型。 */

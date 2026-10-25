@@ -14,6 +14,7 @@ export {
   toAiError,
 } from './api'
 export { aiKeyConfigured, setAiKey } from './key'
+export { type AiSetup, aiConfigured } from './ready'
 export { formatMonthUsage, formatTokens } from './format'
 export {
   AI_PROVIDERS,
