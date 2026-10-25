@@ -22,6 +22,8 @@ export type PlayerSourceItem = {
   ext?: Record<string, unknown>
   /** CatSpider 站点名 */
   siteName?: string
+  /** 本地文件的动态范围（媒体库存的探测结果）：杜比视界 P5 进内置播放器时据此直接决定是否重建 */
+  video?: VideoProbe | null
 }
 
 type MediaPlayerOpenOptions = {
@@ -197,6 +199,7 @@ export async function openMediaPlayer(
     ...(fallbacks ? { fallbacks } : {}),
     ...(continueId ? { continueId } : {}),
     ...(isPrivate ? { private: true } : {}),
+    ...(filePath && !playlist && options.video ? { video: options.video } : {}),
   })
   return true
 }

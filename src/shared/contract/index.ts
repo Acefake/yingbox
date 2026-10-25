@@ -12,6 +12,7 @@ import { capture } from './capture'
 import { danmaku } from './danmaku'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
+import { dolbyVision } from './dolby-vision'
 import { download } from './download'
 import { introDetect } from './intro-detect'
 import { iptv } from './iptv'
@@ -40,6 +41,7 @@ export const contract = {
   capture,
   danmaku,
   dialog,
+  dolbyVision,
   download,
   introDetect,
   iptv,
