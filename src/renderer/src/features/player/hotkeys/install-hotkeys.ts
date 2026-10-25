@@ -49,7 +49,7 @@ function createOsd(art: Artplayer): (icon: IconName, text: string) => void {
   const text = el.querySelector<HTMLElement>('.yb-osd__text')
   let timer: number | undefined
   return (name, label) => {
-    if (icon) icon.innerHTML = artIcon(name, name === 'play')
+    if (icon) icon.innerHTML = artIcon(name)
     if (text) text.textContent = label
     el.classList.remove('is-visible')
     void el.offsetWidth // 重新触发淡入

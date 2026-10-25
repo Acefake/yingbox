@@ -3,7 +3,7 @@
     <div
       v-for="item in items"
       :key="item.id"
-      class="ui-toast"
+      class="ui-toast yb-glass"
       :class="`is-${item.kind}`"
       :role="item.kind === 'error' ? 'alert' : 'status'"
       :aria-live="item.kind === 'error' ? 'assertive' : 'polite'"
@@ -69,16 +69,11 @@ const ICONS: Record<Exclude<ToastKind, 'loading'>, IconName> = {
   gap: var(--space-2);
   max-width: min(480px, calc(100vw - var(--space-8)));
   padding: var(--space-2) var(--space-4);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: color-mix(in srgb, var(--bg-elevated) 88%, transparent);
+  border-radius: var(--radius-full);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-sm);
   line-height: var(--leading-normal);
-  box-shadow: var(--shadow-md);
-  backdrop-filter: blur(20px) saturate(180%);
-  -webkit-backdrop-filter: blur(20px) saturate(180%);
 }
 .ui-toast__text {
   min-width: 0;

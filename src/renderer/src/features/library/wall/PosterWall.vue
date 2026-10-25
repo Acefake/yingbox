@@ -52,16 +52,12 @@
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
           }}</span>
-          <span v-if="cell.range" class="lib-cell-range">{{ cell.range }}</span>
-          <svg
-            v-if="cell.selected"
-            class="lib-cell-check"
-            viewBox="0 0 24 24"
-            aria-hidden="true"
-          >
-            <circle cx="12" cy="12" r="11" />
-            <path d="M7 12.5l3.2 3.2L17 9" />
-          </svg>
+          <span v-if="cell.range" class="lib-cell-range yb-spec is-solid">{{
+            cell.range
+          }}</span>
+          <span v-if="cell.selected" class="lib-cell-check">
+            <UiIcon name="check" size="sm" />
+          </span>
         </div>
         <template v-if="cell.item">
           <div class="lib-cell-title">{{ cell.item.title }}</div>
@@ -100,6 +96,7 @@
 import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
 import { useGridPreview } from '@/components/ui/hover-preview'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import { applyFocus } from '@/services/thumbnails'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'

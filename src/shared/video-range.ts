@@ -99,14 +99,5 @@ export function videoRangeBadge(range: VideoRange | null | undefined): string {
   return ''
 }
 
-/** 详情文件行的小标：杜比视界带 profile（「DV P5」），其余同 videoRangeBadge */
-export function videoProbeTag(probe: VideoProbe | null | undefined): string {
-  if (!probe) return ''
-  const badge = videoRangeBadge(probe.range)
-  return probe.range === 'dv' && probe.dvProfile !== null
-    ? `${badge} P${probe.dvProfile}`
-    : badge
-}
-
 /** SQL 里按档位取最好一档时用的排名：DV > HDR10 > HLG > SDR（多个文件取最好一档，见 catalog/query） */
 export const VIDEO_RANGE_RANK: Readonly<Record<VideoRange, number>> = RANK

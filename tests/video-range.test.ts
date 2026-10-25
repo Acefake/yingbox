@@ -9,7 +9,6 @@ import {
 import {
   needsDvColorFix,
   parseFfprobeVideo,
-  videoProbeTag,
   videoRangeBadge,
 } from '../src/shared/video-range'
 
@@ -84,19 +83,6 @@ describe('标记与汇总', () => {
     expect(videoRangeBadge('hlg')).toBe('HLG')
     expect(videoRangeBadge('sdr')).toBe('')
     expect(videoRangeBadge(null)).toBe('')
-  })
-
-  it('详情小标：杜比视界带 profile', () => {
-    expect(videoProbeTag({ range: 'dv', dvProfile: 5, dvCompat: 0 })).toBe(
-      'DV P5'
-    )
-    expect(
-      videoProbeTag({ range: 'dv', dvProfile: null, dvCompat: null })
-    ).toBe('DV')
-    expect(
-      videoProbeTag({ range: 'hlg', dvProfile: null, dvCompat: null })
-    ).toBe('HLG')
-    expect(videoProbeTag(null)).toBe('')
   })
 })
 
