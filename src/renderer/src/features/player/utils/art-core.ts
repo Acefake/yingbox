@@ -70,6 +70,9 @@ export interface ArtCoreInput {
 Artplayer.DBCLICK_FULLSCREEN = false
 /** 内置「播放速度」菜单与 < / > 快捷键同一组档位（全局静态，只此一处设） */
 Artplayer.PLAYBACK_RATE = [...RATE_STEPS]
+/** 齿轮菜单：44 高的行、300 宽（与 styles/art-skin.css 的玻璃菜单一起定；Artplayer 按它们算面板尺寸） */
+Artplayer.SETTING_ITEM_HEIGHT = 44
+Artplayer.SETTING_WIDTH = 300
 const dblclickClaimed = new WeakSet<Artplayer>()
 
 /** 由调用方接管这个实例的双击（不再默认切全屏） */
