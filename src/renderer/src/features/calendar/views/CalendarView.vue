@@ -42,7 +42,9 @@
 
     <p v-if="notice" class="cal-notice">{{ notice }}</p>
 
-    <AutograbPanel v-if="autograbAvailable && showAutograb" />
+    <AutograbTabs v-if="autograbAvailable && showAutograb">
+      <AutograbPanel />
+    </AutograbTabs>
 
     <section
       v-if="cal.mode.value === 'week'"
@@ -122,6 +124,7 @@ import {
   toast,
 } from '@/components/ui'
 import { AutograbPanel, autograbAvailable } from '@/features/autograb'
+import { AutograbTabs } from '@/features/autograb-upgrade'
 import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
