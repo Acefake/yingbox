@@ -314,7 +314,7 @@ describe('海报墙规则', () => {
     })
   })
 
-  it('动态范围小标：DV / HDR / HLG，SDR 与没探测过不显示', () => {
+  it('动态范围规格标签与详情同一套（videoRangeSpec），SDR 与没探测过不显示', () => {
     const ranged = new Map([
       [0, summary(20, { videoRange: 'dv' })],
       [1, summary(21, { videoRange: 'hdr10' })],
@@ -326,7 +326,12 @@ describe('海报墙规则', () => {
       end: 4,
       at: (i: number) => ranged.get(i),
     })
-    expect(cells.map(c => c.range)).toEqual(['DV', 'HDR', '', ''])
+    expect(cells.map(c => c.range)).toEqual([
+      { variant: 'dolby', text: 'VISION' },
+      { variant: 'solid', text: 'HDR10' },
+      null,
+      null,
+    ])
   })
 
   it('快速滚动只给显示过的条目图片；关掉角标', () => {

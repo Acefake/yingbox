@@ -4,7 +4,7 @@
  */
 import type Artplayer from 'artplayer'
 
-import { ICON_PATHS, type IconName } from '@/components/ui/icons'
+import { type IconName, iconPath } from '@/components/ui/icons'
 
 /** Artplayer 构造参数 */
 export type ArtOption = ConstructorParameters<typeof Artplayer>[0]
@@ -22,23 +22,20 @@ function mediaAccent(): string {
 
 /**
  * 把设计系统的图标转成 Artplayer 控制栏可用的 SVG 字符串，
- * 让播放器原生控制栏与应用其余部分使用同一套线性图标。
+ * 让播放器原生控制栏与应用其余部分使用同一套图标。
  * 只替换图标外观，不改变 Artplayer 的任何控制行为。
  */
-export const artIcon = (name: IconName, filled = false): string =>
-  `<svg viewBox="0 0 24 24" width="22" height="22" style="fill:${
-    filled ? 'currentColor' : 'none'
-  }" stroke="currentColor" stroke-width="1.75" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="${ICON_PATHS[name]}"/></svg>`
+export const artIcon = (name: IconName): string =>
+  `<svg viewBox="0 0 256 256" width="22" height="22" fill="currentColor" aria-hidden="true"><path d="${iconPath(name)}"/></svg>`
 
 /** 替换 Artplayer 默认图标 */
 export const ART_ICONS = {
-  play: artIcon('play', true),
+  play: artIcon('play'),
   pause: artIcon('pause'),
   volume: artIcon('volume'),
   volumeClose: artIcon('volumeOff'),
   fullscreenOn: artIcon('fullscreen'),
-  // 图标库没有「退出全屏」，用最接近的 restore
-  fullscreenOff: artIcon('restore'),
+  fullscreenOff: artIcon('exitFullscreen'),
   pip: artIcon('pip'),
   setting: artIcon('settings'),
 }

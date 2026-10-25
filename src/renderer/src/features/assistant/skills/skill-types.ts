@@ -5,9 +5,10 @@
  * 提示词片段与建议胶囊。模型输出共用一套参数槽（{@link SkillRaw}），每个动作自己校验要用的槽，
  * 不合格就返回 null，由核心降级为只回答文字。
  */
+import type { Component } from 'vue'
 import type { Router } from 'vue-router'
 
-import type { IconName } from '@/components/ui'
+import type { IconName, SpecBadge } from '@/components/ui'
 
 /** 当前在播什么（只在内置播放器播放时有） */
 export interface NowPlaying {
@@ -47,6 +48,16 @@ export type SkillGate =
   | { kind: 'answer' }
   | null
 
+/** 卡片上的一个按钮：一次性动作，或在卡片列表下方展开一个面板 */
+export interface AssistantCardAction {
+  label: string
+  primary?: boolean
+  /** 一次性动作；返回 true 时收起助手 */
+  run?: () => Promise<boolean>
+  /** 在卡片列表下方展开的面板（再点一次收起）；面板发出 played 时收起助手 */
+  panel?: { component: Component; props: Record<string, unknown> }
+}
+
 /** 一张海报 / 封面卡片 */
 export interface AssistantMediaCard {
   id: string
@@ -55,8 +66,10 @@ export interface AssistantMediaCard {
   image: string | null
   /** 封面角上的小标（时长、看到多少） */
   badge?: string
-  /** 一行说明（类型 · 评分 · 规格） */
+  /** 一行说明（类型 · 评分 · 时长） */
   meta: string
+  /** 规格标签（4K、DOLBY VISION、中字…）；没有时不显示 */
+  specs?: SpecBadge[]
   /** 推荐理由 */
   reason?: string
   /** 进度 0–1 */
@@ -65,6 +78,10 @@ export interface AssistantMediaCard {
   playLabel: string
   /** 开始播放；找不到可播放的内容时返回 false */
   play: () => Promise<boolean>
+  /** 标题旁的状态字（如「未入库」），随状态变化 */
+  tag?: () => string
+  /** 有按钮时整张卡不再点开播放，改用这些按钮（随状态变化） */
+  actions?: () => AssistantCardAction[]
 }
 
 /** 面板里的结果 */

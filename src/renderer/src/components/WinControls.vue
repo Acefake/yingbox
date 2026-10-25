@@ -18,7 +18,7 @@
 
 <script setup lang="ts">
 /**
- * 无边框窗口的最小化 / 最大化（还原）/ 关闭按钮。
+ * 无边框窗口的最小化 / 最大化（还原）/ 关闭按钮（外壳把它放进右上角的玻璃胶囊，class 由调用方给）。
  * 只在 Electron 里显示；最大化状态随窗口 resize 同步，图标在 maximize / restore 间切换。
  */
 import { onMounted, onUnmounted, ref } from 'vue'

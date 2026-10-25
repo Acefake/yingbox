@@ -2,7 +2,7 @@ import { isIncognito } from '@/features/incognito'
 import type { JsonRecord } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 
-import { isWatched } from '../watched'
+import { readWatched } from '../watched'
 
 const ONLINE_KEY = 'online_play_history'
 const PROGRESS_MAP_KEY = 'media_play_progress'
@@ -41,20 +41,29 @@ export function mediaProgressKey(input: {
 }
 
 /**
- * 一个进度键的观看情况：位置与总时长（秒），以及是否看完（「已看完」集合里的独立标记，
- * 不从位置 0 推断）。进度表没有记录且没看完返回 null。
+ * 一个进度键的观看情况：位置与总时长（秒），是否看完（「已看完」集合里的独立标记，
+ * 不从位置 0 推断），以及最后一次记录的时间。进度表没有记录且没看完返回 null。
  */
-export function readMediaProgress(
-  key: string
-): { progress: number; duration: number; finished: boolean } | null {
+export function readMediaProgress(key: string): {
+  progress: number
+  duration: number
+  finished: boolean
+  updatedAt: number
+} | null {
   const hit = key ? readProgressMap()[key] : undefined
-  const finished = !!key && isWatched(key)
+  const watched = key
+    ? readWatched().find(e => e.key === key.trim())
+    : undefined
   const has = !!hit && typeof hit.progress === 'number'
-  if (!has && !finished) return null
+  if (!has && !watched) return null
   return {
     progress: has ? hit.progress : 0,
     duration: has && typeof hit.duration === 'number' ? hit.duration : 0,
-    finished,
+    finished: !!watched,
+    updatedAt: Math.max(
+      has && typeof hit.updatedAt === 'number' ? hit.updatedAt : 0,
+      watched?.at ?? 0
+    ),
   }
 }
 

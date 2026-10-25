@@ -1,6 +1,6 @@
 /**
  * 网盘 feature 的公共出口：「网盘」设置分区（PanSou 地址、115 扫码登录、转存目标文件夹），由应用入口登记。
- * 搜索页 views/NetdiskView.vue 由路由表直接懒加载。
+ * 搜索页 views/NetdiskView.vue 由路由表直接懒加载。115 文件夹选择器给追更面板选每部剧的文件夹。
  */
 import type { SettingsSection } from '@/features/settings'
 
@@ -17,3 +17,4 @@ export const netdiskSettingsSection: SettingsSection = {
 }
 
 export { netdiskAvailable }
+export { default as NetdiskFolderPicker } from './components/NetdiskFolderPicker.vue'

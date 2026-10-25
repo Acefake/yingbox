@@ -1,6 +1,7 @@
 /**
  * 播放器里的跳过片头片尾：右键菜单标记、进度条区间与悬停段名、「跳过片头」按钮、自动跳过、
  * 片尾「下一集」倒计时，以及播完（ended）后的「下一集」倒计时卡片（可取消）。
+ * 两种倒计时都是 5 秒；设置 player.autoNext 关着时卡片照常出现，但不倒计时（counting 为假）。
  *
  * 每集一个 Artplayer 实例：attach 时重置这一集的状态（自动跳过是否用掉、片尾卡片是否被关掉），
  * 实例销毁时自动断开。标记按剧存（skip-store），同一部剧每集通用。
@@ -38,7 +39,7 @@ import {
 import { clearSkipMarks, getSkipMarks, setSkipMarks } from './skip-store'
 
 /** 片尾「下一集」倒计时（秒） */
-export const NEXT_COUNTDOWN = 8
+export const NEXT_COUNTDOWN = 5
 /** 播完后「下一集」倒计时（秒） */
 export const ENDED_COUNTDOWN = 5
 
@@ -68,6 +69,8 @@ export interface SkipSegments {
   endedNext: ComputedRef<boolean>
   /** 倒计时剩余秒数 */
   countdown: Ref<number>
+  /** 正在倒计时（自动连播关着时卡片不倒计时） */
+  counting: Ref<boolean>
   /** 切集中：已触发下一集、还没切完（「立即播放」按钮显示 loading） */
   switching: Ref<boolean>
   /** 接管新一集的实例 */
@@ -87,6 +90,7 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
   /** 片尾卡片：用户点了「看完片尾」后本集不再出现 */
   const creditsDismissed = ref(false)
   const countdown = ref(NEXT_COUNTDOWN)
+  const counting = ref(false)
   const switching = ref(false)
   /** 这一集的自动跳过是否已用掉 */
   let autoConsumed = false
@@ -218,6 +222,7 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
   })
   const stopCountdown = (): void => {
     timer.stop()
+    counting.value = false
     countdown.value = NEXT_COUNTDOWN
   }
 
@@ -274,7 +279,8 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
   // 卡片出现时开始倒计时（片尾里暂停时不走），到 0 播下一集
   watch(showNext, visible => {
     stopCountdown()
-    if (!visible || switching.value) return
+    if (!visible || switching.value || !getSetting('player.autoNext')) return
+    counting.value = true
     timer.start(endedNext.value ? ENDED_COUNTDOWN : NEXT_COUNTDOWN)
   })
 
@@ -286,6 +292,7 @@ export function useSkipSegments(input: SkipSegmentsInput): SkipSegments {
     showNext,
     endedNext,
     countdown,
+    counting,
     switching,
     attach,
     skipIntro: (): void => {

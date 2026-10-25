@@ -16,6 +16,8 @@ import {
 import type { ThumbnailService } from '../thumbnails'
 import { libraryAiHost } from './ai-host'
 import { libraryToolsHost } from './tools-host'
+import { librarySubtitlesHost } from './subtitles-host'
+import type { LibraryArrival } from '../../shared/library/arrivals'
 import {
   type LibraryChild,
   LibraryEngineHost,
@@ -42,6 +44,16 @@ function forkEngine(): LibraryChild {
   ) as unknown as LibraryChild
 }
 
+/** 新入库的监听者（推送通知，见 src/main/notify）。 */
+const arrivalListeners = new Set<(arrivals: LibraryArrival[]) => void>()
+
+/** 订阅引擎宣布的新入库。 */
+export function onLibraryArrivals(
+  listener: (arrivals: LibraryArrival[]) => void
+): void {
+  arrivalListeners.add(listener)
+}
+
 /** 主进程内直接调引擎（如下发 TMDB 令牌）；引擎报错时抛出。 */
 export interface LibraryEngineClient {
   call<M extends LibraryMethod>(
@@ -60,11 +72,19 @@ export function registerLibraryIpc(
 ): LibraryEngineClient {
   const host = new LibraryEngineHost({
     // 代办：调用方给的（远程源凭据）+ 引擎里的 AI 识别兜底经主进程的 aiService 调大模型
-    host: { ...libraryAiHost(), ...libraryToolsHost(), ...hostMethods },
+    host: {
+      ...libraryAiHost(),
+      ...libraryToolsHost(),
+      ...librarySubtitlesHost(),
+      ...hostMethods,
+    },
     fork: forkEngine,
     createChannel: () => new MessageChannelMain(),
     onImagesCached: keys =>
       thumbnails.warm(keys.filter(k => /^[0-9a-f]{32}$/.test(k))),
+    onArrivals: arrivals => {
+      for (const listener of arrivalListeners) listener(arrivals)
+    },
     onReady: ms => console.info(`[library] 引擎就绪（${ms} ms）`),
     onBlocked: reason => console.error(`[library] ${reason}`),
   })

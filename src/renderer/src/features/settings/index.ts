@@ -6,4 +6,9 @@ export { type SettingsSection, registerSettingsSection } from './registry'
 export { default as SettingsPanel } from './SettingsPanel.vue'
 export { default as SettingsGroup } from './ui/SettingsGroup.vue'
 export { default as SettingsRow } from './ui/SettingsRow.vue'
-export { setTmdbToken, tmdbTokenConfigured } from './tmdb-token'
+export {
+  type TokenDraft,
+  createTokenDraft,
+  setTmdbToken,
+  tmdbTokenConfigured,
+} from './tmdb-token'

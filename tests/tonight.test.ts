@@ -273,6 +273,8 @@ describe('模型结果校验与兜底', () => {
     )
     expect(system.role).toBe('system')
     expect(system.content).toContain('正好 3 部')
+    // 没刮削的片子类型 / 简介为空：让模型按片名和年份判断
+    expect(system.content).toContain('按片名和年份')
     expect(user.content).toContain('心情：烧脑')
     expect(user.content).toContain('可用时长：1 小时内')
     expect(user.content).toContain('补充：想看老片')

@@ -101,6 +101,8 @@ export async function createServerApp(
       log: message => log(`[library] ${message}`),
       deriveImage: codecDeriver(codec),
       clipPixels: codecClipPixels(codec),
+      // 按画面搜抽视频帧：YINGBOX_FFMPEG 或 PATH 上的 ffmpeg（找不到时抽帧任务报错，不影响别的）
+      ffmpegPath: async () => env.YINGBOX_FFMPEG || 'ffmpeg',
       onImagesCached: keys => thumbnails.warm(keys),
       env: envSecrets(env),
     },

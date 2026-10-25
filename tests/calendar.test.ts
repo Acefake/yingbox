@@ -132,7 +132,7 @@ describe('状态判定', () => {
     expect(episodeStatus(null, TODAY, false)).toBe('unwatched')
   })
 
-  it('媒体库的一集：进度过 95% 或继续播放记录已越过它算看过', () => {
+  it('媒体库的一集：进度过 90% 或继续播放记录已越过它算看过', () => {
     const ep = { season: 3, episode: 1 }
     expect(libraryEpisodeWatched(ep, tvRecord(), null)).toBe(true)
     expect(

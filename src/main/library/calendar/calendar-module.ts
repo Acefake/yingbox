@@ -56,12 +56,25 @@ interface LocalEpisode {
   filePath: string | null
 }
 
+/**
+ * 参与日历的剧：已确认匹配的剧；同一部剧在几个文件夹里（同 merge_key）只取 id 最小的一个，
+ * 它的本地集由 MEMBERS_SQL 找全。
+ */
 const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.tmdb_id, i.backdrop
   FROM media_items i JOIN libraries l ON l.id = i.library_id
   WHERE i.type = 'series' AND l.kind = 'tv' AND i.tmdb_id IS NOT NULL
-    AND i.match_state IN ('auto', 'locked')`
+    AND i.match_state IN ('auto', 'locked')
+    AND (i.merge_key IS NULL OR NOT EXISTS (
+      SELECT 1 FROM media_items o JOIN libraries lo ON lo.id = o.library_id
+      WHERE o.merge_key = i.merge_key AND o.id < i.id AND lo.kind = 'tv'))`
 
-/** 一部剧下的集（集可能挂在季下，也可能直接挂在剧下），带第一个视频文件。 */
+/** 与这部剧合并展示的本地条目（含自身）。 */
+const MEMBERS_SQL = `SELECT ?1 AS id UNION
+  SELECT m.id FROM media_items i JOIN media_items m ON m.merge_key = i.merge_key
+  JOIN libraries l ON l.id = m.library_id AND l.kind = 'tv'
+  WHERE i.id = ?1`
+
+/** 这些剧下的集（集可能挂在季下，也可能直接挂在剧下），带第一个视频文件。 */
 const EPISODES_SQL = `SELECT e.id, e.season_number, e.episode_number,
     (SELECT f.id FROM file_media fm JOIN files f ON f.id = fm.file_id
       WHERE fm.item_id = e.id AND f.kind = 'video' ORDER BY f.path LIMIT 1) AS file_id,
@@ -70,8 +83,9 @@ const EPISODES_SQL = `SELECT e.id, e.season_number, e.episode_number,
   FROM media_items e
   WHERE e.type = 'episode' AND e.season_number IS NOT NULL
     AND e.episode_number IS NOT NULL
-    AND (e.parent_id = ?1
-      OR e.parent_id IN (SELECT id FROM media_items WHERE parent_id = ?1 AND type = 'season'))`
+    AND (e.parent_id IN (SELECT value FROM json_each(?1))
+      OR e.parent_id IN (SELECT id FROM media_items
+        WHERE parent_id IN (SELECT value FROM json_each(?1)) AND type = 'season'))`
 
 /** 追剧日历。 */
 export class CalendarModule {
@@ -135,13 +149,18 @@ export class CalendarModule {
 
   private localEpisodes(seriesId: number): Map<string, LocalEpisode> {
     const out = new Map<string, LocalEpisode>()
-    for (const row of this.sql.get(EPISODES_SQL).all(seriesId)) {
+    const members = this.sql
+      .get(MEMBERS_SQL)
+      .all(seriesId)
+      .map(r => Number(r.id))
+    const rows = this.sql.get(EPISODES_SQL).all(JSON.stringify(members))
+    for (const row of rows) {
       const key = episodeKey(
         Number(row.season_number),
         Number(row.episode_number)
       )
       const found = out.get(key)
-      // 同一集多个条目（多版本）时优先有文件的
+      // 同一集多个条目（多版本、几个文件夹各有一份）时优先有文件的
       if (found?.fileId) continue
       out.set(key, {
         itemId: Number(row.id),
