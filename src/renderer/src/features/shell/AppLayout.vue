@@ -73,7 +73,8 @@
 
 <script setup lang="ts">
 /**
- * 应用外壳：主内容铺满窗口，上面浮着玻璃侧栏（含全局搜索与 AI 助手入口；可收起为 64px 图标列，手机上为抽屉）
+ * 应用外壳：主内容铺满窗口，上面浮着玻璃侧栏（含全局搜索与 AI 助手入口；可收起为 64px 图标列，
+ * Cmd/Ctrl+B 切换并记住，见 sidebar-state.ts；手机上为抽屉）
  * 和顶部的前进后退 / 窗口键胶囊；另有全局的设置窗口和后台任务浮层，手机上额外显示底部标签栏。
  * 内容区按 --shell-left / --shell-top 让出浮动控件，页面要铺到侧栏后面时可用这两个变量取负边距。
  * 侧栏、工具栏各自是组件，导航项与搜索规则是纯函数（composables/），这里只管布局状态与全局快捷键。
@@ -96,13 +97,18 @@ import {
   buildBottomNav,
   buildNavGroups,
 } from './composables/nav-items'
+import {
+  isSidebarShortcut,
+  useSidebarCollapsed,
+} from './composables/sidebar-state'
 
 const router = useRouter()
 const route = useRoute()
 
 const { isElectron, isWeb, isPhone, hasLocalLibrary } = usePlatform()
 
-const sidebarCollapsed = ref(false)
+/** 用户选择的收起状态（持久化，Cmd/Ctrl+B 切换） */
+const sidebarCollapsed = useSidebarCollapsed()
 const sidebarOpen = ref(false)
 
 /** 桌面端收起侧栏时只显示图标，导航项改用悬停提示 */
@@ -151,6 +157,9 @@ const onSettingsShortcut = (event: KeyboardEvent): void => {
   if ((event.ctrlKey || event.metaKey) && event.key === ',') {
     event.preventDefault()
     openGlobalSettings()
+  } else if (!isPhone.value && isSidebarShortcut(event)) {
+    event.preventDefault()
+    sidebarCollapsed.value = !sidebarCollapsed.value
   }
 }
 const openGlobalSettings = (section = 'appearance'): void => {

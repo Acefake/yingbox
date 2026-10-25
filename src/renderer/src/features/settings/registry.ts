@@ -7,18 +7,6 @@
 import { type Component, shallowReactive } from 'vue'
 import type { IconName } from '@/components/ui/icons'
 
-/** 设置导航彩色图标块的底色（tokens.css 里的语义色 / 点缀色） */
-export type SettingsTint =
-  | 'indigo'
-  | 'teal'
-  | 'orange'
-  | 'green'
-  | 'red'
-  | 'blue'
-  | 'purple'
-  | 'pink'
-  | 'gray'
-
 /** 一个设置分区 */
 export interface SettingsSection {
   /** 唯一标识，也是 app:open-settings 事件里的分区名 */
@@ -27,8 +15,6 @@ export interface SettingsSection {
   title: string
   /** 导航图标 */
   icon: IconName
-  /** 导航图标块的底色，省略时为灰色 */
-  tint?: SettingsTint
   /** 搜索设置时额外匹配的关键词 */
   keywords: string
   /** 懒加载分区组件 */
@@ -49,7 +35,6 @@ const coreSections: SettingsSection[] = [
     id: 'appearance',
     title: '外观',
     icon: 'sun',
-    tint: 'indigo',
     keywords: '主题 深色 浅色 悬停 预览 预告片 防剧透 剧照 简介',
     load: () => import('./sections/AppearanceSettings.vue'),
     order: 10,
@@ -58,7 +43,6 @@ const coreSections: SettingsSection[] = [
     id: 'images',
     title: '图片质量',
     icon: 'image',
-    tint: 'teal',
     keywords: '海报 背景图 演员 尺寸',
     load: () => import('./sections/ImageSettings.vue'),
     order: 20,
@@ -66,8 +50,7 @@ const coreSections: SettingsSection[] = [
   {
     id: 'scrape',
     title: '刮削',
-    icon: 'wand',
-    tint: 'orange',
+    icon: 'download',
     keywords: '元数据 语言 tmdb',
     load: () => import('./sections/ScrapeSettings.vue'),
     order: 30,
@@ -76,7 +59,6 @@ const coreSections: SettingsSection[] = [
     id: 'provider',
     title: '服务',
     icon: 'globe',
-    tint: 'green',
     keywords: 'tmdb token 后端 密钥 自定义 连接',
     load: () => import('./sections/ProviderSettings.vue'),
     order: 40,
@@ -85,7 +67,6 @@ const coreSections: SettingsSection[] = [
     id: 'player',
     title: '播放器',
     icon: 'play',
-    tint: 'red',
     keywords: 'mpv 引擎 artplayer 超分 小窗 画中画 置顶',
     load: () => import('./sections/PlayerSettings.vue'),
     order: 60,
@@ -94,7 +75,6 @@ const coreSections: SettingsSection[] = [
     id: 'danmaku',
     title: '弹幕',
     icon: 'subtitle',
-    tint: 'blue',
     keywords: '弹幕 弹弹play dandanplay appid appsecret',
     load: () => import('./sections/DanmakuSettings.vue'),
     order: 65,
@@ -103,7 +83,6 @@ const coreSections: SettingsSection[] = [
     id: 'ai',
     title: 'AI',
     icon: 'sparkle',
-    tint: 'purple',
     keywords:
       'ai 模型 openai deepseek openrouter opencode ollama key 语音识别 whisper 用量 私密',
     load: () => import('./sections/AiSettings.vue'),
@@ -113,7 +92,6 @@ const coreSections: SettingsSection[] = [
     id: 'update',
     title: '软件更新',
     icon: 'refresh',
-    tint: 'gray',
     keywords: '版本 下载 重启',
     load: () => import('./sections/UpdateSettings.vue'),
     order: 80,
