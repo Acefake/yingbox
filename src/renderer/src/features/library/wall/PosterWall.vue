@@ -52,11 +52,25 @@
           <span v-if="cell.rating" class="lib-cell-rating">{{
             cell.rating
           }}</span>
-          <span v-if="cell.range" class="lib-cell-range yb-spec is-solid">{{
-            cell.range
-          }}</span>
+          <span
+            v-if="cell.range"
+            class="lib-cell-range yb-spec"
+            :class="`is-${cell.range.variant}`"
+          >
+            <template v-if="cell.range.variant === 'dolby'">
+              <span class="yb-spec-brand">DOLBY</span>
+              <span class="yb-spec-line">{{ cell.range.text }}</span>
+            </template>
+            <template v-else>{{ cell.range.text }}</template>
+          </span>
           <span v-if="cell.selected" class="lib-cell-check">
-            <UiIcon name="check" size="sm" />
+            <svg
+              class="app-icon app-icon--sm"
+              viewBox="0 0 256 256"
+              aria-hidden="true"
+            >
+              <path :d="CHECK_PATH" />
+            </svg>
           </span>
         </div>
         <template v-if="cell.item">
@@ -96,7 +110,7 @@
 import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
 import { useGridPreview } from '@/components/ui/hover-preview'
-import UiIcon from '@/components/ui/UiIcon.vue'
+import { iconPath } from '@/components/ui/icons'
 import { applyFocus } from '@/services/thumbnails'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
@@ -114,6 +128,9 @@ import {
   clickModifiers,
   loadedIds,
 } from './wall-cells'
+
+/** 选中角标的对勾路径：内联 svg，格子不建 UiIcon 实例 */
+const CHECK_PATH = iconPath('check')
 
 const props = defineProps<{
   list: PagedList

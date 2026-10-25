@@ -5,7 +5,7 @@
 import type { CSSProperties } from 'vue'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
-import { videoRangeBadge } from '../../../../../shared/video-range'
+import { type SpecBadge, videoRangeSpec } from '@/components/ui/spec-badge'
 
 /** 一个渲染格。 */
 export interface Cell {
@@ -15,8 +15,8 @@ export interface Cell {
   src: string | null
   badge: string
   rating: string
-  /** 动态范围小标（DV / HDR / HLG）；SDR 与没探测过为空串 */
-  range: string
+  /** 动态范围规格标签（与详情同一套映射，见 spec-badge.ts）；SDR 与没探测过为 null */
+  range: SpecBadge | null
   selected: boolean
   style: CSSProperties
 }
@@ -65,7 +65,7 @@ export function buildCells(input: CellInput): Cell[] {
           ? (STATE_BADGES[item.matchState] ?? '')
           : '',
       rating: item ? input.rating(item.rating) : '',
-      range: videoRangeBadge(item?.videoRange),
+      range: videoRangeSpec(item?.videoRange),
       selected: item ? input.selected.has(item.id) : false,
       style: { transform: `translate3d(${x}px, ${y}px, 0)` },
     })

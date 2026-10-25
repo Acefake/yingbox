@@ -91,13 +91,5 @@ export function needsDvColorFix(
   return probe.dvProfile !== 7 && probe.dvCompat === 0
 }
 
-/** 卡片 / 详情上的小标：DV、HDR、HLG；SDR 与未知不显示 */
-export function videoRangeBadge(range: VideoRange | null | undefined): string {
-  if (range === 'dv') return 'DV'
-  if (range === 'hdr10') return 'HDR'
-  if (range === 'hlg') return 'HLG'
-  return ''
-}
-
 /** SQL 里按档位取最好一档时用的排名：DV > HDR10 > HLG > SDR（多个文件取最好一档，见 catalog/query） */
 export const VIDEO_RANGE_RANK: Readonly<Record<VideoRange, number>> = RANK
