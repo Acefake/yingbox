@@ -1,23 +1,15 @@
 <template>
-  <!-- 工具栏：标题与数量、视图切换、搜索筛选排序、操作 -->
+  <!-- 工具栏：第一行大标题与数量、右侧操作；第二行视图切换 + 筛选胶囊 -->
   <header class="lib-toolbar">
-    <div class="lib-toolbar-title">
-      <h1>{{ kindLabel }}</h1>
-      <span v-if="count !== null" class="lib-toolbar-count">{{
-        count.toLocaleString('zh-CN')
-      }}</span>
-    </div>
-    <div class="lib-toolbar-tools">
-      <UiSegmented
-        v-if="hasLibraries && viewOptions.length > 1"
-        v-model="view"
-        class="lib-toolbar-views"
-        size="sm"
-        label="视图"
-        :options="viewOptions"
-      />
-      <template v-if="hasLibraries && view === 'wall'">
-        <label class="lib-sort yb-glass">
+    <div class="lib-toolbar-head">
+      <div class="lib-toolbar-title">
+        <h1>{{ kindLabel }}</h1>
+        <span v-if="count !== null" class="lib-toolbar-count">{{
+          count.toLocaleString('zh-CN')
+        }}</span>
+      </div>
+      <div class="lib-toolbar-tools">
+        <label v-if="shows('sort')" class="lib-sort">
           <UiIcon name="sort" size="sm" />
           <UiSelect
             class="lib-sort-field"
@@ -32,83 +24,78 @@
             "
           />
         </label>
-        <UiIconButton
-          class="lib-round yb-glass"
+        <UiButton
+          v-if="shows('order')"
           :icon="order === 'asc' ? 'arrowUp' : 'arrowDown'"
           :label="order === 'asc' ? '升序' : '降序'"
           @click="emit('toggle-order')"
         />
-        <UiIconButton
-          v-if="facetScope"
-          class="lib-round yb-glass lib-facets-button"
+        <UiButton
+          v-if="shows('facets')"
           icon="filter"
           :label="facetCount ? `筛选 ${facetCount}` : '筛选'"
-          :active="facetsOpen || facetCount > 0"
+          :pressed="facetsOpen || facetCount > 0"
           :aria-expanded="facetsOpen"
           @click="facetsOpen = !facetsOpen"
         />
-        <UiIconButton
-          v-if="facetScope"
-          class="lib-round yb-glass"
-          icon="image"
-          label="按画面"
-          @click="visualOpen = true"
+        <UiButton
+          v-if="shows('scan')"
+          icon="refresh"
+          label="扫描"
+          @click="emit('scan')"
         />
-      </template>
-      <UiIconButton
-        v-if="hasLibraries && view === 'wall' && count"
-        class="lib-round yb-glass"
-        icon="grid"
-        label="视频墙"
-        @click="emit('video-wall')"
-      />
-      <UiIconButton
-        v-if="hasLibraries"
-        class="lib-round yb-glass"
-        icon="refresh"
-        label="扫描"
-        @click="emit('scan')"
-      />
-      <UiIconButton
-        v-if="hasLibraries"
-        class="lib-round yb-glass"
-        icon="sparkle"
-        label="识别全部"
-        @click="emit('identify')"
-      />
-      <UiIconButton
-        class="lib-round yb-glass"
-        icon="settings"
-        label="设置"
-        @click="emit('settings')"
-      />
+        <UiButton
+          v-if="shows('identify')"
+          icon="sparkle"
+          label="识别"
+          @click="emit('identify')"
+        />
+        <UiMenuButton :items="moreItems" />
+      </div>
     </div>
-    <!-- 筛选胶囊：匹配状态，媒体库多于一个时后面接媒体库 -->
+    <!-- 视图切换与筛选胶囊排成一行：资料库 / 演员 | 匹配状态（待确认带数量）| 各媒体库 -->
     <div
-      v-if="hasLibraries && view === 'wall'"
+      v-if="hasLibraries && (showSwitch || view !== 'actors')"
       v-scroll-x
-      class="lib-toolbar-chips"
-      role="group"
-      aria-label="筛选"
+      class="lib-toolbar-row"
     >
-      <UiChip
-        v-for="o in filterOptions"
-        :key="o.value"
-        size="lg"
-        :label="o.label"
-        :selected="filter === o.value"
-        @click="filter = o.value"
+      <UiSegmented
+        v-if="showSwitch"
+        :model-value="view === 'actors' ? 'actors' : 'wall'"
+        label="视图"
+        :options="viewOptions"
+        @update:model-value="view = $event"
       />
-      <template v-if="libraryOptions.length > 2">
-        <span class="lib-chip-divider" aria-hidden="true" />
-        <UiChip
-          v-for="o in libraryOptions"
-          :key="`lib-${o.value}`"
-          size="lg"
-          :label="o.label"
-          :selected="library === o.value"
-          @click="library = o.value"
-        />
+      <template v-if="view !== 'actors'">
+        <span v-if="showSwitch" class="lib-row-divider" aria-hidden="true" />
+        <div class="lib-chips" role="group" aria-label="匹配状态">
+          <UiChip
+            v-for="o in filterOptions"
+            :key="o.value"
+            size="md"
+            :label="o.label"
+            :count="
+              o.value === 'review'
+                ? reviewChipCount(reviewCount ?? 0)
+                : undefined
+            "
+            :selected="chipSelected(o.value)"
+            @click="pickFilter(o.value)"
+          />
+        </div>
+        <template v-if="view === 'wall' && libraryOptions.length > 2">
+          <span class="lib-row-divider" aria-hidden="true" />
+          <div class="lib-chips" role="group" aria-label="媒体库">
+            <UiChip
+              v-for="o in libraryOptions"
+              :key="`lib-${o.value}`"
+              size="md"
+              :label="o.label"
+              :selected="library === o.value"
+              @click="library = o.value"
+            />
+          </div>
+        </template>
       </template>
     </div>
     <!-- 分面筛选（番号库）：已选条件常驻，面板按「筛选」展开 -->
@@ -136,20 +123,23 @@
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧资料库 / 演员（番号库）/ 待确认切换、玻璃排序胶囊与方向、
- * 分面筛选与按画面搜（番号库）、视频墙、扫描 / 识别 / 设置（玻璃圆钮，文字在提示里）；
- * 第二行筛选胶囊（匹配状态，媒体库多于一个时接着列出各媒体库）。
+ * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧图标 + 文字按钮（排序、升降、筛选、扫描、识别），
+ * 其余操作（按画面搜、视频墙、设置）收进「更多」，摆放规则见 page-rules.ts toolbarActions；
+ * 第二行把视图切换（资料库 / 演员，番号页才有）和筛选胶囊排成一行：匹配状态（「待确认」带数量，选它进入待确认队列），
+ * 媒体库多于一个时接着列出各媒体库。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  * 搜索用顶栏全局搜索（按 ?q= 在本页过滤），工具栏不再放第二个搜索框。
  */
+import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import type { MenuButtonItem } from '@/components/ui/UiMenuButton.vue'
+import UiMenuButton from '@/components/ui/UiMenuButton.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 
-import { computed, ref } from 'vue'
+import { computed, ref, watch } from 'vue'
 import type {
   FacetFilter,
   FacetListRequest,
@@ -164,16 +154,23 @@ import {
   SORT_OPTIONS,
   type WallSort,
 } from '../state/query-state'
+import {
+  type ToolbarAction,
+  reviewChipCount,
+  toolbarActions,
+} from './page-rules'
 
 /** 页面视图。 */
 export type LibraryView = 'wall' | 'actors' | 'review'
 
-defineProps<{
+const props = defineProps<{
   kindLabel: string
   /** 海报墙条目数；null 时不显示。 */
   count: number | null
   hasLibraries: boolean
   viewOptions: SegmentedOption<LibraryView>[]
+  /** 待确认条目数（筛选胶囊上的数字） */
+  reviewCount?: number
   /** 媒体库下拉（含「全部文件夹」）；只有一个媒体库时不显示。 */
   libraryOptions: Array<{ value: number; label: string }>
   sort: WallSort
@@ -188,7 +185,6 @@ const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
 const facetsOpen = ref(false)
 const visualOpen = ref(false)
 const facetCount = computed(() => activeCount(facets.value))
-
 /** 0 表示全部文件夹。 */
 const library = defineModel<number>('library', { required: true })
 
@@ -205,124 +201,71 @@ const emit = defineEmits<{
 
 const sortOptions = SORT_OPTIONS.map(o => ({ ...o }))
 const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
+const showSwitch = computed(
+  () => props.hasLibraries && props.viewOptions.length > 1
+)
+
+/** 匹配状态胶囊：「待确认」对应待确认队列视图，其余是海报墙的筛选。 */
+function chipSelected(value: MatchFilter): boolean {
+  if (value === 'review') return view.value === 'review'
+  return view.value === 'wall' && filter.value === value
+}
+
+// 海报墙的「待确认」筛选由待确认队列承担：带着这个筛选进来（如恢复的查询条件）就直接进队列
+watch(
+  filter,
+  value => {
+    if (value !== 'review') return
+    filter.value = 'all'
+    view.value = 'review'
+  },
+  { immediate: true }
+)
+
+function pickFilter(value: MatchFilter): void {
+  if (value === 'review') {
+    view.value = 'review'
+    return
+  }
+  filter.value = value
+  view.value = 'wall'
+}
+
+const actions = computed(() =>
+  toolbarActions({
+    view: view.value,
+    hasLibraries: props.hasLibraries,
+    count: props.count,
+    facets: !!props.facetScope,
+  })
+)
+const shows = (action: ToolbarAction): boolean =>
+  actions.value.inline.includes(action)
+
+/** 「更多」菜单里每个操作的文字、图标与动作 */
+const MORE: Partial<Record<ToolbarAction, Omit<MenuButtonItem, 'key'>>> = {
+  visual: {
+    label: '按画面搜',
+    icon: 'image',
+    onSelect: () => (visualOpen.value = true),
+  },
+  'video-wall': {
+    label: '视频墙',
+    icon: 'grid',
+    onSelect: () => emit('video-wall'),
+  },
+  settings: {
+    label: '设置',
+    icon: 'settings',
+    onSelect: () => emit('settings'),
+  },
+}
+const moreItems = computed<MenuButtonItem[]>(() =>
+  actions.value.more.flatMap(key => {
+    const item = MORE[key]
+    return item ? [{ key, ...item }] : []
+  })
+)
 </script>
 
-<style scoped>
-.lib-toolbar {
-  flex: none;
-  display: flex;
-  flex-wrap: wrap;
-  align-items: flex-end;
-  gap: var(--space-4) var(--space-6);
-  padding: var(--space-6) var(--content-padding-x) var(--space-5);
-}
-.lib-toolbar-title {
-  display: flex;
-  align-items: baseline;
-  gap: var(--space-2_5);
-  min-width: 0;
-}
-.lib-toolbar-title h1 {
-  margin: 0;
-  color: var(--text-primary);
-  font-family: var(--font-display);
-  font-size: var(--text-3xl);
-  font-weight: var(--font-weight-semibold);
-  line-height: 1.1;
-  letter-spacing: var(--tracking-tight);
-}
-.lib-toolbar-count {
-  color: var(--text-tertiary);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-}
-.lib-toolbar-tools {
-  display: flex;
-  flex: 1 0 auto;
-  flex-wrap: wrap;
-  align-items: center;
-  justify-content: flex-end;
-  gap: var(--space-2_5);
-}
-/* 排序：玻璃胶囊里放 UiSelect（原生下拉，键盘、读屏照旧），左侧图标只是装饰 */
-.lib-sort {
-  position: relative;
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1_5);
-  height: 40px;
-  padding: 0 var(--space-3_5);
-  border-radius: var(--radius-full);
-  color: var(--text-primary);
-  cursor: pointer;
-}
-.lib-sort:focus-within {
-  box-shadow: var(--focus-ring);
-}
-/* UiSelect 外壳去掉边框与底色，融进玻璃胶囊；自带的下拉箭头贴右 */
-.lib-sort-field {
-  width: auto;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-}
-.lib-sort-field:focus-within {
-  box-shadow: none;
-}
-.lib-sort-field :deep(.ui-select-native) {
-  padding: 0 var(--space-5) 0 0;
-  color: inherit;
-}
-.lib-sort-field :deep(.ui-select-chevron) {
-  right: 0;
-}
-.lib-sort-field :deep(option) {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-/* 图标按钮基类是透明底，玻璃底色在这里补上（模糊与阴影来自 .yb-glass） */
-.lib-round {
-  width: 40px;
-  height: 40px;
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-  color: var(--text-primary);
-}
-/* 已高亮的圆钮悬停时保持反色底，不被玻璃悬停色盖掉 */
-.lib-round:hover:not(:disabled):not(.is-active) {
-  background: var(--glass-bg-hover);
-}
-.lib-round.is-active {
-  background: var(--text-primary);
-  color: var(--bg-content);
-}
-.lib-toolbar-chips {
-  display: flex;
-  flex: 1 0 100%;
-  align-items: center;
-  gap: var(--space-2);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.lib-chip-divider {
-  flex: none;
-  width: 1px;
-  height: 18px;
-  margin: 0 var(--space-1);
-  background: var(--border-glass-light);
-}
-.lib-toolbar-facets {
-  display: flex;
-  flex: 1 0 100%;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.lib-toolbar-facets:empty {
-  display: none;
-}
-</style>
+<style scoped src="./library-toolbar.css"></style>

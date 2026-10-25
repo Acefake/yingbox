@@ -1,4 +1,4 @@
-/* 追剧日历页（CalendarView.vue）的样式：页头操作区、七列周视图、列表视图 */
+/* 追剧日历页（CalendarView.vue）的样式：周切换胶囊、七列紧凑周视图、列表视图 */
 .calendar-page {
   display: flex;
   flex-direction: column;
@@ -8,15 +8,18 @@
   overflow-y: auto;
 }
 
+/* 周切换：与 UiButton secondary 同高同色的胶囊，里面两枚小圆钮夹着日期区间 */
 .cal-nav {
   display: flex;
+  flex: none;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-1);
-  min-width: 260px;
-  height: 44px;
+  min-width: 220px;
+  height: var(--control-height);
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
+  background: var(--bg-fill-secondary);
 }
 .cal-nav :deep(.yb-icon-button) {
   border-radius: var(--radius-full);
@@ -24,22 +27,10 @@
 .cal-week-label {
   min-width: 0;
   color: var(--text-primary);
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-medium);
   font-variant-numeric: tabular-nums;
   white-space: nowrap;
-}
-.cal-pill {
-  border-radius: var(--radius-full);
-}
-.cal-pill.is-on {
-  background: var(--text-primary);
-  color: var(--bg-content);
-}
-/* 图标按钮基类是透明底，玻璃底色在这里补上（模糊与阴影来自 .yb-glass） */
-.cal-round {
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
 }
 
 .cal-notice {
@@ -47,70 +38,65 @@
   font-size: var(--text-sm);
 }
 
-/* ── 周视图：七列剧照卡；最小窗口（1200 宽）也放得下，更窄时横向滚动 ── */
+/* ── 周视图：七列，每天一列紧凑行；最小窗口（1200 宽）也放得下，更窄时横向滚动 ── */
 .cal-week {
   display: grid;
   grid-template-columns: repeat(7, minmax(112px, 1fr));
-  gap: var(--space-3);
+  gap: var(--space-2);
   overflow-x: auto;
 }
 .cal-day {
+  container-type: inline-size;
   display: flex;
   flex-direction: column;
-  gap: var(--space-2_5);
+  gap: var(--space-1);
   min-width: 0;
+  padding-bottom: var(--space-2);
+  border-radius: var(--radius-md);
+}
+/* 今天：整列极淡的底，日期数字浅灰圆底，不用白色描边和实心白圆 */
+.cal-day.is-today {
+  background: var(--bg-glass);
 }
 .cal-day-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   height: 40px;
-  padding: 0 var(--space-1_5) 0 var(--space-1);
+  padding: 0 var(--space-1_5) 0 var(--space-2);
+  border-bottom: 1px solid var(--border-glass-light);
   color: var(--text-secondary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-regular);
 }
 .cal-day-num {
-  width: 32px;
-  height: 32px;
+  width: 28px;
+  height: 28px;
   border-radius: 50%;
   color: var(--text-primary);
-  font-size: var(--text-lg);
+  font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
-  line-height: 32px;
+  line-height: 28px;
   text-align: center;
 }
 .cal-day.is-today .cal-day-name {
   color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
+  font-weight: var(--font-weight-medium);
 }
 .cal-day.is-today .cal-day-num {
-  background: var(--text-primary);
-  color: var(--bg-content);
-}
-/* 今天的卡：白色细圈画在卡内侧的伪元素上（压在剧照与模糊层之上，不被横向滚动的容器裁掉） */
-.cal-day.is-today .cal-day-list :deep(.cal-card)::after {
-  content: '';
-  position: absolute;
-  inset: 0;
-  border-radius: inherit;
-  box-shadow: inset 0 0 0 2px var(--text-primary);
-  pointer-events: none;
+  background: var(--bg-active);
 }
 .cal-day-list {
   display: flex;
   flex-direction: column;
-  gap: var(--space-2_5);
+  gap: var(--space-0_5);
+  padding: 0 var(--space-0_5);
 }
 .cal-day-empty {
-  display: grid;
-  place-items: center;
-  aspect-ratio: 8 / 9;
-  border: 1px dashed var(--border-glass-light);
-  border-radius: var(--radius-card);
+  padding: var(--space-2) var(--space-2);
   color: var(--text-tertiary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
 }
 
 /* ── 列表视图与「更新日期未知」：自适应网格 ── */
@@ -126,12 +112,12 @@
 }
 .cal-group-label {
   color: var(--text-primary);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-tight);
 }
 .cal-grid {
   display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(240px, 1fr));
-  gap: var(--space-4);
+  grid-template-columns: repeat(auto-fill, minmax(260px, 1fr));
+  gap: var(--space-1) var(--space-4);
 }
