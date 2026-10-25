@@ -73,7 +73,7 @@
 
 <script setup lang="ts">
 /**
- * 直播播放区：圆角画面（内嵌统一播放器 HLS，左上角玻璃「直播」标）+ 频道信息与收藏 + 线路切换 + 今日节目单卡片。
+ * 直播播放区：圆角画面（内嵌统一播放器 HLS，右上角玻璃「直播」标）+ 频道信息与收藏 + 线路切换 + 今日节目单卡片。
  * 当前线路报错或 20 秒内没开始播放，自动切到下一条线路；全部失败后显示重试。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -219,10 +219,11 @@ onBeforeUnmount(clearStartTimer)
   min-height: 0;
 }
 
+/* 右上角：左上角留给播放器自己的提示 */
 .live-stage-tag {
   position: absolute;
   top: var(--space-4);
-  left: var(--space-4);
+  right: var(--space-4);
   display: inline-flex;
   align-items: center;
   gap: var(--space-1_5);
