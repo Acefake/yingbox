@@ -141,3 +141,38 @@ describe('桌面 HLS 公网传输', () => {
     expect(fetch).not.toHaveBeenCalled()
   })
 })
+
+describe('转发失败日志', () => {
+  const tsUrl = 'https://cdn.example.com/live/seg.ts?token=secret'
+
+  it('上游出错时记录主机与原因（不含地址里的令牌），并返回 502', async () => {
+    const fetch = vi.fn(async () => {
+      throw new Error('net::ERR_CERT_DATE_INVALID')
+    })
+    const log = vi.fn()
+    const handler = createStreamHandler(createNetClient({ lookup, fetch }), log)
+    const response = await handler(new Request(streamUrl(tsUrl)))
+    expect(response.status).toBe(502)
+    expect(log).toHaveBeenCalledWith(tsUrl, 'net::ERR_CERT_DATE_INVALID')
+  })
+
+  it('上游 4xx/5xx 也记录状态码', async () => {
+    const fetch = vi.fn(async () => new Response('no', { status: 403 }))
+    const log = vi.fn()
+    const handler = createStreamHandler(createNetClient({ lookup, fetch }), log)
+    const response = await handler(new Request(streamUrl(tsUrl)))
+    expect(response.status).toBe(403)
+    expect(log).toHaveBeenCalledWith(tsUrl, 'HTTP 403')
+  })
+
+  it('默认日志只打主机，同一主机同一原因短时间内不重复', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const fetch = vi.fn(async () => new Response('no', { status: 404 }))
+    const handler = createStreamHandler(createNetClient({ lookup, fetch }))
+    await handler(new Request(streamUrl(tsUrl)))
+    await handler(new Request(streamUrl(tsUrl)))
+    expect(warn).toHaveBeenCalledTimes(1)
+    expect(warn.mock.calls[0][0]).toBe('[stream] cdn.example.com HTTP 404')
+    warn.mockRestore()
+  })
+})
