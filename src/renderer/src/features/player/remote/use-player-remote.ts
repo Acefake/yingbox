@@ -2,9 +2,9 @@
  * PlayerSession 用的遥控登记：每换一个 Artplayer 实例重新 attach，组件卸载时撤下。
  */
 import type Artplayer from 'artplayer'
-import { onBeforeUnmount, type Ref, watch } from 'vue'
+import { type Ref, onBeforeUnmount, watch } from 'vue'
 
-import { attachPlayerRemote, type PlayerRemoteTarget } from './player-remote'
+import { type PlayerRemoteTarget, attachPlayerRemote } from './player-remote'
 
 /** 登记参数：除实例外的部分 */
 export type PlayerRemoteOptions = Omit<PlayerRemoteTarget, 'art'>
@@ -21,7 +21,9 @@ export function usePlayerRemote(
   let detach: (() => void) | null = null
   watch(art, instance => {
     detach?.()
-    detach = instance ? attachPlayerRemote({ art: instance, ...options() }) : null
+    detach = instance
+      ? attachPlayerRemote({ art: instance, ...options() })
+      : null
   })
   onBeforeUnmount(() => detach?.())
 }

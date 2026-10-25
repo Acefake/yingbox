@@ -6,9 +6,12 @@ import {
 } from '../src/renderer/src/features/shell/composables/nav-items'
 import {
   filtersInPlace,
+  isSearchShortcut,
   searchLocation,
   searchPlaceholder,
 } from '../src/renderer/src/features/shell/composables/global-search'
+import { isAssistantHotkey } from '../src/renderer/src/features/assistant/assistant-hotkey'
+import { resolveHotkey } from '../src/renderer/src/features/player/hotkeys/hotkey-map'
 
 const state = (patch: Partial<NavState> = {}): NavState => ({
   routeName: 'Online',
@@ -117,11 +120,57 @@ describe('侧栏导航项', () => {
 describe('全局搜索规则', () => {
   it('占位文字按页面区分，桌面端带快捷键提示', () => {
     expect(searchPlaceholder('Movie', true)).toBe('搜索本地电影')
-    expect(searchPlaceholder('AV', false)).toBe('搜索 AV 资源（Ctrl + K）')
+    expect(searchPlaceholder('AV', false)).toBe('搜索 AV 资源（Ctrl + F）')
     expect(searchPlaceholder('Online', true)).toBe('搜索')
     expect(searchPlaceholder(undefined, false)).toBe(
-      '搜索电影、电视剧（Ctrl + K）'
+      '搜索电影、电视剧（Ctrl + F）'
     )
+  })
+
+  const keys = (
+    key: string,
+    patch: Partial<KeyboardEventInit> & { target?: unknown } = {}
+  ): Parameters<typeof isSearchShortcut>[0] =>
+    ({
+      key,
+      ctrlKey: false,
+      metaKey: false,
+      shiftKey: false,
+      altKey: false,
+      ...patch,
+    }) as Parameters<typeof isSearchShortcut>[0]
+
+  it('Cmd/Ctrl+F 聚焦搜索框；Cmd/Ctrl+K 归 AI 助手，两边不重叠；播放器单键不受修饰键组合影响', () => {
+    for (const mod of [{ ctrlKey: true }, { metaKey: true }]) {
+      expect(isSearchShortcut(keys('f', mod))).toBe(true)
+      expect(isSearchShortcut(keys('F', mod))).toBe(true)
+      expect(isSearchShortcut(keys('k', mod))).toBe(false)
+      expect(isAssistantHotkey(keys('k', mod))).toBe(true)
+      expect(isAssistantHotkey(keys('f', mod))).toBe(false)
+      // 播放器的 K（播放暂停）/ F（全屏）只认不带修饰键的单键
+      expect(resolveHotkey(keys('k', mod))).toBeNull()
+      expect(resolveHotkey(keys('f', mod))).toBeNull()
+    }
+    expect(isSearchShortcut(keys('f'))).toBe(false)
+    expect(isSearchShortcut(keys('f', { ctrlKey: true, shiftKey: true }))).toBe(
+      false
+    )
+    expect(
+      isSearchShortcut(keys('f', { ctrlKey: true, isComposing: true }))
+    ).toBe(false)
+  })
+
+  it('焦点在对话框里（播放弹窗、AI 助手）时 Cmd/Ctrl+F 不抢焦点', () => {
+    const inDialog = {
+      closest: (s: string) => (s === '[role="dialog"]' ? {} : null),
+    }
+    const outside = { closest: () => null }
+    expect(
+      isSearchShortcut(keys('f', { ctrlKey: true, target: inDialog }))
+    ).toBe(false)
+    expect(
+      isSearchShortcut(keys('f', { ctrlKey: true, target: outside }))
+    ).toBe(true)
   })
 
   it('番号页在本页按 ?q= 过滤', () => {

@@ -84,6 +84,7 @@ export const ASSISTANT_SETTINGS: Record<string, string> = {
   danmaku: '弹幕',
   ai: 'AI',
   assistant: 'AI 助手',
+  netdisk: '网盘',
   update: '软件更新',
 }
 
