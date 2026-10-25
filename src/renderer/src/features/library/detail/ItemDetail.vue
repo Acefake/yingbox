@@ -1,97 +1,142 @@
 <template>
-  <div ref="root" class="lib-detail custom-scrollbar" tabindex="-1">
-    <div v-if="!node && loading" class="lib-detail-status">正在载入…</div>
-    <div v-else-if="!node" class="lib-detail-status">
-      {{ error || '条目不存在或已被移除' }}
-      <UiButton label="返回" variant="secondary" @click="emit('close')" />
+  <div class="lib-detail">
+    <div
+      ref="root"
+      class="lib-detail-scroll"
+      tabindex="-1"
+      @scroll.passive="onScroll"
+    >
+      <div v-if="!node && loading" class="lib-detail-status">正在载入…</div>
+      <div v-else-if="!node" class="lib-detail-status">
+        {{ error || '条目不存在或已被移除' }}
+        <UiButton label="返回" variant="secondary" @click="emit('close')" />
+      </div>
+
+      <template v-else>
+        <DetailHero
+          data-tab="overview"
+          :node="node"
+          :backdrop="backdrop"
+          :logo="logo"
+          :tagline="tagline"
+          :meta-parts="metaParts"
+          :specs="heroSpecs"
+          :credits="credits"
+          :play-label="playLabel"
+          :can-play="Boolean(primaryPlay)"
+          :restorable="restore.available.value"
+          :restore-running="restore.running.value"
+          @play="playPrimary"
+          @restore="restore.start"
+        />
+        <DetailSeasons
+          v-if="seasons.length"
+          data-tab="episodes"
+          :node="node"
+          :seasons="seasons"
+          @play-episode="playEpisode"
+        />
+        <DetailStills v-if="stills.length" data-tab="stills" :stills="stills" />
+        <DetailPeople
+          v-if="people.length"
+          data-tab="cast"
+          :people="people"
+          @open-actor="emit('open-actor', $event)"
+        />
+        <DetailVersions
+          v-if="showVersions(node)"
+          v-model="versionChoice"
+          data-tab="versions"
+          :node="node"
+          @split="splitMember"
+          @join="joinMember"
+        />
+        <DetailInfo
+          data-tab="about"
+          :title="node.title"
+          :kicker="aboutKicker"
+          :overview="node.overview ?? ''"
+          :info-rows="infoRows"
+          :files="files"
+        />
+      </template>
     </div>
 
-    <template v-else>
-      <DetailHero
-        :node="node"
-        :backdrop="backdrop"
-        :logo="logo"
-        :tagline="tagline"
-        :meta-line="metaLine"
-        :play-label="playLabel"
-        :can-play="Boolean(primaryPlay)"
-        :jav="jav"
-        :matched="matched"
-        :busy="busy"
-        :writer-available="writerAvailable"
-        :restorable="restore.available.value"
-        :restore-running="restore.running.value"
-        @close="emit('close')"
-        @play="playPrimary"
-        @fix-match="emit('fix-match', $event)"
-        @toggle-lock="toggleLock"
-        @refresh="refreshMetadata"
-        @write="writeOut"
-        @organize="emit('organize', $event)"
-        @restore="restore.start"
-      />
-      <DetailSeasons
-        v-if="seasons.length"
-        :node="node"
-        :seasons="seasons"
-        @play-episode="playEpisode"
-      />
-      <DetailStills v-if="stills.length" :stills="stills" />
-      <DetailPeople
-        v-if="people.length"
-        :people="people"
-        @open-actor="emit('open-actor', $event)"
-      />
-      <DetailVersions
-        v-if="showVersions(node)"
-        v-model="versionChoice"
-        :node="node"
-        @split="splitMember"
-        @join="joinMember"
-      />
-      <DetailInfo :info-rows="infoRows" :files="files" />
-    </template>
+    <!-- 浮动控件：顶部渐隐带、返回圆钮、右上角「更多」（排在外壳窗口键胶囊左边）、底部分区胶囊 -->
+    <div class="lib-detail-edge" aria-hidden="true" />
+    <UiIconButton
+      class="lib-float-button lib-detail-back"
+      icon="back"
+      variant="overlay"
+      label="返回"
+      @click="emit('close')"
+    />
+    <DetailActions
+      v-if="node"
+      class="lib-detail-more"
+      :class="{ 'beside-window': isElectron }"
+      :node="node"
+      :jav="jav"
+      :matched="matched"
+      :busy="busy"
+      :writer-available="writerAvailable"
+      @fix-match="emit('fix-match', $event)"
+      @toggle-lock="toggleLock"
+      @refresh="refreshMetadata"
+      @write="writeOut"
+      @organize="emit('organize', $event)"
+    />
+    <DetailTabs
+      v-if="node && tabs.length > 2"
+      :tabs="tabs"
+      :active="activeTab"
+      @jump="jumpTo"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 条目详情（Apple TV 风格）：780w 背景图渐隐、标志或片名、年份 · 时长 · 分级 · 评分、简介，
- * 剧集按季分段与集列表，剧照横滑（点开灯箱），演职员横滑，信息与文件。播放接 openMediaPlayer（播放弹窗 / mpv），
- * 去码接 features/lada（use-restore）。
+ * 条目详情（Apple TV 式，效果图 D-1 / D-2 / D-3）：铺满整个窗口（侧栏浮在上面），纯黑底。
+ * 头图（大背景 + 渐进模糊、标志、播放 / 想看、简介、规格行与主演导演），剧集卡横排（按季切换），
+ * 剧照横排（点开灯箱），圆头像演职员，版本，关于（信息卡 + 文件卡）。
+ * 浮动控件：左上玻璃返回圆钮（外壳的前进 / 后退胶囊此时让位，use-shell-chrome），右上「更多」管理操作，
+ * 底部玻璃胶囊做页内分区导航（滚动时跟随当前分区，点了滚过去）。
+ * 播放接 openMediaPlayer（播放弹窗 / mpv），去码接 features/lada（use-restore）。
  *
  * 同一作品在几个文件夹里时引擎已合并成一棵树，DetailVersions 选播放哪个版本 / 来源、拆出误合并的。
  *
  * 本组件管载入、播放与操作；各区块在 DetailHero / DetailSeasons / DetailVersions / DetailPeople / DetailInfo，
- * 纯规则在 detail-rules.ts / version-rules.ts。
+ * 底部胶囊在 DetailTabs（状态在 use-detail-tabs），样式在 item-detail.css，
+ * 纯规则在 detail-rules.ts / detail-view.ts / version-rules.ts。
  */
 import { toast } from '@/components/ui'
 import { computed, nextTick, ref, shallowRef, watch } from 'vue'
 
-import type {
-  ActorSummary,
-  LibraryItemNode,
-} from '../../../../../shared/library/ipc'
+import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { usePlatform } from '@/composables/use-platform'
+import { useOwnBackButton } from '@/composables/use-shell-chrome'
 
 import { errorText, libraryBridge } from '../api/bridge'
 import { heroImage, itemImage, tmdbImage } from '../api/images'
 import { onLibraryEvent } from '../state/library-events'
 import type { LibrarySection } from '../state/library-section'
 import { useWriter } from '../writer/use-writer'
+import DetailActions from './DetailActions.vue'
 import DetailHero from './DetailHero.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailPeople from './DetailPeople.vue'
 import DetailStills from './DetailStills.vue'
+import DetailTabs from './DetailTabs.vue'
 import DetailSeasons from './DetailSeasons.vue'
 import DetailVersions from './DetailVersions.vue'
 import {
-  type ActorLink,
   allVideoFiles,
   infoRowsOf,
   metaLineOf,
   peopleOf,
-  personKey,
   playLabelOf,
   sortedSeasons,
   stillsOf,
@@ -103,7 +148,15 @@ import {
   play,
   primaryPlayRequest,
 } from './playback'
+import {
+  creditLinesOf,
+  detailTabsOf,
+  heroMetaParts,
+  heroSpecsOf,
+} from './detail-view'
 import { prepareProgress } from '../progress/progress-cache'
+import { useActorLinks } from './use-actor-links'
+import { useDetailTabs } from './use-detail-tabs'
 import { useRestore } from './use-restore'
 import { showVersions } from './version-rules'
 
@@ -120,6 +173,8 @@ const emit = defineEmits<{
 }>()
 
 const bridge = libraryBridge()
+const { isElectron } = usePlatform()
+useOwnBackButton()
 const { available: writerAvailable, write } = useWriter()
 const root = ref<HTMLElement | null>(null)
 const node = shallowRef<LibraryItemNode | null>(null)
@@ -150,6 +205,7 @@ async function load(resetView: boolean): Promise<void> {
       await nextTick()
       root.value?.scrollTo({ top: 0 })
       root.value?.focus({ preventScroll: true })
+      resetTabs()
     }
   } catch (e) {
     error.value = errorText(e)
@@ -199,6 +255,18 @@ const logo = computed(() => node.value?.logo ?? null)
 const tagline = computed(() => titleMeta.value?.tagline ?? '')
 const seasons = computed(() => sortedSeasons(node.value))
 const metaLine = computed(() => metaLineOf(node.value, seasons.value))
+const metaParts = computed(() => heroMetaParts(metaLine.value, titleMeta.value))
+const heroSpecs = computed(() =>
+  node.value ? heroSpecsOf(node.value, titleMeta.value) : []
+)
+const credits = computed(() => creditLinesOf(titleMeta.value))
+/** 关于卡片片名下的一行：类型 · 题材 */
+const aboutKicker = computed(() => {
+  const n = node.value
+  if (!n) return ''
+  const kind = n.type === 'series' ? '剧集' : '电影'
+  return [kind, ...n.genres.slice(0, 3)].join(' · ')
+})
 
 // —— 播放 ——
 const primaryPlay = computed<PlayRequest | null>(() =>
@@ -232,37 +300,35 @@ function playEpisode(season: LibraryItemNode, ep: LibraryItemNode): void {
   if (request) void startPlayback(request)
 }
 
-// 番号库条目：演员库里的演员可点开详情，头像换成本地缓存的；后台查到资料（actors-changed）时重取
-const actorLinks = shallowRef<ReadonlyMap<string, ActorLink>>(new Map())
-const javItemId = computed(() =>
-  titleMeta.value?.ref.provider === 'jav' ? node.value?.id : undefined
-)
-
-async function loadActorLinks(): Promise<void> {
-  const id = javItemId.value
-  if (!id || !bridge?.actors) {
-    actorLinks.value = new Map()
-    return
-  }
-  const actors = await bridge.actors.forItem(id).catch((): ActorSummary[] => [])
-  if (id !== javItemId.value) return
-  actorLinks.value = new Map(
-    actors.map((a): [string, ActorLink] => [
-      personKey(a.name),
-      { id: a.id, photo: itemImage(a.photo, 300) },
-    ])
+// 番号库条目：演员库里的演员可点开详情（use-actor-links）
+const actorLinks = useActorLinks(
+  computed(() =>
+    titleMeta.value?.ref.provider === 'jav' ? node.value?.id : undefined
   )
-}
-
-watch(javItemId, () => void loadActorLinks(), { immediate: true })
-onLibraryEvent(event => {
-  if (event.type === 'actors-changed' && javItemId.value) void loadActorLinks()
-})
+)
 const people = computed(() =>
   peopleOf(titleMeta.value, path => tmdbImage(path), actorLinks.value)
 )
 const infoRows = computed(() => infoRowsOf(node.value))
 const files = computed(() => allVideoFiles(node.value))
+
+// —— 页内分区（底部胶囊）——
+const tabs = computed(() =>
+  node.value
+    ? detailTabsOf({
+        episodes: seasons.value.length > 0,
+        stills: stills.value.length > 0,
+        cast: people.value.length > 0,
+        versions: showVersions(node.value),
+      })
+    : []
+)
+const {
+  activeTab,
+  onScroll,
+  jumpTo,
+  reset: resetTabs,
+} = useDetailTabs(root, tabs)
 
 // —— 操作 ——
 async function run(name: string, task: () => Promise<unknown>): Promise<void> {
@@ -325,23 +391,4 @@ function writeOut(): void {
 }
 </script>
 
-<style scoped>
-.lib-detail {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-float);
-  overflow-y: auto;
-  background: var(--bg-content);
-  outline: none;
-}
-.lib-detail-status {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-4);
-  height: 100%;
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-</style>
+<style scoped src="./item-detail.css"></style>
