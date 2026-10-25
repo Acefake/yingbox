@@ -386,8 +386,8 @@ describe('接线（源码）', () => {
     const online = src('features/online/components/DetailWindow.vue')
     expect(online).toContain('<WatchlistButton :meta="watchlistMeta" />')
     expect(online).toMatch(/section: 'online',\s+key: itemName\.value,/)
-    expect(src('features/library/detail/DetailHero.vue')).toContain(
-      '<WatchlistButton :meta="watchlistMeta" />'
+    expect(src('features/library/detail/DetailHero.vue')).toMatch(
+      /<WatchlistButton[^>]*:meta="watchlistMeta"/
     )
     expect(src('features/library/detail/playback.ts')).toMatch(
       /watchlistMetaOf[\s\S]+continueMetaOf\(item\)/

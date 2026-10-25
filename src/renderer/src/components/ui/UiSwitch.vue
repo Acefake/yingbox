@@ -14,7 +14,7 @@
 <script setup lang="ts">
 /**
  * 开关：原生 checkbox（role="switch"），键盘空格即可切换。
- * 开启态用强调色——这是界面里少数允许出现强调色的地方。
+ * 开启态是 iOS 式的绿色（--success）；设置窗口里放大到 iOS 尺寸（SettingsPanel）。
  *
  * label 作为无障碍名称；旁边已有可见 <label for> 时可以不传，改传 id。
  */
@@ -30,8 +30,8 @@ function onChange(event: Event): void {
 .ui-switch {
   position: relative;
   flex: 0 0 auto;
-  width: 38px;
-  height: 22px;
+  width: 40px;
+  height: 24px;
   min-height: 0;
   margin: 0;
   border: 0;
@@ -46,8 +46,8 @@ function onChange(event: Event): void {
   position: absolute;
   top: var(--space-0_5);
   left: var(--space-0_5);
-  width: 18px;
-  height: 18px;
+  width: 20px;
+  height: 20px;
   border-radius: var(--radius-full);
   background: var(--text-on-accent);
   box-shadow: var(--shadow-sm);
@@ -55,7 +55,7 @@ function onChange(event: Event): void {
   transition: transform var(--duration-fast) var(--ease-out);
 }
 .ui-switch:where(:checked) {
-  background: var(--accent);
+  background: var(--success);
 }
 .ui-switch:where(:checked)::after {
   transform: translateX(16px);

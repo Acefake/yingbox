@@ -11,9 +11,6 @@
   "src/renderer/src/features/library/actors/ActorProfile.vue": {
     "font-weight": 1
   },
-  "src/renderer/src/features/library/detail/DetailHero.vue": {
-    "font-weight": 1
-  },
   "src/renderer/src/features/library/page/LibraryToolbar.vue": {
     "font-weight": 1
   },

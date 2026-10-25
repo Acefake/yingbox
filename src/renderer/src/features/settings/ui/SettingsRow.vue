@@ -41,14 +41,14 @@ const labelId = `settings-row-${useId()}`
   align-items: center;
   justify-content: space-between;
   gap: var(--space-6);
-  min-height: 44px;
-  padding: var(--space-3) var(--space-4);
+  min-height: 54px;
+  padding: var(--space-2_5) var(--space-4);
 }
-/* 内缩分隔线：左侧留出与文字对齐的缩进，右侧通栏 */
+/* 内缩分隔线：两侧与文字对齐 */
 .settings-row + .settings-row::before {
   position: absolute;
   top: 0;
-  right: 0;
+  right: var(--space-4);
   left: var(--space-4);
   height: 1px;
   background: var(--separator);
@@ -65,7 +65,8 @@ const labelId = `settings-row-${useId()}`
 }
 .settings-row-title {
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
 }
 .settings-row-desc {
   margin-top: var(--space-0_5);

@@ -1,23 +1,51 @@
-/* 详情页各区块共用的标题与间距（ItemDetail 及其区块组件 scoped 引入）。 */
+/*
+ * 详情页各区块共用的版式（ItemDetail 及其区块组件 scoped 引入）。效果图 D-2 / D-3：
+ * 左边距与侧栏右沿留 --detail-x（ItemDetail 按侧栏宽度写入）；剧集卡横排一直铺到窗口右沿，
+ * 其余横排用 UiShelf，分区标题用 UiSectionHeader（剧集标题带选季下拉，单独写成同样的字号）。
+ * 渐进模糊用全局的 .yb-pblur（ui.css）。
+ */
 .lib-section {
-  padding: var(--space-7) var(--content-padding-x) 0;
-}
-.lib-section:last-child {
-  padding-bottom: var(--space-10);
+  padding: var(--space-9) var(--detail-gutter) 0 var(--detail-x);
+  scroll-margin-top: var(--space-8);
 }
 .lib-section-head {
   display: flex;
   align-items: center;
   justify-content: space-between;
   gap: var(--space-4);
-  margin-bottom: var(--space-4);
+  min-height: var(--control-height);
+  margin-bottom: var(--space-3_5);
 }
+/* 分区标题：粗体大字（Apple TV 式） */
 .lib-section-title {
   margin: 0 0 var(--space-4);
   color: var(--text-primary);
-  font-size: var(--text-lg);
-  font-weight: var(--font-weight-semibold);
+  font-family: var(--font-display);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（分区标题） */
+  line-height: 1.2;
+  letter-spacing: 0.005em;
 }
 .lib-section-head .lib-section-title {
   margin: 0;
+}
+
+/* 横排：卡片从左边距起排，向右滚出窗口；滚动条藏起来 */
+.lib-row {
+  display: flex;
+  gap: var(--space-4);
+  margin: 0 calc(var(--detail-gutter) * -1) 0 calc(var(--detail-x) * -1);
+  padding: var(--space-1) var(--detail-gutter) var(--space-3) var(--detail-x);
+  overflow-x: auto;
+  list-style: none;
+  scroll-padding-inline: var(--detail-x) var(--detail-gutter);
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+.lib-row::-webkit-scrollbar {
+  display: none;
+}
+.lib-row > * {
+  flex: none;
+  scroll-snap-align: start;
 }

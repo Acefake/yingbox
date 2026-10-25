@@ -1,6 +1,6 @@
 <template>
   <section class="live-schedule" aria-label="今日节目单">
-    <h3 class="live-schedule-title">今日节目</h3>
+    <h3 class="live-schedule-title">今日节目单</h3>
     <p v-if="!rows.length" class="live-schedule-empty">{{ emptyText }}</p>
     <ol v-else ref="listEl" class="live-schedule-list">
       <li
@@ -22,7 +22,7 @@
 
 <script setup lang="ts">
 /**
- * 选中频道的今日节目单：已播灰显，正在播出高亮并自动滚到可见处。
+ * 选中频道的今日节目单（实色卡片）：已播灰显，正在播出高亮、红字标注并自动滚到可见处。
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
@@ -59,18 +59,24 @@ watch(
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: var(--space-2);
+  gap: var(--space-1_5);
+  padding: var(--space-3_5) var(--space-2) var(--space-2);
+  border-radius: var(--radius-xl);
+  background: var(--bg-fill-tertiary);
 }
 
 .live-schedule-title {
   margin: 0;
-  color: var(--text-secondary);
+  padding: 0 var(--space-3);
+  color: var(--text-tertiary);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
 }
 
 .live-schedule-empty {
   margin: 0;
+  padding: var(--space-2) var(--space-3);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
 }
@@ -87,11 +93,12 @@ watch(
 .live-schedule-row {
   display: flex;
   align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-2) var(--space-3);
+  gap: var(--space-4);
+  min-height: 40px;
+  padding: 0 var(--space-3);
   border-radius: var(--radius-md);
-  color: var(--text-primary);
-  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
 }
 
 .live-schedule-row.is-past {
@@ -100,11 +107,13 @@ watch(
 
 .live-schedule-row.is-live {
   background: var(--bg-active);
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
 }
 
 .live-schedule-time {
   flex: none;
-  font-family: var(--font-mono);
+  width: 44px;
   font-variant-numeric: tabular-nums;
 }
 
@@ -118,8 +127,8 @@ watch(
 
 .live-schedule-badge {
   flex: none;
-  color: var(--accent-text);
+  color: var(--danger);
   font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
+  font-weight: var(--font-weight-semibold);
 }
 </style>
