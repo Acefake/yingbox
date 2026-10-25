@@ -163,7 +163,12 @@ const empty = computed(() => {
   const what = category.value === 'all' ? '' : label
   return {
     icon: favorites ? ('heart' as const) : ('history' as const),
-    title: favorites ? `还没有收藏${what}` : `还没有播放过${what}`,
+    // 最近播放用完整名词句，避免「全部」分类拼出缺宾语的「还没有播放过」
+    title: favorites
+      ? `还没有收藏${what}`
+      : what
+        ? `还没有${what}的播放记录`
+        : '还没有播放记录',
     hint: favorites
       ? '点海报或详情页上的心形收藏，影片和剧集会出现在这里'
       : '在线播放过的影片和剧集会出现在这里，点卡片从上次的位置继续',

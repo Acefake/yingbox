@@ -41,20 +41,40 @@ function readableBody(text: string): string {
   return line.length > 120 ? `${line.slice(0, 120)}…` : line
 }
 
-/** HTTP 状态码 → 引擎错误码（服务没有回 InvokeResult 时）。 */
-function transportError(status: number, raw: string): Error {
-  const text = readableBody(raw)
-  const message =
-    status === 401
-      ? '需要登录片库服务'
-      : status === 0
-        ? '无法连接片库服务'
-        : `片库服务出错（HTTP ${status}）${text ? `：${text}` : ''}`
+/** 把一句给人看的原因包成引擎不可用的 LibraryError（编码同 preload）。 */
+function engineUnavailable(message: string): Error {
   const error = new Error(
     encodeErrorMessage({ code: 'engine-unavailable', message })
   )
   error.name = 'LibraryError'
   return error
+}
+
+/** HTTP 状态码 → 引擎错误码（服务没有回 InvokeResult 时）。 */
+function transportError(status: number, raw: string): Error {
+  const text = readableBody(raw)
+  return engineUnavailable(
+    status === 401
+      ? '需要登录片库服务'
+      : status === 0
+        ? '无法连接片库服务'
+        : `片库服务出错（HTTP ${status}）${text ? `：${text}` : ''}`
+  )
+}
+
+/** 2xx 但正文不是 InvokeResult：多半是同源静态服务 / 代理兜底回了网页，没部署片库服务。 */
+function notInvokeResultError(status: number): Error {
+  return engineUnavailable(
+    `片库服务返回的不是 JSON（HTTP ${status}），可能没有部署片库服务`
+  )
+}
+
+/** 正文是否是 InvokeResult：成功要有 ok: true，失败要带 error 对象。 */
+function isInvokeResult(value: unknown): value is InvokeResult {
+  if (typeof value !== 'object' || value === null) return false
+  const { ok, error } = value as { ok?: unknown; error?: unknown }
+  if (ok === true) return true
+  return ok === false && typeof error === 'object' && error !== null
 }
 
 /** 创建网页端 bridge。 */
@@ -78,11 +98,9 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
         response.status,
         await response.text().catch(() => '')
       )
-    // 同源的静态服务 / 代理可能回 200 的 HTML 页面（没部署片库服务），不当成 JSON 解析出错
-    const result = (await response
-      .json()
-      .catch(() => null)) as InvokeResult | null
-    if (!result) throw transportError(response.status, '')
+    // 同源的静态服务 / 代理可能回 200 的 HTML 页面（没部署片库服务），JSON 合法但形状不对也一样处理
+    const result: unknown = await response.json().catch(() => null)
+    if (!isInvokeResult(result)) throw notInvokeResultError(response.status)
     if (result.ok) return result.result as LibraryRpcMap[M]['result']
     const error = new Error(encodeErrorMessage(result.error))
     error.name = 'LibraryError'

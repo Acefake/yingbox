@@ -34,6 +34,30 @@ describe('追剧日历界面', () => {
     expect(template.errors).toEqual([])
   })
 
+  it('列表视图的 v-else 接在周视图分支上，周模式不会连带渲染列表', () => {
+    const path = 'features/calendar/views/CalendarView.vue'
+    // 换个 filename 绕开 parse 的缓存：上面的编译用例会把同一份 AST 里的 v-if/v-else 改写成分支节点
+    const { descriptor } = parse(read(path), { filename: `${path}?ast` })
+    type Node = {
+      type: number
+      tag?: string
+      children?: Node[]
+      props?: { name: string; rawName?: string; exp?: { content: string } }[]
+    }
+    const page = (descriptor.template!.ast!.children as Node[]).find(
+      node => node.type === 1
+    )!
+    const elements = (page.children ?? []).filter(node => node.type === 1)
+    const directive = (node: Node, name: string): string | undefined =>
+      node.props?.find(prop => prop.rawName === name)?.exp?.content ??
+      (node.props?.some(prop => prop.rawName === name) ? '' : undefined)
+    const list = elements.findIndex(node => directive(node, 'v-else') === '')
+    expect(list).toBeGreaterThan(0)
+    const branch = elements[list - 1]
+    expect(branch.tag).toBe('template')
+    expect(directive(branch, 'v-if')).toBe("cal.mode.value === 'week'")
+  })
+
   it('路由 /calendar 指向日历页', () => {
     const route = routes.find(r => r.path === '/calendar')
     expect(route).toMatchObject({ name: 'Calendar' })
