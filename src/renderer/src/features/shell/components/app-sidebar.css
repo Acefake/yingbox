@@ -8,7 +8,9 @@
   top: var(--shell-inset);
   bottom: var(--shell-inset);
   left: var(--shell-inset);
-  z-index: calc(var(--z-float) + 1); /* 盖在铺满窗口的页面层（条目详情）之上 */
+  /* 盖在铺满窗口的页面层（条目详情）与顶部拖拽条之上：Electron 按绘制顺序合并拖拽区，
+     侧栏画在拖拽条后面时收起钮会被当成窗口拖拽区，点不动 */
+  z-index: calc(var(--z-float) + 2);
   display: flex;
   flex-direction: column;
   width: var(--sidebar-width);
@@ -33,19 +35,9 @@
   color: var(--text-primary);
 }
 .app-sidebar .brand-mark {
-  display: grid;
   flex: 0 0 auto;
-  place-items: center;
   width: 28px;
   height: 28px;
-  padding-left: 1px;
-  border-radius: var(--radius-md);
-  background: var(--action-bg);
-  color: var(--action-text);
-}
-.app-sidebar .brand-mark .app-icon {
-  width: 13px;
-  height: 13px;
 }
 .app-sidebar .brand-name {
   font-size: var(--text-lg);
@@ -65,7 +57,7 @@
   gap: var(--space-2);
   margin-bottom: var(--space-1_5);
 }
-/* 图标工具钮（收起时的搜索、助手 sparkle）：44px 圆，浅玻璃底 */
+/* 图标工具钮（助手 sparkle、收起时的搜索）：展开时 36px、收起时 44px 圆，浅玻璃底 */
 .app-sidebar .sidebar-tool {
   display: grid;
   flex: none;
@@ -87,7 +79,7 @@
 
 .app-sidebar .sidebar-nav {
   display: flex;
-  flex: 0 1 auto;
+  flex: 1;
   flex-direction: column;
   gap: var(--space-0_5);
   min-height: 0;
@@ -168,12 +160,13 @@
   line-height: 16px;
 }
 
-/* 页脚紧跟导航（分隔线在页脚里）；收起成图标列时沉到底部 */
+/* 页脚贴在侧栏底部（导航占满中间，分隔线在页脚里） */
 .app-sidebar .sidebar-footer {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
   gap: var(--space-0_5);
+  margin-top: var(--space-3);
 }
 .app-sidebar .footer-queue-icon,
 .app-sidebar .footer-incognito-icon {
@@ -240,10 +233,6 @@
   width: 32px;
   height: 32px;
 }
-.app-sidebar:where(.is-collapsed) .brand-mark .app-icon {
-  width: 15px;
-  height: 15px;
-}
 .app-sidebar:where(.is-collapsed) .sidebar-toggle {
   margin-left: 0;
   border-radius: 50%;
@@ -261,7 +250,6 @@
   height: 44px;
 }
 .app-sidebar:where(.is-collapsed) .sidebar-nav {
-  flex: 1;
   align-items: center;
   width: 100%;
   padding-top: var(--space-2);
@@ -278,7 +266,6 @@
 }
 .app-sidebar:where(.is-collapsed) .sidebar-footer {
   align-items: center;
-  margin-top: var(--space-3);
 }
 .app-sidebar:where(.is-collapsed) .sidebar-footer > .sidebar-divider {
   display: none;

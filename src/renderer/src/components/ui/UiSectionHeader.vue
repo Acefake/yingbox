@@ -1,22 +1,25 @@
 <template>
   <div class="yb-section-head">
-    <h2 class="yb-section-title">
-      <UiPressable
-        v-if="more"
-        class="yb-section-more"
-        :label="moreLabel || `查看全部${title}`"
-        @click="emit('more')"
-        >{{ title }}<UiIcon name="forward" size="lg"
-      /></UiPressable>
-      <template v-else>{{ title }}</template>
-    </h2>
+    <slot name="title">
+      <h2 class="yb-section-title">
+        <UiPressable
+          v-if="more"
+          class="yb-section-more"
+          :label="moreLabel || `查看全部${title}`"
+          @click="emit('more')"
+          >{{ title }}<UiIcon name="forward" size="lg"
+        /></UiPressable>
+        <template v-else>{{ title }}</template>
+      </h2>
+    </slot>
     <div v-if="$slots.default" class="yb-section-actions"><slot /></div>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 分区标题（Apple TV 式）：粗体大字，可点时后面跟一个灰色 ›（more）。右侧插槽放计数、滚动键等小控件。
+ * 分区标题（Apple TV 式）：粗体大字，可点时后面跟一个灰色 ›（more）。右侧插槽放计数、滚动键等小控件；
+ * title 插槽可整块换掉标题（如详情剧集区的选季下拉）。
  */
 import UiIcon from './UiIcon.vue'
 import UiPressable from './UiPressable.vue'

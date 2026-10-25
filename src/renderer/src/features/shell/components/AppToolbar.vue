@@ -8,6 +8,8 @@
         label="打开菜单"
         @click="emit('open-menu')"
       />
+      <!-- 拖拽条起头一块不可拖：页面自带的返回圆钮在这里（只挡拖拽，不挡点击） -->
+      <div v-if="!isPhone" class="toolbar-hole" aria-hidden="true" />
     </div>
 
     <WinControls
@@ -20,6 +22,8 @@
 <script setup lang="ts">
 /**
  * 顶部浮动控件：手机菜单、窗口控制与透明拖拽区域。搜索入口位于侧栏。
+ * 拖拽条从侧栏右边开始，不压在侧栏上。Electron 把拖拽区当成标题栏，落在拖拽区里的点击到不了页面，
+ * 所以拖拽条起头留一块不可拖的 .toolbar-hole，给页面左上角的返回圆钮（条目详情）。
  */
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
@@ -37,7 +41,7 @@ const { isElectron, isPhone } = usePlatform()
   position: absolute;
   top: 0;
   right: 0;
-  left: 0;
+  left: var(--shell-left);
   z-index: calc(var(--z-float) + 1); /* 盖在铺满窗口的页面层（条目详情）之上 */
   display: flex;
   align-items: flex-start;
@@ -45,8 +49,7 @@ const { isElectron, isPhone } = usePlatform()
   height: calc(
     var(--shell-pill-top) + var(--shell-pill-height) + var(--space-2)
   );
-  padding: var(--shell-pill-top) var(--shell-pill-right) 0
-    calc(var(--shell-left) + var(--space-5));
+  padding: var(--shell-pill-top) var(--shell-pill-right) 0 var(--space-5);
   pointer-events: none;
   -webkit-app-region: drag;
 }
@@ -64,6 +67,16 @@ const { isElectron, isPhone } = usePlatform()
   border-radius: var(--radius-full);
   color: var(--text-primary);
   pointer-events: auto;
+  -webkit-app-region: no-drag;
+}
+/* 页面返回圆钮所在的一块（条目详情 --detail-x 处）：不可拖、也不接点击，点击落到下面的页面 */
+.toolbar-hole {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: calc(var(--space-6_5) + var(--shell-pill-height) + var(--space-5));
+  height: 100%;
+  pointer-events: none;
   -webkit-app-region: no-drag;
 }
 .toolbar-menu {

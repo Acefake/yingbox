@@ -10,7 +10,6 @@ export const downloadSettingsSection: SettingsSection = {
   id: 'download',
   title: '下载',
   icon: 'folder',
-  tint: 'green',
   keywords: '下载目录 文件夹 保存位置 番号',
   load: () => import('./components/DownloadSettings.vue'),
   adultOnly: true,
