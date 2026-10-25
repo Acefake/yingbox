@@ -14,7 +14,8 @@
 
     <WinControls
       v-if="isElectron"
-      class="toolbar-pill toolbar-window yb-glass"
+      class="toolbar-pill toolbar-window yb-glass yb-media-swap"
+      :class="{ 'yb-on-media': shellOverMedia }"
     />
   </header>
 </template>
@@ -29,6 +30,7 @@
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import WinControls from '@/components/WinControls.vue'
 import { usePlatform } from '@/composables/use-platform'
+import { shellOverMedia } from '@/composables/use-shell-backdrop'
 
 const emit = defineEmits<{ 'open-menu': [] }>()
 

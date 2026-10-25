@@ -158,3 +158,29 @@ export function keepTab(
   const before = tabs.filter(tab => TAB_ORDER.indexOf(tab.key) < rank)
   return (before.at(-1) ?? tabs[0]).key
 }
+
+/** 浮动控件身后是不是 Hero 的深色画面（见 heroBackdropAt） */
+export interface HeroBackdrop {
+  /** 顶部渐隐带（与返回圆钮）身后 */
+  edge: boolean
+  /** 侧栏与窗口键胶囊身后：Hero 还占着窗口上半截 */
+  shell: boolean
+}
+
+/**
+ * 按 Hero 底边在窗口里的位置判断浮动控件身后是深色画面还是页面底色。
+ * 渐隐带过了一半就算离开（它的下半截本来就淡）；侧栏纵贯整个窗口，Hero 占不到一半就回主题玻璃。
+ * @param heroBottom Hero 底边距滚动容器可视区顶部的距离（px，可为负）
+ * @param viewportHeight 滚动容器可视高度
+ * @param edgeHeight 顶部渐隐带高度
+ */
+export function heroBackdropAt(
+  heroBottom: number,
+  viewportHeight: number,
+  edgeHeight: number
+): HeroBackdrop {
+  return {
+    edge: heroBottom > edgeHeight / 2,
+    shell: heroBottom > viewportHeight / 2,
+  }
+}
