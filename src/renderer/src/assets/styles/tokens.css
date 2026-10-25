@@ -166,10 +166,13 @@
   --sidebar-width: 224px;
   --sidebar-width-collapsed: 64px;
   --titlebar-height: 52px;
-  --shell-pill-height: 44px; /* 顶部前进后退、窗口键玻璃胶囊 */
+  --shell-pill-height: 44px; /* 顶部前进后退、窗口键玻璃胶囊，详情页玻璃圆钮 */
+  --shell-pill-top: 18px; /* 胶囊离窗口上沿 */
+  --shell-pill-right: 22px; /* 窗口键胶囊离窗口右沿 */
+  --shell-win-width: 132px; /* 窗口键胶囊宽（三枚 36px 按钮），页面的右上角圆钮排在它左边 */
   /* 内容区顶部让出浮动胶囊（左侧让出多少由外壳按侧栏展开 / 收起写进 --shell-left） */
   --shell-top: calc(
-    var(--shell-inset) + var(--shell-pill-height) + var(--space-2)
+    var(--shell-pill-top) + var(--shell-pill-height) + var(--space-2)
   );
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);

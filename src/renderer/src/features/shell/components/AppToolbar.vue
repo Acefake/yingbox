@@ -8,15 +8,22 @@
         label="打开菜单"
         @click="emit('open-menu')"
       />
-      <div class="toolbar-pill yb-glass" role="group" aria-label="页面导航">
+      <div
+        v-if="!pageOwnsBack && (canGoBack || canGoForward)"
+        class="toolbar-pill yb-glass"
+        role="group"
+        aria-label="页面导航"
+      >
         <UiIconButton
           class="toolbar-pill-button"
           icon="back"
           label="后退"
+          :disabled="!canGoBack"
           @click="navigateBack"
         />
         <UiIconButton
           v-if="!isPhone"
+          :disabled="!canGoForward"
           class="toolbar-pill-button"
           icon="forward"
           label="前进"
@@ -34,19 +41,37 @@
 
 <script setup lang="ts">
 /**
- * 顶部浮动控件：左侧前进 / 后退玻璃胶囊（跟在侧栏右边），右侧窗口键玻璃胶囊（自绘最小化 / 最大化 / 关闭，
- * 只在 Electron 里）。整条透明、保留窗口拖拽区域，按钮本身不可拖。全局搜索在侧栏里（SidebarSearch）。
+ * 顶部浮动控件：左侧前进 / 后退玻璃胶囊（跟在侧栏右边，有历史可走时才出现，效果图 E-1 首屏没有它；
+ * 自带返回圆钮的页面显示时让位，见 use-shell-chrome），
+ * 右侧窗口键玻璃胶囊（132×44，自绘最小化 / 最大化 / 关闭，只在 Electron 里）。
+ * 整条透明、保留窗口拖拽区域，按钮本身不可拖。全局搜索在侧栏里（SidebarSearch）。
  */
+import { ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import WinControls from '@/components/WinControls.vue'
 import { usePlatform } from '@/composables/use-platform'
+import { pageOwnsBack } from '@/composables/use-shell-chrome'
 
 const emit = defineEmits<{ 'open-menu': [] }>()
 
 const router = useRouter()
 const { isElectron, isPhone } = usePlatform()
+
+/** vue-router 把相邻历史记录写在 history.state.back / forward 里，每次导航后重读 */
+const canGoBack = ref(false)
+const canGoForward = ref(false)
+const readHistory = (): void => {
+  const state = window.history.state as {
+    back?: unknown
+    forward?: unknown
+  } | null
+  canGoBack.value = Boolean(state?.back)
+  canGoForward.value = Boolean(state?.forward)
+}
+readHistory()
+router.afterEach(() => queueMicrotask(readHistory))
 
 /** 后退前先广播 app:navigate-back，页面可 preventDefault 自己处理（如关闭详情层） */
 const navigateBack = (): void => {
@@ -63,12 +88,14 @@ const navigateBack = (): void => {
   top: 0;
   right: 0;
   left: 0;
-  z-index: var(--z-above);
+  z-index: calc(var(--z-float) + 1); /* 盖在铺满窗口的页面层（条目详情）之上 */
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  height: var(--titlebar-height);
-  padding: var(--shell-inset) var(--space-5) 0
+  height: calc(
+    var(--shell-pill-top) + var(--shell-pill-height) + var(--space-2)
+  );
+  padding: var(--shell-pill-top) var(--shell-pill-right) 0
     calc(var(--shell-left) + var(--space-5));
   pointer-events: none;
   -webkit-app-region: drag;
@@ -92,6 +119,13 @@ const navigateBack = (): void => {
 .toolbar-menu {
   pointer-events: auto;
   -webkit-app-region: no-drag;
+}
+.toolbar-window {
+  justify-content: center;
+  width: var(--shell-win-width);
+}
+.toolbar-window :deep(.win-controls) {
+  gap: var(--space-1_5);
 }
 .toolbar-pill-button,
 .toolbar-window :deep(.yb-icon-button) {
