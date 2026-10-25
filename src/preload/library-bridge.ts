@@ -122,6 +122,7 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
       status: () => call('visual.status'),
       index: () => call('visual.index'),
       search: request => call('visual.search', request),
+      setFrames: settings => call('visual.setFrames', settings),
     },
     calendar: { episodes: request => call('calendar.episodes', request) },
     subscribe(listener: (event: LibraryEvent) => void): () => void {

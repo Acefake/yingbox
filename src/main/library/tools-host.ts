@@ -1,7 +1,8 @@
 /**
  * 主进程替媒体库引擎代办的工具定位（引擎侧见 engine/host-calls.ts）：
  * ffprobe 跟 ffmpeg 走同一套探测（YINGBOX_FFMPEG → 用户覆盖 → PATH → 常见安装位置，见 plugins/lada/tools），
- * 引擎拿到路径后自己起 ffprobe 读视频流的动态范围（scanner/video-probe.ts）。
+ * 引擎拿到路径后自己起 ffprobe 读视频流的动态范围（scanner/video-probe.ts），
+ * 起 ffmpeg 给按画面搜抽视频帧（visual/frames）。
  */
 import { createFfmpegCache } from '../capture/ffmpeg-cache'
 import {
@@ -25,5 +26,6 @@ export function libraryToolsHost(): Record<string, () => Promise<string>> {
       const ffmpeg = ffmpegCache.get()
       return ffmpeg ? ffprobeFor(ffmpeg) : ''
     },
+    [LIBRARY_HOST_METHODS.ffmpegPath]: async () => ffmpegCache.get() ?? '',
   }
 }

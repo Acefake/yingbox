@@ -58,6 +58,11 @@
         >
           {{ progressText(status) }}，索引好的部分已经可以搜。
         </p>
+        <FramesSettings
+          v-if="status?.model === 'ready'"
+          :frames="status.frames"
+          @change="setFrames"
+        />
 
         <div v-if="!text.trim()" class="visual-examples">
           <UiChip
@@ -68,22 +73,13 @@
           />
         </div>
         <ul v-else-if="hits.length" class="visual-grid" :aria-busy="searching">
-          <li v-for="hit in hits" :key="hit.itemId">
-            <UiPressable
-              block
-              class="visual-hit"
-              :label="`打开 ${hit.title}`"
-              @click="emit('open-item', hit.itemId)"
-            >
-              <img
-                :src="stillImage(hit.image, 'thumb')"
-                alt=""
-                loading="lazy"
-                decoding="async"
-              />
-              <span class="visual-hit-title">{{ hit.title }}</span>
-            </UiPressable>
-          </li>
+          <VisualHitCard
+            v-for="hit in hits"
+            :key="hit.itemId"
+            :hit="hit"
+            @open="id => emit('open-item', id)"
+            @play="(fileId, at) => playFrom(hit.itemId, fileId, at)"
+          />
         </ul>
         <p v-else-if="!searching" class="visual-note">没有找到相近的画面。</p>
       </template>
@@ -97,16 +93,18 @@
 
 <script setup lang="ts">
 /**
- * 按画面搜面板（番号库）。结果按「最像的那张图」排序，每部显示那张图，点开进详情。
+ * 按画面搜面板（番号库）。结果按「最像的那个画面」排序，每部显示那张图：封面 / 剧照点开进详情，
+ * 视频画面从那个时间点播放（结果卡见 VisualHitCard.vue，视频画面开关见 FramesSettings.vue）。
  * 状态与搜索见 use-visual-search.ts，阶段划分见 visual-rules.ts。
  */
 import { computed } from 'vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 import UiInput from '@/components/ui/UiInput.vue'
-import UiPressable from '@/components/ui/UiPressable.vue'
-import { stillImage } from '../api/images'
 import LibrarySheet from '../shared/LibrarySheet.vue'
+import FramesSettings from './FramesSettings.vue'
+import VisualHitCard from './VisualHitCard.vue'
+import { playMoment } from './play-moment'
 import { useVisualSearch } from './use-visual-search'
 import {
   EXAMPLES,
@@ -123,11 +121,18 @@ const props = defineProps<{
 const open = defineModel<boolean>('open', { required: true })
 const emit = defineEmits<{ 'open-item': [itemId: number] }>()
 
-const { status, text, hits, searching, error, startIndex } = useVisualSearch({
-  open,
-  libraryId: () => props.libraryId ?? undefined,
-})
+const { status, text, hits, searching, error, startIndex, setFrames } =
+  useVisualSearch({
+    open,
+    libraryId: () => props.libraryId ?? undefined,
+  })
 const stage = computed(() => stageOf(status.value))
+
+/** 从视频画面的时间点播放：先收起面板，免得挡住播放器。 */
+function playFrom(itemId: number, fileId: number, at: number): void {
+  open.value = false
+  void playMoment(itemId, fileId, at)
+}
 </script>
 
 <style scoped>
@@ -179,28 +184,5 @@ const stage = computed(() => stageOf(status.value))
   margin: 0;
   padding: 0;
   list-style: none;
-}
-.visual-hit {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-.visual-hit img {
-  width: 100%;
-  aspect-ratio: 3 / 2;
-  object-fit: cover;
-  border-radius: var(--radius-md);
-  background: var(--bg-fill-secondary);
-  transition: var(--transition-fast);
-}
-.visual-hit:hover img {
-  filter: brightness(1.06);
-}
-.visual-hit-title {
-  overflow: hidden;
-  color: var(--text-primary);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
 }
 </style>
