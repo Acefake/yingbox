@@ -270,6 +270,22 @@
   height: 1px;
   clip-path: inset(50%);
 }
+.assistant-card.is-static:hover {
+  transform: none;
+}
+.assistant-card-buttons {
+  display: flex;
+  flex-wrap: wrap;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+.assistant-panel-slot {
+  margin-top: var(--space-3);
+  padding: var(--space-3);
+  border: 1px solid var(--border-glass-light);
+  border-radius: var(--radius-xl);
+  background: var(--bg-glass);
+}
 .assistant-progress {
   position: absolute;
   right: 0;
