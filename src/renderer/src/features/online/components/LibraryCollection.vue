@@ -36,21 +36,19 @@
         />
       </template>
     </UiVirtualGrid>
-    <div v-else class="collection-empty">
-      <UiIcon name="heart" class="collection-empty-icon" />
-      <p>
-        {{
-          category === 'all'
-            ? '这里还没有内容'
-            : `暂无${tabs.find(t => t.value === category)?.label}内容`
-        }}
-      </p>
-    </div>
+    <StatusState
+      v-else
+      class="collection-empty"
+      :icon="empty.icon"
+      :title="empty.title"
+      :hint="empty.hint"
+    />
   </div>
 </template>
 
 <script setup lang="ts">
-import UiIcon from '@/components/ui/UiIcon.vue'
+import StatusState from '@/components/StatusState.vue'
+import { confirmDialog } from '@/components/ui'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
@@ -158,7 +156,29 @@ const onOpen = (entry: CollectionEntry): void => {
   emit('open', entry.item)
 }
 
-const clear = (): void => {
+/** 空状态：按页面与当前分类说清楚为什么空、怎么才会有内容 */
+const empty = computed(() => {
+  const favorites = props.kind === 'favorites'
+  const label = tabs.find(t => t.value === category.value)?.label ?? ''
+  const what = category.value === 'all' ? '' : label
+  return {
+    icon: favorites ? ('heart' as const) : ('history' as const),
+    title: favorites ? `还没有收藏${what}` : `还没有播放过${what}`,
+    hint: favorites
+      ? '点海报或详情页上的心形收藏，影片和剧集会出现在这里'
+      : '在线播放过的影片和剧集会出现在这里，点卡片从上次的位置继续',
+  }
+})
+
+/** 清空记录：不可撤销，先确认 */
+const clear = async (): Promise<void> => {
+  const ok = await confirmDialog({
+    title: props.kind === 'favorites' ? '清空全部收藏？' : '清空播放记录？',
+    content: '清空后无法恢复。',
+    okText: '清空',
+    danger: true,
+  })
+  if (!ok) return
   localStorage.removeItem(
     props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
   )
@@ -182,15 +202,6 @@ watch(() => [route.query.tab, props.kind], read)
 }
 
 .collection-empty {
-  display: grid;
-  place-items: center;
-  min-height: 300px;
-  color: var(--text-tertiary);
-}
-
-.collection-empty-icon {
-  width: 40px;
-  height: 40px;
-  color: var(--text-quaternary);
+  flex: 1;
 }
 </style>

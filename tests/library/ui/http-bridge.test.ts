@@ -100,6 +100,24 @@ describe('createHttpLibraryBridge', () => {
     ).toBe('engine-unavailable')
   })
 
+  it('错误页是 HTML 或正文不是 JSON 时，提示里不带页面源码', async () => {
+    const html = harness(
+      () =>
+        new Response('<!DOCTYPE HTML><html><body><h1>Error response</h1>', {
+          status: 501,
+        })
+    )
+    const notImplemented = await html.bridge.listLibraries().catch(e => e)
+    expect(libraryErrorCode(notImplemented)).toBe('engine-unavailable')
+    expect(notImplemented.message).toContain('HTTP 501')
+    expect(notImplemented.message).not.toContain('<')
+
+    const spa = harness(() => new Response('<html></html>', { status: 200 }))
+    const fallback = await spa.bridge.listLibraries().catch(e => e)
+    expect(libraryErrorCode(fallback)).toBe('engine-unavailable')
+    expect(fallback.message).not.toContain('<')
+  })
+
   it('多个订阅方共用一条 SSE，最后一个退订时关闭', () => {
     const { bridge, streams } = harness(() => ok(null))
     const a: LibraryEvent[] = []

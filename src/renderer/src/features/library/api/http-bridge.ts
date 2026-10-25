@@ -33,8 +33,17 @@ export interface HttpBridgeDeps {
   openEvents: (url: string, onData: (data: string) => void) => EventStream
 }
 
+/** 错误响应正文里能直接给人看的部分：HTML 页面（代理 / 静态服务的 404 页）不要，纯文本截到一行。 */
+function readableBody(text: string): string {
+  const body = text.trim()
+  if (!body || /<[a-z!/]/i.test(body)) return ''
+  const line = body.split(/\r?\n/, 1)[0]
+  return line.length > 120 ? `${line.slice(0, 120)}…` : line
+}
+
 /** HTTP 状态码 → 引擎错误码（服务没有回 InvokeResult 时）。 */
-function transportError(status: number, text: string): Error {
+function transportError(status: number, raw: string): Error {
+  const text = readableBody(raw)
   const message =
     status === 401
       ? '需要登录片库服务'
@@ -69,7 +78,11 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
         response.status,
         await response.text().catch(() => '')
       )
-    const result = (await response.json()) as InvokeResult
+    // 同源的静态服务 / 代理可能回 200 的 HTML 页面（没部署片库服务），不当成 JSON 解析出错
+    const result = (await response
+      .json()
+      .catch(() => null)) as InvokeResult | null
+    if (!result) throw transportError(response.status, '')
     if (result.ok) return result.result as LibraryRpcMap[M]['result']
     const error = new Error(encodeErrorMessage(result.error))
     error.name = 'LibraryError'
