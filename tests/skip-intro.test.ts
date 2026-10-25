@@ -263,7 +263,7 @@ describe('播放器接入（源码）', () => {
     expect(overlay).toContain('<Teleport')
     expect(overlay).not.toMatch(/<button/)
     const tokens = read('assets/styles/tokens.css')
-    for (const name of ['--media-intro', '--media-outro', '--media-glass'])
+    for (const name of ['--media-intro', '--media-outro', '--glass-media-bg'])
       expect(tokens).toContain(`${name}:`)
     expect(read('features/player/skip/skip.css')).toContain(
       'var(--media-intro)'
