@@ -1,17 +1,17 @@
 /**
- * Anime4K 超分（mpv 着色器）的纯规则：模式 → 着色器列表、着色器来源与校验值、配置校验、动画条目判断。
+ * 影盒超分（mpv 着色器）的纯规则：模式 → 着色器列表、着色器来源与校验值、配置校验、动画条目判断。
  * 主进程（下载与挂载，src/main/mpv-anime4k.ts）与渲染层（设置、开播时判断条目类型）共用。
  *
- * 着色器来自 Anime4K 官方仓库 v4.0.1（bloc97/Anime4K，MIT 许可），首次使用时按需下载到
+ * 着色器来自开源仓库 bloc97/Anime4K v4.0.1（MIT 许可），首次使用时按需下载到
  * userData/anime4k/v4.0.1/，不随仓库提交、不随安装包分发。每个文件按 SHA-256 校验。
- * 模式与组合照搬官方 mpv 模板（md/Template/GLSL_Windows_High-end|Low-end/input.conf）：
+ * 模式与组合照搬上游 mpv 模板（md/Template/GLSL_Windows_High-end|Low-end/input.conf）：
  *   A：Restore → Upscale → Upscale（大多数 1080p 动画、模糊较多的老片）
  *   B：Restore_Soft → Upscale → Upscale（多数 720p、由 1080p 缩下来的片源）
  *   C：Upscale_Denoise → Upscale（几乎无损的高质量片源）
  * 画质档（hq）用 VL 网络，性能档（fast）用 M 网络。
  */
 
-/** 官方版本（下载目录与地址都按它区分）。 */
+/** 着色器版本（下载目录与地址都按它区分）。 */
 export const ANIME4K_VERSION = 'v4.0.1'
 
 /** 模式。 */
@@ -112,7 +112,7 @@ export function anime4kSourceUrls(repoPath: string): string[] {
   ]
 }
 
-/** 模式 + 档位 → 按顺序挂载的着色器（官方模板的组合）。 */
+/** 模式 + 档位 → 按顺序挂载的着色器（上游模板的组合）。 */
 export function anime4kShaders(
   mode: Anime4kMode,
   quality: Anime4kQuality
@@ -139,7 +139,7 @@ export function anime4kShaders(
   ]
 }
 
-/** 这次播放要不要挂 Anime4K：开关打开，且（不限条目，或条目是动画）。 */
+/** 这次播放要不要挂影盒超分：开关打开，且（不限条目，或条目是动画）。 */
 export function shouldApplyAnime4k(
   config: Anime4kConfig,
   anime: boolean | undefined
@@ -186,5 +186,8 @@ export function anime4kLabel(
   mode: Anime4kMode,
   quality: Anime4kQuality
 ): string {
-  return `Anime4K：模式 ${mode.toUpperCase()}（${quality === 'hq' ? '画质' : '性能'}）`
+  return `影盒超分：模式 ${mode.toUpperCase()}（${quality === 'hq' ? '画质' : '性能'}）`
 }
+
+/** 着色器下载或挂载失败时 mpv 窗口里的提示。 */
+export const ANIME4K_FAILED_TEXT = '影盒超分着色器下载失败，已按原画播放'

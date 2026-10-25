@@ -50,7 +50,7 @@ class MpvPlayer extends EventEmitter {
   private readonly window = new MpvWindow((name, value) =>
     this.setProp(name, value)
   )
-  /** Anime4K 着色器（设置 + 当前条目是否动画） */
+  /** 影盒超分着色器（设置 + 当前条目是否动画） */
   private readonly anime4k = new Anime4kSync(
     (...args) => this.cmd(...args),
     () => Boolean(this.child) && this.sock.connected
@@ -299,7 +299,7 @@ class MpvPlayer extends EventEmitter {
     await this.syncVsr()
   }
 
-  /** 设置 Anime4K（来自渲染层的「设置 → 播放器」）。 */
+  /** 设置影盒超分（来自渲染层的「设置 → 播放器」）。 */
   async setAnime4k(config: Anime4kConfig): Promise<void> {
     await this.anime4k.setConfig(config)
   }
