@@ -34,6 +34,12 @@ defineProps<{
 .lib-empty.is-inline {
   height: auto;
 }
+/* 空状态的大图标：48px 四级灰，和标题一起成为视觉中心 */
+.lib-empty .app-icon {
+  width: 48px;
+  height: 48px;
+  color: var(--text-quaternary);
+}
 .lib-empty h2 {
   margin: var(--space-2) 0 0;
   color: var(--text-primary);
