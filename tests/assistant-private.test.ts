@@ -41,6 +41,9 @@ vi.mock('@/features/lada', () => ({
 vi.mock('@/features/assistant', async () => ({
   ...(await import('../src/renderer/src/features/assistant/skills/skill-types')),
   ...(await import('../src/renderer/src/features/assistant/skills/continue-cards')),
+  privateRouteSections: (
+    await import('../src/renderer/src/features/assistant/skills/core-skills')
+  ).privateRouteSections,
 }))
 
 import { idle, privateIdle, raw } from './assistant-fixtures'
@@ -133,9 +136,23 @@ describe('对话上下文（只在内存里）', () => {
 })
 
 describe('私密技能包', () => {
+  /** 私密板块来自路由表的 meta.adultOnly（父路由上的也算） */
+  const routeTable = [
+    { path: '/movie', meta: { title: '电影' } },
+    { path: '/jav', meta: { title: '番号', adultOnly: true } },
+    { path: '/av', meta: { title: 'AV资源' } },
+  ]
   const router = {
     push: vi.fn(async () => {}),
     currentRoute: { value: { path: '/jav', query: { item: '42' } } },
+    getRoutes: () => routeTable,
+    resolve: (path: string) => {
+      const record = routeTable.find(r => r.path === path)!
+      // 模拟 /av 的 adultOnly 挂在父路由上：只有 resolve 合并后才看得到
+      return path === '/av'
+        ? { ...record, meta: { ...record.meta, adultOnly: true } }
+        : record
+    },
   }
   const signal = new AbortController().signal
   const skills = [privateSkill]
@@ -189,15 +206,15 @@ describe('私密技能包', () => {
     ).toBe('answer')
   })
 
-  it('自然语言搜索：跳到番号库并强制交给自然语言解析', async () => {
+  it('自然语言搜索：跳到番号库，强制交给自然语言解析并要求只用本地模型', async () => {
     await run({ action: 'private.search', text: '2024 年的无码' })
     expect(router.push).toHaveBeenLastCalledWith({
       path: '/jav',
-      query: { q: '?2024 年的无码' },
+      query: { q: '?2024 年的无码', localOnly: '1' },
     })
   })
 
-  it('继续播放：只列私密板块的记录', async () => {
+  it('继续播放：只列私密板块的记录（板块来自合并 meta 后的路由表）', async () => {
     const rec = (id: string, section: string): Record<string, unknown> => ({
       id,
       section,

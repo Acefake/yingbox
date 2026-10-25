@@ -1,6 +1,10 @@
 <template>
   <div class="assistant-result" :class="`is-${result.kind}`">
-    <div v-if="result.kind === 'cards'" class="assistant-cards">
+    <div
+      v-if="result.kind === 'cards'"
+      class="assistant-cards"
+      :class="{ 'is-busy': playing !== null }"
+    >
       <UiPressable
         v-for="(card, index) in result.cards"
         :key="card.id"
@@ -8,7 +12,8 @@
         :class="{ 'is-busy': playing === card.id }"
         :style="{ '--i': index, '--progress': card.progress ?? 0 }"
         :title="card.reason || undefined"
-        :disabled="playing !== null"
+        :aria-busy="playing === card.id"
+        :aria-disabled="playing !== null"
         @click="play(card)"
       >
         <span class="assistant-card-cover">
@@ -19,7 +24,8 @@
         </span>
         <span class="assistant-card-body">
           <span class="assistant-card-title">{{ card.title }}</span>
-          <span v-if="card.meta" class="assistant-card-meta">
+          <UiLoadingDots v-if="playing === card.id" label="正在打开…" />
+          <span v-else-if="card.meta" class="assistant-card-meta">
             {{ card.meta }}
           </span>
           <span class="assistant-card-action">{{ card.playLabel }}</span>
@@ -49,10 +55,12 @@
 /**
  * 助手面板里的结果（弹簧滑入，逐张错开）：封面卡片（角标写时长或看到多少，下面一行类型 · 评分 · 规格，
  * 有进度时底部一条进度条，整张可点开播），以及一次性动作的回执。开始播放后通知外层收起助手。
+ * 打开播放器期间：被点的卡片在说明行显示「正在打开…」并标 aria-busy，其余卡片变淡并标 aria-disabled
+ * （保持可聚焦，点击不重复打开）。
  */
 import { ref } from 'vue'
 
-import { UiIcon, UiPressable, toast } from '@/components/ui'
+import { UiIcon, UiLoadingDots, UiPressable, toast } from '@/components/ui'
 
 import type { AssistantMediaCard, AssistantResult } from './skills/skill-types'
 

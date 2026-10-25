@@ -26,6 +26,7 @@ export {
   defineAction,
 } from './skills/skill-types'
 export { continueCard, continueCardsWhere } from './skills/continue-cards'
+export { privateRouteSections } from './skills/core-skills'
 
 /** 「AI 助手」设置分区：全局快捷键 */
 export const assistantSettingsSection: SettingsSection = {

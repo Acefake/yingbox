@@ -81,7 +81,8 @@ export function clockText(seconds: number): string {
 
 /**
  * 当前状态的说明（页面、在播片名与时间点），让「这部」「刚才那段」能被理解。
- * 私密时请求只发给本地模型，所以片名与时间点只在这两种情况下给：非私密，或已强制本地。
+ * 片名与时间点在普通与私密模式都给：私密模式的模型请求一律带 localOnly（assistant-deps.ts 的 privacyFields），
+ * 主进程拒绝非本地服务商，片名不会发到云端。
  */
 export function contextLines(context: AssistantContext): string[] {
   const lines = [`用户当前在「${context.route.title}」页面。`]

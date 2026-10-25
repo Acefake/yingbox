@@ -19,11 +19,12 @@ import {
   defineAction,
 } from './skill-types'
 
-/** 时长写成「1h 39m」/「45m」 */
+/** 时长写成「1h 39m」/「45m」（先取整到分钟再拆，59.6 分钟写 1h 00m） */
 export function durationBadge(minutes: number | null): string | undefined {
   if (!minutes || minutes <= 0) return undefined
-  const h = Math.floor(minutes / 60)
-  const m = Math.round(minutes % 60)
+  const total = Math.max(1, Math.round(minutes))
+  const h = Math.floor(total / 60)
+  const m = total % 60
   return h ? `${h}h ${String(m).padStart(2, '0')}m` : `${m}m`
 }
 

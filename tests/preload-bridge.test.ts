@@ -199,6 +199,7 @@ const ADDED_API: Record<string, string[]> = {
   dolbyVision: ['probe', 'start', 'stop'],
   assistant: [
     'shortcutStatus',
+    'takeSummon',
     'transcribe',
     'onSummon',
     'offSummon',

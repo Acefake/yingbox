@@ -110,9 +110,12 @@ export interface ShortcutRegistry {
 
 /** 快捷键控制器：按设置注册 / 换绑 / 关闭，并给出当前状态 */
 export interface ShortcutController {
-  /** 应用设置里的写法，返回新状态（同一写法已注册时不重复注册） */
+  /**
+   * 应用设置里的写法，返回新状态。同一写法已注册且仍在系统里时不重复注册；
+   * 换绑时先注册新组合，成功后才注销旧的，新组合不可用时旧的继续生效（状态里给出 active）。
+   */
   apply(raw: string): AssistantShortcutStatus
-  /** 当前状态 */
+  /** 当前状态：以系统里是否真的注册着为准，被外部注销时先重新注册一次 */
   status(): AssistantShortcutStatus
   /** 注销（应用退出时） */
   dispose(): void
@@ -128,45 +131,75 @@ export function createShortcutController(
   onTrigger: () => void
 ): ShortcutController {
   let current: AssistantShortcutStatus = { accelerator: '', registered: false }
+  /** 本控制器实际注册着的组合 */
+  let held: string | null = null
 
-  const release = (): void => {
-    if (current.registered) registry.unregister(current.accelerator)
+  /** 仍在系统里的已注册组合；被外部注销（如 unregisterAll）时清掉记录 */
+  const holding = (): string | null => {
+    if (held !== null && !registry.isRegistered(held)) held = null
+    return held
   }
 
   const fail = (
     accelerator: string,
-    problem: AssistantShortcutProblem
-  ): AssistantShortcutStatus => ({ accelerator, registered: false, problem })
+    problem: AssistantShortcutProblem,
+    active: string | null
+  ): AssistantShortcutStatus =>
+    active
+      ? { accelerator, registered: false, problem, active }
+      : { accelerator, registered: false, problem }
 
-  const tryRegister = (accelerator: string): AssistantShortcutStatus => {
-    if (registry.isRegistered(accelerator)) return fail(accelerator, 'conflict')
+  /** 注册新组合（调用方保证它不是 held） */
+  const tryRegister = (
+    accelerator: string
+  ): AssistantShortcutProblem | null => {
+    if (registry.isRegistered(accelerator)) return 'conflict'
     try {
-      return registry.register(accelerator, onTrigger)
-        ? { accelerator, registered: true }
-        : fail(accelerator, 'conflict')
+      return registry.register(accelerator, onTrigger) ? null : 'conflict'
     } catch {
-      return fail(accelerator, 'invalid')
+      return 'invalid'
     }
   }
 
+  const apply = (raw: string): AssistantShortcutStatus => {
+    const accelerator = normalizeAccelerator(raw)
+    const live = holding()
+    if (accelerator === null) {
+      current = fail(raw.trim(), 'invalid', live)
+      return current
+    }
+    if (accelerator === '') {
+      if (live) registry.unregister(live)
+      held = null
+      current = { accelerator, registered: false }
+      return current
+    }
+    if (live === accelerator) {
+      current = { accelerator, registered: true }
+      return current
+    }
+    const problem = tryRegister(accelerator)
+    if (problem) {
+      current = fail(accelerator, problem, live)
+      return current
+    }
+    if (live) registry.unregister(live)
+    held = accelerator
+    current = { accelerator, registered: true }
+    return current
+  }
+
   return {
-    apply(raw) {
-      const accelerator = normalizeAccelerator(raw)
-      if (
-        accelerator &&
-        current.registered &&
-        current.accelerator === accelerator
-      )
-        return current
-      release()
-      if (accelerator === null) current = fail(raw.trim(), 'invalid')
-      else if (accelerator === '') current = { accelerator, registered: false }
-      else current = tryRegister(accelerator)
+    apply,
+    status() {
+      if (current.registered && holding() === null)
+        return apply(current.accelerator)
       return current
     },
-    status: () => current,
     dispose() {
-      release()
+      const live = holding()
+      if (live) registry.unregister(live)
+      held = null
       current = { accelerator: current.accelerator, registered: false }
     },
   }
@@ -185,13 +218,30 @@ export function transcriptText(cues: readonly { text: string }[]): string {
   return out
 }
 
-/** 16 位 PCM WAV 的时长（秒）；不是标准 44 字节头的 WAV 返回 0 */
+/**
+ * 16 位 PCM WAV 的时长（秒）：按 RIFF 块遍历，取 fmt 块的 byteRate 与 data 块的长度
+ * （data 前有 LIST 等附加块时也算对）；不是 RIFF/WAVE 或缺块时返回 0。
+ */
 export function wavSeconds(bytes: Uint8Array): number {
-  if (bytes.byteLength < 44) return 0
+  if (bytes.byteLength < 12) return 0
   const view = new DataView(bytes.buffer, bytes.byteOffset, bytes.byteLength)
-  const riff = String.fromCharCode(...bytes.subarray(0, 4))
-  const wave = String.fromCharCode(...bytes.subarray(8, 12))
-  if (riff !== 'RIFF' || wave !== 'WAVE') return 0
-  const byteRate = view.getUint32(28, true)
-  return byteRate > 0 ? (bytes.byteLength - 44) / byteRate : 0
+  const tag = (offset: number): string =>
+    String.fromCharCode(...bytes.subarray(offset, offset + 4))
+  if (tag(0) !== 'RIFF' || tag(8) !== 'WAVE') return 0
+  let byteRate = 0
+  let offset = 12
+  while (offset + 8 <= bytes.byteLength) {
+    const id = tag(offset)
+    const size = view.getUint32(offset + 4, true)
+    const body = offset + 8
+    if (id === 'fmt ' && size >= 16 && body + 16 <= bytes.byteLength)
+      byteRate = view.getUint32(body + 8, true)
+    if (id === 'data') {
+      const length = Math.min(size, bytes.byteLength - body)
+      return byteRate > 0 ? length / byteRate : 0
+    }
+    // 块按偶数字节对齐
+    offset = body + size + (size % 2)
+  }
+  return 0
 }

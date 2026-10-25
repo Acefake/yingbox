@@ -124,10 +124,11 @@ async function probeDuration(
 
 /**
  * 按设置组装识别器（AI 字幕任务与 AI 助手的语音输入共用）。
- * @param job 只看 private：私密内容按「私密板块只用本地模型」拦截云端转写
+ * @param job private：私密内容按「私密板块只用本地模型」拦截云端转写；
+ *   localOnly：不看该设置，非本地的转写接口一律拦截（AI 助手的私密模式）
  */
 export function speechRecognizer(
-  job: Pick<AiSubtitleJob, 'private'>
+  job: Pick<AiSubtitleJob, 'private'> & { localOnly?: boolean }
 ): PipelineDeps['recognize'] {
   const store = settingsStore()
   const speech = aiService().speechConfig()
@@ -151,8 +152,9 @@ export function speechRecognizer(
   if (speech.engine === 'cloud')
     return createCloudRecognizer({
       config: speech,
-      isPrivate: job.private,
-      privateLocalOnly: store.get('ai.privateLocalOnly'),
+      isPrivate: job.private || job.localOnly === true,
+      privateLocalOnly:
+        job.localOnly === true || store.get('ai.privateLocalOnly'),
       fetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
       readFile: path => fs.readFile(path),
     })

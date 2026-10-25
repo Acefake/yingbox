@@ -2,7 +2,9 @@
  * AI 助手的私密技能包（只在成人模式打开时由应用入口动态 import 并登记，独立 chunk）。
  *
  * 只在私密模式（番号库 / AV 页面，或在播私密内容）生效；助手核心对私密模式的所有请求
- * 带 private + localOnly，只发给本地模型，对话只留在内存里。本阶段只做文本能力：
+ * 带 private + localOnly，只发给本地模型，对话只留在内存里。跳到番号库做自然语言搜索时
+ * 也带上 localOnly（privateSearchQuery），该页的模型请求同样只发给本地模型。
+ * 私密的「继续播放」板块来自路由表（privateRouteSections），与助手核心同一份名单。本阶段只做文本能力：
  * 按番号搜索 / 跳到详情、私密库自然语言搜索、继续播放私密记录、用去码模式播放、随机一部。
  */
 import {
@@ -11,6 +13,7 @@ import {
   closeOutcome,
   continueCardsWhere,
   defineAction,
+  privateRouteSections,
 } from '@/features/assistant'
 import { useLadaTasks } from '@/features/lada'
 import {
@@ -22,12 +25,12 @@ import {
 } from '@/features/library'
 
 import {
-  PRIVATE_CONTINUE_SECTIONS,
   PRIVATE_LIBRARY,
   currentItemId,
   exactCodeMatch,
   itemMeta,
   normalizeCode,
+  privateSearchQuery,
 } from './av-skill-rules'
 
 const code = defineAction<string>({
@@ -54,7 +57,7 @@ const search = defineAction<string>({
   async run(text, env) {
     await env.router.push({
       path: PRIVATE_LIBRARY.path,
-      query: { q: `?${text}` },
+      query: privateSearchQuery(text),
     })
     return closeOutcome
   },
@@ -64,10 +67,9 @@ const resume = defineAction<true>({
   name: 'continue',
   describe: '接着看上次没看完的番号或在线资源。',
   parse: () => true,
-  async run() {
-    const cards = continueCardsWhere(section =>
-      PRIVATE_CONTINUE_SECTIONS.has(section)
-    )
+  async run(_params, env) {
+    const sections = privateRouteSections(env.router)
+    const cards = continueCardsWhere(section => sections.has(section))
     return {
       message: cards.length ? '接着看上次没看完的：' : '还没有看到一半的内容。',
       result: cards.length ? { kind: 'cards', cards } : null,

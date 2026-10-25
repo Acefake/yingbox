@@ -23,11 +23,37 @@ export interface AssistantPage {
 export interface RouteLike {
   path: string
   meta?: Record<string | number | symbol, unknown>
+  /** 当前地址匹配到的各级路由（useRoute() 才有） */
+  matched?: readonly { meta?: Record<string | number | symbol, unknown> }[]
 }
 
-/** 是否标记为私密路由（开关打开才有的分区） */
+/** 是否标记为私密路由（开关打开才有的分区）：自身或任一级父路由带 meta.adultOnly */
 export function isPrivateRoute(route: RouteLike): boolean {
-  return route.meta?.adultOnly === true
+  return (
+    route.meta?.adultOnly === true ||
+    route.matched?.some(record => record.meta?.adultOnly === true) === true
+  )
+}
+
+/** resolvedRoutes 用到的路由器能力 */
+export interface RouteTable {
+  getRoutes(): readonly RouteLike[]
+  resolve(path: string): RouteLike
+}
+
+/**
+ * 路由表 → 每条带上合并后的 meta：getRoutes() 只给记录自身的 meta，
+ * 父路由上的 adultOnly / title 要经 resolve 合并才看得到。带参数的路径原样保留。
+ */
+export function resolvedRoutes(router: RouteTable): RouteLike[] {
+  return router.getRoutes().map(record => {
+    if (record.path.includes(':')) return record
+    const resolved = router.resolve(record.path)
+    const merged = isPrivateRoute(resolved)
+      ? { ...resolved.meta, adultOnly: true }
+      : resolved.meta
+    return { path: record.path, meta: { ...record.meta, ...merged } }
+  })
 }
 
 /** 路由表 → 可以跳转的页面 */

@@ -84,11 +84,12 @@ export function createAiService(deps: AiServiceDeps): AiService {
   ): Promise<AiChatResult> => {
     const current = config()
     assertUsable(current, request.model?.trim() || current.model)
-    assertPrivacy(
-      current,
-      request.private || request.localOnly,
-      request.localOnly === true || deps.settings.privateLocalOnly()
-    )
+    if (request.localOnly && !current.local)
+      throw new AiError(
+        'private_blocked',
+        '私密内容只发给本地模型，当前服务商不是本地的'
+      )
+    assertPrivacy(current, request.private, deps.settings.privateLocalOnly())
     const result = await chatCompletion(current, request, {
       ...deps.client,
       ...(options.retries === undefined ? {} : { retries: options.retries }),

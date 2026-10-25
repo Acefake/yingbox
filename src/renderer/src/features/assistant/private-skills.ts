@@ -1,5 +1,6 @@
 /**
- * 私密技能包的按需加载：设置打开时动态 import（独立 chunk）并登记，关闭时卸载并清空对话上下文。
+ * 私密技能包的按需加载：设置打开时动态 import（独立 chunk）并登记，关闭时卸载并清空对话上下文；
+ * 登记到一半出错时把已登记的也卸掉。
  *
  * 助手核心不知道私密技能是什么：应用入口把开关与加载函数交进来（installPrivateSkills），
  * 开关关闭时这里不会下载那段代码，提示词、建议与界面里也就不会出现它的任何字样。
@@ -54,9 +55,13 @@ export function installPrivateSkills(
         const module = await options.load()
         if (token !== generation || !options.enabled()) return
         const skills = ([] as AssistantSkill[]).concat(module.default)
-        for (const skill of skills) registry.register(skill)
-        loaded = skills.map(skill => skill.id)
+        // 逐个记下已登记的，中途抛错时 catch 里能全部卸掉，不留半套私密技能
+        for (const skill of skills) {
+          registry.register(skill)
+          loaded.push(skill.id)
+        }
       } catch (error) {
+        unload()
         console.warn('[assistant] 私密技能加载失败', error)
       }
     },
