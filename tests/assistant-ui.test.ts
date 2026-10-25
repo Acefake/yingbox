@@ -1,9 +1,9 @@
 // @vitest-environment jsdom
 /**
- * AI 助手入口与浮层的挂载：光球按钮打开、Cmd/Ctrl+K 与全局快捷键事件唤起、Esc / Esc 提示 / 点外部收起、
- * 未配置 AI 时显示「去设置 AI」、播放弹窗在时不显示光球；底部面板与播放器内右侧面板两种布局；
- * 普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的胶囊、占位文字与靛蓝色调；
- * 私密模式切换时收起并清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到光球、
+ * AI 助手入口与浮层的挂载：openAssistant（侧栏 sparkle 入口）打开、Cmd/Ctrl+K 与全局快捷键事件唤起、
+ * Esc / Esc 提示 / 点外部收起、未配置 AI 时显示「去设置 AI」；待命时只有玻璃输入胶囊、提问后展开成玻璃面板；
+ * 播放器内右侧面板；普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的胶囊与占位文字（不换色调）；
+ * 私密模式切换时收起并清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到打开前的元素、
  * 模态面板的焦点陷阱、按住 Cmd/Ctrl+K 的自动重复不算。AI、播放器、媒体库换成替身。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -71,6 +71,7 @@ vi.mock('@/features/settings', () => ({
 
 import { SENSITIVE } from './assistant-fixtures'
 import AssistantLauncher from '../src/renderer/src/features/assistant/AssistantLauncher.vue'
+import { openAssistant } from '../src/renderer/src/features/assistant/assistant-open'
 import {
   assistantSessionSize,
   recordAssistantTurn,
@@ -132,9 +133,6 @@ async function mount(path = '/'): Promise<void> {
 }
 
 const overlay = (): Element | null => document.querySelector('.assistant')
-const fab = (): HTMLElement | null => document.querySelector('.assistant-fab')
-/** 光球用 v-show：节点常驻，看 display */
-const fabShown = (): boolean => !!fab() && fab()!.style.display !== 'none'
 
 function key(init: KeyboardEventInit): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }))
@@ -170,12 +168,23 @@ afterEach(() => {
 })
 
 describe('AssistantLauncher', () => {
-  it('点光球打开浮层：底部面板、上下文胶囊、Esc 提示、输入框「问影盒…」、建议胶囊', async () => {
+  it('openAssistant 打开浮层：待命的玻璃输入胶囊、上下文胶囊、Esc 提示、输入框「问影盒…」、建议胶囊', async () => {
     await mount()
     expect(overlay()).toBeNull()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-layout')).toBe('sheet')
+    expect(overlay()!.getAttribute('data-expanded')).toBe('false')
+    // 待命时面板本身没有玻璃，玻璃在输入胶囊上；没有光球与整圈边缘光
+    expect(
+      document.querySelector('.assistant-sheet')!.classList.contains('yb-glass')
+    ).toBe(false)
+    expect(
+      document.querySelector('.assistant-field')!.classList.contains('yb-glass')
+    ).toBe(true)
+    expect(document.querySelector('.assistant-orb')).toBeNull()
+    expect(document.querySelector('.edge-glow')).toBeNull()
+    expect(document.querySelector('.assistant-streak')).not.toBeNull()
     expect(overlay()!.getAttribute('data-private')).toBe('false')
     expect(
       document.querySelector('.assistant-chip.is-context')?.textContent
@@ -184,10 +193,6 @@ describe('AssistantLauncher', () => {
       'deepseek-chat'
     )
     expect(document.querySelector('.assistant-esc')?.textContent).toBe('Esc')
-    expect(
-      document.querySelector('.assistant-orb')?.getAttribute('data-phase')
-    ).toBe('idle')
-    expect(document.querySelector('.edge-glow')).not.toBeNull()
     // 状态行只给读屏：待命未提问时为空，不与大标题重复
     expect(document.querySelector('.assistant-status')?.textContent).toBe('')
     expect(
@@ -201,12 +206,11 @@ describe('AssistantLauncher', () => {
     expect(
       document.querySelectorAll('.assistant-suggestions .ui-chip').length
     ).toBe(4)
-    expect(fabShown()).toBe(false)
   })
 
   it('Esc 收起浮层', async () => {
     await mount()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     key({ key: 'Escape' })
     await settle(100)
@@ -215,12 +219,12 @@ describe('AssistantLauncher', () => {
 
   it('关闭按钮与点面板外收起', async () => {
     await mount()
-    fab()!.click()
-    await settle()
+    openAssistant()
+    await waitFor(() => overlay() !== null)
     ;(document.querySelector('.assistant-close') as HTMLElement).click()
     await settle(100)
     expect(overlay()).toBeNull()
-    fab()!.click()
+    openAssistant()
     await settle()
     ;(document.querySelector('.assistant-scrim') as HTMLElement).click()
     await settle(100)
@@ -240,11 +244,11 @@ describe('AssistantLauncher', () => {
     expect(overlay()).not.toBeNull()
   })
 
-  it('未配置 AI：提问后显示「去设置 AI」', async () => {
+  it('未配置 AI：提问后展开成玻璃面板并显示「去设置 AI」', async () => {
     fakes.configured = false
     await mount()
-    fab()!.click()
-    await settle()
+    openAssistant()
+    await waitFor(() => overlay() !== null)
     const input = document.querySelector(
       '.assistant-input input'
     ) as HTMLInputElement
@@ -261,17 +265,24 @@ describe('AssistantLauncher', () => {
     expect(document.querySelector('.assistant-setup')?.textContent).toContain(
       '去设置 AI'
     )
+    expect(overlay()!.getAttribute('data-expanded')).toBe('true')
+    expect(
+      document.querySelector('.assistant-sheet')!.classList.contains('yb-glass')
+    ).toBe(true)
+    expect(
+      document.querySelector('.assistant-field')!.classList.contains('yb-glass')
+    ).toBe(false)
   })
 
   it('普通模式：DOM 里没有敏感词（私密技能已登记也不出现）', async () => {
     await mount()
-    fab()!.click()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     expect(document.body.textContent).not.toMatch(SENSITIVE)
     expect(document.body.innerHTML).not.toMatch(SENSITIVE)
   })
 
-  it('私密模式：靛蓝色调、「私密 · 仅本地模型」、私密技能的建议与占位文字', async () => {
+  it('私密模式：「私密 · 仅本地模型」、无痕提示、私密技能的建议与占位文字', async () => {
     await mount('/secret')
     key({ key: 'k', ctrlKey: true })
     await waitFor(() => overlay() !== null)
@@ -315,12 +326,6 @@ describe('AssistantLauncher', () => {
     expect(overlay()).toBeNull()
   })
 
-  it('播放弹窗在时（含缩进角落小窗）不显示光球', async () => {
-    fakes.player = { id: 1, payload: {}, minimized: true }
-    await mount()
-    expect(fabShown()).toBe(false)
-  })
-
   it('全局快捷键新建了窗口：挂载后取走待处理的唤起并打开', async () => {
     fakes.pendingSummon = true
     await mount()
@@ -328,15 +333,17 @@ describe('AssistantLauncher', () => {
     expect(fakes.pendingSummon).toBe(false)
   })
 
-  it('从光球打开、收起后焦点回到光球', async () => {
+  it('收起后焦点回到打开前的元素（侧栏入口）', async () => {
+    const trigger = document.createElement('button')
+    document.body.appendChild(trigger)
     await mount()
-    fab()!.focus()
-    fab()!.click()
+    trigger.focus()
+    openAssistant()
     await waitFor(() => overlay() !== null)
     key({ key: 'Escape' })
     await settle(100)
-    expect(fabShown()).toBe(true)
-    expect(document.activeElement).toBe(fab())
+    expect(overlay()).toBeNull()
+    expect(document.activeElement).toBe(trigger)
   })
 
   it('按住 Cmd/Ctrl+K 的自动重复不反复开合', async () => {

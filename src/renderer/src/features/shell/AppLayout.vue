@@ -28,15 +28,15 @@
     />
 
     <div class="shell-column">
-      <!-- 顶部工具栏，保留窗口拖拽区域 -->
-      <AppToolbar @open-menu="sidebarOpen = true" />
-
-      <!-- 主内容区域 -->
+      <!-- 主内容区域：铺满窗口，左侧与顶部让出浮动侧栏和胶囊 -->
       <main class="main-content">
         <div class="content-surface">
           <slot />
         </div>
       </main>
+
+      <!-- 顶部浮动胶囊（前进后退、窗口键），整条保留窗口拖拽区域 -->
+      <AppToolbar @open-menu="sidebarOpen = true" />
     </div>
 
     <!-- 全局设置面板（已融合数据源管理） -->
@@ -73,8 +73,9 @@
 
 <script setup lang="ts">
 /**
- * 应用外壳：组合侧栏（可收起为图标栏，手机上为抽屉）、顶部工具栏、主内容插槽，
- * 以及全局的设置窗口和后台任务浮层。手机上额外显示底部标签栏。
+ * 应用外壳：主内容铺满窗口，上面浮着玻璃侧栏（含全局搜索与 AI 助手入口；可收起为 64px 图标列，手机上为抽屉）
+ * 和顶部的前进后退 / 窗口键胶囊；另有全局的设置窗口和后台任务浮层，手机上额外显示底部标签栏。
+ * 内容区按 --shell-left / --shell-top 让出浮动控件，页面要铺到侧栏后面时可用这两个变量取负边距。
  * 侧栏、工具栏各自是组件，导航项与搜索规则是纯函数（composables/），这里只管布局状态与全局快捷键。
  */
 import { computed, onMounted, onUnmounted, ref, watch } from 'vue'
@@ -179,12 +180,13 @@ onUnmounted(() => {
 
 <style scoped>
 .app-layout {
+  --shell-left: calc(var(--shell-inset) + var(--sidebar-width));
   position: relative;
-  display: flex;
-  flex-direction: row;
-  align-items: stretch;
   background: var(--bg-main);
   color: var(--text-primary);
+}
+.app-layout.sidebar-collapsed {
+  --shell-left: calc(var(--shell-inset) + var(--sidebar-width-collapsed));
 }
 
 .app-layout.is-web .app-sidebar,
@@ -192,67 +194,44 @@ onUnmounted(() => {
   -webkit-app-region: no-drag;
 }
 
-/* ── 右侧：工具栏 + 内容 ── */
+/* ── 内容：铺满窗口，左侧 / 顶部让出浮动侧栏与胶囊 ── */
 .shell-column {
-  display: flex;
-  flex: 1 1 auto;
-  flex-direction: column;
-  min-width: 0;
-  min-height: 0;
+  position: relative;
   height: 100%;
 }
-
 .main-content {
-  flex: 1 1 auto;
-  min-height: 0;
+  height: 100%;
   overflow: hidden;
 }
 .content-surface {
   height: 100%;
+  padding: var(--shell-top) 0 0 var(--shell-left);
   overflow: hidden;
   background: var(--bg-main);
-}
-
-/* ── 收起侧栏：只留图标，文字改为悬停提示 ── */
-.app-layout.sidebar-collapsed .app-sidebar {
-  flex-basis: var(--sidebar-width-collapsed);
-  width: var(--sidebar-width-collapsed);
-  max-width: var(--sidebar-width-collapsed);
-  padding-right: var(--space-3);
-  padding-left: var(--space-3);
+  transition: padding var(--duration-fast) ease;
 }
 
 /* ── 手机：侧栏为抽屉，只在打开时覆盖内容 ── */
 .app-layout.is-phone {
-  flex-direction: column;
+  --shell-left: 0px;
 }
 .app-layout.is-phone .app-sidebar {
   position: fixed;
-  inset: 0 auto 0 0;
+  inset: var(--shell-inset) auto var(--shell-inset) var(--shell-inset);
   z-index: var(--z-drawer);
-  flex: none;
-  width: min(320px, 86vw);
-  max-width: min(320px, 86vw);
-  height: 100%;
+  width: min(300px, 82vw);
   padding: calc(var(--space-4) + var(--safe-top)) var(--space-3)
     calc(20px + var(--safe-bottom));
-  box-shadow: var(--shadow-lg);
-  transform: translateX(-110%);
+  transform: translateX(-120%);
   pointer-events: none;
 }
 .app-layout.is-phone.sidebar-open .app-sidebar {
   transform: translateX(0);
   pointer-events: auto;
 }
-.app-layout.is-phone .shell-column {
-  width: 100%;
+.app-layout.is-phone .content-surface {
+  padding-top: calc(var(--shell-top) + var(--safe-top));
   padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom));
-}
-.app-layout.is-phone .top-menu {
-  flex-basis: calc(var(--titlebar-height) + var(--safe-top));
-  height: calc(var(--titlebar-height) + var(--safe-top));
-  padding-top: var(--safe-top);
-  -webkit-app-region: no-drag;
 }
 .sidebar-backdrop {
   position: fixed;
@@ -281,31 +260,5 @@ onUnmounted(() => {
   flex: 1;
   width: auto;
   min-height: var(--bottom-nav-height);
-}
-
-/* 未识别为手机但窗口很窄时：侧栏收进屏幕外，保持内容可用 */
-@media (max-width: 768px) {
-  .app-layout:not(.is-phone) {
-    flex-direction: column;
-  }
-  .app-layout:not(.is-phone) .app-sidebar {
-    position: fixed;
-    inset: 0 auto 0 0;
-    z-index: var(--z-drawer);
-    flex: none;
-    width: min(320px, 86vw);
-    max-width: min(320px, 86vw);
-    height: 100%;
-    transform: translateX(-110%);
-    pointer-events: none;
-  }
-  .app-layout:not(.is-phone) .shell-column {
-    width: 100%;
-    padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom));
-  }
-  .app-layout:not(.is-phone) .top-menu {
-    height: calc(var(--titlebar-height) + var(--safe-top));
-    padding-top: var(--safe-top);
-  }
 }
 </style>
