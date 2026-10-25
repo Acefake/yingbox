@@ -13,7 +13,7 @@
       <UiIconButton
         class="sidebar-toggle"
         icon="panel"
-        size="sm"
+        :size="collapsed ? 'lg' : 'sm'"
         :label="minimized ? '展开侧边栏' : '收起侧边栏'"
         @click="minimized = !minimized"
       />

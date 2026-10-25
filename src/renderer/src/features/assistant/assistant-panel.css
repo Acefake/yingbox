@@ -78,7 +78,7 @@
 .assistant-chip .app-icon {
   color: var(--text-tertiary);
 }
-.assistant-chip.is-ghost {
+.assistant-chip:where(.is-ghost) {
   background: transparent;
   box-shadow: inset 0 0 0 0.5px var(--border-strong);
   color: var(--text-tertiary);
@@ -109,7 +109,7 @@
 
 /* ── 文字 ── */
 .assistant-status,
-.assistant-transcript.is-empty {
+.assistant-transcript:where(.is-empty) {
   position: absolute;
   width: 1px;
   height: 1px;
@@ -132,7 +132,7 @@
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
-.assistant-answer.is-typing::after {
+.assistant-answer:where(.is-typing)::after {
   content: '';
   display: inline-block;
   width: 2px;
@@ -179,7 +179,7 @@
 .assistant-card:hover {
   background: var(--bg-active-soft);
 }
-.assistant-cards.is-busy .assistant-card:not(.is-busy) {
+.assistant-cards:where(.is-busy) .assistant-card:not(.is-busy) {
   opacity: 0.5;
 }
 .assistant-card-cover {
@@ -277,7 +277,7 @@
   border-radius: 50%;
   background: var(--bg-active);
 }
-.assistant-done.is-failed {
+.assistant-done:where(.is-failed) {
   color: var(--text-secondary);
 }
 
@@ -374,7 +374,7 @@
   }
   .assistant-card-in,
   .assistant-progress-fill,
-  .assistant-answer.is-typing::after {
+  .assistant-answer:where(.is-typing)::after {
     animation: none;
   }
 }

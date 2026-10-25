@@ -71,7 +71,7 @@
 .app-sidebar .sidebar-tool:hover {
   background: var(--bg-active);
 }
-.app-sidebar .sidebar-tool.is-assistant[aria-expanded='true'] {
+.app-sidebar .sidebar-tool:where([aria-expanded='true']) {
   background: var(--bg-active);
 }
 
@@ -111,14 +111,14 @@
 .app-sidebar .sidebar-item .app-icon {
   color: var(--text-secondary);
 }
-.app-sidebar .sidebar-item:hover:not(:disabled) {
+.app-sidebar .sidebar-item:where(:hover:not(:disabled)) {
   background: var(--bg-active-soft);
 }
-.app-sidebar .sidebar-item.is-active {
+.app-sidebar .sidebar-item:where(.is-active) {
   background: var(--bg-active);
   font-weight: var(--font-weight-semibold);
 }
-.app-sidebar .sidebar-item.is-active .app-icon {
+.app-sidebar .sidebar-item:where(.is-active) .app-icon {
   color: var(--text-primary);
 }
 /* 已锁定的板块：尾部小锁；收起成图标列时不显示 */
@@ -126,7 +126,7 @@
   margin-left: auto;
   color: var(--text-tertiary);
 }
-.app-sidebar.is-collapsed .sidebar-lock {
+.app-sidebar:where(.is-collapsed) .sidebar-lock {
   display: none;
 }
 /* 角标与小锁同时出现时并排 */
@@ -149,7 +149,7 @@
   text-align: center;
   font-variant-numeric: tabular-nums;
 }
-.app-sidebar.is-collapsed .sidebar-badge {
+.app-sidebar:where(.is-collapsed) .sidebar-badge {
   position: absolute;
   top: var(--space-1);
   right: var(--space-1);
@@ -226,33 +226,32 @@
 }
 
 /* ── 收起：64px 图标列，品牌只留标志与展开钮，搜索与助手入口一组 ── */
-.app-sidebar.is-collapsed {
+.app-sidebar:where(.is-collapsed) {
   align-items: center;
   width: var(--sidebar-width-collapsed);
   padding: var(--space-3) 0;
 }
-.app-sidebar.is-collapsed .sidebar-brand {
+.app-sidebar:where(.is-collapsed) .sidebar-brand {
   flex-direction: column;
   gap: var(--space-1_5);
   height: auto;
   margin-bottom: 0;
   padding: var(--space-1) 0 0;
 }
-.app-sidebar.is-collapsed .brand-name,
-.app-sidebar.is-collapsed .sidebar-incognito,
-.app-sidebar.is-collapsed .sidebar-heading {
+.app-sidebar:where(.is-collapsed) .brand-name,
+.app-sidebar:where(.is-collapsed) .sidebar-incognito,
+.app-sidebar:where(.is-collapsed) .sidebar-heading {
   display: none;
 }
-.app-sidebar.is-collapsed .brand-mark {
+.app-sidebar:where(.is-collapsed) .brand-mark {
   width: 32px;
   height: 32px;
 }
-.app-sidebar.is-collapsed .sidebar-toggle {
-  --ib-size: 44px;
+.app-sidebar:where(.is-collapsed) .sidebar-toggle {
   margin-left: 0;
   border-radius: 50%;
 }
-.app-sidebar.is-collapsed .sidebar-tools {
+.app-sidebar:where(.is-collapsed) .sidebar-tools {
   flex-direction: column;
   gap: var(--space-0_5);
   margin: 0;
@@ -260,28 +259,28 @@
   border-top: 0.5px solid var(--separator);
   border-bottom: 0.5px solid var(--separator);
 }
-.app-sidebar.is-collapsed .sidebar-tool {
+.app-sidebar:where(.is-collapsed) .sidebar-tool {
   width: 44px;
   height: 44px;
 }
-.app-sidebar.is-collapsed .sidebar-nav {
+.app-sidebar:where(.is-collapsed) .sidebar-nav {
   align-items: center;
   width: 100%;
   padding-top: var(--space-2);
 }
-.app-sidebar.is-collapsed .sidebar-item {
+.app-sidebar:where(.is-collapsed) .sidebar-item {
   justify-content: center;
   width: 44px;
   height: 44px;
   padding: 0;
 }
-.app-sidebar.is-collapsed .sidebar-divider {
+.app-sidebar:where(.is-collapsed) .sidebar-divider {
   width: 28px;
   margin: var(--space-2) auto;
 }
-.app-sidebar.is-collapsed .sidebar-footer {
+.app-sidebar:where(.is-collapsed) .sidebar-footer {
   align-items: center;
 }
-.app-sidebar.is-phone .sidebar-toggle {
+.app-sidebar:where(.is-phone) .sidebar-toggle {
   display: none;
 }
