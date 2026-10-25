@@ -140,7 +140,8 @@ function nowProgress(channel: LiveChannel): number {
   margin: 0;
   padding: var(--space-6) var(--space-3);
   border-radius: var(--radius-xl);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
   text-align: center;
@@ -152,7 +153,8 @@ function nowProgress(channel: LiveChannel): number {
   padding: var(--space-1_5);
   overflow-y: auto;
   border-radius: var(--radius-xl);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
 }
 
 .live-channels-list {
@@ -183,7 +185,7 @@ function nowProgress(channel: LiveChannel): number {
   height: 40px;
   overflow: hidden;
   border-radius: var(--radius-md);
-  background: var(--media-bg);
+  background: var(--bg-content);
   box-shadow: inset 0 0 0 0.5px var(--border-glass-light);
 }
 
@@ -198,7 +200,7 @@ function nowProgress(channel: LiveChannel): number {
   max-width: 100%;
   padding: 0 var(--space-1);
   overflow: hidden;
-  color: var(--media-text-secondary);
+  color: var(--text-secondary);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   letter-spacing: -0.01em;

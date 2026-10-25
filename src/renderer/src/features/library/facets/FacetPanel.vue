@@ -133,7 +133,8 @@ function onKeydown(event: KeyboardEvent): void {
   gap: var(--space-3);
   padding: var(--space-4);
   border-radius: var(--radius-lg);
-  background: var(--bg-fill-tertiary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
 }
 .facet-row {
   display: flex;

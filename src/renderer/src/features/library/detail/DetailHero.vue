@@ -1,6 +1,6 @@
 <template>
-  <!-- 头图（效果图 D-1）：大背景铺满窗口（含侧栏后面），下部渐进模糊并压暗到页面底色，文案压在左下 -->
-  <header class="lib-hero">
+  <!-- 头图（效果图 D-1）：大背景铺满窗口（含侧栏后面），下部渐进模糊并压暗，文案压在左下；两套主题都是深色画面（yb-on-media） -->
+  <header class="lib-hero yb-on-media">
     <img
       v-if="backdrop"
       class="lib-hero-image"
@@ -189,7 +189,7 @@ function onFadeIn(event: Event): void {
 .lib-hero-image[data-loaded] {
   opacity: 1;
 }
-/* 下部渐进模糊，最上层从透明压到页面底色，文字落在实色上，亮暗主题都清楚 */
+/* 下部渐进模糊，最上层从透明压到黑（yb-on-media 的 --bg-content），文字落在暗色上 */
 .lib-hero-blur {
   --pblur-height: 50%;
   --pblur-tint: linear-gradient(

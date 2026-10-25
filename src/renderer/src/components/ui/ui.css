@@ -7,7 +7,7 @@
   max-width: 280px;
   padding: var(--space-1) var(--space-2);
   border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg);
   color: var(--text-primary);
   font-family: var(--font-sans);
   font-size: var(--text-xs);
@@ -20,9 +20,6 @@
 }
 .ui-tooltip.is-visible {
   opacity: 1;
-}
-[data-theme='light'] .ui-tooltip {
-  background: #fff;
 }
 
 /*

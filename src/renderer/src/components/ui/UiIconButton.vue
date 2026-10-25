@@ -93,8 +93,9 @@ withDefaults(
 }
 .yb-icon-button.is-solid {
   border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
+  background: var(--control-bg);
   color: var(--text-primary);
+  box-shadow: var(--shadow-control);
 }
 .yb-icon-button.is-glass {
   border-radius: var(--radius-full);
@@ -112,11 +113,7 @@ withDefaults(
   color: var(--text-primary);
 }
 .yb-icon-button.is-solid:hover:not(:disabled) {
-  background: color-mix(
-    in srgb,
-    var(--bg-fill-secondary) 84%,
-    var(--text-primary)
-  );
+  background: var(--control-bg-hover);
 }
 .yb-icon-button.is-glass:hover:not(:disabled) {
   background: var(--glass-bg-hover);
