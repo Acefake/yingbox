@@ -164,7 +164,7 @@ onUnmounted(() => window.removeEventListener('keydown', onShortcut))
 }
 /* 键帽压在输入框右端：留出它的位置，长占位文字省略号截断 */
 .sidebar-search.has-kbd :deep(.ui-input-native) {
-  padding-right: 46px;
+  padding-right: var(--space-9);
   text-overflow: ellipsis;
 }
 .sidebar-kbd {
