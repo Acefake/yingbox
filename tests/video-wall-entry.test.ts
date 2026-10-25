@@ -13,6 +13,7 @@ import {
 } from '../src/renderer/src/features/library/video-wall/wall-pool'
 import { primaryPlayRequest } from '../src/renderer/src/features/library/detail/playback'
 import { vScrollX } from '../src/renderer/src/directives/scroll-x'
+import { toolbarActions } from '../src/renderer/src/features/library/page/page-rules'
 
 // 播放入口（应用内播放弹窗 / mpv）与这里的纯规则无关
 vi.mock('../src/renderer/src/features/player', () => ({
@@ -144,12 +145,26 @@ describe('工具栏入口', () => {
     return renderToString(app)
   }
 
-  it('海报墙有条目时显示「视频墙」', async () => {
-    expect(await render({})).toContain('视频墙')
+  const ctx = {
+    view: 'wall' as const,
+    hasLibraries: true,
+    count: 12,
+    facets: false,
+  }
+
+  it('海报墙有条目时「更多」里有「视频墙」，工具栏带「更多」按钮', async () => {
+    expect(toolbarActions(ctx).more).toContain('video-wall')
+    const html = await render({})
+    expect(html).toContain('更多')
+    expect(html).toContain('aria-haspopup="menu"')
   })
 
-  it('没有条目或不在海报墙视图时不显示', async () => {
-    expect(await render({ count: 0 })).not.toContain('视频墙')
-    expect(await render({ view: 'review' })).not.toContain('视频墙')
+  it('没有条目或不在海报墙视图时不显示', () => {
+    expect(toolbarActions({ ...ctx, count: 0 }).more).not.toContain(
+      'video-wall'
+    )
+    expect(toolbarActions({ ...ctx, view: 'review' }).more).not.toContain(
+      'video-wall'
+    )
   })
 })

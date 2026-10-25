@@ -10,6 +10,7 @@
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"
       :view-options="viewOptions"
+      :review-count="reviewCount"
       :library-options="libraryOptions"
       :sort="state.sort"
       :order="state.order"
@@ -288,7 +289,7 @@ watch(
 const emptyTitle = computed(() => nl.emptyTitle.value ?? emptyTitleFor(state))
 
 // —— 视图切换（资料库 / 演员 / 待确认）——
-const { view, viewOptions } = useLibraryViews(section, libraryIds)
+const { view, viewOptions, reviewCount } = useLibraryViews(section, libraryIds)
 
 // —— 多选 ——
 const { selection, selectionVersion, clearSelection, activate } =

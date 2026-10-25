@@ -2,8 +2,17 @@
   <button
     type="button"
     class="ui-button"
-    :class="[`is-${variant}`, `is-${size}`, { 'is-loading': loading }]"
+    :class="[
+      `is-${variant}`,
+      `is-${size}`,
+      {
+        'yb-glass': variant === 'glass',
+        'is-loading': loading,
+        'is-pressed': pressed,
+      },
+    ]"
     :disabled="disabled"
+    :aria-pressed="pressed === undefined ? undefined : pressed"
     :aria-busy="loading || undefined"
     :aria-disabled="loading || undefined"
     @click="blockBusyClick(loading, $event)"
@@ -21,9 +30,17 @@
 
 <script setup lang="ts">
 /**
- * 带文字的按钮。一个区域里最多一个 primary（例如详情页的「播放」），
- * 其余操作优先用 UiIconButton，只有在图标表达不清时才用带文字的 secondary。
- * danger 只给破坏性操作的确认（如确认框里的「删除」）。
+ * 带文字的按钮（可带前置图标），胶囊形。高度三档取控件高度令牌：sm 28 / md 36 / lg 44。
+ *
+ * variant：
+ * - primary：白色实心，一个区域里最多一个（例如详情页的「播放」）
+ * - secondary：灰色实色底，页头工具条与普通操作的默认样式
+ * - glass：玻璃底（.yb-glass），浮在画面或浮层上
+ * - plain：透明底、强调色字，行内的轻操作
+ * - danger：只给破坏性操作的确认（如确认框里的「删除」）
+ *
+ * pressed：开关按钮（如「追更」面板开关）；传了就输出 aria-pressed，按下时反色。
+ * 只有图标、没有文字的按钮用 UiIconButton。
  * loading：转圈 + aria-busy / aria-disabled，按钮保持可聚焦（不加 disabled），点击被拦下（见 feedback.ts）。
  */
 import { blockBusyClick } from './feedback'
@@ -34,12 +51,14 @@ withDefaults(
   defineProps<{
     label?: string
     icon?: IconName
-    variant?: 'primary' | 'secondary' | 'plain' | 'danger'
+    variant?: 'primary' | 'secondary' | 'glass' | 'plain' | 'danger'
     size?: 'sm' | 'md' | 'lg'
     disabled?: boolean
     loading?: boolean
+    /** 开关按钮的按下状态；不传表示普通按钮 */
+    pressed?: boolean
   }>(),
-  { variant: 'secondary', size: 'md' }
+  { variant: 'secondary', size: 'md', pressed: undefined }
 )
 </script>
 
@@ -53,7 +72,7 @@ withDefaults(
   height: var(--control-height);
   padding: 0 var(--space-4);
   border: 0;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-full);
   font: inherit;
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
@@ -70,7 +89,6 @@ withDefaults(
 .ui-button.is-lg {
   height: var(--control-height-lg);
   padding: 0 var(--space-6);
-  border-radius: var(--radius-full);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
 }
@@ -82,11 +100,29 @@ withDefaults(
   background: var(--action-hover);
 }
 .ui-button.is-secondary {
-  background: var(--bg-glass-hover);
+  background: var(--bg-fill-secondary);
   color: var(--text-primary);
 }
 .ui-button.is-secondary:hover:not(:disabled) {
-  background: var(--bg-active);
+  background: color-mix(
+    in srgb,
+    var(--bg-fill-secondary) 84%,
+    var(--text-primary)
+  );
+}
+/* 玻璃：模糊与阴影来自 .yb-glass，底色在双类里显式写（压过基类） */
+.ui-button.is-glass {
+  background: var(--glass-bg);
+  color: var(--text-primary);
+}
+.ui-button.is-glass:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+}
+/* 开关按下：反色（白底黑字），与选中的筛选胶囊一致 */
+.ui-button.is-pressed,
+.ui-button.is-pressed:hover:not(:disabled) {
+  background: var(--text-primary);
+  color: var(--bg-content);
 }
 .ui-button.is-danger {
   background: var(--danger);
