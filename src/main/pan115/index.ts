@@ -1,51 +1,47 @@
 /**
- * 主进程网盘模块入口：用 Electron net.fetch、设置与 safeStorage 密钥组装 {@link createPan115Service}，注册 pan115 域。
+ * 主进程网盘模块入口：组装 {@link createPan115Service}，注册 pan115 域。
  *
- * - 登录会话存在密钥 pan115.session（safeStorage 加密），明文只在主进程内存；不写日志。
- * - net.fetch 走系统代理；credentials: 'omit'，Cookie 只用请求头里显式给的这一份。
- * - PanSou 可能自部署在局域网（NAS），所以不走 SSRF 防护的出网口。
+ * - 115 请求走独立分区 persist:pan115（session-transport.ts）：Cookie 写进分区、Referer / UA 由分区补上，
+ *   不依赖手写受保护请求头；分区装公网限制（与代抓会话同一个守卫），重定向到内网会被拦下。
+ * - 登录会话存在密钥 pan115.session（safeStorage 加密），是 Cookie 的权威来源：启动时恢复进分区，
+ *   退出时清掉分区 Cookie；明文只在主进程内存，不写日志。
+ * - PanSou 是用户填的地址（可能是局域网 NAS），走默认会话的 net.fetch（credentials: 'omit'），
+ *   不做私网拦截，但重定向只跟同一主机（见 pansou.ts）。
  */
-import { net } from 'electron'
+import { app, net, session } from 'electron'
 
 import { pan115 } from '../../shared/contract/pan115'
+import { installBrowserNetworkGuard } from '../browser-fetch/network-guard'
 import { implement } from '../rpc'
 import { settingsStore } from '../settings'
-import { type Pan115Session, createPan115Service } from './service'
+import { createPan115Service } from './service'
+import { parseSession, serializeSession } from './session-codec'
+import { PAN115_PARTITION, createSessionTransport } from './session-transport'
 
 const SESSION_KEY = 'pan115.session'
 
-/** 读保存的会话；没有或格式不对时为 null */
-function readSession(raw: string): Pan115Session | null {
-  if (!raw) return null
-  try {
-    const data = JSON.parse(raw) as Partial<Pan115Session>
-    return typeof data.cookie === 'string' && data.cookie
-      ? {
-          cookie: data.cookie,
-          userId: String(data.userId ?? ''),
-          userName: String(data.userName ?? ''),
-        }
-      : null
-  } catch {
-    return null
-  }
-}
-
-/** 注册 pan115 域（initSettings 之后调用一次） */
+/** 注册 pan115 域（app ready、initSettings 之后调用一次） */
 export function registerPan115(): void {
   const store = settingsStore()
+  const partition = session.fromPartition(PAN115_PARTITION)
+  installBrowserNetworkGuard(partition)
+  const transport = createSessionTransport(partition)
   const service = createPan115Service({
-    fetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
+    transport,
+    pansouFetch: (url, init) =>
+      net.fetch(url, { ...init, credentials: 'omit' }),
     settings: {
       pansouUrl: () => store.get('pan115.pansouUrl'),
       targetCid: () => store.get('pan115.targetCid'),
     },
     session: {
-      read: () => readSession(store.getSecret(SESSION_KEY)),
-      write: session =>
-        store.setSecret(SESSION_KEY, session ? JSON.stringify(session) : ''),
+      read: () => parseSession(store.getSecret(SESSION_KEY)),
+      write: value => store.setSecret(SESSION_KEY, serializeSession(value)),
     },
   })
+  void service.restore().catch(() => {})
+  // 分区 Cookie 不设过期本就不落盘；退出时再清一次，不留副本
+  app.on('will-quit', () => void transport.clear().catch(() => {}))
   implement(pan115, {
     search: (_, keyword) => service.search(keyword),
     account: () => service.account(),

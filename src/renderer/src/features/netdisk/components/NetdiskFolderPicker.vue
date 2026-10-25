@@ -7,7 +7,7 @@
         variant="plain"
         size="sm"
         :label="dir.name || '根目录'"
-        :disabled="index === (listing?.path.length ?? 0) - 1"
+        :disabled="loading || index === (listing?.path.length ?? 0) - 1"
         @click="open(dir.cid)"
       />
     </nav>
@@ -20,17 +20,21 @@
       <UiListRow
         v-for="dir in listing.dirs"
         :key="dir.cid"
+        :disabled="loading"
         @click="open(dir.cid)"
       >
         <template #leading><UiIcon name="folder" size="sm" /></template>
         {{ dir.name }}
       </UiListRow>
+      <p v-if="listing.truncated" class="netdisk-picker-note">
+        文件夹太多，只显示前 {{ listing.dirs.length }} 个
+      </p>
     </div>
     <UiButton
       variant="primary"
       size="sm"
       label="存到这里"
-      :disabled="!listing"
+      :disabled="!canPick"
       @click="pickHere"
     />
   </div>
@@ -38,46 +42,31 @@
 
 <script setup lang="ts">
 /**
- * 115 文件夹选择：逐层进入，面包屑返回上层，「存到这里」选中当前文件夹。
+ * 115 文件夹选择：从当前转存位置打开，逐层进入，面包屑返回上层，「存到这里」选中当前文件夹。
+ * 加载中禁用列表与「存到这里」；连续点击只认最后一次（见 useFolderPicker）。
  */
-import { onMounted, ref } from 'vue'
+import { onMounted } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
-import type {
-  Pan115Dir,
-  Pan115DirListing,
-} from '../../../../../shared/contract/pan115'
+import type { Pan115Dir } from '../../../../../shared/contract/pan115'
 
 import { netdisk } from '../api'
+import { useFolderPicker } from '../composables/use-folder-picker'
 
+const props = defineProps<{ startCid: string }>()
 const emit = defineEmits<{ pick: [dir: Pan115Dir] }>()
 
-const listing = ref<Pan115DirListing | null>(null)
-const loading = ref(false)
-const error = ref('')
-
-async function open(cid: string): Promise<void> {
-  loading.value = true
-  error.value = ''
-  const result = await netdisk().dirs(cid)
-  loading.value = false
-  if (!result.ok) {
-    error.value = result.error
-    return
-  }
-  listing.value = result
-}
+const { listing, loading, error, canPick, open, start, here } =
+  useFolderPicker(netdisk)
 
 function pickHere(): void {
-  const current = listing.value
-  if (!current) return
-  const here = current.path[current.path.length - 1]
-  emit('pick', { cid: current.cid, name: here?.name ?? '' })
+  const dir = canPick.value ? here() : null
+  if (dir) emit('pick', dir)
 }
 
-onMounted(() => open('0'))
+onMounted(() => start(props.startCid))
 </script>
 
 <style scoped>

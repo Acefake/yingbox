@@ -67,7 +67,10 @@ describe('parsePanSouResponse', () => {
 
   it('大响应截断到上限，标题与来源限制长度', () => {
     const list = Array.from({ length: 5000 }, (_, i) =>
-      entry(i, i === 0 ? { note: '长'.repeat(5000), source: 's'.repeat(999) } : {})
+      entry(
+        i,
+        i === 0 ? { note: '长'.repeat(5000), source: 's'.repeat(999) } : {}
+      )
     )
     const items = parsePanSouResponse(wrap(list))
     expect(items).toHaveLength(MAX_RESULTS)
@@ -114,7 +117,11 @@ describe('searchPanSou', () => {
     const { fetch, sent } = fakeFetch({
       'https://so.example.com/api/search': PANSOU_WRAPPED,
     })
-    const items = await searchPanSou(fetch, 'https://so.example.com', ' 纪录片 ')
+    const items = await searchPanSou(
+      fetch,
+      'https://so.example.com',
+      ' 纪录片 '
+    )
     expect(items).toHaveLength(2)
     expect(sent[0].method).toBe('POST')
     expect(sent[0].headers['content-type']).toContain('application/json')
@@ -123,7 +130,9 @@ describe('searchPanSou', () => {
       cloud_types: ['115'],
       res: 'merge',
     })
-    expect(vi.mocked(fetch).mock.calls[0][1]).toMatchObject({ redirect: 'manual' })
+    expect(vi.mocked(fetch).mock.calls[0][1]).toMatchObject({
+      redirect: 'manual',
+    })
   })
 
   it('跨主机重定向（如指向内网元数据地址）被拦截，不跟过去', async () => {

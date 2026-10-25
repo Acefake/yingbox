@@ -67,7 +67,12 @@ describe('扫码登录', () => {
       'https://passportapi.115.com/': { state: 0, error: '登录失败', errno: 1 },
     })
     await expect(
-      createQrLogin(fetch).finish({ uid: 'u', time: 1, sign: 's', imageUrl: '' })
+      createQrLogin(fetch).finish({
+        uid: 'u',
+        time: 1,
+        sign: 's',
+        imageUrl: '',
+      })
     ).rejects.toThrow('登录失败')
   })
 })

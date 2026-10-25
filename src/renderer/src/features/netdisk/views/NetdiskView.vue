@@ -21,6 +21,14 @@
       title="网盘需要桌面端"
       hint="网页版不能登录 115"
     />
+    <StatusState
+      v-else-if="!pansouUrl"
+      icon="search"
+      title="先设置 PanSou 地址"
+      hint="网盘搜索通过 PanSou 聚合各频道的 115 分享。在设置 · 网盘里填自部署的地址，或选用公共实例。"
+    >
+      <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
+    </StatusState>
     <template v-else>
       <form class="netdisk-search" role="search" @submit.prevent="search">
         <UiInput
@@ -31,6 +39,7 @@
           aria-label="搜索 115 分享"
           placeholder="片名、剧名…"
         />
+        <!-- UiButton 固定 type="button"：点击只走 @click，回车走表单 submit，不会一次搜两遍 -->
         <UiButton
           variant="primary"
           label="搜索"
@@ -39,6 +48,17 @@
           @click="search"
         />
       </form>
+
+      <NetdiskPreview
+        v-if="preview.item.value"
+        :item="preview.item.value"
+        :snap="preview.snap.value"
+        :loading="preview.loading.value"
+        :saving="actions.isSaving(preview.item.value.url)"
+        :saved="actions.isSaved(preview.item.value.url)"
+        @save="actions.save(preview.item.value)"
+        @close="actions.closePreview"
+      />
 
       <StatusState v-if="error" tone="danger" title="搜索失败" :hint="error">
         <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
@@ -49,54 +69,69 @@
         title="没有找到 115 分享"
         hint="换个关键词，或在设置里换一个 PanSou 地址"
       />
-      <ul v-else class="netdisk-results">
-        <NetdiskResult v-for="item in items" :key="item.url" :item="item" />
-      </ul>
+      <UiVirtualGrid
+        v-else
+        tag="ul"
+        class="netdisk-results"
+        :items="items"
+        :item-key="item => `${item.shareCode}/${item.receiveCode}`"
+      >
+        <template #default="{ item }">
+          <NetdiskResult
+            :item="item"
+            :previewing="preview.item.value?.url === item.url"
+            :preview-loading="
+              preview.loading.value && preview.item.value?.url === item.url
+            "
+            :saving="actions.isSaving(item.url)"
+            :saved="actions.isSaved(item.url)"
+            @copy="actions.copy(item)"
+            @preview="togglePreview(item)"
+            @save="actions.save(item)"
+          />
+        </template>
+      </UiVirtualGrid>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 网盘搜索页：关键词 → PanSou（只要 115）→ 结果列表；预览与转存在每条结果上。
- * 需要 115 登录的操作未登录时由主进程返回提示，引导去设置 · 网盘扫码。
+ * 网盘搜索页：关键词 → PanSou（只要 115）→ 结果列表（虚拟列表，行等高）；
+ * 查看文件在列表上方的预览区，转存在结果行与预览区上。
+ * 没填 PanSou 地址时引导去设置；需要 115 登录的操作未登录时由主进程返回提示。
  */
-import { ref } from 'vue'
-
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
+import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
+import { toast } from '@/components/ui/toast'
+import { useSetting } from '@/features/settings'
 import type { NetdiskItem } from '../../../../../shared/contract/pan115'
 
 import { netdisk, netdiskAvailable, openNetdiskSettings } from '../api'
+import NetdiskPreview from '../components/NetdiskPreview.vue'
 import NetdiskResult from '../components/NetdiskResult.vue'
+import { useNetdiskSearch } from '../composables/use-netdisk-search'
+import { useShareActions } from '../composables/use-share-actions'
 
 const available = netdiskAvailable
-const keyword = ref('')
-const items = ref<NetdiskItem[]>([])
-const loading = ref(false)
-const searched = ref(false)
-const error = ref('')
-/** 只认最后一次搜索的结果 */
-let seq = 0
+const pansouUrl = useSetting('pan115.pansouUrl')
+const { keyword, items, loading, searched, error, search } =
+  useNetdiskSearch(netdisk)
+const actions = useShareActions({
+  api: netdisk,
+  notify: toast,
+  clipboard: () => navigator.clipboard,
+})
+const preview = actions.preview
 
-async function search(): Promise<void> {
-  const kw = keyword.value.trim()
-  if (!kw) return
-  const id = ++seq
-  loading.value = true
-  error.value = ''
-  const result = await netdisk().search(kw)
-  if (id !== seq) return
-  loading.value = false
-  searched.value = true
-  if (result.ok) items.value = result.items
-  else {
-    items.value = []
-    error.value = result.error
-  }
+/** 再点同一条收起预览，点别的换成那一条 */
+function togglePreview(item: NetdiskItem): void {
+  if (preview.item.value?.url === item.url) actions.closePreview()
+  else void actions.openPreview(item)
 }
 </script>
 
@@ -114,7 +149,7 @@ async function search(): Promise<void> {
 }
 .netdisk-results {
   margin: 0;
-  padding: 0;
   list-style: none;
+  padding-inline: 0;
 }
 </style>

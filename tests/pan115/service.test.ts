@@ -5,8 +5,8 @@
 import { describe, expect, it } from 'vitest'
 
 import {
-  type Pan115Session,
   type Pan115ServiceDeps,
+  type Pan115Session,
   createPan115Service,
 } from '../../src/main/pan115/service'
 import {
@@ -36,7 +36,9 @@ const STATUS = 'https://qrcodeapi.115.com/get/status'
 const PASSPORT = 'https://passportapi.115.com/'
 
 /** 内存里的会话存放，模拟 safeStorage 密钥 */
-function memorySession(initial: Pan115Session | null = null): Pan115ServiceDeps['session'] & {
+function memorySession(
+  initial: Pan115Session | null = null
+): Pan115ServiceDeps['session'] & {
   value: () => Pan115Session | null
 } {
   let current = initial
@@ -74,7 +76,10 @@ function setup(
 }
 
 /** 可以手动放行的响应 */
-function deferred(): { promise: Promise<unknown>; resolve: (v: unknown) => void } {
+function deferred(): {
+  promise: Promise<unknown>
+  resolve: (v: unknown) => void
+} {
   let resolve!: (v: unknown) => void
   const promise = new Promise<unknown>(r => (resolve = r))
   return { promise, resolve }
@@ -90,7 +95,10 @@ describe('扫码登录状态机', () => {
     })
     expect((await service.loginStart()).ok).toBe(true)
     expect(await service.loginPoll()).toEqual({ status: 'scanned' })
-    expect(await service.loginPoll()).toEqual({ status: 'done', account: ACCOUNT })
+    expect(await service.loginPoll()).toEqual({
+      status: 'done',
+      account: ACCOUNT,
+    })
     expect(session.value()).toEqual(SESSION)
     expect(jar.cookie).toBe(SESSION.cookie)
     expect(await service.loginPoll()).toEqual({
@@ -149,7 +157,10 @@ describe('扫码登录状态机', () => {
     const failed = await service.loginPoll()
     expect(failed.status).toBe('error')
     expect(session.value()).toBeNull()
-    expect(await service.loginPoll()).toEqual({ status: 'done', account: ACCOUNT })
+    expect(await service.loginPoll()).toEqual({
+      status: 'done',
+      account: ACCOUNT,
+    })
     expect(status).toBe(1)
     expect(session.value()).toEqual(SESSION)
   })
@@ -163,7 +174,8 @@ describe('扫码登录状态机', () => {
         ...QR_TOKEN,
         data: { ...QR_TOKEN.data, uid: `qr-${++token}` },
       }),
-      [STATUS]: req => (req.url.includes('uid=qr-1') ? late.promise : qrStatus(0)),
+      [STATUS]: req =>
+        req.url.includes('uid=qr-1') ? late.promise : qrStatus(0),
       [PASSPORT]: () => (passport++, QR_LOGIN_OK),
     })
     await service.loginStart()
@@ -276,7 +288,9 @@ describe('会话与分区 Cookie', () => {
       },
       SESSION
     )
-    expect(await service.receive('https://115.com/s/swh3abc12', 'x1y2')).toEqual({
+    expect(
+      await service.receive('https://115.com/s/swh3abc12', 'x1y2')
+    ).toEqual({
       ok: true,
     })
     expect(new URLSearchParams(sent[1].body).get('cid')).toBe('42')
@@ -289,10 +303,18 @@ describe('会话与分区 Cookie', () => {
 
 describe('搜索', () => {
   it('走 PanSou 的 fetch：成功返回条目；没填地址时提示去设置', async () => {
-    const pansou = fakeFetch({ 'https://so.example.com/api/search': PANSOU_WRAPPED })
+    const pansou = fakeFetch({
+      'https://so.example.com/api/search': PANSOU_WRAPPED,
+    })
     const { transport, sent } = fakeTransport({})
-    const deps = { transport, pansouFetch: pansou.fetch, session: memorySession() }
-    const result = await createPan115Service({ ...deps, settings }).search('纪录片')
+    const deps = {
+      transport,
+      pansouFetch: pansou.fetch,
+      session: memorySession(),
+    }
+    const result = await createPan115Service({ ...deps, settings }).search(
+      '纪录片'
+    )
     expect(result.ok && result.items.length).toBe(2)
     expect(sent).toHaveLength(0)
     const none = createPan115Service({

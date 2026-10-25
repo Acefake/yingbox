@@ -58,9 +58,10 @@ describe('parseShareLink', () => {
       shareCode: 'sw2',
       receiveCode: 'ab12',
     })
-    expect(parseShareLink('https://115.com/s/sw2?password=ab12&x=1')).toEqual(
-      { shareCode: 'sw2', receiveCode: 'ab12' }
-    )
+    expect(parseShareLink('https://115.com/s/sw2?password=ab12&x=1')).toEqual({
+      shareCode: 'sw2',
+      receiveCode: 'ab12',
+    })
   })
 
   it('单独给的密码也要 4 位字母数字，否则当作没有', () => {

@@ -2,7 +2,7 @@
  * 网盘页的交互状态（组合函数，node 环境直接跑）：IPC 拒绝时复位 loading 并提示、
  * 防重复点击、请求序号防旧响应、扫码异常可重试、复制失败有反馈。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { type Mock, describe, expect, it, vi } from 'vitest'
 
 import { useFolderPicker } from '../../src/renderer/src/features/netdisk/composables/use-folder-picker'
 import { useNetdiskSearch } from '../../src/renderer/src/features/netdisk/composables/use-netdisk-search'
@@ -28,14 +28,17 @@ const listing = (cid: string): Pan115DirListing & { ok: true } => ({
   dirs: [],
   truncated: false,
 })
+
 function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
   let resolve!: (v: T) => void
   const promise = new Promise<T>(r => (resolve = r))
   return { promise, resolve }
 }
-const notifier = (): { success: ReturnType<typeof vi.fn>; error: ReturnType<typeof vi.fn> } => ({
-  success: vi.fn(),
-  error: vi.fn(),
+
+type Say = (message: string) => void
+const notifier = (): { success: Mock<Say>; error: Mock<Say> } => ({
+  success: vi.fn<Say>(),
+  error: vi.fn<Say>(),
 })
 
 describe('useNetdiskSearch', () => {
@@ -68,29 +71,49 @@ describe('useNetdiskSearch', () => {
 })
 
 describe('useShareActions', () => {
-  const clipboard = (fail = false): { writeText: ReturnType<typeof vi.fn> } => ({
+  type Write = (text: string) => Promise<void>
+  const clipboard = (fail = false): { writeText: Mock<Write> } => ({
     writeText: fail
-      ? vi.fn().mockRejectedValue(new Error('denied'))
-      : vi.fn().mockResolvedValue(undefined),
+      ? vi.fn<Write>().mockRejectedValue(new Error('denied'))
+      : vi.fn<Write>().mockResolvedValue(undefined),
   })
 
   it('复制：带上提取码；剪贴板拒绝时提示复制失败，不抛出', async () => {
     const notify = notifier()
     const ok = clipboard()
-    const a = useShareActions({ api: () => ({}) as never, notify, clipboard: () => ok })
+    const a = useShareActions({
+      api: () => ({}) as never,
+      notify,
+      clipboard: () => ok,
+    })
     await a.copy(ITEM)
-    expect(ok.writeText).toHaveBeenCalledWith('https://115.com/s/sw1 提取码：ab12')
+    expect(ok.writeText).toHaveBeenCalledWith(
+      'https://115.com/s/sw1 提取码：ab12'
+    )
     expect(notify.success).toHaveBeenCalled()
-    const b = useShareActions({ api: () => ({}) as never, notify, clipboard: () => clipboard(true) })
+    const b = useShareActions({
+      api: () => ({}) as never,
+      notify,
+      clipboard: () => clipboard(true),
+    })
     await expect(b.copy(ITEM)).resolves.toBeUndefined()
-    expect(notify.error).toHaveBeenCalledWith(expect.stringContaining('复制失败'))
+    expect(notify.error).toHaveBeenCalledWith(
+      expect.stringContaining('复制失败')
+    )
   })
 
   it('转存：进行中重复点击只发一次；IPC 抛错时复位并提示', async () => {
     const pending = deferred<{ ok: true }>()
-    const receive = vi.fn().mockReturnValueOnce(pending.promise).mockRejectedValueOnce(new Error('ipc'))
+    const receive = vi
+      .fn()
+      .mockReturnValueOnce(pending.promise)
+      .mockRejectedValueOnce(new Error('ipc'))
     const notify = notifier()
-    const a = useShareActions({ api: () => ({ receive }) as never, notify, clipboard: () => clipboard() })
+    const a = useShareActions({
+      api: () => ({ receive }) as never,
+      notify,
+      clipboard: () => clipboard(),
+    })
     const first = a.save(ITEM)
     await a.save(ITEM)
     expect(receive).toHaveBeenCalledTimes(1)
@@ -116,7 +139,11 @@ describe('useShareActions', () => {
       .mockResolvedValueOnce({ ok: true, title: 'B', count: 0, files: [] })
       .mockRejectedValueOnce(new Error('boom'))
     const notify = notifier()
-    const a = useShareActions({ api: () => ({ snap }) as never, notify, clipboard: () => clipboard() })
+    const a = useShareActions({
+      api: () => ({ snap }) as never,
+      notify,
+      clipboard: () => clipboard(),
+    })
     const first = a.openPreview(ITEM)
     await a.openPreview(ITEM)
     expect(snap).toHaveBeenCalledTimes(1)
@@ -146,7 +173,10 @@ describe('useFolderPicker', () => {
 
   it('加载中不能「存到这里」；连续点两个文件夹只认后点的', async () => {
     const slow = deferred<unknown>()
-    const dirs = vi.fn().mockReturnValueOnce(slow.promise).mockResolvedValueOnce(listing('2'))
+    const dirs = vi
+      .fn()
+      .mockReturnValueOnce(slow.promise)
+      .mockResolvedValueOnce(listing('2'))
     const p = useFolderPicker(() => ({ dirs }))
     const first = p.open('1')
     expect(p.canPick.value).toBe(false)
@@ -159,7 +189,9 @@ describe('useFolderPicker', () => {
   })
 
   it('IPC 抛错时复位 loading 并显示错误', async () => {
-    const p = useFolderPicker(() => ({ dirs: vi.fn().mockRejectedValue(new Error('gone')) }))
+    const p = useFolderPicker(() => ({
+      dirs: vi.fn().mockRejectedValue(new Error('gone')),
+    }))
     await p.open('0')
     expect(p.loading.value).toBe(false)
     expect(p.error.value).toContain('gone')
@@ -171,7 +203,11 @@ describe('useQrLogin', () => {
   it('loginStart 抛错：复位 loading、提示，可以再点扫码登录', async () => {
     const notifyError = vi.fn()
     const loginStart = vi.fn().mockRejectedValue(new Error('ipc'))
-    const q = useQrLogin({ api: () => ({ loginStart, loginPoll: vi.fn() }), onDone: vi.fn(), notifyError })
+    const q = useQrLogin({
+      api: () => ({ loginStart, loginPoll: vi.fn() }),
+      onDone: vi.fn(),
+      notifyError,
+    })
     await q.start()
     expect(q.loading.value).toBe(false)
     expect(q.qrUrl.value).toBe('')
@@ -181,23 +217,37 @@ describe('useQrLogin', () => {
   it('loginPoll 抛错：停在错误态并可重试同一张二维码，重试后登录成功', async () => {
     const answers: Array<Pan115LoginPoll | Error> = [
       new Error('ipc 断了'),
-      { status: 'done', account: { loggedIn: true, userId: '1', userName: 'a' } },
+      {
+        status: 'done',
+        account: { loggedIn: true, userId: '1', userName: 'a' },
+      },
     ]
     const loginPoll = vi.fn(async () => {
       const next = answers.shift()!
       if (next instanceof Error) throw next
       return next
     })
-    const loginStart = vi.fn().mockResolvedValue({ ok: true, imageUrl: 'qr.png' })
+    const loginStart = vi
+      .fn()
+      .mockResolvedValue({ ok: true, imageUrl: 'qr.png' })
     const onDone = vi.fn()
-    const q = useQrLogin({ api: () => ({ loginStart, loginPoll }), onDone, notifyError: vi.fn(), intervalMs: 0 })
+    const q = useQrLogin({
+      api: () => ({ loginStart, loginPoll }),
+      onDone,
+      notifyError: vi.fn(),
+      intervalMs: 0,
+    })
     await q.start()
     expect(q.status.value).toBe('error')
     expect(q.error.value).toContain('ipc 断了')
     expect(q.canRetry.value).toBe(true)
     await q.retry()
     expect(loginStart).toHaveBeenCalledTimes(1)
-    expect(onDone).toHaveBeenCalledWith({ loggedIn: true, userId: '1', userName: 'a' })
+    expect(onDone).toHaveBeenCalledWith({
+      loggedIn: true,
+      userId: '1',
+      userName: 'a',
+    })
     expect(q.qrUrl.value).toBe('')
   })
 })

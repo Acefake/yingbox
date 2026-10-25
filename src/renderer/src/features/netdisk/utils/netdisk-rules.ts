@@ -25,6 +25,11 @@ export function formatDay(iso: string | undefined): string {
   return `${date.getFullYear()}-${pad(date.getMonth() + 1)}-${pad(date.getDate())}`
 }
 
+/** 异常 → 给用户看的一句话 */
+export function errorText(error: unknown): string {
+  return error instanceof Error ? error.message : String(error)
+}
+
 /** PanSou 来源 → 「TG · 频道」/「插件 · 名字」 */
 export function sourceLabel(source: string): string {
   const [kind, ...rest] = source.split(':')
@@ -37,7 +42,7 @@ export function sourceLabel(source: string): string {
 /** 一次轮询的最终结果（不再是 waiting / scanned） */
 export type LoginOutcome = Exclude<
   Pan115LoginPoll,
-  { status: 'waiting' | 'scanned' }
+  { status: 'waiting' } | { status: 'scanned' }
 >
 
 /**

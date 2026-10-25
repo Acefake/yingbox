@@ -1,6 +1,6 @@
 /**
  * 115 传输层的纯逻辑：只给 115 域补 Referer / UA、Cookie 串拆成分区 Cookie 的写入参数。
- * Electron 分区本身由 scripts/pan115-selftest.mjs 在真 Electron 里对回显服务器验证。
+ * Electron 分区本身由 scripts/pan115-selftest/run.mjs 在真 Electron 里对回显服务器验证。
  */
 import { describe, expect, it } from 'vitest'
 
@@ -12,6 +12,7 @@ import {
   is115Url,
   parseCookieHeader,
   with115Headers,
+  with115Init,
 } from '../../src/main/pan115/transport'
 
 describe('115 传输层', () => {
@@ -46,6 +47,26 @@ describe('115 传输层', () => {
     expect(with115Headers('https://so.example.com/api/search', headers)).toBe(
       headers
     )
+  })
+
+  it('with115Init：115 域补 Referer / UA 并设 unsafe-url（否则 Chromium 以 ERR_BLOCKED_BY_CLIENT 取消请求），保留方法、体与其它头', () => {
+    const init = with115Init('https://webapi.115.com/share/receive', {
+      method: 'POST',
+      body: 'a=1',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+    })
+    expect(init).toMatchObject({
+      method: 'POST',
+      body: 'a=1',
+      referrerPolicy: 'unsafe-url',
+    })
+    expect(init.headers).toEqual({
+      'content-type': 'application/x-www-form-urlencoded',
+      Referer: PAN115_REFERER,
+      'User-Agent': USER_AGENT,
+    })
+    const other = { method: 'GET' }
+    expect(with115Init('https://so.example.com/', other)).toBe(other)
   })
 
   it('parseCookieHeader：拆出 UID / CID / SEID / KID，跳过空段与无名段', () => {

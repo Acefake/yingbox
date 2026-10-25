@@ -124,6 +124,7 @@ const navState = computed<NavState>(() => ({
   routeName: route.name?.toString(),
   onlineTab: typeof route.query.tab === 'string' ? route.query.tab : undefined,
   hasLocalLibrary: hasLocalLibrary.value,
+  hasNetdisk: isElectron,
   adultMode: adultMode.value,
   calendarBadge: calendarBadge.value,
 }))

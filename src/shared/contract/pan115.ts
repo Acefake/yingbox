@@ -1,5 +1,8 @@
 import { call, defineDomain, str } from './define'
 
+/** PanSou 公共实例（第三方维护）；只在用户于设置里点「使用公共实例」时填入，搜索词会发给它 */
+export const PANSOU_PUBLIC_URL = 'https://so.252035.xyz'
+
 /** 网盘搜索的一条 115 结果（来自 PanSou） */
 export interface NetdiskItem {
   /** 资源说明 / 标题 */
@@ -48,11 +51,16 @@ export interface Pan115DirListing {
   cid: string
   path: Pan115Dir[]
   dirs: Pan115Dir[]
+  /** 子文件夹太多、只取了前一部分 */
+  truncated: boolean
 }
 
 /** 扫码登录的轮询结果 */
 export type Pan115LoginPoll =
-  | { status: 'waiting' | 'scanned' | 'expired' | 'canceled' }
+  | { status: 'waiting' }
+  | { status: 'scanned' }
+  | { status: 'expired' }
+  | { status: 'canceled' }
   | { status: 'done'; account: Pan115Account }
   | { status: 'error'; error: string }
 

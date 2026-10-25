@@ -13,22 +13,28 @@ export const USER_AGENT =
 /** 单次请求超时（毫秒）；PanSou 聚合多个来源，给得宽一些 */
 export const REQUEST_TIMEOUT_MS = 30_000
 
-/** 发请求并读 JSON；HTTP 失败、超时、非 JSON 都转成 {@link Pan115Error} */
+/**
+ * 发请求并读 JSON；HTTP 失败、超时、非 JSON 都转成 {@link Pan115Error}。
+ * 超时看自己的计时信号是否已触发，不看错误名（Electron net.fetch 中止时不一定抛 TimeoutError）。
+ */
 export async function fetchJson(
   fetch: FetchLike,
   label: string,
   url: string,
-  init: RequestInit = {}
+  init: RequestInit = {},
+  timeoutMs = REQUEST_TIMEOUT_MS
 ): Promise<unknown> {
+  const timer = AbortSignal.timeout(timeoutMs)
   let response: Response
   try {
     response = await fetch(url, {
       ...init,
-      signal: init.signal ?? AbortSignal.timeout(REQUEST_TIMEOUT_MS),
+      signal: init.signal ? AbortSignal.any([init.signal, timer]) : timer,
     })
   } catch (error) {
-    const timeout = (error as Error).name === 'TimeoutError'
-    if (timeout) throw new Pan115Error(`${label} 请求超时`, undefined, true)
+    if (error instanceof Pan115Error) throw error
+    if (timer.aborted)
+      throw new Pan115Error(`${label} 请求超时`, undefined, true)
     throw new Pan115Error(`${label} 连不上`)
   }
   if (!response.ok)

@@ -186,7 +186,10 @@ export function fakeTransport(
   sent: SentRequest[]
   jar: { cookie: string | null; history: Array<string | null> }
 } {
-  const jar = { cookie: null as string | null, history: [] as Array<string | null> }
+  const jar = {
+    cookie: null as string | null,
+    history: [] as Array<string | null>,
+  }
   const inner = fakeFetch(routes)
   const transport: Pan115Transport = {
     fetch: (url, init) => {
