@@ -1,7 +1,10 @@
 <template>
   <div
     class="unified-player"
-    :class="{ 'unified-player--no-controls': !controls }"
+    :class="{
+      'unified-player--no-controls': !controls,
+      'unified-player--compact': compact,
+    }"
     @click.stop
   >
     <div class="unified-player-stage">
@@ -304,6 +307,16 @@ watch(
   () => props.src,
   source => {
     void createPlayer(source || '')
+  }
+)
+
+// 缩进角落小窗：字幕与弹幕面板比小窗还大，收起来（展开后从控制栏再打开）
+watch(
+  () => props.compact,
+  compact => {
+    if (!compact) return
+    subtitles.panelOpen.value = false
+    danmaku.state.panelOpen.value = false
   }
 )
 

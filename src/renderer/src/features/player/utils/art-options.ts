@@ -124,6 +124,8 @@ export function artOptions(input: ArtOptionsInput): ArtOption {
     fastForward: false,
     autoOrientation: false,
     lang: 'zh-cn',
+    // 齿轮按钮的提示：默认「显示设置 / 隐藏设置」读起来像显示相关的设置
+    i18n: { 'zh-cn': { 'Show Setting': '设置', 'Hide Setting': '收起设置' } },
     icons: ART_ICONS,
     moreVideoAttr: {
       playsInline: true,

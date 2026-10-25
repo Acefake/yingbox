@@ -152,12 +152,14 @@ export function usePlayerSubtitles(
   const downloadingId = ref<number | null>(null)
   const message = ref('')
 
+  /** 搜索关键词：输入框优先，空时用片名 */
+  const keyword = (): string =>
+    (query.value || options.search().title || '').trim()
+
   const togglePanel = (): void => {
     panelOpen.value = !panelOpen.value
-    if (panelOpen.value && !hits.value.length) {
-      // 首次打开自动用标题搜一次
-      search()
-    }
+    // 首次打开且知道片名时自动搜一次；没有片名就等用户输入，不先报「请输入」
+    if (panelOpen.value && !hits.value.length && keyword()) search()
   }
 
   const search = async (): Promise<void> => {
@@ -166,8 +168,8 @@ export function usePlayerSubtitles(
       message.value = '当前环境不支持在线字幕（需 Electron）'
       return
     }
-    const keyword = (query.value || options.search().title || '').trim()
-    if (!keyword) {
+    const text = keyword()
+    if (!text) {
       message.value = '请输入影视名称'
       return
     }
@@ -176,7 +178,7 @@ export function usePlayerSubtitles(
     hits.value = []
     try {
       const result = await api.searchOnline({
-        query: keyword,
+        query: text,
         imdbId: options.search().imdbId || undefined,
         season: options.search().season,
         episode: options.search().episode,

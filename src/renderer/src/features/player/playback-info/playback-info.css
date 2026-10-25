@@ -23,6 +23,16 @@
   display: flex;
 }
 
+/* 播放弹窗顶部有标题条（48px），面板从它下面开始，不压住片名和关闭按钮 */
+.player-modal__card .unified-player-core .yb-info {
+  top: calc(var(--space-10) + var(--space-2));
+}
+
+/* 角落小窗里放不下，先隐藏（展开后照常显示） */
+.unified-player--compact .unified-player-core .yb-info.is-open {
+  display: none;
+}
+
 .unified-player-core .yb-info__head {
   display: flex;
   align-items: center;
