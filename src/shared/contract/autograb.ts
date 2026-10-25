@@ -3,7 +3,14 @@
  * 这部剧的 115 文件夹，再由 CloudDrive2 变更通知（或主动通知）入库。只有桌面端（115 会话在主进程）。
  *
  * 每部剧三档：不追 / 待确认（搜到候选等用户点转存）/ 全自动（分数过线直接存，开启后前几集仍要确认）。
+ * 偏好（分辨率、偏好词、排除词、体积）全局一份、每剧可覆盖，见 autograb-prefs.ts。
  */
+import {
+  type AutograbPrefs,
+  type AutograbPrefsOverride,
+  prefsOf,
+  prefsOverrideOf,
+} from './autograb-prefs'
 import {
   ContractError,
   bool,
@@ -34,6 +41,8 @@ export type AutograbStatus =
   | 'notFound'
   /** 用户跳过 */
   | 'skipped'
+  /** 115 剩余空间不够存这个候选（候选保留，清理空间后可再转存） */
+  | 'noSpace'
 
 /** 一个候选：分享里认出是这一集的那个视频文件 */
 export interface AutograbCandidate {
@@ -62,6 +71,8 @@ export interface AutograbSeries {
   cidName: string
   /** 已确认过几集（全自动模式下前几集仍要确认） */
   confirmed: number
+  /** 这部剧覆盖了哪些偏好（空对象 = 全跟随全局） */
+  prefs: AutograbPrefsOverride
 }
 
 /** 一集的追更记录 */
@@ -81,6 +92,10 @@ export interface AutograbEpisode {
   candidates: AutograbCandidate[]
   /** 最近一次失败的人话 */
   error: string | null
+  /** 已转存且已主动通知媒体库扫描（日历卡片显示「入库中」） */
+  notified: boolean
+  /** 能撤销：是追更存进 115 的，并记下了那个文件的 id */
+  revertable: boolean
 }
 
 /** 追更总览 */
@@ -90,6 +105,10 @@ export interface AutograbOverview {
   /** 熔断暂停：到这个时间前不发 115 请求；null = 没暂停 */
   pausedUntil: number | null
   pauseReason: string | null
+  /** 115 空间不足时自动转存暂停的原因；null = 没暂停 */
+  spacePaused: string | null
+  /** 全局偏好 */
+  prefs: AutograbPrefs
   /** 115 已登录、PanSou 已填 */
   ready: { loggedIn: boolean; pansou: boolean }
   /** 今天已用的 115 次数 */
@@ -107,6 +126,8 @@ export interface AutograbSeriesPatch {
   mode?: AutograbMode
   cid?: string
   cidName?: string
+  /** 整份替换这部剧的覆盖项（{} = 全跟随全局） */
+  prefs?: AutograbPrefsOverride
 }
 
 /** 结果：成功或人话 */
@@ -124,6 +145,7 @@ const patchOf = (value: unknown): AutograbSeriesPatch => {
   }
   if (raw.cidName !== undefined)
     patch.cidName = str(raw.cidName, 'cidName').slice(0, 500)
+  if (raw.prefs !== undefined) patch.prefs = prefsOverrideOf(raw.prefs)
   return patch
 }
 
@@ -142,13 +164,19 @@ export const autograb = defineDomain(
       str(a[0], 'key'),
       int(a[1], 'index'),
     ]),
+    /** 改全局偏好（整份替换） */
+    setPrefs: call<[prefs: AutograbPrefs], void>(a => [
+      prefsOf(record(a[0], 'prefs')),
+    ]),
+    /** 撤销已转存的一集：删掉 115 上那个文件、拉黑这个候选、回到缺集 */
+    revert: call<[key: string], AutograbResult>(a => [str(a[0], 'key')]),
     /** 跳过某一集（不再搜） */
     skip: call<[key: string], void>(a => [str(a[0], 'key')]),
     /** 重新搜某一集（清掉拉黑以外的状态） */
     retry: call<[key: string], void>(a => [str(a[0], 'key')]),
     /** 立刻跑一轮 */
     runNow: call<void>(),
-    /** 解除熔断 */
+    /** 解除熔断与空间不足暂停 */
     resume: call<void>(),
   },
   { changed: event<void>() }

@@ -1,7 +1,4 @@
 {
-  "src/renderer/src/components/ui/UiIconButton.vue": {
-    "color": 4
-  },
   "src/renderer/src/components/ui/UiPosterCard.vue": {
     "color": 4
   },

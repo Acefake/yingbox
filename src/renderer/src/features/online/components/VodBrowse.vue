@@ -28,27 +28,15 @@
     </div>
 
     <!-- 空状态 -->
-    <div
+    <StatusState
       v-if="!loading && !error && !filteredCards.length && !loadingSources"
-      class="empty-state"
-    >
-      <svg
-        viewBox="0 0 24 24"
-        width="48"
-        height="48"
-        fill="none"
-        stroke="var(--text-quaternary)"
-        stroke-width="1.5"
-      >
-        <rect x="2" y="2" width="20" height="20" rx="2" />
-        <path d="M10 9l5 3-5 3z" />
-      </svg>
-      <p>
-        {{
-          sources.length ? '暂无内容' : '无法加载插件视频源，请检查后端是否运行'
-        }}
-      </p>
-    </div>
+      icon="play"
+      :title="
+        sources.length
+          ? '暂无内容'
+          : '无法加载插件视频源，请检查插件源是否已安装并启用'
+      "
+    />
 
     <!-- 内容卡片网格 -->
     <UiVirtualGrid
@@ -90,6 +78,7 @@
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
@@ -348,15 +337,5 @@ onMounted(() => {
   display: flex;
   justify-content: center;
   padding: var(--space-2) 0 var(--space-4);
-}
-/* ── 空状态 ── */
-.empty-state {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: var(--space-3);
-  padding: var(--space-10) 0;
-  color: var(--text-tertiary);
-  font-size: var(--text-md);
 }
 </style>

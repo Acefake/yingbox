@@ -1,21 +1,24 @@
 <template>
   <svg
     class="app-icon"
-    :class="[sizeClass, { 'is-filled': filled }]"
-    viewBox="0 0 24 24"
+    :class="`app-icon--${size}`"
+    viewBox="0 0 256 256"
     width="16"
     height="16"
-    fill="none"
     aria-hidden="true"
   >
-    <path v-if="paths[name]" :d="paths[name]" />
+    <path :d="d" />
   </svg>
 </template>
 
 <script setup lang="ts">
+/**
+ * 图标：Phosphor 实心路径（icons.ts），256 视框，块级显示保证在按钮里居中。
+ * 字重用图标的默认值（icons.ts）；filled 用于切换型图标的选中态（已收藏、已评分），换成 fill 字重。
+ */
 import { computed } from 'vue'
 
-import { type IconName, ICON_PATHS as paths } from './icons'
+import { type IconName, iconPath } from './icons'
 
 const props = withDefaults(
   defineProps<{
@@ -26,41 +29,30 @@ const props = withDefaults(
   { size: 'md', filled: false }
 )
 
-const sizeClass = computed(() => `app-icon--${props.size}`)
+const d = computed(() =>
+  iconPath(props.name, props.filled ? 'fill' : undefined)
+)
 </script>
 
 <style scoped>
 .app-icon {
   display: block;
   flex: 0 0 auto;
-  box-sizing: content-box;
-  fill: none;
-  stroke: currentColor;
-  stroke-width: var(--icon-stroke, 1.75);
-  stroke-linecap: round;
-  stroke-linejoin: round;
-  overflow: visible;
-  vertical-align: middle;
-  /* optical box keeps glyphs centered next to text */
-  margin-block: 0;
-}
-
-.app-icon.is-filled {
   fill: currentColor;
 }
 
 .app-icon--sm {
-  width: var(--icon-sm, 14px);
-  height: var(--icon-sm, 14px);
+  width: var(--icon-sm);
+  height: var(--icon-sm);
 }
 
 .app-icon--md {
-  width: var(--icon-md, 16px);
-  height: var(--icon-md, 16px);
+  width: var(--icon-md);
+  height: var(--icon-md);
 }
 
 .app-icon--lg {
-  width: var(--icon-lg, 18px);
-  height: var(--icon-lg, 18px);
+  width: var(--icon-lg);
+  height: var(--icon-lg);
 }
 </style>
