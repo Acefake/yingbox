@@ -12,27 +12,30 @@
 
 <script setup lang="ts">
 /**
- * macOS 系统设置式的「内嵌分组」：浅填充圆角底板，里面是一行行 SettingsRow，
+ * Apple 设置式的「内嵌分组」：实色圆角卡片，里面是一行行 SettingsRow，
  * 行与行之间由 SettingsRow 自己画内缩细线。title 是底板上方的小标题，footer 是下方的补充说明。
  */
 defineProps<{ title?: string; footer?: string }>()
 </script>
 
 <style scoped>
+.settings-group {
+  padding-top: var(--space-4);
+}
 .settings-group + .settings-group {
-  margin-top: var(--space-6);
+  padding-top: var(--space-5);
 }
 .settings-group-title {
   margin: 0 0 var(--space-2);
   padding: 0 var(--space-4);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-medium);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-semibold);
 }
 .settings-group-rows {
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--bg-glass);
+  border-radius: var(--radius-xl);
+  background: var(--bg-fill-tertiary);
 }
 .settings-group-footer {
   margin: var(--space-2) 0 0;
