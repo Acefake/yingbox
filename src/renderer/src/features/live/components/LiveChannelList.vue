@@ -4,7 +4,6 @@
       v-model="query"
       class="live-channels-search"
       icon="search"
-      size="sm"
       variant="filled"
       clearable
       placeholder="搜索频道"
@@ -37,7 +36,9 @@
                     referrerpolicy="no-referrer"
                     @error="markBroken(channel.logo)"
                   />
-                  <UiIcon v-else name="tv" size="sm" />
+                  <span v-else class="live-channel-mark">{{
+                    logoText(channel.name)
+                  }}</span>
                 </span>
               </template>
               <span class="live-channel-name">{{ channel.name }}</span>
@@ -53,6 +54,7 @@
             </UiListRow>
             <UiIconButton
               class="live-channel-fav"
+              :class="{ 'is-on': favorites.has(channel.id) }"
               icon="star"
               size="sm"
               :filled="favorites.has(channel.id)"
@@ -69,18 +71,19 @@
 
 <script setup lang="ts">
 /**
- * 直播频道列表：搜索框 + 虚拟列表（台标、名称、当前节目与播出进度、收藏按钮）。
+ * 直播频道列表：搜索框 + 实色卡片里的虚拟列表（台标或台名缩写、名称、当前节目与播出进度、收藏星标）。
+ * 收藏星标只在已收藏、悬停或聚焦时显示。
  * 只渲染与转发，筛选在父组件按分组和搜索词算好后传入。
  */
 import { ref } from 'vue'
 
-import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 
 import { currentProgramme, programmeProgress } from '../utils/epg-rules'
+import { logoText } from '../utils/live-rules'
 import type { LiveChannel } from '../utils/playlist-parse'
 import type { EpgProgramme } from '../../../../../shared/contract/iptv'
 
@@ -122,16 +125,22 @@ function nowProgress(channel: LiveChannel): number {
   display: flex;
   flex-direction: column;
   min-height: 0;
-  gap: var(--space-2);
+  gap: var(--space-3);
 }
 
 .live-channels-search {
   flex: none;
+  height: 38px;
+  padding: 0 var(--space-3_5);
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-tertiary);
 }
 
 .live-channels-empty {
   margin: 0;
   padding: var(--space-6) var(--space-3);
+  border-radius: var(--radius-xl);
+  background: var(--bg-fill-tertiary);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
   text-align: center;
@@ -140,7 +149,10 @@ function nowProgress(channel: LiveChannel): number {
 .live-channels-scroll {
   flex: 1;
   min-height: 0;
+  padding: var(--space-1_5);
   overflow-y: auto;
+  border-radius: var(--radius-xl);
+  background: var(--bg-fill-tertiary);
 }
 
 .live-channels-list {
@@ -154,65 +166,100 @@ function nowProgress(channel: LiveChannel): number {
   position: relative;
   display: flex;
   align-items: center;
-  height: calc(var(--space-9) + var(--space-3));
+  height: 64px;
 }
 
 .live-channel-row {
   height: 100%;
-  padding-right: var(--space-9);
+  padding: 0 var(--space-9) 0 var(--space-2_5);
+  border-radius: var(--radius-lg);
 }
 
 .live-channel-logo {
   display: inline-flex;
   align-items: center;
   justify-content: center;
-  width: var(--space-9);
-  height: var(--space-7);
+  width: 58px;
+  height: 40px;
   overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: var(--bg-fill-tertiary);
+  border-radius: var(--radius-md);
+  background: var(--media-bg);
+  box-shadow: inset 0 0 0 0.5px var(--border-glass-light);
 }
 
 .live-channel-logo img {
   width: 100%;
   height: 100%;
+  padding: var(--space-1);
   object-fit: contain;
+}
+
+.live-channel-mark {
+  max-width: 100%;
+  padding: 0 var(--space-1);
+  overflow: hidden;
+  color: var(--media-text-secondary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: -0.01em;
+  text-overflow: clip;
+  white-space: nowrap;
 }
 
 .live-channel-name {
   display: block;
   overflow: hidden;
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
   text-overflow: ellipsis;
   white-space: nowrap;
-  font-weight: var(--font-weight-medium);
 }
 
 .live-channel-now {
   display: block;
   min-height: 1lh;
   overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-xs);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
 .live-channel-track {
   display: block;
-  height: 2px;
-  margin-top: var(--space-1);
+  height: 3px;
+  margin-top: var(--space-1_5);
   overflow: hidden;
   border-radius: var(--radius-full);
-  background: var(--bg-fill-secondary);
+  background: var(--bg-active);
 }
 
 .live-channel-bar {
   display: block;
   height: 100%;
-  background: var(--accent);
+  border-radius: inherit;
+  background: var(--text-secondary);
   transform-origin: left center;
+}
+
+.live-channel-row.is-selected .live-channel-bar {
+  background: var(--text-primary);
 }
 
 .live-channel-fav {
   position: absolute;
-  right: var(--space-1);
+  right: var(--space-1_5);
+  opacity: 0;
+}
+
+.live-channel-fav.is-on {
+  background: transparent;
+  color: var(--rating);
+}
+
+.live-channel:hover .live-channel-fav,
+.live-channel-fav:focus-visible,
+.live-channel-fav.is-on {
+  opacity: 1;
 }
 </style>
