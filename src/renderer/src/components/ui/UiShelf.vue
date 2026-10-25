@@ -186,7 +186,10 @@ defineExpose({ syncEdges })
   display: flex;
   gap: var(--shelf-gap);
   margin: calc(var(--space-3) * -1) calc(var(--space-2) * -1);
+  /* --shelf-bleed：页面右侧留白的宽度，这一排在右边铺到窗口边（卡片宽度不变，最后一张露出一截） */
+  margin-right: calc((var(--space-2) + var(--shelf-bleed, 0px)) * -1);
   padding: var(--space-3) var(--space-2);
+  padding-right: calc(var(--space-2) + var(--shelf-bleed, 0px));
   overflow-x: auto;
   overscroll-behavior-x: contain;
   scroll-behavior: smooth;
