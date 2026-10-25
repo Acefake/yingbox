@@ -110,7 +110,14 @@ describe('注册表', () => {
 
   it('可跳转页面来自路由表，私密路由不在其中；私密板块据此排除', () => {
     const ids = assistantPages(routes).map(page => page.id)
-    expect(ids).toEqual(['online', 'movie', 'tv', 'calendar', 'live'])
+    expect(ids).toEqual([
+      'online',
+      'movie',
+      'tv',
+      'calendar',
+      'live',
+      'netdisk',
+    ])
     expect([...privateSections(routes)].sort()).toEqual(['av', 'jav'])
   })
 })
@@ -227,6 +234,12 @@ describe('parseIntent：严格校验', () => {
     expect(
       parse({ action: 'navigation.navigate', target: 'calendar' }).intent
     ).toMatchObject({ params: { path: '/calendar' } })
+    expect(
+      parse({ action: 'navigation.navigate', target: 'netdisk' }).intent
+    ).toMatchObject({ params: { path: '/netdisk' } })
+    expect(
+      parse({ action: 'navigation.settings', target: 'netdisk' }).intent
+    ).toMatchObject({ params: 'netdisk' })
   })
 
   it('不是对象、未知动作、私密技能的动作（普通模式）一律只回答文字', () => {
