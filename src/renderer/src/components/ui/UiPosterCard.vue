@@ -199,8 +199,8 @@ watch(
   gap: var(--space-1);
   padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.56);
-  color: #fff;
+  background: color-mix(in srgb, var(--media-bg) 56%, transparent);
+  color: var(--media-text);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
@@ -222,8 +222,8 @@ watch(
 .ui-poster-badge {
   padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
-  background: rgba(0, 0, 0, 0.56);
-  color: #fff;
+  background: color-mix(in srgb, var(--media-bg) 56%, transparent);
+  color: var(--media-text);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-medium);
   backdrop-filter: blur(8px);

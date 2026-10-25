@@ -210,8 +210,9 @@ onBeforeUnmount(clearStartTimer)
   aspect-ratio: 16 / 9;
   overflow: hidden;
   border-radius: var(--radius-xl);
-  background: var(--bg-fill-tertiary);
-  color: var(--media-text-secondary);
+  background: var(--bg-card);
+  box-shadow: var(--shadow-card);
+  color: var(--text-tertiary);
 }
 
 .live-stage-player :deep(.av-status) {
@@ -273,7 +274,8 @@ onBeforeUnmount(clearStartTimer)
 .live-stage-fav {
   flex: none;
   border-radius: var(--radius-full);
-  background: var(--bg-fill-tertiary);
+  background: var(--control-bg);
+  box-shadow: var(--shadow-control);
 }
 
 .live-stage-fav :deep(span) {
