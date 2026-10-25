@@ -479,6 +479,11 @@ describe('条目详情规则', () => {
     expect(infoRowsOf(node(2, { originalTitle: 'T2' }))).toEqual([
       { label: '匹配', value: '已匹配' },
     ])
+    // 未知匹配状态没有文案：不出空值行
+    const unknown = node(3, {
+      matchState: 'matched' as unknown as LibraryItemNode['matchState'],
+    })
+    expect(infoRowsOf(unknown).some(r => r.label === '匹配')).toBe(false)
   })
 
   it('文件：递归收集视频，路径自然排序；播放按钮文字', () => {
