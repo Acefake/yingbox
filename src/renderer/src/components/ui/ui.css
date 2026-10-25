@@ -264,38 +264,20 @@ textarea:where(.ui-textarea) {
 .yb-pblur > i:nth-child(1) {
   -webkit-backdrop-filter: blur(4px);
   backdrop-filter: blur(4px);
-  -webkit-mask: linear-gradient(
-    transparent 0%,
-    #000 22%
-  ); /* style-tokens: visual（mask 只取透明度） */
-  mask: linear-gradient(
-    transparent 0%,
-    #000 22%
-  ); /* style-tokens: visual（mask 只取透明度） */
+  -webkit-mask: var(--pblur-mask-1);
+  mask: var(--pblur-mask-1);
 }
 .yb-pblur > i:nth-child(2) {
   -webkit-backdrop-filter: blur(12px) saturate(1.2);
   backdrop-filter: blur(12px) saturate(1.2);
-  -webkit-mask: linear-gradient(
-    transparent 12%,
-    #000 42%
-  ); /* style-tokens: visual（mask 只取透明度） */
-  mask: linear-gradient(
-    transparent 12%,
-    #000 42%
-  ); /* style-tokens: visual（mask 只取透明度） */
+  -webkit-mask: var(--pblur-mask-2);
+  mask: var(--pblur-mask-2);
 }
 .yb-pblur > i:nth-child(3) {
   -webkit-backdrop-filter: blur(30px) saturate(1.35);
   backdrop-filter: blur(30px) saturate(1.35);
-  -webkit-mask: linear-gradient(
-    transparent 28%,
-    #000 62%
-  ); /* style-tokens: visual（mask 只取透明度） */
-  mask: linear-gradient(
-    transparent 28%,
-    #000 62%
-  ); /* style-tokens: visual（mask 只取透明度） */
+  -webkit-mask: var(--pblur-mask-3);
+  mask: var(--pblur-mask-3);
 }
 .yb-pblur > i:nth-child(4) {
   background: var(--pblur-tint, var(--scrim-fade-card));

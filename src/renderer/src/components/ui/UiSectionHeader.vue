@@ -45,9 +45,7 @@ const emit = defineEmits<{ more: [] }>()
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: var(--text-xl);
-  font-weight: var(
-    --font-weight-bold
-  ); /* style-tokens: visual（Apple TV 分区标题） */
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（标题） */
   line-height: 1.2;
   letter-spacing: 0.005em;
 }
