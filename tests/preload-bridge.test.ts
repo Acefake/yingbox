@@ -147,6 +147,7 @@ const ADDED_API: Record<string, string[]> = {
   download: ['list', 'add', 'remove', 'retry', 'onChanged', 'offChanged'],
   introDetect: ['status', 'detect', 'cancel', 'onProgress', 'offProgress'],
   libraryNotify: ['status', 'resetToken', 'onChanged', 'offChanged'],
+  notifications: ['test'],
   media: [
     'focus',
     'saveFocus',

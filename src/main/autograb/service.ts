@@ -26,6 +26,7 @@ import { AUTO_SCORE } from './match-rules'
 import {
   addDays,
   calendarRange,
+  episodeKey,
   isDue,
   localDate,
   nextTry,
@@ -75,6 +76,8 @@ export interface AutograbDeps {
   sleep(ms: number): Promise<void>
   emit(): void
   log(message: string): void
+  /** 转存过的集入库了（日历里这一集有了文件），推送通知用 */
+  landed?(records: EpisodeRecord[]): void
 }
 
 /** 追更服务 */
@@ -91,6 +94,8 @@ export interface AutograbService {
   skip(key: string): Promise<void>
   retry(key: string): Promise<void>
   resume(): Promise<void>
+  /** 这一集是不是追更转存的、还在等入库（推送据此把新集标成追更） */
+  isSaved(seriesId: number, season: number, episode: number): boolean
 }
 
 /** 创建追更服务 */
@@ -163,7 +168,12 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
 
   function syncRecords(episodes: CalendarEpisode[], now: number): void {
     airing = new Map(episodes.map(e => [e.seriesId, e.seriesTitle]))
+    const saved = Object.values(state.episodes).filter(
+      r => r.status === 'saved'
+    )
     if (applyCalendar(state, episodes, localDate(now))) dirty()
+    const landed = saved.filter(r => r.status === 'done')
+    if (landed.length) deps.landed?.(landed)
   }
 
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
@@ -358,6 +368,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     async resume(): Promise<void> {
       await ensureLoaded()
       gateRef.resume()
+    },
+    isSaved(seriesId: number, season: number, episode: number): boolean {
+      const key = episodeKey(seriesId, season, episode)
+      return state.episodes[key]?.status === 'saved'
     },
   }
 }
