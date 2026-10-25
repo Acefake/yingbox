@@ -35,6 +35,7 @@ import {
 import type { ItemImages } from './metadata-writer'
 import { type ManualMatchResult, applyManualMatch } from './runner-manual'
 import { identifyJav } from './runner-jav'
+import { fillFromNfo } from './nfo-fill'
 import { identifyMovie } from './runner-movie'
 import { defaultReadText, reusableRef, workerCount } from './runner-rules'
 import { identifySeries } from './runner-series'
@@ -128,13 +129,27 @@ export class IdentifyRunner implements RunnerContext {
     return summary
   }
 
-  /** 处理一个顶层条目。 */
+  /** 处理一个顶层条目：识别 / 刮削，再用本地 NFO 补空着的字段（不覆盖刮削来的值）。 */
   private async processTarget(
     target: IdentifyTarget,
     mode: RunMode,
     changes: ItemChanges,
     signal?: AbortSignal
   ): Promise<Outcome> {
+    const outcome = await this.identifyTarget(target, mode, changes, signal)
+    await fillFromNfo(this, target, changes)
+    return outcome
+  }
+
+  /** 识别 / 刮削一个顶层条目；没配 TMDB 时 TMDB 库的条目跳过（只做本地补全）。 */
+  private async identifyTarget(
+    target: IdentifyTarget,
+    mode: RunMode,
+    changes: ItemChanges,
+    signal?: AbortSignal
+  ): Promise<Outcome> {
+    if (target.source !== 'jav' && !this.deps.provider.configured)
+      return 'skipped'
     if (mode === 'ai') {
       return this.deps.ai
         ? this.deps.ai.manual(this, target, changes, signal)

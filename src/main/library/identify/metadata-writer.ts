@@ -4,6 +4,7 @@
  * 常用字段（标题、年份、简介、评分、时长、类型、外部 id、图片地址）各占一列，便于列表查询；
  * 完整元数据（演职员、图片候选、各语言信息等）存 metadata JSON，详情页 / NFO 写出（P5）直接用。
  * 写方法都应在调用方的事务里执行。
+ * fillLocal 用本地 NFO / 豆瓣的信息只补空着的字段，不覆盖刮削来的值。
  */
 import type { ItemMetadata, MatchState } from '../../../shared/library/ipc'
 import type {
@@ -26,6 +27,46 @@ function searchText(titles: Array<string | null | undefined>): string {
   return [
     ...new Set(titles.map(t => (t ? normalizeTitle(t) : '')).filter(Boolean)),
   ].join(' ')
+}
+
+/** 本地补全的信息（NFO / 豆瓣）；没有的字段缺省。 */
+export interface LocalFill {
+  genres?: string[]
+  /** ISO 3166-1 两位代码。 */
+  countries?: string[]
+  rating?: number
+  overview?: string
+  year?: number
+}
+
+/** 列值是否为空（NULL、空串、空 JSON 数组）。 */
+const blank = (value: unknown): boolean =>
+  value === null || value === undefined || value === '' || value === '[]'
+
+/** 现有元数据里的制片国家为空时，补上 countries 后的新 JSON；不需要改返回 null。 */
+function withCountries(
+  raw: unknown,
+  countries: readonly string[],
+  source: 'nfo' | 'douban'
+): string | null {
+  if (!countries.length) return null
+  if (blank(raw)) {
+    const local: ItemMetadata = {
+      level: 'local',
+      countries: [...countries],
+      source,
+    }
+    return JSON.stringify(local)
+  }
+  let meta: ItemMetadata
+  try {
+    meta = JSON.parse(String(raw)) as ItemMetadata
+  } catch {
+    return null
+  }
+  if (meta.level !== 'title' && meta.level !== 'local') return null
+  if (meta.countries?.length) return null
+  return JSON.stringify({ ...meta, countries: [...countries] })
 }
 
 /** 元数据写入仓库。 */
@@ -86,6 +127,50 @@ export class MetadataWriter {
         state,
         itemId
       )
+  }
+
+  /**
+   * 用本地信息补空着的字段：类型、简介、评分、年份各自只在为空时写；制片国家补进 metadata
+   * （没有元数据时写 level = local 的小对象）。返回是否有改动。
+   */
+  fillLocal(
+    itemId: number,
+    fill: LocalFill,
+    source: 'nfo' | 'douban',
+    now: number
+  ): boolean {
+    const row = this.sql
+      .get(
+        'SELECT genres, overview, rating, year, metadata FROM media_items WHERE id = ?'
+      )
+      .get(itemId)
+    if (!row) return false
+    const genres =
+      fill.genres?.length && blank(row.genres)
+        ? JSON.stringify(fill.genres)
+        : null
+    const overview = fill.overview && blank(row.overview) ? fill.overview : null
+    const rating =
+      fill.rating !== undefined && blank(row.rating) ? fill.rating : null
+    const year = fill.year !== undefined && blank(row.year) ? fill.year : null
+    const metadata = withCountries(row.metadata, fill.countries ?? [], source)
+    if (
+      genres === null &&
+      overview === null &&
+      rating === null &&
+      year === null &&
+      metadata === null
+    )
+      return false
+    this.sql
+      .get(
+        `UPDATE media_items SET genres = COALESCE(?, genres),
+           overview = COALESCE(?, overview), rating = COALESCE(?, rating),
+           year = COALESCE(?, year), metadata = COALESCE(?, metadata), updated_at = ?
+         WHERE id = ?`
+      )
+      .run(genres, overview, rating, year, metadata, now, itemId)
+    return true
   }
 
   /** 只更新图片地址（图片缓存完成后替换远程地址）。 */
