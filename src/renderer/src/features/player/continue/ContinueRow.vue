@@ -1,80 +1,27 @@
 <template>
-  <section v-if="items.length" class="cw-row" aria-label="继续播放">
-    <header class="cw-head">
-      <h2 class="cw-title">继续播放</h2>
-      <div class="cw-nav">
-        <span class="cw-count">{{ items.length }} 部</span>
-        <UiIconButton
-          icon="back"
-          label="向左滚动"
-          size="sm"
-          variant="secondary"
-          :disabled="atStart"
-          @click="scrollBy(-1)"
-        />
-        <UiIconButton
-          icon="forward"
-          label="向右滚动"
-          size="sm"
-          variant="secondary"
-          :disabled="atEnd"
-          @click="scrollBy(1)"
-        />
-      </div>
-    </header>
-
-    <div ref="track" class="cw-track" @scroll.passive="syncEdges">
-      <article
-        v-for="record in items"
-        :key="record.id"
-        class="cw-card"
-        @contextmenu.prevent="openMenu($event, record)"
-      >
-        <UiPressable
-          block
-          class="cw-thumb"
-          :label="`继续播放 ${record.title}`"
-          @click="play(record)"
-        >
-          <img
-            v-if="record.cover && !broken.has(record.id)"
-            :src="record.cover"
-            alt=""
-            loading="lazy"
-            decoding="async"
-            referrerpolicy="no-referrer"
-            @error="broken.add(record.id)"
-          />
-          <span v-else class="cw-placeholder"
-            ><UiIcon name="movie" size="lg"
-          /></span>
-          <span class="cw-play" aria-hidden="true"
-            ><UiIcon name="play" filled
-          /></span>
-          <span v-if="record.nextUp" class="cw-next">{{
-            record.episode ? `下一集 ${record.episode}` : '下一集'
-          }}</span>
-          <span v-else-if="remainingLabel(record)" class="cw-left">{{
-            remainingLabel(record)
-          }}</span>
-          <span class="cw-progress" aria-hidden="true"
-            ><i :style="{ width: `${progressRatio(record) * 100}%` }"
-          /></span>
-        </UiPressable>
-        <UiIconButton
-          class="cw-remove"
-          icon="close"
-          label="从继续播放中移除"
-          size="sm"
-          variant="overlay"
-          @click="removeContinue(record.id)"
-        />
-        <div class="cw-meta">
-          <h3 class="cw-name" :title="record.title">{{ record.title }}</h3>
-          <p class="cw-sub">{{ subtitleOf(record, now) }}</p>
-        </div>
-      </article>
-    </div>
+  <UiShelf
+    v-if="items.length"
+    class="cw-row"
+    :title="title"
+    :more="Boolean(onMore)"
+    :more-label="moreLabel"
+    @more="emit('more')"
+  >
+    <UiEpisodeCard
+      v-for="record in items"
+      :key="record.id"
+      class="cw-card"
+      :title="record.title"
+      :subtitle="subtitleOf(record, now)"
+      :image="record.cover"
+      :progress="record.nextUp ? null : progressRatio(record)"
+      :foot="footOf(record)"
+      foot-icon="play"
+      :label="`继续播放 ${record.title}`"
+      menu-label="更多操作"
+      @open="play(record)"
+      @menu="openMenu($event, record)"
+    />
 
     <Teleport to="body">
       <div
@@ -115,16 +62,18 @@
         </UiListRow>
       </div>
     </Teleport>
-  </section>
+  </UiShelf>
 </template>
 
 <script setup lang="ts">
 /**
- * 板块顶部的「继续播放」横排：16:9 卡片、进度条、剩余时间，悬停出播放键和移除，看完一集指向下一集。
+ * 板块顶部的「继续观看」一排（UiShelf + UiEpisodeCard）：横版剧照卡，渐进模糊上压片名、集数、进度条和剩余时间，
+ * 看完一集指向下一集。
  *
- * - 每个板块只列自己的记录（section），没有记录时整块不渲染；
+ * - 每个板块只列自己的记录（section，首页传几个板块合并），没有记录时整块不渲染；
+ * - 页面监听 more 时标题带 ›（如首页跳到「最近播放」）；
  * - 点卡片默认按记录里的载荷重新打开播放器并续播；板块有自己的续播方式（地址会过期的源）时传 resume；
- * - 右键菜单：继续播放 / 从头播放 / 打开详情（页面监听 detail 才有）/ 标记已看完 / 移除。
+ * - 右键或卡片上的 … 弹菜单：继续播放 / 从头播放 / 打开详情（页面监听 detail 才有）/ 标记已看完 / 移除。
  * 记录与规则见 continue-store.ts / continue-rules.ts。
  */
 import {
@@ -132,27 +81,25 @@ import {
   getCurrentInstance,
   nextTick,
   onBeforeUnmount,
-  reactive,
   ref,
   watch,
 } from 'vue'
 
 import { toast } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
-import UiIcon from '@/components/ui/UiIcon.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiEpisodeCard from '@/components/ui/UiEpisodeCard.vue'
 import UiListRow from '@/components/ui/UiListRow.vue'
-import UiPressable from '@/components/ui/UiPressable.vue'
+import UiShelf from '@/components/ui/UiShelf.vue'
 
 import { openMediaPlayer } from '../composables/use-media-player'
 import {
   type ContinueRecord,
   type ContinueSection,
   clock,
+  footOf,
   metaOf,
   progressRatio,
   recordsFor,
-  remainingLabel,
   replayOptions,
   subtitleOf,
 } from './continue-rules'
@@ -162,41 +109,27 @@ import {
   removeContinue,
 } from './continue-store'
 
-const props = defineProps<{
-  section: ContinueSection
-  /** 板块自己的续播（返回 false 表示没打开）；不给就按记录的载荷直接打开播放器 */
-  resume?: (record: ContinueRecord, fromStart: boolean) => Promise<boolean>
-}>()
-const emit = defineEmits<{ detail: [record: ContinueRecord] }>()
+const props = withDefaults(
+  defineProps<{
+    section: ContinueSection | readonly ContinueSection[]
+    /** 板块自己的续播（返回 false 表示没打开）；不给就按记录的载荷直接打开播放器 */
+    resume?: (record: ContinueRecord, fromStart: boolean) => Promise<boolean>
+    title?: string
+    /** 标题可点时的无障碍名称 */
+    moreLabel?: string
+  }>(),
+  { resume: undefined, title: '继续观看', moreLabel: undefined }
+)
+const emit = defineEmits<{ detail: [record: ContinueRecord]; more: [] }>()
 
 const records = continueRecords()
 const items = computed(() => recordsFor(records.value, props.section))
-const canOpenDetail = Boolean(getCurrentInstance()?.vnode.props?.onDetail)
-
-/** 封面加载失败的记录 */
-const broken = reactive(new Set<string>())
+const listeners = getCurrentInstance()?.vnode.props
+const canOpenDetail = Boolean(listeners?.onDetail)
+const onMore = listeners?.onMore
 /** 「上次 x 分钟前」的基准时间：列表变化时刷新 */
 const now = ref(Date.now())
 watch(items, () => (now.value = Date.now()))
-
-// —— 横向滚动 ——
-const track = ref<HTMLElement | null>(null)
-const atStart = ref(true)
-const atEnd = ref(true)
-
-function syncEdges(): void {
-  const el = track.value
-  if (!el) return
-  atStart.value = el.scrollLeft <= 1
-  atEnd.value = el.scrollLeft + el.clientWidth >= el.scrollWidth - 1
-}
-
-watch(items, () => nextTick(syncEdges), { immediate: true })
-
-function scrollBy(direction: 1 | -1): void {
-  const el = track.value
-  if (el) el.scrollBy({ left: direction * el.clientWidth * 0.8 })
-}
 
 // —— 播放 ——
 async function play(record: ContinueRecord, fromStart = false): Promise<void> {

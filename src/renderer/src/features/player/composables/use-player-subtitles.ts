@@ -58,7 +58,7 @@ export interface PlayerSubtitles {
   searching: Ref<boolean>
   downloadingId: Ref<number | null>
   message: Ref<string>
-  /** 开关在线字幕面板；首次打开自动按标题搜一次 */
+  /** 开关在线字幕面板；打开时清掉旧提示，还没有结果且知道片名时自动搜一次 */
   togglePanel: () => void
   /** 搜索在线字幕 */
   search: () => Promise<void>
@@ -74,8 +74,18 @@ export interface PlayerSubtitles {
   active: Ref<string | null>
   /** 切到某条字幕轨（菜单里选的）；成功返回 true */
   selectTrack: (path: string) => Promise<boolean>
-  /** 切集 / 销毁：释放 blob URL、清空字幕轨 */
+  /** 切集 / 销毁：释放 blob URL、清空字幕轨与在线搜索的结果 / 提示 / 输入 */
   dispose: () => void
+}
+
+/**
+ * 在线字幕的搜索关键词：输入框有内容（去掉首尾空白后）就用它，否则用片名。
+ * @param query 输入框里的文字
+ * @param title 当前片名（没有时为空）
+ * @returns 去掉首尾空白的关键词；两者都为空时返回空串（不该发起搜索）
+ */
+export function subtitleKeyword(query: string, title?: string): string {
+  return query.trim() || (title ?? '').trim()
 }
 
 /** 创建播放器的字幕状态与操作 */
@@ -97,12 +107,25 @@ export function usePlayerSubtitles(
   /** 切集 / 销毁的世代号：挂载等待 switch 期间变了就丢弃结果 */
   let generation = 0
 
+  // 在线字幕面板的状态：换片 / 切集时由 dispose 一并清掉
+  const panelOpen = ref(false)
+  const query = ref('')
+  const hits = ref<OnlineSubtitleHit[]>([])
+  const searching = ref(false)
+  const downloadingId = ref<number | null>(null)
+  const message = ref('')
+
   const dispose = (): void => {
     generation++
     revoke()
     tracks.value = []
     active.value = null
     loaded.clear()
+    // 上一部的搜索结果、提示和输入不带到下一部，打开面板时按新片名重新自动搜
+    hits.value = []
+    message.value = ''
+    query.value = ''
+    searching.value = false
   }
 
   const addTrack = (track: SubtitleTrack): void => {
@@ -145,19 +168,17 @@ export function usePlayerSubtitles(
 
   // ── 在线字幕（OpenSubtitles）────────────────────────────
 
-  const panelOpen = ref(false)
-  const query = ref('')
-  const hits = ref<OnlineSubtitleHit[]>([])
-  const searching = ref(false)
-  const downloadingId = ref<number | null>(null)
-  const message = ref('')
+  /** 搜索关键词：输入框优先，空时用片名 */
+  const keyword = (): string =>
+    subtitleKeyword(query.value, options.search().title)
 
   const togglePanel = (): void => {
     panelOpen.value = !panelOpen.value
-    if (panelOpen.value && !hits.value.length) {
-      // 首次打开自动用标题搜一次
-      search()
-    }
+    if (!panelOpen.value) return
+    // 打开时不带出上一次的提示（如没有片名时残留的「无结果」）
+    message.value = ''
+    // 首次打开且知道片名时自动搜一次；没有片名就等用户输入，不先报「请输入」
+    if (!hits.value.length && keyword()) void search()
   }
 
   const search = async (): Promise<void> => {
@@ -166,21 +187,24 @@ export function usePlayerSubtitles(
       message.value = '当前环境不支持在线字幕（需 Electron）'
       return
     }
-    const keyword = (query.value || options.search().title || '').trim()
-    if (!keyword) {
+    const text = keyword()
+    if (!text) {
       message.value = '请输入影视名称'
       return
     }
+    const started = generation
     searching.value = true
     message.value = ''
     hits.value = []
     try {
       const result = await api.searchOnline({
-        query: keyword,
+        query: text,
         imdbId: options.search().imdbId || undefined,
         season: options.search().season,
         episode: options.search().episode,
       })
+      // 等待期间换片 / 切集：结果属于上一部，丢弃
+      if (generation !== started) return
       if (!result?.success) {
         message.value = result?.notConfigured
           ? '未配置 API key：在启动环境设置 YINGBOX_OPENSUBTITLES_KEY 后重启应用'
@@ -190,9 +214,9 @@ export function usePlayerSubtitles(
       hits.value = result.data || []
       if (!hits.value.length) message.value = '无结果'
     } catch (error) {
-      message.value = (error as Error).message
+      if (generation === started) message.value = (error as Error).message
     } finally {
-      searching.value = false
+      if (generation === started) searching.value = false
     }
   }
 

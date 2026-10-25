@@ -87,15 +87,19 @@ describe('继续播放横排', () => {
   it('只列本板块的记录，显示剩余时间', async () => {
     seed()
     const el = await mount({ section: 'movie' })
-    const names = [...el.querySelectorAll('.cw-name')].map(n => n.textContent)
+    const names = [...el.querySelectorAll('.yb-episode-title')].map(
+      n => n.textContent
+    )
     expect(names).toEqual(['沙丘', '奥本海默'])
-    expect(el.querySelector('.cw-left')?.textContent).toBe('剩 30 分钟')
+    expect(el.querySelector('.yb-episode-foot-text')?.textContent).toBe(
+      '剩余 30 分钟'
+    )
   })
 
-  it('点卡片按记录续播（带 continueAs），移除后卡片消失', async () => {
+  it('点卡片按记录续播（带 continueAs），… 菜单移除后卡片消失', async () => {
     seed()
     const el = await mount({ section: 'movie' })
-    ;(el.querySelector('.cw-thumb') as HTMLElement).click()
+    ;(el.querySelector('.yb-episode-hit') as HTMLElement).click()
     await nextTick()
     expect(openMediaPlayer).toHaveBeenCalledWith(
       expect.objectContaining({
@@ -105,7 +109,11 @@ describe('继续播放横排', () => {
         continueAs: expect.objectContaining({ section: 'movie', key: '1' }),
       })
     )
-    ;(el.querySelector('.cw-remove') as HTMLElement).click()
+    ;(el.querySelector('.yb-episode-menu') as HTMLElement).click()
+    await nextTick()
+    ;[...document.querySelectorAll<HTMLElement>('.cw-menu [role="menuitem"]')]
+      .find(i => i.textContent?.trim() === '从继续播放中移除')!
+      .click()
     await nextTick()
     expect(el.querySelectorAll('.cw-card')).toHaveLength(1)
     expect(JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]')).toHaveLength(
@@ -170,7 +178,7 @@ describe('继续播放横排', () => {
     const onDetail = vi.fn()
     const resume = vi.fn(async () => true)
     const el = await mount({ section: 'tv', onDetail, resume })
-    ;(el.querySelector('.cw-thumb') as HTMLElement).click()
+    ;(el.querySelector('.yb-episode-hit') as HTMLElement).click()
     await nextTick()
     expect(resume).toHaveBeenCalledWith(
       expect.objectContaining({ key: '3' }),

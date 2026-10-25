@@ -100,6 +100,38 @@ describe('createHttpLibraryBridge', () => {
     ).toBe('engine-unavailable')
   })
 
+  it('错误页是 HTML 或正文不是 JSON 时，提示里不带页面源码', async () => {
+    const html = harness(
+      () =>
+        new Response('<!DOCTYPE HTML><html><body><h1>Error response</h1>', {
+          status: 501,
+        })
+    )
+    const notImplemented = await html.bridge.listLibraries().catch(e => e)
+    expect(libraryErrorCode(notImplemented)).toBe('engine-unavailable')
+    expect(notImplemented.message).toContain('HTTP 501')
+    expect(notImplemented.message).not.toContain('<')
+
+    const spa = harness(() => new Response('<html></html>', { status: 200 }))
+    const fallback = await spa.bridge.listLibraries().catch(e => e)
+    expect(libraryErrorCode(fallback)).toBe('engine-unavailable')
+    expect(fallback.message).not.toContain('<')
+    expect(fallback.message).toContain(
+      '片库服务返回的不是 JSON（HTTP 200），可能没有部署片库服务'
+    )
+    expect(fallback.message).not.toContain('出错')
+  })
+
+  it('JSON 合法但不是 InvokeResult 时，按「不是 JSON」报引擎不可用', async () => {
+    for (const body of ['{}', '{"ok":false}', '[]', '"ok"']) {
+      const { bridge } = harness(() => new Response(body, { status: 200 }))
+      const error = await bridge.listLibraries().catch(e => e)
+      expect(libraryErrorCode(error)).toBe('engine-unavailable')
+      expect(error.message).toContain('片库服务返回的不是 JSON（HTTP 200）')
+      expect(error.message).not.toContain('undefined')
+    }
+  })
+
   it('多个订阅方共用一条 SSE，最后一个退订时关闭', () => {
     const { bridge, streams } = harness(() => ok(null))
     const a: LibraryEvent[] = []

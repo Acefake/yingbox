@@ -40,9 +40,6 @@
           </span>
         </template>
       </UiListRow>
-      <p v-if="!searching && hits.length === 0 && message" class="usp-empty">
-        无结果
-      </p>
     </div>
   </div>
 </template>
@@ -88,6 +85,8 @@ const query = defineModel<string>('query', { required: true })
   bottom: 56px; /* style-tokens: layout（避开底部控制栏） */
   z-index: var(--z-popover);
   width: min(360px, 86vw);
+  /* 86vw 按整个窗口算；播放器缩小（如角落小窗）时按播放器宽度兜底，不溢出 */
+  max-width: calc(100% - 2 * var(--space-3));
   max-height: min(420px, 60vh);
   display: flex;
   flex-direction: column;
@@ -161,12 +160,5 @@ const query = defineModel<string>('query', { required: true })
 .usp-item-meta .app-icon {
   width: 11px;
   height: 11px;
-}
-
-.usp-empty {
-  margin: var(--space-2) var(--space-1);
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-  text-align: center;
 }
 </style>

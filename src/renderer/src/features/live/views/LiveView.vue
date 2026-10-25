@@ -6,19 +6,20 @@
       description="导入 m3u / txt 直播源，边看直播边看节目单"
     >
       <template #actions>
-        <UiButton
-          icon="list"
-          :label="panelOpen ? '收起直播源' : '直播源'"
-          :disabled="!available"
-          @click="togglePanel"
-        />
-        <UiIconButton
-          icon="refresh"
-          label="刷新直播源与节目单"
-          :disabled="!available || !sources.length"
-          :loading="anyLoading || epgLoading"
-          @click="refreshAll"
-        />
+        <!-- 还没有直播源时管理面板常开，开关与刷新都没有意义，不显示 -->
+        <template v-if="available && sources.length">
+          <UiButton
+            icon="list"
+            :label="panelOpen ? '收起直播源' : '直播源'"
+            @click="togglePanel"
+          />
+          <UiIconButton
+            icon="refresh"
+            label="刷新直播源与节目单"
+            :loading="anyLoading || epgLoading"
+            @click="refreshAll"
+          />
+        </template>
       </template>
     </PageHeader>
 

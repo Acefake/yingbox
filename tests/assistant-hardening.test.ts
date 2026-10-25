@@ -39,7 +39,7 @@ import {
   type AssistantDeps,
   useAssistant,
 } from '../src/renderer/src/features/assistant/use-assistant'
-import { trapTarget } from '../src/renderer/src/features/assistant/use-focus-trap'
+import { trapTarget } from '../src/renderer/src/composables/use-focus-trap'
 
 /** 假的 globalShortcut：taken 里的组合被别的程序占用 */
 function fakeRegistry(
