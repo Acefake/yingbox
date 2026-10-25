@@ -2,7 +2,7 @@
   <!-- 演职员：横向滑动 -->
   <section class="lib-section">
     <h2 class="lib-section-title">演职员</h2>
-    <ul class="lib-cast custom-scrollbar">
+    <ul class="lib-row lib-cast">
       <li v-for="person in people" :key="person.key" class="lib-person">
         <component
           :is="person.actorId ? UiPressable : 'div'"
@@ -31,7 +31,7 @@
 
 <script setup lang="ts">
 /**
- * 详情里的演职员区块：圆形头像（没有时显示名字首字）、姓名、职务 / 角色，横向滑动。
+ * 详情里的演职员区块（效果图 D-3）：132px 圆形头像（没有时显示名字首字）、姓名、职务 / 角色，横向滑动。
  * 番号库条目的演员在演员库里有记录时可点，打开演员详情。
  */
 import UiPressable from '@/components/ui/UiPressable.vue'
@@ -45,19 +45,11 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
 <style scoped src="./detail-section.css"></style>
 <style scoped>
 .lib-cast {
-  display: flex;
-  gap: var(--space-5);
-  margin: 0 calc(var(--content-padding-x) * -1);
-  padding: 0 var(--content-padding-x) var(--space-3);
-  overflow-x: auto;
-  list-style: none;
-  scroll-padding-inline: var(--content-padding-x);
-  scroll-snap-type: x proximity;
+  gap: var(--space-6_5);
 }
 .lib-person {
-  flex: 0 0 104px;
+  width: 132px;
   text-align: center;
-  scroll-snap-align: start;
 }
 .lib-person-target {
   display: block;
@@ -73,36 +65,56 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
   color: var(--accent);
 }
 .lib-person-photo {
+  position: relative;
   display: grid;
-  transition: transform var(--duration-normal) var(--ease-out);
-  width: 104px;
-  height: 104px;
+  width: 132px;
+  height: 132px;
   margin-bottom: var(--space-3);
   overflow: hidden;
   place-items: center;
-  border-radius: var(--radius-full);
+  border-radius: 50%;
   background: var(--bg-fill-secondary);
   color: var(--text-tertiary);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+/* 0.5px 发丝边 */
+.lib-person-photo::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--border-glass-light);
+  content: '';
 }
 .lib-person-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 18%;
 }
 .lib-person-name {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .lib-person-role {
   margin-top: var(--space-0_5);
   overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@media (max-width: 720px) {
+  .lib-person,
+  .lib-person-photo {
+    width: 104px;
+  }
+  .lib-person-photo {
+    height: 104px;
+  }
 }
 </style>

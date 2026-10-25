@@ -2,7 +2,7 @@
   <!-- 剧照：横向滑动，点开灯箱 -->
   <section v-if="shown.length" class="lib-section">
     <h2 class="lib-section-title">剧照</h2>
-    <ul class="lib-stills custom-scrollbar">
+    <ul class="lib-row lib-stills">
       <li v-for="(path, i) in shown" :key="path" class="lib-still">
         <UiPressable
           block
@@ -27,7 +27,7 @@
 
 <script setup lang="ts">
 /**
- * 详情里的剧照区块（接回原番号详情页的剧照）：横排缩略图，点开灯箱看大图。
+ * 详情里的剧照区块（接回原番号详情页的剧照）：16:9 圆角大卡横排（效果图 D-2 预告片一排的版式），点开灯箱看大图。
  * 剧照来源与回退规则见 detail-rules.ts 的 stillsOf；加载失败的剧照（含被主进程拦掉的图床占位图）
  * 从缩略图和灯箱里一起去掉，全部失败时整个区块不显示。
  */
@@ -56,31 +56,28 @@ watch(
 
 <style scoped src="./detail-section.css"></style>
 <style scoped>
-.lib-stills {
-  display: flex;
-  gap: var(--space-3);
-  margin: 0 calc(var(--content-padding-x) * -1);
-  padding: 0 var(--content-padding-x) var(--space-3);
-  overflow-x: auto;
-  list-style: none;
-  scroll-padding-inline: var(--content-padding-x);
-  scroll-snap-type: x proximity;
-}
-.lib-still {
-  flex: 0 0 auto;
-  scroll-snap-align: start;
-}
 .lib-still-target {
-  height: 150px;
+  position: relative;
+  width: 360px;
+  aspect-ratio: 16 / 9;
   overflow: hidden;
-  border-radius: var(--radius-md);
+  border-radius: var(--radius-xl);
   background: var(--bg-fill-secondary);
+}
+/* 0.5px 发丝边 */
+.lib-still-target::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--media-glass-border);
+  content: '';
+  pointer-events: none;
 }
 .lib-still-target img {
   display: block;
-  width: auto;
-  min-width: 100px;
+  width: 100%;
   height: 100%;
+  object-fit: cover;
   transition: transform var(--duration-normal) var(--ease-out);
 }
 .lib-still-target:hover img {
@@ -88,5 +85,10 @@ watch(
 }
 .lib-still-target:focus-visible {
   box-shadow: var(--focus-ring-offset);
+}
+@media (max-width: 720px) {
+  .lib-still-target {
+    width: 280px;
+  }
 }
 </style>

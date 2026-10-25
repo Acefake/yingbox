@@ -124,7 +124,7 @@ describe('设置与接线', () => {
     expect(seasons).toContain("'is-spoiler': spoilerIds.has(ep.id)")
     expect(seasons).toContain('useSpoilerGuard(')
     expect(seasons).toMatch(
-      /\.is-spoiler \.lib-episode-still img \{\s+filter: blur/
+      /\.is-spoiler \.lib-episode-still,\s+\.lib-episode\.is-spoiler \.lib-episode-fill \{\s+filter: blur/
     )
     expect(seasons).toMatch(
       /\.is-spoiler \.lib-episode-overview \{\s+display: none/

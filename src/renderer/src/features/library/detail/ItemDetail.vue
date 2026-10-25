@@ -1,64 +1,118 @@
 <template>
-  <div ref="root" class="lib-detail custom-scrollbar" tabindex="-1">
-    <div v-if="!node && loading" class="lib-detail-status">正在载入…</div>
-    <div v-else-if="!node" class="lib-detail-status">
-      {{ error || '条目不存在或已被移除' }}
-      <UiButton label="返回" variant="secondary" @click="emit('close')" />
+  <div class="lib-detail">
+    <div
+      ref="root"
+      class="lib-detail-scroll"
+      tabindex="-1"
+      @scroll.passive="onScroll"
+    >
+      <div v-if="!node && loading" class="lib-detail-status">正在载入…</div>
+      <div v-else-if="!node" class="lib-detail-status">
+        {{ error || '条目不存在或已被移除' }}
+        <UiButton label="返回" variant="secondary" @click="emit('close')" />
+      </div>
+
+      <template v-else>
+        <DetailHero
+          data-tab="overview"
+          :node="node"
+          :backdrop="backdrop"
+          :logo="logo"
+          :tagline="tagline"
+          :meta-parts="metaParts"
+          :specs="heroSpecs"
+          :credits="credits"
+          :play-label="playLabel"
+          :can-play="Boolean(primaryPlay)"
+          :restorable="restore.available.value"
+          :restore-running="restore.running.value"
+          @play="playPrimary"
+          @restore="restore.start"
+        />
+        <DetailSeasons
+          v-if="seasons.length"
+          data-tab="episodes"
+          :node="node"
+          :seasons="seasons"
+          @play-episode="playEpisode"
+        />
+        <DetailStills v-if="stills.length" data-tab="stills" :stills="stills" />
+        <DetailPeople
+          v-if="people.length"
+          data-tab="cast"
+          :people="people"
+          @open-actor="emit('open-actor', $event)"
+        />
+        <DetailVersions
+          v-if="showVersions(node)"
+          v-model="versionChoice"
+          data-tab="versions"
+          :node="node"
+          @split="splitMember"
+          @join="joinMember"
+        />
+        <DetailInfo
+          data-tab="about"
+          :title="node.title"
+          :kicker="aboutKicker"
+          :overview="node.overview ?? ''"
+          :info-rows="infoRows"
+          :files="files"
+        />
+      </template>
     </div>
 
-    <template v-else>
-      <DetailHero
-        :node="node"
-        :backdrop="backdrop"
-        :logo="logo"
-        :tagline="tagline"
-        :meta-line="metaLine"
-        :play-label="playLabel"
-        :can-play="Boolean(primaryPlay)"
-        :jav="jav"
-        :matched="matched"
-        :busy="busy"
-        :writer-available="writerAvailable"
-        :restorable="restore.available.value"
-        :restore-running="restore.running.value"
-        @close="emit('close')"
-        @play="playPrimary"
-        @fix-match="emit('fix-match', $event)"
-        @toggle-lock="toggleLock"
-        @refresh="refreshMetadata"
-        @write="writeOut"
-        @organize="emit('organize', $event)"
-        @restore="restore.start"
-      />
-      <DetailSeasons
-        v-if="seasons.length"
-        :node="node"
-        :seasons="seasons"
-        @play-episode="playEpisode"
-      />
-      <DetailStills v-if="stills.length" :stills="stills" />
-      <DetailPeople
-        v-if="people.length"
-        :people="people"
-        @open-actor="emit('open-actor', $event)"
-      />
-      <DetailVersions
-        v-if="showVersions(node)"
-        v-model="versionChoice"
-        :node="node"
-        @split="splitMember"
-        @join="joinMember"
-      />
-      <DetailInfo :info-rows="infoRows" :files="files" />
-    </template>
+    <!-- 浮动控件：顶部渐隐带、返回圆钮、右上角「更多」（排在外壳窗口键胶囊左边）、底部分区胶囊 -->
+    <div class="lib-detail-edge" aria-hidden="true" />
+    <UiIconButton
+      class="lib-float-button lib-detail-back"
+      icon="back"
+      variant="overlay"
+      label="返回"
+      @click="emit('close')"
+    />
+    <DetailActions
+      v-if="node"
+      class="lib-detail-more"
+      :class="{ 'beside-window': isElectron }"
+      :node="node"
+      :jav="jav"
+      :matched="matched"
+      :busy="busy"
+      :writer-available="writerAvailable"
+      @fix-match="emit('fix-match', $event)"
+      @toggle-lock="toggleLock"
+      @refresh="refreshMetadata"
+      @write="writeOut"
+      @organize="emit('organize', $event)"
+    />
+    <nav
+      v-if="node && tabs.length > 2"
+      class="lib-detail-tabs yb-glass"
+      aria-label="页内分区"
+    >
+      <button
+        v-for="tab in tabs"
+        :key="tab.key"
+        type="button"
+        class="lib-detail-tab"
+        :aria-current="tab.key === activeTab ? 'true' : undefined"
+        @click="jumpTo(tab.key)"
+      >
+        {{ tab.label }}
+      </button>
+    </nav>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 条目详情（Apple TV 风格）：780w 背景图渐隐、标志或片名、年份 · 时长 · 分级 · 评分、简介，
- * 剧集按季分段与集列表，剧照横滑（点开灯箱），演职员横滑，信息与文件。播放接 openMediaPlayer（播放弹窗 / mpv），
- * 去码接 features/lada（use-restore）。
+ * 条目详情（Apple TV 式，效果图 D-1 / D-2 / D-3）：铺满整个窗口（侧栏浮在上面），纯黑底。
+ * 头图（大背景 + 渐进模糊、标志、播放 / 想看、简介、规格行与主演导演），剧集卡横排（按季切换），
+ * 剧照横排（点开灯箱），圆头像演职员，版本，关于（信息卡 + 文件卡）。
+ * 浮动控件：左上玻璃返回圆钮（外壳的前进 / 后退胶囊此时让位，use-shell-chrome），右上「更多」管理操作，
+ * 底部玻璃胶囊做页内分区导航（滚动时跟随当前分区，点了滚过去）。
+ * 播放接 openMediaPlayer（播放弹窗 / mpv），去码接 features/lada（use-restore）。
  *
  * 同一作品在几个文件夹里时引擎已合并成一棵树，DetailVersions 选播放哪个版本 / 来源、拆出误合并的。
  *
@@ -66,19 +120,30 @@
  * 纯规则在 detail-rules.ts / version-rules.ts。
  */
 import { toast } from '@/components/ui'
-import { computed, nextTick, ref, shallowRef, watch } from 'vue'
+import {
+  computed,
+  nextTick,
+  onBeforeUnmount,
+  ref,
+  shallowRef,
+  watch,
+} from 'vue'
 
 import type {
   ActorSummary,
   LibraryItemNode,
 } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { usePlatform } from '@/composables/use-platform'
+import { useOwnBackButton } from '@/composables/use-shell-chrome'
 
 import { errorText, libraryBridge } from '../api/bridge'
 import { heroImage, itemImage, tmdbImage } from '../api/images'
 import { onLibraryEvent } from '../state/library-events'
 import type { LibrarySection } from '../state/library-section'
 import { useWriter } from '../writer/use-writer'
+import DetailActions from './DetailActions.vue'
 import DetailHero from './DetailHero.vue'
 import DetailInfo from './DetailInfo.vue'
 import DetailPeople from './DetailPeople.vue'
@@ -103,6 +168,14 @@ import {
   play,
   primaryPlayRequest,
 } from './playback'
+import {
+  type DetailTabKey,
+  activeTabAt,
+  creditLinesOf,
+  detailTabsOf,
+  heroMetaParts,
+  heroSpecsOf,
+} from './detail-view'
 import { prepareProgress } from '../progress/progress-cache'
 import { useRestore } from './use-restore'
 import { showVersions } from './version-rules'
@@ -120,6 +193,8 @@ const emit = defineEmits<{
 }>()
 
 const bridge = libraryBridge()
+const { isElectron } = usePlatform()
+useOwnBackButton()
 const { available: writerAvailable, write } = useWriter()
 const root = ref<HTMLElement | null>(null)
 const node = shallowRef<LibraryItemNode | null>(null)
@@ -150,6 +225,7 @@ async function load(resetView: boolean): Promise<void> {
       await nextTick()
       root.value?.scrollTo({ top: 0 })
       root.value?.focus({ preventScroll: true })
+      activeTab.value = 'overview'
     }
   } catch (e) {
     error.value = errorText(e)
@@ -199,6 +275,18 @@ const logo = computed(() => node.value?.logo ?? null)
 const tagline = computed(() => titleMeta.value?.tagline ?? '')
 const seasons = computed(() => sortedSeasons(node.value))
 const metaLine = computed(() => metaLineOf(node.value, seasons.value))
+const metaParts = computed(() => heroMetaParts(metaLine.value, titleMeta.value))
+const heroSpecs = computed(() =>
+  node.value ? heroSpecsOf(node.value, titleMeta.value) : []
+)
+const credits = computed(() => creditLinesOf(titleMeta.value))
+/** 关于卡片片名下的一行：类型 · 题材 */
+const aboutKicker = computed(() => {
+  const n = node.value
+  if (!n) return ''
+  const kind = n.type === 'series' ? '剧集' : '电影'
+  return [kind, ...n.genres.slice(0, 3)].join(' · ')
+})
 
 // —— 播放 ——
 const primaryPlay = computed<PlayRequest | null>(() =>
@@ -264,6 +352,67 @@ const people = computed(() =>
 const infoRows = computed(() => infoRowsOf(node.value))
 const files = computed(() => allVideoFiles(node.value))
 
+// —— 页内分区（底部胶囊）——
+const tabs = computed(() =>
+  node.value
+    ? detailTabsOf({
+        episodes: seasons.value.length > 0,
+        stills: stills.value.length > 0,
+        cast: people.value.length > 0,
+        versions: showVersions(node.value),
+      })
+    : []
+)
+const activeTab = ref<DetailTabKey>('overview')
+/** 胶囊点击滚动途中不跟随滚动改选中，滚完再跟 */
+let jumping: ReturnType<typeof setTimeout> | null = null
+let frame = 0
+
+function sectionTops(): Array<{ key: DetailTabKey; top: number }> {
+  const el = root.value
+  if (!el) return []
+  return [...el.querySelectorAll<HTMLElement>(':scope > [data-tab]')].map(
+    section => ({
+      key: section.dataset.tab as DetailTabKey,
+      top: section.offsetTop,
+    })
+  )
+}
+
+function onScroll(): void {
+  if (frame || jumping) return
+  frame = requestAnimationFrame(() => {
+    frame = 0
+    const el = root.value
+    if (!el) return
+    const key = activeTabAt(
+      sectionTops(),
+      el.scrollTop,
+      el.clientHeight,
+      el.scrollHeight
+    )
+    if (key) activeTab.value = key
+  })
+}
+
+function jumpTo(key: DetailTabKey): void {
+  const el = root.value
+  const section = el?.querySelector<HTMLElement>(`:scope > [data-tab="${key}"]`)
+  if (!el || !section) return
+  activeTab.value = key
+  const reduce = window.matchMedia('(prefers-reduced-motion: reduce)').matches
+  el.scrollTo({
+    top: key === 'overview' ? 0 : section.offsetTop - 24,
+    behavior: reduce ? 'auto' : 'smooth',
+  })
+  if (jumping) clearTimeout(jumping)
+  jumping = setTimeout(() => (jumping = null), reduce ? 0 : 700)
+}
+onBeforeUnmount(() => {
+  if (frame) cancelAnimationFrame(frame)
+  if (jumping) clearTimeout(jumping)
+})
+
 // —— 操作 ——
 async function run(name: string, task: () => Promise<unknown>): Promise<void> {
   busy.value = name
@@ -326,13 +475,22 @@ function writeOut(): void {
 </script>
 
 <style scoped>
+/* 铺满整个窗口（侧栏与外壳胶囊浮在上面），左边距随侧栏宽度 */
 .lib-detail {
-  position: absolute;
+  --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
+  --detail-gutter: var(--space-8);
+  position: fixed;
   inset: 0;
   z-index: var(--z-float);
-  overflow-y: auto;
   background: var(--bg-content);
+}
+.lib-detail-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
   outline: none;
+  overscroll-behavior: contain;
 }
 .lib-detail-status {
   display: flex;
@@ -341,7 +499,95 @@ function writeOut(): void {
   justify-content: center;
   gap: var(--space-4);
   height: 100%;
+  padding-left: var(--shell-left, 0px);
   color: var(--text-tertiary);
   font-size: var(--text-sm);
+}
+
+/* 顶部滚动边缘：浮动控件后面一条压暗 + 轻模糊的渐隐带 */
+.lib-detail-edge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 104px;
+  background: linear-gradient(
+    color-mix(in srgb, var(--bg-content) 62%, transparent),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  -webkit-mask: linear-gradient(#000 30%, transparent);
+  mask: linear-gradient(#000 30%, transparent);
+  pointer-events: none;
+}
+
+/* 玻璃圆钮（返回 / 更多）：44px，与外壳胶囊同高同一条线 */
+.lib-detail :deep(.lib-float-button) {
+  --ib-size: var(--shell-pill-height);
+  border-radius: var(--radius-full);
+}
+.lib-detail-back {
+  position: absolute;
+  top: var(--shell-pill-top);
+  left: var(--detail-x);
+}
+.lib-detail-more {
+  position: absolute;
+  top: var(--shell-pill-top);
+  right: var(--shell-pill-right);
+}
+.lib-detail-more.beside-window {
+  right: calc(
+    var(--shell-pill-right) + var(--shell-win-width) + var(--space-3)
+  );
+}
+
+/* 底部玻璃胶囊：页内分区导航，选中项是更亮的内胶囊；在内容区（侧栏右边）居中 */
+.lib-detail-tabs {
+  position: absolute;
+  bottom: var(--space-5);
+  left: calc(var(--shell-left, 0px) + (100% - var(--shell-left, 0px)) / 2);
+  display: flex;
+  align-items: center;
+  gap: var(--space-1);
+  height: 56px;
+  padding: 0 var(--space-1_5);
+  border-radius: var(--radius-full);
+  transform: translateX(-50%);
+}
+.lib-detail-tab {
+  height: var(--shell-pill-height);
+  padding: 0 var(--space-4);
+  border-radius: var(--radius-full);
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  white-space: nowrap;
+  transition:
+    background var(--duration-fast) ease,
+    color var(--duration-fast) ease;
+}
+.lib-detail-tab:hover {
+  color: var(--text-primary);
+}
+.lib-detail-tab[aria-current='true'] {
+  background: var(--bg-active);
+  box-shadow: inset 0 1px 0.5px var(--border-glass-light);
+  color: var(--text-primary);
+}
+
+@media (max-width: 720px) {
+  .lib-detail {
+    --detail-x: var(--space-4);
+    --detail-gutter: var(--space-4);
+  }
+  .lib-detail-back,
+  .lib-detail-more {
+    top: calc(var(--safe-top) + var(--space-2));
+  }
+  .lib-detail-tabs {
+    display: none;
+  }
 }
 </style>
