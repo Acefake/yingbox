@@ -106,7 +106,7 @@
     opacity var(--duration-slow) ease,
     background-position var(--duration-slow) var(--ease-out);
 }
-.assistant-field.is-busy .assistant-streak {
+.assistant-field:where(.is-busy) .assistant-streak {
   background-position: 100% 0;
   opacity: 1;
   animation: assistant-streak var(--duration-pulse) ease-in-out infinite;

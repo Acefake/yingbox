@@ -185,12 +185,12 @@ onUnmounted(() => {
   background: var(--bg-main);
   color: var(--text-primary);
 }
-.app-layout.sidebar-collapsed {
+.app-layout:where(.sidebar-collapsed) {
   --shell-left: calc(var(--shell-inset) + var(--sidebar-width-collapsed));
 }
 
-.app-layout.is-web .app-sidebar,
-.app-layout.is-web .top-menu {
+.app-layout:where(.is-web) .app-sidebar,
+.app-layout:where(.is-web) .top-menu {
   -webkit-app-region: no-drag;
 }
 
