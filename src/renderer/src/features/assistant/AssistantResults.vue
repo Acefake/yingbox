@@ -1,74 +1,69 @@
 <template>
   <div class="assistant-result" :class="`is-${result.kind}`">
     <template v-if="result.kind === 'cards'">
-      <div class="assistant-cards" :class="{ 'is-busy': playing !== null }">
-        <template v-for="(card, index) in result.cards" :key="card.id">
-          <div
-            v-if="card.actions"
-            class="assistant-card-in assistant-card is-static"
-            :style="{ '--i': index }"
-            :title="card.reason || undefined"
-          >
-            <span class="assistant-card-cover">
-              <img v-if="card.image" :src="card.image" alt="" loading="lazy" />
-              <span v-if="card.tag" class="assistant-card-badge">
-                {{ card.tag() }}
+      <ul class="assistant-cards" :class="{ 'is-busy': playing !== null }">
+        <li
+          v-for="(card, index) in result.cards"
+          :key="card.id"
+          class="assistant-card-in assistant-card"
+          :class="{ 'is-busy': playing === card.id }"
+          :style="{ '--i': index, '--progress': card.progress ?? 0 }"
+        >
+          <span class="assistant-card-cover" aria-hidden="true">
+            <img v-if="card.image" :src="card.image" alt="" loading="lazy" />
+            <span v-if="card.progress !== undefined" class="assistant-progress">
+              <i class="assistant-progress-fill" />
+            </span>
+          </span>
+          <span class="assistant-card-body">
+            <span class="assistant-card-title">{{ card.title }}</span>
+            <UiLoadingDots v-if="playing === card.id" label="正在打开…" />
+            <span v-else-if="card.meta" class="assistant-card-meta">
+              {{ card.meta }}
+            </span>
+            <span
+              v-if="card.specs?.length || whyOf(card)"
+              class="assistant-card-specs"
+            >
+              <UiSpecBadge
+                v-for="spec in card.specs"
+                :key="spec.variant + spec.text"
+                :variant="spec.variant"
+                :text="spec.text"
+              />
+              <span v-if="whyOf(card)" class="assistant-card-why">
+                {{ whyOf(card) }}
               </span>
             </span>
-            <span class="assistant-card-body">
-              <span class="assistant-card-title">{{ card.title }}</span>
-              <span v-if="card.meta" class="assistant-card-meta">
-                {{ card.meta }}
-              </span>
-              <span class="assistant-card-buttons">
-                <UiButton
-                  v-for="action in card.actions()"
-                  :key="action.label"
-                  size="sm"
-                  :variant="action.primary ? 'primary' : 'secondary'"
-                  :label="action.label"
-                  :aria-expanded="
-                    action.panel ? expanded?.cardId === card.id : undefined
-                  "
-                  @click="act(card, action)"
-                />
-              </span>
-            </span>
-          </div>
-          <UiPressable
+          </span>
+          <span v-if="card.actions" class="assistant-card-buttons">
+            <UiButton
+              v-for="action in card.actions()"
+              :key="action.label"
+              size="sm"
+              :variant="action.primary ? 'primary' : 'secondary'"
+              :label="action.label"
+              :aria-label="`${action.label}：${card.title}`"
+              :aria-expanded="
+                action.panel ? expanded?.cardId === card.id : undefined
+              "
+              @click="act(card, action)"
+            />
+          </span>
+          <UiButton
             v-else
-            class="assistant-card-in assistant-card"
-            :class="{ 'is-busy': playing === card.id }"
-            :style="{ '--i': index, '--progress': card.progress ?? 0 }"
-            :title="card.reason || undefined"
+            class="assistant-card-play"
+            :variant="card.progress === undefined ? 'primary' : 'secondary'"
+            size="sm"
+            icon="play"
+            :label="card.progress === undefined ? '播放' : '继续'"
+            :aria-label="`${card.playLabel}：${card.title}`"
             :aria-busy="playing === card.id"
             :aria-disabled="playing !== null"
             @click="play(card)"
-          >
-            <span class="assistant-card-cover">
-              <img v-if="card.image" :src="card.image" alt="" loading="lazy" />
-              <span v-if="card.badge" class="assistant-card-badge">
-                {{ card.badge }}
-              </span>
-            </span>
-            <span class="assistant-card-body">
-              <span class="assistant-card-title">{{ card.title }}</span>
-              <UiLoadingDots v-if="playing === card.id" label="正在打开…" />
-              <span v-else-if="card.meta" class="assistant-card-meta">
-                {{ card.meta }}
-              </span>
-              <span class="assistant-card-action">{{ card.playLabel }}</span>
-            </span>
-            <span
-              v-if="card.progress !== undefined"
-              class="assistant-progress"
-              aria-hidden="true"
-            >
-              <i class="assistant-progress-fill" />
-            </span>
-          </UiPressable>
-        </template>
-      </div>
+          />
+        </li>
+      </ul>
       <div v-if="expanded" class="assistant-card-in assistant-panel-slot">
         <component
           :is="expanded.panel.component"
@@ -84,7 +79,9 @@
       class="assistant-card-in assistant-done"
       :class="{ 'is-failed': !result.ok }"
     >
-      <UiIcon :name="result.icon" size="sm" />
+      <span class="assistant-done-icon"
+        ><UiIcon :name="result.icon" size="sm"
+      /></span>
       <span>{{ result.text }}</span>
     </p>
   </div>
@@ -92,12 +89,14 @@
 
 <script setup lang="ts">
 /**
- * 助手面板里的结果（弹簧滑入，逐张错开）：封面卡片（角标写时长或看到多少，下面一行类型 · 评分 · 规格，
- * 有进度时底部一条进度条，整张可点开播），以及一次性动作的回执。开始播放后通知外层收起助手。
- * 打开播放器期间：被点的卡片在说明行显示「正在打开…」并标 aria-busy，其余卡片变淡并标 aria-disabled
- * （保持可聚焦，点击不重复打开）。
- * 带按钮的卡片（库外的片子：角标写「未入库」等状态）整张不可点，按钮可执行一次性动作，
- * 或在卡片列表下方展开一个面板（同一时间只展开一张卡的面板，再点收起；结果换了就收起）。
+ * 助手面板里的结果（弹簧滑入，逐行错开）：
+ * - 影片列表：小海报（有进度时底部一条进度条）、片名、一行说明、规格标签（UiSpecBadge）与角标 / 推荐理由，
+ *   右侧「播放」（白底）或「继续」（有进度时，灰底）按钮；
+ * - 一次性动作的回执：圆形图标 + 一句话。
+ * 带按钮的行（库外的片子：说明处写「未入库」等状态）右侧换成一组按钮，按钮可执行一次性动作，
+ * 或在列表下方展开一个面板（同一时间只展开一张卡的面板，再点收起；结果换了就收起）。
+ * 开始播放后通知外层收起助手。打开播放器期间：被点的那行在说明处显示「正在打开…」并标 aria-busy，
+ * 其余按钮标 aria-disabled（保持可聚焦，点击不重复打开），那几行变淡。
  */
 import { type Component, ref, shallowRef, watch } from 'vue'
 
@@ -105,7 +104,7 @@ import {
   UiButton,
   UiIcon,
   UiLoadingDots,
-  UiPressable,
+  UiSpecBadge,
   toast,
 } from '@/components/ui'
 
@@ -133,6 +132,11 @@ watch(
     expanded.value = null
   }
 )
+
+/** 说明处的一行：状态角标（随入库状态变化）或时长角标，再接推荐理由 */
+function whyOf(card: AssistantMediaCard): string {
+  return [card.tag?.() ?? card.badge, card.reason].filter(Boolean).join(' · ')
+}
 
 async function play(card: AssistantMediaCard): Promise<void> {
   if (playing.value) return

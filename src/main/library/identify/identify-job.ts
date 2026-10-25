@@ -1,5 +1,5 @@
 /**
- * identify 任务的执行：取目标 → （刷新时让缓存过期）→ 跑执行器，
+ * identify 任务的执行：取目标 → （刷新时让缓存过期）→ 跑执行器 → 仍没有类型的去豆瓣补（genre-fill），
  * 期间节流推送进度与条目变化（海报墙边识别边刷新），结束时交出有变化的条目（后继据此派发，见 identify-module）。
  */
 import type { LibraryEvent } from '../../../shared/library/ipc'
@@ -30,6 +30,11 @@ export interface IdentifyJobDeps {
   /** 按媒体库拆分变化并推送 items-changed。 */
   emitChanges: (changes: ItemChanges) => void
   concurrency?: number
+  /** 刮削后的类型补全（豆瓣，见 genre-fill）；返回有改动的条目。缺省不补。 */
+  genreFill?: (
+    itemIds: readonly number[],
+    signal?: AbortSignal
+  ) => Promise<number[]>
 }
 
 /** identify 任务的结果。 */
@@ -91,6 +96,13 @@ export async function runIdentifyJob(
     }
     if (error instanceof ProviderAuthError) throw new PermanentJobError(message)
     throw error
+  }
+  if (deps.genreFill && targets.length) {
+    const filled = await deps.genreFill(
+      targets.map(t => t.id),
+      ctx.signal
+    )
+    for (const id of filled) summary.changes.touch(id)
   }
   flush(summary.changes)
   progress(summary, true)

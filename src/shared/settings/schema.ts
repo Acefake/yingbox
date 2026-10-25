@@ -168,6 +168,8 @@ export const settingsSchema = {
   'player.dvAutoMpv': bool(true),
   /** 杜比视界 P5 应用内重建时应用 RPU 动态元数据（libplacebo apply_dolbyvision） */
   'player.applyDolbyVision': bool(true),
+  /** 剧集播完（或进入片尾）后倒计时 5 秒自动播放下一集 */
+  'player.autoNext': bool(true),
   /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
   'player.mediaKeys': bool(true),
 
@@ -241,6 +243,10 @@ export const settingsSchema = {
   'library.notify.token': text('', 128),
   /** 网盘工具的根在本机的挂载目录（如 D:\CloudDrive）；可选，帮助把通知路径对应到库目录 */
   'library.notify.mountRoot': absolutePath(),
+  /** 观看进度同步的片库服务地址（如 http://nas:31480）；空串 = 不同步。见 src/main/library/progress-sync */
+  'library.progressServer': text('', 2048),
+  /** 片库服务的访问令牌（Bearer） */
+  'library.progressServerToken': secret(),
 
   /** 新条目入库后没有中文字幕时，自动从 OpenSubtitles 下一份放到视频旁边（见 src/main/library/subtitles） */
   'subtitles.auto.enabled': bool(false),

@@ -3,6 +3,12 @@
  */
 import type { AssistantShortcutStatus } from '../../../../shared/assistant'
 
+/** 应用内快捷键的键帽文字（侧栏入口的悬停提示、助手里的快捷键提示） */
+export const ASSISTANT_HOTKEY_LABEL =
+  typeof navigator !== 'undefined' && /Mac|iPhone|iPad/.test(navigator.platform)
+    ? '⌘ K'
+    : 'Ctrl K'
+
 /** 判定按键需要的字段（测试可传普通对象） */
 export interface HotkeyInput {
   key: string
@@ -39,7 +45,7 @@ export function shortcutStatusText(status: AssistantShortcutStatus | null): {
   if (!status.accelerator)
     return {
       kind: 'off',
-      text: '全局快捷键已关闭，应用内仍可用 Cmd/Ctrl+K 或右下角光球唤起。',
+      text: '全局快捷键已关闭，应用内仍可用 Cmd/Ctrl+K 或侧栏的 AI 助手按钮唤起。',
     }
   if (status.registered)
     return {

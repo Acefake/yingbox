@@ -2,6 +2,7 @@
  * 海报墙的纯规则：渲染格的构造（快速滚动时推迟图片）、状态角标、动态范围小标、方向键移动、点击修饰键。
  * 不依赖 Vue / DOM，便于单测。
  */
+import { type WatchMark, ratioWidth } from '../progress/watch-marks'
 import type { CSSProperties } from 'vue'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
@@ -13,7 +14,10 @@ export interface Cell {
   index: number
   item: LibraryItemSummary | undefined
   src: string | null
+  /** 待确认 / 未匹配角标；没有时看完的显示「已看」 */
   badge: string
+  /** 看了一部分的进度条宽度（如「42%」）；空串不显示 */
+  progress: string
   rating: string
   /** 动态范围规格标签（与详情同一套映射，见 spec-badge.ts）；SDR 与没探测过为 null */
   range: SpecBadge | null
@@ -42,6 +46,8 @@ export interface CellInput {
   showStateBadge: boolean
   image: (poster: string | null) => string | null
   rating: (rating: number | null) => string
+  /** 观看标记（片库观看进度，见 progress/watch-marks）；不给不显示 */
+  mark?: (itemId: number) => WatchMark | null
 }
 
 /**
@@ -52,6 +58,9 @@ export function buildCells(input: CellInput): Cell[] {
   for (let index = input.start; index < input.end; index++) {
     const item = input.at(index)
     const { x, y } = input.offset(index)
+    const mark = item ? (input.mark?.(item.id) ?? null) : null
+    const state =
+      item && input.showStateBadge ? (STATE_BADGES[item.matchState] ?? '') : ''
     out.push({
       key: item ? item.id : `p${index}`,
       index,
@@ -60,10 +69,8 @@ export function buildCells(input: CellInput): Cell[] {
         item && (!input.deferImages || input.shown.has(item.id))
           ? input.image(item.poster)
           : null,
-      badge:
-        item && input.showStateBadge
-          ? (STATE_BADGES[item.matchState] ?? '')
-          : '',
+      badge: state || (mark?.watched && !mark.ratio ? mark.label : ''),
+      progress: mark?.ratio ? ratioWidth(mark.ratio) : '',
       rating: item ? input.rating(item.rating) : '',
       range: videoRangeSpec(item?.videoRange),
       selected: item ? input.selected.has(item.id) : false,

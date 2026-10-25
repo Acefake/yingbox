@@ -93,6 +93,7 @@ import {
   play,
   primaryPlayRequest,
 } from './playback'
+import { prepareProgress } from '../progress/progress-cache'
 import { useRestore } from './use-restore'
 
 const props = defineProps<{
@@ -124,6 +125,8 @@ async function load(resetView: boolean): Promise<void> {
     if (id !== props.itemId) return
     node.value = item
     error.value = null
+    // 观看标记与防剧透读片库进度（读失败不影响详情）
+    if (item) void prepareProgress(item)
     if (resetView) {
       await nextTick()
       root.value?.scrollTo({ top: 0 })

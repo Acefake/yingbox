@@ -60,6 +60,11 @@ export const mpv = defineDomain(
     addSubFile: call<[filePath: string], Ok>(a => [str(a[0], 'filePath')]),
     /** 缩小置顶：mpv 窗口缩到屏幕右下角并保持在最前（mpv 没有画中画）；on = false 还原 */
     setCompact: call<[on: boolean], Ok>(a => [bool(a[0], 'on')]),
+    /** 在 mpv 画面上显示一行提示（OSD），ms 毫秒后消失（如「5 秒后播放下一集」） */
+    showText: call<[text: string, ms: number], Ok>(a => [
+      str(a[0], 'text').slice(0, 200),
+      Math.min(10_000, Math.max(0, int(a[1], 'ms'))),
+    ]),
     /** 退出 mpv */
     quit: call<Ok>(),
   },

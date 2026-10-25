@@ -32,6 +32,7 @@ import { registerIntroDetectIpc } from './intro-detect'
 import { registerDolbyVisionIpc } from './dolby-vision'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
+import { registerProgressSync } from './library/progress-sync'
 import {
   REMOTE_SCHEME_PRIVILEGES,
   registerWebDav,
@@ -227,6 +228,8 @@ app.whenReady().then(async () => {
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
   registerLibraryNotify(libraryClient)
+  // 观看进度与片库服务（NAS）双向合并：设置了地址才同步
+  registerProgressSync(libraryClient)
   // TMDB 令牌：用户改了就下发给媒体库引擎；启动时补给还没配置的引擎（老用户迁移来的令牌）
   onSecretSaved(async (key, value) => {
     if (key === TMDB_SECRET)
