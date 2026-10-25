@@ -56,7 +56,7 @@ type MediaPlayerOpenOptions = {
   private?: boolean
   /** 播放引擎：'built-in' 为应用内播放弹窗，'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
   engine?: 'built-in' | 'mpv'
-  /** 条目是动画（mpv 的「Anime4K 仅动画类条目」据此启用，判断见 shared/anime4k isAnimeEntry） */
+  /** 条目是动画（mpv 的「影盒超分仅动画类条目」据此启用，判断见 shared/anime4k isAnimeEntry） */
   anime?: boolean
   /** 起始文件的动态范围（媒体库扫描时 ffprobe 探测）：杜比视界 P5 据此改走 mpv，见 utils/playback-route */
   video?: VideoProbe | null

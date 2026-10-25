@@ -2,7 +2,7 @@
  * 追更的 115 闸门：所有追更发出的 115 请求排成一队，限速、按天限额、遇到风控就熔断。
  *
  * - 串行：同一时间只有一个请求，两次之间至少 {@link GateOptions.gapMs} 加随机抖动；
- * - 限额：每天快照 / 转存次数有上限（本地日期，跨天清零），到上限当天不再发；
+ * - 限额：每天快照 / 转存（含撤销时的删除）次数有上限（本地日期，跨天清零），到上限当天不再发；
  * - 熔断：115 要求安全验证（911）或提示操作频繁时暂停 {@link TRIP_PAUSE_MS}；
  *   48 小时内第二次熔断就一直停，等用户在界面上点恢复；登录失效也一直停，重新扫码后自动恢复。
  * 状态是普通对象（存进追更状态文件），闸门只读写它。
@@ -33,8 +33,8 @@ export interface GateState {
   loginPause: boolean
 }
 
-/** 请求种类：快照 / 列目录算 snap，转存算 receive */
-export type GateKind = 'snap' | 'receive'
+/** 请求种类：快照 / 列目录 / 查空间算 snap，转存算 receive；删除（撤销）和转存同算写操作，共用转存限额 */
+export type GateKind = 'snap' | 'receive' | 'delete'
 
 /** 闸门参数 */
 export interface GateOptions {
@@ -148,8 +148,10 @@ export function createGate(
       throw new GateClosed(state.pauseReason ?? '追更已暂停')
     if (kind === 'snap' && state.snaps >= maxSnaps)
       throw new GateClosed('今天的 115 查询次数已用完，明天继续')
-    if (kind === 'receive' && state.receives >= maxReceives)
-      throw new GateClosed('今天的 115 转存次数已用完，明天继续')
+    if (kind !== 'snap' && state.receives >= maxReceives)
+      throw new GateClosed(
+        '今天的 115 转存次数已用完（撤销的删除也算），明天继续'
+      )
     const wait = last + gap + random() * jitter - options.now()
     if (wait > 0) await options.sleep(wait)
     if (kind === 'snap') state.snaps++
