@@ -44,6 +44,7 @@ import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
 import { registerPan115 } from './pan115'
 import { registerAutograb } from './autograb'
+import { registerDiscover } from './discover'
 import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
@@ -243,7 +244,9 @@ app.whenReady().then(async () => {
   // 网盘搜索（PanSou）+ 115 扫码登录与转存（见 src/main/pan115）
   const pan115Service = registerPan115()
   // 追更：剧集新集播出后搜 115 分享、验过文件只转存那一集（见 src/main/autograb）
-  registerAutograb(libraryClient, pan115Service)
+  const autograbService = registerAutograb(libraryClient, pan115Service)
+  // 库外发现：助手 / 豆瓣卡「找 115 资源」，复用追更的闸门（见 src/main/discover）
+  registerDiscover(libraryClient, pan115Service, autograbService)
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 

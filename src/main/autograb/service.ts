@@ -21,7 +21,7 @@ import type {
   FileChangeNotice,
 } from '../../shared/library/ipc'
 import { createFinder } from './finder'
-import { createGate } from './gate'
+import { type GateKind, createGate } from './gate'
 import { AUTO_SCORE } from './match-rules'
 import {
   addDays,
@@ -77,6 +77,15 @@ export interface AutograbDeps {
   log(message: string): void
 }
 
+/** 与追更共用的 115 闸门和拉黑表（库外发现复用，不另起一套限速 / 熔断） */
+export interface Pan115Guard {
+  run<T>(kind: GateKind, task: () => Promise<T>): Promise<T>
+  /** 闸门暂停的原因；没暂停为 null */
+  pauseReason(): string | null
+  blocked(shareCode: string): boolean
+  block(shareCode: string): void
+}
+
 /** 追更服务 */
 export interface AutograbService {
   /** 跑一轮（已在跑时直接返回） */
@@ -91,6 +100,8 @@ export interface AutograbService {
   skip(key: string): Promise<void>
   retry(key: string): Promise<void>
   resume(): Promise<void>
+  /** 共用的闸门与拉黑表（状态加载后才返回） */
+  guard(): Promise<Pan115Guard>
 }
 
 /** 创建追更服务 */
@@ -358,6 +369,22 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     async resume(): Promise<void> {
       await ensureLoaded()
       gateRef.resume()
+    },
+    async guard(): Promise<Pan115Guard> {
+      await ensureLoaded()
+      return {
+        // 闸门在加载后会重建：每次调用都取当前的那一个
+        run: (kind, task) => gateRef.run(kind, task),
+        pauseReason: () =>
+          gateRef.paused()
+            ? (state.gate.pauseReason ?? '115 闸门已暂停')
+            : null,
+        blocked: code => (state.blacklist[code] ?? 0) > deps.now(),
+        block: code => {
+          state.blacklist[code] = deps.now() + BLOCK_MS
+          dirty()
+        },
+      }
     },
   }
 }

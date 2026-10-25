@@ -208,6 +208,7 @@ const ADDED_API: Record<string, string[]> = {
     'receive',
     'dirs',
   ],
+  discover: ['status', 'find', 'save'],
   dolbyVision: ['probe', 'start', 'stop'],
   assistant: [
     'shortcutStatus',
