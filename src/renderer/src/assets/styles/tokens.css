@@ -135,8 +135,11 @@
    */
   --space-0_5: 2px;
   --space-1: 4px;
+  --space-1_5: 6px;
   --space-2: 8px;
+  --space-2_5: 10px;
   --space-3: 12px;
+  --space-3_5: 14px;
   --space-4: 16px;
   --space-5: 20px;
   --space-6: 24px;
@@ -157,9 +160,16 @@
   --radius-full: 999px;
 
   /* ── 布局 ── */
-  --sidebar-width: 232px;
-  --sidebar-width-collapsed: 68px;
+  /* 浮动玻璃侧栏：离窗口边 12px，展开 224 / 收起成 64 的图标列；内容区左侧让出侧栏 + 间距 */
+  --shell-inset: 12px;
+  --sidebar-width: 224px;
+  --sidebar-width-collapsed: 64px;
   --titlebar-height: 52px;
+  --shell-pill-height: 44px; /* 顶部前进后退、窗口键玻璃胶囊 */
+  /* 内容区顶部让出浮动胶囊（左侧让出多少由外壳按侧栏展开 / 收起写进 --shell-left） */
+  --shell-top: calc(
+    var(--shell-inset) + var(--shell-pill-height) + var(--space-2)
+  );
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
   --safe-bottom: env(safe-area-inset-bottom, 0px);
@@ -249,40 +259,17 @@
 
   /*
    * ── AI 助手 ──
-   * 光圈与光球的品牌色（深浅主题一致）：紫 / 靛 / 粉 / 青 / 琥珀；面板本身仍用中性灰阶令牌。
+   * 面板与输入胶囊用统一玻璃（.yb-glass）；唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变（思考时变亮）。
    */
-  --assistant-violet: #8b6cff;
-  --assistant-indigo: #4527d9;
-  --assistant-pink: #ff5fa2;
-  --assistant-cyan: #3dd6ff;
-  --assistant-amber: #ffb547;
-  --assistant-orb-core: #0c0a16;
-  --assistant-orb-highlight: rgba(255, 255, 255, 0.45);
-  --assistant-glow: rgba(139, 108, 255, 0.45);
-  --assistant-ring-width: 3px; /* 窗口边缘光圈的线宽 */
-  --assistant-ring-blur: 22px; /* 光圈外发光的模糊半径 */
-  --duration-assistant-ring: 5s; /* 光圈旋转一周（思考中加快） */
-  --duration-assistant-ring-fast: 0.9s;
-  --duration-assistant-orb: 4.6s; /* 光球里色块漂移一个周期 */
-  --duration-assistant-breathe: 3.2s; /* 光球按钮呼吸一个周期 */
-  --duration-assistant-sheet: 550ms; /* 面板弹簧滑入 */
-  /* 私密模式：光圈换低调靛蓝，光球同色系 */
-  --assistant-private-violet: #5b5fd6;
-  --assistant-private-indigo: #2b2d7a;
-  --assistant-private-blue: #3d52b8;
-  --assistant-private-mist: #7c80c9;
-  --assistant-private-glow: rgba(91, 95, 214, 0.32);
-  --assistant-accent-fill: rgba(139, 108, 255, 0.16); /* 上下文胶囊底色 */
-  --assistant-accent-line: rgba(139, 108, 255, 0.45); /* 上下文胶囊描边 */
-  --assistant-private-fill: rgba(
-    48,
-    209,
-    88,
-    0.12
-  ); /* 「仅本地模型」胶囊底色 */
-  --assistant-private-line: rgba(48, 209, 88, 0.4);
-  --assistant-sheet-width: 600px; /* 底部卡片式面板宽度 */
+  --assistant-streak-blue: rgba(110, 170, 255, 0.95);
+  --assistant-streak-violet: rgba(190, 150, 255, 0.95);
+  --assistant-streak-pink: rgba(255, 160, 200, 0.85);
+  --assistant-scrim: rgba(0, 0, 0, 0.56); /* 唤起时压暗背景 */
+  --assistant-inset: rgba(0, 0, 0, 0.22); /* 面板里内凹的输入胶囊 */
+  --assistant-sheet-width: 720px; /* 输入胶囊 / 结果面板宽度 */
   --assistant-side-width: 400px; /* 播放器内右侧面板宽度 */
+  --assistant-composer-height: 64px;
+  --duration-assistant-sheet: 550ms; /* 面板弹簧滑入 */
 
   /*
    * ── 层级（z-index）──
@@ -396,6 +383,9 @@
   --spec-bg: rgba(0, 0, 0, 0.62);
   --spec-text: #ffffff;
   --spec-line: rgba(0, 0, 0, 0.5);
+
+  --assistant-scrim: rgba(0, 0, 0, 0.32);
+  --assistant-inset: rgba(0, 0, 0, 0.05);
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.2);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
