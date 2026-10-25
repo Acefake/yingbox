@@ -55,6 +55,17 @@
         <span v-else class="cal-day-empty">无更新</span>
       </div>
     </section>
+    <StatusState
+      v-if="
+        cal.mode.value === 'week' &&
+        !cal.entries.value.length &&
+        !cal.loading.value &&
+        !cal.error.value
+      "
+      icon="calendar"
+      title="还没有在追的剧"
+      hint="剧集库里已识别的剧和继续播放里的在线剧会按播出日期排在这里"
+    />
 
     <section v-else class="cal-list" aria-label="列表视图">
       <div
@@ -218,10 +229,10 @@ async function activate(entry: CalendarEntry): Promise<void> {
   font-size: var(--text-sm);
 }
 
-/* ── 周视图：七列，窄窗口时横向滚动 ── */
+/* ── 周视图：七列；最小窗口（1200 宽）也放得下，更窄时横向滚动 ── */
 .cal-week {
   display: grid;
-  grid-template-columns: repeat(7, minmax(132px, 1fr));
+  grid-template-columns: repeat(7, minmax(112px, 1fr));
   gap: var(--space-3);
   overflow-x: auto;
 }
