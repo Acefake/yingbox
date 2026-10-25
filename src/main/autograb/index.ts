@@ -16,16 +16,20 @@ import { type ShareRef, parseShareLink } from '../pan115/share-link'
 import { Pan115Error } from '../pan115/errors'
 import { emit, implement } from '../rpc'
 import { settingsStore } from '../settings'
+import type { Gate } from './gate'
 import { createAutograbService } from './service'
 
 const FIRST_DELAY_MS = 90_000
 const INTERVAL_MS = 30 * 60_000
 
-/** 注册追更（registerLibraryIpc 与 registerPan115 之后调用一次） */
+/**
+ * 注册追更（registerLibraryIpc 与 registerPan115 之后调用一次）。
+ * @returns 共用闸门的取法（洗版、电影追踪注册时传进去）
+ */
 export function registerAutograb(
   library: LibraryEngineClient,
   pan115: Pan115Service
-): void {
+): () => Promise<Gate> {
   const store = settingsStore()
   const file = join(app.getPath('userData'), 'autograb.json')
   const shareOf = (url: string, password: string): ShareRef => {
@@ -110,4 +114,5 @@ export function registerAutograb(
       run()
     },
   })
+  return service.gate
 }

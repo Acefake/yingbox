@@ -42,10 +42,9 @@
 
     <p v-if="notice" class="cal-notice">{{ notice }}</p>
 
-    <AutograbPanel
-      v-if="autograbAvailable && showAutograb"
-      :focus-key="autograbFocus"
-    />
+    <AutograbTabs v-if="autograbAvailable && showAutograb">
+      <AutograbPanel :focus-key="autograbFocus" />
+    </AutograbTabs>
 
     <section
       v-if="cal.mode.value === 'week'"
@@ -148,6 +147,7 @@ import {
   markKey,
   useAutograbMarks,
 } from '@/features/autograb'
+import { AutograbTabs } from '@/features/autograb-upgrade'
 import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
