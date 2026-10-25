@@ -162,3 +162,84 @@ textarea:where(.ui-textarea) {
 .ui-poster-grid.is-landscape {
   --poster-min-width: 260px;
 }
+
+/*
+ * 玻璃材质：只给浮动控件（侧栏、圆钮、胶囊、浮层、播放器控制条），内容卡片用实色。
+ * 取值全在 tokens.css 的 --glass-*；降低透明度时那里把底色换成实色、滤镜换成 none，这里不用判断。
+ * is-media：压在海报 / 视频画面上，两套主题都是深色玻璃（文字用 --media-text）。
+ * 底色由 .yb-glass 提供，使用方不要再写 background / backdrop-filter / box-shadow，否则会盖掉材质；
+ * 基类自带 background 的组件（如 UiIconButton overlay）在自己的双类选择器里显式写 --glass-media-bg。
+ * 状态类包 :where()（特异性同基类、写在后面所以生效），页面一个 class 就能覆盖。
+ */
+.yb-glass {
+  background: var(--glass-bg);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow);
+}
+.yb-glass:where(.is-media) {
+  background: var(--glass-media-bg);
+  color: var(--media-text);
+  box-shadow: var(--glass-media-shadow);
+}
+
+/*
+ * 规格标签（UiSpecBadge 渲染；海报墙格子不建组件实例，直接用这组类）：
+ * - is-solid：浅灰实心小方块（4K、HDR10、HDR、HLG）
+ * - is-dolby：DOLBY + VISION / ATMOS 双行文字标（不用杜比商标图）
+ * - is-outline：描边小方块（CC、中字、AD）
+ * - is-rating：分级圆标（16+）
+ * 字重 700 / 800 是字标本身的样式，按视觉纪律逐条豁免。
+ */
+.yb-spec {
+  display: inline-grid;
+  flex: 0 0 auto;
+  place-items: center;
+  box-sizing: border-box;
+  height: 18px;
+  padding: 0 var(--space-1);
+  border-radius: var(--radius-xs);
+  font-family: var(--font-sans);
+  font-size: var(--text-2xs);
+  font-weight: 800; /* style-tokens: visual（规格字标） */
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  letter-spacing: 0.02em;
+  white-space: nowrap;
+}
+.yb-spec:where(.is-solid) {
+  background: var(--spec-bg);
+  color: var(--spec-text);
+}
+.yb-spec:where(.is-outline) {
+  border: 1.4px solid var(--spec-line);
+  color: var(--spec-line);
+  font-weight: 700; /* style-tokens: visual（规格字标） */
+}
+.yb-spec:where(.is-rating) {
+  width: 22px;
+  height: 22px;
+  padding: 0;
+  border: 1.4px solid var(--spec-line);
+  border-radius: 50%;
+  color: var(--spec-line);
+  font-size: var(--text-3xs);
+  letter-spacing: -0.02em;
+}
+.yb-spec:where(.is-dolby) {
+  height: auto;
+  padding: 0;
+  color: var(--spec-line);
+  text-align: center;
+}
+.yb-spec-brand {
+  font-size: var(--text-2xs);
+  letter-spacing: 0.01em;
+}
+.yb-spec-line {
+  margin-top: var(--space-0_5);
+  margin-right: -0.12em;
+  font-size: var(--text-4xs);
+  font-weight: 600;
+  letter-spacing: 0.12em;
+}

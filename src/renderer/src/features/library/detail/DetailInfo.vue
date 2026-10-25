@@ -19,8 +19,13 @@
               {{ baseName(file.path) }}
             </div>
             <div class="lib-file-meta">
-              <span v-if="tag" class="lib-file-range">{{ tag }}</span>
-              {{ formatBytes(file.size) }} · {{ dirName(file.path) }}
+              <span v-if="tag" class="lib-file-range">
+                <UiSpecBadge v-bind="tag.spec" />
+                <span v-if="tag.profile">{{ tag.profile }}</span>
+              </span>
+              <span class="lib-file-where"
+                >{{ formatBytes(file.size) }} · {{ dirName(file.path) }}</span
+              >
             </div>
           </div>
           <UiButton
@@ -41,8 +46,9 @@
 import { computed } from 'vue'
 
 import type { LibraryItemFile } from '../../../../../shared/library/ipc'
-import { videoProbeTag } from '../../../../../shared/video-range'
+import { videoProbeSpec } from '@/components/ui/spec-badge'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 
 import { baseName, dirName, formatBytes } from '../shared/format'
 
@@ -51,9 +57,9 @@ const props = defineProps<{
   files: LibraryItemFile[]
 }>()
 
-/** 文件行：动态范围小标在这里算一次 */
+/** 文件行：动态范围标签在这里算一次 */
 const rows = computed(() =>
-  props.files.map(file => ({ file, tag: videoProbeTag(file.video) }))
+  props.files.map(file => ({ file, tag: videoProbeSpec(file.video) }))
 )
 
 function reveal(path: string): void {
@@ -84,15 +90,18 @@ function reveal(path: string): void {
   word-break: break-word;
 }
 .lib-file-range {
-  display: inline-block;
-  margin-right: var(--space-1);
-  padding: 0 var(--space-1);
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-xs);
+  display: inline-flex;
+  flex: 0 0 auto;
+  align-items: center;
+  gap: var(--space-1);
   font-size: var(--text-2xs);
   font-weight: var(--font-weight-semibold);
-  line-height: 1.5;
   color: var(--text-secondary);
+}
+.lib-file-where {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
 }
 .lib-files {
   margin: 0;
@@ -120,11 +129,12 @@ function reveal(path: string): void {
   white-space: nowrap;
 }
 .lib-file-meta {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
   margin-top: var(--space-0_5);
-  overflow: hidden;
   color: var(--text-tertiary);
   font-size: var(--text-xs);
-  text-overflow: ellipsis;
   white-space: nowrap;
 }
 .lib-file-empty {
