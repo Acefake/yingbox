@@ -84,7 +84,11 @@ export function createAiService(deps: AiServiceDeps): AiService {
   ): Promise<AiChatResult> => {
     const current = config()
     assertUsable(current, request.model?.trim() || current.model)
-    assertPrivacy(current, request.private, deps.settings.privateLocalOnly())
+    assertPrivacy(
+      current,
+      request.private || request.localOnly,
+      request.localOnly === true || deps.settings.privateLocalOnly()
+    )
     const result = await chatCompletion(current, request, {
       ...deps.client,
       ...(options.retries === undefined ? {} : { retries: options.retries }),

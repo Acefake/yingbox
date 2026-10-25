@@ -19,3 +19,12 @@ export {
   playTonightPick,
   suggestTonight,
 } from './tonight/tonight-play'
+/** AI 助手技能包用：按来源查条目、随机一条、播放条目、取视频文件 */
+export {
+  type LibraryLookup,
+  findLibraryItems,
+  libraryItemVideo,
+  libraryPoster,
+  playLibraryItem,
+  randomLibraryItem,
+} from './detail/assistant-links'

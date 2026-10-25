@@ -7,7 +7,11 @@ import { routes } from '@/router/routers'
 import { setupDirectives } from '@/directives'
 import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
-import { assistantSettingsSection } from '@/features/assistant'
+import {
+  assistantSettingsSection,
+  installPrivateSkills,
+} from '@/features/assistant'
+import { aiAvailable } from '@/features/ai'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
@@ -62,6 +66,12 @@ configureHoverPreview(() => ({
 
 // 「想看」清单：整部看完的条目自动移出
 installWatchlist()
+
+// AI 助手的私密技能：设置打开时才下载并登记（独立 chunk），关闭时卸载并清空对话上下文
+installPrivateSkills({
+  enabled: () => aiAvailable() && getSetting('app.adultMode'),
+  load: () => import('@/features/av/assistant'),
+})
 
 const app = createApp(App)
 app.use(router)

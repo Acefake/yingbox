@@ -576,6 +576,35 @@ describe('服务', () => {
     )
   })
 
+  it('localOnly：不看「私密只用本地模型」开关，云端一律拒绝，本地放行', async () => {
+    const fetch = vi.fn(async (_url: string, _init?: RequestInit) =>
+      completion('x')
+    )
+    const cloud = createAiService({
+      settings: settings({}, false),
+      fetch,
+      usage: memoryUsage(),
+    })
+    await expect(
+      cloud.chatJson({
+        messages: [{ role: 'user', content: '私密' }],
+        localOnly: true,
+      })
+    ).rejects.toMatchObject({ code: 'private_blocked' })
+    expect(fetch).not.toHaveBeenCalled()
+    const local = createAiService({
+      settings: settings({ provider: 'ollama' }, false),
+      fetch,
+      usage: memoryUsage(),
+    })
+    await expect(
+      local.chat({
+        messages: [{ role: 'user', content: '私密' }],
+        localOnly: true,
+      })
+    ).resolves.toMatchObject({ provider: 'ollama' })
+  })
+
   it('成功调用累计用量并通知；chatJson 容错解析并校验', async () => {
     const onUsage = vi.fn()
     const fetch = vi.fn(async (_url: string, _init?: RequestInit) =>
@@ -637,6 +666,16 @@ describe('IPC 边界', () => {
         foo: 1,
       })
     ).toEqual({ messages: [{ role: 'user', content: 'hi' }], private: true })
+    expect(
+      parseChatRequest({
+        messages: [{ role: 'user', content: 'hi' }],
+        localOnly: true,
+      })
+    ).toEqual({
+      messages: [{ role: 'user', content: 'hi' }],
+      private: true,
+      localOnly: true,
+    })
     expect(
       parseChatRequest({
         messages: [{ role: 'user', content: 'hi' }],

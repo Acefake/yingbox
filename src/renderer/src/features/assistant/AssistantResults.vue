@@ -1,53 +1,37 @@
 <template>
   <div class="assistant-result" :class="`is-${result.kind}`">
-    <div v-if="result.kind === 'picks'" class="assistant-picks">
-      <div
+    <div v-if="result.kind === 'cards'" class="assistant-cards">
+      <UiPressable
         v-for="(card, index) in result.cards"
         :key="card.id"
-        class="assistant-card-in assistant-pick"
-        :style="{ '--i': index }"
-      >
-        <UiPosterCard
-          :title="card.title"
-          :cover="card.image ?? undefined"
-          :subtitle="card.meta"
-          thumb
-          @open="play(card)"
-        />
-        <p v-if="card.reason" class="assistant-pick-reason">
-          {{ card.reason }}
-        </p>
-      </div>
-    </div>
-
-    <div v-else-if="result.kind === 'continue'" class="assistant-continue">
-      <article
-        v-for="(card, index) in result.cards"
-        :key="card.id"
-        class="assistant-card-in assistant-continue-card"
+        class="assistant-card-in assistant-card"
+        :class="{ 'is-busy': playing === card.id }"
         :style="{ '--i': index, '--progress': card.progress ?? 0 }"
+        :title="card.reason || undefined"
+        :disabled="playing !== null"
+        @click="play(card)"
       >
-        <div class="assistant-continue-cover">
+        <span class="assistant-card-cover">
           <img v-if="card.image" :src="card.image" alt="" loading="lazy" />
-        </div>
-        <div class="assistant-continue-body">
-          <h3 class="assistant-continue-title">{{ card.title }}</h3>
-          <p v-if="card.meta" class="assistant-continue-meta">
+          <span v-if="card.badge" class="assistant-card-badge">
+            {{ card.badge }}
+          </span>
+        </span>
+        <span class="assistant-card-body">
+          <span class="assistant-card-title">{{ card.title }}</span>
+          <span v-if="card.meta" class="assistant-card-meta">
             {{ card.meta }}
-          </p>
-          <div class="assistant-progress" aria-hidden="true">
-            <i class="assistant-progress-fill" />
-          </div>
-        </div>
-        <UiButton
-          variant="primary"
-          size="sm"
-          icon="play"
-          :label="card.playLabel"
-          :loading="playing === card.id"
-          @click="play(card)"
-        />
-      </article>
+          </span>
+          <span class="assistant-card-action">{{ card.playLabel }}</span>
+        </span>
+        <span
+          v-if="card.progress !== undefined"
+          class="assistant-progress"
+          aria-hidden="true"
+        >
+          <i class="assistant-progress-fill" />
+        </span>
+      </UiPressable>
     </div>
 
     <p
@@ -63,14 +47,14 @@
 
 <script setup lang="ts">
 /**
- * 助手面板里的结果卡片（弹簧滑入，逐张错开）：推荐的海报（点击播放）、继续播放（进度条 +「继续播放」）、
- * 播放器控制的回执。开始播放后通知外层收起助手。
+ * 助手面板里的结果（弹簧滑入，逐张错开）：封面卡片（角标写时长或看到多少，下面一行类型 · 评分 · 规格，
+ * 有进度时底部一条进度条，整张可点开播），以及一次性动作的回执。开始播放后通知外层收起助手。
  */
 import { ref } from 'vue'
 
-import { UiButton, UiIcon, UiPosterCard, toast } from '@/components/ui'
+import { UiIcon, UiPressable, toast } from '@/components/ui'
 
-import type { AssistantMediaCard, AssistantResult } from './assistant-actions'
+import type { AssistantMediaCard, AssistantResult } from './skills/skill-types'
 
 defineProps<{ result: AssistantResult }>()
 const emit = defineEmits<{ played: [] }>()

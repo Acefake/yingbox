@@ -1,5 +1,10 @@
 <template>
-  <div class="assistant-orb" :data-phase="phase" aria-hidden="true">
+  <div
+    class="assistant-orb"
+    :class="{ 'is-compact': compact }"
+    :data-phase="phase"
+    aria-hidden="true"
+  >
     <div class="assistant-orb-scale" :style="scaleStyle">
       <div class="assistant-orb-ball">
         <div class="assistant-orb-spin">
@@ -15,7 +20,7 @@
 
 <script setup lang="ts">
 /**
- * 面板里的大光球：几团模糊的彩色渐变在球里漂移、互相叠加，看起来在不断变形。
+ * 面板里的光球（compact 为顶部小号）：几团模糊的彩色渐变在球里漂移、互相叠加，看起来在不断变形。
  *
  * 各阶段的动画：待命缓慢漂移；聆听中随真实音量（level，0–1）放大；思考中整体旋转、漂移加快；
  * 回答中轻微脉动。全部是 CSS 的 transform / opacity 动画，聆听时只改一个元素的 transform。
@@ -26,8 +31,13 @@ import { computed } from 'vue'
 import type { AssistantPhase } from './use-assistant'
 
 const props = withDefaults(
-  defineProps<{ phase: AssistantPhase; level?: number }>(),
-  { level: 0 }
+  defineProps<{
+    phase: AssistantPhase
+    level?: number
+    /** 面板顶部的小号光球 */
+    compact?: boolean
+  }>(),
+  { level: 0, compact: false }
 )
 
 /** 聆听时按音量放大（最多 1.22 倍） */
