@@ -200,12 +200,16 @@ export function replayOptions(record: ContinueRecord): ContinueReplay & {
   }
 }
 
-/** 某板块顶部要显示的记录（最近的在前）。 */
+/** 某个（或几个，首页合并在线与片库）板块顶部要显示的记录（最近的在前）。 */
 export function recordsFor(
   records: readonly ContinueRecord[],
-  section: ContinueSection
+  section: ContinueSection | readonly ContinueSection[]
 ): ContinueRecord[] {
-  return records.filter(r => r.section === section).slice(0, CONTINUE_ROW_LIMIT)
+  const sections: readonly ContinueSection[] =
+    typeof section === 'string' ? [section] : section
+  return records
+    .filter(r => sections.includes(r.section))
+    .slice(0, CONTINUE_ROW_LIMIT)
 }
 
 /** 进度条比例 0–1。 */
@@ -214,16 +218,16 @@ export function progressRatio(record: ContinueRecord): number {
   return Math.min(1, Math.max(0, record.progress / record.duration))
 }
 
-/** 封面右下角的剩余时间：「剩 18 分钟」「剩 1 小时 12 分」；下一集 / 时长未知时为空。 */
+/** 卡片底行的剩余时间：「剩余 18 分钟」「剩余 1 小时 12 分」；下一集 / 时长未知时为空。 */
 export function remainingLabel(record: ContinueRecord): string {
   if (record.nextUp || !(record.duration > 0)) return ''
   const minutes = Math.max(
     1,
     Math.round(Math.max(0, record.duration - record.progress) / 60)
   )
-  if (minutes < 60) return `剩 ${minutes} 分钟`
+  if (minutes < 60) return `剩余 ${minutes} 分钟`
   const m = minutes % 60
-  return `剩 ${Math.floor(minutes / 60)} 小时${m ? ` ${m} 分` : ''}`
+  return `剩余 ${Math.floor(minutes / 60)} 小时${m ? ` ${m} 分` : ''}`
 }
 
 /** 上次观看：「刚刚」「25 分钟前」「3 小时前」「昨天」「4 天前」「10月3日」。 */
@@ -240,11 +244,18 @@ export function lastWatchedLabel(updatedAt: number, now: number): string {
   return `${d.getMonth() + 1}月${d.getDate()}日`
 }
 
-/** 卡片副标题：「S01E05 · 上次 昨天」；下一集写「上一集已看完」。 */
+/** 卡片副标题：有集名写集名（「第 1 季 · 第 12 集」），电影写「电影」，其余写上次观看时间；下一集写「上一集已看完」。 */
 export function subtitleOf(record: ContinueRecord, now: number): string {
   const when = `上次 ${lastWatchedLabel(record.updatedAt, now)}`
   if (record.nextUp) return `上一集已看完 · ${when}`
-  return [record.episode, when].filter(Boolean).join(' · ')
+  if (record.episode) return record.episode
+  return record.section === 'movie' ? '电影' : when
+}
+
+/** 卡片底行：下一集写「播放下一集」，其余写剩余时间（时长未知时「继续播放」）。 */
+export function footOf(record: ContinueRecord): string {
+  if (record.nextUp) return '播放下一集'
+  return remainingLabel(record) || '继续播放'
 }
 
 /** 秒 → 「1:02:03」/「12:30」 */
