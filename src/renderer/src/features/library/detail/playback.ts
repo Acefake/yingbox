@@ -72,6 +72,7 @@ export function moviePlayRequest(node: LibraryItemNode): PlayRequest | null {
     playlist: files.map(file => ({
       filePath: file.path,
       name: baseName(file.path),
+      ...(file.video ? { video: file.video } : {}),
     })),
     fileIds: files.map(file => file.id),
     index: 0,
@@ -112,6 +113,7 @@ export function episodePlayRequest(
     playlist: episodes.map((ep, i) => ({
       filePath: firsts[i].path,
       name: episodeLabel(ep),
+      ...(firsts[i].video ? { video: firsts[i].video } : {}),
     })),
     fileIds: firsts.map(file => file.id),
     index,
