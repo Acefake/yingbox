@@ -179,8 +179,8 @@ function reveal(path: string): void {
   width: 72px;
   height: 72px;
   border-radius: var(--radius-lg);
-  background: var(--bg-content);
-  color: var(--text-primary);
+  background: var(--bg-active-soft);
+  color: var(--text-secondary);
 }
 .lib-file-icon .app-icon {
   width: 30px;

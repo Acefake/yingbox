@@ -482,6 +482,21 @@
   --spec-bg: var(--spec-media-bg);
   --spec-text: var(--spec-media-text);
   --spec-line: var(--spec-media-line);
+  /* 外壳侧栏与窗口键胶囊滚到画面上时（shellOverMedia）用到的令牌，取深色主题值 */
+  --bg-active-soft: rgba(255, 255, 255, 0.08);
+  --bg-glass-hover: rgba(255, 255, 255, 0.08);
+  --border-glass: rgba(255, 255, 255, 0.08);
+  --separator: rgba(255, 255, 255, 0.08);
+  --accent: #0a84ff;
+  --glass-light-bg: rgba(255, 255, 255, 0.16);
+}
+
+/* 外壳控件在主题玻璃与画面玻璃之间切换时的颜色过渡（不用 @property，只过渡最终计算值） */
+.yb-media-swap {
+  transition:
+    background-color var(--duration-fast) ease,
+    color var(--duration-fast) ease,
+    box-shadow var(--duration-fast) ease;
 }
 
 /*

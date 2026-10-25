@@ -8,6 +8,7 @@ import {
   activeTabAt,
   creditLinesOf,
   detailTabsOf,
+  heroBackdropAt,
   heroMetaParts,
   heroSpecsOf,
   keepTab,
@@ -102,5 +103,19 @@ describe('分区列表变化后校正当前分区', () => {
     expect(keepTab(tabs, 'versions')).toBe('cast')
     expect(keepTab(detailTabsOf({}), 'episodes')).toBe('overview')
     expect(keepTab([], 'cast')).toBe('cast')
+  })
+})
+
+describe('heroBackdropAt', () => {
+  it('渐隐带过一半才算离开 Hero', () => {
+    expect(heroBackdropAt(10, 800, 20).edge).toBe(false)
+    expect(heroBackdropAt(11, 800, 20).edge).toBe(true)
+  })
+  it('Hero 占不到半个视口时侧栏回主题玻璃', () => {
+    expect(heroBackdropAt(400, 800, 20).shell).toBe(false)
+    expect(heroBackdropAt(401, 800, 20).shell).toBe(true)
+  })
+  it('Hero 已滚出视口时两处都不在画面上', () => {
+    expect(heroBackdropAt(-50, 800, 20)).toEqual({ edge: false, shell: false })
   })
 })
