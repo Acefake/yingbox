@@ -7,7 +7,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { MERGE_SCHEMA } from './schema-merge'
 import { V6_SCHEMA } from './schema-actors'
 import { V9_SCHEMA } from './schema-progress'
-import { V7_SCHEMA, V11_SCHEMA } from './schema-visual'
+import { V11_SCHEMA, V7_SCHEMA } from './schema-visual'
 
 /** 一条迁移。 */
 export interface Migration {
