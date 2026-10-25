@@ -20,6 +20,7 @@ import type {
 import {
   addDays,
   dayLabel,
+  dayParts,
   daysBetween,
   groupByWeek,
   shiftWeek,
@@ -103,6 +104,9 @@ describe('日历日期：周一开头的周', () => {
     expect(weekLabel('2026-12-28', TODAY)).toBe('2026年12月28日 – 2027年1月3日')
     expect(dayLabel(TODAY, TODAY)).toBe('今天 · 周六 24')
     expect(dayLabel('2026-10-19', TODAY)).toBe('周一 19')
+    expect(dayParts('2026-10-19')).toEqual({ weekday: '周一', day: '19' })
+    expect(dayParts('2026-10-25')).toEqual({ weekday: '周日', day: '25' })
+    expect(dayParts('bad')).toEqual({ weekday: 'bad', day: '' })
   })
 
   it('按周分组：七个格子，今天标记，别的周和没日期的不进格子', () => {

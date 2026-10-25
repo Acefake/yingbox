@@ -91,6 +91,19 @@ export function dayLabel(key: string, today: string): string {
   return `${prefix}${name} ${date.getDate()}`
 }
 
+/**
+ * 周视图列头的两部分：星期名与几号（「周一」「19」）；日期不合法时星期名为原字符串、几号为空。
+ * @param key YYYY-MM-DD
+ */
+export function dayParts(key: string): { weekday: string; day: string } {
+  const date = parseDateKey(key)
+  if (!date) return { weekday: key, day: '' }
+  return {
+    weekday: WEEKDAY_NAMES[(date.getDay() + 6) % 7],
+    day: String(date.getDate()),
+  }
+}
+
 /** 一周里的一天和当天的条目。 */
 export interface DayBucket<T> {
   date: string
