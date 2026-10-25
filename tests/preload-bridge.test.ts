@@ -113,6 +113,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'facets',
     'visual',
     'calendar',
+    'progress',
     'subscribe',
   ],
 }
@@ -157,7 +158,7 @@ const ADDED_API: Record<string, string[]> = {
   ],
   capture: ['savePng', 'frame', 'gifAvailable', 'gif', 'reveal'],
   webdav: ['list', 'save', 'remove', 'test', 'listDirs'],
-  mpv: [...LEGACY_API['mpv']!, 'setAnime4k'],
+  mpv: [...LEGACY_API['mpv']!, 'setAnime4k', 'showText'],
   nowPlaying: ['report', 'onCommand', 'offCommand'],
   sectionLock: [
     'status',
@@ -213,6 +214,14 @@ const ADDED_API: Record<string, string[]> = {
   ],
   discover: ['status', 'find', 'save'],
   dolbyVision: ['probe', 'start', 'stop'],
+  progressSync: [
+    'status',
+    'syncNow',
+    'onChanged',
+    'offChanged',
+    'onApplied',
+    'offApplied',
+  ],
   autograbUpgrade: [
     'overview',
     'setOptions',

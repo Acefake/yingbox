@@ -8,7 +8,7 @@
 import type { Component } from 'vue'
 import type { Router } from 'vue-router'
 
-import type { IconName } from '@/components/ui'
+import type { IconName, SpecBadge } from '@/components/ui'
 
 /** 当前在播什么（只在内置播放器播放时有） */
 export interface NowPlaying {
@@ -66,8 +66,10 @@ export interface AssistantMediaCard {
   image: string | null
   /** 封面角上的小标（时长、看到多少） */
   badge?: string
-  /** 一行说明（类型 · 评分 · 规格） */
+  /** 一行说明（类型 · 评分 · 时长） */
   meta: string
+  /** 规格标签（4K、DOLBY VISION、中字…）；没有时不显示 */
+  specs?: SpecBadge[]
   /** 推荐理由 */
   reason?: string
   /** 进度 0–1 */

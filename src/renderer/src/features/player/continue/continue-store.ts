@@ -5,7 +5,9 @@
  * - 应用内播放器记进度时 updateContinue（与续播进度同一节流），看完自动换下一集或删除；
  * - 其它窗口改了存储（storage 事件）时同步；
  * - 无痕模式（isIncognito）下不建记录、不记进度；用户手动移除 / 标记看完照常。
- * - 整部看完（单片或最后一集播到 95%，且播放列表不是作品的一部分）时通知 onContinueFinished 的订阅者（如「想看」清单）。
+ * - 整部看完（单片或最后一集播到 90%，且播放列表不是作品的一部分）时通知 onContinueFinished 的订阅者（如「想看」清单）。
+ * - 媒体库按片库里的观看进度生成记录，经 mergeContinue 并入（后写胜出）；手动移除的记一块墓碑
+ *   （continue_removed），更早的进度不会把它补回来。标记看完时媒体库条目同时上报片库。
  * 规则都在 continue-rules.ts。
  */
 import { type Ref, ref } from 'vue'
@@ -13,17 +15,36 @@ import { type Ref, ref } from 'vue'
 import { isIncognito } from '@/features/incognito'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 
+import { reportLibraryProgress } from '../progress/library-sink'
 import {
   type ContinueMeta,
   type ContinueRecord,
   type ContinueReplay,
+  type ContinueTombstones,
   type ProgressUpdate,
+  addTombstone,
   applyProgress,
+  mergeRecords,
   sanitizeRecords,
   startRecord,
 } from './continue-rules'
 
 const STORAGE_KEY = 'continue_watching'
+const TOMBSTONE_KEY = 'continue_removed'
+
+/** 墓碑存成 [id, 移除时间] 数组 */
+function readTombstones(): ContinueTombstones {
+  const pairs = readStoredArray<[string, number]>(
+    TOMBSTONE_KEY,
+    (v): v is [string, number] =>
+      Array.isArray(v) && typeof v[0] === 'string' && typeof v[1] === 'number'
+  )
+  return Object.fromEntries(pairs)
+}
+
+function writeTombstones(stones: ContinueTombstones): void {
+  saveStoredArray(TOMBSTONE_KEY, Object.entries(stones))
+}
 
 function load(): ContinueRecord[] {
   return sanitizeRecords(readStoredArray<unknown>(STORAGE_KEY))
@@ -105,10 +126,12 @@ export function updateContinue(id: string, update: ProgressUpdate): void {
   applyUpdate(id, update)
 }
 
-/** 标记看完：剧集换成下一集，最后一集或单片直接移除。 */
+/** 标记看完：剧集换成下一集，最后一集或单片直接移除；媒体库条目同时在片库记看完。 */
 export function finishContinue(id: string): void {
   const record = state().value.find(r => r.id === id)
   if (!record) return
+  const entry = record.replay.playlist?.[record.replay.index ?? 0]
+  reportLibraryProgress(entry?.library, record.duration, record.duration, true)
   applyUpdate(id, {
     index: record.replay.index ?? 0,
     progress: record.duration,
@@ -117,7 +140,14 @@ export function finishContinue(id: string): void {
   })
 }
 
-/** 从继续播放里移除。 */
+/** 从继续播放里移除（记墓碑：片库里更早的进度不会再把它补回来）。 */
 export function removeContinue(id: string): void {
+  writeTombstones(addTombstone(readTombstones(), id, Date.now()))
   commit(state().value.filter(r => r.id !== id))
+}
+
+/** 并入别处来的记录（媒体库按片库观看进度生成）：后写胜出，移除过的不补回。 */
+export function mergeContinue(incoming: readonly ContinueRecord[]): void {
+  if (!incoming.length) return
+  commit(mergeRecords(state().value, incoming, readTombstones()))
 }

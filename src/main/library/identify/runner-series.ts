@@ -15,6 +15,7 @@ import {
 import type { ItemChanges } from '../catalog/catalog-store'
 import { summarizeEpisodes } from './episode-mapping'
 import type { IdentifyTarget } from './identify-store'
+import { seriesNfoPath } from './nfo-fill'
 import { seriesFolder, seriesTitles } from './runner-rules'
 import type { Outcome, RunnerContext } from './runner-types'
 
@@ -34,18 +35,15 @@ async function seriesInput(
     .map(f => f.parsed)
     .filter((p): p is ParsedEpisode => p?.type === 'episode')
   // 剧集文件夹（媒体库根下第一层）
-  const root = store.libraryRoot(target.libraryId)
   const folder = seriesFolder(target.localKey)
   const folderParse = folder ? parseMediaPath(`${folder}.mkv`) : undefined
   const titles = seriesTitles(parses, folderParse)
   if (!titles) return null
 
   let nfo: NfoInfo | undefined
-  if (folder && root) {
-    const path = store.nfoFiles(`${root.rootKey}/${folder}`).get('tvshow.nfo')
-    const text = path ? await ctx.readText(path) : undefined
-    if (text) nfo = parseNfo(text)
-  }
+  const path = seriesNfoPath(store, target)
+  const text = path ? await ctx.readText(path) : undefined
+  if (text) nfo = parseNfo(text)
   return {
     ...titles,
     episodes: summarizeEpisodes(store.children(target.id)),

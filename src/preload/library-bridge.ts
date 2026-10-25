@@ -124,6 +124,12 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
       search: request => call('visual.search', request),
     },
     calendar: { episodes: request => call('calendar.episodes', request) },
+    progress: {
+      list: itemIds => call('progress.list', { itemIds }),
+      save: reports => call('progress.save', { reports }),
+      summary: itemIds => call('progress.summary', { itemIds }),
+      recent: limit => call('progress.recent', limit ? { limit } : {}),
+    },
     subscribe(listener: (event: LibraryEvent) => void): () => void {
       listeners.add(listener)
       if (listeners.size === 1) ipc.send(LIBRARY_CHANNELS.subscribe)
