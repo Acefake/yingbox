@@ -42,6 +42,8 @@ export interface ArtSink {
   autoplay: () => boolean
   /** 没有字幕时点了控制栏的 CC：打开在线字幕搜索 */
   subtitles: () => void
+  /** 是否缩在角落小窗（小窗里放不下的浮层不打开） */
+  compact: () => boolean
 }
 
 /** 一个播放器实例 */
@@ -107,7 +109,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
-  installPlaybackInfo(art, hls.instance)
+  installPlaybackInfo(art, hls.instance, sink.compact)
   installSleepTimer(art)
   installScreenshot(art, input.controls)
 
