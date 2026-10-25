@@ -1,7 +1,7 @@
 <template>
   <!-- 版本：同一作品的多份文件（不同分辨率 / 不同文件夹），选哪一份播放；误合并时拆出 -->
   <section class="lib-section">
-    <h2 class="lib-section-title">版本</h2>
+    <UiSectionHeader title="版本" />
     <p v-if="splitFrom" class="lib-version-note">
       已单独显示，同一作品另有 {{ splitFrom }} 处文件
       <UiButton
@@ -44,7 +44,7 @@
 
 <script setup lang="ts">
 /**
- * 详情里的版本区块（最小挂点，样式随详情改版再定）：
+ * 详情里的版本区块（实色圆角卡片里的单选列表）：
  * 电影列出每个版本（分辨率 · 动态范围 · 体积 + 来源文件夹），默认第一个（最好的）；
  * 剧集列出合并进来的各个来源，选一个后每集优先用它；
  * 合并了多处时每处可「拆出」单独显示，被拆出的条目可「恢复合并」。
@@ -54,6 +54,7 @@ import { computed } from 'vue'
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiRadio from '@/components/ui/UiRadio.vue'
+import UiSectionHeader from '@/components/ui/UiSectionHeader.vue'
 
 import {
   pickVersion,
@@ -137,15 +138,20 @@ const current = computed(() =>
   color: var(--text-tertiary);
   font-size: var(--text-sm);
 }
+/* 实色圆角卡片里的一列（效果图 D-3「关于」卡片的材质） */
 .lib-versions {
+  max-width: 1136px;
   margin: 0;
-  padding: 0;
+  padding: var(--space-1) var(--space-5);
+  border-radius: var(--radius-xl);
+  background: var(--bg-elevated);
   list-style: none;
 }
 .lib-version {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  min-height: 56px;
   padding: var(--space-2) 0;
 }
 .lib-version + .lib-version {
@@ -166,7 +172,8 @@ const current = computed(() =>
 }
 .lib-version-label {
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
 }
 .lib-version-folder {
   margin-top: var(--space-0_5);

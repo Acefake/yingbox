@@ -30,6 +30,7 @@
       ref="track"
       class="yb-shelf-track"
       :class="[`is-${kind}`, { 'is-grid': grid }]"
+      :role="list ? 'list' : undefined"
       @scroll.passive="syncEdges"
     >
       <slot />
@@ -44,7 +45,8 @@
  * 滚动键平时隐藏，指针移进这一排或键盘焦点在里面时出现（触屏一直显示）。
  * - kind="landscape"：横版剧照卡，一行 4 张按宽度自适应（窄时 3 张，手机一张半）；
  * - kind="portrait"：竖版海报，按宽度约 7 张，最后一张露出一截提示还能滚；
- * - grid：换行铺开（「查看全部」展开时）。
+ * - grid：换行铺开（「查看全部」展开时）；
+ * - list：轨道带 role="list"（卡片是一组同类条目时，读屏播报「N 项列表」），卡片自己写 role="listitem"。
  * 轨道的直接子元素就是一张卡，宽度由这里定，卡片自己不写宽。
  */
 import { nextTick, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -61,6 +63,8 @@ withDefaults(
     more?: boolean
     moreLabel?: string
     grid?: boolean
+    /** 轨道按列表播报（卡片各自带 role="listitem"） */
+    list?: boolean
   }>(),
   { kind: 'landscape' }
 )
