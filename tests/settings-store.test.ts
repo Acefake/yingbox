@@ -60,6 +60,7 @@ describe('默认值', () => {
       'ai.apiKey.opencode-go': false,
       'ai.apiKey.custom': false,
       'danmaku.appSecret': false,
+      'pan115.session': false,
     })
     expect(legacyMigrated).toBe(false)
     expect(existsSync(file)).toBe(false)

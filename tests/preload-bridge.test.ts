@@ -186,6 +186,16 @@ const ADDED_API: Record<string, string[]> = {
   ],
   aiSubtitles: ['start', 'cancel', 'list', 'find', 'onChanged', 'offChanged'],
   recap: ['probe', 'prepare', 'cancel', 'save'],
+  pan115: [
+    'search',
+    'account',
+    'loginStart',
+    'loginPoll',
+    'logout',
+    'snap',
+    'receive',
+    'dirs',
+  ],
 }
 
 beforeAll(async () => {

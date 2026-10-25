@@ -9,6 +9,7 @@ import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
 import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
+import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
 import { sourcesSettingsSection } from '@/features/online'
 import {
   sectionLockAvailable,
@@ -45,6 +46,8 @@ for (const section of [
 ]) {
   registerSettingsSection(section)
 }
+// 网盘（115 登录、转存）只在桌面端
+if (netdiskAvailable) registerSettingsSection(netdiskSettingsSection)
 // 板块锁只在桌面端（主进程保存密码哈希）；可锁的板块读路由表
 if (sectionLockAvailable)
   registerSettingsSection(sectionLockSettingsSection(routes))
