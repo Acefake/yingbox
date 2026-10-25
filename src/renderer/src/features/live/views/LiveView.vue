@@ -5,15 +5,15 @@
         <!-- 还没有直播源时管理面板常开，开关与刷新都没有意义，不显示 -->
         <template v-if="available && sources.length">
           <UiButton
-            class="live-head-pill yb-glass"
             icon="list"
-            :label="panelOpen ? '收起直播源' : '直播源'"
+            label="直播源"
+            :pressed="panelOpen"
             @click="togglePanel"
           />
-          <UiIconButton
-            class="live-head-round yb-glass"
+          <UiButton
             icon="refresh"
-            label="刷新直播源与节目单"
+            label="刷新"
+            aria-label="刷新直播源与节目单"
             :loading="anyLoading || epgLoading"
             @click="refreshAll"
           />
@@ -39,12 +39,12 @@
             <UiChip
               v-for="group in groups"
               :key="group.key"
-              size="lg"
+              size="md"
+              :count="group.count"
               :selected="group.key === activeGroup"
               @click="pickGroup(group.key)"
             >
               {{ group.label }}
-              <span class="live-group-count">{{ group.count }}</span>
             </UiChip>
           </nav>
 
@@ -78,7 +78,7 @@
 
 <script setup lang="ts">
 /**
- * 直播页（/live）：左栏分组胶囊 + 搜索 + 频道卡片列表，右侧播放器与今日节目单；顶部玻璃胶囊管理直播源。
+ * 直播页（/live）：左栏分组胶囊 + 搜索 + 频道卡片列表，右侧播放器与今日节目单；页头「直播源」开关管理面板、「刷新」重拉源与节目单。
  * 源与收藏在 useLiveSources（模块单例），节目单在 useLiveEpg（随页面挂载 / 卸载）。
  */
 import { computed, onMounted, ref } from 'vue'
@@ -86,7 +86,6 @@ import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 
 import LiveChannelList from '../components/LiveChannelList.vue'
@@ -178,17 +177,6 @@ onMounted(() => live.ensureStarted())
   overflow: hidden;
 }
 
-.live-head-pill {
-  min-width: 148px;
-  border-radius: var(--radius-full);
-}
-
-/* 图标按钮基类是透明底，玻璃底色在这里补上（模糊与阴影来自 .yb-glass） */
-.live-head-round {
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-}
-
 .live-epg-error {
   margin: 0;
   color: var(--warning);
@@ -217,10 +205,6 @@ onMounted(() => live.ensureStarted())
   gap: var(--space-1_5);
   overflow-x: auto;
   scrollbar-width: none;
-}
-
-.live-group-count {
-  font-variant-numeric: tabular-nums;
 }
 
 .live-list,

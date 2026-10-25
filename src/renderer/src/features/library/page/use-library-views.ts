@@ -1,5 +1,5 @@
 /**
- * 媒体库页面的视图切换：资料库 / 演员（只在番号页）/ 待确认（带数量角标）。
+ * 媒体库页面的视图：资料库 / 演员（只在番号页）由页头切换，待确认由带数量的筛选胶囊进入。
  *
  * 待确认数量只取 1 条拿 total，按本分区的库过滤事件，不在别的分区有变化时重查。
  */
@@ -17,6 +17,8 @@ import { viewOptionsFor } from './page-rules'
 export interface LibraryViews {
   view: Ref<LibraryView>
   viewOptions: ComputedRef<SegmentedOption<LibraryView>[]>
+  /** 本分区待确认的条目数 */
+  reviewCount: ComputedRef<number>
 }
 
 /**
@@ -33,8 +35,10 @@ export function useLibraryViews(
     1
   )
   const view = ref<LibraryView>('wall')
-  const viewOptions = computed(() =>
-    viewOptionsFor(section, reviewCount.total.value)
-  )
-  return { view, viewOptions }
+  const viewOptions = computed(() => viewOptionsFor(section))
+  return {
+    view,
+    viewOptions,
+    reviewCount: computed(() => reviewCount.total.value),
+  }
 }

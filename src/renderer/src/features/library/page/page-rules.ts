@@ -43,21 +43,60 @@ export function noFolderCopy(section: LibrarySection): {
   }
 }
 
-/** 视图切换上「待确认」的标签：有数量时带千分位数字。 */
-export function reviewTabLabel(count: number): string {
-  return count ? `待确认 ${count.toLocaleString('zh-CN')}` : '待确认'
+/** 「待确认」筛选胶囊上的数量：0 时不显示，其余带千分位。 */
+export function reviewChipCount(count: number): string | undefined {
+  return count ? count.toLocaleString('zh-CN') : undefined
 }
 
-/** 某分区可用的视图：资料库、演员（演员库只属于番号页）、待确认。 */
+/** 页头切换：资料库，番号页多一个演员（演员库只属于番号页）。待确认是筛选胶囊，不在这里。 */
 export function viewOptionsFor(
-  section: LibrarySection,
-  reviewCount: number
+  section: LibrarySection
 ): SegmentedOption<LibraryView>[] {
   return [
     { value: 'wall', label: '资料库' },
     ...(section === 'jav' ? [{ value: 'actors' as const, label: '演员' }] : []),
-    { value: 'review', label: reviewTabLabel(reviewCount) },
   ]
+}
+
+/** 工具栏操作。 */
+export type ToolbarAction =
+  | 'sort'
+  | 'order'
+  | 'facets'
+  | 'visual'
+  | 'video-wall'
+  | 'scan'
+  | 'identify'
+  | 'settings'
+
+/** 工具栏此刻的条件。 */
+export interface ToolbarContext {
+  view: LibraryView
+  hasLibraries: boolean
+  /** 海报墙条目数；null 为还不知道 */
+  count: number | null
+  /** 有分面筛选（番号页） */
+  facets: boolean
+}
+
+/**
+ * 工具栏操作的摆放：常用的直接排在页头（图标 + 文字），其余收进「更多」。
+ * 最小窗口（1200 宽、侧栏展开）下页头一行放得下标题、排序、升降、筛选、扫描、识别和「更多」。
+ */
+export function toolbarActions(ctx: ToolbarContext): {
+  inline: ToolbarAction[]
+  more: ToolbarAction[]
+} {
+  const wall = ctx.hasLibraries && ctx.view === 'wall'
+  const inline: ToolbarAction[] = []
+  const more: ToolbarAction[] = []
+  if (wall) inline.push('sort', 'order')
+  if (wall && ctx.facets) inline.push('facets')
+  if (ctx.hasLibraries) inline.push('scan', 'identify')
+  if (wall && ctx.facets) more.push('visual')
+  if (wall && ctx.count) more.push('video-wall')
+  more.push('settings')
+  return { inline, more }
 }
 
 /** 媒体库下拉：0 表示全部文件夹。 */
