@@ -112,7 +112,7 @@ export function createMovieFinder(deps: FinderDeps): {
     target: MovieTarget,
     out: AutograbCandidate[]
   ): Promise<void> {
-    const top = await deps.snap(item, '')
+    const top = await deps.snap(item, '', 0)
     collect(item, top, '', target, out)
     const dirs = top.files.filter(f => f.isDir)
     const open =
@@ -120,7 +120,7 @@ export function createMovieFinder(deps: FinderDeps): {
         ? dirs
         : dirs.filter(d => movieFolderWorthOpening(d.name, target))
     for (const dir of open.slice(0, MAX_FOLDERS)) {
-      const inner = await deps.snap(item, dir.id)
+      const inner = await deps.snap(item, dir.id, 0)
       collect(item, inner, dir.name, target, out)
     }
   }

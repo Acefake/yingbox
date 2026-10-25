@@ -6,6 +6,7 @@
  * - 只追用户打开了追更的剧；本地已有这一集（任何来源）就不搜；
  * - 全自动只在分数过 {@link AUTO_SCORE}、这部剧已确认过 {@link AUTO_AFTER_CONFIRMED} 集、且设了 115 文件夹时才转存；
  * - 转存前先列目标文件夹，同名文件已在就不再转存；每集一条记录，转存过的集不会再转存；
+ * - 转存前查 115 剩余空间，不够就暂停全部自动转存（saver.ts）；撤销只删记录里的那个文件（revert.ts）；
  * - 115 请求全部过闸门（限速、限额、熔断，见 gate.ts）。
  */
 import type {
@@ -13,27 +14,30 @@ import type {
   AutograbResult,
   AutograbSeriesPatch,
 } from '../../shared/contract/autograb'
-import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
-import type {
-  CalendarEpisode,
-  CalendarRequest,
-  CalendarResult,
-  FileChangeNotice,
-} from '../../shared/library/ipc'
+import {
+  type AutograbPrefs,
+  mergePrefs,
+} from '../../shared/contract/autograb-prefs'
+import type { CalendarEpisode } from '../../shared/library/ipc'
+import type { AutograbDeps, Pan115Guard } from './deps'
 import { createFinder } from './finder'
-import { type GateKind, createGate } from './gate'
-import { AUTO_SCORE } from './match-rules'
+import { type Gate, createGate } from './gate'
+import { AUTO_SCORE, matchPrefsOf } from './match-rules'
+import { buildOverview } from './overview'
+import { revertEpisode } from './revert'
 import {
   addDays,
   calendarRange,
+  episodeKey,
   isDue,
   localDate,
   nextTry,
 } from './schedule-rules'
-import { applyCalendar, seriesList } from './records'
+import { applyCalendar } from './records'
 import { createSaver } from './saver'
 import {
   type AutograbState,
+  BLOCK_MS,
   type EpisodeRecord,
   type SeriesSetting,
   emptyState,
@@ -45,47 +49,6 @@ import {
 export const AUTO_AFTER_CONFIRMED = 3
 /** 一轮最多搜几集 */
 const MAX_SEARCH_PER_TICK = 6
-/** 打不开的分享拉黑多久 */
-export const BLOCK_MS = 7 * 24 * 3_600_000
-
-/** 依赖 */
-export interface AutograbDeps {
-  calendar(range: CalendarRequest): Promise<CalendarResult>
-  notify(changes: FileChangeNotice[]): Promise<void>
-  pan: {
-    loggedIn(): boolean
-    pansouReady(): boolean
-    search(keyword: string): Promise<NetdiskItem[]>
-    snap(url: string, password: string, dirCid: string): Promise<ShareSnap>
-    receive(
-      url: string,
-      password: string,
-      fileIds: string[],
-      cid: string
-    ): Promise<void>
-    names(cid: string): Promise<string[]>
-    /** 文件夹 cid 从根开始的各级名字（不含根） */
-    dirPath(cid: string): Promise<string[]>
-  }
-  /** 设置里的转存目标 cid */
-  defaultCid(): string
-  load(): Promise<unknown>
-  save(state: AutograbState): Promise<void>
-  now(): number
-  sleep(ms: number): Promise<void>
-  emit(): void
-  log(message: string): void
-}
-
-/** 与追更共用的 115 闸门和拉黑表（库外发现复用，不另起一套限速 / 熔断） */
-export interface Pan115Guard {
-  run<T>(kind: GateKind, task: () => Promise<T>): Promise<T>
-  /** 闸门暂停的原因；没暂停为 null */
-  pauseReason(): string | null
-  blocked(shareCode: string): boolean
-  block(shareCode: string): void
-}
-
 /** 追更服务 */
 export interface AutograbService {
   /** 跑一轮（已在跑时直接返回） */
@@ -96,11 +59,17 @@ export interface AutograbService {
     seriesId: number,
     patch: AutograbSeriesPatch
   ): Promise<AutograbResult>
+  setPrefs(prefs: AutograbPrefs): Promise<void>
   grab(key: string, index: number): Promise<AutograbResult>
+  revert(key: string): Promise<AutograbResult>
   skip(key: string): Promise<void>
   retry(key: string): Promise<void>
   resume(): Promise<void>
-  /** 共用的闸门与拉黑表（状态加载后才返回） */
+  /** 状态加载后的闸门：洗版、电影追踪的 115 请求也走它（同一队列、同一份限额与熔断） */
+  gate(): Promise<Gate>
+  /** 这一集是不是追更转存的、还在等入库（推送据此把新集标成追更） */
+  isSaved(seriesId: number, season: number, episode: number): boolean
+  /** 共用的闸门与拉黑表（状态加载后才返回；库外发现用） */
   guard(): Promise<Pan115Guard>
 }
 
@@ -154,8 +123,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
 
   const finder = createFinder({
     search: keyword => deps.pan.search(keyword),
-    snap: (item, dir) =>
-      gateRef.run('snap', () => deps.pan.snap(item.url, item.receiveCode, dir)),
+    snap: (item, dir, offset) =>
+      gateRef.run('snap', () =>
+        deps.pan.snap(item.url, item.receiveCode, dir, offset)
+      ),
     blocked: code => (state.blacklist[code] ?? 0) > deps.now(),
     block: code => {
       state.blacklist[code] = deps.now() + BLOCK_MS
@@ -174,15 +145,25 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
 
   function syncRecords(episodes: CalendarEpisode[], now: number): void {
     airing = new Map(episodes.map(e => [e.seriesId, e.seriesTitle]))
+    const saved = Object.values(state.episodes).filter(
+      r => r.status === 'saved'
+    )
     if (applyCalendar(state, episodes, localDate(now))) dirty()
+    const landed = saved.filter(r => r.status === 'done')
+    if (landed.length) deps.landed?.(landed)
   }
 
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
-    const result = await finder.find({
-      seriesTitle: record.seriesTitle,
-      season: record.season,
-      episode: record.episode,
-    })
+    const setting = settingOf(record.seriesId)
+    const prefs = mergePrefs(state.prefs, setting?.prefs)
+    const result = await finder.find(
+      {
+        seriesTitle: record.seriesTitle,
+        season: record.season,
+        episode: record.episode,
+      },
+      { prefs: matchPrefsOf(prefs), banned: record.banned }
+    )
     record.attempts++
     record.candidates = result.candidates
     record.error = result.note
@@ -194,10 +175,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       record.status = record.nextTry === null ? 'notFound' : 'waiting'
     }
     dirty()
-    const setting = settingOf(record.seriesId)
     const best = record.candidates[0]
     if (
       record.status === 'found' &&
+      state.spacePause === null &&
       setting?.mode === 'auto' &&
       setting.cid &&
       setting.confirmed >= AUTO_AFTER_CONFIRMED &&
@@ -283,34 +264,14 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         }
       }
       gateRef.paused()
-      return {
-        enabled: state.enabled,
-        pausedUntil: state.gate.pausedUntil,
-        pauseReason: state.gate.pauseReason,
+      return buildOverview(state, {
         ready: {
           loggedIn: deps.pan.loggedIn(),
           pansou: deps.pan.pansouReady(),
         },
-        today: { snaps: state.gate.snaps, receives: state.gate.receives },
-        series: seriesList(state, airing),
-        episodes: Object.values(state.episodes)
-          .filter(r => settingOf(r.seriesId)?.mode !== 'off')
-          .sort(
-            (a, b) =>
-              b.airDate.localeCompare(a.airDate) || b.episode - a.episode
-          )
-          .slice(0, 60)
-          .map(
-            ({
-              savedAt: _a,
-              savedName: _b,
-              savedCid: _c,
-              notified: _d,
-              ...rest
-            }) => rest
-          ),
+        airing,
         running,
-      }
+      })
     },
     async setEnabled(enabled: boolean): Promise<void> {
       await ensureLoaded()
@@ -329,6 +290,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         cid: '',
         cidName: '',
         confirmed: 0,
+        prefs: {},
       }
       const next = { ...setting, ...patch }
       if (next.mode === 'auto' && !next.cid)
@@ -345,6 +307,28 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       if (gateRef.paused())
         return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
       return grab(record, index, true)
+    },
+    async setPrefs(prefs: AutograbPrefs): Promise<void> {
+      await ensureLoaded()
+      state.prefs = prefs
+      dirty()
+    },
+    async revert(key: string): Promise<AutograbResult> {
+      await ensureLoaded()
+      const record = state.episodes[key]
+      if (!record) return { ok: false, error: '记录不存在' }
+      if (gateRef.paused())
+        return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
+      try {
+        const result = await revertEpisode(
+          { gate: () => gateRef, deps, dirty },
+          record
+        )
+        if (result.ok) void tick()
+        return result
+      } catch (error) {
+        return { ok: false, error: `撤销失败：${(error as Error).message}` }
+      }
     },
     async skip(key: string): Promise<void> {
       await ensureLoaded()
@@ -369,6 +353,16 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     async resume(): Promise<void> {
       await ensureLoaded()
       gateRef.resume()
+      state.spacePause = null
+      dirty()
+    },
+    async gate(): Promise<Gate> {
+      await ensureLoaded()
+      return gateRef
+    },
+    isSaved(seriesId: number, season: number, episode: number): boolean {
+      const key = episodeKey(seriesId, season, episode)
+      return state.episodes[key]?.status === 'saved'
     },
     async guard(): Promise<Pan115Guard> {
       await ensureLoaded()
