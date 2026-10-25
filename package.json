@@ -65,6 +65,7 @@
     "@electron-toolkit/eslint-config-prettier": "3.0.0",
     "@electron-toolkit/eslint-config-ts": "^3.0.0",
     "@electron-toolkit/tsconfig": "^1.0.1",
+    "@phosphor-icons/core": "2.1.1",
     "@tailwindcss/postcss": "^4.1.11",
     "@types/node": "^22.16.5",
     "@vitejs/plugin-vue": "^6.0.6",
