@@ -51,6 +51,7 @@
             @click="startIndex"
           />
         </div>
+        <VisualSourceSelect />
         <p
           v-if="stage === 'working' && status"
           class="visual-note"
@@ -103,6 +104,7 @@ import UiChip from '@/components/ui/UiChip.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import FramesSettings from './FramesSettings.vue'
+import VisualSourceSelect from './VisualSourceSelect.vue'
 import VisualHitCard from './VisualHitCard.vue'
 import { playMoment } from './play-moment'
 import { useVisualSearch } from './use-visual-search'

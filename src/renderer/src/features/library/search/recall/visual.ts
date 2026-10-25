@@ -17,7 +17,11 @@ export const recallVisual: SearchRecall = async request => {
       ...empty,
       message: '画面索引尚未就绪，可在片库的“按画面搜”中配置。',
     }
-  const hits = await api.visual.search({ text: request.text, limit: 20 })
+  const hits = await api.visual.search({
+    text: request.text,
+    source: request.visualSource ?? 'all',
+    limit: 20,
+  })
   if (!hits.length || request.signal.aborted) return empty
   // 每个时间点按原条目过滤，随后按引擎合并键融合，保留实际文件所属版本。
   const candidates = await Promise.all(

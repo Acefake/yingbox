@@ -12,6 +12,7 @@ import type {
   VisualStatus,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
+import { visualSearchSource } from './visual-source'
 
 /** 轮询间隔。 */
 const POLL_MS = 1000
@@ -65,7 +66,8 @@ export function useVisualSearch(options: {
     const visual = api()
     const query = text.value.trim()
     const id = ++seq
-    if (!visual || !query) {
+    if (!visual || !query || !options.open.value) {
+      searching.value = false
       hits.value = []
       return
     }
@@ -75,6 +77,7 @@ export function useVisualSearch(options: {
       const libraryId = options.libraryId()
       const found = await visual.search({
         text: query,
+        source: visualSearchSource.value,
         ...(libraryId ? { libraryId } : {}),
       })
       if (id === seq) hits.value = found
@@ -112,14 +115,40 @@ export function useVisualSearch(options: {
   }
 
   const searchLater = useDebounceFn(() => void search(), 300)
-  watch(text, () => void searchLater())
+  watch(
+    text,
+    () => {
+      seq++
+      if (options.open.value) void searchLater()
+    },
+    { flush: 'sync' }
+  )
+  watch(
+    visualSearchSource,
+    () => {
+      seq++
+      hits.value = []
+      if (options.open.value) void search()
+    },
+    { flush: 'sync' }
+  )
   watch(
     () => options.open.value,
-    open => (open ? void refresh() : clearTimeout(timer)),
+    open => {
+      seq++
+      searching.value = false
+      if (open) {
+        void refresh()
+        if (text.value.trim()) void search()
+      } else clearTimeout(timer)
+    },
     { immediate: true }
   )
   watch(options.libraryId, () => void search())
-  onBeforeUnmount(() => clearTimeout(timer))
+  onBeforeUnmount(() => {
+    seq++
+    clearTimeout(timer)
+  })
 
   return { status, text, hits, searching, error, startIndex, setFrames }
 }

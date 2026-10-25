@@ -52,6 +52,7 @@
             <option v-if="!privateOnly" value="tv">本地剧集</option>
             <option v-if="privateOnly" value="jav">本地番号 · 仅本地</option>
           </UiSelect>
+          <VisualSourceSelect v-if="scope === 'jav'" />
           <UiButton
             v-if="busy || thinking"
             size="sm"
@@ -227,6 +228,8 @@ import { useModalFocus } from '@/composables/use-focus-trap'
 import { vEnter } from '@/directives/enter'
 import { libraryPoster } from '../detail/assistant-links'
 import { playMoment } from '../visual/play-moment'
+import VisualSourceSelect from '../visual/VisualSourceSelect.vue'
+import { visualSearchSource } from '../visual/visual-source'
 import SearchConditions from './SearchConditions.vue'
 import type { SearchHit, SearchScope } from './types'
 import { useUnifiedSearch } from './use-unified-search'
@@ -263,6 +266,7 @@ const {
   scope: () => scope.value,
   open: () => true,
   ai: () => aiEnabled.value,
+  visualSource: () => visualSearchSource.value,
 })
 const best = computed(() => hits.value.slice(0, 20))
 const moments = computed(() =>
