@@ -94,7 +94,7 @@ import { ensureCoreSkills } from './skills/core-skills'
 import { skillPlaceholder, skillSuggestions } from './skills/skill-prompt'
 import { assistantSkills } from './skills/skill-registry'
 import { PHASE_LABELS, useAssistant } from './use-assistant'
-import { useFocusTrap } from './use-focus-trap'
+import { useFocusTrap } from '@/composables/use-focus-trap'
 import './assistant.css'
 import './assistant-panel.css'
 

@@ -1,9 +1,11 @@
 /**
  * 模态面板的焦点陷阱：打开期间 Tab / Shift+Tab 在面板内循环，焦点被移到面板外
- * （如全局 Cmd/Ctrl+F 聚焦背后的搜索框）时拉回面板。浏览器顶层的提示与确认框（popover / dialog）不拦。
- * 打开前的焦点由调用方负责还原（AssistantLauncher）。
+ * （如全局 Cmd/Ctrl+F 聚焦背后的搜索框）时拉回面板。浏览器顶层的提示与确认框（popover / dialog）
+ * 和别的模态窗口（aria-modal）不拦。
+ * useFocusTrap 只管循环；打开时移入焦点、关闭时还原焦点用 useModalFocus（设置、播放弹窗），
+ * AI 助手由 AssistantLauncher 自己还原。
  */
-import { type Ref, onBeforeUnmount, onMounted } from 'vue'
+import { type Ref, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'
 
 /** 可以接收 Tab 焦点的元素 */
 const FOCUSABLE =
@@ -49,7 +51,11 @@ export function useFocusTrap(
     const panel = root.value
     const target = event.target
     if (!panel || !active() || !(target instanceof Element)) return
-    if (panel.contains(target) || target.closest('[popover], dialog[open]'))
+    // 叠在上面的另一个模态窗口（如播放时唤出的 AI 助手）自己管焦点，不抢回来
+    if (
+      panel.contains(target) ||
+      target.closest('[popover], dialog[open], [aria-modal="true"]')
+    )
       return
     focusableIn(panel)[0]?.focus({ preventScroll: true })
   }
@@ -69,4 +75,37 @@ export function useFocusTrap(
     event.preventDefault()
     next.focus({ preventScroll: true })
   }
+}
+
+/**
+ * 模态窗口的完整焦点管理：打开时把焦点移进窗口（落在窗口本身，需 tabindex="-1"，
+ * 不落在按钮上，免得空格 / 回车误触），期间 Tab 在窗口内循环，关闭时还给打开前的元素。
+ * @param root 窗口根元素
+ * @param active 窗口现在是否打开（且是模态）
+ * @returns 绑到窗口根元素 @keydown 上的处理函数
+ */
+export function useModalFocus(
+  root: Ref<HTMLElement | null>,
+  active: () => boolean
+): (event: KeyboardEvent) => void {
+  const trap = useFocusTrap(root, active)
+  let previous: HTMLElement | null = null
+
+  watch(active, open => {
+    if (open) {
+      const current = document.activeElement
+      previous = current instanceof HTMLElement ? current : null
+      void nextTick(() => {
+        const panel = root.value
+        if (panel && !panel.contains(document.activeElement))
+          panel.focus({ preventScroll: true })
+      })
+      return
+    }
+    const back = previous
+    previous = null
+    if (back?.isConnected) back.focus({ preventScroll: true })
+  })
+
+  return trap
 }
