@@ -66,7 +66,7 @@ describe('媒体库播放入口', () => {
       playlist: request.playlist,
       index: 1,
       continueAs,
-      // 媒体库条目不是动画类型：Anime4K「只对动画启用」时不开
+      // 媒体库条目不是动画类型：影盒超分「只对动画启用」时不开
       anime: false,
     })
   })
@@ -86,7 +86,7 @@ describe('媒体库播放入口', () => {
       ],
       index: 1,
       continueAs,
-      // 媒体库条目不是动画类型：Anime4K「只对动画启用」时不开
+      // 媒体库条目不是动画类型：影盒超分「只对动画启用」时不开
       anime: false,
     })
   })
