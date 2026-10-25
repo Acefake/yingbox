@@ -4,7 +4,7 @@
  * 与 nfo.ts 一样只做容错的正则抽取：TMDB 匹配失败、没配 TMDB 或 TMDB 缺字段时，
  * 用这些值补进 media_items（见 main/library/identify/nfo-fill.ts），不覆盖已有值。
  */
-import { countryCodes } from './country-codes'
+import { countryCode, countryCodes } from './country-codes'
 
 /** NFO 里的描述信息；没有的字段缺省（数组为空）。 */
 export interface NfoDetails {
@@ -19,6 +19,8 @@ export interface NfoDetails {
 
 /** 单个类型 / 国家标签里常见的多值分隔符（「动作 / 冒险」「Action, Adventure」）。 */
 const SPLIT_RE = /\s*[/|,，、;；]\s*/
+/** <rating default="true">：属性名独立成词，值恰好是 true（不认 default="trueish"、isdefault 等）。 */
+const DEFAULT_ATTR = /(?:^|\s)default\s*=\s*(?:"true"|'true'|true(?=[\s/>]|$))/i
 /** 简介最长保留多少字。 */
 const MAX_PLOT = 4000
 /** 每类最多几个值。 */
@@ -64,11 +66,19 @@ function tagValues(content: string, tag: string): string[] {
   return out
 }
 
-/** 多值标签：拆分隔符、去空、去重，限个数。 */
-function listOf(content: string, tag: string): string[] {
+/**
+ * 多值标签：拆分隔符、去空、去重，限个数。keepWhole 认得整串时不拆
+ * （国家名自带逗号：「Korea, Republic of」）。
+ */
+function listOf(
+  content: string,
+  tag: string,
+  keepWhole?: (value: string) => boolean
+): string[] {
   const out = new Set<string>()
   for (const value of tagValues(content, tag)) {
-    for (const part of value.split(SPLIT_RE)) {
+    const parts = keepWhole?.(value) ? [value] : value.split(SPLIT_RE)
+    for (const part of parts) {
       const text = part.trim()
       if (text && text.length <= 40) out.add(text)
     }
@@ -97,9 +107,7 @@ function ratingOf(content: string): number | undefined {
       attrs: m[1],
       value: /<value>\s*([\d.,]+)\s*<\/value>/i.exec(m[2])?.[1],
     }))
-    const pick =
-      entries.find(e => /\bdefault\s*=\s*["']?true/i.test(e.attrs)) ??
-      entries[0]
+    const pick = entries.find(e => DEFAULT_ATTR.test(e.attrs)) ?? entries[0]
     if (pick?.value) {
       const max = Number(/\bmax\s*=\s*["']?([\d.]+)/i.exec(pick.attrs)?.[1])
       const score = scaled(pick.value, max > 0 ? max : 10)
@@ -129,7 +137,9 @@ export function parseNfoDetails(content: string): NfoDetails {
   const year = yearOf(content)
   return {
     genres: listOf(content, 'genre'),
-    countries: countryCodes(listOf(content, 'country')),
+    countries: countryCodes(
+      listOf(content, 'country', v => countryCode(v) !== undefined)
+    ),
     ...(rating !== undefined ? { rating } : {}),
     ...(plot ? { plot } : {}),
     ...(year !== undefined ? { year } : {}),

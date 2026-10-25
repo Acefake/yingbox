@@ -62,6 +62,26 @@ describe('parseNfoDetails', () => {
     )
   })
 
+  it('自带逗号的国家名整串认（不拆）；default 属性必须恰好为 true', () => {
+    const d = parseNfoDetails(`<movie>
+  <country>Korea, Republic of</country>
+  <country>Iran, Islamic Republic of</country>
+  <ratings>
+    <rating name="imdb" max="10" default="trueish"><value>6.0</value></rating>
+    <rating name="isdefault=true" max="10"><value>6.5</value></rating>
+    <rating name="tmdb" max="10" default='TRUE'><value>7.4</value></rating>
+  </ratings>
+</movie>`)
+    expect(d.countries).toEqual(['KR', 'IR'])
+    expect(d.rating).toBe(7.4)
+    // 都不是 default 时取第一条
+    expect(
+      parseNfoDetails(
+        '<movie><ratings><rating default="false"><value>5.5</value></rating><rating><value>9</value></rating></ratings></movie>'
+      ).rating
+    ).toBe(5.5)
+  })
+
   it('只有 ID 的 NFO 没有可补的信息', () => {
     const d = parseNfoDetails(
       '<movie><uniqueid type="tmdb">603</uniqueid></movie>'
@@ -77,6 +97,8 @@ describe('countryCode', () => {
     expect(countryCode(' South Korea ')).toBe('KR')
     expect(countryCode('中国大陆')).toBe('CN')
     expect(countryCode('jp')).toBe('JP')
+    expect(countryCode('Us')).toBe('US')
+    expect(countryCode('to')).toBeUndefined()
     expect(countryCode('XX')).toBeUndefined()
     expect(countryCode('火星')).toBeUndefined()
     expect(countryCodes(['日本', 'Japan', '韩国'])).toEqual(['JP', 'KR'])

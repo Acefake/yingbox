@@ -47,6 +47,30 @@ describe('豆瓣搜索结果', () => {
     expect(parseCardSubtitle('只有一段')).toBeNull()
   })
 
+  it('副标题开头带年份段时跳过，地区不会被当成类型', () => {
+    expect(
+      parseCardSubtitle('2010 / 中国大陆 中国香港 / 剧情 喜剧 / 姜文 / 葛优')
+    ).toEqual({ genres: ['剧情', '喜剧'], countries: ['CN', 'HK'] })
+    expect(parseCardSubtitle('2008-2013 / 美国 / 剧情 犯罪 / 亚当')).toEqual({
+      genres: ['剧情', '犯罪'],
+      countries: ['US'],
+    })
+    expect(parseCardSubtitle('2010 / 中国大陆')).toBeNull()
+  })
+
+  it('本地片名带「第 X 季」也能对上；缓存键区分电影与剧集', () => {
+    const tv = {
+      items: [item('绝命毒师 第二季', '2009', '美国 / 剧情 犯罪 / 亚当', 'tv')],
+    }
+    expect(
+      pickDoubanGenres(tv, { title: '绝命毒师 第二季', year: 2009, kind: 'tv' })
+    ).toEqual({ genres: ['剧情', '犯罪'], countries: ['US'] })
+    const movie: DoubanGenreQuery = { title: '某片', year: 2020, kind: 'movie' }
+    expect(DoubanGenreLookup.cacheKey(movie)).not.toBe(
+      DoubanGenreLookup.cacheKey({ ...movie, kind: 'tv' })
+    )
+  })
+
   it('片名一致、年份相差不超过 1 年才算；剧集标题去掉季号', () => {
     const q: DoubanGenreQuery = { title: '讓子彈飛', year: 2010, kind: 'movie' }
     expect(pickDoubanGenres(BODY, q)).toEqual({
@@ -214,7 +238,7 @@ describe('刮削后的豆瓣补类型', () => {
            SELECT library_id, 'movie', 'extra:' || ?, '片' || ?, '', '', 'unmatched', 0, 0
            FROM media_items WHERE id = ?`
         )
-        .run(n, n, ids.get('让子弹飞')!)
+        .run(String(n), String(n), ids.get('让子弹飞')!)
     }
     const all = (
       service.db.prepare('SELECT id FROM media_items').all() as Array<{
@@ -222,13 +246,16 @@ describe('刮削后的豆瓣补类型', () => {
       }>
     ).map(r => Number(r.id))
     let requests = 0
+    const looked: string[] = []
     await fillGenresFromDouban(
       {
         db: service.db,
         lookup: {
-          cached: q => q.title === '片1',
+          // 排在最后的「片60」命中缓存：名额用完后仍要处理
+          cached: q => q.title === '片1' || q.title === '片60',
           lookup: async q => {
-            if (q.title !== '片1') requests++
+            looked.push(q.title)
+            if (q.title !== '片1' && q.title !== '片60') requests++
             return null
           },
         },
@@ -236,6 +263,7 @@ describe('刮削后的豆瓣补类型', () => {
       all
     )
     expect(requests).toBe(GENRE_FILL_REQUEST_LIMIT)
+    expect(looked).toContain('片60')
 
     let calls = 0
     const logs: string[] = []

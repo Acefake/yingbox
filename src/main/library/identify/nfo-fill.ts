@@ -2,16 +2,20 @@
  * 本地 NFO 的定位与补全：识别链读 NFO 取 ID，识别完再用 NFO 里的类型、制片国家、评分、简介、年份
  * 补空着的字段（TMDB 匹配失败、没配 TMDB 或 TMDB 缺字段时，海报墙的类型筛选 / AI 搜索仍有数据）。
  *
- * - 电影：同名 .nfo 优先，其次 movie.nfo（各文件依次找，第一份为准）；
+ * - 电影：各文件的同名 .nfo / movie.nfo 依次读，第一份有描述信息的为准（多文件条目不只看第一份）；
  * - 剧集：剧集文件夹里的 tvshow.nfo；
- * - 番号库不走这里（番号站点有自己的类型），锁定条目也补（只补空字段，不改匹配）。
+ * - 番号库不走这里（番号站点有自己的类型），锁定条目也补（只补空字段，不改匹配）；
+ * - 只有真的写了字段才记进 changes（避免触发无谓的 NFO 写出）；
+ * - 没配 TMDB 时条目不会被标成已识别，每次扫描后都会再进识别任务：补过且之后没变化（updated_at 不变）
+ *   的条目本进程内不再重读 NFO。
  */
 import {
+  type NfoDetails,
   hasNfoDetails,
   parseNfoDetails,
 } from '../../../shared/library/identify'
 import type { ItemChanges } from '../catalog/catalog-store'
-import { transaction } from '../db/database'
+import { type LibraryDb, StatementCache, transaction } from '../db/database'
 import type {
   IdentifyStore,
   IdentifyTarget,
@@ -43,17 +47,43 @@ export function seriesNfoPath(
   return store.nfoFiles(`${root.rootKey}/${folder}`).get('tvshow.nfo')
 }
 
-/** 条目的 NFO 路径：电影取第一个有 NFO 的文件，剧集取 tvshow.nfo。 */
-function targetNfoPath(
+/** 条目的候选 NFO 路径（去重、按顺序）：电影是各文件对应的 NFO，剧集是 tvshow.nfo。 */
+function targetNfoPaths(
   store: IdentifyStore,
   target: IdentifyTarget
-): string | undefined {
-  if (target.type !== 'movie') return seriesNfoPath(store, target)
+): string[] {
+  if (target.type !== 'movie') {
+    const path = seriesNfoPath(store, target)
+    return path ? [path] : []
+  }
+  const paths = new Set<string>()
   for (const file of store.files(target.id)) {
     const path = movieNfoPath(store, file)
-    if (path) return path
+    if (path) paths.add(path)
   }
-  return undefined
+  return [...paths]
+}
+
+/** 每个数据库：没配 TMDB 时补过的条目 id → 当时的 updated_at。 */
+const localChecked = new WeakMap<LibraryDb, Map<number, number>>()
+const stampSql = new WeakMap<LibraryDb, StatementCache>()
+
+/** 条目当前的 updated_at；条目不在了返回 undefined。 */
+function updatedAt(db: LibraryDb, itemId: number): number | undefined {
+  let sql = stampSql.get(db)
+  if (!sql) stampSql.set(db, (sql = new StatementCache(db)))
+  const row = sql
+    .get('SELECT updated_at FROM media_items WHERE id = ?')
+    .get(itemId)
+  return row ? Number(row.updated_at) : undefined
+}
+
+/** 没配 TMDB 时的已补记录（配了 TMDB 不去重：条目识别后自然不再进任务）。 */
+function checkedFor(ctx: RunnerContext): Map<number, number> | undefined {
+  if (ctx.deps.provider.configured) return undefined
+  let seen = localChecked.get(ctx.deps.db)
+  if (!seen) localChecked.set(ctx.deps.db, (seen = new Map()))
+  return seen
 }
 
 /**
@@ -66,8 +96,14 @@ export async function fillFromNfo(
   changes: ItemChanges
 ): Promise<boolean> {
   if (target.source === 'jav') return false
+  const seen = checkedFor(ctx)
+  const db = ctx.deps.db
+  if (seen && seen.get(target.id) === updatedAt(db, target.id)) return false
   try {
-    return await fillTarget(ctx, target, changes)
+    const changed = await fillTarget(ctx, target, changes)
+    const stamp = seen && updatedAt(db, target.id)
+    if (seen && stamp !== undefined) seen.set(target.id, stamp)
+    return changed
   } catch (error) {
     ctx.deps.log?.(
       `NFO 补全条目 ${target.id} 失败：${(error as Error).message}`
@@ -82,11 +118,16 @@ async function fillTarget(
   changes: ItemChanges
 ): Promise<boolean> {
   const { store, writer, db } = ctx.deps
-  const path = targetNfoPath(store, target)
-  const text = path ? await ctx.readText(path) : undefined
-  if (!text) return false
-  const details = parseNfoDetails(text)
-  if (!hasNfoDetails(details)) return false
+  let details: NfoDetails | undefined
+  for (const path of targetNfoPaths(store, target)) {
+    const text = await ctx.readText(path)
+    const parsed = text ? parseNfoDetails(text) : undefined
+    if (parsed && hasNfoDetails(parsed)) {
+      details = parsed
+      break
+    }
+  }
+  if (!details) return false
   const changed = transaction(db, () =>
     writer.fillLocal(
       target.id,

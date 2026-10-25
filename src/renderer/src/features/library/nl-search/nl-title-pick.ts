@@ -4,7 +4,8 @@
  *
  * - 触发：条件里有类型，且按类型筛选结果为 0，或本分区有类型的条目不到 30%；
  * - 候选：去掉类型 / 地区条件、保留其余条件后的前 300 条（地区同样多来自刮削，一并交给模型判断）；
- * - 生效：只在当前条件的类型与当时一致时替换类型 / 地区条件（删掉类型胶囊就回到普通筛选）。
+ * - 生效：只在当前条件的类型、地区都与当时一致时替换类型 / 地区条件（改了胶囊就回到普通筛选）；
+ * - 模型一部都没挑、而类型筛选本来有结果时不兜底（不让用户从「有结果」变成 0 条）。
  *
  * 纯规则 + 一个注入依赖的流程函数，不依赖 Vue / IPC，便于测试；调用在 use-nl-search.ts。
  */
@@ -22,9 +23,12 @@ export const TITLE_PICK_LIMIT = 300
 /** 本分区有类型的条目低于这个比例时，不信任类型筛选。 */
 export const MIN_GENRE_COVERAGE = 0.3
 
-/** 按片名判断的结果：针对哪组类型，挑中了哪些条目。 */
+/** 按片名判断的结果：针对哪组类型 / 地区、在哪个查询范围里，挑中了哪些条目。 */
 export interface TitlePick {
   genres: string[]
+  countries: string[]
+  /** 查询范围（媒体库、匹配筛选等，见 titlePickScope）；范围变了结果不再适用 */
+  scope: string
   ids: number[]
 }
 
@@ -53,16 +57,38 @@ export const TITLE_PICK_SCHEMA: Record<string, unknown> = {
   properties: { ids: { type: 'array', items: { type: 'integer' } } },
 }
 
-/** 结果是否适用于当前条件（类型集合相同）。 */
+/** 两组取值作为集合是否相同。 */
+function sameSet(a: readonly string[], b: readonly string[]): boolean {
+  const set = new Set(a)
+  return set.size === new Set(b).size && b.every(v => set.has(v))
+}
+
+/** 结果是否适用于当前条件与查询：有类型，类型、地区集合都与当时相同，查询范围也没变。 */
 export function titlePickApplies(
   pick: TitlePick | null | undefined,
-  filter: NlFilter
+  filter: NlFilter,
+  base: LibraryQuery
 ): pick is TitlePick {
   const genres = filter.genres ?? []
-  if (!pick || !genres.length || genres.length !== pick.genres.length)
-    return false
-  const set = new Set(pick.genres)
-  return genres.every(g => set.has(g))
+  if (!pick || !genres.length || !sameSet(genres, pick.genres)) return false
+  if (!sameSet(filter.countries ?? [], pick.countries)) return false
+  return pick.scope === titlePickScope(base)
+}
+
+/**
+ * 查询范围的比较键：基础查询去掉排序 / 分页 / 片名搜索（这些不影响挑哪些条目），
+ * 剩下的（分区、媒体库、匹配筛选等）变了，按片名判断要重新做。
+ */
+export function titlePickScope(base: LibraryQuery): string {
+  const {
+    sort: _sort,
+    order: _order,
+    offset: _offset,
+    limit: _limit,
+    search: _search,
+    ...rest
+  } = base
+  return JSON.stringify(rest)
 }
 
 /** 去掉类型 / 地区后的条件（取候选用）。 */
@@ -146,7 +172,8 @@ export interface TitlePickQueries {
 
 /**
  * 需要时按片名判断：先数一下（只取 1 条），够用就返回 null；否则取候选交给模型。
- * 候选为空返回 null。查询 / 模型出错照常抛出，由调用方保留类型筛选。
+ * 候选为空、或模型一部没挑而类型筛选本来有结果时返回 null（保留类型筛选）。
+ * 查询 / 模型出错照常抛出，由调用方保留类型筛选。
  */
 export async function resolveTitlePick(
   question: string,
@@ -176,5 +203,12 @@ export async function resolveTitlePick(
   const candidates = titleCandidates(list.items)
   if (!candidates.length) return null
   const data = await deps.chat(titlePickMessages(question, candidates))
-  return { genres: [...genres], ids: sanitizePickedIds(data, candidates) }
+  const ids = sanitizePickedIds(data, candidates)
+  if (!ids.length && stats.matched > 0) return null
+  return {
+    genres: [...genres],
+    countries: [...(filter.countries ?? [])],
+    scope: titlePickScope(queries.section),
+    ids,
+  }
 }

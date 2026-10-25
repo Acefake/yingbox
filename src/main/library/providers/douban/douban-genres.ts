@@ -3,7 +3,8 @@
  *
  * 走 m.douban.com/rexxar/api/v2/search/movie（移动端接口，与在线页的豆瓣请求同一套：必须带
  * Referer 与移动 UA；movie.douban.com/j/search_subjects 已一律 302 到验证页，不用）。
- * 副标题形如「中国大陆 中国香港 / 剧情 喜剧 动作 / 姜文 / 姜文 葛优」：第一段地区，第二段类型。
+ * 副标题形如「中国大陆 中国香港 / 剧情 喜剧 动作 / 姜文 / 姜文 葛优」：第一段地区，第二段类型；
+ * 有的卡片在前面多一段年份（「2010 / 中国大陆 / 剧情 喜剧 / …」），解析时先跳过开头的年份段。
  *
  * 只给类型补全用（genre-fill.ts）：调用方注入限速很低的 ProviderHttp（串行、2 秒一次），
  * 结果按查询词缓存 30 天（找不到也缓存），同一部片不会反复请求。
@@ -47,9 +48,13 @@ interface SearchItem {
   target?: SearchTarget
 }
 
-/** 副标题 → 地区（换成代码）与类型；不像副标题返回 null。 */
+/** 副标题里的年份段（「2010」「2010-2014」「2010(中国大陆)」）。 */
+const YEAR_PART = /^\d{4}(?:\s*[-–]\s*\d{4})?(?:\s*\(.*\))?$/
+
+/** 副标题 → 地区（换成代码）与类型；开头的年份段跳过，不像副标题返回 null。 */
 export function parseCardSubtitle(subtitle: string): DoubanGenres | null {
-  const parts = subtitle.split(/\s+\/\s+/)
+  const parts = subtitle.trim().split(/\s+\/\s+/)
+  while (parts.length && YEAR_PART.test(parts[0])) parts.shift()
   if (parts.length < 2) return null
   const regions = parts[0].split(/\s+/).filter(Boolean)
   const genres = parts[1]
@@ -58,7 +63,7 @@ export function parseCardSubtitle(subtitle: string): DoubanGenres | null {
   return { genres, countries: countryCodes(regions) }
 }
 
-/** 剧集条目标题去掉季号（「绝命毒师 第一季」→「绝命毒师」）再归一化。 */
+/** 片名去掉末尾季号（「绝命毒师 第一季」→「绝命毒师」）再归一化；豆瓣条目与本地片名都这样比。 */
 const subjectTitle = (title: string): string =>
   normalizeTitle(title.replace(/\s*第[一二三四五六七八九十百零\d]+季\s*$/, ''))
 
@@ -79,7 +84,7 @@ export function pickDoubanGenres(
   const names = new Set(
     [query.title, query.originalTitle]
       .filter((t): t is string => Boolean(t))
-      .map(normalizeTitle)
+      .map(subjectTitle)
       .filter(Boolean)
   )
   const hits = list.filter(item => {
@@ -113,9 +118,10 @@ export class DoubanGenreLookup {
     private readonly now: () => number = Date.now
   ) {}
 
-  /** 查询词的缓存键（片名 + 年份）。 */
+  /** 查询词的缓存键（电影 / 剧集 + 片名 + 年份；同名同年的电影与剧集挑出的条目不同）。 */
   static cacheKey(query: DoubanGenreQuery): string {
-    return `douban:genres:${normalizeTitle(query.title)}#${query.year ?? ''}`
+    const title = normalizeTitle(query.title)
+    return `douban:genres:${query.kind}:${title}#${query.year ?? ''}`
   }
 
   /** 缓存里有没有这条（有就不占请求名额）。 */

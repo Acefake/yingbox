@@ -20,6 +20,7 @@ import {
   titleCandidates,
   titlePickApplies,
   titlePickMessages,
+  titlePickScope,
 } from '../src/renderer/src/features/library/nl-search/nl-title-pick'
 
 import type { NlSearch } from '../src/renderer/src/features/library/nl-search/use-nl-search'
@@ -81,16 +82,35 @@ describe('按片名判断：规则', () => {
     expect(user.content).toContain('"t":"盗梦空间"')
   })
 
-  it('结果只在类型集合一致时生效；替换类型 / 地区条件，与看过的 id 取交集', () => {
-    const pick = { genres: ['科幻', '动作'], ids: [3, 5, 7] }
+  it('结果只在类型、地区集合与查询范围都一致时生效；替换类型 / 地区条件，与看过的 id 取交集', () => {
+    const base: LibraryQuery = { types: ['movie'] }
+    const pick = {
+      genres: ['科幻', '动作'],
+      countries: ['US'],
+      scope: titlePickScope(base),
+      ids: [3, 5, 7],
+    }
     const filter = {
       genres: ['动作', '科幻'],
       countries: ['US'],
       yearFrom: 1990,
     }
-    expect(titlePickApplies(pick, filter)).toBe(true)
-    expect(titlePickApplies(pick, { genres: ['科幻'] })).toBe(false)
-    expect(titlePickApplies(null, filter)).toBe(false)
+    expect(titlePickApplies(pick, filter, base)).toBe(true)
+    // 排序 / 分页 / 片名搜索不算范围变化
+    const paged = { ...base, sort: 'title', offset: 60, limit: 60 } as const
+    expect(titlePickApplies(pick, filter, paged)).toBe(true)
+    expect(titlePickApplies(pick, { genres: ['科幻'] }, base)).toBe(false)
+    // 地区变了、或换了媒体库：不再适用
+    expect(titlePickApplies(pick, { ...filter, countries: ['JP'] }, base)).toBe(
+      false
+    )
+    expect(titlePickApplies(pick, { ...filter, countries: [] }, base)).toBe(
+      false
+    )
+    expect(titlePickApplies(pick, filter, { ...base, libraryId: 2 })).toBe(
+      false
+    )
+    expect(titlePickApplies(null, filter, base)).toBe(false)
     expect(looseFilter(filter)).toEqual({ yearFrom: 1990 })
 
     const ctx = {
@@ -98,7 +118,6 @@ describe('按片名判断：规则', () => {
       genres: ['科幻'],
       watchedIds: [5, 9],
     }
-    const base: LibraryQuery = { types: ['movie'] }
     expect(applyNlFilter(base, filter, { ...ctx, titlePick: pick })).toEqual({
       types: ['movie'],
       yearFrom: 1990,
@@ -153,10 +172,37 @@ describe('resolveTitlePick', () => {
       queries,
       { query, chat }
     )
-    expect(pick).toEqual({ genres: ['科幻'], ids: [1] })
+    expect(pick).toEqual({
+      genres: ['科幻'],
+      countries: [],
+      scope: titlePickScope(queries.section),
+      ids: [1],
+    })
     const last = query.mock.calls.at(-1)![0]
     expect(last).toMatchObject({ yearFrom: 1990, limit: TITLE_PICK_LIMIT })
     expect(last).not.toHaveProperty('facets')
+  })
+
+  it('类型筛选本来有结果、模型一部没挑：不兜底（保留类型筛选，不变成 0 条）', async () => {
+    const query = vi.fn(async (q: LibraryQuery) =>
+      q.limit === 1
+        ? page(q.facets ? 2 : q.hasGenres ? 1 : 10)
+        : page(1, [summary(1, 'A')])
+    )
+    const chat = vi.fn(async () => ({ ids: [] }))
+    const filter = { genres: ['科幻'] }
+    expect(
+      await resolveTitlePick('科幻片', filter, queries, { query, chat })
+    ).toBeNull()
+    // 类型筛选本来就是 0 条时，空结果照常生效（结果同样是 0 条，但带上说明）
+    const none = vi.fn(async (q: LibraryQuery) =>
+      q.limit === 1 ? page(q.facets ? 0 : 10) : page(1, [summary(1, 'A')])
+    )
+    const pick = await resolveTitlePick('科幻片', filter, queries, {
+      query: none,
+      chat,
+    })
+    expect(pick?.ids).toEqual([])
   })
 })
 
@@ -200,14 +246,13 @@ describe('useNlSearch 按片名判断', () => {
   afterEach(() => vi.useRealTimers())
 
   async function mount(
-    section: 'movie' | 'jav'
+    section: 'movie' | 'jav',
+    base: () => LibraryQuery = () => ({ types: ['movie'] })
   ): Promise<{ nl: NlSearch; stop: () => void }> {
     const { useNlSearch } =
       await import('../src/renderer/src/features/library/nl-search/use-nl-search')
     const scope = effectScope()
-    const nl = scope.run(() =>
-      useNlSearch(section, () => ({ types: ['movie'] }))
-    )!
+    const nl = scope.run(() => useNlSearch(section, base))!
     return { nl, stop: () => scope.stop() }
   }
 
@@ -253,6 +298,41 @@ describe('useNlSearch 按片名判断', () => {
     expect(nl.status.value).toBe('done')
     expect(nl.query()).toEqual({ types: ['movie'], facets: { tag: ['悬疑'] } })
     expect(nl.message.value).toContain('按片名判断失败')
+    stop()
+  })
+
+  it('切换媒体库：按片名判断按新范围重新做，不复用旧的 id 集合', async () => {
+    mocks.query.mockImplementation(async (q: LibraryQuery) => {
+      if (q.limit === 1) return page(q.facets ? 0 : q.hasGenres ? 0 : 2)
+      return q.libraryId === 2
+        ? page(1, [summary(21, '银翼杀手', 1982)])
+        : page(1, [summary(11, '星际穿越', 2014)])
+    })
+    mocks.chatJson
+      .mockResolvedValueOnce({ data: { genres: ['奇幻'] } })
+      .mockResolvedValueOnce({ data: { ids: [11] } })
+      .mockResolvedValueOnce({ data: { ids: [21] } })
+    const libraryId = ref(1)
+    const { nl, stop } = await mount('movie', () => ({
+      types: ['movie'],
+      libraryId: libraryId.value,
+    }))
+    route.query = { q: '?奇幻片' }
+    await vi.advanceTimersByTimeAsync(700)
+    await nextTick()
+    expect(nl.query().ids).toEqual([11])
+    libraryId.value = 2
+    await nextTick()
+    // 新范围的结果出来前不沿用旧 id，回到类型筛选
+    expect(nl.query().ids).toBeUndefined()
+    await vi.advanceTimersByTimeAsync(10)
+    await nextTick()
+    expect(nl.query()).toEqual({
+      types: ['movie'],
+      libraryId: 2,
+      ids: [21],
+    })
+    expect(mocks.chatJson).toHaveBeenCalledTimes(3)
     stop()
   })
 })
