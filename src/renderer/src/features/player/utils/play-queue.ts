@@ -2,6 +2,7 @@
  * 应用内播放器的播放队列：调用方发来的载荷在这里校验并整理成队列。
  * 外部数据只在这里解析，之后播放器只处理整理好的 PlayQueue。
  */
+import type { VideoProbe } from '../../../../../shared/video-range'
 
 /** 单个播放条目（集 / 文件 / 备用线路） */
 export type PlaylistEntry = {
@@ -10,6 +11,8 @@ export type PlaylistEntry = {
   name?: string
   ext?: Record<string, unknown>
   siteName?: string
+  /** 本地文件的动态范围（媒体库存的探测结果）；有它时杜比视界判断不必开播前再探测 */
+  video?: VideoProbe | null
 }
 
 /** 调用方发来的播放载荷（字段都可能缺失或类型不对） */
@@ -26,6 +29,8 @@ export type PlayerPayload = {
   continueId?: string
   /** 来自私密板块（AI 字幕只用本地模型，按设置） */
   private?: boolean
+  /** 单个本地文件（没有 playlist 时）的动态范围 */
+  video?: VideoProbe | null
 }
 
 /** 整理后的播放队列 */
@@ -73,7 +78,13 @@ export function normalizePlayerPayload(
       position = rawIndex
   } else if (url || filePath) {
     // 单条目：等价于长度为 1 的队列，仍记录进度，但不触发连播
-    playlist = [{ ...(url ? { url } : {}), ...(filePath ? { filePath } : {}) }]
+    playlist = [
+      {
+        ...(url ? { url } : {}),
+        ...(filePath ? { filePath } : {}),
+        ...(filePath && payload.video ? { video: payload.video } : {}),
+      },
+    ]
   } else {
     return null
   }

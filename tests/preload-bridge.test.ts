@@ -196,6 +196,7 @@ const ADDED_API: Record<string, string[]> = {
     'receive',
     'dirs',
   ],
+  dolbyVision: ['probe', 'start', 'stop'],
 }
 
 beforeAll(async () => {

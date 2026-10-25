@@ -29,6 +29,7 @@ import { MEDIA_SCHEME_PRIVILEGES, registerThumbnails } from './thumbnails'
 import { registerMpvIpc } from './ipc/mpv-ipc'
 import { registerLadaIpc } from './ipc/lada-ipc'
 import { registerIntroDetectIpc } from './intro-detect'
+import { registerDolbyVisionIpc } from './dolby-vision'
 import { registerLibraryIpc } from './library/host'
 import { registerLibraryNotify } from './library/notify'
 import {
@@ -215,6 +216,7 @@ app.whenReady().then(async () => {
   registerWebDav()
   const libraryClient = registerLibraryIpc(thumbnails, webdavHostMethods)
   registerIntroDetectIpc()
+  registerDolbyVisionIpc()
   const library = libraryTokenTarget(libraryClient)
   // 网盘文件变更通知（CloudDrive2 webhook 等）→ 媒体库按目录增量扫描
   registerLibraryNotify(libraryClient)

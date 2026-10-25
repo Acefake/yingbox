@@ -6,7 +6,8 @@
  * - 否则看 color_transfer：smpte2084 → HDR10（含 HDR10+），arib-std-b67 → HLG，其余 SDR。
  *
  * Chromium 解不了杜比视界的增强信息，只能播基础层：Profile 5（以及兼容号为 0 的其它 profile）
- * 没有 HDR10 / SDR 兼容基础层，内置播放器会偏绿偏紫，这类视频交给 mpv（见 needsExternalPlayer）。
+ * 没有 HDR10 / SDR 兼容基础层，内置播放器直接放会偏绿偏紫（判定见 needsDvColorFix）。
+ * 这类视频先按设置交给 mpv，进了内置播放器再由主进程 libplacebo 重建（决策链见 player/utils/playback-route.ts）。
  */
 
 /** 动态范围 */
@@ -32,18 +33,29 @@ const intOrNull = (v: unknown): number | null =>
   typeof v === 'number' && Number.isInteger(v) ? v : null
 
 /**
- * 解析 `ffprobe -show_streams -of json` 的输出。
- * @param json 已 JSON.parse 的输出
- * @returns 第一条正片视频流的动态范围；没有视频流或输出不像样时为 null
+ * ffprobe JSON 里的第一条正片视频流（跳过封面图）。
+ * @param json 已 JSON.parse 的 `ffprobe -show_streams -of json` 输出
+ * @returns 该视频流；没有视频流或输出不像样时为 undefined
  */
-export function parseFfprobeVideo(json: unknown): VideoProbe | null {
-  if (!isRecord(json) || !Array.isArray(json.streams)) return null
-  const stream = json.streams.find(
+export function mainVideoStream(
+  json: unknown
+): Record<string, unknown> | undefined {
+  if (!isRecord(json) || !Array.isArray(json.streams)) return undefined
+  return json.streams.find(
     (s): s is Record<string, unknown> =>
       isRecord(s) &&
       s.codec_type === 'video' &&
       !(isRecord(s.disposition) && s.disposition.attached_pic === 1)
   )
+}
+
+/**
+ * 解析 `ffprobe -show_streams -of json` 的输出。
+ * @param json 已 JSON.parse 的输出
+ * @returns 第一条正片视频流的动态范围；没有视频流或输出不像样时为 null
+ */
+export function parseFfprobeVideo(json: unknown): VideoProbe | null {
+  const stream = mainVideoStream(json)
   if (!stream) return null
   const sideData = Array.isArray(stream.side_data_list)
     ? stream.side_data_list.filter(isRecord)
@@ -67,10 +79,11 @@ export function parseFfprobeVideo(json: unknown): VideoProbe | null {
 }
 
 /**
- * 内置播放器（Chromium）放不对颜色、要交给 mpv：杜比视界 Profile 5，或基础层兼容号为 0 的其它 profile。
+ * 内置播放器（Chromium）直接放颜色不对、要先处理：杜比视界 Profile 5，或基础层兼容号为 0 的其它 profile。
+ * 处理方式按 playback-route.ts 的决策链：先按设置交给 mpv，进了内置播放器再由主进程重建。
  * Profile 7 的基础层是 HDR10（兼容号 6），按 HDR10 播。
  */
-export function needsExternalPlayer(
+export function needsDvColorFix(
   probe: Pick<VideoProbe, 'dvProfile' | 'dvCompat'> | null | undefined
 ): boolean {
   if (!probe || probe.dvProfile === null) return false

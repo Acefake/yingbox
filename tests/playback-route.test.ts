@@ -70,6 +70,7 @@ describe('DV 提示', () => {
       dvNotice({ tryMpv: true, dv: true }, 'ok', {
         engine: 'built-in',
         autoMpvForDv: true,
+        rebuild: false,
       })
     ).toBe('mpv-used')
   })
@@ -79,12 +80,14 @@ describe('DV 提示', () => {
       dvNotice({ tryMpv: true, dv: true }, 'failed', {
         engine: 'built-in',
         autoMpvForDv: true,
+        rebuild: false,
       })
     ).toBe('install-mpv')
     expect(
       dvNotice({ tryMpv: false, dv: true }, 'skipped', {
         engine: 'built-in',
         autoMpvForDv: true,
+        rebuild: false,
       })
     ).toBe('install-mpv')
   })
@@ -94,18 +97,21 @@ describe('DV 提示', () => {
       dvNotice({ tryMpv: false, dv: true }, 'skipped', {
         engine: 'built-in',
         autoMpvForDv: false,
+        rebuild: false,
       })
     ).toBeNull()
     expect(
       dvNotice({ tryMpv: true, dv: false }, 'ok', {
         engine: 'mpv',
         autoMpvForDv: true,
+        rebuild: false,
       })
     ).toBeNull()
     expect(
       dvNotice({ tryMpv: false, dv: false }, 'skipped', {
         engine: 'built-in',
         autoMpvForDv: true,
+        rebuild: false,
       })
     ).toBeNull()
   })
@@ -115,7 +121,27 @@ describe('DV 提示', () => {
       dvNotice({ tryMpv: true, dv: true }, 'failed', {
         engine: 'mpv',
         autoMpvForDv: false,
+        rebuild: false,
       })
     ).toBe('install-mpv')
+  })
+
+  it('桌面端内置播放器能重建：mpv 起不来 / 没试都不建议装 mpv（重建做不了时由它提示）', () => {
+    const context = { engine: 'built-in' as const, autoMpvForDv: true }
+    expect(
+      dvNotice({ tryMpv: true, dv: true }, 'failed', {
+        ...context,
+        rebuild: true,
+      })
+    ).toBeNull()
+    expect(
+      dvNotice({ tryMpv: false, dv: true }, 'skipped', {
+        ...context,
+        rebuild: true,
+      })
+    ).toBeNull()
+    expect(
+      dvNotice({ tryMpv: true, dv: true }, 'ok', { ...context, rebuild: true })
+    ).toBe('mpv-used')
   })
 })

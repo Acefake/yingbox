@@ -154,6 +154,8 @@ export const settingsSchema = {
   'player.autoDetectIntro': bool(false),
   /** 杜比视界 Profile 5（内置播放器会偏色）自动改用 mpv 播放（装了 mpv 时） */
   'player.dvAutoMpv': bool(true),
+  /** 杜比视界 P5 应用内重建时应用 RPU 动态元数据（libplacebo apply_dolbyvision） */
+  'player.applyDolbyVision': bool(true),
   /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
   'player.mediaKeys': bool(true),
 

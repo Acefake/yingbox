@@ -67,7 +67,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 - `http-client.ts` — SSRF-guarded fetch for main's own requests (subtitles, thumbnail originals): private-IP blocking incl. DNS resolution, manual redirect hops, size-limited reads. Not used by `pan115/` (netdisk: PanSou search + 115 QR login / share preview / save): its 115 requests go through the dedicated partition `persist:pan115` (`session-transport.ts`): the login cookie is written into the partition (session cookies, restored from the safeStorage secret `pan115.session` on start, cleared on quit), and Referer / UA are added only for `*.115.com` (`transport.ts`) — never hand-written `Cookie` headers; a hand-written Referer needs `referrerPolicy: 'unsafe-url'` or Chromium cancels the request with `ERR_BLOCKED_BY_CLIENT`; the partition also carries the public-IP guard from `browser-fetch/network-guard.ts`. `node scripts/pan115-selftest/run.mjs` checks the real headers against a local echo server in Electron. **Exemption:** PanSou is a user-configured address (often a LAN NAS), so it skips the private-IP block, but redirects are manual and only followed to the same host (`pansou.ts` `sameHostFetch`); the default address is empty and the public instance is an explicit opt-in in settings
 - `local-media.ts` — `local://` URL ↔ filesystem path + HTTP Range streaming (206/416)
 - `media-scanner.ts` — incremental library scan (directory-mtime short-circuit + cache reuse)
-- `mpv-window.ts` — `mpv.setCompact` shrinks the external mpv window to the bottom-right corner, always on top
+- `mpv-window.ts` — `mpv.setCompact` shrinks the external mpv window to the bottom-right corner, always on top; `dolby-vision/` — `dolbyVision` domain (probe / start / stop): Dolby Vision P5 that reaches the built-in player is rebuilt by ffmpeg libplacebo into fMP4 HLS served on 127.0.0.1 with a token path, on demand per segment, one session at a time, setting `player.applyDolbyVision` (ADR-0017)
 - `subtitle.ts` — sidecar subtitle discovery, encoding detection (UTF-8/UTF-16/GB18030), srt/ass → WebVTT
 
 ### Preload (`src/preload/index.ts`)
@@ -157,7 +157,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0013](docs/adr/0013-poster-face-focus.md) 海报人脸取景
 - [0014](docs/adr/0014-plugin-isolation-and-session-origin.md) 插件隔离与会话来源
 - [0015](docs/adr/0015-in-app-player-modal.md) 应用内播放弹窗 + 角落小窗，桌面与网页一套，不开独立窗口
-- [0016](docs/adr/0016-youtube-style-player-and-video-range.md) 播放器交互照 YouTube；媒体库识别 HDR / 杜比视界，P5 交给 mpv
+- [0016](docs/adr/0016-youtube-style-player-and-video-range.md) 播放器交互照 YouTube；媒体库识别 HDR / 杜比视界，P5 交给 mpv；[0017](docs/adr/0017-dolby-vision-in-app-rebuild.md) P5 进内置播放器时主进程 libplacebo 重建成本机 HLS
 
 ## UI conventions
 
