@@ -89,6 +89,16 @@ function absolutePath(): ValueSpec<string> {
   }
 }
 
+/** 只含数字的 id（如 115 文件夹 cid） */
+function digits(fallback: string): ValueSpec<string> {
+  return {
+    kind: 'value',
+    default: fallback,
+    parse: raw =>
+      typeof raw === 'string' && /^\d{1,32}$/.test(raw) ? raw : undefined,
+  }
+}
+
 /** 密钥：单行、非空白字符，长度上限 4096 */
 function secret(): SecretSpec {
   return {
@@ -188,6 +198,15 @@ export const settingsSchema = {
 
   /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
   'download.dir': absolutePath(),
+
+  /** 网盘搜索用的 PanSou 地址（github.com/fish2018/pansou，可自部署）；空串 = 未配置（默认不把搜索词发给任何第三方） */
+  'pan115.pansouUrl': text('', 2048),
+  /** 115 转存目标文件夹 cid；"0" = 根目录 */
+  'pan115.targetCid': digits('0'),
+  /** 目标文件夹的显示名（只用于设置页展示） */
+  'pan115.targetName': text('', 500),
+  /** 115 扫码登录会话（JSON：Cookie + 账号 id / 名），只有主进程读 */
+  'pan115.session': secret(),
 
   /** 在线播放卡顿 / 出错时自动换到下一个可用源的同一集，从当前进度继续 */
   'online.autoSwitchSource': bool(true),

@@ -14,6 +14,7 @@ const state = (patch: Partial<NavState> = {}): NavState => ({
   routeName: 'Online',
   onlineTab: undefined,
   hasLocalLibrary: true,
+  hasNetdisk: true,
   adultMode: false,
   ...patch,
 })
@@ -31,20 +32,37 @@ describe('侧栏导航项', () => {
     expect(onJav[1].items.map(i => i.active)).toEqual([false, false, true])
   })
 
-  it('直播入口：桌面端显示，选中态跟随 /live 路由', () => {
+  it('直播与网盘入口：桌面端显示，选中态跟随路由', () => {
     const live = buildNavGroups(state({ routeName: 'Live' })).find(
       g => g.key === 'live'
     )
     expect(live?.items).toEqual([
       { label: '直播', icon: 'livePlay', path: '/live', active: true },
+      { label: '网盘', icon: 'database', path: '/netdisk', active: false },
     ])
+    const netdisk = buildNavGroups(state({ routeName: 'Netdisk' })).find(
+      g => g.key === 'live'
+    )
+    expect(netdisk?.items.map(i => i.active)).toEqual([false, true])
   })
 
   it('没有本地片库时不显示本地媒体组与直播（成人模式下也不显示）', () => {
     const groups = buildNavGroups(
-      state({ hasLocalLibrary: false, adultMode: true })
+      state({ hasLocalLibrary: false, hasNetdisk: false, adultMode: true })
     )
     expect(groups.map(g => g.key)).toEqual(['library', 'adult'])
+  })
+
+  it('网盘入口只看桌面端能力：没有本地片库也可达，网页端连着片库也不显示', () => {
+    const noLibrary = buildNavGroups(state({ hasLocalLibrary: false }))
+    expect(noLibrary.map(g => g.key)).toEqual(['library', 'live'])
+    expect(noLibrary[1].items).toEqual([
+      { label: '网盘', icon: 'database', path: '/netdisk', active: false },
+    ])
+    const web = buildNavGroups(state({ hasNetdisk: false }))
+    expect(web.find(g => g.key === 'live')?.items.map(i => i.path)).toEqual([
+      '/live',
+    ])
   })
 
   it('选中态跟随路由与在线页标签', () => {

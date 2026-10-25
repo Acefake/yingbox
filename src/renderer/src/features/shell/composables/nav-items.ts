@@ -1,6 +1,7 @@
 /**
  * 侧栏与手机底部标签栏的导航项（纯函数，按当前路由与平台能力算出）。
- * 本地媒体与直播只在有本地片库的平台（桌面端）显示；其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
+ * 本地媒体与直播只在有本地片库的平台显示，网盘只在桌面端（有主进程）显示，两者互不依赖；
+ * 其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
  */
 import type { IconName } from '@/components/ui/icons'
 
@@ -34,8 +35,10 @@ export interface NavState {
   routeName: string | undefined
   /** 在线页的 ?tab=（无则为 undefined） */
   onlineTab: string | undefined
-  /** 平台是否有本地片库（桌面端） */
+  /** 平台是否有本地片库（桌面端，或网页端连着片库服务） */
   hasLocalLibrary: boolean
+  /** 能否用网盘（桌面端：登录与转存都在主进程） */
+  hasNetdisk: boolean
   /** 成人模式 */
   adultMode: boolean
   /** 追剧日历的未看新集数（侧栏角标） */
@@ -109,19 +112,22 @@ export function buildNavGroups(state: NavState): NavGroup[] {
       divider: true,
       items: local,
     })
+  const live: NavItem[] = []
   if (state.hasLocalLibrary)
-    groups.push({
-      key: 'live',
-      divider: true,
-      items: [
-        {
-          label: '直播',
-          icon: 'livePlay',
-          path: '/live',
-          active: state.routeName === 'Live',
-        },
-      ],
+    live.push({
+      label: '直播',
+      icon: 'livePlay',
+      path: '/live',
+      active: state.routeName === 'Live',
     })
+  if (state.hasNetdisk)
+    live.push({
+      label: '网盘',
+      icon: 'database',
+      path: '/netdisk',
+      active: state.routeName === 'Netdisk',
+    })
+  if (live.length) groups.push({ key: 'live', divider: true, items: live })
   if (state.adultMode)
     groups.push({
       key: 'adult',
