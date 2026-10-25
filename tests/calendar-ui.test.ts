@@ -64,13 +64,14 @@ describe('追剧日历界面', () => {
     expect(route?.meta?.title).toBe('追剧日历')
   })
 
-  it('卡片：UiPressable 整卡可点、16:9 图、状态文案；页面用 UiSegmented 切视图', () => {
-    const card = read('features/calendar/components/CalendarRow.vue')
-    expect(card).toContain('<UiPressable')
-    expect(card).toContain('aspect-ratio: 16 / 9')
-    expect(card).toContain('STATUS_LABEL[entry.status]')
-    expect(card).not.toMatch(/<button[\s>]/)
+  it('行：UiPressable 整行可点、小剧照、状态文案、无渐进模糊；同剧同日合并；页面用 UiSegmented 切视图', () => {
+    const row = read('features/calendar/components/CalendarRow.vue')
+    expect(row).toContain('<UiPressable')
+    expect(row).toContain('STATUS_LABEL[group.status]')
+    expect(row).not.toContain('yb-pblur')
+    expect(row).not.toMatch(/<button[\s>]/)
     const view = read('features/calendar/views/CalendarView.vue')
+    expect(view).toContain('groupShowsByDay')
     expect(view).toContain('<UiSegmented')
     expect(view).toContain('label="上一周"')
     expect(view).toContain('label="下一周"')

@@ -35,16 +35,18 @@ import {
   badgeCount,
   badgeRange,
   episodeStatus,
-  groupShowsByDay,
   libraryEntries,
   libraryEpisodeWatched,
   listGroups,
-  mergedCode,
   onlineEntries,
   parseRemarks,
   showKey,
   weekSummary,
 } from '../src/renderer/src/features/calendar/calendar-rules'
+import {
+  groupShowsByDay,
+  mergedCode,
+} from '../src/renderer/src/features/calendar/calendar-rows'
 
 const TODAY = '2026-10-24' // 周六
 
