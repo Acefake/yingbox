@@ -79,7 +79,12 @@ describe('迁移链', () => {
         expect.arrayContaining(['source', 'file_id', 'at_ms'])
       )
       expect(columns(db, 'visual_frames')).toEqual(
-        expect.arrayContaining(['file_id', 'item_id', 'signature', 'next_index'])
+        expect.arrayContaining([
+          'file_id',
+          'item_id',
+          'signature',
+          'next_index',
+        ])
       )
       db.close()
     }
