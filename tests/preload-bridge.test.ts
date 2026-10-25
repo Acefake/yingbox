@@ -186,6 +186,18 @@ const ADDED_API: Record<string, string[]> = {
   ],
   aiSubtitles: ['start', 'cancel', 'list', 'find', 'onChanged', 'offChanged'],
   recap: ['probe', 'prepare', 'cancel', 'save'],
+  autograb: [
+    'overview',
+    'setEnabled',
+    'setSeries',
+    'grab',
+    'skip',
+    'retry',
+    'runNow',
+    'resume',
+    'onChanged',
+    'offChanged',
+  ],
   pan115: [
     'search',
     'account',

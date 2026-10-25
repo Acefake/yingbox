@@ -8,6 +8,7 @@ import { ai } from './ai'
 import { aiSubtitles } from './ai-subtitles'
 import { app } from './app'
 import { assistant } from './assistant'
+import { autograb } from './autograb'
 import { av } from './av'
 import { capture } from './capture'
 import { danmaku } from './danmaku'
@@ -39,6 +40,7 @@ export const contract = {
   aiSubtitles,
   app,
   assistant,
+  autograb,
   av,
   capture,
   danmaku,

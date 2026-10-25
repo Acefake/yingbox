@@ -37,8 +37,14 @@ export interface Pan115Client {
   snap(ref: ShareRef, offset?: number): Promise<ShareSnap>
   /** 把分享的全部顶层条目存到文件夹 cid */
   receive(ref: ShareRef, cid: string): Promise<void>
+  /** 分享里某个文件夹（dirCid，空串 = 顶层）的一页条目（追更挑文件用） */
+  snapDir(ref: ShareRef, dirCid: string): Promise<ShareSnap>
+  /** 只把分享里的这些文件存到文件夹 cid（追更只存那一集） */
+  receiveFiles(ref: ShareRef, fileIds: string[], cid: string): Promise<void>
   /** 列文件夹 cid 下的子文件夹 */
   dirs(cid: string): Promise<Pan115DirListing>
+  /** 文件夹 cid 下第一页条目的名字（文件和文件夹；追更转存前查重用） */
+  names(cid: string): Promise<string[]>
 }
 
 /** 用一个会话创建客户端 */
@@ -68,7 +74,8 @@ export function create115Client(
   /** 一页快照；total 为 115 给的总数（没给时 null），rawLength 为本页原始条数（推进 offset 用） */
   async function snapPage(
     ref: ShareRef,
-    offset: number
+    offset: number,
+    dirCid = ''
   ): Promise<{
     title: string
     files: ShareFile[]
@@ -80,7 +87,7 @@ export function create115Client(
       receive_code: ref.receiveCode,
       offset: String(offset),
       limit: String(SNAP_PAGE),
-      cid: '',
+      cid: dirCid,
     })
     const data = obj((await request(`/share/snap?${query}`)).data)
     const list = Array.isArray(data.list) ? data.list : []
@@ -133,6 +140,33 @@ export function create115Client(
       if (rawLength < SNAP_PAGE || (total !== null && offset >= total)) break
     }
     if (!ids.length) throw new Pan115Error('分享里没有文件')
+    await receiveIds(ref, ids, cid)
+  }
+
+  async function snapDir(ref: ShareRef, dirCid: string): Promise<ShareSnap> {
+    const page = await snapPage(ref, 0, dirCid)
+    return {
+      title: page.title,
+      count: page.total ?? page.files.length,
+      files: page.files,
+    }
+  }
+
+  async function receiveFiles(
+    ref: ShareRef,
+    fileIds: string[],
+    cid: string
+  ): Promise<void> {
+    const ids = fileIds.filter(id => /^\d+$/.test(id))
+    if (!ids.length) throw new Pan115Error('没有要转存的文件')
+    await receiveIds(ref, ids, cid)
+  }
+
+  async function receiveIds(
+    ref: ShareRef,
+    ids: string[],
+    cid: string
+  ): Promise<void> {
     await request('/share/receive', {
       method: 'POST',
       headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
@@ -183,5 +217,19 @@ export function create115Client(
     return { cid, path, dirs: found, truncated }
   }
 
-  return { snap, receive, dirs }
+  async function names(cid: string): Promise<string[]> {
+    const query = new URLSearchParams({
+      aid: '1',
+      cid,
+      show_dir: '1',
+      offset: '0',
+      limit: String(DIR_PAGE),
+      format: 'json',
+    })
+    const json = await request(`/files?${query}`)
+    const data = Array.isArray(json.data) ? json.data : []
+    return data.map(raw => text(obj(raw).n ?? obj(raw).name)).filter(Boolean)
+  }
+
+  return { snap, receive, snapDir, receiveFiles, dirs, names }
 }

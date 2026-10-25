@@ -43,6 +43,7 @@ import { registerSectionLockIpc } from './section-lock'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
 import { registerPan115 } from './pan115'
+import { registerAutograb } from './autograb'
 import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
@@ -240,7 +241,9 @@ app.whenReady().then(async () => {
   // 前情提要 / 问剧情：之前各集字幕摘要与缓存（见 src/main/recap）
   registerRecap()
   // 网盘搜索（PanSou）+ 115 扫码登录与转存（见 src/main/pan115）
-  registerPan115()
+  const pan115Service = registerPan115()
+  // 追更：剧集新集播出后搜 115 分享、验过文件只转存那一集（见 src/main/autograb）
+  registerAutograb(libraryClient, pan115Service)
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
 

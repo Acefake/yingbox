@@ -14,14 +14,14 @@ import { pan115 } from '../../shared/contract/pan115'
 import { installBrowserNetworkGuard } from '../browser-fetch/network-guard'
 import { implement } from '../rpc'
 import { settingsStore } from '../settings'
-import { createPan115Service } from './service'
+import { type Pan115Service, createPan115Service } from './service'
 import { parseSession, serializeSession } from './session-codec'
 import { PAN115_PARTITION, createSessionTransport } from './session-transport'
 
 const SESSION_KEY = 'pan115.session'
 
-/** 注册 pan115 域（app ready、initSettings 之后调用一次） */
-export function registerPan115(): void {
+/** 注册 pan115 域（app ready、initSettings 之后调用一次）；返回服务供主进程内其他模块（追更）用 */
+export function registerPan115(): Pan115Service {
   const store = settingsStore()
   const partition = session.fromPartition(PAN115_PARTITION)
   installBrowserNetworkGuard(partition)
@@ -52,4 +52,5 @@ export function registerPan115(): void {
     receive: (_, url, password) => service.receive(url, password),
     dirs: (_, cid) => service.dirs(cid),
   })
+  return service
 }
