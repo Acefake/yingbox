@@ -180,7 +180,11 @@ export async function openMediaPlayer(
     }
   }
 
-  const notice = dvNotice(route, mpv, { engine, autoMpvForDv })
+  const notice = dvNotice(route, mpv, {
+    engine,
+    autoMpvForDv,
+    rebuild: typeof window !== 'undefined' && Boolean(window.api?.dolbyVision),
+  })
   if (notice === 'mpv-used') toast.info(DV_NOTICE_TEXT['mpv-used'])
   if (mpv === 'ok') return true
   if (notice === 'install-mpv') {

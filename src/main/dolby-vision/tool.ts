@@ -1,13 +1,10 @@
 /**
  * 杜比视界模块跑 ffmpeg / ffprobe 的一次性命令：异步、带超时（Vulkan 初始化在坏驱动上可能卡住），从不抛错。
- * stdout 与 stderr 分开收：ffprobe 的 JSON 只从 stdout 取，stderr 只用于日志。
+ * stdout 与 stderr 分开收：ffprobe 的 JSON 只从 stdout 取（probe.ts），stderr 只用于日志。
  */
 import { spawn } from 'node:child_process'
 
 import { killTree } from '../plugins/process'
-
-import { FFPROBE_ARGS, parseFfprobeJson } from './probe'
-import type { VideoHdrInfo } from '../../shared/dolby-vision'
 
 /** 跑命令时每路输出的上限：ffprobe JSON 与 ffmpeg 错误日志都远小于它 */
 const MAX_OUTPUT = 4 * 1024 * 1024
@@ -68,30 +65,3 @@ export const runWithTimeout: ToolRunner = (bin, args, timeoutMs) =>
     )
     child.once('close', code => finish(code ?? TOOL_SPAWN_FAILED))
   })
-
-/** ffprobe 读文件头的时限：本地盘通常几十毫秒，网络盘留足余量 */
-const PROBE_TIMEOUT_MS = 15_000
-
-/**
- * 用 ffprobe 识别一个视频文件的 HDR / 杜比视界（只读文件头，不解码）。
- * @returns 识别结果；ffprobe 正常跑完但没有视频流为 null；
- *   ffprobe 不在、超时、非零退出或输出不是完整 JSON 为 undefined（没探测成功，调用方不要缓存）
- */
-export async function probeVideoHdr(
-  file: string,
-  ffprobe: string,
-  run: ToolRunner = runWithTimeout
-): Promise<VideoHdrInfo | null | undefined> {
-  const { code, stdout } = await run(
-    ffprobe,
-    [...FFPROBE_ARGS, file],
-    PROBE_TIMEOUT_MS
-  )
-  if (code !== 0) return undefined
-  try {
-    JSON.parse(stdout)
-  } catch {
-    return undefined
-  }
-  return parseFfprobeJson(stdout)
-}

@@ -1,8 +1,8 @@
 /**
  * 播放会话里的杜比视界：本地文件开播前决定直接播还是交给主进程 libplacebo 重建成 HLS。
  *
- * - 媒体库已存动态范围的文件（PlaylistEntry.video）直接按它决定，不再探测；不是 P5 的立即直接播；
- * - 不知道的文件才请主进程 ffprobe 识别，超过 DV_PROBE_FEEDBACK_MS 才显示「正在识别视频…」；
+ * - 媒体库已存动态范围的文件（PlaylistEntry.video）直接按 needsDvColorFix 决定，不再探测；不是 P5 的立即直接播；
+ * - 不知道的文件才请主进程 ffprobe 识别（与媒体库同一份解析），超过 DV_PROBE_FEEDBACK_MS 才显示「正在识别视频…」；
  * - 重建做不了（开播前）或重建会话播放中出错（recover）：按 dvFallback 试 mpv，否则直接播并提示色彩可能不对；
  * - 每次 prepare / release 换一代：关闭弹窗或换集后才返回的会话立即停掉，不留后台 ffmpeg；
  * - 拿到的本机流前缀登记给桌面 HLS 加载器直连（allowLocalStream），会话结束撤销。
@@ -27,12 +27,13 @@ import {
   type DisplayCaps,
   chooseOutput,
   dvFallback,
-  knownNeedsRebuild,
   localStreamPrefix,
-  needsRebuild,
   planFromStart,
 } from './dv-rules'
-import type { VideoProbe } from '../../../../../shared/video-range'
+import {
+  type VideoProbe,
+  needsDvColorFix,
+} from '../../../../../shared/video-range'
 
 /** HEVC Main10（Level 5.1）的 MSE 类型串：HDR10 输出用它 */
 const HEVC_MAIN10 = 'video/mp4; codecs="hvc1.2.4.L153.B0"'
@@ -162,16 +163,15 @@ export function useDolbyVision(ui: DolbyVisionUi): DolbyVisionControl {
     }
     forceDirect = ''
     const current = (): boolean => gen === generation && request.isCurrent()
-    let rebuild = knownNeedsRebuild(request.known)
-    if (rebuild === undefined) {
+    let known = request.known
+    if (!known) {
       const timer = window.setTimeout(() => {
         if (current()) status(DV_PROBING_TEXT)
       }, DV_PROBE_FEEDBACK_MS)
-      const info = await dv.probe(request.filePath).catch(() => null)
+      known = await dv.probe(request.filePath).catch(() => null)
       window.clearTimeout(timer)
-      rebuild = needsRebuild(info)
     }
-    if (!rebuild || !current()) return direct
+    if (!needsDvColorFix(known) || !current()) return direct
     status(DV_PREPARING_TEXT)
     const result = await dv
       .start({

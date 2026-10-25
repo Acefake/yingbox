@@ -13,13 +13,20 @@ ffmpeg 的 libplacebo 滤镜能按 RPU 重建色彩（`apply_dolbyvision`），�
 
 **主进程按需转码，本机 HTTP 服务交给内置播放器（`src/main/dolby-vision/`，IPC 域 `dolbyVision`：probe / start / stop）**
 
-- 播放会话（`features/player/dolby-vision/`）开播本地文件前决定直接播还是重建：媒体库已存动态范围（`PlaylistEntry.video`）时直接按它决定，不是 P5 的立即播；不知道的才请主进程 ffprobe 识别（超过 300ms 才显示「正在识别视频…」）。
+**一条决策链，一个判定**：「直接放会偏色」只由 `shared/video-range.ts` 的 `needsDvColorFix` 判定（P5，或基础层兼容号为 0 的其它 profile），动态范围只由同文件的 `parseFfprobeVideo` 解析，媒体库、打开播放器、重建三处共用。
+
+1. 打开播放器时（`player/utils/playback-route.ts`，ADR-0016）：「杜比视界 P5 自动用 mpv」开着且有 mpv → 先试 mpv；
+2. 进了内置播放器：桌面端由本模块重建；
+3. 重建做不了（开播前或播放中出错）：设置开着再试 mpv，否则直接播并在播放区提示颜色可能不正确；
+4. 网页端没有重建：直接播，打开时提示一次建议安装 mpv。桌面端打开时不再预先建议装 mpv，由第 3 步提示。
+
+- 播放会话（`features/player/dolby-vision/`）开播本地文件前决定直接播还是重建：媒体库已存动态范围（`PlaylistEntry.video`）时直接按它决定，不是 P5 的立即播；不知道的才请主进程 ffprobe 识别（`dolbyVision.probe` 返回与媒体库同形状的 `VideoProbe`；超过 300ms 才显示「正在识别视频…」）。主进程开播时再读一次片长与宽高（`probe.ts`，`-show_streams -show_format`），解析仍走 `shared/video-range`。
 - 重建：libplacebo 输出 HDR10（HDR 显示器且能解 HEVC Main10）或色调映射到 SDR（H.264），编成 4 秒一段的 fMP4 HLS；播放列表一开始就是完整 VOD，拖动由服务端按分片请求决定等待还是从新位置重启编码。每轮编码最多 45 段（约 3 分钟，`-t`）就退出，播放追近前沿再续编，暂停或切走后不会编到片尾。
 - 服务只绑 `127.0.0.1`，路径带 16 字节随机令牌，只回答 `index.m3u8` / `init.mp4` / `segNNNNN.m4s`；桌面 HLS 加载器对登记过的会话前缀直连（公网代理按 SSRF 规则拒绝回环地址），会话结束撤销登记。
 - 等分片最多 8 秒（短于 hls.js 首字节超时 10 秒），没等到回 503 让播放器按退避重试；编码器重启期间正在等的请求继续等。
 - 同一时间只有一个会话：开 / 停串行执行，并发开播只有最后到达的留下会话；渲染层每次准备 / 释放换一代，关闭弹窗或换集后才返回的会话立即停掉。分片目录在系统临时目录 `yingbox-dolby-vision/`，会话结束删除，启动时清扫崩溃留下的旧目录。
 - 能力探测（ffmpeg 列表、1 帧 Vulkan、候选编码器并行 1 帧试跑，只探这次要的输出）按 ffmpeg 路径缓存确定的结论；超时与运行失败不缓存。识别结果只缓存 ffprobe 成功跑完的。
-- 重建做不了（开播前或播放中出错）时：「杜比视界 P5 自动用 mpv」开着且有 mpv 就转 mpv，否则直接播并在播放区提示颜色可能不正确。设置 `player.applyDolbyVision`（默认开）关掉 RPU 动态映射。
+- 设置 `player.applyDolbyVision`（默认开）关掉 RPU 动态映射。
 
 ## 后果
 
@@ -31,5 +38,6 @@ ffmpeg 的 libplacebo 滤镜能按 RPU 重建色彩（`apply_dolbyvision`），�
 ## 否决方案
 
 - 媒体库另存一份 DOVI 配置记录（本 PR 最初的 `files.video_hdr` 迁移与 `video-hdr` 任务）：与 ADR-0016 的 `video_range` / `dv_profile` / `dv_compat` 重复，重建要的片长与尺寸开播时再读一次即可。
+- 主进程另写一套 ffprobe 解析与「要不要重建」判定（本 PR 最初的 `VideoHdrInfo` / `needsRpuRebuild`）：与 `shared/video-range` 重复，两套判定的边界（P5 兼容号缺失、其它 profile 兼容号为 0）不一致时，同一个文件会出现「打开时转 mpv、进播放器却不重建」。
 - 开播前一次性转完整个文件：首帧要等几十分钟，磁盘占用是整部片。
 - 只靠 mpv、不做应用内重建：设置关着、mpv 起不来、播放列表里起始集以外的集仍会偏色。
