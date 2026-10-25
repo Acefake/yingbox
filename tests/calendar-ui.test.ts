@@ -16,7 +16,7 @@ const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
 
 const SFCS = [
   'features/calendar/views/CalendarView.vue',
-  'features/calendar/components/CalendarCard.vue',
+  'features/calendar/components/CalendarRow.vue',
   'features/shell/components/AppSidebar.vue',
 ]
 
@@ -65,7 +65,7 @@ describe('追剧日历界面', () => {
   })
 
   it('卡片：UiPressable 整卡可点、16:9 图、状态文案；页面用 UiSegmented 切视图', () => {
-    const card = read('features/calendar/components/CalendarCard.vue')
+    const card = read('features/calendar/components/CalendarRow.vue')
     expect(card).toContain('<UiPressable')
     expect(card).toContain('aspect-ratio: 16 / 9')
     expect(card).toContain('STATUS_LABEL[entry.status]')
@@ -80,7 +80,7 @@ describe('追剧日历界面', () => {
   })
 
   it('追更小标记：卡片外另一个按钮（不嵌套），点了展开追更面板并定位', () => {
-    const card = read('features/calendar/components/CalendarCard.vue')
+    const card = read('features/calendar/components/CalendarRow.vue')
     const pressableEnd = card.indexOf('</UiPressable>')
     expect(card.indexOf('<AutograbMarkChip')).toBeGreaterThan(pressableEnd)
     expect(card).toContain("from '@/features/autograb'")

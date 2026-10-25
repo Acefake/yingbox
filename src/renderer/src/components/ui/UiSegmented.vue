@@ -25,7 +25,8 @@
 
 <script setup lang="ts" generic="T extends string">
 /**
- * 分段控件：页面内切换视图（Tab）的唯一样式。
+ * 分段控件：页面内切换视图（Tab）的唯一样式。胶囊形，外框高度取控件高度令牌（md 36 / sm 28），
+ * 与同一行的 UiButton、筛选胶囊 UiChip 对齐。
  * 选项只有图标时，title 作为悬停提示和无障碍名称。
  */
 import type { IconName } from './icons'
@@ -56,9 +57,10 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
 .ui-segmented {
   display: inline-flex;
   gap: var(--space-0_5);
+  flex: none;
   padding: var(--space-0_5);
-  border-radius: var(--radius-md);
-  background: var(--bg-glass);
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-tertiary);
 }
 .ui-segmented-item {
   display: inline-flex;
@@ -67,9 +69,9 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
   gap: var(--space-1);
   min-width: 32px;
   height: calc(var(--control-height) - 4px);
-  padding: 0 var(--space-3);
+  padding: 0 var(--space-4);
   border: 0;
-  border-radius: var(--radius-sm);
+  border-radius: var(--radius-full);
   background: transparent;
   color: var(--text-secondary);
   font: inherit;
@@ -80,6 +82,7 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
 }
 .ui-segmented.is-sm .ui-segmented-item {
   height: calc(var(--control-height-sm) - 4px);
+  padding: 0 var(--space-3);
   font-size: var(--text-xs);
 }
 .ui-segmented-item:hover {

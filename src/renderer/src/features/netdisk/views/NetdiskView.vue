@@ -7,7 +7,6 @@
     >
       <template #actions>
         <UiButton
-          class="netdisk-head-pill yb-glass"
           icon="settings"
           label="网盘设置"
           :disabled="!available"
@@ -44,6 +43,7 @@
         <!-- UiButton 固定 type="button"：点击只走 @click，回车走表单 submit，不会一次搜两遍 -->
         <UiButton
           class="netdisk-search-go"
+          variant="primary"
           size="lg"
           label="搜索"
           :loading="loading"
@@ -145,17 +145,13 @@ function togglePreview(item: NetdiskItem): void {
   max-width: calc(1136px + 2 * var(--content-padding-x));
   padding: var(--content-padding-y) var(--content-padding-x);
 }
-.netdisk-head-pill {
-  min-width: 148px;
-  border-radius: var(--radius-full);
-}
 .netdisk-search {
   display: flex;
   gap: var(--space-3);
 }
 .netdisk-search-input {
   flex: 1;
-  height: 48px;
+  height: var(--control-height-lg);
   padding: 0 var(--space-4) 0 var(--space-5);
   border-radius: var(--radius-full);
   background: var(--bg-fill-tertiary);
@@ -163,10 +159,6 @@ function togglePreview(item: NetdiskItem): void {
 }
 .netdisk-search-go {
   flex: none;
-  padding: 0 var(--space-6_5);
-  border-radius: var(--radius-full);
-  background: var(--text-primary);
-  color: var(--bg-content);
 }
 .netdisk-results {
   margin: 0;

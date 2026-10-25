@@ -35,9 +35,11 @@ import {
   badgeCount,
   badgeRange,
   episodeStatus,
+  groupShowsByDay,
   libraryEntries,
   libraryEpisodeWatched,
   listGroups,
+  mergedCode,
   onlineEntries,
   parseRemarks,
   showKey,
@@ -546,5 +548,67 @@ describe('RPC calendar.episodes', () => {
       episodes: [],
     })
     db.close()
+  })
+})
+
+describe('周视图同剧同日合并', () => {
+  const ep = (
+    seriesId: number,
+    episode: number,
+    patch: Partial<CalendarEntry> = {}
+  ): CalendarEntry => ({
+    id: `lib:${seriesId}:1:${episode}`,
+    source: 'library',
+    title: `剧${seriesId}`,
+    code: `S01E${String(episode).padStart(2, '0')}`,
+    episodeTitle: `第 ${episode} 集`,
+    airDate: TODAY,
+    image: null,
+    imageKind: 'remote',
+    status: 'unwatched',
+    newCount: 1,
+    library: { seriesId, season: 1, episode, playable: true },
+    ...patch,
+  })
+
+  it('同一部剧同一天合并成一行，集号写成区间，保持剧出现的先后', () => {
+    const groups = groupShowsByDay([
+      ep(1, 10),
+      ep(2, 3, { image: 'b.jpg' }),
+      ep(1, 9, { image: 'a.jpg' }),
+    ])
+    expect(groups.map(g => g.title)).toEqual(['剧1', '剧2'])
+    expect(groups[0].code).toBe('S01E09–E10')
+    expect(groups[0].entries.map(e => e.code)).toEqual(['S01E09', 'S01E10'])
+    expect(groups[0].image).toBe('a.jpg')
+    expect(groups[0].episodeTitle).toBeNull()
+    expect(groups[1].code).toBe('S01E03')
+    expect(groups[1].episodeTitle).toBe('第 3 集')
+  })
+
+  it('集号不连续或跨季时写「第一集 等 N 集」', () => {
+    expect(mergedCode([ep(1, 9), ep(1, 12)])).toBe('S01E09 等 2 集')
+    const s2 = ep(1, 1, {
+      code: 'S02E01',
+      library: { seriesId: 1, season: 2, episode: 1, playable: true },
+    })
+    expect(mergedCode([ep(1, 9), s2])).toBe('S01E09 等 2 集')
+  })
+
+  it('状态与点开的那一集：有未看就未看并打开第一集未看；全待播才待播', () => {
+    const [g] = groupShowsByDay([ep(1, 9, { status: 'watched' }), ep(1, 10)])
+    expect(g.status).toBe('unwatched')
+    expect(g.primary.code).toBe('S01E10')
+    const [up] = groupShowsByDay([
+      ep(1, 9, { status: 'upcoming' }),
+      ep(1, 10, { status: 'upcoming' }),
+    ])
+    expect(up.status).toBe('upcoming')
+    expect(up.primary.code).toBe('S01E09')
+    const [seen] = groupShowsByDay([
+      ep(1, 9, { status: 'watched' }),
+      ep(1, 10, { status: 'upcoming' }),
+    ])
+    expect(seen.status).toBe('watched')
   })
 })
