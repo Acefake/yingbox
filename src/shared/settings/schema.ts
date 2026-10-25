@@ -89,6 +89,16 @@ function absolutePath(): ValueSpec<string> {
   }
 }
 
+/** 数字串或空串（空 = 跟随另一项设置） */
+function optionalDigits(): ValueSpec<string> {
+  return {
+    kind: 'value',
+    default: '',
+    parse: raw =>
+      typeof raw === 'string' && /^\d{0,32}$/.test(raw) ? raw : undefined,
+  }
+}
+
 /** 只含数字的 id（如 115 文件夹 cid） */
 function digits(fallback: string): ValueSpec<string> {
   return {
@@ -211,6 +221,10 @@ export const settingsSchema = {
   'pan115.targetCid': digits('0'),
   /** 目标文件夹的显示名（只用于设置页展示） */
   'pan115.targetName': text('', 500),
+  /** 助手转存目标文件夹 cid（库外发现转存电影用）；空串 = 跟随上面的转存目标 */
+  'pan115.movieCid': optionalDigits(),
+  /** 助手转存目标文件夹的显示名 */
+  'pan115.movieName': text('', 500),
   /** 115 扫码登录会话（JSON：Cookie + 账号 id / 名），只有主进程读 */
   'pan115.session': secret(),
 

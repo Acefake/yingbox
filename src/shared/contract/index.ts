@@ -13,6 +13,7 @@ import { autograbMovies, autograbUpgrade } from './autograb-upgrade'
 import { av } from './av'
 import { capture } from './capture'
 import { danmaku } from './danmaku'
+import { discover } from './discover'
 import type { ApiOf } from './define'
 import { dialog } from './dialog'
 import { dolbyVision } from './dolby-vision'
@@ -50,6 +51,7 @@ export const contract = {
   capture,
   danmaku,
   dialog,
+  discover,
   dolbyVision,
   download,
   introDetect,
