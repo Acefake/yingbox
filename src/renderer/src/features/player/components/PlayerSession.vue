@@ -7,7 +7,7 @@
       :poster="poster"
       :start-at="startAt"
       :danmaku-target="danmakuTarget"
-      title=""
+      :title="payload.title"
       :closable="false"
       :show-footer="false"
       :ai-private="payload.private === true"

@@ -40,9 +40,6 @@
           </span>
         </template>
       </UiListRow>
-      <p v-if="!searching && hits.length === 0 && message" class="usp-empty">
-        无结果
-      </p>
     </div>
   </div>
 </template>
@@ -161,12 +158,5 @@ const query = defineModel<string>('query', { required: true })
 .usp-item-meta .app-icon {
   width: 11px;
   height: 11px;
-}
-
-.usp-empty {
-  margin: var(--space-2) var(--space-1);
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-  text-align: center;
 }
 </style>
