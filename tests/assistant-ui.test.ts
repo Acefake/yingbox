@@ -1,11 +1,11 @@
 // @vitest-environment jsdom
 /**
- * AI 助手入口与侧栏的挂载：openAssistant（侧栏 sparkle 入口）打开、Cmd/Ctrl+K 与全局快捷键事件唤起、
+ * AI 助手入口与侧栏的挂载：openAssistant（侧栏 sparkle 入口）打开、Cmd/Ctrl+Shift+K 与全局快捷键事件唤起、
  * Esc / Esc 键帽 / 点遮罩收起、未配置 AI 时显示「去设置 AI」；右侧玻璃侧栏（普通页面模态 + 遮罩，
  * 播放器前台时没有遮罩、整层不拦点击、侧栏不做模态）；对话流（你说的话气泡、上一轮回答归档）；
  * 没有光球与边缘光圈；普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的副标题与占位文字（不换色调）；
  * 私密模式切换或收起时清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到打开前的元素、
- * 模态面板的焦点陷阱、按住 Cmd/Ctrl+K 的自动重复不算。AI、播放器、媒体库换成替身。
+ * 模态面板的焦点陷阱、按住 Cmd/Ctrl+Shift+K 的自动重复不算。AI、播放器、媒体库换成替身。
  */
 import {
   afterEach,
@@ -64,10 +64,7 @@ vi.mock('@/features/player', async () => {
   }
 })
 
-vi.mock('@/features/library', () => ({
-  suggestTonight: vi.fn(),
-  playTonightPick: vi.fn(),
-}))
+vi.mock('@/features/library', () => ({}))
 
 vi.mock('@/features/settings', () => ({
   getSetting: (key: string) =>
@@ -254,12 +251,12 @@ describe('AssistantLauncher', () => {
     expect(overlay()).toBeNull()
   })
 
-  it('Ctrl+K 切换；全局快捷键事件（summon）打开', async () => {
+  it('Ctrl+Shift+K 切换；全局快捷键事件（summon）打开', async () => {
     await mount()
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await settle()
     expect(overlay()).not.toBeNull()
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await settle(100)
     expect(overlay()).toBeNull()
     fakes.summon!()
@@ -275,7 +272,7 @@ describe('AssistantLauncher', () => {
     const input = document.querySelector(
       '.assistant-input input'
     ) as HTMLInputElement
-    input.value = '今晚看什么'
+    input.value = '找一部科幻电影'
     input.dispatchEvent(new Event('input'))
     await nextTick()
     input.dispatchEvent(
@@ -283,7 +280,7 @@ describe('AssistantLauncher', () => {
     )
     await settle(50)
     expect(document.querySelector('.assistant-bubble')?.textContent).toContain(
-      '今晚看什么'
+      '找一部科幻电影'
     )
     expect(document.querySelector('.assistant-greeting')).toBeNull()
     expect(document.querySelector('.assistant-setup')?.textContent).toContain(
@@ -339,7 +336,7 @@ describe('AssistantLauncher', () => {
 
   it('私密模式：副标题「私密 · 仅本地模型 · 无痕」、私密技能的建议与占位文字', async () => {
     await mount('/secret')
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-private')).toBe('true')
     expect(
@@ -357,7 +354,7 @@ describe('AssistantLauncher', () => {
 
   it('离开私密分区：收起浮层并清空对话上下文', async () => {
     await mount('/secret')
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     recordAssistantTurn('问', '答', true)
     await router.push('/')
@@ -369,7 +366,7 @@ describe('AssistantLauncher', () => {
   it('内置播放器在前台：同一个侧栏，没有遮罩、整层不拦点击、侧栏不做模态', async () => {
     fakes.player = { id: 1, payload: {}, minimized: false }
     await mount()
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-layout')).toBe('player')
     expect(document.querySelector('.assistant-drawer')).not.toBeNull()
@@ -392,7 +389,7 @@ describe('AssistantLauncher', () => {
 
   it('私密模式下收起侧栏：清空对话上下文（关掉就不留记录）', async () => {
     await mount('/secret')
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     recordAssistantTurn('问', '答', true)
     expect(assistantSessionSize()).toBe(1)
@@ -433,11 +430,11 @@ describe('AssistantLauncher', () => {
     expect(document.activeElement).toBe(trigger)
   })
 
-  it('按住 Cmd/Ctrl+K 的自动重复不反复开合', async () => {
+  it('按住 Cmd/Ctrl+Shift+K 的自动重复不反复开合', async () => {
     await mount()
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await settle()
-    key({ key: 'k', ctrlKey: true, repeat: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true, repeat: true })
     await settle(100)
     expect(overlay()).not.toBeNull()
   })
@@ -446,7 +443,7 @@ describe('AssistantLauncher', () => {
     const outside = document.createElement('input')
     document.body.appendChild(outside)
     await mount()
-    key({ key: 'k', ctrlKey: true })
+    key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     await settle(50)
     outside.focus()

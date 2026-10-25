@@ -19,7 +19,11 @@ export function stageOf(status: VisualStatus | null): VisualStage {
   if (!status) return 'setup'
   if (!status.runtime) return 'unavailable'
   if (status.indexing) return 'working'
-  if (status.model !== 'ready' || status.indexed === 0) return 'setup'
+  if (
+    status.model !== 'ready' ||
+    (status.indexed === 0 && !status.frames?.frames)
+  )
+    return 'setup'
   return 'ready'
 }
 
