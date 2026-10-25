@@ -22,6 +22,12 @@
         <UiButton icon="refresh" label="重试" size="sm" @click="retry" />
       </StatusState>
       <StatusState v-else icon="livePlay" title="选择一个频道开始观看" />
+      <span
+        v-if="channel && src && !failed"
+        class="live-stage-tag yb-glass is-media"
+        aria-hidden="true"
+        ><i />直播</span
+      >
     </div>
 
     <div v-if="channel" class="live-stage-info">
@@ -29,13 +35,15 @@
         <h2 class="live-stage-name">{{ channel.name }}</h2>
         <p class="live-stage-now">{{ nowText }}</p>
       </div>
-      <UiIconButton
-        icon="star"
-        :filled="favorite"
-        :active="favorite"
-        :label="favorite ? '取消收藏' : '收藏频道'"
+      <UiButton
+        class="live-stage-fav"
+        :class="{ 'is-on': favorite }"
+        :aria-pressed="favorite"
         @click="emit('toggle-favorite', channel.id)"
-      />
+      >
+        <UiIcon name="star" size="sm" :filled="favorite" />
+        {{ favorite ? '已收藏' : '收藏' }}
+      </UiButton>
     </div>
 
     <div
@@ -65,7 +73,7 @@
 
 <script setup lang="ts">
 /**
- * 直播播放区：内嵌统一播放器（HLS）+ 频道信息 + 线路切换 + 今日节目单。
+ * 直播播放区：圆角画面（内嵌统一播放器 HLS，右上角玻璃「直播」标）+ 频道信息与收藏 + 线路切换 + 今日节目单卡片。
  * 当前线路报错或 20 秒内没开始播放，自动切到下一条线路；全部失败后显示重试。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -73,7 +81,7 @@ import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import { toast } from '@/components/ui/toast'
 import { UnifiedVideoPlayer } from '@/features/player'
 
@@ -184,6 +192,8 @@ onBeforeUnmount(clearStartTimer)
 
 <style scoped>
 .live-stage {
+  /* 播放区按这块的高度限宽：尺寸查询容器（本组件是 grid 行里拉伸的格子，高度由外层给定） */
+  container-type: size;
   display: flex;
   flex-direction: column;
   min-width: 0;
@@ -194,10 +204,13 @@ onBeforeUnmount(clearStartTimer)
 .live-stage-player {
   position: relative;
   flex: none;
+  align-self: flex-start;
+  /* 宽度取「整行」与「58% 高度对应的 16:9 宽度」中较小者，矮窗口里整体缩小而不是被截成宽扁框 */
+  width: min(100%, 58cqh * 16 / 9);
   aspect-ratio: 16 / 9;
   overflow: hidden;
-  border-radius: var(--radius-lg);
-  background: var(--media-bg);
+  border-radius: var(--radius-xl);
+  background: var(--bg-fill-tertiary);
   color: var(--media-text-secondary);
 }
 
@@ -206,10 +219,34 @@ onBeforeUnmount(clearStartTimer)
   min-height: 0;
 }
 
+/* 右上角：左上角留给播放器自己的提示 */
+.live-stage-tag {
+  position: absolute;
+  top: var(--space-4);
+  right: var(--space-4);
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  height: 26px;
+  padding: 0 var(--space-2_5);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+  pointer-events: none;
+}
+
+.live-stage-tag i {
+  width: 7px;
+  height: 7px;
+  border-radius: 50%;
+  background: var(--danger);
+}
+
 .live-stage-info {
   display: flex;
   align-items: center;
   gap: var(--space-3);
+  padding: 0 var(--space-1);
 }
 
 .live-stage-text {
@@ -219,12 +256,13 @@ onBeforeUnmount(clearStartTimer)
 
 .live-stage-name {
   margin: 0;
-  font-size: var(--text-lg);
+  font-size: var(--text-xl);
   font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
 }
 
 .live-stage-now {
-  margin: var(--space-1) 0 0;
+  margin: var(--space-0_5) 0 0;
   overflow: hidden;
   color: var(--text-secondary);
   font-size: var(--text-sm);
@@ -232,10 +270,27 @@ onBeforeUnmount(clearStartTimer)
   white-space: nowrap;
 }
 
+.live-stage-fav {
+  flex: none;
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-tertiary);
+}
+
+.live-stage-fav :deep(span) {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+}
+
+.live-stage-fav.is-on .app-icon {
+  color: var(--rating);
+}
+
 .live-stage-lines {
   display: flex;
   flex-wrap: wrap;
   gap: var(--space-2);
+  padding: 0 var(--space-1);
 }
 
 .live-stage-schedule {
