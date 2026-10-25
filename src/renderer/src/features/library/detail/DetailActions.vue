@@ -8,7 +8,8 @@
       class="lib-actions-slot"
     >
       <UiButton
-        class="lib-actions-button yb-glass"
+        class="lib-actions-button"
+        variant="glass"
         size="sm"
         :icon="item.icon"
         :label="item.label"
@@ -138,15 +139,6 @@ function choose(item: ActionItem): void {
 }
 .lib-actions-slot {
   display: inline-flex;
-}
-/* 按钮基类自带底色，玻璃底色在这里显式写回（见 ui.css .yb-glass 的说明） */
-.lib-actions-button.ui-button {
-  border-radius: var(--radius-full);
-  background: var(--glass-bg);
-  color: var(--text-primary);
-}
-.lib-actions-button.ui-button:hover:not(:disabled) {
-  background: var(--glass-bg-hover);
 }
 .lib-actions-button.ui-button:disabled {
   color: var(--text-quaternary);
