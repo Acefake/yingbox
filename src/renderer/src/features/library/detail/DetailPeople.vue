@@ -1,9 +1,13 @@
 <template>
   <!-- 演职员：横向滑动 -->
   <section class="lib-section">
-    <h2 class="lib-section-title">演职员</h2>
-    <ul class="lib-cast custom-scrollbar">
-      <li v-for="person in people" :key="person.key" class="lib-person">
+    <UiShelf title="演职员" class="lib-cast" list>
+      <div
+        v-for="person in people"
+        :key="person.key"
+        class="lib-person"
+        role="listitem"
+      >
         <component
           :is="person.actorId ? UiPressable : 'div'"
           class="lib-person-target"
@@ -24,17 +28,18 @@
           <div class="lib-person-name">{{ person.name }}</div>
           <div class="lib-person-role">{{ person.role }}</div>
         </component>
-      </li>
-    </ul>
+      </div>
+    </UiShelf>
   </section>
 </template>
 
 <script setup lang="ts">
 /**
- * 详情里的演职员区块：圆形头像（没有时显示名字首字）、姓名、职务 / 角色，横向滑动。
+ * 详情里的演职员区块（效果图 D-3）：UiShelf 横排圆形头像（一屏约 8 位，没有头像时显示名字首字）、姓名、职务 / 角色。
  * 番号库条目的演员在演员库里有记录时可点，打开演员详情。
  */
 import UiPressable from '@/components/ui/UiPressable.vue'
+import UiShelf from '@/components/ui/UiShelf.vue'
 
 import type { PersonCard } from './detail-rules'
 
@@ -44,20 +49,11 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
 
 <style scoped src="./detail-section.css"></style>
 <style scoped>
-.lib-cast {
-  display: flex;
-  gap: var(--space-5);
-  margin: 0 calc(var(--content-padding-x) * -1);
-  padding: 0 var(--content-padding-x) var(--space-3);
-  overflow-x: auto;
-  list-style: none;
-  scroll-padding-inline: var(--content-padding-x);
-  scroll-snap-type: x proximity;
+.lib-cast :deep(.yb-shelf-track) {
+  --shelf-cols: 8;
 }
 .lib-person {
-  flex: 0 0 104px;
   text-align: center;
-  scroll-snap-align: start;
 }
 .lib-person-target {
   display: block;
@@ -73,36 +69,53 @@ const emit = defineEmits<{ 'open-actor': [actorId: number] }>()
   color: var(--accent);
 }
 .lib-person-photo {
+  position: relative;
   display: grid;
-  transition: transform var(--duration-normal) var(--ease-out);
-  width: 104px;
-  height: 104px;
-  margin-bottom: var(--space-3);
+  width: 100%;
+  max-width: 140px;
+  aspect-ratio: 1;
+  margin: 0 auto var(--space-3);
   overflow: hidden;
   place-items: center;
-  border-radius: var(--radius-full);
+  border-radius: 50%;
   background: var(--bg-fill-secondary);
   color: var(--text-tertiary);
-  font-size: var(--text-xl);
+  font-size: var(--text-2xl);
+  transition: transform var(--duration-normal) var(--ease-out);
+}
+/* 0.5px 发丝边 */
+.lib-person-photo::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--border-glass-light);
+  content: '';
 }
 .lib-person-photo img {
   width: 100%;
   height: 100%;
   object-fit: cover;
+  object-position: center 18%;
 }
 .lib-person-name {
   overflow: hidden;
   color: var(--text-primary);
-  font-size: var(--text-sm);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-medium);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 .lib-person-role {
   margin-top: var(--space-0_5);
   overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
   text-overflow: ellipsis;
   white-space: nowrap;
+}
+@container (max-width: 820px) {
+  .lib-cast :deep(.yb-shelf-track) {
+    --shelf-cols: 5.5;
+  }
 }
 </style>

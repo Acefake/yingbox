@@ -8,7 +8,7 @@
   top: var(--shell-inset);
   bottom: var(--shell-inset);
   left: var(--shell-inset);
-  z-index: var(--z-float);
+  z-index: calc(var(--z-float) + 1); /* 盖在铺满窗口的页面层（条目详情）之上 */
   display: flex;
   flex-direction: column;
   width: var(--sidebar-width);
@@ -33,9 +33,19 @@
   color: var(--text-primary);
 }
 .app-sidebar .brand-mark {
+  display: grid;
   flex: 0 0 auto;
+  place-items: center;
   width: 28px;
   height: 28px;
+  padding-left: 1px;
+  border-radius: var(--radius-md);
+  background: var(--action-bg);
+  color: var(--action-text);
+}
+.app-sidebar .brand-mark .app-icon {
+  width: 13px;
+  height: 13px;
 }
 .app-sidebar .brand-name {
   font-size: var(--text-lg);
@@ -77,7 +87,7 @@
 
 .app-sidebar .sidebar-nav {
   display: flex;
-  flex: 1;
+  flex: 0 1 auto;
   flex-direction: column;
   gap: var(--space-0_5);
   min-height: 0;
@@ -158,12 +168,12 @@
   line-height: 16px;
 }
 
+/* 页脚紧跟导航（分隔线在页脚里）；收起成图标列时沉到底部 */
 .app-sidebar .sidebar-footer {
   display: flex;
   flex: 0 0 auto;
   flex-direction: column;
   gap: var(--space-0_5);
-  margin-top: var(--space-3);
 }
 .app-sidebar .footer-queue-icon,
 .app-sidebar .footer-incognito-icon {
@@ -191,17 +201,6 @@
   border-radius: var(--radius-full);
   background: var(--accent);
 }
-.app-sidebar .footer-pulse {
-  position: absolute;
-  top: calc(var(--space-0_5) * -1);
-  right: calc(var(--space-0_5) * -1);
-  width: 6px;
-  height: 6px;
-  border-radius: var(--radius-full);
-  background: var(--accent);
-  box-shadow: 0 0 0 0 color-mix(in srgb, var(--accent) 55%, transparent);
-  animation: queue-pulse var(--duration-pulse) ease-out infinite;
-}
 /* 识别进度环：conic-gradient 画出已完成的弧，中间挖空成环 */
 .app-sidebar .footer-ring {
   position: absolute;
@@ -217,12 +216,6 @@
   /* 遮罩只看不透明度：外圈保留、中间 2.5px 挖空 */
   mask: radial-gradient(circle, transparent 2.5px, var(--accent) 3px);
   transition: background var(--duration-normal) var(--ease-out);
-}
-@keyframes queue-pulse {
-  70%,
-  100% {
-    box-shadow: 0 0 0 6px transparent;
-  }
 }
 
 /* ── 收起：64px 图标列，品牌只留标志与展开钮，搜索与助手入口一组 ── */
@@ -247,6 +240,10 @@
   width: 32px;
   height: 32px;
 }
+.app-sidebar:where(.is-collapsed) .brand-mark .app-icon {
+  width: 15px;
+  height: 15px;
+}
 .app-sidebar:where(.is-collapsed) .sidebar-toggle {
   margin-left: 0;
   border-radius: 50%;
@@ -264,6 +261,7 @@
   height: 44px;
 }
 .app-sidebar:where(.is-collapsed) .sidebar-nav {
+  flex: 1;
   align-items: center;
   width: 100%;
   padding-top: var(--space-2);
@@ -280,6 +278,10 @@
 }
 .app-sidebar:where(.is-collapsed) .sidebar-footer {
   align-items: center;
+  margin-top: var(--space-3);
+}
+.app-sidebar:where(.is-collapsed) .sidebar-footer > .sidebar-divider {
+  display: none;
 }
 .app-sidebar:where(.is-phone) .sidebar-toggle {
   display: none;

@@ -109,28 +109,28 @@ export function buildNavGroups(state: NavState): NavGroup[] {
     groups.push({
       key: 'local',
       heading: '本地媒体',
-      divider: true,
       items: local,
     })
   const live: NavItem[] = []
   if (state.hasLocalLibrary)
     live.push({
       label: '直播',
-      icon: 'livePlay',
+      icon: 'broadcast',
       path: '/live',
       active: state.routeName === 'Live',
     })
   if (state.hasNetdisk)
     live.push({
       label: '网盘',
-      icon: 'database',
+      icon: 'cloud',
       path: '/netdisk',
       active: state.routeName === 'Netdisk',
     })
-  if (live.length) groups.push({ key: 'live', divider: true, items: live })
+  if (live.length) groups.push({ key: 'live', heading: '在线', items: live })
   if (state.adultMode)
     groups.push({
       key: 'adult',
+      divider: true,
       items: [
         {
           label: 'AV资源',
