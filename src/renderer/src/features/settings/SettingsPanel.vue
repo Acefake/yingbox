@@ -4,7 +4,7 @@
     <div v-if="visible" class="settings-backdrop" @click="requestClose" />
   </Transition>
 
-  <!-- 设置窗口：左侧分区导航 + 右侧分组内容（macOS 系统设置式） -->
+  <!-- 设置窗口：大标题 + 左侧分区卡片 + 右侧分组内容（Apple 设置式） -->
   <Transition name="settings-pop">
     <div
       v-if="visible"
@@ -20,12 +20,23 @@
         tabindex="-1"
         @keydown="trapTab"
       >
-        <DialogTitlebar title="设置" icon="settings" @close="requestClose" />
+        <header class="settings-head">
+          <h1 class="settings-heading">设置</h1>
+          <UiIconButton
+            class="settings-close"
+            icon="close"
+            variant="secondary"
+            size="lg"
+            label="关闭设置"
+            @click="requestClose"
+          />
+        </header>
         <div class="settings-body">
           <SettingsNav
             v-model:query="navQuery"
             :sections="visibleSections"
             :active-id="current?.id"
+            :badges="navBadges"
             @select="selectSection"
           />
 
@@ -61,14 +72,14 @@
 /**
  * 全局设置窗口。
  *
- * 本组件只负责外壳：遮罩、标题栏、左侧分区导航（含搜索）和右侧内容切换。
+ * 本组件只负责外壳：遮罩、大标题与关闭钮、左侧分区导航（含搜索）和右侧内容切换。
  * 分区来自注册表（registry.ts），打开时才加载；成人模式关闭时隐藏 adultOnly 分区。
  * 分区可 defineExpose({ canLeave }) 拦截切换与关闭（如未保存的修改）。
  * 软件更新状态需要在窗口关闭时也持续接收，所以这里一创建就启动 useUpdateStatus。
  */
-import { type Component, ref, shallowRef, watch } from 'vue'
+import { type Component, computed, ref, shallowRef, watch } from 'vue'
 
-import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useModalFocus } from '@/composables/use-focus-trap'
 
@@ -81,7 +92,15 @@ import { useUpdateStatus } from './use-update-status'
 const props = defineProps<{ visible: boolean; initialSection?: string }>()
 const emit = defineEmits<{ close: [] }>()
 
-useUpdateStatus()
+const { status: updateStatus } = useUpdateStatus()
+
+/** 有新版本可装时给「软件更新」挂一个红色角标 */
+const navBadges = computed(
+  (): Record<string, number> =>
+    updateStatus.value === 'available' || updateStatus.value === 'downloaded'
+      ? { update: 1 }
+      : {}
+)
 
 // ── 分区导航 ────────────────────────────────────────────────
 const {
@@ -166,22 +185,70 @@ watch(
   outline: none;
   display: flex;
   flex-direction: column;
-  width: min(980px, calc(100vw - 48px));
-  height: min(740px, calc(100vh - 72px));
+  width: min(1180px, calc(100vw - 48px));
+  height: min(820px, calc(100vh - 48px));
   overflow: hidden;
   border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-xl);
+  border-radius: var(--radius-2xl);
   background: var(--bg-main);
   color: var(--text-primary);
   box-shadow: var(--shadow-lg);
   pointer-events: auto;
 }
 
+/* ── 大标题 + 关闭圆钮 ── */
+.settings-head {
+  display: flex;
+  flex: 0 0 auto;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--space-6) var(--space-6) var(--space-5) var(--space-7);
+}
+
+.settings-heading {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: var(--text-3xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+}
+
+.settings-close.yb-icon-button {
+  background: var(--bg-active);
+}
+
 .settings-body {
   display: flex;
   flex: 1;
+  gap: var(--space-6);
   min-width: 0;
   min-height: 0;
+  padding: 0 0 var(--space-6) var(--space-7);
+}
+
+/* 开关：iOS 尺寸；分段控件：胶囊底 + 白色选中块（只在设置窗口里放大） */
+.settings-window :deep(.ui-switch) {
+  width: 46px;
+  height: 28px;
+}
+.settings-window :deep(.ui-switch)::after {
+  width: 24px;
+  height: 24px;
+}
+.settings-window :deep(.ui-switch:checked)::after {
+  transform: translateX(18px);
+}
+.settings-window :deep(.ui-segmented) {
+  border-radius: var(--radius-full);
+  background: var(--bg-active);
+}
+.settings-window :deep(.ui-segmented-item) {
+  border-radius: var(--radius-full);
+}
+.settings-window :deep(.ui-segmented-item.is-active) {
+  background: var(--action-bg);
+  color: var(--action-text);
+  font-weight: var(--font-weight-semibold);
 }
 
 /* ── 右侧内容 ── */
@@ -196,7 +263,7 @@ watch(
 .settings-main-title {
   flex: 0 0 auto;
   margin: 0;
-  padding: var(--space-6) var(--space-7) var(--space-4);
+  padding: var(--space-1) var(--space-7) var(--space-1) var(--space-4);
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: var(--text-xl);
@@ -207,7 +274,7 @@ watch(
 .settings-scroll {
   flex: 1;
   min-height: 0;
-  padding: 0 var(--space-7) var(--space-7);
+  padding: 0 var(--space-7) var(--space-2) 0;
   overflow-y: auto;
 }
 
@@ -216,7 +283,7 @@ watch(
   flex: 1;
   flex-direction: column;
   min-height: 0;
-  padding: 0 var(--space-7) var(--space-4);
+  padding: var(--space-4) var(--space-7) 0 0;
 }
 .settings-fill > * {
   flex: 1;
@@ -272,17 +339,25 @@ watch(
     border: 0;
     border-radius: 0;
   }
+  .settings-head {
+    padding: var(--space-4) var(--space-3) var(--space-3) var(--space-4);
+  }
+  .settings-heading {
+    font-size: var(--text-2xl);
+  }
   .settings-body {
     flex-direction: column;
+    gap: var(--space-3);
+    padding: 0 var(--space-3) var(--space-3);
   }
   .settings-main-title {
-    padding: var(--space-4) var(--space-4) var(--space-3);
+    padding: 0 var(--space-4) var(--space-1);
   }
   .settings-scroll {
-    padding: 0 var(--space-4) var(--space-6);
+    padding: 0 0 var(--space-6);
   }
   .settings-fill {
-    padding: 0 var(--space-3) var(--space-3);
+    padding: var(--space-3) 0 0;
   }
 }
 

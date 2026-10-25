@@ -21,6 +21,7 @@ export const sourcesSettingsSection: SettingsSection = {
   id: 'sources',
   title: '数据源',
   icon: 'database',
+  tint: 'teal',
   keywords: 'cms av 在线源 插件 站点',
   load: () => import('./components/SourceManagerPanel.vue'),
   fill: true,

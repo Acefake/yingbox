@@ -7,7 +7,7 @@
     <Transition name="sqp-slide">
       <aside
         v-if="visible"
-        class="sqp-panel"
+        class="sqp-panel yb-glass"
         role="dialog"
         aria-label="后台任务"
         :style="{
@@ -16,99 +16,128 @@
         }"
         @click.stop
       >
-        <DialogTitlebar title="后台任务" icon="list" @close="emit('close')" />
+        <header class="sqp-head">
+          <h2 class="sqp-title">后台任务</h2>
+          <span v-if="runningCount" class="sqp-count">
+            {{ runningCount }} 项进行中
+          </span>
+          <UiIconButton
+            class="sqp-action sqp-close"
+            icon="close"
+            variant="secondary"
+            size="sm"
+            label="关闭"
+            @click="emit('close')"
+          />
+        </header>
 
         <!-- 媒体库识别 / 刷新元数据（跨电影、剧集、番号分区）；去码 / 边跑边看：主进程里的后台任务，只读展示并可停止 -->
-        <div v-if="hasRuntime || identifying" class="sqp-runtime-body">
+        <div v-if="hasRuntime || identifying" class="sqp-body">
+          <h3 v-if="runningCount" class="sqp-group">进行中</h3>
+
           <div
             v-if="identifying"
-            class="sqp-row sqp-job is-processing"
+            class="sqp-job is-running"
             role="status"
             aria-live="polite"
           >
-            <div class="sqp-status" aria-hidden="true">
+            <span class="sqp-status" aria-hidden="true">
               <span class="sqp-spin" />
-            </div>
+            </span>
             <div class="sqp-info">
-              <div class="sqp-name">媒体库 · {{ identifying.label }}</div>
-              <div class="sqp-job-detail">
-                <span class="sqp-job-track" aria-hidden="true">
+              <div class="sqp-name">
+                <UiIcon class="sqp-kind" name="database" size="sm" />
+                <span class="sqp-name-text">媒体库识别</span>
+              </div>
+              <div class="sqp-meta">{{ identifying.label }}</div>
+              <div class="sqp-bar">
+                <span class="sqp-track" aria-hidden="true">
                   <span
-                    class="sqp-job-fill"
+                    class="sqp-fill"
                     :style="{ width: `${identifyPercent}%` }"
                   />
                 </span>
-                <span class="sqp-job-value">{{ identifyPercent }}%</span>
+                <span class="sqp-value">{{ identifyPercent }}%</span>
               </div>
             </div>
           </div>
 
           <div
             v-if="restoreRunning"
-            class="sqp-row sqp-job is-processing"
+            class="sqp-job is-running"
             role="status"
             aria-live="polite"
           >
-            <div class="sqp-status" aria-hidden="true">
+            <span class="sqp-status" aria-hidden="true">
               <span class="sqp-spin" />
-            </div>
+            </span>
             <div class="sqp-info">
               <div class="sqp-name" :title="restoreName">
-                去码中 · {{ restoreName }}
+                <UiIcon class="sqp-kind" name="wand" size="sm" />
+                <span class="sqp-name-text">去码 · {{ restoreName }}</span>
               </div>
-              <div class="sqp-job-detail">
-                <span class="sqp-job-track" aria-hidden="true">
+              <div class="sqp-bar">
+                <span class="sqp-track" aria-hidden="true">
                   <span
-                    class="sqp-job-fill"
+                    class="sqp-fill"
                     :style="{ width: `${restorePercent}%` }"
                   />
                 </span>
-                <span class="sqp-job-value">{{ restorePercentText }}</span>
+                <span class="sqp-value">{{ restorePercentText }}</span>
               </div>
             </div>
-            <div class="sqp-actions">
-              <UiIconButton
-                icon="close"
-                size="sm"
-                label="取消去码"
-                @click="cancelRestore"
-              />
-            </div>
+            <UiIconButton
+              class="sqp-action"
+              icon="close"
+              variant="secondary"
+              size="sm"
+              label="取消去码"
+              @click="cancelRestore"
+            />
           </div>
 
+          <h3 v-if="liveFailed" class="sqp-group">需要处理</h3>
           <div
             v-if="hasLive"
-            class="sqp-row sqp-job"
+            class="sqp-job"
+            :class="{ 'is-running': !liveFailed }"
             role="status"
             aria-live="polite"
           >
-            <div class="sqp-status" aria-hidden="true">
-              <span class="sqp-dot is-live" />
-            </div>
+            <span class="sqp-status" aria-hidden="true">
+              <UiIcon
+                v-if="liveFailed"
+                class="sqp-warn"
+                name="warning"
+                size="md"
+              />
+              <span v-else class="sqp-dot" />
+            </span>
             <div class="sqp-info">
               <div class="sqp-name" :title="liveName">
-                边跑边看 · {{ liveName }}
+                <UiIcon class="sqp-kind" name="livePlay" size="sm" />
+                <span class="sqp-name-text">边跑边看 · {{ liveName }}</span>
               </div>
-              <div class="sqp-meta" :class="{ 'is-error': liveFailed }">
-                {{ liveSummary }}
-              </div>
+              <div class="sqp-meta">{{ liveSummary }}</div>
             </div>
-            <div class="sqp-actions">
-              <UiIconButton
-                v-if="liveFailed"
-                icon="close"
-                size="sm"
-                label="关闭"
-                @click="dismissLive"
-              />
-              <UiIconButton
-                v-else
-                icon="stop"
-                size="sm"
-                label="停止边跑边看"
-                @click="stopLive"
-              />
-            </div>
+            <UiIconButton
+              v-if="liveFailed"
+              class="sqp-action"
+              icon="close"
+              variant="secondary"
+              size="sm"
+              label="关闭"
+              @click="dismissLive"
+            />
+            <UiIconButton
+              v-else
+              class="sqp-action"
+              icon="stop"
+              variant="secondary"
+              size="sm"
+              label="停止边跑边看"
+              @click="stopLive"
+            />
           </div>
         </div>
         <div v-else class="sqp-empty">
@@ -122,12 +151,13 @@
 
 <script setup lang="ts">
 /**
- * 后台任务浮层：从侧栏「后台任务」按钮上方弹出，展示媒体库识别进度、去码 / 边跑边看。
- * 任务状态在主进程 / 媒体库引擎里，这里只读展示，提供取消 / 停止 / 关闭；样式在 background-tasks-panel.css。
+ * 后台任务浮层（玻璃 .yb-glass）：从侧栏「后台任务」按钮旁弹出，按「进行中 / 需要处理」分组，
+ * 展示媒体库识别进度、去码 / 边跑边看。任务状态在主进程 / 媒体库引擎里，这里只读展示，
+ * 提供取消 / 停止 / 关闭；样式在 background-tasks-panel.css。
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
-import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useLadaTasks } from '@/features/lada'
@@ -135,19 +165,18 @@ import { useIdentifyActivity } from '@/features/library'
 
 const props = defineProps<{ visible: boolean }>()
 const emit = defineEmits<{ close: [] }>()
-/** 面板从侧栏底部「后台任务」按钮上方弹出，打开时按按钮的实时位置锚定 */
-const anchorPos = ref({ left: 12, bottom: 96 })
+/** 面板贴在侧栏右侧、与侧栏底边对齐（侧栏收起成图标栏时同样贴边），打开时按侧栏的实时位置锚定 */
+const anchorPos = ref({ left: 12, bottom: 12 })
 
 function anchorPanel(): void {
-  // 窄屏走整幅底部样式，不做小结锚定
+  // 窄屏走整幅底部样式，不做锚定
   if (window.matchMedia('(max-width: 768px)').matches) return
-  const rect = document
-    .querySelector('[data-queue-anchor]')
-    ?.getBoundingClientRect()
+  const anchor = document.querySelector('[data-queue-anchor]')
+  const rect = (anchor?.closest('aside') ?? anchor)?.getBoundingClientRect()
   if (!rect || !rect.height) return
   anchorPos.value = {
-    left: Math.max(12, Math.round(rect.left) - 6),
-    bottom: Math.max(16, Math.round(window.innerHeight - rect.top) + 8),
+    left: Math.round(rect.right) + 12,
+    bottom: Math.max(12, Math.round(window.innerHeight - rect.bottom)),
   }
 }
 
@@ -176,6 +205,14 @@ const {
 const identifying = useIdentifyActivity()
 const identifyPercent = computed(() =>
   Math.round((identifying.value?.progress ?? 0) * 100)
+)
+
+/** 标题旁的「N 项进行中」：识别、去码、未出错的边跑边看 */
+const runningCount = computed(
+  () =>
+    Number(Boolean(identifying.value)) +
+    Number(restoreRunning.value) +
+    Number(hasLive.value && !liveFailed.value)
 )
 
 useEscapeLayer(
