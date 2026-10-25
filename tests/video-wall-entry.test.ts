@@ -12,6 +12,7 @@ import {
   wallPool,
 } from '../src/renderer/src/features/library/video-wall/wall-pool'
 import { primaryPlayRequest } from '../src/renderer/src/features/library/detail/playback'
+import { vScrollX } from '../src/renderer/src/directives/scroll-x'
 
 // 播放入口（应用内播放弹窗 / mpv）与这里的纯规则无关
 vi.mock('../src/renderer/src/features/player', () => ({
@@ -121,25 +122,26 @@ describe('工具栏入口', () => {
   async function render(props: Record<string, unknown>): Promise<string> {
     const { default: LibraryToolbar } =
       await import('../src/renderer/src/features/library/page/LibraryToolbar.vue')
-    return renderToString(
-      createSSRApp({
-        render: () =>
-          h(LibraryToolbar, {
-            kindLabel: '电影',
-            count: 12,
-            hasLibraries: true,
-            viewOptions: [],
-            libraryOptions: [],
-            sort: 'title',
-            order: 'asc',
-            view: 'wall',
-            search: '',
-            filter: 'all',
-            library: 0,
-            ...props,
-          }),
-      })
-    )
+    const app = createSSRApp({
+      render: () =>
+        h(LibraryToolbar, {
+          kindLabel: '电影',
+          count: 12,
+          hasLibraries: true,
+          viewOptions: [],
+          libraryOptions: [],
+          sort: 'title',
+          order: 'asc',
+          view: 'wall',
+          search: '',
+          filter: 'all',
+          library: 0,
+          ...props,
+        }),
+    })
+    // 筛选胶囊行用了全局指令 v-scroll-x（应用入口注册），测试里同样注册
+    app.directive('scrollX', vScrollX)
+    return renderToString(app)
   }
 
   it('海报墙有条目时显示「视频墙」', async () => {

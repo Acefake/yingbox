@@ -82,6 +82,25 @@ export function weekLabel(start: string, today: string): string {
   return `${fmt(ds, withYear)} – ${fmt(de, withYear)}`
 }
 
+/**
+ * 页头统计用的周称呼：本周 / 下周 / 上周，更远的周写「10月27日那周」（不在今年时带年份）。
+ * @param start 那周的任意一天（按所在周的周一算）
+ * @param today 今天的日期键
+ */
+export function weekPrefix(start: string, today: string): string {
+  const diff = daysBetween(weekStart(today), weekStart(start)) / 7
+  if (diff === 0) return '本周'
+  if (diff === 1) return '下周'
+  if (diff === -1) return '上周'
+  const date = parseDateKey(weekStart(start))
+  if (!date) return '这一周'
+  const year =
+    date.getFullYear() === parseDateKey(today)?.getFullYear()
+      ? ''
+      : `${date.getFullYear()}年`
+  return `${year}${date.getMonth() + 1}月${date.getDate()}日那周`
+}
+
 /** 一天的展示名：「今天 · 周六 24」或「周一 20」。 */
 export function dayLabel(key: string, today: string): string {
   const date = parseDateKey(key)
