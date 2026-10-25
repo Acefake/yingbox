@@ -35,6 +35,11 @@ export interface AiChatRequest {
    * 非本地服务商直接拒绝（错误码 private_blocked），请求不会发出。
    */
   private?: boolean
+  /**
+   * 同一段对话的稳定标识（多轮问答共用一个）。目前只有 OpenCode Go 用它做路由与缓存
+   * （x-opencode-session 头）；省略时用本次运行的标识。
+   */
+  sessionId?: string
   /** 总超时（毫秒，默认 60 秒，流式默认 120 秒） */
   timeoutMs?: number
   /**

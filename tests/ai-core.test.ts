@@ -254,6 +254,14 @@ describe('请求构造', () => {
     expect(headers.Authorization).toBe('Bearer oc-key')
     expect(headers['User-Agent']).toBe('yingbox')
     expect(buildHeaders(config(), false)['User-Agent']).toBeUndefined()
+    // 官方要求每段对话带稳定的 x-opencode-session，缺了直接 400
+    const session = headers['x-opencode-session']
+    expect(session).toMatch(/^yingbox-/)
+    expect(buildHeaders(oc, true)['x-opencode-session']).toBe(session)
+    expect(buildHeaders(oc, false, 'qa-42')['x-opencode-session']).toBe(
+      'yingbox-qa-42'
+    )
+    expect(buildHeaders(config(), false)['x-opencode-session']).toBeUndefined()
 
     const fetch = vi.fn(async (_url: string, _init?: RequestInit) =>
       completion('好')
@@ -629,6 +637,18 @@ describe('IPC 边界', () => {
         foo: 1,
       })
     ).toEqual({ messages: [{ role: 'user', content: 'hi' }], private: true })
+    expect(
+      parseChatRequest({
+        messages: [{ role: 'user', content: 'hi' }],
+        sessionId: ' qa-1 ',
+      }).sessionId
+    ).toBe('qa-1')
+    expect(
+      parseChatRequest({
+        messages: [{ role: 'user', content: 'hi' }],
+        sessionId: 3,
+      }).sessionId
+    ).toBeUndefined()
     expect(() => parseChatRequest({ messages: [] })).toThrow()
     expect(() =>
       parseChatRequest({ messages: [{ role: 'tool', content: 'x' }] })
