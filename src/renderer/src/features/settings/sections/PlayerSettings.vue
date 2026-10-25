@@ -128,7 +128,7 @@
 <script setup lang="ts">
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
- * Anime4K 超分（Anime4kRows）与缩小置顶，杜比视界 P5 自动用 mpv（player.dvAutoMpv），
+ * 影盒超分（Anime4kRows）与缩小置顶，杜比视界 P5 自动用 mpv（player.dvAutoMpv），
  * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），
  * 杜比视界 P5 重建是否应用 RPU 动态元数据（player.applyDolbyVision），
  * 内置播放器自动跳过片头（player.autoSkipIntro）与播放时自动检测片头片尾（player.autoDetectIntro），
