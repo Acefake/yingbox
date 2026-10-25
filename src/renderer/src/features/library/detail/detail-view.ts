@@ -8,7 +8,8 @@ import { type SpecBadge, videoRangeSpec } from '@/components/ui/spec-badge'
 import type { TitleMeta } from './detail-rules'
 
 /**
- * 头图规格行：信息行去掉分级（分级改成圆标，见 heroSpecsOf）。
+ * 头图规格行：信息行去掉分级（分级以圆标显示，见 heroSpecsOf）。两边都去空白再比，
+ * 与 heroSpecsOf 的归一化一致，避免分级文字与圆标同时出现。
  * @param metaLine metaLineOf 的结果
  * @param meta 标题级元数据
  */
@@ -16,8 +17,8 @@ export function heroMetaParts(
   metaLine: string[],
   meta: TitleMeta | null
 ): string[] {
-  const cert = meta?.certification
-  return cert ? metaLine.filter(part => part !== cert) : metaLine
+  const cert = meta?.certification?.trim()
+  return cert ? metaLine.filter(part => part.trim() !== cert) : metaLine
 }
 
 /**
@@ -81,6 +82,16 @@ export interface DetailTab {
   label: string
 }
 
+/** 分区在页面里的顺序 */
+const TAB_ORDER: DetailTabKey[] = [
+  'overview',
+  'episodes',
+  'stills',
+  'cast',
+  'versions',
+  'about',
+]
+
 const TAB_LABELS: Record<DetailTabKey, string> = {
   overview: '概览',
   episodes: '剧集',
@@ -97,21 +108,14 @@ const TAB_LABELS: Record<DetailTabKey, string> = {
 export function detailTabsOf(
   present: Partial<Record<DetailTabKey, boolean>>
 ): DetailTab[] {
-  const order: DetailTabKey[] = [
-    'overview',
-    'episodes',
-    'stills',
-    'cast',
-    'versions',
-    'about',
-  ]
-  return order
-    .filter(key => key === 'overview' || key === 'about' || present[key])
-    .map(key => ({ key, label: TAB_LABELS[key] }))
+  return TAB_ORDER.filter(
+    key => key === 'overview' || key === 'about' || present[key]
+  ).map(key => ({ key, label: TAB_LABELS[key] }))
 }
 
 /**
- * 当前分区：顶边已越过视口上方 anchor 处的最后一个区块；滚到底时取最后一个（最后一块往往不够高）。
+ * 当前分区：顶边已越过视口上方 anchor 处的最后一个区块；可滚动且滚到底时取最后一个
+ * （最后一块往往不够高）。内容不足一屏时不算「到底」，按 anchor 判定。
  * @param sections 区块与它相对滚动内容顶部的位置，按页面顺序
  * @param scrollTop 滚动位置
  * @param viewport 视口高度
@@ -126,7 +130,10 @@ export function activeTabAt(
   anchor = 0.45
 ): DetailTabKey | null {
   if (!sections.length) return null
-  if (scrollTop + viewport >= scrollHeight - 2) return sections.at(-1)!.key
+  const scrollable = scrollHeight - viewport > 2
+  if (scrollable && scrollTop + viewport >= scrollHeight - 2) {
+    return sections.at(-1)!.key
+  }
   const line = scrollTop + viewport * anchor
   let current = sections[0].key
   for (const section of sections) {
@@ -134,4 +141,20 @@ export function activeTabAt(
     else break
   }
   return current
+}
+
+/**
+ * 分区列表变化后（后台刷新让某个区块消失）校正当前分区：还在就不动，否则取页面顺序里它前面最近的一个，
+ * 都没有时取第一个。
+ * @param tabs 当前的分区列表
+ * @param current 当前选中的分区
+ */
+export function keepTab(
+  tabs: DetailTab[],
+  current: DetailTabKey
+): DetailTabKey {
+  if (!tabs.length || tabs.some(tab => tab.key === current)) return current
+  const rank = TAB_ORDER.indexOf(current)
+  const before = tabs.filter(tab => TAB_ORDER.indexOf(tab.key) < rank)
+  return (before.at(-1) ?? tabs[0]).key
 }

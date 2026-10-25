@@ -81,7 +81,7 @@
         <span v-if="specs.length" class="lib-hero-specs">
           <UiSpecBadge
             v-for="spec in specs"
-            :key="spec.variant + spec.text"
+            :key="`${spec.variant}:${spec.text}`"
             v-bind="spec"
           />
         </span>
@@ -220,7 +220,7 @@ function onFadeIn(event: Event): void {
   margin-bottom: var(--space-5);
   object-fit: contain;
   object-position: left bottom;
-  filter: drop-shadow(0 4px 18px rgba(0, 0, 0, 0.5));
+  filter: var(--media-logo-shadow);
 }
 .lib-hero-title {
   margin: 0 0 var(--space-5);

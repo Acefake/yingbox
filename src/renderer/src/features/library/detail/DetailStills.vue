@@ -1,8 +1,13 @@
 <template>
   <!-- 剧照：横向滑动，点开灯箱 -->
   <section v-if="shown.length" class="lib-section">
-    <UiShelf title="剧照" class="lib-stills">
-      <div v-for="(path, i) in shown" :key="path" class="lib-still">
+    <UiShelf title="剧照" class="lib-stills" list>
+      <div
+        v-for="(path, i) in shown"
+        :key="path"
+        class="lib-still"
+        role="listitem"
+      >
         <UiPressable
           block
           class="lib-still-target"

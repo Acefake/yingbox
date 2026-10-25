@@ -1,0 +1,79 @@
+/* 条目详情（ItemDetail）的外框与浮动控件：铺满窗口的滚动层、顶部渐隐带、返回 / 更多玻璃圆钮。 */
+/* 铺满整个窗口（侧栏与外壳胶囊浮在上面），左边距随侧栏宽度 */
+.lib-detail {
+  --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
+  --detail-gutter: var(--space-8);
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-float);
+  background: var(--bg-content);
+}
+.lib-detail-scroll {
+  position: absolute;
+  inset: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  outline: none;
+  overscroll-behavior: contain;
+}
+.lib-detail-status {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-4);
+  height: 100%;
+  padding-left: var(--shell-left, 0px);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+}
+
+/* 顶部滚动边缘：浮动控件后面一条压暗 + 轻模糊的渐隐带 */
+.lib-detail-edge {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: 0;
+  height: 104px;
+  background: linear-gradient(
+    color-mix(in srgb, var(--bg-content) 62%, transparent),
+    transparent
+  );
+  -webkit-backdrop-filter: blur(10px);
+  backdrop-filter: blur(10px);
+  -webkit-mask: var(--mask-fade-end-30);
+  mask: var(--mask-fade-end-30);
+  pointer-events: none;
+}
+
+/* 玻璃圆钮（返回 / 更多）：44px，与外壳胶囊同高同一条线 */
+.lib-detail :deep(.lib-float-button) {
+  --ib-size: var(--shell-pill-height);
+  border-radius: var(--radius-full);
+}
+.lib-detail-back {
+  position: absolute;
+  top: var(--shell-pill-top);
+  left: var(--detail-x);
+}
+.lib-detail-more {
+  position: absolute;
+  top: var(--shell-pill-top);
+  right: var(--shell-pill-right);
+}
+.lib-detail-more.beside-window {
+  right: calc(
+    var(--shell-pill-right) + var(--shell-win-width) + var(--space-3)
+  );
+}
+
+@media (max-width: 720px) {
+  .lib-detail {
+    --detail-x: var(--space-4);
+    --detail-gutter: var(--space-4);
+  }
+  .lib-detail-back,
+  .lib-detail-more {
+    top: calc(var(--safe-top) + var(--space-2));
+  }
+}

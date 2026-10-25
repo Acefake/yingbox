@@ -16,20 +16,21 @@
         role="menu"
         aria-label="更多操作"
       >
-        <button
+        <UiListRow
           v-for="item in items"
           :key="item.key"
           v-tooltip="item.hint"
-          type="button"
           role="menuitem"
           class="lib-actions-item"
-          :disabled="item.disabled"
+          :aria-disabled="item.disabled || undefined"
           :aria-busy="item.busy || undefined"
-          @click="choose(item.key)"
+          @click="choose(item)"
         >
-          <UiIcon :name="item.busy ? 'refresh' : item.icon" size="md" />
-          <span>{{ item.label }}</span>
-        </button>
+          <template #leading>
+            <UiIcon :name="item.busy ? 'refresh' : item.icon" size="md" />
+          </template>
+          {{ item.label }}
+        </UiListRow>
       </div>
     </Transition>
   </div>
@@ -40,6 +41,8 @@
  * 详情右上角的「更多」玻璃圆钮（效果图 D-1 分享钮的位置）：点开一列管理操作，
  * 修正匹配 / 锁定匹配（番号库不显示）/ 重新获取 / 写出 NFO / 整理…，可用条件与原来的图标按钮一致：
  * 重新获取、锁定、写出 NFO 要已有匹配，写出 NFO 与整理要写出功能可用（不可用时悬停说明原因）。
+ * 不可用的项只标 aria-disabled、点击时拦下，不用原生 disabled：浏览器不给禁用控件派发指针事件，
+ * 悬停说明就出不来，键盘也到不了。
  * 选一项或点外面、按 Esc 收起；进行中的操作图标转圈。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
@@ -48,6 +51,7 @@ import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import type { IconName } from '@/components/ui/icons'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiListRow from '@/components/ui/UiListRow.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 
@@ -137,8 +141,9 @@ const items = computed<ActionItem[]>(() => {
   return list
 })
 
-function choose(key: ActionKey): void {
-  if (items.value.find(item => item.key === key)?.busy) return
+function choose(item: ActionItem): void {
+  if (item.busy || item.disabled) return
+  const { key } = item
   open.value = false
   if (key === 'fix-match') emit('fix-match', props.node.id)
   else if (key === 'toggle-lock') emit('toggle-lock')
@@ -156,6 +161,7 @@ useEscapeLayer(
 function onPointerDown(event: PointerEvent): void {
   if (!root.value?.contains(event.target as Node)) open.value = false
 }
+
 watch(open, value => {
   if (value) document.addEventListener('pointerdown', onPointerDown, true)
   else document.removeEventListener('pointerdown', onPointerDown, true)
@@ -185,29 +191,29 @@ watch(
   color: var(--text-primary);
 }
 .lib-actions-item {
-  display: flex;
-  align-items: center;
   gap: var(--space-2_5);
   height: 36px;
   padding: 0 var(--space-3);
   border-radius: var(--radius-full);
   color: inherit;
   font-size: var(--text-sm);
-  text-align: left;
   transition: background var(--duration-fast) ease;
 }
 .lib-actions-item .app-icon {
   color: var(--text-secondary);
 }
-.lib-actions-item:hover:not(:disabled),
+.lib-actions-item:hover:not([aria-disabled='true']),
 .lib-actions-item:focus-visible {
   background: var(--bg-active-soft);
 }
-.lib-actions-item:disabled {
+.lib-actions-item[aria-disabled='true'] {
   color: var(--text-quaternary);
   cursor: default;
 }
-.lib-actions-item:disabled .app-icon {
+.lib-actions-item[aria-disabled='true']:hover {
+  background: none;
+}
+.lib-actions-item[aria-disabled='true'] .app-icon {
   color: var(--text-quaternary);
 }
 .lib-actions-item[aria-busy='true'] .app-icon {

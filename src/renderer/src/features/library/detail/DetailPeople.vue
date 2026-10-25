@@ -1,8 +1,13 @@
 <template>
   <!-- 演职员：横向滑动 -->
   <section class="lib-section">
-    <UiShelf title="演职员" class="lib-cast">
-      <div v-for="person in people" :key="person.key" class="lib-person">
+    <UiShelf title="演职员" class="lib-cast" list>
+      <div
+        v-for="person in people"
+        :key="person.key"
+        class="lib-person"
+        role="listitem"
+      >
         <component
           :is="person.actorId ? UiPressable : 'div'"
           class="lib-person-target"
