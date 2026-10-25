@@ -1,3 +1,4 @@
+import { isSearchCommand } from '@/utils/search-command'
 /** 搜索会话：输入即取消旧查询，先本地后增强；所有异步更新绑定同一世代。 */
 import {
   type ComputedRef,
@@ -16,6 +17,7 @@ import { errorText } from '../api/bridge'
 import type { NlFilter } from '../nl-search/nl-filter'
 import { enhanceConditions } from './ai-conditions'
 import { fuseSearch, routeSearch, ruleFilter } from './search-rules'
+import { needsSearchSetup } from './search-errors'
 import { searchAccessKey } from './search-access'
 import { searchAvailable, searchLibrary } from './search-service'
 import type {
@@ -33,6 +35,7 @@ export interface UnifiedSearchState {
   thinking: Ref<boolean>
   message: Ref<string>
   visualNotice: Ref<string>
+  needsAiSetup: Ref<boolean>
   run(enhance?: boolean, override?: NlFilter): Promise<void>
   stop(): void
 }
@@ -49,7 +52,9 @@ export function useUnifiedSearch(options: {
   const busy = ref(false)
   const thinking = ref(false)
   const message = ref('')
+  const needsAiSetup = ref(false)
   const visualNotice = ref('')
+  let filterFor = ''
   let generation = 0
   let controller: AbortController | null = null
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -73,7 +78,7 @@ export function useUnifiedSearch(options: {
   async function run(enhance = false, override?: NlFilter): Promise<void> {
     stop()
     const text = options.text().trim().slice(0, 500)
-    if (!text || !options.open()) {
+    if (!text || isSearchCommand(text) || !options.open()) {
       batches.value = []
       return
     }
@@ -88,7 +93,9 @@ export function useUnifiedSearch(options: {
       filter: override ?? ruleFilter(text),
       signal: current.signal,
     }
+    needsAiSetup.value = false
     filter.value = request.filter ?? {}
+    filterFor = text
     busy.value = true
     message.value = searchAvailable()
       ? ''
@@ -99,24 +106,27 @@ export function useUnifiedSearch(options: {
     async function recall(next: SearchRequest): Promise<void> {
       const revision = ++recallRevision
       let first = true
-      await searchLibrary(next, batch => {
-        if (!live() || revision !== recallRevision) return
-        if (first) {
-          batches.value = []
-          first = false
-        }
-        batches.value = [
-          ...batches.value.filter(value => value.kind !== batch.kind),
-          batch,
-        ]
-        if (batch.message) {
-          if (batch.kind === 'visual') visualNotice.value = batch.message
-          else message.value = batch.message
-        }
-      })
-      if (live() && revision === recallRevision) {
-        if (first) batches.value = []
-        busy.value = false
+      try {
+        await searchLibrary(next, batch => {
+          if (!live() || revision !== recallRevision) return
+          if (first) {
+            batches.value = []
+            first = false
+          }
+          batches.value = [
+            ...batches.value.filter(value => value.kind !== batch.kind),
+            batch,
+          ]
+          if (batch.message) {
+            if (batch.kind === 'visual') visualNotice.value = batch.message
+            else message.value = batch.message
+          }
+        })
+      } catch (error) {
+        if (live() && revision === recallRevision)
+          message.value = errorText(error)
+      } finally {
+        if (live() && revision === recallRevision) busy.value = false
       }
     }
 
@@ -135,7 +145,10 @@ export function useUnifiedSearch(options: {
         busy.value = true
         await recall({ ...request, filter: parsed })
       } catch (error) {
-        if (live()) message.value = errorText(error)
+        if (live()) {
+          message.value = errorText(error)
+          needsAiSetup.value = needsSearchSetup(error)
+        }
       } finally {
         if (live()) {
           thinking.value = false
@@ -157,6 +170,7 @@ export function useUnifiedSearch(options: {
       if (previous && next[3] !== previous[3]) batches.value = []
       filter.value = {}
       message.value = ''
+      needsAiSetup.value = false
       if (!options.open() || !options.text().trim()) {
         batches.value = []
         return
@@ -175,7 +189,13 @@ export function useUnifiedSearch(options: {
       () => {
         stop()
         batches.value = batches.value.filter(batch => batch.kind !== 'visual')
-        if (options.open()) void run(false, filter.value)
+        if (options.open())
+          void run(
+            false,
+            filterFor === options.text().trim().slice(0, 500)
+              ? filter.value
+              : undefined
+          )
       },
       { flush: 'sync' }
     )
@@ -188,6 +208,7 @@ export function useUnifiedSearch(options: {
     thinking,
     message,
     visualNotice,
+    needsAiSetup,
     run,
     stop,
   }

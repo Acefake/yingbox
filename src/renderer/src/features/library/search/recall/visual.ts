@@ -1,5 +1,6 @@
 /** CLIP 在本地运行；只使用已就绪的番号索引，不隐式下载或创建索引。 */
 import { libraryBridge } from '../../api/bridge'
+import { visualRequest } from '../../visual/visual-request'
 import type { SearchRecall } from '../types'
 export const recallVisual: SearchRecall = async request => {
   const empty = { kind: 'visual' as const, candidates: [] }
@@ -17,26 +18,40 @@ export const recallVisual: SearchRecall = async request => {
       ...empty,
       message: '画面索引尚未就绪，可在片库的“按画面搜”中配置。',
     }
-  const hits = await api.visual.search({
-    text: request.text,
-    source: request.visualSource ?? 'all',
-    limit: 20,
-  })
-  if (!hits.length || request.signal.aborted) return empty
-  // 每个时间点按原条目过滤，随后按引擎合并键融合，保留实际文件所属版本。
-  const candidates = await Promise.all(
-    hits.map(async visual => {
-      if (
-        request.signal.aborted ||
-        (request.base.ids && !request.base.ids.includes(visual.itemId))
-      )
-        return []
-      const page = await api.query({
-        ...request.base,
-        ids: [visual.itemId],
-        limit: 1,
+  if (request.visualSource === 'image' && !status.indexed)
+    return {
+      ...empty,
+      message: '尚无图片索引，请先在“按画面搜”中建立图片索引。',
+    }
+  const hits = await visualRequest(
+    () => !request.signal.aborted,
+    () =>
+      api.visual.search({
+        text: request.text.slice(0, 100),
+        source: request.visualSource ?? 'all',
+        limit: 20,
       })
-      const item = page.items[0]
+  )
+  if (!hits?.length || request.signal.aborted) return empty
+  const ids = [...new Set(hits.map(hit => hit.itemId))].filter(
+    id => !request.base.ids || request.base.ids.includes(id)
+  )
+  if (!ids.length || request.signal.aborted) return empty
+  const page = await api.query({
+    ...request.base,
+    ids,
+    includeVersions: true,
+    limit: ids.length,
+  })
+  if (request.signal.aborted) return empty
+  const items = new Map(page.items.map(item => [item.id, item]))
+  return {
+    kind: 'visual',
+    ...(!status.indexed
+      ? { message: '当前仅有视频抽帧索引，尚无图片索引。' }
+      : {}),
+    candidates: hits.flatMap(visual => {
+      const item = items.get(visual.itemId)
       return item
         ? [
             {
@@ -48,7 +63,6 @@ export const recallVisual: SearchRecall = async request => {
             },
           ]
         : []
-    })
-  )
-  return { kind: 'visual', candidates: candidates.flat() }
+    }),
+  }
 }

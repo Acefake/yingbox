@@ -29,6 +29,7 @@ export interface SearchShortcutEvent {
   shiftKey: boolean
   altKey: boolean
   isComposing?: boolean
+  repeat?: boolean
   target?: EventTarget | null
 }
 
@@ -42,7 +43,7 @@ export function isSearchShortcut(event: SearchShortcutEvent): boolean {
   if (
     event.isComposing ||
     !['f', 'k'].includes(event.key.toLowerCase()) ||
-    ('repeat' in event && event.repeat)
+    event.repeat
   )
     return false
   const target = event.target as { closest?: (s: string) => unknown } | null
@@ -87,4 +88,4 @@ export function searchLocation(
 }
 
 /** 输入这个口令并回车会切换成人模式（不触发搜索） */
-export const ADULT_MODE_PASSPHRASE = 'getav'
+export { ADULT_MODE_PASSPHRASE } from '@/utils/search-command'

@@ -33,7 +33,7 @@ import { continueRecords } from '@/features/player'
 import { useSetting } from '@/features/settings'
 
 import { libraryBridge } from '../api/bridge'
-import { readSearchFilter } from '../search/route-filter'
+import { filterReader } from '../search/route-filter'
 import type { LibrarySection } from '../state/library-section'
 import {
   type NlChip,
@@ -120,7 +120,7 @@ export function useNlSearch(
   )
   /** 点过「AI 理解」的那段文字（文字变了就失效） */
   const forcedFor = ref<string | null>(null)
-  const transferred = computed(() => readSearchFilter(route.query.searchFilter))
+  const transferred = computed(filterReader(() => route.query.searchFilter))
   const intent = computed(() =>
     transferred.value
       ? { kind: 'plain' as const, text: text.value }
@@ -301,9 +301,10 @@ export function useNlSearch(
 
   watch(
     [intent, transferred],
-    ([next, incoming]) => {
+    ([next, incoming], previous) => {
       cancel()
       if (incoming) {
+        if (incoming === previous?.[1]) return
         void loadGenres()
         filter.value = incoming
         titlePick.value = null

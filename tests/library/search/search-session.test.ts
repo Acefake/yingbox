@@ -136,3 +136,34 @@ describe('统一搜索会话', () => {
     resolve?.()
   })
 })
+
+it.each([false, true])(
+  '本地查询拒绝时正常收尾，增强=%s，不泄漏未处理异常',
+  async enabled => {
+    const { state, ai } = session()
+    ai.value = enabled
+    await tick()
+    search.mockRejectedValue(new Error('片库离线'))
+    await state.run(enabled)
+    expect(state.busy.value).toBe(false)
+    expect(state.message.value).toContain('片库离线')
+  }
+)
+it('输入尚未解析时切换 CLIP 范围仍保留规则条件', async () => {
+  const text = ref('90 年代港片'),
+    source = ref<'all' | 'video'>('all'),
+    scope = effectScope()
+  scopes.push(scope)
+  const state = scope.run(() =>
+    useUnifiedSearch({
+      text: () => text.value,
+      scope: () => 'jav',
+      open: () => true,
+      ai: () => false,
+      visualSource: () => source.value,
+    })
+  )!
+  source.value = 'video'
+  await tick()
+  expect(state.filter.value.yearFrom).toBe(1990)
+})

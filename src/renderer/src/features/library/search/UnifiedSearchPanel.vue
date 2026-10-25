@@ -26,8 +26,8 @@
             aria-label="搜索内容"
             :maxlength="500"
             role="combobox"
-            aria-expanded="true"
-            aria-controls="search-best"
+            :aria-expanded="entries.length > 0"
+            :aria-controls="entries.length ? 'search-results' : undefined"
             :aria-activedescendant="
               selected >= 0 ? `search-hit-${selected}` : undefined
             "
@@ -83,75 +83,15 @@
           @update:model-value="value => run(false, value)"
         />
         <div class="unified-search-results custom-scrollbar">
-          <div
-            v-if="best.length"
-            id="search-best"
-            role="listbox"
-            aria-label="最佳匹配"
-          >
-            <h3>最佳匹配</h3>
-            <UiListRow
-              v-for="(hit, index) in best"
-              :id="`search-hit-${index}`"
-              :key="hit.key"
-              data-search-result
-              role="option"
-              :aria-selected="selected === index"
-              :selected="selected === index"
-              @click="openHit(hit)"
-            >
-              <template #leading
-                ><img
-                  v-if="hit.item.poster"
-                  class="unified-search-poster"
-                  :src="libraryPoster(hit.item.poster) ?? undefined"
-                  alt=""
-                  loading="lazy"
-              /></template>
-              {{ hit.item.title }}
-              <span v-if="hit.item.year"> · {{ hit.item.year }}</span>
-              <template #description
-                >{{ hit.reasons.join(' · ')
-                }}{{
-                  hit.versions.length > 1
-                    ? ` · ${hit.versions.length} 个版本`
-                    : ''
-                }}</template
-              >
-            </UiListRow>
-          </div>
-          <template v-if="moments.length">
-            <h3>画面时刻</h3>
-            <UiListRow
-              v-for="hit in moments"
-              :key="`visual-${hit.key}`"
-              data-search-result
-              @click="openMoment(hit)"
-            >
-              <template #leading><UiIcon name="image" /></template>
-              {{ hit.visual?.title }}
-              <template #description
-                >{{
-                  hit.reasons.filter(reason => /画面/.test(reason)).join(' · ')
-                }}
-                · 点击从此处播放</template
-              >
-            </UiListRow>
-          </template>
-          <template v-if="actors.length">
-            <h3>人物</h3>
-            <UiListRow
-              v-for="actor in actors"
-              :key="`actor-${actor.id}`"
-              data-search-result
-              @click="openActor(actor.id)"
-            >
-              {{ actor.name
-              }}<template #description
-                >{{ actor.workCount }} 部库内作品</template
-              >
-            </UiListRow>
-          </template>
+          <SearchMatches
+            :best="best"
+            :moments="moments"
+            :actors="shownActors"
+            :selected="selected"
+            @open="openHit"
+            @moment="openMoment"
+            @actor="openActor"
+          />
           <p v-if="!text.trim()" class="unified-search-note">
             输入片名、演员、筛选条件或画面描述。↑ ↓ 选择结果，回车打开。
           </p>
@@ -170,7 +110,7 @@
             {{ message }}
           </p>
           <UiButton
-            v-if="message.includes('配置 AI')"
+            v-if="needsAiSetup"
             size="sm"
             variant="plain"
             label="去设置 AI"
@@ -215,22 +155,21 @@ import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 import {
   UiButton,
-  UiIcon,
   UiIconButton,
   UiInput,
-  UiListRow,
   UiLoadingDots,
   UiSelect,
   UiSwitch,
 } from '@/components/ui'
+import { isSearchCommand } from '@/utils/search-command'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useModalFocus } from '@/composables/use-focus-trap'
 import { vEnter } from '@/directives/enter'
-import { libraryPoster } from '../detail/assistant-links'
 import { playMoment } from '../visual/play-moment'
 import VisualSourceSelect from '../visual/VisualSourceSelect.vue'
 import { visualSearchSource } from '../visual/visual-source'
 import SearchConditions from './SearchConditions.vue'
+import SearchMatches from './SearchMatches.vue'
 import type { SearchHit, SearchScope } from './types'
 import { useUnifiedSearch } from './use-unified-search'
 
@@ -242,7 +181,13 @@ const props = defineProps<{
 const text = defineModel<string>('text', { required: true })
 const emit = defineEmits<{ close: [] }>()
 const router = useRouter()
-const scope = ref<SearchScope>(props.privateOnly ? 'jav' : props.initialScope)
+const scope = ref<SearchScope>(
+  props.privateOnly
+    ? 'jav'
+    : props.initialScope === 'jav'
+      ? 'all'
+      : props.initialScope
+)
 const aiPreference = useStorage('yingbox.search.ai', false)
 const aiEnabled = computed(
   () => aiPreference.value && !props.privateOnly && scope.value !== 'jav'
@@ -259,6 +204,7 @@ const {
   thinking,
   message,
   visualNotice,
+  needsAiSetup,
   run,
   stop,
 } = useUnifiedSearch({
@@ -272,11 +218,26 @@ const best = computed(() => hits.value.slice(0, 20))
 const moments = computed(() =>
   hits.value.filter(hit => hit.visual?.frame).slice(0, 8)
 )
-// 选择期间以稳定作品 key 保持焦点，补入召回不改变当前目标。
+const shownActors = computed(() => (scope.value === 'jav' ? actors.value : []))
+const entries = computed(() => [
+  ...best.value.map(hit => ({
+    key: `work:${hit.key}`,
+    open: () => openHit(hit),
+  })),
+  ...moments.value.map(hit => ({
+    key: `moment:${hit.key}`,
+    open: () => openMoment(hit),
+  })),
+  ...shownActors.value.map(actor => ({
+    key: `actor:${actor.id}`,
+    open: () => openActor(actor.id),
+  })),
+])
+// 补入召回时保留当前选择的稳定键。
 let selectedKey = ''
-watch(hits, () => {
+watch(entries, () => {
   selected.value = selectedKey
-    ? best.value.findIndex(hit => hit.key === selectedKey)
+    ? entries.value.findIndex(entry => entry.key === selectedKey)
     : -1
 })
 watch(text, () => {
@@ -286,8 +247,8 @@ watch(text, () => {
 
 function submit(): void {
   if (props.command?.(text.value.trim())) return
-  const hit = best.value[selected.value]
-  if (hit) openHit(hit)
+  const entry = entries.value[selected.value]
+  if (entry) entry.open()
   else void run(aiEnabled.value)
 }
 
@@ -310,11 +271,13 @@ function openMoment(hit: SearchHit): void {
 }
 
 function openActor(id: number): void {
+  if (scope.value !== 'jav') return
   emit('close')
   void router.push({ path: '/jav', query: { actor: String(id) } })
 }
 
 function wall(): void {
+  if (isSearchCommand(text.value)) return
   emit('close')
   void router.push({
     path:
@@ -331,6 +294,7 @@ function wall(): void {
 }
 
 function online(): void {
+  if (isSearchCommand(text.value)) return
   emit('close')
   void router.push({
     path: '/',
@@ -351,7 +315,7 @@ function onKeydown(event: KeyboardEvent): void {
     event.target === panel.value?.querySelector('input')
   ) {
     event.preventDefault()
-    const count = best.value.length
+    const count = entries.value.length
     if (!count) return
     selected.value =
       selected.value < 0
@@ -359,10 +323,10 @@ function onKeydown(event: KeyboardEvent): void {
           ? 0
           : count - 1
         : (selected.value + (event.key === 'ArrowDown' ? 1 : count - 1)) % count
-    selectedKey = best.value[selected.value].key
+    selectedKey = entries.value[selected.value].key
     document
       .getElementById(`search-hit-${selected.value}`)
-      ?.scrollIntoView({ block: 'nearest' })
+      ?.scrollIntoView?.({ block: 'nearest' })
   }
 }
 

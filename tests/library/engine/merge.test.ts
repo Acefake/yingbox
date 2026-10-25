@@ -141,8 +141,16 @@ describe('电影：两个盘里的同一部电影', () => {
     const b = list(env, { search: '盗火线' }).items[0]
     expect(a.mergeKey).toBeTruthy()
     expect(b.mergeKey).toBe(a.mergeKey)
+    expect(
+      list(env, { ids: [idA, idB], includeVersions: true })
+        .items.map(item => item.id)
+        .sort((a, b) => a - b)
+    ).toEqual([idA, idB].sort((a, b) => a - b))
     env.merge.split({ itemId: idB })
-    expect(list(env, { search: '盗火线' }).items[0].mergeKey).toBeNull()
+    expect(
+      list(env, { search: '盗火线' }).items.find(item => item.id === idB)
+        ?.mergeKey
+    ).toBeNull()
   })
 
   it('识别前各自显示；识别到同一 id 后海报墙只出现一次，总数随之变化', async () => {

@@ -118,13 +118,15 @@ export function compileListWhere(q: NormalizedLibraryQuery): ListWhere {
         ? ''
         : `WITH fts_hits(id) AS MATERIALIZED (
              SELECT rowid FROM media_items_fts WHERE media_items_fts MATCH ?)`,
-    where: `${own.where} AND (i.merge_key IS NULL OR NOT EXISTS (
+    where: q.includeVersions
+      ? own.where
+      : `${own.where} AND (i.merge_key IS NULL OR NOT EXISTS (
       SELECT 1 FROM media_items o INDEXED BY media_items_merge
       WHERE o.merge_key = i.merge_key AND o.id < i.id AND ${other.where}))`,
     params: [
       ...(term === null ? [] : [ftsPhrase(term)]),
       ...own.params,
-      ...other.params,
+      ...(q.includeVersions ? [] : other.params),
     ],
   }
 }

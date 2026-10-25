@@ -118,7 +118,7 @@ describe('对话流归档', () => {
       } as AssistantMediaCard,
     ]
     const current: AssistantResult = { kind: 'cards', cards }
-    const transcript = ref('今晚看什么')
+    const transcript = ref('找一部科幻电影')
     const result = shallowRef<AssistantResult | null>(current)
     const thread = useAssistantThread({
       transcript,

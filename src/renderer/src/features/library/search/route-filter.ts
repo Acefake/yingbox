@@ -14,3 +14,17 @@ export function readSearchFilter(value: unknown): NlFilter | null {
     return null
   }
 }
+
+/** 路由对象替换但序列化条件未变时复用解析值，避免覆盖用户编辑。 */
+export function filterReader(read: () => unknown): () => NlFilter | null {
+  let previous: unknown
+  let parsed: NlFilter | null = null
+  return () => {
+    const value = read()
+    if (value !== previous) {
+      previous = value
+      parsed = readSearchFilter(value)
+    }
+    return parsed
+  }
+}

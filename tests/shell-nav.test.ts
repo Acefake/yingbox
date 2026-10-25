@@ -161,6 +161,14 @@ describe('全局搜索规则', () => {
       expect(isSearchShortcut(keys('f', mod))).toBe(true)
       expect(isSearchShortcut(keys('F', mod))).toBe(true)
       expect(isSearchShortcut(keys('k', mod))).toBe(true)
+      expect(isSearchShortcut(keys('k', { ...mod, shiftKey: true }))).toBe(
+        false
+      )
+      expect(
+        isSearchShortcut({ ...keys('k', mod), repeat: true } as Parameters<
+          typeof isSearchShortcut
+        >[0])
+      ).toBe(false)
       expect(isAssistantHotkey(keys('k', mod))).toBe(false)
       expect(isAssistantHotkey(keys('k', { ...mod, shiftKey: true }))).toBe(
         true

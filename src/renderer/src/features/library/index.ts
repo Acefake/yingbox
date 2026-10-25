@@ -12,13 +12,6 @@ export {
   libraryProgressKey,
   playLibraryEpisode,
 } from './detail/calendar-links'
-/** AI 助手用：「今晚看什么」推荐与播放 */
-export {
-  type TonightSuggestion,
-  type TonightSuggestions,
-  playTonightPick,
-  suggestTonight,
-} from './tonight/tonight-play'
 /** AI 助手技能包用：按来源查条目、随机一条、播放条目、取视频文件 */
 export {
   type LibraryLookup,

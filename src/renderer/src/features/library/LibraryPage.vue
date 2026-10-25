@@ -6,7 +6,6 @@
       v-model:facets="state.facets"
       v-model:library="libraryChoice"
       :facet-scope="facetScopeOf(section, state)"
-      :tonight="section !== 'jav'"
       :kind-label="kindLabel"
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"

@@ -182,6 +182,8 @@ export type LibrarySortField =
 
 /** 列表查询。所有字段可选，缺省时取 normalizeLibraryQuery 的默认值。 */
 export interface LibraryQuery extends LibraryQueryFilters {
+  /** 返回符合条件的各本地版本；默认按作品合并。用于按 id 批量回查。 */
+  includeVersions?: boolean
   /** 只查某个媒体库；缺省查全部。 */
   libraryId?: number
   /** 只要这种来源的媒体库（电影页传 tmdb、番号页传 jav，互不露出）；缺省两种都要。 */

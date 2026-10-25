@@ -4,7 +4,6 @@
  *
  * 搜索词和结果放在模块级：点开一部片再回来，结果还在。
  */
-import { useDebounceFn } from '@vueuse/core'
 import { type Ref, onBeforeUnmount, ref, watch } from 'vue'
 import type {
   VisualFramesSettings,
@@ -12,6 +11,7 @@ import type {
   VisualStatus,
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
+import { visualRequest } from './visual-request'
 import { visualSearchSource } from './visual-source'
 
 /** 轮询间隔。 */
@@ -37,6 +37,8 @@ export function useVisualSearch(options: {
   const error = ref('')
   let timer: ReturnType<typeof setTimeout> | undefined
   let seq = 0
+  let searchTimer: ReturnType<typeof setTimeout> | undefined
+  let disposed = false
 
   const api = ():
     | NonNullable<ReturnType<typeof libraryBridge>>['visual']
@@ -48,6 +50,7 @@ export function useVisualSearch(options: {
     if (!visual || !options.open.value) return
     try {
       const next = await visual.status()
+      if (disposed || !options.open.value) return
       const before = status.value
       const finished =
         (before?.indexing && !next.indexing) ||
@@ -75,12 +78,16 @@ export function useVisualSearch(options: {
     error.value = ''
     try {
       const libraryId = options.libraryId()
-      const found = await visual.search({
-        text: query,
-        source: visualSearchSource.value,
-        ...(libraryId ? { libraryId } : {}),
-      })
-      if (id === seq) hits.value = found
+      const found = await visualRequest(
+        () => id === seq && !disposed && options.open.value,
+        () =>
+          visual.search({
+            text: query,
+            source: visualSearchSource.value,
+            ...(libraryId ? { libraryId } : {}),
+          })
+      )
+      if (id === seq && found) hits.value = found
     } catch (e) {
       if (id === seq) error.value = errorText(e)
     } finally {
@@ -114,21 +121,18 @@ export function useVisualSearch(options: {
     await refresh()
   }
 
-  const searchLater = useDebounceFn(() => void search(), 300)
-  watch(
-    text,
-    () => {
-      seq++
-      if (options.open.value) void searchLater()
-    },
-    { flush: 'sync' }
-  )
+  function searchLater(): void {
+    seq++
+    clearTimeout(searchTimer)
+    if (options.open.value) searchTimer = setTimeout(() => void search(), 300)
+  }
+
+  watch(text, searchLater, { flush: 'sync' })
   watch(
     visualSearchSource,
     () => {
-      seq++
       hits.value = []
-      if (options.open.value) void search()
+      searchLater()
     },
     { flush: 'sync' }
   )
@@ -136,6 +140,7 @@ export function useVisualSearch(options: {
     () => options.open.value,
     open => {
       seq++
+      clearTimeout(searchTimer)
       searching.value = false
       if (open) {
         void refresh()
@@ -144,10 +149,12 @@ export function useVisualSearch(options: {
     },
     { immediate: true }
   )
-  watch(options.libraryId, () => void search())
+  watch(options.libraryId, searchLater)
   onBeforeUnmount(() => {
+    disposed = true
     seq++
     clearTimeout(timer)
+    clearTimeout(searchTimer)
   })
 
   return { status, text, hits, searching, error, startIndex, setFrames }

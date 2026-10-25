@@ -5,10 +5,7 @@
  */
 import { describe, expect, it, vi } from 'vitest'
 
-vi.mock('@/features/library', () => ({
-  suggestTonight: vi.fn(),
-  playTonightPick: vi.fn(),
-}))
+vi.mock('@/features/library', () => ({}))
 
 vi.mock('@/features/player', async () => {
   const { shallowRef } = await import('vue')
@@ -37,7 +34,6 @@ import {
   privateSections,
   registerCoreSkills,
 } from '../src/renderer/src/features/assistant/skills/core-skills'
-import { durationBadge } from '../src/renderer/src/features/assistant/skills/library-skill'
 import {
   assistantPages,
   isPrivateRoute,
@@ -133,7 +129,6 @@ describe('提示词与 Schema 动态拼出', () => {
       properties: { action: { enum: string[] } }
     }
     expect(schema.properties.action.enum).toEqual([
-      'library.recommend',
       'library.continue',
       'library.search',
       'discover.discover',
@@ -160,7 +155,7 @@ describe('提示词与 Schema 动态拼出', () => {
     for (const context of [idle, playing]) {
       const skills = registry.active(context)
       const text = [
-        buildIntentMessages('今晚看什么', context, skills)[0].content,
+        buildIntentMessages('找一部科幻电影', context, skills)[0].content,
         JSON.stringify(intentSchema(skills)),
         skillSuggestions(skills, context).join(' '),
         skillPlaceholder(skills, '问影盒…'),
@@ -196,7 +191,9 @@ describe('提示词与 Schema 动态拼出', () => {
     expect(skillSuggestions(registry.active(playing), playing)).toContain(
       '关掉弹幕'
     )
-    expect(skillSuggestions(registry.active(idle), idle)[0]).toBe('今晚看什么')
+    expect(skillSuggestions(registry.active(idle), idle)[0]).toBe(
+      '继续上次看的'
+    )
     const hidden = registry.active(privateIdle)
     expect(skillSuggestions(hidden, privateIdle)[0]).toBe('按番号搜')
     expect(skillPlaceholder(hidden, '问影盒…')).toBe('问私密库…')
@@ -339,14 +336,6 @@ describe('路由 meta 合并与内置技能只登记一次', () => {
 })
 
 describe('卡片角标与播放器参数', () => {
-  it('durationBadge 先取整到分钟，不会出现 60m', () => {
-    expect(durationBadge(59.6)).toBe('1h 00m')
-    expect(durationBadge(44.6)).toBe('45m')
-    expect(durationBadge(99)).toBe('1h 39m')
-    expect(durationBadge(0.2)).toBe('1m')
-    expect(durationBadge(null)).toBeUndefined()
-  })
-
   it('弹幕 / 字幕开关只认布尔 on', () => {
     const base = { text: '', target: '', value: null, command: 'danmaku' }
     expect(parsePlayerCommand({ ...base, on: false })).toEqual({
