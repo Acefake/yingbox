@@ -1,9 +1,7 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import {
-  type AutograbDeps,
-  createAutograbService,
-} from '../src/main/autograb/service'
+import type { AutograbDeps } from '../src/main/autograb/deps'
+import { createAutograbService } from '../src/main/autograb/service'
 import { NOTIFY_AFTER_MS } from '../src/main/autograb/saver'
 import {
   type DiscoverDeps,
@@ -56,6 +54,8 @@ interface Harness {
   timers: Array<() => void>
   folders: Map<string, string[]>
   clock: { t: number }
+  /** 转存目标（测试里可改） */
+  dest: { cid: string; name: string }
 }
 
 function setup(over: Partial<DiscoverDeps['pan']> = {}): Harness {
@@ -65,6 +65,7 @@ function setup(over: Partial<DiscoverDeps['pan']> = {}): Harness {
   const notified: string[] = []
   const timers: Array<() => void> = []
   const folders = new Map<string, string[]>()
+  const dest = { cid: '42', name: '助手' }
   const pan: DiscoverDeps['pan'] = {
     loggedIn: async () => true,
     pansouReady: () => true,
@@ -111,7 +112,7 @@ function setup(over: Partial<DiscoverDeps['pan']> = {}): Harness {
   const service = createDiscoverService({
     pan,
     guard: () => autograb.guard(),
-    folder: () => ({ cid: '42', name: '助手' }),
+    folder: () => ({ ...dest }),
     notify: async changes => void notified.push(...changes.map(c => c.path)),
     now: () => clock.t,
     later: (run, ms) => {
@@ -120,7 +121,17 @@ function setup(over: Partial<DiscoverDeps['pan']> = {}): Harness {
     },
     log: () => {},
   })
-  return { service, autograb, pan, received, notified, timers, folders, clock }
+  return {
+    service,
+    autograb,
+    pan,
+    received,
+    notified,
+    timers,
+    folders,
+    clock,
+    dest,
+  }
 }
 
 describe('库外发现服务', () => {
@@ -224,6 +235,50 @@ describe('库外发现服务', () => {
     expect(await service.save(found.searchId, 0)).toEqual({
       ok: false,
       error: '候选已过期，请重新搜索',
+    })
+  })
+
+  it('换了目标文件夹：同一个候选会重新存到新文件夹', async () => {
+    const { service, received, dest } = setup()
+    const found = await service.find(TARGET)
+    if (!found.ok) throw new Error('应找到候选')
+    await service.save(found.searchId, 0)
+    dest.cid = '77'
+    dest.name = '新电影'
+    expect(await service.save(found.searchId, 0)).toMatchObject({
+      ok: true,
+      folder: '新电影',
+    })
+    expect(received).toEqual([
+      { ids: ['f1'], cid: '42' },
+      { ids: ['f1'], cid: '77' },
+    ])
+  })
+
+  it('连点转存：并发的点击共用一次转存，115 只收到一次', async () => {
+    const { service, received } = setup()
+    const found = await service.find(TARGET)
+    if (!found.ok) throw new Error('应找到候选')
+    const [a, b] = await Promise.all([
+      service.save(found.searchId, 0),
+      service.save(found.searchId, 0),
+    ])
+    expect(a).toEqual(b)
+    expect(a.ok).toBe(true)
+    expect(received).toHaveLength(1)
+  })
+
+  it('status 出错：回结构化结果（按没登录引导），不抛给 IPC', async () => {
+    const { service } = setup({
+      loggedIn: async () => {
+        throw new Error('读取账号失败')
+      },
+    })
+    expect(await service.status()).toEqual({
+      loggedIn: false,
+      pansou: true,
+      paused: null,
+      folder: '助手',
     })
   })
 })

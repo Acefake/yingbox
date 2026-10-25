@@ -6,6 +6,8 @@
  * - 只在用户点了「找 115 资源」/「转存」时才发请求，从不自动转存；
  * - 115 请求全部过追更的闸门（同一队列、同一份每日限额与熔断），打不开的分享进同一张拉黑表；
  * - 候选留在主进程，渲染层只回传 searchId 与序号；转存只传那一个 file_id，目标文件夹里同名文件已在就不再存；
+ *   同一个文件存到同一个文件夹时并发的点击共用一次转存，存过的直接算成功（换了目标文件夹会重新存）；
+ * - status 出错（读账号失败等）也回结构化结果，不让 IPC 变成拒绝；
  * - 转存 {@link NOTIFY_AFTER_MS} 后按 115 路径主动通知媒体库扫一次（不靠 CloudDrive2 webhook）。
  */
 import type { AutograbCandidate } from '../../shared/contract/autograb'
@@ -74,8 +76,8 @@ export interface DiscoverService {
 interface StoredResult {
   at: number
   candidates: AutograbCandidate[]
-  /** 已转存的 file_id（重复点转存直接算成功） */
-  saved: Set<string>
+  /** 已转存的「file_id → 目标 cid」（同一文件夹重复点转存直接算成功） */
+  saved: Map<string, Set<string>>
 }
 
 const NOT_LOGGED_IN = '请先在设置 · 网盘里扫码登录 115'
@@ -91,6 +93,8 @@ export function createDiscoverService(deps: DiscoverDeps): DiscoverService {
   const results = new Map<string, StoredResult>()
   let seq = 0
   let guardRef: Pan115Guard | null = null
+  /** 进行中的转存（键：file_id 与目标 cid），连点共用同一次 */
+  const inflight = new Map<string, Promise<DiscoverSaveResult>>()
 
   async function guard(): Promise<Pan115Guard> {
     guardRef ??= await deps.guard()
@@ -115,7 +119,7 @@ export function createDiscoverService(deps: DiscoverDeps): DiscoverService {
     while (results.size >= MAX_RESULTS)
       results.delete(results.keys().next().value as string)
     const id = `d${++seq}`
-    results.set(id, { at: now, candidates, saved: new Set() })
+    results.set(id, { at: now, candidates, saved: new Map() })
     return id
   }
 
@@ -133,14 +137,68 @@ export function createDiscoverService(deps: DiscoverDeps): DiscoverService {
     }, NOTIFY_AFTER_MS)
   }
 
+  /** 转存一个候选到 cid（查重 → 只存那一个 file_id → 记下并稍后通知媒体库） */
+  async function transfer(
+    stored: StoredResult,
+    candidate: AutograbCandidate,
+    cid: string,
+    name: string
+  ): Promise<DiscoverSaveResult> {
+    try {
+      if (!(await deps.pan.loggedIn()))
+        return { ok: false, error: NOT_LOGGED_IN, setup: 'login' }
+    } catch {
+      return { ok: false, error: NOT_LOGGED_IN, setup: 'login' }
+    }
+    const gate = await guard()
+    try {
+      const existing = await gate.run('snap', () => deps.pan.names(cid))
+      if (!existing.includes(candidate.fileName))
+        await gate.run('receive', () =>
+          deps.pan.receive(
+            candidate.shareUrl,
+            candidate.password,
+            [candidate.fileId],
+            cid
+          )
+        )
+    } catch (error) {
+      if ((error as { code?: number }).code !== ALREADY_RECEIVED) {
+        if (isDeadShare(error)) {
+          const ref = parseShareLink(candidate.shareUrl, candidate.password)
+          if (ref) gate.block(ref.shareCode)
+        }
+        const message = (error as Error).message
+        return {
+          ok: false,
+          error: error instanceof GateClosed ? message : `转存失败：${message}`,
+        }
+      }
+    }
+    const folders = stored.saved.get(candidate.fileId) ?? new Set<string>()
+    folders.add(cid)
+    stored.saved.set(candidate.fileId, folders)
+    deps.log(`已转存 ${candidate.fileName} → ${name}`)
+    notifyLater(cid, candidate.fileName)
+    return { ok: true, fileName: candidate.fileName, folder: name }
+  }
+
   return {
     async status(): Promise<DiscoverReady> {
-      const gate = await guard()
-      return {
-        loggedIn: await deps.pan.loggedIn(),
-        pansou: deps.pan.pansouReady(),
-        paused: gate.pauseReason(),
-        folder: deps.folder().name || '根目录',
+      const folder = deps.folder().name || '根目录'
+      const pansou = deps.pan.pansouReady()
+      try {
+        const gate = await guard()
+        return {
+          loggedIn: await deps.pan.loggedIn(),
+          pansou,
+          paused: gate.pauseReason(),
+          folder,
+        }
+      } catch (error) {
+        // 读不到账号 / 闸门状态时按「没登录」处理，面板引导去设置，而不是让 IPC 报错
+        deps.log(`读取状态失败：${(error as Error).message}`)
+        return { loggedIn: false, pansou, paused: null, folder }
       }
     },
 
@@ -177,41 +235,17 @@ export function createDiscoverService(deps: DiscoverDeps): DiscoverService {
         return { ok: false, error: '候选已过期，请重新搜索' }
       const folder = deps.folder()
       const name = folder.name || '根目录'
-      if (stored.saved.has(candidate.fileId))
-        return { ok: true, fileName: candidate.fileName, folder: name }
-      if (!(await deps.pan.loggedIn()))
-        return { ok: false, error: NOT_LOGGED_IN, setup: 'login' }
-      const gate = await guard()
       const cid = safeCid(folder.cid)
-      try {
-        const existing = await gate.run('snap', () => deps.pan.names(cid))
-        if (!existing.includes(candidate.fileName))
-          await gate.run('receive', () =>
-            deps.pan.receive(
-              candidate.shareUrl,
-              candidate.password,
-              [candidate.fileId],
-              cid
-            )
-          )
-      } catch (error) {
-        if ((error as { code?: number }).code !== ALREADY_RECEIVED) {
-          if (isDeadShare(error)) {
-            const ref = parseShareLink(candidate.shareUrl, candidate.password)
-            if (ref) gate.block(ref.shareCode)
-          }
-          const message = (error as Error).message
-          return {
-            ok: false,
-            error:
-              error instanceof GateClosed ? message : `转存失败：${message}`,
-          }
-        }
-      }
-      stored.saved.add(candidate.fileId)
-      deps.log(`已转存 ${candidate.fileName} → ${name}`)
-      notifyLater(cid, candidate.fileName)
-      return { ok: true, fileName: candidate.fileName, folder: name }
+      if (stored.saved.get(candidate.fileId)?.has(cid))
+        return { ok: true, fileName: candidate.fileName, folder: name }
+      const key = `${candidate.fileId}@${cid}`
+      const running = inflight.get(key)
+      if (running) return running
+      const task = transfer(stored, candidate, cid, name).finally(() =>
+        inflight.delete(key)
+      )
+      inflight.set(key, task)
+      return task
     },
   }
 }

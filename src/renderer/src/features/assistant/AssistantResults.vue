@@ -97,9 +97,9 @@
  * 打开播放器期间：被点的卡片在说明行显示「正在打开…」并标 aria-busy，其余卡片变淡并标 aria-disabled
  * （保持可聚焦，点击不重复打开）。
  * 带按钮的卡片（库外的片子：角标写「未入库」等状态）整张不可点，按钮可执行一次性动作，
- * 或在卡片列表下方展开一个面板（同一时间只展开一张卡的面板，再点收起）。
+ * 或在卡片列表下方展开一个面板（同一时间只展开一张卡的面板，再点收起；结果换了就收起）。
  */
-import { type Component, ref, shallowRef } from 'vue'
+import { type Component, ref, shallowRef, watch } from 'vue'
 
 import {
   UiButton,
@@ -115,7 +115,7 @@ import type {
   AssistantResult,
 } from './skills/skill-types'
 
-defineProps<{ result: AssistantResult }>()
+const props = defineProps<{ result: AssistantResult }>()
 const emit = defineEmits<{ played: [] }>()
 
 /** 正在打开播放器的卡片 */
@@ -125,6 +125,14 @@ const expanded = shallowRef<{
   cardId: string
   panel: { component: Component; props: Record<string, unknown> }
 } | null>(null)
+
+// 换了一批结果：上一批卡片展开的面板随之收起，不残留到新结果下
+watch(
+  () => props.result,
+  () => {
+    expanded.value = null
+  }
+)
 
 async function play(card: AssistantMediaCard): Promise<void> {
   if (playing.value) return

@@ -2,7 +2,9 @@ import { describe, expect, it } from 'vitest'
 
 import type { NetdiskItem } from '../src/shared/contract/pan115'
 
+import { Pan115Error } from '../src/main/pan115/errors'
 import {
+  createMovieFinder,
   movieKeywords,
   rankMovieShares,
 } from '../src/main/discover/movie-finder'
@@ -10,6 +12,7 @@ import {
   MAX_MOVIE_SIZE,
   MIN_MOVIE_SIZE,
   type MovieTarget,
+  featureVideoCount,
   matchMovieFile,
   movieFolderWorthOpening,
   yearsIn,
@@ -152,6 +155,42 @@ describe('电影认文件', () => {
     if (inFolder.ok) expect(inFolder.reasons).not.toContain('文件名含片名')
   })
 
+  it('合集分享（同一层多个正片）：分享标题不替其它影片担保片名', () => {
+    const collection = {
+      shareTitle: '诺兰合集 星际穿越 盗梦空间 2010-2014',
+      folder: '',
+      shareVouches: false,
+    }
+    expect(
+      matchMovieFile(file('Inception.2010.mkv'), target, collection)
+    ).toEqual({ ok: false, reason: '片名对不上' })
+    // 文件名自己写了片名照样认
+    expect(
+      matchMovieFile(file('星际穿越.2014.mkv'), target, collection).ok
+    ).toBe(true)
+    // 预告这类小文件、带排除字眼的不算正片
+    expect(
+      featureVideoCount([
+        file('星际穿越.2014.mkv'),
+        file('星际穿越.预告.mp4'),
+        file('sample.mkv', 50 * 1024 * 1024),
+        { name: '花絮', size: 0, isDir: true },
+      ])
+    ).toBe(1)
+  })
+
+  it('不知道上映年份：不核对、不加分，也不说「年份差一年」', () => {
+    const match = matchMovieFile(
+      file('Interstellar.2014.1080p.mkv'),
+      { ...target, year: null },
+      top
+    )
+    expect(match.ok).toBe(true)
+    if (!match.ok) return
+    expect(match.reasons).toContain('年份未核对')
+    expect(match.reasons).not.toContain('年份差一年')
+  })
+
   it('子文件夹：对得上片名才点进去，花絮文件夹不进', () => {
     expect(movieFolderWorthOpening('星际穿越 2014 4K', target)).toBe(true)
     expect(movieFolderWorthOpening('星际穿越 花絮', target)).toBe(false)
@@ -202,5 +241,47 @@ describe('电影找资源的关键词与分享排序', () => {
       '星际穿越 旧',
       '无关合集',
     ])
+  })
+})
+
+describe('电影查找器', () => {
+  const share = (code: string): NetdiskItem => ({
+    title: `星际穿越 2014 ${code}`,
+    source: 'tg:x',
+    url: `https://115.com/s/${code}`,
+    shareCode: code,
+    receiveCode: '',
+  })
+
+  it('看到一半出错：已找到的候选照样交出来；一个都没有才抛错', async () => {
+    const risk = new Pan115Error('操作太频繁，请稍后再试', 911)
+    const finder = createMovieFinder({
+      search: async () => [share('a'), share('b')],
+      snap: async item => {
+        if (item.shareCode === 'b') throw risk
+        // 分数不到「够好」，会接着看下一个分享
+        return {
+          title: '',
+          count: 1,
+          files: [{ id: 'f1', ...file('星际穿越.2014.mkv', GB) }],
+        }
+      },
+      blocked: () => false,
+      block: () => {},
+      now: () => 0,
+    })
+    const result = await finder.find(target)
+    expect(result.candidates.map(c => c.fileId)).toEqual(['f1'])
+
+    const empty = createMovieFinder({
+      search: async () => [share('b')],
+      snap: async () => {
+        throw risk
+      },
+      blocked: () => false,
+      block: () => {},
+      now: () => 0,
+    })
+    await expect(empty.find(target)).rejects.toBe(risk)
   })
 })

@@ -7,7 +7,7 @@
  */
 export { discoverAvailable, openNetdiskSettings } from './api'
 export { default as DiscoverCandidates } from './components/DiscoverCandidates.vue'
-export { parseDiscoverQuery } from './discover-query'
+export { parseDiscoverQuery, requestedYears } from './discover-query'
 export {
   type DiscoverTitle,
   findInLibrary,

@@ -5,6 +5,10 @@
  * 分隔用 ; ， , 或空格；value 槽可给评分下限。每个值都按 shared/douban/query.ts 的白名单收，
  * 认不出的丢掉（常见别名先换成白名单写法：香港 → 中国香港、1990s → 90年代、高分 → 评分排序）。
  * 一个条件都没认出来时返回 null，由助手降级成只回答文字。
+ *
+ * 豆瓣的年代档只到「80年代」，再往前只有「更早」：70 年代、60 年代这类要求照样落到「更早」去取片单，
+ * 另由 {@link requestedYears} 给出真正的年份范围，助手拿到片单后按年份再筛一遍，不把范围放宽。
+ * 类型取模型写法里最早出现的那个白名单类型（「动画喜剧」→ 动画），不按白名单顺序挑。
  */
 import {
   type DoubanKind,
@@ -74,18 +78,33 @@ interface Filters {
   sort: DoubanSort | ''
 }
 
-/** 年代写法统一：90年代 / 1990年代 / 1990s / 90s → 90年代；2010s → 2010年代；1997 → 1997 */
+/** 年代写法 → 起始年份（90年代 / 1990s / 90s → 1990；00年代 → 2000）；不是年代写法返回 null */
+function decadeOf(raw: string): number | null {
+  const m = /^(?:(19|20))?(\d)0(?:年代|s|'s)$/i.exec(raw)
+  if (!m) return null
+  const century =
+    m[1] ?? (m[2] === '0' || m[2] === '1' || m[2] === '2' ? '20' : '19')
+  return Number(`${century}${m[2]}0`)
+}
+
+/**
+ * 年代写法统一成豆瓣的档：90年代 / 1990年代 / 1990s / 90s → 90年代；2010s → 2010年代；1997 → 1997；
+ * 早于 80 年代的豆瓣只有「更早」（真正的范围见 {@link eraYears}）。
+ */
 export function normalizeEra(text: string): string {
   const raw = text.trim().replace(/\s+/g, '')
   if (/^(?:19|20)\d{2}$/.test(raw)) return raw
-  const m = /^(?:(19|20))?(\d)0(?:年代|s|'s)$/i.exec(raw)
-  if (!m) return raw === '更早' ? raw : ''
-  const century =
-    m[1] ?? (m[2] === '0' || m[2] === '1' || m[2] === '2' ? '20' : '19')
-  const decade = Number(`${century}${m[2]}0`)
+  const decade = decadeOf(raw)
+  if (decade === null) return raw === '更早' ? raw : ''
   if (decade >= 2000) return `${decade}年代`
   if (decade >= 1980) return `${String(decade).slice(2)}年代`
   return '更早'
+}
+
+/** 豆瓣档表达不了的年代（早于 80 年代）→ 年份范围（含两端）；其他写法返回 null */
+export function eraYears(text: string): [number, number] | null {
+  const decade = decadeOf(text.trim().replace(/\s+/g, ''))
+  return decade !== null && decade < 1980 ? [decade, decade + 9] : null
 }
 
 /** 拆出键值对 */
@@ -97,22 +116,44 @@ function pairs(command: string): Array<[string, string]> {
     .map(([k, v]) => [k.trim().toLowerCase(), v.trim()])
 }
 
+/** 类型：完全一致优先，其次去掉「片 / 电影 / 剧」后缀，再取写法里最早出现的（同位置取更长的） */
+export function pickGenre(value: string, kind: DoubanKind): string {
+  const list = GENRES[kind]
+  if (list.includes(value)) return value
+  const bare = value.replace(/(?:电影|片|剧)$/, '')
+  if (list.includes(bare)) return bare
+  let best = ''
+  let bestAt = Infinity
+  for (const genre of list) {
+    const at = value.indexOf(genre)
+    if (at < 0) continue
+    if (at < bestAt || (at === bestAt && genre.length > best.length)) {
+      best = genre
+      bestAt = at
+    }
+  }
+  return best
+}
+
 /** 收一个值：白名单里有就用，有别名就换，否则空串 */
 function pickValue(
   key: keyof Filters,
   value: string,
   kind: DoubanKind
 ): string {
-  if (key === 'genre')
-    return GENRES[kind].includes(value)
-      ? value
-      : (GENRES[kind].find(g => value.includes(g)) ?? '')
+  if (key === 'genre') return pickGenre(value, kind)
   if (key === 'region') {
     const alias = REGION_ALIASES[value] ?? value
     return REGIONS[kind].includes(alias) ? alias : ''
   }
   if (key === 'era') return normalizeEra(value)
   return SORT_ALIASES[value.toLowerCase()] ?? ''
+}
+
+/** 筛选串里第一个年代条件要求的年份范围（只有豆瓣档表达不了时才有，见 {@link eraYears}） */
+export function requestedYears(command: string): [number, number] | null {
+  const era = pairs(command).find(([key]) => KEY_ALIASES[key] === 'era')
+  return era ? eraYears(era[1]) : null
 }
 
 /**

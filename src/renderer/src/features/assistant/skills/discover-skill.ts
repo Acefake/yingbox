@@ -5,6 +5,8 @@
  * - 库里已有的照常给「播放」卡片；库外的卡片标「未入库」，带「找 115 资源」（在卡片下方展开候选面板，
  *   用户点「转存」才存）和「在线看」（跳到在线搜索）；
  * - 转存后角标随状态变成「入库中 / 已转存，等待入库 / 已入库」，入库后按钮变成「播放」。
+ * - 豆瓣年代档表达不了的范围（70 年代等落到「更早」）按年份再筛一遍；
+ * - 回复里的「本地库里有 N 部」是真实数量，卡片只列前几部时会说明。
  * 剧集第一版只给「在线看」。私密模式下本技能不生效。
  */
 import type { Router } from 'vue-router'
@@ -18,6 +20,7 @@ import {
   discoverTitles,
   parseDiscoverQuery,
   phaseLabel,
+  requestedYears,
 } from '@/features/discover'
 import { libraryPoster, playLibraryItem } from '@/features/library'
 
@@ -33,6 +36,21 @@ import {
 const MAX_LOCAL = 3
 /** 库外的最多给几张 */
 const MAX_MISSING = 6
+
+/** discover 动作的参数：豆瓣条件 + 豆瓣档表达不了时的年份范围 */
+export interface DiscoverParams {
+  query: DoubanQuery
+  years: [number, number] | null
+}
+
+/** 年份在不在范围里（没有范围时都算在；有范围时年份未知的不算） */
+export function inYears(
+  year: number | null,
+  years: [number, number] | null
+): boolean {
+  if (!years) return true
+  return year !== null && year >= years[0] && year <= years[1]
+}
 
 /** 库里已有的一部 → 播放卡片 */
 export function localCard(
@@ -99,7 +117,11 @@ export function missingCard(
   }
 }
 
-/** 结果 → 一句话 */
+/**
+ * 结果 → 一句话。
+ * @param local 库里已有的真实数量（不是卡片数）
+ * @param missing 库外的数量
+ */
 export function discoverMessage(
   local: number,
   missing: number,
@@ -108,33 +130,39 @@ export function discoverMessage(
   if (!local && !missing) return '豆瓣上没找到符合条件的片子，换个说法试试。'
   const tail =
     kind === 'tv' ? '剧集暂时只能在线看。' : '点「找 115 资源」挑一个转存。'
-  if (!missing) return '这些本地库里都有，直接播放吧。'
+  const shown = local > MAX_LOCAL ? `（先列 ${MAX_LOCAL} 部）` : ''
+  if (!missing) return `这些本地库里都有${shown}，直接播放吧。`
   if (!local) return `本地库里还没有，这几部可以考虑：${tail}`
-  return `本地库里有 ${local} 部，另外这几部还没入库：${tail}`
+  return `本地库里有 ${local} 部${shown}，另外这几部还没入库：${tail}`
 }
 
 /** 新建库外发现技能包 */
 export function createDiscoverSkill(): AssistantSkill {
-  const discover = defineAction<DoubanQuery>({
+  const discover = defineAction<DiscoverParams>({
     name: 'discover',
     describe:
       '想找片且本地库里可能没有（如「找几部 90 年代的科幻片」）；target 为 movie 或 tv，' +
       'command 写豆瓣筛选「类型=科幻;地区=美国;年代=90年代;排序=评分」（各项可省，排序可选综合 / 热度 / 时间 / 评分），' +
       'value 可给评分下限 6–9，不限时为 null。',
-    parse: raw => parseDiscoverQuery(raw.target, raw.command, raw.value),
+    parse: raw => {
+      const query = parseDiscoverQuery(raw.target, raw.command, raw.value)
+      return query ? { query, years: requestedYears(raw.command) } : null
+    },
     gate: () =>
       discoverAvailable
         ? null
         : { kind: 'explain', text: '库外找片只在桌面端可用。' },
-    async run(query, env) {
-      const { local, missing } = await discoverTitles(query, env.signal)
+    async run({ query, years }, env) {
+      const found = await discoverTitles(query, env.signal)
+      const local = found.local.filter(e => inYears(e.title.year, years))
+      const missing = found.missing.filter(t => inYears(t.year, years))
       const cards = [
         ...local.slice(0, MAX_LOCAL).map(localCard),
         ...missing.slice(0, MAX_MISSING).map(t => missingCard(t, env.router)),
       ]
       return {
         message: discoverMessage(
-          Math.min(local.length, MAX_LOCAL),
+          local.length,
           Math.min(missing.length, MAX_MISSING),
           query.kind
         ),

@@ -1,7 +1,8 @@
 /**
  * 主进程库外发现模块入口：把库外发现服务接到 115 服务、追更的闸门、设置、媒体库变更通知与 discover 域。
  *
- * 转存目标：设置 `pan115.movieCid`（助手转存目标文件夹）；没设时跟随网盘设置里的转存目标 `pan115.targetCid`。
+ * 转存目标：设置 `pan115.movieCid`（助手转存目标文件夹）；没设时跟随网盘设置里的转存目标 `pan115.targetCid`；
+ * 两处都为空时是根目录（cid 0）。
  */
 import { discover } from '../../shared/contract/discover'
 import type { AutograbService } from '../autograb/service'
@@ -51,13 +52,12 @@ export function registerDiscover(
     },
     guard: () => autograb.guard(),
     folder: () => {
-      const cid = store.get('pan115.movieCid')
-      return cid
-        ? { cid, name: store.get('pan115.movieName') }
-        : {
-            cid: store.get('pan115.targetCid'),
-            name: store.get('pan115.targetName'),
-          }
+      const movieCid = store.get('pan115.movieCid')
+      if (movieCid)
+        return { cid: movieCid, name: store.get('pan115.movieName') }
+      // 两处都没设时明确落到根目录（cid 0），不把空串交给 115
+      const cid = store.get('pan115.targetCid') || '0'
+      return { cid, name: cid === '0' ? '' : store.get('pan115.targetName') }
     },
     notify: async changes => {
       const mountRoot = store.get('library.notify.mountRoot')

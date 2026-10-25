@@ -2,10 +2,12 @@
  * 为一部电影找候选：PanSou 搜 → 挑几个分享 → 看快照（必要时点进一层文件夹）→ 按电影规则认文件打分。
  *
  * 与追更的查找器同一套依赖（{@link FinderDeps}）：快照经 115 闸门、拉黑表与追更共用。
- * - 关键词：「片名 年份」「片名」「原名 年份」依次搜，对得上片名的分享够了就不再搜；同一关键词缓存 1 小时；
+ * - 关键词：「片名 年份」「片名」「原名 年份」依次搜，对得上片名的分享够了就不再搜；同一关键词缓存 1 小时
+ *   （写入时清掉过期的，最多留 {@link MAX_CACHED} 条）；
  * - 分享：去重、去掉拉黑的、标题对得上片名的优先、新的优先，最多看 {@link MAX_MOVIE_SHARES} 个；
  * - 快照：顶层只有一个文件夹或有对得上片名的文件夹时点进去一层（最多 2 个）；
- * - 结果按分数排，同一个文件只留一次，留前 {@link MAX_MOVIE_CANDIDATES} 个。
+ * - 结果按分数排，同一个文件只留一次，留前 {@link MAX_MOVIE_CANDIDATES} 个；
+ * - 看到一半出错（闸门暂停、网络）：已找到候选就先交出来，一个都没有才把错误抛给调用方。
  */
 import type { AutograbCandidate } from '../../shared/contract/autograb'
 import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
@@ -16,6 +18,7 @@ import {
 } from '../autograb/finder'
 import {
   type MovieTarget,
+  featureVideoCount,
   matchMovieFile,
   movieFolderWorthOpening,
   movieTitleMatches,
@@ -26,6 +29,8 @@ export const MAX_MOVIE_SHARES = 4
 /** 留几个候选 */
 export const MAX_MOVIE_CANDIDATES = 3
 const CACHE_MS = 3_600_000
+/** 关键词缓存最多留几条 */
+export const MAX_CACHED = 60
 const MAX_FOLDERS = 2
 /** 有候选到这个分数就不再看后面的分享（省 115 查询次数） */
 const GOOD_ENOUGH = 85
@@ -62,7 +67,13 @@ export function createMovieFinder(deps: FinderDeps): {
     const hit = cache.get(keyword)
     if (hit && deps.now() - hit.at < CACHE_MS) return hit.items
     const items = await deps.search(keyword)
-    cache.set(keyword, { at: deps.now(), items })
+    const now = deps.now()
+    for (const [key, entry] of cache)
+      if (now - entry.at >= CACHE_MS) cache.delete(key)
+    // Map 按插入顺序迭代：超出上限时先丢最早写入的
+    while (cache.size >= MAX_CACHED)
+      cache.delete(cache.keys().next().value as string)
+    cache.set(keyword, { at: now, items })
     return items
   }
 
@@ -91,8 +102,14 @@ export function createMovieFinder(deps: FinderDeps): {
     out: AutograbCandidate[]
   ): void {
     const shareTitle = item.title || snap.title
+    // 同一层有多个视频（合集）时分享标题不能替文件担保片名
+    const shareVouches = featureVideoCount(snap.files) <= 1
     for (const file of snap.files) {
-      const match = matchMovieFile(file, target, { shareTitle, folder })
+      const match = matchMovieFile(file, target, {
+        shareTitle,
+        folder,
+        shareVouches,
+      })
       if (!match.ok) continue
       out.push({
         shareUrl: item.url,
@@ -130,15 +147,21 @@ export function createMovieFinder(deps: FinderDeps): {
       const list = await shares(target)
       if (!list.length) return { candidates: [], note: 'PanSou 没有搜到分享' }
       const found: AutograbCandidate[] = []
+      let failure: unknown = null
       for (const item of list) {
         try {
           await inspect(item, target, found)
         } catch (error) {
           if (isDeadShare(error)) deps.block(item.shareCode)
-          else throw error
+          else {
+            // 闸门暂停 / 网络错误：后面的分享也看不了，停下但保留已找到的
+            failure = error
+            break
+          }
         }
         if (found.some(c => c.score >= GOOD_ENOUGH)) break
       }
+      if (failure !== null && !found.length) throw failure
       const unique = new Map<string, AutograbCandidate>()
       for (const c of found.sort((a, b) => b.score - a.score))
         if (!unique.has(c.fileId)) unique.set(c.fileId, c)
