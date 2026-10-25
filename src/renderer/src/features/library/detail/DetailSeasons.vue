@@ -1,48 +1,54 @@
 <template>
-  <!-- 剧集（效果图 D-1 底部 / D-2）：季名做标题（多季时可下拉切换），剧集卡横排 -->
+  <!-- 剧集：季名做标题（多季时可下拉切换），16:9 剧照卡横排（UiShelf 翻页键 / 滚轮 / ← →），文字在卡下 -->
   <section class="lib-section lib-seasons">
-    <div class="lib-section-head">
-      <div class="lib-season-pick" :class="{ 'is-multi': seasons.length > 1 }">
-        <h2 class="lib-section-title">
-          {{ currentSeason ? seasonName(currentSeason) : '剧集'
-          }}<UiIcon
+    <UiShelf
+      :title="currentSeason ? seasonName(currentSeason) : '剧集'"
+      class="lib-episodes-shelf"
+      list
+    >
+      <template #title>
+        <div
+          class="lib-season-pick"
+          :class="{ 'is-multi': seasons.length > 1 }"
+        >
+          <h2 class="lib-section-title">
+            {{ currentSeason ? seasonName(currentSeason) : '剧集'
+            }}<UiIcon
+              v-if="seasons.length > 1"
+              class="lib-season-caret"
+              name="chevronDown"
+              size="md"
+            />
+          </h2>
+          <!-- 透明的下拉（UiSelect，原生 select 撑满整块）盖在标题上：键盘、读屏与系统菜单都现成 -->
+          <UiSelect
             v-if="seasons.length > 1"
-            class="lib-season-caret"
-            name="chevronDown"
-            size="md"
+            v-model="seasonKey"
+            class="lib-season-select"
+            :options="seasonOptions"
+            aria-label="选择季"
           />
-        </h2>
-        <!-- 透明的下拉（UiSelect，原生 select 撑满整块）盖在标题上：键盘、读屏与系统菜单都现成 -->
-        <UiSelect
-          v-if="seasons.length > 1"
-          v-model="seasonKey"
-          class="lib-season-select"
-          :options="seasonOptions"
-          aria-label="选择季"
-        />
-      </div>
-      <span
-        v-if="detectVisible"
-        v-tooltip="detectBlocked"
-        class="lib-season-detect"
-      >
-        <UiButton
-          size="sm"
-          :variant="detectRunning ? 'secondary' : 'plain'"
-          icon="scan"
-          :label="detectLabel"
-          :disabled="!detectRunning && !!detectBlocked"
-          @click="toggleDetect"
-        />
-      </span>
-    </div>
-    <p v-if="seasonOverview" class="lib-season-overview">
-      {{ seasonOverview }}
-    </p>
-    <ol class="lib-row lib-episodes">
-      <li
+        </div>
+      </template>
+      <template v-if="detectVisible" #actions>
+        <span v-tooltip="detectBlocked" class="lib-season-detect">
+          <UiButton
+            size="sm"
+            :variant="detectRunning ? 'secondary' : 'plain'"
+            icon="scan"
+            :label="detectLabel"
+            :disabled="!detectRunning && !!detectBlocked"
+            @click="toggleDetect"
+          />
+        </span>
+      </template>
+      <template v-if="seasonOverview" #intro>
+        <p class="lib-season-overview">{{ seasonOverview }}</p>
+      </template>
+      <div
         v-for="ep in episodes"
         :key="ep.id"
+        role="listitem"
         class="lib-episode"
         :class="{
           'is-missing': !hasFile(ep),
@@ -56,17 +62,9 @@
           :aria-disabled="hasFile(ep) ? undefined : 'true'"
           @click="playEpisode(ep)"
         >
-          <template v-if="ep.poster">
-            <!-- 底层同图放大铺满整卡，给模糊区取样；上层剧照保持 16:9 并在底部羽化 -->
+          <span class="lib-episode-frame">
             <img
-              class="lib-episode-fill"
-              :src="ep.poster"
-              alt=""
-              loading="lazy"
-              decoding="async"
-              referrerpolicy="no-referrer"
-            />
-            <img
+              v-if="ep.poster"
               class="lib-episode-still"
               :src="ep.poster"
               alt=""
@@ -74,13 +72,19 @@
               decoding="async"
               referrerpolicy="no-referrer"
             />
-          </template>
-          <span v-else class="lib-episode-placeholder" aria-hidden="true"
-            ><UiIcon name="tv" size="lg"
-          /></span>
-          <span class="yb-pblur lib-episode-blur" aria-hidden="true"
-            ><i /><i /><i /><i
-          /></span>
+            <span v-else class="lib-episode-placeholder" aria-hidden="true"
+              ><UiIcon name="tv" size="lg"
+            /></span>
+            <span
+              v-if="hasFile(ep)"
+              class="lib-episode-play yb-glass"
+              aria-hidden="true"
+              ><UiIcon name="play" size="sm"
+            /></span>
+            <span v-if="markOf(ep)?.ratio" class="lib-episode-progress"
+              ><i :style="{ width: ratioWidth(markOf(ep)!.ratio) }"
+            /></span>
+          </span>
           <span class="lib-episode-copy">
             <span class="lib-episode-number"
               >第 {{ ep.episodeNumber ?? '?' }} 集</span
@@ -96,33 +100,30 @@
               class="lib-episode-spoiler-hint"
               >未看 · 悬停显示简介</span
             >
-            <span v-if="markOf(ep)?.ratio" class="lib-episode-progress"
-              ><i :style="{ width: ratioWidth(markOf(ep)!.ratio) }"
-            /></span>
             <span class="lib-episode-foot">
-              <span v-if="hasFile(ep)" class="lib-episode-foot-main">
-                <UiIcon name="play" size="sm" />
-                {{ footText(ep) }}
-              </span>
               <span v-if="!hasFile(ep)" class="lib-episode-missing"
                 >本地缺失</span
               >
-              <span v-else-if="ep.airDate" class="lib-episode-date">{{
+              <span v-else class="lib-episode-foot-main">{{
+                footText(ep)
+              }}</span>
+              <span v-if="ep.airDate" class="lib-episode-date">{{
                 ep.airDate
               }}</span>
             </span>
           </span>
         </UiPressable>
-      </li>
-    </ol>
+      </div>
+    </UiShelf>
   </section>
 </template>
 
 <script setup lang="ts">
 /**
- * 详情里的剧集区块（Apple TV 式，效果图 D-2）：标题是当前季名，多季时标题旁带下拉箭头（原生下拉盖在上面），
- * 季简介，剧集卡横排滚动：剧照占上部，下半同图渐进模糊 + 暗化，上面压「第 N 集」、标题、两行简介、
- * 观看进度条和「▶ 45 分钟 / 看到 12:30 / 已看」+ 播出日期；缺文件的集底行只写「本地缺失」。换条目时回到默认季。
+ * 详情里的剧集区块：标题是当前季名，多季时标题旁带下拉箭头（原生下拉盖在上面），季简介，
+ * 剧集卡放在 UiShelf 里横排（翻页键、鼠标滚轮、← → 都能往后翻）：上面 16:9 剧照（约 300px 宽，
+ * 有文件时角上一个小播放钮，看过一部分时底边进度条），卡下是「第 N 集」、标题、两行简介和
+ * 「45 分钟 / 看到 12:30 / 已看」+ 播出日期；缺文件的集写「本地缺失」。换条目时回到默认季。
  * 防剧透（设置 ui.spoilerGuard）打开时，没看过的集剧照模糊、简介折叠，悬停或键盘聚焦时显示（use-spoiler-guard）。
  * 桌面端在标题行右侧给「检测片头片尾」（use-intro-detect）。
  */
@@ -133,6 +134,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
+import UiShelf from '@/components/ui/UiShelf.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 
 import { progressOf } from '../progress/progress-cache'

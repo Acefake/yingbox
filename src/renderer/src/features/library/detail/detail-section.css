@@ -29,23 +29,3 @@
 .lib-section-head .lib-section-title {
   margin: 0;
 }
-
-/* 横排：卡片从左边距起排，向右滚出窗口；滚动条藏起来 */
-.lib-row {
-  display: flex;
-  gap: var(--space-4);
-  margin: 0 calc(var(--detail-gutter) * -1) 0 calc(var(--detail-x) * -1);
-  padding: var(--space-1) var(--detail-gutter) var(--space-3) var(--detail-x);
-  overflow-x: auto;
-  list-style: none;
-  scroll-padding-inline: var(--detail-x) var(--detail-gutter);
-  scroll-snap-type: x proximity;
-  scrollbar-width: none;
-}
-.lib-row::-webkit-scrollbar {
-  display: none;
-}
-.lib-row > * {
-  flex: none;
-  scroll-snap-align: start;
-}

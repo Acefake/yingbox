@@ -8,7 +8,13 @@
   >
     <UiIcon name="search" size="lg" />
   </UiPressable>
-  <div v-else class="sidebar-search" role="search" :aria-label="placeholder">
+  <div
+    v-else
+    class="sidebar-search"
+    :class="{ 'has-kbd': !text && !isPhone }"
+    role="search"
+    :aria-label="placeholder"
+  >
     <UiInput
       ref="inputRef"
       v-model="text"
@@ -175,6 +181,11 @@ onUnmounted(() => window.removeEventListener('keydown', onShortcut))
 }
 .sidebar-search-field :deep(.ui-input-clear) {
   --ib-size: 24px;
+}
+/* 键帽压在输入框右端：留出它的位置，长占位文字省略号截断 */
+.sidebar-search.has-kbd :deep(.ui-input-native) {
+  padding-right: var(--space-9);
+  text-overflow: ellipsis;
 }
 .sidebar-kbd {
   position: absolute;
