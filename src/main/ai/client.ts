@@ -44,10 +44,20 @@ export interface ClientOptions {
 export const DEFAULT_TIMEOUT_MS = 60_000
 export const DEFAULT_STREAM_TIMEOUT_MS = 120_000
 
-/** 请求头：Bearer Key（有才带）+ OpenRouter 来源标识 + OpenCode Go 自报 User-Agent */
+/**
+ * 本次运行的会话标识：OpenCode Go 要求每段对话带稳定的 x-opencode-session
+ * （缺了返回 400），用于路由与提示缓存。调用方没给会话时整个进程共用这一个。
+ */
+const RUN_SESSION = globalThis.crypto.randomUUID()
+
+/**
+ * 请求头：Bearer Key（有才带）+ OpenRouter 来源标识 + OpenCode Go 的 User-Agent 与会话头。
+ * sessionId 是同一段对话的稳定标识（如问剧情的一次会话）；省略时用本次运行的标识。
+ */
 export function buildHeaders(
   config: AiConfig,
-  stream: boolean
+  stream: boolean,
+  sessionId?: string
 ): Record<string, string> {
   const headers: Record<string, string> = {
     'Content-Type': 'application/json',
@@ -58,7 +68,11 @@ export function buildHeaders(
     headers['HTTP-Referer'] = 'https://github.com/Acefake/yingbox'
     headers['X-Title'] = 'yingbox'
   }
-  if (config.provider === 'opencode-go') headers['User-Agent'] = 'yingbox'
+  if (config.provider === 'opencode-go') {
+    headers['User-Agent'] = 'yingbox'
+    headers['x-opencode-session'] =
+      `yingbox-${sessionId?.trim() || RUN_SESSION}`
+  }
   return headers
 }
 
@@ -208,7 +222,7 @@ async function attemptOnce(
   try {
     const response = await options.fetch(`${config.baseUrl}/chat/completions`, {
       method: 'POST',
-      headers: buildHeaders(config, stream),
+      headers: buildHeaders(config, stream, request.sessionId),
       body: JSON.stringify(
         buildChatBody(config, request, { stream, json: options.json })
       ),
