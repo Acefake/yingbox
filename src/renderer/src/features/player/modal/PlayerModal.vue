@@ -197,6 +197,8 @@ useEscapeLayer(() => visible.value, closePlayerModal)
 }
 
 .player-modal__card {
+  /* 顶部标题条的高度：关闭按钮 + 上下留白；播放信息浮层据此避开（playback-info.css） */
+  --player-modal-bar-height: calc(var(--control-height) + 2 * var(--space-2));
   position: relative;
   width: min(1200px, 100%, calc((100vh - 2 * var(--titlebar-height)) * 16 / 9));
   aspect-ratio: 16 / 9;
@@ -219,7 +221,8 @@ useEscapeLayer(() => visible.value, closePlayerModal)
   display: flex;
   align-items: center;
   gap: var(--space-2);
-  padding: var(--space-2) var(--space-3);
+  height: var(--player-modal-bar-height);
+  padding: 0 var(--space-3);
   background: linear-gradient(
     to bottom,
     color-mix(in srgb, var(--media-bg) 60%, transparent),
