@@ -107,15 +107,22 @@ function ensureStarted(): void {
   void refreshAll()
 }
 
-/** 添加远程源；地址非法或重复时返回错误文案 */
-async function addUrl(url: string, epgUrl = ''): Promise<string | null> {
+/**
+ * 添加远程源；地址非法或重复时返回错误文案。
+ * name 为空时用主机名 + 文件名（推荐源传自己的名称）。
+ */
+async function addUrl(
+  url: string,
+  epgUrl = '',
+  name = ''
+): Promise<string | null> {
   const location = url.trim()
   if (!isValidSourceUrl(location)) return '请输入 http / https 地址'
   if (sources.value.some(s => s.kind === 'url' && s.location === location))
     return '这个直播源已经添加过了'
   const source: LiveSource = {
     id: newSourceId(),
-    name: defaultSourceName(location),
+    name: name.trim() || defaultSourceName(location),
     kind: 'url',
     location,
     epgUrl: epgUrl.trim(),
