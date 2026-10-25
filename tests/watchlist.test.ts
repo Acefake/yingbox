@@ -310,7 +310,9 @@ describe('WatchlistRow', () => {
     seed()
     vi.resetModules()
     const el = await mount('online')
-    const names = [...el.querySelectorAll('.wl-name')].map(n => n.textContent)
+    const names = [...el.querySelectorAll('.ui-poster-title')].map(
+      n => n.textContent
+    )
     expect(names).toEqual(['片 漫长的季节', '片 繁花'])
   })
 
@@ -318,7 +320,7 @@ describe('WatchlistRow', () => {
     seed()
     const onOpen = vi.fn()
     const el = await mount('online', onOpen)
-    ;(el.querySelectorAll('.wl-thumb')[1] as HTMLElement).click()
+    ;(el.querySelectorAll('.wl-card')[1] as HTMLElement).click()
     expect(onOpen).toHaveBeenCalledWith(
       expect.objectContaining({
         id: 'online:繁花',
@@ -353,10 +355,10 @@ describe('WatchlistRow', () => {
     )
     const more = el.querySelector('.wl-more')
     expect(more?.textContent).toContain('还有 2 部')
-    ;(more?.querySelector('.wl-thumb') as HTMLElement).click()
+    ;(more?.querySelector('.wl-more-thumb') as HTMLElement).click()
     await nextTick()
     expect(el.querySelectorAll('.wl-card')).toHaveLength(total)
-    expect(el.querySelector('.wl-track.is-grid')).not.toBeNull()
+    expect(el.querySelector('.yb-shelf-track.is-grid')).not.toBeNull()
     // 最早加入的那条也能打开
     expect(el.textContent).toContain('片 0')
     const toggle = el.querySelector('.wl-toggle') as HTMLElement

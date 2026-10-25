@@ -157,6 +157,7 @@
   --radius-lg: 14px;
   --radius-xl: 20px;
   --radius-2xl: 28px; /* 大号浮层面板（AI 助手） */
+  --radius-card: 18px; /* 海报卡与横版剧照卡（UiPosterCard / UiEpisodeCard）统一圆角 */
   --radius-full: 999px;
 
   /* ── 布局 ── */
@@ -215,10 +216,44 @@
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.35), 0 1px 3px rgba(0, 0, 0, 0.3);
   --shadow-lg: 0 30px 60px rgba(0, 0, 0, 0.6), 0 8px 18px rgba(0, 0, 0, 0.35);
 
+  /*
+   * ── 剧照上的暗化（Hero、横版剧照卡）──
+   * 画面总是深色，两套主题取值相同。fade 从上到下压暗（渐进模糊层上），side 从左往右压暗（Hero 文案一侧）。
+   */
+  --scrim-fade-hero: linear-gradient(
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.35) 40%,
+    rgba(0, 0, 0, 0.82) 82%,
+    #000000 100%
+  );
+  --scrim-side-hero: linear-gradient(
+    90deg,
+    rgba(0, 0, 0, 0.62) 0%,
+    rgba(0, 0, 0, 0.4) 28%,
+    rgba(0, 0, 0, 0) 56%
+  );
+  --scrim-fade-card: linear-gradient(
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.22) 45%,
+    rgba(0, 0, 0, 0.42) 100%
+  );
+  --media-kicker: rgba(255, 255, 255, 0.72); /* Hero 片名上的小标签行 */
+  --media-dot: rgba(255, 255, 255, 0.35); /* Hero 分页点 */
+  --glass-light-bg: rgba(
+    255,
+    255,
+    255,
+    0.16
+  ); /* 画面上的浅色玻璃胶囊（Hero「待看」） */
+
   /* ── 规格标签（UiSpecBadge）：浅灰实心小方块、描边小方块、分级圆标 ── */
   --spec-bg: rgba(255, 255, 255, 0.72);
   --spec-text: #000000;
   --spec-line: rgba(255, 255, 255, 0.66);
+  /* 压在画面上的规格标签（Hero）：两套主题都取深色版 */
+  --spec-media-bg: rgba(255, 255, 255, 0.72);
+  --spec-media-text: #000000;
+  --spec-media-line: rgba(255, 255, 255, 0.66);
   --shadow-panel: var(--shadow-lg);
   --focus-ring: 0 0 0 3px var(--accent-glow);
   /* 校验失败的输入框外圈 */
@@ -397,6 +432,7 @@
  * 写在主题块之后，两套主题下都生效。
  */
 :root[data-transparency='reduced'] {
+  --glass-light-bg: #3a3a3c;
   --glass-bg: var(--glass-solid);
   --glass-bg-hover: var(--glass-solid-hover);
   --glass-media-bg: #1c1c1e;
@@ -405,6 +441,7 @@
 }
 @media (prefers-reduced-transparency: reduce) {
   :root {
+    --glass-light-bg: #3a3a3c;
     --glass-bg: var(--glass-solid);
     --glass-bg-hover: var(--glass-solid-hover);
     --glass-media-bg: #1c1c1e;

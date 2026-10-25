@@ -243,3 +243,68 @@ textarea:where(.ui-textarea) {
   font-weight: 600;
   letter-spacing: 0.12em;
 }
+
+/*
+ * 渐进模糊（Hero 背景、横版剧照卡底部）：三层递增的背景模糊各自用 mask 渐显，最上一层暗化。
+ * 结构：<span class="yb-pblur"><i /><i /><i /><i /></span>，放在图片之后；高度由 --pblur-height 定（默认 60%），
+ * 暗化由 --pblur-tint 定。降低透明度时不做模糊，只留暗化（低配机器上多层 backdrop-filter 开销大）。
+ */
+.yb-pblur {
+  position: absolute;
+  right: 0;
+  bottom: 0;
+  left: 0;
+  height: var(--pblur-height, 60%);
+  pointer-events: none;
+}
+.yb-pblur > i {
+  position: absolute;
+  inset: 0;
+}
+.yb-pblur > i:nth-child(1) {
+  -webkit-backdrop-filter: blur(4px);
+  backdrop-filter: blur(4px);
+  -webkit-mask: linear-gradient(
+    transparent 0%,
+    #000 22%
+  ); /* style-tokens: visual（mask 只取透明度） */
+  mask: linear-gradient(
+    transparent 0%,
+    #000 22%
+  ); /* style-tokens: visual（mask 只取透明度） */
+}
+.yb-pblur > i:nth-child(2) {
+  -webkit-backdrop-filter: blur(12px) saturate(1.2);
+  backdrop-filter: blur(12px) saturate(1.2);
+  -webkit-mask: linear-gradient(
+    transparent 12%,
+    #000 42%
+  ); /* style-tokens: visual（mask 只取透明度） */
+  mask: linear-gradient(
+    transparent 12%,
+    #000 42%
+  ); /* style-tokens: visual（mask 只取透明度） */
+}
+.yb-pblur > i:nth-child(3) {
+  -webkit-backdrop-filter: blur(30px) saturate(1.35);
+  backdrop-filter: blur(30px) saturate(1.35);
+  -webkit-mask: linear-gradient(
+    transparent 28%,
+    #000 62%
+  ); /* style-tokens: visual（mask 只取透明度） */
+  mask: linear-gradient(
+    transparent 28%,
+    #000 62%
+  ); /* style-tokens: visual（mask 只取透明度） */
+}
+.yb-pblur > i:nth-child(4) {
+  background: var(--pblur-tint, var(--scrim-fade-card));
+}
+:root[data-transparency='reduced'] .yb-pblur > i:not(:last-child) {
+  display: none;
+}
+@media (prefers-reduced-transparency: reduce) {
+  .yb-pblur > i:not(:last-child) {
+    display: none;
+  }
+}
