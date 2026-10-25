@@ -1,12 +1,12 @@
 <template>
   <div class="assistant-result" :class="`is-${result.kind}`">
     <template v-if="result.kind === 'cards'">
-      <ul class="assistant-cards" :class="{ 'is-busy': playing !== null }">
+      <ul class="assistant-cards" :class="{ 'is-busy': opening !== null }">
         <li
           v-for="(card, index) in result.cards"
           :key="card.id"
           class="assistant-card-in assistant-card"
-          :class="{ 'is-busy': playing === card.id }"
+          :class="{ 'is-busy': isMine(card.id) }"
           :style="{ '--i': index, '--progress': card.progress ?? 0 }"
         >
           <span class="assistant-card-cover" aria-hidden="true">
@@ -17,7 +17,7 @@
           </span>
           <span class="assistant-card-body">
             <span class="assistant-card-title">{{ card.title }}</span>
-            <UiLoadingDots v-if="playing === card.id" label="正在打开…" />
+            <UiLoadingDots v-if="isMine(card.id)" label="正在打开…" />
             <span v-else-if="card.meta" class="assistant-card-meta">
               {{ card.meta }}
             </span>
@@ -58,8 +58,8 @@
             icon="play"
             :label="card.progress === undefined ? '播放' : '继续'"
             :aria-label="`${card.playLabel}：${card.title}`"
-            :aria-busy="playing === card.id"
-            :aria-disabled="playing !== null"
+            :aria-busy="isMine(card.id)"
+            :aria-disabled="opening !== null"
             @click="play(card)"
           />
         </li>
@@ -96,9 +96,10 @@
  * 带按钮的行（库外的片子：说明处写「未入库」等状态）右侧换成一组按钮，按钮可执行一次性动作，
  * 或在列表下方展开一个面板（同一时间只展开一张卡的面板，再点收起；结果换了就收起）。
  * 开始播放后通知外层收起助手。打开播放器期间：被点的那行在说明处显示「正在打开…」并标 aria-busy，
- * 其余按钮标 aria-disabled（保持可聚焦，点击不重复打开），那几行变淡。
+ * 其余按钮标 aria-disabled（保持可聚焦，点击不重复打开），那几行变淡。「正在打开」在整个侧栏共享
+ * （assistant-opening.ts）：对话流里其它轮次的结果同样变淡、点击被忽略，播放器不会被打开两次。
  */
-import { type Component, ref, shallowRef, watch } from 'vue'
+import { type Component, shallowRef, watch } from 'vue'
 
 import {
   UiButton,
@@ -108,6 +109,7 @@ import {
   toast,
 } from '@/components/ui'
 
+import { useOpening } from './assistant-opening'
 import type {
   AssistantCardAction,
   AssistantMediaCard,
@@ -117,8 +119,8 @@ import type {
 const props = defineProps<{ result: AssistantResult }>()
 const emit = defineEmits<{ played: [] }>()
 
-/** 正在打开播放器的卡片 */
-const playing = ref<string | null>(null)
+/** 正在打开播放器的卡片（整个侧栏共享，见 assistant-opening.ts） */
+const { opening, owner, isMine } = useOpening()
 /** 展开的面板 */
 const expanded = shallowRef<{
   cardId: string
@@ -139,15 +141,15 @@ function whyOf(card: AssistantMediaCard): string {
 }
 
 async function play(card: AssistantMediaCard): Promise<void> {
-  if (playing.value) return
-  playing.value = card.id
+  if (opening.value) return
+  opening.value = { owner, cardId: card.id }
   try {
     if (await card.play()) emit('played')
     else toast.warning('没有找到能播放的文件')
   } catch {
     toast.error('无法打开播放器')
   } finally {
-    playing.value = null
+    opening.value = null
   }
 }
 
