@@ -14,6 +14,7 @@ import {
 } from '../../../shared/library/ipc'
 import { CalendarModule } from '../calendar/calendar-module'
 import { createItemPreviews } from '../catalog/item-preview'
+import { ProgressStore } from '../progress/progress-store'
 import type { LibraryService } from './service'
 
 /** 每个服务一份预览查询（网盘判定见 engine/storage-mode.ts）。 */
@@ -49,6 +50,18 @@ function calendarFor(s: LibraryService): CalendarModule {
   return found
 }
 
+/** 每个服务一份观看进度表。 */
+const progress = new WeakMap<LibraryService, ProgressStore>()
+
+function progressFor(s: LibraryService): ProgressStore {
+  let found = progress.get(s)
+  if (!found) {
+    found = new ProgressStore(s.db)
+    progress.set(s, found)
+  }
+  return found
+}
+
 /** 每个方法如何调用服务。参数已经过 parseRpcParams 解析。 */
 type Handlers = {
   [M in LibraryMethod]: (
@@ -69,6 +82,13 @@ const HANDLERS: Handlers = {
   'visual.index': s => s.visual.index(),
   'visual.search': (s, p) => s.visual.search(p),
   'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
+  'progress.list': (s, p) => progressFor(s).list(p.itemIds),
+  'progress.save': (s, p) => progressFor(s).save(p.reports),
+  'progress.summary': (s, p) => progressFor(s).summary(p.itemIds),
+  'progress.recent': (s, p) => progressFor(s).recent(p.limit),
+  'progress.export': (s, p) => progressFor(s).export(p.since),
+  'progress.import': (s, p) =>
+    progressFor(s).import(p.entries, p.preferIncoming),
   getItem: (s, p) => s.getItem(p),
   getPreview: (s, p) => previewsFor(s).get(p.itemId),
   identify: (s, p) => (p.ai ? s.identifier.aiIdentify(p) : s.identify(p)),
