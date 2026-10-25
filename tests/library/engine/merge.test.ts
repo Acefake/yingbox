@@ -26,7 +26,6 @@ import {
   type LibraryItemNode,
   type LibraryKind,
   type LibraryQueryResult,
-  type LibraryQueryResult,
   normalizeLibraryQuery,
 } from '../../../src/shared/library/ipc'
 import { tempTree } from './helpers'

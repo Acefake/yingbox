@@ -113,6 +113,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'facets',
     'visual',
     'calendar',
+    'merge',
     'subscribe',
   ],
 }
