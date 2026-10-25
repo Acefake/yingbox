@@ -6,7 +6,13 @@
  */
 import type { CalendarEpisode } from '../../../../shared/library/ipc'
 import { WATCHED_RATIO } from '../../../../shared/library/watch-progress'
-import { addDays, dayLabel, daysBetween, weekDays } from './calendar-dates'
+import {
+  addDays,
+  dayLabel,
+  daysBetween,
+  weekDays,
+  weekPrefix,
+} from './calendar-dates'
 
 /** 卡片状态。 */
 export type EpisodeStatus = 'watched' | 'unwatched' | 'upcoming'
@@ -316,4 +322,30 @@ export function listGroups(
     group.items.push(e)
   }
   return [...groups.values()]
+}
+
+/**
+ * 条目所属剧的去重键：媒体库按 seriesId、在线剧按继续播放记录 id，两者都没有才退回剧名。
+ * 同名的不同剧（翻拍、同名综艺）因此不会被合并成一部。
+ */
+export function showKey(entry: CalendarEntry): string {
+  if (entry.library) return `library:${entry.library.seriesId}`
+  if (entry.online) return `online:${entry.online.recordId}`
+  return `title:${entry.title}`
+}
+
+/**
+ * 页头说明：显示中的那一周有几部剧、几集更新，如「下周 3 部剧 · 5 集更新」；没有条目时为空串。
+ * @param items 这一周的条目
+ * @param start 这一周的周一
+ * @param today 今天的日期键
+ */
+export function weekSummary(
+  items: readonly CalendarEntry[],
+  start: string,
+  today: string
+): string {
+  if (!items.length) return ''
+  const shows = new Set(items.map(showKey)).size
+  return `${weekPrefix(start, today)} ${shows} 部剧 · ${items.length} 集更新`
 }

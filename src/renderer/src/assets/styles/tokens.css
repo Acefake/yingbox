@@ -91,10 +91,6 @@
   /* 进度条上的片头（紫）/ 片尾（橙）区间 */
   --media-intro: rgba(191, 90, 242, 0.85);
   --media-outro: rgba(255, 159, 10, 0.85);
-  /* 视频上的玻璃按钮 / 卡片 */
-  --media-glass: rgba(28, 28, 30, 0.62);
-  --media-glass-border: rgba(255, 255, 255, 0.14);
-  --blur-media: 20px;
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
   /* 普通弹窗背后的轻遮罩 */
@@ -201,7 +197,8 @@
   /*
    * ── 玻璃材质（.yb-glass，只给浮动控件）──
    * 轻底色 + 背景模糊提饱和 + 顶部内高光 + 0.5px 发丝边 + 投影。
-   * is-media 是压在画面上的版本（海报、视频上的圆钮），两套主题都是深色。
+   * is-media（--glass-media-*）是压在画面上的版本（海报、视频上的圆钮、播放器顶栏 / 控制栏 / 齿轮菜单、
+   * 跳过片头按钮），两套主题都是深色；画面上的玻璃只用这一套。
    * 系统「降低透明度」或设置 ui.reduceTransparency 打开时换成 --glass-solid 实色（见文件末尾）。
    */
   --glass-bg: rgba(36, 36, 40, 0.38);
@@ -216,6 +213,8 @@
   --glass-media-bg: rgba(36, 36, 40, 0.38);
   --glass-media-bg-hover: rgba(58, 58, 62, 0.5);
   --glass-media-shadow: var(--glass-shadow);
+  /* 画面上卡片的 0.5px 亮边（剧集横卡等没有整套玻璃时单用） */
+  --glass-media-edge: rgba(255, 255, 255, 0.14);
 
   /* ── 阴影：卡片 / 浮层 / 大浮层三档 ── */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -411,8 +410,6 @@
   --media-accent: #f5f5f7;
   --media-intro: rgba(191, 90, 242, 0.85);
   --media-outro: rgba(255, 159, 10, 0.85);
-  --media-glass: rgba(28, 28, 30, 0.62);
-  --media-glass-border: rgba(255, 255, 255, 0.14);
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
   --overlay-scrim-soft: rgba(0, 0, 0, 0.24);
