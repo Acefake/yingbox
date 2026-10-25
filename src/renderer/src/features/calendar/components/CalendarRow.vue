@@ -101,6 +101,7 @@ const playable = computed(() => !!props.group.primary.library?.playable)
 
 <style scoped>
 .cal-row-wrap {
+  --cal-thumb: 40px;
   display: flex;
   flex-direction: column;
   align-items: flex-start;
@@ -129,8 +130,8 @@ const playable = computed(() => !!props.group.primary.library?.playable)
   display: grid;
   flex: none;
   place-items: center;
-  width: 40px;
-  height: 40px;
+  width: var(--cal-thumb);
+  height: var(--cal-thumb);
   overflow: hidden;
   border-radius: var(--radius-sm);
   background: var(--bg-fill-secondary);
@@ -219,9 +220,8 @@ const playable = computed(() => !!props.group.primary.library?.playable)
     gap: var(--space-1_5);
     padding: var(--space-1);
   }
-  .cal-row-thumb {
-    width: 32px;
-    height: 32px;
+  .cal-row-wrap {
+    --cal-thumb: 32px;
   }
   .cal-row-mark {
     margin-left: 0;
@@ -229,6 +229,6 @@ const playable = computed(() => !!props.group.primary.library?.playable)
 }
 /* 追更小标记挂在剧名下方（与文字左对齐：行内边距 + 剧照 + 间距） */
 .cal-row-mark {
-  margin-left: calc(40px + var(--space-2) + var(--space-1_5));
+  margin-left: calc(var(--cal-thumb) + var(--space-2) + var(--space-1_5));
 }
 </style>
