@@ -35,7 +35,7 @@
 
       <div v-if="sources.length" class="live-body">
         <div class="live-side">
-          <nav class="live-groups" aria-label="频道分组">
+          <nav v-scroll-x class="live-groups" aria-label="频道分组">
             <UiChip
               v-for="group in groups"
               :key="group.key"
