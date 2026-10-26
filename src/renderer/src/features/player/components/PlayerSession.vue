@@ -203,7 +203,7 @@ const loadEntry = async (
   const token = ++loadToken
   const entry = currentEntry.value
   dolbyVision.release()
-  progress.saver.reset()
+  progress.release()
   clearFailure()
   endedPrompt.value = false
   endHint.value = null
@@ -247,6 +247,7 @@ const loadEntry = async (
 
   startAt.value = progress.startAt(seededStartAt)
   src.value = resolved
+  progress.bind()
   emit('title', entryLabel(entry))
 }
 
@@ -292,10 +293,7 @@ const switcher = useSourceSwitch({
   activeFallback,
   current: () => currentEntry.value,
   notify: showNotice,
-  load: at => {
-    progress.saver.flush()
-    return loadEntry(undefined, at)
-  },
+  load: at => loadEntry(undefined, at),
 })
 
 const onVideo = (video: HTMLVideoElement): void => {
