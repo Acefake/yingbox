@@ -4,6 +4,7 @@
  */
 import { describe, expect, it } from 'vitest'
 
+import type { TorznabSecret } from '../../src/main/pan115/torznab-secret'
 import {
   type Pan115ServiceDeps,
   type Pan115Session,
@@ -36,6 +37,20 @@ const STATUS = 'https://qrcodeapi.115.com/get/status'
 const PASSPORT = 'https://passportapi.115.com/'
 
 /** 内存里的会话存放，模拟 safeStorage 密钥 */
+/** 内存里的 Torznab 配置 */
+function memoryTorznab(initial: TorznabSecret | null = null): {
+  read(): TorznabSecret | null
+  write(value: TorznabSecret | null): Promise<void>
+} {
+  let value = initial
+  return {
+    read: () => value,
+    write: async next => {
+      value = next
+    },
+  }
+}
+
 function memorySession(
   initial: Pan115Session | null = null
 ): Pan115ServiceDeps['session'] & {
@@ -68,9 +83,10 @@ function setup(
   const session = memorySession(initial)
   const service = createPan115Service({
     transport: fake.transport,
-    pansouFetch: fakeFetch({}).fetch,
+    lanFetch: fakeFetch({}).fetch,
     settings,
     session,
+    torznab: memoryTorznab(),
   })
   return { ...fake, service, session }
 }
@@ -309,8 +325,9 @@ describe('搜索', () => {
     const { transport, sent } = fakeTransport({})
     const deps = {
       transport,
-      pansouFetch: pansou.fetch,
+      lanFetch: pansou.fetch,
       session: memorySession(),
+      torznab: memoryTorznab(),
     }
     const result = await createPan115Service({ ...deps, settings }).search(
       '纪录片'
@@ -323,7 +340,7 @@ describe('搜索', () => {
     })
     expect(await none.search('a')).toEqual({
       ok: false,
-      error: '请先在设置 · 网盘里填写 PanSou 地址',
+      error: '请先在设置 · 网盘里填写 PanSou 或 Torznab 地址',
     })
   })
 })

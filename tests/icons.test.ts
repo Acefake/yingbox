@@ -4,6 +4,7 @@
  * 每个图标都有默认字重的路径。（模板里的图标名由 vue-tsc 按 IconName 检查。）
  */
 import { execFileSync } from 'node:child_process'
+import { createRequire } from 'node:module'
 import { dirname, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { describe, expect, it } from 'vitest'
@@ -17,8 +18,23 @@ import {
 /** 仓库根：由测试文件位置推导，不依赖 vitest 的工作目录 */
 const ROOT = resolve(dirname(fileURLToPath(import.meta.url)), '..')
 
+/**
+ * 生成脚本读 devDependency @phosphor-icons/core；依赖没装全（只装了运行依赖的环境）时比对无从做起，
+ * 这一项跳过而不是报一堆找不到模块的错。完整安装下照常比对。
+ */
+function hasPhosphor(): boolean {
+  try {
+    createRequire(import.meta.url).resolve(
+      '@phosphor-icons/core/assets/fill/house-fill.svg'
+    )
+    return true
+  } catch {
+    return false
+  }
+}
+
 describe('图标表', () => {
-  it('icons.ts 与生成脚本一致', () => {
+  it.skipIf(!hasPhosphor())('icons.ts 与生成脚本一致', () => {
     expect(() =>
       execFileSync('node', ['scripts/gen-icons.mjs', '--check'], {
         cwd: ROOT,

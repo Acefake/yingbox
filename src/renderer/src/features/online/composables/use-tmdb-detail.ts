@@ -52,8 +52,11 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
   const directors = ref<string[]>([])
   const images = ref<DetailImage[]>([])
   const loading = ref(true)
+  /** 每次查询 / 重置递增：换条目后，上一部还在路上的结果直接丢掉 */
+  let generation = 0
 
   const reset = (): void => {
+    generation++
     detail.value = null
     cast.value = []
     directors.value = []
@@ -65,6 +68,8 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
     mediaType: 'movie' | 'tv',
     douban?: DoubanRef | null
   ): Promise<void> => {
+    const mine = ++generation
+    const stale = (): boolean => mine !== generation
     loading.value = true
     const fallback = douban
       ? doubanPhotos(douban.id, douban.kind).catch(() => [])
@@ -83,7 +88,7 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
         return
       }
       const first = sr?.results?.[0]
-      if (!first) return
+      if (!first || stale()) return
       const base = `/${mediaType}/${first.id}`
       // 剧照随详情一起取，并只要中文 / 英文 / 无文字的图：不过滤的 /images 会带上所有语言的海报与标志，
       // 热门条目动辄上百 KB，经代理容易超时，剧照就整段丢了
@@ -95,6 +100,7 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
         }),
         tmdb<TmdbCredits>(`${base}/credits`, zh),
       ])
+      if (stale()) return
       detail.value = dr
       cast.value = cr?.cast || []
       directors.value = (cr?.crew || [])
@@ -103,6 +109,7 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
       let backdrops = dr?.images?.backdrops ?? []
       if (!backdrops.length) {
         const ir = await tmdb<TmdbImages>(`${base}/images`).catch(() => null)
+        if (stale()) return
         backdrops = ir?.backdrops ?? []
       }
       if (!backdrops.length && dr?.backdrop_path)
@@ -114,8 +121,11 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
     } catch {
       /* silent */
     } finally {
-      if (!images.value.length) images.value = await fallback
-      loading.value = false
+      const photos = images.value.length || stale() ? null : await fallback
+      if (!stale()) {
+        if (photos) images.value = photos
+        loading.value = false
+      }
     }
   }
 

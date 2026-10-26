@@ -1,9 +1,10 @@
 /**
- * CatSpider 插件站点清单与启用列表（模块级单例，持久化到 localStorage）。
+ * CatSpider 插件站点清单与启用列表（模块级单例，持久化到 localStorage，经 @/utils/storage）。
  * 清单由后台引擎提供；拿不到时退回内置的几个精选源。
  */
 import { ref } from 'vue'
 import { useStorage } from '@vueuse/core'
+import { readStoredText, writeStoredText } from '@/utils/storage'
 import { onlineApi } from '../api/online'
 import type { CatSpiderSite } from '../types'
 import {
@@ -61,12 +62,12 @@ export const loadCatSpiderSites = (): Promise<void> => {
       selectedCatSpider.value = planCatSpiderSelection({
         sites,
         stored: selectedCatSpider.value,
-        hasStored: localStorage.getItem(CATSPIDER_SELECTION_KEY) !== null,
+        hasStored: readStoredText(CATSPIDER_SELECTION_KEY) !== null,
         fallbackApis: FALLBACK_CATSPIDER_SITES.map(site => site.api),
-        adultSeeded: localStorage.getItem(AV_PLUGIN_SEED_KEY) === '1',
+        adultSeeded: readStoredText(AV_PLUGIN_SEED_KEY) === '1',
       })
-      if (localStorage.getItem(AV_PLUGIN_SEED_KEY) !== '1')
-        localStorage.setItem(AV_PLUGIN_SEED_KEY, '1')
+      if (readStoredText(AV_PLUGIN_SEED_KEY) !== '1')
+        writeStoredText(AV_PLUGIN_SEED_KEY, '1')
     })
     .catch(() => {
       catSpiderLoadPromise = null

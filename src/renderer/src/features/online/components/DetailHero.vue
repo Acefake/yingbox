@@ -1,5 +1,5 @@
 <template>
-  <div class="dw-hero flex flex-wrap items-start gap-6">
+  <div class="dw-hero">
     <!-- 海报 -->
     <div class="dw-poster-wrap">
       <img
@@ -138,7 +138,8 @@ const onImgError = (e: Event): void => {
 }
 
 .dw-hero {
-  display: flex;
+  display: grid;
+  grid-template-columns: 220px minmax(0, 1fr);
   gap: var(--space-6_5);
   align-items: flex-start;
   margin-bottom: var(--space-7);
@@ -157,8 +158,8 @@ const onImgError = (e: Event): void => {
 }
 
 .dw-info {
-  flex: 1;
   min-width: 0;
+  overflow-wrap: anywhere;
 }
 
 .dw-title {
@@ -219,6 +220,7 @@ const onImgError = (e: Event): void => {
 
 .dw-actions {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
   margin-bottom: var(--space-6);
@@ -255,5 +257,15 @@ const onImgError = (e: Event): void => {
 .dw-meta-val {
   font-size: var(--text-xs);
   color: var(--text-secondary);
+}
+
+@media (max-width: 860px) {
+  .dw-hero {
+    grid-template-columns: minmax(0, 1fr);
+  }
+
+  .dw-poster-wrap {
+    width: min(220px, 100%);
+  }
 }
 </style>

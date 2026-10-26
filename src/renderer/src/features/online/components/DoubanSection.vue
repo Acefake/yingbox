@@ -112,7 +112,6 @@ import MediaFilterBar, {
   type MediaFilterRow,
 } from '@/components/MediaFilterBar.vue'
 import UiSectionHeader from '@/components/ui/UiSectionHeader.vue'
-import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import {
   computed,
   nextTick,
@@ -135,6 +134,7 @@ import {
   hasFilters,
 } from '../../../../../shared/douban/query'
 import { useDoubanFeed } from '../composables/use-douban-feed'
+import { isFavorite, toggleFavorite } from '../composables/favorites'
 import type { DoubanItem } from '../types'
 import {
   doubanDiscoverReady,
@@ -236,18 +236,6 @@ const applyFilters = (next: Record<string, string>): void => {
     sort: next.sort as DoubanSort,
     minRating: Number(next.rating),
   })
-}
-
-const favorites = ref<DoubanItem[]>(
-  readStoredArray<DoubanItem>('media_favorites')
-)
-const isFavorite = (item: DoubanItem): boolean =>
-  favorites.value.some(entry => entry.url === item.url)
-const toggleFavorite = (item: DoubanItem): void => {
-  favorites.value = isFavorite(item)
-    ? favorites.value.filter(entry => entry.url !== item.url)
-    : [item, ...favorites.value]
-  saveStoredArray('media_favorites', favorites.value)
 }
 
 /*

@@ -1,7 +1,7 @@
 <template>
   <SettingsGroup
     title="搜索"
-    footer="网盘搜索用 PanSou 聚合各频道的 115 分享，搜索关键词会发给这里填的地址。推荐在 NAS 上自部署：docker run -d -p 8888:8888 ghcr.io/fish2018/pansou，再填 http://NAS地址:8888。"
+    footer="PanSou 聚合各频道的 115 分享和磁力，搜索关键词会发给这里填的地址。推荐在 NAS 上自部署：docker run -d -p 8888:8888 ghcr.io/fish2018/pansou，再填 http://NAS地址:8888。"
   >
     <SettingsRow title="PanSou 地址" stacked>
       <UiInput
@@ -20,6 +20,8 @@
       <UiButton size="sm" label="使用" @click="usePublic" />
     </SettingsRow>
   </SettingsGroup>
+
+  <TorznabGroup />
 
   <SettingsGroup
     title="115 账号"
@@ -122,7 +124,7 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 网盘：PanSou 地址（默认不填；公共实例需显式选用）、115 扫码登录 / 退出、转存目标文件夹，
+ * 设置 · 网盘：PanSou 地址（默认不填；公共实例需显式选用）、Torznab（TorznabGroup）、115 扫码登录 / 退出、转存目标文件夹，
  * 以及助手转存目标文件夹（库外发现转存电影用，空 = 跟随转存目标）。
  * 扫码与 Cookie 都在主进程，这里只显示二维码图片和账号名；扫码状态见 useQrLogin。
  */
@@ -143,6 +145,7 @@ import { netdisk } from '../api'
 import { useQrLogin } from '../composables/use-qr-login'
 import { errorText } from '../utils/netdisk-rules'
 import NetdiskFolderPicker from './NetdiskFolderPicker.vue'
+import TorznabGroup from './TorznabGroup.vue'
 
 /** 登录信息存在哪：桌面端主进程加密存本机；网页端存在片库服务的数据目录（仅服务用户可读的文件） */
 const storageNote = isWebRuntime()
