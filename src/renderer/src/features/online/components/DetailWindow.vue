@@ -318,7 +318,8 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 }
 
 .dw-backdrop {
-  position: relative;
+  position: absolute;
+  inset: 0 0 auto;
   width: 100%;
   height: 360px;
   overflow: hidden;
@@ -340,7 +341,8 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 
 .dw-content {
   position: relative;
-  margin-top: -260px; /* style-tokens: layout（内容上移盖住背景图） */
-  padding: 0 var(--content-padding-x) var(--space-9);
+  width: 100%;
+  min-width: 0;
+  padding: var(--space-8) var(--content-padding-x) var(--space-9);
 }
 </style>
