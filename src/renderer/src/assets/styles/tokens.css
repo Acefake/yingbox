@@ -216,17 +216,22 @@
   --glass-media-bg: rgba(36, 36, 40, 0.38);
   --glass-media-bg-hover: rgba(58, 58, 62, 0.5);
   --glass-media-shadow: var(--glass-shadow);
+  /* 侧栏的主题玻璃：浅色下更实，压到 Hero 画面上也是干净的浅玻璃，不混出中间灰 */
+  --glass-sidebar-bg: rgba(36, 36, 40, 0.38);
   /* 画面上卡片的 0.5px 亮边（剧集横卡等没有整套玻璃时单用） */
   --glass-media-edge: rgba(255, 255, 255, 0.14);
   /* 弹出菜单（「更多」、右键菜单）：比玻璃控件不透明得多，压在海报上也读得清 */
   --menu-bg: rgba(30, 30, 32, 0.88);
   /*
    * Hero（首页、详情）下沿：深色页面本就是黑底不需要渐隐。浅色在画面内部最后 fade 一段渐隐到页面底色，
-   * 文案上移 lift 避开渐隐段；Hero 高度两套主题一致。
+   * 文案上移 lift 避开渐隐段；Hero 高度两套主题一致。详情 Hero 更高，用更长的 --hero-detail-*。
    */
   --hero-edge-fade: 0px;
   --hero-edge-lift: 0px;
   --hero-edge-mask: none;
+  --hero-detail-fade: 0px;
+  --hero-detail-lift: 0px;
+  --hero-detail-mask: none;
 
   /* ── 阴影：卡片 / 浮层 / 大浮层三档 ── */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -239,7 +244,7 @@
   /*
    * ── 剧照上的暗化（Hero、横版剧照卡）──
    * 画面总是深色。fade 从上到下压暗（渐进模糊层上），side 从左往右压暗（Hero 文案一侧）。
-   * 浅色主题下 Hero 底部要渐隐到浅灰页面，fade 只压到 0.6（见浅色块），不压成纯黑以免渐隐段发灰。
+   * 浅色主题下 Hero 底部要渐隐到浅灰页面，fade 最深 0.45 且在渐隐段里回落（见浅色块），以免渐隐段发灰发褐。
    */
   --scrim-fade-hero: linear-gradient(
     rgba(0, 0, 0, 0) 0%,
@@ -440,8 +445,10 @@
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
   --scrim-fade-hero: linear-gradient(
     rgba(0, 0, 0, 0) 0%,
-    rgba(0, 0, 0, 0.35) 40%,
-    rgba(0, 0, 0, 0.6) 76%
+    rgba(0, 0, 0, 0.3) 36%,
+    rgba(0, 0, 0, 0.45) 60%,
+    rgba(0, 0, 0, 0.42) 76%,
+    rgba(0, 0, 0, 0.2) 100%
   );
   /* 多段缓动：渐隐段上半截几乎不透明（文案落在这里），下半截快速淡出 */
   --hero-edge-fade: 120px;
@@ -454,11 +461,22 @@
     rgba(0, 0, 0, 0.26) calc(100% - 24px),
     transparent
   );
+  --hero-detail-fade: 220px;
+  --hero-detail-lift: 120px;
+  --hero-detail-mask: linear-gradient(
+    #000 calc(100% - 220px),
+    rgba(0, 0, 0, 0.96) calc(100% - 176px),
+    rgba(0, 0, 0, 0.86) calc(100% - 132px),
+    rgba(0, 0, 0, 0.64) calc(100% - 88px),
+    rgba(0, 0, 0, 0.3) calc(100% - 44px),
+    transparent
+  );
   --shadow-control:
     0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
 
   --glass-bg: rgba(255, 255, 255, 0.62);
   --glass-bg-hover: rgba(255, 255, 255, 0.78);
+  --glass-sidebar-bg: rgba(255, 255, 255, 0.84);
   --menu-bg: rgba(255, 255, 255, 0.9);
   --glass-solid: #f2f2f4;
   --glass-solid-hover: #e8e8ed;
@@ -509,7 +527,7 @@
   --spec-bg: var(--spec-media-bg);
   --spec-text: var(--spec-media-text);
   --spec-line: var(--spec-media-line);
-  /* 外壳侧栏与窗口键胶囊滚到画面上时（shellOverMedia）用到的令牌，取深色主题值 */
+  /* 外壳侧栏与窗口键胶囊滚到画面上时（sidebarOverMedia / toolbarOverMedia）用到的令牌，取深色主题值 */
   --bg-active-soft: rgba(255, 255, 255, 0.08);
   --bg-glass-hover: rgba(255, 255, 255, 0.08);
   --border-glass: rgba(255, 255, 255, 0.08);
@@ -535,6 +553,7 @@
   --glass-light-bg: #3a3a3c;
   --glass-bg: var(--glass-solid);
   --glass-bg-hover: var(--glass-solid-hover);
+  --glass-sidebar-bg: var(--glass-solid);
   --menu-bg: var(--glass-solid);
   --glass-media-bg: #1c1c1e;
   --glass-media-bg-hover: #2c2c2e;
@@ -545,6 +564,7 @@
     --glass-light-bg: #3a3a3c;
     --glass-bg: var(--glass-solid);
     --glass-bg-hover: var(--glass-solid-hover);
+    --glass-sidebar-bg: var(--glass-solid);
     --menu-bg: var(--glass-solid);
     --glass-media-bg: #1c1c1e;
     --glass-media-bg-hover: #2c2c2e;

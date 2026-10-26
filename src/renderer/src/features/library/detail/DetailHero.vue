@@ -172,10 +172,10 @@ function onFadeIn(event: Event): void {
   align-items: flex-end;
   min-height: max(560px, 88vh);
   padding: var(--space-10) var(--detail-gutter)
-    calc(var(--space-7) + var(--hero-edge-lift)) var(--detail-x);
+    calc(var(--space-7) + var(--hero-detail-lift)) var(--detail-x);
   overflow: hidden;
-  -webkit-mask-image: var(--hero-edge-mask);
-  mask-image: var(--hero-edge-mask);
+  -webkit-mask-image: var(--hero-detail-mask);
+  mask-image: var(--hero-detail-mask);
   background: var(--bg-fill-secondary);
   isolation: isolate;
 }
@@ -192,7 +192,7 @@ function onFadeIn(event: Event): void {
 .lib-hero-image[data-loaded] {
   opacity: 1;
 }
-/* 下部渐进模糊，最上层压暗（与首页 Hero 同一令牌；浅色下 Hero 底部在画面内渐隐到页面底色，见 --hero-edge-mask） */
+/* 下部渐进模糊，最上层压暗（与首页 Hero 同一令牌；浅色下 Hero 底部在画面内渐隐到页面底色，见 --hero-detail-mask） */
 .lib-hero-blur {
   --pblur-height: 50%;
   --pblur-tint: var(--scrim-fade-hero);
