@@ -30,6 +30,10 @@ export interface OnlineRow {
   title: string
   year: string
   cover: string
+  /** 分类（电影、剧集…；第一个给出的源） */
+  type: string
+  /** 各源的备注（清晰度、更新到第几集；去重） */
+  remarks: string[]
   /** 来源站点名（去重） */
   sources: string[]
   /** 打开详情用的那一条（第一个返回的源） */
@@ -39,6 +43,13 @@ export interface OnlineRow {
 /** 片名归一：去空白与常见标点、转小写 */
 const normalize = (name: string): string =>
   name.replace(/[\s·・:：\-—_()（）[\]【】]/g, '').toLowerCase()
+
+/** 备注去空白、去重后追加 */
+function addRemark(list: string[], remark: string | undefined): string[] {
+  const text = remark?.trim()
+  if (text && !list.includes(text)) list.push(text)
+  return list
+}
 
 /**
  * 把各源返回的条目按「片名 + 年份」合成行，保持首次出现的顺序。
@@ -59,6 +70,8 @@ export function groupOnline(
     if (row) {
       if (source && !row.sources.includes(source)) row.sources.push(source)
       if (!row.cover && item.vod_pic) row.cover = item.vod_pic
+      if (!row.type && item.type_name) row.type = item.type_name
+      addRemark(row.remarks, item.vod_remarks)
       continue
     }
     if (rows.size >= limit) continue
@@ -67,6 +80,8 @@ export function groupOnline(
       title,
       year: item.vod_year ?? '',
       cover: item.vod_pic ?? '',
+      type: item.type_name?.trim() ?? '',
+      remarks: addRemark([], item.vod_remarks),
       sources: source ? [source] : [],
       item,
     })
