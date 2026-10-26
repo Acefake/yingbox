@@ -193,7 +193,7 @@ describe('服务端设置', () => {
   it('写入后网盘模块立即读到：PanSou 搜索用服务端保存的地址', async () => {
     expect(await server.rpc('pan115', 'search', ['三体'])).toEqual({
       ok: true,
-      value: { ok: false, error: expect.stringContaining('PanSou 地址') },
+      value: { ok: false, error: expect.stringContaining('PanSou 或 Torznab') },
     })
     const saved = await post({
       key: 'pan115.pansouUrl',

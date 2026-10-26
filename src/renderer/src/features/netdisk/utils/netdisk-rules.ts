@@ -1,7 +1,10 @@
 /**
  * 网盘页的纯函数：显示格式与扫码轮询循环。
  */
-import type { Pan115LoginPoll } from '../../../../../shared/contract/pan115'
+import type {
+  MagnetItem,
+  Pan115LoginPoll,
+} from '../../../../../shared/contract/pan115'
 
 /** 字节数 → 「1.5 GB」；0 显示为空串 */
 export function formatBytes(bytes: number): string {
@@ -37,6 +40,28 @@ export function sourceLabel(source: string): string {
   if (kind === 'tg' && name) return `TG · ${name}`
   if (kind === 'plugin' && name) return `插件 · ${name}`
   return source === 'unknown' ? '' : source
+}
+
+/** 磁力行的来源标签：「磁力 · Torznab」「电驴 · PanSou」 */
+export function magnetOriginLabel(item: MagnetItem): string {
+  const kind = item.kind === 'ed2k' ? '电驴' : '磁力'
+  return `${kind} · ${item.origin === 'torznab' ? 'Torznab' : 'PanSou'}`
+}
+
+/** 磁力行的说明：来源细节、大小、做种 / 下载人数、日期（没有的不显示） */
+export function magnetMeta(item: MagnetItem): string[] {
+  const source =
+    item.origin === 'pansou' ? sourceLabel(item.source) : item.source
+  const swarm =
+    item.seeders === undefined
+      ? ''
+      : `${item.seeders} 做种${item.peers ? ` · ${item.peers} 下载` : ''}`
+  return [
+    source,
+    formatBytes(item.size ?? 0),
+    swarm,
+    formatDay(item.datetime),
+  ].filter(Boolean)
 }
 
 /** 一次轮询的最终结果（不再是 waiting / scanned） */
