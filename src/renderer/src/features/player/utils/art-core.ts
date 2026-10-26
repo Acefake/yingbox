@@ -139,9 +139,10 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
         input.url,
         Boolean(hlsType) || /\.m3u8/i.test(input.url)
       )
-    )
+    ) {
       art.video.pause()
-    return sink.error(WEB_CODEC_UNSUPPORTED)
+      return sink.error(WEB_CODEC_UNSUPPORTED)
+    }
     sink.seek(art.video)
     sink.event('loadedmetadata', event)
   })
