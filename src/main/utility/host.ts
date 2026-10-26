@@ -187,11 +187,14 @@ export class UtilityHost {
           })
           return
         }
-        method(...message.args).then(
-          value => reply({ ok: true, value }),
-          (error: unknown) =>
-            reply({ ok: false, error: { message: String(error) } })
-        )
+        // 同步抛错的实现也要回 reply，否则子进程那头的调用永远挂着
+        Promise.resolve()
+          .then(() => method(...message.args))
+          .then(
+            value => reply({ ok: true, value }),
+            (error: unknown) =>
+              reply({ ok: false, error: { message: String(error) } })
+          )
       }
     }
   }
