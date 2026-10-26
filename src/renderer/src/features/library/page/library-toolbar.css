@@ -1,4 +1,4 @@
-/* 媒体库页面工具栏（LibraryToolbar.vue）：标题行、排序胶囊、视图切换与筛选胶囊一行、分面筛选 */
+/* 媒体库页面工具栏（LibraryToolbar.vue）：标题行（含选中的类型）、右侧操作、分面筛选；浏览胶囊与待确认提示各在自己的组件里 */
 /*
  * 自成一层并略高于海报墙：「更多」菜单垂到海报上时不被海报格（will-change 合成层）盖住。
  * 只取 --z-raised：条目详情（.lib-detail，--z-float）在同一层叠上下文里，工具栏不能盖到详情上面。
@@ -34,6 +34,9 @@
   line-height: 1.1;
   letter-spacing: var(--tracking-tight);
 }
+.lib-toolbar-genre {
+  color: var(--text-secondary);
+}
 .lib-toolbar-switch {
   align-self: center;
   margin-left: var(--space-2);
@@ -50,70 +53,6 @@
   align-items: center;
   justify-content: flex-end;
   gap: var(--space-2);
-}
-/* 排序：UiSelect（原生下拉，键盘、读屏照旧）套成与 UiButton secondary 同高同色的胶囊，左侧图标只是装饰 */
-.lib-sort {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-1_5);
-  height: var(--control-height);
-  padding: 0 var(--space-4);
-  border-radius: var(--radius-full);
-  background: var(--control-bg);
-  color: var(--text-primary);
-  box-shadow: var(--shadow-control);
-  cursor: pointer;
-  transition: var(--transition-fast);
-}
-.lib-sort:hover {
-  background: var(--control-bg-hover);
-}
-.lib-sort:focus-within {
-  box-shadow: var(--focus-ring);
-}
-.lib-sort-field {
-  width: auto;
-  height: 100%;
-  padding: 0;
-  border: 0;
-  background: transparent;
-  color: inherit;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-}
-.lib-sort-field:focus-within {
-  box-shadow: none;
-}
-.lib-sort-field :deep(.ui-select-native) {
-  padding: 0 var(--space-5) 0 0;
-  color: inherit;
-}
-.lib-sort-field :deep(.ui-select-chevron) {
-  right: 0;
-}
-.lib-sort-field :deep(option) {
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-}
-.lib-toolbar-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-.lib-chips {
-  display: flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-2);
-}
-.lib-row-divider {
-  flex: none;
-  width: 1px;
-  height: 20px;
-  background: var(--border-glass-light);
 }
 .lib-toolbar-facets {
   display: flex;

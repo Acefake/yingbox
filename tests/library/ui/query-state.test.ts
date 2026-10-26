@@ -177,3 +177,79 @@ describe('分面筛选', () => {
     expect(facetScopeOf('movie', { libraryId: null })).toBeUndefined()
   })
 })
+
+describe('浏览胶囊与类型（电影 / 剧集）', () => {
+  it('类型映射到 facets.tag，未看 = watched:false，最近添加 = addedFrom；番号页忽略', async () => {
+    const {
+      toLibraryQuery: q,
+      defaultWallQuery: d,
+      recentFrom,
+      RECENT_DAYS,
+    } = await import('../../../src/renderer/src/features/library/state/query-state')
+    expect(d()).toMatchObject({ browse: 'all', genre: null })
+    expect(q('movie', { ...d(), genre: '科幻' }).facets).toEqual({
+      tag: ['科幻'],
+    })
+    expect(q('tv', { ...d(), browse: 'unwatched' }).watched).toBe(false)
+    const now = new Date(2026, 9, 27, 15, 30).getTime()
+    const from = q('movie', { ...d(), browse: 'recent' }, now).addedFrom
+    expect(from).toBe(recentFrom(now))
+    expect(from).toBe(new Date(2026, 9, 27 - RECENT_DAYS).getTime())
+    const jav = q('jav', { ...d(), genre: '科幻', browse: 'unwatched' })
+    expect(jav.facets).toBeUndefined()
+    expect(jav.watched).toBeUndefined()
+    // 引擎校验认这些参数
+    expect(
+      normalizeLibraryQuery(
+        q('movie', { ...d(), genre: '科幻', browse: 'recent' }, now)
+      )
+    ).toMatchObject({ facets: { tag: ['科幻'] }, addedFrom: from })
+  })
+
+  it('类型计数范围：与海报墙同一顶层类型 / 来源 / 媒体库；番号页没有', async () => {
+    const {
+      genreScopeOf,
+      filterKeyOf,
+      defaultWallQuery: d,
+    } = await import('../../../src/renderer/src/features/library/state/query-state')
+    expect(genreScopeOf('movie', { libraryId: null })).toEqual({
+      field: 'tag',
+      types: ['movie'],
+      source: 'tmdb',
+    })
+    expect(genreScopeOf('tv', { libraryId: 2 })).toEqual({
+      field: 'tag',
+      types: ['series'],
+      source: 'tmdb',
+      libraryId: 2,
+    })
+    expect(genreScopeOf('jav', { libraryId: null })).toBeUndefined()
+    // 换类型 / 浏览胶囊算换筛选（清空多选、回到顶部）
+    expect(filterKeyOf({ ...d(), genre: '科幻' })).not.toEqual(filterKeyOf(d()))
+    expect(filterKeyOf({ ...d(), browse: 'recent' })).not.toEqual(
+      filterKeyOf(d())
+    )
+  })
+
+  it('选了类型或观看筛选时不能局部更新', () => {
+    const updated = new Set([1])
+    expect(
+      canPatchInPlace(
+        { sort: 'addedAt', facets: { tag: ['科幻'] } },
+        { updated, structural: false }
+      )
+    ).toBe(false)
+    expect(
+      canPatchInPlace(
+        { sort: 'addedAt', watched: false },
+        { updated, structural: false }
+      )
+    ).toBe(false)
+    expect(
+      canPatchInPlace(
+        { sort: 'addedAt', addedFrom: 1 },
+        { updated, structural: false }
+      )
+    ).toBe(true)
+  })
+})

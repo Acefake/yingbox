@@ -1,9 +1,14 @@
 <template>
-  <!-- 工具栏：第一行大标题与数量、右侧操作；第二行视图切换 + 筛选胶囊 -->
+  <!-- 工具栏：第一行大标题（选了类型时带「· 类型」）与数量、右侧排序 / 筛选 / ⋯；第二行浏览胶囊；再下面是待确认提示 -->
   <header class="lib-toolbar">
     <div class="lib-toolbar-head">
       <div class="lib-toolbar-title">
-        <h1>{{ kindLabel }}</h1>
+        <h1>
+          {{ kindLabel
+          }}<span v-if="shownGenre" class="lib-toolbar-genre">
+            · {{ shownGenre }}</span
+          >
+        </h1>
         <span v-if="count !== null" class="lib-toolbar-count">{{
           count.toLocaleString('zh-CN')
         }}</span>
@@ -18,26 +23,11 @@
         />
       </div>
       <div class="lib-toolbar-tools">
-        <label v-if="shows('sort')" class="lib-sort">
-          <UiIcon name="sort" size="sm" />
-          <UiSelect
-            class="lib-sort-field"
-            aria-label="排序"
-            :options="sortOptions"
-            :value="sort"
-            @change="
-              emit(
-                'sort',
-                ($event.target as HTMLSelectElement).value as WallSort
-              )
-            "
-          />
-        </label>
-        <UiButton
-          v-if="shows('order')"
-          :icon="order === 'asc' ? 'arrowUp' : 'arrowDown'"
-          :label="order === 'asc' ? '升序' : '降序'"
-          @click="emit('toggle-order')"
+        <UiMenuButton
+          v-if="shows('sort')"
+          :label="sortLabel(sort, order)"
+          :icon="null"
+          :items="sortItems"
         />
         <UiButton
           v-if="shows('facets')"
@@ -47,54 +37,22 @@
           :aria-expanded="facetsOpen"
           @click="facetsOpen = !facetsOpen"
         />
-        <UiButton
-          v-if="shows('scan')"
-          icon="refresh"
-          label="扫描"
-          @click="emit('scan')"
-        />
-        <UiButton
-          v-if="shows('identify')"
-          icon="sparkle"
-          label="识别"
-          @click="emit('identify')"
-        />
-        <UiMenuButton :items="moreItems" />
+        <UiMenuButton icon-only :items="moreItems" />
       </div>
     </div>
-    <!-- 筛选胶囊一行：匹配状态（待确认带数量）| 各媒体库；视图切换在标题旁 -->
-    <div
+    <BrowseRow
+      v-if="hasLibraries && genreScope && view !== 'actors'"
+      v-model:view="view"
+      v-model:browse="browse"
+      v-model:genre="genre"
+      :genres="genres"
+      @recent="sortRecent"
+    />
+    <ReviewHint
       v-if="hasLibraries && view !== 'actors'"
-      v-scroll-x
-      class="lib-toolbar-row"
-    >
-      <div class="lib-chips" role="group" aria-label="匹配状态">
-        <UiChip
-          v-for="o in filterOptions"
-          :key="o.value"
-          size="md"
-          :label="o.label"
-          :count="
-            o.value === 'review' ? reviewChipCount(reviewCount ?? 0) : undefined
-          "
-          :selected="chipSelected(o.value)"
-          @click="pickFilter(o.value)"
-        />
-      </div>
-      <template v-if="view === 'wall' && libraryOptions.length > 2">
-        <span class="lib-row-divider" aria-hidden="true" />
-        <div class="lib-chips" role="group" aria-label="媒体库">
-          <UiChip
-            v-for="o in libraryOptions"
-            :key="`lib-${o.value}`"
-            size="md"
-            :label="o.label"
-            :selected="library === o.value"
-            @click="library = o.value"
-          />
-        </div>
-      </template>
-    </div>
+      v-model:view="view"
+      :count="reviewCount ?? 0"
+    />
     <!-- 分面筛选（番号库）：已选条件常驻，面板按「筛选」展开 -->
     <div
       v-if="facetScope && hasLibraries && view === 'wall'"
@@ -120,21 +78,21 @@
 
 <script setup lang="ts">
 /**
- * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧图标 + 文字按钮（排序、升降、筛选、扫描、识别），
- * 其余操作（按画面搜、视频墙、设置）收进「更多」，摆放规则见 page-rules.ts toolbarActions；
- * 视图切换（资料库 / 演员，番号页才有）在标题旁；第二行是筛选胶囊：匹配状态（「待确认」带数量，选它进入待确认队列），
- * 媒体库多于一个时接着列出各媒体库。
+ * 媒体库页面工具栏（Apple TV 式）：第一行大标题与数量，右侧只有排序（「添加时间 ↓」：菜单里点别的字段换字段、
+ * 点当前字段切换升降序）、筛选（番号页）和「⋯」。「⋯」里依次是扫描、识别、按画面搜、视频墙、设置，
+ * 然后是「匹配状态」与「媒体库」（多于一个时）两组单选。摆放规则见 page-rules.ts toolbarActions。
+ *
+ * 电影 / 剧集分区第二行是浏览胶囊（BrowseRow：全部 · 未看 · 最近添加 | 常见类型 · 全部类型 ›），
+ * 选了类型时标题显示「电影 · 科幻」、数量是筛选后的片数；番号页没有这一行。
+ * 标题下方是待确认提示（ReviewHint），点了进入待确认队列。视图切换（资料库 / 演员，番号页才有）在标题旁。
  * 查询条件全部经 v-model 交回页面保管（切换视图后保留）。
  * 搜索用顶栏全局搜索（按 ?q= 在本页过滤），工具栏不再放第二个搜索框。
  */
 import UiButton from '@/components/ui/UiButton.vue'
-import UiChip from '@/components/ui/UiChip.vue'
-import UiIcon from '@/components/ui/UiIcon.vue'
 import type { MenuButtonItem } from '@/components/ui/UiMenuButton.vue'
 import UiMenuButton from '@/components/ui/UiMenuButton.vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
-import UiSelect from '@/components/ui/UiSelect.vue'
 
 import { computed, ref, watch } from 'vue'
 import type {
@@ -146,16 +104,22 @@ import FacetPanel from '../facets/FacetPanel.vue'
 import { activeCount } from '../facets/facet-rules'
 import VisualSearch from '../visual/VisualSearch.vue'
 import {
-  FILTER_OPTIONS,
+  type BrowseMode,
   type MatchFilter,
   SORT_OPTIONS,
   type WallSort,
 } from '../state/query-state'
+import BrowseRow from './BrowseRow.vue'
 import {
-  type ToolbarAction,
-  reviewChipCount,
-  toolbarActions,
-} from './page-rules'
+  libraryChoices,
+  matchChoices,
+  sortLabel,
+  sortPick,
+  titleGenre,
+} from './browse-rules'
+import { type ToolbarAction, toolbarActions } from './page-rules'
+import ReviewHint from './ReviewHint.vue'
+import { useGenres } from './use-genres'
 
 /** 页面视图。 */
 export type LibraryView = 'wall' | 'actors' | 'review'
@@ -166,19 +130,23 @@ const props = defineProps<{
   count: number | null
   hasLibraries: boolean
   viewOptions: SegmentedOption<LibraryView>[]
-  /** 待确认条目数（筛选胶囊上的数字） */
+  /** 待确认条目数（标题下的提示） */
   reviewCount?: number
-  /** 媒体库下拉（含「全部文件夹」）；只有一个媒体库时不显示。 */
+  /** 媒体库选项（含「全部文件夹」）；只有一个媒体库时「⋯」里不列。 */
   libraryOptions: Array<{ value: number; label: string }>
   sort: WallSort
   order: 'asc' | 'desc'
   /** 分面筛选的取值范围；不传表示该分区没有分面筛选。 */
   facetScope?: Omit<FacetListRequest, 'field'>
+  /** 类型胶囊的计数范围；不传表示该分区没有浏览胶囊（番号页）。 */
+  genreScope?: FacetListRequest
 }>()
 
 const view = defineModel<LibraryView>('view', { required: true })
 const filter = defineModel<MatchFilter>('filter', { required: true })
 const facets = defineModel<FacetFilter>('facets', { default: () => ({}) })
+const browse = defineModel<BrowseMode>('browse', { default: 'all' })
+const genre = defineModel<string | null>('genre', { default: null })
 const facetsOpen = ref(false)
 const visualOpen = ref(false)
 const facetCount = computed(() => activeCount(facets.value))
@@ -196,17 +164,11 @@ const emit = defineEmits<{
   'open-item': [itemId: number]
 }>()
 
-const sortOptions = SORT_OPTIONS.map(o => ({ ...o }))
-const filterOptions = FILTER_OPTIONS.map(o => ({ ...o }))
+const genres = useGenres(() => props.genreScope)
+const shownGenre = computed(() => titleGenre(view.value, genre.value))
 const showSwitch = computed(
   () => props.hasLibraries && props.viewOptions.length > 1
 )
-
-/** 匹配状态胶囊：「待确认」对应待确认队列视图，其余是海报墙的筛选。 */
-function chipSelected(value: MatchFilter): boolean {
-  if (value === 'review') return view.value === 'review'
-  return view.value === 'wall' && filter.value === value
-}
 
 // 海报墙的「待确认」筛选由待确认队列承担：带着这个筛选进来（如恢复的查询条件）就直接进队列
 watch(
@@ -219,13 +181,27 @@ watch(
   { immediate: true }
 )
 
-function pickFilter(value: MatchFilter): void {
-  if (value === 'review') {
-    view.value = 'review'
-    return
-  }
-  filter.value = value
-  view.value = 'wall'
+/** 排序菜单：当前字段打勾并带方向箭头，再点它切换升降序。 */
+const sortItems = computed<MenuButtonItem[]>(() =>
+  SORT_OPTIONS.map(o => ({
+    key: o.value,
+    label: o.label,
+    checked: o.value === props.sort,
+    ...(o.value === props.sort
+      ? { hint: props.order === 'asc' ? '↑' : '↓' }
+      : {}),
+    onSelect: () => {
+      const step = sortPick(props.sort, o.value)
+      if (step.kind === 'toggle-order') emit('toggle-order')
+      else emit('sort', step.sort)
+    },
+  }))
+)
+
+/** 「最近添加」：排序切到添加时间降序。 */
+function sortRecent(): void {
+  if (props.sort !== 'addedAt') emit('sort', 'addedAt')
+  else if (props.order !== 'desc') emit('toggle-order')
 }
 
 const actions = computed(() =>
@@ -239,8 +215,14 @@ const actions = computed(() =>
 const shows = (action: ToolbarAction): boolean =>
   actions.value.inline.includes(action)
 
-/** 「更多」菜单里每个操作的文字、图标与动作 */
+/** 「⋯」菜单里每个操作的文字、图标与动作 */
 const MORE: Partial<Record<ToolbarAction, Omit<MenuButtonItem, 'key'>>> = {
+  scan: { label: '扫描', icon: 'refresh', onSelect: () => emit('scan') },
+  identify: {
+    label: '识别',
+    icon: 'sparkle',
+    onSelect: () => emit('identify'),
+  },
   visual: {
     label: '按画面搜',
     icon: 'image',
@@ -257,12 +239,31 @@ const MORE: Partial<Record<ToolbarAction, Omit<MenuButtonItem, 'key'>>> = {
     onSelect: () => emit('settings'),
   },
 }
-const moreItems = computed<MenuButtonItem[]>(() =>
-  actions.value.more.flatMap(key => {
+
+/** 选匹配状态：回到海报墙。 */
+function pickFilter(value: MatchFilter): void {
+  filter.value = value
+  view.value = 'wall'
+}
+
+const moreItems = computed<MenuButtonItem[]>(() => {
+  const items: MenuButtonItem[] = actions.value.more.flatMap(key => {
     const item = MORE[key]
     return item ? [{ key, ...item }] : []
   })
-)
+  if (!props.hasLibraries || view.value === 'actors') return items
+  const inWall = view.value === 'wall'
+  for (const c of matchChoices(filter.value))
+    items.push({
+      ...c,
+      checked: inWall && c.checked,
+      onSelect: () => pickFilter(c.value),
+    })
+  if (inWall)
+    for (const c of libraryChoices(props.libraryOptions, library.value))
+      items.push({ ...c, onSelect: () => (library.value = c.value) })
+  return items
+})
 </script>
 
 <style scoped src="./library-toolbar.css"></style>
