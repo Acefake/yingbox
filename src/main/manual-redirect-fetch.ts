@@ -75,14 +75,25 @@ function toStream(
   })
 }
 
+/** manualRedirectFetch 的选项 */
+export interface ManualRedirectOptions {
+  /**
+   * 凭据模式，默认 omit（播放代理、线路探测不带会话 Cookie）。
+   * 后台引擎传 include，与它原先的 net.fetch 一致（无 Origin 时 net.fetch 按 include 发）。
+   */
+  credentials?: 'include' | 'omit'
+}
+
 /**
  * 包一层：`redirect: 'manual'` 走 net.request，其余交给 fallback（net.fetch）。
+ * 主进程（播放代理）与后台引擎 utilityProcess 共用：两边的 net.fetch 是同一份实现，都不支持 manual。
  * @param request net.request
  * @param fallback net.fetch
  */
 export function manualRedirectFetch(
   request: RequestFactory,
-  fallback: FetchImpl
+  fallback: FetchImpl,
+  options: ManualRedirectOptions = {}
 ): FetchImpl {
   return (url, init) => {
     if (init.redirect !== 'manual') return fallback(url, init)
@@ -97,7 +108,7 @@ export function manualRedirectFetch(
         url,
         method: init.method ?? 'GET',
         redirect: 'manual',
-        credentials: 'omit',
+        credentials: options.credentials ?? 'omit',
         useSessionCookies: false,
         // 手写的 Referer 要配 unsafe-url，否则 Chromium 按默认引用策略把请求取消（见 shared/net/referrer.ts）
         ...(headers.has('referer') ? { referrerPolicy: 'unsafe-url' } : {}),

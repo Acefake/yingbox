@@ -4,6 +4,7 @@
  * 真实 Electron 下的验证见 PR 说明（重定向、Referer / Range 转发、gzip 解码）。
  */
 import { EventEmitter } from 'node:events'
+import { readFileSync } from 'node:fs'
 import { describe, expect, it, vi } from 'vitest'
 
 import { manualRedirectFetch } from '../src/main/manual-redirect-fetch'
@@ -211,6 +212,27 @@ describe('手动重定向 fetch', () => {
       late.emit('end')
       late.emit('close')
     }).not.toThrow()
+  })
+
+  it('凭据模式可配置（后台引擎用 include，与原先的 net.fetch 一致），默认 omit', async () => {
+    const requests: FakeRequest[] = []
+    const fetch = manualRedirectFetch(
+      options => {
+        const req = new FakeRequest(options as Record<string, unknown>)
+        requests.push(req)
+        return req as never
+      },
+      async () => new Response(''),
+      { credentials: 'include' }
+    )
+    void fetch('http://a/x', { redirect: 'manual' })
+    expect(requests[0].options.credentials).toBe('include')
+  })
+
+  it('后台引擎的出网经 manualRedirectFetch（net.fetch 不支持 manual，所有 3xx 都会失败）', () => {
+    const source = readFileSync('src/engine/index.ts', 'utf8')
+    expect(source).toMatch(/fetch: manualRedirectFetch\(/)
+    expect(source).toContain('net.request(options)')
   })
 
   it('POST 写入请求体', async () => {
