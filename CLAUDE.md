@@ -42,7 +42,7 @@ pnpm check:fix          # run checks and auto-fix lint issues
 
 ## Architecture
 
-The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app with five routes.
+The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app.
 
 ### Three-process layout (electron-vite)
 
@@ -83,6 +83,7 @@ Routes (defined in [src/renderer/src/router/routers.ts](src/renderer/src/router/
 - `/` → Online search & streaming ([features/online/views/OnlineView.vue](src/renderer/src/features/online/views/OnlineView.vue))
 - `/movie` → Movie library ([features/library/MovieLibraryPage.vue](src/renderer/src/features/library/MovieLibraryPage.vue)), TMDB libraries only
 - `/tv` → TV library ([features/library/TvLibraryPage.vue](src/renderer/src/features/library/TvLibraryPage.vue))
+- `/calendar`, `/live`, `/netdisk` and the other feature pages: one lazy route each in `routers.ts`
 
 `App.vue` wraps routes in `AppLayout` with `<keep-alive>` and mounts the web-only player layer once (`features/player`, ADR-0015; on desktop the built-in player is a separate window, `src/main/player-window` + `player.html`, ADR-0018; hotkeys / gear menu / DV P5 routing in `hotkeys/`, `settings-menu/`, `utils/playback-route.ts`, ADR-0016). `DetailWindow` renders inline as the online content page.
 
@@ -134,7 +135,6 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 | Build tooling     | electron-vite 5, Vite 7                    |
 | Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4      |
 | UI kit            | own `components/ui/`, Tailwind CSS 4       |
-| Metadata          | @tdanks2000/tmdb-wrapper                   |
 | Engine            | Electron utilityProcess, `net.fetch`       |
 | Library           | utilityProcess engine, `node:sqlite`       |
 | CatSpider runtime | cheerio, crypto-js (engine plugin sandbox) |

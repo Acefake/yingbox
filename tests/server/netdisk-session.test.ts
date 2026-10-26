@@ -22,7 +22,11 @@ beforeEach(() => (dir = mkdtempSync(join(tmpdir(), 'yingbox-pan-'))))
 afterEach(() => rmSync(dir, { recursive: true, force: true }))
 
 /** 服务端同样的组装（与 src/server/netdisk/index.ts 一致） */
-function build(fetch: (url: string, init?: RequestInit) => Promise<Response>) {
+function build(fetch: (url: string, init?: RequestInit) => Promise<Response>): {
+  secrets: FileSecretStore
+  jar: CookieJar
+  service: ReturnType<typeof createPan115Service>
+} {
   const secrets = new FileSecretStore(join(dir, 'secrets.json'), {})
   const jar = CookieJar.open(join(dir, 'pan115-cookies.json'))
   const service = createPan115Service({

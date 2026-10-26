@@ -3,7 +3,7 @@
  * 换集前上一集的位置会先写出。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import { ref } from 'vue'
+import { type Ref, ref } from 'vue'
 
 vi.mock('@/features/incognito', () => ({ isIncognito: () => false }))
 
@@ -33,7 +33,11 @@ describe('useSessionProgress 绑定当前集', () => {
     vi.restoreAllMocks()
   })
 
-  const setup = () => {
+  const setup = (): {
+    p: ReturnType<typeof useSessionProgress>
+    position: Ref<number>
+    progressKey: Ref<string>
+  } => {
     const playlist = ref([
       { filePath: '/tv/e1.mkv', library: { itemId: 1, fileId: 11 } },
       { filePath: '/tv/e2.mkv', library: { itemId: 2, fileId: 22 } },
