@@ -43,7 +43,6 @@ export interface RecentLibraryItem {
   title: string
   year: number | null
   poster: string | null
-  rating: number | null
 }
 
 /** Hero 从最近入库的前多少条里挑有背景图的。 */
@@ -80,7 +79,6 @@ export async function recentLibraryItems(
     title: item.title,
     year: item.year,
     poster: itemImage(item.poster, 300),
-    rating: item.rating,
   }))
 }
 

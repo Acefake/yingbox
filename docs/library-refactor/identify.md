@@ -92,6 +92,11 @@ ISO 代码（`shared/library/identify/country-codes.ts`）写进 metadata：已�
 （`updated_at` 不变）的条目本进程内不再重读 NFO。补全写字段时，已是最新识别的条目 `identified_at` 一并前移，
 补全本身不会让条目下次扫描重新识别。
 
+评分带来源（`media_items.rating_source`，v12；类型与文案在 `shared/library/rating.ts`）：TMDB 识别写 `tmdb`（集也是），
+NFO 按 `<rating name>` 记 `douban` / `tmdb` / `imdb`，没写 name 或旧式 `<rating>` 记 `nfo`；NFO 里有豆瓣那一条时优先取它。
+豆瓣评分优先：本地补到豆瓣评分会替换别的来源，已有豆瓣评分时重新识别不覆盖。老库升级时，评分与 metadata 里 TMDB 的评分一致的
+推断为 `tmdb`，其余为 NULL（不知道）。界面统一用 `formatRating`：「豆瓣 8.2」「TMDB 7.9」，不知道来源只显示分数。
+
 识别任务结束后，本次涉及的 TMDB 库条目里仍然没有类型的，`identify/genre-fill.ts` 按片名 + 年份查豆瓣
 （`m.douban.com/rexxar/api/v2/search/movie`，带 Referer 与移动 UA），从卡片副标题读地区和类型补上（开头的年份段跳过；
 片名两边都去掉「第 X 季」再比）：串行、两次请求至少隔 2 秒、单次任务最多 50 个请求（命中缓存不算，名额用完后命中缓存的
