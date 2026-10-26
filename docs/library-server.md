@@ -207,7 +207,7 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 ## 网盘与追更
 
 片库服务也承载桌面版的「网盘」「追更」「找 115 资源」：PanSou 搜索、115 扫码登录、分享预览与转存，
-剧集追更、洗版、电影上线追踪的定时任务，以及库外发现（助手 / 豆瓣卡）。决策见 [ADR-0019](adr/0019-server-netdisk-autograb.md)。
+剧集追更、洗版、电影上线追踪的定时任务，以及库外发现（助手 / 豆瓣卡）。决策见 [ADR-0020](adr/0020-server-netdisk-autograb.md)。
 
 - **同一套模块**：`src/main/pan115`、`src/main/autograb`、`src/main/discover` 的入口只依赖模块宿主（`src/main/module-host`），
   桌面端与服务端各给一份实现；服务端的组装在 `src/server/netdisk`。
