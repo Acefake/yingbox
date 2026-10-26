@@ -6,16 +6,21 @@
     >
       <span class="assistant-streak" aria-hidden="true" />
       <UiIcon class="assistant-spark" name="sparkle" size="lg" />
-      <UiInput
-        ref="inputRef"
-        v-model="draft"
-        v-enter="submit"
-        class="assistant-input"
-        :placeholder="placeholder"
-        :aria-label="placeholder"
-        :maxlength="ASK_CHARS"
-        autocomplete="off"
-      />
+      <div class="assistant-entry" :class="{ 'has-example': example }">
+        <UiInput
+          ref="inputRef"
+          v-model="draft"
+          v-enter="submit"
+          class="assistant-input"
+          :placeholder="placeholder"
+          :aria-label="placeholder"
+          :maxlength="ASK_CHARS"
+          autocomplete="off"
+        />
+        <span v-if="example" class="assistant-ghost" aria-hidden="true">
+          {{ placeholder }}<em class="assistant-example">{{ example }}</em>
+        </span>
+      </div>
       <UiIconButton
         v-if="voiceReady"
         class="assistant-tool assistant-mic"
@@ -52,8 +57,9 @@
 /**
  * 助手的输入胶囊：sparkle、输入框、麦克风与发送按钮；上沿一道 1px 蓝紫粉渐变（.assistant-streak），
  * 思考 / 回答中（busy）变亮。floating 时是独立的玻璃胶囊（还没提问），否则是面板底部的内凹胶囊。
- * 技能建议胶囊排在输入框下面。录音时麦克风按真实音量（level，0–1）轻微放大；减少动态效果时不缩放。
- * 回车或点发送提交，打开时自动聚焦输入框。
+ * 有 example 时占位后面跟一句更浅的示例：原生占位文字透明、由 .assistant-ghost 画出两种深浅，
+ * 显隐跟着 :placeholder-shown 走（输入法组字时也会让开）。技能建议胶囊排在输入框下面。
+ * 录音时麦克风按真实音量（level，0–1）轻微放大；减少动态效果时不缩放。回车或点发送提交，打开时自动聚焦输入框。
  */
 import { computed, onMounted, ref } from 'vue'
 
@@ -66,6 +72,8 @@ const props = withDefaults(
   defineProps<{
     suggestions: string[]
     placeholder: string
+    /** 占位后面的浅色示例（空串不显示） */
+    example?: string
     voiceReady: boolean
     listening: boolean
     /** 录音音量 0–1 */
@@ -75,7 +83,7 @@ const props = withDefaults(
     /** 独立的玻璃胶囊（还没提问时） */
     floating?: boolean
   }>(),
-  { level: 0, busy: false, floating: false }
+  { example: '', level: 0, busy: false, floating: false }
 )
 const emit = defineEmits<{ ask: [text: string]; voice: [] }>()
 

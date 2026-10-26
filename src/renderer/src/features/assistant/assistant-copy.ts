@@ -1,5 +1,5 @@
 /**
- * 侧栏里随场景变化的文案：头部副标题、空闲时的问候说明、输入框默认占位。
+ * 助手里随场景变化的文案：上下文胶囊（页面 / 在播 / 私密）、输入框占位与后面的浅色示例。
  *
  * 私密模式下只写「私密 · 仅本地模型 · 无痕」，不写片名与页面名（私密内容的名字不出现在助手里）；
  * 普通模式的文案只来自当前页面名与在播片名，不含任何私密分区的字样。
@@ -8,7 +8,7 @@ import { clockText } from './skills/skill-prompt'
 import type { AssistantContext } from './skills/skill-types'
 
 /**
- * 头部副标题：私密 → 仅本地模型；在播 → 片名 · 时间点；有角落小窗在播 → 页面 · 播放中；否则页面 · 当前页面。
+ * 上下文胶囊：私密 → 仅本地模型；在播 → 片名 · 时间点；有角落小窗在播 → 页面 · 播放中；否则页面 · 当前页面。
  * @param context 当前状态
  */
 export function assistantSubtitle(context: AssistantContext): string {
@@ -19,16 +19,14 @@ export function assistantSubtitle(context: AssistantContext): string {
 }
 
 /**
- * 空闲时问候下面的一行说明，只写当前真能做到的事。
+ * 输入框占位后面那句浅色示例（「例如「…」」），只举当前真能做到的事；私密模式不举例（不写任何片名或分区字样）。
  * @param context 当前状态
  */
-export function assistantGreetingHint(context: AssistantContext): string {
-  if (context.private) return '对话只发给本地模型，关掉就不留记录。'
+export function assistantExample(context: AssistantContext): string {
+  if (context.private) return ''
   if (context.nowPlaying)
-    return context.plotQa
-      ? '可以问问正在看的剧情，或者让我控制播放。'
-      : '可以让我调倍速、开关弹幕或定时停止播放。'
-  return '可以让我在媒体库里找片，或者接着上次看的。'
+    return context.plotQa ? '例如「刚才发生了什么」' : '例如「1.5 倍速」'
+  return '例如「找几部适合周末看的科幻片」'
 }
 
 /**

@@ -1,55 +1,86 @@
 /*
- * AI 助手侧栏的内容：头部（标题、场景副标题、Esc 键帽）、中间可滚动的对话流（问候、你说的话、回答、
- * 结果列表与回执见 assistant-results.css）、底部输入胶囊与技能胶囊。
+ * AI 助手居中一列的内容：空闲时的大标题、上下文胶囊（+ 面板展开时的 Esc 键帽）、对话流（你说的话、回答；
+ * 结果列表与回执见 assistant-results.css）、输入胶囊与技能胶囊、空闲时的快捷键提示。
  * 全部中性灰阶令牌，彩色只有 assistant.css 里输入胶囊上沿的渐变发丝。
  */
 
-/* ── 头部：标题 + 场景副标题，右侧 Esc 键帽 ── */
+/* ── 读屏状态行（视觉上隐藏） ── */
+.assistant-status {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
+/* ── 空闲时的大标题 ── */
+.assistant-hello {
+  margin: 0 0 var(--space-5);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  letter-spacing: 0.01em;
+  text-align: center;
+}
+
+/* ── 上下文胶囊（场景 · 模型），面板展开时右侧一枚 Esc 键帽 ── */
 .assistant-head {
   display: flex;
   flex: none;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-4) var(--space-4) var(--space-3);
-  box-shadow: 0 0.5px 0 var(--separator);
+  min-width: 0;
+  margin-bottom: var(--space-3);
+  padding: 0 var(--space-1_5);
 }
-.assistant-heading {
+.assistant[data-mode='panel'] .assistant-head {
+  margin-bottom: var(--space-2);
+  padding: 0;
+}
+.assistant-context {
   display: flex;
   flex: 1;
-  flex-direction: column;
-  gap: var(--space-0_5);
-  min-width: 0;
-}
-.assistant-title {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-tight);
-}
-/* 副标题：私密模式前面一枚锁图标，颜色仍是中性灰（不靠颜色传达私密） */
-.assistant-subtitle {
-  display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-2);
   min-width: 0;
   margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.assistant-chip {
+  display: inline-flex;
+  flex: 0 1 auto;
+  align-items: center;
+  gap: var(--space-1_5);
+  min-width: 0;
+  height: 26px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  background: var(--bg-active-soft);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
   color: var(--text-secondary);
   font-size: var(--text-xs);
-  line-height: var(--leading-normal);
+  font-weight: var(--font-weight-medium);
 }
-.assistant-subtitle-text {
+/* 私密：描边胶囊，仍是中性灰（不靠颜色传达私密） */
+.assistant-chip:where(.is-private) {
+  background: transparent;
+  box-shadow: inset 0 0 0 0.5px var(--border-strong);
+}
+.assistant-chip .app-icon {
+  flex: none;
+  color: var(--text-tertiary);
+}
+.assistant-chip-text {
   overflow: hidden;
   text-overflow: ellipsis;
   white-space: nowrap;
 }
-.assistant-subtitle .app-icon {
-  flex: none;
-  color: var(--text-tertiary);
-}
 .assistant-close {
   flex: none;
 }
-.assistant-esc {
+.assistant-kbd {
   padding: var(--space-0_5) var(--space-2);
   border: 0.5px solid var(--border-strong);
   border-radius: var(--radius-sm);
@@ -59,85 +90,65 @@
   font-weight: var(--font-weight-semibold);
   line-height: 1.3;
 }
-.assistant-close:hover .assistant-esc {
+.assistant-close:hover .assistant-kbd {
   color: var(--text-primary);
 }
 
-/* ── 对话流：头部与输入框固定，只有这里滚动 ── */
+/* ── 对话流：面板里只有这里滚动 ── */
 .assistant-thread {
   display: flex;
   flex: 1 1 auto;
   flex-direction: column;
-  gap: var(--space-4);
+  gap: var(--space-3);
   min-height: 0;
-  padding: var(--space-4);
+  padding: var(--space-1_5) var(--space-2) var(--space-2);
   overflow-y: auto;
   overscroll-behavior: contain;
 }
 
-/* 空闲时的问候 */
-.assistant-greeting {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-1);
-  margin-top: var(--space-2);
-}
-.assistant-greeting-title {
-  margin: 0;
-  font-size: var(--text-xl);
-  font-weight: var(--font-weight-semibold);
-  line-height: var(--leading-tight);
-}
-.assistant-greeting-hint {
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  line-height: var(--leading-normal);
-}
-
-/* 一轮：你说的话（右对齐中性气泡）+ 回答 */
+/* 一轮：你说的话（加粗标题行）+ 回答；轮与轮之间一道发丝分隔线 */
 .assistant-turn {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-3);
-}
-.assistant-bubble {
-  align-self: flex-end;
-  max-width: 82%;
-  margin: 0;
-  padding: var(--space-2) var(--space-3);
-  border-radius: var(--radius-xl) var(--radius-xl) var(--radius-xs)
-    var(--radius-xl);
-  background: var(--bg-active);
-  color: var(--text-primary);
-  font-size: var(--text-md);
-  line-height: var(--leading-normal);
-  white-space: pre-wrap;
-  overflow-wrap: anywhere;
-}
-.assistant-reply {
   display: flex;
   flex-direction: column;
   gap: var(--space-2);
 }
+.assistant-turn + .assistant-turn {
+  padding-top: var(--space-3);
+  box-shadow: 0 -0.5px 0 var(--separator);
+}
+.assistant-question {
+  margin: 0;
+  color: var(--text-primary);
+  font-size: var(--text-xl);
+  font-weight: var(--font-weight-semibold);
+  line-height: var(--leading-tight);
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+.assistant-turn + .assistant-turn .assistant-question {
+  font-size: var(--text-lg);
+}
+.assistant-reply {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+/* 思考中：一枚浅底胶囊 */
 .assistant-thinking {
   align-self: flex-start;
-}
-
-/* ── 文字 ── */
-.assistant-status {
-  position: absolute;
-  width: 1px;
-  height: 1px;
-  overflow: hidden;
-  clip-path: inset(50%);
-  white-space: nowrap;
+  height: 32px;
+  padding: 0 var(--space-3_5);
+  border-radius: var(--radius-full);
+  background: var(--bg-active-soft);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 .assistant-answer {
   margin: 0;
-  color: var(--text-primary);
+  color: var(--text-secondary);
   font-size: var(--text-md);
-  line-height: var(--leading-normal);
+  line-height: 1.6;
   white-space: pre-wrap;
   overflow-wrap: anywhere;
 }
@@ -160,19 +171,23 @@
   display: flex;
 }
 
-/* ── 底部：技能胶囊在上，输入胶囊（侧栏里是内凹胶囊；floating 时是独立玻璃 .yb-glass）在下 ── */
+/* ── 输入：输入胶囊在上，技能胶囊在下 ── */
 .assistant-composer {
   display: flex;
   flex: none;
-  flex-direction: column-reverse;
-  gap: var(--space-3);
-  padding: var(--space-3) var(--space-4) var(--space-4);
+  flex-direction: column;
+  gap: var(--space-4);
 }
+.assistant[data-mode='panel'] .assistant-composer {
+  gap: var(--space-3);
+  margin-top: var(--space-3);
+}
+/* 空闲：独立的玻璃胶囊（.yb-glass）；面板里：内凹胶囊 */
 .assistant-field {
   position: relative;
   display: flex;
   align-items: center;
-  gap: var(--space-2);
+  gap: var(--space-3);
   height: var(--assistant-composer-height);
   padding: 0 var(--space-2_5) 0 var(--space-5);
   border-radius: var(--radius-full);
@@ -187,6 +202,14 @@
   flex: none;
   color: var(--text-primary);
 }
+.assistant-entry {
+  position: relative;
+  display: flex;
+  flex: 1;
+  align-items: center;
+  min-width: 0;
+  height: 100%;
+}
 /* 胶囊里的输入框：去掉表单外壳的底色与描边 */
 .assistant-input {
   flex: 1;
@@ -198,16 +221,53 @@
   box-shadow: none;
   font-size: var(--text-lg);
 }
+.assistant-field:not(.yb-glass) :where(.assistant-input, .assistant-ghost) {
+  font-size: var(--text-md);
+}
+/* 占位比全站输入框亮一档：在压暗的背景与玻璃上读得清，后面的示例再浅一档 */
+.assistant-input .ui-input-native::placeholder {
+  color: var(--text-tertiary);
+}
 .assistant-input:hover,
 .assistant-input:focus-within {
   background: transparent;
   box-shadow: none;
 }
-/* 焦点环挂在整条胶囊上（输入框自身的外壳已去掉），键盘用户能看清焦点位置 */
+/* 占位 + 浅色示例：原生占位文字透明，由 ghost 画出两种深浅；输入框有字（含输入法组字）时 ghost 让开 */
+.assistant-entry:where(.has-example) .ui-input-native::placeholder {
+  color: transparent;
+}
+.assistant-ghost {
+  position: absolute;
+  top: 50%;
+  right: 0;
+  left: 0;
+  display: none;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--text-lg);
+  line-height: var(--leading-normal);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  transform: translateY(-50%);
+  pointer-events: none;
+}
+.assistant-entry:has(.ui-input-native:placeholder-shown) .assistant-ghost {
+  display: block;
+}
+.assistant-example {
+  margin-left: var(--space-4);
+  color: var(--text-quaternary);
+  font-size: var(--text-md);
+  font-style: normal;
+}
+/*
+ * 焦点挂在整条胶囊上（输入框自身的外壳已去掉）：一道 1px 亮发丝描边。用 outline 而不是 box-shadow，
+ * 玻璃胶囊的高光与投影（.yb-glass）不被覆盖；打开即聚焦，所以不用强调色光环，免得整条胶囊一直发蓝。
+ */
 .assistant-field:focus-within {
-  box-shadow:
-    inset 0 0 0 0.5px var(--border-default),
-    var(--focus-ring);
+  outline: 1px solid var(--border-strong);
+  outline-offset: -1px;
 }
 .assistant-tool {
   --ib-size: 40px;
@@ -222,6 +282,9 @@
   background: var(--action-bg);
   color: var(--action-text);
 }
+.assistant-field:not(.yb-glass) .assistant-send {
+  --ib-size: 38px;
+}
 .assistant-send:disabled {
   background: var(--bg-active);
   color: var(--text-tertiary);
@@ -233,6 +296,9 @@
   justify-content: flex-start;
   gap: var(--space-2);
 }
+.assistant[data-mode='hero'] .assistant-suggestions {
+  justify-content: center;
+}
 .assistant-suggestions .ui-chip {
   height: 34px;
   padding: 0 var(--space-3_5);
@@ -243,6 +309,53 @@
 }
 .assistant-suggestions .ui-chip .app-icon {
   color: var(--text-tertiary);
+}
+
+/* ── 空闲时的快捷键提示：↵ 发送 · 唤起 / 收起 · Esc 关闭（可点） ── */
+.assistant-keys {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2) var(--space-5);
+  margin-top: var(--space-6);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.assistant-key {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1_5);
+  line-height: 20px;
+}
+.assistant-keys .assistant-close {
+  display: inline-flex;
+  border-radius: var(--radius-sm);
+}
+.assistant-keys .assistant-close:hover {
+  color: var(--text-secondary);
+}
+
+/* ── 窄窗口：标题与输入字号收小，示例与快捷键提示（手机没有键盘）收起 ── */
+@media (max-width: 719px) {
+  .assistant-hello {
+    margin-bottom: var(--space-4);
+    font-size: var(--text-xl);
+  }
+  .assistant-field.yb-glass {
+    height: 56px;
+    padding-left: var(--space-4);
+  }
+  .assistant-field :where(.assistant-input, .assistant-ghost) {
+    font-size: var(--text-md);
+  }
+  .assistant-example {
+    display: none;
+  }
+}
+@media (max-width: 519px) {
+  .assistant-keys {
+    display: none;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -1,11 +1,12 @@
 // @vitest-environment jsdom
 /**
- * AI 助手入口与侧栏的挂载：openAssistant（侧栏 sparkle 入口）打开、Cmd/Ctrl+Shift+K 与全局快捷键事件唤起、
- * Esc / Esc 键帽 / 点遮罩收起、未配置 AI 时显示「去设置 AI」；右侧玻璃侧栏（普通页面模态 + 遮罩，
- * 播放器前台时没有遮罩、整层不拦点击、侧栏不做模态）；对话流（你说的话气泡、上一轮回答归档）；
- * 没有光球与边缘光圈；普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的副标题与占位文字（不换色调）；
+ * AI 助手入口与居中浮层的挂载：openAssistant（侧栏 sparkle 入口）打开、Cmd/Ctrl+Shift+K 与全局快捷键事件唤起、
+ * Esc / Esc 键帽 / 点遮罩收起、未配置 AI 时显示「去设置 AI」；空闲时大标题 + 上下文胶囊 + 玻璃输入胶囊 +
+ * 建议 + 快捷键提示，有对话后同一列展开成玻璃面板（普通页面模态 + 遮罩；播放器前台时一律面板、没有遮罩、
+ * 整层不拦点击、不做模态）；对话流（你说的话、上一轮回答归档）；没有光球与边缘光圈；
+ * 普通模式 DOM 无敏感词（私密技能已登记也一样）；私密模式的上下文胶囊与占位文字（不换色调）；
  * 私密模式切换或收起时清空对话上下文；窗口新建时取走待处理的唤起、收起后焦点回到打开前的元素、
- * 模态面板的焦点陷阱、按住 Cmd/Ctrl+Shift+K 的自动重复不算。AI、播放器、媒体库换成替身。
+ * 模态浮层的焦点陷阱、按住 Cmd/Ctrl+Shift+K 的自动重复不算。AI、播放器、媒体库换成替身。
  */
 import {
   afterEach,
@@ -142,12 +143,14 @@ async function mount(path = '/'): Promise<void> {
 }
 
 const overlay = (): Element | null => document.querySelector('.assistant')
+const panel = (): HTMLElement =>
+  document.querySelector<HTMLElement>('.assistant-panel')!
 
 function key(init: KeyboardEventInit): void {
   window.dispatchEvent(new KeyboardEvent('keydown', { bubbles: true, ...init }))
 }
 
-// 侧栏是异步组件：先把它的模块加载好，免得第一条用例在高负载下等第一次下载超时
+// 浮层是异步组件：先把它的模块加载好，免得第一条用例在高负载下等第一次下载超时
 beforeAll(async () => {
   await import('../src/renderer/src/features/assistant/AssistantOverlay.vue')
 }, 30_000)
@@ -185,44 +188,52 @@ afterEach(() => {
 })
 
 describe('AssistantLauncher', () => {
-  it('openAssistant 打开侧栏：玻璃面板、标题、场景副标题、Esc 键帽、问候、输入框「问影盒…」、建议胶囊', async () => {
+  it('openAssistant 打开居中浮层：大标题、上下文胶囊、玻璃输入胶囊「问影盒…」+ 示例、建议胶囊、快捷键提示', async () => {
     await mount()
     expect(overlay()).toBeNull()
     openAssistant()
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-layout')).toBe('page')
-    // 侧栏本身是玻璃，输入胶囊在面板里是内凹胶囊；没有光球与整圈边缘光，只有输入胶囊上沿的渐变
-    expect(
-      document
-        .querySelector('.assistant-drawer')!
-        .classList.contains('yb-glass')
-    ).toBe(true)
+    expect(overlay()!.getAttribute('data-mode')).toBe('hero')
+    // 空闲时一列没有底，输入胶囊本身是玻璃；没有光球与整圈边缘光，只有输入胶囊上沿的渐变
+    expect(panel().classList.contains('yb-glass')).toBe(false)
     expect(
       document.querySelector('.assistant-field')!.classList.contains('yb-glass')
-    ).toBe(false)
+    ).toBe(true)
     expect(document.querySelector('.assistant-orb')).toBeNull()
     expect(document.querySelector('.edge-glow')).toBeNull()
     expect(document.querySelector('.assistant-streak')).not.toBeNull()
     expect(overlay()!.getAttribute('data-private')).toBe('false')
-    expect(document.querySelector('.assistant-drawer')).not.toBeNull()
-    expect(document.querySelector('.assistant-title')?.textContent).toBe(
-      '影盒助手'
+    expect(document.querySelector('.assistant-hello')?.textContent).toBe(
+      '有什么可以帮你？'
     )
-    const subtitle = document.querySelector('.assistant-subtitle')
-    expect(subtitle?.textContent?.trim()).toBe('在线 · 当前页面')
-    expect(subtitle?.getAttribute('title')).toBe('deepseek-chat')
-    expect(document.querySelector('.assistant-esc')?.textContent).toBe('Esc')
-    // 状态行只给读屏：待命未提问时为空，不与问候重复
-    expect(document.querySelector('.assistant-status')?.textContent).toBe('')
+    const chips = [...document.querySelectorAll('.assistant-chip')].map(el =>
+      el.textContent?.trim()
+    )
+    expect(chips).toEqual(['在线 · 当前页面', 'deepseek-chat'])
+    // 空闲时 Esc 在快捷键提示里（可点），顶上没有键帽
     expect(
-      document.querySelector('.assistant-greeting')?.textContent
-    ).toContain('有什么可以帮你')
-    expect(document.querySelector('.assistant-bubble')).toBeNull()
+      document.querySelector('.assistant-head .assistant-close')
+    ).toBeNull()
+    const keys = document.querySelector('.assistant-keys')!.textContent!
+    expect(keys).toContain('发送')
+    expect(keys).toContain('Ctrl Shift K')
+    expect(keys).toContain('唤起 / 收起')
+    expect(
+      document.querySelector('.assistant-keys .assistant-close')?.textContent
+    ).toContain('Esc')
+    // 状态行只给读屏：待命未提问时为空，不与大标题重复
+    expect(document.querySelector('.assistant-status')?.textContent).toBe('')
+    expect(document.querySelector('.assistant-thread')).toBeNull()
+    expect(document.querySelector('.assistant-question')).toBeNull()
     expect(
       document
         .querySelector('.assistant-input input')
         ?.getAttribute('placeholder')
     ).toBe('问影盒…')
+    expect(document.querySelector('.assistant-example')?.textContent).toMatch(
+      /^例如「.+」$/
+    )
     expect(
       document.querySelectorAll('.assistant-suggestions .ui-chip').length
     ).toBe(4)
@@ -279,10 +290,26 @@ describe('AssistantLauncher', () => {
       new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
     )
     await settle(50)
-    expect(document.querySelector('.assistant-bubble')?.textContent).toContain(
-      '找一部科幻电影'
-    )
-    expect(document.querySelector('.assistant-greeting')).toBeNull()
+    expect(
+      document.querySelector('.assistant-question')?.textContent
+    ).toContain('找一部科幻电影')
+    // 有对话：同一列展开成玻璃面板，输入胶囊变成面板里的内凹胶囊，顶上出现 Esc 键帽，大标题与建议收起
+    expect(overlay()!.getAttribute('data-mode')).toBe('panel')
+    expect(panel().classList.contains('yb-glass')).toBe(true)
+    expect(
+      document.querySelector('.assistant-field')!.classList.contains('yb-glass')
+    ).toBe(false)
+    expect(document.querySelector('.assistant-hello')).toBeNull()
+    expect(document.querySelector('.assistant-keys')).toBeNull()
+    expect(document.querySelector('.assistant-suggestions')).toBeNull()
+    expect(
+      document.querySelector('.assistant-head .assistant-close')?.textContent
+    ).toContain('Esc')
+    expect(
+      document
+        .querySelector('.assistant-input input')
+        ?.getAttribute('placeholder')
+    ).toBe('继续问…')
     expect(document.querySelector('.assistant-setup')?.textContent).toContain(
       '去设置 AI'
     )
@@ -313,15 +340,15 @@ describe('AssistantLauncher', () => {
       )
       await settle(50)
     }
-    const bubbles = [...document.querySelectorAll('.assistant-bubble')].map(
+    const questions = [...document.querySelectorAll('.assistant-question')].map(
       el => el.textContent
     )
-    expect(bubbles).toEqual(['第一句', '第二句'])
+    expect(questions).toEqual(['第一句', '第二句'])
     const answers = [...document.querySelectorAll('.assistant-answer')].map(
       el => el.textContent?.trim()
     )
     expect(answers).toEqual(['回答 1', '回答 2'])
-    // 第一轮已归档：它在第二轮的气泡前面，且不是「去设置 AI」那条说明
+    // 第一轮已归档：它在第二轮的问话前面，且不是「去设置 AI」那条说明
     expect(document.querySelectorAll('.assistant-turn').length).toBe(2)
     expect(document.querySelector('.assistant-setup')).toBeNull()
   })
@@ -334,14 +361,15 @@ describe('AssistantLauncher', () => {
     expect(document.body.innerHTML).not.toMatch(SENSITIVE)
   })
 
-  it('私密模式：副标题「私密 · 仅本地模型 · 无痕」、私密技能的建议与占位文字', async () => {
+  it('私密模式：上下文胶囊「私密 · 仅本地模型 · 无痕」、不举例、私密技能的建议与占位文字', async () => {
     await mount('/secret')
     key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-private')).toBe('true')
     expect(
-      document.querySelector('.assistant-subtitle')?.textContent
+      document.querySelector('.assistant-chip.is-private')?.textContent
     ).toContain('私密 · 仅本地模型 · 无痕')
+    expect(document.querySelector('.assistant-example')).toBeNull()
     expect(
       document
         .querySelector('.assistant-input input')
@@ -363,19 +391,20 @@ describe('AssistantLauncher', () => {
     expect(assistantSessionSize()).toBe(0)
   })
 
-  it('内置播放器在前台：同一个侧栏，没有遮罩、整层不拦点击、侧栏不做模态', async () => {
+  it('内置播放器在前台：一律玻璃面板，没有遮罩、整层不拦点击、不做模态', async () => {
     fakes.player = { id: 1, payload: {}, minimized: false }
     await mount()
     key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
     expect(overlay()!.getAttribute('data-layout')).toBe('player')
-    expect(document.querySelector('.assistant-drawer')).not.toBeNull()
-    expect(
-      document.querySelector('.assistant-drawer')!.getAttribute('aria-modal')
-    ).toBe('false')
-    // 不拦点击：没有遮罩元素；整层 pointer-events: none 的样式约束见 assistant-drawer.test.ts
+    // 画面上没有遮罩托底：还没提问也是面板形态，没有大标题
+    expect(overlay()!.getAttribute('data-mode')).toBe('panel')
+    expect(panel().classList.contains('yb-glass')).toBe(true)
+    expect(document.querySelector('.assistant-hello')).toBeNull()
+    expect(panel().getAttribute('aria-modal')).toBe('false')
+    // 不拦点击：没有遮罩元素；整层 pointer-events: none 的样式约束见 assistant-layout.test.ts
     expect(document.querySelector('.assistant-scrim')).toBeNull()
-    // 不拦焦点：焦点移到侧栏外（播放器控件）后不会被拉回
+    // 不拦焦点：焦点移到浮层外（播放器控件）后不会被拉回
     const control = document.createElement('button')
     document.body.appendChild(control)
     await settle(50)
@@ -387,7 +416,7 @@ describe('AssistantLauncher', () => {
     expect(overlay()).toBeNull()
   })
 
-  it('私密模式下收起侧栏：清空对话上下文（关掉就不留记录）', async () => {
+  it('私密模式下收起浮层：清空对话上下文（关掉就不留记录）', async () => {
     await mount('/secret')
     key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)
@@ -399,7 +428,7 @@ describe('AssistantLauncher', () => {
     expect(assistantSessionSize()).toBe(0)
   })
 
-  it('普通模式下收起侧栏：对话上下文保留', async () => {
+  it('普通模式下收起浮层：对话上下文保留', async () => {
     await mount()
     openAssistant()
     await waitFor(() => overlay() !== null)
@@ -439,7 +468,7 @@ describe('AssistantLauncher', () => {
     expect(overlay()).not.toBeNull()
   })
 
-  it('普通页面的侧栏是模态：焦点被移到侧栏外时拉回侧栏', async () => {
+  it('普通页面的浮层是模态：焦点被移到浮层外时拉回浮层', async () => {
     const outside = document.createElement('input')
     document.body.appendChild(outside)
     await mount()
@@ -448,10 +477,6 @@ describe('AssistantLauncher', () => {
     await settle(50)
     outside.focus()
     await settle()
-    expect(
-      document
-        .querySelector('.assistant-drawer')!
-        .contains(document.activeElement)
-    ).toBe(true)
+    expect(panel().contains(document.activeElement)).toBe(true)
   })
 })
