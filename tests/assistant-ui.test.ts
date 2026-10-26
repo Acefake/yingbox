@@ -185,7 +185,10 @@ vi.mock('@/features/library', async () => {
       ]),
     VisualSourceSelect: { render: () => null },
   }
-  return { loadLibrarySearch: async () => lib }
+  return {
+    loadLibrarySearch: async () => lib,
+    libraryCardInfo: async () => null,
+  }
 })
 
 vi.mock('@/features/settings', () => ({

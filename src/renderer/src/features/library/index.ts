@@ -21,6 +21,8 @@ export {
   playLibraryItem,
   randomLibraryItem,
 } from './detail/assistant-links'
+/** AI 助手结果卡用：片库条目的说明行、规格标签、评分、想看登记与详情路由 */
+export { type LibraryCardInfo, libraryCardInfo } from './detail/card-info'
 /** 片库观看进度：应用入口接上播放器；追剧日历读某一集的进度 */
 export { installLibraryProgress } from './progress/install'
 export {

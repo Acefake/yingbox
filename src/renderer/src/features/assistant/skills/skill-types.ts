@@ -9,6 +9,7 @@ import type { Component } from 'vue'
 import type { Router } from 'vue-router'
 
 import type { IconName, SpecBadge } from '@/components/ui'
+import type { LibraryCardInfo } from '@/features/library'
 
 /** 当前在播什么（只在内置播放器播放时有） */
 export interface NowPlaying {
@@ -58,29 +59,35 @@ export interface AssistantCardAction {
   panel?: { component: Component; props: Record<string, unknown> }
 }
 
-/** 一张海报 / 封面卡片 */
+/** 一张影片结果卡（AssistantResults 用 UiMediaRow 显示） */
 export interface AssistantMediaCard {
   id: string
   title: string
-  /** 封面地址；没有时显示占位 */
+  /** 竖版海报地址；没有时显示占位 */
   image: string | null
-  /** 封面角上的小标（时长、看到多少） */
-  badge?: string
-  /** 一行说明（类型 · 评分 · 时长） */
+  /** 一行说明（年份 · 类型 · 时长或季集） */
   meta: string
   /** 规格标签（4K、DOLBY VISION、中字…）；没有时不显示 */
   specs?: SpecBadge[]
-  /** 推荐理由 */
+  /** 评分文字（金星之后，如「8.1」「豆瓣 8.2」） */
+  rating?: string
+  /** 推荐理由（「AI 理解 · 科幻」） */
   reason?: string
+  /** 来源（「本地片库」「豆瓣」） */
+  source?: string
   /** 进度 0–1 */
   progress?: number
+  /** 看到哪儿（「第 1 季 · 第 12 集 · 剩 18 分钟」） */
+  progressNote?: string
+  /** 片库条目的卡片信息：有它才有「详情」（整卡点开）与「想看」 */
+  library?: LibraryCardInfo
   /** 按钮 / 无障碍文字 */
   playLabel: string
   /** 开始播放；找不到可播放的内容时返回 false */
   play: () => Promise<boolean>
-  /** 标题旁的状态字（如「未入库」），随状态变化 */
+  /** 备注里的状态字（如「未入库」），随状态变化 */
   tag?: () => string
-  /** 有按钮时整张卡不再点开播放，改用这些按钮（随状态变化） */
+  /** 有按钮时卡片右侧换成这些按钮（随状态变化） */
   actions?: () => AssistantCardAction[]
 }
 

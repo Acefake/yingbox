@@ -16,6 +16,7 @@ export { default as UiIconButton } from './UiIconButton.vue'
 export { default as UiInput } from './UiInput.vue'
 export { default as UiListRow } from './UiListRow.vue'
 export { default as UiLoadingDots } from './UiLoadingDots.vue'
+export { default as UiMediaRow } from './UiMediaRow.vue'
 export { default as UiMenuButton } from './UiMenuButton.vue'
 export type { MenuButtonItem } from './UiMenuButton.vue'
 export { default as UiNavItem } from './UiNavItem.vue'
@@ -33,6 +34,8 @@ export { default as UiSpecBadge } from './UiSpecBadge.vue'
 export {
   type SpecBadge,
   type SpecVariant,
+  mediaSpecs,
+  releaseSpecs,
   videoProbeSpec,
   videoRangeSpec,
 } from './spec-badge'
