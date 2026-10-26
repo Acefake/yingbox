@@ -10,7 +10,8 @@ import type { NlFilter } from '../nl-search/nl-filter'
 import type { LibrarySection } from '../state/library-section'
 
 export type SearchScope = LibrarySection | 'all'
-export type RecallKind = 'title' | 'people' | 'conditions' | 'visual'
+/** ai = AI 把这句话解析成条件后再按条件召回 */
+export type RecallKind = 'title' | 'people' | 'conditions' | 'visual' | 'ai'
 export interface SearchRequest {
   text: string
   scope: SearchScope

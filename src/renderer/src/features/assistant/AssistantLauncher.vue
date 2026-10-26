@@ -1,16 +1,17 @@
 <template>
-  <Transition v-if="enabled" name="assistant" :duration="transitionMs">
+  <Transition name="assistant" :duration="transitionMs">
     <AssistantOverlay v-if="open" @close="onOverlayClose" />
   </Transition>
 </template>
 
 <script setup lang="ts">
 /**
- * AI 助手的入口（应用根组件挂一次）：应用内 Cmd/Ctrl+Shift+K、主进程全局快捷键（assistant.summon，
- * 窗口已被唤到前台）和侧栏的 sparkle 按钮都经 assistant-open.ts 开合，打开的是同一个居中浮层
- * （AssistantOverlay）；浮层按需加载（defineAsyncComponent），第一次打开才下载。
+ * 统一入口（应用根组件挂一次）：搜索片库与问 AI 共用一个居中浮层（AssistantOverlay）。
+ * 应用内 Cmd/Ctrl+K（或 Cmd/Ctrl+Shift+K）开合、Cmd/Ctrl+F 打开（assistant-hotkey.ts 的 entryHotkey），
+ * 主进程全局快捷键（assistant.summon，窗口已被唤到前台）和侧栏的搜索框入口都经 assistant-open.ts 开合；
+ * 浮层按需加载（defineAsyncComponent），第一次打开才下载。
  *
- * - 只在桌面端出现（AI 调用需要主进程）；
+ * - 网页版也挂（片库搜索不需要主进程）；只有「问 AI」需要桌面端，浮层里自己判断；
  * - 全局快捷键新建了窗口时，挂载后经 takeSummon 取走待处理的唤起；
  * - 唤起 / 收起 {@link OPEN_MS}（与 tokens.css 的 --duration-assistant 一致），减少动态效果时不等动画；
  * - 私密模式（私密路由或在播私密内容）切换时清空对话上下文并收起浮层，私密对话不会带进普通模式；
@@ -26,10 +27,9 @@ import {
 } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { aiAvailable } from '@/features/ai'
 import { playerModal } from '@/features/player'
 
-import { isAssistantHotkey } from './assistant-hotkey'
+import { entryHotkey } from './assistant-hotkey'
 import {
   closeAssistant,
   assistantOpen as open,
@@ -37,13 +37,18 @@ import {
   toggleAssistant,
 } from './assistant-open'
 import { clearAssistantSession } from './assistant-session'
+import { prepareLibrarySearch } from './library-search'
 import { isPrivateRoute } from './skills/navigation-skill'
 
-const AssistantOverlay = defineAsyncComponent(
-  () => import('./AssistantOverlay.vue')
-)
+/** 浮层与它要用的片库搜索块一起取来再挂（library-search.ts） */
+const AssistantOverlay = defineAsyncComponent(async () => {
+  const [overlay] = await Promise.all([
+    import('./AssistantOverlay.vue'),
+    prepareLibrarySearch(),
+  ])
+  return overlay
+})
 
-const enabled = aiAvailable()
 const player = playerModal()
 const route = useRoute()
 
@@ -66,10 +71,12 @@ function onOverlayClose(): void {
 }
 
 function onKeydown(event: KeyboardEvent): void {
-  if (!isAssistantHotkey(event)) return
+  const action = entryHotkey(event)
+  if (!action) return
   event.preventDefault()
-  // 按住不放的自动重复不算（isAssistantHotkey 已排除 repeat）
-  toggleAssistant()
+  // 按住不放的自动重复不算（entryHotkey 已排除 repeat）
+  if (action === 'toggle') toggleAssistant()
+  else openAssistant()
 }
 
 watch(privateNow, () => {
@@ -85,7 +92,6 @@ watch(open, isOpen => {
 const bridge = window.api?.assistant
 
 onMounted(async () => {
-  if (!enabled) return
   window.addEventListener('keydown', onKeydown)
   bridge?.onSummon(openAssistant)
   if (await bridge?.takeSummon().catch(() => false)) openAssistant()

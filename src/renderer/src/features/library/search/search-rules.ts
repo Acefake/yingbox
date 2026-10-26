@@ -13,6 +13,7 @@ export function routeSearch(text: string): Record<RecallKind, number> {
     people: /主演|导演|演的|拍的/.test(text) ? 1.2 : 0.7,
     conditions: looksNatural(text) ? 1.1 : 0.6,
     visual: /画面|场景|穿着|海边|街道|镜头|颜色/.test(text) ? 1.2 : 0.5,
+    ai: 1.1,
   }
 }
 

@@ -36,6 +36,9 @@ export {
   libraryItemLocation,
   recentLibraryItems,
 } from './home/home-links'
-/** 统一搜索：顶部入口和命令面板共用本地召回与 AI 增强。 */
-export { UnifiedSearchPanel } from './search/panel'
-export { searchLibrary } from './search/search-service'
+/** 统一入口（搜索与 AI 助手共用的居中浮层）里的片库搜索：召回、结果列表、CLIP 范围（按需加载） */
+export const loadLibrarySearch = (): Promise<
+  typeof import('./search/entry-search')
+> => import('./search/entry-search')
+export type LibrarySearchModule = typeof import('./search/entry-search')
+export type { LibrarySearch, SearchEntry } from './search/entry-search'
