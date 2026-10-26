@@ -61,7 +61,16 @@ export async function readJson(
   }
 }
 
-/** 流式响应：逐块解析 SSE，增量回调，结束时汇总；流里出现 error 事件立即抛 AiError，不返回部分内容 */
+/**
+ * 流式响应：逐块解析 SSE，增量回调，结束时汇总；流里出现 error 事件立即抛 AiError，不返回部分内容。
+ *
+ * 结束判定（服务商契约：OpenAI 兼容流应发 `data: [DONE]` 或 finish_reason，二者有其一即算完成）：
+ * - 收到 `[DONE]` 或任意 finish_reason（含 length）→ 完成；
+ * - 两样都没有，但连接正常关闭、收到过正文或工具参数、最后一个事件完整 → 也按完成处理
+ *   （兼容两样都不发的服务商；读流异常关闭时 reader 会抛错，走网络错误）；
+ * - 两样都没有，且什么正文都没收到（只有心跳或只有思考）或最后一个事件是半截 JSON → 视为中途断开，
+ *   抛 network；只有还没推出过正文增量时才可重试，避免重试把已显示的半句再拼一遍。
+ */
 export async function readStream(
   config: AiConfig,
   request: AiChatRequest,
@@ -75,6 +84,7 @@ export async function readStream(
   let model = ''
   let finishReason = ''
   let usage: AiTokenUsage | null = null
+  let sawDone = false
   const parser = createSseParser({
     onChunk: chunk => {
       if (chunk.error) throw streamError(chunk.error)
@@ -90,10 +100,13 @@ export async function readStream(
       if (choice?.finish_reason) finishReason = choice.finish_reason
       usage = toUsage(chunk.usage) ?? usage
     },
-    onDone: () => {},
+    onDone: () => {
+      sawDone = true
+    },
   })
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
+  let truncated = false
   try {
     for (;;) {
       const { done, value } = await reader.read()
@@ -101,11 +114,18 @@ export async function readStream(
       parser.push(decoder.decode(value, { stream: true }))
     }
     parser.push(decoder.decode())
-    parser.end()
+    truncated = parser.end()
   } catch (error) {
     reader.cancel().catch(() => {})
     throw error
   }
+  const received = content !== '' || toolArgs !== ''
+  if (!sawDone && !finishReason && (truncated || !received))
+    throw new AiError(
+      'network',
+      `AI 流式响应中途断开（正文 ${content.length} 字符、思考 ${reasoning.length} 字符）`,
+      { retryable: content === '' }
+    )
   return {
     content,
     reasoning,

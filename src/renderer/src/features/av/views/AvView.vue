@@ -8,7 +8,7 @@
         label="AV 视图"
         @update:model-value="activeTab = $event"
       />
-      <MediaFilterBar
+      <AvBrowseFilters
         v-if="activeTab === 'browse'"
         :rows="browse.filterRows.value"
         :model-value="browse.filterModel.value"
@@ -154,7 +154,7 @@ import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import UiSegmented, {
   type SegmentedOption,
 } from '@/components/ui/UiSegmented.vue'
-import MediaFilterBar from '@/components/MediaFilterBar.vue'
+import AvBrowseFilters from '../components/AvBrowseFilters.vue'
 import StatusState from '@/components/StatusState.vue'
 import { DownloadsView } from '@/features/download'
 import {

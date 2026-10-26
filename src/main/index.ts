@@ -14,6 +14,7 @@ import { STREAM_SCHEME } from '../shared/stream-url'
 import { createStreamHandler } from './stream-proxy'
 import { streamNetClient } from './stream-net'
 import { installWindowSecurity } from './window-security'
+import { installDevToolsShortcut } from './devtools-shortcut'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
@@ -142,6 +143,11 @@ function createWindow(): void {
   })
 
   installWindowSecurity(mainWindow.webContents, url => shell.openExternal(url))
+  // F12 / Ctrl+Shift+I 只在主窗口聚焦时切 DevTools（不注册系统级快捷键，不抢别的程序的按键）
+  installDevToolsShortcut(mainWindow.webContents, {
+    platform: process.platform,
+    dev: is.dev,
+  })
 
   if (is.dev && process.env['ELECTRON_RENDERER_URL']) {
     mainWindow.loadURL(process.env['ELECTRON_RENDERER_URL'])
@@ -156,20 +162,6 @@ function showMainWindow(): void {
   if (mainWindow.isMinimized()) mainWindow.restore()
   mainWindow.show()
   mainWindow.focus()
-}
-
-function registerDevToolsShortcut(): void {
-  // F12 切换 DevTools
-  globalShortcut.register('F12', () => {
-    mainWindow?.webContents.toggleDevTools()
-  })
-
-  // Ctrl+Shift+I (Windows/Linux) 或 Cmd+Opt+I (macOS) 切换 DevTools
-  const accelerator =
-    process.platform === 'darwin' ? 'Command+Option+I' : 'Control+Shift+I'
-  globalShortcut.register(accelerator, () => {
-    mainWindow?.webContents.toggleDevTools()
-  })
 }
 
 app.whenReady().then(async () => {
@@ -267,15 +259,13 @@ app.whenReady().then(async () => {
   playerWindow = registerPlayerWindow({ getMainWindow: () => mainWindow })
 
   createWindow()
-  registerDevToolsShortcut()
   // 托盘 + 全局媒体键（内置播放器正在播放时）
   installTray({ showMainWindow })
   // AI 助手：全局快捷键唤起（默认 Alt+Space）与语音转写（见 src/main/assistant）
   registerAssistant({ getMainWindow: () => mainWindow, showMainWindow })
 
-  app.on('activate', function () {
-    if (BrowserWindow.getAllWindows().length === 0) createWindow()
-  })
+  // macOS 点程序坞图标：只看主窗口（后台抓取用的隐藏窗口、播放器窗口不算）——不在了就重建，最小化 / 隐藏了就恢复
+  app.on('activate', () => showMainWindow())
 })
 
 app.on('window-all-closed', () => {
