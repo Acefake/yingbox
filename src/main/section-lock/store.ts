@@ -6,6 +6,9 @@
  * - 设了密码后，修改 / 清除密码、取消板块锁定、放宽重新锁定都要带一次性凭据，
  *   凭据只在本进程验证通过（密码正确或系统认证通过）时签发，用一次作废，过期作废；
  * - 增加锁定、收紧重新锁定不需要凭据；没设密码时锁不生效，配置随意改。
+ *
+ * 校验与写入逐个排队执行：并发的 verify 不会都赶在第一次记错之前过了限流检查，
+ * 并发的写入也不会拿着旧状态互相覆盖。
  */
 import { randomBytes } from 'node:crypto'
 
@@ -78,6 +81,14 @@ export async function createSectionLockStore(
     now
   )
 
+  // 所有异步操作串成一条队列（前一个失败不影响后一个）
+  let queue: Promise<unknown> = Promise.resolve()
+  const serial = <T>(task: () => Promise<T>): Promise<T> => {
+    const run = queue.then(task, task)
+    queue = run.catch(() => {})
+    return run
+  }
+
   const save = async (next: LockFile): Promise<void> => {
     await options.persist(next)
     state = next
@@ -96,38 +107,42 @@ export async function createSectionLockStore(
       relockMinutes: state.relockMinutes,
     }),
 
-    async verify(password) {
-      const hash = state.hash
-      if (!hash) return failed()
-      const wait = limiter.check()
-      if (wait > 0) return failed(wait)
-      const ok = await verifyPassword(password, hash)
-      limiter.record(ok)
-      return ok ? granted() : failed(limiter.check())
-    },
+    verify: password =>
+      serial(async () => {
+        const hash = state.hash
+        if (!hash) return failed()
+        const wait = limiter.check()
+        if (wait > 0) return failed(wait)
+        const ok = await verifyPassword(password, hash)
+        limiter.record(ok)
+        return ok ? granted() : failed(limiter.check())
+      }),
 
     grantForSystemAuth: granted,
 
-    async setPassword(grant, next) {
-      if (state.hash && !grants.consume(grant)) return false
-      const hash = await hashPassword(next, options.hashOptions)
-      await save({ ...state, hash })
-      return true
-    },
+    setPassword: (grant, next) =>
+      serial(async () => {
+        if (state.hash && !grants.consume(grant)) return false
+        const hash = await hashPassword(next, options.hashOptions)
+        await save({ ...state, hash })
+        return true
+      }),
 
-    async clearPassword(grant) {
-      if (!state.hash || !grants.consume(grant)) return false
-      await save({ ...state, hash: null, sections: [] })
-      return true
-    },
+    clearPassword: grant =>
+      serial(async () => {
+        if (!state.hash || !grants.consume(grant)) return false
+        await save({ ...state, hash: null, sections: [] })
+        return true
+      }),
 
-    async setConfig(next, grant) {
-      const config = parseLockConfig(next)
-      if (!config) return false
-      if (state.hash && weakensLock(state, config) && !grants.consume(grant))
-        return false
-      await save({ ...state, ...config })
-      return true
-    },
+    setConfig: (next, grant) =>
+      serial(async () => {
+        const config = parseLockConfig(next)
+        if (!config) return false
+        if (state.hash && weakensLock(state, config) && !grants.consume(grant))
+          return false
+        await save({ ...state, ...config })
+        return true
+      }),
   }
 }
