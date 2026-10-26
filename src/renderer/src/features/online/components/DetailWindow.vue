@@ -76,6 +76,7 @@ import { toast } from '@/components/ui'
 import { asText } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '@/utils/vod-data'
+import { htmlToText } from '@/utils/html-text'
 import { computed, onMounted, ref, watch } from 'vue'
 import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
@@ -129,7 +130,10 @@ const loadData = async (raw: unknown): Promise<void> => {
   itemData.value = data
   itemName.value = data.vod_name || ''
   itemPic.value = data.vod_pic || ''
-  itemOverview.value = data.overview || data.vod_content || data.vod_desc || ''
+  // CMS 简介常带 <p> / &nbsp; 等 HTML，只显示纯文本
+  itemOverview.value = htmlToText(
+    data.overview || data.vod_content || data.vod_desc || ''
+  )
   searchTitle.value = data.searchTitle || data.vod_name || ''
   tmdb.reset()
   playGeneration++

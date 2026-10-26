@@ -76,7 +76,12 @@ const step = message => {
   console.log('STEP', message)
 }
 const browser = await chromium.launch()
-const page = await browser.newPage({ viewport: { width: 1280, height: 860 } })
+// bypassCSP：页面 CSP 不许 eval，waitForFunction 的函数体要靠它才能注入执行
+const context = await browser.newContext({
+  viewport: { width: 1280, height: 860 },
+  bypassCSP: true,
+})
+const page = await context.newPage()
 page.on('pageerror', error => console.log('PAGEERROR', error.message))
 const wall = page.getByRole('grid', { name: '电影海报墙' })
 const javWall = page.getByRole('grid', { name: '番号海报墙' })
@@ -85,11 +90,20 @@ const sidebar = page.getByRole('complementary', { name: '媒体中心导航' })
 const navItem = label =>
   sidebar.getByRole('button', { name: label, exact: true })
 const hash = () => decodeURIComponent(new URL(page.url()).hash)
-/** 用顶栏搜索的口令切换成人模式（真实界面路径）。 */
+/** 用统一入口（Ctrl+K 打开的搜索与助手浮层）的口令切换成人模式（真实界面路径）。 */
 async function toggleAdultMode() {
-  const search = page.locator('.global-search-field input')
+  await page.keyboard.press('Control+k')
+  const search = page
+    .getByRole('dialog', { name: '搜索与 AI 助手' })
+    .locator('input')
   await search.fill('getav')
   await search.press('Enter')
+  await search.waitFor({ state: 'hidden' })
+}
+/** 打开当前片库页的设置（收在工具栏「更多」菜单里）。 */
+async function openLibrarySettings() {
+  await page.getByRole('button', { name: '更多' }).click()
+  await page.getByRole('menuitem', { name: '设置' }).click()
 }
 /** 关掉设置面板（Esc 由面板自己处理，先把焦点放进去）。 */
 async function closeSheet(title) {
@@ -184,7 +198,7 @@ try {
   await page.screenshot({ path: shot('6-jav-wall') })
 
   // 番号设置：番号站点、演员资料来源都在这里
-  await page.getByRole('button', { name: '番号库设置' }).click()
+  await openLibrarySettings()
   await page.getByText('番号站点').first().waitFor()
   await page.getByText('演员资料').first().waitFor()
   step('番号库设置：有番号站点、演员资料来源')
@@ -201,7 +215,7 @@ try {
   if (leaked) throw new Error(`电影页露出了 ${leaked} 个番号条目`)
   if (await page.getByRole('tab', { name: '演员' }).count())
     throw new Error('电影页出现了「演员」视图')
-  await page.getByRole('button', { name: '电影库设置' }).click()
+  await openLibrarySettings()
   await page.getByText('电影文件夹').first().waitFor()
   if (
     (await page.getByText('添加番号文件夹…').count()) ||
@@ -276,7 +290,7 @@ try {
   await play.waitFor({ timeout: 10000 })
   step('打开详情')
   await play.click()
-  const video = page.locator('.player-modal video')
+  const video = page.locator('.player-session video')
   await video.waitFor({ timeout: 10000 })
   const src = await video.getAttribute('src')
   const cookie = (await page.context().cookies())[0]

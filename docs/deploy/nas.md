@@ -30,7 +30,7 @@
 ```bash
 git clone https://github.com/Acefake/yingbox.git && cd yingbox
 id <媒体文件属主的用户名>        # 记下 uid / gid，填到 docker-compose.yml 的 PUID / PGID
-echo "YINGBOX_SERVER_TOKEN=$(openssl rand -base64 32)" > .env
+echo "YINGBOX_SERVER_TOKEN=$(openssl rand -hex 32)" > .env
 # 编辑 docker-compose.yml：PUID / PGID、片库挂载（/volume1/video/... 换成你的目录）、需要时改端口
 docker compose up -d --build
 docker compose ps                  # STATUS 里出现 (healthy) 即启动完成，约 30 秒
@@ -103,7 +103,7 @@ docker run -d --name yingbox-library --restart unless-stopped \
       build:
         context: .
         args:
-          WITH_CHROMIUM: '1' # 装 chromium、playwright-core、ffmpeg、中文字体，镜像约多 400 MB
+          WITH_CHROMIUM: '1' # 装 chromium、playwright-core、ffmpeg、中文字体，镜像约多 1 GB
       environment:
         YINGBOX_BROWSER: 'chromium:/usr/bin/chromium'
       shm_size: '256m' # Chromium 的共享内存；不设也能跑（已加 --disable-dev-shm-usage）

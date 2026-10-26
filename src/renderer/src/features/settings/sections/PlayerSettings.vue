@@ -1,5 +1,7 @@
 <template>
+  <!-- 网页端只有内置播放器：不显示引擎选择与 mpv 选项 -->
   <SettingsGroup
+    v-if="isElectron"
     title="播放引擎"
     :footer="
       preferredPlayerEngine === 'mpv'
@@ -17,7 +19,7 @@
   </SettingsGroup>
 
   <SettingsGroup
-    v-if="preferredPlayerEngine === 'mpv'"
+    v-if="isElectron && preferredPlayerEngine === 'mpv'"
     :footer="mpvState.running ? `当前播放：${mpvResolutionText}` : undefined"
   >
     <SettingsRow

@@ -1,7 +1,7 @@
 # 影盒片库服务的 compose 示例（NAS / 家用服务器），说明见 docs/deploy/nas.md，决策见 docs/adr/0010-docker-nas-deploy.md。
 #
 #   1. 在本文件旁边建 .env，写一行访问令牌（至少 24 个字符的随机串）：
-#        echo "YINGBOX_SERVER_TOKEN=$(openssl rand -base64 32)" > .env
+#        echo "YINGBOX_SERVER_TOKEN=$(openssl rand -hex 32)" > .env
 #   2. 按需改下面的 PUID / PGID、媒体目录、端口
 #   3. docker compose up -d --build
 #   4. 浏览器打开 http://127.0.0.1:31480/?token=<令牌>（只需第一次带令牌，之后靠 Cookie）
@@ -12,7 +12,7 @@ services:
   yingbox:
     build:
       context: .
-      # 国内构建慢时换 npm 镜像；在线源要浏览器代抓时装 Chromium（镜像大约多 400 MB）：
+      # 国内构建慢时换 npm 镜像；在线源要浏览器代抓时装 Chromium（镜像大约多 1 GB）：
       # args:
       #   NPM_REGISTRY: https://registry.npmmirror.com
       #   WITH_CHROMIUM: '1'

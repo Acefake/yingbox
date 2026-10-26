@@ -312,10 +312,13 @@ const onError = async (event?: Event): Promise<void> => {
   if (dv === 'reload') return loadEntry(undefined, at)
   if (dv) return
   if (await switcher.switchSource('error')) return
-  // 备用线路也失败：给出可操作的错误界面
+  // 备用线路也失败：给出可操作的错误界面；播放器给了原因（如网页端解不了 HEVC）就直接说
+  const reason = event instanceof CustomEvent ? String(event.detail ?? '') : ''
   failure.value = fallbacks.value.length
     ? '当前线路与备用线路均无法播放。'
-    : '无法播放该地址（可能是资源已失效或格式不受支持）。'
+    : reason && reason !== '播放出错'
+      ? reason
+      : '无法播放该地址（可能是资源已失效或格式不受支持）。'
   failedSource.value = entryLabel(currentEntry.value)
   showNotice('播放失败')
 }

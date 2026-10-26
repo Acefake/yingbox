@@ -16,7 +16,7 @@
       <img
         v-if="image && !broken"
         :class="{ 'is-loaded': loaded }"
-        :src="image"
+        :src="webImageSrc(image)"
         alt=""
         :width="dense ? 32 : 48"
         :height="dense ? 48 : 72"
@@ -82,6 +82,8 @@
 import { computed, ref, watch } from 'vue'
 
 import type { SpecBadge } from './spec-badge'
+import { webImageSrc } from '@/services/thumbnails'
+
 import UiIcon from './UiIcon.vue'
 import UiPressable from './UiPressable.vue'
 import UiSpecBadge from './UiSpecBadge.vue'
