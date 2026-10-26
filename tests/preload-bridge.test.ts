@@ -213,8 +213,12 @@ const ADDED_API: Record<string, string[]> = {
     'snap',
     'receive',
     'dirs',
+    'torznab',
+    'setTorznab',
+    'testTorznab',
   ],
   discover: ['status', 'find', 'save'],
+  offline: ['add', 'tasks', 'onChanged', 'offChanged'],
   dolbyVision: ['probe', 'start', 'stop'],
   progressSync: [
     'status',

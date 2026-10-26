@@ -34,19 +34,24 @@ export function is115Url(url: string): boolean {
   }
 }
 
-/** 115 域的请求头补上 Referer 与桌面 UA（覆盖原值，不论大小写）；别的域名原样返回 */
+/**
+ * 115 域的请求头补上 Referer 与桌面 UA（覆盖原值，不论大小写）；别的域名原样返回。
+ * 例外：调用方给的是 115 客户端 UA（含 115Browser，云下载的客户端接口要）时保留它。
+ */
 export function with115Headers(
   url: string,
   headers: Record<string, string>
 ): Record<string, string> {
   if (!is115Url(url)) return headers
   const out: Record<string, string> = {}
+  let clientUa = ''
   for (const [key, value] of Object.entries(headers)) {
     const lower = key.toLowerCase()
+    if (lower === 'user-agent' && value.includes('115Browser')) clientUa = value
     if (lower !== 'referer' && lower !== 'user-agent') out[key] = value
   }
   out.Referer = PAN115_REFERER
-  out['User-Agent'] = USER_AGENT
+  out['User-Agent'] = clientUa || USER_AGENT
   return out
 }
 
