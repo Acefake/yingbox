@@ -6,6 +6,7 @@
  * 两者实现同一个 LibraryBridge 接口。旧版 preload（有 window.api 却没有 library）返回 null，
  * 调用方据此显示“不可用”的空状态。
  */
+import { watch } from 'vue'
 import type {
   LibraryBridge,
   LibraryWriterBridge,
@@ -15,27 +16,40 @@ import {
   libraryServerState,
   serverFetch,
 } from '@/services/library-server'
-import { createHttpLibraryBridge } from './http-bridge'
+import { type HttpLibraryBridge, createHttpLibraryBridge } from './http-bridge'
 
-let webBridge: LibraryBridge | null = null
+let webBridge: HttpLibraryBridge | null = null
+
+/**
+ * 网页端 transport：服务没就绪（连不上 / 未登录）时关掉事件流，别让浏览器无限重连（就绪后断线照常自动重连）；
+ * 服务回到在线时把还有订阅的事件流重新打开，片库事件不会就此断掉。
+ */
+function createWebLibraryBridge(): HttpLibraryBridge {
+  const created = createHttpLibraryBridge({
+    request: serverFetch,
+    openEvents: (url, onData, onClosed) => {
+      const source = new EventSource(url, { withCredentials: true })
+      source.onmessage = event => onData(String(event.data))
+      source.onerror = () => {
+        if (libraryServerState().value === 'online') return
+        source.close()
+        onClosed()
+      }
+      return source
+    },
+  })
+  watch(libraryServerState(), state => {
+    if (state === 'online') created.resume()
+  })
+  return created
+}
 
 /** 当前窗口的媒体库 bridge。 */
 export function libraryBridge(): LibraryBridge | null {
   if (typeof window === 'undefined') return null
   if (window.api) return window.api.library ?? null
   if (!isWebRuntime()) return null
-  webBridge ??= createHttpLibraryBridge({
-    request: serverFetch,
-    openEvents: (url, onData) => {
-      const source = new EventSource(url, { withCredentials: true })
-      source.onmessage = event => onData(String(event.data))
-      // 服务还没就绪（连不上 / 未登录）时别让浏览器无限重连；就绪后断线照常自动重连（服务重启）
-      source.onerror = () => {
-        if (libraryServerState().value !== 'online') source.close()
-      }
-      return source
-    },
-  })
+  webBridge ??= createWebLibraryBridge()
   return webBridge
 }
 

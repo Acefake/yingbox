@@ -4,7 +4,7 @@
  * - 调用：`api.search(keyword)` → POST /api/domains/pan115/search { args: [keyword] } → DomainRpcReply，
  *   成功返回 value，失败（含服务端处理函数抛错）抛 Error(人话)，与 IPC invoke 被 reject 时一致；
  * - 事件：`api.onChanged(cb)` 登记回调，第一个订阅时才打开共用的 EventSource；`api.offChanged()` 去掉该事件的全部回调
- *   （与 preload 的 off<Key> 语义相同）；
+ *   （与 preload 的 off<Key> 语义相同）；事件流自己关掉（服务没就绪）后，新订阅或 resume()（服务恢复在线时调用）重新打开；
  * - 依赖以参数注入（请求函数、EventSource 构造），单测用假的实现；index.ts 接到真实的同源请求。
  */
 import {
@@ -27,7 +27,15 @@ export interface DomainEventStream {
 /** 依赖 */
 export interface DomainClientDeps {
   request: DomainRequest
-  openEvents(url: string, onData: (data: string) => void): DomainEventStream
+  /**
+   * 打开事件流，每条消息的 data 交给 onData；事件流自己关掉（不再重连）时调用 onClosed，
+   * 工厂据此丢掉它，之后的订阅或 resume() 会重新打开。
+   */
+  openEvents(
+    url: string,
+    onData: (data: string) => void,
+    onClosed: () => void
+  ): DomainEventStream
 }
 
 /** 一个域的客户端：调用方法 + on / off 事件方法（按名字动态分派） */
@@ -64,6 +72,8 @@ async function readReply(response: Response): Promise<unknown> {
 /** 创建共用一个事件流的域客户端工厂 */
 export function createDomainClients(deps: DomainClientDeps): {
   domain(name: string): DomainClient
+  /** 还有订阅却没有事件流（之前自己关掉了）时重新打开；服务恢复在线时调用 */
+  resume(): void
 } {
   /** 「域:事件」→ 回调 */
   const listeners = new Map<string, Set<(payload: unknown) => void>>()
@@ -80,11 +90,20 @@ export function createDomainClients(deps: DomainClientDeps): {
     for (const cb of set ?? []) cb(message.payload ?? undefined)
   }
 
+  /** 没有事件流时打开一条；它自己关掉时丢掉引用，好让下次重新打开 */
+  function open(): void {
+    if (stream) return
+    const opened = deps.openEvents(DOMAIN_HTTP.events, dispatch, () => {
+      if (stream === opened) stream = null
+    })
+    stream = opened
+  }
+
   function on(channel: string, cb: (payload: unknown) => void): void {
     const set = listeners.get(channel) ?? new Set()
     set.add(cb)
     listeners.set(channel, set)
-    stream ??= deps.openEvents(DOMAIN_HTTP.events, dispatch)
+    open()
   }
 
   function off(channel: string): void {
@@ -136,6 +155,9 @@ export function createDomainClients(deps: DomainClientDeps): {
       })
       cache.set(name, client)
       return client
+    },
+    resume() {
+      if (listeners.size) open()
     },
   }
 }
