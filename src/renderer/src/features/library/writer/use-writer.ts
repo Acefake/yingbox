@@ -13,8 +13,11 @@ import {
   type WriterProgressEvent,
   type WriterSettings,
 } from '../../../../../shared/library/ipc'
+import { toast } from '@/components/ui'
+
 import { errorText, writerBridge } from '../api/bridge'
 import { onLibraryEvent } from '../state/library-events'
+import { writerFailureText } from './writer-errors'
 
 /** 写出入口不可用时的提示。 */
 export const WRITER_UNAVAILABLE = '写出 NFO 与整理仅在桌面版可用'
@@ -61,6 +64,9 @@ function listenOnce(): void {
   onLibraryEvent(event => {
     if (event.type === 'writer-progress') {
       progress.value = event.finished ? null : event
+      // 写出 / 整理是后台任务，失败（只读挂载、没权限……）只有这里能告诉用户
+      const failure = writerFailureText(event)
+      if (failure) toast.error(failure)
     }
   })
 }

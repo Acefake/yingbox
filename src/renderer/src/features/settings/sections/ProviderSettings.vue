@@ -29,7 +29,9 @@
         aria-label="TMDB Access Token"
         :placeholder="
           tmdbTokenConfigured()
-            ? '已配置（加密保存，不回显）；输入新 Token 可替换'
+            ? web
+              ? '已配置（片库服务里保存的或环境变量 YINGBOX_TMDB_TOKEN，不回显）；输入新 Token 可替换'
+              : '已配置（加密保存，不回显）；输入新 Token 可替换'
             : '输入 TMDB API Read Access Token（必填，无内置默认值）'
         "
       />
@@ -95,6 +97,7 @@
  * TMDB Token 是密钥（加密存放，同步给媒体库引擎）。
  */
 import { computed, onBeforeUnmount } from 'vue'
+import { toast } from '@/components/ui'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import UiTextarea from '@/components/ui/UiTextarea.vue'
@@ -111,6 +114,7 @@ import {
   tmdbTokenConfigured,
 } from '../tmdb-token'
 import { resetSettings, useSetting } from '../use-setting'
+import { isWebRuntime } from '@/services/library-server'
 
 const providerOptions: SettingsRadioOption<SettingValue<'scrape.provider'>>[] =
   [
@@ -128,10 +132,14 @@ const currentProvider = useSetting('scrape.provider')
  * （主进程一并下发给媒体库引擎）。草稿为空不保存，清除走「清除 Token」。
  */
 const tmdbDraft = createTokenDraft(value =>
-  setTmdbToken(value).catch(error =>
-    console.warn('[settings] 保存 TMDB 令牌失败', error)
+  setTmdbToken(value).then(
+    () =>
+      toast.success(value.trim() ? 'TMDB Token 已保存' : 'TMDB Token 已清除'),
+    error => toast.error(`保存 TMDB Token 失败：${(error as Error).message}`)
   )
 )
+/** 网页端：令牌存在片库服务 */
+const web = isWebRuntime()
 const tmdbAccessToken = computed({
   get: () => tmdbDraft.value.value,
   set: tmdbDraft.input,

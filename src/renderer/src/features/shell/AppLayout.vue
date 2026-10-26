@@ -233,8 +233,13 @@ onUnmounted(() => {
 }
 
 /* ── 手机：侧栏为抽屉，只在打开时覆盖内容 ── */
+/* 窄屏：页面边距收窄，海报墙最小列宽与间距调小，390px 宽也能排 3 列 */
 .app-layout.is-phone {
   --shell-left: 0px;
+  --content-padding-x: var(--space-4);
+  --poster-min-width: 104px;
+  --poster-gap-x: var(--space-3);
+  --poster-gap-y: var(--space-5);
 }
 .app-layout.is-phone .app-sidebar {
   position: fixed;

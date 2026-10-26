@@ -15,7 +15,7 @@
         v-if="current.art && !broken.has(current.art)"
         :key="current.art"
         class="home-hero-art"
-        :src="current.art"
+        :src="webImageSrc(current.art)"
         alt=""
         referrerpolicy="no-referrer"
         @error="broken.add(current.art)"
@@ -122,6 +122,7 @@ import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import { inWatchlist, toggleWatchlist } from '@/features/watchlist'
+import { webImageSrc } from '@/services/thumbnails'
 
 import type { HeroSlide } from '../composables/use-home-hero'
 

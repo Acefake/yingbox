@@ -248,7 +248,7 @@ export class IdentifyModule {
     scope: { libraryId?: number; itemIds?: number[] } = {}
   ): void {
     if (!this.configured && this.store.needsTmdb(scope)) {
-      throw new LibraryError('invalid-params', '未配置 TMDB API 令牌')
+      throw new LibraryError('invalid-params', TmdbProvider.TOKEN_MISSING)
     }
   }
 
