@@ -91,7 +91,8 @@ export function createOnlineHandlers(
   const pluginStorage = deps.pluginStorage ?? createPluginStorage()
   const trailers =
     deps.doubanTrailers ?? createDoubanTrailers({ net: deps.net })
-  const douban = deps.doubanBrowse ?? createDoubanBrowse({ net: deps.net })
+  const douban =
+    deps.doubanBrowse ?? createDoubanBrowse({ net: deps.net, log: deps.log })
   const photos = deps.doubanPhotos ?? createDoubanPhotos({ net: deps.net })
   /** 下载失败的插件脚本：地址 → 失败时间；冷却期内直接判失败 */
   const pluginFailures = new Map<string, number>()

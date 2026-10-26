@@ -1,0 +1,62 @@
+{
+  "count": 4,
+  "items": [
+    {
+      "layout": "subject",
+      "target_type": "movie",
+      "target_id": "3742360",
+      "type_name": "电影",
+      "target": {
+        "id": "3742360",
+        "title": "让子弹飞",
+        "year": "2010",
+        "card_subtitle": "中国大陆 中国香港 / 剧情 喜剧 动作 西部 / 姜文 / 姜文 葛优",
+        "rating": {
+          "count": 1948418,
+          "max": 10,
+          "star_count": 4.5,
+          "value": 9
+        },
+        "uri": "douban://douban.com/movie/3742360"
+      }
+    },
+    {
+      "layout": "subject",
+      "target_type": "movie",
+      "target_id": "10468418",
+      "type_name": "电影",
+      "target": {
+        "id": "10468418",
+        "title": "越过山丘",
+        "year": "2012",
+        "card_subtitle": "土耳其 希腊 / 剧情 / 埃敏·阿尔柏 / 塔梅尔·莱文特 雷哈·厄兹詹",
+        "rating": {
+          "count": 0,
+          "max": 10,
+          "star_count": 0,
+          "value": 0
+        },
+        "uri": "douban://douban.com/movie/10468418"
+      }
+    },
+    {
+      "layout": "subject",
+      "target_type": "movie",
+      "target_id": "26808231",
+      "type_name": "电影",
+      "target": {
+        "id": "26808231",
+        "title": "一颗子弹",
+        "year": "2015",
+        "card_subtitle": "中国大陆 / 短片 / 杜兴 / 樊建川",
+        "rating": {
+          "count": 0,
+          "max": 10,
+          "star_count": 0,
+          "value": 0
+        },
+        "uri": "douban://douban.com/movie/26808231"
+      }
+    }
+  ]
+}
