@@ -471,7 +471,8 @@
     rgba(0, 0, 0, 0.3) 100%
   );
   --hero-detail-fade: 160px;
-  --hero-detail-lift: 148px;
+  /* 文案上移量随窗口高度收：矮窗口里 148px 会在主演行下留出大段只有模糊画面的空带 */
+  --hero-detail-lift: min(148px, 13vh);
   --hero-detail-mask: linear-gradient(
     #000 calc(100% - 160px),
     rgba(0, 0, 0, 0.97) calc(100% - 128px),

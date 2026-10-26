@@ -1,6 +1,6 @@
 /**
  * 详情页底部分区胶囊：首屏（Hero 在身后）时淡出、对读屏与键盘隐藏，滚过 Hero 后出现。
- * 显示与否由 useHeroBackdrop 的 edgeOnMedia 取反决定，判定规则见 heroBackdropAt 的用例。
+ * 显示与否由 useHeroBackdrop 的 tabsShown 决定，判定规则见 detailTabsShownAt 的用例。
  */
 import { h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
