@@ -8,6 +8,7 @@ import {
   activeTabAt,
   creditLinesOf,
   detailTabsOf,
+  detailTabsShownAt,
   heroBackdropAt,
   heroMetaParts,
   heroSpecsOf,
@@ -113,5 +114,17 @@ describe('heroBackdropAt', () => {
   })
   it('Hero 已滚出视口时不在画面上', () => {
     expect(heroBackdropAt(-50, 104)).toBe(false)
+  })
+})
+
+describe('detailTabsShownAt', () => {
+  it('Hero 底边升过视口一半才出现', () => {
+    expect(detailTabsShownAt(792, 900)).toBe(false)
+    expect(detailTabsShownAt(450, 900)).toBe(false)
+    expect(detailTabsShownAt(449, 900)).toBe(true)
+    expect(detailTabsShownAt(-20, 900)).toBe(true)
+  })
+  it('首屏 Hero 至少占视口 88%，一进页面不出现', () => {
+    expect(detailTabsShownAt(0.88 * 800, 800)).toBe(false)
   })
 })
