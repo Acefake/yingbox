@@ -264,10 +264,8 @@ app.whenReady().then(async () => {
   // AI 助手：全局快捷键唤起（默认 Alt+Space）与语音转写（见 src/main/assistant）
   registerAssistant({ getMainWindow: () => mainWindow, showMainWindow })
 
-  // macOS 点程序坞图标：主窗口不在了就重建（后台抓取用的隐藏窗口、播放器窗口不算）
-  app.on('activate', () => {
-    if (!mainWindow) createWindow()
-  })
+  // macOS 点程序坞图标：只看主窗口（后台抓取用的隐藏窗口、播放器窗口不算）——不在了就重建，最小化 / 隐藏了就恢复
+  app.on('activate', () => showMainWindow())
 })
 
 app.on('window-all-closed', () => {
