@@ -11,6 +11,7 @@
 - **访问令牌必填**：容器里监听 `0.0.0.0` 时，服务要求 `YINGBOX_SERVER_TOKEN` 至少 24 个字符、不是示例占位串，否则拒绝启动（日志里写明原因）。
 - **服务不以 root 运行**：容器以 root 启动入口脚本，把 `/config`、`/cache` 的属主改成 `PUID:PGID` 后降权。`PUID` / `PGID` 设成媒体文件的属主，或者至少是能读这些文件的用户。
 - **片库只读挂载**：浏览、扫描、刮削、播放都只需要读。要写 NFO / 图片或整理改名，去掉对应挂载的 `:ro`。
+- **镜像默认没有 ffmpeg / ffprobe**：多版本的 HDR / 杜比视界标退回看文件名，自动中文字幕不认内封字幕，按画面搜抽不了视频帧。构建参数 `WITH_CHROMIUM=1` 会一起装上（见「在线播放」），也可以设 `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 指向挂进容器的程序。自动中文字幕默认关，设 `YINGBOX_AUTO_SUBTITLES: 'on'` 并给 `YINGBOX_OPENSUBTITLES_KEY`（见 [library-server.md](../library-server.md)）。
 
 ## 目录映射
 

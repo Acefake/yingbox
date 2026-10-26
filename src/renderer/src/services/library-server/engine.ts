@@ -6,28 +6,20 @@ import { watch } from 'vue'
 import type { Domain, DomainApi } from '../../../../shared/contract/define'
 import { streamProxyPath } from '../../../../shared/engine-http'
 import { type EngineBridge, createEngineBridge } from './engine-bridge'
+import { openServerEvents } from './events'
 import { isWebRuntime, libraryServerState, serverFetch } from './index'
 
 let bridge: EngineBridge | null = null
 const apis = new Map<string, unknown>()
 
 /**
- * 建 transport：服务没就绪（连不上 / 未登录）时关掉事件流，别让浏览器无限重连（就绪后断线照常自动重连）；
+ * 建 transport：事件流的断线、重连规则见 ./events.ts；
  * 服务回到在线时把还有订阅的事件流重新打开，下载进度等事件不会就此断掉。
  */
 function createWebEngineBridge(): EngineBridge {
   const created = createEngineBridge({
     request: serverFetch,
-    openEvents: (url, onData, onClosed) => {
-      const source = new EventSource(url, { withCredentials: true })
-      source.onmessage = event => onData(String(event.data))
-      source.onerror = () => {
-        if (libraryServerState().value === 'online') return
-        source.close()
-        onClosed()
-      }
-      return source
-    },
+    openEvents: openServerEvents,
   })
   watch(libraryServerState(), state => {
     if (state === 'online') created.resume()

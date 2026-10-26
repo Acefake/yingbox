@@ -30,7 +30,7 @@
 - **代码位置**：`src/server/` 下 `app.ts` 组装、`config.ts` 参数与环境变量、`http/`（路由、Bearer / Cookie 鉴权、静态文件）、`routes/`（片库 rpc + SSE、media、fs）、`exposure.ts`（对外监听要求显式令牌）。
   片库核心的出网实现由 `YINGBOX_FETCH` 选：`node`（undici）/ `curl[:路径]`（curl-impersonate）/ `module:<路径>`。
   网页端：`services/library-server` 管登录、连接状态和媒体地址（渲染层除 transport 外唯一可以 `fetch` 的地方）；只在网页端出现的界面是外壳的 `shell/components/ServerConnect.vue`（连不上 / 需要登录时所有页面都先显示它）、片库的 `settings/FolderBrowser.vue`；播放经 `openMediaPlayer`，地址是 `/media/files`。
-- **事件流恢复**：服务没就绪（连不上 / 未登录）时网页端关掉 EventSource，避免浏览器无限重连；服务回到在线时片库、在线引擎、网盘三条事件流里还有订阅的会重新打开（各 transport 的 `resume()`）。
+- **事件流恢复**：服务没就绪（连不上 / 未登录）时网页端关掉 EventSource，避免浏览器无限重连；服务回到在线时片库、在线引擎、网盘三条事件流里还有订阅的会重新打开（各 transport 的 `resume()`）。浏览器自己放弃重连（反向代理在服务重启时回 502、令牌换了回 401 等非 200 响应）而页面仍算在线时，先探一次 `/api/health` 再重开（3 秒起翻倍到 60 秒），要登录时交给连接界面（`services/library-server/events.ts`）。
 - **检查**：`scripts/smoke-server.mjs`（离线端到端，手动跑）、`scripts/web-e2e.mjs`（Playwright，手动跑）。
 
 | 桌面端（Electron）                       | 片库服务（Node）                                                        |
@@ -267,7 +267,7 @@ features/online|av|download              src/server/online                      
 1. 装 Chromium 与 `playwright-core`（它没有依赖）。Docker 用构建参数 `WITH_CHROMIUM=1`（同时装 ffmpeg 与中文字体）；直接跑 Node 时在服务目录里 `pnpm add playwright-core`（或 `npm pack playwright-core` 解包到 `node_modules/playwright-core`）。
 2. 设 `YINGBOX_BROWSER=chromium:/usr/bin/chromium`（填 Chromium 可执行文件路径）。启动日志会写「浏览器代抓 Chromium（…）」。
 
-无头 Chromium 只能过自动通过的挑战，过不了要人工点的验证；与桌面端一样串行、按主机熔断、硬封锁 30 分钟内不再试，用户目录在 `<数据目录>/engine/browser`（cf_clearance 跨请求保留），空闲 5 分钟关掉浏览器。
+无头 Chromium 只能过自动通过的挑战，过不了要人工点的验证；与桌面端一样串行、按主机熔断、硬封锁 30 分钟内不再试，用户目录在 `<数据目录>/engine/browser`（cf_clearance 跨请求保留），空闲 5 分钟关掉浏览器。页面的每个请求（含跳转与子资源）只许去公网，内网 / 本机地址一律中止（与桌面端代抓会话相同，`YINGBOX_STREAM_ALLOW_PRIVATE` 只管播放代理）。
 
 ### 下载
 
