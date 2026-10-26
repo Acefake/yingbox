@@ -61,7 +61,11 @@ export async function readJson(
   }
 }
 
-/** 流式响应：逐块解析 SSE，增量回调，结束时汇总；流里出现 error 事件立即抛 AiError，不返回部分内容 */
+/**
+ * 流式响应：逐块解析 SSE，增量回调，结束时汇总；流里出现 error 事件立即抛 AiError，不返回部分内容。
+ * 流结束时既没有 `data: [DONE]` 也没有任何 finish_reason，说明连接中途断了（代理空闲断开等）：
+ * 抛可重试的 network 错误，不把半截回答当成完整结果（已推出过增量时客户端不重试，调用方据此提示）。
+ */
 export async function readStream(
   config: AiConfig,
   request: AiChatRequest,
@@ -75,6 +79,7 @@ export async function readStream(
   let model = ''
   let finishReason = ''
   let usage: AiTokenUsage | null = null
+  let done = false
   const parser = createSseParser({
     onChunk: chunk => {
       if (chunk.error) throw streamError(chunk.error)
@@ -90,7 +95,9 @@ export async function readStream(
       if (choice?.finish_reason) finishReason = choice.finish_reason
       usage = toUsage(chunk.usage) ?? usage
     },
-    onDone: () => {},
+    onDone: () => {
+      done = true
+    },
   })
   const reader = response.body.getReader()
   const decoder = new TextDecoder()
@@ -106,6 +113,12 @@ export async function readStream(
     reader.cancel().catch(() => {})
     throw error
   }
+  if (!done && !finishReason)
+    throw new AiError(
+      'network',
+      `AI 流式响应中途断开（已收到 ${[...content].length} 字）`,
+      { retryable: true }
+    )
   return {
     content,
     reasoning,
