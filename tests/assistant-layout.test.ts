@@ -77,14 +77,16 @@ describe('助手文案', () => {
   })
 
   it('能问剧情时占位与示例提到剧情，不能时示例只举播放控制', () => {
-    expect(assistantPlaceholder(playing)).toBe('问问正在看的内容…')
+    expect(assistantPlaceholder(playing)).toBe('搜索片库，或问正在看的内容…')
     expect(assistantExample(playing)).toBe('例如「刚才发生了什么」')
     const noPlot = { ...playing, plotQa: false }
-    expect(assistantPlaceholder(noPlot)).toBe('问影盒…')
+    expect(assistantPlaceholder(noPlot)).toBe('搜索片库，或问影盒…')
     expect(assistantExample(noPlot)).toBe('例如「1.5 倍速」')
     expect(playerSuggestions(noPlot)).toContain('1.5 倍速')
-    expect(assistantPlaceholder(idle)).toBe('问影盒…')
+    expect(assistantPlaceholder(idle)).toBe('搜索片库，或问影盒…')
     expect(assistantExample(idle)).toMatch(/^例如「.+」$/)
+    // 网页版不能问 AI：占位只说搜索
+    expect(assistantPlaceholder(idle, false)).toBe('搜索片名、人物…')
   })
 })
 
@@ -283,7 +285,13 @@ describe('浮层样式约束', () => {
   it('窄窗口（<720px）两侧边距收窄；手机宽度（<520px）不显示快捷键提示', () => {
     const narrow = frame.slice(frame.indexOf('@media (max-width: 719px)'))
     expect(narrow).toMatch(
-      /^@media \(max-width: 719px\) \{\s*\.assistant-stage,[^{]*\{\s*padding:\s*var\(--space-3\)/
+      /^@media \(max-width: 719px\) \{\s*\.assistant-stage \{\s*padding:\s*var\(--space-3\)/
+    )
+    // 空闲时顶部锚定：输入胶囊约在 43vh（窄窗口 40vh），输入后结果往下长、输入胶囊不跳
+    expect(
+      rule(frame, ".assistant[data-mode='hero'] .assistant-stage")
+    ).toMatch(
+      /justify-content:\s*flex-start;\s*padding-top:\s*var\(--assistant-hero-top\)/
     )
     const phone = panel.slice(panel.indexOf('@media (max-width: 519px)'))
     expect(rule(phone, '.assistant-keys')).toMatch(/display:\s*none/)

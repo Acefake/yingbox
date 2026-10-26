@@ -4,10 +4,12 @@
 import type { SettingsSection } from '@/features/settings'
 
 /** 库外发现用：豆瓣浏览与 TMDB 请求（都在后台引擎发出） */
-export { doubanBrowse, getJson, tmdb } from './api/online'
+export { doubanBrowse, getJson, onlineAvailable, tmdb } from './api/online'
 export { useVODParser } from './composables/use-vod-parser'
+/** 统一入口用：在线影视源搜索（与在线搜索页同一套）与条目类型 */
 export {
   type CatSpiderSite,
+  type CmsItem,
   loadCatSpiderSites,
   useOnlineSearch,
 } from './composables/use-online-search'

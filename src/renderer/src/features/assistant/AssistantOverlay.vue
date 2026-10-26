@@ -6,6 +6,7 @@
     :data-mode="mode"
     :data-private="context.private"
     :data-playing="player !== null"
+    :data-searching="searching"
   >
     <div v-if="layout === 'page'" class="assistant-scrim" @click="close" />
     <div class="assistant-stage">
@@ -15,7 +16,7 @@
         :class="{ 'yb-glass': mode === 'panel' }"
         role="dialog"
         :aria-modal="layout === 'page'"
-        aria-label="AI 助手"
+        aria-label="搜索与 AI 助手"
         @keydown="trapTab"
       >
         <p class="assistant-status" role="status">{{ statusText }}</p>
@@ -65,21 +66,46 @@
             label="思考中"
           />
         </div>
+        <AssistantSearch
+          v-if="searching && mode === 'panel'"
+          v-bind="searchProps"
+          @ask="send(query)"
+        />
         <AssistantComposer
-          :suggestions="threaded ? [] : suggestions"
-          :placeholder="threaded ? '继续问…' : placeholder"
-          :example="threaded ? '' : example"
+          v-model:draft="draft"
+          :suggestions="threaded || searching || !askable ? [] : suggestions"
+          :placeholder="threaded ? '继续问，或搜索片库…' : placeholder"
+          :example="threaded || !askable ? '' : example"
           :floating="mode === 'hero'"
           :voice-ready="voiceReady"
           :listening="phase === 'listening'"
           :level="level"
           :busy="busy"
+          :askable="askable"
+          :list-id="searching ? 'entry-results' : ''"
+          :active-id="searching ? selectionId(selected) : ''"
           @ask="send"
+          @enter="onEnter"
+          @move="move"
           @voice="toggleVoice"
-        />
+        >
+          <AssistantSearch
+            v-if="searching && mode === 'hero'"
+            v-bind="searchProps"
+            floating
+            @ask="send(query)"
+          />
+        </AssistantComposer>
         <footer v-if="mode === 'hero'" class="assistant-keys">
           <span class="assistant-key">
-            <kbd class="assistant-kbd" aria-hidden="true">↵</kbd>发送
+            <kbd class="assistant-kbd" aria-hidden="true">↑ ↓</kbd>选择
+          </span>
+          <span class="assistant-key">
+            <kbd class="assistant-kbd" aria-hidden="true">↵</kbd>打开 / 发送
+          </span>
+          <span v-if="askable" class="assistant-key">
+            <kbd class="assistant-kbd" aria-hidden="true">{{ askKey }}</kbd>
+            问 AI
           </span>
           <span class="assistant-key">
             <kbd class="assistant-kbd" aria-hidden="true">{{ hotkey }}</kbd>
@@ -101,8 +127,12 @@
 
 <script setup lang="ts">
 /**
- * AI 助手浮层（按需加载）：窗口正中的一列，两种形态（data-mode）。
+ * 统一入口浮层（按需加载）：搜索片库与问 AI 共用的窗口正中一列，两种形态（data-mode）。
  * - hero（还没提问）：大标题「有什么可以帮你？」、上下文胶囊、独立的玻璃输入胶囊、技能建议、快捷键提示；
+ *   输入框一有字就即时搜（use-entry-search.ts：本地片库 + AI 增强融合，在线影视源异步追加；范围胶囊全部 / 本地 /
+ *   在线 / 当前分区），结果块（AssistantSearch）接在输入胶囊下面、替换技能建议，最上一行是「问 AI：<输入>」。回车作用在选中行（默认规则见 assistant-entry.ts），Cmd/Ctrl+回车总是问 AI；
+ *   整列顶部锚定（不随结果长度上下跳）；
+ * - panel 里继续输入时，结果块出现在输入框上方，规则相同。
  * - panel（有对话后）：同一列展开成玻璃面板（.yb-glass）——上下文胶囊与 Esc 在顶、对话流在中间滚动、
  *   内凹输入胶囊在底；面板随内容长高，最高 --assistant-panel-height，超出后只有对话流滚动。
  * 两种布局（data-layout）：
@@ -127,30 +157,40 @@ import { useRoute, useRouter } from 'vue-router'
 import { UiButton, UiLoadingDots, UiPressable } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useFocusTrap } from '@/composables/use-focus-trap'
+import { aiAvailable } from '@/features/ai'
 import { playerModal } from '@/features/player'
-import { getSetting } from '@/features/settings'
+import { getSetting, useSetting } from '@/features/settings'
+import { isSearchCommand } from '@/utils/search-command'
 
 import { assistantExample, assistantPlaceholder } from './assistant-copy'
 import {
+  assistantAiReady,
   assistantContext,
   assistantVoiceReady,
   createAssistantDeps,
   openSettingsSection,
 } from './assistant-deps'
-import { ASSISTANT_HOTKEY_LABEL as hotkey } from './assistant-hotkey'
+import { ASK_ROW, selectionId } from './assistant-entry'
+import {
+  ASK_HOTKEY_LABEL as askKey,
+  ENTRY_HOTKEY_LABEL as hotkey,
+} from './assistant-hotkey'
 import { provideOpening } from './assistant-opening'
 import { useStickyScroll } from './assistant-scroll'
 import { useAssistantThread } from './assistant-thread'
 import AssistantComposer from './AssistantComposer.vue'
 import AssistantHeader from './AssistantHeader.vue'
+import AssistantSearch from './AssistantSearch.vue'
 import AssistantTurn from './AssistantTurn.vue'
 import { ensureCoreSkills } from './skills/core-skills'
 import { skillPlaceholder, skillSuggestions } from './skills/skill-prompt'
 import { assistantSkills } from './skills/skill-registry'
 import { PHASE_LABELS, useAssistant } from './use-assistant'
+import { useEntrySearch } from './use-entry-search'
 import './assistant.css'
 import './assistant-panel.css'
 import './assistant-results.css'
+import './assistant-search.css'
 
 const emit = defineEmits<{ close: [] }>()
 
@@ -208,8 +248,13 @@ const skills = computed(() => assistantSkills.active(context.value))
 const suggestions = computed(() =>
   skillSuggestions(skills.value, context.value)
 )
+/** 能问 AI（桌面端）；网页版只有片库搜索 */
+const askable = aiAvailable()
 const placeholder = computed(() =>
-  skillPlaceholder(skills.value, assistantPlaceholder(context.value))
+  skillPlaceholder(
+    askable ? skills.value : [],
+    assistantPlaceholder(context.value, askable)
+  )
 )
 const voiceReady = computed(() => assistantVoiceReady(context.value.private))
 
@@ -246,8 +291,47 @@ const example = computed(() => assistantExample(context.value))
 const panelRef = ref<HTMLElement | null>(null)
 const trapTab = useFocusTrap(panelRef, () => layout.value === 'page')
 
-/** 提问：先把上一轮归档进对话流 */
+const draft = ref('')
+const entry = useEntrySearch({
+  draft,
+  isPrivate: () => context.value.private,
+  askable,
+  aiReady: assistantAiReady,
+  close,
+})
+const { searching, query, selected, move } = entry
+const searchProps = computed(() => ({
+  entry,
+  selected: selected.value,
+  askable,
+  aiReady: assistantAiReady(),
+  private: context.value.private,
+}))
+
+const adultMode = useSetting('app.adultMode')
+
+/** 界面口令（切换一项隐藏设置，见 utils/search-command）：不搜索、不问 AI，切换后收起 */
+function runCommand(): boolean {
+  if (!isSearchCommand(draft.value)) return false
+  adultMode.value = !adultMode.value
+  draft.value = ''
+  close()
+  return true
+}
+
+/** 回车：选中了结果就打开它，选中「问 AI」行就提问 */
+function onEnter(): void {
+  if (runCommand()) return
+  const row = entry.entries.value[selected.value]
+  if (row) row.open()
+  else if (selected.value === ASK_ROW && askable && query.value)
+    send(query.value)
+}
+
+/** 提问：清空输入，先把上一轮归档进对话流 */
 function send(text: string): void {
+  if (runCommand() || !askable) return
+  draft.value = ''
   archive()
   stickToBottom()
   void ask(text)

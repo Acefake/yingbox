@@ -48,9 +48,13 @@
   padding: var(--space-6);
   pointer-events: none;
 }
-/* 空闲时整列略高于正中，视觉重心在上方 */
+/*
+ * 空闲时整列顶部锚定（--assistant-hero-top）：输入胶囊落在约 43vh（略高于正中，视觉重心在上方），
+ * 输入后搜索结果往下长，输入胶囊不跟着上下跳。
+ */
 .assistant[data-mode='hero'] .assistant-stage {
-  padding-bottom: 14vh;
+  justify-content: flex-start;
+  padding-top: var(--assistant-hero-top);
 }
 
 /* ── 一列：空闲时只是排版（没有底），有对话后展开成玻璃面板 ── */
@@ -81,14 +85,11 @@
 
 /* 窄窗口：两侧边距收窄，列宽为 100% 减边距；空闲时不再上移 */
 @media (max-width: 719px) {
-  .assistant-stage,
-  .assistant[data-mode='hero'] .assistant-stage {
+  .assistant-stage {
     padding: var(--space-3);
   }
-}
-@media (max-height: 600px) {
   .assistant[data-mode='hero'] .assistant-stage {
-    padding-bottom: var(--space-6);
+    padding: var(--assistant-hero-top-narrow) var(--space-3) var(--space-3);
   }
 }
 

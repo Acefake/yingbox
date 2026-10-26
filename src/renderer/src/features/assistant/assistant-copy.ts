@@ -30,11 +30,16 @@ export function assistantExample(context: AssistantContext): string {
 }
 
 /**
- * 输入框的默认占位（生效技能没给占位时用）。
+ * 输入框的默认占位（生效技能没给占位时用）。输入框同时是片库搜索框，所以写明两件事都能做。
  * @param context 当前状态
+ * @param askable 能不能问 AI（网页版只有搜索）
  */
-export function assistantPlaceholder(context: AssistantContext): string {
+export function assistantPlaceholder(
+  context: AssistantContext,
+  askable = true
+): string {
+  if (!askable) return '搜索片名、人物…'
   if (!context.private && context.nowPlaying && context.plotQa)
-    return '问问正在看的内容…'
-  return '问影盒…'
+    return '搜索片库，或问正在看的内容…'
+  return '搜索片库，或问影盒…'
 }

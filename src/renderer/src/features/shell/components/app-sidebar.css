@@ -57,7 +57,7 @@
   color: var(--text-tertiary);
 }
 
-/* 搜索 + 助手入口一组 */
+/* 统一入口（搜索 / 问 AI）一行 */
 .app-sidebar .sidebar-tools {
   display: flex;
   flex: none;
@@ -65,7 +65,7 @@
   gap: var(--space-2);
   margin-bottom: var(--space-1_5);
 }
-/* 图标工具钮（助手 sparkle、收起时的搜索）：展开时 36px、收起时 44px 圆，浅玻璃底 */
+/* 图标工具钮（收起时的统一入口放大镜）：44px 圆，浅玻璃底 */
 .app-sidebar .sidebar-tool {
   display: grid;
   flex: none;

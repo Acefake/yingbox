@@ -25,7 +25,7 @@ import {
 } from '../src/main/assistant/rules'
 import { sweepVoiceTemp } from '../src/main/assistant/transcribe'
 import {
-  isAssistantHotkey,
+  entryHotkey,
   shortcutStatusText,
 } from '../src/renderer/src/features/assistant/assistant-hotkey'
 import {
@@ -98,8 +98,8 @@ describe('全局快捷键', () => {
       shiftKey: true,
       altKey: false,
     }
-    expect(isAssistantHotkey(base)).toBe(true)
-    expect(isAssistantHotkey({ ...base, repeat: true })).toBe(false)
+    expect(entryHotkey(base)).toBe('toggle')
+    expect(entryHotkey({ ...base, repeat: true })).toBeNull()
   })
 
   it('设置页：还没取到状态不显示；换绑失败时说明旧组合仍在用', () => {
