@@ -3,110 +3,141 @@
     class="assistant"
     data-focus-scope
     :data-layout="layout"
+    :data-mode="mode"
     :data-private="context.private"
     :data-playing="player !== null"
   >
     <div v-if="layout === 'page'" class="assistant-scrim" @click="close" />
-    <section
-      ref="drawerRef"
-      class="assistant-drawer yb-glass"
-      role="dialog"
-      :aria-modal="layout === 'page'"
-      aria-label="AI 助手"
-      @keydown="trapTab"
-    >
-      <AssistantHeader
-        :context="context"
-        :model-label="modelLabel"
-        @close="close"
-      />
-      <div ref="threadRef" class="assistant-thread" @scroll="onThreadScroll">
+    <div class="assistant-stage">
+      <section
+        ref="panelRef"
+        class="assistant-panel"
+        :class="{ 'yb-glass': mode === 'panel' }"
+        role="dialog"
+        :aria-modal="layout === 'page'"
+        aria-label="AI 助手"
+        @keydown="trapTab"
+      >
         <p class="assistant-status" role="status">{{ statusText }}</p>
-        <div v-if="greeting" class="assistant-greeting">
-          <h3 class="assistant-greeting-title">有什么可以帮你？</h3>
-          <p class="assistant-greeting-hint">{{ greetingHint }}</p>
-        </div>
-        <AssistantTurn
-          v-for="turn in turns"
-          :key="turn.id"
-          :question="turn.question"
-          :answer="turn.answer"
-          :result="turn.result"
-          :notice="turn.notice"
-          @played="close"
+        <h2 v-if="mode === 'hero'" class="assistant-hello">有什么可以帮你？</h2>
+        <AssistantHeader
+          :context="context"
+          :model-label="modelLabel"
+          :closable="mode === 'panel'"
+          @close="close"
         />
-        <AssistantTurn
-          v-if="hasCurrent"
-          :question="transcript"
-          :answer="answer"
-          :result="result"
-          :notice="notice"
-          :typing="phase === 'answering'"
-          @played="close"
+        <div
+          v-if="threaded"
+          ref="threadRef"
+          class="assistant-thread"
+          @scroll="onThreadScroll"
         >
-          <div v-if="needsSetup" class="assistant-setup">
-            <UiButton
-              variant="primary"
-              icon="settings"
-              label="去设置 AI"
-              @click="openAiSettings"
-            />
-          </div>
-        </AssistantTurn>
-        <UiLoadingDots
-          v-if="phase === 'thinking'"
-          class="assistant-thinking"
-          label="思考中"
+          <AssistantTurn
+            v-for="turn in turns"
+            :key="turn.id"
+            :question="turn.question"
+            :answer="turn.answer"
+            :result="turn.result"
+            :notice="turn.notice"
+            @played="close"
+          />
+          <AssistantTurn
+            v-if="hasCurrent"
+            :question="transcript"
+            :answer="answer"
+            :result="result"
+            :notice="notice"
+            :typing="phase === 'answering'"
+            @played="close"
+          >
+            <div v-if="needsSetup" class="assistant-setup">
+              <UiButton
+                variant="primary"
+                icon="settings"
+                label="去设置 AI"
+                @click="openAiSettings"
+              />
+            </div>
+          </AssistantTurn>
+          <UiLoadingDots
+            v-if="phase === 'thinking'"
+            class="assistant-thinking"
+            label="思考中"
+          />
+        </div>
+        <AssistantComposer
+          :suggestions="threaded ? [] : suggestions"
+          :placeholder="threaded ? '继续问…' : placeholder"
+          :example="threaded ? '' : example"
+          :floating="mode === 'hero'"
+          :voice-ready="voiceReady"
+          :listening="phase === 'listening'"
+          :level="level"
+          :busy="busy"
+          @ask="send"
+          @voice="toggleVoice"
         />
-      </div>
-      <AssistantComposer
-        :suggestions="suggestions"
-        :placeholder="placeholder"
-        :voice-ready="voiceReady"
-        :listening="phase === 'listening'"
-        :level="level"
-        :busy="busy"
-        @ask="send"
-        @voice="toggleVoice"
-      />
-    </section>
+        <footer v-if="mode === 'hero'" class="assistant-keys">
+          <span class="assistant-key">
+            <kbd class="assistant-kbd" aria-hidden="true">↵</kbd>发送
+          </span>
+          <span class="assistant-key">
+            <kbd class="assistant-kbd" aria-hidden="true">{{ hotkey }}</kbd>
+            唤起 / 收起
+          </span>
+          <UiPressable
+            class="assistant-key assistant-close"
+            label="关闭（Esc）"
+            @click="close"
+          >
+            <kbd class="assistant-kbd" aria-hidden="true">Esc</kbd>
+            <span aria-hidden="true">关闭</span>
+          </UiPressable>
+        </footer>
+      </section>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * AI 助手侧栏（按需加载）：固定在窗口右侧的玻璃面板（.yb-glass），页面与播放器在侧栏后面照常可见。
- * - 普通页面（layout = page）：背后压暗轻模糊的遮罩，模态（aria-modal + 焦点陷阱，use-focus-trap.ts），点遮罩收起；
- * - 内置播放器在前台（layout = player）：没有遮罩，整层不拦点击、不拦焦点，画面照常可点。
- * 侧栏由头部（标题、场景副标题、Esc）、中间可滚动的对话流、底部技能胶囊与输入胶囊组成；
+ * AI 助手浮层（按需加载）：窗口正中的一列，两种形态（data-mode）。
+ * - hero（还没提问）：大标题「有什么可以帮你？」、上下文胶囊、独立的玻璃输入胶囊、技能建议、快捷键提示；
+ * - panel（有对话后）：同一列展开成玻璃面板（.yb-glass）——上下文胶囊与 Esc 在顶、对话流在中间滚动、
+ *   内凹输入胶囊在底；面板随内容长高，最高 --assistant-panel-height，超出后只有对话流滚动。
+ * 两种布局（data-layout）：
+ * - 普通页面（page）：整窗压暗轻模糊的遮罩，模态（aria-modal + 焦点陷阱，use-focus-trap.ts），点遮罩收起；
+ * - 内置播放器在前台（player）：没有遮罩，整层不拦点击、不拦焦点，画面照常可点；
+ *   画面上没有遮罩托底，所以一律用面板形态（文字落在玻璃上才读得清）。
  * 唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变，思考 / 回答时变亮。
  * 对话流 = 本次打开期间归档的几轮（assistant-thread.ts）+ 当前这一轮；新内容出现时，只有贴近底部时
  * 才自动滚到底部，用户上滚回看时不打扰，回到底部附近再恢复（assistant-scroll.ts）。
  * 「正在打开播放器」在所有轮次的结果间共享（assistant-opening.ts）。
  * 根上的 data-focus-scope 让下面播放弹窗的焦点陷阱放行：点进助手输入框不会被拉回播放器。
- * 私密模式（data-private="true"）副标题写「私密 · 仅本地模型 · 无痕」，不换色调。
+ * 私密模式（data-private="true"）上下文胶囊写「私密 · 仅本地模型 · 无痕」，不举例、不换色调。
  * 状态行只给读屏用：待命且还没提问时为空。
  *
  * 第一次打开时登记内置技能包（之后打开不再重复登记）；提示词、建议与占位文字都来自当前生效的技能。
- * Esc（按层）、点遮罩、Esc 键帽都会收起；收起时取消模型调用、录音与逐字计时。
+ * Esc（按层）、点遮罩、Esc 键帽（面板顶部或快捷键提示里）都会收起；收起时取消模型调用、录音与逐字计时。
  * 状态机在 use-assistant.ts，依赖在 assistant-deps.ts。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
-import { UiButton, UiLoadingDots } from '@/components/ui'
+import { UiButton, UiLoadingDots, UiPressable } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useFocusTrap } from '@/composables/use-focus-trap'
 import { playerModal } from '@/features/player'
 import { getSetting } from '@/features/settings'
 
-import { assistantGreetingHint, assistantPlaceholder } from './assistant-copy'
+import { assistantExample, assistantPlaceholder } from './assistant-copy'
 import {
   assistantContext,
   assistantVoiceReady,
   createAssistantDeps,
   openSettingsSection,
 } from './assistant-deps'
+import { ASSISTANT_HOTKEY_LABEL as hotkey } from './assistant-hotkey'
 import { provideOpening } from './assistant-opening'
 import { useStickyScroll } from './assistant-scroll'
 import { useAssistantThread } from './assistant-thread'
@@ -163,7 +194,7 @@ const { turns, archive } = useAssistantThread({
 provideOpening()
 
 const player = playerModal()
-/** 内置播放器在前台（不是小窗）时侧栏不做模态、不加遮罩 */
+/** 内置播放器在前台（不是小窗）时不做模态、不加遮罩 */
 const layout = computed(() =>
   player.value && !player.value.minimized ? 'player' : 'page'
 )
@@ -204,14 +235,16 @@ const hasCurrent = computed(() =>
   )
 )
 
-/** 还没问过：显示问候 */
-const greeting = computed(
-  () => !turns.value.length && !hasCurrent.value && phase.value !== 'listening'
+/** 有对话（归档的轮次或当前这一轮）：展开对话流 */
+const threaded = computed(() => turns.value.length > 0 || hasCurrent.value)
+/** 播放器在前台时一律面板形态，否则有对话才展开 */
+const mode = computed(() =>
+  threaded.value || layout.value === 'player' ? 'panel' : 'hero'
 )
-const greetingHint = computed(() => assistantGreetingHint(context.value))
+const example = computed(() => assistantExample(context.value))
 
-const drawerRef = ref<HTMLElement | null>(null)
-const trapTab = useFocusTrap(drawerRef, () => layout.value === 'page')
+const panelRef = ref<HTMLElement | null>(null)
+const trapTab = useFocusTrap(panelRef, () => layout.value === 'page')
 
 /** 提问：先把上一轮归档进对话流 */
 function send(text: string): void {

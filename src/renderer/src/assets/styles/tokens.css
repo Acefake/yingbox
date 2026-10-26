@@ -332,17 +332,19 @@
 
   /*
    * ── AI 助手 ──
-   * 面板与输入胶囊用统一玻璃（.yb-glass）；唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变（思考时变亮）。
+   * 窗口正中的一列：空闲时是独立的玻璃输入胶囊，有对话后同一列展开成玻璃面板（.yb-glass）；
+   * 唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变（思考时变亮）。
    */
   --assistant-streak-blue: rgba(110, 170, 255, 0.95);
   --assistant-streak-violet: rgba(190, 150, 255, 0.95);
   --assistant-streak-pink: rgba(255, 160, 200, 0.85);
-  --assistant-scrim: rgba(0, 0, 0, 0.56); /* 唤起时压暗背景 */
+  --assistant-scrim: rgba(0, 0, 0, 0.56); /* 唤起时整窗压暗（再加轻模糊） */
   --assistant-inset: rgba(0, 0, 0, 0.22); /* 面板里内凹的输入胶囊 */
-  --assistant-drawer-width: 400px; /* 右侧侧栏宽度（离窗口边缘 --space-3_5） */
+  --assistant-width: 720px; /* 居中一列（输入胶囊）的宽度，面板再加两侧内边距 */
+  --assistant-panel-height: 724px; /* 有对话时面板最高 */
   --assistant-composer-height: 64px;
   --duration-assistant-sheet: 550ms; /* 结果逐行弹簧滑入 */
-  --duration-assistant-drawer: 220ms; /* 侧栏从右侧滑入（与 AssistantLauncher 的 DRAWER_MS 一致） */
+  --duration-assistant: 220ms; /* 唤起 / 收起（与 AssistantLauncher 的 OPEN_MS 一致） */
 
   /*
    * ── 层级（z-index）──
@@ -503,8 +505,9 @@
   --spec-text: #ffffff;
   --spec-line: rgba(0, 0, 0, 0.5);
 
-  --assistant-scrim: rgba(0, 0, 0, 0.32);
-  --assistant-inset: rgba(0, 0, 0, 0.05);
+  /* 浅色：唤起时盖一层浅雾而不是压黑，深色文字与浅玻璃都读得清 */
+  --assistant-scrim: rgba(242, 242, 246, 0.6);
+  --assistant-inset: rgba(0, 0, 0, 0.045);
 
   --scrollbar-thumb: rgba(0, 0, 0, 0.2);
   --scrollbar-thumb-hover: rgba(0, 0, 0, 0.34);
@@ -588,6 +591,6 @@
     --duration-fast: 0ms;
     --duration-normal: 0ms;
     --duration-slow: 0ms;
-    --duration-assistant-drawer: 0ms;
+    --duration-assistant: 0ms;
   }
 }

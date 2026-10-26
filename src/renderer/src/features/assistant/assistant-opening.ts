@@ -1,8 +1,8 @@
 /**
- * 「正在打开播放器」的互斥状态，在整个侧栏里共享。
+ * 「正在打开播放器」的互斥状态，在整个助手浮层里共享。
  *
  * 对话流里每一轮各挂一个 AssistantResults；正在打开的卡片若只记在单个实例里，快速点一张旧轮卡片
- * 和一张当前轮卡片会各自通过检查，播放器被打开两次。侧栏（AssistantOverlay）用 {@link provideOpening}
+ * 和一张当前轮卡片会各自通过检查，播放器被打开两次。浮层（AssistantOverlay）用 {@link provideOpening}
  * 提供一份共享状态，每个 AssistantResults 用 {@link useOpening} 取同一份：任何一张卡在打开时，
  * 所有轮次的卡片都变淡、标 aria-disabled，点击被忽略。没有提供时（单独渲染结果）退回实例内的状态。
  */
@@ -19,7 +19,7 @@ const OPENING_KEY: InjectionKey<Ref<OpeningCard | null>> =
 
 let nextOwner = 1
 
-/** 侧栏里提供共享的「正在打开」状态 */
+/** 浮层里提供共享的「正在打开」状态 */
 export function provideOpening(): Ref<OpeningCard | null> {
   const opening = ref<OpeningCard | null>(null)
   provide(OPENING_KEY, opening)

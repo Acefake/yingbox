@@ -1,9 +1,9 @@
 /*
- * AI 助手侧栏的框架：遮罩、右侧侧栏的位置与尺寸、输入胶囊上沿的渐变发丝（唯一的彩色）与进出场。
- * 侧栏内容在 assistant-panel.css。
+ * AI 助手浮层的框架：整窗遮罩、窗口正中的一列（data-mode：hero 空闲 / panel 有对话）的位置与尺寸、
+ * 输入胶囊上沿的渐变发丝（唯一的彩色）与进出场。列里的内容在 assistant-panel.css。
  * 玻璃一律用 .yb-glass（底色、模糊、阴影都在那里，这里不写 background）；降低透明度时它自动变实色。
  * 动画只用 transform / opacity；进出场由 AssistantLauncher 的 <Transition name="assistant"> 驱动，
- * 时长是 --duration-assistant-drawer（减少动态效果时为 0）。
+ * 时长是 --duration-assistant（减少动态效果时为 0）。
  */
 .assistant {
   position: fixed;
@@ -12,14 +12,14 @@
   color: var(--text-primary);
 }
 
-/* ── 遮罩（只在普通页面）：压暗 + 轻模糊；小窗在播时不做实时模糊 ── */
+/* ── 遮罩（只在普通页面）：整窗压暗 + 轻模糊；小窗在播时不做实时模糊 ── */
 .assistant-scrim {
   position: absolute;
   inset: 0;
   background: var(--assistant-scrim);
   -webkit-backdrop-filter: blur(8px) saturate(0.9);
   backdrop-filter: blur(8px) saturate(0.9);
-  transition: opacity var(--duration-assistant-drawer) ease;
+  transition: opacity var(--duration-assistant) ease;
 }
 .assistant[data-playing='true'] .assistant-scrim {
   background: var(--overlay-scrim);
@@ -37,34 +37,58 @@
   }
 }
 
-/* ── 侧栏：固定在右侧，整高，离窗口边缘 --space-3_5 ── */
-.assistant-drawer {
+/* ── 舞台：盖满窗口、把一列放在正中；自己不拦点击，点列外落到遮罩上 ── */
+.assistant-stage {
   position: absolute;
-  top: var(--space-3_5);
-  right: var(--space-3_5);
-  bottom: var(--space-3_5);
+  inset: 0;
   display: flex;
   flex-direction: column;
-  width: min(var(--assistant-drawer-width), calc(100% - var(--space-3_5) * 2));
-  overflow: hidden;
-  border-radius: var(--radius-2xl);
-  transition:
-    transform var(--duration-assistant-drawer) var(--ease-out),
-    opacity var(--duration-assistant-drawer) ease;
+  align-items: center;
+  justify-content: center;
+  padding: var(--space-6);
+  pointer-events: none;
+}
+/* 空闲时整列略高于正中，视觉重心在上方 */
+.assistant[data-mode='hero'] .assistant-stage {
+  padding-bottom: 14vh;
 }
 
-/* 播放器在前台：没有遮罩，整层不拦点击，只有侧栏本身可点，画面照常可见可点 */
+/* ── 一列：空闲时只是排版（没有底），有对话后展开成玻璃面板 ── */
+.assistant-panel {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  width: min(var(--assistant-width), 100%);
+  max-height: 100%;
+  pointer-events: auto;
+  transition:
+    transform var(--duration-assistant) var(--ease-out),
+    opacity var(--duration-assistant) ease;
+}
+/* 面板比输入胶囊宽出两侧内边距：里面的内凹输入胶囊与空闲时的胶囊同宽，展开时输入框不跳宽 */
+.assistant[data-mode='panel'] .assistant-panel {
+  width: min(calc(var(--assistant-width) + var(--space-4) * 2), 100%);
+  max-height: min(var(--assistant-panel-height), 100%);
+  padding: var(--space-4) var(--space-4) var(--space-3_5);
+  overflow: hidden;
+  border-radius: var(--radius-2xl);
+}
+
+/* 播放器在前台：没有遮罩，整层不拦点击，只有面板本身可点，画面照常可见可点 */
 .assistant[data-layout='player'] {
   pointer-events: none;
 }
-.assistant[data-layout='player'] .assistant-drawer {
-  pointer-events: auto;
-}
 
-/* 窄窗口：侧栏宽度为 100% 减两侧边距 */
+/* 窄窗口：两侧边距收窄，列宽为 100% 减边距；空闲时不再上移 */
 @media (max-width: 719px) {
-  .assistant-drawer {
-    width: calc(100% - var(--space-3_5) * 2);
+  .assistant-stage,
+  .assistant[data-mode='hero'] .assistant-stage {
+    padding: var(--space-3);
+  }
+}
+@media (max-height: 600px) {
+  .assistant[data-mode='hero'] .assistant-stage {
+    padding-bottom: var(--space-6);
   }
 }
 
@@ -106,9 +130,9 @@
   }
 }
 
-/* ── 进出场：遮罩淡入，侧栏从右侧滑入；will-change 只在过渡期间挂上，结束即释放 ── */
-.assistant-enter-active .assistant-drawer,
-.assistant-leave-active .assistant-drawer,
+/* ── 进出场：遮罩淡入，一列从略低处浮起并微微放大；will-change 只在过渡期间挂上，结束即释放 ── */
+.assistant-enter-active .assistant-panel,
+.assistant-leave-active .assistant-panel,
 .assistant-enter-active .assistant-scrim,
 .assistant-leave-active .assistant-scrim {
   will-change: transform, opacity;
@@ -117,10 +141,10 @@
 .assistant-leave-to .assistant-scrim {
   opacity: 0;
 }
-.assistant-enter-from .assistant-drawer,
-.assistant-leave-to .assistant-drawer {
+.assistant-enter-from .assistant-panel,
+.assistant-leave-to .assistant-panel {
   opacity: 0;
-  transform: translateX(calc(100% + var(--space-3_5)));
+  transform: translateY(var(--space-3)) scale(0.98);
 }
 
 @keyframes assistant-caret {
@@ -145,7 +169,7 @@
   .assistant *::after {
     animation: none !important;
   }
-  .assistant-drawer,
+  .assistant-panel,
   .assistant-scrim,
   .assistant-streak {
     transition: none;
