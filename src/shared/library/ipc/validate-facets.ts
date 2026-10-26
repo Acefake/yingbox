@@ -28,6 +28,8 @@ const MAX_LIMIT = 500
 
 /** 文本分面（kind 之外）。 */
 const TEXT_FIELDS = ['tag', 'actor', 'studio', 'series', 'director'] as const
+/** facets.list 可限定的顶层类型。 */
+const TOP_TYPES = ['movie', 'series'] as const
 
 /** 字符串列表：去空白、去重；空列表视为不筛选。 */
 function values(value: unknown, name: string): string[] | undefined {
@@ -67,6 +69,7 @@ export function parseFacetListRequest(input: unknown): FacetListRequest {
   }
   const search =
     typeof r.search === 'string' ? r.search.trim().slice(0, 100) : ''
+  const types = listOf(r.types, TOP_TYPES, 'types')
   return {
     field: oneOf(r.field, FACET_FIELDS, 'field'),
     ...(r.source === undefined
@@ -75,6 +78,7 @@ export function parseFacetListRequest(input: unknown): FacetListRequest {
     ...(r.libraryId === undefined
       ? {}
       : { libraryId: positiveId(r.libraryId, 'libraryId') }),
+    ...(types ? { types } : {}),
     ...(search ? { search } : {}),
     limit: Math.min(
       optionalInt(r.limit, 'limit', 1) ?? DEFAULT_LIMIT,

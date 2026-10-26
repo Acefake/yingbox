@@ -1,5 +1,6 @@
 /**
- * 媒体库页面的纯规则：详情路由参数、空状态标题与文案、视图切换、媒体库下拉、海报墙多选。
+ * 媒体库页面的纯规则：详情路由参数、空状态标题与文案、视图切换、工具栏摆放、媒体库选项、海报墙多选。
+ * 浏览胶囊与「更多」菜单分组的规则在 browse-rules.ts。
  * 不依赖 Vue，便于单测。
  */
 import type {
@@ -19,10 +20,16 @@ export function parseDetailId(raw: unknown): number | null {
 
 /** 海报墙为空时的标题：有搜索词 > 有筛选 > 还没扫描到。 */
 export function emptyTitleFor(
-  state: Pick<WallQueryState, 'search' | 'filter'>
+  state: Pick<WallQueryState, 'search' | 'filter'> &
+    Partial<Pick<WallQueryState, 'browse' | 'genre'>>
 ): string {
   if (state.search) return `没有找到“${state.search}”`
-  if (state.filter !== 'all') return '没有符合筛选条件的条目'
+  if (
+    state.filter !== 'all' ||
+    state.genre ||
+    (state.browse ?? 'all') !== 'all'
+  )
+    return '没有符合筛选条件的条目'
   return '文件夹里还没有扫描到视频'
 }
 
@@ -43,12 +50,7 @@ export function noFolderCopy(section: LibrarySection): {
   }
 }
 
-/** 「待确认」筛选胶囊上的数量：0 时不显示，其余带千分位。 */
-export function reviewChipCount(count: number): string | undefined {
-  return count ? count.toLocaleString('zh-CN') : undefined
-}
-
-/** 页头切换：资料库，番号页多一个演员（演员库只属于番号页）。待确认是筛选胶囊，不在这里。 */
+/** 页头切换：资料库，番号页多一个演员（演员库只属于番号页）。待确认由标题下的提示进入，不在这里。 */
 export function viewOptionsFor(
   section: LibrarySection
 ): SegmentedOption<LibraryView>[] {
@@ -61,7 +63,6 @@ export function viewOptionsFor(
 /** 工具栏操作。 */
 export type ToolbarAction =
   | 'sort'
-  | 'order'
   | 'facets'
   | 'visual'
   | 'video-wall'
@@ -80,8 +81,8 @@ export interface ToolbarContext {
 }
 
 /**
- * 工具栏操作的摆放：常用的直接排在页头（图标 + 文字），其余收进「更多」。
- * 最小窗口（1200 宽、侧栏展开）下页头一行放得下标题、排序、升降、筛选、扫描、识别和「更多」。
+ * 工具栏操作的摆放：页头只留排序（字段与升降序合在一个钮里）、筛选（番号页）和「⋯」，
+ * 扫描、识别、按画面搜、视频墙、设置都收进「⋯」（顺序即菜单顺序）。
  */
 export function toolbarActions(ctx: ToolbarContext): {
   inline: ToolbarAction[]
@@ -90,16 +91,16 @@ export function toolbarActions(ctx: ToolbarContext): {
   const wall = ctx.hasLibraries && ctx.view === 'wall'
   const inline: ToolbarAction[] = []
   const more: ToolbarAction[] = []
-  if (wall) inline.push('sort', 'order')
+  if (wall) inline.push('sort')
   if (wall && ctx.facets) inline.push('facets')
-  if (ctx.hasLibraries) inline.push('scan', 'identify')
+  if (ctx.hasLibraries) more.push('scan', 'identify')
   if (wall && ctx.facets) more.push('visual')
   if (wall && ctx.count) more.push('video-wall')
   more.push('settings')
   return { inline, more }
 }
 
-/** 媒体库下拉：0 表示全部文件夹。 */
+/** 媒体库选项（「更多」里的媒体库分组）：0 表示全部文件夹。 */
 export function libraryOptionsFor(
   libraries: Pick<LibraryInfo, 'id' | 'name'>[]
 ): Array<{ value: number; label: string }> {

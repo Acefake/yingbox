@@ -51,15 +51,29 @@ describe('页面规则', () => {
     expect(viewOptionsFor('jav').map(o => o.label)).toEqual(['资料库', '演员'])
   })
 
-  it('工具栏：常用操作排在页头，按画面 / 视频墙 / 设置收进「更多」', () => {
+  it('工具栏：页头只留排序 / 筛选，扫描、识别、按画面、视频墙、设置收进「⋯」', () => {
     const jav = toolbarActions({
       view: 'wall',
       hasLibraries: true,
       count: 5,
       facets: true,
     })
-    expect(jav.inline).toEqual(['sort', 'order', 'facets', 'scan', 'identify'])
-    expect(jav.more).toEqual(['visual', 'video-wall', 'settings'])
+    expect(jav.inline).toEqual(['sort', 'facets'])
+    expect(jav.more).toEqual([
+      'scan',
+      'identify',
+      'visual',
+      'video-wall',
+      'settings',
+    ])
+    const movie = toolbarActions({
+      view: 'wall',
+      hasLibraries: true,
+      count: 5,
+      facets: false,
+    })
+    expect(movie.inline).toEqual(['sort'])
+    expect(movie.more).toEqual(['scan', 'identify', 'video-wall', 'settings'])
     const empty = toolbarActions({
       view: 'wall',
       hasLibraries: false,
@@ -73,7 +87,8 @@ describe('页面规则', () => {
       count: 5,
       facets: true,
     })
-    expect(review.inline).toEqual(['scan', 'identify'])
+    expect(review.inline).toEqual([])
+    expect(review.more).toEqual(['scan', 'identify', 'settings'])
   })
 
   it('番号页空状态引导添加番号文件夹', () => {

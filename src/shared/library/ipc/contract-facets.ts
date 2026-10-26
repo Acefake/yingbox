@@ -43,6 +43,8 @@ export interface FacetListRequest {
   field: FacetField
   source?: LibrarySource
   libraryId?: number
+  /** 只算这些顶层类型（电影页传 movie、剧集页传 series：两者同为 tmdb 来源）；缺省两种都算。 */
+  types?: Array<'movie' | 'series'>
   search?: string
   /** 最多返回几条，默认 60。 */
   limit?: number

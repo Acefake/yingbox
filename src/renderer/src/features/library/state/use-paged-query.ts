@@ -33,7 +33,7 @@ export interface ChangeBatch {
 
 /**
  * 一批变化能否只重载包含这些条目的页：只有“纯更新”且排序不受内容影响
- * （按添加时间、没有状态筛选和搜索）时位置不变；否则重载可见区间。
+ * （按添加时间、没有状态 / 类型 / 观看筛选和搜索）时位置不变；否则重载可见区间。
  */
 export function canPatchInPlace(
   query: LibraryQuery,
@@ -41,7 +41,13 @@ export function canPatchInPlace(
 ): boolean {
   if (batch.structural) return false
   const sort = query.sort ?? 'title'
-  return sort === 'addedAt' && !query.matchStates && !query.search
+  return (
+    sort === 'addedAt' &&
+    !query.matchStates &&
+    !query.search &&
+    !query.facets &&
+    query.watched === undefined
+  )
 }
 
 /** usePagedQuery 的返回值。 */

@@ -112,7 +112,7 @@ const likePattern = (text: string): string =>
   `%${text.replace(/[\\%_]/g, c => `\\${c}`)}%`
 
 /**
- * 列出分面取值：范围是顶层条目（可限定来源 / 媒体库），按条目数降序、取值升序。
+ * 列出分面取值：范围是顶层条目（可限定类型 / 来源 / 媒体库），按条目数降序、取值升序。
  * 合并展示的同一作品只算一次（按 merge_key 去重计数）。
  */
 export function listFacetValues(
@@ -120,12 +120,13 @@ export function listFacetValues(
   request: FacetListRequest
 ): FacetValue[] {
   const src = valueSource(request.field, 'i')
+  const types = request.types?.length ? request.types : ['movie', 'series']
   const where = [
-    "i.type IN ('movie', 'series')",
+    `i.type IN (${marks(types.length)})`,
     `${src.value} IS NOT NULL`,
     `${src.value} <> ''`,
   ]
-  const params: Params = []
+  const params: Params = [...types]
   if (src.where) where.push(src.where)
   if (request.source !== undefined) {
     where.push('i.library_id IN (SELECT id FROM libraries WHERE source = ?)')
