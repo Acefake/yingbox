@@ -58,7 +58,7 @@ async function readSource(source: LiveSource): Promise<PlaylistText> {
   if (source.kind === 'file') return iptv.readPlaylistFile(source.location)
   // 主地址失败时依次试备用地址（推荐源的镜像，如 GitHub raw 在国内常连不上）
   let result = await iptv.fetchPlaylist(source.location)
-  // 早先订阅、没存镜像的推荐源按推荐清单补上
+  // 存储里没有镜像的推荐源（订阅时清单还没有镜像）按推荐清单补上
   for (const mirror of source.mirrors ?? presetMirrorsFor(source.location)) {
     if (result.ok) break
     const next = await iptv.fetchPlaylist(mirror)

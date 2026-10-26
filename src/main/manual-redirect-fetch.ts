@@ -31,6 +31,9 @@ function toHeaders(raw: IncomingMessage['headers']): Headers {
   return headers
 }
 
+/** 运行时 IncomingMessage 是 Node Readable（类型声明里没写 pause / resume） */
+type Pausable = { pause(): void; resume(): void }
+
 /** IncomingMessage → WHATWG ReadableStream（带背压；取消时中止请求） */
 function toStream(
   res: IncomingMessage,
@@ -40,14 +43,15 @@ function toStream(
     start(controller) {
       res.on('data', (chunk: Buffer) => {
         controller.enqueue(new Uint8Array(chunk))
-        if ((controller.desiredSize ?? 1) <= 0) res.pause()
+        if ((controller.desiredSize ?? 1) <= 0)
+          (res as unknown as Pausable).pause()
       })
       res.on('end', () => controller.close())
       res.on('error', (error: Error) => controller.error(error))
       res.on('aborted', () => controller.error(new Error('连接中断')))
     },
     pull() {
-      res.resume()
+      ;(res as unknown as Pausable).resume()
     },
     cancel() {
       request.abort()
