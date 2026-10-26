@@ -268,7 +268,7 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 .detail-win {
   width: 100vw;
   height: 100vh;
-  background: var(--bg-base);
+  background: var(--bg-content);
   color: var(--text-primary);
   font-family: var(--font-sans);
   display: flex;
@@ -336,14 +336,14 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 .dw-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 20%, var(--bg-base) 100%);
+  background: linear-gradient(to bottom, transparent 20%, var(--bg-content) 100%);
 }
 
 .dw-content {
   position: relative;
   width: 100%;
   min-width: 0;
-  padding: calc(var(--shell-top) + var(--control-height) + var(--space-8))
-    var(--content-padding-x) var(--space-9);
+  padding: calc(var(--shell-top) + var(--space-8)) var(--detail-gutter)
+    var(--space-9) var(--detail-x);
 }
 </style>
