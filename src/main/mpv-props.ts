@@ -1,6 +1,8 @@
 /**
- * mpv 状态的初始值、要观察的属性，以及 track-list / playlist 原始数据到共享类型的整理。
+ * mpv 状态的初始值、要观察的属性、track-list / playlist 原始数据到共享类型的整理，
+ * 以及新进程的命令行参数（{@link spawnArgs}）与换片前要设的属性（{@link replaceProps}）。
  */
+import { type MpvHeaders, headerArgs } from './mpv-stream'
 import type { MpvPlaylistEntry, MpvStatus, MpvTrack } from '../shared/mpv'
 
 /** 播放器没在运行时的状态 */
@@ -86,7 +88,8 @@ export interface SpawnArgsInput {
   startAt?: number
   title?: string
   subFile?: string
-  referer?: string
+  /** 请求头选项（mpv-stream） */
+  headers: MpvHeaders
   /** RTX 视频超分：要走 D3D11 */
   vsr: boolean
 }
@@ -111,7 +114,7 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
   if (typeof input.startAt === 'number') args.push(`--start=${input.startAt}`)
   if (input.title) args.push(`--title=${input.title}`)
   if (input.subFile) args.push(`--sub-file=${input.subFile}`)
-  if (input.referer) args.push(`--referrer=${input.referer}`)
+  args.push(...headerArgs(input.headers))
   args.push(input.target)
   return args
 }
@@ -129,4 +132,53 @@ export function replaceProps(input: {
     ['start', typeof input.startAt === 'number' ? `${input.startAt}` : 'none'],
     ['title', input.title || '${media-title}'],
   ]
+}
+
+/** 把一条 property-change 写进状态（video-params 由播放器自己处理超分，不在这里） */
+export function patchStatus(
+  status: MpvStatus,
+  name: string,
+  data: unknown
+): void {
+  const num = (fallback?: number): number | undefined =>
+    typeof data === 'number' ? data : fallback
+  const str = (): string | undefined =>
+    typeof data === 'string' ? data : undefined
+  switch (name) {
+    case 'time-pos':
+      status.position = num()
+      // 启动时可能在 IPC 连接前已经就绪；有效播放位置可补齐该状态。
+      if (typeof data === 'number') status.loading = false
+      break
+    case 'duration':
+      status.duration = num()
+      break
+    case 'pause':
+      status.paused = Boolean(data)
+      break
+    case 'volume':
+      status.volume = num(100)!
+      break
+    case 'mute':
+      status.muted = Boolean(data)
+      break
+    case 'speed':
+      status.speed = num(1)!
+      break
+    case 'media-title':
+      status.title = str()
+      break
+    case 'path':
+      status.path = str()
+      break
+    case 'playlist-pos':
+      status.playlistPos = num(0)!
+      break
+    case 'track-list':
+      status.tracks = parseTracks(data as Record<string, unknown>[])
+      break
+    case 'playlist':
+      status.playlist = parsePlaylist(data as Record<string, unknown>[])
+      break
+  }
 }

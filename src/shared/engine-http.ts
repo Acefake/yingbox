@@ -1,10 +1,13 @@
+import { type StreamHeaders, streamHeaderQuery } from './net/stream-headers'
+
 /**
  * 独立服务（src/server）上的在线引擎接口：网页端经 HTTP 调用与桌面端 IPC 相同的契约。
  *
  * - 调用：POST {@link ENGINE_HTTP.rpc} `{ channel: 'online:vod', args: [...] }` → {@link EngineRpcResult}；
  *   通道名、参数元组、返回值与 window.api.<域>.<方法> 一字不差，参数在服务端用契约的 parse 校验。
  * - 事件：GET {@link ENGINE_HTTP.events}（SSE），每条 data 是 {@link EngineEventMessage}。
- * - 播放代理：GET {@link ENGINE_HTTP.stream}?src=<地址>，透传 Range、按源注入 Referer，m3u8 改写成经代理取分片。
+ * - 播放代理：GET {@link ENGINE_HTTP.stream}?src=<地址>[&ua=&referer=]，透传 Range、按源注入 Referer（线路自带的头优先，
+ *   见 net/stream-headers），m3u8 改写成经代理取分片（分片带上同样的头参数）。
  * 只开放 {@link ENGINE_HTTP_DOMAINS} 里的域。纯类型与常量，两端共用。
  */
 
@@ -78,7 +81,10 @@ export interface EngineEventMessage {
   payload: unknown
 }
 
-/** 远程媒体地址经服务代理的地址（同源相对路径，Cookie 鉴权自动带上）。 */
-export function streamProxyPath(source: string): string {
-  return `${ENGINE_HTTP.stream}?src=${encodeURIComponent(source)}`
+/** 远程媒体地址经服务代理的地址（同源相对路径，Cookie 鉴权自动带上）；headers 是线路自带的请求头。 */
+export function streamProxyPath(
+  source: string,
+  headers?: StreamHeaders
+): string {
+  return `${ENGINE_HTTP.stream}?src=${encodeURIComponent(source)}${streamHeaderQuery(headers)}`
 }

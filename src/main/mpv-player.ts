@@ -7,14 +7,13 @@ import {
   COMPACT_MESSAGE,
   DEFAULT_STATUS,
   WATCH_PROPS,
-  parsePlaylist,
-  parseTracks,
+  patchStatus,
   replaceProps,
   spawnArgs,
 } from './mpv-props'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
+import { MpvHeaderState, mpvStream } from './mpv-stream'
 import { MpvWindow } from './mpv-window'
-import { refererFor } from './media-headers'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
 import type { Anime4kConfig } from '../shared/anime4k'
@@ -52,6 +51,11 @@ class MpvPlayer extends EventEmitter {
   private readonly window = new MpvWindow((name, value) =>
     this.setProp(name, value)
   )
+  /** 本进程里影盒改过的 UA / Referer（换片时还原） */
+  private readonly headers = new MpvHeaderState(
+    name => this.cmd('get_property', name),
+    (name, value) => this.setProp(name, value)
+  )
   /** 影盒超分着色器（设置 + 当前条目是否动画） */
   private readonly anime4k = new Anime4kSync(
     (...args) => this.cmd(...args),
@@ -86,9 +90,11 @@ class MpvPlayer extends EventEmitter {
     this.emit('status', this.getStatus())
     try {
       if (this.child && this.sock.connected) {
+        const stream = mpvStream(options)
+        await this.headers.apply(stream.headers)
         for (const [name, value] of replaceProps(options))
           await this.setProp(name, value)
-        await this.cmd('loadfile', target, 'replace')
+        await this.cmd('loadfile', stream.target, 'replace')
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
         await this.window.bringToFront()
@@ -111,17 +117,17 @@ class MpvPlayer extends EventEmitter {
       void killTree(old)
     }
     const exe = findMpvExecutable()
-    const target = options.filePath || options.url!
+    const { target, headers } = mpvStream(options)
     const args = spawnArgs({
       socket: SOCKET_PATH,
       target,
       startAt: options.startAt,
       title: options.title,
       subFile: options.subFile,
-      // 防盗链 CDN（MissAV）：mpv 不经 Chromium 会话，Referer 要自己带
-      referer: options.url ? refererFor(options.url) : undefined,
+      headers,
       vsr: this.isVsrWanted(),
     })
+    this.headers.reset(headers)
     const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
     this.child = child
     let spawnError: Error | null = null
@@ -191,50 +197,12 @@ class MpvPlayer extends EventEmitter {
   }
 
   private applyProp(name: string, data: unknown): void {
-    switch (name) {
-      case 'time-pos':
-        this._status.position = typeof data === 'number' ? data : undefined
-        // 启动时可能在 IPC 连接前已经就绪；有效播放位置可补齐该状态。
-        if (typeof data === 'number') this._status.loading = false
-        break
-      case 'duration':
-        this._status.duration = typeof data === 'number' ? data : undefined
-        break
-      case 'pause':
-        this._status.paused = Boolean(data)
-        break
-      case 'volume':
-        this._status.volume = typeof data === 'number' ? data : 100
-        break
-      case 'mute':
-        this._status.muted = Boolean(data)
-        break
-      case 'speed':
-        this._status.speed = typeof data === 'number' ? data : 1
-        break
-      case 'media-title':
-        this._status.title = typeof data === 'string' ? data : undefined
-        break
-      case 'path':
-        this._status.path = typeof data === 'string' ? data : undefined
-        break
-      case 'playlist-pos':
-        this._status.playlistPos = typeof data === 'number' ? data : 0
-        break
-      case 'track-list':
-        this._status.tracks = parseTracks(data as Record<string, unknown>[])
-        break
-      case 'playlist':
-        this._status.playlist = parsePlaylist(data as Record<string, unknown>[])
-        break
-      case 'video-params': {
-        const params = data as { h?: number; w?: number } | null
-        this.videoHeight = typeof params?.h === 'number' ? params.h : 0
-        this.videoWidth = typeof params?.w === 'number' ? params.w : 0
-        void this.syncVsr()
-        break
-      }
-    }
+    if (name === 'video-params') {
+      const params = data as { h?: number; w?: number } | null
+      this.videoHeight = typeof params?.h === 'number' ? params.h : 0
+      this.videoWidth = typeof params?.w === 'number' ? params.w : 0
+      void this.syncVsr()
+    } else patchStatus(this._status, name, data)
     this.emit('status', this.getStatus())
   }
 
