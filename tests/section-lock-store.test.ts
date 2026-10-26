@@ -126,6 +126,16 @@ describe('写入层校验（绕过界面直接调用）', () => {
     expect((await store.verify('next5678')).ok).toBe(true)
   })
 
+  it('并发校验逐个排队：一口气发出的猜测过不了限流，正确密码也被挡住', async () => {
+    const { store } = await setup()
+    const guesses = Array.from({ length: 9 }, (_, i) => `wrong${i}`)
+    const results = await Promise.all(
+      [...guesses, 'pass1234'].map(password => store.verify(password))
+    )
+    expect(results.filter(result => result.ok)).toEqual([])
+    expect(results.at(-1)?.retryAfterMs).toBeGreaterThan(0)
+  })
+
   it('增加锁定、收紧重新锁定不需要验证', async () => {
     const { store } = await setup()
     expect(
