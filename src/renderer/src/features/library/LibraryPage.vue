@@ -27,8 +27,8 @@
     <ActivityBar :activity="activity" />
 
     <main class="lib-main">
-      <!-- 网页端：片库服务连不上 / 需要登录 -->
-      <ServerConnect v-if="serverGate" :state="serverState" :icon="spec.icon" />
+      <!-- 网页端：片库服务就绪前（探测中 / 连不上 / 未登录）什么都不放；登录与报错由外壳统一显示 -->
+      <template v-if="serverGate" />
 
       <!-- 不在桌面版 -->
       <LibraryEmpty
@@ -175,7 +175,6 @@ import LibraryEmpty from './page/LibraryEmpty.vue'
 import LibraryTopRows from './page/LibraryTopRows.vue'
 import LibraryToolbar from './page/LibraryToolbar.vue'
 import SelectionBar from './page/SelectionBar.vue'
-import ServerConnect from './page/ServerConnect.vue'
 import { usesLibraryServer } from './api/bridge'
 import {
   type ActivateModifiers,
