@@ -6,9 +6,10 @@
   min-width: 200px;
   padding: var(--space-1);
   border-radius: var(--radius-md);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-panel);
-  backdrop-filter: blur(20px);
+  background: var(--menu-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
 }
 .cw-menu-sep {
   height: 1px;
