@@ -1,27 +1,29 @@
 /**
- * 手动重定向 fetch（src/main/manual-redirect-fetch.ts）：Electron 37 的 net.fetch 遇到 redirect: 'manual'
- * 会抛 Redirect was cancelled，这里用假的 net.request 验证改走 ClientRequest 后的行为。
+ * 手动重定向 fetch（src/shared/net/manual-redirect-fetch.ts）与后台引擎的出网组装（src/engine/engine-fetch.ts）：
+ * Electron 37 的 net.fetch 遇到 redirect: 'manual' 会抛 Redirect was cancelled，这里用假的 net.request
+ * 验证 manual 请求经 ClientRequest 发出时的行为。
  * 真实 Electron 下的验证见 PR 说明（重定向、Referer / Range 转发、gzip 解码）。
  */
 import { EventEmitter } from 'node:events'
 import { describe, expect, it, vi } from 'vitest'
 
-import { manualRedirectFetch } from '../src/main/manual-redirect-fetch'
+import { createEngineFetch } from '../src/engine/engine-fetch'
+import { manualRedirectFetch } from '../src/shared/net/manual-redirect-fetch'
 
 /** 假 ClientRequest：记录选项与请求头，由测试触发事件 */
 class FakeRequest extends EventEmitter {
   headers: Record<string, string> = {}
   aborted = false
   ended = false
-  written = ''
+  written: (string | Buffer)[] = []
   constructor(readonly options: Record<string, unknown>) {
     super()
   }
   setHeader(name: string, value: string): void {
     this.headers[name] = value
   }
-  write(body: string): void {
-    this.written += body
+  write(body: string | Buffer): void {
+    this.written.push(body)
   }
   end(): void {
     this.ended = true
@@ -213,6 +215,59 @@ describe('手动重定向 fetch', () => {
     }).not.toThrow()
   })
 
+  it('凭据模式可配置，默认 omit；include 时同时带会话 Cookie', async () => {
+    const { fetch, last } = setup()
+    void fetch('http://a/x', { redirect: 'manual' })
+    expect(last().options).toMatchObject({
+      credentials: 'omit',
+      useSessionCookies: false,
+    })
+    const requests: FakeRequest[] = []
+    const withCookies = manualRedirectFetch(
+      options => {
+        const req = new FakeRequest(options as Record<string, unknown>)
+        requests.push(req)
+        return req as never
+      },
+      async () => new Response(''),
+      { credentials: 'include' }
+    )
+    void withCookies('http://a/x', { redirect: 'manual' })
+    expect(requests[0].options).toMatchObject({
+      credentials: 'include',
+      useSessionCookies: true,
+    })
+  })
+
+  it('后台引擎：manual 走 net.request 并带会话 Cookie，其余交给 net.fetch', async () => {
+    const requests: FakeRequest[] = []
+    const netFetch = vi.fn(async () => new Response('net.fetch'))
+    const fetch = createEngineFetch({
+      request: options => {
+        const req = new FakeRequest(options as Record<string, unknown>)
+        requests.push(req)
+        return req as never
+      },
+      fetch: netFetch,
+    })
+    const pending = fetch('http://a/x', { redirect: 'manual' })
+    expect(requests).toHaveLength(1)
+    expect(requests[0].options).toMatchObject({
+      url: 'http://a/x',
+      redirect: 'manual',
+      credentials: 'include',
+      useSessionCookies: true,
+    })
+    requests[0].emit('redirect', 301, 'GET', 'https://a/x', {})
+    expect((await pending).status).toBe(301)
+    expect(netFetch).not.toHaveBeenCalled()
+
+    const init = { redirect: 'follow' } as const
+    expect(await (await fetch('https://a/y', init)).text()).toBe('net.fetch')
+    expect(netFetch).toHaveBeenCalledWith('https://a/y', init)
+    expect(requests).toHaveLength(1)
+  })
+
   it('POST 写入请求体', async () => {
     const { fetch, last } = setup()
     void fetch('http://a/x', {
@@ -221,6 +276,33 @@ describe('手动重定向 fetch', () => {
       body: 'k=v',
     })
     expect(last().options.method).toBe('POST')
-    expect(last().written).toBe('k=v')
+    expect(last().written).toEqual(['k=v'])
+  })
+
+  it('非 string 请求体编码成字节写入，并补上编码得到的 Content-Type', async () => {
+    const { fetch, last } = setup()
+    void fetch('http://a/x', {
+      redirect: 'manual',
+      method: 'POST',
+      body: new URLSearchParams({ wd: '影 盒', pg: '1' }),
+    })
+    await vi.waitFor(() => expect(last()?.ended).toBe(true))
+    expect(Buffer.concat(last().written as Buffer[]).toString()).toBe(
+      'wd=%E5%BD%B1+%E7%9B%92&pg=1'
+    )
+    expect(last().headers['content-type']).toBe(
+      'application/x-www-form-urlencoded;charset=UTF-8'
+    )
+
+    void fetch('http://a/y', {
+      redirect: 'manual',
+      method: 'POST',
+      headers: { 'Content-Type': 'application/octet-stream' },
+      body: new Uint8Array([1, 2, 3]),
+    })
+    await vi.waitFor(() => expect(last().options.url).toBe('http://a/y'))
+    await vi.waitFor(() => expect(last().ended).toBe(true))
+    expect([...Buffer.concat(last().written as Buffer[])]).toEqual([1, 2, 3])
+    expect(last().headers['content-type']).toBe('application/octet-stream')
   })
 })
