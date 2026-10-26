@@ -71,5 +71,14 @@ export function parseQueryFilters(input: unknown): LibraryQueryFilters {
     if (typeof r.hasGenres !== 'boolean') invalid('hasGenres 必须是布尔值')
     out.hasGenres = r.hasGenres as boolean
   }
+  if (r.watched !== undefined && r.watched !== null) {
+    if (typeof r.watched !== 'boolean') invalid('watched 必须是布尔值')
+    out.watched = r.watched as boolean
+  }
+  if (r.addedFrom !== undefined && r.addedFrom !== null) {
+    if (!Number.isSafeInteger(r.addedFrom) || (r.addedFrom as number) < 0)
+      invalid('addedFrom 必须是非负整数（毫秒时间戳）')
+    out.addedFrom = r.addedFrom as number
+  }
   return out
 }

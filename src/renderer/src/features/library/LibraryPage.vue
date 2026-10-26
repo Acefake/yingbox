@@ -4,8 +4,11 @@
       v-model:view="view"
       v-model:filter="state.filter"
       v-model:facets="state.facets"
+      v-model:browse="state.browse"
+      v-model:genre="state.genre"
       v-model:library="libraryChoice"
       :facet-scope="facetScopeOf(section, state)"
+      :genre-scope="genreScopeOf(section, state)"
       :kind-label="kindLabel"
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"
@@ -64,7 +67,7 @@
           :selected="selection"
           :selection-version="selectionVersion"
           :label="`${kindLabel}海报墙`"
-          :show-state-badge="state.filter === 'all'"
+          :show-state-badge="state.filter !== 'all'"
           @visible="setVisible"
           @activate="onActivate"
           @open="openDetail"
@@ -200,6 +203,7 @@ import {
   defaultWallQuery,
   facetScopeOf,
   filterKeyOf,
+  genreScopeOf,
   loadSavedSort,
   saveSort,
   toLibraryQuery,

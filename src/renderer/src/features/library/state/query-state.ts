@@ -1,5 +1,6 @@
 /**
- * 海报墙的查询条件：排序、匹配状态筛选、分面筛选（番号库）、媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
+ * 海报墙的查询条件：排序、匹配状态筛选、浏览（未看 / 最近添加）与类型（电影、剧集）、分面筛选（番号库）、
+ * 媒体库筛选、搜索词，及其到引擎 LibraryQuery 的映射。
  *
  * 每个查询都带分区的类型与来源（见 library-section.ts）。
  * 纯数据 + 纯函数，便于单测；响应式包装在 use-paged-query.ts。
@@ -26,6 +27,12 @@ export type WallSort = Extract<
 /** 匹配状态筛选。matched = 自动匹配 + 已锁定。 */
 export type MatchFilter = 'all' | 'matched' | 'review' | 'unmatched' | 'locked'
 
+/** 浏览胶囊：全部 / 没看完的 / 最近 RECENT_DAYS 天添加的。 */
+export type BrowseMode = 'all' | 'unwatched' | 'recent'
+
+/** 「最近添加」的时间范围（天）。 */
+export const RECENT_DAYS = 30
+
 /** 海报墙查询条件。 */
 export interface WallQueryState {
   sort: WallSort
@@ -33,6 +40,10 @@ export interface WallQueryState {
   filter: MatchFilter
   /** 分面筛选（类型 / 标签 / 演员 / 制作商 / 系列 / 导演）；只有番号库用，其他分区忽略。 */
   facets: FacetFilter
+  /** 浏览胶囊（电影、剧集分区）；番号库忽略。 */
+  browse: BrowseMode
+  /** 选中的类型（genres 里的一项，电影、剧集分区）；null 为不限，番号库忽略。 */
+  genre: string | null
   /** null 表示该类型的全部媒体库。 */
   libraryId: number | null
   search: string
@@ -70,6 +81,8 @@ export function defaultWallQuery(): WallQueryState {
     order: 'desc',
     filter: 'all',
     facets: {},
+    browse: 'all',
+    genre: null,
     libraryId: null,
     search: '',
   }
@@ -101,6 +114,8 @@ export function filterKeyOf(state: WallQueryState): unknown[] {
   return [
     state.filter,
     JSON.stringify(state.facets),
+    state.browse,
+    state.genre,
     state.libraryId,
     state.search,
   ]
@@ -108,6 +123,31 @@ export function filterKeyOf(state: WallQueryState): unknown[] {
 
 /** 有分面筛选的分区（番号库）。 */
 const usesFacets = (section: LibrarySection): boolean => section === 'jav'
+
+/** 有浏览胶囊与类型的分区（电影、剧集）。 */
+export const usesGenres = (section: LibrarySection): boolean =>
+  section !== 'jav'
+
+/** 「最近添加」的下限：本地今天零点往前 RECENT_DAYS 天（按天取整，查询条件一天之内不变）。 */
+export function recentFrom(now: number): number {
+  const day = new Date(now)
+  day.setHours(0, 0, 0, 0)
+  day.setDate(day.getDate() - RECENT_DAYS)
+  return day.getTime()
+}
+
+/** 类型胶囊的计数范围：与海报墙同一顶层类型 / 来源 / 媒体库；番号库返回 undefined。 */
+export function genreScopeOf(
+  section: LibrarySection,
+  state: Pick<WallQueryState, 'libraryId'>
+): FacetListRequest | undefined {
+  if (!usesGenres(section)) return undefined
+  return {
+    field: 'tag',
+    ...sectionQuery(section),
+    ...(state.libraryId !== null ? { libraryId: state.libraryId } : {}),
+  }
+}
 
 /** 分面面板的取值范围：与海报墙同一来源 / 媒体库；不用分面的分区返回 undefined。 */
 export function facetScopeOf(
@@ -121,10 +161,14 @@ export function facetScopeOf(
   }
 }
 
-/** 界面条件 → 引擎查询（不含 offset / limit，由分页列表补）。 */
+/**
+ * 界面条件 → 引擎查询（不含 offset / limit，由分页列表补）。
+ * @param now 「最近添加」的参照时间
+ */
 export function toLibraryQuery(
   section: LibrarySection,
-  state: WallQueryState
+  state: WallQueryState,
+  now = Date.now()
 ): LibraryQuery {
   const query: LibraryQuery = {
     ...sectionQuery(section),
@@ -135,6 +179,11 @@ export function toLibraryQuery(
   if (matchStates) query.matchStates = matchStates
   if (usesFacets(section) && Object.keys(state.facets).length)
     query.facets = JSON.parse(JSON.stringify(state.facets)) as FacetFilter
+  if (usesGenres(section)) {
+    if (state.genre) query.facets = { tag: [state.genre] }
+    if (state.browse === 'unwatched') query.watched = false
+    if (state.browse === 'recent') query.addedFrom = recentFrom(now)
+  }
   if (state.libraryId !== null) query.libraryId = state.libraryId
   const search = state.search.trim()
   if (search) query.search = search

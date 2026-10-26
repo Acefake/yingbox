@@ -21,7 +21,6 @@ import {
   emptyTitleFor,
   libraryOptionsFor,
   parseDetailId,
-  reviewChipCount,
   selectionStep,
 } from '../../../src/renderer/src/features/library/page/page-rules'
 import {
@@ -119,10 +118,7 @@ describe('媒体库页面规则', () => {
     )
   })
 
-  it('待确认标签与媒体库下拉', () => {
-    expect(reviewChipCount(0)).toBeUndefined()
-    expect(reviewChipCount(1)).toBe('1')
-    expect(reviewChipCount(1234)).toBe('1,234')
+  it('媒体库选项', () => {
     expect(libraryOptionsFor([{ id: 3, name: 'A' }])).toEqual([
       { value: 0, label: '全部文件夹' },
       { value: 3, label: 'A' },
