@@ -470,14 +470,14 @@
     rgba(0, 0, 0, 0.45) 85%,
     rgba(0, 0, 0, 0.3) 100%
   );
-  --hero-detail-fade: 220px;
+  --hero-detail-fade: 160px;
   --hero-detail-lift: 148px;
   --hero-detail-mask: linear-gradient(
-    #000 calc(100% - 220px),
-    rgba(0, 0, 0, 0.96) calc(100% - 176px),
-    rgba(0, 0, 0, 0.86) calc(100% - 132px),
-    rgba(0, 0, 0, 0.64) calc(100% - 88px),
-    rgba(0, 0, 0, 0.3) calc(100% - 44px),
+    #000 calc(100% - 160px),
+    rgba(0, 0, 0, 0.97) calc(100% - 128px),
+    rgba(0, 0, 0, 0.86) calc(100% - 96px),
+    rgba(0, 0, 0, 0.6) calc(100% - 64px),
+    rgba(0, 0, 0, 0.26) calc(100% - 32px),
     transparent
   );
   --shadow-control:
