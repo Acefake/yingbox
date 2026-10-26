@@ -32,4 +32,11 @@ for dir in "${YINGBOX_DATA_DIR:-/config}" "${YINGBOX_CACHE_DIR:-/cache}"; do
   find "$dir" \( ! -user "$puid" -o ! -group "$pgid" \) -exec chown -h "$puid:$pgid" {} +
 done
 
+# 在线板块的下载目录（YINGBOX_DOWNLOAD_DIR，默认 /downloads，ADR-0019）：只改目录本身的属主（-maxdepth 0），
+# 不遍历里面已有的文件（它可能指向片库里的文件夹）；建不了就跳过，由服务在下载时报错
+download_dir="${YINGBOX_DOWNLOAD_DIR:-/downloads}"
+if mkdir -p "$download_dir" 2>/dev/null; then
+  find "$download_dir" -maxdepth 0 \( ! -user "$puid" -o ! -group "$pgid" \) -exec chown -h "$puid:$pgid" {} +
+fi
+
 exec setpriv --reuid="$puid" --regid="$pgid" --clear-groups -- "$@"
