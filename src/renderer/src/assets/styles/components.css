@@ -1,25 +1,10 @@
-/* Tag Styles */
-.status-tag {
-  font-size: var(--text-xs);
-  padding: var(--space-0_5) var(--space-2);
-  border-radius: var(--radius-sm);
-  line-height: 1.25;
-  flex-shrink: 0;
-  font-weight: 600;
-  text-transform: none;
-}
-
-.ui-empty-state,
+/* 在线搜索 / 片源浏览的请求失败提示 */
 .ui-error-state {
   min-height: 220px;
   @apply flex flex-col items-center justify-center;
   gap: var(--space-3);
   padding: var(--space-6);
   text-align: center;
-  color: var(--text-muted);
-}
-
-.ui-error-state {
   color: var(--danger);
 }
 
@@ -55,38 +40,6 @@
   color: var(--text-tertiary);
 }
 
-.yb-chip {
-  display: inline-flex;
-  align-items: center;
-  padding: var(--space-0_5) var(--space-2);
-  border-radius: var(--radius-full);
-  font-size: var(--text-xs);
-  background: var(--bg-fill-secondary);
-  color: var(--text-secondary);
-}
-
-.yb-list-row {
-  display: flex;
-  align-items: center;
-  gap: var(--space-2);
-  padding: var(--space-2) var(--space-4);
-  border-radius: var(--radius-md);
-  background: transparent;
-  border: 1px solid transparent;
-  transition: var(--transition-fast);
-}
-.yb-list-row:hover {
-  background: var(--bg-glass);
-  border-color: transparent;
-}
-
-.yb-muted {
-  color: var(--text-secondary);
-}
-.yb-dim {
-  color: var(--text-tertiary);
-}
-
 .yb-link {
   color: var(--accent-text);
   text-decoration: none;
@@ -95,90 +48,10 @@
   text-decoration: underline;
 }
 
-/* ── Media library shared layout (Movie / TV / Adult) ── */
-.yb-media-shell {
-  position: relative;
-  height: 100%;
-  overflow: hidden;
-  color: var(--text-primary);
-  background: var(--bg-base);
-}
-
-.yb-media-list-pane {
-  position: absolute;
-  left: 0;
-  top: 0;
-  bottom: 0;
-  z-index: var(--z-dropdown);
-  @apply flex flex-col;
-}
-
-.yb-media-detail-pane {
-  position: absolute;
-  inset: 0;
-  z-index: var(--z-float);
-  padding-left: var(--media-sidebar-width);
-}
-
-.yb-media-sidebar {
-  width: var(--media-sidebar-width);
-  min-width: var(--media-sidebar-width);
-  height: 100%;
-  @apply flex flex-col;
-  flex-shrink: 0;
-  border-right: 1px solid var(--separator);
-  background: var(--bg-elevated);
-  color: var(--text-primary);
-  backdrop-filter: none;
-  -webkit-backdrop-filter: none;
-}
-
-.yb-media-canvas {
-  height: 100%;
-  overflow-y: auto;
-  padding: var(--content-padding-y) var(--content-padding-x);
-  background: var(--bg-main);
-}
-
-.yb-media-detail {
-  max-width: 920px;
-}
-
-.yb-media-toolbar {
-  @apply flex flex-wrap items-center;
-  gap: var(--space-2);
-}
-
 @media (max-width: 768px) {
   .ui-poster-grid {
     --poster-min-width: 110px;
     --poster-gap-x: 12px;
     --poster-gap-y: 20px;
-  }
-  .yb-media-list-pane,
-  .yb-media-detail-pane {
-    width: 100%;
-    padding-left: 0;
-  }
-  .yb-media-shell.has-selection .yb-media-list-pane {
-    display: none;
-  }
-  .yb-media-shell:not(.has-selection) .yb-media-detail-pane {
-    display: none;
-  }
-  .yb-media-sidebar {
-    width: 100%;
-    min-width: 0;
-  }
-  .yb-media-canvas {
-    padding: var(--space-4);
-  }
-}
-
-@media (prefers-reduced-transparency: reduce) {
-  .yb-media-sidebar {
-    background: var(--bg-sidebar-solid);
-    backdrop-filter: none;
-    -webkit-backdrop-filter: none;
   }
 }

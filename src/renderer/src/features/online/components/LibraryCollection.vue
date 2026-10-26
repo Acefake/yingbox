@@ -65,10 +65,14 @@ import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 import { asRecord, asText } from '@/utils/json'
-import { readStoredArray } from '@/utils/storage'
+import { readStoredArray, removeStored } from '@/utils/storage'
 import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
+import { FAVORITES_KEY, clearFavorites } from '../composables/favorites'
 import type { OnlineDetailItem, OnlinePlayRecord } from '../types'
+
+/** 在线播放历史（与 DetailWindow / play-progress 同一个键） */
+const HISTORY_KEY = 'online_play_history'
 
 /** 收藏与最近播放共用一种记录形状 */
 type RecentPlayRecord = OnlinePlayRecord
@@ -126,8 +130,7 @@ const normalizeItem = (entry: RecentPlayRecord): OnlineDetailItem => {
 }
 
 const read = (): void => {
-  const key =
-    props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
+  const key = props.kind === 'favorites' ? FAVORITES_KEY : HISTORY_KEY
   const own = readStoredArray<RecentPlayRecord>(key)
   const mapped = own.map((entry, index) => {
     const item = normalizeItem(entry)
@@ -198,9 +201,8 @@ const clear = async (): Promise<void> => {
     danger: true,
   })
   if (!ok) return
-  localStorage.removeItem(
-    props.kind === 'favorites' ? 'media_favorites' : 'online_play_history'
-  )
+  if (props.kind === 'favorites') clearFavorites()
+  else removeStored(HISTORY_KEY)
   read()
 }
 

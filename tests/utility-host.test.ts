@@ -225,22 +225,36 @@ describe('UtilityHost', () => {
         boom: async () => {
           throw new Error('坏了')
         },
+        // 声明返回 Promise、实际同步抛错的实现
+        sync: (() => {
+          throw new Error('同步坏了')
+        }) as () => Promise<unknown>,
       },
     })
     host.start()
     children[0].send({ kind: 'host', id: 5, method: 'dir', args: ['x'] })
     children[0].send({ kind: 'host', id: 6, method: 'nope', args: [] })
     children[0].send({ kind: 'host', id: 7, method: 'boom', args: [] })
+    children[0].send({ kind: 'host', id: 8, method: 'sync', args: [] })
     await vi.advanceTimersByTimeAsync(0)
-    expect(children[0].inbox.filter(m => m.kind === 'reply')).toEqual([
+    const replies = children[0].inbox
+      .filter(m => m.kind === 'reply')
+      .sort((a, b) => ('id' in a && 'id' in b ? a.id - b.id : 0))
+    expect(replies).toEqual([
+      { kind: 'reply', id: 5, ok: true, value: '/data/x' },
       {
         kind: 'reply',
         id: 6,
         ok: false,
         error: { message: '未知主进程能力：nope' },
       },
-      { kind: 'reply', id: 5, ok: true, value: '/data/x' },
       { kind: 'reply', id: 7, ok: false, error: { message: 'Error: 坏了' } },
+      {
+        kind: 'reply',
+        id: 8,
+        ok: false,
+        error: { message: 'Error: 同步坏了' },
+      },
     ])
   })
 

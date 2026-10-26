@@ -76,7 +76,7 @@ const { isElectron, isPhone } = usePlatform()
   position: absolute;
   top: 0;
   left: 0;
-  width: calc(var(--space-6_5) + var(--shell-pill-height) + var(--space-5));
+  width: calc(var(--space-6_5) + var(--shell-pill-height) * 2 + var(--space-5));
   height: 100%;
   pointer-events: none;
   -webkit-app-region: no-drag;

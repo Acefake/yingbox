@@ -61,6 +61,12 @@ export default tseslint.config(
   tseslint.configs.recommended,
   eslintPluginVue.configs['flat/recommended'],
   {
+    // typescript-eslint 的推荐集给 TS 关掉了 no-unreachable（交给 tsc，而 tsc 默认只灰显不报错）。
+    // 重新打开：防 if 漏写花括号导致后面的 return 无条件执行、其后代码全成死代码（#200）。
+    files: ['**/*.{ts,mts,tsx,vue,js,mjs,cjs}'],
+    rules: { 'no-unreachable': 'error' },
+  },
+  {
     // 全仓禁 antd（src 下的分段会带着这条再加各自的禁令）
     files: ['**/*.{ts,mts,tsx,vue,js,mjs,cjs}'],
     rules: { 'no-restricted-imports': ['error', antdImportBan] },
@@ -189,13 +195,7 @@ export default tseslint.config(
     ignores: [
       // 设置层自身：首启迁移读旧值、Web/PWA 模式的浏览器存储
       'src/renderer/src/features/settings/browser-storage.ts',
-      // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存），后续迁到 Engine 的 SQLite
-      'src/renderer/src/features/player/utils/play-progress.ts',
       'src/renderer/src/utils/storage.ts',
-      'src/renderer/src/features/av/composables/use-av-browse.ts',
-      'src/renderer/src/features/online/components/LibraryCollection.vue',
-      'src/renderer/src/features/online/components/SearchTab.vue',
-      'src/renderer/src/features/online/composables/catspider-sites.ts',
     ],
     rules: {
       'no-restricted-globals': [
@@ -212,6 +212,11 @@ export default tseslint.config(
           object: 'window',
           property: 'localStorage',
           message: '设置请用 features/settings 的 useSetting / getSetting。',
+        },
+        {
+          object: 'globalThis',
+          property: 'localStorage',
+          message: '数据存取请用 @/utils/storage。',
         },
         ...fetchPropertyBans,
       ],

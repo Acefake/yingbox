@@ -58,11 +58,11 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 
 import { errorText } from '../api/bridge'
+import { PROGRESS_TOKEN_KEY, progressTokenConfigured } from './progress-token'
 import { syncStatusText } from './progress-sync-rules'
 
 const SYNC_FOOTER =
   '桌面端和 NAS 各记一份观看进度，每 3 分钟按最后观看时间合并一次，同一时间以 NAS 为准。两边的条目按 TMDB 编号或文件指纹对上。'
-const TOKEN_KEY = 'library.progressServerToken'
 
 const api = window.api!.progressSync
 const settings = window.api!.settings
@@ -70,10 +70,7 @@ const server = useSetting('library.progressServer')
 const serverInput = ref(server.value)
 watch(server, value => (serverInput.value = value))
 const tokenInput = ref('')
-const tokenConfigured = ref(settings.snapshot().secrets[TOKEN_KEY])
-settings.onSecretChanged(change => {
-  if (change.key === TOKEN_KEY) tokenConfigured.value = change.configured
-})
+const tokenConfigured = progressTokenConfigured()
 
 const status = ref<ProgressSyncStatus>({
   configured: false,
@@ -101,7 +98,7 @@ async function saveToken(): Promise<void> {
   const value = tokenInput.value.trim()
   if (!value) return
   try {
-    await settings.setSecret(TOKEN_KEY, value)
+    await settings.setSecret(PROGRESS_TOKEN_KEY, value)
     tokenInput.value = ''
     toast.success('已保存令牌')
   } catch (error) {
