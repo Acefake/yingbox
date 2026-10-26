@@ -77,7 +77,7 @@
       </template>
     </div>
 
-    <!-- 浮动控件：顶部渐隐带、返回圆钮（Hero 在身后时取深色，滚到页面底色上回主题色）、底部分区胶囊 -->
+    <!-- 浮动控件：顶部渐隐带、返回圆钮（Hero 在身后时取深色，滚到页面底色上回主题色）、底部分区胶囊（滚过 Hero 才出现） -->
     <div
       class="lib-detail-edge yb-media-swap"
       :class="{ 'yb-on-media': edgeOnMedia }"
@@ -95,6 +95,7 @@
       v-if="node && tabs.length > 2"
       :tabs="tabs"
       :active="activeTab"
+      :shown="!edgeOnMedia"
       @jump="jumpTo"
     />
   </div>
@@ -106,8 +107,7 @@
  * 头图（大背景 + 渐进模糊、标志、播放 / 想看、简介、规格行与主演导演），剧集卡横排（按季切换），
  * 剧照横排（点开灯箱），圆头像演职员，版本，关于（信息卡 + 文件卡）。
  * 浮动控件：左上玻璃返回圆钮（外壳拖拽条在这一块不可拖，见 AppToolbar 的 .toolbar-hole），
- * 管理操作在头图操作行下面（DetailActions），
- * 底部玻璃胶囊做页内分区导航（滚动时跟随当前分区，点了滚过去）。
+ * 管理操作在头图操作行下面（DetailActions），底部玻璃胶囊做页内分区导航（滚过 Hero 才出现，跟随当前分区）。
  * 播放接 openMediaPlayer（播放弹窗 / mpv），去码接 features/lada（use-restore）。
  *
  * 同一作品在几个文件夹里时引擎已合并成一棵树，DetailVersions 选播放哪个版本 / 来源、拆出误合并的。

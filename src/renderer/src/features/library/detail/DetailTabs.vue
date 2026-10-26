@@ -1,6 +1,12 @@
 <template>
-  <!-- 底部玻璃胶囊：页内分区导航，选中项是更亮的内胶囊 -->
-  <nav class="lib-detail-tabs yb-glass" aria-label="页内分区">
+  <!-- 底部玻璃胶囊：页内分区导航，选中项是更亮的内胶囊；首屏（Hero 在身后）时淡出且不可聚焦 -->
+  <nav
+    class="lib-detail-tabs yb-glass"
+    :class="{ 'is-concealed': !shown }"
+    aria-label="页内分区"
+    :aria-hidden="shown ? undefined : 'true'"
+    :inert="!shown"
+  >
     <UiPressable
       v-for="tab in tabs"
       :key="tab.key"
@@ -16,7 +22,8 @@
 <script setup lang="ts">
 /**
  * 详情页底部的分区胶囊（效果图 D-1）：在内容区（侧栏右边）居中，压在文字上所以玻璃更厚；
- * 窄屏隐藏。选中与滚动跟随在 use-detail-tabs。
+ * 窄屏隐藏。首屏它会盖住第一排剧集卡，所以 Hero 还在身后时淡出，滚过 Hero 再出现（状态来自 useHeroBackdrop）。
+ * 选中与滚动跟随在 use-detail-tabs。
  */
 import UiPressable from '@/components/ui/UiPressable.vue'
 
@@ -26,6 +33,8 @@ defineProps<{
   tabs: DetailTab[]
   /** 当前分区 */
   active: DetailTabKey
+  /** 是否显示；false 时淡出并移出焦点顺序 */
+  shown: boolean
 }>()
 const emit = defineEmits<{ jump: [key: DetailTabKey] }>()
 </script>
@@ -44,6 +53,19 @@ const emit = defineEmits<{ jump: [key: DetailTabKey] }>()
   /* 压在文字上，玻璃要更厚才读得清（降低透明度时 --glass-bg 即实色，结果仍是实色） */
   background: color-mix(in srgb, var(--glass-solid) 70%, var(--glass-bg));
   transform: translateX(-50%);
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    visibility 0s;
+}
+.lib-detail-tabs.is-concealed {
+  visibility: hidden;
+  opacity: 0;
+  transform: translate(-50%, var(--space-3));
+  transition:
+    opacity var(--duration-normal) var(--ease-out),
+    transform var(--duration-normal) var(--ease-out),
+    visibility 0s var(--duration-normal);
 }
 .lib-detail-tab {
   height: var(--shell-pill-height);
