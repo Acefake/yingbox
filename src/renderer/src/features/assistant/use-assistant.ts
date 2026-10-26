@@ -137,9 +137,11 @@ export function errorText(error: unknown): string | null {
       return '私密内容只发给本地模型，当前的 AI 服务不是本地的。'
     case 'timeout':
       return 'AI 响应超时了，再说一次试试。'
+    case 'truncated':
+      return 'AI 模型想得太久，没来得及回答。再问一次，或在设置里换个更快的模型。'
     case 'bad_json':
     case 'bad_response':
-      return '没听懂这句话，换个说法试试。'
+      return '模型返回的格式不对，这次没能处理。再问一次，或在设置里换个模型。'
     default:
       return 'AI 暂时连不上，稍后再试。'
   }
@@ -292,6 +294,8 @@ export function useAssistant(deps: AssistantDeps): UseAssistant {
     } catch (error) {
       if (!live()) return
       const text = errorText(error)
+      // 原始返回（前 500 字）在错误说明里：F12 打开开发者工具的控制台可以看到，便于反馈
+      if (text) console.warn('[assistant] AI 调用失败', error)
       if (error instanceof AiCallError && error.code === 'not_configured')
         needsSetup.value = true
       notice.value = text ?? ''

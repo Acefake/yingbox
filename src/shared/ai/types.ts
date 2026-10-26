@@ -148,6 +148,8 @@ export type AiErrorCode =
   | 'bad_response'
   /** 要求 JSON 但解析失败 */
   | 'bad_json'
+  /** 思考型模型把输出额度用光，没有给出回答 */
+  | 'truncated'
 
 /** 全部错误码 */
 export const AI_ERROR_CODES: readonly AiErrorCode[] = [
@@ -159,6 +161,7 @@ export const AI_ERROR_CODES: readonly AiErrorCode[] = [
   'network',
   'bad_response',
   'bad_json',
+  'truncated',
 ]
 
 /**

@@ -141,26 +141,75 @@ export function buildAnswerMessages(
   ]
 }
 
-/** chatJson 的粗结构校验：是对象就交给 parseIntent 细查 */
-export function isIntentShape(data: unknown): data is Record<string, unknown> {
-  return !!data && typeof data === 'object' && !Array.isArray(data)
+const isRecord = (value: unknown): value is Record<string, unknown> =>
+  !!value && typeof value === 'object' && !Array.isArray(value)
+
+/**
+ * 模型输出 → 意图对象，容忍常见的外壳：`[{…}]` 取第一个对象，
+ * `{ "intent": {…} }` / `{ "result": {…} }` 这类只包了一层的取里面那层。认不出时返回 null。
+ */
+export function intentObject(data: unknown): Record<string, unknown> | null {
+  const first = Array.isArray(data) ? data.find(isRecord) : data
+  if (!isRecord(first)) return null
+  if ('action' in first) return first
+  const inner = Object.values(first).filter(isRecord)
+  return inner.length === 1 && 'action' in inner[0] ? inner[0] : first
 }
 
-const str = (value: unknown): string =>
-  typeof value === 'string' ? value.trim() : ''
+/** chatJson 的粗结构校验：能认出意图对象就交给 parseIntent 细查 */
+export function isIntentShape(data: unknown): data is object {
+  return intentObject(data) !== null
+}
 
-/** 原始输出 → 通用参数槽（类型不对的当没给） */
+/** 字符串槽：字符串去空白，数字转文字，其余当空 */
+const str = (value: unknown): string =>
+  typeof value === 'string'
+    ? value.trim()
+    : typeof value === 'number' && Number.isFinite(value)
+      ? String(value)
+      : ''
+
+/** 数字槽：数字或数字字符串（"1.5"） */
+function num(value: unknown): number | null {
+  if (typeof value === 'number') return Number.isFinite(value) ? value : null
+  if (typeof value !== 'string' || !value.trim()) return null
+  const parsed = Number(value.trim())
+  return Number.isFinite(parsed) ? parsed : null
+}
+
+/** 开关槽：布尔，或 "true" / "false" / "on" / "off" / "开" / "关" / 1 / 0 */
+function bool(value: unknown): boolean | null {
+  if (typeof value === 'boolean') return value
+  if (value === 1 || value === 0) return value === 1
+  if (typeof value !== 'string') return null
+  const text = value.trim().toLowerCase()
+  if (['true', 'on', '开', '打开', '1'].includes(text)) return true
+  if (['false', 'off', '关', '关闭', '0'].includes(text)) return false
+  return null
+}
+
+/** 原始输出 → 通用参数槽（类型不对的尽量转，转不了当没给） */
 export function rawSlots(raw: Record<string, unknown>): SkillRaw {
   return {
     text: clipText(str(raw.text)),
     target: str(raw.target),
     command: str(raw.command),
-    value:
-      typeof raw.value === 'number' && Number.isFinite(raw.value)
-        ? raw.value
-        : null,
-    on: typeof raw.on === 'boolean' ? raw.on : null,
+    value: num(raw.value),
+    on: bool(raw.on),
   }
+}
+
+/** 动作名查表：先精确匹配，再忽略大小写与首尾空白 */
+function findAction(
+  table: Map<string, SkillAction>,
+  name: string
+): { id: string; action: SkillAction } | null {
+  const exact = table.get(name)
+  if (exact) return { id: name, action: exact }
+  const lower = name.toLowerCase()
+  for (const [id, action] of table)
+    if (id.toLowerCase() === lower) return { id, action }
+  return null
 }
 
 /**
@@ -171,15 +220,15 @@ export function parseIntent(
   skills: readonly AssistantSkill[]
 ): ParsedIntent {
   const answer: ParsedIntent = { intent: { kind: 'answer' }, reply: '' }
-  if (!isIntentShape(raw)) return answer
-  const id = str(raw.action)
-  const action = actionTable(skills).get(id)
-  if (!action) return answer
-  const params = action.parse(rawSlots(raw))
+  const data = intentObject(raw)
+  if (!data) return answer
+  const found = findAction(actionTable(skills), str(data.action))
+  if (!found) return answer
+  const params = found.action.parse(rawSlots(data))
   if (params === null || params === undefined) return answer
   return {
-    intent: { kind: 'action', id, action, params },
-    reply: clipText(str(raw.reply), 60),
+    intent: { kind: 'action', id: found.id, action: found.action, params },
+    reply: clipText(str(data.reply), 60),
   }
 }
 
