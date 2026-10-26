@@ -8,6 +8,7 @@ import { type Ref, reactive, ref } from 'vue'
 
 import type { Api } from '../../../../../shared/contract'
 import type {
+  MagnetItem,
   NetdiskItem,
   ShareSnap,
 } from '../../../../../shared/contract/pan115'
@@ -47,7 +48,8 @@ export interface ShareActions {
   isSaving(url: string): boolean
   isSaved(url: string): boolean
   save(item: NetdiskItem): Promise<void>
-  copy(item: NetdiskItem): Promise<void>
+  /** 复制 115 分享（补提取码）或磁力 / 电驴链接 */
+  copy(item: NetdiskItem | MagnetItem): Promise<void>
 }
 
 export function useShareActions(deps: ShareActionDeps): ShareActions {
@@ -103,9 +105,11 @@ export function useShareActions(deps: ShareActionDeps): ShareActions {
     }
   }
 
-  async function copy(target: NetdiskItem): Promise<void> {
+  async function copy(target: NetdiskItem | MagnetItem): Promise<void> {
     try {
-      await deps.clipboard().writeText(shareText(target))
+      await deps
+        .clipboard()
+        .writeText('link' in target ? target.link : shareText(target))
       deps.notify.success('已复制链接')
     } catch {
       deps.notify.error('复制失败，请手动复制链接')

@@ -5,7 +5,7 @@
  * | 桌面端（Electron）                         | 独立服务（本目录）                                   |
  * | ------------------------------------------ | ---------------------------------------------------- |
  * | 分区 persist:pan115 的 session.fetch        | Node fetch + 持久化 Cookie 罐（node-transport.ts）    |
- * | safeStorage 密钥 pan115.session             | secrets.json 的 pan115.session（0600）               |
+ * | safeStorage 密钥 pan115.session / torznab    | secrets.json 的同名键（0600；Torznab 可用环境变量兜底）|
  * | settings.json                               | server-settings.json（settings-store，0600）         |
  * | ipcMain / webContents.send                  | HTTP RPC / SSE（domains/）                           |
  * | userData/autograb*.json                     | <dataDir>/autograb*.json                              |
@@ -31,6 +31,12 @@ import {
   createPan115Service,
 } from '../../main/pan115/service'
 import { parseSession, serializeSession } from '../../main/pan115/session-codec'
+import {
+  TORZNAB_SECRET_KEY,
+  parseTorznabSecret,
+  serializeTorznabSecret,
+  torznabFromEnv,
+} from '../../main/pan115/torznab-secret'
 import { DomainRegistry } from '../domains/registry'
 import { registerDomainRoutes } from '../domains/routes'
 import type { Router } from '../http/router'
@@ -61,7 +67,7 @@ export interface NetdiskOptions {
   service: LibraryService
   router: Router
   log(message: string): void
-  /** 115 与 PanSou 的底层 fetch（缺省全局 fetch）；测试注入 */
+  /** 115 与 PanSou / Torznab 的底层 fetch（缺省全局 fetch）；测试注入 */
   fetch?: FetchLike
 }
 
@@ -126,7 +132,7 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
   })
   const pan115 = createPan115Service({
     transport,
-    pansouFetch: send,
+    lanFetch: send,
     settings: {
       pansouUrl: () => settings.get('pan115.pansouUrl'),
       targetCid: () => settings.get('pan115.targetCid'),
@@ -135,6 +141,13 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
       read: () => parseSession(secrets.get(PAN115_SESSION_KEY) ?? ''),
       write: async value =>
         secrets.set(PAN115_SESSION_KEY, serializeSession(value) || null),
+    },
+    torznab: {
+      read: () =>
+        parseTorznabSecret(secrets.get(TORZNAB_SECRET_KEY)) ??
+        torznabFromEnv(env),
+      write: async value =>
+        secrets.set(TORZNAB_SECRET_KEY, serializeTorznabSecret(value) || null),
     },
   })
   void pan115.restore().catch(() => {})

@@ -62,6 +62,7 @@ describe('默认值', () => {
       'danmaku.appSecret': false,
       'library.progressServerToken': false,
       'pan115.session': false,
+      'pan115.torznab': false,
       'notify.bark.key': false,
       'notify.telegram.token': false,
     })
