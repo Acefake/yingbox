@@ -264,8 +264,15 @@ describe('parseIntent：严格校验', () => {
     expect(kind({ action: 'player.control', command: 'rate', value: 10 })).toBe(
       'answer'
     )
+    // 数字写成字符串按数字读（模型常这样输出），仍要过范围校验
     expect(
       kind({ action: 'player.control', command: 'rate', value: '2' })
+    ).toBe('player.control')
+    expect(
+      kind({ action: 'player.control', command: 'rate', value: '10' })
+    ).toBe('answer')
+    expect(
+      kind({ action: 'player.control', command: 'rate', value: '快' })
     ).toBe('answer')
     expect(kind({ action: 'player.control', command: 'shutdown' })).toBe(
       'answer'
