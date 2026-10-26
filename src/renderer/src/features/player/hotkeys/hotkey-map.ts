@@ -1,7 +1,7 @@
 /**
- * 播放弹窗的键盘快捷键与双击手势（照 YouTube 网页播放器）：按键 → 动作的纯映射，不碰 DOM。
+ * 播放会话的键盘快捷键与双击手势（照 YouTube 网页播放器）：按键 → 动作的纯映射，不碰 DOM。
  *
- * 空格 / K 播放暂停，J / L ±10 秒，← / → ±5 秒，↑ / ↓ 音量 ±5%，M 静音，F 全屏，I 缩成小窗，
+ * 空格 / K 播放暂停，J / L ±10 秒，← / → ±5 秒，↑ / ↓ 音量 ±5%，M 静音，F 全屏，I 窗口置顶，
  * C 字幕，0–9 跳到 0%–90%，< / > 调速，Shift+N 下一集。
  * 输入法组字中（isComposing / keyCode 229）、焦点在输入框里、带 Ctrl / ⌘ / Alt 的组合键一律不处理。
  */
@@ -14,7 +14,7 @@ export type HotkeyAction =
   | { kind: 'volume'; delta: number }
   | { kind: 'mute' }
   | { kind: 'fullscreen' }
-  | { kind: 'mini' }
+  | { kind: 'pin' }
   | { kind: 'subtitle' }
   | { kind: 'rate'; dir: 1 | -1 }
   | { kind: 'next' }
@@ -44,7 +44,7 @@ const LETTER_ACTIONS: Record<string, HotkeyAction> = {
   l: { kind: 'seek', delta: 10 },
   m: { kind: 'mute' },
   f: { kind: 'fullscreen' },
-  i: { kind: 'mini' },
+  i: { kind: 'pin' },
   c: { kind: 'subtitle' },
 }
 

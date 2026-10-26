@@ -2,8 +2,7 @@
  * 把快捷键与双击手势接到一个播放器实例上（映射见 hotkey-map.ts），动作后在画面中央短暂显示反馈
  * （图标 + 文字，如「快进 10 秒」「音量 45%」，见 hotkey-osd.css）。
  *
- * 键盘监听挂在 window 上：弹窗显示时焦点在弹窗任何位置都生效（enabled 由播放会话给：缩在小窗里、
- * 焦点在别的对话框里时不生效）。Artplayer 自带的快捷键关着（art-options 的 hotkey: false）。
+ * 键盘监听挂在 window 上：焦点在播放台任何位置都生效（enabled 由播放会话给：焦点在别的对话框里时不生效）。Artplayer 自带的快捷键关着（art-options 的 hotkey: false）。
  * 双击：Artplayer 第一下单击已经切了播放 / 暂停，这里先切回来，再按位置后退 / 快进 10 秒或切全屏。
  */
 import type Artplayer from 'artplayer'
@@ -23,12 +22,12 @@ import './hotkey-osd.css'
 
 /** 快捷键里交给播放会话做的事 */
 export interface HotkeyHandlers {
-  /** 这次按键是否归播放器（弹窗显示中、不在小窗、焦点不在别的对话框） */
+  /** 这次按键是否归播放器（焦点不在别的对话框） */
   enabled: (event: KeyboardEvent) => boolean
   /** 下一集；没有下一集时为 null */
   next: (() => void) | null
-  /** 缩成小窗；不能缩时为 null */
-  mini: (() => void) | null
+  /** 切换窗口置顶；不能置顶时为 null */
+  pin: (() => void) | null
   /** 字幕开关（没有字幕时打开在线字幕面板） */
   subtitle: () => void
 }
@@ -116,8 +115,8 @@ function run(
     case 'fullscreen':
       art.fullscreen = !art.fullscreen
       return
-    case 'mini':
-      handlers.mini?.()
+    case 'pin':
+      handlers.pin?.()
       return
     case 'subtitle':
       handlers.subtitle()

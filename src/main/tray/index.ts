@@ -33,8 +33,6 @@ import { watchReporter } from './reporter'
 
 /** installTray 需要的窗口操作（窗口生命周期归 src/main/index.ts） */
 export interface TrayHost {
-  /** 主窗口（关闭后为 null） */
-  getMainWindow: () => { webContents: WebContents } | null
   /** 显示并聚焦主窗口；已关闭时重新创建 */
   showMainWindow: () => void
 }
@@ -63,9 +61,10 @@ export function installTray(host: TrayHost): void {
   let unwatchReporter: (() => void) | null = null
   let warnedPermission = false
 
+  /** 命令发给正在报状态的那个窗口（播放器窗口，或跟着 mpv 的主窗口） */
   const send = (command: MediaCommand): void => {
-    const target = host.getMainWindow()
-    if (target) emit(nowPlaying, 'command', command, target.webContents)
+    if (reporter && !reporter.isDestroyed())
+      emit(nowPlaying, 'command', command, reporter)
   }
 
   const run = (action: TrayAction): void => {

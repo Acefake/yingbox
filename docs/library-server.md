@@ -35,7 +35,7 @@
 | `nativeImage` 缩放               | wasm 解码 + 缩放（编解码线程）                        |
 | safeStorage 存 TMDB 令牌         | `<数据目录>/secrets.json`（0600）+ 环境变量           |
 | 系统文件夹对话框                 | `/api/fs/dirs`：只在媒体根目录内浏览                  |
-| 内置播放器 / mpv                 | 同一个播放弹窗 + `/media/files/<id>` Range 流         |
+| 内置播放器 / mpv                 | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流         |
 
 ### 接口一览
 

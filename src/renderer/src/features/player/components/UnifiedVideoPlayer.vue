@@ -1,10 +1,7 @@
 <template>
   <div
     class="unified-player"
-    :class="{
-      'unified-player--no-controls': !controls,
-      'unified-player--compact': compact,
-    }"
+    :class="{ 'unified-player--no-controls': !controls }"
     @click.stop
   >
     <div class="unified-player-stage">
@@ -16,7 +13,6 @@
         :private="aiPrivate"
         :start-at="startAt"
         :player="artInstance"
-        :compact="compact"
       />
     </div>
     <div v-if="showFooter && (closable || title)" class="unified-player-footer">
@@ -67,7 +63,7 @@
 /**
  * 统一播放器：Artplayer 外壳 + hls.js（HLS）+ 字幕（本地自动挂载 / 在线搜索）+ 续播与倍速记忆。
  * 实例在 utils/art-core.ts（可交接），构造参数与纯规则在 utils/art-options.ts，字幕在 usePlayerSubtitles；
- * 这里只管加载、销毁与事件转发。缩成小窗时整个组件随播放弹窗的节点一起搬走，实例不重建。
+ * 这里只管加载、销毁与事件转发。
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type Artplayer from 'artplayer'
@@ -89,7 +85,6 @@ import {
   createArtCore,
   destroyArtCore,
 } from '../utils/art-core'
-import { closePlaybackInfo } from '../playback-info/playback-info'
 import { installSeekThumbnails } from '../seek-thumbnails/seek-thumbnails'
 import { installSettingsMenu } from '../settings-menu/install-menu'
 import { isHlsUrl, shouldResume } from '../utils/art-options'
@@ -119,8 +114,6 @@ const props = withDefaults(
     subtitleEpisode?: number
     /** 来自私密板块：AI 字幕的翻译 / 云端转写只发给本地模型（按设置） */
     aiPrivate?: boolean
-    /** 缩在小窗里：前情提要提示卡不挂，问剧情面板按容器收窄，字幕 / 弹幕面板与播放信息不打开 */
-    compact?: boolean
     /** 弹幕匹配用的当前条目；不传则不显示弹幕 */
     danmakuTarget?: DanmakuTarget | null
     /** 强制按 HLS 播放（直播接口地址常不带 .m3u8 扩展名） */
@@ -140,7 +133,6 @@ const props = withDefaults(
     subtitleSeason: undefined,
     subtitleEpisode: undefined,
     aiPrivate: false,
-    compact: false,
     danmakuTarget: null,
     hls: false,
   }
@@ -193,25 +185,13 @@ const aiSubtitle = useAiSubtitle({
 /** 当前 Artplayer 实例（前情提要 / 问剧情读进度、加菜单入口） */
 const artInstance = (): ArtCore['art'] | null => core?.art ?? null
 
-/** 小窗里放不下的面板一律不打开，给一句提示（展开后再从控制栏打开） */
-const blockedByCompact = (): boolean => {
-  if (!props.compact) return false
-  if (core) core.art.notice.show = '展开播放器后再打开'
-  return true
-}
 const openSubtitlePanel = (): void => {
-  if (blockedByCompact()) return
   if (!subtitles.panelOpen.value) subtitles.togglePanel()
 }
-/** 底栏「在线字幕」按钮：关闭总是允许，打开受小窗限制 */
-const toggleSubtitlePanel = (): void => {
-  if (subtitles.panelOpen.value) subtitles.togglePanel()
-  else openSubtitlePanel()
-}
+/** 底栏「在线字幕」按钮 */
+const toggleSubtitlePanel = (): void => subtitles.togglePanel()
 const danmaku = useDanmaku({ target: () => props.danmakuTarget })
-const openDanmakuPanel = (): void => {
-  if (!blockedByCompact()) danmaku.openPanel()
-}
+const openDanmakuPanel = (): void => danmaku.openPanel()
 
 const posterSrc = computed(() => props.poster?.trim() || '')
 
@@ -240,7 +220,6 @@ const sink: ArtSink = {
   },
   autoplay: () => props.autoplay,
   subtitles: openSubtitlePanel,
-  compact: () => props.compact,
 }
 
 /** 拆掉实例（连同字幕 blob） */
@@ -327,26 +306,6 @@ watch(
   source => {
     void createPlayer(source || '')
   }
-)
-
-// 缩进角落小窗：字幕、弹幕面板和播放信息比小窗还大，收起来（展开后从控制栏再打开）
-watch(
-  () => props.compact,
-  compact => {
-    if (compact && core) closePlaybackInfo(core.art)
-  }
-)
-// 小窗期间面板保持收起：入口已拦住，这里兜住其它途径（如开弹幕时没匹配自动弹出搜索）
-watch(
-  () =>
-    props.compact &&
-    (subtitles.panelOpen.value || danmaku.state.panelOpen.value),
-  overflow => {
-    if (!overflow) return
-    subtitles.panelOpen.value = false
-    danmaku.state.panelOpen.value = false
-  },
-  { immediate: true }
 )
 
 watch(

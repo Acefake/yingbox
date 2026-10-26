@@ -2,6 +2,7 @@
 /**
  * 播放器遥控（AI 助手用）：不在播放 / 外置播放器时只给说明；播放中开关弹幕、调不透明度走设置，
  * 字幕开关、倍速、跳过片头设在当前实例上，睡眠定时走 sleep-timer；问剧情交给登记的入口。
+ * 这里是播放会话就在本页的情形（网页端播放层）；桌面端经播放器窗口转发见 player-window.test.ts。
  */
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -15,16 +16,16 @@ vi.mock('@/features/settings', () => ({
 import type Artplayer from 'artplayer'
 
 import {
-  closePlayerModal,
-  openPlayerModal,
-} from '../src/renderer/src/features/player/modal/player-modal'
-import {
   askPlotQuestion,
-  attachPlayerRemote,
-  attachPlotQa,
+  closePlayer,
+  openPlayer,
   playerNowPlaying,
   playerRemoteState,
   runPlayerCommand,
+} from '../src/renderer/src/features/player/host/player-host'
+import {
+  attachPlayerRemote,
+  attachPlotQa,
 } from '../src/renderer/src/features/player/remote/player-remote'
 import { setSkipMarks } from '../src/renderer/src/features/player/skip/skip-store'
 
@@ -68,34 +69,36 @@ beforeEach(() => {
 afterEach(() => {
   detach?.()
   detach = null
-  closePlayerModal()
+  closePlayer()
 })
 
 const play = (isPrivate = false): void =>
-  openPlayerModal({ url: 'local://a.mp4', private: isPrivate } as never)
+  openPlayer({ url: 'local://a.mp4', private: isPrivate })
 
 describe('不在播放 / 外置播放器', () => {
-  it('没有播放弹窗：说明没在播', () => {
+  it('没有播放层：说明没在播', async () => {
     expect(playerRemoteState().playing).toBe(false)
-    expect(runPlayerCommand({ kind: 'rate', value: 2 })).toEqual({
+    expect(await runPlayerCommand({ kind: 'rate', value: 2 })).toEqual({
       ok: false,
       text: '现在没有正在播放的视频',
     })
   })
 
-  it('有弹窗但没有内置实例（外置 mpv）：不能控制', () => {
+  it('有播放层但没有内置实例（外置 mpv）：不能控制', async () => {
     play()
     expect(playerRemoteState()).toMatchObject({
       playing: true,
       controllable: false,
     })
-    expect(runPlayerCommand({ kind: 'danmaku', on: false }).ok).toBe(false)
+    expect((await runPlayerCommand({ kind: 'danmaku', on: false })).ok).toBe(
+      false
+    )
     expect(settings.set).not.toHaveBeenCalled()
   })
 })
 
 describe('播放中', () => {
-  it('弹幕开关与不透明度写设置，并在播放器上提示', () => {
+  it('弹幕开关与不透明度写设置，并在播放器上提示', async () => {
     play()
     const art = fakeArt()
     detach = attachPlayerRemote({
@@ -104,17 +107,17 @@ describe('播放中', () => {
       title: () => '测试片',
       private: false,
     })
-    expect(runPlayerCommand({ kind: 'danmaku', on: false })).toEqual({
+    expect(await runPlayerCommand({ kind: 'danmaku', on: false })).toEqual({
       ok: true,
       text: '已关闭弹幕',
     })
     expect(settings.set).toHaveBeenCalledWith('danmaku.enabled', false)
     expect(art.notice.show).toBe('已关闭弹幕')
-    runPlayerCommand({ kind: 'danmakuOpacity', value: 0.83 })
+    await runPlayerCommand({ kind: 'danmakuOpacity', value: 0.83 })
     expect(settings.set).toHaveBeenLastCalledWith('danmaku.opacity', 0.85)
   })
 
-  it('字幕：没有字幕时说明，有字幕时切换显示', () => {
+  it('字幕：没有字幕时说明，有字幕时切换显示', async () => {
     play()
     const art = fakeArt()
     detach = attachPlayerRemote({
@@ -123,13 +126,17 @@ describe('播放中', () => {
       title: () => '测试片',
       private: false,
     })
-    expect(runPlayerCommand({ kind: 'subtitle', on: true }).ok).toBe(false)
+    expect((await runPlayerCommand({ kind: 'subtitle', on: true })).ok).toBe(
+      false
+    )
     art.subtitle.url = 'blob:sub'
-    expect(runPlayerCommand({ kind: 'subtitle', on: true }).ok).toBe(true)
+    expect((await runPlayerCommand({ kind: 'subtitle', on: true })).ok).toBe(
+      true
+    )
     expect(art.subtitle.show).toBe(true)
   })
 
-  it('倍速夹到 0.25–4 并按 0.25 取整', () => {
+  it('倍速夹到 0.25–4 并按 0.25 取整', async () => {
     play()
     const art = fakeArt()
     detach = attachPlayerRemote({
@@ -138,13 +145,13 @@ describe('播放中', () => {
       title: () => '测试片',
       private: false,
     })
-    runPlayerCommand({ kind: 'rate', value: 1.6 })
+    await runPlayerCommand({ kind: 'rate', value: 1.6 })
     expect(art.playbackRate).toBe(1.5)
-    runPlayerCommand({ kind: 'rate', value: 9 })
+    await runPlayerCommand({ kind: 'rate', value: 9 })
     expect(art.playbackRate).toBe(4)
   })
 
-  it('跳过片头：在片头里跳到片头结束，不在片头时说明', () => {
+  it('跳过片头：在片头里跳到片头结束，不在片头时说明', async () => {
     play()
     const art = fakeArt()
     setSkipMarks('剧:test', { intro: { start: 10, end: 95 } })
@@ -154,16 +161,16 @@ describe('播放中', () => {
       title: () => '测试片',
       private: false,
     })
-    expect(runPlayerCommand({ kind: 'skipIntro' })).toEqual({
+    expect(await runPlayerCommand({ kind: 'skipIntro' })).toEqual({
       ok: true,
       text: '已跳过片头',
     })
     expect(art.seek).toBe(95)
     art.currentTime = 200
-    expect(runPlayerCommand({ kind: 'skipIntro' }).ok).toBe(false)
+    expect((await runPlayerCommand({ kind: 'skipIntro' })).ok).toBe(false)
   })
 
-  it('睡眠定时：没有装定时菜单的实例时说明', () => {
+  it('睡眠定时：没有装定时菜单的实例时说明', async () => {
     play()
     detach = attachPlayerRemote({
       art: fakeArt() as unknown as Artplayer,
@@ -171,10 +178,12 @@ describe('播放中', () => {
       title: () => '测试片',
       private: false,
     })
-    expect(runPlayerCommand({ kind: 'sleep', choice: 30 }).ok).toBe(false)
+    expect((await runPlayerCommand({ kind: 'sleep', choice: 30 })).ok).toBe(
+      false
+    )
   })
 
-  it('实例销毁后自动撤下；私密播放标记', () => {
+  it('实例销毁后自动撤下；私密播放标记', async () => {
     play(true)
     const art = fakeArt()
     detach = attachPlayerRemote({
@@ -199,14 +208,14 @@ describe('播放中', () => {
 })
 
 describe('问剧情', () => {
-  it('播放中交给登记的入口；撤下或不在播放时返回 false', () => {
+  it('播放中交给登记的入口；撤下或不在播放时返回 false', async () => {
     const ask = vi.fn(() => true)
     const off = attachPlotQa(ask)
-    expect(askPlotQuestion('他是谁')).toBe(false)
+    expect(await askPlotQuestion('他是谁')).toBe(false)
     play()
-    expect(askPlotQuestion('他是谁')).toBe(true)
+    expect(await askPlotQuestion('他是谁')).toBe(true)
     expect(ask).toHaveBeenCalledWith('他是谁')
     off()
-    expect(askPlotQuestion('他是谁')).toBe(false)
+    expect(await askPlotQuestion('他是谁')).toBe(false)
   })
 })

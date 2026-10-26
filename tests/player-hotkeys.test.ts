@@ -25,7 +25,7 @@ describe('播放器快捷键映射', () => {
     expect(resolveHotkey(key('ArrowRight'))).toEqual({ kind: 'seek', delta: 5 })
   })
 
-  it('↑ / ↓ 音量 ±5%，M 静音，F 全屏，I 小窗，C 字幕', () => {
+  it('↑ / ↓ 音量 ±5%，M 静音，F 全屏，I 置顶，C 字幕', () => {
     expect(resolveHotkey(key('ArrowUp'))).toEqual({
       kind: 'volume',
       delta: 0.05,
@@ -36,7 +36,7 @@ describe('播放器快捷键映射', () => {
     })
     expect(resolveHotkey(key('m'))).toEqual({ kind: 'mute' })
     expect(resolveHotkey(key('f'))).toEqual({ kind: 'fullscreen' })
-    expect(resolveHotkey(key('i'))).toEqual({ kind: 'mini' })
+    expect(resolveHotkey(key('i'))).toEqual({ kind: 'pin' })
     expect(resolveHotkey(key('c'))).toEqual({ kind: 'subtitle' })
   })
 

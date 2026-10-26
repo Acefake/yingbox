@@ -32,6 +32,15 @@ export default defineConfig({
       },
     },
     plugins: [vue()],
+    // 主窗口（index.html）与独立播放器窗口（player.html）两个页面
+    build: {
+      rollupOptions: {
+        input: {
+          index: resolve('src/renderer/index.html'),
+          player: resolve('src/renderer/player.html'),
+        },
+      },
+    },
     optimizeDeps: {
       include: ['vue', 'vue-router'],
     },

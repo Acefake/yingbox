@@ -7,7 +7,6 @@
     </router-view>
   </AppLayout>
   <MpvLoadingOverlay />
-  <MiniPlayer />
   <PlayerModal />
   <SectionLockGate />
   <AssistantLauncher />
@@ -16,6 +15,6 @@
 <script setup lang="ts">
 import { AssistantLauncher } from '@/features/assistant'
 import { AppLayout } from '@/features/shell'
-import { MiniPlayer, MpvLoadingOverlay, PlayerModal } from '@/features/player'
+import { MpvLoadingOverlay, PlayerModal } from '@/features/player'
 import { SectionLockGate } from '@/features/section-lock'
 </script>

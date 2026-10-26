@@ -10,10 +10,10 @@ import { useOnlineSearch } from '@/features/online'
 import type { ContinueRecord } from '@/features/player'
 import type { PluginExt } from '@/utils/vod-data'
 import {
-  closePlayerModal,
   getMediaProgress,
   openMediaPlayer,
-  playerModal,
+  playerSession,
+  closePlayer as stopPlayer,
 } from '@/features/player'
 import { type MissavStream, resolveMissav } from '../api/missav'
 import type { AvVideo } from '../utils/av-catalog'
@@ -219,13 +219,12 @@ export function useAvPlayback(): UseAvPlaybackReturn {
   const closePlayer = (): void => {
     playingVideo.value = null
     playingUrl.value = ''
-    closePlayerModal()
+    stopPlayer()
   }
 
-  /** 全局「后退」：播放弹窗开着（没缩成小窗）时先关播放器。 */
+  /** 全局「后退」：播放层盖在页面上（网页端）时先关播放器；桌面端在独立窗口里播，不拦。 */
   const onNavigateBack = (event: Event): void => {
-    const modal = playerModal().value
-    if (!modal || modal.minimized) return
+    if (!playerSession().value?.inPage) return
     closePlayer()
     event.preventDefault()
   }

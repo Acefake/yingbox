@@ -374,6 +374,9 @@ describe('接线', () => {
     expect(tray).not.toMatch(/\.send\(/)
     expect(tray).not.toMatch(/before-quit/)
     expect(tray).toMatch(/watchReporter\(sender/)
+    // 命令发给正在报状态的窗口（独立播放器窗口，或跟着 mpv 的主窗口），不再固定发给主窗口
+    expect(tray).toMatch(/emit\(nowPlaying, 'command', command, reporter\)/)
+    expect(tray).not.toMatch(/getMainWindow/)
   })
 
   it('PlayerSession 只接一次 composable，<video> 经 attach 交出去', () => {
@@ -384,7 +387,7 @@ describe('接线', () => {
     expect(session).toMatch(/@ready="media\.attach"/)
     // 换集期间旧视频的 ended / error 不推动队列
     expect(session).toMatch(
-      /onEnded = async[^]*?if \(!media\.accepts\(event\)\) return/
+      /onEnded = \(event: Event\)[^]*?if \(!media\.accepts\(event\)\) return/
     )
     expect(session).toMatch(
       /onError = async[^]*?if \(!media\.accepts\(event\)\) return/

@@ -51,7 +51,7 @@ export interface SkipSegmentsInput {
   hasNext: () => boolean
   /** 播放下一集（PlayerSession 的 playNext）；返回 Promise 时等它完成才结束切集中 */
   playNext: () => Promise<unknown> | void
-  /** 这一集已播完、等着连播（PlayerSession 判定：有下一集、睡眠定时没拦、不在小窗） */
+  /** 这一集已播完、等着连播（PlayerSession 判定：有下一集、睡眠定时没拦） */
   ended?: () => boolean
   /** 播完卡片上点了「取消」 */
   onCancelEnded?: () => void
