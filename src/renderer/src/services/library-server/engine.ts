@@ -5,6 +5,7 @@
 import { watch } from 'vue'
 import type { Domain, DomainApi } from '../../../../shared/contract/define'
 import { streamProxyPath } from '../../../../shared/engine-http'
+import { splitStreamHeaders } from '../../../../shared/net/stream-headers'
 import { type EngineBridge, createEngineBridge } from './engine-bridge'
 import { openServerEvents } from './events'
 import { isWebRuntime, libraryServerState, serverFetch } from './index'
@@ -42,16 +43,18 @@ export function webEngineApi<D extends Domain>(domain: D): DomainApi<D> | null {
 /**
  * 网页端播放远程媒体的地址：别的源的 http(s) 地址经服务的 /api/stream 代理（带防盗链头、m3u8 改写、Range），
  * 同源地址（片库 /media/files、已经代理过的）与 blob: / data: 原样返回。桌面端原样返回。
+ * 直播线路的 `|User-Agent=…&Referer=…` 后缀拆开，作为代理的 ua / referer 参数。
  */
 export function webPlayableUrl(url: string): string {
   if (!isWebRuntime() || !url) return url
+  const line = splitStreamHeaders(url)
   let target: URL
   try {
-    target = new URL(url, window.location.href)
+    target = new URL(line.url, window.location.href)
   } catch {
     return url
   }
   if (!['http:', 'https:'].includes(target.protocol)) return url
   if (target.origin === window.location.origin) return url
-  return streamProxyPath(target.href)
+  return streamProxyPath(target.href, line.headers)
 }

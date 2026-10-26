@@ -5,6 +5,10 @@
  * 失败时给出具体原因（连接超时 / HTTP 状态码 / 内网地址被拦 / 网络错误），渲染层据此提示与换线。
  */
 import { refererFor } from '../../shared/net/media-referer'
+import {
+  splitStreamHeaders,
+  toRequestHeaders,
+} from '../../shared/net/stream-headers'
 import type { NetClient } from '../../shared/net/client'
 import { BlockedTargetError } from '../../shared/net/guard'
 import {
@@ -68,13 +72,14 @@ async function readHead(
 /**
  * 探测一条直播线路。
  * @param net 出网客户端（主进程与播放代理同一个）
- * @param url 线路地址
+ * @param line 线路地址；可带 `|User-Agent=…&Referer=…`（线路自带的请求头，见 net/stream-headers）
  */
 export async function probeStream(
   net: NetClient,
-  url: string,
+  line: string,
   options: ProbeOptions = {}
 ): Promise<StreamProbe> {
+  const { url, headers: lineHeaders } = splitStreamHeaders(line)
   if (isExternalOnlyUrl(url))
     return { ok: true, kind: kindFromUrl(url) ?? 'mpegts', finalUrl: url }
   const connectMs = options.connectMs ?? PROBE_CONNECT_MS
@@ -83,6 +88,7 @@ export async function probeStream(
   const headers: Record<string, string> = {}
   const referer = refererFor(url)
   if (referer) headers.Referer = referer
+  Object.assign(headers, toRequestHeaders(lineHeaders))
   try {
     const { response, url: finalUrl } = await net.open(url, {
       method: 'GET',

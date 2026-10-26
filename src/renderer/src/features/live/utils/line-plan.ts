@@ -4,6 +4,8 @@
  *
  * HLS 交给 hls.js，清单与分片由桌面加载器经 yingbox-stream:// 代理（解决 IPTV 源没有 CORS 头、只有 http、
  * 需要 Referer 的问题）；MP4 / WebM 同样经代理地址交给 <video>。
+ * 线路地址可带 `|User-Agent=…&Referer=…`（频道自带的头）：hls 与网页端原样交给播放器（hls-session / webPlayableUrl
+ * 拆开后带给代理），video 直接换成带 ua / referer 参数的代理地址。
  */
 import {
   type StreamKind,
@@ -13,6 +15,10 @@ import {
   streamKindLabel,
 } from '../../../../../shared/iptv/stream-kind'
 import type { StreamProbe } from '../../../../../shared/contract/iptv'
+import {
+  type StreamHeaders,
+  splitStreamHeaders,
+} from '../../../../../shared/net/stream-headers'
 import { streamUrl } from '../../../../../shared/stream-url'
 import { isLikelyHls } from './live-rules'
 
@@ -20,7 +26,7 @@ import { isLikelyHls } from './live-rules'
 export interface LinePlan {
   /** hls：hls.js；video：<video> 直连；external：内置播放器播不了（可交给 mpv）；fail：线路不通 */
   mode: 'hls' | 'video' | 'external' | 'fail'
-  /** 交给播放器的地址（hls 用原地址，由加载器代理；video 用代理地址） */
+  /** 交给播放器的地址（hls 用原地址（含请求头后缀），由加载器代理；video 用代理地址） */
   src: string
   /** 失败 / 不支持的原因 */
   reason: string
@@ -70,9 +76,9 @@ export function probeFailureText(url: string, probe: StreamProbe): string {
 }
 
 /** 经播放代理的地址；地址不合规（带账号密码等）时原样返回 */
-function proxied(url: string): string {
+function proxied(url: string, headers?: StreamHeaders): string {
   try {
-    return streamUrl(url)
+    return streamUrl(url, headers)
   } catch {
     return url
   }
@@ -80,10 +86,11 @@ function proxied(url: string): string {
 
 /**
  * 决定一条线路的播法。
- * @param url 线路地址
+ * @param line 线路地址（可带请求头后缀）
  * @param probe 主进程探测结果；null 表示没有探测能力（按地址扩展名猜）
  */
-export function planLine(url: string, probe: StreamProbe | null): LinePlan {
+export function planLine(line: string, probe: StreamProbe | null): LinePlan {
+  const { url, headers } = splitStreamHeaders(line)
   if (isExternalOnlyUrl(url))
     return {
       mode: 'external',
@@ -91,15 +98,15 @@ export function planLine(url: string, probe: StreamProbe | null): LinePlan {
       reason: '组播 / RTMP 等协议，内置播放器不支持',
     }
   if (!probe)
-    return { mode: isLikelyHls(url) ? 'hls' : 'video', src: url, reason: '' }
+    return { mode: isLikelyHls(url) ? 'hls' : 'video', src: line, reason: '' }
   if (!probe.ok)
     return { mode: 'fail', src: url, reason: probeFailureText(url, probe) }
   const kind = probe.kind ?? 'unknown'
   switch (playbackFor(kind)) {
     case 'hls':
-      return { mode: 'hls', src: url, reason: '', kind }
+      return { mode: 'hls', src: line, reason: '', kind }
     case 'video':
-      return { mode: 'video', src: proxied(url), reason: '', kind }
+      return { mode: 'video', src: proxied(url, headers), reason: '', kind }
     case 'external':
       return {
         mode: 'external',

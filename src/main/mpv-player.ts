@@ -12,7 +12,7 @@ import {
 } from './mpv-props'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
 import { MpvWindow } from './mpv-window'
-import { refererFor } from './media-headers'
+import { mpvStream } from './mpv-stream'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
 import type { Anime4kConfig } from '../shared/anime4k'
@@ -84,7 +84,9 @@ class MpvPlayer extends EventEmitter {
     this.emit('status', this.getStatus())
     try {
       if (this.child && this.sock.connected) {
-        await this.cmd('loadfile', target, 'replace')
+        const stream = mpvStream(options)
+        for (const [k, v] of stream.props) await this.setProp(k, v)
+        await this.cmd('loadfile', stream.target, 'replace')
         if (typeof options.startAt === 'number')
           await this.setProp('time-pos', options.startAt)
         if (options.subFile)
@@ -104,7 +106,7 @@ class MpvPlayer extends EventEmitter {
   private async spawnProcess(options: MpvOpenOptions): Promise<void> {
     if (this.child) void killTree(this.child)
     const exe = findMpvExecutable()
-    const target = options.filePath || options.url!
+    const { target, args: streamArgs } = mpvStream(options)
 
     const args: string[] = [
       `--input-ipc-server=${SOCKET_PATH}`,
@@ -128,9 +130,7 @@ class MpvPlayer extends EventEmitter {
       args.push(`--start=${options.startAt}`)
     if (options.title) args.push(`--title=${options.title}`)
     if (options.subFile) args.push(`--sub-file=${options.subFile}`)
-    // 防盗链 CDN（MissAV）：mpv 不经 Chromium 会话，Referer 要自己带
-    const referer = options.url ? refererFor(options.url) : undefined
-    if (referer) args.push(`--referrer=${referer}`)
+    args.push(...streamArgs) // 防盗链 Referer、线路自带的 UA
     args.push(target)
 
     this.child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })

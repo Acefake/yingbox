@@ -2,10 +2,21 @@
  * 直播源解析（纯函数）：m3u / m3u8 播放列表与 TVBox 风格 txt。
  *
  * - m3u：`#EXTM3U x-tvg-url="…"` 头给出节目单地址；`#EXTINF` 行带 tvg-id / tvg-name / tvg-logo / group-title，
- *   逗号后是频道名，下一条非注释行是地址；`#EXTGRP` 也可指定分组。
+ *   逗号后是频道名，下一条非注释行是地址（`$` 之后是备注，去掉）；`#EXTGRP` 也可指定分组；
+ *   按频道写的 User-Agent / Referer（#EXTVLCOPT、#KODIPROP、#EXTHTTP、地址后缀 `|…`）见 playlist-headers.ts。
  * - txt：`分组,#genre#` 开一个分组，`频道名,地址` 是一条线路；地址可用 `#` 写多条，`$` 之后是线路备注。
  * 同名频道（忽略大小写与空白）合并成一个，多个地址作为线路，按出现顺序排列。只保留 http / https 地址。
+ * 带请求头的线路地址形如 `地址|User-Agent=…&Referer=…`（规范写法见 shared/net/stream-headers）。
  */
+import {
+  type StreamHeaders,
+  splitStreamHeaders,
+} from '../../../../../shared/net/stream-headers'
+import {
+  headersFromAttrs,
+  headersFromDirective,
+  lineUrl,
+} from './playlist-headers'
 
 /** 一个频道（多个地址 = 多条线路） */
 export interface LiveChannel {
@@ -87,7 +98,9 @@ function createCollector(): {
   const byKey = new Map<string, LiveChannel>()
   return {
     add(channel, urls) {
-      const playable = urls.map(url => url.trim()).filter(isPlayableUrl)
+      const playable = urls
+        .map(url => lineUrl(url.trim()))
+        .filter(url => isPlayableUrl(splitStreamHeaders(url).url))
       const key = channelKey(channel.name)
       if (!key || !playable.length) return
       const existing = byKey.get(key)
@@ -111,6 +124,8 @@ export function parseM3u(text: string): ParsedPlaylist {
   const epgUrls: string[] = []
   let pending: { attrs: Record<string, string>; title: string } | null = null
   let groupLine = ''
+  /** 上一条地址之后出现的请求头指令（可写在 #EXTINF 前后） */
+  let directive: StreamHeaders | undefined
 
   for (const rawLine of text.split(/\r?\n/)) {
     const line = rawLine.trim()
@@ -123,7 +138,10 @@ export function parseM3u(text: string): ParsedPlaylist {
       groupLine = ''
     } else if (/^#EXTGRP:/i.test(line)) {
       groupLine = line.slice(8).trim()
-    } else if (!line.startsWith('#') && pending) {
+    } else if (line.startsWith('#')) {
+      const headers = headersFromDirective(line)
+      if (headers) directive = { ...directive, ...headers }
+    } else if (pending) {
       const { attrs, title } = pending
       const name = title || attrs['tvg-name'] || ''
       collector.add(
@@ -134,9 +152,10 @@ export function parseM3u(text: string): ParsedPlaylist {
           tvgName: attrs['tvg-name'] || undefined,
           logo: attrs['tvg-logo'] || undefined,
         },
-        [line]
+        [lineUrl(line, { ...headersFromAttrs(attrs), ...directive })]
       )
       pending = null
+      directive = undefined
     }
   }
   return {
