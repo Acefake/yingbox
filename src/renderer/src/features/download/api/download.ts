@@ -1,12 +1,14 @@
 /**
  * 下载队列（引擎 download 域）的渲染层封装：响应式快照 + 增删重试。
- * 快照随引擎事件更新；Web 模式没有引擎，available 为 false。
+ * 快照随引擎事件更新；桌面端走 IPC，网页端走片库服务上的引擎（下载到服务配置的下载目录）。
  */
 import { onScopeDispose, shallowRef } from 'vue'
-import type {
-  AddResult,
-  DownloadSnapshot,
+import {
+  type AddResult,
+  type DownloadSnapshot,
+  download,
 } from '../../../../../shared/contract/download'
+import { webEngineApi } from '@/services/library-server/engine'
 
 const EMPTY: DownloadSnapshot = { queued: [], completed: [], failed: [] }
 
@@ -29,7 +31,12 @@ export function useDownloads(): {
   remove: (code: string) => Promise<void>
   retry: (code: string) => Promise<AddResult>
 } {
-  const api = typeof window !== 'undefined' ? window.api?.download : undefined
+  const api =
+    typeof window === 'undefined'
+      ? undefined
+      : window.api
+        ? window.api.download
+        : (webEngineApi(download) ?? undefined)
   const snapshot = shallowRef<DownloadSnapshot>(EMPTY)
   if (api) {
     api.onChanged(next => (snapshot.value = next))
@@ -42,7 +49,7 @@ export function useDownloads(): {
     return result
   }
   const unavailable = (): never => {
-    throw new Error('下载需要桌面端')
+    throw new Error('下载不可用')
   }
   return {
     available: Boolean(api),

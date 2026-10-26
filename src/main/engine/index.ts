@@ -13,7 +13,8 @@ import { av } from '../../shared/contract/av'
 import { channelOf } from '../../shared/contract/define'
 import { download } from '../../shared/contract/download'
 import { online } from '../../shared/contract/online'
-import { type EngineChild, EngineHost, forwardTo } from './host'
+import { forwardTo } from './forward'
+import { type EngineChild, EngineHost } from './host'
 import { resumePendingDownloads } from './pending-downloads'
 
 /** 注册引擎域（online、av、download）。 */

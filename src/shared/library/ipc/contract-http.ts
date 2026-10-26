@@ -32,7 +32,24 @@ export const LIBRARY_HTTP = {
   focus: '/media/focus',
   /** POST { url, focus } → 204：写回人脸检测的焦点 */
   focusSave: '/media/focus/save',
+  /** GET /media/subtitles/<fileId> → SubtitleListing；GET /media/subtitles/<fileId>/<文件名> → text/vtt */
+  subtitles: '/media/subtitles/',
 } as const
+
+/** 视频旁的一条外挂字幕（服务端只给文件名，不给路径）。 */
+export interface ServerSubtitle {
+  /** 展示名（文件名去掉扩展名，含语言后缀）。 */
+  name: string
+  /** 小写扩展名，如 .srt。 */
+  ext: string
+  /** 转成 WebVTT 后的地址（/media/subtitles/<fileId>/<文件名>）。 */
+  url: string
+}
+
+/** 一个视频的外挂字幕，按默认挂载的优先级排好（同名优先）。 */
+export interface SubtitleListing {
+  subtitles: ServerSubtitle[]
+}
 
 /** 健康检查。 */
 export interface ServerHealth {

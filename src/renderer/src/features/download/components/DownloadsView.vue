@@ -27,7 +27,7 @@
     <StatusState
       v-if="!downloads.available"
       icon="download"
-      title="下载需要桌面端"
+      title="下载不可用"
     />
     <StatusState
       v-else-if="!rows.length"

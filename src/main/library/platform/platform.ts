@@ -43,11 +43,11 @@ export interface LibraryPlatform {
   ai?: IdentifyModuleOptions['ai']
   /** 远程源（WebDAV / Alist）客户端；桌面端向主进程要凭据后建，独立服务不提供。 */
   remote?: RemoteClients
-  /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；桌面端提供，独立服务不提供。 */
+  /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；桌面端向主进程要路径，独立服务读环境变量 / PATH。 */
   probeVideo?: LibraryServiceOptions['probeVideo']
   /** ffmpeg 路径（按画面搜的视频抽帧用）；没有为空串。桌面端向主进程要，独立服务读环境变量 / PATH。 */
   ffmpegPath?: () => Promise<string>
-  /** 新入库宣布、自动字幕设置、字幕流探测（见 arrivals/intake.ts）；桌面端提供，独立服务不提供。 */
+  /** 新入库宣布、自动字幕设置、字幕流探测（见 arrivals/intake.ts）；独立服务只在打开自动字幕时提供后两项。 */
   intake?: IntakeOptions
 }
 

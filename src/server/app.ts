@@ -3,14 +3,16 @@
  *
  * 返回一个 `fetch(Request) => Response`，入口（index.ts）把它挂到 node:http 上；单测直接调它，不占端口。
  * 与桌面端的对应关系：
- * | 桌面端（Electron）                         | 独立服务（Node）                              |
- * | ------------------------------------------ | --------------------------------------------- |
- * | utilityProcess + MessagePort IPC           | 同进程 LibraryService + HTTP RPC / SSE         |
- * | net.fetch（Chromium）                      | Node fetch / curl(-impersonate) / 自定义模块   |
- * | nativeImage 缩放                           | wasm 解码 + 缩放（编解码线程）                 |
- * | safeStorage 存 TMDB 令牌                   | secrets.json（0600）+ 环境变量                 |
- * | 系统文件夹对话框                           | /api/fs/dirs 在媒体根目录内浏览               |
- * | 内置播放器 / mpv                           | 网页 <video> + /media/files Range 流           |
+ * | 桌面端（Electron）                          | 独立服务（Node）                               |
+ * | ------------------------------------------- | ---------------------------------------------- |
+ * | utilityProcess + MessagePort IPC            | 同进程 LibraryService + HTTP RPC / SSE         |
+ * | net.fetch（Chromium）                       | Node fetch / curl(-impersonate) / 自定义模块   |
+ * | nativeImage 缩放                            | wasm 解码 + 缩放（编解码线程）                 |
+ * | safeStorage 存 TMDB 令牌                    | secrets.json（0600）+ 环境变量                 |
+ * | 系统文件夹对话框                            | /api/fs/dirs 在媒体根目录内浏览                |
+ * | 内置播放器 / mpv                            | 网页 <video> + /media/files Range 流           |
+ * | 在线引擎 utilityProcess + yingbox-stream:// | child_process 引擎 + /api/engine + /api/stream |
+ * | subtitle:find / read（外挂字幕转 WebVTT）   | /media/subtitles/<fileId>[/<文件名>]           |
  */
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -36,11 +38,14 @@ import type { Handler } from './http/adapter'
 import { createAuth, sameOrigin } from './http/auth'
 import { HttpError, Router, fail } from './http/router'
 import { createStaticHandler } from './http/static'
+import { serverLibraryHost } from './library-host'
 import { startNetdisk } from './netdisk'
 import { registerFsRoutes } from './routes/fs'
 import { registerLibraryRoutes } from './routes/library'
 import { registerMediaRoutes } from './routes/media'
+import { type OnlineDeps, registerOnline } from './online'
 import { registerSessionRoutes } from './routes/session'
+import { registerSubtitleRoutes } from './routes/subtitles'
 import { FileSecretStore, SECRET_KEYS, ensureServerToken } from './secrets'
 
 /** 组装好的服务。 */
@@ -61,6 +66,8 @@ export interface ServerAppOptions {
   fetch?: HttpFetch
   /** 编解码实现；缺省起 webp-worker 线程，线程文件不存在时在当前线程执行。 */
   codec?: Codec
+  /** 在线引擎（测试注入；缺省 fork 子进程，见 online/engine.ts）。 */
+  engine?: OnlineDeps['engine']
   /** 是否监控媒体库目录（false 时不监听也不定时扫描），默认按 config.monitor。 */
   watch?: boolean
   env?: NodeJS.ProcessEnv
@@ -104,8 +111,8 @@ export async function createServerApp(
       log: message => log(`[library] ${message}`),
       deriveImage: codecDeriver(codec),
       clipPixels: codecClipPixels(codec),
-      // 按画面搜抽视频帧：YINGBOX_FFMPEG 或 PATH 上的 ffmpeg（找不到时抽帧任务报错，不影响别的）
-      ffmpegPath: async () => env.YINGBOX_FFMPEG || 'ffmpeg',
+      // ffprobe 动态范围探测、按画面搜抽帧、自动中文字幕（见 library-host.ts）
+      ...serverLibraryHost(env),
       onImagesCached: keys => thumbnails.warm(keys),
       env: envSecrets(env),
     },
@@ -133,7 +140,20 @@ export async function createServerApp(
     mediaRoots: config.mediaRoots,
   })
   registerMediaRoutes(router, { service, thumbnails })
+  registerSubtitleRoutes(router, service)
   registerFsRoutes(router, config.mediaRoots)
+  // 在线板块（引擎 + 播放代理），见 online/index.ts
+  const online = registerOnline(router, {
+    dataDir: config.dataDir,
+    env,
+    tmdbToken: () =>
+      secrets.get(SECRET_KEYS.tmdbToken)?.trim() ||
+      env.YINGBOX_TMDB_TOKEN ||
+      env.VITE_TMDB_ACCESS_TOKEN ||
+      '',
+    log,
+    engine: options.engine,
+  })
   // 网盘 / 追更 / 库外发现（开关 YINGBOX_NETDISK、YINGBOX_AUTOGRAB，见 netdisk/）
   const netdisk = startNetdisk({
     dataDir: config.dataDir,
@@ -181,6 +201,7 @@ export async function createServerApp(
     token,
     tokenGenerated: generated,
     close: async () => {
+      await online.close()
       netdisk?.close()
       await service.close()
     },
