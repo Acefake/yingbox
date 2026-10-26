@@ -29,9 +29,9 @@ function remainingText(record: ContinueRecord): string {
   return `剩 ${minutes} 分钟`
 }
 
-/** 记录对应的片库条目 id（在线 / 网页源的记录没有） */
+/** 记录对应的片库条目 id：片库记录的详情是 { itemId }，在线等其它板块的记录没有 */
 export function continueItemId(record: ContinueRecord): number | null {
-  if (record.section === 'online' || record.section === 'av') return null
+  if (record.section === 'online') return null
   const itemId = (record.detail as { itemId?: unknown } | undefined)?.itemId
   return typeof itemId === 'number' ? itemId : null
 }

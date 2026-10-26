@@ -118,7 +118,9 @@ describe('继续观看卡片', () => {
   it('只有片库板块的记录对得上条目 id', () => {
     expect(continueItemId(record({}))).toBe(1000)
     expect(continueItemId(record({ section: 'online' }))).toBeNull()
-    expect(continueItemId(record({ section: 'av' }))).toBeNull()
+    expect(
+      continueItemId(record({ section: 'av', detail: { url: 'x' } }))
+    ).toBeNull()
     expect(continueItemId(record({ detail: undefined }))).toBeNull()
   })
 })
