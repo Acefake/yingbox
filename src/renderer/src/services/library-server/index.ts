@@ -71,6 +71,25 @@ export function probeLibraryServer(): Promise<LibraryServerState> {
   return probing
 }
 
+/**
+ * 再探一次服务（事件流被浏览器放弃后用）：在线 / 需要登录时更新连接状态；连不上时不改状态（服务多半在重启），
+ * 只返回 'offline'，由调用方过一会儿再探。
+ */
+export async function probeLibraryServerAgain(): Promise<
+  Exclude<LibraryServerState, 'unknown'>
+> {
+  try {
+    const response = await fetch(LIBRARY_HTTP.health, {
+      credentials: 'same-origin',
+    })
+    if (!response.ok) return 'offline'
+    const health = (await response.json()) as ServerHealth
+    return (state.value = health.authorized ? 'online' : 'unauthorized')
+  } catch {
+    return 'offline'
+  }
+}
+
 /** 用令牌登录（成功后服务写 Cookie）。令牌不对时抛错。 */
 export async function loginLibraryServer(token: string): Promise<void> {
   const response = await fetch(LIBRARY_HTTP.session, {
