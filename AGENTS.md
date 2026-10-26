@@ -73,9 +73,7 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 
 ### Preload (`src/preload/index.ts`)
 
-Exposes `window.api` only, namespaced: `file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`.
-
-**Sandboxed preload:** only `electron` may be imported — no npm packages (a sandboxed preload cannot `require` them).
+Exposes `window.api` only, namespaced: `file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`. **Sandboxed preload:** only `electron` may be imported — no npm packages (a sandboxed preload cannot `require` them).
 
 ### Renderer (`src/renderer/src/`)
 
@@ -89,9 +87,9 @@ Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`; catch-all → `/`.
 
 ### Engine (`src/engine/`)
 
-Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`, and stopped again after 5 idle minutes (`ENGINE_IDLE_MS` in `src/main/engine/host.ts`): idle means no call in flight and the engine has not reported `busy` (the download queue reports busy while a task is running or queued). The next call waits for the old process to exit, then forks a fresh one; a shutdown that takes longer than 5 s is killed. Domains: `online` (CMS sites, CatSpider plugins, VOD parse, Douban browse: `online.doubanBrowse(query, start)` in `online/douban-browse.ts` — quick tags → `movie.douban.com/j/search_subjects`, any genre / region / era / sort / min-rating filter → `m.douban.com/rexxar/api/v2/<movie|tv>/recommend`; the query whitelist is `src/shared/douban/query.ts`, pages cached 10 min, per-host breaker; the renderer side is `features/online/composables/use-douban-feed.ts`: module singleton, infinite scroll via `UiVirtualGrid` `reach-end`, de-dup by subject URL, query remembered in `sessionStorage`), `download` (HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard); `cf-page.ts` classifies challenge vs hard-block pages and `host-breaker.ts` is the per-host breaker, both shared with the main process. Plugin sources that trip report `unavailable` to the renderer, which skips them in search and marks them in the source list. Replaces the former Go backend on 127.0.0.1:31471, removed in p3d. cheerio is loaded on first HTML parse only, through `src/shared/html/cheerio.ts` (both utilityProcesses and the standalone server); elsewhere import it as `import type` only. The CatSpider `$cache` is per plugin and persisted under `userData/online/plugin-storage/` (`online/plugin-storage.ts`: one file per plugin URL, 30-day TTL, 256 KB per plugin, atomic writes).
+Runs in an Electron `utilityProcess`, started on first use by `src/main/engine`, and stopped again after 5 idle minutes (`ENGINE_IDLE_MS` in `src/main/engine/host.ts`): idle means no call in flight and the engine has not reported `busy` (the download queue reports busy while a task is running or queued). The next call waits for the old process to exit, then forks a fresh one; a shutdown that takes longer than 5 s is killed. Domains: `online` (CMS sites, CatSpider plugins, VOD parse, Douban browse via `online.doubanBrowse`), `download` (HLS download with AES-128, JSON atomic queue in `userData/downloads/queue.json`, optional ffmpeg remux). All outbound HTTP goes through `src/shared/net` (SSRF guard); `cf-page.ts` classifies challenge vs hard-block pages and `host-breaker.ts` is the per-host breaker, both shared with the main process. Plugin sources that trip report `unavailable` to the renderer, which skips them in search and marks them in the source list. Replaces the former Go backend on 127.0.0.1:31471, removed in p3d. cheerio is loaded on first HTML parse only, through `src/shared/html/cheerio.ts` (both utilityProcesses and the standalone server); elsewhere import it as `import type` only. Douban browse, the CatSpider `$cache` and download resume details: [docs/online-engine.md](docs/online-engine.md).
 
-Downloads resume (`src/engine/download/resume.ts`: HLS `<file>.partial` + `.partial.segs`; links ending in `.mp4`-style extensions go to `direct.ts` with `.partial.json` and `Range` + `If-Range`; file formats and restart rules in ADR-0006). Each task records its download root (`DownloadTask.dir`) the first time it starts, and retries, resumes and removal use that root even after the setting changes (tasks that never started use the current one). Failures and cancels keep the temp files for the next attempt; removing a task deletes them; after `queue.load()` the engine sweeps the current root and every task's root (`sweep.ts`) for orphan `.partial[.segs|.json]` files untouched for 7 days; the ffmpeg remux writes `.mp4.partial` then renames. At startup main reads the queue file and wakes the engine when tasks are unfinished (`src/main/engine/pending-downloads.ts`).
+Downloads resume (`src/engine/download/resume.ts`, ADR-0006); each task keeps the download root it started in (`DownloadTask.dir`); failures and cancels keep temp files, removal deletes them, orphans older than 7 days are swept (`sweep.ts`); main wakes the engine at startup when the queue has unfinished tasks.
 
 ### Library sections
 
@@ -99,7 +97,7 @@ Movie libraries carry a `source` fixed at creation (migration v4 adds `libraries
 
 ### Library server (`src/server/`, web / NAS)
 
-The same library core runs in a plain Node process for the web build. Host differences live in `src/main/library/platform` (`LibraryPlatform` + `createLibraryService`; outbound fetch is `node` (undici) / `curl[:path]` (curl-impersonate) / `module:<path>`, picked by `YINGBOX_FETCH`). The server (`app.ts` wiring, `config.ts` flags/env, `http/` router + Bearer/Cookie auth + static, `routes/` library rpc + SSE, media, fs) exposes `POST /api/library/rpc` with exactly the IPC contract (validation reused from `engine/rpc.ts`), SSE `/api/library/events`, `/media/image|thumb|files` (Range) and `/api/fs/dirs` (confined to media roots); default bind `127.0.0.1:31480` (any other host needs an explicit ≥24-char token, `exposure.ts`; token sources in the doc). Thumbnails use the wasm pipeline (`thumbnails/wasm-resizer.ts`, codec worker) instead of `nativeImage`. In the renderer, `features/library/api/bridge.ts` picks IPC (`window.api.library`) or `http-bridge.ts`; `services/library-server` owns login/state/media URLs (the only other place allowed to `fetch`); web-only UI: `page/ServerConnect.vue`, `settings/FolderBrowser.vue`; playback goes through `openMediaPlayer` with `/media/files` URLs. Wire format: `src/shared/library/ipc/contract-http.ts`. Deployment, config table, proxy: `docs/library-server.md`; Docker / NAS: `docs/deploy/nas.md` (ADR-0010). Checks: `scripts/smoke-server.mjs` (offline, manual), `scripts/web-e2e.mjs` (Playwright, manual).
+The same library core runs in a plain Node process for the web build / NAS; host differences live in `src/main/library/platform`. `POST /api/library/rpc` carries exactly the IPC contract (plus SSE, `/media/*`, `/api/fs/dirs`); the online engine (ADR-0019) and netdisk domains (ADR-0020) are served as well. Default bind `127.0.0.1:31480`; any other host needs an explicit ≥24-char token. In the renderer, `features/library/api/bridge.ts` picks IPC or `http-bridge.ts`; `services/library-server` owns login/state/media URLs and is the only other place allowed to `fetch`. Code layout, endpoints, flags and checks: [docs/library-server.md](docs/library-server.md); Docker / NAS: [docs/deploy/nas.md](docs/deploy/nas.md) (ADR-0010).
 
 ### App settings
 
@@ -113,9 +111,7 @@ The same library core runs in a plain Node process for the web build. Host diffe
 
 ### Build pipeline
 
-`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). `extraResources` ships mpv only.
-
-Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm build`.
+`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). `extraResources` ships mpv only. Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm build`.
 
 ### Tech stack
 
