@@ -1,22 +1,44 @@
 /**
  * 网页端契约域 transport（services/server-domains/client.ts）：调用走 POST /api/domains/<域>/<方法>，
- * 失败抛人话；on<Key> 第一次订阅才开事件流，按域 + 事件分派，off<Key> 去掉该事件的回调，全退订后关流。
+ * 失败抛人话；on<Key> 第一次订阅才开事件流，按域 + 事件分派，off<Key> 去掉该事件的回调，全退订后关流；
+ * 事件流自己关掉后，resume() 或新订阅重新打开。
  */
-import { describe, expect, it, vi } from 'vitest'
+import { type Mock, describe, expect, it, vi } from 'vitest'
 
 import {
   createDomainClients,
   eventKeyOf,
 } from '../../src/renderer/src/services/server-domains/client'
 
-function setup(reply: (path: string, body: unknown) => Response) {
+/** 测试夹具：记录请求，手动推送 / 关掉事件流。 */
+interface Harness {
+  clients: ReturnType<typeof createDomainClients>
+  requests: Array<{ path: string; body: unknown }>
+  openEvents: Mock<
+    (
+      url: string,
+      onData: (data: string) => void,
+      onClosed: () => void
+    ) => { close: () => void }
+  >
+  close: Mock<() => void>
+  push: (data: unknown) => void
+  /** 模拟事件流自己关掉（服务没就绪时 EventSource 被关） */
+  drop: () => void
+}
+
+function setup(reply: (path: string, body: unknown) => Response): Harness {
   const requests: Array<{ path: string; body: unknown }> = []
   let push: (data: string) => void = () => {}
-  const close = vi.fn()
-  const openEvents = vi.fn((_url: string, onData: (data: string) => void) => {
-    push = onData
-    return { close }
-  })
+  let drop: () => void = () => {}
+  const close = vi.fn<() => void>()
+  const openEvents = vi.fn(
+    (_url: string, onData: (data: string) => void, onClosed: () => void) => {
+      push = onData
+      drop = onClosed
+      return { close }
+    }
+  )
   const clients = createDomainClients({
     request: async (path, init) => {
       const body = JSON.parse(String(init.body))
@@ -31,6 +53,7 @@ function setup(reply: (path: string, body: unknown) => Response) {
     openEvents,
     close,
     push: (d: unknown) => push(JSON.stringify(d)),
+    drop: () => drop(),
   }
 }
 
@@ -90,6 +113,29 @@ describe('createDomainClients', () => {
     expect(close).not.toHaveBeenCalled()
     movies.offChanged()
     expect(close).toHaveBeenCalledTimes(1)
+  })
+
+  it('事件流自己关掉后，服务恢复在线（resume）或新订阅会重新打开', () => {
+    const { clients, openEvents, push, drop } = setup(() =>
+      Response.json({ ok: true, value: null })
+    )
+    const autograb = clients.domain('autograb')
+    const seen = vi.fn()
+    autograb.onChanged(seen)
+    expect(openEvents).toHaveBeenCalledTimes(1)
+    drop()
+    clients.resume()
+    expect(openEvents).toHaveBeenCalledTimes(2)
+    push({ domain: 'autograb', event: 'changed', payload: 3 })
+    expect(seen).toHaveBeenCalledWith(3)
+    drop()
+    clients.domain('pan115').onStatus(() => {})
+    expect(openEvents).toHaveBeenCalledTimes(3)
+    autograb.offChanged()
+    clients.domain('pan115').offStatus()
+    drop()
+    clients.resume()
+    expect(openEvents).toHaveBeenCalledTimes(3)
   })
 
   it('then / toJSON / Vue 标记不是方法（不会被当成 thenable）', async () => {

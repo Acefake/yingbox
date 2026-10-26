@@ -2,7 +2,8 @@
  * 网页端的片库 transport：实现与 window.api.library 相同的 LibraryBridge，经 HTTP 调独立片库服务。
  *
  * - 调用：POST /api/library/rpc { method, params } → InvokeResult，方法与参数与桌面端 IPC 一字不差；
- * - 事件：一个 EventSource（SSE），断线由浏览器自动重连；
+ * - 事件：一个 EventSource（SSE），断线由浏览器自动重连；事件流自己关掉（服务没就绪）后，
+ *   新订阅或 resume()（服务恢复在线时调用）重新打开；
  * - 错误：与 preload 一样把错误码编进消息（[library:code] 原因），界面照旧用 errorText / libraryErrorCode。
  *
  * 依赖以参数注入（请求函数、EventSource 构造），单测用假的实现。
@@ -29,8 +30,21 @@ export interface EventStream {
 /** 依赖。 */
 export interface HttpBridgeDeps {
   request: HttpRequest
-  /** 打开事件流，每条消息的 data 交给 onData。 */
-  openEvents: (url: string, onData: (data: string) => void) => EventStream
+  /**
+   * 打开事件流，每条消息的 data 交给 onData；事件流自己关掉（不再重连）时调用 onClosed，
+   * bridge 据此丢掉它，之后的订阅或 resume() 会重新打开。
+   */
+  openEvents: (
+    url: string,
+    onData: (data: string) => void,
+    onClosed: () => void
+  ) => EventStream
+}
+
+/** 网页端 bridge：LibraryBridge 加上事件流的恢复。 */
+export interface HttpLibraryBridge extends LibraryBridge {
+  /** 还有订阅却没有事件流（之前自己关掉了）时重新打开；服务恢复在线时调用 */
+  resume(): void
 }
 
 /** 错误响应正文里能直接给人看的部分：HTML 页面（代理 / 静态服务的 404 页）不要，纯文本截到一行。 */
@@ -78,7 +92,9 @@ function isInvokeResult(value: unknown): value is InvokeResult {
 }
 
 /** 创建网页端 bridge。 */
-export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
+export function createHttpLibraryBridge(
+  deps: HttpBridgeDeps
+): HttpLibraryBridge {
   const call = async <M extends LibraryMethod>(
     method: M,
     params?: LibraryRpcMap[M]['params']
@@ -110,6 +126,25 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
   // 一个页面只开一条 SSE，多个订阅方共用
   const listeners = new Set<(event: LibraryEvent) => void>()
   let stream: EventStream | null = null
+
+  const dispatch = (data: string): void => {
+    let event: LibraryEvent
+    try {
+      event = JSON.parse(data) as LibraryEvent
+    } catch {
+      return
+    }
+    for (const each of listeners) each(event)
+  }
+
+  /** 没有事件流时打开一条；它自己关掉时丢掉引用，好让下次重新打开 */
+  const open = (): void => {
+    if (stream) return
+    const opened = deps.openEvents(LIBRARY_HTTP.events, dispatch, () => {
+      if (stream === opened) stream = null
+    })
+    stream = opened
+  }
 
   return {
     listLibraries: () => call('listLibraries'),
@@ -165,15 +200,7 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
     },
     subscribe(listener) {
       listeners.add(listener)
-      stream ??= deps.openEvents(LIBRARY_HTTP.events, data => {
-        let event: LibraryEvent
-        try {
-          event = JSON.parse(data) as LibraryEvent
-        } catch {
-          return
-        }
-        for (const each of listeners) each(event)
-      })
+      open()
       return () => {
         listeners.delete(listener)
         if (listeners.size === 0 && stream) {
@@ -181,6 +208,9 @@ export function createHttpLibraryBridge(deps: HttpBridgeDeps): LibraryBridge {
           stream = null
         }
       }
+    },
+    resume() {
+      if (listeners.size) open()
     },
   }
 }
