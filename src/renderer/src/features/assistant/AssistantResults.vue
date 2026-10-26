@@ -96,7 +96,7 @@
  * 带按钮的行（库外的片子：说明处写「未入库」等状态）右侧换成一组按钮，按钮可执行一次性动作，
  * 或在列表下方展开一个面板（同一时间只展开一张卡的面板，再点收起；结果换了就收起）。
  * 开始播放后通知外层收起助手。打开播放器期间：被点的那行在说明处显示「正在打开…」并标 aria-busy，
- * 其余按钮标 aria-disabled（保持可聚焦，点击不重复打开），那几行变淡。「正在打开」在整个侧栏共享
+ * 其余按钮标 aria-disabled（保持可聚焦，点击不重复打开），那几行变淡。「正在打开」在整个浮层共享
  * （assistant-opening.ts）：对话流里其它轮次的结果同样变淡、点击被忽略，播放器不会被打开两次。
  */
 import { type Component, shallowRef, watch } from 'vue'
@@ -119,7 +119,7 @@ import type {
 const props = defineProps<{ result: AssistantResult }>()
 const emit = defineEmits<{ played: [] }>()
 
-/** 正在打开播放器的卡片（整个侧栏共享，见 assistant-opening.ts） */
+/** 正在打开播放器的卡片（整个浮层共享，见 assistant-opening.ts） */
 const { opening, owner, isMine } = useOpening()
 /** 展开的面板 */
 const expanded = shallowRef<{
