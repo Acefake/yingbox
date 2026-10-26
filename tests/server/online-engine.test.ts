@@ -2,7 +2,8 @@
  * 独立服务的在线引擎：HTTP RPC 按契约校验后转发、错误编码、SSE 推事件、鉴权（rpc / events / stream 都要令牌），
  * 以及真实的 child_process 引擎（src/engine/node.ts，经 EngineHost / UtilityHost 托管）能跑通调用。
  */
-import { fork } from 'node:child_process'
+import { type ChildProcess, fork } from 'node:child_process'
+import { EventEmitter } from 'node:events'
 import { mkdtempSync, rmSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
@@ -23,6 +24,7 @@ import {
   ENGINE_HTTP,
   type EngineEventMessage,
   type EngineRpcResult,
+  encodeRpcRequest,
   streamProxyPath,
 } from '../../src/shared/engine-http'
 
@@ -72,6 +74,30 @@ describe('invokeEngine', () => {
       expect(result.ok).toBe(false)
       if (!result.ok) expect(result.error.code).toBe('invalid-params')
     }
+    expect(engine.calls).toHaveLength(1)
+  })
+
+  it('按 undefinedAt 还原 undefined 参数，下标不合法时不转发', async () => {
+    const engine = fakeEngine()
+    const request = encodeRpcRequest('online:doubanTrailer', ['1', undefined])
+    expect(request).toEqual({
+      channel: 'online:doubanTrailer',
+      args: ['1', null],
+      undefinedAt: [1],
+    })
+    const sent = JSON.parse(JSON.stringify(request)) as typeof request
+    const ok = await invokeEngine(
+      engine,
+      sent.channel,
+      sent.args,
+      sent.undefinedAt
+    )
+    expect(ok).toMatchObject({ ok: true })
+    expect(engine.calls[0].args).toEqual(['1', 'movie'])
+    for (const bad of [[5], [-1], ['0'], 'x'])
+      expect(
+        await invokeEngine(engine, 'online:doubanTrailer', ['1', null], bad)
+      ).toMatchObject({ ok: false, error: { code: 'invalid-params' } })
     expect(engine.calls).toHaveLength(1)
   })
 
@@ -194,6 +220,23 @@ describe('服务端路由', () => {
       streamProxyPath('http://127.0.0.1:31480/api/health')
     )
     expect(response.status).toBe(403)
+  })
+})
+
+describe('wrapChild', () => {
+  it('spawn 失败只发 error 时当成一次退出（码 1），不抛未捕获异常，也不重复报退出', () => {
+    const child = Object.assign(new EventEmitter(), {
+      connected: false,
+      stderr: null,
+    }) as unknown as ChildProcess
+    const logs: string[] = []
+    const wrapped = wrapChild(child, line => logs.push(line))
+    const exits: number[] = []
+    wrapped.on('exit', code => exits.push(code))
+    child.emit('error', new Error('spawn ENOENT'))
+    child.emit('exit', 0)
+    expect(exits).toEqual([1])
+    expect(logs[0]).toContain('spawn ENOENT')
   })
 })
 

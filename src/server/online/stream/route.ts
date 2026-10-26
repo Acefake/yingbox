@@ -31,14 +31,17 @@ export interface StreamRouteDeps {
   logFailure?: (source: string, reason: string) => void
 }
 
-/** 把已读出的第一块放回去，接着转发剩下的流。 */
+/** 嗅探清单要读到的字节数：上游可能把开头拆成很小的块（甚至逐字节），够 BOM + 空白 + #EXTM3U 再判断。 */
+const SNIFF_BYTES = 64
+
+/** 把已读出的开头几块放回去，接着转发剩下的流。 */
 function replay(
-  first: Uint8Array,
+  head: Uint8Array[],
   reader: ReadableStreamDefaultReader<Uint8Array>
 ): ReadableStream<Uint8Array> {
   return new ReadableStream<Uint8Array>({
     start(controller) {
-      controller.enqueue(first)
+      for (const chunk of head) controller.enqueue(chunk)
     },
     async pull(controller) {
       const { done, value } = await reader.read()
@@ -50,8 +53,9 @@ function replay(
 }
 
 /**
- * 看第一块是不是清单：是就整份读进来（上限 MAX_PLAYLIST_BYTES）改写地址；
- * 不是就把第一块放回去原样流式转发（大文件不会被整份读进内存）。
+ * 读开头若干块直到够 SNIFF_BYTES 字节或流结束，看是不是清单：是就整份读进来（上限 MAX_PLAYLIST_BYTES）
+ * 改写地址；不是就把读出的块放回去原样流式转发（大文件不会被整份读进内存）。
+ * 改写后的正文长度与上游不同，不带上游的 Content-Length（由运行时按新正文计算）。
  */
 async function maybeRewrite(
   response: Response,
@@ -60,18 +64,28 @@ async function maybeRewrite(
   const reader = response.body?.getReader()
   if (!reader) return response
   const headers = new Headers(response.headers)
-  const first = await reader.read()
-  if (first.done)
-    return new Response(null, { status: response.status, headers })
-  const head = new TextDecoder().decode(first.value.subarray(0, 64))
+  const chunks: Uint8Array[] = []
+  let size = 0
+  let ended = false
+  while (size < SNIFF_BYTES) {
+    const { done, value } = await reader.read()
+    if (done) {
+      ended = true
+      break
+    }
+    chunks.push(value)
+    size += value.byteLength
+  }
+  if (!size) return new Response(null, { status: response.status, headers })
+  const head = new TextDecoder().decode(
+    Buffer.concat(chunks).subarray(0, SNIFF_BYTES)
+  )
   if (!looksLikePlaylist(head))
-    return new Response(replay(first.value, reader), {
-      status: response.status,
-      headers,
-    })
-  const chunks: Uint8Array[] = [first.value]
-  let size = first.value.byteLength
-  for (;;) {
+    return new Response(
+      ended ? Buffer.concat(chunks) : replay(chunks, reader),
+      { status: response.status, headers }
+    )
+  while (!ended) {
     const { done, value } = await reader.read()
     if (done) break
     size += value.byteLength
@@ -85,6 +99,7 @@ async function maybeRewrite(
   const base = headers.get(STREAM_RESPONSE_URL) || source
   headers.set('content-type', 'application/vnd.apple.mpegurl')
   headers.set('cache-control', 'no-store')
+  headers.delete('content-length')
   return new Response(rewritePlaylist(text, base, streamProxyPath), {
     status: response.status,
     headers,

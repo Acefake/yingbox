@@ -40,15 +40,17 @@ export function loadOnlineConfig(
   const idle = Number(nonEmpty(env.YINGBOX_ENGINE_IDLE) ?? 300)
   if (!Number.isFinite(idle) || idle < 0)
     throw new Error(`YINGBOX_ENGINE_IDLE 应为非负秒数：${idle}`)
+  const enabled = ['on', '1', 'true'].includes(switchValue)
   return {
-    enabled: ['on', '1', 'true'].includes(switchValue),
+    enabled,
     engineDir: join(dataDir, 'engine'),
     downloadDir: download
       ? isAbsolute(download)
         ? download
         : resolve(cwd, download)
       : join(dataDir, 'downloads'),
-    browser: parseBrowserSpec(env.YINGBOX_BROWSER),
+    // 关闭在线板块时不解析浏览器配置：留着的旧值写错也不该拦住片库服务启动
+    browser: enabled ? parseBrowserSpec(env.YINGBOX_BROWSER) : null,
     streamAllowPrivate: (nonEmpty(env.YINGBOX_STREAM_ALLOW_PRIVATE) ?? '')
       .split(',')
       .map(item => item.trim().toLowerCase())

@@ -2,7 +2,8 @@
  * 引擎 API：POST /api/engine/rpc（契约调用）+ GET /api/engine/events（SSE 推引擎事件）。
  *
  * 与桌面端 IPC 边界（main/rpc 的 implement）同一套规则：通道必须是开放域（ENGINE_HTTP_DOMAINS）里
- * 声明过的异步调用，参数先经契约的 parse 解析，不合法时不转发；解析后的参数原样交给引擎。
+ * 声明过的异步调用，参数先按 undefinedAt 还原 undefined（见 shared/engine-http），再经契约的 parse 解析，
+ * 不合法时不转发；解析后的参数原样交给引擎。
  * 错误编码进 EngineRpcResult：invalid-params / unavailable（引擎崩溃、停止重启、关停）/ engine。
  */
 import { av } from '../../shared/contract/av'
@@ -15,15 +16,23 @@ import { download } from '../../shared/contract/download'
 import { online } from '../../shared/contract/online'
 import {
   ENGINE_HTTP,
+  ENGINE_HTTP_DOMAINS,
   type EngineEventMessage,
+  type EngineHttpDomain,
   type EngineRpcResult,
+  restoreUndefinedArgs,
 } from '../../shared/engine-http'
 import { UtilityCallError } from '../../main/utility/host'
 import { HttpError, type Router, json, readJson } from '../http/router'
 import type { ServerEngine } from './engine'
 
-/** 开放的域（与 ENGINE_HTTP_DOMAINS 一致）。 */
-const DOMAINS: readonly Domain[] = [online, av, download]
+/** 域名 → 契约：键必须与 ENGINE_HTTP_DOMAINS 一一对应（少一个或多一个都编译不过）。 */
+const CONTRACTS: Record<EngineHttpDomain, Domain> = { online, av, download }
+
+/** 开放的域：只从 ENGINE_HTTP_DOMAINS 取，开放范围只有一处定义。 */
+const DOMAINS: readonly Domain[] = ENGINE_HTTP_DOMAINS.map(
+  name => CONTRACTS[name]
+)
 
 /** 通道名 → 参数解析器（只含异步调用）。 */
 const PARSERS = new Map(
@@ -48,13 +57,23 @@ const HEARTBEAT_MS = 25_000
 export async function invokeEngine(
   engine: ServerEngine,
   channel: unknown,
-  rawArgs: unknown
+  encodedArgs: unknown,
+  undefinedAt?: unknown
 ): Promise<EngineRpcResult> {
   const parse = typeof channel === 'string' ? PARSERS.get(channel) : undefined
   if (!parse || typeof channel !== 'string')
     return {
       ok: false,
       error: { code: 'invalid-params', message: `没有这个调用：${channel}` },
+    }
+  const rawArgs = restoreUndefinedArgs(encodedArgs, undefinedAt)
+  if (rawArgs === null)
+    return {
+      ok: false,
+      error: {
+        code: 'invalid-params',
+        message: 'undefinedAt 应为参数下标数组',
+      },
     }
   if (rawArgs !== undefined && !Array.isArray(rawArgs))
     return {
@@ -132,10 +151,13 @@ export function registerEngineRoutes(
     const body = (await readJson(request)) as {
       channel?: unknown
       args?: unknown
+      undefinedAt?: unknown
     } | null
     if (!body || typeof body !== 'object')
       throw new HttpError(400, '请求体应为 { channel, args }')
-    return json(await invokeEngine(engine, body.channel, body.args))
+    return json(
+      await invokeEngine(engine, body.channel, body.args, body.undefinedAt)
+    )
   })
   router.add('GET', ENGINE_HTTP.events, request =>
     eventStream(engine, request.signal)
