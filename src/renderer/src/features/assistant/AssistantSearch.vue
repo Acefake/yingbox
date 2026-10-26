@@ -48,30 +48,21 @@
         </template>
         <template v-if="online.rows.value.length" #after>
           <h3>在线影视源</h3>
-          <UiListRow
+          <UiMediaRow
             v-for="(row, index) in online.rows.value"
             :id="`search-hit-${localCount + index}`"
             :key="row.key"
+            dense
             data-search-result
             role="option"
             :aria-selected="selected === localCount + index"
             :selected="selected === localCount + index"
-            @click="online.open(row)"
-          >
-            <template #leading>
-              <img
-                v-if="row.cover"
-                class="search-poster"
-                :src="row.cover"
-                alt=""
-                loading="lazy"
-                referrerpolicy="no-referrer"
-              />
-              <UiIcon v-else class="assistant-online-icon" name="globe" />
-            </template>
-            {{ row.title }}<span v-if="row.year"> · {{ row.year }}</span>
-            <template #description>{{ onlineNote(row) }}</template>
-          </UiListRow>
+            :title="row.title"
+            :year="row.year"
+            :image="row.cover"
+            v-bind="onlineRowView(row)"
+            @open="online.open(row)"
+          />
         </template>
       </SearchMatches>
     </div>
@@ -102,19 +93,25 @@
  * 统一入口里的搜索结果块。最上一排范围胶囊（全部 / 本地 / 在线 / 当前分区；私密模式没有）；
  * 下面一个 listbox：「问 AI：<输入>」一行（能问 AI 时）→ 本地片库结果（海报行，本地召回与 AI 增强融合去重，
  * 理由里写「AI 理解 · …」；画面时刻、人物也在这里，SearchMatches 来自片库 feature）→ 在线影视源（异步追加，
- * 同名同年多源合成一行）。底部一行是状态（读屏会播报：条数、AI 正在理解、在线源还在追加、没找到…）和去向：
+ * 同名同年多源合成一行）。作品行与 AI 结果卡同一个组件（UiMediaRow 紧凑行：海报、片名 · 年份、规格标签、评分、说明）。底部一行是状态（读屏会播报：条数、AI 正在理解、在线源还在追加、没找到…）和去向：
  * CLIP 范围选择（私密范围）、在海报墙查看（当前分区）、在线搜索页（完整的在线结果）。
  * 空闲（hero）时是输入胶囊下面一块独立的玻璃（floating），面板里是输入框上方的一段。
  * 键盘选中由浮层管（assistant-entry.ts），这里只显示。
  */
 import { computed } from 'vue'
 
-import { UiButton, UiChip, UiIcon, UiListRow } from '@/components/ui'
+import {
+  UiButton,
+  UiChip,
+  UiIcon,
+  UiListRow,
+  UiMediaRow,
+} from '@/components/ui'
 
 import { ASK_HOTKEY_LABEL as askKey } from './assistant-hotkey'
 import { ASK_ROW } from './assistant-entry'
 import { librarySearchModule } from './library-search'
-import type { OnlineRow } from './use-entry-online'
+import { onlineRowView } from './result-rows'
 import type { EntrySearch } from './use-entry-search'
 
 const props = defineProps<{
@@ -147,14 +144,6 @@ const askNote = computed(() => {
   if (!props.aiReady) return '还没有配置 AI，回车后可去设置；搜索不受影响'
   return props.private ? '仅本地模型 · 无痕' : '和 AI 对话'
 })
-
-function onlineNote(row: OnlineRow): string {
-  const [first] = row.sources
-  if (!first) return '在线'
-  return row.sources.length > 1
-    ? `在线 · ${first} 等 ${row.sources.length} 个源`
-    : `在线 · ${first}`
-}
 
 const note = computed(() => {
   const count = props.entry.entries.value.length
