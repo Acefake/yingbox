@@ -86,7 +86,7 @@ export function createIntake(
     arrivals,
     subtitles,
     start() {
-      // 没人要新入库（独立服务、测试）就不看事件
+      // 没人要新入库（没打开自动字幕的独立服务、测试）就不看事件
       if (intake.onArrivals || subtitles) arrivals.start()
       subtitles?.start()
     },

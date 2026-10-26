@@ -36,25 +36,32 @@
 | safeStorage 存 TMDB 令牌                 | `<数据目录>/secrets.json`（0600）+ 环境变量                          |
 | 系统文件夹对话框                         | `/api/fs/dirs`：只在媒体根目录内浏览                                 |
 | 内置播放器 / mpv                         | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流 |
+| IPC `subtitle:find / read`               | `/media/subtitles/<fileId>`：视频旁的外挂字幕转 WebVTT               |
+| ffprobe / ffmpeg 路径向主进程要          | `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 或 PATH                         |
+| 自动中文字幕设置在桌面设置里             | `YINGBOX_AUTO_SUBTITLES` / `YINGBOX_SUBTITLES_DAILY_LIMIT`           |
 | 在线引擎 utilityProcess + IPC            | child_process 引擎（同一个 `EngineHost`）+ `/api/engine/rpc`、SSE    |
 | `yingbox-stream://` + `media-headers.ts` | `/api/stream`（鉴权、防 SSRF、按源 Referer、m3u8 改写、Range）       |
 
+电影、剧集刮削各项在两边的逐项对照见 [片库刮削：桌面版与片库服务对照](library-refactor/nas-scrape-parity.md)。
+
 ### 接口一览
 
-| 路径                    | 方法          | 说明                                                     |
-| ----------------------- | ------------- | -------------------------------------------------------- |
-| `/api/health`           | GET           | 健康检查（公开），返回 `{ ok, authorized }`              |
-| `/api/session`          | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）           |
-| `/api/info`             | GET           | 媒体根目录、出网实现                                     |
-| `/api/library/rpc`      | POST          | 片库方法调用，返回 `InvokeResult`                        |
-| `/api/library/events`   | GET           | SSE 事件流                                               |
-| `/api/fs/dirs?path=`    | GET           | 目录浏览（不带 path 列出媒体根目录）                     |
-| `/media/image/<key>?w=` | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）              |
-| `/media/thumb?w=&src=`  | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）  |
-| `/media/files/<fileId>` | GET           | 视频文件，支持 Range（206 / 416）                        |
-| `/api/engine/rpc`       | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult` |
-| `/api/engine/events`    | GET           | 在线引擎事件（SSE，如 `download:changed`）               |
-| `/api/stream?src=`      | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）           |
+| 路径                                 | 方法          | 说明                                                     |
+| ------------------------------------ | ------------- | -------------------------------------------------------- |
+| `/api/health`                        | GET           | 健康检查（公开），返回 `{ ok, authorized }`              |
+| `/api/session`                       | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）           |
+| `/api/info`                          | GET           | 媒体根目录、出网实现                                     |
+| `/api/library/rpc`                   | POST          | 片库方法调用，返回 `InvokeResult`                        |
+| `/api/library/events`                | GET           | SSE 事件流                                               |
+| `/api/fs/dirs?path=`                 | GET           | 目录浏览（不带 path 列出媒体根目录）                     |
+| `/media/image/<key>?w=`              | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）              |
+| `/media/thumb?w=&src=`               | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）  |
+| `/media/files/<fileId>`              | GET           | 视频文件，支持 Range（206 / 416）                        |
+| `/media/subtitles/<fileId>`          | GET           | 视频旁的外挂字幕列表（文件名 + 读取地址，同名优先）      |
+| `/media/subtitles/<fileId>/<文件名>` | GET           | 一条外挂字幕，srt / ass / ssa / vtt 统一转成 WebVTT      |
+| `/api/engine/rpc`                    | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult` |
+| `/api/engine/events`                 | GET           | 在线引擎事件（SSE，如 `download:changed`）               |
+| `/api/stream?src=`                   | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）           |
 
 ### 鉴权
 
@@ -85,7 +92,11 @@
 | `--settle`               | `YINGBOX_SETTLE_SECONDS`                  | `10`（秒）                    | 写入稳定判定：新文件大小与 mtime 保持这么久不变才入库；`0` 不判定                        |
 | —                        | `YINGBOX_SERVER_TOKEN`                    | 首次启动生成                  | 访问令牌（只读覆盖，不写回文件）；对外监听时必填，至少 24 个字符                         |
 | —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要）。网页端设置里填写的令牌优先                         |
-| —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别，可选）                                        |
+| —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别、自动中文字幕，可选）                          |
+| —                        | `YINGBOX_FFPROBE`                         | PATH 上的 `ffprobe`           | 视频动态范围（多版本的 HDR / 杜比视界标）、内封字幕探测；找不到时跳过探测                |
+| —                        | `YINGBOX_FFMPEG`                          | PATH 上的 `ffmpeg`            | 按画面搜抽视频帧                                                                         |
+| —                        | `YINGBOX_AUTO_SUBTITLES`                  | 关                            | `1` / `true` / `on`：新入库的电影 / 集没有中文字幕时从 OpenSubtitles 下一份（需要 key）  |
+| —                        | `YINGBOX_SUBTITLES_DAILY_LIMIT`           | `5`                           | 自动中文字幕每天最多下载几份（1–100）                                                    |
 | —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                         |
 | —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                              |
 | —                        | `YINGBOX_ONLINE`                          | `on`                          | `off` 关闭在线板块（不起引擎、不开播放代理），见「在线播放」                             |
@@ -293,11 +304,14 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 媒体库设置里填写 TMDB 令牌（存在服务端）。
 - 写出 NFO / 图片、整理改名：在服务端执行，需要媒体目录可写。
 - 按文件夹设置自动入库（监控、自动识别 / 刮削、自动写出、自动整理），见「自动入库」。
+- 播放时自动挂载视频旁的外挂字幕（srt / ass / ssa / vtt，GBK / UTF-16 也能读），齿轮菜单里切换。
+- 新入库自动下载中文字幕（`YINGBOX_AUTO_SUBTITLES`，规则与桌面版相同，见 [subs-and-notify.md](library-refactor/subs-and-notify.md)）。
 
 不能做（或受限）：
 
 - 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时播放器显示错误面板（可改用桌面版）。没有服务端转码。
-- 没有 mpv、外挂字幕自动挂载。
+- 没有 mpv；播放器里的在线字幕搜索 / 下载只有桌面版。ass 字幕转成 WebVTT 后只保留文字，没有样式。
+- Docker 镜像里没有 ffmpeg：要 HDR / 杜比视界标和内封字幕判断，基于镜像装一层 ffmpeg，或设 `YINGBOX_FFPROBE` 指向挂进来的程序。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
 - 在线板块与下载经服务端引擎（见「在线播放」）；直播、网盘、AI、追更等其它桌面端板块网页端仍不可用。
 - 在线源被 Cloudflare 拦下时，没开浏览器代抓就只能标成不可用；开了也过不了需要人工点的验证。
