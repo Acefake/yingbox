@@ -54,7 +54,8 @@ const fakeFetch = async (url: string): Promise<Response> => {
   return new Response('not found', { status: 404 })
 }
 
-const TOKEN = 'test-token-abcdefghijklmnop'
+// 带 + / =：与 openssl rand -base64 生成的令牌同形，覆盖地址栏 ?token= 的两种读法
+const TOKEN = 'test+token/abcdefghijklmnop='
 let work: string
 let media: string
 let app: ServerApp
@@ -161,10 +162,15 @@ describe('鉴权', () => {
       body: JSON.stringify({ method: 'listLibraries' }),
     })
     expect(cross.status).toBe(403)
-    const open = await call(`/?token=${TOKEN}`, { auth: false })
-    expect(open.status).toBe(302)
-    expect(open.headers.get('location')).toBe('/')
-    expect(open.headers.get('set-cookie')).toMatch(/^yingbox_token=/)
+    // 编码好的（启动日志打印的）与照文档手拼的（+ 原样）都能登录
+    for (const query of [encodeURIComponent(TOKEN), TOKEN]) {
+      const open = await call(`/?token=${query}`, { auth: false })
+      expect(open.status).toBe(302)
+      expect(open.headers.get('location')).toBe('/')
+      expect(open.headers.get('set-cookie')).toMatch(/^yingbox_token=/)
+    }
+    const wrong = await call('/?token=nope', { auth: false })
+    expect(wrong.status).not.toBe(302)
   })
 })
 
@@ -202,7 +208,8 @@ describe('片库流程', () => {
     ssis = items.find(it => it.title.startsWith('SSIS-497'))!
     expect(ssis).toMatchObject({ matchState: 'auto' })
     expect(ssis.poster).toMatch(/^yingbox-media:\/\/image\/[0-9a-f]{32}$/)
-  })
+    // 扫描 + 识别 + 取图在高负载（并行跑全量测试）下会超过默认 15 秒，单独放宽，免得后面依赖它的用例连带失败
+  }, 60_000)
 
   it('海报：/media/image/<key>?w=300 现生成 WebP，协商缓存回 304', async () => {
     const key = ssis.poster!.split('/').pop()!
