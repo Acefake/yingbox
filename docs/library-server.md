@@ -28,40 +28,44 @@
 - **网页端 transport**：`features/library/api/bridge.ts` 按运行环境选 transport。有 `window.api`（Electron）走 IPC，否则走 `http-bridge.ts`。界面代码不区分两者。
 - **缩略图**：桌面端用 `nativeImage`；服务端用 `@jsquash` 的 wasm 编解码，在独立线程里解码、缩放、编码 WebP（`thumbnails/wasm-resizer.ts`、`codec-*.ts`）。两边共用同一个 LRU 缓存目录结构。
 
-| 桌面端（Electron）                       | 片库服务（Node）                                                     |
-| ---------------------------------------- | -------------------------------------------------------------------- |
-| utilityProcess + MessagePort IPC         | 同进程 LibraryService + HTTP RPC / SSE                               |
-| `net.fetch`（Chromium 网络栈）           | Node fetch（undici）/ curl(-impersonate) / 自定义模块                |
-| `nativeImage` 缩放                       | wasm 解码 + 缩放（编解码线程）                                       |
-| safeStorage 存 TMDB 令牌                 | `<数据目录>/secrets.json`（0600）+ 环境变量                          |
-| 系统文件夹对话框                         | `/api/fs/dirs`：只在媒体根目录内浏览                                 |
-| 内置播放器 / mpv                         | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流 |
-| IPC `subtitle:find / read`               | `/media/subtitles/<fileId>`：视频旁的外挂字幕转 WebVTT               |
-| ffprobe / ffmpeg 路径向主进程要          | `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 或 PATH                         |
-| 自动中文字幕设置在桌面设置里             | `YINGBOX_AUTO_SUBTITLES` / `YINGBOX_SUBTITLES_DAILY_LIMIT`           |
-| 在线引擎 utilityProcess + IPC            | child_process 引擎（同一个 `EngineHost`）+ `/api/engine/rpc`、SSE    |
-| `yingbox-stream://` + `media-headers.ts` | `/api/stream`（鉴权、防 SSRF、按源 Referer、m3u8 改写、Range）       |
+| 桌面端（Electron）                       | 片库服务（Node）                                                        |
+| ---------------------------------------- | ----------------------------------------------------------------------- |
+| utilityProcess + MessagePort IPC         | 同进程 LibraryService + HTTP RPC / SSE                                  |
+| `net.fetch`（Chromium 网络栈）           | Node fetch（undici）/ curl(-impersonate) / 自定义模块                   |
+| `nativeImage` 缩放                       | wasm 解码 + 缩放（编解码线程）                                          |
+| safeStorage 存 TMDB 令牌                 | `<数据目录>/secrets.json`（0600）+ 环境变量                             |
+| 系统文件夹对话框                         | `/api/fs/dirs`：只在媒体根目录内浏览                                    |
+| 内置播放器 / mpv                         | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流    |
+| IPC `subtitle:find / read`               | `/media/subtitles/<fileId>`：视频旁的外挂字幕转 WebVTT                  |
+| ffprobe / ffmpeg 路径向主进程要          | `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 或 PATH                            |
+| 自动中文字幕设置在桌面设置里             | `YINGBOX_AUTO_SUBTITLES` / `YINGBOX_SUBTITLES_DAILY_LIMIT`              |
+| 在线引擎 utilityProcess + IPC            | child_process 引擎（同一个 `EngineHost`）+ `/api/engine/rpc`、SSE       |
+| `yingbox-stream://` + `media-headers.ts` | `/api/stream`（鉴权、防 SSRF、按源 Referer、m3u8 改写、Range）          |
+| 115 分区 `persist:pan115`（Cookie 罐）   | Node fetch + `<数据目录>/pan115-cookies.json`（0600），见「网盘与追更」 |
 
 电影、剧集刮削各项在两边的逐项对照见 [片库刮削：桌面版与片库服务对照](library-refactor/nas-scrape-parity.md)。
 
 ### 接口一览
 
-| 路径                                 | 方法          | 说明                                                     |
-| ------------------------------------ | ------------- | -------------------------------------------------------- |
-| `/api/health`                        | GET           | 健康检查（公开），返回 `{ ok, authorized }`              |
-| `/api/session`                       | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）           |
-| `/api/info`                          | GET           | 媒体根目录、出网实现                                     |
-| `/api/library/rpc`                   | POST          | 片库方法调用，返回 `InvokeResult`                        |
-| `/api/library/events`                | GET           | SSE 事件流                                               |
-| `/api/fs/dirs?path=`                 | GET           | 目录浏览（不带 path 列出媒体根目录）                     |
-| `/media/image/<key>?w=`              | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）              |
-| `/media/thumb?w=&src=`               | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）  |
-| `/media/files/<fileId>`              | GET           | 视频文件，支持 Range（206 / 416）                        |
-| `/media/subtitles/<fileId>`          | GET           | 视频旁的外挂字幕列表（文件名 + 读取地址，同名优先）      |
-| `/media/subtitles/<fileId>/<文件名>` | GET           | 一条外挂字幕，srt / ass / ssa / vtt 统一转成 WebVTT      |
-| `/api/engine/rpc`                    | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult` |
-| `/api/engine/events`                 | GET           | 在线引擎事件（SSE，如 `download:changed`）               |
-| `/api/stream?src=`                   | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）           |
+| 路径                                 | 方法          | 说明                                                                                                  |
+| ------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `/api/health`                        | GET           | 健康检查（公开），返回 `{ ok, authorized }`                                                           |
+| `/api/session`                       | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）                                                        |
+| `/api/info`                          | GET           | 媒体根目录、出网实现                                                                                  |
+| `/api/library/rpc`                   | POST          | 片库方法调用，返回 `InvokeResult`                                                                     |
+| `/api/library/events`                | GET           | SSE 事件流                                                                                            |
+| `/api/fs/dirs?path=`                 | GET           | 目录浏览（不带 path 列出媒体根目录）                                                                  |
+| `/media/image/<key>?w=`              | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）                                                           |
+| `/media/thumb?w=&src=`               | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）                                               |
+| `/media/files/<fileId>`              | GET           | 视频文件，支持 Range（206 / 416）                                                                     |
+| `/media/subtitles/<fileId>`          | GET           | 视频旁的外挂字幕列表（文件名 + 读取地址，同名优先）                                                   |
+| `/media/subtitles/<fileId>/<文件名>` | GET           | 一条外挂字幕，srt / ass / ssa / vtt 统一转成 WebVTT                                                   |
+| `/api/engine/rpc`                    | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult`                                              |
+| `/api/engine/events`                 | GET           | 在线引擎事件（SSE，如 `download:changed`）                                                            |
+| `/api/stream?src=`                   | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）                                                        |
+| `/api/domains/<域>/<方法>`           | POST          | 网盘类契约域调用（pan115 / autograb / autograbUpgrade / autograbMovies / discover），见「网盘与追更」 |
+| `/api/domains/events`                | GET           | 上面几个域的 SSE 事件流                                                                               |
+| `/api/server-settings`               | GET / POST    | 服务端保存的设置（PanSou 地址、115 转存目标等）                                                       |
 
 ### 鉴权
 
@@ -104,8 +108,12 @@
 | —                        | `YINGBOX_BROWSER`                         | 无                            | `chromium:<路径>`：用系统 Chromium 代抓被 Cloudflare 挑战拦下的页面                      |
 | —                        | `YINGBOX_STREAM_ALLOW_PRIVATE`            | 无                            | 播放代理放行的内网目标：主机名、IP 或 IPv4 网段，逗号分隔                                |
 | —                        | `YINGBOX_ENGINE_IDLE`                     | `300`（秒）                   | 在线引擎空闲多久退出；`0` 不退出                                                         |
+| —                        | `YINGBOX_NETDISK`                         | `on`                          | `off` 时不加载 115 网盘、追更、洗版、电影追踪、库外发现，见「网盘与追更」                |
+| —                        | `YINGBOX_AUTOGRAB`                        | `on`                          | `off` 时网盘接口照常可用，但本实例不跑追更类定时任务                                     |
+| —                        | `YINGBOX_PANSOU_URL`                      | 无                            | 固定 PanSou 地址（设了之后网页端改不了）                                                 |
+| —                        | `YINGBOX_MOUNT_ROOT`                      | 无                            | 115 在片库容器里的挂载根（CloudDrive2），转存后入库通知用来对路径；设了之后网页端改不了  |
 
-数据目录里的 `secrets.json` 存着访问令牌和网页端填写的 TMDB 令牌。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
+数据目录里的 `secrets.json` 存着访问令牌、网页端填写的 TMDB 令牌和 115 登录会话，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
 
 ## 部署
 
@@ -259,6 +267,27 @@ features/online|av|download              src/server/online                      
 
 番号下载在服务端执行，文件落在 `YINGBOX_DOWNLOAD_DIR`（每部一个子文件夹）。PATH 上有 `ffmpeg` 时下完转成 mp4，没有就保留 `.ts`。网页端设置里不能改下载目录，在服务端改环境变量。可以把下载目录设成某个媒体库目录的子文件夹，下完由目录监控自动入库。
 
+## 网盘与追更
+
+片库服务也承载桌面版的「网盘」「追更」「找 115 资源」：PanSou 搜索、115 扫码登录、分享预览与转存，
+剧集追更、洗版、电影上线追踪的定时任务，以及库外发现（助手 / 豆瓣卡）。决策见 [ADR-0020](adr/0020-server-netdisk-autograb.md)。
+
+- **同一套模块**：`src/main/pan115`、`src/main/autograb`、`src/main/discover` 的入口只依赖模块宿主（`src/main/module-host`），
+  桌面端与服务端各给一份实现；服务端的组装在 `src/server/netdisk`。
+- **同一份契约**：`POST /api/domains/<域>/<方法>`，请求体 `{ "args": [...] }`（契约的参数元组，与桌面端 IPC 一致），
+  回包 `{ "ok": true, "value": … }` 或 `{ "ok": false, "error": "人话" }`；事件经 `GET /api/domains/events`，每条 `data` 是 `{ domain, event, payload }`。
+  线格式见 `src/shared/contract/http-wire.ts`；网页端 transport 是 `services/server-domains`，各板块的 `api.ts` 有 `window.api` 用 IPC，否则用它。
+- **115 会话**：扫码在网页端完成（二维码图片由浏览器直接从 115 加载，轮询经服务端）。登录后会话存在 `secrets.json` 的 `pan115.session`，
+  Cookie 存在 `pan115-cookies.json`（0600，原子替换）；115 用 `Set-Cookie` 续上的值写回罐子，重启后还在。115 报登录失效（errno 99 / 990001）时两处一起清掉，网页端提示重新扫码。
+- **出网范围**：115 请求只发往 `115.com` 及其子域，重定向手动跟、跳出 115 域一律拦下；PanSou 地址由用户填写，重定向只跟同一主机（与桌面端相同）。
+- **设置**：PanSou 地址、转存目标文件夹（`pan115.targetCid` / `movieCid` 等）和挂载根 `library.notify.mountRoot` 存在服务端的
+  `<数据目录>/server-settings.json`（`src/server/settings-store`，键的白名单在 `src/shared/settings/server-keys.ts`）。网页端改这几个键时先写服务端、再存浏览器，启动时以服务端为准。
+- **定时任务**：剧集追更（启动 90 秒后，每 30 分钟）、洗版（5 分钟后，每小时）、电影追踪（3 分钟后，每小时）。同一数据目录只有持有调度租约
+  （`<数据目录>/scheduler.lock`，90 秒租期，每 30 秒续）的实例执行；`YINGBOX_AUTOGRAB=off` 的实例只提供接口不跑任务。
+- **入库**：转存后调同进程的 `LibraryService.notifyChanges`（路径按 `library.notify.mountRoot` 对到库目录），与 CD2 变更通知走同一条路，见 [NAS 部署](deploy/nas.md#115-网盘与追更)。
+- 状态文件：`<数据目录>/autograb.json`、`autograb-upgrade.json`、`autograb-movies.json`（格式与桌面端 userData 下的同名文件相同，可以直接拷过来）。
+- 服务端不发入库推送（系统通知 / Bark / Telegram 只在桌面端）。
+
 ## 代理
 
 服务端的 Node fetch（undici）默认**不读**代理环境变量。需要代理才能访问 TMDB 等元数据站点时：
@@ -313,6 +342,6 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 没有 mpv；播放器里的在线字幕搜索 / 下载只有桌面版。ass 字幕转成 WebVTT 后只保留文字，没有样式。
 - Docker 镜像里没有 ffmpeg：要 HDR / 杜比视界标和内封字幕判断，基于镜像装一层 ffmpeg，或设 `YINGBOX_FFPROBE` 指向挂进来的程序。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
-- 在线板块与下载经服务端引擎（见「在线播放」）；直播、网盘、AI、追更等其它桌面端板块网页端仍不可用。
+- 在线板块与下载经服务端引擎（见「在线播放」）；网盘、追更、找 115 资源也在网页端可用（见「网盘与追更」），入库推送只在桌面端；直播、AI 等其它桌面端板块网页端仍不可用。
 - 在线源被 Cloudflare 拦下时，没开浏览器代抓就只能标成不可用；开了也过不了需要人工点的验证。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。

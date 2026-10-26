@@ -1,18 +1,17 @@
 /**
- * 主进程洗版模块入口：把洗版服务接到媒体库引擎、115、本地文件系统和 autograbUpgrade 域。
+ * 洗版模块入口：把洗版服务接到媒体库、115、本地文件系统和 autograbUpgrade 域。
+ * 只依赖模块宿主（module-host），桌面端主进程与独立服务共用。
  *
- * 状态存 userData/autograb-upgrade.json（原子替换）。启动 5 分钟后跑第一轮，之后每小时一轮；
+ * 状态存 <dataDir>/autograb-upgrade.json（原子替换）。启动 5 分钟后跑第一轮，之后每小时一轮；
  * 一轮里真正向 115 发请求的只有到了每周搜索时间的文件，平时一轮只看本地挂载里新文件到了没有。
  */
-import { app } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 import { autograbUpgrade } from '../../../shared/contract/autograb-upgrade'
 import { atomicWrite } from '../../file-operations'
-import type { LibraryEngineClient } from '../../library/host'
-import { emit, implement } from '../../rpc'
-import { settingsStore } from '../../settings'
+import type { LibraryEngineClient } from '../../library/client'
+import type { ModuleHost } from '../../module-host'
 import type { Gate } from '../gate'
 import type { PanAdapter } from './pan-adapter'
 import { createUpgradeService } from './service'
@@ -22,12 +21,12 @@ const INTERVAL_MS = 60 * 60_000
 
 /** 注册洗版（registerAutograb 之后调用一次） */
 export function registerAutograbUpgrade(
+  host: ModuleHost,
   library: LibraryEngineClient,
   pan: PanAdapter,
   gate: () => Promise<Gate>
 ): void {
-  const store = settingsStore()
-  const file = join(app.getPath('userData'), 'autograb-upgrade.json')
+  const file = join(host.dataDir, 'autograb-upgrade.json')
   const service = createUpgradeService({
     library: {
       listLibraries: () => library.call('listLibraries', undefined),
@@ -36,7 +35,7 @@ export function registerAutograbUpgrade(
     },
     gate,
     pan,
-    mountRoot: () => store.get('library.notify.mountRoot'),
+    mountRoot: () => host.setting('library.notify.mountRoot'),
     fileExists: path =>
       fs.stat(path).then(
         s => s.isFile(),
@@ -57,18 +56,20 @@ export function registerAutograbUpgrade(
     },
     save: state => atomicWrite(file, JSON.stringify(state)),
     now: () => Date.now(),
-    emit: () => emit(autograbUpgrade, 'changed', undefined),
+    emit: () => host.emit(autograbUpgrade, 'changed', undefined),
     log: message => console.info(`[autograb-upgrade] ${message}`),
   })
 
   const run = (force = false): void =>
     void pan.refresh().then(() => service.tick(force))
-  setTimeout(() => {
-    run()
-    setInterval(run, INTERVAL_MS).unref()
-  }, FIRST_DELAY_MS).unref()
+  host.schedule({
+    name: 'autograb-upgrade',
+    firstDelayMs: FIRST_DELAY_MS,
+    intervalMs: INTERVAL_MS,
+    run: () => run(),
+  })
 
-  implement(autograbUpgrade, {
+  host.implement(autograbUpgrade, {
     overview: async () => {
       await pan.refresh()
       return service.overview()

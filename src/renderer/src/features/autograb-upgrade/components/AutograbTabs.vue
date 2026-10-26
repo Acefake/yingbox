@@ -16,7 +16,7 @@
 <script setup lang="ts">
 /**
  * 追剧日历页的追更区：「剧集 / 洗版 / 电影」三个标签。剧集一栏是追更面板本身（由页面放进默认插槽），
- * 另外两栏是洗版和电影上线追踪。只在桌面端出现（页面按 autograbAvailable 决定）。
+ * 另外两栏是洗版和电影上线追踪。桌面端，或连着片库服务的网页端出现（页面按 autograbAvailable 决定）。
  */
 import { ref } from 'vue'
 

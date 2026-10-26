@@ -6,7 +6,7 @@ import type { SettingsSection } from '@/features/settings'
 
 import { netdiskAvailable } from './api'
 
-/** 「网盘」设置分区（只在桌面端登记） */
+/** 「网盘」设置分区（桌面端，或连着片库服务的网页端登记） */
 export const netdiskSettingsSection: SettingsSection = {
   id: 'netdisk',
   title: '网盘',
