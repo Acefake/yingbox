@@ -2,6 +2,7 @@
  * AI 服务：所有 AI 功能（渲染层经 IPC，或主进程里的 AI 字幕等模块直接调用）的唯一入口。
  *
  * 每次调用都重新读设置（改了服务商 / 模型立即生效），依次做：配置检查 → 私密检查 → 发请求 → 记用量。
+ * 结构化输出与测试连接是短调用，请求低推理强度（{@link QUICK_REASONING}）；chat 的长回答用模型默认。
  * 不依赖 Electron：设置读取、fetch、用量存储都由 index.ts 注入，测试可全部替换。
  */
 import type { AiKeySecret } from '../../shared/ai/providers'
@@ -30,6 +31,7 @@ import {
 } from './config'
 import { AiError } from './errors'
 import { parseJsonLoose, parseLastJson } from './json'
+import type { ReasoningEffort } from './params'
 import { rawSnippet } from './response'
 import type { UsageStore } from './usage'
 
@@ -48,8 +50,8 @@ export interface AiServiceDeps {
   usage: UsageStore
   /** 用量变化后通知（广播给窗口） */
   onUsage?: (summary: AiUsageSummary) => void
-  /** 客户端选项覆盖（测试用：重试间隔、sleep） */
-  client?: Pick<ClientOptions, 'retries' | 'retryDelayMs' | 'sleep'>
+  /** 客户端选项覆盖（测试用：重试间隔、sleep、参数记忆） */
+  client?: Pick<ClientOptions, 'retries' | 'retryDelayMs' | 'sleep' | 'params'>
 }
 
 /** 单次调用的选项 */
@@ -94,6 +96,12 @@ export function parseModelJson(result: ClientResult): unknown {
   return result.reasoning.trim() ? parseLastJson(result.reasoning) : undefined
 }
 
+/**
+ * 短调用（意图识别、JSON 小结果、测试连接）的推理强度：思考型模型想得少、答得快；
+ * 服务商 / 模型不认时客户端自动去掉（见 params.ts）。
+ */
+export const QUICK_REASONING: ReasoningEffort = 'low'
+
 /** JSON 第一次没解析出来时，追加的纠正提示 */
 export const JSON_REPAIR_HINT =
   '上面的输出不符合要求。只输出一个符合要求的 JSON 对象：不要解释、不要代码块、不要思考过程。'
@@ -108,6 +116,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
     options: AiCallOptions & {
       json?: ClientOptions['json']
       retries?: number
+      reasoning?: ReasoningEffort
     }
   ): Promise<ClientResult> => {
     const current = config()
@@ -125,6 +134,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
       signal: options.signal,
       onDelta: options.onDelta,
       json: options.json,
+      reasoning: options.reasoning,
     })
     const summary = await deps.usage.record(result.usage)
     deps.onUsage?.(summary)
@@ -156,7 +166,8 @@ export function createAiService(deps: AiServiceDeps): AiService {
       const json = { schema, schemaName }
       const accept = (data: unknown): boolean =>
         data !== undefined && (!options.validate || options.validate(data))
-      const first = await run(chat, { signal: options.signal, json })
+      const call = { signal: options.signal, json, reasoning: QUICK_REASONING }
+      const first = await run(chat, call)
       let result = first
       let data = parseModelJson(first)
       if (!accept(data)) {
@@ -175,7 +186,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
                   { role: 'user', content: JSON_REPAIR_HINT },
                 ],
               }
-        result = await run(retry, { signal: options.signal, json })
+        result = await run(retry, call)
         data = parseModelJson(result)
       }
       if (!accept(data)) {
@@ -204,7 +215,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
             maxTokens: 16,
             timeoutMs: 20_000,
           },
-          { retries: 0 }
+          { retries: 0, reasoning: QUICK_REASONING }
         )
         return {
           ok: true,
