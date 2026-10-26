@@ -32,6 +32,7 @@ vi.mock('@/features/library', () => ({
   libraryItemVideo: fakes.video,
   libraryPoster: (url: string | null) => url,
   playLibraryItem: fakes.playItem,
+  libraryCardInfo: async () => null,
 }))
 
 vi.mock('@/features/lada', () => ({
@@ -41,6 +42,7 @@ vi.mock('@/features/lada', () => ({
 vi.mock('@/features/assistant', async () => ({
   ...(await import('../src/renderer/src/features/assistant/skills/skill-types')),
   ...(await import('../src/renderer/src/features/assistant/skills/continue-cards')),
+  ...(await import('../src/renderer/src/features/assistant/skills/card-info')),
   privateRouteSections: (
     await import('../src/renderer/src/features/assistant/skills/core-skills')
   ).privateRouteSections,

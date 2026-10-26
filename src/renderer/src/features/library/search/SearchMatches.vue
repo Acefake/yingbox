@@ -15,33 +15,19 @@
     <slot name="before" />
     <template v-if="best.length">
       <h3>本地片库</h3>
-      <UiListRow
+      <UiMediaRow
         v-for="(hit, index) in best"
         :id="`search-hit-${index}`"
         :key="hit.key"
+        dense
         data-search-result
         role="option"
         :aria-selected="selected === index"
         :selected="selected === index"
-        @click="emit('open', hit)"
-      >
-        <template #leading
-          ><img
-            v-if="hit.item.poster"
-            class="search-poster"
-            :src="libraryPoster(hit.item.poster) ?? undefined"
-            alt=""
-            loading="lazy"
-        /></template>
-        {{ hit.item.title }}
-        <span v-if="hit.item.year"> · {{ hit.item.year }}</span>
-        <template #description
-          >{{ hit.reasons.join(' · ')
-          }}{{
-            hit.versions.length > 1 ? ` · ${hit.versions.length} 个版本` : ''
-          }}</template
-        >
-      </UiListRow>
+        :title="hit.item.title"
+        v-bind="hitRow(hit, infos.get(hit.item.id))"
+        @open="emit('open', hit)"
+      />
     </template>
     <template v-if="moments.length">
       <h3>画面时刻</h3>
@@ -85,13 +71,16 @@
 <script setup lang="ts">
 /**
  * 有界结果列表，三类结果共享键盘索引（行 id 为 search-hit-<索引>）；行使用原生按钮，支持 Tab 和 Enter。
+ * 作品行是影片结果行（UiMediaRow 紧凑行：海报、片名 · 年份、规格标签、评分、类型时长与命中理由），
+ * 卡片信息在结果停下后按需取（useLibraryCardInfos）；画面时刻、人物是普通列表行。
  * before / after 插槽放在同一个 listbox 的最前 / 最后（统一入口的「问 AI」行与在线结果）。
  */
 import type { ActorSummary } from '../../../../../shared/library/ipc'
-import { UiIcon, UiListRow } from '@/components/ui'
-import { libraryPoster } from '../detail/assistant-links'
+import { UiIcon, UiListRow, UiMediaRow } from '@/components/ui'
+import { useLibraryCardInfos } from '../detail/card-info'
+import { hitRow } from './hit-row'
 import type { SearchHit } from './types'
-defineProps<{
+const props = defineProps<{
   best: SearchHit[]
   moments: SearchHit[]
   actors: ActorSummary[]
@@ -104,6 +93,7 @@ const emit = defineEmits<{
   moment: [hit: SearchHit]
   actor: [id: number]
 }>()
+const infos = useLibraryCardInfos(() => props.best.map(hit => hit.item.id))
 </script>
 <style scoped>
 .search-matches h3 {
@@ -111,11 +101,5 @@ const emit = defineEmits<{
   font-size: var(--text-xs);
   font-weight: var(--font-weight-medium);
   color: var(--text-secondary);
-}
-.search-poster {
-  width: 30px;
-  height: 44px;
-  object-fit: cover;
-  border-radius: var(--radius-sm);
 }
 </style>

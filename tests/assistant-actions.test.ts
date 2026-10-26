@@ -23,7 +23,7 @@ const fakes = vi.hoisted(() => ({
   openMediaPlayer: vi.fn(async () => true),
 }))
 
-vi.mock('@/features/library', () => ({}))
+vi.mock('@/features/library', () => ({ libraryCardInfo: async () => null }))
 
 vi.mock('@/features/player', () => ({
   askPlotQuestion: fakes.askPlotQuestion,
@@ -134,8 +134,8 @@ describe('继续播放', () => {
     const cards = cardsOf(await run({ action: 'library.continue' }))
     expect(cards.map(c => c.id)).toEqual(['b', 'd', 'e'])
     expect(cards[0].progress).toBeCloseTo(0.5)
-    expect(cards[0].badge).toBe('看到 50%')
-    expect(cards[0].meta).toBe('剩 30 分钟')
+    expect(cards[0].progressNote).toBe('剩 30 分钟')
+    expect(cards[0].library).toBeUndefined()
     await cards[0].play()
     expect(fakes.openMediaPlayer).toHaveBeenCalledWith(
       expect.objectContaining({ url: 'b', continueAs: { id: 'b' } })
