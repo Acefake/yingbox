@@ -1,5 +1,5 @@
 <template>
-  <!-- 头图（效果图 D-1）：大背景铺满窗口（含侧栏后面），下部渐进模糊并压暗，文案压在左下；两套主题都是深色画面（yb-on-media） -->
+  <!-- 头图（效果图 D-1）：大背景铺满窗口（含侧栏后面），下部渐进模糊并压暗，文案压在左下；两套主题都是深色画面（yb-on-media），浅色下沿渐隐到页面底色 -->
   <header class="lib-hero yb-on-media">
     <img
       v-if="backdrop"
@@ -171,8 +171,11 @@ function onFadeIn(event: Event): void {
   display: flex;
   align-items: flex-end;
   min-height: max(560px, 88vh);
-  padding: var(--space-10) var(--detail-gutter) var(--space-7) var(--detail-x);
+  padding: var(--space-10) var(--detail-gutter)
+    calc(var(--space-7) + var(--hero-edge-lift)) var(--detail-x);
   overflow: hidden;
+  -webkit-mask-image: var(--hero-edge-mask);
+  mask-image: var(--hero-edge-mask);
   background: var(--bg-fill-secondary);
   isolation: isolate;
 }
@@ -189,15 +192,10 @@ function onFadeIn(event: Event): void {
 .lib-hero-image[data-loaded] {
   opacity: 1;
 }
-/* 下部渐进模糊，最上层从透明压到黑（yb-on-media 的 --bg-content），文字落在暗色上 */
+/* 下部渐进模糊，最上层压暗（与首页 Hero 同一令牌；浅色下 Hero 底部在画面内渐隐到页面底色，见 --hero-edge-mask） */
 .lib-hero-blur {
   --pblur-height: 50%;
-  --pblur-tint: linear-gradient(
-    transparent 0%,
-    color-mix(in srgb, var(--bg-content) 42%, transparent) 38%,
-    color-mix(in srgb, var(--bg-content) 80%, transparent) 80%,
-    var(--bg-content) 100%
-  );
+  --pblur-tint: var(--scrim-fade-hero);
 }
 .lib-hero-side {
   position: absolute;

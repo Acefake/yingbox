@@ -11,7 +11,7 @@
     />
     <div
       v-if="open"
-      class="ui-menu-button-panel yb-glass"
+      class="ui-menu-button-panel"
       role="menu"
       :aria-label="label"
     >
@@ -35,7 +35,8 @@
 <script setup lang="ts">
 /**
  * 「更多」菜单按钮：页头工具条放不下的操作收进这里。
- * 触发钮是带图标 + 文字的 UiButton，菜单是玻璃浮层里一列 UiListRow（role="menu" / "menuitem"），
+ * 触发钮是带图标 + 文字的 UiButton，菜单是浮层（--menu-bg：近乎不透明 + 背景模糊，压在海报上也读得清）里一列
+ * UiListRow（role="menu" / "menuitem"），
  * 右对齐挂在按钮下方；选一项、点外面、窗口失焦或 Esc（useEscapeLayer）都会关上。
  */
 import { onBeforeUnmount, ref } from 'vue'
@@ -118,6 +119,10 @@ onBeforeUnmount(close)
   min-width: 180px;
   padding: var(--space-1_5);
   border-radius: var(--radius-lg);
+  background: var(--menu-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
 }
 .ui-menu-button-item {
   white-space: nowrap;

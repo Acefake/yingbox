@@ -218,6 +218,8 @@
   --glass-media-shadow: var(--glass-shadow);
   /* 画面上卡片的 0.5px 亮边（剧集横卡等没有整套玻璃时单用） */
   --glass-media-edge: rgba(255, 255, 255, 0.14);
+  /* 弹出菜单（「更多」、右键菜单）：比玻璃控件不透明得多，压在海报上也读得清 */
+  --menu-bg: rgba(30, 30, 32, 0.88);
 
   /* ── 阴影：卡片 / 浮层 / 大浮层三档 ── */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -229,7 +231,8 @@
 
   /*
    * ── 剧照上的暗化（Hero、横版剧照卡）──
-   * 画面总是深色，两套主题取值相同。fade 从上到下压暗（渐进模糊层上），side 从左往右压暗（Hero 文案一侧）。
+   * 画面总是深色。fade 从上到下压暗（渐进模糊层上），side 从左往右压暗（Hero 文案一侧）。
+   * 浅色主题下 Hero 底部要渐隐到浅灰页面，fade 只压到 0.6（见浅色块），不压成纯黑以免渐隐段发灰。
    */
   --scrim-fade-hero: linear-gradient(
     rgba(0, 0, 0, 0) 0%,
@@ -423,21 +426,40 @@
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
   --overlay-scrim-soft: rgba(0, 0, 0, 0.24);
-  /* 首页 Hero 下沿：深色页面本就是黑底不需要渐隐；浅色在底部多留一段，把画面渐隐到页面底色 */
+  /*
+   * Hero（首页、详情）下沿：深色页面本就是黑底不需要渐隐。浅色在画面内部最后 fade 一段渐隐到页面底色，
+   * 文案上移 lift 避开渐隐段；Hero 高度两套主题一致。
+   */
   --hero-edge-fade: 0px;
+  --hero-edge-lift: 0px;
   --hero-edge-mask: none;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
   --shadow-lg: 0 24px 64px rgba(0, 0, 0, 0.16);
   --shadow-card: 0 1px 2px rgba(0, 0, 0, 0.04), 0 4px 16px rgba(0, 0, 0, 0.05);
-  --hero-edge-fade: 64px;
-  --hero-edge-mask: linear-gradient(#000 calc(100% - 64px), transparent);
+  --scrim-fade-hero: linear-gradient(
+    rgba(0, 0, 0, 0) 0%,
+    rgba(0, 0, 0, 0.35) 40%,
+    rgba(0, 0, 0, 0.6) 76%
+  );
+  /* 多段缓动：渐隐段上半截几乎不透明（文案落在这里），下半截快速淡出 */
+  --hero-edge-fade: 120px;
+  --hero-edge-lift: 72px;
+  --hero-edge-mask: linear-gradient(
+    #000 calc(100% - 120px),
+    rgba(0, 0, 0, 0.97) calc(100% - 96px),
+    rgba(0, 0, 0, 0.86) calc(100% - 72px),
+    rgba(0, 0, 0, 0.6) calc(100% - 48px),
+    rgba(0, 0, 0, 0.26) calc(100% - 24px),
+    transparent
+  );
   --shadow-control:
     0 0 0 0.5px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.08);
 
   --glass-bg: rgba(255, 255, 255, 0.62);
   --glass-bg-hover: rgba(255, 255, 255, 0.78);
+  --menu-bg: rgba(255, 255, 255, 0.9);
   --glass-solid: #f2f2f4;
   --glass-solid-hover: #e8e8ed;
   --glass-shadow:
@@ -513,6 +535,7 @@
   --glass-light-bg: #3a3a3c;
   --glass-bg: var(--glass-solid);
   --glass-bg-hover: var(--glass-solid-hover);
+  --menu-bg: var(--glass-solid);
   --glass-media-bg: #1c1c1e;
   --glass-media-bg-hover: #2c2c2e;
   --glass-filter: none;
@@ -522,6 +545,7 @@
     --glass-light-bg: #3a3a3c;
     --glass-bg: var(--glass-solid);
     --glass-bg-hover: var(--glass-solid-hover);
+    --menu-bg: var(--glass-solid);
     --glass-media-bg: #1c1c1e;
     --glass-media-bg-hover: #2c2c2e;
     --glass-filter: none;
