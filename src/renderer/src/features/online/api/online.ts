@@ -1,6 +1,7 @@
 /**
  * 渲染层访问在线域的唯一入口。请求全部在后台引擎经 net 出网（SSRF 防护、超时、大小上限）。
- * Web / PWA 模式没有引擎，调用时抛出可读错误。
+ * 桌面端走 IPC（window.api.online），网页端走片库服务上的引擎（HTTP RPC，services/library-server/engine），
+ * 两者是同一个契约生成的同一形状，调用方不区分。
  */
 import type {
   DetailImage,
@@ -10,17 +11,25 @@ import type {
   DoubanPage,
   DoubanQuery,
 } from '../../../../../shared/douban/query'
+import { online } from '../../../../../shared/contract/online'
+import { webEngineApi } from '@/services/library-server/engine'
 
-/** 在线域 API；Web 模式下抛错。 */
+/** 当前环境的在线域：桌面端 IPC，网页端片库服务；都没有时 undefined。 */
+function currentApi(): Window['api']['online'] | undefined {
+  if (typeof window === 'undefined') return undefined
+  return window.api ? window.api.online : (webEngineApi(online) ?? undefined)
+}
+
+/** 在线域 API；没有引擎时抛错。 */
 export function onlineApi(): Window['api']['online'] {
-  const api = typeof window !== 'undefined' ? window.api?.online : undefined
-  if (!api) throw new Error('在线功能需要桌面端')
+  const api = currentApi()
+  if (!api) throw new Error('在线功能不可用')
   return api
 }
 
-/** 有没有在线域（桌面端才有；网页版没有引擎） */
+/** 有没有在线域（桌面端引擎，或网页端连着的片库服务） */
 export function onlineAvailable(): boolean {
-  return typeof window !== 'undefined' && Boolean(window.api?.online)
+  return Boolean(currentApi())
 }
 
 /** GET 一个 JSON 接口。 */
