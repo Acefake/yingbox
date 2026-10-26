@@ -36,6 +36,10 @@ import type {
 export const TMDB_API = 'https://api.themoviedb.org/3'
 export const TMDB_IMAGE = 'https://image.tmdb.org/t/p'
 
+/** 没配令牌时的报错：说清去哪填（桌面端与网页端都在设置 → 服务；NAS 也可用环境变量）。 */
+export const TMDB_TOKEN_MISSING =
+  '未配置 TMDB API 令牌：在「设置 → 服务」或片库设置里填写（NAS 也可设环境变量 YINGBOX_TMDB_TOKEN）'
+
 const DAY = 86_400_000
 /** 缓存时长。 */
 export const TMDB_TTL = {
@@ -78,6 +82,9 @@ const settledTv = (d: TmdbTvDetails | null): boolean =>
 
 /** TMDB 元数据源。 */
 export class TmdbProvider implements MetadataProvider {
+  /** 没配令牌时的报错文案（识别前检查也用它）。 */
+  static readonly TOKEN_MISSING = TMDB_TOKEN_MISSING
+
   readonly name = 'tmdb' as const
   readonly language: string
   readonly secondaryLanguage: string
@@ -113,7 +120,7 @@ export class TmdbProvider implements MetadataProvider {
   ): Promise<T | null> {
     const token = this.options.token()
     if (!token) {
-      return Promise.reject(new ProviderAuthError('未配置 TMDB API 令牌'))
+      return Promise.reject(new ProviderAuthError(TMDB_TOKEN_MISSING))
     }
     const query = new URLSearchParams()
     for (const key of Object.keys(params).sort()) {

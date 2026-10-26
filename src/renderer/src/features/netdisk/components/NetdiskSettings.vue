@@ -23,7 +23,7 @@
 
   <SettingsGroup
     title="115 账号"
-    footer="扫码登录绑定「115生活 · 支付宝小程序」端，不会挤掉网页端和手机 App 的登录。登录信息加密保存在本机。"
+    :footer="`扫码登录绑定「115生活 · 支付宝小程序」端，不会挤掉网页端和手机 App 的登录。${storageNote}`"
   >
     <SettingsRow
       v-if="account?.loggedIn"
@@ -132,6 +132,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
 import { toast } from '@/components/ui/toast'
 import { SettingsGroup, SettingsRow, useSetting } from '@/features/settings'
+import { isWebRuntime } from '@/services/library-server'
 import {
   PANSOU_PUBLIC_URL,
   type Pan115Account,
@@ -142,6 +143,11 @@ import { netdisk } from '../api'
 import { useQrLogin } from '../composables/use-qr-login'
 import { errorText } from '../utils/netdisk-rules'
 import NetdiskFolderPicker from './NetdiskFolderPicker.vue'
+
+/** 登录信息存在哪：桌面端主进程加密存本机；网页端存在片库服务的数据目录（仅服务用户可读的文件） */
+const storageNote = isWebRuntime()
+  ? '登录信息保存在片库服务的数据目录里（仅服务用户可读）。'
+  : '登录信息加密保存在本机。'
 
 const pansouUrl = useSetting('pan115.pansouUrl')
 const targetCid = useSetting('pan115.targetCid')

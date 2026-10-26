@@ -39,4 +39,5 @@ export const assistantSettingsSection: SettingsSection = {
   keywords: 'ai 助手 快捷键 siri 语音 唤起 alt space',
   load: () => import('./AssistantSettings.vue'),
   order: 68,
+  desktopOnly: true,
 }

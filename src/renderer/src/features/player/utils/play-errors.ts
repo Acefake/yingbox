@@ -57,12 +57,40 @@ export function hlsErrorReason(data: HlsErrorLike): string {
 }
 
 /**
+ * 网页端（浏览器）解不了画面：多半是 HEVC / H.265。网页端没有 mpv 可换，只能换桌面版或浏览器。
+ * 只出声音、画面黑（videoWidth 为 0）也用这句。
+ */
+export const WEB_CODEC_UNSUPPORTED =
+  '浏览器解不了这个视频的编码（多为 HEVC / H.265）。请用桌面版播放，或换支持该格式的浏览器（Safari / Edge）。'
+
+/**
  * <video> 的 MediaError 原因。
  * @param code MediaError.code（1 中止、2 网络、3 解码、4 格式不支持）
+ * @param web 是否网页端：编码 / 格式不受支持时说明要换桌面版或浏览器
  */
-export function videoErrorReason(code: number | undefined): string {
+export function videoErrorReason(
+  code: number | undefined,
+  web = false
+): string {
   if (code === 2) return '网络错误，连不上服务器'
+  if ((code === 3 || code === 4) && web) return WEB_CODEC_UNSUPPORTED
   if (code === 3) return CODEC_UNSUPPORTED
   if (code === 4) return '格式不受支持'
   return '播放出错'
+}
+
+/** 纯音频地址（电台等）：没有画面是正常的 */
+const AUDIO_URL = /\.(mp3|aac|m4a|flac|ogg|opus|wav)(\?|#|$)/i
+
+/**
+ * 元数据已加载却没有画面（videoWidth 为 0）：浏览器跳过了解不了的视频轨，只放声音。
+ * HLS 与纯音频地址不判断（前者由 hls.js 报编码错误，后者本来就没有画面）。
+ */
+export function lacksVideoTrack(
+  video: Pick<HTMLVideoElement, 'videoWidth' | 'videoHeight'>,
+  url: string,
+  hls: boolean
+): boolean {
+  if (hls || AUDIO_URL.test(url)) return false
+  return video.videoWidth === 0 && video.videoHeight === 0
 }

@@ -21,6 +21,8 @@ export interface SettingsSection {
   load: () => Promise<{ default: Component }>
   /** 只在成人模式下显示 */
   adultOnly?: boolean
+  /** 只在桌面端有意义（AI、软件更新等依赖主进程）；网页端不登记 */
+  desktopOnly?: boolean
   /** 分区自己管理滚动，独占内容区（默认由面板统一滚动） */
   fill?: boolean
   /** 固定传给分区组件的属性 */
@@ -87,6 +89,7 @@ const coreSections: SettingsSection[] = [
       'ai 模型 openai deepseek openrouter opencode ollama key 语音识别 whisper 用量 私密',
     load: () => import('./sections/AiSettings.vue'),
     order: 67,
+    desktopOnly: true,
   },
   {
     id: 'update',
@@ -95,13 +98,19 @@ const coreSections: SettingsSection[] = [
     keywords: '版本 下载 重启',
     load: () => import('./sections/UpdateSettings.vue'),
     order: 80,
+    desktopOnly: true,
   },
 ]
 
+/** 网页端（没有 Electron preload）：只在桌面端有意义的分区不登记 */
+const webRuntime = typeof window !== 'undefined' && !window.api
+const fitsRuntime = (section: SettingsSection): boolean =>
+  !section.desktopOnly || !webRuntime
+
 /** 全部分区（按 order 升序显示，order 相同或缺省时按登记顺序） */
-export const settingsSections = shallowReactive<SettingsSection[]>([
-  ...coreSections,
-])
+export const settingsSections = shallowReactive<SettingsSection[]>(
+  coreSections.filter(fitsRuntime)
+)
 
 const orderOf = (section: SettingsSection): number =>
   section.order ?? Number.POSITIVE_INFINITY
@@ -111,6 +120,7 @@ const orderOf = (section: SettingsSection): number =>
  * 同 id 重复登记时以后者为准。
  */
 export function registerSettingsSection(section: SettingsSection): void {
+  if (!fitsRuntime(section)) return
   const existing = settingsSections.findIndex(item => item.id === section.id)
   if (existing >= 0) settingsSections.splice(existing, 1)
   const at = settingsSections.findIndex(
