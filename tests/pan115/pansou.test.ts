@@ -31,7 +31,7 @@ const wrap = (list: unknown[]): unknown => ({
 describe('parsePanSouResponse', () => {
   it('解析带 data 外壳的响应：只留可解析的 115 链接，零值时间丢掉', () => {
     const first = PANSOU_WRAPPED.data.merged_by_type['115'][0]
-    expect(parsePanSouResponse(PANSOU_WRAPPED)).toEqual([
+    expect(parsePanSouResponse(PANSOU_WRAPPED).shares).toEqual([
       {
         title: '示例纪录片 4K',
         source: 'tg:Channel_Shares_115',
@@ -52,13 +52,16 @@ describe('parsePanSouResponse', () => {
   })
 
   it('解析 README 的裸格式；提取码在链接里时补上', () => {
-    const [item] = parsePanSouResponse(PANSOU_BARE)
+    const [item] = parsePanSouResponse(PANSOU_BARE).shares
     expect(item.receiveCode).toBe('abcd')
     expect(item.title).toBe('裸格式条目')
   })
 
   it('没有 115 结果时为空数组；code 非 0 时抛出服务给的信息', () => {
-    expect(parsePanSouResponse({ code: 0, data: { total: 0 } })).toEqual([])
+    expect(parsePanSouResponse({ code: 0, data: { total: 0 } })).toEqual({
+      shares: [],
+      magnets: [],
+    })
     expect(() =>
       parsePanSouResponse({ code: 400, message: '关键词不能为空' })
     ).toThrow('关键词不能为空')
@@ -72,7 +75,7 @@ describe('parsePanSouResponse', () => {
         i === 0 ? { note: '长'.repeat(5000), source: 's'.repeat(999) } : {}
       )
     )
-    const items = parsePanSouResponse(wrap(list))
+    const items = parsePanSouResponse(wrap(list)).shares
     expect(items).toHaveLength(MAX_RESULTS)
     expect(items[0].title.length).toBeLessThanOrEqual(200)
     expect(items[0].source.length).toBeLessThanOrEqual(80)
@@ -87,12 +90,83 @@ describe('parsePanSouResponse', () => {
         entry(1, { password: 'ab12' }),
         entry(2),
       ])
-    )
+    ).shares
     expect(items.map(i => `${i.shareCode}/${i.receiveCode}`)).toEqual([
       'sw1/',
       'sw1/ab12',
       'sw2/',
     ])
+  })
+})
+
+describe('磁力 / 电驴', () => {
+  const HEX = '0123456789abcdef0123456789abcdef01234567'
+  const magnetEntry = (
+    url: string,
+    extra: Record<string, unknown> = {}
+  ): Record<string, unknown> => ({
+    url,
+    password: '',
+    note: '',
+    source: 'plugin:x',
+    datetime: '0001-01-01T00:00:00Z',
+    ...extra,
+  })
+
+  it('解析 magnet / ed2k：哈希归一（base32 → hex）、按哈希去重、标题缺省用 dn', () => {
+    const result = parsePanSouResponse({
+      merged_by_type: {
+        magnet: [
+          magnetEntry(
+            `magnet:?xt=urn:btih:${HEX.toUpperCase()}&dn=Show.S01.2160p&xl=1024`
+          ),
+          magnetEntry(`magnet:?xt=urn:btih:${HEX}`, { note: '重复' }),
+          magnetEntry('magnet:?xt=urn:btih:AERUKZ4JVPG66AJDIVSYZK4JVPG66AJD', {
+            note: 'base32',
+          }),
+          magnetEntry('magnet:?dn=没有哈希'),
+          magnetEntry('https://example.com/not-magnet'),
+        ],
+        ed2k: [
+          magnetEntry(
+            'ed2k://|file|%E7%A4%BA%E4%BE%8B.mkv|734003200|0123456789ABCDEF0123456789ABCDEF|/'
+          ),
+        ],
+      },
+    })
+    expect(result.shares).toEqual([])
+    expect(result.magnets.find(m => m.hash === HEX)).toMatchObject({
+      kind: 'magnet',
+      title: 'Show.S01.2160p',
+      size: 1024,
+      source: 'plugin:x',
+    })
+    expect(result.magnets).toHaveLength(3)
+    const ed2k = result.magnets.find(m => m.kind === 'ed2k')
+    expect(ed2k).toMatchObject({
+      origin: 'pansou',
+      title: '示例.mkv',
+      hash: '0123456789abcdef0123456789abcdef',
+      size: 734003200,
+      datetime: undefined,
+    })
+    expect(result.magnets.find(m => m.title === 'base32')?.hash).toMatch(
+      /^[0-9a-f]{40}$/
+    )
+  })
+
+  it('界面搜索要 115 + magnet + ed2k；追更（默认）只要 115', async () => {
+    const { fetch, sent } = fakeFetch({
+      'https://so.example.com/api/search': PANSOU_WRAPPED,
+    })
+    await searchPanSou(fetch, 'https://so.example.com', 'a', true)
+    await searchPanSou(fetch, 'https://so.example.com', 'a')
+    expect(JSON.parse(sent[0].body).cloud_types).toEqual([
+      '115',
+      'magnet',
+      'ed2k',
+    ])
+    expect(JSON.parse(sent[1].body).cloud_types).toEqual(['115'])
   })
 })
 
@@ -117,12 +191,12 @@ describe('searchPanSou', () => {
     const { fetch, sent } = fakeFetch({
       'https://so.example.com/api/search': PANSOU_WRAPPED,
     })
-    const items = await searchPanSou(
+    const { shares } = await searchPanSou(
       fetch,
       'https://so.example.com',
       ' 纪录片 '
     )
-    expect(items).toHaveLength(2)
+    expect(shares).toHaveLength(2)
     expect(sent[0].method).toBe('POST')
     expect(sent[0].headers['content-type']).toContain('application/json')
     expect(JSON.parse(sent[0].body)).toEqual({
@@ -157,8 +231,12 @@ describe('searchPanSou', () => {
       }),
       'https://so.example.com/api/search': PANSOU_WRAPPED,
     })
-    const items = await searchPanSou(fetch, 'http://so.example.com', '纪录片')
-    expect(items).toHaveLength(2)
+    const { shares } = await searchPanSou(
+      fetch,
+      'http://so.example.com',
+      '纪录片'
+    )
+    expect(shares).toHaveLength(2)
     expect(sent[1]).toMatchObject({ method: 'POST' })
     expect(JSON.parse(sent[1].body).kw).toBe('纪录片')
   })

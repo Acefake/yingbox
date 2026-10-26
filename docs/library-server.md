@@ -53,25 +53,25 @@
 
 ### 接口一览
 
-| 路径                                 | 方法          | 说明                                                                                                  |
-| ------------------------------------ | ------------- | ----------------------------------------------------------------------------------------------------- |
-| `/api/health`                        | GET           | 健康检查（公开），返回 `{ ok, authorized }`                                                           |
-| `/api/session`                       | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）                                                        |
-| `/api/info`                          | GET           | 媒体根目录、出网实现                                                                                  |
-| `/api/library/rpc`                   | POST          | 片库方法调用，返回 `InvokeResult`                                                                     |
-| `/api/library/events`                | GET           | SSE 事件流                                                                                            |
-| `/api/fs/dirs?path=`                 | GET           | 目录浏览（不带 path 列出媒体根目录）                                                                  |
-| `/media/image/<key>?w=`              | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）                                                           |
-| `/media/thumb?w=&src=`               | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）                                               |
-| `/media/files/<fileId>`              | GET           | 视频文件，支持 Range（206 / 416）                                                                     |
-| `/media/subtitles/<fileId>`          | GET           | 视频旁的外挂字幕列表（文件名 + 读取地址，同名优先）                                                   |
-| `/media/subtitles/<fileId>/<文件名>` | GET           | 一条外挂字幕，srt / ass / ssa / vtt 统一转成 WebVTT                                                   |
-| `/api/engine/rpc`                    | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult`                                              |
-| `/api/engine/events`                 | GET           | 在线引擎事件（SSE，如 `download:changed`）                                                            |
-| `/api/stream?src=`                   | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）                                                        |
-| `/api/domains/<域>/<方法>`           | POST          | 网盘类契约域调用（pan115 / autograb / autograbUpgrade / autograbMovies / discover），见「网盘与追更」 |
-| `/api/domains/events`                | GET           | 上面几个域的 SSE 事件流                                                                               |
-| `/api/server-settings`               | GET / POST    | 服务端保存的设置（PanSou 地址、115 转存目标等）                                                       |
+| 路径                                 | 方法          | 说明                                                                                                          |
+| ------------------------------------ | ------------- | ------------------------------------------------------------------------------------------------------------- |
+| `/api/health`                        | GET           | 健康检查（公开），返回 `{ ok, authorized }`                                                                   |
+| `/api/session`                       | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）                                                                |
+| `/api/info`                          | GET           | 媒体根目录、出网实现                                                                                          |
+| `/api/library/rpc`                   | POST          | 片库方法调用，返回 `InvokeResult`                                                                             |
+| `/api/library/events`                | GET           | SSE 事件流                                                                                                    |
+| `/api/fs/dirs?path=`                 | GET           | 目录浏览（不带 path 列出媒体根目录）                                                                          |
+| `/media/image/<key>?w=`              | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）                                                                   |
+| `/media/thumb?w=&src=`               | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）                                                       |
+| `/media/files/<fileId>`              | GET           | 视频文件，支持 Range（206 / 416）                                                                             |
+| `/media/subtitles/<fileId>`          | GET           | 视频旁的外挂字幕列表（文件名 + 读取地址，同名优先）                                                           |
+| `/media/subtitles/<fileId>/<文件名>` | GET           | 一条外挂字幕，srt / ass / ssa / vtt 统一转成 WebVTT                                                           |
+| `/api/engine/rpc`                    | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult`                                                      |
+| `/api/engine/events`                 | GET           | 在线引擎事件（SSE，如 `download:changed`）                                                                    |
+| `/api/stream?src=`                   | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）                                                                |
+| `/api/domains/<域>/<方法>`           | POST          | 网盘类契约域调用（pan115 / autograb / autograbUpgrade / autograbMovies / discover），见「网盘与追更」         |
+| `/api/domains/events`                | GET           | 上面几个域的 SSE 事件流                                                                                       |
+| `/api/server-settings`               | GET / POST    | 服务端保存的设置（PanSou 地址、115 转存目标等；Torznab 地址与 Key 走 `pan115.setTorznab`，存 `secrets.json`） |
 
 ### 鉴权
 
@@ -117,9 +117,11 @@
 | —                        | `YINGBOX_NETDISK`                         | `on`                          | `off` 时不加载 115 网盘、追更、洗版、电影追踪、库外发现，见「网盘与追更」                |
 | —                        | `YINGBOX_AUTOGRAB`                        | `on`                          | `off` 时网盘接口照常可用，但本实例不跑追更类定时任务                                     |
 | —                        | `YINGBOX_PANSOU_URL`                      | 无                            | 固定 PanSou 地址（设了之后网页端改不了）                                                 |
+| —                        | `YINGBOX_TORZNAB_URL`                     | 无                            | Torznab 地址兜底（多个用逗号分隔）；网页端保存过的优先                                   |
+| —                        | `YINGBOX_TORZNAB_API_KEY`                 | 无                            | 配合上一项的 Prowlarr / Jackett API Key                                                  |
 | —                        | `YINGBOX_MOUNT_ROOT`                      | 无                            | 115 在片库容器里的挂载根（CloudDrive2），转存后入库通知用来对路径；设了之后网页端改不了  |
 
-数据目录里的 `secrets.json` 存着访问令牌、网页端填写的 TMDB 令牌和 115 登录会话，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
+数据目录里的 `secrets.json` 存着访问令牌、网页端填写的 TMDB 令牌、115 登录会话和 Torznab 地址 / API Key，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
 
 ## 部署
 
@@ -275,7 +277,7 @@ features/online|av|download              src/server/online                      
 
 ## 网盘与追更
 
-片库服务也承载桌面版的「网盘」「追更」「找 115 资源」：PanSou 搜索、115 扫码登录、分享预览与转存，
+片库服务也承载桌面版的「网盘」「追更」「找 115 资源」：PanSou / Torznab 搜索（115 分享与磁力）、115 扫码登录、分享预览与转存，
 剧集追更、洗版、电影上线追踪的定时任务，以及库外发现（助手 / 豆瓣卡）。决策见 [ADR-0020](adr/0020-server-netdisk-autograb.md)。
 
 - **同一套模块**：`src/main/pan115`、`src/main/autograb`、`src/main/discover` 的入口只依赖模块宿主（`src/main/module-host`），
@@ -285,7 +287,9 @@ features/online|av|download              src/server/online                      
   线格式见 `src/shared/contract/http-wire.ts`；网页端 transport 是 `services/server-domains`，各板块的 `api.ts` 有 `window.api` 用 IPC，否则用它。
 - **115 会话**：扫码在网页端完成（二维码图片由浏览器直接从 115 加载，轮询经服务端）。登录后会话存在 `secrets.json` 的 `pan115.session`，
   Cookie 存在 `pan115-cookies.json`（0600，原子替换）；115 用 `Set-Cookie` 续上的值写回罐子，重启后还在。115 报登录失效（errno 99 / 990001）时两处一起清掉，网页端提示重新扫码。
-- **出网范围**：115 请求只发往 `115.com` 及其子域，重定向手动跟、跳出 115 域一律拦下；PanSou 地址由用户填写，重定向只跟同一主机（与桌面端相同）。
+- **出网范围**：115 请求只发往 `115.com` 及其子域，重定向手动跟、跳出 115 域一律拦下；PanSou、Torznab 地址由用户填写，重定向只跟同一主机（与桌面端相同）。
+- **磁力来源**：界面搜索并发问 PanSou（115 分享 + 磁力 + 电驴）与 Torznab（Prowlarr / Jackett），一个来源失败只记一条说明；磁力按哈希去重、按做种数排序。
+  Torznab 地址与 API Key 存 `secrets.json` 的 `pan115.torznab`（与 115 会话同一种存储），网页端只能写、看不到 Key。决策见 [ADR-0021](adr/0021-magnet-sources-offline.md)。
 - **设置**：PanSou 地址、转存目标文件夹（`pan115.targetCid` / `movieCid` 等）和挂载根 `library.notify.mountRoot` 存在服务端的
   `<数据目录>/server-settings.json`（`src/server/settings-store`，键的白名单在 `src/shared/settings/server-keys.ts`）。网页端改这几个键时先写服务端、再存浏览器，启动时以服务端为准。
 - **定时任务**：剧集追更（启动 90 秒后，每 30 分钟）、洗版（5 分钟后，每小时）、电影追踪（3 分钟后，每小时）。同一数据目录只有持有调度租约
