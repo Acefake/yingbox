@@ -116,9 +116,15 @@ describe('heroBackdropAt', () => {
     expect(heroBackdropAt(401, 800, 20).sidebar).toBe(true)
   })
   it('侧栏先于顶部一条离开，两者之间不会反过来', () => {
-    expect(heroBackdropAt(200, 800, 104)).toEqual({ edge: true, sidebar: false })
+    expect(heroBackdropAt(200, 800, 104)).toEqual({
+      edge: true,
+      sidebar: false,
+    })
   })
   it('Hero 已滚出视口时两处都不在画面上', () => {
-    expect(heroBackdropAt(-50, 800, 20)).toEqual({ edge: false, sidebar: false })
+    expect(heroBackdropAt(-50, 800, 20)).toEqual({
+      edge: false,
+      sidebar: false,
+    })
   })
 })
