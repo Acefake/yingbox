@@ -1,5 +1,6 @@
 /**
- * 独立服务里的网盘类模块：pan115（PanSou 搜索、扫码登录、转存）+ 追更（剧集、洗版、电影上线追踪）+ 库外发现。
+ * 独立服务里的网盘类模块：pan115（PanSou / Torznab 搜索、扫码登录、转存）+ 追更（剧集、洗版、电影上线追踪）+ 库外发现
+ * + 115 离线下载。
  *
  * 与桌面端共用同一套模块入口（src/main/pan115、autograb、discover），只换模块宿主：
  * | 桌面端（Electron）                         | 独立服务（本目录）                                   |
@@ -8,7 +9,7 @@
  * | safeStorage 密钥 pan115.session / torznab    | secrets.json 的同名键（0600；Torznab 可用环境变量兜底）|
  * | settings.json                               | server-settings.json（settings-store，0600）         |
  * | ipcMain / webContents.send                  | HTTP RPC / SSE（domains/）                           |
- * | userData/autograb*.json                     | <dataDir>/autograb*.json                              |
+ * | userData/autograb*.json、offline-tasks.json | <dataDir> 下同名文件                                  |
  * | setTimeout / setInterval                    | 同上，但只在持有调度租约的实例上执行（scheduler.ts）  |
  * 转存后的入库通知走同进程 LibraryService.notifyChanges（与桌面端经引擎调用同一个方法）。
  * 入库推送（系统通知 / Bark / Telegram）只在桌面端，服务端不发。
@@ -24,6 +25,7 @@ import type { LibraryEngineClient } from '../../main/library/client'
 import { handleRpc } from '../../main/library/engine/rpc'
 import type { LibraryService } from '../../main/library/engine/service'
 import type { ModuleHost } from '../../main/module-host'
+import { registerOffline } from '../../main/offline'
 import { implementPan115 } from '../../main/pan115/domain'
 import type { FetchLike } from '../../main/pan115/http'
 import {
@@ -160,6 +162,7 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
   registerAutograbUpgrade(host, library, pan, gate)
   registerAutograbMovies(host, library, pan, gate)
   registerDiscover(host, library, pan115, autograb)
+  registerOffline(host, library, pan115)
   log(
     `网盘 / 追更：已启用（${config.autograb ? '本实例跑定时任务' : 'YINGBOX_AUTOGRAB=off，本实例不跑定时任务'}）`
   )

@@ -123,7 +123,7 @@ describe('契约域 HTTP RPC', () => {
     })
   })
 
-  it('五个域都已登记：追更 / 洗版 / 电影追踪 / 库外发现', async () => {
+  it('六个域都已登记：追更 / 洗版 / 电影追踪 / 库外发现 / 离线下载', async () => {
     const overview = (await server.rpc('autograb', 'overview')) as {
       ok: boolean
       value: { enabled: boolean }
@@ -135,6 +135,26 @@ describe('契约域 HTTP RPC', () => {
     })
     expect(await server.rpc('autograbMovies', 'overview')).toMatchObject({
       ok: true,
+    })
+    expect(await server.rpc('offline', 'tasks')).toEqual({
+      ok: true,
+      value: { loggedIn: false, folder: '', tasks: [], checkedAt: null },
+    })
+    expect(
+      await server.rpc('offline', 'add', [
+        [`magnet:?xt=urn:btih:${'a'.repeat(40)}`],
+      ])
+    ).toEqual({
+      ok: true,
+      value: {
+        ok: false,
+        error: expect.stringContaining('扫码登录'),
+        setup: 'login',
+      },
+    })
+    expect(await server.rpc('offline', 'add', [['https://x']])).toMatchObject({
+      ok: false,
+      error: expect.stringContaining('磁力或电驴'),
     })
   })
 

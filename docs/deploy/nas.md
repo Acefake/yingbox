@@ -213,15 +213,18 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
      Settings → General → Security；
    - **Jackett**：聚合地址 `http://NAS:9117/api/v2.0/indexers/all/results/torznab/api` 一个就够；API Key 在 Jackett 首页右上角；
    - 想在 compose 里固定，设 `YINGBOX_TORZNAB_URL`（多个用逗号分隔）和 `YINGBOX_TORZNAB_API_KEY`；网页端保存过的优先。Key 存在 `/config/secrets.json`（0600）。
-4. **转存后入库**：追更把文件转存进 115，片库要从 CD2 的挂载里看到它。按上一节把 CD2 挂载根映射进来（如 `/media/cloud`），并设
+4. **磁力 115 离线下载**：网盘页磁力结果点「115 离线下载」，任务进 115 云下载，存到设置里的转存目标文件夹；「离线任务」分段看进度和失败原因。
+   服务每 3 分钟查一次（只在持有调度租约的实例上，没有未完成任务时不查；打开「离线任务」时也会查），下载完成后按下面的挂载根通知片库入库。
+   任务记录在 `/config/offline-tasks.json`。115 的云下载接口没在真实账号上验证过，第一次用时请看一眼 115 App 的云下载列表是否出现任务。
+5. **转存后入库**：追更把文件转存进 115，片库要从 CD2 的挂载里看到它。按上一节把 CD2 挂载根映射进来（如 `/media/cloud`），并设
    ```yaml
    environment:
      YINGBOX_MOUNT_ROOT: /media/cloud # CD2 挂载根在片库容器里的路径
    ```
-   转存成功后服务直接通知片库按目录扫描（不需要 CD2 的 webhook）；路径对不上时文件要等手动扫描。也可以不设环境变量，在网页端改（设置键 `library.notify.mountRoot`）。
-5. **只跑一份定时任务**：同一个 `/config` 只会有一个容器跑追更（`/config/scheduler.lock` 租约）。临时起第二个容器（比如测试新版本）时给它设 `YINGBOX_AUTOGRAB: 'off'`，或者干脆用另一份 `/config`。
-6. **出网**：115、PanSou 与 Torznab 走 Node 自带的 fetch，需要代理时同样设 `HTTPS_PROXY` + `NODE_USE_ENV_PROXY: '1'`。
-7. **不想要这些功能**：设 `YINGBOX_NETDISK: 'off'`，服务不加载网盘相关模块，也不向 115 发任何请求。
+   转存（或离线下载完成）后服务直接通知片库按目录扫描（不需要 CD2 的 webhook）；路径对不上时文件要等手动扫描。也可以不设环境变量，在网页端改（设置键 `library.notify.mountRoot`）。
+6. **只跑一份定时任务**：同一个 `/config` 只会有一个容器跑追更（`/config/scheduler.lock` 租约）。临时起第二个容器（比如测试新版本）时给它设 `YINGBOX_AUTOGRAB: 'off'`，或者干脆用另一份 `/config`。
+7. **出网**：115、PanSou 与 Torznab 走 Node 自带的 fetch，需要代理时同样设 `HTTPS_PROXY` + `NODE_USE_ENV_PROXY: '1'`。
+8. **不想要这些功能**：设 `YINGBOX_NETDISK: 'off'`，服务不加载网盘相关模块，也不向 115 发任何请求。
 
 桌面版与片库服务各有一份追更状态，同一个 115 账号两边都开追更会各自转存同一集：开了这边就把桌面版的追更总开关关掉。
 

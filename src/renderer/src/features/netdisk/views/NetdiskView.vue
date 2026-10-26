@@ -3,7 +3,7 @@
     <PageHeader
       title="网盘搜索"
       :count="items.length + magnets.length || undefined"
-      description="用 PanSou / Torznab 搜 115 分享和磁力，分享查看文件后一键转存"
+      description="用 PanSou / Torznab 搜 115 分享和磁力：分享查看文件后一键转存，磁力一键 115 离线下载，完成后自动入库"
     >
       <template #actions>
         <UiButton
@@ -63,23 +63,31 @@
         @close="actions.closePreview"
       />
 
-      <StatusState v-if="error" tone="danger" title="搜索失败" :hint="error">
+      <div class="netdisk-tabs">
+        <UiSegmented v-model="tab" :options="tabs" label="结果类型" />
+        <p
+          v-if="tab !== 'offline' && notes.length"
+          class="netdisk-notes"
+          role="status"
+        >
+          {{ notes.join('；') }}
+        </p>
+      </div>
+      <OfflineTasks v-if="tab === 'offline'" />
+      <StatusState
+        v-else-if="error"
+        tone="danger"
+        title="搜索失败"
+        :hint="error"
+      >
         <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
       </StatusState>
-      <template v-else-if="searched">
-        <div class="netdisk-tabs">
-          <UiSegmented v-model="tab" :options="tabs" label="结果类型" />
-          <p v-if="notes.length" class="netdisk-notes" role="status">
-            {{ notes.join('；') }}
-          </p>
-        </div>
-        <StatusState
-          v-if="!loading && !shown.length"
-          icon="search"
-          :title="tab === 'share' ? '没有找到 115 分享' : '没有找到磁力'"
-          hint="换个关键词，或在设置里检查 PanSou / Torznab 地址"
-        />
-      </template>
+      <StatusState
+        v-else-if="searched && !loading && !shown.length"
+        icon="search"
+        :title="tab === 'share' ? '没有找到 115 分享' : '没有找到磁力'"
+        hint="换个关键词，或在设置里检查 PanSou / Torznab 地址"
+      />
       <UiVirtualGrid
         v-if="!error && tab === 'magnet'"
         tag="ul"
@@ -88,11 +96,17 @@
         :item-key="item => `${item.kind}:${item.hash}`"
       >
         <template #default="{ item }">
-          <MagnetResult :item="item" @copy="actions.copy(item)" />
+          <MagnetResult
+            :item="item"
+            :adding="offlineAdd.isAdding(item.link)"
+            :added="offlineAdd.isAdded(item.link)"
+            @copy="actions.copy(item)"
+            @offline="offlineAdd.add(item)"
+          />
         </template>
       </UiVirtualGrid>
       <UiVirtualGrid
-        v-else-if="!error"
+        v-else-if="!error && tab === 'share'"
         tag="ul"
         class="netdisk-results"
         :items="items"
@@ -121,10 +135,12 @@
 /**
  * 网盘搜索页：关键词 → PanSou（115 分享 + 磁力 / 电驴）与 Torznab（磁力）→ 两组结果，用分段控件切换
  * （虚拟列表，行等高）。115 分享：查看文件是一个玻璃浮层（NetdiskPreview），转存在结果卡片与浮层上；
- * 磁力行显示来源标签、大小、做种与规格。一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。
+ * 磁力行显示来源标签、大小、做种与规格，可一键加进 115 离线下载；第三段「离线任务」看经影盒添加的云下载进度
+ * （打开页面带 ?tab=offline 直接显示）。一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。
  * 两个来源都没填时引导去设置；需要 115 登录的操作未登录时由主进程返回提示。
  */
 import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
@@ -138,10 +154,17 @@ import { toast } from '@/components/ui/toast'
 import { useSetting } from '@/features/settings'
 import type { NetdiskItem } from '../../../../../shared/contract/pan115'
 
-import { netdisk, netdiskAvailable, openNetdiskSettings } from '../api'
+import {
+  netdisk,
+  netdiskAvailable,
+  offlineDownloads,
+  openNetdiskSettings,
+} from '../api'
 import NetdiskPreview from '../components/NetdiskPreview.vue'
 import MagnetResult from '../components/MagnetResult.vue'
 import NetdiskResult from '../components/NetdiskResult.vue'
+import OfflineTasks from '../components/OfflineTasks.vue'
+import { useOfflineAdd } from '../composables/use-offline'
 import { useNetdiskSearch } from '../composables/use-netdisk-search'
 import { useShareActions } from '../composables/use-share-actions'
 
@@ -151,18 +174,23 @@ const { keyword, items, magnets, notes, loading, searched, error, search } =
   useNetdiskSearch(netdisk)
 /** 填了 Torznab 地址（读一次；设置里改了回到本页会重新挂载） */
 const torznabReady = ref(false)
-const tab = ref<'share' | 'magnet'>('share')
-const tabs = computed<SegmentedOption<'share' | 'magnet'>[]>(() => [
-  { value: 'share', label: `115 分享 ${items.value.length}` },
-  { value: 'magnet', label: `磁力 ${magnets.value.length}` },
+type Tab = 'share' | 'magnet' | 'offline'
+const route = useRoute()
+const tab = ref<Tab>(route.query.tab === 'offline' ? 'offline' : 'share')
+const count = (n: number): string => (searched.value ? ` ${n}` : '')
+const tabs = computed<SegmentedOption<Tab>[]>(() => [
+  { value: 'share', label: `115 分享${count(items.value.length)}` },
+  { value: 'magnet', label: `磁力${count(magnets.value.length)}` },
+  { value: 'offline', label: '离线任务' },
 ])
 const shown = computed(() =>
   tab.value === 'share' ? items.value : magnets.value
 )
-// 新结果里 115 分享为空、磁力有结果时自动切到磁力
+// 新结果里 115 分享为空、磁力有结果时自动切到磁力；在看离线任务时搜索后回到结果
 watch([items, magnets], ([shares, links]) => {
   if (!shares.length && links.length) tab.value = 'magnet'
   else if (shares.length && !links.length) tab.value = 'share'
+  else if (tab.value === 'offline') tab.value = 'share'
 })
 onMounted(async () => {
   if (!available) return
@@ -178,6 +206,11 @@ const actions = useShareActions({
   clipboard: () => navigator.clipboard,
 })
 const preview = actions.preview
+const offlineAdd = useOfflineAdd({
+  api: offlineDownloads,
+  notify: toast,
+  openLogin: openNetdiskSettings,
+})
 
 /** 再点同一条收起预览，点别的换成那一条 */
 function togglePreview(item: NetdiskItem): void {

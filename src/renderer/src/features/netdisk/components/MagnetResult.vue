@@ -22,6 +22,13 @@
         label="复制链接"
         @click="emit('copy')"
       />
+      <UiButton
+        icon="cloud"
+        :label="added ? '已离线' : '115 离线下载'"
+        :disabled="added || adding"
+        :loading="adding"
+        @click="emit('offline')"
+      />
     </div>
   </li>
 </template>
@@ -29,10 +36,11 @@
 <script setup lang="ts">
 /**
  * 网盘搜索的一条磁力 / 电驴结果（与 115 分享行同高的实色卡片）：标题、来源标签（磁力 · PanSou / 磁力 · Torznab）、
- * 来源细节 · 大小 · 做种 · 日期、从标题认出的规格标签（releaseSpecs），复制链接。
+ * 来源细节 · 大小 · 做种 · 日期、从标题认出的规格标签（releaseSpecs），复制链接、115 离线下载（状态在页面的 useOfflineAdd 里）。
  */
 import { computed } from 'vue'
 
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import { releaseSpecs } from '@/components/ui/spec-badge'
@@ -40,8 +48,12 @@ import type { MagnetItem } from '../../../../../shared/contract/pan115'
 
 import { magnetMeta, magnetOriginLabel } from '../utils/netdisk-rules'
 
-const props = defineProps<{ item: MagnetItem }>()
-const emit = defineEmits<{ copy: [] }>()
+const props = defineProps<{
+  item: MagnetItem
+  adding?: boolean
+  added?: boolean
+}>()
+const emit = defineEmits<{ copy: []; offline: [] }>()
 
 const origin = computed(() => magnetOriginLabel(props.item))
 const meta = computed(() => magnetMeta(props.item))
