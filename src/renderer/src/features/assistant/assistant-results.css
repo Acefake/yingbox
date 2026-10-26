@@ -1,9 +1,9 @@
 /*
- * AI 助手回答下面的结果：影片列表（一块浅底列表，每行小海报 + 信息 + 规格标签 + 播放 / 继续或一组按钮，
- * 列表下方可展开的面板）与一次性动作的回执（圆形图标 + 一句话）。全部中性灰阶令牌。
+ * AI 助手回答下面的结果：影片结果卡（一块浅底列表，每行是 UiMediaRow，行样式在组件里）、
+ * 列表下方可展开的面板，与一次性动作的回执（圆形图标 + 一句话）。全部中性灰阶令牌。
  */
 
-/* ── 影片结果：一块浅底列表，每行小海报 + 信息 + 按钮 ── */
+/* ── 影片结果：一块浅底列表，弹簧滑入、逐行错开 ── */
 .assistant-card-in {
   animation: assistant-card-in var(--duration-assistant-sheet)
     var(--ease-spring) both;
@@ -17,83 +17,28 @@
   list-style: none;
 }
 .assistant-card {
-  display: flex;
-  align-items: center;
-  gap: var(--space-3);
-  min-height: 80px;
-  padding: var(--space-2) var(--space-3) var(--space-2) var(--space-2);
-  border-radius: var(--radius-lg);
   transition: opacity var(--duration-fast) ease;
 }
 .assistant-card + .assistant-card {
   box-shadow: 0 -0.5px 0 var(--separator);
 }
-.assistant-card:hover {
-  background: var(--bg-active-soft);
-}
 .assistant-cards:where(.is-busy) .assistant-card:not(.is-busy) {
   opacity: 0.5;
 }
-.assistant-card-cover {
-  position: relative;
-  flex: none;
-  width: 44px;
-  height: 66px;
-  overflow: hidden;
-  border-radius: var(--radius-sm);
-  background: var(--bg-fill-secondary);
-  box-shadow: inset 0 0 0 0.5px var(--border-strong);
+/* 进度条在卡片滑入后再长出来 */
+.assistant-card .yb-media-row-progress i {
+  animation: assistant-progress var(--duration-assistant-sheet) var(--ease-out)
+    both;
+  animation-delay: var(--duration-slow);
 }
-.assistant-card-cover img {
-  display: block;
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
+/* 想看、详情：悬停或键盘焦点在这一行时才出现（位置保留，不跳动） */
+.assistant-card-extra {
+  opacity: 0;
+  transition: opacity var(--duration-fast) ease;
 }
-.assistant-card-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-0_5);
-  min-width: 0;
-}
-.assistant-card-title {
-  overflow: hidden;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-card-meta {
-  overflow: hidden;
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-card-specs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-1_5);
-  min-width: 0;
-  margin-top: var(--space-0_5);
-}
-.assistant-card-why {
-  overflow: hidden;
-  color: var(--text-tertiary);
-  font-size: var(--text-xs);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.assistant-card-play {
-  flex: none;
-}
-.assistant-card-buttons {
-  display: flex;
-  flex: none;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-1);
+.assistant-card:where(:hover, :focus-within) .assistant-card-extra,
+.assistant-card-extra:where([aria-pressed='true']) {
+  opacity: 1;
 }
 .assistant-panel-slot {
   margin-top: var(--space-3);
@@ -101,26 +46,6 @@
   border: 1px solid var(--border-glass-light);
   border-radius: var(--radius-xl);
   background: var(--bg-glass);
-}
-.assistant-progress {
-  position: absolute;
-  right: var(--space-1);
-  bottom: var(--space-1);
-  left: var(--space-1);
-  height: 3px;
-  overflow: hidden;
-  border-radius: var(--radius-full);
-  background: var(--border-strong);
-}
-.assistant-progress-fill {
-  display: block;
-  height: 100%;
-  background: var(--media-text);
-  transform: scaleX(var(--progress, 0));
-  transform-origin: left;
-  animation: assistant-progress var(--duration-assistant-sheet) var(--ease-out)
-    both;
-  animation-delay: var(--duration-slow);
 }
 
 /* ── 动作回执：圆形图标 + 一句话 ── */
@@ -147,17 +72,37 @@
   color: var(--text-secondary);
 }
 
-/* 播放器旁：列表更紧凑 */
-.assistant[data-layout='player'] .assistant-card {
-  min-height: 72px;
+/* 播放器旁、窄窗口：海报小一档；窄窗口不出想看 / 详情图标钮（整卡点开就是详情），备注换行 */
+.assistant[data-layout='player'] .assistant-card .yb-media-row {
+  --row-poster-w: 40px;
+  --row-poster-h: 60px;
+}
+@media (max-width: 519px) {
+  .assistant-card .yb-media-row {
+    --row-poster-w: 40px;
+    --row-poster-h: 60px;
+    gap: var(--space-2_5);
+  }
+  .assistant-card-extra {
+    display: none;
+  }
+  /* 备注（看到哪儿、理由）换到规格标签下面一行，不被截掉 */
+  .assistant-card .yb-media-row-specs {
+    flex-wrap: wrap;
+    row-gap: var(--space-0_5);
+  }
+  .assistant-card .yb-media-row-note {
+    flex-basis: 100%;
+  }
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .assistant-card {
+  .assistant-card,
+  .assistant-card-extra {
     transition: none;
   }
   .assistant-card-in,
-  .assistant-progress-fill {
+  .assistant-card .yb-media-row-progress i {
     animation: none;
   }
 }
