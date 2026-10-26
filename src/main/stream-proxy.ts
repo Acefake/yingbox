@@ -1,10 +1,18 @@
-/** HLS 跨域传输：只转发公网 GET/HEAD 和 Range，不携带浏览器 Cookie 或认证头。 */
+/**
+ * HLS / 直播跨域传输：只转发公网 GET/HEAD 和 Range，不携带浏览器 Cookie 或认证头。
+ * IPTV 源大多不回 CORS 头、只有 http，渲染层的 hls.js 与 <video> 一律经这里取清单与分片。
+ * 超时只管「等响应头」：直播流与大文件的响应体会持续很久，不能按总时长掐断。
+ */
 import { refererFor } from '../shared/net/media-referer'
 import type { NetClient } from '../shared/net/client'
 import { STREAM_RESPONSE_URL, STREAM_SCHEME } from '../shared/stream-url'
 
 /** 同一主机同一原因的日志在这段时间内只打一次，避免分片失败刷屏 */
 const LOG_WINDOW_MS = 10_000
+/** 等上游响应头的上限（含所有重定向）；超时回 504 */
+export const STREAM_CONNECT_MS = 20_000
+/** 失败原因回给渲染层的响应头（不含完整地址） */
+export const STREAM_ERROR_HEADER = 'X-Yingbox-Error'
 
 /**
  * 记录转发失败（直播、在线 HLS 排查用）：只打主机与原因，不打完整地址（可能带令牌）。
@@ -32,7 +40,8 @@ function createFailureLog(
 
 export function createStreamHandler(
   net: NetClient,
-  logFailure: (source: string, reason: string) => void = createFailureLog()
+  logFailure: (source: string, reason: string) => void = createFailureLog(),
+  connectMs = STREAM_CONNECT_MS
 ): (request: Request) => Promise<Response> {
   return async request => {
     if (!['GET', 'HEAD'].includes(request.method))
@@ -50,13 +59,17 @@ export function createStreamHandler(
     if (range) headers.Range = range
     const referer = refererFor(source)
     if (referer) headers.Referer = referer
+    const connect = new AbortController()
+    const timer = setTimeout(() => connect.abort(), connectMs)
     try {
       const { response, url: finalUrl } = await net.open(source, {
         method: request.method as 'GET' | 'HEAD',
         headers,
-        signal: request.signal,
-        timeoutMs: 60_000,
+        signal: AbortSignal.any([request.signal, connect.signal]),
+        // 总时长不设限（直播流一直在传），连接阶段由上面的计时器管
+        timeoutMs: 2 ** 31 - 1,
       })
+      clearTimeout(timer)
       const result = new Headers({
         'Access-Control-Allow-Origin': '*',
         'Access-Control-Expose-Headers': STREAM_RESPONSE_URL,
@@ -79,9 +92,21 @@ export function createStreamHandler(
         headers: result,
       })
     } catch (error) {
-      if (!request.signal.aborted)
-        logFailure(source, (error as Error).message || String(error))
-      return new Response(null, { status: 502 })
+      clearTimeout(timer)
+      if (request.signal.aborted) return new Response(null, { status: 502 })
+      const timedOut = connect.signal.aborted
+      const reason = timedOut
+        ? '连接超时'
+        : (error as Error).message || String(error)
+      logFailure(source, reason)
+      return new Response(null, {
+        status: timedOut ? 504 : 502,
+        headers: {
+          'Access-Control-Allow-Origin': '*',
+          'Access-Control-Expose-Headers': STREAM_ERROR_HEADER,
+          [STREAM_ERROR_HEADER]: encodeURIComponent(reason),
+        },
+      })
     }
   }
 }

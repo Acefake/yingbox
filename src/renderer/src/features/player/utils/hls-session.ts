@@ -3,7 +3,7 @@
  * 换源前、播放器销毁时调用 destroy()。
  */
 import type Artplayer from 'artplayer'
-import Hls from 'hls.js'
+import Hls, { type ErrorData } from 'hls.js'
 import { DesktopHlsLoader } from './hls-loader'
 
 import type { ArtOption } from './art-options'
@@ -12,8 +12,8 @@ import type { ArtOption } from './art-options'
 export interface HlsCallbacks {
   /** 清单解析完成（可在此续播、自动播放） */
   onManifestParsed: (video: HTMLVideoElement) => void
-  /** 不可恢复的错误 */
-  onFatalError: (instance: Artplayer) => void
+  /** 不可恢复的错误（data 为 hls.js 的错误数据，原因文案见 play-errors.ts） */
+  onFatalError: (instance: Artplayer, data: ErrorData) => void
 }
 
 /** createHlsSession 的返回值 */
@@ -51,7 +51,7 @@ export function createHlsSession(): HlsSession {
         callbacks.onManifestParsed(videoEl)
       )
       hls.on(Hls.Events.ERROR, (_event, data) => {
-        if (data.fatal) callbacks.onFatalError(instance)
+        if (data.fatal) callbacks.onFatalError(instance, data)
       })
       instance.on('destroy', destroy)
     },
