@@ -11,7 +11,7 @@ import {
   replaceProps,
   spawnArgs,
 } from './mpv-props'
-import { MpvSocket, SOCKET_PATH } from './mpv-socket'
+import { MpvSocket, nextSocketPath } from './mpv-socket'
 import { MpvHeaderState, mpvStream } from './mpv-stream'
 import { MpvWindow } from './mpv-window'
 import { registerPlugin } from './plugins/host'
@@ -36,6 +36,10 @@ const VSR_OSD_MS = 4500
 class MpvPlayer extends EventEmitter {
   private child: ChildProcess | null = null
   private readonly sock = new MpvSocket()
+  /** open 串行执行：连点 / 双击时第二次等第一次起完进程再换片，不会两个进程抢连接 */
+  private opening: Promise<void> = Promise.resolve()
+  /** 每次 open 加一：一次 open 失败时若已有更新的 open 排在后面，它就算被取代，不向上报错 */
+  private openSeq = 0
   private _status: MpvStatus = { ...DEFAULT_STATUS }
   /** RTX 视频超分开关（渲染层设置项，默认关闭） */
   private vsrEnabled = false
@@ -76,11 +80,25 @@ class MpvPlayer extends EventEmitter {
     })
   }
 
-  /** 打开媒体。若 mpv 已在运行则替换当前文件，否则启动新进程 */
-  async open(options: MpvOpenOptions): Promise<void> {
-    const target = options.filePath || options.url
-    if (!target) throw new Error('mpv: 必须指定 filePath 或 url')
+  /**
+   * 打开媒体。若 mpv 已在运行则替换当前文件，否则启动新进程。
+   * 多次调用按顺序执行；失败时已有更新的 open 在排队，这次算被取代，静默返回（以最后一次为准）。
+   */
+  open(options: MpvOpenOptions): Promise<void> {
+    if (!options.filePath && !options.url)
+      return Promise.reject(new Error('mpv: 必须指定 filePath 或 url'))
+    const seq = ++this.openSeq
+    const run = this.opening.then(() =>
+      this.openNow(options).catch((error: unknown) => {
+        if (seq !== this.openSeq) return
+        throw error
+      })
+    )
+    this.opening = run.catch(() => {})
+    return run
+  }
 
+  private async openNow(options: MpvOpenOptions): Promise<void> {
     this._status = {
       ...this._status,
       loading: true,
@@ -91,9 +109,10 @@ class MpvPlayer extends EventEmitter {
     try {
       if (this.child && this.sock.connected) {
         const stream = mpvStream(options)
-        await this.headers.apply(stream.headers)
+        // 属性设不上（旧版 mpv 不认某个值等）只记日志，照样换片，不让整次 open 失败
+        await this.headers.apply(stream.headers).catch(warnProp)
         for (const [name, value] of replaceProps(options))
-          await this.setProp(name, value)
+          await this.setProp(name, value).catch(warnProp)
         await this.cmd('loadfile', stream.target, 'replace')
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
@@ -110,16 +129,17 @@ class MpvPlayer extends EventEmitter {
   }
 
   private async spawnProcess(options: MpvOpenOptions): Promise<void> {
-    // 旧进程还在但连接断了：先就地收尾再杀，它迟到的 exit 不会再清掉新进程
+    // 旧进程还在但连接断了：先就地收尾，等它被杀掉再起新进程；它迟到的 exit 不会再清掉新进程
     const old = this.child
     if (old) {
       this.cleanupProcess()
-      void killTree(old)
+      await killTree(old)
     }
+    const socket = nextSocketPath()
     const exe = findMpvExecutable()
     const { target, headers } = mpvStream(options)
     const args = spawnArgs({
-      socket: SOCKET_PATH,
+      socket,
       target,
       startAt: options.startAt,
       title: options.title,
@@ -141,7 +161,7 @@ class MpvPlayer extends EventEmitter {
       if (this.child === child) this.cleanupProcess()
     })
     try {
-      await this.sock.connect(undefined, () => this.child !== child)
+      await this.sock.connect(socket, undefined, () => this.child !== child)
     } catch (error) {
       // 连不上：不留没人管的 mpv 进程
       if (this.child === child) {
@@ -362,6 +382,9 @@ class MpvPlayer extends EventEmitter {
     await stopProcess(child, { graceful: () => this.cmd('quit') })
   }
 }
+
+const warnProp = (error: unknown): void =>
+  console.warn('[mpv] 换片前设置属性失败，照样换片：', error)
 
 /** 全局单例 */
 export const mpvPlayer = new MpvPlayer()
