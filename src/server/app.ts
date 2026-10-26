@@ -36,6 +36,7 @@ import type { Handler } from './http/adapter'
 import { createAuth, sameOrigin } from './http/auth'
 import { HttpError, Router, fail } from './http/router'
 import { createStaticHandler } from './http/static'
+import { startNetdisk } from './netdisk'
 import { registerFsRoutes } from './routes/fs'
 import { registerLibraryRoutes } from './routes/library'
 import { registerMediaRoutes } from './routes/media'
@@ -63,6 +64,8 @@ export interface ServerAppOptions {
   /** 是否监控媒体库目录（false 时不监听也不定时扫描），默认按 config.monitor。 */
   watch?: boolean
   env?: NodeJS.ProcessEnv
+  /** 115 / PanSou 的出网实现（缺省全局 fetch）；测试注入。 */
+  netdiskFetch?: (url: string, init?: RequestInit) => Promise<Response>
 }
 
 /** 编解码线程：构建产物里 webp-worker.js 与本文件同目录；找不到（如直接跑源码）时退回当前线程。 */
@@ -131,6 +134,16 @@ export async function createServerApp(
   })
   registerMediaRoutes(router, { service, thumbnails })
   registerFsRoutes(router, config.mediaRoots)
+  // 网盘 / 追更 / 库外发现（开关 YINGBOX_NETDISK、YINGBOX_AUTOGRAB，见 netdisk/）
+  const netdisk = startNetdisk({
+    dataDir: config.dataDir,
+    env,
+    secrets,
+    service,
+    router,
+    log,
+    fetch: options.netdiskFetch,
+  })
   const serveStatic = config.webDir ? createStaticHandler(config.webDir) : null
 
   const handle: Handler = async request => {
@@ -167,6 +180,9 @@ export async function createServerApp(
     service,
     token,
     tokenGenerated: generated,
-    close: () => service.close(),
+    close: async () => {
+      netdisk?.close()
+      await service.close()
+    },
   }
 }

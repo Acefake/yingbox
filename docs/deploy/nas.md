@@ -14,11 +14,11 @@
 
 ## 目录映射
 
-| 容器内          | 放什么                                                   | 建议                                                                                   |
-| --------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
-| `/config`       | `library.db`（片库数据库）、`secrets.json`（令牌，0600） | 必须持久化、必须备份；只让服务用户可读                                                 |
-| `/cache`        | `media/`（海报原图、缩略图）等缓存                      | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
-| `/media/<名字>` | 片库目录，可以挂多个                                     | 默认 `:ro`。网页端只能在 `/media` 以内浏览和建库                                       |
+| 容器内          | 放什么                                                                                                                                                             | 建议                                                                                   |
+| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
+| `/config`       | `library.db`（片库数据库）、`secrets.json`（令牌，0600）；用了网盘时还有 `pan115-cookies.json`（0600）、`server-settings.json`、`autograb*.json`、`scheduler.lock` | 必须持久化、必须备份；只让服务用户可读                                                 |
+| `/cache`        | `media/`（海报原图、缩略图）等缓存                                                                                                                                 | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
+| `/media/<名字>` | 片库目录，可以挂多个                                                                                                                                               | 默认 `:ro`。网页端只能在 `/media` 以内浏览和建库                                       |
 
 `./yingbox/` 是 compose 示例的数据目录，已写进 `.gitignore` 与 `.dockerignore`，不会进 git 也不会进镜像。
 
@@ -139,6 +139,7 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 3. **权限**：CD2 Linux 挂载的「高级设置」可以指定 UID、GID 和权限（默认 `0755`，其他用户可读）。设成与 `PUID` / `PGID` 相同最省事；保持默认也能读，但写 NFO / 整理会失败。
 4. **存储与扫描**：CD2 挂载是 FUSE，库的「存储」保持「自动」就按网盘处理：不监听、不定时扫描、启动不补扫，只在添加库时扫一次，之后新文件靠下面的变更通知或手动扫描入库（`YINGBOX_WATCH` / `YINGBOX_SCAN_INTERVAL` 只管本地盘库）。不想配通知、宁可轮询，就在「媒体库设置 → 自动入库 → 存储」里改选「本地盘」，回到定时扫描；每轮要对每个目录 `stat` 一次，对网盘就是一次次 API 请求，目录多时把 `YINGBOX_SCAN_INTERVAL` 调大（比如 `1800`）。
 5. **变更通知**（CD2 的文件变更 webhook 是会员功能）：容器里没有桌面版那个 CD2 格式的通知地址（桌面版见 [网盘模式说明](../library-cloud-mode.md)），通知走片库服务自己的 API——`POST /api/library/rpc`，请求头 `Authorization: Bearer <YINGBOX_SERVER_TOKEN>`，请求体：
+
    ```json
    {
      "method": "notifyChanges",
@@ -159,7 +160,28 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
    - **路径映射**：通知里写 CD2 自己的路径（`/115/电影/...`）即可。库建在 `/media/cloud/115/电影` 时，按「库目录末尾几段 = 路径开头几段」自动对上；库目录就是挂载根（`/media/cloud`）、或两个库末尾同名时对不上，在 `params` 里加 `"mountRoot": "/media/cloud"`（CD2 的挂载根在**片库容器里**的路径，即上面 volumes 的 `target`）。对上后约 2 秒按目录增量扫描。
    - **地址**：CD2 与片库都用默认 bridge 网络时，把两者放进同一个 Docker 网络，地址写 `http://yingbox:31480/api/library/rpc`（compose 的服务名）；CD2 用 host 网络时写 `http://127.0.0.1:31480/api/library/rpc`（compose 默认就映射到宿主 `127.0.0.1:31480`）。CD2 跑在另一台机器上才需要局域网可达，按上文改 `ports`，令牌照旧必带。
    - CD2 的默认 webhook 请求体是 `{ "data": [{ "action", "source_file", "destination_file", ... }] }`，与上面的格式不同，需要在 CD2 的 webhook 配置（`webhook.toml`）里改请求体模板与请求头，或用一个小脚本转发；具体模板写法以 CD2 文档为准。只在 CD2 里发生的改动（挂载盘、它的网页、WebDAV、离线下载）才有通知，在网盘 App 里直接改的文件仍要手动扫描。
+
 6. **悬停预览与播放**：网盘库悬停时只轮播已缓存的图片，不读视频，也不算指纹（识别时探测时长 / 算字幕哈希按需读，两次至少隔 1 秒）；页内播放经服务转发 Range 请求，速度取决于 CD2 的缓存与网盘限速。
+
+## 115 网盘与追更
+
+片库服务默认加载网盘与追更（`YINGBOX_NETDISK=on`），网页端的「网盘」页、设置 · 网盘、追剧日历里的追更区和「找 115 资源」都能用。原理与全部开关见 [网盘与追更](../library-server.md#网盘与追更)。
+
+1. **登录 115**：网页端「设置 → 网盘」点扫码登录，用 115 App 扫。会话与 Cookie 存在 `/config`（0600），容器重启不用重扫；115 让会话失效时网页端会提示重新扫码。
+2. **PanSou**：在同一页填 PanSou 地址（PanSou 也在 NAS 上跑时，填容器能访问到的地址，比如同一 Docker 网络里的 `http://pansou:8888`）。想在 compose 里固定，设 `YINGBOX_PANSOU_URL`。
+3. **转存后入库**：追更把文件转存进 115，片库要从 CD2 的挂载里看到它。按上一节把 CD2 挂载根映射进来（如 `/media/cloud`），并设
+   ```yaml
+   environment:
+     YINGBOX_MOUNT_ROOT: /media/cloud # CD2 挂载根在片库容器里的路径
+   ```
+   转存成功后服务直接通知片库按目录扫描（不需要 CD2 的 webhook）；路径对不上时文件要等手动扫描。也可以不设环境变量，在网页端改（设置键 `library.notify.mountRoot`）。
+4. **只跑一份定时任务**：同一个 `/config` 只会有一个容器跑追更（`/config/scheduler.lock` 租约）。临时起第二个容器（比如测试新版本）时给它设 `YINGBOX_AUTOGRAB: 'off'`，或者干脆用另一份 `/config`。
+5. **出网**：115 与 PanSou 走 Node 自带的 fetch，需要代理时同样设 `HTTPS_PROXY` + `NODE_USE_ENV_PROXY: '1'`。
+6. **不想要这些功能**：设 `YINGBOX_NETDISK: 'off'`，服务不加载网盘相关模块，也不向 115 发任何请求。
+
+桌面版与片库服务各有一份追更状态，同一个 115 账号两边都开追更会各自转存同一集：开了这边就把桌面版的追更总开关关掉。
+
+从桌面版迁移追更记录：把桌面版 userData 下的 `autograb.json`、`autograb-upgrade.json`、`autograb-movies.json` 拷进 `/config`（停容器时拷），115 需要在网页端重新扫码。
 
 ## 备份、迁移与排错
 
@@ -170,3 +192,4 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 - 网页端看得到文件夹、看不到文件，或扫描报权限错误：`PUID` / `PGID` 没有读权限。`docker compose exec yingbox setpriv --reuid=<PUID> --regid=<PGID> --clear-groups ls /media/<名字>` 可以按服务的身份试读。
 - 健康检查一直 `unhealthy`：`docker inspect --format '{{json .State.Health}}' yingbox-library` 看每次检查的输出；改了 `YINGBOX_PORT` 时健康检查会跟着用新端口。
 - 目录监控、inotify 上限、写入稳定判定等，见 [自动入库](../library-server.md#自动入库)。
+- 追更不动：日志里有「调度租约在别的实例手里」说明另一个容器（或刚被杀掉、90 秒内的旧进程）持有 `/config/scheduler.lock`；确认只有一个容器在用这份 `/config`。「网盘 / 追更：已关闭」说明设了 `YINGBOX_NETDISK=off`。

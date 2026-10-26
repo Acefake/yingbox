@@ -8,11 +8,7 @@
  */
 import { MessageChannelMain, app, ipcMain, utilityProcess } from 'electron'
 import { join } from 'node:path'
-import {
-  LIBRARY_CHANNELS,
-  type LibraryMethod,
-  type LibraryRpcMap,
-} from '../../shared/library/ipc'
+import { LIBRARY_CHANNELS } from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
 import { libraryAiHost } from './ai-host'
 import { libraryToolsHost } from './tools-host'
@@ -24,6 +20,7 @@ import {
   type LibraryHostDeps,
 } from './engine-host'
 import { libraryPaths } from './platform/paths'
+import type { LibraryEngineClient } from './client'
 
 /** 引擎数据目录。 */
 const libraryDir = (): string => join(app.getPath('userData'), 'library')
@@ -54,13 +51,7 @@ export function onLibraryArrivals(
   arrivalListeners.add(listener)
 }
 
-/** 主进程内直接调引擎（如下发 TMDB 令牌）；引擎报错时抛出。 */
-export interface LibraryEngineClient {
-  call<M extends LibraryMethod>(
-    method: M,
-    params: LibraryRpcMap[M]['params']
-  ): Promise<LibraryRpcMap[M]['result']>
-}
+export type { LibraryEngineClient } from './client'
 
 /**
  * 注册媒体库 IPC：library:invoke（调用）、library:subscribe / library:unsubscribe（事件订阅登记）。

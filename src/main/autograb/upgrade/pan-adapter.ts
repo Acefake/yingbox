@@ -10,7 +10,6 @@ import type {
 import { Pan115Error } from '../../pan115/errors'
 import type { Pan115Service } from '../../pan115/service'
 import { type ShareRef, parseShareLink } from '../../pan115/share-link'
-import { settingsStore } from '../../settings'
 
 /** 两个服务要的 115 能力（并集） */
 export interface PanAdapter {
@@ -31,9 +30,14 @@ export interface PanAdapter {
   refresh(): Promise<void>
 }
 
-/** 包装 Pan115Service */
-export function createPanAdapter(pan115: Pan115Service): PanAdapter {
-  const store = settingsStore()
+/**
+ * 包装 Pan115Service。
+ * @param pansouUrl 设置里的 PanSou 地址（空串 = 未填）
+ */
+export function createPanAdapter(
+  pan115: Pan115Service,
+  pansouUrl: () => string
+): PanAdapter {
   let loggedIn = false
   const shareOf = (url: string, password: string): ShareRef => {
     const ref = parseShareLink(url, password)
@@ -42,7 +46,7 @@ export function createPanAdapter(pan115: Pan115Service): PanAdapter {
   }
   return {
     loggedIn: () => loggedIn,
-    pansouReady: () => Boolean(store.get('pan115.pansouUrl').trim()),
+    pansouReady: () => Boolean(pansouUrl().trim()),
     search: keyword => pan115.searchRaw(keyword),
     snap: (url, password, dirCid) =>
       pan115.use(client => client.snapDir(shareOf(url, password), dirCid)),

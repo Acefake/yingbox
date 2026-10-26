@@ -10,10 +10,10 @@
  */
 import { app, net, session } from 'electron'
 
-import { pan115 } from '../../shared/contract/pan115'
 import { installBrowserNetworkGuard } from '../browser-fetch/network-guard'
-import { implement } from '../rpc'
+import type { ModuleHost } from '../module-host'
 import { settingsStore } from '../settings'
+import { implementPan115 } from './domain'
 import { type Pan115Service, createPan115Service } from './service'
 import { parseSession, serializeSession } from './session-codec'
 import { PAN115_PARTITION, createSessionTransport } from './session-transport'
@@ -21,7 +21,9 @@ import { PAN115_PARTITION, createSessionTransport } from './session-transport'
 const SESSION_KEY = 'pan115.session'
 
 /** 注册 pan115 域（app ready、initSettings 之后调用一次）；返回服务供主进程内其他模块（追更）用 */
-export function registerPan115(): Pan115Service {
+export function registerPan115(
+  host: Pick<ModuleHost, 'implement'>
+): Pan115Service {
   const store = settingsStore()
   const partition = session.fromPartition(PAN115_PARTITION)
   installBrowserNetworkGuard(partition)
@@ -42,15 +44,6 @@ export function registerPan115(): Pan115Service {
   void service.restore().catch(() => {})
   // 分区 Cookie 不设过期本就不落盘；退出时再清一次，不留副本
   app.on('will-quit', () => void transport.clear().catch(() => {}))
-  implement(pan115, {
-    search: (_, keyword) => service.search(keyword),
-    account: () => service.account(),
-    loginStart: () => service.loginStart(),
-    loginPoll: () => service.loginPoll(),
-    logout: () => service.logout(),
-    snap: (_, url, password) => service.snap(url, password),
-    receive: (_, url, password) => service.receive(url, password),
-    dirs: (_, cid) => service.dirs(cid),
-  })
+  implementPan115(host, service)
   return service
 }
