@@ -3,7 +3,6 @@
     class="online-view h-full min-h-0 bg-yb-bg text-yb-text"
     :class="{
       'is-bleed': !inlineDetailItem && activeTab === 'home',
-      'has-detail': !!inlineDetailItem,
     }"
   >
     <!-- 首页：Hero 铺到浮动侧栏和顶栏胶囊下面，下面几排按 --home-x 让开侧栏 -->
@@ -72,11 +71,13 @@
         class="inline-detail-page"
         aria-label="内容详情"
       >
+        <div class="inline-detail-edge" aria-hidden="true" />
         <div class="inline-detail-toolbar">
           <UiButton
+            class="inline-detail-back yb-on-media"
             label="返回"
             icon="back"
-            variant="secondary"
+            variant="glass"
             @click="inlineDetailItem = null"
           />
         </div>
@@ -266,26 +267,45 @@ const openContinueDetail = (record: ContinueRecord): void => {
   min-width: 0;
 }
 
-.online-view.has-detail {
-  height: calc(100% + var(--shell-top));
-  margin-top: calc(var(--shell-top) * -1);
-}
-
 .inline-detail-page {
+  --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
+  --detail-gutter: var(--space-8);
   display: flex;
   flex-direction: column;
-  position: absolute;
+  position: fixed;
   inset: 0;
-  z-index: var(--z-overlay);
+  z-index: var(--z-float);
   width: 100%;
-  background: var(--bg-main);
+  background: var(--bg-content);
 }
 
 .inline-detail-toolbar {
   position: absolute;
-  top: calc(var(--shell-top) + var(--space-3));
-  left: var(--content-padding-x);
+  top: var(--shell-pill-top);
+  left: var(--detail-x);
   z-index: var(--z-float);
+  -webkit-app-region: no-drag;
+}
+
+.inline-detail-edge {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 104px;
+  z-index: var(--z-float);
+  background: linear-gradient(
+    color-mix(in srgb, var(--bg-content) 62%, transparent),
+    transparent
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  mask: var(--mask-fade-end-30);
+  -webkit-mask: var(--mask-fade-end-30);
+  pointer-events: none;
+}
+
+.inline-detail-back {
+  height: var(--shell-pill-height);
+  border-radius: var(--radius-full);
 }
 
 .inline-detail-page :deep(.detail-win) {
@@ -310,6 +330,16 @@ const openContinueDetail = (record: ContinueRecord): void => {
   }
   .home-page:where(.has-hero) .home-rows {
     padding: var(--space-6) var(--space-5) 0 var(--home-x);
+  }
+}
+
+@media (max-width: 720px) {
+  .inline-detail-page {
+    --detail-x: var(--space-4);
+    --detail-gutter: var(--space-4);
+  }
+  .inline-detail-toolbar {
+    top: calc(var(--safe-top) + var(--space-2));
   }
 }
 
