@@ -25,6 +25,7 @@ import { libraryNotify } from './library-notify'
 import { media } from './media'
 import { mpv } from './mpv'
 import { notifications } from './notifications'
+import { offline } from './offline'
 import { nowPlaying } from './now-playing'
 import { online } from './online'
 import { pan115 } from './pan115'
@@ -63,6 +64,7 @@ export const contract = {
   mpv,
   notifications,
   nowPlaying,
+  offline,
   online,
   pan115,
   playerWindow,

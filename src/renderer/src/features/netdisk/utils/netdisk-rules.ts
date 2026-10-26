@@ -1,6 +1,7 @@
 /**
- * 网盘页的纯函数：显示格式与扫码轮询循环。
+ * 网盘页的纯函数：显示格式（分享、磁力、离线任务）与扫码轮询循环。
  */
+import type { OfflineTask } from '../../../../../shared/contract/offline'
 import type {
   MagnetItem,
   Pan115LoginPoll,
@@ -92,4 +93,27 @@ export async function pollLogin(
     await new Promise(resolve => setTimeout(resolve, interval))
   }
   return { status: 'canceled' }
+}
+
+/** 离线任务的状态文字：「下载中 63%」「已完成 · 已入库」「失败」 */
+export function offlineStatusLabel(task: OfflineTask): string {
+  switch (task.status) {
+    case 'waiting':
+      return '等待中'
+    case 'running':
+      return `下载中 ${Math.floor(task.percent)}%`
+    case 'done':
+      return task.imported ? '已完成 · 已入库' : '已完成 · 等待入库'
+    default:
+      return '失败'
+  }
+}
+
+/** 离线任务的说明：大小、保存到的文件夹、添加日期 */
+export function offlineMeta(task: OfflineTask): string[] {
+  return [
+    formatBytes(task.size),
+    `存到 ${task.folder || '根目录'}`,
+    formatDay(task.addedAt ? new Date(task.addedAt).toISOString() : undefined),
+  ].filter(Boolean)
 }

@@ -3,6 +3,7 @@
  * 登录 Cookie、Referer 与 UA 由传输层（独立分区，见 transport.ts）带上，这里不写这几个头；
  * 失败按 errno 转人话（见 errors.ts）。
  */
+import type { OfflineAddItem } from '../../shared/contract/offline'
 import type {
   Pan115DirListing,
   ShareFile,
@@ -10,6 +11,11 @@ import type {
 } from '../../shared/contract/pan115'
 import { Pan115Error, errnoMessage } from './errors'
 import { type FetchLike, fetchJson, obj, text } from './http'
+import {
+  type OfflineTaskPage,
+  addOfflineUrls,
+  listOfflineTasks,
+} from './offline'
 import type { ShareRef } from './share-link'
 
 const WEBAPI = 'https://webapi.115.com'
@@ -64,6 +70,10 @@ export interface Pan115Client {
   space(): Promise<DriveSpace>
   /** 删除文件夹 cid 里的一个文件（进回收站）；只接受一个数字 id */
   deleteFile(cid: string, fileId: string): Promise<void>
+  /** 把磁力 / 电驴链接加进云下载，存到文件夹 cid（见 offline.ts） */
+  addOffline(links: readonly string[], cid: string): Promise<OfflineAddItem[]>
+  /** 云下载任务列表的一页（新加的在前） */
+  offlineTasks(page?: number): Promise<OfflineTaskPage>
 }
 
 /** 用一个会话创建客户端 */
@@ -301,5 +311,8 @@ export function create115Client(
     entries,
     space,
     deleteFile,
+    addOffline: (links, cid) =>
+      addOfflineUrls(fetch, session.userId, links, cid),
+    offlineTasks: page => listOfflineTasks(fetch, page),
   }
 }
