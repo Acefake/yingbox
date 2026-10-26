@@ -220,6 +220,13 @@
   --glass-media-edge: rgba(255, 255, 255, 0.14);
   /* 弹出菜单（「更多」、右键菜单）：比玻璃控件不透明得多，压在海报上也读得清 */
   --menu-bg: rgba(30, 30, 32, 0.88);
+  /*
+   * Hero（首页、详情）下沿：深色页面本就是黑底不需要渐隐。浅色在画面内部最后 fade 一段渐隐到页面底色，
+   * 文案上移 lift 避开渐隐段；Hero 高度两套主题一致。
+   */
+  --hero-edge-fade: 0px;
+  --hero-edge-lift: 0px;
+  --hero-edge-mask: none;
 
   /* ── 阴影：卡片 / 浮层 / 大浮层三档 ── */
   --shadow-sm: 0 1px 3px rgba(0, 0, 0, 0.3);
@@ -426,13 +433,6 @@
   --overlay-scrim: rgba(0, 0, 0, 0.72);
   --overlay-scrim-strong: rgba(0, 0, 0, 0.9);
   --overlay-scrim-soft: rgba(0, 0, 0, 0.24);
-  /*
-   * Hero（首页、详情）下沿：深色页面本就是黑底不需要渐隐。浅色在画面内部最后 fade 一段渐隐到页面底色，
-   * 文案上移 lift 避开渐隐段；Hero 高度两套主题一致。
-   */
-  --hero-edge-fade: 0px;
-  --hero-edge-lift: 0px;
-  --hero-edge-mask: none;
 
   --shadow-sm: 0 1px 2px rgba(0, 0, 0, 0.06);
   --shadow-md: 0 8px 24px rgba(0, 0, 0, 0.1);
