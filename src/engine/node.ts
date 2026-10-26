@@ -20,12 +20,12 @@ if (!userData || typeof process.send !== 'function') {
 
 const send = process.send.bind(process) as (message: FromUtility) => boolean
 
-// 宿主断开（服务退出 / 被 kill）时自行退出，不留孤儿进程
-process.on('disconnect', () => process.exit(0))
-
-bootEngine({
+const engine = bootEngine({
   port: {
-    postMessage: message => void send(message),
+    // 断开后的收尾期间不再发消息（发往已关闭的 IPC 通道会抛错）
+    postMessage: message => {
+      if (process.connected) send(message)
+    },
     on: (_event, listener) =>
       process.on('message', data => listener({ data: data as ToUtility })),
   },
@@ -33,4 +33,13 @@ bootEngine({
   fetch: (url, init) => fetch(url, init),
   lookup: host => lookup(host, { all: true }),
   exit: code => process.exit(code),
+})
+
+/** 宿主断开后收尾的上限：写回队列卡住也不留孤儿进程。 */
+const DISCONNECT_EXIT_MS = 5000
+
+// 宿主断开（服务退出 / 被 kill）：先收尾（停下载、写回队列）再退出，超时强退
+process.on('disconnect', () => {
+  setTimeout(() => process.exit(0), DISCONNECT_EXIT_MS).unref()
+  void engine.shutdown()
 })

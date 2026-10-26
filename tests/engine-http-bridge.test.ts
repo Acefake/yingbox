@@ -13,11 +13,13 @@ import { ENGINE_HTTP } from '../src/shared/engine-http'
 
 interface Sent {
   path: string
-  body: { channel: string; args: unknown[] }
+  body: { channel: string; args: unknown[]; undefinedAt?: number[] }
 }
 interface FakeStream {
   url: string
   push: (data: string) => void
+  /** 模拟事件流自己关掉（服务不在线时不再重连） */
+  drop: () => void
   closed: boolean
 }
 
@@ -30,15 +32,20 @@ function setup(respond: (body: Sent['body']) => Response): {
   const streams: FakeStream[] = []
   const bridge = createEngineBridge({
     request: async (path, init) => {
-      const body = JSON.parse(String(init.body)) as {
-        channel: string
-        args: unknown[]
-      }
+      const body = JSON.parse(String(init.body)) as Sent['body']
       requests.push({ path, body })
       return respond(body)
     },
-    openEvents: (url, onData) => {
-      const stream = { url, push: onData, closed: false }
+    openEvents: (url, onData, onClosed) => {
+      const stream: FakeStream = {
+        url,
+        push: onData,
+        drop: () => {
+          stream.closed = true
+          onClosed()
+        },
+        closed: false,
+      }
       streams.push(stream)
       return { close: () => void (stream.closed = true) }
     },
@@ -98,5 +105,33 @@ describe('createEngineBridge', () => {
     expect(seen).toEqual([1, ['second', 1]])
     api.offChanged()
     expect(streams[0].closed).toBe(true)
+  })
+
+  it('undefined 参数单独标出下标，JSON 里只留 null 占位', async () => {
+    const { bridge, requests } = setup(() => json({ ok: true, value: null }))
+    await bridge.api(online).doubanTrailer('42', undefined)
+    expect(requests[0].body).toEqual({
+      channel: 'online:doubanTrailer',
+      args: ['42', null],
+      undefinedAt: [1],
+    })
+  })
+
+  it('事件流自己关掉后，服务恢复在线（resume）或新订阅会重新打开', () => {
+    const { bridge, streams } = setup(() => json({ ok: true, value: null }))
+    const api = bridge.api(download)
+    const seen: unknown[] = []
+    api.onChanged(payload => seen.push(payload))
+    streams[0].drop()
+    bridge.resume()
+    expect(streams).toHaveLength(2)
+    streams[1].push(JSON.stringify({ channel: 'download:changed', payload: 3 }))
+    expect(seen).toEqual([3])
+    streams[1].drop()
+    api.onChanged(() => {})
+    expect(streams).toHaveLength(3)
+    api.offChanged()
+    bridge.resume()
+    expect(streams).toHaveLength(3)
   })
 })

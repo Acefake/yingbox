@@ -35,8 +35,14 @@ export interface EngineBootOptions {
   exit: (code: number) => void
 }
 
+/** 启动好的引擎。 */
+export interface BootedEngine {
+  /** 收尾（停下载、写回队列）后退出进程；宿主的 shutdown 消息与宿主断开都走这里，只执行一次 */
+  shutdown(): Promise<void>
+}
+
 /** 注册三个域、恢复下载队列，并告诉宿主已就绪。 */
-export function bootEngine(options: EngineBootOptions): void {
+export function bootEngine(options: EngineBootOptions): BootedEngine {
   const { port, userData } = options
   const server = serveEngine(port)
   const log = (line: string): void => console.warn(`[engine] ${line}`)
@@ -75,13 +81,23 @@ export function bootEngine(options: EngineBootOptions): void {
     ctx: server.context,
   })
   server.implement(download, downloads.handlers)
-  void downloads.load()
+  // 下载域的调用会等队列读盘完成；这里只兜住意外的拒绝，不让引擎进程因未处理的 rejection 退出
+  downloads
+    .load()
+    .catch(error => console.error('[download] 恢复下载队列失败', error))
 
   // 模块加载完、各域注册好：宿主据此记录 fork → ready 的耗时
   port.postMessage({ kind: 'ready' })
 
-  server.onShutdown(() => {
-    downloads.queue.stop()
-    void downloads.queue.flush().finally(() => options.exit(0))
-  })
+  let closing: Promise<void> | undefined
+  const shutdown = (): Promise<void> =>
+    (closing ??= (async () => {
+      downloads.queue.stop()
+      await downloads.queue
+        .flush()
+        .catch(error => console.error('[download] 写回下载队列失败', error))
+      options.exit(0)
+    })())
+  server.onShutdown(() => void shutdown())
+  return { shutdown }
 }

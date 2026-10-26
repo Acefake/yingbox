@@ -73,10 +73,21 @@ describe('loadOnlineConfig', () => {
     )
     expect(config.enabled).toBe(false)
     expect(config.downloadDir).toBe('/downloads')
-    expect(config.browser).toEqual({
-      kind: 'chromium',
-      path: '/usr/bin/chromium',
-    })
+    // 关闭在线板块时不解析浏览器配置，写错的旧值也不拦启动
+    expect(config.browser).toBeNull()
+    expect(
+      loadOnlineConfig(
+        { YINGBOX_ONLINE: 'off', YINGBOX_BROWSER: 'firefox:/x' },
+        '/d'
+      ).browser
+    ).toBeNull()
+    expect(
+      loadOnlineConfig({ YINGBOX_BROWSER: 'chromium:/usr/bin/chromium' }, '/d')
+        .browser
+    ).toEqual({ kind: 'chromium', path: '/usr/bin/chromium' })
+    expect(() =>
+      loadOnlineConfig({ YINGBOX_BROWSER: 'firefox:/x' }, '/d')
+    ).toThrow(/chromium/)
     expect(config.streamAllowPrivate).toEqual(['nas.lan', '192.168.1.0/24'])
     expect(config.idleMs).toBe(0)
     expect(() => loadOnlineConfig({ YINGBOX_ONLINE: 'maybe' }, '/d')).toThrow()

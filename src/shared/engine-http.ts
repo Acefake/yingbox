@@ -15,13 +15,56 @@ export const ENGINE_HTTP = {
   stream: '/api/stream',
 } as const
 
-/** 经 HTTP 开放的引擎域（契约见 shared/contract/online、av、download）。 */
+/** 经 HTTP 开放的引擎域（契约见 shared/contract/online、av、download）；服务端的开放范围只从这里取。 */
 export const ENGINE_HTTP_DOMAINS = ['online', 'av', 'download'] as const
 
-/** 一次调用。 */
+/** 开放的域名。 */
+export type EngineHttpDomain = (typeof ENGINE_HTTP_DOMAINS)[number]
+
+/**
+ * 一次调用。JSON 表达不了 undefined（数组里的 undefined 会变成 null），而 IPC 的结构化克隆会原样保留它，
+ * 契约的 parse 也区分「没传」和 null：所以值为 undefined 的参数下标单独放在 undefinedAt，服务端还原后再解析。
+ */
 export interface EngineRpcRequest {
   channel: string
   args: unknown[]
+  undefinedAt?: number[]
+}
+
+/** 编码一次调用：记下值为 undefined 的顶层参数下标（没有时不带 undefinedAt）。 */
+export function encodeRpcRequest(
+  channel: string,
+  args: readonly unknown[]
+): EngineRpcRequest {
+  const undefinedAt = args.flatMap((arg, index) =>
+    arg === undefined ? [index] : []
+  )
+  return {
+    channel,
+    args: args.map(arg => (arg === undefined ? null : arg)),
+    ...(undefinedAt.length ? { undefinedAt } : {}),
+  }
+}
+
+/**
+ * 服务端还原 undefined 参数；undefinedAt 不是参数范围内的整数下标数组时返回 null（按参数不合法处理）。
+ * args 不是数组时原样返回，交给调用方报错。
+ */
+export function restoreUndefinedArgs(
+  args: unknown,
+  undefinedAt: unknown
+): unknown {
+  if (undefinedAt === undefined || !Array.isArray(args)) return args
+  if (
+    !Array.isArray(undefinedAt) ||
+    !undefinedAt.every(
+      index => Number.isInteger(index) && index >= 0 && index < args.length
+    )
+  )
+    return null
+  const restored = [...args]
+  for (const index of undefinedAt as number[]) restored[index] = undefined
+  return restored
 }
 
 /** 调用结果；失败时 code 为 invalid-params（参数不合契约）、unavailable（引擎不可用）或引擎给的码。 */

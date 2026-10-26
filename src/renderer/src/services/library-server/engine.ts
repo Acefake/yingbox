@@ -2,6 +2,7 @@
  * 网页端访问独立服务上的在线引擎（online / av / download 域）：transport 见 engine-bridge.ts。
  * 桌面端（有 window.api）不经过这里。
  */
+import { watch } from 'vue'
 import type { Domain, DomainApi } from '../../../../shared/contract/define'
 import { streamProxyPath } from '../../../../shared/engine-http'
 import { type EngineBridge, createEngineBridge } from './engine-bridge'
@@ -10,21 +11,34 @@ import { isWebRuntime, libraryServerState, serverFetch } from './index'
 let bridge: EngineBridge | null = null
 const apis = new Map<string, unknown>()
 
-/** 网页端的引擎域 API；桌面端返回 null。 */
-export function webEngineApi<D extends Domain>(domain: D): DomainApi<D> | null {
-  if (!isWebRuntime()) return null
-  bridge ??= createEngineBridge({
+/**
+ * 建 transport：服务没就绪（连不上 / 未登录）时关掉事件流，别让浏览器无限重连（就绪后断线照常自动重连）；
+ * 服务回到在线时把还有订阅的事件流重新打开，下载进度等事件不会就此断掉。
+ */
+function createWebEngineBridge(): EngineBridge {
+  const created = createEngineBridge({
     request: serverFetch,
-    openEvents: (url, onData) => {
+    openEvents: (url, onData, onClosed) => {
       const source = new EventSource(url, { withCredentials: true })
       source.onmessage = event => onData(String(event.data))
-      // 服务没就绪（连不上 / 未登录）时别无限重连；就绪后断线照常自动重连
       source.onerror = () => {
-        if (libraryServerState().value !== 'online') source.close()
+        if (libraryServerState().value === 'online') return
+        source.close()
+        onClosed()
       }
       return source
     },
   })
+  watch(libraryServerState(), state => {
+    if (state === 'online') created.resume()
+  })
+  return created
+}
+
+/** 网页端的引擎域 API；桌面端返回 null。 */
+export function webEngineApi<D extends Domain>(domain: D): DomainApi<D> | null {
+  if (!isWebRuntime()) return null
+  bridge ??= createWebEngineBridge()
   let api = apis.get(domain.name) as DomainApi<D> | undefined
   if (!api) {
     api = bridge.api(domain)

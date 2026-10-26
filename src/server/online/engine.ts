@@ -50,15 +50,33 @@ export function engineEntry(dir = __dirname): string {
   return candidates.find(file => existsSync(file)) ?? candidates[0]
 }
 
-/** 把 ChildProcess 包成 UtilityHost 要的形状。 */
-export function wrapChild(child: ChildProcess): UtilityChild {
+/**
+ * 把 ChildProcess 包成 UtilityHost 要的形状。spawn 失败（入口不存在、权限、资源不足）时 ChildProcess 只发
+ * 'error' 不一定发 'exit'：这里把它当成一次退出（码 1）交给 UtilityHost 走崩溃流程，不变成未捕获异常。
+ */
+export function wrapChild(
+  child: ChildProcess,
+  log: (message: string) => void = message => console.error(message)
+): UtilityChild {
+  const exitListeners: Array<(code: number) => void> = []
+  let exited = false
+  const exit = (code: number): void => {
+    if (exited) return
+    exited = true
+    for (const listener of exitListeners) listener(code)
+  }
+  child.on('exit', code => exit(code ?? 1))
+  child.on('error', error => {
+    log(`[engine] 引擎子进程出错：${error.message}`)
+    exit(1)
+  })
   return {
     postMessage(message) {
       if (child.connected) child.send(message)
     },
     on(event: 'message' | 'exit', listener: (value: never) => void) {
       if (event === 'exit')
-        child.on('exit', code => listener((code ?? 1) as never))
+        exitListeners.push(listener as (code: number) => void)
       else
         child.on('message', message =>
           listener(message as FromUtility as never)
@@ -70,12 +88,17 @@ export function wrapChild(child: ChildProcess): UtilityChild {
 }
 
 /** fork 引擎子进程：结构化克隆传消息（与 utilityProcess 一致），stderr 交给崩溃守卫。 */
-export function forkEngine(entry: string, dataDir: string): UtilityChild {
+export function forkEngine(
+  entry: string,
+  dataDir: string,
+  log?: (message: string) => void
+): UtilityChild {
   return wrapChild(
     fork(entry, [dataDir], {
       serialization: 'advanced',
       stdio: ['ignore', 'inherit', 'pipe', 'ipc'],
-    })
+    }),
+    log
   )
 }
 
@@ -85,7 +108,7 @@ export function createServerEngine(deps: ServerEngineDeps): ServerEngine {
   mkdirSync(config.engineDir, { recursive: true })
   const listeners = new Set<(event: EngineEventMessage) => void>()
   const host = new EngineHost({
-    fork: deps.fork ?? (() => forkEngine(engineEntry(), config.engineDir)),
+    fork: deps.fork ?? (() => forkEngine(engineEntry(), config.engineDir, log)),
     idleMs: config.idleMs,
     broadcast: (channel, payload) => {
       for (const listener of listeners) listener({ channel, payload })
@@ -102,10 +125,10 @@ export function createServerEngine(deps: ServerEngineDeps): ServerEngine {
       tmdbToken: async () => deps.tmdbToken(),
     },
   })
-  void resumePendingDownloads(
+  resumePendingDownloads(
     join(config.engineDir, 'downloads', 'queue.json'),
     () => host.invoke(channelOf(download.name, 'list'), [])
-  )
+  ).catch(error => log(`续传下载任务失败：${String(error)}`))
   return {
     invoke: (channel, args) => host.invoke(channel, args),
     subscribe(listener) {

@@ -222,4 +222,43 @@ describe('播放代理', () => {
     expect(bytes.byteLength).toBe(body.byteLength)
     expect(bytes[199_999]).toBe(7)
   })
+
+  it('开头被拆成很小的块也认得出清单；改写后不带上游的 Content-Length', async () => {
+    const bytes = new TextEncoder().encode(MEDIA)
+    const tiny = (): Response =>
+      new Response(
+        new ReadableStream<Uint8Array>({
+          start(controller) {
+            for (let i = 0; i < bytes.length; i += 3)
+              controller.enqueue(bytes.subarray(i, i + 3))
+            controller.close()
+          },
+        }),
+        {
+          headers: {
+            'content-type': 'text/plain',
+            'content-length': String(bytes.length),
+          },
+        }
+      )
+    const { get } = proxyFor({ 'https://cdn.example.com/v/a.m3u8': tiny })
+    const response = await get('https://cdn.example.com/v/a.m3u8')
+    const text = await response.text()
+    expect(text).toContain(
+      streamProxyPath('https://cdn.example.com/v/seg-1.ts')
+    )
+    const length = response.headers.get('content-length')
+    if (length !== null)
+      expect(Number(length)).toBe(new TextEncoder().encode(text).byteLength)
+  })
+
+  it('不足嗅探长度就结束的非清单正文原样返回', async () => {
+    const { get } = proxyFor({
+      'https://cdn.example.com/short.txt': () =>
+        new Response('ok', { headers: { 'content-type': 'text/plain' } }),
+    })
+    expect(await (await get('https://cdn.example.com/short.txt')).text()).toBe(
+      'ok'
+    )
+  })
 })
