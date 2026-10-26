@@ -81,27 +81,14 @@ function render(list: HTMLElement, rows: ReturnType<typeof infoRows>): void {
   )
 }
 
-/** 每个实例的「收起播放信息」（缩进小窗时由外层调用） */
-const closers = new WeakMap<Artplayer, () => void>()
-
-/**
- * 收起某个实例的播放信息浮层（停掉刷新计时）；没装过或已收起时什么也不做。
- * @param art Artplayer 实例
- */
-export function closePlaybackInfo(art: Artplayer): void {
-  closers.get(art)?.()
-}
-
 /**
  * 给一个播放器实例装上「播放信息」（设置菜单项、右键菜单项与浮层）。实例销毁时自动拆除。
  * @param art Artplayer 实例
  * @param hls 当前的 hls.js 实例（非 HLS 为 null）
- * @param compact 是否缩在角落小窗：小窗里放不下，不打开，只给一句提示
  */
 export function installPlaybackInfo(
   art: Artplayer,
-  hls: () => Hls | null,
-  compact: () => boolean = () => false
+  hls: () => Hls | null
 ): void {
   const layer = art.layers.add({
     name: NAME,
@@ -128,10 +115,6 @@ export function installPlaybackInfo(
   }
 
   const setOpen = (open: boolean): void => {
-    if (open && compact()) {
-      art.notice.show = '展开播放器后再打开'
-      return
-    }
     layer.classList.toggle('is-open', open)
     window.clearInterval(timer)
     timer = undefined
@@ -142,7 +125,6 @@ export function installPlaybackInfo(
   }
   const toggle = (): void => setOpen(!layer.classList.contains('is-open'))
 
-  closers.set(art, () => setOpen(false))
   close?.addEventListener('click', () => setOpen(false))
   close?.addEventListener('keydown', event => {
     if (event.key === 'Enter' || event.key === ' ') setOpen(false)

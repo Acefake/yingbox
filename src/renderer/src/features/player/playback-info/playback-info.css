@@ -23,15 +23,10 @@
   display: flex;
 }
 
-/* 播放弹窗顶部有标题条（高度见 PlayerModal.vue 的 --player-modal-bar-height），
-   面板从它下面再空 --space-2 开始，不压住片名和关闭按钮 */
-.player-modal__card .unified-player-core .yb-info {
-  top: calc(var(--player-modal-bar-height) + var(--space-2));
-}
-
-/* 兜底：缩进小窗时浮层已由 closePlaybackInfo 收起、入口也拦住，万一仍是展开态也不显示 */
-.unified-player--compact .unified-player-core .yb-info.is-open {
-  display: none;
+/* 播放台顶部有标题条（高度见 stage/PlayerStage.vue 的 --player-stage-bar-height），
+   面板从它下面再空 --space-2 开始，不压住片名和窗口键 */
+.player-stage .unified-player-core .yb-info {
+  top: calc(var(--player-stage-bar-height) + var(--space-2));
 }
 
 .unified-player-core .yb-info__head {

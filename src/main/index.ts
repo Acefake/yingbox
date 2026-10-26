@@ -53,6 +53,7 @@ import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
 import { installTray } from './tray'
 import { registerAssistant } from './assistant'
+import { type PlayerWindowControl, registerPlayerWindow } from './player-window'
 
 /**
  * 固定 userData 目录（必须在 ready 之前、且在任何 app.getPath('userData') 之前）。
@@ -96,6 +97,7 @@ protocol.registerSchemesAsPrivileged([
 ])
 
 let mainWindow: BrowserWindow | null = null
+let playerWindow: PlayerWindowControl | null = null
 
 function getScreenBasedSize(
   ratio = 0.85,
@@ -127,6 +129,8 @@ function createWindow(): void {
     },
   })
 
+  // 播放器窗口跟着主窗口关（macOS 关主窗口不退出，也不留一个孤零零的播放器）
+  mainWindow.on('close', () => playerWindow?.close())
   mainWindow.on('closed', () => {
     mainWindow = null
   })
@@ -255,11 +259,13 @@ app.whenReady().then(async () => {
   registerDiscover(libraryClient, pan115Service, autograb)
   // lada / mpv 都按需启动；退出时由插件宿主统一停止并等进程退出
   installPluginHost(app)
+  // 内置播放器的独立窗口（见 src/main/player-window）
+  playerWindow = registerPlayerWindow({ getMainWindow: () => mainWindow })
 
   createWindow()
   registerDevToolsShortcut()
   // 托盘 + 全局媒体键（内置播放器正在播放时）
-  installTray({ getMainWindow: () => mainWindow, showMainWindow })
+  installTray({ showMainWindow })
   // AI 助手：全局快捷键唤起（默认 Alt+Space）与语音转写（见 src/main/assistant）
   registerAssistant({ getMainWindow: () => mainWindow, showMainWindow })
 

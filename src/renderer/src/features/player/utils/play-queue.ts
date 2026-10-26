@@ -16,6 +16,8 @@ export type PlaylistEntry = {
   video?: VideoProbe | null
   /** 媒体库条目：进度只记进片库（见 progress/library-sink） */
   library?: LibraryRef
+  /** 片库记的续播位置（秒，看完的为 0）：主窗口把播放交给播放器窗口时填上，那边没有片库缓存 */
+  libraryResume?: number
 }
 
 /** 片库播完最后一集时的提示（如「没有下一集的文件」+ 去追更） */

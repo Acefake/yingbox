@@ -33,7 +33,7 @@ describe('播放器快捷键接线', () => {
     installPlayerHotkeys(art, {
       enabled: () => true,
       next: null,
-      mini: null,
+      pin: null,
       subtitle: () => {},
     })
     window.dispatchEvent(new KeyboardEvent('keydown', { key: 'k' }))
