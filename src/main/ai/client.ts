@@ -11,6 +11,13 @@ import type {
   AiChatResult,
   AiTokenUsage,
 } from '../../shared/ai/types'
+import {
+  JSON_MIN_TOKENS,
+  type JsonOutput,
+  buildChatBody,
+  modelOf,
+  sentParams,
+} from './body'
 import type { AiConfig } from './config'
 import { AiError, httpError } from './errors'
 import {
@@ -18,27 +25,16 @@ import {
   type ParamMemory,
   type ReasoningEffort,
   createParamMemory,
-  reasoningParams,
   rejectedParam,
 } from './params'
 import { readJson, readStream } from './read'
 import { rawSnippet } from './response'
 
+export { JSON_MIN_TOKENS, type JsonOutput, buildChatBody } from './body'
 export { toUsage } from './read'
 
 /** 注入的 fetch（Response 只用到标准字段） */
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
-
-/** JSON 输出要求 */
-export interface JsonOutput {
-  schema?: Record<string, unknown>
-  schemaName?: string
-  /**
-   * 只靠提示词要 JSON，不发 response_format。服务商不认 response_format（400）时
-   * {@link chatCompletion} 自动降级成这一档。
-   */
-  promptOnly?: boolean
-}
 
 /** 客户端结果：在对外结果之外带上思考与工具调用参数（只在主进程里用，service 返回前去掉） */
 export interface ClientResult extends AiChatResult {
@@ -79,9 +75,6 @@ export const DEFAULT_STREAM_TIMEOUT_MS = 120_000
  */
 export const REASONING_HEADROOM_TOKENS = 4096
 
-/** JSON 调用的最低 max_tokens：JSON 本身很短，给足余量让思考型模型想完再输出 */
-export const JSON_MIN_TOKENS = 2048
-
 /**
  * 本次运行的会话标识：OpenCode Go 要求每段对话带稳定的 x-opencode-session
  * （缺了返回 400），用于路由与提示缓存。调用方没给会话时整个进程共用这一个。
@@ -112,70 +105,6 @@ export function buildHeaders(
       `yingbox-${sessionId?.trim() || RUN_SESSION}`
   }
   return headers
-}
-
-/** 一次请求实际用的模型 */
-const modelOf = (config: AiConfig, request: AiChatRequest): string =>
-  request.model?.trim() || config.model
-
-/** 请求体的可选部分 */
-export interface BodyOptions {
-  stream: boolean
-  json?: JsonOutput
-  reasoning?: ReasoningEffort
-  /** 不发的可选参数（模型不认） */
-  omit?: readonly OptionalParam[]
-}
-
-/** 请求体：Chat Completions 字段，按需加流式用量、JSON 模式 / json_schema、推理强度 */
-export function buildChatBody(
-  config: AiConfig,
-  request: AiChatRequest,
-  options: BodyOptions
-): Record<string, unknown> {
-  const messages = request.messages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }))
-  const model = modelOf(config, request)
-  const omit = options.omit ?? []
-  const body: Record<string, unknown> = { model, messages }
-  if (request.temperature !== undefined && !omit.includes('temperature'))
-    body.temperature = request.temperature
-  if (!omit.includes('reasoning'))
-    Object.assign(
-      body,
-      reasoningParams(config.provider, model, options.reasoning)
-    )
-  const json = options.json
-  if (request.maxTokens !== undefined)
-    body.max_tokens = json
-      ? Math.max(request.maxTokens, JSON_MIN_TOKENS)
-      : request.maxTokens
-  if (options.stream) {
-    body.stream = true
-    body.stream_options = { include_usage: true }
-  }
-  if (json) {
-    if (json.schema && config.jsonSchema && !json.promptOnly) {
-      body.response_format = {
-        type: 'json_schema',
-        json_schema: {
-          name: json.schemaName || 'result',
-          schema: json.schema,
-          strict: true,
-        },
-      }
-    } else {
-      if (!json.promptOnly) body.response_format = { type: 'json_object' }
-      // JSON 模式要求提示里出现 "JSON"；没有 schema 能力时把 schema 写进系统提示
-      const hint = json.schema
-        ? `只输出符合下面 JSON Schema 的 JSON，不要任何解释：\n${JSON.stringify(json.schema)}`
-        : '只输出 JSON，不要任何解释。'
-      messages.unshift({ role: 'system', content: hint })
-    }
-  }
-  return body
 }
 
 const abortableSleep = (ms: number, signal: AbortSignal): Promise<void> =>
@@ -211,30 +140,6 @@ function sumUsage(
 
 /** 进程内共用的参数记忆：本次运行里被某个模型拒绝过的参数不再发 */
 const SHARED_PARAMS = createParamMemory()
-
-/** 这次请求体里实际带了哪些可选参数 */
-function sentParams(
-  config: AiConfig,
-  request: AiChatRequest,
-  options: BodyOptions
-): OptionalParam[] {
-  const omit = options.omit ?? []
-  const sent: OptionalParam[] = []
-  if (
-    !omit.includes('reasoning') &&
-    Object.keys(
-      reasoningParams(
-        config.provider,
-        modelOf(config, request),
-        options.reasoning
-      )
-    ).length > 0
-  )
-    sent.push('reasoning')
-  if (request.temperature !== undefined && !omit.includes('temperature'))
-    sent.push('temperature')
-  return sent
-}
 
 /** 额度被思考用光：没有正文也没有工具调用，结束原因是 length */
 export function spentOnReasoning(result: ClientResult): boolean {
