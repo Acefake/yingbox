@@ -13,6 +13,8 @@ export interface LiveSource {
   /** 用户填写的节目单地址（逗号分隔可多个）；空则用播放列表头里的 x-tvg-url */
   epgUrl: string
   enabled: boolean
+  /** 远程源的备用地址（推荐源的镜像）：主地址拉取失败时依次尝试 */
+  mirrors?: string[]
 }
 
 /** 分组列表里的一项 */
@@ -46,7 +48,19 @@ export function sanitizeSource(value: unknown): LiveSource | null {
     location,
     epgUrl: typeof raw.epgUrl === 'string' ? raw.epgUrl.trim() : '',
     enabled: raw.enabled !== false,
+    ...sanitizeMirrors(raw.mirrors),
   }
+}
+
+/** 备用地址只留合法的 http(s)，最多 3 个；没有时不带这个字段 */
+function sanitizeMirrors(value: unknown): { mirrors?: string[] } {
+  if (!Array.isArray(value)) return {}
+  const list = value
+    .filter((url): url is string => typeof url === 'string')
+    .map(url => url.trim())
+    .filter(isValidSourceUrl)
+    .slice(0, 3)
+  return list.length ? { mirrors: list } : {}
 }
 
 /** 远程直播源地址是否可用（http / https） */

@@ -171,6 +171,7 @@ const ADDED_API: Record<string, string[]> = {
   ],
   iptv: [
     'fetchPlaylist',
+    'probeStream',
     'pickPlaylistFile',
     'readPlaylistFile',
     'loadEpg',

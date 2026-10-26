@@ -153,6 +153,7 @@ const emit = defineEmits<{
   (name: 'loadedmetadata', event: Event): void
   (name: 'timeupdate', event: Event): void
   (name: 'volumechange', event: Event): void
+  /** 播放失败；CustomEvent 的 detail 是失败原因文案（可能为空） */
   (name: 'error', event: Event): void
   (name: 'ended', event: Event): void
   (name: 'play', event: Event): void
@@ -220,9 +221,10 @@ const sink: ArtSink = {
     // emit 的重载按事件名区分，这几种事件的载荷都是 Event
     ;(emit as (n: typeof name, e: Event) => void)(name, event)
   },
-  error: () => {
+  error: reason => {
     isLoading.value = false
-    emit('error', new Event('error'))
+    // detail 带失败原因（直播页按线路显示）；其余调用方当普通 Event 用
+    emit('error', new CustomEvent('error', { detail: reason }))
   },
   started: () => {
     isLoading.value = false
