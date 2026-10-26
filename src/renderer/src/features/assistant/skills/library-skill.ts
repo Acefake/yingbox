@@ -28,7 +28,9 @@ export function createLibrarySkill(
     describe: '想接着看上次没看完的。',
     parse: () => true,
     async run() {
-      const cards = continueCardsWhere(section => !isPrivateSection(section))
+      const cards = await continueCardsWhere(
+        section => !isPrivateSection(section)
+      )
       return {
         message: cards.length
           ? '接着看上次没看完的：'

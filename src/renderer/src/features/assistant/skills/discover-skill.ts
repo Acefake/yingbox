@@ -22,9 +22,14 @@ import {
   phaseLabel,
   requestedYears,
 } from '@/features/discover'
-import { libraryPoster, playLibraryItem } from '@/features/library'
+import {
+  type LibraryCardInfo,
+  libraryPoster,
+  playLibraryItem,
+} from '@/features/library'
 
 import type { DoubanQuery } from '../../../../../shared/douban/query'
+import { cardInfos, withLibraryInfo } from './card-info'
 import {
   type AssistantCardAction,
   type AssistantMediaCard,
@@ -52,21 +57,28 @@ export function inYears(
   return year !== null && year >= years[0] && year <= years[1]
 }
 
-/** 库里已有的一部 → 播放卡片 */
+/**
+ * 库里已有的一部 → 播放卡片。
+ * @param info 片库条目的卡片信息（说明行、规格标签、详情 / 想看）；取不到为 null
+ */
 export function localCard(
-  entry: DiscoverResult['local'][number]
+  entry: DiscoverResult['local'][number],
+  info: LibraryCardInfo | null = null
 ): AssistantMediaCard {
   const { item } = entry
-  return {
-    id: `lib-${item.id}`,
-    title: item.title,
-    image: libraryPoster(item.poster),
-    meta: [item.year ?? '', item.rating ? item.rating.toFixed(1) : '']
-      .filter(Boolean)
-      .join(' · '),
-    playLabel: '播放',
-    play: () => playLibraryItem(item.id),
-  }
+  return withLibraryInfo(
+    {
+      id: `lib-${item.id}`,
+      title: item.title,
+      image: libraryPoster(item.poster),
+      meta: item.year ? String(item.year) : '',
+      rating: entry.title.rate ? `豆瓣 ${entry.title.rate}` : '',
+      source: '本地片库',
+      playLabel: '播放',
+      play: () => playLibraryItem(item.id),
+    },
+    info
+  )
 }
 
 /** 库外的一部：随入库状态变化的按钮 */
@@ -107,9 +119,9 @@ export function missingCard(
     id: `db-${title.doubanId}`,
     title: title.title,
     image: title.cover || null,
-    meta: [title.year ?? '', title.rate ? `豆瓣 ${title.rate}` : '']
-      .filter(Boolean)
-      .join(' · '),
+    meta: title.year ? String(title.year) : '',
+    rating: title.rate ? `豆瓣 ${title.rate}` : '',
+    source: '豆瓣',
     playLabel: '找资源',
     play: async () => false,
     tag: () => phaseLabel(discoverEntry(title)),
@@ -156,8 +168,10 @@ export function createDiscoverSkill(): AssistantSkill {
       const found = await discoverTitles(query, env.signal)
       const local = found.local.filter(e => inYears(e.title.year, years))
       const missing = found.missing.filter(t => inYears(t.year, years))
+      const shown = local.slice(0, MAX_LOCAL)
+      const infos = await cardInfos(shown.map(entry => entry.item.id))
       const cards = [
-        ...local.slice(0, MAX_LOCAL).map(localCard),
+        ...shown.map((entry, i) => localCard(entry, infos[i])),
         ...missing.slice(0, MAX_MISSING).map(t => missingCard(t, env.router)),
       ]
       return {

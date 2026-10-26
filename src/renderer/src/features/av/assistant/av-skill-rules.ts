@@ -46,19 +46,6 @@ export function exactCodeMatch<T extends { title: string }>(
   return hits.length === 1 ? hits[0] : null
 }
 
-/** 条目卡片的一行说明：年份 · 评分 */
-export function itemMeta(item: {
-  year: number | null
-  rating: number | null
-}): string {
-  return [
-    item.year ? String(item.year) : '',
-    item.rating ? item.rating.toFixed(1) : '',
-  ]
-    .filter(Boolean)
-    .join(' · ')
-}
-
 /** 路由 query 里的详情条目 id；不在番号库页面或不是正整数时返回 null */
 export function currentItemId(route: {
   path: string

@@ -10,10 +10,12 @@
 import {
   type AssistantMediaCard,
   type AssistantSkill,
+  cardInfos,
   closeOutcome,
   continueCardsWhere,
   defineAction,
   privateRouteSections,
+  withLibraryInfo,
 } from '@/features/assistant'
 import { useLadaTasks } from '@/features/lada'
 import {
@@ -28,7 +30,6 @@ import {
   PRIVATE_LIBRARY,
   currentItemId,
   exactCodeMatch,
-  itemMeta,
   normalizeCode,
   privateSearchQuery,
 } from './av-skill-rules'
@@ -69,7 +70,7 @@ const resume = defineAction<true>({
   parse: () => true,
   async run(_params, env) {
     const sections = privateRouteSections(env.router)
-    const cards = continueCardsWhere(section => sections.has(section))
+    const cards = await continueCardsWhere(section => sections.has(section))
     return {
       message: cards.length ? '接着看上次没看完的：' : '还没有看到一半的内容。',
       result: cards.length ? { kind: 'cards', cards } : null,
@@ -110,14 +111,20 @@ const random = defineAction<true>({
   async run() {
     const item = await randomLibraryItem(PRIVATE_LIBRARY.section)
     if (!item) return { message: '番号库里还没有片子。', result: null }
-    const card: AssistantMediaCard = {
-      id: String(item.id),
-      title: item.title,
-      image: libraryPoster(item.poster),
-      meta: itemMeta(item),
-      playLabel: '播放',
-      play: () => playLibraryItem(item.id),
-    }
+    const [info] = await cardInfos([item.id])
+    const card: AssistantMediaCard = withLibraryInfo(
+      {
+        id: String(item.id),
+        title: item.title,
+        image: libraryPoster(item.poster),
+        meta: item.year ? String(item.year) : '',
+        rating: item.rating ? item.rating.toFixed(1) : '',
+        source: '本地片库',
+        playLabel: '播放',
+        play: () => playLibraryItem(item.id),
+      },
+      info
+    )
     return {
       message: `随机挑了一部：${item.title}`,
       result: { kind: 'cards', cards: [card] },

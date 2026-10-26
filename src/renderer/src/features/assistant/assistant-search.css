@@ -43,17 +43,11 @@
   font-weight: var(--font-weight-semibold);
   letter-spacing: 0.04em;
 }
-/* 海报行：竖版海报缩略图 + 片名 · 年份 + 命中理由 */
+/* 列表行（问 AI、画面时刻、人物）与影片结果行（UiMediaRow 紧凑行）同高同圆角 */
 .assistant .assistant-search .ui-list-row {
   min-height: 52px;
   padding: var(--space-1_5) var(--space-3);
   border-radius: var(--radius-lg);
-}
-.assistant .assistant-search .search-poster {
-  width: 28px;
-  height: 42px;
-  border-radius: var(--radius-sm);
-  box-shadow: inset 0 0 0 0.5px var(--border-default);
 }
 .assistant-search .ui-list-row:where(.is-selected) {
   background: var(--bg-active);
@@ -62,7 +56,7 @@
 /* 「问 AI」行：sparkle + 问 AI：<输入>，右侧 Cmd/Ctrl+回车 键帽 */
 .assistant-ask .ui-list-row-leading {
   justify-content: center;
-  width: 28px;
+  width: 32px; /* 与影片结果行的紧凑海报同宽，文字左缘对齐 */
   color: var(--text-primary);
 }
 .assistant-ask-text {
@@ -122,10 +116,4 @@
   padding: 0 var(--space-3);
   border-radius: var(--radius-full);
   font-size: var(--text-xs);
-}
-.assistant .assistant-search .search-poster {
-  object-fit: cover;
-}
-.assistant-online-icon {
-  width: 28px;
 }

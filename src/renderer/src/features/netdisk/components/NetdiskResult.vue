@@ -51,9 +51,10 @@ import { computed } from 'vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
+import { releaseSpecs } from '@/components/ui/spec-badge'
 import type { NetdiskItem } from '../../../../../shared/contract/pan115'
 
-import { formatDay, sourceLabel, titleSpecs } from '../utils/netdisk-rules'
+import { formatDay, sourceLabel } from '../utils/netdisk-rules'
 
 const props = defineProps<{
   item: NetdiskItem
@@ -72,7 +73,7 @@ const meta = computed(() =>
     props.item.receiveCode ? `提取码 ${props.item.receiveCode}` : '',
   ].filter(Boolean)
 )
-const specs = computed(() => titleSpecs(props.item.title))
+const specs = computed(() => releaseSpecs([props.item.title]))
 </script>
 
 <style scoped>
