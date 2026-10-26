@@ -3,11 +3,19 @@ import { EventEmitter } from 'events'
 import { app } from 'electron'
 import { join } from 'path'
 
-/** Windows 用命名管道，Unix 用本地 socket */
-export const SOCKET_PATH =
-  process.platform === 'win32'
-    ? '\\\\.\\pipe\\yingbox-mpv'
-    : join(app.getPath('userData'), 'mpv.sock')
+let socketSeq = 0
+
+/**
+ * 每个 mpv 进程一个独立的 IPC 地址（Windows 命名管道 / Unix 本地 socket）。
+ * 不复用固定名字：Windows 上 mpv 以 FIRST_PIPE_INSTANCE 建管道，旧进程没退干净时新进程会建不了 IPC，
+ * 影盒也可能连到正在被杀的旧进程。
+ */
+export function nextSocketPath(): string {
+  const id = `${process.pid}-${++socketSeq}`
+  return process.platform === 'win32'
+    ? `\\\\.\\pipe\\yingbox-mpv-${id}`
+    : join(app.getPath('userData'), `mpv-${id}.sock`)
+}
 
 interface PendingRequest {
   resolve: (data: unknown) => void
@@ -24,6 +32,8 @@ export class MpvSocket extends EventEmitter {
   private lineBuffer = ''
   private requestId = 0
   private readonly pending = new Map<number, PendingRequest>()
+  /** 每次 connect / destroy 加一：进行中的连接发现代数变了就作废，不会在 destroy 之后写回 this.socket */
+  private generation = 0
 
   get connected(): boolean {
     return this.socket !== null
@@ -31,19 +41,25 @@ export class MpvSocket extends EventEmitter {
 
   /**
    * 等待 mpv 启动并监听 socket，最多重试 retries 次（每次间隔 200ms）。
+   * 期间调用 destroy() 或再次 connect() 会取消这一次（抛「mpv 连接已取消」）。
+   * @param path IPC 地址（{@link nextSocketPath}）
    * @param gone 进程已经没了（启动失败 / 退出）：不再等，直接失败
    */
   async connect(
+    path: string,
     retries = 30,
     gone: () => boolean = () => false
   ): Promise<void> {
+    const gen = ++this.generation
     for (let i = 0; i < retries; i++) {
       await sleep(200)
+      if (gen !== this.generation) throw new Error(CANCELLED)
       if (gone()) throw new Error('mpv 进程已退出')
       try {
-        await this.tryConnect()
+        await this.tryConnect(path, gen)
         return
-      } catch {
+      } catch (error) {
+        if ((error as Error).message === CANCELLED) throw error
         if (i === retries - 1)
           throw new Error('mpv IPC 连接超时，请确认 mpv 已正常启动')
       }
@@ -54,12 +70,16 @@ export class MpvSocket extends EventEmitter {
    * 连一次。连上后的事件只认当前这条连接：destroy 之后旧连接迟到的 close / data 不会清掉新连接、
    * 不会让新连接上等着的请求失败。
    */
-  private tryConnect(): Promise<void> {
+  private tryConnect(path: string, gen: number): Promise<void> {
     return new Promise((resolve, reject) => {
-      const sock = createConnection(SOCKET_PATH)
+      const sock = createConnection(path)
       sock.once('error', reject)
       sock.once('connect', () => {
         sock.removeListener('error', reject)
+        if (gen !== this.generation) {
+          sock.destroy()
+          return reject(new Error(CANCELLED))
+        }
         this.socket = sock
         sock.setEncoding('utf8')
         sock.on('data', (chunk: string) => {
@@ -129,8 +149,9 @@ export class MpvSocket extends EventEmitter {
     })
   }
 
-  /** 断开：等着的请求立即失败（不等 5 秒超时） */
+  /** 断开：等着的请求立即失败（不等 5 秒超时）；进行中的 connect 一并取消 */
   destroy(): void {
+    this.generation++
     const sock = this.socket
     if (!sock) return
     this.onClose()
@@ -138,4 +159,5 @@ export class MpvSocket extends EventEmitter {
   }
 }
 
+const CANCELLED = 'mpv 连接已取消'
 const sleep = (ms: number): Promise<void> => new Promise(r => setTimeout(r, ms))

@@ -34,7 +34,7 @@ vi.mock('../src/main/mpv-socket', async () => {
       this.connected = false
     }
   }
-  return { MpvSocket, SOCKET_PATH: '/tmp/mpv-test.sock' }
+  return { MpvSocket, nextSocketPath: () => '/tmp/mpv-test.sock' }
 })
 vi.mock('../src/main/mpv-locate', () => ({ findMpvExecutable: () => 'mpv' }))
 vi.mock('../src/main/plugins/host', () => ({
