@@ -31,8 +31,9 @@ function toHeaders(raw: IncomingMessage['headers']): Headers {
   return headers
 }
 
-/** 运行时 IncomingMessage 是 Node Readable（类型声明里没写 pause / resume） */
+/** 运行时 IncomingMessage 是 Node Readable（类型声明里没写 pause / resume / close 事件） */
 type Pausable = { pause(): void; resume(): void }
+type Closable = { on(event: 'close', listener: () => void): void }
 
 /**
  * IncomingMessage → WHATWG ReadableStream（带背压；取消时中止请求）。
@@ -63,7 +64,9 @@ function toStream(
       res.on('end', () => finish())
       res.on('error', (error: Error) => finish(error))
       res.on('aborted', () => finish(new Error('连接中断')))
-      res.on('close', () => finish(new Error('连接中断')))
+      ;(res as unknown as Closable).on('close', () =>
+        finish(new Error('连接中断'))
+      )
     },
     pull() {
       ;(res as unknown as Pausable).resume()
