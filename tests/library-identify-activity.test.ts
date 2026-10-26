@@ -9,7 +9,7 @@ vi.mock('../src/renderer/src/features/library/api/bridge', () => ({
   errorText: (e: unknown) => String(e),
 }))
 vi.mock('../src/renderer/src/features/library/state/library-events', () => ({
-  onLibraryEvent: (listener: (event: LibraryEvent) => void) => {
+  subscribeLibraryEvents: (listener: (event: LibraryEvent) => void) => {
     listeners.push(listener)
     return () => {}
   },

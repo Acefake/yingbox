@@ -46,6 +46,13 @@ export interface CreditLine {
   names: string
 }
 
+/** 关于卡片片名下的一行：类型 · 题材（前 3 个）。 */
+export function aboutKickerOf(node: LibraryItemNode | null): string {
+  if (!node) return ''
+  const kind = node.type === 'series' ? '剧集' : '电影'
+  return [kind, ...node.genres.slice(0, 3)].join(' · ')
+}
+
 /**
  * 主创行：主演取演员表前 3 位，导演（剧集没有导演时取主创）全部列出；没有的行不出。
  * @param meta 标题级元数据
