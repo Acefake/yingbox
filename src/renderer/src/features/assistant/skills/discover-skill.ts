@@ -29,6 +29,7 @@ import {
 } from '@/features/library'
 
 import type { DoubanQuery } from '../../../../../shared/douban/query'
+import { formatRating } from '../../../../../shared/library/rating'
 import { cardInfos, withLibraryInfo } from './card-info'
 import {
   type AssistantCardAction,
@@ -72,7 +73,7 @@ export function localCard(
       title: item.title,
       image: libraryPoster(item.poster),
       meta: item.year ? String(item.year) : '',
-      rating: entry.title.rate ? `豆瓣 ${entry.title.rate}` : '',
+      rating: formatRating(Number(entry.title.rate), 'douban'),
       source: '本地片库',
       playLabel: '播放',
       play: () => playLibraryItem(item.id),
@@ -120,7 +121,7 @@ export function missingCard(
     title: title.title,
     image: title.cover || null,
     meta: title.year ? String(title.year) : '',
-    rating: title.rate ? `豆瓣 ${title.rate}` : '',
+    rating: formatRating(Number(title.rate), 'douban'),
     source: '豆瓣',
     playLabel: '找资源',
     play: async () => false,
