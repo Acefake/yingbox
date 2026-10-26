@@ -107,15 +107,24 @@ describe('分区列表变化后校正当前分区', () => {
 })
 
 describe('heroBackdropAt', () => {
-  it('渐隐带过一半才算离开 Hero', () => {
-    expect(heroBackdropAt(10, 800, 20).edge).toBe(false)
-    expect(heroBackdropAt(11, 800, 20).edge).toBe(true)
+  it('渐隐段一进入顶部带，顶部一条就离开 Hero', () => {
+    expect(heroBackdropAt(20, 800, 20).edge).toBe(false)
+    expect(heroBackdropAt(21, 800, 20).edge).toBe(true)
   })
   it('Hero 占不到半个视口时侧栏回主题玻璃', () => {
-    expect(heroBackdropAt(400, 800, 20).shell).toBe(false)
-    expect(heroBackdropAt(401, 800, 20).shell).toBe(true)
+    expect(heroBackdropAt(400, 800, 20).sidebar).toBe(false)
+    expect(heroBackdropAt(401, 800, 20).sidebar).toBe(true)
+  })
+  it('侧栏先于顶部一条离开，两者之间不会反过来', () => {
+    expect(heroBackdropAt(200, 800, 104)).toEqual({
+      edge: true,
+      sidebar: false,
+    })
   })
   it('Hero 已滚出视口时两处都不在画面上', () => {
-    expect(heroBackdropAt(-50, 800, 20)).toEqual({ edge: false, shell: false })
+    expect(heroBackdropAt(-50, 800, 20)).toEqual({
+      edge: false,
+      sidebar: false,
+    })
   })
 })
