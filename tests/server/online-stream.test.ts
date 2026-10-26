@@ -223,6 +223,28 @@ describe('播放代理', () => {
     expect(bytes[199_999]).toBe(7)
   })
 
+  it('上游回网页时不在服务的源上执行：nosniff + CSP sandbox，清单改写后也保留', async () => {
+    const { get } = proxyFor({
+      'https://evil.cdn.example/x.html': () =>
+        new Response('<script>fetch("/api/library/rpc")</script>', {
+          headers: { 'content-type': 'text/html' },
+        }),
+      'https://cdn.example.com/live.m3u8': () =>
+        new Response('#EXTM3U\n#EXTINF:4,\na.ts\n'),
+    })
+    for (const src of [
+      'https://evil.cdn.example/x.html',
+      'https://cdn.example.com/live.m3u8',
+    ]) {
+      const response = await get(src)
+      expect(response.status).toBe(200)
+      expect(response.headers.get('x-content-type-options')).toBe('nosniff')
+      expect(response.headers.get('content-security-policy')).toMatch(
+        /^sandbox/
+      )
+    }
+  })
+
   it('开头被拆成很小的块也认得出清单；改写后不带上游的 Content-Length', async () => {
     const bytes = new TextEncoder().encode(MEDIA)
     const tiny = (): Response =>
