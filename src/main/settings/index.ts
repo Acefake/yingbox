@@ -8,6 +8,7 @@ import { chooseDownloadDir, migrateLegacyConfig } from '../download-dir'
 import { emit, implement } from '../rpc'
 import { settings } from '../../shared/contract/settings'
 import type { SecretKey, SettingChange } from '../../shared/settings/schema'
+import { holdQuitForFlush } from './quit-flush'
 import { safeStorageCodec } from './secrets'
 import { type SettingsStore, openSettingsStore } from './store'
 
@@ -51,6 +52,8 @@ export async function initSettings(): Promise<void> {
     },
   })
   const opened = store
+  // 退出过程中还会写设置（关窗时记播放器窗口位置）：等排队的写入落盘再结束进程
+  holdQuitForFlush(app, () => opened.flush())
   // 老版本的下载目录在 config.json；userData 此时已固定，按当前 profile 解析
   await migrateLegacyConfig(
     opened,
