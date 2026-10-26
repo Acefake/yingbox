@@ -139,7 +139,10 @@ export async function chatJson<T = unknown>(
     requireBridge().chatJson(body)
   )
   if (options.validate && !options.validate(result.data))
-    throw new AiCallError('bad_json', '模型输出的 JSON 结构不符合要求')
+    throw new AiCallError(
+      'bad_json',
+      `模型输出的 JSON 结构不符合要求。原始返回：${String(JSON.stringify(result.data)).slice(0, 500)}`
+    )
   return result as AiJsonResult<T>
 }
 

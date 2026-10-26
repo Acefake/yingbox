@@ -11,8 +11,11 @@ import type {
   AiTokenUsage,
 } from '../../shared/ai/types'
 import type { AiConfig } from './config'
-import { AiError, httpError, streamError } from './errors'
-import { type StreamChunk, createSseParser } from './sse'
+import { AiError, httpError } from './errors'
+import { readJson, readStream } from './read'
+import { rawSnippet } from './response'
+
+export { toUsage } from './read'
 
 /** 注入的 fetch（Response 只用到标准字段） */
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
@@ -21,6 +24,19 @@ export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
 export interface JsonOutput {
   schema?: Record<string, unknown>
   schemaName?: string
+  /**
+   * 只靠提示词要 JSON，不发 response_format。服务商不认 response_format（400）时
+   * {@link chatCompletion} 自动降级成这一档。
+   */
+  promptOnly?: boolean
+}
+
+/** 客户端结果：在对外结果之外带上思考与工具调用参数（只在主进程里用，service 返回前去掉） */
+export interface ClientResult extends AiChatResult {
+  /** 思考过程（reasoning_content / reasoning） */
+  reasoning: string
+  /** 第一个工具调用的参数文本 */
+  toolArgs: string
 }
 
 /** 发请求的依赖与选项 */
@@ -43,6 +59,15 @@ export interface ClientOptions {
 /** 默认超时 */
 export const DEFAULT_TIMEOUT_MS = 60_000
 export const DEFAULT_STREAM_TIMEOUT_MS = 120_000
+
+/**
+ * 思考型模型的额外额度：思考计入 max_tokens，调用方按「回答多长」给的小额度（如 300）
+ * 常被思考用光，content 为空、finish_reason 为 length。这时补上这么多再请求一次。
+ */
+export const REASONING_HEADROOM_TOKENS = 4096
+
+/** JSON 调用的最低 max_tokens：JSON 本身很短，给足余量让思考型模型想完再输出 */
+export const JSON_MIN_TOKENS = 2048
 
 /**
  * 本次运行的会话标识：OpenCode Go 要求每段对话带稳定的 x-opencode-session
@@ -91,14 +116,17 @@ export function buildChatBody(
     messages,
   }
   if (request.temperature !== undefined) body.temperature = request.temperature
-  if (request.maxTokens !== undefined) body.max_tokens = request.maxTokens
+  const json = options.json
+  if (request.maxTokens !== undefined)
+    body.max_tokens = json
+      ? Math.max(request.maxTokens, JSON_MIN_TOKENS)
+      : request.maxTokens
   if (options.stream) {
     body.stream = true
     body.stream_options = { include_usage: true }
   }
-  const json = options.json
   if (json) {
-    if (json.schema && config.jsonSchema) {
+    if (json.schema && config.jsonSchema && !json.promptOnly) {
       body.response_format = {
         type: 'json_schema',
         json_schema: {
@@ -108,7 +136,7 @@ export function buildChatBody(
         },
       }
     } else {
-      body.response_format = { type: 'json_object' }
+      if (!json.promptOnly) body.response_format = { type: 'json_object' }
       // JSON 模式要求提示里出现 "JSON"；没有 schema 能力时把 schema 写进系统提示
       const hint = json.schema
         ? `只输出符合下面 JSON Schema 的 JSON，不要任何解释：\n${JSON.stringify(json.schema)}`
@@ -117,20 +145,6 @@ export function buildChatBody(
     }
   }
   return body
-}
-
-/** 服务商 usage → 统一字段 */
-export function toUsage(raw: StreamChunk['usage']): AiTokenUsage | null {
-  if (!raw) return null
-  const prompt = Number(raw.prompt_tokens) || 0
-  const completion = Number(raw.completion_tokens) || 0
-  const total = Number(raw.total_tokens) || prompt + completion
-  if (!prompt && !completion && !total) return null
-  return {
-    promptTokens: prompt,
-    completionTokens: completion,
-    totalTokens: total,
-  }
 }
 
 const abortableSleep = (ms: number, signal: AbortSignal): Promise<void> =>
@@ -147,12 +161,44 @@ const abortableSleep = (ms: number, signal: AbortSignal): Promise<void> =>
     )
   })
 
-/** 发一次对话（含重试）；成功返回结果，失败抛 AiError */
+/** 服务商不认 response_format / JSON 模式时的 400 说明 */
+const JSON_MODE_UNSUPPORTED =
+  /response_format|json_schema|json_object|json mode|structured output/i
+
+/** 两次用量相加（扩额重试时把第一次的思考也记上） */
+function sumUsage(
+  a: AiTokenUsage | null,
+  b: AiTokenUsage | null
+): AiTokenUsage | null {
+  if (!a || !b) return a ?? b
+  return {
+    promptTokens: a.promptTokens + b.promptTokens,
+    completionTokens: a.completionTokens + b.completionTokens,
+    totalTokens: a.totalTokens + b.totalTokens,
+  }
+}
+
+/** 额度被思考用光：没有正文也没有工具调用，结束原因是 length */
+export function spentOnReasoning(result: ClientResult): boolean {
+  return (
+    result.finishReason === 'length' &&
+    !result.content.trim() &&
+    !result.toolArgs.trim()
+  )
+}
+
+/**
+ * 发一次对话（含重试）；成功返回结果，失败抛 AiError。
+ *
+ * 除了网络 / 5xx 重试，还有两种自动补救（各最多一次）：
+ * - 思考型模型把 max_tokens 用光、没有正文：补 {@link REASONING_HEADROOM_TOKENS} 再请求，仍没有正文抛 truncated；
+ * - 要 JSON 时服务商 400 说不支持 response_format：去掉它、只靠提示词再请求。
+ */
 export async function chatCompletion(
   config: AiConfig,
   request: AiChatRequest,
   options: ClientOptions
-): Promise<AiChatResult> {
+): Promise<ClientResult> {
   const retries = options.retries ?? 2
   const baseDelay = options.retryDelayMs ?? 800
   const sleep = options.sleep ?? abortableSleep
@@ -164,18 +210,52 @@ export async function chatCompletion(
         options.onDelta?.(delta)
       }
     : undefined
-  for (let attempt = 0; ; attempt++) {
+  let current = request
+  let json = options.json
+  let expanded: ClientResult | null = null
+  for (let attempt = 0; ; ) {
     try {
-      return await attemptOnce(config, request, { ...options, onDelta })
+      const result = await attemptOnce(config, current, {
+        ...options,
+        json,
+        onDelta,
+      })
+      const usage = sumUsage(expanded?.usage ?? null, result.usage)
+      if (!spentOnReasoning(result)) return { ...result, usage }
+      if (expanded)
+        throw new AiError(
+          'truncated',
+          `模型把输出额度都用在了思考上，没有给出回答（思考开头：${rawSnippet(result.reasoning, 120)}）`
+        )
+      expanded = { ...result, usage }
+      const budget = current.maxTokens ?? 0
+      current = {
+        ...current,
+        maxTokens:
+          Math.max(budget, json ? JSON_MIN_TOKENS : 0) +
+          REASONING_HEADROOM_TOKENS,
+      }
+      continue
     } catch (error) {
       const err =
         error instanceof AiError ? error : new AiError('network', String(error))
+      if (
+        json &&
+        !json.promptOnly &&
+        err.code === 'http' &&
+        (err.status === 400 || err.status === 422) &&
+        JSON_MODE_UNSUPPORTED.test(err.message)
+      ) {
+        json = { ...json, promptOnly: true }
+        continue
+      }
       if (!err.retryable || emitted || attempt >= retries || outer.aborted)
         throw err
       const wait = Math.min(
         err.retryAfterMs ?? baseDelay * 2 ** attempt,
         10_000
       )
+      attempt++
       await sleep(wait, outer)
     }
   }
@@ -186,7 +266,7 @@ async function attemptOnce(
   config: AiConfig,
   request: AiChatRequest,
   options: ClientOptions
-): Promise<AiChatResult> {
+): Promise<ClientResult> {
   const stream = Boolean(options.onDelta)
   const timeoutMs =
     request.timeoutMs ??
@@ -244,87 +324,5 @@ async function attemptOnce(
   } finally {
     clearTimeout(timer)
     options.signal?.removeEventListener('abort', onAbort)
-  }
-}
-
-/** 非流式响应 */
-async function readJson(
-  config: AiConfig,
-  request: AiChatRequest,
-  response: Response
-): Promise<AiChatResult> {
-  let body: {
-    model?: string
-    choices?: Array<{
-      message?: { content?: unknown }
-      finish_reason?: string | null
-    }>
-    usage?: StreamChunk['usage']
-  }
-  try {
-    body = (await response.json()) as typeof body
-  } catch {
-    throw new AiError('bad_response', 'AI 接口返回的不是 JSON')
-  }
-  const choice = body.choices?.[0]
-  const content = choice?.message?.content
-  if (typeof content !== 'string')
-    throw new AiError('bad_response', 'AI 接口的响应里没有回答内容')
-  return {
-    content,
-    model: body.model || request.model || config.model,
-    provider: config.provider,
-    finishReason: choice?.finish_reason ?? '',
-    usage: toUsage(body.usage),
-  }
-}
-
-/** 流式响应：逐块解析 SSE，增量回调，结束时汇总；流里出现 error 事件立即抛 AiError，不返回部分内容 */
-async function readStream(
-  config: AiConfig,
-  request: AiChatRequest,
-  response: Response,
-  onDelta: (delta: string) => void
-): Promise<AiChatResult> {
-  if (!response.body) throw new AiError('bad_response', 'AI 接口没有返回流')
-  let content = ''
-  let model = ''
-  let finishReason = ''
-  let usage: AiTokenUsage | null = null
-  const parser = createSseParser({
-    onChunk: chunk => {
-      if (chunk.error) throw streamError(chunk.error)
-      if (chunk.model) model = chunk.model
-      const choice = chunk.choices?.[0]
-      const delta = choice?.delta?.content
-      if (typeof delta === 'string' && delta) {
-        content += delta
-        onDelta(delta)
-      }
-      if (choice?.finish_reason) finishReason = choice.finish_reason
-      usage = toUsage(chunk.usage) ?? usage
-    },
-    onDone: () => {},
-  })
-  const reader = response.body.getReader()
-  const decoder = new TextDecoder()
-  try {
-    for (;;) {
-      const { done, value } = await reader.read()
-      if (done) break
-      parser.push(decoder.decode(value, { stream: true }))
-    }
-    parser.push(decoder.decode())
-    parser.end()
-  } catch (error) {
-    reader.cancel().catch(() => {})
-    throw error
-  }
-  return {
-    content,
-    model: model || request.model || config.model,
-    provider: config.provider,
-    finishReason,
-    usage,
   }
 }
