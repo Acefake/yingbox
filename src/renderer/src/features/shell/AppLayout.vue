@@ -31,7 +31,9 @@
       <!-- 主内容区域：铺满窗口，左侧与顶部让出浮动侧栏和胶囊 -->
       <main class="main-content">
         <div class="content-surface">
-          <slot />
+          <!-- 网页端：片库服务连不上 / 需要登录时，所有页面都先显示连接界面 -->
+          <ServerConnect v-if="serverGate" :state="serverState" />
+          <slot v-else />
         </div>
       </main>
 
@@ -88,10 +90,12 @@ import { usePlatform } from '@/composables/use-platform'
 import { useCalendarBadge } from '@/features/calendar'
 import { refreshSources } from '@/features/online'
 import { SettingsPanel, useSetting } from '@/features/settings'
+import { isWebRuntime, libraryServerState } from '@/services/library-server'
 
 import AppSidebar from './components/AppSidebar.vue'
 import AppToolbar from './components/AppToolbar.vue'
 import BackgroundTasksPanel from './components/BackgroundTasksPanel.vue'
+import ServerConnect from './components/ServerConnect.vue'
 import {
   type NavState,
   buildBottomNav,
@@ -113,6 +117,14 @@ const sidebarOpen = ref(false)
 
 /** 桌面端收起侧栏时只显示图标，导航项改用悬停提示 */
 const collapsed = computed(() => sidebarCollapsed.value && !isPhone.value)
+
+// 网页端：片库服务连不上或需要登录时，内容区换成连接界面（桌面端不探测，始终是 unknown）
+const serverState = libraryServerState()
+const serverGate = computed(
+  () =>
+    isWebRuntime() &&
+    (serverState.value === 'unauthorized' || serverState.value === 'offline')
+)
 
 const settingsVisible = ref(false)
 const settingsInitialSection = ref('appearance')

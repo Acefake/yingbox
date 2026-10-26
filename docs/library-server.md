@@ -29,7 +29,7 @@
 - **缩略图**：桌面端用 `nativeImage`；服务端用 `@jsquash` 的 wasm 编解码，在独立线程里解码、缩放、编码 WebP（`thumbnails/wasm-resizer.ts`、`codec-*.ts`）。两边共用同一个 LRU 缓存目录结构。
 - **代码位置**：`src/server/` 下 `app.ts` 组装、`config.ts` 参数与环境变量、`http/`（路由、Bearer / Cookie 鉴权、静态文件）、`routes/`（片库 rpc + SSE、media、fs）、`exposure.ts`（对外监听要求显式令牌）。
   片库核心的出网实现由 `YINGBOX_FETCH` 选：`node`（undici）/ `curl[:路径]`（curl-impersonate）/ `module:<路径>`。
-  网页端：`services/library-server` 管登录、连接状态和媒体地址（渲染层除 transport 外唯一可以 `fetch` 的地方）；只在网页端出现的界面是 `page/ServerConnect.vue`、`settings/FolderBrowser.vue`；播放经 `openMediaPlayer`，地址是 `/media/files`。
+  网页端：`services/library-server` 管登录、连接状态和媒体地址（渲染层除 transport 外唯一可以 `fetch` 的地方）；只在网页端出现的界面是外壳的 `shell/components/ServerConnect.vue`（连不上 / 需要登录时所有页面都先显示它）、片库的 `settings/FolderBrowser.vue`；播放经 `openMediaPlayer`，地址是 `/media/files`。
 - **事件流恢复**：服务没就绪（连不上 / 未登录）时网页端关掉 EventSource，避免浏览器无限重连；服务回到在线时片库、在线引擎、网盘三条事件流里还有订阅的会重新打开（各 transport 的 `resume()`）。
 - **检查**：`scripts/smoke-server.mjs`（离线端到端，手动跑）、`scripts/web-e2e.mjs`（Playwright，手动跑）。
 
