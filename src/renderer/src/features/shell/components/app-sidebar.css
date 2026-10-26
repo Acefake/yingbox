@@ -28,8 +28,8 @@
     box-shadow var(--duration-fast) ease;
 }
 
-/* 主题玻璃取侧栏专用底色；滚到 Hero 画面上（.yb-on-media）时用画面玻璃 */
-.app-sidebar:not(.yb-on-media) {
+/* 侧栏专用底色：浅色下更实，压在详情 Hero 上也是干净的浅玻璃（侧栏不随 Hero 切深色） */
+.app-sidebar {
   --glass-bg: var(--glass-sidebar-bg);
 }
 
