@@ -1,17 +1,18 @@
 /**
  * 播放器字幕：本地同目录字幕自动挂载、在线字幕（OpenSubtitles）搜索 / 下载、AI 字幕挂载，
  * 以及齿轮菜单「字幕」二级页要列的字幕轨（tracks / active，菜单见 settings-menu/install-menu.ts）。
- * 字幕统一由主进程转成 WebVTT，以 blob URL 交给 Artplayer；切集或销毁期间返回的结果直接丢弃。
+ * 字幕统一由主进程（网页端由片库服务，见 sidecar-subtitles.ts）转成 WebVTT，以 blob URL 交给 Artplayer；
+ * 切集或销毁期间返回的结果直接丢弃。
  */
 import { type Ref, ref } from 'vue'
 import type Artplayer from 'artplayer'
+import {
+  type LocalSubtitle,
+  findSidecarSubtitles,
+  readSidecarSubtitle,
+} from './sidecar-subtitles'
 
-/** 本地字幕候选（同目录 .srt/.ass/.vtt） */
-export interface LocalSubtitle {
-  name: string
-  path: string
-  ext: string
-}
+export type { LocalSubtitle } from './sidecar-subtitles'
 
 /** 一条可选的字幕轨（本地候选、下载过的在线字幕、AI 字幕） */
 export interface SubtitleTrack {
@@ -64,7 +65,7 @@ export interface PlayerSubtitles {
   search: () => Promise<void>
   /** 下载并挂载一条在线字幕 */
   applyOnline: (hit: OnlineSubtitleHit) => Promise<void>
-  /** 为本地视频自动挂载同目录字幕 */
+  /** 为本地视频（含网页端片库视频）自动挂载同目录字幕 */
   applyLocal: (instance: Artplayer, source: string) => Promise<void>
   /** 挂载一个字幕文件（AI 字幕生成后用）；成功返回 true */
   applyFile: (path: string, name: string) => Promise<boolean>
@@ -156,15 +157,9 @@ export function usePlayerSubtitles(
     return true
   }
 
-  /** 读本地字幕文件（主进程转成 WebVTT，含 GBK 编码转换） */
-  const readFile = async (path: string): Promise<string | null> => {
-    const cached = loaded.get(path)
-    if (cached) return cached
-    const read = await window.api?.subtitle?.read(path)
-    return read?.success && read.data ? read.data : null
-  }
-
-  const isLocalSource = (url: string): boolean => url.startsWith('local://')
+  /** 读外挂字幕（桌面端主进程 / 网页端片库服务转成 WebVTT，含 GBK 编码转换） */
+  const readFile = async (path: string): Promise<string | null> =>
+    loaded.get(path) ?? readSidecarSubtitle(path)
 
   // ── 在线字幕（OpenSubtitles）────────────────────────────
 
@@ -247,23 +242,18 @@ export function usePlayerSubtitles(
   }
 
   /**
-   * 为本地视频自动挂载同目录字幕。
+   * 为本地视频（桌面端 local://、网页端片库服务的 /media/files）自动挂载同目录字幕。
    *
-   * 字幕文件可能是 GBK 编码的 srt/ass，由主进程统一读成 WebVTT 后
+   * 字幕文件可能是 GBK 编码的 srt/ass，由主进程或片库服务统一读成 WebVTT 后
    * 以 blob URL 交给 Artplayer（避免 local:// 跨源读取限制）。
    */
   const applyLocal = async (
     instance: Artplayer,
     source: string
   ): Promise<void> => {
-    const subtitleApi = window.api?.subtitle
-    if (!subtitleApi || !isLocalSource(source)) return
-
     let list: LocalSubtitle[] = []
     try {
-      const found = await subtitleApi.find(source)
-      if (!found?.success || !Array.isArray(found.data)) return
-      list = found.data
+      list = await findSidecarSubtitles(source)
     } catch {
       return
     }
