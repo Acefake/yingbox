@@ -21,6 +21,7 @@ import {
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import type { AutograbDeps, Pan115Guard } from './deps'
 import { createFinder } from './finder'
+import { createRoundRunner, createSingleFlight } from './flight'
 import { type Gate, createGate } from './gate'
 import { AUTO_SCORE, matchPrefsOf } from './match-rules'
 import { buildOverview } from './overview'
@@ -79,7 +80,6 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   let loaded: Promise<void> | null = null
   let saveTimer: ReturnType<typeof setTimeout> | null = null
   let running = false
-  let current: Promise<void> | null = null
   /** 最近一次日历里出现的剧 */
   let airing = new Map<number, string>()
   let lastCalendar: CalendarEpisode[] = []
@@ -194,14 +194,19 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     dirty,
     targetCid: record => targetCid(settingOf(record.seriesId)),
   })
-  const grab = saver.grab
+  /** 同一集的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
+  const grabs = createSingleFlight()
+  const grab = (
+    record: EpisodeRecord,
+    index: number,
+    byUser: boolean
+  ): Promise<AutograbResult> =>
+    grabs.run(record.key, () => saver.grab(record, index, byUser))
   const followSaved = saver.followSaved
 
-  /** 跑一轮；已在跑时等那一轮跑完（不并发两轮） */
-  function tick(): Promise<void> {
-    current ??= runOnce().finally(() => (current = null))
-    return current
-  }
+  /** 跑一轮；已在跑时这一轮完了再补跑一轮（不并发两轮，见 flight.ts） */
+  const rounds = createRoundRunner(() => runOnce())
+  const tick = (): Promise<void> => rounds.run()
 
   async function runOnce(): Promise<void> {
     await ensureLoaded()

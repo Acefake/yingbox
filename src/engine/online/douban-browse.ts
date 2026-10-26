@@ -261,6 +261,9 @@ export function createDoubanBrowse(options: DoubanBrowseOptions): DoubanBrowse {
       if (pending) return pending
       const task = fetchPage(query, start, request)
         .then(page => {
+          // 整页为空不缓存：开着回退时它可能是 rexxar 风控的空页、frodo 又失败时交回来的，
+          // 缓存会让这一页空 10 分钟；真没有结果时下次再问一次也只是一个请求
+          if (frodo && isEmptyPage(page)) return page
           cache.delete(key)
           cache.set(key, { page, at: now() })
           while (cache.size > MAX_PAGES)
