@@ -7,7 +7,8 @@
 export interface StreamChunk {
   model?: string
   choices?: Array<{
-    delta?: { content?: string | null }
+    /** 增量：content / reasoning_content / reasoning / tool_calls，取法见 response.ts 的 deltaParts */
+    delta?: Record<string, unknown> | null
     finish_reason?: string | null
   }>
   usage?: {

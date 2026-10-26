@@ -13,7 +13,12 @@ import type {
   AiTestResult,
   AiUsageSummary,
 } from '../../shared/ai/types'
-import { type ClientOptions, type FetchLike, chatCompletion } from './client'
+import {
+  type ClientOptions,
+  type ClientResult,
+  type FetchLike,
+  chatCompletion,
+} from './client'
 import {
   type AiConfig,
   type AiSettingValues,
@@ -24,7 +29,8 @@ import {
   resolveSpeechConfig,
 } from './config'
 import { AiError } from './errors'
-import { parseJsonLoose } from './json'
+import { parseJsonLoose, parseLastJson } from './json'
+import { rawSnippet } from './response'
 import type { UsageStore } from './usage'
 
 /** 服务读取的设置 */
@@ -70,6 +76,28 @@ export interface AiService {
   usage(): Promise<AiUsageSummary>
 }
 
+/** 去掉只在主进程里用的思考 / 工具调用字段 */
+function publicResult(result: ClientResult): AiChatResult {
+  const { reasoning: _r, toolArgs: _t, ...rest } = result
+  return rest
+}
+
+/** 一次调用的原始返回（日志与错误说明用）：正文，没有正文时是工具调用参数或思考 */
+function rawOutput(result: ClientResult): string {
+  return result.content.trim() || result.toolArgs.trim() || result.reasoning
+}
+
+/** 从一次返回里取 JSON：正文 → 工具调用参数 → 思考过程里最后一个 JSON 对象 */
+export function parseModelJson(result: ClientResult): unknown {
+  if (result.content.trim()) return parseJsonLoose(result.content)
+  if (result.toolArgs.trim()) return parseJsonLoose(result.toolArgs)
+  return result.reasoning.trim() ? parseLastJson(result.reasoning) : undefined
+}
+
+/** JSON 第一次没解析出来时，追加的纠正提示 */
+export const JSON_REPAIR_HINT =
+  '上面的输出不符合要求。只输出一个符合要求的 JSON 对象：不要解释、不要代码块、不要思考过程。'
+
 /** 创建 AI 服务 */
 export function createAiService(deps: AiServiceDeps): AiService {
   const config = (): AiConfig =>
@@ -81,7 +109,7 @@ export function createAiService(deps: AiServiceDeps): AiService {
       json?: ClientOptions['json']
       retries?: number
     }
-  ): Promise<AiChatResult> => {
+  ): Promise<ClientResult> => {
     const current = config()
     assertUsable(current, request.model?.trim() || current.model)
     if (request.localOnly && !current.local)
@@ -107,7 +135,15 @@ export function createAiService(deps: AiServiceDeps): AiService {
     config,
     speechConfig: () => resolveSpeechConfig(deps.settings.speech(), config()),
 
-    chat: (request, options = {}) => run(request, options),
+    async chat(request, options = {}) {
+      const result = await run(request, options)
+      if (!result.content.trim())
+        throw new AiError(
+          'bad_response',
+          `模型返回了空回答（结束原因 ${result.finishReason || '未知'}）${result.reasoning ? `，思考开头：${rawSnippet(result.reasoning, 120)}` : ''}`
+        )
+      return publicResult(result)
+    },
 
     async chatJson<T>(
       request: AiJsonRequest,
@@ -117,19 +153,44 @@ export function createAiService(deps: AiServiceDeps): AiService {
       } = {}
     ): Promise<AiJsonResult<T>> {
       const { schema, schemaName, ...chat } = request
-      const result = await run(chat, {
-        signal: options.signal,
-        json: { schema, schemaName },
-      })
-      const data = parseJsonLoose(result.content)
-      if (data === undefined)
+      const json = { schema, schemaName }
+      const accept = (data: unknown): boolean =>
+        data !== undefined && (!options.validate || options.validate(data))
+      const first = await run(chat, { signal: options.signal, json })
+      let result = first
+      let data = parseModelJson(first)
+      if (!accept(data)) {
+        // 一次补救：被截断的给更多额度；其余带上原输出与纠正提示再问一次
+        const retry: AiChatRequest =
+          first.finishReason === 'length'
+            ? { ...chat, maxTokens: (chat.maxTokens ?? 0) * 2 + 4096 }
+            : {
+                ...chat,
+                messages: [
+                  ...chat.messages,
+                  {
+                    role: 'assistant',
+                    content: rawSnippet(rawOutput(first), 1000),
+                  },
+                  { role: 'user', content: JSON_REPAIR_HINT },
+                ],
+              }
+        result = await run(retry, { signal: options.signal, json })
+        data = parseModelJson(result)
+      }
+      if (!accept(data)) {
+        const raw = rawSnippet(rawOutput(result))
+        console.warn(
+          `[ai] 模型返回无法用作 JSON（${result.provider} / ${result.model}，结束原因 ${result.finishReason || '未知'}）原始返回前 500 字：${raw}`
+        )
         throw new AiError(
           'bad_json',
-          `模型输出不是合法 JSON：${result.content.slice(0, 120)}`
+          data === undefined
+            ? `模型输出不是合法 JSON。原始返回：${raw}`
+            : `模型输出的 JSON 结构不符合要求。原始返回：${raw}`
         )
-      if (options.validate && !options.validate(data))
-        throw new AiError('bad_json', '模型输出的 JSON 结构不符合要求')
-      return { ...result, data: data as T }
+      }
+      return { ...publicResult(result), data: data as T }
     },
 
     async testConnection() {
