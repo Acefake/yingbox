@@ -156,6 +156,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0018](docs/adr/0018-player-window.md) 桌面端内置播放器改为独立窗口：单例复用、记位置、置顶，进度事件经主进程回写主窗口
 - [0019](docs/adr/0019-nas-online-engine.md) NAS 在线播放：片库服务 fork 在线引擎（复用 EngineHost），契约走 HTTP RPC / SSE，鉴权 + 防 SSRF 的播放代理改写 m3u8
 - [0020](docs/adr/0020-server-netdisk-autograb.md) 片库服务承载 115 网盘、追更与库外发现（模块宿主、Node 传输、调度租约）
+- [0021](docs/adr/0021-magnet-sources-offline.md) 磁力来源（PanSou 磁力 + Torznab）与 115 离线下载（m115 编码、离线任务跟进入库）
 
 ## UI conventions
 

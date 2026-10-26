@@ -109,7 +109,7 @@ class MpvPlayer extends EventEmitter {
     try {
       if (this.child && this.sock.connected) {
         const stream = mpvStream(options)
-        // 属性设不上（旧版 mpv 不认某个值等）只记日志，照样换片，不让整次 open 失败
+        // 属性设不上（低版本 mpv 不认某个值等）只记日志，照样换片，不让整次 open 失败
         await this.headers.apply(stream.headers).catch(warnProp)
         for (const [name, value] of replaceProps(options))
           await this.setProp(name, value).catch(warnProp)
