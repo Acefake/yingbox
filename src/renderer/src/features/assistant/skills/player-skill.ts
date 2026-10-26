@@ -82,7 +82,7 @@ const control = defineAction<PlayerRemoteCommand>({
     return null
   },
   async run(command) {
-    const outcome = runPlayerCommand(command)
+    const outcome = await runPlayerCommand(command)
     // 回执只放在结果卡片里，不再逐字重复一遍（逐字部分用模型的 reply）
     return {
       message: '',
@@ -110,7 +110,7 @@ const plot = defineAction<string>({
     return null
   },
   async run(question) {
-    return askPlotQuestion(question)
+    return (await askPlotQuestion(question))
       ? closeOutcome
       : { message: '这个视频暂时不能问剧情。', result: null }
   },

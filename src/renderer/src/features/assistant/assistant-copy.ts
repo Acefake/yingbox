@@ -8,7 +8,7 @@ import { clockText } from './skills/skill-prompt'
 import type { AssistantContext } from './skills/skill-types'
 
 /**
- * 上下文胶囊：私密 → 仅本地模型；在播 → 片名 · 时间点；有角落小窗在播 → 页面 · 播放中；否则页面 · 当前页面。
+ * 上下文胶囊：私密 → 仅本地模型；在播 → 片名 · 时间点；播放器窗口在播但不能遥控（外置播放器） → 页面 · 播放中；否则页面 · 当前页面。
  * @param context 当前状态
  */
 export function assistantSubtitle(context: AssistantContext): string {

@@ -1,16 +1,16 @@
 /**
- * 播放器的遥控入口：AI 助手等外部功能经这里控制当前播放弹窗（开关弹幕、弹幕不透明度、字幕开关、
+ * 播放器的遥控执行端：AI 助手等外部功能经这里控制当前播放会话（开关弹幕、弹幕不透明度、字幕开关、
  * 睡眠定时、跳过片头、倍速）以及把问题交给「问剧情」。
  *
- * 只是把已有模块的接口接到一处：弹幕走设置（danmaku.*，useDanmaku 实时跟随），睡眠定时走 sleep-timer，
- * 跳过片头按 skip-store 的标记，字幕与倍速直接设在当前 Artplayer 实例上。
+ * 跑在播放会话所在的页面：桌面端是独立播放器窗口（主窗口的请求经 host/player-host 转过来），
+ * 网页端是页内播放层。只是把已有模块的接口接到一处：弹幕走设置（danmaku.*，useDanmaku 实时跟随），
+ * 睡眠定时走 sleep-timer，跳过片头按 skip-store 的标记，字幕与倍速直接设在当前 Artplayer 实例上。
  * PlayerSession 拿到实例时 attach，换集 / 关闭时撤下；RecapLayer 登记问剧情。外置 mpv 播放时没有实例，不能遥控。
  */
 import type Artplayer from 'artplayer'
 
 import { setSetting } from '@/features/settings'
 
-import { playerModal } from '../modal/player-modal'
 import { getSkipMarks } from '../skip/skip-store'
 import { introSkipTarget } from '../skip/skip-rules'
 import { type SleepChoice, sleepChoiceLabel } from '../sleep/sleep-rules'
@@ -33,18 +33,6 @@ export interface PlayerRemoteResult {
   text: string
 }
 
-/** 当前播放能被遥控到什么程度 */
-export interface PlayerRemoteState {
-  /** 有播放弹窗（含缩在小窗里） */
-  playing: boolean
-  /** 有内置播放器实例可控制 */
-  controllable: boolean
-  /** 当前播放来自私密板块 */
-  private: boolean
-  /** 当前视频支持问剧情 */
-  plotQa: boolean
-}
-
 /** PlayerSession 交给遥控的当前实例 */
 export interface PlayerRemoteTarget {
   art: Artplayer
@@ -56,6 +44,19 @@ export interface PlayerRemoteTarget {
   private: boolean
 }
 
+type ChangeListener = () => void
+const listeners = new Set<ChangeListener>()
+const changed = (): void => listeners.forEach(listener => listener())
+
+/**
+ * 订阅遥控目标的变化（实例登记 / 撤下、问剧情登记 / 撤下）；播放器窗口据此把在播状态报给主窗口。
+ * @returns 取消订阅
+ */
+export function onRemoteChange(listener: ChangeListener): () => void {
+  listeners.add(listener)
+  return () => listeners.delete(listener)
+}
+
 let target: PlayerRemoteTarget | null = null
 let plotAsk: ((question: string) => boolean) | null = null
 
@@ -65,8 +66,11 @@ let plotAsk: ((question: string) => boolean) | null = null
  */
 export function attachPlayerRemote(next: PlayerRemoteTarget): () => void {
   target = next
+  changed()
   const detach = (): void => {
-    if (target === next) target = null
+    if (target !== next) return
+    target = null
+    changed()
   }
   next.art.on('destroy', detach)
   return detach
@@ -78,38 +82,36 @@ export function attachPlayerRemote(next: PlayerRemoteTarget): () => void {
  */
 export function attachPlotQa(ask: (question: string) => boolean): () => void {
   plotAsk = ask
+  changed()
   return () => {
-    if (plotAsk === ask) plotAsk = null
+    if (plotAsk !== ask) return
+    plotAsk = null
+    changed()
   }
 }
 
-/** 当前遥控状态 */
-export function playerRemoteState(): PlayerRemoteState {
-  const playing = playerModal().value !== null
-  return {
-    playing,
-    controllable: playing && target !== null,
-    private:
-      playerModal().value?.payload.private === true || target?.private === true,
-    plotQa: playing && plotAsk !== null,
-  }
-}
-
-/** 当前在播的片名与时间点（秒）；没在播或外置播放器时为 null */
-export interface PlayerNowPlaying {
-  title: string
-  seconds: number
+/** 本页的遥控目标能做什么 */
+export interface LocalRemote {
+  /** 有内置播放器实例可控制 */
+  controllable: boolean
+  /** 当前实例来自私密板块 */
   private: boolean
+  /** 当前视频支持问剧情 */
+  plotQa: boolean
+  /** 当前这一集的显示名（没有实例时为空串） */
+  title: string
+  /** 播到第几秒 */
+  seconds: number
 }
 
-/** 当前在播什么、播到哪（给助手做上下文） */
-export function playerNowPlaying(): PlayerNowPlaying | null {
-  const state = playerRemoteState()
-  if (!state.playing || !target) return null
+/** 本页当前的遥控目标 */
+export function localRemote(): LocalRemote {
   return {
-    title: target.title(),
-    seconds: Math.floor(target.art.currentTime || 0),
-    private: state.private,
+    controllable: target !== null,
+    private: target?.private === true,
+    plotQa: plotAsk !== null,
+    title: target?.title() ?? '',
+    seconds: Math.floor(target?.art.currentTime || 0),
   }
 }
 
@@ -179,19 +181,17 @@ function runOn(
   }
 }
 
-/** 执行一条遥控命令；没在播或是外置 mpv 时返回说明 */
-export function runPlayerCommand(
+/** 在本页执行一条遥控命令；没有内置播放器实例（外置 mpv）时返回说明 */
+export function runLocalCommand(
   command: PlayerRemoteCommand
 ): PlayerRemoteResult {
-  const state = playerRemoteState()
-  if (!state.playing) return { ok: false, text: '现在没有正在播放的视频' }
   if (!target) return { ok: false, text: '外置播放器播放时不能在这里控制' }
   const result = runOn(target.art, command)
   if (result.ok) notice(target.art, result.text)
   return result
 }
 
-/** 把问题交给问剧情（打开面板并提问）；当前视频不支持时返回 false */
-export function askPlotQuestion(question: string): boolean {
-  return playerRemoteState().plotQa && plotAsk !== null && plotAsk(question)
+/** 在本页把问题交给问剧情（打开面板并提问）；当前视频不支持时返回 false */
+export function askLocalPlot(question: string): boolean {
+  return plotAsk !== null && plotAsk(question)
 }

@@ -3,6 +3,10 @@
  *
  * 调用 → ipcRenderer.invoke('<域>:<键>')，同步调用 → sendSync；事件 → on<Key>(cb) / off<Key>()。
  * sandboxed preload 只能 require('electron')，契约是纯 TS，会被打包进本文件。
+ *
+ * 主窗口拿到全部域；独立播放器窗口（主进程启动时带 PLAYER_WINDOW_ARG）只拿播放会话用到的域
+ * （shared/player-window 的 PLAYER_WINDOW_DOMAINS）。两个窗口共用这一个文件：拆成两个入口会打包出共享 chunk，
+ * sandboxed preload 加载不了。
  */
 import { contextBridge, ipcRenderer } from 'electron'
 import { contract } from '../shared/contract'
@@ -12,6 +16,10 @@ import {
   channelOf,
   listenerNames,
 } from '../shared/contract/define'
+import {
+  PLAYER_WINDOW_ARG,
+  PLAYER_WINDOW_DOMAINS,
+} from '../shared/player-window'
 import { createLibraryBridge } from './library-bridge'
 
 /** 为一个域生成渲染层代理 */
@@ -42,10 +50,17 @@ function bridge(domain: Domain): Record<string, unknown> {
   return api
 }
 
-contextBridge.exposeInMainWorld('api', {
-  ...Object.fromEntries(
-    Object.values(contract).map(domain => [domain.name, bridge(domain)])
-  ),
-  // 媒体库引擎由影视项目维护，自带 bridge（调用转发到 utilityProcess，事件经 MessagePort 直达）
-  library: createLibraryBridge(ipcRenderer),
-})
+contextBridge.exposeInMainWorld(
+  'api',
+  process.argv.includes(PLAYER_WINDOW_ARG)
+    ? Object.fromEntries(
+        PLAYER_WINDOW_DOMAINS.map(name => [name, bridge(contract[name])])
+      )
+    : {
+        ...Object.fromEntries(
+          Object.values(contract).map(domain => [domain.name, bridge(domain)])
+        ),
+        // 媒体库引擎由影视项目维护，自带 bridge（调用转发到 utilityProcess，事件经 MessagePort 直达）
+        library: createLibraryBridge(ipcRenderer),
+      }
+)

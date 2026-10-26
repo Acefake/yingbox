@@ -193,7 +193,7 @@ const recordHistory = (playUrl: string, ext?: PluginExt): void => {
   saveStoredArray(HISTORY_KEY, mergeOnlineHistory(history, record, mediaKey))
 }
 
-/** 播放一集：插件线路先解析地址，再预解析跳转 / 页面内 m3u8，然后打开播放弹窗。 */
+/** 播放一集：插件线路先解析地址，再预解析跳转 / 页面内 m3u8，然后交给播放器（桌面端独立窗口）。 */
 const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   const generation = ++playGeneration
   currentUrl.value = ''

@@ -1,12 +1,25 @@
 /**
- * 播放器 feature 的公共出口：应用内播放弹窗与小窗、mpv 的调度、播放进度。
+ * 播放器 feature 的公共出口：内置播放器（桌面端独立窗口 / 网页端播放层）、mpv 的调度、播放进度。
  * 其它 feature 只能从这里引用播放器；播放一律经 openMediaPlayer。
  */
-/** 应用内播放弹窗与角落小窗（应用根组件各挂载一次） */
+/** 网页端盖在页面上的播放层（应用根组件挂载一次；桌面端不出现） */
 export { default as PlayerModal } from './modal/PlayerModal.vue'
-export { default as MiniPlayer } from './mini/MiniPlayer.vue'
-export { closePlayerModal, playerModal } from './modal/player-modal'
-/** 统一播放器组件（直播页直接内嵌，不经播放弹窗） */
+/** 独立播放器窗口的根组件（player.html 的入口挂载） */
+export { default as PlayerWindowApp } from './window/PlayerWindowApp.vue'
+/** 当前播放会话、关闭播放器；主窗口启动时接上播放器窗口的回写 */
+export {
+  type PlayerNowPlaying,
+  type PlayerRemoteState,
+  type PlayerSessionInfo,
+  askPlotQuestion,
+  closePlayer,
+  installPlayerHost,
+  playerNowPlaying,
+  playerRemoteState,
+  playerSession,
+  runPlayerCommand,
+} from './host/player-host'
+/** 统一播放器组件（直播页直接内嵌，不经播放器窗口） */
 export { default as UnifiedVideoPlayer } from './components/UnifiedVideoPlayer.vue'
 /** mpv 启动中的全局遮罩（应用根组件挂载） */
 export { default as MpvLoadingOverlay } from './components/MpvLoadingOverlay.vue'
@@ -52,15 +65,9 @@ export {
 } from './skip/intro-detect'
 export { metaOf, replayOptions } from './continue/continue-rules'
 export { progressRatio } from './continue/continue-rules'
-/** 遥控当前播放（AI 助手）：弹幕、字幕、睡眠定时、跳过片头、倍速与问剧情 */
-export {
-  type PlayerRemoteCommand,
-  type PlayerRemoteResult,
-  type PlayerRemoteState,
-  type PlayerNowPlaying,
-  askPlotQuestion,
-  playerNowPlaying,
-  playerRemoteState,
-  runPlayerCommand,
+/** 遥控当前播放（AI 助手，经上面的 runPlayerCommand / askPlotQuestion）：命令与回执的形状 */
+export type {
+  PlayerRemoteCommand,
+  PlayerRemoteResult,
 } from './remote/player-remote'
 export { SLEEP_CHOICES, type SleepChoice } from './sleep/sleep-rules'

@@ -8,7 +8,7 @@ import { startContinue } from '../continue/continue-store'
 import { trackMpvSession } from '../mpv-session/mpv-session'
 import type { LibraryRef } from '../progress/library-sink'
 import type { EndHint } from '../utils/play-queue'
-import { openPlayerModal } from '../modal/player-modal'
+import { openPlayer } from '../host/player-host'
 import {
   DV_NOTICE_TEXT,
   dvNotice,
@@ -54,7 +54,7 @@ type MediaPlayerOpenOptions = {
    * 不给时按 continueAs 的板块判断（av、jav 为私密）。
    */
   private?: boolean
-  /** 播放引擎：'built-in' 为应用内播放弹窗，'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
+  /** 播放引擎：'built-in' 为内置播放器（桌面端独立窗口），'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
   engine?: 'built-in' | 'mpv'
   /** 条目是动画（mpv 的「影盒超分仅动画类条目」据此启用，判断见 shared/anime4k isAnimeEntry） */
   anime?: boolean
@@ -101,7 +101,7 @@ function notifyMpvFallback(detail?: string): void {
 /**
  * 打开播放器：
  * - 引擎为 mpv，或视频是杜比视界 P5 且开着自动用 mpv：启动 / 控制 mpv 独立播放器（不可用时提示并回退到内置）
- * - 否则：应用内播放弹窗（modal/PlayerModal），桌面与网页一样
+ * - 否则：内置播放器——桌面端在独立的播放器窗口里播，网页端是盖在页面上的播放层（host/player-host）
  */
 export async function openMediaPlayer(
   options: MediaPlayerOpenOptions
@@ -214,7 +214,7 @@ export async function openMediaPlayer(
     dvInstallNotified = true
   } else if (mpv === 'failed') notifyMpvFallback(mpvError)
 
-  openPlayerModal({
+  openPlayer({
     ...(filePath ? { filePath } : {}),
     ...(url ? { url } : {}),
     ...(title ? { title } : {}),

@@ -12,7 +12,7 @@
   color: var(--text-primary);
 }
 
-/* ── 遮罩（只在普通页面）：整窗压暗 + 轻模糊；小窗在播时不做实时模糊 ── */
+/* ── 遮罩（只在普通页面）：整窗压暗 + 轻模糊 ── */
 .assistant-scrim {
   position: absolute;
   inset: 0;
@@ -20,11 +20,6 @@
   -webkit-backdrop-filter: blur(8px) saturate(0.9);
   backdrop-filter: blur(8px) saturate(0.9);
   transition: opacity var(--duration-assistant) ease;
-}
-.assistant[data-playing='true'] .assistant-scrim {
-  background: var(--overlay-scrim);
-  -webkit-backdrop-filter: none;
-  backdrop-filter: none;
 }
 :root[data-transparency='reduced'] .assistant-scrim {
   -webkit-backdrop-filter: none;

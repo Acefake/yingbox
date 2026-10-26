@@ -4,7 +4,7 @@
  * - 媒体库已存动态范围的文件（PlaylistEntry.video）直接按 needsDvColorFix 决定，不再探测；不是 P5 的立即直接播；
  * - 不知道的文件才请主进程 ffprobe 识别（与媒体库同一份解析），超过 DV_PROBE_FEEDBACK_MS 才显示「正在识别视频…」；
  * - 重建做不了（开播前）或重建会话播放中出错（recover）：按 dvFallback 试 mpv，否则直接播并提示色彩可能不对；
- * - 每次 prepare / release 换一代：关闭弹窗或换集后才返回的会话立即停掉，不留后台 ffmpeg；
+ * - 每次 prepare / release 换一代：关闭播放器或换集后才返回的会话立即停掉，不留后台 ffmpeg；
  * - 拿到的本机流前缀登记给桌面 HLS 加载器直连（allowLocalStream），会话结束撤销。
  * 网页端（没有 window.api.dolbyVision）一律直接播。
  */
@@ -14,7 +14,7 @@ import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 import { toLocalUrl } from '@/utils/local-url'
 
-import { closePlayerModal } from '../modal/player-modal'
+import { closePlayer } from '../host/player-host'
 import { allowLocalStream } from '../utils/hls-loader'
 import {
   DV_DIRECT_WARNING,
@@ -142,7 +142,7 @@ export function useDolbyVision(ui: DolbyVisionUi): DolbyVisionControl {
       if (res?.success) {
         toast.info(`${reason}，已改用 mpv 播放`)
         status(DV_HANDED_OFF_TEXT)
-        closePlayerModal()
+        closePlayer()
         return 'handed-off'
       }
     }

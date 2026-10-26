@@ -258,6 +258,26 @@ const ADDED_API: Record<string, string[]> = {
     'onShortcutChanged',
     'offShortcutChanged',
   ],
+  playerWindow: [
+    'open',
+    'close',
+    'command',
+    'ready',
+    'progress',
+    'state',
+    'navigate',
+    'reply',
+    'onPlay',
+    'offPlay',
+    'onRemote',
+    'offRemote',
+    'onRelay',
+    'offRelay',
+    'onSession',
+    'offSession',
+    'onRoute',
+    'offRoute',
+  ],
 }
 
 beforeAll(async () => {
@@ -308,5 +328,39 @@ describe('通用 preload', () => {
 
     exposed.lada.offRangeReady()
     expect(listeners.has('lada:rangeReady')).toBe(false)
+  })
+})
+
+describe('播放器窗口的 preload', () => {
+  it('只暴露播放会话用到的域（没有片库、下载、网盘、设置面板之类主窗口的能力）', async () => {
+    for (const key of Object.keys(exposed)) delete exposed[key]
+    vi.resetModules()
+    process.argv.push('--yingbox-player-window')
+    try {
+      await import('../src/preload/index')
+    } finally {
+      process.argv.pop()
+    }
+    expect(Object.keys(exposed).sort()).toEqual(
+      [
+        'ai',
+        'aiSubtitles',
+        'capture',
+        'danmaku',
+        'dolbyVision',
+        'introDetect',
+        'media',
+        'mpv',
+        'nowPlaying',
+        'online',
+        'playerWindow',
+        'recap',
+        'settings',
+        'subtitle',
+        'win',
+      ].sort()
+    )
+    await exposed.playerWindow.ready()
+    expect(invoke).toHaveBeenLastCalledWith('playerWindow:ready')
   })
 })

@@ -27,7 +27,7 @@ import {
 } from 'vue'
 import { useRoute } from 'vue-router'
 
-import { playerModal } from '@/features/player'
+import { playerSession } from '@/features/player'
 
 import { entryHotkey } from './assistant-hotkey'
 import {
@@ -49,12 +49,12 @@ const AssistantOverlay = defineAsyncComponent(async () => {
   return overlay
 })
 
-const player = playerModal()
+const player = playerSession()
 const route = useRoute()
 
 /** 当前是否私密模式（与 assistantContext 的判断一致） */
 const privateNow = computed(
-  () => isPrivateRoute(route) || player.value?.payload.private === true
+  () => isPrivateRoute(route) || player.value?.private === true
 )
 
 /** 唤起 / 收起的时长（与 tokens.css 的 --duration-assistant 一致） */

@@ -1,10 +1,5 @@
 <template>
-  <aside
-    class="plot-qa"
-    :class="{ 'is-compact': compact }"
-    aria-label="问剧情"
-    @pointerdown.stop
-  >
+  <aside class="plot-qa" aria-label="问剧情" @pointerdown.stop>
     <DialogTitlebar title="问剧情" icon="sparkle" @close="state.close" />
     <p class="plot-qa-scope">只根据当前进度之前的剧情回答，不剧透</p>
     <div ref="listEl" class="plot-qa-list">
@@ -62,7 +57,7 @@
 /**
  * 播放器右侧的「问剧情」面板：消息列表 + 输入框，回答流式出现。
  * 状态与请求在 usePlotQa，这里只负责展示、打开时聚焦输入框、Esc 关闭和自动滚到底。
- * 尺寸按播放区容器（cqw / cqh）算；缩在小窗里（compact）铺满小窗、去掉说明行。
+ * 尺寸按播放区容器（cqw / cqh）算。
  */
 import { nextTick, onMounted, ref, watch } from 'vue'
 
@@ -76,14 +71,7 @@ import { vEnter } from '@/directives/enter'
 import { formatClock } from '../../../../../shared/recap/prompts'
 import type { PlotQaState } from './use-plot-qa'
 
-const props = withDefaults(
-  defineProps<{
-    state: PlotQaState
-    /** 缩在角落小窗里 */
-    compact?: boolean
-  }>(),
-  { compact: false }
-)
+const props = defineProps<{ state: PlotQaState }>()
 
 const listEl = ref<HTMLElement | null>(null)
 const inputRef = ref<InstanceType<typeof UiInput> | null>(null)
@@ -134,17 +122,6 @@ watch(
   box-shadow: var(--shadow-lg);
   color: var(--text-primary);
   overflow: hidden;
-}
-
-/* 小窗：Artplayer 控制栏已隐藏，面板铺满小窗，底部让出小窗自己的悬停控制条 */
-.plot-qa.is-compact {
-  inset: var(--space-1) var(--space-1) 44px; /* style-tokens: layout（避开小窗控制条） */
-  width: auto;
-  border-radius: var(--radius-md);
-}
-
-.plot-qa.is-compact .plot-qa-scope {
-  display: none;
 }
 
 .plot-qa-scope {

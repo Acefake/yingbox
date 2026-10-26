@@ -79,7 +79,7 @@
  * - playNext：切到下一集（PlayerSession 的 playNext），等它完成前「立即播放」显示 loading
  * - ended：这一集已播完、等着连播（卡片上是「取消」）；cancel-ended：点了「取消」
  * - endHint：播完最后一集时的提示（如媒体库剧集「没有下一集的文件」+「去追更」，按钮跳应用内地址，
- *   跳转时播放弹窗按路由规则缩成小窗）；close-hint：关掉提示
+ *   播放器窗口里交给主窗口打开，网页端关掉播放层再跳转）；close-hint：关掉提示
  * 设置 player.autoNext 关着时卡片照常出现，但不倒计时，要点「立即播放」。
  */
 import type Artplayer from 'artplayer'
@@ -88,6 +88,11 @@ import { useRouter } from 'vue-router'
 
 import UiButton from '@/components/ui/UiButton.vue'
 
+import {
+  closePlayer,
+  inPlayerWindow,
+  openInMainWindow,
+} from '../host/player-host'
 import type { EndHint, PlaylistEntry } from '../utils/play-queue'
 import { useAutoIntroDetect } from './use-auto-detect'
 import { useSkipSegments } from './use-skip-segments'
@@ -102,10 +107,13 @@ const props = defineProps<{
   endHint?: EndHint | null
 }>()
 const emit = defineEmits<{ 'cancel-ended': []; 'close-hint': [] }>()
-const router = useRouter()
+/** 播放器窗口里没有路由：提示里的地址交给主窗口打开 */
+const router = inPlayerWindow() ? null : useRouter()
 
 function goHint(to: string): void {
   emit('close-hint')
+  if (!router) return openInMainWindow(to)
+  closePlayer()
   void router.push(to)
 }
 

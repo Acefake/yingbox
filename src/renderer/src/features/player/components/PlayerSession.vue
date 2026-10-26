@@ -11,7 +11,6 @@
       :closable="false"
       :show-footer="false"
       :ai-private="payload.private === true"
-      :compact="mini"
       autoplay
       controls
       @ready="media.attach"
@@ -72,7 +71,7 @@
 /**
  * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
  * 续播进度、可操作的错误面板与跳过片头片尾（skip/）。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
- * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层的播放弹窗。
+ * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层（播放器窗口 / 网页端播放层）。
  * 每集的 Artplayer 上装按钮、快捷键与双击手势（controls/、hotkeys/）和 AI 助手遥控（remote/）；播完有下一集时给倒计时卡片。
  */
 import {
@@ -99,7 +98,6 @@ import { useDolbyVision } from '../dolby-vision/use-dolby-vision'
 import { usePlayerRemote } from '../remote/use-player-remote'
 import { mediaProgressKey } from '../utils/play-progress'
 import { singleFlight } from '../utils/single-flight'
-import { getSetting } from '@/features/settings'
 import {
   type EndHint,
   type PlayerPayload,
@@ -111,14 +109,12 @@ import { resolvePlaySource } from '@/features/online'
 
 const props = defineProps<{
   payload: PlayerPayload
-  /** 缩在角落小窗里（播放器上的浮层按小窗收敛） */
-  mini?: boolean
+  /** 切换窗口置顶（控制栏图钉 / 快捷键 I），返回切换后的状态；不给就没有这个按钮（网页端） */
+  togglePin?: (() => boolean) | null
 }>()
 const emit = defineEmits<{
-  /** 控制栏「小窗」按钮 / 快捷键 I：请播放弹窗缩成小窗 */
-  minimize: []
   title: [title: string]
-  /** 播放器的 <video>（每集换一个；小窗的播放 / 暂停控制它） */
+  /** 播放器的 <video>（每集换一个；外层据此显示暂停时常显的顶栏） */
   video: [video: HTMLVideoElement]
 }>()
 
@@ -263,7 +259,7 @@ const playNext = singleFlight(async (): Promise<boolean> => {
   return true
 })
 
-const onEnded = async (event: Event): Promise<void> => {
+const onEnded = (event: Event): void => {
   if (playNext.pending()) return // 切集中：旧视频自然结束不再记完播、不再切集
   if (!media.accepts(event)) return // 托盘 / 媒体键换集时退役的旧视频
   const el = event.target as HTMLVideoElement | null
@@ -279,14 +275,8 @@ const onEnded = async (event: Event): Promise<void> => {
     endHint.value = queueEndHint
     return
   }
-  // 弹窗里先给「下一集」卡片（可取消；自动连播关着时不倒计时）；小窗里放不下卡片，开着自动连播时直接连播
-  if (!props.mini) {
-    endedPrompt.value = true
-    return
-  }
-  if (!getSetting('player.autoNext')) return
-  showNotice(`即将播放：${entryLabel(next)}`)
-  await playNext()
+  // 先给「下一集」卡片（可取消；自动连播关着时不倒计时）
+  endedPrompt.value = true
 }
 
 /** 开播：清掉错误面板；播完卡片出现后又手动播放（拖回去重看）时收起卡片 */
@@ -370,12 +360,18 @@ const applyPayload = (payload: PlayerPayload): void => {
 
 watch(() => props.payload, applyPayload, { immediate: true })
 
+/** 切换置顶，在画面上提示一句（全屏时也看得到） */
+const togglePin = (): void => {
+  const on = props.togglePin?.()
+  if (art.value && on !== undefined)
+    art.value.notice.show = on ? '已置顶' : '已取消置顶'
+}
+
 useSessionShortcuts({
   art,
   next: () =>
     playlist.value[position.value + 1] ? () => void playNext() : null,
-  minimize: () => emit('minimize'),
-  active: () => !props.mini,
+  pin: () => (props.togglePin ? togglePin : null),
   toggleSubtitle: () => player.value?.toggleSubtitle(),
 })
 

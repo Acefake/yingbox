@@ -5,7 +5,6 @@
     :data-layout="layout"
     :data-mode="mode"
     :data-private="context.private"
-    :data-playing="player !== null"
     :data-searching="searching"
   >
     <div v-if="layout === 'page'" class="assistant-scrim" @click="close" />
@@ -137,13 +136,13 @@
  *   内凹输入胶囊在底；面板随内容长高，最高 --assistant-panel-height，超出后只有对话流滚动。
  * 两种布局（data-layout）：
  * - 普通页面（page）：整窗压暗轻模糊的遮罩，模态（aria-modal + 焦点陷阱，use-focus-trap.ts），点遮罩收起；
- * - 内置播放器在前台（player）：没有遮罩，整层不拦点击、不拦焦点，画面照常可点；
+ * - 网页端播放层在前台（player）：没有遮罩，整层不拦点击、不拦焦点，画面照常可点；
  *   画面上没有遮罩托底，所以一律用面板形态（文字落在玻璃上才读得清）。
  * 唯一的彩色是输入胶囊上沿 1px 的蓝紫粉渐变，思考 / 回答时变亮。
  * 对话流 = 本次打开期间归档的几轮（assistant-thread.ts）+ 当前这一轮；新内容出现时，只有贴近底部时
  * 才自动滚到底部，用户上滚回看时不打扰，回到底部附近再恢复（assistant-scroll.ts）。
  * 「正在打开播放器」在所有轮次的结果间共享（assistant-opening.ts）。
- * 根上的 data-focus-scope 让下面播放弹窗的焦点陷阱放行：点进助手输入框不会被拉回播放器。
+ * 根上的 data-focus-scope 让下面网页端播放层的焦点陷阱放行：点进助手输入框不会被拉回播放器。
  * 私密模式（data-private="true"）上下文胶囊写「私密 · 仅本地模型 · 无痕」，不举例、不换色调。
  * 状态行只给读屏用：待命且还没提问时为空。
  *
@@ -158,7 +157,7 @@ import { UiButton, UiLoadingDots, UiPressable } from '@/components/ui'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useFocusTrap } from '@/composables/use-focus-trap'
 import { aiAvailable } from '@/features/ai'
-import { playerModal } from '@/features/player'
+import { playerSession } from '@/features/player'
 import { getSetting, useSetting } from '@/features/settings'
 import { isSearchCommand } from '@/utils/search-command'
 
@@ -233,11 +232,9 @@ const { turns, archive } = useAssistantThread({
 })
 provideOpening()
 
-const player = playerModal()
-/** 内置播放器在前台（不是小窗）时不做模态、不加遮罩 */
-const layout = computed(() =>
-  player.value && !player.value.minimized ? 'player' : 'page'
-)
+const player = playerSession()
+/** 播放层盖在页面上（网页端）时不做模态、不加遮罩；桌面端在独立窗口里播，主窗口照常是页面 */
+const layout = computed(() => (player.value?.inPage ? 'player' : 'page'))
 
 /** 打开时的状态（在播时间点不随播放刷新，下次提问时重新取） */
 const context = computed(() => {

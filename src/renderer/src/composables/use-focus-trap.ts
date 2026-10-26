@@ -3,12 +3,12 @@
  * （如全局 Cmd/Ctrl+F 聚焦背后的搜索框）时拉回面板。
  *
  * 谁拥有焦点不看 aria-modal，而是看两样显式的东西：
- * - 陷阱栈：几个模态叠着时（如设置窗口在下、播放弹窗在上），只有最上面（最后打开）的那层拉回焦点，
+ * - 陷阱栈：几个模态叠着时（如设置窗口在下、网页端播放层在上），只有最上面（最后打开）的那层拉回焦点，
  *   和 Esc 层栈（use-escape-layer）的叠放语义一致；
  * - 放行区：浏览器顶层的提示与确认框（popover / dialog[open]），以及根上带 data-focus-scope 的
  *   非模态浮层（如播放时侧栏布局的 AI 助手）自己管焦点，焦点落进去不抢回来。
  *
- * useFocusTrap 只管循环与拉回；打开时移入焦点、关闭或卸载时还原焦点用 useModalFocus（设置、播放弹窗），
+ * useFocusTrap 只管循环与拉回；打开时移入焦点、关闭或卸载时还原焦点用 useModalFocus（设置、网页端播放层），
  * AI 助手由 AssistantLauncher 自己还原。
  */
 import { type Ref, nextTick, onBeforeUnmount, onMounted, watch } from 'vue'

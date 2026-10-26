@@ -10,14 +10,14 @@ const settings: Record<string, unknown> = {
   'player.dvAutoMpv': true,
   'player.applyDolbyVision': true,
 }
-const closePlayerModal = vi.fn()
+const closePlayer = vi.fn()
 
 vi.mock('@/features/settings', () => ({
   getSetting: (key: string) => settings[key],
 }))
 vi.mock('@/components/ui', () => ({ toast: { info: vi.fn() } }))
-vi.mock('../src/renderer/src/features/player/modal/player-modal', () => ({
-  closePlayerModal: () => closePlayerModal(),
+vi.mock('../src/renderer/src/features/player/host/player-host', () => ({
+  closePlayer: () => closePlayer(),
 }))
 
 const { useDolbyVision } =
@@ -79,7 +79,7 @@ beforeEach(() => {
     setTimeout,
     clearTimeout,
   })
-  closePlayerModal.mockReset()
+  closePlayer.mockReset()
 })
 
 afterEach(() => vi.unstubAllGlobals())
@@ -135,12 +135,12 @@ describe('useDolbyVision', () => {
     expect(notify).toHaveBeenCalledWith(DV_DIRECT_WARNING)
   })
 
-  it('重建做不了、mpv 打开了：关掉弹窗，不再加载', async () => {
+  it('重建做不了、mpv 打开了：关掉播放器，不再加载', async () => {
     dv.start.mockResolvedValue({ kind: 'fallback', reason: '无 Vulkan' })
     mpvOpen.mockResolvedValue({ success: true })
     const { control, emptyText } = setup()
     expect(await control.resolve(request())).toBe('')
-    expect(closePlayerModal).toHaveBeenCalledOnce()
+    expect(closePlayer).toHaveBeenCalledOnce()
     expect(emptyText.value).toBe(DV_HANDED_OFF_TEXT)
   })
 
