@@ -5,8 +5,9 @@
  *   不依赖手写受保护请求头；分区装公网限制（与代抓会话同一个守卫），重定向到内网会被拦下。
  * - 登录会话存在密钥 pan115.session（safeStorage 加密），是 Cookie 的权威来源：启动时恢复进分区，
  *   退出时清掉分区 Cookie；明文只在主进程内存，不写日志。
- * - PanSou 是用户填的地址（可能是局域网 NAS），走默认会话的 net.fetch（credentials: 'omit'），
- *   不做私网拦截，但重定向只跟同一主机（见 pansou.ts）。
+ * - PanSou / Torznab 是用户填的地址（可能是局域网 NAS），走默认会话的 net.fetch（credentials: 'omit'），
+ *   不做私网拦截，但重定向只跟同一主机（见 http.ts 的 sameHostFetch）。Torznab 地址与 API Key 存密钥
+ *   pan115.torznab（与 115 会话同一种 safeStorage 加密存储）。
  */
 import { app, net, session } from 'electron'
 
@@ -17,6 +18,11 @@ import { implementPan115 } from './domain'
 import { type Pan115Service, createPan115Service } from './service'
 import { parseSession, serializeSession } from './session-codec'
 import { PAN115_PARTITION, createSessionTransport } from './session-transport'
+import {
+  TORZNAB_SECRET_KEY,
+  parseTorznabSecret,
+  serializeTorznabSecret,
+} from './torznab-secret'
 
 const SESSION_KEY = 'pan115.session'
 
@@ -30,8 +36,7 @@ export function registerPan115(
   const transport = createSessionTransport(partition)
   const service = createPan115Service({
     transport,
-    pansouFetch: (url, init) =>
-      net.fetch(url, { ...init, credentials: 'omit' }),
+    lanFetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
     settings: {
       pansouUrl: () => store.get('pan115.pansouUrl'),
       targetCid: () => store.get('pan115.targetCid'),
@@ -39,6 +44,11 @@ export function registerPan115(
     session: {
       read: () => parseSession(store.getSecret(SESSION_KEY)),
       write: value => store.setSecret(SESSION_KEY, serializeSession(value)),
+    },
+    torznab: {
+      read: () => parseTorznabSecret(store.getSecret(TORZNAB_SECRET_KEY)),
+      write: value =>
+        store.setSecret(TORZNAB_SECRET_KEY, serializeTorznabSecret(value)),
     },
   })
   void service.restore().catch(() => {})

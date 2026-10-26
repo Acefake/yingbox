@@ -9,6 +9,8 @@ import {
   WATCH_PROPS,
   parsePlaylist,
   parseTracks,
+  replaceProps,
+  spawnArgs,
 } from './mpv-props'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
 import { MpvWindow } from './mpv-window'
@@ -84,9 +86,9 @@ class MpvPlayer extends EventEmitter {
     this.emit('status', this.getStatus())
     try {
       if (this.child && this.sock.connected) {
+        for (const [name, value] of replaceProps(options))
+          await this.setProp(name, value)
         await this.cmd('loadfile', target, 'replace')
-        if (typeof options.startAt === 'number')
-          await this.setProp('time-pos', options.startAt)
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
         await this.window.bringToFront()
@@ -102,45 +104,47 @@ class MpvPlayer extends EventEmitter {
   }
 
   private async spawnProcess(options: MpvOpenOptions): Promise<void> {
-    if (this.child) void killTree(this.child)
+    // 旧进程还在但连接断了：先就地收尾再杀，它迟到的 exit 不会再清掉新进程
+    const old = this.child
+    if (old) {
+      this.cleanupProcess()
+      void killTree(old)
+    }
     const exe = findMpvExecutable()
     const target = options.filePath || options.url!
-
-    const args: string[] = [
-      `--input-ipc-server=${SOCKET_PATH}`,
-      '--force-window=yes',
-      '--keep-open=yes',
-      '--osc=yes',
-      '--no-terminal',
-      '--ytdl=no',
-      // 无边框：不显示 Windows 标题栏及其英文系统菜单，菜单改由影盒提供。
-      // --window-dragging 默认 yes，无边框时仍可用鼠标拖动窗口。
-      '--border=no',
-      // 首次打开（新进程）时的初始窗口尺寸；之后由用户自己调整并保持。
-      '--geometry=1600x900',
-    ]
-    if (this.isVsrWanted()) {
-      // RTX 视频超分依赖 d3d11vpp 滤镜，必须走 D3D11 的 GPU API；
-      // 同时固定 D3D11 硬解，让帧停留在 GPU 上。
-      args.push('--gpu-api=d3d11', '--hwdec=d3d11va')
-    }
-    if (typeof options.startAt === 'number')
-      args.push(`--start=${options.startAt}`)
-    if (options.title) args.push(`--title=${options.title}`)
-    if (options.subFile) args.push(`--sub-file=${options.subFile}`)
-    // 防盗链 CDN（MissAV）：mpv 不经 Chromium 会话，Referer 要自己带
-    const referer = options.url ? refererFor(options.url) : undefined
-    if (referer) args.push(`--referrer=${referer}`)
-    args.push(target)
-
-    this.child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
-    this.child.once('error', e => {
+    const args = spawnArgs({
+      socket: SOCKET_PATH,
+      target,
+      startAt: options.startAt,
+      title: options.title,
+      subFile: options.subFile,
+      // 防盗链 CDN（MissAV）：mpv 不经 Chromium 会话，Referer 要自己带
+      referer: options.url ? refererFor(options.url) : undefined,
+      vsr: this.isVsrWanted(),
+    })
+    const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
+    this.child = child
+    let spawnError: Error | null = null
+    child.once('error', e => {
+      spawnError = e
+      if (this.child !== child) return
       this.emit('error', `mpv 启动失败: ${e.message}`)
       this.cleanupProcess()
     })
-    this.child.once('exit', () => this.cleanupProcess())
-
-    await this.sock.connect()
+    child.once('exit', () => {
+      if (this.child === child) this.cleanupProcess()
+    })
+    try {
+      await this.sock.connect(undefined, () => this.child !== child)
+    } catch (error) {
+      // 连不上：不留没人管的 mpv 进程
+      if (this.child === child) {
+        this.cleanupProcess()
+        void killTree(child)
+      }
+      const failed = spawnError as Error | null
+      throw failed ? new Error(`mpv 启动失败: ${failed.message}`) : error
+    }
     this._status = {
       ...DEFAULT_STATUS,
       running: true,
@@ -234,9 +238,7 @@ class MpvPlayer extends EventEmitter {
     this.emit('status', this.getStatus())
   }
 
-  // ——— RTX 视频超分 ———
-
-  /** 超分开关是否希望生效（功能依赖 D3D11，仅 Windows 平台） */
+  /** RTX 视频超分开关是否希望生效（功能依赖 D3D11，仅 Windows 平台） */
   private isVsrWanted(): boolean {
     return this.vsrEnabled && process.platform === 'win32'
   }
@@ -384,8 +386,6 @@ class MpvPlayer extends EventEmitter {
   async showText(text: string, ms: number): Promise<void> {
     if (this.child) await this.cmd('show-text', text, ms)
   }
-
-  // ——— 播放列表 ———
 
   /** 退出 mpv：先发 quit 命令，1.5 秒内没退出就强杀进程树；返回时进程已退出或已放弃等待。 */
   async quit(): Promise<void> {
