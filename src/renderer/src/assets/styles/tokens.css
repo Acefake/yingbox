@@ -216,7 +216,7 @@
   --glass-media-bg: rgba(36, 36, 40, 0.38);
   --glass-media-bg-hover: rgba(58, 58, 62, 0.5);
   --glass-media-shadow: var(--glass-shadow);
-  /* 侧栏的主题玻璃：浅色下更实，压到 Hero 画面上也是干净的浅玻璃，不混出中间灰 */
+  /* 侧栏玻璃：浅色下更实，压在 Hero 画面上也是干净的浅玻璃，不混出中间灰 */
   --glass-sidebar-bg: rgba(36, 36, 40, 0.38);
   /* 画面上卡片的 0.5px 亮边（剧集横卡等没有整套玻璃时单用） */
   --glass-media-edge: rgba(255, 255, 255, 0.14);
@@ -527,7 +527,7 @@
   --spec-bg: var(--spec-media-bg);
   --spec-text: var(--spec-media-text);
   --spec-line: var(--spec-media-line);
-  /* 外壳侧栏与窗口键胶囊滚到画面上时（sidebarOverMedia / toolbarOverMedia）用到的令牌，取深色主题值 */
+  /* 外壳窗口键胶囊滚到画面上时（toolbarOverMedia）用到的令牌，取深色主题值 */
   --bg-active-soft: rgba(255, 255, 255, 0.08);
   --bg-glass-hover: rgba(255, 255, 255, 0.08);
   --border-glass: rgba(255, 255, 255, 0.08);

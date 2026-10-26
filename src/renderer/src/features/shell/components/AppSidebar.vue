@@ -1,10 +1,9 @@
 <template>
   <aside
-    class="app-sidebar yb-glass yb-media-swap"
+    class="app-sidebar yb-glass"
     :class="{
       'is-collapsed': collapsed,
       'is-phone': isPhone,
-      'yb-on-media': sidebarOverMedia,
     }"
     aria-label="媒体中心导航"
   >
@@ -151,7 +150,6 @@ import UiNavItem from '@/components/ui/UiNavItem.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 import { usePlatform } from '@/composables/use-platform'
-import { sidebarOverMedia } from '@/composables/use-shell-backdrop'
 import { aiAvailable } from '@/features/ai'
 import {
   ASSISTANT_HOTKEY_LABEL,
