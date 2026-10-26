@@ -17,6 +17,7 @@ vi.mock('@/features/library', () => ({
     total: 1,
   })),
   libraryPoster: (url: string | null) => url,
+  libraryCardInfo: async () => null,
   playLibraryItem: vi.fn(async () => true),
 }))
 
