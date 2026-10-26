@@ -3,7 +3,14 @@
  * <video> 还是判为内置播放器不支持；当前线路报错、探测失败或 30 秒内没开始播放，就记下原因并切到下一条，
  * 全部失败后停下，把每条线路的原因交给界面（可一键改用 mpv）。
  */
-import { type Ref, computed, onBeforeUnmount, ref, watch } from 'vue'
+import {
+  type ComputedRef,
+  type Ref,
+  computed,
+  onBeforeUnmount,
+  ref,
+  watch,
+} from 'vue'
 
 import { toast } from '@/components/ui/toast'
 
@@ -28,8 +35,29 @@ async function probe(url: string): Promise<StreamProbe | null> {
   }
 }
 
+/** useLiveLine 的返回值 */
+export interface LiveLineState {
+  /** 当前线路下标 */
+  line: Ref<number>
+  /** 全部线路都失败了 */
+  failed: Ref<boolean>
+  /** 重试计数（播放器 key） */
+  attempt: Ref<number>
+  plan: Ref<LinePlan | null>
+  probing: Ref<boolean>
+  reasons: Ref<(string | undefined)[]>
+  /** 全部失败时的逐条原因 */
+  summary: ComputedRef<string>
+  /** 当前线路地址 */
+  url: ComputedRef<string>
+  pickLine: (index: number) => void
+  retry: () => void
+  onPlaying: () => void
+  onPlayerError: (event?: Event) => void
+}
+
 /** 线路状态与操作 */
-export function useLiveLine(channel: Ref<LiveChannel | null>) {
+export function useLiveLine(channel: Ref<LiveChannel | null>): LiveLineState {
   const line = ref(0)
   const failed = ref(false)
   /** 重试时换 key，强制重建播放器 */
