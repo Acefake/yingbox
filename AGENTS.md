@@ -41,7 +41,7 @@ pnpm smoke:server   # offline end-to-end smoke of the library server (fixture fe
 
 ## Architecture
 
-The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the only boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP, child processes); the renderer is a Vue 3 SPA with five routes.
+The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the only boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP, child processes); the renderer is a Vue 3 SPA.
 
 ### Three-process layout (electron-vite)
 
@@ -67,17 +67,16 @@ src/renderer/→ Vue 3 SPA (out/renderer/)
 - `file-operations.ts` — atomic write (temp file + replace, per-path locks)
 - `http-client.ts` — SSRF-guarded fetch for main's own requests (subtitles, thumbnail originals): private-IP blocking incl. DNS resolution, manual redirect hops, size-limited reads. Not used by `pan115/` (netdisk: PanSou search + 115 QR login / share preview / save): its 115 requests go through the dedicated partition `persist:pan115` (`session-transport.ts`): the login cookie is written into the partition (session cookies, restored from the safeStorage secret `pan115.session` on start, cleared on quit), and Referer / UA are added only for `*.115.com` (`transport.ts`) — never hand-written `Cookie` headers; a hand-written Referer needs `referrerPolicy: 'unsafe-url'` or Chromium cancels the request with `ERR_BLOCKED_BY_CLIENT`; the partition also carries the public-IP guard from `browser-fetch/network-guard.ts`. `node scripts/pan115-selftest/run.mjs` checks the real headers against a local echo server in Electron. **Exemption:** PanSou is a user-configured address (often a LAN NAS), so it skips the private-IP block, but redirects are manual and only followed to the same host (`pansou.ts` `sameHostFetch`); the default address is empty and the public instance is an explicit opt-in in settings
 - `local-media.ts` — `local://` URL ↔ filesystem path + HTTP Range streaming (206/416)
-- `media-scanner.ts` — incremental library scan (directory-mtime short-circuit + cache reuse)
 - `mpv-window.ts` — `mpv.setCompact` shrinks the external mpv window to the bottom-right corner, always on top; `dolby-vision/` — `dolbyVision` domain (probe / start / stop): Dolby Vision P5 that reaches the built-in player is rebuilt by ffmpeg libplacebo into fMP4 HLS served on 127.0.0.1 with a token path, on demand per segment, one session at a time, setting `player.applyDolbyVision` (ADR-0017)
 - `subtitle.ts` — sidecar subtitle discovery, encoding detection (UTF-8/UTF-16/GB18030), srt/ass → WebVTT
 
 ### Preload (`src/preload/index.ts`)
 
-Exposes `window.api` only, namespaced: `file.* http.* path.* dialog.* config.* app.* update.* shell.* win.* player.* subtitle.*`. Types: `src/preload/index.d.ts`. **Sandboxed preload:** only `electron` may be imported — no npm packages (a sandboxed preload cannot `require` them).
+Exposes `window.api` only: one namespace per contract domain (`src/shared/contract/index.ts`) plus `library`; the player window gets `PLAYER_WINDOW_DOMAINS` only. **Sandboxed preload:** only `electron` may be imported — no npm packages (a sandboxed preload cannot `require` them).
 
 ### Renderer (`src/renderer/src/`)
 
-Routes (`router/routers.ts`): `/` online, `/movie`, `/tv`; catch-all → `/`.
+Routes: `router/routers.ts` (`/` online, `/movie`, `/tv`, `/calendar`, `/live`, `/netdisk`, …; catch-all → `/`).
 
 - `features/<x>/` — one folder per non-library feature (`views/ components/ composables/ api/ utils/` inside): `online` (CMS/CatSpider search, `DetailWindow`, data-source panel), `download`, `player` (every entry calls `openMediaPlayer` → mpv or the built-in player via `host/player-host.ts`: on desktop the separate player window (`window/PlayerWindowApp.vue`, entry `player.html` → `src/player.ts`; payload over `playerWindow.open`, progress events relayed back and applied in the main window by `progress/progress-events.ts`, remote control / now-playing state relayed too, ADR-0018), on the web `modal/PlayerModal.vue` over the current page (Esc / close button); both render `stage/PlayerStage.vue`; `PlayerSession` queue / fallbacks / progress), `settings` (panel + section registry), `shell` (`AppLayout`). Features import each other only through `features/<x>/index.ts` (eslint `yingbox/feature-boundaries`, `scripts/eslint/feature-boundaries.mjs`); the composition layer (`main.ts`, `App.vue`, `router/`) may point at view files directly so routes stay lazy. Feature-owned settings sections are registered in `main.ts` with an `order`.
 - TMDB token: secret `scrape.tmdbToken` (main-process safeStorage), write-only from the renderer (`setTmdbToken` / `tmdbTokenConfigured` in `@/features/settings`; there is no `readSecret`). TMDB requests go through `online.tmdb(path, query)` (`features/online/api/online.ts`); the background engine asks main for the token (host method `tmdbToken`, falls back to the `YINGBOX_TMDB_TOKEN` / `VITE_TMDB_ACCESS_TOKEN` env vars at runtime). Main pushes the token to the library engine on save and at startup (`src/main/tmdb.ts`). Renderer code must not call `fetch` directly (eslint; only `services/library-server` is exempt)
@@ -107,7 +106,7 @@ The same library core runs in a plain Node process for the web build / NAS; host
 
 ### Tests
 
-`pnpm test` — Vitest (node env), `tests/` covers main-process pure logic: Range parsing, `local://` path mapping, subtitle decoding/conversion, SSRF IP classification, incremental scan reuse. Vue components are not unit-tested.
+`pnpm test` — Vitest (node env), `tests/` covers main-process pure logic: Range parsing, `local://` path mapping, subtitle decoding/conversion, SSRF IP classification, library scan / identify. Vue components are not unit-tested.
 
 ### Build pipeline
 
@@ -122,7 +121,6 @@ The same library core runs in a plain Node process for the web build / NAS; host
 | Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                 |
 | UI kit            | own design system in `components/ui/`, Tailwind CSS 4 |
 | Player            | Artplayer 5, hls.js                                   |
-| Metadata          | @tdanks2000/tmdb-wrapper                              |
 | Engine            | Electron utilityProcess, `net.fetch`                  |
 | Library           | utilityProcess engine, `node:sqlite`                  |
 | CatSpider runtime | QuickJS WASM + restricted host APIs (ADR-0014)        |

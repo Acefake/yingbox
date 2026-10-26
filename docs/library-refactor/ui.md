@@ -86,11 +86,11 @@ TMDB 令牌现在存在引擎（`setProviderToken` / `getProviderStatus`）。�
 `scripts/ui-harness/perf.mjs`：网页版构建 + 假引擎（5 万部电影，query 每次 4ms 延迟），1440×900，
 Playwright Chromium headless（aarch64，2 vCPU，软件光栅化），每帧把 `scrollTop` 加固定像素，持续 4 秒，各跑 3 次。
 
-| 场景                                       |  平均 fps |  p95 帧间隔 | >20ms 帧 | long task | 渲染格子 / DOM 节点 |
-| ------------------------------------------ | --------: | ----------: | -------: | --------: | ------------------: |
-| 基线：静态页 60 个色块（浏览器上限）       |        60 |     16.7 ms |        0 |         0 |                   — |
-| 海报墙，60 px / 帧（3600 px/s）            | 60 / 60 / 60 | 16.7–16.8 ms |        0 |         0 |            48 / 451 |
-| 海报墙，240 px / 帧（快速甩动，约 0.7 行/帧） | 60 / 60 / 60 | 16.8 ms |        0 |         0 |            42 / 376 |
+| 场景                                          |     平均 fps |   p95 帧间隔 | >20ms 帧 | long task | 渲染格子 / DOM 节点 |
+| --------------------------------------------- | -----------: | -----------: | -------: | --------: | ------------------: |
+| 基线：静态页 60 个色块（浏览器上限）          |           60 |      16.7 ms |        0 |         0 |                   — |
+| 海报墙，60 px / 帧（3600 px/s）               | 60 / 60 / 60 | 16.7–16.8 ms |        0 |         0 |            48 / 451 |
+| 海报墙，240 px / 帧（快速甩动，约 0.7 行/帧） | 60 / 60 / 60 |      16.8 ms |        0 |         0 |            42 / 376 |
 
 - 跳到 5 万条末尾：下一帧 22–33 ms 内渲染完（含取最后一页），JS 堆约 36 MB。
 - 搜索输入到结果出现约 240 ms（含 200 ms 防抖）。
@@ -105,20 +105,20 @@ Playwright Chromium headless（aarch64，2 vCPU，软件光栅化），每帧把
 
 `docs/library-refactor/screenshots/`（`scripts/ui-harness/shoot.mjs` 生成）：
 
-| 内容                 | 暗色                          | 亮色                          |
-| -------------------- | ----------------------------- | ----------------------------- |
-| 海报墙               | `wall-dark.png`               | `wall-light.png`              |
-| 快速甩动停下后       | `wall-after-fling-dark.png`   |                               |
-| 多选                 | `wall-selection-dark.png`     |                               |
-| 搜索                 | `search-dark.png`             |                               |
-| 电影详情             | `detail-movie-dark.png`       | `detail-movie-light.png`      |
-| 电影详情（演职员 / 信息） | `detail-movie-info-dark.png` | `detail-movie-info-light.png` |
-| 剧集详情             | `detail-tv-dark.png`          | `detail-tv-light.png`         |
-| 剧集集列表           | `detail-tv-episodes-dark.png` | `detail-tv-episodes-light.png` |
-| 待确认               | `review-dark.png`             | `review-light.png`            |
-| 设置                 | `settings-dark.png`           | `settings-light.png`          |
-| 设置（写出 / 整理）  | `settings-writer-dark.png`    | `settings-writer-light.png`   |
-| 整理预览             | `organize-dark.png`           |                               |
+| 内容                      | 暗色                          | 亮色                           |
+| ------------------------- | ----------------------------- | ------------------------------ |
+| 海报墙                    | `wall-dark.png`               | `wall-light.png`               |
+| 快速甩动停下后            | `wall-after-fling-dark.png`   |                                |
+| 多选                      | `wall-selection-dark.png`     |                                |
+| 搜索                      | `search-dark.png`             |                                |
+| 电影详情                  | `detail-movie-dark.png`       | `detail-movie-light.png`       |
+| 电影详情（演职员 / 信息） | `detail-movie-info-dark.png`  | `detail-movie-info-light.png`  |
+| 剧集详情                  | `detail-tv-dark.png`          | `detail-tv-light.png`          |
+| 剧集集列表                | `detail-tv-episodes-dark.png` | `detail-tv-episodes-light.png` |
+| 待确认                    | `review-dark.png`             | `review-light.png`             |
+| 设置                      | `settings-dark.png`           | `settings-light.png`           |
+| 设置（写出 / 整理）       | `settings-writer-dark.png`    | `settings-writer-light.png`    |
+| 整理预览                  | `organize-dark.png`           |                                |
 
 ## 已知限制
 

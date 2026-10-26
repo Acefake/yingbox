@@ -49,13 +49,20 @@ async function start(
     env: { YINGBOX_SERVER_TOKEN: TOKEN, ...env },
     netdiskFetch,
   })
-  const call = (path: string, init: RequestInit & { auth?: boolean } = {}) => {
+  const call = (
+    path: string,
+    init: RequestInit & { auth?: boolean } = {}
+  ): Promise<Response> => {
     const headers = new Headers(init.headers)
     headers.set('host', '127.0.0.1:31480')
     if (init.auth !== false) headers.set('authorization', `Bearer ${TOKEN}`)
     return app.fetch(new Request(BASE + path, { ...init, headers }))
   }
-  const rpc = async (domain: string, method: string, args: unknown = []) =>
+  const rpc = async (
+    domain: string,
+    method: string,
+    args: unknown = []
+  ): Promise<unknown> =>
     (
       await call(DOMAIN_HTTP.rpc(domain, method), {
         method: 'POST',
@@ -156,7 +163,7 @@ describe('契约域 HTTP RPC', () => {
 })
 
 describe('服务端设置', () => {
-  const post = (body: unknown) =>
+  const post = (body: unknown): Promise<Response> =>
     server.call(SERVER_SETTINGS_HTTP, {
       method: 'POST',
       headers: { 'content-type': 'application/json' },

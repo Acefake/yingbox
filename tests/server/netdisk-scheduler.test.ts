@@ -13,6 +13,7 @@ import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
+import type { ScheduledTask } from '../../src/main/module-host'
 import { SchedulerLease } from '../../src/server/netdisk/lease'
 import { createLeasedScheduler } from '../../src/server/netdisk/scheduler'
 import { loadNetdiskConfig } from '../../src/server/netdisk/config'
@@ -107,7 +108,7 @@ describe('SchedulerLease', () => {
 })
 
 describe('createLeasedScheduler', () => {
-  const task = (name: string, run: () => void) => ({
+  const task = (name: string, run: () => void): ScheduledTask => ({
     name,
     firstDelayMs: 100,
     intervalMs: 1000,
