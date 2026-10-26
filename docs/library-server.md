@@ -3,7 +3,7 @@
 影盒的本地媒体库（电影、剧集）原来只能在桌面版里用：扫描、刮削、写 NFO 都在 Electron 的 utilityProcess 里跑。
 片库服务把这套核心原样搬到一个独立的 Node 进程里，通过 HTTP 提供给网页端，可以跑在本机、开发机或 NAS 的 Docker 里。
 
-桌面版不需要它，也不会连它：桌面端照旧走 IPC。
+桌面版不需要它，也不会连它：桌面端照旧走 IPC。在线板块（搜索、播放、测速、豆瓣浏览、AV、下载）也能在服务上跑，见「在线播放」。
 
 ## 架构
 
@@ -28,28 +28,33 @@
 - **网页端 transport**：`features/library/api/bridge.ts` 按运行环境选 transport。有 `window.api`（Electron）走 IPC，否则走 `http-bridge.ts`。界面代码不区分两者。
 - **缩略图**：桌面端用 `nativeImage`；服务端用 `@jsquash` 的 wasm 编解码，在独立线程里解码、缩放、编码 WebP（`thumbnails/wasm-resizer.ts`、`codec-*.ts`）。两边共用同一个 LRU 缓存目录结构。
 
-| 桌面端（Electron）               | 片库服务（Node）                                      |
-| -------------------------------- | ----------------------------------------------------- |
-| utilityProcess + MessagePort IPC | 同进程 LibraryService + HTTP RPC / SSE                |
-| `net.fetch`（Chromium 网络栈）   | Node fetch（undici）/ curl(-impersonate) / 自定义模块 |
-| `nativeImage` 缩放               | wasm 解码 + 缩放（编解码线程）                        |
-| safeStorage 存 TMDB 令牌         | `<数据目录>/secrets.json`（0600）+ 环境变量           |
-| 系统文件夹对话框                 | `/api/fs/dirs`：只在媒体根目录内浏览                  |
-| 内置播放器 / mpv                 | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流         |
+| 桌面端（Electron）                       | 片库服务（Node）                                                     |
+| ---------------------------------------- | -------------------------------------------------------------------- |
+| utilityProcess + MessagePort IPC         | 同进程 LibraryService + HTTP RPC / SSE                               |
+| `net.fetch`（Chromium 网络栈）           | Node fetch（undici）/ curl(-impersonate) / 自定义模块                |
+| `nativeImage` 缩放                       | wasm 解码 + 缩放（编解码线程）                                       |
+| safeStorage 存 TMDB 令牌                 | `<数据目录>/secrets.json`（0600）+ 环境变量                          |
+| 系统文件夹对话框                         | `/api/fs/dirs`：只在媒体根目录内浏览                                 |
+| 内置播放器 / mpv                         | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流 |
+| 在线引擎 utilityProcess + IPC            | child_process 引擎（同一个 `EngineHost`）+ `/api/engine/rpc`、SSE    |
+| `yingbox-stream://` + `media-headers.ts` | `/api/stream`（鉴权、防 SSRF、按源 Referer、m3u8 改写、Range）       |
 
 ### 接口一览
 
-| 路径                    | 方法          | 说明                                                    |
-| ----------------------- | ------------- | ------------------------------------------------------- |
-| `/api/health`           | GET           | 健康检查（公开），返回 `{ ok, authorized }`             |
-| `/api/session`          | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）          |
-| `/api/info`             | GET           | 媒体根目录、出网实现                                    |
-| `/api/library/rpc`      | POST          | 片库方法调用，返回 `InvokeResult`                       |
-| `/api/library/events`   | GET           | SSE 事件流                                              |
-| `/api/fs/dirs?path=`    | GET           | 目录浏览（不带 path 列出媒体根目录）                    |
-| `/media/image/<key>?w=` | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）             |
-| `/media/thumb?w=&src=`  | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer） |
-| `/media/files/<fileId>` | GET           | 视频文件，支持 Range（206 / 416）                       |
+| 路径                    | 方法          | 说明                                                     |
+| ----------------------- | ------------- | -------------------------------------------------------- |
+| `/api/health`           | GET           | 健康检查（公开），返回 `{ ok, authorized }`              |
+| `/api/session`          | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）           |
+| `/api/info`             | GET           | 媒体根目录、出网实现                                     |
+| `/api/library/rpc`      | POST          | 片库方法调用，返回 `InvokeResult`                        |
+| `/api/library/events`   | GET           | SSE 事件流                                               |
+| `/api/fs/dirs?path=`    | GET           | 目录浏览（不带 path 列出媒体根目录）                     |
+| `/media/image/<key>?w=` | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）              |
+| `/media/thumb?w=&src=`  | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）  |
+| `/media/files/<fileId>` | GET           | 视频文件，支持 Range（206 / 416）                        |
+| `/api/engine/rpc`       | POST          | 在线引擎调用 `{ channel, args }`，返回 `EngineRpcResult` |
+| `/api/engine/events`    | GET           | 在线引擎事件（SSE，如 `download:changed`）               |
+| `/api/stream?src=`      | GET           | 在线播放代理（Range、按源 Referer、m3u8 改写）           |
 
 ### 鉴权
 
@@ -68,7 +73,7 @@
 | 参数                     | 环境变量                                  | 默认                          | 说明                                                                                     |
 | ------------------------ | ----------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，这时必须设 `YINGBOX_SERVER_TOKEN`  |
-| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                  | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`       |
+| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                   | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`        |
 | `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
 | `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
 | `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                              |
@@ -83,6 +88,11 @@
 | —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别，可选）                                        |
 | —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                         |
 | —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                              |
+| —                        | `YINGBOX_ONLINE`                          | `on`                          | `off` 关闭在线板块（不起引擎、不开播放代理），见「在线播放」                             |
+| —                        | `YINGBOX_DOWNLOAD_DIR`                    | `<数据目录>/downloads`        | 在线板块的下载目录                                                                       |
+| —                        | `YINGBOX_BROWSER`                         | 无                            | `chromium:<路径>`：用系统 Chromium 代抓被 Cloudflare 挑战拦下的页面                      |
+| —                        | `YINGBOX_STREAM_ALLOW_PRIVATE`            | 无                            | 播放代理放行的内网目标：主机名、IP 或 IPv4 网段，逗号分隔                                |
+| —                        | `YINGBOX_ENGINE_IDLE`                     | `300`（秒）                   | 在线引擎空闲多久退出；`0` 不退出                                                         |
 
 数据目录里的 `secrets.json` 存着访问令牌和网页端填写的 TMDB 令牌。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
 
@@ -196,6 +206,48 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 - 媒体目录是挂进容器的 NFS / SMB 网络盘：存储「自动」会判为网盘、不再定时扫描。靠轮询入库就把这些库的存储改成「本地盘」（只用定时扫描），可以把 `YINGBOX_SCAN_INTERVAL` 调到 `60`–`120`。
 - 下载器和片库服务在同一台 NAS 上、下载完直接移进媒体目录：同盘移动是原子改名，几秒内入库；跨盘复制会等写入稳定后入库。
 
+## 在线播放
+
+网页端的在线板块（CMS / CatSpider 搜索与详情、播放、测速、豆瓣浏览、AV、番号下载）由服务托管的在线引擎提供（ADR-0019）：
+
+```
+浏览器                                   片库服务                               引擎子进程（out/server/engine.js）
+features/online|av|download              src/server/online                       src/engine/node.ts → boot.ts
+  api 入口 ── engine-bridge.ts ──POST──▶ /api/engine/rpc（契约 parse 校验）──▶ EngineHost / UtilityHost（fork，线协议）
+            ◀──────────── SSE ───────── /api/engine/events ◀────────────── 事件（download:changed …）
+  播放器 art-core ── webPlayableUrl ──▶ /api/stream?src=…（鉴权、防 SSRF、Referer、m3u8 改写、Range）──▶ 源站
+```
+
+- **同一份契约**：通道名、参数元组、返回值与桌面端 `window.api.online|av|download` 一字不差（线格式 `src/shared/engine-http.ts`）。网页端按契约生成同形状的对象，界面代码不区分 IPC 与 HTTP。
+- **引擎是子进程**：`child_process.fork` 起 `engine.js`，按需启动、崩溃重启、空闲 5 分钟退出（`YINGBOX_ENGINE_IDLE`），与桌面端同一个 `EngineHost`；队列里有没下完的下载时，服务启动就把引擎拉起来续传。
+- **宿主能力**：下载目录取 `YINGBOX_DOWNLOAD_DIR`；TMDB 令牌取网页端媒体库设置里保存的那个（再退回 `YINGBOX_TMDB_TOKEN`）；浏览器代抓见下文。
+- **出网**：引擎用 Node fetch（undici），SSRF 防护与逐跳重定向和桌面端一样；代理与片库相同（`HTTPS_PROXY` + `NODE_USE_ENV_PROXY=1`，子进程继承）。`YINGBOX_FETCH`（curl-impersonate）只管片库刮削，不管引擎。
+
+### 播放代理
+
+网页端播放第三方地址时，播放器把跨源的 http(s) 地址换成 `/api/stream?src=<地址>`（片库自己的 `/media/files` 不换），播放进度与历史仍记原地址。
+
+- 要令牌（Cookie / Bearer），和其它 `/api` 一样。
+- 只转发无凭据的 http/https **公网**地址，每一跳重定向都校验；回环、内网、链路本地、`localhost` 一律 403。局域网里的源（自建 CMS、媒体服务器）要显式放行：`YINGBOX_STREAM_ALLOW_PRIVATE=nas.lan,192.168.1.0/24`。
+- 透传 `Range`（拖动、mp4 直链）；按源注入防盗链 `Referer`（与桌面端 `media-headers.ts` 同一份名单 `src/shared/net/media-referer.ts`），UA 用 Chrome 的；不带浏览器 Cookie。
+- 正文以 `#EXTM3U` 开头的就当清单（不看后缀和类型），地址行与 `URI="…"`（密钥、初始化段、子清单、音轨）全部改写成代理地址，相对地址按跟随重定向后的地址解析；iOS Safari 的原生 HLS 也能播。清单上限 8 MB。
+- 所有视频流量都经过 NAS：带宽和 CPU 由它承担；放在反向代理后面时关掉缓冲、调大超时（见 nas.md）。
+
+### 浏览器代抓（可选）
+
+一些源站在 Cloudflare 后面，Node fetch 的 TLS 指纹不是浏览器，常被挑战页拦下。桌面端用隐藏的 Chromium 窗口代抓；服务端默认**没有**，这时 `browserFetch` 返回空串，引擎按「挑战没过」降级：插件源记熔断并在源列表里标成不可用，MissAV 提示验证未通过。
+
+要开启：
+
+1. 装 Chromium 与 `playwright-core`（它没有依赖）。Docker 用构建参数 `WITH_CHROMIUM=1`（同时装 ffmpeg 与中文字体）；直接跑 Node 时在服务目录里 `pnpm add playwright-core`（或 `npm pack playwright-core` 解包到 `node_modules/playwright-core`）。
+2. 设 `YINGBOX_BROWSER=chromium:/usr/bin/chromium`（填 Chromium 可执行文件路径）。启动日志会写「浏览器代抓 Chromium（…）」。
+
+无头 Chromium 只能过自动通过的挑战，过不了要人工点的验证；与桌面端一样串行、按主机熔断、硬封锁 30 分钟内不再试，用户目录在 `<数据目录>/engine/browser`（cf_clearance 跨请求保留），空闲 5 分钟关掉浏览器。
+
+### 下载
+
+番号下载在服务端执行，文件落在 `YINGBOX_DOWNLOAD_DIR`（每部一个子文件夹）。PATH 上有 `ffmpeg` 时下完转成 mp4，没有就保留 `.ts`。网页端设置里不能改下载目录，在服务端改环境变量。可以把下载目录设成某个媒体库目录的子文件夹，下完由目录监控自动入库。
+
 ## 代理
 
 服务端的 Node fetch（undici）默认**不读**代理环境变量。需要代理才能访问 TMDB 等元数据站点时：
@@ -247,5 +299,6 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时播放器显示错误面板（可改用桌面版）。没有服务端转码。
 - 没有 mpv、外挂字幕自动挂载。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
-- 在线播放、下载这些板块不在片库服务里，网页端仍不可用。
+- 在线板块与下载经服务端引擎（见「在线播放」）；直播、网盘、AI、追更等其它桌面端板块网页端仍不可用。
+- 在线源被 Cloudflare 拦下时，没开浏览器代抓就只能标成不可用；开了也过不了需要人工点的验证。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。

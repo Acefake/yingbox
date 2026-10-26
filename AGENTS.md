@@ -160,6 +160,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0015](docs/adr/0015-in-app-player-modal.md) 应用内播放弹窗（现只用于网页端；桌面端部分被 0018 取代）
 - [0016](docs/adr/0016-youtube-style-player-and-video-range.md) 播放器交互照 YouTube；媒体库识别 HDR / 杜比视界，P5 交给 mpv；[0017](docs/adr/0017-dolby-vision-in-app-rebuild.md) P5 进内置播放器时主进程 libplacebo 重建成本机 HLS
 - [0018](docs/adr/0018-player-window.md) 桌面端内置播放器改为独立窗口：单例复用、记位置、置顶，进度事件经主进程回写主窗口
+- [0019](docs/adr/0019-nas-online-engine.md) NAS 在线播放：片库服务 fork 在线引擎（复用 EngineHost），契约走 HTTP RPC / SSE，鉴权 + 防 SSRF 的播放代理改写 m3u8
 
 ## UI conventions
 
