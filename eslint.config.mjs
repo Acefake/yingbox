@@ -61,6 +61,12 @@ export default tseslint.config(
   tseslint.configs.recommended,
   eslintPluginVue.configs['flat/recommended'],
   {
+    // typescript-eslint 的推荐集给 TS 关掉了 no-unreachable（交给 tsc，而 tsc 默认只灰显不报错）。
+    // 重新打开：防 if 漏写花括号导致后面的 return 无条件执行、其后代码全成死代码（#200）。
+    files: ['**/*.{ts,mts,tsx,vue,js,mjs,cjs}'],
+    rules: { 'no-unreachable': 'error' },
+  },
+  {
     // 全仓禁 antd（src 下的分段会带着这条再加各自的禁令）
     files: ['**/*.{ts,mts,tsx,vue,js,mjs,cjs}'],
     rules: { 'no-restricted-imports': ['error', antdImportBan] },
@@ -189,8 +195,6 @@ export default tseslint.config(
     ignores: [
       // 设置层自身：首启迁移读旧值、Web/PWA 模式的浏览器存储
       'src/renderer/src/features/settings/browser-storage.ts',
-      // 数据而非设置（播放进度；收藏、搜索历史等一律经 utils/storage），后续迁到 Engine 的 SQLite
-      'src/renderer/src/features/player/utils/play-progress.ts',
       'src/renderer/src/utils/storage.ts',
     ],
     rules: {
