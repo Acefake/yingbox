@@ -192,10 +192,10 @@ function onFadeIn(event: Event): void {
 .lib-hero-image[data-loaded] {
   opacity: 1;
 }
-/* 下部渐进模糊，最上层压暗（与首页 Hero 同一令牌；浅色下 Hero 底部在画面内渐隐到页面底色，见 --hero-detail-mask） */
+/* 下部渐进模糊，最上层压暗（深色同首页；浅色压暗保持更久，Hero 底部在画面内渐隐到页面底色，见 --hero-detail-mask） */
 .lib-hero-blur {
   --pblur-height: 50%;
-  --pblur-tint: var(--scrim-fade-hero);
+  --pblur-tint: var(--scrim-detail-hero);
 }
 .lib-hero-side {
   position: absolute;

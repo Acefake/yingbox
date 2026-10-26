@@ -77,7 +77,7 @@
       </template>
     </div>
 
-    <!-- 浮动控件：顶部渐隐带、返回圆钮（Hero 在身后时取深色，滚到页面底色上回主题色）、底部分区胶囊 -->
+    <!-- 浮动控件：顶部渐隐带、返回圆钮（Hero 在身后时取深色，滚到页面底色上回主题色）、底部分区胶囊（滚过 Hero 才出现） -->
     <div
       class="lib-detail-edge yb-media-swap"
       :class="{ 'yb-on-media': edgeOnMedia }"
@@ -95,6 +95,7 @@
       v-if="node && tabs.length > 2"
       :tabs="tabs"
       :active="activeTab"
+      :shown="!edgeOnMedia"
       @jump="jumpTo"
     />
   </div>
