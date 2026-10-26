@@ -1,21 +1,20 @@
 /**
- * 主进程追更模块入口：把追更服务接到媒体库引擎（日历、变更通知）、115 服务、设置与 autograb 域。
+ * 追更模块入口：把追更服务接到媒体库（日历、变更通知）、115 服务、设置与 autograb 域。
+ * 只依赖模块宿主（module-host），桌面端主进程与独立服务共用。
  *
- * 状态存 userData/autograb.json（原子替换）。启动 90 秒后跑第一轮，之后每 30 分钟一轮；
+ * 状态存 <dataDir>/autograb.json（原子替换）。启动 90 秒后跑第一轮，之后每 30 分钟一轮；
  * 一轮里真正向 115 发请求的只有到点的集（见 schedule-rules.ts），平时一轮只查一次本地日历。
  */
-import { app } from 'electron'
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 import { autograb } from '../../shared/contract/autograb'
 import { atomicWrite } from '../file-operations'
-import type { LibraryEngineClient } from '../library/host'
+import type { LibraryEngineClient } from '../library/client'
+import type { ModuleHost } from '../module-host'
 import type { Pan115Service } from '../pan115/service'
 import { type ShareRef, parseShareLink } from '../pan115/share-link'
 import { Pan115Error } from '../pan115/errors'
-import { emit, implement } from '../rpc'
-import { settingsStore } from '../settings'
 import { type AutograbService, createAutograbService } from './service'
 import type { EpisodeRecord } from './state'
 
@@ -23,17 +22,18 @@ const FIRST_DELAY_MS = 90_000
 const INTERVAL_MS = 30 * 60_000
 
 /**
- * 注册追更（registerLibraryIpc 与 registerPan115 之后调用一次）。
+ * 注册追更（媒体库与 pan115 就绪之后调用一次）。
+ * @param host 模块宿主（契约登记、设置、数据目录、定时器）
  * @param hooks.landed 转存过的集入库了（推送通知）
  * @returns 追更服务（gate() 是共用闸门的取法，洗版、电影追踪注册时传进去；isSaved 给推送用）
  */
 export function registerAutograb(
+  host: ModuleHost,
   library: LibraryEngineClient,
   pan115: Pan115Service,
   hooks: { landed?(records: EpisodeRecord[]): void } = {}
 ): AutograbService {
-  const store = settingsStore()
-  const file = join(app.getPath('userData'), 'autograb.json')
+  const file = join(host.dataDir, 'autograb.json')
   const shareOf = (url: string, password: string): ShareRef => {
     const ref = parseShareLink(url, password)
     if (!ref) throw new Pan115Error('不是 115 分享链接')
@@ -49,7 +49,7 @@ export function registerAutograb(
   const service = createAutograbService({
     calendar: range => library.call('calendar.episodes', range),
     notify: async changes => {
-      const mountRoot = store.get('library.notify.mountRoot')
+      const mountRoot = host.setting('library.notify.mountRoot')
       await library.call(
         'notifyChanges',
         mountRoot ? { changes, mountRoot } : { changes }
@@ -57,7 +57,7 @@ export function registerAutograb(
     },
     pan: {
       loggedIn: () => loggedIn,
-      pansouReady: () => Boolean(store.get('pan115.pansouUrl').trim()),
+      pansouReady: () => Boolean(host.setting('pan115.pansouUrl').trim()),
       search: keyword => pan115.searchRaw(keyword),
       snap: (url, password, dirCid, offset) =>
         pan115.use(client =>
@@ -77,7 +77,7 @@ export function registerAutograb(
           return listing.path.filter(d => d.cid !== '0').map(d => d.name)
         }),
     },
-    defaultCid: () => store.get('pan115.targetCid'),
+    defaultCid: () => host.setting('pan115.targetCid'),
     load: async () => {
       try {
         return JSON.parse(await fs.readFile(file, 'utf8'))
@@ -88,18 +88,20 @@ export function registerAutograb(
     save: state => atomicWrite(file, JSON.stringify(state)),
     now: () => Date.now(),
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
-    emit: () => emit(autograb, 'changed', undefined),
+    emit: () => host.emit(autograb, 'changed', undefined),
     log: message => console.info(`[autograb] ${message}`),
     landed: records => hooks.landed?.(records),
   })
 
   const run = (): void => void refreshAccount().then(() => service.tick())
-  setTimeout(() => {
-    run()
-    setInterval(run, INTERVAL_MS).unref()
-  }, FIRST_DELAY_MS).unref()
+  host.schedule({
+    name: 'autograb',
+    firstDelayMs: FIRST_DELAY_MS,
+    intervalMs: INTERVAL_MS,
+    run,
+  })
 
-  implement(autograb, {
+  host.implement(autograb, {
     overview: async () => {
       await refreshAccount()
       return service.overview()

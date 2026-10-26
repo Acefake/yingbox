@@ -119,18 +119,18 @@ Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm bu
 
 ### Tech stack
 
-| Layer             | Technology                                                       |
-| ----------------- | ---------------------------------------------------------------- |
-| Desktop shell     | Electron 37 (sandboxed preload, frameless)                       |
-| Build tooling     | electron-vite 5, Vite 7                                          |
-| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                            |
-| UI kit            | own design system in `components/ui/`, Tailwind CSS 4            |
-| Player            | Artplayer 5, hls.js                                              |
-| Metadata          | @tdanks2000/tmdb-wrapper                                         |
-| Engine            | Electron utilityProcess, `net.fetch`                             |
-| Library           | utilityProcess engine, `node:sqlite`                             |
-| CatSpider runtime | QuickJS WASM + restricted host APIs (ADR-0014) |
-| Tests             | Vitest 5                                                         |
+| Layer             | Technology                                            |
+| ----------------- | ----------------------------------------------------- |
+| Desktop shell     | Electron 37 (sandboxed preload, frameless)            |
+| Build tooling     | electron-vite 5, Vite 7                               |
+| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                 |
+| UI kit            | own design system in `components/ui/`, Tailwind CSS 4 |
+| Player            | Artplayer 5, hls.js                                   |
+| Metadata          | @tdanks2000/tmdb-wrapper                              |
+| Engine            | Electron utilityProcess, `net.fetch`                  |
+| Library           | utilityProcess engine, `node:sqlite`                  |
+| CatSpider runtime | QuickJS WASM + restricted host APIs (ADR-0014)        |
+| Tests             | Vitest 5                                              |
 
 ## Engineering gates
 
@@ -161,6 +161,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0016](docs/adr/0016-youtube-style-player-and-video-range.md) 播放器交互照 YouTube；媒体库识别 HDR / 杜比视界，P5 交给 mpv；[0017](docs/adr/0017-dolby-vision-in-app-rebuild.md) P5 进内置播放器时主进程 libplacebo 重建成本机 HLS
 - [0018](docs/adr/0018-player-window.md) 桌面端内置播放器改为独立窗口：单例复用、记位置、置顶，进度事件经主进程回写主窗口
 - [0019](docs/adr/0019-nas-online-engine.md) NAS 在线播放：片库服务 fork 在线引擎（复用 EngineHost），契约走 HTTP RPC / SSE，鉴权 + 防 SSRF 的播放代理改写 m3u8
+- [0020](docs/adr/0020-server-netdisk-autograb.md) 片库服务承载 115 网盘、追更与库外发现（模块宿主、Node 传输、调度租约）
 
 ## UI conventions
 

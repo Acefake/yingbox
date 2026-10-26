@@ -4,7 +4,8 @@
  * 启动时（本模块首次 import，早于 app.mount）经 preload 同步取一次快照，首屏直接用真实值、不闪烁；
  * 首启还会同步迁移一次旧 localStorage 设置。之后订阅主进程广播，任一窗口改了设置，所有窗口同步。
  * 写入先乐观更新本地，再交主进程校验落盘；失败则回滚。
- * Web / PWA 模式没有主进程，改由 browser-storage 存在浏览器里。
+ * Web / PWA 模式没有主进程，改由 browser-storage 存在浏览器里；其中片库服务也要读的几个键（网盘 / 追更）
+ * 另外同步到服务端（server-settings.ts）。
  */
 import { type WritableComputedRef, computed, reactive } from 'vue'
 import type { SetSettingArgs } from '../../../../shared/contract/settings'
@@ -20,6 +21,11 @@ import {
   readLegacySettings,
   saveWebSetting,
 } from './browser-storage'
+import {
+  pullServerSettings,
+  pushServerSetting,
+  syncsToServer,
+} from './server-settings'
 
 const bridge = typeof window !== 'undefined' ? window.api?.settings : undefined
 
@@ -37,6 +43,12 @@ bridge?.onChanged(change => {
   ;(values as Record<ValueKey, unknown>)[change.key] = change.value
 })
 
+if (!bridge)
+  void pullServerSettings((key, value) => {
+    ;(values as Record<string, unknown>)[key] = value
+    saveWebSetting(key as ValueKey, value, values)
+  }).catch(error => console.warn('[settings] 读取片库服务设置失败', error))
+
 /** 读一个设置（在 computed / watchEffect 里调用时是响应式的） */
 export function getSetting<K extends ValueKey>(key: K): SettingValue<K> {
   return values[key]
@@ -52,7 +64,10 @@ export async function setSetting<K extends ValueKey>(
   values[key] = value
   try {
     if (bridge) await bridge.set(...([key, value] as SetSettingArgs))
-    else saveWebSetting(key, value, values)
+    else {
+      if (syncsToServer(key)) await pushServerSetting(key, value)
+      saveWebSetting(key, value, values)
+    }
   } catch (error) {
     values[key] = previous
     throw error
