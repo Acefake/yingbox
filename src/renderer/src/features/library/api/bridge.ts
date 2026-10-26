@@ -16,27 +16,19 @@ import {
   libraryServerState,
   serverFetch,
 } from '@/services/library-server'
+import { openServerEvents } from '@/services/library-server/events'
 import { type HttpLibraryBridge, createHttpLibraryBridge } from './http-bridge'
 
 let webBridge: HttpLibraryBridge | null = null
 
 /**
- * 网页端 transport：服务没就绪（连不上 / 未登录）时关掉事件流，别让浏览器无限重连（就绪后断线照常自动重连）；
+ * 网页端 transport：事件流的断线、重连规则见 services/library-server/events.ts；
  * 服务回到在线时把还有订阅的事件流重新打开，片库事件不会就此断掉。
  */
 function createWebLibraryBridge(): HttpLibraryBridge {
   const created = createHttpLibraryBridge({
     request: serverFetch,
-    openEvents: (url, onData, onClosed) => {
-      const source = new EventSource(url, { withCredentials: true })
-      source.onmessage = event => onData(String(event.data))
-      source.onerror = () => {
-        if (libraryServerState().value === 'online') return
-        source.close()
-        onClosed()
-      }
-      return source
-    },
+    openEvents: openServerEvents,
   })
   watch(libraryServerState(), state => {
     if (state === 'online') created.resume()

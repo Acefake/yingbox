@@ -2,7 +2,13 @@
  * 定时器单例：同一数据目录只有一个实例持有调度租约并跑定时任务；持有者失联超过租期后被接管；
  * 进程内同名任务只登记一次；YINGBOX_AUTOGRAB=off 的实例只登记不执行。
  */
-import { mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  mkdtempSync,
+  readFileSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
@@ -55,6 +61,43 @@ describe('SchedulerLease', () => {
     expect(b.tryAcquire()).toBe(true)
     expect(a.renew()).toBe(false)
     expect(a.held).toBe(false)
+  })
+
+  it('两个实例同时判过期：后挪的那个发现挪走的是新租约，放回去并让出', () => {
+    writeFileSync(file, JSON.stringify({ owner: 'gone', at: 0 }))
+    const b = new SchedulerLease({ file, owner: 'b', now: () => 10_000_000 })
+    let interleaved = false
+    const a = new SchedulerLease({
+      file,
+      owner: 'a',
+      // a 读完过期的旧租约、还没挪走时，b 抢先完成接管
+      now: () => {
+        if (!interleaved) {
+          interleaved = true
+          expect(b.tryAcquire()).toBe(true)
+        }
+        return 10_000_000
+      },
+    })
+    expect(a.tryAcquire()).toBe(false)
+    expect(a.held).toBe(false)
+    expect(JSON.parse(readFileSync(file, 'utf8')).owner).toBe('b')
+    expect(b.renew()).toBe(true)
+  })
+
+  it('空的租约文件（别的实例刚建、还没写完）按修改时间算租期，不当作损坏抢走', () => {
+    writeFileSync(file, '')
+    const mtime = statSync(file).mtimeMs
+    let now = mtime + 10
+    const a = new SchedulerLease({
+      file,
+      owner: 'a',
+      ttlMs: 1000,
+      now: () => now,
+    })
+    expect(a.tryAcquire()).toBe(false)
+    now = mtime + 1001
+    expect(a.tryAcquire()).toBe(true)
   })
 
   it('损坏的租约文件当作已过期', () => {
