@@ -95,7 +95,7 @@
       v-if="node && tabs.length > 2"
       :tabs="tabs"
       :active="activeTab"
-      :shown="!edgeOnMedia"
+      :shown="tabsShown"
       @jump="jumpTo"
     />
   </div>
@@ -333,7 +333,7 @@ const {
   jumpTo,
   reset: resetTabs,
 } = useDetailTabs(root, tabs)
-const { edgeOnMedia, ...heroEdge } = useHeroBackdrop(root)
+const { edgeOnMedia, tabsShown, ...heroEdge } = useHeroBackdrop(root)
 
 // —— 操作 ——
 async function run(name: string, task: () => Promise<unknown>): Promise<void> {

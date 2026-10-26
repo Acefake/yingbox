@@ -171,3 +171,16 @@ export function heroBackdropAt(
 ): boolean {
   return mediaBottom > edgeHeight
 }
+
+/**
+ * 底部分区胶囊该不该出现：Hero 底边升过视口一半才出现，首屏不盖剧集卡。
+ * 只看 Hero 整体底边，不看浅色渐隐段，深浅两套主题在同一滚动位置出现。
+ * @param heroBottom Hero 底边距滚动容器可视区顶部的距离（px，可为负）
+ * @param viewportHeight 滚动容器可视区高度
+ */
+export function detailTabsShownAt(
+  heroBottom: number,
+  viewportHeight: number
+): boolean {
+  return heroBottom < viewportHeight / 2
+}
