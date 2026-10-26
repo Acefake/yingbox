@@ -10,6 +10,7 @@ import {
   reactive,
 } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
+import { streamProxyPath } from '../src/shared/engine-http'
 import {
   type Mock,
   afterEach,
@@ -270,7 +271,8 @@ describe('网页端播放层', () => {
     expect(modalVisible()).toBe(true)
     expect(fakes.arts).toHaveLength(1)
     expect(modal()?.contains(fakes.arts[0].video)).toBe(true)
-    expect(fakes.hlsList[0].loads).toEqual([SRC])
+    // 网页端的跨源地址经片库服务的播放代理（ADR-0019），进度仍记原地址
+    expect(fakes.hlsList[0].loads).toEqual([streamProxyPath(SRC)])
     // 截图插件装上了：保存提示层、右键「截图」「截 GIF」
     expect(fakes.arts[0].layers.names).toContain('ybCaptureSaved')
     expect(fakes.arts[0].contextmenu.names).toEqual(

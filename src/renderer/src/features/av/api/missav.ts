@@ -1,8 +1,13 @@
 /**
- * MissAV：目录与播放地址经引擎（window.api.av）获取；封面与视频流渲染层直连，
- * 防盗链 Referer 由主进程注入。
+ * MissAV：目录与播放地址经引擎获取（桌面端 window.api.av，网页端片库服务上的引擎）；
+ * 封面与视频流桌面端渲染层直连、防盗链 Referer 由主进程注入，网页端视频流经服务的播放代理。
  */
-import type { AvCategory, AvSort } from '../../../../../shared/contract/av'
+import {
+  type AvCategory,
+  type AvSort,
+  av,
+} from '../../../../../shared/contract/av'
+import { webEngineApi } from '@/services/library-server/engine'
 
 /** 一条可播放的 MissAV 流。 */
 export interface MissavStream {
@@ -21,8 +26,13 @@ export interface MissavCatalogItem {
 }
 
 function avApi(): Window['api']['av'] {
-  const api = typeof window !== 'undefined' ? window.api?.av : undefined
-  if (!api) throw new Error('MissAV 需要桌面端')
+  const api =
+    typeof window === 'undefined'
+      ? undefined
+      : window.api
+        ? window.api.av
+        : (webEngineApi(av) ?? undefined)
+  if (!api) throw new Error('MissAV 不可用')
   return api
 }
 
