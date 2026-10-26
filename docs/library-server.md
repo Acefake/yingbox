@@ -28,28 +28,32 @@
 - **网页端 transport**：`features/library/api/bridge.ts` 按运行环境选 transport。有 `window.api`（Electron）走 IPC，否则走 `http-bridge.ts`。界面代码不区分两者。
 - **缩略图**：桌面端用 `nativeImage`；服务端用 `@jsquash` 的 wasm 编解码，在独立线程里解码、缩放、编码 WebP（`thumbnails/wasm-resizer.ts`、`codec-*.ts`）。两边共用同一个 LRU 缓存目录结构。
 
-| 桌面端（Electron）               | 片库服务（Node）                                      |
-| -------------------------------- | ----------------------------------------------------- |
-| utilityProcess + MessagePort IPC | 同进程 LibraryService + HTTP RPC / SSE                |
-| `net.fetch`（Chromium 网络栈）   | Node fetch（undici）/ curl(-impersonate) / 自定义模块 |
-| `nativeImage` 缩放               | wasm 解码 + 缩放（编解码线程）                        |
-| safeStorage 存 TMDB 令牌         | `<数据目录>/secrets.json`（0600）+ 环境变量           |
-| 系统文件夹对话框                 | `/api/fs/dirs`：只在媒体根目录内浏览                  |
-| 内置播放器 / mpv                 | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流         |
+| 桌面端（Electron）                     | 片库服务（Node）                                                        |
+| -------------------------------------- | ----------------------------------------------------------------------- |
+| utilityProcess + MessagePort IPC       | 同进程 LibraryService + HTTP RPC / SSE                                  |
+| `net.fetch`（Chromium 网络栈）         | Node fetch（undici）/ curl(-impersonate) / 自定义模块                   |
+| `nativeImage` 缩放                     | wasm 解码 + 缩放（编解码线程）                                          |
+| safeStorage 存 TMDB 令牌               | `<数据目录>/secrets.json`（0600）+ 环境变量                             |
+| 系统文件夹对话框                       | `/api/fs/dirs`：只在媒体根目录内浏览                                    |
+| 内置播放器 / mpv                       | 网页端播放层（桌面端为独立播放器窗口）+ `/media/files/<id>` Range 流    |
+| 115 分区 `persist:pan115`（Cookie 罐） | Node fetch + `<数据目录>/pan115-cookies.json`（0600），见「网盘与追更」 |
 
 ### 接口一览
 
-| 路径                    | 方法          | 说明                                                    |
-| ----------------------- | ------------- | ------------------------------------------------------- |
-| `/api/health`           | GET           | 健康检查（公开），返回 `{ ok, authorized }`             |
-| `/api/session`          | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）          |
-| `/api/info`             | GET           | 媒体根目录、出网实现                                    |
-| `/api/library/rpc`      | POST          | 片库方法调用，返回 `InvokeResult`                       |
-| `/api/library/events`   | GET           | SSE 事件流                                              |
-| `/api/fs/dirs?path=`    | GET           | 目录浏览（不带 path 列出媒体根目录）                    |
-| `/media/image/<key>?w=` | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）             |
-| `/media/thumb?w=&src=`  | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer） |
-| `/media/files/<fileId>` | GET           | 视频文件，支持 Range（206 / 416）                       |
+| 路径                       | 方法          | 说明                                                                                                  |
+| -------------------------- | ------------- | ----------------------------------------------------------------------------------------------------- |
+| `/api/health`              | GET           | 健康检查（公开），返回 `{ ok, authorized }`                                                           |
+| `/api/session`             | POST / DELETE | 用令牌登录（写 HttpOnly Cookie）/ 退出（公开）                                                        |
+| `/api/info`                | GET           | 媒体根目录、出网实现                                                                                  |
+| `/api/library/rpc`         | POST          | 片库方法调用，返回 `InvokeResult`                                                                     |
+| `/api/library/events`      | GET           | SSE 事件流                                                                                            |
+| `/api/fs/dirs?path=`       | GET           | 目录浏览（不带 path 列出媒体根目录）                                                                  |
+| `/media/image/<key>?w=`    | GET           | 片库缓存的海报 / 背景图（可按宽度取缩略图）                                                           |
+| `/media/thumb?w=&src=`     | GET           | 远程图片代取 + 缩放（只接受 http(s)，带防盗链 Referer）                                               |
+| `/media/files/<fileId>`    | GET           | 视频文件，支持 Range（206 / 416）                                                                     |
+| `/api/domains/<域>/<方法>` | POST          | 网盘类契约域调用（pan115 / autograb / autograbUpgrade / autograbMovies / discover），见「网盘与追更」 |
+| `/api/domains/events`      | GET           | 上面几个域的 SSE 事件流                                                                               |
+| `/api/server-settings`     | GET / POST    | 服务端保存的设置（PanSou 地址、115 转存目标等）                                                       |
 
 ### 鉴权
 
@@ -68,7 +72,7 @@
 | 参数                     | 环境变量                                  | 默认                          | 说明                                                                                     |
 | ------------------------ | ----------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
 | `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，这时必须设 `YINGBOX_SERVER_TOKEN`  |
-| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                  | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`       |
+| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                   | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`        |
 | `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
 | `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
 | `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                              |
@@ -83,8 +87,12 @@
 | —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别，可选）                                        |
 | —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                         |
 | —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                              |
+| —                        | `YINGBOX_NETDISK`                         | `on`                          | `off` 时不加载 115 网盘、追更、洗版、电影追踪、库外发现，见「网盘与追更」                |
+| —                        | `YINGBOX_AUTOGRAB`                        | `on`                          | `off` 时网盘接口照常可用，但本实例不跑追更类定时任务                                     |
+| —                        | `YINGBOX_PANSOU_URL`                      | 无                            | 固定 PanSou 地址（设了之后网页端改不了）                                                 |
+| —                        | `YINGBOX_MOUNT_ROOT`                      | 无                            | 115 在片库容器里的挂载根（CloudDrive2），转存后入库通知用来对路径；设了之后网页端改不了  |
 
-数据目录里的 `secrets.json` 存着访问令牌和网页端填写的 TMDB 令牌。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
+数据目录里的 `secrets.json` 存着访问令牌、网页端填写的 TMDB 令牌和 115 登录会话，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
 
 ## 部署
 
@@ -196,6 +204,27 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 - 媒体目录是挂进容器的 NFS / SMB 网络盘：存储「自动」会判为网盘、不再定时扫描。靠轮询入库就把这些库的存储改成「本地盘」（只用定时扫描），可以把 `YINGBOX_SCAN_INTERVAL` 调到 `60`–`120`。
 - 下载器和片库服务在同一台 NAS 上、下载完直接移进媒体目录：同盘移动是原子改名，几秒内入库；跨盘复制会等写入稳定后入库。
 
+## 网盘与追更
+
+片库服务也承载桌面版的「网盘」「追更」「找 115 资源」：PanSou 搜索、115 扫码登录、分享预览与转存，
+剧集追更、洗版、电影上线追踪的定时任务，以及库外发现（助手 / 豆瓣卡）。决策见 [ADR-0019](adr/0019-server-netdisk-autograb.md)。
+
+- **同一套模块**：`src/main/pan115`、`src/main/autograb`、`src/main/discover` 的入口只依赖模块宿主（`src/main/module-host`），
+  桌面端与服务端各给一份实现；服务端的组装在 `src/server/netdisk`。
+- **同一份契约**：`POST /api/domains/<域>/<方法>`，请求体 `{ "args": [...] }`（契约的参数元组，与桌面端 IPC 一致），
+  回包 `{ "ok": true, "value": … }` 或 `{ "ok": false, "error": "人话" }`；事件经 `GET /api/domains/events`，每条 `data` 是 `{ domain, event, payload }`。
+  线格式见 `src/shared/contract/http-wire.ts`；网页端 transport 是 `services/server-domains`，各板块的 `api.ts` 有 `window.api` 用 IPC，否则用它。
+- **115 会话**：扫码在网页端完成（二维码图片由浏览器直接从 115 加载，轮询经服务端）。登录后会话存在 `secrets.json` 的 `pan115.session`，
+  Cookie 存在 `pan115-cookies.json`（0600，原子替换）；115 用 `Set-Cookie` 续上的值写回罐子，重启后还在。115 报登录失效（errno 99 / 990001）时两处一起清掉，网页端提示重新扫码。
+- **出网范围**：115 请求只发往 `115.com` 及其子域，重定向手动跟、跳出 115 域一律拦下；PanSou 地址由用户填写，重定向只跟同一主机（与桌面端相同）。
+- **设置**：PanSou 地址、转存目标文件夹（`pan115.targetCid` / `movieCid` 等）和挂载根 `library.notify.mountRoot` 存在服务端的
+  `<数据目录>/server-settings.json`（`src/server/settings-store`，键的白名单在 `src/shared/settings/server-keys.ts`）。网页端改这几个键时先写服务端、再存浏览器，启动时以服务端为准。
+- **定时任务**：剧集追更（启动 90 秒后，每 30 分钟）、洗版（5 分钟后，每小时）、电影追踪（3 分钟后，每小时）。同一数据目录只有持有调度租约
+  （`<数据目录>/scheduler.lock`，90 秒租期，每 30 秒续）的实例执行；`YINGBOX_AUTOGRAB=off` 的实例只提供接口不跑任务。
+- **入库**：转存后调同进程的 `LibraryService.notifyChanges`（路径按 `library.notify.mountRoot` 对到库目录），与 CD2 变更通知走同一条路，见 [NAS 部署](deploy/nas.md#115-网盘与追更)。
+- 状态文件：`<数据目录>/autograb.json`、`autograb-upgrade.json`、`autograb-movies.json`（格式与桌面端 userData 下的同名文件相同，可以直接拷过来）。
+- 服务端不发入库推送（系统通知 / Bark / Telegram 只在桌面端）。
+
 ## 代理
 
 服务端的 Node fetch（undici）默认**不读**代理环境变量。需要代理才能访问 TMDB 等元数据站点时：
@@ -248,4 +277,5 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 没有 mpv、外挂字幕自动挂载。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
 - 在线播放、下载这些板块不在片库服务里，网页端仍不可用。
+- 网盘、追更、找 115 资源在网页端可用（见「网盘与追更」）；入库推送只在桌面端。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。

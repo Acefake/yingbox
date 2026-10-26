@@ -18,8 +18,8 @@
     <StatusState
       v-if="!available"
       icon="database"
-      title="网盘需要桌面端"
-      hint="网页版不能登录 115"
+      title="网盘需要桌面端或片库服务"
+      hint="网页版要连上片库服务才能登录 115"
     />
     <StatusState
       v-else-if="!pansouUrl"
