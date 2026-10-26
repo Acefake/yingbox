@@ -1,5 +1,6 @@
 /**
- * 网页端片库 transport：RPC 线格式、错误码编码（与 preload 一致）、HTTP 失败、单条 SSE 共享与退订。
+ * 网页端片库 transport：RPC 线格式、错误码编码（与 preload 一致）、HTTP 失败、单条 SSE 共享与退订、
+ * 事件流自己关掉后的重新打开。
  */
 import { describe, expect, it } from 'vitest'
 import {
@@ -13,7 +14,15 @@ import { createHttpLibraryBridge } from '../../../src/renderer/src/features/libr
 interface Harness {
   bridge: ReturnType<typeof createHttpLibraryBridge>
   calls: Array<{ path: string; body: { method: string; params: unknown } }>
-  streams: Array<{ url: string; push: (data: string) => void; closed: boolean }>
+  streams: FakeStream[]
+}
+
+/** 假事件流：push 推一条消息，drop 模拟它自己关掉（服务没就绪时 EventSource 被关）。 */
+interface FakeStream {
+  url: string
+  push: (data: string) => void
+  drop: () => void
+  closed: boolean
 }
 
 function harness(
@@ -26,21 +35,25 @@ function harness(
     path: string
     body: { method: string; params: unknown }
   }> = []
-  const streams: Array<{
-    url: string
-    push: (data: string) => void
-    closed: boolean
-  }> = []
+  const streams: FakeStream[] = []
   const bridge = createHttpLibraryBridge({
     request: async (path, init) => {
       const body = JSON.parse(String(init.body))
       calls.push({ path, body })
       return reply(body)
     },
-    openEvents: (url, onData) => {
-      const stream = { url, push: onData, closed: false }
+    openEvents: (url, onData, onClosed) => {
+      const stream: FakeStream = {
+        url,
+        push: onData,
+        drop: () => {
+          stream.closed = true
+          onClosed()
+        },
+        closed: false,
+      }
       streams.push(stream)
-      return { close: () => (stream.closed = true) }
+      return { close: () => void (stream.closed = true) }
     },
   })
   return { bridge, calls, streams }
@@ -152,5 +165,26 @@ describe('createHttpLibraryBridge', () => {
     expect(streams[0].closed).toBe(true)
     bridge.subscribe(() => {})
     expect(streams).toHaveLength(2)
+  })
+
+  it('事件流自己关掉后，服务恢复在线（resume）或新订阅会重新打开', () => {
+    const { bridge, streams } = harness(() => ok(null))
+    const seen: LibraryEvent[] = []
+    const off = bridge.subscribe(event => seen.push(event))
+    streams[0].drop()
+    bridge.resume()
+    expect(streams).toHaveLength(2)
+    streams[1].push(
+      JSON.stringify({ type: 'libraries-changed', libraries: [] })
+    )
+    expect(seen).toHaveLength(1)
+    streams[1].drop()
+    const offOther = bridge.subscribe(() => {})
+    expect(streams).toHaveLength(3)
+    off()
+    offOther()
+    expect(streams[2].closed).toBe(true)
+    bridge.resume()
+    expect(streams).toHaveLength(3)
   })
 })
