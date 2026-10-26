@@ -1,7 +1,12 @@
 <template>
   <div class="media-filter-bar" role="group" aria-label="媒体筛选">
     <div v-for="row in rows" :key="row.key" class="filter-row">
-      <span :id="labelId(row.key)" class="filter-label">{{ row.label }}</span>
+      <span
+        :id="labelId(row.key)"
+        class="filter-label"
+        :class="{ 'ui-sr-only': rows.length === 1 }"
+        >{{ row.label }}</span
+      >
       <div
         class="filter-options"
         role="group"
@@ -24,6 +29,7 @@
 /**
  * 多行筛选条（类型 / 地区 / 年份…）。每行一组页面级筛选胶囊（UiChip size="md"，选中反色），
  * 与片库、直播、收藏页的筛选同一种控件；选项多时换行（窄屏改为横向滚动）。
+ * 只有一行时行标签只给读屏，胶囊与区块标题左对齐。
  */
 import UiChip from '@/components/ui/UiChip.vue'
 import { useId } from 'vue'
