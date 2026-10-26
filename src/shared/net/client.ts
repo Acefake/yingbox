@@ -67,6 +67,11 @@ export interface NetDeps {
   now?: () => number
   /** 缓存条目上限，默认 200 */
   cacheSize?: number
+  /**
+   * 每一跳的目标校验，默认 assertPublicTarget（只允许公网 http/https）。
+   * 只有显式配置了内网放行名单的宿主（独立服务的播放代理）才替换它。
+   */
+  guard?: (url: string, lookup: LookupAll) => Promise<URL>
 }
 
 const REDIRECTS = new Set([301, 302, 303, 307, 308])
@@ -120,6 +125,7 @@ export async function readBody(
 export function createNetClient(deps: NetDeps): NetClient {
   const now = deps.now ?? Date.now
   const cacheSize = deps.cacheSize ?? 200
+  const guard = deps.guard ?? assertPublicTarget
   const inflight = new Map<
     string,
     Promise<{ text: string; url: string; status: number }>
@@ -140,7 +146,7 @@ export function createNetClient(deps: NetDeps): NetClient {
     let body = req.body
     const headers = { 'User-Agent': DEFAULT_UA, ...req.headers }
     for (let hop = 0; hop <= MAX_REDIRECTS; hop++) {
-      const target = await assertPublicTarget(current, deps.lookup)
+      const target = await guard(current, deps.lookup)
       if (req.allow && !req.allow(target))
         throw new Error(`不允许访问：${target.host}`)
       const response = await deps.fetch(

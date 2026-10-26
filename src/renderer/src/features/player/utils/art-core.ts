@@ -2,10 +2,12 @@
  * 一个播放器实例：Artplayer + 它的 hls.js 会话 + 承载它们的节点。
  *
  * 构造参数与纯规则在 art-options；事件经 sink 转给创建它的组件。
+ * 网页端的远程地址在这里换成片库服务的播放代理（webPlayableUrl）：调用方、进度与历史记录仍用原地址。
  */
 import Artplayer from 'artplayer'
 
 import { getSetting, setSetting } from '@/features/settings'
+import { webPlayableUrl } from '@/services/library-server/engine'
 
 import {
   applyPlaybackRate,
@@ -103,7 +105,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   const art = new Artplayer({
     ...artOptions({
       container: node,
-      url: input.url,
+      url: webPlayableUrl(input.url),
       autoplay: input.autoplay,
       controls: input.controls,
       hls: hlsType,

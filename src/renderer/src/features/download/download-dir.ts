@@ -16,7 +16,10 @@ export function downloadDirLabel(dir: string): string {
 export async function pickDownloadDir(): Promise<string | null> {
   const bridge =
     typeof window !== 'undefined' ? window.api?.settings : undefined
-  if (!bridge) throw new Error('选择下载目录需要桌面端')
+  if (!bridge)
+    throw new Error(
+      '网页端的下载目录由片库服务的 YINGBOX_DOWNLOAD_DIR 决定，在服务端修改'
+    )
   return bridge.chooseDownloadDir()
 }
 

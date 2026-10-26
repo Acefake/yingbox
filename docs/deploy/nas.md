@@ -1,6 +1,6 @@
 # 在 NAS 上用 Docker 部署片库服务
 
-片库服务是影盒媒体库（电影、剧集）的独立 Node 版本，浏览器访问，能扫描、刮削、写 NFO、整理和在页内播放。
+片库服务是影盒媒体库（电影、剧集）的独立 Node 版本，浏览器访问，能扫描、刮削、写 NFO、整理和在页内播放；在线板块（搜索、播放、下载）也在里面，见下文「在线播放」。
 它能做什么、不能做什么，以及全部配置项，见 [片库服务](../library-server.md)；为什么这样部署，见 [ADR-0010](../adr/0010-docker-nas-deploy.md)。
 
 镜像里只有 Node 服务和网页端，不含 Electron，amd64 / arm64 都能构建。目前没有发布好的镜像，需要在 NAS 上从源码构建。
@@ -17,8 +17,9 @@
 | 容器内          | 放什么                                                   | 建议                                                                                   |
 | --------------- | -------------------------------------------------------- | -------------------------------------------------------------------------------------- |
 | `/config`       | `library.db`（片库数据库）、`secrets.json`（令牌，0600） | 必须持久化、必须备份；只让服务用户可读                                                 |
-| `/cache`        | `media/`（海报原图、缩略图）等缓存                      | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
+| `/cache`        | `media/`（海报原图、缩略图）等缓存                       | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
 | `/media/<名字>` | 片库目录，可以挂多个                                     | 默认 `:ro`。网页端只能在 `/media` 以内浏览和建库                                       |
+| `/downloads`    | 在线板块的番号下载（`YINGBOX_DOWNLOAD_DIR`）             | 要可写；入口只改这个目录本身的属主。可指向片库目录里的子文件夹，下完自动入库           |
 
 `./yingbox/` 是 compose 示例的数据目录，已写进 `.gitignore` 与 `.dockerignore`，不会进 git 也不会进镜像。
 
@@ -89,6 +90,39 @@ docker run -d --name yingbox-library --restart unless-stopped \
 - `/mnt/user` 是 shfs（FUSE）：库的「存储」保持「自动」时会被判为网盘——不监听、不定时扫描、悬停预览不播视频，新文件只靠手动扫描（`YINGBOX_WATCH` 管不到网盘库）。片库放在 `/mnt/user` 上时，在网页端「媒体库设置 → 自动入库 → 存储」里改选「本地盘」，回到定时扫描（默认 5 分钟）；想要秒级入库，可以把片库改成直接挂某块盘或缓存池的路径（`/mnt/disk1/...`、`/mnt/cache/...`），或者改选「本地盘」后再设 `YINGBOX_WATCH=events` 并确认新文件都是 Unraid 本机写入的。
 - Docker 页面里显示的健康状态来自镜像自带的健康检查。
 
+## 在线播放
+
+网页端的在线板块默认开启（ADR-0019，说明见 [在线播放](../library-server.md#在线播放)）：服务按需起一个在线引擎子进程，播放第三方地址时经服务的 `/api/stream` 代理。
+
+- **不需要额外配置就能用**：CMS 源、豆瓣浏览、测速、播放。手机 / 电视浏览器里点播放，视频流经 NAS 转发。
+- **被 Cloudflare 拦下的源**：镜像默认不带浏览器，这类源会在源列表里标成不可用。要用无头 Chromium 代抓：
+
+  ```yaml
+  services:
+    yingbox:
+      build:
+        context: .
+        args:
+          WITH_CHROMIUM: '1' # 装 chromium、playwright-core、ffmpeg、中文字体，镜像约多 400 MB
+      environment:
+        YINGBOX_BROWSER: 'chromium:/usr/bin/chromium'
+      shm_size: '256m' # Chromium 的共享内存；不设也能跑（已加 --disable-dev-shm-usage）
+  ```
+
+  `docker compose up -d --build` 后，日志里出现「浏览器代抓 Chromium（/usr/bin/chromium，经 playwright-core）」即生效。
+
+- **局域网里的源**（自建 CMS、内网媒体服务器）：播放代理默认拒绝内网地址，设 `YINGBOX_STREAM_ALLOW_PRIVATE: '192.168.1.0/24'`（或主机名、IP，逗号分隔）。
+- **下载**：映射 `/downloads`（compose 示例已有），`PUID` 要能写它。镜像默认没有 ffmpeg，下完保留 `.ts`；`WITH_CHROMIUM=1` 构建时会一起装上 ffmpeg，下完转 mp4。
+- **不需要在线板块**：设 `YINGBOX_ONLINE: 'off'`，不起引擎、不开代理。
+- **反向代理**：`/api/engine/events` 是 SSE、`/api/stream` 是长连接视频流，按下文「反向代理与 HTTPS」关掉缓冲（nginx `proxy_buffering off;`）、把读超时调到几分钟以上。
+
+在 NAS 上验证：
+
+1. 打开网页端「在线」页，豆瓣浏览出卡片；搜一部片，详情里选线路播放，能拖动进度。
+2. `docker compose logs yingbox | grep 在线引擎` 能看到「在线引擎就绪」。
+3. 局域网外的手机（或 iPhone Safari）播放 m3u8 源：开发者工具 / 抓包里清单和分片地址都是 `/api/stream?src=…`。
+4. 不带 Cookie 访问 `/api/stream?src=…` 应返回 401；`src` 填 `http://127.0.0.1/` 应返回 403。
+
 ## 反向代理与 HTTPS
 
 在 compose 的 `environment:` 中设置 `YINGBOX_PUBLIC_ORIGIN: https://media.example.com`，填浏览器实际访问的协议、域名与端口，不带路径。服务据此写入 `Secure` Cookie 并校验完整同源，不信任 `X-Forwarded-*` 头。启用后在 HTTPS 地址重新登录；后端端口仅供可信反向代理访问。本地 HTTP 部署不设置此项。
@@ -139,6 +173,7 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 3. **权限**：CD2 Linux 挂载的「高级设置」可以指定 UID、GID 和权限（默认 `0755`，其他用户可读）。设成与 `PUID` / `PGID` 相同最省事；保持默认也能读，但写 NFO / 整理会失败。
 4. **存储与扫描**：CD2 挂载是 FUSE，库的「存储」保持「自动」就按网盘处理：不监听、不定时扫描、启动不补扫，只在添加库时扫一次，之后新文件靠下面的变更通知或手动扫描入库（`YINGBOX_WATCH` / `YINGBOX_SCAN_INTERVAL` 只管本地盘库）。不想配通知、宁可轮询，就在「媒体库设置 → 自动入库 → 存储」里改选「本地盘」，回到定时扫描；每轮要对每个目录 `stat` 一次，对网盘就是一次次 API 请求，目录多时把 `YINGBOX_SCAN_INTERVAL` 调大（比如 `1800`）。
 5. **变更通知**（CD2 的文件变更 webhook 是会员功能）：容器里没有桌面版那个 CD2 格式的通知地址（桌面版见 [网盘模式说明](../library-cloud-mode.md)），通知走片库服务自己的 API——`POST /api/library/rpc`，请求头 `Authorization: Bearer <YINGBOX_SERVER_TOKEN>`，请求体：
+
    ```json
    {
      "method": "notifyChanges",
@@ -159,6 +194,7 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
    - **路径映射**：通知里写 CD2 自己的路径（`/115/电影/...`）即可。库建在 `/media/cloud/115/电影` 时，按「库目录末尾几段 = 路径开头几段」自动对上；库目录就是挂载根（`/media/cloud`）、或两个库末尾同名时对不上，在 `params` 里加 `"mountRoot": "/media/cloud"`（CD2 的挂载根在**片库容器里**的路径，即上面 volumes 的 `target`）。对上后约 2 秒按目录增量扫描。
    - **地址**：CD2 与片库都用默认 bridge 网络时，把两者放进同一个 Docker 网络，地址写 `http://yingbox:31480/api/library/rpc`（compose 的服务名）；CD2 用 host 网络时写 `http://127.0.0.1:31480/api/library/rpc`（compose 默认就映射到宿主 `127.0.0.1:31480`）。CD2 跑在另一台机器上才需要局域网可达，按上文改 `ports`，令牌照旧必带。
    - CD2 的默认 webhook 请求体是 `{ "data": [{ "action", "source_file", "destination_file", ... }] }`，与上面的格式不同，需要在 CD2 的 webhook 配置（`webhook.toml`）里改请求体模板与请求头，或用一个小脚本转发；具体模板写法以 CD2 文档为准。只在 CD2 里发生的改动（挂载盘、它的网页、WebDAV、离线下载）才有通知，在网盘 App 里直接改的文件仍要手动扫描。
+
 6. **悬停预览与播放**：网盘库悬停时只轮播已缓存的图片，不读视频，也不算指纹（识别时探测时长 / 算字幕哈希按需读，两次至少隔 1 秒）；页内播放经服务转发 Range 请求，速度取决于 CD2 的缓存与网盘限速。
 
 ## 备份、迁移与排错

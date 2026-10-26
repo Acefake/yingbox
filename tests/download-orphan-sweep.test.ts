@@ -189,4 +189,35 @@ describe('引擎启动时清扫（createDownloadHandlers().load）', () => {
     await expect(load()).resolves.toBeUndefined()
     expect(await ls(a)).toEqual([])
   })
+
+  it('队列读盘完成前到达的 list 等它读完，拿到的是恢复后的队列；load 只执行一次', async () => {
+    const state = await tmp()
+    const stateFile = join(state, 'queue.json')
+    await writeFile(
+      stateFile,
+      JSON.stringify({
+        tasks: [{ id: 'FAIL-9', status: 'failed', updatedAt: 1 }],
+      })
+    )
+    const { createDownloadHandlers } =
+      await import('../src/engine/download/index')
+    const ctx = {
+      emit: () => {},
+      busy: () => {},
+      host: (async () => state) as never,
+    }
+    const { load, handlers } = createDownloadHandlers({
+      net: createNetClient({
+        lookup: async () => [],
+        fetch: async () => new Response('', { status: 404 }),
+      }),
+      stateFile,
+      ctx,
+    })
+    const listed = handlers.list(ctx as never)
+    const first = load()
+    expect(load()).toBe(first)
+    expect((await listed).failed.map(t => t.id)).toEqual(['FAIL-9'])
+    await first
+  })
 })

@@ -2,14 +2,13 @@
  * 主进程侧的引擎宿主：按需 fork 引擎（utilityProcess），转发契约调用，广播引擎事件，
  * 代办引擎请求的主进程能力（浏览器代抓）。
  *
+ * 宿主与 Electron 无关（fork 以参数注入），独立服务（src/server/online）也用它托管 child_process 引擎。
  * 主进程在这里只做机械转发，不做任何解析或网络请求。按需 fork、崩溃后下次调用重启、
  * 关停超时 kill、空闲退出都由 UtilityHost（main/utility/host.ts）负责。
  *
  * 空闲退出：没有挂起的调用、引擎也没报告忙（有下载在跑或排队）时，最后一次调用结束
  * idleMs（默认 5 分钟）后让引擎收尾退出，省下整个进程的内存；下次调用自动拉起。
  */
-import type { CallContext, Handlers } from '../rpc'
-import { type Domain, channelOf } from '../../shared/contract/define'
 import type { HostMethods } from '../../engine/protocol'
 import {
   UTILITY_STOP_TIMEOUT_MS,
@@ -75,23 +74,4 @@ export class EngineHost {
   shutdown(): Promise<void> {
     return this.utility.stop()
   }
-}
-
-/**
- * 为一个由引擎实现的域生成主进程 handlers：每个调用原样转发给引擎。
- * 配合 main/rpc 的 implement 使用，入参解析仍在主进程 IPC 边界完成。
- */
-export function forwardTo<D extends Domain>(
-  host: EngineHost,
-  domain: D
-): Handlers<D> {
-  const handlers: Record<
-    string,
-    (ctx: CallContext, ...args: unknown[]) => unknown
-  > = {}
-  for (const key of Object.keys(domain.calls)) {
-    const channel = channelOf(domain.name, key)
-    handlers[key] = (_ctx, ...args) => host.invoke(channel, args)
-  }
-  return handlers as Handlers<D>
 }
