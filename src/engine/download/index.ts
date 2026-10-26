@@ -67,7 +67,7 @@ export interface DownloadDeps {
 export function createDownloadHandlers(deps: DownloadDeps): {
   handlers: EngineHandlers<typeof download>
   queue: DownloadQueue
-  /** 引擎启动时调用一次：恢复队列并清扫孤儿临时文件 */
+  /** 恢复队列并清扫孤儿临时文件（只执行一次，重复调用拿到同一个 Promise）；下载域的调用先等队列读完 */
   load: () => Promise<void>
 } {
   const { ctx } = deps
@@ -128,8 +128,10 @@ export function createDownloadHandlers(deps: DownloadDeps): {
    * 启动：读盘恢复队列，再清扫孤儿临时文件（当前下载目录 + 各任务记下的目录）。
    * 读不到当前下载目录时只扫任务记下的；清扫出错只记日志。
    */
-  const load = async (): Promise<void> => {
-    await queue.load()
+  let queueLoaded: Promise<void> | undefined
+  const restore = async (): Promise<void> => {
+    queueLoaded = queue.load()
+    await queueLoaded
     const { active, queued, completed, failed } = queue.snapshot()
     const tasks = [
       ...(active ? [active] : []),
@@ -149,14 +151,22 @@ export function createDownloadHandlers(deps: DownloadDeps): {
       console.error('[download] 清扫孤儿临时文件失败', error)
     )
   }
+  // 队列读盘完成前到达的调用等它读完再执行（不等清扫），不会读到空队列、也不会被读盘结果覆盖
+  let loaded: Promise<void> | undefined
+  const load = (): Promise<void> => (loaded ??= restore())
+  const afterLoad = async <T>(action: () => T | Promise<T>): Promise<T> => {
+    if (!queueLoaded) void load().catch(() => {})
+    await queueLoaded?.catch(() => {})
+    return action()
+  }
   return {
     queue,
     load,
     handlers: {
-      list: () => queue.snapshot(),
-      add: (_ctx, code) => queue.add(code),
-      remove: (_ctx, code) => queue.remove(code),
-      retry: (_ctx, code) => queue.retry(code),
+      list: () => afterLoad(() => queue.snapshot()),
+      add: (_ctx, code) => afterLoad(() => queue.add(code)),
+      remove: (_ctx, code) => afterLoad(() => queue.remove(code)),
+      retry: (_ctx, code) => afterLoad(() => queue.retry(code)),
     },
   }
 }

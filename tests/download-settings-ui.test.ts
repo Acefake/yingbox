@@ -79,7 +79,7 @@ describe('下载目录设置', () => {
     expect(fake.set).toHaveBeenCalledWith('download.dir', '')
   })
 
-  it('没有桌面端桥接时选择报错', async () => {
+  it('没有桌面端桥接时选择报错（网页端的下载目录在服务端配置）', async () => {
     vi.stubGlobal('window', {})
     vi.stubGlobal('localStorage', {
       getItem: () => null,
@@ -87,7 +87,7 @@ describe('下载目录设置', () => {
     })
     const { pickDownloadDir } =
       await import('../src/renderer/src/features/download/download-dir')
-    await expect(pickDownloadDir()).rejects.toThrow('需要桌面端')
+    await expect(pickDownloadDir()).rejects.toThrow('YINGBOX_DOWNLOAD_DIR')
   })
 
   it('「下载」设置分区只在成人模式显示', async () => {

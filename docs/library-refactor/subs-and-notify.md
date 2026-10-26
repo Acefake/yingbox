@@ -19,7 +19,7 @@
 
 结果走线协议事件 `library:arrivals`（`shared/library/arrivals.ts`）交给主进程；同一批也交给自动字幕。
 
-intake 只读数据库、只往外交结果，不排片库任务，所以挂在事件上而不是任务后继（ADR-0012 管的是处理链）。一轮是幂等的，引擎重启后由启动时的一轮补上。独立服务（NAS）不给 `onArrivals` 和字幕设置，intake 不启动。
+intake 只读数据库、只往外交结果，不排片库任务，所以挂在事件上而不是任务后继（ADR-0012 管的是处理链）。一轮是幂等的，引擎重启后由启动时的一轮补上。独立服务（NAS）不给 `onArrivals`；设了 `YINGBOX_AUTO_SUBTITLES` 时给字幕设置（每日上限 `YINGBOX_SUBTITLES_DAILY_LIMIT`，`src/server/library-host.ts`），intake 只为自动字幕启动，没设时不启动。
 
 ## 自动中文字幕（src/main/library/subtitles）
 
@@ -63,5 +63,5 @@ intake 只读数据库、只往外交结果，不排片库任务，所以挂在�
 
 - 真机验证：系统通知样式、真实 Bark / Telegram、真实 OpenSubtitles 下载（单测都用假的）；
 - 打开自动字幕之前已经入库的条目不补；设置页里看不到每个视频的字幕状态（只在日志里）；
-- NAS 独立服务没有推送和自动字幕；
+- NAS 独立服务没有入库推送（自动字幕用环境变量打开）；
 - 字幕语言只要中文，没有「中英双语优先」之类的偏好。
