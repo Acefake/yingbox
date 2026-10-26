@@ -5,10 +5,16 @@
  * - 只碰 TMDB 来源的库，番号 / 私密库（source jav）不查；
  * - 低频：豆瓣请求串行、两次之间至少 2 秒（专用的低速 ProviderHttp），单次任务最多发 50 个请求，
  *   命中缓存的不占名额；查询结果（含查无此片）缓存 30 天；
- * - 豆瓣出错（被拦截、验证页、网络失败）就停下；补全阶段的任何异常（含读写库）都只记日志，
+ * - rexxar 出错或被风控时回退到 frodo.douban.com（同一个低速 HTTP 层与缓存，见 douban-genres.ts）；
+ *   rexxar 出错后 10 分钟内直接走 frodo；开关 YINGBOX_DOUBAN_FRODO（shared/douban/frodo/switch.ts），默认开；
+ * - 两个源都出错（被拦截、验证页、网络失败）就停下；补全阶段的任何异常（含读写库）都只记日志，
  *   不让已完成的识别任务变成失败（取消除外）；
  * - 识别模块只在注入了网络实现时启用（桌面端 / 独立服务都会注入；测试缺省不联网）。
  */
+import {
+  createSourceCooldown,
+  frodoEnabled,
+} from '../../../shared/douban/frodo'
 import { type LibraryDb, StatementCache, transaction } from '../db/database'
 import {
   DoubanGenreLookup,
@@ -20,6 +26,8 @@ import { MetadataWriter } from './metadata-writer'
 
 /** 单次任务最多发几个豆瓣请求。 */
 export const GENRE_FILL_REQUEST_LIMIT = 50
+/** rexxar 出错后多久内直接走 frodo。 */
+const REXXAR_COOLDOWN_MS = 10 * 60 * 1000
 /** 单次任务最多看多少个没有类型的条目（命中缓存的不发请求）。 */
 const SCAN_LIMIT = 500
 
@@ -103,14 +111,17 @@ export async function fillGenresFromDouban(
 }
 
 /**
- * 组装识别任务用的补全函数：专用低速 HTTP 层（串行、0.5 次 / 秒、不重试），与 TMDB 共用响应缓存。
- * 返回的函数只在取消时抛出，其余异常记日志后当作没有补到。
+ * 组装识别任务用的补全函数：专用低速 HTTP 层（串行、0.5 次 / 秒、不重试），与 TMDB 共用响应缓存；
+ * rexxar 与 frodo 共用这一个 HTTP 层。返回的函数只在取消时抛出，其余异常记日志后当作没有补到。
  */
 export function createGenreFill(options: {
   db: LibraryDb
   fetch: FetchLike
   cache: ResponseCache
   log?: (message: string) => void
+  /** frodo 回退开关；缺省读环境变量 YINGBOX_DOUBAN_FRODO（默认开） */
+  frodo?: boolean
+  now?: () => number
 }): (itemIds: readonly number[], signal?: AbortSignal) => Promise<number[]> {
   const http = new ProviderHttp({
     fetch: options.fetch,
@@ -120,8 +131,13 @@ export function createGenreFill(options: {
     concurrency: 1,
     maxRetries: 0,
   })
-  const lookup = new DoubanGenreLookup(http, options.cache)
-  const deps = { db: options.db, lookup, log: options.log }
+  const now = options.now ?? Date.now
+  const lookup = new DoubanGenreLookup(http, options.cache, now, {
+    frodo: options.frodo ?? frodoEnabled(),
+    cooldown: createSourceCooldown(REXXAR_COOLDOWN_MS, now),
+    log: options.log,
+  })
+  const deps = { db: options.db, lookup, log: options.log, now }
   return async (itemIds, signal) => {
     try {
       return await fillGenresFromDouban(deps, itemIds, signal)

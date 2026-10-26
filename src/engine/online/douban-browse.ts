@@ -10,6 +10,10 @@
  * 条件先经 shared/douban/query.ts 白名单收过，这里只拼白名单里的值。
  * 同一页（同一地址）缓存 10 分钟、并发合并；失败不缓存。按主机熔断（连续 3 次失败，冷却 10 分钟），
  * 冷却期内直接抛 HostUnavailableError，不发请求。
+ *
+ * rexxar 失败（403 / 418 / 验证页 / 超时 / 熔断中）或整页为空时，把同一个地址换成 frodo.douban.com
+ * 签名后再取一次（shared/douban/frodo，开关 YINGBOX_DOUBAN_FRODO，默认开）：frodo 结果映射成 rexxar 结构，
+ * 走同一个 parseRecommend、同一份页缓存（键仍是 rexxar 地址，即「同一个查询」）、同一个熔断器（按主机各记各的）。
  */
 import {
   DOUBAN_MAX_START,
@@ -20,6 +24,12 @@ import {
   type DoubanSubject,
   hasFilters,
 } from '../../shared/douban/query'
+import {
+  frodoEnabled,
+  mapList,
+  rexxarToFrodo,
+  withFrodoFallback,
+} from '../../shared/douban/frodo'
 import type { NetClient } from '../../shared/net/client'
 import {
   type HostBreaker,
@@ -177,7 +187,15 @@ export interface DoubanBrowseOptions {
   net: NetClient
   now?: () => number
   breaker?: HostBreaker
+  /** rexxar 失败时回退到 frodo；缺省读环境变量 YINGBOX_DOUBAN_FRODO（默认开） */
+  frodo?: boolean
+  /** 走了 frodo 时的日志 */
+  log?: (line: string) => void
 }
+
+/** 整页为空且没有下一页：风控时常见的「200 + 空列表」 */
+const isEmptyPage = (page: DoubanPage): boolean =>
+  page.items.length === 0 && page.next === null
 
 /** 创建豆瓣浏览服务 */
 export function createDoubanBrowse(options: DoubanBrowseOptions): DoubanBrowse {
@@ -186,13 +204,16 @@ export function createDoubanBrowse(options: DoubanBrowseOptions): DoubanBrowse {
   const breaker =
     options.breaker ??
     createHostBreaker({ threshold: 3, cooldownMs: 10 * 60 * 1000, now })
+  const frodo = options.frodo ?? frodoEnabled()
   const cache = new Map<string, { page: DoubanPage; at: number }>()
   const inflight = new Map<string, Promise<DoubanPage>>()
 
-  async function fetchPage(
+  /** 取一页（rexxar 或 frodo 地址都走这里：同一个熔断器，frodo 的响应先映射成 rexxar 结构） */
+  async function fetchFrom(
     query: DoubanQuery,
     start: number,
-    request: DoubanRequest
+    request: DoubanRequest,
+    map: (json: unknown) => unknown = json => json
   ): Promise<DoubanPage> {
     const trip = breaker.check(request.url)
     if (trip) throw new HostUnavailableError(trip)
@@ -201,13 +222,32 @@ export function createDoubanBrowse(options: DoubanBrowseOptions): DoubanBrowse {
         headers: request.headers,
         timeoutMs: 10_000,
       })
-      const page = parseRecommend(json, query.kind, start, query.minRating)
+      const page = parseRecommend(map(json), query.kind, start, query.minRating)
       breaker.succeed(request.url)
       return page
     } catch (error) {
       breaker.fail(request.url, 'unreachable')
       throw error
     }
+  }
+
+  function fetchPage(
+    query: DoubanQuery,
+    start: number,
+    request: DoubanRequest
+  ): Promise<DoubanPage> {
+    return withFrodoFallback({
+      enabled: frodo,
+      label: '豆瓣浏览',
+      rexxar: () => fetchFrom(query, start, request),
+      frodo: () => {
+        const signed = rexxarToFrodo(request.url, now())
+        if (!signed) throw new Error('不是 rexxar 地址')
+        return fetchFrom(query, start, signed, mapList)
+      },
+      isEmpty: isEmptyPage,
+      log: options.log,
+    })
   }
 
   return {
