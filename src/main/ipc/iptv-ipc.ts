@@ -7,6 +7,8 @@ import {
   fetchPlaylistText,
   readPlaylistText,
 } from '../iptv/playlist-io'
+import { probeStream } from '../iptv/stream-probe'
+import { streamNetClient } from '../stream-net'
 import { implement } from '../rpc'
 import { iptv } from '../../shared/contract/iptv'
 
@@ -19,6 +21,8 @@ export function registerIptvIpc(): void {
 
   implement(iptv, {
     fetchPlaylist: (_, url) => fetchPlaylistText(url.trim()),
+
+    probeStream: (_, url) => probeStream(streamNetClient(), url.trim()),
 
     pickPlaylistFile: async ({ sender }) => {
       try {
