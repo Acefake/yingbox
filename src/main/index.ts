@@ -181,7 +181,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss: yingbox-stream:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data: yingbox-stream:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss: yingbox-stream: blob:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data: yingbox-stream:",
     ]
     callback({ responseHeaders: headers })
   })

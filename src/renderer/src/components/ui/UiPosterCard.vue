@@ -75,7 +75,12 @@
  */
 import { computed, ref, watch } from 'vue'
 
-import { applyFocus, pickThumbWidth, thumbSrc } from '@/services/thumbnails'
+import {
+  applyFocus,
+  pickThumbWidth,
+  thumbSrc,
+  webImageSrc,
+} from '@/services/thumbnails'
 import { type PreviewSource, useCardPreview } from './hover-preview'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
@@ -122,7 +127,7 @@ const thumbWidth = computed(() =>
 const src = computed(() =>
   props.cover && props.thumb && !useOriginal.value
     ? thumbSrc(props.cover, thumbWidth.value)
-    : props.cover
+    : props.cover && webImageSrc(props.cover)
 )
 
 /** 卡的宽高比（与 .ui-poster-media 的 aspect-ratio 一致）。 */

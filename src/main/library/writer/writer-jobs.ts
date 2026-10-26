@@ -143,6 +143,11 @@ export async function runBatch(
       finishedAt: Date.now(),
       error: message,
     })
+    // 整批出错也发结束事件，界面才能提示（否则只在日志里）
+    report(
+      { total: 0, done: 0, written: 0, skipped: 0, failed: 0, error: message },
+      true
+    )
     throw error
   }
   const now = Date.now()

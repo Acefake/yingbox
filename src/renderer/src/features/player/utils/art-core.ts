@@ -7,6 +7,7 @@
 import Artplayer from 'artplayer'
 
 import { getSetting, setSetting } from '@/features/settings'
+import { isWebRuntime } from '@/services/library-server'
 import { webPlayableUrl } from '@/services/library-server/engine'
 
 import {
@@ -20,7 +21,12 @@ import { installSleepTimer } from '../sleep/sleep-timer'
 import { installScreenshot } from '../screenshot/screenshot'
 import { artSkinControls, installQualityBadge } from './art-skin'
 import { type HlsSession, createHlsSession } from './hls-session'
-import { hlsErrorReason, videoErrorReason } from './play-errors'
+import {
+  WEB_CODEC_UNSUPPORTED,
+  hlsErrorReason,
+  lacksVideoTrack,
+  videoErrorReason,
+} from './play-errors'
 
 /** 转给组件的播放器事件 */
 export type ArtEventName =
@@ -125,6 +131,17 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   })
 
   art.on('video:loadedmetadata', (event: Event) => {
+    // 网页端解不了画面编码时只出声音：直接报错说明原因，免得黑屏干等
+    if (
+      isWebRuntime() &&
+      lacksVideoTrack(
+        art.video,
+        input.url,
+        Boolean(hlsType) || /\.m3u8/i.test(input.url)
+      )
+    )
+      art.video.pause()
+    return sink.error(WEB_CODEC_UNSUPPORTED)
     sink.seek(art.video)
     sink.event('loadedmetadata', event)
   })
@@ -141,7 +158,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     sink.event('volumechange', event)
   )
   art.on('video:error', () =>
-    sink.error(videoErrorReason(art.video.error?.code))
+    sink.error(videoErrorReason(art.video.error?.code, isWebRuntime()))
   )
   art.on('video:ended', (event: Event) => sink.event('ended', event))
   art.on('video:pause', (event: Event) => sink.event('pause', event))
