@@ -27,7 +27,8 @@ export {
   closeOutcome,
   defineAction,
 } from './skills/skill-types'
-export { continueCard, continueCardsWhere } from './skills/continue-cards'
+export { cardInfos, withLibraryInfo } from './skills/card-info'
+export { continueCardsWhere } from './skills/continue-cards'
 export { privateRouteSections } from './skills/core-skills'
 
 /** 「AI 助手」设置分区：全局快捷键 */
