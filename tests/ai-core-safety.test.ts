@@ -239,3 +239,126 @@ describe('JSON 尾逗号修复只动字符串外', () => {
     )
   })
 })
+
+describe('流式响应中途断开', () => {
+  const ask = { messages: [{ role: 'user' as const, content: 'q' }] }
+  const delta = (content: string): string =>
+    chunk({ choices: [{ delta: { content } }] })
+
+  it('两样都不发但正常关闭、收到过正文：兼容为完成（服务商不发收尾标记）', async () => {
+    const fetch = vi.fn(async () => sseResponse([delta('前半'), delta('句')]))
+    const seen: string[] = []
+    const result = await chatCompletion(config(), ask, {
+      fetch,
+      onDelta: d => seen.push(d),
+      retries: 2,
+      sleep: async () => {},
+    })
+    expect(result.content).toBe('前半句')
+    expect(result.finishReason).toBe('')
+    expect(seen).toEqual(['前半', '句'])
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('最后一个事件是半截 JSON：抛 network、标记不可重试，不重试', async () => {
+    const fetch = vi.fn(async () =>
+      sseResponse([delta('前半'), 'data: {"choices":[{"delta":{"con'])
+    )
+    const seen: string[] = []
+    const error = await chatCompletion(config(), ask, {
+      fetch,
+      onDelta: d => seen.push(d),
+      retries: 2,
+      sleep: async () => {},
+    }).catch(e => e)
+    expect(error).toMatchObject({
+      code: 'network',
+      retryable: false,
+      message: expect.stringContaining('中途断开'),
+    })
+    expect(seen).toEqual(['前半'])
+    expect(fetch).toHaveBeenCalledTimes(1)
+  })
+
+  it('只有思考增量、没有正文就断开：按网络错误重试，不把思考当回答', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(
+        sseResponse([
+          chunk({ choices: [{ delta: { reasoning_content: '想' } }] }),
+        ])
+      )
+      .mockResolvedValueOnce(
+        sseResponse([
+          chunk({
+            choices: [{ delta: { content: '好' }, finish_reason: 'stop' }],
+          }),
+        ])
+      )
+    const result = await chatCompletion(config(), ask, {
+      fetch,
+      onDelta: () => {},
+      retries: 1,
+      sleep: async () => {},
+    })
+    expect(result.content).toBe('好')
+    expect(result.reasoning).toBe('')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('finish_reason 为 length：正常截断，算完成', async () => {
+    const result = await chatCompletion(config(), ask, {
+      fetch: async () =>
+        sseResponse([
+          chunk({
+            choices: [{ delta: { content: '截' }, finish_reason: 'length' }],
+          }),
+        ]),
+      onDelta: () => {},
+      retries: 0,
+    })
+    expect(result.content).toBe('截')
+    expect(result.finishReason).toBe('length')
+  })
+
+  it('还没推出增量就断开：按网络错误重试', async () => {
+    const fetch = vi
+      .fn()
+      .mockResolvedValueOnce(sseResponse([': ping\n\n']))
+      .mockResolvedValueOnce(
+        sseResponse([
+          chunk({
+            choices: [{ delta: { content: '好' }, finish_reason: 'stop' }],
+          }),
+        ])
+      )
+    const result = await chatCompletion(config(), ask, {
+      fetch,
+      onDelta: () => {},
+      retries: 1,
+      sleep: async () => {},
+    })
+    expect(result.content).toBe('好')
+    expect(fetch).toHaveBeenCalledTimes(2)
+  })
+
+  it('有 finish_reason 但没发 [DONE]、或只发 [DONE]：照常算完成', async () => {
+    const finished = await chatCompletion(config(), ask, {
+      fetch: async () =>
+        sseResponse([
+          chunk({
+            choices: [{ delta: { content: '完' }, finish_reason: 'stop' }],
+          }),
+        ]),
+      onDelta: () => {},
+      retries: 0,
+    })
+    expect(finished.content).toBe('完')
+    const doneOnly = await chatCompletion(config(), ask, {
+      fetch: async () => sseResponse([delta('完'), 'data: [DONE]\n\n']),
+      onDelta: () => {},
+      retries: 0,
+    })
+    expect(doneOnly.content).toBe('完')
+  })
+})
