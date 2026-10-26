@@ -119,11 +119,27 @@ describe('NFO 补全', () => {
     expect(row.genres).toEqual(['犯罪', '剧情'])
     expect(row.overview).toBe('NFO 简介')
     expect((row.metadata as { countries: string[] }).countries).toEqual(['US'])
+    // NFO 没有评分：保留 TMDB 的，来源 tmdb
+    expect(service.query(q({})).items[0]).toMatchObject({
+      rating: 7.5,
+      ratingSource: 'tmdb',
+    })
     // 补全不让已识别的条目变成「待识别」（identified_at 跟着前移）
     const stamps = service.db
       .prepare('SELECT identified_at, updated_at FROM media_items')
       .get() as { identified_at: number; updated_at: number }
     expect(stamps.identified_at).toBeGreaterThanOrEqual(stamps.updated_at)
+    await service.close()
+  })
+
+  it('评分来源：NFO 里有豆瓣评分时替换 TMDB 的（豆瓣优先），列表带出来源', async () => {
+    const { service } = await engine({})
+    tree.write('Heat.1995.1080p.mkv', '')
+    tree.write('Heat.1995.1080p.nfo', NFO)
+    service.scan({ libraryId: service.listLibraries()[0].id })
+    await service.queue.idle()
+    const [item] = service.query(q({})).items
+    expect(item).toMatchObject({ rating: 7.8, ratingSource: 'douban' })
     await service.close()
   })
 

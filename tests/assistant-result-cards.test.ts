@@ -180,6 +180,7 @@ describe('片库搜索结果行', () => {
       year: 2024,
       poster: null,
       rating: 8.06,
+      ratingSource: 'tmdb',
       videoRange: 'dv',
     },
     versions: [{}, {}],
@@ -194,7 +195,7 @@ describe('片库搜索结果行', () => {
       year: 2024,
       meta: [],
       specs: [{ variant: 'dolby', text: 'VISION' }],
-      rating: '8.1',
+      rating: 'TMDB 8.1',
       note: ['片名匹配', '2 个版本'],
     })
   })
@@ -267,6 +268,7 @@ describe('片库条目 → 卡片信息', () => {
       backdrop: null,
       logo: null,
       rating: 8.24,
+      ratingSource: 'douban',
       addedAt: 0,
       updatedAt: 0,
       videoRange: 'dv',
@@ -291,7 +293,7 @@ describe('片库条目 → 卡片信息', () => {
     const got = cardInfoOf(node)
     expect(got.meta).toEqual(['2024 年', '科幻、冒险', '2 小时 46 分'])
     expect(got.specs.map(s => s.text)).toEqual(['4K', 'VISION', 'ATMOS'])
-    expect(got.rating).toBe('8.2')
+    expect(got.rating).toBe('豆瓣 8.2')
     expect(got.watchlist).toMatchObject({ section: 'movie', key: '7' })
     expect(got.location).toEqual({ path: '/movie', query: { item: '7' } })
   })

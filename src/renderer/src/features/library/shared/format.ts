@@ -32,11 +32,6 @@ export function formatBytes(bytes: number): string {
   return `${value >= 100 || i === 0 ? Math.round(value) : value.toFixed(value >= 10 ? 1 : 2)} ${units[i]}`
 }
 
-/** 评分保留一位小数；没有评分返回空串。 */
-export function formatRating(rating: number | null | undefined): string {
-  return rating ? rating.toFixed(1) : ''
-}
-
 /** 置信度 0–1 → “86%”。 */
 export function formatConfidence(confidence: number): string {
   return `${Math.round(confidence * 100)}%`

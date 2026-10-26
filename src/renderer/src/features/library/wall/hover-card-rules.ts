@@ -6,7 +6,7 @@
  */
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import { titleMetaOf } from '../detail/detail-rules'
-import { formatRating } from '../shared/format'
+import { formatRating } from '../../../../../shared/library/rating'
 
 /** 卡片尺寸（与 hover-card.css 一致）。 */
 export const HOVER_CARD = { width: 340, maxHeight: 460, gap: 12, margin: 8 }
@@ -65,7 +65,7 @@ export function hoverFactsOf(node: LibraryItemNode): HoverFacts {
   const meta = titleMetaOf(node)
   const date = node.airDate ?? meta?.releaseDate ?? null
   const fileCount = node.files.filter(f => f.kind === 'video').length
-  const rating = formatRating(node.rating)
+  const rating = formatRating(node.rating, node.ratingSource)
   const line = [
     date ? date.slice(0, 10) : node.year ? String(node.year) : '',
     node.runtime ? `${node.runtime} 分钟` : '',

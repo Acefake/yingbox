@@ -6,6 +6,7 @@ import { type WatchMark, ratioWidth } from '../progress/watch-marks'
 import type { CSSProperties } from 'vue'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
+import { formatRating } from '../../../../../shared/library/rating'
 import { type SpecBadge, videoRangeSpec } from '@/components/ui/spec-badge'
 
 /** 一个渲染格。 */
@@ -18,6 +19,7 @@ export interface Cell {
   badge: string
   /** 看了一部分的进度条宽度（如「42%」）；空串不显示 */
   progress: string
+  /** 来源 + 评分（如「豆瓣 8.2」），见 shared/library/rating */
   rating: string
   /** 动态范围规格标签（与详情同一套映射，见 spec-badge.ts）；SDR 与没探测过为 null */
   range: SpecBadge | null
@@ -45,7 +47,6 @@ export interface CellInput {
   selected: ReadonlySet<number>
   showStateBadge: boolean
   image: (poster: string | null) => string | null
-  rating: (rating: number | null) => string
   /** 观看标记（片库观看进度，见 progress/watch-marks）；不给不显示 */
   mark?: (itemId: number) => WatchMark | null
 }
@@ -71,7 +72,7 @@ export function buildCells(input: CellInput): Cell[] {
           : null,
       badge: state || (mark?.watched && !mark.ratio ? mark.label : ''),
       progress: mark?.ratio ? ratioWidth(mark.ratio) : '',
-      rating: item ? input.rating(item.rating) : '',
+      rating: item ? formatRating(item.rating, item.ratingSource) : '',
       range: videoRangeSpec(item?.videoRange),
       selected: item ? input.selected.has(item.id) : false,
       style: { transform: `translate3d(${x}px, ${y}px, 0)` },

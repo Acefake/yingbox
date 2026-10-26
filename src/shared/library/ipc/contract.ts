@@ -18,6 +18,7 @@ import type { LibraryEvent } from './contract-events'
 import type { LibraryMergeBridge, MergeRpcMap } from './contract-merge'
 import { MERGE_METHODS, type NodeMergeFields } from './contract-merge'
 import type { LibraryQueryFilters } from './contract-filters'
+import type { RatingSource } from '../rating'
 import type {
   FacetFilter,
   FacetRpcMap,
@@ -137,6 +138,8 @@ export interface LibraryItemSummary {
   backdrop: string | null
   /** 评分 0–10；未识别或无评分为 null。 */
   rating: number | null
+  /** 评分来源；null 表示不知道，缺省兼容未提供此字段的服务。 */
+  ratingSource?: RatingSource | null
   addedAt: number
   updatedAt: number
   /** 视频动态范围（全部文件里最好的一档，见 shared/video-range）；没探测过或没有 ffprobe 时缺省。 */

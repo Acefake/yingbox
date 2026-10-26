@@ -135,6 +135,7 @@ async function fillTarget(
         genres: details.genres,
         countries: details.countries,
         rating: details.rating,
+        ratingSource: details.ratingSource,
         overview: details.plot,
         year: details.year,
       },

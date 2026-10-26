@@ -28,6 +28,7 @@ describe('parseNfoDetails', () => {
       genres: ['Action', 'Science Fiction'],
       countries: ['US', 'AU'],
       rating: 8.2,
+      ratingSource: 'tmdb',
       plot: 'Neo 发现世界是假的。',
       year: 1999,
     })
@@ -46,6 +47,7 @@ describe('parseNfoDetails', () => {
       genres: ['动作', '犯罪', '剧情'],
       countries: ['HK', 'CN'],
       rating: 7.9,
+      ratingSource: 'nfo',
       plot: '警匪 & 江湖',
       year: 2002,
     })
@@ -56,7 +58,12 @@ describe('parseNfoDetails', () => {
       `<movie><ratings><rating max="100" default="true"><value>85</value></rating></ratings>
        <genre></genre><country>Atlantis</country><plot>  </plot></movie>`
     )
-    expect(d).toEqual({ genres: [], countries: [], rating: 8.5 })
+    expect(d).toEqual({
+      genres: [],
+      countries: [],
+      rating: 8.5,
+      ratingSource: 'nfo',
+    })
     expect(parseNfoDetails('<movie><rating>0</rating></movie>').rating).toBe(
       undefined
     )
