@@ -171,6 +171,48 @@ describe('手动重定向 fetch', () => {
     ).rejects.toBeTruthy()
   })
 
+  it('响应体读到一半被外部取消：Electron 只发 close，读取方以失败结束而不是一直等', async () => {
+    const { fetch, last } = setup()
+    const controller = new AbortController()
+    const pending = fetch('http://a/seg.ts', {
+      redirect: 'manual',
+      signal: controller.signal,
+    })
+    const req = last()
+    const upstream = new FakeResponse(200, {})
+    req.emit('response', upstream)
+    const reader = (await pending).body!.getReader()
+    upstream.emit('data', Buffer.from('AB'))
+    expect((await reader.read()).value).toEqual(new Uint8Array([65, 66]))
+    controller.abort()
+    expect(req.aborted).toBe(true)
+    // Electron 37：abort() → response.destroy()，只有 close
+    upstream.emit('close')
+    await expect(reader.read()).rejects.toThrow('连接中断')
+  })
+
+  it('正常结束后的 close、取消后的迟到事件都不会抛错', async () => {
+    const { fetch, last } = setup()
+    const first = fetch('http://a/x', { redirect: 'manual' })
+    const done = new FakeResponse(200, {})
+    last().emit('response', done)
+    const res = await first
+    done.emit('data', Buffer.from('A'))
+    done.emit('end')
+    expect(() => done.emit('close')).not.toThrow()
+    expect(await res.text()).toBe('A')
+
+    const second = fetch('http://a/y', { redirect: 'manual' })
+    const late = new FakeResponse(200, {})
+    last().emit('response', late)
+    await (await second).body!.cancel()
+    expect(() => {
+      late.emit('data', Buffer.from('B'))
+      late.emit('end')
+      late.emit('close')
+    }).not.toThrow()
+  })
+
   it('POST 写入请求体', async () => {
     const { fetch, last } = setup()
     void fetch('http://a/x', {
