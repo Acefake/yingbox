@@ -343,6 +343,7 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   position: relative;
   width: 100%;
   min-width: 0;
-  padding: var(--space-8) var(--content-padding-x) var(--space-9);
+  padding: calc(var(--shell-top) + var(--control-height) + var(--space-8))
+    var(--content-padding-x) var(--space-9);
 }
 </style>
