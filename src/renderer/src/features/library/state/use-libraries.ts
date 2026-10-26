@@ -14,7 +14,7 @@ import type {
 } from '../../../../../shared/library/ipc'
 import { errorText, libraryBridge } from '../api/bridge'
 import { pickLibraryFolder } from '../settings/folder-picker'
-import { onLibraryEvent } from './library-events'
+import { subscribeLibraryEvents } from './library-events'
 import { type LibrarySection, SECTIONS, librariesIn } from './library-section'
 
 /** 后台活动：界面顶部的细进度条与状态文字。 */
@@ -37,7 +37,8 @@ let started = false
 function startOnce(): void {
   if (started) return
   started = true
-  onLibraryEvent(event => {
+  // 单例订阅不绑组件作用域：第一个调用者卸载后，其他页面仍要收到事件
+  subscribeLibraryEvents(event => {
     if (event.type === 'libraries-changed') {
       all.value = event.libraries
     } else if (event.type === 'job' && SCAN_JOB_TYPES.has(event.jobType)) {

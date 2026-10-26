@@ -141,7 +141,7 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import { listWaiting } from '@/components/ui/feedback'
-import { readStoredArray, saveStoredArray } from '@/utils/storage'
+import { readStoredArray, removeStored, saveStoredArray } from '@/utils/storage'
 import { computed, ref, watch } from 'vue'
 
 import { useRoute, useRouter } from 'vue-router'
@@ -195,7 +195,7 @@ const clearHistory = (): void => {
     danger: true,
     onOk: () => {
       searchHistory.value = []
-      localStorage.removeItem(HISTORY_KEY)
+      removeStored(HISTORY_KEY)
     },
   })
 }

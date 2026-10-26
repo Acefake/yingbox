@@ -24,8 +24,11 @@ function dispatch(event: LibraryEvent): void {
   }
 }
 
-/** 监听引擎事件，返回取消函数；在组件 / effectScope 里调用时随作用域自动取消。 */
-export function onLibraryEvent(listener: Listener): () => void {
+/**
+ * 监听引擎事件，返回取消函数；不绑任何作用域，只有调用取消函数才会停。
+ * 给模块级单例用：它们的状态全应用共享，不能随第一个调用它的组件卸载而停掉。
+ */
+export function subscribeLibraryEvents(listener: Listener): () => void {
   listeners.add(listener)
   if (!unsubscribe) {
     const bridge = libraryBridge()
@@ -33,13 +36,18 @@ export function onLibraryEvent(listener: Listener): () => void {
       unsubscribe = bridge.subscribe(event => dispatch(event))
     }
   }
-  const off = (): void => {
+  return (): void => {
     listeners.delete(listener)
     if (listeners.size === 0 && unsubscribe) {
       unsubscribe()
       unsubscribe = null
     }
   }
+}
+
+/** 监听引擎事件，返回取消函数；在组件 / effectScope 里调用时随作用域自动取消。 */
+export function onLibraryEvent(listener: Listener): () => void {
+  const off = subscribeLibraryEvents(listener)
   if (getCurrentScope()) onScopeDispose(off)
   return off
 }

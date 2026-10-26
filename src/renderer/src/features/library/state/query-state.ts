@@ -13,6 +13,8 @@ import type {
   MatchState,
   TopLevelItemType,
 } from '../../../../../shared/library/ipc'
+import { readStoredText, writeStoredText } from '@/utils/storage'
+
 import { type LibrarySection, SECTIONS } from './library-section'
 
 /** 界面提供的排序方式。 */
@@ -157,10 +159,10 @@ const STORAGE_PREFIX = 'library.wall.'
 /** 读回上次的排序（每个分区各记一份）；搜索与筛选不记。 */
 export function loadSavedSort(
   section: LibrarySection,
-  storage: Pick<Storage, 'getItem'> | undefined = globalThis.localStorage
+  storage: Pick<Storage, 'getItem'> = { getItem: readStoredText }
 ): Pick<WallQueryState, 'sort' | 'order'> | null {
   try {
-    const raw = storage?.getItem(`${STORAGE_PREFIX}${section}`)
+    const raw = storage.getItem(`${STORAGE_PREFIX}${section}`)
     if (!raw) return null
     const saved = JSON.parse(raw) as Partial<WallQueryState>
     const sort = SORT_OPTIONS.find(o => o.value === saved.sort)?.value
@@ -179,9 +181,9 @@ export function loadSavedSort(
 export function saveSort(
   section: LibrarySection,
   state: Pick<WallQueryState, 'sort' | 'order'>,
-  storage: Pick<Storage, 'setItem'> | undefined = globalThis.localStorage
+  storage: Pick<Storage, 'setItem'> = { setItem: writeStoredText }
 ): void {
-  storage?.setItem(
+  storage.setItem(
     `${STORAGE_PREFIX}${section}`,
     JSON.stringify({ sort: state.sort, order: state.order })
   )

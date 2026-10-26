@@ -16,7 +16,6 @@
   --bg-main: #000000;
   --bg-content: #000000;
   --bg-sidebar: #0e0e10;
-  --bg-sidebar-solid: #0e0e10;
   --bg-titlebar: #000000;
   --bg-elevated: #1c1c1e;
   --bg-panel: #1c1c1e;
@@ -46,8 +45,6 @@
   --text-tertiary: rgba(255, 255, 255, 0.5);
   --text-quaternary: rgba(255, 255, 255, 0.3);
   --text-main: var(--text-primary);
-  --text-muted: var(--text-secondary);
-  --text-dim: var(--text-tertiary);
   /* 放在强调色背景上的文字 */
   --text-on-accent: #ffffff;
 
@@ -57,9 +54,6 @@
   --accent-soft: rgba(10, 132, 255, 0.16);
   --accent-glow: rgba(10, 132, 255, 0.4);
   --accent-text: #4da3ff;
-  --primary: var(--accent);
-  --primary-hover: var(--accent-hover);
-  --primary-glass: var(--accent-soft);
 
   /* ── 主操作按钮：深色白底黑字 ── */
   --action-bg: #f5f5f7;
@@ -194,8 +188,6 @@
   --icon-sm: 14px;
   --icon-md: 16px;
   --icon-lg: 18px;
-  --media-sidebar-width: 280px;
-  --media-row-height: 36px;
 
   /*
    * ── 玻璃材质（.yb-glass，只给浮动控件）──
@@ -271,7 +263,6 @@
   --pblur-mask-3: linear-gradient(transparent 28%, #000 62%);
   /* 向下渐隐的遮罩（mask 只取透明度）：详情顶部渐隐带 / 剧集卡剧照底部羽化 */
   --mask-fade-end-30: linear-gradient(#000 30%, transparent);
-  --mask-fade-end-70: linear-gradient(#000 70%, transparent);
   --media-logo-shadow: drop-shadow(
     0 4px 18px rgba(0, 0, 0, 0.5)
   ); /* 压在图上的片名标志 */
@@ -292,7 +283,6 @@
   --spec-media-bg: rgba(255, 255, 255, 0.72);
   --spec-media-text: #000000;
   --spec-media-line: rgba(255, 255, 255, 0.66);
-  --shadow-panel: var(--shadow-lg);
   --focus-ring: 0 0 0 3px var(--accent-glow);
   /* 校验失败的输入框外圈 */
   --focus-ring-danger: 0 0 0 3px
@@ -303,7 +293,6 @@
   /* ── 滚动条 ── */
   --scrollbar-thumb: rgba(255, 255, 255, 0.2);
   --scrollbar-thumb-hover: rgba(255, 255, 255, 0.34);
-  --scrollbar-track: transparent;
 
   /* ── 动效 ── */
   --ease-out: cubic-bezier(0.22, 1, 0.36, 1);
@@ -322,13 +311,6 @@
     border-color var(--duration-fast) ease, opacity var(--duration-fast) ease,
     transform var(--duration-fast) var(--ease-out),
     box-shadow var(--duration-fast) ease;
-  --transition-normal:
-    color var(--duration-normal) ease,
-    background-color var(--duration-normal) ease,
-    border-color var(--duration-normal) ease,
-    opacity var(--duration-normal) ease,
-    transform var(--duration-normal) var(--ease-out),
-    box-shadow var(--duration-normal) ease;
 
   /*
    * ── AI 助手 ──
@@ -387,7 +369,6 @@
   --bg-main: #f5f5f7;
   --bg-content: #f5f5f7;
   --bg-sidebar: #fbfbfd;
-  --bg-sidebar-solid: #fbfbfd;
   --bg-titlebar: #f5f5f7;
   --bg-elevated: #ffffff;
   --bg-panel: #ffffff;

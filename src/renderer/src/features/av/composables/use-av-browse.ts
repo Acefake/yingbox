@@ -32,6 +32,8 @@ import {
   rememberBounded,
   sortBrowseVideos,
 } from '../utils/av-catalog'
+import { readStoredText, writeStoredText } from '@/utils/storage'
+
 import { createPageFetchers } from './av-browse-pages'
 
 const NO_SOURCE_ERROR = '没有启用的数据源，请先在数据源管理中启用一个来源'
@@ -362,8 +364,8 @@ export function useAvBrowse(options: {
 
   /** 页面挂载：首次使用默认选 MissAV；数据源未变化时由这里加载（变化了交给 watcher）。 */
   const init = async (): Promise<void> => {
-    if (!localStorage.getItem('av_missav_catalog_v1')) {
-      localStorage.setItem('av_missav_catalog_v1', '1')
+    if (!readStoredText('av_missav_catalog_v1')) {
+      writeStoredText('av_missav_catalog_v1', '1')
       sourceApi.value = MISSAV_SOURCE
     }
     const before = sourceApi.value

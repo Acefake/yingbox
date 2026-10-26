@@ -189,13 +189,9 @@ export default tseslint.config(
     ignores: [
       // 设置层自身：首启迁移读旧值、Web/PWA 模式的浏览器存储
       'src/renderer/src/features/settings/browser-storage.ts',
-      // 数据而非设置（播放进度、搜索历史、源选择、AV 目录缓存），后续迁到 Engine 的 SQLite
+      // 数据而非设置（播放进度；收藏、搜索历史等一律经 utils/storage），后续迁到 Engine 的 SQLite
       'src/renderer/src/features/player/utils/play-progress.ts',
       'src/renderer/src/utils/storage.ts',
-      'src/renderer/src/features/av/composables/use-av-browse.ts',
-      'src/renderer/src/features/online/components/LibraryCollection.vue',
-      'src/renderer/src/features/online/components/SearchTab.vue',
-      'src/renderer/src/features/online/composables/catspider-sites.ts',
     ],
     rules: {
       'no-restricted-globals': [
@@ -212,6 +208,11 @@ export default tseslint.config(
           object: 'window',
           property: 'localStorage',
           message: '设置请用 features/settings 的 useSetting / getSetting。',
+        },
+        {
+          object: 'globalThis',
+          property: 'localStorage',
+          message: '数据存取请用 @/utils/storage。',
         },
         ...fetchPropertyBans,
       ],
