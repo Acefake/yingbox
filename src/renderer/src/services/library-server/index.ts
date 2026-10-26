@@ -9,7 +9,12 @@
  */
 import { type Ref, ref } from 'vue'
 
-import { LIBRARY_HTTP, type ServerHealth } from '../../../../shared/library/ipc'
+import {
+  LIBRARY_HTTP,
+  type ServerHealth,
+  type ServerSubtitle,
+  type SubtitleListing,
+} from '../../../../shared/library/ipc'
 import type { MediaFocus } from '../../../../shared/media-focus'
 
 /** 连接状态：未知（还没探测）/ 已连接 / 需要登录 / 连不上。 */
@@ -104,6 +109,40 @@ export function serverThumbUrl(source: string, width: number): string {
 /** 片库视频文件的流地址（支持 Range）。 */
 export function serverFileUrl(fileId: number): string {
   return `${LIBRARY_HTTP.file}${fileId}`
+}
+
+/** 播放地址里的片库视频文件 id（serverFileUrl 给出的地址，相对或绝对都认）；不是时为 null。 */
+export function serverFileIdOf(source: string): number | null {
+  let path: string
+  try {
+    path = new URL(source, 'http://page.invalid').pathname
+  } catch {
+    return null
+  }
+  if (!path.startsWith(LIBRARY_HTTP.file)) return null
+  const id = Number(path.slice(LIBRARY_HTTP.file.length))
+  return Number.isSafeInteger(id) && id > 0 ? id : null
+}
+
+/** 是否是服务给出的字幕地址（serverSubtitles 返回的 url）。 */
+export const isServerSubtitleUrl = (url: string): boolean =>
+  url.startsWith(LIBRARY_HTTP.subtitles)
+
+/** 视频旁的外挂字幕（同名优先）；失败时抛错。 */
+export async function serverSubtitles(
+  fileId: number
+): Promise<ServerSubtitle[]> {
+  const response = await serverFetch(`${LIBRARY_HTTP.subtitles}${fileId}`)
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return ((await response.json()) as SubtitleListing).subtitles
+}
+
+/** 读一条外挂字幕（服务已转成 WebVTT）；失败时抛错。 */
+export async function serverSubtitleVtt(url: string): Promise<string> {
+  if (!isServerSubtitleUrl(url)) throw new Error('不是片库字幕地址')
+  const response = await serverFetch(url)
+  if (!response.ok) throw new Error(`HTTP ${response.status}`)
+  return response.text()
 }
 
 /** 海报取景的焦点（urls 是 serverImageUrl / serverThumbUrl 给出的地址）；失败时抛错。 */
