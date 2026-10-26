@@ -1,8 +1,8 @@
 /**
- * 侧栏里的对话流：已结束的几轮问答（你说的话、回答、结果卡片、出错说明），只在侧栏打开期间保留在内存里。
+ * 助手浮层里的对话流：已结束的几轮问答（你说的话、回答、结果卡片、出错说明），只在浮层打开期间保留在内存里。
  *
  * useAssistant 只管「当前这一轮」；开始新的一轮（打字提问、开始录音）前，把当前这一轮归档进对话流，
- * 侧栏按顺序显示「归档的几轮 + 当前这一轮」。最多保留 {@link THREAD_TURNS} 轮，更早的丢掉。
+ * 浮层按顺序显示「归档的几轮 + 当前这一轮」。最多保留 {@link THREAD_TURNS} 轮，更早的丢掉。
  * 带给模型的上下文另由 assistant-session.ts 管（不在这里）。
  */
 import { type Ref, type ShallowRef, shallowRef } from 'vue'
@@ -76,7 +76,7 @@ export interface AssistantThread {
 }
 
 /**
- * 侧栏打开期间的对话流。
+ * 浮层打开期间的对话流。
  * @param current 当前这一轮的状态
  */
 export function useAssistantThread(current: CurrentTurn): AssistantThread {
