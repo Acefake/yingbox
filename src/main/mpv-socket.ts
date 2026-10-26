@@ -29,10 +29,17 @@ export class MpvSocket extends EventEmitter {
     return this.socket !== null
   }
 
-  /** 等待 mpv 启动并监听 socket，最多重试 retries 次（每次间隔 200ms） */
-  async connect(retries = 30): Promise<void> {
+  /**
+   * 等待 mpv 启动并监听 socket，最多重试 retries 次（每次间隔 200ms）。
+   * @param gone 进程已经没了（启动失败 / 退出）：不再等，直接失败
+   */
+  async connect(
+    retries = 30,
+    gone: () => boolean = () => false
+  ): Promise<void> {
     for (let i = 0; i < retries; i++) {
       await sleep(200)
+      if (gone()) throw new Error('mpv 进程已退出')
       try {
         await this.tryConnect()
         return
@@ -43,18 +50,28 @@ export class MpvSocket extends EventEmitter {
     }
   }
 
+  /**
+   * 连一次。连上后的事件只认当前这条连接：destroy 之后旧连接迟到的 close / data 不会清掉新连接、
+   * 不会让新连接上等着的请求失败。
+   */
   private tryConnect(): Promise<void> {
     return new Promise((resolve, reject) => {
       const sock = createConnection(SOCKET_PATH)
+      sock.once('error', reject)
       sock.once('connect', () => {
+        sock.removeListener('error', reject)
         this.socket = sock
         sock.setEncoding('utf8')
-        sock.on('data', (chunk: string) => this.onData(chunk))
-        sock.once('close', () => this.onClose())
-        sock.once('error', () => this.onClose())
+        sock.on('data', (chunk: string) => {
+          if (this.socket === sock) this.onData(chunk)
+        })
+        // error 之后必有 close；常驻监听，避免第二个 error 成为未处理异常
+        sock.on('error', () => {})
+        sock.once('close', () => {
+          if (this.socket === sock) this.onClose()
+        })
         resolve()
       })
-      sock.once('error', reject)
     })
   }
 
@@ -112,9 +129,12 @@ export class MpvSocket extends EventEmitter {
     })
   }
 
+  /** 断开：等着的请求立即失败（不等 5 秒超时） */
   destroy(): void {
-    this.socket?.destroy()
-    this.socket = null
+    const sock = this.socket
+    if (!sock) return
+    this.onClose()
+    sock.destroy()
   }
 }
 
