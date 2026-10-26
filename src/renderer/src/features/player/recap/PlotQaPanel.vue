@@ -110,7 +110,7 @@ watch(
 <style scoped>
 .plot-qa {
   position: absolute;
-  top: var(--space-3);
+  top: calc(var(--player-stage-bar-height, 0px) + var(--space-3));
   right: var(--space-3);
   bottom: 56px; /* style-tokens: layout（避开底部控制栏） */
   width: min(340px, calc(100cqw - 2 * var(--space-3)));
