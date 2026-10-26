@@ -1,5 +1,8 @@
 /* 媒体库页面工具栏（LibraryToolbar.vue）：标题行、排序胶囊、视图切换与筛选胶囊一行、分面筛选 */
+/* 自成一层并高于海报墙：「更多」菜单垂到海报上时不被海报格（will-change 合成层）盖住 */
 .lib-toolbar {
+  position: relative;
+  z-index: var(--z-dropdown);
   flex: none;
   display: flex;
   flex-direction: column;

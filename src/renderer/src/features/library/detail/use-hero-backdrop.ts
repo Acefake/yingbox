@@ -42,7 +42,15 @@ export function useHeroBackdrop(root: Ref<HTMLElement | null>): {
       setShell(false)
       return
     }
-    const bottom = hero.offsetTop + hero.offsetHeight - el.scrollTop
+    // 浅色主题下 Hero 最后 --hero-edge-fade 一段已渐隐成页面底色，深色画面的实际下沿取渐隐段中点
+    const fade = parseFloat(
+      getComputedStyle(hero).getPropertyValue('--hero-edge-fade')
+    )
+    const bottom =
+      hero.offsetTop +
+      hero.offsetHeight -
+      el.scrollTop -
+      (Number.isFinite(fade) ? fade / 2 : 0)
     const at = heroBackdropAt(bottom, el.clientHeight, EDGE_HEIGHT)
     edgeOnMedia.value = at.edge
     setShell(active && at.shell)
