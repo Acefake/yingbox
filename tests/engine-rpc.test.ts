@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest'
-import { EngineHost, forwardTo } from '../src/main/engine/host'
+import { forwardTo } from '../src/main/engine/forward'
+import { EngineHost } from '../src/main/engine/host'
 import { serveEngine } from '../src/engine/rpc'
 import type { FromUtility, ToUtility } from '../src/shared/utility/protocol'
 import { call, defineDomain, event, str } from '../src/shared/contract/define'
