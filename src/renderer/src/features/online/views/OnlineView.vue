@@ -69,6 +69,13 @@
         class="inline-detail-page"
         aria-label="内容详情"
       >
+        <div class="inline-detail-toolbar">
+          <UiButton
+            label="返回"
+            variant="secondary"
+            @click="inlineDetailItem = null"
+          />
+        </div>
         <DetailWindow :item="inlineDetailItem" />
       </section>
     </Transition>
@@ -76,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { toast } from '@/components/ui'
+import { toast, UiButton } from '@/components/ui'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   CmsItem,
@@ -256,6 +263,8 @@ const openContinueDetail = (record: ContinueRecord): void => {
 }
 
 .inline-detail-page {
+  display: flex;
+  flex-direction: column;
   position: absolute;
   inset: 0;
   z-index: var(--z-overlay);
@@ -263,9 +272,16 @@ const openContinueDetail = (record: ContinueRecord): void => {
   background: var(--bg-main);
 }
 
+.inline-detail-toolbar {
+  flex: 0 0 auto;
+  padding: var(--space-3) var(--content-padding-x);
+}
+
 .inline-detail-page :deep(.detail-win) {
+  flex: 1;
+  min-height: 0;
   width: 100%;
-  height: 100%;
+  height: auto;
 }
 
 .detail-page-enter-active,
