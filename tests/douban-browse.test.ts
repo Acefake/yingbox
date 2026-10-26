@@ -276,7 +276,8 @@ describe('取一页', () => {
       [HOT]: () =>
         fail ? new HttpStatusError(403) : fixture('recent-hot-movie'),
     })
-    const browse = createDoubanBrowse({ net, now: () => t })
+    // 只看 rexxar 自己的熔断：关掉 frodo 回退（回退见 douban-frodo.test.ts）
+    const browse = createDoubanBrowse({ net, now: () => t, frodo: false })
     const q = query()
     for (let i = 0; i < 3; i++)
       await expect(browse.page(q, 0)).rejects.toThrow()

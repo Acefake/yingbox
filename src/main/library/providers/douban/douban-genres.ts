@@ -8,7 +8,18 @@
  *
  * 只给类型补全用（genre-fill.ts）：调用方注入限速很低的 ProviderHttp（串行、2 秒一次），
  * 结果按查询词缓存 30 天（找不到也缓存），同一部片不会反复请求。
+ *
+ * rexxar 失败或被风控（403 / 418 / 验证页 / 空结果）时回退到 frodo.douban.com 的同名搜索接口
+ * （shared/douban/frodo）：同一个 ProviderHttp（同一个令牌桶）、同一个缓存键，缓存不区分来源。
+ * 开了回退时 rexxar 的空结果不进缓存（ttl 0），留给 frodo 写；frodo 也空才按「查无此片」缓存 30 天。
  */
+import {
+  type SourceCooldown,
+  frodoRequest,
+  isEmptySearch,
+  mapSearch,
+  withFrodoFallback,
+} from '../../../../shared/douban/frodo'
 import { countryCodes } from '../../../../shared/library/identify'
 import { normalizeTitle } from '../../../../shared/library/scoring'
 import type { ResponseCache } from '../http/provider-cache'
@@ -106,16 +117,29 @@ export function pickDoubanGenres(
   return typeof subtitle === 'string' ? parseCardSubtitle(subtitle) : null
 }
 
+/** frodo 回退的选项。 */
+export interface DoubanGenreFallback {
+  /** 是否在 rexxar 失败时回退到 frodo；缺省关（genre-fill 按开关传入） */
+  frodo?: boolean
+  /** rexxar 出错后的冷却（冷却期内直接走 frodo） */
+  cooldown?: SourceCooldown
+  /** 走了 frodo 时的日志 */
+  log?: (message: string) => void
+}
+
 /** 豆瓣类型查询。 */
 export class DoubanGenreLookup {
   /**
-   * @param http 限速很低的 HTTP 层（与它共用 cache）
+   * @param http 限速很低的 HTTP 层（与它共用 cache；rexxar 与 frodo 都走它）
    * @param cache 响应缓存，用来判断一条查询会不会发请求
+   * @param now 当前时间（缓存判断与 frodo 签名的 _ts）
+   * @param fallback frodo 回退选项
    */
   constructor(
     private readonly http: ProviderHttp,
     private readonly cache?: Pick<ResponseCache, 'get'>,
-    private readonly now: () => number = Date.now
+    private readonly now: () => number = Date.now,
+    private readonly fallback: DoubanGenreFallback = {}
   ) {}
 
   /** 查询词的缓存键（电影 / 剧集 + 片名 + 年份；同名同年的电影与剧集挑出的条目不同）。 */
@@ -136,14 +160,40 @@ export class DoubanGenreLookup {
     signal?: AbortSignal
   ): Promise<DoubanGenres | null> {
     const q = query.year ? `${query.title} ${query.year}` : query.title
-    const body = await this.http.getJson<unknown>({
-      url: `${SEARCH}?q=${encodeURIComponent(q)}&start=0&count=10`,
-      headers: HEADERS,
-      cacheKey: DoubanGenreLookup.cacheKey(query),
-      ttl: () => DOUBAN_GENRE_TTL_MS,
-      notFoundTtl: DOUBAN_GENRE_TTL_MS,
+    const cacheKey = DoubanGenreLookup.cacheKey(query)
+    const enabled = Boolean(this.fallback.frodo)
+    // 开了回退时 rexxar 的空结果 / 404 不缓存，让 frodo 的结果写进同一个键
+    const rexxarTtl = (body: unknown): number =>
+      enabled && isEmptySearch(body) ? 0 : DOUBAN_GENRE_TTL_MS
+    const body = await withFrodoFallback<unknown>({
+      enabled,
+      label: '豆瓣补类型',
+      rexxar: () =>
+        this.http.getJson<unknown>({
+          url: `${SEARCH}?q=${encodeURIComponent(q)}&start=0&count=10`,
+          headers: HEADERS,
+          cacheKey,
+          ttl: rexxarTtl,
+          notFoundTtl: enabled ? 0 : DOUBAN_GENRE_TTL_MS,
+          signal,
+        }),
+      frodo: () => {
+        const params = { q, start: '0', count: '10' }
+        const request = frodoRequest('/search/movie', params, this.now())
+        return this.http.getJson<unknown>({
+          ...request,
+          cacheKey,
+          ttl: () => DOUBAN_GENRE_TTL_MS,
+          notFoundTtl: DOUBAN_GENRE_TTL_MS,
+          signal,
+        })
+      },
+      isEmpty: isEmptySearch,
+      cooldown: this.fallback.cooldown,
+      log: this.fallback.log,
       signal,
     })
-    return pickDoubanGenres(body, query)
+    // 缓存里可能是 rexxar 或 frodo 的响应，统一映射成 rexxar 结构再挑
+    return pickDoubanGenres(mapSearch(body), query)
   }
 }

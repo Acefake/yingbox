@@ -34,7 +34,7 @@
 - **检查**：`scripts/smoke-server.mjs`（离线端到端，手动跑）、`scripts/web-e2e.mjs`（Playwright，手动跑）。
 
 | 桌面端（Electron）                       | 片库服务（Node）                                                        |
-| ---------------------------------------- | ----------------------------------------------------------------------- |
+| ---------------------------------------- | ----------------------------------------------------------------------- | ---- | ----------------------------------------------------------------------------------------------------------- |
 | utilityProcess + MessagePort IPC         | 同进程 LibraryService + HTTP RPC / SSE                                  |
 | `net.fetch`（Chromium 网络栈）           | Node fetch（undici）/ curl(-impersonate) / 自定义模块                   |
 | `nativeImage` 缩放                       | wasm 解码 + 缩放（编解码线程）                                          |
@@ -44,6 +44,7 @@
 | IPC `subtitle:find / read`               | `/media/subtitles/<fileId>`：视频旁的外挂字幕转 WebVTT                  |
 | ffprobe / ffmpeg 路径向主进程要          | `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 或 PATH                            |
 | 自动中文字幕设置在桌面设置里             | `YINGBOX_AUTO_SUBTITLES` / `YINGBOX_SUBTITLES_DAILY_LIMIT`              |
+| —                                        | `YINGBOX_DOUBAN_FRODO`                                                  | `on` | `off` 时豆瓣只走 m.douban.com/rexxar，不回退到 frodo.douban.com，见 `docs/library-refactor/douban-frodo.md` |
 | 在线引擎 utilityProcess + IPC            | child_process 引擎（同一个 `EngineHost`）+ `/api/engine/rpc`、SSE       |
 | `yingbox-stream://` + `media-headers.ts` | `/api/stream`（鉴权、防 SSRF、按源 Referer、m3u8 改写、Range）          |
 | 115 分区 `persist:pan115`（Cookie 罐）   | Node fetch + `<数据目录>/pan115-cookies.json`（0600），见「网盘与追更」 |

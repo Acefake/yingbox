@@ -1,0 +1,69 @@
+{
+  "total": 501,
+  "items": [
+    {
+      "id": "movie_scifi",
+      "title": "高分经典科幻片榜",
+      "type": "chart",
+      "card": "chart",
+      "item_type": "movie"
+    },
+    {
+      "id": "37068446",
+      "title": "生化危机：爆发夜",
+      "type": "movie",
+      "year": "2026",
+      "card_subtitle": "2026 / 德国 法国 美国 / 科幻 惊悚 恐怖 / 扎克·克雷格 / 奥斯汀·艾布拉姆斯 扎克·切利",
+      "rating": {
+        "count": 201389,
+        "max": 10,
+        "star_count": 3.5,
+        "value": 7.3
+      },
+      "pic": {
+        "large": "https://img2.doubanio.com/view/photo/m_ratio_poster/public/p2936442661.webp",
+        "normal": "https://img2.doubanio.com/view/photo/s_ratio_poster/public/p2936442661.webp"
+      },
+      "card": "subject",
+      "uri": "douban://douban.com/movie/37068446"
+    },
+    {
+      "id": "36179101",
+      "title": "希望",
+      "type": "movie",
+      "year": "2026",
+      "card_subtitle": "2026 / 韩国 / 剧情 动作 科幻 悬疑 惊悚 恐怖 / 罗泓轸 / 黄政民 赵寅成",
+      "rating": {
+        "count": 25714,
+        "max": 10,
+        "star_count": 3,
+        "value": 5.5
+      },
+      "pic": {
+        "large": "https://img2.doubanio.com/view/photo/m_ratio_poster/public/p2933326871.webp",
+        "normal": "https://img2.doubanio.com/view/photo/s_ratio_poster/public/p2933326871.webp"
+      },
+      "card": "subject",
+      "uri": "douban://douban.com/movie/36179101"
+    },
+    {
+      "id": "36246195",
+      "title": "蜘蛛侠：崭新之日",
+      "type": "movie",
+      "year": "2026",
+      "card_subtitle": "2026 / 美国 加拿大 英国 德国 / 动作 科幻 冒险 / 德斯汀·丹尼尔·克雷顿 / 汤姆·霍兰德 赞达亚",
+      "rating": {
+        "count": 440301,
+        "max": 10,
+        "star_count": 4,
+        "value": 7.7
+      },
+      "pic": {
+        "large": "https://img3.doubanio.com/view/photo/m_ratio_poster/public/p2934276912.webp",
+        "normal": "https://img3.doubanio.com/view/photo/s_ratio_poster/public/p2934276912.webp"
+      },
+      "card": "subject",
+      "uri": "douban://douban.com/movie/36246195"
+    }
+  ]
+}
