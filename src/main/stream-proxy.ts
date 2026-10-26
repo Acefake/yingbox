@@ -14,6 +14,15 @@ const LOG_WINDOW_MS = 10_000
 export const STREAM_CONNECT_MS = 20_000
 /** 失败原因回给渲染层的响应头（不含完整地址） */
 export const STREAM_ERROR_HEADER = 'X-Yingbox-Error'
+/**
+ * 转发的是任意上游的内容：不许按 HTML 嗅探、直接打开时也不执行脚本。
+ * 独立服务的 /api/stream 与网页端同源（带登录 Cookie），上游回一页 text/html 就等于在服务的源上跑别人的脚本；
+ * 这两个头只管「当文档打开」，hls.js 的 fetch 与 <video> 读取不受影响。
+ */
+export const STREAM_SAFETY_HEADERS: Readonly<Record<string, string>> = {
+  'X-Content-Type-Options': 'nosniff',
+  'Content-Security-Policy': "sandbox; default-src 'none'",
+}
 
 /**
  * 记录转发失败（直播、在线 HLS 排查用）：只打主机与原因，不打完整地址（可能带令牌）。
@@ -82,6 +91,7 @@ export async function proxyStream(
     })
     clearTimeout(timer)
     const result = new Headers({
+      ...STREAM_SAFETY_HEADERS,
       ...cors,
       ...(options.cors
         ? { 'Access-Control-Expose-Headers': STREAM_RESPONSE_URL }
