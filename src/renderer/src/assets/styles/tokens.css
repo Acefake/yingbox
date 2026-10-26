@@ -343,6 +343,9 @@
   --assistant-width: 720px; /* 居中一列（输入胶囊）的宽度，面板再加两侧内边距 */
   --assistant-panel-height: 724px; /* 有对话时面板最高 */
   --assistant-composer-height: 64px;
+  /* 空闲时一列顶部锚定：输入胶囊约在 43vh（130px ≈ 标题 + 上下文胶囊 + 半个输入胶囊），窄窗口约 40vh */
+  --assistant-hero-top: max(var(--space-6), calc(43vh - 130px));
+  --assistant-hero-top-narrow: max(var(--space-3), calc(40vh - 110px));
   --duration-assistant-sheet: 550ms; /* 结果逐行弹簧滑入 */
   --duration-assistant: 220ms; /* 唤起 / 收起（与 AssistantLauncher 的 OPEN_MS 一致） */
 

@@ -18,6 +18,11 @@ export function onlineApi(): Window['api']['online'] {
   return api
 }
 
+/** 有没有在线域（桌面端才有；网页版没有引擎） */
+export function onlineAvailable(): boolean {
+  return typeof window !== 'undefined' && Boolean(window.api?.online)
+}
+
 /** GET 一个 JSON 接口。 */
 export function getJson<T = unknown>(
   url: string,

@@ -1,13 +1,20 @@
 <template>
   <div
-    v-if="best.length || moments.length || actors.length"
-    id="search-results"
+    v-if="
+      $slots.before ||
+      $slots.after ||
+      best.length ||
+      moments.length ||
+      actors.length
+    "
+    :id="listId"
     class="search-matches"
     role="listbox"
     aria-label="搜索结果"
   >
+    <slot name="before" />
     <template v-if="best.length">
-      <h3>最佳匹配</h3>
+      <h3>本地片库</h3>
       <UiListRow
         v-for="(hit, index) in best"
         :id="`search-hit-${index}`"
@@ -72,10 +79,14 @@
         }}<template #description>{{ actor.workCount }} 部库内作品</template>
       </UiListRow>
     </template>
+    <slot name="after" />
   </div>
 </template>
 <script setup lang="ts">
-/** 有界结果列表，三类结果共享键盘索引；行使用原生按钮，支持 Tab 和 Enter。 */
+/**
+ * 有界结果列表，三类结果共享键盘索引（行 id 为 search-hit-<索引>）；行使用原生按钮，支持 Tab 和 Enter。
+ * before / after 插槽放在同一个 listbox 的最前 / 最后（统一入口的「问 AI」行与在线结果）。
+ */
 import type { ActorSummary } from '../../../../../shared/library/ipc'
 import { UiIcon, UiListRow } from '@/components/ui'
 import { libraryPoster } from '../detail/assistant-links'
@@ -85,6 +96,8 @@ defineProps<{
   moments: SearchHit[]
   actors: ActorSummary[]
   selected: number
+  /** listbox 的 id（输入框的 aria-controls 指向它） */
+  listId: string
 }>()
 const emit = defineEmits<{
   open: [hit: SearchHit]
