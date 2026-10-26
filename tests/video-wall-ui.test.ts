@@ -34,6 +34,8 @@ vi.mock('../src/renderer/src/features/library/api/bridge', () => ({
 vi.mock('../src/renderer/src/services/library-server', () => ({
   isWebRuntime: () => false,
   serverFileUrl: (id: number) => `https://nas/media/files/${id}`,
+  libraryServerState: () => ({ value: 'unknown' }),
+  probeLibraryServerAgain: async () => 'offline',
 }))
 vi.mock('../src/renderer/src/features/player', () => ({ openMediaPlayer }))
 

@@ -102,9 +102,12 @@ export function createServerEvents(
   }
 }
 
-/** 默认实现：浏览器的 EventSource + 片库服务的连接状态。 */
+/**
+ * 默认实现：浏览器的 EventSource + 片库服务的连接状态。
+ * 依赖都包成函数、用到时才取，模块加载时不读 './index' 的导出（循环引用或单测部分 mock 时不会拿到 undefined）。
+ */
 export const openServerEvents = createServerEvents({
   create: url => new EventSource(url, { withCredentials: true }),
   online: () => libraryServerState().value === 'online',
-  probe: probeLibraryServerAgain,
+  probe: () => probeLibraryServerAgain(),
 })
