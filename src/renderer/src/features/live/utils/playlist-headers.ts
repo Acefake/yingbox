@@ -73,11 +73,23 @@ export function headersFromDirective(line: string): StreamHeaders | undefined {
 }
 
 /**
- * 一条地址行 → 线路地址：去掉 `$备注`（与 txt 一致），拆出 `|头` 后缀，和频道上写的头合并后按规范写法挂回。
+ * 去掉地址末尾的 `$备注`：取最后一个 `$`，它后面不含 `/ ? = & #`、前面也不是 `? = &`（查询参数值的开头）时才算备注，
+ * 地址里合法的 `$`（如 `?token=$abc`、路径里的 `$`）不动。
+ */
+export function stripLineNote(line: string): string {
+  const at = line.lastIndexOf('$')
+  if (at <= 0) return line
+  const note = line.slice(at + 1)
+  if (/[/?=&#]/.test(note) || /[?=&]/.test(line[at - 1])) return line
+  return line.slice(0, at)
+}
+
+/**
+ * 一条地址行 → 线路地址：去掉 `$备注`（{@link stripLineNote}，与 txt 一致），拆出 `|头` 后缀，和频道上写的头合并后按规范写法挂回。
  * @param line 地址行原文
  * @param inherited 指令行 / #EXTINF 属性给出的头（地址后缀优先）
  */
 export function lineUrl(line: string, inherited?: StreamHeaders): string {
-  const { url, headers } = splitStreamHeaders(line.split('$')[0])
+  const { url, headers } = splitStreamHeaders(stripLineNote(line))
   return joinStreamHeaders(url, mergeHeaders(inherited, headers))
 }

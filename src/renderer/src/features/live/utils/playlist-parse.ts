@@ -16,6 +16,7 @@ import {
   headersFromAttrs,
   headersFromDirective,
   lineUrl,
+  stripLineNote,
 } from './playlist-headers'
 
 /** 一个频道（多个地址 = 多条线路） */
@@ -122,9 +123,14 @@ function createCollector(): {
 export function parseM3u(text: string): ParsedPlaylist {
   const collector = createCollector()
   const epgUrls: string[] = []
-  let pending: { attrs: Record<string, string>; title: string } | null = null
+  let pending: {
+    attrs: Record<string, string>
+    title: string
+    /** 写在 #EXTINF 之前（上一条地址之后）的请求头指令 */
+    before?: StreamHeaders
+  } | null = null
   let groupLine = ''
-  /** 上一条地址之后出现的请求头指令（可写在 #EXTINF 前后） */
+  /** 尚未归属的请求头指令；遇到 #EXTINF 时归给新频道，频道没有地址行时随它丢弃，不串到下一个频道 */
   let directive: StreamHeaders | undefined
 
   for (const rawLine of text.split(/\r?\n/)) {
@@ -134,7 +140,10 @@ export function parseM3u(text: string): ParsedPlaylist {
       const attrs = parseExtAttributes(line)
       epgUrls.push(...splitEpgUrls(attrs['x-tvg-url'] || attrs['url-tvg']))
     } else if (/^#EXTINF:/i.test(line)) {
-      pending = splitExtinf(line)
+      // 上一个 #EXTINF 还没等到地址行：之后的指令是它的，不给新频道
+      const before = pending ? undefined : directive
+      pending = { ...splitExtinf(line), before }
+      directive = undefined
       groupLine = ''
     } else if (/^#EXTGRP:/i.test(line)) {
       groupLine = line.slice(8).trim()
@@ -142,7 +151,7 @@ export function parseM3u(text: string): ParsedPlaylist {
       const headers = headersFromDirective(line)
       if (headers) directive = { ...directive, ...headers }
     } else if (pending) {
-      const { attrs, title } = pending
+      const { attrs, title, before } = pending
       const name = title || attrs['tvg-name'] || ''
       collector.add(
         {
@@ -152,7 +161,13 @@ export function parseM3u(text: string): ParsedPlaylist {
           tvgName: attrs['tvg-name'] || undefined,
           logo: attrs['tvg-logo'] || undefined,
         },
-        [lineUrl(line, { ...headersFromAttrs(attrs), ...directive })]
+        [
+          lineUrl(line, {
+            ...headersFromAttrs(attrs),
+            ...before,
+            ...directive,
+          }),
+        ]
       )
       pending = null
       directive = undefined
@@ -179,7 +194,7 @@ export function parseTvboxTxt(text: string): ParsedPlaylist {
       group = name || DEFAULT_GROUP
       continue
     }
-    const urls = rest.split('#').map(part => part.split('$')[0])
+    const urls = rest.split('#').map(stripLineNote)
     collector.add({ name, group }, urls)
   }
   return { format: 'txt', channels: collector.list(), epgUrls: [] }

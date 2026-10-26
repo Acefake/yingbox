@@ -52,9 +52,10 @@ export function webPlayableUrl(url: string): string {
   try {
     target = new URL(line.url, window.location.href)
   } catch {
-    return url
+    return line.url
   }
-  if (!['http:', 'https:'].includes(target.protocol)) return url
-  if (target.origin === window.location.origin) return url
+  // 不经代理的分支也用拆掉后缀的地址（同源不需要线路请求头）
+  if (!['http:', 'https:'].includes(target.protocol)) return line.url
+  if (target.origin === window.location.origin) return line.url
   return streamProxyPath(target.href, line.headers)
 }

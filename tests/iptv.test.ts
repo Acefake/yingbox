@@ -99,7 +99,10 @@ describe('m3u 解析', () => {
       '某台, 高清',
       '无分组台',
     ])
-    expect(result.channels[1].urls).toEqual(['https://c.example.com/live?id=3'])
+    // #EXTVLCOPT 的 UA 挂在线路地址后缀上（见 live-stream-headers.test.ts）
+    expect(result.channels[1].urls).toEqual([
+      'https://c.example.com/live?id=3|User-Agent=Foo',
+    ])
     expect(result.channels[2].group).toBe('其他')
   })
 

@@ -74,7 +74,10 @@ export function parseHeaderPairs(raw: string): StreamHeaders | undefined {
   return sanitizeStreamHeaders(headers)
 }
 
-/** 拆开 `地址|头=值&…`：`|` 后面不像头参数、或一个认识的头都没有时不拆（当作地址本身的一部分） */
+/**
+ * 拆开 `地址|头=值&…`：`|` 后面像头参数（`名=值`）就拆，不认识的头（Cookie 等）丢弃、只留地址；
+ * `|` 后面不像头参数时不拆（当作地址本身的一部分）。
+ */
 export function splitStreamHeaders(value: string): {
   url: string
   headers?: StreamHeaders
@@ -84,7 +87,7 @@ export function splitStreamHeaders(value: string): {
     return { url: value.trim() }
   const url = value.slice(0, bar).trim()
   const headers = parseHeaderPairs(value.slice(bar + 1))
-  return headers ? { url, headers } : { url: value.trim() }
+  return headers ? { url, headers } : { url }
 }
 
 /** 把请求头挂回地址（规范写法，供合并去重）；没有头时原样返回 */

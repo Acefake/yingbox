@@ -26,7 +26,10 @@ import { isLikelyHls } from './live-rules'
 export interface LinePlan {
   /** hls：hls.js；video：<video> 直连；external：内置播放器播不了（可交给 mpv）；fail：线路不通 */
   mode: 'hls' | 'video' | 'external' | 'fail'
-  /** 交给播放器的地址（hls 用原地址（含请求头后缀），由加载器代理；video 用代理地址） */
+  /**
+   * 交给播放器的地址：hls 用原地址（含请求头后缀），由加载器代理；有探测结果（桌面）时 video 用代理地址；
+   * 没有探测能力（网页端）时原样（含后缀），由 art-core 的 webPlayableUrl 拆开、换成服务端代理地址。
+   */
   src: string
   /** 失败 / 不支持的原因 */
   reason: string

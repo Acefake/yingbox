@@ -7,12 +7,13 @@ import {
   COMPACT_MESSAGE,
   DEFAULT_STATUS,
   WATCH_PROPS,
-  parsePlaylist,
-  parseTracks,
+  patchStatus,
+  replaceProps,
+  spawnArgs,
 } from './mpv-props'
 import { MpvSocket, SOCKET_PATH } from './mpv-socket'
+import { MpvHeaderState, mpvStream } from './mpv-stream'
 import { MpvWindow } from './mpv-window'
-import { mpvStream } from './mpv-stream'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
 import type { Anime4kConfig } from '../shared/anime4k'
@@ -50,6 +51,11 @@ class MpvPlayer extends EventEmitter {
   private readonly window = new MpvWindow((name, value) =>
     this.setProp(name, value)
   )
+  /** 本进程里影盒改过的 UA / Referer（换片时还原） */
+  private readonly headers = new MpvHeaderState(
+    name => this.cmd('get_property', name),
+    (name, value) => this.setProp(name, value)
+  )
   /** 影盒超分着色器（设置 + 当前条目是否动画） */
   private readonly anime4k = new Anime4kSync(
     (...args) => this.cmd(...args),
@@ -85,10 +91,10 @@ class MpvPlayer extends EventEmitter {
     try {
       if (this.child && this.sock.connected) {
         const stream = mpvStream(options)
-        for (const [k, v] of stream.props) await this.setProp(k, v)
+        await this.headers.apply(stream.headers)
+        for (const [name, value] of replaceProps(options))
+          await this.setProp(name, value)
         await this.cmd('loadfile', stream.target, 'replace')
-        if (typeof options.startAt === 'number')
-          await this.setProp('time-pos', options.startAt)
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
         await this.window.bringToFront()
@@ -104,43 +110,47 @@ class MpvPlayer extends EventEmitter {
   }
 
   private async spawnProcess(options: MpvOpenOptions): Promise<void> {
-    if (this.child) void killTree(this.child)
-    const exe = findMpvExecutable()
-    const { target, args: streamArgs } = mpvStream(options)
-
-    const args: string[] = [
-      `--input-ipc-server=${SOCKET_PATH}`,
-      '--force-window=yes',
-      '--keep-open=yes',
-      '--osc=yes',
-      '--no-terminal',
-      '--ytdl=no',
-      // 无边框：不显示 Windows 标题栏及其英文系统菜单，菜单改由影盒提供。
-      // --window-dragging 默认 yes，无边框时仍可用鼠标拖动窗口。
-      '--border=no',
-      // 首次打开（新进程）时的初始窗口尺寸；之后由用户自己调整并保持。
-      '--geometry=1600x900',
-    ]
-    if (this.isVsrWanted()) {
-      // RTX 视频超分依赖 d3d11vpp 滤镜，必须走 D3D11 的 GPU API；
-      // 同时固定 D3D11 硬解，让帧停留在 GPU 上。
-      args.push('--gpu-api=d3d11', '--hwdec=d3d11va')
+    // 旧进程还在但连接断了：先就地收尾再杀，它迟到的 exit 不会再清掉新进程
+    const old = this.child
+    if (old) {
+      this.cleanupProcess()
+      void killTree(old)
     }
-    if (typeof options.startAt === 'number')
-      args.push(`--start=${options.startAt}`)
-    if (options.title) args.push(`--title=${options.title}`)
-    if (options.subFile) args.push(`--sub-file=${options.subFile}`)
-    args.push(...streamArgs) // 防盗链 Referer、线路自带的 UA
-    args.push(target)
-
-    this.child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
-    this.child.once('error', e => {
+    const exe = findMpvExecutable()
+    const { target, headers } = mpvStream(options)
+    const args = spawnArgs({
+      socket: SOCKET_PATH,
+      target,
+      startAt: options.startAt,
+      title: options.title,
+      subFile: options.subFile,
+      headers,
+      vsr: this.isVsrWanted(),
+    })
+    this.headers.reset(headers)
+    const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
+    this.child = child
+    let spawnError: Error | null = null
+    child.once('error', e => {
+      spawnError = e
+      if (this.child !== child) return
       this.emit('error', `mpv 启动失败: ${e.message}`)
       this.cleanupProcess()
     })
-    this.child.once('exit', () => this.cleanupProcess())
-
-    await this.sock.connect()
+    child.once('exit', () => {
+      if (this.child === child) this.cleanupProcess()
+    })
+    try {
+      await this.sock.connect(undefined, () => this.child !== child)
+    } catch (error) {
+      // 连不上：不留没人管的 mpv 进程
+      if (this.child === child) {
+        this.cleanupProcess()
+        void killTree(child)
+      }
+      const failed = spawnError as Error | null
+      throw failed ? new Error(`mpv 启动失败: ${failed.message}`) : error
+    }
     this._status = {
       ...DEFAULT_STATUS,
       running: true,
@@ -187,56 +197,16 @@ class MpvPlayer extends EventEmitter {
   }
 
   private applyProp(name: string, data: unknown): void {
-    switch (name) {
-      case 'time-pos':
-        this._status.position = typeof data === 'number' ? data : undefined
-        // 启动时可能在 IPC 连接前已经就绪；有效播放位置可补齐该状态。
-        if (typeof data === 'number') this._status.loading = false
-        break
-      case 'duration':
-        this._status.duration = typeof data === 'number' ? data : undefined
-        break
-      case 'pause':
-        this._status.paused = Boolean(data)
-        break
-      case 'volume':
-        this._status.volume = typeof data === 'number' ? data : 100
-        break
-      case 'mute':
-        this._status.muted = Boolean(data)
-        break
-      case 'speed':
-        this._status.speed = typeof data === 'number' ? data : 1
-        break
-      case 'media-title':
-        this._status.title = typeof data === 'string' ? data : undefined
-        break
-      case 'path':
-        this._status.path = typeof data === 'string' ? data : undefined
-        break
-      case 'playlist-pos':
-        this._status.playlistPos = typeof data === 'number' ? data : 0
-        break
-      case 'track-list':
-        this._status.tracks = parseTracks(data as Record<string, unknown>[])
-        break
-      case 'playlist':
-        this._status.playlist = parsePlaylist(data as Record<string, unknown>[])
-        break
-      case 'video-params': {
-        const params = data as { h?: number; w?: number } | null
-        this.videoHeight = typeof params?.h === 'number' ? params.h : 0
-        this.videoWidth = typeof params?.w === 'number' ? params.w : 0
-        void this.syncVsr()
-        break
-      }
-    }
+    if (name === 'video-params') {
+      const params = data as { h?: number; w?: number } | null
+      this.videoHeight = typeof params?.h === 'number' ? params.h : 0
+      this.videoWidth = typeof params?.w === 'number' ? params.w : 0
+      void this.syncVsr()
+    } else patchStatus(this._status, name, data)
     this.emit('status', this.getStatus())
   }
 
-  // ——— RTX 视频超分 ———
-
-  /** 超分开关是否希望生效（功能依赖 D3D11，仅 Windows 平台） */
+  /** RTX 视频超分开关是否希望生效（功能依赖 D3D11，仅 Windows 平台） */
   private isVsrWanted(): boolean {
     return this.vsrEnabled && process.platform === 'win32'
   }
@@ -384,8 +354,6 @@ class MpvPlayer extends EventEmitter {
   async showText(text: string, ms: number): Promise<void> {
     if (this.child) await this.cmd('show-text', text, ms)
   }
-
-  // ——— 播放列表 ———
 
   /** 退出 mpv：先发 quit 命令，1.5 秒内没退出就强杀进程树；返回时进程已退出或已放弃等待。 */
   async quit(): Promise<void> {
