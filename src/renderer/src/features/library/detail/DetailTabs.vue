@@ -22,7 +22,7 @@
 <script setup lang="ts">
 /**
  * 详情页底部的分区胶囊（效果图 D-1）：在内容区（侧栏右边）居中，压在文字上所以玻璃更厚；
- * 窄屏隐藏。首屏它会盖住第一排剧集卡，所以 Hero 还在身后时淡出，滚过 Hero 再出现（状态来自 useHeroBackdrop）。
+ * 窄屏隐藏。首屏它会盖住第一排剧集卡，所以 Hero 底边升过视口一半前淡出（判定见 detailTabsShownAt，状态来自 useHeroBackdrop）。
  * 选中与滚动跟随在 use-detail-tabs。
  */
 import UiPressable from '@/components/ui/UiPressable.vue'
