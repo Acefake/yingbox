@@ -7,11 +7,30 @@ import {
   optArray,
   str,
 } from './define'
+import type { StreamKind } from '../iptv/stream-kind'
 
 /** 读到的播放列表原文（m3u / m3u8 / TVBox txt），由渲染层解析 */
 export interface PlaylistText {
   ok: boolean
   text?: string
+  error?: string
+}
+
+/** 直播线路探测的失败原因：超时、HTTP 状态码、被安全策略拦下（内网地址等）、网络错误 */
+export type StreamProbeFailure = 'timeout' | 'http' | 'blocked' | 'network'
+
+/** 直播线路探测结果（主进程按 Content-Type 与开头字节判断格式，见 shared/iptv/stream-kind.ts） */
+export interface StreamProbe {
+  ok: boolean
+  /** 识别出的格式（StreamKind）；失败时没有 */
+  kind?: StreamKind
+  /** 上游 HTTP 状态码 */
+  status?: number
+  /** 跟随重定向后的最终地址 */
+  finalUrl?: string
+  contentType?: string
+  failure?: StreamProbeFailure
+  /** 失败原因原文（日志 / 提示用） */
   error?: string
 }
 
@@ -76,6 +95,8 @@ function parseQueries(value: unknown): EpgQuery[] {
 export const iptv = defineDomain('iptv', {
   /** 下载远程播放列表（http/https，经主进程 SSRF 防护的出网口） */
   fetchPlaylist: call<[url: string], PlaylistText>(a => [str(a[0], 'url')]),
+  /** 探测一条直播线路：跟随重定向、读开头几 KB 判断格式（HLS / MP4 / FLV / TS…），超时与 HTTP 错误带原因返回 */
+  probeStream: call<[url: string], StreamProbe>(a => [str(a[0], 'url')]),
   /** 弹出对话框选择本地播放列表并读出原文 */
   pickPlaylistFile: call<PickedPlaylist>(),
   /** 重读之前选过的本地播放列表（只接受 .m3u / .m3u8 / .txt） */

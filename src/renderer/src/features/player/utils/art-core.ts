@@ -18,6 +18,7 @@ import { installSleepTimer } from '../sleep/sleep-timer'
 import { installScreenshot } from '../screenshot/screenshot'
 import { artSkinControls, installQualityBadge } from './art-skin'
 import { type HlsSession, createHlsSession } from './hls-session'
+import { hlsErrorReason, videoErrorReason } from './play-errors'
 
 /** 转给组件的播放器事件 */
 export type ArtEventName =
@@ -32,8 +33,8 @@ export type ArtEventName =
 export interface ArtSink {
   /** 普通事件，原样转成组件事件 */
   event: (name: ArtEventName, event: Event) => void
-  /** 播放失败（地址解析之后的任何错误） */
-  error: () => void
+  /** 播放失败（地址解析之后的任何错误）；reason 是给用户看的原因（play-errors.ts） */
+  error: (reason?: string) => void
   /** 开播：收起加载层 */
   started: () => void
   /** 元数据 / HLS 清单就绪：跳到续播位置 */
@@ -94,8 +95,8 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
           sink.seek(video)
           if (sink.autoplay()) video.play().catch(() => {})
         },
-        onFatalError: instance => {
-          sink.error()
+        onFatalError: (instance, data) => {
+          sink.error(hlsErrorReason(data))
           instance.notice.show = '播放失败'
         },
       })
@@ -139,7 +140,9 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   art.on('video:volumechange', (event: Event) =>
     sink.event('volumechange', event)
   )
-  art.on('video:error', () => sink.error())
+  art.on('video:error', () =>
+    sink.error(videoErrorReason(art.video.error?.code))
+  )
   art.on('video:ended', (event: Event) => sink.event('ended', event))
   art.on('video:pause', (event: Event) => sink.event('pause', event))
 

@@ -4,17 +4,15 @@ import {
   Menu,
   app,
   globalShortcut,
-  net,
   protocol,
   screen,
   session,
   shell,
 } from 'electron'
 import { join } from 'path'
-import { lookup } from 'node:dns/promises'
-import { createNetClient } from '../shared/net/client'
 import { STREAM_SCHEME } from '../shared/stream-url'
 import { createStreamHandler } from './stream-proxy'
+import { streamNetClient } from './stream-net'
 import { installWindowSecurity } from './window-security'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
@@ -178,7 +176,7 @@ app.whenReady().then(async () => {
   session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
     const headers = { ...details.responseHeaders }
     headers['Content-Security-Policy'] = [
-      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss: yingbox-stream:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data:",
+      "default-src 'self'; script-src 'self' 'wasm-unsafe-eval'; style-src 'self' 'unsafe-inline'; img-src 'self' https: http: yingbox-media: data: blob:; connect-src 'self' https: http: ws: wss: yingbox-stream:; font-src 'self' data:; object-src 'none'; base-uri 'self'; frame-src 'none'; worker-src 'self' blob:; media-src * blob: data: yingbox-stream:",
     ]
     callback({ responseHeaders: headers })
   })
@@ -190,15 +188,7 @@ app.whenReady().then(async () => {
 
   // 注册 local:// 协议，允许渲染层流式读取本地文件（用于内置播放器）
   protocol.handle('local', serveLocalMedia)
-  protocol.handle(
-    STREAM_SCHEME,
-    createStreamHandler(
-      createNetClient({
-        fetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
-        lookup: host => lookup(host, { all: true }),
-      })
-    )
-  )
+  protocol.handle(STREAM_SCHEME, createStreamHandler(streamNetClient()))
 
   // 注册 yingbox-media:// 协议（全应用的缓存图片与 WebP 缩略图）
   const thumbnails = registerThumbnails()

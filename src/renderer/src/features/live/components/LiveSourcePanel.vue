@@ -163,7 +163,12 @@ async function subscribe(preset: LivePreset): Promise<void> {
   subscribing.value = preset.id
   formError.value = ''
   try {
-    const error = await live.addUrl(preset.url, preset.epgUrl, preset.name)
+    const error = await live.addUrl(
+      preset.url,
+      preset.epgUrl,
+      preset.name,
+      preset.mirrors
+    )
     if (error) formError.value = error
   } finally {
     subscribing.value = ''

@@ -18,6 +18,7 @@ import {
   sanitizeSource,
   toggleFavorite,
 } from '../utils/live-rules'
+import { presetMirrorsFor } from '../utils/live-presets'
 import { type ParsedPlaylist, parsePlaylist } from '../utils/playlist-parse'
 import type { PlaylistText } from '../../../../../shared/contract/iptv'
 
@@ -54,9 +55,16 @@ const persistSources = (): void => {
 async function readSource(source: LiveSource): Promise<PlaylistText> {
   const iptv = api()
   if (!iptv) return { ok: false, error: '直播需要桌面端' }
-  return source.kind === 'url'
-    ? iptv.fetchPlaylist(source.location)
-    : iptv.readPlaylistFile(source.location)
+  if (source.kind === 'file') return iptv.readPlaylistFile(source.location)
+  // 主地址失败时依次试备用地址（推荐源的镜像，如 GitHub raw 在国内常连不上）
+  let result = await iptv.fetchPlaylist(source.location)
+  // 早先订阅、没存镜像的推荐源按推荐清单补上
+  for (const mirror of source.mirrors ?? presetMirrorsFor(source.location)) {
+    if (result.ok) break
+    const next = await iptv.fetchPlaylist(mirror)
+    result = next.ok ? next : result
+  }
+  return result
 }
 
 /** 解析原文并记下结果或错误 */
@@ -109,12 +117,13 @@ function ensureStarted(): void {
 
 /**
  * 添加远程源；地址非法或重复时返回错误文案。
- * name 为空时用主机名 + 文件名（推荐源传自己的名称）。
+ * name 为空时用主机名 + 文件名（推荐源传自己的名称）；mirrors 是备用地址（推荐源的镜像）。
  */
 async function addUrl(
   url: string,
   epgUrl = '',
-  name = ''
+  name = '',
+  mirrors: readonly string[] = []
 ): Promise<string | null> {
   const location = url.trim()
   if (!isValidSourceUrl(location)) return '请输入 http / https 地址'
@@ -127,6 +136,7 @@ async function addUrl(
     location,
     epgUrl: epgUrl.trim(),
     enabled: true,
+    ...(mirrors.length ? { mirrors: [...mirrors] } : {}),
   }
   sources.value = [...sources.value, source]
   persistSources()

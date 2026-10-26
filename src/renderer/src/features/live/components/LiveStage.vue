@@ -2,11 +2,11 @@
   <div class="live-stage">
     <div class="live-stage-player">
       <UnifiedVideoPlayer
-        v-if="channel && src && !failed"
+        v-if="channel && plan && !failed"
         :key="attempt"
-        :src="src"
+        :src="plan.src"
         :title="channel.name"
-        :hls="isLikelyHls(src)"
+        :hls="plan.mode === 'hls'"
         :show-footer="false"
         :closable="false"
         @error="onPlayerError"
@@ -16,14 +16,28 @@
         v-else-if="channel && failed"
         icon="warning"
         tone="danger"
-        title="所有线路都无法播放"
-        hint="稍后重试，或在直播源里换一个播放列表"
+        title="所有线路都无法在内置播放器播放"
+        :hint="summary"
       >
-        <UiButton icon="refresh" label="重试" size="sm" @click="retry" />
+        <div class="live-stage-actions">
+          <UiButton icon="refresh" label="重试" size="sm" @click="retry" />
+          <UiButton
+            v-if="mpvAvailable"
+            icon="externalLink"
+            label="用 mpv 播放"
+            size="sm"
+            @click="openInMpv"
+          />
+        </div>
       </StatusState>
+      <StatusState
+        v-else-if="channel && probing"
+        icon="livePlay"
+        :title="`正在连接线路 ${line + 1}…`"
+      />
       <StatusState v-else icon="livePlay" title="选择一个频道开始观看" />
       <span
-        v-if="channel && src && !failed"
+        v-if="channel && plan && !failed"
         class="live-stage-tag yb-glass is-media"
         aria-hidden="true"
         ><i />直播</span
@@ -35,6 +49,12 @@
         <h2 class="live-stage-name">{{ channel.name }}</h2>
         <p class="live-stage-now">{{ nowText }}</p>
       </div>
+      <UiIconButton
+        v-if="mpvAvailable"
+        icon="externalLink"
+        label="用 mpv 打开（有画面没声音、卡顿时可试）"
+        @click="openInMpv"
+      />
       <UiButton
         class="live-stage-fav"
         :class="{ 'is-on': favorite }"
@@ -57,6 +77,7 @@
         :key="index"
         :label="`线路 ${index + 1}`"
         :selected="index === line && !failed"
+        :title="reasons[index]"
         @click="pickLine(index)"
       />
     </div>
@@ -73,26 +94,24 @@
 
 <script setup lang="ts">
 /**
- * 直播播放区：圆角画面（内嵌统一播放器 HLS，右上角玻璃「直播」标）+ 频道信息与收藏 + 线路切换 + 今日节目单卡片。
- * 当前线路报错或 20 秒内没开始播放，自动切到下一条线路；全部失败后显示重试。
+ * 直播播放区：圆角画面（内嵌统一播放器，右上角玻璃「直播」标）+ 频道信息、mpv 打开与收藏 + 线路切换 + 今日节目单卡片。
+ * 线路的探测、换线与失败原因在 useLiveLine；全部失败时列出每条线路的原因，可一键改用 mpv。
  */
-import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { computed, toRef } from 'vue'
 
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
 import { toast } from '@/components/ui/toast'
-import { UnifiedVideoPlayer } from '@/features/player'
+import { UnifiedVideoPlayer, useMpvPlayer } from '@/features/player'
 
+import { useLiveLine } from '../composables/use-live-line'
 import { currentProgramme, formatClock } from '../utils/epg-rules'
-import { isLikelyHls, nextLine } from '../utils/live-rules'
 import type { LiveChannel } from '../utils/playlist-parse'
 import LiveSchedule from './LiveSchedule.vue'
 import type { EpgProgramme } from '../../../../../shared/contract/iptv'
-
-/** 开播超时：超过这么久还没有画面就当作线路失败 */
-const START_TIMEOUT_MS = 20_000
 
 const props = defineProps<{
   channel: LiveChannel | null
@@ -104,90 +123,38 @@ const props = defineProps<{
 
 const emit = defineEmits<{ 'toggle-favorite': [id: string] }>()
 
-const line = ref(0)
-const failed = ref(false)
-/** 重试时换 key，强制重建播放器 */
-const attempt = ref(0)
-let startTimer: ReturnType<typeof setTimeout> | undefined
-let started = false
-/** 最近一次换地址的时间：旧播放器销毁前补发的错误不算新线路失败 */
-let switchedAt = 0
-/** 换线后这段时间内的错误视为上一条线路的余波 */
-const ERROR_GRACE_MS = 300
+const {
+  line,
+  failed,
+  attempt,
+  plan,
+  probing,
+  reasons,
+  summary,
+  url,
+  pickLine,
+  retry,
+  onPlaying,
+  onPlayerError,
+} = useLiveLine(toRef(props, 'channel'))
 
-const src = computed(() => props.channel?.urls[line.value] ?? '')
+const mpv = useMpvPlayer()
+const mpvAvailable = mpv.canUseMpv()
+
+/** 当前线路交给 mpv（FLV / TS / 组播、HEVC、MP2 / AC3 音频都能播） */
+async function openInMpv(): Promise<void> {
+  const target = url.value
+  if (!target) return
+  const ok = await mpv.openMpv({ url: target, title: props.channel?.name })
+  if (!ok)
+    toast.warning('未检测到 mpv 播放器，可在「设置 → 播放器」安装或指定路径')
+}
 
 const nowText = computed(() => {
   const p = currentProgramme(props.programmes, props.now)
   if (!p) return '暂无节目信息'
   return `正在播出：${p.title || '未知节目'} · ${formatClock(p.start)}–${formatClock(p.stop)}`
 })
-
-function clearStartTimer(): void {
-  clearTimeout(startTimer)
-  startTimer = undefined
-}
-
-/** 每次换地址都重新计时 */
-function armStartTimer(): void {
-  clearStartTimer()
-  started = false
-  switchedAt = Date.now()
-  if (!src.value || failed.value) return
-  startTimer = setTimeout(onLineFailed, START_TIMEOUT_MS)
-}
-
-function onPlaying(): void {
-  if (started) return
-  started = true
-  clearStartTimer()
-}
-
-function onPlayerError(): void {
-  if (Date.now() - switchedAt < ERROR_GRACE_MS) return
-  onLineFailed()
-}
-
-/** 当前线路失败：切下一条，没有了就停下等用户重试 */
-function onLineFailed(): void {
-  clearStartTimer()
-  const channel = props.channel
-  if (!channel || failed.value) return
-  const next = nextLine(line.value, channel.urls.length)
-  if (next === null) {
-    failed.value = true
-    return
-  }
-  toast.info(`线路 ${line.value + 1} 无法播放，已切换到线路 ${next + 1}`)
-  line.value = next
-}
-
-function pickLine(index: number): void {
-  failed.value = false
-  if (index === line.value) attempt.value++
-  line.value = index
-  armStartTimer()
-}
-
-function retry(): void {
-  failed.value = false
-  line.value = 0
-  attempt.value++
-  armStartTimer()
-}
-
-watch(
-  () => props.channel?.id,
-  () => {
-    failed.value = false
-    line.value = 0
-    armStartTimer()
-  }
-)
-
-watch(src, armStartTimer, { immediate: true })
-
-onBeforeUnmount(clearStartTimer)
 </script>
 
 <style scoped>
@@ -234,6 +201,13 @@ onBeforeUnmount(clearStartTimer)
   font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
   pointer-events: none;
+}
+
+.live-stage-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: var(--space-2);
 }
 
 .live-stage-tag i {
