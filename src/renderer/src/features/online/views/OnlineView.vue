@@ -83,7 +83,7 @@
 </template>
 
 <script setup lang="ts">
-import { toast, UiButton } from '@/components/ui'
+import { UiButton, toast } from '@/components/ui'
 import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   CmsItem,
