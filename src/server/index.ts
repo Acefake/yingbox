@@ -48,7 +48,7 @@ async function main(): Promise<void> {
   log(`目录监控：${describeMonitor(config.monitor)}`)
   log(
     config.webDir
-      ? `网页端：${base}/?token=${app.token}${app.tokenGenerated ? '（新生成的令牌）' : ''}`
+      ? `网页端：${base}/?token=${encodeURIComponent(app.token)}${app.tokenGenerated ? '（新生成的令牌）' : ''}`
       : `未托管网页端（没有 dist-web）；API 令牌：${app.token}`
   )
 

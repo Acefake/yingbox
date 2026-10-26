@@ -16,6 +16,7 @@ import {
   type SubtitleListing,
 } from '../../../../shared/library/ipc'
 import type { MediaFocus } from '../../../../shared/media-focus'
+import { tokenCandidates } from '../../../../shared/net/token-query'
 
 /** 连接状态：未知（还没探测）/ 已连接 / 需要登录 / 连不上。 */
 export type LibraryServerState =
@@ -89,11 +90,17 @@ export async function loginLibraryServer(token: string): Promise<void> {
  */
 async function loginFromUrl(): Promise<void> {
   const url = new URL(window.location.href)
-  const token = url.searchParams.get('token')
-  if (!token) return
+  const candidates = tokenCandidates(url.search)
+  if (!candidates.length) return
   url.searchParams.delete('token')
   window.history.replaceState(window.history.state, '', url.toString())
-  await loginLibraryServer(token).catch(() => {})
+  for (const token of candidates) {
+    const ok = await loginLibraryServer(token).then(
+      () => true,
+      () => false
+    )
+    if (ok) return
+  }
 }
 
 /** 媒体库缓存图片（yingbox-media://image/<key>）在服务上的地址。 */

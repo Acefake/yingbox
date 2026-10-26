@@ -33,6 +33,7 @@ import {
 } from '../main/thumbnails/codec-client'
 import { createThumbnailPipeline } from '../main/thumbnails/pipeline'
 import { createWasmResizer } from '../main/thumbnails/wasm-resizer'
+import { tokenCandidates } from '../shared/net/token-query'
 import { type ServerConfig, serverPaths } from './config'
 import type { Handler } from './http/adapter'
 import { createAuth, sameOrigin } from './http/auth'
@@ -175,8 +176,7 @@ export async function createServerApp(
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return fail(405, '不支持的方法')
       // 带 ?token= 打开首页（启动日志里的地址）：写入 Cookie 后去掉地址里的令牌
-      const candidate = url.searchParams.get('token')
-      if (candidate !== null && auth.matches(candidate))
+      if (tokenCandidates(url.search).some(auth.matches))
         return new Response(null, {
           status: 302,
           headers: { Location: '/', 'Set-Cookie': auth.loginCookie(request) },
