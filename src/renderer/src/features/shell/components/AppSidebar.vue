@@ -25,17 +25,7 @@
       />
     </div>
     <div class="sidebar-tools">
-      <SidebarSearch :collapsed="collapsed" @expand="minimized = false" />
-      <UiPressable
-        v-if="assistantReady"
-        v-tooltip.right="`AI 助手（${ASSISTANT_HOTKEY_LABEL}）`"
-        class="sidebar-tool is-assistant"
-        label="AI 助手"
-        :aria-expanded="assistantOpen"
-        @click="openAssistant"
-      >
-        <UiIcon name="sparkle" :size="collapsed ? 'lg' : 'md'" />
-      </UiPressable>
+      <SidebarSearch :collapsed="collapsed" />
     </div>
     <nav class="sidebar-nav">
       <template v-for="(group, index) in navGroups" :key="group.key">
@@ -135,11 +125,11 @@
 <script setup lang="ts">
 /**
  * 应用侧栏（浮动玻璃 .yb-glass，降低透明度时为实色）：品牌行（彩色 Logo + 收起钮）、
- * 全局搜索（SidebarSearch，带 Ctrl/⌘ F 键帽）与旁边的 AI 助手 sparkle 圆钮（悬停提示带快捷键）、
+ * 统一入口（SidebarSearch：看起来是搜索框，点它或 Cmd/Ctrl+K 打开搜索与 AI 助手共用的居中浮层）、
  * 分组导航（资料库 / 本地媒体 / 在线），贴在侧栏底部的页脚：无痕模式开关（会话级，打开时品牌旁显示「无痕」标识、
  * 收起成图标栏时图标带圆点）、后台任务入口（正在跑的任务数角标，媒体库识别另带进度环）和设置入口。
  * 桌面端可收起为 64px 图标列（v-model:minimized，外壳负责 Cmd/Ctrl+B 与持久化）：组间用分隔线，
- * 搜索与 AI 助手入口竖排一组，悬停提示在右侧并带快捷键。手机上由外壳当作抽屉显示。
+ * 统一入口收成放大镜圆钮，悬停提示在右侧并带快捷键。手机上由外壳当作抽屉显示。
  */
 import { computed } from 'vue'
 
@@ -147,15 +137,8 @@ import logoUrl from '@/assets/imgs/logo.svg'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
-import UiPressable from '@/components/ui/UiPressable.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 import { usePlatform } from '@/composables/use-platform'
-import { aiAvailable } from '@/features/ai'
-import {
-  ASSISTANT_HOTKEY_LABEL,
-  assistantOpen,
-  openAssistant,
-} from '@/features/assistant'
 import { incognitoState, toggleIncognito } from '@/features/incognito'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
@@ -188,9 +171,6 @@ const minimized = defineModel<boolean>('minimized', { required: true })
 const appName = '影盒'
 const { isPhone } = usePlatform()
 const incognito = incognitoState()
-
-/** AI 助手入口只在桌面端出现（AI 调用需要主进程） */
-const assistantReady = aiAvailable()
 
 // 去码 / 边跑边看在后台跑时，按钮上给个提示
 const { hasRuntime, restoreRunning, hasLive } = useLadaTasks()

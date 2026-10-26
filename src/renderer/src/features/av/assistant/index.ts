@@ -130,7 +130,7 @@ const privateLibrarySkill: AssistantSkill = {
   id: 'private',
   scope: 'private',
   actions: [code, search, resume, restore, random],
-  placeholder: '问私密库…',
+  placeholder: '搜索或问私密库…',
   prompt: () => [
     '当前是私密模式：只在本地模型上运行，不要在回答里复述片名之外的个人信息。',
   ],

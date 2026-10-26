@@ -1,6 +1,6 @@
 /**
  * AI 助手的全局快捷键与语音：写法校验与规整、注册 / 冲突 / 写法不对 / 关闭 / 换绑、
- * 应用内 Cmd/Ctrl+Shift+K 判定与设置页提示、WAV 编码与时长、转写文字拼接。
+ * 应用内 Cmd/Ctrl+K / Cmd/Ctrl+Shift+K 判定与设置页提示、WAV 编码与时长、转写文字拼接。
  */
 import { describe, expect, it, vi } from 'vitest'
 
@@ -12,7 +12,7 @@ import {
   wavSeconds,
 } from '../src/main/assistant/rules'
 import {
-  isAssistantHotkey,
+  entryHotkey,
   shortcutStatusText,
 } from '../src/renderer/src/features/assistant/assistant-hotkey'
 import {
@@ -141,7 +141,7 @@ describe('应用内快捷键与设置页提示', () => {
   const key = (
     k: string,
     mods: Partial<KeyboardEvent> = {}
-  ): Parameters<typeof isAssistantHotkey>[0] => ({
+  ): Parameters<typeof entryHotkey>[0] => ({
     key: k,
     ctrlKey: false,
     metaKey: false,
@@ -150,16 +150,17 @@ describe('应用内快捷键与设置页提示', () => {
     ...mods,
   })
 
-  it('Cmd/Ctrl+Shift+K 唤起，不带 Shift 或带 Alt 或输入法组字中不算', () => {
-    expect(isAssistantHotkey(key('k', { ctrlKey: true }))).toBe(true)
-    expect(isAssistantHotkey(key('K', { metaKey: true }))).toBe(true)
-    expect(isAssistantHotkey(key('k'))).toBe(false)
+  it('Cmd/Ctrl+Shift+K 与 Cmd/Ctrl+K 都唤起统一入口，不带修饰键或带 Alt 或输入法组字中不算', () => {
+    expect(entryHotkey(key('k', { ctrlKey: true }))).toBe('toggle')
+    expect(entryHotkey(key('K', { metaKey: true }))).toBe('toggle')
+    expect(entryHotkey(key('k'))).toBeNull()
+    expect(entryHotkey(key('k', { ctrlKey: true, shiftKey: false }))).toBe(
+      'toggle'
+    )
+    expect(entryHotkey(key('k', { ctrlKey: true, altKey: true }))).toBeNull()
     expect(
-      isAssistantHotkey(key('k', { ctrlKey: true, shiftKey: false }))
-    ).toBe(false)
-    expect(
-      isAssistantHotkey({ ...key('k', { ctrlKey: true }), isComposing: true })
-    ).toBe(false)
+      entryHotkey({ ...key('k', { ctrlKey: true }), isComposing: true })
+    ).toBeNull()
   })
 
   it('状态提示：已启用 / 关闭 / 冲突 / 写法不对', () => {

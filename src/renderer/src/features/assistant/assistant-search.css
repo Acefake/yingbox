@@ -1,0 +1,131 @@
+/*
+ * 统一入口的搜索结果块（AssistantSearch.vue）：同一个 listbox 里「问 AI」一行 + 片库结果（海报行），
+ * 底部一行状态与去向。空闲时是输入胶囊下面一块独立玻璃（.yb-glass，圆角与面板一致），
+ * 面板里是输入框上方一段（没有自己的底）。只有列表滚动；全部中性灰阶令牌。
+ */
+.assistant-search {
+  display: flex;
+  flex-direction: column;
+  min-height: 0;
+  max-height: min(420px, 40vh);
+}
+.assistant-search.yb-glass {
+  padding: var(--space-2) var(--space-2) 0;
+  border-radius: var(--radius-2xl);
+}
+.assistant[data-mode='panel'] .assistant-search {
+  flex: 0 1 auto;
+  max-height: min(320px, 42%);
+  margin-top: var(--space-2);
+  padding-top: var(--space-2);
+  box-shadow: 0 -0.5px 0 var(--separator);
+}
+/* 搜索时技能建议让位；空闲列里输入胶囊与结果块之间留同样的间距 */
+.assistant[data-searching='true'][data-mode='hero'] .assistant-composer {
+  flex: 0 1 auto;
+  min-height: 0;
+  gap: var(--space-3);
+}
+.assistant[data-searching='true'] .assistant-field {
+  flex: none;
+}
+
+.assistant-search-list {
+  flex: 1 1 auto;
+  min-height: 0;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+}
+.assistant .assistant-search .search-matches h3 {
+  margin: var(--space-2_5) var(--space-3) var(--space-1);
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: 0.04em;
+}
+/* 海报行：竖版海报缩略图 + 片名 · 年份 + 命中理由 */
+.assistant .assistant-search .ui-list-row {
+  min-height: 52px;
+  padding: var(--space-1_5) var(--space-3);
+  border-radius: var(--radius-lg);
+}
+.assistant .assistant-search .search-poster {
+  width: 28px;
+  height: 42px;
+  border-radius: var(--radius-sm);
+  box-shadow: inset 0 0 0 0.5px var(--border-default);
+}
+.assistant-search .ui-list-row:where(.is-selected) {
+  background: var(--bg-active);
+}
+
+/* 「问 AI」行：sparkle + 问 AI：<输入>，右侧 Cmd/Ctrl+回车 键帽 */
+.assistant-ask .ui-list-row-leading {
+  justify-content: center;
+  width: 28px;
+  color: var(--text-primary);
+}
+.assistant-ask-text {
+  color: var(--text-primary);
+  font-weight: var(--font-weight-semibold);
+}
+.assistant-ask .ui-list-row-title {
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 底部一行：状态（读屏播报）+ CLIP 范围 / 在海报墙查看 / 搜索在线资源 */
+.assistant-search-foot {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) var(--space-2);
+  min-height: 40px;
+  padding: var(--space-1) var(--space-1) var(--space-1) var(--space-3);
+  box-shadow: 0 -0.5px 0 var(--separator);
+}
+.assistant-search-note {
+  flex: 1;
+  min-width: 0;
+  overflow: hidden;
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* 窄窗口：结果块矮一些，底部去向换行 */
+@media (max-width: 719px) {
+  .assistant-search {
+    max-height: min(400px, 50vh);
+  }
+  .assistant-search-note {
+    flex-basis: 100%;
+  }
+}
+
+/* 范围胶囊：全部 / 本地 / 在线 / 当前分区 */
+.assistant-scopes {
+  display: flex;
+  flex: none;
+  flex-wrap: wrap;
+  gap: var(--space-1_5);
+  padding: var(--space-1) var(--space-2) var(--space-2);
+}
+.assistant[data-mode='panel'] .assistant-scopes {
+  padding: 0 0 var(--space-2);
+}
+.assistant-scopes .ui-chip {
+  height: 28px;
+  padding: 0 var(--space-3);
+  border-radius: var(--radius-full);
+  font-size: var(--text-xs);
+}
+.assistant .assistant-search .search-poster {
+  object-fit: cover;
+}
+.assistant-online-icon {
+  width: 28px;
+}
