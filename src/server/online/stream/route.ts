@@ -1,12 +1,13 @@
 /**
- * 播放代理路由 GET/HEAD /api/stream?src=<地址>：网页端在线播放的清单、分片、直链都经这里取。
+ * 播放代理路由 GET/HEAD /api/stream?src=<地址>[&ua=&referer=]：网页端在线播放的清单、分片、直链都经这里取。
  *
  * - 鉴权：与其它 /api 路由相同（Cookie / Bearer），不是公开路由；
  * - 防 SSRF：只允许无凭据的 http/https 公网目标，每一跳重定向都校验；内网目标要显式放行（guard.ts）；
  * - 请求头：透传 Range，按源注入 Referer（shared/net/media-referer，与桌面端 media-headers 同一份名单），
- *   UA 用引擎同款 Chrome UA；不带浏览器的 Cookie；
+ *   UA 用引擎同款 Chrome UA；线路自带的 ua / referer 参数（net/stream-headers 校验，只认这两个头）覆盖它们；
+ *   不带浏览器的 Cookie；
  * - m3u8：按正文开头认出清单（不靠后缀与类型），整份读进来（上限 8 MB）改写地址后返回（m3u8.ts）；
- *   带 Range 的请求、音视频类型与其它正文原样流式转发。
+ *   带 Range 的请求、音视频类型与其它正文原样流式转发；改写出的地址带上同样的 ua / referer 参数。
  * 转发本身复用桌面端 yingbox-stream:// 的 proxyStream（main/stream-proxy.ts）。
  */
 import { lookup } from 'node:dns/promises'
@@ -14,6 +15,10 @@ import { createFailureLog, proxyStream } from '../../../main/stream-proxy'
 import { STREAM_RESPONSE_URL } from '../../../shared/stream-url'
 import { type NetClient, createNetClient } from '../../../shared/net/client'
 import { BlockedTargetError, type LookupAll } from '../../../shared/net/guard'
+import {
+  type StreamHeaders,
+  readStreamHeaderQuery,
+} from '../../../shared/net/stream-headers'
 import { ENGINE_HTTP, streamProxyPath } from '../../../shared/engine-http'
 import { type Router, fail } from '../../http/router'
 import { type StreamGuard, createStreamGuard } from './guard'
@@ -59,7 +64,8 @@ function replay(
  */
 async function maybeRewrite(
   response: Response,
-  source: string
+  source: string,
+  streamHeaders: StreamHeaders | undefined
 ): Promise<Response> {
   const reader = response.body?.getReader()
   if (!reader) return response
@@ -100,10 +106,15 @@ async function maybeRewrite(
   headers.set('content-type', 'application/vnd.apple.mpegurl')
   headers.set('cache-control', 'no-store')
   headers.delete('content-length')
-  return new Response(rewritePlaylist(text, base, streamProxyPath), {
-    status: response.status,
-    headers,
-  })
+  return new Response(
+    rewritePlaylist(text, base, absolute =>
+      streamProxyPath(absolute, streamHeaders)
+    ),
+    {
+      status: response.status,
+      headers,
+    }
+  )
 }
 
 /** 处理一次代理请求。 */
@@ -127,7 +138,11 @@ export function createStreamProxy(
       if (error instanceof BlockedTargetError) return fail(403, error.message)
       throw error
     }
-    const response = await proxyStream(net, source, request, { logFailure })
+    const streamHeaders = readStreamHeaderQuery(url.searchParams)
+    const response = await proxyStream(net, source, request, {
+      logFailure,
+      headers: streamHeaders,
+    })
     const ranged = request.headers.has('range')
     if (
       request.method !== 'GET' ||
@@ -136,7 +151,7 @@ export function createStreamProxy(
       !mayBePlaylist(response.headers.get('content-type') ?? '')
     )
       return response
-    return maybeRewrite(response, source)
+    return maybeRewrite(response, source, streamHeaders)
   }
 }
 

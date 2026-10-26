@@ -4,7 +4,8 @@
  */
 import type Artplayer from 'artplayer'
 import Hls, { type ErrorData } from 'hls.js'
-import { DesktopHlsLoader } from './hls-loader'
+import { splitStreamHeaders } from '../../../../../shared/net/stream-headers'
+import { desktopHlsLoader } from './hls-loader'
 
 import type { ArtOption } from './art-options'
 
@@ -41,11 +42,13 @@ export function createHlsSession(): HlsSession {
   ): NonNullable<ArtOption['customType']> => ({
     m3u8(videoEl: HTMLVideoElement, url: string, instance: Artplayer): void {
       destroy()
+      // 直播线路可带 `|User-Agent=…&Referer=…`：拆开，头交给桌面加载器（网页端的地址已由 webPlayableUrl 换成代理地址）
+      const line = splitStreamHeaders(url)
       hls = new Hls({
         enableWorker: true,
-        ...(window.api ? { loader: DesktopHlsLoader } : {}),
+        ...(window.api ? { loader: desktopHlsLoader(line.headers) } : {}),
       })
-      hls.loadSource(url)
+      hls.loadSource(line.url)
       hls.attachMedia(videoEl)
       hls.on(Hls.Events.MANIFEST_PARSED, () =>
         callbacks.onManifestParsed(videoEl)

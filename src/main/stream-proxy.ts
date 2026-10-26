@@ -5,6 +5,11 @@
  * 超时只管「等响应头」：直播流与大文件的响应体会持续很久，不能按总时长掐断。
  */
 import { refererFor } from '../shared/net/media-referer'
+import {
+  type StreamHeaders,
+  readStreamHeaderQuery,
+  toRequestHeaders,
+} from '../shared/net/stream-headers'
 import type { NetClient } from '../shared/net/client'
 import { STREAM_RESPONSE_URL, STREAM_SCHEME } from '../shared/stream-url'
 
@@ -56,10 +61,13 @@ export interface ProxyStreamOptions {
   connectMs?: number
   /** 加跨域头（桌面端自定义协议需要；独立服务同源、带鉴权，不加） */
   cors?: boolean
+  /** 线路自带的 User-Agent / Referer（来自代理地址的 ua / referer 参数，已校验）；优先于按源注入的 Referer */
+  headers?: StreamHeaders
 }
 
 /**
- * 转发一次 GET / HEAD：透传 Range，按源注入防盗链 Referer（shared/net/media-referer），UA 由 net 客户端补默认值，
+ * 转发一次 GET / HEAD：透传 Range，按源注入防盗链 Referer（shared/net/media-referer），UA 由 net 客户端补默认值；
+ * 线路自带的 UA / Referer（options.headers）覆盖这两项。
  * 不带浏览器的 Cookie 与认证头。桌面端自定义协议与独立服务的 /api/stream 共用。
  */
 export async function proxyStream(
@@ -76,6 +84,7 @@ export async function proxyStream(
   if (range) headers.Range = range
   const referer = refererFor(source)
   if (referer) headers.Referer = referer
+  Object.assign(headers, toRequestHeaders(options.headers))
   const connect = new AbortController()
   const timer = setTimeout(
     () => connect.abort(),
@@ -136,7 +145,7 @@ export async function proxyStream(
   }
 }
 
-/** 桌面端 yingbox-stream://fetch/?src= 协议的处理函数。 */
+/** 桌面端 yingbox-stream://fetch/?src=[&ua=&referer=] 协议的处理函数。 */
 export function createStreamHandler(
   net: NetClient,
   logFailure: (source: string, reason: string) => void = createFailureLog(),
@@ -156,6 +165,7 @@ export function createStreamHandler(
       logFailure,
       connectMs,
       cors: true,
+      headers: readStreamHeaderQuery(url.searchParams),
     })
   }
 }
