@@ -153,6 +153,7 @@ import {
   primaryPlayRequest,
 } from './playback'
 import {
+  aboutKickerOf,
   creditLinesOf,
   detailTabsOf,
   heroMetaParts,
@@ -193,9 +194,12 @@ const memberIds = computed(() =>
     : []
 )
 
+let loadSeq = 0 // 重取可能交错返回：错误与 loading 只认最后一次
+
 async function load(resetView: boolean): Promise<void> {
   if (!bridge) return
   const id = props.itemId
+  const seq = ++loadSeq
   loading.value = true
   try {
     const item = await bridge.getItem(id)
@@ -212,9 +216,9 @@ async function load(resetView: boolean): Promise<void> {
     }
     void nextTick(heroEdge.update)
   } catch (e) {
-    error.value = errorText(e)
+    if (seq === loadSeq) error.value = errorText(e)
   } finally {
-    loading.value = false
+    if (seq === loadSeq) loading.value = false
   }
 }
 
@@ -264,13 +268,7 @@ const heroSpecs = computed(() =>
   node.value ? heroSpecsOf(node.value, titleMeta.value) : []
 )
 const credits = computed(() => creditLinesOf(titleMeta.value))
-/** 关于卡片片名下的一行：类型 · 题材 */
-const aboutKicker = computed(() => {
-  const n = node.value
-  if (!n) return ''
-  const kind = n.type === 'series' ? '剧集' : '电影'
-  return [kind, ...n.genres.slice(0, 3)].join(' · ')
-})
+const aboutKicker = computed(() => aboutKickerOf(node.value))
 
 // —— 播放 ——
 const primaryPlay = computed<PlayRequest | null>(() =>

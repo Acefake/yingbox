@@ -5,6 +5,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { TitleMeta } from '../../../src/renderer/src/features/library/detail/detail-rules'
 import {
+  aboutKickerOf,
   activeTabAt,
   creditLinesOf,
   detailTabsOf,
@@ -126,5 +127,16 @@ describe('detailTabsShownAt', () => {
   })
   it('首屏 Hero 至少占视口 88%，一进页面不出现', () => {
     expect(detailTabsShownAt(0.88 * 800, 800)).toBe(false)
+  })
+})
+
+describe('aboutKickerOf', () => {
+  it('类型 · 前 3 个题材；没有条目时为空', () => {
+    const node = {
+      type: 'series',
+      genres: ['剧情', '科幻', '悬疑', '历史'],
+    } as unknown as Parameters<typeof aboutKickerOf>[0]
+    expect(aboutKickerOf(node)).toBe('剧集 · 剧情 · 科幻 · 悬疑')
+    expect(aboutKickerOf(null)).toBe('')
   })
 })
