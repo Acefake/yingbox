@@ -13,6 +13,7 @@ import type {
   MoviesOverview,
 } from '../../../shared/contract/autograb-upgrade'
 import type { NetdiskItem, ShareSnap } from '../../../shared/contract/pan115'
+import { createRoundRunner, createSingleFlight } from '../flight'
 import { type Gate, GateClosed } from '../gate'
 import { AUTO_SCORE } from '../match-rules'
 import { localDate } from '../schedule-rules'
@@ -104,7 +105,6 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
   let state = emptyMoviesState(deps.now())
   let loaded: Promise<void> | null = null
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  let current: Promise<void> | null = null
   let running = false
 
   function dirty(): void {
@@ -150,7 +150,14 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
     return /^\d+$/.test(cid) ? cid : '0'
   }
 
-  const saver = createMovieSaver({ deps, targetCid, dirty })
+  const movieSaver = createMovieSaver({ deps, targetCid, dirty })
+  /** 同一部电影的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
+  const grabs = createSingleFlight()
+  const saver = {
+    ...movieSaver,
+    grab: (record: MovieRecord, index: number): Promise<GrabResult> =>
+      grabs.run(String(record.tmdbId), () => movieSaver.grab(record, index)),
+  }
 
   async function searchOne(record: MovieRecord, now: number): Promise<void> {
     const target = {
@@ -250,10 +257,9 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
     }
   }
 
-  function tick(): Promise<void> {
-    current ??= runOnce().finally(() => (current = null))
-    return current
-  }
+  /** 跑一轮；已在跑时这一轮完了再补跑一轮（不并发两轮，见 flight.ts） */
+  const rounds = createRoundRunner(() => runOnce())
+  const tick = (): Promise<void> => rounds.run()
 
   const recordOf = (tmdbId: number): MovieRecord | undefined =>
     state.movies[String(tmdbId)]

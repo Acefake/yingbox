@@ -19,6 +19,7 @@ import type {
   Pan115DirListing,
   ShareSnap,
 } from '../../../shared/contract/pan115'
+import { createRoundRunner, createSingleFlight } from '../flight'
 import { type Gate, GateClosed } from '../gate'
 import { dirOf, joinPath } from './folder-path'
 import {
@@ -100,7 +101,6 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
   let state = emptyUpgradeState(deps.now())
   let loaded: Promise<void> | null = null
   let saveTimer: ReturnType<typeof setTimeout> | null = null
-  let current: Promise<void> | null = null
   let running = false
   let cloudLibraries = false
 
@@ -254,11 +254,11 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
     return out
   }
 
-  /** 跑一轮；已在跑时等那一轮跑完（不并发两轮） */
-  function tick(force = false): Promise<void> {
-    current ??= runOnce(force).finally(() => (current = null))
-    return current
-  }
+  /** 跑一轮；已在跑时这一轮完了再补跑一轮，force 取并集（不并发两轮，见 flight.ts） */
+  const rounds = createRoundRunner(force => runOnce(force))
+  const tick = (force = false): Promise<void> => rounds.run(force)
+  /** 同一条洗版的替换单飞：连点只发一次转存 */
+  const replacing = createSingleFlight()
 
   return {
     tick,
@@ -316,7 +316,9 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
       const gate = await deps.gate()
       if (gate.paused())
         return { ok: false, error: '115 闸门暂停中，恢复后再试' }
-      return replacer.replace(record, index, gate, picked)
+      return replacing.run(key, () =>
+        replacer.replace(record, index, gate, picked)
+      )
     },
     async ignore(key: string): Promise<void> {
       await ensureLoaded()

@@ -184,7 +184,8 @@ export class DoubanGenreLookup {
           ...request,
           cacheKey,
           ttl: () => DOUBAN_GENRE_TTL_MS,
-          notFoundTtl: DOUBAN_GENRE_TTL_MS,
+          // 搜索接口查无此片是 200 + 空列表；frodo 404 说明签名 / 接口出了问题，不记成「查无此片」30 天
+          notFoundTtl: 0,
           signal,
         })
       },
