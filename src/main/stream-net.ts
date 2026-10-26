@@ -7,7 +7,7 @@ import { lookup } from 'node:dns/promises'
 import { net } from 'electron'
 
 import { type NetClient, createNetClient } from '../shared/net/client'
-import { manualRedirectFetch } from './manual-redirect-fetch'
+import { manualRedirectFetch } from '../shared/net/manual-redirect-fetch'
 
 let client: NetClient | null = null
 
