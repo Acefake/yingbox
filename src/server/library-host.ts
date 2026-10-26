@@ -27,7 +27,9 @@ export function autoSubtitleSettings(
 ): AutoSubtitleSettings | null {
   const flag = env.YINGBOX_AUTO_SUBTITLES?.trim().toLowerCase() ?? ''
   if (!TRUE_WORDS.has(flag)) return null
-  const raw = Number(env.YINGBOX_SUBTITLES_DAILY_LIMIT)
+  // 空串（compose 里留了 `YINGBOX_SUBTITLES_DAILY_LIMIT: ''`）按没设算：Number('') 是 0，会被夹成 1
+  const text = env.YINGBOX_SUBTITLES_DAILY_LIMIT?.trim() ?? ''
+  const raw = text ? Number(text) : NaN
   const { min, max, fallback } = SUBTITLE_DAILY_LIMIT
   const dailyLimit = Number.isInteger(raw)
     ? Math.min(max, Math.max(min, raw))
