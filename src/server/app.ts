@@ -11,6 +11,7 @@
  * | safeStorage 存 TMDB 令牌                   | secrets.json（0600）+ 环境变量                 |
  * | 系统文件夹对话框                           | /api/fs/dirs 在媒体根目录内浏览               |
  * | 内置播放器 / mpv                           | 网页 <video> + /media/files Range 流           |
+ * | 在线引擎 utilityProcess + yingbox-stream:// | child_process 引擎 + /api/engine + /api/stream |
  */
 import { existsSync, mkdirSync } from 'node:fs'
 import { join } from 'node:path'
@@ -39,6 +40,7 @@ import { createStaticHandler } from './http/static'
 import { registerFsRoutes } from './routes/fs'
 import { registerLibraryRoutes } from './routes/library'
 import { registerMediaRoutes } from './routes/media'
+import { type OnlineDeps, registerOnline } from './online'
 import { registerSessionRoutes } from './routes/session'
 import { FileSecretStore, SECRET_KEYS, ensureServerToken } from './secrets'
 
@@ -60,6 +62,8 @@ export interface ServerAppOptions {
   fetch?: HttpFetch
   /** 编解码实现；缺省起 webp-worker 线程，线程文件不存在时在当前线程执行。 */
   codec?: Codec
+  /** 在线引擎（测试注入；缺省 fork 子进程，见 online/engine.ts）。 */
+  engine?: OnlineDeps['engine']
   /** 是否监控媒体库目录（false 时不监听也不定时扫描），默认按 config.monitor。 */
   watch?: boolean
   env?: NodeJS.ProcessEnv
@@ -131,6 +135,18 @@ export async function createServerApp(
   })
   registerMediaRoutes(router, { service, thumbnails })
   registerFsRoutes(router, config.mediaRoots)
+  // 在线板块（引擎 + 播放代理），见 online/index.ts
+  const online = registerOnline(router, {
+    dataDir: config.dataDir,
+    env,
+    tmdbToken: () =>
+      secrets.get(SECRET_KEYS.tmdbToken)?.trim() ||
+      env.YINGBOX_TMDB_TOKEN ||
+      env.VITE_TMDB_ACCESS_TOKEN ||
+      '',
+    log,
+    engine: options.engine,
+  })
   const serveStatic = config.webDir ? createStaticHandler(config.webDir) : null
 
   const handle: Handler = async request => {
@@ -167,6 +183,9 @@ export async function createServerApp(
     service,
     token,
     tokenGenerated: generated,
-    close: () => service.close(),
+    close: async () => {
+      await online.close()
+      await service.close()
+    },
   }
 }
