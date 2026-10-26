@@ -75,8 +75,9 @@ function extPriority(ext: string): number {
 /**
  * 解码字幕文本。
  *
- * 中文字幕常见 GBK/GB18030 编码，直接按 UTF-8 读会乱码，
- * 因此先看 BOM，再用「严格 UTF-8」试探，失败后回退 GBK。
+ * 中文字幕常见 GBK/GB18030（简体）与 Big5（繁体）编码，直接按 UTF-8 读会乱码，
+ * 因此先看 BOM，再用「严格 UTF-8」试探，失败后在 GB18030 与 Big5 之间按常用字多少挑一个
+ * （两者双字节区间大量重叠，Big5 字节多半也是合法 GBK，只靠能否解码分不出来）。
  */
 export function decodeSubtitleText(buffer: Buffer): string {
   if (
@@ -99,12 +100,29 @@ export function decodeSubtitleText(buffer: Buffer): string {
   const strictUtf8 = decodeWith(buffer, 'utf-8', true)
   if (strictUtf8 !== null) return strictUtf8
 
-  // 退回 GB18030（GBK 超集，覆盖简体中文常见字幕）
-  for (const encoding of ['gb18030', 'gbk', 'big5']) {
-    const decoded = decodeWith(buffer, encoding)
-    if (decoded !== null) return decoded
-  }
-  return buffer.toString('latin1')
+  const gb = decodeWith(buffer, 'gb18030', true)
+  const big5 = decodeWith(buffer, 'big5', true)
+  if (gb !== null && big5 !== null)
+    return commonHanScore(big5) > commonHanScore(gb) ? big5 : gb
+  if (gb !== null || big5 !== null) return (gb ?? big5) as string
+  // 都有坏字节：按 GB18030 宽松解码（坏字节成 U+FFFD）
+  return decodeWith(buffer, 'gb18030') ?? buffer.toString('latin1')
+}
+
+/** 简繁两套最常用的汉字：编码猜错时解出来的多是生僻字，常用字会少得多 */
+const COMMON_HAN = new Set(
+  '的一是不了人我在有他这這中大来來上国國个個到说說们們为為子和你地出道也时時年得就那要下以生会會' +
+    '自着著去之过過家学學对對可她里裡后後小么麼心多天而能好都然没沒日于於起还還发發成事只作当當想看' +
+    '无無开開手十用主行方又如前所本见見经經头頭面公同已老从從动動两兩长長知样樣现現分将將但身些与與' +
+    '高意进進把法此实實回理点點月明其种種全己话話吗嗎吧呢啊什走快再给給别別'
+)
+
+/** 前 64K 个字符里常用汉字的个数 */
+function commonHanScore(text: string): number {
+  let score = 0
+  const end = Math.min(text.length, 65536)
+  for (let i = 0; i < end; i++) if (COMMON_HAN.has(text[i])) score++
+  return score
 }
 
 function decodeWith(
@@ -270,15 +288,28 @@ export function convertSubtitleText(
   return { success: true, data: text, format: 'srt' }
 }
 
-/** 读取字幕文件并统一转换为 WebVTT（含编码处理） */
+/** 字幕文件大小上限（再大的多半不是字幕） */
+export const SUBTITLE_FILE_MAX_BYTES = 16 * 1024 * 1024
+
+/**
+ * 读取字幕文件并统一转换为 WebVTT（含编码处理）。
+ * 只读字幕扩展名（SUBTITLE_EXTS）且不超过 SUBTITLE_FILE_MAX_BYTES 的文件：路径来自渲染层，
+ * 不能借它读出任意文件。
+ */
 export async function readSubtitleAsVtt(
   filePath: string
 ): Promise<SubtitleReadResult> {
   try {
-    const buffer = await readFile(filePath)
     const ext = extname(filePath).toLowerCase()
+    if (!SUBTITLE_EXTS.includes(ext))
+      return { success: false, error: '不是字幕文件' }
+    const info = await stat(filePath)
+    if (!info.isFile()) return { success: false, error: '不是字幕文件' }
+    if (info.size > SUBTITLE_FILE_MAX_BYTES)
+      return { success: false, error: '字幕文件过大' }
+    const buffer = await readFile(filePath)
     const text = decodeSubtitleText(buffer)
-    return convertSubtitleText(text, ext || '.srt')
+    return convertSubtitleText(text, ext)
   } catch (error) {
     return { success: false, error: (error as Error).message }
   }

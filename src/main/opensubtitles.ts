@@ -205,21 +205,18 @@ export async function downloadSubtitle(
     let bytes = buffer
     if (buffer.length > 2 && buffer[0] === 0x1f && buffer[1] === 0x8b) {
       const zlib = (await import('node:zlib')) as typeof import('node:zlib')
-      bytes = zlib.gunzipSync(buffer)
+      // 解压后同样限长：防 gzip 炸弹把主进程内存撑爆
+      bytes = zlib.gunzipSync(buffer, { maxOutputLength: MAX_SUBTITLE_BYTES })
     }
 
-    const text = bytes.toString('utf-8')
-    // OpenSubtitles 常返回 UTF-8，但老字幕可能 GBK：转 VTT 前过一遍编码修正
+    // OpenSubtitles 常返回 UTF-8，但老字幕可能 GBK / Big5：转 VTT 前过一遍编码修正
     const { decodeSubtitleText, convertSubtitleText } =
       await import('./subtitle')
     const normalized = decodeSubtitleText(bytes)
     const converted = convertSubtitleText(normalized, 'srt')
     if (!converted.success) return { success: false, error: converted.error }
 
-    // 防御：若 SRT 转换没产出 cue，直接透传原文（保持与本地链路一致）
-    if (!converted.data?.includes('-->')) {
-      return { success: true, data: text, format: 'srt' }
-    }
+    // SRT 转换没产出 cue 时 convertSubtitleText 原样交回解码后的文本（与本地链路一致）
     return { success: true, data: converted.data, format: 'srt' }
   } catch (error) {
     return { success: false, error: (error as Error).message }
