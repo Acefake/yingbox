@@ -108,6 +108,9 @@ describe('写入点都经 isIncognito()', () => {
     expect(read('features/player/utils/play-progress.ts')).toContain(
       'if (!key || isIncognito()) return'
     )
+    expect(read('features/player/progress/progress-events.ts')).toContain(
+      'if (!isIncognito()) markWatched(target.key)'
+    )
     const store = read('features/player/continue/continue-store.ts')
     expect(store).toContain("if (isIncognito()) return ''")
     expect(store).toContain('if (!id || isIncognito()) return')
@@ -119,8 +122,8 @@ describe('写入点都经 isIncognito()', () => {
       /saveMediaProgress\(|upsertPlayHistory\(|saveStoredArray\(HISTORY_KEY|av_play_history|startContinue\(|updateContinue\(/
     const allowed = new Set([
       'features/player/utils/play-progress.ts',
-      'features/player/composables/use-progress-saver.ts',
-      'features/player/composables/use-session-progress.ts',
+      // 播放会话的进度事件在这里落地（桌面端由主窗口照它写，播放器窗口只转发）
+      'features/player/progress/progress-events.ts',
       'features/player/mpv-session/mpv-session.ts',
       'features/player/composables/use-media-player.ts',
       'features/player/components/PlayerSession.vue',

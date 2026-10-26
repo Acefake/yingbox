@@ -8,6 +8,8 @@
  * 本文件被 sandboxed preload 间接打包，只能依赖纯 TS。
  */
 
+import { type WindowRect, parseWindowRect } from './window-rect'
+
 interface SpecBase<T> {
   /** 未设置时的值 */
   readonly default: T
@@ -109,6 +111,11 @@ function digits(fallback: string): ValueSpec<string> {
   }
 }
 
+/** 窗口矩形（播放器窗口记的位置与大小）；null 表示未记录 */
+function windowRect(): ValueSpec<WindowRect | null> {
+  return { kind: 'value', default: null, parse: parseWindowRect }
+}
+
 /** 密钥：单行、非空白字符，长度上限 4096 */
 function secret(): SecretSpec {
   return {
@@ -137,8 +144,6 @@ export const settingsSchema = {
   'ui.hoverPreview': bool(true),
   /** 悬停多久开始预览（毫秒） */
   'ui.hoverPreviewDelay': num(200, 2000, 600),
-  /** 应用内小窗：页内播放中离开详情时，同一个播放器移到右下角小窗继续播（网页端） */
-  'ui.miniPlayer': bool(true),
   /** 降低透明度：浮动控件的玻璃材质用实色、不做背景模糊（系统「降低透明度」打开时也是实色） */
   'ui.reduceTransparency': bool(false),
   /** 桌面端侧栏收起成 64px 图标列（收起钮或 Cmd/Ctrl+B 切换，重启后保持） */
@@ -174,6 +179,10 @@ export const settingsSchema = {
   'player.autoNext': bool(true),
   /** 媒体键控制内置播放器：播放中注册系统全局的播放 / 暂停、上一集、下一集键（桌面端） */
   'player.mediaKeys': bool(true),
+  /** 播放器窗口置顶（桌面端；窗口顶栏的图钉同步改它） */
+  'player.windowOnTop': bool(false),
+  /** 播放器窗口上次的位置与大小（桌面端，关窗时记下；null 为按屏幕居中） */
+  'player.windowBounds': windowRect(),
 
   /** 弹幕总开关（控制栏「弹」按钮） */
   'danmaku.enabled': bool(true),

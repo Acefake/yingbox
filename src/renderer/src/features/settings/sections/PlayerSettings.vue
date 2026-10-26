@@ -103,12 +103,12 @@
     </SettingsRow>
   </SettingsGroup>
 
-  <SettingsGroup title="小窗">
+  <SettingsGroup v-if="isElectron" title="播放器窗口">
     <SettingsRow
-      title="播放弹窗可缩成小窗"
-      description="点缩小或切到别的页面时，画面移到角落小窗接着播，不重新加载"
+      title="播放器窗口置顶"
+      description="内置播放器在独立窗口里播放；打开后窗口保持在其它窗口之上（播放器顶栏的图钉或快捷键 I 也能切换）"
     >
-      <UiSwitch v-model="miniPlayer" label="应用内小窗" />
+      <UiSwitch v-model="windowOnTop" label="播放器窗口置顶" />
     </SettingsRow>
   </SettingsGroup>
 
@@ -132,7 +132,7 @@
  * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），
  * 杜比视界 P5 重建是否应用 RPU 动态元数据（player.applyDolbyVision），
  * 内置播放器自动跳过片头（player.autoSkipIntro）与播放时自动检测片头片尾（player.autoDetectIntro），
- * 播放弹窗的角落小窗（ui.miniPlayer），桌面端的托盘图标（app.tray）与媒体键（player.mediaKeys）。
+ * 播放器窗口置顶（player.windowOnTop），桌面端的托盘图标（app.tray）与媒体键（player.mediaKeys）。
  */
 import { computed, watch } from 'vue'
 
@@ -173,7 +173,7 @@ const setMpvCompact = (on: boolean): void => {
   void setCompact(on).catch(() => {})
 }
 
-const miniPlayer = useSetting('ui.miniPlayer')
+const windowOnTop = useSetting('player.windowOnTop')
 const autoSkipIntro = useSetting('player.autoSkipIntro')
 const dvAutoMpv = useSetting('player.dvAutoMpv')
 const autoDetectIntro = useSetting('player.autoDetectIntro')

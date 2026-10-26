@@ -24,6 +24,7 @@ import {
 import { getSetting, registerSettingsSection } from '@/features/settings'
 import { installWatchlist } from '@/features/watchlist'
 import { installLibraryProgress } from '@/features/library'
+import { installPlayerHost } from '@/features/player'
 import { configureHoverPreview } from '@/components/ui/hover-preview'
 
 /**
@@ -73,6 +74,9 @@ installWatchlist()
 
 // 媒体库条目的观看进度记进片库（播放器上报、继续播放从片库补）
 installLibraryProgress()
+
+// 桌面端播放器窗口的进度、在播状态与要打开的地址转回主窗口（网页端没有播放器窗口）
+installPlayerHost(to => void router.push(to))
 
 // AI 助手的私密技能：设置打开时才下载并登记（独立 chunk），关闭时卸载并清空对话上下文
 installPrivateSkills({

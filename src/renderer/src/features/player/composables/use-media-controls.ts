@@ -42,7 +42,7 @@ export interface MediaControlsSource {
   title: () => string
   /** 封面地址 */
   poster: Ref<string>
-  /** 拿到新的 <video> 后交给外层（播放弹窗 / 小窗） */
+  /** 拿到新的 <video> 后交给外层（播放台据此在暂停时常显顶栏） */
   onVideo: (video: HTMLVideoElement) => void
 }
 

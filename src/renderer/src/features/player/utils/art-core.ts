@@ -43,8 +43,6 @@ export interface ArtSink {
   autoplay: () => boolean
   /** 没有字幕时点了控制栏的 CC：打开在线字幕搜索 */
   subtitles: () => void
-  /** 是否缩在角落小窗（小窗里放不下的浮层不打开） */
-  compact: () => boolean
 }
 
 /** 一个播放器实例 */
@@ -66,7 +64,7 @@ export interface ArtCoreInput {
 
 /**
  * 双击：Artplayer 自带的双击全屏关掉（它是全局开关），每个实例默认自己切全屏；
- * 播放弹窗的会话认领后按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
+ * 播放会话认领后按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
  */
 Artplayer.DBCLICK_FULLSCREEN = false
 /** 内置「播放速度」菜单与 < / > 快捷键同一组档位（全局静态，只此一处设） */
@@ -113,7 +111,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
-  installPlaybackInfo(art, hls.instance, sink.compact)
+  installPlaybackInfo(art, hls.instance)
   installSleepTimer(art)
   installScreenshot(art, input.controls)
 

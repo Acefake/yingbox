@@ -89,7 +89,7 @@ vi.mock('@/features/player', async () => {
   const { shallowRef: sref } = await import('vue')
   const modal = sref<unknown>(null)
   return {
-    playerModal: () => {
+    playerSession: () => {
       if (fakes.modal !== modal) modal.value = fakes.player
       fakes.modal = modal
       return modal
@@ -520,8 +520,8 @@ describe('AssistantLauncher', () => {
     expect(assistantSessionSize()).toBe(0)
   })
 
-  it('内置播放器在前台：一律玻璃面板，没有遮罩、整层不拦点击、不做模态', async () => {
-    fakes.player = { id: 1, payload: {}, minimized: false }
+  it('网页端播放层在前台：一律玻璃面板，没有遮罩、整层不拦点击、不做模态', async () => {
+    fakes.player = { private: false, inPage: true }
     await mount()
     key({ key: 'K', ctrlKey: true, shiftKey: true })
     await waitFor(() => overlay() !== null)

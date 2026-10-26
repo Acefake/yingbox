@@ -1,15 +1,10 @@
 /**
  * 播放进度的节流保存：timeupdate 每 2 秒最多写一次，窗口关闭 / 切集前 flush，看完清零续播点。
  * 每次写入同时回调 onSave（「继续播放」记录跟着更新）。
- * 媒体库条目（library 给出标记）只上报片库（progress/library-sink），不写本地进度表与「已看完」集合。
+ * 写入一律发成进度事件（progress/progress-events）：媒体库条目只上报片库，其余写本地进度表与「已看完」集合。
  */
-import { isIncognito } from '@/features/incognito'
-import {
-  flushLibraryProgress,
-  reportLibraryProgress,
-} from '../progress/library-sink'
-import { saveMediaProgress } from '../utils/play-progress'
-import { markWatched } from '../watched'
+import type { LibraryRef } from '../progress/library-sink'
+import { emitProgress } from '../progress/progress-events'
 
 /** 两次写入之间的最短间隔（毫秒） */
 const PERSIST_INTERVAL = 2000
@@ -44,21 +39,28 @@ export function useProgressSaver(
   key: () => string,
   now: () => number = Date.now,
   onSave: ProgressListener = () => {},
-  library: () => unknown = () => undefined
+  library: () => LibraryRef | undefined = () => undefined
 ): ProgressSaver {
   let lastPersist = 0
   let lastTime = 0
   let lastDuration = 0
+  /** 正在记的视频元素：flush 时直接读它的位置（刚拖动完、timeupdate 还没到就关窗也不丢） */
+  let video: HTMLVideoElement | null = null
 
   /** 写一次：媒体库条目交给片库，其余写本地进度表 */
-  const persist = (time: number, duration: number): void => {
-    if (!reportLibraryProgress(library(), time, duration))
-      saveMediaProgress(key(), time, duration)
+  const persist = (position: number, duration: number): void => {
+    emitProgress({
+      kind: 'save',
+      target: { key: key(), library: library() },
+      position,
+      duration,
+    })
   }
 
   const onTimeUpdate = (event: Event): void => {
     const el = event.target as HTMLVideoElement | null
     if (!el || !key()) return
+    video = el
     lastTime = el.currentTime || 0
     lastDuration = Number.isFinite(el.duration) ? el.duration : 0
     const at = now()
@@ -69,31 +71,35 @@ export function useProgressSaver(
   }
 
   const flush = (): void => {
+    if (video) {
+      lastTime = video.currentTime || lastTime
+      if (Number.isFinite(video.duration)) lastDuration = video.duration
+    }
     if (!key() || !(lastTime > 1)) return
     persist(lastTime, lastDuration)
     onSave(lastTime, lastDuration, false)
-    flushLibraryProgress()
+    emitProgress({ kind: 'flush' })
   }
 
   const markFinished = (video: HTMLVideoElement | null): void => {
     const duration =
       video && Number.isFinite(video.duration) ? video.duration : lastDuration
     if (key()) {
-      if (reportLibraryProgress(library(), duration, duration, true)) {
-        flushLibraryProgress()
-      } else {
-        saveMediaProgress(key(), 0, duration)
-        // 无痕模式不记「已看完」（与不写进度、不记历史一致）
-        if (!isIncognito()) markWatched(key())
-      }
+      emitProgress({
+        kind: 'finish',
+        target: { key: key(), library: library() },
+        duration,
+      })
       onSave(duration, duration, true)
     }
     lastTime = 0
+    video = null
   }
 
   const reset = (): void => {
     lastTime = 0
     lastDuration = 0
+    video = null
   }
 
   return { onTimeUpdate, flush, markFinished, reset }

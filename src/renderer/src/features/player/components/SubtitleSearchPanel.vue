@@ -85,7 +85,7 @@ const query = defineModel<string>('query', { required: true })
   bottom: 56px; /* style-tokens: layout（避开底部控制栏） */
   z-index: var(--z-popover);
   width: min(360px, 86vw);
-  /* 86vw 按整个窗口算；播放器缩小（如角落小窗）时按播放器宽度兜底，不溢出 */
+  /* 86vw 按整个窗口算；播放器缩小（如把播放器窗口拉小）时按播放器宽度兜底，不溢出 */
   max-width: calc(100% - 2 * var(--space-3));
   max-height: min(420px, 60vh);
   display: flex;

@@ -21,7 +21,7 @@ export interface NowPlaying {
 export interface AssistantContext {
   /** 当前页面的路径与名称 */
   route: { path: string; title: string }
-  /** 有播放弹窗（含小窗） */
+  /** 有播放会话（桌面端播放器窗口开着，或网页端播放层开着） */
   playing: boolean
   /** 内置播放器实例可控制（外置 mpv 时为 false） */
   controllable: boolean
