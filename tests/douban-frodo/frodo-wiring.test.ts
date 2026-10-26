@@ -123,6 +123,17 @@ describe('豆瓣浏览（库外发现）回退', () => {
     expect(off.requests).toHaveLength(1)
   })
 
+  it('rexxar 空页、frodo 失败：交回空页但不缓存，下一次重新请求', async () => {
+    const net = fakeNet({
+      [REXXAR]: { items: [], total: 0 },
+      [FRODO]: new HttpStatusError(400),
+    })
+    const browse = createDoubanBrowse({ net, frodo: true })
+    expect((await browse.page(q, 0)).items).toEqual([])
+    expect((await browse.page(q, 0)).items).toEqual([])
+    expect(net.requests).toHaveLength(4)
+  })
+
   it('rexxar 熔断后（同一个熔断器）不再请求 rexxar，直接 frodo', async () => {
     const net = fakeNet({
       [REXXAR]: new HttpStatusError(403),
@@ -266,6 +277,22 @@ describe('豆瓣补类型回退', () => {
     const error = await lookup.lookup(q).catch(e => e)
     expect(error).toBeInstanceOf(ProviderHttpError)
     expect(error.status).toBe(418)
+    expect(lookup.cached(q)).toBe(false)
+  })
+
+  it('rexxar 空结果、frodo 404：不把「查无此片」记 30 天', async () => {
+    const routes = {
+      [REXXAR]: () => ({ status: 200, body: { items: [] } }),
+      [FRODO]: () => ({ status: 404, body: '' }),
+    }
+    let now = (): number => 0
+    const fetch = fakeFetch(routes, { now: () => now() })
+    const { clock, cache, http } = slowHttp(fetch)
+    now = clock.now
+    const lookup = new DoubanGenreLookup(http, cache, clock.now, {
+      frodo: true,
+    })
+    expect(await lookup.lookup(q)).toBeNull()
     expect(lookup.cached(q)).toBe(false)
   })
 
