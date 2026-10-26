@@ -8,7 +8,7 @@ import { type SpecBadge, videoRangeSpec } from '@/components/ui/spec-badge'
 
 import type { LibraryCardInfo } from '../detail/card-info'
 import { libraryPoster } from '../detail/assistant-links'
-import { formatRating } from '../shared/format'
+import { formatRating } from '../../../../../shared/library/rating'
 import type { SearchHit } from './types'
 
 export interface HitRow {
@@ -35,7 +35,9 @@ export function hitRow(hit: SearchHit, info?: LibraryCardInfo): HitRow {
     year: hit.item.year,
     meta: info ? info.meta.filter(part => !YEAR_PART.test(part)) : [],
     specs: info ? info.specs : range ? [range] : [],
-    rating: info ? info.rating : formatRating(hit.item.rating),
+    rating: info
+      ? info.rating
+      : formatRating(hit.item.rating, hit.item.ratingSource),
     note: [
       ...hit.reasons,
       hit.versions.length > 1 ? `${hit.versions.length} 个版本` : '',

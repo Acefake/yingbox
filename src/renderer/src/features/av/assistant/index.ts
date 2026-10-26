@@ -26,6 +26,8 @@ import {
   randomLibraryItem,
 } from '@/features/library'
 
+import { formatRating } from '../../../../../shared/library/rating'
+
 import {
   PRIVATE_LIBRARY,
   currentItemId,
@@ -118,7 +120,7 @@ const random = defineAction<true>({
         title: item.title,
         image: libraryPoster(item.poster),
         meta: item.year ? String(item.year) : '',
-        rating: item.rating ? item.rating.toFixed(1) : '',
+        rating: formatRating(item.rating, item.ratingSource),
         source: '本地片库',
         playLabel: '播放',
         play: () => playLibraryItem(item.id),

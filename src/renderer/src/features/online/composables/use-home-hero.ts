@@ -18,6 +18,8 @@ import {
 } from '@/features/library'
 import type { WatchlistMeta } from '@/features/watchlist'
 
+import { formatRating } from '../../../../../shared/library/rating'
+
 import type { DoubanItem } from '../types'
 import { doubanDetail } from '../utils/douban-detail'
 import { useDoubanFeed } from './use-douban-feed'
@@ -91,7 +93,6 @@ export function useHomeHero(openDouban: (item: DoubanItem) => void): HomeHero {
   }
 
   const fromDouban = (item: DoubanItem): HeroSlide => {
-    const rated = Number(item.rate) > 0
     return {
       key: `douban:${item.url}`,
       kicker: `豆瓣 · ${feed.query.value.kind === 'tv' ? '热门剧集' : '热门电影'}`,
@@ -102,7 +103,7 @@ export function useHomeHero(openDouban: (item: DoubanItem) => void): HomeHero {
       meta: [
         item.year ? `${item.year} 年` : '',
         item.type,
-        rated ? `豆瓣 ${item.rate}` : '',
+        formatRating(Number(item.rate), 'douban'),
       ].filter(Boolean),
       specs: [],
       watchlist: {

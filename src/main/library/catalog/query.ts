@@ -16,6 +16,7 @@ import type {
 } from '../../../shared/library/ipc'
 import type { NormalizedLibraryQuery } from '../../../shared/library/ipc'
 import { VIDEO_RANGE_RANK, type VideoRange } from '../../../shared/video-range'
+import type { RatingSource } from '../../../shared/library/rating'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { listFacetValues } from './facet-sql'
 import { registerJavKind } from './jav-kind'
@@ -43,7 +44,7 @@ const RANGE_RANK_COLUMN = `(SELECT MAX(CASE f.video_range
 
 const SUMMARY_COLUMNS = `i.id, i.library_id, i.merge_key, i.type, i.title, i.original_title, i.year,
   i.match_state, i.tmdb_id, i.imdb_id, i.tvdb_id, i.poster, i.backdrop, i.rating,
-  i.added_at, i.updated_at, ${RANGE_RANK_COLUMN}`
+  i.rating_source, i.added_at, i.updated_at, ${RANGE_RANK_COLUMN}`
 
 /** 档位排名 → 动态范围（与 VIDEO_RANGE_RANK 同序；0 = SDR）。 */
 const RANGE_BY_RANK = Object.fromEntries(
@@ -99,6 +100,10 @@ function toSummary(row: Record<string, unknown>): LibraryItemSummary {
       ? {}
       : { videoRange: RANGE_BY_RANK[Number(row.range_rank)] ?? null }),
     rating: row.rating === null ? null : Number(row.rating),
+    ratingSource:
+      typeof row.rating_source === 'string'
+        ? (row.rating_source as RatingSource)
+        : null,
     addedAt: Number(row.added_at),
     updatedAt: Number(row.updated_at),
   }

@@ -7,6 +7,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { MERGE_SCHEMA } from './schema-merge'
 import { V6_SCHEMA } from './schema-actors'
 import { V9_SCHEMA } from './schema-progress'
+import { V12_SCHEMA } from './schema-rating'
 import { V11_SCHEMA, V7_SCHEMA } from './schema-visual'
 
 /** 一条迁移。 */
@@ -315,6 +316,7 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 9, description: '观看进度', sql: V9_SCHEMA },
   { version: 10, description: '同一作品多版本合并展示', sql: MERGE_SCHEMA },
   { version: 11, description: '按画面搜的视频关键帧', sql: V11_SCHEMA },
+  { version: 12, description: '评分来源', sql: V12_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

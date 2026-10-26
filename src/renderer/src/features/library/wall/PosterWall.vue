@@ -124,7 +124,6 @@ import { applyFocus } from '@/services/thumbnails'
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'
 import { itemImage } from '../api/images'
 import { useWallProgress } from '../progress/use-wall-progress'
-import { formatRating } from '../shared/format'
 import type { PagedList } from './paged-list'
 import { useVirtualGrid } from './use-virtual-grid'
 import HoverCard from './HoverCard.vue'
@@ -240,7 +239,6 @@ const cells = computed<Cell[]>(() => {
     selected: props.selected,
     showStateBadge: Boolean(props.showStateBadge),
     image: poster => itemImage(poster, 300),
-    rating: formatRating,
     mark: watchMark,
   })
 })

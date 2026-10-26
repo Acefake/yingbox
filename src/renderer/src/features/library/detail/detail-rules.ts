@@ -6,11 +6,8 @@ import type {
   LibraryItemFile,
   LibraryItemNode,
 } from '../../../../../shared/library/ipc'
-import {
-  MATCH_STATE_LABEL,
-  formatRating,
-  formatRuntime,
-} from '../shared/format'
+import { formatRating } from '../../../../../shared/library/rating'
+import { MATCH_STATE_LABEL, formatRuntime } from '../shared/format'
 
 /** 标题级元数据（电影 / 剧集本身的）。 */
 export type TitleMeta = Extract<
@@ -58,7 +55,7 @@ export function seasonEpisodes(
     .sort((a, b) => (a.episodeNumber ?? 0) - (b.episodeNumber ?? 0))
 }
 
-/** 头图信息行：年份 · 时长（电影）/ N 季（剧集，不含特别篇）· 分级 · ★ 评分 · 前三个类型。 */
+/** 头图信息行：年份 · 时长（电影）/ N 季（剧集，不含特别篇）· 分级 · ★ 来源 评分 · 前三个类型。 */
 export function metaLineOf(
   node: LibraryItemNode | null,
   seasons: LibraryItemNode[]
@@ -74,7 +71,8 @@ export function metaLineOf(
     parts.push(`${seasons.filter(s => s.seasonNumber !== 0).length} 季`)
   }
   if (meta?.certification) parts.push(meta.certification)
-  if (node.rating) parts.push(`★ ${formatRating(node.rating)}`)
+  const rating = formatRating(node.rating, node.ratingSource)
+  if (rating) parts.push(`★ ${rating}`)
   if (node.genres.length) parts.push(node.genres.slice(0, 3).join(' / '))
   return parts
 }

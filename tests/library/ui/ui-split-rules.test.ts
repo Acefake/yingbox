@@ -275,7 +275,15 @@ describe('媒体库设置规则', () => {
 
 describe('海报墙规则', () => {
   const items = new Map([
-    [0, summary(10, { poster: 'p10', rating: 7.25, matchState: 'review' })],
+    [
+      0,
+      summary(10, {
+        poster: 'p10',
+        rating: 7.25,
+        ratingSource: 'douban',
+        matchState: 'review',
+      }),
+    ],
     [2, summary(12, { matchState: 'unmatched' })],
   ])
   const base = {
@@ -288,7 +296,6 @@ describe('海报墙规则', () => {
     selected: new Set([12]),
     showStateBadge: true,
     image: (p: string | null) => (p ? `img:${p}` : null),
-    rating: (r: number | null) => (r ? r.toFixed(1) : ''),
   }
 
   it('渲染格：占位格、图片、角标、评分、选中、位移', () => {
@@ -297,7 +304,7 @@ describe('海报墙规则', () => {
     expect(cells[0]).toMatchObject({
       src: 'img:p10',
       badge: '待确认',
-      rating: '7.3',
+      rating: '豆瓣 7.3',
       selected: false,
       style: { transform: 'translate3d(0px, 5px, 0)' },
     })
@@ -421,6 +428,9 @@ describe('条目详情规则', () => {
     expect(
       metaLineOf(series, [season(1, 0), season(2, 1), season(3, 2)])
     ).toEqual(['2 季'])
+    expect(
+      metaLineOf(node(3, { rating: 7.94, ratingSource: 'tmdb' }), [])
+    ).toEqual(['★ TMDB 7.9'])
     expect(metaLineOf(null, [])).toEqual([])
   })
 

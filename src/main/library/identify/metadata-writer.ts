@@ -5,6 +5,8 @@
  * 完整元数据（演职员、图片候选、各语言信息等）存 metadata JSON，详情页 / NFO 写出（P5）直接用。
  * 写方法都应在调用方的事务里执行。
  * fillLocal 用本地 NFO / 豆瓣的信息只补空着的字段，不覆盖刮削来的值。
+ * 评分带来源（rating_source，见 shared/library/rating.ts）；豆瓣评分优先：已有豆瓣评分时识别不覆盖，
+ * 本地补到豆瓣评分时替换别的来源。
  */
 import type { ItemMetadata, MatchState } from '../../../shared/library/ipc'
 import type {
@@ -12,6 +14,7 @@ import type {
   MediaMetadata,
   SeasonMetadata,
 } from '../../../shared/library/provider'
+import type { RatingSource } from '../../../shared/library/rating'
 import { normalizeTitle } from '../../../shared/library/scoring'
 import { type LibraryDb, StatementCache } from '../db/database'
 
@@ -35,6 +38,8 @@ export interface LocalFill {
   /** ISO 3166-1 两位代码。 */
   countries?: string[]
   rating?: number
+  /** 评分来源；缺省按补全来源（nfo / douban）。 */
+  ratingSource?: RatingSource
   overview?: string
   year?: number
 }
@@ -98,7 +103,10 @@ export class MetadataWriter {
         `UPDATE media_items SET
            title = ?, original_title = ?, sort_title = ?, search_text = ?, year = ?,
            tmdb_id = ?, imdb_id = ?, tvdb_id = ?, overview = ?,
-           poster = ?, backdrop = ?, logo = ?, rating = ?, runtime = ?, genres = ?,
+           poster = ?, backdrop = ?, logo = ?,
+           rating = CASE WHEN rating_source = 'douban' THEN rating ELSE ? END,
+           rating_source = CASE WHEN rating_source = 'douban' THEN rating_source ELSE ? END,
+           runtime = ?, genres = ?,
            air_date = ?, metadata = ?, metadata_at = ?, identified_at = ?, updated_at = ?,
            match_state = CASE WHEN match_state = 'locked' THEN 'locked' ELSE ? END
          WHERE id = ?`
@@ -117,6 +125,9 @@ export class MetadataWriter {
         images.backdrop ?? null,
         images.logo ?? null,
         meta.rating ?? null,
+        meta.rating !== undefined && meta.ref.provider === 'tmdb'
+          ? 'tmdb'
+          : null,
         meta.runtimeMinutes ?? null,
         JSON.stringify(meta.genres),
         meta.releaseDate ?? null,
@@ -130,7 +141,7 @@ export class MetadataWriter {
   }
 
   /**
-   * 用本地信息补空着的字段：类型、简介、评分、年份各自只在为空时写；制片国家补进 metadata
+   * 用本地信息补空着的字段：类型、简介、评分、年份各自只在为空时写（豆瓣评分还会替换别的来源）；制片国家补进 metadata
    * （没有元数据时写 level = local 的小对象）。返回是否有改动。
    * 已是最新识别（identified_at ≥ updated_at）的条目，identified_at 跟着前移，补全不会让它下次扫描重新识别。
    */
@@ -142,7 +153,8 @@ export class MetadataWriter {
   ): boolean {
     const row = this.sql
       .get(
-        'SELECT genres, overview, rating, year, metadata FROM media_items WHERE id = ?'
+        `SELECT genres, overview, rating, rating_source, year, metadata
+         FROM media_items WHERE id = ?`
       )
       .get(itemId)
     if (!row) return false
@@ -151,8 +163,13 @@ export class MetadataWriter {
         ? JSON.stringify(fill.genres)
         : null
     const overview = fill.overview && blank(row.overview) ? fill.overview : null
+    const ratingSource = fill.ratingSource ?? source
     const rating =
-      fill.rating !== undefined && blank(row.rating) ? fill.rating : null
+      fill.rating !== undefined &&
+      (blank(row.rating) ||
+        (ratingSource === 'douban' && row.rating_source !== 'douban'))
+        ? fill.rating
+        : null
     const year = fill.year !== undefined && blank(row.year) ? fill.year : null
     const metadata = withCountries(row.metadata, fill.countries ?? [], source)
     if (
@@ -167,13 +184,14 @@ export class MetadataWriter {
       .get(
         `UPDATE media_items SET genres = COALESCE(?1, genres),
            overview = COALESCE(?2, overview), rating = COALESCE(?3, rating),
+           rating_source = CASE WHEN ?3 IS NULL THEN rating_source ELSE ?8 END,
            year = COALESCE(?4, year), metadata = COALESCE(?5, metadata),
            identified_at = CASE WHEN identified_at >= updated_at THEN ?6
              ELSE identified_at END,
            updated_at = ?6
          WHERE id = ?7`
       )
-      .run(genres, overview, rating, year, metadata, now, itemId)
+      .run(genres, overview, rating, year, metadata, now, itemId, ratingSource)
     return true
   }
 
@@ -235,7 +253,8 @@ export class MetadataWriter {
     this.sql
       .get(
         `UPDATE media_items SET title = ?, overview = ?, poster = ?, air_date = ?,
-           rating = ?, runtime = ?, metadata = ?, metadata_at = ?, match_state = 'auto'
+           rating = ?, rating_source = ?, runtime = ?, metadata = ?, metadata_at = ?,
+           match_state = 'auto'
          WHERE id = ?`
       )
       .run(
@@ -244,6 +263,8 @@ export class MetadataWriter {
         still,
         episode.airDate ?? null,
         episode.rating ?? null,
+        // 剧集只有 TMDB 一个元数据源
+        episode.rating === undefined ? null : 'tmdb',
         episode.runtimeMinutes ?? null,
         JSON.stringify(json),
         now,
@@ -256,8 +277,8 @@ export class MetadataWriter {
     this.sql
       .get(
         `UPDATE media_items SET overview = NULL, poster = NULL, air_date = NULL,
-           rating = NULL, runtime = NULL, metadata = NULL, metadata_at = NULL,
-           match_state = 'unmatched'
+           rating = NULL, rating_source = NULL, runtime = NULL, metadata = NULL,
+           metadata_at = NULL, match_state = 'unmatched'
          WHERE id = ?`
       )
       .run(itemId)
@@ -268,7 +289,8 @@ export class MetadataWriter {
     this.sql
       .get(
         `UPDATE media_items SET overview = NULL, poster = NULL, backdrop = NULL,
-           logo = NULL, rating = NULL, runtime = NULL, genres = NULL, air_date = NULL,
+           logo = NULL, rating = NULL, rating_source = NULL, runtime = NULL,
+           genres = NULL, air_date = NULL,
            metadata = NULL, metadata_at = NULL, updated_at = ?
          WHERE id = ? AND match_state <> 'locked'`
       )

@@ -18,7 +18,7 @@ import {
   highlightSpecs,
   videoNamesOf,
 } from '../home/highlight-rules'
-import { formatRating } from '../shared/format'
+import { formatRating } from '../../../../../shared/library/rating'
 import { continueMetaOf, watchlistMetaOf } from './playback'
 
 /** 最多缓存几条 */
@@ -48,7 +48,7 @@ export function cardInfoOf(node: LibraryItemNode): LibraryCardInfo {
       videoRange: node.videoRange,
       fileNames: videoNamesOf(node),
     }),
-    rating: formatRating(node.rating),
+    rating: formatRating(node.rating, node.ratingSource),
     watchlist: watchlistMetaOf(node),
     location: { path: `/${section}`, query: { item: String(node.id) } },
   }

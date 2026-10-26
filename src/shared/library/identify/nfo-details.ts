@@ -4,6 +4,7 @@
  * 与 nfo.ts 一样只做容错的正则抽取：TMDB 匹配失败、没配 TMDB 或 TMDB 缺字段时，
  * 用这些值补进 media_items（见 main/library/identify/nfo-fill.ts），不覆盖已有值。
  */
+import { type RatingSource, ratingSourceOf } from '../rating'
 import { countryCode, countryCodes } from './country-codes'
 
 /** NFO 里的描述信息；没有的字段缺省（数组为空）。 */
@@ -13,6 +14,8 @@ export interface NfoDetails {
   countries: string[]
   /** 评分 0–10。 */
   rating?: number
+  /** 评分来源（<rating name>；旧式 <rating> 与没写 name 的为 nfo）；有 rating 才有。 */
+  ratingSource?: RatingSource
   plot?: string
   year?: number
 }
@@ -21,6 +24,8 @@ export interface NfoDetails {
 const SPLIT_RE = /\s*[/|,，、;；]\s*/
 /** <rating default="true">：属性名独立成词，值恰好是 true（不认 default="trueish"、isdefault 等）。 */
 const DEFAULT_ATTR = /(?:^|\s)default\s*=\s*(?:"true"|'true'|true(?=[\s/>]|$))/i
+/** <rating name="…"> 的值。 */
+const NAME_ATTR = /(?:^|\s)name\s*=\s*["']?([^"'\s>]+)/i
 /** 简介最长保留多少字。 */
 const MAX_PLOT = 4000
 /** 每类最多几个值。 */
@@ -95,27 +100,35 @@ function scaled(value: string, max: number): number | undefined {
 }
 
 /**
- * 评分：新式 <ratings><rating default="true" max="10"><value>8.1</value></rating></ratings>
- * 优先取 default 那一条，其次第一条；再退到旧式 <rating>8.1</rating>。
+ * 评分与来源：新式 <ratings><rating name="douban" default="true" max="10"><value>8.1</value></rating></ratings>
+ * 优先取豆瓣那一条，其次 default，再其次第一条；再退到旧式 <rating>8.1</rating>（来源 nfo）。
  */
-function ratingOf(content: string): number | undefined {
+function ratingOf(
+  content: string
+): Pick<NfoDetails, 'rating' | 'ratingSource'> {
   const block = /<ratings\b[^>]*>([\s\S]*?)<\/ratings>/i.exec(content)?.[1]
   if (block) {
     const entries = [
       ...block.matchAll(/<rating\b([^>]*)>([\s\S]*?)<\/rating>/gi),
     ].map(m => ({
       attrs: m[1],
+      source: ratingSourceOf(NAME_ATTR.exec(m[1])?.[1]),
       value: /<value>\s*([\d.,]+)\s*<\/value>/i.exec(m[2])?.[1],
     }))
-    const pick = entries.find(e => DEFAULT_ATTR.test(e.attrs)) ?? entries[0]
+    const pick =
+      entries.find(e => e.source === 'douban' && e.value) ??
+      entries.find(e => DEFAULT_ATTR.test(e.attrs)) ??
+      entries[0]
     if (pick?.value) {
       const max = Number(/\bmax\s*=\s*["']?([\d.]+)/i.exec(pick.attrs)?.[1])
       const score = scaled(pick.value, max > 0 ? max : 10)
-      if (score !== undefined) return score
+      if (score !== undefined)
+        return { rating: score, ratingSource: pick.source }
     }
   }
   const legacy = /<rating>\s*([\d.,]+)\s*<\/rating>/i.exec(content)?.[1]
-  return legacy ? scaled(legacy, 10) : undefined
+  const score = legacy ? scaled(legacy, 10) : undefined
+  return score === undefined ? {} : { rating: score, ratingSource: 'nfo' }
 }
 
 /** 年份：<year>，其次 <premiered> / <releasedate> / <aired> 里的四位年份。 */
@@ -140,7 +153,7 @@ export function parseNfoDetails(content: string): NfoDetails {
     countries: countryCodes(
       listOf(content, 'country', v => countryCode(v) !== undefined)
     ),
-    ...(rating !== undefined ? { rating } : {}),
+    ...rating,
     ...(plot ? { plot } : {}),
     ...(year !== undefined ? { year } : {}),
   }
