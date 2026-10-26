@@ -11,6 +11,7 @@
 - **访问令牌必填**：容器里监听 `0.0.0.0` 时，服务要求 `YINGBOX_SERVER_TOKEN` 至少 24 个字符、不是示例占位串，否则拒绝启动（日志里写明原因）。
 - **服务不以 root 运行**：容器以 root 启动入口脚本，把 `/config`、`/cache` 的属主改成 `PUID:PGID` 后降权。`PUID` / `PGID` 设成媒体文件的属主，或者至少是能读这些文件的用户。
 - **片库只读挂载**：浏览、扫描、刮削、播放都只需要读。要写 NFO / 图片或整理改名，去掉对应挂载的 `:ro`。
+- **镜像默认没有 ffmpeg / ffprobe**：多版本的 HDR / 杜比视界标退回看文件名，自动中文字幕不认内封字幕，按画面搜抽不了视频帧。构建参数 `WITH_CHROMIUM=1` 会一起装上（见「在线播放」），也可以设 `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 指向挂进容器的程序。自动中文字幕默认关，设 `YINGBOX_AUTO_SUBTITLES: 'on'` 并给 `YINGBOX_OPENSUBTITLES_KEY`（见 [library-server.md](../library-server.md)）。
 
 ## 目录映射
 
@@ -203,15 +204,24 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 
 1. **登录 115**：网页端「设置 → 网盘」点扫码登录，用 115 App 扫。会话与 Cookie 存在 `/config`（0600），容器重启不用重扫；115 让会话失效时网页端会提示重新扫码。
 2. **PanSou**：在同一页填 PanSou 地址（PanSou 也在 NAS 上跑时，填容器能访问到的地址，比如同一 Docker 网络里的 `http://pansou:8888`）。想在 compose 里固定，设 `YINGBOX_PANSOU_URL`。
-3. **转存后入库**：追更把文件转存进 115，片库要从 CD2 的挂载里看到它。按上一节把 CD2 挂载根映射进来（如 `/media/cloud`），并设
+3. **Torznab（Prowlarr / Jackett，可选）**：同一页「Torznab」里填接口地址和 API Key，点「测试连接」。地址按容器之间能互通的写：
+   - 片库服务与 Prowlarr / Jackett 在**同一个 compose / Docker 网络**里：用服务名，比如 `http://prowlarr:9696/1/api`、
+     `http://jackett:9117/api/v2.0/indexers/all/results/torznab/api`；
+   - 不在同一网络（各自 bridge、或 Prowlarr 跑在 host 网络）：用 **NAS 的局域网 IP**，比如 `http://192.168.1.10:9696/1/api`。
+     不要写 `localhost` / `127.0.0.1`——那是片库容器自己；
+   - **Prowlarr**：每个索引器一个地址（索引器列表里点开，复制 Torznab Feed，形如 `http://NAS:9696/<索引器编号>/api`），一行一个，最多 8 个；API Key 在
+     Settings → General → Security；
+   - **Jackett**：聚合地址 `http://NAS:9117/api/v2.0/indexers/all/results/torznab/api` 一个就够；API Key 在 Jackett 首页右上角；
+   - 想在 compose 里固定，设 `YINGBOX_TORZNAB_URL`（多个用逗号分隔）和 `YINGBOX_TORZNAB_API_KEY`；网页端保存过的优先。Key 存在 `/config/secrets.json`（0600）。
+4. **转存后入库**：追更把文件转存进 115，片库要从 CD2 的挂载里看到它。按上一节把 CD2 挂载根映射进来（如 `/media/cloud`），并设
    ```yaml
    environment:
      YINGBOX_MOUNT_ROOT: /media/cloud # CD2 挂载根在片库容器里的路径
    ```
    转存成功后服务直接通知片库按目录扫描（不需要 CD2 的 webhook）；路径对不上时文件要等手动扫描。也可以不设环境变量，在网页端改（设置键 `library.notify.mountRoot`）。
-4. **只跑一份定时任务**：同一个 `/config` 只会有一个容器跑追更（`/config/scheduler.lock` 租约）。临时起第二个容器（比如测试新版本）时给它设 `YINGBOX_AUTOGRAB: 'off'`，或者干脆用另一份 `/config`。
-5. **出网**：115 与 PanSou 走 Node 自带的 fetch，需要代理时同样设 `HTTPS_PROXY` + `NODE_USE_ENV_PROXY: '1'`。
-6. **不想要这些功能**：设 `YINGBOX_NETDISK: 'off'`，服务不加载网盘相关模块，也不向 115 发任何请求。
+5. **只跑一份定时任务**：同一个 `/config` 只会有一个容器跑追更（`/config/scheduler.lock` 租约）。临时起第二个容器（比如测试新版本）时给它设 `YINGBOX_AUTOGRAB: 'off'`，或者干脆用另一份 `/config`。
+6. **出网**：115、PanSou 与 Torznab 走 Node 自带的 fetch，需要代理时同样设 `HTTPS_PROXY` + `NODE_USE_ENV_PROXY: '1'`。
+7. **不想要这些功能**：设 `YINGBOX_NETDISK: 'off'`，服务不加载网盘相关模块，也不向 115 发任何请求。
 
 桌面版与片库服务各有一份追更状态，同一个 115 账号两边都开追更会各自转存同一集：开了这边就把桌面版的追更总开关关掉。
 

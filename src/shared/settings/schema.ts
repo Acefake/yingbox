@@ -238,6 +238,8 @@ export const settingsSchema = {
   'pan115.movieName': text('', 500),
   /** 115 扫码登录会话（JSON：Cookie + 账号 id / 名），只有主进程读 */
   'pan115.session': secret(),
+  /** Torznab 地址 + API Key（JSON，见 src/main/pan115/torznab-secret.ts） */
+  'pan115.torznab': secret(),
 
   /** 在线播放卡顿 / 出错时自动换到下一个可用源的同一集，从当前进度继续 */
   'online.autoSwitchSource': bool(true),

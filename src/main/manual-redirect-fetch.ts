@@ -31,29 +31,48 @@ function toHeaders(raw: IncomingMessage['headers']): Headers {
   return headers
 }
 
-/** 运行时 IncomingMessage 是 Node Readable（类型声明里没写 pause / resume） */
+/** 运行时 IncomingMessage 是 Node Readable（类型声明里没写 pause / resume / close 事件） */
 type Pausable = { pause(): void; resume(): void }
+type Closable = { on(event: 'close', listener: () => void): void }
 
-/** IncomingMessage → WHATWG ReadableStream（带背压；取消时中止请求） */
+/**
+ * IncomingMessage → WHATWG ReadableStream（带背压；取消时中止请求）。
+ *
+ * Electron 37 的 ClientRequest.abort()（外部 signal 取消、超时）只对响应 destroy()：只发 close，
+ * 不发 end / error / aborted。不接 close 的话读响应体的一方会一直等下去（超时形同虚设），
+ * 所以没正常结束就收到 close 时按「连接中断」报错。流结束或被取消后不再碰 controller（会抛 Invalid state）。
+ */
 function toStream(
   res: IncomingMessage,
   request: ClientRequest
 ): ReadableStream<Uint8Array> {
+  let finished = false
   return new ReadableStream<Uint8Array>({
     start(controller) {
+      const finish = (error?: Error): void => {
+        if (finished) return
+        finished = true
+        if (error) controller.error(error)
+        else controller.close()
+      }
       res.on('data', (chunk: Buffer) => {
+        if (finished) return
         controller.enqueue(new Uint8Array(chunk))
         if ((controller.desiredSize ?? 1) <= 0)
           (res as unknown as Pausable).pause()
       })
-      res.on('end', () => controller.close())
-      res.on('error', (error: Error) => controller.error(error))
-      res.on('aborted', () => controller.error(new Error('连接中断')))
+      res.on('end', () => finish())
+      res.on('error', (error: Error) => finish(error))
+      res.on('aborted', () => finish(new Error('连接中断')))
+      ;(res as unknown as Closable).on('close', () =>
+        finish(new Error('连接中断'))
+      )
     },
     pull() {
       ;(res as unknown as Pausable).resume()
     },
     cancel() {
+      finished = true
       request.abort()
     },
   })

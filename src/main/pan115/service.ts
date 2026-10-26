@@ -1,10 +1,11 @@
 /**
- * 网盘服务：pan115 域每个方法的实现，组合 PanSou 搜索、扫码登录与 115 客户端。
+ * 网盘服务：pan115 域每个方法的实现，组合 PanSou / Torznab 搜索、扫码登录与 115 客户端。
  *
- * 不依赖 Electron：115 传输层、PanSou 的 fetch、设置读取、会话存取都由 index.ts 注入
+ * 不依赖 Electron：115 传输层、局域网地址（PanSou / Torznab）的 fetch、设置读取、会话与 Torznab 配置的存取都由 index.ts 注入
  * （会话 = safeStorage 密钥，是 Cookie 的权威来源；传输层分区里的 Cookie 只是它的副本，
  * 每次发 115 请求前按当前会话同步），测试可全部替换。
- * 返回给渲染层的只有账号名和 id，Cookie 不出主进程；失败一律返回 { ok: false, error: 人话 }。
+ * 返回给渲染层的只有账号名和 id，Cookie 与 Torznab API Key 不出主进程；失败一律返回 { ok: false, error: 人话 }。
+ * 界面搜索与 Torznab 配置在 sources.ts。
  *
  * 扫码状态机：二维码只在终态（登录完成 / 过期 / 取消）或换新码时作废；状态接口的瞬时异常
  * 连续 {@link MAX_MISSES} 次才报错且保留二维码；手机确认后换 Cookie 失败时，下一次轮询直接重试换 Cookie。
@@ -27,6 +28,8 @@ import type { FetchLike } from './http'
 import { searchPanSou } from './pansou'
 import { type QrStatus, type QrTicket, createQrLogin } from './qr-login'
 import { type ShareRef, parseShareLink } from './share-link'
+import { type SourceSearch, createSourceSearch } from './sources'
+import type { TorznabSecret } from './torznab-secret'
 import type { Pan115Transport } from './transport'
 
 export type { Pan115Session } from './client'
@@ -35,8 +38,8 @@ export type { Pan115Session } from './client'
 export interface Pan115ServiceDeps {
   /** 115 域请求（独立分区：Cookie / Referer / UA 由它带上） */
   transport: Pan115Transport
-  /** PanSou 请求（用户填的地址，与 115 分开） */
-  pansouFetch: FetchLike
+  /** PanSou / Torznab 请求（用户填的局域网地址，与 115 分开） */
+  lanFetch: FetchLike
   settings: {
     /** PanSou 地址（空串 = 未填） */
     pansouUrl(): string
@@ -47,6 +50,11 @@ export interface Pan115ServiceDeps {
   session: {
     read(): Pan115Session | null
     write(session: Pan115Session | null): Promise<void>
+  }
+  /** Torznab 地址与 API Key 的存取（与 115 会话同一种密钥存储） */
+  torznab: {
+    read(): TorznabSecret | null
+    write(value: TorznabSecret | null): Promise<void>
   }
 }
 
@@ -77,7 +85,10 @@ function accountOf(session: Pan115Session | null): Pan115Account {
 
 /** 网盘服务：方法与 pan115 域一一对应 */
 export interface Pan115Service {
-  search(keyword: string): Promise<Pan115Result<{ items: NetdiskItem[] }>>
+  search: SourceSearch['search']
+  torznab: SourceSearch['torznab']
+  setTorznab: SourceSearch['setTorznab']
+  testTorznab: SourceSearch['testTorznab']
   account(): Promise<Pan115Account>
   loginStart(): Promise<Pan115Result<{ imageUrl: string }>>
   loginPoll(): Promise<Pan115LoginPoll>
@@ -99,6 +110,7 @@ export interface Pan115Service {
 /** 创建网盘服务 */
 export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
   const qr = createQrLogin(deps.transport.fetch)
+  const sources = createSourceSearch(deps)
   let attempt: LoginAttempt | null = null
   /** 分区里当前是哪份 Cookie（undefined = 未知，下次必同步） */
   let applied: string | null | undefined
@@ -197,22 +209,7 @@ export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
   }
 
   return {
-    async search(
-      keyword: string
-    ): Promise<Pan115Result<{ items: NetdiskItem[] }>> {
-      const base = deps.settings.pansouUrl().trim()
-      if (!base)
-        return { ok: false, error: '请先在设置 · 网盘里填写 PanSou 地址' }
-      if (!keyword.trim()) return { ok: false, error: '请输入关键词' }
-      try {
-        return {
-          ok: true,
-          items: await searchPanSou(deps.pansouFetch, base, keyword),
-        }
-      } catch (error) {
-        return failure(error)
-      }
-    },
+    ...sources,
 
     async account(): Promise<Pan115Account> {
       return accountOf(deps.session.read())
@@ -304,7 +301,7 @@ export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
     async searchRaw(keyword: string): Promise<NetdiskItem[]> {
       const base = deps.settings.pansouUrl().trim()
       if (!base) throw new Pan115Error('请先在设置 · 网盘里填写 PanSou 地址')
-      return searchPanSou(deps.pansouFetch, base, keyword)
+      return (await searchPanSou(deps.lanFetch, base, keyword)).shares
     },
   }
 }

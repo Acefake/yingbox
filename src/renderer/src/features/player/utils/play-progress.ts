@@ -1,6 +1,11 @@
 import { isIncognito } from '@/features/incognito'
 import type { JsonRecord } from '@/utils/json'
-import { readStoredArray, saveStoredArray } from '@/utils/storage'
+import {
+  readStoredArray,
+  readStoredText,
+  saveStoredArray,
+  writeStoredText,
+} from '@/utils/storage'
 
 import { readWatched } from '../watched'
 
@@ -12,21 +17,19 @@ type ProgressMap = Record<
   { progress: number; duration: number; updatedAt: number }
 >
 
+/** 读进度表（键不变：media_play_progress）；没有或坏掉时为空表。 */
 function readProgressMap(): ProgressMap {
   try {
-    const raw = JSON.parse(localStorage.getItem(PROGRESS_MAP_KEY) || '{}')
+    const raw: unknown = JSON.parse(readStoredText(PROGRESS_MAP_KEY) || '{}')
     return raw && typeof raw === 'object' ? (raw as ProgressMap) : {}
   } catch {
     return {}
   }
 }
 
+/** 写进度表；存储不可用时 writeStoredText 自己告警。 */
 function writeProgressMap(map: ProgressMap): void {
-  try {
-    localStorage.setItem(PROGRESS_MAP_KEY, JSON.stringify(map))
-  } catch (error) {
-    console.warn('[play-progress] map save failed', error)
-  }
+  writeStoredText(PROGRESS_MAP_KEY, JSON.stringify(map))
 }
 
 /** Prefer URL / filePath as stable key. */

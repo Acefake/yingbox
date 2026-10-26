@@ -1,7 +1,9 @@
 /**
  * art-core 的 loadedmetadata：只有网页端解不了画面时才报错；其余照常跳续播位置并转发事件。
  */
-import { beforeEach, describe, expect, it, vi } from 'vitest'
+import { type Mock, beforeEach, describe, expect, it, vi } from 'vitest'
+
+import type { ArtSink } from '../src/renderer/src/features/player/utils/art-core'
 
 const handlers = new Map<string, (event?: unknown) => void>()
 const video = { videoWidth: 1920, videoHeight: 1080, pause: vi.fn() }
@@ -54,7 +56,12 @@ vi.mock('../src/renderer/src/features/player/utils/hls-session', () => ({
   }),
 }))
 
-const sinkMock = () => ({
+/** 假的 sink：会被断言调用的几项是 vi.fn() */
+type SinkMock = {
+  [K in 'event' | 'error' | 'started' | 'seek']: Mock<ArtSink[K]>
+} & Pick<ArtSink, 'autoplay' | 'subtitles'>
+
+const sinkMock = (): SinkMock => ({
   event: vi.fn(),
   error: vi.fn(),
   started: vi.fn(),
@@ -75,7 +82,7 @@ describe('createArtCore loadedmetadata', () => {
     })
   })
 
-  const load = async (url: string) => {
+  const load = async (url: string): Promise<SinkMock> => {
     const { createArtCore } =
       await import('../src/renderer/src/features/player/utils/art-core')
     const sink = sinkMock()

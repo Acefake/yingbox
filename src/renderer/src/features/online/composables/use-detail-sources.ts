@@ -66,6 +66,7 @@ export function useDetailSources(): UseDetailSourcesReturn {
   /** 当前影片（归一化片名）与它手动选过的源 */
   let film = ''
   let pickedSite = ''
+  let loadGeneration = 0
   const probe = useSourceProbe()
 
   const split = computed(() => splitBySourceType(episodeGroups.value))
@@ -103,6 +104,9 @@ export function useDetailSources(): UseDetailSourcesReturn {
     directItem: CmsItem | null,
     searchTitle: string
   ): Promise<void> => {
+    // 换条目时上一部的线路请求可能还在路上：只认最后一次 load，旧结果不混进新条目的线路
+    const mine = ++loadGeneration
+    const stale = (): boolean => mine !== loadGeneration
     searching.value = true
     episodeGroups.value = []
     activeGroup.value = 0
@@ -121,6 +125,7 @@ export function useDetailSources(): UseDetailSourcesReturn {
         seen.add(key)
         const task = fetchDetail(candidate)
           .then(groups => {
+            if (stale()) return
             const available = groups.filter(group => group.episodes?.length)
             if (!available.length) return
             const hadGroups = episodeGroups.value.length > 0
@@ -140,6 +145,7 @@ export function useDetailSources(): UseDetailSourcesReturn {
       await search(searchTitle, {
         allVod: false,
         onItems: items => {
+          if (stale()) return
           for (const result of items) {
             const title = normalizeTitle(result.vod_name)
             if (titleMatches(title, targetTitle)) appendDetail(result)
@@ -148,11 +154,12 @@ export function useDetailSources(): UseDetailSourcesReturn {
       })
       // 搜索结束后仍可能有详情请求在路上，等待它们完成以准确结束加载状态。
       await Promise.all([...pending])
-      currentSourceType.value = preferredSourceType(episodeGroups.value)
+      if (!stale())
+        currentSourceType.value = preferredSourceType(episodeGroups.value)
     } catch {
       /* silent */
     } finally {
-      searching.value = false
+      if (!stale()) searching.value = false
     }
   }
 

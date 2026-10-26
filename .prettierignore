@@ -1,0 +1,4 @@
+# 测试夹具是抓下来的原始响应（HTML / JSON），比对的就是原样字节，格式化会改坏它们
+tests/fixtures/
+# pnpm 自己生成与维护
+pnpm-lock.yaml

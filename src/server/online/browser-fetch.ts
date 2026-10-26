@@ -7,10 +7,14 @@
  *   （插件源记熔断、MissAV 提示验证未通过），并在日志里说明一次原因。
  * - 与桌面端 browser-fetch 同样的约束：串行（一个页面一个页面来），按主机 + 路径类别熔断，
  *   硬封锁立即熔断 30 分钟；用持久化的用户目录，cf_clearance 跨请求保留。无头浏览器过不了需要人工点的挑战。
+ * - 与桌面端 network-guard.ts 一样，页面的每个请求（含跳转与子资源）都只许去公网：内网 / 本机地址直接中止，
+ *   源站跳转或页面脚本不能借 NAS 上的浏览器访问局域网。
  * - 空闲 5 分钟关掉浏览器，省 NAS 内存。
  */
+import { lookup as dnsLookup } from 'node:dns/promises'
 import { join } from 'node:path'
 import { classifyPage } from '../../shared/net/cf-page'
+import { type LookupAll, assertPublicTarget } from '../../shared/net/guard'
 import {
   createHostBreaker,
   hostOf,
@@ -46,8 +50,15 @@ interface PwPage {
   waitForTimeout(ms: number): Promise<void>
   close(): Promise<void>
 }
+/** 拦下的一个请求。 */
+export interface PwRoute {
+  request(): { url(): string }
+  continue(): Promise<void>
+  abort(errorCode?: string): Promise<void>
+}
 interface PwContext {
   newPage(): Promise<PwPage>
+  route(url: string, handler: (route: PwRoute) => Promise<void>): Promise<void>
   close(): Promise<void>
 }
 /** playwright-core 模块的子集。 */
@@ -78,6 +89,8 @@ export interface NodeBrowserOptions {
   log: (message: string) => void
   /** 加载 playwright-core（测试注入） */
   load?: () => Promise<PlaywrightLike>
+  /** DNS 解析（测试注入），公网校验用 */
+  lookup?: LookupAll
   challengeWaitMs?: number
   idleMs?: number
 }
@@ -98,6 +111,21 @@ const isHttpUrl = (value: string): boolean => {
   }
 }
 
+/** 只放行公网请求的拦截函数；data: / blob: 等非网络地址照常放行。 */
+export function publicOnlyRoute(
+  lookup: LookupAll
+): (route: PwRoute) => Promise<void> {
+  return async route => {
+    const url = route.request().url()
+    if (!isHttpUrl(url)) return route.continue()
+    const allowed = await assertPublicTarget(url, lookup).then(
+      () => true,
+      () => false
+    )
+    return allowed ? route.continue() : route.abort('blockedbyclient')
+  }
+}
+
 /** 创建代抓。 */
 export function createNodeBrowserFetch(
   options: NodeBrowserOptions
@@ -106,6 +134,8 @@ export function createNodeBrowserFetch(
   const waitMs = options.challengeWaitMs ?? 20_000
   const idleMs = options.idleMs ?? 5 * 60_000
   const breaker = createHostBreaker({ scopeOf: pathScope })
+  const lookup: LookupAll =
+    options.lookup ?? (host => dnsLookup(host, { all: true }))
   let context: Promise<PwContext> | null = null
   let queue: Promise<unknown> = Promise.resolve()
   let idleTimer: ReturnType<typeof setTimeout> | undefined
@@ -127,15 +157,20 @@ export function createNodeBrowserFetch(
 
   const open = (): Promise<PwContext> => {
     context ??= (options.load ?? loadPlaywright)()
-      .then(pw =>
-        pw.chromium.launchPersistentContext(join(options.dataDir, 'browser'), {
-          executablePath: spec!.path,
-          headless: true,
-          userAgent: CHROME_UA,
-          // 容器里以普通用户运行、没有 user namespace，Chromium 沙箱起不来；/dev/shm 常只有 64 MB
-          args: ['--no-sandbox', '--disable-dev-shm-usage'],
-        })
-      )
+      .then(async pw => {
+        const ctx = await pw.chromium.launchPersistentContext(
+          join(options.dataDir, 'browser'),
+          {
+            executablePath: spec!.path,
+            headless: true,
+            userAgent: CHROME_UA,
+            // 容器里以普通用户运行、没有 user namespace，Chromium 沙箱起不来；/dev/shm 常只有 64 MB
+            args: ['--no-sandbox', '--disable-dev-shm-usage'],
+          }
+        )
+        await ctx.route('**/*', publicOnlyRoute(lookup))
+        return ctx
+      })
       .catch((error: unknown) => {
         context = null
         throw error
@@ -174,6 +209,8 @@ export function createNodeBrowserFetch(
     async browserFetch(url) {
       if (!spec) return unavailable('未设置 YINGBOX_BROWSER')
       if (!isHttpUrl(url) || breaker.check(url)) return ''
+      const target = await assertPublicTarget(url, lookup).catch(() => null)
+      if (!target) return ''
       clearTimeout(idleTimer)
       const task = queue.then(async () => {
         if (breaker.check(url)) return ''
