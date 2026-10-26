@@ -1,7 +1,10 @@
 <template>
   <div
     class="online-view h-full min-h-0 bg-yb-bg text-yb-text"
-    :class="{ 'is-bleed': !inlineDetailItem && activeTab === 'home' }"
+    :class="{
+      'is-bleed': !inlineDetailItem && activeTab === 'home',
+      'has-detail': !!inlineDetailItem,
+    }"
   >
     <!-- 首页：Hero 铺到浮动侧栏和顶栏胶囊下面，下面几排按 --home-x 让开侧栏 -->
     <div
@@ -72,6 +75,7 @@
         <div class="inline-detail-toolbar">
           <UiButton
             label="返回"
+            icon="back"
             variant="secondary"
             @click="inlineDetailItem = null"
           />
@@ -262,6 +266,11 @@ const openContinueDetail = (record: ContinueRecord): void => {
   min-width: 0;
 }
 
+.online-view.has-detail {
+  height: calc(100% + var(--shell-top));
+  margin-top: calc(var(--shell-top) * -1);
+}
+
 .inline-detail-page {
   display: flex;
   flex-direction: column;
@@ -273,8 +282,10 @@ const openContinueDetail = (record: ContinueRecord): void => {
 }
 
 .inline-detail-toolbar {
-  flex: 0 0 auto;
-  padding: var(--space-3) var(--content-padding-x);
+  position: absolute;
+  top: calc(var(--shell-top) + var(--space-3));
+  left: var(--content-padding-x);
+  z-index: var(--z-float);
 }
 
 .inline-detail-page :deep(.detail-win) {
