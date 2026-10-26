@@ -52,7 +52,7 @@ COPY --from=build /app/dist-web ./dist-web
 COPY docker/entrypoint.sh docker/healthcheck.mjs ./docker/
 
 # 可选：在线板块的浏览器代抓（系统 Chromium + 上一阶段解包的 playwright-core）与中文字体；
-# ffmpeg 给下载完成后的 .ts → .mp4 无损转封装（没有时保留 .ts）
+# ffmpeg 给下载完成后的 .ts → .mp4 无损转封装（没有时保留 .ts），同包的 ffprobe 给片库探测 HDR / 杜比视界与内封字幕
 ARG WITH_CHROMIUM=0
 COPY --from=browser-deps /opt/browser-modules/ ./node_modules/
 RUN if [ "$WITH_CHROMIUM" = 1 ]; then \

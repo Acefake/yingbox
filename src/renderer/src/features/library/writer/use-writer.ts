@@ -16,7 +16,7 @@ import {
 import { toast } from '@/components/ui'
 
 import { errorText, writerBridge } from '../api/bridge'
-import { onLibraryEvent } from '../state/library-events'
+import { subscribeLibraryEvents } from '../state/library-events'
 import { writerFailureText } from './writer-errors'
 
 /** 写出入口不可用时的提示。 */
@@ -61,7 +61,8 @@ let listening = false
 function listenOnce(): void {
   if (listening) return
   listening = true
-  onLibraryEvent(event => {
+  // 单例订阅不绑组件作用域：第一个调用者卸载后，其他页面仍要收到事件
+  subscribeLibraryEvents(event => {
     if (event.type === 'writer-progress') {
       progress.value = event.finished ? null : event
       // 写出 / 整理是后台任务，失败（只读挂载、没权限……）只有这里能告诉用户

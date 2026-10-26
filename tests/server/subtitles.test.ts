@@ -136,6 +136,14 @@ describe('自动中文字幕与工具路径（环境变量）', () => {
         YINGBOX_SUBTITLES_DAILY_LIMIT: '0',
       })?.dailyLimit
     ).toBe(1)
+    // 空串、只有空白按没设：用默认值，不是 1
+    for (const blank of ['', '  '])
+      expect(
+        autoSubtitleSettings({
+          YINGBOX_AUTO_SUBTITLES: 'on',
+          YINGBOX_SUBTITLES_DAILY_LIMIT: blank,
+        })?.dailyLimit
+      ).toBe(SUBTITLE_DAILY_LIMIT.fallback)
   })
 
   it('ffprobe / ffmpeg：环境变量优先，没设时用 PATH', () => {

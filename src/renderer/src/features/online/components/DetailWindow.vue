@@ -122,6 +122,8 @@ const lightboxIdx = ref<number | null>(null)
 const currentUrl = ref('')
 /** 播放世代：换条目或再点一集时丢弃上一次还没解析完的播放 */
 let playGeneration = 0
+/** 载入世代：换条目时丢弃上一部还没走完的载入 */
+let loadGeneration = 0
 
 const loadData = async (raw: unknown): Promise<void> => {
   if (!raw) return
@@ -141,11 +143,14 @@ const loadData = async (raw: unknown): Promise<void> => {
   currentUrl.value = ''
   const type = guessMediaType(data.type_name || '')
   const doubanId = doubanSubjectId(data.doubanUrl || '')
+  const generation = ++loadGeneration
   await tmdb.fetchTmdb(
     searchTitle.value || itemName.value,
     type,
     doubanId ? { id: doubanId, kind: data.doubanKind ?? type } : null
   )
+  // 等 TMDB 期间换了条目：新条目自己的 loadData 会加载播放源
+  if (generation !== loadGeneration) return
   // 自动加载播放源：先保留打开详情时命中的条目，再按片名检索全部已启用源
   const direct = data._source === 'cms' || data._source === 'catspider'
   // _source 是 cms / catspider 的就是搜索 / 浏览结果里的 CmsItem
@@ -263,7 +268,7 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 .detail-win {
   width: 100vw;
   height: 100vh;
-  background: var(--bg-base);
+  background: var(--bg-content);
   color: var(--text-primary);
   font-family: var(--font-sans);
   display: flex;
@@ -313,7 +318,8 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 }
 
 .dw-backdrop {
-  position: relative;
+  position: absolute;
+  inset: 0 0 auto;
   width: 100%;
   height: 360px;
   overflow: hidden;
@@ -330,12 +336,14 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 .dw-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 20%, var(--bg-base) 100%);
+  background: linear-gradient(to bottom, transparent 20%, var(--bg-content) 100%);
 }
 
 .dw-content {
   position: relative;
-  margin-top: -260px; /* style-tokens: layout（内容上移盖住背景图） */
-  padding: 0 var(--content-padding-x) var(--space-9);
+  width: 100%;
+  min-width: 0;
+  padding: calc(var(--shell-top) + var(--space-8)) var(--detail-gutter)
+    var(--space-9) var(--detail-x);
 }
 </style>
