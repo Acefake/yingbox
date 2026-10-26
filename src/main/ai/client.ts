@@ -4,32 +4,37 @@
  * 不依赖 Electron：fetch 由调用方注入（主进程传 net.fetch，走系统代理；测试传 mock）。
  * 重试只针对 408 / 409 / 429 / 5xx 与网络错误，指数退避（尊重 Retry-After，最多等 10 秒）；
  * 流式已经推出过增量后不再重试，避免调用方收到重复文本。
+ * 推理强度、温度这类可选参数被模型拒绝（400 / 422）时去掉重发，并记住该模型不认（见 params.ts）。
  */
 import type {
   AiChatRequest,
   AiChatResult,
   AiTokenUsage,
 } from '../../shared/ai/types'
+import {
+  JSON_MIN_TOKENS,
+  type JsonOutput,
+  buildChatBody,
+  modelOf,
+  sentParams,
+} from './body'
 import type { AiConfig } from './config'
 import { AiError, httpError } from './errors'
+import {
+  type OptionalParam,
+  type ParamMemory,
+  type ReasoningEffort,
+  createParamMemory,
+  rejectedParam,
+} from './params'
 import { readJson, readStream } from './read'
 import { rawSnippet } from './response'
 
+export { JSON_MIN_TOKENS, type JsonOutput, buildChatBody } from './body'
 export { toUsage } from './read'
 
 /** 注入的 fetch（Response 只用到标准字段） */
 export type FetchLike = (url: string, init: RequestInit) => Promise<Response>
-
-/** JSON 输出要求 */
-export interface JsonOutput {
-  schema?: Record<string, unknown>
-  schemaName?: string
-  /**
-   * 只靠提示词要 JSON，不发 response_format。服务商不认 response_format（400）时
-   * {@link chatCompletion} 自动降级成这一档。
-   */
-  promptOnly?: boolean
-}
 
 /** 客户端结果：在对外结果之外带上思考与工具调用参数（只在主进程里用，service 返回前去掉） */
 export interface ClientResult extends AiChatResult {
@@ -48,6 +53,10 @@ export interface ClientOptions {
   onDelta?: (delta: string) => void
   /** 要求 JSON 输出 */
   json?: JsonOutput
+  /** 推理强度；省略不发，用模型默认 */
+  reasoning?: ReasoningEffort
+  /** 哪些模型不认哪些可选参数；省略用进程内共用的一份 */
+  params?: ParamMemory
   /** 最多重试几次（默认 2） */
   retries?: number
   /** 第一次重试前等待（毫秒，默认 800，之后翻倍） */
@@ -65,9 +74,6 @@ export const DEFAULT_STREAM_TIMEOUT_MS = 120_000
  * 常被思考用光，content 为空、finish_reason 为 length。这时补上这么多再请求一次。
  */
 export const REASONING_HEADROOM_TOKENS = 4096
-
-/** JSON 调用的最低 max_tokens：JSON 本身很短，给足余量让思考型模型想完再输出 */
-export const JSON_MIN_TOKENS = 2048
 
 /**
  * 本次运行的会话标识：OpenCode Go 要求每段对话带稳定的 x-opencode-session
@@ -101,52 +107,6 @@ export function buildHeaders(
   return headers
 }
 
-/** 请求体：Chat Completions 字段，按需加流式用量、JSON 模式 / json_schema */
-export function buildChatBody(
-  config: AiConfig,
-  request: AiChatRequest,
-  options: { stream: boolean; json?: JsonOutput }
-): Record<string, unknown> {
-  const messages = request.messages.map(m => ({
-    role: m.role,
-    content: m.content,
-  }))
-  const body: Record<string, unknown> = {
-    model: request.model?.trim() || config.model,
-    messages,
-  }
-  if (request.temperature !== undefined) body.temperature = request.temperature
-  const json = options.json
-  if (request.maxTokens !== undefined)
-    body.max_tokens = json
-      ? Math.max(request.maxTokens, JSON_MIN_TOKENS)
-      : request.maxTokens
-  if (options.stream) {
-    body.stream = true
-    body.stream_options = { include_usage: true }
-  }
-  if (json) {
-    if (json.schema && config.jsonSchema && !json.promptOnly) {
-      body.response_format = {
-        type: 'json_schema',
-        json_schema: {
-          name: json.schemaName || 'result',
-          schema: json.schema,
-          strict: true,
-        },
-      }
-    } else {
-      if (!json.promptOnly) body.response_format = { type: 'json_object' }
-      // JSON 模式要求提示里出现 "JSON"；没有 schema 能力时把 schema 写进系统提示
-      const hint = json.schema
-        ? `只输出符合下面 JSON Schema 的 JSON，不要任何解释：\n${JSON.stringify(json.schema)}`
-        : '只输出 JSON，不要任何解释。'
-      messages.unshift({ role: 'system', content: hint })
-    }
-  }
-  return body
-}
-
 const abortableSleep = (ms: number, signal: AbortSignal): Promise<void> =>
   new Promise((resolve, reject) => {
     if (signal.aborted) return reject(new AiError('cancelled', '已取消'))
@@ -178,6 +138,9 @@ function sumUsage(
   }
 }
 
+/** 进程内共用的参数记忆：本次运行里被某个模型拒绝过的参数不再发 */
+const SHARED_PARAMS = createParamMemory()
+
 /** 额度被思考用光：没有正文也没有工具调用，结束原因是 length */
 export function spentOnReasoning(result: ClientResult): boolean {
   return (
@@ -192,7 +155,8 @@ export function spentOnReasoning(result: ClientResult): boolean {
  *
  * 除了网络 / 5xx 重试，还有两种自动补救（各最多一次）：
  * - 思考型模型把 max_tokens 用光、没有正文：补 {@link REASONING_HEADROOM_TOKENS} 再请求，仍没有正文抛 truncated；
- * - 要 JSON 时服务商 400 说不支持 response_format：去掉它、只靠提示词再请求。
+ * - 要 JSON 时服务商 400 说不支持 response_format：去掉它、只靠提示词再请求；
+ * - 模型 400 / 422 拒绝推理强度或温度：去掉该参数再请求，并记住这个模型不认。
  */
 export async function chatCompletion(
   config: AiConfig,
@@ -210,6 +174,11 @@ export async function chatCompletion(
         options.onDelta?.(delta)
       }
     : undefined
+  const params = options.params ?? SHARED_PARAMS
+  const model = modelOf(config, request)
+  const omit = (['reasoning', 'temperature'] as const).filter(param =>
+    params.unsupported(config, model, param)
+  ) as OptionalParam[]
   let current = request
   let json = options.json
   let expanded: ClientResult | null = null
@@ -219,6 +188,7 @@ export async function chatCompletion(
         ...options,
         json,
         onDelta,
+        omit,
       })
       const usage = sumUsage(expanded?.usage ?? null, result.usage)
       if (!spentOnReasoning(result)) return { ...result, usage }
@@ -249,6 +219,21 @@ export async function chatCompletion(
         json = { ...json, promptOnly: true }
         continue
       }
+      const rejected = emitted
+        ? null
+        : rejectedParam(
+            err,
+            sentParams(config, current, {
+              stream: Boolean(onDelta),
+              reasoning: options.reasoning,
+              omit,
+            })
+          )
+      if (rejected) {
+        omit.push(rejected)
+        params.remember(config, model, rejected)
+        continue
+      }
       if (!err.retryable || emitted || attempt >= retries || outer.aborted)
         throw err
       const wait = Math.min(
@@ -265,7 +250,7 @@ export async function chatCompletion(
 async function attemptOnce(
   config: AiConfig,
   request: AiChatRequest,
-  options: ClientOptions
+  options: ClientOptions & { omit: readonly OptionalParam[] }
 ): Promise<ClientResult> {
   const stream = Boolean(options.onDelta)
   const timeoutMs =
@@ -304,7 +289,12 @@ async function attemptOnce(
       method: 'POST',
       headers: buildHeaders(config, stream, request.sessionId),
       body: JSON.stringify(
-        buildChatBody(config, request, { stream, json: options.json })
+        buildChatBody(config, request, {
+          stream,
+          json: options.json,
+          reasoning: options.reasoning,
+          omit: options.omit,
+        })
       ),
       signal: controller.signal,
     })
