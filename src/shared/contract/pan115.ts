@@ -1,4 +1,4 @@
-import { ContractError, call, defineDomain, str } from './define'
+import { ContractError, call, defineDomain, optStr, str } from './define'
 
 /** PanSou 公共实例（第三方维护）；只在用户于设置里点「使用公共实例」时填入，搜索词会发给它 */
 export const PANSOU_PUBLIC_URL = 'https://so.252035.xyz'
@@ -105,6 +105,27 @@ export type Pan115LoginPoll =
   | { status: 'done'; account: Pan115Account }
   | { status: 'error'; error: string }
 
+/** 115 分享有效性（PanSou /api/check/links）：有效 / 失效 / 需提取码或提取码不对 / 没测出来 */
+export type LinkCheckState = 'ok' | 'bad' | 'locked' | 'unknown'
+
+/** 要检测的一条 115 分享 */
+export interface LinkCheckItem {
+  url: string
+  /** 提取码；没有时为空串 */
+  password: string
+}
+
+/**
+ * 一批检测的结果：supported 为 false 表示没填 PanSou 或该实例没有检测接口（之后不必再问）；
+ * 超时、报错时 supported 为 true、results 为空（各条按 unknown 处理）。
+ */
+export type LinkCheckReply =
+  | { supported: false }
+  | { supported: true; results: { url: string; state: LinkCheckState }[] }
+
+/** 一批最多检测几条（PanSou 逐条串行检测，批太大容易整批超时） */
+export const MAX_LINK_CHECKS = 10
+
 /** 成功带数据、失败带人话的结果 */
 export type Pan115Result<T extends object = object> =
   | ({ ok: true } & T)
@@ -112,6 +133,19 @@ export type Pan115Result<T extends object = object> =
 
 const nullableStr = (value: unknown, name: string): string | null =>
   value === null ? null : str(value, name).slice(0, 500)
+
+const checkItems = (value: unknown): LinkCheckItem[] => {
+  if (!Array.isArray(value)) throw new ContractError('参数 items 应为数组')
+  if (value.length > MAX_LINK_CHECKS)
+    throw new ContractError(`一次最多检测 ${MAX_LINK_CHECKS} 条`)
+  return value.map(raw => {
+    const entry = (raw ?? {}) as Record<string, unknown>
+    return {
+      url: str(entry.url, 'url').slice(0, 2048),
+      password: (optStr(entry.password, 'password') ?? '').slice(0, 32),
+    }
+  })
+}
 
 const torznabUrls = (value: unknown): string[] => {
   if (!Array.isArray(value)) throw new ContractError('参数 urls 应为数组')
@@ -128,6 +162,10 @@ export const pan115 = defineDomain('pan115', {
   /** 用设置里的 PanSou / Torznab 搜 115 分享与磁力 */
   search: call<[keyword: string], Pan115Result<NetdiskSearchResult>>(a => [
     str(a[0], 'keyword'),
+  ]),
+  /** 用设置里的 PanSou 检测一批 115 分享是否有效（不支持、超时、报错都不抛，见 LinkCheckReply） */
+  checkLinks: call<[items: LinkCheckItem[]], LinkCheckReply>(a => [
+    checkItems(a[0]),
   ]),
   /** Torznab 配置（不含 API Key） */
   torznab: call<TorznabConfig>(),

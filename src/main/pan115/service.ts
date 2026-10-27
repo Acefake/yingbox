@@ -26,6 +26,7 @@ import {
 import { LOGIN_EXPIRED_CODES, Pan115Error } from './errors'
 import type { FetchLike } from './http'
 import { searchPanSou } from './pansou'
+import { type LinkChecker, createLinkChecker } from './pansou-check'
 import { type QrStatus, type QrTicket, createQrLogin } from './qr-login'
 import { type ShareRef, parseShareLink } from './share-link'
 import { type SourceSearch, createSourceSearch } from './sources'
@@ -89,6 +90,8 @@ export interface Pan115Service {
   torznab: SourceSearch['torznab']
   setTorznab: SourceSearch['setTorznab']
   testTorznab: SourceSearch['testTorznab']
+  /** PanSou 检测 115 分享是否有效（pansou-check.ts：不支持、超时、报错都不抛） */
+  checkLinks: LinkChecker['checkLinks']
   account(): Promise<Pan115Account>
   loginStart(): Promise<Pan115Result<{ imageUrl: string }>>
   loginPoll(): Promise<Pan115LoginPoll>
@@ -111,6 +114,7 @@ export interface Pan115Service {
 export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
   const qr = createQrLogin(deps.transport.fetch)
   const sources = createSourceSearch(deps)
+  const checker = createLinkChecker(deps.lanFetch, deps.settings.pansouUrl)
   let attempt: LoginAttempt | null = null
   /** 分区里当前是哪份 Cookie（undefined = 未知，下次必同步） */
   let applied: string | null | undefined
@@ -210,6 +214,7 @@ export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
 
   return {
     ...sources,
+    checkLinks: items => checker.checkLinks(items),
 
     async account(): Promise<Pan115Account> {
       return accountOf(deps.session.read())

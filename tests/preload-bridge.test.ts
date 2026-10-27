@@ -207,6 +207,7 @@ const ADDED_API: Record<string, string[]> = {
   ],
   pan115: [
     'search',
+    'checkLinks',
     'account',
     'loginStart',
     'loginPoll',
