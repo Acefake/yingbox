@@ -6,6 +6,7 @@ import { syncAnime4k } from '../anime4k/anime4k-sync'
 import type { ContinueMeta } from '../continue/continue-rules'
 import { startContinue } from '../continue/continue-store'
 import { trackMpvSession } from '../mpv-session/mpv-session'
+import { watchMpvInstall } from '../utils/mpv-handoff'
 import type { LibraryRef } from '../progress/library-sink'
 import type { EndHint } from '../utils/play-queue'
 import { openPlayer } from '../host/player-host'
@@ -93,8 +94,11 @@ function notifyMpvFallback(detail?: string): void {
     console.warn('[openMediaPlayer] mpv 不可用，已改用内置播放器:', detail)
   if (mpvFallbackNotified) return
   mpvFallbackNotified = true
+  // 自动下载失败时说清原因（网络 / 解压），否则是非 Windows 没装 mpv
   toast.warning(
-    '未检测到 mpv 播放器，已改用内置播放器。可在「设置 → 播放器引擎」切换或安装 mpv。'
+    detail?.includes('自动下载也失败')
+      ? `${detail}本次已改用内置播放器。`
+      : '未检测到 mpv 播放器，已改用内置播放器。可在「设置 → 播放器」查看安装方法。'
   )
 }
 
@@ -157,6 +161,8 @@ export async function openMediaPlayer(
   let mpv: 'ok' | 'failed' | 'skipped' = 'skipped'
   let mpvError: string | undefined
   if (route.tryMpv && window.api?.mpv) {
+    // 找不到 mpv 时主进程会先自动下载（Windows），这里显示下载中的提示
+    watchMpvInstall()
     try {
       // 先同步超分开关，保证首次启动 mpv 时启动参数正确
       syncRtxVsr()

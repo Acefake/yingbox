@@ -1,3 +1,5 @@
+import { canInstallMpv, installMpv } from '../mpv-install'
+import { locateMpv } from '../mpv-locate'
 import { mpvPlayer } from '../mpv-player'
 import { emit, implement } from '../rpc'
 import { mpv } from '../../shared/contract/mpv'
@@ -29,6 +31,25 @@ export function registerMpvIpc(): void {
         }
       }
     },
+    probe: () => {
+      const available = Boolean(locateMpv())
+      return { available, installable: !available && canInstallMpv() }
+    },
+    install: async () => {
+      if (locateMpv()) return ok
+      emit(mpv, 'installing', true)
+      try {
+        await installMpv()
+        return ok
+      } catch (error) {
+        return {
+          success: false,
+          error: error instanceof Error ? error.message : String(error),
+        }
+      } finally {
+        emit(mpv, 'installing', false)
+      }
+    },
     pause: (_, paused) => done(mpvPlayer.pause(paused)),
     seek: (_, seconds, mode) => done(mpvPlayer.seek(seconds, mode)),
     volume: (_, vol) => done(mpvPlayer.setVolume(vol)),
@@ -50,5 +71,6 @@ export function registerMpvIpc(): void {
   })
 
   mpvPlayer.on('status', (status: MpvStatus) => emit(mpv, 'status', status))
+  mpvPlayer.on('installing', (on: boolean) => emit(mpv, 'installing', on))
   mpvPlayer.on('error', (message: string) => emit(mpv, 'error', message))
 }
