@@ -23,6 +23,7 @@ import {
 } from '../src/renderer/src/features/live/utils/line-plan'
 import {
   CODEC_UNSUPPORTED,
+  FORMAT_UNSUPPORTED,
   hlsErrorReason,
   videoErrorReason,
 } from '../src/renderer/src/features/player/utils/play-errors'
@@ -247,7 +248,7 @@ describe('播放器错误原因', () => {
   it('<video> MediaError', () => {
     expect(videoErrorReason(2)).toBe('网络错误，连不上服务器')
     expect(videoErrorReason(3)).toBe(CODEC_UNSUPPORTED)
-    expect(videoErrorReason(4)).toBe('格式不受支持')
+    expect(videoErrorReason(4)).toBe(FORMAT_UNSUPPORTED)
     expect(videoErrorReason(undefined)).toBe('播放出错')
   })
 })

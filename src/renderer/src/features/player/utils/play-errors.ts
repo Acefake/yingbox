@@ -42,6 +42,15 @@ const LOAD_DETAILS = new Set([
 export const CODEC_UNSUPPORTED =
   '编码不受支持（常见于 HEVC 画面或 MP2 / AC3 音频）'
 
+/** 桌面端 <video> 报格式不支持（MediaError 4）：本地 mkv 多半是音频轨（AC3 / EAC3 / DTS / TrueHD）解不了 */
+export const FORMAT_UNSUPPORTED =
+  '内置播放器不支持这个文件的编码（常见于 HEVC 画面或 AC3 / EAC3 / DTS 音频）'
+
+/** 原因文案是不是编码 / 格式不受支持（换 mpv 通常能播） */
+export function isCodecFailure(reason: string): boolean {
+  return reason === CODEC_UNSUPPORTED || reason === FORMAT_UNSUPPORTED
+}
+
 /** hls.js 致命错误的原因 */
 export function hlsErrorReason(data: HlsErrorLike): string {
   const details = data.details ?? ''
@@ -75,7 +84,7 @@ export function videoErrorReason(
   if (code === 2) return '网络错误，连不上服务器'
   if ((code === 3 || code === 4) && web) return WEB_CODEC_UNSUPPORTED
   if (code === 3) return CODEC_UNSUPPORTED
-  if (code === 4) return '格式不受支持'
+  if (code === 4) return FORMAT_UNSUPPORTED
   return '播放出错'
 }
 
