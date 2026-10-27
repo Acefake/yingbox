@@ -24,6 +24,7 @@ export function episode(
     seriesId: 7,
     libraryId: 1,
     seriesTitle: '繁花',
+    originalTitle: null,
     season: 1,
     episode: n,
     title: null,

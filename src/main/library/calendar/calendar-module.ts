@@ -45,6 +45,7 @@ interface SeriesRow {
   id: number
   libraryId: number
   title: string
+  originalTitle: string | null
   tmdbId: string
   backdrop: string | null
 }
@@ -60,7 +61,8 @@ interface LocalEpisode {
  * 参与日历的剧：已确认匹配的剧；同一部剧在几个文件夹里（同 merge_key）只取 id 最小的一个，
  * 它的本地集由 MEMBERS_SQL 找全。
  */
-const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.tmdb_id, i.backdrop
+const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.original_title, i.tmdb_id,
+    i.backdrop
   FROM media_items i JOIN libraries l ON l.id = i.library_id
   WHERE i.type = 'series' AND l.kind = 'tv' AND i.tmdb_id IS NOT NULL
     AND i.match_state IN ('auto', 'locked')
@@ -142,6 +144,7 @@ export class CalendarModule {
         id: Number(row.id),
         libraryId: Number(row.library_id),
         title: String(row.title),
+        originalTitle: originalOf(row.original_title, String(row.title)),
         tmdbId: String(row.tmdb_id),
         backdrop: row.backdrop === null ? null : String(row.backdrop),
       }))
@@ -202,6 +205,7 @@ export class CalendarModule {
         seriesId: row.id,
         libraryId: row.libraryId,
         seriesTitle: row.title,
+        originalTitle: row.originalTitle,
         season: ep.season,
         episode: ep.episode,
         title: ep.title,
@@ -216,4 +220,10 @@ export class CalendarModule {
       }
     })
   }
+}
+
+/** 原名：空或与剧名相同时为 null */
+function originalOf(value: unknown, title: string): string | null {
+  const text = typeof value === 'string' ? value.trim() : ''
+  return text && text !== title ? text : null
 }

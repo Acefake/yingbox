@@ -1,9 +1,12 @@
 /**
  * 为一集找候选：PanSou 搜 → 挑几个分享 → 看快照（必要时点进一层文件夹）→ 认文件打分。
  *
- * - 关键词：「剧名 S02E05」「剧名 第5集」「剧名」依次搜，前面的够了就不搜后面的；同一关键词的结果缓存 1 小时，
- *   多集同天更新只搜一次；
- * - 分享：去重、去掉拉黑的、分享标题对得上剧名的优先、新的优先，最多看 {@link MAX_SHARES} 个；
+ * - 关键词：「剧名」「原名」（与剧名不同时）依次搜，剧名够了就不搜原名。PanSou 按整词组匹配，分享标题常是
+ *   「剧名 (2026) S01E20 …」，带集号的词组基本搜不到，所以只搜剧名、集号交给分享标题判断；同一关键词的结果
+ *   缓存 1 小时，同一部剧多集共用一次搜索；
+ * - 分享：去重、去掉拉黑的，再按分享标题（share-title-rules.ts）丢掉明确是别的集 / 别的季 / 别的剧的分享，
+ *   这一步不花快照；剩下的按 正好这一集 → 包含这一集 → 没写集号、对得上剧名的优先、新的优先排，
+ *   最多看 {@link MAX_SHARES} 个；
  * - 快照：每个分享看顶层，顶层只有一个文件夹或有对得上的季 / 剧名文件夹时点进去一层（最多 2 个），
  *   全部经 115 闸门；
  * - 整季包（见 pack-rules.ts）：分享标题 / 文件夹像合集，或一页装不下时，按文件夹判断多下几层、多翻几页，
@@ -19,9 +22,10 @@ import {
   type MatchPrefs,
   folderWorthOpening,
   matchFile,
-  titleMatches,
+  seriesTitleMatches,
 } from './match-rules'
 import { folderVerdict, looksLikePack } from './pack-rules'
+import { type ShareHint, shareHint } from './share-title-rules'
 import { candidateKey } from './state'
 
 /** 一集最多看几个分享 */
@@ -66,27 +70,47 @@ export interface FindOptions {
   banned?: readonly string[]
 }
 
-/** 关键词 */
+/** 关键词：剧名，原名与剧名不同时再加原名 */
 export function keywordsFor(target: EpisodeTarget): string[] {
-  const pad = (v: number): string => String(v).padStart(2, '0')
-  return [
-    `${target.seriesTitle} S${pad(target.season)}E${pad(target.episode)}`,
-    `${target.seriesTitle} 第${target.episode}集`,
-    target.seriesTitle,
-  ]
+  const title = target.seriesTitle.trim()
+  const original = target.originalTitle?.trim() ?? ''
+  return original && original !== title ? [title, original] : [title]
 }
 
-/** 分享排序：标题对得上剧名的在前，再按时间新到旧 */
+/** 分享标题的先后：正好这一集 → 包含这一集 → 没写集号 */
+const HINT_ORDER: Record<Exclude<ShareHint, 'other'>, number> = {
+  exact: 2,
+  covers: 1,
+  unknown: 0,
+}
+
+/** 分享能不能用：标题明确是别的集 / 别的季 / 别的剧的不用 */
+export function shareUsable(item: NetdiskItem, target: EpisodeTarget): boolean {
+  return shareHint(item.title, target) !== 'other'
+}
+
+/**
+ * 分享排序：丢掉标题明确不是这一集的；再按 正好这一集 → 包含这一集 → 没写集号，
+ * 同档标题对得上剧名 / 原名的在前，最后按时间新到旧
+ */
 export function rankShares(
   items: NetdiskItem[],
   target: EpisodeTarget
 ): NetdiskItem[] {
-  const score = (item: NetdiskItem): number =>
-    titleMatches(item.title, target.seriesTitle) ? 1 : 0
-  return [...items].sort(
-    (a, b) =>
-      score(b) - score(a) || (b.datetime ?? '').localeCompare(a.datetime ?? '')
-  )
+  const ranked = items.flatMap(item => {
+    const hint = shareHint(item.title, target)
+    if (hint === 'other') return []
+    const named = seriesTitleMatches(item.title, target) ? 1 : 0
+    return [{ item, hint: HINT_ORDER[hint], named }]
+  })
+  return ranked
+    .sort(
+      (a, b) =>
+        b.hint - a.hint ||
+        b.named - a.named ||
+        (b.item.datetime ?? '').localeCompare(a.item.datetime ?? '')
+    )
+    .map(entry => entry.item)
 }
 
 /** 创建查找器（带关键词缓存） */
@@ -113,18 +137,22 @@ export function createFinder(deps: FinderDeps): {
     return items
   }
 
-  async function shares(target: EpisodeTarget): Promise<NetdiskItem[]> {
+  /** 要看的分享和搜到的总数（总数用于「都不是这一集」的提示） */
+  async function shares(
+    target: EpisodeTarget
+  ): Promise<{ list: NetdiskItem[]; total: number }> {
     const seen = new Map<string, NetdiskItem>()
     for (const keyword of keywordsFor(target)) {
       for (const item of await search(keyword))
         if (!seen.has(item.shareCode) && !deps.blocked(item.shareCode))
           seen.set(item.shareCode, item)
-      const good = [...seen.values()].filter(i =>
-        titleMatches(i.title, target.seriesTitle)
+      const good = [...seen.values()].filter(
+        i => seriesTitleMatches(i.title, target) && shareUsable(i, target)
       )
       if (good.length >= MAX_SHARES) break
     }
-    return rankShares([...seen.values()], target).slice(0, MAX_SHARES)
+    const list = rankShares([...seen.values()], target).slice(0, MAX_SHARES)
+    return { list, total: seen.size }
   }
 
   /** 一页快照里认出这一集的文件；返回认出了几个 */
@@ -263,8 +291,13 @@ export function createFinder(deps: FinderDeps): {
       target: EpisodeTarget,
       options: FindOptions = {}
     ): Promise<FindResult> {
-      const list = await shares(target)
-      if (!list.length) return { candidates: [], note: 'PanSou 没有搜到分享' }
+      const { list, total } = await shares(target)
+      if (!total) return { candidates: [], note: 'PanSou 没有搜到分享' }
+      if (!list.length)
+        return {
+          candidates: [],
+          note: `搜到 ${total} 个分享，标题都不是这一集`,
+        }
       const found: AutograbCandidate[] = []
       used = 0
       for (const item of list) {
