@@ -33,37 +33,8 @@
         {{ epgError }}
       </p>
 
-      <div v-if="sources.length" class="live-body">
-        <div class="live-side">
-          <nav v-scroll-x class="live-groups" aria-label="频道分组">
-            <UiChip
-              v-for="group in groups"
-              :key="group.key"
-              size="md"
-              :count="group.count"
-              :selected="group.key === activeGroup"
-              @click="pickGroup(group.key)"
-            >
-              {{ group.label }}
-            </UiChip>
-          </nav>
-
-          <LiveChannelList
-            v-model:query="query"
-            class="live-list"
-            :channels="visibleChannels"
-            :selected-id="selectedId"
-            :programmes="programmes"
-            :now="now"
-            :favorites="favorites"
-            :empty-text="emptyText"
-            @select="select"
-            @toggle-favorite="toggleFavorite"
-          />
-        </div>
-
+      <template v-if="sources.length">
         <LiveStage
-          class="live-player"
           :channel="selected"
           :programmes="selected ? programmes[selected.id] : undefined"
           :now="now"
@@ -71,14 +42,29 @@
           :schedule-empty-text="scheduleEmptyText"
           @toggle-favorite="toggleFavorite"
         />
-      </div>
+
+        <LiveChannelList
+          v-model:group="activeGroup"
+          v-model:query="query"
+          :groups="groups"
+          :channels="visibleChannels"
+          :selected-id="selectedId"
+          :programmes="programmes"
+          :now="now"
+          :favorites="favorites"
+          :empty-text="emptyText"
+          @select="select"
+          @toggle-favorite="toggleFavorite"
+        />
+      </template>
     </template>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 直播页（/live）：左栏分组胶囊 + 搜索 + 频道卡片列表，右侧播放器与今日节目单；页头「直播源」开关管理面板、「刷新」重拉源与节目单。
+ * 直播页（/live）：整页一个滚动容器，上半是大画面 + 频道信息与今日节目单（LiveStage），
+ * 下半是分组胶囊 + 搜索 + 频道卡片网格（LiveChannelList）；页头「直播源」开关管理面板、「刷新」重拉源与节目单。
  * 源与收藏在 useLiveSources（模块单例），节目单在 useLiveEpg（随页面挂载 / 卸载）。
  */
 import { computed, onMounted, ref } from 'vue'
@@ -86,7 +72,6 @@ import { computed, onMounted, ref } from 'vue'
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiChip from '@/components/ui/UiChip.vue'
 
 import LiveChannelList from '../components/LiveChannelList.vue'
 import LiveSourcePanel from '../components/LiveSourcePanel.vue'
@@ -146,10 +131,6 @@ function togglePanel(): void {
   panelOpen.value = !panelOpen.value
 }
 
-function pickGroup(key: string): void {
-  activeGroup.value = key
-}
-
 function select(channel: LiveChannel): void {
   selectedId.value = channel.id
 }
@@ -167,49 +148,25 @@ onMounted(() => live.ensureStarted())
 </script>
 
 <style scoped>
+/* 整页一个滚动容器（频道网格的虚拟滚动也认它）；live-page 容器供上半区按内容宽度换成上下排列 */
 .live-view {
   display: flex;
   flex-direction: column;
   height: 100%;
   min-height: 0;
-  gap: var(--space-5);
+  gap: var(--space-6);
   padding: var(--content-padding-y) var(--content-padding-x);
-  overflow: hidden;
+  overflow-y: auto;
+  container: live-page / inline-size;
+}
+
+.live-view > * {
+  flex: none;
 }
 
 .live-epg-error {
   margin: 0;
   color: var(--warning);
   font-size: var(--text-sm);
-}
-
-.live-body {
-  display: grid;
-  flex: 1;
-  grid-template-columns: minmax(280px, 380px) minmax(0, 1fr);
-  grid-template-rows: minmax(0, 1fr);
-  gap: var(--space-5);
-  min-height: 0;
-}
-
-.live-side {
-  display: flex;
-  flex-direction: column;
-  min-height: 0;
-  gap: var(--space-3);
-}
-
-.live-groups {
-  display: flex;
-  flex: none;
-  gap: var(--space-1_5);
-  overflow-x: auto;
-  scrollbar-width: none;
-}
-
-.live-list,
-.live-player {
-  flex: 1;
-  min-height: 0;
 }
 </style>
