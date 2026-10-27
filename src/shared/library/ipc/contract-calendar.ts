@@ -21,6 +21,8 @@ export interface CalendarEpisode {
   seriesId: number
   libraryId: number
   seriesTitle: string
+  /** 剧的原名（TMDB original_name）；与剧名相同或没有时为 null。追更搜不到剧名时再用它搜。 */
+  originalTitle: string | null
   season: number
   episode: number
   /** 集名；TMDB 没有时为 null。 */
