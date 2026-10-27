@@ -1,8 +1,13 @@
 /*
  * 首页 Hero（HomeHero.vue）。铺满到窗口左上角，文案左边距取 --home-x（OnlineView 按外壳的 --shell-left 算），
  * 画面上的文字、按钮、规格标签两套主题都用深色版（--media-* / --spec-media-*）。
+ * --home-hero-overlap：下面第一排压进 Hero 底部的高度（OnlineView 给），Hero 加高同样多，文案与缩略图条一起上移
+ * （浅色主题底部本来就渐隐 --hero-edge-lift，两者取大的，不叠加）。
  */
 .home-hero {
+  --home-hero-lift: calc(
+    30px + max(var(--hero-edge-lift), var(--home-hero-overlap, 0px))
+  ); /* style-tokens: layout（Apple TV Hero 文案下沿） */
   --pblur-height: 58%;
   --pblur-tint: var(--scrim-fade-hero);
   --spec-bg: var(--spec-media-bg);
@@ -10,10 +15,8 @@
   --spec-line: var(--spec-media-line);
   position: relative;
   flex: none;
-  height: clamp(
-    440px,
-    62vh,
-    680px
+  height: calc(
+    clamp(440px, 62vh, 680px) + var(--home-hero-overlap, 0px)
   ); /* style-tokens: layout（Hero 随窗口高度） */
   overflow: hidden;
   -webkit-mask-image: var(--hero-edge-mask);
@@ -42,11 +45,13 @@
 
 .home-hero-copy {
   position: absolute;
-  bottom: calc(
-    30px + var(--hero-edge-lift)
-  ); /* style-tokens: layout（Apple TV Hero 文案下沿） */
+  bottom: var(--home-hero-lift);
   left: var(--home-x, var(--space-8));
-  width: min(600px, calc(100% - var(--home-x, var(--space-8)) - 160px));
+  width: min(
+    640px,
+    calc(100% - var(--home-x, var(--space-8)) - 640px)
+  ); /* style-tokens: layout（右侧让出缩略图条） */
+  min-width: min(420px, calc(100% - var(--home-x, var(--space-8)) - 24px));
 }
 .home-hero-kicker {
   margin-bottom: var(--space-2_5);
@@ -82,10 +87,10 @@
 .home-hero-actions {
   display: flex;
   gap: var(--space-3);
-  margin-bottom: var(--space-4);
 }
 .home-hero-play,
-.home-hero-watch {
+.home-hero-watch,
+.home-hero-info {
   display: inline-flex;
   align-items: center;
   justify-content: center;
@@ -115,27 +120,43 @@
   -webkit-backdrop-filter: var(--glass-filter);
   backdrop-filter: var(--glass-filter);
 }
-.home-hero-watch:hover {
+.home-hero-info {
+  width: 48px; /* style-tokens: layout（与 Hero 大胶囊同高的圆钮） */
+  background: var(--glass-light-bg);
+  color: var(--media-text);
+  box-shadow: var(--glass-media-shadow);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+.home-hero-watch:hover,
+.home-hero-info:hover {
   background: var(--media-hover);
 }
 .home-hero-overview {
   display: -webkit-box;
   max-width: 560px;
-  margin: 0 0 var(--space-3_5);
+  margin: 0 0 var(--space-5);
   overflow: hidden;
   color: var(--media-text-secondary);
   font-size: calc(var(--text-md) * 1.04);
   line-height: 1.62;
   -webkit-box-orient: vertical;
-  -webkit-line-clamp: 2;
+  -webkit-line-clamp: 1;
 }
 .home-hero-meta {
   display: flex;
   align-items: center;
   gap: var(--space-1_5);
+  margin-bottom: var(--space-2_5);
   color: var(--media-kicker);
   font-size: var(--text-md);
   white-space: nowrap;
+}
+.home-hero-rating {
+  margin-left: var(--space-2);
+  color: var(--media-text);
+  font-weight: var(--font-weight-semibold);
+  font-variant-numeric: tabular-nums;
 }
 .home-hero-specs {
   display: inline-flex;
@@ -144,39 +165,47 @@
   margin-left: var(--space-2);
 }
 
-/* 分页点：当前页拉长成胶囊；点按区比点大 */
-.home-hero-dots {
+/* 缩略图条：16:9 小图，当前一张白框、其余压暗；与文案下沿对齐 */
+.home-hero-thumbs {
   position: absolute;
   right: var(--space-8);
-  bottom: calc(
-    30px + var(--hero-edge-lift)
-  ); /* style-tokens: layout（与文案下沿对齐） */
+  bottom: var(--home-hero-lift);
   display: flex;
-  align-items: center;
+  gap: var(--space-2_5);
 }
-.home-hero-dot {
-  display: grid;
-  place-items: center;
-  height: var(--control-height-sm);
-  padding: 0 var(--space-1);
-  border-radius: var(--radius-full);
-}
-.home-hero-dot i {
-  display: block;
-  width: 7px;
-  height: 7px;
-  border-radius: var(--radius-full);
-  background: var(--media-dot);
+.home-hero-thumb {
+  position: relative;
+  width: 112px; /* style-tokens: layout（Hero 缩略图宽） */
+  aspect-ratio: 16 / 9;
+  overflow: hidden;
+  border-radius: var(--radius-md);
+  background: var(--glass-light-bg);
+  opacity: 0.62;
   transition:
-    width var(--duration-slow) var(--ease-out),
-    background-color var(--duration-fast) ease;
+    opacity var(--duration-fast) ease,
+    transform var(--duration-fast) var(--ease-out);
 }
-.home-hero-dot:hover i {
-  background: var(--media-text-secondary);
+.home-hero-thumb img {
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
 }
-.home-hero-dot.is-current i {
-  width: 22px;
-  background: var(--media-text);
+.home-hero-thumb::after {
+  position: absolute;
+  inset: 0;
+  border-radius: inherit;
+  box-shadow: inset 0 0 0 0.5px var(--glass-media-edge);
+  content: '';
+  pointer-events: none;
+}
+.home-hero-thumb:hover {
+  opacity: 0.9;
+}
+.home-hero-thumb.is-current {
+  opacity: 1;
+}
+.home-hero-thumb.is-current::after {
+  box-shadow: inset 0 0 0 2px var(--media-text);
 }
 
 .home-hero-fade-enter-active,
@@ -188,14 +217,31 @@
   opacity: 0;
 }
 
+/* 中等宽度：缩略图条缩小，文案让出的宽度跟着变 */
+@media (max-width: 1280px) {
+  .home-hero-copy {
+    width: calc(
+      100% - var(--home-x, var(--space-8)) - 420px
+    ); /* style-tokens: layout（右侧让出缩略图条） */
+  }
+  .home-hero-thumb {
+    width: 72px; /* style-tokens: layout（Hero 缩略图宽） */
+  }
+}
+/* 窄窗口：缩略图条挪到文案下面一行 */
 @media (max-width: 860px) {
   .home-hero-copy {
     width: calc(100% - var(--home-x, var(--space-5)) - var(--space-5));
-    bottom: calc(var(--space-11) + var(--hero-edge-lift));
+    min-width: 0;
+    bottom: calc(
+      var(--space-11) + var(--home-hero-lift) - 30px
+    ); /* style-tokens: layout（给缩略图条留一行） */
   }
-  .home-hero-dots {
+  .home-hero-thumbs {
     right: auto;
-    bottom: calc(var(--space-5) + var(--hero-edge-lift));
+    bottom: calc(
+      var(--space-5) + var(--home-hero-lift) - 30px
+    ); /* style-tokens: layout（文案下面一行） */
     left: var(--home-x, var(--space-5));
   }
   .home-hero-meta {
@@ -205,7 +251,7 @@
 @media (prefers-reduced-motion: reduce) {
   .home-hero-fade-enter-active,
   .home-hero-fade-leave-active,
-  .home-hero-dot i {
+  .home-hero-thumb {
     transition: none;
   }
 }

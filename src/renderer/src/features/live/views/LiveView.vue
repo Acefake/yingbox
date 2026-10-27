@@ -66,8 +66,10 @@
  * 直播页（/live）：整页一个滚动容器，上半是大画面 + 频道信息与今日节目单（LiveStage），
  * 下半是分组胶囊 + 搜索 + 频道卡片网格（LiveChannelList）；页头「直播源」开关管理面板、「刷新」重拉源与节目单。
  * 源与收藏在 useLiveSources（模块单例），节目单在 useLiveEpg（随页面挂载 / 卸载）。
+ * 地址带 ?channel=<频道 id>（首页「正在直播」）时选中并播放那个频道。
  */
-import { computed, onMounted, ref } from 'vue'
+import { computed, onMounted, ref, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
@@ -130,6 +132,22 @@ const scheduleEmptyText = computed(() => {
 function togglePanel(): void {
   panelOpen.value = !panelOpen.value
 }
+
+// 首页「正在直播」点卡：/live?channel=<id> 直接播这个频道（频道列表晚到时 selected 随之出现）。
+// 取走后把参数去掉，下次从首页点同一个频道时地址才会变化
+const route = useRoute()
+const router = useRouter()
+watch(
+  () => route.query.channel,
+  id => {
+    if (typeof id !== 'string' || !id) return
+    selectedId.value = id
+    const query = { ...route.query }
+    delete query.channel
+    void router.replace({ query })
+  },
+  { immediate: true }
+)
 
 function select(channel: LiveChannel): void {
   selectedId.value = channel.id

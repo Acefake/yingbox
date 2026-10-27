@@ -10,6 +10,7 @@ import type {
 import type {
   DoubanPage,
   DoubanQuery,
+  DoubanSubject,
 } from '../../../../../shared/douban/query'
 import { online } from '../../../../../shared/contract/online'
 import { webEngineApi } from '@/services/library-server/engine'
@@ -47,6 +48,11 @@ export function doubanBrowse(
 ): Promise<DoubanPage> {
   // 条件常来自 Vue ref（响应式 Proxy），IPC 结构化克隆不了 Proxy，会在渲染层直接抛错；先拷成普通对象
   return onlineApi().doubanBrowse({ ...query }, start)
+}
+
+/** 豆瓣一周口碑电影榜（最多 10 部，按名次）；失败 reject。 */
+export function doubanChart(): Promise<DoubanSubject[]> {
+  return onlineApi().doubanChart()
 }
 
 /** 豆瓣剧照（详情页剧照条的兜底）；失败返回空数组。 */

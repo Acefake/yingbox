@@ -6,8 +6,9 @@
       :label="label || title"
       @click="emit('open')"
     >
+      <slot v-if="$slots.art" name="art" />
       <img
-        v-if="image && !broken"
+        v-else-if="image && !broken"
         :src="image"
         alt=""
         loading="lazy"
@@ -20,6 +21,9 @@
       /></span>
       <span class="yb-pblur" aria-hidden="true"><i /><i /><i /><i /></span>
     </UiPressable>
+    <div v-if="$slots.badge" class="yb-episode-badge">
+      <slot name="badge" />
+    </div>
     <div class="yb-episode-copy">
       <h3 class="yb-episode-title" :title="title">{{ title }}</h3>
       <p v-if="subtitle" class="yb-episode-sub">{{ subtitle }}</p>
@@ -29,7 +33,7 @@
         aria-hidden="true"
         ><i :style="{ width: `${Math.min(1, Math.max(0, progress)) * 100}%` }"
       /></span>
-      <div class="yb-episode-foot">
+      <div v-if="foot || menuLabel" class="yb-episode-foot">
         <span v-if="foot" class="yb-episode-foot-text"
           ><UiIcon v-if="footIcon" :name="footIcon" size="sm" filled />{{
             foot
@@ -54,6 +58,7 @@
  * 上面压标题、副标题、可选进度条，底行是「▶ 剩余 18 分钟」这类说明和 … 菜单键。
  *
  * 点卡 emit open；右键或点 … emit menu（带鼠标事件，菜单由使用方弹）。宽度由外层（UiShelf）定。
+ * 插槽：art 换掉剧照（如直播卡的台标画面），badge 放在右上角的小标签（规格角标、「直播」胶囊）。
  */
 import { ref, watch } from 'vue'
 
@@ -136,6 +141,17 @@ watch(
   display: grid;
   place-items: center;
   color: var(--text-quaternary);
+}
+.yb-episode-badge {
+  position: absolute;
+  top: var(--space-2_5);
+  right: var(--space-2_5);
+  left: var(--space-2_5);
+  z-index: var(--z-above);
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1_5);
+  pointer-events: none;
 }
 .yb-episode-copy {
   position: absolute;
