@@ -36,7 +36,10 @@ vi.mock('../src/main/mpv-socket', async () => {
   }
   return { MpvSocket, nextSocketPath: () => '/tmp/mpv-test.sock' }
 })
-vi.mock('../src/main/mpv-locate', () => ({ findMpvExecutable: () => 'mpv' }))
+vi.mock('../src/main/mpv-locate', () => ({
+  findMpvExecutable: () => 'mpv',
+  ensureMpvExecutable: async () => 'mpv',
+}))
 vi.mock('../src/main/plugins/host', () => ({
   registerPlugin: () => undefined,
 }))

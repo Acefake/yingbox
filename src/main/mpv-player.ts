@@ -1,7 +1,7 @@
 import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import { Anime4kSync } from './mpv-anime4k'
-import { findMpvExecutable } from './mpv-locate'
+import { ensureMpvExecutable } from './mpv-locate'
 import {
   COMPACT_KEY,
   COMPACT_MESSAGE,
@@ -136,7 +136,8 @@ class MpvPlayer extends EventEmitter {
       await killTree(old)
     }
     const socket = nextSocketPath()
-    const exe = findMpvExecutable()
+    // Windows 上找不到会先自动下载便携版（期间推 installing 事件给渲染层提示）
+    const exe = await ensureMpvExecutable(on => this.emit('installing', on))
     const { target, headers } = mpvStream(options)
     const args = spawnArgs({
       socket,

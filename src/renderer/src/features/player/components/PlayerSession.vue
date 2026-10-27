@@ -1,5 +1,5 @@
 <template>
-  <div class="player-session">
+  <div class="player-session" :class="{ 'is-failed': failure }">
     <UnifiedVideoPlayer
       v-if="src"
       ref="player"
@@ -43,27 +43,17 @@
       @close-hint="endHint = null"
     />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
-    <!-- 播放失败：给出可操作的重试，而不是一闪而过的提示 -->
-    <div v-if="failure" class="player-session-error" role="alert">
-      <p class="player-session-error-title">播放失败</p>
-      <p class="player-session-error-msg">{{ failure }}</p>
-      <p
-        v-if="failedSource"
-        class="player-session-error-src"
-        :title="failedSource"
-      >
-        {{ failedSource }}
-      </p>
-      <div class="player-session-error-actions">
-        <UiButton
-          variant="primary"
-          icon="refresh"
-          :label="retrying ? '重试中…' : '重试'"
-          :loading="retrying"
-          @click="retry"
-        />
-      </div>
-    </div>
+    <!-- 播放失败：给出可操作的重试 / 交给 mpv，而不是一闪而过的提示 -->
+    <PlayerErrorPanel
+      v-if="failure"
+      :message="failure"
+      :source="failedSource"
+      :retrying
+      :can-hand-off="canHandOff"
+      :handing-off="handingOff"
+      @retry="retry"
+      @hand-off="mpvHandoff.handOff(true)"
+    />
   </div>
 </template>
 
@@ -85,7 +75,7 @@ import {
 import type Artplayer from 'artplayer'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import { useSessionShortcuts } from '../controls/use-session-shortcuts'
-import UiButton from '@/components/ui/UiButton.vue'
+import PlayerErrorPanel from './PlayerErrorPanel.vue'
 import { usePlayerMediaControls } from '../composables/use-media-controls'
 import { useSessionProgress } from '../composables/use-session-progress'
 import { useSourceSwitch } from '../composables/use-source-switch'
@@ -106,6 +96,7 @@ import {
   playlistEntryLabel,
 } from '../utils/play-queue'
 import { resolvePlaySource } from '@/features/online'
+import { useMpvHandoff } from '../composables/use-mpv-handoff'
 
 const props = defineProps<{
   payload: PlayerPayload
@@ -170,6 +161,16 @@ const currentEntry = computed<PlaylistEntry | null>(() => {
   return playlist.value[position.value] || null
 })
 
+/** 内置解不了的文件交给 mpv */
+const mpvHandoff = useMpvHandoff({
+  entry: () => currentEntry.value,
+  src: () => src.value,
+  label: entry => entryLabel(entry),
+  position: () => art.value?.currentTime || progress.startAt(),
+  flush: () => progress.saver.flush(),
+})
+const { canHandOff, handingOff } = mpvHandoff
+
 /** 弹幕匹配用的当前条目（规则见 danmakuTargetFor） */
 const danmakuTarget = computed(() =>
   danmakuTargetFor({
@@ -185,6 +186,7 @@ const danmakuTarget = computed(() =>
 const clearFailure = (): void => {
   failure.value = ''
   failedSource.value = ''
+  mpvHandoff.reset()
 }
 
 const entryLabel = (entry: PlaylistEntry | null | undefined): string =>
@@ -318,7 +320,8 @@ const onError = async (event?: Event): Promise<void> => {
       ? reason
       : '无法播放该地址（可能是资源已失效或格式不受支持）。'
   failedSource.value = entryLabel(currentEntry.value)
-  showNotice('播放失败')
+  // 内置解不了（HEVC / AC3 / EAC3 / DTS 等）：桌面端直接交给 mpv；接力失败才留在错误面板
+  await mpvHandoff.onFailure(reason)
 }
 
 /** 手动重试：重置备用线路，从当前集重新解析播放 */

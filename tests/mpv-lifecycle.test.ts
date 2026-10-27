@@ -62,6 +62,7 @@ describe('mpv 播放器进程', () => {
     })
     vi.doMock('../src/main/mpv-locate', () => ({
       findMpvExecutable: () => 'mpv',
+      ensureMpvExecutable: async () => 'mpv',
     }))
     vi.doMock('../src/main/plugins/host', () => ({
       registerPlugin: () => undefined,

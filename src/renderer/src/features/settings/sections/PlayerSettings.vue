@@ -3,11 +3,7 @@
   <SettingsGroup
     v-if="isElectron"
     title="播放引擎"
-    :footer="
-      preferredPlayerEngine === 'mpv'
-        ? '使用 mpv 需要系统已安装 mpv 或配置环境变量 YINGBOX_MPV_PATH。若未检测到会自动回退至内置播放器。'
-        : undefined
-    "
+    footer="内置播放器解不了的文件（HEVC 画面、AC3 / EAC3 / DTS 音频等）会自动交给 mpv 播放。"
   >
     <SettingsRow stacked>
       <SettingsRadioList
@@ -16,6 +12,7 @@
         :options="playerEngineOptions"
       />
     </SettingsRow>
+    <MpvStatusRow />
   </SettingsGroup>
 
   <SettingsGroup
@@ -145,6 +142,7 @@ import { usePlatform } from '@/composables/use-platform'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
 import Anime4kRows from './Anime4kRows.vue'
+import MpvStatusRow from './MpvStatusRow.vue'
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRadioList, {
   type SettingsRadioOption,

@@ -23,6 +23,10 @@ export const mpv = defineDomain(
     open: call<[options: MpvOpenOptions], { success: boolean; error?: string }>(
       a => [record<MpvOpenOptions>(a[0], 'options')]
     ),
+    /** 本机能不能用 mpv：available 已找到；installable 找不到但能自动下载（Windows） */
+    probe: call<{ available: boolean; installable: boolean }>(),
+    /** 下载便携版 mpv（Windows）；已装好直接成功 */
+    install: call<{ success: boolean; error?: string }>(),
     /** 暂停 / 继续 */
     pause: call<[paused: boolean], Ok>(a => [bool(a[0], 'paused')]),
     /** 跳转（默认绝对秒数） */
@@ -71,6 +75,8 @@ export const mpv = defineDomain(
   {
     /** 状态变化（时间、轨道、播放列表等） */
     status: event<MpvStatus>(),
+    /** 自动下载便携版 mpv 开始（true）/ 结束（false） */
+    installing: event<boolean>(),
     /** 启动或运行出错 */
     error: event<string>(),
   }
