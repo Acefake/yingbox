@@ -25,7 +25,8 @@ import {
   seriesTitleMatches,
 } from './match-rules'
 import { folderVerdict, looksLikePack } from './pack-rules'
-import { type ShareHint, shareHint } from './share-title-rules'
+import type { EpisodeHint } from '../../shared/netdisk/episode-hint'
+import { shareHint } from './share-title-rules'
 import { candidateKey } from './state'
 
 /** 一集最多看几个分享 */
@@ -78,7 +79,7 @@ export function keywordsFor(target: EpisodeTarget): string[] {
 }
 
 /** 分享标题的先后：正好这一集 → 包含这一集 → 没写集号 */
-const HINT_ORDER: Record<Exclude<ShareHint, 'other'>, number> = {
+const HINT_ORDER: Record<Exclude<EpisodeHint, 'other'>, number> = {
   exact: 2,
   covers: 1,
   unknown: 0,
