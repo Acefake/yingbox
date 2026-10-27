@@ -46,6 +46,7 @@ import {
   type RecentLibraryItem,
   libraryItemLocation,
   recentLibraryItems,
+  recentQualities,
 } from './home-links'
 import { addedLabel } from './recent-rules'
 
@@ -57,9 +58,18 @@ const items = ref<RecentLibraryItem[]>([])
 /** 入库时间文案的基准时间：每次重取时刷新 */
 const now = ref(Date.now())
 
+/** 先按列表出卡，再逐条补画质角标（详情慢或失败都不挡这一排） */
+let generation = 0
+
 async function reload(): Promise<void> {
-  items.value = await recentLibraryItems(LIMIT).catch(() => [])
+  const run = ++generation
+  const list = await recentLibraryItems(LIMIT).catch(() => [])
+  if (run !== generation) return
+  items.value = list
   now.value = Date.now()
+  const badges = await recentQualities(list).catch(() => null)
+  if (!badges || run !== generation) return
+  items.value = list.map((item, i) => ({ ...item, quality: badges[i] }))
 }
 
 onMounted(() => void reload())
