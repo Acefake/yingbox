@@ -10,6 +10,8 @@
  * - 看到一半出错（闸门暂停、网络）：已找到候选就先交出来，一个都没有才把错误抛给调用方。
  */
 import type { AutograbCandidate } from '../../shared/contract/autograb'
+import { fileQuality, qualitySpecs } from '../../shared/release/quality'
+import { versionScore } from '../../shared/release/score'
 import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
 import {
   type FindResult,
@@ -111,6 +113,7 @@ export function createMovieFinder(deps: FinderDeps): {
         shareVouches,
       })
       if (!match.ok) continue
+      const quality = fileQuality(file.name, folder, shareTitle)
       out.push({
         shareUrl: item.url,
         password: item.receiveCode,
@@ -119,6 +122,9 @@ export function createMovieFinder(deps: FinderDeps): {
         fileName: file.name,
         size: file.size,
         score: match.score,
+        quality: versionScore(quality, file.size, file.name, undefined, 'movie')
+          .score,
+        specs: qualitySpecs(quality),
         reasons: match.reasons,
       })
     }

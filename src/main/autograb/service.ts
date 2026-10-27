@@ -25,7 +25,7 @@ import type { AutograbDeps, Pan115Guard } from './deps'
 import { createFinder } from './finder'
 import { createRoundRunner, createSingleFlight } from './flight'
 import { type Gate, createGate } from './gate'
-import { AUTO_SCORE, matchPrefsOf } from './match-rules'
+import { AUTO_SCORE } from './match-rules'
 import { buildOverview } from './overview'
 import { revertEpisode } from './revert'
 import {
@@ -167,7 +167,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         season: record.season,
         episode: record.episode,
       },
-      { prefs: matchPrefsOf(prefs), banned: record.banned }
+      { prefs, banned: record.banned }
     )
     record.attempts++
     record.candidates = result.candidates

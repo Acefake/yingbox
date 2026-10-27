@@ -1,5 +1,6 @@
 /**
- * 洗版 · 清点片库：哪些电影 / 单集的文件分辨率低于目标。
+ * 洗版 · 清点片库：哪些电影 / 单集的文件该找更好的版本（分辨率低于目标；或资源偏好让同分辨率的
+ * 杜比视界 / REMUX 算更好，见 shared/release/score.ts wantsUpgrade）。
  *
  * 只看按网盘处理（CloudDrive2 挂载 115）、用 TMDB 识别、且已匹配的电影库和剧集库——新文件要存回
  * 同一个 115 文件夹，本地盘上的库洗不了。每个条目取它最好的那个视频文件判断；第 0 季（特别篇）不洗。
@@ -11,7 +12,15 @@ import type {
   LibraryQuery,
   LibraryQueryResult,
 } from '../../../shared/library/ipc'
-import { needsUpgrade, resolutionOf } from './quality-rules'
+import {
+  DEFAULT_GRAB_PREFS,
+  type GrabPrefs,
+} from '../../../shared/contract/grab-prefs'
+import {
+  type ReleaseQuality,
+  parseReleaseQuality,
+} from '../../../shared/release/quality'
+import { wantsUpgrade } from '../../../shared/release/score'
 
 /** 清点出的一个低分辨率文件 */
 export interface ScanHit {
@@ -39,19 +48,26 @@ const baseName = (path: string): string => path.split(/[\\/]/).pop() ?? path
 /** 一个条目里分辨率最高的视频文件；没有视频文件为 null */
 function bestVideo(
   node: LibraryItemNode
-): { path: string; resolution: number | null } | null {
-  let best: { path: string; resolution: number | null } | null = null
+): { path: string; quality: ReleaseQuality } | null {
+  let best: { path: string; quality: ReleaseQuality } | null = null
   for (const file of node.files) {
     if (file.kind !== 'video') continue
-    const resolution = resolutionOf(baseName(file.path))
-    if (!best || (resolution ?? 0) > (best.resolution ?? 0))
-      best = { path: file.path, resolution }
+    const quality = parseReleaseQuality(baseName(file.path))
+    if (!best || quality.rank > best.quality.rank)
+      best = { path: file.path, quality }
   }
   return best
 }
 
-/** 一个顶层条目（电影或整部剧）里要洗的文件 */
-export function lowResHits(node: LibraryItemNode, target: number): ScanHit[] {
+/**
+ * 一个顶层条目（电影或整部剧）里要洗的文件。
+ * @param prefs 这个种类的资源偏好（同分辨率时杜比视界 / REMUX 算不算更好）
+ */
+export function lowResHits(
+  node: LibraryItemNode,
+  target: number,
+  prefs: GrabPrefs = DEFAULT_GRAB_PREFS
+): ScanHit[] {
   const hits: ScanHit[] = []
   const add = (
     item: LibraryItemNode,
@@ -59,7 +75,7 @@ export function lowResHits(node: LibraryItemNode, target: number): ScanHit[] {
     season: number | null
   ): void => {
     const best = bestVideo(item)
-    if (!best || !needsUpgrade(best.resolution, target)) return
+    if (!best || !wantsUpgrade(best.quality, target, prefs)) return
     hits.push({
       itemId: item.id,
       kind,
@@ -68,7 +84,7 @@ export function lowResHits(node: LibraryItemNode, target: number): ScanHit[] {
       season,
       episode: kind === 'episode' ? item.episodeNumber : null,
       filePath: best.path,
-      resolution: best.resolution,
+      resolution: best.quality.height,
     })
   }
   if (node.type === 'movie') add(node, 'movie', null)

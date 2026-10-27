@@ -54,9 +54,13 @@ export interface AutograbCandidate {
   fileId: string
   fileName: string
   size: number
-  /** 0–100 */
+  /** 匹配分 0–100：有多确定是这一集，过线才允许全自动 */
   score: number
-  /** 加减分理由（给用户看） */
+  /** 版本分 0–100：画质合不合资源偏好，用来挑版本（老记录为 0） */
+  quality: number
+  /** 短规格（4K · WEB · DV · 中字） */
+  specs: string[]
+  /** 加分理由（给用户看） */
   reasons: string[]
 }
 

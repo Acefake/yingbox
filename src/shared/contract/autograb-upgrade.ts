@@ -30,8 +30,12 @@ export interface GrabCandidate {
   fileId: string
   fileName: string
   size: number
-  /** 0–100 */
+  /** 匹配分 0–100：有多确定是这一集 / 这部片，过线才允许全自动 */
   score: number
+  /** 版本分 0–100：画质合不合资源偏好，用来挑版本（老记录为 0） */
+  quality: number
+  /** 短规格（4K · WEB · DV · 中字） */
+  specs: string[]
   /** 文件名里认出的分辨率（2160 / 1080 / 720 / 480）；认不出为 null */
   resolution: number | null
   /** 加分理由（给用户看） */
