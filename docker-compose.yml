@@ -1,13 +1,13 @@
 # 影盒片库服务的 compose 示例（NAS / 家用服务器），说明见 docs/deploy/nas.md，决策见 docs/adr/0010-docker-nas-deploy.md。
 #
-#   1. 在本文件旁边建 .env，写一行访问令牌（至少 24 个字符的随机串）：
-#        echo "YINGBOX_SERVER_TOKEN=$(openssl rand -hex 32)" > .env
-#   2. 按需改下面的 PUID / PGID、媒体目录、端口
-#   3. docker compose up -d --build
-#   4. 浏览器打开 http://127.0.0.1:31480/?token=<令牌>（只需第一次带令牌，之后靠 Cookie）
+#   1. 按需改下面的 PUID / PGID、媒体目录、端口
+#   2. docker compose up -d --build
+#   3. 浏览器打开 http://127.0.0.1:31480/ 直接用，不用登录
 #
-# 默认只有 NAS 本机（以及同机的反向代理）能访问。要让局域网直接访问，把 ports 改成 '31480:31480'；
-# 想从外网访问，请走 HTTPS 反向代理，不要把端口直接映射到公网。
+# 默认只有 NAS 本机（以及同机的反向代理）能访问。要让局域网直接访问，把 ports 改成 '31480:31480'：
+# 这时局域网里任何人都能打开片库，需要登录时在 .env 里设置可选的访问令牌（至少 24 个字符的随机串）：
+#   echo "YINGBOX_SERVER_TOKEN=$(openssl rand -hex 32)" > .env
+# 想从外网访问，请走 HTTPS 反向代理并设置访问令牌，不要把端口直接映射到公网。
 services:
   yingbox:
     build:
@@ -31,10 +31,10 @@ services:
       # 设成媒体文件的属主（群晖 / 威联通在用户管理里查，或 ssh 上去 id <用户名>），否则读不到片库
       PUID: '1000'
       PGID: '1000'
-      # 容器里监听所有地址，端口映射才能连进来；对外监听时服务要求下面的令牌，否则拒绝启动
+      # 容器里监听所有地址，端口映射才能连进来；没设访问令牌时启动日志会提示局域网内任何人可访问
       YINGBOX_HOST: '0.0.0.0'
-      # 访问令牌：从 .env 读，没设置时 compose 直接报错
-      YINGBOX_SERVER_TOKEN: '${YINGBOX_SERVER_TOKEN:?请在 .env 里设置 YINGBOX_SERVER_TOKEN（至少 24 个字符的随机串）}'
+      # 可选访问令牌：从 .env 读，留空不鉴权；设置后网页端要登录一次（至少 24 个字符）
+      YINGBOX_SERVER_TOKEN: '${YINGBOX_SERVER_TOKEN:-}'
       # TMDB 读访问令牌（电影 / 剧集库需要），也可以在网页端的媒体库设置里填写
       # YINGBOX_TMDB_TOKEN: ''
       # 需要代理才能访问 TMDB / 刮削站点时（NODE_USE_ENV_PROXY 必须一起设）：

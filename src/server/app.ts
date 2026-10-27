@@ -1,5 +1,5 @@
 /**
- * 独立服务的组装：片库核心（Node 宿主）+ 缩略图管线（wasm）+ 路由 + 鉴权。
+ * 独立服务的组装：片库核心（Node 宿主）+ 缩略图管线（wasm）+ 路由 + 可选鉴权（YINGBOX_SERVER_TOKEN）。
  *
  * 返回一个 `fetch(Request) => Response`，入口（index.ts）把它挂到 node:http 上；单测直接调它，不占端口。
  * 与桌面端的对应关系：
@@ -47,16 +47,19 @@ import { registerMediaRoutes } from './routes/media'
 import { type OnlineDeps, registerOnline } from './online'
 import { registerSessionRoutes } from './routes/session'
 import { registerSubtitleRoutes } from './routes/subtitles'
-import { FileSecretStore, SECRET_KEYS, ensureServerToken } from './secrets'
+import {
+  FileSecretStore,
+  SECRET_KEYS,
+  dropLegacyServerToken,
+  serverTokenFromEnv,
+} from './secrets'
 
 /** 组装好的服务。 */
 export interface ServerApp {
   fetch: Handler
   service: LibraryService
-  /** 访问令牌（入口打印登录地址用）。 */
-  token: string
-  /** 令牌是否是这次启动新生成的。 */
-  tokenGenerated: boolean
+  /** 访问令牌（入口打印登录地址用）；没设 YINGBOX_SERVER_TOKEN 时为 null，服务不鉴权。 */
+  token: string | null
   close(): Promise<void>
 }
 
@@ -93,8 +96,12 @@ export async function createServerApp(
   const env = options.env ?? process.env
   mkdirSync(config.dataDir, { recursive: true })
   const { dbPath, secretsPath, mediaDir } = serverPaths(config)
-  const secrets = new FileSecretStore(secretsPath, env)
-  const { token, generated } = ensureServerToken(secrets)
+  const secrets = new FileSecretStore(secretsPath)
+  if (dropLegacyServerToken(secrets))
+    log(
+      '已删除数据目录里自动生成的旧访问令牌：访问令牌只认 YINGBOX_SERVER_TOKEN'
+    )
+  const token = serverTokenFromEnv(env)
   const auth = createAuth(token, config.publicOrigin)
 
   const codec = options.codec ?? defaultCodec(log)
@@ -176,7 +183,7 @@ export async function createServerApp(
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return fail(405, '不支持的方法')
       // 带 ?token= 打开首页（启动日志里的地址）：写入 Cookie 后去掉地址里的令牌
-      if (tokenCandidates(url.search).some(auth.matches))
+      if (auth.required && tokenCandidates(url.search).some(auth.matches))
         return new Response(null, {
           status: 302,
           headers: { Location: '/', 'Set-Cookie': auth.loginCookie(request) },
@@ -199,7 +206,6 @@ export async function createServerApp(
     fetch: handle,
     service,
     token,
-    tokenGenerated: generated,
     close: async () => {
       await online.close()
       netdisk?.close()

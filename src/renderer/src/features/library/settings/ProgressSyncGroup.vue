@@ -14,8 +14,13 @@
     </SettingsRow>
     <template v-if="server">
       <SettingsRow
-        title="访问令牌"
-        :description="tokenConfigured ? '已设置' : '片库服务的令牌'"
+        v-if="showToken"
+        title="访问令牌（可选）"
+        :description="
+          tokenConfigured
+            ? '已设置'
+            : '仅片库服务设置了 YINGBOX_SERVER_TOKEN 时填写'
+        "
         stacked
       >
         <UiInput
@@ -40,14 +45,19 @@
 
 <script setup lang="ts">
 /**
- * 观看进度与片库服务（网页 / NAS 版）同步：地址是普通设置 library.progressServer，令牌是密钥
- * library.progressServerToken（只写不读），同步由主进程定时跑（src/main/library/progress-sync），
- * 状态与「立即同步」走 window.api.progressSync。只在桌面端显示（见 LibrarySettings）。
+ * 观看进度与片库服务（网页 / NAS 版）同步：地址是普通设置 library.progressServer，只填地址就能同步。
+ * 令牌是可选密钥 library.progressServerToken（只写不读）：片库服务默认不鉴权，令牌输入只在已保存过令牌、
+ * 或同步时服务回 401（PROGRESS_SYNC_TOKEN_ERROR）时出现。
+ * 同步由主进程定时跑（src/main/library/progress-sync），状态与「立即同步」走 window.api.progressSync。
+ * 只在桌面端显示（见 LibrarySettings）。
  */
 import { toast } from '@/components/ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
 
-import type { ProgressSyncStatus } from '../../../../../shared/contract/progress-sync'
+import {
+  PROGRESS_SYNC_TOKEN_ERROR,
+  type ProgressSyncStatus,
+} from '../../../../../shared/contract/progress-sync'
 import {
   SettingsGroup,
   SettingsRow,
@@ -81,6 +91,11 @@ const status = ref<ProgressSyncStatus>({
   pushed: 0,
 })
 const statusText = computed(() => syncStatusText(status.value, Date.now()))
+/** 令牌输入：保存过令牌，或服务明确要求令牌（401）时才显示。 */
+const showToken = computed(
+  () =>
+    tokenConfigured.value || status.value.error === PROGRESS_SYNC_TOKEN_ERROR
+)
 api.onChanged(next => (status.value = next))
 onBeforeUnmount(() => api.offChanged())
 void api.status().then(next => (status.value = next))

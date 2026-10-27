@@ -27,7 +27,7 @@
   事件经 SSE（`GET /api/library/events`）推送，每条 `data` 是一个 `LibraryEvent`。线格式见 `src/shared/library/ipc/contract-http.ts`。
 - **网页端 transport**：`features/library/api/bridge.ts` 按运行环境选 transport。有 `window.api`（Electron）走 IPC，否则走 `http-bridge.ts`。界面代码不区分两者。
 - **缩略图**：桌面端用 `nativeImage`；服务端用 `@jsquash` 的 wasm 编解码，在独立线程里解码、缩放、编码 WebP（`thumbnails/wasm-resizer.ts`、`codec-*.ts`）。两边共用同一个 LRU 缓存目录结构。
-- **代码位置**：`src/server/` 下 `app.ts` 组装、`config.ts` 参数与环境变量、`http/`（路由、Bearer / Cookie 鉴权、静态文件）、`routes/`（片库 rpc + SSE、media、fs）、`exposure.ts`（对外监听要求显式令牌）。
+- **代码位置**：`src/server/` 下 `app.ts` 组装、`config.ts` 参数与环境变量、`http/`（路由、Bearer / Cookie 鉴权、静态文件）、`routes/`（片库 rpc + SSE、media、fs）、`exposure.ts`（对外监听：没令牌时警告、弱令牌拒绝启动）。
   片库核心的出网实现由 `YINGBOX_FETCH` 选：`node`（undici）/ `curl[:路径]`（curl-impersonate）/ `module:<路径>`。
   网页端：`services/library-server` 管登录、连接状态和媒体地址（渲染层除 transport 外唯一可以 `fetch` 的地方）；只在网页端出现的界面是外壳的 `shell/components/ServerConnect.vue`（连不上 / 需要登录时所有页面都先显示它）、片库的 `settings/FolderBrowser.vue`；播放经 `openMediaPlayer`，地址是 `/media/files`。
 - **事件流恢复**：服务没就绪（连不上 / 未登录）时网页端关掉 EventSource，避免浏览器无限重连；服务回到在线时片库、在线引擎、网盘三条事件流里还有订阅的会重新打开（各 transport 的 `resume()`）。浏览器自己放弃重连（反向代理在服务重启时回 502、令牌换了回 401 等非 200 响应）而页面仍算在线时，先探一次 `/api/health` 再重开（3 秒起翻倍到 60 秒），要登录时交给连接界面（`services/library-server/events.ts`）。
@@ -75,51 +75,52 @@
 
 ### 鉴权
 
-- 所有接口（`/api/health`、`/api/session` 与网页静态文件除外）都要令牌：`Authorization: Bearer <令牌>`，或登录后服务写入的 Cookie。
+- 鉴权是可选加固：没设 `YINGBOX_SERVER_TOKEN` 时服务不鉴权，所有接口、媒体和事件流直接可用，`/api/health` 回 `authorized: true`，网页端不出现登录界面。
+- 设了令牌时，所有接口（`/api/health`、`/api/session` 与网页静态文件除外）都要令牌：`Authorization: Bearer <令牌>`，或登录后服务写入的 Cookie；网页端收到 401 时才显示令牌输入。
 - Cookie 是 `HttpOnly` + `SameSite=Strict`，页面脚本拿不到令牌，`<img>` / `<video>` / `EventSource` 自动带上；令牌不出现在资源地址里。
 - 改写类请求校验完整同源（协议、主机和端口），防跨站调用。
 - HTTPS 反向代理部署时设置 `YINGBOX_PUBLIC_ORIGIN=https://media.example.com`（或 `--public-origin`），登录和退出 Cookie 带 `Secure`，同源检查使用此固定源。服务不采用客户端的 `X-Forwarded-*` 头；只在本地用 HTTP 时无需设置。
-- 令牌来源：`YINGBOX_SERVER_TOKEN` 环境变量；没设时首次启动随机生成（32 字节），存进 `<数据目录>/secrets.json` 并打印在启动日志里。
-- 对外监听（`--host` 不是 `127.0.0.1` / `::1` / `localhost`）时必须用环境变量显式设置令牌：至少 24 个字符、不是示例占位串，否则服务拒绝启动（`src/server/exposure.ts`，ADR-0010）。
-- 启动日志里的 `http://…/?token=…` 只需打开一次：服务把它换成 Cookie 并从地址栏去掉令牌。
+- 令牌只来自 `YINGBOX_SERVER_TOKEN` 环境变量，不生成、不落盘；数据目录 `secrets.json` 里早期自动生成的 `server.token` 启动时删掉。
+- 对外监听（`--host` 不是 `127.0.0.1` / `::1` / `localhost`）时：没设令牌照常启动，日志警告局域网内任何人可访问；设了令牌则至少 24 个字符、不是示例占位串，否则服务拒绝启动（`src/server/exposure.ts`，ADR-0010）。
+- 设了令牌时启动日志里的 `http://…/?token=…` 只需打开一次：服务把它换成 Cookie 并从地址栏去掉令牌。
 
 ## 配置
 
 命令行参数 > 环境变量 > 默认值（`src/server/config.ts`）。
 
-| 参数                     | 环境变量                                  | 默认                          | 说明                                                                                     |
-| ------------------------ | ----------------------------------------- | ----------------------------- | ---------------------------------------------------------------------------------------- |
-| `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，这时必须设 `YINGBOX_SERVER_TOKEN`  |
-| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                   | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`        |
-| `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                     |
-| `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                             |
-| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                              |
-| `--media-root`（可多次） | `YINGBOX_MEDIA_ROOTS`                     | 用户主目录                    | 允许浏览和建库的根目录；环境变量里多个用系统路径分隔符（Linux / macOS `:`，Windows `;`） |
-| `--web-dir`              | `YINGBOX_WEB_DIR`                         | 包旁边的 `dist-web`（存在时） | 托管的网页端目录；`off` 只提供 API                                                       |
-| `--fetch`                | `YINGBOX_FETCH`                           | `node`                        | 出网实现：`node` / `curl` / `curl:<路径>` / `module:<路径>`，见下文                      |
-| `--watch`                | `YINGBOX_WATCH`                           | `auto`                        | 目录监控模式：`auto` / `events` / `poll` / `off`，见「自动入库」                         |
-| `--scan-interval`        | `YINGBOX_SCAN_INTERVAL`                   | `300`（秒）                   | 定时增量扫描间隔；`0` 关闭（网络盘上就只能手动扫描了）                                   |
-| `--settle`               | `YINGBOX_SETTLE_SECONDS`                  | `10`（秒）                    | 写入稳定判定：新文件大小与 mtime 保持这么久不变才入库；`0` 不判定                        |
-| —                        | `YINGBOX_SERVER_TOKEN`                    | 首次启动生成                  | 访问令牌（只读覆盖，不写回文件）；对外监听时必填，至少 24 个字符                         |
-| —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要）。网页端设置里填写的令牌优先                         |
-| —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别、自动中文字幕，可选）                          |
-| —                        | `YINGBOX_FFPROBE`                         | PATH 上的 `ffprobe`           | 视频动态范围（多版本的 HDR / 杜比视界标）、内封字幕探测；找不到时跳过探测                |
-| —                        | `YINGBOX_FFMPEG`                          | PATH 上的 `ffmpeg`            | 按画面搜抽视频帧                                                                         |
-| —                        | `YINGBOX_AUTO_SUBTITLES`                  | 关                            | `1` / `true` / `on`：新入库的电影 / 集没有中文字幕时从 OpenSubtitles 下一份（需要 key）  |
-| —                        | `YINGBOX_SUBTITLES_DAILY_LIMIT`           | `5`                           | 自动中文字幕每天最多下载几份（1–100）                                                    |
-| —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                         |
-| —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                              |
-| —                        | `YINGBOX_ONLINE`                          | `on`                          | `off` 关闭在线板块（不起引擎、不开播放代理），见「在线播放」                             |
-| —                        | `YINGBOX_DOWNLOAD_DIR`                    | `<数据目录>/downloads`        | 在线板块的下载目录                                                                       |
-| —                        | `YINGBOX_BROWSER`                         | 无                            | `chromium:<路径>`：用系统 Chromium 代抓被 Cloudflare 挑战拦下的页面                      |
-| —                        | `YINGBOX_STREAM_ALLOW_PRIVATE`            | 无                            | 播放代理放行的内网目标：主机名、IP 或 IPv4 网段，逗号分隔                                |
-| —                        | `YINGBOX_ENGINE_IDLE`                     | `300`（秒）                   | 在线引擎空闲多久退出；`0` 不退出                                                         |
-| —                        | `YINGBOX_NETDISK`                         | `on`                          | `off` 时不加载 115 网盘、追更、洗版、电影追踪、库外发现、离线下载，见「网盘与追更」      |
-| —                        | `YINGBOX_AUTOGRAB`                        | `on`                          | `off` 时网盘接口照常可用，但本实例不跑追更类定时任务                                     |
-| —                        | `YINGBOX_PANSOU_URL`                      | 无                            | 固定 PanSou 地址（设了之后网页端改不了）                                                 |
-| —                        | `YINGBOX_TORZNAB_URL`                     | 无                            | Torznab 地址兜底（多个用逗号分隔）；网页端保存过的优先                                   |
-| —                        | `YINGBOX_TORZNAB_API_KEY`                 | 无                            | 配合上一项的 Prowlarr / Jackett API Key                                                  |
-| —                        | `YINGBOX_MOUNT_ROOT`                      | 无                            | 115 在片库容器里的挂载根（CloudDrive2），转存后入库通知用来对路径；设了之后网页端改不了  |
+| 参数                     | 环境变量                                  | 默认                          | 说明                                                                                      |
+| ------------------------ | ----------------------------------------- | ----------------------------- | ----------------------------------------------------------------------------------------- |
+| `--host`                 | `YINGBOX_HOST`                            | `127.0.0.1`                   | 监听地址。默认只有本机能访问；局域网访问设 `0.0.0.0`，需要登录时设 `YINGBOX_SERVER_TOKEN` |
+| `--public-origin`        | `YINGBOX_PUBLIC_ORIGIN`                   | 无                            | 对外访问的 HTTP(S) 源；HTTPS 反向代理部署时必设，例如 `https://media.example.com`         |
+| `--port`                 | `YINGBOX_PORT`                            | `31480`                       | 端口                                                                                      |
+| `--data-dir`             | `YINGBOX_DATA_DIR`                        | `~/.yingbox-server`           | `library.db`、`secrets.json`                                                              |
+| `--cache-dir`            | `YINGBOX_CACHE_DIR`                       | 同数据目录                    | `media/`（海报原图与缩略图）等缓存；Docker 里是 `/cache` 卷                               |
+| `--media-root`（可多次） | `YINGBOX_MEDIA_ROOTS`                     | 用户主目录                    | 允许浏览和建库的根目录；环境变量里多个用系统路径分隔符（Linux / macOS `:`，Windows `;`）  |
+| `--web-dir`              | `YINGBOX_WEB_DIR`                         | 包旁边的 `dist-web`（存在时） | 托管的网页端目录；`off` 只提供 API                                                        |
+| `--fetch`                | `YINGBOX_FETCH`                           | `node`                        | 出网实现：`node` / `curl` / `curl:<路径>` / `module:<路径>`，见下文                       |
+| `--watch`                | `YINGBOX_WATCH`                           | `auto`                        | 目录监控模式：`auto` / `events` / `poll` / `off`，见「自动入库」                          |
+| `--scan-interval`        | `YINGBOX_SCAN_INTERVAL`                   | `300`（秒）                   | 定时增量扫描间隔；`0` 关闭（网络盘上就只能手动扫描了）                                    |
+| `--settle`               | `YINGBOX_SETTLE_SECONDS`                  | `10`（秒）                    | 写入稳定判定：新文件大小与 mtime 保持这么久不变才入库；`0` 不判定                         |
+| —                        | `YINGBOX_SERVER_TOKEN`                    | 无（不鉴权）                  | 可选访问令牌，设了才要求登录；对外监听时至少 24 个字符                                    |
+| —                        | `YINGBOX_TMDB_TOKEN`                      | 无                            | TMDB 读访问令牌（电影 / 剧集库需要）。网页端设置里填写的令牌优先                          |
+| —                        | `YINGBOX_OPENSUBTITLES_KEY`               | 无                            | OpenSubtitles API key（按文件哈希辅助识别、自动中文字幕，可选）                           |
+| —                        | `YINGBOX_FFPROBE`                         | PATH 上的 `ffprobe`           | 视频动态范围（多版本的 HDR / 杜比视界标）、内封字幕探测；找不到时跳过探测                 |
+| —                        | `YINGBOX_FFMPEG`                          | PATH 上的 `ffmpeg`            | 按画面搜抽视频帧                                                                          |
+| —                        | `YINGBOX_AUTO_SUBTITLES`                  | 关                            | `1` / `true` / `on`：新入库的电影 / 集没有中文字幕时从 OpenSubtitles 下一份（需要 key）   |
+| —                        | `YINGBOX_SUBTITLES_DAILY_LIMIT`           | `5`                           | 自动中文字幕每天最多下载几份（1–100）                                                     |
+| —                        | `HTTPS_PROXY` / `HTTP_PROXY` / `NO_PROXY` | 无                            | 出网代理，见下文                                                                          |
+| —                        | `NODE_USE_ENV_PROXY`                      | 无                            | 设为 `1` 时 Node fetch 才读上面三个代理变量                                               |
+| —                        | `YINGBOX_ONLINE`                          | `on`                          | `off` 关闭在线板块（不起引擎、不开播放代理），见「在线播放」                              |
+| —                        | `YINGBOX_DOWNLOAD_DIR`                    | `<数据目录>/downloads`        | 在线板块的下载目录                                                                        |
+| —                        | `YINGBOX_BROWSER`                         | 无                            | `chromium:<路径>`：用系统 Chromium 代抓被 Cloudflare 挑战拦下的页面                       |
+| —                        | `YINGBOX_STREAM_ALLOW_PRIVATE`            | 无                            | 播放代理放行的内网目标：主机名、IP 或 IPv4 网段，逗号分隔                                 |
+| —                        | `YINGBOX_ENGINE_IDLE`                     | `300`（秒）                   | 在线引擎空闲多久退出；`0` 不退出                                                          |
+| —                        | `YINGBOX_NETDISK`                         | `on`                          | `off` 时不加载 115 网盘、追更、洗版、电影追踪、库外发现、离线下载，见「网盘与追更」       |
+| —                        | `YINGBOX_AUTOGRAB`                        | `on`                          | `off` 时网盘接口照常可用，但本实例不跑追更类定时任务                                      |
+| —                        | `YINGBOX_PANSOU_URL`                      | 无                            | 固定 PanSou 地址（设了之后网页端改不了）                                                  |
+| —                        | `YINGBOX_TORZNAB_URL`                     | 无                            | Torznab 地址兜底（多个用逗号分隔）；网页端保存过的优先                                    |
+| —                        | `YINGBOX_TORZNAB_API_KEY`                 | 无                            | 配合上一项的 Prowlarr / Jackett API Key                                                   |
+| —                        | `YINGBOX_MOUNT_ROOT`                      | 无                            | 115 在片库容器里的挂载根（CloudDrive2），转存后入库通知用来对路径；设了之后网页端改不了   |
 
 数据目录里的 `secrets.json` 存着访问令牌、网页端填写的 TMDB 令牌、115 登录会话和 Torznab 地址 / API Key，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
 
@@ -136,7 +137,7 @@ node --disable-warning=ExperimentalWarning out/server/server.js \
   --media-root ~/Movies --media-root /Volumes/Video
 ```
 
-浏览器打开日志里的 `http://127.0.0.1:31480/?token=…`。默认只监听 `127.0.0.1`，同一台机器以外访问不到；要给局域网用，加 `--host 0.0.0.0`，并用 `YINGBOX_SERVER_TOKEN` 设一个至少 24 个字符的随机令牌（不设服务拒绝启动）。
+浏览器打开日志里的 `http://127.0.0.1:31480/`。默认只监听 `127.0.0.1`，同一台机器以外访问不到；要给局域网用，加 `--host 0.0.0.0`（不设令牌时局域网内任何人可访问，需要登录就用 `YINGBOX_SERVER_TOKEN` 设一个至少 24 个字符的随机令牌）。
 
 需要 Node 22+（用到 `node:sqlite`；`--disable-warning=ExperimentalWarning` 只是去掉它的实验提示）。
 
@@ -147,7 +148,7 @@ pnpm dev:server     # tsx watch，改 src/server 或片库核心后自动重启�
 pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（默认 http://127.0.0.1:31480）
 ```
 
-`dev:web` 经代理访问时，服务不托管页面，地址栏的 `?token=` 由网页端自己换成 Cookie。
+`dev:web` 经代理访问时，服务不托管页面；设了令牌时地址栏的 `?token=` 由网页端自己换成 Cookie。
 
 检查脚本：
 
@@ -157,7 +158,7 @@ pnpm dev:web        # vite，/api 与 /media 代理到 YINGBOX_SERVER_TARGET（�
 
 ### NAS（Docker）
 
-仓库根目录的 `Dockerfile`（多阶段、固定基础镜像、入口降权、健康检查）和 `docker-compose.yml`（默认只映射到宿主 127.0.0.1、令牌必填、片库只读）。
+仓库根目录的 `Dockerfile`（多阶段、固定基础镜像、入口降权、健康检查）和 `docker-compose.yml`（默认只映射到宿主 127.0.0.1、令牌可选、片库只读）。
 步骤、目录映射、群晖 / 威联通 / Unraid、反向代理与 HTTPS、CloudDrive2 网盘见 [在 NAS 上用 Docker 部署](deploy/nas.md)；决策见 [ADR-0010](adr/0010-docker-nas-deploy.md)。
 
 ## 自动入库
@@ -254,7 +255,7 @@ features/online|av|download              src/server/online                      
 
 网页端播放第三方地址时，播放器把跨源的 http(s) 地址换成 `/api/stream?src=<地址>`（片库自己的 `/media/files` 不换），播放进度与历史仍记原地址。
 
-- 要令牌（Cookie / Bearer），和其它 `/api` 一样。
+- 设了令牌时要令牌（Cookie / Bearer），和其它 `/api` 一样。
 - 只转发无凭据的 http/https **公网**地址，每一跳重定向都校验；回环、内网、链路本地、`localhost` 一律 403。局域网里的源（自建 CMS、媒体服务器）要显式放行：`YINGBOX_STREAM_ALLOW_PRIVATE=nas.lan,192.168.1.0/24`。
 - 透传 `Range`（拖动、mp4 直链）；按源注入防盗链 `Referer`（与桌面端 `media-headers.ts` 同一份名单 `src/shared/net/media-referer.ts`），UA 用 Chrome 的；不带浏览器 Cookie。
 - 正文以 `#EXTM3U` 开头的就当清单（不看后缀和类型），地址行与 `URI="…"`（密钥、初始化段、子清单、音轨）全部改写成代理地址，相对地址按跟随重定向后的地址解析；iOS Safari 的原生 HLS 也能播。清单上限 8 MB。
@@ -339,7 +340,7 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 
 能做：
 
-- 登录片库服务（令牌一次，之后靠 Cookie）。
+- 服务设了令牌时登录一次（之后靠 Cookie）；默认不用登录。
 - 在媒体根目录内浏览文件夹，添加电影 / 剧集库；删除库、扫描、识别全部、刷新元数据。
 - 海报墙（排序、筛选、搜索、分库）、待确认队列、修正匹配、锁定。后台进度与条目变化经 SSE 实时刷新。
 - 条目详情；在页内 `<video>` 播放（分段电影、一季的集按顺序连播），视频经 Range 流拖动。

@@ -27,7 +27,7 @@ function build(fetch: (url: string, init?: RequestInit) => Promise<Response>): {
   jar: CookieJar
   service: ReturnType<typeof createPan115Service>
 } {
-  const secrets = new FileSecretStore(join(dir, 'secrets.json'), {})
+  const secrets = new FileSecretStore(join(dir, 'secrets.json'))
   const jar = CookieJar.open(join(dir, 'pan115-cookies.json'))
   const service = createPan115Service({
     transport: createNodeTransport({ jar, fetch }),

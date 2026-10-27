@@ -11,9 +11,7 @@
     </template>
     <template v-else>
       <h2>登录片库服务</h2>
-      <p>
-        输入服务启动日志里的访问令牌（或环境变量 YINGBOX_SERVER_TOKEN 的值）。
-      </p>
+      <p>这台片库服务设置了访问令牌，输入 YINGBOX_SERVER_TOKEN 的值登录。</p>
       <form class="server-connect__form" @submit.prevent="connect">
         <UiInput
           v-model="token"
@@ -38,7 +36,8 @@
 
 <script setup lang="ts">
 /**
- * 网页端连接片库服务：连不上时说明怎么检查；需要登录（没登录过、令牌换了、Cookie 过期）时输入令牌。
+ * 网页端连接片库服务：连不上时说明怎么检查；服务设了访问令牌且回 401（没登录过、令牌换了、Cookie 过期）时输入令牌。
+ * 服务默认不鉴权（/api/health 回 authorized: true），这时状态直接是 online，外壳不会显示本组件。
  * 由外壳在内容区统一显示，首页、片库、日历等页面都不用各自判断。
  * 登录成功后整页刷新：片库状态与各条事件流从头建立，比逐个模块重连简单可靠。
  */
