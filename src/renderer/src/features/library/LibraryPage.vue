@@ -1,5 +1,6 @@
 <template>
-  <div class="lib-page">
+  <div class="lib-page" :style="ambientVars(section)">
+    <LibraryAmbient :section="section" :poster="ambientPoster" />
     <LibraryToolbar
       v-model:view="view"
       v-model:filter="state.filter"
@@ -171,6 +172,8 @@ import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import { libraryServerState } from '@/services/library-server'
 
 import ActorDetail from './actors/ActorDetail.vue'
+import LibraryAmbient from './ambient/LibraryAmbient.vue'
+import { ambientPosterOf, ambientVars } from './ambient/ambient-rules'
 import ActorsView from './actors/ActorsView.vue'
 import ItemDetail from './detail/ItemDetail.vue'
 import ActivityBar from './page/ActivityBar.vue'
@@ -283,6 +286,8 @@ const {
   error: queryError,
   setVisible,
 } = usePagedQuery(nl.query, event => libraryIds.value.includes(event.libraryId))
+// 环境光跟着海报墙最前面几格的海报走（ambient/）
+const ambientPoster = computed(() => (version.value, ambientPosterOf(list)))
 
 // 换查询条件回到顶部；换筛选（不含排序）清空多选
 watch(

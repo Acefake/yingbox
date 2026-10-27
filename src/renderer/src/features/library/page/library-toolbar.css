@@ -42,7 +42,8 @@
   margin-left: var(--space-2);
 }
 .lib-toolbar-count {
-  color: var(--text-tertiary);
+  /* 分区色来自页面根节点（ambient/ambient-rules.ts） */
+  color: var(--ambient-accent, var(--text-tertiary));
   font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   font-variant-numeric: tabular-nums;
