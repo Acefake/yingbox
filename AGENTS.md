@@ -100,7 +100,7 @@ The same library core runs in a plain Node process for the web build / NAS; host
 
 ### App settings
 
-- localStorage: `scrapeProviderConfig` (provider, TMDB token; legacy backend URL/key kept only for the library mirror), `imageDownloadSize_*`, `folderContent_*` (tree cache), `metadataLanguage`, `player_playback_rate`
+- Scrape prefs: settings `scrape.metadataLanguage` / `scrape.imageSize.*` are the one source; main / the library server push them to the library engine (`setScrapePrefs`, `shared/library/scrape-prefs.ts`). localStorage: `folderContent_*` (tree cache), `player_playback_rate`
 - Download directory: setting `download.dir` in `settings.json` (Settings → 下载)
 - Env: `VITE_TMDB_ACCESS_TOKEN` (or `YINGBOX_TMDB_TOKEN`) — optional dev-only default TMDB token, read by the main process / library engine at runtime; never commit a real one (see `.env.example`)
 

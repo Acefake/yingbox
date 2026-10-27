@@ -195,6 +195,32 @@ export class MetadataWriter {
     return true
   }
 
+  /**
+   * 用中文简介替换外语简介（豆瓣补简介）：只改 overview 列与元数据 JSON 里的 overview / overviewLanguage；
+   * 已是中文的不动。时间戳规则同 fillLocal。返回是否有改动。
+   */
+  replaceForeignOverview(
+    itemId: number,
+    overview: string,
+    language: string,
+    now: number
+  ): boolean {
+    const result = this.sql
+      .get(
+        `UPDATE media_items SET overview = ?1,
+           metadata = json_set(metadata, '$.overview', ?1, '$.overviewLanguage', ?2),
+           identified_at = CASE WHEN identified_at >= updated_at THEN ?3
+             ELSE identified_at END,
+           updated_at = ?3
+         WHERE id = ?4 AND json_valid(metadata)
+           AND json_extract(metadata, '$.level') = 'title'
+           AND COALESCE(json_extract(metadata, '$.overviewLanguage'), '')
+             NOT LIKE 'zh%'`
+      )
+      .run(overview, language, now, itemId)
+    return Number(result.changes) > 0
+  }
+
   /** 只更新图片地址（图片缓存完成后替换远程地址）。 */
   writeImages(itemId: number, images: ItemImages): void {
     this.sql

@@ -62,7 +62,9 @@ export function registerAutograbMovies(
   const tmdbToken = (): string => host.tmdbToken()
   const file = join(host.dataDir, 'autograb-movies.json')
   const service = createMoviesService({
-    tmdb: createMovieTmdb(tmdbGetter(tmdbToken)),
+    tmdb: createMovieTmdb(tmdbGetter(tmdbToken), () =>
+      host.setting('scrape.metadataLanguage')
+    ),
     tmdbReady: () => Boolean(tmdbToken()),
     inLibrary: async (tmdbId, title) => {
       const result = await library.call('query', {

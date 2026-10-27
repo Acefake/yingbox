@@ -1,7 +1,5 @@
 /**
- * 识别与刮削模块：把元数据源、HTTP 层、图片缓存、识别执行器组装起来，
- * 注册 identify 任务，实现识别相关的 IPC 方法。LibraryService 只做转发。
- * 纯规则在 identify-rules，任务执行在 identify-job。
+ * 识别与刮削模块：组装元数据源（语言读刮削偏好）、HTTP 层、图片缓存、识别执行器，注册 identify 任务并实现识别相关的 IPC 方法（LibraryService 只做转发；纯规则在 identify-rules，任务执行在 identify-job）。
  */
 import {
   type ApplyMatchRequest,
@@ -37,6 +35,7 @@ import type { JavCredentials } from '../providers/jav/sites/registry'
 import type { LibraryEnvSecrets } from '../platform/platform'
 import type { Clock } from '../providers/http/rate-limiter'
 import { OpenSubtitlesHashLookup } from '../providers/opensubtitles/os-hash-lookup'
+import { scrapeLanguage } from '../providers/scrape-prefs-store'
 import { SETTING_KEYS, SettingsStore } from '../providers/settings-store'
 import { TmdbProvider } from '../providers/tmdb/tmdb-provider'
 import { createGenreFill } from './genre-fill'
@@ -141,6 +140,7 @@ export class IdentifyModule {
       http: this.http,
       token: () =>
         this.settings.get(SETTING_KEYS.tmdbToken) ?? options.env?.tmdbToken,
+      language: scrapeLanguage(db),
     })
     this.hashLookup = new OpenSubtitlesHashLookup(
       new ProviderHttp({

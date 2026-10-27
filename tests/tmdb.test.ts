@@ -42,7 +42,9 @@ describe('TMDB 请求在引擎发出（online.tmdb）', () => {
       },
     })
     const ctx = {
-      host: vi.fn(async () => token),
+      host: vi.fn(async (method: string) =>
+        method === 'tmdbLanguage' ? 'zh-TW' : token
+      ),
       emit: vi.fn(),
     } as unknown as EngineContext
     const handlers = createOnlineHandlers({
@@ -68,6 +70,15 @@ describe('TMDB 请求在引擎发出（online.tmdb）', () => {
     expect(url.searchParams.get('query')).toBe('黑客 帝国')
     expect(url.searchParams.get('page')).toBe('1')
     expect(seen[0].auth).toBe('Bearer eyJsecret')
+    // 没带 language：用设置里的元数据语言
+    expect(url.searchParams.get('language')).toBe('zh-TW')
+  })
+
+  it('调用方带了 language 时不覆盖', async () => {
+    const { seen, ctx, handlers } = setup('eyJsecret')
+    await handlers.tmdb(ctx, '/movie/603', { language: 'en-US' })
+    expect(new URL(seen[0].url).searchParams.get('language')).toBe('en-US')
+    expect(ctx.host).not.toHaveBeenCalledWith('tmdbLanguage')
   })
 
   it('没有令牌返回 null，不出网', async () => {

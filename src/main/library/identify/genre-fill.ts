@@ -22,7 +22,11 @@ import {
 } from '../providers/douban/douban-genres'
 import type { ResponseCache } from '../providers/http/provider-cache'
 import { type FetchLike, ProviderHttp } from '../providers/http/provider-http'
+import { scrapeLanguage } from '../providers/scrape-prefs-store'
+import { isChineseLanguage } from '../../../shared/library/scrape-prefs'
+import { DoubanIntroLookup } from '../providers/douban/douban-intro'
 import { MetadataWriter } from './metadata-writer'
+import { fillOverviewsFromDouban } from './overview-fill'
 
 /** 单次任务最多发几个豆瓣请求。 */
 export const GENRE_FILL_REQUEST_LIMIT = 50
@@ -112,7 +116,8 @@ export async function fillGenresFromDouban(
 
 /**
  * 组装识别任务用的补全函数：专用低速 HTTP 层（串行、0.5 次 / 秒、不重试），与 TMDB 共用响应缓存；
- * rexxar 与 frodo 共用这一个 HTTP 层。返回的函数只在取消时抛出，其余异常记日志后当作没有补到。
+ * rexxar 与 frodo 共用这一个 HTTP 层。先补类型；元数据语言是中文时再补中文简介（overview-fill.ts，
+ * 与补类型共用同一个 HTTP 层与搜索缓存）。返回的函数只在取消时抛出，其余异常记日志后当作没有补到。
  */
 export function createGenreFill(options: {
   db: LibraryDb
@@ -122,6 +127,8 @@ export function createGenreFill(options: {
   /** frodo 回退开关；缺省读环境变量 YINGBOX_DOUBAN_FRODO（默认开） */
   frodo?: boolean
   now?: () => number
+  /** 当前元数据语言；缺省读片库的刮削偏好 */
+  language?: () => string
 }): (itemIds: readonly number[], signal?: AbortSignal) => Promise<number[]> {
   const http = new ProviderHttp({
     fetch: options.fetch,
@@ -132,19 +139,32 @@ export function createGenreFill(options: {
     maxRetries: 0,
   })
   const now = options.now ?? Date.now
-  const lookup = new DoubanGenreLookup(http, options.cache, now, {
+  const fallback = {
     frodo: options.frodo ?? frodoEnabled(),
     cooldown: createSourceCooldown(REXXAR_COOLDOWN_MS, now),
     log: options.log,
-  })
+  }
+  const lookup = new DoubanGenreLookup(http, options.cache, now, fallback)
+  const intro = new DoubanIntroLookup(http, options.cache, now, fallback)
+  const language = options.language ?? scrapeLanguage(options.db)
   const deps = { db: options.db, lookup, log: options.log, now }
+  const overviewDeps = { ...deps, search: lookup, intro }
   return async (itemIds, signal) => {
+    const changed = new Set<number>()
     try {
-      return await fillGenresFromDouban(deps, itemIds, signal)
+      for (const id of await fillGenresFromDouban(deps, itemIds, signal))
+        changed.add(id)
+      if (isChineseLanguage(language()))
+        for (const id of await fillOverviewsFromDouban(
+          overviewDeps,
+          itemIds,
+          signal
+        ))
+          changed.add(id)
     } catch (error) {
       if (signal?.aborted) throw error
-      options.log?.(`豆瓣补类型失败：${(error as Error).message}`)
-      return []
+      options.log?.(`豆瓣补全失败：${(error as Error).message}`)
     }
+    return [...changed]
   }
 }

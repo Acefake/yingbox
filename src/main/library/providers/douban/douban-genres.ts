@@ -49,6 +49,7 @@ export interface DoubanGenres {
 }
 
 interface SearchTarget {
+  id?: unknown
   title?: unknown
   year?: unknown
   card_subtitle?: unknown
@@ -78,15 +79,22 @@ export function parseCardSubtitle(subtitle: string): DoubanGenres | null {
 const subjectTitle = (title: string): string =>
   normalizeTitle(title.replace(/\s*第[一二三四五六七八九十百零\d]+季\s*$/, ''))
 
+/** 搜索结果里挑中的豆瓣条目。 */
+export interface DoubanSubjectHit {
+  id: string
+  kind: 'movie' | 'tv'
+  cardSubtitle: string
+}
+
 /**
  * 从搜索结果里挑最像的条目：片名（归一化、剧集去掉季号后）等于本地片名或原名，
  * 两边都有年份时相差不超过 1 年，类型（电影 / 剧集）一致的优先；
  * 片名都对不上时（本地是外文名），只接受排第一、类型一致且年份完全相同的条目。挑不出返回 null。
  */
-export function pickDoubanGenres(
+export function pickDoubanSubject(
   body: unknown,
   query: DoubanGenreQuery
-): DoubanGenres | null {
+): DoubanSubjectHit | null {
   const items = (body as { items?: unknown } | null)?.items
   if (!Array.isArray(items)) return null
   const list = (items as SearchItem[]).filter(
@@ -113,8 +121,22 @@ export function pickDoubanGenres(
     )
       best = first
   }
-  const subtitle = best?.target?.card_subtitle
-  return typeof subtitle === 'string' ? parseCardSubtitle(subtitle) : null
+  if (!best?.target) return null
+  const subtitle = best.target.card_subtitle
+  return {
+    id: typeof best.target.id === 'string' ? best.target.id : '',
+    kind: best.target_type === 'tv' ? 'tv' : 'movie',
+    cardSubtitle: typeof subtitle === 'string' ? subtitle : '',
+  }
+}
+
+/** 挑中条目的类型与地区（规则见 {@link pickDoubanSubject}）；副标题读不出返回 null。 */
+export function pickDoubanGenres(
+  body: unknown,
+  query: DoubanGenreQuery
+): DoubanGenres | null {
+  const hit = pickDoubanSubject(body, query)
+  return hit?.cardSubtitle ? parseCardSubtitle(hit.cardSubtitle) : null
 }
 
 /** frodo 回退的选项。 */
@@ -159,6 +181,23 @@ export class DoubanGenreLookup {
     query: DoubanGenreQuery,
     signal?: AbortSignal
   ): Promise<DoubanGenres | null> {
+    return pickDoubanGenres(await this.search(query, signal), query)
+  }
+
+  /** 查一部片对应的豆瓣条目（补简介用，与 lookup 共用同一次搜索与缓存）；对不上返回 null。 */
+  async subject(
+    query: DoubanGenreQuery,
+    signal?: AbortSignal
+  ): Promise<DoubanSubjectHit | null> {
+    const hit = pickDoubanSubject(await this.search(query, signal), query)
+    return hit?.id ? hit : null
+  }
+
+  /** 按片名 + 年份搜（先 rexxar 后 frodo），返回统一成 rexxar 结构的响应。 */
+  private async search(
+    query: DoubanGenreQuery,
+    signal?: AbortSignal
+  ): Promise<unknown> {
     const q = query.year ? `${query.title} ${query.year}` : query.title
     const cacheKey = DoubanGenreLookup.cacheKey(query)
     const enabled = Boolean(this.fallback.frodo)
@@ -195,6 +234,6 @@ export class DoubanGenreLookup {
       signal,
     })
     // 缓存里可能是 rexxar 或 frodo 的响应，统一映射成 rexxar 结构再挑
-    return pickDoubanGenres(mapSearch(body), query)
+    return mapSearch(body)
   }
 }

@@ -43,6 +43,7 @@ export function registerEngine(): EngineHost {
         ),
       tmdbToken: async () =>
         effectiveTmdbToken(settingsStore().getSecret(TMDB_SECRET)),
+      tmdbLanguage: async () => settingsStore().get('scrape.metadataLanguage'),
     },
   })
   implement(online, forwardTo(host, online))

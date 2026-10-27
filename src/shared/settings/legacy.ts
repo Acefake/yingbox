@@ -29,14 +29,6 @@ const flag = (raw: string | undefined): boolean | undefined =>
 const number = (raw: string | undefined): number | undefined =>
   raw === undefined || raw.trim() === '' ? undefined : Number(raw)
 
-/** scrapeProviderConfig 里的字段 → 新键 */
-const PROVIDER_FIELDS = {
-  provider: 'scrape.provider',
-  customProviderName: 'scrape.customName',
-  customBaseUrl: 'scrape.customBaseUrl',
-  customApiKey: 'scrape.customApiKey',
-} as const
-
 function providerConfig(raw: string | undefined): Record<string, unknown> {
   if (!raw) return {}
   try {
@@ -52,6 +44,7 @@ function providerConfig(raw: string | undefined): Record<string, unknown> {
 /**
  * 把旧值转换成新设置。纯函数：不合法或缺失的旧值直接跳过，
  * 只返回能通过 schema 校验的项（空字符串视为「没填」，也跳过）。
+ * scrapeProviderConfig 只取 TMDB 令牌（{@link legacySecrets}），刮削服务类型与自定义服务已无对应设置。
  */
 export function fromLegacy(legacy: LegacySettings): Partial<SettingValues> {
   const candidates: Array<[string, unknown]> = [
@@ -65,12 +58,6 @@ export function fromLegacy(legacy: LegacySettings): Partial<SettingValues> {
     ['scrape.imageSize.backdrop', legacy.imageDownloadSize_backdrop],
     ['scrape.imageSize.actor', legacy.imageDownloadSize_actor],
   ]
-  const provider = providerConfig(legacy.scrapeProviderConfig)
-  for (const [field, key] of Object.entries(PROVIDER_FIELDS)) {
-    const value = provider[field]
-    if (value !== '') candidates.push([key, value])
-  }
-
   const out: Record<string, unknown> = {}
   for (const [key, raw] of candidates) {
     const change = raw === undefined ? undefined : parseSetting(key, raw)

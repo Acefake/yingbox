@@ -53,6 +53,7 @@ import { registerOffline } from './offline'
 import { registerAiSubtitles } from './ai-subtitles'
 import { registerRecap } from './recap'
 import { TMDB_SECRET, libraryTokenTarget, syncTmdbTokenToLibrary } from './tmdb'
+import { registerScrapePrefsSync } from './scrape-prefs'
 import { installTray } from './tray'
 import { registerAssistant } from './assistant'
 import { type PlayerWindowControl, registerPlayerWindow } from './player-window'
@@ -226,6 +227,8 @@ app.whenReady().then(async () => {
   ).catch(error =>
     console.warn('[tmdb] 同步令牌到媒体库引擎失败', (error as Error).message)
   )
+  // 刮削偏好（元数据语言、图片清晰度）：启动时与设置变更时下发给媒体库引擎
+  registerScrapePrefsSync(libraryClient)
   registerEngine()
   // AI 基础层：OpenAI 兼容接口 + 用量统计（所有 AI 功能的入口，见 src/main/ai）
   registerAi()

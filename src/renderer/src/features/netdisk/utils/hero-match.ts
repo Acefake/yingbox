@@ -115,7 +115,7 @@ function pickLogo(detail: TmdbDetail): string | null {
 /**
  * TMDB 详情 → Hero 内容。
  * @param hit 搜索时挑中的那条（剧照兜底）
- * @param detail 详情（language=zh-CN，append_to_response=images）
+ * @param detail 详情（设置里的元数据语言，append_to_response=images）
  */
 export function heroFromTmdb(
   hit: TmdbSearchHit & { media_type: 'movie' | 'tv' },

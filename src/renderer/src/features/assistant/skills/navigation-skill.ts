@@ -76,7 +76,7 @@ export function assistantPages(routes: readonly RouteLike[]): AssistantPage[] {
 /** 可以打开的设置分区 */
 export const ASSISTANT_SETTINGS: Record<string, string> = {
   appearance: '外观',
-  scrape: '刮削',
+  scrape: '刮削（元数据语言、TMDB Token、图片质量）',
   library: '媒体库',
   sources: '数据源',
   player: '播放器',

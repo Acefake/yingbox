@@ -16,6 +16,8 @@ export interface OnlineDeps {
   env: NodeJS.ProcessEnv
   /** 当前 TMDB 令牌（服务密钥文件 → 环境变量），未配置为空串 */
   tmdbToken: () => string
+  /** 当前元数据语言（服务端设置） */
+  tmdbLanguage?: () => string
   log: (message: string) => void
   /** 测试注入的引擎（缺省按配置 fork 子进程） */
   engine?: ServerEngine
@@ -42,6 +44,7 @@ export function registerOnline(
       config,
       browser,
       tmdbToken: deps.tmdbToken,
+      tmdbLanguage: deps.tmdbLanguage,
       log: deps.log,
     })
   registerEngineRoutes(router, engine)

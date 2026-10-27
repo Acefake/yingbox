@@ -248,7 +248,7 @@ const notice = computed(() => {
   if (cal.error.value) return `播出信息获取失败：${cal.error.value}`
   const result = cal.result.value
   if (result && !result.configured)
-    return '未配置 TMDB 令牌，剧集库的播出日期暂不可用（设置 → 服务）'
+    return '未配置 TMDB 令牌，剧集库的播出日期暂不可用（设置 → 刮削）'
   if (result?.failed) return `有 ${result.failed} 部剧的播出信息暂时没取到`
   return ''
 })

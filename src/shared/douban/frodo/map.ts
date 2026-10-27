@@ -127,7 +127,7 @@ export function mapList(body: unknown): DoubanListBody | null {
     : { items }
 }
 
-/** 条目详情（只留补类型 / 展示会用到的字段）。 */
+/** 条目详情（只留补类型 / 补简介 / 展示会用到的字段）。 */
 export interface DoubanSubjectDetail {
   id: string
   kind: 'movie' | 'tv'
@@ -142,6 +142,8 @@ export interface DoubanSubjectDetail {
   cardSubtitle: string
   rating: { value: number; count: number } | null
   cover: string
+  /** 简介（片库补中文简介用）；没有为空串 */
+  intro: string
 }
 
 /** 详情响应 → {@link DoubanSubjectDetail}；没有 id / 片名返回 null。 */
@@ -162,5 +164,6 @@ export function mapSubject(body: unknown): DoubanSubjectDetail | null {
     cardSubtitle: text(s.card_subtitle),
     rating: ratingOf(s.rating),
     cover: text(pic?.large) || text(pic?.normal),
+    intro: text(s.intro),
   }
 }

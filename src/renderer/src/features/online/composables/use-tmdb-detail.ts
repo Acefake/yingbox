@@ -74,11 +74,10 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
     const fallback = douban
       ? doubanPhotos(douban.id, douban.kind).catch(() => [])
       : Promise.resolve([])
-    const zh = { language: 'zh-CN' }
+    // 不带 language：引擎按设置里的元数据语言补上（scrape.metadataLanguage）
     try {
       const sr = await tmdb<TmdbSearchResult>(`/search/${mediaType}`, {
         query: name,
-        ...zh,
         page: 1,
       })
       if (sr === null) {
@@ -94,11 +93,10 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
       // 热门条目动辄上百 KB，经代理容易超时，剧照就整段丢了
       const [dr, cr] = await Promise.all([
         tmdb<TmdbDetail & { images?: TmdbImages }>(base, {
-          ...zh,
           append_to_response: 'images',
           include_image_language: 'zh,en,null',
         }),
-        tmdb<TmdbCredits>(`${base}/credits`, zh),
+        tmdb<TmdbCredits>(`${base}/credits`, {}),
       ])
       if (stale()) return
       detail.value = dr

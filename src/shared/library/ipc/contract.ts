@@ -12,6 +12,7 @@ import type { ActorRpcMap, LibraryActorsBridge } from './contract-actors'
 import { ACTOR_METHODS } from './contract-actors'
 import type { CalendarRpcMap, LibraryCalendarBridge } from './contract-calendar'
 import { CALENDAR_METHODS } from './contract-calendar'
+import { SCRAPE_METHODS, type ScrapeRpcMap } from './contract-scrape'
 import type { LibraryProgressBridge, ProgressRpcMap } from './contract-progress'
 import { PROGRESS_METHODS } from './contract-progress'
 import type { LibraryEvent } from './contract-events'
@@ -245,6 +246,7 @@ export interface LibraryRpcMap
     FacetRpcMap,
     MergeRpcMap,
     VisualRpcMap,
+    ScrapeRpcMap,
     LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
@@ -319,6 +321,7 @@ export const LIBRARY_METHODS = [
   ...CALENDAR_METHODS,
   ...PROGRESS_METHODS,
   ...MERGE_METHODS,
+  ...SCRAPE_METHODS,
 ] as const satisfies readonly LibraryMethod[]
 
 /**
