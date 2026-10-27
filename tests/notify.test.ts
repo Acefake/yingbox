@@ -247,6 +247,7 @@ describe('追更 landed', () => {
       seriesId: 7,
       libraryId: 1,
       seriesTitle: '繁花',
+      originalTitle: null,
       season: 1,
       episode: 5,
       title: null,

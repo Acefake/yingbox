@@ -161,6 +161,9 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     const result = await finder.find(
       {
         seriesTitle: record.seriesTitle,
+        originalTitle:
+          lastCalendar.find(e => e.seriesId === record.seriesId)
+            ?.originalTitle ?? undefined,
         season: record.season,
         episode: record.episode,
       },
