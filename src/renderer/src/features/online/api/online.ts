@@ -64,8 +64,8 @@ export function doubanPhotos(
 }
 
 /**
- * 请求 TMDB v3 接口（路径如 `/search/movie`、`/movie/603/credits`）。令牌在引擎里加，
- * 渲染层拿不到；未配置令牌时返回 null。
+ * 请求 TMDB v3 接口（路径如 `/search/movie`、`/movie/603/credits`）。令牌在引擎里加，渲染层拿不到；
+ * query 没带 language 时引擎补上设置里的元数据语言（scrape.metadataLanguage）；未配置令牌时返回 null。
  */
 export function tmdb<T = unknown>(
   path: string,

@@ -8,6 +8,7 @@
  * 本文件被 sandboxed preload 间接打包，只能依赖纯 TS。
  */
 
+import { IMAGE_QUALITIES, METADATA_LANGUAGES } from '../library/scrape-prefs'
 import { type WindowRect, parseWindowRect } from './window-rect'
 
 interface SpecBase<T> {
@@ -129,7 +130,6 @@ function secret(): SecretSpec {
 }
 
 /** TMDB 图片下载尺寸 */
-const IMAGE_SIZES = ['w342', 'w780', 'original'] as const
 
 /** 全部设置项 */
 export const settingsSchema = {
@@ -201,27 +201,16 @@ export const settingsSchema = {
   /** 弹弹play AppSecret（密钥：主进程 safeStorage，只用于给请求签名，见 src/main/danmaku） */
   'danmaku.appSecret': secret(),
 
-  /** TMDB 元数据语言 */
-  'scrape.metadataLanguage': oneOf(
-    ['zh-CN', 'zh-TW', 'en-US', 'ja-JP', 'ko-KR'] as const,
-    'zh-CN'
-  ),
-  /** 海报下载尺寸 */
-  'scrape.imageSize.poster': oneOf(IMAGE_SIZES, 'original'),
-  /** 背景图下载尺寸 */
-  'scrape.imageSize.backdrop': oneOf(IMAGE_SIZES, 'original'),
-  /** 演员头像下载尺寸 */
-  'scrape.imageSize.actor': oneOf(IMAGE_SIZES, 'original'),
-  /** 刮削服务 */
-  'scrape.provider': oneOf(['tmdb', 'custom'] as const, 'tmdb'),
+  /** 元数据语言：片库刮削、追剧日历、在线 / 网盘页的 TMDB 请求都用它（下发见 shared/library/scrape-prefs.ts） */
+  'scrape.metadataLanguage': oneOf(METADATA_LANGUAGES, 'zh-CN'),
+  /** 写出海报的清晰度 */
+  'scrape.imageSize.poster': oneOf(IMAGE_QUALITIES, 'w780'),
+  /** 写出背景图的清晰度 */
+  'scrape.imageSize.backdrop': oneOf(IMAGE_QUALITIES, 'w780'),
+  /** 写出演员头像的清晰度 */
+  'scrape.imageSize.actor': oneOf(IMAGE_QUALITIES, 'w780'),
   /** TMDB Access Token（密钥：主进程 safeStorage；只在主进程与后台引擎使用，见 src/main/tmdb.ts） */
   'scrape.tmdbToken': secret(),
-  /** 自定义刮削服务名称 */
-  'scrape.customName': text('', 200),
-  /** 自定义刮削服务 API 地址 */
-  'scrape.customBaseUrl': text('', 2048),
-  /** 自定义刮削服务 API Key */
-  'scrape.customApiKey': text(''),
 
   /** 番号下载目录（绝对路径）；空串 = 系统「视频」文件夹下的「影盒下载」。经 settings.chooseDownloadDir 选择 */
   'download.dir': absolutePath(),

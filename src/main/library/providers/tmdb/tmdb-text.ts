@@ -22,14 +22,30 @@ export const nonEmpty = (s?: string | null): string | undefined =>
   s && s.trim() ? s.trim() : undefined
 
 /**
- * 文本语言回退链。中文界面：zh-CN → zh-TW → zh-HK → zh-SG → en-US → 任意 en；
+ * 文本语言回退链（标题以外：简介按这条链挑）。中文：zh-CN → zh-TW → zh-HK → zh-SG → 任意 zh → en-US → 任意 en；
  * 其他语言：自身 → en-US → 任意 en。
  */
 export function languageChain(language: string): string[] {
-  const chain = language.startsWith('zh')
-    ? [language, 'zh-CN', 'zh-TW', 'zh-HK', 'zh-SG', 'en-US', 'en']
-    : [language, 'en-US', 'en']
-  return [...new Set(chain)]
+  const { native, fallback } = languageChains(language)
+  return [...new Set([...native, ...fallback])]
+}
+
+/**
+ * 分成两段的回退链：native 是同一种语言的各地区写法，fallback 是外语兜底（中文时为英文）。
+ * 中文片名缺失时用原名而不是英文（见 tmdb-map.ts metadataFromDetails），所以要分开。
+ */
+export function languageChains(language: string): {
+  native: string[]
+  fallback: string[]
+} {
+  if (language.startsWith('zh'))
+    return {
+      native: [
+        ...new Set([language, 'zh-CN', 'zh-TW', 'zh-HK', 'zh-SG', 'zh']),
+      ],
+      fallback: ['en-US', 'en'],
+    }
+  return { native: [language], fallback: ['en-US', 'en'] }
 }
 
 /** 按回退链从 translations 里挑一个非空字段，返回值与所用语言。 */

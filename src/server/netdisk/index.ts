@@ -47,8 +47,7 @@ import { DomainRegistry } from '../domains/registry'
 import { registerDomainRoutes } from '../domains/routes'
 import type { Router } from '../http/router'
 import { type FileSecretStore, SECRET_KEYS } from '../secrets'
-import { ServerSettingsStore } from '../settings-store'
-import { registerServerSettingsRoutes } from '../settings-store/routes'
+import type { ServerSettingsStore } from '../settings-store'
 import { loadNetdiskConfig } from './config'
 import { CookieJar } from './cookie-jar'
 import { SchedulerLease } from './lease'
@@ -72,6 +71,8 @@ export interface NetdiskOptions {
   secrets: FileSecretStore
   service: LibraryService
   router: Router
+  /** 服务端设置存储（app.ts 创建，网页端设置路由也由它登记） */
+  settings: ServerSettingsStore
   log(message: string): void
   /** 115 与 PanSou / Torznab 的底层 fetch（缺省全局 fetch）；测试注入 */
   fetch?: FetchLike
@@ -106,17 +107,13 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
     return null
   }
   const send: FetchLike = options.fetch ?? ((url, init) => fetch(url, init))
-  const settings = new ServerSettingsStore(
-    join(dataDir, NETDISK_FILES.settings),
-    env
-  )
+  const { settings } = options
   const registry = new DomainRegistry()
   const scheduler = createLeasedScheduler({
     lease: new SchedulerLease({ file: join(dataDir, NETDISK_FILES.lease) }),
     enabled: config.autograb,
     log: message => log(`[autograb] ${message}`),
   })
-  registerServerSettingsRoutes(options.router, settings)
   registerDomainRoutes(options.router, registry)
 
   const host: ModuleHost = {

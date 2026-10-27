@@ -176,6 +176,7 @@ describe('tmdb-map', () => {
       'zh-TW',
       'zh-HK',
       'zh-SG',
+      'zh',
       'en-US',
       'en',
     ])

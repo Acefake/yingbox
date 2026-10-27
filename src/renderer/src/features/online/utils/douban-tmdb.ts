@@ -77,7 +77,6 @@ export async function enrichFromTmdb(
   const first = async (path: string, q: string): Promise<TmdbHit | null> => {
     const res = (await search(path, {
       query: q,
-      language: 'zh-CN',
       page: 1,
     })) as { results?: TmdbHit[] } | null
     if (res === null) throw NO_TOKEN

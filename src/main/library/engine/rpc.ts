@@ -13,6 +13,7 @@ import {
   parseRpcParams,
 } from '../../../shared/library/ipc'
 import { CalendarModule } from '../calendar/calendar-module'
+import { ScrapePrefsStore } from '../providers/scrape-prefs-store'
 import { createItemPreviews } from '../catalog/item-preview'
 import { ProgressStore } from '../progress/progress-store'
 import { MergeModule } from '../catalog/merge/merge-module'
@@ -116,6 +117,8 @@ const HANDLERS: Handlers = {
   refreshMetadata: (s, p) => s.refreshMetadata(p),
   setProviderToken: (s, p) => s.setProviderToken(p),
   getProviderStatus: s => s.getProviderStatus(),
+  getScrapePrefs: s => new ScrapePrefsStore(s.db).get(),
+  setScrapePrefs: (s, p) => new ScrapePrefsStore(s.db).set(p),
   notifyChanges: (s, p) => s.notifyChanges(p),
   'writer.getSettings': s => s.writer.getSettings(),
   'writer.setSettings': (s, p) => s.writer.setSettings(p),

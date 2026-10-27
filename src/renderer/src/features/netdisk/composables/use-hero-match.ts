@@ -50,7 +50,6 @@ export function useHeroMatch(
       const tmdb = await deps.tmdb()
       const found = (await tmdb(tvOnly ? '/search/tv' : '/search/multi', {
         query,
-        language: 'zh-CN',
         page: 1,
         include_adult: 'false',
       })) as { results?: TmdbSearchHit[] } | null
@@ -62,7 +61,6 @@ export function useHeroMatch(
       const hit = pickTmdbHit(results, query)
       if (!hit) return
       const detail = (await tmdb(`/${hit.media_type}/${hit.id}`, {
-        language: 'zh-CN',
         append_to_response: 'images',
         include_image_language: 'zh,en,null',
       })) as TmdbDetail | null

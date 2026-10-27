@@ -35,6 +35,8 @@ export interface ServerEngineDeps {
   browser: NodeBrowserFetch
   /** 当前 TMDB 令牌（未配置为空串） */
   tmdbToken: () => string
+  /** 当前元数据语言（服务端设置 scrape.metadataLanguage）；缺省 zh-CN */
+  tmdbLanguage?: () => string
   log: (message: string) => void
   /** fork 子进程（测试注入），缺省按 engineEntry() fork */
   fork?: () => UtilityChild
@@ -123,6 +125,7 @@ export function createServerEngine(deps: ServerEngineDeps): ServerEngine {
         return config.downloadDir
       },
       tmdbToken: async () => deps.tmdbToken(),
+      tmdbLanguage: async () => deps.tmdbLanguage?.() || 'zh-CN',
     },
   })
   resumePendingDownloads(

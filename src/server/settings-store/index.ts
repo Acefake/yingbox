@@ -3,7 +3,8 @@
  *
  * 取值顺序：环境变量（只读覆盖，不写回文件）> 文件 > schema 默认值；不在白名单里的键一律是默认值。
  * 值的校验与桌面端 settings.json 相同（parseSetting）；坏文件、坏值当未设置。
- * 自成一个小模块：网盘 / 追更模块经模块宿主的 setting() 读它，网页端经 routes.ts 读写。
+ * 自成一个小模块：app.ts 创建并登记路由；网盘 / 追更模块经模块宿主的 setting() 读它，刮削偏好经 onChange 下发给片库，
+ * 网页端经 routes.ts 读写。
  */
 import {
   chmodSync,
@@ -41,11 +42,18 @@ export class ServerSettingsStore {
   private values: Partial<Record<ServerSettingKey, unknown>>
   private readonly defaults = defaultValues()
 
+  private readonly listeners = new Set<(key: ServerSettingKey) => void>()
+
   constructor(
     private readonly file: string,
     private readonly env: NodeJS.ProcessEnv = process.env
   ) {
     this.values = this.read()
+  }
+
+  /** 订阅写入（网页端改了一个键之后触发，如把刮削偏好下发给片库） */
+  onChange(listener: (key: ServerSettingKey) => void): void {
+    this.listeners.add(listener)
   }
 
   /** 取值：环境变量 > 文件 > 默认值 */
@@ -68,6 +76,7 @@ export class ServerSettingsStore {
     if (!change) throw new SettingRejected(`设置 ${key} 的值不合法`)
     this.values = { ...this.values, [key]: change.value }
     this.save()
+    for (const listener of this.listeners) listener(key)
     return change.value
   }
 

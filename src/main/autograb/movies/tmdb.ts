@@ -91,12 +91,15 @@ export interface MovieTmdb {
   search(query: string): Promise<MovieSearchHit[]>
 }
 
-/** 用注入的 GET 组装 TMDB 电影接口（中文优先） */
-export function createMovieTmdb(get: TmdbGet): MovieTmdb {
+/** 用注入的 GET 组装 TMDB 电影接口；语言读设置 `scrape.metadataLanguage`（缺省 zh-CN） */
+export function createMovieTmdb(
+  get: TmdbGet,
+  language: () => string = () => 'zh-CN'
+): MovieTmdb {
   return {
     async movie(tmdbId) {
       const raw = await get(`/movie/${tmdbId}`, {
-        language: 'zh-CN',
+        language: language(),
         append_to_response: 'release_dates',
       })
       return raw === null ? null : parseMovie(raw)
@@ -105,7 +108,7 @@ export function createMovieTmdb(get: TmdbGet): MovieTmdb {
       const q = query.trim()
       if (!q) return []
       return parseSearch(
-        await get('/search/movie', { language: 'zh-CN', query: q })
+        await get('/search/movie', { language: language(), query: q })
       )
     },
   }

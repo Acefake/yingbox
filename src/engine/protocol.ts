@@ -16,4 +16,6 @@ export interface HostMethods {
   downloadDir(): string
   /** 当前生效的 TMDB 令牌（明文只在主进程与引擎之间传，不经渲染层）；未配置为空串 */
   tmdbToken(): string
+  /** 当前元数据语言（设置 `scrape.metadataLanguage`）；TMDB 请求没带 language 时用它 */
+  tmdbLanguage(): string
 }

@@ -15,6 +15,7 @@ import {
 import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { handleRpc } from '../../../src/main/library/engine/rpc'
 import { LibraryService } from '../../../src/main/library/engine/service'
 import type { MoveOps } from '../../../src/main/library/writer/fs/file-ops'
 import { pathLimit } from '../../../src/main/library/writer/organize/organize-planner'
@@ -128,6 +129,27 @@ const jobTypes = (events: LibraryEvent[]): string[] =>
   )
 
 describe('写出 NFO 与图片', () => {
+  it('图片尺寸按刮削偏好（宿主下发的 setScrapePrefs）：海报原图、背景标准', async () => {
+    const env = await engine('movie', {
+      '流浪地球 (2019)/流浪地球.2019.mkv': '',
+    })
+    const reply = await handleRpc(env.service, {
+      method: 'setScrapePrefs',
+      params: {
+        language: 'zh-CN',
+        imageSize: { poster: 'original', backdrop: 'w342', actor: 'w780' },
+      },
+    })
+    expect(reply).toMatchObject({ ok: true })
+    await env.write([env.itemOf('流浪地球.2019.mkv')])
+    expect(read(env.path('流浪地球 (2019)/poster.jpg'))).toMatch(
+      /^fake-image:\/t\/p\/original\//
+    )
+    expect(read(env.path('流浪地球 (2019)/fanart.jpg'))).toMatch(
+      /^fake-image:\/t\/p\/w780\//
+    )
+  })
+
   it('独占文件夹用 poster.jpg / <视频名>.nfo，根目录共用用 <视频名>-poster.jpg；再写一次全部跳过', async () => {
     const env = await engine('movie', {
       '流浪地球 (2019)/流浪地球.2019.mkv': '',

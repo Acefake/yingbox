@@ -180,6 +180,9 @@ export function createOnlineHandlers(
       const target = new URL(`${TMDB_API}${path}`)
       for (const [key, value] of Object.entries(query))
         target.searchParams.set(key, String(value))
+      // 调用方没指定语言时用设置里的元数据语言（TMDB 自己的缺省是 en-US）
+      if (!target.searchParams.get('language'))
+        target.searchParams.set('language', await ctx.host('tmdbLanguage'))
       return deps.net.getJson(String(target), {
         headers: { Authorization: `Bearer ${token}` },
         timeoutMs: 15_000,
