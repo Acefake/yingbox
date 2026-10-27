@@ -12,6 +12,7 @@ export function implementPan115(
 ): void {
   host.implement(pan115, {
     search: (_, keyword) => service.search(keyword),
+    checkLinks: (_, items) => service.checkLinks(items),
     torznab: () => service.torznab(),
     setTorznab: (_, urls, apiKey) => service.setTorznab(urls, apiKey),
     testTorznab: (_, urls, apiKey) => service.testTorznab(urls, apiKey),
