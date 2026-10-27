@@ -7,6 +7,7 @@ AGENTS.md「Engine」一节只留入口和规则，这里放各域的实现细�
 - 入口 `online.doubanBrowse(query, start)`，实现在 `online/douban-browse.ts`。
 - 快捷标签走 `movie.douban.com/j/search_subjects`；带类型 / 地区 / 年代 / 排序 / 最低评分任一筛选时走 `m.douban.com/rexxar/api/v2/<movie|tv>/recommend`。
 - 查询参数白名单在 `src/shared/douban/query.ts`；每页缓存 10 分钟，按主机熔断。
+- 首页榜单行：`online.doubanChart()` 取一周口碑电影榜（`m.douban.com/rexxar/api/v2/subject_collection/movie_weekly_best/items`，10 部，`online/douban-chart.ts` 把 `subject_collection_items` 换成列表结构），与浏览共用页缓存、熔断和 frodo 回退；失败或为空时渲染层（`use-home-chart.ts`）退回热门电影前 10，标题随之改成「豆瓣热门 Top 10」。
 - 渲染层是 `features/online/composables/use-douban-feed.ts`：模块级单例，`UiVirtualGrid` 的 `reach-end` 触发无限滚动，按条目地址去重，查询记在 `sessionStorage`。
 
 ## CatSpider 插件缓存

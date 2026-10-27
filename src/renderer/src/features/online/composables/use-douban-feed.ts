@@ -61,7 +61,8 @@ const QUERY_KEY = 'douban_query'
 /** 一次 loadMore 因整页重复最多连取的页数 */
 const MAX_EMPTY_PAGES = 3
 
-const toItem = (s: DoubanSubject): DoubanItem => ({
+/** 引擎给的豆瓣卡 → 页面用的豆瓣条目（封面等 TMDB 补全后再填） */
+export const doubanItemOf = (s: DoubanSubject): DoubanItem => ({
   title: s.title,
   searchTitle: s.title,
   original_title: '',
@@ -117,7 +118,7 @@ export function createDoubanFeed(deps: DoubanFeedDeps): DoubanFeed {
         }
         const added = page.items
           .filter(s => !seen.has(s.url) && seen.add(s.url))
-          .map(toItem)
+          .map(doubanItemOf)
         next = page.next
         if (added.length) {
           items.value.push(...added)

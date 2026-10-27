@@ -43,6 +43,28 @@
           @error="broken.add(current.logo)"
         />
         <h1 v-else class="home-hero-title">{{ current.title }}</h1>
+        <div
+          v-if="current.meta.length || current.specs.length || current.rating"
+          class="home-hero-meta"
+        >
+          <template v-for="(item, index) in current.meta" :key="item">
+            <span v-if="index" aria-hidden="true">·</span>
+            <span>{{ item }}</span>
+          </template>
+          <span v-if="current.specs.length" class="home-hero-specs">
+            <UiSpecBadge
+              v-for="spec in current.specs"
+              :key="`${spec.variant}:${spec.text}`"
+              v-bind="spec"
+            />
+          </span>
+          <span v-if="current.rating" class="home-hero-rating">{{
+            current.rating
+          }}</span>
+        </div>
+        <p v-if="current.overview" class="home-hero-overview">
+          {{ current.overview }}
+        </p>
         <div class="home-hero-actions">
           <UiPressable class="home-hero-play" @click="current.play()"
             ><UiIcon name="play" size="lg" filled />{{
@@ -59,40 +81,37 @@
               size="lg"
             />待看</UiPressable
           >
-        </div>
-        <p v-if="current.overview" class="home-hero-overview">
-          {{ current.overview }}
-        </p>
-        <div
-          v-if="current.meta.length || current.specs.length"
-          class="home-hero-meta"
-        >
-          <template v-for="(item, index) in current.meta" :key="item">
-            <span v-if="index" aria-hidden="true">·</span>
-            <span>{{ item }}</span>
-          </template>
-          <span v-if="current.specs.length" class="home-hero-specs">
-            <UiSpecBadge
-              v-for="spec in current.specs"
-              :key="`${spec.variant}:${spec.text}`"
-              v-bind="spec"
-            />
-          </span>
+          <UiPressable
+            class="home-hero-info"
+            :label="`${current.title}的详情`"
+            @click="current.open()"
+            ><UiIcon name="info" size="lg"
+          /></UiPressable>
         </div>
       </div>
     </Transition>
 
-    <div v-if="slides.length > 1" class="home-hero-dots">
+    <!-- 缩略图条：当前一张白框，点按切换 -->
+    <div v-if="slides.length > 1" class="home-hero-thumbs">
       <UiPressable
         v-for="(slide, index) in slides"
         :key="slide.key"
-        class="home-hero-dot"
+        class="home-hero-thumb"
         :class="{ 'is-current': index === selected }"
         :label="`第 ${index + 1} 部：${slide.title}`"
         :aria-current="index === selected ? 'true' : undefined"
         @click="selected = index"
-        ><i
-      /></UiPressable>
+      >
+        <img
+          v-if="slide.thumb && !broken.has(slide.thumb)"
+          :src="webImageSrc(slide.thumb)"
+          alt=""
+          loading="lazy"
+          decoding="async"
+          referrerpolicy="no-referrer"
+          @error="broken.add(slide.thumb)"
+        />
+      </UiPressable>
     </div>
   </section>
   <div
@@ -106,8 +125,10 @@
 <script setup lang="ts">
 /**
  * 首页全幅 Hero（Apple TV 式）：铺到窗口左上角（浮动侧栏与顶栏胶囊之下），大背景剧照下半渐进模糊并渐黑，
- * 左下是标签行、标志图（没有就用大号片名）、白色「播放」与玻璃「待看」胶囊、两行简介、元信息与规格标签，
- * 右下分页点。每 8 秒自动换一部；悬停、键盘聚焦、窗口隐藏、页面切走或系统「减少动态效果」时不换。
+ * 左下自上而下是标签行（来源 · 进度）、标志图（没有就用大号片名）、元信息（年份 · 类型 · 时长、规格标签、评分）、
+ * 一行简介，以及白色主按钮（「继续播放 · 剩 48 分钟」/「播放」）、玻璃「待看」与圆形「详情」；
+ * 右下是 5 张缩略图条（当前一张白框，点按切换）。每 8 秒自动换一部；悬停、键盘聚焦、窗口隐藏、
+ * 页面切走或系统「减少动态效果」时不换。
  * 数据见 use-home-hero.ts；背景图加载失败时只留黑底和文字。
  */
 import { computed, onActivated, onDeactivated, reactive, ref, watch } from 'vue'

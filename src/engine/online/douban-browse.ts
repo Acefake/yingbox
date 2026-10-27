@@ -14,6 +14,8 @@
  * rexxar 失败（403 / 418 / 验证页 / 超时 / 熔断中）或整页为空时，把同一个地址换成 frodo.douban.com
  * 签名后再取一次（shared/douban/frodo，开关 YINGBOX_DOUBAN_FRODO，默认开）：frodo 结果映射成 rexxar 结构，
  * 走同一个 parseRecommend、同一份页缓存（键仍是 rexxar 地址，即「同一个查询」）、同一个熔断器（按主机各记各的）。
+ *
+ * chart() 取首页的「一周口碑电影榜」（片单接口，见 douban-chart.ts）：外层换成列表结构后同样走上面这一套。
  */
 import {
   DOUBAN_MAX_START,
@@ -22,6 +24,7 @@ import {
   type DoubanPage,
   type DoubanQuery,
   type DoubanSubject,
+  defaultDoubanQuery,
   hasFilters,
 } from '../../shared/douban/query'
 import {
@@ -36,6 +39,7 @@ import {
   HostUnavailableError,
   createHostBreaker,
 } from '../../shared/net/host-breaker'
+import { chartToList, chartUrl } from './douban-chart'
 import { quickSource } from './douban-quick'
 
 /** 一页结果缓存 10 分钟 */
@@ -180,6 +184,8 @@ export function parseRecommend(
 export interface DoubanBrowse {
   /** 按条件取 start 起的一页；失败 / 熔断中抛错 */
   page(query: DoubanQuery, start: number): Promise<DoubanPage>
+  /** 一周口碑电影榜（最多 10 部，按名次）；失败 / 熔断中抛错 */
+  chart(): Promise<DoubanSubject[]>
 }
 
 /** 依赖 */
@@ -234,45 +240,60 @@ export function createDoubanBrowse(options: DoubanBrowseOptions): DoubanBrowse {
   function fetchPage(
     query: DoubanQuery,
     start: number,
-    request: DoubanRequest
+    request: DoubanRequest,
+    map: (json: unknown) => unknown = json => json
   ): Promise<DoubanPage> {
     return withFrodoFallback({
       enabled: frodo,
       label: '豆瓣浏览',
-      rexxar: () => fetchFrom(query, start, request),
+      rexxar: () => fetchFrom(query, start, request, map),
       frodo: () => {
         const signed = rexxarToFrodo(request.url, now())
         if (!signed) throw new Error('不是 rexxar 地址')
-        return fetchFrom(query, start, signed, mapList)
+        return fetchFrom(query, start, signed, json => mapList(map(json)))
       },
       isEmpty: isEmptyPage,
       log: options.log,
     })
   }
 
+  /** 同一地址 10 分钟内只取一次、并发合并；失败不缓存 */
+  function cached(
+    key: string,
+    load: () => Promise<DoubanPage>
+  ): Promise<DoubanPage> {
+    const hit = cache.get(key)
+    if (hit && now() - hit.at < BROWSE_TTL_MS) return Promise.resolve(hit.page)
+    const pending = inflight.get(key)
+    if (pending) return pending
+    const task = load()
+      .then(page => {
+        // 整页为空不缓存：开着回退时它可能是 rexxar 风控的空页、frodo 又失败时交回来的，
+        // 缓存会让这一页空 10 分钟；真没有结果时下次再问一次也只是一个请求
+        if (frodo && isEmptyPage(page)) return page
+        cache.delete(key)
+        cache.set(key, { page, at: now() })
+        while (cache.size > MAX_PAGES)
+          cache.delete(cache.keys().next().value as string)
+        return page
+      })
+      .finally(() => inflight.delete(key))
+    inflight.set(key, task)
+    return task
+  }
+
   return {
     page(query, start) {
       const request = buildDoubanRequest(query, start)
-      const key = request.url
-      const hit = cache.get(key)
-      if (hit && now() - hit.at < BROWSE_TTL_MS)
-        return Promise.resolve(hit.page)
-      const pending = inflight.get(key)
-      if (pending) return pending
-      const task = fetchPage(query, start, request)
-        .then(page => {
-          // 整页为空不缓存：开着回退时它可能是 rexxar 风控的空页、frodo 又失败时交回来的，
-          // 缓存会让这一页空 10 分钟；真没有结果时下次再问一次也只是一个请求
-          if (frodo && isEmptyPage(page)) return page
-          cache.delete(key)
-          cache.set(key, { page, at: now() })
-          while (cache.size > MAX_PAGES)
-            cache.delete(cache.keys().next().value as string)
-          return page
-        })
-        .finally(() => inflight.delete(key))
-      inflight.set(key, task)
-      return task
+      return cached(request.url, () => fetchPage(query, start, request))
+    },
+    async chart() {
+      const request = { url: chartUrl(), headers: REFERER }
+      const query: DoubanQuery = { ...defaultDoubanQuery('movie') }
+      const page = await cached(request.url, () =>
+        fetchPage(query, 0, request, chartToList)
+      )
+      return page.items
     },
   }
 }

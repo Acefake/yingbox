@@ -7,3 +7,5 @@ export {
   type ParsedPlaylist,
   parsePlaylist,
 } from './utils/playlist-parse'
+/** 首页「正在直播」一排（收藏频道的当前节目） */
+export { default as LiveNowRow } from './components/LiveNowRow.vue'
