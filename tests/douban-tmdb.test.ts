@@ -4,7 +4,7 @@ import { enrichFromTmdb } from '@/features/online/utils/douban-tmdb'
 import type { DoubanItem } from '@/features/online/types'
 
 /**
- * 豆瓣卡用 TMDB 补海报 / 年份 / 简介（从 DoubanSection 挪出来，追加的每一页都要补）。
+ * 豆瓣卡用 TMDB 补海报 / 年份 / 简介（浏览页、首页货架追加的每一页都要补）。
  * 没配 TMDB 令牌时整批停下，但要退回豆瓣自己的封面（以前整批停下时封面留空，只显示占位图）。
  */
 

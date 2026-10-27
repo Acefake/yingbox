@@ -11,10 +11,11 @@ import {
   defaultDoubanQuery,
 } from '../src/shared/douban/query'
 import { isAtEnd } from '@/components/ui/virtual-range'
+import type { BrowseTarget } from '@/features/online/utils/browse-target'
 
 /**
  * 豆瓣浏览（渲染层）：筛选条件 → 分页加载 / 去重 / 失败重试 / 换条件丢弃过期结果 / 会话级记住条件，
- * 以及带数据的 DoubanSection 渲染（卡片接上悬停预览、加载更多的三点、失败的重试按钮、筛选面板默认收起）。
+ * 以及带数据的浏览页 DoubanBrowse 渲染（卡片接上悬停预览、加载更多的三点、失败的重试按钮、筛选胶囊与已选条件）。
  * 网络全部替换：引擎接口 doubanBrowse 用夹具页，TMDB 无令牌。
  */
 
@@ -63,6 +64,9 @@ vi.mock('@/features/online/api/online', () => ({
   tmdb: vi.fn(() => Promise.resolve(null)),
   onlineApi: () => ({ doubanTrailer: api.doubanTrailer }),
 }))
+
+const HOT: BrowseTarget = { type: 'hot', kind: 'movie' }
+const COMEDY: BrowseTarget = { type: 'genre', genre: '喜剧', kind: 'movie' }
 
 const { createDoubanFeed, useDoubanFeed } =
   await import('@/features/online/composables/use-douban-feed')
@@ -267,14 +271,14 @@ describe('末尾触发', () => {
     expect(isAtEnd({ ...range, end: 0 }, 0, 300)).toBe(false)
   })
 
-  it('UiVirtualGrid 到底时发 reach-end，DoubanSection 接到加载更多', () => {
+  it('UiVirtualGrid 到底时发 reach-end，DoubanBrowse 接到加载更多', () => {
     const grid = readFileSync(
       'src/renderer/src/components/ui/UiVirtualGrid.vue',
       'utf8'
     )
     expect(grid).toMatch(/emit\('reach-end'\)/)
     const section = readFileSync(
-      'src/renderer/src/features/online/components/DoubanSection.vue',
+      'src/renderer/src/features/online/components/DoubanBrowse.vue',
       'utf8'
     )
     expect(section).toMatch(/@reach-end="feed\.loadMore"/)
@@ -284,7 +288,7 @@ describe('末尾触发', () => {
 describe('离开在线页再回来', () => {
   it('滚动时把滚动容器位置记进 feed、停用期间不记，切回 / 重新挂载时写回（条件与列表在模块级的 feed 里，不随组件重建丢）', () => {
     const section = readFileSync(
-      'src/renderer/src/features/online/components/DoubanSection.vue',
+      'src/renderer/src/features/online/components/DoubanBrowse.vue',
       'utf8'
     )
     expect(section).toMatch(/feed\.scrollTop = scrollEl\.scrollTop/)
@@ -296,12 +300,12 @@ describe('离开在线页再回来', () => {
   })
 })
 
-describe('DoubanSection 带数据渲染', () => {
+describe('DoubanBrowse 带数据渲染', () => {
   const feed = useDoubanFeed()
-  const render = async (): Promise<string> => {
-    const { default: DoubanSection } =
-      await import('@/features/online/components/DoubanSection.vue')
-    return renderToString(h(DoubanSection))
+  const render = async (target: BrowseTarget = HOT): Promise<string> => {
+    const { default: DoubanBrowse } =
+      await import('@/features/online/components/DoubanBrowse.vue')
+    return renderToString(h(DoubanBrowse, { target }))
   }
   const count = (html: string, needle: string): number =>
     html.split(needle).length - 1
@@ -311,7 +315,7 @@ describe('DoubanSection 带数据渲染', () => {
     await feed.setQuery(defaultDoubanQuery('movie'))
   })
 
-  it('每张豆瓣卡都接上悬停预览（预览层）；条件栏默认只有一行快捷标签', async () => {
+  it('每张豆瓣卡都接上悬停预览（预览层）；筛选胶囊在、默认没有已选条件', async () => {
     api.doubanBrowse.mockResolvedValue(pageOf([11, 12, 13], 20))
     await feed.reload()
     await nextTick()
@@ -323,21 +327,32 @@ describe('DoubanSection 带数据渲染', () => {
     expect(count(html, 'class="ui-poster ')).toBe(3)
     expect(count(html, 'ui-preview-layer')).toBe(3)
     expect(html).toContain('片12')
-    expect(html).toContain('热门')
-    expect(html).not.toContain('地区')
+    expect(html).toContain('全部')
+    expect(html).toContain('排序 · 综合')
+    expect(html).toContain('地区')
+    expect(html).not.toContain('清除')
     expect(html).not.toContain('ui-loading-dots')
   })
 
-  it('动过筛选时面板展开、显示各维度；加载下一页时网格之后是三点；失败给重试按钮', async () => {
+  it('类型页：选中的筛选写在胶囊里并出 chip + 清除；加载下一页时网格之后是三点；失败给重试按钮', async () => {
     api.doubanBrowse.mockResolvedValueOnce(pageOf([21, 22], 20))
-    await feed.setQuery({ genre: '喜剧' })
+    await feed.replaceQuery({
+      ...defaultDoubanQuery('movie'),
+      tag: '',
+      genre: '喜剧',
+      region: '欧美',
+    })
     let release: (p: DoubanPage) => void = () => {}
     api.doubanBrowse.mockReturnValueOnce(
       new Promise<DoubanPage>(r => (release = r))
     )
     void feed.loadMore()
-    const loading = await render()
-    for (const label of ['类型', '地区', '年代', '排序', '评分'])
+    const loading = await render(COMEDY)
+    expect(loading).toContain('喜剧')
+    expect(loading).toContain('地区 · 欧美')
+    expect(loading).toContain('去掉条件：欧美')
+    expect(loading).toContain('清除')
+    for (const label of ['年代', '排序', '评分'])
       expect(loading).toContain(label)
     expect(count(loading, 'ui-preview-layer')).toBe(2)
     expect(loading).toContain('ui-loading-dots')
@@ -350,8 +365,36 @@ describe('DoubanSection 带数据渲染', () => {
     api.doubanBrowse.mockRejectedValueOnce(new Error('302'))
     await feed.loadMore()
     await flush()
-    const failed = await render()
+    const failed = await render(COMEDY)
     expect(failed).toContain('重试')
     expect(count(failed, 'ui-preview-layer')).toBe(3)
+  })
+})
+
+describe('整组换条件 / 初始条件', () => {
+  it('replaceQuery 整个换掉条件（类型 + 地区同时生效，不被快捷标签逻辑清掉）；相同条件不重取', async () => {
+    const net = deferredBrowse()
+    const feed = createDoubanFeed({ browse: net.browse, storage: null })
+    const next = {
+      ...defaultDoubanQuery('tv'),
+      tag: '',
+      genre: '悬疑',
+      region: '韩国',
+    }
+    void feed.replaceQuery(next)
+    expect(net.calls[0].query).toEqual(next)
+    net.calls[0].resolve(pageOf([1], null))
+    await flush()
+    await feed.replaceQuery({ ...next })
+    expect(net.calls).toHaveLength(1)
+  })
+
+  it('initial 决定没有记住条件时的起点（首页热门剧集货架）', () => {
+    const feed = createDoubanFeed({
+      browse: deferredBrowse().browse,
+      storage: null,
+      initial: defaultDoubanQuery('tv'),
+    })
+    expect(feed.query.value).toEqual(defaultDoubanQuery('tv'))
   })
 })

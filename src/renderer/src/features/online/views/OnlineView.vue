@@ -2,12 +2,12 @@
   <div
     class="online-view h-full min-h-0 bg-yb-bg text-yb-text"
     :class="{
-      'is-bleed': !inlineDetailItem && activeTab === 'home',
+      'is-bleed': !inlineDetailItem && activeTab === 'home' && !browseTarget,
     }"
   >
     <!-- 首页：Hero 铺到浮动侧栏和顶栏胶囊下面，下面几排按 --home-x 让开侧栏 -->
     <div
-      v-show="!inlineDetailItem && activeTab === 'home'"
+      v-show="!inlineDetailItem && activeTab === 'home' && !browseTarget"
       class="content-area primary-scroll home-page"
       :class="{ 'has-hero': hero.slides.value.length || hero.loading.value }"
     >
@@ -32,20 +32,35 @@
           "
         />
         <DoubanChartRow @open="openDoubanDetail" />
-        <div ref="hotAnchor" class="home-hot">
-          <DoubanSection
-            v-if="hotExpanded"
-            collapsible
-            @open="openDoubanDetail"
-            @collapse="setHotExpanded(false)"
-          />
-          <DoubanShelf
-            v-else
-            @open="openDoubanDetail"
-            @expand="setHotExpanded(true)"
-          />
-        </div>
+        <HotShelf
+          kind="movie"
+          @open="openDoubanDetail"
+          @more="browse.open({ type: 'hot', kind: 'movie' })"
+        />
+        <HotShelf
+          kind="tv"
+          @open="openDoubanDetail"
+          @more="browse.open({ type: 'hot', kind: 'tv' })"
+        />
+        <GenreRow
+          @open="genre => browse.open({ type: 'genre', genre, kind: 'movie' })"
+        />
+        <CollectionRow @open="list => browse.open({ type: 'list', list })" />
       </div>
+    </div>
+
+    <!-- 首页的浏览页（热门全部 / 类型 / 片单），挂在首页路由的 ?browse= 上 -->
+    <div
+      v-if="browseTarget"
+      v-show="!inlineDetailItem && activeTab === 'home'"
+      class="content-area primary-scroll home-content-area"
+    >
+      <DoubanBrowse
+        :target="browseTarget"
+        @open="openDoubanDetail"
+        @kind="browse.setKind"
+        @back="browse.close"
+      />
     </div>
 
     <!-- VOD 浏览 -->
@@ -103,7 +118,7 @@
 
 <script setup lang="ts">
 import { UiButton, toast } from '@/components/ui'
-import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   CmsItem,
   DoubanItem,
@@ -112,8 +127,10 @@ import type {
 } from '../types'
 import { useRoute, useRouter } from 'vue-router'
 import DoubanChartRow from '../components/DoubanChartRow.vue'
-import DoubanSection from '../components/DoubanSection.vue'
-import DoubanShelf from '../components/DoubanShelf.vue'
+import CollectionRow from '../components/CollectionRow.vue'
+import DoubanBrowse from '../components/DoubanBrowse.vue'
+import GenreRow from '../components/GenreRow.vue'
+import HotShelf from '../components/HotShelf.vue'
 import HomeHero from '../components/HomeHero.vue'
 import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
@@ -129,7 +146,7 @@ import {
 } from '@/features/player'
 import { LiveNowRow } from '@/features/live'
 import { WatchlistRow } from '@/features/watchlist'
-import { useDoubanFeed } from '../composables/use-douban-feed'
+import { useBrowseRoute } from '../composables/use-browse-route'
 import { useHomeHero } from '../composables/use-home-hero'
 import { HOME_SECTIONS } from '../utils/hero-rules'
 import { doubanDetail } from '../utils/douban-detail'
@@ -227,20 +244,13 @@ const openContinueDetail = (record: ContinueRecord): void => {
 }
 const hero = useHomeHero(openDoubanDetail, openContinueDetail)
 
-/**
- * 热门电影 / 剧集：平时一排货架，「全部 / 筛选」换成完整网格，「收起」换回货架。
- * 换完把这一块滚到顶部；完整网格自己会恢复上次的滚动位置，先清掉，免得跳回别处。
- */
-const hotExpanded = ref(false)
-const hotAnchor = ref<HTMLElement | null>(null)
-const doubanFeed = useDoubanFeed()
-const setHotExpanded = (expanded: boolean): void => {
-  doubanFeed.scrollTop = 0
-  hotExpanded.value = expanded
-  void nextTick(() =>
-    hotAnchor.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
-  )
-}
+// 浏览页（热门全部 / 类型 / 片单）；换目标时关掉详情覆盖层
+const browse = useBrowseRoute(computed(() => activeTab.value === 'home'))
+const browseTarget = browse.target
+watch(
+  () => JSON.stringify(browseTarget.value),
+  () => (inlineDetailItem.value = null)
+)
 </script>
 
 <style scoped>
@@ -300,9 +310,6 @@ const setHotExpanded = (expanded: boolean): void => {
   flex-direction: column;
   gap: var(--space-8);
   min-width: 0;
-}
-.home-hot {
-  scroll-margin-top: var(--shell-top);
 }
 
 .inline-detail-page {

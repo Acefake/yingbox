@@ -47,7 +47,7 @@ import {
   resumeKicker,
   resumePlayLabel,
 } from '../utils/hero-rules'
-import { useDoubanFeed } from './use-douban-feed'
+import { useHotFeed } from './use-home-browse'
 
 /** Hero 的一页 */
 export interface HeroSlide {
@@ -92,7 +92,7 @@ export function useHomeHero(
   openContinue: (record: ContinueRecord) => void
 ): HomeHero {
   const router = useRouter()
-  const feed = useDoubanFeed()
+  const feed = useHotFeed('movie')
   const library = ref<LibraryHighlight[] | null>(null)
 
   const reload = async (): Promise<void> => {
@@ -184,7 +184,7 @@ export function useHomeHero(
     const art = item.backdrop || item.cover || item.coverSrc
     return {
       key: `douban:${item.url}`,
-      kicker: `豆瓣 · ${feed.query.value.kind === 'tv' ? '热门剧集' : '热门电影'}`,
+      kicker: '豆瓣 · 热门电影',
       title: item.title,
       logo: null,
       art,
