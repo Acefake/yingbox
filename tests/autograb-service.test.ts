@@ -58,6 +58,44 @@ describe('追更服务', () => {
     expect(record.status).toBe('saved')
   })
 
+  it('全自动：没单独选文件夹时存到剧集默认目录；单独选了就用自己的', async () => {
+    const initial = {
+      version: 1,
+      series: {
+        '7': {
+          title: '繁花',
+          mode: 'auto',
+          cid: '',
+          cidName: '',
+          confirmed: 3,
+        },
+      },
+    }
+    const h = setup([episode(5)], initial)
+    h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
+    await h.service.tick()
+    expect((await h.service.overview()).defaultFolder.cid).toBe('66')
+    expect(namesIn(h, '66')).toEqual([FILE_05])
+
+    const own = setup([episode(5)], {
+      ...initial,
+      series: { '7': { ...initial.series['7'], cid: '55', cidName: '繁花' } },
+    })
+    own.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
+    await own.service.tick()
+    expect(namesIn(own, '55')).toEqual([FILE_05])
+    expect(namesIn(own, '66')).toEqual([])
+  })
+
+  it('全自动：设了剧集默认目录就能开；默认目录也是根目录时不让开', async () => {
+    const h = setup([episode(5)])
+    h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
+    expect(await h.service.setSeries(7, { mode: 'auto' })).toEqual({ ok: true })
+    h.deps.defaultFolder = () => ({ cid: '0', name: '' })
+    const result = await h.service.setSeries(8, { mode: 'auto' })
+    expect(result.ok).toBe(false)
+  })
+
   it('本地已有这一集就标记已入库', async () => {
     const eps = [episode(5)]
     const { service } = setup(eps)

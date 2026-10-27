@@ -201,7 +201,7 @@ export interface TrackedMovie {
 
 /** 电影追踪总览 */
 export interface MoviesOverview {
-  /** 转存到的 115 文件夹 cid；空串 = 设置里的转存目标 */
+  /** 转存到的 115 文件夹 cid；空串 = 电影默认目录 */
   cid: string
   cidName: string
   ready: { loggedIn: boolean; pansou: boolean; tmdb: boolean }

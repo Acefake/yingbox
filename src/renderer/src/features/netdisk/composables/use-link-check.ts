@@ -187,10 +187,11 @@ export function useLinkCheck(deps: LinkCheckDeps): LinkCheck {
       const base = api()
       return {
         snap: (url, password) => base.snap(url, password),
-        receive: async (url, password) =>
-          (await check({ url, password })) === 'bad'
+        // 目标文件夹等其余参数原样转给 receive
+        receive: async (...args) =>
+          (await check({ url: args[0], password: args[1] })) === 'bad'
             ? { ok: false, error: DEAD_SHARE }
-            : base.receive(url, password),
+            : base.receive(...args),
       }
     }
   }

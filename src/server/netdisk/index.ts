@@ -39,6 +39,10 @@ import {
   serializeTorznabSecret,
   torznabFromEnv,
 } from '../../main/pan115/torznab-secret'
+import {
+  defaultFolder,
+  readTargetSettings,
+} from '../../shared/netdisk/target-folder'
 import { DomainRegistry } from '../domains/registry'
 import { registerDomainRoutes } from '../domains/routes'
 import type { Router } from '../http/router'
@@ -137,7 +141,11 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
     lanFetch: send,
     settings: {
       pansouUrl: () => settings.get('pan115.pansouUrl'),
-      targetCid: () => settings.get('pan115.targetCid'),
+      defaultCid: () =>
+        defaultFolder(
+          'movie',
+          readTargetSettings(key => settings.get(key))
+        ).cid,
     },
     session: {
       read: () => parseSession(secrets.get(PAN115_SESSION_KEY) ?? ''),

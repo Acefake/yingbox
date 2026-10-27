@@ -4,7 +4,8 @@
  * 不依赖 Electron：日历、媒体库通知、115 / PanSou、状态读写、时钟都由 index.ts 注入，测试可全部替换。
  * 安全边界：
  * - 只追用户打开了追更的剧；本地已有这一集（任何来源）就不搜；
- * - 全自动只在分数过 {@link AUTO_SCORE}、这部剧已确认过 {@link AUTO_AFTER_CONFIRMED} 集、且设了 115 文件夹时才转存；
+ * - 全自动只在分数过 {@link AUTO_SCORE}、这部剧已确认过 {@link AUTO_AFTER_CONFIRMED} 集、且转存目标不是根目录时才转存
+ *   （目标 = 这部剧选的文件夹 > 剧集默认目录 > 原转存目标，见 {@link targetCid}）；
  * - 转存前先列目标文件夹，同名文件已在就不再转存；每集一条记录，转存过的集不会再转存；
  * - 转存前查 115 剩余空间，不够就暂停全部自动转存（saver.ts）；撤销只删记录里的那个文件（revert.ts）；
  * - 115 请求全部过闸门（限速、限额、熔断，见 gate.ts）。
@@ -19,6 +20,7 @@ import {
   mergePrefs,
 } from '../../shared/contract/autograb-prefs'
 import type { CalendarEpisode } from '../../shared/library/ipc'
+import { normalizeCid } from '../../shared/netdisk/target-folder'
 import type { AutograbDeps, Pan115Guard } from './deps'
 import { createFinder } from './finder'
 import { createRoundRunner, createSingleFlight } from './flight'
@@ -138,9 +140,9 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   const settingOf = (seriesId: number): SeriesSetting | undefined =>
     state.series[String(seriesId)]
 
-  function targetCid(setting: SeriesSetting | undefined): string {
-    const cid = setting?.cid || deps.defaultCid()
-    return /^\d+$/.test(cid) ? cid : '0'
+  /** 这部剧的转存目标：自己选的文件夹 > 剧集默认目录（deps.defaultFolder，内含原转存目标兜底）；"0" = 根目录 */
+  function targetCid(setting: Pick<SeriesSetting, 'cid'> | undefined): string {
+    return normalizeCid(setting?.cid || deps.defaultFolder().cid)
   }
 
   function syncRecords(episodes: CalendarEpisode[], now: number): void {
@@ -180,7 +182,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       record.status === 'found' &&
       state.spacePause === null &&
       setting?.mode === 'auto' &&
-      setting.cid &&
+      targetCid(setting) !== '0' &&
       setting.confirmed >= AUTO_AFTER_CONFIRMED &&
       best.score >= AUTO_SCORE
     )
@@ -276,6 +278,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         },
         airing,
         running,
+        defaultFolder: deps.defaultFolder(),
       })
     },
     async setEnabled(enabled: boolean): Promise<void> {
@@ -298,8 +301,12 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         prefs: {},
       }
       const next = { ...setting, ...patch }
-      if (next.mode === 'auto' && !next.cid)
-        return { ok: false, error: '全自动要先给这部剧选一个 115 文件夹' }
+      if (next.mode === 'auto' && targetCid(next) === '0')
+        return {
+          ok: false,
+          error:
+            '全自动要先给这部剧选一个 115 文件夹，或在设置 · 网盘里设剧集默认目录',
+        }
       state.series[key] = next
       dirty()
       if (patch.mode && patch.mode !== 'off') void tick()

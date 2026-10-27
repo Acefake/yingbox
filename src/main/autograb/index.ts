@@ -9,6 +9,10 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 import { autograb } from '../../shared/contract/autograb'
+import {
+  defaultFolder,
+  readTargetSettings,
+} from '../../shared/netdisk/target-folder'
 import { atomicWrite } from '../file-operations'
 import type { LibraryEngineClient } from '../library/client'
 import type { ModuleHost } from '../module-host'
@@ -77,7 +81,11 @@ export function registerAutograb(
           return listing.path.filter(d => d.cid !== '0').map(d => d.name)
         }),
     },
-    defaultCid: () => host.setting('pan115.targetCid'),
+    defaultFolder: () =>
+      defaultFolder(
+        'tv',
+        readTargetSettings(key => host.setting(key))
+      ),
     load: async () => {
       try {
         return JSON.parse(await fs.readFile(file, 'utf8'))

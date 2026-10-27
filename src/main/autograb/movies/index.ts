@@ -9,6 +9,10 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 import { autograbMovies } from '../../../shared/contract/autograb-upgrade'
+import {
+  defaultFolder,
+  readTargetSettings,
+} from '../../../shared/netdisk/target-folder'
 import { atomicWrite } from '../../file-operations'
 import { fetchHttp, readLimited } from '../../http-client'
 import type { LibraryEngineClient } from '../../library/client'
@@ -79,7 +83,11 @@ export function registerAutograbMovies(
         mountRoot ? { changes, mountRoot } : { changes }
       )
     },
-    defaultCid: () => host.setting('pan115.targetCid'),
+    defaultCid: () =>
+      defaultFolder(
+        'movie',
+        readTargetSettings(key => host.setting(key))
+      ).cid,
     load: async () => {
       try {
         return JSON.parse(await fs.readFile(file, 'utf8'))

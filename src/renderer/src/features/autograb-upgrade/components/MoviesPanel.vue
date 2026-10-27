@@ -6,8 +6,7 @@
         <p class="grab-sub">
           数字发行后每天搜一次 WEB-DL / BluRay，30 天为止；存到
           {{
-            data?.cidName ||
-            (data?.cid ? `文件夹 ${data.cid}` : '设置里的转存目标')
+            data?.cidName || (data?.cid ? `文件夹 ${data.cid}` : '电影默认目录')
           }}
         </p>
       </div>

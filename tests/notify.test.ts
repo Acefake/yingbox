@@ -278,7 +278,7 @@ describe('追更 landed', () => {
         remove: async () => {},
         dirPath: async () => [],
       },
-      defaultCid: () => '0',
+      defaultFolder: () => ({ cid: '0', name: '' }),
       load: async () => ({
         version: 1,
         enabled: true,

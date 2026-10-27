@@ -125,7 +125,7 @@ export function setup(
       },
       dirPath: async () => ['剧集', '繁花'],
     },
-    defaultCid: () => '0',
+    defaultFolder: () => ({ cid: '0', name: '' }),
     load: async () => saved,
     save: async state => void (saved = JSON.parse(JSON.stringify(state))),
     now: () => clock.t,

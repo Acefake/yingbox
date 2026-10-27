@@ -69,6 +69,7 @@ export interface MoviesDeps {
   }
   /** 按 115 路径通知媒体库扫描 */
   notify(path: string): Promise<void>
+  /** 没单独选文件夹时的转存目标 cid（电影默认目录） */
   defaultCid(): string
   load(): Promise<unknown>
   save(state: MoviesState): Promise<void>

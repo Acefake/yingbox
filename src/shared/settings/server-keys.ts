@@ -12,6 +12,8 @@ export const SERVER_SETTING_KEYS = [
   'pan115.targetName',
   'pan115.movieCid',
   'pan115.movieName',
+  'pan115.tvCid',
+  'pan115.tvName',
   'library.notify.mountRoot',
 ] as const satisfies readonly ValueKey[]
 
