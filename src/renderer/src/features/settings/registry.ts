@@ -46,7 +46,7 @@ const coreSections: SettingsSection[] = [
     title: '刮削',
     icon: 'download',
     keywords:
-      '元数据 语言 tmdb token 后端 密钥 自定义 服务 连接 图片质量 海报 背景图 演员 尺寸',
+      '元数据 语言 中文 豆瓣 简介 tmdb token 令牌 密钥 图片质量 海报 背景图 演员 头像 尺寸 清晰度',
     load: () => import('./sections/ScrapeSettings.vue'),
     order: 30,
   },

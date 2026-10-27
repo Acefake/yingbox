@@ -35,6 +35,7 @@ import {
   positiveId,
 } from './validate-base'
 import { CALENDAR_PARSERS } from './validate-calendar'
+import { SCRAPE_PARSERS } from './validate-scrape'
 import { PROGRESS_PARSERS } from './validate-progress'
 import { FACET_PARSERS, parseFacetFilter } from './validate-facets'
 import { MERGE_PARSERS } from './validate-merge'
@@ -367,6 +368,7 @@ const PARAM_PARSERS: {
   ...CALENDAR_PARSERS,
   ...PROGRESS_PARSERS,
   ...MERGE_PARSERS,
+  ...SCRAPE_PARSERS,
 }
 
 /** 方法名是否在白名单内。 */

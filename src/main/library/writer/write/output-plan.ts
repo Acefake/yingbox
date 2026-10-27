@@ -26,6 +26,11 @@ import type {
   EpisodeMetadata,
   MediaMetadata,
 } from '../../../../shared/library/provider'
+import {
+  DEFAULT_SCRAPE_PREFS,
+  type TmdbImageSizes,
+  tmdbImageSizes,
+} from '../../../../shared/library/scrape-prefs'
 import { safeSegment } from '../../../../shared/library/writer'
 import { TmdbProvider } from '../../providers/tmdb/tmdb-provider'
 import {
@@ -51,16 +56,21 @@ export interface PlanContext {
   sharedDir: (dir: string) => boolean
   /** 番号库条目演员的资料（演员库）：头像优先用它，NFO 写扩展字段。 */
   actors?: NfoActorLookup
+  /** 写出图片的 TMDB 尺寸（刮削偏好）；缺省高清。 */
+  imageSizes?: TmdbImageSizes
 }
 
-/** 图片尺寸：海报 / 背景图与 P3 缓存的尺寸一致，直接复用已下载的原图。 */
-const SIZE = {
-  poster: 'w780',
-  backdrop: 'w1280',
-  logo: 'original',
-  still: 'original',
-  profile: 'h632',
-} as const
+/** 一次写出用的 TMDB 图片尺寸。 */
+type Sizes = TmdbImageSizes & { logo: string; still: string }
+
+/**
+ * 图片尺寸：海报 / 背景图 / 演员头像按刮削偏好（设置 · 刮削 · 图片质量）；缺省高清，
+ * 与识别时缓存的尺寸一致，直接复用已下载的原图。标志、集缩略图总是原图。
+ */
+function sizesOf(ctx: PlanContext): Sizes {
+  const base = ctx.imageSizes ?? tmdbImageSizes(DEFAULT_SCRAPE_PREFS.imageSize)
+  return { ...base, logo: 'original', still: 'original' }
+}
 
 type TitleMeta = Extract<ItemMetadata, { level: 'title' }>
 
@@ -72,12 +82,13 @@ const stem = (file: string): string => basename(file, extname(file))
 /** 首选图片地址；标志只要 png（TMDB 的 svg 标志播放器读不了）。 */
 function imageUrl(
   meta: MediaMetadata,
-  role: 'poster' | 'backdrop' | 'logo'
+  role: 'poster' | 'backdrop' | 'logo',
+  sizes: Sizes
 ): string | undefined {
   const image = meta.images.find(
     i => i.role === role && (role !== 'logo' || /\.png$/i.test(i.path))
   )
-  return image ? TmdbProvider.imageUrl(image.path, SIZE[role]) : undefined
+  return image ? TmdbProvider.imageUrl(image.path, sizes[role]) : undefined
 }
 
 /** 演员头像文件名：Kodi 约定空格换成下划线。 */
@@ -90,7 +101,10 @@ class Outputs {
   readonly list: PlannedOutput[] = []
   private readonly seen = new Set<string>()
 
-  constructor(private readonly itemId: number) {}
+  constructor(
+    private readonly itemId: number,
+    readonly sizes: Sizes
+  ) {}
 
   nfo(path: string, roots: XmlNode[]): void {
     if (this.seen.has(path)) return
@@ -115,7 +129,7 @@ class Outputs {
       if (file) {
         this.image(
           [join(dir, '.actors', file)],
-          TmdbProvider.imageUrl(thumb, SIZE.profile)
+          TmdbProvider.imageUrl(thumb, this.sizes.profile)
         )
       }
     }
@@ -128,16 +142,16 @@ function planMovie(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
   if (!meta) return []
   const { nfo, artwork } = ctx.settings
   const legacy = artwork.legacyNames
-  const out = new Outputs(node.id)
+  const out = new Outputs(node.id, sizesOf(ctx))
   const byDir = new Map<string, string[]>()
   for (const f of node.files) {
     if (f.kind !== 'video') continue
     const dir = dirname(f.path)
     byDir.set(dir, [...(byDir.get(dir) ?? []), f.path])
   }
-  const poster = imageUrl(meta, 'poster')
-  const fanart = imageUrl(meta, 'backdrop')
-  const logo = imageUrl(meta, 'logo')
+  const poster = imageUrl(meta, 'poster', out.sizes)
+  const fanart = imageUrl(meta, 'backdrop', out.sizes)
+  const logo = imageUrl(meta, 'logo', out.sizes)
   for (const [dir, videos] of byDir) {
     const own = dir !== ctx.libraryRoot && !ctx.sharedDir(dir)
     if (nfo.enabled) {
@@ -188,7 +202,7 @@ function planSeries(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
   const meta = titleMeta(node)
   if (!meta) return []
   const { nfo, artwork } = ctx.settings
-  const out = new Outputs(node.id)
+  const out = new Outputs(node.id, sizesOf(ctx))
   const seasons = node.children.filter(c => c.type === 'season')
   const episodes = [
     ...node.children.filter(c => c.type === 'episode'),
@@ -215,13 +229,19 @@ function planSeries(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
           join(seriesDir, 'poster.jpg'),
           artwork.legacyNames && join(seriesDir, 'folder.jpg'),
         ],
-        imageUrl(meta, 'poster')
+        imageUrl(meta, 'poster', out.sizes)
       )
     }
     if (artwork.fanart)
-      out.image([join(seriesDir, 'fanart.jpg')], imageUrl(meta, 'backdrop'))
+      out.image(
+        [join(seriesDir, 'fanart.jpg')],
+        imageUrl(meta, 'backdrop', out.sizes)
+      )
     if (artwork.logo)
-      out.image([join(seriesDir, 'clearlogo.png')], imageUrl(meta, 'logo'))
+      out.image(
+        [join(seriesDir, 'clearlogo.png')],
+        imageUrl(meta, 'logo', out.sizes)
+      )
     if (artwork.actors) out.actors(seriesDir, meta)
   }
 
@@ -229,7 +249,7 @@ function planSeries(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
     const sm = season.metadata?.level === 'season' ? season.metadata : null
     if (!sm) continue
     const posterUrl = sm.posterPath
-      ? TmdbProvider.imageUrl(sm.posterPath, SIZE.poster)
+      ? TmdbProvider.imageUrl(sm.posterPath, out.sizes.poster)
       : undefined
     if (seriesDir && artwork.seasonArt) {
       out.image([join(seriesDir, seasonPosterName(sm.season))], posterUrl)
@@ -267,7 +287,10 @@ function planSeries(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
       )
     const still = eps.find(e => e.stillPath)?.stillPath
     if (artwork.seasonArt && still) {
-      out.image([`${base}-thumb.jpg`], TmdbProvider.imageUrl(still, SIZE.still))
+      out.image(
+        [`${base}-thumb.jpg`],
+        TmdbProvider.imageUrl(still, out.sizes.still)
+      )
     }
   }
   return out.list

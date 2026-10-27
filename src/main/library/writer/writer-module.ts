@@ -28,7 +28,9 @@ import type { KeyedMutex } from '../jobs/keyed-mutex'
 import type { FollowupSpec } from '../jobs/followups'
 import type { JobQueue } from '../jobs/queue'
 import type { LibraryStore } from '../libraries/library-store'
+import { ScrapePrefsStore } from '../providers/scrape-prefs-store'
 import { SettingsStore } from '../providers/settings-store'
+import { tmdbImageSizes } from '../../../shared/library/scrape-prefs'
 import {
   afterAutoOrganize,
   autoFollowups,
@@ -103,6 +105,7 @@ export class WriterModule {
       library: id => options.libraries.get(id),
       moveOps: options.moveOps,
     })
+    const scrape = new ScrapePrefsStore(options.db)
     const jobs: WriterJobDeps = {
       store: this.store,
       writer: this.writer,
@@ -110,6 +113,7 @@ export class WriterModule {
       catalogQuery: options.catalogQuery,
       libraries: options.libraries,
       settings: () => this.settings.get(),
+      imageSizes: () => tmdbImageSizes(scrape.get().imageSize),
       actorProfiles: options.actorProfiles,
       emit: options.emit,
       log: options.log,

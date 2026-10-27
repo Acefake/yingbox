@@ -32,6 +32,7 @@ function wire(): {
       resetBrowserFetch: async () => {},
       downloadDir: async () => '/tmp',
       tmdbToken: async () => '',
+      tmdbLanguage: async () => 'zh-CN',
     },
     fork: () => {
       forks++

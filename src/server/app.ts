@@ -40,7 +40,10 @@ import { createAuth, sameOrigin } from './http/auth'
 import { HttpError, Router, fail } from './http/router'
 import { createStaticHandler } from './http/static'
 import { serverLibraryHost } from './library-host'
-import { startNetdisk } from './netdisk'
+import { NETDISK_FILES, libraryClient, startNetdisk } from './netdisk'
+import { ServerSettingsStore } from './settings-store'
+import { registerServerSettingsRoutes } from './settings-store/routes'
+import { syncScrapePrefs } from '../main/library/platform/scrape-sync'
 import { registerFsRoutes } from './routes/fs'
 import { registerLibraryRoutes } from './routes/library'
 import { registerMediaRoutes } from './routes/media'
@@ -127,6 +130,22 @@ export async function createServerApp(
     { ...config.monitor, watch: options.watch }
   )
   await service.start()
+  // 服务端设置（网页端写、网盘模块读）；刮削偏好（元数据语言、图片清晰度）启动时与改动后下发给片库
+  const serverSettings = new ServerSettingsStore(
+    join(config.dataDir, NETDISK_FILES.settings),
+    env
+  )
+  await syncScrapePrefs(
+    {
+      setScrapePrefs: prefs =>
+        libraryClient(service).call('setScrapePrefs', prefs),
+    },
+    {
+      get: key => serverSettings.get(key),
+      onChange: listener => serverSettings.onChange(listener),
+    },
+    message => log(message)
+  )
   // 网页端保存过的 TMDB 令牌：片库还没配置时补一次（与桌面端启动时的规则相同）
   await syncTmdbTokenToLibrary(
     {
@@ -138,6 +157,7 @@ export async function createServerApp(
   )
 
   const router = new Router()
+  registerServerSettingsRoutes(router, serverSettings)
   registerSessionRoutes(router, auth, () => ({
     mediaRoots: config.mediaRoots,
     fetch: describeFetch(config.fetch),
@@ -159,6 +179,7 @@ export async function createServerApp(
       env.YINGBOX_TMDB_TOKEN ||
       env.VITE_TMDB_ACCESS_TOKEN ||
       '',
+    tmdbLanguage: () => serverSettings.get('scrape.metadataLanguage'),
     log,
     engine: options.engine,
   })
@@ -169,6 +190,7 @@ export async function createServerApp(
     secrets,
     service,
     router,
+    settings: serverSettings,
     log,
     fetch: options.netdiskFetch,
   })

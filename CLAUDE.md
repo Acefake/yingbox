@@ -107,10 +107,9 @@ The former Go backend (port 31471) was removed in p3d; its routes now live in en
 
 User settings are stored in `localStorage` (renderer side). Key keys:
 
-- `scrapeProviderConfig` — provider type, TMDB token (legacy backend URL kept for the library mirror)
-- `imageDownloadSize_poster` / `imageDownloadSize_backdrop` / `imageDownloadSize_actor`
 - `folderContent_fileData` / `folderContent_currentPath` — file tree cache
-- `metadataLanguage`
+
+Scrape prefs (metadata language, image quality): settings `scrape.metadataLanguage` / `scrape.imageSize.*` (Settings → 刮削), pushed to the library engine by main / the library server (`shared/library/scrape-prefs.ts`).
 
 Download directory: setting `download.dir` in `settings.json` (Settings → 下载).
 

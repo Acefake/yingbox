@@ -78,6 +78,9 @@ describe('默认值', () => {
           'app.theme': 'purple',
           'player.playbackRate': 99,
           'scrape.concurrency': 5,
+          // 已删除的「自定义刮削服务」
+          'scrape.provider': 'custom',
+          'scrape.customBaseUrl': 'https://x.test',
           'app.adultMode': true,
           nope: 1,
         },
@@ -92,6 +95,8 @@ describe('默认值', () => {
     store.set('app.theme', 'light')
     await store.flush()
     expect(onDisk().values as object).not.toHaveProperty('scrape.concurrency')
+    expect(onDisk().values as object).not.toHaveProperty('scrape.provider')
+    expect(onDisk().values as object).not.toHaveProperty('scrape.customBaseUrl')
   })
 
   it('文件损坏时用默认值继续，并备份原文件', async () => {
@@ -194,8 +199,10 @@ describe('旧 localStorage 迁移', () => {
       'player.playbackRate': 1.25,
       'scrape.metadataLanguage': 'ja-JP',
       'scrape.imageSize.poster': 'w342',
-      'scrape.imageSize.actor': 'original',
+      'scrape.imageSize.actor': 'w780',
     })
+    // 刮削服务类型 / 自定义服务已无对应设置，迁移时忽略
+    expect(snapshot.values).not.toHaveProperty('scrape.provider')
     expect(snapshot.values).not.toHaveProperty('scrape.tmdbToken')
     expect(snapshot.values).not.toHaveProperty('backend.url')
     // 旧 scrapeConcurrency 已无对应设置，迁移时忽略

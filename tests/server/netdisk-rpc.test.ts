@@ -200,6 +200,16 @@ describe('服务端设置', () => {
     expect(snapshot.locked).toEqual(['library.notify.mountRoot'])
   })
 
+  it('刮削偏好存在服务端，改了立即下发给片库（与桌面端同一条路）', async () => {
+    expect(server.app.service.identifier.provider.language).toBe('zh-CN')
+    const saved = await post({ key: 'scrape.metadataLanguage', value: 'zh-TW' })
+    expect(await saved.json()).toEqual({ ok: true, value: 'zh-TW' })
+    // 下发是写入后排队执行的
+    await new Promise(resolve => setTimeout(resolve, 10))
+    expect(server.app.service.identifier.provider.language).toBe('zh-TW')
+    await post({ key: 'scrape.metadataLanguage', value: 'zh-CN' })
+  })
+
   it('白名单外、值不合法、被环境变量固定的键都 400', async () => {
     expect((await post({ key: 'ui.theme', value: 'dark' })).status).toBe(400)
     expect((await post({ key: 'pan115.targetCid', value: 'abc' })).status).toBe(
@@ -231,11 +241,11 @@ describe('服务端设置', () => {
 })
 
 describe('YINGBOX_NETDISK=off', () => {
-  it('不登记网盘类接口', async () => {
+  it('不登记网盘类接口（服务端设置照常可用：刮削偏好也存在这里）', async () => {
     const other = mkdtempSync(join(tmpdir(), 'yingbox-netdisk-off-'))
     const off = await start(other, { YINGBOX_NETDISK: 'off' })
     try {
-      expect((await off.call(SERVER_SETTINGS_HTTP)).status).toBe(404)
+      expect((await off.call(SERVER_SETTINGS_HTTP)).status).toBe(200)
       expect(
         (
           await off.call(DOMAIN_HTTP.rpc('pan115', 'account'), {

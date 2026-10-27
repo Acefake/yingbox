@@ -86,7 +86,6 @@ export async function discoverTitles(
           title.kind === 'tv' ? '/search/tv' : '/search/movie',
           {
             query: title.title,
-            language: 'zh-CN',
             page: 1,
             ...(title.year
               ? {

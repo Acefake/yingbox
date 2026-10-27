@@ -16,7 +16,7 @@ import { sortImages, toImages } from './tmdb-images'
 import {
   type TmdbDetails,
   isMovie,
-  languageChain,
+  languageChains,
   nonEmpty,
   pickTranslation,
   yearOf,
@@ -25,6 +25,7 @@ import type {
   TmdbMovieDetails,
   TmdbMovieResult,
   TmdbSeason,
+  TmdbTranslation,
   TmdbTvDetails,
   TmdbTvResult,
 } from './tmdb-types'
@@ -129,18 +130,32 @@ export function metadataFromDetails(
 ): MediaMetadata {
   const movie = isMovie(kind, d)
   const tv = d as TmdbTvDetails
-  const chain = languageChain(language)
+  const { native, fallback } = languageChains(language)
+  const zh = language.startsWith('zh')
   const translations = d.translations?.translations
+  const pick = (
+    chain: string[],
+    field: (t: TmdbTranslation) => string | undefined
+  ): { value: string; language: string } | undefined =>
+    pickTranslation(translations, chain, field)
   const ownTitle = nonEmpty(movie ? d.title : tv.name)
   const original = nonEmpty(movie ? d.original_title : tv.original_name)
+  const titleOf = (t: TmdbTranslation): string | undefined =>
+    t.data?.title ?? t.data?.name
+  // 中文：没有中文片名时用原名（国产剧原名就是中文），不退到英文；其他语言照常退到英文
   const title =
-    pickTranslation(translations, chain, t => t.data?.title ?? t.data?.name)
-      ?.value ??
-    ownTitle ??
-    original ??
-    ''
-  const overview = pickTranslation(translations, chain, t => t.data?.overview)
-  const tagline = pickTranslation(translations, chain, t => t.data?.tagline)
+    (zh
+      ? (pick(native, titleOf)?.value ?? original ?? ownTitle)
+      : (pick([...native, ...fallback], titleOf)?.value ??
+        ownTitle ??
+        original)) ?? ''
+  // 简介缺中文时先用英文占位，overviewLanguage 记下实际语言，识别后由豆瓣补中文替换（identify/overview-fill.ts）
+  const overview = pick([...native, ...fallback], t => t.data?.overview)
+  // 标语只用本语言（中文时不放英文标语）
+  const tagline = pick(
+    zh ? native : [...native, ...fallback],
+    t => t.data?.tagline
+  )
   const releaseDate = nonEmpty(movie ? d.release_date : tv.first_air_date)
   const runtime = movie
     ? (d.runtime ?? undefined)

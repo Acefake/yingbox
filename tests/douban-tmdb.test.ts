@@ -57,7 +57,6 @@ describe('TMDB 补全', () => {
     })
     expect(tmdb).toHaveBeenCalledWith('/search/movie', {
       query: '流浪地球2',
-      language: 'zh-CN',
       page: 1,
     })
   })

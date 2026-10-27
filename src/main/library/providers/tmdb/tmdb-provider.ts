@@ -36,9 +36,9 @@ import type {
 export const TMDB_API = 'https://api.themoviedb.org/3'
 export const TMDB_IMAGE = 'https://image.tmdb.org/t/p'
 
-/** 没配令牌时的报错：说清去哪填（桌面端与网页端都在设置 → 服务；NAS 也可用环境变量）。 */
+/** 没配令牌时的报错：说清去哪填（桌面端与网页端都在设置 → 刮削；NAS 也可用环境变量）。 */
 export const TMDB_TOKEN_MISSING =
-  '未配置 TMDB API 令牌：在「设置 → 服务」或片库设置里填写（NAS 也可设环境变量 YINGBOX_TMDB_TOKEN）'
+  '未配置 TMDB API 令牌：在「设置 → 刮削」或片库设置里填写（NAS 也可设环境变量 YINGBOX_TMDB_TOKEN）'
 
 const DAY = 86_400_000
 /** 缓存时长。 */
@@ -67,9 +67,12 @@ export interface TmdbProviderOptions {
   http: ProviderHttp
   /** 每次请求时读取当前令牌（v4 读访问令牌或 v3 api_key）；未配置返回 undefined。 */
   token: () => string | undefined
-  /** 结果语言，默认 zh-CN。 */
-  language?: string
-  /** 搜索时的第二语言，默认 en-US。 */
+  /**
+   * 结果语言（主设置 `scrape.metadataLanguage` 下发到片库的值）：每次请求时读，切换后新请求立即生效；
+   * 缓存键带 language 参数，不同语言的结果不串。缺省 zh-CN。
+   */
+  language?: () => string
+  /** 搜索时的第二语言，默认 en-US（主语言是英文时为 zh-CN）。 */
   secondaryLanguage?: string
 }
 
@@ -86,12 +89,18 @@ export class TmdbProvider implements MetadataProvider {
   static readonly TOKEN_MISSING = TMDB_TOKEN_MISSING
 
   readonly name = 'tmdb' as const
-  readonly language: string
-  readonly secondaryLanguage: string
 
-  constructor(private readonly options: TmdbProviderOptions) {
-    this.language = options.language ?? 'zh-CN'
-    this.secondaryLanguage = options.secondaryLanguage ?? 'en-US'
+  constructor(private readonly options: TmdbProviderOptions) {}
+
+  /** 当前结果语言。 */
+  get language(): string {
+    return this.options.language?.() || 'zh-CN'
+  }
+
+  /** 搜索时的第二语言（与主语言不同）。 */
+  get secondaryLanguage(): string {
+    if (this.options.secondaryLanguage) return this.options.secondaryLanguage
+    return this.language.startsWith('en') ? 'zh-CN' : 'en-US'
   }
 
   /** 是否已配置令牌。 */
