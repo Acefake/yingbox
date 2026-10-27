@@ -68,6 +68,9 @@ nsis:
   installerIcon: resources/logo.ico
   uninstallerIcon: resources/logo.ico
   installerHeaderIcon: resources/logo.ico
+  # 安装/卸载向导欢迎页与完成页左侧图（164×314 BMP）
+  installerSidebar: build/installerSidebar.bmp
+  uninstallerSidebar: build/uninstallerSidebar.bmp
   oneClick: false
   allowToChangeInstallationDirectory: true
   allowElevation: true
