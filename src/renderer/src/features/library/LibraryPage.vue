@@ -29,74 +29,119 @@
 
     <ActivityBar :activity="activity" />
 
-    <main class="lib-main">
-      <!-- 网页端：片库服务就绪前（探测中 / 连不上 / 未登录）什么都不放；登录与报错由外壳统一显示 -->
-      <template v-if="serverGate" />
-
-      <!-- 不在桌面版 -->
-      <LibraryEmpty
-        v-else-if="!available"
-        :icon="spec.icon"
-        :title="`本地${kindLabel}库仅在桌面版可用`"
-        text="媒体库需要读取本机文件夹，请在影盒桌面版中使用。"
-      />
-
-      <!-- 还没有文件夹 -->
-      <LibraryEmpty
-        v-else-if="librariesLoaded && !hasLibraries"
-        :icon="spec.icon"
-        :title="noFolder.title"
-        :text="noFolder.text"
-      >
+    <div
+      v-if="section === 'jav' && hasLibraries && view === 'wall' && ready"
+      class="jav-overview"
+    >
+      <div>
+        <span>当前作品</span
+        ><strong>{{ total.toLocaleString('zh-CN') }}</strong>
+      </div>
+      <div>
+        <span>待确认</span>
         <UiButton
-          variant="primary"
-          size="lg"
-          icon="plus"
-          label="添加文件夹…"
-          @click="addFolder"
+          variant="plain"
+          :label="`${(reviewCount ?? 0).toLocaleString('zh-CN')} · 查看`"
+          @click="view = 'review'"
         />
-      </LibraryEmpty>
+      </div>
+    </div>
+    <div
+      class="lib-content"
+      :class="{
+        'has-jav-filters': section === 'jav' && hasLibraries && view === 'wall',
+      }"
+    >
+      <aside
+        v-if="
+          section === 'jav' &&
+          hasLibraries &&
+          view === 'wall' &&
+          facetScopeOf(section, state)
+        "
+        class="jav-filters"
+        aria-label="番号筛选"
+      >
+        <h2>筛选</h2>
+        <FacetPanel
+          v-model="state.facets"
+          :scope="facetScopeOf(section, state)!"
+          :open="true"
+        />
+      </aside>
+      <main class="lib-main">
+        <!-- 网页端：片库服务就绪前（探测中 / 连不上 / 未登录）什么都不放；登录与报错由外壳统一显示 -->
+        <template v-if="serverGate" />
 
-      <template v-else-if="hasLibraries">
-        <PosterWall
-          v-show="view === 'wall'"
-          ref="wall"
-          :list="list"
-          :version="version"
-          :count="total"
-          :selected="selection"
-          :selection-version="selectionVersion"
-          :label="`${kindLabel}海报墙`"
-          :show-state-badge="state.filter !== 'all'"
-          @visible="setVisible"
-          @activate="onActivate"
-          @open="openDetail"
-          @identify="id => actions.identifySelected([id], () => {})"
+        <!-- 不在桌面版 -->
+        <LibraryEmpty
+          v-else-if="!available"
+          :icon="spec.icon"
+          :title="`本地${kindLabel}库仅在桌面版可用`"
+          text="媒体库需要读取本机文件夹，请在影盒桌面版中使用。"
+        />
+
+        <!-- 还没有文件夹 -->
+        <LibraryEmpty
+          v-else-if="librariesLoaded && !hasLibraries"
+          :icon="spec.icon"
+          :title="noFolder.title"
+          :text="noFolder.text"
         >
-          <template #before>
-            <LibraryTopRows :section="section" @open="openDetail" />
-          </template>
-          <template #after>
-            <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
-            <LibraryEmpty
-              v-else-if="total === 0"
-              inline
-              :title="emptyTitle"
-              :text="queryError || undefined"
-            />
-          </template>
-        </PosterWall>
-        <ReviewQueue
-          v-if="view === 'review'"
-          :section="section"
-          :library-ids="libraryIds"
-        />
-        <ActorsView
-          v-if="section === 'jav' && view === 'actors'"
-          @open="id => openActor(id)"
-        />
-      </template>
-    </main>
+          <UiButton
+            variant="primary"
+            size="lg"
+            icon="plus"
+            label="添加文件夹…"
+            @click="addFolder"
+          />
+        </LibraryEmpty>
+
+        <template v-else-if="hasLibraries">
+          <PosterWall
+            v-show="view === 'wall'"
+            ref="wall"
+            :list="list"
+            :version="version"
+            :count="total"
+            :selected="selection"
+            :selection-version="selectionVersion"
+            :label="`${kindLabel}海报墙`"
+            :show-state-badge="state.filter !== 'all'"
+            @visible="setVisible"
+            @activate="onActivate"
+            @open="openDetail"
+            @identify="id => actions.identifySelected([id], () => {})"
+          >
+            <template #before>
+              <LibraryTopRows
+                v-if="section !== 'jav'"
+                :section="section"
+                @open="openDetail"
+              />
+            </template>
+            <template #after>
+              <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
+              <LibraryEmpty
+                v-else-if="total === 0"
+                inline
+                :title="emptyTitle"
+                :text="queryError || undefined"
+              />
+            </template>
+          </PosterWall>
+          <ReviewQueue
+            v-if="view === 'review'"
+            :section="section"
+            :library-ids="libraryIds"
+          />
+          <ActorsView
+            v-if="section === 'jav' && view === 'actors'"
+            @open="id => openActor(id)"
+          />
+        </template>
+      </main>
+    </div>
 
     <!-- 演员详情与条目详情覆盖整页（海报墙留在下面，返回时滚动位置不变）；条目详情在上层 -->
     <ActorDetail
@@ -168,6 +213,7 @@ import { computed, reactive, ref, watch } from 'vue'
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
+import FacetPanel from './facets/FacetPanel.vue'
 import { libraryServerState } from '@/services/library-server'
 
 import ActorDetail from './actors/ActorDetail.vue'
