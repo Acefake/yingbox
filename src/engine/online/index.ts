@@ -191,6 +191,8 @@ export function createOnlineHandlers(
 
     doubanBrowse: (_ctx, query, start) => douban.page(query, start),
 
+    doubanChart: () => douban.chart(),
+
     doubanPhotos: (_ctx, id, kind = 'movie') => photos.get(id, kind),
 
     async resolvePage(_ctx, url) {

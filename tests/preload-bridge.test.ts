@@ -140,6 +140,7 @@ const ADDED_API: Record<string, string[]> = {
     'tmdb',
     'doubanTrailer',
     'doubanBrowse',
+    'doubanChart',
     'doubanPhotos',
     'resolvePage',
     'probeStream',

@@ -3,7 +3,7 @@
     <!-- 与首页其它分区同一种分区标题；右侧切换与筛选同为 36px 的胶囊控件 -->
     <UiSectionHeader :title="query.kind === 'movie' ? '热门电影' : '热门剧集'">
       <UiSegmented
-        label="电影或电视剧"
+        label="电影或剧集"
         :model-value="query.kind"
         :options="KIND_OPTIONS"
         @update:model-value="kind => feed.setQuery({ kind })"
@@ -14,6 +14,12 @@
         :pressed="panelOpen || filtersOn"
         :aria-expanded="panelOpen"
         @click="panelOpen = !panelOpen"
+      />
+      <UiButton
+        v-if="collapsible"
+        variant="plain"
+        label="收起"
+        @click="emit('collapse')"
       />
     </UiSectionHeader>
 
@@ -98,6 +104,7 @@
  * 列表滚到底自动取下一页（UiVirtualGrid 的 reach-end），失败可重试。
  * 桌面端电影卡右上角多一个「找 115 资源」，打开与 AI 助手共用的候选面板。
  * 状态在 use-douban-feed 的模块级单例里（会话级记住条件）；在线页被 keep-alive 切走时记下滚动位置，回来恢复。
+ * 首页平时显示货架（DoubanShelf），点「全部 / 筛选」才换成这里（collapsible：多一个「收起」回到货架）。
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
@@ -143,19 +150,26 @@ import {
 } from '../utils/douban-discover'
 import { doubanPreviewSource } from '../utils/douban-preview'
 
-const emit = defineEmits<{ (e: 'open', item: DoubanItem): void }>()
+const props = defineProps<{
+  /** 首页从货架展开来的：标题行多一个「收起」，并默认展开筛选面板 */
+  collapsible?: boolean
+}>()
+const emit = defineEmits<{
+  (e: 'open', item: DoubanItem): void
+  (e: 'collapse'): void
+}>()
 
 const PAGE_SIZE = 16
 const KIND_OPTIONS: Array<{ value: DoubanKind; label: string }> = [
   { value: 'movie', label: '电影' },
-  { value: 'tv', label: '电视剧' },
+  { value: 'tv', label: '剧集' },
 ]
 
 const feed = useDoubanFeed()
 const { query, items, status, refreshing } = feed
 
 const filtersOn = computed(() => hasFilters(query.value))
-const panelOpen = ref(filtersOn.value)
+const panelOpen = ref(filtersOn.value || props.collapsible)
 
 const pending = computed(
   () => status.value === 'loading' || status.value === 'idle'

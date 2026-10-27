@@ -11,6 +11,7 @@ import {
 import {
   type DoubanPage,
   type DoubanQuery,
+  type DoubanSubject,
   normalizeDoubanQuery,
   parseDoubanStart,
 } from '../douban/query'
@@ -164,6 +165,11 @@ export const online = defineDomain('online', {
     if (start === null) throw new ContractError(`豆瓣 start 不合法：${a[1]}`)
     return [normalizeDoubanQuery(record(a[0], 'query')), start]
   }),
+  /**
+   * 豆瓣一周口碑电影榜（首页榜单行，最多 10 部，按名次）。失败 / 熔断中 reject，
+   * 调用方退回热门列表。见 engine/online/douban-chart.ts
+   */
+  doubanChart: call<DoubanSubject[]>(),
   /** 播放页 → 媒体直链：跟随跳转后从 HTML 中找 m3u8；找不到原样返回 */
   resolvePage: call<[url: string], string>(a => [str(a[0], 'url')]),
   /** 播放源测速：首包延迟 + 约 2 秒下载速度（m3u8 取首个分片）；失败返回 ok: false。见 engine/online/stream-probe.ts */

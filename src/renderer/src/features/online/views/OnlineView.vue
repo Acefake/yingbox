@@ -18,11 +18,12 @@
       />
       <div class="home-rows">
         <ContinueRow
-          :section="HOME_CONTINUE"
+          :section="HOME_SECTIONS"
           more-label="打开最近播放"
           @more="router.push({ path: '/', query: { tab: 'recent' } })"
           @detail="openContinueDetail"
         />
+        <LiveNowRow />
         <RecentlyAddedRow />
         <WatchlistRow
           section="online"
@@ -30,7 +31,20 @@
             e => e.detail && openDetailWindow(e.detail as OnlineDetailItem)
           "
         />
-        <DoubanSection @open="openDoubanDetail" />
+        <DoubanChartRow @open="openDoubanDetail" />
+        <div ref="hotAnchor" class="home-hot">
+          <DoubanSection
+            v-if="hotExpanded"
+            collapsible
+            @open="openDoubanDetail"
+            @collapse="setHotExpanded(false)"
+          />
+          <DoubanShelf
+            v-else
+            @open="openDoubanDetail"
+            @expand="setHotExpanded(true)"
+          />
+        </div>
       </div>
     </div>
 
@@ -89,7 +103,7 @@
 
 <script setup lang="ts">
 import { UiButton, toast } from '@/components/ui'
-import { onBeforeUnmount, onMounted, ref, watch } from 'vue'
+import { nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type {
   CmsItem,
   DoubanItem,
@@ -97,7 +111,9 @@ import type {
   OnlinePlayRecord,
 } from '../types'
 import { useRoute, useRouter } from 'vue-router'
+import DoubanChartRow from '../components/DoubanChartRow.vue'
 import DoubanSection from '../components/DoubanSection.vue'
+import DoubanShelf from '../components/DoubanShelf.vue'
 import HomeHero from '../components/HomeHero.vue'
 import SearchTab from '../components/SearchTab.vue'
 import VodBrowse from '../components/VodBrowse.vue'
@@ -108,12 +124,14 @@ import { RecentlyAddedRow, libraryItemLocation } from '@/features/library'
 import {
   type ContinueRecord,
   ContinueRow,
-  type ContinueSection,
   getMediaProgress,
   openMediaPlayer,
 } from '@/features/player'
+import { LiveNowRow } from '@/features/live'
 import { WatchlistRow } from '@/features/watchlist'
+import { useDoubanFeed } from '../composables/use-douban-feed'
 import { useHomeHero } from '../composables/use-home-hero'
+import { HOME_SECTIONS } from '../utils/hero-rules'
 import { doubanDetail } from '../utils/douban-detail'
 
 const route = useRoute()
@@ -195,9 +213,6 @@ const openDoubanDetail = (item: DoubanItem): void => {
 }
 
 // ─── 首页 ───────────────────────────────────────────────
-const hero = useHomeHero(openDoubanDetail)
-/** 首页的「继续观看」合并在线与片库电影、剧集 */
-const HOME_CONTINUE: ContinueSection[] = ['online', 'movie', 'tv']
 /** 继续观看的「打开详情」：在线条目在本页打开，片库条目去片库页（?item=） */
 const openContinueDetail = (record: ContinueRecord): void => {
   if (record.section === 'online') {
@@ -209,6 +224,22 @@ const openContinueDetail = (record: ContinueRecord): void => {
     void router.push(
       libraryItemLocation(record.section === 'tv' ? 'series' : 'movie', itemId)
     )
+}
+const hero = useHomeHero(openDoubanDetail, openContinueDetail)
+
+/**
+ * 热门电影 / 剧集：平时一排货架，「全部 / 筛选」换成完整网格，「收起」换回货架。
+ * 换完把这一块滚到顶部；完整网格自己会恢复上次的滚动位置，先清掉，免得跳回别处。
+ */
+const hotExpanded = ref(false)
+const hotAnchor = ref<HTMLElement | null>(null)
+const doubanFeed = useDoubanFeed()
+const setHotExpanded = (expanded: boolean): void => {
+  doubanFeed.scrollTop = 0
+  hotExpanded.value = expanded
+  void nextTick(() =>
+    hotAnchor.value?.scrollIntoView({ block: 'start', behavior: 'smooth' })
+  )
 }
 </script>
 
@@ -250,12 +281,16 @@ const openContinueDetail = (record: ContinueRecord): void => {
   height: calc(100% + var(--shell-top));
   margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
 }
+/* 第一排（继续观看）压进 Hero 底部 --home-hero-overlap，Hero 加高同样多（home-hero.css） */
 .home-page:where(.has-hero) {
+  --home-hero-overlap: var(--space-10);
   padding: 0 0 var(--space-11);
   gap: 0;
 }
 .home-page:where(.has-hero) .home-rows {
-  padding: var(--space-8) var(--space-8) 0 var(--home-x);
+  position: relative;
+  margin-top: calc(var(--home-hero-overlap) * -1);
+  padding: 0 var(--space-8) 0 var(--home-x);
 }
 .home-page:where(:not(.has-hero)) {
   padding: var(--shell-top) var(--space-8) var(--space-8) var(--home-x);
@@ -265,6 +300,9 @@ const openContinueDetail = (record: ContinueRecord): void => {
   flex-direction: column;
   gap: var(--space-8);
   min-width: 0;
+}
+.home-hot {
+  scroll-margin-top: var(--shell-top);
 }
 
 .inline-detail-page {
@@ -329,7 +367,7 @@ const openContinueDetail = (record: ContinueRecord): void => {
     --home-x: calc(var(--shell-left) + var(--space-5));
   }
   .home-page:where(.has-hero) .home-rows {
-    padding: var(--space-6) var(--space-5) 0 var(--home-x);
+    padding: 0 var(--space-5) 0 var(--home-x);
   }
 }
 
