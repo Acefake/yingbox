@@ -18,9 +18,8 @@
         size="sm"
         variant="plain"
         icon="settings"
-        label="偏好"
-        :disabled="!data"
-        @click="editing = editing === 'global' ? null : 'global'"
+        label="策略"
+        @click="openAutograbSettings('tv')"
       />
       <UiButton
         size="sm"
@@ -40,45 +39,10 @@
 
     <p v-if="ag.error.value" class="autograb-notice">{{ ag.error.value }}</p>
     <p v-else-if="notice" class="autograb-notice">{{ notice }}</p>
-    <AutograbPrefsForm
-      v-if="data && editing === 'global'"
-      title="全局追更偏好"
-      :value="data.prefs"
-      @save="saveGlobal"
-      @cancel="editing = null"
-    />
     <p v-if="data" class="autograb-usage">
       今天已用 115 查询 {{ data.today.snaps }} 次、转存
-      {{ data.today.receives }} 次
+      {{ data.today.receives }} 次 · 没单独设的剧：{{ policyText }}
     </p>
-
-    <div v-if="data" class="autograb-row">
-      <div class="autograb-row-main">
-        <span class="autograb-name">所有剧</span>
-        <span class="autograb-hint">
-          没单独设的剧按这里追{{
-            data.policy.mode === 'auto' && data.policy.confirmFirst
-              ? `；每部新剧先手动确认 ${data.policy.confirmFirst} 集`
-              : ''
-          }}
-        </span>
-      </div>
-      <UiSegmented
-        :model-value="data.policy.mode"
-        :options="MODE_OPTIONS"
-        label="所有剧的追更方式"
-        size="sm"
-        @update:model-value="policyFolder.changeMode"
-      />
-      <div v-if="policyFolder.picking.value" class="autograb-picker">
-        <AutograbFolderPrompt
-          title="所有剧"
-          global="tv"
-          @pick="policyFolder.pick"
-          @cancel="policyFolder.cancel"
-        />
-      </div>
-    </div>
 
     <div v-if="data?.series.length" class="autograb-series">
       <div
@@ -117,19 +81,12 @@
           :disabled="!data.ready.loggedIn"
           @pick="pick => pickFolder(series.seriesId, pick)"
         />
-        <UiButton
-          v-if="series.effectiveMode !== 'off'"
-          size="sm"
-          variant="plain"
-          label="偏好"
-          @click="toggleSeriesPrefs(series.seriesId)"
-        />
-        <UiSegmented
-          :model-value="series.mode"
-          :options="SERIES_MODE_OPTIONS"
-          :label="`${series.title} 的追更方式`"
-          size="sm"
-          @update:model-value="mode => fullAuto.changeMode(series, mode)"
+        <ItemPolicyMenu
+          :title="series.title"
+          :custom="isCustom(series.mode, series.prefs)"
+          :effective="series.effectiveMode"
+          @follow="follow(series)"
+          @custom="editing = series.seriesId"
         />
         <div
           v-if="fullAuto.picking.value === series.seriesId"
@@ -142,11 +99,13 @@
           />
         </div>
         <div v-if="editing === series.seriesId" class="autograb-picker">
-          <AutograbPrefsForm
-            :title="`${series.title} 的追更偏好`"
+          <GrabOverrideForm
+            :title="`${series.title} 单独设`"
+            :mode-options="TV_MODE_OPTIONS"
+            :initial-mode="series.effectiveMode"
             :value="series.prefs"
-            :inherit="data.prefs"
-            @save="prefs => saveSeries(series.seriesId, prefs)"
+            :inherit="data.policy.prefs"
+            @save="result => saveSeries(series, result)"
             @cancel="editing = null"
           />
         </div>
@@ -170,17 +129,16 @@
 
 <script setup lang="ts">
 /**
- * 追更面板（追剧日历页里展开）：总开关、熔断恢复、立即检查；「所有剧」一行是剧集的全局方式（没单独设的剧按它追，
- * 切全自动而剧集默认目录是根目录时先选默认目录，见 use-policy-folder.ts）；最近在播的剧逐部选「跟随 / 不追 / 待确认 / 全自动」
- * 和转存位置（胶囊：剧集默认目录 / 最近使用 / 浏览 115 目录树，没单独选时跟剧集默认目录）、每剧偏好覆盖；「偏好」编辑全局的分辨率 / 偏好词 / 排除词 / 体积；
- * 不追 / 待确认时点「全自动」而这部剧没有可用文件夹（解析到根目录），先在这一行下面弹文件夹选择，选好才切（use-full-auto-folder.ts）；
+ * 追更面板（追剧日历页里展开）：总开关、熔断恢复、立即检查、「策略」跳到设置 · 自动追更（剧集的全局方式与资源偏好在那里改）；
+ * 最近在播的剧逐部一个「跟随 / 单独设」胶囊（ItemPolicyMenu）：跟随即方式与偏好都按全局，单独设在这一行下面展开
+ * GrabOverrideForm 覆盖方式与资源偏好；转存位置胶囊（剧集默认目录 / 最近使用 / 浏览 115 目录树，没单独选时跟剧集默认目录）。
+ * 一部剧实际会变成全自动而它没有可用文件夹（解析到根目录）时，先在这一行下面弹文件夹选择，选好才切（use-full-auto-folder.ts）；
  * 下面是已追剧最近各集的状态与候选（见 AutograbEpisodes），focusKey 指定要定位的一集。
  */
 import { computed, ref } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import { toast } from '@/components/ui/toast'
-import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import {
   type FolderPick,
@@ -188,29 +146,28 @@ import {
   TargetFolderPill,
 } from '@/features/netdisk'
 import type { AutograbSeries } from '../../../../../shared/contract/autograb'
-import type {
-  AutograbPrefs,
-  AutograbPrefsOverride,
-} from '../../../../../shared/contract/autograb-prefs'
+import type { GrabPrefsOverride } from '../../../../../shared/contract/grab-prefs'
+import type { GrabMode } from '../../../../../shared/contract/grab-policy'
 import {
   type TargetFolder,
   folderOf,
 } from '../../../../../shared/netdisk/target-folder'
 
+import { canResume, confirmsLeft, overviewNotice } from '../autograb-rules'
+import { openAutograbSettings } from '../open-settings'
 import {
-  MODE_OPTIONS,
-  SERIES_MODE_OPTIONS,
-  canResume,
-  confirmsLeft,
-  overviewNotice,
-} from '../autograb-rules'
-import { overrideSummary } from '../prefs-rules'
+  TV_MODE_OPTIONS,
+  isCustom,
+  optionLabel,
+  overrideSummary,
+  prefsSummary,
+} from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
 import { useFullAutoFolder } from '../use-full-auto-folder'
-import { usePolicyFolder } from '../use-policy-folder'
 import AutograbEpisodes from './AutograbEpisodes.vue'
 import AutograbFolderPrompt from './AutograbFolderPrompt.vue'
-import AutograbPrefsForm from './AutograbPrefsForm.vue'
+import GrabOverrideForm from './GrabOverrideForm.vue'
+import ItemPolicyMenu from './ItemPolicyMenu.vue'
 
 defineProps<{ focusKey?: string | null }>()
 
@@ -221,40 +178,36 @@ const fullAuto = useFullAutoFolder({
   setSeries: ag.setSeries,
   warn: text => void toast.warning(text),
 })
-const policyFolder = usePolicyFolder({
-  targetCid: () => ag.overview.value?.defaultFolder.cid ?? null,
-  setMode: mode => ag.setPolicy({ mode }),
-  saveDefaultFolder: async folder => {
-    // 设置模块导入时就要读存储，按需加载，免得只用 autograbAvailable 的模块（片库详情）连带初始化设置
-    const { setSetting } = await import('@/features/settings')
-    await setSetting('pan115.tvCid', folder.cid)
-    await setSetting('pan115.tvName', folder.name)
-  },
-  warn: text => void toast.warning(text),
-})
 const notice = computed(() => (data.value ? overviewNotice(data.value) : null))
 const ready = computed(
   () => !!data.value?.ready.loggedIn && !!data.value.ready.pansou
 )
-/** 正在编辑的偏好：全局 / 某部剧 / 没有 */
-const editing = ref<'global' | number | null>(null)
+/** 全局策略的一句话：全自动 · 均衡 · 4K */
+const policyText = computed(() => {
+  const policy = data.value?.policy
+  if (!policy) return ''
+  return `${optionLabel(TV_MODE_OPTIONS, policy.mode)} · ${prefsSummary(policy.prefs)}`
+})
+/** 正在单独设哪部剧；null = 没有 */
+const editing = ref<number | null>(null)
 
-function toggleSeriesPrefs(seriesId: number): void {
-  editing.value = editing.value === seriesId ? null : seriesId
-}
-
-async function saveGlobal(
-  prefs: AutograbPrefs | AutograbPrefsOverride
-): Promise<void> {
+/** 跟随全局：清掉覆盖项，方式设回跟随（全局是全自动且没文件夹时先选文件夹） */
+async function follow(series: AutograbSeries): Promise<void> {
   editing.value = null
-  await ag.setPrefs(prefs as AutograbPrefs)
+  if (Object.keys(series.prefs).length)
+    await ag.setSeries(series.seriesId, { prefs: {} })
+  if (series.mode !== 'inherit') await fullAuto.changeMode(series, 'inherit')
 }
 
+/** 单独设：先存覆盖项，方式变了再切（切全自动可能先弹文件夹选择） */
 async function saveSeries(
-  seriesId: number,
-  prefs: AutograbPrefs | AutograbPrefsOverride
+  series: AutograbSeries,
+  result: { mode: GrabMode; prefs: GrabPrefsOverride }
 ): Promise<void> {
-  if (await ag.setSeries(seriesId, { prefs })) editing.value = null
+  if (!(await ag.setSeries(series.seriesId, { prefs: result.prefs }))) return
+  editing.value = null
+  if (result.mode !== series.mode)
+    await fullAuto.changeMode(series, result.mode)
 }
 
 /** 一部剧的转存位置胶囊：单独选了文件夹显示它，否则是「剧集默认目录」 */

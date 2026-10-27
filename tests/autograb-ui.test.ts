@@ -15,14 +15,20 @@ import {
   sizeText,
 } from '../src/renderer/src/features/autograb/autograb-rules'
 import {
+  RESOLUTION_OPTIONS,
   draftOfOverride,
+  isCustom,
+  itemPolicyText,
   overrideOfDraft,
   overrideSummary,
   parseGb,
   parseWords,
-  prefsOfDraft,
+  patchPrefs,
+  prefsSummary,
+  withInherit,
 } from '../src/renderer/src/features/autograb/prefs-rules'
 import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
+import { DEFAULT_GRAB_PREFS } from '../src/shared/contract/grab-prefs'
 import { policyOf } from '../src/shared/contract/grab-policy'
 import type {
   AutograbEpisode,
@@ -155,35 +161,102 @@ describe('追更偏好表单', () => {
     expect(parseGb('-1')).toBeNull()
   })
 
-  it('每剧覆盖：空字段跟随全局', () => {
+  it('每部覆盖：跟随与空字段不写，其余照写', () => {
     const draft = draftOfOverride({})
     expect(draft.resolution).toBe('inherit')
+    expect(draft.dolbyVision).toBe('inherit')
     expect(overrideOfDraft(draft)).toEqual({})
     expect(
-      overrideOfDraft({ ...draft, resolution: '1080p', exclude: 'HDR' })
-    ).toEqual({ resolution: '1080p', excludeWords: ['HDR'] })
-    expect(prefsOfDraft({ ...draft, max: '8' }).maxMb).toBe(8192)
+      overrideOfDraft({
+        ...draft,
+        resolution: '1080p',
+        dolbyVision: 'avoid',
+        chineseSubs: 'require',
+        exclude: 'HDR',
+        max: '8',
+      })
+    ).toEqual({
+      resolution: '1080p',
+      dolbyVision: 'avoid',
+      chineseSubs: 'require',
+      excludeWords: ['HDR'],
+      maxMb: 8192,
+    })
+    expect(draftOfOverride({ strategy: 'compact', minMb: 512 })).toMatchObject({
+      strategy: 'compact',
+      min: '0.5',
+    })
+  })
+
+  it('摘要：全局写取向与动过的项，覆盖只写设了的', () => {
+    expect(prefsSummary(DEFAULT_GRAB_PREFS)).toBe('均衡')
+    expect(
+      prefsSummary({
+        ...DEFAULT_GRAB_PREFS,
+        strategy: 'quality',
+        resolution: '2160p',
+        dolbyVision: 'prefer',
+        chineseSubs: 'require',
+      })
+    ).toBe('画质优先 · 4K · 优先 DV · 必须中字')
     expect(
       overrideSummary({ resolution: '1080p', excludeWords: ['HDR'] })
     ).toBe('1080p · 排除 HDR')
+    expect(overrideSummary({ minResolution: '1080p', hdr: 'avoid' })).toBe(
+      '至少 1080p · 避开 HDR'
+    )
+    expect(overrideSummary({})).toBe('')
+  })
+
+  it('跟随 / 单独设：方式单独设或覆盖了偏好都算单独', () => {
+    expect(isCustom('inherit', {})).toBe(false)
+    expect(isCustom('auto', {})).toBe(true)
+    expect(isCustom('inherit', { resolution: '2160p' })).toBe(true)
+    expect(itemPolicyText(false, 'auto')).toBe('跟随 · 全自动')
+    expect(itemPolicyText(true, 'confirm')).toBe('单独 · 待确认')
+  })
+
+  it('「跟随」选项写全局值；全局改一项拼出整份偏好', () => {
+    const options = withInherit(RESOLUTION_OPTIONS, '2160p')
+    expect(options[0]).toEqual({
+      value: 'inherit',
+      label: '跟随',
+      title: '跟随全局（4K）',
+    })
+    expect(options).toHaveLength(RESOLUTION_OPTIONS.length + 1)
+    const next = patchPrefs(DEFAULT_GRAB_PREFS, {
+      hdr: 'avoid',
+      prefer: 'ADWeb，WEB-DL',
+      max: '20',
+    })
+    expect(next).toMatchObject({
+      hdr: 'avoid',
+      preferWords: ['ADWeb', 'WEB-DL'],
+      maxMb: 20480,
+      strategy: 'balanced',
+    })
+    expect(patchPrefs(next, { max: '' }).maxMb).toBeNull()
   })
 })
 
 const SFCS = [
-  'AutograbPanel.vue',
-  'AutograbEpisodes.vue',
-  'AutograbPrefsForm.vue',
-  'AutograbMarkChip.vue',
+  'features/autograb/components/AutograbPanel.vue',
+  'features/autograb/components/AutograbEpisodes.vue',
+  'features/autograb/components/GrabOverrideForm.vue',
+  'features/autograb/components/ItemPolicyMenu.vue',
+  'features/autograb/components/AutograbMarkChip.vue',
+  'features/autograb-upgrade/components/MoviesPanel.vue',
+  'features/autograb-upgrade/components/UpgradePanel.vue',
+  'features/autograb-upgrade/settings/AutograbSettings.vue',
+  'features/autograb-upgrade/settings/KindPolicyGroup.vue',
+  'features/autograb-upgrade/settings/KindPrefsGroup.vue',
+  'components/ui/UiGlassSelect.vue',
+  'features/online/components/DoubanBrowse.vue',
 ]
 
-describe('追更组件', () => {
+describe('追更与自动追更设置组件', () => {
   it.each(SFCS)('%s 能编译', name => {
-    const path = join(
-      __dirname,
-      '..',
-      'src/renderer/src/features/autograb/components',
-      name
-    )
+    const path = join(__dirname, '..', 'src/renderer/src', name)
     const { descriptor, errors } = parse(readFileSync(path, 'utf8'), {
       filename: path,
     })

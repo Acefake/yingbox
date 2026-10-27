@@ -8,6 +8,10 @@ import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
 import { installPrivateSkills } from '@/features/assistant'
 import { aiAvailable } from '@/features/ai'
+import {
+  autograbSettingsSection,
+  autograbUpgradeAvailable,
+} from '@/features/autograb-upgrade'
 import { ladaSettingsSection } from '@/features/lada'
 import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
 import { notifyAvailable, notifySettingsSection } from '@/features/notify'
@@ -50,6 +54,8 @@ for (const section of [
 }
 // 网盘（115 登录、转存）只在桌面端
 if (netdiskAvailable) registerSettingsSection(netdiskSettingsSection)
+// 自动追更的全局策略（追更 / 电影追踪可用时）
+if (autograbUpgradeAvailable) registerSettingsSection(autograbSettingsSection)
 // 入库推送与自动字幕只在桌面端（主进程 / 媒体库引擎）
 if (notifyAvailable) registerSettingsSection(notifySettingsSection)
 
