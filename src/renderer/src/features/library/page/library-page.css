@@ -17,3 +17,9 @@
 .lib-wall-skeleton {
   margin: 0 var(--content-padding-x);
 }
+
+/* 环境光（ambient/）是第一个定位子元素：后面的内容要定位才能叠在它上面（工具栏和 .lib-main 本来就是 relative） */
+.lib-page > .nl-bar,
+.lib-page > .lib-activity {
+  position: relative;
+}
