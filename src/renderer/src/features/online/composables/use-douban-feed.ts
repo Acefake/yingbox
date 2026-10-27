@@ -45,6 +45,8 @@ export interface DoubanFeed {
   reload(): Promise<void>
   /** 改条件（只给要改的字段）；条件没变不重取 */
   setQuery(patch: Partial<DoubanQuery>): Promise<void>
+  /** 整个换成另一组条件（浏览页进入某个类型 / 片单）；条件没变不重取 */
+  replaceQuery(query: DoubanQuery): Promise<void>
 }
 
 /** 依赖（测试替换） */
@@ -54,6 +56,8 @@ export interface DoubanFeedDeps {
   enrich?: (items: DoubanItem[], kind: DoubanQuery['kind']) => unknown
   /** 记住条件的存储；null 不记 */
   storage?: Pick<Storage, 'getItem' | 'setItem'> | null
+  /** 初始条件（存储里没有时）；默认电影 · 热门 */
+  initial?: DoubanQuery
 }
 
 /** sessionStorage 里条件的键 */
@@ -76,21 +80,27 @@ export const doubanItemOf = (s: DoubanSubject): DoubanItem => ({
   kind: s.kind,
 })
 
-function readQuery(storage: DoubanFeedDeps['storage']): DoubanQuery {
+function readQuery(
+  storage: DoubanFeedDeps['storage'],
+  initial: DoubanQuery
+): DoubanQuery {
   try {
     const saved = storage?.getItem(QUERY_KEY)
-    return saved
-      ? normalizeDoubanQuery(JSON.parse(saved))
-      : defaultDoubanQuery()
+    return saved ? normalizeDoubanQuery(JSON.parse(saved)) : initial
   } catch {
-    return defaultDoubanQuery()
+    return initial
   }
 }
 
 /** 创建一份豆瓣浏览状态 */
 export function createDoubanFeed(deps: DoubanFeedDeps): DoubanFeed {
   const storage = deps.storage ?? null
-  const query = ref<DoubanQuery>(readQuery(storage))
+  const query = ref<DoubanQuery>(
+    readQuery(
+      storage,
+      normalizeDoubanQuery(deps.initial ?? defaultDoubanQuery())
+    )
+  )
   const items = ref<DoubanItem[]>([])
   const status = ref<DoubanFeedStatus>('idle')
   const refreshing = ref(false)
@@ -137,6 +147,22 @@ export function createDoubanFeed(deps: DoubanFeedDeps): DoubanFeed {
     }
   }
 
+  /** 换成 nextQuery 并记住；条件没变（且取过）不重取 */
+  function apply(nextQuery: DoubanQuery): Promise<void> {
+    if (
+      JSON.stringify(nextQuery) === JSON.stringify(query.value) &&
+      status.value !== 'idle'
+    )
+      return Promise.resolve()
+    query.value = nextQuery
+    try {
+      storage?.setItem(QUERY_KEY, JSON.stringify(nextQuery))
+    } catch {
+      // 存不下就只在本次会话内存里
+    }
+    return restart()
+  }
+
   function restart(): Promise<void> {
     generation++
     next = 0
@@ -167,20 +193,9 @@ export function createDoubanFeed(deps: DoubanFeedDeps): DoubanFeed {
             patch.tag
             ? { ...defaultDoubanQuery(query.value.kind), tag: patch.tag }
             : { ...query.value, ...patch }
-      const nextQuery = normalizeDoubanQuery(merged)
-      if (
-        JSON.stringify(nextQuery) === JSON.stringify(query.value) &&
-        status.value !== 'idle'
-      )
-        return Promise.resolve()
-      query.value = nextQuery
-      try {
-        storage?.setItem(QUERY_KEY, JSON.stringify(nextQuery))
-      } catch {
-        // 存不下就只在本次会话内存里
-      }
-      return restart()
+      return apply(normalizeDoubanQuery(merged))
     },
+    replaceQuery: next => apply(normalizeDoubanQuery(next)),
   }
 }
 

@@ -1,48 +1,49 @@
 <template>
-  <div ref="root" class="home-section">
-    <!-- 与首页其它分区同一种分区标题；右侧切换与筛选同为 36px 的胶囊控件 -->
-    <UiSectionHeader :title="query.kind === 'movie' ? '热门电影' : '热门剧集'">
+  <div ref="root" class="db-browse">
+    <header class="db-head">
+      <UiIconButton
+        icon="back"
+        label="返回首页"
+        variant="secondary"
+        @click="emit('back')"
+      />
+      <h1 class="db-title">{{ title }}</h1>
       <UiSegmented
+        v-if="target.type !== 'list'"
         label="电影或剧集"
         :model-value="query.kind"
         :options="KIND_OPTIONS"
-        @update:model-value="kind => feed.setQuery({ kind })"
+        @update:model-value="kind => emit('kind', kind)"
       />
-      <UiButton
-        icon="filter"
-        label="筛选"
-        :pressed="panelOpen || filtersOn"
-        :aria-expanded="panelOpen"
-        @click="panelOpen = !panelOpen"
-      />
-      <UiButton
-        v-if="collapsible"
-        variant="plain"
-        label="收起"
-        @click="emit('collapse')"
-      />
-    </UiSectionHeader>
+    </header>
 
-    <!-- 默认一行快捷标签；动了多维筛选时快捷标签都不选中 -->
-    <MediaFilterBar
-      :rows="tagRows"
-      :model-value="{ tag: query.tag }"
-      @update:model-value="next => feed.setQuery({ tag: next.tag })"
-    />
-    <div v-if="panelOpen" class="db-filters">
-      <MediaFilterBar
-        :rows="filterRows"
-        :model-value="filterValues"
-        @update:model-value="applyFilters"
+    <!-- 片单是豆瓣快捷标签，和多维筛选互斥，所以片单页没有这一行 -->
+    <div v-if="target.type !== 'list'" class="db-filters">
+      <BrowseFilterPill
+        v-for="pill in pills"
+        :key="pill.key"
+        :pill="pill"
+        @select="value => feed.setQuery(filterPatch(pill.key, value))"
       />
-      <UiButton
-        v-if="filtersOn"
-        class="db-clear"
-        variant="plain"
-        size="sm"
-        label="清除筛选"
-        @click="feed.setQuery({ tag: '热门' })"
-      />
+      <span class="db-filters-gap" />
+      <template v-if="chips.length">
+        <UiChip
+          v-for="chip in chips"
+          :key="chip.key"
+          class="db-chip"
+          size="md"
+          :aria-label="`去掉条件：${chip.label}`"
+          @click="feed.setQuery(clearFilterPatch(chip.key))"
+        >
+          {{ chip.label }}<UiIcon name="close" size="sm" />
+        </UiChip>
+        <UiButton
+          variant="plain"
+          size="sm"
+          label="清除"
+          @click="feed.setQuery(CLEAR_ALL_PATCH)"
+        />
+      </template>
     </div>
 
     <!-- 首屏骨架；换条件时保留旧海报直到新一批到达（不塌高、不改滚动位置） -->
@@ -100,13 +101,17 @@
 
 <script setup lang="ts">
 /**
- * 在线首页的豆瓣区：电影 / 电视剧切换、一行快捷标签，「筛选」展开多维面板（类型、地区、年代、排序、评分下限）。
- * 列表滚到底自动取下一页（UiVirtualGrid 的 reach-end），失败可重试。
+ * 首页的浏览页（热门全部 / 某个类型 / 某个精选片单）：返回 + 大标题 + 电影 / 剧集分段，
+ * 下一行是 排序 / 地区 / 年代 / 评分 下拉胶囊（BrowseFilterPill），右侧是已选条件 chip（点了去掉）和「清除」，
+ * 下面是海报网格，滚到底自动取下一页（UiVirtualGrid 的 reach-end），失败可重试。
  * 桌面端电影卡右上角多一个「找 115 资源」，打开与 AI 助手共用的候选面板。
- * 状态在 use-douban-feed 的模块级单例里（会话级记住条件）；在线页被 keep-alive 切走时记下滚动位置，回来恢复。
- * 首页平时显示货架（DoubanShelf），点「全部 / 筛选」才换成这里（collapsible：多一个「收起」回到货架）。
+ *
+ * 条件和列表在 use-douban-feed 的模块级单例里（会话级记住）：进入目标时按 nextBrowseQuery 换条件，
+ * 同一页面再进来保留上次的筛选。在线页被 keep-alive 切走时记下滚动位置，回来恢复。
+ * 切电影 / 剧集 emit kind（在线页改路由参数），返回 emit back。
  */
 import UiButton from '@/components/ui/UiButton.vue'
+import UiChip from '@/components/ui/UiChip.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
@@ -115,10 +120,6 @@ import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import { listWaiting } from '@/components/ui/feedback'
-import MediaFilterBar, {
-  type MediaFilterRow,
-} from '@/components/MediaFilterBar.vue'
-import UiSectionHeader from '@/components/ui/UiSectionHeader.vue'
 import {
   computed,
   nextTick,
@@ -127,36 +128,38 @@ import {
   onDeactivated,
   onMounted,
   ref,
+  watch,
 } from 'vue'
 
-import {
-  type DoubanKind,
-  type DoubanSort,
-  GENRES,
-  MIN_RATINGS,
-  QUICK_TAGS,
-  REGIONS,
-  SORTS,
-  eraOptions,
-  hasFilters,
-} from '../../../../../shared/douban/query'
-import { useDoubanFeed } from '../composables/use-douban-feed'
+import type { DoubanKind } from '../../../../../shared/douban/query'
 import { isFavorite, toggleFavorite } from '../composables/favorites'
+import { useDoubanFeed } from '../composables/use-douban-feed'
 import type { DoubanItem } from '../types'
+import {
+  CLEAR_ALL_PATCH,
+  clearFilterPatch,
+  filterChips,
+  filterPatch,
+  filterPills,
+} from '../utils/browse-filters'
+import {
+  type BrowseTarget,
+  browseTitle,
+  nextBrowseQuery,
+} from '../utils/browse-target'
 import {
   doubanDiscoverReady,
   loadDoubanDiscover,
   openDoubanDiscover,
 } from '../utils/douban-discover'
 import { doubanPreviewSource } from '../utils/douban-preview'
+import BrowseFilterPill from './BrowseFilterPill.vue'
 
-const props = defineProps<{
-  /** 首页从货架展开来的：标题行多一个「收起」，并默认展开筛选面板 */
-  collapsible?: boolean
-}>()
+const props = defineProps<{ target: BrowseTarget }>()
 const emit = defineEmits<{
-  (e: 'open', item: DoubanItem): void
-  (e: 'collapse'): void
+  open: [item: DoubanItem]
+  kind: [kind: DoubanKind]
+  back: []
 }>()
 
 const PAGE_SIZE = 16
@@ -168,8 +171,9 @@ const KIND_OPTIONS: Array<{ value: DoubanKind; label: string }> = [
 const feed = useDoubanFeed()
 const { query, items, status, refreshing } = feed
 
-const filtersOn = computed(() => hasFilters(query.value))
-const panelOpen = ref(filtersOn.value || props.collapsible)
+const title = computed(() => browseTitle(props.target))
+const pills = computed(() => filterPills(query.value))
+const chips = computed(() => filterChips(query.value))
 
 const pending = computed(
   () => status.value === 'loading' || status.value === 'idle'
@@ -182,75 +186,6 @@ const footer = computed(() => {
   if (status.value === 'ended') return items.value.length ? 'end' : 'empty'
   return null
 })
-
-const option = (
-  value: string,
-  label = value
-): MediaFilterRow['options'][0] => ({
-  value,
-  label,
-})
-const tagRows = computed<MediaFilterRow[]>(() => [
-  {
-    key: 'tag',
-    label: '分类',
-    options: QUICK_TAGS[query.value.kind].map(tag => option(tag)),
-  },
-])
-const filterRows = computed<MediaFilterRow[]>(() => [
-  {
-    key: 'genre',
-    label: '类型',
-    options: [
-      option('', '全部'),
-      ...GENRES[query.value.kind].map(g => option(g)),
-    ],
-  },
-  {
-    key: 'region',
-    label: '地区',
-    options: [
-      option('', '全部'),
-      ...REGIONS[query.value.kind].map(r => option(r)),
-    ],
-  },
-  {
-    key: 'era',
-    label: '年代',
-    options: [
-      option('', '全部'),
-      ...eraOptions(new Date().getFullYear()).map(e => option(e)),
-    ],
-  },
-  {
-    key: 'sort',
-    label: '排序',
-    options: SORTS.map(s => option(s.value, s.label)),
-  },
-  {
-    key: 'rating',
-    label: '评分',
-    options: MIN_RATINGS.map(n =>
-      option(String(n), n ? `${n} 分以上` : '不限')
-    ),
-  },
-])
-const filterValues = computed(() => ({
-  genre: query.value.genre,
-  region: query.value.region,
-  era: query.value.era,
-  sort: query.value.sort,
-  rating: String(query.value.minRating),
-}))
-const applyFilters = (next: Record<string, string>): void => {
-  void feed.setQuery({
-    genre: next.genre,
-    region: next.region,
-    era: next.era,
-    sort: next.sort as DoubanSort,
-    minRating: Number(next.rating),
-  })
-}
 
 /*
  * 滚动位置：在线页的滚动容器（OnlineView 的 .primary-scroll）被 keep-alive 切走时整块离开文档，
@@ -265,15 +200,28 @@ const rememberScroll = (): void => {
 }
 const restoreScroll = (): void => {
   void nextTick(() => {
-    if (scrollEl && feed.scrollTop) scrollEl.scrollTop = feed.scrollTop
+    if (scrollEl) scrollEl.scrollTop = feed.scrollTop
     tracking = true
   })
 }
+
+// 进入 / 切换目标：换条件时回到顶部；条件已合适（同一页面再进来）就沿用列表与滚动位置
+watch(
+  () => props.target,
+  (target, prev) => {
+    const next = nextBrowseQuery(target, query.value, prev)
+    if (!next) return void feed.start()
+    feed.scrollTop = 0
+    if (scrollEl) scrollEl.scrollTop = 0
+    void feed.replaceQuery(next)
+  },
+  { immediate: true }
+)
+
 onMounted(() => {
   scrollEl = root.value?.closest<HTMLElement>('.primary-scroll') ?? null
   scrollEl?.addEventListener('scroll', rememberScroll, { passive: true })
   restoreScroll()
-  void feed.start()
   void loadDoubanDiscover()
 })
 onBeforeUnmount(() => scrollEl?.removeEventListener('scroll', rememberScroll))
@@ -282,17 +230,41 @@ onActivated(restoreScroll)
 </script>
 
 <style scoped>
-.home-section {
+.db-browse {
   display: flex;
   flex-direction: column;
-  gap: var(--space-6);
+  gap: var(--space-5);
+}
+
+.db-head {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+}
+.db-title {
+  margin: 0 var(--space-1) 0 0;
+  overflow: hidden;
+  color: var(--text-primary);
+  font-family: var(--font-display);
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
+  letter-spacing: var(--tracking-tight);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 
 .db-filters {
   display: flex;
-  flex-direction: column;
-  align-items: flex-start;
+  flex-wrap: wrap;
+  align-items: center;
   gap: var(--space-2);
+}
+.db-filters-gap {
+  flex: 1;
+}
+.db-chip {
+  gap: var(--space-1_5);
 }
 
 .ui-poster-grid.is-refreshing {

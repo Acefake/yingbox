@@ -59,7 +59,7 @@ describe('在线收藏共享列表', () => {
 
   it('首页与「我的收藏」页都改同一份收藏，不直接读写 localStorage', () => {
     const root = 'src/renderer/src/features/online/components/'
-    const douban = readFileSync(`${root}DoubanSection.vue`, 'utf8')
+    const douban = readFileSync(`${root}DoubanBrowse.vue`, 'utf8')
     const collection = readFileSync(`${root}LibraryCollection.vue`, 'utf8')
     expect(douban).toContain("from '../composables/favorites'")
     expect(collection).toContain('clearFavorites()')
