@@ -105,7 +105,9 @@
         >
           <template #default="{ item }">
             <NetdiskResult
+              v-link-check="item"
               :item="item"
+              :link-state="linkCheck.stateOf(item.url)"
               :previewing="preview.item.value?.url === item.url"
               :preview-loading="
                 preview.loading.value && preview.item.value?.url === item.url
@@ -161,6 +163,7 @@ import NetdiskPreview from '../components/NetdiskPreview.vue'
 import NetdiskResult from '../components/NetdiskResult.vue'
 import OfflineTasks from '../components/OfflineTasks.vue'
 import { useHeroMatch } from '../composables/use-hero-match'
+import { useLinkCheck } from '../composables/use-link-check'
 import { useNetdiskSearch } from '../composables/use-netdisk-search'
 import { useNetdiskStatus } from '../composables/use-netdisk-status'
 import { useOfflineAdd } from '../composables/use-offline'
@@ -237,8 +240,14 @@ const sortOptions: SelectOption[] = [
   { value: 'date', label: '按时间' },
   { value: 'size', label: '按体积' },
 ]
+// 可见的 115 分享按需检测有效性，失效的沉到最后（useLinkCheck 节流提交，列表不会一条条跳）
+const linkCheck = useLinkCheck({
+  api: netdisk,
+  instance: () => pansouUrl.value,
+})
+const vLinkCheck = linkCheck.vLinkCheck
 const shareRows = computed(() =>
-  sortReleases(items.value, sort.value, item => item)
+  linkCheck.order(sortReleases(items.value, sort.value, item => item))
 )
 const magnetRows = computed(() =>
   sortReleases(magnets.value, sort.value, item => item)
@@ -281,7 +290,7 @@ const bestSpecs = computed(() =>
 )
 
 const actions = useShareActions({
-  api: netdisk,
+  api: linkCheck.guardReceive(netdisk),
   notify: toast,
   clipboard: () => navigator.clipboard,
 })
