@@ -1,156 +1,151 @@
 <template>
-  <div class="netdisk-view">
-    <PageHeader
-      title="网盘搜索"
-      :count="items.length + magnets.length || undefined"
-      description="用 PanSou / Torznab 搜 115 分享和磁力：分享查看文件后一键转存，磁力一键 115 离线下载，完成后自动入库"
-    >
-      <template #actions>
-        <UiButton
-          icon="settings"
-          label="网盘设置"
-          :disabled="!available"
-          @click="openNetdiskSettings"
-        />
-      </template>
-    </PageHeader>
-
-    <StatusState
-      v-if="!available"
-      icon="database"
-      title="网盘需要桌面端或片库服务"
-      hint="网页版要连上片库服务才能登录 115"
+  <div ref="scroller" class="netdisk-view primary-scroll" @scroll="onScroll">
+    <NetdiskHero
+      ref="heroEl"
+      v-model:keyword="keyword"
+      :match="match"
+      :summary="summary"
+      :status="statusItems"
+      :specs="bestSpecs"
+      :loading="loading"
+      :disabled="!available || !configured"
+      :settings-disabled="!available"
+      :can-save-best="Boolean(bestShare)"
+      :best-saving="bestShare ? actions.isSaving(bestShare.item.url) : false"
+      :best-saved="bestShare ? actions.isSaved(bestShare.item.url) : false"
+      @search="runSearch"
+      @settings="openNetdiskSettings"
+      @save-best="saveBest"
+      @magnet="showMagnets"
     />
-    <StatusState
-      v-else-if="!pansouUrl && !torznabReady"
-      icon="search"
-      title="先设置 PanSou 或 Torznab 地址"
-      hint="PanSou 聚合各频道的 115 分享和磁力，Torznab（Prowlarr / Jackett）搜 BT 站的磁力。在设置 · 网盘里填自部署的地址。"
-    >
-      <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
-    </StatusState>
-    <template v-else>
-      <form class="netdisk-search" role="search" @submit.prevent="search">
-        <UiInput
-          v-model="keyword"
-          class="netdisk-search-input"
-          variant="filled"
-          icon="search"
-          clearable
-          aria-label="搜索 115 分享和磁力"
-          placeholder="片名、剧名…"
-        />
-        <!-- UiButton 固定 type="button"：点击只走 @click，回车走表单 submit，不会一次搜两遍 -->
-        <UiButton
-          class="netdisk-search-go"
-          variant="primary"
-          size="lg"
-          label="搜索"
-          :loading="loading"
-          :disabled="!keyword.trim()"
-          @click="search"
-        />
-      </form>
 
-      <NetdiskPreview
-        v-if="preview.item.value"
-        :item="preview.item.value"
-        :snap="preview.snap.value"
-        :loading="preview.loading.value"
-        :saving="actions.isSaving(preview.item.value.url)"
-        :saved="actions.isSaved(preview.item.value.url)"
-        @save="actions.save(preview.item.value)"
-        @close="actions.closePreview"
-      />
-
-      <div class="netdisk-tabs">
-        <UiSegmented v-model="tab" :options="tabs" label="结果类型" />
-        <p
-          v-if="tab !== 'offline' && notes.length"
-          class="netdisk-notes"
-          role="status"
-        >
-          {{ notes.join('；') }}
-        </p>
-      </div>
-      <OfflineTasks v-if="tab === 'offline'" />
+    <div class="netdisk-body">
       <StatusState
-        v-else-if="error"
-        tone="danger"
-        title="搜索失败"
-        :hint="error"
+        v-if="!available"
+        icon="database"
+        title="网盘需要桌面端或片库服务"
+        hint="网页版要连上片库服务才能登录 115"
+      />
+      <StatusState
+        v-else-if="!configured"
+        icon="search"
+        title="先设置 PanSou 或 Torznab 地址"
+        hint="PanSou 聚合各频道的 115 分享和磁力，Torznab（Prowlarr / Jackett）搜 BT 站的磁力。在设置 · 网盘里填自部署的地址。"
       >
         <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
       </StatusState>
-      <StatusState
-        v-else-if="searched && !loading && !shown.length"
-        icon="search"
-        :title="tab === 'share' ? '没有找到 115 分享' : '没有找到磁力'"
-        hint="换个关键词，或在设置里检查 PanSou / Torznab 地址"
-      />
-      <UiVirtualGrid
-        v-if="!error && tab === 'magnet'"
-        tag="ul"
-        class="netdisk-results"
-        :items="magnets"
-        :item-key="item => `${item.kind}:${item.hash}`"
-      >
-        <template #default="{ item }">
-          <MagnetResult
-            :item="item"
-            :adding="offlineAdd.isAdding(item.link)"
-            :added="offlineAdd.isAdded(item.link)"
-            @copy="actions.copy(item)"
-            @offline="offlineAdd.add(item)"
+      <template v-else>
+        <NetdiskPreview
+          v-if="preview.item.value"
+          :item="preview.item.value"
+          :snap="preview.snap.value"
+          :loading="preview.loading.value"
+          :saving="actions.isSaving(preview.item.value.url)"
+          :saved="actions.isSaved(preview.item.value.url)"
+          @save="actions.save(preview.item.value)"
+          @close="actions.closePreview"
+        />
+
+        <div ref="tabsEl" class="netdisk-tabs">
+          <UiSegmented v-model="tab" :options="tabs" label="结果类型" />
+          <p
+            v-if="tab !== 'offline' && notes.length"
+            class="netdisk-notes"
+            role="status"
+          >
+            {{ notes.join('；') }}
+          </p>
+          <UiSelect
+            v-if="tab !== 'offline'"
+            v-model="sort"
+            class="netdisk-sort"
+            size="sm"
+            :options="sortOptions"
+            aria-label="排序"
           />
-        </template>
-      </UiVirtualGrid>
-      <UiVirtualGrid
-        v-else-if="!error && tab === 'share'"
-        tag="ul"
-        class="netdisk-results"
-        :items="items"
-        :item-key="item => `${item.shareCode}/${item.receiveCode}`"
-      >
-        <template #default="{ item }">
-          <NetdiskResult
-            :item="item"
-            :previewing="preview.item.value?.url === item.url"
-            :preview-loading="
-              preview.loading.value && preview.item.value?.url === item.url
-            "
-            :saving="actions.isSaving(item.url)"
-            :saved="actions.isSaved(item.url)"
-            @copy="actions.copy(item)"
-            @preview="togglePreview(item)"
-            @save="actions.save(item)"
-          />
-        </template>
-      </UiVirtualGrid>
-    </template>
+        </div>
+        <OfflineTasks v-if="tab === 'offline'" />
+        <StatusState
+          v-else-if="error"
+          tone="danger"
+          title="搜索失败"
+          :hint="error"
+        >
+          <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
+        </StatusState>
+        <StatusState
+          v-else-if="searched && !loading && !shown.length"
+          icon="search"
+          :title="tab === 'share' ? '没有找到 115 分享' : '没有找到磁力'"
+          hint="换个关键词，或在设置里检查 PanSou / Torznab 地址"
+        />
+        <UiVirtualGrid
+          v-if="!error && tab === 'magnet'"
+          tag="ul"
+          class="netdisk-results"
+          :items="magnetRows"
+          :item-key="item => `${item.kind}:${item.hash}`"
+        >
+          <template #default="{ item }">
+            <MagnetResult
+              :item="item"
+              :adding="offlineAdd.isAdding(item.link)"
+              :added="offlineAdd.isAdded(item.link)"
+              @copy="actions.copy(item)"
+              @offline="offlineAdd.add(item)"
+            />
+          </template>
+        </UiVirtualGrid>
+        <UiVirtualGrid
+          v-else-if="!error && tab === 'share'"
+          tag="ul"
+          class="netdisk-results"
+          :items="shareRows"
+          :item-key="item => `${item.shareCode}/${item.receiveCode}`"
+        >
+          <template #default="{ item }">
+            <NetdiskResult
+              :item="item"
+              :previewing="preview.item.value?.url === item.url"
+              :preview-loading="
+                preview.loading.value && preview.item.value?.url === item.url
+              "
+              :saving="actions.isSaving(item.url)"
+              :saved="actions.isSaved(item.url)"
+              @copy="actions.copy(item)"
+              @preview="togglePreview(item)"
+              @save="actions.save(item)"
+            />
+          </template>
+        </UiVirtualGrid>
+      </template>
+    </div>
   </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 网盘搜索页：关键词 → PanSou（115 分享 + 磁力 / 电驴）与 Torznab（磁力）→ 两组结果，用分段控件切换
- * （虚拟列表，行等高）。115 分享：查看文件是一个玻璃浮层（NetdiskPreview），转存在结果卡片与浮层上；
- * 磁力行显示来源标签、大小、做种与规格，可一键加进 115 离线下载；第三段「离线任务」看经影盒添加的云下载进度
- * （打开页面带 ?tab=offline 直接显示）。一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。
- * 两个来源都没填时引导去设置；需要 115 登录的操作未登录时由主进程返回提示。
+ * 网盘搜索页：顶部海报 Hero（NetdiskHero：搜索框、真实状态行；搜到能对上 TMDB 的片时换成剧照、
+ * 「转存最佳版本」与「磁力离线」），下面是 PanSou（115 分享 + 磁力 / 电驴）与 Torznab（磁力）两组结果，
+ * 用分段控件切换，右侧可按画质 / 时间 / 体积排序（虚拟列表，行等高，左侧画质角标）。
+ * 115 分享：查看文件是一个玻璃浮层（NetdiskPreview），转存在结果卡片与浮层上；磁力行可一键加进 115 离线下载；
+ * 第三段「离线任务」看经影盒添加的云下载进度（打开页面带 ?tab=offline 直接显示）。
+ * 一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。两个来源都没填时引导去设置。
+ * 页面铺到窗口左上角（Hero 压在浮动侧栏与窗口键胶囊下面）；Hero 在胶囊身后时经 useShellBackdrop 让胶囊换深色玻璃。
  */
-import { computed, onMounted, ref, watch } from 'vue'
+import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
-import PageHeader from '@/components/PageHeader.vue'
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiInput from '@/components/ui/UiInput.vue'
 import UiSegmented, {
   type SegmentedOption,
 } from '@/components/ui/UiSegmented.vue'
+import UiSelect, { type SelectOption } from '@/components/ui/UiSelect.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
+import { releaseSpecs } from '@/components/ui/spec-badge'
 import { toast } from '@/components/ui/toast'
+import { useShellBackdrop } from '@/composables/use-shell-backdrop'
 import { useSetting } from '@/features/settings'
 import type { NetdiskItem } from '../../../../../shared/contract/pan115'
 
@@ -160,20 +155,56 @@ import {
   offlineDownloads,
   openNetdiskSettings,
 } from '../api'
-import NetdiskPreview from '../components/NetdiskPreview.vue'
 import MagnetResult from '../components/MagnetResult.vue'
+import NetdiskHero from '../components/NetdiskHero.vue'
+import NetdiskPreview from '../components/NetdiskPreview.vue'
 import NetdiskResult from '../components/NetdiskResult.vue'
 import OfflineTasks from '../components/OfflineTasks.vue'
-import { useOfflineAdd } from '../composables/use-offline'
+import { useHeroMatch } from '../composables/use-hero-match'
 import { useNetdiskSearch } from '../composables/use-netdisk-search'
+import { useNetdiskStatus } from '../composables/use-netdisk-status'
+import { useOfflineAdd } from '../composables/use-offline'
 import { useShareActions } from '../composables/use-share-actions'
+import { type HeroSummary, heroStatusItems } from '../utils/hero-status'
+import { formatBytes } from '../utils/netdisk-rules'
+import {
+  type ReleaseSort,
+  pickBest,
+  qualityLabel,
+  sizeFromTitle,
+  sortReleases,
+} from '../utils/release-quality'
 
 const available = netdiskAvailable
 const pansouUrl = useSetting('pan115.pansouUrl')
 const { keyword, items, magnets, notes, loading, searched, error, search } =
   useNetdiskSearch(netdisk)
-/** 填了 Torznab 地址（读一次；设置里改了回到本页会重新挂载） */
-const torznabReady = ref(false)
+const status = useNetdiskStatus({ pan115: netdisk, offline: offlineDownloads })
+const configured = computed(
+  () => Boolean(pansouUrl.value) || (status.torznabCount.value ?? 0) > 0
+)
+const statusItems = computed(() =>
+  heroStatusItems({
+    account: status.account.value,
+    pansou: Boolean(pansouUrl.value),
+    torznabCount: status.torznabCount.value,
+    offline: status.offline.value,
+  })
+)
+
+/** 最近一次提交搜索的词（Hero 拿它匹配影片，不跟着输入框每个字变） */
+const submitted = ref('')
+const { match } = useHeroMatch(submitted, {
+  tmdb: async () => (await import('@/features/online')).tmdb,
+})
+
+function runSearch(): void {
+  if (!keyword.value.trim()) return
+  submitted.value = keyword.value.trim()
+  void search()
+  if (available) void status.refresh()
+}
+
 type Tab = 'share' | 'magnet' | 'offline'
 const route = useRoute()
 const tab = ref<Tab>(route.query.tab === 'offline' ? 'offline' : 'share')
@@ -183,8 +214,21 @@ const tabs = computed<SegmentedOption<Tab>[]>(() => [
   { value: 'magnet', label: `磁力${count(magnets.value.length)}` },
   { value: 'offline', label: '离线任务' },
 ])
+const sort = ref<ReleaseSort>('default')
+const sortOptions: SelectOption[] = [
+  { value: 'default', label: '默认排序' },
+  { value: 'quality', label: '按画质' },
+  { value: 'date', label: '按时间' },
+  { value: 'size', label: '按体积' },
+]
+const shareRows = computed(() =>
+  sortReleases(items.value, sort.value, item => item)
+)
+const magnetRows = computed(() =>
+  sortReleases(magnets.value, sort.value, item => item)
+)
 const shown = computed(() =>
-  tab.value === 'share' ? items.value : magnets.value
+  tab.value === 'share' ? shareRows.value : magnetRows.value
 )
 // 新结果里 115 分享为空、磁力有结果时自动切到磁力；在看离线任务时搜索后回到结果
 watch([items, magnets], ([shares, links]) => {
@@ -192,14 +236,33 @@ watch([items, magnets], ([shares, links]) => {
   else if (shares.length && !links.length) tab.value = 'share'
   else if (tab.value === 'offline') tab.value = 'share'
 })
-onMounted(async () => {
-  if (!available) return
-  try {
-    torznabReady.value = (await netdisk().torznab()).urls.length > 0
-  } catch {
-    torznabReady.value = false
+
+/** 画质最高的 115 分享（「转存最佳版本」转存它）与全部结果里最好的一条（小结里的「最佳」） */
+const bestShare = computed(() => pickBest(items.value, item => item.title))
+const bestOverall = computed(() => {
+  const magnet = pickBest(magnets.value, item => item.title)
+  const share = bestShare.value
+  if (!share || (magnet && magnet.quality.rank > share.quality.rank))
+    return magnet
+      ? { ...magnet, size: magnet.item.size ?? 0, title: magnet.item.title }
+      : null
+  return { ...share, size: 0, title: share.item.title }
+})
+const summary = computed<HeroSummary | null>(() => {
+  if (!searched.value || error.value) return null
+  const best = bestOverall.value
+  const label = best ? qualityLabel(best.quality) : ''
+  const size = best ? formatBytes(best.size || sizeFromTitle(best.title)) : ''
+  return {
+    shares: items.value.length,
+    magnets: magnets.value.length,
+    best: label ? [label, size].filter(Boolean).join(' ') : '',
   }
 })
+const bestSpecs = computed(() =>
+  bestOverall.value ? releaseSpecs([bestOverall.value.title]) : []
+)
+
 const actions = useShareActions({
   api: netdisk,
   notify: toast,
@@ -212,43 +275,74 @@ const offlineAdd = useOfflineAdd({
   openLogin: openNetdiskSettings,
 })
 
+function saveBest(): void {
+  if (bestShare.value) void actions.save(bestShare.value.item)
+}
+
+const tabsEl = ref<HTMLElement | null>(null)
+
+/** 「磁力离线」：切到磁力页签并把结果区滚进视野 */
+function showMagnets(): void {
+  tab.value = 'magnet'
+  tabsEl.value?.scrollIntoView({ block: 'start' })
+}
+
 /** 再点同一条收起预览，点别的换成那一条 */
 function togglePreview(item: NetdiskItem): void {
   if (preview.item.value?.url === item.url) actions.closePreview()
   else void actions.openPreview(item)
 }
+
+// Hero 还在窗口键胶囊身后时，胶囊换成画面上的深色玻璃
+const scroller = ref<HTMLElement | null>(null)
+const heroEl = ref<{ $el: HTMLElement } | null>(null)
+const setShell = useShellBackdrop()
+
+function onScroll(): void {
+  const hero = heroEl.value?.$el
+  const top = scroller.value?.scrollTop ?? 0
+  setShell(Boolean(hero) && top < (hero?.offsetHeight ?? 0) - 80)
+}
+
+onActivated(() => {
+  onScroll()
+  if (available) void status.refresh()
+})
+onDeactivated(() => setShell(false))
 </script>
 
 <style scoped>
+/*
+ * 整页往左上让回外壳留出的 --shell-left / --shell-top，Hero 从窗口左上角开始，浮动侧栏和胶囊压在它上面
+ * （这里不建层叠上下文）。Hero 文案与结果区左边距 --netdisk-x = 侧栏让出的宽度 + 28px。
+ */
 .netdisk-view {
+  --netdisk-x: calc(var(--shell-left) + var(--space-6_5));
+  display: flex;
+  flex-direction: column;
+  height: calc(100% + var(--shell-top));
+  margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
+  overflow-y: auto;
+}
+.netdisk-body {
   display: flex;
   flex-direction: column;
   gap: var(--space-5);
-  max-width: calc(1136px + 2 * var(--content-padding-x));
-  padding: var(--content-padding-y) var(--content-padding-x);
-}
-.netdisk-search {
-  display: flex;
-  gap: var(--space-3);
-}
-.netdisk-search-input {
-  flex: 1;
-  height: var(--control-height-lg);
-  padding: 0 var(--space-4) 0 var(--space-5);
-  border-radius: var(--radius-full);
-  background: var(--bg-fill-tertiary);
-  font-size: var(--text-md);
-}
-.netdisk-search-go {
-  flex: none;
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(1136px + var(--netdisk-x) + var(--space-8));
+  padding: var(--space-2) var(--space-8) var(--space-11) var(--netdisk-x);
 }
 .netdisk-tabs {
   display: flex;
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
+  scroll-margin-top: var(--shell-top);
 }
 .netdisk-notes {
+  flex: 1;
+  min-width: 0;
   overflow: hidden;
   margin: 0;
   color: var(--text-secondary);
@@ -256,9 +350,22 @@ function togglePreview(item: NetdiskItem): void {
   text-overflow: ellipsis;
   white-space: nowrap;
 }
+.netdisk-sort {
+  flex: none;
+  width: auto;
+  margin-left: auto;
+}
 .netdisk-results {
   margin: 0;
   list-style: none;
   padding-inline: 0;
+}
+@media (max-width: 860px) {
+  .netdisk-view {
+    --netdisk-x: calc(var(--shell-left) + var(--space-5));
+  }
+  .netdisk-body {
+    padding-right: var(--space-5);
+  }
 }
 </style>
