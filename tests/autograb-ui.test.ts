@@ -23,6 +23,7 @@ import {
   prefsOfDraft,
 } from '../src/renderer/src/features/autograb/prefs-rules'
 import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
+import { policyOf } from '../src/shared/contract/grab-policy'
 import type {
   AutograbEpisode,
   AutograbOverview,
@@ -33,6 +34,7 @@ const base: AutograbOverview = {
   pausedUntil: null,
   pauseReason: null,
   spacePaused: null,
+  policy: policyOf(undefined, 'tv'),
   prefs: DEFAULT_PREFS,
   ready: { loggedIn: true, pansou: true },
   today: { snaps: 0, receives: 0 },
@@ -62,8 +64,9 @@ describe('追更面板规则', () => {
     expect(sizeText(2 * 1024 ** 3)).toBe('2.0 GB')
     expect(sizeText(300 * 1024 ** 2)).toBe('300 MB')
     expect(sizeText(0)).toBe('')
-    expect(confirmsLeft(1)).toBe(2)
-    expect(confirmsLeft(5)).toBe(0)
+    expect(confirmsLeft(1, 3)).toBe(2)
+    expect(confirmsLeft(5, 3)).toBe(0)
+    expect(confirmsLeft(0, 1)).toBe(1)
   })
 
   it('说明：错误优先，其次下次搜索时间', () => {

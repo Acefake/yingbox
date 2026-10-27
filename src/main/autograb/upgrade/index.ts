@@ -9,6 +9,7 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 import { autograbUpgrade } from '../../../shared/contract/autograb-upgrade'
+import type { GrabPolicy } from '../../../shared/contract/grab-policy'
 import { atomicWrite } from '../../file-operations'
 import type { LibraryEngineClient } from '../../library/client'
 import type { ModuleHost } from '../../module-host'
@@ -24,7 +25,8 @@ export function registerAutograbUpgrade(
   host: ModuleHost,
   library: LibraryEngineClient,
   pan: PanAdapter,
-  gate: () => Promise<Gate>
+  gate: () => Promise<Gate>,
+  policies: Record<'movie' | 'tv', () => Promise<GrabPolicy>>
 ): void {
   const file = join(host.dataDir, 'autograb-upgrade.json')
   const service = createUpgradeService({
@@ -33,6 +35,7 @@ export function registerAutograbUpgrade(
       query: query => library.call('query', query),
       getItem: itemId => library.call('getItem', { itemId }),
     },
+    prefsFor: kind => policies[kind]().then(p => p.prefs),
     gate,
     pan,
     mountRoot: () => host.setting('library.notify.mountRoot'),

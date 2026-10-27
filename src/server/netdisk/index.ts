@@ -164,8 +164,11 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
   const autograb = registerAutograb(host, library, pan115)
   const pan = createPanAdapter(pan115, () => settings.get('pan115.pansouUrl'))
   const gate = (): ReturnType<typeof autograb.gate> => autograb.gate()
-  registerAutograbUpgrade(host, library, pan, gate)
-  registerAutograbMovies(host, library, pan, gate)
+  const movies = registerAutograbMovies(host, library, pan, gate)
+  registerAutograbUpgrade(host, library, pan, gate, {
+    movie: () => movies.policy(),
+    tv: () => autograb.policy(),
+  })
   registerDiscover(host, library, pan115, autograb)
   registerOffline(host, library, pan115)
   log(

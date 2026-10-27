@@ -2,8 +2,9 @@
  * 追更：剧集库里已匹配 TMDB 的剧，新集播出后自动去 PanSou 搜 115 分享，验过文件后只把那一集转存到
  * 这部剧的 115 文件夹，再由 CloudDrive2 变更通知（或主动通知）入库。只有桌面端（115 会话在主进程）。
  *
- * 每部剧三档：不追 / 待确认（搜到候选等用户点转存）/ 全自动（分数过线直接存，开启后前几集仍要确认）。
- * 偏好（分辨率、偏好词、排除词、体积）全局一份、每剧可覆盖，见 autograb-prefs.ts。
+ * 方式三档：不追 / 待确认（搜到候选等用户点转存）/ 全自动（匹配分过线直接存，每部剧前几集仍要确认）。
+ * 剧集的全局策略（默认方式、新剧先确认几集、资源偏好，见 grab-policy.ts）管所有在播的剧；
+ * 每部剧「跟随全局」（inherit）或单独设方式 / 偏好。
  */
 import {
   type AutograbPrefs,
@@ -11,6 +12,13 @@ import {
   prefsOf,
   prefsOverrideOf,
 } from './autograb-prefs'
+import {
+  GRAB_MODES,
+  type GrabModeSetting,
+  type GrabPolicy,
+  type GrabPolicyPatch,
+  policyPatchOf,
+} from './grab-policy'
 import {
   ContractError,
   bool,
@@ -24,8 +32,12 @@ import {
 } from './define'
 
 /** 一部剧的追更方式 */
-export const AUTOGRAB_MODES = ['off', 'confirm', 'auto'] as const
+export const AUTOGRAB_MODES = GRAB_MODES
 export type AutograbMode = (typeof AUTOGRAB_MODES)[number]
+
+/** 一部剧的方式设置：跟随全局，或单独设一种 */
+export const AUTOGRAB_SERIES_MODES = ['inherit', ...GRAB_MODES] as const
+export type AutograbSeriesMode = GrabModeSetting
 
 /** 一集的状态 */
 export type AutograbStatus =
@@ -68,7 +80,12 @@ export interface AutograbCandidate {
 export interface AutograbSeries {
   seriesId: number
   title: string
-  mode: AutograbMode
+  /** 方式设置：inherit = 跟随全局 */
+  mode: AutograbSeriesMode
+  /** 实际生效的方式 */
+  effectiveMode: AutograbMode
+  /** 全自动前要手动确认几集（全局「新剧先确认」，单独设过的老剧可能自带门槛） */
+  confirmFirst: number
   /** 这部剧单独选的 115 文件夹 cid；空串 = 用剧集默认目录（没设时沿用原转存目标） */
   cid: string
   /** 文件夹显示名 */
@@ -111,7 +128,9 @@ export interface AutograbOverview {
   pauseReason: string | null
   /** 115 空间不足时自动转存暂停的原因；null = 没暂停 */
   spacePaused: string | null
-  /** 全局偏好 */
+  /** 剧集的全局策略 */
+  policy: GrabPolicy
+  /** 全局偏好（= policy.prefs） */
   prefs: AutograbPrefs
   /** 115 已登录、PanSou 已填 */
   ready: { loggedIn: boolean; pansou: boolean }
@@ -129,7 +148,7 @@ export interface AutograbOverview {
 
 /** 改一部剧的设置 */
 export interface AutograbSeriesPatch {
-  mode?: AutograbMode
+  mode?: AutograbSeriesMode
   cid?: string
   cidName?: string
   /** 整份替换这部剧的覆盖项（{} = 全跟随全局） */
@@ -143,7 +162,7 @@ const patchOf = (value: unknown): AutograbSeriesPatch => {
   const raw = record<Record<string, unknown>>(value, 'patch')
   const patch: AutograbSeriesPatch = {}
   if (raw.mode !== undefined)
-    patch.mode = oneOf(raw.mode, 'mode', AUTOGRAB_MODES)
+    patch.mode = oneOf(raw.mode, 'mode', AUTOGRAB_SERIES_MODES)
   if (raw.cid !== undefined) {
     const cid = str(raw.cid, 'cid')
     if (cid && !/^\d+$/.test(cid)) throw new ContractError('参数 cid 应为数字')
@@ -170,7 +189,15 @@ export const autograb = defineDomain(
       str(a[0], 'key'),
       int(a[1], 'index'),
     ]),
-    /** 改全局偏好（整份替换） */
+    /** 剧集的全局策略 */
+    policy: call<GrabPolicy>(),
+    /**
+     * 改剧集的全局策略。切全自动而剧集默认目录解析到根目录时拒绝（界面先让用户选目录）。
+     */
+    setPolicy: call<[patch: GrabPolicyPatch], AutograbResult>(a => [
+      policyPatchOf(record(a[0], 'patch'), 'tv'),
+    ]),
+    /** 改全局偏好（整份替换；= setPolicy({ prefs })） */
     setPrefs: call<[prefs: AutograbPrefs], void>(a => [
       prefsOf(record(a[0], 'prefs')),
     ]),

@@ -155,7 +155,7 @@ import { toast } from '@/components/ui/toast'
 import { NetdiskFolderPicker } from '@/features/netdisk'
 import { watchlistEntries } from '@/features/watchlist'
 import type {
-  MovieMode,
+  MovieModeSetting,
   MovieSearchHit,
 } from '../../../../../shared/contract/autograb-upgrade'
 import type { Pan115Dir } from '../../../../../shared/contract/pan115'
@@ -170,7 +170,8 @@ import {
 } from '../upgrade-rules'
 import { useOverview } from '../use-overview'
 
-const MODE_OPTIONS: { value: MovieMode; label: string }[] = [
+const MODE_OPTIONS: { value: MovieModeSetting; label: string }[] = [
+  { value: 'inherit', label: '跟随' },
   { value: 'confirm', label: '待确认' },
   { value: 'auto', label: '全自动' },
 ]
@@ -204,7 +205,7 @@ async function untrack(tmdbId: number): Promise<void> {
   ov.refresh()
 }
 
-async function setMode(tmdbId: number, mode: MovieMode): Promise<void> {
+async function setMode(tmdbId: number, mode: MovieModeSetting): Promise<void> {
   ov.report(await moviesApi().setMode(tmdbId, mode))
 }
 

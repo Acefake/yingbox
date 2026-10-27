@@ -1,16 +1,17 @@
 /**
- * 追更面板切「全自动」的守卫：这部剧没选文件夹、剧集默认目录也解析到根目录时，主进程会拒绝全自动，
- * 而「不追」时转存位置胶囊不显示，用户无处可选。这里改成先弹这部剧的文件夹选择：
- * 选好一个非根目录的文件夹后同时存文件夹并切到全自动；取消则什么都不改（仍是原来的模式）。
+ * 追更面板一部剧切到（或跟随成）「全自动」的守卫：这部剧没选文件夹、剧集默认目录也解析到根目录时，
+ * 主进程会拒绝全自动，而「不追」时转存位置胶囊不显示，用户无处可选。所以先弹这部剧的文件夹选择：
+ * 选好一个非根目录的文件夹后同时存文件夹并切到选的方式；取消则什么都不改（仍是原来的方式）。
  */
 import { type Ref, ref } from 'vue'
 
 import type {
-  AutograbMode,
   AutograbOverview,
   AutograbSeries,
+  AutograbSeriesMode,
   AutograbSeriesPatch,
 } from '../../../../shared/contract/autograb'
+import { effectiveMode } from '../../../../shared/contract/grab-policy'
 import {
   type TargetFolder,
   normalizeCid,
@@ -30,9 +31,9 @@ export interface FullAutoFolderDeps {
 export interface FullAutoFolder {
   /** 正在给哪部剧选文件夹；null = 没有 */
   picking: Ref<number | null>
-  /** 分段控件改模式：要先选文件夹时打开选择，否则直接存 */
-  changeMode(series: AutograbSeries, mode: AutograbMode): Promise<void>
-  /** 选好文件夹：存文件夹并切到全自动；根目录不行，继续选 */
+  /** 改方式：实际会是全自动且要先选文件夹时打开选择，否则直接存 */
+  changeMode(series: AutograbSeries, mode: AutograbSeriesMode): Promise<void>
+  /** 选好文件夹：存文件夹并切到选的方式；根目录不行，继续选 */
   pick(folder: TargetFolder): Promise<void>
   /** 取消选择，模式保持不变 */
   cancel(): void
@@ -41,17 +42,20 @@ export interface FullAutoFolder {
 /** 切全自动的守卫 */
 export function useFullAutoFolder(deps: FullAutoFolderDeps): FullAutoFolder {
   const picking = ref<number | null>(null)
+  /** 选好文件夹后要切到的方式 */
+  let pending: AutograbSeriesMode = 'auto'
 
   async function changeMode(
     series: AutograbSeries,
-    mode: AutograbMode
+    mode: AutograbSeriesMode
   ): Promise<void> {
     const overview = deps.overview()
     if (
-      mode === 'auto' &&
       overview &&
+      effectiveMode(mode, overview.policy) === 'auto' &&
       needsFolderForAuto(series, overview.defaultFolder)
     ) {
+      pending = mode
       picking.value = series.seriesId
       return
     }
@@ -70,7 +74,7 @@ export function useFullAutoFolder(deps: FullAutoFolderDeps): FullAutoFolder {
     const ok = await deps.setSeries(seriesId, {
       cid,
       cidName: folder.name,
-      mode: 'auto',
+      mode: pending,
     })
     if (ok && picking.value === seriesId) picking.value = null
   }

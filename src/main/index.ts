@@ -250,8 +250,22 @@ app.whenReady().then(async () => {
   const autograbPan = createPanAdapter(pan115Service, () =>
     moduleHost.setting('pan115.pansouUrl')
   )
-  registerAutograbUpgrade(moduleHost, libraryClient, autograbPan, autograbGate)
-  registerAutograbMovies(moduleHost, libraryClient, autograbPan, autograbGate)
+  const autograbMovies = registerAutograbMovies(
+    moduleHost,
+    libraryClient,
+    autograbPan,
+    autograbGate
+  )
+  registerAutograbUpgrade(
+    moduleHost,
+    libraryClient,
+    autograbPan,
+    autograbGate,
+    {
+      movie: () => autograbMovies.policy(),
+      tv: () => autograb.policy(),
+    }
+  )
   // 库外发现：助手 / 豆瓣卡「找 115 资源」，复用追更的闸门（见 src/main/discover）
   registerDiscover(moduleHost, libraryClient, pan115Service, autograb)
   // 115 离线下载：磁力 / 电驴加进云下载，完成后通知媒体库入库（见 src/main/offline）

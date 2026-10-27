@@ -1,15 +1,13 @@
 /**
- * 洗版状态：开关与目标、每个低分辨率文件一条记录、本地目录 → 115 cid 的缓存、拉黑的分享、每天的子限额，
+ * 洗版状态：开关、不限分辨率时沿用的老目标、上次清点用的规则、每个要洗的文件一条记录、本地目录 → 115 cid 的缓存、拉黑的分享、每天的子限额，
  * 存在 userData/autograb-upgrade.json。读的时候逐字段校验，认不出的丢掉。
  *
  * 键是条目 id（电影或单集），即幂等键：同一个条目只有一条记录，替换过的不会再替换。
  */
-import {
-  type GrabCandidate,
-  UPGRADE_TARGETS,
-  type UpgradeEntry,
-  type UpgradeStatus,
-  type UpgradeTarget,
+import type {
+  GrabCandidate,
+  UpgradeEntry,
+  UpgradeStatus,
 } from '../../../shared/contract/autograb-upgrade'
 import { type Budget, emptyBudget } from './quality-rules'
 import type { ScanHit } from './library-scan'
@@ -24,7 +22,13 @@ export interface UpgradeRecord extends UpgradeEntry {
 export interface UpgradeState {
   version: 1
   enabled: boolean
-  target: UpgradeTarget
+  /**
+   * 资源偏好的首选分辨率为「不限」时的洗版目标高度（1080 / 2160）：沿用原来洗版里选的目标，
+   * 没选过为 1080，不让老用户的洗版范围变大
+   */
+  target: number
+  /** 上次清点用的规则（目标 + 偏好）；规则变了就重新清点 */
+  rulesKey: string
   scannedAt: number | null
   records: Record<string, UpgradeRecord>
   /** 本地目录 → 115 cid */
@@ -53,6 +57,7 @@ export function emptyUpgradeState(now: number): UpgradeState {
     version: 1,
     enabled: false,
     target: 1080,
+    rulesKey: '',
     scannedAt: null,
     records: {},
     dirCids: {},
@@ -127,9 +132,8 @@ export function parseUpgradeState(raw: unknown, now: number): UpgradeState {
   const state = emptyUpgradeState(now)
   if (!isObj(raw) || raw.version !== 1) return state
   state.enabled = raw.enabled === true
-  state.target = UPGRADE_TARGETS.includes(raw.target as UpgradeTarget)
-    ? (raw.target as UpgradeTarget)
-    : 1080
+  state.target = raw.target === 2160 ? 2160 : 1080
+  state.rulesKey = typeof raw.rulesKey === 'string' ? raw.rulesKey : ''
   state.scannedAt = nOrNull(raw.scannedAt)
   if (isObj(raw.records))
     for (const [key, value] of Object.entries(raw.records)) {

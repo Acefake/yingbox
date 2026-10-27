@@ -194,7 +194,9 @@ describe('追更 · 状态文件', () => {
     )
     expect(state.enabled).toBe(false)
     expect(Object.keys(state.series)).toEqual(['12', '13'])
-    expect(state.series['13'].mode).toBe('off')
+    // 认不出的方式：跟随全局（老文件的全局是不追，等价于不追）
+    expect(state.series['13'].mode).toBe('inherit')
+    expect(state.policy.mode).toBe('off')
     expect(Object.keys(state.episodes)).toEqual(['12:1:1'])
     expect(Object.keys(state.blacklist)).toEqual(['live'])
   })

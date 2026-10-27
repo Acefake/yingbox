@@ -1,6 +1,16 @@
 /**
  * 追更服务的依赖：日历、媒体库通知、115 / PanSou、状态读写、时钟。由 index.ts 接到真实实现，测试可全部替换。
  */
+import type {
+  AutograbOverview,
+  AutograbResult,
+  AutograbSeriesPatch,
+} from '../../shared/contract/autograb'
+import type { AutograbPrefs } from '../../shared/contract/autograb-prefs'
+import type {
+  GrabPolicy,
+  GrabPolicyPatch,
+} from '../../shared/contract/grab-policy'
 import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
 import type { TargetFolder } from '../../shared/netdisk/target-folder'
 import type {
@@ -9,7 +19,7 @@ import type {
   FileChangeNotice,
 } from '../../shared/library/ipc'
 import type { DriveEntry, DriveSpace } from '../pan115/client'
-import type { GateKind } from './gate'
+import type { Gate, GateKind } from './gate'
 import type { AutograbState, EpisodeRecord } from './state'
 
 /** 依赖 */
@@ -59,4 +69,30 @@ export interface Pan115Guard {
   pauseReason(): string | null
   blocked(shareCode: string): boolean
   block(shareCode: string): void
+}
+
+/** 追更服务 */
+export interface AutograbService {
+  /** 跑一轮（已在跑时直接返回） */
+  tick(): Promise<void>
+  overview(): Promise<AutograbOverview>
+  setEnabled(enabled: boolean): Promise<void>
+  setSeries(
+    seriesId: number,
+    patch: AutograbSeriesPatch
+  ): Promise<AutograbResult>
+  setPrefs(prefs: AutograbPrefs): Promise<void>
+  policy(): Promise<GrabPolicy>
+  setPolicy(patch: GrabPolicyPatch): Promise<AutograbResult>
+  grab(key: string, index: number): Promise<AutograbResult>
+  revert(key: string): Promise<AutograbResult>
+  skip(key: string): Promise<void>
+  retry(key: string): Promise<void>
+  resume(): Promise<void>
+  /** 状态加载后的闸门：洗版、电影追踪的 115 请求也走它（同一队列、同一份限额与熔断） */
+  gate(): Promise<Gate>
+  /** 这一集是不是追更转存的、还在等入库（推送据此把新集标成追更） */
+  isSaved(seriesId: number, season: number, episode: number): boolean
+  /** 共用的闸门与拉黑表（状态加载后才返回；库外发现用） */
+  guard(): Promise<Pan115Guard>
 }
