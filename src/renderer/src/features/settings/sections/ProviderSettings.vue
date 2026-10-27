@@ -93,7 +93,7 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 服务：刮削服务（TMDB / 自定义）与 TMDB Token。普通字段即改即存（scrape.*），
+ * 设置 · 刮削：刮削服务（TMDB / 自定义）与 TMDB Token。普通字段即改即存（scrape.*），
  * TMDB Token 是密钥（加密存放，同步给媒体库引擎）。
  */
 import { computed, onBeforeUnmount } from 'vue'

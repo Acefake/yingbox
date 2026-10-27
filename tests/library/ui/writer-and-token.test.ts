@@ -1,5 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest'
-import { effectScope } from 'vue'
+import { effectScope, ref } from 'vue'
 
 // 设置层在 import 时会读快照（需要 window / localStorage），这里只测媒体库一侧的编排
 vi.mock('@/features/settings', () => ({
@@ -12,9 +12,11 @@ import type {
   OrganizePlan,
   ProviderStatus,
 } from '../../../src/shared/library/ipc'
+import { DEFAULT_WRITER_SETTINGS } from '../../../src/shared/library/ipc'
 import {
   runnableCount,
   useWriter,
+  useWriterSettings,
   writerActivity,
 } from '../../../src/renderer/src/features/library/writer/use-writer'
 
@@ -92,10 +94,31 @@ function installWriter(writer: Partial<LibraryWriterBridge> | undefined): void {
 }
 
 afterEach(() => {
+  vi.useRealTimers()
   vi.unstubAllGlobals()
 })
 
 describe('useWriter', () => {
+  it('开启整理后保存设置，重新读取时保持开启', async () => {
+    vi.useFakeTimers()
+    let saved = structuredClone(DEFAULT_WRITER_SETTINGS)
+    installWriter({
+      getSettings: vi.fn(async () => structuredClone(saved)),
+      setSettings: vi.fn(async value => {
+        saved = structuredClone(value)
+        return structuredClone(saved)
+      }),
+    })
+    const settings = useWriterSettings()
+    await vi.advanceTimersByTimeAsync(0)
+    settings.update(value => (value.organize.enabled = true))
+    await vi.advanceTimersByTimeAsync(400)
+
+    const reopened = useWriterSettings()
+    await vi.advanceTimersByTimeAsync(0)
+    expect(reopened.settings.value.organize.enabled).toBe(true)
+  })
+
   it('计划里有冲突的项不算在执行数里', () => {
     expect(runnableCount(PLAN)).toBe(2)
   })
@@ -155,6 +178,21 @@ describe('useWriter', () => {
     await writer.undoOrganize(42)
     expect(bridge.undoOrganize).toHaveBeenCalledWith(42)
     expect(writer.organize.value).toEqual({ stage: 'undone' })
+    scope.stop()
+  })
+
+  it('响应式条目列表可以传给整理预览', async () => {
+    const previewOrganize = vi.fn(async (itemIds: number[]) => {
+      expect(structuredClone(itemIds)).toEqual([1, 2])
+      return PLAN
+    })
+    installWriter({ previewOrganize })
+    const scope = effectScope()
+    const writer = scope.run(() => useWriter())!
+
+    await writer.previewOrganize(ref([1, 2]).value)
+
+    expect(writer.organize.value.stage).toBe('preview')
     scope.stop()
   })
 

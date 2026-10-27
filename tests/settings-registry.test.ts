@@ -23,9 +23,7 @@ describe('设置分区注册表', () => {
     registerSettingsSection(section('extra', 90))
     expect(ids()).toEqual([
       'appearance',
-      'images',
       'scrape',
-      'provider',
       'sources',
       'player',
       'danmaku',

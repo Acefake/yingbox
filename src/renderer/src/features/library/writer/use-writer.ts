@@ -4,7 +4,14 @@
  *
  * writer bridge 不存在（网页版 / 旧 preload）时 available 为 false，界面把入口置灰并提示。
  */
-import { type ComputedRef, type Ref, computed, ref, shallowRef } from 'vue'
+import {
+  type ComputedRef,
+  type Ref,
+  computed,
+  ref,
+  shallowRef,
+  toRaw,
+} from 'vue'
 
 import {
   DEFAULT_WRITER_SETTINGS,
@@ -97,7 +104,7 @@ export function useWriter(): UseWriter {
     try {
       organize.value = {
         stage: 'preview',
-        plan: await bridge.previewOrganize(itemIds),
+        plan: await bridge.previewOrganize([...itemIds]),
       }
     } catch (error) {
       organize.value = { stage: 'error', message: errorText(error) }
@@ -189,7 +196,7 @@ export function useWriterSettings(): {
     if (!bridge) return
     pending.value++
     bridge
-      .setSettings(structuredClone(settings.value))
+      .setSettings(structuredClone(toRaw(settings.value)))
       .then(value => {
         // 保存期间用户又改了（新的定时器在等），以界面上的为准
         if (!timer) settings.value = value

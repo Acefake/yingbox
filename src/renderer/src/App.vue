@@ -8,7 +8,6 @@
   </AppLayout>
   <MpvLoadingOverlay />
   <PlayerModal />
-  <SectionLockGate />
   <AssistantLauncher />
 </template>
 
@@ -16,5 +15,4 @@
 import { AssistantLauncher } from '@/features/assistant'
 import { AppLayout } from '@/features/shell'
 import { MpvLoadingOverlay, PlayerModal } from '@/features/player'
-import { SectionLockGate } from '@/features/section-lock'
 </script>

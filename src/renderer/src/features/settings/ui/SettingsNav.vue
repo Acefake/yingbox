@@ -56,7 +56,7 @@ const query = defineModel<string>('query', { required: true })
   flex-direction: column;
   min-height: 0;
   padding: var(--space-4) var(--space-3);
-  background: var(--bg-sidebar);
+  background: var(--bg-glass);
 }
 
 .settings-search {

@@ -1,5 +1,8 @@
 <template>
-  <SettingsGroup footer="尺寸越大越清晰，但下载更慢、占用更多空间。">
+  <SettingsGroup
+    title="图片质量"
+    footer="尺寸越大越清晰，但下载更慢、占用更多空间。"
+  >
     <SettingsRow
       v-for="row in rows"
       :key="row.key"
@@ -18,7 +21,7 @@
 
 <script setup lang="ts">
 /**
- * 设置 · 图片质量：海报 / 背景图 / 演员头像的 TMDB 下载尺寸（scrape.imageSize.*）。
+ * 刮削设置中的图片质量：海报 / 背景图 / 演员头像的 TMDB 下载尺寸（scrape.imageSize.*）。
  */
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'

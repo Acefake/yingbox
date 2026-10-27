@@ -3,6 +3,7 @@
     :open="open"
     :title="`${kindLabel}库设置`"
     icon="settings"
+    glass
     @close="emit('close')"
   >
     <!-- 文件夹 -->
@@ -59,47 +60,10 @@
       :update="updateAutomation"
     />
 
-    <LibraryNotifyGroup v-if="notifyAvailable && libraries.length" />
-
-    <ProgressSyncGroup v-if="progressSyncAvailable" />
-
     <WebDavGroup v-if="webdavAvailable" :section="section" />
 
     <!-- 元数据源 -->
     <SettingsGroup title="元数据">
-      <SettingsRow v-if="!isJav" title="TMDB 令牌" stacked>
-        <template #description>
-          {{ tokenStatusText }}。在
-          <a
-            href="https://www.themoviedb.org/settings/api"
-            target="_blank"
-            rel="noreferrer"
-            class="yb-link"
-            >TMDB API 设置</a
-          >
-          获取 Read Access Token。
-        </template>
-        <form class="lib-token" @submit.prevent="saveToken">
-          <UiInput
-            v-model="tokenInput"
-            type="password"
-            autocomplete="off"
-            aria-label="TMDB 令牌"
-            :placeholder="
-              tokenConfigured
-                ? '已配置，输入新令牌可替换'
-                : '粘贴 TMDB Read Access Token'
-            "
-          />
-          <UiButton
-            type="submit"
-            size="sm"
-            label="保存"
-            :loading="tokenSaving"
-            :disabled="!available || !tokenInput.trim()"
-          />
-        </form>
-      </SettingsRow>
       <SettingsRow title="识别全部" description="识别还没匹配的条目">
         <UiButton
           size="sm"
@@ -119,7 +83,6 @@
           @click="refreshAll"
         />
       </SettingsRow>
-      <AiScrapeSettingRow v-if="aiRowShown" />
     </SettingsGroup>
 
     <!-- 番号站点、站点凭据、演员资料来源只在番号页 -->
@@ -128,22 +91,15 @@
       <JavCredentialsGroup :open="open" />
       <ActorSourcesGroup :open="open" />
     </template>
-
-    <WriterSettingsGroups
-      :open="open"
-      :kind="spec.kind"
-      :kind-label="templateLabel"
-    />
   </LibrarySheet>
 </template>
 
 <script setup lang="ts">
 /**
  * 媒体库设置（macOS 系统设置式分组），按分区显示：
- * - 电影 / 剧集：文件夹、自动入库、WebDAV / Alist 远程源、TMDB 令牌与识别、写出 NFO 与图片、整理模板；
+ * - 电影 / 剧集：文件夹、自动入库、WebDAV / Alist 远程源与识别；
  * - 番号：文件夹（添加的就是番号库）、自动入库、识别（不需要 TMDB 令牌）、番号站点、站点凭据、
- *   演员资料来源、写出与整理（路径模板与电影共用）。
- * 写出与整理两组在 WriterSettingsGroups，走 window.api.library.writer。
+ *   演员资料来源。
  */
 import { confirmDialog, toast } from '@/components/ui'
 import { computed, ref, watch } from 'vue'
@@ -151,50 +107,31 @@ import { computed, ref, watch } from 'vue'
 import type { LibraryInfo } from '../../../../../shared/library/ipc'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiInput from '@/components/ui/UiInput.vue'
 
-import { errorText, libraryBridge, usesLibraryServer } from '../api/bridge'
+import { libraryBridge } from '../api/bridge'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
 import { type LibrarySection, SECTIONS } from '../state/library-section'
 import { useLibraries } from '../state/use-libraries'
-import { aiAvailable } from '@/features/ai'
 
-import AiScrapeSettingRow from '../ai-scrape/AiScrapeSettingRow.vue'
-import { sectionSupportsAi } from '../ai-scrape/ai-scrape-rules'
 import ActorSourcesGroup from './ActorSourcesGroup.vue'
 import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
-import LibraryNotifyGroup from './LibraryNotifyGroup.vue'
-import ProgressSyncGroup from './ProgressSyncGroup.vue'
-import WriterSettingsGroups from './WriterSettingsGroups.vue'
 import WebDavGroup from '../webdav/WebDavGroup.vue'
 import { webdavApi } from '../webdav/webdav-api'
-import { saveLibraryTmdbToken } from './provider-token'
-import { folderDescription, tokenStatus } from './settings-rules'
+import { folderDescription } from './settings-rules'
 
 const props = defineProps<{ open: boolean; section: LibrarySection }>()
 const emit = defineEmits<{ close: [] }>()
 
 const bridge = libraryBridge()
-/** 网盘变更通知端点在桌面端主进程里，网页端的片库服务没有。 */
-const notifyAvailable =
-  Boolean(window.api?.libraryNotify) && !usesLibraryServer()
-/** 观看进度同步由桌面端主进程连片库服务；网页端本来就直接读写服务端。 */
-const progressSyncAvailable =
-  Boolean(window.api?.progressSync) && !usesLibraryServer()
 /** WebDAV / Alist 源在桌面端主进程里，网页端没有。 */
 const webdavAvailable = Boolean(webdavApi())
 // 分区在面板生命周期内不变
 const spec = SECTIONS[props.section]
 const kindLabel = spec.label
 const isJav = props.section === 'jav'
-/** 整理路径模板按库类型存：番号库与电影共用电影模板。 */
-const templateLabel = isJav ? '电影与番号' : kindLabel
-/** AI 识别兜底开关：桌面端（主进程有 AI 服务）的电影 / 剧集分区。 */
-const aiRowShown =
-  aiAvailable() && !usesLibraryServer() && sectionSupportsAi(props.section)
 const {
   available,
   libraries,
@@ -246,11 +183,6 @@ function refreshAll(): void {
 
 // —— TMDB 令牌 ——
 const tokenConfigured = ref(false)
-const tokenInput = ref('')
-const tokenSaving = ref(false)
-const tokenStatusText = computed(() =>
-  tokenStatus(available, tokenConfigured.value)
-)
 
 async function loadTokenStatus(): Promise<void> {
   if (!bridge || isJav) return
@@ -258,21 +190,6 @@ async function loadTokenStatus(): Promise<void> {
     tokenConfigured.value = (await bridge.getProviderStatus()).tmdb.configured
   } catch {
     tokenConfigured.value = false
-  }
-}
-
-async function saveToken(): Promise<void> {
-  if (!bridge || !tokenInput.value.trim()) return
-  tokenSaving.value = true
-  try {
-    const status = await saveLibraryTmdbToken(bridge, tokenInput.value)
-    tokenConfigured.value = status.tmdb.configured
-    tokenInput.value = ''
-    toast.success('TMDB 令牌已保存')
-  } catch (error) {
-    toast.error(errorText(error))
-  } finally {
-    tokenSaving.value = false
   }
 }
 
@@ -284,13 +201,3 @@ watch(
   { immediate: true }
 )
 </script>
-
-<style scoped>
-.lib-token {
-  display: flex;
-  gap: var(--space-2);
-}
-.lib-token > :first-child {
-  flex: 1 1 auto;
-}
-</style>

@@ -182,9 +182,11 @@
       <span class="settings-usage">{{ usageText }}</span>
     </SettingsRow>
   </SettingsGroup>
+  <AssistantSettings />
 </template>
 
 <script setup lang="ts">
+import { AssistantSettings } from '@/features/assistant'
 /**
  * 设置 · AI：所有 AI 功能共用的模型配置（ai.*）。
  *

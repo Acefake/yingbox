@@ -53,7 +53,10 @@ describe('统一搜索的路由与排序', () => {
     expect(ruleFilter('星际穿越')).toEqual({})
   })
   it('普通查询始终排除私密来源，电影与剧集不串库', () => {
-    expect(scopeQuery('all')).toEqual({ source: 'tmdb' })
+    expect(scopeQuery('all')).toEqual({
+      source: 'tmdb',
+      types: ['movie', 'series'],
+    })
     expect(scopeQuery('tv')).toEqual({ source: 'tmdb', types: ['series'] })
     expect(scopeQuery('jav')).toEqual({ source: 'jav', types: ['movie'] })
   })

@@ -68,9 +68,10 @@ export function scopeQuery(scope: SearchScope): LibraryQuery {
     ? { source: 'jav', types: ['movie'] }
     : {
         source: 'tmdb',
-        ...(scope === 'all'
-          ? {}
-          : { types: [scope === 'tv' ? 'series' : 'movie'] }),
+        types:
+          scope === 'all'
+            ? ['movie', 'series']
+            : [scope === 'tv' ? 'series' : 'movie'],
       }
 }
 

@@ -170,14 +170,6 @@ const ADDED_API: Record<string, string[]> = {
     'offInstalling',
   ],
   nowPlaying: ['report', 'onCommand', 'offCommand'],
-  sectionLock: [
-    'status',
-    'verify',
-    'setPassword',
-    'clearPassword',
-    'setConfig',
-    'promptSystem',
-  ],
   iptv: [
     'fetchPlaylist',
     'probeStream',

@@ -3,27 +3,21 @@ import './assets/main.css'
 import { createApp } from 'vue'
 import App from '@/App.vue'
 import router from '@/router/index'
-import { routes } from '@/router/routers'
 import { setupDirectives } from '@/directives'
 import { initTheme } from '@/utils/theme'
 import { registerPwa } from '@/pwa'
-import {
-  assistantSettingsSection,
-  installPrivateSkills,
-} from '@/features/assistant'
+import { installPrivateSkills } from '@/features/assistant'
 import { aiAvailable } from '@/features/ai'
-import { downloadSettingsSection } from '@/features/download'
 import { ladaSettingsSection } from '@/features/lada'
 import { netdiskAvailable, netdiskSettingsSection } from '@/features/netdisk'
 import { notifyAvailable, notifySettingsSection } from '@/features/notify'
 import { sourcesSettingsSection } from '@/features/online'
-import {
-  sectionLockAvailable,
-  sectionLockSettingsSection,
-} from '@/features/section-lock'
 import { getSetting, registerSettingsSection } from '@/features/settings'
 import { installWatchlist } from '@/features/watchlist'
-import { installLibraryProgress } from '@/features/library'
+import {
+  installLibraryProgress,
+  librarySettingsSection,
+} from '@/features/library'
 import { installPlayerHost } from '@/features/player'
 import { configureHoverPreview } from '@/components/ui/hover-preview'
 
@@ -48,10 +42,9 @@ initTheme()
 
 // 各 feature 自己定义设置分区，在应用入口组合进设置面板（按 order 排位）
 for (const section of [
-  assistantSettingsSection,
   sourcesSettingsSection,
   ladaSettingsSection,
-  downloadSettingsSection,
+  librarySettingsSection,
 ]) {
   registerSettingsSection(section)
 }
@@ -59,9 +52,6 @@ for (const section of [
 if (netdiskAvailable) registerSettingsSection(netdiskSettingsSection)
 // 入库推送与自动字幕只在桌面端（主进程 / 媒体库引擎）
 if (notifyAvailable) registerSettingsSection(notifySettingsSection)
-// 板块锁只在桌面端（主进程保存密码哈希）；可锁的板块读路由表
-if (sectionLockAvailable)
-  registerSettingsSection(sectionLockSettingsSection(routes))
 
 // 卡片悬停预览读设置里的开关与等待时间（每次悬停时读，改了立即生效）
 configureHoverPreview(() => ({

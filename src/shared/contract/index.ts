@@ -32,7 +32,6 @@ import { pan115 } from './pan115'
 import { playerWindow } from './player-window'
 import { progressSync } from './progress-sync'
 import { recap } from './recap'
-import { sectionLock } from './section-lock'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
@@ -70,7 +69,6 @@ export const contract = {
   playerWindow,
   progressSync,
   recap,
-  sectionLock,
   settings,
   shell,
   subtitle,

@@ -61,20 +61,27 @@
         @update:model-value="v => writer.update(s => (s.organize.enabled = v))"
       />
     </SettingsRow>
-    <SettingsRow :title="`${kindLabel}路径模板`" stacked>
+    <SettingsRow
+      v-for="item in templates"
+      :key="item.kind"
+      :title="`${item.label}路径模板`"
+      stacked
+    >
       <template #description>
-        可用变量：<code class="lib-code">{{ templateVariables }}</code>
+        可用变量：<code class="lib-code">{{
+          templateVariablesFor(item.kind)
+        }}</code>
       </template>
       <UiInput
-        :model-value="templateValue"
-        :aria-label="`${kindLabel}路径模板`"
+        :model-value="templateValue(item.kind)"
+        :aria-label="`${item.label}路径模板`"
         class="lib-template"
-        :invalid="Boolean(templateError)"
+        :invalid="Boolean(templateError(item.kind))"
         :disabled="!writer.available"
-        @update:model-value="setTemplate"
+        @update:model-value="value => setTemplate(item.kind, value)"
       />
-      <p v-if="templateError" class="lib-template-error">
-        {{ templateError }}
+      <p v-if="templateError(item.kind)" class="lib-template-error">
+        {{ templateError(item.kind) }}
       </p>
     </SettingsRow>
     <SettingsRow
@@ -102,7 +109,7 @@
  * 媒体库设置里的「写出 NFO 与图片」与「整理」两组：开关、已有 NFO 处理方式、图片项、
  * 路径模板（逐字校验）、最近的整理批次与撤销。不可用（网页版）时整组置灰并在组尾说明。
  */
-import { computed, ref, shallowRef, watch } from 'vue'
+import { reactive, shallowRef } from 'vue'
 
 import type {
   LibraryKind,
@@ -132,34 +139,31 @@ import {
   templateVariablesFor,
 } from './settings-rules'
 
-const props = defineProps<{
-  /** 设置面板是否打开（打开时刷新批次列表）。 */
-  open: boolean
-  kind: LibraryKind
-  kindLabel: string
-}>()
+const templates: { kind: LibraryKind; label: string }[] = [
+  { kind: 'movie', label: '电影与番号' },
+  { kind: 'tv', label: '剧集' },
+]
 
 const writer = useWriterSettings()
 const { listBatches, undoOrganize } = useWriter()
 const batches = shallowRef<OrganizeBatchInfo[]>([])
 
-const templateVariables = computed(() => templateVariablesFor(props.kind))
-const templateError = computed(() =>
-  validateTemplate(templateValue.value, props.kind)
-)
-const templateValue = computed(
-  () => templateDraft.value ?? templateOf(writer.settings.value, props.kind)
-)
-/** 模板逐字编辑：不合法时只在界面上提示，不下发（引擎也会拒绝）。 */
-const templateDraft = ref<string | null>(null)
+const templateDraft = reactive<Partial<Record<LibraryKind, string>>>({})
+const templateValue = (kind: LibraryKind): string =>
+  templateDraft[kind] ?? templateOf(writer.settings.value, kind)
+const templateError = (kind: LibraryKind): string | null =>
+  validateTemplate(templateValue(kind), kind)
 
-function setTemplate(value: string | number | null | undefined): void {
+function setTemplate(
+  kind: LibraryKind,
+  value: string | number | null | undefined
+): void {
   const text = String(value ?? '')
-  templateDraft.value = text
-  if (validateTemplate(text, props.kind)) return
-  templateDraft.value = null
+  templateDraft[kind] = text
+  if (validateTemplate(text, kind)) return
+  delete templateDraft[kind]
   writer.update(s => {
-    if (props.kind === 'movie') s.organize.movieTemplate = text
+    if (kind === 'movie') s.organize.movieTemplate = text
     else s.organize.tvTemplate = text
   })
 }
@@ -180,13 +184,7 @@ function undo(batchId: number): void {
   }, '已开始撤销')
 }
 
-watch(
-  () => props.open,
-  open => {
-    if (open) void loadBatches()
-  },
-  { immediate: true }
-)
+void loadBatches()
 </script>
 
 <style scoped>

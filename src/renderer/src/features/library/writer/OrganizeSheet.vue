@@ -25,7 +25,7 @@
         >。
       </p>
       <p v-if="!organizeEnabled" class="org-warning">
-        整理默认关闭。请先在媒体库设置的「整理」中开启，才能执行。
+        整理默认关闭。请先在「设置 → 媒体库」中开启「允许整理文件」，才能执行。
       </p>
       <div class="org-table-wrap custom-scrollbar">
         <table class="org-table">
