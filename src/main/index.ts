@@ -102,25 +102,25 @@ protocol.registerSchemesAsPrivileged([
 let mainWindow: BrowserWindow | null = null
 let playerWindow: PlayerWindowControl | null = null
 
-function getScreenBasedSize(
-  ratio = 0.85,
-  minW = 1200,
-  minH = 900
-): { width: number; height: number } {
-  const primary = screen.getPrimaryDisplay()
-  const { width: sw, height: sh } = primary.workAreaSize
-  const w = Math.min(sw, Math.max(Math.floor(sw * ratio), minW))
-  const h = Math.min(sh, Math.max(Math.floor(sh * ratio), minH))
-  return { width: w, height: h }
+/** 启动时的固定窗口尺寸（逻辑像素）；屏幕放不下时缩到工作区大小 */
+const START_SIZE = { width: 1440, height: 900 }
+
+function getStartSize(): { width: number; height: number } {
+  const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
+  return {
+    width: Math.min(sw, START_SIZE.width),
+    height: Math.min(sh, START_SIZE.height),
+  }
 }
 
 function createWindow(): void {
-  const { width, height } = getScreenBasedSize(0.85, 1200, 900)
+  const { width, height } = getStartSize()
   mainWindow = new BrowserWindow({
     width,
     height,
     minWidth: Math.min(1200, width),
     minHeight: Math.min(900, height),
+    center: true,
     show: false,
     frame: false,
     autoHideMenuBar: true,

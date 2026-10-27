@@ -6,7 +6,7 @@ import {
 } from '../../src/renderer/src/features/live/utils/live-now'
 import type { LiveChannel } from '../../src/renderer/src/features/live/utils/playlist-parse'
 
-/** 首页「正在直播」：收藏频道按收藏顺序，带当前节目、时段、剩余时间与进度；没有收藏或不在源里时为空 */
+/** 首页「正在直播」：收藏频道按收藏顺序，带当前节目、时段、剩余时间与进度；没有收藏或收藏都不在源里时退回源里最前的频道 */
 
 const channel = (name: string): LiveChannel =>
   ({
@@ -49,9 +49,12 @@ describe('liveNowCards', () => {
     })
   })
 
-  it('收藏了但不在当前直播源里的频道跳过；没有收藏为空；最多 limit 张', () => {
-    expect(liveNowCards(channels, ['cctv-5'], programmes, at(20))).toEqual([])
-    expect(liveNowCards(channels, [], programmes, at(20))).toEqual([])
+  it('收藏都不在源里或没有收藏时退回源里最前的频道；没有频道为空；最多 limit 张', () => {
+    const ids = (favs: string[]): string[] =>
+      liveNowCards(channels, favs, programmes, at(20)).map(c => c.channel.id)
+    expect(ids(['cctv-5'])).toEqual(['cctv-1', 'cctv-9', '湖南卫视'])
+    expect(ids([])).toEqual(['cctv-1', 'cctv-9', '湖南卫视'])
+    expect(liveNowCards([], ['cctv-9'], programmes, at(20))).toEqual([])
     expect(
       liveNowCards(channels, ['cctv-1', 'cctv-9', '湖南卫视'], {}, at(20), 2)
     ).toHaveLength(2)

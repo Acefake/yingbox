@@ -74,7 +74,8 @@ async function recentSummaries(limit: number): Promise<LibraryItemSummary[]> {
       offset: 0,
     })
     return result.items
-  } catch {
+  } catch (error) {
+    console.warn('[home] 刚入库查询失败', error)
     return []
   }
 }
@@ -83,34 +84,39 @@ const topLevel = (type: string): TopLevelItemType =>
   type === 'series' ? 'series' : 'movie'
 
 /**
- * 「刚入库」：最近入库的条目，带横版背景图和画质角标（角标要看视频文件名，逐条取详情；取不到的只是没有角标）。
+ * 「刚入库」：最近入库的条目和横版背景图，一次列表查询就返回（不等详情，先出卡）；
+ * 画质角标要看视频文件名，由 recentQualities 逐条取详情后补上。
  */
 export async function recentLibraryItems(
   limit = 12
 ): Promise<RecentLibraryItem[]> {
+  return (await recentSummaries(limit)).map(item => ({
+    id: item.id,
+    type: topLevel(item.type),
+    title: item.title,
+    year: item.year,
+    poster: itemImage(item.poster, 300),
+    backdrop: itemImage(item.backdrop, 780),
+    addedAt: item.addedAt,
+    quality: qualityBadge([], item.videoRange),
+  }))
+}
+
+/** 逐条取详情算画质角标（4K / 1080P，或杜比视界 / HDR）；取不到的保留列表里的角标 */
+export async function recentQualities(
+  items: readonly RecentLibraryItem[]
+): Promise<Array<SpecBadge | null>> {
   const bridge = libraryBridge()
-  const summaries = await recentSummaries(limit)
-  const nodes = await Promise.all(
-    summaries.map(item =>
-      bridge ? bridge.getItem(item.id).catch(() => null) : null
-    )
+  return Promise.all(
+    items.map(async item => {
+      const node = bridge
+        ? await bridge.getItem(item.id).catch(() => null)
+        : null
+      return node
+        ? (qualityBadge(videoNamesOf(node), node.videoRange) ?? item.quality)
+        : item.quality
+    })
   )
-  return summaries.map((item, index) => {
-    const node = nodes[index]
-    return {
-      id: item.id,
-      type: topLevel(item.type),
-      title: item.title,
-      year: item.year,
-      poster: itemImage(item.poster, 300),
-      backdrop: itemImage(item.backdrop, 780),
-      addedAt: item.addedAt,
-      quality: qualityBadge(
-        node ? videoNamesOf(node) : [],
-        node?.videoRange ?? item.videoRange
-      ),
-    }
-  })
 }
 
 /** 详情树 → Hero 的一页；没有背景图时为 null */
