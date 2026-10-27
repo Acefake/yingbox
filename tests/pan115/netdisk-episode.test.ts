@@ -129,6 +129,18 @@ describe('useEpisodeRows', () => {
     expect(rows.hiddenCount.value).toBe(0)
   })
 
+  it('更新至 / 集区间 / 季区间写法包含这一集时不折叠', () => {
+    const list = [
+      '嫁金钗 更新至S01E22',
+      '嫁金钗 第1集-第24集',
+      '嫁金钗 S01-S03',
+      '嫁金钗 S02-S03',
+    ]
+    const { rows } = setup(list, '嫁金钗 S01E20')
+    expect(names(rows.shareRows.value)).toEqual(list.slice(0, 3))
+    expect(rows.hiddenCount.value).toBe(1)
+  })
+
   it('一条这一集都没有时按钮提示', () => {
     const { rows } = setup(['嫁金钗 第19集'], '嫁金钗 第20集')
     expect(rows.shareRows.value).toEqual([])
