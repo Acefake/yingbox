@@ -9,7 +9,7 @@ import { createServer } from 'node:http'
 import { describeFetch } from '../main/library/platform/fetch'
 import { createServerApp } from './app'
 import { describeMonitor, loadConfig } from './config'
-import { exposureProblem } from './exposure'
+import { exposureProblem, exposureWarning } from './exposure'
 import { createNodeListener } from './http/adapter'
 
 const log = (message: string): void => console.log(`[yingbox] ${message}`)
@@ -22,7 +22,7 @@ function displayHost(host: string): string {
 
 async function main(): Promise<void> {
   const config = loadConfig(process.argv.slice(2), process.env)
-  // 对外监听要显式令牌（ADR-0010）：在打开数据库、生成令牌之前拦下
+  // 对外监听时设了弱令牌（ADR-0010）：在打开数据库之前拦下；没设令牌只警告，见下方启动日志
   const problem = exposureProblem(config.host, process.env)
   if (problem) throw new Error(problem)
   const app = await createServerApp(config, {
@@ -46,11 +46,19 @@ async function main(): Promise<void> {
   log(`媒体根目录：${config.mediaRoots.join('、')}`)
   log(`出网：${describeFetch(config.fetch)}`)
   log(`目录监控：${describeMonitor(config.monitor)}`)
+  const login = app.token ? `/?token=${encodeURIComponent(app.token)}` : ''
   log(
     config.webDir
-      ? `网页端：${base}/?token=${encodeURIComponent(app.token)}${app.tokenGenerated ? '（新生成的令牌）' : ''}`
-      : `未托管网页端（没有 dist-web）；API 令牌：${app.token}`
+      ? `网页端：${base}${login}`
+      : `未托管网页端（没有 dist-web）；API：${base}/api`
   )
+  log(
+    app.token
+      ? '访问令牌：已开启（YINGBOX_SERVER_TOKEN）'
+      : '访问令牌：未设置，不鉴权'
+  )
+  const warning = exposureWarning(config.host, process.env)
+  if (warning) console.warn(`[yingbox] 警告：${warning}`)
 
   let closing = false
   const shutdown = (signal: string): void => {

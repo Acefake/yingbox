@@ -2,7 +2,7 @@
  * Docker 部署文件的约定（Dockerfile / docker-compose.yml / .dockerignore），对应 ADR-0010：
  * - 基础镜像写死完整版本号 + 摘要，多阶段：构建工具（pnpm）不进运行镜像；
  * - 镜像不改监听地址（服务默认 127.0.0.1），入口脚本降权、自带健康检查；数据卷 /config、/cache；
- * - compose 示例默认只把端口映射到宿主 127.0.0.1，令牌必填，片库只读挂载；
+ * - compose 示例默认只把端口映射到宿主 127.0.0.1，令牌可选（留空不鉴权），片库只读挂载；
  * - .dockerignore 挡住 .git、依赖、构建产物与 .env，又不挡构建要用的文件。
  */
 import { readFileSync } from 'node:fs'
@@ -89,10 +89,11 @@ describe('docker-compose.yml', () => {
     for (const port of ports) expect(port).toMatch(/^127\.0\.0\.1:/)
   })
 
-  it('访问令牌必填（compose 缺值直接报错）', () => {
+  it('访问令牌可选（.env 没设时为空串，服务不鉴权）', () => {
     expect(compose).toMatch(
-      /YINGBOX_SERVER_TOKEN: '\$\{YINGBOX_SERVER_TOKEN:\?[^}]+\}'/
+      /YINGBOX_SERVER_TOKEN: '\$\{YINGBOX_SERVER_TOKEN:-\}'/
     )
+    expect(compose).not.toMatch(/YINGBOX_SERVER_TOKEN:\?/)
   })
 
   it('PUID / PGID 可配', () => {

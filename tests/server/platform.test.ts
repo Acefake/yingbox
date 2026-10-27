@@ -9,6 +9,7 @@ import {
   rmSync,
   statSync,
   symlinkSync,
+  writeFileSync,
 } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { tmpdir } from 'node:os'
@@ -25,7 +26,11 @@ import { createAuth, readCookie, sameOrigin } from '../../src/server/http/auth'
 import { Router } from '../../src/server/http/router'
 import { resolveStatic } from '../../src/server/http/static'
 import { resolveWithinRoots } from '../../src/server/routes/roots'
-import { FileSecretStore, ensureServerToken } from '../../src/server/secrets'
+import {
+  FileSecretStore,
+  dropLegacyServerToken,
+  serverTokenFromEnv,
+} from '../../src/server/secrets'
 
 describe('出网实现', () => {
   it('解析配置串', () => {
@@ -220,30 +225,43 @@ describe('密钥与鉴权', () => {
   })
   afterAll(() => rmSync(dir, { recursive: true, force: true }))
 
-  it('生成的令牌落盘为 0600，环境变量覆盖但不写回', () => {
+  it('密钥文件 0600；访问令牌只认环境变量，旧的自动生成令牌被删掉', () => {
     const file = join(dir, 'secrets.json')
-    const store = new FileSecretStore(file, {})
-    const first = ensureServerToken(store)
-    expect(first.generated).toBe(true)
-    expect(first.token.length).toBeGreaterThanOrEqual(40)
+    writeFileSync(
+      file,
+      JSON.stringify({ 'server.token': 'legacy', 'scrape.tmdbToken': 'tmdb' })
+    )
+    const store = new FileSecretStore(file)
+    expect(dropLegacyServerToken(store)).toBe(true)
+    expect(dropLegacyServerToken(store)).toBe(false)
+    const saved = JSON.parse(readFileSync(file, 'utf8')) as Record<
+      string,
+      string
+    >
+    expect(saved['server.token']).toBeUndefined()
+    expect(saved['scrape.tmdbToken']).toBe('tmdb')
     if (process.platform !== 'win32')
       expect(statSync(file).mode & 0o777).toBe(0o600)
-    expect(ensureServerToken(new FileSecretStore(file, {}))).toEqual({
-      token: first.token,
-      generated: false,
-    })
-    const fromEnv = new FileSecretStore(file, {
-      YINGBOX_SERVER_TOKEN: 'env-token',
-    })
-    expect(ensureServerToken(fromEnv).token).toBe('env-token')
-    expect(JSON.parse(readFileSync(file, 'utf8'))['server.token']).toBe(
-      first.token
+
+    expect(serverTokenFromEnv({})).toBeNull()
+    expect(serverTokenFromEnv({ YINGBOX_SERVER_TOKEN: '   ' })).toBeNull()
+    expect(serverTokenFromEnv({ YINGBOX_SERVER_TOKEN: ' env-token ' })).toBe(
+      'env-token'
     )
-    store.set('scrape.tmdbToken', 'x')
     store.set('scrape.tmdbToken', null)
-    expect(
-      new FileSecretStore(file, {}).get('scrape.tmdbToken')
-    ).toBeUndefined()
+    expect(new FileSecretStore(file).get('scrape.tmdbToken')).toBeUndefined()
+  })
+
+  it('没有令牌时不鉴权：放行所有请求，登录比对恒为 false', () => {
+    const open = createAuth(null)
+    expect(open.required).toBe(false)
+    expect(open.check(new Request('http://h/api/info'))).toBe(true)
+    expect(open.matches('anything')).toBe(false)
+    expect(open.matches(undefined)).toBe(false)
+    expect(createAuth('secret').required).toBe(true)
+    expect(createAuth('secret').check(new Request('http://h/api/info'))).toBe(
+      false
+    )
   })
 
   it('令牌比较、Cookie 解析、同源检查', () => {

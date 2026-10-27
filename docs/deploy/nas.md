@@ -8,19 +8,19 @@
 ## 先知道这几件事
 
 - **默认只有 NAS 本机能访问**：compose 示例把端口映射到宿主的 `127.0.0.1:31480`，给同机的反向代理用。局域网直接访问要把 `ports` 改成 `'31480:31480'`。
-- **访问令牌必填**：容器里监听 `0.0.0.0` 时，服务要求 `YINGBOX_SERVER_TOKEN` 至少 24 个字符、不是示例占位串，否则拒绝启动（日志里写明原因）。
+- **默认不用登录**：没设 `YINGBOX_SERVER_TOKEN` 时服务不鉴权，打开网页就能用；对外监听（容器里的 `0.0.0.0`）时启动日志会警告「局域网内任何人都能访问」。需要登录时在 `.env` 里设置可选的访问令牌（至少 24 个字符、不是示例占位串，否则拒绝启动），网页端第一次打开会要求输入。
 - **服务不以 root 运行**：容器以 root 启动入口脚本，把 `/config`、`/cache` 的属主改成 `PUID:PGID` 后降权。`PUID` / `PGID` 设成媒体文件的属主，或者至少是能读这些文件的用户。
 - **片库只读挂载**：浏览、扫描、刮削、播放都只需要读。要写 NFO / 图片或整理改名，去掉对应挂载的 `:ro`。
 - **镜像默认没有 ffmpeg / ffprobe**：多版本的 HDR / 杜比视界标退回看文件名，自动中文字幕不认内封字幕，按画面搜抽不了视频帧。构建参数 `WITH_CHROMIUM=1` 会一起装上（见「在线播放」），也可以设 `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 指向挂进容器的程序。自动中文字幕默认关，设 `YINGBOX_AUTO_SUBTITLES: 'on'` 并给 `YINGBOX_OPENSUBTITLES_KEY`（见 [library-server.md](../library-server.md)）。
 
 ## 目录映射
 
-| 容器内          | 放什么                                                                                                                                                             | 建议                                                                                   |
-| --------------- | ------------------------------------------------------------------------------------------------------------------------------------------------------------------ | -------------------------------------------------------------------------------------- |
-| `/config`       | `library.db`（片库数据库）、`secrets.json`（令牌，0600）；用了网盘时还有 `pan115-cookies.json`（0600）、`server-settings.json`、`autograb*.json`、`scheduler.lock` | 必须持久化、必须备份；只让服务用户可读                                                 |
-| `/cache`        | `media/`（海报原图、缩略图）等缓存                                                                                                                                 | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
-| `/media/<名字>` | 片库目录，可以挂多个                                                                                                                                               | 默认 `:ro`。网页端只能在 `/media` 以内浏览和建库                                       |
-| `/downloads`    | 在线板块的番号下载（`YINGBOX_DOWNLOAD_DIR`）                                                                                                                       | 要可写；入口只改这个目录本身的属主。可指向片库目录里的子文件夹，下完自动入库           |
+| 容器内          | 放什么                                                                                                                                                                             | 建议                                                                                   |
+| --------------- | ---------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------------------------------------------------------- |
+| `/config`       | `library.db`（片库数据库）、`secrets.json`（网页端填的 TMDB 令牌，0600）；用了网盘时还有 `pan115-cookies.json`（0600）、`server-settings.json`、`autograb*.json`、`scheduler.lock` | 必须持久化、必须备份；只让服务用户可读                                                 |
+| `/cache`        | `media/`（海报原图、缩略图）等缓存                                                                                                                                                 | 可以放 SSD。缩略图删了会重建；海报原图删了要对条目「刷新元数据」才回来，所以也建议备份 |
+| `/media/<名字>` | 片库目录，可以挂多个                                                                                                                                                               | 默认 `:ro`。网页端只能在 `/media` 以内浏览和建库                                       |
+| `/downloads`    | 在线板块的番号下载（`YINGBOX_DOWNLOAD_DIR`）                                                                                                                                       | 要可写；入口只改这个目录本身的属主。可指向片库目录里的子文件夹，下完自动入库           |
 
 `./yingbox/` 是 compose 示例的数据目录，已写进 `.gitignore` 与 `.dockerignore`，不会进 git 也不会进镜像。
 
@@ -31,13 +31,13 @@
 ```bash
 git clone https://github.com/Acefake/yingbox.git && cd yingbox
 id <媒体文件属主的用户名>        # 记下 uid / gid，填到 docker-compose.yml 的 PUID / PGID
-echo "YINGBOX_SERVER_TOKEN=$(openssl rand -hex 32)" > .env
+# 可选：需要登录时才写访问令牌 echo "YINGBOX_SERVER_TOKEN=$(openssl rand -hex 32)" > .env
 # 编辑 docker-compose.yml：PUID / PGID、片库挂载（/volume1/video/... 换成你的目录）、需要时改端口
 docker compose up -d --build
 docker compose ps                  # STATUS 里出现 (healthy) 即启动完成，约 30 秒
 ```
 
-浏览器打开 `http://127.0.0.1:31480/?token=<.env 里的令牌>`（局域网直连时把地址换成 NAS 的 IP），只需第一次带令牌，之后靠 Cookie。
+浏览器打开 `http://127.0.0.1:31480/`（局域网直连时把地址换成 NAS 的 IP）直接用。设了访问令牌时打开 `/?token=<.env 里的令牌>`，或在页面上输入一次，之后靠 Cookie。
 
 国内网络：
 
@@ -52,7 +52,7 @@ docker compose ps                  # STATUS 里出现 (healthy) 即启动完成�
 1. 套件中心装 **Container Manager**；控制面板 → 终端机和 SNMP 里打开 SSH（只为查 uid、构建时用，用完可以关）。
 2. 在 File Station 建 `/volume1/docker/yingbox`，把仓库放进去（SSH 里 `git clone`，或在电脑上下载 zip 后上传解压）。
 3. SSH 登录后执行 `id <你的用户名>`。群晖的第一个管理员用户通常是 `uid=1026`、`users` 组 `gid=100`，以实际输出为准。
-4. 编辑 `docker-compose.yml`：`PUID` / `PGID` 填上一步的值，片库挂载写成 `/volume1/<共享文件夹>/...:/media/...:ro`。在同一目录建 `.env` 写令牌。
+4. 编辑 `docker-compose.yml`：`PUID` / `PGID` 填上一步的值，片库挂载写成 `/volume1/<共享文件夹>/...:/media/...:ro`。需要登录时在同一目录建 `.env` 写访问令牌。
 5. Container Manager → 项目 → 新增：路径选 `/volume1/docker/yingbox`，来源选「使用现有的 docker-compose.yml」，按向导构建并启动。界面构建失败时，SSH 进该目录执行 `sudo docker compose up -d --build`，之后项目会出现在 Container Manager 里。
 6. 共享文件夹的权限里给这个用户至少「只读」；`/volume1/docker/yingbox/yingbox` 由入口脚本自动改属主，不用手动设。
 
@@ -65,7 +65,7 @@ DSM 自带反向代理：控制面板 → 登录门户 → 高级 → 反向代�
 3. 威联通的 `admin` 是 uid 0，入口脚本会拒绝 `PUID=0`：新建一个普通用户，给媒体共享文件夹读权限，`id <用户名>` 查 uid / gid。
 4. 编辑 `docker-compose.yml`：片库挂载写成 `/share/Multimedia/...:/media/...:ro`，配置和缓存可以改到 `/share/Container/yingbox/config`、`.../cache`。
 5. SSH 进仓库目录执行 `docker compose up -d --build`（`docker` 命令由 Container Station 提供，装好后才有）。容器之后会出现在 Container Station 里。
-   在 Container Station 的「应用程序 → 创建」里直接粘贴 YAML 也可以，但它不一定读取 `.env`，这时把 `YINGBOX_SERVER_TOKEN` 那一行的 `${...}` 整段换成令牌本身，并先在 SSH 里构建好镜像（`docker build -t yingbox-library:latest .`）。
+   在 Container Station 的「应用程序 → 创建」里直接粘贴 YAML 也可以，但它不一定读取 `.env`：要用访问令牌时把 `YINGBOX_SERVER_TOKEN` 那一行的 `${...}` 整段换成令牌本身（不用就留着，等于不鉴权），并先在 SSH 里构建好镜像（`docker build -t yingbox-library:latest .`）。
 
 反向代理：常用做法是再跑一个 Nginx Proxy Manager 或 Caddy 容器，见下文。
 
@@ -79,7 +79,7 @@ docker run -d --name yingbox-library --restart unless-stopped \
   --security-opt no-new-privileges:true \
   -p 127.0.0.1:31480:31480 \
   -e PUID=99 -e PGID=100 -e TZ=Asia/Shanghai \
-  -e YINGBOX_HOST=0.0.0.0 -e YINGBOX_SERVER_TOKEN='<至少 24 个字符的随机串>' \
+  -e YINGBOX_HOST=0.0.0.0 \
   -v /mnt/user/appdata/yingbox/config:/config \
   -v /mnt/cache/appdata/yingbox/cache:/cache \
   -v /mnt/user/media/movies:/media/movies:ro \
@@ -128,7 +128,7 @@ docker run -d --name yingbox-library --restart unless-stopped \
 
 在 compose 的 `environment:` 中设置 `YINGBOX_PUBLIC_ORIGIN: https://media.example.com`，填浏览器实际访问的协议、域名与端口，不带路径。服务据此写入 `Secure` Cookie 并校验完整同源，不信任 `X-Forwarded-*` 头。启用后在 HTTPS 地址重新登录；后端端口仅供可信反向代理访问。本地 HTTP 部署不设置此项。
 
-- **不要把 31480 直接映射到公网**。外网访问优先用 Tailscale / WireGuard 回家；确实要公网访问，走 HTTPS 反向代理，令牌就是唯一的门。
+- **不要把 31480 直接映射到公网**。外网访问优先用 Tailscale / WireGuard 回家；确实要公网访问，走 HTTPS 反向代理，并务必设置访问令牌：它就是唯一的门。
 - 反代和服务在同一台机器上时，保持 compose 里的 `127.0.0.1:31480:31480`，反代连 `127.0.0.1:31480`（反代自己也在容器里时，把两者放进同一个 Docker 网络，反代连 `yingbox:31480`，并删掉 `ports`）。
 - 要原样转发 `Host` 头（含非默认端口）：服务对改写类请求检查 `Origin` 与 `Host` 同源，Host 被改写或丢了端口，登录等请求会得到「跨站请求被拒绝」（403）。
 - 关掉事件流的缓冲、放宽读超时：`/api/library/events` 是 SSE 长连接。
@@ -234,7 +234,7 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 
 - 备份 `/config`（必须）和 `/cache`（建议）。停容器后复制目录即可；不停也行，但 `library.db` 用 WAL，要连同 `-wal`、`-shm` 一起复制。
 - **从只有 `/data` 一个卷的老配置迁移**：把老目录挂到 `/config`，并在 `environment` 里设 `YINGBOX_CACHE_DIR: /config`，数据原样可用；想拆开，就停容器、把老目录里的 `media/` 及其它缓存文件移到新的缓存目录，再按示例挂 `/cache`。
-- 启动后立即退出、日志里是「对外监听（0.0.0.0）必须设置访问令牌」：`.env` 没被读到或令牌太短。`docker compose config | grep TOKEN` 看实际值。
+- 启动后立即退出、日志里是「访问令牌只有 N 个字符」或「示例里的占位串」：设了访问令牌但太短 / 没改占位串，换成至少 24 个字符的随机串，或删掉它不鉴权。`docker compose config | grep TOKEN` 看实际值。
 - 日志里是「PUID / PGID 应为数字」或「不能是 0」：改 `PUID` / `PGID`。
 - 网页端看得到文件夹、看不到文件，或扫描报权限错误：`PUID` / `PGID` 没有读权限。`docker compose exec yingbox setpriv --reuid=<PUID> --regid=<PGID> --clear-groups ls /media/<名字>` 可以按服务的身份试读。
 - 健康检查一直 `unhealthy`：`docker inspect --format '{{json .State.Health}}' yingbox-library` 看每次检查的输出；改了 `YINGBOX_PORT` 时健康检查会跟着用新端口。

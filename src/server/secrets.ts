@@ -1,13 +1,11 @@
 /**
  * 服务端密钥存储（替代桌面端的 safeStorage）：<dataDir>/secrets.json，文件权限 0600。
  *
- * 环境变量优先、只读覆盖（不写回文件），便于 Docker / NAS 用编排文件注入：
- * - server.token      ← YINGBOX_SERVER_TOKEN（访问令牌）
- * - scrape.tmdbToken  ← 不覆盖：TMDB 环境变量由片库核心直接当兜底（envSecrets），
- *   文件里存的是用户在网页端填写的令牌，启动时补给片库（与桌面端 src/main/tmdb.ts 同一规则）。
+ * 文件里存的是用户在网页端填写的 TMDB 令牌（scrape.tmdbToken），启动时补给片库（与桌面端 src/main/tmdb.ts 同一规则）；
+ * TMDB 环境变量由片库核心直接当兜底（envSecrets），不经过这里。
+ * 访问令牌不落盘：只认环境变量 YINGBOX_SERVER_TOKEN（见 {@link serverTokenFromEnv}），没设就不鉴权。
  * NAS 上没有系统密钥链可用，安全性等同于数据目录的文件权限；数据目录请只让服务用户可读。
  */
-import { randomBytes } from 'node:crypto'
 import {
   chmodSync,
   mkdirSync,
@@ -19,31 +17,23 @@ import { dirname } from 'node:path'
 
 /** 密钥键。 */
 export const SECRET_KEYS = {
-  serverToken: 'server.token',
   tmdbToken: 'scrape.tmdbToken',
 } as const
 
-/** 环境变量覆盖表：键 → 变量名。 */
-const ENV_OVERRIDES: Record<string, string> = {
-  [SECRET_KEYS.serverToken]: 'YINGBOX_SERVER_TOKEN',
-}
+/** 早期版本首次启动自动生成并落盘的访问令牌键；启动时删掉（见 {@link dropLegacyServerToken}）。 */
+const LEGACY_SERVER_TOKEN_KEY = 'server.token'
 
-/** 文件 + 环境变量的密钥存储。 */
+/** 文件密钥存储。 */
 export class FileSecretStore {
   private values: Record<string, string>
 
-  constructor(
-    private readonly file: string,
-    private readonly env: NodeJS.ProcessEnv = process.env
-  ) {
+  constructor(private readonly file: string) {
     this.values = this.read()
   }
 
-  /** 取值：环境变量 > 文件。 */
+  /** 取值。 */
   get(key: string): string | undefined {
-    const envName = ENV_OVERRIDES[key]
-    const fromEnv = envName ? this.env[envName]?.trim() : undefined
-    return fromEnv || this.values[key] || undefined
+    return this.values[key] || undefined
   }
 
   /** 写入文件（null 或空串删除）；原子替换，权限 0600。 */
@@ -79,14 +69,17 @@ export class FileSecretStore {
   }
 }
 
-/** 取访问令牌；没有时生成一个（32 字节随机，base64url）并落盘。 */
-export function ensureServerToken(store: FileSecretStore): {
-  token: string
-  generated: boolean
-} {
-  const existing = store.get(SECRET_KEYS.serverToken)
-  if (existing) return { token: existing, generated: false }
-  const token = randomBytes(32).toString('base64url')
-  store.set(SECRET_KEYS.serverToken, token)
-  return { token, generated: true }
+/** 访问令牌：只取环境变量 YINGBOX_SERVER_TOKEN（去掉首尾空白）；没设或为空时 null，表示不鉴权。 */
+export function serverTokenFromEnv(env: NodeJS.ProcessEnv): string | null {
+  return env.YINGBOX_SERVER_TOKEN?.trim() || null
+}
+
+/**
+ * 删掉数据目录里自动生成的旧访问令牌（server.token）。它不再参与鉴权，留着只会让人误以为还要输入；
+ * 返回是否删了（入口据此打一行日志）。
+ */
+export function dropLegacyServerToken(store: FileSecretStore): boolean {
+  if (!store.get(LEGACY_SERVER_TOKEN_KEY)) return false
+  store.set(LEGACY_SERVER_TOKEN_KEY, null)
+  return true
 }

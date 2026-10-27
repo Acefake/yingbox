@@ -19,6 +19,7 @@ import {
   createProgressSyncer,
 } from '../src/main/library/progress-sync/syncer'
 import { syncStatusText } from '../src/renderer/src/features/library/settings/progress-sync-rules'
+import { PROGRESS_SYNC_TOKEN_ERROR } from '../src/shared/contract/progress-sync'
 
 const entry = (key: string, updatedAt: number): ProgressSyncEntry => ({
   key,
@@ -148,7 +149,7 @@ describe('服务端那一端', () => {
     expect(parseServerUrl('')).toBeNull()
   })
 
-  it('POST rpc 带 Bearer、不跟重定向；坏条目丢掉；401 报令牌不对', async () => {
+  it('POST rpc 带 Bearer、不跟重定向；坏条目丢掉；401 报需要访问令牌', async () => {
     const calls: Array<{ url: string; init: RequestInit }> = []
     const fetch = vi.fn(async (url: string, init: RequestInit) => {
       calls.push({ url, init })
@@ -181,7 +182,20 @@ describe('服务端那一端', () => {
       token: '',
       fetch: async () => new Response('', { status: 401 }),
     })
-    await expect(denied.export(0)).rejects.toThrow('令牌不对')
+    await expect(denied.export(0)).rejects.toThrow(PROGRESS_SYNC_TOKEN_ERROR)
+    // 服务默认不鉴权：没填令牌时不带 Authorization 头
+    const open = vi.fn(
+      async (_url: string, _init: RequestInit) =>
+        new Response(JSON.stringify({ ok: true, result: [] }))
+    )
+    await createRemotePeer({
+      server: 'http://nas',
+      token: '',
+      fetch: open,
+    }).export(0)
+    expect(
+      (open.mock.calls[0][1].headers as Record<string, string>).authorization
+    ).toBeUndefined()
     const failed = createRemotePeer({
       server: 'http://nas',
       token: '',

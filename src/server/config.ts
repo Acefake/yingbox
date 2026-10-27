@@ -14,7 +14,7 @@
  * | --scan-interval | YINGBOX_SCAN_INTERVAL| 300 秒（定时增量扫描；0 关闭）          |
  * | --settle        | YINGBOX_SETTLE_SECONDS | 10 秒（文件写入稳定判定；0 不判定）   |
  *
- * 访问令牌用 YINGBOX_SERVER_TOKEN 固定，否则首次启动生成并存进数据目录（见 secrets.ts）。
+ * 访问令牌可选：设置 YINGBOX_SERVER_TOKEN 才开启鉴权，没设时不鉴权（见 secrets.ts、exposure.ts）。
  */
 import { existsSync } from 'node:fs'
 import { homedir } from 'node:os'

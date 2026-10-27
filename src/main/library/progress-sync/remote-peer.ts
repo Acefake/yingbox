@@ -1,9 +1,10 @@
 /**
- * 片库服务这一端：经它的 HTTP RPC（POST /api/library/rpc，Bearer 令牌）调 progress.export / import。
+ * 片库服务这一端：经它的 HTTP RPC（POST /api/library/rpc；服务设了访问令牌时带 Bearer）调 progress.export / import。
  *
  * 服务端地址是用户自己填的（多半是局域网 NAS），所以不走私网拦截；但只认 http / https、
  * 不带账号密码，不跟随重定向，每次请求 15 秒超时。返回体在这里逐字段校验（系统边界）。
  */
+import { PROGRESS_SYNC_TOKEN_ERROR } from '../../../shared/contract/progress-sync'
 import {
   LIBRARY_HTTP,
   type ProgressImportResult,
@@ -60,6 +61,7 @@ function parseImportResult(raw: unknown): ProgressImportResult {
 /** 建服务端那一端。 */
 export function createRemotePeer(options: {
   server: string
+  /** 访问令牌；空串时不带 Authorization（服务默认不鉴权） */
   token: string
   fetch?: FetchLike
 }): ProgressPeer {
@@ -84,7 +86,7 @@ export function createRemotePeer(options: {
         `连不上片库服务：${error instanceof Error ? error.message : String(error)}`
       )
     }
-    if (response.status === 401) throw new Error('片库服务令牌不对')
+    if (response.status === 401) throw new Error(PROGRESS_SYNC_TOKEN_ERROR)
     if (!response.ok) throw new Error(`片库服务返回 HTTP ${response.status}`)
     return unwrap(await response.json())
   }

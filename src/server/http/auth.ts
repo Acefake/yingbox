@@ -1,7 +1,7 @@
 /**
- * 访问令牌鉴权：API 与媒体都要令牌，只有健康检查、登录与网页静态文件公开。
+ * 访问令牌鉴权（可选加固）：只有设置了 YINGBOX_SERVER_TOKEN 才开启；没设时不鉴权，所有请求直接放行。
  *
- * 令牌来源（任一）：
+ * 开启时 API 与媒体都要令牌，只有健康检查、登录与网页静态文件公开。令牌来源（任一）：
  * - `Authorization: Bearer <token>`：脚本 / 其它客户端；
  * - Cookie `yingbox_token`：网页端。登录（POST /api/session，或打开带 ?token= 的地址）后由服务写入，
  *   HttpOnly + SameSite=Strict，<img> / <video> / EventSource 自动带上，令牌不出现在页面脚本和资源地址里。
@@ -41,9 +41,11 @@ export function readCookie(
 
 /** 鉴权器。 */
 export interface Auth {
-  /** 候选令牌是否正确。 */
+  /** 是否开启鉴权（设置了访问令牌）。 */
+  readonly required: boolean
+  /** 候选令牌是否正确；没开启鉴权时恒为 false（没有令牌可比）。 */
   matches(candidate: string | undefined | null): boolean
-  /** 请求是否带了正确的令牌（Bearer 或 Cookie）。 */
+  /** 请求是否放行：没开启鉴权时恒为 true，否则看是否带了正确的令牌（Bearer 或 Cookie）。 */
   check(request: Request): boolean
   /** 写入令牌的 Set-Cookie 值。 */
   loginCookie(request?: Request): string
@@ -51,20 +53,23 @@ export interface Auth {
   logoutCookie(request?: Request): string
 }
 
-/** 创建鉴权器。 */
-export function createAuth(token: string, publicOrigin?: string): Auth {
+/** 创建鉴权器；token 为 null 时不鉴权。 */
+export function createAuth(token: string | null, publicOrigin?: string): Auth {
   const secure = (request?: Request): string =>
     (publicOrigin
       ? new URL(publicOrigin).protocol
       : request && new URL(request.url).protocol) === 'https:'
       ? '; Secure'
       : ''
-  const expected = digest(token)
+  const expected = token ? digest(token) : null
   const matches = (candidate: string | undefined | null): boolean =>
-    Boolean(candidate) && timingSafeEqual(digest(candidate!), expected)
+    Boolean(expected && candidate) &&
+    timingSafeEqual(digest(candidate!), expected!)
   return {
+    required: expected !== null,
     matches,
     check(request) {
+      if (!expected) return true
       const header = request.headers.get('authorization') ?? ''
       const bearer = /^Bearer\s+(.+)$/i.exec(header)?.[1]
       return (
@@ -73,7 +78,7 @@ export function createAuth(token: string, publicOrigin?: string): Auth {
       )
     },
     loginCookie: request =>
-      `${TOKEN_COOKIE}=${encodeURIComponent(token)}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE}${secure(request)}`,
+      `${TOKEN_COOKIE}=${encodeURIComponent(token ?? '')}; Path=/; HttpOnly; SameSite=Strict; Max-Age=${COOKIE_MAX_AGE}${secure(request)}`,
     logoutCookie: request =>
       `${TOKEN_COOKIE}=; Path=/; HttpOnly; SameSite=Strict; Max-Age=0${secure(request)}`,
   }

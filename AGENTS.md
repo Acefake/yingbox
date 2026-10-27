@@ -96,7 +96,7 @@ Movie libraries carry a `source` fixed at creation (migration v4 adds `libraries
 
 ### Library server (`src/server/`, web / NAS)
 
-The same library core runs in a plain Node process for the web build / NAS; host differences live in `src/main/library/platform`. `POST /api/library/rpc` carries exactly the IPC contract (plus SSE, `/media/*`, `/api/fs/dirs`); the online engine (ADR-0019) and netdisk domains (ADR-0020) are served as well. Default bind `127.0.0.1:31480`; any other host needs an explicit ≥24-char token. In the renderer, `features/library/api/bridge.ts` picks IPC or `http-bridge.ts`; `services/library-server` owns login/state/media URLs and is the only other place allowed to `fetch`. Code layout, endpoints, flags and checks: [docs/library-server.md](docs/library-server.md); Docker / NAS: [docs/deploy/nas.md](docs/deploy/nas.md) (ADR-0010).
+The same library core runs in a plain Node process for the web build / NAS; host differences live in `src/main/library/platform`. `POST /api/library/rpc` carries exactly the IPC contract (plus SSE, `/media/*`, `/api/fs/dirs`); the online engine (ADR-0019) and netdisk domains (ADR-0020) are served as well. Default bind `127.0.0.1:31480`; auth only when `YINGBOX_SERVER_TOKEN` is set. In the renderer, `features/library/api/bridge.ts` picks IPC or `http-bridge.ts`; `services/library-server` owns login/state/media URLs and is the only other place allowed to `fetch`. Code layout, endpoints, flags and checks: [docs/library-server.md](docs/library-server.md); Docker / NAS: [docs/deploy/nas.md](docs/deploy/nas.md) (ADR-0010).
 
 ### App settings
 
