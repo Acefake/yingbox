@@ -5,7 +5,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { FIND_MAX_SNAPS, createFinder } from '../src/main/autograb/finder'
-import { matchFile, matchPrefsOf } from '../src/main/autograb/match-rules'
+import { matchFile } from '../src/main/autograb/match-rules'
 import {
   episodeRange,
   folderVerdict,
@@ -158,7 +158,7 @@ describe('追更 · 快照上限', () => {
   })
 })
 
-describe('追更 · 偏好打分', () => {
+describe('追更 · 偏好与版本分', () => {
   const ep5 = { seriesTitle: '繁花', season: 1, episode: 5 }
   const ctx = { shareTitle: '繁花', folder: '' }
   const score = (
@@ -166,13 +166,8 @@ describe('追更 · 偏好打分', () => {
     prefs = DEFAULT_PREFS,
     size = 2 * GB
   ): number => {
-    const m = matchFile(
-      { name, size, isDir: false },
-      ep5,
-      ctx,
-      matchPrefsOf(prefs)
-    )
-    return m.ok ? m.score : -1
+    const m = matchFile({ name, size, isDir: false }, ep5, ctx, prefs)
+    return m.ok ? m.quality : -1
   }
 
   it('首选分辨率命中的高于其它分辨率', () => {

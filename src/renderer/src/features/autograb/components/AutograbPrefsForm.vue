@@ -138,7 +138,12 @@ function sizePlaceholder(
 }
 
 function save(): void {
-  emit('save', props.inherit ? overrideOfDraft(draft) : prefsOfDraft(draft))
+  emit(
+    'save',
+    props.inherit
+      ? overrideOfDraft(draft)
+      : prefsOfDraft(draft, props.value as AutograbPrefs)
+  )
 }
 </script>
 

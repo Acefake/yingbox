@@ -12,14 +12,20 @@
  * - 整季包（见 pack-rules.ts）：分享标题 / 文件夹像合集，或一页装不下时，按文件夹判断多下几层、多翻几页，
  *   每个分享最多 {@link PACK_MAX_SNAPS} 次快照；挑到这一集就不再往下翻；
  * - 偏好与撤销过的候选：认文件用这部剧的偏好，撤销过的候选不再列出；
- * - 结果按分数排，留前 {@link MAX_CANDIDATES} 个（同一个文件只留一次）。
+ * - 结果先按匹配分过线、再按版本分排（shared/release/score.ts rankCandidates），留前 {@link MAX_CANDIDATES} 个
+ *   （同一个文件只留一次）；有匹配分 ≥ {@link GOOD_ENOUGH} 且分辨率已达首选的候选就不再看后面的分享。
  */
 import type { AutograbCandidate } from '../../shared/contract/autograb'
-import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
 import {
-  DEFAULT_MATCH_PREFS,
+  DEFAULT_GRAB_PREFS,
+  type GrabPrefs,
+  resolutionHeight,
+} from '../../shared/contract/grab-prefs'
+import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
+import { rankCandidates } from '../../shared/release/score'
+import {
+  AUTO_SCORE,
   type EpisodeTarget,
-  type MatchPrefs,
   folderWorthOpening,
   matchFile,
   seriesTitleMatches,
@@ -29,6 +35,8 @@ import type { EpisodeHint } from '../../shared/netdisk/episode-hint'
 import { shareHint } from './share-title-rules'
 import { candidateKey } from './state'
 
+/** 有这么高匹配分（且分辨率已达首选）的候选就不再看后面的分享 */
+const GOOD_ENOUGH = 85
 /** 一集最多看几个分享 */
 export const MAX_SHARES = 4
 /** 一集留几个候选 */
@@ -66,7 +74,7 @@ export interface FindResult {
 
 /** 找候选的选项 */
 export interface FindOptions {
-  prefs?: MatchPrefs
+  prefs?: GrabPrefs
   /** 撤销过的候选（candidateKey） */
   banned?: readonly string[]
 }
@@ -121,6 +129,8 @@ export function createFinder(deps: FinderDeps): {
   const cache = new Map<string, { at: number; items: NetdiskItem[] }>()
   /** 这一次 find 用了几次快照（service 里 find 不并发） */
   let used = 0
+  /** 这一次 find 认出的文件分辨率（fileId → 高度），判断够不够好 */
+  const heights = new Map<string, number | null>()
   const snap = (
     item: NetdiskItem,
     dirCid: string,
@@ -174,10 +184,11 @@ export function createFinder(deps: FinderDeps): {
         file,
         target,
         { shareTitle, folder },
-        options.prefs ?? DEFAULT_MATCH_PREFS
+        options.prefs ?? DEFAULT_GRAB_PREFS
       )
       if (!match.ok) continue
       hits++
+      heights.set(file.id, match.height)
       out.push({
         shareUrl: item.url,
         password: item.receiveCode,
@@ -186,6 +197,8 @@ export function createFinder(deps: FinderDeps): {
         fileName: file.name,
         size: file.size,
         score: match.score,
+        quality: match.quality,
+        specs: match.specs,
         reasons: match.reasons,
       })
     }
@@ -301,6 +314,13 @@ export function createFinder(deps: FinderDeps): {
         }
       const found: AutograbCandidate[] = []
       used = 0
+      heights.clear()
+      const preferred = resolutionHeight(
+        (options.prefs ?? DEFAULT_GRAB_PREFS).resolution
+      )
+      const goodEnough = (c: AutograbCandidate): boolean =>
+        c.score >= GOOD_ENOUGH &&
+        (preferred === null || (heights.get(c.fileId) ?? 0) >= preferred)
       for (const item of list) {
         if (used >= FIND_MAX_SNAPS) break
         try {
@@ -309,10 +329,10 @@ export function createFinder(deps: FinderDeps): {
           if (isDeadShare(error)) deps.block(item.shareCode)
           else throw error
         }
-        if (found.some(c => c.score >= 85)) break
+        if (found.some(goodEnough)) break
       }
       const unique = new Map<string, AutograbCandidate>()
-      for (const c of found.sort((a, b) => b.score - a.score))
+      for (const c of rankCandidates(found, AUTO_SCORE))
         if (!unique.has(c.fileId)) unique.set(c.fileId, c)
       const candidates = [...unique.values()].slice(0, MAX_CANDIDATES)
       return {

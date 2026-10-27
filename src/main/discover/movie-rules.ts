@@ -7,6 +7,7 @@
  * 打分：片名在文件名里、年份完全一致、分辨率、中字、片源、体积。排除字眼与剧名比较沿用追更的规则。
  */
 import { parseMediaPath } from '../../shared/library/parser'
+import { resolutionOf } from '../../shared/release/quality'
 import {
   type FileContext,
   type FileMatch,
@@ -73,11 +74,12 @@ export function movieTitleMatches(text: string, target: MovieTarget): boolean {
   )
 }
 
-/** 分辨率加分 */
+/** 分辨率加分（识别用 shared/release/quality.ts） */
 function resolutionScore(name: string): [number, string | null] {
-  if (/2160p|4k|uhd/i.test(name)) return [10, '4K']
-  if (/1080[pi]/i.test(name)) return [8, '1080p']
-  if (/720p/i.test(name)) return [2, '720p']
+  const height = resolutionOf(name)
+  if (height === 2160) return [10, '4K']
+  if (height === 1080) return [8, '1080p']
+  if (height === 720) return [2, '720p']
   return [0, null]
 }
 
