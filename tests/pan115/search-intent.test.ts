@@ -9,6 +9,7 @@ import {
   fileIsEpisode,
   rankByEpisode,
   seasonOfTitle,
+  seasonRangeOfTitle,
 } from '../../src/shared/netdisk/episode-hint'
 import {
   episodeLabel,
@@ -79,6 +80,18 @@ describe('episodeHint', () => {
     ['嫁金钗 S01E01-E24', 'covers'],
     ['嫁金钗 EP01-30', 'covers'],
     ['嫁金钗 完结 4K', 'covers'],
+    ['嫁金钗 更新至S01E22', 'covers'],
+    ['嫁金钗 更新至EP22 4K', 'covers'],
+    ['嫁金钗 第1集-第24集', 'covers'],
+    ['嫁金钗 EP01-EP24', 'covers'],
+    ['嫁金钗 E01-E24', 'covers'],
+    ['嫁金钗 S01E01-S01E24', 'covers'],
+    ['嫁金钗 1-24集', 'covers'],
+    ['嫁金钗 全24集', 'covers'],
+    ['嫁金钗 S01-S03', 'covers'],
+    ['嫁金钗 第1-3季 1080p', 'covers'],
+    ['嫁金钗 第一季至第三季', 'covers'],
+    ['嫁金钗 S01-S03 全24集', 'covers'],
     ['嫁金钗 2160p HEVC 2026', 'unknown'],
     ['嫁金钗 S01 1080p', 'unknown'],
     ['嫁金钗 更新至18集', 'other'],
@@ -88,8 +101,34 @@ describe('episodeHint', () => {
     ['嫁金钗 全12集', 'other'],
     ['嫁金钗 S02E20', 'other'],
     ['嫁金钗 第二季 全30集', 'other'],
+    ['嫁金钗 更新至S01E18', 'other'],
+    ['嫁金钗 第1集-第10集', 'other'],
+    ['嫁金钗 EP01-EP12', 'other'],
+    ['嫁金钗 S02-S03', 'other'],
+    ['嫁金钗 第2-3季', 'other'],
+    ['嫁金钗 S01-S03 全12集', 'other'],
   ])('%s → %s', (title, hint) => {
     expect(episodeHint(title, ep20)).toBe(hint)
+  })
+
+  it('要找的正好是区间 / 更新至的最后一集：exact 或 covers 都算在这一集里', () => {
+    const ep22 = { season: 1, episode: 22 }
+    expect(episodeHint('嫁金钗 更新至S01E22', ep22)).toBe('exact')
+    expect(episodeHint('嫁金钗 第1集-第22集', ep22)).toBe('covers')
+    expect(episodeHint('嫁金钗 S01-S03', { season: 2, episode: 5 })).toBe(
+      'covers'
+    )
+    expect(episodeHint('嫁金钗 S01-S03', { season: 4, episode: 5 })).toBe(
+      'other'
+    )
+  })
+
+  it('季区间', () => {
+    expect(seasonRangeOfTitle('嫁金钗 S01-S03')).toEqual([1, 3])
+    expect(seasonRangeOfTitle('嫁金钗 Season 1-2')).toEqual([1, 2])
+    expect(seasonRangeOfTitle('嫁金钗 第一季至第三季')).toEqual([1, 3])
+    expect(seasonRangeOfTitle('嫁金钗 S01E01-E24')).toBeNull()
+    expect(episodeRangeOfTitle('嫁金钗 第1集-第24集')).toEqual([1, 24])
   })
 
   it('搜索没写季号时不按季区分', () => {

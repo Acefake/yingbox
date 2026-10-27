@@ -57,9 +57,12 @@ describe('追更 · 分享标题与这一集', () => {
 
   it('包含这一集', () => {
     expect(hint('嫁金钗 更新至24集')).toBe('covers')
+    expect(hint('嫁金钗 更新至S01E22')).toBe('covers')
     expect(hint('嫁金钗 全30集 4K')).toBe('covers')
     expect(hint('嫁金钗 01-24集')).toBe('covers')
     expect(hint('嫁金钗 S01E01-E24')).toBe('covers')
+    expect(hint('嫁金钗 第1集-第24集')).toBe('covers')
+    expect(hint('嫁金钗 S01-S03', { ...target, season: 2 })).toBe('covers')
     expect(hint('嫁金钗 完结 合集')).toBe('covers')
     expect(hint('嫁金钗 S01-S02 全集')).toBe('covers')
   })

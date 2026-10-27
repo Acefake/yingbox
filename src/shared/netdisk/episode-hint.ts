@@ -1,9 +1,10 @@
 /**
  * 分享 / 磁力标题和「要找的那一集」的关系（纯函数，渲染层网盘页与主进程追更共用）：
  * - exact：标题写的就是这一集（S01E20、第20集、EP20）；
- * - covers：标题写的范围包含这一集（更新至 20 集以后、全 30 集、01-24、完结 / 全集 / 合集）；
+ * - covers：标题写的范围包含这一集（更新至 20 集以后、全 30 集、01-24、第1集-第24集、完结 / 全集 / 合集），
+ *   或季区间（S01-S03、第1-3季）包含这一季且没写集号；
  * - unknown：没写集号（只写了剧名、季号、画质）；
- * - other：明确是别的集、不含这一集的范围、更新还没到这一集，或别的季。
+ * - other：明确是别的集、不含这一集的范围、更新还没到这一集，或别的季（含不包含这一季的季区间）。
  *
  * 只认带明确标记的数字（集 / 话 / E / EP / 第 / 更新至 / 全），1080p、2026、H265 之类不会当成集号。
  * fileIsEpisode 判断分享里的单个文件是不是这一集（预览里高亮）。
@@ -28,9 +29,19 @@ const SEASON_RES = [
   new RegExp(`第\\s*(${N})\\s*季`),
 ]
 
-/** 区间：第1-20集 / 第01至20集 / E01-E20 / EP01-20 / S01E01-E20 / 01-20集 / 01-20（不是日期） */
+/** 季区间：S01-S03 / S1~S3 / Season 1-3 / 第1-3季 / 第一季至第三季 */
+const SEASON_RANGE_RES = [
+  new RegExp(`${B}s(\\d{1,2})${DASH}s(\\d{1,2})${A}`, 'i'),
+  new RegExp(
+    `${B}seasons?\\s*(\\d{1,2})${DASH}(?:season\\s*)?(\\d{1,2})${A}`,
+    'i'
+  ),
+  new RegExp(`第\\s*(${N})\\s*季?${DASH}第?\\s*(${N})\\s*季`),
+]
+
+/** 区间：第1-20集 / 第1集-第20集 / 第01至20集 / E01-E20 / EP01-20 / S01E01-E20 / 01-20集 / 01-20（不是日期） */
 const RANGE_RES = [
-  new RegExp(`第\\s*(${N})${DASH}第?\\s*(${N})\\s*[集话話]`),
+  new RegExp(`第\\s*(${N})\\s*[集话話]?${DASH}第?\\s*(${N})\\s*[集话話]`),
   new RegExp(
     `${B}(?:s\\d{1,2})?ep?(\\d{1,4})${DASH}(?:s\\d{1,2})?(?:ep?)?(\\d{1,4})${A}`,
     'i'
@@ -41,8 +52,11 @@ const RANGE_RES = [
     'i'
   ),
 ]
-/** 更新至 N：更新至20集 / 更至20 / 更新到第20集 / 已更20集 */
-const UPDATED_RE = new RegExp(`(?:更新?[至到]|已更新?)\\s*第?\\s*(${N})`)
+/** 更新至 N：更新至20集 / 更至20 / 更新到第20集 / 已更20集 / 更新至S01E20 / 更新至EP20 */
+const UPDATED_RE = new RegExp(
+  `(?:更新?[至到]|已更新?)\\s*(?:s\\d{1,2}\\s*)?(?:ep?|第)?\\s*(${N})`,
+  'i'
+)
 /** 全 N 集：全30集 / 共30集 / 30集全 */
 const TOTAL_RES = [
   new RegExp(`[全共]\\s*(${N})\\s*[集话話]`),
@@ -72,15 +86,38 @@ export function seasonOfTitle(title: string): number | undefined {
   return numberBy(title, SEASON_RES)
 }
 
+/** 两个数组成的合理区间（lo < hi 且跨度不超过 max）；否则 null */
+function rangeOf(m: RegExpExecArray, max: number): [number, number] | null {
+  const lo = parseNumber(m[1])
+  const hi = parseNumber(m[2])
+  return lo !== undefined && hi !== undefined && hi > lo && hi - lo <= max
+    ? [lo, hi]
+    : null
+}
+
+/** 标题里的季区间及其在标题里的位置；没写为 null */
+function seasonRangeMatch(
+  title: string
+): { range: [number, number]; text: string } | null {
+  for (const re of SEASON_RANGE_RES) {
+    const m = re.exec(title)
+    const range = m && rangeOf(m, 50)
+    if (m && range) return { range, text: m[0] }
+  }
+  return null
+}
+
+/** 标题里的季区间（S01-S03 → [1, 3]）；没写为 null */
+export function seasonRangeOfTitle(title: string): [number, number] | null {
+  return seasonRangeMatch(title)?.range ?? null
+}
+
 /** 标题里的集号区间；没写为 null */
 export function episodeRangeOfTitle(title: string): [number, number] | null {
   for (const re of RANGE_RES) {
     const m = re.exec(title)
-    if (!m) continue
-    const lo = parseNumber(m[1])
-    const hi = parseNumber(m[2])
-    if (lo !== undefined && hi !== undefined && hi > lo && hi - lo <= 300)
-      return [lo, hi]
+    const range = m && rangeOf(m, 300)
+    if (range) return range
   }
   return null
 }
@@ -91,6 +128,19 @@ export function episodeRangeOfTitle(title: string): [number, number] | null {
  * @param target 要找的那一集（季号没写时不按季区分）
  */
 export function episodeHint(title: string, target: EpisodeTarget): EpisodeHint {
+  const seasons = seasonRangeMatch(title)
+  if (seasons) {
+    const [lo, hi] = seasons.range
+    if (
+      target.season !== undefined &&
+      (target.season < lo || target.season > hi)
+    )
+      return 'other'
+    // 季区间写的是多季打包：去掉它再看集号，没写集号就算包含
+    const rest = title.replace(seasons.text, ' ')
+    const hint = episodeHint(rest, { episode: target.episode })
+    return hint === 'unknown' ? 'covers' : hint
+  }
   const season = seasonOfTitle(title)
   if (
     target.season !== undefined &&
