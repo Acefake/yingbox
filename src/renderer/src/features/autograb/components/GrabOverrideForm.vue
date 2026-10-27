@@ -2,12 +2,14 @@
   <form class="override" :aria-label="title" @submit.prevent="save">
     <div class="override-row">
       <span class="override-label">方式</span>
-      <UiSegmented
-        v-model="mode"
-        :options="modeOptions"
-        :label="`${title} · 方式`"
-        size="sm"
-      />
+      <span class="override-fit">
+        <UiSegmented
+          v-model="mode"
+          :options="modeOptions"
+          :label="`${title} · 方式`"
+          size="sm"
+        />
+      </span>
     </div>
     <div class="override-row">
       <span class="override-label">资源</span>
@@ -201,6 +203,10 @@ function save(): void {
 .override-label {
   font-size: var(--text-xs);
   color: var(--text-secondary);
+}
+
+.override-fit {
+  justify-self: start;
 }
 
 .override-pills {
