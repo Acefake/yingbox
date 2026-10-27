@@ -164,13 +164,15 @@ describe('设置界面', () => {
   })
 
   it('媒体库设置：桌面端才显示通知组', async () => {
+    // 通知组放在媒体库全局设置里，只在桌面端（不走片库服务）且有 libraryNotify 时显示
     const source = (await import('node:fs')).readFileSync(
-      'src/renderer/src/features/library/settings/LibrarySettings.vue',
+      'src/renderer/src/features/library/settings/LibraryGlobalSettings.vue',
       'utf8'
     )
-    expect(source).toMatch(/<LibraryNotifyGroup v-if="notifyAvailable/)
+    expect(source).toMatch(/<LibraryNotifyGroup v-if="showNotify"/)
+    expect(source).toMatch(/const desktop = !usesLibraryServer\(\)/)
     expect(source).toMatch(
-      /window\.api\?\.libraryNotify\) && !usesLibraryServer\(\)/
+      /showNotify = desktop && Boolean\(window\.api\?\.libraryNotify\)/
     )
   })
 })

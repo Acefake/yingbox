@@ -182,7 +182,6 @@ import UiButton from '@/components/ui/UiButton.vue'
 import { toast } from '@/components/ui/toast'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
-import { setSetting } from '@/features/settings'
 import {
   type FolderPick,
   type FolderPreset,
@@ -226,6 +225,8 @@ const policyFolder = usePolicyFolder({
   targetCid: () => ag.overview.value?.defaultFolder.cid ?? null,
   setMode: mode => ag.setPolicy({ mode }),
   saveDefaultFolder: async folder => {
+    // 设置模块导入时就要读存储，按需加载，免得只用 autograbAvailable 的模块（片库详情）连带初始化设置
+    const { setSetting } = await import('@/features/settings')
     await setSetting('pan115.tvCid', folder.cid)
     await setSetting('pan115.tvName', folder.name)
   },
