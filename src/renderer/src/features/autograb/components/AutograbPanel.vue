@@ -52,6 +52,34 @@
       {{ data.today.receives }} 次
     </p>
 
+    <div v-if="data" class="autograb-row">
+      <div class="autograb-row-main">
+        <span class="autograb-name">所有剧</span>
+        <span class="autograb-hint">
+          没单独设的剧按这里追{{
+            data.policy.mode === 'auto' && data.policy.confirmFirst
+              ? `；每部新剧先手动确认 ${data.policy.confirmFirst} 集`
+              : ''
+          }}
+        </span>
+      </div>
+      <UiSegmented
+        :model-value="data.policy.mode"
+        :options="MODE_OPTIONS"
+        label="所有剧的追更方式"
+        size="sm"
+        @update:model-value="policyFolder.changeMode"
+      />
+      <div v-if="policyFolder.picking.value" class="autograb-picker">
+        <AutograbFolderPrompt
+          title="所有剧"
+          global="tv"
+          @pick="policyFolder.pick"
+          @cancel="policyFolder.cancel"
+        />
+      </div>
+    </div>
+
     <div v-if="data?.series.length" class="autograb-series">
       <div
         v-for="series in data.series"
@@ -61,20 +89,27 @@
         <div class="autograb-row-main">
           <span class="autograb-name">{{ series.title }}</span>
           <span
-            v-if="series.mode !== 'off' && overrideSummary(series.prefs)"
+            v-if="
+              series.effectiveMode !== 'off' && overrideSummary(series.prefs)
+            "
             class="autograb-folder"
           >
             {{ overrideSummary(series.prefs) }}
           </span>
           <span
-            v-if="series.mode === 'auto' && confirmsLeft(series.confirmed)"
+            v-if="
+              series.effectiveMode === 'auto' &&
+              confirmsLeft(series.confirmed, series.confirmFirst)
+            "
             class="autograb-hint"
           >
-            还要手动确认 {{ confirmsLeft(series.confirmed) }} 集才会自动转存
+            还要手动确认
+            {{ confirmsLeft(series.confirmed, series.confirmFirst) }}
+            集才会自动转存
           </span>
         </div>
         <TargetFolderPill
-          v-if="series.mode !== 'off'"
+          v-if="series.effectiveMode !== 'off'"
           v-bind="folderPill(series)"
           size="sm"
           variant="plain"
@@ -83,7 +118,7 @@
           @pick="pick => pickFolder(series.seriesId, pick)"
         />
         <UiButton
-          v-if="series.mode !== 'off'"
+          v-if="series.effectiveMode !== 'off'"
           size="sm"
           variant="plain"
           label="偏好"
@@ -91,7 +126,7 @@
         />
         <UiSegmented
           :model-value="series.mode"
-          :options="MODE_OPTIONS"
+          :options="SERIES_MODE_OPTIONS"
           :label="`${series.title} 的追更方式`"
           size="sm"
           @update:model-value="mode => fullAuto.changeMode(series, mode)"
@@ -135,7 +170,8 @@
 
 <script setup lang="ts">
 /**
- * 追更面板（追剧日历页里展开）：总开关、熔断恢复、立即检查；最近在播的剧逐部选「不追 / 待确认 / 全自动」
+ * 追更面板（追剧日历页里展开）：总开关、熔断恢复、立即检查；「所有剧」一行是剧集的全局方式（没单独设的剧按它追，
+ * 切全自动而剧集默认目录是根目录时先选默认目录，见 use-policy-folder.ts）；最近在播的剧逐部选「跟随 / 不追 / 待确认 / 全自动」
  * 和转存位置（胶囊：剧集默认目录 / 最近使用 / 浏览 115 目录树，没单独选时跟剧集默认目录）、每剧偏好覆盖；「偏好」编辑全局的分辨率 / 偏好词 / 排除词 / 体积；
  * 不追 / 待确认时点「全自动」而这部剧没有可用文件夹（解析到根目录），先在这一行下面弹文件夹选择，选好才切（use-full-auto-folder.ts）；
  * 下面是已追剧最近各集的状态与候选（见 AutograbEpisodes），focusKey 指定要定位的一集。
@@ -163,6 +199,7 @@ import {
 
 import {
   MODE_OPTIONS,
+  SERIES_MODE_OPTIONS,
   canResume,
   confirmsLeft,
   overviewNotice,
@@ -170,6 +207,7 @@ import {
 import { overrideSummary } from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
 import { useFullAutoFolder } from '../use-full-auto-folder'
+import { usePolicyFolder } from '../use-policy-folder'
 import AutograbEpisodes from './AutograbEpisodes.vue'
 import AutograbFolderPrompt from './AutograbFolderPrompt.vue'
 import AutograbPrefsForm from './AutograbPrefsForm.vue'
@@ -181,6 +219,17 @@ const data = computed(() => ag.overview.value)
 const fullAuto = useFullAutoFolder({
   overview: () => ag.overview.value,
   setSeries: ag.setSeries,
+  warn: text => void toast.warning(text),
+})
+const policyFolder = usePolicyFolder({
+  targetCid: () => ag.overview.value?.defaultFolder.cid ?? null,
+  setMode: mode => ag.setPolicy({ mode }),
+  saveDefaultFolder: async folder => {
+    // 设置模块导入时就要读存储，按需加载，免得只用 autograbAvailable 的模块（片库详情）连带初始化设置
+    const { setSetting } = await import('@/features/settings')
+    await setSetting('pan115.tvCid', folder.cid)
+    await setSetting('pan115.tvName', folder.name)
+  },
   warn: text => void toast.warning(text),
 })
 const notice = computed(() => (data.value ? overviewNotice(data.value) : null))

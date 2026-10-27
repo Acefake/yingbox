@@ -1,12 +1,18 @@
 /**
  * 追更的两个子功能（只有桌面端，115 请求和剧集追更共用一道闸门）：
  *
- * - 洗版（autograbUpgrade）：片库里分辨率低于目标（默认 1080p，可选 2160p）的电影 / 剧集，每周搜一次
- *   更高清的 115 分享；找到只列成「可替换」，用户确认后把新文件存到旧文件所在的 115 文件夹，
- *   旧文件保留并标成「已有新版」，删不删由用户手动决定。
+ * - 洗版（autograbUpgrade）：片库里不如资源偏好的电影 / 剧集（分辨率低于该种类的首选分辨率，不限时按 4K；
+ *   或偏好让同分辨率的杜比视界 / REMUX 算更好），每周搜一次更好的 115 分享；找到只列成「可替换」，
+ *   用户确认后把新文件存到旧文件所在的 115 文件夹，旧文件保留并标成「已有新版」，删不删由用户手动决定。
  * - 电影上线追踪（autograbMovies）：用户把还没上线的电影加进追踪，TMDB 数字发行日期之后
- *   每天搜一次 WEB-DL / BluRay，30 天没找到就停；默认待确认。
+ *   每天搜一次 WEB-DL / BluRay，30 天没找到就停；方式跟随电影的全局策略（默认待确认）或单独设。
  */
+import {
+  type GrabPolicy,
+  type GrabPolicyPatch,
+  policyPatchOf,
+} from './grab-policy'
+import { type GrabPrefsOverride, prefsOverrideOf } from './grab-prefs'
 import {
   ContractError,
   bool,
@@ -46,10 +52,6 @@ export interface GrabCandidate {
 export type GrabResult = { ok: true } | { ok: false; error: string }
 
 // ─── 洗版 ───────────────────────────────────────────────
-
-/** 洗版目标分辨率 */
-export const UPGRADE_TARGETS = [1080, 2160] as const
-export type UpgradeTarget = (typeof UPGRADE_TARGETS)[number]
 
 /** 一个低分辨率文件的洗版状态 */
 export type UpgradeStatus =
@@ -94,7 +96,8 @@ export interface UpgradeEntry {
 /** 洗版总览 */
 export interface UpgradeOverview {
   enabled: boolean
-  target: UpgradeTarget
+  /** 洗版目标：各种类资源偏好里的首选分辨率高度（不限时为 2160） */
+  targets: { movie: number; tv: number }
   ready: {
     loggedIn: boolean
     pansou: boolean
@@ -115,15 +118,12 @@ export interface UpgradeOverview {
 /** 洗版设置 */
 export interface UpgradeOptionsPatch {
   enabled?: boolean
-  target?: UpgradeTarget
 }
 
 const upgradePatchOf = (value: unknown): UpgradeOptionsPatch => {
   const raw = record<Record<string, unknown>>(value, 'patch')
   const patch: UpgradeOptionsPatch = {}
   if (raw.enabled !== undefined) patch.enabled = bool(raw.enabled, 'enabled')
-  if (raw.target !== undefined)
-    patch.target = oneOf(raw.target, 'target', UPGRADE_TARGETS)
   return patch
 }
 
@@ -183,6 +183,10 @@ export type MovieTrackStatus =
 export const MOVIE_MODES = ['confirm', 'auto'] as const
 export type MovieMode = (typeof MOVIE_MODES)[number]
 
+/** 一部电影的方式设置：跟随全局，或单独设一种 */
+export const MOVIE_MODE_SETTINGS = ['inherit', ...MOVIE_MODES] as const
+export type MovieModeSetting = (typeof MOVIE_MODE_SETTINGS)[number]
+
 /** 一部追踪中的电影（界面用） */
 export interface TrackedMovie {
   tmdbId: number
@@ -194,7 +198,12 @@ export interface TrackedMovie {
   releaseDate: string | null
   /** releaseDate 的来历：数字发行 / 实体发行 / 首映已久 */
   dateSource: 'digital' | 'physical' | 'premiere' | null
-  mode: MovieMode
+  /** 方式设置：inherit = 跟随电影的全局策略 */
+  mode: MovieModeSetting
+  /** 实际生效的方式 */
+  effectiveMode: MovieMode
+  /** 这部电影覆盖了哪些资源偏好（空对象 = 全跟随全局） */
+  prefs: GrabPrefsOverride
   status: MovieTrackStatus
   attempts: number
   nextTry: number | null
@@ -208,6 +217,10 @@ export interface MoviesOverview {
   /** 转存到的 115 文件夹 cid；空串 = 电影默认目录 */
   cid: string
   cidName: string
+  /** 电影的全局策略 */
+  policy: GrabPolicy
+  /** 没单独选文件夹时存到哪（电影默认目录，没设时沿用原转存目标；根目录 cid 为 "0"） */
+  defaultFolder: { cid: string; name: string }
   ready: { loggedIn: boolean; pansou: boolean; tmdb: boolean }
   pauseReason: string | null
   movies: TrackedMovie[]
@@ -237,9 +250,20 @@ export const autograbMovies = defineDomain(
     ]),
     track: call<[tmdbId: number], GrabResult>(a => [int(a[0], 'tmdbId')]),
     untrack: call<[tmdbId: number], void>(a => [int(a[0], 'tmdbId')]),
-    setMode: call<[tmdbId: number, mode: MovieMode], GrabResult>(a => [
+    /** 某部电影的方式：跟随全局或单独设 */
+    setMode: call<[tmdbId: number, mode: MovieModeSetting], GrabResult>(a => [
       int(a[0], 'tmdbId'),
-      oneOf(a[1], 'mode', MOVIE_MODES),
+      oneOf(a[1], 'mode', MOVIE_MODE_SETTINGS),
+    ]),
+    /** 整份替换某部电影的资源偏好覆盖（{} = 全跟随全局） */
+    setPrefs: call<[tmdbId: number, prefs: GrabPrefsOverride], GrabResult>(
+      a => [int(a[0], 'tmdbId'), prefsOverrideOf(record(a[1], 'prefs'))]
+    ),
+    /** 电影的全局策略 */
+    policy: call<GrabPolicy>(),
+    /** 改电影的全局策略。切全自动而转存目标解析到根目录时拒绝 */
+    setPolicy: call<[patch: GrabPolicyPatch], GrabResult>(a => [
+      policyPatchOf(record(a[0], 'patch'), 'movie'),
     ]),
     /** 电影统一转存到的 115 文件夹 */
     setFolder: call<[cid: string, cidName: string], void>(a => [

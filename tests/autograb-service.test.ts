@@ -26,7 +26,7 @@ describe('追更服务', () => {
     expect(after.series.find(s => s.seriesId === 7)!.confirmed).toBe(1)
   })
 
-  it('全自动：没设文件夹不让开；确认不满 3 集不自动存', async () => {
+  it('全自动：没设文件夹不让开；确认不满门槛（全局新剧先确认 1 集）不自动存', async () => {
     const { service, received } = setup([episode(5)])
     expect((await service.setSeries(7, { mode: 'auto' })).ok).toBe(false)
     await service.setSeries(7, { mode: 'auto', cid: '55', cidName: '繁花' })

@@ -5,13 +5,6 @@
         <h2 class="grab-title">洗版</h2>
         <p class="grab-sub">{{ data ? upgradeSummary(data) : '' }}</p>
       </div>
-      <UiSegmented
-        :model-value="String(data?.target ?? 1080)"
-        :options="TARGET_OPTIONS"
-        label="洗版目标分辨率"
-        size="sm"
-        @update:model-value="value => setOptions({ target: targetOf(value) })"
-      />
       <UiButton
         size="sm"
         variant="plain"
@@ -124,7 +117,6 @@ import { computed, ref } from 'vue'
 
 import { confirmDialog } from '@/components/ui'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import { NetdiskFolderPicker } from '@/features/netdisk'
 import type {
@@ -134,12 +126,10 @@ import type {
 
 import { upgradeApi } from '../api'
 import {
-  TARGET_OPTIONS,
   UPGRADE_STATUS_LABEL,
   candidateMeta,
   entryName,
   resolutionText,
-  targetOf,
   upgradeNotice,
   upgradeSummary,
 } from '../upgrade-rules'

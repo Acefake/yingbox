@@ -5,6 +5,7 @@ import type {
   AutograbEpisode,
   AutograbOverview,
 } from '../../shared/contract/autograb'
+import { seriesModeOf } from './policy'
 import { seriesList } from './records'
 import { canRevert } from './revert'
 import type { AutograbState, EpisodeRecord } from './state'
@@ -39,7 +40,7 @@ export interface OverviewContext {
   defaultFolder: AutograbOverview['defaultFolder']
 }
 
-/** 组装总览：只列追更中的剧的集，新播出的在前 */
+/** 组装总览：只列实际在追的剧的集，新播出的在前 */
 export function buildOverview(
   state: AutograbState,
   ctx: OverviewContext
@@ -49,12 +50,13 @@ export function buildOverview(
     pausedUntil: state.gate.pausedUntil,
     pauseReason: state.gate.pauseReason,
     spacePaused: state.spacePause,
-    prefs: state.prefs,
+    policy: state.policy,
+    prefs: state.policy.prefs,
     ready: ctx.ready,
     today: { snaps: state.gate.snaps, receives: state.gate.receives },
     series: seriesList(state, ctx.airing),
     episodes: Object.values(state.episodes)
-      .filter(r => (state.series[String(r.seriesId)]?.mode ?? 'off') !== 'off')
+      .filter(r => seriesModeOf(state, r.seriesId) !== 'off')
       .sort(
         (a, b) => b.airDate.localeCompare(a.airDate) || b.episode - a.episode
       )

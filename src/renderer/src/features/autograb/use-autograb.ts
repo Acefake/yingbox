@@ -11,6 +11,7 @@ import type {
   AutograbSeriesPatch,
 } from '../../../../shared/contract/autograb'
 import type { AutograbPrefs } from '../../../../shared/contract/autograb-prefs'
+import type { GrabPolicyPatch } from '../../../../shared/contract/grab-policy'
 
 import { autograbApi } from './api'
 import { autograbStore } from './autograb-store'
@@ -23,6 +24,8 @@ export interface AutograbPanelState {
   setEnabled(enabled: boolean): Promise<void>
   setSeries(seriesId: number, patch: AutograbSeriesPatch): Promise<boolean>
   setPrefs(prefs: AutograbPrefs): Promise<void>
+  /** 改剧集的全局策略；成功为 true */
+  setPolicy(patch: GrabPolicyPatch): Promise<boolean>
   grab(key: string, index: number): Promise<boolean>
   revert(key: string): Promise<boolean>
   skip(key: string): Promise<void>
@@ -63,6 +66,7 @@ export function useAutograb(): AutograbPanelState {
     setSeries: async (seriesId, patch) =>
       report(await api().setSeries(seriesId, patch)),
     setPrefs: then((prefs: AutograbPrefs) => api().setPrefs(prefs)),
+    setPolicy: async patch => report(await api().setPolicy(patch)),
     grab: async (key, index) =>
       report(await api().grab(key, index), '已转存，等待入库'),
     revert: async key =>

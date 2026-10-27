@@ -23,7 +23,7 @@ interface Harness {
   notified: string[]
 }
 
-function setup(info: Partial<MovieInfo> = {}): Harness {
+function setup(info: Partial<MovieInfo> = {}, defaultCid = '555'): Harness {
   const clock = { t: new Date(2026, 9, 25, 10).getTime() }
   const library = new Set<number>()
   const received: { ids: string[]; cid: string }[] = []
@@ -86,7 +86,7 @@ function setup(info: Partial<MovieInfo> = {}): Harness {
       dirPath: async () => ['电影'],
     },
     notify: async path => void notified.push(path),
-    defaultCid: () => '555',
+    defaultFolder: () => ({ cid: defaultCid, name: '电影' }),
     load: async () => saved,
     save: async state => void (saved = JSON.parse(JSON.stringify(state))),
     now: () => clock.t,
@@ -139,8 +139,8 @@ describe('电影上线追踪', () => {
     expect(await h.service.status(77)).toBe('done')
   })
 
-  it('全自动要先选文件夹；选好后分数过线直接存', async () => {
-    const h = setup({ releaseDates: [{ type: 4, date: '2026-10-01' }] })
+  it('全自动要转存目标不是根目录：没设电影默认目录时先选文件夹；选好后分数过线直接存', async () => {
+    const h = setup({ releaseDates: [{ type: 4, date: '2026-10-01' }] }, '0')
     await h.service.track(77)
     expect((await h.service.setMode(77, 'auto')).ok).toBe(false)
     await h.service.setFolder('888', '电影')
@@ -148,6 +148,38 @@ describe('电影上线追踪', () => {
     await h.service.retry(77)
     await h.service.tick()
     expect(h.received).toEqual([{ ids: ['z1'], cid: '888' }])
+  })
+
+  it('设了电影默认目录、没在追踪面板选文件夹：全自动照样转存到默认目录', async () => {
+    const h = setup({ releaseDates: [{ type: 4, date: '2026-10-01' }] })
+    await h.service.track(77)
+    expect((await h.service.setMode(77, 'auto')).ok).toBe(true)
+    await h.service.retry(77)
+    await h.service.tick()
+    expect(h.received).toEqual([{ ids: ['z1'], cid: '555' }])
+  })
+
+  it('跟随全局：全局切全自动后，跟随的电影直接存；单独设待确认的不存', async () => {
+    const h = setup({ releaseDates: [{ type: 4, date: '2026-10-01' }] })
+    await h.service.track(77)
+    expect((await statusOf(h)).mode).toBe('inherit')
+    expect((await statusOf(h)).effectiveMode).toBe('confirm')
+    expect((await h.service.setPolicy({ mode: 'auto' })).ok).toBe(true)
+    expect((await statusOf(h)).effectiveMode).toBe('auto')
+    await h.service.setMode(77, 'confirm')
+    await h.service.retry(77)
+    await h.service.tick()
+    expect(h.received).toEqual([])
+    await h.service.setMode(77, 'inherit')
+    await h.service.retry(77)
+    await h.service.tick()
+    expect(h.received).toEqual([{ ids: ['z1'], cid: '555' }])
+  })
+
+  it('全局全自动而转存目标是根目录：拒绝', async () => {
+    const h = setup({}, '0')
+    expect((await h.service.setPolicy({ mode: 'auto' })).ok).toBe(false)
+    expect((await h.service.policy()).mode).toBe('confirm')
   })
 
   it('加入时早已发行：马上搜，从加入那天算 30 天，到期记为没找到', async () => {

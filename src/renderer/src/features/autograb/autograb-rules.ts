@@ -6,12 +6,24 @@ import type {
   AutograbMode,
   AutograbOverview,
   AutograbSeries,
+  AutograbSeriesMode,
   AutograbStatus,
 } from '../../../../shared/contract/autograb'
 import { normalizeCid } from '../../../../shared/netdisk/target-folder'
 
 /** 模式选项（分段控件） */
 export const MODE_OPTIONS: { value: AutograbMode; label: string }[] = [
+  { value: 'off', label: '不追' },
+  { value: 'confirm', label: '待确认' },
+  { value: 'auto', label: '全自动' },
+]
+
+/** 一部剧的方式选项：跟随全局 + 三档 */
+export const SERIES_MODE_OPTIONS: {
+  value: AutograbSeriesMode
+  label: string
+}[] = [
+  { value: 'inherit', label: '跟随' },
   { value: 'off', label: '不追' },
   { value: 'confirm', label: '待确认' },
   { value: 'auto', label: '全自动' },
@@ -71,7 +83,7 @@ export function overviewNotice(o: AutograbOverview): string | null {
 }
 
 /** 全自动模式下还要手动确认几集 */
-export function confirmsLeft(confirmed: number, need = 3): number {
+export function confirmsLeft(confirmed: number, need: number): number {
   return Math.max(0, need - confirmed)
 }
 

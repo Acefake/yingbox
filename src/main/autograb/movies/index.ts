@@ -19,7 +19,7 @@ import type { LibraryEngineClient } from '../../library/client'
 import type { ModuleHost } from '../../module-host'
 import type { Gate } from '../gate'
 import type { PanAdapter } from '../upgrade/pan-adapter'
-import { createMoviesService } from './service'
+import { type MoviesService, createMoviesService } from './service'
 import { type TmdbGet, createMovieTmdb } from './tmdb'
 
 const FIRST_DELAY_MS = 3 * 60_000
@@ -58,7 +58,7 @@ export function registerAutograbMovies(
   library: LibraryEngineClient,
   pan: PanAdapter,
   gate: () => Promise<Gate>
-): void {
+): MoviesService {
   const tmdbToken = (): string => host.tmdbToken()
   const file = join(host.dataDir, 'autograb-movies.json')
   const service = createMoviesService({
@@ -85,11 +85,11 @@ export function registerAutograbMovies(
         mountRoot ? { changes, mountRoot } : { changes }
       )
     },
-    defaultCid: () =>
+    defaultFolder: () =>
       defaultFolder(
         'movie',
         readTargetSettings(key => host.setting(key))
-      ).cid,
+      ),
     load: async () => {
       try {
         return JSON.parse(await fs.readFile(file, 'utf8'))
@@ -121,9 +121,17 @@ export function registerAutograbMovies(
     track: (_, tmdbId) => service.track(tmdbId),
     untrack: (_, tmdbId) => service.untrack(tmdbId),
     setMode: (_, tmdbId, mode) => service.setMode(tmdbId, mode),
+    setPrefs: (_, tmdbId, prefs) => service.setPrefs(tmdbId, prefs),
+    policy: () => service.policy(),
+    setPolicy: async (_, patch) => {
+      const result = await service.setPolicy(patch)
+      if (result.ok) run()
+      return result
+    },
     setFolder: (_, cid, cidName) => service.setFolder(cid, cidName),
     grab: (_, tmdbId, index) => service.grab(tmdbId, index),
     retry: (_, tmdbId) => service.retry(tmdbId),
     runNow: async () => run(),
   })
+  return service
 }

@@ -1,17 +1,24 @@
 /**
  * 电影上线追踪服务：用户加进来的电影，到 TMDB 数字发行日之后每天搜一次 WEB-DL / BluRay 的 115 分享，
- * 默认列成候选等确认（全自动要先选好电影文件夹、分数过线），30 天没找到就停；片库里出现这部电影就算完成。
+ * 方式跟随电影的全局策略（默认待确认）或单独设；全自动要转存目标不是根目录（电影追踪选的文件夹 > 电影默认目录）、
+ * 匹配分过线；认文件用电影的资源偏好（全局 + 单部覆盖）。30 天没找到就停；片库里出现这部电影就算完成。
  *
  * 不依赖 Electron：TMDB、片库、115、闸门、状态读写、时钟都由 index.ts 注入。
  * 115 请求都过剧集追更的闸门，另有每天 {@link MOVIE_SNAPS_PER_DAY} 次的子限额。
  */
 import type {
   GrabResult,
-  MovieMode,
+  MovieModeSetting,
   MovieSearchHit,
   MovieTrackStatus,
   MoviesOverview,
 } from '../../../shared/contract/autograb-upgrade'
+import type {
+  GrabPolicy,
+  GrabPolicyPatch,
+} from '../../../shared/contract/grab-policy'
+import type { GrabPrefsOverride } from '../../../shared/contract/grab-prefs'
+import type { TargetFolder } from '../../../shared/netdisk/target-folder'
 import type { NetdiskItem, ShareSnap } from '../../../shared/contract/pan115'
 import { createRoundRunner, createSingleFlight } from '../flight'
 import { type Gate, GateClosed } from '../gate'
@@ -29,7 +36,7 @@ import {
   movieKeywords,
   movieNextTry,
 } from './movie-rules'
-import { advance, applyInfo } from './records'
+import { advance, applyInfo, newRecord } from './records'
 import { createMovieSaver } from './saver'
 import {
   type MovieRecord,
@@ -38,6 +45,7 @@ import {
   parseMoviesState,
 } from './state'
 import type { MovieTmdb } from './tmdb'
+import { movieList, movieModeOf, moviePrefsOf } from './view'
 
 const DAY = 24 * 3_600_000
 /** 还没上线的电影多久向 TMDB 刷新一次发行日期 */
@@ -45,6 +53,8 @@ const RECHECK_MS = 3 * DAY
 /** 一轮最多搜几部 */
 const MAX_SEARCH_PER_TICK = 3
 const BLOCK_MS = 7 * DAY
+const FOLDER_ERROR =
+  '全自动要先选一个电影的 115 文件夹，或在设置 · 网盘里设电影默认目录（不能存到根目录）'
 
 /** 依赖 */
 export interface MoviesDeps {
@@ -69,8 +79,8 @@ export interface MoviesDeps {
   }
   /** 按 115 路径通知媒体库扫描 */
   notify(path: string): Promise<void>
-  /** 没单独选文件夹时的转存目标 cid（电影默认目录） */
-  defaultCid(): string
+  /** 没单独选文件夹时的转存目标（电影默认目录，内含原转存目标兜底） */
+  defaultFolder(): TargetFolder
   load(): Promise<unknown>
   save(state: MoviesState): Promise<void>
   now(): number
@@ -86,19 +96,13 @@ export interface MoviesService {
   status(tmdbId: number): Promise<MovieTrackStatus | null>
   track(tmdbId: number): Promise<GrabResult>
   untrack(tmdbId: number): Promise<void>
-  setMode(tmdbId: number, mode: MovieMode): Promise<GrabResult>
+  setMode(tmdbId: number, mode: MovieModeSetting): Promise<GrabResult>
+  setPrefs(tmdbId: number, prefs: GrabPrefsOverride): Promise<GrabResult>
+  policy(): Promise<GrabPolicy>
+  setPolicy(patch: GrabPolicyPatch): Promise<GrabResult>
   setFolder(cid: string, cidName: string): Promise<void>
   grab(tmdbId: number, index: number): Promise<GrabResult>
   retry(tmdbId: number): Promise<void>
-}
-
-const ORDER: Record<MovieTrackStatus, number> = {
-  found: 0,
-  saved: 1,
-  searching: 2,
-  upcoming: 3,
-  notFound: 4,
-  done: 5,
 }
 
 /** 创建电影追踪服务 */
@@ -147,7 +151,7 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
   })
 
   const targetCid = (): string => {
-    const cid = state.cid || deps.defaultCid()
+    const cid = state.cid || deps.defaultFolder().cid
     return /^\d+$/.test(cid) ? cid : '0'
   }
 
@@ -171,7 +175,13 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
       title: record.title,
       openFolder: name => movieFolderWorthOpening(name, target),
       match: (file, context) => {
-        const m = matchMovieFile(file, target, context, true)
+        const m = matchMovieFile(
+          file,
+          target,
+          context,
+          true,
+          moviePrefsOf(state, record)
+        )
         return m.ok ? m : null
       },
     })
@@ -189,8 +199,8 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
     const best = record.candidates[0]
     if (
       record.status === 'found' &&
-      record.mode === 'auto' &&
-      state.cid &&
+      movieModeOf(state, record) === 'auto' &&
+      targetCid() !== '0' &&
       best.score >= AUTO_SCORE
     )
       await saver.grab(record, 0)
@@ -281,26 +291,9 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
         pauseReason: gate.paused()
           ? '115 闸门暂停中（和剧集追更共用），恢复后继续'
           : null,
-        movies: Object.values(state.movies)
-          .sort(
-            (a, b) =>
-              ORDER[a.status] - ORDER[b.status] ||
-              (a.releaseDate ?? '9').localeCompare(b.releaseDate ?? '9') ||
-              b.addedAt - a.addedAt
-          )
-          .map(
-            ({
-              originalTitle: _a,
-              premiere: _b,
-              searchFrom: _c,
-              checkedAt: _d,
-              savedAt: _e,
-              savedName: _f,
-              savedCid: _g,
-              notified: _h,
-              ...rest
-            }) => rest
-          ),
+        policy: state.policy,
+        defaultFolder: deps.defaultFolder(),
+        movies: movieList(state),
         running,
       }
     },
@@ -317,29 +310,7 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
       const info = await deps.tmdb.movie(tmdbId).catch(() => null)
       if (!info) return { ok: false, error: 'TMDB 上找不到这部电影' }
       const now = deps.now()
-      const record: MovieRecord = {
-        tmdbId,
-        title: info.title,
-        originalTitle: info.originalTitle,
-        year: info.year,
-        poster: info.poster,
-        premiere: info.premiere,
-        releaseDate: null,
-        dateSource: null,
-        searchFrom: null,
-        checkedAt: now,
-        mode: 'confirm',
-        status: 'upcoming',
-        attempts: 0,
-        nextTry: null,
-        candidates: [],
-        error: null,
-        addedAt: now,
-        savedAt: null,
-        savedName: null,
-        savedCid: null,
-        notified: false,
-      }
+      const record = newRecord(tmdbId, info, now)
       applyInfo(record, info, now)
       state.movies[String(tmdbId)] = record
       advance(record, now)
@@ -353,13 +324,36 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
       delete state.movies[String(tmdbId)]
       dirty()
     },
-    async setMode(tmdbId: number, mode: MovieMode): Promise<GrabResult> {
+    async setMode(tmdbId: number, mode: MovieModeSetting): Promise<GrabResult> {
       await ensureLoaded()
       const record = recordOf(tmdbId)
       if (!record) return { ok: false, error: '没有在追踪这部电影' }
-      if (mode === 'auto' && !state.cid)
-        return { ok: false, error: '全自动要先选一个电影的 115 文件夹' }
+      if (
+        movieModeOf(state, { ...record, mode }) === 'auto' &&
+        targetCid() === '0'
+      )
+        return { ok: false, error: FOLDER_ERROR }
       record.mode = mode
+      dirty()
+      return { ok: true }
+    },
+    async setPrefs(tmdbId, prefs): Promise<GrabResult> {
+      await ensureLoaded()
+      const record = recordOf(tmdbId)
+      if (!record) return { ok: false, error: '没有在追踪这部电影' }
+      record.prefs = prefs
+      dirty()
+      return { ok: true }
+    },
+    async policy(): Promise<GrabPolicy> {
+      await ensureLoaded()
+      return state.policy
+    },
+    async setPolicy(patch: GrabPolicyPatch): Promise<GrabResult> {
+      await ensureLoaded()
+      if (patch.mode === 'auto' && targetCid() === '0')
+        return { ok: false, error: FOLDER_ERROR }
+      state.policy = { ...state.policy, ...patch, confirmFirst: 0 }
       dirty()
       return { ok: true }
     },
