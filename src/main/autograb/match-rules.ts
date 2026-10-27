@@ -52,6 +52,8 @@ const SEASON_RES = [
 /** 要找的那一集 */
 export interface EpisodeTarget {
   seriesTitle: string
+  /** 原名（TMDB original_name）；与剧名相同或没有时不填，剧名对不上时也认它 */
+  originalTitle?: string
   season: number
   episode: number
 }
@@ -128,6 +130,17 @@ export function titleMatches(a: string, b: string): boolean {
   if (!x || !y) return false
   const [short, long] = x.length <= y.length ? [x, y] : [y, x]
   return short.length >= 2 && long.includes(short)
+}
+
+/** 文字对不对得上这部剧：剧名或原名任一对上即可 */
+export function seriesTitleMatches(
+  text: string,
+  target: Pick<EpisodeTarget, 'seriesTitle' | 'originalTitle'>
+): boolean {
+  return (
+    titleMatches(text, target.seriesTitle) ||
+    (!!target.originalTitle && titleMatches(text, target.originalTitle))
+  )
 }
 
 /** 从一段文字里找季号 */
@@ -218,8 +231,8 @@ export function matchFile(
     return { ok: false, reason: '没写季号' }
 
   const titles = [parsed.title, parsed.altTitle ?? '', context.folder]
-  const ownTitle = titles.some(t => titleMatches(t, target.seriesTitle))
-  if (!ownTitle && !titleMatches(context.shareTitle, target.seriesTitle))
+  const ownTitle = titles.some(t => seriesTitleMatches(t, target))
+  if (!ownTitle && !seriesTitleMatches(context.shareTitle, target))
     return { ok: false, reason: '剧名对不上' }
 
   const reasons: string[] = []
@@ -256,7 +269,7 @@ export function matchFile(
   return { ok: true, score: Math.max(0, Math.min(100, score)), reasons }
 }
 
-/** 分享里值得点进去看的子文件夹：名字对得上剧名、季号相符或是「第 N 季」这类季文件夹 */
+/** 分享里值得点进去看的子文件夹：名字对得上剧名 / 原名、季号相符或是「第 N 季」这类季文件夹 */
 export function folderWorthOpening(
   name: string,
   target: EpisodeTarget
@@ -264,5 +277,5 @@ export function folderWorthOpening(
   if (excludedWord(name)) return false
   const season = seasonIn(name)
   if (season !== undefined) return season === target.season
-  return titleMatches(name, target.seriesTitle)
+  return seriesTitleMatches(name, target)
 }

@@ -54,6 +54,7 @@ const episode = (patch: Partial<CalendarEpisode> = {}): CalendarEpisode => ({
   seriesId: 7,
   libraryId: 1,
   seriesTitle: 'Severance',
+  originalTitle: null,
   season: 3,
   episode: 2,
   title: '第二集',
@@ -482,6 +483,9 @@ describe('RPC calendar.episodes', () => {
       '95396',
       'auto'
     )
+    db.prepare(
+      "UPDATE media_items SET original_title = '人生切割术' WHERE id = ?"
+    ).run(series)
     add('series', null, 'u', '未匹配', null, null, null, 'unmatched')
     const season = add('season', series, 's3', 'S3', 3, null, null, 'auto')
     const ep2 = add('episode', season, 's3e2', 'E2', 3, 2, null, 'auto')
@@ -535,6 +539,7 @@ describe('RPC calendar.episodes', () => {
     expect(result.episodes[0]).toMatchObject({
       seriesId: series,
       seriesTitle: 'Severance',
+      originalTitle: '人生切割术',
       filePath: '/tv/S03E02.mkv',
     })
     const off = new CalendarModule({

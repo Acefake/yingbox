@@ -9,7 +9,7 @@ import {
   type EpisodeTarget,
   excludedWord,
   seasonIn,
-  titleMatches,
+  seriesTitleMatches,
 } from './match-rules'
 
 const PACK_RE =
@@ -37,7 +37,7 @@ export type FolderVerdict = 'open' | 'maybe' | 'skip'
 
 /**
  * 合集里的子文件夹：带排除字眼的不点；写了季号按季号；写了集数区间按是否包含这一集；
- * 名字对得上剧名的点；其它（「4K」「国语」之类）算可以点。
+ * 名字对得上剧名 / 原名的点；其它（「4K」「国语」之类）算可以点。
  */
 export function folderVerdict(
   name: string,
@@ -52,5 +52,5 @@ export function folderVerdict(
     return target.episode >= lo && target.episode <= hi ? 'open' : 'skip'
   }
   if (season !== undefined) return 'open'
-  return titleMatches(name, target.seriesTitle) ? 'open' : 'maybe'
+  return seriesTitleMatches(name, target) ? 'open' : 'maybe'
 }
