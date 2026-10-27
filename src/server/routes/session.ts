@@ -1,6 +1,6 @@
 /**
  * 健康检查、登录 / 退出、服务信息。
- * 登录只是把正确的令牌换成 HttpOnly Cookie；令牌本身在服务启动日志里（或 YINGBOX_SERVER_TOKEN）。
+ * 登录只是把正确的令牌（YINGBOX_SERVER_TOKEN）换成 HttpOnly Cookie；没设令牌时服务不鉴权，登录直接成功。
  */
 import type { ServerHealth, ServerInfo } from '../../shared/library/ipc'
 import type { Auth } from '../http/auth'
@@ -26,6 +26,7 @@ export function registerSessionRoutes(
     'POST',
     '/api/session',
     async request => {
+      if (!auth.required) return new Response(null, { status: 204 })
       const body = (await readJson(request, 4096)) as { token?: unknown } | null
       const token = typeof body?.token === 'string' ? body.token.trim() : ''
       if (!auth.matches(token)) return fail(401, '令牌不正确')
