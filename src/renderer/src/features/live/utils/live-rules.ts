@@ -184,3 +184,11 @@ export function logoText(name: string): string {
   const short = head.replace(/(卫视|频道|台)$/, '')
   return [...(short || head)].slice(0, 7).join('')
 }
+
+/** 画面高度 → 清晰度标签（2160 → 4K，1440 → 2K，其余「1080P」）；未知时为空串 */
+export function qualityLabel(height: number): string {
+  if (!(height > 0)) return ''
+  if (height >= 2160) return '4K'
+  if (height >= 1440) return '2K'
+  return `${Math.round(height)}P`
+}
