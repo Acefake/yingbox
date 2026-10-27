@@ -6,10 +6,22 @@
  * 出网范围：地址由用户在设置里填（可能是局域网 NAS），所以不做私网拦截；但重定向手动处理，
  * 只跟到同一主机（http.ts 的 sameHostFetch），请求只会到用户填的那台机器。
  * 115 分享最多 {@link MAX_RESULTS} 条、按分享去重；磁力按哈希去重（magnet-link.ts）；标题 / 来源截断长度。
+ *
+ * 超时与重试：公共实例（如 so.252035.xyz）实测约一半请求一直不回响应头（与连接复用、关键词缓存无关，
+ * 新连接同样会挂），正常响应 5～11 秒。所以单次只等 {@link PANSOU_ATTEMPT_TIMEOUT_MS}，
+ * 超时、连不上、5xx 时重新发起，最多 {@link PANSOU_ATTEMPTS} 次；4xx、格式错误、code 非 0 不重试。
  */
 import type { MagnetItem, NetdiskItem } from '../../shared/contract/pan115'
 import { Pan115Error } from './errors'
-import { type FetchLike, fetchJson, obj, sameHostFetch, text } from './http'
+import {
+  type FetchLike,
+  HttpStatusError,
+  UnreachableError,
+  fetchJson,
+  obj,
+  sameHostFetch,
+  text,
+} from './http'
 import { MAX_MAGNETS, mergeMagnets, parseOfflineLink } from './magnet-link'
 import { parseShareLink } from './share-link'
 
@@ -17,6 +29,10 @@ import { parseShareLink } from './share-link'
 export const MAX_RESULTS = 200
 const MAX_TITLE = 200
 const MAX_SOURCE = 80
+/** 单次请求等待上限（毫秒）：正常响应 5～11 秒，挂住的请求等再久也不会回 */
+export const PANSOU_ATTEMPT_TIMEOUT_MS = 15_000
+/** 一次搜索最多发几次请求（含首次） */
+export const PANSOU_ATTEMPTS = 3
 
 /** 一次 PanSou 搜索的结果 */
 export interface PanSouResult {
@@ -111,29 +127,48 @@ export function parsePanSouResponse(json: unknown): PanSouResult {
   }
 }
 
+/** 值得换个请求再试的失败：超时、连不上、5xx */
+function retryable(error: unknown): boolean {
+  if (error instanceof HttpStatusError) return error.status >= 500
+  if (error instanceof UnreachableError) return true
+  return error instanceof Pan115Error && error.timeout
+}
+
 /**
  * 搜一个关键词。
  * @param withMagnets 是否同时要磁力与电驴（界面搜索要；追更只认 115 分享，不要）
+ * @param timeoutMs 单次请求超时（测试用小值）
  */
 export async function searchPanSou(
   fetch: FetchLike,
   base: string,
   keyword: string,
-  withMagnets = false
+  withMagnets = false,
+  timeoutMs = PANSOU_ATTEMPT_TIMEOUT_MS
 ): Promise<PanSouResult> {
-  const json = await fetchJson(
-    sameHostFetch(fetch, 'PanSou'),
-    'PanSou',
-    panSouEndpoint(base),
-    {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        kw: keyword.trim(),
-        cloud_types: withMagnets ? ['115', 'magnet', 'ed2k'] : ['115'],
-        res: 'merge',
-      }),
+  const url = panSouEndpoint(base)
+  const body = JSON.stringify({
+    kw: keyword.trim(),
+    cloud_types: withMagnets ? ['115', 'magnet', 'ed2k'] : ['115'],
+    res: 'merge',
+  })
+  const guarded = sameHostFetch(fetch, 'PanSou')
+  for (let attempt = 1; ; attempt++) {
+    try {
+      const json = await fetchJson(
+        guarded,
+        'PanSou',
+        url,
+        {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body,
+        },
+        timeoutMs
+      )
+      return parsePanSouResponse(json)
+    } catch (error) {
+      if (attempt >= PANSOU_ATTEMPTS || !retryable(error)) throw error
     }
-  )
-  return parsePanSouResponse(json)
+  }
 }

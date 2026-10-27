@@ -68,6 +68,46 @@ describe('useNetdiskSearch', () => {
     expect(s.items.value).toEqual([ITEM])
     expect(s.loading.value).toBe(false)
   })
+
+  it('新搜索一开始就清掉上一个词的结果并进入加载态', async () => {
+    const second = deferred<{ ok: true; items: NetdiskItem[] }>()
+    const search = vi
+      .fn()
+      .mockResolvedValueOnce({
+        ok: true,
+        items: [ITEM],
+        magnets: [],
+        notes: [],
+      })
+      .mockReturnValueOnce(second.promise)
+    const s = useNetdiskSearch(() => ({ search }))
+    s.keyword.value = '流浪地球'
+    await s.search()
+    expect(s.items.value).toEqual([ITEM])
+    s.keyword.value = '漫长的季节'
+    const pending = s.search()
+    expect(s.items.value).toEqual([])
+    expect(s.searched.value).toBe(false)
+    expect(s.loading.value).toBe(true)
+    second.resolve({ ok: true, items: [] })
+    await pending
+    expect(s.searched.value).toBe(true)
+  })
+
+  it('reset：清空结果，在途请求晚到也不写回', async () => {
+    const late = deferred<{ ok: true; items: NetdiskItem[] }>()
+    const search = vi.fn().mockReturnValueOnce(late.promise)
+    const s = useNetdiskSearch(() => ({ search }))
+    s.keyword.value = 'a'
+    const pending = s.search()
+    s.keyword.value = ''
+    s.reset()
+    late.resolve({ ok: true, items: [ITEM] })
+    await pending
+    expect(s.items.value).toEqual([])
+    expect(s.loading.value).toBe(false)
+    expect(s.searched.value).toBe(false)
+  })
 })
 
 describe('useShareActions', () => {

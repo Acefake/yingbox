@@ -13,6 +13,13 @@ export const USER_AGENT =
 /** 单次请求超时（毫秒）；PanSou 聚合多个来源，给得宽一些 */
 export const REQUEST_TIMEOUT_MS = 30_000
 
+/** 网络层失败（DNS、拒绝连接、连接被重置），没拿到任何响应 */
+export class UnreachableError extends Pan115Error {
+  constructor(label: string) {
+    super(`${label} 连不上`)
+  }
+}
+
 /**
  * 发请求（带超时），不看状态码；网络失败、超时转成 {@link Pan115Error}。
  * 超时看自己的计时信号是否已触发，不看错误名（Electron net.fetch 中止时不一定抛 TimeoutError）。
@@ -34,11 +41,21 @@ export async function fetchResponse(
     if (error instanceof Pan115Error) throw error
     if (timer.aborted)
       throw new Pan115Error(`${label} 请求超时`, undefined, true)
-    throw new Pan115Error(`${label} 连不上`)
+    throw new UnreachableError(label)
   }
 }
 
-/** 发请求并读 JSON；HTTP 失败、超时、非 JSON 都转成 {@link Pan115Error} */
+/** HTTP 状态码不是 2xx（status 供调用方判断是否值得重试，例如 5xx） */
+export class HttpStatusError extends Pan115Error {
+  constructor(
+    label: string,
+    readonly status: number
+  ) {
+    super(`${label} 返回 HTTP ${status}`)
+  }
+}
+
+/** 发请求并读 JSON；HTTP 失败（{@link HttpStatusError}）、超时、非 JSON 都转成 {@link Pan115Error} */
 export async function fetchJson(
   fetch: FetchLike,
   label: string,
@@ -47,8 +64,7 @@ export async function fetchJson(
   timeoutMs = REQUEST_TIMEOUT_MS
 ): Promise<unknown> {
   const response = await fetchResponse(fetch, label, url, init, timeoutMs)
-  if (!response.ok)
-    throw new Pan115Error(`${label} 返回 HTTP ${response.status}`)
+  if (!response.ok) throw new HttpStatusError(label, response.status)
   try {
     return await response.json()
   } catch {
