@@ -177,8 +177,17 @@ import {
 
 const available = netdiskAvailable
 const pansouUrl = useSetting('pan115.pansouUrl')
-const { keyword, items, magnets, notes, loading, searched, error, search } =
-  useNetdiskSearch(netdisk)
+const {
+  keyword,
+  items,
+  magnets,
+  notes,
+  loading,
+  searched,
+  error,
+  search,
+  reset,
+} = useNetdiskSearch(netdisk)
 const status = useNetdiskStatus({ pan115: netdisk, offline: offlineDownloads })
 const configured = computed(
   () => Boolean(pansouUrl.value) || (status.torznabCount.value ?? 0) > 0
@@ -196,6 +205,13 @@ const statusItems = computed(() =>
 const submitted = ref('')
 const { match } = useHeroMatch(submitted, {
   tmdb: async () => (await import('@/features/online')).tmdb,
+})
+
+// 搜索框清空（点 ✕ 或删光文字）：Hero 回到默认海报，结果与在途搜索一并清掉
+watch(keyword, value => {
+  if (value.trim()) return
+  submitted.value = ''
+  reset()
 })
 
 function runSearch(): void {
@@ -232,6 +248,7 @@ const shown = computed(() =>
 )
 // 新结果里 115 分享为空、磁力有结果时自动切到磁力；在看离线任务时搜索后回到结果
 watch([items, magnets], ([shares, links]) => {
+  if (!searched.value) return
   if (!shares.length && links.length) tab.value = 'magnet'
   else if (shares.length && !links.length) tab.value = 'share'
   else if (tab.value === 'offline') tab.value = 'share'

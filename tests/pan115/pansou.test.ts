@@ -8,6 +8,7 @@ import { Pan115Error, errnoMessage } from '../../src/main/pan115/errors'
 import { fetchJson } from '../../src/main/pan115/http'
 import {
   MAX_RESULTS,
+  PANSOU_ATTEMPTS,
   panSouEndpoint,
   parsePanSouResponse,
   searchPanSou,
@@ -248,6 +249,63 @@ describe('searchPanSou', () => {
     await expect(
       searchPanSou(fetch, 'https://so.example.com', 'a')
     ).rejects.toThrow('PanSou 返回 HTTP 502')
+  })
+
+  /** 挂住不回的请求：只在超时信号触发时以底层错误结束 */
+  const hang = (_url: string, init?: RequestInit): Promise<Response> =>
+    new Promise((_resolve, reject) =>
+      init?.signal?.addEventListener('abort', () =>
+        reject(new Error('net::ERR_ABORTED'))
+      )
+    )
+
+  it('请求挂住超时后重新发起，第二次拿到结果', async () => {
+    const fetch = vi
+      .fn<(url: string, init?: RequestInit) => Promise<Response>>()
+      .mockImplementationOnce(hang)
+      .mockResolvedValueOnce(Response.json(PANSOU_WRAPPED))
+    const { shares } = await searchPanSou(
+      fetch,
+      'https://so.example.com',
+      '纪录片',
+      true,
+      10
+    )
+    expect(shares).toHaveLength(2)
+    expect(fetch).toHaveBeenCalledTimes(2)
+    // 两次发的是同一个请求体
+    const bodies = fetch.mock.calls.map(([, init]) => init?.body)
+    expect(bodies[0]).toBe(bodies[1])
+  })
+
+  it(`一直超时：发满 ${PANSOU_ATTEMPTS} 次后报超时`, async () => {
+    const fetch = vi.fn(hang)
+    const error = await searchPanSou(
+      fetch,
+      'https://so.example.com',
+      'a',
+      true,
+      10
+    ).catch((e: unknown) => e)
+    expect((error as Pan115Error).timeout).toBe(true)
+    expect(fetch).toHaveBeenCalledTimes(PANSOU_ATTEMPTS)
+  })
+
+  it('5xx 与连不上重试，4xx 不重试', async () => {
+    const flaky = vi
+      .fn<(url: string) => Promise<Response>>()
+      .mockResolvedValueOnce(new Response('x', { status: 502 }))
+      .mockRejectedValueOnce(new Error('ECONNRESET'))
+      .mockResolvedValueOnce(Response.json(PANSOU_WRAPPED))
+    const { shares } = await searchPanSou(flaky, 'https://so.example.com', 'a')
+    expect(shares).toHaveLength(2)
+    expect(flaky).toHaveBeenCalledTimes(3)
+
+    const denied = vi.fn(async () => new Response('x', { status: 403 }))
+    await expect(
+      searchPanSou(denied, 'https://so.example.com', 'a')
+    ).rejects.toThrow('PanSou 返回 HTTP 403')
+    expect(denied).toHaveBeenCalledTimes(1)
   })
 })
 
