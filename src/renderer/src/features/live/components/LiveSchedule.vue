@@ -1,13 +1,16 @@
 <template>
   <section class="live-schedule" aria-label="今日节目单">
-    <h3 class="live-schedule-title">今日节目单</h3>
+    <header class="live-schedule-head">
+      <h3 class="live-schedule-title">今日节目单</h3>
+      <span class="live-schedule-day">{{ formatDayLabel(now) }}</span>
+    </header>
     <p v-if="!rows.length" class="live-schedule-empty">{{ emptyText }}</p>
     <ol v-else ref="listEl" class="live-schedule-list">
       <li
         v-for="row in rows"
         :key="row.start"
         class="live-schedule-row"
-        :class="`is-${row.state}`"
+        :class="[`is-${row.state}`, { 'is-next': row.start === nextStart }]"
         :data-state="row.state"
       >
         <span class="live-schedule-time">{{ formatClock(row.start) }}</span>
@@ -22,11 +25,12 @@
 
 <script setup lang="ts">
 /**
- * 选中频道的今日节目单（实色卡片）：已播灰显，正在播出高亮、红字标注并自动滚到可见处。
+ * 选中频道的今日节目单（实色卡片，标题旁是今天的日期）：已播灰显，正在播出高亮并红字标注，下一档稍亮；
+ * 换频道或换档时只在列表内部把正在播出的一档滚到前两行之后，不带动整页滚动。
  */
 import { computed, nextTick, ref, watch } from 'vue'
 
-import { formatClock, scheduleRows } from '../utils/epg-rules'
+import { formatClock, formatDayLabel, scheduleRows } from '../utils/epg-rules'
 import type { EpgProgramme } from '../../../../../shared/contract/iptv'
 
 const props = defineProps<{
@@ -40,15 +44,23 @@ const rows = computed(() => scheduleRows(props.programmes, props.now))
 const liveStart = computed(
   () => rows.value.find(r => r.state === 'live')?.start ?? 0
 )
+/** 下一档：正在播出之后的第一档（没有正在播出时为第一档未播） */
+const nextStart = computed(
+  () => rows.value.find(r => r.state === 'upcoming')?.start ?? -1
+)
 
-/** 换频道或换档时把正在播出的一行滚进视野 */
+/** 正在播出那一行上方留出的行数 */
+const LEAD_ROWS = 2
+
+/** 换频道或换档时把正在播出的一行滚到列表上部（只滚列表自己，scrollIntoView 会带动整页） */
 watch(
   [() => props.programmes, liveStart],
   async () => {
     await nextTick()
-    listEl.value
-      ?.querySelector('[data-state="live"]')
-      ?.scrollIntoView({ block: 'nearest' })
+    const list = listEl.value
+    const row = list?.querySelector<HTMLElement>('[data-state="live"]')
+    if (!list || !row) return
+    list.scrollTop = Math.max(0, row.offsetTop - row.offsetHeight * LEAD_ROWS)
   },
   { immediate: true }
 )
@@ -60,19 +72,31 @@ watch(
   flex-direction: column;
   min-height: 0;
   gap: var(--space-1_5);
-  padding: var(--space-3_5) var(--space-2) var(--space-2);
-  border-radius: var(--radius-xl);
+  padding: var(--space-3) var(--space-1_5) var(--space-1_5);
+  border-radius: var(--radius-lg);
   background: var(--bg-card);
   box-shadow: var(--shadow-card);
 }
 
-.live-schedule-title {
-  margin: 0;
+.live-schedule-head {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: var(--space-3);
   padding: 0 var(--space-3);
   color: var(--text-tertiary);
-  font-size: var(--text-sm);
+  font-size: var(--text-xs);
   font-weight: var(--font-weight-semibold);
-  letter-spacing: 0.04em;
+}
+
+.live-schedule-title {
+  margin: 0;
+  font-size: inherit;
+  font-weight: inherit;
+}
+
+.live-schedule-day {
+  font-variant-numeric: tabular-nums;
 }
 
 .live-schedule-empty {
@@ -83,6 +107,7 @@ watch(
 }
 
 .live-schedule-list {
+  position: relative;
   flex: 1;
   min-height: 0;
   margin: 0;
@@ -99,11 +124,15 @@ watch(
   padding: 0 var(--space-3);
   border-radius: var(--radius-md);
   color: var(--text-secondary);
-  font-size: var(--text-md);
+  font-size: var(--text-sm);
 }
 
 .live-schedule-row.is-past {
   color: var(--text-tertiary);
+}
+
+.live-schedule-row.is-next {
+  color: var(--text-primary);
 }
 
 .live-schedule-row.is-live {

@@ -72,6 +72,43 @@ export function scheduleRows(
     }))
 }
 
+/** 正在播出的一档节目连同进度与剩余时间 */
+export interface NowPlaying {
+  programme: EpgProgramme
+  /** 播出进度 0–1 */
+  progress: number
+  /** 还剩多少分钟（向上取整，至少 1） */
+  remainingMinutes: number
+  /** 下一档节目；没有时为 null */
+  next: EpgProgramme | null
+}
+
+/**
+ * 当前节目、播出进度与剩余分钟（列表需按开始时间排序）。
+ * @returns 没有节目单或 now 不落在任何一档里时返回 null
+ */
+export function nowPlaying(
+  list: readonly EpgProgramme[] | undefined,
+  now: number
+): NowPlaying | null {
+  const programme = currentProgramme(list, now)
+  if (!programme) return null
+  return {
+    programme,
+    progress: programmeProgress(programme, now),
+    remainingMinutes: Math.max(1, Math.ceil((programme.stop - now) / 60_000)),
+    next: nextProgramme(list, now),
+  }
+}
+
+const WEEKDAYS = ['日', '一', '二', '三', '四', '五', '六']
+
+/** 节目单标题旁的日期「10月27日 周二」（本机时区） */
+export function formatDayLabel(ms: number): string {
+  const d = new Date(ms)
+  return `${d.getMonth() + 1}月${d.getDate()}日 周${WEEKDAYS[d.getDay()]}`
+}
+
 /** 时刻 HH:mm（本机时区） */
 export function formatClock(ms: number): string {
   const d = new Date(ms)
