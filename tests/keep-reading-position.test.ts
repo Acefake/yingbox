@@ -65,7 +65,7 @@ describe('在线「媒体库」刷新', () => {
 describe('豆瓣换条件 / 加载下一页', () => {
   it('海报网格只在没有内容时让位给骨架，刷新期间保留旧海报', () => {
     const text = readFileSync(
-      'src/renderer/src/features/online/components/DoubanSection.vue',
+      'src/renderer/src/features/online/components/DoubanBrowse.vue',
       'utf8'
     )
     expect(text).toMatch(/<UiSkeleton\s+v-if="waiting === 'skeleton'"/)

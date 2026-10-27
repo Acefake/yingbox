@@ -144,9 +144,11 @@ describe('首屏等待内容结构用骨架', () => {
   })
 
   it('豆瓣热门：首屏是海报骨架，不再是「加载中...」文字', async () => {
-    const { default: DoubanSection } =
-      await import('@/features/online/components/DoubanSection.vue')
-    const html = await renderToString(h(DoubanSection))
+    const { default: DoubanBrowse } =
+      await import('@/features/online/components/DoubanBrowse.vue')
+    const html = await renderToString(
+      h(DoubanBrowse, { target: { type: 'hot', kind: 'movie' } })
+    )
     expect(html).toContain('ui-skeleton')
     expect(html).not.toContain('加载中')
   })
