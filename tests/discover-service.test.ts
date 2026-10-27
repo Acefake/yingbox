@@ -34,7 +34,7 @@ function autograbFor(clock: {
       loggedIn: () => true,
       pansouReady: () => true,
     } as AutograbDeps['pan'],
-    defaultCid: () => '0',
+    defaultFolder: () => ({ cid: '0', name: '' }),
     load: async () => null,
     save: async () => {},
     now: () => clock.t,

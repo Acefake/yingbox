@@ -96,7 +96,9 @@ onMounted(start)
 const note = computed(() => {
   if (!list.value) return loading.value ? '正在读取…' : ''
   const where = list.value.folder ? `「${list.value.folder}」` : '根目录'
-  const parts = [`新任务存到 115 的${where}（网盘设置里的转存目标）`]
+  const parts = [
+    `新任务默认存到 115 的${where}（电影默认目录，结果上方的胶囊可另选）`,
+  ]
   if (list.value.error) parts.push(`同步失败：${list.value.error}`)
   return parts.join('；')
 })

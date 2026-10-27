@@ -10,6 +10,7 @@
  * 扫码状态机：二维码只在终态（登录完成 / 过期 / 取消）或换新码时作废；状态接口的瞬时异常
  * 连续 {@link MAX_MISSES} 次才报错且保留二维码；手机确认后换 Cookie 失败时，下一次轮询直接重试换 Cookie。
  */
+import { normalizeCid } from '../../shared/netdisk/target-folder'
 import type {
   NetdiskItem,
   Pan115Account,
@@ -44,8 +45,8 @@ export interface Pan115ServiceDeps {
   settings: {
     /** PanSou 地址（空串 = 未填） */
     pansouUrl(): string
-    /** 转存目标文件夹 cid（"0" = 根目录） */
-    targetCid(): string
+    /** 没指定文件夹时的转存目标 cid（电影默认目录，"0" = 根目录） */
+    defaultCid(): string
   }
   /** 登录会话的存取 */
   session: {
@@ -97,7 +98,12 @@ export interface Pan115Service {
   loginPoll(): Promise<Pan115LoginPoll>
   logout(): Promise<void>
   snap(url: string, password: string): Promise<Pan115Result<ShareSnap>>
-  receive(url: string, password: string): Promise<Pan115Result>
+  /** 转存整个分享：folder 不传时存到 settings.defaultCid() */
+  receive(
+    url: string,
+    password: string,
+    folder?: { cid: string } | null
+  ): Promise<Pan115Result>
   dirs(cid: string): Promise<Pan115Result<Pan115DirListing>>
   /** 启动时把保存的会话 Cookie 恢复进传输层分区（没有会话时清空分区） */
   restore(): Promise<void>
@@ -272,19 +278,20 @@ export function createPan115Service(deps: Pan115ServiceDeps): Pan115Service {
       return withClient(client => client.snap(shareOf(url, password)))
     },
 
-    receive(url: string, password: string): Promise<Pan115Result> {
-      const cid = deps.settings.targetCid()
+    receive(
+      url: string,
+      password: string,
+      folder?: { cid: string } | null
+    ): Promise<Pan115Result> {
+      const cid = normalizeCid(folder?.cid || deps.settings.defaultCid())
       return withClient(async client => {
-        await client.receive(
-          shareOf(url, password),
-          /^\d+$/.test(cid) ? cid : '0'
-        )
+        await client.receive(shareOf(url, password), cid)
         return {}
       })
     },
 
     dirs(cid: string): Promise<Pan115Result<Pan115DirListing>> {
-      return withClient(client => client.dirs(/^\d+$/.test(cid) ? cid : '0'))
+      return withClient(client => client.dirs(normalizeCid(cid)))
     },
 
     restore(): Promise<void> {

@@ -2,6 +2,7 @@
  * 追更服务的依赖：日历、媒体库通知、115 / PanSou、状态读写、时钟。由 index.ts 接到真实实现，测试可全部替换。
  */
 import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
+import type { TargetFolder } from '../../shared/netdisk/target-folder'
 import type {
   CalendarRequest,
   CalendarResult,
@@ -39,8 +40,8 @@ export interface AutograbDeps {
     /** 文件夹 cid 从根开始的各级名字（不含根） */
     dirPath(cid: string): Promise<string[]>
   }
-  /** 设置里的转存目标 cid */
-  defaultCid(): string
+  /** 剧没单独选文件夹时的转存目标（剧集默认目录，没设时沿用原转存目标，见 shared/netdisk/target-folder.ts） */
+  defaultFolder(): TargetFolder
   load(): Promise<unknown>
   save(state: AutograbState): Promise<void>
   now(): number

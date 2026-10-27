@@ -21,7 +21,8 @@ export function implementPan115(
     loginPoll: () => service.loginPoll(),
     logout: () => service.logout(),
     snap: (_, url, password) => service.snap(url, password),
-    receive: (_, url, password) => service.receive(url, password),
+    receive: (_, url, password, folder) =>
+      service.receive(url, password, folder),
     dirs: (_, cid) => service.dirs(cid),
   })
 }

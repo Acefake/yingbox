@@ -1,6 +1,7 @@
 /**
  * 115 离线下载：磁力行的「115 离线下载」与网盘页「离线任务」列表。
- * - 添加：同一链接进行中不重发；成功后记为已添加；未登录 115 时提示并打开设置 · 网盘去扫码；
+ * - 添加：存到 deps.folder() 给的文件夹（不给时主进程用电影默认目录）；同一链接进行中不重发；成功后记为已添加；
+ *   未登录 115 时提示并打开设置 · 网盘去扫码；
  * - 列表：打开时读一次（主进程有未完成任务时会先向 115 同步），之后跟着 changed 事件刷新；
  *   页面停留期间每分钟再读一次（读的是主进程缓存，向 115 同步至少隔 15 秒，由主进程控制）。
  */
@@ -9,6 +10,7 @@ import { type Ref, onBeforeUnmount, reactive, ref } from 'vue'
 import type { Api } from '../../../../../shared/contract'
 import type { MagnetItem } from '../../../../../shared/contract/pan115'
 import type { OfflineList } from '../../../../../shared/contract/offline'
+import type { TargetFolder } from '../../../../../shared/netdisk/target-folder'
 
 import { errorText } from '../utils/netdisk-rules'
 import type { Notifier } from './use-share-actions'
@@ -19,6 +21,8 @@ export interface OfflineDeps {
   notify: Notifier
   /** 未登录时去设置 · 网盘 */
   openLogin(): void
+  /** 保存到哪（页面共用的转存目标）；不传时由主进程用默认目录 */
+  folder?: () => TargetFolder
 }
 
 const REFRESH_MS = 60_000
@@ -50,7 +54,10 @@ export function useOfflineAdd(deps: OfflineDeps): OfflineAdd {
     if (adding.has(link) || added.has(link)) return
     adding.add(link)
     try {
-      const result = await deps.api().add([link])
+      const folder = deps.folder?.()
+      const result = folder
+        ? await deps.api().add([link], folder)
+        : await deps.api().add([link])
       if (!result.ok) {
         deps.notify.error(result.error)
         if (result.setup === 'login') deps.openLogin()

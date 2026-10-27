@@ -2,7 +2,7 @@
  * 115 离线下载模块入口（只依赖模块宿主，桌面端主进程与独立服务共用）：把离线下载服务接到 115 服务、设置、
  * 媒体库变更通知与 offline 域。
  *
- * - 保存目录：网盘设置里的转存目标 `pan115.targetCid`（空为根目录）；
+ * - 保存目录：调用方选的文件夹；没选时用电影默认目录（shared/netdisk/target-folder.ts：`pan115.movieCid`，没设时沿用 `pan115.targetCid`）；
  * - 任务记录存 <dataDir>/offline-tasks.json（原子替换）；
  * - 每 3 分钟一轮：有没结束的任务时才向 115 查列表；完成后按 115 路径通知媒体库（映射 `library.notify.mountRoot`）。
  */
@@ -10,6 +10,10 @@ import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
 import { offline } from '../../shared/contract/offline'
+import {
+  defaultFolder,
+  readTargetSettings,
+} from '../../shared/netdisk/target-folder'
 import { atomicWrite } from '../file-operations'
 import type { LibraryEngineClient } from '../library/client'
 import type { ModuleHost } from '../module-host'
@@ -38,10 +42,11 @@ export function registerOffline(
           return listing.path.filter(d => d.cid !== '0').map(d => d.name)
         }),
     },
-    folder: () => {
-      const cid = host.setting('pan115.targetCid') || '0'
-      return { cid, name: cid === '0' ? '' : host.setting('pan115.targetName') }
-    },
+    folder: () =>
+      defaultFolder(
+        'movie',
+        readTargetSettings(key => host.setting(key))
+      ),
     notify: async path => {
       const mountRoot = host.setting('library.notify.mountRoot')
       const changes = [{ action: 'create' as const, path }]
@@ -64,7 +69,7 @@ export function registerOffline(
     run: () => void service.tick().catch(() => {}),
   })
   host.implement(offline, {
-    add: (_, links) => service.add(links),
+    add: (_, links, folder) => service.add(links, folder),
     tasks: () => service.tasks(),
   })
   return service

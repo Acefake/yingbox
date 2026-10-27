@@ -13,6 +13,10 @@ import { app, net, session } from 'electron'
 
 import { installBrowserNetworkGuard } from '../browser-fetch/network-guard'
 import type { ModuleHost } from '../module-host'
+import {
+  defaultFolder,
+  readTargetSettings,
+} from '../../shared/netdisk/target-folder'
 import { settingsStore } from '../settings'
 import { implementPan115 } from './domain'
 import { type Pan115Service, createPan115Service } from './service'
@@ -39,7 +43,11 @@ export function registerPan115(
     lanFetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
     settings: {
       pansouUrl: () => store.get('pan115.pansouUrl'),
-      targetCid: () => store.get('pan115.targetCid'),
+      defaultCid: () =>
+        defaultFolder(
+          'movie',
+          readTargetSettings(key => store.get(key))
+        ).cid,
     },
     session: {
       read: () => parseSession(store.getSecret(SESSION_KEY)),

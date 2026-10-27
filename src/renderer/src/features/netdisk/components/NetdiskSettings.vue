@@ -74,58 +74,13 @@
     </SettingsRow>
   </SettingsGroup>
 
-  <SettingsGroup title="转存位置" footer="转存的分享整份存进这个文件夹。">
-    <SettingsRow
-      :title="targetName || '根目录'"
-      :description="`cid ${targetCid}`"
-    >
-      <UiButton
-        size="sm"
-        :label="picking ? '收起' : '选择…'"
-        :disabled="!account?.loggedIn"
-        @click="picking = !picking"
-      />
-    </SettingsRow>
-    <SettingsRow v-if="picking && account?.loggedIn" stacked>
-      <NetdiskFolderPicker :start-cid="targetCid" @pick="pickFolder" />
-    </SettingsRow>
-  </SettingsGroup>
-
-  <SettingsGroup
-    title="助手转存目标文件夹"
-    footer="AI 助手和首页豆瓣卡「找 115 资源」转存的电影存进这里；不设时跟随上面的转存位置。这个文件夹要在媒体库里（CloudDrive2 挂载），转存后才能自动入库。"
-  >
-    <SettingsRow
-      :title="movieCid ? movieName || '根目录' : '跟随转存位置'"
-      :description="movieCid ? `cid ${movieCid}` : undefined"
-    >
-      <UiButton
-        v-if="movieCid"
-        size="sm"
-        variant="plain"
-        label="跟随转存位置"
-        @click="pickMovieFolder(null)"
-      />
-      <UiButton
-        size="sm"
-        :label="pickingMovie ? '收起' : '选择…'"
-        :disabled="!account?.loggedIn"
-        @click="pickingMovie = !pickingMovie"
-      />
-    </SettingsRow>
-    <SettingsRow v-if="pickingMovie && account?.loggedIn" stacked>
-      <NetdiskFolderPicker
-        :start-cid="movieCid || targetCid"
-        @pick="pickMovieFolder"
-      />
-    </SettingsRow>
-  </SettingsGroup>
+  <TargetFolderSettings :disabled="!account?.loggedIn" />
 </template>
 
 <script setup lang="ts">
 /**
- * 设置 · 网盘：PanSou 地址（默认不填；公共实例需显式选用）、Torznab（TorznabGroup）、115 扫码登录 / 退出、转存目标文件夹，
- * 以及助手转存目标文件夹（库外发现转存电影用，空 = 跟随转存目标）。
+ * 设置 · 网盘：PanSou 地址（默认不填；公共实例需显式选用）、Torznab（TorznabGroup）、115 扫码登录 / 退出、
+ * 转存位置（电影 / 剧集默认目录，TargetFolderSettings）。
  * 扫码与 Cookie 都在主进程，这里只显示二维码图片和账号名；扫码状态见 useQrLogin。
  */
 import { computed, onBeforeUnmount, onMounted, ref } from 'vue'
@@ -138,13 +93,12 @@ import { isWebRuntime } from '@/services/library-server'
 import {
   PANSOU_PUBLIC_URL,
   type Pan115Account,
-  type Pan115Dir,
 } from '../../../../../shared/contract/pan115'
 
 import { netdisk } from '../api'
 import { useQrLogin } from '../composables/use-qr-login'
 import { errorText } from '../utils/netdisk-rules'
-import NetdiskFolderPicker from './NetdiskFolderPicker.vue'
+import TargetFolderSettings from './TargetFolderSettings.vue'
 import TorznabGroup from './TorznabGroup.vue'
 
 /** 登录信息存在哪：桌面端主进程加密存本机；网页端存在片库服务的数据目录（仅服务用户可读的文件） */
@@ -153,15 +107,9 @@ const storageNote = isWebRuntime()
   : '登录信息加密保存在本机。'
 
 const pansouUrl = useSetting('pan115.pansouUrl')
-const targetCid = useSetting('pan115.targetCid')
-const targetName = useSetting('pan115.targetName')
-const movieCid = useSetting('pan115.movieCid')
-const movieName = useSetting('pan115.movieName')
-const pickingMovie = ref(false)
 const pansouDraft = ref(pansouUrl.value)
 
 const account = ref<Pan115Account | null>(null)
-const picking = ref(false)
 const qr = useQrLogin({
   api: netdisk,
   onDone: next => {
@@ -209,22 +157,7 @@ async function logout(): Promise<void> {
   } catch (e) {
     toast.error(`退出失败：${errorText(e)}`)
   }
-  picking.value = false
-  pickingMovie.value = false
   await refreshAccount()
-}
-
-function pickFolder(dir: Pan115Dir): void {
-  targetCid.value = dir.cid
-  targetName.value = dir.cid === '0' ? '' : dir.name
-  picking.value = false
-}
-
-/** 选助手转存目标文件夹；null = 跟随转存位置 */
-function pickMovieFolder(dir: Pan115Dir | null): void {
-  movieCid.value = dir?.cid ?? ''
-  movieName.value = dir && dir.cid !== '0' ? dir.name : ''
-  pickingMovie.value = false
 }
 
 onMounted(refreshAccount)

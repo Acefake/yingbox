@@ -1,5 +1,5 @@
 /**
- * 搜索结果上的动作：复制链接、查看文件（页面里单独的预览区）、转存。
+ * 搜索结果上的动作：复制链接、查看文件（页面里单独的预览区）、转存（存到 deps.folder() 给的文件夹，不给时由主进程用电影默认目录）。
  * - 进行中重复点击不重发；IPC 抛错时复位状态并提示；
  * - 预览换了一条时，上一条晚到的响应作废；
  * - 剪贴板被拒绝时提示「复制失败」，不留未处理的 rejection。
@@ -12,6 +12,10 @@ import type {
   NetdiskItem,
   ShareSnap,
 } from '../../../../../shared/contract/pan115'
+import {
+  type TargetFolder,
+  folderLabel,
+} from '../../../../../shared/netdisk/target-folder'
 
 import { errorText } from '../utils/netdisk-rules'
 
@@ -26,6 +30,8 @@ export interface ShareActionDeps {
   api: () => Pick<Api['pan115'], 'snap' | 'receive'>
   notify: Notifier
   clipboard: () => Pick<Clipboard, 'writeText'>
+  /** 转存目标（页面共用的选择）；不传时不指定，由主进程用默认目录 */
+  folder?: () => TargetFolder
 }
 
 /** 复制到剪贴板的文字：链接里没带提取码时补在后面 */
@@ -93,10 +99,15 @@ export function useShareActions(deps: ShareActionDeps): ShareActions {
     if (saving.has(url) || saved.has(url)) return
     saving.add(url)
     try {
-      const result = await deps.api().receive(url, target.receiveCode)
+      const folder = deps.folder?.()
+      const result = folder
+        ? await deps.api().receive(url, target.receiveCode, folder)
+        : await deps.api().receive(url, target.receiveCode)
       if (result.ok) {
         saved.add(url)
-        deps.notify.success('已转存到 115')
+        deps.notify.success(
+          folder ? `已转存到「${folderLabel(folder)}」` : '已转存到 115'
+        )
       } else deps.notify.error(result.error)
     } catch (e) {
       deps.notify.error(`转存失败：${errorText(e)}`)

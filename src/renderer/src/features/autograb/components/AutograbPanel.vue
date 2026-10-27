@@ -60,12 +60,6 @@
       >
         <div class="autograb-row-main">
           <span class="autograb-name">{{ series.title }}</span>
-          <span v-if="series.mode !== 'off'" class="autograb-folder">
-            {{
-              series.cidName ||
-              (series.cid ? `文件夹 ${series.cid}` : '设置里的转存目标')
-            }}
-          </span>
           <span
             v-if="series.mode !== 'off' && overrideSummary(series.prefs)"
             class="autograb-folder"
@@ -79,14 +73,14 @@
             还要手动确认 {{ confirmsLeft(series.confirmed) }} 集才会自动转存
           </span>
         </div>
-        <UiButton
+        <TargetFolderPill
           v-if="series.mode !== 'off'"
+          v-bind="folderPill(series)"
           size="sm"
           variant="plain"
-          icon="folder"
-          label="选文件夹"
+          align="right"
           :disabled="!data.ready.loggedIn"
-          @click="togglePickerFor(series.seriesId)"
+          @pick="pick => pickFolder(series.seriesId, pick)"
         />
         <UiButton
           v-if="series.mode !== 'off'"
@@ -102,12 +96,6 @@
           size="sm"
           @update:model-value="mode => ag.setSeries(series.seriesId, { mode })"
         />
-        <div v-if="picking === series.seriesId" class="autograb-picker">
-          <NetdiskFolderPicker
-            :start-cid="series.cid || '0'"
-            @pick="dir => pickFolder(series.seriesId, dir)"
-          />
-        </div>
         <div v-if="editing === series.seriesId" class="autograb-picker">
           <AutograbPrefsForm
             :title="`${series.title} 的追更偏好`"
@@ -138,7 +126,7 @@
 <script setup lang="ts">
 /**
  * 追更面板（追剧日历页里展开）：总开关、熔断恢复、立即检查；最近在播的剧逐部选「不追 / 待确认 / 全自动」
- * 和 115 文件夹、每剧偏好覆盖；「偏好」编辑全局的分辨率 / 偏好词 / 排除词 / 体积；
+ * 和转存位置（胶囊：剧集默认目录 / 最近使用 / 浏览 115 目录树，没单独选时跟剧集默认目录）、每剧偏好覆盖；「偏好」编辑全局的分辨率 / 偏好词 / 排除词 / 体积；
  * 下面是已追剧最近各集的状态与候选（见 AutograbEpisodes），focusKey 指定要定位的一集。
  */
 import { computed, ref } from 'vue'
@@ -146,12 +134,20 @@ import { computed, ref } from 'vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
-import { NetdiskFolderPicker } from '@/features/netdisk'
+import {
+  type FolderPick,
+  type FolderPreset,
+  TargetFolderPill,
+} from '@/features/netdisk'
+import type { AutograbSeries } from '../../../../../shared/contract/autograb'
 import type {
   AutograbPrefs,
   AutograbPrefsOverride,
 } from '../../../../../shared/contract/autograb-prefs'
-import type { Pan115Dir } from '../../../../../shared/contract/pan115'
+import {
+  type TargetFolder,
+  folderOf,
+} from '../../../../../shared/netdisk/target-folder'
 
 import {
   MODE_OPTIONS,
@@ -172,7 +168,6 @@ const notice = computed(() => (data.value ? overviewNotice(data.value) : null))
 const ready = computed(
   () => !!data.value?.ready.loggedIn && !!data.value.ready.pansou
 )
-const picking = ref<number | null>(null)
 /** 正在编辑的偏好：全局 / 某部剧 / 没有 */
 const editing = ref<'global' | number | null>(null)
 
@@ -194,13 +189,35 @@ async function saveSeries(
   if (await ag.setSeries(seriesId, { prefs })) editing.value = null
 }
 
-function togglePickerFor(seriesId: number): void {
-  picking.value = picking.value === seriesId ? null : seriesId
+/** 一部剧的转存位置胶囊：单独选了文件夹显示它，否则是「剧集默认目录」 */
+function folderPill(series: AutograbSeries): {
+  folder: TargetFolder
+  active: string | null
+  presets: FolderPreset[]
+} {
+  const { cid, name } = data.value?.defaultFolder ?? { cid: '0', name: '' }
+  const fallback = folderOf(cid, name)
+  return {
+    folder: series.cid ? folderOf(series.cid, series.cidName) : fallback,
+    active: series.cid ? null : 'default',
+    presets: [
+      {
+        key: 'default',
+        label: '剧集默认目录',
+        icon: 'tv' as const,
+        folder: fallback,
+      },
+    ],
+  }
 }
 
-async function pickFolder(seriesId: number, dir: Pan115Dir): Promise<void> {
-  picking.value = null
-  await ag.setSeries(seriesId, { cid: dir.cid, cidName: dir.name || '根目录' })
+/** 选「剧集默认目录」清掉单独设置；选了文件夹就存成这部剧的位置 */
+async function pickFolder(seriesId: number, pick: FolderPick): Promise<void> {
+  const folder = 'folder' in pick ? pick.folder : null
+  await ag.setSeries(seriesId, {
+    cid: folder?.cid ?? '',
+    cidName: folder ? folder.name || '根目录' : '',
+  })
 }
 </script>
 

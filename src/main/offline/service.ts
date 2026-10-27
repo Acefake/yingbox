@@ -14,6 +14,7 @@ import type {
   OfflineStatus,
   OfflineTask,
 } from '../../shared/contract/offline'
+import { folderOf } from '../../shared/netdisk/target-folder'
 import { Pan115Error } from '../pan115/errors'
 import { parseOfflineLink } from '../pan115/magnet-link'
 import type { OfflineTaskPage, RawOfflineTask } from '../pan115/offline'
@@ -54,7 +55,7 @@ export interface OfflineDeps {
     /** 文件夹 cid 的路径（不含根目录）；根目录为空数组 */
     dirPath(cid: string): Promise<string[]>
   }
-  /** 新任务的保存目录 */
+  /** 没指定文件夹时新任务的保存目录（电影默认目录） */
   folder(): { cid: string; name: string }
   /** 通知媒体库：115 上这个路径有新文件 */
   notify(path: string): Promise<void>
@@ -68,7 +69,11 @@ export interface OfflineDeps {
 
 /** 离线下载服务 */
 export interface OfflineService {
-  add(links: readonly string[]): Promise<OfflineAddResult>
+  /** 添加任务：folder 不传时存到 deps.folder() */
+  add(
+    links: readonly string[],
+    folder?: { cid: string; name: string } | null
+  ): Promise<OfflineAddResult>
   tasks(): Promise<OfflineList>
   /** 定时一轮：有没结束的任务时同步一次 */
   tick(): Promise<void>
@@ -238,14 +243,19 @@ export function createOfflineService(deps: OfflineDeps): OfflineService {
   }
 
   return {
-    async add(links: readonly string[]): Promise<OfflineAddResult> {
+    async add(
+      links: readonly string[],
+      target?: { cid: string; name: string } | null
+    ): Promise<OfflineAddResult> {
       try {
         if (!(await deps.pan.loggedIn()))
           return { ok: false, error: NOT_LOGGED_IN, setup: 'login' }
       } catch {
         return { ok: false, error: NOT_LOGGED_IN, setup: 'login' }
       }
-      const folder = deps.folder()
+      const folder = target?.cid
+        ? folderOf(target.cid, target.name)
+        : deps.folder()
       let items: OfflineAddItem[]
       try {
         items = await deps.pan.add(links, folder.cid)

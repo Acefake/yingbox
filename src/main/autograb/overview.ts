@@ -36,6 +36,7 @@ export interface OverviewContext {
   ready: AutograbOverview['ready']
   airing: Map<number, string>
   running: boolean
+  defaultFolder: AutograbOverview['defaultFolder']
 }
 
 /** 组装总览：只列追更中的剧的集，新播出的在前 */
@@ -60,5 +61,6 @@ export function buildOverview(
       .slice(0, MAX_EPISODES)
       .map(episodeView),
     running: ctx.running,
+    defaultFolder: ctx.defaultFolder,
   }
 }

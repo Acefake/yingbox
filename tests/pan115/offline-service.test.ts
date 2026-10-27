@@ -88,6 +88,15 @@ describe('离线下载服务', () => {
     expect(t.pan.add).not.toHaveBeenCalled()
   })
 
+  it('添加：指定了文件夹就存到那里，任务记下该文件夹', async () => {
+    const t = setup()
+    const result = await t.service.add([LINK], { cid: '31', name: '剧集' })
+    expect(result).toMatchObject({ ok: true, folder: '剧集' })
+    expect(t.pan.add).toHaveBeenCalledWith([LINK], '31')
+    expect(t.saved()?.tasks[0]).toMatchObject({ cid: '31', folder: '剧集' })
+    expect((await t.service.tasks()).folder).toBe('新片')
+  })
+
   it('添加：存到转存目标文件夹，记下任务（名字 / 大小取自链接）并推送 changed', async () => {
     const t = setup()
     const result = await t.service.add([LINK])
