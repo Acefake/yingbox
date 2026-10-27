@@ -5,8 +5,10 @@ import type {
   AutograbEpisode,
   AutograbMode,
   AutograbOverview,
+  AutograbSeries,
   AutograbStatus,
 } from '../../../../shared/contract/autograb'
+import { normalizeCid } from '../../../../shared/netdisk/target-folder'
 
 /** 模式选项（分段控件） */
 export const MODE_OPTIONS: { value: AutograbMode; label: string }[] = [
@@ -71,6 +73,17 @@ export function overviewNotice(o: AutograbOverview): string | null {
 /** 全自动模式下还要手动确认几集 */
 export function confirmsLeft(confirmed: number, need = 3): number {
   return Math.max(0, need - confirmed)
+}
+
+/**
+ * 切到全自动前要不要先选文件夹：与主进程 targetCid 同一解析（这部剧选的 > 剧集默认目录，
+ * 后者已含原转存目标兜底），解析出来是根目录就不能全自动。
+ */
+export function needsFolderForAuto(
+  series: Pick<AutograbSeries, 'cid'>,
+  defaultFolder: AutograbOverview['defaultFolder']
+): boolean {
+  return normalizeCid(series.cid || defaultFolder.cid) === '0'
 }
 
 /** 有暂停（风控 / 登录 / 空间不足）可以点「恢复」 */
