@@ -94,8 +94,18 @@
           :options="MODE_OPTIONS"
           :label="`${series.title} 的追更方式`"
           size="sm"
-          @update:model-value="mode => ag.setSeries(series.seriesId, { mode })"
+          @update:model-value="mode => fullAuto.changeMode(series, mode)"
         />
+        <div
+          v-if="fullAuto.picking.value === series.seriesId"
+          class="autograb-picker"
+        >
+          <AutograbFolderPrompt
+            :title="series.title"
+            @pick="fullAuto.pick"
+            @cancel="fullAuto.cancel"
+          />
+        </div>
         <div v-if="editing === series.seriesId" class="autograb-picker">
           <AutograbPrefsForm
             :title="`${series.title} 的追更偏好`"
@@ -127,11 +137,13 @@
 /**
  * 追更面板（追剧日历页里展开）：总开关、熔断恢复、立即检查；最近在播的剧逐部选「不追 / 待确认 / 全自动」
  * 和转存位置（胶囊：剧集默认目录 / 最近使用 / 浏览 115 目录树，没单独选时跟剧集默认目录）、每剧偏好覆盖；「偏好」编辑全局的分辨率 / 偏好词 / 排除词 / 体积；
+ * 不追 / 待确认时点「全自动」而这部剧没有可用文件夹（解析到根目录），先在这一行下面弹文件夹选择，选好才切（use-full-auto-folder.ts）；
  * 下面是已追剧最近各集的状态与候选（见 AutograbEpisodes），focusKey 指定要定位的一集。
  */
 import { computed, ref } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
+import { toast } from '@/components/ui/toast'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import {
@@ -157,13 +169,20 @@ import {
 } from '../autograb-rules'
 import { overrideSummary } from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
+import { useFullAutoFolder } from '../use-full-auto-folder'
 import AutograbEpisodes from './AutograbEpisodes.vue'
+import AutograbFolderPrompt from './AutograbFolderPrompt.vue'
 import AutograbPrefsForm from './AutograbPrefsForm.vue'
 
 defineProps<{ focusKey?: string | null }>()
 
 const ag = useAutograb()
 const data = computed(() => ag.overview.value)
+const fullAuto = useFullAutoFolder({
+  overview: () => ag.overview.value,
+  setSeries: ag.setSeries,
+  warn: text => void toast.warning(text),
+})
 const notice = computed(() => (data.value ? overviewNotice(data.value) : null))
 const ready = computed(
   () => !!data.value?.ready.loggedIn && !!data.value.ready.pansou
