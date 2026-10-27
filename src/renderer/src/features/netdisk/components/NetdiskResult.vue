@@ -1,5 +1,6 @@
 <template>
   <li class="netdisk-result">
+    <QualityBadge :title="item.title" />
     <div class="netdisk-result-text">
       <p class="netdisk-result-title" :title="item.title">{{ item.title }}</p>
       <p class="netdisk-result-meta">
@@ -42,7 +43,7 @@
 
 <script setup lang="ts">
 /**
- * 网盘搜索的一条结果（虚拟列表里的一张实色卡片，等高）：标题、来源 · 时间 · 提取码 · 从标题认出的规格标签，
+ * 网盘搜索的一条结果（虚拟列表里的一张实色卡片，等高）：左侧画质角标（QualityBadge），标题、来源 · 时间 · 提取码 · 从标题认出的规格标签，
  * 复制链接 / 查看文件 / 转存。
  * 状态与请求都在页面的 useShareActions 里，这里只显示并发出事件。
  */
@@ -54,6 +55,7 @@ import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import { releaseSpecs } from '@/components/ui/spec-badge'
 import type { NetdiskItem } from '../../../../../shared/contract/pan115'
 
+import QualityBadge from './QualityBadge.vue'
 import { formatDay, sourceLabel } from '../utils/netdisk-rules'
 
 const props = defineProps<{
@@ -82,7 +84,7 @@ const specs = computed(() => releaseSpecs([props.item.title]))
   align-items: center;
   gap: var(--space-4);
   margin-bottom: var(--space-3);
-  padding: var(--space-4) var(--space-4) var(--space-4) var(--space-5);
+  padding: var(--space-4);
   border-radius: var(--radius-xl);
   background: var(--bg-card);
   box-shadow: var(--shadow-card);
