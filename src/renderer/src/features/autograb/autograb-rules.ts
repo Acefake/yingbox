@@ -1,33 +1,13 @@
 /**
- * 追更界面的纯规则：状态文案、模式选项、集号、体积、暂停提示、日历卡片上的小标记。
+ * 追更界面的纯规则：状态文案、集号、体积、暂停提示、日历卡片上的小标记。
  */
 import type {
   AutograbEpisode,
-  AutograbMode,
   AutograbOverview,
   AutograbSeries,
-  AutograbSeriesMode,
   AutograbStatus,
 } from '../../../../shared/contract/autograb'
 import { normalizeCid } from '../../../../shared/netdisk/target-folder'
-
-/** 模式选项（分段控件） */
-export const MODE_OPTIONS: { value: AutograbMode; label: string }[] = [
-  { value: 'off', label: '不追' },
-  { value: 'confirm', label: '待确认' },
-  { value: 'auto', label: '全自动' },
-]
-
-/** 一部剧的方式选项：跟随全局 + 三档 */
-export const SERIES_MODE_OPTIONS: {
-  value: AutograbSeriesMode
-  label: string
-}[] = [
-  { value: 'inherit', label: '跟随' },
-  { value: 'off', label: '不追' },
-  { value: 'confirm', label: '待确认' },
-  { value: 'auto', label: '全自动' },
-]
 
 /** 状态文案 */
 export const STATUS_LABEL: Record<AutograbStatus, string> = {

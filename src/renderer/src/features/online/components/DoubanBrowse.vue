@@ -19,11 +19,17 @@
 
     <!-- 片单是豆瓣快捷标签，和多维筛选互斥，所以片单页没有这一行 -->
     <div v-if="target.type !== 'list'" class="db-filters">
-      <BrowseFilterPill
+      <UiGlassSelect
         v-for="pill in pills"
         :key="pill.key"
-        :pill="pill"
-        @select="value => feed.setQuery(filterPatch(pill.key, value))"
+        :model-value="pill.value"
+        :options="pill.options"
+        :label="pill.label"
+        :text="pill.text"
+        :active="pill.active"
+        @update:model-value="
+          value => feed.setQuery(filterPatch(pill.key, value))
+        "
       />
       <span class="db-filters-gap" />
       <template v-if="chips.length">
@@ -102,7 +108,7 @@
 <script setup lang="ts">
 /**
  * 首页的浏览页（热门全部 / 某个类型 / 某个精选片单）：返回 + 大标题 + 电影 / 剧集分段，
- * 下一行是 排序 / 地区 / 年代 / 评分 下拉胶囊（BrowseFilterPill），右侧是已选条件 chip（点了去掉）和「清除」，
+ * 下一行是 排序 / 地区 / 年代 / 评分 下拉胶囊（UiGlassSelect），右侧是已选条件 chip（点了去掉）和「清除」，
  * 下面是海报网格，滚到底自动取下一页（UiVirtualGrid 的 reach-end），失败可重试。
  * 桌面端电影卡右上角多一个「找 115 资源」，打开与 AI 助手共用的候选面板。
  *
@@ -112,6 +118,7 @@
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
+import UiGlassSelect from '@/components/ui/UiGlassSelect.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
@@ -153,7 +160,6 @@ import {
   openDoubanDiscover,
 } from '../utils/douban-discover'
 import { doubanPreviewSource } from '../utils/douban-preview'
-import BrowseFilterPill from './BrowseFilterPill.vue'
 
 const props = defineProps<{ target: BrowseTarget }>()
 const emit = defineEmits<{

@@ -4,13 +4,11 @@
  */
 import { type Mock, describe, expect, it, vi } from 'vitest'
 
-import { useFolderPicker } from '../../src/renderer/src/features/netdisk/composables/use-folder-picker'
 import { useNetdiskSearch } from '../../src/renderer/src/features/netdisk/composables/use-netdisk-search'
 import { useQrLogin } from '../../src/renderer/src/features/netdisk/composables/use-qr-login'
 import { useShareActions } from '../../src/renderer/src/features/netdisk/composables/use-share-actions'
 import type {
   NetdiskItem,
-  Pan115DirListing,
   Pan115LoginPoll,
 } from '../../src/shared/contract/pan115'
 
@@ -21,13 +19,6 @@ const ITEM: NetdiskItem = {
   shareCode: 'sw1',
   receiveCode: 'ab12',
 }
-const listing = (cid: string): Pan115DirListing & { ok: true } => ({
-  ok: true,
-  cid,
-  path: [{ cid, name: `目录${cid}` }],
-  dirs: [],
-  truncated: false,
-})
 
 function deferred<T>(): { promise: Promise<T>; resolve: (v: T) => void } {
   let resolve!: (v: T) => void
@@ -196,46 +187,6 @@ describe('useShareActions', () => {
     await a.openPreview({ ...ITEM, url: 'https://115.com/s/sw3' })
     expect(a.preview.loading.value).toBe(false)
     expect(notify.error).toHaveBeenCalledWith(expect.stringContaining('boom'))
-  })
-})
-
-describe('useFolderPicker', () => {
-  it('从当前已选目录打开；打不开时退回根目录', async () => {
-    const dirs = vi
-      .fn()
-      .mockResolvedValueOnce({ ok: false, error: '目录不存在' })
-      .mockResolvedValueOnce(listing('0'))
-    const p = useFolderPicker(() => ({ dirs }))
-    await p.start('77')
-    expect(dirs.mock.calls.map(c => c[0])).toEqual(['77', '0'])
-    expect(p.listing.value?.cid).toBe('0')
-  })
-
-  it('加载中不能「存到这里」；连续点两个文件夹只认后点的', async () => {
-    const slow = deferred<unknown>()
-    const dirs = vi
-      .fn()
-      .mockReturnValueOnce(slow.promise)
-      .mockResolvedValueOnce(listing('2'))
-    const p = useFolderPicker(() => ({ dirs }))
-    const first = p.open('1')
-    expect(p.canPick.value).toBe(false)
-    await p.open('2')
-    slow.resolve(listing('1'))
-    await first
-    expect(p.listing.value?.cid).toBe('2')
-    expect(p.canPick.value).toBe(true)
-    expect(p.here()).toEqual({ cid: '2', name: '目录2' })
-  })
-
-  it('IPC 抛错时复位 loading 并显示错误', async () => {
-    const p = useFolderPicker(() => ({
-      dirs: vi.fn().mockRejectedValue(new Error('gone')),
-    }))
-    await p.open('0')
-    expect(p.loading.value).toBe(false)
-    expect(p.error.value).toContain('gone')
-    expect(p.canPick.value).toBe(false)
   })
 })
 

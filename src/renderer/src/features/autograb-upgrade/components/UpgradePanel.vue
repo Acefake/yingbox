@@ -93,13 +93,16 @@
             />
           </div>
         </template>
-        <div v-if="picking?.key === entry.key" class="grab-picker">
+        <div v-if="picking?.key === entry.key" class="grab-row-head">
           <p class="grab-meta">
-            认不出旧文件在 115 上的文件夹，选一下它所在的文件夹：
+            认不出旧文件在 115 上的文件夹，选一下它所在的文件夹
           </p>
-          <NetdiskFolderPicker
-            start-cid="0"
-            @pick="dir => pickFolder(dir.cid)"
+          <TargetFolderPill
+            :folder="ROOT_FOLDER"
+            prefix="旧文件在"
+            size="sm"
+            align="right"
+            @pick="pickFolder"
           />
         </div>
       </li>
@@ -109,20 +112,21 @@
 
 <script setup lang="ts">
 /**
- * 洗版面板：开关、目标分辨率（1080p / 4K）、立即检查；列出有更清楚版本的文件和候选，点「替换」
+ * 洗版面板：开关、立即检查（目标 = 设置 · 自动追更里各种类的首选分辨率）；列出有更清楚版本的文件和候选，点「替换」
  * 把新文件存进旧文件所在的 115 文件夹（旧文件保留），之后可手动「删旧文件」（会先确认）。
- * 认不出 115 文件夹时就地展开文件夹选择器。
+ * 认不出 115 文件夹时就地给一个转存目标胶囊（最近使用 / 浏览 115 目录树）选旧文件所在的文件夹。
  */
 import { computed, ref } from 'vue'
 
 import { confirmDialog } from '@/components/ui'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
-import { NetdiskFolderPicker } from '@/features/netdisk'
+import { type FolderPick, TargetFolderPill } from '@/features/netdisk'
 import type {
   UpgradeEntry,
   UpgradeOptionsPatch,
 } from '../../../../../shared/contract/autograb-upgrade'
+import { ROOT_FOLDER } from '../../../../../shared/netdisk/target-folder'
 
 import { upgradeApi } from '../api'
 import {
@@ -170,8 +174,10 @@ async function replace(
   }
 }
 
-function pickFolder(cid: string): void {
-  if (picking.value) void replace(picking.value.key, picking.value.index, cid)
+/** 在转存目标胶囊里选了旧文件所在的文件夹：带着它重新替换 */
+function pickFolder(pick: FolderPick): void {
+  if (!picking.value || !('folder' in pick)) return
+  void replace(picking.value.key, picking.value.index, pick.folder.cid)
 }
 
 async function ignore(key: string): Promise<void> {
