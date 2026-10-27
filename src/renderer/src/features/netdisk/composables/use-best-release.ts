@@ -27,11 +27,19 @@ export function useBestRelease(search: {
   magnets: Ref<MagnetItem[]>
   searched: Ref<boolean>
   error: Ref<string>
+  /** 挑最佳版本的范围（搜某一集时只在这一集相关的结果里挑）；不传为全部结果 */
+  candidates?: {
+    items: Readonly<Ref<NetdiskItem[]>>
+    magnets: Readonly<Ref<MagnetItem[]>>
+  }
 }): BestRelease {
   const { items, magnets, searched, error } = search
-  const bestShare = computed(() => pickBest(items.value, item => item.title))
+  const pool = search.candidates ?? { items, magnets }
+  const bestShare = computed(() =>
+    pickBest(pool.items.value, item => item.title)
+  )
   const bestOverall = computed(() => {
-    const magnet = pickBest(magnets.value, item => item.title)
+    const magnet = pickBest(pool.magnets.value, item => item.title)
     const share = bestShare.value
     if (!share || (magnet && magnet.quality.rank > share.quality.rank))
       return magnet
