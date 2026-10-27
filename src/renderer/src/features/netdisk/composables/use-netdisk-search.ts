@@ -2,7 +2,9 @@
  * 网盘搜索的状态：关键词、结果（115 分享 + 磁力）、各来源的失败说明、加载与错误。
  * - 新搜索一开始就清掉上一个词的结果并进入加载态（旧列表不会挂在新词的 Hero 下面）；
  * - 只认最后一次搜索的结果（请求序号），晚到的旧响应丢弃；reset() 清空时也让在途请求作废；
- * - IPC 被拒绝（主进程异常、窗口关闭）时也复位加载态并给出错误。
+ * - IPC 被拒绝（主进程异常、窗口关闭）时也复位加载态并给出错误；
+ * - 搜索词里的集号 / 季号（S01E20、第20集、EP20、第二季）先认出来，只用剧名查 PanSou
+ *   （整词组匹配，带集号几乎搜不到），集号留在 intent 里给结果排序和预览高亮。
  */
 import { type Ref, ref } from 'vue'
 
@@ -11,6 +13,10 @@ import type {
   MagnetItem,
   NetdiskItem,
 } from '../../../../../shared/contract/pan115'
+import {
+  type SearchIntent,
+  parseSearchIntent,
+} from '../../../../../shared/netdisk/search-intent'
 
 import { errorText } from '../utils/netdisk-rules'
 
@@ -25,6 +31,8 @@ export interface NetdiskSearch {
   /** 搜过至少一次（区分「还没搜」与「没结果」） */
   searched: Ref<boolean>
   error: Ref<string>
+  /** 最近一次搜索的意图（剧名 + 季号 / 集号）；还没搜或已清空为 null */
+  intent: Ref<SearchIntent | null>
   search(): Promise<void>
   /** 回到还没搜的状态：清空结果、错误与加载态，在途请求作废（清空搜索框时用） */
   reset(): void
@@ -41,6 +49,7 @@ export function useNetdiskSearch(
   const loading = ref(false)
   const searched = ref(false)
   const error = ref('')
+  const intent = ref<SearchIntent | null>(null)
   let seq = 0
 
   /** 清掉结果与错误（不动关键词） */
@@ -50,6 +59,7 @@ export function useNetdiskSearch(
     notes.value = []
     error.value = ''
     searched.value = false
+    intent.value = null
   }
 
   function reset(): void {
@@ -63,10 +73,12 @@ export function useNetdiskSearch(
     if (!kw) return
     const id = ++seq
     clear()
+    const parsed = parseSearchIntent(kw)
+    intent.value = parsed
     loading.value = true
     let result: Awaited<ReturnType<Api['pan115']['search']>>
     try {
-      result = await api().search(kw)
+      result = await api().search(parsed.query)
     } catch (e) {
       result = { ok: false, error: `搜索请求失败：${errorText(e)}` }
     }
@@ -87,6 +99,7 @@ export function useNetdiskSearch(
     loading,
     searched,
     error,
+    intent,
     search,
     reset,
   }

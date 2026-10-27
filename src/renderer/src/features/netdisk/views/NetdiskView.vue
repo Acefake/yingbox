@@ -51,6 +51,7 @@
           :loading="preview.loading.value"
           :saving="actions.isSaving(preview.item.value.url)"
           :saved="actions.isSaved(preview.item.value.url)"
+          :episode="rows.target.value"
           @save="actions.save(preview.item.value)"
           @close="actions.closePreview"
         />
@@ -63,8 +64,10 @@
             searched ? { share: items.length, magnet: magnets.length } : null
           "
           :notes="notes"
+          :episode="rows.target.value ? episodeLabel(rows.target.value) : ''"
           :target="pill"
           @pick="target.pick"
+          @clear-episode="searchWholeSeries"
         />
         <OfflineTasks v-if="tab === 'offline'" />
         <StatusState
@@ -76,7 +79,7 @@
           <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
         </StatusState>
         <StatusState
-          v-else-if="searched && !loading && !shown.length"
+          v-else-if="searched && !loading && !shown.length && !hiddenCount"
           icon="search"
           :title="tab === 'share' ? '没有找到 115 分享' : '没有找到磁力'"
           hint="换个关键词，或在设置里检查 PanSou / Torznab 地址"
@@ -122,6 +125,15 @@
             />
           </template>
         </UiVirtualGrid>
+        <UiButton
+          v-if="!error && hiddenCount && tab !== 'offline'"
+          class="netdisk-others"
+          variant="plain"
+          size="sm"
+          :icon="rows.showOthers.value ? 'chevronUp' : 'chevronDown'"
+          :label="othersLabel"
+          @click="toggleOthers"
+        />
       </template>
     </div>
   </div>
@@ -137,6 +149,8 @@
  * 一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。两个来源都没填时引导去设置。
  * 转存目标：Hero 主按钮旁与结果工具条上各有一个目标胶囊（TargetFolderPill），共用一份选择（useTransferTarget）：
  * 默认按命中的类型预选电影 / 剧集默认目录，另选后到下一次搜索前一直用它；转存与磁力离线都存到这里，不另弹窗。
+ * 搜索词带集号（「嫁金钗 S01E20」）：只用剧名搜，结果按正好这一集 → 包含这一集 → 没写集号排，
+ * 别的集折叠在列表下面；工具条上一枚集号胶囊（× 搜整部剧），预览高亮那一集，「存到」直接预选剧集。
  * 页面铺到窗口左上角（Hero 压在浮动侧栏与窗口键胶囊下面）；Hero 在胶囊身后时经 useShellBackdrop 让胶囊换深色玻璃。
  */
 import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
@@ -165,7 +179,10 @@ import NetdiskToolbar, {
 } from '../components/NetdiskToolbar.vue'
 import OfflineTasks from '../components/OfflineTasks.vue'
 import TargetFolderPill from '../components/TargetFolderPill.vue'
+import { episodeLabel } from '../../../../../shared/netdisk/search-intent'
+
 import { useBestRelease } from '../composables/use-best-release'
+import { useEpisodeRows } from '../composables/use-episode-rows'
 import { useHeroMatch } from '../composables/use-hero-match'
 import { useLinkCheck } from '../composables/use-link-check'
 import { useNetdiskSearch } from '../composables/use-netdisk-search'
@@ -175,7 +192,7 @@ import { useShareActions } from '../composables/use-share-actions'
 import { useTargetSettings } from '../composables/use-target-settings'
 import { useTransferTarget } from '../composables/use-transfer-target'
 import { heroStatusItems } from '../utils/hero-status'
-import { type ReleaseSort, sortReleases } from '../utils/release-quality'
+import type { ReleaseSort } from '../utils/release-quality'
 
 const available = netdiskAvailable
 const pansouUrl = useSetting('pan115.pansouUrl')
@@ -187,6 +204,7 @@ const {
   loading,
   searched,
   error,
+  intent,
   search,
   reset,
 } = useNetdiskSearch(netdisk)
@@ -216,10 +234,10 @@ watch(keyword, value => {
   reset()
 })
 
-// 转存目标：按命中的类型预选，胶囊里另选后到下一次搜索前一直用它
+// 转存目标：搜索词带集号 / 季号直接算剧集，否则按 TMDB 命中的类型预选；胶囊里另选后到下一次搜索前一直用它
 const targetSettings = useTargetSettings(useSetting)
 const target = useTransferTarget(
-  () => match.value?.kind ?? null,
+  () => intent.value?.kind ?? match.value?.kind ?? null,
   () => targetSettings.value
 )
 const pill = computed(() => ({
@@ -246,12 +264,23 @@ const linkCheck = useLinkCheck({
   instance: () => pansouUrl.value,
 })
 const vLinkCheck = linkCheck.vLinkCheck
-const shareRows = computed(() =>
-  linkCheck.order(sortReleases(items.value, sort.value, item => item))
-)
-const magnetRows = computed(() =>
-  sortReleases(magnets.value, sort.value, item => item)
-)
+const rows = useEpisodeRows({
+  items,
+  magnets,
+  intent,
+  sort,
+  linkOrder: list => linkCheck.order(list),
+  tab: () => tab.value,
+})
+const { shareRows, magnetRows, hiddenCount, othersLabel, toggleOthers } = rows
+
+/** 集号胶囊的 ×：去掉集号，搜整部剧 */
+function searchWholeSeries(): void {
+  if (!intent.value) return
+  keyword.value = intent.value.query
+  runSearch()
+}
+
 const shown = computed(() =>
   tab.value === 'share' ? shareRows.value : magnetRows.value
 )
@@ -268,6 +297,7 @@ const { bestShare, summary, bestSpecs } = useBestRelease({
   magnets,
   searched,
   error,
+  candidates: { items: rows.bestShares, magnets: rows.bestMagnets },
 })
 
 const actions = useShareActions({
@@ -341,6 +371,9 @@ onDeactivated(() => setShell(false))
   width: 100%;
   max-width: calc(1136px + var(--netdisk-x) + var(--space-8));
   padding: var(--space-2) var(--space-8) var(--space-11) var(--netdisk-x);
+}
+.netdisk-others {
+  align-self: flex-start;
 }
 .netdisk-results {
   margin: 0;

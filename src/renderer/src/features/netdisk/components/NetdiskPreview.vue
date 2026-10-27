@@ -31,11 +31,13 @@
       </p>
       <template v-else-if="snap">
         <p class="netdisk-preview-count">共 {{ snap.count }} 项</p>
-        <ul class="netdisk-preview-files">
+        <ul ref="filesEl" class="netdisk-preview-files">
           <li
             v-for="file in snap.files"
             :key="file.id"
             class="netdisk-preview-file"
+            :class="{ 'is-episode': isEpisode(file) }"
+            :aria-current="isEpisode(file) ? 'true' : undefined"
           >
             <UiIcon
               class="netdisk-preview-icon"
@@ -86,9 +88,11 @@
  * 网盘页的分享预览浮层（原生 <dialog> 模态，玻璃材质）：当前查看的分享的顶层文件与大小，可直接转存或关闭。
  * Esc、点浮层外、取消、关闭按钮都收起；放在结果列表之外，结果行保持等高（虚拟列表要求）。
  * 打开时聚焦「取消」，转存必须用户自己点按；转存完成后按钮禁用，焦点挪到「取消」不丢到 body。
+ * 搜索词带集号时（episode），那一集的文件高亮并滚进视野（转存仍是整个分享）。
  */
 import {
   type ComponentPublicInstance,
+  nextTick,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -104,6 +108,8 @@ import type {
   NetdiskItem,
   ShareSnap,
 } from '../../../../../shared/contract/pan115'
+import { fileIsEpisode } from '../../../../../shared/netdisk/episode-hint'
+import type { EpisodeTarget } from '../../../../../shared/netdisk/search-intent'
 
 import { formatBytes } from '../utils/netdisk-rules'
 
@@ -113,6 +119,8 @@ const props = defineProps<{
   loading: boolean
   saving: boolean
   saved: boolean
+  /** 要找的那一集；搜索词没写集号为 null */
+  episode?: EpisodeTarget | null
 }>()
 const emit = defineEmits<{ save: []; close: [] }>()
 
@@ -121,6 +129,28 @@ const dialogEl = ref<HTMLDialogElement | null>(null)
 const cancelButton = ref<ComponentPublicInstance | null>(null)
 onMounted(() => dialogEl.value?.showModal())
 onBeforeUnmount(() => dialogEl.value?.close())
+
+const filesEl = ref<HTMLElement | null>(null)
+
+/** 这个文件是不是要找的那一集（分享标题补季号） */
+function isEpisode(file: ShareSnap['files'][number]): boolean {
+  if (!props.episode || file.isDir) return false
+  const folder = props.snap?.title || props.item.title
+  return fileIsEpisode(file.name, props.episode, folder)
+}
+
+// 读到文件后把那一集滚进视野
+watch(
+  () => props.snap,
+  async snap => {
+    if (!snap || !props.episode) return
+    await nextTick()
+    filesEl.value
+      ?.querySelector('.is-episode')
+      ?.scrollIntoView({ block: 'nearest' })
+  },
+  { immediate: true }
+)
 
 /** 按下点是否就在背景幕上：从文件行拖选到背景幕松手时 click 也落在 dialog 上，不能算点外面 */
 const pressedOnBackdrop = ref(false)
@@ -220,6 +250,11 @@ watch(
   min-height: 38px;
   padding: 0 var(--space-2_5);
   font-size: var(--text-sm);
+}
+.netdisk-preview-file.is-episode {
+  border-radius: var(--radius-md);
+  background: var(--bg-active);
+  font-weight: var(--font-weight-medium);
 }
 .netdisk-preview-icon {
   flex: none;
