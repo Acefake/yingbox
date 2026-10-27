@@ -257,6 +257,13 @@
     rgba(0, 0, 0, 0.22) 45%,
     rgba(0, 0, 0, 0.42) 100%
   );
+  /* 片库环境光（features/library/ambient/）：往下渐隐的遮罩、压暗层（浅色主题不压暗，见 ambient.css） */
+  --ambient-mask: linear-gradient(
+    #000 0%,
+    rgba(0, 0, 0, 0.6) 45%,
+    transparent 100%
+  );
+  --ambient-shade: linear-gradient(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55));
   /* 渐进模糊三层各自的渐显遮罩（.yb-pblur；mask 只取透明度） */
   --pblur-mask-1: linear-gradient(transparent 0%, #000 22%);
   --pblur-mask-2: linear-gradient(transparent 12%, #000 42%);

@@ -7,24 +7,16 @@
   overflow: hidden;
   pointer-events: none;
   contain: strict;
-  -webkit-mask-image: linear-gradient(
-    #000 0%,
-    rgba(0, 0, 0, 0.6) 45%,
-    transparent 100%
-  );
-  mask-image: linear-gradient(
-    #000 0%,
-    rgba(0, 0, 0, 0.6) 45%,
-    transparent 100%
-  );
+  -webkit-mask-image: var(--ambient-mask);
+  mask-image: var(--ambient-mask);
 }
 
 /* 缩略图放大铺满再重模糊：inset 负值防止模糊后边缘发白 */
 .lib-ambient-img {
   position: absolute;
-  inset: -80px;
-  width: calc(100% + 160px);
-  height: calc(100% + 160px);
+  inset: calc(var(--space-11) * -1);
+  width: calc(100% + var(--space-11) * 2);
+  height: calc(100% + var(--space-11) * 2);
   object-fit: cover;
   filter: blur(90px) saturate(1.7) brightness(0.62);
   opacity: 0.75;
@@ -36,7 +28,7 @@
   inset: 0;
   background:
     radial-gradient(70% 90% at 18% -10%, var(--ambient-glow), transparent 70%),
-    linear-gradient(rgba(0, 0, 0, 0.15), rgba(0, 0, 0, 0.55));
+    var(--ambient-shade);
 }
 
 /* 约 2% 的细噪点：压住渐变色带，增加一点质感 */
