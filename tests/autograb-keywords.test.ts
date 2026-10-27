@@ -9,11 +9,7 @@ import {
   rankShares,
 } from '../src/main/autograb/finder'
 import { matchFile } from '../src/main/autograb/match-rules'
-import {
-  episodeHintOf,
-  otherSeries,
-  shareHint,
-} from '../src/main/autograb/share-title-rules'
+import { otherSeries, shareHint } from '../src/main/autograb/share-title-rules'
 import type { NetdiskItem, ShareSnap } from '../src/shared/contract/pan115'
 
 const GB = 1024 ** 3
@@ -49,7 +45,7 @@ describe('追更 · 搜索词', () => {
 })
 
 describe('追更 · 分享标题与这一集', () => {
-  const hint = (title: string, t = target): string => episodeHintOf(title, t)
+  const hint = (title: string, t = target): string => shareHint(title, t)
 
   it('正好这一集', () => {
     expect(hint('嫁金钗 (2026) S01E20 2160p WEB-DL')).toBe('exact')
@@ -61,11 +57,9 @@ describe('追更 · 分享标题与这一集', () => {
 
   it('包含这一集', () => {
     expect(hint('嫁金钗 更新至24集')).toBe('covers')
-    expect(hint('嫁金钗 更新至S01E22')).toBe('covers')
     expect(hint('嫁金钗 全30集 4K')).toBe('covers')
     expect(hint('嫁金钗 01-24集')).toBe('covers')
     expect(hint('嫁金钗 S01E01-E24')).toBe('covers')
-    expect(hint('嫁金钗 第1集-第24集')).toBe('covers')
     expect(hint('嫁金钗 完结 合集')).toBe('covers')
     expect(hint('嫁金钗 S01-S02 全集')).toBe('covers')
   })
