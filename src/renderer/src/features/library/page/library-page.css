@@ -9,9 +9,75 @@
 }
 
 /* —— 内容 —— */
+.lib-content {
+  display: flex;
+  flex: 1 1 0;
+  min-height: 0;
+}
+.jav-overview {
+  display: flex;
+  margin: 0 var(--content-padding-x) var(--space-4);
+  border-radius: var(--radius-lg);
+  background: var(--bg-elevated);
+}
+.jav-overview > div {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-1);
+  padding: var(--space-3) var(--space-4);
+}
+.jav-overview span {
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+.jav-overview strong {
+  font-size: var(--text-lg);
+}
+.jav-overview :deep(.ui-button) {
+  align-self: flex-start;
+  padding: 0;
+  height: auto;
+}
+.jav-filters {
+  flex: 0 0 220px;
+  margin: 0 0 var(--space-4) var(--content-padding-x);
+  overflow-y: auto;
+  border-radius: var(--radius-lg);
+  background: var(--bg-card);
+}
+.jav-filters h2 {
+  margin: 0;
+  padding: var(--space-4) var(--space-4) 0;
+  font-size: var(--text-md);
+}
+.jav-filters :deep(.facet-row) {
+  align-items: flex-start;
+  flex-direction: column;
+}
+.jav-filters :deep(.facet-search) {
+  flex: auto;
+  width: 100%;
+  margin: 0;
+}
+.jav-filters :deep(.ui-segmented) {
+  display: flex;
+  flex-wrap: wrap;
+  max-width: 100%;
+  border-radius: var(--radius-md);
+}
+.jav-filters :deep(.ui-segmented-item) {
+  flex: 1 1 auto;
+}
+@media (max-width: 860px) {
+  .jav-filters {
+    display: none;
+  }
+}
 .lib-main {
   position: relative;
   flex: 1 1 0;
+  min-width: 0;
   min-height: 0;
 }
 .lib-wall-skeleton {
