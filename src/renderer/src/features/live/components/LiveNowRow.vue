@@ -43,12 +43,12 @@
 
 <script setup lang="ts">
 /**
- * 首页「正在直播」一排：收藏频道的当前节目（按收藏顺序，最多 8 张）。横版卡是深色画面，左上红点「直播」胶囊、右上台标，
+ * 首页「正在直播」一排：收藏频道的当前节目（按收藏顺序，最多 8 张；没有收藏时放直播源里排在最前的频道）。横版卡是深色画面，左上红点「直播」胶囊、右上台标，
  * 底部压「频道 · 节目」、时段与剩余时间、播出进度；没有节目单的频道只写「正在直播」。
  * 点卡跳到直播页并播这个频道（/live?channel=<id>），标题 › 与「收藏频道」打开直播页。
  *
- * 网页版（没有 iptv 域）、没有收藏、收藏的频道不在当前直播源里时整排不渲染；有收藏时才加载直播源
- * （useLiveSources 是模块单例，直播页加载过就不重复拉），节目单只查收藏的频道。
+ * 网页版（没有 iptv 域）、没有直播源或源里没有频道时整排不渲染；有直播源就加载
+ * （useLiveSources 是模块单例，直播页加载过就不重复拉），节目单只查这一排的频道。
  */
 import { computed, onActivated, onMounted } from 'vue'
 import { useRouter } from 'vue-router'
@@ -59,23 +59,23 @@ import UiShelf from '@/components/ui/UiShelf.vue'
 
 import { useLiveEpg } from '../composables/use-live-epg'
 import { useLiveSources } from '../composables/use-live-sources'
-import { liveNowCards } from '../utils/live-now'
+import { liveNowCards, liveNowChannels } from '../utils/live-now'
 import LiveLogo from './LiveLogo.vue'
 
 const router = useRouter()
 const live = useLiveSources()
 const { available, sources, channels, epgUrls, favorites } = live
 
-/** 收藏且在当前直播源里的频道（节目单只查这些） */
-const favoriteChannels = computed(() =>
-  channels.value.filter(channel => favorites.value.has(channel.id))
+/** 这一排的频道（节目单只查这些） */
+const rowChannels = computed(() =>
+  liveNowChannels(channels.value, favorites.value)
 )
-const { programmes, now } = useLiveEpg(favoriteChannels, epgUrls)
+const { programmes, now } = useLiveEpg(rowChannels, epgUrls)
 
 const cards = computed(() =>
   available
     ? liveNowCards(
-        favoriteChannels.value,
+        rowChannels.value,
         favorites.value,
         programmes.value,
         now.value
@@ -83,10 +83,9 @@ const cards = computed(() =>
     : []
 )
 
-/** 有收藏和直播源时才拉直播源（首页不为没用到的直播发请求） */
+/** 有直播源时才拉（没配直播的用户首页不发请求） */
 function ensureSources(): void {
-  if (available && favorites.value.size && sources.value.length)
-    live.ensureStarted()
+  if (available && sources.value.length) live.ensureStarted()
 }
 
 onMounted(ensureSources)
