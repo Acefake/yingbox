@@ -72,7 +72,7 @@ describe('规格标签', () => {
       releaseSpecs(list).map(s => `${s.variant}:${s.text}`)
     expect(texts(['星际穿越', '4K'])).toEqual(['solid:4K'])
     expect(texts(['HD中字'])).toEqual(['outline:中字'])
-    expect(texts(['更新至 12 集', 'BD1080P'])).toEqual([])
+    expect(texts(['更新至 12 集', 'BD1080P'])).toEqual(['outline:1080P'])
     expect(texts(['更新至 12 集', '1080p'])).toEqual(['outline:1080P'])
     // 文件大小里的 GB 不算中文字幕
     expect(texts(['三体 4K 30GB'])).toEqual(['solid:4K'])

@@ -122,6 +122,8 @@ function parseCandidate(raw: unknown): AutograbCandidate | null {
     fileName: s(raw.fileName),
     size: n(raw.size),
     score: n(raw.score),
+    quality: n(raw.quality),
+    specs: Array.isArray(raw.specs) ? raw.specs.map(r => s(r)) : [],
     reasons: Array.isArray(raw.reasons) ? raw.reasons.map(r => s(r)) : [],
   }
 }

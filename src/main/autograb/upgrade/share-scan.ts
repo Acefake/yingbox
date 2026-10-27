@@ -5,12 +5,15 @@
  * - 关键词依次搜，结果缓存 1 小时；分享去重、去掉拉黑的、标题对得上的和新的优先，最多看 {@link MAX_SHARES} 个；
  * - 快照也缓存 1 小时：同一部剧连着洗几集时，同一个分享只看一次；
  * - 顶层只有一个文件夹或有值得点开的文件夹时进去一层（最多 2 个）；分享打不开就拉黑；
- * - 候选按分数排、同一个文件只留一次，最多 {@link MAX_CANDIDATES} 个。
+ * - 候选先按匹配分过线、再按版本分排（shared/release/score.ts rankCandidates），同一个文件只留一次，
+ *   最多 {@link MAX_CANDIDATES} 个。
  */
 import type { GrabCandidate } from '../../../shared/contract/autograb-upgrade'
 import type { NetdiskItem, ShareSnap } from '../../../shared/contract/pan115'
+import { rankCandidates } from '../../../shared/release/score'
 import { MAX_CANDIDATES, MAX_SHARES, isDeadShare } from '../finder'
 import {
+  AUTO_SCORE,
   type FileContext,
   type ShareFileLike,
   titleMatches,
@@ -18,7 +21,7 @@ import {
 
 const CACHE_MS = 3_600_000
 const MAX_FOLDERS = 2
-/** 有这么高分的候选就不再看后面的分享 */
+/** 有这么高匹配分的候选就不再看后面的分享 */
 const GOOD_ENOUGH = 85
 
 /** 依赖 */
@@ -34,7 +37,11 @@ export interface ScanDeps {
 
 /** 认出的文件（分享字段由扫描补上） */
 export interface FileHit {
+  /** 匹配分 */
   score: number
+  /** 版本分 */
+  quality: number
+  specs: string[]
   reasons: string[]
   resolution: number | null
 }
@@ -116,7 +123,11 @@ export function createShareScanner(deps: ScanDeps): {
         fileId: file.id,
         fileName: file.name,
         size: file.size,
-        ...hit,
+        score: hit.score,
+        quality: hit.quality,
+        specs: hit.specs,
+        resolution: hit.resolution,
+        reasons: hit.reasons,
       })
     }
   }
@@ -150,7 +161,7 @@ export function createShareScanner(deps: ScanDeps): {
         if (found.some(c => c.score >= GOOD_ENOUGH)) break
       }
       const unique = new Map<string, GrabCandidate>()
-      for (const c of found.sort((a, b) => b.score - a.score))
+      for (const c of rankCandidates(found, AUTO_SCORE))
         if (!unique.has(c.fileId)) unique.set(c.fileId, c)
       const candidates = [...unique.values()].slice(0, MAX_CANDIDATES)
       return {

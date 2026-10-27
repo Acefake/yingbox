@@ -1,10 +1,12 @@
 /**
  * 规格标签（UiSpecBadge）的取值：标签样式 + 文字，以及得出标签的纯规则（全应用唯一的一份映射）：
  * - 视频探测结果（动态范围、杜比视界 profile）；
- * - 发布名 / 文件名 / 在线源备注里的常见写法（4K、1080P、杜比视界、HDR、全景声、中字）；
+ * - 发布名 / 文件名 / 在线源备注里的常见写法（4K、1080P、杜比视界、HDR、全景声、中字），
+ *   识别用 shared/release/quality.ts（全应用唯一的一份）；
  * - 片库条目：探测到的动态范围优先，其余看视频文件名。
  * 标签按 Apple TV 的顺序排：分辨率 → 动态范围 → DOLBY ATMOS → 中字。
  */
+import { parseReleaseQuality } from '../../../../shared/release/quality'
 import type { VideoProbe, VideoRange } from '../../../../shared/video-range'
 
 /** 标签样式：实心小方块 / 描边小方块 / 分级圆标 / DOLBY 双行文字标 */
@@ -46,30 +48,23 @@ export function videoProbeSpec(
   return { spec, profile }
 }
 
-const UHD_RE = /(^|[^a-z0-9])(2160p|4k|uhd)([^a-z0-9]|$)/i
-const FHD_RE = /(^|[^a-z0-9])1080[pi]([^a-z0-9]|$)/i
-// 杜比视界允许空格 / 点 / 下划线 / 连字符分隔，DV 只认独立的词（不误认 DVD）；
-// HDR 要求前后不是字母（HDR10 / HDR10+ 算，HDRip 片源标签不算）
-const DV_RE = /杜比视界|dolby[\s._-]*vision|(^|[^a-z])dv([^a-z]|$)|dovi/i
-const HDR_RE = /(^|[^a-z])hdr([^a-z]|$)/i
-const ATMOS_RE = /atmos|全景声/i
-const CHINESE_SUB_RE =
-  /中字|中英|简繁|简中|繁中|简体|繁体|中文字幕|双语|(^|[^a-z])(chs|cht|zh-?cn|zh-?tw)([^a-z]|$)/i
-
 /**
  * 发布名、文件名、在线源备注里认出的规格标签：分辨率（4K / 1080P）、动态范围（DOLBY VISION / HDR）、
  * 音轨（DOLBY ATMOS）、中文字幕（中字）。只看文字，认不出的不显示；杜比视界和 HDR 同时出现时只留杜比视界。
  * @param texts 要看的文字（几段一起看，任何一段出现都算）
  */
 export function releaseSpecs(texts: readonly string[]): SpecBadge[] {
-  const has = (re: RegExp): boolean => texts.some(text => re.test(text))
+  const parsed = texts.map(parseReleaseQuality)
+  const has = (test: (q: (typeof parsed)[number]) => boolean): boolean =>
+    parsed.some(test)
   const specs: SpecBadge[] = []
-  if (has(UHD_RE)) specs.push({ variant: 'solid', text: '4K' })
-  else if (has(FHD_RE)) specs.push({ variant: 'outline', text: '1080P' })
-  if (has(DV_RE)) specs.push({ variant: 'dolby', text: 'VISION' })
-  else if (has(HDR_RE)) specs.push({ variant: 'solid', text: 'HDR' })
-  if (has(ATMOS_RE)) specs.push({ variant: 'dolby', text: 'ATMOS' })
-  if (has(CHINESE_SUB_RE)) specs.push({ variant: 'outline', text: '中字' })
+  if (has(q => q.height === 2160)) specs.push({ variant: 'solid', text: '4K' })
+  else if (has(q => q.height === 1080))
+    specs.push({ variant: 'outline', text: '1080P' })
+  if (has(q => q.dolbyVision)) specs.push({ variant: 'dolby', text: 'VISION' })
+  else if (has(q => q.hdr)) specs.push({ variant: 'solid', text: 'HDR' })
+  if (has(q => q.atmos)) specs.push({ variant: 'dolby', text: 'ATMOS' })
+  if (has(q => q.chineseSubs)) specs.push({ variant: 'outline', text: '中字' })
   return specs
 }
 

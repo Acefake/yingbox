@@ -2,34 +2,40 @@
  * 电影的纯规则：分享里的一个文件是不是要找的那部电影、给它打几分；什么时候开始搜、多久搜一次、什么时候放弃。
  *
  * 认文件和剧集追更同一套思路（见 ../match-rules.ts）：视频扩展名、片库同一个解析器解出电影、
- * 片名对得上、年份相差不超过 1、没有预告 / 枪版之类的字眼、体积合理。上线追踪只要 WEB-DL / BluRay
- * 这类正式片源，所以文件名、文件夹或分享标题里要写明片源或至少 720p 的分辨率。
+ * 片名对得上、年份相差不超过 1、没有预告 / 枪版之类的字眼、过得了资源偏好的硬过滤（体积默认 500 MB–80 GB）。
+ * 上线追踪只要 WEB-DL / BluRay 这类正式片源，所以文件名、文件夹或分享标题里要写明片源或至少 720p 的分辨率。
  * 洗版也用这里认电影文件（外加分辨率过滤）。
+ *
+ * 和剧集一样给两个分：匹配分 `score`（片名在文件名里、年份一致、正式片源、体积正常）决定能否全自动，
+ * 版本分 `quality`（shared/release/score.ts）用来挑版本。
  */
-import { parseMediaPath } from '../../../shared/library/parser'
 import {
+  DEFAULT_GRAB_PREFS,
+  type GrabPrefs,
+} from '../../../shared/contract/grab-prefs'
+import { parseMediaPath } from '../../../shared/library/parser'
+import { fileQuality, qualitySpecs } from '../../../shared/release/quality'
+import {
+  SIZE_DEFAULTS,
+  rejectByPrefs,
+  versionScore,
+} from '../../../shared/release/score'
+import {
+  type EpisodeMatch,
   type FileContext,
-  type FileMatch,
   type ShareFileLike,
   excludedWord,
   titleMatches,
 } from '../match-rules'
 import { searchStart } from '../schedule-rules'
-import { resolutionLabel, resolutionOf } from '../upgrade/quality-rules'
 
 const DAY = 24 * 3_600_000
-/** 电影最小体积（样片、预告） */
-export const MOVIE_MIN_SIZE = 500 * 1024 * 1024
-/** 电影最大体积（原盘 ISO 不要；Remux 可到 60 GB） */
-export const MOVIE_MAX_SIZE = 80 * 1024 * 1024 * 1024
 /** 开始搜之后多少天没找到就放弃 */
 export const MOVIE_GIVE_UP_DAYS = 30
 /** 没有数字 / 实体发行日期时，首映多少天后当作已上线 */
 export const PREMIERE_FALLBACK_DAYS = 120
 
 const VIDEO_EXT_RE = /\.(?:mkv|mp4|avi|ts|m2ts|mov|wmv|webm)$/i
-const SOURCE_RE = /web-?dl|webrip|blu-?ray|bdrip|bd-?remux|remux|uhd\s*bd/i
-const SUB_RE = /中字|中文字幕|简中|繁中|简繁|双语|中英|chs|cht/i
 
 /** 要找的电影 */
 export interface MovieTarget {
@@ -38,10 +44,10 @@ export interface MovieTarget {
   year: number | null
 }
 
-/** 认电影文件的结果（通过时带分辨率） */
+/** 认电影文件的结果（通过时带分辨率高度） */
 export type MovieMatch =
-  | (Extract<FileMatch, { ok: true }> & { resolution: number | null })
-  | Extract<FileMatch, { ok: false }>
+  | (Extract<EpisodeMatch, { ok: true }> & { resolution: number | null })
+  | Extract<EpisodeMatch, { ok: false }>
 
 /** 搜索关键词：「片名 年份」「片名」，原名不同时再加「原名 年份」 */
 export function movieKeywords(target: MovieTarget): string[] {
@@ -63,20 +69,23 @@ export function movieTitleMatches(text: string, target: MovieTarget): boolean {
 /**
  * 认一个文件。
  * @param requireSource 为 true 时（上线追踪）必须看得出是正式片源
+ * @param prefs 电影的资源偏好
  */
 export function matchMovieFile(
   file: ShareFileLike,
   target: MovieTarget,
   context: FileContext,
-  requireSource: boolean
+  requireSource: boolean,
+  prefs: GrabPrefs = DEFAULT_GRAB_PREFS
 ): MovieMatch {
   if (file.isDir) return { ok: false, reason: '是文件夹' }
   if (!VIDEO_EXT_RE.test(file.name)) return { ok: false, reason: '不是视频' }
-  const excluded = excludedWord(`${context.folder} ${file.name}`)
+  const own = `${context.folder} ${file.name}`
+  const excluded = excludedWord(own)
   if (excluded) return { ok: false, reason: `含「${excluded}」` }
-  if (file.size > 0 && file.size < MOVIE_MIN_SIZE)
-    return { ok: false, reason: '体积太小' }
-  if (file.size > MOVIE_MAX_SIZE) return { ok: false, reason: '体积太大' }
+  const quality = fileQuality(file.name, context.folder, context.shareTitle)
+  const rejected = rejectByPrefs(quality, file.size, own, prefs, 'movie')
+  if (rejected) return { ok: false, reason: rejected }
 
   const path = context.folder ? `${context.folder}/${file.name}` : file.name
   const parsed = parseMediaPath(path)
@@ -87,45 +96,45 @@ export function matchMovieFile(
   const ownTitle = [parsed.title, parsed.altTitle ?? '', context.folder].some(
     t => movieTitleMatches(t, target)
   )
-  if (!ownTitle && !movieTitleMatches(context.shareTitle, target))
-    return { ok: false, reason: '片名对不上' }
+  const shareTitle = movieTitleMatches(context.shareTitle, target)
+  if (!ownTitle && !shareTitle) return { ok: false, reason: '片名对不上' }
   const year = parsed.year ?? yearIn(`${context.folder} ${context.shareTitle}`)
   if (target.year && year !== undefined && Math.abs(year - target.year) > 1)
     return { ok: false, reason: `是 ${year} 年的` }
 
-  const text = `${file.name} ${context.folder} ${context.shareTitle}`
-  const resolution = resolutionOf(file.name) ?? resolutionOf(context.folder)
-  const source = SOURCE_RE.test(text)
+  const resolution = quality.height
+  const source = quality.source !== null && quality.source !== 'HDTV'
   if (requireSource && !source && (resolution ?? 0) < 720)
     return { ok: false, reason: '看不出片源' }
 
   const reasons: string[] = []
-  let score = 50
+  let score = 55
   if (ownTitle) {
-    score += 15
+    score += 20
     reasons.push('文件名含片名')
   }
+  if (shareTitle) score += 5
   if (target.year && year === target.year) {
-    score += 8
+    score += 10
     reasons.push(`${year} 年`)
-  }
-  if (resolution !== null) {
-    score += resolution >= 2160 ? 10 : resolution >= 1080 ? 8 : 2
-    reasons.push(resolutionLabel(resolution))
-  }
-  if (SUB_RE.test(text)) {
-    score += 8
-    reasons.push('中文字幕')
   }
   if (source) {
     score += 5
     reasons.push('正式片源')
   }
-  if (file.size >= 1024 ** 3 && file.size <= 40 * 1024 ** 3) {
-    score += 4
-    reasons.push('体积正常')
+  const normal = SIZE_DEFAULTS.movie
+  if (file.size >= normal.normalMin && file.size <= normal.normalMax) score += 5
+  const text = `${file.name} ${context.folder} ${context.shareTitle}`
+  const version = versionScore(quality, file.size, text, prefs, 'movie')
+  return {
+    ok: true,
+    score: Math.min(100, score),
+    quality: version.score,
+    specs: qualitySpecs(quality),
+    height: resolution,
+    resolution,
+    reasons: [...reasons, ...version.reasons],
   }
-  return { ok: true, score: Math.min(100, score), reasons, resolution }
 }
 
 /** 一段文字里的年份（1900–2099） */

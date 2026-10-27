@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { parseState } from '../src/main/autograb/state'
+import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
 import type { AutograbEpisode } from '../src/shared/contract/autograb'
 import { FILE_05, GB, episode, namesIn, setup } from './autograb-harness'
 
@@ -125,13 +126,7 @@ describe('追更 · 撤销', () => {
 describe('追更 · 偏好', () => {
   it('全局排除词命中就没有候选；每剧覆盖持久化', async () => {
     const h = setup([episode(5)])
-    await h.service.setPrefs({
-      resolution: 'any',
-      preferWords: [],
-      excludeWords: ['2160p'],
-      minMb: null,
-      maxMb: null,
-    })
+    await h.service.setPrefs({ ...DEFAULT_PREFS, excludeWords: ['2160p'] })
     await h.service.setSeries(7, {
       mode: 'confirm',
       prefs: { resolution: '1080p' },
@@ -165,13 +160,7 @@ describe('追更 · 偏好', () => {
       },
       0
     )
-    expect(state.prefs).toEqual({
-      resolution: 'any',
-      preferWords: [],
-      excludeWords: ['枪版'],
-      minMb: null,
-      maxMb: null,
-    })
+    expect(state.prefs).toEqual({ ...DEFAULT_PREFS, excludeWords: ['枪版'] })
     expect(state.spacePause).toBeNull()
     expect(state.series['7'].prefs).toEqual({})
     const record = state.episodes['7:1:1']

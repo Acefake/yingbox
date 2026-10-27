@@ -17,9 +17,6 @@ import { lowResHits } from '../src/main/autograb/upgrade/library-scan'
 import {
   budgetLeft,
   emptyBudget,
-  isBetter,
-  needsUpgrade,
-  resolutionOf,
 } from '../src/main/autograb/upgrade/quality-rules'
 import {
   applyScan,
@@ -27,6 +24,11 @@ import {
   parseUpgradeState,
 } from '../src/main/autograb/upgrade/state'
 import type { Pan115DirListing } from '../src/shared/contract/pan115'
+import {
+  parseReleaseQuality,
+  resolutionOf,
+} from '../src/shared/release/quality'
+import { isBetterVersion, wantsUpgrade } from '../src/shared/release/score'
 import type { ShareFileLike } from '../src/main/autograb/match-rules'
 import type {
   LibraryItemFile,
@@ -54,14 +56,15 @@ describe('分辨率', () => {
   })
 
   it('只洗认得出且低于目标的；候选要达到目标且比现在高', () => {
-    expect(needsUpgrade(720, 1080)).toBe(true)
-    expect(needsUpgrade(1080, 1080)).toBe(false)
-    expect(needsUpgrade(null, 1080)).toBe(false)
-    expect(needsUpgrade(1080, 2160)).toBe(true)
-    expect(isBetter(720, 1080, 1080)).toBe(true)
-    expect(isBetter(720, 2160, 1080)).toBe(false)
-    expect(isBetter(1080, 1080, 1080)).toBe(false)
-    expect(isBetter(720, 1080, null)).toBe(false)
+    const q = parseReleaseQuality
+    expect(wantsUpgrade(q('a.720p.mkv'), 1080)).toBe(true)
+    expect(wantsUpgrade(q('a.1080p.mkv'), 1080)).toBe(false)
+    expect(wantsUpgrade(q('a.mkv'), 1080)).toBe(false)
+    expect(wantsUpgrade(q('a.1080p.mkv'), 2160)).toBe(true)
+    expect(isBetterVersion(q('a.720p'), q('b.1080p'), 1080)).toBe(true)
+    expect(isBetterVersion(q('a.720p'), q('b.1080p'), 2160)).toBe(false)
+    expect(isBetterVersion(q('a.1080p'), q('b.1080p'), 1080)).toBe(false)
+    expect(isBetterVersion(q('a.720p'), q('b.mkv'), 1080)).toBe(false)
   })
 
   it('子限额跨天清零', () => {

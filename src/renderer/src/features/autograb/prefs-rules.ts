@@ -1,10 +1,11 @@
 /**
  * 追更偏好表单的纯规则：词表与文本互转、体积 MB 与输入框里 GB 互转、分辨率选项、覆盖项摘要。
  */
-import type {
-  AutograbPrefs,
-  AutograbPrefsOverride,
-  AutograbResolution,
+import {
+  type AutograbPrefs,
+  type AutograbPrefsOverride,
+  type AutograbResolution,
+  DEFAULT_PREFS,
 } from '../../../../shared/contract/autograb-prefs'
 
 /** 分辨率选项 */
@@ -85,9 +86,16 @@ export function draftOfOverride(o: AutograbPrefsOverride): PrefsDraft {
   }
 }
 
-/** 表单 → 全局偏好 */
-export function prefsOfDraft(d: PrefsDraft): AutograbPrefs {
+/**
+ * 表单 → 全局偏好。
+ * @param base 表单里没有的字段从这里带上（取向、杜比视界等）
+ */
+export function prefsOfDraft(
+  d: PrefsDraft,
+  base: AutograbPrefs = DEFAULT_PREFS
+): AutograbPrefs {
   return {
+    ...base,
     resolution: d.resolution === 'inherit' ? 'any' : d.resolution,
     preferWords: parseWords(d.prefer),
     excludeWords: parseWords(d.exclude),
