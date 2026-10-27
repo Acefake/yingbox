@@ -1,10 +1,10 @@
 <template>
   <Teleport to="body">
-    <dialog
+    <div
       ref="overlay"
       class="mpv-loading"
+      popover="manual"
       aria-label="正在打开播放器"
-      @cancel.prevent
     >
       <div class="mpv-loading-card" role="status" aria-live="polite">
         <DialogTitlebar title="正在打开播放器" icon="play" :closable="false" />
@@ -18,7 +18,7 @@
           </div>
         </div>
       </div>
-    </dialog>
+    </div>
   </Teleport>
 </template>
 
@@ -28,16 +28,19 @@ import { onBeforeUnmount, ref, watchPostEffect } from 'vue'
 import { useMpvPlayer } from '../composables/use-mpv-player'
 
 const { status } = useMpvPlayer()
-const overlay = ref<HTMLDialogElement | null>(null)
+const overlay = ref<HTMLElement | null>(null)
 
-// Native dialogs occupy the top layer, above page overlays regardless of z-index.
+// 加载提示不需要模态焦点，popover 保持顶层显示而不让整页进入 inert 状态。
 watchPostEffect(() => {
-  const dialog = overlay.value
-  if (!dialog) return
-  if (status.value.loading && !dialog.open) dialog.showModal()
-  else if (!status.value.loading && dialog.open) dialog.close()
+  const element = overlay.value
+  if (!element) return
+  const open = element.matches(':popover-open')
+  if (status.value.loading && !open) element.showPopover()
+  else if (!status.value.loading && open) element.hidePopover()
 })
-onBeforeUnmount(() => overlay.value?.close())
+onBeforeUnmount(() => {
+  if (overlay.value?.matches(':popover-open')) overlay.value.hidePopover()
+})
 </script>
 
 <style scoped>
@@ -53,7 +56,7 @@ onBeforeUnmount(() => overlay.value?.close())
   border: 0;
   background: transparent;
 }
-.mpv-loading[open] {
+.mpv-loading:popover-open {
   display: grid;
   place-items: center;
 }

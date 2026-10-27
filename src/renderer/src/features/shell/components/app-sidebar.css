@@ -131,19 +131,6 @@
 .app-sidebar .sidebar-item:where(.is-active) .app-icon {
   color: var(--text-primary);
 }
-/* 已锁定的板块：尾部小锁；收起成图标列时不显示 */
-.app-sidebar .sidebar-item .sidebar-lock {
-  margin-left: auto;
-  color: var(--text-tertiary);
-}
-.app-sidebar:where(.is-collapsed) .sidebar-lock {
-  display: none;
-}
-/* 角标与小锁同时出现时并排 */
-.app-sidebar .sidebar-item .sidebar-badge + .sidebar-lock {
-  margin-left: var(--space-1);
-}
-
 /* 数字角标（追剧日历的未看新集数）：白底黑字小胶囊；收起成图标列时缩成图标右上角 */
 .app-sidebar .sidebar-badge {
   flex: 0 0 auto;

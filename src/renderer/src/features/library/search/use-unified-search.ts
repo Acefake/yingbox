@@ -25,7 +25,6 @@ import { looksNatural } from '../nl-search/nl-rules'
 import { enhanceConditions } from './ai-conditions'
 import { recallConditions } from './recall/conditions'
 import { fuseSearch, routeSearch, ruleFilter } from './search-rules'
-import { searchAccessKey } from './search-access'
 import { searchAvailable, searchLibrary } from './search-service'
 import type { RecallBatch, SearchHit, SearchRecall, SearchScope } from './types'
 
@@ -198,15 +197,9 @@ export function useUnifiedSearch(options: {
   }
 
   watch(
-    [
-      options.text,
-      options.scope,
-      options.open,
-      () => searchAccessKey(options.scope()),
-    ],
-    (next, previous) => {
+    [options.text, options.scope, options.open],
+    () => {
       stop()
-      if (previous && next[3] !== previous[3]) batches.value = []
       message.value = ''
       filter.value = {}
       if (!options.open() || !options.text().trim()) {

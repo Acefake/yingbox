@@ -12,11 +12,13 @@
       />
     </SettingsRow>
   </SettingsGroup>
+  <ProviderSettings />
+  <ImageSettings />
 </template>
 
 <script setup lang="ts">
 /**
- * 设置 · 刮削：TMDB 元数据语言（scrape.metadataLanguage）。
+ * 设置 · 刮削：元数据语言、服务凭据和图片下载尺寸。
  */
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
@@ -24,6 +26,8 @@ import UiSegmented from '@/components/ui/UiSegmented.vue'
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRow from '../ui/SettingsRow.vue'
 import { useSetting } from '../use-setting'
+import ProviderSettings from './ProviderSettings.vue'
+import ImageSettings from './ImageSettings.vue'
 
 const metadataLanguageOptions: SegmentedOption[] = [
   { value: 'zh-CN', label: '中文简体' },

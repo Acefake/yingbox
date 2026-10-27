@@ -42,28 +42,13 @@ const coreSections: SettingsSection[] = [
     order: 10,
   },
   {
-    id: 'images',
-    title: '图片质量',
-    icon: 'image',
-    keywords: '海报 背景图 演员 尺寸',
-    load: () => import('./sections/ImageSettings.vue'),
-    order: 20,
-  },
-  {
     id: 'scrape',
     title: '刮削',
     icon: 'download',
-    keywords: '元数据 语言 tmdb',
+    keywords:
+      '元数据 语言 tmdb token 后端 密钥 自定义 服务 连接 图片质量 海报 背景图 演员 尺寸',
     load: () => import('./sections/ScrapeSettings.vue'),
     order: 30,
-  },
-  {
-    id: 'provider',
-    title: '服务',
-    icon: 'globe',
-    keywords: 'tmdb token 后端 密钥 自定义 连接',
-    load: () => import('./sections/ProviderSettings.vue'),
-    order: 40,
   },
   {
     id: 'player',
@@ -86,7 +71,7 @@ const coreSections: SettingsSection[] = [
     title: 'AI',
     icon: 'sparkle',
     keywords:
-      'ai 模型 openai deepseek openrouter opencode ollama key 语音识别 whisper 用量 私密',
+      'ai 助手 快捷键 siri 唤起 alt space 模型 openai deepseek openrouter opencode ollama key 语音识别 whisper 用量 私密',
     load: () => import('./sections/AiSettings.vue'),
     order: 67,
     desktopOnly: true,

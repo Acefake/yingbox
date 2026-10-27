@@ -154,7 +154,7 @@ export async function openMediaPlayer(
   const autoMpvForDv = getSetting('player.dvAutoMpv')
   const route = playbackRoute({
     engine,
-    video: options.video,
+    video: playlist?.[index ?? 0]?.video ?? options.video,
     autoMpvForDv,
     mpvBridge: typeof window !== 'undefined' && Boolean(window.api?.mpv),
   })

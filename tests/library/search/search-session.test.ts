@@ -1,4 +1,3 @@
-vi.mock('@/features/section-lock', () => ({ isPathLocked: () => false }))
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { effectScope, ref } from 'vue'
 const { search, enhance } = vi.hoisted(() => ({

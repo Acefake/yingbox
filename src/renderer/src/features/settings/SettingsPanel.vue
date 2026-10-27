@@ -16,7 +16,7 @@
     >
       <div
         ref="frameRef"
-        class="settings-frame"
+        class="settings-frame yb-glass"
         tabindex="-1"
         @keydown="trapTab"
       >
@@ -171,9 +171,7 @@ watch(
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  background: var(--bg-main);
   color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
   pointer-events: auto;
 }
 

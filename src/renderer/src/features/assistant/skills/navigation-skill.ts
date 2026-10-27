@@ -76,14 +76,12 @@ export function assistantPages(routes: readonly RouteLike[]): AssistantPage[] {
 /** 可以打开的设置分区 */
 export const ASSISTANT_SETTINGS: Record<string, string> = {
   appearance: '外观',
-  images: '图片质量',
   scrape: '刮削',
-  provider: '服务',
+  library: '媒体库',
   sources: '数据源',
   player: '播放器',
   danmaku: '弹幕',
   ai: 'AI',
-  assistant: 'AI 助手',
   netdisk: '网盘',
   update: '软件更新',
 }

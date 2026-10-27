@@ -48,16 +48,10 @@
           @click="emit('navigate', item.path)"
         >
           {{ item.label }}
-          <template v-if="item.badge || isPathLocked(item.path)" #trailing>
+          <template v-if="item.badge" #trailing>
             <span v-if="item.badge" class="sidebar-badge" aria-hidden="true">{{
               badgeText(item.badge)
             }}</span>
-            <UiIcon
-              v-if="isPathLocked(item.path)"
-              name="lock"
-              size="sm"
-              class="sidebar-lock"
-            />
           </template>
         </UiNavItem>
       </template>
@@ -142,7 +136,6 @@ import { usePlatform } from '@/composables/use-platform'
 import { incognitoState, toggleIncognito } from '@/features/incognito'
 import { useLadaTasks } from '@/features/lada'
 import { useIdentifyActivity } from '@/features/library'
-import { isPathLocked } from '@/features/section-lock'
 
 import type { NavGroup, NavItem } from '../composables/nav-items'
 import { SIDEBAR_HOTKEY_LABEL } from '../composables/sidebar-state'

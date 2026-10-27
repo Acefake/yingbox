@@ -8,8 +8,7 @@ import { recallTitle } from './recall/title'
 import { recallPeople } from './recall/people'
 import { recallConditions } from './recall/conditions'
 import { recallVisual } from './recall/visual'
-import { routeSearch, ruleFilter } from './search-rules'
-import { accessibleQuery, searchAccessKey } from './search-access'
+import { routeSearch, ruleFilter, scopeQuery } from './search-rules'
 import type {
   RecallBatch,
   RecallKind,
@@ -28,16 +27,7 @@ export async function searchLibrary(
   if (!text || isSearchCommand(text) || request.signal.aborted) return
   const filter = request.filter ?? ruleFilter(text)
   const scope = request.scope
-  const base = accessibleQuery(scope)
-  if (!base) {
-    publish({
-      kind: 'title',
-      candidates: [],
-      message: '搜索范围已锁定，请先进入板块解锁。',
-    })
-    return
-  }
-  const access = searchAccessKey(scope)
+  const base = scopeQuery(scope)
   const section =
     scope === 'all' ? (filter.type === 'series' ? 'tv' : 'movie') : scope
   const vocabulary = filter.genres?.length
@@ -78,8 +68,7 @@ export async function searchLibrary(
     providers.map(async (recall, index) => {
       try {
         const batch = await recall(context)
-        if (!request.signal.aborted && access === searchAccessKey(scope))
-          publish(batch)
+        if (!request.signal.aborted) publish(batch)
       } catch {
         if (!request.signal.aborted)
           publish({

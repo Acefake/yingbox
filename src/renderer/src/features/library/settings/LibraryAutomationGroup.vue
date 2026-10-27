@@ -46,7 +46,7 @@
       </SettingsRow>
       <SettingsRow
         title="自动整理"
-        description="识别后按模板改名移动，可撤销；还需开启下方「允许整理文件」"
+        description="识别后按模板改名移动，可撤销；还需在「设置 → 媒体库」开启「允许整理文件」"
       >
         <UiSwitch
           :model-value="current.automation.organize"

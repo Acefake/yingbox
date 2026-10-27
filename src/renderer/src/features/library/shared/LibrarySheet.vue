@@ -5,7 +5,7 @@
         <section
           ref="panel"
           class="lib-sheet"
-          :class="`is-${size}`"
+          :class="[`is-${size}`, { 'yb-glass': glass }]"
           role="dialog"
           aria-modal="true"
           :aria-label="title"
@@ -45,6 +45,7 @@ const props = withDefaults(
     title: string
     icon?: IconName
     size?: 'md' | 'lg'
+    glass?: boolean
   }>(),
   { size: 'md' }
 )
@@ -83,9 +84,11 @@ watch(
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
+  outline: none;
+}
+.lib-sheet:not(.yb-glass) {
   background: var(--bg-elevated);
   box-shadow: var(--shadow-lg);
-  outline: none;
 }
 .lib-sheet.is-lg {
   width: min(960px, 100%);

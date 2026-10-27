@@ -1,9 +1,5 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
-const locked = vi.hoisted(() => new Set<string>())
-vi.mock('@/features/section-lock', () => ({
-  isPathLocked: (path: string) => locked.has(path),
-}))
 import type { LibraryItemSummary } from '../../../src/shared/library/ipc'
 import type {
   RecallBatch,
@@ -48,7 +44,6 @@ const request = (signal = new AbortController().signal): SearchRequest => ({
   signal,
 })
 beforeEach(() => {
-  locked.clear()
   vi.resetAllMocks()
   query.mockResolvedValue({ items: [film], total: 1 })
   actors.mockResolvedValue({ items: [] })
@@ -148,18 +143,6 @@ describe('统一搜索并行召回', () => {
   })
 })
 
-it('锁定板块不参与全局搜索，指定锁定范围不发起查询', async () => {
-  locked.add('/tv')
-  await searchLibrary(request(), () => {})
-  for (const [params] of query.mock.calls)
-    expect(params.types).toEqual(['movie'])
-  query.mockClear()
-  const publish = vi.fn()
-  await searchLibrary({ ...request(), scope: 'tv' }, publish)
-  expect(query).not.toHaveBeenCalled()
-  expect(publish.mock.calls[0][0].message).toContain('锁定')
-})
-
 it('全库的类型条件和编辑后的筛选先映射到 base，条件召回使用同一份查询', async () => {
   const publish = vi.fn()
   await searchLibrary(
@@ -211,20 +194,6 @@ it('画面命中用一次批量查询保留各版本，而非每条回查', asyn
     .filter(params => params.includeVersions)
   expect(batch).toHaveLength(1)
   expect(batch[0]).toMatchObject({ ids: [1, 2], limit: 2 })
-})
-it('范围在等待期间被锁定，不发布迟到候选', async () => {
-  let finish!: (batch: RecallBatch) => void
-  const publish = vi.fn()
-  const pending = searchLibrary(request(), publish, [
-    () =>
-      new Promise(resolve => {
-        finish = resolve
-      }),
-  ])
-  locked.add('/tv')
-  finish({ kind: 'title', candidates: [{ item: film, reason: '标题' }] })
-  await pending
-  expect(publish).not.toHaveBeenCalled()
 })
 it('界面口令不进入任何本地召回', async () => {
   await searchLibrary({ ...request(), text: 'getav' }, () => {})
