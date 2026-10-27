@@ -228,14 +228,18 @@ export const settingsSchema = {
 
   /** 网盘搜索用的 PanSou 地址（github.com/fish2018/pansou，可自部署）；空串 = 未配置（默认不把搜索词发给任何第三方） */
   'pan115.pansouUrl': text('', 2048),
-  /** 115 转存目标文件夹 cid；"0" = 根目录 */
+  /** 原有的转存目标文件夹 cid（电影 / 剧集默认目录没设时的兜底）；"0" = 根目录。解析见 shared/netdisk/target-folder.ts */
   'pan115.targetCid': digits('0'),
-  /** 目标文件夹的显示名（只用于设置页展示） */
+  /** 原转存目标文件夹的显示名 */
   'pan115.targetName': text('', 500),
-  /** 助手转存目标文件夹 cid（库外发现转存电影用）；空串 = 跟随上面的转存目标 */
+  /** 电影默认目录 cid（网盘页转存电影、磁力离线、助手 / 库外发现、电影追踪用）；空串 = 沿用原转存目标 */
   'pan115.movieCid': optionalDigits(),
-  /** 助手转存目标文件夹的显示名 */
+  /** 电影默认目录的显示名 */
   'pan115.movieName': text('', 500),
+  /** 剧集默认目录 cid（网盘页转存剧集、追更没单独选文件夹的剧用）；空串 = 沿用原转存目标 */
+  'pan115.tvCid': optionalDigits(),
+  /** 剧集默认目录的显示名 */
+  'pan115.tvName': text('', 500),
   /** 115 扫码登录会话（JSON：Cookie + 账号 id / 名），只有主进程读 */
   'pan115.session': secret(),
   /** Torznab 地址 + API Key（JSON，见 src/main/pan115/torznab-secret.ts） */

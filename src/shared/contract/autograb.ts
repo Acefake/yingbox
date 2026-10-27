@@ -65,7 +65,7 @@ export interface AutograbSeries {
   seriesId: number
   title: string
   mode: AutograbMode
-  /** 转存到的 115 文件夹 cid；空串 = 用设置里的转存目标 */
+  /** 这部剧单独选的 115 文件夹 cid；空串 = 用剧集默认目录（没设时沿用原转存目标） */
   cid: string
   /** 文件夹显示名 */
   cidName: string
@@ -119,6 +119,8 @@ export interface AutograbOverview {
   episodes: AutograbEpisode[]
   /** 正在跑一轮 */
   running: boolean
+  /** 没单独选文件夹的剧存到哪（剧集默认目录，没设时沿用原转存目标；根目录 cid 为 "0"） */
+  defaultFolder: { cid: string; name: string }
 }
 
 /** 改一部剧的设置 */

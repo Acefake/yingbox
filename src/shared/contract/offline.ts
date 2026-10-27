@@ -1,8 +1,10 @@
 /**
- * 115 离线下载（云下载）：把磁力 / 电驴链接加进 115 云下载，存到网盘设置里的转存目标文件夹；
+ * 115 离线下载（云下载）：把磁力 / 电驴链接加进 115 云下载，存到调用方选的文件夹（不传 = 电影默认目录）；
  * 主进程（或片库服务）记下经影盒添加的任务，下载完成后通知媒体库入库。桌面端与网页端（片库服务）同一套契约。
  */
+import type { TargetFolder } from '../netdisk/target-folder'
 import { ContractError, call, defineDomain, event, str } from './define'
+import { targetFolderArg } from './pan115'
 
 /** 任务状态 */
 export type OfflineStatus = 'waiting' | 'running' | 'done' | 'failed'
@@ -52,7 +54,7 @@ export interface OfflineTask {
 /** 任务列表 */
 export interface OfflineList {
   loggedIn: boolean
-  /** 新任务会存到的文件夹显示名（根目录为空串） */
+  /** 不另选时新任务会存到的文件夹（电影默认目录）显示名（根目录为空串） */
   folder: string
   /** 新加的在前 */
   tasks: OfflineTask[]
@@ -83,8 +85,11 @@ const linksOf = (value: unknown): string[] => {
 export const offline = defineDomain(
   'offline',
   {
-    /** 把磁力 / 电驴链接加进 115 云下载 */
-    add: call<[links: string[]], OfflineAddResult>(a => [linksOf(a[0])]),
+    /** 把磁力 / 电驴链接加进 115 云下载，存到 folder（不传 = 电影默认目录） */
+    add: call<
+      [links: string[], folder?: TargetFolder | null],
+      OfflineAddResult
+    >(a => [linksOf(a[0]), targetFolderArg(a[1])]),
     /** 经影盒添加的任务；有没完成的任务时先向 115 同步一次 */
     tasks: call<OfflineList>(),
   },

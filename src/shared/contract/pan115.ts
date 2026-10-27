@@ -1,4 +1,12 @@
-import { ContractError, call, defineDomain, optStr, str } from './define'
+import type { TargetFolder } from '../netdisk/target-folder'
+import {
+  ContractError,
+  call,
+  defineDomain,
+  optRecord,
+  optStr,
+  str,
+} from './define'
 
 /** PanSou 公共实例（第三方维护）；只在用户于设置里点「使用公共实例」时填入，搜索词会发给它 */
 export const PANSOU_PUBLIC_URL = 'https://so.252035.xyz'
@@ -147,6 +155,19 @@ const checkItems = (value: unknown): LinkCheckItem[] => {
   })
 }
 
+/**
+ * 可选的转存目标文件夹参数：undefined / null = 用默认目录；cid 须是数字，名字只用于显示（截到 500 字）。
+ * pan115.receive 与 offline.add 共用。
+ */
+export function targetFolderArg(value: unknown): TargetFolder | null {
+  const raw = optRecord<Record<string, unknown>>(value, 'folder')
+  if (!raw) return null
+  const cid = str(raw.cid, 'folder.cid')
+  if (!/^\d{1,32}$/.test(cid))
+    throw new ContractError('参数 folder.cid 应为数字')
+  return { cid, name: (optStr(raw.name, 'folder.name') ?? '').slice(0, 500) }
+}
+
 const torznabUrls = (value: unknown): string[] => {
   if (!Array.isArray(value)) throw new ContractError('参数 urls 应为数组')
   if (value.length > MAX_TORZNAB_URLS)
@@ -192,11 +213,11 @@ export const pan115 = defineDomain('pan115', {
     str(a[0], 'url'),
     str(a[1], 'password'),
   ]),
-  /** 把整个分享转存到设置里的目标文件夹 */
-  receive: call<[url: string, password: string], Pan115Result>(a => [
-    str(a[0], 'url'),
-    str(a[1], 'password'),
-  ]),
+  /** 把整个分享转存到 folder（不传 = 电影默认目录，见 shared/netdisk/target-folder.ts） */
+  receive: call<
+    [url: string, password: string, folder?: TargetFolder | null],
+    Pan115Result
+  >(a => [str(a[0], 'url'), str(a[1], 'password'), targetFolderArg(a[2])]),
   /** 列一层文件夹（选目标文件夹用；cid 0 为根目录） */
   dirs: call<[cid: string], Pan115Result<Pan115DirListing>>(a => [
     str(a[0], 'cid'),

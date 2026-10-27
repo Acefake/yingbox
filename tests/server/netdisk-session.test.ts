@@ -32,7 +32,7 @@ function build(fetch: (url: string, init?: RequestInit) => Promise<Response>): {
   const service = createPan115Service({
     transport: createNodeTransport({ jar, fetch }),
     lanFetch: fetch,
-    settings: { pansouUrl: () => '', targetCid: () => '0' },
+    settings: { pansouUrl: () => '', defaultCid: () => '0' },
     session: {
       read: () => parseSession(secrets.get('pan115.session') ?? ''),
       write: async value =>

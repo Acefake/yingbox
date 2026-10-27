@@ -17,7 +17,16 @@
       @settings="openNetdiskSettings"
       @save-best="saveBest"
       @magnet="showMagnets"
-    />
+    >
+      <template #target>
+        <TargetFolderPill
+          v-bind="pill"
+          variant="glass"
+          size="lg"
+          @pick="target.pick"
+        />
+      </template>
+    </NetdiskHero>
 
     <div class="netdisk-body">
       <StatusState
@@ -46,24 +55,17 @@
           @close="actions.closePreview"
         />
 
-        <div ref="tabsEl" class="netdisk-tabs">
-          <UiSegmented v-model="tab" :options="tabs" label="结果类型" />
-          <p
-            v-if="tab !== 'offline' && notes.length"
-            class="netdisk-notes"
-            role="status"
-          >
-            {{ notes.join('；') }}
-          </p>
-          <UiSelect
-            v-if="tab !== 'offline'"
-            v-model="sort"
-            class="netdisk-sort"
-            size="sm"
-            :options="sortOptions"
-            aria-label="排序"
-          />
-        </div>
+        <NetdiskToolbar
+          ref="tabsEl"
+          v-model:tab="tab"
+          v-model:sort="sort"
+          :counts="
+            searched ? { share: items.length, magnet: magnets.length } : null
+          "
+          :notes="notes"
+          :target="pill"
+          @pick="target.pick"
+        />
         <OfflineTasks v-if="tab === 'offline'" />
         <StatusState
           v-else-if="error"
@@ -133,6 +135,8 @@
  * 115 分享：查看文件是一个玻璃浮层（NetdiskPreview），转存在结果卡片与浮层上；磁力行可一键加进 115 离线下载；
  * 第三段「离线任务」看经影盒添加的云下载进度（打开页面带 ?tab=offline 直接显示）。
  * 一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。两个来源都没填时引导去设置。
+ * 转存目标：Hero 主按钮旁与结果工具条上各有一个目标胶囊（TargetFolderPill），共用一份选择（useTransferTarget）：
+ * 默认按命中的类型预选电影 / 剧集默认目录，另选后到下一次搜索前一直用它；转存与磁力离线都存到这里，不另弹窗。
  * 页面铺到窗口左上角（Hero 压在浮动侧栏与窗口键胶囊下面）；Hero 在胶囊身后时经 useShellBackdrop 让胶囊换深色玻璃。
  */
 import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
@@ -140,12 +144,7 @@ import { useRoute } from 'vue-router'
 
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
-import UiSegmented, {
-  type SegmentedOption,
-} from '@/components/ui/UiSegmented.vue'
-import UiSelect, { type SelectOption } from '@/components/ui/UiSelect.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
-import { releaseSpecs } from '@/components/ui/spec-badge'
 import { toast } from '@/components/ui/toast'
 import { useShellBackdrop } from '@/composables/use-shell-backdrop'
 import { useSetting } from '@/features/settings'
@@ -161,22 +160,22 @@ import MagnetResult from '../components/MagnetResult.vue'
 import NetdiskHero from '../components/NetdiskHero.vue'
 import NetdiskPreview from '../components/NetdiskPreview.vue'
 import NetdiskResult from '../components/NetdiskResult.vue'
+import NetdiskToolbar, {
+  type NetdiskTab,
+} from '../components/NetdiskToolbar.vue'
 import OfflineTasks from '../components/OfflineTasks.vue'
+import TargetFolderPill from '../components/TargetFolderPill.vue'
+import { useBestRelease } from '../composables/use-best-release'
 import { useHeroMatch } from '../composables/use-hero-match'
 import { useLinkCheck } from '../composables/use-link-check'
 import { useNetdiskSearch } from '../composables/use-netdisk-search'
 import { useNetdiskStatus } from '../composables/use-netdisk-status'
 import { useOfflineAdd } from '../composables/use-offline'
 import { useShareActions } from '../composables/use-share-actions'
-import { type HeroSummary, heroStatusItems } from '../utils/hero-status'
-import { formatBytes } from '../utils/netdisk-rules'
-import {
-  type ReleaseSort,
-  pickBest,
-  qualityLabel,
-  sizeFromTitle,
-  sortReleases,
-} from '../utils/release-quality'
+import { useTargetSettings } from '../composables/use-target-settings'
+import { useTransferTarget } from '../composables/use-transfer-target'
+import { heroStatusItems } from '../utils/hero-status'
+import { type ReleaseSort, sortReleases } from '../utils/release-quality'
 
 const available = netdiskAvailable
 const pansouUrl = useSetting('pan115.pansouUrl')
@@ -217,29 +216,30 @@ watch(keyword, value => {
   reset()
 })
 
+// 转存目标：按命中的类型预选，胶囊里另选后到下一次搜索前一直用它
+const targetSettings = useTargetSettings(useSetting)
+const target = useTransferTarget(
+  () => match.value?.kind ?? null,
+  () => targetSettings.value
+)
+const pill = computed(() => ({
+  folder: target.current.value.folder,
+  active: target.current.value.active,
+  presets: target.presets.value,
+  disabled: !available,
+}))
+
 function runSearch(): void {
   if (!keyword.value.trim()) return
   submitted.value = keyword.value.trim()
+  target.reset()
   void search()
   if (available) void status.refresh()
 }
 
-type Tab = 'share' | 'magnet' | 'offline'
 const route = useRoute()
-const tab = ref<Tab>(route.query.tab === 'offline' ? 'offline' : 'share')
-const count = (n: number): string => (searched.value ? ` ${n}` : '')
-const tabs = computed<SegmentedOption<Tab>[]>(() => [
-  { value: 'share', label: `115 分享${count(items.value.length)}` },
-  { value: 'magnet', label: `磁力${count(magnets.value.length)}` },
-  { value: 'offline', label: '离线任务' },
-])
+const tab = ref<NetdiskTab>(route.query.tab === 'offline' ? 'offline' : 'share')
 const sort = ref<ReleaseSort>('default')
-const sortOptions: SelectOption[] = [
-  { value: 'default', label: '默认排序' },
-  { value: 'quality', label: '按画质' },
-  { value: 'date', label: '按时间' },
-  { value: 'size', label: '按体积' },
-]
 // 可见的 115 分享按需检测有效性，失效的沉到最后（useLinkCheck 节流提交，列表不会一条条跳）
 const linkCheck = useLinkCheck({
   api: netdisk,
@@ -263,54 +263,37 @@ watch([items, magnets], ([shares, links]) => {
   else if (tab.value === 'offline') tab.value = 'share'
 })
 
-/** 画质最高的 115 分享（「转存最佳版本」转存它）与全部结果里最好的一条（小结里的「最佳」） */
-const bestShare = computed(() => pickBest(items.value, item => item.title))
-const bestOverall = computed(() => {
-  const magnet = pickBest(magnets.value, item => item.title)
-  const share = bestShare.value
-  if (!share || (magnet && magnet.quality.rank > share.quality.rank))
-    return magnet
-      ? { ...magnet, size: magnet.item.size ?? 0, title: magnet.item.title }
-      : null
-  return { ...share, size: 0, title: share.item.title }
+const { bestShare, summary, bestSpecs } = useBestRelease({
+  items,
+  magnets,
+  searched,
+  error,
 })
-const summary = computed<HeroSummary | null>(() => {
-  if (!searched.value || error.value) return null
-  const best = bestOverall.value
-  const label = best ? qualityLabel(best.quality) : ''
-  const size = best ? formatBytes(best.size || sizeFromTitle(best.title)) : ''
-  return {
-    shares: items.value.length,
-    magnets: magnets.value.length,
-    best: label ? [label, size].filter(Boolean).join(' ') : '',
-  }
-})
-const bestSpecs = computed(() =>
-  bestOverall.value ? releaseSpecs([bestOverall.value.title]) : []
-)
 
 const actions = useShareActions({
   api: linkCheck.guardReceive(netdisk),
   notify: toast,
   clipboard: () => navigator.clipboard,
+  folder: target.folder,
 })
 const preview = actions.preview
 const offlineAdd = useOfflineAdd({
   api: offlineDownloads,
   notify: toast,
   openLogin: openNetdiskSettings,
+  folder: target.folder,
 })
 
 function saveBest(): void {
   if (bestShare.value) void actions.save(bestShare.value.item)
 }
 
-const tabsEl = ref<HTMLElement | null>(null)
+const tabsEl = ref<{ $el: HTMLElement } | null>(null)
 
 /** 「磁力离线」：切到磁力页签并把结果区滚进视野 */
 function showMagnets(): void {
   tab.value = 'magnet'
-  tabsEl.value?.scrollIntoView({ block: 'start' })
+  tabsEl.value?.$el.scrollIntoView({ block: 'start' })
 }
 
 /** 再点同一条收起预览，点别的换成那一条 */
@@ -358,28 +341,6 @@ onDeactivated(() => setShell(false))
   width: 100%;
   max-width: calc(1136px + var(--netdisk-x) + var(--space-8));
   padding: var(--space-2) var(--space-8) var(--space-11) var(--netdisk-x);
-}
-.netdisk-tabs {
-  display: flex;
-  align-items: center;
-  gap: var(--space-4);
-  min-width: 0;
-  scroll-margin-top: var(--shell-top);
-}
-.netdisk-notes {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  margin: 0;
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-.netdisk-sort {
-  flex: none;
-  width: auto;
-  margin-left: auto;
 }
 .netdisk-results {
   margin: 0;

@@ -1,10 +1,14 @@
 /**
  * 库外发现模块入口（只依赖模块宿主，桌面端主进程与独立服务共用）：把库外发现服务接到 115 服务、追更的闸门、设置、媒体库变更通知与 discover 域。
  *
- * 转存目标：设置 `pan115.movieCid`（助手转存目标文件夹）；没设时跟随网盘设置里的转存目标 `pan115.targetCid`；
- * 两处都为空时是根目录（cid 0）。
+ * 转存目标：电影默认目录（shared/netdisk/target-folder.ts：`pan115.movieCid`，没设时沿用原转存目标
+ * `pan115.targetCid`，都为空时是根目录 cid 0）。
  */
 import { discover } from '../../shared/contract/discover'
+import {
+  defaultFolder,
+  readTargetSettings,
+} from '../../shared/netdisk/target-folder'
 import type { AutograbService } from '../autograb/service'
 import type { LibraryEngineClient } from '../library/client'
 import type { ModuleHost } from '../module-host'
@@ -50,14 +54,11 @@ export function registerDiscover(
         }),
     },
     guard: () => autograb.guard(),
-    folder: () => {
-      const movieCid = host.setting('pan115.movieCid')
-      if (movieCid)
-        return { cid: movieCid, name: host.setting('pan115.movieName') }
-      // 两处都没设时明确落到根目录（cid 0），不把空串交给 115
-      const cid = host.setting('pan115.targetCid') || '0'
-      return { cid, name: cid === '0' ? '' : host.setting('pan115.targetName') }
-    },
+    folder: () =>
+      defaultFolder(
+        'movie',
+        readTargetSettings(key => host.setting(key))
+      ),
     notify: async changes => {
       const mountRoot = host.setting('library.notify.mountRoot')
       await library.call(

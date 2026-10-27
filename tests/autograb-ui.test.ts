@@ -39,6 +39,7 @@ const base: AutograbOverview = {
   series: [],
   episodes: [],
   running: false,
+  defaultFolder: { cid: '0', name: '' },
 }
 
 describe('追更面板规则', () => {

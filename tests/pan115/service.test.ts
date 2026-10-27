@@ -68,7 +68,7 @@ function memorySession(
 
 const settings = {
   pansouUrl: () => 'https://so.example.com',
-  targetCid: () => '42',
+  defaultCid: () => '42',
 }
 
 /** 组装服务：115 走假传输层，PanSou 走单独的假 fetch */
@@ -296,7 +296,7 @@ describe('会话与分区 Cookie', () => {
     expect(sent).toHaveLength(0)
   })
 
-  it('转存到设置里的目标文件夹；链接解析失败给人话', async () => {
+  it('没指定文件夹时转存到默认目录；链接解析失败给人话', async () => {
     const { service, sent } = setup(
       {
         'https://webapi.115.com/share/snap': SNAP_OK,
@@ -314,6 +314,23 @@ describe('会话与分区 Cookie', () => {
       ok: false,
       error: '不是 115 分享链接',
     })
+  })
+
+  it('转存传了文件夹就存到那里，空 cid 回落到默认目录', async () => {
+    const { service, sent } = setup(
+      {
+        'https://webapi.115.com/share/snap': SNAP_OK,
+        'https://webapi.115.com/share/receive': { state: true, errno: 0 },
+      },
+      SESSION
+    )
+    const url = 'https://115.com/s/swh3abc12'
+    await service.receive(url, 'x1y2', { cid: '9001' })
+    await service.receive(url, 'x1y2', { cid: '' })
+    const cids = sent
+      .filter(r => r.url.includes('/share/receive'))
+      .map(r => new URLSearchParams(r.body).get('cid'))
+    expect(cids).toEqual(['9001', '42'])
   })
 })
 
