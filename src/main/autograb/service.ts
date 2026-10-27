@@ -3,9 +3,9 @@
  *
  * 不依赖 Electron：日历、媒体库通知、115 / PanSou、状态读写、时钟都由 index.ts 注入，测试可全部替换。
  * 安全边界：
- * - 只追用户打开了追更的剧；本地已有这一集（任何来源）就不搜；
- * - 全自动只在分数过 {@link AUTO_SCORE}、这部剧已确认过 {@link AUTO_AFTER_CONFIRMED} 集、且转存目标不是根目录时才转存
- *   （目标 = 这部剧选的文件夹 > 剧集默认目录 > 原转存目标，见 {@link targetCid}）；
+ * - 只追实际方式不是「不追」的剧（剧集全局策略管没单独设过的剧，见 policy.ts）；本地已有这一集（任何来源）就不搜；
+ * - 全自动只在匹配分过 {@link AUTO_SCORE}、这部剧已手动确认过门槛集数（全局「新剧先确认」，迁移前的老剧 3 集）、
+ *   且转存目标不是根目录时才转存（目标 = 这部剧选的文件夹 > 剧集默认目录 > 原转存目标，见 {@link targetCid}）；
  * - 转存前先列目标文件夹，同名文件已在就不再转存；每集一条记录，转存过的集不会再转存；
  * - 转存前查 115 剩余空间，不够就暂停全部自动转存（saver.ts）；撤销只删记录里的那个文件（revert.ts）；
  * - 115 请求全部过闸门（限速、限额、熔断，见 gate.ts）。
@@ -15,18 +15,27 @@ import type {
   AutograbResult,
   AutograbSeriesPatch,
 } from '../../shared/contract/autograb'
-import {
-  type AutograbPrefs,
-  mergePrefs,
-} from '../../shared/contract/autograb-prefs'
+import type { AutograbPrefs } from '../../shared/contract/autograb-prefs'
+import type {
+  GrabPolicy,
+  GrabPolicyPatch,
+} from '../../shared/contract/grab-policy'
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import { normalizeCid } from '../../shared/netdisk/target-folder'
-import type { AutograbDeps, Pan115Guard } from './deps'
+import type { AutograbDeps, AutograbService, Pan115Guard } from './deps'
 import { createFinder } from './finder'
 import { createRoundRunner, createSingleFlight } from './flight'
 import { type Gate, createGate } from './gate'
 import { AUTO_SCORE } from './match-rules'
 import { buildOverview } from './overview'
+import {
+  anyTracked,
+  applyPolicyPatch,
+  applySeriesPatch,
+  confirmFirstOf,
+  seriesModeOf,
+  seriesPrefsOf,
+} from './policy'
 import { revertEpisode } from './revert'
 import {
   addDays,
@@ -48,33 +57,9 @@ import {
   pruneEpisodes,
 } from './state'
 
-/** 全自动前要先手动确认几集 */
-export const AUTO_AFTER_CONFIRMED = 3
 /** 一轮最多搜几集 */
 const MAX_SEARCH_PER_TICK = 6
-/** 追更服务 */
-export interface AutograbService {
-  /** 跑一轮（已在跑时直接返回） */
-  tick(): Promise<void>
-  overview(): Promise<AutograbOverview>
-  setEnabled(enabled: boolean): Promise<void>
-  setSeries(
-    seriesId: number,
-    patch: AutograbSeriesPatch
-  ): Promise<AutograbResult>
-  setPrefs(prefs: AutograbPrefs): Promise<void>
-  grab(key: string, index: number): Promise<AutograbResult>
-  revert(key: string): Promise<AutograbResult>
-  skip(key: string): Promise<void>
-  retry(key: string): Promise<void>
-  resume(): Promise<void>
-  /** 状态加载后的闸门：洗版、电影追踪的 115 请求也走它（同一队列、同一份限额与熔断） */
-  gate(): Promise<Gate>
-  /** 这一集是不是追更转存的、还在等入库（推送据此把新集标成追更） */
-  isSaved(seriesId: number, season: number, episode: number): boolean
-  /** 共用的闸门与拉黑表（状态加载后才返回；库外发现用） */
-  guard(): Promise<Pan115Guard>
-}
+export type { AutograbService } from './deps'
 
 /** 创建追更服务 */
 export function createAutograbService(deps: AutograbDeps): AutograbService {
@@ -157,7 +142,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
 
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
     const setting = settingOf(record.seriesId)
-    const prefs = mergePrefs(state.prefs, setting?.prefs)
+    const prefs = seriesPrefsOf(state, record.seriesId)
     const result = await finder.find(
       {
         seriesTitle: record.seriesTitle,
@@ -184,9 +169,9 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     if (
       record.status === 'found' &&
       state.spacePause === null &&
-      setting?.mode === 'auto' &&
+      seriesModeOf(state, record.seriesId) === 'auto' &&
       targetCid(setting) !== '0' &&
-      setting.confirmed >= AUTO_AFTER_CONFIRMED &&
+      (setting?.confirmed ?? 0) >= confirmFirstOf(state, setting) &&
       best.score >= AUTO_SCORE
     )
       await grab(record, 0, false)
@@ -216,7 +201,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   async function runOnce(): Promise<void> {
     await ensureLoaded()
     if (!state.enabled) return
-    if (!Object.values(state.series).some(s => s.mode !== 'off')) return
+    if (!anyTracked(state)) return
     running = true
     deps.emit()
     try {
@@ -235,7 +220,8 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         )
       const due = records
         .filter(
-          r => r.status === 'waiting' && settingOf(r.seriesId)?.mode !== 'off'
+          r =>
+            r.status === 'waiting' && seriesModeOf(state, r.seriesId) !== 'off'
         )
         .filter(r => isDue(r.airDate, r.nextTry, now))
         .sort((a, b) => a.airDate.localeCompare(b.airDate))
@@ -294,25 +280,16 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       patch: AutograbSeriesPatch
     ): Promise<AutograbResult> {
       await ensureLoaded()
-      const key = String(seriesId)
-      const setting = state.series[key] ?? {
-        title: airing.get(seriesId) ?? '',
-        mode: 'off',
-        cid: '',
-        cidName: '',
-        confirmed: 0,
-        prefs: {},
-      }
-      const next = { ...setting, ...patch }
-      if (next.mode === 'auto' && targetCid(next) === '0')
-        return {
-          ok: false,
-          error:
-            '全自动要先给这部剧选一个 115 文件夹，或在设置 · 网盘里设剧集默认目录',
-        }
-      state.series[key] = next
+      const result = applySeriesPatch(
+        state,
+        seriesId,
+        airing.get(seriesId) ?? '',
+        patch,
+        targetCid
+      )
+      if (!result.ok) return result
       dirty()
-      if (patch.mode && patch.mode !== 'off') void tick()
+      if (patch.mode && seriesModeOf(state, seriesId) !== 'off') void tick()
       return { ok: true }
     },
     async grab(key: string, index: number): Promise<AutograbResult> {
@@ -325,8 +302,20 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     },
     async setPrefs(prefs: AutograbPrefs): Promise<void> {
       await ensureLoaded()
-      state.prefs = prefs
+      state.policy = { ...state.policy, prefs }
       dirty()
+    },
+    async policy(): Promise<GrabPolicy> {
+      await ensureLoaded()
+      return state.policy
+    },
+    async setPolicy(patch: GrabPolicyPatch): Promise<AutograbResult> {
+      await ensureLoaded()
+      const result = applyPolicyPatch(state, patch, targetCid(undefined))
+      if (!result.ok) return result
+      dirty()
+      if (patch.mode && patch.mode !== 'off') void tick()
+      return result
     },
     async revert(key: string): Promise<AutograbResult> {
       await ensureLoaded()

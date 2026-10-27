@@ -3,31 +3,44 @@
  *
  * 读的时候逐字段校验（文件被改坏也不至于崩），写由 service 节流后整份原子替换。
  * 每集一行，键是「剧 id:季:集」，即幂等键：同一集只会有一条记录，转存前先看它的状态。
- * 后加的字段（偏好、空间暂停、转存出的文件 id、拉黑候选）在老文件里没有，读成默认值，版本号不变。
+ * 后加的字段（空间暂停、转存出的文件 id、拉黑候选）在老文件里没有，读成默认值，版本号不变。
+ *
+ * 剧集的全局策略（policy：默认方式、新剧先确认几集、资源偏好）也存在这里。没有 policy 的老文件迁移一次：
+ * 全局偏好 ← 老的 prefs，全局方式 = 不追；「不追」的剧读成跟随全局（全局也是不追，等价）；
+ * 单独设了待确认 / 全自动的剧保持原样，并记下原来的确认门槛 3 集（{@link LEGACY_CONFIRM_FIRST}），行为不变。
  */
 import {
   AUTOGRAB_MODES,
+  AUTOGRAB_SERIES_MODES,
   type AutograbCandidate,
   type AutograbEpisode,
   type AutograbMode,
+  type AutograbSeriesMode,
   type AutograbStatus,
 } from '../../shared/contract/autograb'
 import {
-  type AutograbPrefs,
   type AutograbPrefsOverride,
-  DEFAULT_PREFS,
   prefsOf,
   prefsOverrideOf,
 } from '../../shared/contract/autograb-prefs'
+import {
+  DEFAULT_TV_POLICY,
+  type GrabPolicy,
+  confirmFirstOf,
+  policyOf,
+} from '../../shared/contract/grab-policy'
 import { type GateState, emptyGate } from './gate'
 
 /** 一部剧的设置 */
 export interface SeriesSetting {
   title: string
-  mode: AutograbMode
+  /** 方式设置：inherit = 跟随全局 */
+  mode: AutograbSeriesMode
   cid: string
   cidName: string
   confirmed: number
+  /** 这部剧自己的确认门槛（迁移前单独设过方式的老剧为 3）；没有时用全局「新剧先确认」 */
+  confirmFirst?: number
   /** 覆盖全局的偏好项 */
   prefs: AutograbPrefsOverride
 }
@@ -63,11 +76,14 @@ export interface AutograbState {
   /** 分享码 → 拉黑到期时间 */
   blacklist: Record<string, number>
   gate: GateState
-  /** 全局偏好 */
-  prefs: AutograbPrefs
+  /** 剧集的全局策略 */
+  policy: GrabPolicy
   /** 115 空间不足时暂停自动转存的原因；null = 没暂停 */
   spacePause: string | null
 }
+
+/** 迁移前单独设了待确认 / 全自动的剧沿用的确认门槛 */
+export const LEGACY_CONFIRM_FIRST = 3
 
 /** 打不开的分享拉黑多久 */
 export const BLOCK_MS = 7 * 24 * 3_600_000
@@ -96,7 +112,7 @@ export function emptyState(now: number): AutograbState {
     episodes: {},
     blacklist: {},
     gate: emptyGate(now),
-    prefs: { ...DEFAULT_PREFS },
+    policy: policyOf(undefined, 'tv'),
     spacePause: null,
   }
 }
@@ -161,25 +177,65 @@ function parseEpisode(key: string, raw: unknown): EpisodeRecord | null {
   }
 }
 
+/** 方式设置：认不出时跟随全局 */
+function seriesMode(raw: unknown): AutograbSeriesMode {
+  return AUTOGRAB_SERIES_MODES.includes(raw as AutograbSeriesMode)
+    ? (raw as AutograbSeriesMode)
+    : 'inherit'
+}
+
+/** 老文件的方式：不追（及认不出的）→ 跟随全局，待确认 / 全自动保持 */
+function legacyMode(raw: unknown): AutograbSeriesMode {
+  const mode = raw as AutograbMode
+  return AUTOGRAB_MODES.includes(mode) && mode !== 'off' ? mode : 'inherit'
+}
+
+/** 一部剧的设置；没有时建一条跟随全局的 */
+export function ensureSetting(
+  state: AutograbState,
+  seriesId: number,
+  title: string
+): SeriesSetting {
+  const key = String(seriesId)
+  state.series[key] ??= {
+    title,
+    mode: 'inherit',
+    cid: '',
+    cidName: '',
+    confirmed: 0,
+    prefs: {},
+  }
+  return state.series[key]
+}
+
 /** 文件内容 → 状态；认不出的部分丢掉 */
 export function parseState(raw: unknown, now: number): AutograbState {
   const state = emptyState(now)
   if (!isObj(raw) || raw.version !== 1) return state
   state.enabled = raw.enabled !== false
-  state.prefs = prefsOf(raw.prefs)
+  const legacy = !isObj(raw.policy)
+  state.policy = legacy
+    ? { ...DEFAULT_TV_POLICY, prefs: prefsOf(raw.prefs) }
+    : policyOf(raw.policy, 'tv')
   state.spacePause = sOrNull(raw.spacePause)
   if (isObj(raw.series))
     for (const [id, value] of Object.entries(raw.series)) {
       if (!/^\d+$/.test(id) || !isObj(value)) continue
-      const mode = s(value.mode) as AutograbMode
-      state.series[id] = {
+      const setting: SeriesSetting = {
         title: s(value.title),
-        mode: AUTOGRAB_MODES.includes(mode) ? mode : 'off',
+        mode: legacy ? legacyMode(value.mode) : seriesMode(value.mode),
         cid: /^\d*$/.test(s(value.cid)) ? s(value.cid) : '',
         cidName: s(value.cidName),
         confirmed: n(value.confirmed),
         prefs: prefsOverrideOf(value.prefs),
       }
+      const confirmFirst = legacy
+        ? setting.mode === 'inherit'
+          ? undefined
+          : LEGACY_CONFIRM_FIRST
+        : confirmFirstOf(value.confirmFirst)
+      if (confirmFirst !== undefined) setting.confirmFirst = confirmFirst
+      state.series[id] = setting
     }
   if (isObj(raw.episodes))
     for (const [key, value] of Object.entries(raw.episodes)) {

@@ -1,10 +1,42 @@
 /**
- * 电影追踪记录的纯操作：写入 TMDB 信息（重算开始搜的日期）、到发行日时转为搜索中。
+ * 电影追踪记录的纯操作：新建记录、写入 TMDB 信息（重算开始搜的日期）、到发行日时转为搜索中。
  */
 import { addDays, localDate, searchStart } from '../schedule-rules'
 import { releaseStart } from './movie-rules'
 import type { MovieRecord } from './state'
 import type { MovieInfo } from './tmdb'
+
+/** 刚加进追踪的电影：跟随全局方式、没有偏好覆盖、等发行（调用方再 applyInfo / advance） */
+export function newRecord(
+  tmdbId: number,
+  info: MovieInfo,
+  now: number
+): MovieRecord {
+  return {
+    tmdbId,
+    title: info.title,
+    originalTitle: info.originalTitle,
+    year: info.year,
+    poster: info.poster,
+    premiere: info.premiere,
+    releaseDate: null,
+    dateSource: null,
+    searchFrom: null,
+    checkedAt: now,
+    mode: 'inherit',
+    prefs: {},
+    status: 'upcoming',
+    attempts: 0,
+    nextTry: null,
+    candidates: [],
+    error: null,
+    addedAt: now,
+    savedAt: null,
+    savedName: null,
+    savedCid: null,
+    notified: false,
+  }
+}
 
 /** TMDB 信息写进记录，重算开始搜的日期 */
 export function applyInfo(

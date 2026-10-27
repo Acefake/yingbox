@@ -1,18 +1,23 @@
 /**
- * 电影上线追踪状态：统一转存到的 115 文件夹、每部电影一条记录、拉黑的分享、每天的子限额，
- * 存在 userData/autograb-movies.json。读的时候逐字段校验，认不出的丢掉。键是 TMDB id（幂等键）。
+ * 电影上线追踪状态：统一转存到的 115 文件夹、电影的全局策略（方式 + 资源偏好）、每部电影一条记录、
+ * 拉黑的分享、每天的子限额，存在 userData/autograb-movies.json。读的时候逐字段校验，认不出的丢掉。
+ * 键是 TMDB id（幂等键）。
+ *
+ * 没有 policy 的老文件迁移一次：全局方式 = 待确认；「待确认」的电影读成跟随全局（等价），「全自动」保持。
  */
 import {
-  MOVIE_MODES,
-  type MovieMode,
+  MOVIE_MODE_SETTINGS,
+  type MovieModeSetting,
   type MovieTrackStatus,
   type TrackedMovie,
 } from '../../../shared/contract/autograb-upgrade'
+import { type GrabPolicy, policyOf } from '../../../shared/contract/grab-policy'
+import { prefsOverrideOf } from '../../../shared/contract/grab-prefs'
 import { type Budget, emptyBudget } from '../upgrade/quality-rules'
 import { parseCandidates } from '../upgrade/state'
 
 /** 一部电影的记录（比界面多几个内部字段） */
-export interface MovieRecord extends TrackedMovie {
+export interface MovieRecord extends Omit<TrackedMovie, 'effectiveMode'> {
   originalTitle: string
   /** 首映日（发行信息缺失时的兜底） */
   premiere: string | null
@@ -31,6 +36,8 @@ export interface MoviesState {
   version: 1
   cid: string
   cidName: string
+  /** 电影的全局策略 */
+  policy: GrabPolicy
   movies: Record<string, MovieRecord>
   blacklist: Record<string, number>
   budget: Budget
@@ -51,6 +58,7 @@ export function emptyMoviesState(now: number): MoviesState {
     version: 1,
     cid: '',
     cidName: '',
+    policy: policyOf(undefined, 'movie'),
     movies: {},
     blacklist: {},
     budget: emptyBudget(now),
@@ -69,11 +77,22 @@ const sOrNull = (v: unknown): string | null =>
 const dateOrNull = (v: unknown): string | null =>
   typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v) ? v : null
 
-function parseMovie(id: string, raw: unknown): MovieRecord | null {
+/** 方式设置：老文件里「待确认」→ 跟随全局（全局默认也是待确认）；认不出的跟随全局 */
+function modeOf(raw: unknown, legacy: boolean): MovieModeSetting {
+  if (legacy) return raw === 'auto' ? 'auto' : 'inherit'
+  return MOVIE_MODE_SETTINGS.includes(raw as MovieModeSetting)
+    ? (raw as MovieModeSetting)
+    : 'inherit'
+}
+
+function parseMovie(
+  id: string,
+  raw: unknown,
+  legacy: boolean
+): MovieRecord | null {
   if (!isObj(raw) || !/^\d+$/.test(id)) return null
   const status = s(raw.status) as MovieTrackStatus
   if (!STATUSES.includes(status) || !s(raw.title)) return null
-  const mode = s(raw.mode) as MovieMode
   const source = s(raw.dateSource)
   return {
     tmdbId: Number(id),
@@ -89,7 +108,8 @@ function parseMovie(id: string, raw: unknown): MovieRecord | null {
         : null,
     searchFrom: dateOrNull(raw.searchFrom),
     checkedAt: n(raw.checkedAt),
-    mode: MOVIE_MODES.includes(mode) ? mode : 'confirm',
+    mode: modeOf(raw.mode, legacy),
+    prefs: prefsOverrideOf(raw.prefs),
     status,
     attempts: n(raw.attempts),
     nextTry: nOrNull(raw.nextTry),
@@ -109,9 +129,11 @@ export function parseMoviesState(raw: unknown, now: number): MoviesState {
   if (!isObj(raw) || raw.version !== 1) return state
   state.cid = /^\d*$/.test(s(raw.cid)) ? s(raw.cid) : ''
   state.cidName = s(raw.cidName)
+  const legacy = !isObj(raw.policy)
+  state.policy = policyOf(raw.policy, 'movie')
   if (isObj(raw.movies))
     for (const [id, value] of Object.entries(raw.movies)) {
-      const record = parseMovie(id, value)
+      const record = parseMovie(id, value, legacy)
       if (record) state.movies[id] = record
     }
   if (isObj(raw.blacklist))

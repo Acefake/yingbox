@@ -23,6 +23,7 @@ import {
   BLOCK_MS,
   type EpisodeRecord,
   candidateKey,
+  ensureSetting,
 } from './state'
 
 /** 转存后多久还没入库就主动通知媒体库 */
@@ -74,7 +75,6 @@ export function createSaver(ctx: SaverContext): {
       return { ok: true }
     const candidate = record.candidates[index]
     if (!candidate) return { ok: false, error: '候选不存在，请重新搜索' }
-    const setting = ctx.state().series[String(record.seriesId)]
     const cid = ctx.targetCid(record)
     // 真的发了转存（含 115 说已接收过）才记文件 id：同名文件本来就在时不归追更管，不能撤销
     let received = false
@@ -108,7 +108,10 @@ export function createSaver(ctx: SaverContext): {
     record.revertedName = null
     record.error = null
     record.nextTry = null
-    if (byUser && setting) setting.confirmed++
+    // 跟随全局、没设过的剧也要记确认次数（全自动的前几集门槛）
+    if (byUser)
+      ensureSetting(ctx.state(), record.seriesId, record.seriesTitle)
+        .confirmed++
     ctx.deps.log(
       `已转存 ${record.seriesTitle} S${record.season}E${record.episode}：${candidate.fileName}`
     )

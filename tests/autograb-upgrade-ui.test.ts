@@ -5,11 +5,12 @@ import {
   movieNote,
   moviesNotice,
   resolutionText,
-  targetOf,
+  targetsText,
   upgradeNotice,
   upgradeSummary,
   watchlistTitles,
 } from '../src/renderer/src/features/autograb-upgrade/upgrade-rules'
+import { policyOf } from '../src/shared/contract/grab-policy'
 import type {
   MoviesOverview,
   TrackedMovie,
@@ -27,7 +28,7 @@ const counts = {
 }
 const upgrade: UpgradeOverview = {
   enabled: true,
-  target: 1080,
+  targets: { movie: 1080, tv: 1080 },
   ready: { loggedIn: true, pansou: true, cloudLibraries: true },
   scannedAt: 1,
   pauseReason: null,
@@ -37,12 +38,12 @@ const upgrade: UpgradeOverview = {
 }
 
 describe('洗版 / 电影面板规则', () => {
-  it('分辨率与目标值', () => {
+  it('分辨率与目标（首选分辨率）', () => {
     expect(resolutionText(2160)).toBe('4K')
     expect(resolutionText(720)).toBe('720p')
     expect(resolutionText(null)).toBe('未知')
-    expect(targetOf('2160')).toBe(2160)
-    expect(targetOf('x')).toBe(1080)
+    expect(targetsText({ movie: 2160, tv: 2160 })).toBe('4K')
+    expect(targetsText({ movie: 2160, tv: 1080 })).toBe('电影 4K / 剧集 1080p')
   })
 
   it('条目名：剧集带季集号，电影带年份', () => {
@@ -74,6 +75,8 @@ describe('洗版 / 电影面板规则', () => {
     const movies: MoviesOverview = {
       cid: '',
       cidName: '',
+      policy: policyOf(undefined, 'movie'),
+      defaultFolder: { cid: '0', name: '' },
       ready: { loggedIn: true, pansou: true, tmdb: false },
       pauseReason: null,
       movies: [],
@@ -86,13 +89,13 @@ describe('洗版 / 电影面板规则', () => {
     expect(upgradeSummary({ ...upgrade, enabled: false })).toContain(
       '不自动替换'
     )
-    expect(upgradeSummary(upgrade)).toBe('片库里没有低于 1080p 的文件')
+    expect(upgradeSummary(upgrade)).toBe('片库里没有不如首选（1080p）的文件')
     expect(
       upgradeSummary({
         ...upgrade,
         counts: { ...counts, waiting: 10, found: 2 },
       })
-    ).toBe('12 个文件低于 1080p，2 个有更清楚的版本')
+    ).toBe('12 个文件不如首选（1080p），2 个有更清楚的版本')
   })
 
   it('电影说明与想看片名', () => {

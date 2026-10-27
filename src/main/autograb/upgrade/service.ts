@@ -1,8 +1,12 @@
 /**
- * 洗版服务：每周清点片库 → 低分辨率文件每周搜一次更高清的 115 分享 → 列成可替换 →
+ * 洗版服务：每周清点片库 → 不如资源偏好的文件每周搜一次更好的 115 分享 → 列成可替换 →
  * 用户确认后把新文件存进旧文件所在的 115 文件夹 → 新文件出现在本地挂载里就记为已替换（旧文件不动）。
  *
- * 不依赖 Electron：片库、115、闸门、文件系统、状态读写、时钟都由 index.ts 注入。
+ * 目标按种类：电影 / 剧集资源偏好里的首选分辨率（不限时沿用原洗版目标，没选过为 1080p）；同分辨率时
+ * 偏好「杜比视界优先」/ 取向「画质优先」让杜比视界 / REMUX 也算更好（shared/release/score.ts）。
+ * 偏好变了下一轮重新清点。
+ *
+ * 不依赖 Electron：片库、115、闸门、文件系统、状态读写、时钟、两种资源偏好都由 index.ts 注入。
  * 安全边界：
  * - 不自动替换、不自动删除；删旧文件只在用户点了之后，并且新文件已在本地；
  * - 转存前核对目标文件夹里确实有旧文件（防止存进认错的文件夹）；
@@ -14,6 +18,8 @@ import type {
   UpgradeOverview,
   UpgradeStatus,
 } from '../../../shared/contract/autograb-upgrade'
+import type { GrabPrefs } from '../../../shared/contract/grab-prefs'
+import { resolutionHeight } from '../../../shared/contract/grab-prefs'
 import type {
   NetdiskItem,
   Pan115DirListing,
@@ -24,6 +30,7 @@ import { type Gate, GateClosed } from '../gate'
 import { dirOf, joinPath } from './folder-path'
 import {
   type LibraryReader,
+  type UpgradeRule,
   scanLibraries,
   upgradableLibraries,
 } from './library-scan'
@@ -55,6 +62,8 @@ const BLOCK_MS = 7 * 24 * 3_600_000
 /** 依赖 */
 export interface UpgradeDeps {
   library: LibraryReader
+  /** 电影 / 剧集的资源偏好（各自全局策略里的那份） */
+  prefsFor(kind: 'movie' | 'tv'): Promise<GrabPrefs>
   /** 剧集追更的闸门（加载完状态后的那一个） */
   gate(): Promise<Gate>
   pan: {
@@ -147,8 +156,35 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
 
   const replacer = createReplacer({ state: () => state, deps, dirty })
 
-  async function searchOne(record: UpgradeRecord): Promise<void> {
-    const result = await scanner.scan(upgradePlan(record, state.target))
+  /** 两种媒体的洗版规则：首选分辨率（不限时沿用老目标）+ 资源偏好 */
+  async function rules(): Promise<Record<'movie' | 'tv', UpgradeRule>> {
+    const of = async (kind: 'movie' | 'tv'): Promise<UpgradeRule> => {
+      const prefs = await deps.prefsFor(kind)
+      return {
+        prefs,
+        target: resolutionHeight(prefs.resolution) ?? state.target,
+      }
+    }
+    return { movie: await of('movie'), tv: await of('tv') }
+  }
+
+  /** 规则里影响清点结果的部分 */
+  const keyOf = (r: Record<'movie' | 'tv', UpgradeRule>): string =>
+    JSON.stringify(
+      (['movie', 'tv'] as const).map(k => [
+        r[k].target,
+        r[k].prefs.dolbyVision,
+        r[k].prefs.strategy,
+      ])
+    )
+
+  async function searchOne(
+    record: UpgradeRecord,
+    rule: UpgradeRule
+  ): Promise<void> {
+    const result = await scanner.scan(
+      upgradePlan(record, rule.target, rule.prefs)
+    )
     record.attempts++
     record.candidates = result.candidates
     record.error = null
@@ -195,15 +231,19 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
     deps.emit()
     try {
       const now = deps.now()
+      const current = await rules()
+      const key = keyOf(current)
       if (
         force ||
         state.scannedAt === null ||
+        state.rulesKey !== key ||
         now - state.scannedAt >= UPGRADE_INTERVAL_MS
       ) {
         const libraries = await deps.library.listLibraries()
         cloudLibraries = upgradableLibraries(libraries).length > 0
-        applyScan(state, await scanLibraries(deps.library, state.target), now)
+        applyScan(state, await scanLibraries(deps.library, current), now)
         state.scannedAt = now
+        state.rulesKey = key
         dirty()
       }
       for (const record of Object.values(state.records))
@@ -224,7 +264,10 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
         )
           break
         try {
-          await searchOne(record)
+          await searchOne(
+            record,
+            current[record.kind === 'movie' ? 'movie' : 'tv']
+          )
         } catch (error) {
           // 闸门关了 / 子限额用完：这一条下一轮接着搜，不算失败
           if (error instanceof GateClosed || error instanceof BudgetSpent) break
@@ -277,7 +320,10 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
         r.error !== null
       return {
         enabled: state.enabled,
-        target: state.target,
+        targets: await rules().then(r => ({
+          movie: r.movie.target,
+          tv: r.tv.target,
+        })),
         ready: {
           loggedIn: deps.pan.loggedIn(),
           pansou: deps.pan.pansouReady(),
@@ -303,11 +349,9 @@ export function createUpgradeService(deps: UpgradeDeps): UpgradeService {
     },
     async setOptions(patch: UpgradeOptionsPatch): Promise<void> {
       await ensureLoaded()
-      const retarget =
-        patch.target !== undefined && patch.target !== state.target
       Object.assign(state, patch)
       dirty()
-      if (state.enabled) void tick(retarget || patch.enabled === true)
+      if (state.enabled) void tick(patch.enabled === true)
     },
     async replace(key, index, picked): Promise<ReplaceResult> {
       await ensureLoaded()

@@ -160,7 +160,14 @@ describe('追更 · 偏好', () => {
       },
       0
     )
-    expect(state.prefs).toEqual({ ...DEFAULT_PREFS, excludeWords: ['枪版'] })
+    expect(state.policy.prefs).toEqual({
+      ...DEFAULT_PREFS,
+      excludeWords: ['枪版'],
+    })
+    // 老文件迁移：待确认的剧保持，并沿用原来的确认门槛
+    expect(state.series['7'].mode).toBe('confirm')
+    expect(state.series['7'].confirmFirst).toBe(3)
+    expect(state.policy.mode).toBe('off')
     expect(state.spacePause).toBeNull()
     expect(state.series['7'].prefs).toEqual({})
     const record = state.episodes['7:1:1']

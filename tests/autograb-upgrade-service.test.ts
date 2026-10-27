@@ -11,6 +11,10 @@ import {
   createUpgradeService,
 } from '../src/main/autograb/upgrade/service'
 import { UPGRADE_INTERVAL_MS } from '../src/main/autograb/upgrade/quality-rules'
+import {
+  DEFAULT_GRAB_PREFS,
+  type GrabPrefs,
+} from '../src/shared/contract/grab-prefs'
 import type { LibraryItemNode } from '../src/shared/library/ipc'
 
 const GB = 1024 ** 3
@@ -31,6 +35,8 @@ const movieNode = {
 
 interface Harness {
   service: UpgradeService
+  /** 两种资源偏好（测试里可改） */
+  prefs: Record<'movie' | 'tv', GrabPrefs>
   deps: UpgradeDeps
   clock: { t: number }
   local: Set<string>
@@ -44,6 +50,7 @@ function setup(
   options: { mountRoot?: string; folderHasOld?: boolean } = {}
 ): Harness {
   const clock = { t: new Date(2026, 9, 25, 10).getTime() }
+  const prefs = { movie: DEFAULT_GRAB_PREFS, tv: DEFAULT_GRAB_PREFS }
   const local = new Set<string>([OLD])
   const received: { ids: string[]; cid: string }[] = []
   const removed: string[] = []
@@ -89,6 +96,7 @@ function setup(
       }),
       getItem: async () => movieNode,
     },
+    prefsFor: async kind => prefs[kind],
     gate: async () => gate,
     pan: {
       loggedIn: () => true,
@@ -139,6 +147,7 @@ function setup(
   }
   return {
     service: createUpgradeService(deps),
+    prefs,
     deps,
     clock,
     local,
@@ -229,7 +238,7 @@ describe('洗版服务', () => {
     expect((await h.service.overview()).pauseReason).toContain('闸门')
   })
 
-  it('目标改成 4K 会重新清点', async () => {
+  it('电影首选分辨率改成 4K 会重新清点（目标 = 首选分辨率）', async () => {
     const h = setup()
     movieNode.files[0].path = OLD.replace('720p', '1080p')
     try {
@@ -239,7 +248,7 @@ describe('洗版服务', () => {
         (await h.service.overview()).counts.waiting +
           (await h.service.overview()).counts.found
       ).toBe(0)
-      await h.service.setOptions({ target: 2160 })
+      h.prefs.movie = { ...DEFAULT_GRAB_PREFS, resolution: '2160p' }
       await h.service.tick()
       expect((await h.service.overview()).counts.found).toBe(1)
     } finally {

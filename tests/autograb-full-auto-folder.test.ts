@@ -5,7 +5,9 @@ import {
   type FullAutoFolder,
   useFullAutoFolder,
 } from '../src/renderer/src/features/autograb/use-full-auto-folder'
+import { usePolicyFolder } from '../src/renderer/src/features/autograb/use-policy-folder'
 import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
+import { type GrabMode, policyOf } from '../src/shared/contract/grab-policy'
 import type {
   AutograbOverview,
   AutograbSeries,
@@ -15,14 +17,20 @@ const series: AutograbSeries = {
   seriesId: 7,
   title: '某剧',
   mode: 'off',
+  effectiveMode: 'off',
+  confirmFirst: 1,
   cid: '',
   cidName: '',
   confirmed: 0,
   prefs: {},
 }
 
-function overviewWith(defaultCid: string): AutograbOverview {
+function overviewWith(
+  defaultCid: string,
+  policyMode: GrabMode = 'off'
+): AutograbOverview {
   return {
+    policy: { ...policyOf(undefined, 'tv'), mode: policyMode },
     enabled: true,
     pausedUntil: null,
     pauseReason: null,
@@ -37,7 +45,10 @@ function overviewWith(defaultCid: string): AutograbOverview {
   }
 }
 
-function setup(defaultCid = '0'): {
+function setup(
+  defaultCid = '0',
+  policyMode: GrabMode = 'off'
+): {
   fa: FullAutoFolder
   setSeries: Mock<(...args: unknown[]) => Promise<boolean>>
   warn: Mock<(text: string) => void>
@@ -45,7 +56,7 @@ function setup(defaultCid = '0'): {
   const setSeries = vi.fn(async (..._args: unknown[]) => true)
   const warn = vi.fn((_text: string) => {})
   const fa = useFullAutoFolder({
-    overview: () => overviewWith(defaultCid),
+    overview: () => overviewWith(defaultCid, policyMode),
     setSeries,
     warn,
   })
@@ -117,5 +128,59 @@ describe('切全自动前补选文件夹', () => {
     await fa.changeMode(series, 'confirm')
     expect(fa.picking.value).toBeNull()
     expect(setSeries).toHaveBeenCalledWith(7, { mode: 'confirm' })
+  })
+})
+
+describe('跟随全局与全局切全自动', () => {
+  it('全局是全自动时改成「跟随」也要先选文件夹，选好后存文件夹并跟随', async () => {
+    const { fa, setSeries } = setup('0', 'auto')
+    await fa.changeMode(series, 'inherit')
+    expect(fa.picking.value).toBe(7)
+    expect(setSeries).not.toHaveBeenCalled()
+    await fa.pick({ cid: '55', name: '某剧' })
+    expect(setSeries).toHaveBeenCalledWith(7, {
+      cid: '55',
+      cidName: '某剧',
+      mode: 'inherit',
+    })
+  })
+
+  it('全局全自动而默认目录是根目录：先选默认目录，存好再切；根目录不行；取消不改', async () => {
+    const setMode = vi.fn(async (_mode: GrabMode) => true)
+    const saved: string[] = []
+    const warn = vi.fn((_text: string) => {})
+    const pf = usePolicyFolder({
+      targetCid: () => '0',
+      setMode,
+      saveDefaultFolder: async folder => void saved.push(folder.cid),
+      warn,
+    })
+    await pf.changeMode('confirm')
+    expect(setMode).toHaveBeenLastCalledWith('confirm')
+    await pf.changeMode('auto')
+    expect(pf.picking.value).toBe(true)
+    expect(setMode).toHaveBeenCalledTimes(1)
+    await pf.pick({ cid: '0', name: '' })
+    expect(warn).toHaveBeenCalled()
+    await pf.pick({ cid: '66', name: '剧集' })
+    expect(saved).toEqual(['66'])
+    expect(setMode).toHaveBeenLastCalledWith('auto')
+    expect(pf.picking.value).toBe(false)
+    await pf.changeMode('auto')
+    pf.cancel()
+    expect(pf.picking.value).toBe(false)
+  })
+
+  it('默认目录不是根目录：直接切全自动', async () => {
+    const setMode = vi.fn(async (_mode: GrabMode) => true)
+    const pf = usePolicyFolder({
+      targetCid: () => '66',
+      setMode,
+      saveDefaultFolder: async () => {},
+      warn: () => {},
+    })
+    await pf.changeMode('auto')
+    expect(pf.picking.value).toBe(false)
+    expect(setMode).toHaveBeenCalledWith('auto')
   })
 })

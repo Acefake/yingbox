@@ -101,10 +101,19 @@ export function upgradableLibraries(libraries: LibraryInfo[]): LibraryInfo[] {
   return libraries.filter(l => l.cloud === true && l.source === 'tmdb')
 }
 
-/** 清点全部能洗的库 */
+/** 一个种类的洗版规则：目标分辨率高度 + 资源偏好 */
+export interface UpgradeRule {
+  target: number
+  prefs: GrabPrefs
+}
+
+/**
+ * 清点全部能洗的库。
+ * @param rules 电影 / 剧集各自的规则
+ */
 export async function scanLibraries(
   reader: LibraryReader,
-  target: number
+  rules: Record<'movie' | 'tv', UpgradeRule>
 ): Promise<ScanHit[]> {
   const hits: ScanHit[] = []
   for (const library of upgradableLibraries(await reader.listLibraries())) {
@@ -118,7 +127,9 @@ export async function scanLibraries(
       })
       for (const item of page.items) {
         const node = await reader.getItem(item.id)
-        if (node) hits.push(...lowResHits(node, target))
+        if (!node) continue
+        const rule = rules[node.type === 'movie' ? 'movie' : 'tv']
+        hits.push(...lowResHits(node, rule.target, rule.prefs))
       }
       if (offset + page.items.length >= page.total || !page.items.length) break
     }

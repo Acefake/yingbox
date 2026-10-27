@@ -9,18 +9,13 @@ import type {
   UpgradeEntry,
   UpgradeOverview,
   UpgradeStatus,
-  UpgradeTarget,
 } from '../../../../shared/contract/autograb-upgrade'
 
-/** 目标分辨率选项（分段控件只收字符串值） */
-export const TARGET_OPTIONS: { value: `${UpgradeTarget}`; label: string }[] = [
-  { value: '1080', label: '1080p' },
-  { value: '2160', label: '4K' },
-]
-
-/** 分段控件的值 → 目标分辨率 */
-export function targetOf(value: string): UpgradeTarget {
-  return value === '2160' ? 2160 : 1080
+/** 洗版目标的说明：两种一样时「4K」，不一样时「电影 4K / 剧集 1080p」 */
+export function targetsText(t: UpgradeOverview['targets']): string {
+  return t.movie === t.tv
+    ? resolutionText(t.movie)
+    : `电影 ${resolutionText(t.movie)} / 剧集 ${resolutionText(t.tv)}`
 }
 
 /** 洗版状态文案 */
@@ -81,14 +76,14 @@ export function upgradeNotice(o: UpgradeOverview): string | null {
   return o.pauseReason
 }
 
-/** 洗版的概况：「12 个文件低于 1080p，3 个有更清楚的版本」 */
+/** 洗版的概况：「12 个文件不如首选（1080p），3 个有更好的版本」；目标 = 资源偏好里的首选分辨率 */
 export function upgradeSummary(o: UpgradeOverview): string {
   if (!o.enabled) return '打开后每周找一次更清楚的版本，找到只提示，不自动替换'
   const low = o.counts.waiting + o.counts.found
   if (o.scannedAt === null) return '还没清点片库'
   if (!low && !o.counts.saved && !o.counts.replaced)
-    return `片库里没有低于 ${resolutionText(o.target)} 的文件`
-  const parts = [`${low} 个文件低于 ${resolutionText(o.target)}`]
+    return `片库里没有不如首选（${targetsText(o.targets)}）的文件`
+  const parts = [`${low} 个文件不如首选（${targetsText(o.targets)}）`]
   if (o.counts.found) parts.push(`${o.counts.found} 个有更清楚的版本`)
   return parts.join('，')
 }
