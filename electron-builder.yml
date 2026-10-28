@@ -8,7 +8,12 @@ asarUnpack:
   - resources/logo.ico
   # 按画面搜的推理运行时（原生模块 + 动态库）不能留在 asar 里
   - node_modules/onnxruntime-node/bin/**
+beforePack: scripts/before-pack.mjs
 extraResources:
+  - from: licenses
+    to: licenses
+  - from: resources/third-party
+    to: third-party
   - from: resources/mpv
     to: mpv
 win:

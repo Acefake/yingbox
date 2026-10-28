@@ -24,9 +24,8 @@ export const MPV_SHA256 =
 export const MPV_ARCHIVE = `mpv-x86_64-${MPV_RELEASE}-git-492bae0768.7z`
 export const MPV_URL = `https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/${MPV_RELEASE}/${MPV_ARCHIVE}`
 
-/** 解压后删掉的非运行时内容 */
+/** 解压后删掉的安装辅助脚本（保留上游文档） */
 const PRUNE = [
-  'doc',
   'installer',
   'mpv-register.bat',
   'mpv-unregister.bat',

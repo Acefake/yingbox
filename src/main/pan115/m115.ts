@@ -3,7 +3,7 @@
  * 响应 data 用同一把公钥还原。115 云下载的「添加任务」只认这种编码（网页端旧接口已提示升级客户端）。
  *
  * 算法移植自 elevengo（github.com/deadblue/elevengo，internal/crypto/m115，MIT License，
- * Copyright (c) deadblue），按 TypeScript 重写；公钥与异或种子是 115 客户端里的公开常量。
+ * Copyright (c) 2022 Tomo Kunagisa），完整许可见 licenses/elevengo-MIT.txt；按 TypeScript 重写；公钥与异或种子是 115 客户端里的公开常量。
  * RSA 是 1024 位、PKCS#1 v1.5（加密时类型 2 填充；还原响应用公钥做模幂、去掉填充）。
  * 公钥可注入，单测用自己生成的密钥对验证往返。
  */

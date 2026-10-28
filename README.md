@@ -73,3 +73,7 @@ pnpm build:linux
 ```
 
 架构与约定见 [AGENTS.md](AGENTS.md)。
+
+## 第三方授权
+
+依赖、外部播放器与模型的授权说明见 [THIRD_PARTY_NOTICES.md](THIRD_PARTY_NOTICES.md)，二进制发行所需的源码材料见 [发行记录](docs/release-licenses.md)。

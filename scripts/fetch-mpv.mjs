@@ -40,9 +40,8 @@ const SHA256 =
 const ARCHIVE = `mpv-x86_64-${RELEASE}-git-492bae0768.7z`
 const URL = `https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/${RELEASE}/${ARCHIVE}`
 
-/** 解压后仅保留运行时所需内容 */
+/** 解压后保留运行时、上游文档和授权材料 */
 const PRUNE = [
-  'doc',
   'installer',
   'mpv-register.bat',
   'mpv-unregister.bat',

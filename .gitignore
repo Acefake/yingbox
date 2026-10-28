@@ -61,3 +61,6 @@ AGENTS.local.md
 .specstory/
 .superpowers/
 docs/superpowers/
+
+# Generated notices for the installed production dependencies and Electron.
+/resources/third-party/
