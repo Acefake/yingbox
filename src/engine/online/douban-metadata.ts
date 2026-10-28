@@ -17,6 +17,18 @@ const list = (v: unknown): unknown[] => (Array.isArray(v) ? v : [])
 const image = (v: unknown): string =>
   /^https:\/\/[^\s"'<>]+$/.test(text(v)) ? text(v) : ''
 
+function parseActors(value: unknown): DoubanMetadata['actors'] {
+  return list(value)
+    .map(v => {
+      const actor = object(v)
+      return {
+        name: text(actor.name),
+        photo: image(object(actor.avatar).normal) || image(actor.cover_url),
+      }
+    })
+    .filter(v => v.name)
+}
+
 /** 校验并收取豆瓣详情字段；验证页和错误响应返回 null。 */
 export function parseDoubanMetadata(body: unknown): DoubanMetadata | null {
   const base = mapSubject(body)
@@ -29,16 +41,7 @@ export function parseDoubanMetadata(body: unknown): DoubanMetadata | null {
     directors: list(raw.directors)
       .map(v => text(object(v).name))
       .filter(Boolean),
-    actors: list(raw.actors)
-      .slice(0, 14)
-      .map(v => {
-        const actor = object(v)
-        return {
-          name: text(actor.name),
-          photo: image(object(actor.avatar).normal) || image(actor.cover_url),
-        }
-      })
-      .filter(v => v.name),
+    actors: parseActors(raw.actors).slice(0, 14),
     images: [],
     backdrop: '',
   }
@@ -82,7 +85,9 @@ export function createDoubanMetadata(options: {
         })
       },
       isEmpty: body =>
-        !parseDoubanMetadata(body) && !Array.isArray(object(body).photos),
+        url.endsWith('/celebrities')
+          ? !parseActors(object(body).actors).length
+          : !parseDoubanMetadata(body) && !Array.isArray(object(body).photos),
     })
 
   return {
@@ -99,9 +104,20 @@ export function createDoubanMetadata(options: {
           const detail = parseDoubanMetadata(body)
           if (!detail || detail.id !== id) return null
           detail.kind = kind
-          const photos = await request(`${url}/photos?start=0&count=40`).catch(
-            () => null
-          )
+          const [photos, celebrities] = await Promise.all([
+            request(`${url}/photos?start=0&count=40`).catch(() => null),
+            detail.actors.some(actor => !actor.photo)
+              ? request(`${url}/celebrities`).catch(() => null)
+              : Promise.resolve(null),
+          ])
+          const actors = parseActors(object(celebrities).actors)
+          detail.actors = detail.actors.map(actor => ({
+            ...actor,
+            photo:
+              actor.photo ||
+              actors.find(v => v.name === actor.name)?.photo ||
+              '',
+          }))
           if (photos && Array.isArray(object(photos).photos)) {
             detail.images = parseDoubanPhotos(photos)
             const landscape = list(object(photos).photos).find(v => {
