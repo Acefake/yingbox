@@ -13,7 +13,7 @@ import {
 } from 'node:fs'
 import { type Server, createServer } from 'node:http'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterAll, beforeAll, describe, expect, it } from 'vitest'
 import {
   createCurlFetch,
@@ -134,7 +134,7 @@ describe('出网实现', () => {
 describe('服务配置', () => {
   const defaults = {
     cwd: '/srv',
-    home: '/home/u',
+    home: resolve('/home/u'),
     bundleDir: '/nowhere/out/server',
   }
 
@@ -143,9 +143,9 @@ describe('服务配置', () => {
     expect(config).toMatchObject({
       host: '127.0.0.1',
       port: 31480,
-      dataDir: '/home/u/.yingbox-server',
-      cacheDir: '/home/u/.yingbox-server',
-      mediaRoots: ['/home/u'],
+      dataDir: resolve('/home/u/.yingbox-server'),
+      cacheDir: resolve('/home/u/.yingbox-server'),
+      mediaRoots: [resolve('/home/u')],
       webDir: null,
       fetch: { kind: 'node' },
     })
@@ -173,8 +173,8 @@ describe('服务配置', () => {
     expect(config).toMatchObject({
       host: '0.0.0.0',
       port: 8080,
-      dataDir: '/srv/data',
-      mediaRoots: ['/media/a', '/srv/b'],
+      dataDir: resolve('/srv/data'),
+      mediaRoots: [resolve('/media/a'), resolve('/srv/b')],
       webDir: null,
       fetch: { kind: 'curl' },
     })
@@ -184,18 +184,18 @@ describe('服务配置', () => {
   it('缓存目录默认跟数据目录走，可用环境变量 / 参数单独放（Docker 的 /cache 卷）', () => {
     expect(
       loadConfig([], { YINGBOX_DATA_DIR: '/config' }, defaults).cacheDir
-    ).toBe('/config')
+    ).toBe(resolve('/config'))
     expect(
       loadConfig(
         [],
         { YINGBOX_DATA_DIR: '/config', YINGBOX_CACHE_DIR: '/cache' },
         defaults
       ).cacheDir
-    ).toBe('/cache')
+    ).toBe(resolve('/cache'))
     expect(
       loadConfig(['--cache-dir=c'], { YINGBOX_CACHE_DIR: '/cache' }, defaults)
         .cacheDir
-    ).toBe('/srv/c')
+    ).toBe(resolve('/srv/c'))
   })
 
   it('数据库与密钥在数据目录，图片缓存在缓存目录', () => {
@@ -205,15 +205,15 @@ describe('服务配置', () => {
       defaults
     )
     expect(serverPaths(config)).toEqual({
-      dbPath: '/config/library.db',
-      secretsPath: '/config/secrets.json',
-      mediaDir: '/cache/media',
+      dbPath: resolve('/config/library.db'),
+      secretsPath: resolve('/config/secrets.json'),
+      mediaDir: resolve('/cache/media'),
     })
     // 不单独设缓存目录时与原来的布局一字不差
     expect(serverPaths(loadConfig([], {}, defaults))).toEqual({
-      dbPath: '/home/u/.yingbox-server/library.db',
-      secretsPath: '/home/u/.yingbox-server/secrets.json',
-      mediaDir: '/home/u/.yingbox-server/media',
+      dbPath: resolve('/home/u/.yingbox-server/library.db'),
+      secretsPath: resolve('/home/u/.yingbox-server/secrets.json'),
+      mediaDir: resolve('/home/u/.yingbox-server/media'),
     })
   })
 })
@@ -321,11 +321,13 @@ describe('路由与静态文件', () => {
   })
 
   it('静态路径不能穿越出网页目录', () => {
-    expect(resolveStatic('/web', '/assets/a.js')).toBe('/web/assets/a.js')
+    expect(resolveStatic('/web', '/assets/a.js')).toBe(
+      join('/web', 'assets/a.js')
+    )
     expect(resolveStatic('/web', '/../etc/passwd')).toBeNull()
     expect(resolveStatic('/web', '/%2e%2e/%2e%2e/etc/passwd')).toBeNull()
     expect(resolveStatic('/web', '/assets/../index.html')).toBe(
-      '/web/index.html'
+      join('/web', 'index.html')
     )
     expect(resolveStatic('/web', '/a%00b')).toBeNull()
   })

@@ -249,10 +249,10 @@ describe('外部变更通知：路径对应', () => {
     expect(mapNoticePath('/115/电影/A (2001)/A.mkv', libs)).toEqual({
       libraryId: 1,
       root: '/mnt/cd2/115/电影',
-      path: '/mnt/cd2/115/电影/A (2001)/A.mkv',
+      path: join('/mnt/cd2/115/电影', 'A (2001)/A.mkv'),
     })
     expect(mapNoticePath('/阿里云盘/剧集/S01', libs)?.path).toBe(
-      '/mnt/cd2/阿里云盘/剧集/S01'
+      join('/mnt/cd2/阿里云盘/剧集', 'S01')
     )
     // 对上段数最多的胜出（后面只对上 1 段的库不抢）；对不上返回 null
     const nested = [...libs, { id: 4, root: '/other/115' }]
@@ -278,7 +278,7 @@ describe('外部变更通知：路径对应', () => {
     expect(mapNoticePath('/115/电影/A.mkv', whole, '/mnt/cd2')).toEqual({
       libraryId: 9,
       root: '/mnt/cd2',
-      path: '/mnt/cd2/115/电影/A.mkv',
+      path: join('/mnt/cd2', '115/电影/A.mkv'),
     })
   })
 })
@@ -315,7 +315,7 @@ describe('外部变更通知：去抖合并', () => {
     expect(scans).toEqual([])
     // 各库各自去抖：库 1 静默满 2 秒先交出，库 2 被新通知推迟
     vi.advanceTimersByTime(1)
-    expect(scans).toEqual([[1, ['/mnt/cd2/115/电影/A (2001)']]])
+    expect(scans).toEqual([[1, [join('/mnt/cd2/115/电影', 'A (2001)')]]])
     vi.advanceTimersByTime(1499)
     expect(scans).toHaveLength(1)
     vi.advanceTimersByTime(1)

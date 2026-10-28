@@ -242,6 +242,8 @@ describe('生命周期只在插件宿主里', () => {
   it('src/main 其它文件不再自己挂 before-quit 或调用 taskkill', async () => {
     const { readdirSync, readFileSync } = await import('fs')
     const { join } = await import('path')
+    const { createScanner, ScriptTarget, SyntaxKind } =
+      await import('typescript')
     const offenders: string[] = []
     const walk = (dir: string): void => {
       for (const entry of readdirSync(dir, { withFileTypes: true })) {
@@ -250,7 +252,17 @@ describe('生命周期只在插件宿主里', () => {
           if (entry.name !== 'plugins') walk(path)
         } else if (/\.ts$/.test(entry.name)) {
           const text = readFileSync(path, 'utf8')
-          if (/before-quit|'taskkill'/.test(text)) offenders.push(path)
+          const scanner = createScanner(ScriptTarget.Latest, true)
+          scanner.setText(text)
+          while (scanner.scan() !== SyntaxKind.EndOfFileToken) {
+            if (
+              scanner.getToken() === SyntaxKind.StringLiteral &&
+              ['before-quit', 'taskkill'].includes(scanner.getTokenValue())
+            ) {
+              offenders.push(path)
+              break
+            }
+          }
         }
       }
     }

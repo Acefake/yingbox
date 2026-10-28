@@ -11,6 +11,7 @@ import {
 } from 'vue'
 import { RouterView, createMemoryHistory, createRouter } from 'vue-router'
 import { streamProxyPath } from '../src/shared/engine-http'
+import { streamUrl } from '../src/shared/stream-url'
 import {
   type Mock,
   afterEach,
@@ -326,8 +327,7 @@ describe('网页端播放层', () => {
   })
 
   it('有桌面端的桥时 HLS 走专用加载器（分片经主进程校验）；网页端用 hls.js 默认加载', async () => {
-    const { DesktopHlsLoader } =
-      await import('../src/renderer/src/features/player/utils/hls-loader')
+    const { FetchLoader } = await import('hls.js')
     const t = await mountApp()
     await openOne()
     expect(fakes.hlsList[0].config.loader).toBeUndefined()
@@ -335,7 +335,25 @@ describe('网页端播放层', () => {
     try {
       await openOne({ url: OTHER, title: '另一部' })
       expect(fakes.hlsList.at(-1)?.loads).toEqual([OTHER])
-      expect(fakes.hlsList.at(-1)?.config.loader).toBe(DesktopHlsLoader)
+      const Loader = fakes.hlsList.at(-1)?.config.loader as typeof FetchLoader
+      const load = vi
+        .spyOn(FetchLoader.prototype, 'load')
+        .mockImplementation(() => {})
+      try {
+        const loader = new Loader({} as import('hls.js').HlsConfig)
+        loader.load(
+          { url: OTHER, responseType: 'text' },
+          {} as import('hls.js').LoaderConfiguration,
+          {} as import('hls.js').LoaderCallbacks<import('hls.js').LoaderContext>
+        )
+        expect(load).toHaveBeenCalledWith(
+          expect.objectContaining({ url: streamUrl(OTHER) }),
+          expect.anything(),
+          expect.anything()
+        )
+      } finally {
+        load.mockRestore()
+      }
     } finally {
       delete (window as unknown as { api?: unknown }).api
     }

@@ -14,12 +14,17 @@ import {
   rmSync,
   writeFileSync,
 } from 'node:fs'
-import { tmpdir, userInfo } from 'node:os'
+import { tmpdir } from 'node:os'
 import { join, resolve } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 const ENTRYPOINT = resolve(__dirname, '../../docker/entrypoint.sh')
-const me = userInfo()
+// Git Bash 的 POSIX uid/gid 与 Windows 的 os.userInfo()（-1）不同。
+const me = {
+  uid: spawnSync('sh', ['-c', 'id -u'], { encoding: 'utf8' }).stdout.trim(),
+  gid: spawnSync('sh', ['-c', 'id -g'], { encoding: 'utf8' }).stdout.trim(),
+}
+const shellPath = (path: string): string => path.replace(/\\/g, '/')
 
 let work: string
 let bin: string
@@ -39,9 +44,9 @@ beforeEach(() => {
   mkdirSync(bin)
   writeFileSync(calls, '')
   stub('id', 'echo "${FAKE_UID:-0}"')
-  stub('chown', `echo "chown $*" >> "${calls}"`)
-  stub('setpriv', `echo "setpriv $*" >> "${calls}"`)
-  stub('serve', `echo "serve $*" >> "${calls}"`)
+  stub('chown', `echo "chown $*" >> "${shellPath(calls)}"`)
+  stub('setpriv', `echo "setpriv $*" >> "${shellPath(calls)}"`)
+  stub('serve', `echo "serve $*" >> "${shellPath(calls)}"`)
 })
 
 afterEach(() => rmSync(work, { recursive: true, force: true }))
@@ -51,15 +56,31 @@ function run(env: Record<string, string>): {
   stderr: string
   calls: string[]
 } {
-  const result = spawnSync('sh', [ENTRYPOINT, 'serve', '--flag'], {
-    encoding: 'utf8',
-    env: {
-      PATH: `${bin}:${process.env.PATH ?? ''}`,
-      YINGBOX_DATA_DIR: join(work, 'config'),
-      YINGBOX_CACHE_DIR: join(work, 'cache'),
-      ...env,
-    },
-  })
+  const result = spawnSync(
+    'sh',
+    [
+      '-c',
+      'bin=$(cd "$1" && pwd); export PATH="$bin:$PATH"; shift; exec sh "$@"',
+      'entrypoint-test',
+      shellPath(bin),
+      shellPath(ENTRYPOINT),
+      'serve',
+      '--flag',
+    ],
+    {
+      encoding: 'utf8',
+      env: {
+        ...process.env,
+        PUID: '',
+        PGID: '',
+        FAKE_UID: '0',
+        YINGBOX_DATA_DIR: shellPath(join(work, 'config')),
+        YINGBOX_CACHE_DIR: shellPath(join(work, 'cache')),
+        YINGBOX_DOWNLOAD_DIR: shellPath(join(work, 'downloads')),
+        ...env,
+      },
+    }
+  )
   return {
     status: result.status,
     stderr: result.stderr,
@@ -79,9 +100,9 @@ describe('以 root 启动', () => {
     const paths = chowned.flatMap(c => c.split(' ').slice(3))
     expect(paths).toEqual(
       expect.arrayContaining([
-        join(work, 'config'),
-        join(work, 'config/library.db'),
-        join(work, 'cache'),
+        shellPath(join(work, 'config')),
+        shellPath(join(work, 'config/library.db')),
+        shellPath(join(work, 'cache')),
       ])
     )
     expect(calls.at(-1)).toBe(

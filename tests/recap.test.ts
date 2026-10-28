@@ -1,3 +1,4 @@
+import { basename, dirname, normalize } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { AiSubtitleCue } from '../src/shared/ai-subtitles/types'
 import { parseSaveOptions } from '../src/shared/contract/recap'
@@ -237,15 +238,19 @@ function fakeDeps(
   files: Record<string, string>,
   extra: Partial<SourceDeps> = {}
 ): SourceDeps {
+  files = Object.fromEntries(
+    Object.entries(files).map(([path, text]) => [normalize(path), text])
+  )
   return {
     readdir: async dir =>
       Object.keys(files)
-        .filter(p => p.slice(0, p.lastIndexOf('/')) === dir)
-        .map(p => p.slice(p.lastIndexOf('/') + 1)),
-    stat: async path => (path in files ? { mtimeMs: 1, size: 1 } : null),
+        .filter(p => dirname(p) === normalize(dir))
+        .map(p => basename(p)),
+    stat: async path =>
+      normalize(path) in files ? { mtimeMs: 1, size: 1 } : null,
     readText: async path => {
-      if (!(path in files)) throw new Error('ENOENT')
-      return files[path]
+      if (!(normalize(path) in files)) throw new Error('ENOENT')
+      return files[normalize(path)]
     },
     aiSubtitle: async () => null,
     ...extra,

@@ -1,3 +1,4 @@
+import { join } from 'node:path'
 /**
  * 在线板块的服务端配置与可选的浏览器代抓：开关、下载目录、YINGBOX_BROWSER 解析、
  * 没配置时返回空串（引擎降级）、playwright 驱动时的挑战等待与硬封锁熔断。
@@ -83,8 +84,8 @@ describe('loadOnlineConfig', () => {
   it('默认开启，下载目录在数据目录下，代理不放行内网', () => {
     const config = loadOnlineConfig({}, '/data')
     expect(config.enabled).toBe(true)
-    expect(config.downloadDir).toBe('/data/downloads')
-    expect(config.engineDir).toBe('/data/engine')
+    expect(config.downloadDir).toBe(join('/data', 'downloads'))
+    expect(config.engineDir).toBe(join('/data', 'engine'))
     expect(config.browser).toBeNull()
     expect(config.streamAllowPrivate).toEqual([])
     expect(config.idleMs).toBe(300_000)

@@ -1,3 +1,4 @@
+import { basename, dirname, normalize } from 'node:path'
 import { describe, expect, it, vi } from 'vitest'
 import type { AiSubtitleRecord } from '../src/shared/ai-subtitles/types'
 import {
@@ -400,7 +401,8 @@ describe('输出位置与记录', () => {
     const a = cacheSubtitlePath('/c', '/v/片 名.mkv', 'zh')
     expect(a).toBe(cacheSubtitlePath('/c', '/v/片 名.mkv', 'zh'))
     expect(a).not.toBe(cacheSubtitlePath('/c', '/w/片 名.mkv', 'zh'))
-    expect(a).toMatch(/^\/c\/片_名\.[0-9a-f]{16}\.zh\.srt$/)
+    expect(dirname(a)).toBe(normalize('/c'))
+    expect(basename(a)).toMatch(/^片_名\.[0-9a-f]{16}\.zh\.srt$/)
   })
 
   it('记录：每个视频一条、坏文件当空', () => {
