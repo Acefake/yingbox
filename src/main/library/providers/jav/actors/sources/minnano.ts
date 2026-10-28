@@ -7,7 +7,6 @@
  * 资料页 div.act-profile：h2 是「名前 （かな / ローマ字）」，每行 <span>键</span><p>值</p>，
  * 「別名」行可重复，サイズ 形如「T159 / B88(Gカップ) / W57 / H83」。
  * 年龄确认弹层靠预置 Cookie age_verified=1 跳过。站点在 Cloudflare 之后，海外 IP 常被挑战。
- * 行为参考 Amane 的 minnano 演员爬虫，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../../shared/html/cheerio'

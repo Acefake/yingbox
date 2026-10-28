@@ -11,7 +11,6 @@
  * - 演员头像取「…によって行われる」面板里演员链接对应的图片（DMM actjpgs）；
  * - 详情页地址取页面里「简体中文」语言链接（重定向后拿不到最终 URL）。
  * 有码 / 素人；无码与 FC2 不在 FANZA，不查。
- * 行为参考 Amane 的 jav321 爬虫（它直取 /video/<番号>，这里按站点实际的表单搜索实现），代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

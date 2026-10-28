@@ -5,7 +5,6 @@
  * 不存在的名字是 404，算查无此人。talent.actors[] 是同一人物的多个名義（即别名），
  * 身材 / 生日 / 出身地取 meta.basic_info，缺的再用 primary.meta.fanza 补；
  * primary.note 为「男優」时是男优。profile（简介）出现率低且含 HTML，不取。
- * 行为参考 Amane 的 avbase 演员爬虫，代码独立实现。
  */
 import { list, nextPageProps, str } from '../../html'
 import { calendarDate, positiveInt, uniqueNames } from '../names'

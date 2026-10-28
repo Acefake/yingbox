@@ -1,5 +1,5 @@
 /**
- * 115 扫码登录（流程参考 ChenyangGao/p115client）：
+ * 115 扫码登录：
  * 取二维码 token → 手机 115 扫码 → 轮询 /get/status/ → 按 app 类型换 Cookie。
  * fetch 是 115 传输层的（Referer / UA 由分区补上）。
  *

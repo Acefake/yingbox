@@ -7,7 +7,7 @@
  * 封面取 package 大图（a.highslide），退 img.product_img；剧照取 sample 图链接；简介取「商品紹介 / ストーリー」段落。
  * 需要 getchu_adalt_flag=getchu.com Cookie 跳过成人确认。页面是 EUC-JP，靠 HTTP 层按页面字符集解码。
  * 图片校验同源 Referer（media-referer 名单里加了 www.getchu.com）。Getchu 只对日本出口开放（美国出口 403）。
- * 行为参考 Amane 的 getchu 爬虫，代码独立实现；页面结构未用真实页面验证。
+ * 页面结构未用真实页面验证。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

@@ -8,7 +8,6 @@
  * 3. 生日 P569、性别 P21、身高 P2048、肖像 P18、外站 id 取自实体；
  *    简介按 pageLanguages 顺序取第一个有正文的词条（TextExtracts 纯文本，比整页 HTML 小一个数量级）。
  * 日文「女優」= 普通女演员，不单独当 AV 关键词。单语言失败不阻断，全部失败才抛错。
- * 行为参考 Amane 的 wikipedia 演员爬虫，代码独立实现。
  */
 import { calendarDate, hasName, normalizeName, uniqueNames } from '../names'
 import type {

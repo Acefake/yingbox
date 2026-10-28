@@ -6,7 +6,6 @@
  * 索引只拉一次：同一个来源对象内并发查询共享同一个加载中的 Promise，
  * 拉到后压成「文件名 → 相对路径」常驻内存；可选注入 store 持久化（默认 7 天过期），重启不必重下。
  * 来源目录按名字字母序遍历，同名先到先得（z- 开头的低质来源排在后面）。
- * 行为参考 Amane 的 gfriends 演员爬虫，代码独立实现。
  */
 import { normalizeName } from '../names'
 import type { ActorContext, ActorProfile, ActorSource } from '../types'

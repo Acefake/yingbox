@@ -5,7 +5,6 @@
  * 模特与类别取作品信息区的链接，封面取 og:image；配信日与时长在首屏 HTML 里是骨架屏占位，
  * 只能从页面内嵌的 RSC 数据（self.__next_f）里按字段名取 ecp_start_date / duration（秒）。
  * 作品不存在时站点回 404。站点要求 Accept 带 text/html，否则同一地址也回 404。
- * 行为参考 Amane 的 kin8 爬虫，代码独立实现。
  */
 import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'

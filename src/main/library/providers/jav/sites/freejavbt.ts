@@ -8,8 +8,6 @@
  * - 查无此片时站点返回「猜你喜歡」推荐页（HTTP 200），以没有影片信息区判定；
  * - 信息区每行「標籤:&nbsp;值」，按链接路径（/director/ /publisher/ /series/ /genre/）取值更稳，
  *   不依赖标签文字；演员占位「暫無女優資料」不算演员。
- *
- * 行为参考 Amane 的 freejavbt 爬虫，代码独立实现（Amane 的选择器已与现站不符，按现站页面重写）。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

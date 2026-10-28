@@ -1,5 +1,5 @@
 /**
- * 豆瓣 frodo 数据源（shared/douban/frodo）：签名与参考实现一致、rexxar 地址换 frodo、
+ * 豆瓣 frodo 数据源（shared/douban/frodo）：签名固定输入与预期值一致、rexxar 地址换 frodo、
  * 响应映射（真实接口裁剪的夹具）、回退策略、开关。
  */
 import { readFileSync } from 'node:fs'
@@ -26,14 +26,14 @@ const fixture = (name: string): unknown =>
 
 describe('签名', () => {
   it('固定 ts 时与参考实现（Python hmac + quote(path, safe="")）算出的值一致', () => {
-    // 期望值由 MoviePilot apiv2.py / frodo 匿名探测报告的 Python 写法算出
+    // 期望值由 Python hmac 与 URL 编码计算
     expect(frodoSignature('/api/v2/search/movie', '1761475200')).toBe(
       'enT2ro/nHZdyq8TbVu/WlmM/Pwk='
     )
     expect(frodoSignature('/api/v2/movie/3742360', '1761475200')).toBe(
       'JTTrX7OvIRHhtGuo1DnoJ6q/P50='
     )
-    // MoviePilot 用 YYYYMMDD 作 _ts，签名规则相同
+    // _ts 使用 YYYYMMDD 字符串时，签名规则相同
     expect(frodoSignature('/api/v2/movie/recommend', '20251026')).toBe(
       'D4G86kRCtJKaQHBOMxsvS7J9iHk='
     )

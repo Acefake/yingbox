@@ -8,8 +8,6 @@
  *   系列、简介在同一块，演员与类别在 .tag-info 里按 s_type=actor / s_type=tag 区分；
  *   类别里的画质、字幕等站点标记去掉；
  * - 页面里的剧照是带时效签名的视频截帧地址，过期即失效，不采用。
- *
- * 行为参考 Amane 的 iqqtv 爬虫，代码独立实现。
  */
 import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'

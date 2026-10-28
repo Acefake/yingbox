@@ -5,8 +5,6 @@
  * - 写出：库设置 write 为 on / off 时以库为准；inherit 跟随写出设置里的「识别后自动写出」。
  * - 整理：库设置 organize 开启，且写出设置里「允许整理文件」也开启（全局总闸，默认关）。
  * - 同时要整理又要写出的条目，先整理、后写出：NFO 与图片直接写到最终位置，不用再搬一次。
- *
- * 行为参考 Amane 的库级 auto_organize（刮削成功后随任务成链整理）与 write_nfo，代码独立实现。
  */
 import type {
   LibraryAutomation,

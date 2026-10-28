@@ -6,7 +6,6 @@
  * 官网不提供竖版海报。作品不存在时站点仍回 200，页面标题是「404 | …」、没有「品番」栏，按没有处理；
  * 页面上的品番与查询番号对不上（被跳到别的作品）同样按没有处理。
  * 路由表见 official-makers.ts。
- * 行为参考 Amane 的 official 爬虫，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

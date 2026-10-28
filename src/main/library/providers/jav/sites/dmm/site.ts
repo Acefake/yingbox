@@ -7,7 +7,6 @@
  * 3. 都没有 → 网页检索页一次，命中 DVD 详情再取一次。网页在日本以外会被地区限制：
  *    GraphQL 已明确答复「没有」时，网页被拦按查无此片处理（GraphQL 对配信版是权威的）；
  *    GraphQL 本身失败而网页也被拦时抛错，交给上层记失败、不缓存。
- * 行为参考 Amane 的 dmm 爬虫，代码独立实现。
  */
 import type { JavCode, JavCodeKind } from '../../number'
 import type { JavRecord, JavSite, SiteContext } from '../../types'

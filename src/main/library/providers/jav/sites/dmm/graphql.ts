@@ -10,7 +10,6 @@
  * 实测（2026-10，美国出口）：接口可直接访问，www.dmm.co.jp 网页则跳转到地区限制页。
  * 封面 packageImage.largeUrl 即 pl.jpg（800×538 横版全图），mediumUrl 是 ps.jpg（147×200 竖版小图）；
  * 高清竖版海报应由上层从 pl.jpg 裁右半，这里只给地址。
- * 行为参考 Amane 的 dmm / dmm_api（GraphQL 部分），查询与代码独立实现。
  */
 import { clean, isPlaceholder, unique } from '../../html'
 import type { JavActor, JavRecord, PageOptions } from '../../types'

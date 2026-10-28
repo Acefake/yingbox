@@ -1,5 +1,5 @@
 /**
- * CatSpider 宿主接口与 XPTV 对齐：JSEncrypt 公钥加密（瓜子）、$fetch 返回 status / respHeaders
+ * CatSpider 宿主接口：JSEncrypt 公钥加密（瓜子）、$fetch 返回 status / respHeaders
  * （河馬、壹影視、anime1、哔滴、路漫漫、茶杯狐），以及河馬的搜索类型 patch。
  */
 import {

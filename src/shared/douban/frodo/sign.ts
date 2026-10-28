@@ -8,8 +8,7 @@
  *   path 是 `/api/v2/...`（不含查询串），urlencode 把 `/` 也编码成 `%2F`（Python `quote(path, safe='')`）。
  * 另外必须用豆瓣 Android 客户端的 User-Agent，浏览器 UA 会被拒（403 invalid_apikey）。
  *
- * key / secret 来自 MoviePilot `app/modules/douban/apiv2.py` 与 frodo-douban-anon-probe-2026 的实测
- * （2026-04-21 匿名可读详情 / 搜索）；它们不是私钥，豆瓣随时可能吊销，失效时整个 frodo 回退就失效，
+ * key / secret 是客户端常量，豆瓣随时可能吊销，失效时整个 frodo 回退就失效，
  * 见 docs/library-refactor/douban-frodo.md。
  *
  * 只用 node:crypto，不依赖 Electron：桌面端两个 utilityProcess 与独立服务共用。

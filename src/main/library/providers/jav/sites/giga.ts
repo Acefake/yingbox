@@ -10,7 +10,6 @@
  * - 检索对编号的前导零敏感：站点写 GHKR-60，查 GHKR-060 没有结果，所以先查去掉前导零的写法。
  * 领取会话要读响应的 Set-Cookie，通用的 SiteContext.page 拿不到，宿主需另外提供 issuedCookies（见 CookieContext）。
  * 只查前缀表里的 GIGA 番号，其它番号不发请求。
- * 行为参考 Amane 的 giga 爬虫，代码独立实现。
  */
 import { load } from '../../../../../shared/html/cheerio'
 import { codeKey } from '../number'

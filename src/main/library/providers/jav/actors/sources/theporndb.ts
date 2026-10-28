@@ -6,7 +6,6 @@
  * 头像按宽×高从大到小；urls 里认得的外站写进 ids；disambiguation 作 tagline。
  * 只查较老 stash-box 也有的字段（measurements 嵌套写法），避免旧版本拒绝查询。
  * 需要上下文提供 postJson（GraphQL 走 POST）。
- * 行为参考 Amane 的 theporndb 演员爬虫，代码独立实现。
  */
 import { hasName, normalizeName, positiveInt, uniqueNames } from '../names'
 import type {

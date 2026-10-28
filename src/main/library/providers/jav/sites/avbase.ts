@@ -4,7 +4,6 @@
  * 先直取 /works/<番号>；没有时用 /works?q=<番号> 检索（模糊匹配），只接受番号归一后完全相等的条目，
  * 同番号多条时取没有厂牌前缀的那条，仍不唯一就放弃（猜错等于把别的片写成这个番号）。
  * 制作商 / 发行商 / 系列 / 导演 / 时长 / 简介 / 图片取自条目下的商品（FANZA 等）。
- * 行为参考 Amane 的 avbase 爬虫，代码独立实现。
  */
 import { codeKey } from '../number'
 import type { JavCode } from '../number'

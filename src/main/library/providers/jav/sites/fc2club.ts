@@ -8,8 +8,6 @@
  * - 封面是 #thumbpic 外层链接指向的大图，剧照是轮播 ul.slides 里的图；
  * - 站点现在先回一个脚本跳转页（window.location.replace + 一次性令牌），不执行脚本就到不了详情页，
  *   这种情况按「站点不可用」抛错，不当成查无此片缓存起来。
- *
- * 行为参考 Amane 的 fc2club 爬虫，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

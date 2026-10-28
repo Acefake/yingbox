@@ -8,8 +8,8 @@
  * - 番号先找写法完全一致的（010120-001 与 010120_001 在站上是两部片），再退到归一后相等且唯一的；
  * - 名字字段按语言有 xxxName / xxxName_ja / _en / _cn / _tw，接口已按 lang 选好 xxxName，空时依次回退；
  * - 演员带方形头像 avatarUrl；posterLarge 是横版封面，posterSmall 是小图（站点叫 poster，按海报用）；
- * - 接口目前不校验 CSRF（Amane 先取首页 csrf-token 再请求；实测不带也通过，省掉这次请求）。
- * 只查无码。行为参考 Amane 的 avsox 爬虫，代码独立实现。
+ * - 接口实测无需 CSRF Token，可直接请求。
+ * 只查无码。
  */
 import { codeKey } from '../number'
 import type { JavCode } from '../number'

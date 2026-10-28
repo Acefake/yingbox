@@ -6,8 +6,8 @@
  *   当成功）；这是 115 客户端用的接口（网页端旧的 115.com/web/lixian 已提示「请升级新版本的 115 客户端」），
  *   请求带 115 客户端的 UA；
  * - 任务列表：GET https://clouddownload.115.com/web/?ac=task_lists&page=…（明文 JSON）；
- * 两个都先试 clouddownload.115.com，404 / 不是 JSON 时退回旧域名 lixian.115.com（elevengo 用的地址）。
- * 状态码：-1 失败、0 等待、1 下载中、2 完成。字段形状按公开实现（p115client、elevengo）整理，真实接口未在沙箱里验证。
+ * 两个都先试 clouddownload.115.com，404 / 不是 JSON 时退回旧域名 lixian.115.com。
+ * 状态码：-1 失败、0 等待、1 下载中、2 完成。真实接口未在沙箱里验证。
  */
 import {
   MAX_OFFLINE_LINKS,

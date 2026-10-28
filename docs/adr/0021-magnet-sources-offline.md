@@ -34,7 +34,7 @@ Prowlarr / Jackett，两者都提供 Torznab 接口，能搜 BT 站的磁力。1
 - **接口选择**：添加任务用 115 客户端的 `POST https://clouddownload.115.com/lixianssp/?ac=add_task_urls`，表单 `data` 是 m115 编码的
   `{ ac, app_ver, uid, url[i], wp_path_id }`，响应 `data` 同样编码（逐条结果，errcode 10008「已存在」算成功）。网页端旧接口 `115.com/web/lixian`
   已提示「请升级新版本的 115 客户端」，所以不用。任务列表用明文的 `GET /web/?ac=task_lists`。两个接口都先试 `clouddownload.115.com`，
-  404 或不是 JSON 时退回旧域名 `lixian.115.com`（elevengo 用的地址）。请求带 115 客户端 UA（`115Browser/36.2.28`），传输层看到 `115Browser`
+  404 或不是 JSON 时退回旧域名 `lixian.115.com`。请求带 115 客户端 UA（`115Browser/36.2.28`），传输层看到 `115Browser`
   时保留它，其余 115 请求仍换成桌面 Chrome UA。
 - **m115 编码**（`src/main/pan115/m115.ts`）：移植自 elevengo 的 `internal/crypto/m115`（MIT），随机 16 字节种子 + 两轮异或 / 反转，再用 115 公钥
   做 RSA（PKCS#1 v1.5）分块加密；响应用公钥做模幂、去填充后反向还原。单测用自己生成的密钥对模拟服务端，验证请求与响应往返。
@@ -53,7 +53,7 @@ Prowlarr / Jackett，两者都提供 Torznab 接口，能搜 BT 站的磁力。1
 - Torznab 的 Key 会出现在发往 Prowlarr / Jackett 的请求地址里（Torznab 协议如此），只在主进程 / 服务端拼接，不进渲染层与日志。
 - Prowlarr 没有跨索引器的 Torznab 聚合接口，用户要按索引器逐个填地址（或在 Prowlarr 里用同一个 Key、复制各索引器的 Torznab 地址）。
 
-- **离线下载的风险**：115 云下载接口没有在真实账号上验证（沙箱出口在海外，连不上 115），字段形状按公开实现（elevengo、p115client）整理；
+- **离线下载的风险**：115 云下载接口没有在真实账号上验证（沙箱出口在海外，连不上 115），字段形状仍需实测核对；
   客户端版本号 `36.2.28` 可能过旧，115 会以「请升级客户端」之类的错误拒绝，届时改 `CLIENT_VERSION`；任务列表的失败原因字段名（`err_msg` /
   `error_msg` / `fail_reason`）是推测，取不到时显示「115 没给失败原因」。真实账号上第一次使用时应核对 115 App 的云下载列表。
 - 115 离线有月度配额，失败、重复添加都由 115 判定，影盒不做配额统计。

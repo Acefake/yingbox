@@ -33,7 +33,7 @@
 
 ## 签名
 
-参考 MoviePilot `app/modules/douban/apiv2.py` 和 `CXP-shawn/frodo-douban-anon-probe-2026`（2026-04-21 实测）：
+签名规则：
 
 ```
 _sig = base64(HMAC-SHA1(secret, "GET&" + quote(path, safe="") + "&" + _ts))
@@ -73,7 +73,7 @@ _sig = base64(HMAC-SHA1(secret, "GET&" + quote(path, safe="") + "&" + _ts))
 
 ## 验证
 
-- 单测：`tests/douban-frodo/frodo-core.test.ts`（签名与参考实现一致、映射、回退规则、开关），
+- 单测：`tests/douban-frodo/frodo-core.test.ts`（签名固定输入与预期值一致、映射、回退规则、开关），
   `tests/douban-frodo/frodo-wiring.test.ts`（浏览和补类型两条线的回退、缓存共用、令牌桶共用）。
 - 手动：在开发环境里屏蔽 `m.douban.com`（比如 hosts 指向 127.0.0.1），打开在线首页的豆瓣卡片或者给新片刮削，
   日志里应该出现 `改走 frodo`，结果照常显示。设了 `YINGBOX_DOUBAN_FRODO=off` 后应该直接报错。

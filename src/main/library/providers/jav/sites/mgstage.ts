@@ -8,7 +8,7 @@
  * 剧照取 #sample-photo 里的大图链接。
  * 需要 adc=1 Cookie 跳过成人确认；成人确认页（标题含「成人認証」）说明 Cookie 没生效，按被拦抛错。
  * MGS 只对日本出口开放（CloudFront 地区限制，美国出口 403）。
- * 行为参考 Amane 的 mgstage 爬虫，代码独立实现；页面结构未用真实页面验证。
+ * 页面结构未用真实页面验证。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

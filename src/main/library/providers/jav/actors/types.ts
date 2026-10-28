@@ -1,8 +1,8 @@
 /**
  * 演员资料层的类型：按演员名查头像、别名、生日、身材、简介等，与影片站点（JavSite）分开。
  *
- * 影片站点只顺带给「名字 + 头像」（JavActor）；这一层面向「一个人」，
- * 字段对齐 Amane 演员资料模型实际用到的部分，聚合规则见 aggregate.ts。
+ * 影片站点只顺带给「名字 + 头像」（JavActor）；这一层提供完整演员资料，
+ * 聚合规则见 aggregate.ts。
  */
 import type { SiteContext } from '../types'
 

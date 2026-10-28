@@ -1,5 +1,5 @@
 /**
- * 番号海报与封面选图：尽量拿到清晰的竖版海报（与 Amane 的做法一致）。
+ * 番号海报与封面选图：尽量拿到清晰的竖版海报。
  *
  * 1. 封面：DMM 地址先试高清图床、再标准图床（见 sites/dmm/cdn.ts），取第一张探得到尺寸的；
  * 2. 有码片的海报候选：站点给的海报 + 由封面推出的 DMM ps.jpg，各自高清在前；
@@ -16,7 +16,7 @@ import { imageCandidates, posterCandidates } from './sites/dmm/cdn'
 
 /** 封面尺寸未知时，站点海报高度达到它就算高清（封面裁出的海报高 538）。 */
 export const HD_POSTER_HEIGHT = 500
-/** 海报高度 / 封面高度达到它就不裁（裁剪有错位风险），与 Amane 的 poster_crop_skip_ratio 一致。 */
+/** 海报高度 / 封面高度达到它就不裁（裁剪有错位风险）。 */
 export const CROP_SKIP_RATIO = 0.9
 
 /** 选图结果：改写过地址的影片，以及海报用原生图还是封面裁。 */

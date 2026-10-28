@@ -9,7 +9,6 @@
  *    详情页对「前缀对但编号不存在」的 slug 会跳到别的作品，所以必须核对页面 canonical 里的 slug，
  *    对不上按没有处理。REST 被拦后 30 分钟内直接走 HTML，不再白发一次请求。
  * 只查配置里列出的番号前缀，其它番号不发请求。
- * 行为参考 Amane 的 wp_works / faleno / dahlia 爬虫，代码独立实现。
  */
 import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'

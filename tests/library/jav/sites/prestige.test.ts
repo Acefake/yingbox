@@ -1,6 +1,6 @@
 /**
  * PRESTIGE：候选 SKU、作品 JSON 解析、查询流程（SKU 依次试 → 详情）、前缀过滤。
- * JSON fixture 按 Amane 的字段名构造，未用真实响应验证（站点限日本 IP，沙箱访问回 CloudFront 403）。
+ * JSON fixture 按接口字段构造，未用真实响应验证（站点限日本 IP，沙箱访问回 CloudFront 403）。
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

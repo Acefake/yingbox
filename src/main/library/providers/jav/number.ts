@@ -12,7 +12,6 @@
  *
  * 解析前去掉常见噪声：`xxx.com@` 前缀、方括号里的站点 / 字幕组标记、分辨率与编码标记；
  * 识别 -C / -UC / 中文字幕（字幕版）与 CD1 / part2 / -1（分段），这些不进番号。
- * 行为参考 Amane 的 parsing（GPL-3.0），规则与代码均为独立实现。
  */
 import type { JavKind } from '../../../../shared/library/ipc'
 

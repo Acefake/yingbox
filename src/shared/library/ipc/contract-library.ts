@@ -1,8 +1,7 @@
 /**
  * 媒体库 IPC 契约 · 库级自动化：新文件入库后自动做到哪一步（监控 → 识别 / 刮削 → 写 NFO → 整理）。
  *
- * 行为对齐 Amane 的库设置（automation none / watch / scrape、write_nfo、auto_organize），
- * 拆成四个独立开关，形状与默认值是这里唯一的定义。添加 / 修改媒体库的请求也在这里。
+ * 库级自动化使用四个独立开关，形状与默认值是这里唯一的定义。添加 / 修改媒体库的请求也在这里。
  * 只有类型和常量，由 contract.ts 统一再导出。
  */
 import type { LibraryKind } from './contract'

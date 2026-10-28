@@ -7,7 +7,6 @@
  *   出演链接 /idol/detail/，封面是封套大图（package-b），海报是封面缩略图（package/medium），简介 p.lead。
  * - 检索是模糊匹配，只接受品番归一后与查询完全相等的条目；最多核对前 3 条，避免一部片发一串请求。
  * Cookie adc=1 跳过年龄确认。
- * 行为参考 Amane 的 xcity 爬虫，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

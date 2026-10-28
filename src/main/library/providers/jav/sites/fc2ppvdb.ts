@@ -9,8 +9,6 @@
  *   同一地址带 X-Inertia / X-Inertia-Version（取首屏里的 version）/ X-Inertia-Partial-Component /
  *   X-Inertia-Partial-Data: actresses，返回 JSON。不需要登录；
  * - 不存在的作品返回 404（component 为 Error）。
- *
- * 行为参考 Amane 的 fc2ppvdb 爬虫（其 HTML 选择器已不适用新站），代码独立实现。
  */
 import type { JavCode } from '../number'
 import { dateOf, list, minutesOf, str, unique } from '../html'

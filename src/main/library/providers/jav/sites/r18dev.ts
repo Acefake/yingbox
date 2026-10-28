@@ -8,9 +8,6 @@
  * 直接试一次第 2 步。条目的 dvd_id / content_id 必须与番号归一后相等才采用。
  *
  * 字段一律日文优先、英文兜底（英文多为机翻）。只收录 FANZA 有码片：无码、FC2、素人不查。
- *
- * Amane 用的是 r18.dev 发布的整库 PostgreSQL 转储（需自备 PG、GB 级下载），这里只用在线接口。
- * 行为参考 Amane 的 r18dev 爬虫（字段含义、图片地址规则），代码独立实现。
  */
 import { codeKey } from '../number'
 import type { JavCode } from '../number'

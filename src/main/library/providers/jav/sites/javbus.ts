@@ -4,7 +4,6 @@
  * 详情页是繁体中文标签（識別碼 / 發行日期 / 長度 / 導演 / 製作商 / 發行商 / 系列 / 類別）；
  * 封面 /pics/cover/xxx_b.jpg 对应竖版缩略图 /pics/thumb/xxx.jpg（无码在 /imgs/cover → /imgs/thumbs）。
  * 图片校验同源 Referer，见 media-headers 与图片缓存。
- * 页面结构参考 Amane 的 javbus 爬虫行为，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

@@ -1,6 +1,5 @@
 /**
  * 演员资料聚合：标量字段按资料来源优先级「空才填」，别名取并集，头像按头像来源优先拼接。
- * 规则参考 Amane 的演员聚合行为，代码独立实现。
  */
 import { uniqueNames } from './names'
 import type { ActorGender, ActorProfile, ActorSourceId } from './types'

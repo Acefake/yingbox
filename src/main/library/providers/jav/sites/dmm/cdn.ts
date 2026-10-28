@@ -1,5 +1,5 @@
 /**
- * DMM 图床的地址规则（详情页、GraphQL、Affiliate、r18.dev 等来源共用），移植自 Amane 的 dmm_cdn。
+ * DMM 图床的地址规则（详情页、GraphQL、Affiliate、r18.dev 等来源共用）。
  *
  * 同一份图在两个图床：
  * - 标准图床 pics.dmm.co.jp：ps.jpg 竖版海报只有 147×200，pl.jpg 横版封面 800×538；

@@ -3,13 +3,10 @@
  *
  * - 可选站点：令牌由调用方注入（设置里填），没填时 supports 一律返回 false，等于不启用；
  * - 令牌只放在 Authorization 请求头里，不进 URL，本模块也不输出任何日志；
- * - 有码查 /jav，其它类别查 /scenes（与 Amane 的类别映射一致），都是 `?q=<番号>` 一次请求，
+ * - 有码查 /jav，其它类别查 /scenes，都是 `?q=<番号>` 一次请求，
  *   检索结果已含详情字段，不再逐条取详情；
  * - 检索是模糊匹配，逐条核对 sku / external_id / 标题开头的番号，归一后完全相等才采用，
  *   对不上就当作没有（不回退到第一条，猜错等于把别的片写成这个番号）。
- *
- * Amane 走的是 theporndb.net/graphql（stash-box，POST）；番号站点上下文只有 GET，这里改用
- * 同一数据库的 REST 接口。行为参考 Amane 的 theporndb 爬虫，代码独立实现。
  */
 import { codeKey } from '../number'
 import type { JavCode, JavCodeKind } from '../number'

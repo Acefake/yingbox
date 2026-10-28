@@ -4,7 +4,6 @@
  * 标题取 og:title（页面 h3 里混有防抓取的隐藏文字和促销标签）；卖家记为制作商；
  * 封面取 og:image 原图，海报取商品主图缩略图，剧照取「サンプル画像」原图链接。
  * 商品已下架时页面标题是「お探しの商品が見つかりませんでした」，按没有处理。
- * 行为参考 Amane 的 fc2 爬虫，代码独立实现。
  */
 import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'

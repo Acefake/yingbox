@@ -10,7 +10,6 @@
  * - 没有剧照（详情页的剧照区由脚本异步加载）、没有演员头像；
  * - 标题去掉开头的识别码和末尾的演员名（站点把演员名拼在标题后面）；
  * - 只有有码片；整站在 Cloudflare 后面，挑战页由上层熔断跳过。
- * 行为参考 Amane 的 javlibrary 爬虫，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'

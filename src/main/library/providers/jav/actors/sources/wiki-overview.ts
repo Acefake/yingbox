@@ -3,7 +3,6 @@
  *
  * 输入是 MediaWiki TextExtracts（prop=extracts&explaintext&exsectionformat=wiki）的结果：
  * 章节标题形如「== 略歴 ==」，引用标记已去掉。作品 / 出演 / 脚注等章节不取。
- * 章节选择规则参考 Amane 的 wikipedia 演员爬虫，代码独立实现。
  */
 
 /** 白名单章节关键字（日文、简繁中文、英文），标题包含任一即整节取用，子章节随之。 */

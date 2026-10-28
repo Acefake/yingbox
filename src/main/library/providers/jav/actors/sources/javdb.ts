@@ -6,7 +6,6 @@
  * 演员页：span.actor-section-name 是「名, 别名…」；span.section-meta 里混着别名、性别（只给男优标）、
  * 影片数；头像在 .actor-avatar .avatar 的 background-image，actor_unknow 是占位图。
  * 站点在 Cloudflare 之后，海外 IP 常被挑战；大陆需代理。
- * 行为参考 Amane 的 javdb 演员爬虫，代码独立实现。
  */
 import { load } from '../../../../../../shared/html/cheerio'
 import { absolute, clean } from '../../html'

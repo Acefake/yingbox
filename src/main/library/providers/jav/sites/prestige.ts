@@ -7,7 +7,6 @@
  *    packageImage 是横版整幅（封面），media 是剧照。
  * `/api/search` 只索引在售商品且是模糊匹配，不用。站点限日本 IP，海外访问回 CloudFront 403。
  * 只查前缀表里的 PRESTIGE 系番号，其它番号不发请求（每部最多要试 4 个 SKU）。
- * 行为参考 Amane 的 prestige 爬虫，代码独立实现。
  */
 import type { JavCode } from '../number'
 import { clean, dateOf, list, str, unique } from '../html'

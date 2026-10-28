@@ -6,8 +6,6 @@
  *   （actor?id= / tag?tid= / tag?fid=）；类别里混有画质、字幕等站点标记，去掉；
  * - 页面上的日期是上架时间（通常比发行日晚几天），只作兜底；不给片长（只有固定的试看时长）；
  * - 日期型无码番号在站上写作 caribbeancom010120-001 一类，核对时允许厂牌前缀，记录时去掉。
- *
- * 行为参考 Amane 的 airav 爬虫，代码独立实现。
  */
 import { load } from '../../../../../shared/html/cheerio'
 import type { JavCode } from '../number'

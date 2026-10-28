@@ -1,7 +1,7 @@
 /**
  * WordPress works 主题站点（faleno / dahlia）：REST 解析、HTML 退路（真实页面 dahlia-av.jp/works/dldss100/）、
  * canonical 核对、REST 被拦后的退路与记忆、前缀过滤。
- * REST 响应 fixture（faleno-FNS-257-rest.json）按 Amane 的字段名构造，未用真实响应验证（沙箱海外 IP 访问 wp-json 被 403）。
+ * REST 响应 fixture（faleno-FNS-257-rest.json）按接口字段构造，未用真实响应验证（沙箱海外 IP 访问 wp-json 被 403）。
  */
 import { readFileSync } from 'node:fs'
 import { join } from 'node:path'

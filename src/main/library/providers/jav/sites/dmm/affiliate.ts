@@ -10,7 +10,6 @@
  * 接口出错时 HTTP 仍是 200，状态在 result.status（400 = 参数 / ID 错误），按失败抛错、不缓存。
  * 字段：imageURL.large 是 pl.jpg 横版封面、small 是 ps.jpg 竖版小图；sampleImageURL.sample_l 是剧照大图；
  * volume 是时长（分钟或 HH:MM:SS）；date 是日本时间「YYYY-MM-DD HH:MM:SS」。
- * Amane 的 dmm_api.py 只是 GraphQL 的数据模型（见 graphql.ts），官方 API 这部分按 DMM 公开文档独立实现；
  * 没有可用的 API ID，响应结构未用真实数据验证。
  */
 import { clean, dateOf, isPlaceholder, minutesOf, unique } from '../../html'

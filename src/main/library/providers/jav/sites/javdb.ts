@@ -9,7 +9,6 @@
  * - 页面用 locale=zh（繁体标签），Cookie 带 over18=1 跳过年龄确认；
  * - FC2 影片只对登录用户可见：没配置登录 Cookie 时不查 FC2；
  * - 站点在 Cloudflare 后面，部分地区（如美国机房）直接给挑战页，由上层熔断跳过。
- * 行为参考 Amane 的 javdb 爬虫，代码独立实现。
  */
 import type { CheerioAPI } from 'cheerio'
 import { load } from '../../../../../shared/html/cheerio'
