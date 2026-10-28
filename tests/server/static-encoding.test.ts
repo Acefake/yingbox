@@ -2,7 +2,13 @@
  * 静态文件预压缩：按 Accept-Encoding 选 .br / .gz，回退原文，大文件流式读。
  */
 import { brotliCompressSync, gzipSync } from 'node:zlib'
-import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import {
+  chmodSync,
+  mkdirSync,
+  mkdtempSync,
+  rmSync,
+  writeFileSync,
+} from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it } from 'vitest'
@@ -13,10 +19,12 @@ import {
 
 const dirs: string[] = []
 
+/** 网页根在临时目录的子文件夹里，穿越用的邻文件也留在这次的临时目录内。 */
 function webDir(): string {
-  const dir = mkdtempSync(join(tmpdir(), 'yingbox-static-'))
-  dirs.push(dir)
-  mkdirSync(join(dir, 'assets'))
+  const parent = mkdtempSync(join(tmpdir(), 'yingbox-static-'))
+  dirs.push(parent)
+  const dir = join(parent, 'web')
+  mkdirSync(join(dir, 'assets'), { recursive: true })
   return dir
 }
 
@@ -174,6 +182,24 @@ describe('预压缩静态文件', () => {
       new URL('http://nas/../secret.txt')
     )
     expect(await escaped.text()).toBe('<p>home</p>')
-    rmSync(outside, { force: true })
+  })
+
+  it('大文件打开失败时回 index.html，不写出文件响应', async () => {
+    const dir = webDir()
+    writeFileSync(
+      join(dir, 'assets/locked.js'),
+      Buffer.alloc(STATIC_STREAM_ABOVE, 7)
+    )
+    writeFileSync(join(dir, 'index.html'), '<p>home</p>')
+    chmodSync(join(dir, 'assets/locked.js'), 0)
+    const handler = createStaticHandler(dir)
+
+    const res = await handler(
+      request('/assets/locked.js'),
+      new URL('http://nas/assets/locked.js')
+    )
+    expect(res.status).toBe(200)
+    expect(res.headers.get('content-type')).toContain('html')
+    expect(await res.text()).toBe('<p>home</p>')
   })
 })

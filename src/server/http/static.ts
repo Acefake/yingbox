@@ -8,8 +8,8 @@
  * - 未知路径回 index.html（路由是 hash 模式，主要兜底 PWA 启动地址）；
  * - 路径先规范化再确认仍在 webDir 内，挡住 ../ 穿越。
  */
-import { type Stats, createReadStream } from 'node:fs'
-import { readFile, stat } from 'node:fs/promises'
+import type { Stats } from 'node:fs'
+import { open, readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, relative, sep } from 'node:path'
 import { Readable } from 'node:stream'
 
@@ -114,11 +114,19 @@ function etagOf(info: Stats): string {
   return `"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`
 }
 
+/**
+ * 大文件先打开句柄再交给流。打不开（已删、无权限）时抛出，
+ * 响应尚未发出，调用方回 index.html。发出之后的读取错误只能拆掉连接。
+ */
 async function openBody(path: string, size: number): Promise<ResponseBody> {
-  if (size >= STATIC_STREAM_ABOVE) {
-    return Readable.toWeb(createReadStream(path)) as ResponseBody
+  if (size < STATIC_STREAM_ABOVE) return await readFile(path)
+  const handle = await open(path, 'r')
+  try {
+    return Readable.toWeb(handle.createReadStream()) as ResponseBody
+  } catch (error) {
+    await handle.close()
+    throw error
   }
-  return await readFile(path)
 }
 
 async function fileResponse(

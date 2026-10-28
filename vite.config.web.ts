@@ -27,11 +27,15 @@ const localProxy = {
 
 /** 网页产物写完后补 .br / .gz，独立服务按 Accept-Encoding 直接发。 */
 function precompressStatic(): Plugin {
+  let outDir = ''
   return {
     name: 'precompress-static',
     apply: 'build',
-    async closeBundle() {
-      const outDir = resolve(__dirname, 'dist-web')
+    configResolved(config): void {
+      outDir = config.build.outDir
+    },
+    async closeBundle(): Promise<void> {
+      if (!outDir) return
       const written = await compressStaticDir(outDir)
       console.log(`预压缩静态文件：${written.br} 个 .br，${written.gz} 个 .gz`)
     },
