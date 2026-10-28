@@ -21,8 +21,8 @@ vi.mock('../src/renderer/src/features/player/continue/continue-store', () => ({
 vi.mock('../src/renderer/src/features/player/mpv-session/mpv-session', () => ({
   trackMpvSession: vi.fn(),
 }))
-vi.mock('../src/renderer/src/features/player/anime4k/anime4k-sync', () => ({
-  syncAnime4k: vi.fn(),
+vi.mock('../src/renderer/src/features/player/scaling/scaling-sync', () => ({
+  syncHighQualityScaling: vi.fn(),
 }))
 
 import { openMediaPlayer } from '../src/renderer/src/features/player/composables/use-media-player'

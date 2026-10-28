@@ -3,7 +3,6 @@
  * 桌面端给本地文件路径，网页端给片库服务的 Range 流地址（/media/files/<id>）。
  * 每一项带媒体库标记（条目 id + 文件 id），进度只记进片库；开播前先读出这部作品的进度，从上次的位置接着播。
  */
-import { isAnimeEntry } from '../../../../../shared/anime4k'
 import type { VideoProbe } from '../../../../../shared/video-range'
 import type {
   LibraryItemFile,
@@ -246,7 +245,6 @@ export async function play(
     playlist,
     index: request.index,
     continueAs,
-    anime: isAnimeEntry({ genres: request.item.genres }),
     ...(startAt !== undefined ? { startAt } : {}),
     ...(request.endHint ? { endHint: request.endHint } : {}),
     ...(!usesLibraryServer() && request.video ? { video: request.video } : {}),

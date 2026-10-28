@@ -57,8 +57,9 @@ export function registerMpvIpc(): void {
     speed: (_, speed) => done(mpvPlayer.setSpeed(speed)),
     // RTX 视频超分开关（设置项）：影响 mpv 启动参数与运行时滤镜
     setVsr: (_, enabled) => done(mpvPlayer.setVsrEnabled(enabled)),
-    // 影盒超分设置：mpv 在跑时立即挂载 / 清除着色器
-    setAnime4k: (_, config) => done(mpvPlayer.setAnime4k(config)),
+    // 高质量缩放：mpv 在运行时立即切换算法
+    setHighQualityScaling: (_, enabled) =>
+      done(mpvPlayer.setHighQualityScaling(enabled)),
     setSubTrack: (_, id) => done(mpvPlayer.setSubTrack(id)),
     setAudioTrack: (_, id) => done(mpvPlayer.setAudioTrack(id)),
     addSubFile: (_, filePath) => done(mpvPlayer.addSubFile(filePath)),

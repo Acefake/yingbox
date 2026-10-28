@@ -37,7 +37,6 @@ export interface MpvSessionInput {
   index: number
   title: string
   endHint?: EndHint | null
-  anime?: boolean
 }
 
 interface Session extends MpvSessionInput {
@@ -103,7 +102,6 @@ async function playNext(s: Session): Promise<void> {
       ...(next.url ? { url: next.url } : {}),
       title: label(s),
       startAt,
-      ...(s.anime ? { anime: true } : {}),
     })
     .catch(() => {})
 }

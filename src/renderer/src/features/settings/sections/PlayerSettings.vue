@@ -25,7 +25,12 @@
     >
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
-    <Anime4kRows />
+    <SettingsRow
+      title="高质量缩放"
+      description="使用 mpv 内置高质量算法放大画面，可能增加显卡负载"
+    >
+      <UiSwitch v-model="highQualityScaling" label="高质量缩放" />
+    </SettingsRow>
     <SettingsRow
       v-if="mpvState.running"
       title="缩小置顶"
@@ -127,7 +132,7 @@
 <script setup lang="ts">
 /**
  * 设置 · 播放器：播放引擎（player.engine）、mpv 下的 RTX 视频超分（player.rtxVsr）、
- * 影盒超分（Anime4kRows）与缩小置顶，杜比视界 P5 自动用 mpv（player.dvAutoMpv），
+ * 高质量缩放（player.highQualityScaling）与缩小置顶，杜比视界 P5 自动用 mpv（player.dvAutoMpv），
  * 在线播放卡顿自动换源（online.autoSwitchSource / online.stallSeconds），
  * 杜比视界 P5 重建是否应用 RPU 动态元数据（player.applyDolbyVision），
  * 内置播放器自动跳过片头（player.autoSkipIntro）与播放时自动检测片头片尾（player.autoDetectIntro），
@@ -135,13 +140,17 @@
  */
 import { computed, watch } from 'vue'
 
-import { mpvInfoRows, syncRtxVsr, useMpvPlayer } from '@/features/player'
+import {
+  mpvInfoRows,
+  syncHighQualityScaling,
+  syncRtxVsr,
+  useMpvPlayer,
+} from '@/features/player'
 import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import { usePlatform } from '@/composables/use-platform'
 
 import type { SettingValue } from '../../../../../shared/settings/schema'
-import Anime4kRows from './Anime4kRows.vue'
 import MpvStatusRow from './MpvStatusRow.vue'
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRadioList, {
@@ -192,6 +201,10 @@ const mediaKeys = useSetting('player.mediaKeys')
 const mediaKeysHint = navigator.userAgent.includes('Mac')
   ? '内置播放器播放时，键盘的播放 / 暂停、上一集、下一集键控制播放；需在「系统设置 → 隐私与安全性 → 辅助功能」中允许影盒'
   : '内置播放器播放时，键盘的播放 / 暂停、上一集、下一集键控制播放；不在播放时不占用'
+const highQualityScaling = useSetting('player.highQualityScaling')
+watch(highQualityScaling, () => {
+  void syncHighQualityScaling().catch(() => {})
+})
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
 

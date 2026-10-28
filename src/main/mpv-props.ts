@@ -92,6 +92,7 @@ export interface SpawnArgsInput {
   headers: MpvHeaders
   /** RTX 视频超分：要走 D3D11 */
   vsr: boolean
+  highQualityScaling?: boolean
 }
 
 /** 新开 mpv 进程的命令行参数（目标地址在最后） */
@@ -103,6 +104,7 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
     '--osc=yes',
     '--no-terminal',
     '--ytdl=no',
+    `--scale=${input.highQualityScaling ? 'ewa_lanczossharp' : 'lanczos'}`,
     // 无边框：不显示 Windows 标题栏及其英文系统菜单，菜单改由影盒提供。
     // --window-dragging 默认 yes，无边框时仍可用鼠标拖动窗口。
     '--border=no',

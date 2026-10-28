@@ -1,7 +1,5 @@
-import { type Anime4kConfig, parseAnime4kConfig } from '../anime4k'
 import type { MpvOpenOptions, MpvStatus } from '../mpv'
 import {
-  ContractError,
   bool,
   call,
   defineDomain,
@@ -44,16 +42,10 @@ export const mpv = defineDomain(
     speed: call<[spd: number], Ok>(a => [num(a[0], 'spd')]),
     /** RTX 视频超分开关 */
     setVsr: call<[enabled: boolean], Ok>(a => [bool(a[0], 'enabled')]),
-    /** 影盒超分设置（开关、模式、档位、仅动画类条目） */
-    setAnime4k: call<[config: Anime4kConfig], Ok>(a => {
-      try {
-        return [parseAnime4kConfig(a[0])]
-      } catch (error) {
-        throw new ContractError(
-          `参数 config 不合法：${(error as Error).message}`
-        )
-      }
-    }),
+    /** mpv 内置高质量缩放 */
+    setHighQualityScaling: call<[enabled: boolean], Ok>(a => [
+      bool(a[0], 'enabled'),
+    ]),
     /** 切换字幕轨；false 关闭字幕 */
     setSubTrack: call<[id: number | false], Ok>(a => [
       a[0] === false ? false : int(a[0], 'id'),

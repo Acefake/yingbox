@@ -92,6 +92,28 @@ describe('mpv 播放器进程', () => {
     vi.doUnmock('../src/main/mpv-socket')
   })
 
+  it('高质量缩放支持启动、即时切换和进程重启', async () => {
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    await mpvPlayer.setHighQualityScaling(true)
+    await mpvPlayer.open({ url: 'https://a/1.mp4' })
+    expect(fakes.children[0].args).toContain('--scale=ewa_lanczossharp')
+    await mpvPlayer.setHighQualityScaling(false)
+    expect(fakes.sent).toContainEqual(['set_property', 'scale', 'lanczos'])
+    await mpvPlayer.setHighQualityScaling(true)
+    expect(fakes.sent).toContainEqual([
+      'set_property',
+      'scale',
+      'ewa_lanczossharp',
+    ])
+    fakes.children[0].emit('exit')
+    await mpvPlayer.open({ url: 'https://a/2.mp4' })
+    expect(fakes.children[1].args).toContain('--scale=ewa_lanczossharp')
+    await mpvPlayer.setHighQualityScaling(false)
+    fakes.children[1].emit('exit')
+    await mpvPlayer.open({ url: 'https://a/3.mp4' })
+    expect(fakes.children[2].args).toContain('--scale=lanczos')
+  })
+
   it('已在运行时换片：先设 start / title 再 loadfile，不在加载前设 time-pos', async () => {
     const { mpvPlayer } = await import('../src/main/mpv-player')
     await mpvPlayer.open({ url: 'https://a/1.m3u8', startAt: 300 })

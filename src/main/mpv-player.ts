@@ -1,6 +1,5 @@
 import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
-import { Anime4kSync } from './mpv-anime4k'
 import { ensureMpvExecutable } from './mpv-locate'
 import {
   COMPACT_KEY,
@@ -16,7 +15,6 @@ import { MpvHeaderState, mpvStream } from './mpv-stream'
 import { MpvWindow } from './mpv-window'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
-import type { Anime4kConfig } from '../shared/anime4k'
 import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
 
 /** RTX 视频超分：仅对低于该高度（1080p）的片源自动挂载 */
@@ -60,11 +58,7 @@ class MpvPlayer extends EventEmitter {
     name => this.cmd('get_property', name),
     (name, value) => this.setProp(name, value)
   )
-  /** 影盒超分着色器（设置 + 当前条目是否动画） */
-  private readonly anime4k = new Anime4kSync(
-    (...args) => this.cmd(...args),
-    () => Boolean(this.child) && this.sock.connected
-  )
+  private highQualityScaling = false
 
   constructor() {
     super()
@@ -120,7 +114,6 @@ class MpvPlayer extends EventEmitter {
       } else {
         await this.spawnProcess(options)
       }
-      void this.anime4k.apply(options.anime === true)
     } catch (error) {
       this._status.loading = false
       this.emit('status', this.getStatus())
@@ -147,6 +140,7 @@ class MpvPlayer extends EventEmitter {
       subFile: options.subFile,
       headers,
       vsr: this.isVsrWanted(),
+      highQualityScaling: this.highQualityScaling,
     })
     this.headers.reset(headers)
     const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
@@ -290,9 +284,11 @@ class MpvPlayer extends EventEmitter {
     await this.syncVsr()
   }
 
-  /** 设置影盒超分（来自渲染层的「设置 → 播放器」）。 */
-  async setAnime4k(config: Anime4kConfig): Promise<void> {
-    await this.anime4k.setConfig(config)
+  /** 设置高质量缩放（来自渲染层的「设置 → 播放器」）。 */
+  async setHighQualityScaling(enabled: boolean): Promise<void> {
+    this.highQualityScaling = enabled
+    if (this.child && this.sock.connected)
+      await this.setProp('scale', enabled ? 'ewa_lanczossharp' : 'lanczos')
   }
 
   private onSocketClose(): void {
@@ -304,7 +300,6 @@ class MpvPlayer extends EventEmitter {
 
   private cleanupProcess(): void {
     this.window.reset()
-    this.anime4k.reset()
     if (this.vsrOsdTimer) {
       clearTimeout(this.vsrOsdTimer)
       this.vsrOsdTimer = null

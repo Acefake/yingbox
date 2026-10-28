@@ -60,6 +60,4 @@ export interface MpvOpenOptions {
   index?: number
   /** 外挂字幕文件路径 */
   subFile?: string
-  /** 条目是动画（「影盒超分仅动画类条目」据此决定是否挂着色器） */
-  anime?: boolean
 }

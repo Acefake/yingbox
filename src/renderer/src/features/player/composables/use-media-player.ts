@@ -2,7 +2,7 @@ import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
 import type { VideoProbe } from '../../../../../shared/video-range'
-import { syncAnime4k } from '../anime4k/anime4k-sync'
+import { syncHighQualityScaling } from '../scaling/scaling-sync'
 import type { ContinueMeta } from '../continue/continue-rules'
 import { startContinue } from '../continue/continue-store'
 import { trackMpvSession } from '../mpv-session/mpv-session'
@@ -57,8 +57,6 @@ type MediaPlayerOpenOptions = {
   private?: boolean
   /** 播放引擎：'built-in' 为内置播放器（桌面端独立窗口），'mpv' 为 mpv 独立播放器，不传则读取全局设置 */
   engine?: 'built-in' | 'mpv'
-  /** 条目是动画（mpv 的「影盒超分仅动画类条目」据此启用，判断见 shared/anime4k isAnimeEntry） */
-  anime?: boolean
   /** 起始文件的动态范围（媒体库扫描时 ffprobe 探测）：杜比视界 P5 据此改走 mpv，见 utils/playback-route */
   video?: VideoProbe | null
   /** 播完最后一集时的提示（如媒体库剧集「没有下一集的文件」+ 去追更） */
@@ -166,7 +164,7 @@ export async function openMediaPlayer(
     try {
       // 先同步超分开关，保证首次启动 mpv 时启动参数正确
       syncRtxVsr()
-      syncAnime4k()
+      await syncHighQualityScaling()
       const res = await window.api.mpv.open({
         ...(filePath ? { filePath } : {}),
         ...(url ? { url } : {}),
@@ -182,7 +180,6 @@ export async function openMediaPlayer(
             }
           : {}),
         ...(typeof index === 'number' ? { index } : {}),
-        ...(options.anime ? { anime: true } : {}),
       })
       // 主进程以失败结果返回（例如未安装 mpv）：提示并回退
       mpv = res?.success ? 'ok' : 'failed'
@@ -210,7 +207,6 @@ export async function openMediaPlayer(
           index: index ?? 0,
           title: title ?? '',
           endHint: options.endHint,
-          anime: options.anime,
         }
       : null
   )

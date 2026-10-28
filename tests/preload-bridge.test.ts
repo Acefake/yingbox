@@ -162,7 +162,7 @@ const ADDED_API: Record<string, string[]> = {
   webdav: ['list', 'save', 'remove', 'test', 'listDirs'],
   mpv: [
     ...LEGACY_API['mpv']!,
-    'setAnime4k',
+    'setHighQualityScaling',
     'showText',
     'probe',
     'install',
