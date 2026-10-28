@@ -7,6 +7,7 @@ import { type Ref, onScopeDispose, ref, shallowRef, watch } from 'vue'
 
 import type { LiveChannel } from '../utils/playlist-parse'
 import { todayRange } from '../utils/epg-rules'
+import { liveApi } from '../api'
 import {
   EPG_QUERY_LIMIT,
   type EpgProgramme,
@@ -42,7 +43,7 @@ export function useLiveEpg(
   let token = 0
 
   const reload = async (force: boolean): Promise<void> => {
-    const iptv = window.api?.iptv
+    const iptv = liveApi()
     const urls = [...epgUrls.value]
     const run = ++token
     if (!iptv || !urls.length || !channels.value.length) {

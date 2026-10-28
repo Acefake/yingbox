@@ -241,18 +241,20 @@ describe('服务端设置', () => {
 })
 
 describe('YINGBOX_NETDISK=off', () => {
-  it('不登记网盘类接口（服务端设置照常可用：刮削偏好也存在这里）', async () => {
+  it('不启用网盘域，直播与通知仍可使用公共域路由', async () => {
     const other = mkdtempSync(join(tmpdir(), 'yingbox-netdisk-off-'))
     const off = await start(other, { YINGBOX_NETDISK: 'off' })
     try {
       expect((await off.call(SERVER_SETTINGS_HTTP)).status).toBe(200)
-      expect(
-        (
-          await off.call(DOMAIN_HTTP.rpc('pan115', 'account'), {
-            method: 'POST',
-          })
-        ).status
-      ).toBe(404)
+      const response = await off.call(DOMAIN_HTTP.rpc('pan115', 'account'), {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ args: [] }),
+      })
+      expect(await response.json()).toEqual({
+        ok: false,
+        error: '片库服务没有启用 pan115',
+      })
     } finally {
       await off.app.close()
       rmSync(other, { recursive: true, force: true })

@@ -1,12 +1,13 @@
 /**
  * 推送密钥（Bark 设备 key、Telegram Bot token）：只写不读，渲染层只知道「是否已配置」。
  * 每个密钥一份模块级状态（快照 + secretChanged 事件，监听只挂一次）；
- * 输入框停顿 600ms 后交主进程加密保存（settings.setSecret），清除走 clear。
+ * 输入框停顿 600ms 后保存到桌面密钥链或 NAS 的密钥文件，清除走 clear。
  */
 import { type Ref, ref } from 'vue'
 import { toast } from '@/components/ui'
 import type { SecretKey } from '../../../../shared/settings/schema'
 import { type TokenDraft, createTokenDraft } from '@/features/settings'
+import { notificationApi } from './api'
 
 /** 推送用到的密钥。 */
 export type NotifySecretKey = Extract<
@@ -29,18 +30,38 @@ const fields = new Map<NotifySecretKey, SecretField>()
 export function secretField(key: NotifySecretKey): SecretField {
   const existing = fields.get(key)
   if (existing) return existing
-  const bridge = window.api!.settings
-  const configured = ref(bridge.snapshot().secrets[key])
-  bridge.onSecretChanged(change => {
-    if (change.key === key) configured.value = change.configured
+  const bridge = notificationApi()
+  const channel = key === 'notify.bark.key' ? 'bark' : 'telegram'
+  const configured = ref(false)
+  let revision = 0
+  void bridge
+    ?.configured()
+    .then(status => {
+      if (revision === 0) configured.value = status[channel]
+    })
+    .catch(() => toast.error('读取推送配置失败'))
+  window.api?.settings.onSecretChanged(change => {
+    if (change.key === key) {
+      revision++
+      configured.value = change.configured
+    }
   })
   let pending: Promise<void> = Promise.resolve()
   const draft = createTokenDraft(value => {
     const next = value.trim()
-    pending = bridge.setSecret(key, next).then(
-      () => void (configured.value = next !== ''),
-      () => void toast.error('保存失败，系统密钥存储不可用')
-    )
+    const mine = ++revision
+    pending = pending
+      .then(() =>
+        bridge
+          ? bridge.setSecret(channel, next)
+          : Promise.reject(new Error('推送不可用'))
+      )
+      .then(
+        () => {
+          if (mine === revision) configured.value = next !== ''
+        },
+        () => void toast.error('推送密钥保存失败')
+      )
   })
   const field = { configured, draft, settled: () => pending }
   fields.set(key, field)

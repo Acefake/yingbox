@@ -1,12 +1,12 @@
 /**
  * 入库推送 feature 的公共出口：「新入库」设置分区（推送渠道、推送什么、自动中文字幕），由应用入口登记。
- * 推送与自动字幕都在桌面端主进程 / 媒体库引擎里（src/main/notify、src/main/library/subtitles），网页端不登记。
+ * 桌面推送经主进程，网页推送经 NAS 服务；自动字幕的界面设置只在桌面端提供。
  */
 import type { SettingsSection } from '@/features/settings'
+import { notificationApi } from './api'
 
-/** 桌面端才有（主进程实现 notifications 域）。 */
-export const notifyAvailable =
-  typeof window !== 'undefined' && Boolean(window.api?.notifications)
+/** 当前运行环境有推送接口（桌面端或 NAS）。 */
+export const notifyAvailable = Boolean(notificationApi())
 
 /** 「新入库」设置分区 */
 export const notifySettingsSection: SettingsSection = {

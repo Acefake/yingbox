@@ -30,7 +30,7 @@
 
 - AI 识别兜底（`ai`）：桌面端经主进程 `aiService` 代办；
 - WebDAV / Alist 远程源（`remote`）：凭据在桌面端主进程；
-- 入库推送（`intake.onArrivals`）：系统通知 / Bark / Telegram 在桌面端主进程。
+- 系统通知：只在桌面端；NAS 的 `intake.onArrivals` 与追更入库由服务端发送 Bark / Telegram（ADR-0023）。
 
 ## 测试
 

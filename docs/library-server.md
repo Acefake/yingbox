@@ -300,7 +300,7 @@ features/online|av|download              src/server/online                      
   （`<数据目录>/scheduler.lock`，90 秒租期，每 30 秒续）的实例执行；`YINGBOX_AUTOGRAB=off` 的实例只提供接口不跑任务。
 - **入库**：转存后调同进程的 `LibraryService.notifyChanges`（路径按 `library.notify.mountRoot` 对到库目录），与 CD2 变更通知走同一条路，见 [NAS 部署](deploy/nas.md#115-网盘与追更)。
 - 状态文件：`<数据目录>/autograb.json`、`autograb-upgrade.json`、`autograb-movies.json`、`offline-tasks.json`（格式与桌面端 userData 下的同名文件相同，可以直接拷过来）。
-- 服务端不发入库推送（系统通知 / Bark / Telegram 只在桌面端）。
+- 服务端发送 Bark / Telegram 入库推送，配置见「NAS 直播与入库推送」。
 
 ## 代理
 
@@ -356,6 +356,16 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 - 没有 mpv；播放器里的在线字幕搜索 / 下载只有桌面版。ass 字幕转成 WebVTT 后只保留文字，没有样式。
 - 默认 Docker 镜像不带 ffmpeg（`WITH_CHROMIUM` 构建包含 ffmpeg）：要 HDR / 杜比视界标和内封字幕判断，基于镜像装一层 ffmpeg，或设 `YINGBOX_FFPROBE` 指向挂进来的程序。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
-- 在线板块与下载经服务端引擎（见「在线播放」）；网盘、追更、找 115 资源也在网页端可用（见「网盘与追更」），入库推送只在桌面端；直播、AI 等其它桌面端板块网页端仍不可用。
+- 在线板块与下载经服务端引擎（见「在线播放」）；网盘、追更、找 115 资源、HTTP 直播和 Bark / Telegram 入库推送在网页端可用；AI 仍限桌面端。
 - 在线源被 Cloudflare 拦下时，没开浏览器代抓就只能标成不可用；开了也过不了需要人工点的验证。
 - 网页端只连同源的片库服务，不能在页面里改连其它地址（开发时用 `dev:web` 的代理）。
+
+## NAS 直播与入库推送
+
+网页侧栏的「网盘」访问 NAS 的网盘接口；`YINGBOX_NETDISK=off` 时网盘域返回未启用，直播和通知继续可用。
+
+直播页支持添加远程 m3u / m3u8 / txt 播放列表、订阅推荐源、XMLTV（含 gzip）节目单、线路探测与自动换线。读取与播放都由 NAS 代理；源列表和频道收藏仍保存在当前浏览器。本地文件对话框仅在桌面端显示，网页不读取任意 NAS 路径。局域网源需要把对应主机或 IP 加入 `YINGBOX_STREAM_ALLOW_PRIVATE`，列表、EPG、探测、媒体重定向都使用同一白名单。直播不依赖网盘开关；`YINGBOX_ONLINE=off` 仍保留直播播放代理。
+
+设置 → 新入库：配置 Bark 或 Telegram，保存密钥后可发送测试通知。渠道开关、推送类型和合并开关保存在 `/config/server-settings.json`；Bark key 和 Telegram token 保存在 `/config/secrets.json`（0600），网页只知道是否已配置。NAS 不显示桌面系统通知与自动字幕开关；自动字幕按 `YINGBOX_AUTO_SUBTITLES` 等环境变量配置。服务关闭时等待合并中的推送完成。
+
+本地回归覆盖播放列表、EPG、白名单、播放代理及模拟渠道的新入库推送；真实 NAS 上的直播源、Bark / Telegram 投递仍需按实际网络与账号验收。

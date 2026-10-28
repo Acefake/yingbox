@@ -79,9 +79,13 @@ export function probeFailureText(url: string, probe: StreamProbe): string {
 }
 
 /** 经播放代理的地址；地址不合规（带账号密码等）时原样返回 */
-function proxied(url: string, headers?: StreamHeaders): string {
+function proxied(
+  url: string,
+  headers: StreamHeaders | undefined,
+  proxy: typeof streamUrl
+): string {
   try {
-    return streamUrl(url, headers)
+    return proxy(url, headers)
   } catch {
     return url
   }
@@ -92,7 +96,11 @@ function proxied(url: string, headers?: StreamHeaders): string {
  * @param line 线路地址（可带请求头后缀）
  * @param probe 主进程探测结果；null 表示没有探测能力（按地址扩展名猜）
  */
-export function planLine(line: string, probe: StreamProbe | null): LinePlan {
+export function planLine(
+  line: string,
+  probe: StreamProbe | null,
+  proxy = streamUrl
+): LinePlan {
   const { url, headers } = splitStreamHeaders(line)
   if (isExternalOnlyUrl(url))
     return {
@@ -109,7 +117,12 @@ export function planLine(line: string, probe: StreamProbe | null): LinePlan {
     case 'hls':
       return { mode: 'hls', src: line, reason: '', kind }
     case 'video':
-      return { mode: 'video', src: proxied(url, headers), reason: '', kind }
+      return {
+        mode: 'video',
+        src: proxied(url, headers, proxy),
+        reason: '',
+        kind,
+      }
     case 'external':
       return {
         mode: 'external',

@@ -1,12 +1,13 @@
 /**
  * 直播源与收藏的状态（模块单例，离开直播页再回来不重新拉取）。
  *
- * 源列表与收藏存在 @/utils/storage；播放列表原文经 window.api.iptv 由主进程读取（远程走 http-client），
- * 解析在渲染层用纯函数完成，结果只留在内存。Web 版没有 iptv 域，available 为 false。
+ * 源列表与收藏存在 @/utils/storage；桌面读取走主进程，网页远程列表走 NAS 的 iptv 域。
+ * 解析在渲染层用纯函数完成，结果只留在内存。
  */
 import { computed, ref, shallowRef } from 'vue'
 
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
+import { liveApi } from '../api'
 
 import {
   type LiveSource,
@@ -25,8 +26,7 @@ import type { PlaylistText } from '../../../../../shared/contract/iptv'
 const SOURCES_KEY = 'live_sources'
 const FAVORITES_KEY = 'live_favorites'
 
-const api = (): Window['api']['iptv'] | undefined =>
-  typeof window !== 'undefined' ? window.api?.iptv : undefined
+const api = (): Window['api']['iptv'] | undefined => liveApi()
 
 const sources = ref<LiveSource[]>(
   readStoredArray<unknown>(SOURCES_KEY)

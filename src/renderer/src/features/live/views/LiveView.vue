@@ -24,8 +24,8 @@
     <StatusState
       v-if="!available"
       icon="livePlay"
-      title="直播需要桌面端"
-      hint="网页版不能读取直播源与节目单"
+      title="直播功能不可用"
+      hint="请连接已启用直播接口的片库服务，或使用桌面端"
     />
     <template v-else>
       <LiveSourcePanel v-if="panelOpen || !sources.length" />
