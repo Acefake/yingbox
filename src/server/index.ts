@@ -46,10 +46,9 @@ async function main(): Promise<void> {
   log(`媒体根目录：${config.mediaRoots.join('、')}`)
   log(`出网：${describeFetch(config.fetch)}`)
   log(`目录监控：${describeMonitor(config.monitor)}`)
-  const login = app.token ? `/?token=${encodeURIComponent(app.token)}` : ''
   log(
     config.webDir
-      ? `网页端：${base}${login}`
+      ? `网页端：${base}`
       : `未托管网页端（没有 dist-web）；API：${base}/api`
   )
   log(

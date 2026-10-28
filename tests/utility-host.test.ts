@@ -2,6 +2,7 @@
  * UtilityHost（main/utility/host.ts）：两个 utilityProcess 共用的宿主。
  * 用一个说统一线协议（shared/utility/protocol.ts）的最小假子进程直接测生命周期。
  */
+import { EventEmitter } from 'node:events'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import {
   UtilityCallError,
@@ -13,6 +14,7 @@ import type { FromUtility, ToUtility } from '../src/shared/utility/protocol'
 
 /** 假子进程：记录收到的消息，由测试决定何时回复 / 退出。 */
 class FakeChild implements UtilityChild {
+  readonly stdout = new EventEmitter()
   readonly inbox: ToUtility[] = []
   readonly transfers: unknown[][] = []
   private readonly onMsg: Array<(m: FromUtility) => void> = []
@@ -89,6 +91,19 @@ function setup(over: Partial<UtilityHostOptions> = {}): {
   })
   return { host, children, log, call: text => host.call('echo', [text]) }
 }
+
+it('接收管道输出，子进程重启后继续转发日志', () => {
+  const writeStdout = vi.fn()
+  const { host, children } = setup({ writeStdout })
+  host.start()
+  children[0].stdout.emit('data', 'first')
+  expect(writeStdout).toHaveBeenCalledWith('first')
+  children[0].exit(1)
+  host.start()
+  const next = Buffer.from('second')
+  children[1].stdout.emit('data', next)
+  expect(writeStdout).toHaveBeenLastCalledWith(next)
+})
 
 beforeEach(() => {
   vi.useFakeTimers({ toFake: ['setTimeout', 'clearTimeout'] })

@@ -204,7 +204,7 @@ export async function createServerApp(
       if (isApi || !serveStatic) return fail(404, '没有这个接口')
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return fail(405, '不支持的方法')
-      // 带 ?token= 打开首页（启动日志里的地址）：写入 Cookie 后去掉地址里的令牌
+      // 带 ?token= 打开首页：写入 Cookie 后去掉地址里的令牌
       if (auth.required && tokenCandidates(url.search).some(auth.matches))
         return new Response(null, {
           status: 302,

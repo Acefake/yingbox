@@ -7,7 +7,8 @@
       :size="size"
       :pressed="active"
       :disabled="disabled"
-      aria-haspopup="true"
+      aria-haspopup="dialog"
+      :aria-controls="panelId"
       :aria-expanded="open"
       :aria-label="ariaLabel"
       @click="toggle"
@@ -18,10 +19,11 @@
     <Teleport to="body">
       <div
         v-if="open"
+        :id="panelId"
         ref="panel"
         class="ui-glass-select-panel"
         :style="place"
-        role="group"
+        role="dialog"
         :aria-label="label"
       >
         <span class="ui-glass-select-heading">{{ label }}</span>
@@ -49,7 +51,7 @@
  * 浏览页的筛选、设置里的追更偏好、追更面板每行的「跟随 / 单独设」都用它。
  * 每次选择都会发 update:modelValue（选中当前值也发），调用方可以用来重新打开对应的编辑。
  */
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useId } from 'vue'
 
 import { vTooltip } from './tooltip'
 import UiButton from './UiButton.vue'
@@ -93,6 +95,7 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
 
+const panelId = useId()
 const open = ref(false)
 const root = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
@@ -128,6 +131,8 @@ function onScroll(event: Event): void {
 
 function close(): void {
   if (!open.value) return
+  if (panel.value?.contains(document.activeElement))
+    root.value?.querySelector('button')?.focus()
   open.value = false
   window.removeEventListener('pointerdown', onPointerDown, true)
   window.removeEventListener('scroll', onScroll, true)
@@ -157,6 +162,11 @@ function toggle(): void {
   if (open.value) return close()
   measure()
   open.value = true
+  void nextTick(() =>
+    panel.value
+      ?.querySelector<HTMLButtonElement>('button[aria-pressed="true"], button')
+      ?.focus()
+  )
   window.addEventListener('pointerdown', onPointerDown, true)
   window.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', close)

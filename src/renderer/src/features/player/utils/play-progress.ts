@@ -21,7 +21,18 @@ type ProgressMap = Record<
 function readProgressMap(): ProgressMap {
   try {
     const raw: unknown = JSON.parse(readStoredText(PROGRESS_MAP_KEY) || '{}')
-    return raw && typeof raw === 'object' ? (raw as ProgressMap) : {}
+    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
+    return Object.fromEntries(
+      Object.entries(raw).filter(([, value]) => {
+        if (!value || typeof value !== 'object') return false
+        return ['progress', 'duration', 'updatedAt'].every(
+          key =>
+            typeof value[key] === 'number' &&
+            Number.isFinite(value[key]) &&
+            value[key] >= 0
+        )
+      })
+    )
   } catch {
     return {}
   }

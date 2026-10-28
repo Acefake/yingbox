@@ -13,7 +13,11 @@ describe('代抓窗口网络限制', () => {
     const onBeforeRequest = vi.fn((_filter: unknown, fn: Listener) => {
       listener = fn
     })
-    const target = { webRequest: { onBeforeRequest } } as unknown as Session
+    const target = {
+      webRequest: { onBeforeRequest },
+      setPermissionCheckHandler: vi.fn(),
+      setPermissionRequestHandler: vi.fn(),
+    } as unknown as Session
     installBrowserNetworkGuard(target, async host => {
       if (host === 'missing.test') throw new Error('DNS failed')
       return [

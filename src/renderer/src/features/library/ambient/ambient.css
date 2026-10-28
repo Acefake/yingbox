@@ -1,8 +1,9 @@
 /* 片库环境光（LibraryAmbient.vue）。不加 scoped：要按根节点 data-theme / data-transparency 降级。 */
 .lib-ambient {
   position: absolute;
-  inset: 0 0 auto 0;
-  height: 640px;
+  inset: calc((var(--shell-top) + var(--safe-top)) * -1) 0 auto
+    calc(var(--shell-left) * -1);
+  height: calc(640px + var(--shell-top) + var(--safe-top));
   z-index: 0;
   overflow: hidden;
   pointer-events: none;

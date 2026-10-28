@@ -10,6 +10,7 @@
  *   pan115.torznab（与 115 会话同一种 safeStorage 加密存储）。
  */
 import { app, net, session } from 'electron'
+import { manualRedirectFetch } from '../../shared/net/manual-redirect-fetch'
 
 import { installBrowserNetworkGuard } from '../browser-fetch/network-guard'
 import type { ModuleHost } from '../module-host'
@@ -38,9 +39,13 @@ export function registerPan115(
   const partition = session.fromPartition(PAN115_PARTITION)
   installBrowserNetworkGuard(partition)
   const transport = createSessionTransport(partition)
+  const lanFetch = manualRedirectFetch(
+    options => net.request(options),
+    (url, init) => net.fetch(url, init)
+  )
   const service = createPan115Service({
     transport,
-    lanFetch: (url, init) => net.fetch(url, { ...init, credentials: 'omit' }),
+    lanFetch: (url, init = {}) => lanFetch(url, init),
     settings: {
       pansouUrl: () => store.get('pan115.pansouUrl'),
       defaultCid: () =>

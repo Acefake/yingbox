@@ -250,6 +250,16 @@ describe('PROPFIND 响应解析', () => {
 // ———————————————————————— 路径编码 ————————————————————————
 
 describe('远程路径与编码', () => {
+  it('拒绝编码反斜杠和直接目录请求中的上级路径', () => {
+    expect(
+      parseRemoteMediaUrl('yingbox-dav://ab12/..%5c..%5csecret')
+    ).toBeNull()
+    expect(parseRemotePath('yingbox-dav://ab12/../secret')).toBeNull()
+    expect(() => davUrl('https://nas/dav/library', '/../secret')).toThrow()
+    expect(() =>
+      davUrl('https://nas/dav/library', '/..\\secret', true)
+    ).toThrow()
+  })
   it('库里的路径保存原文，播放地址按段编码，来回不丢字符', () => {
     const path = remotePath('ab12cd34', '/电影/A B #1 100%/x.mkv')
     expect(path).toBe('yingbox-dav://ab12cd34/电影/A B #1 100%/x.mkv')
@@ -683,6 +693,34 @@ describe('源存储', () => {
     decrypt: (cipher: string) =>
       Buffer.from(cipher.slice(4), 'base64').toString(),
   }
+
+  it('更换主机或用户名时不能复用已存密码，显式输入密码才可连接', async () => {
+    const store = new WebDavSourceStore(
+      { read: async () => null, write: async () => {} },
+      codec
+    )
+    const saved = await store.save({
+      name: 'NAS',
+      url: 'https://nas/dav',
+      username: 'user',
+      password: 'secret',
+    })
+    for (const patch of [
+      { url: 'https://other/dav' },
+      { url: 'http://nas/dav' },
+      { username: 'other' },
+    ]) {
+      const input = { ...saved, ...patch }
+      await expect(store.accessFor(input)).rejects.toThrow('重新输入密码')
+      await expect(store.save(input)).rejects.toThrow('重新输入密码')
+    }
+    await expect(
+      store.accessFor({ ...saved, url: 'https://other/dav', password: 'new' })
+    ).resolves.toMatchObject({ password: 'new' })
+    await expect(
+      store.accessFor({ ...saved, url: 'https://nas/another' })
+    ).resolves.toMatchObject({ password: 'secret' })
+  })
 
   it('密码只存密文、视图里没有；留空保存保留原密码；测试连接可用已存密码', async () => {
     let file: string | null = null

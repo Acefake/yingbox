@@ -85,6 +85,20 @@ const toInfo = (s: StoredSource): WebDavSourceInfo => ({
   hasPassword: Boolean(s.password),
 })
 
+function checkPasswordReuse(
+  saved: StoredSource | undefined,
+  input: WebDavSourceInput,
+  url: string
+): void {
+  if (
+    saved?.password &&
+    !input.password &&
+    (new URL(saved.url).origin !== new URL(url).origin ||
+      saved.username !== input.username.trim())
+  )
+    throw new Error('连接地址或用户名已变更，请重新输入密码')
+}
+
 /** 源存储。 */
 export class WebDavSourceStore {
   private sources: StoredSource[] | null = null
@@ -116,6 +130,7 @@ export class WebDavSourceStore {
     let password = input.password ?? ''
     if (!password && input.id) {
       const saved = (await this.load()).find(s => s.id === input.id)
+      checkPasswordReuse(saved, input, url)
       if (saved) password = this.toAccess(saved).password
     }
     return { url, username: input.username.trim(), password }
@@ -131,6 +146,7 @@ export class WebDavSourceStore {
       )
     const existing = input.id ? sources.find(s => s.id === input.id) : undefined
     if (input.id && !existing) throw new Error('这个源已经被删除')
+    checkPasswordReuse(existing, input, url)
     let password = existing?.password ?? ''
     if (input.password) {
       if (!this.codec.available())

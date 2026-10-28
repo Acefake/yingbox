@@ -14,6 +14,8 @@ import { STREAM_SCHEME } from '../shared/stream-url'
 import { createStreamHandler } from './stream-proxy'
 import { streamNetClient } from './stream-net'
 import { installWindowSecurity } from './window-security'
+import { installPermissionPolicy } from './permissions'
+import { installSingleInstance } from './single-instance'
 import { installDevToolsShortcut } from './devtools-shortcut'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
@@ -67,6 +69,9 @@ import { type PlayerWindowControl, registerPlayerWindow } from './player-window'
  * 开发/预览统一钉到 yingbox；打包版仍走 productName（影盒）的目录，不动已安装用户的数据。
  */
 if (is.dev) app.setPath('userData', join(app.getPath('appData'), 'yingbox'))
+installSingleInstance(app, () => {
+  void startup.then(showMainWindow)
+})
 
 Menu.setApplicationMenu(null)
 
@@ -165,7 +170,8 @@ function showMainWindow(): void {
   mainWindow.focus()
 }
 
-app.whenReady().then(async () => {
+const startup = app.whenReady().then(async () => {
+  installPermissionPolicy(session.defaultSession)
   electronApp.setAppUserModelId('com.yingbox.app')
 
   // 收紧 CSP（与 src/renderer/index.html 的 meta CSP 对齐）：

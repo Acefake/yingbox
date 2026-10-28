@@ -46,6 +46,7 @@ export function useLiveEpg(
     const urls = [...epgUrls.value]
     const run = ++token
     if (!iptv || !urls.length || !channels.value.length) {
+      loading.value = false
       programmes.value = {}
       error.value = ''
       return
@@ -55,28 +56,36 @@ export function useLiveEpg(
     const { from, to } = todayRange(Date.now())
     const merged: Record<string, EpgProgramme[]> = {}
     const failures: string[] = []
-    for (const url of urls) {
-      const loaded = await iptv.loadEpg(url, force)
-      if (!loaded.ok) {
-        failures.push(loaded.error || url)
-        continue
+    try {
+      for (const url of urls) {
+        const loaded = await iptv.loadEpg(url, force)
+        if (run !== token) return
+        if (!loaded.ok) {
+          failures.push(loaded.error || url)
+          continue
+        }
+        for (let i = 0; i < queries.length; i += EPG_QUERY_LIMIT) {
+          const result = await iptv.epgProgrammes(
+            url,
+            queries.slice(i, i + EPG_QUERY_LIMIT),
+            from - MARGIN_MS,
+            to + MARGIN_MS
+          )
+          if (run !== token) return
+          if (!result.ok || !result.data) continue
+          for (const [key, list] of Object.entries(result.data))
+            merged[key] ??= list
+        }
       }
-      for (let i = 0; i < queries.length; i += EPG_QUERY_LIMIT) {
-        const result = await iptv.epgProgrammes(
-          url,
-          queries.slice(i, i + EPG_QUERY_LIMIT),
-          from - MARGIN_MS,
-          to + MARGIN_MS
-        )
-        if (!result.ok || !result.data) continue
-        for (const [key, list] of Object.entries(result.data))
-          merged[key] ??= list
-      }
+      if (run !== token) return
+      programmes.value = merged
+      error.value = failures.length ? `节目单加载失败：${failures[0]}` : ''
+    } catch (e) {
+      if (run === token)
+        error.value = e instanceof Error ? e.message : '节目单加载失败'
+    } finally {
+      if (run === token) loading.value = false
     }
-    if (run !== token) return
-    programmes.value = merged
-    error.value = failures.length ? `节目单加载失败：${failures[0]}` : ''
-    loading.value = false
   }
 
   let timer: ReturnType<typeof setTimeout> | undefined

@@ -30,6 +30,10 @@ export interface UtilityChild {
   on(event: 'message', listener: (message: FromUtility) => void): void
   on(event: 'exit', listener: (code: number) => void): void
   kill(): boolean
+  /** 子进程的标准输出，由宿主接收管道并转发日志。 */
+  stdout?: {
+    on(event: 'data', listener: (chunk: Buffer | string) => void): void
+  } | null
   /** 子进程的 stderr（fork 时 stdio 第三项为 'pipe' 才有）：交给崩溃守卫认出缺依赖，再原样转到终端。 */
   stderr?: {
     on(event: 'data', listener: (chunk: Buffer | string) => void): void
@@ -71,6 +75,8 @@ export interface UtilityHostOptions {
   now?(): number
   /** stderr 的去处，默认写到主进程 stderr */
   writeStderr?(chunk: Buffer | string): void
+  /** stdout 的去处，默认写到主进程 stdout。 */
+  writeStdout?(chunk: Buffer | string): void
   /** 守卫停止重启时（只调一次） */
   onBlocked?(reason: string): void
 }
@@ -130,6 +136,13 @@ export class UtilityHost {
     const forkedAt = this.now()
     const child = this.opts.fork()
     this.guard.started(forkedAt)
+    child.stdout?.on(
+      'data',
+      this.opts.writeStdout ??
+        ((chunk: Buffer | string) => {
+          process.stdout.write(chunk)
+        })
+    )
     const write =
       this.opts.writeStderr ??
       ((chunk: Buffer | string) => process.stderr.write(chunk))

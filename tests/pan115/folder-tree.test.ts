@@ -9,6 +9,7 @@ import type {
   Pan115Result,
 } from '../../src/shared/contract/pan115'
 import {
+  TREE_CACHE_LIMIT,
   TREE_TTL_MS,
   createFolderTreeCache,
   useFolderTree,
@@ -45,6 +46,25 @@ const shape = (
   )
 
 describe('useFolderTree', () => {
+  it('缓存有上限，淘汰后已展开的目录仍然显示，重新打开会重读', async () => {
+    const cache = createFolderTreeCache()
+    const dirs = vi.fn(async (cid: string) => ({
+      ok: true as const,
+      cid,
+      path: [],
+      dirs: [{ cid: `${cid}-child`, name: '子目录' }],
+      truncated: false,
+    }))
+    const tree = useFolderTree(() => ({ dirs }), { cache })
+    await tree.start()
+    for (let i = 1; i <= TREE_CACHE_LIMIT; i++) await tree.load(String(i))
+    expect(cache.entries.size).toBe(TREE_CACHE_LIMIT)
+    expect(cache.entries.has('0')).toBe(false)
+    expect(shape(tree.rows.value)).toEqual(['根目录/', '  子目录'])
+    await tree.toggle('0')
+    await tree.toggle('0')
+    expect(dirs.mock.calls.filter(([cid]) => cid === '0')).toHaveLength(2)
+  })
   it('打开只读根目录；展开某个节点才读它的子文件夹', async () => {
     const dirs = dirsApi()
     const tree = useFolderTree(() => ({ dirs }), {

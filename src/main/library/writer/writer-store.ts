@@ -154,6 +154,32 @@ export class WriterStore {
     stat: { size: number; mtime: number } | null,
     now: number
   ): void {
+    const fromKey = pathKey(from)
+    const toKey = pathKey(to)
+    if (fromKey !== toKey) {
+      const outputs = isDirectory
+        ? this.sql
+            .get('SELECT path FROM writer_outputs WHERE path > ? AND path < ?')
+            .all(...subtreeRange(fromKey))
+        : this.sql
+            .get('SELECT path FROM writer_outputs WHERE path = ?')
+            .all(fromKey)
+      for (const output of outputs) {
+        const oldPath = String(output.path)
+        const nextPath = toKey + oldPath.slice(fromKey.length)
+        this.sql.get('DELETE FROM writer_outputs WHERE path = ?').run(nextPath)
+        this.sql
+          .get(
+            `UPDATE writer_outputs SET path = ?, size = COALESCE(?, size), mtime = COALESCE(?, mtime) WHERE path = ?`
+          )
+          .run(
+            nextPath,
+            isDirectory ? null : (stat?.size ?? null),
+            isDirectory ? null : (stat?.mtime ?? null),
+            oldPath
+          )
+      }
+    }
     if (isDirectory) {
       const fromKey = pathKey(from)
       const rows = this.sql

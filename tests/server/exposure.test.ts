@@ -3,7 +3,8 @@
  * 没设访问令牌照常启动并警告；设了访问令牌（YINGBOX_SERVER_TOKEN）则必须足够长、不是示例占位串，否则拒绝启动。
  */
 import { spawn, spawnSync } from 'node:child_process'
-import { existsSync, mkdtempSync, rmSync } from 'node:fs'
+import { once } from 'node:events'
+import { existsSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { describe, expect, it } from 'vitest'
@@ -151,52 +152,67 @@ describe('服务入口', () => {
     expect(stderr).toMatch(new RegExp(`${MIN_EXPOSED_TOKEN_LENGTH}`))
   })
 
-  it('对外监听且没有令牌：照常启动，日志里警告局域网可访问', async () => {
-    const dir = mkdtempSync(join(tmpdir(), 'yingbox-open-'))
-    const child = spawn(
-      process.execPath,
-      ['--import', 'tsx', 'src/server/index.ts', '--port', '0'],
-      {
-        env: {
-          PATH: process.env.PATH ?? '',
-          YINGBOX_HOST: '0.0.0.0',
-          YINGBOX_DATA_DIR: join(dir, 'data'),
-          YINGBOX_MEDIA_ROOTS: dir,
-          YINGBOX_WEB_DIR: 'off',
-          YINGBOX_WATCH: 'off',
-          YINGBOX_SCAN_INTERVAL: '0',
-          YINGBOX_ONLINE: 'off',
-        },
-      }
-    )
-    let stdout = ''
-    let stderr = ''
-    child.stdout.on('data', chunk => (stdout += String(chunk)))
-    child.stderr.on('data', chunk => (stderr += String(chunk)))
-    try {
-      await new Promise<void>((resolve, reject) => {
-        const timer = setTimeout(
-          () => reject(new Error(`没等到启动日志：${stdout}${stderr}`)),
-          45_000
-        )
-        const check = (): void => {
-          if (/片库服务已启动/.test(stdout) && /警告/.test(stderr)) {
-            clearTimeout(timer)
-            resolve()
-          }
+  it.each(['', strong])(
+    '令牌为 %s：服务正常启动，日志不泄露令牌，无令牌时保留警告',
+    async token => {
+      const dir = mkdtempSync(join(tmpdir(), 'yingbox-open-'))
+      writeFileSync(join(dir, 'index.html'), '<html>影盒</html>')
+      const child = spawn(
+        process.execPath,
+        ['--import', 'tsx', 'src/server/index.ts', '--port', '0'],
+        {
+          env: {
+            PATH: process.env.PATH ?? '',
+            YINGBOX_HOST: '0.0.0.0',
+            YINGBOX_SERVER_TOKEN: token,
+            YINGBOX_DATA_DIR: join(dir, 'data'),
+            YINGBOX_MEDIA_ROOTS: dir,
+            YINGBOX_WEB_DIR: dir,
+            YINGBOX_WATCH: 'off',
+            YINGBOX_SCAN_INTERVAL: '0',
+            YINGBOX_ONLINE: 'off',
+          },
         }
-        child.stdout.on('data', check)
-        child.stderr.on('data', check)
-        child.once('exit', code => {
-          clearTimeout(timer)
-          reject(new Error(`服务提前退出（${code}）：${stderr}`))
+      )
+      let stdout = ''
+      let stderr = ''
+      const exited = once(child, 'close')
+      child.stdout.on('data', chunk => (stdout += String(chunk)))
+      child.stderr.on('data', chunk => (stderr += String(chunk)))
+      try {
+        await new Promise<void>((resolve, reject) => {
+          const timer = setTimeout(
+            () => reject(new Error(`没等到启动日志：${stdout}${stderr}`)),
+            45_000
+          )
+          const check = (): void => {
+            if (/访问令牌：/.test(stdout) && (token || /警告/.test(stderr))) {
+              clearTimeout(timer)
+              resolve()
+            }
+          }
+          child.stdout.on('data', check)
+          child.stderr.on('data', check)
+          child.once('exit', code => {
+            clearTimeout(timer)
+            reject(new Error(`服务提前退出（${code}）：${stderr}`))
+          })
         })
-      })
-      expect(stdout).toMatch(/访问令牌：未设置，不鉴权/)
-      expect(stderr).toMatch(/任何人都能访问/)
-    } finally {
-      child.kill('SIGKILL')
-      rmSync(dir, { recursive: true, force: true })
-    }
-  }, 60_000)
+        expect(stdout).toContain('网页端：http://')
+        expect(stdout).not.toContain('?token=')
+        if (token) {
+          expect(stdout + stderr).not.toContain(token)
+          expect(stdout).toContain('访问令牌：已开启')
+        } else {
+          expect(stdout).toMatch(/访问令牌：未设置，不鉴权/)
+          expect(stderr).toMatch(/任何人都能访问/)
+        }
+      } finally {
+        child.kill('SIGKILL')
+        await exited
+        rmSync(dir, { recursive: true, force: true })
+      }
+    },
+    60_000
+  )
 })

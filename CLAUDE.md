@@ -59,7 +59,7 @@ Path aliases (defined in `electron.vite.config.ts` and `tsconfig.*.json`):
 - `@preload` → `src/preload`
 - `@shared` → `src/shared`
 
-Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB is called from the renderer; online sources go through the engine (`window.api.online` etc.).
+Dev server runs on `127.0.0.1:3000`. There is no dev proxy: TMDB requests go through the engine; online sources go through the engine (`window.api.online` etc.).
 
 **Main process** ([src/main/index.ts](src/main/index.ts)) bootstraps the window and wires per-domain modules:
 
@@ -128,16 +128,16 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 
 ### Tech stack summary
 
-| Layer             | Technology                                 |
-| ----------------- | ------------------------------------------ |
-| Desktop shell     | Electron 37                                |
-| Build tooling     | electron-vite 5, Vite 7                    |
-| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4      |
-| UI kit            | own `components/ui/`, Tailwind CSS 4       |
-| Engine            | Electron utilityProcess, `net.fetch`       |
-| Library           | utilityProcess engine, `node:sqlite`       |
-| CatSpider runtime | cheerio, crypto-js (engine plugin sandbox) |
-| Package manager   | pnpm                                       |
+| Layer             | Technology                            |
+| ----------------- | ------------------------------------- |
+| Desktop shell     | Electron 37                           |
+| Build tooling     | electron-vite 5, Vite 7               |
+| Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4 |
+| UI kit            | own `components/ui/`, Tailwind CSS 4  |
+| Engine            | Electron utilityProcess, `net.fetch`  |
+| Library           | utilityProcess engine, `node:sqlite`  |
+| CatSpider runtime | QuickJS WASM + restricted host APIs   |
+| Package manager   | pnpm                                  |
 
 ## Engineering gates and decisions
 

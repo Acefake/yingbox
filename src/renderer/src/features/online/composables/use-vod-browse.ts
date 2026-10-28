@@ -65,6 +65,8 @@ export function useVodBrowse(): UseVodBrowseReturn {
   const error = ref('')
   const currentPage = ref(1)
   const hasMore = ref(true)
+  let cardsRun = 0
+  let sourcesRun = 0
 
   const activeSource = computed(
     () => sources.value[activeSourceIdx.value] || null
@@ -75,6 +77,9 @@ export function useVodBrowse(): UseVodBrowseReturn {
    * 加载所有 CatSpider 源的分类配置
    */
   const loadSources = async (sites: CatSpiderSite[]): Promise<void> => {
+    const run = ++sourcesRun
+    cardsRun++
+    loading.value = false
     loadingSources.value = true
     error.value = ''
 
@@ -90,7 +95,13 @@ export function useVodBrowse(): UseVodBrowseReturn {
       }
     })
 
+    if (run !== sourcesRun) return
     sources.value = results.filter(source => source.loaded)
+    activeSourceIdx.value = 0
+    activeTabIdx.value = 0
+    currentPage.value = 1
+    cards.value = []
+    hasMore.value = true
 
     loadingSources.value = false
 
@@ -154,6 +165,8 @@ export function useVodBrowse(): UseVodBrowseReturn {
     tabIdx: number,
     page: number = 1
   ): Promise<void> => {
+    const run = ++cardsRun
+    loading.value = false
     const src = sources.value[sourceIdx]
     if (!src) return
 
@@ -170,6 +183,7 @@ export function useVodBrowse(): UseVodBrowseReturn {
         ext: JSON.stringify(tab.ext),
         page,
       })
+      if (run !== cardsRun) return
 
       if (!r.success || !r.data) {
         if (page === 1) cards.value = []
@@ -199,10 +213,11 @@ export function useVodBrowse(): UseVodBrowseReturn {
       currentPage.value = page
       hasMore.value = newCards.length > 0
     } catch (e) {
+      if (run !== cardsRun) return
       error.value = e instanceof Error ? e.message : '加载失败'
       if (page === 1) cards.value = []
     } finally {
-      loading.value = false
+      if (run === cardsRun) loading.value = false
     }
   }
 

@@ -15,8 +15,10 @@
  * 该目录已被 .gitignore 忽略，不进入版本库。
  */
 import { spawnSync } from 'node:child_process'
+import { createHash } from 'node:crypto'
 import {
   createWriteStream,
+  createReadStream,
   existsSync,
   mkdirSync,
   rmSync,
@@ -33,6 +35,8 @@ const DEST = path.join(ROOT, 'resources', 'mpv')
 
 /** 固定版本，保证构建可复现 */
 const RELEASE = '20261015'
+const SHA256 =
+  'f9becefe40e2a29d2ce5f3ab231ff094f9cf3e4038ff014cfe4a0c09ad90e79e'
 const ARCHIVE = `mpv-x86_64-${RELEASE}-git-492bae0768.7z`
 const URL = `https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/${RELEASE}/${ARCHIVE}`
 
@@ -97,6 +101,9 @@ async function download(url, file) {
   const res = await fetch(url, { redirect: 'follow' })
   if (!res.ok || !res.body) throw new Error(`下载失败 HTTP ${res.status}`)
   await pipeline(Readable.fromWeb(res.body), createWriteStream(file))
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(file)) hash.update(chunk)
+  if (hash.digest('hex') !== SHA256) throw new Error('mpv 下载校验失败')
   log('已保存', `${(statSync(file).size / 1024 / 1024).toFixed(1)} MB`)
 }
 

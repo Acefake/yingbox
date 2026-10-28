@@ -33,8 +33,8 @@ function forkEngine(): LibraryChild {
     [dbPath, mediaDir],
     {
       serviceName: 'yingbox-library',
-      // stderr 先过崩溃守卫（认出缺依赖），再原样转到终端
-      stdio: ['ignore', 'inherit', 'pipe'],
+      // 管道不依赖启动应用的终端句柄，资源管理器双击也能启动子进程。
+      stdio: ['ignore', 'pipe', 'pipe'],
       // node:sqlite 在 Node 22 仍标记为实验特性，屏蔽每次启动的提示
       execArgv: ['--disable-warning=ExperimentalWarning'],
     }

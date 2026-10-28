@@ -36,7 +36,7 @@
     "check:size": "node scripts/check-size.mjs --strict",
     "check:copy": "node scripts/check-copy.mjs",
     "perf:static": "node scripts/measure-static.mjs",
-    "check:fix": "bash scripts/check-issues.sh && pnpm lint --fix",
+    "check:fix": "eslint --cache --fix . && bash scripts/check-issues.sh",
     "test": "vitest run",
     "test:affected": "node scripts/test-affected.mjs",
     "test:watch": "vitest",

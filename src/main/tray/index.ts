@@ -15,7 +15,7 @@ import {
   nativeImage,
   systemPreferences,
 } from 'electron'
-import trayIconIco from '../../../resources/logo.ico?asset'
+import trayIconIco from '../../../resources/logo.ico?asset&asarUnpack'
 import trayIconPng from '../../../build/icon.png?asset'
 import { emit, implement } from '../rpc'
 import { onSettingChanged, settingsStore } from '../settings'

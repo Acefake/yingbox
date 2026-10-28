@@ -293,10 +293,22 @@ async function main() {
     )
   if (planOnly || (plan.mode !== 'full' && !tests.length)) return
 
-  const result = spawnSync('npx', ['vitest', 'run', ...tests, ...passthrough], {
-    cwd: ROOT,
-    stdio: 'inherit',
-  })
+  const result = spawnSync(
+    process.execPath,
+    [
+      join(
+        dirname(fileURLToPath(import.meta.resolve('vitest/package.json'))),
+        'vitest.mjs'
+      ),
+      'run',
+      ...tests,
+      ...passthrough,
+    ],
+    {
+      cwd: ROOT,
+      stdio: 'inherit',
+    }
+  )
   process.exitCode = result.status ?? 1
 }
 

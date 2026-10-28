@@ -12,6 +12,8 @@ import { errorText } from '../utils/netdisk-rules'
 
 /** 缓存多久后展开时重读 */
 export const TREE_TTL_MS = 5 * 60_000
+/** 跨组件缓存的目录数上限。 */
+export const TREE_CACHE_LIMIT = 200
 
 /** 一个节点读到的子文件夹 */
 interface CachedDirs {
@@ -23,7 +25,7 @@ interface CachedDirs {
 /** 子文件夹缓存（可跨组件实例共用） */
 export interface FolderTreeCache {
   entries: Map<string, CachedDirs>
-  pending: Map<string, Promise<void>>
+  pending: Map<string, Promise<CachedDirs>>
 }
 
 /** 新建一份缓存（测试、或要和全页隔离时用） */
@@ -80,15 +82,11 @@ export function useFolderTree(
   const expanded = reactive(new Set<string>())
   const loading = reactive(new Set<string>())
   const errors = reactive(new Map<string, string>())
+  const visibleEntries = new Map<string, CachedDirs>()
   /** 共用缓存不是响应式的：写入后拨一下版本号让 rows 重算 */
   const version = shallowRef(0)
 
-  const fresh = (cid: string): boolean => {
-    const hit = cache.entries.get(cid)
-    return !!hit && now() - hit.at < TREE_TTL_MS
-  }
-
-  async function fetchDirs(cid: string): Promise<void> {
+  async function fetchDirs(cid: string): Promise<CachedDirs> {
     let result: Awaited<ReturnType<Api['pan115']['dirs']>>
     try {
       result = await api().dirs(cid)
@@ -96,15 +94,29 @@ export function useFolderTree(
       result = { ok: false, error: `读取文件夹失败：${errorText(e)}` }
     }
     if (!result.ok) throw new Error(result.error)
-    cache.entries.set(cid, {
+    const entry = {
       dirs: result.dirs.map(({ cid: id, name }) => ({ cid: id, name })),
       truncated: result.truncated,
       at: now(),
-    })
+    }
+    cache.entries.delete(cid)
+    cache.entries.set(cid, entry)
+    while (cache.entries.size > TREE_CACHE_LIMIT)
+      cache.entries.delete(cache.entries.keys().next().value!)
+    return entry
   }
 
   async function load(cid: string, force = false): Promise<void> {
-    if (!force && fresh(cid)) return
+    for (const [key, entry] of cache.entries)
+      if (now() - entry.at >= TREE_TTL_MS) cache.entries.delete(key)
+    const hit = cache.entries.get(cid)
+    if (!force && hit) {
+      cache.entries.delete(cid)
+      cache.entries.set(cid, hit)
+      if (expanded.has(cid)) visibleEntries.set(cid, hit)
+      version.value++
+      return
+    }
     let task = cache.pending.get(cid)
     if (!task) {
       task = fetchDirs(cid).finally(() => cache.pending.delete(cid))
@@ -113,7 +125,8 @@ export function useFolderTree(
     loading.add(cid)
     errors.delete(cid)
     try {
-      await task
+      const entry = await task
+      if (expanded.has(cid)) visibleEntries.set(cid, entry)
     } catch (e) {
       errors.set(cid, (e as Error).message)
     } finally {
@@ -125,6 +138,7 @@ export function useFolderTree(
   async function toggle(cid: string): Promise<void> {
     if (expanded.has(cid)) {
       expanded.delete(cid)
+      visibleEntries.delete(cid)
       return
     }
     expanded.add(cid)
@@ -143,7 +157,7 @@ export function useFolderTree(
     if (loading.has(cid)) return note('正在读取…')
     const error = errors.get(cid)
     if (error) return note(error, 'danger')
-    const hit = cache.entries.get(cid)
+    const hit = visibleEntries.get(cid) ?? cache.entries.get(cid)
     if (!hit) return
     if (!hit.dirs.length && !hit.truncated) return note('没有子文件夹')
     for (const dir of hit.dirs) {

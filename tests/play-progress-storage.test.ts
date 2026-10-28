@@ -18,6 +18,21 @@ const KEY = 'media_play_progress'
 beforeEach(() => localStorage.clear())
 
 describe('续播进度存储', () => {
+  it('丢弃坏条目并继续保存有效进度', () => {
+    localStorage.setItem(
+      KEY,
+      JSON.stringify({
+        bad: null,
+        wrong: { progress: 'x' },
+        good: { progress: 1, duration: 5, updatedAt: 1 },
+      })
+    )
+    expect(() => saveMediaProgress('new', 2, 5)).not.toThrow()
+    expect(JSON.parse(localStorage.getItem(KEY)!)).toEqual({
+      good: { progress: 1, duration: 5, updatedAt: 1 },
+      new: { progress: 2, duration: 5, updatedAt: expect.any(Number) },
+    })
+  })
   it('升级前写下的进度照常读出', () => {
     localStorage.setItem(
       KEY,

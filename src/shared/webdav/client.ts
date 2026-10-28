@@ -72,6 +72,8 @@ export function davBasePath(url: string): string {
 
 /** 源地址 + 远程路径 → 请求地址；目录可要求结尾斜杠（部分服务端对目录不带斜杠会 301）。 */
 export function davUrl(base: string, path: string, dir = false): string {
+  if (normalizeRemotePath(path).split('/').includes('..'))
+    throw new DavError('protocol', '远程路径不能包含上级目录')
   const root = base.replace(/\/+$/, '')
   const encoded = encodeRemotePath(path)
   const tail = encoded === '/' ? '/' : dir ? `${encoded}/` : encoded

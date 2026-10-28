@@ -4,40 +4,8 @@ copyright: © 2024 影盒团队
 directories:
   buildResources: build
   output: dist
-files:
-  # 只允许运行所需内容进 app.asar：out/ + package.json + node_modules(生产依赖)。
-  # 其余仓库内容一律排除——否则 dist/、packages/、.claude/ 会把 asar 撑到几百 MB，
-  # 既拖慢启动也让打包极易出错。
-  - '!packages/**'
-  - '!resources/**'
-  - '!dist/**'
-  - '!dist-web/**'
-  - '!out-*/**'
-  - '!output/**'
-  - '!src/**'
-  - '!tests/**'
-  - '!scripts/**'
-  - '!docs/**'
-  - '!build/**'
-  - '!.claude/**'
-  - '!.codex_tmp/**'
-  - '!.omo/**'
-  - '!.commandcode/**'
-  - '!.playwright-cli/**'
-  - '!.github/**'
-  - '!.vscode/**'
-  - '!**/*.map'
-  - '!**/*.md'
-  - '!*.log'
-  - '!electron.vite.config.{js,ts,mjs,cjs}'
-  - '!vite.config.web.{js,ts,mjs,cjs}'
-  - '!vitest.config.{js,ts,mjs,cjs}'
-  - '!{tailwind.config.js,postcss.config.js,electron-builder.yml,cms-sites.json,vod-source-results.log}'
-  - '!{.eslintcache,eslint.config.mjs,.prettierignore,.prettierrc,.prettierrc.yaml,dev-app-update.yml,CHANGELOG.md,README.md}'
-  - '!{.env,.env.*,.npmrc,pnpm-lock.yaml}'
-  - '!{tsconfig.json,tsconfig.node.json,tsconfig.web.json}'
 asarUnpack:
-  - resources/**
+  - resources/logo.ico
   # 按画面搜的推理运行时（原生模块 + 动态库）不能留在 asar 里
   - node_modules/onnxruntime-node/bin/**
 extraResources:
@@ -46,6 +14,10 @@ extraResources:
 win:
   # 只带本平台 / 架构的推理运行时（每份 30–60 MB）
   files:
+    - resources/logo.ico
+    - out/**
+    - package.json
+    - '!**/*.map'
     - '!node_modules/onnxruntime-node/bin/napi-v6/{darwin,linux}/**'
     - '!node_modules/onnxruntime-node/bin/napi-v6/win32/arm64/**'
   executableName: 影盒
@@ -72,6 +44,9 @@ nsis:
   createStartMenuShortcut: true
 mac:
   files:
+    - out/**
+    - package.json
+    - '!**/*.map'
     - '!node_modules/onnxruntime-node/bin/napi-v6/{win32,linux}/**'
   entitlementsInherit: build/entitlements.mac.plist
   extendInfo:
@@ -84,6 +59,9 @@ dmg:
   artifactName: ${name}-${version}.${ext}
 linux:
   files:
+    - out/**
+    - package.json
+    - '!**/*.map'
     - '!node_modules/onnxruntime-node/bin/napi-v6/{win32,darwin}/**'
   target:
     - AppImage

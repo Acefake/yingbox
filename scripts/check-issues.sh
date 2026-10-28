@@ -21,9 +21,8 @@ WARNINGS=0
 # 1. TypeScript 类型检查
 echo "1. 运行 TypeScript 类型检查..."
 echo "-----------------------------------------"
-if pnpm typecheck:web 2>&1 | grep -q "error TS"; then
+if ! pnpm typecheck; then
     echo -e "${RED}❌ 发现 TypeScript 错误${NC}"
-    pnpm typecheck:web 2>&1 | grep "error TS" | head -20
     ERRORS=$((ERRORS + 1))
 else
     echo -e "${GREEN}✅ TypeScript 类型检查通过${NC}"
@@ -33,10 +32,9 @@ echo ""
 # 2. ESLint 检查（如果配置正常）
 echo "2. 运行 ESLint 代码规范检查..."
 echo "-----------------------------------------"
-if pnpm lint 2>&1 | grep -q "error\|warning"; then
+if ! pnpm lint; then
     echo -e "${YELLOW}⚠️ 发现 ESLint 问题${NC}"
-    pnpm lint 2>&1 | grep "error\|warning" | head -10
-    WARNINGS=$((WARNINGS + 1))
+    ERRORS=$((ERRORS + 1))
 else
     echo -e "${GREEN}✅ ESLint 检查通过${NC}"
 fi

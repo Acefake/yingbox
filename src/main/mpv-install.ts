@@ -8,7 +8,8 @@
  */
 import { app, net } from 'electron'
 import { spawn } from 'child_process'
-import { createWriteStream, existsSync } from 'fs'
+import { createReadStream, createWriteStream, existsSync } from 'fs'
+import { createHash } from 'node:crypto'
 import { mkdir, rename, rm, stat } from 'fs/promises'
 import { tmpdir } from 'os'
 import { join } from 'path'
@@ -18,6 +19,8 @@ import { pipeline } from 'stream/promises'
 
 /** 固定版本（与 scripts/fetch-mpv.mjs 相同），保证可复现 */
 export const MPV_RELEASE = '20261015'
+export const MPV_SHA256 =
+  'f9becefe40e2a29d2ce5f3ab231ff094f9cf3e4038ff014cfe4a0c09ad90e79e'
 export const MPV_ARCHIVE = `mpv-x86_64-${MPV_RELEASE}-git-492bae0768.7z`
 export const MPV_URL = `https://github.com/shinchiro/mpv-winbuild-cmake/releases/download/${MPV_RELEASE}/${MPV_ARCHIVE}`
 
@@ -65,6 +68,15 @@ async function download(url: string, file: string): Promise<void> {
     createWriteStream(file)
   )
   if ((await stat(file)).size < 1024 * 1024) throw new Error('下载的文件不完整')
+  await verifyMpvArchive(file)
+}
+
+/** 解压前核对固定发布包的 SHA-256，拒绝损坏或被替换的内容。 */
+export async function verifyMpvArchive(file: string): Promise<void> {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(file)) hash.update(chunk)
+  if (hash.digest('hex') !== MPV_SHA256)
+    throw new Error('mpv 下载校验失败，请重试')
 }
 
 /** 下载 → 解压到临时目录 → 整体换到 userMpvDir，返回 mpv.exe 路径 */

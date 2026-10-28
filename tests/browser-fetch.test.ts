@@ -79,6 +79,8 @@ vi.mock('electron', () => {
     }
   }
   const fromPartition = (partition: string): unknown => ({
+    setPermissionCheckHandler: vi.fn(),
+    setPermissionRequestHandler: vi.fn(),
     setUserAgent: () => {},
     webRequest: { onBeforeRequest: () => {} },
     fetch: async (url: string, init: RequestInit) => {

@@ -3,6 +3,7 @@ import { lookup } from 'node:dns/promises'
 import { type Session, session } from 'electron'
 import { type LookupAll, assertPublicTarget } from '../../shared/net/guard'
 import { PARTITION } from './page'
+import { installPermissionPolicy } from '../permissions'
 
 const installed = new WeakSet<Session>()
 
@@ -11,6 +12,7 @@ export function installBrowserNetworkGuard(
   resolve: LookupAll = host => lookup(host, { all: true })
 ): void {
   if (installed.has(target)) return
+  installPermissionPolicy(target)
   target.webRequest.onBeforeRequest(
     { urls: ['<all_urls>'] },
     (details, callback) => {

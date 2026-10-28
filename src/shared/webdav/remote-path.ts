@@ -42,9 +42,11 @@ export function parseRemotePath(
   const slash = rest.indexOf('/')
   const sourceId = slash < 0 ? rest : rest.slice(0, slash)
   if (!SOURCE_ID_RE.test(sourceId)) return null
+  const path = normalizeRemotePath(slash < 0 ? '/' : rest.slice(slash))
+  if (path.split('/').includes('..')) return null
   return {
     sourceId,
-    path: normalizeRemotePath(slash < 0 ? '/' : rest.slice(slash)),
+    path,
   }
 }
 
@@ -82,7 +84,9 @@ export function parseRemoteMediaUrl(
   if (!SOURCE_ID_RE.test(parsed.host)) return null
   let path: string
   try {
-    path = parsed.pathname.split('/').map(decodeURIComponent).join('/')
+    path = normalizeRemotePath(
+      parsed.pathname.split('/').map(decodeURIComponent).join('/')
+    )
   } catch {
     return null
   }

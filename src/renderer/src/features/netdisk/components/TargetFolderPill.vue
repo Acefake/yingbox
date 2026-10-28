@@ -7,7 +7,8 @@
       :variant="variant"
       :size="size"
       icon="folder"
-      aria-haspopup="true"
+      aria-haspopup="dialog"
+      :aria-controls="panelId"
       :aria-expanded="open"
       :disabled="disabled"
       @click="toggle"
@@ -18,6 +19,7 @@
     <Teleport to="body">
       <div
         v-if="open"
+        :id="panelId"
         ref="panel"
         class="target-pill-panel"
         :style="place"
@@ -31,8 +33,7 @@
               v-for="preset in presets"
               :key="preset.key"
               :selected="active === preset.key"
-              role="menuitemradio"
-              :aria-checked="active === preset.key"
+              :aria-pressed="active === preset.key"
               @click="pickPreset(preset.key)"
             >
               <template #leading
@@ -51,8 +52,7 @@
               v-for="item in recent"
               :key="item.cid"
               :selected="!active && item.cid === folder.cid"
-              role="menuitemradio"
-              :aria-checked="!active && item.cid === folder.cid"
+              :aria-pressed="!active && item.cid === folder.cid"
               @click="pickFolder(item)"
             >
               <template #leading><UiIcon name="history" size="sm" /></template>
@@ -93,7 +93,7 @@
  * 从最近使用或目录树选的文件夹记进最近使用。点外面、页面滚动、窗口失焦或 Esc（useEscapeLayer）关上。
  * 面板挂到 body、按胶囊位置 fixed 定位（下方放不下时翻到上方）：Hero（overflow 隐藏）与设置面板的滚动区都不会把它裁掉。
  */
-import { computed, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, useId, watch } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
@@ -137,8 +137,13 @@ const props = withDefaults(
 )
 const emit = defineEmits<{ pick: [pick: FolderPick] }>()
 
+const panelId = useId()
 const open = ref(false)
 const view = ref<'menu' | 'browse'>('menu')
+watch(view, () => {
+  if (open.value)
+    void nextTick(() => panel.value?.querySelector('button')?.focus())
+})
 const recent = ref<TargetFolder[]>([])
 const root = ref<HTMLElement | null>(null)
 const panel = ref<HTMLElement | null>(null)
@@ -167,6 +172,8 @@ function onScroll(event: Event): void {
 
 function close(): void {
   if (!open.value) return
+  if (panel.value?.contains(document.activeElement))
+    root.value?.querySelector('button')?.focus()
   open.value = false
   window.removeEventListener('pointerdown', onPointerDown, true)
   window.removeEventListener('scroll', onScroll, true)
@@ -199,6 +206,11 @@ function toggle(): void {
   view.value = 'menu'
   measure()
   open.value = true
+  void nextTick(() =>
+    panel.value
+      ?.querySelector<HTMLButtonElement>('button[aria-pressed="true"], button')
+      ?.focus()
+  )
   window.addEventListener('pointerdown', onPointerDown, true)
   window.addEventListener('scroll', onScroll, true)
   window.addEventListener('resize', close)

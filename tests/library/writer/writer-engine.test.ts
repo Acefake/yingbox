@@ -19,6 +19,7 @@ import { handleRpc } from '../../../src/main/library/engine/rpc'
 import { LibraryService } from '../../../src/main/library/engine/service'
 import type { MoveOps } from '../../../src/main/library/writer/fs/file-ops'
 import { pathLimit } from '../../../src/main/library/writer/organize/organize-planner'
+import { WriterStore } from '../../../src/main/library/writer/writer-store'
 import {
   DEFAULT_WRITER_SETTINGS,
   type LibraryEvent,
@@ -352,6 +353,11 @@ describe('整理（改名移动）', () => {
     const earth = env.itemOf('流浪地球.2019.mkv')
     await env.write([heat])
     const before = env.service.getItem({ itemId: heat })!
+    const outputs = new WriterStore(env.service.db)
+    const oldPoster = env.path('Heat.1995.1080p-poster.jpg')
+    const newPoster = env.path('盗火线 (1995)/盗火线 (1995)-poster.jpg')
+    const outputBefore = outputs.output(oldPoster)
+    expect(outputBefore).toBeDefined()
     const countItems = (): number =>
       Number(
         env.service.db.prepare('SELECT COUNT(*) AS n FROM media_items').get()!.n
@@ -372,6 +378,11 @@ describe('整理（改名移动）', () => {
       '盗火线 (1995).zh.srt',
     ])
     expect(existsSync(env.path('Heat.1995.1080p.mkv'))).toBe(false)
+    expect(outputs.output(oldPoster)).toBeUndefined()
+    expect(outputs.output(newPoster)).toMatchObject({
+      hash: outputBefore!.hash,
+      fields: outputBefore!.fields,
+    })
     expect(existsSync(env.path('流浪地球 (2019)/流浪地球 (2019).mkv'))).toBe(
       true
     )
@@ -401,6 +412,10 @@ describe('整理（改名移动）', () => {
     env.service.writer.undoOrganize(batchId)
     await env.service.queue.idle()
     expect(read(env.path('Heat.1995.1080p.mkv'))).toBe('heat')
+    expect(outputs.output(newPoster)).toBeUndefined()
+    expect(outputs.output(oldPoster)).toMatchObject({
+      hash: outputBefore!.hash,
+    })
     expect(read(env.path('Heat.1995.1080p.zh.srt'))).toBe('sub')
     expect(existsSync(env.path('Heat.1995.1080p-poster.jpg'))).toBe(true)
     expect(existsSync(env.path('盗火线 (1995)'))).toBe(false)
@@ -472,6 +487,10 @@ describe('整理（改名移动）', () => {
     await env.write([id])
     mkdirSync(env.path('请回答1988/.actors'))
     writeFileSync(env.path('请回答1988/.actors/a.jpg'), 'a')
+    const outputs = new WriterStore(env.service.db)
+    const actorPath = env.path('请回答1988/.actors/a.jpg')
+    const actorRecord = { hash: 'actor', size: 1, mtime: 0, fields: null }
+    outputs.putOutput(actorPath, id, 'image', actorRecord, Date.now())
     const plan = await env.service.writer.previewOrganize([id])
     expect(plan.entries.filter(e => e.conflict)).toEqual([])
     const video = plan.entries.find(e => e.kind === 'video')!
@@ -492,6 +511,8 @@ describe('整理（改名移动）', () => {
       readdirSync(join(showDir, 'Season 01')).some(n => n.endsWith('.chs.ass'))
     ).toBe(true)
     expect(existsSync(env.path('请回答1988'))).toBe(false)
+    expect(outputs.output(actorPath)).toBeUndefined()
+    expect(outputs.output(join(showDir, '.actors/a.jpg'))).toEqual(actorRecord)
     await env.service.close()
   })
 })

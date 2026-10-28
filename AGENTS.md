@@ -12,7 +12,7 @@
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
 - **内置播放器** — in-app player modal (desktop and web, ADR-0015; YouTube-style keys / gear menu / next-episode countdown and HDR / Dolby Vision detection with DV P5 → mpv, ADR-0016): local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
-Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; the desktop app never talks to it.
+Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; desktop library access uses IPC; optional progress sync uses this server.
 
 ## Common commands
 
@@ -100,13 +100,13 @@ The same library core runs in a plain Node process for the web build / NAS; host
 
 ### App settings
 
-- Scrape prefs: settings `scrape.metadataLanguage` / `scrape.imageSize.*` are the one source; main / the library server push them to the library engine (`setScrapePrefs`, `shared/library/scrape-prefs.ts`). localStorage: `folderContent_*` (tree cache), `player_playback_rate`
+- Scrape prefs: settings `scrape.metadataLanguage` / `scrape.imageSize.*` are the one source; main / the library server push them to the library engine (`setScrapePrefs`, `shared/library/scrape-prefs.ts`). localStorage: `player_playback_rate`
 - Download directory: setting `download.dir` in `settings.json` (Settings → 下载)
 - Env: `VITE_TMDB_ACCESS_TOKEN` (or `YINGBOX_TMDB_TOKEN`) — optional dev-only default TMDB token, read by the main process / library engine at runtime; never commit a real one (see `.env.example`)
 
 ### Tests
 
-`pnpm test` — Vitest (node env), `tests/` covers main-process pure logic: Range parsing, `local://` path mapping, subtitle decoding/conversion, SSRF IP classification, library scan / identify. Vue components are not unit-tested.
+`pnpm test` — Vitest (node env), `tests/` covers main-process pure logic: Range parsing, `local://` path mapping, subtitle decoding/conversion, SSRF IP classification, library scan / identify. Vue component tests use jsdom.
 
 ### Build pipeline
 

@@ -122,7 +122,7 @@
 | —                        | `YINGBOX_TORZNAB_API_KEY`                 | 无                            | 配合上一项的 Prowlarr / Jackett API Key                                                   |
 | —                        | `YINGBOX_MOUNT_ROOT`                      | 无                            | 115 在片库容器里的挂载根（CloudDrive2），转存后入库通知用来对路径；设了之后网页端改不了   |
 
-数据目录里的 `secrets.json` 存着访问令牌、网页端填写的 TMDB 令牌、115 登录会话和 Torznab 地址 / API Key，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
+数据目录里的 `secrets.json` 存着网页端填写的 TMDB 令牌、115 登录会话和 Torznab 地址 / API Key，`pan115-cookies.json` 存着 115 的登录 Cookie。NAS 上没有系统密钥链，安全性等于这个文件的权限（服务会设成 0600），请让数据目录只对服务用户可读。
 
 ## 部署
 
@@ -354,7 +354,7 @@ YINGBOX_FETCH=curl:/usr/local/bin/curl_chrome116 pnpm start:server
 
 - 浏览器解码能力有限：MP4 / WebM 里的 H.264、VP9、AV1 一般没问题；MKV、HEVC、DTS 音轨等视浏览器而定，播不了时播放器显示错误面板（可改用桌面版）。没有服务端转码。
 - 没有 mpv；播放器里的在线字幕搜索 / 下载只有桌面版。ass 字幕转成 WebVTT 后只保留文字，没有样式。
-- Docker 镜像里没有 ffmpeg：要 HDR / 杜比视界标和内封字幕判断，基于镜像装一层 ffmpeg，或设 `YINGBOX_FFPROBE` 指向挂进来的程序。
+- 默认 Docker 镜像不带 ffmpeg（`WITH_CHROMIUM` 构建包含 ffmpeg）：要 HDR / 杜比视界标和内封字幕判断，基于镜像装一层 ffmpeg，或设 `YINGBOX_FFPROBE` 指向挂进来的程序。
 - 只能访问媒体根目录以内的文件夹（服务端强制）。
 - 在线板块与下载经服务端引擎（见「在线播放」）；网盘、追更、找 115 资源也在网页端可用（见「网盘与追更」），入库推送只在桌面端；直播、AI 等其它桌面端板块网页端仍不可用。
 - 在线源被 Cloudflare 拦下时，没开浏览器代抓就只能标成不可用；开了也过不了需要人工点的验证。
