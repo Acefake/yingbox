@@ -7,6 +7,7 @@
       'is-phone': isPhone,
       'is-web': isWeb,
       'sidebar-open': isPhone && sidebarOpen,
+      'has-online-detail': onlineDetailOpen,
     }"
   >
     <div
@@ -38,7 +39,10 @@
       </main>
 
       <!-- 顶部浮动胶囊（手机菜单、窗口键），整条保留窗口拖拽区域 -->
-      <AppToolbar @open-menu="sidebarOpen = true" />
+      <AppToolbar
+        :detail-open="onlineDetailOpen"
+        @open-menu="sidebarOpen = true"
+      />
     </div>
 
     <!-- 全局设置面板（已融合数据源管理） -->
@@ -55,7 +59,11 @@
     />
 
     <!-- 手机底部标签栏 -->
-    <nav v-if="isPhone" class="bottom-nav" aria-label="主导航">
+    <nav
+      v-if="isPhone && !onlineDetailOpen"
+      class="bottom-nav"
+      aria-label="主导航"
+    >
       <UiNavItem
         v-for="item in bottomNavItems"
         :key="item.key"
@@ -108,6 +116,12 @@ import {
 
 const router = useRouter()
 const route = useRoute()
+const onlineDetailOpen = computed(
+  () =>
+    route.path === '/' &&
+    !!route.query.detail &&
+    typeof router.options.history.state.onlineDetail === 'string'
+)
 
 const { isElectron, isWeb, isPhone, hasLocalLibrary } = usePlatform()
 
@@ -258,6 +272,9 @@ onUnmounted(() => {
 .app-layout.is-phone .content-surface {
   padding-top: calc(var(--shell-top) + var(--safe-top));
   padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom));
+}
+.app-layout.is-phone.has-online-detail .content-surface {
+  padding-bottom: var(--safe-bottom);
 }
 .sidebar-backdrop {
   position: fixed;

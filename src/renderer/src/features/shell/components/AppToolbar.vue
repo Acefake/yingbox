@@ -2,7 +2,7 @@
   <header class="top-menu" :class="{ 'is-phone': isPhone }">
     <div class="toolbar-leading">
       <UiIconButton
-        v-if="isPhone"
+        v-if="isPhone && !detailOpen"
         class="toolbar-menu"
         icon="menu"
         label="打开菜单"
@@ -33,6 +33,7 @@ import { usePlatform } from '@/composables/use-platform'
 import { toolbarOverMedia } from '@/composables/use-shell-backdrop'
 
 const emit = defineEmits<{ 'open-menu': [] }>()
+defineProps<{ detailOpen?: boolean }>()
 
 const { isElectron, isPhone } = usePlatform()
 </script>

@@ -1,5 +1,5 @@
 <template>
-  <div class="dw-hero">
+  <div class="dw-hero" :class="{ 'is-phone': isPhone }">
     <!-- 海报 -->
     <div class="dw-poster-wrap">
       <img
@@ -16,55 +16,57 @@
     </div>
     <!-- 信息 -->
     <div class="dw-info">
-      <h1 class="dw-title">
-        {{
-          doubanDetail?.title ||
-          tmdbDetail?.title ||
-          tmdbDetail?.name ||
-          itemName
-        }}
-      </h1>
-      <h3
-        v-if="
-          doubanDetail?.originalTitle ||
-          tmdbDetail?.original_title ||
-          tmdbDetail?.original_name
-        "
-        class="dw-orig-title"
-      >
-        {{
-          doubanDetail?.originalTitle ||
-          tmdbDetail?.original_title ||
-          tmdbDetail?.original_name
-        }}
-      </h3>
-      <div class="dw-meta-row">
-        <span v-if="rating" class="dw-rating">
-          <UiIcon name="star" size="sm" filled />
-          {{ rating }}
-        </span>
-        <span v-if="year" class="dw-tag">
-          {{ year }}
-        </span>
-        <span v-if="duration" class="dw-tag">{{ duration }}</span>
-        <span v-for="g in genres.slice(0, 4)" :key="g" class="dw-tag">{{
-          g
-        }}</span>
-        <span
+      <div class="dw-summary">
+        <h1 class="dw-title">
+          {{
+            doubanDetail?.title ||
+            tmdbDetail?.title ||
+            tmdbDetail?.name ||
+            itemName
+          }}
+        </h1>
+        <h3
           v-if="
-            itemData?._source === 'catspider' || itemData?._source === 'cms'
+            doubanDetail?.originalTitle ||
+            tmdbDetail?.original_title ||
+            tmdbDetail?.original_name
           "
-          class="dw-tag"
-          :class="{
-            'source-vod': itemData._source === 'catspider',
-            'source-cms': itemData._source === 'cms',
-          }"
+          class="dw-orig-title"
         >
-          {{ itemData._source === 'catspider' ? '插件源' : 'CMS' }}
-          <template v-if="itemData.source_name"
-            >· {{ itemData.source_name }}</template
+          {{
+            doubanDetail?.originalTitle ||
+            tmdbDetail?.original_title ||
+            tmdbDetail?.original_name
+          }}
+        </h3>
+        <div class="dw-meta-row">
+          <span v-if="rating" class="dw-rating">
+            <UiIcon name="star" size="sm" filled />
+            {{ rating }}
+          </span>
+          <span v-if="year" class="dw-tag">
+            {{ year }}
+          </span>
+          <span v-if="duration" class="dw-tag">{{ duration }}</span>
+          <span v-for="g in genres.slice(0, 4)" :key="g" class="dw-tag">{{
+            g
+          }}</span>
+          <span
+            v-if="
+              itemData?._source === 'catspider' || itemData?._source === 'cms'
+            "
+            class="dw-tag"
+            :class="{
+              'source-vod': itemData._source === 'catspider',
+              'source-cms': itemData._source === 'cms',
+            }"
           >
-        </span>
+            {{ itemData._source === 'catspider' ? '插件源' : 'CMS' }}
+            <template v-if="itemData.source_name"
+              >· {{ itemData.source_name }}</template
+            >
+          </span>
+        </div>
       </div>
       <div class="dw-actions">
         <UiButton
@@ -81,12 +83,25 @@
         />
         <slot name="actions" />
       </div>
-      <p
+      <div
         v-if="doubanDetail?.intro || tmdbDetail?.overview || itemOverview"
-        class="dw-overview"
+        class="dw-overview-section"
       >
-        {{ doubanDetail?.intro || tmdbDetail?.overview || itemOverview }}
-      </p>
+        <p
+          class="dw-overview"
+          :class="{ 'is-collapsed': isPhone && !overviewExpanded }"
+        >
+          {{ doubanDetail?.intro || tmdbDetail?.overview || itemOverview }}
+        </p>
+        <UiButton
+          v-if="isPhone"
+          variant="secondary"
+          size="sm"
+          :label="overviewExpanded ? '收起简介' : '展开简介'"
+          :aria-expanded="overviewExpanded"
+          @click="overviewExpanded = !overviewExpanded"
+        />
+      </div>
       <div class="dw-meta-table">
         <div v-if="directors.length" class="dw-meta-item">
           <span class="dw-meta-label">导演</span>
@@ -110,9 +125,13 @@
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import { webImageSrc } from '@/services/thumbnails'
-import { computed } from 'vue'
+import { usePlatform } from '@/composables/use-platform'
+import { computed, ref } from 'vue'
 import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import type { Episode, OnlineDetailItem, PluginExt, TmdbDetail } from '../types'
+
+const { isPhone } = usePlatform()
+const overviewExpanded = ref(false)
 
 const props = defineProps<{
   doubanDetail?: DoubanMetadata | null
@@ -305,5 +324,38 @@ const onImgError = (e: Event): void => {
   .dw-poster-wrap {
     width: min(220px, 100%);
   }
+}
+
+.dw-hero.is-phone {
+  grid-template-columns: 96px minmax(0, 1fr);
+  gap: var(--space-4);
+}
+.dw-hero.is-phone .dw-poster-wrap {
+  width: 96px;
+}
+.dw-hero.is-phone .dw-info {
+  display: contents;
+}
+.dw-hero.is-phone .dw-info > * {
+  grid-column: 1 / -1;
+}
+.dw-hero.is-phone .dw-info > .dw-summary {
+  grid-column: 2;
+  grid-row: 1;
+}
+.dw-hero.is-phone .dw-title {
+  font-size: var(--text-xl);
+}
+.dw-hero.is-phone .dw-actions {
+  margin-bottom: 0;
+}
+.dw-hero.is-phone .dw-overview {
+  margin-bottom: var(--space-2);
+}
+.dw-overview.is-collapsed {
+  display: -webkit-box;
+  overflow: hidden;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
 }
 </style>

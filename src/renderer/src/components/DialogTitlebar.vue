@@ -84,4 +84,11 @@ defineEmits<{ close: [event: MouseEvent] }>()
   align-items: center;
   gap: var(--space-1);
 }
+
+@media (pointer: coarse) {
+  .dialog-titlebar {
+    flex-basis: var(--titlebar-height);
+    min-height: var(--titlebar-height);
+  }
+}
 </style>

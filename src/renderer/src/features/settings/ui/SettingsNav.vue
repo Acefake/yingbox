@@ -81,7 +81,8 @@ const query = defineModel<string>('query', { required: true })
 }
 
 /* ── 窄屏：顶部横向分区 ── */
-@media (max-width: 720px) {
+@media (max-width: 768px),
+  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
   .settings-nav {
     flex: 0 0 auto;
     flex-direction: row;

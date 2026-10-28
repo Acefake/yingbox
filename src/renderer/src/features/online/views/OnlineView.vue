@@ -98,7 +98,7 @@
             label="返回"
             icon="back"
             variant="glass"
-            @click="inlineDetailItem = null"
+            @click="detailRoute.close()"
           />
         </div>
         <DetailWindow :item="inlineDetailItem" />
@@ -138,17 +138,19 @@ import {
   openMediaPlayer,
 } from '@/features/player'
 import { useBrowseRoute } from '../composables/use-browse-route'
+import { useOnlineDetailRoute } from '../composables/use-online-detail-route'
 import { useHomeHero } from '../composables/use-home-hero'
 import { HOME_SECTIONS } from '../utils/hero-rules'
 import { doubanDetail } from '../utils/douban-detail'
 
 const route = useRoute()
 const router = useRouter()
-const inlineDetailItem = ref<OnlineDetailItem | null>(null)
+const detailRoute = useOnlineDetailRoute(router)
+const inlineDetailItem = detailRoute.item
 
 const handleNavigateBack = (event: Event): void => {
   if (!inlineDetailItem.value) return
-  inlineDetailItem.value = null
+  detailRoute.close()
   event.preventDefault()
 }
 onMounted(() =>
@@ -173,14 +175,11 @@ watch(
   () => route.query.tab,
   tab => {
     activeTab.value = isOnlineTab(tab) ? tab : 'home'
-    // 详情是当前在线页内的覆盖层。切换首页、最近播放、收藏或 VOD 标签时，
-    // 必须先关闭覆盖层，否则底层内容已切换但仍被详情层遮住。
-    inlineDetailItem.value = null
   }
 )
 // ─── 详情 / 搜索 ───────────────────────────────────────────
 const openDetailWindow = (item: CmsItem | OnlineDetailItem): void => {
-  inlineDetailItem.value = JSON.parse(JSON.stringify(item))
+  void detailRoute.open(item)
 }
 // 别的页面（追剧日历）请求打开的详情：跳到本页后取走
 watch(
@@ -217,7 +216,7 @@ const resumeRecentPlay = async (record: OnlinePlayRecord): Promise<void> => {
 }
 
 const openDoubanDetail = (item: DoubanItem): void => {
-  inlineDetailItem.value = doubanDetail(item)
+  void detailRoute.open(doubanDetail(item))
 }
 
 // ─── 首页 ───────────────────────────────────────────────
@@ -242,13 +241,9 @@ function scrollCollections(): void {
   })
 }
 
-// 浏览页（热门全部 / 类型 / 片单）；换目标时关掉详情覆盖层
+// 浏览页（热门全部 / 类型 / 片单）与详情共用路由历史。
 const browse = useBrowseRoute(computed(() => activeTab.value === 'home'))
 const browseTarget = browse.target
-watch(
-  () => JSON.stringify(browseTarget.value),
-  () => (inlineDetailItem.value = null)
-)
 </script>
 
 <style scoped>
@@ -376,13 +371,20 @@ watch(
   }
 }
 
-@media (max-width: 720px) {
+@media (max-width: 768px),
+  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
   .inline-detail-page {
     --detail-x: var(--space-4);
     --detail-gutter: var(--space-4);
   }
   .inline-detail-toolbar {
     top: calc(var(--safe-top) + var(--space-2));
+  }
+  .inline-detail-page :deep(.dw-content) {
+    padding-top: calc(
+      var(--safe-top) + var(--shell-pill-height) + var(--space-6)
+    );
+    padding-bottom: calc(var(--space-6) + var(--safe-bottom));
   }
 }
 

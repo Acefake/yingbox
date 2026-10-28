@@ -16,7 +16,9 @@ export interface UsePlatformReturn {
 export function usePlatform(): UsePlatformReturn {
   const isElectron = typeof window !== 'undefined' && Boolean(window.api?.win)
   const server = libraryServerState()
-  const isPhone = useMediaQuery('(max-width: 768px)')
+  const isPhone = useMediaQuery(
+    '(max-width: 768px), (max-width: 1024px) and (pointer: coarse) and (max-height: 600px)'
+  )
   const isCompact = useMediaQuery('(max-width: 1100px)')
 
   return {

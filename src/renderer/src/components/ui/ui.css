@@ -282,6 +282,21 @@ textarea:where(.ui-textarea) {
 :root[data-transparency='reduced'] .yb-pblur > i:not(:last-child) {
   display: none;
 }
+
+@media (pointer: coarse) {
+  .ui-button,
+  .ui-chip,
+  .ui-field,
+  .yb-icon-button,
+  .ui-segmented .ui-segmented-item,
+  .ui-nav-item {
+    min-width: var(--control-height-lg);
+    min-height: var(--control-height-lg);
+  }
+  .ui-input .ui-input-native {
+    font-size: var(--text-lg);
+  }
+}
 @media (prefers-reduced-transparency: reduce) {
   .yb-pblur > i:not(:last-child) {
     display: none;
