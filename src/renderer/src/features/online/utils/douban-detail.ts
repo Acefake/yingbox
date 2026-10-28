@@ -9,13 +9,15 @@ export function doubanDetail(item: DoubanItem): OnlineDetailItem {
     JSON.stringify({
       _source: 'douban',
       vod_name: item.title,
-      vod_pic: item.cover,
+      vod_pic: item.cover || item.coverSrc,
       type_name: item.type,
       vod_year: item.year,
       overview: item.overview,
       searchTitle: item.searchTitle,
       doubanUrl: item.url,
       doubanKind: item.kind,
+      doubanRating: item.rate,
+      backdrop: item.backdrop,
     })
   ) as OnlineDetailItem
 }

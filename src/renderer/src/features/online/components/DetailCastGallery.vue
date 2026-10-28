@@ -1,15 +1,15 @@
 <template>
   <!-- 演员 -->
-  <div v-if="cast.length" class="dw-cast-section">
+  <div v-if="actors.length" class="dw-cast-section">
     <h4 class="dw-section-title">演员</h4>
     <div v-scroll-x class="dw-cast-list">
-      <div v-for="actor in cast.slice(0, 14)" :key="actor.id" class="dw-actor">
+      <div
+        v-for="(actor, index) in actors.slice(0, 14)"
+        :key="index"
+        class="dw-actor"
+      >
         <img
-          :src="
-            actor.profile_path
-              ? `https://images.tmdb.org/t/p/w185${actor.profile_path}`
-              : ''
-          "
+          :src="webImageSrc(actor.photo)"
           class="dw-actor-img"
           @error="onActorImgError"
         />
@@ -29,7 +29,11 @@
         class="dw-gallery-item"
         @click="emit('open', idx)"
       >
-        <img :src="img.thumb" class="dw-gallery-img" loading="lazy" />
+        <img
+          :src="webImageSrc(img.thumb)"
+          class="dw-gallery-img"
+          loading="lazy"
+        />
       </div>
     </div>
   </div>
@@ -41,8 +45,25 @@
  * 多根节点组件，两段各自在没有数据时不渲染。
  */
 import type { DetailImage, TmdbCastMember } from '../types'
+import { computed } from 'vue'
+import { webImageSrc } from '@/services/thumbnails'
 
-defineProps<{ cast: TmdbCastMember[]; images: DetailImage[] }>()
+const props = defineProps<{
+  cast: TmdbCastMember[]
+  images: DetailImage[]
+  doubanCast?: { name: string; photo: string }[]
+}>()
+const actors = computed(() =>
+  props.cast.length
+    ? props.cast.map(actor => ({
+        name: actor.name,
+        character: actor.character || '',
+        photo: actor.profile_path
+          ? `https://images.tmdb.org/t/p/w185${actor.profile_path}`
+          : '',
+      }))
+    : (props.doubanCast ?? []).map(actor => ({ ...actor, character: '' }))
+)
 const emit = defineEmits<{ (e: 'open', index: number): void }>()
 
 const onActorImgError = (e: Event): void => {

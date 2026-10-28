@@ -10,7 +10,7 @@
         size="lg"
         @click="step(-1)"
       />
-      <img :src="images[index!].full" class="lb-img" />
+      <img :src="webImageSrc(images[index!].full)" class="lb-img" />
       <UiIconButton
         class="lb-arrow lb-next"
         icon="forward"
@@ -36,6 +36,7 @@
  * 剧照灯箱：原图、左右循环切换、点遮罩或关闭按钮退出。index 为 null 时不显示。
  */
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { webImageSrc } from '@/services/thumbnails'
 
 import type { DetailImage } from '../types'
 

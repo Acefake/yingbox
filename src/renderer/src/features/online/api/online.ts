@@ -13,6 +13,7 @@ import type {
   DoubanSubject,
 } from '../../../../../shared/douban/query'
 import { online } from '../../../../../shared/contract/online'
+import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import { webEngineApi } from '@/services/library-server/engine'
 
 /** 当前环境的在线域：桌面端 IPC，网页端片库服务；都没有时 undefined。 */
@@ -53,6 +54,14 @@ export function doubanBrowse(
 /** 豆瓣一周口碑电影榜（最多 10 部，按名次）；失败 reject。 */
 export function doubanChart(): Promise<DoubanSubject[]> {
   return onlineApi().doubanChart()
+}
+
+/** 豆瓣详情与剧照；无须配置令牌，失败返回 null。 */
+export function doubanMetadata(
+  id: string,
+  kind: 'movie' | 'tv'
+): Promise<DoubanMetadata | null> {
+  return onlineApi().doubanMetadata(id, kind)
 }
 
 /** 豆瓣剧照（详情页剧照条的兜底）；失败返回空数组。 */

@@ -10,8 +10,8 @@
       <!-- 背景大图 -->
       <div class="dw-backdrop">
         <img
-          v-if="tmdbDetail?.backdrop_path"
-          :src="tmdbImage('original', tmdbDetail.backdrop_path)"
+          v-if="detailBackdrop"
+          :src="webImageSrc(detailBackdrop)"
           class="dw-backdrop-img"
         />
         <div class="dw-backdrop-overlay" />
@@ -21,11 +21,16 @@
       <div class="dw-content min-w-0">
         <DetailHero
           :tmdb-detail="tmdbDetail"
+          :douban-detail="tmdb.douban.value"
           :item-data="itemData"
           :item-name="itemName"
           :item-pic="itemPic"
           :item-overview="itemOverview"
-          :directors="tmdb.directors.value"
+          :directors="
+            tmdb.douban.value?.directors.length
+              ? tmdb.douban.value.directors
+              : tmdb.directors.value
+          "
           :current-episodes="sources.currentEpisodes.value"
           @play="playEp"
         >
@@ -56,6 +61,7 @@
         </DetailHero>
         <DetailCastGallery
           :cast="tmdb.cast.value"
+          :douban-cast="tmdb.douban.value?.actors"
           :images="tmdb.images.value"
           @open="lightboxIdx = $event"
         />
@@ -73,6 +79,7 @@
  * TMDB 与播放源加载在 useTmdbDetail / useDetailSources，规则在 ../utils/detail-sources。
  */
 import { toast } from '@/components/ui'
+import { webImageSrc } from '@/services/thumbnails'
 import { asText } from '@/utils/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '@/utils/vod-data'
@@ -113,6 +120,13 @@ const sources = useDetailSources()
 const tmdbDetail = computed(() => tmdb.detail.value)
 
 const itemData = ref<OnlineDetailItem | null>(null)
+const detailBackdrop = computed(
+  () =>
+    tmdbImage('original', tmdbDetail.value?.backdrop_path) ||
+    tmdb.douban.value?.backdrop ||
+    itemData.value?.backdrop ||
+    ''
+)
 const itemName = ref('')
 const itemPic = ref('')
 const itemOverview = ref('')
@@ -121,8 +135,6 @@ const lightboxIdx = ref<number | null>(null)
 const currentUrl = ref('')
 /** 播放世代：换条目或再点一集时丢弃上一次还没解析完的播放 */
 let playGeneration = 0
-/** 载入世代：换条目时丢弃上一部还没走完的载入 */
-let loadGeneration = 0
 
 const loadData = async (raw: unknown): Promise<void> => {
   if (!raw) return
@@ -140,20 +152,20 @@ const loadData = async (raw: unknown): Promise<void> => {
   playGeneration++
   sources.episodeGroups.value = []
   currentUrl.value = ''
-  const type = guessMediaType(data.type_name || '')
+  const type = data.doubanKind ?? guessMediaType(data.type_name || '')
   const doubanId = doubanSubjectId(data.doubanUrl || '')
-  const generation = ++loadGeneration
-  await tmdb.fetchTmdb(
+  const metadataLoad = tmdb.fetchTmdb(
     searchTitle.value || itemName.value,
     type,
     doubanId ? { id: doubanId, kind: data.doubanKind ?? type } : null
   )
-  // 等 TMDB 期间换了条目：新条目自己的 loadData 会加载播放源
-  if (generation !== loadGeneration) return
   // 自动加载播放源：先保留打开详情时命中的条目，再按片名检索全部已启用源
   const direct = data._source === 'cms' || data._source === 'catspider'
   // _source 是 cms / catspider 的就是搜索 / 浏览结果里的 CmsItem
-  await sources.load(direct ? (data as CmsItem) : null, searchTitle.value)
+  await Promise.all([
+    metadataLoad,
+    sources.load(direct ? (data as CmsItem) : null, searchTitle.value),
+  ])
 }
 
 onMounted(() => loadData(props.item))
@@ -175,7 +187,7 @@ const watchlistMeta = computed<WatchlistMeta | null>(() => {
       tmdbImage('w342', tmdbDetail.value?.poster_path) ||
       itemPic.value ||
       undefined,
-    cover: tmdbImage('w780', tmdbDetail.value?.backdrop_path) || undefined,
+    cover: detailBackdrop.value || undefined,
     detail: itemData.value,
   }
 })
@@ -330,7 +342,11 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
 .dw-backdrop-overlay {
   position: absolute;
   inset: 0;
-  background: linear-gradient(to bottom, transparent 20%, var(--bg-content) 100%);
+  background: linear-gradient(
+    to bottom,
+    transparent 20%,
+    var(--bg-content) 100%
+  );
 }
 
 .dw-content {

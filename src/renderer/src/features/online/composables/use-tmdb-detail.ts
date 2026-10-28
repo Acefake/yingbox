@@ -1,10 +1,10 @@
 /**
- * 在线详情页的 TMDB 元信息：按片名搜第一条，再取详情、演职员与剧照。
- * 未配置 TMDB Access Token 时跳过；任何失败都静默（详情页仍可只靠来源数据展示）。
- * 剧照兜底：给了豆瓣条目 ID 时并行取豆瓣剧照，TMDB 没拿到剧照（没令牌、连不上、条目无图）就用豆瓣的。
+ * 在线详情：按豆瓣 ID 取简介、演职员和剧照，TMDB 按配置并行增强。
+ * 豆瓣数据到达即可展示，不等待 TMDB；换条目后丢弃两路旧结果。
  */
 import { type Ref, ref } from 'vue'
-import { doubanPhotos, tmdb } from '../api/online'
+import { doubanMetadata, tmdb } from '../api/online'
+import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import type { DetailImage, TmdbCastMember, TmdbDetail } from '../types'
 import { tmdbImage } from '../utils/detail-sources'
 
@@ -30,15 +30,16 @@ export interface DoubanRef {
   kind: 'movie' | 'tv'
 }
 
-/** 详情页的 TMDB 元信息（详情、演员、导演、剧照） */
+/** 详情页的豆瓣基础数据与可选 TMDB 增强。 */
 export interface UseTmdbDetailReturn {
+  douban: Ref<DoubanMetadata | null>
   detail: Ref<TmdbDetail | null>
   cast: Ref<TmdbCastMember[]>
   directors: Ref<string[]>
   images: Ref<DetailImage[]>
   loading: Ref<boolean>
   reset: () => void
-  /** douban：豆瓣条目，给了就用豆瓣剧照兜底 */
+  /** douban：按 ID 加载豆瓣详情，与可选 TMDB 请求并行。 */
   fetchTmdb: (
     name: string,
     mediaType: 'movie' | 'tv',
@@ -47,6 +48,7 @@ export interface UseTmdbDetailReturn {
 }
 
 export function useTmdbDetail(): UseTmdbDetailReturn {
+  const doubanDetail = ref<DoubanMetadata | null>(null)
   const detail = ref<TmdbDetail | null>(null)
   const cast = ref<TmdbCastMember[]>([])
   const directors = ref<string[]>([])
@@ -57,6 +59,7 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
 
   const reset = (): void => {
     generation++
+    doubanDetail.value = null
     detail.value = null
     cast.value = []
     directors.value = []
@@ -72,8 +75,19 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
     const stale = (): boolean => mine !== generation
     loading.value = true
     const fallback = douban
-      ? doubanPhotos(douban.id, douban.kind).catch(() => [])
-      : Promise.resolve([])
+      ? doubanMetadata(douban.id, douban.kind)
+          .catch(() => null)
+          .then(value => {
+            if (!stale()) {
+              doubanDetail.value = value
+              if (value) {
+                if (!images.value.length) images.value = value.images
+                loading.value = false
+              }
+            }
+            return value
+          })
+      : Promise.resolve(null)
     // 不带 language：引擎按设置里的元数据语言补上（scrape.metadataLanguage）
     try {
       const sr = await tmdb<TmdbSearchResult>(`/search/${mediaType}`, {
@@ -81,9 +95,6 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
         page: 1,
       })
       if (sr === null) {
-        console.warn(
-          '[TMDB] 未配置 Access Token，已跳过 TMDB 查询（请在设置中填写）'
-        )
         return
       }
       const first = sr?.results?.[0]
@@ -119,13 +130,22 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
     } catch {
       /* silent */
     } finally {
-      const photos = images.value.length || stale() ? null : await fallback
+      const metadata = await fallback
       if (!stale()) {
-        if (photos) images.value = photos
+        if (!images.value.length && metadata) images.value = metadata.images
         loading.value = false
       }
     }
   }
 
-  return { detail, cast, directors, images, loading, reset, fetchTmdb }
+  return {
+    douban: doubanDetail,
+    detail,
+    cast,
+    directors,
+    images,
+    loading,
+    reset,
+    fetchTmdb,
+  }
 }

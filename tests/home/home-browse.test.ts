@@ -31,6 +31,7 @@ import {
 vi.mock('@/features/online/api/online', () => ({
   doubanBrowse: vi.fn(),
   onlineAvailable: () => true,
+  doubanMetadata: vi.fn(async () => null),
   tmdb: vi.fn(() => Promise.resolve(null)),
 }))
 

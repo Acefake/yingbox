@@ -36,7 +36,7 @@
         v-if="!tmdbTokenConfigured() && !tmdbAccessToken"
         class="settings-warn"
       >
-        尚未配置 Token，TMDB 搜索与刮削不可用
+        首页豆瓣浏览无需 Token；TMDB 搜索与片库刮削需配置 Token
       </p>
       <UiButton
         v-else-if="tmdbTokenConfigured() && !tmdbAccessToken"

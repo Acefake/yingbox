@@ -133,6 +133,7 @@ const ADDED_API: Record<string, string[]> = {
     'offSecretChanged',
   ],
   online: [
+    'doubanMetadata',
     'sites',
     'vod',
     'resetBlocks',

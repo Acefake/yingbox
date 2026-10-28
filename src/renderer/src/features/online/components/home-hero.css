@@ -30,6 +30,11 @@
   position: absolute;
   inset: 0;
 }
+.home-hero-art.is-poster {
+  object-fit: contain;
+  object-position: right center;
+}
+
 .home-hero-art {
   position: absolute;
   inset: 0;

@@ -92,17 +92,20 @@ export async function enrichFromTmdb(
   }
 
   const apply = (item: DoubanItem, hit: TmdbHit | null): void => {
-    item.cover = hit?.poster_path ? IMG_BASE + hit.poster_path : item.coverSrc
+    item.cover = hit?.poster_path
+      ? IMG_BASE + hit.poster_path
+      : item.cover || item.coverSrc
     item.backdrop = hit?.backdrop_path
       ? `https://images.tmdb.org/t/p/w1280${hit.backdrop_path}`
-      : undefined
+      : item.backdrop
     if (!hit) return
     const date = hit.release_date || hit.first_air_date || ''
     item.year = date ? date.slice(0, 4) : item.year
     const mt = hit.media_type ?? (isTv ? 'tv' : 'movie')
     item.type = mt === 'tv' ? '剧集' : '电影'
-    item.overview = hit.overview || ''
-    item.original_title = hit.original_title || hit.original_name || ''
+    item.overview = item.overview || hit.overview || ''
+    item.original_title =
+      item.original_title || hit.original_title || hit.original_name || ''
     const name = hit.name || hit.title || ''
     if (name) item.searchTitle = name
   }
@@ -115,7 +118,7 @@ export async function enrichFromTmdb(
       try {
         apply(item, await lookup(item.title))
       } catch (error) {
-        item.cover = item.coverSrc
+        item.cover ||= item.coverSrc
         if (error === NO_TOKEN) stopped = true
       }
     }
@@ -123,7 +126,6 @@ export async function enrichFromTmdb(
   await Promise.all(Array.from({ length: CONCURRENCY }, worker))
   // 没有令牌：没轮到的卡直接用豆瓣封面
   if (stopped) {
-    console.warn('[TMDB] 未配置 Access Token，已跳过封面补全（请在设置中填写）')
     for (const item of items) if (!item.cover) item.cover = item.coverSrc
   }
 }

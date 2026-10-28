@@ -59,6 +59,8 @@ export interface HeroSlide {
   logo: string | null
   /** 背景图（横向剧照优先） */
   art: string
+  /** 没有横图时按原比例展示竖版封面。 */
+  artIsPoster?: boolean
   /** 右下缩略图条用的小图 */
   thumb: string
   overview: string
@@ -188,6 +190,7 @@ export function useHomeHero(
       title: item.title,
       logo: null,
       art,
+      artIsPoster: !item.backdrop,
       thumb: art,
       overview: item.overview,
       meta: [item.year ? `${item.year} 年` : '', item.type].filter(Boolean),

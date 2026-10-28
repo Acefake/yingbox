@@ -15,7 +15,7 @@ import {
 } from '../../../../../shared/douban/query'
 import { doubanBrowse, onlineAvailable } from '../api/online'
 import type { DoubanItem } from '../types'
-import { enrichFromTmdb } from '../utils/douban-tmdb'
+import { enrichDoubanItems } from '../utils/douban-enrich'
 import {
   type DoubanFeed,
   createDoubanFeed,
@@ -28,7 +28,7 @@ const hotFeeds: Partial<Record<DoubanKind, DoubanFeed>> = {}
 export function useHotFeed(kind: DoubanKind): DoubanFeed {
   return (hotFeeds[kind] ??= createDoubanFeed({
     browse: doubanBrowse,
-    enrich: enrichFromTmdb,
+    enrich: enrichDoubanItems,
     storage: null,
     initial: defaultDoubanQuery(kind),
   }))
@@ -46,7 +46,7 @@ export interface PreviewDeps {
 
 const defaultDeps: PreviewDeps = {
   browse: doubanBrowse,
-  enrich: enrichFromTmdb,
+  enrich: enrichDoubanItems,
 }
 
 /**

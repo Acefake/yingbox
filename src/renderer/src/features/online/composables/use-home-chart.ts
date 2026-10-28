@@ -7,7 +7,7 @@ import { type Ref, ref } from 'vue'
 import { defaultDoubanQuery } from '../../../../../shared/douban/query'
 import { doubanBrowse, doubanChart, onlineAvailable } from '../api/online'
 import type { DoubanItem } from '../types'
-import { enrichFromTmdb } from '../utils/douban-tmdb'
+import { enrichDoubanItems } from '../utils/douban-enrich'
 import { pickChart } from '../utils/home-chart'
 import { doubanItemOf } from './use-douban-feed'
 
@@ -41,7 +41,7 @@ async function load(): Promise<void> {
   title.value = chart.title
   items.value = chart.items.map(doubanItemOf)
   // 补全改的是响应式数组里的元素
-  void enrichFromTmdb(items.value, 'movie')
+  void enrichDoubanItems(items.value, 'movie')
 }
 
 /** 全窗口共用的榜单状态 */

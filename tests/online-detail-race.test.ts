@@ -8,7 +8,7 @@ const pending: Pending[] = []
 vi.mock('../src/renderer/src/features/online/api/online', () => ({
   tmdb: (path: string) =>
     new Promise(resolve => pending.push({ path, resolve })),
-  doubanPhotos: async () => [],
+  doubanMetadata: async () => null,
 }))
 
 const { useTmdbDetail } =

@@ -15,6 +15,7 @@
         v-if="current.art && !broken.has(current.art)"
         :key="current.art"
         class="home-hero-art"
+        :class="{ 'is-poster': current.artIsPoster }"
         :src="webImageSrc(current.art)"
         alt=""
         referrerpolicy="no-referrer"

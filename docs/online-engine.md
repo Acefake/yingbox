@@ -4,6 +4,9 @@ AGENTS.md「Engine」一节只留入口和规则，这里放各域的实现细�
 
 ## 豆瓣浏览（`online` 域）
 
+- 首页无需 TMDB Token：列表直接显示豆瓣封面、评分、年份和分类。`online.doubanMetadata(id, kind)` 按数字 ID 补简介、演职员、时长和剧照，复用 rexxar / frodo 回退；成功缓存一小时，失败冷却 30 秒，并发请求合并。
+- 首页每批前五项补轮播信息，其他条目打开详情时加载；横图缺失时按原比例展示海报。TMDB 是可选增强，未配置或请求失败保留豆瓣内容，播放源搜索不等待元数据请求。
+
 - 入口 `online.doubanBrowse(query, start)`，实现在 `online/douban-browse.ts`。
 - 快捷标签走 `movie.douban.com/j/search_subjects`；带类型 / 地区 / 年代 / 排序 / 最低评分任一筛选时走 `m.douban.com/rexxar/api/v2/<movie|tv>/recommend`。
 - 查询参数白名单在 `src/shared/douban/query.ts`；每页缓存 10 分钟，按主机熔断。

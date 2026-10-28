@@ -62,6 +62,8 @@ export interface OnlineDetailItem extends Partial<Omit<CmsItem, '_source'>> {
   doubanUrl?: string
   /** 豆瓣条目类型（豆瓣卡来自「电影」还是「电视剧」分类） */
   doubanKind?: 'movie' | 'tv'
+  doubanRating?: string
+  backdrop?: string
 }
 
 /** 在线播放历史（localStorage online_play_history）的一条：条目字段平铺 + item 原样 + 播放位置 */
@@ -129,18 +131,18 @@ export interface DoubanItem {
   /** 用来搜源的片名：TMDB 找到条目时换成 TMDB 的中文名 */
   searchTitle: string
   original_title: string
-  /** 显示用封面：TMDB 海报，找不到退回豆瓣封面；补全前为空 */
+  /** 显示用封面：豆瓣封面，可由 TMDB 增强 */
   cover: string
   /** 豆瓣封面 */
   coverSrc: string
-  /** 首页轮播横向剧照（TMDB）；缺失时使用封面 */
+  /** 首页轮播横向剧照（豆瓣或 TMDB）；缺失时使用封面 */
   backdrop?: string
   /** 评分文字，无评分为「暂无」 */
   rate: string
   /** movie.douban.com/subject/<id>/（去重键、取预告片用） */
   url: string
   year: string
-  /** 「电影」/「剧集」，TMDB 补全后才有 */
+  /** 「电影」/「剧集」 */
   type: string
   overview: string
   /** 来自「电影」还是「电视剧」分类（取预告片时用；旧收藏里没有，按电影取） */

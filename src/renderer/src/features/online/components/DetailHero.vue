@@ -4,9 +4,11 @@
     <div class="dw-poster-wrap">
       <img
         :src="
-          tmdbDetail?.poster_path
-            ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}`
-            : itemPic
+          webImageSrc(
+            tmdbDetail?.poster_path
+              ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}`
+              : doubanDetail?.cover || itemPic
+          )
         "
         class="dw-poster"
         @error="onImgError"
@@ -15,39 +17,39 @@
     <!-- 信息 -->
     <div class="dw-info">
       <h1 class="dw-title">
-        {{ tmdbDetail?.title || tmdbDetail?.name || itemName }}
+        {{
+          doubanDetail?.title ||
+          tmdbDetail?.title ||
+          tmdbDetail?.name ||
+          itemName
+        }}
       </h1>
       <h3
-        v-if="tmdbDetail?.original_title || tmdbDetail?.original_name"
+        v-if="
+          doubanDetail?.originalTitle ||
+          tmdbDetail?.original_title ||
+          tmdbDetail?.original_name
+        "
         class="dw-orig-title"
       >
-        {{ tmdbDetail?.original_title || tmdbDetail?.original_name }}
+        {{
+          doubanDetail?.originalTitle ||
+          tmdbDetail?.original_title ||
+          tmdbDetail?.original_name
+        }}
       </h3>
       <div class="dw-meta-row">
-        <span v-if="tmdbDetail?.vote_average" class="dw-rating">
+        <span v-if="rating" class="dw-rating">
           <UiIcon name="star" size="sm" filled />
-          {{ tmdbDetail.vote_average.toFixed(1) }}
+          {{ rating }}
         </span>
-        <span
-          v-if="tmdbDetail?.release_date || tmdbDetail?.first_air_date"
-          class="dw-tag"
-        >
-          {{
-            (tmdbDetail.release_date || tmdbDetail.first_air_date || '').slice(
-              0,
-              4
-            )
-          }}
+        <span v-if="year" class="dw-tag">
+          {{ year }}
         </span>
-        <span v-if="tmdbDetail?.runtime" class="dw-tag"
-          >{{ tmdbDetail.runtime }} 分钟</span
-        >
-        <span
-          v-for="g in (tmdbDetail?.genres || []).slice(0, 4)"
-          :key="g.id"
-          class="dw-tag"
-          >{{ g.name }}</span
-        >
+        <span v-if="duration" class="dw-tag">{{ duration }}</span>
+        <span v-for="g in genres.slice(0, 4)" :key="g" class="dw-tag">{{
+          g
+        }}</span>
         <span
           v-if="
             itemData?._source === 'catspider' || itemData?._source === 'cms'
@@ -79,22 +81,20 @@
         />
         <slot name="actions" />
       </div>
-      <p v-if="tmdbDetail?.overview || itemOverview" class="dw-overview">
-        {{ tmdbDetail?.overview || itemOverview }}
+      <p
+        v-if="doubanDetail?.intro || tmdbDetail?.overview || itemOverview"
+        class="dw-overview"
+      >
+        {{ doubanDetail?.intro || tmdbDetail?.overview || itemOverview }}
       </p>
       <div class="dw-meta-table">
         <div v-if="directors.length" class="dw-meta-item">
           <span class="dw-meta-label">导演</span>
           <span class="dw-meta-val">{{ directors.join('、') }}</span>
         </div>
-        <div
-          v-if="(tmdbDetail?.production_countries || []).length"
-          class="dw-meta-item"
-        >
+        <div v-if="countries.length" class="dw-meta-item">
           <span class="dw-meta-label">地区</span>
-          <span class="dw-meta-val">{{
-            (tmdbDetail?.production_countries ?? []).map(c => c.name).join('、')
-          }}</span>
+          <span class="dw-meta-val">{{ countries.join('、') }}</span>
         </div>
       </div>
       <slot />
@@ -109,9 +109,13 @@
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
+import { webImageSrc } from '@/services/thumbnails'
+import { computed } from 'vue'
+import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import type { Episode, OnlineDetailItem, PluginExt, TmdbDetail } from '../types'
 
-defineProps<{
+const props = defineProps<{
+  doubanDetail?: DoubanMetadata | null
   tmdbDetail: TmdbDetail | null
   itemData: OnlineDetailItem | null
   itemName: string
@@ -120,6 +124,40 @@ defineProps<{
   directors: string[]
   currentEpisodes: Episode[]
 }>()
+const rating = computed(() => {
+  const score =
+    props.doubanDetail?.rating?.value || Number(props.itemData?.doubanRating)
+  return score > 0
+    ? `豆瓣 ${score.toFixed(1)}`
+    : props.tmdbDetail?.vote_average
+      ? `TMDB ${props.tmdbDetail.vote_average.toFixed(1)}`
+      : ''
+})
+const year = computed(
+  () =>
+    props.doubanDetail?.year ||
+    (
+      props.tmdbDetail?.release_date ||
+      props.tmdbDetail?.first_air_date ||
+      props.itemData?.vod_year ||
+      ''
+    ).slice(0, 4)
+)
+const duration = computed(
+  () =>
+    props.doubanDetail?.duration ||
+    (props.tmdbDetail?.runtime ? `${props.tmdbDetail.runtime} 分钟` : '')
+)
+const genres = computed(() =>
+  props.doubanDetail?.genres.length
+    ? props.doubanDetail.genres
+    : (props.tmdbDetail?.genres ?? []).map(g => g.name)
+)
+const countries = computed(() =>
+  props.doubanDetail?.countries.length
+    ? props.doubanDetail.countries
+    : (props.tmdbDetail?.production_countries ?? []).map(c => c.name)
+)
 const emit = defineEmits<{
   (e: 'play', url: string, ext?: PluginExt): void
 }>()

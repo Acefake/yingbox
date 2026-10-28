@@ -20,7 +20,7 @@ import {
 } from '../../../../../shared/douban/query'
 import { doubanBrowse } from '../api/online'
 import type { DoubanItem } from '../types'
-import { enrichFromTmdb } from '../utils/douban-tmdb'
+import { enrichDoubanItems } from '../utils/douban-enrich'
 
 /** idle 还没取过；loading 取数中；ready 还有下一页；ended 到底；error 上一次失败 */
 export type DoubanFeedStatus = 'idle' | 'loading' | 'ready' | 'ended' | 'error'
@@ -70,12 +70,12 @@ export const doubanItemOf = (s: DoubanSubject): DoubanItem => ({
   title: s.title,
   searchTitle: s.title,
   original_title: '',
-  cover: '',
+  cover: s.cover,
   coverSrc: s.cover,
   rate: s.rate || '暂无',
   url: s.url,
   year: s.year,
-  type: '',
+  type: s.kind === 'tv' ? '剧集' : '电影',
   overview: '',
   kind: s.kind,
 })
@@ -208,7 +208,7 @@ let shared: DoubanFeed | null = null
 export function useDoubanFeed(): DoubanFeed {
   return (shared ??= createDoubanFeed({
     browse: doubanBrowse,
-    enrich: enrichFromTmdb,
+    enrich: enrichDoubanItems,
     storage: sessionStore(),
   }))
 }

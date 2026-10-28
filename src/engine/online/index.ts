@@ -24,6 +24,7 @@ import { type DoubanTrailers, createDoubanTrailers } from './douban-trailer'
 import { type PluginStorage, createPluginStorage } from './plugin-storage'
 import { probeStream } from './stream-probe'
 import sitesFile from './vod-sites.json'
+import { createDoubanMetadata } from './douban-metadata'
 
 /** 内置站点表（只保留解析器支持的 type 3）。 */
 export const SITES: CatSpiderSite[] = (
@@ -94,6 +95,7 @@ export function createOnlineHandlers(
   const douban =
     deps.doubanBrowse ?? createDoubanBrowse({ net: deps.net, log: deps.log })
   const photos = deps.doubanPhotos ?? createDoubanPhotos({ net: deps.net })
+  const metadata = createDoubanMetadata({ net: deps.net })
   /** 下载失败的插件脚本：地址 → 失败时间；冷却期内直接判失败 */
   const pluginFailures = new Map<string, number>()
   const loadPlugin = async (url: string): Promise<string> => {
@@ -120,6 +122,7 @@ export function createOnlineHandlers(
   }
 
   return {
+    doubanMetadata: (_ctx, id, kind) => metadata.get(id, kind),
     sites: () => SITES,
 
     async resetBlocks(ctx, host) {

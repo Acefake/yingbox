@@ -62,6 +62,7 @@ vi.mock('@/features/online/api/online', () => ({
   doubanBrowse: api.doubanBrowse,
   getJson: vi.fn(() => new Promise(() => {})),
   tmdb: vi.fn(() => Promise.resolve(null)),
+  doubanMetadata: vi.fn(async () => null),
   onlineApi: () => ({ doubanTrailer: api.doubanTrailer }),
 }))
 

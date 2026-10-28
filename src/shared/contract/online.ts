@@ -16,6 +16,7 @@ import {
   parseDoubanStart,
 } from '../douban/query'
 import type { HostTrip } from '../net/host-breaker'
+import type { DoubanMetadata } from '../douban/detail'
 
 export type { HostScope, HostTrip, TripReason } from '../net/host-breaker'
 
@@ -95,6 +96,15 @@ export interface GetJsonOptions {
 
 /** 在线域：CMS / 豆瓣（浏览、预告片）/ TMDB 请求与 CatSpider 插件，全部在引擎经 net 出网。 */
 export const online = defineDomain('online', {
+  /** 豆瓣详情与横向剧照；不需要 TMDB 令牌，失败返回 null。 */
+  doubanMetadata: call<
+    [subjectId: string, kind: 'movie' | 'tv'],
+    DoubanMetadata | null
+  >(a => {
+    const id = str(a[0], 'subjectId')
+    if (!/^\d{1,12}$/.test(id)) throw new ContractError('豆瓣条目 ID 不合法')
+    return [id, oneOf(a[1], 'kind', ['movie', 'tv'] as const)]
+  }),
   /** 内置 CatSpider 站点表 */
   sites: call<CatSpiderSite[]>(),
   /** 调用 CatSpider 插件动作（取代原 Go /api/vod/parse） */
