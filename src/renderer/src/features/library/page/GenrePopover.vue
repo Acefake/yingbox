@@ -86,6 +86,7 @@ onBeforeUnmount(() => {
   top: calc(100% + var(--space-2));
   z-index: var(--z-dropdown);
   width: 400px;
+  max-width: 100%;
   max-height: 60vh;
   overflow-y: auto;
   padding: var(--space-2);

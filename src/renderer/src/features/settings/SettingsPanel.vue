@@ -263,12 +263,16 @@ watch(
 }
 
 /* ── 窄屏：整窗 + 顶部横向分区 ── */
-@media (max-width: 720px) {
+@media (max-width: 768px),
+  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
   .settings-frame {
+    box-sizing: border-box;
     width: 100vw;
     height: 100dvh;
     border: 0;
     border-radius: 0;
+    padding-top: var(--safe-top);
+    padding-bottom: var(--safe-bottom);
   }
   .settings-body {
     flex-direction: column;

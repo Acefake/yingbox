@@ -247,6 +247,13 @@
       var(--space-5) + var(--home-hero-lift) - 30px
     ); /* style-tokens: layout（文案下面一行） */
     left: var(--home-x, var(--space-5));
+    max-width: calc(100% - var(--home-x, var(--space-5)) - var(--space-5));
+    overflow-x: auto;
+    scroll-snap-type: x proximity;
+  }
+  .home-hero-thumb {
+    flex: 0 0 72px;
+    scroll-snap-align: start;
   }
   .home-hero-meta {
     flex-wrap: wrap;
