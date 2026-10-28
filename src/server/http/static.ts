@@ -2,14 +2,22 @@
  * 托管网页端（vite build:web 的产物 dist-web）：NAS 上只需打开一个地址，网页与 API 同源。
  *
  * - assets/ 下带哈希的文件一年强缓存，其余（index.html、图标）每次协商；
+ * - 构建时写下的 .br / .gz 按 Accept-Encoding 直接发，带 Content-Encoding 与 Vary；
+ * - 客户端不接受或没有预压缩文件时回原文；
+ * - 大文件用流，不整份读进内存；
  * - 未知路径回 index.html（路由是 hash 模式，主要兜底 PWA 启动地址）；
  * - 路径先规范化再确认仍在 webDir 内，挡住 ../ 穿越。
  */
+import { type Stats, createReadStream } from 'node:fs'
 import { readFile, stat } from 'node:fs/promises'
 import { extname, join, normalize, relative, sep } from 'node:path'
+import { Readable } from 'node:stream'
 
 /** Response 构造参数里的 body 类型（服务端 tsconfig 没有 DOM 的 BodyInit）。 */
 type ResponseBody = ConstructorParameters<typeof Response>[0]
+
+/** 达到这个字节数就流式读，避免把播放器包一类的大文件整份放进内存。 */
+export const STATIC_STREAM_ABOVE = 128 * 1024
 
 const TYPES: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
@@ -28,6 +36,19 @@ const TYPES: Record<string, string> = {
   '.txt': 'text/plain; charset=utf-8',
 }
 
+const ENCODINGS = [
+  { coding: 'br', suffix: '.br' },
+  { coding: 'gzip', suffix: '.gz' },
+] as const
+
+type Coding = (typeof ENCODINGS)[number]['coding']
+
+interface ChosenFile {
+  path: string
+  encoding: Coding | null
+  info: Stats
+}
+
 /** webDir 内的文件路径；穿越或不合法返回 null。 */
 export function resolveStatic(webDir: string, pathname: string): string | null {
   let decoded: string
@@ -43,29 +64,96 @@ export function resolveStatic(webDir: string, pathname: string): string | null {
   return target
 }
 
+/** Accept-Encoding 里某个编码的 q；没写这个头时不主动压缩。 */
+function encodingQuality(header: string | null, coding: string): number {
+  if (header == null || header.trim() === '') return 0
+  const scores = new Map<string, number>()
+  for (const part of header.split(',')) {
+    const [nameRaw, ...params] = part.split(';')
+    const name = nameRaw.trim().toLowerCase()
+    if (!name) continue
+    let q = 1
+    for (const param of params) {
+      const [key, value] = param.split('=').map(item => item.trim())
+      if (key !== 'q') continue
+      const parsed = Number(value)
+      q = Number.isFinite(parsed) ? parsed : 0
+    }
+    scores.set(name, q)
+  }
+  if (scores.has(coding)) return scores.get(coding) ?? 0
+  if (scores.has('*')) return scores.get('*') ?? 0
+  return 0
+}
+
+/** 客户端能接受、磁盘上也有的预压缩文件；否则原文。 */
+async function chooseFile(
+  path: string,
+  raw: Stats,
+  accept: string | null
+): Promise<ChosenFile> {
+  const ranked = ENCODINGS.map(item => ({
+    ...item,
+    q: encodingQuality(accept, item.coding),
+  }))
+    .filter(item => item.q > 0)
+    .sort((a, b) => b.q - a.q || (a.coding === 'br' ? -1 : 1))
+  for (const item of ranked) {
+    try {
+      const info = await stat(path + item.suffix)
+      if (info.isFile())
+        return { path: path + item.suffix, encoding: item.coding, info }
+    } catch {
+      // 这份预压缩不在，试下一个或回原文
+    }
+  }
+  return { path, encoding: null, info: raw }
+}
+
+function etagOf(info: Stats): string {
+  return `"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`
+}
+
+async function openBody(path: string, size: number): Promise<ResponseBody> {
+  if (size >= STATIC_STREAM_ABOVE) {
+    return Readable.toWeb(createReadStream(path)) as ResponseBody
+  }
+  return await readFile(path)
+}
+
 async function fileResponse(
   path: string,
   request: Request,
   immutable: boolean
 ): Promise<Response | null> {
   try {
-    const info = await stat(path)
-    if (!info.isFile()) return null
-    const etag = `"${info.size.toString(16)}-${Math.floor(info.mtimeMs).toString(16)}"`
-    const headers = {
+    const raw = await stat(path)
+    if (!raw.isFile()) return null
+    const chosen = await chooseFile(
+      path,
+      raw,
+      request.headers.get('accept-encoding')
+    )
+    const etag = etagOf(chosen.info)
+    const headers: Record<string, string> = {
       'Content-Type':
         TYPES[extname(path).toLowerCase()] ?? 'application/octet-stream',
       'Cache-Control': immutable
         ? 'public, max-age=31536000, immutable'
         : 'no-cache',
       ETag: etag,
+      Vary: 'Accept-Encoding',
     }
+    if (chosen.encoding) headers['Content-Encoding'] = chosen.encoding
     if (request.headers.get('if-none-match') === etag)
       return new Response(null, { status: 304, headers })
-    const body = request.method === 'HEAD' ? null : await readFile(path)
-    return new Response(body as ResponseBody, {
+    const body =
+      request.method === 'HEAD'
+        ? null
+        : await openBody(chosen.path, chosen.info.size)
+    return new Response(body, {
       status: 200,
-      headers: { ...headers, 'Content-Length': String(info.size) },
+      headers: { ...headers, 'Content-Length': String(chosen.info.size) },
     })
   } catch {
     return null

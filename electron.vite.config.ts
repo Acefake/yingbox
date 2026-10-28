@@ -1,6 +1,7 @@
 ﻿import { resolve } from 'path'
 import { defineConfig } from 'electron-vite'
 import vue from '@vitejs/plugin-vue'
+import { vendorPlayerManualChunk } from './scripts/vendor-player-chunk'
 
 export default defineConfig({
   main: {
@@ -38,6 +39,10 @@ export default defineConfig({
         input: {
           index: resolve('src/renderer/index.html'),
           player: resolve('src/renderer/player.html'),
+        },
+        output: {
+          // Artplayer / hls.js / 弹幕插件不进两个页面共用的 theme chunk
+          manualChunks: vendorPlayerManualChunk,
         },
       },
     },

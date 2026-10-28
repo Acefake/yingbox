@@ -1,6 +1,8 @@
 import { resolve } from 'path'
-import { type ProxyOptions, defineConfig } from 'vite'
+import { type Plugin, type ProxyOptions, defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
+import { compressStaticDir } from './scripts/compress-static'
+import { vendorPlayerManualChunk } from './scripts/vendor-player-chunk'
 
 /** Standalone web / PWA build (no Electron main/preload). */
 
@@ -23,6 +25,19 @@ const localProxy = {
   '/media': libraryProxy,
 }
 
+/** 网页产物写完后补 .br / .gz，独立服务按 Accept-Encoding 直接发。 */
+function precompressStatic(): Plugin {
+  return {
+    name: 'precompress-static',
+    apply: 'build',
+    async closeBundle() {
+      const outDir = resolve(__dirname, 'dist-web')
+      const written = await compressStaticDir(outDir)
+      console.log(`预压缩静态文件：${written.br} 个 .br，${written.gz} 个 .gz`)
+    },
+  }
+}
+
 export default defineConfig({
   root: resolve(__dirname, 'src/renderer'),
   base: './',
@@ -33,7 +48,7 @@ export default defineConfig({
       '@': resolve(__dirname, 'src/renderer/src'),
     },
   },
-  plugins: [vue()],
+  plugins: [vue(), precompressStatic()],
   optimizeDeps: {
     include: ['vue', 'vue-router'],
   },
@@ -53,5 +68,10 @@ export default defineConfig({
     emptyOutDir: true,
     sourcemap: false,
     target: 'es2020',
+    rollupOptions: {
+      output: {
+        manualChunks: vendorPlayerManualChunk,
+      },
+    },
   },
 })
