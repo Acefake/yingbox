@@ -13,6 +13,15 @@ import { matchingTmdbCandidates } from './tmdb-match'
 /** TMDB 搜索结果的一条（/search/multi 多一个 media_type） */
 type TmdbHit = TmdbDetail & { media_type?: string }
 
+/** TMDB 的单季资料，年份和海报属于本季。 */
+interface TmdbSeason {
+  season_number: number
+  air_date?: string
+  poster_path?: string | null
+  overview?: string
+  vote_average?: number
+}
+
 /** 请求 TMDB 的函数（测试替换）；没有令牌返回 null */
 export type TmdbSearch = (
   path: string,
@@ -86,12 +95,54 @@ export async function enrichFromTmdb(
       page: 1,
     })) as { results?: TmdbHit[] } | null
     if (res === null) throw NO_TOKEN
-    return matchingTmdbCandidates(res?.results ?? [], {
+    const season = isTv ? seasonNumber(item.title) : null
+    const candidates = res?.results ?? []
+    const exactCandidates = season
+      ? candidates.filter(hit =>
+          [hit.name, hit.title, hit.original_name, hit.original_title].some(
+            name => name && seasonNumber(name) === season
+          )
+        )
+      : candidates
+    const exact = matchingTmdbCandidates(exactCandidates, {
       title: item.title,
       originalTitle: item.original_title,
       year: item.year,
       kind,
     })
+    if (!season || exact.length) return exact
+    const matches = matchingTmdbCandidates(candidates, {
+      title: stripSeason(item.title),
+      originalTitle: stripSeason(item.original_title),
+      kind,
+    })
+    if (matches.length !== 1) return matches
+    const hit = matches[0]
+    if (!hit.id) return []
+    const detail = (await search(
+      `/tv/${hit.id}/season/${season}`,
+      {}
+    )) as TmdbSeason | null
+    if (detail === null) throw NO_TOKEN
+    const year = item.year.match(/\b\d{4}\b/)?.[0]
+    if (
+      detail?.season_number !== Number(season) ||
+      (year && detail.air_date?.slice(0, 4) !== year)
+    )
+      return []
+    return [
+      {
+        ...hit,
+        name: item.title,
+        title: item.title,
+        original_name: item.original_title,
+        first_air_date: detail.air_date || '',
+        release_date: '',
+        poster_path: detail.poster_path || hit.poster_path,
+        overview: detail.overview || '',
+        vote_average: detail.vote_average,
+      },
+    ]
   }
 
   const lookup = async (item: DoubanItem): Promise<TmdbHit | null> => {

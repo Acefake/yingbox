@@ -53,16 +53,22 @@ export const SCAN_SLICE_MS = 16
 interface Listing {
   subdirs: string[]
   files: ScannedFile[]
+  failedFiles: Set<string>
 }
 
 const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === 'ENOENT'
 
 /** 列出目录的收录项并 stat 其中的文件。 */
-async function listDirectory(directory: string, key: string): Promise<Listing> {
+async function listDirectory(
+  directory: string,
+  key: string,
+  warnings: string[]
+): Promise<Listing> {
   const entries: Dirent[] = await readdir(directory, { withFileTypes: true })
   const subdirs: string[] = []
   const pending: Array<Promise<ScannedFile | undefined>> = []
+  const failedFiles = new Set<string>()
   for (const entry of entries) {
     const lower = entry.name.toLowerCase()
     if (isIgnoredName(lower) || entry.isSymbolicLink()) continue
@@ -85,8 +91,10 @@ async function listDirectory(directory: string, key: string): Promise<Listing> {
           mtime: s.mtimeMs,
         }),
         error => {
-          // 无法确认文件状态时整目录保留快照，不能把读取失败当成删除。
-          if (!isMissing(error)) throw error
+          if (!isMissing(error)) {
+            failedFiles.add(pathKey(displayPath))
+            warnings.push(`${displayPath}: ${(error as Error).message}`)
+          }
           return undefined
         }
       )
@@ -95,7 +103,7 @@ async function listDirectory(directory: string, key: string): Promise<Listing> {
   const files = (await Promise.all(pending)).filter(
     (f): f is ScannedFile => f !== undefined
   )
-  return { subdirs, files }
+  return { subdirs, files, failedFiles }
 }
 
 /**
@@ -133,14 +141,24 @@ export async function walkLibrary(
       key,
       displayPath,
       parent: key === rootKey ? null : parentKey(key),
-      mtime: dirStats.mtimeMs > racyBefore ? RACY_MTIME : dirStats.mtimeMs,
+      mtime:
+        listing.failedFiles.size || dirStats.mtimeMs > racyBefore
+          ? RACY_MTIME
+          : dirStats.mtimeMs,
     }
     const subKeys = listing.subdirs.map(sub => pathKey(sub))
     const { change, knownSubdirs, removedDirs } = diffDirectory(
       snapshot,
       dir,
       prev?.mtime,
-      listing.files,
+      [
+        ...listing.files,
+        ...(listing.failedFiles.size
+          ? snapshot
+              .filesIn(key)
+              .filter(file => listing.failedFiles.has(file.key))
+          : []),
+      ],
       subKeys
     )
     // 子树里的文件遍历完再分片读（一次删掉几百个目录时，同步全读会卡住事件循环）
@@ -184,7 +202,7 @@ export async function walkLibrary(
     }
     let listing: Listing
     try {
-      listing = await listDirectory(displayPath, key)
+      listing = await listDirectory(displayPath, key, diff.warnings)
     } catch (error) {
       if (key === rootKey) throw error
       diff.warnings.push(`${displayPath}: ${(error as Error).message}`)

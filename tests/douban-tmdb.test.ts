@@ -23,6 +23,132 @@ const item = (title: string): DoubanItem => ({
 })
 
 describe('TMDB 补全', () => {
+  it('原名不带季号且年份未知时也必须查询本季', async () => {
+    const season = {
+      ...item('剧名 第二季'),
+      kind: 'tv' as const,
+      original_title: 'Show',
+    }
+    const search = vi.fn(async (path: string) =>
+      path === '/tv/10/season/2'
+        ? {
+            season_number: 2,
+            air_date: '2024-05-01',
+            poster_path: '/season2.jpg',
+          }
+        : {
+            results: [
+              {
+                id: 10,
+                name: '剧名',
+                original_name: 'Show',
+                first_air_date: '2019-01-01',
+              },
+            ],
+          }
+    )
+    await enrichFromTmdb([season], 'tv', search)
+    expect(search).toHaveBeenCalledWith('/tv/10/season/2', {})
+    expect(season.year).toBe('2024')
+    expect(season.searchTitle).toBe(season.title)
+  })
+  it('单独建档且名称年份精确匹配的季条目照常补全', async () => {
+    const season = { ...item('剧名 第二季'), kind: 'tv' as const, year: '2024' }
+    const search = vi.fn(async () => ({
+      results: [
+        {
+          id: 10,
+          name: season.title,
+          first_air_date: '2024-01-01',
+          poster_path: '/season.jpg',
+        },
+      ],
+    }))
+    await enrichFromTmdb([season], 'tv', search)
+    expect(season.cover).toContain('/season.jpg')
+    expect(search).toHaveBeenCalledTimes(1)
+  })
+
+  it('找不到对应季时不拿整部剧的资料覆盖本季', async () => {
+    const season = { ...item('剧名 第二季'), kind: 'tv' as const, year: '2024' }
+    await enrichFromTmdb([season], 'tv', async path =>
+      path.startsWith('/tv/')
+        ? {
+            season_number: 1,
+            air_date: '2024-01-01',
+            poster_path: '/wrong.jpg',
+          }
+        : { results: [{ id: 10, name: '剧名', first_air_date: '2019-01-01' }] }
+    )
+    expect(season.cover).toBe(season.coverSrc)
+    expect(season.searchTitle).toBe(season.title)
+  })
+  it.each(['剧名 第二季', '剧名 Season 2', '剧名 S02'])(
+    '%s 用总剧定位分季，保持本季年份和搜源片名',
+    async title => {
+      const season = {
+        ...item(title),
+        kind: 'tv' as const,
+        year: '2024',
+        original_title: 'Show Season 2',
+      }
+      const search = vi.fn(async (path: string) =>
+        path === '/tv/10/season/2'
+          ? {
+              season_number: 2,
+              air_date: '2024-05-01',
+              poster_path: '/season2.jpg',
+              overview: '第二季简介',
+              vote_average: 8,
+            }
+          : {
+              results: [
+                {
+                  id: 10,
+                  name: '剧名',
+                  original_name: 'Show',
+                  first_air_date: '2019-01-01',
+                  poster_path: '/series.jpg',
+                },
+              ],
+            }
+      )
+      await enrichFromTmdb([season], 'tv', search)
+      expect(season.cover).toContain('/season2.jpg')
+      expect(season.year).toBe('2024')
+      expect(season.searchTitle).toBe(title)
+      expect(season.original_title).toBe('Show Season 2')
+      expect(season.overview).toBe('第二季简介')
+    }
+  )
+
+  it('分季首播年份不符时仍保留豆瓣封面', async () => {
+    const season = { ...item('剧名 第二季'), kind: 'tv' as const, year: '2024' }
+    await enrichFromTmdb([season], 'tv', async path =>
+      path.startsWith('/tv/')
+        ? {
+            season_number: 2,
+            air_date: '2010-01-01',
+            poster_path: '/wrong.jpg',
+          }
+        : { results: [{ id: 10, name: '剧名', first_air_date: '2008-01-01' }] }
+    )
+    expect(season.cover).toBe(season.coverSrc)
+    expect(season.year).toBe('2024')
+  })
+
+  it('总剧匹配有歧义时不通过查分季绕过歧义', async () => {
+    const season = { ...item('剧名 第二季'), kind: 'tv' as const, year: '2024' }
+    const search = vi.fn(async () => ({
+      results: [
+        { id: 10, name: '剧名' },
+        { id: 11, name: '剧名' },
+      ],
+    }))
+    await enrichFromTmdb([season], 'tv', search)
+    expect(season.cover).toBe(season.coverSrc)
+    expect(search).toHaveBeenCalledTimes(1)
+  })
   it('已发现同名歧义时不被 multi 的单条结果覆盖', async () => {
     const movie = item('同名电影')
     const hit = { id: 1, title: movie.title, poster_path: '/wrong.jpg' }
