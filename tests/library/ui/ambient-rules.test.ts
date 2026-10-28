@@ -6,7 +6,12 @@ import {
 } from '../../../src/renderer/src/features/library/ambient/ambient-rules'
 
 /** 模拟 PagedList：未加载的格是 undefined。 */
-const listOf = (items: Array<{ poster: string | null } | undefined>) => ({
+const listOf = (
+  items: Array<{ poster: string | null } | undefined>
+): {
+  length: number
+  at: (i: number) => { poster: string | null } | undefined
+} => ({
   length: items.length,
   at: (i: number) => items[i],
 })
