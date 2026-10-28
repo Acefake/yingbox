@@ -16,9 +16,12 @@ extraResources:
     to: licenses
   - from: resources/third-party
     to: third-party
-  - from: resources/mpv
-    to: mpv
 win:
+  extraResources:
+    - from: resources/mpv
+      to: mpv
+    - from: resources/mpv-sources
+      to: third-party/mpv
   # 只带本平台 / 架构的推理运行时（每份 30–60 MB）
   files:
     - resources/logo.ico

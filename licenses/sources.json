@@ -1,7 +1,7 @@
 {
   "elevengo-MIT.txt": "https://raw.githubusercontent.com/deadblue/elevengo/master/LICENSE",
-  "mpv-GPL-2.0.txt": "https://raw.githubusercontent.com/mpv-player/mpv/492bae0768/LICENSE.GPL",
-  "mpv-Copyright.txt": "https://raw.githubusercontent.com/mpv-player/mpv/492bae0768/Copyright",
+  "mpv-GPL-2.0.txt": "https://raw.githubusercontent.com/mpv-player/mpv/v0.41.0/LICENSE.GPL",
+  "mpv-Copyright.txt": "https://raw.githubusercontent.com/mpv-player/mpv/v0.41.0/Copyright",
   "onnxruntime-MIT.txt": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/LICENSE",
   "onnxruntime-ThirdPartyNotices.txt": "https://raw.githubusercontent.com/microsoft/onnxruntime/v1.23.2/ThirdPartyNotices.txt",
   "artplayer-MIT.txt": "https://raw.githubusercontent.com/zhw2590582/ArtPlayer/5.4.0/LICENSE",
@@ -9,8 +9,9 @@
   "lazy-val-MIT.txt": "https://github.com/develar/lazy-val/blob/master/package.json",
   "vue-devtools-MIT.txt": "https://raw.githubusercontent.com/vuejs/devtools-v6/v6.6.4/LICENSE",
   "chinese-clip-MIT.txt": "https://raw.githubusercontent.com/OFA-Sys/Chinese-CLIP/master/MIT-LICENSE.txt",
-  "libplacebo-LGPL-2.1.txt": "https://raw.githubusercontent.com/haasn/libplacebo/804dc71/LICENSE",
-  "ffmpeg-COPYING.GPLv3.txt": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/ee8cbd7db/COPYING.GPLv3",
-  "ffmpeg-LICENSE.md": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/ee8cbd7db/LICENSE.md",
-  "NassAV-MIT.txt": "https://raw.githubusercontent.com/satoing/NassAV/main/LICENSE"
+  "libplacebo-LGPL-2.1.txt": "https://raw.githubusercontent.com/haasn/libplacebo/v7.387.0/LICENSE",
+  "ffmpeg-COPYING.GPLv3.txt": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0.2/COPYING.GPLv3",
+  "ffmpeg-LICENSE.md": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0.2/LICENSE.md",
+  "NassAV-MIT.txt": "https://raw.githubusercontent.com/satoing/NassAV/main/LICENSE",
+  "ffmpeg-COPYING.LGPLv3.txt": "https://raw.githubusercontent.com/FFmpeg/FFmpeg/n9.0.2/COPYING.LGPLv3"
 }

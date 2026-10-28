@@ -64,3 +64,4 @@ docs/superpowers/
 
 # Generated notices for the installed production dependencies and Electron.
 /resources/third-party/
+/resources/mpv-sources/

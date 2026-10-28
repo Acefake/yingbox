@@ -1,0 +1,179 @@
+/** Windows mpv 的完整对应源码、构建元数据和许可随安装包分发。 */
+import { createHash } from 'node:crypto'
+import { createReadStream, createWriteStream } from 'node:fs'
+import {
+  copyFile,
+  cp,
+  mkdir,
+  readFile,
+  rename,
+  rm,
+  writeFile,
+} from 'node:fs/promises'
+import { execFileSync } from 'node:child_process'
+import path from 'node:path'
+import { fileURLToPath } from 'node:url'
+import { Readable } from 'node:stream'
+import { pipeline } from 'node:stream/promises'
+
+const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const tar = path.join(process.env.WINDIR || 'C:/Windows', 'System32/tar.exe')
+const lockPath = path.join(root, 'src/shared/mpv-distribution.json')
+
+async function sha256(file) {
+  const hash = createHash('sha256')
+  for await (const chunk of createReadStream(file)) hash.update(chunk)
+  return hash.digest('hex')
+}
+
+async function download(file, source) {
+  if ((await sha256(file).catch(() => '')) === source.sha256) return
+  await mkdir(path.dirname(file), { recursive: true })
+  const part = `${file}.part`
+  try {
+    const response = await fetch(source.url)
+    if (!response.ok || !response.body)
+      throw new Error(`源码下载失败：${source.filename} (${response.status})`)
+    await pipeline(Readable.fromWeb(response.body), createWriteStream(part))
+    if ((await sha256(part)) !== source.sha256)
+      throw new Error(`源码校验失败：${source.filename}`)
+    await rename(part, file)
+  } finally {
+    await rm(part, { force: true })
+  }
+}
+
+function member(archive, name) {
+  return execFileSync(tar, ['-xOf', archive, name], {
+    maxBuffer: 16 * 1024 * 1024,
+    windowsHide: true,
+  })
+}
+
+/** 同一二进制配方的源包必须存在且哈希匹配；缺失材料会阻止打包。 */
+export async function prepareMpvSources() {
+  const lockText = await readFile(lockPath, 'utf8')
+  const lock = JSON.parse(lockText)
+  const lockHash = createHash('sha256').update(lockText).digest('hex')
+  const building = await readFile(path.join(root, 'docs/release-licenses.md'))
+  const materialHash = createHash('sha256')
+    .update(lockText)
+    .update(building)
+    .digest('hex')
+  const cache = path.join(root, 'output/mpv-cache')
+  const output = path.join(root, 'resources/mpv-sources')
+  const archive = path.join(output, `${lock.id}-sources.tar`)
+  const markerPath = path.join(output, 'source-bundle.json')
+  await mkdir(output, { recursive: true })
+  const notices = [
+    '# Windows mpv 原生组件',
+    '',
+    '下列许可名称来自上游包元数据。完整版权与许可原文保留在对应源包内；包内独立声明见 resources/mpv/share/licenses，常用许可全文另见本目录 licenses。随附 sources.tar 保存完整源码、补丁、PKGBUILD 及二进制构建记录。',
+    '',
+  ]
+  for (const pkg of [...lock.packages, ...lock.buildInputs]) {
+    const source = lock.sources.find(s => s.key === pkg.sourceKey)
+    if (!source || source.pkgbuildSha256 !== pkg.pkgbuildSha256)
+      throw new Error(`缺少对应源码：${pkg.name}`)
+    notices.push(
+      `- ${pkg.name} ${pkg.version}: ${pkg.licenses.join(' / ')}; ${pkg.homepage}`
+    )
+  }
+  await cp(path.join(root, 'licenses'), path.join(output, 'licenses'), {
+    recursive: true,
+  })
+  await writeFile(path.join(output, 'NOTICES.md'), `${notices.join('\n')}\n`)
+  await writeFile(path.join(output, 'BUILDING.md'), building)
+  await writeFile(path.join(output, 'manifest.json'), lockText)
+  try {
+    const marker = JSON.parse(await readFile(markerPath, 'utf8'))
+    if (
+      marker.lockSha256 === lockHash &&
+      marker.materialSha256 === materialHash &&
+      marker.sha256 === (await sha256(archive))
+    ) {
+      console.log(
+        `[mpv sources] 已校验 ${lock.sources.length} 份源码：${archive}`
+      )
+      return
+    }
+  } catch {
+    /* 没有可复用的完整源码包。 */
+  }
+
+  const staging = path.join(cache, 'source-bundle')
+  await rm(staging, { recursive: true, force: true })
+  await mkdir(path.join(staging, 'sources'), { recursive: true })
+  await mkdir(path.join(staging, 'binary-metadata'), { recursive: true })
+  await mkdir(output, { recursive: true })
+  try {
+    for (const source of lock.sources) {
+      const file = path.join(cache, 'sources', source.filename)
+      await download(file, source)
+      const recipe = member(file, `${source.name}/PKGBUILD`)
+      if (
+        createHash('sha256').update(recipe).digest('hex') !==
+        source.pkgbuildSha256
+      )
+        throw new Error(`源码构建配方不匹配：${source.filename}`)
+      await copyFile(file, path.join(staging, 'sources', source.filename))
+    }
+    for (const pkg of [...lock.packages, ...lock.buildInputs]) {
+      const file = path.join(cache, 'packages', pkg.filename)
+      if ((await sha256(file)) !== pkg.sha256)
+        throw new Error(`二进制包校验失败：${pkg.filename}`)
+      const build = member(file, '.BUILDINFO')
+      if (
+        !build.toString().includes(`pkgbuild_sha256sum = ${pkg.pkgbuildSha256}`)
+      )
+        throw new Error(`二进制构建配方不匹配：${pkg.name}`)
+      await writeFile(
+        path.join(staging, 'binary-metadata', `${pkg.filename}.BUILDINFO`),
+        build
+      )
+      await writeFile(
+        path.join(staging, 'binary-metadata', `${pkg.filename}.PKGINFO`),
+        member(file, '.PKGINFO')
+      )
+    }
+    await copyFile(lockPath, path.join(staging, 'manifest.json'))
+    await cp(path.join(root, 'licenses'), path.join(staging, 'licenses'), {
+      recursive: true,
+    })
+    await copyFile(
+      path.join(root, 'docs/release-licenses.md'),
+      path.join(staging, 'BUILDING.md')
+    )
+    await copyFile(
+      path.join(output, 'NOTICES.md'),
+      path.join(staging, 'NOTICES.md')
+    )
+    const part = `${archive}.part`
+    execFileSync(tar, ['-cf', part, '-C', staging, '.'], { windowsHide: true })
+    await rename(part, archive)
+    await writeFile(
+      markerPath,
+      JSON.stringify(
+        {
+          id: lock.id,
+          lockSha256: lockHash,
+          materialSha256: materialHash,
+          sha256: await sha256(archive),
+        },
+        null,
+        2
+      ) + '\n'
+    )
+    console.log(
+      `[mpv sources] 已归档 ${lock.sources.length} 份源码、${lock.packages.length + lock.buildInputs.length} 份构建记录：${archive}`
+    )
+  } finally {
+    await rm(staging, { recursive: true, force: true })
+  }
+}
+
+if (
+  process.argv[1] &&
+  path.resolve(process.argv[1]) === fileURLToPath(import.meta.url)
+)
+  await prepareMpvSources()

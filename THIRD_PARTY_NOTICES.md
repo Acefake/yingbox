@@ -23,7 +23,9 @@
 
 ## mpv 发行说明
 
-当前 Windows 构建为 `20261015 / 492bae0768`，完整下载来源、版本指纹、构建配方和源码分发要求见 `docs/release-licenses.md`。mpv 是单独分发的可执行程序，不把影盒自身代码自动声明为 GPL。
+Windows 分发 MSYS2 UCRT64 的 mpv `0.41.0-10` 及其运行库。安装包的 `resources/third-party/mpv/` 保存完整对应源码集合、构建配方与记录、文件哈希、原生组件许可清单和许可原文；包内声明另在 `resources/mpv/share/licenses/`。FFmpeg 的这份构建启用了 GPL / version3。
+
+锁定版本和对应关系见 `src/shared/mpv-distribution.json`，源码构建及分发要求见 `docs/release-licenses.md`。mpv 通过独立进程和 JSON IPC 使用，影盒自有代码采用 MIT。构建钩子校验这些材料，缺失时停止 Windows 打包。
 
 ## 外部服务与内容
 

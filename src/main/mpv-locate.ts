@@ -15,11 +15,12 @@ function bundledMpvPaths(): string[] {
   return [
     // 打包后：electron-builder extraResources 把 resources/mpv 放到 resourcesPath/mpv
     typeof process.resourcesPath === 'string'
-      ? join(process.resourcesPath, 'mpv', exe)
+      ? join(process.resourcesPath, 'mpv', 'bin', exe)
       : '',
     // 开发运行：项目内的 resources/mpv
-    join(app.getAppPath(), 'resources', 'mpv', exe),
+    join(app.getAppPath(), 'resources', 'mpv', 'bin', exe),
     // 首次使用时自动下载的便携版
+    join(userMpvDir(), 'bin', exe),
     join(userMpvDir(), exe),
   ].filter(Boolean)
 }
