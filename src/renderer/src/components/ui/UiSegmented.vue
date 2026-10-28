@@ -19,6 +19,9 @@
     >
       <UiIcon v-if="option.icon" :name="option.icon" size="sm" />
       <span v-if="option.label">{{ option.label }}</span>
+      <span v-if="option.count != null" class="ui-segmented-count">{{
+        option.count
+      }}</span>
     </button>
   </div>
 </template>
@@ -38,6 +41,8 @@ export interface SegmentedOption<V extends string = string> {
   label?: string
   icon?: IconName
   title?: string
+  /** 标签后的数量，比标签淡一档 */
+  count?: number | string
 }
 
 withDefaults(
@@ -84,6 +89,11 @@ const emit = defineEmits<{ 'update:modelValue': [value: T] }>()
   height: calc(var(--control-height-sm) - 4px);
   padding: 0 var(--space-3);
   font-size: var(--text-xs);
+}
+.ui-segmented-count {
+  color: var(--text-tertiary);
+  font-size: var(--text-2xs);
+  font-variant-numeric: tabular-nums;
 }
 .ui-segmented-item:hover {
   color: var(--text-primary);

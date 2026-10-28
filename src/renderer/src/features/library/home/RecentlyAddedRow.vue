@@ -1,6 +1,22 @@
 <template>
+  <template v-if="pane">
+    <UiEpisodeCard
+      v-for="item in paneItems"
+      :key="item.id"
+      role="listitem"
+      :title="item.title"
+      :subtitle="subtitleOf(item)"
+      :image="item.backdrop ?? item.poster ?? undefined"
+      :label="`打开 ${item.title}`"
+      @open="router.push(libraryItemLocation(item.type, item.id))"
+    >
+      <template v-if="item.quality" #badge>
+        <UiSpecBadge class="recent-row-badge" v-bind="item.quality" />
+      </template>
+    </UiEpisodeCard>
+  </template>
   <UiShelf
-    v-if="items.length"
+    v-else-if="items.length"
     class="recent-row"
     title="刚入库"
     more
@@ -30,12 +46,14 @@
 
 <script setup lang="ts">
 /**
- * 首页的「刚入库」一排：本地片库最近入库的横版背景图卡（TMDB 来源，新的在前，最多 12 张），
- * 卡上是片名、「今天 · 电影」这类入库时间，右上角画质角标（认得出时）；点卡打开片库详情，
- * 标题的 › 打开电影库或剧集库（这一排里哪种多去哪个）。没有片库或片库为空时整块不渲染；
- * 挂载和每次回到首页时重取。入库来源（115 转存 / 磁力离线）片库没有记录，不显示。
+ * 「刚入库」横卡：本地片库最近入库的横版背景图（TMDB 来源，新的在前，最多 12 张），
+ * 卡上是片名、「今天 · 电影」这类入库时间，右上角画质角标（认得出时）；点卡打开片库详情。
+ * 单独使用时自带货架，标题的 › 打开电影库或剧集库（这一排里哪种多去哪个）。
+ * pane 时只输出卡片，交给首页「我的动态」：active 为假时不画卡，数量仍通过 count 报出。
+ * 没有片库或片库为空时没有卡；挂载和每次回到首页时重取。
+ * 入库来源（115 转存 / 磁力离线）片库没有记录，不显示。
  */
-import { computed, onActivated, onMounted, ref } from 'vue'
+import { computed, onActivated, onMounted, ref, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import UiEpisodeCard from '@/components/ui/UiEpisodeCard.vue'
@@ -52,6 +70,17 @@ import { addedLabel } from './recent-rules'
 
 /** 一排最多几张 */
 const LIMIT = 12
+
+const props = withDefaults(
+  defineProps<{
+    /** 只输出卡片，不包货架（首页「我的动态」） */
+    pane?: boolean
+    /** pane 时是否画出卡片；为假仍统计数量 */
+    active?: boolean
+  }>(),
+  { active: true }
+)
+const emit = defineEmits<{ count: [n: number] }>()
 
 const router = useRouter()
 const items = ref<RecentLibraryItem[]>([])
@@ -72,8 +101,17 @@ async function reload(): Promise<void> {
   items.value = list.map((item, i) => ({ ...item, quality: badges[i] }))
 }
 
+const paneItems = computed(() =>
+  props.pane && props.active ? items.value : []
+)
+
 onMounted(() => void reload())
 onActivated(() => void reload())
+watch(
+  () => items.value.length,
+  n => emit('count', n),
+  { immediate: true }
+)
 
 const moreTarget = computed(() => {
   const series = items.value.filter(item => item.type === 'series').length

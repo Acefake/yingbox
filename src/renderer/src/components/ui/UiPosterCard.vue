@@ -21,9 +21,7 @@
         @load="onLoad"
         @error="onError"
       />
-      <div v-else class="ui-poster-placeholder">
-        <UiIcon name="movie" size="lg" />
-      </div>
+      <UiCoverFallback v-else :title="title" />
       <div v-if="preview" ref="previewHost" class="ui-preview-layer" />
 
       <span v-if="rating" class="ui-poster-rating">
@@ -82,6 +80,7 @@ import {
   webImageSrc,
 } from '@/services/thumbnails'
 import { type PreviewSource, useCardPreview } from './hover-preview'
+import UiCoverFallback from './UiCoverFallback.vue'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
 
@@ -180,13 +179,6 @@ watch(
   height: 100%;
   object-fit: cover;
   transition: object-position var(--duration-normal) var(--ease-out);
-}
-.ui-poster-placeholder {
-  display: grid;
-  width: 100%;
-  height: 100%;
-  place-items: center;
-  color: var(--text-quaternary);
 }
 .ui-poster:hover .ui-poster-media {
   transform: translateY(-4px) scale(1.02);

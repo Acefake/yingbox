@@ -16,9 +16,7 @@
         referrerpolicy="no-referrer"
         @error="broken = true"
       />
-      <span v-else class="yb-episode-placeholder"
-        ><UiIcon name="movie" size="lg"
-      /></span>
+      <UiCoverFallback v-else hide-title :title="title" />
       <span class="yb-pblur" aria-hidden="true"><i /><i /><i /><i /></span>
     </UiPressable>
     <div v-if="$slots.badge" class="yb-episode-badge">
@@ -63,6 +61,7 @@
 import { ref, watch } from 'vue'
 
 import type { IconName } from './icons'
+import UiCoverFallback from './UiCoverFallback.vue'
 import UiIcon from './UiIcon.vue'
 import UiIconButton from './UiIconButton.vue'
 import UiPressable from './UiPressable.vue'
@@ -134,13 +133,6 @@ watch(
   width: 100%;
   height: 100%;
   object-fit: cover;
-}
-.yb-episode-placeholder {
-  position: absolute;
-  inset: 0;
-  display: grid;
-  place-items: center;
-  color: var(--text-quaternary);
 }
 .yb-episode-badge {
   position: absolute;

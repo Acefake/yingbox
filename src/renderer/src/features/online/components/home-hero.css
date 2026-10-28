@@ -16,8 +16,8 @@
   position: relative;
   flex: none;
   height: calc(
-    clamp(440px, 62vh, 680px) + var(--home-hero-overlap, 0px)
-  ); /* style-tokens: layout（Hero 随窗口高度） */
+    clamp(340px, 46vh, 520px) + var(--home-hero-overlap, 0px)
+  ); /* style-tokens: layout（Hero 大约 46vh） */
   overflow: hidden;
   -webkit-mask-image: var(--hero-edge-mask);
   mask-image: var(--hero-edge-mask);
@@ -138,15 +138,14 @@
   background: var(--media-hover);
 }
 .home-hero-overview {
-  display: -webkit-box;
-  max-width: 560px;
-  margin: 0 0 var(--space-5);
+  max-width: 560px; /* style-tokens: layout（简介与主按钮同宽） */
+  margin: 0 0 var(--space-4);
   overflow: hidden;
   color: var(--media-text-secondary);
-  font-size: calc(var(--text-md) * 1.04);
-  line-height: 1.62;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 1;
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+  white-space: nowrap;
+  text-overflow: ellipsis;
 }
 .home-hero-meta {
   display: flex;

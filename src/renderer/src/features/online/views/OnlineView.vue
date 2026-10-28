@@ -17,33 +17,24 @@
         :active="activeTab === 'home' && !inlineDetailItem"
       />
       <div class="home-rows">
+        <GenreRow
+          @open="genre => browse.open({ type: 'genre', genre, kind: 'movie' })"
+          @collections="scrollCollections"
+        />
         <ContinueRow
           :section="HOME_SECTIONS"
           more-label="打开最近播放"
           @more="router.push({ path: '/', query: { tab: 'recent' } })"
           @detail="openContinueDetail"
         />
-        <LiveNowRow />
-        <RecentlyAddedRow />
-        <WatchlistRow
-          section="online"
-          @open="
-            e => e.detail && openDetailWindow(e.detail as OnlineDetailItem)
-          "
+        <HomeSetupBar />
+        <HomeActivityRow
+          @open="detail => openDetailWindow(detail as OnlineDetailItem)"
         />
         <DoubanChartRow @open="openDoubanDetail" />
         <HotShelf
-          kind="movie"
           @open="openDoubanDetail"
-          @more="browse.open({ type: 'hot', kind: 'movie' })"
-        />
-        <HotShelf
-          kind="tv"
-          @open="openDoubanDetail"
-          @more="browse.open({ type: 'hot', kind: 'tv' })"
-        />
-        <GenreRow
-          @open="genre => browse.open({ type: 'genre', genre, kind: 'movie' })"
+          @more="kind => browse.open({ type: 'hot', kind })"
         />
         <CollectionRow @open="list => browse.open({ type: 'list', list })" />
       </div>
@@ -130,6 +121,8 @@ import DoubanChartRow from '../components/DoubanChartRow.vue'
 import CollectionRow from '../components/CollectionRow.vue'
 import DoubanBrowse from '../components/DoubanBrowse.vue'
 import GenreRow from '../components/GenreRow.vue'
+import HomeActivityRow from '../components/HomeActivityRow.vue'
+import HomeSetupBar from '../components/HomeSetupBar.vue'
 import HotShelf from '../components/HotShelf.vue'
 import HomeHero from '../components/HomeHero.vue'
 import SearchTab from '../components/SearchTab.vue'
@@ -137,15 +130,13 @@ import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
 import { pendingOnlineDetail, takeOnlineDetail } from '../utils/detail-request'
-import { RecentlyAddedRow, libraryItemLocation } from '@/features/library'
+import { libraryItemLocation } from '@/features/library'
 import {
   type ContinueRecord,
   ContinueRow,
   getMediaProgress,
   openMediaPlayer,
 } from '@/features/player'
-import { LiveNowRow } from '@/features/live'
-import { WatchlistRow } from '@/features/watchlist'
 import { useBrowseRoute } from '../composables/use-browse-route'
 import { useHomeHero } from '../composables/use-home-hero'
 import { HOME_SECTIONS } from '../utils/hero-rules'
@@ -244,6 +235,13 @@ const openContinueDetail = (record: ContinueRecord): void => {
 }
 const hero = useHomeHero(openDoubanDetail, openContinueDetail)
 
+function scrollCollections(): void {
+  document.getElementById('home-collections')?.scrollIntoView({
+    behavior: 'smooth',
+    block: 'start',
+  })
+}
+
 // 浏览页（热门全部 / 类型 / 片单）；换目标时关掉详情覆盖层
 const browse = useBrowseRoute(computed(() => activeTab.value === 'home'))
 const browseTarget = browse.target
@@ -291,7 +289,7 @@ watch(
   height: calc(100% + var(--shell-top));
   margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
 }
-/* 第一排（继续观看）压进 Hero 底部 --home-hero-overlap，Hero 加高同样多（home-hero.css） */
+/* 第一排（快速浏览）压进 Hero 底部 --home-hero-overlap，Hero 加高同样多（home-hero.css） */
 .home-page:where(.has-hero) {
   --home-hero-overlap: var(--space-10);
   padding: 0 0 var(--space-11);

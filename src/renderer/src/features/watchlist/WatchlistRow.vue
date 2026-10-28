@@ -1,6 +1,30 @@
 <template>
+  <template v-if="pane && active">
+    <UiPosterCard
+      v-for="entry in all"
+      :key="entry.id"
+      class="wl-card"
+      role="listitem"
+      thumb
+      :title="entry.title"
+      :cover="entryImage(entry) || undefined"
+      @open="open(entry)"
+      @contextmenu.prevent="openMenu($event, entry)"
+    >
+      <template #actions>
+        <UiIconButton
+          class="wl-remove"
+          icon="close"
+          label="从想看中移除"
+          size="sm"
+          variant="overlay"
+          @click.stop="removeFromWatchlist(entry.id)"
+        />
+      </template>
+    </UiPosterCard>
+  </template>
   <UiShelf
-    v-if="items.length"
+    v-else-if="!pane && items.length"
     class="wl-row"
     title="想看"
     kind="portrait"
@@ -54,28 +78,28 @@
         </span>
       </UiPressable>
     </article>
-
-    <Teleport to="body">
-      <div
-        v-if="menu"
-        ref="menuEl"
-        class="wl-menu"
-        role="menu"
-        :style="{ left: `${menu.x}px`, top: `${menu.y}px` }"
-        @contextmenu.prevent
-      >
-        <UiListRow role="menuitem" @click="pick(open)">打开详情</UiListRow>
-        <hr class="wl-menu-sep" />
-        <UiListRow
-          role="menuitem"
-          class="wl-menu-danger"
-          @click="pick(removeEntry)"
-        >
-          从想看中移除
-        </UiListRow>
-      </div>
-    </Teleport>
   </UiShelf>
+
+  <Teleport to="body">
+    <div
+      v-if="menu"
+      ref="menuEl"
+      class="wl-menu"
+      role="menu"
+      :style="{ left: `${menu.x}px`, top: `${menu.y}px` }"
+      @contextmenu.prevent
+    >
+      <UiListRow role="menuitem" @click="pick(open)">打开详情</UiListRow>
+      <hr class="wl-menu-sep" />
+      <UiListRow
+        role="menuitem"
+        class="wl-menu-danger"
+        @click="pick(removeEntry)"
+      >
+        从想看中移除
+      </UiListRow>
+    </div>
+  </Teleport>
 </template>
 
 <script setup lang="ts">
@@ -88,8 +112,9 @@
  * - 横排只放前 WATCHLIST_ROW_LIMIT 张，标题行计数是本板块真实总数；超出时标题行与横排末尾
  *   有「查看全部」，展开成换行的完整列表（再点「收起」回到横排）。
  * 一排与标题用 UiShelf（超出时标题行出左右滚动键），卡片是 UiPosterCard；条目与规则见 watchlist-store.ts / watchlist-rules.ts。
+ * pane 时只输出卡片（首页「我的动态」的「待看」）：active 为假时不画卡，数量仍通过 count 报出。
  */
-import { computed, nextTick, onBeforeUnmount, ref } from 'vue'
+import { computed, nextTick, onBeforeUnmount, ref, watch } from 'vue'
 
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -110,8 +135,20 @@ import {
 } from './watchlist-rules'
 import { removeFromWatchlist, watchlistEntries } from './watchlist-store'
 
-const props = defineProps<{ section: WatchlistSection }>()
-const emit = defineEmits<{ open: [entry: WatchlistEntry] }>()
+const props = withDefaults(
+  defineProps<{
+    section: WatchlistSection
+    /** 只输出卡片，不包货架（首页「我的动态」） */
+    pane?: boolean
+    /** pane 时是否画出卡片；为假仍统计数量 */
+    active?: boolean
+  }>(),
+  { active: true }
+)
+const emit = defineEmits<{
+  open: [entry: WatchlistEntry]
+  count: [n: number]
+}>()
 
 const entries = watchlistEntries()
 /** 本板块全部条目；横排渲染 items（收起时截前 WATCHLIST_ROW_LIMIT 条） */
@@ -119,6 +156,7 @@ const all = computed(() => entriesFor(entries.value, props.section))
 const expanded = ref(false)
 const items = computed(() => visibleEntries(all.value, expanded.value))
 const hidden = computed(() => hiddenCount(all.value))
+watch(all, list => emit('count', list.length), { immediate: true })
 
 function toggleExpanded(): void {
   expanded.value = !expanded.value

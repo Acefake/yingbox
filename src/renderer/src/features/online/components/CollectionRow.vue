@@ -1,5 +1,5 @@
 <template>
-  <div ref="root">
+  <div id="home-collections" ref="root">
     <UiShelf class="coll-row" title="精选片单" list>
       <UiPressable
         v-for="card in cards"
@@ -39,9 +39,9 @@
 
 <script setup lang="ts">
 /**
- * 首页「精选片单」：4 张宽卡（豆瓣高分 / 冷门佳片 / 华语热门 / 韩剧热播，映射见 utils/browse-target.ts）。
- * 左侧英文小标签 + 标题 + 一句描述；右侧该片单前 3 张海报扇形叠放（中间一张在最上）；
- * 背景是首张海报大幅模糊、压暗后的颜色。文字区宽度给扇形让出位置，两者不重叠。
+ * 首页「精选片单」：4 张扁宽卡（豆瓣高分 / 冷门佳片 / 华语热门 / 韩剧热播，映射见 utils/browse-target.ts），
+ * 放在首页最底下。左侧英文小标签 + 标题 + 一句描述；右侧该片单前 3 张海报叠在一起（第一张在最上）；
+ * 背景是首张海报大幅模糊、压暗后的颜色。文字区宽度给海报让出位置，两者不重叠。
  * 这一排滚进视口才取数据，取到前是渐变底。点卡 emit open，在线页打开该片单的浏览页。
  */
 import { ref } from 'vue'
@@ -101,11 +101,15 @@ const fanOf = (items: DoubanItem[] | null): string[] => {
   }
 }
 
+.coll-row {
+  scroll-margin-top: var(--shell-top);
+}
 .coll-card {
-  --fan-w: 128px;
+  --fan-w: 132px; /* style-tokens: layout（片单右侧叠放海报的占位） */
   position: relative;
-  display: block;
-  height: 168px;
+  display: flex;
+  align-items: center;
+  height: 116px; /* style-tokens: layout（精选片单卡高） */
   overflow: hidden;
   border-radius: var(--radius-xl);
   background: linear-gradient(
@@ -139,10 +143,10 @@ const fanOf = (items: DoubanItem[] | null): string[] => {
   z-index: var(--z-above);
   display: flex;
   flex-direction: column;
-  gap: var(--space-1_5);
-  /* 扇形往右溢出 --space-3，文字区只让出它露在卡内的部分 */
-  max-width: calc(100% - var(--fan-w) + var(--space-3));
-  padding: var(--space-5) var(--space-1) var(--space-5) var(--space-5);
+  justify-content: center;
+  gap: var(--space-0_5);
+  max-width: calc(100% - var(--fan-w));
+  padding: var(--space-3) var(--space-2) var(--space-3) var(--space-4);
 }
 .coll-kicker {
   white-space: nowrap;
@@ -153,9 +157,9 @@ const fanOf = (items: DoubanItem[] | null): string[] => {
 }
 .coll-title {
   font-family: var(--font-display);
-  font-size: var(--text-xl);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
-  line-height: 1.2;
+  line-height: var(--leading-tight);
 }
 .coll-blurb {
   color: var(--media-text-secondary);
@@ -163,42 +167,36 @@ const fanOf = (items: DoubanItem[] | null): string[] => {
   line-height: 1.5;
 }
 
-/* 扇形海报：右下角溢出卡片一截；左右两张斜放，中间一张在最上 */
+/* 右侧三张海报叠放，垂直居中；DOM 顺序第二、第三、第一，第一张在最上 */
 .coll-fan {
   position: absolute;
-  right: calc(var(--space-3) * -1);
-  bottom: calc(var(--space-6) * -1);
+  top: 50%;
+  right: var(--space-4);
   z-index: var(--z-raised);
-  width: var(--fan-w);
-  height: 150px;
+  display: flex;
+  align-items: center;
+  transform: translateY(-50%);
   transition: transform var(--duration-normal) var(--ease-out);
 }
 .coll-fan img {
-  position: absolute;
-  width: 64px;
+  width: 52px; /* style-tokens: layout（片单叠放海报宽） */
   aspect-ratio: 2 / 3;
   object-fit: cover;
-  border-radius: var(--radius-md);
-  box-shadow: var(--shadow-lg);
+  border-radius: var(--radius-sm);
+  box-shadow:
+    var(--shadow-md),
+    inset 0 0 0 0.5px var(--glass-media-edge);
 }
-.coll-fan img:nth-child(1) {
-  left: 0;
-  top: var(--space-7);
-  transform: rotate(-10deg);
-}
-.coll-fan img:nth-child(2) {
-  left: 54px; /* style-tokens: layout（扇形右侧那张的位置） */
-  top: var(--space-6_5);
-  transform: rotate(9deg);
+.coll-fan img + img {
+  margin-left: calc(var(--space-3_5) * -1);
 }
 .coll-fan img:nth-child(3) {
-  left: var(--space-6_5);
-  top: var(--space-3);
-  z-index: 1;
+  position: relative;
+  z-index: var(--z-raised);
 }
 .coll-card:hover .coll-fan,
 .coll-card:focus-visible .coll-fan {
-  transform: translateY(calc(var(--space-1) * -1));
+  transform: translateY(calc(-50% - var(--space-1)));
 }
 
 @media (prefers-reduced-motion: reduce) {

@@ -4,6 +4,7 @@
 export {
   type LibraryActivity,
   useIdentifyActivity,
+  useLibraries,
 } from './state/use-libraries'
 /** 追剧日历用：播出数据、播放某一集、图片地址、文件进度键 */
 export {

@@ -41,6 +41,7 @@ describe('TMDB 补全', () => {
           overview: '太阳即将毁灭',
           original_title: 'The Wandering Earth II',
           title: '流浪地球2',
+          vote_average: 7.4,
         },
       ],
     }))
@@ -54,6 +55,7 @@ describe('TMDB 补全', () => {
       overview: '太阳即将毁灭',
       original_title: 'The Wandering Earth II',
       searchTitle: '流浪地球2',
+      tmdbRate: 7.4,
     })
     expect(tmdb).toHaveBeenCalledWith('/search/movie', {
       query: '流浪地球2',

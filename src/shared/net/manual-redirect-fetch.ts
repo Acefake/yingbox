@@ -102,7 +102,9 @@ interface EncodedBody {
  * 把 string 以外的 BodyInit（URLSearchParams、FormData、Blob、ArrayBuffer、TypedArray、ReadableStream）
  * 按 fetch 规范编码成字节，ClientRequest 只能写 string / Buffer。
  */
-async function encodeBody(body: NonNullable<RequestInit['body']>): Promise<EncodedBody> {
+async function encodeBody(
+  body: NonNullable<RequestInit['body']>
+): Promise<EncodedBody> {
   const encoded = new Response(body)
   return {
     bytes: Buffer.from(await encoded.arrayBuffer()),
