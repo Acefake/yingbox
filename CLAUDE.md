@@ -28,8 +28,8 @@ pnpm test               # vitest run (tests/ — main-process pure logic)
 # Build
 pnpm build              # typecheck + electron-vite build
 pnpm build:nocheck      # skip typecheck
-pnpm build:win          # full Windows installer (zip)
-pnpm build:win:full     # full Windows installer (NSIS)
+pnpm build:win          # Windows NSIS installer EXE
+pnpm build:win:full     # same as build:win
 pnpm build:mac          # full macOS installer
 
 # Start preview (no hot-reload, production-like)

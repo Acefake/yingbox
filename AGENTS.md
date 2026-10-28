@@ -25,8 +25,8 @@ pnpm test:affected  # only tests affected by changes vs origin/main (see Enginee
 pnpm format         # prettier --write .
 pnpm build          # typecheck + electron-vite build
 pnpm build:nocheck  # electron-vite build only
-pnpm build:win      # Windows zip
-pnpm build:win:full # Windows NSIS installer
+pnpm build:win      # Windows NSIS installer EXE
+pnpm build:win:full # same as build:win
 pnpm build:mac      # macOS dmg
 pnpm check          # scripts/check-issues.sh
 pnpm check:case     # import case-sensitivity check (Windows-safe against mac/Linux breakage)
@@ -110,7 +110,7 @@ The same library core runs in a plain Node process for the web build / NAS; host
 
 ### Build pipeline
 
-`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis/portable/zip, mac dmg, linux AppImage/snap/deb). `extraResources` ships mpv only. Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm build`.
+`electron-vite build` → `out/`; `electron-builder` → `dist/` (win nsis, mac dmg, linux AppImage/snap/deb). `extraResources` ships mpv only. Build outputs (`out/`) are gitignored and untracked — regenerate with `pnpm build`.
 
 ### Tech stack
 

@@ -66,8 +66,8 @@ pnpm check:copy     # 文案只写最终状态
 检查和安装包构建在本地运行；发布时手动将构建产物上传到 GitHub Releases。
 
 ```bash
-pnpm build:win        # Windows zip
-pnpm build:win:full   # Windows 安装包
+pnpm build:win        # Windows 安装版 EXE
+pnpm build:win:full   # 同 build:win
 pnpm build:mac        # 只能在 macOS 上运行
 pnpm build:linux
 ```

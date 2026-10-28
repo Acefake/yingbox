@@ -26,7 +26,7 @@
     "build": "npm run typecheck && electron-vite build",
     "postinstall": "electron-builder install-app-deps",
     "build:unpack": "npm run fetch:mpv && npm run build:nocheck && electron-builder --dir",
-    "build:win": "npm run fetch:mpv && npm run build:nocheck && electron-builder --win zip",
+    "build:win": "npm run fetch:mpv && npm run build:nocheck && electron-builder --win",
     "build:win:full": "npm run fetch:mpv && npm run build:nocheck && electron-builder --win",
     "build:mac": "npm run build:nocheck && electron-builder --mac",
     "build:linux": "npm run build:nocheck && electron-builder --linux",
