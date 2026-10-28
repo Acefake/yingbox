@@ -2,6 +2,7 @@
  * 播放器 feature 的公共出口：内置播放器（桌面端独立窗口 / 网页端播放层）、mpv 的调度、播放进度。
  * 其它 feature 只能从这里引用播放器；播放一律经 openMediaPlayer。
  */
+import { defineAsyncComponent } from 'vue'
 /** 网页端盖在页面上的播放层（应用根组件挂载一次；桌面端不出现） */
 export { default as PlayerModal } from './modal/PlayerModal.vue'
 /** 独立播放器窗口的根组件（player.html 的入口挂载） */
@@ -19,8 +20,13 @@ export {
   playerSession,
   runPlayerCommand,
 } from './host/player-host'
-/** 统一播放器组件（直播页直接内嵌，不经播放器窗口） */
-export { default as UnifiedVideoPlayer } from './components/UnifiedVideoPlayer.vue'
+/**
+ * 统一播放器（直播页直接内嵌，不经播放器窗口）。
+ * 动态引入：静态 re-export 会把 Artplayer / hls.js / 弹幕插件并进两个 HTML 入口的共享 chunk。
+ */
+export const UnifiedVideoPlayer = defineAsyncComponent(
+  () => import('./components/UnifiedVideoPlayer.vue')
+)
 /** mpv 启动中的全局遮罩（应用根组件挂载） */
 export { default as MpvLoadingOverlay } from './components/MpvLoadingOverlay.vue'
 export {
