@@ -177,6 +177,14 @@ export class WriterModule {
     })
   }
 
+  /** 取消尚未执行的整理或撤销批次。 */
+  cancelQueuedBatch(batchId: number): void {
+    this.store.setBatchState(batchId, 'partial', {
+      finishedAt: Date.now(),
+      error: '任务已取消',
+    })
+  }
+
   /** 整理预览。 */
   async previewOrganize(itemIds: number[]): Promise<OrganizePlan> {
     this.prunePlans()

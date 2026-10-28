@@ -39,11 +39,12 @@ export interface OrganizeRunnerDeps {
 async function withLocks<T>(
   locks: KeyedMutex<number>,
   ids: number[],
-  fn: () => Promise<T>
+  fn: () => Promise<T>,
+  signal: AbortSignal
 ): Promise<T> {
   const [first, ...rest] = [...new Set(ids)].sort((a, b) => a - b)
   if (first === undefined) return fn()
-  return locks.run(first, () => withLocks(locks, rest, fn))
+  return locks.run(first, () => withLocks(locks, rest, fn, signal), signal)
 }
 
 /**
@@ -126,34 +127,40 @@ export class OrganizeRunner {
     }
     const libraries = [...new Set(todo.map(op => op.libraryId))]
     const touchedDirs: string[] = []
-    await withLocks(this.deps.locks, libraries, async () => {
-      for (const op of todo) {
-        signal.throwIfAborted()
-        const [from, to] =
-          direction === 'apply' ? [op.src, op.dst] : [op.dst, op.src]
-        const doneState = direction === 'apply' ? 'done' : 'undone'
-        try {
-          await this.moveOne(op, from, to)
-          transaction(this.deps.db, () =>
-            this.deps.store.setOpState(batchId, op.seq, doneState)
-          )
-          touchedDirs.push(dirname(from))
-          counts.moved++
-        } catch (error) {
-          const message = (error as Error).message
-          const state = direction === 'apply' ? 'failed' : 'done'
-          this.deps.store.setOpState(batchId, op.seq, state, message)
-          counts.failed++
-          counts.lastError = `${from}：${message}`
+    await withLocks(
+      this.deps.locks,
+      libraries,
+      async () => {
+        for (const op of todo) {
+          signal.throwIfAborted()
+          const [from, to] =
+            direction === 'apply' ? [op.src, op.dst] : [op.dst, op.src]
+          const doneState = direction === 'apply' ? 'done' : 'undone'
+          try {
+            await this.moveOne(op, from, to)
+            transaction(this.deps.db, () =>
+              this.deps.store.setOpState(batchId, op.seq, doneState)
+            )
+            touchedDirs.push(dirname(from))
+            counts.moved++
+          } catch (error) {
+            const message = (error as Error).message
+            const state = direction === 'apply' ? 'failed' : 'done'
+            this.deps.store.setOpState(batchId, op.seq, state, message)
+            counts.failed++
+            counts.lastError = `${from}：${message}`
+          }
+          counts.done++
+          onProgress(counts)
         }
-        counts.done++
-        onProgress(counts)
-      }
-      await removeEmptyDirs(
-        touchedDirs,
-        libraries.map(id => this.deps.library(id).root)
-      )
-    })
+        await removeEmptyDirs(
+          touchedDirs,
+          libraries.map(id => this.deps.library(id).root)
+        )
+      },
+      signal
+    )
+    signal.throwIfAborted()
     return counts
   }
 

@@ -2,7 +2,8 @@
  * 整理预览的纯规则：按模板算每个视频的目标路径（电影多分段加 ` - partN`，剧集多集合并集号）、
  * 旁挂文件归属（前缀最长者得）、视频冲突连带阻止同条目的其他项。不碰文件系统。
  */
-import { basename, extname, join } from 'node:path'
+import { basename, dirname, extname, join, relative, sep } from 'node:path'
+import { ownerFolderDepth } from '../../../../shared/library/parser'
 import type {
   LibraryItemNode,
   WriterSettings,
@@ -15,6 +16,15 @@ import type { PlannedMove } from './organize-planner'
 
 /** 去扩展名的文件名。 */
 export const stem = (file: string): string => basename(file, extname(file))
+
+/** 作品文件夹的上层作为整理基准，保留媒体库中的分类目录。 */
+export function seriesBase(root: string, file: string): string {
+  const path = relative(root, dirname(file))
+  if (!path || path.startsWith('..') || path.startsWith(sep)) return root
+  const folders = path.split(sep)
+  const depth = ownerFolderDepth(folders)
+  return depth > 1 ? join(root, ...folders.slice(0, depth - 1)) : root
+}
 
 /** 一个视频要去的地方。 */
 export interface VideoTarget {
@@ -112,7 +122,7 @@ export function seriesTargets(
       })
       continue
     }
-    const r = render(root, settings.organize.tvTemplate, {
+    const r = render(seriesBase(root, from), settings.organize.tvTemplate, {
       title: meta.title,
       series: meta.title,
       originalTitle: meta.originalTitle ?? meta.title,

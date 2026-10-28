@@ -15,7 +15,7 @@ import { CALENDAR_METHODS } from './contract-calendar'
 import { SCRAPE_METHODS, type ScrapeRpcMap } from './contract-scrape'
 import type { LibraryProgressBridge, ProgressRpcMap } from './contract-progress'
 import { PROGRESS_METHODS } from './contract-progress'
-import type { LibraryEvent } from './contract-events'
+import type { ActiveLibraryJob, LibraryEvent } from './contract-events'
 import type { LibraryMergeBridge, MergeRpcMap } from './contract-merge'
 import { MERGE_METHODS, type NodeMergeFields } from './contract-merge'
 import type { LibraryQueryFilters } from './contract-filters'
@@ -249,6 +249,8 @@ export interface LibraryRpcMap
     ScrapeRpcMap,
     LibraryNotifyRpcMap {
   listLibraries: { params: void; result: LibraryInfo[] }
+  listActiveJobs: { params: void; result: ActiveLibraryJob[] }
+  cancelJob: { params: { jobId: number }; result: boolean }
   addLibrary: { params: AddLibraryRequest; result: LibraryInfo }
   removeLibrary: { params: { libraryId: number }; result: void }
   updateLibrary: { params: UpdateLibraryRequest; result: LibraryInfo }
@@ -290,6 +292,8 @@ export type LibraryMethod = keyof LibraryRpcMap
 /** 方法名白名单：主进程据此拒绝未知方法，键与 LibraryRpcMap 一一对应。 */
 export const LIBRARY_METHODS = [
   'listLibraries',
+  'listActiveJobs',
+  'cancelJob',
   'addLibrary',
   'removeLibrary',
   'updateLibrary',
@@ -336,6 +340,8 @@ export interface LibraryBridge
     LibraryProgressBridge,
     LibraryMergeBridge {
   listLibraries(): Promise<LibraryInfo[]>
+  listActiveJobs(): Promise<ActiveLibraryJob[]>
+  cancelJob(jobId: number): Promise<boolean>
   addLibrary(request: AddLibraryRequest): Promise<LibraryInfo>
   removeLibrary(libraryId: number): Promise<void>
   /** 改名或改自动化设置，返回生效后的媒体库。 */

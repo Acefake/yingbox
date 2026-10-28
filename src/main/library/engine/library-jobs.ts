@@ -207,16 +207,22 @@ export async function runProbe(
       if (!chunk.length) continue
       width = 0
       ctx.signal.throwIfAborted()
-      const stop = await locks.run(lib.id, async () => {
-        const results = await Promise.all(chunk.map(f => probe(f.displayPath)))
-        if (results.includes('unavailable')) return true
-        transaction(deps.db, () => {
-          for (const [i, result] of results.entries())
-            if (result !== 'failed' && result !== 'unavailable')
-              deps.scanStore.setVideoProbe(chunk[i].id, result)
-        })
-        return false
-      })
+      const stop = await locks.run(
+        lib.id,
+        async () => {
+          const results = await Promise.all(
+            chunk.map(f => probe(f.displayPath))
+          )
+          if (results.includes('unavailable')) return true
+          transaction(deps.db, () => {
+            for (const [i, result] of results.entries())
+              if (result !== 'failed' && result !== 'unavailable')
+                deps.scanStore.setVideoProbe(chunk[i].id, result)
+          })
+          return false
+        },
+        ctx.signal
+      )
       if (stop) return
     }
     afterId = batch.at(-1)!.id
@@ -271,16 +277,20 @@ export function registerLibraryJobs(
   queue.register(
     'scan',
     (p, ctx) =>
-      locks.run((p as ScanPayload).libraryId, () =>
-        runScan(deps, p as ScanPayload, ctx)
+      locks.run(
+        (p as ScanPayload).libraryId,
+        () => runScan(deps, p as ScanPayload, ctx),
+        ctx.signal
       ),
     { merge: mergeScanPayload, followups }
   )
   queue.register(
     'parse',
     (p, ctx) =>
-      locks.run((p as LibraryPayload).libraryId, () =>
-        runParse(deps, p as LibraryPayload, ctx)
+      locks.run(
+        (p as LibraryPayload).libraryId,
+        () => runParse(deps, p as LibraryPayload, ctx),
+        ctx.signal
       ),
     { followups }
   )

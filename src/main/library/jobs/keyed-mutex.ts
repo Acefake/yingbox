@@ -9,14 +9,32 @@ export class KeyedMutex<K> {
   private readonly tails = new Map<K, Promise<void>>()
 
   /** 在键 key 的锁内执行 fn。 */
-  async run<T>(key: K, fn: () => Promise<T>): Promise<T> {
+  async run<T>(key: K, fn: () => Promise<T>, signal?: AbortSignal): Promise<T> {
     const previous = this.tails.get(key) ?? Promise.resolve()
     let release!: () => void
     const current = new Promise<void>(resolve => (release = resolve))
     const tail = previous.then(() => current)
     this.tails.set(key, tail)
-    await previous
     try {
+      signal?.throwIfAborted()
+      if (signal) {
+        let onAbort: (() => void) | undefined
+        try {
+          await Promise.race([
+            previous,
+            new Promise<never>((_, reject) => {
+              onAbort = () => reject(signal.reason)
+              signal.addEventListener('abort', onAbort, { once: true })
+              if (signal.aborted) onAbort()
+            }),
+          ])
+        } finally {
+          if (onAbort) signal.removeEventListener('abort', onAbort)
+        }
+      } else {
+        await previous
+      }
+      signal?.throwIfAborted()
       return await fn()
     } finally {
       release()

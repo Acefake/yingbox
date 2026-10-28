@@ -9,6 +9,15 @@ import type { ActorsChangedEvent } from './contract-actors'
 /** 任务状态。 */
 export type JobState = 'queued' | 'running' | 'done' | 'failed' | 'cancelled'
 
+/** 当前排队或运行中的媒体库任务。 */
+export interface ActiveLibraryJob {
+  jobId: number
+  jobType: string
+  state: 'queued' | 'running'
+  libraryId: number | null
+  batchId: number | null
+}
+
 /** 条目变化（顶层条目 id）。数量过多时只发 reset，让订阅方整体刷新。 */
 export interface ItemsChangedEvent {
   type: 'items-changed'

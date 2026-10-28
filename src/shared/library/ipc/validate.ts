@@ -324,6 +324,10 @@ const PARAM_PARSERS: {
   [M in LibraryMethod]: (input: unknown) => ParsedRpcParams<M>
 } = {
   listLibraries: () => undefined,
+  listActiveJobs: () => undefined,
+  cancelJob: input => ({
+    jobId: positiveId(asRecord(input, '参数').jobId, 'jobId'),
+  }),
   addLibrary: parseAddLibrary,
   removeLibrary: input => ({
     libraryId: positiveId(asRecord(input, '参数').libraryId, 'libraryId'),

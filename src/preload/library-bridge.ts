@@ -87,6 +87,8 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
 
   return {
     listLibraries: () => call('listLibraries'),
+    listActiveJobs: () => call('listActiveJobs'),
+    cancelJob: jobId => call('cancelJob', { jobId }),
     addLibrary: request => call('addLibrary', request),
     removeLibrary: libraryId => call('removeLibrary', { libraryId }),
     updateLibrary: request => call('updateLibrary', request),

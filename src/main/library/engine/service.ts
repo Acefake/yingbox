@@ -71,6 +71,21 @@ export class LibraryService {
   private readonly catalog: CatalogStore
   private readonly catalogQuery: CatalogQuery
   readonly queue: JobQueue
+
+  /** 取消任务；排队的整理批次同步结束，已完成的移动仍可撤销。 */
+  cancelJob(jobId: number): boolean {
+    const job = this.queue.get(jobId)
+    if (!job || !this.queue.cancel(jobId)) return false
+    if (
+      job.state === 'queued' &&
+      (job.type === 'writer-organize' || job.type === 'writer-undo')
+    ) {
+      const payload = job.payload as { batchId?: number }
+      if (typeof payload.batchId === 'number')
+        this.writer.cancelQueuedBatch(payload.batchId)
+    }
+    return true
+  }
   /** 识别与刮削。 */
   readonly identifier: IdentifyModule
   /** 写出层（NFO / 图片 / 整理）。 */

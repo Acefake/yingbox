@@ -114,6 +114,8 @@ describe('引擎 RPC 与 preload bridge', () => {
   it('白名单与契约方法一一对应', () => {
     const methods: Array<keyof LibraryRpcMap> = [
       'listLibraries',
+      'listActiveJobs',
+      'cancelJob',
       'addLibrary',
       'removeLibrary',
       'updateLibrary',
@@ -165,6 +167,60 @@ describe('引擎 RPC 与 preload bridge', () => {
       'merge.join',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
+  })
+
+  it('读取现有运行中和排队任务，不返回任务载荷', async () => {
+    const insert = service.db.prepare(
+      `INSERT INTO jobs (type, payload, state, created_at, updated_at)
+       VALUES (?, ?, ?, 1, 1)`
+    )
+    insert.run(
+      'scan',
+      JSON.stringify({ libraryId: 2, secret: 'hidden' }),
+      'running'
+    )
+    insert.run('writer-organize', JSON.stringify({ batchId: 7 }), 'queued')
+    insert.run('scan', '{}', 'done')
+    const api = createLibraryBridge(fakeIpc())
+    expect(await api.listActiveJobs()).toEqual([
+      expect.objectContaining({
+        jobType: 'scan',
+        state: 'running',
+        libraryId: 2,
+        batchId: null,
+      }),
+      expect.objectContaining({
+        jobType: 'writer-organize',
+        state: 'queued',
+        libraryId: null,
+        batchId: 7,
+      }),
+    ])
+    expect(JSON.stringify(await api.listActiveJobs())).not.toContain('hidden')
+  })
+
+  it('取消排队的整理任务后结束批次', async () => {
+    const batch = service.db
+      .prepare(
+        "INSERT INTO organize_batches (state, item_ids, total, created_at) VALUES ('running', '[]', 0, 1) RETURNING id"
+      )
+      .get()!
+    const job = service.db
+      .prepare(
+        "INSERT INTO jobs (type, payload, state, created_at, updated_at) VALUES ('writer-organize', ?, 'queued', 1, 1) RETURNING id"
+      )
+      .get(JSON.stringify({ batchId: Number(batch.id) }))!
+    const api = createLibraryBridge(fakeIpc())
+    expect(await api.cancelJob(Number(job.id))).toBe(true)
+    expect(
+      service.db.prepare('SELECT state FROM jobs WHERE id = ?').get(job.id)
+        ?.state
+    ).toBe('cancelled')
+    expect(
+      service.db
+        .prepare('SELECT state FROM organize_batches WHERE id = ?')
+        .get(batch.id)?.state
+    ).toBe('partial')
   })
 
   it('未知方法与非法参数返回带错误码的失败响应，不抛出', async () => {

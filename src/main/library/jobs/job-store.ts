@@ -2,7 +2,7 @@
  * 任务持久化：jobs 表。排队中的同 key 任务只保留一条（入队时合并载荷），
  * 引擎重启后把“运行中”恢复成“排队”，从而断点续跑。
  */
-import type { JobState } from '../../../shared/library/ipc'
+import type { ActiveLibraryJob, JobState } from '../../../shared/library/ipc'
 import { type LibraryDb, StatementCache, transaction } from '../db/database'
 
 /** 一条任务记录。 */
@@ -56,6 +56,30 @@ export class JobStore {
 
   constructor(private readonly db: LibraryDb) {
     this.sql = new StatementCache(db)
+  }
+
+  /** 读取当前任务，不暴露任务载荷中的其他数据。 */
+  activeJobs(): ActiveLibraryJob[] {
+    return this.sql
+      .get(
+        "SELECT id, type, state, payload FROM jobs WHERE state IN ('queued', 'running') ORDER BY id"
+      )
+      .all()
+      .map(row => {
+        const payload = JSON.parse(String(row.payload)) as Record<
+          string,
+          unknown
+        > | null
+        return {
+          jobId: Number(row.id),
+          jobType: String(row.type),
+          state: row.state as 'queued' | 'running',
+          libraryId:
+            typeof payload?.libraryId === 'number' ? payload.libraryId : null,
+          batchId:
+            typeof payload?.batchId === 'number' ? payload.batchId : null,
+        }
+      })
   }
 
   /** 按 id 取。 */

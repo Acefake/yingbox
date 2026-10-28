@@ -87,6 +87,8 @@ type Handlers = {
 
 const HANDLERS: Handlers = {
   listLibraries: s => s.listLibraries(),
+  listActiveJobs: s => s.queue.activeJobs(),
+  cancelJob: (s, p) => s.cancelJob(p.jobId),
   addLibrary: (s, p) => s.addLibrary(p),
   removeLibrary: (s, p) => s.removeLibrary(p),
   updateLibrary: (s, p) => s.updateLibrary(p),

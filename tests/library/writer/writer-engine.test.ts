@@ -477,6 +477,35 @@ describe('整理（改名移动）', () => {
     await env.service.close()
   })
 
+  it('剧集整理保留分类目录，不移动分类目录下的其他剧', async () => {
+    const env = await engine('tv', {
+      '合集/请回答1988/Season 1/请回答1988.S01E02.mkv': 'e2',
+    })
+    const id = env.itemOf('请回答1988.S01E02.mkv')
+    tree.write('合集/另一部剧/Season 1/other.S01E01.mkv', 'other')
+    tree.write('合集/共享海报.jpg', 'shared')
+    env.settings(s => (s.organize.enabled = true))
+
+    const plan = await env.service.writer.previewOrganize([id])
+    expect(plan.entries.some(e => e.kind === 'video' && !e.conflict)).toBe(true)
+    expect(plan.entries.find(e => e.kind === 'video')?.to).toContain(
+      env.path('合集/请回答1988 (2015)')
+    )
+    expect(plan.entries.some(e => e.from === env.path('合集/另一部剧'))).toBe(
+      false
+    )
+    expect(
+      plan.entries.some(e => e.from === env.path('合集/共享海报.jpg'))
+    ).toBe(false)
+    env.service.writer.applyOrganize(plan.planId)
+    await env.service.queue.idle()
+    expect(read(env.path('合集/另一部剧/Season 1/other.S01E01.mkv'))).toBe(
+      'other'
+    )
+    expect(read(env.path('合集/共享海报.jpg'))).toBe('shared')
+    await env.service.close()
+  })
+
   it('剧集：按模板改名，剧集级与季级文件随文件夹走', async () => {
     const env = await engine('tv', {
       '请回答1988/Season 1/请回答1988.S01E02.mkv': 'e2',

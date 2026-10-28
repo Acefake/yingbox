@@ -20,11 +20,13 @@ import type {
 } from '../../../../shared/library/ipc'
 import type { LibraryRecord } from '../../libraries/library-store'
 import { VIDEO_EXTENSIONS } from '../../scanner/rules'
+import { ownerFolderDepth } from '../../../../shared/library/parser'
 import { exists } from '../fs/file-ops'
 import {
   type VideoTarget,
   blockWithConflictingVideo,
   movieTargets,
+  seriesBase,
   seriesTargets,
   sidecarOwner,
   stem,
@@ -129,6 +131,25 @@ async function planItem(
   let unchanged = 0
   const itemVideos = targets.map(t => t.from)
   const assigned = new Set(itemVideos)
+  const videoPaths = new Set(itemVideos)
+
+  // 只有能确认目录树里的视频都属于当前条目，才能移动目录级附属内容。
+  const ownsFolder = async (dir: string): Promise<boolean> => {
+    let entries: Dirent[]
+    try {
+      entries = await readdir(dir, { withFileTypes: true })
+    } catch {
+      return false
+    }
+    for (const entry of entries) {
+      const path = join(dir, entry.name)
+      if (entry.isSymbolicLink()) return false
+      if (entry.isDirectory() && !(await ownsFolder(path))) return false
+      if (entry.isFile() && isVideo(entry.name) && !videoPaths.has(path))
+        return false
+    }
+    return true
+  }
 
   // 视频与旁挂
   const byDir = new Map<string, VideoTarget[]>()
@@ -195,26 +216,33 @@ async function planItem(
         await moveFolder(dir, newDir)
     }
   } else {
-    const firstSegment = (p: string): string => relative(root, p).split(sep)[0]
-    const oldSeries = new Set(itemVideos.map(firstSegment))
-    const newSeries = new Set(resolved.map(t => firstSegment(t.to)))
+    const seriesDirOf = (file: string): string | null => {
+      const folders = relative(root, dirname(file)).split(sep).filter(Boolean)
+      const depth = ownerFolderDepth(folders)
+      return depth ? join(root, ...folders.slice(0, depth)) : null
+    }
+    const groups = new Map<string, Set<string>>()
+    for (const target of resolved) {
+      const oldDir = seriesDirOf(target.from)
+      const base = seriesBase(root, target.from)
+      const segment = relative(base, target.to).split(sep)[0]
+      if (!oldDir || dirname(target.to) === base) continue
+      const destinations = groups.get(oldDir) ?? new Set<string>()
+      destinations.add(join(base, segment))
+      groups.set(oldDir, destinations)
+    }
     // 季文件夹先处理（它们在剧集文件夹里，要整体挪走的话不能被当成剧集级目录）
     for (const [dir, list] of byDir) {
-      const seriesDir = join(root, firstSegment(dir))
+      const seriesDir = seriesDirOf(list[0].from)
+      if (!seriesDir) continue
       if (dir === seriesDir || dirname(dir) !== seriesDir) continue
       const newDir = oneDir(list.filter(t => t.to).map(t => t.to!))
-      if (newDir && newDir !== join(root, firstSegment(newDir)))
+      if (newDir && newDir !== seriesDir && (await ownsFolder(dir)))
         await moveFolder(dir, newDir)
     }
-    if (oldSeries.size === 1 && newSeries.size === 1) {
-      const oldDir = join(root, [...oldSeries][0])
-      const newDir = join(root, [...newSeries][0])
-      if (
-        resolved.every(t => dirname(t.to) !== root) &&
-        itemVideos.every(v => dirname(v) !== root)
-      ) {
-        await moveFolder(oldDir, newDir)
-      }
+    for (const [oldDir, destinations] of groups) {
+      if (destinations.size === 1 && (await ownsFolder(oldDir)))
+        await moveFolder(oldDir, [...destinations][0])
     }
   }
   return { moves, unchanged }

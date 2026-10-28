@@ -4,7 +4,7 @@
  *
  * 任务处理函数应当幂等：引擎崩溃或重启后，没跑完的任务会从头再跑一次。
  */
-import type { JobEvent } from '../../../shared/library/ipc'
+import type { ActiveLibraryJob, JobEvent } from '../../../shared/library/ipc'
 import {
   type FollowupRule,
   type FollowupSpec,
@@ -78,6 +78,16 @@ export class JobQueue {
     this.concurrency = options.concurrency ?? 2
     this.backoff = options.backoff ?? defaultBackoff
     this.now = options.now ?? Date.now
+  }
+
+  /** 当前排队和运行中的任务。 */
+  activeJobs(): ActiveLibraryJob[] {
+    return this.store.activeJobs()
+  }
+
+  /** 查询任务，用于取消前处理关联状态。 */
+  get(id: number): JobRecord | undefined {
+    return this.store.get(id)
   }
 
   /** 注册一种任务类型。必须在 start 之前注册完。 */
@@ -197,6 +207,7 @@ export class JobQueue {
       try {
         if (!entry) throw new PermanentJobError(`未注册的任务类型：${job.type}`)
         const result = await entry.handler(job.payload, ctx)
+        controller.signal.throwIfAborted()
         this.store.finish(job.id, 'done', this.now())
         this.emit(job, 'done', { progress: 1 })
         await this.followUp(job, controller.signal, { failed: false, result })

@@ -149,7 +149,14 @@ export async function runBatch(
     })
     // 整批出错也发结束事件，界面才能提示（否则只在日志里）
     report(
-      { total: 0, done: 0, written: 0, skipped: 0, failed: 0, error: message },
+      {
+        total: 0,
+        done: 0,
+        written: 0,
+        skipped: 0,
+        failed: 0,
+        ...(ctx.signal.aborted ? {} : { error: message }),
+      },
       true
     )
     throw error
