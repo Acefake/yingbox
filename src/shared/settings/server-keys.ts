@@ -16,6 +16,14 @@ export const SERVER_SETTING_KEYS = [
   'pan115.tvCid',
   'pan115.tvName',
   'library.notify.mountRoot',
+  'notify.bark.enabled',
+  'notify.bark.server',
+  'notify.telegram.enabled',
+  'notify.telegram.chatId',
+  'notify.on.autograb',
+  'notify.on.episode',
+  'notify.on.movie',
+  'notify.merge',
   ...SCRAPE_SETTING_KEYS,
 ] as const satisfies readonly ValueKey[]
 

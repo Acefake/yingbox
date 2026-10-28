@@ -81,6 +81,7 @@ export function createNotifyService(deps: NotifyServiceDeps): NotifyService {
   const sent = new Map<string, number>()
   let buffer: NotifyItem[] = []
   let timer: ReturnType<typeof setTimeout> | undefined
+  const inflight = new Set<Promise<void>>()
 
   async function deliver(
     message: NotifyMessage,
@@ -110,7 +111,18 @@ export function createNotifyService(deps: NotifyServiceDeps): NotifyService {
     timer = undefined
     const items = buffer
     buffer = []
-    if (items.length) await deliver(formatMessage(items), deps.config())
+    if (items.length) await send(formatMessage(items), deps.config())
+    while (inflight.size) await Promise.all([...inflight])
+  }
+
+  function send(message: NotifyMessage, config: NotifyConfig): Promise<void> {
+    const task = deliver(message, config)
+    inflight.add(task)
+    void task.then(
+      () => inflight.delete(task),
+      () => inflight.delete(task)
+    )
+    return task
   }
 
   function accept(items: NotifyItem[]): void {
@@ -126,7 +138,7 @@ export function createNotifyService(deps: NotifyServiceDeps): NotifyService {
     const { bark, telegram } = active(config)
     if (!config.enabled.system && !bark && !telegram) return
     if (!config.merge) {
-      for (const item of fresh) void deliver(formatMessage([item]), config)
+      for (const item of fresh) void send(formatMessage([item]), config)
       return
     }
     buffer.push(...fresh)

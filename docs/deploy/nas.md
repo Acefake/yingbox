@@ -240,3 +240,9 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 - 健康检查一直 `unhealthy`：`docker inspect --format '{{json .State.Health}}' yingbox-library` 看每次检查的输出；改了 `YINGBOX_PORT` 时健康检查会跟着用新端口。
 - 目录监控、inotify 上限、写入稳定判定等，见 [自动入库](../library-server.md#自动入库)。
 - 追更不动：日志里有「调度租约在别的实例手里」说明另一个容器（或刚被杀掉、90 秒内的旧进程）持有 `/config/scheduler.lock`；确认只有一个容器在用这份 `/config`。「网盘 / 追更：已关闭」说明设了 `YINGBOX_NETDISK=off`。
+
+## 入库推送与直播
+
+网页端设置 → 新入库支持 Bark / Telegram，配置保存在 `/config`；无需保持网页打开。密钥不回显，NAS 不提供桌面系统通知。
+
+直播源与节目单由 NAS 读取，媒体经同源代理播放。局域网源在 `YINGBOX_STREAM_ALLOW_PRIVATE` 中显式放行主机或网段；网页用播放列表地址添加源，本地文件选择仅在桌面端提供。详见 [NAS 直播与入库推送](../library-server.md#nas-直播与入库推送)。

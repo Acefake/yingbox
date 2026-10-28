@@ -6,7 +6,11 @@ import { tmpdir } from 'node:os'
 import { dirname, join } from 'node:path'
 import type { HttpFetch } from '../../src/main/library/identify/identify-module'
 import { inProcessCodec } from '../../src/main/thumbnails/codec-client'
-import { type ServerApp, createServerApp } from '../../src/server/app'
+import {
+  type ServerApp,
+  type ServerAppOptions,
+  createServerApp,
+} from '../../src/server/app'
 import type { ServerConfig } from '../../src/server/config'
 import type { InvokeResult } from '../../src/shared/library/ipc'
 
@@ -32,6 +36,7 @@ export async function startServer(options: {
   fetch: HttpFetch
   env?: NodeJS.ProcessEnv
   files?: Record<string, string | Buffer | number>
+  notifyFetch?: ServerAppOptions['notifyFetch']
 }): Promise<Harness> {
   const work = mkdtempSync(join(tmpdir(), 'yingbox-server-'))
   const media = join(work, 'media')
@@ -63,6 +68,7 @@ export async function startServer(options: {
     watch: false,
     log: () => {},
     env: { YINGBOX_SERVER_TOKEN: TOKEN, ...options.env },
+    notifyFetch: options.notifyFetch,
   })
   const call = (
     path: string,

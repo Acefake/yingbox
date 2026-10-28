@@ -22,7 +22,12 @@
         :loading="adding"
         :disabled="!url.trim()"
       />
-      <UiButton icon="file" label="本地文件" @click="addFile" />
+      <UiButton
+        v-if="isElectron"
+        icon="file"
+        label="本地文件"
+        @click="addFile"
+      />
     </form>
     <p v-if="formError" class="live-sources-error" role="alert">
       {{ formError }}
@@ -30,7 +35,7 @@
 
     <p v-if="!sources.length" class="live-sources-empty">
       还没有直播源。添加 m3u / m3u8 播放列表地址、选择本地 m3u / txt
-      文件，或订阅下面的推荐源。
+      文件（桌面端），或订阅下面的推荐源。
     </p>
 
     <section class="live-presets" aria-labelledby="live-presets-title">
@@ -114,6 +119,7 @@
  * 状态在 useLiveSources（模块单例），这里只是表单与列表。
  */
 import { ref } from 'vue'
+import { usePlatform } from '@/composables/use-platform'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import { confirmDialog } from '@/components/ui/confirm'
@@ -132,6 +138,7 @@ import {
 import type { LiveSource } from '../utils/live-rules'
 
 const live = useLiveSources()
+const { isElectron } = usePlatform()
 const { sources, errors, loading, parsed } = live
 
 const url = ref('')

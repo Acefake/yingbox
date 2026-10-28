@@ -97,6 +97,7 @@ import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { usePlatform } from '@/composables/use-platform'
 import { useCalendarBadge } from '@/features/calendar'
 import { refreshSources } from '@/features/online'
+import { netdiskAvailable } from '@/features/netdisk'
 import { SettingsPanel, useSetting } from '@/features/settings'
 import { isWebRuntime, libraryServerState } from '@/services/library-server'
 
@@ -157,7 +158,7 @@ const navState = computed<NavState>(() => ({
   routeName: route.name?.toString(),
   onlineTab: typeof route.query.tab === 'string' ? route.query.tab : undefined,
   hasLocalLibrary: hasLocalLibrary.value,
-  hasNetdisk: isElectron,
+  hasNetdisk: netdiskAvailable,
   adultMode: adultMode.value,
   calendarBadge: calendarBadge.value,
 }))

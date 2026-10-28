@@ -28,6 +28,21 @@ import {
   videoErrorReason,
 } from '../src/renderer/src/features/player/utils/play-errors'
 import { STREAM_SCHEME } from '../src/shared/stream-url'
+import { streamProxyPath } from '../src/shared/engine-http'
+
+it('NAS 视频直播使用 HTTP 代理并保留线路请求头', () => {
+  const plan = planLine(
+    'https://example.com/live.mp4|Referer=https://example.com/&User-Agent=Live',
+    { ok: true, kind: 'mp4' },
+    streamProxyPath
+  )
+  expect(plan.src).toBe(
+    streamProxyPath('https://example.com/live.mp4', {
+      referer: 'https://example.com/',
+      userAgent: 'Live',
+    })
+  )
+})
 
 const bytes = (text: string): Uint8Array => new TextEncoder().encode(text)
 const tsPackets = (count: number): Uint8Array =>

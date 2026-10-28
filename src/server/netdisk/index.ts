@@ -12,7 +12,7 @@
  * | userData/autograb*.json、offline-tasks.json | <dataDir> 下同名文件                                  |
  * | setTimeout / setInterval                    | 同上，但只在持有调度租约的实例上执行（scheduler.ts）  |
  * 转存后的入库通知走同进程 LibraryService.notifyChanges（与桌面端经引擎调用同一个方法）。
- * 入库推送（系统通知 / Bark / Telegram）只在桌面端，服务端不发。
+ * 追更入库交给 app 注入的通知回调，Bark / Telegram 由服务端发送。
  */
 import { join } from 'node:path'
 
@@ -66,6 +66,10 @@ export const NETDISK_FILES = {
 
 /** 依赖 */
 export interface NetdiskOptions {
+  registry?: DomainRegistry
+  landed?: (
+    records: import('../../main/notify/notify-rules').LandedEpisode[]
+  ) => void
   dataDir: string
   env: NodeJS.ProcessEnv
   secrets: FileSecretStore
@@ -80,6 +84,7 @@ export interface NetdiskOptions {
 
 /** 加载好的模块 */
 export interface Netdisk {
+  autograb: ReturnType<typeof registerAutograb>
   registry: DomainRegistry
   pan115: Pan115Service
   scheduler: LeasedScheduler
@@ -108,13 +113,13 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
   }
   const send: FetchLike = options.fetch ?? ((url, init) => fetch(url, init))
   const { settings } = options
-  const registry = new DomainRegistry()
+  const registry = options.registry ?? new DomainRegistry()
   const scheduler = createLeasedScheduler({
     lease: new SchedulerLease({ file: join(dataDir, NETDISK_FILES.lease) }),
     enabled: config.autograb,
     log: message => log(`[autograb] ${message}`),
   })
-  registerDomainRoutes(options.router, registry)
+  if (!options.registry) registerDomainRoutes(options.router, registry)
 
   const host: ModuleHost = {
     dataDir,
@@ -161,7 +166,9 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
   implementPan115(host, pan115)
 
   const library = libraryClient(options.service)
-  const autograb = registerAutograb(host, library, pan115)
+  const autograb = registerAutograb(host, library, pan115, {
+    landed: options.landed,
+  })
   const pan = createPanAdapter(pan115, () => settings.get('pan115.pansouUrl'))
   const gate = (): ReturnType<typeof autograb.gate> => autograb.gate()
   const movies = registerAutograbMovies(host, library, pan, gate)
@@ -176,6 +183,7 @@ export function startNetdisk(options: NetdiskOptions): Netdisk | null {
   )
 
   return {
+    autograb,
     registry,
     pan115,
     scheduler,

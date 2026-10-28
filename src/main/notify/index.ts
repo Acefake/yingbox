@@ -62,6 +62,15 @@ export function registerNotify(
   })
   onLibraryArrivals(list => service.arrivals(list))
   implement(notifications, {
+    configured: () => ({
+      bark: !!settingsStore().getSecret('notify.bark.key'),
+      telegram: !!settingsStore().getSecret('notify.telegram.token'),
+    }),
+    setSecret: (_, channel, value) =>
+      settingsStore().setSecret(
+        channel === 'bark' ? 'notify.bark.key' : 'notify.telegram.token',
+        value
+      ),
     test: async (_, channel): Promise<NotifyTestResult> => {
       try {
         await service.test(channel)

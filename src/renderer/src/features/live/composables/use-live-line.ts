@@ -13,6 +13,9 @@ import {
 } from 'vue'
 
 import { toast } from '@/components/ui/toast'
+import { liveApi } from '../api'
+import { isWebRuntime } from '@/services/library-server'
+import { streamProxyPath } from '../../../../../shared/engine-http'
 
 import { type LinePlan, failureSummary, planLine } from '../utils/line-plan'
 import { nextLine } from '../utils/live-rules'
@@ -24,9 +27,9 @@ export const START_TIMEOUT_MS = 30_000
 /** 换线后这段时间内的错误视为上一条线路的余波（旧播放器销毁前补发的错误） */
 const ERROR_GRACE_MS = 300
 
-/** 探测一条线路；没有桌面接口（网页版）时返回 null，按扩展名猜 */
+/** 探测一条线路；没有接口时返回 null，按扩展名猜。 */
 async function probe(url: string): Promise<StreamProbe | null> {
-  const iptv = typeof window !== 'undefined' ? window.api?.iptv : undefined
+  const iptv = liveApi()
   if (!iptv?.probeStream) return null
   try {
     return await iptv.probeStream(url)
@@ -117,7 +120,11 @@ export function useLiveLine(channel: Ref<LiveChannel | null>): LiveLineState {
     const result = await probe(target)
     if (ticket !== token) return
     probing.value = false
-    const next = planLine(target, result)
+    const next = planLine(
+      target,
+      result,
+      isWebRuntime() ? streamProxyPath : undefined
+    )
     if (next.mode === 'fail' || next.mode === 'external') {
       lineFailed(next.reason)
       return

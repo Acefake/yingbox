@@ -1,6 +1,10 @@
 <template>
   <SettingsGroup title="推送渠道" :footer="CHANNEL_FOOTER">
-    <SettingsRow title="系统通知" description="在这台电脑的通知中心弹出">
+    <SettingsRow
+      v-if="isElectron"
+      title="系统通知"
+      description="在这台电脑的通知中心弹出"
+    >
       <UiButton
         v-if="system"
         size="sm"
@@ -117,7 +121,11 @@
     </SettingsRow>
   </SettingsGroup>
 
-  <SettingsGroup title="自动中文字幕" :footer="SUBTITLE_FOOTER">
+  <SettingsGroup
+    v-if="isElectron"
+    title="自动中文字幕"
+    :footer="SUBTITLE_FOOTER"
+  >
     <SettingsRow
       title="新入库时自动下载"
       description="没有中文字幕的电影 / 集，从 OpenSubtitles 下一份放到视频旁边"
@@ -139,9 +147,11 @@
 /**
  * 设置 · 新入库：推送渠道（系统通知 / Bark / Telegram）、推送哪几类、合并，以及新入库自动下载中文字幕。
  * 开关与地址是普通设置 notify.* / subtitles.auto.*；Bark key、Telegram token 是密钥（只写不读）。
- * 推送在主进程（src/main/notify），自动字幕在媒体库引擎（src/main/library/subtitles）。
+ * 推送在桌面主进程或 NAS 服务发送；网页端自动字幕由服务端环境变量配置。
  */
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
+import { usePlatform } from '@/composables/use-platform'
+import { notificationApi } from './api'
 
 import { toast } from '@/components/ui'
 import UiButton from '@/components/ui/UiButton.vue'
@@ -163,8 +173,10 @@ import {
 } from './notify-ui-rules'
 import { secretField } from './secret-field'
 
-const CHANNEL_FOOTER =
-  'Bark key 和 Telegram token 加密保存在本机，只用于发推送，不写进日志。'
+const { isElectron } = usePlatform()
+const CHANNEL_FOOTER = isElectron
+  ? 'Bark key 和 Telegram token 加密保存在本机，只用于发推送，不写进日志。'
+  : 'Bark key 和 Telegram token 保存在 NAS 配置目录的 secrets.json（权限 0600），网页不读取密钥明文。'
 const SUBTITLE_FOOTER =
   '要先在媒体库设置里填 OpenSubtitles API key。只处理打开之后新入库的条目；字幕存成「视频名.zh.srt」（繁体 .zh-TW.srt）。WebDAV 上的、文件夹不可写的网盘条目会跳过。'
 
@@ -225,7 +237,9 @@ async function test(channel: NotifyChannelId): Promise<void> {
   testing.value = channel
   try {
     await Promise.all([bark.settled(), telegram.settled()])
-    const result = await window.api!.notifications.test(channel)
+    const api = notificationApi()
+    if (!api) throw new Error('推送功能不可用')
+    const result = await api.test(channel)
     if (result.ok) toast.success('已发出测试推送')
     else toast.error(result.error ?? '发送失败')
   } catch (error) {

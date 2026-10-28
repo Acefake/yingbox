@@ -50,6 +50,12 @@ import { registerMediaRoutes } from './routes/media'
 import { type OnlineDeps, registerOnline } from './online'
 import { registerSessionRoutes } from './routes/session'
 import { registerSubtitleRoutes } from './routes/subtitles'
+import { DomainRegistry } from './domains/registry'
+import { registerDomainRoutes } from './domains/routes'
+import { registerServerIptv } from './iptv'
+import { registerServerNotifications } from './notifications'
+import { loadOnlineConfig } from './online/config'
+import { registerStreamRoute } from './online/stream/route'
 import {
   FileSecretStore,
   SECRET_KEYS,
@@ -80,6 +86,8 @@ export interface ServerAppOptions {
   env?: NodeJS.ProcessEnv
   /** 115 / PanSou 的出网实现（缺省全局 fetch）；测试注入。 */
   netdiskFetch?: (url: string, init?: RequestInit) => Promise<Response>
+  /** 推送出网（测试注入）。 */
+  notifyFetch?: import('../main/notify/channels').NotifyFetch
 }
 
 /** 编解码线程：构建产物里 webp-worker.js 与本文件同目录；找不到（如直接跑源码）时退回当前线程。 */
@@ -106,6 +114,20 @@ export async function createServerApp(
     )
   const token = serverTokenFromEnv(env)
   const auth = createAuth(token, config.publicOrigin)
+  const serverSettings = new ServerSettingsStore(
+    join(config.dataDir, NETDISK_FILES.settings),
+    env
+  )
+  const registry = new DomainRegistry()
+  let netdisk: ReturnType<typeof startNetdisk> = null
+  const notify = registerServerNotifications(registry, {
+    settings: serverSettings,
+    secrets,
+    autograbSaved: (...args) => netdisk?.autograb.isSaved(...args) ?? false,
+    fetch: options.notifyFetch,
+    log: message => log(`[notify] ${message}`),
+  })
+  const libraryHost = serverLibraryHost(env)
 
   const codec = options.codec ?? defaultCodec(log)
   const thumbnails = createThumbnailPipeline({
@@ -123,7 +145,11 @@ export async function createServerApp(
       deriveImage: codecDeriver(codec),
       clipPixels: codecClipPixels(codec),
       // ffprobe 动态范围探测、按画面搜抽帧、自动中文字幕（见 library-host.ts）
-      ...serverLibraryHost(env),
+      ...libraryHost,
+      intake: {
+        ...libraryHost.intake,
+        onArrivals: arrivals => notify.arrivals(arrivals),
+      },
       onImagesCached: keys => thumbnails.warm(keys),
       env: envSecrets(env),
     },
@@ -131,10 +157,6 @@ export async function createServerApp(
   )
   await service.start()
   // 服务端设置（网页端写、网盘模块读）；刮削偏好（元数据语言、图片清晰度）启动时与改动后下发给片库
-  const serverSettings = new ServerSettingsStore(
-    join(config.dataDir, NETDISK_FILES.settings),
-    env
-  )
   await syncScrapePrefs(
     {
       setScrapePrefs: prefs =>
@@ -157,6 +179,16 @@ export async function createServerApp(
   )
 
   const router = new Router()
+  registerDomainRoutes(router, registry)
+  const onlineConfig = loadOnlineConfig(env, config.dataDir)
+  registerServerIptv(registry, {
+    dataDir: config.dataDir,
+    allowPrivate: onlineConfig.streamAllowPrivate,
+  })
+  if (!onlineConfig.enabled)
+    registerStreamRoute(router, {
+      allowPrivate: onlineConfig.streamAllowPrivate,
+    })
   registerServerSettingsRoutes(router, serverSettings)
   registerSessionRoutes(router, auth, () => ({
     mediaRoots: config.mediaRoots,
@@ -184,7 +216,9 @@ export async function createServerApp(
     engine: options.engine,
   })
   // 网盘 / 追更 / 库外发现（开关 YINGBOX_NETDISK、YINGBOX_AUTOGRAB，见 netdisk/）
-  const netdisk = startNetdisk({
+  netdisk = startNetdisk({
+    registry,
+    landed: records => notify.landed(records),
     dataDir: config.dataDir,
     env,
     secrets,
@@ -232,6 +266,7 @@ export async function createServerApp(
       await online.close()
       netdisk?.close()
       await service.close()
+      await notify.flush()
     },
   }
 }

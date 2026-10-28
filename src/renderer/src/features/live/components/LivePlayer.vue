@@ -3,7 +3,7 @@
     <UnifiedVideoPlayer
       v-if="channel && plan && !failed"
       :key="attempt"
-      :src="plan.src"
+      :src="webPlayableUrl(plan.src)"
       :title="channel.name"
       :hls="plan.mode === 'hls'"
       :show-footer="false"
@@ -79,6 +79,7 @@
  * 「频道 · 开始–结束 · 还剩 N 分钟」和播出进度；没有节目单只显示频道名。指针移入画面时说明淡出，让出播放器控制条。
  */
 import { computed, ref, watch } from 'vue'
+import { webPlayableUrl } from '@/services/library-server/engine'
 
 import StatusState from '@/components/StatusState.vue'
 import UiButton from '@/components/ui/UiButton.vue'
