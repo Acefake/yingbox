@@ -205,6 +205,17 @@ describe('mpv 播放器进程', () => {
     expect(mpvPlayer.getStatus().running).toBe(false)
   })
 
+  it('连接期间进程退出时显示退出原因，不误报连接取消', async () => {
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    fakes.connect = async () => {
+      fakes.children[0].emit('exit', 2, null)
+      throw new Error('mpv 连接已取消')
+    }
+    await expect(mpvPlayer.open({ url: 'https://a/1.m3u8' })).rejects.toThrow(
+      'mpv 启动后退出（退出码 2）'
+    )
+  })
+
   it('连点两次：按顺序执行，第一次失败但已被第二次取代时不报错', async () => {
     const { mpvPlayer } = await import('../src/main/mpv-player')
     let calls = 0

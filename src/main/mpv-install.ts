@@ -29,7 +29,7 @@ export function installMpv(): Promise<string> {
       dest: userMpvDir(),
       cache: join(app.getPath('userData'), 'mpv-packages'),
       tar: systemTar(),
-      fetcher: url => net.fetch(url),
+      fetcher: (url, signal) => net.fetch(url, { signal }),
     }).finally(() => {
       pending = null
     })

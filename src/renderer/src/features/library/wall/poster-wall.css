@@ -80,8 +80,7 @@
   letter-spacing: var(--tracking-tight);
   word-break: break-word;
 }
-.lib-cell-badge,
-.lib-cell-rating {
+.lib-cell-badge {
   position: absolute;
   padding: var(--space-0_5) var(--space-2);
   border-radius: var(--radius-xs);
@@ -94,16 +93,6 @@
 .lib-cell-badge {
   top: var(--space-2);
   left: var(--space-2);
-}
-.lib-cell-rating {
-  bottom: var(--space-2);
-  left: var(--space-2);
-}
-/* 动态范围规格标签（.yb-spec，见 ui.css）：右下角，和评分一左一右 */
-.lib-cell-range {
-  position: absolute;
-  right: var(--space-2);
-  bottom: var(--space-2);
 }
 /* 看了一部分：海报底边的进度条（与「继续播放」卡片同一套颜色） */
 .lib-cell-progress {

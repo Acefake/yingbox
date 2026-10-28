@@ -317,26 +317,6 @@ describe('海报墙规则', () => {
     })
   })
 
-  it('动态范围规格标签与详情同一套（videoRangeSpec），SDR 与没探测过不显示', () => {
-    const ranged = new Map([
-      [0, summary(20, { videoRange: 'dv' })],
-      [1, summary(21, { videoRange: 'hdr10' })],
-      [2, summary(22, { videoRange: 'sdr' })],
-      [3, summary(23)],
-    ])
-    const cells = buildCells({
-      ...base,
-      end: 4,
-      at: (i: number) => ranged.get(i),
-    })
-    expect(cells.map(c => c.range)).toEqual([
-      { variant: 'dolby', text: 'VISION' },
-      { variant: 'solid', text: 'HDR10' },
-      null,
-      null,
-    ])
-  })
-
   it('快速滚动只给显示过的条目图片；关掉角标', () => {
     const cells = buildCells({
       ...base,

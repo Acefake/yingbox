@@ -1,6 +1,10 @@
 <template>
   <div class="lib-page" :style="ambientVars(section)">
-    <LibraryAmbient :section="section" :poster="ambientPoster" />
+    <LibraryAmbient
+      v-if="actorId === null"
+      :section="section"
+      :poster="ambientPoster"
+    />
     <LibraryToolbar
       v-model:view="view"
       v-model:filter="state.filter"
@@ -103,6 +107,7 @@
     <ActorDetail
       v-if="section === 'jav' && actorId !== null"
       :actor-id="actorId"
+      :ambient-poster="ambientPoster"
       @close="closeActor"
       @open-item="openDetail"
     />

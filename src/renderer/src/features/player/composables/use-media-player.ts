@@ -89,14 +89,13 @@ let dvInstallNotified = false
  */
 function notifyMpvFallback(detail?: string): void {
   if (detail)
-    console.warn('[openMediaPlayer] mpv 不可用，已改用内置播放器:', detail)
+    console.warn('[openMediaPlayer] mpv 播放失败，已改用内置播放器:', detail)
   if (mpvFallbackNotified) return
   mpvFallbackNotified = true
-  // 自动下载失败时说清原因（网络 / 解压），否则是非 Windows 没装 mpv
   toast.warning(
-    detail?.includes('自动下载也失败')
-      ? `${detail}本次已改用内置播放器。`
-      : '未检测到 mpv 播放器，已改用内置播放器。可在「设置 → 播放器」查看安装方法。'
+    detail
+      ? `mpv 播放失败：${detail}。已改用内置播放器。`
+      : 'mpv 播放失败，已改用内置播放器。'
   )
 }
 

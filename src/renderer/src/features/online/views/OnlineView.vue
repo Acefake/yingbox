@@ -23,6 +23,7 @@
         />
         <ContinueRow
           :section="HOME_SECTIONS"
+          :resume="resumeContinue"
           more-label="打开最近播放"
           @more="router.push({ path: '/', query: { tab: 'recent' } })"
           @detail="openContinueDetail"
@@ -130,12 +131,14 @@ import VodBrowse from '../components/VodBrowse.vue'
 import DetailWindow from '../components/DetailWindow.vue'
 import LibraryCollection from '../components/LibraryCollection.vue'
 import { pendingOnlineDetail, takeOnlineDetail } from '../utils/detail-request'
-import { libraryItemLocation } from '@/features/library'
+import { libraryItemLocation, resumeLibrary } from '@/features/library'
 import {
   type ContinueRecord,
   ContinueRow,
   getMediaProgress,
+  metaOf,
   openMediaPlayer,
+  replayOptions,
 } from '@/features/player'
 import { useBrowseRoute } from '../composables/use-browse-route'
 import { useOnlineDetailRoute } from '../composables/use-online-detail-route'
@@ -145,6 +148,17 @@ import { doubanDetail } from '../utils/douban-detail'
 
 const route = useRoute()
 const router = useRouter()
+const resumeContinue = (
+  record: ContinueRecord,
+  fromStart: boolean
+): Promise<boolean> =>
+  record.section === 'movie' || record.section === 'tv'
+    ? resumeLibrary(record, fromStart)
+    : openMediaPlayer({
+        ...replayOptions(record),
+        ...(fromStart ? { startAt: 0 } : {}),
+        continueAs: metaOf(record),
+      })
 const detailRoute = useOnlineDetailRoute(router)
 const inlineDetailItem = detailRoute.item
 

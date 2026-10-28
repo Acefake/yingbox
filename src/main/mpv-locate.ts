@@ -17,8 +17,12 @@ function bundledMpvPaths(): string[] {
     typeof process.resourcesPath === 'string'
       ? join(process.resourcesPath, 'mpv', 'bin', exe)
       : '',
+    typeof process.resourcesPath === 'string'
+      ? join(process.resourcesPath, 'mpv', exe)
+      : '',
     // 开发运行：项目内的 resources/mpv
     join(app.getAppPath(), 'resources', 'mpv', 'bin', exe),
+    join(app.getAppPath(), 'resources', 'mpv', exe),
     // 首次使用时自动下载的便携版
     join(userMpvDir(), 'bin', exe),
     join(userMpvDir(), exe),

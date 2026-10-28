@@ -2,6 +2,7 @@
   <ContinueRow
     class="lib-continue"
     :section="section"
+    :resume="resumeLibrary"
     @detail="r => emit('open', itemIdOf(r.detail))"
   />
   <WatchlistRow
@@ -23,6 +24,7 @@ import { ContinueRow } from '@/features/player'
 import { WatchlistRow } from '@/features/watchlist'
 
 import { hydrateContinue } from '../progress/continue-source'
+import { resumeLibrary } from '../progress/resume-library'
 import type { LibrarySection } from '../state/library-section'
 
 defineProps<{ section: LibrarySection }>()

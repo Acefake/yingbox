@@ -56,20 +56,14 @@
           >
             <i :style="{ width: cell.progress }" />
           </span>
-          <span v-if="cell.rating" class="lib-cell-rating">{{
-            cell.rating
-          }}</span>
-          <span
-            v-if="cell.range"
-            class="lib-cell-range yb-spec"
-            :class="`is-${cell.range.variant}`"
-          >
-            <template v-if="cell.range.variant === 'dolby'">
-              <span class="yb-spec-brand">DOLBY</span>
-              <span class="yb-spec-line">{{ cell.range.text }}</span>
-            </template>
-            <template v-else>{{ cell.range.text }}</template>
-          </span>
+          <UiRatingBadge
+            v-if="cell.rating"
+            :douban="
+              cell.item?.ratingSource === 'douban' ? cell.item.rating : null
+            "
+            :tmdb="cell.item?.ratingSource === 'tmdb' ? cell.item.rating : null"
+            :other="cell.rating"
+          />
           <span v-if="cell.selected" class="lib-cell-check">
             <svg
               class="app-icon app-icon--sm"
@@ -119,6 +113,7 @@ import { type CSSProperties, computed, nextTick, ref, toRef, watch } from 'vue'
 
 import { useGridPreview } from '@/components/ui/hover-preview'
 import { iconPath } from '@/components/ui/icons'
+import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
 import { applyFocus } from '@/services/thumbnails'
 
 import type { LibraryItemSummary } from '../../../../../shared/library/ipc'

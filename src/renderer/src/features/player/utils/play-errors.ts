@@ -42,9 +42,9 @@ const LOAD_DETAILS = new Set([
 export const CODEC_UNSUPPORTED =
   '编码不受支持（常见于 HEVC 画面或 MP2 / AC3 音频）'
 
-/** 桌面端 <video> 报格式不支持（MediaError 4）：本地 mkv 多半是音频轨（AC3 / EAC3 / DTS / TrueHD）解不了 */
+/** 桌面端 <video> 报格式不支持（MediaError 4）：不能确定是容器、编码还是播放地址。 */
 export const FORMAT_UNSUPPORTED =
-  '内置播放器不支持这个文件的编码（常见于 HEVC 画面或 AC3 / EAC3 / DTS 音频）'
+  '内置播放器无法打开这个媒体，可能是容器格式、编码或播放地址不受支持'
 
 /** 原因文案是不是编码 / 格式不受支持（换 mpv 通常能播） */
 export function isCodecFailure(reason: string): boolean {

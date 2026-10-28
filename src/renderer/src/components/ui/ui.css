@@ -183,7 +183,7 @@ textarea:where(.ui-textarea) {
 /*
  * 规格标签（UiSpecBadge 渲染；海报墙格子不建组件实例，直接用这组类）：
  * - is-solid：浅灰实心小方块（4K、HDR10、HDR、HLG）
- * - is-dolby：DOLBY + VISION / ATMOS 双行文字标（不用杜比商标图）
+ * - is-dolby：DOLBY VISION 单行文字标 / DOLBY ATMOS 双行文字标
  * - is-outline：描边小方块（CC、中字、AD）
  * - is-rating：分级圆标（16+）
  * 字重 700 / 800 是字标本身的样式，按视觉纪律逐条豁免。
@@ -204,7 +204,7 @@ textarea:where(.ui-textarea) {
   letter-spacing: 0.02em;
   white-space: nowrap;
 }
-.yb-spec:where(.is-solid) {
+.yb-spec:where(.is-solid:not(.is-hdr)) {
   background: var(--spec-bg);
   color: var(--spec-text);
 }
@@ -239,6 +239,39 @@ textarea:where(.ui-textarea) {
   font-size: var(--text-4xs);
   font-weight: 600;
   letter-spacing: 0.12em;
+}
+.yb-spec:where(.is-vision) {
+  display: inline-flex;
+  gap: var(--space-0_5);
+  height: 18px;
+  padding: 0 var(--space-1);
+  color: var(--text-primary);
+}
+.yb-spec:where(.is-vision)::before {
+  width: 14px;
+  height: 10px;
+  background: currentColor;
+  content: '';
+  /* Dolby double-D symbol, https://thesvg.org/icon/dolby */
+  -webkit-mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 3.564 24 16.872'%3E%3Cpath d='M0 3.564v16.872h2.488c4.648 0 8.438-3.788 8.438-8.436s-3.79-8.436-8.438-8.436H0zm21.512 0c-4.648 0-8.438 3.788-8.438 8.436s3.79 8.436 8.438 8.436H24V3.564h-2.488z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+  mask: url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 3.564 24 16.872'%3E%3Cpath d='M0 3.564v16.872h2.488c4.648 0 8.438-3.788 8.438-8.436s-3.79-8.436-8.438-8.436H0zm21.512 0c-4.648 0-8.438 3.788-8.438 8.436s3.79 8.436 8.438 8.436H24V3.564h-2.488z'/%3E%3C/svg%3E")
+    center / contain no-repeat;
+}
+.is-vision .yb-spec-brand {
+  letter-spacing: 0.02em;
+}
+.is-vision .yb-spec-line {
+  margin: 0;
+  font-size: var(--text-3xs);
+  letter-spacing: 0.04em;
+}
+.yb-spec:where(.is-hdr) {
+  color: var(--text-primary);
+  letter-spacing: 0.05em;
+}
+.yb-spec:where(.is-media.is-hdr, .is-media.is-vision) {
+  color: var(--media-text);
 }
 
 /*

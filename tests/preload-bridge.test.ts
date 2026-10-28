@@ -93,6 +93,8 @@ const LEGACY_API: Record<string, string[]> = {
 const EXTERNAL_API: Record<string, string[]> = {
   library: [
     'listLibraries',
+    'listActiveJobs',
+    'cancelJob',
     'addLibrary',
     'removeLibrary',
     'updateLibrary',

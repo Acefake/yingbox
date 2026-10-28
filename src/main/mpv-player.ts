@@ -1,6 +1,7 @@
 import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
 import { ensureMpvExecutable } from './mpv-locate'
+import { validateMpvLocalFile } from './mpv-local-file'
 import {
   COMPACT_KEY,
   COMPACT_MESSAGE,
@@ -101,6 +102,7 @@ class MpvPlayer extends EventEmitter {
     }
     this.emit('status', this.getStatus())
     try {
+      await validateMpvLocalFile(options.filePath)
       if (this.child && this.sock.connected) {
         const stream = mpvStream(options)
         // 属性设不上（低版本 mpv 不认某个值等）只记日志，照样换片，不让整次 open 失败
@@ -146,13 +148,15 @@ class MpvPlayer extends EventEmitter {
     const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
     this.child = child
     let spawnError: Error | null = null
+    let exitDetail: string | null = null
     child.once('error', e => {
       spawnError = e
       if (this.child !== child) return
       this.emit('error', `mpv 启动失败: ${e.message}`)
       this.cleanupProcess()
     })
-    child.once('exit', () => {
+    child.once('exit', (code, signal) => {
+      exitDetail = signal ? `信号 ${signal}` : `退出码 ${code ?? '未知'}`
       if (this.child === child) this.cleanupProcess()
     })
     try {
@@ -164,7 +168,9 @@ class MpvPlayer extends EventEmitter {
         void killTree(child)
       }
       const failed = spawnError as Error | null
-      throw failed ? new Error(`mpv 启动失败: ${failed.message}`) : error
+      if (failed) throw new Error(`mpv 启动失败: ${failed.message}`)
+      if (exitDetail) throw new Error(`mpv 启动后退出（${exitDetail}）`)
+      throw error
     }
     this._status = {
       ...DEFAULT_STATUS,

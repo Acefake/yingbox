@@ -1,5 +1,6 @@
 <template>
   <div ref="root" class="lib-actor-detail" tabindex="-1">
+    <LibraryAmbient section="jav" :poster="ambientPoster" />
     <div v-if="!actor" class="lib-actor-detail-status">
       <template v-if="loading">正在载入…</template>
       <template v-else>
@@ -57,6 +58,7 @@ import { toast } from '@/components/ui'
 import { nextTick, ref, shallowRef, watch } from 'vue'
 
 import type { ActorDetail as Actor } from '../../../../../shared/library/ipc'
+import LibraryAmbient from '../ambient/LibraryAmbient.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { errorText, libraryBridge } from '../api/bridge'
@@ -68,7 +70,7 @@ import ActorEditSheet from './ActorEditSheet.vue'
 import ActorProfile from './ActorProfile.vue'
 import { worksQuery } from './actor-rules'
 
-const props = defineProps<{ actorId: number }>()
+const props = defineProps<{ actorId: number; ambientPoster: string | null }>()
 const emit = defineEmits<{ close: []; 'open-item': [itemId: number] }>()
 
 const NO_SELECTION: ReadonlySet<number> = new Set()
@@ -143,6 +145,7 @@ async function refresh(): Promise<void> {
   outline: none;
 }
 .lib-actor-detail-status {
+  position: relative;
   display: flex;
   flex-direction: column;
   align-items: center;

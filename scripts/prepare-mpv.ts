@@ -10,7 +10,7 @@ async function main(): Promise<void> {
     dest: join(root, 'resources/mpv'),
     cache: join(root, 'output/mpv-cache/packages'),
     tar: join(process.env.WINDIR || 'C:/Windows', 'System32/tar.exe'),
-    fetcher: url => fetch(url),
+    fetcher: (url, signal) => fetch(url, { signal }),
     force: process.argv.includes('--force'),
   })
   console.log(`[fetch:mpv] ${distribution.id}: ${exe}`)

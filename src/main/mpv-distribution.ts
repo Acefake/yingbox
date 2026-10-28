@@ -10,7 +10,10 @@ import distribution from '../shared/mpv-distribution.json'
 
 export { distribution }
 
-export type MpvFetch = (url: string) => Promise<{
+export type MpvFetch = (
+  url: string,
+  signal: AbortSignal
+) => Promise<{
   ok: boolean
   status: number
   body: ReadableStream<Uint8Array> | null
@@ -43,30 +46,48 @@ export async function downloadMpvFile(
     return
   await mkdir(dirname(file), { recursive: true })
   const part = `${file}.part`
-  try {
-    const response = await fetcher(url)
-    if (!response.ok || !response.body)
-      throw new Error(`mpv 下载失败（HTTP ${response.status}）`)
-    const reader = response.body.getReader()
-
-    async function* chunks(): AsyncGenerator<Uint8Array> {
-      try {
-        while (true) {
-          const { done, value } = await reader.read()
-          if (done) return
-          yield value
-        }
-      } finally {
-        reader.releaseLock()
-      }
+  let failure: unknown
+  for (let attempt = 0; attempt < 3; attempt++) {
+    const controller = new AbortController()
+    let timer: ReturnType<typeof setTimeout> | undefined
+    const resetTimeout = (): void => {
+      clearTimeout(timer)
+      timer = setTimeout(() => controller.abort(), 45_000)
     }
+    resetTimeout()
+    try {
+      const response = await fetcher(url, controller.signal)
+      if (!response.ok || !response.body)
+        throw new Error(`mpv 下载失败（HTTP ${response.status}）`)
+      const reader = response.body.getReader()
 
-    await pipeline(Readable.from(chunks()), createWriteStream(part))
-    await verifyMpvFile(part, sha256)
-    await rename(part, file)
-  } finally {
-    await rm(part, { force: true })
+      async function* chunks(): AsyncGenerator<Uint8Array> {
+        try {
+          while (true) {
+            const { done, value } = await reader.read()
+            if (done) return
+            resetTimeout()
+            yield value
+          }
+        } finally {
+          reader.releaseLock()
+        }
+      }
+
+      await pipeline(Readable.from(chunks()), createWriteStream(part))
+      await verifyMpvFile(part, sha256)
+      await rename(part, file)
+      return
+    } catch (error) {
+      failure = controller.signal.aborted
+        ? new Error('mpv 下载连接超时')
+        : error
+    } finally {
+      clearTimeout(timer)
+      await rm(part, { force: true })
+    }
   }
+  throw failure
 }
 
 /** 只允许锁文件中的相对路径，拒绝根目录与父目录穿越。 */

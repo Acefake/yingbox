@@ -27,6 +27,7 @@ export {
 export { type LibraryCardInfo, libraryCardInfo } from './detail/card-info'
 /** 片库观看进度：应用入口接上播放器；追剧日历读某一集的进度 */
 export { installLibraryProgress } from './progress/install'
+export { resumeLibrary } from './progress/resume-library'
 export { librarySettingsSection } from './settings/section'
 export {
   loadProgress as loadLibraryProgress,

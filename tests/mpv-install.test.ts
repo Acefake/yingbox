@@ -29,6 +29,23 @@ afterEach(async () => {
 })
 
 describe('mpv 安装校验', () => {
+  it('下载连接中断后自动重试并校验文件', async () => {
+    const file = join(await workspace(), 'mpv.pkg.tar.zst')
+    let calls = 0
+    await downloadMpvFile(
+      file,
+      'https://example.invalid/mpv',
+      digest('correct'),
+      async () => {
+        calls++
+        if (calls === 1) throw new Error('连接中断')
+        return new Response('correct')
+      }
+    )
+    expect(calls).toBe(2)
+    expect(await readFile(file, 'utf8')).toBe('correct')
+  })
+
   it('损坏的下载不能提交到缓存，重试可成功，命中缓存不访问网络', async () => {
     const file = join(await workspace(), 'mpv.pkg.tar.zst')
     await expect(

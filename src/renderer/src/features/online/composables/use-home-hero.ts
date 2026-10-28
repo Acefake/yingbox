@@ -24,6 +24,7 @@ import {
   libraryHighlights,
   libraryItemLocation,
   playLibraryItem,
+  resumeLibrary,
 } from '@/features/library'
 import {
   type ContinueRecord,
@@ -147,10 +148,13 @@ export function useHomeHero(
       watchlist: info?.watchlist ?? null,
       playLabel: resumePlayLabel(record),
       play: async () => {
-        const ok = await openMediaPlayer({
-          ...replayOptions(record),
-          continueAs: metaOf(record),
-        })
+        const ok =
+          libraryItemIdOf(record) !== null
+            ? await resumeLibrary(record, false)
+            : await openMediaPlayer({
+                ...replayOptions(record),
+                continueAs: metaOf(record),
+              })
         if (!ok) toast.error('无法打开播放器')
       },
       open: () => openContinue(record),

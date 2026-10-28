@@ -1,12 +1,16 @@
 <template>
   <span
-    v-if="badge"
+    v-if="badge || other"
     class="ui-rating-badge yb-glass is-media"
     role="img"
-    :aria-label="`${badge.source === 'douban' ? '豆瓣' : 'TMDB'} ${badge.score}`"
+    :aria-label="
+      badge
+        ? `${badge.source === 'douban' ? '豆瓣' : 'TMDB'} ${badge.score}`
+        : other
+    "
   >
     <svg
-      v-if="badge.source === 'douban'"
+      v-if="badge?.source === 'douban'"
       width="14"
       height="14"
       viewBox="0 0 14 14"
@@ -25,7 +29,13 @@
         豆
       </text>
     </svg>
-    <svg v-else width="30" height="14" viewBox="0 0 30 14" aria-hidden="true">
+    <svg
+      v-else-if="badge"
+      width="30"
+      height="14"
+      viewBox="0 0 30 14"
+      aria-hidden="true"
+    >
       <defs>
         <linearGradient :id="gradientId" x1="0" x2="1">
           <stop offset="0" stop-color="#90cea1" />
@@ -54,7 +64,7 @@
         TMDB
       </text>
     </svg>
-    <span aria-hidden="true">{{ badge.score }}</span>
+    <span aria-hidden="true">{{ badge?.score ?? other }}</span>
   </span>
 </template>
 
@@ -73,6 +83,8 @@ const props = defineProps<{
   douban?: string | number | null
   /** TMDB 分数；豆瓣没有时才用 */
   tmdb?: string | number | null
+  /** 其他或未知来源的评分显示文字 */
+  other?: string
 }>()
 
 const badge = computed(() => pickRatingBadge(props.douban, props.tmdb))
