@@ -10,6 +10,8 @@ asarUnpack:
   - node_modules/onnxruntime-node/bin/**
 beforePack: scripts/before-pack.mjs
 extraResources:
+  - from: LICENSE
+    to: LICENSE
   - from: licenses
     to: licenses
   - from: resources/third-party

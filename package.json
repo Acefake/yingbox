@@ -4,6 +4,7 @@
   "description": "影盒 - 影视资源管理与在线观看",
   "main": "./out/main/index.js",
   "author": "影盒团队",
+  "license": "MIT",
   "homepage": "https://github.com/Acefake/yingbox",
   "scripts": {
     "format": "prettier --write .",
