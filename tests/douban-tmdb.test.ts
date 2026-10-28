@@ -23,6 +23,63 @@ const item = (title: string): DoubanItem => ({
 })
 
 describe('TMDB 补全', () => {
+  it('已发现同名歧义时不被 multi 的单条结果覆盖', async () => {
+    const movie = item('同名电影')
+    const hit = { id: 1, title: movie.title, poster_path: '/wrong.jpg' }
+    const tmdb = vi.fn(async (path: string) => ({
+      results: path === '/search/multi' ? [hit] : [hit, { ...hit, id: 2 }],
+    }))
+    await enrichFromTmdb([movie], 'movie', tmdb)
+    expect(movie.cover).toBe(movie.coverSrc)
+  })
+  it('同名翻拍按年份选候选，不能直接采用第一条', async () => {
+    const movie = { ...item('同名电影'), year: '2020' }
+    await enrichFromTmdb([movie], 'movie', async () => ({
+      results: [
+        {
+          id: 1,
+          title: movie.title,
+          release_date: '1990-01-01',
+          poster_path: '/wrong.jpg',
+        },
+        {
+          id: 2,
+          title: movie.title,
+          release_date: '2020-01-01',
+          poster_path: '/right.jpg',
+        },
+      ],
+    }))
+    expect(movie.cover).toContain('/right.jpg')
+    expect(movie.year).toBe('2020')
+  })
+
+  it.each(['年份冲突', '类型冲突', '同名歧义'])(
+    '%s 时保留豆瓣数据',
+    async reason => {
+      const movie = {
+        ...item('同名电影'),
+        year: reason === '同名歧义' ? '' : '2020',
+        overview: '豆瓣简介',
+      }
+      const hit = {
+        id: 1,
+        title: movie.title,
+        release_date: '2020-01-01',
+        poster_path: '/wrong.jpg',
+      }
+      const results =
+        reason === '年份冲突'
+          ? [{ ...hit, release_date: '1990-01-01' }]
+          : reason === '类型冲突'
+            ? [{ ...hit, media_type: 'tv' }]
+            : [hit, { ...hit, id: 2, release_date: '1990-01-01' }]
+      await enrichFromTmdb([movie], 'movie', async () => ({ results }))
+      expect(movie.cover).toBe(movie.coverSrc)
+      expect(movie.overview).toBe('豆瓣简介')
+      expect(movie.year).toBe(reason === '同名歧义' ? '' : '2020')
+    }
+  )
   it('没有令牌：只问一次，所有卡退回豆瓣封面', async () => {
     const tmdb = vi.fn(async () => null)
     const items = [item('a'), item('b'), item('c'), item('d'), item('e')]

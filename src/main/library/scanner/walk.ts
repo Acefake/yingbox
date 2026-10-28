@@ -59,11 +59,7 @@ const isMissing = (error: unknown): boolean =>
   (error as NodeJS.ErrnoException).code === 'ENOENT'
 
 /** 列出目录的收录项并 stat 其中的文件。 */
-async function listDirectory(
-  directory: string,
-  key: string,
-  warnings: string[]
-): Promise<Listing> {
+async function listDirectory(directory: string, key: string): Promise<Listing> {
   const entries: Dirent[] = await readdir(directory, { withFileTypes: true })
   const subdirs: string[] = []
   const pending: Array<Promise<ScannedFile | undefined>> = []
@@ -89,9 +85,8 @@ async function listDirectory(
           mtime: s.mtimeMs,
         }),
         error => {
-          if (!isMissing(error)) {
-            warnings.push(`${displayPath}: ${(error as Error).message}`)
-          }
+          // 无法确认文件状态时整目录保留快照，不能把读取失败当成删除。
+          if (!isMissing(error)) throw error
           return undefined
         }
       )
@@ -189,10 +184,18 @@ export async function walkLibrary(
     }
     let listing: Listing
     try {
-      listing = await listDirectory(displayPath, key, diff.warnings)
+      listing = await listDirectory(displayPath, key)
     } catch (error) {
       if (key === rootKey) throw error
       diff.warnings.push(`${displayPath}: ${(error as Error).message}`)
+      if (prev) {
+        diff.dirChanges.push({
+          dir: { key, displayPath, parent: parentKey(key), mtime: RACY_MTIME },
+          added: [],
+          changed: [],
+          removed: [],
+        })
+      }
       return []
     }
     return diffListing(displayPath, key, dirStats, listing, prev, descendKnown)

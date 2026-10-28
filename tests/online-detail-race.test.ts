@@ -22,7 +22,8 @@ const flush = async (): Promise<void> => {
 async function answer(id: number, title: string): Promise<void> {
   while (pending.length) {
     const next = pending.shift()!
-    if (next.path.startsWith('/search/')) next.resolve({ results: [{ id }] })
+    if (next.path.startsWith('/search/'))
+      next.resolve({ results: [{ id, title }] })
     else if (next.path.endsWith('/credits')) next.resolve({ cast: [] })
     else next.resolve({ id, title, images: { backdrops: [] } })
     await flush()

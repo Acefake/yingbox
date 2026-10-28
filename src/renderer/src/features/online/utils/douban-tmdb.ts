@@ -1,12 +1,14 @@
 /**
  * 豆瓣卡用 TMDB 补全：海报（w342）、年份、类型、简介、原名、搜源片名、评分。
  *
- * 每张卡依次试片名的几个写法（原名、去空格、「第二季」→ S02、去掉季号），都没有再用 /search/multi。
+ * 每张卡依次试片名的几个写法（去空格、「第二季」→ S02、去掉季号），都没有再用 /search/multi。
+ * 作品名称、已知原名、年份与类型一致才补全；出现多个匹配时保留豆瓣数据。
  * 4 路并发；直接改传入的条目（传响应式数组里的元素，改动即刷新卡片）。
  * 找不到或出错的卡退回豆瓣封面；引擎没有 TMDB 令牌时整批停下，剩下的卡也退回豆瓣封面。
  */
 import { tmdb as tmdbApi } from '../api/online'
 import type { DoubanItem, TmdbDetail } from '../types'
+import { matchingTmdbCandidates } from './tmdb-match'
 
 /** TMDB 搜索结果的一条（/search/multi 多一个 media_type） */
 type TmdbHit = TmdbDetail & { media_type?: string }
@@ -74,21 +76,32 @@ export async function enrichFromTmdb(
   const isTv = kind === 'tv'
   const NO_TOKEN = new Error('TMDB 未配置令牌')
 
-  const first = async (path: string, q: string): Promise<TmdbHit | null> => {
+  const find = async (
+    path: string,
+    q: string,
+    item: DoubanItem
+  ): Promise<TmdbHit[]> => {
     const res = (await search(path, {
       query: q,
       page: 1,
     })) as { results?: TmdbHit[] } | null
     if (res === null) throw NO_TOKEN
-    return res?.results?.[0] ?? null
+    return matchingTmdbCandidates(res?.results ?? [], {
+      title: item.title,
+      originalTitle: item.original_title,
+      year: item.year,
+      kind,
+    })
   }
 
-  const lookup = async (title: string): Promise<TmdbHit | null> => {
-    for (const v of titleVariants(title)) {
-      const hit = await first(isTv ? '/search/tv' : '/search/movie', v)
-      if (hit) return hit
+  const lookup = async (item: DoubanItem): Promise<TmdbHit | null> => {
+    for (const v of titleVariants(item.title)) {
+      const hit = await find(isTv ? '/search/tv' : '/search/movie', v, item)
+      if (hit.length > 1) return null
+      if (hit.length === 1) return hit[0]
     }
-    return first('/search/multi', stripSeason(title))
+    const matches = await find('/search/multi', stripSeason(item.title), item)
+    return matches.length === 1 ? matches[0] : null
   }
 
   const apply = (item: DoubanItem, hit: TmdbHit | null): void => {
@@ -118,7 +131,7 @@ export async function enrichFromTmdb(
     while (!stopped && next < items.length) {
       const item = items[next++]
       try {
-        apply(item, await lookup(item.title))
+        apply(item, await lookup(item))
       } catch (error) {
         item.cover ||= item.coverSrc
         if (error === NO_TOKEN) stopped = true
