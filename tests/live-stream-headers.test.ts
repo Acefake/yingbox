@@ -179,7 +179,7 @@ describe('代理带上线路请求头', () => {
     const handler = createStreamHandler(createNetClient({ lookup, fetch }))
     await handler(
       new Request(
-        streamUrl('https://surrit.com/a.ts', { userAgent: UA, referer: REF })
+        streamUrl('https://cdn.test/a.ts', { userAgent: UA, referer: REF })
       )
     )
     const headers = new Headers(fetch.mock.calls[0][1].headers)

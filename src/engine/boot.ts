@@ -10,10 +10,8 @@
 import { join } from 'node:path'
 import type { LookupAll } from '../shared/net/guard'
 import { type FetchImpl, createNetClient } from '../shared/net/client'
-import { av } from '../shared/contract/av'
 import { download } from '../shared/contract/download'
 import { online } from '../shared/contract/online'
-import { createAvHandlers } from './av'
 import { createDownloadHandlers } from './download'
 import { createOnlineHandlers } from './online'
 import { createPersistentBreaker } from './online/breaker-store'
@@ -72,8 +70,6 @@ export function bootEngine(options: EngineBootOptions): BootedEngine {
       log,
     })
   )
-
-  server.implement(av, createAvHandlers(httpClient))
 
   const downloads = createDownloadHandlers({
     net: httpClient,

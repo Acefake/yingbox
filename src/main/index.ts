@@ -185,7 +185,7 @@ const startup = app.whenReady().then(async () => {
     callback({ responseHeaders: headers })
   })
 
-  // MissAV 视频分片与封面需要 Referer，渲染层直连时由这里注入
+  // 媒体防盗链 Referer 在渲染层直连时由这里注入
   installMediaHeaders(session.defaultSession)
   // 图床缺图时的占位图不显示（剧照等远程图直接走加载失败）
   blockPlaceholderImages(session.defaultSession)

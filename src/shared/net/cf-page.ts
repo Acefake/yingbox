@@ -1,5 +1,5 @@
 /**
- * Cloudflare 一类防护页的识别。引擎（插件 $fetch、MissAV、下载源）与主进程浏览器代抓共用。
+ * Cloudflare 一类防护页的识别。引擎（插件 $fetch、下载源）与主进程浏览器代抓共用。
  *
  * 两种防护页要分开处理：
  * - 挑战页（challenge）：「Just a moment…」、cf_chl_opt 等。真实浏览器执行完脚本就能通过，

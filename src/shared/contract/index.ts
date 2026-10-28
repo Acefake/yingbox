@@ -10,7 +10,6 @@ import { app } from './app'
 import { assistant } from './assistant'
 import { autograb } from './autograb'
 import { autograbMovies, autograbUpgrade } from './autograb-upgrade'
-import { av } from './av'
 import { capture } from './capture'
 import { danmaku } from './danmaku'
 import { discover } from './discover'
@@ -48,7 +47,6 @@ export const contract = {
   autograb,
   autograbMovies,
   autograbUpgrade,
-  av,
   capture,
   danmaku,
   dialog,

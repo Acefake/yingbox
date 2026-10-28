@@ -1,9 +1,9 @@
 /**
  * 给少数需要防盗链头的媒体 CDN 注入 Referer，让渲染层直接播放 / 显示：
- * MissAV 的视频分片（surrit.com）与封面（fourhoi.com），番号库用到的 JavBus 图片（校验同源 Referer），
+ * 番号库用到的 JavBus 图片（校验同源 Referer），
  * 以及豆瓣预告片（*.doubanio.com，悬停预览）。
  *
- * 取代原 Go 后端的 /api/missav/stream 与 /api/missav/cover 代理：请求仍走 Chromium，
+ * 请求走 Chromium，
  * 只改请求头，不经任何本地 HTTP 服务。
  *
  * 另外拦掉图床缺图时重定向去的占位图（DMM now_printing）：渲染层直连的剧照 / 封面会因此走 <img> 的 error，

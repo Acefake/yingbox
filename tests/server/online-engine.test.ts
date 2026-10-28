@@ -65,6 +65,8 @@ describe('invokeEngine', () => {
     })
     const bad: EngineRpcResult[] = [
       await invokeEngine(engine, 'online:nope', []),
+      await invokeEngine(engine, 'av:list', ['new', 1, 'latest']),
+      await invokeEngine(engine, 'av:resolve', ['ABC-123']),
       await invokeEngine(engine, 'settings:get', []),
       await invokeEngine(engine, 'online:tmdb', ['/account']),
       await invokeEngine(engine, 'online:getJson', 'x'),

@@ -263,7 +263,7 @@ features/online|av|download              src/server/online                      
 
 ### 浏览器代抓（可选）
 
-一些源站在 Cloudflare 后面，Node fetch 的 TLS 指纹不是浏览器，常被挑战页拦下。桌面端用隐藏的 Chromium 窗口代抓；服务端默认**没有**，这时 `browserFetch` 返回空串，引擎按「挑战没过」降级：插件源记熔断并在源列表里标成不可用，MissAV 提示验证未通过。
+一些源站在 Cloudflare 后面，Node fetch 的 TLS 指纹不是浏览器，常被挑战页拦下。桌面端用隐藏的 Chromium 窗口代抓；服务端默认**没有**，这时 `browserFetch` 返回空串，引擎按「挑战没过」降级：插件源记熔断并在源列表里标成不可用。
 
 要开启：
 

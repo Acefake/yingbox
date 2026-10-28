@@ -9,7 +9,6 @@ import { browserFetch, resetBrowserFetch } from '../browser-fetch'
 import { resolveDownloadDir } from '../download-dir'
 import { settingsStore } from '../settings'
 import { TMDB_SECRET, effectiveTmdbToken } from '../tmdb'
-import { av } from '../../shared/contract/av'
 import { channelOf } from '../../shared/contract/define'
 import { download } from '../../shared/contract/download'
 import { online } from '../../shared/contract/online'
@@ -47,7 +46,6 @@ export function registerEngine(): EngineHost {
     },
   })
   implement(online, forwardTo(host, online))
-  implement(av, forwardTo(host, av))
   implement(download, forwardTo(host, download))
   app.on('will-quit', () => void host.shutdown())
   void resumePendingDownloads(

@@ -18,8 +18,8 @@ export const ENGINE_HTTP = {
   stream: '/api/stream',
 } as const
 
-/** 经 HTTP 开放的引擎域（契约见 shared/contract/online、av、download）；服务端的开放范围只从这里取。 */
-export const ENGINE_HTTP_DOMAINS = ['online', 'av', 'download'] as const
+/** 经 HTTP 开放的引擎域（契约见 shared/contract/online、download）；服务端的开放范围只从这里取。 */
+export const ENGINE_HTTP_DOMAINS = ['online', 'download'] as const
 
 /** 开放的域名。 */
 export type EngineHttpDomain = (typeof ENGINE_HTTP_DOMAINS)[number]

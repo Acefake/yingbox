@@ -17,7 +17,6 @@ import {
   jable,
   kanav,
   memo,
-  missav,
   resolveSource,
 } from '../src/engine/download/sources'
 
@@ -145,17 +144,10 @@ describe('HLS 下载', () => {
   })
 })
 
-describe('站点解析（移植自 Python 各 Downloader）', () => {
+describe('站点解析', () => {
   it('各站点从页面提取 m3u8', () => {
     expect(jable.parse("var hlsUrl = 'https://j.test/a.m3u8';")).toBe(
       'https://j.test/a.m3u8'
-    )
-    expect(
-      missav.parse(
-        'm3u8|123456789abc|5678|abcd|1234|12345678|com|surrit|https|video'
-      )
-    ).toBe(
-      'https://surrit.com/12345678-1234-abcd-5678-123456789abc/playlist.m3u8'
     )
     expect(memo.parse('{"url":"https%3A%2F%2Fm.test%2Fa.m3u8"}')).toBe(
       'https://m.test/a.m3u8'
@@ -171,13 +163,7 @@ describe('站点解析（移植自 Python 各 Downloader）', () => {
   })
 
   it('按权重依次尝试，第一个成功的站点胜出', async () => {
-    expect(SITES.map(s => s.name)).toEqual([
-      'Jable',
-      'MissAV',
-      'Memo',
-      'KanAV',
-      'HohoJ',
-    ])
+    expect(SITES.map(s => s.name)).toEqual(['Jable', 'Memo', 'KanAV', 'HohoJ'])
     const asked: string[] = []
     const get = async (url: string): Promise<string | undefined> => {
       asked.push(url)

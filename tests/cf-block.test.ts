@@ -13,7 +13,6 @@ import {
   hostOf,
   tripLabel,
 } from '../src/shared/net/host-breaker'
-import { resolveStream } from '../src/engine/av/missav'
 import { pageGetter } from '../src/engine/download/sources'
 
 /** 真实页面：沙箱请求 4k-av 搜索页拿到的 Cloudflare 封锁页、jable 首页的挑战页（IP 已脱敏）。 */
@@ -139,19 +138,7 @@ describe('按主机熔断', () => {
   })
 })
 
-describe('MissAV / 下载源遇到硬封锁不找浏览器', () => {
-  it('MissAV 拿到封锁页：不调浏览器代抓，报 SITE_BLOCKED', async () => {
-    const browserFetch = vi.fn(async () => '')
-    const n = net({
-      'https://missav.ai/cn/abc-1': () =>
-        new Response(BLOCKED, { status: 403 }),
-    })
-    await expect(
-      resolveStream({ net: n, browserFetch }, 'https://missav.ai/cn/abc-1')
-    ).rejects.toMatchObject({ code: 'SITE_BLOCKED' })
-    expect(browserFetch).not.toHaveBeenCalled()
-  })
-
+describe('下载源遇到硬封锁不找浏览器', () => {
   it('下载源页面获取：封锁页返回 undefined 不开浏览器，挑战页仍交给浏览器', async () => {
     const browserFetch = vi.fn(async () => '<html>ok</html>')
     const get = pageGetter({

@@ -6,7 +6,6 @@
  * 不合法时不转发；解析后的参数原样交给引擎。
  * 错误编码进 EngineRpcResult：invalid-params / unavailable（引擎崩溃、停止重启、关停）/ engine。
  */
-import { av } from '../../shared/contract/av'
 import {
   ContractError,
   type Domain,
@@ -27,7 +26,7 @@ import { HttpError, type Router, json, readJson } from '../http/router'
 import type { ServerEngine } from './engine'
 
 /** 域名 → 契约：键必须与 ENGINE_HTTP_DOMAINS 一一对应（少一个或多一个都编译不过）。 */
-const CONTRACTS: Record<EngineHttpDomain, Domain> = { online, av, download }
+const CONTRACTS: Record<EngineHttpDomain, Domain> = { online, download }
 
 /** 开放的域：只从 ENGINE_HTTP_DOMAINS 取，开放范围只有一处定义。 */
 const DOMAINS: readonly Domain[] = ENGINE_HTTP_DOMAINS.map(

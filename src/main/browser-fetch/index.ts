@@ -18,7 +18,7 @@ import { fetchViaWindow } from './window'
  *   离窗口过挑战超过 25 分钟、或刚重启时，只要会话里还有没过期的 cf_clearance cookie，
  *   也先走会话直取（partition 持久化，cookie 跨重启保留），避免验证窗口反复弹出。
  *
- * 调用方（MissAV、下载源、CatSpider 插件 $fetch）要的都是服务器发的原始 HTML，直连没被拦时
+ * 调用方（下载源、CatSpider 插件 $fetch）要的都是服务器发的原始 HTML，直连没被拦时
  * 解析的也是它，所以两条路的结果对调用方等价。
  *
  * 硬封锁页（Sorry, you have been blocked、Error 1020 等）不论哪条路读到都立即按主机 + 路径类别

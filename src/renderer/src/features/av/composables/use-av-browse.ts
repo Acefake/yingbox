@@ -1,6 +1,6 @@
 /**
  * AV 单源分类浏览：数据源 / 分类 / 排序选择（每个源记住上次停留处）、分页加载、
- * 滚动到底自动加载下一页、内存缓存。CMS、插件、MissAV 三种源共用一套请求流程。
+ * 滚动到底自动加载下一页、内存缓存。CMS、插件两种源共用一套请求流程。
  */
 import {
   type ComputedRef,
@@ -22,17 +22,14 @@ import {
   type BrowseCategory,
   type BrowseSort,
   type BrowseVisit,
-  MISSAV_SOURCE,
   allCategories,
   buildFilterRows,
   browseCacheKey as makeCacheKey,
   mergePage,
-  missavCategoriesFor,
   parsePluginTabs,
   rememberBounded,
   sortBrowseVideos,
 } from '../utils/av-catalog'
-import { readStoredText, writeStoredText } from '@/utils/storage'
 
 import { createPageFetchers } from './av-browse-pages'
 
@@ -99,13 +96,12 @@ export function useAvBrowse(options: {
     options.entries.value.find(entry => entry.api === sourceApi.value)
   )
   const isPlugin = computed(() => currentEntry.value?.kind === 'plugin')
-  const isMissav = computed(() => currentEntry.value?.kind === 'missav')
   const hasMore = computed(() => page.value < pageCount.value)
   const sortedVideos = computed(() =>
-    sortBrowseVideos(videos.value, sort.value, isMissav.value)
+    sortBrowseVideos(videos.value, sort.value)
   )
   const filterRows = computed(() =>
-    buildFilterRows(options.entries.value, sourceApi.value, categories.value)
+    buildFilterRows(options.entries.value, categories.value)
   )
   const filterModel = computed(() => ({
     source: sourceApi.value,
@@ -113,21 +109,17 @@ export function useAvBrowse(options: {
     category: categoryName.value,
   }))
 
-  const { fetchPluginPage, fetchMissavPage, fetchCmsPage } = createPageFetchers(
-    {
-      sourceApi,
-      categories,
-      categoryId,
-      categoryName,
-      sort,
-      categoryCache,
-    }
-  )
+  const { fetchPluginPage, fetchCmsPage } = createPageFetchers({
+    sourceApi,
+    categories,
+    categoryId,
+    categoryCache,
+  })
 
   const cacheKey = (p: number): string =>
     makeCacheKey({
       sourceApi: sourceApi.value,
-      byName: isPlugin.value || isMissav.value,
+      byName: isPlugin.value,
       categoryName: categoryName.value,
       categoryId: categoryId.value,
       page: p,
@@ -265,8 +257,6 @@ export function useAvBrowse(options: {
       }
       return runRequest(p, append, () => fetchPluginPage(source, ext, p), true)
     }
-    if (isMissav.value)
-      return runRequest(p, append, () => fetchMissavPage(p), true)
     return runRequest(p, append, () => fetchCmsPage(source, p), false)
   }
 
@@ -299,21 +289,9 @@ export function useAvBrowse(options: {
     await load()
   }
 
-  const applyMissavCategories = (): void => {
-    const saved = visits.value[MISSAV_SOURCE]
-    const { categories: list, match } = missavCategoriesFor(saved)
-    categories.value = list
-    categoryId.value = match.id
-    categoryName.value = match.name
-    if (saved?.sort) sort.value = saved.sort
-  }
-
   /** 按当前数据源的类型准备分类并加载。 */
   const enterSource = async (): Promise<void> => {
-    if (isMissav.value) {
-      applyMissavCategories()
-      await load()
-    } else if (isPlugin.value) await setupPlugin()
+    if (isPlugin.value) await setupPlugin()
     else {
       restoreVisit()
       await load()
@@ -362,12 +340,8 @@ export function useAvBrowse(options: {
     void load()
   })
 
-  /** 页面挂载：首次使用默认选 MissAV；数据源未变化时由这里加载（变化了交给 watcher）。 */
+  /** 页面挂载：数据源未变化时由这里加载（变化了交给 watcher）。 */
   const init = async (): Promise<void> => {
-    if (!readStoredText('av_missav_catalog_v1')) {
-      writeStoredText('av_missav_catalog_v1', '1')
-      sourceApi.value = MISSAV_SOURCE
-    }
     const before = sourceApi.value
     reconcileSource()
     if (sourceApi.value === before) await enterSource()

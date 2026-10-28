@@ -26,7 +26,7 @@ describe('桌面 HLS 公网传输', () => {
     )
     const handler = createStreamHandler(createNetClient({ lookup, fetch }))
     const response = await handler(
-      new Request(streamUrl('https://surrit.com/seg.ts'), {
+      new Request(streamUrl('https://vt1.doubanio.com/seg.ts'), {
         headers: {
           range: 'bytes=1-3',
           cookie: 'private=x',
@@ -39,11 +39,11 @@ describe('桌面 HLS 公网传输', () => {
     expect(response.headers.get('content-range')).toBe('bytes 1-3/6')
     expect(response.headers.get('set-cookie')).toBeNull()
     expect(response.headers.get(STREAM_RESPONSE_URL)).toBe(
-      'https://surrit.com/seg.ts'
+      'https://vt1.doubanio.com/seg.ts'
     )
     const headers = new Headers(fetch.mock.calls[0][1].headers)
     expect(headers.get('range')).toBe('bytes=1-3')
-    expect(headers.get('referer')).toBe('https://missav.ai/')
+    expect(headers.get('referer')).toBe('https://movie.douban.com/')
     expect(headers.get('cookie')).toBeNull()
     expect(headers.get('authorization')).toBeNull()
   })

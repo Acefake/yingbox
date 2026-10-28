@@ -1,12 +1,11 @@
 /**
- * 番号 → m3u8 的站点解析器（由 Python 各 Downloader 移植，按原 configs.json 的权重排序）。
+ * 番号 → m3u8 的站点解析器，按站点权重排序。
  *
  * 每个站点拆成「取页面」与「从页面解析 m3u8」两步；解析是纯函数，单测直接覆盖。
  * 页面请求走引擎 net，被 Cloudflare 拦下时请主进程浏览器代抓。
  */
 import type { NetClient } from '../../shared/net/client'
 import { classifyPage } from '../../shared/net/cf-page'
-import { extractStream } from '../av/missav'
 
 /** 解析出的下载源。 */
 export interface ResolvedSource {
@@ -19,7 +18,7 @@ export interface ResolvedSource {
 /** 站点解析器。 */
 export interface SourceSite {
   name: string
-  /** 原 configs.json 的权重：越大越先尝试 */
+  /** 站点权重：越大越先尝试 */
   weight: number
   referer: string
   /** 给番号取一份可解析的页面文本；取不到返回 undefined */
@@ -45,32 +44,6 @@ export const jable: SourceSite = {
   fetchPage: (code, get) =>
     get(`https://jable.tv/videos/${code.toLowerCase()}/`),
   parse: page => first(page, /var hlsUrl = '(https?:\/\/[^']+)'/),
-}
-
-/** MissAV：与 AV 域同一套解析（打包 UUID / 直链），依次尝试中文字幕、无码流出、原页。 */
-export const missav: SourceSite = {
-  name: 'MissAV',
-  weight: 1000,
-  referer: 'https://missav.ai/',
-  async fetchPage(code, get) {
-    const id = code.toLowerCase()
-    for (const path of [
-      `${id}-chinese-subtitle`,
-      `${id}-uncensored-leak`,
-      id,
-    ]) {
-      const page = await get(`https://missav.ai/cn/${path}`)
-      if (page && this.parse(page)) return page
-    }
-    return undefined
-  },
-  parse(page) {
-    try {
-      return extractStream(page)
-    } catch {
-      return undefined
-    }
-  },
 }
 
 /** Memo：接口返回 URL 编码的地址。 */
@@ -141,13 +114,9 @@ export const hohoj: SourceSite = {
 }
 
 /** 全部站点，按权重从高到低。 */
-export const SITES: readonly SourceSite[] = [
-  jable,
-  missav,
-  memo,
-  kanav,
-  hohoj,
-].sort((a, b) => b.weight - a.weight)
+export const SITES: readonly SourceSite[] = [jable, memo, kanav, hohoj].sort(
+  (a, b) => b.weight - a.weight
+)
 
 /** 页面获取所需依赖。 */
 export interface SourceDeps {

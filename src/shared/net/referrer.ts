@@ -3,7 +3,7 @@
  *
  * Electron 的 net.fetch 走 Chromium 网络栈：请求头里自己写的 Referer 若与默认引用策略
  * （strict-origin-when-cross-origin）算出的不一致，会被网络服务当作 invalid referrer
- * 直接取消，报 net::ERR_BLOCKED_BY_CLIENT——豆瓣 rexxar、MissAV、防盗链图床都因此失败。
+ * 直接取消，报 net::ERR_BLOCKED_BY_CLIENT——豆瓣 rexxar、防盗链图床都因此失败。
  * 带 Referer 时把 referrerPolicy 设为 unsafe-url 即可原样发出；Node fetch 忽略该字段。
  */
 

@@ -163,7 +163,7 @@ describe('播放代理', () => {
 
   it('透传 Range，按源注入 Referer 与默认 UA，不带 Cookie', async () => {
     const { get, seen } = proxyFor({
-      'https://surrit.com/v/seg.ts': () =>
+      'https://vt1.doubanio.com/v/seg.ts': () =>
         new Response('abc', {
           status: 206,
           headers: {
@@ -172,7 +172,7 @@ describe('播放代理', () => {
           },
         }),
     })
-    const response = await get('https://surrit.com/v/seg.ts', {
+    const response = await get('https://vt1.doubanio.com/v/seg.ts', {
       range: 'bytes=0-2',
       cookie: 'yingbox_token=secret',
     })
@@ -180,7 +180,7 @@ describe('播放代理', () => {
     expect(response.headers.get('content-range')).toBe('bytes 0-2/100')
     expect(await response.text()).toBe('abc')
     expect(seen[0].headers.get('range')).toBe('bytes=0-2')
-    expect(seen[0].headers.get('referer')).toBe('https://missav.ai/')
+    expect(seen[0].headers.get('referer')).toBe('https://movie.douban.com/')
     expect(seen[0].headers.get('user-agent')).toMatch(/Chrome/)
     expect(seen[0].headers.get('cookie')).toBeNull()
   })

@@ -157,6 +157,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0019](docs/adr/0019-nas-online-engine.md) NAS 在线播放：片库服务 fork 在线引擎（复用 EngineHost），契约走 HTTP RPC / SSE，鉴权 + 防 SSRF 的播放代理改写 m3u8
 - [0020](docs/adr/0020-server-netdisk-autograb.md) 片库服务承载 115 网盘、追更与库外发现（模块宿主、Node 传输、调度租约）
 - [0021](docs/adr/0021-magnet-sources-offline.md) 磁力来源（PanSou 磁力 + Torznab）与 115 离线下载（m115 编码、离线任务跟进入库）
+- [0022](docs/adr/0022-remove-builtin-adult-source.md) 移除 MissAV 内置源与专用引擎域（部分取代 0019）
 
 ## UI conventions
 

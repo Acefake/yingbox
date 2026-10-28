@@ -1,21 +1,17 @@
 /**
- * AV 浏览的三种取页方式（插件 / MissAV / CMS）。每个函数先发请求，返回一个「整理函数」：
+ * AV 浏览的两种取页方式（插件 / CMS）。每个函数先发请求，返回一个「整理函数」：
  * 由调用方在确认请求仍有效后再执行，整理函数里才读取当前分类、写分类缓存。
  */
 import type { Ref } from 'vue'
 import { getJson, useVODParser } from '@/features/online'
 import { type PluginExt, getVodList } from '@/utils/vod-data'
-import { listMissav } from '../api/missav'
 import {
   type AvEntry,
   type BrowseCacheEntry,
   type BrowseCategory,
-  type BrowseSort,
   createBrowseUrl,
   mergeCategories,
-  missavSlug,
   toCmsItems,
-  toMissavItems,
   toPluginItems,
 } from '../utils/av-catalog'
 
@@ -27,14 +23,13 @@ interface CmsPage {
   total?: number | string
 }
 
-/** 三种数据源的分页请求：先发请求，返回的函数在确认请求仍有效后才写状态 */
+/** 两种数据源的分页请求：先发请求，返回的函数在确认请求仍有效后才写状态 */
 export interface AvPageFetchers {
   fetchPluginPage: (
     entry: AvEntry,
     ext: PluginExt,
     p: number
   ) => Promise<() => BrowseCacheEntry>
-  fetchMissavPage: (p: number) => Promise<() => BrowseCacheEntry>
   fetchCmsPage: (source: AvEntry, p: number) => Promise<() => BrowseCacheEntry>
 }
 
@@ -42,19 +37,10 @@ export function createPageFetchers(state: {
   sourceApi: Ref<string>
   categories: Ref<BrowseCategory[]>
   categoryId: Ref<number | null>
-  categoryName: Ref<string>
-  sort: Ref<BrowseSort>
   categoryCache: Ref<Record<string, BrowseCategory[]>>
 }): AvPageFetchers {
   const { getCards } = useVODParser()
-  const {
-    sourceApi,
-    categories,
-    categoryId,
-    categoryName,
-    sort,
-    categoryCache,
-  } = state
+  const { sourceApi, categories, categoryId, categoryCache } = state
 
   /** 插件源分类内容：走 CatSpider 的 getCards；下一页存在与否只看这页有没有内容。 */
   const fetchPluginPage = async (
@@ -81,17 +67,6 @@ export function createPageFetchers(state: {
     }
   }
 
-  const fetchMissavPage = async (p: number) => {
-    const slug = missavSlug(categories.value, categoryName.value)
-    const result = await listMissav(slug, p, sort.value)
-    return (): BrowseCacheEntry => ({
-      items: toMissavItems(result.items, categoryName.value),
-      pageCount: result.pageCount,
-      total: 0,
-      categories: categories.value,
-    })
-  }
-
   /** CMS 源：code=1 且有 list 才算成功；新出现的分类并入分类栏。 */
   const fetchCmsPage = async (source: AvEntry, p: number) => {
     const url = createBrowseUrl(source.api, p, categoryId.value)
@@ -114,5 +89,5 @@ export function createPageFetchers(state: {
     }
   }
 
-  return { fetchPluginPage, fetchMissavPage, fetchCmsPage }
+  return { fetchPluginPage, fetchCmsPage }
 }

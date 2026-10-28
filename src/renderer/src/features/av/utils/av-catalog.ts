@@ -1,6 +1,6 @@
 /**
  * AV 分类浏览的纯规则：数据源条目、筛选栏、分类合并、排序、缓存键，
- * 以及 CMS / 插件 / MissAV 三种返回数据到统一条目的整理。
+ * 以及 CMS / 插件两种返回数据到统一条目的整理。
  */
 import type { MediaFilterRow } from '@/components/MediaFilterBar.vue'
 import { asText } from '@/utils/json'
@@ -10,16 +10,14 @@ import {
   asRawVod,
   pluginTabs,
 } from '@/utils/vod-data'
-import type { MissavCatalogItem } from '../api/missav'
-import { missavCover } from '../api/missav'
 
 /**
- * AV 条目：CMS、插件、MissAV 三种来源整理成同一形状，浏览、搜索、播放、收藏、历史都用它。
+ * AV 条目：CMS、插件两种来源整理成同一形状，浏览、搜索、播放、收藏、历史都用它。
  * 原始字段（vod_*）照搬来源，下划线字段是整理时补的。
  */
 export interface AvVideo extends RawVod {
   vod_id: string | number
-  /** 来源名（CMS 站名 / 插件名 / MissAV） */
+  /** 来源名（CMS 站名 / 插件名） */
   _source: string
   /** 去重键：来源 + vod_id */
   _uid: string
@@ -27,15 +25,13 @@ export interface AvVideo extends RawVod {
   _isPlugin?: boolean
   _siteName?: string
   _ext?: PluginExt
-  /** MissAV 番号：播放时现解析 */
-  _missavInput?: string
 }
 
-/** 浏览数据源：MissAV 目录、AV CMS 源、成人插件源。 */
+/** 浏览数据源：AV CMS 源、成人插件源。 */
 export type AvEntry = {
   api: string
   name: string
-  kind: 'cms' | 'plugin' | 'missav'
+  kind: 'cms' | 'plugin'
 }
 export type BrowseSort = 'latest' | 'hot' | 'rating'
 export type BrowseCategory = {
@@ -57,17 +53,6 @@ export type BrowseCacheEntry = {
   categories: BrowseCategory[]
 }
 
-export const MISSAV_SOURCE = 'missav://catalog'
-export const MISSAV_CATEGORIES: BrowseCategory[] = [
-  { id: 0, name: '最新更新', ext: { slug: 'new' } },
-  { id: 1, name: '新作发布', ext: { slug: 'release' } },
-  { id: 2, name: '中文字幕', ext: { slug: 'chinese-subtitle' } },
-  { id: 3, name: '无码流出', ext: { slug: 'uncensored-leak' } },
-  { id: 4, name: '英语字幕', ext: { slug: 'english-subtitle' } },
-  { id: 5, name: 'FC2', ext: { slug: 'fc2' } },
-  { id: 6, name: '麻豆传媒', ext: { slug: 'madou' } },
-  { id: 7, name: 'HEYZO', ext: { slug: 'heyzo' } },
-]
 /** 内存里最多缓存的浏览页数（超出时丢最早的）。 */
 export const BROWSE_CACHE_LIMIT = 60
 
@@ -76,12 +61,11 @@ export const allCategories = (): BrowseCategory[] => [
   { id: null, name: '全部' },
 ]
 
-/** 数据源条目：MissAV 在最前，其次 CMS 源、插件源。 */
+/** 数据源条目：CMS 源、插件源。 */
 export const buildAvEntries = (
   cms: { api: string; name: string }[],
   plugins: { api: string; name: string }[]
 ): AvEntry[] => [
-  { api: MISSAV_SOURCE, name: 'MissAV', kind: 'missav' },
   ...cms.map(s => ({ api: s.api, name: s.name, kind: 'cms' as const })),
   ...plugins.map(s => ({ api: s.api, name: s.name, kind: 'plugin' as const })),
 ]
@@ -89,13 +73,12 @@ export const buildAvEntries = (
 /** 筛选栏三行：数据源（插件源排在 CMS 前，免得被一长串 CMS 挤到看不见）、排序、分类。 */
 export const buildFilterRows = (
   entries: AvEntry[],
-  sourceApi: string,
   categories: BrowseCategory[]
 ): MediaFilterRow[] => [
   {
     key: 'source',
     label: '数据源',
-    options: (['missav', 'plugin', 'cms'] as const)
+    options: (['plugin', 'cms'] as const)
       .flatMap(kind => entries.filter(entry => entry.kind === kind))
       .map(entry => ({
         label: entry.kind === 'plugin' ? `${entry.name}（插件）` : entry.name,
@@ -105,18 +88,11 @@ export const buildFilterRows = (
   {
     key: 'sort',
     label: '排序',
-    options:
-      sourceApi === MISSAV_SOURCE
-        ? [
-            { label: '最新更新', value: 'latest' },
-            { label: '本月热度', value: 'hot' },
-            { label: '总浏览', value: 'rating' },
-          ]
-        : [
-            { label: '最新发布', value: 'latest' },
-            { label: '本周热度', value: 'hot' },
-            { label: '评分优先', value: 'rating' },
-          ],
+    options: [
+      { label: '最新发布', value: 'latest' },
+      { label: '本周热度', value: 'hot' },
+      { label: '评分优先', value: 'rating' },
+    ],
   },
   {
     key: 'category',
@@ -125,13 +101,11 @@ export const buildFilterRows = (
   },
 ]
 
-/** 本地排序：热度看周点击、评分看分数、默认按添加时间倒序。MissAV 由服务端排好，不动。 */
+/** 本地排序：热度看周点击、评分看分数、默认按添加时间倒序。 */
 export const sortBrowseVideos = <T extends RawVod>(
   videos: T[],
-  sort: BrowseSort,
-  serverSorted: boolean
+  sort: BrowseSort
 ): T[] => {
-  if (serverSorted) return videos
   return [...videos].sort((a, b) => {
     if (sort === 'hot')
       return Number(b.vod_hits_week || 0) - Number(a.vod_hits_week || 0)
@@ -166,7 +140,7 @@ export const mergeCategories = (
   ]
 }
 
-/** 浏览缓存键：插件与 MissAV 按分类名区分，CMS 按分类 id。 */
+/** 浏览缓存键：插件按分类名区分，CMS 按分类 id。 */
 export const browseCacheKey = (q: {
   sourceApi: string
   byName: boolean
@@ -237,37 +211,3 @@ export const toCmsItems = (list: unknown[], sourceName: string): AvVideo[] =>
     _source: sourceName,
     _uid: `${sourceName}-${item.vod_id}`,
   }))
-
-/** MissAV 目录条目 → 统一条目（封面用番号拼，番号大写放角标）。 */
-export const toMissavItems = (
-  items: MissavCatalogItem[],
-  categoryName: string
-): AvVideo[] =>
-  items.map(item => ({
-    vod_id: item.code,
-    vod_name: item.title,
-    vod_pic: missavCover(item.code),
-    vod_remarks: item.code.toUpperCase(),
-    vod_duration: item.duration || '',
-    type_name: categoryName,
-    _source: 'MissAV',
-    _uid: `missav-${item.code}`,
-    _missavInput: item.code,
-  }))
-
-/** 当前分类对应的 MissAV 目录 slug，找不到时用 new。 */
-export const missavSlug = (
-  categories: BrowseCategory[],
-  categoryName: string
-): string =>
-  String(categories.find(c => c.name === categoryName)?.ext?.slug || 'new')
-
-/** MissAV 分类（拷贝一份）以及上次停留的分类（没有就第一个）。 */
-export const missavCategoriesFor = (
-  saved?: BrowseVisit
-): { categories: BrowseCategory[]; match: BrowseCategory } => {
-  const categories = MISSAV_CATEGORIES.map(c => ({ ...c, ext: { ...c.ext } }))
-  const match =
-    categories.find(c => c.name === saved?.categoryName) || categories[0]
-  return { categories, match }
-}

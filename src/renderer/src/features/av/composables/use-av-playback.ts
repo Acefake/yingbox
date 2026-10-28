@@ -1,5 +1,5 @@
 /**
- * AV 播放流程：CMS / 插件 / MissAV 三种条目开播、播放历史与续播。
+ * AV 播放流程：CMS / 插件两种条目开播、播放历史与续播。
  * 播放一律经 openMediaPlayer（应用内播放弹窗或 mpv），进度由播放器保存。
  */
 import { toast } from '@/components/ui'
@@ -15,7 +15,6 @@ import {
   playerSession,
   closePlayer as stopPlayer,
 } from '@/features/player'
-import { type MissavStream, resolveMissav } from '../api/missav'
 import type { AvVideo } from '../utils/av-catalog'
 import { coverSrc } from '../utils/av-media'
 import {
@@ -41,7 +40,7 @@ export interface UseAvPlaybackReturn {
   playingUrl: Ref<string>
   playVideo: (video: AvVideo) => Promise<void>
   resumeHistory: (record: AvPlayRecord, resumeAt?: number) => Promise<void>
-  /** 「继续播放」卡片：按记录里的条目重新解析再播（MissAV 等地址会过期） */
+  /** 「继续播放」卡片：按记录里的条目重新解析再播 */
   resumeContinue: (
     record: ContinueRecord,
     fromStart: boolean
@@ -127,41 +126,7 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     await startPlay(first.url, first.name, first.ext, video._siteName)
   }
 
-  const playMissavStream = async (
-    stream: MissavStream,
-    startAt = 0
-  ): Promise<void> => {
-    const video = {
-      vod_id: stream.input,
-      vod_name: stream.title,
-      vod_pic: stream.poster || '',
-      _source: 'MissAV',
-      _uid: `missav-${stream.input}`,
-      _missavInput: stream.input,
-      episodes: [{ name: '在线播放', url: stream.url }],
-    }
-    playingVideo.value = video
-    await startPlay(stream.url, '在线播放', undefined, undefined, startAt)
-  }
-
-  const playListedMissav = async (video: AvVideo): Promise<void> => {
-    const hide = toast.loading('正在解析 MissAV…')
-    try {
-      const stream = await resolveMissav(video._missavInput ?? '')
-      await playMissavStream({
-        ...stream,
-        title: video.vod_name || stream.title,
-        poster: coverSrc(video),
-      })
-    } catch (error) {
-      toast.error(error instanceof Error ? error.message : 'MissAV 解析失败')
-    } finally {
-      hide()
-    }
-  }
-
   const playVideo = async (video: AvVideo): Promise<void> => {
-    if (video._missavInput) return playListedMissav(video)
     if (video._isPlugin) return playPluginVideo(video)
     if (!video.vod_play_url) return
     const episodes = parseCmsEpisodes(video)
@@ -175,17 +140,6 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     resumeAt?: number
   ): Promise<void> => {
     const video = record.video
-    if (video._missavInput) {
-      try {
-        const stream = await resolveMissav(video._missavInput)
-        await playMissavStream(stream, resumeAt ?? record.progress)
-      } catch (error) {
-        toast.error(
-          error instanceof Error ? error.message : 'MissAV 重新解析失败'
-        )
-      }
-      return
-    }
     const episodes = video.episodes?.length
       ? video.episodes
       : parseCmsEpisodes(video)

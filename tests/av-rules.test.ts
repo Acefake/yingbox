@@ -2,19 +2,15 @@ import { describe, expect, it } from 'vitest'
 import { getVodList } from '../src/renderer/src/utils/vod-data'
 import {
   type AvVideo,
-  MISSAV_SOURCE,
   browseCacheKey,
   buildAvEntries,
   buildFilterRows,
   createBrowseUrl,
   mergeCategories,
   mergePage,
-  missavCategoriesFor,
-  missavSlug,
   parsePluginTabs,
   rememberBounded,
   sortBrowseVideos,
-  toMissavItems,
   toPluginItems,
 } from '../src/renderer/src/features/av/utils/av-catalog'
 import {
@@ -42,34 +38,29 @@ describe('AV 浏览规则', () => {
     [{ api: 'csp_jable', name: 'Jable' }]
   )
 
-  it('数据源：MissAV 在最前；筛选栏里插件排在 CMS 前并标「（插件）」', () => {
-    expect(entries.map(e => e.kind)).toEqual(['missav', 'cms', 'plugin'])
-    const [source] = buildFilterRows(entries, 'cms-a', [])
-    expect(source.options.map(o => o.label)).toEqual([
-      'MissAV',
-      'Jable（插件）',
-      'A',
-    ])
+  it('数据源：筛选栏里插件排在 CMS 前并标「（插件）」', () => {
+    expect(buildAvEntries([], [])).toEqual([])
+    expect(entries.map(e => e.kind)).toEqual(['cms', 'plugin'])
+    const [source] = buildFilterRows(entries, [])
+    expect(source.options.map(o => o.label)).toEqual(['Jable（插件）', 'A'])
   })
 
-  it('排序文案：MissAV 用「本月热度 / 总浏览」，其它源用「本周热度 / 评分优先」', () => {
-    const labels = (api: string): string[] =>
-      buildFilterRows(entries, api, [])[1].options.map(o => o.label)
-    expect(labels(MISSAV_SOURCE)).toEqual(['最新更新', '本月热度', '总浏览'])
-    expect(labels('cms-a')).toEqual(['最新发布', '本周热度', '评分优先'])
+  it('排序文案：本周热度 / 评分优先', () => {
+    const labels = (): string[] =>
+      buildFilterRows(entries, [])[1].options.map(o => o.label)
+    expect(labels()).toEqual(['最新发布', '本周热度', '评分优先'])
   })
 
-  it('本地排序：热度 / 评分 / 时间倒序；MissAV 保持服务端顺序且不改原数组', () => {
+  it('本地排序：热度 / 评分 / 时间倒序，不改原数组', () => {
     const videos = [
       { id: 1, vod_hits_week: 5, vod_score: 9, vod_time: '2024-01-01' },
       { id: 2, vod_hits_week: 50, vod_score: 1, vod_time_add: '2025-01-01' },
       { id: 3, vod_hits_week: 0, vod_score: 5, vod_time: '2023-01-01' },
     ]
     const ids = (list: { id: number }[]): number[] => list.map(v => v.id)
-    expect(ids(sortBrowseVideos(videos, 'hot', false))).toEqual([2, 1, 3])
-    expect(ids(sortBrowseVideos(videos, 'rating', false))).toEqual([1, 3, 2])
-    expect(ids(sortBrowseVideos(videos, 'latest', false))).toEqual([2, 1, 3])
-    expect(sortBrowseVideos(videos, 'hot', true)).toBe(videos)
+    expect(ids(sortBrowseVideos(videos, 'hot'))).toEqual([2, 1, 3])
+    expect(ids(sortBrowseVideos(videos, 'rating'))).toEqual([1, 3, 2])
+    expect(ids(sortBrowseVideos(videos, 'latest'))).toEqual([2, 1, 3])
     expect(ids(videos)).toEqual([1, 2, 3])
   })
 
@@ -93,7 +84,7 @@ describe('AV 浏览规则', () => {
     ])
   })
 
-  it('缓存键：插件 / MissAV 按分类名，CMS 按分类 id（无则 all）', () => {
+  it('缓存键：插件按分类名，CMS 按分类 id（无则 all）', () => {
     const base = {
       sourceApi: 's',
       categoryName: '中文',
@@ -167,31 +158,6 @@ describe('AV 浏览规则', () => {
       _siteName: 'Jable',
       _ext: { url: '/v/1' },
     })
-  })
-
-  it('MissAV：条目封面按番号拼、角标大写；分类 slug 与上次停留处', () => {
-    const [item] = toMissavItems(
-      [{ code: 'abc-123', title: 't', poster: '', duration: '' }],
-      '中文字幕'
-    )
-    expect(item).toMatchObject({
-      vod_remarks: 'ABC-123',
-      vod_pic: 'https://fourhoi.com/abc-123/cover-t.jpg',
-      _missavInput: 'abc-123',
-      type_name: '中文字幕',
-    })
-    const { categories, match } = missavCategoriesFor({
-      categoryId: 2,
-      categoryName: '中文字幕',
-      sort: 'hot',
-    })
-    expect(match.name).toBe('中文字幕')
-    expect(missavSlug(categories, '中文字幕')).toBe('chinese-subtitle')
-    expect(missavSlug(categories, '不存在')).toBe('new')
-    expect(missavCategoriesFor(undefined).match.name).toBe('最新更新')
-    // 拷贝而不是共享常量：改 ext 不影响下次
-    categories[0].ext!.slug = 'x'
-    expect(missavCategoriesFor(undefined).categories[0].ext!.slug).toBe('new')
   })
 })
 

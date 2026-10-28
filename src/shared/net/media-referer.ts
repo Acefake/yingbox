@@ -8,8 +8,6 @@
 
 /** 主机 → 需要的 Referer */
 export const MEDIA_REFERERS: Readonly<Record<string, string>> = {
-  'surrit.com': 'https://missav.ai/',
-  'fourhoi.com': 'https://missav.ai/',
   'www.javbus.com': 'https://www.javbus.com/',
   'www.getchu.com': 'https://www.getchu.com/',
 }
