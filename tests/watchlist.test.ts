@@ -279,13 +279,16 @@ describe('WatchlistRow', () => {
 
   async function mount(
     section: WatchlistSection,
-    onOpen = vi.fn()
+    onOpen = vi.fn(),
+    className?: string
   ): Promise<HTMLElement> {
     const { default: WatchlistRow } =
       await import('../src/renderer/src/features/watchlist/WatchlistRow.vue')
     host = document.createElement('div')
     document.body.appendChild(host)
-    app = createApp({ render: () => h(WatchlistRow, { section, onOpen }) })
+    app = createApp({
+      render: () => h(WatchlistRow, { section, onOpen, class: className }),
+    })
     app.mount(host)
     await nextTick()
     return host
@@ -302,6 +305,14 @@ describe('WatchlistRow', () => {
     list = addEntry(list, meta('movie', '1'), 3)
     localStorage.setItem('watchlist', JSON.stringify(list))
   }
+
+  it('将调用方的布局类应用到想看货架', async () => {
+    seed()
+    const el = await mount('movie', vi.fn(), 'library-row')
+    expect(el.querySelector('.wl-row')?.classList.contains('library-row')).toBe(
+      true
+    )
+  })
 
   it('没有条目不渲染；只列本板块，最近加入的在前', async () => {
     const empty = await mount('online')

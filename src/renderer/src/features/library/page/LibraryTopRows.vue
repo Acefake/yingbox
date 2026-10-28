@@ -37,7 +37,7 @@ const itemIdOf = (detail: unknown): number =>
 
 <style scoped>
 /* 横排与工具栏、海报墙共用内容边距。 */
-.lib-continue {
+:global(.lib-continue) {
   margin: var(--space-4) var(--content-padding-x) var(--space-6);
 }
 </style>

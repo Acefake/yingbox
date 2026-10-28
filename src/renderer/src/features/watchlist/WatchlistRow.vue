@@ -25,6 +25,7 @@
   </template>
   <UiShelf
     v-else-if="!pane && items.length"
+    v-bind="$attrs"
     class="wl-row"
     title="想看"
     kind="portrait"
@@ -134,6 +135,8 @@ import {
   visibleEntries,
 } from './watchlist-rules'
 import { removeFromWatchlist, watchlistEntries } from './watchlist-store'
+
+defineOptions({ inheritAttrs: false })
 
 const props = withDefaults(
   defineProps<{
