@@ -25,10 +25,8 @@
           referrerpolicy="no-referrer"
           @error="broken.add(coverOf(item))"
         />
-        <UiIcon v-else name="movie" size="lg" />
-        <span v-if="ratingOf(item)" class="chart-rate"
-          ><UiIcon name="star" size="sm" filled />{{ ratingOf(item) }}</span
-        >
+        <UiCoverFallback v-else :title="item.title" />
+        <UiRatingBadge :douban="item.rate" :tmdb="item.tmdbRate" />
       </span>
     </UiPressable>
   </UiShelf>
@@ -36,15 +34,17 @@
 
 <script setup lang="ts">
 /**
- * 首页的豆瓣榜单行（Netflix 式 Top 10）：大号描边名次数字，右侧压一张竖版海报，海报左下角是豆瓣评分。
+ * 首页的豆瓣榜单行（Top 10）：描边名次数字收在海报左侧，一屏大约 6.5 张；海报左下角是评分角标。
  * 数据见 use-home-chart.ts（口碑榜取不到时退回热门电影前 10，标题跟着变）；两路都没有时整行不渲染。
  * 点海报 emit open（在线页打开豆瓣详情 / 选源）。
  */
 import { onMounted, reactive } from 'vue'
 
-import UiIcon from '@/components/ui/UiIcon.vue'
+import UiCoverFallback from '@/components/ui/UiCoverFallback.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
+import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
 import UiShelf from '@/components/ui/UiShelf.vue'
+import { webImageSrc } from '@/services/thumbnails'
 
 import { useHomeChart } from '../composables/use-home-chart'
 import type { DoubanItem } from '../types'
@@ -58,26 +58,29 @@ onMounted(() => chart.start())
 /** 加载失败的封面 */
 const broken = reactive(new Set<string>())
 
-/** 封面：TMDB 补全后的海报，补全前用豆瓣封面 */
-const coverOf = (item: DoubanItem): string => item.cover || item.coverSrc
-
-const ratingOf = (item: DoubanItem): string =>
-  /^\d/.test(item.rate) ? item.rate : ''
+/** 封面：TMDB 补全后的海报，补全前用豆瓣封面（网页端豆瓣图走缩略图代理） */
+const coverOf = (item: DoubanItem): string =>
+  webImageSrc(item.cover || item.coverSrc)
 </script>
 
 <style scoped>
-/* 一张卡 = 名次数字 + 海报，比普通海报宽：一排约 5 张 */
+/* 一张卡 = 名次数字 + 海报：一屏大约 6.5 张，名次收在左侧 */
 .chart-row :deep(.yb-shelf-track) {
-  --shelf-cols: 5.2;
+  --shelf-cols: 6.5;
+}
+@container (max-width: 1100px) {
+  .chart-row :deep(.yb-shelf-track) {
+    --shelf-cols: 5.2;
+  }
 }
 @container (max-width: 820px) {
   .chart-row :deep(.yb-shelf-track) {
-    --shelf-cols: 3.4;
+    --shelf-cols: 3.6;
   }
 }
 @container (max-width: 560px) {
   .chart-row :deep(.yb-shelf-track) {
-    --shelf-cols: 2.2;
+    --shelf-cols: 2.3;
   }
 }
 
@@ -97,7 +100,7 @@ const ratingOf = (item: DoubanItem): string =>
   z-index: 0;
   color: transparent;
   font-family: var(--font-display);
-  font-size: 72cqw; /* 随卡宽缩放：数字高约为海报高的 3/4 */
+  font-size: 58cqw; /* 随卡宽缩放：数字大约是海报高度的一半 */
   font-weight: var(--font-weight-bold); /* style-tokens: visual（名次） */
   line-height: 1;
   letter-spacing: -0.08em;
@@ -110,7 +113,7 @@ const ratingOf = (item: DoubanItem): string =>
   z-index: 1;
   display: grid;
   place-items: center;
-  width: 64%;
+  width: 78%;
   margin-left: auto;
   aspect-ratio: 2 / 3;
   overflow: hidden;
@@ -141,24 +144,6 @@ const ratingOf = (item: DoubanItem): string =>
 .chart-card:focus-visible .chart-poster {
   transform: scale(1.03);
   box-shadow: var(--shadow-lg);
-}
-
-.chart-rate {
-  position: absolute;
-  bottom: var(--space-2);
-  left: var(--space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-0_5) var(--space-1_5);
-  border-radius: var(--radius-full);
-  background: var(--glass-light-bg);
-  color: var(--media-text);
-  font-size: var(--text-xs);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
 }
 
 @media (prefers-reduced-motion: reduce) {

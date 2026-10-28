@@ -1,5 +1,5 @@
 /**
- * 豆瓣卡用 TMDB 补全：海报（w342）、年份、类型、简介、原名、搜源片名。
+ * 豆瓣卡用 TMDB 补全：海报（w342）、年份、类型、简介、原名、搜源片名、评分。
  *
  * 每张卡依次试片名的几个写法（原名、去空格、「第二季」→ S02、去掉季号），都没有再用 /search/multi。
  * 4 路并发；直接改传入的条目（传响应式数组里的元素，改动即刷新卡片）。
@@ -108,6 +108,8 @@ export async function enrichFromTmdb(
       item.original_title || hit.original_title || hit.original_name || ''
     const name = hit.name || hit.title || ''
     if (name) item.searchTitle = name
+    if (typeof hit.vote_average === 'number' && hit.vote_average > 0)
+      item.tmdbRate = hit.vote_average
   }
 
   let next = 0

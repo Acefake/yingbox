@@ -139,6 +139,8 @@ export interface DoubanItem {
   backdrop?: string
   /** 评分文字，无评分为「暂无」 */
   rate: string
+  /** TMDB 评分（补全得到）；有豆瓣分数时界面仍显示豆瓣 */
+  tmdbRate?: number
   /** movie.douban.com/subject/<id>/（去重键、取预告片用） */
   url: string
   year: string

@@ -1,6 +1,30 @@
 <template>
+  <template v-if="pane">
+    <UiEpisodeCard
+      v-for="card in paneCards"
+      :key="card.channel.id"
+      role="listitem"
+      :title="card.title"
+      :subtitle="card.subtitle"
+      :progress="card.progress"
+      :label="`观看直播 ${card.channel.name}`"
+      @open="openChannel(card.channel.id)"
+    >
+      <template #art>
+        <span class="live-now-art" />
+      </template>
+      <template #badge>
+        <span class="live-now-tag yb-glass is-media"><i />直播</span>
+        <LiveLogo
+          class="live-now-logo"
+          :name="card.channel.name"
+          :logo="card.channel.logo"
+        />
+      </template>
+    </UiEpisodeCard>
+  </template>
   <UiShelf
-    v-if="cards.length"
+    v-else-if="cards.length"
     class="live-now-row"
     title="正在直播"
     more
@@ -49,8 +73,9 @@
  *
  * 网页版（没有 iptv 域）、没有直播源或源里没有频道时整排不渲染；有直播源就加载
  * （useLiveSources 是模块单例，直播页加载过就不重复拉），节目单只查这一排的频道。
+ * pane 时只输出卡片，交给首页「我的动态」：active 为假时不画卡，数量仍通过 count 报出。
  */
-import { computed, onActivated, onMounted } from 'vue'
+import { computed, onActivated, onMounted, watch } from 'vue'
 import { useRouter } from 'vue-router'
 
 import UiButton from '@/components/ui/UiButton.vue'
@@ -61,6 +86,17 @@ import { useLiveEpg } from '../composables/use-live-epg'
 import { useLiveSources } from '../composables/use-live-sources'
 import { liveNowCards, liveNowChannels } from '../utils/live-now'
 import LiveLogo from './LiveLogo.vue'
+
+const props = withDefaults(
+  defineProps<{
+    /** 只输出卡片，不包货架（首页「我的动态」） */
+    pane?: boolean
+    /** pane 时是否画出卡片；为假仍统计数量 */
+    active?: boolean
+  }>(),
+  { active: true }
+)
+const emit = defineEmits<{ count: [n: number] }>()
 
 const router = useRouter()
 const live = useLiveSources()
@@ -82,6 +118,9 @@ const cards = computed(() =>
       )
     : []
 )
+const paneCards = computed(() =>
+  props.pane && props.active ? cards.value : []
+)
 
 /** 有直播源时才拉（没配直播的用户首页不发请求） */
 function ensureSources(): void {
@@ -90,6 +129,11 @@ function ensureSources(): void {
 
 onMounted(ensureSources)
 onActivated(ensureSources)
+watch(
+  () => cards.value.length,
+  n => emit('count', n),
+  { immediate: true }
+)
 
 function openChannel(id: string): void {
   void router.push({ path: '/live', query: { channel: id } })

@@ -397,11 +397,14 @@ describe('接线（源码）', () => {
     expect(button).toContain('icon="bookmark"')
   })
 
-  it('在线首页与媒体库分区在继续播放下面放想看横排；应用入口订阅看完', () => {
+  it('在线首页与媒体库分区在继续播放下面放想看；应用入口订阅看完', () => {
     const online = src('features/online/views/OnlineView.vue')
-    expect(online.indexOf('<WatchlistRow')).toBeGreaterThan(
+    expect(online.indexOf('<HomeActivityRow')).toBeGreaterThan(
       online.indexOf('<ContinueRow')
     )
+    const activity = src('features/online/components/HomeActivityRow.vue')
+    expect(activity).toContain('<WatchlistRow')
+    expect(activity).toContain('待看')
     const rows = src('features/library/page/LibraryTopRows.vue')
     expect(rows.indexOf('<WatchlistRow')).toBeGreaterThan(
       rows.indexOf('<ContinueRow')
