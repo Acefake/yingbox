@@ -157,7 +157,8 @@ const loadData = async (raw: unknown): Promise<void> => {
   const metadataLoad = tmdb.fetchTmdb(
     searchTitle.value || itemName.value,
     type,
-    doubanId ? { id: doubanId, kind: data.doubanKind ?? type } : null
+    doubanId ? { id: doubanId, kind: data.doubanKind ?? type } : null,
+    { year: data.vod_year }
   )
   // 自动加载播放源：先保留打开详情时命中的条目，再按片名检索全部已启用源
   const direct = data._source === 'cms' || data._source === 'catspider'

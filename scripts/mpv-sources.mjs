@@ -16,9 +16,11 @@ import { fileURLToPath } from 'node:url'
 import { Readable } from 'node:stream'
 import { pipeline } from 'node:stream/promises'
 
-const root = path.resolve(path.dirname(fileURLToPath(import.meta.url)), '..')
+const projectRoot = path.resolve(
+  path.dirname(fileURLToPath(import.meta.url)),
+  '..'
+)
 const tar = path.join(process.env.WINDIR || 'C:/Windows', 'System32/tar.exe')
-const lockPath = path.join(root, 'src/shared/mpv-distribution.json')
 
 async function sha256(file) {
   const hash = createHash('sha256')
@@ -26,32 +28,42 @@ async function sha256(file) {
   return hash.digest('hex')
 }
 
-async function download(file, source) {
+async function download(file, source, fetcher) {
   if ((await sha256(file).catch(() => '')) === source.sha256) return
   await mkdir(path.dirname(file), { recursive: true })
   const part = `${file}.part`
   try {
-    const response = await fetch(source.url)
+    const response = await fetcher(source.url)
     if (!response.ok || !response.body)
-      throw new Error(`源码下载失败：${source.filename} (${response.status})`)
+      throw new Error(
+        `mpv 材料下载失败：${source.filename} (${response.status})`
+      )
     await pipeline(Readable.fromWeb(response.body), createWriteStream(part))
     if ((await sha256(part)) !== source.sha256)
-      throw new Error(`源码校验失败：${source.filename}`)
+      throw new Error(`mpv 材料校验失败：${source.filename}`)
     await rename(part, file)
   } finally {
     await rm(part, { force: true })
   }
 }
 
-function member(archive, name) {
-  return execFileSync(tar, ['-xOf', archive, name], {
+function member(archive, name, tarPath) {
+  return execFileSync(tarPath, ['-xOf', archive, name], {
     maxBuffer: 16 * 1024 * 1024,
     windowsHide: true,
   })
 }
 
-/** 同一二进制配方的源包必须存在且哈希匹配；缺失材料会阻止打包。 */
-export async function prepareMpvSources() {
+/**
+ * 同一二进制配方的源包必须存在且哈希匹配；缺失材料会阻止打包。
+ * @param {{ root?: string, fetcher?: (url: string) => Promise<Response>, tarPath?: string }} [options]
+ */
+export async function prepareMpvSources({
+  root = projectRoot,
+  fetcher = fetch,
+  tarPath = tar,
+} = {}) {
+  const lockPath = path.join(root, 'src/shared/mpv-distribution.json')
   const lockText = await readFile(lockPath, 'utf8')
   const lock = JSON.parse(lockText)
   const lockHash = createHash('sha256').update(lockText).digest('hex')
@@ -109,8 +121,8 @@ export async function prepareMpvSources() {
   try {
     for (const source of lock.sources) {
       const file = path.join(cache, 'sources', source.filename)
-      await download(file, source)
-      const recipe = member(file, `${source.name}/PKGBUILD`)
+      await download(file, source, fetcher)
+      const recipe = member(file, `${source.name}/PKGBUILD`, tarPath)
       if (
         createHash('sha256').update(recipe).digest('hex') !==
         source.pkgbuildSha256
@@ -120,9 +132,16 @@ export async function prepareMpvSources() {
     }
     for (const pkg of [...lock.packages, ...lock.buildInputs]) {
       const file = path.join(cache, 'packages', pkg.filename)
-      if ((await sha256(file)) !== pkg.sha256)
-        throw new Error(`二进制包校验失败：${pkg.filename}`)
-      const build = member(file, '.BUILDINFO')
+      await download(
+        file,
+        {
+          filename: pkg.filename,
+          url: `${lock.binaryRepository}${pkg.filename}`,
+          sha256: pkg.sha256,
+        },
+        fetcher
+      )
+      const build = member(file, '.BUILDINFO', tarPath)
       if (
         !build.toString().includes(`pkgbuild_sha256sum = ${pkg.pkgbuildSha256}`)
       )
@@ -133,7 +152,7 @@ export async function prepareMpvSources() {
       )
       await writeFile(
         path.join(staging, 'binary-metadata', `${pkg.filename}.PKGINFO`),
-        member(file, '.PKGINFO')
+        member(file, '.PKGINFO', tarPath)
       )
     }
     await copyFile(lockPath, path.join(staging, 'manifest.json'))
@@ -149,7 +168,9 @@ export async function prepareMpvSources() {
       path.join(staging, 'NOTICES.md')
     )
     const part = `${archive}.part`
-    execFileSync(tar, ['-cf', part, '-C', staging, '.'], { windowsHide: true })
+    execFileSync(tarPath, ['-cf', part, '-C', staging, '.'], {
+      windowsHide: true,
+    })
     await rename(part, archive)
     await writeFile(
       markerPath,

@@ -7,10 +7,15 @@ import { doubanMetadata, tmdb } from '../api/online'
 import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import type { DetailImage, TmdbCastMember, TmdbDetail } from '../types'
 import { tmdbImage } from '../utils/detail-sources'
+import {
+  type TmdbCandidate,
+  type TmdbIdentity,
+  matchingTmdbCandidates,
+} from '../utils/tmdb-match'
 
-/** TMDB /search 的返回：只用第一条的 id */
+/** TMDB 搜索结果：按作品身份选择候选。 */
 interface TmdbSearchResult {
-  results?: { id: number }[]
+  results?: TmdbCandidate[]
 }
 
 /** TMDB 的图片列表（/images 或详情的 append_to_response=images）：只用背景图 */
@@ -43,7 +48,8 @@ export interface UseTmdbDetailReturn {
   fetchTmdb: (
     name: string,
     mediaType: 'movie' | 'tv',
-    douban?: DoubanRef | null
+    douban?: DoubanRef | null,
+    identity?: Pick<TmdbIdentity, 'year' | 'originalTitle'>
   ) => Promise<void>
 }
 
@@ -69,7 +75,8 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
   const fetchTmdb = async (
     name: string,
     mediaType: 'movie' | 'tv',
-    douban?: DoubanRef | null
+    douban?: DoubanRef | null,
+    identity: Pick<TmdbIdentity, 'year' | 'originalTitle'> = {}
   ): Promise<void> => {
     const mine = ++generation
     const stale = (): boolean => mine !== generation
@@ -97,8 +104,16 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
       if (sr === null) {
         return
       }
-      const first = sr?.results?.[0]
-      if (!first || stale()) return
+      const metadata = await fallback
+      if (stale()) return
+      const matches = matchingTmdbCandidates(sr?.results ?? [], {
+        title: metadata?.title || name,
+        originalTitle: metadata?.originalTitle || identity.originalTitle,
+        year: metadata?.year || identity.year,
+        kind: mediaType,
+      })
+      if (matches.length !== 1 || !matches[0].id) return
+      const first = matches[0]
       const base = `/${mediaType}/${first.id}`
       // 剧照随详情一起取，并只要中文 / 英文 / 无文字的图：不过滤的 /images 会带上所有语言的海报与标志，
       // 热门条目动辄上百 KB，经代理容易超时，剧照就整段丢了

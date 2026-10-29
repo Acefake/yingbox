@@ -2,22 +2,22 @@
  * 静态文件预压缩：按 Accept-Encoding 选 .br / .gz，回退原文，大文件流式读。
  */
 import { brotliCompressSync, gzipSync } from 'node:zlib'
-import {
-  chmodSync,
-  mkdirSync,
-  mkdtempSync,
-  rmSync,
-  writeFileSync,
-} from 'node:fs'
+import { mkdirSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
+import * as fs from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import {
   STATIC_STREAM_ABOVE,
   createStaticHandler,
 } from '../../src/server/http/static'
 
 const dirs: string[] = []
+
+vi.mock('node:fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof fs>()
+  return { ...actual, open: vi.fn(actual.open) }
+})
 
 /** 网页根在临时目录的子文件夹里，穿越用的邻文件也留在这次的临时目录内。 */
 function webDir(): string {
@@ -191,7 +191,10 @@ describe('预压缩静态文件', () => {
       Buffer.alloc(STATIC_STREAM_ABOVE, 7)
     )
     writeFileSync(join(dir, 'index.html'), '<p>home</p>')
-    chmodSync(join(dir, 'assets/locked.js'), 0)
+    // Windows 的 chmod 不移除读权限，直接模拟文件系统打开失败。
+    vi.mocked(fs.open).mockRejectedValueOnce(
+      Object.assign(new Error('EACCES'), { code: 'EACCES' })
+    )
     const handler = createStaticHandler(dir)
 
     const res = await handler(
