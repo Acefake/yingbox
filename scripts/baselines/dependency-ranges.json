@@ -19,11 +19,7 @@
     "@electron-toolkit/tsconfig",
     "@tailwindcss/postcss",
     "@types/node",
-    "@vitejs/plugin-vue",
     "autoprefixer",
-    "electron",
-    "electron-builder",
-    "electron-vite",
     "eslint",
     "eslint-plugin-vue",
     "postcss",
@@ -31,9 +27,7 @@
     "tailwindcss",
     "tsx",
     "typescript",
-    "vite",
     "vitest",
-    "vue",
     "vue-eslint-parser",
     "vue-tsc"
   ]

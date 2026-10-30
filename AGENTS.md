@@ -12,7 +12,7 @@
 - **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
 - **内置播放器** — in-app player modal (desktop and web, ADR-0015; YouTube-style keys / gear menu / next-episode countdown and HDR / Dolby Vision detection with DV P5 → mpv, ADR-0016): local files streamed over `local://` (HTTP Range), HLS/m3u8, auto-mounted sidecar subtitles (srt/ass → WebVTT)
 
-Stack: Electron 37 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; desktop library access uses IPC; optional progress sync uses this server.
+Stack: Electron 45 shell + Vue 3 SPA + an engine `utilityProcess` (`src/engine/`: online sources, HLS downloads) reached through the IPC contract. The desktop app has no HTTP backend and no Go/Python runtime. The one HTTP backend is the optional standalone **library server** (`src/server/`, see below and `docs/library-server.md`) that serves the media library to the web build / NAS; desktop library access uses IPC; optional progress sync uses this server.
 
 ## Common commands
 
@@ -116,8 +116,8 @@ The same library core runs in a plain Node process for the web build / NAS; host
 
 | Layer             | Technology                                            |
 | ----------------- | ----------------------------------------------------- |
-| Desktop shell     | Electron 37 (sandboxed preload, frameless)            |
-| Build tooling     | electron-vite 5, Vite 7                               |
+| Desktop shell     | Electron 45 (sandboxed preload, frameless)            |
+| Build tooling     | electron-vite 6, Vite 8                               |
 | Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4                 |
 | UI kit            | own design system in `components/ui/`, Tailwind CSS 4 |
 | Player            | Artplayer 5, hls.js                                   |
