@@ -55,7 +55,7 @@
 
 **Files:** 生成 `D:/soft/yingbox/dist/nas-auto-update-v1/` 下的 Compose、`.env`、中文 README、校验文件和部署 ZIP。
 
-- [ ] 运行 `node scripts/nas-release.mjs 1.0.0-nas.1`，记录稳定标签与版本索引/平台摘要一致，匿名拉取验证通过。
-- [ ] 检查部署包与旧版配置目录布局一致、无账号和令牌；使用明确路径提交本次文件并推送 `codex/nas-release`。
-- [ ] 在 `Acefake/yingbox` 创建 `nas-auto-update-v1` Release，目标为本次提交，上传部署 ZIP、校验文件和验证记录，避免把 NAS Release 标记为 Windows 更新的 Latest。
-- [ ] 核对远端附件大小和摘要、Release 目标提交及稳定镜像；交付仓库下载链接和一次迁移步骤，明确尚未登录用户 NAS 真机部署。
+- [x] 运行 `node scripts/nas-release.mjs 1.0.0-nas.1`，记录稳定标签与版本索引/平台摘要一致，匿名拉取验证通过。
+- [x] 检查部署包与旧版配置目录布局一致、无账号和令牌；使用明确路径提交本次文件并推送 `codex/nas-release`。
+- [x] 在 `Acefake/yingbox` 创建 `nas-auto-update-v1` Release，目标为本次提交，上传部署 ZIP、校验文件和验证记录，避免把 NAS Release 标记为 Windows 更新的 Latest。
+- [x] 核对远端附件大小和摘要、Release 目标提交及稳定镜像；交付仓库下载链接和一次迁移步骤，明确尚未登录用户 NAS 真机部署。
