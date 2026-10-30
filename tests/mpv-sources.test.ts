@@ -120,11 +120,21 @@ describe('mpv 对应源码归档', () => {
     })
     expect(listing).toContain('binary-metadata/binary.tar.BUILDINFO')
     expect(listing).toContain('sources/source.tar')
+    const releaseArchive = join(root, 'dist/fixture-sources.tar')
+    expect(hash(readFileSync(releaseArchive))).toBe(hash(readFileSync(archive)))
+    const checksum = readFileSync(`${releaseArchive}.sha256`, 'utf8')
+    expect(checksum).toContain(hash(readFileSync(archive)))
+    expect(checksum).toContain('fixture-sources.tar')
+    expect(
+      readFileSync(join(root, 'resources/mpv-sources/DOWNLOAD.md'), 'utf8')
+    ).toContain('fixture-sources.tar')
+    rmSync(releaseArchive)
     fetcher.mockImplementation(async () => {
       throw new Error('应复用已校验缓存')
     })
     await prepareMpvSources({ root, fetcher, tarPath })
     expect(fetcher).toHaveBeenCalledTimes(2)
+    expect(hash(readFileSync(releaseArchive))).toBe(hash(readFileSync(archive)))
   })
 
   it('构建输入损坏时拒绝归档并清理下载临时文件', async () => {

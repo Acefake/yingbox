@@ -1,4 +1,4 @@
-/** Windows mpv 的完整对应源码、构建元数据和许可随安装包分发。 */
+/** Windows mpv 的完整对应源码单独交付，安装包保留许可和下载说明。 */
 import { createHash } from 'node:crypto'
 import { createReadStream, createWriteStream } from 'node:fs'
 import {
@@ -77,10 +77,37 @@ export async function prepareMpvSources({
   const archive = path.join(output, `${lock.id}-sources.tar`)
   const markerPath = path.join(output, 'source-bundle.json')
   await mkdir(output, { recursive: true })
+  async function exportDownload(digest) {
+    const filename = path.basename(archive)
+    const releaseDir = path.join(root, 'dist')
+    const instructions = [
+      '# Windows mpv 对应源码下载',
+      '',
+      `源码包：[${filename}](./${filename})。与影盒安装包在同一下载页面或交付目录提供，无需额外付费。`,
+      '',
+      '完整源码、补丁、PKGBUILD、许可和构建记录在此归档中；播放无需下载或安装源码。',
+      '',
+      `SHA-256：${digest}`,
+      '',
+      '发布者须同时上传安装包、源码包、校验文件及本说明，并在安装包旁提供清晰的源码下载入口；不可仅链接上游项目首页。',
+      '',
+    ].join('\n')
+    await mkdir(releaseDir, { recursive: true })
+    await copyFile(archive, path.join(releaseDir, filename))
+    await writeFile(
+      path.join(releaseDir, `${filename}.sha256`),
+      `${digest}  ${filename}\n`
+    )
+    await writeFile(
+      path.join(releaseDir, 'MPV-SOURCE-DOWNLOAD.md'),
+      instructions
+    )
+    await writeFile(path.join(output, 'DOWNLOAD.md'), instructions)
+  }
   const notices = [
     '# Windows mpv 原生组件',
     '',
-    '下列许可名称来自上游包元数据。完整版权与许可原文保留在对应源包内；包内独立声明见 resources/mpv/share/licenses，常用许可全文另见本目录 licenses。随附 sources.tar 保存完整源码、补丁、PKGBUILD 及二进制构建记录。',
+    '下列许可名称来自上游包元数据。完整版权与许可原文保留在对应源包内；包内独立声明见 resources/mpv/share/licenses，常用许可全文另见本目录 licenses。完整源码、补丁、PKGBUILD 及二进制构建记录另供下载，获取方式见 DOWNLOAD.md。',
     '',
   ]
   for (const pkg of [...lock.packages, ...lock.buildInputs]) {
@@ -107,6 +134,7 @@ export async function prepareMpvSources({
       console.log(
         `[mpv sources] 已校验 ${lock.sources.length} 份源码：${archive}`
       )
+      await exportDownload(marker.sha256)
       return
     }
   } catch {
@@ -172,6 +200,7 @@ export async function prepareMpvSources({
       windowsHide: true,
     })
     await rename(part, archive)
+    const archiveHash = await sha256(archive)
     await writeFile(
       markerPath,
       JSON.stringify(
@@ -179,7 +208,7 @@ export async function prepareMpvSources({
           id: lock.id,
           lockSha256: lockHash,
           materialSha256: materialHash,
-          sha256: await sha256(archive),
+          sha256: archiveHash,
         },
         null,
         2
@@ -188,6 +217,7 @@ export async function prepareMpvSources({
     console.log(
       `[mpv sources] 已归档 ${lock.sources.length} 份源码、${lock.packages.length + lock.buildInputs.length} 份构建记录：${archive}`
     )
+    await exportDownload(archiveHash)
   } finally {
     await rm(staging, { recursive: true, force: true })
   }

@@ -8,18 +8,22 @@
 
 mpv 包：`mingw-w64-ucrt-x86_64-mpv-0.41.0-10-any.pkg.tar.zst`，SHA-256 为 `337340960cb05d9b27d5d897cdbbe38cba5605a860aae95f94bea18522507e88`。安装路径为 `resources/mpv/bin/mpv.exe`。保留运行所需 DLL、包内许可及字体配置；Vulkan 和 shaderc 的动态加载库也纳入清单。Windows 自带 DLL 由系统提供，不分发 `d3dcompiler_43.dll`。
 
-## 随安装包交付的对应源码
+## 独立下载的对应源码
 
-Windows 安装后的 `resources/third-party/mpv/` 包含：
+Windows 构建在 `dist/` 生成安装包、独立源码包、SHA-256 校验文件和 `MPV-SOURCE-DOWNLOAD.md`。下载页面须并列提供安装包和对应源码，源码无需额外付费。这采用 [GPLv3 第 6(d) 节](https://www.gnu.org/licenses/gpl-3.0.html#section6)规定的网络下载方式；接收者可自行选择是否下载源码。
 
-- `*-sources.tar`：未经修改的完整 MSYS2 `.src.tar.zst` 源包，内含上游源码、补丁、`PKGBUILD` 和 `.SRCINFO`；同时保存二进制 `.BUILDINFO`、`.PKGINFO` 及分发清单。包括额外核对的 shaderc / glslang / SPIR-V 等静态构建输入。
+完整源码包 `*-sources.tar` 包含未经修改的 MSYS2 `.src.tar.zst` 源包、上游源码、补丁、`PKGBUILD` 和 `.SRCINFO`，以及二进制 `.BUILDINFO`、`.PKGINFO`、分发清单、许可与构建说明。包括 shaderc / glslang / SPIR-V 等静态构建输入。
+
+Windows 安装后的 `resources/third-party/mpv/` 保留：
+
+- `DOWNLOAD.md`：对应源码文件名、校验值和下载位置说明。
 - `manifest.json`：版本、原始下载地址、SHA-256、实际安装文件和源包对应关系。
 - `NOTICES.md`、`licenses/`：组件许可清单及许可原文。包自带的声明另在 `resources/mpv/share/licenses/`。
 - `BUILDING.md`：本说明；`source-bundle.json` 记录源码集合本身的 SHA-256。
 
-源码随二进制提供，接收者无需申请或访问上游网站即可取得。发行时必须保留这整个目录；不能只取出 mpv.exe 再分发，也不能从安装器中删除源码集合。这里不依赖书面源码要约。
+发行时必须同时提供安装包、匹配的源码包、校验文件和下载说明，并在安装包下载入口旁放置源码链接，保持同等可访问性；不能只发布安装包或仅指向上游首页。安装器不携带大体积源码归档，但保留运行文件、许可和获取说明。这里不依赖书面源码要约。
 
-`pnpm fetch:mpv` 准备播放器与源码材料。`electron-builder` 的 `beforePack` 再次验证；二进制、源包或构建配方不匹配时构建失败。`output/mpv-cache/` 只作为本机缓存，不能代替安装包中的材料。更新播放器时须同步更新锁文件、源包及验证记录。
+`pnpm fetch:mpv` 准备播放器与源码材料，并导出独立源码下载文件。`electron-builder` 的 `beforePack` 再次验证；二进制、源包或构建配方不匹配时构建失败。`output/mpv-cache/` 只作为本机缓存，不能代替交付的源码下载文件。更新播放器时须同步更新锁文件、源包及验证记录。
 
 ### 查看、修改和构建源码
 
