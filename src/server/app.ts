@@ -47,15 +47,13 @@ import { syncScrapePrefs } from '../main/library/platform/scrape-sync'
 import { registerFsRoutes } from './routes/fs'
 import { registerLibraryRoutes } from './routes/library'
 import { registerMediaRoutes } from './routes/media'
-import { type OnlineDeps, registerOnline } from './online'
+import type { OnlineDeps } from './online'
+import { registerServerFeatures } from './features'
 import { registerSessionRoutes } from './routes/session'
 import { registerSubtitleRoutes } from './routes/subtitles'
 import { DomainRegistry } from './domains/registry'
 import { registerDomainRoutes } from './domains/routes'
-import { registerServerIptv } from './iptv'
 import { registerServerNotifications } from './notifications'
-import { loadOnlineConfig } from './online/config'
-import { registerStreamRoute } from './online/stream/route'
 import {
   FileSecretStore,
   SECRET_KEYS,
@@ -88,6 +86,8 @@ export interface ServerAppOptions {
   netdiskFetch?: (url: string, init?: RequestInit) => Promise<Response>
   /** 推送出网（测试注入）。 */
   notifyFetch?: import('../main/notify/channels').NotifyFetch
+  /** 可选模块的登记入口；NAS 构建替换缺省实现，测试可显式注入。 */
+  features?: typeof registerServerFeatures
 }
 
 /** 编解码线程：构建产物里 webp-worker.js 与本文件同目录；找不到（如直接跑源码）时退回当前线程。 */
@@ -180,15 +180,6 @@ export async function createServerApp(
 
   const router = new Router()
   registerDomainRoutes(router, registry)
-  const onlineConfig = loadOnlineConfig(env, config.dataDir)
-  registerServerIptv(registry, {
-    dataDir: config.dataDir,
-    allowPrivate: onlineConfig.streamAllowPrivate,
-  })
-  if (!onlineConfig.enabled)
-    registerStreamRoute(router, {
-      allowPrivate: onlineConfig.streamAllowPrivate,
-    })
   registerServerSettingsRoutes(router, serverSettings)
   registerSessionRoutes(router, auth, () => ({
     mediaRoots: config.mediaRoots,
@@ -202,19 +193,23 @@ export async function createServerApp(
   registerMediaRoutes(router, { service, thumbnails })
   registerSubtitleRoutes(router, service)
   registerFsRoutes(router, config.mediaRoots)
-  // 在线板块（引擎 + 播放代理），见 online/index.ts
-  const online = registerOnline(router, {
-    dataDir: config.dataDir,
-    env,
-    tmdbToken: () =>
-      secrets.get(SECRET_KEYS.tmdbToken)?.trim() ||
-      env.YINGBOX_TMDB_TOKEN ||
-      env.VITE_TMDB_ACCESS_TOKEN ||
-      '',
-    tmdbLanguage: () => serverSettings.get('scrape.metadataLanguage'),
-    log,
-    engine: options.engine,
-  })
+  // 构建入口决定登记完整在线模块或 NAS 元数据服务。
+  const features = (options.features ?? registerServerFeatures)(
+    router,
+    registry,
+    {
+      dataDir: config.dataDir,
+      env,
+      tmdbToken: () =>
+        secrets.get(SECRET_KEYS.tmdbToken)?.trim() ||
+        env.YINGBOX_TMDB_TOKEN ||
+        env.VITE_TMDB_ACCESS_TOKEN ||
+        '',
+      tmdbLanguage: () => serverSettings.get('scrape.metadataLanguage'),
+      log,
+      engine: options.engine,
+    }
+  )
   // 网盘 / 追更 / 库外发现（开关 YINGBOX_NETDISK、YINGBOX_AUTOGRAB，见 netdisk/）
   netdisk = startNetdisk({
     registry,
@@ -263,7 +258,7 @@ export async function createServerApp(
     service,
     token,
     close: async () => {
-      await online.close()
+      await features.close()
       netdisk?.close()
       await service.close()
       await notify.flush()

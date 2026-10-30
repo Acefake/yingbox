@@ -4,7 +4,7 @@
     v-if="nl.active.value || query"
     class="nl-bar"
     role="group"
-    :aria-label="nl.active.value ? 'AI 理解的搜索条件' : '搜索'"
+    :aria-label="nl.active.value && !nas ? 'AI 理解的搜索条件' : '搜索'"
   >
     <span v-if="query" class="nl-bar-item nl-bar-query">
       <span class="nl-bar-name">搜索</span>
@@ -16,7 +16,7 @@
         @click="clearQuery"
       />
     </span>
-    <template v-if="nl.active.value">
+    <template v-if="nl.active.value && !nas">
       <span class="nl-bar-lead">
         <UiIcon name="sparkle" size="sm" />
         理解为
@@ -75,7 +75,7 @@
       </template>
     </template>
     <UiButton
-      v-else-if="nl.canAsk.value"
+      v-else-if="nl.canAsk.value && !nas"
       variant="plain"
       size="sm"
       icon="sparkle"
@@ -110,6 +110,7 @@ import type { NlChip } from './nl-chips'
 import type { NlSearch } from './use-nl-search'
 
 const props = defineProps<{ nl: NlSearch }>()
+const nas = import.meta.env.MODE === 'nas'
 
 const route = useRoute()
 const router = useRouter()
