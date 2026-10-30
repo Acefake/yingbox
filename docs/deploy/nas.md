@@ -128,11 +128,11 @@ docker run -d --name yingbox-library --restart unless-stopped \
 
 ## 反向代理与 HTTPS
 
-在 compose 的 `environment:` 中设置 `YINGBOX_PUBLIC_ORIGIN: https://media.example.com`，填浏览器实际访问的协议、域名与端口，不带路径。服务据此写入 `Secure` Cookie 并校验完整同源，不信任 `X-Forwarded-*` 头。启用后在 HTTPS 地址重新登录；后端端口仅供可信反向代理访问。本地 HTTP 部署不设置此项。
+在 compose 的 `environment:` 中设置 `YINGBOX_PUBLIC_ORIGIN: https://media.example.com`，填浏览器实际访问的协议、域名与端口，不带路径。绿联远程 ID 使用浏览器中的完整 HTTPS 来源，不带 `/#/`。配置后，内网 HTTP 直连与该远程入口同时可用；服务按登录入口设置 Cookie 的 `Secure` 属性，不信任 `X-Forwarded-*` 头。两个入口分别登录；仅本地 HTTP 部署无需设置此项。
 
 - **不要把 31480 直接映射到公网**。外网访问优先用 Tailscale / WireGuard 回家；确实要公网访问，走 HTTPS 反向代理，并务必设置访问令牌：它就是唯一的门。
 - 反代和服务在同一台机器上时，保持 compose 里的 `127.0.0.1:31480:31480`，反代连 `127.0.0.1:31480`（反代自己也在容器里时，把两者放进同一个 Docker 网络，反代连 `yingbox:31480`，并删掉 `ports`）。
-- 要原样转发 `Host` 头（含非默认端口）：服务对改写类请求检查 `Origin` 与 `Host` 同源，Host 被改写或丢了端口，登录等请求会得到「跨站请求被拒绝」（403）。
+- 未设置 `YINGBOX_PUBLIC_ORIGIN` 时，要原样转发 `Host`（含非默认端口）并保持协议一致。HTTPS 代理终止 TLS 或改写 Host 时，显式配置远程来源；配置不匹配时，登录等请求会得到「跨站请求被拒绝」（403）。
 - 关掉事件流的缓冲、放宽读超时：`/api/library/events` 是 SSE 长连接。
 - 视频走 Range 请求，反代不要缓存或改写 `Range` / `Content-Range`。
 

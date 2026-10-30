@@ -19,6 +19,8 @@ docker compose -f docker-compose.nas.yml ps
 
 默认提供局域网访问，未设置访问令牌时局域网内所有人都能操作片库。需要登录时填写 `YINGBOX_SERVER_TOKEN`，至少 24 个随机字符。反向代理部署填写 `YINGBOX_BIND=127.0.0.1`，HTTPS 入口同时填写 `YINGBOX_PUBLIC_ORIGIN`；代理配置见 [完整部署说明](nas.md#反向代理与-https)。
 
+使用绿联远程 ID 时，`YINGBOX_PUBLIC_ORIGIN` 填远程 HTTPS 地址，不带 `/#/`。该配置同时保留内网直连；需要内网访问时保持 NAS 端口绑定 `0.0.0.0`，两个入口分别登录。
+
 ## 已有安装开启自动更新
 
 只需迁移一次。先备份配置目录，记下当前镜像版本，然后用发行包里的新 Compose 替换原文件。在原 `.env` 中把 `YINGBOX_VERSION` 设为 `stable`，保留自己的 UID/GID、端口、令牌及媒体、配置、缓存目录。

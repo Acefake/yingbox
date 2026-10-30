@@ -30,7 +30,7 @@ import { libraryPaths } from '../main/library/platform/paths'
 /** 服务配置。 */
 export interface ServerConfig {
   host: string
-  /** 对外访问的固定源（HTTPS 反向代理部署时显式指定）。 */
+  /** 额外允许的远程来源（HTTPS 代理部署时显式指定），内网直连同时可用。 */
   publicOrigin?: string
   port: number
   /** 数据目录：library.db、secrets.json。 */

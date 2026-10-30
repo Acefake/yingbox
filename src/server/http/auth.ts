@@ -4,9 +4,9 @@
  * 开启时 API 与媒体都要令牌，只有健康检查、登录与网页静态文件公开。令牌来源（任一）：
  * - `Authorization: Bearer <token>`：脚本 / 其它客户端；
  * - Cookie `yingbox_token`：网页端。登录（POST /api/session，或打开带 ?token= 的地址）后由服务写入，
- *   HttpOnly + SameSite=Strict，<img> / <video> / EventSource 自动带上，令牌不出现在页面脚本和资源地址里。
+ *   HttpOnly + SameSite=Strict，页面脚本无法读取 Cookie，媒体与事件流无需在资源地址中携带令牌。
  * 比较用定长哈希 + timingSafeEqual，不泄露长度与前缀。
- * 跨站写请求：带 Origin 且与配置的公网源（或请求源）不一致的非 GET 请求直接拒绝（SameSite 之外再挡一层）。
+ * 跨站写请求：Origin 必须匹配请求源或显式配置的远程源（SameSite 之外再挡一层）。
  */
 import { createHash, timingSafeEqual } from 'node:crypto'
 
@@ -55,12 +55,15 @@ export interface Auth {
 
 /** 创建鉴权器；token 为 null 时不鉴权。 */
 export function createAuth(token: string | null, publicOrigin?: string): Auth {
-  const secure = (request?: Request): string =>
-    (publicOrigin
-      ? new URL(publicOrigin).protocol
-      : request && new URL(request.url).protocol) === 'https:'
-      ? '; Secure'
-      : ''
+  const secure = (request?: Request): string => {
+    const origin = request && verifiedOrigin(request, publicOrigin)
+    const protocol = origin
+      ? new URL(origin).protocol
+      : publicOrigin
+        ? new URL(publicOrigin).protocol
+        : request && new URL(request.url).protocol
+    return protocol === 'https:' ? '; Secure' : ''
+  }
   const expected = token ? digest(token) : null
   const matches = (candidate: string | undefined | null): boolean =>
     Boolean(expected && candidate) &&
@@ -84,19 +87,32 @@ export function createAuth(token: string | null, publicOrigin?: string): Auth {
   }
 }
 
-/** 非 GET / HEAD 请求校验完整源；只信任显式公网配置，不采用转发头。 */
-export function sameOrigin(request: Request, publicOrigin?: string): boolean {
-  if (request.method === 'GET' || request.method === 'HEAD') return true
+/** 只接受请求本身或显式远程配置的完整来源，不采用转发头。 */
+function verifiedOrigin(
+  request: Request,
+  publicOrigin?: string
+): string | undefined {
   const origin = request.headers.get('origin')
-  if (!origin) return true
+  if (!origin) return undefined
   try {
     const url = new URL(request.url)
-    const expected =
-      publicOrigin ??
-      new URL(`${url.protocol}//${request.headers.get('host') ?? url.host}`)
-        .origin
-    return new URL(origin).origin === origin && origin === expected
+    const direct = new URL(
+      `${url.protocol}//${request.headers.get('host') ?? url.host}`
+    ).origin
+    if (
+      new URL(origin).origin === origin &&
+      (origin === direct || origin === publicOrigin)
+    )
+      return origin
   } catch {
-    return false
+    return undefined
   }
+  return undefined
+}
+
+/** 非 GET / HEAD 请求校验完整源，内网直连与配置的远程入口可同时使用。 */
+export function sameOrigin(request: Request, publicOrigin?: string): boolean {
+  if (request.method === 'GET' || request.method === 'HEAD') return true
+  if (!request.headers.get('origin')) return true
+  return verifiedOrigin(request, publicOrigin) !== undefined
 }

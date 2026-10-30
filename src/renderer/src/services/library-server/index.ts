@@ -104,8 +104,8 @@ export async function loginLibraryServer(token: string): Promise<void> {
 }
 
 /**
- * 启动日志里的地址形如 http://host:port/?token=…：服务托管网页时由服务自己换成 Cookie，
- * 经 vite 代理（dev:web）时这里补做一次，然后从地址栏去掉令牌。
+ * 地址栏带 ?token= 时先移除令牌，再同源 POST 换 Cookie。
+ * 远程代理与 vite 代理均由此处理，服务直连也可提前用 302 完成登录。
  */
 async function loginFromUrl(): Promise<void> {
   const url = new URL(window.location.href)

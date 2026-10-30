@@ -233,17 +233,26 @@ export async function createServerApp(
       if (isApi || !serveStatic) return fail(404, '没有这个接口')
       if (request.method !== 'GET' && request.method !== 'HEAD')
         return fail(405, '不支持的方法')
-      // 带 ?token= 打开首页：写入 Cookie 后去掉地址里的令牌
-      if (auth.required && tokenCandidates(url.search).some(auth.matches))
+      // 代理入口由网页同源 POST 登录，以浏览器的 Origin 确定 Cookie 协议。
+      if (
+        auth.required &&
+        !config.publicOrigin &&
+        tokenCandidates(url.search).some(auth.matches)
+      )
         return new Response(null, {
           status: 302,
           headers: { Location: '/', 'Set-Cookie': auth.loginCookie(request) },
         })
-      return serveStatic(request, url)
+      const response = await serveStatic(request, url)
+      if (url.searchParams.has('token')) {
+        response.headers.set('Cache-Control', 'no-store')
+        response.headers.set('Referrer-Policy', 'no-referrer')
+      }
+      return response
     }
     if (route === 'method-not-allowed') return fail(405, '不支持的方法')
     if (!sameOrigin(request, config.publicOrigin))
-      return fail(403, '跨站请求被拒绝')
+      return fail(403, '跨站请求被拒绝，请检查远程访问地址配置')
     if (!route.public && !auth.check(request)) return fail(401, '需要登录')
     try {
       return await route.handler(request, { url, params: route.params })
