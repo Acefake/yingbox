@@ -31,7 +31,17 @@ const search = {
   loading: ref(false),
   error: ref(''),
   skippedPlugins: ref<string[]>([]),
-  search: vi.fn(() => Promise.resolve()),
+  skippedCms: ref<string[]>([]),
+  failedSources: ref<string[]>([]),
+  search: vi.fn((query: string) => {
+    if (!query) {
+      search.keyword.value = ''
+      search.results.value = []
+      search.error.value = ''
+      search.failedSources.value = []
+    }
+    return Promise.resolve()
+  }),
 }
 vi.mock('@/features/online/composables/use-online-search', () => ({
   useOnlineSearch: () => search,
@@ -140,6 +150,8 @@ describe('首屏等待内容结构用骨架', () => {
   beforeEach(() => {
     search.results.value = []
     search.loading.value = false
+    search.error.value = ''
+    search.failedSources.value = []
     route.query = {}
   })
 
@@ -175,6 +187,20 @@ describe('首屏等待内容结构用骨架', () => {
     search.loading.value = false
     const done = await renderToString(h(SearchTab))
     expect(done).not.toContain('ui-loading-dots')
+  })
+
+  it('在线搜索区分初始状态、正常无结果和请求失败', async () => {
+    const { default: SearchTab } =
+      await import('@/features/online/components/SearchTab.vue')
+    expect(await renderToString(h(SearchTab))).toContain('输入关键词搜索')
+    route.query = { q: '影片' }
+    search.keyword.value = '影片'
+    expect(await renderToString(h(SearchTab))).toContain('没有找到匹配的内容')
+    search.error.value = '搜索源请求失败，请重新搜索'
+    const failed = await renderToString(h(SearchTab))
+    expect(failed).toContain('搜索源请求失败')
+    expect(failed).toContain('重新搜索')
+    expect(failed).not.toContain('没有找到匹配的内容')
   })
 
   it('接线：在线浏览、AV 搜索、媒体库海报墙首屏都用 UiSkeleton，旧的手写骨架删掉', () => {

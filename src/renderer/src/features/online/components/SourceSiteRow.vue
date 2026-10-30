@@ -13,7 +13,7 @@
     />
     <div class="site-text">
       <span class="site-name">{{ name }}</span>
-      <span v-if="note" class="site-note">{{ note }}</span>
+      <span v-if="note" class="site-note" :title="note">{{ note }}</span>
       <span v-else class="site-api">{{ api }}</span>
     </div>
     <em class="site-badge" :class="`is-${badgeColor}`">{{ badge }}</em>
@@ -83,6 +83,7 @@ const props = withDefaults(
 const emit = defineEmits<{ toggle: []; check: []; delete: [] }>()
 
 const statusText = computed(() => {
+  if (props.note) return props.note
   if (props.status === 'ok') return '可用'
   if (props.status === 'fail') return '不可用'
   if (props.status === 'checking') return '检测中'

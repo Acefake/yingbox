@@ -6,6 +6,7 @@
 import type {
   DetailImage,
   GetJsonOptions,
+  GetJsonResponse,
 } from '../../../../../shared/contract/online'
 import type {
   DoubanPage,
@@ -15,6 +16,8 @@ import type {
 import { online } from '../../../../../shared/contract/online'
 import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import { webEngineApi } from '@/services/library-server/engine'
+import { OnlineTransportError } from './errors'
+export { OnlineTransportError } from './errors'
 
 /** 当前环境的在线域：桌面端 IPC，网页端片库服务；都没有时 undefined。 */
 function currentApi(): Window['api']['online'] | undefined {
@@ -34,12 +37,19 @@ export function onlineAvailable(): boolean {
   return Boolean(currentApi())
 }
 
-/** GET 一个 JSON 接口。 */
-export function getJson<T = unknown>(
+/** GET 一个 JSON 接口；后台连接错误与源响应错误分开标识。 */
+export async function getJson<T = unknown>(
   url: string,
   options?: GetJsonOptions
 ): Promise<T> {
-  return onlineApi().getJson(url, options) as Promise<T>
+  let result: GetJsonResponse
+  try {
+    result = await onlineApi().getJson(url, options)
+  } catch (error) {
+    throw new OnlineTransportError(error)
+  }
+  if (!result.success) throw new Error(result.error)
+  return result.data as T
 }
 
 /** 豆瓣浏览一页（引擎按条件选接口、缓存、熔断）；失败 reject。 */

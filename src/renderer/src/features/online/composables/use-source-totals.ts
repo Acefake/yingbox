@@ -6,16 +6,15 @@ import { type ComputedRef, computed } from 'vue'
 import { confirmDialog, toast } from '@/components/ui'
 import { useAvSources } from '@/features/av'
 import { useSetting } from '@/features/settings'
-import { countFailed } from '../utils/source-rules'
 import { syncSubscription, syncingSubscription } from './cms-subscription'
 import { retryAllPlugins } from './plugin-health'
 import { useOnlineSearch } from './use-online-search'
 import {
-  avStatusMap,
+  avStatusOf,
   checkAll,
   checkingAll,
   onlineApis,
-  statusMap,
+  statusOf,
   syncAvSources,
   syncingAv,
 } from './use-source-refresh'
@@ -40,17 +39,14 @@ export function useSourceTotals(): SourceTotals {
   )
   const totalFail = computed(
     () =>
-      countFailed(onlineApis.value, statusMap) +
+      onlineApis.value.filter(api => statusOf(api) === 'fail').length +
       (adultMode.value
-        ? countFailed(
-            avSources.value.map(s => s.api),
-            avStatusMap
-          )
+        ? avSources.value.filter(site => avStatusOf(site.api) === 'fail').length
         : 0)
   )
 
   /**
-   * 一键更新：同步源清单与订阅，再检测全部源；内置 CMS 源按检测结果自动启停。
+   * 一键更新：同步源清单与订阅，解除冷却并检测全部源；保留用户的启用选择。
    * 订阅失败只提示，沿用上次缓存的订阅源。
    */
   const updatingSources = computed(
@@ -75,11 +71,12 @@ export function useSourceTotals(): SourceTotals {
       okText: '禁用',
       onOk: () => {
         for (const a of onlineApis.value) {
-          if (statusMap[a] === 'fail') selectedSites.delete(a)
+          if (statusOf(a) === 'fail') selectedSites.delete(a)
         }
-        for (const s of avSources.value) {
-          if (avStatusMap[s.api] === 'fail') avEnabledApis.delete(s.api)
-        }
+        if (adultMode.value)
+          for (const s of avSources.value) {
+            if (avStatusOf(s.api) === 'fail') avEnabledApis.delete(s.api)
+          }
       },
     })
   }

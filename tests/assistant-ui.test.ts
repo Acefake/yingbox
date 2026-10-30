@@ -63,6 +63,10 @@ vi.mock('@/features/online', async () => {
         results,
         keyword,
         loading: ref(false),
+        error: ref(''),
+        failedSources: ref<string[]>([]),
+        skippedPlugins: ref<string[]>([]),
+        skippedCms: ref<string[]>([]),
         search: async (q: string) => {
           fakes.onlineSearches.push(q)
           keyword.value = q

@@ -45,10 +45,20 @@
       }}
     </p>
 
+    <p v-if="failedSources.length && !error" class="skipped-note" role="status">
+      {{ failedSources.length }} 个源搜索失败：{{ failedSources.join('、') }}
+    </p>
+
+    <p v-if="skippedCms.length" class="skipped-note" role="status">
+      {{ skippedCms.length }} 个 CMS 源的搜索暂不可用，已跳过：{{
+        skippedCms.join('、')
+      }}
+    </p>
+
     <StatusState
       v-if="!results.length && !loading && !error"
       icon="search"
-      title="输入关键词搜索"
+      :title="keyword.trim() ? '没有找到匹配的内容' : '输入关键词搜索'"
     />
 
     <!-- 首屏：还没有任何结果时的骨架 -->
@@ -157,6 +167,8 @@ const {
   loading,
   error,
   skippedPlugins,
+  skippedCms,
+  failedSources,
   search: doSearch,
 } = useOnlineSearch()
 const route = useRoute()
@@ -216,9 +228,7 @@ watch(
   () => route.query.q,
   async query => {
     if (typeof query !== 'string' || !query.trim()) {
-      keyword.value = ''
-      results.value = []
-      error.value = ''
+      await doSearch('')
       return
     }
     await handleSearch(query)

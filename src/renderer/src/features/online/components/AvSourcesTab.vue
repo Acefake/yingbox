@@ -9,6 +9,7 @@
       badge-color="pink"
       :enabled="avEnabledApis.has(s.api)"
       :status="avStatusOf(s.api)"
+      :note="cmsNoteOf(s.api)"
       :checking="avCheckingSet.has(s.api)"
       @toggle="toggleAv(s.api)"
       @check="checkAvSite(s.api)"
@@ -54,6 +55,7 @@ import {
   avCheckingSet,
   avStatusOf,
   checkAvSite,
+  cmsNoteOf,
 } from '../composables/use-source-refresh'
 import { sortByConnection } from '../utils/source-rules'
 import SourceSection from './SourceSection.vue'

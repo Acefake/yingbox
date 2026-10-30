@@ -10,7 +10,12 @@ import {
   ref,
   shallowRef,
 } from 'vue'
-import { type CatSpiderSite, getJson, useVODParser } from '@/features/online'
+import {
+  type CatSpiderSite,
+  cmsHealth,
+  getJson,
+  useVODParser,
+} from '@/features/online'
 import { getVodList } from '@/utils/vod-data'
 import { mapWithConcurrency } from '@/utils/concurrency'
 import type { AvSite } from './use-av-sources'
@@ -70,18 +75,32 @@ export function useAvSearch(options: {
     kw: string,
     signal: AbortSignal
   ): Promise<AvVideo[]> => {
+    if (signal.aborted) return []
+    if (!cmsHealth.usable(source.api, 'search')) {
+      failedCount.value++
+      return []
+    }
+    const health = cmsHealth.begin(source.api, 'search')
     try {
-      const url = kw
-        ? `${source.api}?ac=detail&wd=${encodeURIComponent(kw)}`
-        : `${source.api}?ac=detail`
-      const data = await getJson<{ code?: number; list?: unknown }>(url, {
-        timeoutMs: 8000,
-      })
+      const url = new URL(source.api)
+      url.searchParams.set('ac', 'detail')
+      if (kw) url.searchParams.set('wd', kw)
+      const data = await getJson<{ code?: number; list?: unknown }>(
+        String(url),
+        {
+          timeoutMs: 8000,
+        }
+      )
       if (signal.aborted) return []
-      if (data.code === 1 && Array.isArray(data.list))
-        return toCmsItems(data.list, source.name)
-    } catch {
-      if (!signal.aborted) failedCount.value++
+      if (data.code !== 1 || !Array.isArray(data.list))
+        throw new Error('接口响应缺少列表')
+      health.success()
+      return toCmsItems(data.list, source.name)
+    } catch (error) {
+      if (!signal.aborted) {
+        health.failure(error)
+        failedCount.value++
+      }
     }
     return []
   }
@@ -92,13 +111,16 @@ export function useAvSearch(options: {
     kw: string,
     signal: AbortSignal
   ): Promise<AvVideo[]> => {
+    if (signal.aborted) return []
     try {
       const r = await vodSearch({ siteName: site.name, keyword: kw }, signal)
-      if (!r.success || !r.data) {
+      const items =
+        r.success && r.data ? toPluginItems(getVodList(r.data), site.name) : []
+      if (!r.success || !r.data || (r.unavailable && !items.length)) {
         if (!signal.aborted) failedCount.value++
         return []
       }
-      return toPluginItems(getVodList(r.data), site.name)
+      return items
     } catch {
       if (!signal.aborted) failedCount.value++
       return []
@@ -126,7 +148,9 @@ export function useAvSearch(options: {
     const cmsSources = options.cmsSources()
     const pluginSources = options.pluginSources.value
     const key = searchCacheKey(kw, [
-      ...cmsSources.map(source => source.api),
+      ...cmsSources.map(
+        source => `${source.api}:${cmsHealth.version(source.api)}`
+      ),
       ...pluginSources.map(site => site.api),
     ])
     const cached = cache.get(key)
@@ -160,10 +184,11 @@ export function useAvSearch(options: {
     if (signal.aborted) return
     // 增量结果已经渲染；这里仅用于缓存，避免最后一次重复重建。
     const allItems = [...cmsResults.flat(), ...pluginResults.flat()]
-    cache.set(key, {
-      expiresAt: Date.now() + SEARCH_CACHE_TTL,
-      items: allItems,
-    })
+    if (failedCount.value === 0)
+      cache.set(key, {
+        expiresAt: Date.now() + SEARCH_CACHE_TTL,
+        items: allItems,
+      })
     if (cache.size > SEARCH_CACHE_LIMIT)
       cache.delete(cache.keys().next().value as string)
     loading.value = false
@@ -173,6 +198,8 @@ export function useAvSearch(options: {
 
   /** 清空搜索（路由去掉 ?q= 时）。 */
   const reset = (): void => {
+    abort?.abort()
+    loading.value = false
     keyword.value = ''
     videos.value = []
     hasSearched.value = false

@@ -157,9 +157,12 @@ export const createBrowseUrl = (
   page: number,
   categoryId: number | null
 ): string => {
-  const params = new URLSearchParams({ ac: 'detail', pg: String(page) })
-  if (categoryId !== null) params.set('t', String(categoryId))
-  return `${api}?${params}`
+  const url = new URL(api)
+  url.searchParams.set('ac', 'detail')
+  url.searchParams.set('pg', String(page))
+  if (categoryId !== null) url.searchParams.set('t', String(categoryId))
+  else url.searchParams.delete('t')
+  return String(url)
 }
 
 /** 写入有上限的 Map（超出时删最早写入的键）。 */

@@ -8,7 +8,7 @@
       :options="tabs"
     />
     <span v-if="checkingAll" class="smp-status" role="status">
-      检测中 {{ checkedCount }}/{{ totalSources }}
+      检测中 {{ checkedCount }}/{{ checkingTotal }}
     </span>
     <div class="smp-toolbar-actions">
       <UiButton
@@ -37,19 +37,18 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import { useSourceTotals } from '../composables/use-source-totals'
-import { checkedCount, checkingAll } from '../composables/use-source-refresh'
+import {
+  checkedCount,
+  checkingAll,
+  checkingTotal,
+} from '../composables/use-source-refresh'
 import type { SourceTab } from '../utils/source-rules'
 
 defineProps<{ tabs: { value: SourceTab; label: string }[] }>()
 const activeTab = defineModel<SourceTab>({ required: true })
 
-const {
-  totalSources,
-  totalFail,
-  updatingSources,
-  updateSources,
-  disableAllFailed,
-} = useSourceTotals()
+const { totalFail, updatingSources, updateSources, disableAllFailed } =
+  useSourceTotals()
 </script>
 
 <style scoped>

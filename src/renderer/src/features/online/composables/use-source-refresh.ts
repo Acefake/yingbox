@@ -1,7 +1,11 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
-import { computed, reactive, ref } from 'vue'
+import { computed, reactive, ref, watch } from 'vue'
 import { asRecord, asText } from '@/utils/json'
+import { mapWithConcurrency } from '@/utils/concurrency'
+import { useStorage } from '@vueuse/core'
+import { cmsHealth } from './cms-health'
+import { CMS_HEALTH_TTL } from '../utils/cms-health'
 import { getJson, withQuery } from '../api/online'
 import { useAvSources } from '@/features/av'
 import {
@@ -9,26 +13,48 @@ import {
   loadCatSpiderSites,
   useOnlineSearch,
 } from './use-online-search'
-import { subscribedSites, syncSubscription } from './cms-subscription'
+import {
+  subscribedSites,
+  subscriptionSyncedAt,
+  syncSubscription,
+} from './cms-subscription'
 
 import type { SiteStatus } from '../utils/source-rules'
 export type { SiteStatus }
 
 const { selectedSites, customSites } = useOnlineSearch()
-const { allSources: avSources, addSources: addAvSources } = useAvSources()
+const {
+  allSources: avSources,
+  enabledApis: avEnabledApis,
+  addSources: addAvSources,
+} = useAvSources()
+const avSyncedAt = useStorage('online_av_sources_at', 0)
+let avSyncGeneration = 0
+let sourceGeneration = 0
+let monitoringReady: boolean | undefined
+let checkRun: {
+  generation: number
+  force: boolean
+  promise: Promise<void>
+} | null = null
+const backgroundCurrent = (generation: number): boolean =>
+  generation === sourceGeneration && monitoringReady !== false
 
 // ── 检测状态（模块级单例，数据源面板与启动刷新共用）──────────
-export const statusMap = reactive<Record<string, SiteStatus>>({})
 export const checkingSet = reactive<Set<string>>(new Set())
-export const avStatusMap = reactive<Record<string, SiteStatus>>({})
 export const avCheckingSet = reactive<Set<string>>(new Set())
 export const syncingAv = ref(false)
 export const checkingAll = ref(false)
 export const checkedCount = ref(0)
+/** 本轮实际安排的探测数量（不含缓存未过期与手动关闭的源）。 */
+export const checkingTotal = ref(0)
 
-export const statusOf = (api: string): SiteStatus => statusMap[api] ?? 'unknown'
+export const statusOf = (api: string): SiteStatus =>
+  checkingSet.has(api) ? 'checking' : cmsHealth.status(api)
+/** 已记录的接口能力、失败原因和冷却时间。 */
+export const cmsNoteOf = (api: string): string => cmsHealth.note(api)
 export const avStatusOf = (api: string): SiteStatus =>
-  avStatusMap[api] ?? 'unknown'
+  avCheckingSet.has(api) ? 'checking' : cmsHealth.status(api)
 
 export const onlineApis = computed(() => [
   ...DEFAULT_SITES.map(site => site.api),
@@ -36,85 +62,134 @@ export const onlineApis = computed(() => [
   ...customSites.value.map(site => site.api),
 ])
 
-const builtinApis = new Set(DEFAULT_SITES.map(site => site.api))
-
-export const checkOnlineSite = async (api: string): Promise<void> => {
+/** 手动检测绕过缓存并解除冷却；后台检测仅处理到期记录，不改变启用开关。 */
+export const checkOnlineSite = async (
+  api: string,
+  force = true,
+  isCurrent: () => boolean = () => true
+): Promise<void> => {
+  if (!isCurrent()) return
   if (checkingSet.has(api)) return
+  if (!force && !cmsHealth.due(api)) return
+  if (force) cmsHealth.remove(api)
+  const health = cmsHealth.begin(api, 'browse')
   checkingSet.add(api)
-  statusMap[api] = 'checking'
   try {
     const data = await getJson<{ list?: unknown }>(
       withQuery(api, { ac: 'videolist', pg: 1 }),
       { timeoutMs: 8000 }
     )
-    statusMap[api] = Array.isArray(data?.list) ? 'ok' : 'fail'
-  } catch {
-    statusMap[api] = 'fail'
+    if (!isCurrent()) return
+    if (!Array.isArray(data?.list)) throw new Error('接口响应缺少列表')
+    health.success()
+  } catch (error) {
+    if (isCurrent()) health.failure(error)
   } finally {
-    // 内置源按本次检测自动启停；失败的源仍留在清单中，恢复后能再次开启。
-    if (builtinApis.has(api)) {
-      if (statusMap[api] === 'ok') selectedSites.add(api)
-      else selectedSites.delete(api)
-    }
     checkingSet.delete(api)
   }
 }
 
-export const checkAvSite = async (api: string): Promise<void> => {
+export const checkAvSite = async (
+  api: string,
+  force = true,
+  isCurrent: () => boolean = () => true
+): Promise<void> => {
+  if (!isCurrent()) return
   if (avCheckingSet.has(api)) return
+  if (!force && !cmsHealth.due(api)) return
+  if (force) cmsHealth.remove(api)
+  const health = cmsHealth.begin(api, 'browse')
   avCheckingSet.add(api)
-  avStatusMap[api] = 'checking'
   try {
-    const data = await getJson<{ list?: unknown }>(`${api}?ac=detail`, {
-      timeoutMs: 8000,
-    })
-    avStatusMap[api] = data?.list !== undefined ? 'ok' : 'fail'
-  } catch {
-    avStatusMap[api] = 'fail'
+    const data = await getJson<{ list?: unknown }>(
+      withQuery(api, { ac: 'detail' }),
+      {
+        timeoutMs: 8000,
+      }
+    )
+    if (!isCurrent()) return
+    if (!Array.isArray(data?.list)) throw new Error('接口响应缺少列表')
+    health.success()
+  } catch (error) {
+    if (isCurrent()) health.failure(error)
   } finally {
     avCheckingSet.delete(api)
   }
 }
 
 /**
- * 检测全部源：内置 CMS 源按结果自动启停，其余源只更新状态。
+ * 手动检测全部源；force=false 时只检测已启用且过期的缓存。
  * AV 源仅在成人模式下参与。
  */
-export const checkAll = async (): Promise<void> => {
-  if (checkingAll.value) return
+export const checkAll = (force = true): Promise<void> => {
+  const generation = sourceGeneration
+  const isCurrent = (): boolean =>
+    generation === sourceGeneration && (force || monitoringReady !== false)
+  if (!isCurrent()) return Promise.resolve()
+  if (checkRun) {
+    if (checkRun.generation === generation && (checkRun.force || !force))
+      return checkRun.promise
+    return checkRun.promise.then(() =>
+      isCurrent() ? checkAll(force) : undefined
+    )
+  }
+  const run = { generation, force, promise: Promise.resolve() }
   checkingAll.value = true
   checkedCount.value = 0
-  try {
-    const onlineTasks = onlineApis.value.map(api =>
-      checkOnlineSite(api).then(() => {
-        checkedCount.value++
+  run.promise = Promise.resolve().then(async () => {
+    try {
+      if (!isCurrent()) return
+      cmsHealth.tick()
+      const includesAv = getSetting('app.adultMode')
+      const tasks = [
+        ...[...new Set(onlineApis.value)]
+          .filter(
+            api => force || (selectedSites.has(api) && cmsHealth.due(api))
+          )
+          .map(api => () => checkOnlineSite(api, force, isCurrent)),
+        ...(includesAv
+          ? avSources.value
+              .filter(
+                site =>
+                  force ||
+                  (avEnabledApis.has(site.api) && cmsHealth.due(site.api))
+              )
+              .map(site => () => checkAvSite(site.api, force, isCurrent))
+          : []),
+      ]
+      checkingTotal.value = tasks.length
+      await mapWithConcurrency(tasks, 6, async check => {
+        if (!isCurrent()) return
+        await check()
+        if (isCurrent()) checkedCount.value++
       })
-    )
-    const includesAv = getSetting('app.adultMode')
-    const avTasks = includesAv
-      ? avSources.value.map(site =>
-          checkAvSite(site.api).then(() => {
-            checkedCount.value++
-          })
-        )
-      : []
-    await Promise.all([...onlineTasks, ...avTasks])
-  } finally {
-    checkingAll.value = false
-  }
+    } finally {
+      checkingAll.value = false
+      if (checkRun === run) checkRun = null
+    }
+  })
+  checkRun = run
+  return run.promise
 }
 
 const ORDINARY_CMS_NAMES =
   /^(?:无尽|豪华|红牛|极速|虎牙|速播|樱花|光速)资源站?$/
 
 /** 拉取远程清单并合并新源；远程清单混合普通 CMS 与 AV 源，按名称分流。 */
-export const syncAvSources = async (showMessage = true): Promise<void> => {
+export const syncAvSources = async (
+  showMessage = true,
+  isCurrent: () => boolean = () => true
+): Promise<void> => {
+  if (!isCurrent()) return
+  const generation = ++avSyncGeneration
+  const current = (): boolean => generation === avSyncGeneration && isCurrent()
   syncingAv.value = true
   try {
     const response = await getJson<{ data?: unknown }>(
       'https://mylazily.github.io/ziyuanzhan/data/online.json',
       { timeoutMs: 15000 }
     )
+    if (!current()) return
     const entries = Array.isArray(response?.data) ? response.data : []
     const sources = entries
       .map(item => {
@@ -159,6 +234,7 @@ export const syncAvSources = async (showMessage = true): Promise<void> => {
       addedCms++
     }
     const added = addAvSources(avOnlySources)
+    if (sources.length) avSyncedAt.value = Date.now()
     const sourceApis = new Set(avOnlySources.map(source => source.api))
     const movedOnlineSources = customSites.value.filter(source =>
       sourceApis.has(source.api)
@@ -169,42 +245,79 @@ export const syncAvSources = async (showMessage = true): Promise<void> => {
         source => !sourceApis.has(source.api)
       )
     }
-    if (showMessage)
+    if (showMessage && current())
       toast.success(
         added + addedCms
           ? `已同步 ${added + addedCms} 个新数据源`
           : '没有发现新的兼容数据源'
       )
   } catch (error) {
-    if (showMessage)
+    if (showMessage && current())
       toast.error(error instanceof Error ? error.message : '在线数据源同步失败')
   } finally {
-    syncingAv.value = false
+    if (generation === avSyncGeneration) syncingAv.value = false
   }
 }
 
-let refreshing: Promise<void> | null = null
+let refreshing: { generation: number; promise: Promise<void> } | null = null
 
 /**
- * 同步远程清单、加载插件源并检测全部源（内置 CMS 源自动启用/停用）。
+ * 沿用清单与健康缓存，后台同步过期清单并复测到期的已启用源。
  * 影盒每次启动与数据源面板打开时调用；进行中重复调用会复用同一次刷新。
  */
 export const refreshSources = (): Promise<void> => {
-  if (!refreshing) {
-    refreshing = (async () => {
-      try {
-        await Promise.allSettled([
-          loadCatSpiderSites(),
-          syncAvSources(false),
-          syncSubscription().catch(() => 0),
-        ])
-        await checkAll()
-      } catch {
-        // 刷新失败不影响其余功能，下次触发时重试。
-      } finally {
-        refreshing = null
-      }
-    })()
+  const generation = sourceGeneration
+  if (!backgroundCurrent(generation)) return Promise.resolve()
+  if (refreshing?.generation === generation) return refreshing.promise
+  const run = { generation, promise: Promise.resolve() }
+  run.promise = Promise.resolve().then(async () => {
+    try {
+      if (!backgroundCurrent(generation)) return
+      await Promise.allSettled([
+        loadCatSpiderSites(),
+        Date.now() - avSyncedAt.value >= CMS_HEALTH_TTL
+          ? syncAvSources(false, () => backgroundCurrent(generation))
+          : Promise.resolve(),
+        !subscribedSites.value.length ||
+        Date.now() - subscriptionSyncedAt.value >= CMS_HEALTH_TTL
+          ? syncSubscription(() => backgroundCurrent(generation)).catch(() => 0)
+          : Promise.resolve(),
+      ])
+      if (backgroundCurrent(generation)) await checkAll(false)
+    } catch {
+      // 刷新失败不影响其余功能，下次触发时重试。
+    } finally {
+      if (refreshing === run) refreshing = null
+    }
+  })
+  refreshing = run
+  return run.promise
+}
+
+/** 应用壳拥有的后台监视器；断线或销毁后取消待发队列，隐藏窗口不发起新探测。 */
+export function startSourceMonitoring(
+  available: () => boolean = () => true
+): () => void {
+  const stopAvailability = watch(
+    available,
+    ready => {
+      sourceGeneration++
+      monitoringReady = ready
+      cmsHealth.invalidateRequests()
+      if (ready) void refreshSources()
+    },
+    { immediate: true, flush: 'sync' }
+  )
+  const timer = setInterval(() => {
+    cmsHealth.tick()
+    if (available() && (typeof document === 'undefined' || !document.hidden))
+      void checkAll(false)
+  }, 60_000)
+  return () => {
+    stopAvailability()
+    clearInterval(timer)
+    sourceGeneration++
+    monitoringReady = undefined
+    cmsHealth.invalidateRequests()
   }
-  return refreshing
 }

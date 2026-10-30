@@ -56,8 +56,8 @@ const { default: OnlineSourcesTab } =
   await import('../src/renderer/src/features/online/components/OnlineSourcesTab.vue')
 const { useOnlineSearch } =
   await import('../src/renderer/src/features/online/composables/use-online-search')
-const { statusMap } =
-  await import('../src/renderer/src/features/online/composables/use-source-refresh')
+const { cmsHealth } =
+  await import('../src/renderer/src/features/online/composables/cms-health')
 
 const { customSites, selectedSites } = useOnlineSearch()
 
@@ -73,7 +73,7 @@ const renderRows = async (): Promise<Row[]> => {
 
 afterEach(() => {
   customSites.value = []
-  for (const key of Object.keys(statusMap)) delete statusMap[key]
+  cmsHealth.clear()
   confirmTitles.length = 0
 })
 
@@ -81,8 +81,9 @@ describe('删除自定义源', () => {
   it('排序后与存储顺序不同：删掉的是点的那一行', async () => {
     customSites.value = [A, B, C]
     // A 失效、C 通过：显示顺序 C、B、A，与存储顺序 A、B、C 不同
-    statusMap[A.api] = 'fail'
-    statusMap[C.api] = 'ok'
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(A.api, 'browse', new Error('HTTP 503'))
+    cmsHealth.success(C.api, 'browse')
     selectedSites.add(C.api)
     const shown = await renderRows()
     expect(shown.map(r => r.name)).toEqual(['源C', '源B', '源A'])
@@ -92,15 +93,16 @@ describe('删除自定义源', () => {
     expect(confirmTitles).toEqual(['删除数据源“源C”？'])
     expect(customSites.value.map(s => s.name)).toEqual(['源A', '源B'])
     expect(selectedSites.has(C.api)).toBe(false)
-    expect(statusMap[C.api]).toBeUndefined()
+    expect(cmsHealth.get(C.api, 'browse')).toBeUndefined()
     // 没点的源状态不受影响
-    expect(statusMap[A.api]).toBe('fail')
+    expect(cmsHealth.status(A.api)).toBe('fail')
   })
 
   it('删除后重新渲染，剩下的行各自删自己', async () => {
     customSites.value = [A, B, C]
-    statusMap[A.api] = 'fail'
-    statusMap[C.api] = 'ok'
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(A.api, 'browse', new Error('HTTP 503'))
+    cmsHealth.success(C.api, 'browse')
     let shown = await renderRows()
     shown.find(r => r.name === '源A')?.onDelete?.()
     expect(customSites.value.map(s => s.name)).toEqual(['源B', '源C'])

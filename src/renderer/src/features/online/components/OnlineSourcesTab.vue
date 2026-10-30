@@ -8,6 +8,7 @@
       badge="CMS"
       :enabled="selectedSites.has(s.api)"
       :status="statusOf(s.api)"
+      :note="cmsNoteOf(s.api)"
       :checking="checkingSet.has(s.api)"
       @toggle="toggleSite(s.api)"
       @check="checkOnlineSite(s.api)"
@@ -61,6 +62,7 @@
       badge-color="amber"
       :enabled="selectedSites.has(s.api)"
       :status="statusOf(s.api)"
+      :note="cmsNoteOf(s.api)"
       :checking="checkingSet.has(s.api)"
       deletable
       @toggle="toggleSite(s.api)"
@@ -86,13 +88,14 @@ import { useOnlineSearch } from '../composables/use-online-search'
 import {
   checkOnlineSite,
   checkingSet,
-  statusMap,
+  cmsNoteOf,
   statusOf,
 } from '../composables/use-source-refresh'
 import { sortByConnection } from '../utils/source-rules'
 import SourceSection from './SourceSection.vue'
 import SourceSiteRow from './SourceSiteRow.vue'
 import SubscriptionSection from './SubscriptionSection.vue'
+import { cmsHealth } from '../composables/cms-health'
 
 defineProps<{ plugins: CatSpiderSite[] }>()
 const emit = defineEmits<{ (e: 'add'): void }>()
@@ -120,7 +123,7 @@ const removeCustom = (api: string): void => {
     danger: true,
     onOk: () => {
       selectedSites.delete(site.api)
-      delete statusMap[site.api]
+      cmsHealth.remove(site.api)
       customSites.value = customSites.value.filter(s => s.api !== api)
     },
   })

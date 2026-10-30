@@ -92,6 +92,8 @@ export function groupOnline(
 export interface EntryOnline {
   rows: ComputedRef<OnlineRow[]>
   busy: ComputedRef<boolean>
+  /** 当前查询的请求失败或源不可用提示 */
+  message: ComputedRef<string>
   open(row: OnlineRow): void
 }
 
@@ -106,7 +108,16 @@ export function useEntryOnline(options: {
   leave: () => void
 }): EntryOnline {
   const router = useRouter()
-  const { results, loading, keyword, search } = useOnlineSearch()
+  const {
+    results,
+    loading,
+    keyword,
+    error,
+    failedSources,
+    skippedPlugins,
+    skippedCms,
+    search,
+  } = useOnlineSearch()
   let timer: ReturnType<typeof setTimeout> | undefined
 
   watch(
@@ -128,6 +139,15 @@ export function useEntryOnline(options: {
     () =>
       options.enabled() && (loading.value || keyword.value !== options.text())
   )
+  const message = computed(() => {
+    if (!current() || loading.value) return ''
+    if (error.value) return error.value
+    const count =
+      failedSources.value.length +
+      skippedPlugins.value.length +
+      skippedCms.value.length
+    return count ? `${count} 个在线源请求失败或暂不可用` : ''
+  })
 
   function open(row: OnlineRow): void {
     options.leave()
@@ -138,5 +158,5 @@ export function useEntryOnline(options: {
     })
   }
 
-  return { rows, busy, open }
+  return { rows, busy, message, open }
 }

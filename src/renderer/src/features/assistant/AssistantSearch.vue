@@ -150,6 +150,8 @@ const note = computed(() => {
   const parts: string[] = []
   const message = local.value ? search.value.message.value : ''
   if (message) parts.push(message)
+  const onlineMessage = online.value.message.value
+  if (onlineMessage) parts.push(onlineMessage)
   if (local.value && search.value.thinking.value) parts.push('AI 正在理解…')
   if (online.value.busy.value) parts.push('在线源搜索中…')
   const visual = local.value ? search.value.visualNotice.value : ''
@@ -157,8 +159,9 @@ const note = computed(() => {
   const pending =
     (local.value && search.value.busy.value) || online.value.busy.value
   if (count) parts.unshift(`${count} 个结果`)
-  else if (!pending && !message) parts.unshift('没有找到匹配的内容')
-  else if (!message) parts.unshift('正在搜索…')
+  else if (!pending && !message && !onlineMessage)
+    parts.unshift('没有找到匹配的内容')
+  else if (pending && !message) parts.unshift('正在搜索…')
   return parts.join(' · ')
 })
 </script>
