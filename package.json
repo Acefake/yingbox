@@ -1,6 +1,6 @@
 {
   "name": "yingbox",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "影盒 - 影视资源管理与在线观看",
   "main": "./out/main/index.js",
   "author": "影盒团队",
