@@ -78,6 +78,14 @@ export default defineConfig(({ mode }) => ({
             enforce: 'pre',
             resolveId(source, importer) {
               if (
+                source === './platform' &&
+                importer?.replaceAll('\\', '/').includes('/features/search/')
+              )
+                return resolve(
+                  __dirname,
+                  'src/renderer/src/features/search/platform-nas.ts'
+                )
+              if (
                 source === '../api/online' &&
                 importer?.replaceAll('\\', '/').includes('/features/online/')
               )

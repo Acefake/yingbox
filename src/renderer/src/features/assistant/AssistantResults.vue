@@ -30,6 +30,13 @@
               <UiLoadingDots label="正在打开…" />
             </template>
             <template #actions>
+              <UiIconButton
+                v-if="!privateContext"
+                icon="search"
+                size="sm"
+                :label="`查找资源：${card.title}`"
+                @click="findResources(card)"
+              />
               <template v-if="card.actions">
                 <UiButton
                   v-for="action in card.actions()"
@@ -124,8 +131,8 @@
  * 其余按钮标 aria-disabled（保持可聚焦，点击不重复打开），那几行变淡。「正在打开」在整个浮层共享
  * （assistant-opening.ts）：对话流里其它轮次的结果同样变淡、点击被忽略，播放器不会被打开两次。
  */
-import { type Component, shallowRef, watch } from 'vue'
-import { useRouter } from 'vue-router'
+import { type Component, computed, shallowRef, watch } from 'vue'
+import { useRoute, useRouter } from 'vue-router'
 
 import {
   UiButton,
@@ -136,8 +143,10 @@ import {
   toast,
 } from '@/components/ui'
 import type { LibraryCardInfo } from '@/features/library'
+import { resourceSearchLocation } from '@/features/search'
 import { inWatchlist, toggleWatchlist } from '@/features/watchlist'
 
+import { assistantContext } from './assistant-deps'
 import { useOpening } from './assistant-opening'
 import { cardNote, cardPlayLabel } from './result-rows'
 import type {
@@ -150,6 +159,14 @@ const props = defineProps<{ result: AssistantResult }>()
 const emit = defineEmits<{ played: [] }>()
 
 const router = useRouter()
+const route = useRoute()
+const privateContext = computed(() => assistantContext(route).private)
+
+function findResources(card: AssistantMediaCard): void {
+  emit('played')
+  void router.push(resourceSearchLocation(card.title))
+}
+
 /** 正在打开播放器的卡片（整个浮层共享，见 assistant-opening.ts） */
 const { opening, owner, isMine } = useOpening()
 /** 展开的面板 */

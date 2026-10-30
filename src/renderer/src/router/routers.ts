@@ -4,6 +4,12 @@
  */
 export const routes = [
   {
+    path: '/search',
+    name: 'Search',
+    component: () => import('@/features/search/SearchPage.vue'),
+    meta: { title: '搜索' },
+  },
+  {
     path: '/',
     name: 'Online',
     component: () => import('@/features/online/views/OnlineView.vue'),

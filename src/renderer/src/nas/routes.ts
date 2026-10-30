@@ -4,6 +4,12 @@ import type { RouteRecordRaw } from 'vue-router'
 /** 页面组件保持懒加载，避免引入桌面和在线播放入口。 */
 export const nasRoutes: RouteRecordRaw[] = [
   {
+    path: '/search',
+    name: 'Search',
+    component: () => import('@/features/search/SearchPage.vue'),
+    meta: { title: '搜索' },
+  },
+  {
     path: '/',
     name: 'Home',
     component: () => import('./pages/HomePage.vue'),

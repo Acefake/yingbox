@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import {
   ASK_ROW,
+  SEARCH_ROW,
   defaultSelection,
   moveSelection,
   selectionId,
@@ -22,34 +23,28 @@ const row = (key: string, exact = false): { key: string; exact: boolean } => ({
   exact,
 })
 
-describe('默认选中', () => {
-  it('第一条是片名精确命中 → 选它（回车直接打开）', () => {
-    expect(defaultSelection([row('a', true), row('b')], true)).toBe(0)
-    expect(defaultSelection([row('a', true)], false)).toBe(0)
+describe('完整搜索与键盘选择', () => {
+  it('有精确命中、普通结果或空结果时都默认提交完整搜索', () => {
+    expect(defaultSelection([row('a', true)], true)).toBe(SEARCH_ROW)
+    expect(defaultSelection([row('a')], false)).toBe(SEARCH_ROW)
+    expect(defaultSelection([], true)).toBe(SEARCH_ROW)
   })
-  it('能问 AI → 选「问 AI」行；没有结果也是', () => {
-    expect(defaultSelection([row('a'), row('b')], true)).toBe(ASK_ROW)
-    expect(defaultSelection([], true)).toBe(ASK_ROW)
-  })
-  it('网页版（不能问 AI）→ 第一条结果；没有结果时什么都不选', () => {
-    expect(defaultSelection([row('a')], false)).toBe(0)
-    expect(defaultSelection([], false)).toBe(ASK_ROW)
-  })
-})
-
-describe('↑ ↓ 移动', () => {
-  it('有「问 AI」行时在 -1..n-1 间首尾相接', () => {
+  it('有 AI 时在完整搜索、问 AI 和结果之间移动', () => {
+    expect(moveSelection(SEARCH_ROW, -1, 0, true)).toBe(ASK_ROW)
+    expect(moveSelection(SEARCH_ROW, 1, 2, true)).toBe(ASK_ROW)
     expect(moveSelection(ASK_ROW, 1, 2, true)).toBe(0)
-    expect(moveSelection(1, 1, 2, true)).toBe(ASK_ROW)
-    expect(moveSelection(ASK_ROW, -1, 2, true)).toBe(1)
-    expect(moveSelection(ASK_ROW, 1, 0, true)).toBe(ASK_ROW)
+    expect(moveSelection(1, 1, 2, true)).toBe(SEARCH_ROW)
+    expect(moveSelection(SEARCH_ROW, -1, 2, true)).toBe(1)
   })
-  it('没有「问 AI」行时只在结果里转', () => {
-    expect(moveSelection(0, -1, 3, false)).toBe(2)
-    expect(moveSelection(2, 1, 3, false)).toBe(0)
-    expect(moveSelection(ASK_ROW, 1, 0, false)).toBe(ASK_ROW)
+  it('无 AI 时跳过提问行，空结果仍可提交搜索', () => {
+    expect(moveSelection(SEARCH_ROW, 1, 3, false)).toBe(0)
+    expect(moveSelection(0, -1, 3, false)).toBe(SEARCH_ROW)
+    expect(moveSelection(SEARCH_ROW, -1, 3, false)).toBe(2)
+    expect(moveSelection(2, 1, 3, false)).toBe(SEARCH_ROW)
+    expect(moveSelection(SEARCH_ROW, 1, 0, false)).toBe(SEARCH_ROW)
   })
-  it('选中行的 id 与列表里的行一致', () => {
+  it('选中行的 id 与列表一致', () => {
+    expect(selectionId(SEARCH_ROW)).toBe('entry-search')
     expect(selectionId(ASK_ROW)).toBe('entry-ask')
     expect(selectionId(3)).toBe('search-hit-3')
   })

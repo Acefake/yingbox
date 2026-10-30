@@ -27,8 +27,24 @@
         @moment="search.openMoment"
         @actor="search.openActor"
       >
-        <template v-if="askable" #before>
+        <template #before>
           <UiListRow
+            id="entry-search"
+            role="option"
+            :aria-selected="selected === SEARCH_ROW"
+            :selected="selected === SEARCH_ROW"
+            @click="emit('complete')"
+          >
+            <template #leading><UiIcon name="search" /></template>
+            {{ props.private ? '在片库中查看' : '搜索全部资源' }}：{{
+              entry.query.value
+            }}
+            <template #description>{{
+              props.private ? '仅搜索本地私密片库' : '片库、在线、115 与磁力'
+            }}</template>
+          </UiListRow>
+          <UiListRow
+            v-if="askable"
             id="entry-ask"
             class="assistant-ask"
             role="option"
@@ -91,8 +107,7 @@
 <script setup lang="ts">
 /**
  * 统一入口里的搜索结果块。最上一排范围胶囊（全部 / 本地 / 在线 / 当前分区；私密模式没有）；
- * 下面一个 listbox：「问 AI：<输入>」一行（能问 AI 时）→ 本地片库结果（海报行，本地召回与 AI 增强融合去重，
- * 理由里写「AI 理解 · …」；画面时刻、人物也在这里，SearchMatches 来自片库 feature）→ 在线影视源（异步追加，
+ * 下面一个 listbox：完整搜索 → 「问 AI：<输入>」一行（能问 AI 时）→ 本地片库结果（海报行，本地多路召回融合去重；画面时刻、人物也在这里，SearchMatches 来自片库 feature）→ 在线影视源（异步追加，
  * 同名同年多源合成一行）。作品行与 AI 结果卡同一个组件（UiMediaRow 紧凑行：海报、片名 · 年份、规格标签、评分、说明）。底部一行是状态（读屏会播报：条数、AI 正在理解、在线源还在追加、没找到…）和去向：
  * CLIP 范围选择（私密范围）、在海报墙查看（当前分区）、在线搜索页（完整的在线结果）。
  * 空闲（hero）时是输入胶囊下面一块独立的玻璃（floating），面板里是输入框上方的一段。
@@ -109,7 +124,7 @@ import {
 } from '@/components/ui'
 
 import { ASK_HOTKEY_LABEL as askKey } from './assistant-hotkey'
-import { ASK_ROW } from './assistant-entry'
+import { ASK_ROW, SEARCH_ROW } from './assistant-entry'
 import { librarySearchModule } from './library-search'
 import { onlineRowView } from './result-rows'
 import type { EntrySearch } from './use-entry-search'
@@ -126,7 +141,7 @@ const props = defineProps<{
   /** 独立的玻璃块（空闲时） */
   floating?: boolean
 }>()
-const emit = defineEmits<{ ask: [] }>()
+const emit = defineEmits<{ ask: []; complete: [] }>()
 
 const { SearchMatches, VisualSourceSelect } = librarySearchModule()
 

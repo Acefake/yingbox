@@ -69,6 +69,7 @@
           v-if="searching && mode === 'panel'"
           v-bind="searchProps"
           @ask="send(query)"
+          @complete="completeSearch"
         />
         <AssistantComposer
           v-model:draft="draft"
@@ -93,6 +94,7 @@
             v-bind="searchProps"
             floating
             @ask="send(query)"
+            @complete="completeSearch"
           />
         </AssistantComposer>
         <footer v-if="mode === 'hero'" class="assistant-keys">
@@ -100,7 +102,7 @@
             <kbd class="assistant-kbd" aria-hidden="true">↑ ↓</kbd>选择
           </span>
           <span class="assistant-key">
-            <kbd class="assistant-kbd" aria-hidden="true">↵</kbd>打开 / 发送
+            <kbd class="assistant-kbd" aria-hidden="true">↵</kbd>完整搜索 / 打开
           </span>
           <span v-if="askable" class="assistant-key">
             <kbd class="assistant-kbd" aria-hidden="true">{{ askKey }}</kbd>
@@ -128,8 +130,8 @@
 /**
  * 统一入口浮层（按需加载）：搜索片库与问 AI 共用的窗口正中一列，两种形态（data-mode）。
  * - hero（还没提问）：大标题「有什么可以帮你？」、上下文胶囊、独立的玻璃输入胶囊、技能建议、快捷键提示；
- *   输入框一有字就即时搜（use-entry-search.ts：本地片库 + AI 增强融合，在线影视源异步追加；范围胶囊全部 / 本地 /
- *   在线 / 当前分区），结果块（AssistantSearch）接在输入胶囊下面、替换技能建议，最上一行是「问 AI：<输入>」。回车作用在选中行（默认规则见 assistant-entry.ts），Cmd/Ctrl+回车总是问 AI；
+ *   输入框一有字就即时搜（use-entry-search.ts：本地片库即时预览，在线影视源异步追加；范围胶囊全部 / 本地 /
+ *   在线 / 当前分区），结果块（AssistantSearch）接在输入胶囊下面、替换技能建议，最上一行提交完整搜索，第二行显式问 AI。回车作用在选中行（默认规则见 assistant-entry.ts），Cmd/Ctrl+回车总是问 AI；
  *   整列顶部锚定（不随结果长度上下跳）；
  * - panel 里继续输入时，结果块出现在输入框上方，规则相同。
  * - panel（有对话后）：同一列展开成玻璃面板（.yb-glass）——上下文胶囊与 Esc 在顶、对话流在中间滚动、
@@ -159,6 +161,7 @@ import { useFocusTrap } from '@/composables/use-focus-trap'
 import { aiAvailable } from '@/features/ai'
 import { playerSession } from '@/features/player'
 import { getSetting, useSetting } from '@/features/settings'
+import { resourceSearchLocation } from '@/features/search'
 import { isSearchCommand } from '@/utils/search-command'
 
 import { assistantExample, assistantPlaceholder } from './assistant-copy'
@@ -169,7 +172,7 @@ import {
   createAssistantDeps,
   openSettingsSection,
 } from './assistant-deps'
-import { ASK_ROW, selectionId } from './assistant-entry'
+import { ASK_ROW, SEARCH_ROW, selectionId } from './assistant-entry'
 import {
   ASK_HOTKEY_LABEL as askKey,
   ENTRY_HOTKEY_LABEL as hotkey,
@@ -293,7 +296,6 @@ const entry = useEntrySearch({
   draft,
   isPrivate: () => context.value.private,
   askable,
-  aiReady: assistantAiReady,
   close,
 })
 const { searching, query, selected, move } = entry
@@ -316,9 +318,24 @@ function runCommand(): boolean {
   return true
 }
 
-/** 回车：选中了结果就打开它，选中「问 AI」行就提问 */
+/** 完整搜索在非私密模式下聚合当前平台支持的资源。 */
+function completeSearch(): void {
+  if (!query.value) return
+  if (context.value.private) {
+    entry.search.wall()
+    return
+  }
+  close()
+  void router.push(resourceSearchLocation(query.value))
+}
+
+/** 回车默认完整搜索；显式选中结果或提问行时执行该行。 */
 function onEnter(): void {
   if (runCommand()) return
+  if (selected.value === SEARCH_ROW) {
+    completeSearch()
+    return
+  }
   const row = entry.entries.value[selected.value]
   if (row) row.open()
   else if (selected.value === ASK_ROW && askable && query.value)

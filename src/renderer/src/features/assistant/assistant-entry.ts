@@ -1,11 +1,8 @@
 /**
  * 统一入口里「搜索结果 + 问 AI」一列的选中规则（纯规则 + 一个小 composable）。
  *
- * 列表从上到下：「问 AI：<输入>」一行（索引 -1，只在能问 AI 时有）、片库结果（0..n-1）。
- * 回车作用在选中的那一行上；Cmd/Ctrl+回车总是问 AI。默认选中：
- * - 第一条结果是片名精确命中 → 选它（回车直接打开这部片）；
- * - 否则能问 AI → 选「问 AI」行（回车把这句话交给 AI）；
- * - 否则（网页版）→ 选第一条结果。
+ * 列表从上到下：完整搜索（-2）、「问 AI：<输入>」一行（索引 -1，只在能问 AI 时有）、片库结果（0..n-1）。
+ * 回车默认提交完整搜索，Cmd/Ctrl+回车问 AI；方向键选中具体结果后可直接打开。
  * 用户用 ↑ ↓ 选过之后，召回补入新结果时按稳定键保留选择；输入变了就回到默认。
  */
 import { type Ref, ref, watch } from 'vue'
@@ -19,15 +16,10 @@ export interface EntryRow {
 /** 「问 AI」行的索引 */
 export const ASK_ROW = -1
 
-/**
- * 默认选中哪一行。
- * @param rows 片库结果
- * @param askable 能不能问 AI（有「问 AI」行）
- */
-export function defaultSelection(rows: EntryRow[], askable: boolean): number {
-  if (rows[0]?.exact) return 0
-  if (askable || !rows.length) return ASK_ROW
-  return 0
+/** 默认回车提交完整搜索；具体结果只在用户显式选择后打开。 */
+export const SEARCH_ROW = -2
+export function defaultSelection(_rows: EntryRow[], _askable: boolean): number {
+  return SEARCH_ROW
 }
 
 /**
@@ -43,18 +35,23 @@ export function moveSelection(
   count: number,
   askable: boolean
 ): number {
-  const first = askable ? ASK_ROW : 0
+  const first = SEARCH_ROW
   const last = count - 1
-  if (last < first) return ASK_ROW
-  const next = current + delta
+  if (last < first) return SEARCH_ROW
+  let next = current + delta
+  if (!askable && next === ASK_ROW) next += delta
   if (next > last) return first
-  if (next < first) return last
+  if (next < first) return askable || last >= 0 ? last : SEARCH_ROW
   return next
 }
 
 /** 选中行的元素 id（给 aria-activedescendant） */
 export function selectionId(selected: number): string {
-  return selected === ASK_ROW ? 'entry-ask' : `search-hit-${selected}`
+  return selected === SEARCH_ROW
+    ? 'entry-search'
+    : selected === ASK_ROW
+      ? 'entry-ask'
+      : `search-hit-${selected}`
 }
 
 /**
@@ -78,6 +75,10 @@ export function useEntrySelection(
     ([nextText], previous) => {
       if (!previous || nextText !== previous[0]) picked = ''
       const list = rows()
+      if (picked === 'search') {
+        selected.value = SEARCH_ROW
+        return
+      }
       if (picked === 'ask' && askable()) {
         selected.value = ASK_ROW
         return
@@ -96,7 +97,12 @@ export function useEntrySelection(
       list.length,
       askable()
     )
-    picked = selected.value === ASK_ROW ? 'ask' : list[selected.value].key
+    picked =
+      selected.value === SEARCH_ROW
+        ? 'search'
+        : selected.value === ASK_ROW
+          ? 'ask'
+          : list[selected.value].key
     document
       .getElementById(selectionId(selected.value))
       ?.scrollIntoView?.({ block: 'nearest' })
