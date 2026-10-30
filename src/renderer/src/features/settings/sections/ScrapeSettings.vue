@@ -3,7 +3,14 @@
     title="元数据"
     footer="中文缺片名时用原名；缺简介时先从豆瓣补，豆瓣也没有才用英文。已入库的条目在片库里刷新元数据后按新语言更新。"
   >
-    <SettingsRow title="语言" description="片库、追剧日历与在线页的标题和简介">
+    <SettingsRow
+      title="语言"
+      :description="
+        nas
+          ? '片库与网盘影片匹配的标题和简介'
+          : '片库、追剧日历与在线页的标题和简介'
+      "
+    >
       <UiSegmented
         v-model="metadataLanguage"
         size="sm"
@@ -36,7 +43,11 @@
         v-if="!tmdbTokenConfigured() && !tmdbAccessToken"
         class="settings-warn"
       >
-        首页豆瓣浏览无需 Token；TMDB 搜索与片库刮削需配置 Token
+        {{
+          nas
+            ? '库外发现的豆瓣片单无需 Token；影片匹配与 TMDB 刮削需配置 Token'
+            : '首页豆瓣浏览无需 Token；TMDB 搜索与片库刮削需配置 Token'
+        }}
       </p>
       <UiButton
         v-else-if="tmdbTokenConfigured() && !tmdbAccessToken"
@@ -110,6 +121,7 @@ const clearTmdbToken = tmdbDraft.clear
 onBeforeUnmount(tmdbDraft.flush)
 /** 网页端：令牌存在片库服务 */
 const web = isWebRuntime()
+const nas = import.meta.env.MODE === 'nas'
 const tokenPlaceholder = computed(() =>
   tmdbTokenConfigured()
     ? web

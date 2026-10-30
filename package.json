@@ -42,7 +42,13 @@
     "test:affected": "node scripts/test-affected.mjs",
     "test:watch": "vitest",
     "bench:library": "tsx scripts/bench-library.ts",
-    "bench:identify": "tsx scripts/bench-identify.ts"
+    "bench:identify": "tsx scripts/bench-identify.ts",
+    "dev:nas": "vite --config vite.config.web.ts --mode nas",
+    "build:nas:server": "vite build --config vite.config.server.ts --mode nas",
+    "build:nas:web": "vite build --config vite.config.web.ts --mode nas",
+    "build:nas": "npm run build:nas:server && npm run build:nas:web",
+    "start:nas": "node --disable-warning=ExperimentalWarning out/nas/server.js --web-dir dist-nas",
+    "smoke:nas": "node scripts/smoke-nas.mjs"
   },
   "dependencies": {
     "@electron-toolkit/utils": "^4.0.0",

@@ -1,6 +1,12 @@
 <template>
   <div v-if="show" class="home-setup" role="region" aria-label="开始使用">
-    <p>添加片库后，这里会出现刚入库和继续观看。也可以配置在线数据源。</p>
+    <p>
+      {{
+        nas
+          ? '添加片库后，这里会出现刚入库和继续观看。也可以配置网盘。'
+          : '添加片库后，这里会出现刚入库和继续观看。也可以配置在线数据源。'
+      }}
+    </p>
     <UiButton
       size="sm"
       variant="primary"
@@ -11,7 +17,7 @@
     <UiButton
       size="sm"
       icon="database"
-      label="配置数据源"
+      :label="nas ? '配置网盘' : '配置数据源'"
       @click="openSources"
     />
   </div>
@@ -33,6 +39,7 @@ import { watchlistEntries } from '@/features/watchlist'
 import { HOME_SECTIONS } from '../utils/hero-rules'
 
 const router = useRouter()
+const nas = import.meta.env.MODE === 'nas'
 const movies = useLibraries('movie')
 const series = useLibraries('tv')
 const records = continueRecords()
@@ -62,7 +69,9 @@ async function addLibrary(): Promise<void> {
 
 function openSources(): void {
   window.dispatchEvent(
-    new CustomEvent('app:open-settings', { detail: 'sources' })
+    new CustomEvent('app:open-settings', {
+      detail: nas ? 'netdisk' : 'sources',
+    })
   )
 }
 </script>

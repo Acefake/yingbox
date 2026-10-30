@@ -3,6 +3,7 @@ import { type Plugin, type ProxyOptions, defineConfig } from 'vite'
 import vue from '@vitejs/plugin-vue'
 import { compressStaticDir } from './scripts/compress-static'
 import { vendorPlayerManualChunk } from './scripts/vendor-player-chunk'
+import { nasBuildGuard } from './scripts/nas-build-guard'
 
 /** Standalone web / PWA build (no Electron main/preload). */
 
@@ -42,17 +43,58 @@ function precompressStatic(): Plugin {
   }
 }
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
   root: resolve(__dirname, 'src/renderer'),
   base: './',
   publicDir: resolve(__dirname, 'src/renderer/public'),
   resolve: {
-    alias: {
-      '@renderer': resolve(__dirname, 'src/renderer/src'),
-      '@': resolve(__dirname, 'src/renderer/src'),
-    },
+    alias: [
+      ...(mode === 'nas'
+        ? [
+            {
+              find: /^@\/features\/online$/,
+              replacement: resolve(
+                __dirname,
+                'src/renderer/src/nas/metadata.ts'
+              ),
+            },
+          ]
+        : []),
+      {
+        find: '@renderer',
+        replacement: resolve(__dirname, 'src/renderer/src'),
+      },
+      { find: '@', replacement: resolve(__dirname, 'src/renderer/src') },
+    ],
   },
-  plugins: [vue(), precompressStatic()],
+  plugins: [
+    vue(),
+    precompressStatic(),
+    ...(mode === 'nas'
+      ? [
+          nasBuildGuard('web'),
+          {
+            name: 'nas-web-entry',
+            enforce: 'pre',
+            resolveId(source, importer) {
+              if (
+                source === '../api/online' &&
+                importer?.replaceAll('\\', '/').includes('/features/online/')
+              )
+                return resolve(__dirname, 'src/renderer/src/nas/metadata.ts')
+            },
+            transformIndexHtml: {
+              order: 'pre',
+              handler(html: string): string {
+                return html
+                  .replace('/src/main.ts', '/src/nas/main.ts')
+                  .replace('<title>影盒</title>', '<title>影盒 NAS</title>')
+              },
+            },
+          },
+        ]
+      : []),
+  ],
   optimizeDeps: {
     include: ['vue', 'vue-router'],
   },
@@ -68,7 +110,7 @@ export default defineConfig({
     proxy: localProxy,
   },
   build: {
-    outDir: resolve(__dirname, 'dist-web'),
+    outDir: resolve(__dirname, mode === 'nas' ? 'dist-nas' : 'dist-web'),
     emptyOutDir: true,
     sourcemap: false,
     target: 'es2020',
@@ -78,4 +120,4 @@ export default defineConfig({
       },
     },
   },
-})
+}))

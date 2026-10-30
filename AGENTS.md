@@ -96,7 +96,7 @@ Movie libraries carry a `source` fixed at creation (migration v4 adds `libraries
 
 ### Library server (`src/server/`, web / NAS)
 
-The same library core runs in a plain Node process for the web build / NAS; host differences live in `src/main/library/platform`. `POST /api/library/rpc` carries exactly the IPC contract (plus SSE, `/media/*`, `/api/fs/dirs`); the online engine (ADR-0019) and netdisk domains (ADR-0020) are served as well. Default bind `127.0.0.1:31480`; auth only when `YINGBOX_SERVER_TOKEN` is set. In the renderer, `features/library/api/bridge.ts` picks IPC or `http-bridge.ts`; `services/library-server` owns login/state/media URLs and is the only other place allowed to `fetch`. Code layout, endpoints, flags and checks: [docs/library-server.md](docs/library-server.md); Docker / NAS: [docs/deploy/nas.md](docs/deploy/nas.md) (ADR-0010).
+The full Node server reuses `src/main/library` through `platform/`; `/api/library/rpc` reuses IPC, alongside SSE, media, fs, online (0019) and netdisk (0020). Default bind `127.0.0.1:31480`; auth only when `YINGBOX_SERVER_TOKEN` is set. In the renderer, `features/library/api/bridge.ts` picks IPC or `http-bridge.ts`; `services/library-server` owns login/state/media URLs and is the only other place allowed to `fetch`. Code layout, endpoints, flags and checks: [docs/library-server.md](docs/library-server.md); Docker / NAS: [docs/deploy/nas.md](docs/deploy/nas.md) (ADR-0010).
 
 ### App settings
 
@@ -157,7 +157,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0019](docs/adr/0019-nas-online-engine.md) NAS 在线播放：片库服务 fork 在线引擎（复用 EngineHost），契约走 HTTP RPC / SSE，鉴权 + 防 SSRF 的播放代理改写 m3u8
 - [0020](docs/adr/0020-server-netdisk-autograb.md) 片库服务承载 115 网盘、追更与库外发现（模块宿主、Node 传输、调度租约）
 - [0021](docs/adr/0021-magnet-sources-offline.md) 磁力来源（PanSou 磁力 + Torznab）与 115 离线下载（m115 编码、离线任务跟进入库）
-- [0022](docs/adr/0022-remove-builtin-adult-source.md) 移除 MissAV 内置源与专用引擎域（部分取代 0019）; [0023](docs/adr/0023-nas-live-notifications.md) NAS 直播与入库推送
+- [0022](docs/adr/0022-remove-builtin-adult-source.md) 移除 MissAV 内置源与专用引擎域（部分取代 0019）; [0023](docs/adr/0023-nas-live-notifications.md) NAS 直播与入库推送; [0024](docs/adr/0024-nas-library-netdisk-edition.md) NAS 片库与完整网盘专用版
 
 ## UI conventions
 
