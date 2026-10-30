@@ -1,11 +1,15 @@
-# 复制 docker/nas.env.example 为同目录的 .env 后填写目录与版本。
+# 复制 docker/nas.env.example 为同目录的 .env 后填写媒体目录。
 # 启动：docker compose -f docker-compose.nas.yml up -d
-# 升级：修改 .env 的 YINGBOX_VERSION，再执行 pull 和 up -d。
+# 稳定版每天北京时间 04:00 自动更新；已有安装需将 YINGBOX_VERSION 设为 stable。
 services:
   yingbox:
-    image: '${YINGBOX_IMAGE:-ghcr.io/acefake/yingbox-nas}:${YINGBOX_VERSION:?请填写已发布的 NAS 镜像版本}'
+    image: '${YINGBOX_IMAGE:-ghcr.io/acefake/yingbox-nas}:${YINGBOX_VERSION:-stable}'
     container_name: yingbox-nas
     restart: unless-stopped
+    stop_grace_period: 60s
+    labels:
+      com.centurylinklabs.watchtower.enable: 'true'
+      com.centurylinklabs.watchtower.scope: yingbox-nas
     security_opt:
       - no-new-privileges:true
     ports:
@@ -21,3 +25,23 @@ services:
       - '${YINGBOX_CONFIG_DIR:-./yingbox/config}:/config'
       - '${YINGBOX_CACHE_DIR:-./yingbox/cache}:/cache'
       - '${YINGBOX_MEDIA_DIR:?请填写 NAS 媒体目录}:/media'
+
+  updater:
+    image: ghcr.io/nicholas-fedor/watchtower:1.23.2@sha256:62fb91130ddb493f869cad7e198fa260dd16c5da293ed092cbd5d8781566f7a6
+    restart: unless-stopped
+    security_opt:
+      - no-new-privileges:true
+    labels:
+      com.centurylinklabs.watchtower.enable: 'false'
+      com.centurylinklabs.watchtower.scope: yingbox-nas
+    environment:
+      TZ: Asia/Shanghai
+      WATCHTOWER_LABEL_ENABLE: 'true'
+      WATCHTOWER_SCOPE: yingbox-nas
+      WATCHTOWER_SCHEDULE: '0 0 4 * * *'
+      WATCHTOWER_TIMEOUT: 60s
+      WATCHTOWER_CLEANUP: 'false'
+      WATCHTOWER_INCLUDE_STOPPED: 'false'
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock
+    command: ['yingbox-nas']
