@@ -130,8 +130,8 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 
 | Layer             | Technology                            |
 | ----------------- | ------------------------------------- |
-| Desktop shell     | Electron 37                           |
-| Build tooling     | electron-vite 5, Vite 7               |
+| Desktop shell     | Electron 45                           |
+| Build tooling     | electron-vite 6, Vite 8               |
 | Renderer          | Vue 3.5, TypeScript 5.9, vue-router 4 |
 | UI kit            | own `components/ui/`, Tailwind CSS 4  |
 | Engine            | Electron utilityProcess, `net.fetch`  |

@@ -152,7 +152,11 @@
       </li>
     </ul>
     <p v-else-if="data" class="grab-meta">
-      还没有追踪的电影：在线详情页点「追踪上线」，或在上面搜一部
+      {{
+        nas
+          ? '还没有追踪的电影，在上面搜索并选择一部加入追踪'
+          : '还没有追踪的电影：在线详情页点「追踪上线」，或在上面搜一部'
+      }}
     </p>
   </section>
 </template>
@@ -207,6 +211,7 @@ import {
 } from '../upgrade-rules'
 import { useOverview } from '../use-overview'
 
+const nas = import.meta.env.MODE === 'nas'
 const ov = useOverview(moviesApi())
 const data = computed(() => ov.data.value)
 const tracked = computed(() => new Set(data.value?.movies.map(m => m.tmdbId)))

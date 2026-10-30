@@ -184,6 +184,7 @@ import { episodeLabel } from '../../../../../shared/netdisk/search-intent'
 import { useBestRelease } from '../composables/use-best-release'
 import { useEpisodeRows } from '../composables/use-episode-rows'
 import { useHeroMatch } from '../composables/use-hero-match'
+import { useIncomingSearch } from '../composables/use-incoming-search'
 import { useLinkCheck } from '../composables/use-link-check'
 import { useNetdiskSearch } from '../composables/use-netdisk-search'
 import { useNetdiskStatus } from '../composables/use-netdisk-status'
@@ -348,6 +349,8 @@ onActivated(() => {
   if (available) void status.refresh()
 })
 onDeactivated(() => setShell(false))
+
+useIncomingSearch(keyword, configured, runSearch)
 </script>
 
 <style scoped>

@@ -11,7 +11,11 @@
     </SettingsRow>
     <SettingsRow
       title="降低透明度"
-      description="侧栏、AI 助手、海报上的圆形按钮和提示条改用实色，不做背景模糊，低配电脑更流畅。系统开启「降低透明度」时自动使用实色"
+      :description="
+        nas
+          ? '侧栏、海报按钮和提示条使用实色，减少背景模糊。系统开启「降低透明度」时自动使用实色'
+          : '侧栏、AI 助手、海报上的圆形按钮和提示条改用实色，不做背景模糊，低配电脑更流畅。系统开启「降低透明度」时自动使用实色'
+      "
     >
       <UiSwitch v-model="reduceTransparency" label="降低透明度" />
     </SettingsRow>
@@ -52,6 +56,11 @@
       <UiSwitch v-model="spoilerGuard" label="遮住未看的剧集" />
     </SettingsRow>
   </SettingsGroup>
+  <SettingsGroup v-if="nas" title="片库分区">
+    <SettingsRow title="成人模式" description="显示番号库入口和相关刮削设置">
+      <UiSwitch v-model="adultMode" label="成人模式" />
+    </SettingsRow>
+  </SettingsGroup>
 </template>
 
 <script setup lang="ts">
@@ -81,6 +90,8 @@ const previewEnabled = useSetting('ui.hoverPreview')
 const delaySetting = useSetting('ui.hoverPreviewDelay')
 const spoilerGuard = useSetting('ui.spoilerGuard')
 const reduceTransparency = useSetting('ui.reduceTransparency')
+const nas = import.meta.env.MODE === 'nas'
+const adultMode = useSetting('app.adultMode')
 /** 分段控件只认字符串：毫秒数 ↔ 字符串 */
 const previewDelay = computed({
   get: () => String(delaySetting.value),

@@ -84,6 +84,20 @@ afterEach(() => {
   vi.useRealTimers()
 })
 describe('统一搜索会话', () => {
+  it('更换关键词时立即撤下上一轮精确命中，防抖期间不能打开旧结果', async () => {
+    search.mockImplementationOnce(async (_request, publish) => {
+      publish({
+        kind: 'title',
+        candidates: [{ item: item(1, '旧片'), reason: '片名', exact: true }],
+      })
+    })
+    const { text, state } = session('旧片')
+    await vi.advanceTimersByTimeAsync(120)
+    expect(state.hits.value).toHaveLength(1)
+    expect(state.hits.value[0].exact).toBe(true)
+    text.value = '新片'
+    expect(state.hits.value).toEqual([])
+  })
   it('输入停 120ms 后只做本地召回，条件用规则解析', async () => {
     const { text, state } = session('')
     text.value = '90 年代高分港片'

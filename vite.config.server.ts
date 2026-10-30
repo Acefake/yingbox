@@ -2,6 +2,7 @@ import { builtinModules } from 'node:module'
 import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import pkg from './package.json'
+import { nasBuildGuard } from './scripts/nas-build-guard'
 
 /**
  * 独立片库服务的构建（pnpm build:server）：Node 22 目标、CommonJS 产物，`node out/server/server.js` 直接运行。
@@ -17,11 +18,28 @@ const external = [
   ...Object.keys(pkg.dependencies),
 ]
 
-export default defineConfig({
+export default defineConfig(({ mode }) => ({
+  plugins:
+    mode === 'nas'
+      ? [
+          nasBuildGuard('server'),
+          {
+            name: 'nas-server-features',
+            enforce: 'pre',
+            resolveId(source, importer) {
+              if (
+                source === './features' &&
+                importer?.replaceAll('\\', '/').endsWith('/src/server/app.ts')
+              )
+                return resolve(__dirname, 'src/server/nas/features.ts')
+            },
+          },
+        ]
+      : [],
   build: {
     ssr: true,
     target: 'node22',
-    outDir: resolve(__dirname, 'out/server'),
+    outDir: resolve(__dirname, mode === 'nas' ? 'out/nas' : 'out/server'),
     emptyOutDir: true,
     sourcemap: true,
     minify: false,
@@ -29,7 +47,9 @@ export default defineConfig({
       input: {
         server: resolve(__dirname, 'src/server/index.ts'),
         'webp-worker': resolve(__dirname, 'src/main/thumbnails/webp-worker.ts'),
-        engine: resolve(__dirname, 'src/engine/node.ts'),
+        ...(mode === 'nas'
+          ? {}
+          : { engine: resolve(__dirname, 'src/engine/node.ts') }),
       },
       external: id =>
         external.some(name => id === name || id.startsWith(`${name}/`)),
@@ -41,4 +61,4 @@ export default defineConfig({
     },
   },
   ssr: { target: 'node' },
-})
+}))

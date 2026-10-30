@@ -1,0 +1,54 @@
+.nas-home {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+}
+.nas-home.is-bleed {
+  --home-x: calc(var(--shell-left) + var(--space-6_5));
+  height: calc(100% + var(--shell-top));
+  margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
+}
+.nas-home .home-page {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+}
+.nas-home .home-page:where(.has-hero) {
+  --home-hero-overlap: var(--space-10);
+  padding: 0 0 var(--space-11);
+}
+.nas-home .home-page:where(.has-hero) .home-rows {
+  position: relative;
+  margin-top: calc(var(--home-hero-overlap) * -1);
+  padding: 0 var(--space-8) 0 var(--home-x);
+}
+.nas-home .home-page:where(:not(.has-hero)) {
+  padding: var(--shell-top) var(--space-8) var(--space-8) var(--home-x);
+}
+.nas-home .home-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+.nas-home .home-browse {
+  flex: 1;
+  min-height: 0;
+  overflow-y: auto;
+  padding: var(--space-7) var(--space-8) var(--space-8);
+}
+@media (max-width: 860px) {
+  .nas-home.is-bleed {
+    --home-x: calc(var(--shell-left) + var(--space-5));
+  }
+  .nas-home .home-page:where(.has-hero) .home-rows {
+    padding: 0 var(--space-5) 0 var(--home-x);
+  }
+}
+.nas-layout.is-phone .nas-home.is-bleed {
+  height: 100%;
+  margin-top: 0;
+}

@@ -4,6 +4,7 @@ node_modules
 out
 dist
 dist-web
+dist-nas
 dist-renderer
 coverage
 # 仓库与工具目录

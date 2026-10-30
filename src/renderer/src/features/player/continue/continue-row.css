@@ -1,4 +1,8 @@
-/* 「继续观看」一排（ContinueRow.vue）：卡片与轨道样式在 UiShelf / UiEpisodeCard，这里只剩菜单 */
+/* 「继续观看」卡片取景与右键菜单；通用卡片样式在 UiShelf / UiEpisodeCard。 */
+.cw-card {
+  --pblur-height: 50%;
+}
+
 /* 右键菜单 */
 .cw-menu {
   position: fixed;

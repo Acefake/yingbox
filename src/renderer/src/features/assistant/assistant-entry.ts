@@ -72,7 +72,7 @@ export function useEntrySelection(
   /** 用户选过的行（'' = 没选过，用默认） */
   let picked = ''
 
-  // 输入变了：忘掉用户的选择，回到默认（旧结果还没换掉时默认不会选中精确命中以外的旧结果）
+  // 输入变化时回到默认；结果追加时保留用户已选择的行。
   watch(
     [text, rows, askable],
     ([nextText], previous) => {
