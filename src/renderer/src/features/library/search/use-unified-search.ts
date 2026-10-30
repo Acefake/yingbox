@@ -200,10 +200,10 @@ export function useUnifiedSearch(options: {
     [options.text, options.scope, options.open],
     () => {
       stop()
+      batches.value = []
       message.value = ''
       filter.value = {}
       if (!options.open() || !options.text().trim()) {
-        batches.value = []
         return
       }
       timer = setTimeout(() => void run(), 120)
