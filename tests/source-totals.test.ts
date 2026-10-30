@@ -45,8 +45,10 @@ vi.mock('@/components/ui', async importOriginal => ({
 
 const { useSourceTotals } =
   await import('../src/renderer/src/features/online/composables/use-source-totals')
-const { avStatusMap, checkingAll, statusMap, syncingAv } =
+const { checkingAll, syncingAv } =
   await import('../src/renderer/src/features/online/composables/use-source-refresh')
+const { cmsHealth } =
+  await import('../src/renderer/src/features/online/composables/cms-health')
 const { useOnlineSearch } =
   await import('../src/renderer/src/features/online/composables/use-online-search')
 const { useAvSources } = await import('../src/renderer/src/features/av')
@@ -57,8 +59,7 @@ const av = useAvSources()
 
 afterEach(async () => {
   calls.length = 0
-  for (const k of Object.keys(statusMap)) delete statusMap[k]
-  for (const k of Object.keys(avStatusMap)) delete avStatusMap[k]
+  cmsHealth.clear()
   customSites.value = []
   checkingAll.value = false
   syncingAv.value = false
@@ -70,8 +71,10 @@ describe('use-source-totals', () => {
     const t = useSourceTotals()
     const avApi = av.allSources.value[0]?.api
     expect(avApi).toBeTruthy()
-    statusMap[DEFAULT_SITES[0].api] = 'fail'
-    avStatusMap[avApi!] = 'fail'
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(DEFAULT_SITES[0].api, 'browse', new Error('HTTP 503'))
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(avApi!, 'browse', new Error('HTTP 503'))
     expect(t.totalFail.value).toBe(1)
     expect(t.totalSources.value).toBe(DEFAULT_SITES.length)
     await setSetting('app.adultMode', true)
@@ -98,10 +101,12 @@ describe('use-source-totals', () => {
     const [good, bad] = [DEFAULT_SITES[0].api, DEFAULT_SITES[1].api]
     selectedSites.add(good)
     selectedSites.add(bad)
-    statusMap[bad] = 'fail'
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(bad, 'browse', new Error('HTTP 503'))
     const avApi = av.allSources.value[0].api
     av.enabledApis.add(avApi)
-    avStatusMap[avApi] = 'fail'
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(avApi, 'browse', new Error('HTTP 503'))
     t.disableAllFailed()
     expect(calls).toEqual(['confirm:禁用 2 个失效数据源？'])
     expect(selectedSites.has(good)).toBe(true)

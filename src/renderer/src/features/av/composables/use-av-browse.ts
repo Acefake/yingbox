@@ -173,7 +173,7 @@ export function useAvBrowse(options: {
   const runRequest = async (
     p: number,
     append: boolean,
-    fetchPage: () => Promise<() => BrowseCacheEntry>,
+    fetchPage: (isCurrent: () => boolean) => Promise<() => BrowseCacheEntry>,
     clearOnError: boolean
   ): Promise<void> => {
     const controller = new AbortController()
@@ -185,7 +185,7 @@ export function useAvBrowse(options: {
     const isCurrent = (): boolean =>
       !controller.signal.aborted && abort === controller
     try {
-      const finish = await fetchPage()
+      const finish = await fetchPage(isCurrent)
       if (!isCurrent()) return
       const entry = finish()
       rememberBounded(cache, cacheKey(p), entry)
@@ -257,7 +257,12 @@ export function useAvBrowse(options: {
       }
       return runRequest(p, append, () => fetchPluginPage(source, ext, p), true)
     }
-    return runRequest(p, append, () => fetchCmsPage(source, p), false)
+    return runRequest(
+      p,
+      append,
+      isCurrent => fetchCmsPage(source, p, isCurrent),
+      false
+    )
   }
 
   /** 切换到插件源时，先取回它的分类（CatSpider 的 tabs）再加载内容。 */

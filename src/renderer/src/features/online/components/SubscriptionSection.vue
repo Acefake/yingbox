@@ -25,6 +25,7 @@
       badge-color="pink"
       :enabled="selectedSites.has(s.api)"
       :status="statusOf(s.api)"
+      :note="cmsNoteOf(s.api)"
       :checking="checkingSet.has(s.api)"
       @toggle="toggleSite(s.api)"
       @check="checkOnlineSite(s.api)"
@@ -66,6 +67,7 @@ import {
 import {
   checkOnlineSite,
   checkingSet,
+  cmsNoteOf,
   statusOf,
 } from '../composables/use-source-refresh'
 import { sortByConnection } from '../utils/source-rules'

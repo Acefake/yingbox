@@ -13,8 +13,12 @@ export {
   loadCatSpiderSites,
   useOnlineSearch,
 } from './composables/use-online-search'
-export { refreshSources } from './composables/use-source-refresh'
+export {
+  refreshSources,
+  startSourceMonitoring,
+} from './composables/use-source-refresh'
 export { resolvePlaySource } from './utils/play-source'
+export { cmsHealth } from './composables/cms-health'
 export { requestOnlineDetail } from './utils/detail-request'
 export type { Episode } from './types'
 

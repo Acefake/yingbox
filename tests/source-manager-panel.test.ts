@@ -32,8 +32,8 @@ import {
 import {
   checkedCount,
   checkingAll,
-  statusMap,
 } from '../src/renderer/src/features/online/composables/use-source-refresh'
+import { cmsHealth } from '../src/renderer/src/features/online/composables/cms-health'
 
 /** 去掉 scoped 样式属性与注释锚点，只比结构和文字。 */
 const normalize = (html: string): string =>
@@ -50,7 +50,7 @@ const { customSites, DEFAULT_SITES, CATSPIDER_SITES } = useOnlineSearch()
 
 afterEach(async () => {
   customSites.value = []
-  for (const key of Object.keys(statusMap)) delete statusMap[key]
+  cmsHealth.clear()
   checkingAll.value = false
   checkedCount.value = 0
   CATSPIDER_SITES.value = []
@@ -69,8 +69,13 @@ describe('数据源面板渲染', () => {
       { name: '瓜子', type: 3, api: 'csp_guazi', ext: 'y' },
       { name: 'jable', type: 3, api: 'csp_jable', ext: 'z' },
     ]
-    statusMap['https://bad.test/api.php'] = 'fail'
-    statusMap[DEFAULT_SITES[1].api] = 'ok'
+    for (let i = 0; i < 3; i++)
+      cmsHealth.failure(
+        'https://bad.test/api.php',
+        'browse',
+        new Error('HTTP 503')
+      )
+    cmsHealth.success(DEFAULT_SITES[1].api, 'browse')
     checkingAll.value = true
     checkedCount.value = 3
     markPluginUnavailable('NO視頻', {

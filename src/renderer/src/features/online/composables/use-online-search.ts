@@ -34,6 +34,7 @@ import { splitByHealth } from '../utils/plugin-health'
 import { pluginSearchHealthOf } from './plugin-health'
 import { subscribedSites } from './cms-subscription'
 import { useVODParser } from './use-vod-parser'
+import { cmsHealth } from './cms-health'
 
 export type {
   ApiSite,
@@ -58,6 +59,10 @@ export interface UseOnlineSearchReturn {
   error: Ref<string>
   /** 本次搜索因暂不可用而跳过的插件源名称 */
   skippedPlugins: Ref<string[]>
+  /** 搜索能力仍在冷却的 CMS 源名称 */
+  skippedCms: Ref<string[]>
+  /** 本次搜索请求失败的源名称；可用结果继续保留 */
+  failedSources: Ref<string[]>
   selectedSites: typeof selectedSites
   customSites: RemovableRef<ApiSite[]>
   DEFAULT_SITES: ApiSite[]
@@ -80,6 +85,8 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
   const loading = ref(false)
   const error = ref('')
   const skippedPlugins = ref<string[]>([])
+  const skippedCms = ref<string[]>([])
+  const failedSources = ref<string[]>([])
   const { search: vodSearch, getTracks, getPlayinfo } = useVODParser()
   let generation = 0
   let searchController: AbortController | null = null
@@ -112,18 +119,25 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
     options: { allVod?: boolean; onItems?: (items: CmsItem[]) => void } = {}
   ): Promise<void> => {
     const q = (kw ?? keyword.value).trim()
-    if (!q) return
     const requestId = ++generation
     searchController?.abort()
+    keyword.value = q
+    loading.value = false
+    error.value = ''
+    results.value = []
+    skippedPlugins.value = []
+    skippedCms.value = []
+    failedSources.value = []
+    if (!q) return
     const controller = new AbortController()
     searchController = controller
     const current = (): boolean =>
       requestId === generation && !controller.signal.aborted
-    keyword.value = q
     loading.value = true
-    error.value = ''
-    results.value = []
-    skippedPlugins.value = []
+    let succeeded = 0
+    const failed = (name: string): void => {
+      if (current()) failedSources.value = [...failedSources.value, name]
+    }
     const publish = (items: CmsItem[]): void => {
       if (!current() || !items.length) return
       results.value = [...results.value, ...items]
@@ -136,23 +150,41 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
       await loadCatSpiderSites()
       if (!current()) return
 
-      const cmsTasks = mapWithConcurrency(activeSites(), 6, async site => {
-        if (!current()) return []
-        try {
-          const url = new URL(site.api)
-          url.searchParams.set('ac', 'videolist')
-          url.searchParams.set('wd', q)
-          const data = await getJson<CmsListResponse>(String(url), {
-            timeoutMs: 10000,
-          })
-          if (!Array.isArray(data?.list)) return []
-          const items = toCmsSearchItems(data.list, site)
-          publish(items)
-          return items
-        } catch {
-          return []
+      const cmsSites = activeSites()
+      skippedCms.value = cmsSites
+        .filter(site => !cmsHealth.usable(site.api, 'search'))
+        .map(site => site.name)
+      const cmsTasks = mapWithConcurrency(
+        cmsSites.filter(site => cmsHealth.usable(site.api, 'search')),
+        6,
+        async site => {
+          if (!current()) return []
+          const health = cmsHealth.begin(site.api, 'search')
+          try {
+            const url = new URL(site.api)
+            url.searchParams.set('ac', 'videolist')
+            url.searchParams.set('wd', q)
+            const data = await getJson<CmsListResponse>(String(url), {
+              timeoutMs: 10000,
+            })
+            if (!current()) return []
+            if (!Array.isArray(data?.list)) {
+              health.failure(new Error('接口响应缺少列表'))
+              failed(site.name)
+              return []
+            }
+            const items = toCmsSearchItems(data.list, site)
+            health.success()
+            succeeded++
+            publish(items)
+            return items
+          } catch (error) {
+            if (current()) health.failure(error)
+            failed(site.name)
+            return []
+          }
         }
-      })
+      )
 
       // 详情页需要跨源聚合时（allVod），即使用户只勾选了少数源，也尝试全部非成人 VOD 源。
       const candidates = options.allVod
@@ -174,18 +206,32 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
           )
           if (r.unavailable && current())
             skippedPlugins.value = [...skippedPlugins.value, site.name]
-          if (!r.success || !r.data) return []
+          if (!r.success || !r.data) {
+            if (!r.unavailable) failed(site.name)
+            return []
+          }
           const items = toCatSpiderSearchItems(getVodList(r.data), site)
+          if (!r.unavailable || items.length) succeeded++
           publish(items)
           return items
         } catch {
+          failed(site.name)
           return []
         }
       })
 
       const [cmsResults, csResults] = await Promise.all([cmsTasks, csTasks])
       // 直接返回所有结果，不去重合并
-      if (current()) results.value = [...cmsResults.flat(), ...csResults.flat()]
+      if (current()) {
+        results.value = [...cmsResults.flat(), ...csResults.flat()]
+        if (!succeeded)
+          error.value =
+            failedSources.value.length ||
+            skippedPlugins.value.length ||
+            skippedCms.value.length
+              ? '搜索源请求失败或暂不可用，请稍后重新搜索'
+              : '没有启用可用的搜索源，请在数据源设置中启用'
+      }
     } catch (cause) {
       if (current())
         error.value = cause instanceof Error ? cause.message : '搜索失败'
@@ -216,11 +262,20 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
     const sources = cmsDetailSources(item)
     if (!sources.length) return []
     const tasks = sources.map(async src => {
+      if (!cmsHealth.usable(src.api_url, 'detail')) return []
+      const health = cmsHealth.begin(src.api_url, 'detail')
       try {
-        const url = `${src.api_url}?ac=videolist&ids=${src.vod_id}`
-        const data = await getJson<CmsListResponse>(url, { timeoutMs: 10000 })
+        const url = new URL(src.api_url)
+        url.searchParams.set('ac', 'videolist')
+        url.searchParams.set('ids', String(src.vod_id))
+        const data = await getJson<CmsListResponse>(String(url), {
+          timeoutMs: 10000,
+        })
+        if (!Array.isArray(data?.list)) throw new Error('接口响应缺少列表')
+        health.success()
         return parseCmsGroups(data?.list?.[0], src.source_name)
-      } catch {
+      } catch (error) {
+        health.failure(error)
         return []
       }
     })
@@ -252,6 +307,8 @@ export function useOnlineSearch(): UseOnlineSearchReturn {
     loading,
     error,
     skippedPlugins,
+    skippedCms,
+    failedSources,
     selectedSites,
     customSites,
     DEFAULT_SITES,

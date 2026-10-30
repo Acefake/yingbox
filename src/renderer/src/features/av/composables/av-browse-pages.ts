@@ -3,7 +3,7 @@
  * 由调用方在确认请求仍有效后再执行，整理函数里才读取当前分类、写分类缓存。
  */
 import type { Ref } from 'vue'
-import { getJson, useVODParser } from '@/features/online'
+import { cmsHealth, getJson, useVODParser } from '@/features/online'
 import { type PluginExt, getVodList } from '@/utils/vod-data'
 import {
   type AvEntry,
@@ -30,7 +30,11 @@ export interface AvPageFetchers {
     ext: PluginExt,
     p: number
   ) => Promise<() => BrowseCacheEntry>
-  fetchCmsPage: (source: AvEntry, p: number) => Promise<() => BrowseCacheEntry>
+  fetchCmsPage: (
+    source: AvEntry,
+    p: number,
+    isCurrent?: () => boolean
+  ) => Promise<() => BrowseCacheEntry>
 }
 
 export function createPageFetchers(state: {
@@ -68,14 +72,26 @@ export function createPageFetchers(state: {
   }
 
   /** CMS 源：code=1 且有 list 才算成功；新出现的分类并入分类栏。 */
-  const fetchCmsPage = async (source: AvEntry, p: number) => {
+  const fetchCmsPage = async (
+    source: AvEntry,
+    p: number,
+    isCurrent: () => boolean = () => true
+  ) => {
+    if (!cmsHealth.usable(source.api, 'browse'))
+      throw new Error('列表接口冷却中，可在数据源面板重试')
+    const health = cmsHealth.begin(source.api, 'browse')
     const url = createBrowseUrl(source.api, p, categoryId.value)
-    const data = await getJson<CmsPage>(url, { timeoutMs: 10000 }).then(
-      d => (d.code === 1 && Array.isArray(d.list) ? d : null),
-      () => null
-    )
+    let data: CmsPage
+    try {
+      data = await getJson<CmsPage>(url, { timeoutMs: 10000 })
+      if (data.code !== 1 || !Array.isArray(data.list))
+        throw new Error('接口响应缺少列表')
+    } catch (error) {
+      if (isCurrent()) health.failure(error)
+      throw error
+    }
     return (): BrowseCacheEntry => {
-      if (!data) throw new Error('所有启用数据源均未返回可用内容')
+      health.success()
       const items = toCmsItems(data.list ?? [], source.name)
       categories.value = mergeCategories(categories.value, items)
       if (sourceApi.value)

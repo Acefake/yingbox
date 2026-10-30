@@ -250,6 +250,27 @@ describe('在线域 handlers', () => {
       loadPlugin: async () => PLUGIN,
     })
 
+  it('JSON 请求失败以结果返回，避免触发 IPC 未处理异常；成功数据保留原形状', async () => {
+    const h = handlers({
+      'https://site.test/ok': '{"list":[]}',
+      'https://site.test/html': '<html>服务不可用</html>',
+    })
+    await expect(h.getJson(ctx, 'https://site.test/ok')).resolves.toEqual({
+      success: true,
+      data: { list: [] },
+    })
+    await expect(
+      h.getJson(ctx, 'https://site.test/missing')
+    ).resolves.toMatchObject({
+      success: false,
+      error: 'HTTP 404',
+    })
+    await expect(h.getJson(ctx, 'https://site.test/html')).resolves.toEqual({
+      success: false,
+      error: '接口返回的不是有效 JSON 数据',
+    })
+  })
+
   it('站点表只含 type 3，未知站点返回错误', async () => {
     expect(SITES.length).toBeGreaterThan(10)
     expect(SITES.every(s => s.type === 3)).toBe(true)

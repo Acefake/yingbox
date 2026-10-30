@@ -94,6 +94,11 @@ export interface GetJsonOptions {
   timeoutMs?: number
 }
 
+/** JSON 请求结果：网络或响应格式失败通过契约传回，由调用方显示失败状态。 */
+export type GetJsonResponse =
+  | { success: true; data: unknown }
+  | { success: false; error: string }
+
 /** 在线域：CMS / 豆瓣（浏览、预告片）/ TMDB 请求与 CatSpider 插件，全部在引擎经 net 出网。 */
 export const online = defineDomain('online', {
   /** 豆瓣详情与横向剧照；不需要 TMDB 令牌，失败返回 null。 */
@@ -116,8 +121,8 @@ export const online = defineDomain('online', {
   }),
   /** 解除插件源的主机熔断（引擎与浏览器代抓两边）；不给主机则全部解除 */
   resetBlocks: call<[host?: string], void>(a => [optStr(a[0], 'host')]),
-  /** GET 一个 JSON 接口（CMS、豆瓣、TMDB、源清单）；失败 reject */
-  getJson: call<[url: string, options?: GetJsonOptions], unknown>(a => [
+  /** GET 一个 JSON 接口（CMS、豆瓣、源清单）；请求失败返回错误结果。 */
+  getJson: call<[url: string, options?: GetJsonOptions], GetJsonResponse>(a => [
     str(a[0], 'url'),
     optRecord<GetJsonOptions>(a[1], 'options'),
   ]),

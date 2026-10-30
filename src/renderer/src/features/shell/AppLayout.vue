@@ -96,7 +96,7 @@ import UiNavItem from '@/components/ui/UiNavItem.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { usePlatform } from '@/composables/use-platform'
 import { useCalendarBadge } from '@/features/calendar'
-import { refreshSources } from '@/features/online'
+import { startSourceMonitoring } from '@/features/online'
 import { netdiskAvailable } from '@/features/netdisk'
 import { SettingsPanel, useSetting } from '@/features/settings'
 import { isWebRuntime, libraryServerState } from '@/services/library-server'
@@ -201,14 +201,16 @@ if (typeof window !== 'undefined') {
   window.addEventListener('app:open-settings', onOpenSettings)
 }
 
+let stopSourceMonitoring: (() => void) | undefined
 onMounted(() => {
   window.addEventListener('keydown', onSettingsShortcut)
-  // 每次启动自动同步并检测数据源（静默，失败不影响其余功能）。
-  // 浏览器/PWA 模式下跨域受限，检测会全部失败，因此仅在桌面端执行。
-  if (isElectron) void refreshSources()
+  stopSourceMonitoring = startSourceMonitoring(
+    () => isElectron || libraryServerState().value === 'online'
+  )
 })
 
 onUnmounted(() => {
+  stopSourceMonitoring?.()
   window.removeEventListener('app:open-settings', onOpenSettings)
   window.removeEventListener('keydown', onSettingsShortcut)
 })

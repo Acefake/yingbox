@@ -170,12 +170,29 @@ export function createOnlineHandlers(
       }
     },
 
-    getJson: (_ctx, url, options = {}) =>
-      deps.net.getJson(url, {
-        headers: options.headers,
-        timeoutMs: Math.min(Math.max(options.timeoutMs ?? 10000, 1000), 60000),
-        ttlMs: 60_000,
-      }),
+    async getJson(_ctx, url, options = {}) {
+      try {
+        const data = await deps.net.getJson(url, {
+          headers: options.headers,
+          timeoutMs: Math.min(
+            Math.max(options.timeoutMs ?? 10000, 1000),
+            60000
+          ),
+          ttlMs: 60_000,
+        })
+        return { success: true, data }
+      } catch (error) {
+        return {
+          success: false,
+          error:
+            error instanceof SyntaxError
+              ? '接口返回的不是有效 JSON 数据'
+              : error instanceof Error
+                ? error.message
+                : '接口请求失败',
+        }
+      }
+    },
 
     async tmdb(ctx, path, query = {}) {
       const token = await ctx.host('tmdbToken')
