@@ -10,7 +10,12 @@
         aria-label="搜索影片与资源"
         clearable
       />
-      <UiButton label="搜索" icon="search" @click="submit" />
+      <UiButton
+        label="搜索"
+        icon="search"
+        :loading="search.busy.value && draft.trim() === queryText"
+        @click="submit"
+      />
     </div>
     <div class="resource-search-filters">
       <UiChip
@@ -209,6 +214,7 @@ function resourceSummary(work: SearchWork): string {
 
 function submit(): void {
   if (draft.value.trim() === queryText.value) {
+    if (search.busy.value) return
     void search.run()
     return
   }
