@@ -1,3 +1,4 @@
+import { isRemotePath } from '../../shared/webdav/remote-path'
 /**
  * 媒体访问：海报 / 剧照缩略图与视频流。
  *
@@ -18,6 +19,7 @@ import { HttpError, type Router, fail, json, readJson } from '../http/router'
 
 /** 依赖。 */
 export interface MediaRouteDeps {
+  remoteStream?: (path: string, request: Request) => Promise<Response>
   service: LibraryService
   thumbnails: ThumbnailPipeline
 }
@@ -91,12 +93,20 @@ export function registerMediaRoutes(
     await deps.thumbnails.focus.save(url, focus)
     return new Response(null, { status: 204 })
   })
-  router.add('GET', '/media/files/:id', (request, { params }) => {
+  router.add('GET', '/media/files/:id', async (request, { params }) => {
     const id = Number(params.id)
     const path = Number.isSafeInteger(id)
       ? deps.service.videoFilePath(id)
       : null
     if (!path) return fail(404, '文件不存在')
+    if (isRemotePath(path)) {
+      if (!deps.remoteStream) return fail(404, '远程播放不可用')
+      try {
+        return await deps.remoteStream(path, request)
+      } catch (error) {
+        return fail(502, (error as Error).message)
+      }
+    }
     return serveFile(path, request)
   })
 }

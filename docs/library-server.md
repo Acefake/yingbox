@@ -1,5 +1,7 @@
 # 片库服务（网页端 / NAS）
 
+不依赖源码仓库的 Node 安装包见 [独立服务包](deploy/server-package.md)：`pnpm package:server` 生成后端包，`pnpm package:server:web` 同时携带网页。
+
 影盒的本地媒体库（电影、剧集）原来只能在桌面版里用：扫描、刮削、写 NFO 都在 Electron 的 utilityProcess 里跑。
 片库服务把这套核心原样搬到一个独立的 Node 进程里，通过 HTTP 提供给网页端，可以跑在本机、开发机或 NAS 的 Docker 里。
 

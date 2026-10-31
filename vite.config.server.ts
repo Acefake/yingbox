@@ -3,6 +3,7 @@ import { resolve } from 'node:path'
 import { defineConfig } from 'vite'
 import pkg from './package.json'
 import { nasBuildGuard } from './scripts/nas-build-guard'
+import { serverRuntimePackage } from './scripts/server-runtime-package'
 
 /**
  * 独立片库服务的构建（pnpm build:server）：Node 22 目标、CommonJS 产物，`node out/server/server.js` 直接运行。
@@ -10,7 +11,7 @@ import { nasBuildGuard } from './scripts/nas-build-guard'
  * - 入口：server（HTTP 服务）、webp-worker（图片编解码线程，和服务同目录，见 src/server/app.ts）
  *   与 engine（在线引擎子进程，见 src/server/online/engine.ts）；
  * - 依赖不打包（cheerio、@jsquash/* 等从 node_modules 加载；wasm 文件按包路径读取），
- *   部署时 `pnpm install --prod` 即可，不需要 Electron。
+ *   runtime-package.json 记录专用运行依赖，pnpm package:server 生成无需源码仓库的安装包。
  */
 const external = [
   ...builtinModules,
@@ -19,8 +20,9 @@ const external = [
 ]
 
 export default defineConfig(({ mode }) => ({
-  plugins:
-    mode === 'nas'
+  plugins: [
+    serverRuntimePackage(__dirname, pkg),
+    ...(mode === 'nas'
       ? [
           nasBuildGuard('server'),
           {
@@ -35,7 +37,8 @@ export default defineConfig(({ mode }) => ({
             },
           },
         ]
-      : [],
+      : []),
+  ],
   build: {
     ssr: true,
     target: 'node22',
@@ -47,9 +50,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         server: resolve(__dirname, 'src/server/index.ts'),
         'webp-worker': resolve(__dirname, 'src/main/thumbnails/webp-worker.ts'),
-        ...(mode === 'nas'
-          ? {}
-          : { engine: resolve(__dirname, 'src/engine/node.ts') }),
+        engine: resolve(__dirname, 'src/engine/node.ts'),
       },
       external: id =>
         external.some(name => id === name || id.startsWith(`${name}/`)),
