@@ -35,6 +35,9 @@ const NOT_PARSED: FileParse = {
 export interface ParseContext {
   libraryId: number
   kind: LibraryKind
+  mixed?: boolean
+  /** 用户指定的文件类型，优先于自动分类。 */
+  overrideKind?: LibraryKind
   /** 媒体库根目录的路径键。 */
   rootKey: string
   /** 元数据来源，缺省 tmdb。 */
@@ -70,7 +73,13 @@ export function parseLibraryFile(
   const relativePath = segments.slice(-depth).join('/')
   let parsed: ParsedMedia
   try {
-    parsed = parseMediaPath(relativePath)
+    parsed = parseMediaPath(relativePath, {
+      inferUnnumberedSeason: ctx.overrideKind === 'tv' || (ctx.mixed === true && !ctx.overrideKind),
+      forceMovie: ctx.overrideKind === 'movie',
+    })
+    if (ctx.overrideKind === 'tv' && parsed.type === 'movie') {
+      parsed = { ...parsed, type: 'episode', season: 1, episodes: [] }
+    }
     if (ctx.source === 'jav') parsed = withJavCode(parsed, relativePath)
   } catch {
     return {
@@ -85,7 +94,12 @@ export function parseLibraryFile(
       state: 'parsed',
     },
     grouping: groupFile(
-      { libraryId: ctx.libraryId, kind: ctx.kind, relativeKey },
+      {
+        libraryId: ctx.libraryId,
+        kind: ctx.overrideKind ?? ctx.kind,
+        mixed: ctx.overrideKind ? false : ctx.mixed,
+        relativeKey,
+      },
       parsed
     ),
   }

@@ -13,7 +13,11 @@ import type {
 } from '../../../../../shared/library/ipc'
 import type { ContinueSection } from '@/features/player'
 import { reachedWatched } from '../../../../../shared/library/watch-progress'
-import { type ContinueRecord, mergeContinue } from '@/features/player'
+import {
+  type ContinueRecord,
+  mergeContinue,
+  replaceLibraryContinue,
+} from '@/features/player'
 
 import { libraryBridge } from '../api/bridge'
 import { sortedSeasons } from '../detail/detail-rules'
@@ -51,7 +55,9 @@ function nextEpisode(
   const after = list[list.findIndex(ep => ep.id === episode.id) + 1]
   if (after) return episodePlayRequest(series, season, after)
   const seasons = sortedSeasons(series)
-  for (const later of seasons.slice(seasons.indexOf(season) + 1)) {
+  for (const later of seasons.slice(
+    seasons.findIndex(s => s.id === season.id) + 1
+  )) {
     if (later.seasonNumber === 0) continue
     const first = playableEpisodes(later)[0]
     if (first) return episodePlayRequest(series, later, first)
@@ -120,33 +126,67 @@ export function continueRecordFrom(
 }
 
 let running: Promise<void> | null = null
+const revisions = new Map<number, number>()
+let revisionCounter = 0
 
 /** 从片库补一次继续播放（同一时刻只跑一次）。 */
 export function hydrateContinue(): Promise<void> {
   running ??= (async () => {
     const bridge = libraryBridge()
     if (!bridge) return
+    const snapshotRevision = revisionCounter
     const [recent, libraries] = await Promise.all([
       bridge.progress.recent(HYDRATE_LIMIT),
       bridge.listLibraries(),
     ])
-    const sections = new Map(libraries.map(lib => [lib.id, sectionOf(lib)]))
+    const sections = new Map(libraries.map(lib => [lib.id, lib]))
     // 这些作品的进度也读进缓存：从继续播放打开后连播的下一集同样从片库记的位置开始
     const [nodes] = await Promise.all([
       Promise.all(recent.map(p => bridge.getItem(p.rootId).catch(() => null))),
       loadProgress(recent.map(p => p.rootId)),
     ])
-    const records = recent
-      .map((p, i) => {
-        const node = nodes[i]
-        return node
-          ? continueRecordFrom(node, p, sections.get(node.libraryId))
-          : null
-      })
-      .filter((r): r is ContinueRecord => r !== null)
-    mergeContinue(records)
+    recent.forEach((p, i) => {
+      const node = nodes[i]
+      if ((revisions.get(p.rootId) ?? 0) > snapshotRevision) return
+      const record = node
+        ? continueRecordFrom(
+            node,
+            p,
+            sections.has(node.libraryId)
+              ? sectionOf(sections.get(node.libraryId)!, node.type)
+              : undefined
+          )
+        : null
+      if (node && sections.get(node.libraryId)?.source === 'jav') {
+        if (record) mergeContinue([record])
+      } else if (node)
+        replaceLibraryContinue(
+          p.rootId,
+          node.type === 'movie' ? 'movie' : 'tv',
+          record
+        )
+    })
   })()
     .catch(error => console.warn('[library-progress] 补继续播放失败', error))
     .finally(() => (running = null))
   return running
+}
+
+/** 作品类型变化后立即重建继续播放记录。 */
+export async function refreshContinueForItem(rootId: number): Promise<void> {
+  const bridge = libraryBridge()
+  if (!bridge) return
+  const revision = ++revisionCounter
+  revisions.set(rootId, revision)
+  const [node, recent] = await Promise.all([
+    bridge.getItem(rootId),
+    bridge.progress.recent(HYDRATE_LIMIT),
+  ])
+  const progress = recent.find(p => p.rootId === rootId)
+  if ((revisions.get(rootId) ?? 0) !== revision || !node) return
+  replaceLibraryContinue(
+    rootId,
+    node.type === 'movie' ? 'movie' : 'tv',
+    progress ? continueRecordFrom(node, progress) : null
+  )
 }

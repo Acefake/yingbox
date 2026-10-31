@@ -45,6 +45,7 @@ import { parseJavSettings } from './validate-jav'
 import {
   parseAutomationPatch,
   parseNotifyChanges,
+  parseReclassifyItem,
   parseUpdateLibrary,
 } from './validate-library'
 import { validateTemplate } from '../writer/template'
@@ -151,9 +152,13 @@ function parseAddLibrary(input: unknown): AddLibraryRequest {
   const source =
     r.source === undefined ? 'tmdb' : oneOf(r.source, LIBRARY_SOURCES, 'source')
   if (source === 'jav' && kind !== 'movie') invalid('番号库只能是电影库')
+  if (r.mixed !== undefined && typeof r.mixed !== 'boolean')
+    invalid('mixed 必须是布尔值')
+  if (source === 'jav' && r.mixed) invalid('番号库不能是混合库')
   return {
     root: (r.root as string).trim(),
     kind,
+    mixed: r.mixed === true,
     name: (r.name as string | undefined)?.trim() || undefined,
     source,
     automation: parseAutomationPatch(r.automation),
@@ -340,6 +345,7 @@ const PARAM_PARSERS: {
   identify: input => parseTargets(input, 'identify'),
   getMatchCandidates: itemIdParam,
   applyMatch: parseApplyMatch,
+  reclassifyItem: parseReclassifyItem,
   lockMatch: itemIdParam,
   unlockMatch: itemIdParam,
   refreshMetadata: (input): RefreshMetadataRequest => {

@@ -118,6 +118,7 @@ export async function runParse(
   const parseCtx = {
     libraryId: lib.id,
     kind: lib.kind,
+    mixed: lib.mixed,
     rootKey: lib.rootKey,
     source: lib.source,
   }
@@ -135,9 +136,18 @@ export async function runParse(
     transaction(db, () => {
       const now = Date.now()
       for (const file of batch) {
-        const parse = parseLibraryFile(parseCtx, { ...file, kind: 'video' })
+        const overrideKind = scanStore.mediaKindOverride(file.id)
+        const parse = parseLibraryFile(
+          { ...parseCtx, overrideKind },
+          { ...file, kind: 'video' }
+        )
         scanStore.setParsed(file.id, parse.columns, now)
-        catalog.linkFile(lib.id, file.id, parse.grouping, false, now, changes)
+        const existing = overrideKind ? catalog.topLevelOfFile(file.id) : []
+        if (existing.length) {
+          for (const id of existing) changes.touch(id)
+        } else {
+          catalog.linkFile(lib.id, file.id, parse.grouping, false, now, changes)
+        }
       }
     })
     afterId = batch.at(-1)!.id

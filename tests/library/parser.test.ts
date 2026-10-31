@@ -2,6 +2,14 @@ import { describe, expect, it } from 'vitest'
 import { parseMediaPath } from '../../src/shared/library/parser'
 
 describe('parseMediaPath', () => {
+  it('用户指定电影时不把片名末尾数字当作集号', () => {
+    expect(
+      parseMediaPath('流浪地球 2.mkv', { forceMovie: true })
+    ).toMatchObject({
+      type: 'movie',
+      title: '流浪地球 2',
+    })
+  })
   it('拆分中英双标题并剥离发布信息', () => {
     expect(
       parseMediaPath(

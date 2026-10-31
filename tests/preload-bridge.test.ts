@@ -105,6 +105,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'getMatchCandidates',
     'getPreview',
     'applyMatch',
+    'reclassifyItem',
     'lockMatch',
     'unlockMatch',
     'refreshMetadata',

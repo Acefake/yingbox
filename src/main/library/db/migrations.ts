@@ -317,6 +317,27 @@ export const MIGRATIONS: readonly Migration[] = [
   { version: 10, description: '同一作品多版本合并展示', sql: MERGE_SCHEMA },
   { version: 11, description: '按画面搜的视频关键帧', sql: V11_SCHEMA },
   { version: 12, description: '评分来源', sql: V12_SCHEMA },
+  {
+    version: 13,
+    description: '混合媒体库',
+    sql: 'ALTER TABLE libraries ADD COLUMN mixed INTEGER NOT NULL DEFAULT 0 CHECK (mixed IN (0, 1));',
+  },
+  {
+    version: 14,
+    description: '媒体文件分类覆盖',
+    sql: "ALTER TABLE files ADD COLUMN media_kind_override TEXT CHECK (media_kind_override IN ('movie', 'tv'));",
+  },
+  {
+    version: 15,
+    description: '类型纠正的文件级观看进度',
+    sql: `CREATE TABLE reclassify_progress (
+      item_id INTEGER NOT NULL REFERENCES media_items(id) ON DELETE CASCADE,
+      file_id INTEGER NOT NULL REFERENCES files(id) ON DELETE CASCADE,
+      position REAL NOT NULL, duration REAL NOT NULL,
+      watched INTEGER NOT NULL CHECK (watched IN (0, 1)), updated_at INTEGER NOT NULL,
+      PRIMARY KEY (item_id, file_id)
+    ) STRICT, WITHOUT ROWID;`,
+  },
 ]
 
 /** 读取当前 schema 版本。 */

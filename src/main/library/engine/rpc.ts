@@ -114,6 +114,7 @@ const HANDLERS: Handlers = {
   identify: (s, p) => (p.ai ? s.identifier.aiIdentify(p) : s.identify(p)),
   getMatchCandidates: (s, p) => s.getMatchCandidates(p),
   applyMatch: (s, p) => s.applyMatch(p),
+  reclassifyItem: (s, p) => s.reclassifyItem(p),
   lockMatch: (s, p) => s.lockMatch(p),
   unlockMatch: (s, p) => s.unlockMatch(p),
   refreshMetadata: (s, p) => s.refreshMetadata(p),

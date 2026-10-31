@@ -99,6 +99,8 @@ export interface LibraryInfo {
   /** 根目录（原始系统路径）。 */
   root: string
   kind: LibraryKind
+  /** 同一目录按文件内容分别归入电影和剧集。 */
+  mixed?: boolean
   /** 元数据来源：tmdb 按片名识别，jav 按番号刮削（只用于电影库）。 */
   source: LibrarySource
   /** 毫秒时间戳。 */
@@ -264,6 +266,10 @@ export interface LibraryRpcMap
     result: MatchCandidatesResult
   }
   applyMatch: { params: ApplyMatchRequest; result: ApplyMatchResult }
+  reclassifyItem: {
+    params: { itemId: number; kind: LibraryKind }
+    result: LibraryItemSummary
+  }
   lockMatch: { params: { itemId: number }; result: LibraryItemSummary }
   unlockMatch: { params: { itemId: number }; result: LibraryItemSummary }
   refreshMetadata: { params: RefreshMetadataRequest; result: JobAccepted }
@@ -304,6 +310,7 @@ export const LIBRARY_METHODS = [
   'identify',
   'getMatchCandidates',
   'applyMatch',
+  'reclassifyItem',
   'lockMatch',
   'unlockMatch',
   'refreshMetadata',
@@ -355,6 +362,7 @@ export interface LibraryBridge
   identify(request: IdentifyRequest): Promise<JobAccepted>
   getMatchCandidates(itemId: number): Promise<MatchCandidatesResult>
   applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult>
+  reclassifyItem(itemId: number, kind: LibraryKind): Promise<LibraryItemSummary>
   lockMatch(itemId: number): Promise<LibraryItemSummary>
   unlockMatch(itemId: number): Promise<LibraryItemSummary>
   refreshMetadata(request: RefreshMetadataRequest): Promise<JobAccepted>

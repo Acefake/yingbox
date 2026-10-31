@@ -160,6 +160,7 @@ export async function scanLibrary(
   const ctx: ParseContext = {
     libraryId: library.id,
     kind: library.kind,
+    mixed: library.mixed,
     rootKey: library.rootKey,
     source: library.source,
   }
@@ -225,7 +226,10 @@ export async function scanLibrary(
   for (const move of moves) {
     removals.push(() => {
       // 保留原记录（id、关联、匹配）；路径变了重新解析，但不改关联
-      const { columns } = parseLibraryFile(ctx, move.to)
+      const { columns } = parseLibraryFile(
+        { ...ctx, overrideKind: scanStore.mediaKindOverride(move.from.id) },
+        move.to
+      )
       scanStore.updateFile(
         move.from.id,
         move.to,
@@ -278,9 +282,13 @@ export async function scanLibrary(
   /** 写一个变更文件：重新解析，关联变了需要回收空条目。 */
   const writeChanged = (file: DirChange['changed'][number]): void => {
     const at = now()
-    const parse = parseLibraryFile(ctx, file)
+    const overrideKind = scanStore.mediaKindOverride(file.id)
+    const parse = parseLibraryFile({ ...ctx, overrideKind }, file)
     scanStore.updateFile(file.id, file, parse.columns, at, null)
+    const existing = overrideKind ? catalog.topLevelOfFile(file.id) : []
+    for (const id of existing) changes.touch(id)
     if (
+      !existing.length &&
       catalog.linkFile(library.id, file.id, parse.grouping, false, at, changes)
     ) {
       needsGc = true

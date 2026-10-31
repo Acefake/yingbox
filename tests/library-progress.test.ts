@@ -54,7 +54,7 @@ const { continueRecordFrom } =
   await import('../src/renderer/src/features/library/progress/continue-source')
 const { itemMark, posterMark } =
   await import('../src/renderer/src/features/library/progress/watch-marks')
-const { episodePlayRequest, seasonEndHint } =
+const { episodePlayRequest, primaryPlayRequest, seasonEndHint } =
   await import('../src/renderer/src/features/library/detail/playback')
 
 /** 一个节点（只填用得到的字段）。 */
@@ -210,6 +210,39 @@ describe('上报与缓存', () => {
 })
 
 describe('继续播放记录从片库进度生成', () => {
+  it('无季号正片排在特别篇之前', () => {
+    const special = node({
+      id: 3,
+      type: 'season',
+      seasonNumber: 0,
+      children: [ep(21, 1, true, 0)],
+    })
+    const show = node({
+      id: 1,
+      type: 'series',
+      title: '节目',
+      children: [{ ...ep(11, 1), seasonNumber: null }, special],
+    })
+    expect(primaryPlayRequest(show)?.refs[0].itemId).toBe(11)
+  })
+  it('无季号的最后一集看完后不会跳回第一集', () => {
+    const show = node({
+      id: 1,
+      type: 'series',
+      title: '节目',
+      children: [
+        { ...ep(11, 1), seasonNumber: null },
+        { ...ep(12, 2), seasonNumber: null },
+      ],
+    })
+    expect(
+      continueRecordFrom(
+        show,
+        recent({ itemId: 12, fileId: 120, position: 1000, watched: true }),
+        'tv'
+      )
+    ).toBeNull()
+  })
   it('没看完：从那一集的位置继续；播放列表每项带媒体库标记', () => {
     const record = continueRecordFrom(series(), recent({ position: 400 }), 'tv')
     expect(record).toMatchObject({

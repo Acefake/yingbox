@@ -62,7 +62,10 @@ export function playableEpisodes(season: LibraryItemNode): LibraryItemNode[] {
 /** 集的展示名：“S01E05 · 标题”。 */
 export function episodeLabel(episode: LibraryItemNode): string {
   const code = episodeCode(episode.seasonNumber, episode.episodeNumber)
-  return [code, episode.title].filter(Boolean).join(' · ')
+  return (
+    [code, episode.title].filter(Boolean).join(' · ') ||
+    baseName(videoFiles(episode)[0] ?? '')
+  )
 }
 
 /** 播放请求：第一个文件 + 连播列表；fileIds 与 playlist 一一对应（网页端按 id 取流）。 */
@@ -195,7 +198,11 @@ export function primaryPlayRequest(
 export function continueMetaOf(item: LibraryItemNode): ContinueMeta {
   const lib = findLibrary(item.libraryId)
   return {
-    section: lib ? sectionOf(lib) : item.type === 'series' ? 'tv' : 'movie',
+    section: lib
+      ? sectionOf(lib, item.type)
+      : item.type === 'series'
+        ? 'tv'
+        : 'movie',
     key: String(item.id),
     title: item.title,
     cover:

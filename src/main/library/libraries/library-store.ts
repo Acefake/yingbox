@@ -19,7 +19,7 @@ import {
   parseRemotePath,
   remotePath,
 } from '../../../shared/webdav/remote-path'
-import { type LibraryDb, StatementCache } from '../db/database'
+import { type LibraryDb, StatementCache, transaction } from '../db/database'
 import { pathKey } from '../scanner/rules'
 
 /** 引擎内部用的媒体库记录：比 LibraryInfo 多一个路径键。 */
@@ -28,7 +28,7 @@ export interface LibraryRecord extends LibraryInfo {
 }
 
 const SELECT = `SELECT id, name, root, root_display, kind, source, created_at,
-  last_scan_at, automation FROM libraries`
+  last_scan_at, automation, mixed FROM libraries`
 
 /** 规范根目录：本地路径转绝对路径；远程源路径（yingbox-dav://）检查格式后规范斜杠。 */
 function libraryRoot(raw: string): string {
@@ -57,6 +57,7 @@ function toRecord(row: Record<string, unknown>): LibraryRecord {
     root: String(row.root_display),
     rootKey: String(row.root),
     kind: row.kind as LibraryKind,
+    mixed: Boolean(row.mixed),
     source: row.source as LibrarySource,
     createdAt: Number(row.created_at),
     lastScanAt: row.last_scan_at === null ? null : Number(row.last_scan_at),
@@ -76,7 +77,7 @@ export function toLibraryInfo(
 export class LibraryStore {
   private readonly sql: StatementCache
 
-  constructor(db: LibraryDb) {
+  constructor(private readonly db: LibraryDb) {
     this.sql = new StatementCache(db)
   }
 
@@ -117,8 +118,8 @@ export class LibraryStore {
     const row = this.sql
       .get(
         `INSERT INTO libraries (root, root_display, kind, source, name, created_at,
-           automation)
-         VALUES (?, ?, ?, ?, ?, ?, ?) RETURNING id`
+           automation, mixed)
+         VALUES (?, ?, ?, ?, ?, ?, ?, ?) RETURNING id`
       )
       .get(
         key,
@@ -127,7 +128,8 @@ export class LibraryStore {
         request.source ?? 'tmdb',
         request.name || basename(root) || root,
         now,
-        JSON.stringify(withAutomationDefaults(request.automation))
+        JSON.stringify(withAutomationDefaults(request.automation)),
+        request.mixed ? 1 : 0
       )!
     return this.get(Number(row.id))
   }
@@ -135,13 +137,32 @@ export class LibraryStore {
   /** 改名 / 改自动化设置（只改给出的字段），返回修改后的记录；不存在抛 not-found。 */
   update(request: UpdateLibraryRequest): LibraryRecord {
     const current = this.get(request.libraryId)
+    if (request.mixed && current.source === 'jav') {
+      throw new LibraryError('invalid-params', '番号库不能转为混合库')
+    }
     const automation = withAutomationDefaults({
       ...current.automation,
       ...request.automation,
     })
-    this.sql
-      .get('UPDATE libraries SET name = ?, automation = ? WHERE id = ?')
-      .run(request.name ?? current.name, JSON.stringify(automation), current.id)
+    transaction(this.db, () => {
+      if (request.mixed && !current.mixed) {
+        this.sql
+          .get(
+            "UPDATE files SET media_kind_override = ? WHERE library_id = ? AND kind = 'video'"
+          )
+          .run(current.kind, current.id)
+      }
+      this.sql
+        .get(
+          'UPDATE libraries SET name = ?, automation = ?, mixed = ? WHERE id = ?'
+        )
+        .run(
+          request.name ?? current.name,
+          JSON.stringify(automation),
+          request.mixed || current.mixed ? 1 : 0,
+          current.id
+        )
+    })
     return this.get(current.id)
   }
 
