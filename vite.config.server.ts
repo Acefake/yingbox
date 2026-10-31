@@ -47,9 +47,7 @@ export default defineConfig(({ mode }) => ({
       input: {
         server: resolve(__dirname, 'src/server/index.ts'),
         'webp-worker': resolve(__dirname, 'src/main/thumbnails/webp-worker.ts'),
-        ...(mode === 'nas'
-          ? {}
-          : { engine: resolve(__dirname, 'src/engine/node.ts') }),
+        engine: resolve(__dirname, 'src/engine/node.ts'),
       },
       external: id =>
         external.some(name => id === name || id.startsWith(`${name}/`)),

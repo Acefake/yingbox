@@ -6,7 +6,6 @@
  */
 import { type Component, shallowReactive } from 'vue'
 import type { IconName } from '@/components/ui/icons'
-import { nasCoreSections } from '@/nas/settings'
 
 /** 一个设置分区 */
 export interface SettingsSection {
@@ -33,63 +32,60 @@ export interface SettingsSection {
 }
 
 /** 设置模块自带的分区 */
-const coreSections: SettingsSection[] =
-  import.meta.env.MODE === 'nas'
-    ? nasCoreSections
-    : [
-        {
-          id: 'appearance',
-          title: '外观',
-          icon: 'sun',
-          keywords: '主题 深色 浅色 悬停 预览 预告片 防剧透 剧照 简介',
-          load: () => import('./sections/AppearanceSettings.vue'),
-          order: 10,
-        },
-        {
-          id: 'scrape',
-          title: '刮削',
-          icon: 'download',
-          keywords:
-            '元数据 语言 中文 豆瓣 简介 tmdb token 令牌 密钥 图片质量 海报 背景图 演员 头像 尺寸 清晰度',
-          load: () => import('./sections/ScrapeSettings.vue'),
-          order: 30,
-        },
-        {
-          id: 'player',
-          title: '播放器',
-          icon: 'play',
-          keywords: 'mpv 引擎 artplayer 超分 高质量 缩放 小窗 画中画 置顶',
-          load: () => import('./sections/PlayerSettings.vue'),
-          order: 60,
-        },
-        {
-          id: 'danmaku',
-          title: '弹幕',
-          icon: 'subtitle',
-          keywords: '弹幕 弹弹play dandanplay appid appsecret',
-          load: () => import('./sections/DanmakuSettings.vue'),
-          order: 65,
-        },
-        {
-          id: 'ai',
-          title: 'AI',
-          icon: 'sparkle',
-          keywords:
-            'ai 助手 快捷键 siri 唤起 alt space 模型 openai deepseek openrouter opencode ollama key 语音识别 whisper 用量 私密',
-          load: () => import('./sections/AiSettings.vue'),
-          order: 67,
-          desktopOnly: true,
-        },
-        {
-          id: 'update',
-          title: '软件更新',
-          icon: 'refresh',
-          keywords: '版本 下载 重启',
-          load: () => import('./sections/UpdateSettings.vue'),
-          order: 80,
-          desktopOnly: true,
-        },
-      ]
+const coreSections: SettingsSection[] = [
+  {
+    id: 'appearance',
+    title: '外观',
+    icon: 'sun',
+    keywords: '主题 深色 浅色 悬停 预览 预告片 防剧透 剧照 简介',
+    load: () => import('./sections/AppearanceSettings.vue'),
+    order: 10,
+  },
+  {
+    id: 'scrape',
+    title: '刮削',
+    icon: 'download',
+    keywords:
+      '元数据 语言 中文 豆瓣 简介 tmdb token 令牌 密钥 图片质量 海报 背景图 演员 头像 尺寸 清晰度',
+    load: () => import('./sections/ScrapeSettings.vue'),
+    order: 30,
+  },
+  {
+    id: 'player',
+    title: '播放器',
+    icon: 'play',
+    keywords: 'mpv 引擎 artplayer 超分 高质量 缩放 小窗 画中画 置顶',
+    load: () => import('./sections/PlayerSettings.vue'),
+    order: 60,
+  },
+  {
+    id: 'danmaku',
+    title: '弹幕',
+    icon: 'subtitle',
+    keywords: '弹幕 弹弹play dandanplay appid appsecret',
+    load: () => import('./sections/DanmakuSettings.vue'),
+    order: 65,
+  },
+  {
+    id: 'ai',
+    title: 'AI',
+    icon: 'sparkle',
+    keywords:
+      'ai 助手 快捷键 siri 唤起 alt space 模型 openai deepseek openrouter opencode ollama key 语音识别 whisper 用量 私密',
+    load: () => import('./sections/AiSettings.vue'),
+    order: 67,
+    desktopOnly: true,
+  },
+  {
+    id: 'update',
+    title: '软件更新',
+    icon: 'refresh',
+    keywords: '版本 下载 重启',
+    load: () => import('./sections/UpdateSettings.vue'),
+    order: 80,
+    desktopOnly: true,
+  },
+]
 
 /** 网页端（没有 Electron preload）：只在桌面端有意义的分区不登记 */
 const webRuntime = typeof window !== 'undefined' && !window.api

@@ -5,8 +5,8 @@ import type { Plugin } from 'vite'
 export function nasBuildGuard(target: 'web' | 'server'): Plugin {
   const forbidden =
     target === 'web'
-      ? /\/src\/renderer\/src\/features\/(assistant|live|calendar|av)\/|\/features\/online\/views\/|\/features\/online\/components\/(SearchTab|VodBrowse|DetailWindow|SourceManager|OnlineSourcesTab)|\/features\/online\/composables\/(use-online-search|use-vod-parser|cms-subscription)/
-      : /\/src\/server\/(online\/|iptv\.ts)|\/src\/engine\/(node\.ts|download\/|online\/index\.ts)/
+      ? /\/src\/renderer\/src\/features\/av\/|\/JavLibraryPage\.vue/
+      : /$^/
   return {
     name: 'nas-build-guard',
     generateBundle(_options, bundle) {

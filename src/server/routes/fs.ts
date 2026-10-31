@@ -2,10 +2,10 @@
  * 目录浏览：网页端没有系统文件对话框，添加媒体库时用它在媒体根目录里逐级选文件夹。
  * 只列子目录（不列文件），跳过隐藏目录；不带 path 时列出全部根目录。
  */
-import { readdir } from 'node:fs/promises'
+import { readdir, stat } from 'node:fs/promises'
 import { basename, dirname, join } from 'node:path'
 import type { DirectoryListing } from '../../shared/library/ipc'
-import { type Router, fail, json } from '../http/router'
+import { HttpError, type Router, fail, json } from '../http/router'
 import { resolveWithinRoots } from './roots'
 
 /** 单个目录最多返回多少个子目录（防止巨型目录拖慢页面）。 */
@@ -24,7 +24,20 @@ export async function listDirectory(
     }
   const resolved = await resolveWithinRoots(path, roots).catch(() => null)
   if (!resolved) return null
-  const entries = await readdir(resolved, { withFileTypes: true })
+  let entries
+  try {
+    if (!(await stat(resolved)).isDirectory()) return null
+    entries = await readdir(resolved, { withFileTypes: true })
+  } catch (error) {
+    const code = (error as NodeJS.ErrnoException).code
+    if (code === 'ENOENT' || code === 'ENOTDIR') return null
+    if (code === 'EACCES' || code === 'EPERM')
+      throw new HttpError(
+        403,
+        '没有读取文件夹的权限，请检查 NAS 共享目录权限和 Docker 挂载'
+      )
+    throw error
+  }
   const dirs = entries
     .filter(entry => entry.isDirectory() && !entry.name.startsWith('.'))
     .map(entry => ({ name: entry.name, path: join(resolved, entry.name) }))

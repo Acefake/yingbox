@@ -51,6 +51,8 @@ if (!bridge)
 
 /** 读一个设置（在 computed / watchEffect 里调用时是响应式的） */
 export function getSetting<K extends ValueKey>(key: K): SettingValue<K> {
+  if (import.meta.env.MODE === 'nas' && key === 'app.adultMode')
+    return false as SettingValue<K>
   return values[key]
 }
 
@@ -59,6 +61,7 @@ export async function setSetting<K extends ValueKey>(
   key: K,
   value: SettingValue<K>
 ): Promise<void> {
+  if (import.meta.env.MODE === 'nas' && key === 'app.adultMode') return
   const previous = values[key]
   if (previous === value) return
   values[key] = value
@@ -85,7 +88,7 @@ export function useSetting<K extends ValueKey>(
   key: K
 ): WritableComputedRef<SettingValue<K>> {
   return computed({
-    get: () => values[key],
+    get: () => getSetting(key),
     set: value => {
       setSetting(key, value).catch(error =>
         console.warn(`[settings] 写入 ${key} 失败`, error)

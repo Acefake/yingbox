@@ -36,6 +36,7 @@ export interface DriveEntry {
   name: string
   size: number
   isDir: boolean
+  pickCode?: string
 }
 
 /** 网盘空间（字节） */
@@ -65,7 +66,9 @@ export interface Pan115Client {
   /** 列文件夹 cid 下的子文件夹 */
   dirs(cid: string): Promise<Pan115DirListing>
   /** 文件夹 cid 下第一页条目（文件和文件夹，新上传的在前；追更查重、找转存出的文件用） */
-  entries(cid: string): Promise<DriveEntry[]>
+  entries(cid: string, offset?: number): Promise<DriveEntry[]>
+  /** 获取文件的临时播放地址，凭据仅在服务端使用。 */
+  downloadUrl(pickCode: string): Promise<string>
   /** 网盘总空间与剩余空间 */
   space(): Promise<DriveSpace>
   /** 删除文件夹 cid 里的一个文件（进回收站）；只接受一个数字 id */
@@ -250,14 +253,14 @@ export function create115Client(
     return { cid, path, dirs: found, truncated }
   }
 
-  async function entries(cid: string): Promise<DriveEntry[]> {
+  async function entries(cid: string, offset = 0): Promise<DriveEntry[]> {
     const query = new URLSearchParams({
       aid: '1',
       cid,
       show_dir: '1',
       o: 'user_ptime',
       asc: '0',
-      offset: '0',
+      offset: String(offset),
       limit: String(DIR_PAGE),
       format: 'json',
     })
@@ -272,6 +275,7 @@ export function create115Client(
           name: text(item.n ?? item.name),
           size: Number(item.s) || 0,
           isDir,
+          ...(text(item.pc) ? { pickCode: text(item.pc) } : {}),
         }
       })
       .filter(e => e.name && e.id)
@@ -309,6 +313,14 @@ export function create115Client(
     receiveFiles,
     dirs,
     entries,
+    async downloadUrl(pickCode) {
+      const data = await request(
+        `/files/download?pickcode=${encodeURIComponent(pickCode)}`
+      )
+      const url = text(data.file_url)
+      if (!url) throw new Pan115Error('115 未返回播放地址，请检查账号权限')
+      return url
+    },
     space,
     deleteFile,
     addOffline: (links, cid) =>
