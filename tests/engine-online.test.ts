@@ -11,6 +11,7 @@ import {
   PLUGIN_TTL_MS,
   createPluginLoader,
 } from '../src/engine/online/plugin-cache'
+import { online } from '../src/shared/contract/online'
 import type { EngineContext } from '../src/engine/rpc'
 
 const lookup = async (): Promise<{ address: string }[]> => [
@@ -249,6 +250,43 @@ describe('在线域 handlers', () => {
       net: fakeNet(routes),
       loadPlugin: async () => PLUGIN,
     })
+
+  it('后台检测标记须为布尔值，省略标记保持兼容', () => {
+    const request = { action: 'search', siteName: SITES[0].name, keyword: 'x' }
+    expect(
+      online.calls.vod.parse([{ ...request, background: true }])[0].background
+    ).toBe(true)
+    expect(online.calls.vod.parse([request])[0].background).toBeUndefined()
+    expect(() =>
+      online.calls.vod.parse([{ ...request, background: 'yes' }])
+    ).toThrow('background')
+  })
+
+  it('后台检测遇到验证页不调用浏览器，前台请求仍支持代抓', async () => {
+    const h = handlers({
+      'https://site.test/s?wd=x': '<title>Just a moment...</title>',
+    })
+    const host = vi.fn(async () => '<ul><li>正常页面</li></ul>')
+    const context = { host, emit: vi.fn() } as unknown as EngineContext
+    const result = await h.vod(context, {
+      action: 'search',
+      siteName: SITES[0].name,
+      keyword: 'x',
+      background: true,
+    })
+    expect(result.success).toBe(true)
+    expect(host).not.toHaveBeenCalled()
+    const foreground = await h.vod(context, {
+      action: 'search',
+      siteName: SITES[0].name,
+      keyword: 'x',
+    })
+    expect(host).toHaveBeenCalledWith(
+      'browserFetch',
+      'https://site.test/s?wd=x'
+    )
+    expect(foreground.data).toMatchObject({ list: ['正常页面'] })
+  })
 
   it('JSON 请求失败以结果返回，避免触发 IPC 未处理异常；成功数据保留原形状', async () => {
     const h = handlers({

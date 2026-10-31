@@ -73,7 +73,7 @@ const worse = (a: HostTrip | undefined, b: HostTrip): HostTrip =>
 
 /** 插件动作需要的参数：去掉 action / siteName，search 统一成 {text, page}。 */
 function pluginArgs(request: VodRequest): Record<string, unknown> {
-  const { action, siteName: _site, ...rest } = request
+  const { action, siteName: _site, background: _background, ...rest } = request
   if (action === 'search' || action === 'parse') {
     return {
       text: action === 'parse' ? rest.videoID : (rest.keyword ?? rest.text),
@@ -149,7 +149,10 @@ export function createOnlineHandlers(
           {
             net: deps.net,
             loadPlugin,
-            browserFetch: url => ctx.host('browserFetch', url),
+            browserFetch: url =>
+              request.background
+                ? Promise.resolve('')
+                : ctx.host('browserFetch', url),
             breaker,
             onTrip,
             cache: pluginStorage.forPlugin(site.ext),
