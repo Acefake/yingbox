@@ -26,6 +26,35 @@ describe('追更服务', () => {
     expect(after.series.find(s => s.seriesId === 7)!.confirmed).toBe(1)
   })
 
+  it('总览：待处理计数、上次 / 下次检查、下一集播出日', async () => {
+    const aired = { ...episode(4, 1, '/a/04.mkv'), airDate: '2026-10-10' }
+    const upcoming = { ...episode(6), airDate: '2026-11-01' }
+    const h = setup([aired, upcoming, episode(5)])
+    h.deps.intervalMs = 30 * 60_000
+    await h.service.setSeries(7, { mode: 'confirm' })
+    await h.service.tick()
+    const overview = await h.service.overview()
+    // 第 5 集已播出且搜到候选 → 待确认；第 6 集还没播，不算
+    expect(overview.pendingCount).toBe(1)
+    expect(overview.lastRunAt).toBe(h.clock.t)
+    expect(overview.nextRunAt).toBe(h.clock.t + 30 * 60_000)
+    expect(overview.series.find(s => s.seriesId === 7)!.nextAirDate).toBe(
+      '2026-11-01'
+    )
+    await h.service.setEnabled(false)
+    expect((await h.service.overview()).nextRunAt).toBeNull()
+  })
+
+  it('追不在近期日历里的剧：用补丁里的剧名，列表不出现空名', async () => {
+    const { service } = setup([episode(5)])
+    await service.setSeries(99, { mode: 'confirm', title: '三体' })
+    const row = (await service.overview()).series.find(s => s.seriesId === 99)
+    expect(row?.title).toBe('三体')
+    await service.setSeries(98, { mode: 'confirm' })
+    const bare = (await service.overview()).series.find(s => s.seriesId === 98)
+    expect(bare?.title).toBe('#98')
+  })
+
   it('全自动：没设文件夹不让开；确认不满门槛（全局新剧先确认 1 集）不自动存', async () => {
     const { service, received } = setup([episode(5)])
     expect((await service.setSeries(7, { mode: 'auto' })).ok).toBe(false)

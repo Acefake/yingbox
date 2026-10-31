@@ -5,14 +5,21 @@ import { compileScript, compileTemplate, parse } from 'vue/compiler-sfc'
 import { describe, expect, it } from 'vitest'
 
 import {
-  canResume,
   confirmsLeft,
   episodeCode,
   episodeMark,
   episodeNote,
+  groupBySeries,
+  historyEpisodes,
   marksOf,
-  overviewNotice,
+  nextAirText,
+  pendingBadge,
+  pendingEpisodes,
+  prerequisites,
   sizeText,
+  statusLine,
+  trackedSeries,
+  untrackedSeries,
 } from '../src/renderer/src/features/autograb/autograb-rules'
 import {
   RESOLUTION_OPTIONS,
@@ -51,18 +58,28 @@ const base: AutograbOverview = {
 }
 
 describe('追更面板规则', () => {
-  it('提示优先级：登录 > PanSou > 暂停 > 关闭', () => {
-    expect(overviewNotice(base)).toBeNull()
+  it('前置条件：登录 > PanSou > 暂停，各带就地操作', () => {
+    expect(prerequisites(base)).toEqual([])
     expect(
-      overviewNotice({ ...base, ready: { loggedIn: false, pansou: false } })
-    ).toContain('扫码')
-    expect(
-      overviewNotice({ ...base, ready: { loggedIn: true, pansou: false } })
-    ).toContain('PanSou')
-    expect(
-      overviewNotice({ ...base, pausedUntil: 1, pauseReason: '风控' })
-    ).toBe('风控')
-    expect(overviewNotice({ ...base, enabled: false })).toBe('追更已关闭')
+      prerequisites({ ...base, ready: { loggedIn: false, pansou: false } }).map(
+        n => [n.kind, n.action?.to]
+      )
+    ).toEqual([
+      ['login', 'settings-pan'],
+      ['pansou', 'settings-pan'],
+    ])
+    const paused = prerequisites({
+      ...base,
+      pausedUntil: 1,
+      pauseReason: '风控',
+    })
+    expect(paused).toEqual([
+      expect.objectContaining({
+        kind: 'paused',
+        text: '风控',
+        action: { label: '恢复', to: 'resume' },
+      }),
+    ])
   })
 
   it('集号、体积、确认数', () => {
@@ -143,9 +160,113 @@ describe('日历卡片的追更小标记', () => {
 
   it('空间暂停：提示并可恢复', () => {
     const o = { ...base, spacePaused: '115 剩余空间不足' }
-    expect(overviewNotice(o)).toBe('115 剩余空间不足')
-    expect(canResume(o)).toBe(true)
-    expect(canResume(base)).toBe(false)
+    expect(prerequisites(o)).toEqual([
+      expect.objectContaining({
+        kind: 'space',
+        text: '115 剩余空间不足',
+        action: { label: '恢复', to: 'resume' },
+      }),
+    ])
+  })
+})
+
+const episode = (
+  key: string,
+  seriesId: number,
+  status: AutograbEpisode['status'],
+  airDate = '2026-10-30'
+): AutograbEpisode => ({
+  key,
+  seriesId,
+  seriesTitle: `剧${seriesId}`,
+  season: 1,
+  episode: Number(key.split(':')[2]),
+  airDate,
+  status,
+  attempts: 0,
+  nextTry: null,
+  candidates: [],
+  error: null,
+  notified: false,
+  revertable: false,
+})
+
+const series = (
+  seriesId: number,
+  effectiveMode: 'off' | 'confirm'
+): AutograbOverview['series'][number] => ({
+  seriesId,
+  title: `剧${seriesId}`,
+  mode: 'inherit',
+  effectiveMode,
+  confirmFirst: 0,
+  cid: '',
+  cidName: '',
+  confirmed: 0,
+  prefs: {},
+  nextAirDate: null,
+})
+
+describe('自动追更页规则', () => {
+  const o: AutograbOverview = {
+    ...base,
+    episodes: [
+      episode('1:1:1', 1, 'done'),
+      episode('1:1:2', 1, 'notFound', '2026-10-31'),
+      episode('2:1:1', 2, 'found', '2026-10-29'),
+      episode('1:1:3', 1, 'found', '2026-10-30'),
+      episode('2:1:2', 2, 'noSpace', '2026-10-30'),
+      episode('3:1:1', 3, 'saved'),
+      episode('3:1:2', 3, 'waiting'),
+    ],
+  }
+
+  it('待处理：有候选的在前，再按播出日倒序；记录只含已转存 / 入库 / 跳过', () => {
+    expect(pendingEpisodes(o).map(ep => ep.key)).toEqual([
+      '1:1:3',
+      '2:1:1',
+      '1:1:2',
+      '2:1:2',
+    ])
+    expect(historyEpisodes(o).map(ep => ep.key)).toEqual(['1:1:1', '3:1:1'])
+    expect(pendingEpisodes(null)).toEqual([])
+  })
+
+  it('角标：优先用后端的全量计数，不带计数的片库服务退回数列出的集', () => {
+    expect(pendingBadge(o)).toBe(4)
+    expect(pendingBadge({ ...o, pendingCount: 9 })).toBe(9)
+    expect(pendingBadge(null)).toBe(0)
+  })
+
+  it('待处理按剧分组，组顺序跟第一集', () => {
+    const groups = groupBySeries(pendingEpisodes(o))
+    expect(groups.map(g => [g.seriesId, g.episodes.length])).toEqual([
+      [1, 2],
+      [2, 2],
+    ])
+  })
+
+  it('在追 / 没在追的剧、下一集播出日', () => {
+    const list = {
+      ...base,
+      series: [series(1, 'confirm'), series(2, 'off')],
+    }
+    expect(trackedSeries(list).map(s => s.seriesId)).toEqual([1])
+    expect(untrackedSeries(list).map(s => s.seriesId)).toEqual([2])
+    expect(
+      nextAirText({ ...series(1, 'confirm'), nextAirDate: '2026-11-03' })
+    ).toBe('下一集 11月3日')
+    expect(nextAirText(series(1, 'confirm'))).toBe('')
+  })
+
+  it('状态句：开关、检查中、上次 / 下次', () => {
+    expect(statusLine({ ...base, enabled: false })).toBe('已关闭')
+    expect(statusLine({ ...base, running: true })).toBe('开启 · 正在检查')
+    expect(statusLine(base)).toBe('开启')
+    const last = new Date(2026, 9, 31, 14, 0).getTime()
+    expect(
+      statusLine({ ...base, lastRunAt: last, nextRunAt: last + 30 * 60_000 })
+    ).toBe('开启 · 上次 14:00 检查 · 下次约 14:30')
   })
 })
 
@@ -240,7 +361,14 @@ describe('追更偏好表单', () => {
 })
 
 const SFCS = [
-  'features/autograb/components/AutograbPanel.vue',
+  'features/autograb/components/AutograbView.vue',
+  'features/autograb/components/PendingList.vue',
+  'features/autograb/components/TrackedSeriesList.vue',
+  'features/autograb/components/GrabSheet.vue',
+  'features/autograb/components/SeriesGrabSheet.vue',
+  'features/autograb/components/EpisodeGrabSheet.vue',
+  'features/autograb/components/SeriesTrackButton.vue',
+  'features/autograb-upgrade/views/AutograbPage.vue',
   'features/autograb/components/AutograbEpisodes.vue',
   'features/autograb/components/GrabOverrideForm.vue',
   'features/autograb/components/ItemPolicyMenu.vue',

@@ -67,10 +67,16 @@ export function isDue(
   return now >= searchStart(airDate) && now >= next
 }
 
-/** 日历查询区间：往回 {@link LOOKBACK_DAYS} 天到往后 7 天（往后只为列出最近在播的剧） */
+/** 往后看多少天的播出（只为列出在播和即将开播的剧，建缺集仍只看已播出的） */
+export const LOOKAHEAD_DAYS = 30
+
+/** 日历查询区间：往回 {@link LOOKBACK_DAYS} 天到往后 {@link LOOKAHEAD_DAYS} 天 */
 export function calendarRange(now: number): { from: string; to: string } {
   const today = localDate(now)
-  return { from: addDays(today, -LOOKBACK_DAYS), to: addDays(today, 7) }
+  return {
+    from: addDays(today, -LOOKBACK_DAYS),
+    to: addDays(today, LOOKAHEAD_DAYS),
+  }
 }
 
 /** 本地日期键（按天清零计数用） */

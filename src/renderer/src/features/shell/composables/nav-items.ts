@@ -43,6 +43,10 @@ export interface NavState {
   adultMode: boolean
   /** 追剧日历的未看新集数（侧栏角标） */
   calendarBadge?: number
+  /** 能用自动追更（桌面端，或网页端连着片库服务） */
+  hasAutograb?: boolean
+  /** 自动追更页要用户处理的集数（侧栏角标） */
+  autograbBadge?: number
 }
 
 const isOnlineTab = (state: NavState, tab?: string): boolean =>
@@ -87,6 +91,14 @@ export function buildNavGroups(state: NavState): NavGroup[] {
       ],
     },
   ]
+  if (state.hasAutograb)
+    groups[0].items.push({
+      label: '自动追更',
+      icon: 'refresh',
+      path: '/autograb',
+      active: state.routeName === 'Autograb',
+      badge: state.autograbBadge ?? 0,
+    })
   const local: NavItem[] = []
   if (state.hasLocalLibrary) {
     local.push(

@@ -2,7 +2,13 @@
  * 追更面板的数据与操作：总览来自共享副本（autograb-store.ts，挂载期间订阅主进程推送）；
  * 操作失败用提示条报人话，成功后等 changed 刷新。
  */
-import { type Ref, type ShallowRef, onBeforeUnmount, onMounted } from 'vue'
+import {
+  type Ref,
+  type ShallowRef,
+  onBeforeUnmount,
+  onMounted,
+  reactive,
+} from 'vue'
 
 import { toast } from '@/components/ui/toast'
 import type {
@@ -20,6 +26,8 @@ import { autograbStore } from './autograb-store'
 export interface AutograbPanelState {
   overview: ShallowRef<AutograbOverview | null>
   error: Ref<string | null>
+  /** 正在操作的集（转存 / 撤销 / 跳过 / 重搜期间在里面，界面据此转圈和防重复点） */
+  busy: ReadonlySet<string>
   reload(): Promise<void>
   setEnabled(enabled: boolean): Promise<void>
   setSeries(seriesId: number, patch: AutograbSeriesPatch): Promise<boolean>
@@ -38,6 +46,17 @@ export interface AutograbPanelState {
 export function useAutograb(): AutograbPanelState {
   const { overview, error, reload, reloadSoon } = autograbStore
   let release: (() => void) | null = null
+  const busy = reactive(new Set<string>())
+
+  /** 对某一集的操作：期间记入 busy */
+  async function working<T>(key: string, run: () => Promise<T>): Promise<T> {
+    busy.add(key)
+    try {
+      return await run()
+    } finally {
+      busy.delete(key)
+    }
+  }
 
   function report(result: AutograbResult, success?: string): boolean {
     if (!result.ok) toast.error(result.error)
@@ -61,18 +80,31 @@ export function useAutograb(): AutograbPanelState {
   return {
     overview,
     error,
+    busy,
     reload,
     setEnabled: then((enabled: boolean) => api().setEnabled(enabled)),
     setSeries: async (seriesId, patch) =>
       report(await api().setSeries(seriesId, patch)),
     setPrefs: then((prefs: AutograbPrefs) => api().setPrefs(prefs)),
     setPolicy: async patch => report(await api().setPolicy(patch)),
-    grab: async (key, index) =>
-      report(await api().grab(key, index), '已转存，等待入库'),
-    revert: async key =>
-      report(await api().revert(key), '已撤销，这一集回到缺集'),
-    skip: then((key: string) => api().skip(key)),
-    retry: then((key: string) => api().retry(key)),
+    grab: (key, index) =>
+      working(key, async () =>
+        report(await api().grab(key, index), '已转存，等待入库')
+      ),
+    revert: key =>
+      working(key, async () =>
+        report(await api().revert(key), '已撤销，这一集回到缺集')
+      ),
+    skip: key =>
+      working(key, async () => {
+        await api().skip(key)
+        reloadSoon()
+      }),
+    retry: key =>
+      working(key, async () => {
+        await api().retry(key)
+        reloadSoon()
+      }),
     runNow: then(() => api().runNow()),
     resume: then(() => api().resume()),
   }

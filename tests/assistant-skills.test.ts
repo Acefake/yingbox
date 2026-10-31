@@ -114,6 +114,7 @@ describe('注册表', () => {
       'movie',
       'tv',
       'calendar',
+      'autograb',
       'live',
       'netdisk',
     ])

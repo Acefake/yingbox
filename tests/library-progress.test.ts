@@ -346,12 +346,20 @@ describe('剧集播完本地最后一集', () => {
       { itemId: 11, fileId: 110 },
       { itemId: 12, fileId: 120 },
     ])
-    const hint = seasonEndHint(season, season.children.slice(0, 2))
+    const hint = seasonEndHint(
+      s.id,
+      s.title,
+      season,
+      season.children.slice(0, 2)
+    )
     expect(hint).toEqual({
       text: '本地还没有 S01E03 的文件',
-      action: { label: '去追更', to: '/calendar?autograb=1' },
+      action: {
+        label: '去追更',
+        to: `/autograb?series=${s.id}&title=${encodeURIComponent(s.title)}`,
+      },
     })
-    expect(seasonEndHint(season, season.children).text).toBe(
+    expect(seasonEndHint(s.id, s.title, season, season.children).text).toBe(
       '已播完本地的最后一集'
     )
   })

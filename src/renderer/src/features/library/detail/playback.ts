@@ -129,9 +129,11 @@ export function hasLaterSeason(
 
 /**
  * 本季播完本地最后一集、后面也没有季时的提示：本季后面有没文件的集就点名那一集，否则说播完了本地的最后一集；
- * 桌面端给「去追更」（追剧日历页的追更面板）。
+ * 桌面端给「去追更」（自动追更页，直接打开这部剧的追更侧板）。
  */
 export function seasonEndHint(
+  seriesId: number,
+  title: string,
   season: LibraryItemNode,
   episodes: readonly LibraryItemNode[]
 ): EndHint {
@@ -148,7 +150,13 @@ export function seasonEndHint(
     ? `本地还没有 ${episodeCode(missing.seasonNumber, missing.episodeNumber) || '下一集'} 的文件`
     : '已播完本地的最后一集'
   return autograbAvailable
-    ? { text, action: { label: '去追更', to: '/calendar?autograb=1' } }
+    ? {
+        text,
+        action: {
+          label: '去追更',
+          to: `/autograb?series=${seriesId}&title=${encodeURIComponent(title)}`,
+        },
+      }
     : { text }
 }
 
@@ -176,7 +184,7 @@ export function episodePlayRequest(
     item: series,
     ...(hasLaterSeason(series, season)
       ? { partial: true }
-      : { endHint: seasonEndHint(season, episodes) }),
+      : { endHint: seasonEndHint(series.id, series.title, season, episodes) }),
     ...(firsts[index].video ? { video: firsts[index].video } : {}),
   }
 }

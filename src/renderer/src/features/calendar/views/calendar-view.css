@@ -38,6 +38,14 @@
   color: var(--text-tertiary);
   font-size: var(--text-sm);
 }
+.cal-hint {
+  display: flex;
+  align-items: center;
+  gap: var(--space-2);
+  margin: 0;
+  color: var(--accent-text);
+  font-size: var(--text-sm);
+}
 
 /* ── 周视图：七列，每天一列紧凑行；最小窗口（1200 宽）也放得下，更窄时横向滚动 ── */
 .cal-week {

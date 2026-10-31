@@ -2,7 +2,7 @@
  * 追更总览的共享副本：追更面板和日历卡片的小标记读同一份，只订阅一次主进程的 changed。
  *
  * preload 的 offChanged 会移除这个通道的全部监听，所以不能每个组件各订各的：这里按使用者计数，
- * 第一个使用者进来时订阅、最后一个离开时退订；每个使用者进来都取一次最新的。changed 在 300 ms 内多次只取一次。
+ * 第一个使用者进来时订阅、最后一个离开时退订；第一个使用者进来时取一次最新的。changed 在 300 ms 内多次只取一次。
  */
 import { type Ref, type ShallowRef, ref, shallowRef } from 'vue'
 
@@ -37,7 +37,8 @@ function reloadSoon(): void {
 /** 开始使用：返回退订函数 */
 function acquire(): () => void {
   if (users++ === 0) autograbApi().onChanged(reloadSoon)
-  void reload()
+  // 已有使用者在订阅时总览一直是新的（changed 会推），不用每个使用者各拉一次
+  if (users === 1 || !overview.value) void reload()
   let released = false
   return () => {
     if (released) return

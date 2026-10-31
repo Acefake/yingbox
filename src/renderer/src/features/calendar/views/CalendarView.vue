@@ -2,15 +2,17 @@
   <div class="calendar-page">
     <PageHeader title="追剧日历" :description="summary || undefined">
       <template #actions>
-        <UiButton
-          v-if="!cal.isThisWeek.value"
-          icon="calendar"
-          label="回到本周"
-          @click="cal.goToday"
-        />
         <div class="cal-nav" role="group" aria-label="切换周">
           <UiIconButton icon="back" size="sm" label="上一周" @click="prev" />
           <span class="cal-week-label">{{ weekTitle }}</span>
+          <UiButton
+            v-if="!cal.isThisWeek.value"
+            size="sm"
+            variant="plain"
+            label="今天"
+            aria-label="回到本周"
+            @click="cal.goToday"
+          />
           <UiIconButton icon="forward" size="sm" label="下一周" @click="next" />
         </div>
         <UiSegmented
@@ -18,17 +20,9 @@
           :options="MODE_OPTIONS"
           label="日历视图"
         />
-        <UiButton
-          v-if="autograbAvailable"
-          icon="download"
-          label="追更"
-          :pressed="showAutograb"
-          @click="toggleAutograb"
-        />
-        <UiButton
+        <UiIconButton
           icon="refresh"
-          label="刷新"
-          aria-label="重新获取播出信息"
+          label="重新获取播出信息"
           :loading="cal.loading.value"
           @click="refresh"
         />
@@ -37,9 +31,15 @@
 
     <p v-if="notice" class="cal-notice">{{ notice }}</p>
 
-    <AutograbTabs v-if="autograbAvailable && showAutograb">
-      <AutograbPanel :focus-key="autograbFocus" />
-    </AutograbTabs>
+    <p v-if="pendingCount" class="cal-hint">
+      <span>{{ pendingCount }} 集有资源待确认</span>
+      <UiButton
+        size="sm"
+        variant="plain"
+        label="去处理"
+        @click="router.push('/autograb')"
+      />
+    </p>
 
     <template v-if="cal.mode.value === 'week'">
       <!-- 整周无剧时只出一个整体空状态，不再叠 7 个「无更新」空列 -->
@@ -123,6 +123,12 @@
         </li>
       </ul>
     </section>
+
+    <EpisodeGrabSheet
+      v-if="autograbAvailable"
+      :episode-key="sheetKey"
+      @close="sheetKey = null"
+    />
   </div>
 </template>
 
@@ -130,12 +136,12 @@
 /**
  * 追剧日历页（/calendar）：周视图（周一到周日七列，每天一列紧凑行，同一部剧同一天的几集合并成一行，
  * 可前后翻周，今天的日期浅灰圆底）与列表视图（按天分组的同样行）；
- * 页头右侧是回到本周、周切换、视图切换、追更与刷新，统一用控件高度令牌（md 36）的灰色胶囊。
+ * 页头右侧是周切换（不在本周时胶囊里多一个「今天」）、视图切换与刷新，统一用控件高度令牌（md 36）的灰色胶囊。
  * 数据见 use-calendar.ts；点卡片：媒体库里有本地文件就播放这一集，否则打开剧的详情；在线剧打开在线详情。
- * 带 ?autograb=1 打开（播放器播完本地最后一集时的「去追更」）时展开追更面板。
- * 追更中的集卡片上有追更小标记，点它展开追更面板并定位到那一集。
+ * 只看不管：追更在自动追更页（/autograb）。旧深链 ?autograb=1 重定向过去；有资源待确认时页头下有提示条；
+ * 追更中的集卡片上有追更小标记，点它从右侧滑出这一集的侧板（覆盖在页面上，日历滚动位置不动）。
  */
-import { computed, nextTick, onActivated, ref, watch } from 'vue'
+import { computed, nextTick, onActivated, onDeactivated, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
@@ -149,12 +155,12 @@ import {
 } from '@/components/ui'
 import {
   type AutograbMark,
-  AutograbPanel,
+  EpisodeGrabSheet,
   autograbAvailable,
   markKey,
+  useAutograbBadge,
   useAutograbMarks,
 } from '@/features/autograb'
-import { AutograbTabs } from '@/features/autograb-upgrade'
 import { playLibraryEpisode } from '@/features/library'
 import { requestOnlineDetail } from '@/features/online'
 
@@ -171,22 +177,20 @@ const MODE_OPTIONS: SegmentedOption<CalendarMode>[] = [
 
 const router = useRouter()
 const cal = useCalendar()
-/** 追更面板展开 */
-const showAutograb = ref(false)
 const route = useRoute()
+// 旧深链 /calendar?autograb=1 → 自动追更页
 watch(
   () => route.query.autograb,
   flag => {
-    if (flag !== '1') return
-    if (autograbAvailable) showAutograb.value = true
-    void router.replace({ query: { ...route.query, autograb: undefined } })
+    if (flag === '1' && autograbAvailable) void router.replace('/autograb')
   },
   { immediate: true }
 )
 
-/** 追更面板里要定位的一集 */
-const autograbFocus = ref<string | null>(null)
+/** 侧板里打开的追更集；null = 关着 */
+const sheetKey = ref<string | null>(null)
 const marks = useAutograbMarks()
+const pendingCount = useAutograbBadge()
 
 /** 一行的追更小标记：行里第一集有标记的媒体库条目 */
 function markOf(group: ShowDayGroup): AutograbMark | null {
@@ -199,16 +203,9 @@ function markOf(group: ShowDayGroup): AutograbMark | null {
   return null
 }
 
-/** 顶部「追更」按钮：开关面板（不定位） */
-function toggleAutograb(): void {
-  autograbFocus.value = null
-  showAutograb.value = !showAutograb.value
-}
-
-/** 点小标记：展开追更面板并定位到这一集 */
+/** 点小标记：从右侧滑出这一集的追更侧板 */
 function openAutograb(key: string): void {
-  autograbFocus.value = key
-  showAutograb.value = true
+  sheetKey.value = key
 }
 
 const weekTitle = computed(() => weekLabel(cal.start.value, cal.today.value))
@@ -256,6 +253,7 @@ const notice = computed(() => {
 // 打开页面、换周、过了零点（同一周内也算）都按当前区间的缓存键加载（同一天已加载过的不再请求）
 watch(cal.rangeKey, () => void cal.load(), { immediate: true })
 onActivated(() => void cal.load())
+onDeactivated(() => (sheetKey.value = null))
 
 function prev(): void {
   cal.shift(-1)

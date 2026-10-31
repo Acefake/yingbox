@@ -74,10 +74,26 @@ function baseName(path: string | null): string {
   return (path ?? '').split(/[\\/]/).pop() ?? ''
 }
 
+/** 每部剧今天之后最近的一个播出日（日历里没有的剧不在表里） */
+export function nextAirDates(
+  episodes: CalendarEpisode[],
+  today: string
+): Map<number, string> {
+  const next = new Map<number, string>()
+  for (const ep of episodes) {
+    if (ep.season === 0 || ep.airDate <= today) continue
+    const known = next.get(ep.seriesId)
+    if (known === undefined || ep.airDate < known)
+      next.set(ep.seriesId, ep.airDate)
+  }
+  return next
+}
+
 /** 界面上的剧列表：最近日历里出现的剧 + 设过追更的剧；实际在追的排前面，再按剧名 */
 export function seriesList(
   state: AutograbState,
-  airing: Map<number, string>
+  airing: Map<number, string>,
+  nextAir: Map<number, string> = new Map()
 ): AutograbSeries[] {
   const ids = new Set<number>([
     ...airing.keys(),
@@ -88,7 +104,7 @@ export function seriesList(
       const setting = state.series[String(id)]
       return {
         seriesId: id,
-        title: airing.get(id) ?? setting?.title ?? `#${id}`,
+        title: airing.get(id) || setting?.title || `#${id}`,
         mode: setting?.mode ?? 'inherit',
         effectiveMode: seriesModeOf(state, id),
         confirmFirst: confirmFirstOf(state, setting),
@@ -96,6 +112,7 @@ export function seriesList(
         cidName: setting?.cidName ?? '',
         confirmed: setting?.confirmed ?? 0,
         prefs: setting?.prefs ?? {},
+        nextAirDate: nextAir.get(id) ?? null,
       }
     })
     .sort(

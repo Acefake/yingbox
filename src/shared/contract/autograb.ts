@@ -94,6 +94,8 @@ export interface AutograbSeries {
   confirmed: number
   /** 这部剧覆盖了哪些偏好（空对象 = 全跟随全局） */
   prefs: AutograbPrefsOverride
+  /** 下一集的播出日期 YYYY-MM-DD；日历里没有未播出的集为 null */
+  nextAirDate?: string | null
 }
 
 /** 一集的追更记录 */
@@ -142,12 +144,20 @@ export interface AutograbOverview {
   episodes: AutograbEpisode[]
   /** 正在跑一轮 */
   running: boolean
+  /** 要用户处理的集数：有候选待确认、空间不足、找不到（全部记录，不止 episodes 里列的；片库服务没给时为 undefined） */
+  pendingCount?: number
+  /** 上一轮结束的时间（毫秒时间戳）；还没跑过为 null */
+  lastRunAt?: number | null
+  /** 下一轮预计开始的时间；不会再跑（总开关关闭）或不知道为 null */
+  nextRunAt?: number | null
   /** 没单独选文件夹的剧存到哪（剧集默认目录，没设时沿用原转存目标；根目录 cid 为 "0"） */
   defaultFolder: { cid: string; name: string }
 }
 
 /** 改一部剧的设置 */
 export interface AutograbSeriesPatch {
+  /** 剧名：这部剧还没有设置、近期日历里也没有它时，新建设置用它当名字 */
+  title?: string
   mode?: AutograbSeriesMode
   cid?: string
   cidName?: string
@@ -161,6 +171,8 @@ export type AutograbResult = { ok: true } | { ok: false; error: string }
 const patchOf = (value: unknown): AutograbSeriesPatch => {
   const raw = record<Record<string, unknown>>(value, 'patch')
   const patch: AutograbSeriesPatch = {}
+  if (raw.title !== undefined)
+    patch.title = str(raw.title, 'title').slice(0, 200)
   if (raw.mode !== undefined)
     patch.mode = oneOf(raw.mode, 'mode', AUTOGRAB_SERIES_MODES)
   if (raw.cid !== undefined) {

@@ -39,6 +39,12 @@
           class="lib-hero-circle yb-glass"
           :meta="watchlistMeta"
         />
+        <SeriesTrackButton
+          v-if="node.type === 'series'"
+          class="lib-hero-circle yb-glass"
+          :series-id="node.id"
+          :title="node.title"
+        />
         <template v-if="restorable">
           <UiButton
             class="lib-hero-glass yb-glass"
@@ -110,6 +116,8 @@
  * 换条目时重置标志失败与简介展开状态。
  */
 import { computed, ref, watch } from 'vue'
+
+import { SeriesTrackButton } from '@/features/autograb'
 
 import type { LibraryItemNode } from '../../../../../shared/library/ipc'
 import type { SpecBadge } from '@/components/ui/spec-badge'

@@ -95,6 +95,7 @@ export function registerAutograb(
     },
     save: state => atomicWrite(file, JSON.stringify(state)),
     now: () => Date.now(),
+    intervalMs: INTERVAL_MS,
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
     emit: () => host.emit(autograb, 'changed', undefined),
     log: message => console.info(`[autograb] ${message}`),
