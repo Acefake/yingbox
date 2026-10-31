@@ -65,7 +65,8 @@ export interface OverviewContext {
   airing: Map<number, string>
   nextAir: Map<number, string>
   lastRunAt: number | null
-  nextRunAt: number | null
+  /** 定时一轮的间隔；不知道为 null */
+  intervalMs: number | null
   running: boolean
   defaultFolder: AutograbOverview['defaultFolder']
 }
@@ -88,7 +89,10 @@ export function buildOverview(
     episodes: listedEpisodes(state).map(episodeView),
     pendingCount: pendingCount(state),
     lastRunAt: ctx.lastRunAt,
-    nextRunAt: ctx.nextRunAt,
+    nextRunAt:
+      state.enabled && ctx.lastRunAt !== null && ctx.intervalMs
+        ? ctx.lastRunAt + ctx.intervalMs
+        : null,
     running: ctx.running,
     defaultFolder: ctx.defaultFolder,
   }

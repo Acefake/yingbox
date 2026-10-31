@@ -6,25 +6,16 @@
     <Transition name="grab-sheet-slide" appear>
       <aside
         v-if="open"
-        class="grab-sheet"
+        class="grab-sheet yb-glass"
         role="dialog"
         :aria-label="title"
         @click.stop
       >
-        <header class="grab-sheet-head">
-          <div class="grab-sheet-text">
-            <h2 class="grab-sheet-title">{{ title }}</h2>
-            <p v-if="subtitle" class="grab-sheet-sub">{{ subtitle }}</p>
-          </div>
-          <UiIconButton
-            icon="close"
-            variant="secondary"
-            size="sm"
-            label="关闭"
-            @click="emit('close')"
-          />
-        </header>
-        <div class="grab-sheet-body"><slot /></div>
+        <DialogTitlebar :title="title" @close="emit('close')" />
+        <div class="grab-sheet-body custom-scrollbar">
+          <p v-if="subtitle" class="grab-sheet-sub">{{ subtitle }}</p>
+          <slot />
+        </div>
       </aside>
     </Transition>
   </Teleport>
@@ -32,10 +23,11 @@
 
 <script setup lang="ts">
 /**
- * 追更侧板外壳：从右侧滑出，覆盖在页面上（不插入文档流，页面滚动位置不动）。
+ * 追更侧拉面板：玻璃浮层（同后台任务面板的材质与外形），从右侧滑出，离窗口边留出外壳间距，
+ * 覆盖在页面上（不插入文档流，页面滚动位置不动）。标题栏用 DialogTitlebar，内容一般是几组 SettingsGroup。
  * Esc 与点遮罩都关闭；Esc 走 useEscapeLayer，一次只关最上面一层。
  */
-import UiIconButton from '@/components/ui/UiIconButton.vue'
+import DialogTitlebar from '@/components/DialogTitlebar.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 
 const props = defineProps<{
@@ -59,38 +51,30 @@ useEscapeLayer(
   background: var(--overlay-scrim-soft);
 }
 
+/* 玻璃材质（底色、模糊、内高光、投影）来自 .yb-glass，这里只管形状与布局 */
 .grab-sheet {
   position: fixed;
-  top: 0;
-  right: 0;
-  bottom: 0;
+  top: var(--space-3);
+  right: var(--space-3);
+  bottom: var(--space-3);
   z-index: calc(var(--z-sheet) + 1);
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  width: min(480px, 100vw);
-  padding: var(--space-4) var(--space-5);
-  border-left: 1px solid var(--border-subtle);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-lg);
-}
-
-.grab-sheet-head {
-  display: flex;
-  align-items: flex-start;
-  gap: var(--space-3);
-}
-
-.grab-sheet-text {
-  flex: 1;
-  min-width: 0;
-}
-
-.grab-sheet-title {
-  margin: 0;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
+  width: min(480px, calc(100vw - var(--space-6)));
+  border-radius: var(--radius-2xl);
   color: var(--text-primary);
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+}
+
+.grab-sheet-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: var(--space-5);
+  min-height: 0;
+  padding: 0 var(--space-5) var(--space-5);
+  overflow-y: auto;
 }
 
 .grab-sheet-sub {
@@ -99,22 +83,14 @@ useEscapeLayer(
   color: var(--text-tertiary);
 }
 
-.grab-sheet-body {
-  display: flex;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-3);
-  min-height: 0;
-  overflow-y: auto;
+.grab-sheet-fade-enter-active,
+.grab-sheet-fade-leave-active {
+  transition: opacity var(--duration-normal) var(--ease-out);
 }
 
-.grab-sheet-fade-enter-active,
-.grab-sheet-fade-leave-active,
 .grab-sheet-slide-enter-active,
 .grab-sheet-slide-leave-active {
-  transition:
-    opacity var(--duration-normal) var(--ease-out),
-    transform var(--duration-normal) var(--ease-out);
+  transition: var(--transition-panel);
 }
 
 .grab-sheet-fade-enter-from,
@@ -124,6 +100,7 @@ useEscapeLayer(
 
 .grab-sheet-slide-enter-from,
 .grab-sheet-slide-leave-to {
-  transform: translateX(100%);
+  opacity: 0;
+  transform: translateX(var(--space-8));
 }
 </style>

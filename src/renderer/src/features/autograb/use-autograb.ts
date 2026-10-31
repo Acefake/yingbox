@@ -22,12 +22,15 @@ import type { GrabPolicyPatch } from '../../../../shared/contract/grab-policy'
 import { autograbApi } from './api'
 import { autograbStore } from './autograb-store'
 
+/** 对一集的操作 */
+export type EpisodeAction = 'grab' | 'revert' | 'skip' | 'retry'
+
 /** 追更面板状态与操作 */
 export interface AutograbPanelState {
   overview: ShallowRef<AutograbOverview | null>
   error: Ref<string | null>
-  /** 正在操作的集（转存 / 撤销 / 跳过 / 重搜期间在里面，界面据此转圈和防重复点） */
-  busy: ReadonlySet<string>
+  /** 正在操作的集 → 哪个操作（期间那个按钮转圈并拦住重复点） */
+  busy: ReadonlyMap<string, EpisodeAction>
   reload(): Promise<void>
   setEnabled(enabled: boolean): Promise<void>
   setSeries(seriesId: number, patch: AutograbSeriesPatch): Promise<boolean>
@@ -46,11 +49,15 @@ export interface AutograbPanelState {
 export function useAutograb(): AutograbPanelState {
   const { overview, error, reload, reloadSoon } = autograbStore
   let release: (() => void) | null = null
-  const busy = reactive(new Set<string>())
+  const busy = reactive(new Map<string, EpisodeAction>())
 
   /** 对某一集的操作：期间记入 busy */
-  async function working<T>(key: string, run: () => Promise<T>): Promise<T> {
-    busy.add(key)
+  async function working<T>(
+    key: string,
+    action: EpisodeAction,
+    run: () => Promise<T>
+  ): Promise<T> {
+    busy.set(key, action)
     try {
       return await run()
     } finally {
@@ -88,20 +95,20 @@ export function useAutograb(): AutograbPanelState {
     setPrefs: then((prefs: AutograbPrefs) => api().setPrefs(prefs)),
     setPolicy: async patch => report(await api().setPolicy(patch)),
     grab: (key, index) =>
-      working(key, async () =>
+      working(key, 'grab', async () =>
         report(await api().grab(key, index), '已转存，等待入库')
       ),
     revert: key =>
-      working(key, async () =>
+      working(key, 'revert', async () =>
         report(await api().revert(key), '已撤销，这一集回到缺集')
       ),
     skip: key =>
-      working(key, async () => {
+      working(key, 'skip', async () => {
         await api().skip(key)
         reloadSoon()
       }),
     retry: key =>
-      working(key, async () => {
+      working(key, 'retry', async () => {
         await api().retry(key)
         reloadSoon()
       }),

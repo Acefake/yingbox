@@ -2,18 +2,20 @@
   <GrabSheet
     :open="episode !== null"
     :title="title"
-    subtitle="这一集的追更状态与候选"
+    :subtitle="subtitle"
     @close="emit('close')"
   >
-    <AutograbEpisodes
-      v-if="episode"
-      :episodes="[episode]"
-      :busy="ag.busy"
-      @grab="ag.grab"
-      @revert="ag.revert"
-      @skip="ag.skip"
-      @retry="ag.retry"
-    />
+    <SettingsGroup v-if="episode">
+      <AutograbEpisodes
+        :show-series="false"
+        :episodes="[episode]"
+        :busy="ag.busy"
+        @grab="ag.grab"
+        @revert="ag.revert"
+        @skip="ag.skip"
+        @retry="ag.retry"
+      />
+    </SettingsGroup>
   </GrabSheet>
 </template>
 
@@ -24,7 +26,9 @@
  */
 import { computed, watch } from 'vue'
 
-import { episodeCode } from '../autograb-rules'
+import { SettingsGroup } from '@/features/settings'
+
+import { STATUS_LABEL, episodeCode, monthDayText } from '../autograb-rules'
 import { useAutograb } from '../use-autograb'
 import AutograbEpisodes from './AutograbEpisodes.vue'
 import GrabSheet from './GrabSheet.vue'
@@ -43,6 +47,12 @@ watch(
   ([key, overview, ep]) => {
     if (key && overview && !ep) emit('close')
   }
+)
+/** 标题下一句：播出日 · 状态 */
+const subtitle = computed(() =>
+  episode.value
+    ? `${monthDayText(episode.value.airDate)} 播出 · ${STATUS_LABEL[episode.value.status]}`
+    : ''
 )
 const title = computed(() =>
   episode.value

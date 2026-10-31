@@ -1,10 +1,16 @@
 <template>
-  <section class="pending" aria-label="待处理">
-    <h3 class="pending-title">待处理 · {{ episodes.length }} 集</h3>
-    <div v-for="group in groups" :key="group.seriesId" class="pending-group">
-      <h4 class="pending-name">{{ group.title }}</h4>
+  <section class="ag-section" aria-labelledby="ag-pending-title">
+    <h3 id="ag-pending-title" class="ag-section-title">
+      待处理<span class="ag-section-count">{{ episodes.length }}</span>
+    </h3>
+    <SettingsGroup
+      v-for="group in groups"
+      :key="group.seriesId"
+      :title="group.title"
+    >
       <AutograbEpisodes
         best-only
+        :show-series="false"
         :episodes="group.episodes"
         :busy="busy"
         @grab="(key, index) => emit('grab', key, index)"
@@ -12,25 +18,27 @@
         @skip="key => emit('skip', key)"
         @retry="key => emit('retry', key)"
       />
-    </div>
+    </SettingsGroup>
   </section>
 </template>
 
 <script setup lang="ts">
 /**
- * 自动追更页「待处理」：要用户动手的集（有候选待确认、空间不足、找不到），按剧分组；
+ * 自动追更页「待处理」：要用户动手的集（有候选待确认、空间不足、找不到），按剧分组，一部剧一个玻璃分组；
  * 每集默认只露最佳候选和它的「转存」，其它候选折叠。
  */
 import { computed } from 'vue'
 
+import { SettingsGroup } from '@/features/settings'
 import type { AutograbEpisode } from '../../../../../shared/contract/autograb'
 
 import { groupBySeries } from '../autograb-rules'
+import type { EpisodeAction } from '../use-autograb'
 import AutograbEpisodes from './AutograbEpisodes.vue'
 
 const props = defineProps<{
   episodes: AutograbEpisode[]
-  busy: ReadonlySet<string>
+  busy: ReadonlyMap<string, EpisodeAction>
 }>()
 const emit = defineEmits<{
   grab: [key: string, index: number]
@@ -42,27 +50,4 @@ const emit = defineEmits<{
 const groups = computed(() => groupBySeries(props.episodes))
 </script>
 
-<style scoped>
-.pending {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-}
-
-.pending-title,
-.pending-name {
-  margin: 0;
-  font-size: var(--text-sm);
-  font-weight: var(--font-weight-medium);
-  color: var(--text-secondary);
-}
-
-.pending-name {
-  color: var(--text-primary);
-}
-
-.pending-group {
-  display: flex;
-  flex-direction: column;
-}
-</style>
+<style scoped src="./autograb-view.css"></style>

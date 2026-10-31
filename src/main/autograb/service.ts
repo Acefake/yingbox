@@ -70,7 +70,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   /** 最近一次日历里出现的剧 */
   let airing = new Map<number, string>()
   let lastCalendar: CalendarEpisode[] = []
-  /** 上一轮结束的时间 */
+  /** 上一轮就绪后真正开始检查的时间 */
   let lastRunAt: number | null = null
   /** 第一次打开界面时的日历兜底只试一次（库里没有匹配的剧时日历一直是空的，不能每次刷新都重拉） */
   let calendarTried = false
@@ -274,10 +274,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         airing,
         nextAir: nextAirDates(lastCalendar, localDate(deps.now())),
         lastRunAt,
-        nextRunAt:
-          state.enabled && lastRunAt !== null && deps.intervalMs
-            ? lastRunAt + deps.intervalMs
-            : null,
+        intervalMs: deps.intervalMs ?? null,
         running,
         defaultFolder: deps.defaultFolder(),
       })

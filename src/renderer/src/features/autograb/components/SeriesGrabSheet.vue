@@ -2,52 +2,32 @@
   <GrabSheet
     :open="seriesId !== null"
     :title="series?.title ?? ''"
-    subtitle="这部剧怎么追"
+    :subtitle="subtitle"
     @close="emit('close')"
   >
     <template v-if="series && data">
-      <div class="series-sheet-row">
-        <span class="series-sheet-label">追更方式</span>
-        <ItemPolicyMenu
-          :title="series.title"
-          :custom="isCustom(series.mode, series.prefs)"
-          :effective="series.effectiveMode"
-          @follow="follow"
-          @custom="editing = true"
-        />
-      </div>
-      <p v-if="series.effectiveMode === 'off'" class="series-sheet-hint">
-        现在不追这部剧。选「单独设…」可切到待确认或全自动。
-      </p>
-      <p v-else-if="overrideSummary(series.prefs)" class="series-sheet-hint">
-        {{ overrideSummary(series.prefs) }}
-      </p>
-      <p
-        v-if="
-          series.effectiveMode === 'auto' &&
-          confirmsLeft(series.confirmed, series.confirmFirst)
-        "
-        class="series-sheet-hint"
-      >
-        还要手动确认
-        {{ confirmsLeft(series.confirmed, series.confirmFirst) }}
-        集才会自动转存
-      </p>
-      <p v-if="nextAirText(series)" class="series-sheet-hint">
-        {{ nextAirText(series) }}
-      </p>
-
-      <div v-if="series.effectiveMode !== 'off'" class="series-sheet-row">
-        <span class="series-sheet-label">转存位置</span>
-        <TargetFolderPill
-          v-bind="folderPill(series)"
-          size="sm"
-          variant="plain"
-          align="right"
-          :disabled="!data.ready.loggedIn"
-          @pick="pickFolder"
-        />
-      </div>
+      <SettingsGroup>
+        <SettingsRow title="追更方式">
+          <ItemPolicyMenu
+            :title="series.title"
+            :custom="isCustom(series.mode, series.prefs)"
+            :effective="series.effectiveMode"
+            @follow="follow"
+            @custom="editing = true"
+          />
+        </SettingsRow>
+        <SettingsRow v-if="series.effectiveMode !== 'off'" title="转存位置">
+          <TargetFolderPill
+            v-bind="folderPill(series)"
+            size="sm"
+            variant="plain"
+            align="right"
+            :disabled="!data.ready.loggedIn"
+            @pick="pickFolder"
+          />
+        </SettingsRow>
+        <template v-if="hints.length" #footer>{{ hints.join('；') }}</template>
+      </SettingsGroup>
 
       <AutograbFolderPrompt
         v-if="fullAuto.picking.value === series.seriesId"
@@ -66,24 +46,25 @@
         @cancel="editing = false"
       />
 
-      <AutograbEpisodes
-        v-if="episodes.length"
-        title="这部剧最近的集"
-        best-only
-        :episodes="episodes"
-        :busy="ag.busy"
-        @grab="ag.grab"
-        @revert="ag.revert"
-        @skip="ag.skip"
-        @retry="ag.retry"
-      />
+      <SettingsGroup v-if="episodes.length" title="最近的集">
+        <AutograbEpisodes
+          best-only
+          :show-series="false"
+          :episodes="episodes"
+          :busy="ag.busy"
+          @grab="ag.grab"
+          @revert="ag.revert"
+          @skip="ag.skip"
+          @retry="ag.retry"
+        />
+      </SettingsGroup>
     </template>
   </GrabSheet>
 </template>
 
 <script setup lang="ts">
 /**
- * 一部剧的追更侧板：把这部剧「怎么追」的设置收在一起——方式（跟随 / 单独设，单独设展开表单覆盖方式与资源偏好）、
+ * 一部剧的追更侧拉面板（设置页同款玻璃分组）：把这部剧「怎么追」的设置收在一起——方式（跟随 / 单独设，单独设展开表单覆盖方式与资源偏好）、
  * 转存位置、还要手动确认几集、下一集播出日，以及这部剧最近各集的状态。
  * 切到（或跟随成）全自动而没有可用文件夹时，在侧板里就地选目录（use-full-auto-folder.ts）。
  * seriesId 为 null 时关闭；总览里没有这部剧（还没开播、没设过）时用 title 兜底，设置照样能存。
@@ -96,6 +77,7 @@ import {
   type FolderPreset,
   TargetFolderPill,
 } from '@/features/netdisk'
+import { SettingsGroup, SettingsRow } from '@/features/settings'
 import type {
   AutograbSeries,
   AutograbSeriesPatch,
@@ -108,7 +90,12 @@ import {
 } from '../../../../../shared/netdisk/target-folder'
 
 import { confirmsLeft, nextAirText } from '../autograb-rules'
-import { TV_MODE_OPTIONS, isCustom, overrideSummary } from '../prefs-rules'
+import {
+  TV_MODE_OPTIONS,
+  isCustom,
+  itemPolicyText,
+  overrideSummary,
+} from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
 import { useFullAutoFolder } from '../use-full-auto-folder'
 import AutograbEpisodes from './AutograbEpisodes.vue'
@@ -159,6 +146,31 @@ const series = computed<AutograbSeries | null>(() => {
       nextAirDate: null,
     }
   )
+})
+/** 标题下一句：跟随 · 全自动 · 下一集 11月3日 */
+const subtitle = computed(() => {
+  const item = series.value
+  if (!item) return ''
+  return [
+    itemPolicyText(isCustom(item.mode, item.prefs), item.effectiveMode),
+    nextAirText(item),
+  ]
+    .filter(Boolean)
+    .join(' · ')
+})
+/** 设置下面的说明：不追时怎么开、单独设了哪些偏好、全自动还要确认几集 */
+const hints = computed(() => {
+  const item = series.value
+  if (!item) return []
+  if (item.effectiveMode === 'off')
+    return ['现在不追这部剧。追更方式选「单独设…」可切到待确认或全自动。']
+  const left = confirmsLeft(item.confirmed, item.confirmFirst)
+  return [
+    overrideSummary(item.prefs),
+    item.effectiveMode === 'auto' && left
+      ? `还要手动确认 ${left} 集才会自动转存`
+      : '',
+  ].filter(Boolean)
 })
 const episodes = computed(() =>
   (data.value?.episodes ?? []).filter(ep => ep.seriesId === props.seriesId)
@@ -218,23 +230,3 @@ async function pickFolder(pick: FolderPick): Promise<void> {
   })
 }
 </script>
-
-<style scoped>
-.series-sheet-row {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: var(--space-3);
-}
-
-.series-sheet-label {
-  font-size: var(--text-sm);
-  color: var(--text-secondary);
-}
-
-.series-sheet-hint {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-</style>

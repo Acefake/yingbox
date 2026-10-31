@@ -1,0 +1,80 @@
+/* 自动追更页「剧集」栏的共用样式（AutograbView、PendingList、TrackedSeriesList 各自 scoped 引入）；
+   分组底板与行都用设置页的 SettingsGroup / SettingsRow，这里只管分区间距、标题和行内小字 */
+.ag-view {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  max-width: 960px;
+}
+
+.ag-section {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+}
+
+.ag-section-title {
+  display: flex;
+  align-items: baseline;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+
+.ag-section-count {
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-regular);
+  color: var(--text-tertiary);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-state {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-1);
+  font-variant-numeric: tabular-nums;
+}
+
+.ag-need {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  font-size: var(--text-sm);
+  color: var(--text-primary);
+}
+
+.ag-need-icon {
+  flex: none;
+  color: var(--warning);
+}
+
+.ag-row-pending {
+  font-size: var(--text-xs);
+  color: var(--text-secondary);
+  white-space: nowrap;
+}
+
+.ag-empty {
+  margin: 0;
+  padding: 0 var(--space-4);
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
+}
+
+/* 分组里跟在一行 SettingsRow 后面的集列表：补上同款内缩分隔线 */
+.ag-rows-after {
+  position: relative;
+}
+
+.ag-rows-after::before {
+  position: absolute;
+  top: 0;
+  right: 0;
+  left: var(--space-4);
+  height: 1px;
+  background: var(--separator);
+  content: '';
+}
