@@ -1,5 +1,5 @@
 /**
- * 媒体库给追剧日历（features/calendar）的出口：查播出数据、播放某一集、换图片地址、文件进度的键。
+ * 媒体库给追剧日历（features/calendar）与自动追更（features/autograb）的出口：查播出数据、播放某一集、换图片地址、文件进度的键。
  * 日历不直接碰 bridge 与详情树，统一经这里，媒体库内部结构变了只改这一个文件。
  */
 import type {
@@ -7,6 +7,7 @@ import type {
   CalendarResult,
   LibraryItemNode,
 } from '../../../../../shared/library/ipc'
+import type { ThumbWidth } from '../../../../../shared/media-url'
 import { serverFileUrl } from '@/services/library-server'
 
 import { libraryBridge, usesLibraryServer } from '../api/bridge'
@@ -20,9 +21,12 @@ export function fetchCalendarEpisodes(
   return libraryBridge()?.calendar.episodes(request) ?? null
 }
 
-/** 媒体库图片（海报 / 背景图）在界面上的地址。 */
-export function libraryImage(url: string | null): string | null {
-  return itemImage(url, 780)
+/** 媒体库图片（海报 / 背景图）在界面上的地址；小图（列表里的海报）传 300。 */
+export function libraryImage(
+  url: string | null,
+  width: ThumbWidth = 780
+): string | null {
+  return itemImage(url, width)
 }
 
 /** 某个文件的播放进度键：桌面端是文件路径，网页端是片库服务的流地址。 */

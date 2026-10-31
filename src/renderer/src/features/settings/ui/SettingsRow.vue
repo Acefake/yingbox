@@ -1,5 +1,8 @@
 <template>
   <div class="settings-row" :class="{ 'is-stacked': stacked }">
+    <div v-if="$slots.leading" class="settings-row-leading">
+      <slot name="leading" />
+    </div>
     <div
       v-if="title || description || $slots.description"
       class="settings-row-text"
@@ -19,7 +22,7 @@
 
 <script setup lang="ts">
 /**
- * 设置分组里的一行：左边标题 + 说明，右边控件（默认插槽）。
+ * 设置分组里的一行：左边标题 + 说明，右边控件（默认插槽）；leading 插槽放在标题前（海报、图标）。
  * stacked 时控件换到下一行并占满宽度（文本框、单选列表等宽控件用）。
  * 默认插槽会拿到 labelId，可给控件做 aria-labelledby。
  */
@@ -58,6 +61,11 @@ const labelId = `settings-row-${useId()}`
   flex-direction: column;
   align-items: stretch;
   gap: var(--space-3);
+}
+.settings-row-leading {
+  display: flex;
+  flex: none;
+  margin-right: calc(var(--space-3) - var(--space-6));
 }
 .settings-row-text {
   flex: 1 1 auto;

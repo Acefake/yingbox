@@ -32,10 +32,42 @@ export function episodeView(record: EpisodeRecord): AutograbEpisode {
   }
 }
 
+/** 要用户处理的状态 */
+const PENDING_STATUSES: ReadonlySet<EpisodeRecord['status']> = new Set([
+  'found',
+  'noSpace',
+  'notFound',
+])
+
+/** 要用户处理的集数：只数实际在追的剧（侧栏角标与待处理列表同口径） */
+export function pendingCount(state: AutograbState): number {
+  return Object.values(state.episodes).filter(
+    r =>
+      PENDING_STATUSES.has(r.status) &&
+      seriesModeOf(state, r.seriesId) !== 'off'
+  ).length
+}
+
+/** 总览里列的集：新播出的在前，最多 {@link MAX_EPISODES} 集，超出的待处理集也要列（角标数得到的，页面上要找得到） */
+function listedEpisodes(state: AutograbState): EpisodeRecord[] {
+  const sorted = Object.values(state.episodes)
+    .filter(r => seriesModeOf(state, r.seriesId) !== 'off')
+    .sort((a, b) => b.airDate.localeCompare(a.airDate) || b.episode - a.episode)
+  return [
+    ...sorted.slice(0, MAX_EPISODES),
+    ...sorted.slice(MAX_EPISODES).filter(r => PENDING_STATUSES.has(r.status)),
+  ]
+}
+
 /** 总览里状态以外的部分 */
 export interface OverviewContext {
   ready: AutograbOverview['ready']
   airing: Map<number, string>
+  nextAir: Map<number, string>
+  posters: Map<number, string>
+  lastRunAt: number | null
+  /** 定时一轮的间隔；不知道为 null */
+  intervalMs: number | null
   running: boolean
   defaultFolder: AutograbOverview['defaultFolder']
 }
@@ -54,14 +86,14 @@ export function buildOverview(
     prefs: state.policy.prefs,
     ready: ctx.ready,
     today: { snaps: state.gate.snaps, receives: state.gate.receives },
-    series: seriesList(state, ctx.airing),
-    episodes: Object.values(state.episodes)
-      .filter(r => seriesModeOf(state, r.seriesId) !== 'off')
-      .sort(
-        (a, b) => b.airDate.localeCompare(a.airDate) || b.episode - a.episode
-      )
-      .slice(0, MAX_EPISODES)
-      .map(episodeView),
+    series: seriesList(state, ctx.airing, ctx.nextAir, ctx.posters),
+    episodes: listedEpisodes(state).map(episodeView),
+    pendingCount: pendingCount(state),
+    lastRunAt: ctx.lastRunAt,
+    nextRunAt:
+      state.enabled && ctx.lastRunAt !== null && ctx.intervalMs
+        ? ctx.lastRunAt + ctx.intervalMs
+        : null,
     running: ctx.running,
     defaultFolder: ctx.defaultFolder,
   }

@@ -58,6 +58,8 @@ export interface AutograbDeps {
   sleep(ms: number): Promise<void>
   emit(): void
   log(message: string): void
+  /** 定时一轮的间隔（毫秒）；给界面算「下次检查」，不传则不报 */
+  intervalMs?: number
   /** 转存过的集入库了（日历里这一集有了文件），推送通知用 */
   landed?(records: EpisodeRecord[]): void
 }

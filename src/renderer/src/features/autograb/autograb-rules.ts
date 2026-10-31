@@ -52,16 +52,6 @@ export function episodeNote(ep: AutograbEpisode): string {
   return ''
 }
 
-/** 总览上方的提示；没问题时为 null */
-export function overviewNotice(o: AutograbOverview): string | null {
-  if (!o.ready.loggedIn) return '先在设置 · 网盘里扫码登录 115'
-  if (!o.ready.pansou) return '先在设置 · 网盘里填写 PanSou 地址'
-  if (o.pausedUntil !== null) return o.pauseReason ?? '追更已暂停'
-  if (o.spacePaused) return o.spacePaused
-  if (!o.enabled) return '追更已关闭'
-  return null
-}
-
 /** 全自动模式下还要手动确认几集 */
 export function confirmsLeft(confirmed: number, need: number): number {
   return Math.max(0, need - confirmed)
@@ -76,11 +66,6 @@ export function needsFolderForAuto(
   defaultFolder: AutograbOverview['defaultFolder']
 ): boolean {
   return normalizeCid(series.cid || defaultFolder.cid) === '0'
-}
-
-/** 有暂停（风控 / 登录 / 空间不足）可以点「恢复」 */
-export function canResume(o: AutograbOverview): boolean {
-  return o.pausedUntil !== null || o.spacePaused !== null
 }
 
 /** 日历卡片上追更小标记的种类 */
@@ -157,4 +142,142 @@ export function markKey(
   episode: number
 ): string {
   return `${seriesId}:${season}:${episode}`
+}
+
+/** 要用户处理的状态：有候选待确认、空间不足、找不到 */
+const PENDING_STATUSES: ReadonlySet<AutograbStatus> = new Set([
+  'found',
+  'noSpace',
+  'notFound',
+])
+
+/** 记录里列出的状态：已转存、已入库、已跳过 */
+const HISTORY_STATUSES: ReadonlySet<AutograbStatus> = new Set([
+  'saved',
+  'done',
+  'skipped',
+])
+
+/** 待处理的集（有候选的在前，再按播出日倒序） */
+export function pendingEpisodes(o: AutograbOverview | null): AutograbEpisode[] {
+  return (o?.episodes ?? [])
+    .filter(ep => PENDING_STATUSES.has(ep.status))
+    .sort(
+      (a, b) =>
+        Number(b.status === 'found') - Number(a.status === 'found') ||
+        b.airDate.localeCompare(a.airDate) ||
+        b.episode - a.episode
+    )
+}
+
+/** 记录：已转存 / 已入库 / 已跳过的集（总览里本来就是新播出的在前） */
+export function historyEpisodes(o: AutograbOverview | null): AutograbEpisode[] {
+  return (o?.episodes ?? []).filter(ep => HISTORY_STATUSES.has(ep.status))
+}
+
+/** 侧栏角标：待处理集数；连着不带 pendingCount 的片库服务时数总览里列出的 */
+export function pendingBadge(o: AutograbOverview | null): number {
+  if (!o) return 0
+  return o.pendingCount ?? pendingEpisodes(o).length
+}
+
+/** 一部剧的待处理集 */
+export interface PendingGroup {
+  seriesId: number
+  title: string
+  episodes: AutograbEpisode[]
+}
+
+/** 待处理的集按剧分组（组按第一集出现的顺序） */
+export function groupBySeries(episodes: AutograbEpisode[]): PendingGroup[] {
+  const groups = new Map<number, PendingGroup>()
+  for (const ep of episodes) {
+    const group = groups.get(ep.seriesId)
+    if (group) group.episodes.push(ep)
+    else
+      groups.set(ep.seriesId, {
+        seriesId: ep.seriesId,
+        title: ep.seriesTitle,
+        episodes: [ep],
+      })
+  }
+  return [...groups.values()]
+}
+
+/** 实际在追的剧 */
+export function trackedSeries(o: AutograbOverview | null): AutograbSeries[] {
+  return (o?.series ?? []).filter(s => s.effectiveMode !== 'off')
+}
+
+/** 没在追的剧（在播或即将开播，实际方式是「不追」） */
+export function untrackedSeries(o: AutograbOverview | null): AutograbSeries[] {
+  return (o?.series ?? []).filter(s => s.effectiveMode === 'off')
+}
+
+/** 「11月3日」；不是 YYYY-MM-DD 返回空串 */
+export function monthDayText(date: string): string {
+  const match = /^\d{4}-(\d{2})-(\d{2})$/.exec(date)
+  return match ? `${Number(match[1])}月${Number(match[2])}日` : ''
+}
+
+/** 在追列表里一部剧的说明：「下一集 11月3日」 */
+export function nextAirText(series: AutograbSeries): string {
+  const text = series.nextAirDate ? monthDayText(series.nextAirDate) : ''
+  return text ? `下一集 ${text}` : ''
+}
+
+/** 一天里的时刻「14:00」 */
+function clockText(time: number): string {
+  const d = new Date(time)
+  const pad = (n: number): string => String(n).padStart(2, '0')
+  return `${pad(d.getHours())}:${pad(d.getMinutes())}`
+}
+
+/** 页头状态句：「开启 · 上次 14:00 检查 · 下次 14:30」；服务没给时间就只说开关 */
+export function statusLine(o: AutograbOverview): string {
+  const parts = [o.enabled ? '开启' : '已关闭']
+  if (o.running) parts.push('正在检查')
+  else if (o.enabled) {
+    if (o.lastRunAt) parts.push(`上次 ${clockText(o.lastRunAt)} 检查`)
+    if (o.nextRunAt) parts.push(`下次约 ${clockText(o.nextRunAt)}`)
+  }
+  return parts.join(' · ')
+}
+
+/** 缺什么前置条件 */
+export interface Prerequisite {
+  kind: 'login' | 'pansou' | 'paused' | 'space'
+  text: string
+  /** 就地操作；没有就只是说明 */
+  action?: { label: string; to: 'settings-pan' | 'resume' }
+}
+
+/** 前置条件与暂停原因（没问题时为空） */
+export function prerequisites(o: AutograbOverview): Prerequisite[] {
+  const list: Prerequisite[] = []
+  if (!o.ready.loggedIn)
+    list.push({
+      kind: 'login',
+      text: '还没登录 115，追更搜不了也存不了',
+      action: { label: '去登录', to: 'settings-pan' },
+    })
+  if (!o.ready.pansou)
+    list.push({
+      kind: 'pansou',
+      text: '还没填 PanSou 地址，搜不到分享',
+      action: { label: '去填写', to: 'settings-pan' },
+    })
+  if (o.pausedUntil !== null)
+    list.push({
+      kind: 'paused',
+      text: o.pauseReason ?? '追更已暂停',
+      action: { label: '恢复', to: 'resume' },
+    })
+  if (o.spacePaused)
+    list.push({
+      kind: 'space',
+      text: o.spacePaused,
+      action: { label: '恢复', to: 'resume' },
+    })
+  return list
 }

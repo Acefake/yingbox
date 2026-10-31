@@ -46,6 +46,16 @@ export const routes = [
     },
   },
   {
+    path: '/autograb',
+    name: 'Autograb',
+    component: () =>
+      import('@/features/autograb-upgrade/views/AutograbPage.vue'),
+    meta: {
+      title: '自动追更',
+      description: '剧集追更、版本升级和电影上线追踪',
+    },
+  },
+  {
     path: '/live',
     name: 'Live',
     component: () => import('@/features/live/views/LiveView.vue'),

@@ -80,14 +80,16 @@ describe('追剧日历界面', () => {
     expect(view).toContain('requestOnlineDetail')
   })
 
-  it('追更小标记：卡片外另一个按钮（不嵌套），点了展开追更面板并定位', () => {
+  it('追更小标记：卡片外另一个按钮（不嵌套），点了从右侧滑出这一集的侧板', () => {
     const card = read('features/calendar/components/CalendarRow.vue')
     const pressableEnd = card.indexOf('</UiPressable>')
     expect(card.indexOf('<AutograbMarkChip')).toBeGreaterThan(pressableEnd)
     expect(card).toContain("from '@/features/autograb'")
     const view = read('features/calendar/views/CalendarView.vue')
     expect(view).toContain('@mark="openAutograb"')
-    expect(view).toContain(':focus-key="autograbFocus"')
+    expect(view).toContain('<EpisodeGrabSheet')
+    expect(view).toContain(':episode-key="sheetKey"')
+    expect(view).not.toContain('AutograbPanel')
   })
 
   it('侧栏角标：数字放在 trailing 插槽，无障碍名称带上未看集数', () => {

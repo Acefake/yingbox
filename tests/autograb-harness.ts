@@ -31,6 +31,7 @@ export function episode(
     airDate: AIR,
     still: null,
     backdrop: null,
+    poster: null,
     itemId: null,
     fileId,
     filePath,

@@ -63,6 +63,7 @@
     <ul v-if="hits.length" class="grab-list">
       <li v-for="hit in hits" :key="hit.tmdbId" class="grab-row">
         <div class="grab-row-head">
+          <GrabPoster :src="posterOf(hit.poster)" :title="hit.title" />
           <span class="grab-name"
             >{{ hit.title }}{{ hit.year ? ` (${hit.year})` : '' }}</span
           >
@@ -81,6 +82,7 @@
     <ul v-if="data?.movies.length" class="grab-list">
       <li v-for="movie in data.movies" :key="movie.tmdbId" class="grab-row">
         <div class="grab-row-head">
+          <GrabPoster :src="posterOf(movie.poster)" :title="movie.title" />
           <span class="grab-name">
             {{ movie.title }}{{ movie.year ? ` (${movie.year})` : '' }}
           </span>
@@ -176,6 +178,7 @@ import UiInput from '@/components/ui/UiInput.vue'
 import { toast } from '@/components/ui/toast'
 import {
   GrabOverrideForm,
+  GrabPoster,
   ItemPolicyMenu,
   MOVIE_MODE_OPTIONS,
   isCustom,
@@ -184,6 +187,7 @@ import {
   overrideSummary,
   prefsSummary,
 } from '@/features/autograb'
+import { thumbSrc } from '@/services/thumbnails'
 import {
   type FolderPick,
   type FolderPreset,
@@ -323,6 +327,11 @@ async function pickFolder(pick: FolderPick): Promise<void> {
 async function runNow(): Promise<void> {
   await moviesApi().runNow()
   ov.refresh()
+}
+
+/** TMDB 海报 → 缩略图地址（列表里只要小图） */
+function posterOf(url: string | null): string | null {
+  return url ? thumbSrc(url, 300) : null
 }
 </script>
 

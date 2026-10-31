@@ -45,7 +45,7 @@ import {
   localDate,
   nextTry,
 } from './schedule-rules'
-import { applyCalendar } from './records'
+import { applyCalendar, nextAirDates, seriesPosters } from './records'
 import { createSaver } from './saver'
 import {
   type AutograbState,
@@ -70,6 +70,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   /** 最近一次日历里出现的剧 */
   let airing = new Map<number, string>()
   let lastCalendar: CalendarEpisode[] = []
+  /** 上一轮就绪后真正开始检查的时间 */
+  let lastRunAt: number | null = null
+  /** 第一次打开界面时的日历兜底只试一次（库里没有匹配的剧时日历一直是空的，不能每次刷新都重拉） */
+  let calendarTried = false
 
   // 闸门持有 state.gate 的引用：load 之后要重建
   let gateRef = createGate(
@@ -213,6 +217,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())
         return
+      lastRunAt = deps.now()
       const records = Object.values(state.episodes)
       for (const record of records.filter(r => r.status === 'saved'))
         await followSaved(record, now).catch(e =>
@@ -249,7 +254,8 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     tick,
     async overview(): Promise<AutograbOverview> {
       await ensureLoaded()
-      if (!lastCalendar.length && !running) {
+      if (!lastCalendar.length && !running && !calendarTried) {
+        calendarTried = true
         // 第一次打开面板时也要列出在播的剧
         const result = await deps
           .calendar(calendarRange(deps.now()))
@@ -266,6 +272,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
           pansou: deps.pan.pansouReady(),
         },
         airing,
+        nextAir: nextAirDates(lastCalendar, localDate(deps.now())),
+        posters: seriesPosters(lastCalendar),
+        lastRunAt,
+        intervalMs: deps.intervalMs ?? null,
         running,
         defaultFolder: deps.defaultFolder(),
       })
@@ -283,7 +293,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       const result = applySeriesPatch(
         state,
         seriesId,
-        airing.get(seriesId) ?? '',
+        airing.get(seriesId) || patch.title || '',
         patch,
         targetCid
       )

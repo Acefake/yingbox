@@ -106,7 +106,7 @@ const items = computed(
       ? [{ path: '/jav', label: '番号', icon: 'tag' as const }]
       : []),
     { path: '/netdisk', label: '网盘', icon: 'cloud' },
-    { path: '/netdisk/manage', label: '追更与洗版', icon: 'refresh' },
+    { path: '/autograb', label: '自动追更', icon: 'refresh' },
   ]
 )
 

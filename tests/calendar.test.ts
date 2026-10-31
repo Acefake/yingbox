@@ -61,6 +61,7 @@ const episode = (patch: Partial<CalendarEpisode> = {}): CalendarEpisode => ({
   airDate: TODAY,
   still: 'https://image.tmdb.org/t/p/w780/s.jpg',
   backdrop: 'yingbox-media://image/0123456789abcdef0123456789abcdef',
+  poster: null,
   itemId: 70,
   fileId: 700,
   filePath: '/tv/Severance/S03E02.mkv',
