@@ -11,7 +11,7 @@
 
 - **默认只有 NAS 本机能访问**：compose 示例把端口映射到宿主的 `127.0.0.1:31480`，给同机的反向代理用。局域网直接访问要把 `ports` 改成 `'31480:31480'`。
 - **默认不用登录**：没设 `YINGBOX_SERVER_TOKEN` 时服务不鉴权，打开网页就能用；对外监听（容器里的 `0.0.0.0`）时启动日志会警告「局域网内任何人都能访问」。需要登录时在 `.env` 里设置可选的访问令牌（至少 24 个字符、不是示例占位串，否则拒绝启动），网页端第一次打开会要求输入。
-- **服务不以 root 运行**：容器以 root 启动入口脚本，把 `/config`、`/cache` 的属主改成 `PUID:PGID` 后降权。`PUID` / `PGID` 设成媒体文件的属主，或者至少是能读这些文件的用户。
+- **服务不以 root 运行**：容器以 root 启动入口脚本，把 `/config`、`/cache` 的属主改成 `PUID:PGID` 后降权。`PUID` / `PGID` 设成媒体文件的属主，或者至少是能读这些文件的用户。入口还会把每个媒体根目录的所属组（不是 root 组）加进服务进程，所以目录对所属组可读（如 750）时，PGID 不必正好等于这个组。权限是 700 且属主不是 PUID 时仍然读不到。
 - **片库只读挂载**：浏览、扫描、刮削、播放都只需要读。要写 NFO / 图片或整理改名，去掉对应挂载的 `:ro`。
 - **镜像默认没有 ffmpeg / ffprobe**：多版本的 HDR / 杜比视界标退回看文件名，自动中文字幕不认内封字幕，按画面搜抽不了视频帧。构建参数 `WITH_CHROMIUM=1` 会一起装上（见「在线播放」），也可以设 `YINGBOX_FFPROBE` / `YINGBOX_FFMPEG` 指向挂进容器的程序。自动中文字幕默认关，设 `YINGBOX_AUTO_SUBTITLES: 'on'` 并给 `YINGBOX_OPENSUBTITLES_KEY`（见 [library-server.md](../library-server.md)）。
 
@@ -238,7 +238,7 @@ CloudDrive2（CD2）把 115、阿里云盘等挂成本地目录。CD2 自己在�
 - **从只有 `/data` 一个卷的老配置迁移**：把老目录挂到 `/config`，并在 `environment` 里设 `YINGBOX_CACHE_DIR: /config`，数据原样可用；想拆开，就停容器、把老目录里的 `media/` 及其它缓存文件移到新的缓存目录，再按示例挂 `/cache`。
 - 启动后立即退出、日志里是「访问令牌只有 N 个字符」或「示例里的占位串」：设了访问令牌但太短 / 没改占位串，换成至少 24 个字符的随机串，或删掉它不鉴权。`docker compose config | grep TOKEN` 看实际值。
 - 日志里是「PUID / PGID 应为数字」或「不能是 0」：改 `PUID` / `PGID`。
-- 网页端看得到文件夹、看不到文件，或扫描报权限错误：`PUID` / `PGID` 没有读权限。`docker compose exec yingbox setpriv --reuid=<PUID> --regid=<PGID> --clear-groups ls /media/<名字>` 可以按服务的身份试读。
+- 网页端添加文件夹报「没有权限读取」，或扫描报权限错误：启动日志会写出路径、错误码和进程 uid/gid。确认宿主机目录挂在容器的 `/media`（镜像里的 `YINGBOX_MEDIA_ROOTS=/media`，不要改成宿主机路径）。目录只有属主可读（700）时，`PUID` 必须是属主；对所属组可读（750/770）时入口会把该组加进服务进程。
 - 健康检查一直 `unhealthy`：`docker inspect --format '{{json .State.Health}}' yingbox-library` 看每次检查的输出；改了 `YINGBOX_PORT` 时健康检查会跟着用新端口。
 - 目录监控、inotify 上限、写入稳定判定等，见 [自动入库](../library-server.md#自动入库)。
 - 追更不动：日志里有「调度租约在别的实例手里」说明另一个容器（或刚被杀掉、90 秒内的旧进程）持有 `/config/scheduler.lock`；确认只有一个容器在用这份 `/config`。「网盘 / 追更：已关闭」说明设了 `YINGBOX_NETDISK=off`。
