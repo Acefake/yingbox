@@ -13,6 +13,7 @@ export { default as AutograbView } from './components/AutograbView.vue'
 export { default as EpisodeGrabSheet } from './components/EpisodeGrabSheet.vue'
 export { default as SeriesTrackButton } from './components/SeriesTrackButton.vue'
 export { default as GrabOverrideForm } from './components/GrabOverrideForm.vue'
+export { default as GrabPoster } from './components/GrabPoster.vue'
 export { default as ItemPolicyMenu } from './components/ItemPolicyMenu.vue'
 export { openAutograbSettings } from './open-settings'
 export {

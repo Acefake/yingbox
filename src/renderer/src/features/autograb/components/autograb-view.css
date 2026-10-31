@@ -1,5 +1,5 @@
 /* 自动追更页「剧集」栏的共用样式（AutograbView、PendingList、TrackedSeriesList 各自 scoped 引入）；
-   分组底板与行都用设置页的 SettingsGroup / SettingsRow，这里只管分区间距、标题和行内小字 */
+   分组底板与行用设置页的 SettingsGroup / SettingsRow，剧的海报墙用首页的 UiPosterCard，这里只管分区间距、标题和行内小字 */
 .ag-view {
   display: flex;
   flex-direction: column;
@@ -18,7 +18,6 @@
   align-items: baseline;
   gap: var(--space-2);
   margin: 0;
-  padding: 0 var(--space-4);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
@@ -51,10 +50,9 @@
   color: var(--warning);
 }
 
-.ag-row-pending {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-  white-space: nowrap;
+/* 同一分区里的第二组（没在追的连载剧）：和上一组海报墙拉开 */
+.ag-subsection {
+  margin-top: var(--space-5);
 }
 
 .ag-empty {

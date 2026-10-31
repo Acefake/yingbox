@@ -45,7 +45,7 @@ import {
   localDate,
   nextTry,
 } from './schedule-rules'
-import { applyCalendar, nextAirDates } from './records'
+import { applyCalendar, nextAirDates, seriesPosters } from './records'
 import { createSaver } from './saver'
 import {
   type AutograbState,
@@ -273,6 +273,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         },
         airing,
         nextAir: nextAirDates(lastCalendar, localDate(deps.now())),
+        posters: seriesPosters(lastCalendar),
         lastRunAt,
         intervalMs: deps.intervalMs ?? null,
         running,

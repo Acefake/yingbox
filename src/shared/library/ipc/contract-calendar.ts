@@ -33,6 +33,8 @@ export interface CalendarEpisode {
   still: string | null
   /** 剧的背景图（规则同条目的 backdrop）；没有为 null。 */
   backdrop: string | null
+  /** 剧的海报（规则同条目的 poster）；没有为 null。 */
+  poster: string | null
   /** 本地这一集的条目 id；库里没有这一集为 null。 */
   itemId: number | null
   /** 本地这一集的第一个视频文件；没有文件为 null。 */

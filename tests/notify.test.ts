@@ -254,6 +254,7 @@ describe('追更 landed', () => {
       airDate: '2026-10-20',
       still: null,
       backdrop: null,
+      poster: null,
       itemId: null,
       fileId,
       filePath: null,

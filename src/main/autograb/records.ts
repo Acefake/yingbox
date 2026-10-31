@@ -89,11 +89,23 @@ export function nextAirDates(
   return next
 }
 
+/** 每部剧的海报（日历里没有的剧不在表里） */
+export function seriesPosters(
+  episodes: CalendarEpisode[]
+): Map<number, string> {
+  const posters = new Map<number, string>()
+  for (const ep of episodes)
+    if (ep.poster && !posters.has(ep.seriesId))
+      posters.set(ep.seriesId, ep.poster)
+  return posters
+}
+
 /** 界面上的剧列表：最近日历里出现的剧 + 设过追更的剧；实际在追的排前面，再按剧名 */
 export function seriesList(
   state: AutograbState,
   airing: Map<number, string>,
-  nextAir: Map<number, string> = new Map()
+  nextAir: Map<number, string> = new Map(),
+  posters: Map<number, string> = new Map()
 ): AutograbSeries[] {
   const ids = new Set<number>([
     ...airing.keys(),
@@ -113,6 +125,7 @@ export function seriesList(
         confirmed: setting?.confirmed ?? 0,
         prefs: setting?.prefs ?? {},
         nextAirDate: nextAir.get(id) ?? null,
+        poster: posters.get(id) ?? null,
       }
     })
     .sort(

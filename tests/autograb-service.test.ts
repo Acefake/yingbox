@@ -26,9 +26,13 @@ describe('追更服务', () => {
     expect(after.series.find(s => s.seriesId === 7)!.confirmed).toBe(1)
   })
 
-  it('总览：待处理计数、上次 / 下次检查、下一集播出日', async () => {
+  it('总览：待处理计数、上次 / 下次检查、下一集播出日、海报', async () => {
     const aired = { ...episode(4, 1, '/a/04.mkv'), airDate: '2026-10-10' }
-    const upcoming = { ...episode(6), airDate: '2026-11-01' }
+    const upcoming = {
+      ...episode(6),
+      airDate: '2026-11-01',
+      poster: 'https://image.tmdb.org/t/p/w500/p.jpg',
+    }
     const h = setup([aired, upcoming, episode(5)])
     h.deps.intervalMs = 30 * 60_000
     await h.service.setSeries(7, { mode: 'confirm' })
@@ -40,6 +44,9 @@ describe('追更服务', () => {
     expect(overview.nextRunAt).toBe(h.clock.t + 30 * 60_000)
     expect(overview.series.find(s => s.seriesId === 7)!.nextAirDate).toBe(
       '2026-11-01'
+    )
+    expect(overview.series.find(s => s.seriesId === 7)!.poster).toBe(
+      'https://image.tmdb.org/t/p/w500/p.jpg'
     )
     await h.service.setEnabled(false)
     expect((await h.service.overview()).nextRunAt).toBeNull()

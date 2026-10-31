@@ -48,6 +48,7 @@ interface SeriesRow {
   originalTitle: string | null
   tmdbId: string
   backdrop: string | null
+  poster: string | null
 }
 
 /** 本地的一集。 */
@@ -62,7 +63,7 @@ interface LocalEpisode {
  * 它的本地集由 MEMBERS_SQL 找全。
  */
 const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.original_title, i.tmdb_id,
-    i.backdrop
+    i.backdrop, i.poster
   FROM media_items i JOIN libraries l ON l.id = i.library_id
   WHERE i.type = 'series' AND l.kind = 'tv' AND i.tmdb_id IS NOT NULL
     AND i.match_state IN ('auto', 'locked')
@@ -147,6 +148,7 @@ export class CalendarModule {
         originalTitle: originalOf(row.original_title, String(row.title)),
         tmdbId: String(row.tmdb_id),
         backdrop: row.backdrop === null ? null : String(row.backdrop),
+        poster: row.poster === null ? null : String(row.poster),
       }))
   }
 
@@ -214,6 +216,7 @@ export class CalendarModule {
           ? TmdbProvider.imageUrl(ep.stillPath, STILL_SIZE)
           : null,
         backdrop: row.backdrop,
+        poster: row.poster,
         itemId: mine?.itemId ?? null,
         fileId: mine?.fileId ?? null,
         filePath: mine?.filePath ?? null,

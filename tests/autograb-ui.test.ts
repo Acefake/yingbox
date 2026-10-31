@@ -368,6 +368,7 @@ const SFCS = [
   'features/autograb/components/SeriesGrabSheet.vue',
   'features/autograb/components/EpisodeGrabSheet.vue',
   'features/autograb/components/SeriesTrackButton.vue',
+  'features/autograb/components/GrabPoster.vue',
   'features/autograb-upgrade/views/AutograbPage.vue',
   'features/autograb/components/AutograbEpisodes.vue',
   'features/autograb/components/GrabOverrideForm.vue',

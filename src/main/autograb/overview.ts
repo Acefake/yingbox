@@ -64,6 +64,7 @@ export interface OverviewContext {
   ready: AutograbOverview['ready']
   airing: Map<number, string>
   nextAir: Map<number, string>
+  posters: Map<number, string>
   lastRunAt: number | null
   /** 定时一轮的间隔；不知道为 null */
   intervalMs: number | null
@@ -85,7 +86,7 @@ export function buildOverview(
     prefs: state.policy.prefs,
     ready: ctx.ready,
     today: { snaps: state.gate.snaps, receives: state.gate.receives },
-    series: seriesList(state, ctx.airing, ctx.nextAir),
+    series: seriesList(state, ctx.airing, ctx.nextAir, ctx.posters),
     episodes: listedEpisodes(state).map(episodeView),
     pendingCount: pendingCount(state),
     lastRunAt: ctx.lastRunAt,

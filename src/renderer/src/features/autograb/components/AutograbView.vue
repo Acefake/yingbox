@@ -57,6 +57,7 @@
     <PendingList
       v-if="pending.length"
       :episodes="pending"
+      :posters="posters"
       :busy="ag.busy"
       @grab="ag.grab"
       @revert="ag.revert"
@@ -163,6 +164,11 @@ const pendingBySeries = computed(() => {
     counts.set(ep.seriesId, (counts.get(ep.seriesId) ?? 0) + 1)
   return counts
 })
+/** 剧 id → 海报（待处理分组头用） */
+const posters = computed(
+  () =>
+    new Map((data.value?.series ?? []).map(s => [s.seriesId, s.poster ?? null]))
+)
 const tracked = computed(() => trackedSeries(data.value))
 const untracked = computed(() => untrackedSeries(data.value))
 const history = computed(() => historyEpisodes(data.value))

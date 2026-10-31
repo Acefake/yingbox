@@ -96,6 +96,8 @@ export interface AutograbSeries {
   prefs: AutograbPrefsOverride
   /** 下一集的播出日期 YYYY-MM-DD；日历里没有未播出的集为 null */
   nextAirDate?: string | null
+  /** 剧的海报（片库条目的 poster 原样，界面按片库图片规则换地址）；近期日历里没有这部剧时为 null */
+  poster?: string | null
 }
 
 /** 一集的追更记录 */
