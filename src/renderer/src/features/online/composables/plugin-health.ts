@@ -5,7 +5,7 @@
  * 引擎按「主机 + 路径类别」熔断，这里按「源 + 类别」记：只有搜索被封时，分类与播放照常，
  * 搜索才跳过；不分类别的记录（插件下载失败等）对整个源生效。
  */
-import { reactive } from 'vue'
+import { reactive, shallowReactive } from 'vue'
 import type { HostScope } from '../../../../../shared/contract/online'
 import { onlineApi } from '../api/online'
 import {
@@ -16,6 +16,13 @@ import {
 } from '../utils/plugin-health'
 
 /** 「源名 类别」→ 不可用记录；只放仍在冷却期的记录。不分类别的记录类别写 all。 */
+export const pluginProbeStates = shallowReactive(
+  new Map<
+    string,
+    { status: 'checking' | 'unknown' | 'ok' | 'fail'; note: string }
+  >()
+)
+
 const health = reactive(new Map<string, PluginHealth>())
 const timers = new Map<string, ReturnType<typeof setTimeout>>()
 
@@ -47,6 +54,7 @@ export function markPluginUnavailable(name: string, trip: PluginHealth): void {
  * （搜索成功不代表分类恢复），不给清全部。
  */
 export function markPluginOk(name: string, scope?: HostScope): void {
+  pluginProbeStates.delete(name)
   for (const key of keysOf(name))
     if (!scope || key === keyOf(name, scope) || key === keyOf(name, 'all'))
       drop(key)
@@ -82,18 +90,34 @@ export async function retryPlugin(name: string): Promise<void> {
 
 /** 全部重试（数据源面板「一键更新」时）：解除所有熔断并清空记录。 */
 export async function retryAllPlugins(): Promise<void> {
+  pluginProbeStates.clear()
   for (const key of [...health.keys()]) drop(key)
   await onlineApi().resetBlocks()
 }
 
 /** 数据源列表里插件源一行的状态：不可用时标红、写明原因并提供「重试」。 */
 export function pluginRowProps(name: string): {
-  status: 'ok' | 'fail'
+  status: 'ok' | 'fail' | 'unknown' | 'checking'
+  checking?: boolean
   note: string
   checkable: boolean
   checkLabel: string
 } {
   const value = pluginHealthOf(name)
+  const probe = pluginProbeStates.get(name)
+  if (probe)
+    return {
+      status:
+        probe.status === 'checking'
+          ? 'checking'
+          : value
+            ? 'fail'
+            : probe.status,
+      note: value ? healthNote(value, Date.now()) : probe.note,
+      checking: probe.status === 'checking',
+      checkable: probe.status === 'fail' || !!value,
+      checkLabel: '重试数据源',
+    }
   return {
     status: value ? 'fail' : 'ok',
     note: value ? healthNote(value, Date.now()) : '',

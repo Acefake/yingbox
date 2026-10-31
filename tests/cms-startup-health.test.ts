@@ -1,9 +1,15 @@
-/** CMS 健康缓存与测活：保留用户开关，按能力冷却，支持强制重试和取消。 */
+/** 启动全量检测自动选择；常规复测保留开关，并支持冷却、强制重试和取消。 */
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { ref } from 'vue'
 
 const fake = vi.hoisted(() => ({
   getJson: vi.fn(),
+  vod: vi.fn(),
+  plugins: {
+    value: [] as { name: string; api: string; ext: string; type: 3 }[],
+  },
+  selectedPlugins: { value: [] as string[] },
+  avSelected: new Set<string>(),
   selected: new Set<string>(),
   builtins: [
     { name: '可用源', api: 'https://ok.example/api.php/provide/vod' },
@@ -24,13 +30,27 @@ vi.mock('@/features/settings', () => ({ getSetting: () => fake.adult }))
 vi.mock('@/features/av', () => ({
   useAvSources: () => ({
     allSources: fake.av,
+    enabledApis: {
+      has: (api: string) => fake.avSelected.has(api),
+      add: (api: string) => fake.avSelected.add(api),
+      delete: (api: string) => fake.avSelected.delete(api),
+    },
     addSources: () => 0,
   }),
 }))
 vi.mock('../src/renderer/src/features/online/api/online', async original => ({
   ...(await original<Record<string, unknown>>()),
   getJson: fake.getJson,
+  onlineApi: () => ({ vod: fake.vod }),
 }))
+vi.mock(
+  '../src/renderer/src/features/online/composables/catspider-sites',
+  () => ({
+    CATSPIDER_SITES: fake.plugins,
+    selectedCatSpider: fake.selectedPlugins,
+    isAdultCatSpiderSite: (site: { api: string }) => site.api === 'csp_jable',
+  })
+)
 vi.mock(
   '../src/renderer/src/features/online/composables/use-online-search',
   async () => {
@@ -69,6 +89,10 @@ import { cmsHealth } from '../src/renderer/src/features/online/composables/cms-h
 beforeEach(() => {
   vi.resetAllMocks()
   fake.adult = false
+  fake.avSelected.clear()
+  fake.plugins.value = []
+  fake.selectedPlugins.value = []
+  fake.vod.mockResolvedValue({ success: true, data: { list: [] } })
   fake.av.value = []
   fake.loadPlugins.mockResolvedValue(undefined)
   fake.syncSubscription.mockResolvedValue(0)
@@ -82,6 +106,121 @@ beforeEach(() => {
 })
 
 describe('内置 CMS 自动启停', () => {
+  it('每次启动无视新鲜缓存和关闭状态，检测后可用开启、失败关闭', async () => {
+    const ok = fake.builtins[0].api
+    const bad = fake.builtins[1].api
+    fake.selected.add(bad)
+    cmsHealth.success(ok, 'browse')
+    cmsHealth.success(bad, 'browse')
+    const stop = startSourceMonitoring()
+    try {
+      await refreshSources(true)
+      expect(fake.selected.has(ok)).toBe(true)
+      expect(fake.selected.has(bad)).toBe(false)
+      expect(fake.selected.has(fake.custom.value[0].api)).toBe(true)
+      expect(fake.selected.has(fake.subscribed.value[0].api)).toBe(true)
+      expect(
+        fake.getJson.mock.calls.filter(([url]) => String(url).startsWith(ok))
+      ).toHaveLength(1)
+      fake.getJson.mockClear()
+      await refreshSources()
+      expect(
+        fake.getJson.mock.calls.some(([url]) => String(url).startsWith(ok))
+      ).toBe(false)
+    } finally {
+      stop()
+    }
+    fake.selected.delete(ok)
+    fake.getJson.mockClear()
+    const next = startSourceMonitoring()
+    try {
+      await refreshSources(true)
+      expect(
+        fake.getJson.mock.calls.some(([url]) => String(url).startsWith(ok))
+      ).toBe(true)
+      expect(fake.selected.has(ok)).toBe(true)
+    } finally {
+      next()
+    }
+  })
+  it('启动时 CMS 响应无效会关闭来源，后台断线不误关已选来源', async () => {
+    const api = fake.builtins[0].api
+    fake.selected.add(api)
+    fake.getJson.mockResolvedValue({ list: '错误页' })
+    await refreshSources(true)
+    expect(fake.selected.has(api)).toBe(false)
+    fake.selected.add(api)
+    const { OnlineTransportError } =
+      await import('../src/renderer/src/features/online/api/errors')
+    fake.getJson.mockRejectedValue(
+      new OnlineTransportError(new Error('后台断开'))
+    )
+    await refreshSources(true)
+    expect(fake.selected.has(api)).toBe(true)
+  })
+  it('启动检查插件的真实搜索响应，含关闭源；不向普通模式的成人插件发请求', async () => {
+    fake.plugins.value = [
+      { name: '好插件', api: 'good', ext: 'good.js', type: 3 },
+      { name: '坏插件', api: 'bad', ext: 'bad.js', type: 3 },
+      { name: '成人插件', api: 'csp_jable', ext: 'adult.js', type: 3 },
+    ]
+    fake.selectedPlugins.value = ['bad', 'csp_jable']
+    fake.vod.mockImplementation(async (request: { siteName: string }) =>
+      request.siteName === '坏插件'
+        ? { success: false, error: '不可访问' }
+        : { success: true, data: { list: [] } }
+    )
+    await refreshSources(true)
+    expect(fake.selectedPlugins.value).toEqual(['csp_jable', 'good'])
+    expect(fake.vod.mock.calls.map(([request]) => request.siteName)).toEqual([
+      '好插件',
+      '坏插件',
+    ])
+    expect(
+      fake.vod.mock.calls.every(([request]) => request.background === true)
+    ).toBe(true)
+  })
+  it('成人模式检测 AV CMS 和插件并自动启停', async () => {
+    fake.adult = true
+    fake.av.value = [
+      { name: 'AV好源', api: 'https://avgood.example/api' },
+      { name: 'AV坏源', api: 'https://avbad.example/api' },
+    ]
+    fake.avSelected.add(fake.av.value[1].api)
+    fake.plugins.value = [
+      { name: '成人插件', api: 'csp_jable', ext: 'adult.js', type: 3 },
+    ]
+    fake.getJson.mockImplementation(async (url: string) => {
+      if (url.startsWith('https://avbad')) throw new Error('超时')
+      return { list: [] }
+    })
+    await refreshSources(true)
+    expect(fake.avSelected.has(fake.av.value[0].api)).toBe(true)
+    expect(fake.avSelected.has(fake.av.value[1].api)).toBe(false)
+    expect(fake.selectedPlugins.value).toContain('csp_jable')
+  })
+  it('源在检测中被删除，迟到的成功响应不重新启用', async () => {
+    const original = fake.custom.value
+    let release!: () => void
+    const gate = new Promise<void>(resolve => {
+      release = resolve
+    })
+    fake.getJson.mockImplementation(async () => {
+      await gate
+      return { list: [] }
+    })
+    const run = checkAll(true, true)
+    await vi.waitFor(() => expect(fake.getJson).toHaveBeenCalled())
+    fake.custom.value = []
+    release()
+    try {
+      await run
+      expect(fake.selected.has(original[0].api)).toBe(false)
+    } finally {
+      fake.custom.value = original
+    }
+  })
+
   it('停止监视器也取消等待中的强制轮次', async () => {
     const api = fake.builtins[0].api
     fake.selected.add(api)
@@ -349,7 +488,7 @@ describe('内置 CMS 自动启停', () => {
       }
     }
   )
-  it('启动仅检测已启用源，失败不取消勾选；手动关闭的可用源不被重开', async () => {
+  it('面板刷新仅检测已启用源，失败不取消勾选；手动关闭的可用源不被重开', async () => {
     fake.selected.add(fake.builtins[1].api)
     fake.loadPlugins.mockRejectedValue(new Error('插件加载失败'))
     fake.syncSubscription.mockRejectedValue(new Error('订阅不可达'))
