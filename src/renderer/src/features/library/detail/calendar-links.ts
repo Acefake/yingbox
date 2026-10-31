@@ -29,6 +29,15 @@ export function libraryImage(
   return itemImage(url, width)
 }
 
+/**
+ * 片库里一部剧的海报（原始地址，再经 libraryImage 换成界面地址）；条目不存在或没有海报为 null。
+ * 追更列表里的剧不在近期日历时，用它补海报。
+ */
+export async function fetchItemPoster(itemId: number): Promise<string | null> {
+  const node = await libraryBridge()?.getItem(itemId)
+  return node?.poster ?? null
+}
+
 /** 某个文件的播放进度键：桌面端是文件路径，网页端是片库服务的流地址。 */
 export function libraryProgressKey(
   fileId: number | null,

@@ -69,6 +69,7 @@
       v-if="data"
       :tracked="tracked"
       :untracked="untracked"
+      :posters="posters"
       :pending="pendingBySeries"
       :busy="tracking"
       @open="openSheet"
@@ -140,6 +141,7 @@ import { openAutograbSettings } from '../open-settings'
 import { TV_MODE_OPTIONS, optionLabel, prefsSummary } from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
 import { useFullAutoFolder } from '../use-full-auto-folder'
+import { useSeriesPosters } from '../use-series-posters'
 import AutograbEpisodes from './AutograbEpisodes.vue'
 import PendingList from './PendingList.vue'
 import SeriesGrabSheet from './SeriesGrabSheet.vue'
@@ -165,10 +167,7 @@ const pendingBySeries = computed(() => {
   return counts
 })
 /** 剧 id → 海报（待处理分组头用） */
-const posters = computed(
-  () =>
-    new Map((data.value?.series ?? []).map(s => [s.seriesId, s.poster ?? null]))
-)
+const posters = useSeriesPosters(() => data.value?.series ?? [])
 const tracked = computed(() => trackedSeries(data.value))
 const untracked = computed(() => untrackedSeries(data.value))
 const history = computed(() => historyEpisodes(data.value))
