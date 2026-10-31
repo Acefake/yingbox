@@ -1,12 +1,12 @@
 # 安装和升级 NAS 专用版
 
-NAS 专用版保留原首页，提供片库扫描、刮削、NFO、整理、浏览器播放，以及完整的 115 网盘、磁力离线、自动追更、洗版、电影追踪和入库通知。首页影片卡片可找网盘资源。桌面版使用原来的构建与功能。
+NAS 专用版与完整网页版保持一致，仅移除番号与 AV。提供在线搜索与播放、下载、直播、日历、片库扫描、刮削、NFO、整理，以及完整的 115 网盘、磁力离线、自动追更、洗版、电影追踪和入库通知。桌面版使用原来的构建与功能。
 
 ## 安装
 
 准备 `docker-compose.nas.yml`，把 `docker/nas.env.example` 复制到它旁边并命名为 `.env`。这两个文件即可部署，不需要把源码放到 NAS。
 
-在 `.env` 填写 `PUID`、`PGID` 和 `YINGBOX_MEDIA_DIR`，保留 `YINGBOX_VERSION=stable`。UID/GID 使用媒体文件所属用户的值，不能为 0。媒体挂载可写，NFO、整理和网盘入库才能保存结果。
+在 `.env` 填写 `PUID`、`PGID` 和 `YINGBOX_MEDIA_DIR`，保留 `YINGBOX_VERSION=stable`。UID/GID 使用媒体文件所属用户的值，不能为 0。目录只有属主可读时，PUID 必须是属主；目录对所属组可读时，入口会把该组加进服务进程。媒体挂载目标保持容器内的 `/media`，不要把 `YINGBOX_MEDIA_ROOTS` 写成宿主机路径。媒体挂载可写，NFO、整理和网盘入库才能保存结果。
 
 镜像地址为 `ghcr.io/acefake/yingbox-nas:stable`，公开提供 `linux/amd64` 和 `linux/arm64`，拉取无需登录。Docker 按 NAS 架构选择镜像。Compose 同时启动独立更新服务，每天北京时间 04:00 检查稳定版；有新版时自动拉取并重新部署影盒。
 
@@ -15,7 +15,7 @@ docker compose -f docker-compose.nas.yml up -d
 docker compose -f docker-compose.nas.yml ps
 ```
 
-状态显示 `healthy` 后，打开 `http://NAS的IP:31480/`。在设置中填写 TMDB、PanSou/Torznab、115 登录和默认转存目录。片库添加文件夹时选择 `/media` 下的目录。追更、洗版和电影追踪在“追更与洗版”页管理，离线下载在“网盘”页查看。
+状态显示 `healthy` 后，打开 `http://NAS的IP:31480/`。在设置中填写 TMDB、PanSou/Torznab、115 登录和默认转存目录。片库添加文件夹时选择 `/media` 下的目录。电影 / 剧集的库设置提供“添加 115 文件夹”，可选择已登录账号中的网盘目录，扫描并刮削后播放；无需 CloudDrive2 挂载。115 远程库仅手动扫描，不直接写 NFO 或整理网盘文件。离线下载在“网盘”页查看。
 
 默认提供局域网访问，未设置访问令牌时局域网内所有人都能操作片库。需要登录时填写 `YINGBOX_SERVER_TOKEN`，至少 24 个随机字符。反向代理部署填写 `YINGBOX_BIND=127.0.0.1`，HTTPS 入口同时填写 `YINGBOX_PUBLIC_ORIGIN`；代理配置见 [完整部署说明](nas.md#反向代理与-https)。
 

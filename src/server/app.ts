@@ -40,6 +40,7 @@ import { createAuth, sameOrigin } from './http/auth'
 import { HttpError, Router, fail } from './http/router'
 import { createStaticHandler } from './http/static'
 import { serverLibraryHost } from './library-host'
+import { createPan115Library } from './netdisk/library'
 import { NETDISK_FILES, libraryClient, startNetdisk } from './netdisk'
 import { ServerSettingsStore } from './settings-store'
 import { registerServerSettingsRoutes } from './settings-store/routes'
@@ -127,6 +128,7 @@ export async function createServerApp(
     fetch: options.notifyFetch,
     log: message => log(`[notify] ${message}`),
   })
+  const panLibrary = createPan115Library(() => netdisk?.pan115 ?? null)
   const libraryHost = serverLibraryHost(env)
 
   const codec = options.codec ?? defaultCodec(log)
@@ -139,6 +141,7 @@ export async function createServerApp(
   const service = createLibraryService(
     {
       dbPath,
+      remote: panLibrary.remote,
       mediaDir,
       fetch: options.fetch ?? (await createFetch(config.fetch)),
       log: message => log(`[library] ${message}`),
@@ -155,7 +158,6 @@ export async function createServerApp(
     },
     { ...config.monitor, watch: options.watch }
   )
-  await service.start()
   // 服务端设置（网页端写、网盘模块读）；刮削偏好（元数据语言、图片清晰度）启动时与改动后下发给片库
   await syncScrapePrefs(
     {
@@ -186,13 +188,18 @@ export async function createServerApp(
     fetch: describeFetch(config.fetch),
   }))
   registerLibraryRoutes(router, {
+    checkRemoteRoot: panLibrary.checkRoot,
     service,
     secrets,
     mediaRoots: config.mediaRoots,
   })
-  registerMediaRoutes(router, { service, thumbnails })
+  registerMediaRoutes(router, {
+    service,
+    thumbnails,
+    remoteStream: panLibrary.stream,
+  })
   registerSubtitleRoutes(router, service)
-  registerFsRoutes(router, config.mediaRoots)
+  registerFsRoutes(router, config.mediaRoots, log)
   // 构建入口决定登记完整在线模块或 NAS 元数据服务。
   const features = (options.features ?? registerServerFeatures)(
     router,
@@ -223,6 +230,7 @@ export async function createServerApp(
     log,
     fetch: options.netdiskFetch,
   })
+  await service.start()
   const serveStatic = config.webDir ? createStaticHandler(config.webDir) : null
 
   const handle: Handler = async request => {

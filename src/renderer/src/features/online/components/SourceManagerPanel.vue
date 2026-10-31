@@ -17,6 +17,9 @@
           <SourceManagerToolbar v-model="activeTab" :tabs="tabs" />
 
           <div class="smp-body">
+            <p class="smp-startup-note">
+              每次启动自动检测：可用源开启，不可用源关闭。手动调整保留到下次启动。
+            </p>
             <!-- 在线 CMS / 插件 / 自定义源 -->
             <OnlineSourcesTab
               v-if="activeTab === 'online'"
@@ -177,5 +180,14 @@ const showAdd = ref(false)
   .panel-fade-leave-to .smp-panel {
     transform: none;
   }
+}
+</style>
+
+<style scoped>
+.smp-startup-note {
+  margin: 0 0 var(--space-4);
+  padding: 0 var(--space-4);
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
 }
 </style>

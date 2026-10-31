@@ -1,3 +1,5 @@
+import { stat } from 'node:fs/promises'
+import { isRemotePath } from '../../shared/webdav/remote-path'
 /**
  * 片库 API：POST rpc（复用 IPC 契约与 engine/rpc.ts 的参数校验）+ GET events（SSE 推送）。
  *
@@ -20,6 +22,7 @@ import { resolveWithinRoots } from './roots'
 export interface LibraryRouteDeps {
   service: LibraryService
   secrets: FileSecretStore
+  checkRemoteRoot?: (root: string) => Promise<void>
   mediaRoots: readonly string[]
 }
 
@@ -46,6 +49,9 @@ async function checkLibraryRoot(
       'invalid-params',
       `只能添加媒体根目录（${roots.join('、')}）里的文件夹`
     )
+  const info = await stat(resolved).catch(() => null)
+  if (!info?.isDirectory())
+    throw new LibraryError('invalid-params', '请选择存在且可读取的文件夹')
   return { ...(params as object), root: resolved }
 }
 
@@ -56,8 +62,16 @@ async function invoke(
   params: unknown
 ): Promise<InvokeResult> {
   try {
-    if (method === 'addLibrary')
-      params = await checkLibraryRoot(params, deps.mediaRoots)
+    if (method === 'addLibrary') {
+      const root = (params as { root?: unknown } | null)?.root
+      if (
+        typeof root === 'string' &&
+        isRemotePath(root) &&
+        deps.checkRemoteRoot
+      ) {
+        await deps.checkRemoteRoot(root)
+      } else params = await checkLibraryRoot(params, deps.mediaRoots)
+    }
   } catch (error) {
     if (error instanceof LibraryError) return rejected(error)
     throw error

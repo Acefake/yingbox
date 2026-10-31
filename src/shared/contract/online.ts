@@ -52,6 +52,8 @@ const VOD_ACTIONS = [
 export interface VodRequest {
   action: CatSpiderAction | 'parse'
   siteName: string
+  /** 后台检测不触发浏览器代抓或交互验证窗口。 */
+  background?: boolean
   [field: string]: unknown
 }
 
@@ -117,6 +119,11 @@ export const online = defineDomain('online', {
     const request = record<VodRequest>(a[0], 'request')
     oneOf(request.action, 'request.action', VOD_ACTIONS)
     str(request.siteName, 'request.siteName')
+    if (
+      request.background !== undefined &&
+      typeof request.background !== 'boolean'
+    )
+      throw new ContractError('参数 background 应为布尔值')
     return [request]
   }),
   /** 解除插件源的主机熔断（引擎与浏览器代抓两边）；不给主机则全部解除 */

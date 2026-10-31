@@ -3,9 +3,11 @@
 #
 # - 以 root 启动（默认）：把配置目录（YINGBOX_DATA_DIR，默认 /config）与缓存目录（YINGBOX_CACHE_DIR，默认 /cache）
 #   里属主不是 PUID:PGID 的条目改过去（chown -h，不跟随符号链接；属主已经对的不动，重启不重复遍历改权限），
-#   再用 setpriv 换成 PUID:PGID 并清掉附加组，exec 服务。PUID / PGID 默认 1000（镜像里 node 用户）。
-# - 不以 root 启动（compose 的 user: 或 docker run --user）：不改属主，原样 exec 服务；PUID / PGID 不起作用。
-# - 片库目录（/media）只读挂载，从不改它的属主：服务用户要能读到媒体文件，PUID / PGID 设成媒体文件的属主即可。
+#   再用 setpriv 换成 PUID:PGID。附加组只保留 PGID，以及媒体根目录自己的所属组（跳过 root 组），然后 exec 服务。
+#   PUID / PGID 默认 1000（镜像里 node 用户）。
+# - 不以 root 启动（compose 的 user: 或 docker run --user）：不改属主，原样 exec 服务；PUID / PGID 不起作用，也不会加入媒体目录的组。
+# - 片库目录从不改属主。目录对所属组可读（如 750）而 PGID 不是这个组时，入口会把该组加进来。
+#   权限是 700 且属主不是 PUID 时仍然读不到，需要把 PUID 设成属主。
 set -eu
 
 if [ "$(id -u)" != 0 ]; then
@@ -43,4 +45,26 @@ else
   echo "[yingbox] 无法创建下载目录 $download_dir，在线下载不可用" >&2
 fi
 
-exec setpriv --reuid="$puid" --regid="$pgid" --clear-groups -- "$@"
+# 媒体目录的所属组加进附加组（跳过 root 组）。
+# 目录是 750、PGID 又不是这个组时，只改 uid 仍然读不到；用户把目录挂进来就是要给服务读。
+# 700 且属主不是 PUID 时附加组帮不上忙，启动日志会说明。
+media_groups="$pgid"
+old_ifs=$IFS
+IFS=':'
+for root in ${YINGBOX_MEDIA_ROOTS:-/media}; do
+  [ -d "$root" ] || continue
+  gid=$(stat -c '%g' "$root" 2>/dev/null || stat -f '%g' "$root" 2>/dev/null || true)
+  case "$gid" in
+    '' | 0 | "$pgid") continue ;;
+  esac
+  case ",$media_groups," in
+    *",$gid,"*) ;;
+    *) media_groups="$media_groups,$gid" ;;
+  esac
+done
+IFS=$old_ifs
+if [ "$media_groups" != "$pgid" ]; then
+  echo "[yingbox] 媒体目录所属组加入服务进程：$media_groups" >&2
+fi
+
+exec setpriv --reuid="$puid" --regid="$pgid" --clear-groups --groups="$media_groups" -- "$@"

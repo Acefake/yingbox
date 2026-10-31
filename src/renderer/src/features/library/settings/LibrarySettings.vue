@@ -61,6 +61,7 @@
     />
 
     <WebDavGroup v-if="webdavAvailable" :section="section" />
+    <Pan115LibraryGroup v-if="isWeb && !isJav" :section="section" />
 
     <!-- 元数据源 -->
     <SettingsGroup title="元数据">
@@ -119,12 +120,15 @@ import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
 import WebDavGroup from '../webdav/WebDavGroup.vue'
+import Pan115LibraryGroup from './Pan115LibraryGroup.vue'
+import { isWebRuntime } from '@/services/library-server'
 import { webdavApi } from '../webdav/webdav-api'
 import { folderDescription } from './settings-rules'
 
 const props = defineProps<{ open: boolean; section: LibrarySection }>()
 const emit = defineEmits<{ close: [] }>()
 
+const isWeb = isWebRuntime()
 const bridge = libraryBridge()
 /** WebDAV / Alist 源在桌面端主进程里，网页端没有。 */
 const webdavAvailable = Boolean(webdavApi())

@@ -75,10 +75,11 @@ installLibraryProgress()
 installPlayerHost(to => void router.push(to))
 
 // AI 助手的私密技能：设置打开时才下载并登记（独立 chunk），关闭时卸载并清空对话上下文
-installPrivateSkills({
-  enabled: () => aiAvailable() && getSetting('app.adultMode'),
-  load: () => import('@/features/av/assistant'),
-})
+if (import.meta.env.MODE !== 'nas')
+  installPrivateSkills({
+    enabled: () => aiAvailable() && getSetting('app.adultMode'),
+    load: () => import('@/features/av/assistant'),
+  })
 
 const app = createApp(App)
 app.use(router)

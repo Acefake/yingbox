@@ -6,6 +6,13 @@ import { mapWithConcurrency } from '@/utils/concurrency'
 import { useStorage } from '@vueuse/core'
 import { cmsHealth } from './cms-health'
 import { CMS_HEALTH_TTL } from '../utils/cms-health'
+import { OnlineTransportError } from '../api/errors'
+import { checkStartupPlugin } from './startup-plugin-check'
+import {
+  CATSPIDER_SITES,
+  isAdultCatSpiderSite,
+  selectedCatSpider,
+} from './catspider-sites'
 import { getJson, withQuery } from '../api/online'
 import { useAvSources } from '@/features/av'
 import {
@@ -35,6 +42,7 @@ let monitoringReady: boolean | undefined
 let checkRun: {
   generation: number
   force: boolean
+  autoSelect: boolean
   promise: Promise<void>
 } | null = null
 const backgroundCurrent = (generation: number): boolean =>
@@ -46,7 +54,7 @@ export const avCheckingSet = reactive<Set<string>>(new Set())
 export const syncingAv = ref(false)
 export const checkingAll = ref(false)
 export const checkedCount = ref(0)
-/** 本轮实际安排的探测数量（不含缓存未过期与手动关闭的源）。 */
+/** 本轮实际安排的探测数量，启动轮次包含所有可见数据源。 */
 export const checkingTotal = ref(0)
 
 export const statusOf = (api: string): SiteStatus =>
@@ -67,7 +75,7 @@ export const checkOnlineSite = async (
   api: string,
   force = true,
   isCurrent: () => boolean = () => true
-): Promise<void> => {
+): Promise<boolean | undefined> => {
   if (!isCurrent()) return
   if (checkingSet.has(api)) return
   if (!force && !cmsHealth.due(api)) return
@@ -82,18 +90,23 @@ export const checkOnlineSite = async (
     if (!isCurrent()) return
     if (!Array.isArray(data?.list)) throw new Error('接口响应缺少列表')
     health.success()
+    return true
   } catch (error) {
-    if (isCurrent()) health.failure(error)
+    if (isCurrent()) {
+      health.failure(error)
+      if (!(error instanceof OnlineTransportError)) return false
+    }
   } finally {
     checkingSet.delete(api)
   }
+  return undefined
 }
 
 export const checkAvSite = async (
   api: string,
   force = true,
   isCurrent: () => boolean = () => true
-): Promise<void> => {
+): Promise<boolean | undefined> => {
   if (!isCurrent()) return
   if (avCheckingSet.has(api)) return
   if (!force && !cmsHealth.due(api)) return
@@ -110,30 +123,39 @@ export const checkAvSite = async (
     if (!isCurrent()) return
     if (!Array.isArray(data?.list)) throw new Error('接口响应缺少列表')
     health.success()
+    return true
   } catch (error) {
-    if (isCurrent()) health.failure(error)
+    if (isCurrent()) {
+      health.failure(error)
+      if (!(error instanceof OnlineTransportError)) return false
+    }
   } finally {
     avCheckingSet.delete(api)
   }
+  return undefined
 }
 
 /**
  * 手动检测全部源；force=false 时只检测已启用且过期的缓存。
- * AV 源仅在成人模式下参与。
+ * autoSelect 用于启动轮次：绕过缓存、检测关闭源，并按结果同步开关。AV 仅在成人模式下参与。
  */
-export const checkAll = (force = true): Promise<void> => {
+export const checkAll = (force = true, autoSelect = false): Promise<void> => {
   const generation = sourceGeneration
   const isCurrent = (): boolean =>
     generation === sourceGeneration && (force || monitoringReady !== false)
   if (!isCurrent()) return Promise.resolve()
   if (checkRun) {
-    if (checkRun.generation === generation && (checkRun.force || !force))
+    if (
+      checkRun.generation === generation &&
+      (checkRun.force || !force) &&
+      (checkRun.autoSelect || !autoSelect)
+    )
       return checkRun.promise
     return checkRun.promise.then(() =>
-      isCurrent() ? checkAll(force) : undefined
+      isCurrent() ? checkAll(force, autoSelect) : undefined
     )
   }
-  const run = { generation, force, promise: Promise.resolve() }
+  const run = { generation, force, autoSelect, promise: Promise.resolve() }
   checkingAll.value = true
   checkedCount.value = 0
   run.promise = Promise.resolve().then(async () => {
@@ -146,7 +168,15 @@ export const checkAll = (force = true): Promise<void> => {
           .filter(
             api => force || (selectedSites.has(api) && cmsHealth.due(api))
           )
-          .map(api => () => checkOnlineSite(api, force, isCurrent)),
+          .map(api => async () => {
+            const current = (): boolean =>
+              isCurrent() && onlineApis.value.includes(api)
+            const result = await checkOnlineSite(api, force, current)
+            if (autoSelect && current() && result !== undefined) {
+              if (result) selectedSites.add(api)
+              else selectedSites.delete(api)
+            }
+          }),
         ...(includesAv
           ? avSources.value
               .filter(
@@ -154,7 +184,38 @@ export const checkAll = (force = true): Promise<void> => {
                   force ||
                   (avEnabledApis.has(site.api) && cmsHealth.due(site.api))
               )
-              .map(site => () => checkAvSite(site.api, force, isCurrent))
+              .map(site => async () => {
+                const current = (): boolean =>
+                  isCurrent() &&
+                  getSetting('app.adultMode') &&
+                  avSources.value.some(value => value.api === site.api)
+                const result = await checkAvSite(site.api, force, current)
+                if (autoSelect && current() && result !== undefined) {
+                  if (result) avEnabledApis.add(site.api)
+                  else avEnabledApis.delete(site.api)
+                }
+              })
+          : []),
+        ...(autoSelect
+          ? CATSPIDER_SITES.value
+              .filter(site => includesAv || !isAdultCatSpiderSite(site))
+              .map(site => async () => {
+                const current = (): boolean =>
+                  isCurrent() &&
+                  (!isAdultCatSpiderSite(site) ||
+                    getSetting('app.adultMode')) &&
+                  CATSPIDER_SITES.value.some(
+                    value => value.api === site.api && value.ext === site.ext
+                  )
+                const result = await checkStartupPlugin(site, current)
+                if (!current() || result === undefined) return
+                const selected = selectedCatSpider.value.filter(
+                  api => api !== site.api
+                )
+                selectedCatSpider.value = result
+                  ? [...selected, site.api]
+                  : selected
+              })
           : []),
       ]
       checkingTotal.value = tasks.length
@@ -259,17 +320,26 @@ export const syncAvSources = async (
   }
 }
 
-let refreshing: { generation: number; promise: Promise<void> } | null = null
+let refreshing: {
+  generation: number
+  startup: boolean
+  promise: Promise<void>
+} | null = null
 
 /**
- * 沿用清单与健康缓存，后台同步过期清单并复测到期的已启用源。
+ * 后台同步过期清单；启动轮次检测全部源并自动选择，面板刷新复用健康缓存。
  * 影盒每次启动与数据源面板打开时调用；进行中重复调用会复用同一次刷新。
  */
-export const refreshSources = (): Promise<void> => {
+export const refreshSources = (startup = false): Promise<void> => {
   const generation = sourceGeneration
   if (!backgroundCurrent(generation)) return Promise.resolve()
-  if (refreshing?.generation === generation) return refreshing.promise
-  const run = { generation, promise: Promise.resolve() }
+  if (refreshing?.generation === generation) {
+    if (!startup || refreshing.startup) return refreshing.promise
+    return refreshing.promise.then(() =>
+      backgroundCurrent(generation) ? refreshSources(true) : undefined
+    )
+  }
+  const run = { generation, startup, promise: Promise.resolve() }
   run.promise = Promise.resolve().then(async () => {
     try {
       if (!backgroundCurrent(generation)) return
@@ -283,7 +353,7 @@ export const refreshSources = (): Promise<void> => {
           ? syncSubscription(() => backgroundCurrent(generation)).catch(() => 0)
           : Promise.resolve(),
       ])
-      if (backgroundCurrent(generation)) await checkAll(false)
+      if (backgroundCurrent(generation)) await checkAll(startup, startup)
     } catch {
       // 刷新失败不影响其余功能，下次触发时重试。
     } finally {
@@ -304,7 +374,7 @@ export function startSourceMonitoring(
       sourceGeneration++
       monitoringReady = ready
       cmsHealth.invalidateRequests()
-      if (ready) void refreshSources()
+      if (ready) void refreshSources(true)
     },
     { immediate: true, flush: 'sync' }
   )

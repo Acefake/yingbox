@@ -92,6 +92,11 @@ beforeAll(async () => {
       },
       fetch: async () => new Response('', { status: 404 }),
       netdiskFetch: async () => new Response('', { status: 404 }),
+      engine: {
+        invoke: async channel => ({ channel }),
+        subscribe: () => () => {},
+        shutdown: async () => {},
+      },
       features: (router, registry, deps) =>
         registerServerFeatures(router, registry, { ...deps, net }),
     }
@@ -124,17 +129,23 @@ describe('NAS 服务', () => {
       })
     }
   })
-  it('没有在线引擎、流代理和直播能力', async () => {
+  it('在线引擎、播放代理和直播与完整服务保持一致', async () => {
+    const online = await call('/api/engine/rpc', {
+      channel: 'online:tmdb',
+      args: ['/search/movie'],
+    })
+    expect(online.status).toBe(200)
+    expect(await online.json()).toMatchObject({
+      ok: true,
+      value: { channel: 'online:tmdb' },
+    })
+    const stream = await call('/api/stream?src=http://127.0.0.1/video.mp4')
+    expect(stream.status).toBe(403)
     expect(
-      (await call('/api/engine/rpc', { channel: 'online:tmdb', args: [] }))
-        .status
-    ).toBe(404)
-    expect((await call('/api/engine/events')).status).toBe(404)
-    expect(
-      (await call('/api/stream?src=https://example.com/video.mp4')).status
-    ).toBe(404)
-    const response = await call('/api/domains/iptv/list', { args: [] })
-    expect(await response.json()).toMatchObject({ ok: false })
+      await (
+        await call('/api/domains/iptv/pickPlaylistFile', { args: [] })
+      ).json()
+    ).toMatchObject({ ok: true })
   })
   it('元数据接口先鉴权，错误参数不发出请求', async () => {
     expect(

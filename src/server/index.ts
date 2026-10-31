@@ -11,6 +11,7 @@ import { createServerApp } from './app'
 import { describeMonitor, loadConfig } from './config'
 import { exposureProblem, exposureWarning } from './exposure'
 import { createNodeListener } from './http/adapter'
+import { mediaRootAccessError } from './routes/fs'
 
 const log = (message: string): void => console.log(`[yingbox] ${message}`)
 
@@ -44,6 +45,10 @@ async function main(): Promise<void> {
   log(`数据目录：${config.dataDir}`)
   if (config.cacheDir !== config.dataDir) log(`缓存目录：${config.cacheDir}`)
   log(`媒体根目录：${config.mediaRoots.join('、')}`)
+  for (const root of config.mediaRoots) {
+    const access = await mediaRootAccessError(root)
+    if (access) console.warn(`[yingbox] ${access}`)
+  }
   log(`出网：${describeFetch(config.fetch)}`)
   log(`目录监控：${describeMonitor(config.monitor)}`)
   log(

@@ -63,6 +63,9 @@ pnpm start:server
 
 NAS 安装、目录挂载、网络访问和 Docker 配置见 [部署指南](docs/deploy/nas.md)。服务端未配置 `YINGBOX_SERVER_TOKEN` 时不启用登录鉴权；允许其他设备访问前，应按部署文档设置访问令牌。
 
+独立 Node 服务包可用 `pnpm package:server` 构建，仅包含后端；`pnpm package:server:web` 同时携带网页。
+产物位于 `out/packages/`，解压后安装运行依赖即可启动，无需 Electron 或源码仓库，见 [独立服务包](docs/deploy/server-package.md)。
+
 ## 开发检查
 
 | 命令                 | 用途                                |

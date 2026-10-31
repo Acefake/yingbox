@@ -50,6 +50,7 @@ const canGoUp = computed(() => Boolean(listing.value?.path))
 async function load(path: string | null): Promise<void> {
   loading.value = true
   error.value = ''
+  emit('select', null)
   try {
     listing.value = await fetchDirectory(path)
     emit('select', listing.value.path)

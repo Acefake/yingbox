@@ -52,10 +52,14 @@ export default defineConfig(({ mode }) => ({
       ...(mode === 'nas'
         ? [
             {
-              find: /^@\/features\/online$/,
+              find: /^@\/router\/routers$/,
+              replacement: resolve(__dirname, 'src/renderer/src/nas/routes.ts'),
+            },
+            {
+              find: /^@\/features\/av$/,
               replacement: resolve(
                 __dirname,
-                'src/renderer/src/nas/metadata.ts'
+                'src/renderer/src/nas/av-disabled.ts'
               ),
             },
           ]
@@ -85,18 +89,14 @@ export default defineConfig(({ mode }) => ({
                   __dirname,
                   'src/renderer/src/features/search/platform-nas.ts'
                 )
-              if (
-                source === '../api/online' &&
-                importer?.replaceAll('\\', '/').includes('/features/online/')
-              )
-                return resolve(__dirname, 'src/renderer/src/nas/metadata.ts')
             },
             transformIndexHtml: {
               order: 'pre',
               handler(html: string): string {
-                return html
-                  .replace('/src/main.ts', '/src/nas/main.ts')
-                  .replace('<title>影盒</title>', '<title>影盒 NAS</title>')
+                return html.replace(
+                  '<title>影盒</title>',
+                  '<title>影盒 NAS</title>'
+                )
               },
             },
           },

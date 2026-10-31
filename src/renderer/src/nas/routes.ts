@@ -1,8 +1,8 @@
-/** NAS 路由只提供片库与网盘；失效的完整版本链接回到片库。 */
-import type { RouteRecordRaw } from 'vue-router'
-
-/** 页面组件保持懒加载，避免引入桌面和在线播放入口。 */
-export const nasRoutes: RouteRecordRaw[] = [
+/**
+ * 路由表（应用组合层）。页面组件按需加载，所以这里直接指向各 feature 的视图文件，
+ * 不经 index.ts——组合层不受 feature 边界规则约束，以保留按路由拆包。
+ */
+export const routes = [
   {
     path: '/search',
     name: 'Search',
@@ -11,47 +11,63 @@ export const nasRoutes: RouteRecordRaw[] = [
   },
   {
     path: '/',
-    name: 'Home',
-    component: () => import('./pages/HomePage.vue'),
-    meta: { title: '首页' },
+    name: 'Online',
+    component: () => import('@/features/online/views/OnlineView.vue'),
+    meta: {
+      title: '在线',
+      description: '在线搜索与播放',
+    },
   },
   {
     path: '/movie',
     name: 'Movie',
     component: () => import('@/features/library/MovieLibraryPage.vue'),
-    meta: { title: '电影' },
+    meta: {
+      title: '电影',
+      description: '本地电影库',
+    },
   },
   {
     path: '/tv',
     name: 'TV',
     component: () => import('@/features/library/TvLibraryPage.vue'),
-    meta: { title: '剧集' },
+    meta: {
+      title: '剧集',
+      description: '本地剧集库',
+    },
   },
   {
-    path: '/jav',
-    name: 'Jav',
-    component: () => import('@/features/library/JavLibraryPage.vue'),
-    meta: { title: '番号', adultOnly: true },
+    path: '/calendar',
+    name: 'Calendar',
+    component: () => import('@/features/calendar/views/CalendarView.vue'),
+    meta: {
+      title: '追剧日历',
+      description: '媒体库与在线剧集按播出日期排成一周',
+    },
+  },
+  {
+    path: '/live',
+    name: 'Live',
+    component: () => import('@/features/live/views/LiveView.vue'),
+    meta: {
+      title: '直播',
+      description: 'IPTV 直播与节目单',
+    },
   },
   {
     path: '/netdisk',
     name: 'Netdisk',
     component: () => import('@/features/netdisk/views/NetdiskView.vue'),
-    meta: { title: '网盘' },
+    meta: {
+      title: '网盘',
+      description: '网盘搜索与 115 转存',
+    },
   },
+
   {
-    path: '/netdisk/manage',
-    component: () => import('./pages/AutomationPage.vue'),
-    meta: { title: '追更与洗版' },
+    path: '/:pathMatch(.*)*',
+    redirect: '/',
   },
-  {
-    path: '/tasks',
-    component: () => import('./pages/TasksPage.vue'),
-    meta: { title: '片库任务' },
-  },
-  {
-    path: '/calendar',
-    redirect: to => (to.query.autograb ? '/netdisk/manage' : '/movie'),
-  },
-  { path: '/:pathMatch(.*)*', redirect: '/movie' },
 ]
+
+export const nasRoutes = routes
