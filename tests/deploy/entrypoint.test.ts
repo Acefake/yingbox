@@ -37,11 +37,19 @@ function stub(name: string, body: string): void {
   chmodSync(file, 0o755)
 }
 
+/** setpriv 行：媒体目录的所属组（不是 root、也不是 PGID）会加进附加组。 */
+function setprivLine(puid: string, pgid: string): string {
+  const groups =
+    !me.gid || me.gid === '0' || me.gid === pgid ? pgid : `${pgid},${me.gid}`
+  return `setpriv --reuid=${puid} --regid=${pgid} --clear-groups --groups=${groups} -- serve --flag`
+}
+
 beforeEach(() => {
   work = mkdtempSync(join(tmpdir(), 'yingbox-entry-'))
   bin = join(work, 'bin')
   calls = join(work, 'calls.log')
   mkdirSync(bin)
+  mkdirSync(join(work, 'media'))
   writeFileSync(calls, '')
   stub('id', 'echo "${FAKE_UID:-0}"')
   stub('chown', `echo "chown $*" >> "${shellPath(calls)}"`)
@@ -77,6 +85,7 @@ function run(env: Record<string, string>): {
         YINGBOX_DATA_DIR: shellPath(join(work, 'config')),
         YINGBOX_CACHE_DIR: shellPath(join(work, 'cache')),
         YINGBOX_DOWNLOAD_DIR: shellPath(join(work, 'downloads')),
+        YINGBOX_MEDIA_ROOTS: shellPath(join(work, 'media')),
         ...env,
       },
     }
@@ -105,9 +114,7 @@ describe('以 root 启动', () => {
         shellPath(join(work, 'cache')),
       ])
     )
-    expect(calls.at(-1)).toBe(
-      'setpriv --reuid=4242 --regid=4343 --clear-groups -- serve --flag'
-    )
+    expect(calls.at(-1)).toBe(setprivLine('4242', '4343'))
   })
 
   it('属主已经对的不再 chown（重启不重复遍历改权限）', () => {
@@ -117,16 +124,12 @@ describe('以 root 启动', () => {
     })
     expect(status).toBe(0)
     expect(calls.filter(c => c.startsWith('chown'))).toEqual([])
-    expect(calls.at(-1)).toBe(
-      `setpriv --reuid=${me.uid} --regid=${me.gid} --clear-groups -- serve --flag`
-    )
+    expect(calls.at(-1)).toBe(setprivLine(String(me.uid), String(me.gid)))
   })
 
   it('不设 PUID / PGID 时用镜像里 node 用户的 1000:1000', () => {
     const { calls } = run({})
-    expect(calls.at(-1)).toBe(
-      'setpriv --reuid=1000 --regid=1000 --clear-groups -- serve --flag'
-    )
+    expect(calls.at(-1)).toBe(setprivLine('1000', '1000'))
   })
 
   it.each([
@@ -140,6 +143,28 @@ describe('以 root 启动', () => {
     expect(status).not.toBe(0)
     expect(stderr).toMatch(message)
     expect(calls).toEqual([])
+  })
+})
+
+describe('媒体目录所属组', () => {
+  it('所属组不是 PGID 时加进附加组', () => {
+    stub('stat', 'echo 2500')
+    const { status, stderr, calls } = run({ PUID: '4242', PGID: '4343' })
+    expect(status).toBe(0)
+    expect(calls.at(-1)).toBe(
+      'setpriv --reuid=4242 --regid=4343 --clear-groups --groups=4343,2500 -- serve --flag'
+    )
+    expect(stderr).toMatch(/媒体目录所属组加入服务进程：4343,2500/)
+  })
+
+  it('所属组是 root 时不加', () => {
+    stub('stat', 'echo 0')
+    const { status, stderr, calls } = run({ PUID: '4242', PGID: '4343' })
+    expect(status).toBe(0)
+    expect(calls.at(-1)).toBe(
+      'setpriv --reuid=4242 --regid=4343 --clear-groups --groups=4343 -- serve --flag'
+    )
+    expect(stderr).not.toMatch(/媒体目录所属组/)
   })
 })
 

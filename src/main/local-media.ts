@@ -11,6 +11,10 @@ const mimeTypes: Record<string, string> = {
   '.m4v': 'video/mp4',
   '.wmv': 'video/x-ms-wmv',
   '.flv': 'video/x-flv',
+  '.ts': 'video/mp2t',
+  '.m2ts': 'video/mp2t',
+  '.mts': 'video/mp2t',
+  '.rmvb': 'application/vnd.rn-realmedia-vbr',
   '.jpg': 'image/jpeg',
   '.jpeg': 'image/jpeg',
   '.png': 'image/png',
@@ -143,9 +147,18 @@ export async function serveFile(
       throw error
     }
   } catch (error) {
-    const code = (error as NodeJS.ErrnoException).code
-    return new Response(null, {
-      status: code === 'ENOENT' ? 404 : code === 'EACCES' ? 403 : 500,
-    })
+    const err = error as NodeJS.ErrnoException
+    const code = err.code
+    const status =
+      code === 'ENOENT'
+        ? 404
+        : code === 'EACCES' || code === 'EPERM'
+          ? 403
+          : 500
+    if (status !== 404)
+      console.warn(
+        `[media] 无法读取视频 ${filePath}：${code ?? 'ERROR'} ${err.message ?? ''}`
+      )
+    return new Response(null, { status })
   }
 }

@@ -6,7 +6,7 @@ NAS 专用版保留原首页，提供片库扫描、刮削、NFO、整理、浏�
 
 准备 `docker-compose.nas.yml`，把 `docker/nas.env.example` 复制到它旁边并命名为 `.env`。这两个文件即可部署，不需要把源码放到 NAS。
 
-在 `.env` 填写 `PUID`、`PGID` 和 `YINGBOX_MEDIA_DIR`，保留 `YINGBOX_VERSION=stable`。UID/GID 使用媒体文件所属用户的值，不能为 0。媒体挂载可写，NFO、整理和网盘入库才能保存结果。
+在 `.env` 填写 `PUID`、`PGID` 和 `YINGBOX_MEDIA_DIR`，保留 `YINGBOX_VERSION=stable`。UID/GID 使用媒体文件所属用户的值，不能为 0。目录只有属主可读时，PUID 必须是属主；目录对所属组可读时，入口会把该组加进服务进程。媒体挂载目标保持容器内的 `/media`，不要把 `YINGBOX_MEDIA_ROOTS` 写成宿主机路径。媒体挂载可写，NFO、整理和网盘入库才能保存结果。
 
 镜像地址为 `ghcr.io/acefake/yingbox-nas:stable`，公开提供 `linux/amd64` 和 `linux/arm64`，拉取无需登录。Docker 按 NAS 架构选择镜像。Compose 同时启动独立更新服务，每天北京时间 04:00 检查稳定版；有新版时自动拉取并重新部署影盒。
 

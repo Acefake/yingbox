@@ -14,10 +14,14 @@ export async function fetchDirectory(
   const query = path ? `?path=${encodeURIComponent(path)}` : ''
   const response = await serverFetch(`${LIBRARY_HTTP.dirs}${query}`)
   if (!response.ok) {
-    const body = (await response.json().catch(() => null)) as {
-      error?: string
-    } | null
-    throw new Error(body?.error ?? `读取目录失败（HTTP ${response.status}）`)
+    const raw = await response.text()
+    let message = ''
+    try {
+      message = ((JSON.parse(raw) as { error?: string }).error ?? '').trim()
+    } catch {
+      message = raw.replace(/\s+/g, ' ').trim().slice(0, 180)
+    }
+    throw new Error(message || `读取目录失败（HTTP ${response.status}）`)
   }
   return (await response.json()) as DirectoryListing
 }

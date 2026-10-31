@@ -192,7 +192,7 @@ export async function createServerApp(
   })
   registerMediaRoutes(router, { service, thumbnails })
   registerSubtitleRoutes(router, service)
-  registerFsRoutes(router, config.mediaRoots)
+  registerFsRoutes(router, config.mediaRoots, log)
   // 构建入口决定登记完整在线模块或 NAS 元数据服务。
   const features = (options.features ?? registerServerFeatures)(
     router,

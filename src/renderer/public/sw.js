@@ -1,5 +1,5 @@
 /* yingbox PWA service worker — app shell cache */
-const CACHE = 'yingbox-shell-v1'
+const CACHE = 'yingbox-shell-v2'
 
 const PRECACHE = [
   './',
@@ -35,10 +35,15 @@ self.addEventListener('fetch', event => {
   if (req.method !== 'GET') return
 
   const url = new URL(req.url)
-  // Never cache media / API streams
+  // API 与媒体直连服务。/media/files/<id> 没有扩展名，以前被当成静态文件缓存：
+  // Cache API 不能存 206，克隆大文件流还会把 <video> 的 Range 响应拆掉，表现为无法播放。
+  // /assets/ 交给浏览器的 HTTP 缓存。预压缩的 .br/.gz 带 Content-Encoding，
+  // 放进 Cache API 再取出时可能被重复解码，懒加载的播放器脚本会坏。
   if (
-    url.pathname.includes('/api') ||
-    /\.(m3u8|ts|mp4|mkv|webm|mp3)(\?|$)/i.test(url.pathname)
+    url.pathname.startsWith('/api/') ||
+    url.pathname.startsWith('/media/') ||
+    url.pathname.startsWith('/assets/') ||
+    req.headers.has('range')
   ) {
     return
   }
