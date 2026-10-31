@@ -68,9 +68,11 @@ import type { AutograbSeries } from '../../../../../shared/contract/autograb'
 import { nextAirText } from '../autograb-rules'
 import { TV_MODE_OPTIONS, isCustom, optionLabel } from '../prefs-rules'
 
-defineProps<{
+const props = defineProps<{
   tracked: AutograbSeries[]
   untracked: AutograbSeries[]
+  /** 剧 id → 海报（片库条目的 poster 原样） */
+  posters: ReadonlyMap<number, string | null>
   /** 剧 id → 待处理集数 */
   pending: ReadonlyMap<number, number>
   /** 正在设置的剧 id */
@@ -83,7 +85,9 @@ const emit = defineEmits<{
 
 /** 剧的海报（片库图片，取小图）；没有时卡片显示片名渐变 */
 function posterOf(series: AutograbSeries): string | undefined {
-  return libraryImage(series.poster ?? null, 300) ?? undefined
+  return (
+    libraryImage(props.posters.get(series.seriesId) ?? null, 300) ?? undefined
+  )
 }
 
 /** 副标题：全自动 · 下一集 11月3日（单独设的方式后面标「单独」） */
