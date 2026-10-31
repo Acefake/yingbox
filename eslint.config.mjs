@@ -51,6 +51,7 @@ export default tseslint.config(
       '**/dist',
       '**/out',
       '**/dist-web',
+      '**/dist-nas',
       '**/dist-renderer',
       // 本地临时目录与 agent 工作树（已在 .gitignore，避免 lint 解析构建产物/仓库副本）
       '.claude/worktrees',

@@ -43,11 +43,13 @@ bridge?.onChanged(change => {
   ;(values as Record<ValueKey, unknown>)[change.key] = change.value
 })
 
-if (!bridge)
-  void pullServerSettings((key, value) => {
-    ;(values as Record<string, unknown>)[key] = value
-    saveWebSetting(key as ValueKey, value, values)
-  }).catch(error => console.warn('[settings] 读取片库服务设置失败', error))
+/** 网页端来源配置读取完成后，再判断资源源是否已配置。 */
+export const settingsReady: Promise<void> = bridge
+  ? Promise.resolve()
+  : pullServerSettings((key, value) => {
+      ;(values as Record<string, unknown>)[key] = value
+      saveWebSetting(key as ValueKey, value, values)
+    }).catch(error => console.warn('[settings] 读取片库服务设置失败', error))
 
 /** 读一个设置（在 computed / watchEffect 里调用时是响应式的） */
 export function getSetting<K extends ValueKey>(key: K): SettingValue<K> {

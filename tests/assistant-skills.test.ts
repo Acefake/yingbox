@@ -109,6 +109,7 @@ describe('注册表', () => {
   it('可跳转页面来自路由表，私密路由不在其中；私密板块据此排除', () => {
     const ids = assistantPages(routes).map(page => page.id)
     expect(ids).toEqual([
+      'search',
       'online',
       'movie',
       'tv',

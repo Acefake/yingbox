@@ -2,7 +2,7 @@
  * 统一入口浮层里的搜索：输入框有字（不是界面口令）就即时搜，一份结果列表。
  * - 范围胶囊：全部（默认）/ 本地 / 在线，在电影页 / 剧集页再多一枚「电影」/「剧集」（只搜当前分区）；
  *   私密模式没有胶囊，只搜本地私密分区、不搜在线、不做 AI 增强（沿用私密规则）。网页版没有在线源，也没有「在线」胶囊。
- * - 本地：片名 / 人物 / 规则条件 / 画面 + AI 增强（AI 已配置时，融合去重进同一批本地结果，理由写「AI 理解 · …」）；
+ * - 本地：片名 / 人物 / 规则条件 / 画面；AI 理解在提交完整搜索后进行；
  * - 在线：现有在线影视源搜索，本地结果先出，在线结果异步追加在后面（use-entry-online.ts）；
  * - 选中规则见 assistant-entry.ts；打开任何结果前先收起浮层。
  */
@@ -65,14 +65,12 @@ export interface EntrySearch {
  * @param draft 输入框文字
  * @param isPrivate 当前是否私密模式
  * @param askable 能不能问 AI（有「问 AI」行）
- * @param aiReady AI 已配置（做 AI 增强）
  * @param close 收起浮层
  */
 export function useEntrySearch(options: {
   draft: Ref<string>
   isPrivate: () => boolean
   askable: boolean
-  aiReady: () => boolean
   close: () => void
 }): EntrySearch {
   const route = useRoute()
@@ -112,7 +110,7 @@ export function useEntrySearch(options: {
         scope.value === 'section'
       ),
     open: () => localOn.value,
-    ai: () => options.aiReady() && !options.isPrivate(),
+    ai: () => false,
     leave: options.close,
   })
   const online = useEntryOnline({

@@ -255,6 +255,7 @@ async function mount(path = '/'): Promise<void> {
     history: createMemoryHistory(),
     routes: [
       { path: '/', component: page, meta: { title: '在线' } },
+      { path: '/search', component: page, meta: { title: '搜索' } },
       {
         path: '/secret',
         component: page,
@@ -351,7 +352,7 @@ describe('AssistantLauncher', () => {
       document.querySelector('.assistant-head .assistant-close')
     ).toBeNull()
     const keys = document.querySelector('.assistant-keys')!.textContent!
-    expect(keys).toContain('打开 / 发送')
+    expect(keys).toContain('完整搜索 / 打开')
     expect(keys).toContain('问 AI')
     expect(keys).toContain('Ctrl K')
     expect(keys).toContain('唤起 / 收起')
@@ -423,7 +424,11 @@ describe('AssistantLauncher', () => {
     input.dispatchEvent(new Event('input'))
     await nextTick()
     input.dispatchEvent(
-      new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+      new KeyboardEvent('keydown', {
+        key: 'Enter',
+        ctrlKey: true,
+        bubbles: true,
+      })
     )
     await settle(50)
     expect(
@@ -472,7 +477,11 @@ describe('AssistantLauncher', () => {
       input.dispatchEvent(new Event('input'))
       await nextTick()
       input.dispatchEvent(
-        new KeyboardEvent('keydown', { key: 'Enter', bubbles: true })
+        new KeyboardEvent('keydown', {
+          key: 'Enter',
+          ctrlKey: true,
+          bubbles: true,
+        })
       )
       await settle(50)
     }
@@ -639,7 +648,7 @@ describe('统一入口：搜索与问 AI', () => {
     await waitFor(() => overlay() !== null)
   }
 
-  it('输入即出结果：「问 AI」行在最上并默认选中，回车交给 AI；结果块替换建议、快捷键提示仍在', async () => {
+  it('输入即出预览，默认完整搜索；问 AI 保留显式入口', async () => {
     fakes.results = [
       { key: 'a', title: '星际穿越', exact: false },
       { key: 'b', title: '星球大战', exact: false },
@@ -648,9 +657,9 @@ describe('统一入口：搜索与问 AI', () => {
     await type('星际')
     expect(overlay()!.getAttribute('data-searching')).toBe('true')
     const rows = [...document.querySelectorAll('[role="option"]')]
-    expect(rows[0].id).toBe('entry-ask')
-    expect(rows[0].textContent).toContain('问 AI：星际')
-    expect(rows.slice(1).map(row => row.textContent)).toEqual([
+    expect(rows[0].id).toBe('entry-search')
+    expect(rows[1].textContent).toContain('问 AI：星际')
+    expect(rows.slice(2).map(row => row.textContent)).toEqual([
       '星际穿越',
       '星球大战',
     ])
@@ -659,25 +668,26 @@ describe('统一入口：搜索与问 AI', () => {
     expect(document.querySelector('.assistant-keys')).not.toBeNull()
     expect(input().getAttribute('role')).toBe('combobox')
     expect(input().getAttribute('aria-controls')).toBe('entry-results')
-    expect(input().getAttribute('aria-activedescendant')).toBe('entry-ask')
+    expect(input().getAttribute('aria-activedescendant')).toBe('entry-search')
     expect(
       document.querySelector('.assistant-search-note')?.textContent
     ).toMatch(/^2 个结果/)
     press({ key: 'Enter' })
     await settle(50)
     expect(fakes.opened).toEqual([])
-    expect(
-      document.querySelector('.assistant-question')?.textContent
-    ).toContain('星际')
-    expect(input().value).toBe('')
-    expect(overlay()!.getAttribute('data-mode')).toBe('panel')
+    expect(router.currentRoute.value.path).toBe('/search')
+    expect(router.currentRoute.value.query.q).toBe('星际')
+    expect(fakes.chatJson).not.toHaveBeenCalled()
+    await waitFor(() => overlay() === null)
   })
 
-  it('片名精确命中默认选中，回车直接打开并收起浮层', async () => {
+  it('精确命中也默认完整搜索，方向键选中后才直接打开', async () => {
     fakes.results = [{ key: 'x', title: '流浪地球', exact: true }]
     await openEntry()
     await type('流浪地球')
-    expect(input().getAttribute('aria-activedescendant')).toBe('search-hit-0')
+    expect(input().getAttribute('aria-activedescendant')).toBe('entry-search')
+    press({ key: 'ArrowDown' })
+    press({ key: 'ArrowDown' })
     press({ key: 'Enter' })
     await settle(50)
     expect(fakes.opened).toEqual(['x'])
@@ -693,8 +703,10 @@ describe('统一入口：搜索与问 AI', () => {
     await openEntry()
     await type('片')
     press({ key: 'ArrowDown' })
+    press({ key: 'ArrowDown' })
     await nextTick()
     expect(input().getAttribute('aria-activedescendant')).toBe('search-hit-0')
+    press({ key: 'ArrowUp' })
     press({ key: 'ArrowUp' })
     press({ key: 'ArrowUp' })
     await nextTick()
@@ -715,6 +727,7 @@ describe('统一入口：搜索与问 AI', () => {
     fakes.results = [{ key: 'a', title: '甲', exact: false }]
     await openEntry()
     await type('甲')
+    press({ key: 'ArrowDown' })
     press({ key: 'ArrowDown' })
     press({ key: 'Enter' })
     await settle(50)

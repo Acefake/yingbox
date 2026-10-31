@@ -49,3 +49,10 @@ export const loadLibrarySearch = (): Promise<
 > => import('./search/entry-search')
 export type LibrarySearchModule = typeof import('./search/entry-search')
 export type { LibrarySearch, SearchEntry } from './search/entry-search'
+export { searchLibrary } from './search/search-service'
+export { fuseSearch, routeSearch } from './search/search-rules'
+export { libraryBridge as searchLibraryBridge } from './api/bridge'
+export type { RecallBatch, SearchHit } from './search/types'
+
+export { enhanceConditions, enhanceReady } from './search/ai-conditions'
+export { looksNatural } from './nl-search/nl-rules'

@@ -80,6 +80,16 @@ export default defineConfig(({ mode }) => ({
           {
             name: 'nas-web-entry',
             enforce: 'pre',
+            resolveId(source, importer) {
+              if (
+                source === './platform' &&
+                importer?.replaceAll('\\', '/').includes('/features/search/')
+              )
+                return resolve(
+                  __dirname,
+                  'src/renderer/src/features/search/platform-nas.ts'
+                )
+            },
             transformIndexHtml: {
               order: 'pre',
               handler(html: string): string {
