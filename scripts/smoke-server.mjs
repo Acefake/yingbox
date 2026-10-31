@@ -5,6 +5,7 @@
  *
  * 用临时数据目录与临时媒体目录，跑完删除；任何一步失败以退出码 1 结束。
  * 加 --online 改用真实网络（Node fetch），用来看站点在当前网络下是否可达（被 Cloudflare 拦下属正常）。
+ * 加 --package /安装目录 验证独立包及其运行依赖；从临时工作目录启动，网页由服务自动发现。
  */
 import { spawn } from 'node:child_process'
 import {
@@ -16,11 +17,18 @@ import {
 } from 'node:fs'
 import { createServer } from 'node:net'
 import { tmpdir } from 'node:os'
-import { dirname, join } from 'node:path'
+import { dirname, join, resolve } from 'node:path'
 import { fileURLToPath } from 'node:url'
 
 const ROOT = join(dirname(fileURLToPath(import.meta.url)), '..')
-const SERVER = join(ROOT, 'out/server/server.js')
+const packageIndex = process.argv.indexOf('--package')
+if (packageIndex >= 0 && !process.argv[packageIndex + 1]) {
+  console.error('--package 后需要解压并安装依赖的独立服务目录')
+  process.exit(1)
+}
+const serviceRoot =
+  packageIndex < 0 ? ROOT : resolve(process.argv[packageIndex + 1])
+const SERVER = join(serviceRoot, 'out/server/server.js')
 const online = process.argv.includes('--online')
 const TOKEN = 'smoke-token-0123456789'
 
@@ -52,11 +60,12 @@ write('random video.mp4', Buffer.alloc(1024, 3))
 
 const port = await freePort()
 const base = `http://127.0.0.1:${port}`
-const webDir = join(ROOT, 'dist-web')
+const webDir = join(serviceRoot, 'dist-web')
 const child = spawn(
   process.execPath,
   ['--disable-warning=ExperimentalWarning', SERVER],
   {
+    cwd: packageIndex < 0 ? ROOT : work,
     env: {
       ...process.env,
       YINGBOX_PORT: String(port),
@@ -65,7 +74,13 @@ const child = spawn(
       YINGBOX_SERVER_TOKEN: TOKEN,
       // 夹具文件刚写出，mtime 很新：不做写入稳定判定，建库后立即入库
       YINGBOX_SETTLE_SECONDS: '0',
-      YINGBOX_WEB_DIR: existsSync(join(webDir, 'index.html')) ? webDir : 'off',
+      YINGBOX_WEB_DIR:
+        packageIndex < 0
+          ? existsSync(join(webDir, 'index.html'))
+            ? webDir
+            : 'off'
+          : undefined,
+      YINGBOX_ONLINE: 'on',
       ...(online
         ? {}
         : {
@@ -144,6 +159,18 @@ try {
     const body = await res.json()
     expect(res.ok, JSON.stringify(body))
     return body.dirs.map(d => d.name).join(', ')
+  })
+
+  await step('在线引擎子进程（online:sites，无外网请求）', async () => {
+    const res = await api('/api/engine/rpc', {
+      method: 'POST',
+      headers: { 'content-type': 'application/json' },
+      body: JSON.stringify({ channel: 'online:sites', args: [] }),
+      signal: AbortSignal.timeout(10_000),
+    })
+    const body = await res.json()
+    expect(body.ok && Array.isArray(body.value), JSON.stringify(body))
+    return `${body.value.length} 个内置站点`
   })
 
   const events = []
