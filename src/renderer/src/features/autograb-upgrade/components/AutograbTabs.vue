@@ -5,7 +5,6 @@
       class="autograb-tabs-switch"
       :options="TABS"
       label="追更类别"
-      size="sm"
     />
     <slot v-if="tab === 'series'" />
     <UpgradePanel v-else-if="tab === 'upgrade'" />
