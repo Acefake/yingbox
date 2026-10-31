@@ -99,17 +99,20 @@ try {
       `${domain}.${method}: ${JSON.stringify(reply)}`
     )
   }
+  const online = await call('/api/engine/rpc', {
+    channel: 'download:list',
+    args: [],
+  })
+  assert.equal(online.status, 200)
+  assert.equal((await online.json()).ok, true)
   assert.equal(
-    (await call('/api/engine/rpc', { channel: 'online:tmdb', args: [] }))
-      .status,
-    404
+    (await call('/api/stream?src=http://127.0.0.1/video.mp4')).status,
+    403
   )
-  assert.equal(
-    (await call('/api/stream?src=https://example.com/video.mp4')).status,
-    404
-  )
-  const iptv = await (await call('/api/domains/iptv/list', { args: [] })).json()
-  assert.equal(iptv.ok, false)
+  const iptv = await (
+    await call('/api/domains/iptv/pickPlaylistFile', { args: [] })
+  ).json()
+  assert.equal(iptv.ok, true)
   assert.equal(
     (await call('/api/metadata/tmdb', { args: ['/search/movie'] }, false))
       .status,
@@ -121,9 +124,9 @@ try {
     ).json(),
     null
   )
-  await assert.rejects(access(resolve('out/nas/engine.js')))
+  await access(resolve('out/nas/engine.js'))
   console.log(
-    'NAS 冒烟检查通过：网页、鉴权、片库、全部网盘域和元数据可用；在线引擎与直播缺席'
+    'NAS 冒烟检查通过：网页、鉴权、片库、全部网盘域和元数据可用；在线引擎、播放代理与直播可用'
   )
 } catch (error) {
   console.error(output.replaceAll(token, '[redacted]'))
