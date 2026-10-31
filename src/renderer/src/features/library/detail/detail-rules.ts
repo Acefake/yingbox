@@ -27,9 +27,19 @@ export function seasonOrder(season: LibraryItemNode): number {
 
 /** 剧集下的季，按 seasonOrder 排序。 */
 export function sortedSeasons(node: LibraryItemNode | null): LibraryItemNode[] {
-  return (node?.children ?? [])
-    .filter(child => child.type === 'season')
-    .sort((a, b) => seasonOrder(a) - seasonOrder(b))
+  const seasons = (node?.children ?? []).filter(
+    child => child.type === 'season'
+  )
+  const direct = node?.children.filter(child => child.type === 'episode') ?? []
+  if (node && direct.length)
+    seasons.push({
+      ...node,
+      type: 'season',
+      title: '全部集数',
+      seasonNumber: null,
+      children: direct,
+    })
+  return seasons.sort((a, b) => seasonOrder(a) - seasonOrder(b))
 }
 
 /** 季的显示名：特别篇 / 第 N 季 / 没有季号时用标题。 */

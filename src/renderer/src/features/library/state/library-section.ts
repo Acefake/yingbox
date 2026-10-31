@@ -11,6 +11,7 @@ import type {
   LibraryInfo,
   LibraryKind,
   LibrarySource,
+  MediaItemType,
 } from '../../../../../shared/library/ipc'
 
 /** 片库分区。 */
@@ -51,15 +52,21 @@ export const SECTIONS: Readonly<Record<LibrarySection, SectionSpec>> = {
 
 /** 一个媒体库属于哪个分区（旧数据没有 source 时按 tmdb 算）。 */
 export function sectionOf(
-  lib: Pick<LibraryInfo, 'kind'> & { source?: LibrarySource }
+  lib: Pick<LibraryInfo, 'kind' | 'mixed'> & { source?: LibrarySource },
+  itemType?: MediaItemType
 ): LibrarySection {
   if (lib.source === 'jav') return 'jav'
+  if (lib.mixed && itemType) return itemType === 'movie' ? 'movie' : 'tv'
   return lib.kind === 'tv' ? 'tv' : 'movie'
 }
 
 /** 只留属于该分区的媒体库。 */
 export function librariesIn<
-  T extends Pick<LibraryInfo, 'kind'> & { source?: LibrarySource },
+  T extends Pick<LibraryInfo, 'kind' | 'mixed'> & { source?: LibrarySource },
 >(libraries: readonly T[], section: LibrarySection): T[] {
-  return libraries.filter(lib => sectionOf(lib) === section)
+  return libraries.filter(
+    lib =>
+      (lib.mixed && lib.source !== 'jav' && section !== 'jav') ||
+      sectionOf(lib) === section
+  )
 }

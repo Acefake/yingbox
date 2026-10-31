@@ -65,6 +65,8 @@ export const LIBRARY_AUTO_WRITE: readonly LibraryAutoWrite[] = [
 export interface AddLibraryRequest {
   root: string
   kind: LibraryKind
+  /** 同一目录同时包含电影和剧集。 */
+  mixed?: boolean
   name?: string
   /** 缺省 tmdb；jav 只能用于电影库。 */
   source?: LibrarySource
@@ -76,6 +78,8 @@ export interface AddLibraryRequest {
 export interface UpdateLibraryRequest {
   libraryId: number
   name?: string
+  /** 将已有电影库或剧集库扩展为混合库。 */
+  mixed?: true
   automation?: Partial<LibraryAutomation>
 }
 

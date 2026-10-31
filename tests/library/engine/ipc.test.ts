@@ -126,6 +126,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'identify',
       'getMatchCandidates',
       'applyMatch',
+      'reclassifyItem',
       'lockMatch',
       'unlockMatch',
       'refreshMetadata',

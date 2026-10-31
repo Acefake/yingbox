@@ -58,7 +58,11 @@
         <UiPressable
           block
           class="lib-episode-hit"
-          :label="hasFile(ep) ? `播放 ${ep.title}` : `${ep.title}（本地缺失）`"
+          :label="
+            hasFile(ep)
+              ? `播放 ${episodeLabel(ep)}`
+              : `${episodeLabel(ep)}（本地缺失）`
+          "
           :aria-disabled="hasFile(ep) ? undefined : 'true'"
           @click="playEpisode(ep)"
         >
@@ -86,12 +90,14 @@
             /></span>
           </span>
           <span class="lib-episode-copy">
-            <span class="lib-episode-number"
-              >第 {{ ep.episodeNumber ?? '?' }} 集</span
+            <span v-if="ep.episodeNumber !== null" class="lib-episode-number"
+              >第 {{ ep.episodeNumber }} 集</span
             >
-            <span class="lib-episode-title" :title="ep.title">{{
-              ep.title
-            }}</span>
+            <span
+              class="lib-episode-title"
+              :title="ep.title || episodeLabel(ep)"
+              >{{ ep.title || episodeLabel(ep) }}</span
+            >
             <span v-if="ep.overview" class="lib-episode-overview">{{
               ep.overview
             }}</span>
@@ -141,7 +147,7 @@ import { progressOf } from '../progress/progress-cache'
 import { type WatchMark, itemMark, ratioWidth } from '../progress/watch-marks'
 import { formatRuntime } from '../shared/format'
 import { defaultSeasonKey, seasonEpisodes, seasonName } from './detail-rules'
-import { videoFiles } from './playback'
+import { episodeLabel, videoFiles } from './playback'
 import { useSpoilerGuard } from './use-spoiler-guard'
 import { useIntroDetect } from './use-intro-detect'
 

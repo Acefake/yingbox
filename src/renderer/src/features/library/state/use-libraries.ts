@@ -101,7 +101,7 @@ export interface UseLibraries {
   error: Ref<string | null>
   activity: ComputedRef<LibraryActivity | null>
   /** 选文件夹并添加为本分区的库（番号页添加的就是番号库）。 */
-  addFolder: () => Promise<LibraryInfo | null>
+  addFolder: (mixed?: boolean) => Promise<LibraryInfo | null>
   removeLibrary: (libraryId: number) => Promise<void>
   /** 改一个库的自动化设置（只改给出的字段）。 */
   updateAutomation: (
@@ -139,13 +139,13 @@ export function useLibraries(section: LibrarySection): UseLibraries {
     }
   }
 
-  async function addFolder(): Promise<LibraryInfo | null> {
+  async function addFolder(mixed = false): Promise<LibraryInfo | null> {
     if (!bridge) return null
     const root = await pickLibraryFolder()
     if (!root) return null
     let info: LibraryInfo | null = null
     await run(async () => {
-      info = await bridge.addLibrary({ root, kind, source })
+      info = await bridge.addLibrary({ root, kind, source, mixed })
     })
     return info
   }

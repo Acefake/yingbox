@@ -151,3 +151,27 @@ export function mergeContinue(incoming: readonly ContinueRecord[]): void {
   if (!incoming.length) return
   commit(mergeRecords(state().value, incoming, readTombstones()))
 }
+
+/** 按媒体库作品 ID 替换旧分区记录，保留用户手动移除的选择。 */
+export function replaceLibraryContinue(
+  rootId: number,
+  section: 'movie' | 'tv',
+  record: ContinueRecord | null
+): void {
+  const key = String(rootId)
+  const retained = state().value.filter(
+    r =>
+      !(
+        r.key === key &&
+        (r.section === 'movie' || r.section === 'tv') &&
+        r.section !== section
+      )
+  )
+  const stones = readTombstones()
+  const removedAt = Math.max(
+    stones[`movie:${key}`] ?? 0,
+    stones[`tv:${key}`] ?? 0
+  )
+  const next = record && record.updatedAt > removedAt ? [record] : []
+  commit(mergeRecords(retained, next, stones))
+}

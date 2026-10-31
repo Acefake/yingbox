@@ -46,6 +46,7 @@ export { default as ContinueRow } from './continue/ContinueRow.vue'
 export {
   continueRecords,
   mergeContinue,
+  replaceLibraryContinue,
   onContinueFinished,
 } from './continue/continue-store'
 /** 媒体库条目的进度去向（媒体库 feature 启动时接上片库） */

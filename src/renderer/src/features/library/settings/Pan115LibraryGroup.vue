@@ -12,7 +12,14 @@
         icon="plus"
         label="添加 115 文件夹…"
         :loading="adding"
-        @click="add"
+        @click="add(false)"
+      />
+      <UiButton
+        size="sm"
+        icon="plus"
+        label="添加 115 混合文件夹…"
+        :loading="adding"
+        @click="add(true)"
       />
     </SettingsRow>
   </SettingsGroup>
@@ -31,7 +38,7 @@ import { type LibrarySection, SECTIONS } from '../state/library-section'
 const props = defineProps<{ section: LibrarySection }>()
 const adding = ref(false)
 
-async function add(): Promise<void> {
+async function add(mixed: boolean): Promise<void> {
   let selected: TargetFolder | null = null
   await confirmDialog({
     title: '选择 115 片库目录',
@@ -53,6 +60,7 @@ async function add(): Promise<void> {
           name: selected.name || '115 根目录',
           kind,
           source,
+          mixed,
           automation: { storage: 'cloud' },
         })
         toast.success('已添加 115 文件夹，正在扫描')

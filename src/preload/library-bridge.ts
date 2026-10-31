@@ -99,6 +99,7 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
     identify: request => call('identify', request),
     getMatchCandidates: itemId => call('getMatchCandidates', { itemId }),
     applyMatch: request => call('applyMatch', request),
+    reclassifyItem: (itemId, kind) => call('reclassifyItem', { itemId, kind }),
     lockMatch: itemId => call('lockMatch', { itemId }),
     unlockMatch: itemId => call('unlockMatch', { itemId }),
     refreshMetadata: request => call('refreshMetadata', request),

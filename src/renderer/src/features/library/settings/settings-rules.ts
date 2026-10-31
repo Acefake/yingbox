@@ -22,16 +22,17 @@ export const dateFormat = new Intl.DateTimeFormat('zh-CN', {
 /** 文件夹行的描述：（番号 · ）路径 · 上次扫描时间（没扫过时「尚未扫描」）。 */
 export function folderDescription(
   lib: Pick<LibraryInfo, 'root' | 'lastScanAt'> &
-    Partial<Pick<LibraryInfo, 'source'>>,
+    Partial<Pick<LibraryInfo, 'source' | 'mixed'>>,
   format: (time: number) => string = t => dateFormat.format(t)
 ): string {
   const scanned = lib.lastScanAt
     ? `上次扫描 ${format(lib.lastScanAt)}`
     : '尚未扫描'
-  const prefix = lib.source === 'jav' ? '番号 · ' : ''
-  // 远程库（WebDAV）只显示源里的路径，并标明只读
+  const prefix = lib.source === 'jav' ? '番号 · ' : lib.mixed ? '混合 · ' : ''
   const remote = parseRemotePath(lib.root)
-  const where = remote ? `WebDAV · 只读 · ${remote.path}` : lib.root
+  const where = remote
+    ? `${remote.sourceId === 'pan115' ? '115' : 'WebDAV'} · 只读 · ${remote.path}`
+    : lib.root
   return `${prefix}${where} · ${scanned}`
 }
 

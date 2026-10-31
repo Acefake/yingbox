@@ -18,6 +18,7 @@ import {
   sectionOf,
 } from '../state/library-section'
 import { findLibrary } from '../state/use-libraries'
+import { onLibraryEvent } from '../state/library-events'
 
 /** 条目归属：分区；missing = 条目不存在（交给详情页显示“找不到”）；unknown = 查不到归属。 */
 export type ItemOwner = LibrarySection | 'missing' | 'unknown'
@@ -33,7 +34,7 @@ export async function itemOwner(itemId: number): Promise<ItemOwner> {
     (await bridge.listLibraries().catch(() => [])).find(
       l => l.id === item.libraryId
     )
-  return lib ? sectionOf(lib) : 'unknown'
+  return lib ? sectionOf(lib, item.type) : 'unknown'
 }
 
 /**
@@ -65,12 +66,28 @@ export function useSectionGuard(
   const route = useRoute()
   const router = useRouter()
   const verified = ref<number | null>(null)
+  let verifySequence = 0
 
   function moveTo(target: LibrarySection): void {
     // keep-alive 缓存的页面在后台也收到路由变化：只在本页是当前页时换页
     if (route.path !== SECTIONS[section].path) return
     void router.replace({ path: SECTIONS[target].path, query: route.query })
   }
+
+  async function verify(id: number): Promise<void> {
+    const sequence = ++verifySequence
+    const step = guardStep(section, await itemOwner(id))
+    if (detailId.value !== id || sequence !== verifySequence) return
+    if (step.kind === 'stay') verified.value = id
+    else if (step.kind === 'move') moveTo(step.to)
+  }
+
+  onLibraryEvent(event => {
+    const id = detailId.value
+    if (id === null || event.type !== 'items-changed') return
+    if (event.reset || event.updated.includes(id) || event.removed.includes(id))
+      void verify(id)
+  })
 
   watch(
     actorId,
@@ -84,17 +101,16 @@ export function useSectionGuard(
     detailId,
     async id => {
       if (id === null) {
+        verifySequence++
         verified.value = null
         return
       }
       if (inWall(id)) {
+        verifySequence++
         verified.value = id
         return
       }
-      const step = guardStep(section, await itemOwner(id))
-      if (detailId.value !== id) return
-      if (step.kind === 'stay') verified.value = id
-      else if (step.kind === 'move') moveTo(step.to)
+      await verify(id)
     },
     { immediate: true }
   )

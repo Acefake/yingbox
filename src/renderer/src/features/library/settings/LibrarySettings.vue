@@ -15,6 +15,12 @@
         :description="folderDescription(lib)"
       >
         <UiButton
+          v-if="!isJav && !lib.mixed"
+          size="sm"
+          label="设为混合库"
+          @click="convertMixed(lib)"
+        />
+        <UiButton
           icon="refresh"
           size="sm"
           label="扫描"
@@ -40,6 +46,14 @@
           label="添加文件夹…"
           :disabled="!available"
           @click="addFolder"
+        />
+        <UiButton
+          v-if="!isJav"
+          size="sm"
+          icon="plus"
+          label="添加混合文件夹…"
+          :disabled="!available"
+          @click="addMixedFolder"
         />
         <UiButton
           size="sm"
@@ -163,14 +177,36 @@ function addFolder(): void {
   })
 }
 
+function addMixedFolder(): void {
+  void guarded(async () => {
+    const lib = await pickFolder(true)
+    if (lib) toast.success(`已添加混合文件夹「${lib.name}」，正在扫描`)
+  })
+}
+
 function scan(libraryId: number, full: boolean): void {
   void guarded(() => bridge!.scan({ libraryId, full }), '已开始扫描')
+}
+
+function convertMixed(lib: LibraryInfo): void {
+  void confirmDialog({
+    title: `将「${lib.name}」设为混合库？`,
+    content:
+      '现有条目保留原分类、匹配和观看进度。之后添加的文件会按电影或剧集识别。',
+    okText: '设为混合库',
+    onOk: () =>
+      guarded(async () => {
+        await bridge!.updateLibrary({ libraryId: lib.id, mixed: true })
+      }, '已设为混合库'),
+  })
 }
 
 function confirmRemove(lib: LibraryInfo): void {
   void confirmDialog({
     title: `移除「${lib.name}」？`,
-    content: '只从媒体库里移除，不会删除磁盘上的文件。',
+    content: lib.mixed
+      ? '将从电影和剧集页面同时移除，不会删除磁盘或网盘上的文件。'
+      : '只从媒体库里移除，不会删除磁盘或网盘上的文件。',
     okText: '移除',
     danger: true,
     onOk: () => guarded(() => removeLibrary(lib.id), '已移除'),

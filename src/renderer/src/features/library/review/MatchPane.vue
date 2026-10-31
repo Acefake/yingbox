@@ -57,6 +57,14 @@
 
       <footer class="match-actions">
         <UiButton
+          v-if="mixedLibrary"
+          variant="plain"
+          size="sm"
+          :label="node.type === 'movie' ? '设为剧集' : '设为电影'"
+          :disabled="busy !== null"
+          @click="changeKind"
+        />
+        <UiButton
           variant="plain"
           size="sm"
           :icon="node.matchState === 'locked' ? 'lock' : 'pin'"
@@ -95,7 +103,12 @@
  *
  * 本地一侧见 MatchLocal，候选卡片见 MatchCandidate，纯规则在 match-rules.ts。
  */
-import { toast } from '@/components/ui'
+import { confirmDialog, toast } from '@/components/ui'
+import {
+  playerSession,
+  replaceLibraryContinue,
+  useMpvPlayer,
+} from '@/features/player'
 import { computed, ref, toRef, watch } from 'vue'
 
 import type { MatchCandidateInfo } from '../../../../../shared/library/ipc'
@@ -105,6 +118,12 @@ import UiInput from '@/components/ui/UiInput.vue'
 import AiIdentifyButton from '../ai-scrape/AiIdentifyButton.vue'
 import { stateSupportsAi } from '../ai-scrape/ai-scrape-rules'
 import { libraryBridge } from '../api/bridge'
+import { findLibrary } from '../state/use-libraries'
+import {
+  ensureProgressFlushed,
+  refreshReclassifiedProgress,
+} from '../progress/progress-cache'
+import { refreshContinueForItem } from '../progress/continue-source'
 import MatchCandidate from './MatchCandidate.vue'
 import MatchLocal from './MatchLocal.vue'
 import { SHOWN_CANDIDATES, candidateKeyIndex } from './match-rules'
@@ -135,6 +154,7 @@ const {
 } = useMatchReview(toRef(props, 'itemId'), libraryBridge())
 
 const query = ref('')
+const mpv = useMpvPlayer()
 watch(
   () => props.itemId,
   () => {
@@ -142,6 +162,9 @@ watch(
   }
 )
 const current = computed(() => candidates.value?.current ?? null)
+const mixedLibrary = computed(
+  () => node.value && findLibrary(node.value.libraryId)?.mixed
+)
 const shown = computed(() =>
   (searchResults.value ?? candidates.value?.candidates ?? []).slice(
     0,
@@ -184,6 +207,43 @@ async function toggleLock(): Promise<void> {
 async function refresh(): Promise<void> {
   const outcome = await refreshMetadata()
   if (outcome.kind === 'matched') toast.info('已开始重新获取元数据')
+}
+
+function changeKind(): void {
+  const item = node.value
+  if (!item) return
+  const kind = item.type === 'movie' ? 'tv' : 'movie'
+  const collectIds = (node: typeof item): number[] => [
+    node.id,
+    ...node.children.flatMap(collectIds),
+  ]
+  const oldIds = collectIds(item)
+  const label = kind === 'movie' ? '电影' : '剧集'
+  void confirmDialog({
+    title: `设为${label}？`,
+    content:
+      '请先停止播放此条目。操作会清除当前匹配并保留已保存的观看进度，之后可重新匹配。',
+    okText: '确认修改',
+    onOk: async () => {
+      if (playerSession().value || mpv.isRunning.value)
+        throw new Error('请先关闭播放器，再纠正类型')
+      await ensureProgressFlushed()
+      if (playerSession().value || mpv.isRunning.value)
+        throw new Error('请先关闭播放器，再纠正类型')
+      await libraryBridge()!.reclassifyItem(item.id, kind)
+      replaceLibraryContinue(item.id, kind === 'movie' ? 'movie' : 'tv', null)
+      try {
+        await Promise.all([
+          refreshReclassifiedProgress(item.id, oldIds),
+          refreshContinueForItem(item.id),
+        ])
+      } catch {
+        toast.warning('类型已更新，播放进度刷新失败，请重新打开页面')
+      }
+      toast.success(`已设为${label}`)
+      emit('resolved', item.id)
+    },
+  })
 }
 
 /** 1 / 2 / 3 采用对应候选（焦点在输入框里时不拦截）。 */

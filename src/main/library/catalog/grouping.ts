@@ -46,6 +46,7 @@ export interface FileGrouping {
 export interface GroupingContext {
   libraryId: number
   kind: LibraryKind
+  mixed?: boolean
   /** 文件相对媒体库根目录的路径键（正斜杠）。 */
   relativeKey: string
 }
@@ -137,7 +138,10 @@ function episodeGrouping(
       parentKey,
     })
 
-  if (parsed.type !== 'episode') {
+  if (
+    parsed.type !== 'episode' ||
+    (!parsed.airDate && !parsed.episodes.length && parsed.season === undefined)
+  ) {
     // 剧集库里没有集号的文件：各自成一集
     return {
       ancestors: [series],
@@ -171,9 +175,18 @@ function episodeGrouping(
   })
   return {
     ancestors: [series, season],
-    leaves: parsed.episodes.map(n =>
-      episode(`${sKey}:${parsed.season}:${n}`, seasonKey, parsed.season!, n)
-    ),
+    leaves: parsed.episodes.length
+      ? parsed.episodes.map(n =>
+          episode(`${sKey}:${parsed.season}:${n}`, seasonKey, parsed.season!, n)
+        )
+      : [
+          episode(
+            `${sKey}:f:${ctx.relativeKey}`,
+            seasonKey,
+            parsed.season,
+            null
+          ),
+        ],
   }
 }
 
@@ -184,7 +197,7 @@ export function groupFile(
 ): FileGrouping {
   if (parsed.type === 'extra') return EMPTY
   if (!parsed.title && !parsed.altTitle) return EMPTY
-  return ctx.kind === 'movie'
+  return (ctx.mixed ? parsed.type === 'movie' : ctx.kind === 'movie')
     ? movieGrouping(ctx, parsed)
     : episodeGrouping(ctx, parsed)
 }

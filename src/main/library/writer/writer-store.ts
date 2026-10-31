@@ -184,7 +184,7 @@ export class WriterStore {
       const fromKey = pathKey(from)
       const rows = this.sql
         .get(
-          'SELECT id, kind, display_path FROM files WHERE path > ? AND path < ?'
+          'SELECT id, kind, display_path, media_kind_override FROM files WHERE path > ? AND path < ?'
         )
         .all(...subtreeRange(fromKey))
       for (const row of rows) {
@@ -197,7 +197,7 @@ export class WriterStore {
       return
     }
     const row = this.sql
-      .get('SELECT id, kind FROM files WHERE path = ?')
+      .get('SELECT id, kind, media_kind_override FROM files WHERE path = ?')
       .get(pathKey(from))
     if (row) this.relocateRow(library, row, to, stat, now)
   }
@@ -215,6 +215,12 @@ export class WriterStore {
       {
         libraryId: library.id,
         kind: library.kind,
+        mixed: library.mixed,
+        overrideKind:
+          row.media_kind_override === 'movie' ||
+          row.media_kind_override === 'tv'
+            ? row.media_kind_override
+            : undefined,
         rootKey: library.rootKey,
         source: library.source,
       },

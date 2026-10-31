@@ -15,6 +15,19 @@ import {
   type UpdateLibraryRequest,
 } from './contract-library'
 import { LibraryError } from './wire'
+import { asRecord, oneOf, positiveId } from './validate-base'
+
+/** 解析条目分类纠正请求。 */
+export function parseReclassifyItem(input: unknown): {
+  itemId: number
+  kind: 'movie' | 'tv'
+} {
+  const r = asRecord(input, 'reclassifyItem 参数')
+  return {
+    itemId: positiveId(r.itemId, 'itemId'),
+    kind: oneOf(r.kind, ['movie', 'tv'] as const, 'kind'),
+  }
+}
 
 const invalid = (message: string): never => {
   throw new LibraryError('invalid-params', message)
@@ -110,8 +123,20 @@ export function parseUpdateLibrary(input: unknown): UpdateLibraryRequest {
     name = (input.name as string).trim()
   }
   const automation = parseAutomationPatch(input.automation)
-  if (name === undefined && automation === undefined) {
-    invalid('name 与 automation 至少提供一个')
+  if (input.mixed !== undefined && input.mixed !== true) {
+    invalid('mixed 只能为 true')
   }
-  return { libraryId: id as number, name, automation }
+  if (
+    name === undefined &&
+    automation === undefined &&
+    input.mixed === undefined
+  ) {
+    invalid('name、automation 与 mixed 至少提供一个')
+  }
+  return {
+    libraryId: id as number,
+    name,
+    automation,
+    ...(input.mixed === true ? { mixed: true } : {}),
+  }
 }

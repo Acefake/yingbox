@@ -2,7 +2,7 @@
  * 扫描器的数据库读写：提供快照（上次扫描结果），以及把差异写回 dirs / files。
  * 写方法都应在调用方的事务里执行。
  */
-import type { LibraryFileKind } from '../../../shared/library/ipc'
+import type { LibraryFileKind, LibraryKind } from '../../../shared/library/ipc'
 import type { VideoProbe } from '../../../shared/video-range'
 import { type LibraryDb, StatementCache } from '../db/database'
 import { subtreeRange } from './rules'
@@ -45,6 +45,17 @@ export class ScanStore {
 
   constructor(db: LibraryDb) {
     this.sql = new StatementCache(db)
+  }
+
+  /** 读取文件的持久分类；未指定时由解析器判断。 */
+  mediaKindOverride(fileId: number): LibraryKind | undefined {
+    const row = this.sql
+      .get('SELECT media_kind_override FROM files WHERE id = ?')
+      .get(fileId)
+    return row?.media_kind_override === 'movie' ||
+      row?.media_kind_override === 'tv'
+      ? row.media_kind_override
+      : undefined
   }
 
   /**

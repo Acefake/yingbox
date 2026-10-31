@@ -136,6 +136,22 @@ export async function flushProgress(): Promise<void> {
   await writing
 }
 
+/** 类型纠正前确保所有待写入的播放进度已经保存。 */
+export async function ensureProgressFlushed(): Promise<void> {
+  await flushProgress()
+  if (pending.size) throw new Error('播放进度尚未保存，请稍后重试')
+}
+
+/** 条目层级变化后清除旧节点缓存并读取新进度。 */
+export async function refreshReclassifiedProgress(
+  rootId: number,
+  oldIds: readonly number[]
+): Promise<void> {
+  for (const id of oldIds) cache.delete(id)
+  loadedRoots.delete(rootId)
+  await loadProgress([rootId])
+}
+
 /** 订阅「进度写进了片库」；返回取消订阅。 */
 export function onProgressSaved(listener: () => void): () => void {
   savedListeners.add(listener)

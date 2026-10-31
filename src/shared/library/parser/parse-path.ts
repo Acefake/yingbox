@@ -103,11 +103,14 @@ const nonEmptyIds = (ids: ExternalIds): ExternalIds | undefined =>
  * 文件名给出的信息优先；文件名是通用名（movie.mkv、CD1、VIDEO_TS、00001.m2ts）或没有片名时
  * 回退到最近的承载片名的父文件夹；季号、分段和外部 ID 可以从父文件夹补齐。
  */
-export function parseMediaPath(path: string): ParsedMedia {
+export function parseMediaPath(
+  path: string,
+  options?: { inferUnnumberedSeason?: boolean; forceMovie?: boolean }
+): ParsedMedia {
   const segments = path.split(/[\\/]+/).filter(Boolean)
   const fileName = segments.pop() ?? ''
   const stem = fileName.replace(MEDIA_EXTENSION_RE, '')
-  const file = parseName(stem)
+  const file = parseName(stem, { folder: options?.forceMovie })
   const ctx = readFolders(segments)
   const owner = ctx.owner
   const ids = nonEmptyIds({ ...owner?.ids, ...file.ids })
@@ -120,11 +123,25 @@ export function parseMediaPath(path: string): ParsedMedia {
       (file.year !== undefined &&
         normTitle(`${file.title}${file.year}`) === ownerTitle))
   const isEpisode =
-    !misread && (file.episodes.length > 0 || file.airDate !== undefined)
+    !options?.forceMovie &&
+    !misread &&
+    (file.episodes.length > 0 ||
+      file.airDate !== undefined ||
+      (options?.inferUnnumberedSeason === true && ctx.season !== undefined))
 
   // 片名来源：文件名；通用名回退到文件夹；混淆过的文件名（没有年份）在发布包文件夹里也信文件夹
   let source: NameInfo = file
-  if (owner && (generic || ctx.inExtras || misread)) source = owner
+  if (
+    owner &&
+    (generic ||
+      ctx.inExtras ||
+      misread ||
+      (options?.inferUnnumberedSeason === true &&
+        ctx.season !== undefined &&
+        file.episodes.length === 0 &&
+        file.airDate === undefined))
+  )
+    source = owner
   else if (
     owner &&
     !isEpisode &&

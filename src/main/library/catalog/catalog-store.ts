@@ -53,6 +53,11 @@ export class CatalogStore {
     this.sql = new StatementCache(db)
   }
 
+  /** 外部事务改变条目键或删除条目后清除缓存。 */
+  clearCache(): void {
+    this.ids.clear()
+  }
+
   /** 确保条目存在，返回 id 与是否新建。 */
   private ensure(
     libraryId: number,

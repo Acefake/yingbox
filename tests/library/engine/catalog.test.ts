@@ -1,5 +1,7 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { groupFile } from '../../../src/main/library/catalog/grouping'
+import { ItemChanges } from '../../../src/main/library/catalog/catalog-store'
+import { LibraryStore } from '../../../src/main/library/libraries/library-store'
 import { normalizeLibraryQuery } from '../../../src/shared/library/ipc'
 import { parseMediaPath } from '../../../src/shared/library/parser'
 import { scanEnv, tempTree } from './helpers'
@@ -16,6 +18,34 @@ const keys = (g: ReturnType<typeof groupFile>): string[] =>
   [...g.ancestors, ...g.leaves].map(i => i.localKey)
 
 describe('groupFile', () => {
+  it('混合库按文件区分电影、综艺和动漫', () => {
+    const mixed = (path: string): ReturnType<typeof groupFile> =>
+      groupFile(
+        { libraryId: 1, kind: 'movie', mixed: true, relativeKey: path },
+        parseMediaPath(path, { inferUnnumberedSeason: true })
+      )
+    expect(mixed('电影/霸王别姬 (1993).mkv').leaves[0].type).toBe('movie')
+    expect(mixed('综艺/节目/节目 第1期.mkv').ancestors[0].type).toBe('series')
+    expect(
+      mixed('动漫/One Piece/[Sub] One Piece - 1071 [1080p].mkv').ancestors[0]
+        .type
+    ).toBe('series')
+    expect(mixed('动画电影/千与千寻 (2001).mkv').leaves[0].type).toBe('movie')
+    const unnumbered = mixed('剧集/没有集号的剧/Season 1/第一章.mkv')
+    expect(unnumbered.ancestors[0]).toMatchObject({
+      type: 'series',
+      title: '没有集号的剧',
+    })
+    expect(unnumbered.ancestors[1]).toMatchObject({
+      type: 'season',
+      seasonNumber: 1,
+    })
+    expect(unnumbered.leaves[0]).toMatchObject({
+      seasonNumber: 1,
+      episodeNumber: null,
+    })
+    expect(unnumbered.leaves[0].type).toBe('episode')
+  })
   it('电影：同片不同版本落到同一条目，片名繁简与大小写不影响', () => {
     const a = group('movie', '霸王別姬 (1993)/霸王別姬.1993.1080p.mkv')
     const b = group('movie', '霸王别姬.1993.2160p.REMUX.mkv')
@@ -91,6 +121,80 @@ describe('CatalogQuery', () => {
     tree = tempTree()
   })
   afterEach(() => tree.cleanup())
+
+  it('混合库扫描后电影和剧集可以分别查询', async () => {
+    tree.write('电影/霸王别姬 (1993).mkv')
+    tree.write('综艺/节目/节目 第1期.mkv')
+    tree.write('动漫/One Piece/[Sub] One Piece - 1071 [1080p].mkv')
+    const env = scanEnv(tree.root, 'movie', true)
+    await env.scan()
+    expect(
+      env.query.list(normalizeLibraryQuery({ types: ['movie'] })).total
+    ).toBe(1)
+    expect(
+      env.query.list(normalizeLibraryQuery({ types: ['series'] })).total
+    ).toBe(2)
+    expect(new LibraryStore(env.db).get(env.library.id).mixed).toBe(true)
+    env.db.close()
+  })
+
+  it('已有库转为混合库后，重扫保留已有条目和观看进度', async () => {
+    const path = '电影/流浪地球 2.mkv'
+    tree.write(path, 'a')
+    const env = scanEnv(tree.root)
+    await env.scan()
+    const item = env.query.list(normalizeLibraryQuery({ types: ['movie'] }))
+      .items[0]
+    env.db
+      .prepare(
+        "UPDATE media_items SET local_key = local_key || '#tmdb:123', match_state = 'auto', tmdb_id = '123' WHERE id = ?"
+      )
+      .run(item.id)
+    env.catalog.collectGarbage(env.library.id, new ItemChanges())
+    env.db
+      .prepare(
+        'INSERT INTO watch_progress (item_id, position, duration, updated_at) VALUES (?, 10, 100, 1)'
+      )
+      .run(item.id)
+    const updated = new LibraryStore(env.db).update({
+      libraryId: env.library.id,
+      mixed: true,
+    })
+    Object.assign(env.library, updated)
+    tree.write(path, 'new contents')
+    await env.scan({ full: true })
+    expect(
+      env.query.list(normalizeLibraryQuery({ types: ['movie'] })).items[0].id
+    ).toBe(item.id)
+    expect(
+      env.db
+        .prepare('SELECT position FROM watch_progress WHERE item_id = ?')
+        .get(item.id)
+    ).toEqual({ position: 10 })
+    env.db.close()
+  })
+
+  it('转换前没有条目关联的文件可在重扫后入库', async () => {
+    const path = '电影/英雄 (2002).mkv'
+    tree.write(path, 'a')
+    const env = scanEnv(tree.root)
+    await env.scan()
+    env.db.exec('DELETE FROM file_media; DELETE FROM media_items')
+    env.catalog.collectGarbage(env.library.id, new ItemChanges())
+    Object.assign(
+      env.library,
+      new LibraryStore(env.db).update({
+        libraryId: env.library.id,
+        mixed: true,
+      })
+    )
+    tree.write(path, 'changed')
+    await env.scan({ full: true })
+    expect(
+      env.query.list(normalizeLibraryQuery({ types: ['movie'] })).total
+    ).toBe(1)
+    env.db.close()
+  })
 
   async function library(): Promise<ReturnType<typeof scanEnv>> {
     tree.write('霸王別姬 (1993)/霸王別姬 (1993).mkv')

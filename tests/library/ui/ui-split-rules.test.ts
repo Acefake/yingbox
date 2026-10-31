@@ -231,6 +231,12 @@ describe('媒体库设置规则', () => {
     expect(folderDescription({ root: '/m', lastScanAt: null }, fmt)).toBe(
       '/m · 尚未扫描'
     )
+    expect(
+      folderDescription(
+        { root: 'yingbox-dav://pan115/123', lastScanAt: null, mixed: true },
+        fmt
+      )
+    ).toBe('混合 · 115 · 只读 · /123 · 尚未扫描')
     expect(tokenStatus(false, true)).toBe('仅桌面版可用')
     expect(tokenStatus(true, true)).toBe('已配置')
     expect(tokenStatus(true, false)).toBe('尚未配置，无法识别')

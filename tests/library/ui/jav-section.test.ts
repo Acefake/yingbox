@@ -29,6 +29,14 @@ const lib = (id: number, kind: Lib['kind'], source?: Lib['source']): Lib => ({
 })
 
 describe('片库分区', () => {
+  it('混合库属于电影和剧集页面，具体条目按类型跳转', () => {
+    const mixed = { ...lib(1, 'movie', 'tmdb'), mixed: true }
+    expect(librariesIn([mixed], 'movie')).toEqual([mixed])
+    expect(librariesIn([mixed], 'tv')).toEqual([mixed])
+    expect(librariesIn([mixed], 'jav')).toEqual([])
+    expect(sectionOf(mixed, 'movie')).toBe('movie')
+    expect(sectionOf(mixed, 'series')).toBe('tv')
+  })
   it('番号库 = movie + jav；电影 = movie + tmdb；剧集 = tv', () => {
     expect(sectionOf(lib(1, 'movie', 'jav'))).toBe('jav')
     expect(sectionOf(lib(2, 'movie', 'tmdb'))).toBe('movie')

@@ -27,12 +27,14 @@ import type {
   SetProviderTokenRequest,
   UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
+import { LibraryError } from '../../../shared/library/ipc'
 import { ActorModule } from '../actors/actor-module'
 import { type Intake, createIntake } from '../arrivals/intake'
 import { type VisualModule, createVisualModule } from '../visual/visual-setup'
 import { KeyedMutex } from '../jobs/keyed-mutex'
 import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
+import { reclassifyItem } from '../catalog/reclassify'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
 import { IdentifyModule } from '../identify/identify-module'
@@ -97,6 +99,7 @@ export class LibraryService {
   readonly intake: Intake
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
+  private readonly matching = new Set<number>()
   private readonly watch: LibraryWatch
   private readonly listeners = new Set<(event: LibraryEvent) => void>()
   private readonly fingerprint: (path: string) => Promise<string | undefined>
@@ -248,8 +251,13 @@ export class LibraryService {
 
   /** 改名 / 改自动化设置；监控开关与存储立即生效（本地盘补一次增量扫描）。 */
   async updateLibrary(request: UpdateLibraryRequest): Promise<LibraryInfo> {
-    const before = this.libraries.get(request.libraryId)
-    const lib = this.libraries.update(request)
+    const { before, lib } = await this.locks.run(
+      request.libraryId,
+      async () => {
+        const before = this.libraries.get(request.libraryId)
+        return { before, lib: this.libraries.update(request) }
+      }
+    )
     const { watch, storage } = lib.automation
     if (
       before.automation.watch !== watch ||
@@ -260,6 +268,41 @@ export class LibraryService {
     if (before.automation.storage !== storage)
       this.emitLibrariesWhenJudged([lib], true)
     return toLibraryInfo(lib, this.watch.storage.known(lib))
+  }
+
+  /** 纠正混合库条目的电影 / 剧集类型。 */
+  async reclassifyItem(
+    request: LibraryRpcMap['reclassifyItem']['params']
+  ): Promise<LibraryItemSummary> {
+    const item = this.catalogQuery.summary(request.itemId)
+    if (!item) throw new Error('条目不存在')
+    return this.locks.run(item.libraryId, async () => {
+      if (
+        this.matching.has(item.id) ||
+        this.queue.activeJobs().some(job => job.jobType === 'identify')
+      ) {
+        throw new LibraryError(
+          'conflict',
+          '识别任务正在进行，请完成后再纠正类型'
+        )
+      }
+      reclassifyItem(
+        this.db,
+        this.catalog,
+        this.libraries.get(item.libraryId),
+        item.id,
+        request.kind
+      )
+      this.emit({
+        type: 'items-changed',
+        libraryId: item.libraryId,
+        added: [],
+        updated: [],
+        removed: [],
+        reset: true,
+      })
+      return this.catalogQuery.summary(item.id)!
+    })
   }
 
   /** 删除媒体库及其全部数据。 */
@@ -306,8 +349,15 @@ export class LibraryService {
   }
 
   /** 手动匹配。 */
-  applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult> {
-    return this.identifier.applyMatch(request)
+  async applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult> {
+    if (this.matching.has(request.itemId))
+      throw new LibraryError('conflict', '此条目正在匹配')
+    this.matching.add(request.itemId)
+    try {
+      return await this.identifier.applyMatch(request)
+    } finally {
+      this.matching.delete(request.itemId)
+    }
   }
 
   /** 锁定匹配。 */

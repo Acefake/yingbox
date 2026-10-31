@@ -79,9 +79,13 @@ export interface ScanEnv {
 }
 
 /** 建库并返回扫描环境。 */
-export function scanEnv(root: string, kind: LibraryKind = 'movie'): ScanEnv {
+export function scanEnv(
+  root: string,
+  kind: LibraryKind = 'movie',
+  mixed = false
+): ScanEnv {
   const db = openLibraryDb(':memory:')
-  const library = new LibraryStore(db).add({ root, kind }, 1)
+  const library = new LibraryStore(db).add({ root, kind, mixed }, 1)
   const scanStore = new ScanStore(db)
   const catalog = new CatalogStore(db)
   let calls = 0
