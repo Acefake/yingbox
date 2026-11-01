@@ -9,12 +9,13 @@ import {
   episodeCode,
   episodeMark,
   episodeNote,
-  groupBySeries,
+  episodeSteps,
   historyEpisodes,
   marksOf,
   nextAirText,
   pendingBadge,
   pendingEpisodes,
+  pendingReason,
   prerequisites,
   sizeText,
   statusLine,
@@ -34,6 +35,7 @@ import {
   prefsSummary,
   withInherit,
 } from '../src/renderer/src/features/autograb/prefs-rules'
+import { tmdbSearchPoster } from '../src/renderer/src/features/autograb/series-poster-rules'
 import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
 import { DEFAULT_GRAB_PREFS } from '../src/shared/contract/grab-prefs'
 import { policyOf } from '../src/shared/contract/grab-policy'
@@ -238,14 +240,6 @@ describe('自动追更页规则', () => {
     expect(pendingBadge(null)).toBe(0)
   })
 
-  it('待处理按剧分组，组顺序跟第一集', () => {
-    const groups = groupBySeries(pendingEpisodes(o))
-    expect(groups.map(g => [g.seriesId, g.episodes.length])).toEqual([
-      [1, 2],
-      [2, 2],
-    ])
-  })
-
   it('在追 / 没在追的剧、下一集播出日', () => {
     const list = {
       ...base,
@@ -267,6 +261,80 @@ describe('自动追更页规则', () => {
     expect(
       statusLine({ ...base, lastRunAt: last, nextRunAt: last + 30 * 60_000 })
     ).toBe('开启 · 上次 14:00 检查 · 下次约 14:30')
+  })
+
+  it('待处理卡片的说明：按状态与这部剧的方式说为什么要你处理', () => {
+    const found = episode('1:1:3', 1, 'found')
+    expect(pendingReason(found, undefined)).toBe('找到了资源，等你确认。')
+    expect(pendingReason(found, series(1, 'confirm'))).toContain(
+      '每一集都由你来点转存'
+    )
+    const auto = { ...series(1, 'confirm'), effectiveMode: 'auto' as const }
+    expect(
+      pendingReason(found, { ...auto, confirmFirst: 2, confirmed: 1 })
+    ).toBe('这部剧还要你确认 1 集，之后会自动转存。')
+    expect(pendingReason(found, auto)).toContain('匹配分不够高')
+    const off = { ...auto, effectiveMode: 'off' as const }
+    expect(pendingReason(found, off)).toContain('已经不追了')
+    const missing = { ...episode('1:1:2', 1, 'notFound'), attempts: 6 }
+    expect(pendingReason(missing, auto)).toContain('已搜 6 次')
+    expect(pendingReason({ ...missing, error: '原因' }, auto)).toBe('原因')
+    expect(pendingReason(episode('2:1:2', 2, 'noSpace'), auto)).toContain(
+      '空间'
+    )
+  })
+
+  it('单集进度：当前一步随状态改字样，之前的都算完成', () => {
+    const states = (ep: AutograbEpisode): string[] =>
+      episodeSteps(ep).map(step => `${step.label}:${step.state}`)
+    expect(states(episode('1:1:1', 1, 'waiting'))).toEqual([
+      '播出:done',
+      '搜索中:current',
+      '确认:todo',
+      '转存 115:todo',
+      '入库:todo',
+    ])
+    const found = episode('1:1:1', 1, 'found')
+    found.candidates = [
+      {
+        shareUrl: '',
+        password: '',
+        shareTitle: '',
+        fileId: 'a',
+        fileName: 'a.mkv',
+        size: 1,
+        score: 90,
+        quality: 0,
+        specs: [],
+        reasons: [],
+      },
+      {
+        shareUrl: '',
+        password: '',
+        shareTitle: '',
+        fileId: 'b',
+        fileName: 'b.mkv',
+        size: 1,
+        score: 80,
+        quality: 0,
+        specs: [],
+        reasons: [],
+      },
+    ]
+    expect(states(found)).toEqual([
+      '播出:done',
+      '搜到 2 个:done',
+      '等你确认:current',
+      '转存 115:todo',
+      '入库:todo',
+    ])
+    expect(states(episode('1:1:1', 1, 'notFound'))[1]).toBe('找不到:problem')
+    expect(states(episode('1:1:1', 1, 'saved'))[4]).toBe('入库中:current')
+    const broken = { ...episode('1:1:1', 1, 'saved'), error: '入库失败的原因' }
+    expect(states(broken)[4]).toBe('入库失败:problem')
+    expect(
+      states(episode('1:1:1', 1, 'done')).every(s => s.endsWith(':done'))
+    ).toBe(true)
   })
 })
 
@@ -373,7 +441,7 @@ const SFCS = [
   'features/autograb/components/AutograbEpisodes.vue',
   'features/autograb/components/GrabOverrideForm.vue',
   'features/autograb/components/ItemPolicyMenu.vue',
-  'features/autograb/components/AutograbMarkChip.vue',
+  'features/autograb/components/PendingCard.vue',
   'features/autograb-upgrade/components/MoviesPanel.vue',
   'features/autograb-upgrade/components/UpgradePanel.vue',
   'features/autograb-upgrade/settings/AutograbSettings.vue',
@@ -397,5 +465,22 @@ describe('追更与自动追更设置组件', () => {
       id: name,
     })
     expect(template.errors).toEqual([])
+  })
+})
+
+describe('剧海报兜底', () => {
+  it('TMDB 搜剧结果：取第一条有海报的', () => {
+    expect(
+      tmdbSearchPoster({
+        results: [
+          { poster_path: null },
+          { poster_path: '/a.jpg' },
+          { poster_path: '/b.jpg' },
+        ],
+      })
+    ).toBe('https://image.tmdb.org/t/p/w342/a.jpg')
+    expect(tmdbSearchPoster({ results: [] })).toBeNull()
+    expect(tmdbSearchPoster(null)).toBeNull()
+    expect(tmdbSearchPoster({ results: [{ poster_path: 'x' }] })).toBeNull()
   })
 })

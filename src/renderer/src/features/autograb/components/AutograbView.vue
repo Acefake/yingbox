@@ -1,27 +1,38 @@
 <template>
   <div class="ag-view">
-    <SettingsGroup :footer="usageText">
-      <SettingsRow title="剧集追更">
-        <template #description>
-          <span class="ag-state" role="status" aria-live="polite">
-            {{ data ? statusLine(data) : '正在读取追更状态' }}
-            <UiLoadingDots v-if="!data || data.running" />
-          </span>
-        </template>
-        <UiButton
-          size="sm"
-          icon="refresh"
-          label="立即检查"
-          :loading="data?.running"
-          :disabled="!ready"
-          @click="ag.runNow"
+    <header class="ag-toolbar">
+      <p class="ag-state">
+        <span
+          class="ag-state-dot"
+          :class="{ 'is-on': data?.enabled }"
+          aria-hidden="true"
         />
-        <UiSwitch
-          :model-value="data?.enabled ?? false"
-          label="追更总开关"
-          @update:model-value="ag.setEnabled"
-        />
-      </SettingsRow>
+        <span role="status" aria-live="polite">{{
+          data ? statusLine(data) : '正在读取追更状态'
+        }}</span>
+        <UiLoadingDots v-if="!data || data.running" />
+        <span v-if="usageText" class="ag-usage">{{ usageText }}</span>
+      </p>
+      <UiButton
+        icon="settings"
+        :label="policyLabel"
+        @click="openAutograbSettings('tv')"
+      />
+      <UiButton
+        icon="refresh"
+        label="立即检查"
+        :loading="data?.running"
+        :disabled="!ready"
+        @click="ag.runNow"
+      />
+      <UiSwitch
+        :model-value="data?.enabled ?? false"
+        label="追更总开关"
+        @update:model-value="ag.setEnabled"
+      />
+    </header>
+
+    <SettingsGroup v-if="needs.length || ag.error.value" class="ag-needs">
       <SettingsRow
         v-if="ag.error.value"
         title="读取追更状态失败"
@@ -44,25 +55,20 @@
           @click="act(need.action.to)"
         />
       </SettingsRow>
-      <SettingsRow title="全局策略" :description="policyText">
-        <UiButton
-          size="sm"
-          icon="settings"
-          label="修改"
-          @click="openAutograbSettings('tv')"
-        />
-      </SettingsRow>
     </SettingsGroup>
 
     <PendingList
       v-if="pending.length"
       :episodes="pending"
       :posters="posters"
+      :series="seriesById"
       :busy="ag.busy"
+      :grabbing-all="ag.grabbingAll.value"
       @grab="ag.grab"
-      @revert="ag.revert"
+      @grab-best="grabBest"
       @skip="ag.skip"
       @retry="ag.retry"
+      @open="key => (episodeKey = key)"
     />
 
     <TrackedSeriesList
@@ -76,10 +82,10 @@
       @track="track"
     />
 
-    <SettingsGroup v-if="history.length" title="记录">
+    <SettingsGroup v-if="history.length">
       <SettingsRow
-        :title="`最近 ${history.length} 集`"
-        description="已转存、已入库和跳过的集；追更存进 115 的可以撤销"
+        title="记录"
+        :description="`最近 ${history.length} 集已转存、入库或跳过；追更存进 115 的可以撤销`"
       >
         <UiButton
           size="sm"
@@ -101,6 +107,7 @@
       />
     </SettingsGroup>
 
+    <EpisodeGrabSheet :episode-key="episodeKey" @close="episodeKey = null" />
     <SeriesGrabSheet
       :series-id="sheetSeries"
       :title="sheetTitle"
@@ -111,9 +118,9 @@
 
 <script setup lang="ts">
 /**
- * 自动追更页的「剧集」栏（桌面 /autograb 与 NAS 共用），用设置页同一套玻璃分组（SettingsGroup / SettingsRow）：
- * 第一组是状态（开启 · 上次 / 下次检查、立即检查、总开关）、缺的前置条件（各带就地操作）和全局策略，组脚是今天的 115 用量；
- * 然后是「待处理 → 在追的剧 → 记录」。
+ * 自动追更页的「剧集」栏（桌面 /autograb 与 NAS 共用）：一条工具栏（状态句：开启 · 上次 / 下次检查 · 今天的 115 用量；
+ * 全局策略、立即检查、总开关），缺前置条件时下面一组玻璃分组（SettingsGroup，各带就地操作）；
+ * 然后是「需要你处理（卡片，可全部转存推荐资源）→ 在追的剧（海报墙）→ 记录」；卡片上「另 N 个」打开这一集的侧板（EpisodeGrabSheet）。
  * 每部剧的设置收进侧拉面板（SeriesGrabSheet）；带 ?series=<剧 id>（&title=）进来（播放器「去追更」）时直接打开那部剧的面板。
  * keep-alive 下离开页面时关掉面板。
  */
@@ -124,6 +131,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
+import { confirmDialog } from '@/components/ui'
 import { toast } from '@/components/ui/toast'
 import { openNetdiskSettings } from '@/features/netdisk'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
@@ -143,6 +151,7 @@ import { useAutograb } from '../use-autograb'
 import { useFullAutoFolder } from '../use-full-auto-folder'
 import { useSeriesPosters } from '../use-series-posters'
 import AutograbEpisodes from './AutograbEpisodes.vue'
+import EpisodeGrabSheet from './EpisodeGrabSheet.vue'
 import PendingList from './PendingList.vue'
 import SeriesGrabSheet from './SeriesGrabSheet.vue'
 import TrackedSeriesList from './TrackedSeriesList.vue'
@@ -168,19 +177,23 @@ const pendingBySeries = computed(() => {
 })
 /** 剧 id → 海报（待处理分组头用） */
 const posters = useSeriesPosters(() => data.value?.series ?? [])
+/** 剧 id → 剧（待处理卡片说明为什么要处理） */
+const seriesById = computed(
+  () => new Map((data.value?.series ?? []).map(s => [s.seriesId, s]))
+)
 const tracked = computed(() => trackedSeries(data.value))
 const untracked = computed(() => untrackedSeries(data.value))
 const history = computed(() => historyEpisodes(data.value))
 const historyOpen = ref(false)
-/** 没单独设的剧怎么追：待确认 · 均衡 */
-const policyText = computed(() => {
+/** 全局策略按钮上的字：全局策略 · 全自动 · 均衡 */
+const policyLabel = computed(() => {
   const policy = data.value?.policy
-  if (!policy) return ''
-  return `没单独设的剧：${optionLabel(TV_MODE_OPTIONS, policy.mode)} · ${prefsSummary(policy.prefs)}`
+  if (!policy) return '全局策略'
+  return `全局策略 · ${optionLabel(TV_MODE_OPTIONS, policy.mode)} · ${prefsSummary(policy.prefs)}`
 })
 const usageText = computed(() =>
   data.value
-    ? `今天已用 115 查询 ${data.value.today.snaps} 次、转存 ${data.value.today.receives} 次`
+    ? `今天 115 查询 ${data.value.today.snaps} 次、转存 ${data.value.today.receives} 次`
     : undefined
 )
 
@@ -217,7 +230,23 @@ watch(
   },
   { immediate: true }
 )
-onDeactivated(() => (sheetSeries.value = null))
+/** 「另 N 个」打开的单集侧板 */
+const episodeKey = ref<string | null>(null)
+onDeactivated(() => {
+  sheetSeries.value = null
+  episodeKey.value = null
+})
+
+/** 全部转存推荐资源：确认后逐集转存最佳候选 */
+async function grabBest(keys: string[]): Promise<void> {
+  const ok = await confirmDialog({
+    title: `转存 ${keys.length} 集的推荐资源？`,
+    content:
+      '每集转存匹配分最高的那个文件，存到各自剧的文件夹。存错了可以在「记录」里撤销。',
+    okText: '全部转存',
+  })
+  if (ok) await ag.grabBest(keys)
+}
 
 // 一键追更：先按待确认追（要全自动再进面板改）
 const tracking = reactive(new Set<number>())

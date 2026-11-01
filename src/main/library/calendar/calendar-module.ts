@@ -65,16 +65,19 @@ interface LocalEpisode {
 const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.original_title, i.tmdb_id,
     i.backdrop, i.poster
   FROM media_items i JOIN libraries l ON l.id = i.library_id
-  WHERE i.type = 'series' AND l.kind = 'tv' AND i.tmdb_id IS NOT NULL
+  WHERE i.type = 'series' AND (l.kind = 'tv' OR l.mixed = 1) AND i.tmdb_id IS NOT NULL
     AND i.match_state IN ('auto', 'locked')
     AND (i.merge_key IS NULL OR NOT EXISTS (
       SELECT 1 FROM media_items o JOIN libraries lo ON lo.id = o.library_id
-      WHERE o.merge_key = i.merge_key AND o.id < i.id AND lo.kind = 'tv'))`
+      WHERE o.merge_key = i.merge_key AND o.id < i.id AND lo.source = l.source
+        AND (lo.kind = 'tv' OR lo.mixed = 1)))`
 
 /** 与这部剧合并展示的本地条目（含自身）。 */
 const MEMBERS_SQL = `SELECT ?1 AS id UNION
-  SELECT m.id FROM media_items i JOIN media_items m ON m.merge_key = i.merge_key
-  JOIN libraries l ON l.id = m.library_id AND l.kind = 'tv'
+  SELECT m.id FROM media_items i JOIN libraries li ON li.id = i.library_id
+  JOIN media_items m ON m.merge_key = i.merge_key
+  JOIN libraries l ON l.id = m.library_id AND l.source = li.source
+    AND (l.kind = 'tv' OR l.mixed = 1)
   WHERE i.id = ?1`
 
 /** 这些剧下的集（集可能挂在季下，也可能直接挂在剧下），带第一个视频文件。 */

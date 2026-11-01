@@ -45,7 +45,9 @@ import {
 } from '../src/renderer/src/features/calendar/calendar-rules'
 import {
   groupShowsByDay,
+  legendOf,
   mergedCode,
+  rowStatus,
 } from '../src/renderer/src/features/calendar/calendar-rows'
 
 const TODAY = '2026-10-24' // 周六
@@ -458,6 +460,66 @@ describe('RPC calendar.episodes', () => {
     ).toThrow()
   })
 
+  it('混合库剧集参与日历，并合并不同库中的本地集', async () => {
+    const db = openLibraryDb(':memory:')
+    const library = db.prepare(
+      'INSERT INTO libraries (root, root_display, kind, name, created_at, mixed) VALUES (?, ?, ?, ?, 1, ?) RETURNING id'
+    )
+    const movie = Number(
+      library.get('/movies', '/movies', 'movie', '混合', 1)!.id
+    )
+    const tv = Number(library.get('/tv', '/tv', 'tv', '剧集', 0)!.id)
+    const add = db.prepare(
+      `INSERT INTO media_items (library_id, type, parent_id, local_key, title,
+        season_number, episode_number, tmdb_id, match_state, added_at, updated_at)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, 1, 1) RETURNING id`
+    )
+    const mixedSeries = Number(
+      add.get(movie, 'series', null, 'mixed', '剧', null, null, '42', 'auto')!
+        .id
+    )
+    const tvSeries = Number(
+      add.get(tv, 'series', null, 'tv', '剧', null, null, '42', 'auto')!.id
+    )
+    const episode = Number(
+      add.get(tv, 'episode', tvSeries, 'ep', '第一集', 1, 1, null, 'auto')!.id
+    )
+    const file = Number(
+      db
+        .prepare(
+          `INSERT INTO files (library_id, path, display_path, dir, name, kind, size, mtime, added_at, updated_at)
+       VALUES (?, '/tv/e.mkv', '/tv/e.mkv', '/tv', 'e.mkv', 'video', 1, 1, 1, 1) RETURNING id`
+        )
+        .get(tv)!.id
+    )
+    db.prepare('INSERT INTO file_media (file_id, item_id) VALUES (?, ?)').run(
+      file,
+      episode
+    )
+    const calendar = new CalendarModule({
+      db,
+      provider: () => ({
+        configured: true,
+        airing: async () => ({
+          id: 42,
+          status: 'Returning Series',
+          seasons: [{ season_number: 1, air_date: TODAY }],
+        }),
+        airingSeason: async () => ({
+          season_number: 1,
+          episodes: [{ season_number: 1, episode_number: 1, air_date: TODAY }],
+        }),
+      }),
+    })
+    const result = await calendar.episodes({ from: TODAY, to: TODAY })
+    expect(result.series).toBe(1)
+    expect(result.episodes).toMatchObject([
+      { seriesId: mixedSeries, itemId: episode, fileId: file },
+    ])
+    expect(tvSeries).not.toBe(mixedSeries)
+    db.close()
+  })
+
   it('引擎模块：已匹配的剧按 TMDB 播出日排列，并对上本地文件', async () => {
     const db = openLibraryDb(':memory:')
     const lib = Number(
@@ -618,5 +680,41 @@ describe('周视图同剧同日合并', () => {
       ep(1, 10, { status: 'upcoming' }),
     ])
     expect(seen.status).toBe('watched')
+  })
+
+  it('行状态：追更标记优先，否则按观看与本地有没有文件', () => {
+    const [g] = groupShowsByDay([ep(1, 9)])
+    expect(rowStatus(g, null)).toEqual({ tone: 'playable', label: '可播放' })
+    const [remote] = groupShowsByDay([
+      ep(1, 9, {
+        library: { seriesId: 1, season: 1, episode: 9, playable: false },
+      }),
+    ])
+    expect(rowStatus(remote, null)).toEqual({
+      tone: 'unwatched',
+      label: '未看',
+    })
+    expect(rowStatus(g, { kind: 'pending', label: '待确认' })).toEqual({
+      tone: 'pending',
+      label: '待确认',
+    })
+    expect(rowStatus(g, { kind: 'saved', label: '已转存' }).tone).toBe(
+      'ingesting'
+    )
+    const [seen] = groupShowsByDay([ep(1, 9, { status: 'watched' })])
+    expect(rowStatus(seen, null)).toEqual({ tone: 'watched', label: '已看' })
+    const [up] = groupShowsByDay([ep(1, 9, { status: 'upcoming' })])
+    expect(rowStatus(up, null)).toEqual({ tone: 'upcoming', label: '待播' })
+  })
+
+  it('图例只列出现过的状态，按固定先后', () => {
+    expect(
+      legendOf([
+        { tone: 'watched', label: '已看' },
+        { tone: 'pending', label: '待确认' },
+        { tone: 'playable', label: '可播放' },
+        { tone: 'pending', label: '待确认' },
+      ]).map(item => item.label)
+    ).toEqual(['可播放', '待确认', '已看'])
   })
 })

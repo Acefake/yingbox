@@ -17,6 +17,7 @@ const read = (path: string): string => readFileSync(join(ROOT, path), 'utf8')
 const SFCS = [
   'features/calendar/views/CalendarView.vue',
   'features/calendar/components/CalendarRow.vue',
+  'features/calendar/components/TodayCard.vue',
   'features/shell/components/AppSidebar.vue',
 ]
 
@@ -67,7 +68,7 @@ describe('追剧日历界面', () => {
   it('行：UiPressable 整行可点、小剧照、状态文案、无渐进模糊；同剧同日合并；页面用 UiSegmented 切视图', () => {
     const row = read('features/calendar/components/CalendarRow.vue')
     expect(row).toContain('<UiPressable')
-    expect(row).toContain('STATUS_LABEL[group.status]')
+    expect(row).toContain('rowStatus(props.group')
     expect(row).not.toContain('yb-pblur')
     expect(row).not.toMatch(/<button[\s>]/)
     const view = read('features/calendar/views/CalendarView.vue')
@@ -80,10 +81,10 @@ describe('追剧日历界面', () => {
     expect(view).toContain('requestOnlineDetail')
   })
 
-  it('追更小标记：卡片外另一个按钮（不嵌套），点了从右侧滑出这一集的侧板', () => {
+  it('追更状态：行外另一个按钮（不嵌套），点了从右侧滑出这一集的侧板', () => {
     const card = read('features/calendar/components/CalendarRow.vue')
     const pressableEnd = card.indexOf('</UiPressable>')
-    expect(card.indexOf('<AutograbMarkChip')).toBeGreaterThan(pressableEnd)
+    expect(card.indexOf("emit('mark', mark.key)")).toBeGreaterThan(pressableEnd)
     expect(card).toContain("from '@/features/autograb'")
     const view = read('features/calendar/views/CalendarView.vue')
     expect(view).toContain('@mark="openAutograb"')

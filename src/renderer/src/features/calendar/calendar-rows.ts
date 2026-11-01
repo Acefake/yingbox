@@ -81,3 +81,64 @@ export function groupShowsByDay(
     }
   })
 }
+
+/** 行上状态的色调：观看状态三种，加上追更的四种（同一套圆点颜色，日历行与今天大卡共用） */
+export type RowTone =
+  | 'watched'
+  | 'playable'
+  | 'unwatched'
+  | 'upcoming'
+  | 'searching'
+  | 'pending'
+  | 'ingesting'
+  | 'failed'
+
+/** 行上的状态：圆点色调 + 两三个字 */
+export interface RowStatus {
+  tone: RowTone
+  label: string
+}
+
+/** 追更标记的种类 → 色调（已转存与入库中同色） */
+const MARK_TONE: Record<string, RowTone> = {
+  searching: 'searching',
+  pending: 'pending',
+  saved: 'ingesting',
+  ingesting: 'ingesting',
+  failed: 'failed',
+}
+
+/**
+ * 一行的状态：有追更标记时说追更（搜索中 / 待确认 / 已转存 / 入库中 / 失败），
+ * 否则说观看（已看 / 可播放 / 未看 / 待播；本地有文件的未看集是「可播放」）。
+ */
+export function rowStatus(
+  group: ShowDayGroup,
+  mark: { kind: string; label: string } | null
+): RowStatus {
+  const tone = mark ? MARK_TONE[mark.kind] : undefined
+  if (mark && tone) return { tone, label: mark.label }
+  if (group.status === 'watched') return { tone: 'watched', label: '已看' }
+  if (group.status === 'upcoming') return { tone: 'upcoming', label: '待播' }
+  return group.primary.library?.playable
+    ? { tone: 'playable', label: '可播放' }
+    : { tone: 'unwatched', label: '未看' }
+}
+
+/** 图例的先后与字样（已转存并进入库中，图例只写一种） */
+const LEGEND: readonly RowStatus[] = [
+  { tone: 'playable', label: '可播放' },
+  { tone: 'unwatched', label: '未看' },
+  { tone: 'pending', label: '待确认' },
+  { tone: 'ingesting', label: '入库中' },
+  { tone: 'searching', label: '搜索中' },
+  { tone: 'failed', label: '失败' },
+  { tone: 'upcoming', label: '待播' },
+  { tone: 'watched', label: '已看' },
+]
+
+/** 周视图标题右侧的图例：只列这一周实际出现的状态，按固定先后 */
+export function legendOf(statuses: readonly RowStatus[]): RowStatus[] {
+  const seen = new Set(statuses.map(s => s.tone))
+  return LEGEND.filter(item => seen.has(item.tone))
+}
