@@ -5,6 +5,7 @@
 import {
   type Ref,
   type ShallowRef,
+  onActivated,
   onBeforeUnmount,
   onMounted,
   reactive,
@@ -88,6 +89,12 @@ export function useAutograb(): AutograbPanelState {
     }
 
   onMounted(() => (release = autograbStore.acquire()))
+  // 页面被缓存着：从设置里登录 115 回来要重新取一次
+  let entered = false
+  onActivated(() => {
+    if (entered) void reload()
+    entered = true
+  })
   onBeforeUnmount(() => release?.())
 
   const api = autograbApi

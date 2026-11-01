@@ -24,6 +24,8 @@ pnpm format             # prettier --write .
 
 # Tests
 pnpm test               # vitest run (tests/ — main-process pure logic)
+pnpm test:affected      # only tests affected vs origin/main (use while iterating)
+pnpm vitest run tests/<file>.test.ts   # single test file; add -t "<name>" for one case
 
 # Build
 pnpm build              # typecheck + electron-vite build
@@ -35,12 +37,19 @@ pnpm build:mac          # full macOS installer
 # Start preview (no hot-reload, production-like)
 pnpm start
 
+# Standalone library server / web / NAS (src/server, ADR-0010)
+pnpm dev:server         # tsx watch, 127.0.0.1:31480
+pnpm dev:web            # web build, proxies /api and /media to the server
+pnpm build:nas          # NAS server + web bundles; pnpm smoke:server / smoke:nas for end-to-end smoke
+
 # Check for issues after refactoring
 pnpm check              # run all checks (typecheck, lint, etc.)
 pnpm check:fix          # run checks and auto-fix lint issues
 ```
 
 ## Architecture
+
+Deeper detail (full main-process module notes, engine, library server, ADR index) is in `AGENTS.md` and `docs/`. Code review output, PR titles/descriptions and commit messages are written in Simplified Chinese (identifiers, paths, commands stay as-is).
 
 The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app.
 
