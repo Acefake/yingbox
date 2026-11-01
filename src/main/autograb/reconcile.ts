@@ -148,7 +148,7 @@ function reconcileSeries(
 /**
  * 每轮拿到日历后调用：问片库哪些旧 id 已经没有了，再把它们并到日历里的新 id（规则见文件头）。返回是否有改动。
  */
-export async function adoptRenamed(
+export async function adopt(
   state: AutograbState,
   episodes: CalendarEpisode[],
   exists: ((seriesId: number, title: string) => Promise<boolean>) | undefined

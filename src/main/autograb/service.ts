@@ -46,7 +46,7 @@ import {
   localDate,
   nextTry,
 } from './schedule-rules'
-import { adoptRenamed } from './reconcile'
+import { adopt } from './reconcile'
 import { applyCalendar, nextAirDates, seriesPosters } from './records'
 import { createSaver } from './saver'
 import {
@@ -213,7 +213,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       if (state.gate.loginPause && deps.pan.loggedIn()) gateRef.resume()
       const result = await deps.calendar(calendarRange(now))
       lastCalendar = result.episodes
-      if (await adoptRenamed(state, lastCalendar, deps.seriesExists)) dirty()
+      if (await adopt(state, lastCalendar, deps.seriesExists)) dirty()
       syncRecords(result.episodes, now)
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())
@@ -262,8 +262,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
           .catch(() => null)
         if (result) {
           lastCalendar = result.episodes
-          if (await adoptRenamed(state, lastCalendar, deps.seriesExists))
-            dirty()
+          if (await adopt(state, lastCalendar, deps.seriesExists)) dirty()
           syncRecords(result.episodes, deps.now())
         }
       }
