@@ -183,6 +183,7 @@ export function metadataFromDetails(
         : {}),
     ...(tagline ? { tagline: tagline.value } : {}),
     genres: (d.genres ?? []).map(g => g.name ?? '').filter(Boolean),
+    genreIds: (d.genres ?? []).map(g => g.id),
     ...(d.vote_count
       ? { rating: d.vote_average, voteCount: d.vote_count }
       : {}),

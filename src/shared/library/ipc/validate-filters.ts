@@ -2,8 +2,9 @@
  * IPC 边界上海报墙附加筛选（contract-filters.ts）的解析：非法时抛 LibraryError（invalid-params）。
  * 空列表视为不筛选，结果里不出现该字段。
  */
+import { CATEGORIES } from '../category'
 import { type LibraryQueryFilters, MAX_FILTER_IDS } from './contract-filters'
-import { asRecord, invalid, positiveId } from './validate-base'
+import { asRecord, invalid, oneOf, positiveId } from './validate-base'
 
 /** 国家 / 人名最多几个。 */
 const MAX_NAMES = 20
@@ -70,6 +71,9 @@ export function parseQueryFilters(input: unknown): LibraryQueryFilters {
   if (r.hasGenres !== undefined && r.hasGenres !== null) {
     if (typeof r.hasGenres !== 'boolean') invalid('hasGenres 必须是布尔值')
     out.hasGenres = r.hasGenres as boolean
+  }
+  if (r.category !== undefined && r.category !== null) {
+    out.category = oneOf(r.category, CATEGORIES, 'category')
   }
   if (r.watched !== undefined && r.watched !== null) {
     if (typeof r.watched !== 'boolean') invalid('watched 必须是布尔值')

@@ -1,6 +1,6 @@
 /**
- * 片库页头的纯规则：排序钮文字、浏览胶囊（全部 / 未看 / 最近添加 | 常见类型）的选中与切换、
- * 标题里的类型、待确认提示、「更多」菜单里的匹配状态与媒体库分组。
+ * 片库「全部」一段的纯规则：排序菜单钮的文字、浏览胶囊（全部 / 未看 / 最近添加 | 常见类型）的选中与切换、
+ * 待确认提示、排序菜单里的匹配状态与文件夹分组。
  * 不依赖 Vue，便于单测。
  */
 import type { FacetValue } from '../../../../../shared/library/ipc'
@@ -23,6 +23,7 @@ export const BROWSE_OPTIONS: ReadonlyArray<{
 }> = [
   { value: 'all', label: '全部' },
   { value: 'unwatched', label: '未看' },
+  { value: 'watchlist', label: '想看' },
   { value: 'recent', label: '最近添加' },
 ]
 
@@ -30,6 +31,26 @@ export const BROWSE_OPTIONS: ReadonlyArray<{
 export function sortLabel(sort: WallSort, order: 'asc' | 'desc'): string {
   const label = SORT_OPTIONS.find(o => o.value === sort)?.label ?? sort
   return `${label} ${order === 'asc' ? '↑' : '↓'}`
+}
+
+/**
+ * 排序菜单钮的文字：选了非默认的匹配状态或某个文件夹时放在排序前面（如「未匹配 · 添加时间 ↓」），
+ * 收在菜单里的筛选也看得见。
+ */
+export function wallMenuLabel(
+  sort: WallSort,
+  order: 'asc' | 'desc',
+  filter: MatchFilter,
+  libraryLabel: string | null
+): string {
+  const parts: string[] = []
+  if (filter !== 'all') {
+    const label = FILTER_OPTIONS.find(o => o.value === filter)?.label
+    if (label) parts.push(label)
+  }
+  if (libraryLabel) parts.push(libraryLabel)
+  parts.push(sortLabel(sort, order))
+  return parts.join(' · ')
 }
 
 /** 在排序菜单里点了某个字段：点当前字段切换升降序，点别的字段换字段。 */
@@ -91,17 +112,12 @@ export function pickGenre(
   return current === genre ? null : genre
 }
 
-/** 标题后面跟的类型：只在海报墙选了类型时有。 */
-export function titleGenre(view: string, genre: string | null): string | null {
-  return view === 'wall' && genre ? genre : null
-}
-
 /** 待确认提示的文字；0 时不显示（null）。 */
 export function reviewHintText(count: number): string | null {
   return count > 0 ? `${count.toLocaleString('zh-CN')} 部待确认` : null
 }
 
-/** 「更多」菜单里一项单选的描述（动作由工具栏补上）。 */
+/** 排序菜单里一项单选的描述（动作由「全部」一段补上）。 */
 export interface MenuChoice<T> {
   key: string
   label: string
@@ -121,7 +137,7 @@ export function matchChoices(filter: MatchFilter): MenuChoice<MatchFilter>[] {
   }))
 }
 
-/** 媒体库分组：只有一个媒体库（选项只有「全部文件夹」+ 1）时不列。 */
+/** 文件夹分组：只有一个文件夹（选项只有「全部文件夹」+ 1）时不列。 */
 export function libraryChoices(
   options: ReadonlyArray<{ value: number; label: string }>,
   library: number
@@ -130,7 +146,7 @@ export function libraryChoices(
   return options.map(o => ({
     key: `lib-${o.value}`,
     label: o.label,
-    group: '媒体库',
+    group: '文件夹',
     checked: library === o.value,
     value: o.value,
   }))

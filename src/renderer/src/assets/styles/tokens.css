@@ -161,13 +161,14 @@
   --sidebar-width: 224px;
   --sidebar-width-collapsed: 64px;
   --titlebar-height: 52px;
-  --shell-pill-height: 44px; /* 顶部前进后退、窗口键玻璃胶囊，详情页玻璃圆钮 */
-  --shell-pill-top: 18px; /* 胶囊离窗口上沿 */
-  --shell-pill-right: 22px; /* 窗口键胶囊离窗口右沿 */
-  --shell-win-width: 132px; /* 窗口键胶囊宽（三枚 36px 按钮），页面的右上角圆钮排在它左边 */
+  --shell-pill-height: 44px; /* 详情页顶部圆钮高度 */
+  --shell-pill-top: 18px; /* 详情页顶部圆钮离窗口上沿 */
+  --shell-pill-right: 22px;
+  --shell-win-width: 132px;
   /* 内容区顶部让出浮动胶囊（左侧让出多少由外壳按侧栏展开 / 收起写进 --shell-left） */
   --shell-top: calc(
-    var(--shell-pill-top) + var(--shell-pill-height) + var(--space-2)
+    var(--shell-pill-top) + var(--shell-pill-height) - var(--space-2) -
+      var(--space-5)
   );
   --bottom-nav-height: 56px;
   --safe-top: env(safe-area-inset-top, 0px);
@@ -176,6 +177,7 @@
   --safe-right: env(safe-area-inset-right, 0px);
   --content-padding-x: 40px;
   --content-padding-y: 32px;
+  --page-title-size: clamp(var(--text-xl), 2vw, var(--text-2xl));
   /* 控件高度三档（按钮、分段切换、筛选胶囊、输入框共用）：sm 行内 / md 页头工具条 / lg 主操作 */
   --control-height-sm: 28px;
   --control-height: 36px;

@@ -408,7 +408,7 @@ describe('接线（源码）', () => {
     expect(button).toContain('icon="bookmark"')
   })
 
-  it('在线首页与媒体库分区在继续播放下面放想看；应用入口订阅看完', () => {
+  it('在线首页在继续播放下面放想看，片库页的想看是「全部」一段的浏览胶囊；应用入口订阅看完', () => {
     const online = src('features/online/views/OnlineView.vue')
     expect(online.indexOf('<HomeActivityRow')).toBeGreaterThan(
       online.indexOf('<ContinueRow')
@@ -416,11 +416,15 @@ describe('接线（源码）', () => {
     const activity = src('features/online/components/HomeActivityRow.vue')
     expect(activity).toContain('<WatchlistRow')
     expect(activity).toContain('待看')
-    const rows = src('features/library/page/LibraryTopRows.vue')
-    expect(rows.indexOf('<WatchlistRow')).toBeGreaterThan(
-      rows.indexOf('<ContinueRow')
+    expect(src('features/library/page/LibraryTopRows.vue')).not.toContain(
+      '<WatchlistRow'
     )
-    expect(src('features/library/LibraryPage.vue')).toContain('<LibraryTopRows')
+    expect(src('features/library/page/browse-rules.ts')).toContain(
+      "{ value: 'watchlist', label: '想看' }"
+    )
+    expect(src('features/library/LibraryPage.vue')).toContain(
+      'toLibraryQuery(section, state, Date.now(), watchlistEntries().value)'
+    )
     expect(src('main.ts')).toContain('installWatchlist()')
   })
 })

@@ -1,19 +1,18 @@
 plugins {
     alias(libs.plugins.android.application)
-    alias(libs.plugins.kotlin.android)
     alias(libs.plugins.kotlin.compose)
 }
 
 android {
     namespace = "com.yingbox.android"
-    // 36 = Android 16；compileSdk / targetSdk 随官方稳定版上调
-    compileSdk = 36
+    // 37 = Android 17；compose-bom 2026.08.00 的 AAR 元数据要求依赖方 compileSdk >= 37
+    compileSdk = 37
 
     defaultConfig {
         applicationId = "com.yingbox.android"
         // nodejs-mobile 24.x 的最低 SDK 是 24（Android 7.0），见 ADR-0028
         minSdk = 24
-        targetSdk = 36
+        targetSdk = 37
         versionCode = 1
         versionName = "0.0.1"
     }

@@ -1,4 +1,4 @@
-// test-affected: repo-wide（最后一例读 LibrarySettings.vue 源码文本，vitest 依赖图看不到）
+// test-affected: repo-wide（最后一例读 LibraryGlobalSettings.vue 源码文本，vitest 依赖图看不到）
 import { h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { beforeEach, describe, expect, it, vi } from 'vitest'

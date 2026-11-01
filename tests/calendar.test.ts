@@ -6,6 +6,7 @@ import { describe, expect, it } from 'vitest'
 
 import type { CalendarEpisode } from '../src/shared/library/ipc'
 import { parseRpcParams } from '../src/shared/library/ipc'
+import { seriesPagePath } from '../src/renderer/src/features/library/state/library-section'
 import { CalendarModule } from '../src/main/library/calendar/calendar-module'
 import {
   episodesInRange,
@@ -201,6 +202,16 @@ describe('状态判定', () => {
       newCount: 0,
     })
     expect(missing.library?.playable).toBe(false)
+    // 剧的分类跟着卡片走，打开详情时直接去对应的片库页面
+    const [anime] = libraryEntries(
+      [episode({ category: 'anime' })],
+      TODAY,
+      [],
+      () => null
+    )
+    expect(anime.library?.category).toBe('anime')
+    expect(seriesPagePath(anime.library?.category)).toBe('/anime')
+    expect(seriesPagePath(current.library?.category)).toBe('/tv')
   })
 })
 

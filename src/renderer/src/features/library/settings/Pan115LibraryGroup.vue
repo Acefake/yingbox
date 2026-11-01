@@ -5,21 +5,14 @@
   >
     <SettingsRow
       title="已登录的 115 网盘"
-      description="使用设置 · 网盘中的账号，可选择已添加的电影或剧集目录"
+      description="使用设置 · 网盘中的账号，目录里的影片会自动分到电影、剧集、动漫等页面"
     >
       <UiButton
         size="sm"
         icon="plus"
         label="添加 115 文件夹…"
         :loading="adding"
-        @click="add(false)"
-      />
-      <UiButton
-        size="sm"
-        icon="plus"
-        label="添加 115 混合文件夹…"
-        :loading="adding"
-        @click="add(true)"
+        @click="add"
       />
     </SettingsRow>
   </SettingsGroup>
@@ -33,12 +26,10 @@ import { FolderTree } from '@/features/netdisk'
 import type { TargetFolder } from '../../../../../shared/netdisk/target-folder'
 import { remotePath } from '../../../../../shared/webdav/remote-path'
 import { errorText, libraryBridge } from '../api/bridge'
-import { type LibrarySection, SECTIONS } from '../state/library-section'
-
-const props = defineProps<{ section: LibrarySection }>()
+import { newLibraryShape } from '../state/library-section'
 const adding = ref(false)
 
-async function add(mixed: boolean): Promise<void> {
+async function add(): Promise<void> {
   let selected: TargetFolder | null = null
   await confirmDialog({
     title: '选择 115 片库目录',
@@ -54,13 +45,10 @@ async function add(mixed: boolean): Promise<void> {
       if (!selected) throw new Error('请先选择 115 文件夹')
       adding.value = true
       try {
-        const { kind, source } = SECTIONS[props.section]
         await libraryBridge()!.addLibrary({
           root: remotePath('pan115', `/${selected.cid}`),
           name: selected.name || '115 根目录',
-          kind,
-          source,
-          mixed,
+          ...newLibraryShape('movie'),
           automation: { storage: 'cloud' },
         })
         toast.success('已添加 115 文件夹，正在扫描')

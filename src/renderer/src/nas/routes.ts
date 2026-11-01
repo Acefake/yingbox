@@ -37,6 +37,33 @@ export const routes = [
     },
   },
   {
+    path: '/anime',
+    name: 'Anime',
+    component: () => import('@/features/library/AnimeLibraryPage.vue'),
+    meta: {
+      title: '动漫',
+      description: '本地片库里的动画剧集与动画电影',
+    },
+  },
+  {
+    path: '/variety',
+    name: 'Variety',
+    component: () => import('@/features/library/VarietyLibraryPage.vue'),
+    meta: {
+      title: '综艺',
+      description: '本地片库里的真人秀与脱口秀',
+    },
+  },
+  {
+    path: '/documentary',
+    name: 'Documentary',
+    component: () => import('@/features/library/DocumentaryLibraryPage.vue'),
+    meta: {
+      title: '纪录片',
+      description: '本地片库里的纪录片',
+    },
+  },
+  {
     path: '/calendar',
     name: 'Calendar',
     component: () => import('@/features/calendar/views/CalendarView.vue'),

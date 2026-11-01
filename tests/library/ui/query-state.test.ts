@@ -55,6 +55,7 @@ describe('toLibraryQuery', () => {
     expect(toLibraryQuery('movie', defaultWallQuery())).toEqual({
       types: ['movie'],
       source: 'tmdb',
+      category: 'plain',
       sort: 'addedAt',
       order: 'desc',
     })
@@ -102,6 +103,7 @@ describe('toLibraryQuery', () => {
     expect(reviewQuery('tv')).toEqual({
       types: ['series'],
       source: 'tmdb',
+      category: 'plain',
       matchStates: ['review', 'unmatched'],
       sort: 'title',
       order: 'asc',
@@ -178,6 +180,28 @@ describe('分面筛选', () => {
   })
 })
 
+describe('想看胶囊', () => {
+  const watchlist = [
+    { section: 'movie', key: '7' },
+    { section: 'tv', key: '9' },
+    { section: 'online', key: '某部在线剧' },
+    { section: 'jav', key: '11' },
+  ]
+  const browse = { ...defaultWallQuery(), browse: 'watchlist' as const }
+
+  it('只要想看清单里属于本页的片库条目；动漫等页面电影和剧集都算', () => {
+    expect(toLibraryQuery('movie', browse, 0, watchlist).ids).toEqual([7])
+    expect(toLibraryQuery('anime', browse, 0, watchlist).ids).toEqual([7, 9])
+  })
+
+  it('清单里没有本页的条目时查空集，不退回全部', () => {
+    expect(toLibraryQuery('tv', browse, 0, []).ids).toEqual([])
+    expect(
+      toLibraryQuery('movie', defaultWallQuery(), 0, watchlist)
+    ).not.toHaveProperty('ids')
+  })
+})
+
 describe('浏览胶囊与类型（电影 / 剧集）', () => {
   it('类型映射到 facets.tag，未看 = watched:false，最近添加 = addedFrom；番号页忽略', async () => {
     const {
@@ -216,12 +240,21 @@ describe('浏览胶囊与类型（电影 / 剧集）', () => {
       field: 'tag',
       types: ['movie'],
       source: 'tmdb',
+      category: 'plain',
     })
     expect(genreScopeOf('tv', { libraryId: 2 })).toEqual({
       field: 'tag',
       types: ['series'],
       source: 'tmdb',
+      category: 'plain',
       libraryId: 2,
+    })
+    // 动漫等页面：电影和剧集都要，只算这一类
+    expect(genreScopeOf('anime', { libraryId: null })).toEqual({
+      field: 'tag',
+      types: ['movie', 'series'],
+      source: 'tmdb',
+      category: 'anime',
     })
     expect(genreScopeOf('jav', { libraryId: null })).toBeUndefined()
     // 换类型 / 浏览胶囊算换筛选（清空多选、回到顶部）

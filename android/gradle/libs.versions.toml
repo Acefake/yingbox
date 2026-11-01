@@ -1,7 +1,7 @@
 # 版本来源（2026-11-01 核对官方发布页）：
 #   agp 9.5.0（要求 Gradle 9.6.0）、kotlin 2.4.10（AGP 发布说明示例）、
 #   compose-bom 2026.08.00、tv-material 1.1.0、activity-compose 1.13.0、media3 1.11.1
-# 这个目录还没在装有 Android SDK 的机器上构建过，升级或首次构建以实际结果为准。
+# 这组版本 2026-11-01 在 JDK 17 + Android SDK 37 + 模拟器上构建、安装、启动通过。
 [versions]
 agp = "9.5.0"
 kotlin = "2.4.10"
@@ -21,5 +21,5 @@ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", versi
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }
-kotlin-android = { id = "org.jetbrains.kotlin.android", version.ref = "kotlin" }
+# AGP 9 起内置 Kotlin 支持，不再需要 org.jetbrains.kotlin.android 插件
 kotlin-compose = { id = "org.jetbrains.kotlin.plugin.compose", version.ref = "kotlin" }

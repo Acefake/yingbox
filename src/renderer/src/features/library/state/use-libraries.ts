@@ -1,5 +1,5 @@
 /**
- * 媒体库管理：某分区（电影 / 剧集 / 番号，见 library-section.ts）的媒体库列表、添加 / 移除文件夹、扫描、识别全部，
+ * 媒体库管理：某分区（电影 / 剧集 / 动漫 / 综艺 / 纪录片 / 番号，见 library-section.ts）的媒体库列表、添加 / 移除文件夹、扫描、识别全部，
  * 以及后台任务进度：扫描进度给分区页面顶部的细进度条；识别进度跨分区（一次识别会覆盖所有库），
  * 只在侧栏「后台任务」里显示（useIdentifyActivity），不再挤在每个分区页面上。
  *
@@ -15,7 +15,11 @@ import type {
 import { errorText, libraryBridge } from '../api/bridge'
 import { pickLibraryFolder } from '../settings/folder-picker'
 import { subscribeLibraryEvents } from './library-events'
-import { type LibrarySection, SECTIONS, librariesIn } from './library-section'
+import {
+  type LibrarySection,
+  librariesIn,
+  newLibraryShape,
+} from './library-section'
 
 /** 后台活动：界面顶部的细进度条与状态文字。 */
 export interface LibraryActivity {
@@ -100,8 +104,8 @@ export interface UseLibraries {
   loaded: Ref<boolean>
   error: Ref<string | null>
   activity: ComputedRef<LibraryActivity | null>
-  /** 选文件夹并添加为本分区的库（番号页添加的就是番号库）。 */
-  addFolder: (mixed?: boolean) => Promise<LibraryInfo | null>
+  /** 选文件夹并添加：番号页添加的是番号库，其他页面添加自动识别电影 / 剧集的普通片库。 */
+  addFolder: () => Promise<LibraryInfo | null>
   removeLibrary: (libraryId: number) => Promise<void>
   /** 改一个库的自动化设置（只改给出的字段）。 */
   updateAutomation: (
@@ -122,7 +126,6 @@ export function findLibrary(libraryId: number): LibraryInfo | undefined {
 export function useLibraries(section: LibrarySection): UseLibraries {
   const bridge = libraryBridge()
   startOnce()
-  const { kind, source } = SECTIONS[section]
   const libraries = computed(() => librariesIn(all.value, section))
 
   const activity = computed<LibraryActivity | null>(() =>
@@ -139,13 +142,13 @@ export function useLibraries(section: LibrarySection): UseLibraries {
     }
   }
 
-  async function addFolder(mixed = false): Promise<LibraryInfo | null> {
+  async function addFolder(): Promise<LibraryInfo | null> {
     if (!bridge) return null
     const root = await pickLibraryFolder()
     if (!root) return null
     let info: LibraryInfo | null = null
     await run(async () => {
-      info = await bridge.addLibrary({ root, kind, source, mixed })
+      info = await bridge.addLibrary({ root, ...newLibraryShape(section) })
     })
     return info
   }

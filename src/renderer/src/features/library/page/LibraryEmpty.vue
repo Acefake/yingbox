@@ -10,11 +10,12 @@
 <script setup lang="ts">
 /** 媒体库页面的空状态：图标、标题、说明，下方可放按钮。inline 时不撑满高度（放在海报墙里）。 */
 import UiIcon from '@/components/ui/UiIcon.vue'
+import type { SectionIcon } from '../state/library-section'
 
 defineProps<{
   title: string
   text?: string
-  icon?: 'movie' | 'tv' | 'tag'
+  icon?: SectionIcon
   inline?: boolean
 }>()
 </script>

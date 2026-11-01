@@ -49,7 +49,7 @@
  * 令牌是可选密钥 library.progressServerToken（只写不读）：片库服务默认不鉴权，令牌输入只在已保存过令牌、
  * 或同步时服务回 401（PROGRESS_SYNC_TOKEN_ERROR）时出现。
  * 同步由主进程定时跑（src/main/library/progress-sync），状态与「立即同步」走 window.api.progressSync。
- * 只在桌面端显示（见 LibrarySettings）。
+ * 只在桌面端显示（见 LibraryGlobalSettings）。
  */
 import { toast } from '@/components/ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'

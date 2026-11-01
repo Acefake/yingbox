@@ -1,10 +1,18 @@
 /**
  * 海报墙附加筛选（LibraryQueryFilters）的 SQL：评分下限、制片国家、人名、条目 id 白 / 黑名单、有无类型、
- * 是否看完、添加时间下限。
+ * 内容类别、是否看完、添加时间下限。
  *
  * 国家是 metadata.countries（ISO 代码数组）；人名查 metadata.cast / metadata.crew 的 name 与
  * originalName（包含匹配，不分大小写），番号库再查 item_actors + actors 的演员名。
  */
+import {
+  CATEGORY_GENRES,
+  CATEGORY_GENRE_IDS,
+  type MediaCategory,
+  SPECIAL_CATEGORIES,
+} from '../../../shared/library/category'
+
+type SpecialCategory = (typeof SPECIAL_CATEGORIES)[number]
 import type { LibraryQueryFilters } from '../../../shared/library/ipc'
 
 type Params = Array<string | number>
@@ -31,6 +39,40 @@ const personClause = (a: string): string => `(
 /** 条目有类型：genres 是非空 JSON 数组。alias 是条目表别名。 */
 const hasGenres = (alias: string): string =>
   `(${alias}.genres IS NOT NULL AND json_array_length(${alias}.genres) > 0)`
+
+/** 条目命中某个类别：TMDB 类型 id（metadata.genreIds）或类型名（genres）任一在列；参数是 id 再是名字。 */
+const genreIn = (alias: string, category: SpecialCategory): string =>
+  `(EXISTS (SELECT 1 FROM json_each(${alias}.metadata, '$.genreIds') j WHERE j.value IN (${marks(CATEGORY_GENRE_IDS[category].length)}))
+    OR EXISTS (SELECT 1 FROM json_each(${alias}.genres) j WHERE j.value IN (${marks(CATEGORY_GENRES[category].length)})))`
+
+const genreParams = (category: SpecialCategory): Array<string | number> => [
+  ...CATEGORY_GENRE_IDS[category],
+  ...CATEGORY_GENRES[category],
+]
+
+/**
+ * 内容类别的条件：命中本类，且不命中优先级更高的类（plain 为三类都不命中）。
+ * 与 categoryOf 同一口径。
+ */
+function categoryClause(
+  alias: string,
+  category: MediaCategory
+): { clause: string; params: Params } {
+  const rank = SPECIAL_CATEGORIES.indexOf(category as SpecialCategory)
+  const higher =
+    rank < 0 ? SPECIAL_CATEGORIES : SPECIAL_CATEGORIES.slice(0, rank)
+  const parts: string[] = []
+  const params: Params = []
+  if (rank >= 0) {
+    parts.push(genreIn(alias, SPECIAL_CATEGORIES[rank]))
+    params.push(...genreParams(SPECIAL_CATEGORIES[rank]))
+  }
+  for (const other of higher) {
+    parts.push(`NOT ${genreIn(alias, other)}`)
+    params.push(...genreParams(other))
+  }
+  return { clause: `(${parts.join(' AND ')})`, params }
+}
 
 /**
  * 条目看完了：电影有一条看完的进度；剧至少有一集带文件，且带文件的集都看完了
@@ -88,6 +130,11 @@ export function filterClauses(
   }
   if (q.hasGenres !== undefined) {
     clauses.push(q.hasGenres ? hasGenres(alias) : `NOT ${hasGenres(alias)}`)
+  }
+  if (q.category !== undefined) {
+    const { clause, params: names } = categoryClause(alias, q.category)
+    clauses.push(clause)
+    params.push(...names)
   }
   if (q.watched !== undefined) {
     const done = watchedClause(alias)

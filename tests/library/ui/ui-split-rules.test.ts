@@ -42,6 +42,7 @@ import {
   buildCells,
   clickModifiers,
   loadedIds,
+  revealTop,
 } from '../../../src/renderer/src/features/library/wall/wall-cells'
 import { DEFAULT_WRITER_SETTINGS } from '../../../src/shared/library/ipc'
 
@@ -236,7 +237,10 @@ describe('媒体库设置规则', () => {
         { root: 'yingbox-dav://pan115/123', lastScanAt: null, mixed: true },
         fmt
       )
-    ).toBe('混合 · 115 · 只读 · /123 · 尚未扫描')
+    ).toBe('115 · 只读 · /123 · 尚未扫描')
+    expect(
+      folderDescription({ root: '/t', lastScanAt: null, kind: 'tv' }, fmt)
+    ).toBe('只认剧集 · /t · 尚未扫描')
     expect(tokenStatus(false, true)).toBe('仅桌面版可用')
     expect(tokenStatus(true, true)).toBe('已配置')
     expect(tokenStatus(true, false)).toBe('尚未配置，无法识别')
@@ -489,5 +493,17 @@ describe('条目详情规则', () => {
     expect(playLabelOf('series', null)).toBe('播放')
     expect(playLabelOf('series', 'S01E01')).toBe('播放 S01E01')
     expect(playLabelOf('series', undefined)).toBe('播放 ')
+  })
+})
+
+describe('换筛选后的滚动位置', () => {
+  it('滚过了「全部」一段就退回到它，还在它上面时不动', () => {
+    // 已经往下翻了很多：回到「全部」的标题，筛选胶囊还在眼前，不回页面最上面
+    expect(revealTop(2400, 520)).toBe(520)
+    // 还在继续观看 / 想看那里：不动
+    expect(revealTop(300, 520)).toBeNull()
+    expect(revealTop(520, 520)).toBeNull()
+    // 上方没有横排时起点贴近 0
+    expect(revealTop(800, -4)).toBe(0)
   })
 })

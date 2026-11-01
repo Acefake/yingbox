@@ -8,7 +8,9 @@
 }
 .lib-wall-grid {
   position: relative;
-  margin: 0 var(--content-padding-x) var(--space-10);
+  /* 上沿留出悬停放大（scale 1.04 + 2px 白圈）的空间：滚动容器会裁掉超出的部分。
+     上方有继续播放 / 想看横排时，这个外边距与横排的下边距合并，间距不变 */
+  margin: var(--space-4) var(--content-padding-x) var(--space-10);
   contain: layout style;
 }
 .lib-cell {

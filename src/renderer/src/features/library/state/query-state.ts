@@ -8,15 +8,17 @@
 import type {
   FacetFilter,
   FacetListRequest,
-  LibraryKind,
   LibraryQuery,
   LibrarySortField,
   MatchState,
-  TopLevelItemType,
 } from '../../../../../shared/library/ipc'
 import { readStoredText, writeStoredText } from '@/utils/storage'
 
-import { type LibrarySection, SECTIONS } from './library-section'
+import {
+  type LibrarySection,
+  SECTIONS,
+  recordSectionsOf,
+} from './library-section'
 
 /** 界面提供的排序方式。 */
 export type WallSort = Extract<
@@ -27,8 +29,8 @@ export type WallSort = Extract<
 /** 匹配状态筛选。matched = 自动匹配 + 已锁定。 */
 export type MatchFilter = 'all' | 'matched' | 'review' | 'unmatched' | 'locked'
 
-/** 浏览胶囊：全部 / 没看完的 / 最近 RECENT_DAYS 天添加的。 */
-export type BrowseMode = 'all' | 'unwatched' | 'recent'
+/** 浏览胶囊：全部 / 没看完的 / 想看清单里的 / 最近 RECENT_DAYS 天添加的。 */
+export type BrowseMode = 'all' | 'unwatched' | 'watchlist' | 'recent'
 
 /** 「最近添加」的时间范围（天）。 */
 export const RECENT_DAYS = 30
@@ -96,17 +98,18 @@ const FILTER_STATES: Record<MatchFilter, MatchState[] | undefined> = {
   locked: ['locked'],
 }
 
-/** 媒体库类型 → 海报墙展示的顶层条目类型。 */
-export function topLevelType(kind: LibraryKind): TopLevelItemType {
-  return kind === 'movie' ? 'movie' : 'series'
-}
-
-/** 分区的基础查询：顶层类型 + 来源（电影页不出番号条目，番号页只出番号条目）。 */
+/**
+ * 分区的基础查询：顶层类型 + 来源 + 内容类别（电影页不出番号条目、也不出动漫；番号页只出番号条目）。
+ */
 export function sectionQuery(
   section: LibrarySection
-): Pick<LibraryQuery, 'types' | 'source'> {
+): Pick<LibraryQuery, 'types' | 'source' | 'category'> {
   const spec = SECTIONS[section]
-  return { types: [topLevelType(spec.kind)], source: spec.source }
+  return {
+    types: [...spec.types],
+    source: spec.source,
+    ...(spec.source === 'jav' ? {} : { category: spec.category }),
+  }
 }
 
 /** 筛选条件（不含排序）的比较键：变了就清空多选、回到顶部。 */
@@ -162,13 +165,29 @@ export function facetScopeOf(
 }
 
 /**
+ * 想看清单里属于本页的片库条目 id：清单按电影 / 剧集 / 番号记，键是条目 id
+ * （动漫等页面电影和剧集都算，见 recordSectionsOf）；在线条目的键是片名，不算。
+ */
+export function watchlistItemIds(
+  entries: ReadonlyArray<{ section: string; key: string }>,
+  section: LibrarySection
+): number[] {
+  const sections: readonly string[] = recordSectionsOf(section)
+  return entries
+    .filter(e => sections.includes(e.section) && /^\d+$/.test(e.key))
+    .map(e => Number(e.key))
+}
+
+/**
  * 界面条件 → 引擎查询（不含 offset / limit，由分页列表补）。
  * @param now 「最近添加」的参照时间
+ * @param watchlist 想看清单（「想看」胶囊只要其中属于本页的片库条目，见 watchlistItemIds）
  */
 export function toLibraryQuery(
   section: LibrarySection,
   state: WallQueryState,
-  now = Date.now()
+  now = Date.now(),
+  watchlist: ReadonlyArray<{ section: string; key: string }> = []
 ): LibraryQuery {
   const query: LibraryQuery = {
     ...sectionQuery(section),
@@ -183,6 +202,8 @@ export function toLibraryQuery(
     if (state.genre) query.facets = { tag: [state.genre] }
     if (state.browse === 'unwatched') query.watched = false
     if (state.browse === 'recent') query.addedFrom = recentFrom(now)
+    if (state.browse === 'watchlist')
+      query.ids = watchlistItemIds(watchlist, section)
   }
   if (state.libraryId !== null) query.libraryId = state.libraryId
   const search = state.search.trim()

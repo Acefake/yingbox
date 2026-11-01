@@ -13,6 +13,10 @@ const state = (patch: Partial<NavState> = {}): NavState => ({
   hasLocalLibrary: true,
   hasNetdisk: true,
   adultMode: false,
+  localPages: [
+    { label: '电影', icon: 'movie', path: '/movie', routeNames: ['Movie'] },
+    { label: '剧集', icon: 'tv', path: '/tv', routeNames: ['TV'] },
+  ],
   ...patch,
 })
 
@@ -27,6 +31,35 @@ describe('侧栏导航项', () => {
     expect(adult[1].items[2]).toMatchObject({ label: '番号', icon: 'tag' })
     const onJav = buildNavGroups(state({ adultMode: true, routeName: 'Jav' }))
     expect(onJav[1].items.map(i => i.active)).toEqual([false, false, true])
+  })
+
+  it('本地媒体：片库给的页面原样排在番号前，选中态跟随路由', () => {
+    const anime = {
+      label: '动漫',
+      icon: 'sparkle' as const,
+      path: '/anime',
+      routeNames: ['Anime'],
+    }
+    const base = state()
+    const groups = buildNavGroups(
+      state({
+        adultMode: true,
+        routeName: 'Anime',
+        localPages: [...base.localPages, anime],
+      })
+    )
+    expect(groups[1].items.map(i => i.path)).toEqual([
+      '/movie',
+      '/tv',
+      '/anime',
+      '/jav',
+    ])
+    expect(groups[1].items.map(i => i.active)).toEqual([
+      false,
+      false,
+      true,
+      false,
+    ])
   })
 
   it('直播与网盘入口：桌面端显示，选中态跟随路由', () => {
@@ -108,16 +141,17 @@ describe('侧栏导航项', () => {
     const items = buildBottomNav(state({ hasLocalLibrary: false }), true)
     expect(items.map(i => i.key)).toEqual(['home', 'favorites', 'menu'])
     expect(items.at(-1)).toMatchObject({ path: '', active: true })
+    // 底栏放本地媒体的第一个页面（没有条目时是「添加媒体库」入口）
     expect(buildBottomNav(state(), false).map(i => i.key)).toEqual([
       'home',
       'favorites',
-      'movie',
+      'local',
       'menu',
     ])
     // 番号只在成人模式 + 有本地片库时出现在底栏
     expect(
       buildBottomNav(state({ adultMode: true }), false).map(i => i.key)
-    ).toEqual(['home', 'favorites', 'movie', 'jav', 'menu'])
+    ).toEqual(['home', 'favorites', 'local', 'jav', 'menu'])
     expect(
       buildBottomNav(
         state({ adultMode: true, hasLocalLibrary: false }),

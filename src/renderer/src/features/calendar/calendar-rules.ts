@@ -5,6 +5,7 @@
  * 不依赖 Vue、存储和播放器：调用方把播放记录、文件进度以普通数据传进来。日期规则在 calendar-dates.ts。
  */
 import type { CalendarEpisode } from '../../../../shared/library/ipc'
+import type { SeriesCategory } from '../../../../shared/contract/series-category'
 import { WATCHED_RATIO } from '../../../../shared/library/watch-progress'
 import {
   addDays,
@@ -55,6 +56,8 @@ export interface CalendarEntry {
     episode: number
     /** 本地有视频文件 */
     playable: boolean
+    /** 剧的分类（按 TMDB 类型）：打开详情时直接去对应的片库页面 */
+    category?: SeriesCategory
   }
   /** 在线条目：点卡片打开详情 */
   online?: { recordId: string; detail: unknown }
@@ -163,6 +166,7 @@ export function libraryEntries(
         season: ep.season,
         episode: ep.episode,
         playable: ep.fileId !== null,
+        ...(ep.category ? { category: ep.category } : {}),
       },
     }
   })

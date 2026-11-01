@@ -7,26 +7,14 @@
     />
     <LibraryToolbar
       v-model:view="view"
-      v-model:filter="state.filter"
-      v-model:facets="state.facets"
-      v-model:browse="state.browse"
-      v-model:genre="state.genre"
-      v-model:library="libraryChoice"
-      :facet-scope="facetScopeOf(section, state)"
-      :genre-scope="genreScopeOf(section, state)"
       :kind-label="kindLabel"
       :count="view === 'wall' && ready ? total : null"
       :has-libraries="hasLibraries"
       :view-options="viewOptions"
       :review-count="reviewCount"
-      :library-options="libraryOptions"
-      :sort="state.sort"
-      :order="state.order"
-      @sort="setSort"
-      @toggle-order="toggleOrder"
+      :visual-library="section === 'jav' ? state.libraryId : undefined"
       @scan="scanAll"
       @identify="identifyAll"
-      @settings="openSettings"
       @video-wall="videoWall.open"
       @open-item="openDetail"
     />
@@ -80,6 +68,23 @@
         >
           <template #before>
             <LibraryTopRows :section="section" @open="openDetail" />
+            <WallHeader
+              v-model:view="view"
+              v-model:filter="state.filter"
+              v-model:facets="state.facets"
+              v-model:browse="state.browse"
+              v-model:genre="state.genre"
+              v-model:library="libraryChoice"
+              :facet-scope="facetScopeOf(section, state)"
+              :genre-scope="genreScopeOf(section, state)"
+              :kind-label="kindLabel"
+              :count="ready ? total : null"
+              :library-options="libraryOptions"
+              :sort="state.sort"
+              :order="state.order"
+              @sort="setSort"
+              @toggle-order="toggleOrder"
+            />
           </template>
           <template #after>
             <UiSkeleton v-if="!ready" class="lib-wall-skeleton" />
@@ -130,12 +135,6 @@
       @clear="clearSelection"
     />
 
-    <LibrarySettings
-      v-if="settingsMounted"
-      :open="settingsOpen"
-      :section="section"
-      @close="settingsOpen = false"
-    />
     <LibrarySheet
       :open="matchItemId !== null"
       title="修正匹配"
@@ -162,11 +161,10 @@
 
 <script setup lang="ts">
 /**
- * 本地媒体库页面（电影 / 剧集 / 番号三个分区共用，按 section 区分，见 state/library-section.ts）：工具栏、后台任务进度、海报墙 / 待确认队列、
- * 详情（覆盖在海报墙上，返回时保留滚动位置）、设置、修正匹配、整理。
+ * 本地媒体库页面（电影 / 剧集 / 动漫 / 综艺 / 纪录片 / 番号各分区共用，按 section 区分，见 state/library-section.ts）：
+ * 工具栏、后台任务进度、海报墙 / 待确认队列、详情（覆盖在海报墙上，返回时保留滚动位置）、修正匹配、整理；设置在「设置 → 媒体库」。
  *
- * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。
- * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts；视频墙在 video-wall/。
+ * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。工具栏 / 任务条 / 多选条在 page/，纯规则在 page/page-rules.ts；视频墙在 video-wall/。
  */
 import { toast } from '@/components/ui'
 import { computed, reactive, ref, watch } from 'vue'
@@ -175,6 +173,7 @@ import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import { libraryServerState } from '@/services/library-server'
+import { watchlistEntries } from '@/features/watchlist'
 
 import ActorDetail from './actors/ActorDetail.vue'
 import LibraryAmbient from './ambient/LibraryAmbient.vue'
@@ -185,6 +184,7 @@ import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
 import LibraryTopRows from './page/LibraryTopRows.vue'
 import LibraryToolbar from './page/LibraryToolbar.vue'
+import WallHeader from './page/WallHeader.vue'
 import SelectionBar from './page/SelectionBar.vue'
 import { usesLibraryServer } from './api/bridge'
 import {
@@ -202,7 +202,6 @@ import NlSearchBar from './nl-search/NlSearchBar.vue'
 import { useNlSearch } from './nl-search/use-nl-search'
 import MatchPane from './review/MatchPane.vue'
 import ReviewQueue from './review/ReviewQueue.vue'
-import LibrarySettings from './settings/LibrarySettings.vue'
 import LibrarySheet from './shared/LibrarySheet.vue'
 import {
   type WallQueryState,
@@ -261,7 +260,9 @@ const state = reactive<WallQueryState>({
   ...loadSavedSort(section),
 })
 // 搜索只在顶栏（?q=）：像一句描述时交给 AI 解析成条件（nl-search/），否则按片名搜索
-const nl = useNlSearch(section, () => toLibraryQuery(section, state))
+const nl = useNlSearch(section, () =>
+  toLibraryQuery(section, state, Date.now(), watchlistEntries().value)
+)
 watch(nl.search, q => (state.search = q), { immediate: true })
 const libraryOptions = computed(() => libraryOptionsFor(libraries.value))
 const libraryChoice = computed({
@@ -294,12 +295,16 @@ const {
 // 环境光跟着海报墙最前面几格的海报走（ambient/）
 const ambientPoster = computed(() => (version.value, ambientPosterOf(list)))
 
-// 换查询条件回到顶部；换筛选（不含排序）清空多选
+// 换查询条件：滚过了「全部」一段就退回到它（筛选就在那里，不回页面最上面）；换筛选（不含排序）清空多选。
+// 等 DOM 更新再量：从待确认视图点胶囊时海报墙同时切回可见
 watch(
   () => [state.sort, state.order, ...filterKeyOf(state), nl.key.value],
-  () => wall.value?.scrollToTop()
+  () => wall.value?.revealResults(),
+  { flush: 'post' }
 )
-const emptyTitle = computed(() => nl.emptyTitle.value ?? emptyTitleFor(state))
+const emptyTitle = computed(
+  () => nl.emptyTitle.value ?? emptyTitleFor(state, section)
+)
 
 // —— 视图切换（资料库 / 演员 / 待确认）——
 const { view, viewOptions, reviewCount } = useLibraryViews(section, libraryIds)
@@ -344,15 +349,8 @@ const { detailReady } = useSectionGuard(
 )
 
 // —— 面板 ——
-const settingsOpen = ref(false)
-const settingsMounted = ref(false)
 const matchItemId = ref<number | null>(null)
 const organizeIds = ref<number[]>([])
-
-function openSettings(): void {
-  settingsMounted.value = true
-  settingsOpen.value = true
-}
 
 function openMatchSheet(itemId: number): void {
   matchItemId.value = itemId

@@ -32,7 +32,7 @@ withDefaults(
   margin: 0;
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: clamp(var(--text-xl), 2vw, var(--text-2xl));
+  font-size: var(--page-title-size);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-tight);
   line-height: 1.3;

@@ -202,7 +202,8 @@ import {
   useAutograbBadge,
   useAutograbMarks,
 } from '@/features/autograb'
-import { playLibraryEpisode } from '@/features/library'
+import { playLibraryEpisode, seriesPagePath } from '@/features/library'
+import type { SeriesCategory } from '../../../../../shared/contract/series-category'
 import { requestOnlineDetail } from '@/features/online'
 
 import { dayLabel, dayParts, groupByWeek, weekLabel } from '../calendar-dates'
@@ -334,19 +335,22 @@ function refresh(): void {
   void cal.load(true)
 }
 
-/** 打开剧集库里这部剧的详情 */
-function openLibraryDetail(seriesId: number): void {
-  void router.push({ path: '/tv', query: { item: String(seriesId) } })
+/** 打开片库里这部剧的详情：按分类直接去剧集 / 动漫 / 综艺 / 纪录片页 */
+function openLibraryDetail(seriesId: number, category?: SeriesCategory): void {
+  void router.push({
+    path: seriesPagePath(category),
+    query: { item: String(seriesId) },
+  })
 }
 
 /** 点卡片：本地有文件就播放，否则打开详情 */
 async function activate(entry: CalendarEntry): Promise<void> {
   if (entry.library) {
-    const { seriesId, season, episode, playable } = entry.library
+    const { seriesId, season, episode, playable, category } = entry.library
     if (playable && (await playLibraryEpisode(seriesId, season, episode)))
       return
     if (playable) toast.error('无法播放这一集，已打开详情')
-    openLibraryDetail(seriesId)
+    openLibraryDetail(seriesId, category)
     return
   }
   if (entry.online?.detail) {

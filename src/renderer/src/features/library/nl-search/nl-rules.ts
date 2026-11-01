@@ -6,7 +6,6 @@
  */
 import type { LibraryQuery } from '../../../../../shared/library/ipc'
 import { type LibrarySection, SECTIONS } from '../state/library-section'
-import { topLevelType } from '../state/query-state'
 import type { NlFilter } from './nl-filter'
 import { type TitlePick, titlePickApplies } from './nl-title-pick'
 
@@ -133,14 +132,13 @@ export function resolveGenre(
   return partial ?? genre
 }
 
-/** 分区里的条目类型与条件里的 type 是否冲突（如电影页说「韩剧」）。 */
+/** 分区里的条目类型与条件里的 type 是否冲突（如电影页说「韩剧」；动漫页两种都有，不冲突）。 */
 export function typeConflicts(
   section: LibrarySection,
   filter: Pick<NlFilter, 'type'>
 ): boolean {
   return (
-    filter.type !== undefined &&
-    filter.type !== topLevelType(SECTIONS[section].kind)
+    filter.type !== undefined && !SECTIONS[section].types.includes(filter.type)
   )
 }
 

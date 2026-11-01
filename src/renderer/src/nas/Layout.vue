@@ -84,6 +84,7 @@ import UiNavItem from '@/components/ui/UiNavItem.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { IconName } from '@/components/ui/icons'
 import { usePlatform } from '@/composables/use-platform'
+import { useLocalNavPages } from '@/features/library'
 import { SettingsPanel, useSetting } from '@/features/settings'
 import { libraryServerState } from '@/services/library-server'
 import ServerConnect from '@/features/shell/components/ServerConnect.vue'
@@ -97,11 +98,16 @@ const serverState = libraryServerState()
 const adult = useSetting('app.adultMode')
 const settingsVisible = ref(false)
 const settingsSection = ref('library')
+const localPages = useLocalNavPages()
 const items = computed(
   (): Array<{ path: string; label: string; icon: IconName }> => [
     { path: '/', label: '首页', icon: 'home' },
-    { path: '/movie', label: '电影', icon: 'movie' },
-    { path: '/tv', label: '剧集', icon: 'tv' },
+    // 有条目的电影 / 剧集 / 动漫 / 综艺 / 纪录片；都没有时是「添加媒体库」
+    ...localPages.value.map(({ path, label, icon }) => ({
+      path,
+      label,
+      icon,
+    })),
     ...(adult.value
       ? [{ path: '/jav', label: '番号', icon: 'tag' as const }]
       : []),

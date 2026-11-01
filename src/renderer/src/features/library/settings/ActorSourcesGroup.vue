@@ -47,7 +47,7 @@
 <script setup lang="ts">
 /**
  * 演员资料来源设置：自动获取开关、来源开关与优先级（上下移动），走 window.api.library.actors。
- * 只在有番号文件夹时显示（见 LibrarySettings）。
+ * 只在有番号文件夹时显示（见 LibraryGlobalSettings）。
  */
 import { toast } from '@/components/ui'
 import { computed, ref, watch } from 'vue'
