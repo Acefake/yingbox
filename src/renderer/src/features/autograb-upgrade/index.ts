@@ -1,6 +1,6 @@
 /**
  * 洗版与电影上线追踪 feature 的公共出口（桌面端，或连着片库服务的网页端可用）：
- * - AutograbTabs：自动追更页（/autograb）的「剧集 / 洗版 / 电影」标签，剧集栏放追更视图；
+ * - AutograbTabs：自动追更页（/autograb）的「剧集 / 电影」标签，剧集栏放追更视图；
  * - MovieTrackButton：电影详情页操作区的「追踪上线」按钮；
  * - autograbSettingsSection：设置 · 自动追更（剧集 / 电影的全局策略），由应用入口登记。
  */

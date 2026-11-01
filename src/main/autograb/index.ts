@@ -122,6 +122,8 @@ export function registerAutograb(
     setEnabled: (_, enabled) => service.setEnabled(enabled),
     setSeries: (_, seriesId, patch) => service.setSeries(seriesId, patch),
     setPrefs: (_, prefs) => service.setPrefs(prefs),
+    setCategoryFolder: (_, category, cid, name) =>
+      service.setCategoryFolder(category, cid, name),
     policy: () => service.policy(),
     setPolicy: (_, patch) => service.setPolicy(patch),
     grab: (_, key, index) => service.grab(key, index),

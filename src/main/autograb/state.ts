@@ -10,6 +10,10 @@
  * 单独设了待确认 / 全自动的剧保持原样，并记下原来的确认门槛 3 集（{@link LEGACY_CONFIRM_FIRST}），行为不变。
  */
 import {
+  type SeriesCategory,
+  categoryOf,
+} from '../../shared/contract/series-category'
+import {
   AUTOGRAB_MODES,
   AUTOGRAB_SERIES_MODES,
   type AutograbCandidate,
@@ -72,6 +76,10 @@ export interface EpisodeRecord extends Omit<AutograbEpisode, 'revertable'> {
 /** 整份状态 */
 export interface AutograbState {
   version: 1
+  /** 各分类默认存到哪（没设的分类用剧集默认目录） */
+  categoryFolders: Partial<
+    Record<SeriesCategory, { cid: string; name: string }>
+  >
   enabled: boolean
   series: Record<string, SeriesSetting>
   episodes: Record<string, EpisodeRecord>
@@ -109,6 +117,7 @@ const STATUSES: readonly AutograbStatus[] = [
 export function emptyState(now: number): AutograbState {
   return {
     version: 1,
+    categoryFolders: {},
     enabled: true,
     series: {},
     episodes: {},
@@ -239,6 +248,15 @@ export function parseState(raw: unknown, now: number): AutograbState {
       if (confirmFirst !== undefined) setting.confirmFirst = confirmFirst
       if (/^\d+$/.test(s(value.tmdbId))) setting.tmdbId = s(value.tmdbId)
       state.series[id] = setting
+    }
+  if (isObj(raw.categoryFolders))
+    for (const [name, folder] of Object.entries(raw.categoryFolders)) {
+      const category = categoryOf(name)
+      if (category && isObj(folder) && /^d+$/.test(s(folder.cid)))
+        state.categoryFolders[category] = {
+          cid: s(folder.cid),
+          name: s(folder.name),
+        }
     }
   if (isObj(raw.episodes))
     for (const [key, value] of Object.entries(raw.episodes)) {

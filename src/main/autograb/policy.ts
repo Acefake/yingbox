@@ -4,6 +4,9 @@
  *
  * 没单独设过的在播剧也按全局方式追（{@link seriesModeOf} 对没有设置的剧返回全局方式）。
  */
+import type { CalendarEpisode } from '../../shared/library/ipc'
+import { normalizeCid } from '../../shared/netdisk/target-folder'
+import type { SeriesCategory } from '../../shared/contract/series-category'
 import type {
   AutograbMode,
   AutograbResult,
@@ -109,4 +112,34 @@ export function applyPolicyPatch(
     return { ok: false, error: POLICY_FOLDER_ERROR }
   state.policy = { ...state.policy, ...patch }
   return { ok: true }
+}
+
+/**
+ * 这部剧的转存目标解析：自己选的文件夹 > 所属分类的默认文件夹 > 剧集默认目录（defaultFolder，内含原转存目标兜底）；
+ * "0" = 根目录。分类按最近一次日历里这部剧的分类（给 seriesId 时才看分类）。
+ */
+export function targetResolver(
+  state: () => AutograbState,
+  defaultFolder: () => { cid: string },
+  calendar: () => readonly CalendarEpisode[]
+): (
+  setting: Pick<SeriesSetting, 'cid'> | undefined,
+  seriesId?: number
+) => string {
+  return (setting, seriesId) => {
+    const category = calendar().find(e => e.seriesId === seriesId)?.category
+    const folder = category ? state().categoryFolders[category]?.cid : undefined
+    return normalizeCid(setting?.cid || folder || defaultFolder().cid)
+  }
+}
+
+/** 设 / 清某个分类的默认文件夹 */
+export function applyCategoryFolder(
+  state: AutograbState,
+  category: SeriesCategory,
+  cid: string,
+  name: string
+): void {
+  if (cid) state.categoryFolders[category] = { cid, name: name || '根目录' }
+  else delete state.categoryFolders[category]
 }

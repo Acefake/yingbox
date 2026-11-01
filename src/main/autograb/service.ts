@@ -1,27 +1,20 @@
 /**
  * 追更服务：定时一轮「看日历 → 建缺集记录 → 搜候选 → （全自动时）转存 → 核对入库」。
- *
- * 不依赖 Electron：日历、媒体库通知、115 / PanSou、状态读写、时钟都由 index.ts 注入，测试可全部替换。
- * 安全边界：
- * - 只追实际方式不是「不追」的剧（剧集全局策略管没单独设过的剧，见 policy.ts）；本地已有这一集（任何来源）就不搜；
- * - 全自动只在匹配分过 {@link AUTO_SCORE}、这部剧已手动确认过门槛集数（全局「新剧先确认」，迁移前的老剧 3 集）、
- *   且转存目标不是根目录时才转存（目标 = 这部剧选的文件夹 > 剧集默认目录 > 原转存目标，见 {@link targetCid}）；
- * - 转存前先列目标文件夹，同名文件已在就不再转存；每集一条记录，转存过的集不会再转存；
- * - 转存前查 115 剩余空间，不够就暂停全部自动转存（saver.ts）；撤销只删记录里的那个文件（revert.ts）；
- * - 115 请求全部过闸门（限速、限额、熔断，见 gate.ts）。
+ * 不依赖 Electron：日历、通知、115 / PanSou、状态读写、时钟都由 index.ts 注入，测试可全部替换。
+ * 安全边界：只追实际方式不是「不追」的剧，本地已有这一集就不搜；全自动要匹配分过 {@link AUTO_SCORE}、
+ * 手动确认够门槛集数、转存目标不是根目录（目标 = 这部剧的文件夹 > 所属分类的文件夹 > 剧集默认目录，见 policy.ts）；
+ * 转存前列目标文件夹（同名已在不存）、查剩余空间（不够暂停自动转存）；撤销只删记录里的文件；115 请求全过闸门。
  */
 import type {
   AutograbOverview,
   AutograbResult,
   AutograbSeriesPatch,
 } from '../../shared/contract/autograb'
-import type { AutograbPrefs } from '../../shared/contract/autograb-prefs'
 import type {
   GrabPolicy,
   GrabPolicyPatch,
 } from '../../shared/contract/grab-policy'
 import type { CalendarEpisode } from '../../shared/library/ipc'
-import { normalizeCid } from '../../shared/netdisk/target-folder'
 import type { AutograbDeps, AutograbService, Pan115Guard } from './deps'
 import { createFinder } from './finder'
 import { createRoundRunner, createSingleFlight } from './flight'
@@ -30,11 +23,13 @@ import { AUTO_SCORE } from './match-rules'
 import { buildOverview } from './overview'
 import {
   anyTracked,
+  applyCategoryFolder,
   applyPolicyPatch,
   applySeriesPatch,
   confirmFirstOf,
   seriesModeOf,
   seriesPrefsOf,
+  targetResolver,
 } from './policy'
 import { revertEpisode } from './revert'
 import {
@@ -47,7 +42,7 @@ import {
   nextTry,
 } from './schedule-rules'
 import { adopt } from './reconcile'
-import { applyCalendar, nextAirDates, seriesPosters } from './records'
+import { applyCalendar } from './records'
 import { createSaver } from './saver'
 import {
   type AutograbState,
@@ -81,6 +76,13 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     { now: deps.now, sleep: deps.sleep },
     dirty
   )
+
+  /** 加载后改一下状态并保存 */
+  async function change(edit: () => void): Promise<void> {
+    await ensureLoaded()
+    edit()
+    dirty()
+  }
 
   function dirty(): void {
     deps.emit()
@@ -129,13 +131,18 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   const settingOf = (seriesId: number): SeriesSetting | undefined =>
     state.series[String(seriesId)]
 
-  /** 这部剧的转存目标：自己选的文件夹 > 剧集默认目录（deps.defaultFolder，内含原转存目标兜底）；"0" = 根目录 */
-  function targetCid(setting: Pick<SeriesSetting, 'cid'> | undefined): string {
-    return normalizeCid(setting?.cid || deps.defaultFolder().cid)
-  }
+  const targetCid = targetResolver(
+    () => state,
+    () => deps.defaultFolder(),
+    () => lastCalendar
+  )
 
-  function syncRecords(episodes: CalendarEpisode[], now: number): void {
+  async function syncRecords(
+    episodes: CalendarEpisode[],
+    now: number
+  ): Promise<void> {
     airing = new Map(episodes.map(e => [e.seriesId, e.seriesTitle]))
+    if (await adopt(state, episodes, deps.seriesExists)) dirty()
     const saved = Object.values(state.episodes).filter(
       r => r.status === 'saved'
     )
@@ -186,7 +193,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     gate: () => gateRef,
     deps,
     dirty,
-    targetCid: record => targetCid(settingOf(record.seriesId)),
+    targetCid: record => targetCid(settingOf(record.seriesId), record.seriesId),
   })
   /** 同一集的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
   const grabs = createSingleFlight()
@@ -213,8 +220,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       if (state.gate.loginPause && deps.pan.loggedIn()) gateRef.resume()
       const result = await deps.calendar(calendarRange(now))
       lastCalendar = result.episodes
-      if (await adopt(state, lastCalendar, deps.seriesExists)) dirty()
-      syncRecords(result.episodes, now)
+      await syncRecords(result.episodes, now)
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())
         return
@@ -262,8 +268,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
           .catch(() => null)
         if (result) {
           lastCalendar = result.episodes
-          if (await adopt(state, lastCalendar, deps.seriesExists)) dirty()
-          syncRecords(result.episodes, deps.now())
+          await syncRecords(result.episodes, deps.now())
         }
       }
       gateRef.paused()
@@ -273,19 +278,15 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
           pansou: deps.pan.pansouReady(),
         },
         airing,
-        nextAir: nextAirDates(lastCalendar, localDate(deps.now())),
-        posters: seriesPosters(lastCalendar),
+        calendar: lastCalendar,
+        today: localDate(deps.now()),
         lastRunAt,
         intervalMs: deps.intervalMs ?? null,
         running,
         defaultFolder: deps.defaultFolder(),
       })
     },
-    async setEnabled(enabled: boolean): Promise<void> {
-      await ensureLoaded()
-      state.enabled = enabled
-      dirty()
-    },
+    setEnabled: enabled => change(() => void (state.enabled = enabled)),
     async setSeries(
       seriesId: number,
       patch: AutograbSeriesPatch
@@ -311,11 +312,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
       return grab(record, index, true)
     },
-    async setPrefs(prefs: AutograbPrefs): Promise<void> {
-      await ensureLoaded()
-      state.policy = { ...state.policy, prefs }
-      dirty()
-    },
+    setPrefs: prefs =>
+      change(() => void (state.policy = { ...state.policy, prefs })),
+    setCategoryFolder: (category, cid, name) =>
+      change(() => applyCategoryFolder(state, category, cid, name)),
     async policy(): Promise<GrabPolicy> {
       await ensureLoaded()
       return state.policy

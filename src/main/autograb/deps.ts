@@ -1,6 +1,7 @@
 /**
  * 追更服务的依赖：日历、媒体库通知、115 / PanSou、状态读写、时钟。由 index.ts 接到真实实现，测试可全部替换。
  */
+import type { SeriesCategory } from '../../shared/contract/series-category'
 import type {
   AutograbOverview,
   AutograbResult,
@@ -86,6 +87,12 @@ export interface AutograbService {
     patch: AutograbSeriesPatch
   ): Promise<AutograbResult>
   setPrefs(prefs: AutograbPrefs): Promise<void>
+  /** 设某个分类的默认文件夹；cid 为空串 = 清掉 */
+  setCategoryFolder(
+    category: SeriesCategory,
+    cid: string,
+    name: string
+  ): Promise<void>
   policy(): Promise<GrabPolicy>
   setPolicy(patch: GrabPolicyPatch): Promise<AutograbResult>
   grab(key: string, index: number): Promise<AutograbResult>

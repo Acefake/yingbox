@@ -7,6 +7,10 @@ import type {
   AutograbSeries,
   AutograbStatus,
 } from '../../../../shared/contract/autograb'
+import {
+  SERIES_CATEGORIES,
+  type SeriesCategory,
+} from '../../../../shared/contract/series-category'
 import { normalizeCid } from '../../../../shared/netdisk/target-folder'
 
 /** 状态文案 */
@@ -316,4 +320,17 @@ export function episodeSteps(ep: AutograbEpisode): EpisodeStep[] {
     if (i === index) return { label: text || label, state }
     return { label, state: 'todo' }
   })
+}
+
+/** 一部剧的分类；日历没给分类（旧版片库服务、近期日历里没有）的当剧集 */
+export function categoryOfSeries(series: AutograbSeries): SeriesCategory {
+  return series.category ?? 'tv'
+}
+
+/** 这些剧里出现过的分类，按固定先后（剧集、动漫、综艺、纪录片） */
+export function categoriesIn(
+  series: readonly AutograbSeries[]
+): SeriesCategory[] {
+  const seen = new Set(series.map(categoryOfSeries))
+  return SERIES_CATEGORIES.filter(category => seen.has(category))
 }
