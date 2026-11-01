@@ -14,7 +14,7 @@
 
     <WinControls
       v-if="isElectron"
-      class="toolbar-pill toolbar-window yb-glass yb-media-swap"
+      class="toolbar-window yb-media-swap"
       :class="{ 'yb-on-media': toolbarOverMedia }"
     />
   </header>
@@ -49,9 +49,7 @@ const { isElectron, isPhone } = usePlatform()
   display: flex;
   align-items: flex-start;
   justify-content: space-between;
-  height: calc(
-    var(--shell-pill-top) + var(--shell-pill-height) + var(--space-2)
-  );
+  height: var(--shell-top);
   padding: var(--shell-pill-top) var(--shell-pill-right) 0 var(--space-5);
   pointer-events: none;
   -webkit-app-region: drag;
@@ -60,17 +58,6 @@ const { isElectron, isPhone } = usePlatform()
   display: flex;
   align-items: center;
   gap: var(--space-2);
-}
-.toolbar-pill {
-  display: flex;
-  align-items: center;
-  gap: var(--space-0_5);
-  height: var(--shell-pill-height);
-  padding: 0 var(--space-1_5);
-  border-radius: var(--radius-full);
-  color: var(--text-primary);
-  pointer-events: auto;
-  -webkit-app-region: no-drag;
 }
 /* 页面返回圆钮所在的一块（条目详情 --detail-x 处）：不可拖、也不接点击，点击落到下面的页面 */
 .toolbar-hole {
@@ -86,17 +73,30 @@ const { isElectron, isPhone } = usePlatform()
   pointer-events: auto;
   -webkit-app-region: no-drag;
 }
-.toolbar-window {
-  justify-content: center;
-  width: var(--shell-win-width);
-}
-.toolbar-window :deep(.win-controls) {
-  gap: var(--space-1_5);
+.toolbar-window.win-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  gap: 0;
+  pointer-events: auto;
+  -webkit-app-region: no-drag;
 }
 .toolbar-window :deep(.yb-icon-button) {
-  --ib-size: 36px;
-  border-radius: var(--radius-full);
+  flex: 0 0 46px;
+  width: 46px;
+  height: 32px;
+  border-radius: 0;
   color: var(--text-primary);
+}
+.toolbar-window.yb-on-media :deep(.app-icon) {
+  filter: drop-shadow(0 1px 2px var(--overlay-scrim));
+}
+.toolbar-window :deep(.yb-icon-button:active:not(:disabled)) {
+  transform: none;
+}
+.toolbar-window :deep(.win-close:hover:not(:disabled)) {
+  background: #e81123; /* style-tokens: visual（Windows 关闭按钮悬停色） */
+  color: var(--text-on-accent);
 }
 
 .top-menu.is-phone {

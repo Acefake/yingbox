@@ -238,7 +238,7 @@ watch(queryText, text => {
   padding: var(--space-7) var(--content-padding-x);
 }
 .resource-search h1 {
-  font-size: var(--text-2xl);
+  font-size: var(--page-title-size);
   font-weight: var(--font-weight-semibold);
   margin: 0 0 var(--space-5);
 }

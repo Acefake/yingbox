@@ -6,6 +6,7 @@
       'sidebar-collapsed': collapsed,
       'is-phone': isPhone,
       'is-web': isWeb,
+      'is-desktop': isElectron && !isPhone,
       'sidebar-open': isPhone && sidebarOpen,
       'has-online-detail': onlineDetailOpen,
     }"
@@ -255,7 +256,21 @@ onUnmounted(() => {
   padding: var(--shell-top) 0 0 var(--shell-left);
   overflow: hidden;
   background: var(--bg-main);
-  transition: padding var(--duration-fast) ease;
+  transition: padding-left var(--duration-fast) ease;
+}
+
+.app-layout.is-desktop :deep(.calendar-page > .page-header .cal-nav),
+.app-layout.is-desktop :deep(.calendar-page > .page-header .ui-segmented),
+.app-layout.is-desktop
+  :deep(.live-view > .page-header .ui-button:not(.is-pressed)),
+.app-layout.is-desktop
+  :deep(.page-header .ui-button.is-secondary:not(.is-pressed)),
+.app-layout.is-desktop :deep(.page-header .yb-icon-button.is-solid),
+.app-layout.is-desktop :deep(.av-toolbar > .ui-segmented) {
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
 }
 
 /* ── 手机：侧栏为抽屉，只在打开时覆盖内容 ── */

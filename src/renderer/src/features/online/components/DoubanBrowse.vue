@@ -253,7 +253,7 @@ onActivated(restoreScroll)
   overflow: hidden;
   color: var(--text-primary);
   font-family: var(--font-display);
-  font-size: var(--text-2xl);
+  font-size: var(--page-title-size);
   font-weight: var(--font-weight-semibold);
   letter-spacing: var(--tracking-tight);
   white-space: nowrap;

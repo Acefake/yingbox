@@ -22,7 +22,7 @@
  *   在芯片旁边放一个 UiIconButton icon="close"。
  *
  * - size="md"：页面级筛选胶囊（片库匹配状态、直播分组），高度取 --control-height（36），
- *   实色灰底，选中时反色（白底黑字）；和 UiSegmented、UiButton 排在同一行时等高。
+ *   玻璃底，选中时提亮；和 UiSegmented、UiButton 排在同一行时等高。
  * - count：文字后面的数量（如「待确认 691」），比文字淡一档。
  *
  * 插槽：leading 前置图标或符号；默认插槽覆盖 label。
@@ -73,20 +73,21 @@ withDefaults(
   gap: var(--space-1_5);
   min-height: var(--control-height);
   padding: 0 var(--space-4);
-  background: var(--bg-card);
+  background: var(--glass-bg);
   color: var(--text-primary);
-  box-shadow: var(--shadow-control);
+  box-shadow: inset 0 0 0 0.5px var(--border-glass-light);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
   font-size: var(--text-sm);
   font-weight: var(--font-weight-medium);
   white-space: nowrap;
 }
 .ui-chip:where(.is-md:hover:not(:disabled)) {
-  background: var(--control-bg-hover);
+  background: var(--glass-bg-hover);
 }
 .ui-chip:where(.is-md.is-selected) {
-  background: var(--text-primary);
-  color: var(--bg-elevated);
-  box-shadow: none;
+  background: color-mix(in srgb, var(--glass-bg) 75%, var(--text-primary));
+  color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
 }
 .ui-chip-count {

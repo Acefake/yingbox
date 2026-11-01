@@ -25,19 +25,21 @@
       <div class="lib-toolbar-tools">
         <UiMenuButton
           v-if="shows('sort')"
+          variant="glass"
           :label="sortLabel(sort, order)"
           :icon="null"
           :items="sortItems"
         />
         <UiButton
           v-if="shows('facets')"
+          variant="glass"
           icon="filter"
           :label="facetCount ? `筛选 ${facetCount}` : '筛选'"
           :pressed="facetsOpen || facetCount > 0"
           :aria-expanded="facetsOpen"
           @click="facetsOpen = !facetsOpen"
         />
-        <UiMenuButton icon-only :items="moreItems" />
+        <UiMenuButton icon-only variant="glass" :items="moreItems" />
       </div>
     </div>
     <BrowseRow
