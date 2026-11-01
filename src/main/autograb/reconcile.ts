@@ -26,25 +26,22 @@ const PROGRESS: Record<EpisodeRecord['status'], number> = {
   done: 5,
 }
 
-/** 设过东西（方式、偏好、文件夹）的设置 */
-const customized = (setting: SeriesSetting): boolean =>
-  setting.mode !== 'inherit' ||
-  Object.keys(setting.prefs).length > 0 ||
-  setting.cid !== ''
-
-/** 两份设置并成一份：新 id 上设过的优先，没设过就用旧的；文件夹缺了互补，确认数取大的 */
+/** 两份设置并成一份，按字段取：方式新 id 设过的优先，偏好逐项合并（新的覆盖旧的），文件夹缺了互补，确认数取大的 */
 function mergeSetting(
   current: SeriesSetting | undefined,
   old: SeriesSetting
 ): SeriesSetting {
   if (!current) return { ...old }
-  const base = customized(current) ? current : old
   const folder = current.cid ? current : old
   return {
-    ...base,
+    ...old,
+    ...current,
+    mode: current.mode !== 'inherit' ? current.mode : old.mode,
+    prefs: { ...old.prefs, ...current.prefs },
     cid: folder.cid,
     cidName: folder.cidName,
     confirmed: Math.max(current.confirmed, old.confirmed),
+    confirmFirst: current.confirmFirst ?? old.confirmFirst,
   }
 }
 
