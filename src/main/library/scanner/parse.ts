@@ -74,7 +74,8 @@ export function parseLibraryFile(
   let parsed: ParsedMedia
   try {
     parsed = parseMediaPath(relativePath, {
-      inferUnnumberedSeason: ctx.overrideKind === 'tv' || (ctx.mixed === true && !ctx.overrideKind),
+      inferUnnumberedSeason:
+        ctx.overrideKind === 'tv' || (ctx.mixed === true && !ctx.overrideKind),
       forceMovie: ctx.overrideKind === 'movie',
     })
     if (ctx.overrideKind === 'tv' && parsed.type === 'movie') {
