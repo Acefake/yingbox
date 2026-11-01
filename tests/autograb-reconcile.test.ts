@@ -124,3 +124,17 @@ describe('剧换了条目 id', () => {
     })
   })
 })
+
+describe('剧换了条目 id · 都不追时', () => {
+  it('两条都是「不追」，打开追更页（不跑检查）也并成一部', async () => {
+    const state = legacy() as { series: Record<string, { mode: string }> }
+    state.series['2933'].mode = 'off'
+    const h = setup([episode(5)], state)
+    await h.service.setSeries(7, { mode: 'off' })
+    const same = (await h.service.overview()).series.filter(
+      s => s.title === '繁花'
+    )
+    expect(same).toHaveLength(1)
+    expect(same[0]).toMatchObject({ seriesId: 7, cid: '555', confirmed: 8 })
+  })
+})

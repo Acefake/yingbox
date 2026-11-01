@@ -257,12 +257,13 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       await ensureLoaded()
       if (!lastCalendar.length && !running && !calendarTried) {
         calendarTried = true
-        // 第一次打开面板时也要列出在播的剧
         const result = await deps
           .calendar(calendarRange(deps.now()))
           .catch(() => null)
         if (result) {
           lastCalendar = result.episodes
+          if (await adoptRenamed(state, lastCalendar, deps.seriesExists))
+            dirty()
           syncRecords(result.episodes, deps.now())
         }
       }
