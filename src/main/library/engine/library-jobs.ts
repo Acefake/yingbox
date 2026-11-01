@@ -25,6 +25,7 @@ import type { SettleTracker } from '../scanner/settle'
 import {
   BACKGROUND_BATCH,
   FINGERPRINT_CONCURRENCY,
+  FINGERPRINT_RETRY_MS,
   type LibraryPayload,
   SCAN_WARNING_LOG_LIMIT,
   type ScanPayload,
@@ -239,19 +240,20 @@ export async function runProbe(
   }
 }
 
-/** 为还没有指纹的视频文件分批计算指纹（读头尾各 64 KiB）；算不出的本轮不再重试。 */
+/** 为还没有指纹的视频文件分批计算指纹（读头尾各 64 KiB）；算不出的记下时间，隔 FINGERPRINT_RETRY_MS 才再试。 */
 export async function runFingerprint(
   deps: LibraryJobDeps,
   payload: LibraryPayload,
   ctx: JobContext
 ): Promise<void> {
   const lib = deps.libraryFor(payload.libraryId)
-  const failed = new Set<number>()
   for (;;) {
     ctx.signal.throwIfAborted()
-    const batch = deps.scanStore
-      .unfingerprinted(lib.id, BACKGROUND_BATCH + failed.size)
-      .filter(f => !failed.has(f.id))
+    const batch = deps.scanStore.unfingerprinted(
+      lib.id,
+      BACKGROUND_BATCH,
+      Date.now() - FINGERPRINT_RETRY_MS
+    )
     if (!batch.length) return
     const results: Array<{ id: number; hash: string | undefined }> = []
     for (const chunk of chunks(batch, FINGERPRINT_CONCURRENCY)) {
@@ -266,9 +268,10 @@ export async function runFingerprint(
       )
     }
     transaction(deps.db, () => {
+      const now = Date.now()
       for (const { id, hash } of results) {
         if (hash) deps.scanStore.setFingerprint(id, hash)
-        else failed.add(id)
+        else deps.scanStore.markFingerprintFailed([id], now)
       }
     })
   }

@@ -33,8 +33,10 @@ export const PRIORITY = {
 } as const
 /** 指纹 / 解析 / 动态范围探测任务每批处理的文件数。 */
 export const BACKGROUND_BATCH = 500
-/** 同时读取的文件数：每个读 128 KiB，网络盘上并发过高反而更慢。 */
-export const FINGERPRINT_CONCURRENCY = 8
+/** 同时读取的文件数：每个读 128 KiB，网络盘上并发过高反而更慢；也不超过系统线程池（4 条）。 */
+export const FINGERPRINT_CONCURRENCY = 3
+/** 算不出指纹的文件隔多久再试：读不回来的文件不能每轮都重试，否则指纹任务永远清不完。 */
+export const FINGERPRINT_RETRY_MS = 7 * 24 * 60 * 60 * 1000
 /** 一次扫描最多写进日志的告警条数。 */
 export const SCAN_WARNING_LOG_LIMIT = 20
 

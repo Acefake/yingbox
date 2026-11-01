@@ -4,6 +4,7 @@
 import { describe, expect, it } from 'vitest'
 
 import {
+  createFingerprinter,
   fingerprintFile,
   withTimeout,
 } from '../src/main/library/scanner/fingerprint'
@@ -17,5 +18,27 @@ describe('读文件的时限', () => {
 
   it('不存在的文件返回 undefined，不抛错', async () => {
     expect(await fingerprintFile('Z:/不存在/文件.mkv', 500)).toBeUndefined()
+  })
+
+  it('卡住的读取攒够上限后，新的读取不再发起，直接按失败处理', async () => {
+    let started = 0
+    const release: Array<() => void> = []
+    const fingerprint = createFingerprinter(() => {
+      started++
+      return new Promise<string>(resolve => release.push(() => resolve('h')))
+    }, 2)
+    await fingerprint('E:/a', 10)
+    await fingerprint('E:/b', 10)
+    expect(await fingerprint('E:/c', 10)).toBeUndefined()
+    expect(started).toBe(2)
+    expect(await fingerprint('D:/x', 10)).toBeUndefined()
+    expect(started).toBe(3)
+    release.pop()?.()
+    release.forEach(fn => fn())
+    await new Promise(resolve => setTimeout(resolve, 0))
+    const next = fingerprint('E:/d', 50)
+    release.at(-1)?.()
+    expect(await next).toBe('h')
+    expect(started).toBe(4)
   })
 })

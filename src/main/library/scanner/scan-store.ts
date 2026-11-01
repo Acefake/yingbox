@@ -167,6 +167,7 @@ export class ScanStore {
         `UPDATE files SET path = ?, display_path = ?, dir = ?, name = ?, size = ?,
            mtime = ?, parsed = ?, parser_version = ?, state = ?, updated_at = ?,
            fingerprint = ?,
+           fingerprint_failed_at = CASE WHEN size = ? AND mtime = ? THEN fingerprint_failed_at END,
            duration = CASE WHEN size = ? AND mtime = ? THEN duration END,
            video_range = CASE WHEN size = ? AND mtime = ? THEN video_range END,
            dv_profile = CASE WHEN size = ? AND mtime = ? THEN dv_profile END,
@@ -193,6 +194,8 @@ export class ScanStore {
         file.mtime,
         file.size,
         file.mtime,
+        file.size,
+        file.mtime,
         id
       )
   }
@@ -209,18 +212,28 @@ export class ScanStore {
       .run(fingerprint, id)
   }
 
-  /** 一批还没有指纹的视频文件。 */
+  /** 记下这些文件算指纹失败的时间，retryBefore 之前的失败才会再被 unfingerprinted 取出。 */
+  markFingerprintFailed(ids: number[], now: number): void {
+    const stmt = this.sql.get(
+      'UPDATE files SET fingerprint_failed_at = ? WHERE id = ?'
+    )
+    for (const id of ids) stmt.run(now, id)
+  }
+
+  /** 一批还没有指纹的视频文件；跳过 retryBefore 之后失败过的。 */
   unfingerprinted(
     libraryId: number,
-    limit: number
+    limit: number,
+    retryBefore: number
   ): Array<{ id: number; displayPath: string }> {
     return this.sql
       .get(
         `SELECT id, display_path FROM files
          WHERE library_id = ? AND kind = 'video' AND fingerprint IS NULL
+           AND (fingerprint_failed_at IS NULL OR fingerprint_failed_at < ?)
          ORDER BY id LIMIT ?`
       )
-      .all(libraryId, limit)
+      .all(libraryId, retryBefore, limit)
       .map(r => ({ id: Number(r.id), displayPath: String(r.display_path) }))
   }
 

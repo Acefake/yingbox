@@ -338,6 +338,11 @@ export const MIGRATIONS: readonly Migration[] = [
       PRIMARY KEY (item_id, file_id)
     ) STRICT, WITHOUT ROWID;`,
   },
+  {
+    version: 16,
+    description: '指纹计算失败的时间',
+    sql: 'ALTER TABLE files ADD COLUMN fingerprint_failed_at INTEGER;',
+  },
 ]
 
 /** 读取当前 schema 版本。 */
