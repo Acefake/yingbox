@@ -1,110 +1,169 @@
-/* 洗版 / 电影面板共用的版式：和追更面板同一套（卡片底、分隔线、小号次要文字） */
-.grab-panel {
+/* 洗版 / 电影栏共用的版式：和剧集栏（features/autograb 的 AutograbView）同一套——
+   顶部一条状态句 + 操作，缺前置条件时一组玻璃分组，下面是 GrabSection 分区（卡片网格、海报墙、记录） */
+.gp-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
-  padding: var(--space-4) var(--space-5);
-  border: 1px solid var(--border-subtle);
-  border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card);
+  gap: var(--space-7);
 }
 
-.grab-head {
+/* ── 工具栏：状态句在左，操作在右 ── */
+.gp-toolbar {
   display: flex;
+  flex-wrap: wrap;
   align-items: center;
   gap: var(--space-3);
 }
 
-.grab-head-text {
+.gp-state {
+  display: flex;
   flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
   min-width: 0;
-}
-
-.grab-title {
   margin: 0;
-  font-size: var(--text-md);
-  font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
-}
-
-.grab-sub,
-.grab-meta {
-  margin: 0;
-  font-size: var(--text-xs);
-  color: var(--text-tertiary);
-}
-
-.grab-notice {
-  margin: 0;
   font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.gp-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-quaternary);
+}
+
+.gp-dot.is-on {
+  background: var(--success);
+}
+
+.gp-needs {
+  margin-top: calc(var(--space-4) * -1);
+}
+
+.gp-need {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-2);
+  color: var(--text-primary);
+  font-size: var(--text-sm);
+}
+
+.gp-need-icon {
+  flex: none;
   color: var(--warning);
 }
 
-.grab-list {
-  display: flex;
-  flex-direction: column;
-  margin: 0;
-  padding: 0;
-  list-style: none;
+/* ── 海报墙：比首页小一档 ── */
+.gp-posters {
+  --poster-min-width: 132px; /* style-tokens: layout（追更页海报墙的最小列宽） */
+  --poster-gap-x: var(--space-4);
+  --poster-gap-y: var(--space-5);
 }
 
-.grab-row {
-  display: flex;
-  flex-direction: column;
+/* 海报左上角的状态胶囊（压在画面上的玻璃） */
+.gp-chip {
+  display: inline-flex;
+  align-items: center;
   gap: var(--space-1);
-  padding: var(--space-2) 0;
-  border-top: 1px solid var(--separator);
+  height: 22px; /* style-tokens: layout（海报上的小胶囊高度） */
+  padding: 0 var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--glass-media-bg);
+  box-shadow: var(--glass-media-shadow);
+  backdrop-filter: var(--glass-filter);
+  color: var(--media-text);
+  font-size: var(--text-2xs);
+  font-weight: var(--font-weight-medium);
+  white-space: nowrap;
 }
 
-.grab-row-head {
+.gp-chip::before {
+  width: 6px;
+  height: 6px;
+  border-radius: var(--radius-full);
+  background: var(--media-text-tertiary);
+  content: '';
+}
+
+.gp-chip:where([data-tone='pending'])::before {
+  background: var(--accent);
+}
+
+.gp-chip:where([data-tone='done'])::before {
+  background: var(--success);
+}
+
+.gp-chip:where([data-tone='problem'])::before {
+  background: var(--warning);
+}
+
+.gp-chips {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
   gap: var(--space-2);
 }
 
-.grab-name {
-  flex: 1;
-  min-width: 0;
-  overflow: hidden;
-  font-size: var(--text-sm);
-  color: var(--text-primary);
-  text-overflow: ellipsis;
-  white-space: nowrap;
-}
-
-.grab-status {
+.gp-meta {
+  margin: 0;
+  color: var(--text-tertiary);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
 }
 
-.grab-status[data-tone='accent'] {
-  color: var(--accent-text);
+.gp-empty {
+  margin: 0;
+  padding: 0 var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
 }
 
-.grab-cand {
+.gp-search {
+  width: 240px; /* style-tokens: layout（分区标题行里的搜索框宽度） */
+}
+
+/* 卡片里展开的其它候选 */
+.gp-cands {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.gp-cand {
   display: flex;
   align-items: center;
   gap: var(--space-3);
-  padding: var(--space-1) 0 var(--space-1) var(--space-3);
 }
 
-.grab-cand-main {
+.gp-cand-main {
   display: flex;
   flex: 1;
   flex-direction: column;
   min-width: 0;
 }
 
-.grab-cand-file {
+.gp-cand-file {
   overflow: hidden;
+  font-family: var(--font-mono);
   font-size: var(--text-xs);
-  color: var(--text-secondary);
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.grab-picker {
-  padding-left: var(--space-3);
+.ag-quiet.ui-button {
+  color: var(--text-secondary);
+}
+
+.ag-quiet.ui-button:hover:not(:disabled) {
+  background: var(--bg-fill-secondary);
+  color: var(--text-primary);
+}
+
+.gp-danger.ui-button {
+  color: var(--danger);
 }

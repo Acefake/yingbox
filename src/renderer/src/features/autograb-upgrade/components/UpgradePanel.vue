@@ -1,13 +1,18 @@
 <template>
-  <section class="grab-panel" aria-label="洗版">
-    <header class="grab-head">
-      <div class="grab-head-text">
-        <h2 class="grab-title">洗版</h2>
-        <p class="grab-sub">{{ data ? upgradeSummary(data) : '' }}</p>
-      </div>
+  <div class="gp-view">
+    <header class="gp-toolbar">
+      <p class="gp-state">
+        <span
+          class="gp-dot"
+          :class="{ 'is-on': data?.enabled }"
+          aria-hidden="true"
+        />
+        <span role="status" aria-live="polite">{{
+          data ? upgradeSummary(data) : '正在读取洗版状态'
+        }}</span>
+        <UiLoadingDots v-if="!data || data.running" />
+      </p>
       <UiButton
-        size="sm"
-        variant="plain"
         icon="refresh"
         label="立即检查"
         :loading="data?.running"
@@ -21,107 +26,194 @@
       />
     </header>
 
-    <p v-if="ov.error.value" class="grab-notice">{{ ov.error.value }}</p>
-    <p
-      v-else-if="data && data.enabled && upgradeNotice(data)"
-      class="grab-notice"
-    >
-      {{ upgradeNotice(data) }}
-    </p>
-
-    <ul v-if="data?.entries.length" class="grab-list">
-      <li v-for="entry in data.entries" :key="entry.key" class="grab-row">
-        <div class="grab-row-head">
-          <span class="grab-name" :title="entry.filePath">{{
-            entryName(entry)
-          }}</span>
-          <span class="grab-meta"
-            >现在 {{ resolutionText(entry.resolution) }}</span
-          >
-          <span
-            class="grab-status"
-            :data-tone="entry.status === 'found' ? 'accent' : undefined"
-          >
-            {{ UPGRADE_STATUS_LABEL[entry.status] }}
+    <SettingsGroup v-if="notice" class="gp-needs">
+      <SettingsRow>
+        <template #description>
+          <span class="gp-need">
+            <UiIcon class="gp-need-icon" name="warning" size="sm" />{{ notice }}
           </span>
+        </template>
+        <UiButton
+          v-if="needsNetdisk"
+          size="sm"
+          label="去设置"
+          @click="openNetdiskSettings()"
+        />
+      </SettingsRow>
+    </SettingsGroup>
+
+    <GrabSection
+      v-if="found.length && data"
+      title="有更清楚的版本"
+      :count="`${found.length} 个`"
+    >
+      <ul class="grab-tasks">
+        <li v-for="entry in found" :key="entry.key">
+          <GrabTaskCard
+            :title="entryName(entry)"
+            :subtitle="upgradeGap(entry, data)"
+            state="有更清楚的"
+            tone="pending"
+            :candidate="entry.candidates[0] ?? null"
+            :reason="
+              picking?.key === entry.key ? '' : (entry.error ?? REPLACE_NOTE)
+            "
+          >
+            <ul v-if="expanded.has(entry.key)" class="gp-cands">
+              <li
+                v-for="(cand, index) in entry.candidates.slice(1)"
+                :key="cand.fileId"
+                class="gp-cand"
+              >
+                <span class="gp-cand-main">
+                  <span class="gp-cand-file" :title="cand.fileName">{{
+                    cand.fileName
+                  }}</span>
+                  <span class="gp-meta">{{ candidateMeta(cand) }}</span>
+                </span>
+                <UiButton
+                  size="sm"
+                  label="替换"
+                  :loading="busy === `${entry.key}#${index + 1}`"
+                  :disabled="busy !== null"
+                  @click="replace(entry.key, index + 1)"
+                />
+              </li>
+            </ul>
+            <div v-if="picking?.key === entry.key" class="gp-picker">
+              <p class="gp-meta">
+                认不出旧文件在 115 上的文件夹，选一下它所在的文件夹
+              </p>
+              <TargetFolderPill
+                :folder="ROOT_FOLDER"
+                prefix="旧文件在"
+                size="sm"
+                @pick="pickFolder"
+              />
+            </div>
+            <template #actions>
+              <UiButton
+                v-if="entry.candidates.length > 1"
+                class="ag-quiet"
+                size="sm"
+                variant="plain"
+                :icon="expanded.has(entry.key) ? 'chevronUp' : 'chevronDown'"
+                :label="`另 ${entry.candidates.length - 1} 个`"
+                :aria-expanded="expanded.has(entry.key)"
+                @click="toggle(entry.key)"
+              />
+              <UiButton
+                class="ag-quiet"
+                size="sm"
+                variant="plain"
+                label="不洗"
+                @click="ignore(entry.key)"
+              />
+              <span class="ag-grow" />
+              <UiButton
+                size="sm"
+                variant="primary"
+                icon="download"
+                label="替换"
+                :loading="busy === `${entry.key}#0`"
+                :disabled="busy !== null && busy !== `${entry.key}#0`"
+                @click="replace(entry.key, 0)"
+              />
+            </template>
+          </GrabTaskCard>
+        </li>
+      </ul>
+    </GrabSection>
+
+    <GrabSection
+      v-if="replaced.length"
+      title="新版已存好，旧文件还在"
+      :count="`${replaced.length} 个`"
+    >
+      <SettingsGroup>
+        <SettingsRow
+          v-for="entry in replaced"
+          :key="entry.key"
+          :title="entryName(entry)"
+          :description="`新文件「${entry.savedName ?? ''}」已在同一文件夹`"
+        >
           <UiButton
-            v-if="entry.status === 'replaced'"
             size="sm"
-            variant="plain"
             icon="trash"
             label="删旧文件"
             @click="deleteOld(entry)"
           />
-          <UiButton
-            v-if="entry.status === 'found' || entry.status === 'waiting'"
-            size="sm"
-            variant="plain"
-            label="不洗"
-            @click="ignore(entry.key)"
-          />
+        </SettingsRow>
+      </SettingsGroup>
+    </GrabSection>
+
+    <SettingsGroup v-if="others.length">
+      <SettingsRow
+        title="记录"
+        :description="`${others.length} 个文件在等待搜索、已转存或不洗`"
+      >
+        <UiButton
+          size="sm"
+          :icon="othersOpen ? 'chevronUp' : 'chevronDown'"
+          :label="othersOpen ? '收起' : '展开'"
+          :aria-expanded="othersOpen"
+          @click="othersOpen = !othersOpen"
+        />
+      </SettingsRow>
+      <template v-if="othersOpen">
+        <SettingsRow
+          v-for="entry in others"
+          :key="entry.key"
+          :title="entryName(entry)"
+          :description="otherNote(entry)"
+        >
           <UiButton
             v-if="entry.status === 'waiting' && entry.error"
+            class="ag-quiet"
             size="sm"
             variant="plain"
             label="重新搜"
             @click="retry(entry.key)"
           />
-        </div>
-        <p v-if="entry.error" class="grab-meta">{{ entry.error }}</p>
-        <p v-else-if="entry.status === 'replaced'" class="grab-meta">
-          新文件「{{ entry.savedName }}」已在同一文件夹，旧文件还在
-        </p>
-        <template v-if="entry.status === 'found'">
-          <div
-            v-for="(cand, index) in entry.candidates"
-            :key="cand.fileId"
-            class="grab-cand"
-          >
-            <div class="grab-cand-main">
-              <span class="grab-cand-file" :title="cand.fileName">{{
-                cand.fileName
-              }}</span>
-              <span class="grab-meta">{{ candidateMeta(cand) }}</span>
-            </div>
-            <UiButton
-              size="sm"
-              variant="primary"
-              label="替换"
-              :loading="busy === `${entry.key}#${index}`"
-              :disabled="busy !== null"
-              @click="replace(entry.key, index)"
-            />
-          </div>
-        </template>
-        <div v-if="picking?.key === entry.key" class="grab-row-head">
-          <p class="grab-meta">
-            认不出旧文件在 115 上的文件夹，选一下它所在的文件夹
-          </p>
-          <TargetFolderPill
-            :folder="ROOT_FOLDER"
-            prefix="旧文件在"
+          <UiButton
+            v-if="entry.status === 'waiting'"
+            class="ag-quiet"
             size="sm"
-            align="right"
-            @pick="pickFolder"
+            variant="plain"
+            label="不洗"
+            @click="ignore(entry.key)"
           />
-        </div>
-      </li>
-    </ul>
-  </section>
+        </SettingsRow>
+      </template>
+    </SettingsGroup>
+
+    <p v-if="data?.enabled && !data.entries.length" class="gp-empty">
+      {{ upgradeSummary(data) }}
+    </p>
+  </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 洗版面板：开关、立即检查（目标 = 设置 · 自动追更里各种类的首选分辨率）；列出有更清楚版本的文件和候选，点「替换」
- * 把新文件存进旧文件所在的 115 文件夹（旧文件保留），之后可手动「删旧文件」（会先确认）。
- * 认不出 115 文件夹时就地给一个转存目标胶囊（最近使用 / 浏览 115 目录树）选旧文件所在的文件夹。
+ * 自动追更页「洗版」栏，与剧集栏同一套版式：一条工具栏（状态句是洗版概况，立即检查、开关），缺前置条件时一组玻璃分组；
+ * 「有更清楚的版本」是卡片（GrabTaskCard：现在几 p、首选几 p、最佳候选），主按钮「替换」把新文件存进旧文件所在的 115 文件夹
+ * （旧文件保留），认不出文件夹时卡片里就地选；「新版已存好，旧文件还在」一行一个「删旧文件」（会先确认）；
+ * 其余（等待搜索、已转存、不洗）收在记录里。
  */
-import { computed, ref } from 'vue'
+import { computed, reactive, ref } from 'vue'
 
 import { confirmDialog } from '@/components/ui'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
+import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
-import { type FolderPick, TargetFolderPill } from '@/features/netdisk'
+import { GrabSection, GrabTaskCard } from '@/features/autograb'
+import {
+  type FolderPick,
+  TargetFolderPill,
+  openNetdiskSettings,
+} from '@/features/netdisk'
+import { SettingsGroup, SettingsRow } from '@/features/settings'
 import type {
   UpgradeEntry,
   UpgradeOptionsPatch,
@@ -133,16 +225,49 @@ import {
   UPGRADE_STATUS_LABEL,
   candidateMeta,
   entryName,
-  resolutionText,
+  upgradeFound,
+  upgradeGap,
   upgradeNotice,
+  upgradeOthers,
+  upgradeReplaced,
   upgradeSummary,
 } from '../upgrade-rules'
 import { useOverview } from '../use-overview'
 
+const REPLACE_NOTE = '替换会把新文件存进旧文件所在的 115 文件夹，旧文件先留着。'
+
 const ov = useOverview(upgradeApi())
 const data = computed(() => ov.data.value)
+const found = computed(() => upgradeFound(data.value))
+const replaced = computed(() => upgradeReplaced(data.value))
+const others = computed(() => upgradeOthers(data.value))
+const othersOpen = ref(false)
+/** 展开了其它候选的条目 */
+const expanded = reactive(new Set<string>())
 const busy = ref<string | null>(null)
 const picking = ref<{ key: string; index: number } | null>(null)
+
+/** 读取出错，或开着洗版但缺前置条件 / 被暂停 */
+const notice = computed(() => {
+  if (ov.error.value) return ov.error.value
+  const d = data.value
+  return d?.enabled ? upgradeNotice(d) : null
+})
+const needsNetdisk = computed(
+  () => !!data.value && (!data.value.ready.loggedIn || !data.value.ready.pansou)
+)
+
+function toggle(key: string): void {
+  if (expanded.has(key)) expanded.delete(key)
+  else expanded.add(key)
+}
+
+/** 记录里一行的说明：状态 + 原因 */
+function otherNote(entry: UpgradeEntry): string {
+  return [UPGRADE_STATUS_LABEL[entry.status], entry.error]
+    .filter(Boolean)
+    .join(' · ')
+}
 
 async function setOptions(patch: UpgradeOptionsPatch): Promise<void> {
   await upgradeApi().setOptions(patch)
@@ -202,3 +327,11 @@ async function deleteOld(entry: UpgradeEntry): Promise<void> {
 </script>
 
 <style scoped src="./grab-panel.css"></style>
+<style scoped>
+.gp-picker {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+}
+</style>

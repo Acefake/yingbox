@@ -119,3 +119,55 @@ export function watchlistTitles(
     .map(e => e.title.trim())
   return [...new Set(titles)].slice(0, 12)
 }
+
+/** 要用户处理的电影：有资源待确认、找不到（有资源的在前） */
+export function pendingMovies(o: MoviesOverview | null): TrackedMovie[] {
+  return (o?.movies ?? [])
+    .filter(m => m.status === 'found' || m.status === 'notFound')
+    .sort((a, b) => Number(b.status === 'found') - Number(a.status === 'found'))
+}
+
+/** 电影栏的状态句：「4 部在追 · 1 部未上线 · 2 部搜索中」 */
+export function moviesStatusLine(o: MoviesOverview): string {
+  const count = (status: MovieTrackStatus): number =>
+    o.movies.filter(m => m.status === status).length
+  if (o.running) return `${o.movies.length} 部在追 · 正在检查`
+  const parts = [`${o.movies.length} 部在追`]
+  if (count('upcoming')) parts.push(`${count('upcoming')} 部未上线`)
+  if (count('searching')) parts.push(`${count('searching')} 部搜索中`)
+  return parts.join(' · ')
+}
+
+/** 电影卡片上那句「为什么要你处理」 */
+export function moviePendingReason(m: TrackedMovie): string {
+  if (m.status === 'notFound')
+    return (
+      m.error ?? '30 天里每天搜都没找到这部电影的分享，点「现在重搜」再找一遍。'
+    )
+  return m.effectiveMode === 'auto'
+    ? '匹配分不够高，没有替你自动转存，请看一眼文件名。'
+    : '电影设为待确认，由你来点转存。'
+}
+
+/** 洗版：有更清楚的版本、等用户替换的条目 */
+export function upgradeFound(o: UpgradeOverview | null): UpgradeEntry[] {
+  return (o?.entries ?? []).filter(e => e.status === 'found')
+}
+
+/** 洗版：新文件已存好、旧文件还在的条目（可删旧文件） */
+export function upgradeReplaced(o: UpgradeOverview | null): UpgradeEntry[] {
+  return (o?.entries ?? []).filter(e => e.status === 'replaced')
+}
+
+/** 洗版：其余条目（等待搜索、已转存、旧文件已删、不洗），收在记录里 */
+export function upgradeOthers(o: UpgradeOverview | null): UpgradeEntry[] {
+  return (o?.entries ?? []).filter(
+    e => e.status !== 'found' && e.status !== 'replaced'
+  )
+}
+
+/** 洗版卡片上的说明：「现在 1080p · 首选 4K」 */
+export function upgradeGap(e: UpgradeEntry, o: UpgradeOverview): string {
+  const target = e.kind === 'movie' ? o.targets.movie : o.targets.tv
+  return `现在 ${resolutionText(e.resolution)} · 首选 ${resolutionText(target)}`
+}
