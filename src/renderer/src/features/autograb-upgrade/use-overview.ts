@@ -5,6 +5,7 @@
 import {
   type Ref,
   type ShallowRef,
+  onActivated,
   onBeforeUnmount,
   onMounted,
   ref,
@@ -58,6 +59,12 @@ export function useOverview<T>(source: {
   onMounted(() => {
     source.onChanged(refresh)
     void load()
+  })
+  // 页面被缓存着：从设置里登录 115 回来要重新取一次（首次进入已经在 onMounted 里取过）
+  let entered = false
+  onActivated(() => {
+    if (entered) void load()
+    entered = true
   })
   onBeforeUnmount(() => {
     disposed = true
