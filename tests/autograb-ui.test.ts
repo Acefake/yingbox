@@ -34,6 +34,7 @@ import {
   prefsSummary,
   withInherit,
 } from '../src/renderer/src/features/autograb/prefs-rules'
+import { tmdbSearchPoster } from '../src/renderer/src/features/autograb/series-poster-rules'
 import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
 import { DEFAULT_GRAB_PREFS } from '../src/shared/contract/grab-prefs'
 import { policyOf } from '../src/shared/contract/grab-policy'
@@ -397,5 +398,22 @@ describe('追更与自动追更设置组件', () => {
       id: name,
     })
     expect(template.errors).toEqual([])
+  })
+})
+
+describe('剧海报兜底', () => {
+  it('TMDB 搜剧结果：取第一条有海报的', () => {
+    expect(
+      tmdbSearchPoster({
+        results: [
+          { poster_path: null },
+          { poster_path: '/a.jpg' },
+          { poster_path: '/b.jpg' },
+        ],
+      })
+    ).toBe('https://image.tmdb.org/t/p/w342/a.jpg')
+    expect(tmdbSearchPoster({ results: [] })).toBeNull()
+    expect(tmdbSearchPoster(null)).toBeNull()
+    expect(tmdbSearchPoster({ results: [{ poster_path: 'x' }] })).toBeNull()
   })
 })
