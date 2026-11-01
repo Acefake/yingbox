@@ -1,33 +1,25 @@
 <template>
-  <section class="grab-panel" aria-label="电影上线追踪">
-    <header class="grab-head">
-      <div class="grab-head-text">
-        <h2 class="grab-title">电影上线</h2>
-        <p class="grab-sub">
-          数字发行后每天搜一次 WEB-DL / BluRay，30 天为止{{
-            policyText ? `；没单独设的电影：${policyText}` : ''
-          }}
-        </p>
-      </div>
+  <div class="gp-view">
+    <header class="gp-toolbar">
+      <p class="gp-state">
+        <span class="gp-dot is-on" aria-hidden="true" />
+        <span role="status" aria-live="polite">{{
+          data ? moviesStatusLine(data) : '正在读取电影追踪'
+        }}</span>
+        <UiLoadingDots v-if="!data || data.running" />
+      </p>
       <TargetFolderPill
         v-if="data"
         v-bind="folderPill"
-        size="sm"
-        variant="plain"
-        align="right"
         :disabled="!data.ready.loggedIn"
         @pick="pickFolder"
       />
       <UiButton
-        size="sm"
-        variant="plain"
         icon="settings"
-        label="策略"
+        :label="policyLabel"
         @click="openAutograbSettings('movie')"
       />
       <UiButton
-        size="sm"
-        variant="plain"
         icon="refresh"
         label="立即检查"
         :loading="data?.running"
@@ -35,171 +27,213 @@
       />
     </header>
 
-    <p v-if="ov.error.value" class="grab-notice">{{ ov.error.value }}</p>
-    <p v-else-if="data && moviesNotice(data)" class="grab-notice">
-      {{ moviesNotice(data) }}
-    </p>
-
-    <form class="movies-search" @submit.prevent="search(query)">
-      <UiInput
-        v-model="query"
-        size="sm"
-        icon="search"
-        placeholder="搜电影，加入追踪"
-        clearable
-        :disabled="!data?.ready.tmdb"
-        @clear="hits = []"
-      />
-    </form>
-    <div v-if="suggestions.length && !hits.length" class="movies-chips">
-      <span class="grab-meta">想看里的：</span>
-      <UiChip
-        v-for="title in suggestions"
-        :key="title"
-        :label="title"
-        @click="search(title)"
-      />
-    </div>
-    <ul v-if="hits.length" class="grab-list">
-      <li v-for="hit in hits" :key="hit.tmdbId" class="grab-row">
-        <div class="grab-row-head">
-          <GrabPoster :src="posterOf(hit.poster)" :title="hit.title" />
-          <span class="grab-name"
-            >{{ hit.title }}{{ hit.year ? ` (${hit.year})` : '' }}</span
-          >
-          <span v-if="tracked.has(hit.tmdbId)" class="grab-meta">已在追踪</span>
-          <UiButton
-            v-else
-            size="sm"
-            variant="primary"
-            label="追踪"
-            @click="track(hit.tmdbId)"
-          />
-        </div>
-      </li>
-    </ul>
-
-    <ul v-if="data?.movies.length" class="grab-list">
-      <li v-for="movie in data.movies" :key="movie.tmdbId" class="grab-row">
-        <div class="grab-row-head">
-          <GrabPoster :src="posterOf(movie.poster)" :title="movie.title" />
-          <span class="grab-name">
-            {{ movie.title }}{{ movie.year ? ` (${movie.year})` : '' }}
+    <SettingsGroup v-if="notice || ov.error.value" class="gp-needs">
+      <SettingsRow>
+        <template #description>
+          <span class="gp-need">
+            <UiIcon class="gp-need-icon" name="warning" size="sm" />{{
+              ov.error.value ?? notice
+            }}
           </span>
-          <span
-            class="grab-status"
-            :data-tone="movie.status === 'found' ? 'accent' : undefined"
-          >
-            {{ MOVIE_STATUS_LABEL[movie.status] }}
-          </span>
-          <ItemPolicyMenu
-            v-if="movie.status !== 'done'"
-            :title="movie.title"
-            :custom="isCustom(movie.mode, movie.prefs)"
-            :effective="movie.effectiveMode"
-            @follow="follow(movie)"
-            @custom="editing = movie.tmdbId"
-          />
-          <UiButton
-            v-if="movie.status === 'notFound' || movie.status === 'found'"
-            size="sm"
-            variant="plain"
-            label="重新搜"
-            @click="retry(movie.tmdbId)"
-          />
-          <UiIconButton
-            icon="close"
-            size="sm"
-            :label="`不再追踪 ${movie.title}`"
-            @click="untrack(movie.tmdbId)"
-          />
-        </div>
-        <p v-if="movieNote(movie)" class="grab-meta">{{ movieNote(movie) }}</p>
-        <p v-if="overrideSummary(movie.prefs)" class="grab-meta">
-          单独偏好：{{ overrideSummary(movie.prefs) }}
-        </p>
-        <div v-if="editing === movie.tmdbId" class="grab-picker">
-          <GrabOverrideForm
-            :title="`${movie.title} 单独设`"
-            :mode-options="MOVIE_MODE_OPTIONS"
-            :initial-mode="movie.effectiveMode"
-            :value="movie.prefs"
-            :inherit="data.policy.prefs"
-            @save="result => saveMovie(movie, result)"
-            @cancel="editing = null"
-          />
-        </div>
-        <template v-if="movie.status === 'found'">
-          <div
-            v-for="(cand, index) in movie.candidates"
-            :key="cand.fileId"
-            class="grab-cand"
-          >
-            <div class="grab-cand-main">
-              <span class="grab-cand-file" :title="cand.fileName">{{
-                cand.fileName
-              }}</span>
-              <span class="grab-meta">{{ candidateMeta(cand) }}</span>
-            </div>
-            <UiButton
-              size="sm"
-              variant="primary"
-              label="转存"
-              :loading="busy === `${movie.tmdbId}#${index}`"
-              :disabled="busy !== null"
-              @click="grab(movie.tmdbId, index)"
-            />
-          </div>
         </template>
-      </li>
-    </ul>
-    <p v-else-if="data" class="grab-meta">
-      {{
-        nas
-          ? '还没有追踪的电影，在上面搜索并选择一部加入追踪'
-          : '还没有追踪的电影：在线详情页点「追踪上线」，或在上面搜一部'
-      }}
-    </p>
-  </section>
+        <UiButton
+          v-if="needsNetdisk"
+          size="sm"
+          label="去设置"
+          @click="openNetdiskSettings()"
+        />
+      </SettingsRow>
+    </SettingsGroup>
+
+    <GrabSection
+      v-if="pending.length"
+      title="需要你处理"
+      :count="`${pending.length} 部`"
+    >
+      <ul class="grab-tasks">
+        <li v-for="movie in pending" :key="movie.tmdbId">
+          <GrabTaskCard
+            :title="titleOf(movie)"
+            :subtitle="
+              movie.releaseDate ? `${movie.releaseDate} 上线` : '已上线'
+            "
+            :poster="posterOf(movie.poster)"
+            :state="movie.status === 'found' ? '待确认' : '没找到'"
+            :tone="movie.status === 'found' ? 'pending' : 'problem'"
+            :candidate="movie.candidates[0] ?? null"
+            :reason="moviePendingReason(movie)"
+          >
+            <template #actions>
+              <UiButton
+                class="ag-quiet"
+                size="sm"
+                variant="plain"
+                :label="
+                  movie.candidates.length > 1
+                    ? `另 ${movie.candidates.length - 1} 个`
+                    : '详情'
+                "
+                @click="sheetId = movie.tmdbId"
+              />
+              <span class="ag-grow" />
+              <UiButton
+                v-if="movie.status === 'found'"
+                size="sm"
+                variant="primary"
+                icon="download"
+                label="转存"
+                :loading="busy === movie.tmdbId"
+                @click="grab(movie.tmdbId)"
+              />
+              <UiButton
+                v-else
+                size="sm"
+                icon="refresh"
+                label="现在重搜"
+                @click="retry(movie.tmdbId)"
+              />
+            </template>
+          </GrabTaskCard>
+        </li>
+      </ul>
+    </GrabSection>
+
+    <GrabSection
+      title="追踪中的电影"
+      :count="data ? `${data.movies.length} 部` : undefined"
+    >
+      <template #actions>
+        <form class="gp-search" @submit.prevent="search(query)">
+          <UiInput
+            v-model="query"
+            size="sm"
+            icon="search"
+            placeholder="搜电影，加入追踪"
+            clearable
+            :disabled="!data?.ready.tmdb"
+            @clear="hits = []"
+          />
+        </form>
+      </template>
+
+      <div v-if="suggestions.length && !hits.length" class="gp-chips">
+        <span class="gp-meta">想看里的：</span>
+        <UiChip
+          v-for="title in suggestions"
+          :key="title"
+          :label="title"
+          @click="search(title)"
+        />
+      </div>
+
+      <template v-if="hits.length">
+        <p class="gp-meta">搜索结果：点「+」加入追踪</p>
+        <div class="ui-poster-grid gp-posters">
+          <UiPosterCard
+            v-for="hit in hits"
+            :key="hit.tmdbId"
+            :title="hit.title"
+            :cover="posterOf(hit.poster) ?? undefined"
+            :subtitle="
+              tracked.has(hit.tmdbId)
+                ? '已在追踪'
+                : hit.year
+                  ? String(hit.year)
+                  : ''
+            "
+            @open="
+              tracked.has(hit.tmdbId)
+                ? (sheetId = hit.tmdbId)
+                : track(hit.tmdbId)
+            "
+          >
+            <template v-if="!tracked.has(hit.tmdbId)" #actions>
+              <UiIconButton
+                icon="plus"
+                variant="overlay"
+                size="sm"
+                :label="`追踪 ${hit.title}`"
+                @click.stop="track(hit.tmdbId)"
+              />
+            </template>
+          </UiPosterCard>
+        </div>
+      </template>
+
+      <div v-if="data?.movies.length" class="ui-poster-grid gp-posters">
+        <UiPosterCard
+          v-for="movie in data.movies"
+          :key="movie.tmdbId"
+          :title="movie.title"
+          :cover="posterOf(movie.poster) ?? undefined"
+          :subtitle="movieNote(movie) || (movie.year ? String(movie.year) : '')"
+          @open="sheetId = movie.tmdbId"
+        >
+          <template #badges>
+            <span class="gp-chip" :data-tone="chipTone(movie.status)">{{
+              MOVIE_STATUS_LABEL[movie.status]
+            }}</span>
+          </template>
+        </UiPosterCard>
+      </div>
+      <p v-else-if="data" class="gp-empty">
+        {{
+          nas
+            ? '还没有追踪的电影，在右上角搜一部加入追踪'
+            : '还没有追踪的电影：在线详情页点「追踪上线」，或在右上角搜一部'
+        }}
+      </p>
+    </GrabSection>
+
+    <MovieGrabSheet
+      :movie="sheetMovie"
+      :overview="data"
+      :report="ov.report"
+      :refresh="ov.refresh"
+      @close="sheetId = null"
+    />
+  </div>
 </template>
 
 <script setup lang="ts">
 /**
- * 电影上线追踪面板：转存位置胶囊（电影默认目录 / 最近使用 / 浏览 115 目录树）、「策略」跳到设置 · 自动追更、
- * TMDB 搜片加入追踪（想看清单里的片名可一键搜）；追踪中的电影显示上线日期 / 搜索进度 / 候选，
- * 每部一个「跟随 / 单独设」胶囊（单独设覆盖方式与资源偏好），可重搜、移除。
+ * 自动追更页「电影」栏，与剧集栏同一套版式：一条工具栏（状态句、转存位置、全局策略、立即检查），缺前置条件时一组玻璃分组；
+ * 「需要你处理」是有资源待确认 / 没找到的电影卡片（GrabTaskCard，主按钮转存或重搜）；
+ * 「追踪中的电影」是海报墙（左上角状态胶囊），标题行右侧搜 TMDB 加入追踪（想看清单里的片名可一键搜）；
+ * 点海报打开这部电影的侧板（MovieGrabSheet：方式、资源偏好、候选、重搜、不再追踪）。
  */
-import { computed, ref } from 'vue'
+import { computed, onDeactivated, ref } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
+import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
+import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import { toast } from '@/components/ui/toast'
 import {
-  GrabOverrideForm,
-  GrabPoster,
-  ItemPolicyMenu,
+  GrabSection,
+  GrabTaskCard,
   MOVIE_MODE_OPTIONS,
-  isCustom,
   openAutograbSettings,
   optionLabel,
-  overrideSummary,
   prefsSummary,
 } from '@/features/autograb'
-import { thumbSrc } from '@/services/thumbnails'
 import {
   type FolderPick,
   type FolderPreset,
   TargetFolderPill,
+  openNetdiskSettings,
 } from '@/features/netdisk'
+import { SettingsGroup, SettingsRow } from '@/features/settings'
 import { watchlistEntries } from '@/features/watchlist'
+import { thumbSrc } from '@/services/thumbnails'
 import type {
   MovieSearchHit,
+  MovieTrackStatus,
   TrackedMovie,
 } from '../../../../../shared/contract/autograb-upgrade'
-import type { GrabPrefsOverride } from '../../../../../shared/contract/grab-prefs'
-import type { GrabMode } from '../../../../../shared/contract/grab-policy'
 import {
   type TargetFolder,
   folderOf,
@@ -208,32 +242,45 @@ import {
 import { moviesApi } from '../api'
 import {
   MOVIE_STATUS_LABEL,
-  candidateMeta,
   movieNote,
+  moviePendingReason,
   moviesNotice,
+  moviesStatusLine,
+  pendingMovies,
   watchlistTitles,
 } from '../upgrade-rules'
 import { useOverview } from '../use-overview'
+import MovieGrabSheet from './MovieGrabSheet.vue'
 
 const nas = import.meta.env.MODE === 'nas'
 const ov = useOverview(moviesApi())
 const data = computed(() => ov.data.value)
 const tracked = computed(() => new Set(data.value?.movies.map(m => m.tmdbId)))
+const pending = computed(() => pendingMovies(data.value))
 const suggestions = computed(() => watchlistTitles(watchlistEntries().value))
+const notice = computed(() => (data.value ? moviesNotice(data.value) : null))
+/** 缺的是网盘设置（115 登录、PanSou）：给「去设置」 */
+const needsNetdisk = computed(
+  () => !!data.value && (!data.value.ready.loggedIn || !data.value.ready.pansou)
+)
 const query = ref('')
 const hits = ref<MovieSearchHit[]>([])
-const busy = ref<string | null>(null)
-/** 正在单独设哪部电影；null = 没有 */
-const editing = ref<number | null>(null)
+const busy = ref<number | null>(null)
+/** 侧板里打开的电影 */
+const sheetId = ref<number | null>(null)
+const sheetMovie = computed(
+  () => data.value?.movies.find(m => m.tmdbId === sheetId.value) ?? null
+)
+onDeactivated(() => (sheetId.value = null))
 
-/** 全局策略的一句话：待确认 · 均衡 */
-const policyText = computed(() => {
+/** 全局策略按钮上的字：全局策略 · 待确认 · 均衡 */
+const policyLabel = computed(() => {
   const policy = data.value?.policy
-  if (!policy) return ''
-  return `${optionLabel(MOVIE_MODE_OPTIONS, policy.mode)} · ${prefsSummary(policy.prefs)}`
+  if (!policy) return '全局策略'
+  return `全局策略 · ${optionLabel(MOVIE_MODE_OPTIONS, policy.mode)} · ${prefsSummary(policy.prefs)}`
 })
 
-/** 转存位置胶囊：面板里单独选了文件夹显示它，否则是「电影默认目录」 */
+/** 转存位置胶囊：电影栏单独选了文件夹显示它，否则是「电影默认目录」 */
 const folderPill = computed<{
   folder: TargetFolder
   active: string | null
@@ -258,6 +305,22 @@ const folderPill = computed<{
   }
 })
 
+function titleOf(movie: TrackedMovie): string {
+  return movie.year ? `${movie.title} (${movie.year})` : movie.title
+}
+
+/** 海报左上角状态胶囊的色调 */
+function chipTone(status: MovieTrackStatus): string | undefined {
+  if (status === 'found') return 'pending'
+  if (status === 'saved' || status === 'done') return 'done'
+  return status === 'notFound' ? 'problem' : undefined
+}
+
+/** TMDB 海报 → 缩略图地址（列表里只要小图） */
+function posterOf(url: string | null): string | null {
+  return url ? thumbSrc(url, 300) : null
+}
+
 async function search(text: string): Promise<void> {
   query.value = text
   if (!text.trim()) return
@@ -270,34 +333,20 @@ async function search(text: string): Promise<void> {
 }
 
 async function track(tmdbId: number): Promise<void> {
-  if (ov.report(await moviesApi().track(tmdbId), '已加入追踪')) hits.value = []
+  if (ov.report(await moviesApi().track(tmdbId), '已加入追踪')) {
+    hits.value = []
+    query.value = ''
+  }
 }
 
-async function untrack(tmdbId: number): Promise<void> {
-  await moviesApi().untrack(tmdbId)
-  ov.refresh()
-}
-
-/** 跟随全局：清掉覆盖项，方式设回跟随 */
-async function follow(movie: TrackedMovie): Promise<void> {
-  editing.value = null
-  if (Object.keys(movie.prefs).length)
-    ov.report(await moviesApi().setPrefs(movie.tmdbId, {}))
-  if (movie.mode !== 'inherit')
-    ov.report(await moviesApi().setMode(movie.tmdbId, 'inherit'))
-}
-
-/** 单独设：存覆盖项，方式变了再改（全自动而转存目标是根目录时主进程会拒绝并提示） */
-async function saveMovie(
-  movie: TrackedMovie,
-  result: { mode: GrabMode; prefs: GrabPrefsOverride }
-): Promise<void> {
-  if (!ov.report(await moviesApi().setPrefs(movie.tmdbId, result.prefs))) return
-  editing.value = null
-  // 电影的方式选项里没有「不追」
-  const mode = result.mode === 'off' ? 'confirm' : result.mode
-  if (mode !== movie.mode)
-    ov.report(await moviesApi().setMode(movie.tmdbId, mode))
+async function grab(tmdbId: number): Promise<void> {
+  if (busy.value !== null) return
+  busy.value = tmdbId
+  try {
+    ov.report(await moviesApi().grab(tmdbId, 0), '已转存，等待入库')
+  } finally {
+    busy.value = null
+  }
 }
 
 async function retry(tmdbId: number): Promise<void> {
@@ -305,16 +354,7 @@ async function retry(tmdbId: number): Promise<void> {
   ov.refresh()
 }
 
-async function grab(tmdbId: number, index: number): Promise<void> {
-  busy.value = `${tmdbId}#${index}`
-  try {
-    ov.report(await moviesApi().grab(tmdbId, index), '已转存，等待入库')
-  } finally {
-    busy.value = null
-  }
-}
-
-/** 选「电影默认目录」清掉面板里的单独文件夹；选了文件夹就存成电影追踪的位置 */
+/** 选「电影默认目录」清掉电影栏的单独文件夹；选了文件夹就存成电影追踪的位置 */
 async function pickFolder(pick: FolderPick): Promise<void> {
   const folder = 'folder' in pick ? pick.folder : null
   await moviesApi().setFolder(
@@ -328,19 +368,6 @@ async function runNow(): Promise<void> {
   await moviesApi().runNow()
   ov.refresh()
 }
-
-/** TMDB 海报 → 缩略图地址（列表里只要小图） */
-function posterOf(url: string | null): string | null {
-  return url ? thumbSrc(url, 300) : null
-}
 </script>
 
 <style scoped src="./grab-panel.css"></style>
-<style scoped>
-.movies-chips {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-2);
-}
-</style>

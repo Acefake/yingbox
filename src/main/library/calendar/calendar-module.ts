@@ -211,6 +211,7 @@ export class CalendarModule {
         libraryId: row.libraryId,
         seriesTitle: row.title,
         originalTitle: row.originalTitle,
+        tmdbId: row.tmdbId,
         season: ep.season,
         episode: ep.episode,
         title: ep.title,

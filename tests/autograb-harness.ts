@@ -72,6 +72,7 @@ export function setup(
       series: 1,
       failed: 0,
     }),
+    seriesExists: async () => false,
     notify: async changes =>
       void notified.push(...changes.map(c => `${c.action} ${c.path}`)),
     pan: {

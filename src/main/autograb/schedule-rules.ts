@@ -10,6 +10,8 @@ const HOUR = 3_600_000
 const DAY = 24 * HOUR
 /** 播出后多少天放弃 */
 export const GIVE_UP_DAYS = 14
+/** 一轮最多搜几集 */
+export const MAX_SEARCH_PER_TICK = 6
 /** 往回看多少天的播出 */
 export const LOOKBACK_DAYS = 14
 /** 播出当天几点开始搜 */

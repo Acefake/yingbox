@@ -3,10 +3,17 @@ import { describe, expect, it } from 'vitest'
 import {
   entryName,
   movieNote,
+  moviePendingReason,
   moviesNotice,
+  moviesStatusLine,
+  pendingMovies,
   resolutionText,
   targetsText,
+  upgradeFound,
+  upgradeGap,
   upgradeNotice,
+  upgradeOthers,
+  upgradeReplaced,
   upgradeSummary,
   watchlistTitles,
 } from '../src/renderer/src/features/autograb-upgrade/upgrade-rules'
@@ -118,5 +125,80 @@ describe('洗版 / 电影面板规则', () => {
         { section: 'online', title: 'A ' },
       ])
     ).toEqual(['A'])
+  })
+})
+
+describe('电影 / 洗版栏的分区与说明', () => {
+  const movie = (
+    tmdbId: number,
+    status: TrackedMovie['status']
+  ): TrackedMovie =>
+    ({
+      tmdbId,
+      title: `片${tmdbId}`,
+      year: 2026,
+      poster: null,
+      releaseDate: null,
+      dateSource: null,
+      mode: 'inherit',
+      effectiveMode: 'confirm',
+      prefs: {},
+      status,
+      attempts: 0,
+      nextTry: null,
+      candidates: [],
+      error: null,
+      addedAt: 0,
+    }) as TrackedMovie
+  const movies: MoviesOverview = {
+    cid: '',
+    cidName: '',
+    policy: policyOf(undefined, 'movie'),
+    defaultFolder: { cid: '0', name: '' },
+    ready: { loggedIn: true, pansou: true, tmdb: true },
+    pauseReason: null,
+    movies: [
+      movie(1, 'notFound'),
+      movie(2, 'found'),
+      movie(3, 'upcoming'),
+      movie(4, 'searching'),
+    ],
+    running: false,
+  }
+
+  it('待处理的电影：有资源的在前，未上线和搜索中的不算', () => {
+    expect(pendingMovies(movies).map(m => m.tmdbId)).toEqual([2, 1])
+    expect(pendingMovies(null)).toEqual([])
+  })
+
+  it('电影状态句与处理说明', () => {
+    expect(moviesStatusLine(movies)).toBe('4 部在追 · 1 部未上线 · 1 部搜索中')
+    expect(moviesStatusLine({ ...movies, running: true })).toBe(
+      '4 部在追 · 正在检查'
+    )
+    expect(moviePendingReason(movie(2, 'found'))).toContain('待确认')
+    expect(
+      moviePendingReason({ ...movie(2, 'found'), effectiveMode: 'auto' })
+    ).toContain('匹配分不够高')
+    expect(moviePendingReason({ ...movie(1, 'notFound'), error: '原因' })).toBe(
+      '原因'
+    )
+  })
+
+  it('洗版条目分三处：有更清楚的、旧文件还在、其余进记录；卡片写现在与首选', () => {
+    const entry = (key: string, status: UpgradeEntry['status']): UpgradeEntry =>
+      ({ key, kind: 'movie', resolution: 720, status }) as UpgradeEntry
+    const o = {
+      ...upgrade,
+      entries: [
+        entry('a', 'found'),
+        entry('b', 'replaced'),
+        entry('c', 'waiting'),
+      ],
+    }
+    expect(upgradeFound(o).map(e => e.key)).toEqual(['a'])
+    expect(upgradeReplaced(o).map(e => e.key)).toEqual(['b'])
+    expect(upgradeOthers(o).map(e => e.key)).toEqual(['c'])
+    expect(upgradeGap(entry('a', 'found'), o)).toBe('现在 720p · 首选 1080p')
   })
 })
