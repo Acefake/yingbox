@@ -7,6 +7,8 @@
  */
 
 /** 请求：闭区间 [from, to]，日期都是 YYYY-MM-DD。 */
+import type { SeriesCategory } from '../../contract/series-category'
+
 export interface CalendarRequest {
   from: string
   to: string
@@ -28,6 +30,8 @@ export interface CalendarEpisode {
    * 旧版片库服务不给，所以可选。
    */
   tmdbId?: string
+  /** 剧的分类（按 TMDB 类型：剧集 / 动漫 / 综艺 / 纪录片）；旧版片库服务不给 */
+  category?: SeriesCategory
   season: number
   episode: number
   /** 集名；TMDB 没有时为 null。 */

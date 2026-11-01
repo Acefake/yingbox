@@ -1,12 +1,18 @@
 /**
  * 追更状态 → 界面总览（纯函数）：剧列表、最近各集（去掉只在主进程用的字段，补上能否撤销）。
  */
+import type { CalendarEpisode } from '../../shared/library/ipc'
 import type {
   AutograbEpisode,
   AutograbOverview,
 } from '../../shared/contract/autograb'
 import { seriesModeOf } from './policy'
-import { seriesList } from './records'
+import {
+  nextAirDates,
+  seriesCategories,
+  seriesList,
+  seriesPosters,
+} from './records'
 import { canRevert } from './revert'
 import type { AutograbState, EpisodeRecord } from './state'
 
@@ -63,8 +69,9 @@ function listedEpisodes(state: AutograbState): EpisodeRecord[] {
 export interface OverviewContext {
   ready: AutograbOverview['ready']
   airing: Map<number, string>
-  nextAir: Map<number, string>
-  posters: Map<number, string>
+  /** 最近一次日历（下一集、海报、分类都从它来） */
+  calendar: CalendarEpisode[]
+  today: string
   lastRunAt: number | null
   /** 定时一轮的间隔；不知道为 null */
   intervalMs: number | null
@@ -86,7 +93,13 @@ export function buildOverview(
     prefs: state.policy.prefs,
     ready: ctx.ready,
     today: { snaps: state.gate.snaps, receives: state.gate.receives },
-    series: seriesList(state, ctx.airing, ctx.nextAir, ctx.posters),
+    series: seriesList(
+      state,
+      ctx.airing,
+      nextAirDates(ctx.calendar, ctx.today),
+      seriesPosters(ctx.calendar),
+      seriesCategories(ctx.calendar)
+    ),
     episodes: listedEpisodes(state).map(episodeView),
     pendingCount: pendingCount(state),
     lastRunAt: ctx.lastRunAt,
@@ -96,5 +109,6 @@ export function buildOverview(
         : null,
     running: ctx.running,
     defaultFolder: ctx.defaultFolder,
+    categoryFolders: state.categoryFolders,
   }
 }

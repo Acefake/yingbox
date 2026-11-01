@@ -5,9 +5,17 @@
         在追的剧<span class="ag-section-count">{{ tracked.length }} 部</span>
       </h3>
       <UiSegmented
+        v-if="categories.length > 1"
+        :model-value="activeCategory"
+        class="ag-section-action"
+        :options="categoryOptions"
+        label="按分类筛选"
+        size="sm"
+        @update:model-value="value => (category = value)"
+      />
+      <UiSegmented
         v-if="showFilter"
         :model-value="active"
-        class="ag-section-action"
         :options="filterOptions"
         label="按追更方式筛选"
         size="sm"
@@ -45,7 +53,7 @@
         </template>
       </UiPosterCard>
       <UiPressable
-        v-if="untracked.length && active === 'all'"
+        v-if="untracked.length && active === 'all' && activeCategory === 'all'"
         class="ag-more-tile"
         :aria-expanded="untrackedOpen"
         @click="untrackedOpen = !untrackedOpen"
@@ -112,7 +120,12 @@ import type {
   AutograbSeries,
 } from '../../../../../shared/contract/autograb'
 
-import { nextAirText } from '../autograb-rules'
+import {
+  SERIES_CATEGORY_LABEL,
+  type SeriesCategory,
+} from '../../../../../shared/contract/series-category'
+
+import { categoriesIn, categoryOfSeries, nextAirText } from '../autograb-rules'
 import { TV_MODE_OPTIONS, isCustom, optionLabel } from '../prefs-rules'
 
 const props = defineProps<{
@@ -131,7 +144,9 @@ const emit = defineEmits<{
 }>()
 
 type Filter = 'all' | AutograbMode
+type CategoryFilter = 'all' | SeriesCategory
 const filter = ref<Filter>('all')
+const category = ref<CategoryFilter>('all')
 const untrackedOpen = ref(false)
 
 /** 在追的剧里出现过的方式（只有一种时不出筛选） */
@@ -151,10 +166,27 @@ const active = computed<Filter>(() =>
     ? filter.value
     : 'all'
 )
+const categories = computed(() => categoriesIn(props.tracked))
+const categoryOptions = computed(() => [
+  { value: 'all' as CategoryFilter, label: '全部分类' },
+  ...categories.value.map(item => ({
+    value: item as CategoryFilter,
+    label: SERIES_CATEGORY_LABEL[item],
+  })),
+])
+/** 分类筛选选过的分类已经没有剧了就回到全部 */
+const activeCategory = computed<CategoryFilter>(() =>
+  category.value !== 'all' && categories.value.includes(category.value)
+    ? category.value
+    : 'all'
+)
 const shown = computed(() =>
-  active.value === 'all'
-    ? props.tracked
-    : props.tracked.filter(series => series.effectiveMode === active.value)
+  props.tracked.filter(
+    series =>
+      (active.value === 'all' || series.effectiveMode === active.value) &&
+      (activeCategory.value === 'all' ||
+        categoryOfSeries(series) === activeCategory.value)
+  )
 )
 const untrackedNames = computed(() =>
   props.untracked
@@ -173,7 +205,9 @@ function posterOf(series: AutograbSeries): string | undefined {
 /** 方式胶囊：全自动 / 待确认（单独设的后面标「单独」） */
 function modeText(series: AutograbSeries): string {
   const mode = optionLabel(TV_MODE_OPTIONS, series.effectiveMode)
-  return isCustom(series.mode, series.prefs) ? `${mode} · 单独` : mode
+  const text = isCustom(series.mode, series.prefs) ? `${mode} · 单独` : mode
+  const kind = categoryOfSeries(series)
+  return kind === 'tv' ? text : `${SERIES_CATEGORY_LABEL[kind]} · ${text}`
 }
 </script>
 

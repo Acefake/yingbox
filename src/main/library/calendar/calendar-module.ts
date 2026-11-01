@@ -6,6 +6,7 @@
  * provider_cache 缓存，连载中的剧每天最多向 TMDB 刷新一次；季详情失败时退回上一集 / 下一集。
  * 本地有没有这一集、第一个视频文件是哪个，从数据库里查。
  */
+import { categoryOfGenres } from '../../../shared/contract/series-category'
 import type {
   CalendarEpisode,
   CalendarRequest,
@@ -212,6 +213,7 @@ export class CalendarModule {
         seriesTitle: row.title,
         originalTitle: row.originalTitle,
         tmdbId: row.tmdbId,
+        category: categoryOfGenres((details.genres ?? []).map(g => g.id)),
         season: ep.season,
         episode: ep.episode,
         title: ep.title,

@@ -6,6 +6,7 @@
  * 剧集的全局策略（默认方式、新剧先确认几集、资源偏好，见 grab-policy.ts）管所有在播的剧；
  * 每部剧「跟随全局」（inherit）或单独设方式 / 偏好。
  */
+import { SERIES_CATEGORIES, type SeriesCategory } from './series-category'
 import {
   type AutograbPrefs,
   type AutograbPrefsOverride,
@@ -98,6 +99,8 @@ export interface AutograbSeries {
   nextAirDate?: string | null
   /** 剧的海报（片库条目的 poster 原样，界面按片库图片规则换地址）；近期日历里没有这部剧时为 null */
   poster?: string | null
+  /** 分类（按 TMDB 类型）；近期日历里没有这部剧、或旧版片库服务不给时没有 */
+  category?: SeriesCategory
 }
 
 /** 一集的追更记录 */
@@ -152,6 +155,10 @@ export interface AutograbOverview {
   lastRunAt?: number | null
   /** 下一轮预计开始的时间；不会再跑（总开关关闭）或不知道为 null */
   nextRunAt?: number | null
+  /** 各分类默认存到哪（没设的分类用剧集默认目录） */
+  categoryFolders?: Partial<
+    Record<SeriesCategory, { cid: string; name: string }>
+  >
   /** 没单独选文件夹的剧存到哪（剧集默认目录，没设时沿用原转存目标；根目录 cid 为 "0"） */
   defaultFolder: { cid: string; name: string }
 }
@@ -221,6 +228,19 @@ export const autograb = defineDomain(
     skip: call<[key: string], void>(a => [str(a[0], 'key')]),
     /** 重新搜某一集（清掉拉黑以外的状态） */
     retry: call<[key: string], void>(a => [str(a[0], 'key')]),
+    /** 设某个分类的默认文件夹；cid 为空串 = 清掉，回到剧集默认目录 */
+    setCategoryFolder: call<
+      [category: SeriesCategory, cid: string, cidName: string],
+      void
+    >(a => {
+      const cid = str(a[1], 'cid')
+      if (cid && !/^d+$/.test(cid)) throw new ContractError('参数 cid 应为数字')
+      return [
+        oneOf(a[0], 'category', SERIES_CATEGORIES),
+        cid,
+        str(a[2], 'cidName').slice(0, 500),
+      ]
+    }),
     /** 立刻跑一轮 */
     runNow: call<void>(),
     /** 解除熔断与空间不足暂停 */

@@ -1,6 +1,7 @@
 /**
  * 追更状态的纯操作：用日历结果更新每集记录、整理界面上的剧列表。
  */
+import type { SeriesCategory } from '../../shared/contract/series-category'
 import type { AutograbSeries } from '../../shared/contract/autograb'
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import { confirmFirstOf, seriesModeOf } from './policy'
@@ -89,6 +90,17 @@ export function nextAirDates(
   return next
 }
 
+/** 每部剧的分类（日历里没给的剧不在表里） */
+export function seriesCategories(
+  episodes: CalendarEpisode[]
+): Map<number, SeriesCategory> {
+  const categories = new Map<number, SeriesCategory>()
+  for (const ep of episodes)
+    if (ep.category && !categories.has(ep.seriesId))
+      categories.set(ep.seriesId, ep.category)
+  return categories
+}
+
 /** 每部剧的海报（日历里没有的剧不在表里） */
 export function seriesPosters(
   episodes: CalendarEpisode[]
@@ -105,7 +117,8 @@ export function seriesList(
   state: AutograbState,
   airing: Map<number, string>,
   nextAir: Map<number, string> = new Map(),
-  posters: Map<number, string> = new Map()
+  posters: Map<number, string> = new Map(),
+  categories: Map<number, SeriesCategory> = new Map()
 ): AutograbSeries[] {
   const ids = new Set<number>([
     ...airing.keys(),
@@ -126,6 +139,7 @@ export function seriesList(
         prefs: setting?.prefs ?? {},
         nextAirDate: nextAir.get(id) ?? null,
         poster: posters.get(id) ?? null,
+        ...(categories.has(id) ? { category: categories.get(id) } : {}),
       }
     })
     .sort(

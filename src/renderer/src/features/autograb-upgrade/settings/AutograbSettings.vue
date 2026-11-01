@@ -3,6 +3,7 @@
   <div v-if="tv">
     <KindPolicyGroup kind="tv" :policy="tv" :save="saveTv" />
     <KindPrefsGroup kind="tv" :prefs="tv.prefs" :save="saveTv" />
+    <CategoryFolders />
   </div>
   <div v-if="movie" ref="movieAnchor">
     <KindPolicyGroup
@@ -17,6 +18,10 @@
       :save="saveMovie"
     />
   </div>
+  <section class="autograb-settings-upgrade" aria-labelledby="upgrade-title">
+    <h3 id="upgrade-title" class="autograb-settings-upgrade-title">洗版</h3>
+    <UpgradePanel />
+  </section>
 </template>
 
 <script setup lang="ts">
@@ -36,6 +41,8 @@ import type {
 } from '../../../../../shared/contract/grab-policy'
 
 import { moviesApi } from '../api'
+import CategoryFolders from './CategoryFolders.vue'
+import UpgradePanel from '../components/UpgradePanel.vue'
 import KindPolicyGroup from './KindPolicyGroup.vue'
 import KindPrefsGroup from './KindPrefsGroup.vue'
 
@@ -88,6 +95,19 @@ onMounted(async () => {
 </script>
 
 <style scoped>
+.autograb-settings-upgrade {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-4);
+  margin-top: var(--space-7);
+}
+
+.autograb-settings-upgrade-title {
+  margin: 0;
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+
 .autograb-settings-error {
   margin: 0;
   font-size: var(--text-sm);
