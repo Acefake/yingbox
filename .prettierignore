@@ -2,3 +2,6 @@
 tests/fixtures/
 # pnpm 自己生成与维护
 pnpm-lock.yaml
+
+# 安卓端（Gradle / Kotlin）不由 Prettier 管理
+android/
