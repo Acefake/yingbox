@@ -45,7 +45,7 @@
         />
         <h1 v-else class="home-hero-title">{{ current.title }}</h1>
         <div
-          v-if="current.meta.length || current.specs.length || current.rating"
+          v-if="current.meta.length || current.specs.length || hasRating"
           class="home-hero-meta"
         >
           <template v-for="(item, index) in current.meta" :key="item">
@@ -59,9 +59,15 @@
               v-bind="spec"
             />
           </span>
-          <span v-if="current.rating" class="home-hero-rating">{{
-            current.rating
-          }}</span>
+          <span v-if="hasRating" class="home-hero-ratings">
+            <UiRatingBadge inline :douban="current.ratings.douban" />
+            <UiRatingBadge inline :tmdb="current.ratings.tmdb" />
+            <span
+              v-if="!current.ratings.douban && !current.ratings.tmdb"
+              class="home-hero-rating"
+              >{{ current.rating }}</span
+            >
+          </span>
         </div>
         <p v-if="current.overview" class="home-hero-overview">
           {{ current.overview }}
@@ -142,6 +148,7 @@ import {
 import { toast } from '@/components/ui'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
+import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import { inWatchlist, toggleWatchlist } from '@/features/watchlist'
 import { webImageSrc } from '@/services/thumbnails'
@@ -159,6 +166,8 @@ const selected = ref(0)
 const current = computed<HeroSlide | undefined>(
   () => props.slides[selected.value] ?? props.slides[0]
 )
+/** 这一页有评分（来源小标或文字兜底） */
+const hasRating = computed(() => Boolean(current.value?.rating))
 watch(
   () => props.slides.map(slide => slide.key).join('|'),
   () => (selected.value = 0)

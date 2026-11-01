@@ -6,6 +6,7 @@
  * 每页是同一个形状（HeroSlide）：背景图、缩略图、标志图或片名、简介、元信息、规格标签、评分，以及播放 / 打开详情 / 想看登记。
  * 片库那一份在首页挂载和每次回到首页时重取（新扫进来的片子随即出现）；继续观看那一张跟着继续观看记录变。
  */
+import type { RatingMarks } from '@/components/ui/rating-badge'
 import {
   type ComputedRef,
   computed,
@@ -50,6 +51,9 @@ import {
 } from '../utils/hero-rules'
 import { useHotFeed } from './use-home-browse'
 
+/** 没有评分 */
+const NO_RATINGS: RatingMarks = { douban: null, tmdb: null }
+
 /** Hero 的一页 */
 export interface HeroSlide {
   key: string
@@ -68,8 +72,10 @@ export interface HeroSlide {
   /** 年份 · 类型 · 时长 */
   meta: string[]
   specs: SpecBadge[]
-  /** 「豆瓣 8.3」；没有为空串 */
+  /** 「豆瓣 8.3」；没有为空串（来源小标显示不了时的文字兜底） */
   rating: string
+  /** 按来源拆开的评分；大图上豆瓣、TMDB 都有就都显示 */
+  ratings: RatingMarks
   /** 「待看」登记；null 时不显示待看 */
   watchlist: WatchlistMeta | null
   /** 主按钮文字 */
@@ -145,6 +151,7 @@ export function useHomeHero(
         ),
       specs: info?.specs ?? [],
       rating: info?.rating ?? '',
+      ratings: info?.ratings ?? NO_RATINGS,
       watchlist: info?.watchlist ?? null,
       playLabel: resumePlayLabel(record),
       play: async () => {
@@ -175,6 +182,7 @@ export function useHomeHero(
       meta: item.meta,
       specs: item.specs,
       rating: item.rating,
+      ratings: item.ratings,
       watchlist: item.watchlist,
       playLabel: '播放',
       play: async () => {
@@ -200,6 +208,10 @@ export function useHomeHero(
       meta: [item.year ? `${item.year} 年` : '', item.type].filter(Boolean),
       specs: [],
       rating: formatRating(Number(item.rate), 'douban'),
+      ratings: {
+        douban: Number(item.rate) > 0 ? Number(item.rate) : null,
+        tmdb: item.tmdbRate && item.tmdbRate > 0 ? item.tmdbRate : null,
+      },
       watchlist: {
         section: 'online',
         key: item.title,

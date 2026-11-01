@@ -2,6 +2,7 @@
   <span
     v-if="badge || other"
     class="ui-rating-badge yb-glass is-media"
+    :class="{ 'is-inline': inline }"
     role="img"
     :aria-label="
       badge
@@ -85,6 +86,8 @@ const props = defineProps<{
   tmdb?: string | number | null
   /** 其他或未知来源的评分显示文字 */
   other?: string
+  /** 跟在文字后面排（不贴在海报左下角），首页大图的信息行用 */
+  inline?: boolean
 }>()
 
 const badge = computed(() => pickRatingBadge(props.douban, props.tmdb))
@@ -108,6 +111,9 @@ const gradientId = `yb-tmdb-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
   font-variant-numeric: tabular-nums;
   line-height: 1;
   pointer-events: none;
+}
+.ui-rating-badge.is-inline {
+  position: static;
 }
 .ui-rating-badge svg {
   display: block;
