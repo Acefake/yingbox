@@ -16,7 +16,7 @@
         :loading="hero.loading.value"
         :active="activeTab === 'home' && !inlineDetailItem"
       />
-      <div class="home-rows">
+      <div class="home-rows" data-shelf-wheel="page">
         <GenreRow
           @open="genre => browse.open({ type: 'genre', genre, kind: 'movie' })"
           @collections="scrollCollections"

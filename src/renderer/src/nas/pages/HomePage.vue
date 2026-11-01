@@ -10,7 +10,7 @@
         :loading="hero.loading.value"
         :active="active"
       />
-      <div class="home-rows">
+      <div class="home-rows" data-shelf-wheel="page">
         <GenreRow
           @open="genre => browse.open({ type: 'genre', genre, kind: 'movie' })"
           @collections="scrollCollections"

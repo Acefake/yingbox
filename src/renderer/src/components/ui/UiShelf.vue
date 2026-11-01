@@ -47,7 +47,7 @@
  * 一排卡片（Apple TV 的 shelf）：分区标题 + 横向滚动的轨道，内容超出时标题行右侧出左右翻页键（一次翻约一屏）。
  *
  * 横向翻页的几种方式：翻页键；触控板横滑（原生）；鼠标滚轮（只认整格的滚轮、不认触控板竖滑，
- * 竖向一格转成横向，翻到头时把滚轮还给页面）；键盘焦点在卡片上时 ← / → 移到相邻一张。
+ * 竖向一格转成横向，翻到头时把滚轮还给页面；祖先设置 data-shelf-wheel="page" 时交给页面）；键盘焦点在卡片上时 ← / → 移到相邻一张。
  * 插槽：title 换掉标题（如选季下拉），actions 放标题行右侧的小控件，intro 放标题与轨道之间的说明。
  * - kind="landscape"：横版剧照卡，一行 4 张按宽度自适应（窄时 3 张，手机一张半）；
  *   卡片要固定宽度时在调用处改轨道子元素的 flex-basis（如详情剧集卡约 300px）；
@@ -102,7 +102,14 @@ function scrollBy(direction: 1 | -1): void {
  */
 function onWheel(event: WheelEvent): void {
   const el = track.value
-  if (!el || props.grid || event.shiftKey || event.ctrlKey) return
+  if (
+    !el ||
+    props.grid ||
+    event.shiftKey ||
+    event.ctrlKey ||
+    el.closest('[data-shelf-wheel="page"]')
+  )
+    return
   if (event.deltaX !== 0 || event.deltaY === 0) return
   const notch = event.deltaMode !== 0 || Math.abs(event.deltaY) >= 40
   if (!notch) return
@@ -178,6 +185,17 @@ defineExpose({ syncEdges })
 .yb-shelf:hover .yb-shelf-nav,
 .yb-shelf:focus-within .yb-shelf-nav {
   opacity: 1;
+}
+[data-shelf-wheel='page'] .yb-shelf-nav .yb-icon-button:hover:not(:disabled) {
+  background: var(--glass-bg-hover);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-shadow);
+}
+[data-shelf-wheel='page']
+  .yb-shelf-nav
+  .yb-icon-button:hover:focus-visible:not(:disabled) {
+  box-shadow: var(--focus-ring), var(--glass-shadow);
 }
 /* 上下留白给悬停放大和阴影；左右负边距让卡片边缘和标题对齐 */
 .yb-shelf-track {
