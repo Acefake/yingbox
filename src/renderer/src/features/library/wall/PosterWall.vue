@@ -130,6 +130,7 @@ import {
   buildCells,
   clickModifiers,
   loadedIds,
+  revealTop,
 } from './wall-cells'
 
 /** 选中角标的对勾路径：内联 svg，格子不建 UiIcon 实例 */
@@ -336,9 +337,26 @@ function onImageLoad(event: Event): void {
   applyFocus(img, 1 / POSTER_ASPECT)
 }
 
+/** 换查询条件时：滚过了结果区的起点（插槽里标了 data-wall-anchor 的元素，没有就是网格）才退回到它。 */
+function revealResults(): void {
+  const s = scroller.value
+  const anchor =
+    header.value?.querySelector<HTMLElement>('[data-wall-anchor]') ?? grid.value
+  // 不可见（待确认 / 演员视图里 v-show 藏着）时量不出位置
+  if (!s || !anchor || !s.clientHeight) return
+  // 连同它的上外边距一起露出来，标题不贴着滚动区上沿
+  const gap = Number.parseFloat(getComputedStyle(anchor).marginTop) || 0
+  const anchorTop =
+    anchor.getBoundingClientRect().top -
+    s.getBoundingClientRect().top +
+    s.scrollTop -
+    gap
+  const top = revealTop(s.scrollTop, anchorTop)
+  if (top !== null) s.scrollTo({ top })
+}
+
 defineExpose({
-  /** 回到顶部（换查询条件时）。 */
-  scrollToTop: () => scroller.value?.scrollTo({ top: 0 }),
+  revealResults,
   scroller,
 })
 </script>

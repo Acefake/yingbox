@@ -180,6 +180,28 @@ describe('分面筛选', () => {
   })
 })
 
+describe('想看胶囊', () => {
+  const watchlist = [
+    { section: 'movie', key: '7' },
+    { section: 'tv', key: '9' },
+    { section: 'online', key: '某部在线剧' },
+    { section: 'jav', key: '11' },
+  ]
+  const browse = { ...defaultWallQuery(), browse: 'watchlist' as const }
+
+  it('只要想看清单里属于本页的片库条目；动漫等页面电影和剧集都算', () => {
+    expect(toLibraryQuery('movie', browse, 0, watchlist).ids).toEqual([7])
+    expect(toLibraryQuery('anime', browse, 0, watchlist).ids).toEqual([7, 9])
+  })
+
+  it('清单里没有本页的条目时查空集，不退回全部', () => {
+    expect(toLibraryQuery('tv', browse, 0, []).ids).toEqual([])
+    expect(
+      toLibraryQuery('movie', defaultWallQuery(), 0, watchlist)
+    ).not.toHaveProperty('ids')
+  })
+})
+
 describe('浏览胶囊与类型（电影 / 剧集）', () => {
   it('类型映射到 facets.tag，未看 = watched:false，最近添加 = addedFrom；番号页忽略', async () => {
     const {

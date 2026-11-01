@@ -15,8 +15,8 @@ import {
   reviewHintText,
   sortLabel,
   sortPick,
-  titleGenre,
   topGenres,
+  wallMenuLabel,
 } from '../../../src/renderer/src/features/library/page/browse-rules'
 import { emptyTitleFor } from '../../../src/renderer/src/features/library/page/page-rules'
 
@@ -88,10 +88,7 @@ describe('浏览胶囊', () => {
     expect(topGenres(values(...'abcdefghijkl'.split('')), null)).toHaveLength(9)
   })
 
-  it('标题只在海报墙选了类型时带类型；空状态把类型与浏览算作筛选', () => {
-    expect(titleGenre('wall', '科幻')).toBe('科幻')
-    expect(titleGenre('review', '科幻')).toBeNull()
-    expect(titleGenre('wall', null)).toBeNull()
+  it('空状态把类型与浏览算作筛选', () => {
     expect(emptyTitleFor({ search: '', filter: 'all', genre: '科幻' })).toBe(
       '没有符合筛选条件的条目'
     )
@@ -133,7 +130,14 @@ describe('待确认提示与「⋯」分组', () => {
       ['A', false],
       ['B', true],
     ])
-    expect(choices[0].group).toBe('媒体库')
+    expect(choices[0].group).toBe('文件夹')
+  })
+
+  it('排序钮文字：非默认的匹配状态与文件夹写在排序前面，收在菜单里的筛选也看得见', () => {
+    expect(wallMenuLabel('addedAt', 'desc', 'all', null)).toBe('添加时间 ↓')
+    expect(wallMenuLabel('title', 'asc', 'unmatched', 'NAS')).toBe(
+      '未匹配 · NAS · 片名 ↑'
+    )
   })
 })
 
@@ -147,13 +151,14 @@ describe('工具栏模板', () => {
       'utf8'
     )
 
-  it('右侧只有排序菜单、筛选、⋯；浏览胶囊与待确认提示各自成组件', () => {
-    const src = read('LibraryToolbar.vue')
-    expect(src).not.toContain('UiSelect')
-    expect(src).not.toContain('FILTER_OPTIONS')
-    expect(src).toContain('<UiMenuButton icon-only')
-    expect(src).toContain('<BrowseRow')
-    expect(src).toContain('<ReviewHint')
+  it('页头没有筛选和「⋯」；排序、浏览胶囊在「全部」一段，待确认提示留在页头', () => {
+    const toolbar = read('LibraryToolbar.vue')
+    expect(toolbar).not.toContain('<BrowseRow')
+    expect(toolbar).not.toContain('UiMenuButton')
+    expect(toolbar).toContain('<ReviewHint')
+    const wall = read('WallHeader.vue')
+    expect(wall).toContain('<BrowseRow')
+    expect(wall).toContain('<UiMenuButton')
   })
 
   it('海报墙只在筛选非全部时显示状态角标', () => {

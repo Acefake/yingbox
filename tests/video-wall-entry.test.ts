@@ -130,13 +130,7 @@ describe('工具栏入口', () => {
           count: 12,
           hasLibraries: true,
           viewOptions: [],
-          libraryOptions: [],
-          sort: 'title',
-          order: 'asc',
           view: 'wall',
-          search: '',
-          filter: 'all',
-          library: 0,
           ...props,
         }),
     })
@@ -152,18 +146,15 @@ describe('工具栏入口', () => {
     facets: false,
   }
 
-  it('海报墙有条目时「更多」里有「视频墙」，工具栏带「更多」按钮', async () => {
-    expect(toolbarActions(ctx).more).toContain('video-wall')
+  it('海报墙有条目时页头直接有「视频墙」按钮', async () => {
+    expect(toolbarActions(ctx)).toContain('video-wall')
     const html = await render({})
-    expect(html).toContain('更多')
-    expect(html).toContain('aria-haspopup="menu"')
+    expect(html).toContain('视频墙')
   })
 
   it('没有条目或不在海报墙视图时不显示', () => {
-    expect(toolbarActions({ ...ctx, count: 0 }).more).not.toContain(
-      'video-wall'
-    )
-    expect(toolbarActions({ ...ctx, view: 'review' }).more).not.toContain(
+    expect(toolbarActions({ ...ctx, count: 0 })).not.toContain('video-wall')
+    expect(toolbarActions({ ...ctx, view: 'review' })).not.toContain(
       'video-wall'
     )
   })

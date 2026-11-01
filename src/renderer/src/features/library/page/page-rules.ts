@@ -25,6 +25,8 @@ export function emptyTitleFor(
   section?: LibrarySection
 ): string {
   if (state.search) return `没有找到“${state.search}”`
+  if (state.browse === 'watchlist' && state.filter === 'all' && !state.genre)
+    return '还没有想看的条目，在详情里点「想看」加进来'
   if (
     state.filter !== 'all' ||
     state.genre ||
@@ -62,15 +64,8 @@ export function viewOptionsFor(
   ]
 }
 
-/** 工具栏操作。 */
-export type ToolbarAction =
-  | 'sort'
-  | 'facets'
-  | 'visual'
-  | 'video-wall'
-  | 'scan'
-  | 'identify'
-  | 'settings'
+/** 页头右侧的操作按钮。 */
+export type ToolbarAction = 'scan' | 'identify' | 'visual' | 'video-wall'
 
 /** 工具栏此刻的条件。 */
 export interface ToolbarContext {
@@ -83,23 +78,16 @@ export interface ToolbarContext {
 }
 
 /**
- * 工具栏操作的摆放：页头只留排序（字段与升降序合在一个钮里）、筛选（番号页）和「⋯」，
- * 扫描、识别、按画面搜、视频墙、设置都收进「⋯」（顺序即菜单顺序）。
+ * 页头右侧的操作按钮（顺序即从左到右）：扫描、识别，海报墙上再有按画面搜（番号页）与视频墙（有条目时）。
+ * 排序、匹配状态与类型筛选属于「全部」一段（WallHeader），不在页头；媒体库设置在「设置 → 媒体库」。
  */
-export function toolbarActions(ctx: ToolbarContext): {
-  inline: ToolbarAction[]
-  more: ToolbarAction[]
-} {
-  const wall = ctx.hasLibraries && ctx.view === 'wall'
-  const inline: ToolbarAction[] = []
-  const more: ToolbarAction[] = []
-  if (wall) inline.push('sort')
-  if (wall && ctx.facets) inline.push('facets')
-  if (ctx.hasLibraries) more.push('scan', 'identify')
-  if (wall && ctx.facets) more.push('visual')
-  if (wall && ctx.count) more.push('video-wall')
-  more.push('settings')
-  return { inline, more }
+export function toolbarActions(ctx: ToolbarContext): ToolbarAction[] {
+  if (!ctx.hasLibraries) return []
+  const wall = ctx.view === 'wall'
+  const actions: ToolbarAction[] = ['scan', 'identify']
+  if (wall && ctx.facets) actions.push('visual')
+  if (wall && ctx.count) actions.push('video-wall')
+  return actions
 }
 
 /** 媒体库选项（「更多」里的媒体库分组）：0 表示全部文件夹。 */

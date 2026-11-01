@@ -146,44 +146,26 @@ describe('页面规则', () => {
     expect(viewOptionsFor('jav').map(o => o.label)).toEqual(['资料库', '演员'])
   })
 
-  it('工具栏：页头只留排序 / 筛选，扫描、识别、按画面、视频墙、设置收进「⋯」', () => {
-    const jav = toolbarActions({
-      view: 'wall',
-      hasLibraries: true,
-      count: 5,
-      facets: true,
-    })
-    expect(jav.inline).toEqual(['sort', 'facets'])
-    expect(jav.more).toEqual([
+  it('页头按钮：扫描、识别，海报墙上再有按画面搜（番号页）与视频墙；没有设置', () => {
+    const ctx = { view: 'wall' as const, hasLibraries: true, count: 5 }
+    expect(toolbarActions({ ...ctx, facets: true })).toEqual([
       'scan',
       'identify',
       'visual',
       'video-wall',
-      'settings',
     ])
-    const movie = toolbarActions({
-      view: 'wall',
-      hasLibraries: true,
-      count: 5,
-      facets: false,
-    })
-    expect(movie.inline).toEqual(['sort'])
-    expect(movie.more).toEqual(['scan', 'identify', 'video-wall', 'settings'])
-    const empty = toolbarActions({
-      view: 'wall',
-      hasLibraries: false,
-      count: null,
-      facets: false,
-    })
-    expect(empty).toEqual({ inline: [], more: ['settings'] })
-    const review = toolbarActions({
-      view: 'review',
-      hasLibraries: true,
-      count: 5,
-      facets: true,
-    })
-    expect(review.inline).toEqual([])
-    expect(review.more).toEqual(['scan', 'identify', 'settings'])
+    expect(toolbarActions({ ...ctx, facets: false })).toEqual([
+      'scan',
+      'identify',
+      'video-wall',
+    ])
+    expect(
+      toolbarActions({ ...ctx, hasLibraries: false, facets: false })
+    ).toEqual([])
+    expect(toolbarActions({ ...ctx, view: 'review', facets: true })).toEqual([
+      'scan',
+      'identify',
+    ])
   })
 
   it('番号页空状态引导添加番号文件夹', () => {

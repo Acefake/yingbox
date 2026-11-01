@@ -1,5 +1,5 @@
 /**
- * 海报墙的纯规则：渲染格的构造（快速滚动时推迟图片）、状态角标、方向键移动、点击修饰键。
+ * 海报墙的纯规则：渲染格的构造（快速滚动时推迟图片）、状态角标、方向键移动、点击修饰键、换条件后的滚动位置。
  * 不依赖 Vue / DOM，便于单测。
  */
 import { type WatchMark, ratioWidth } from '../progress/watch-marks'
@@ -122,4 +122,13 @@ export function clickModifiers(event: {
     range: event.shiftKey,
     double: false,
   }
+}
+
+/**
+ * 换查询条件后滚到哪：已经滚过结果区的起点（「全部」一段的标题）就退回到它，
+ * 还在它上面时不动（返回 null）。筛选就在「全部」一段里，回到页面最上面会把人甩走。
+ */
+export function revealTop(scrollTop: number, anchorTop: number): number | null {
+  const top = Math.max(0, anchorTop)
+  return scrollTop > top ? top : null
 }
