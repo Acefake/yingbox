@@ -2,11 +2,11 @@
  * 片库环境光的纯规则：每个分区的强调色、从海报墙前几格挑一张做环境光的海报。
  *
  * 环境光 = 焦点海报的缩略图放大重模糊 + 分区强调色光晕 + 细噪点，铺在页面顶部、往下融进黑底，
- * 让电影 / 剧集 / 番号三页不再是一整片死黑，又不抢海报。强调色只用在光晕、计数、未看圆点这类小处。
+ * 让各分区页面不再是一整片死黑，又不抢海报。强调色只用在光晕、计数、未看圆点这类小处。
  */
 import type { LibrarySection } from '../state/library-section'
 
-/** 分区强调色：电影暖金、剧集冷蓝、番号玫粉。 */
+/** 分区强调色：电影暖金、剧集冷蓝、动漫青绿、综艺橙红、纪录片苔绿、番号玫粉。 */
 export interface AmbientTone {
   /** 小处点缀用的实色（计数、未看圆点）。 */
   accent: string
@@ -17,6 +17,9 @@ export interface AmbientTone {
 export const AMBIENT_TONES: Readonly<Record<LibrarySection, AmbientTone>> = {
   movie: { accent: '#f0b65e', glow: 'rgba(240, 170, 80, 0.30)' },
   tv: { accent: '#6fb1ff', glow: 'rgba(80, 150, 255, 0.30)' },
+  anime: { accent: '#5fd4c4', glow: 'rgba(70, 200, 185, 0.28)' },
+  variety: { accent: '#ff9a6a', glow: 'rgba(255, 130, 80, 0.28)' },
+  documentary: { accent: '#9cc77a', glow: 'rgba(140, 190, 100, 0.26)' },
   jav: { accent: '#ff7a9a', glow: 'rgba(255, 90, 140, 0.28)' },
 }
 

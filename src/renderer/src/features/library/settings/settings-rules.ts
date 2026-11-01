@@ -19,16 +19,24 @@ export const dateFormat = new Intl.DateTimeFormat('zh-CN', {
   timeStyle: 'short',
 })
 
-/** 文件夹行的描述：（番号 · ）路径 · 上次扫描时间（没扫过时「尚未扫描」）。 */
+/**
+ * 文件夹行的描述：前缀 · 路径 · 上次扫描时间（没扫过时「尚未扫描」）。
+ * 前缀：番号库「番号」；改版前加的、只按一种类型识别的普通片库「只认电影 / 只认剧集」；自动识别的不加。
+ */
 export function folderDescription(
   lib: Pick<LibraryInfo, 'root' | 'lastScanAt'> &
-    Partial<Pick<LibraryInfo, 'source' | 'mixed'>>,
+    Partial<Pick<LibraryInfo, 'source' | 'mixed' | 'kind'>>,
   format: (time: number) => string = t => dateFormat.format(t)
 ): string {
   const scanned = lib.lastScanAt
     ? `上次扫描 ${format(lib.lastScanAt)}`
     : '尚未扫描'
-  const prefix = lib.source === 'jav' ? '番号 · ' : lib.mixed ? '混合 · ' : ''
+  const prefix =
+    lib.source === 'jav'
+      ? '番号 · '
+      : lib.mixed || !lib.kind
+        ? ''
+        : `只认${lib.kind === 'tv' ? '剧集' : '电影'} · `
   const remote = parseRemotePath(lib.root)
   const where = remote
     ? `${remote.sourceId === 'pan115' ? '115' : 'WebDAV'} · 只读 · ${remote.path}`

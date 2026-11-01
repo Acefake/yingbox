@@ -13,7 +13,10 @@ import {
   resolveFolderCid,
   underMount,
 } from '../src/main/autograb/upgrade/folder-path'
-import { lowResHits } from '../src/main/autograb/upgrade/library-scan'
+import {
+  lowResHits,
+  scanLibraries,
+} from '../src/main/autograb/upgrade/library-scan'
 import {
   budgetLeft,
   emptyBudget,
@@ -426,5 +429,34 @@ describe('清点片库', () => {
     expect(parsed.records['2'].candidates).toHaveLength(1)
     expect(parsed.dirCids).toEqual({ '/a': '12' })
     expect(parseUpgradeState({ version: 2 }, 0).enabled).toBe(false)
+  })
+})
+
+describe('洗版清点', () => {
+  it('混合库（新加的普通片库都是）电影和剧都查，单一类型的旧库只查自己的', async () => {
+    const asked: unknown[] = []
+    const lib = (
+      id: number,
+      kind: 'movie' | 'tv',
+      mixed: boolean
+    ): unknown => ({
+      id,
+      kind,
+      mixed,
+      cloud: true,
+      source: 'tmdb',
+    })
+    const reader = {
+      listLibraries: async () =>
+        [lib(1, 'movie', true), lib(2, 'tv', false)] as never,
+      query: async (q: { types?: string[] }) => {
+        asked.push(q.types)
+        return { items: [], total: 0, offset: 0, limit: 0 }
+      },
+      getItem: async () => null,
+    }
+    const rule = { target: 2160, prefs: {} } as never
+    await scanLibraries(reader, { movie: rule, tv: rule })
+    expect(asked).toEqual([['movie', 'series'], ['series']])
   })
 })

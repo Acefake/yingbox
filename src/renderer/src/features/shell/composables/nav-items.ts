@@ -1,6 +1,7 @@
 /**
  * 侧栏与手机底部标签栏的导航项（纯函数，按当前路由与平台能力算出）。
- * 本地媒体与直播在有片库服务的平台显示，网盘按调用接口是否可用显示，两者互不依赖；
+ * 本地媒体（由片库给出：有条目的电影 / 剧集 / 动漫 / 综艺 / 纪录片，都没有时一个「添加媒体库」入口）与直播
+ * 在有片库服务的平台显示，网盘按调用接口是否可用显示，两者互不依赖；
  * 其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
  */
 import type { IconName } from '@/components/ui/icons'
@@ -47,11 +48,30 @@ export interface NavState {
   hasAutograb?: boolean
   /** 自动追更页要用户处理的集数（侧栏角标） */
   autograbBadge?: number
+  /** 本地媒体里的普通片库页面（片库按有没有条目算好，见 features/library 的 useLocalNavPages） */
+  localPages: readonly LocalPage[]
+}
+
+/** 侧栏里一个本地媒体页面 */
+export interface LocalPage {
+  label: string
+  icon: IconName
+  path: string
+  /** 在这些路由上算选中 */
+  routeNames: readonly string[]
 }
 
 const isOnlineTab = (state: NavState, tab?: string): boolean =>
   state.routeName === 'Online' &&
   (tab ? state.onlineTab === tab : !state.onlineTab)
+
+const localItem = (state: NavState, page: LocalPage): NavItem => ({
+  label: page.label,
+  icon: page.icon,
+  path: page.path,
+  active:
+    state.routeName !== undefined && page.routeNames.includes(state.routeName),
+})
 
 /** 本地番号库入口（成人模式 + 有本地片库时） */
 const JAV_ITEM = (state: NavState): NavItem => ({
@@ -101,20 +121,7 @@ export function buildNavGroups(state: NavState): NavGroup[] {
     })
   const local: NavItem[] = []
   if (state.hasLocalLibrary) {
-    local.push(
-      {
-        label: '电影',
-        icon: 'movie',
-        path: '/movie',
-        active: state.routeName === 'Movie',
-      },
-      {
-        label: '电视剧',
-        icon: 'tv',
-        path: '/tv',
-        active: state.routeName === 'TV',
-      }
-    )
+    local.push(...state.localPages.map(page => localItem(state, page)))
     if (state.adultMode) local.push(JAV_ITEM(state))
   }
   if (local.length)
@@ -177,13 +184,9 @@ export function buildBottomNav(
     },
     ...(state.hasLocalLibrary
       ? [
-          {
-            key: 'movie',
-            label: '电影',
-            icon: 'movie' as IconName,
-            path: '/movie',
-            active: state.routeName === 'Movie',
-          },
+          ...state.localPages
+            .slice(0, 1)
+            .map(page => ({ key: 'local', ...localItem(state, page) })),
           ...(state.adultMode ? [{ key: 'jav', ...JAV_ITEM(state) }] : []),
         ]
       : []),

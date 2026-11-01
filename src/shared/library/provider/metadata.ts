@@ -69,6 +69,8 @@ export interface MediaMetadata {
   overviewLanguage?: string
   tagline?: string
   genres: string[]
+  /** TMDB 类型 id（与语言无关，内容类别按它归类，见 shared/library/category.ts）。 */
+  genreIds?: number[]
   /** 评分 0–10。 */
   rating?: number
   voteCount?: number

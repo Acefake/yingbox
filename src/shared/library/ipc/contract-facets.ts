@@ -4,6 +4,7 @@
  *
  * 只有类型和常量，由 contract.ts 统一再导出。
  */
+import type { MediaCategory } from '../category'
 import type { JavKind, LibrarySource } from './contract-jav'
 
 /** 可筛选的分面。kind 是番号类别（有码 / 无码 / FC2 / 素人），按番号判定。 */
@@ -45,6 +46,8 @@ export interface FacetListRequest {
   libraryId?: number
   /** 只算这些顶层类型（电影页传 movie、剧集页传 series：两者同为 tmdb 来源）；缺省两种都算。 */
   types?: Array<'movie' | 'series'>
+  /** 只算这一内容类别的条目（见 shared/library/category.ts）；缺省不限。 */
+  category?: MediaCategory
   search?: string
   /** 最多返回几条，默认 60。 */
   limit?: number

@@ -1,154 +1,129 @@
 <template>
-  <LibrarySheet
-    :open="open"
-    :title="`${kindLabel}库设置`"
-    icon="settings"
-    glass
-    @close="emit('close')"
-  >
-    <!-- 文件夹 -->
-    <SettingsGroup :title="`${kindLabel}文件夹`">
-      <SettingsRow
-        v-for="lib in libraries"
-        :key="lib.id"
-        :title="lib.name"
-        :description="folderDescription(lib)"
-      >
-        <UiButton
-          v-if="!isJav && !lib.mixed"
-          size="sm"
-          label="设为混合库"
-          @click="convertMixed(lib)"
-        />
-        <UiButton
-          icon="refresh"
-          size="sm"
-          label="扫描"
-          @click="scan(lib.id, false)"
-        />
-        <UiButton
-          icon="trash"
-          size="sm"
-          variant="danger"
-          label="移除文件夹"
-          @click="confirmRemove(lib)"
-        />
-      </SettingsRow>
-      <SettingsRow
-        v-if="!libraries.length"
-        title="还没有文件夹"
-        :description="`添加存放${kindLabel}的文件夹后，会自动扫描并识别`"
+  <!-- 文件夹 -->
+  <SettingsGroup :title="isJav ? '番号文件夹' : '文件夹'">
+    <SettingsRow
+      v-for="lib in libraries"
+      :key="lib.id"
+      :title="lib.name"
+      :description="folderDescription(lib)"
+    >
+      <UiButton
+        v-if="!isJav && !lib.mixed"
+        size="sm"
+        label="自动识别类型"
+        @click="convertMixed(lib)"
       />
-      <SettingsRow>
-        <UiButton
-          size="sm"
-          icon="plus"
-          label="添加文件夹…"
-          :disabled="!available"
-          @click="addFolder"
-        />
-        <UiButton
-          v-if="!isJav"
-          size="sm"
-          icon="plus"
-          label="添加混合文件夹…"
-          :disabled="!available"
-          @click="addMixedFolder"
-        />
-        <UiButton
-          size="sm"
-          variant="plain"
-          label="全量扫描"
-          :disabled="!libraries.length"
-          @click="scanAll(true)"
-        />
-      </SettingsRow>
-      <template #footer>
-        {{ folderFooter }}
-      </template>
-    </SettingsGroup>
-
-    <LibraryAutomationGroup
-      v-if="libraries.length"
-      :libraries="libraries"
-      :update="updateAutomation"
+      <UiButton
+        icon="refresh"
+        size="sm"
+        label="扫描"
+        @click="scan(lib.id, false)"
+      />
+      <UiButton
+        icon="trash"
+        size="sm"
+        variant="danger"
+        label="移除文件夹"
+        @click="confirmRemove(lib)"
+      />
+    </SettingsRow>
+    <SettingsRow
+      v-if="!libraries.length"
+      title="还没有文件夹"
+      :description="emptyFolderText"
     />
-
-    <WebDavGroup v-if="webdavAvailable" :section="section" />
-    <Pan115LibraryGroup v-if="isWeb && !isJav" :section="section" />
-
-    <!-- 元数据源 -->
-    <SettingsGroup title="元数据">
-      <SettingsRow title="识别全部" description="识别还没匹配的条目">
-        <UiButton
-          size="sm"
-          label="开始识别"
-          :disabled="!canIdentify"
-          @click="identifyAll(false)"
-        />
-      </SettingsRow>
-      <SettingsRow
-        title="重新获取全部元数据"
-        description="已匹配的条目重新拉取简介、演职员与图片，不改变匹配"
-      >
-        <UiButton
-          size="sm"
-          label="刷新"
-          :disabled="!canIdentify"
-          @click="refreshAll"
-        />
-      </SettingsRow>
-    </SettingsGroup>
-
-    <!-- 番号站点、站点凭据、演员资料来源只在番号页 -->
-    <template v-if="isJav">
-      <JavSettingsGroup :open="open" />
-      <JavCredentialsGroup :open="open" />
-      <ActorSourcesGroup :open="open" />
+    <SettingsRow>
+      <UiButton
+        size="sm"
+        icon="plus"
+        label="添加文件夹…"
+        :disabled="!available"
+        @click="addFolder"
+      />
+      <UiButton
+        size="sm"
+        variant="plain"
+        label="全量扫描"
+        :disabled="!libraries.length"
+        @click="scanAll(true)"
+      />
+    </SettingsRow>
+    <template #footer>
+      {{ folderFooter }}
     </template>
-  </LibrarySheet>
+  </SettingsGroup>
+
+  <LibraryAutomationGroup
+    v-if="libraries.length"
+    :libraries="libraries"
+    :update="updateAutomation"
+  />
+
+  <slot name="remote" />
+
+  <!-- 元数据源 -->
+  <SettingsGroup :title="isJav ? '番号识别' : '元数据'">
+    <SettingsRow title="识别全部" description="识别还没匹配的条目">
+      <UiButton
+        size="sm"
+        label="开始识别"
+        :disabled="!canIdentify"
+        @click="identifyAll(false)"
+      />
+    </SettingsRow>
+    <SettingsRow
+      title="重新获取全部元数据"
+      description="已匹配的条目重新拉取简介、演职员与图片，不改变匹配"
+    >
+      <UiButton
+        size="sm"
+        label="刷新"
+        :disabled="!canIdentify"
+        @click="refreshAll"
+      />
+    </SettingsRow>
+  </SettingsGroup>
+
+  <!-- 番号站点、站点凭据、演员资料来源只属于番号库 -->
+  <template v-if="isJav">
+    <JavSettingsGroup open />
+    <JavCredentialsGroup open />
+    <ActorSourcesGroup open />
+  </template>
 </template>
 
 <script setup lang="ts">
 /**
- * 媒体库设置（macOS 系统设置式分组），按分区显示：
- * - 电影 / 剧集：文件夹、自动入库、WebDAV / Alist 远程源与识别；
- * - 番号：文件夹（添加的就是番号库）、自动入库、识别（不需要 TMDB 令牌）、番号站点、站点凭据、
- *   演员资料来源。
+ * 「设置 → 媒体库」里的一组文件夹设置（见 LibraryGlobalSettings），按库来源显示：
+ * - 普通片库（section="movie"）：电影 / 剧集 / 动漫 / 综艺 / 纪录片共用的文件夹（自动识别电影或剧集，
+ *   再按类型分页）、自动入库、远程源（remote 插槽）与识别；
+ * - 番号库（section="jav"，成人模式）：番号文件夹、自动入库、识别（不需要 TMDB 令牌）、番号站点、
+ *   站点凭据、演员资料来源。
  */
 import { confirmDialog, toast } from '@/components/ui'
-import { computed, ref, watch } from 'vue'
+import { computed, onMounted, ref } from 'vue'
 
 import type { LibraryInfo } from '../../../../../shared/library/ipc'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { libraryBridge } from '../api/bridge'
-import LibrarySheet from '../shared/LibrarySheet.vue'
 import { guarded } from '../shared/guarded'
-import { type LibrarySection, SECTIONS } from '../state/library-section'
+import type { LibrarySection } from '../state/library-section'
 import { useLibraries } from '../state/use-libraries'
 
 import ActorSourcesGroup from './ActorSourcesGroup.vue'
 import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
-import WebDavGroup from '../webdav/WebDavGroup.vue'
-import Pan115LibraryGroup from './Pan115LibraryGroup.vue'
-import { isWebRuntime } from '@/services/library-server'
-import { webdavApi } from '../webdav/webdav-api'
 import { folderDescription } from './settings-rules'
 
-const props = defineProps<{ open: boolean; section: LibrarySection }>()
-const emit = defineEmits<{ close: [] }>()
+const props = defineProps<{
+  section: Extract<LibrarySection, 'movie' | 'jav'>
+}>()
 
-const isWeb = isWebRuntime()
 const bridge = libraryBridge()
-/** WebDAV / Alist 源在桌面端主进程里，网页端没有。 */
-const webdavAvailable = Boolean(webdavApi())
-// 分区在面板生命周期内不变
-const spec = SECTIONS[props.section]
-const kindLabel = spec.label
+// 来源在组件生命周期内不变
 const isJav = props.section === 'jav'
 const {
   available,
@@ -168,19 +143,16 @@ const canIdentify = computed(
 
 const folderFooter = isJav
   ? '番号文件夹按文件名里的番号（如 ABC-123）刮削番号站点，不需要 TMDB 令牌。全量扫描逐个检查全部文件。'
-  : '全量扫描逐个检查全部文件，用于只改了文件内容、目录没变化的情况。'
+  : '文件夹里的影片自动识别为电影或剧集，再按类型分到动漫、综艺、纪录片页面。全量扫描逐个检查全部文件，用于只改了文件内容、目录没变化的情况。'
+
+const emptyFolderText = isJav
+  ? '添加存放番号的文件夹后，会自动扫描并识别'
+  : '添加存放影片的文件夹后，会自动扫描，并分到电影、剧集、动漫、综艺、纪录片'
 
 function addFolder(): void {
   void guarded(async () => {
     const lib = await pickFolder()
     if (lib) toast.success(`已添加「${lib.name}」，正在扫描`)
-  })
-}
-
-function addMixedFolder(): void {
-  void guarded(async () => {
-    const lib = await pickFolder(true)
-    if (lib) toast.success(`已添加混合文件夹「${lib.name}」，正在扫描`)
   })
 }
 
@@ -190,23 +162,21 @@ function scan(libraryId: number, full: boolean): void {
 
 function convertMixed(lib: LibraryInfo): void {
   void confirmDialog({
-    title: `将「${lib.name}」设为混合库？`,
+    title: `让「${lib.name}」自动识别电影和剧集？`,
     content:
-      '现有条目保留原分类、匹配和观看进度。之后添加的文件会按电影或剧集识别。',
-    okText: '设为混合库',
+      '现有条目保留原分类、匹配和观看进度。之后添加的文件会自动识别为电影或剧集。',
+    okText: '自动识别',
     onOk: () =>
       guarded(async () => {
         await bridge!.updateLibrary({ libraryId: lib.id, mixed: true })
-      }, '已设为混合库'),
+      }, '已开启自动识别'),
   })
 }
 
 function confirmRemove(lib: LibraryInfo): void {
   void confirmDialog({
     title: `移除「${lib.name}」？`,
-    content: lib.mixed
-      ? '将从电影和剧集页面同时移除，不会删除磁盘或网盘上的文件。'
-      : '只从媒体库里移除，不会删除磁盘或网盘上的文件。',
+    content: '文件夹里的影片会从各个页面移除，不会删除磁盘或网盘上的文件。',
     okText: '移除',
     danger: true,
     onOk: () => guarded(() => removeLibrary(lib.id), '已移除'),
@@ -233,11 +203,5 @@ async function loadTokenStatus(): Promise<void> {
   }
 }
 
-watch(
-  () => props.open,
-  open => {
-    if (open) void loadTokenStatus()
-  },
-  { immediate: true }
-)
+onMounted(() => void loadTokenStatus())
 </script>

@@ -12,6 +12,7 @@ import type {
   FacetValue,
 } from '../../../shared/library/ipc'
 import type { StatementCache } from '../db/database'
+import { filterClauses } from './filter-sql'
 
 type Params = Array<string | number>
 
@@ -135,6 +136,11 @@ export function listFacetValues(
   if (request.libraryId !== undefined) {
     where.push('i.library_id = ?')
     params.push(request.libraryId)
+  }
+  if (request.category !== undefined) {
+    const filter = filterClauses({ category: request.category })
+    where.push(...filter.clauses)
+    params.push(...filter.params)
   }
   if (request.search) {
     where.push(`lower(${src.value}) LIKE ? ESCAPE '\\'`)

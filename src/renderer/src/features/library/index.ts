@@ -7,6 +7,10 @@ export {
   useLibraries,
 } from './state/use-libraries'
 export { useActiveJobs } from './state/use-active-jobs'
+/** 追剧日历用：剧按分类直接打开对应页面的详情 */
+export { seriesPagePath } from './state/library-section'
+/** 侧栏用：本地媒体里有条目的页面（都没有时是「添加媒体库」入口） */
+export { useLocalNavPages } from './state/use-local-nav-pages'
 /** 追剧日历用：播出数据、播放某一集、图片地址、文件进度键 */
 export {
   fetchCalendarEpisodes,

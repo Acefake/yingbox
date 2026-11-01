@@ -162,4 +162,28 @@ describe('按附加筛选查询（真实服务）', () => {
     expect(titles({ hasGenres: true })).toEqual(['Inception'])
     expect(titles({ hasGenres: false })).toEqual(['Parasite', 'Tenet'])
   })
+
+  it('内容类别：类型 id 或类型名互斥归类，纪录片 > 综艺 > 动漫，其余（含没有类型）是普通', async () => {
+    const ids = await setup()
+    const setGenres = (title: string, genres: string | null): void => {
+      service.db
+        .prepare('UPDATE media_items SET genres = ? WHERE id = ?')
+        .run(genres, ids.get(title)!)
+    }
+    setGenres('Inception', '["动画","真人秀"]')
+    setGenres('Parasite', '["Documentary"]')
+    // 日文元数据：类型名认不出，按 metadata.genreIds（16 = 动画）归类
+    service.db
+      .prepare('UPDATE media_items SET genres = ?, metadata = ? WHERE id = ?')
+      .run(
+        '["アニメーション"]',
+        JSON.stringify({ level: 'title', genreIds: [16] }),
+        ids.get('Tenet')!
+      )
+    expect(titles({ category: 'variety' })).toEqual(['Inception'])
+    expect(titles({ category: 'documentary' })).toEqual(['Parasite'])
+    expect(titles({ category: 'anime' })).toEqual(['Tenet'])
+    expect(titles({ category: 'plain' })).toEqual([])
+    expect(() => normalizeLibraryQuery({ category: 'kids' })).toThrow()
+  })
 })

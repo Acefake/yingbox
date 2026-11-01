@@ -26,7 +26,7 @@
       @toggle-order="toggleOrder"
       @scan="scanAll"
       @identify="identifyAll"
-      @settings="openSettings"
+      @settings="openLibrarySettings"
       @video-wall="videoWall.open"
       @open-item="openDetail"
     />
@@ -130,12 +130,6 @@
       @clear="clearSelection"
     />
 
-    <LibrarySettings
-      v-if="settingsMounted"
-      :open="settingsOpen"
-      :section="section"
-      @close="settingsOpen = false"
-    />
     <LibrarySheet
       :open="matchItemId !== null"
       title="修正匹配"
@@ -162,8 +156,9 @@
 
 <script setup lang="ts">
 /**
- * 本地媒体库页面（电影 / 剧集 / 番号三个分区共用，按 section 区分，见 state/library-section.ts）：工具栏、后台任务进度、海报墙 / 待确认队列、
- * 详情（覆盖在海报墙上，返回时保留滚动位置）、设置、修正匹配、整理。
+ * 本地媒体库页面（电影 / 剧集 / 动漫 / 综艺 / 纪录片 / 番号各分区共用，按 section 区分，见 state/library-section.ts）：
+ * 工具栏、后台任务进度、海报墙 / 待确认队列、详情（覆盖在海报墙上，返回时保留滚动位置）、修正匹配、整理。
+ * 设置只有一份，在「设置 → 媒体库」。
  *
  * 详情由路由 query（?item=123）驱动：浏览器后退即返回海报墙；指向别的分区的链接由 use-section-guard 换页。每个分区只查自己来源的库：电影页不出番号条目，演员库只在番号页。
  * 工具栏 / 任务条 / 多选条在 page/，多选与路由等纯规则在 page/page-rules.ts；视频墙在 video-wall/。
@@ -202,7 +197,7 @@ import NlSearchBar from './nl-search/NlSearchBar.vue'
 import { useNlSearch } from './nl-search/use-nl-search'
 import MatchPane from './review/MatchPane.vue'
 import ReviewQueue from './review/ReviewQueue.vue'
-import LibrarySettings from './settings/LibrarySettings.vue'
+import { openLibrarySettings } from './settings/section'
 import LibrarySheet from './shared/LibrarySheet.vue'
 import {
   type WallQueryState,
@@ -299,7 +294,9 @@ watch(
   () => [state.sort, state.order, ...filterKeyOf(state), nl.key.value],
   () => wall.value?.scrollToTop()
 )
-const emptyTitle = computed(() => nl.emptyTitle.value ?? emptyTitleFor(state))
+const emptyTitle = computed(
+  () => nl.emptyTitle.value ?? emptyTitleFor(state, section)
+)
 
 // —— 视图切换（资料库 / 演员 / 待确认）——
 const { view, viewOptions, reviewCount } = useLibraryViews(section, libraryIds)
@@ -344,15 +341,8 @@ const { detailReady } = useSectionGuard(
 )
 
 // —— 面板 ——
-const settingsOpen = ref(false)
-const settingsMounted = ref(false)
 const matchItemId = ref<number | null>(null)
 const organizeIds = ref<number[]>([])
-
-function openSettings(): void {
-  settingsMounted.value = true
-  settingsOpen.value = true
-}
 
 function openMatchSheet(itemId: number): void {
   matchItemId.value = itemId

@@ -120,7 +120,10 @@ export async function scanLibraries(
     for (let offset = 0; ; offset += PAGE) {
       const page = await reader.query({
         libraryId: library.id,
-        types: [library.kind === 'movie' ? 'movie' : 'series'],
+        // 混合库（新加的普通片库都是）电影和剧都有；规则按条目类型选
+        types: library.mixed
+          ? ['movie', 'series']
+          : [library.kind === 'movie' ? 'movie' : 'series'],
         matchStates: ['auto', 'locked'],
         offset,
         limit: PAGE,

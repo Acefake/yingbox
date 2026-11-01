@@ -2,7 +2,8 @@
  * 分区守卫：条目详情 / 演员详情的链接总是落在条目所属的页面上。
  *
  * - 演员只属于番号库：非番号页上的 ?actor= 换到 /jav（其余参数原样带过去）。
- * - ?item= 指向别的分区的条目（旧链接：番号条目以前挂在电影页）时换到那个分区的页面。
+ * - ?item= 指向别的分区的条目时换到那个分区的页面：首页、继续播放只知道电影 / 剧集，
+ *   动漫、综艺、纪录片由这里按条目类型换到对应页面；番号条目以前挂在电影页的旧链接同理。
  *   确认归属之前不渲染详情，番号条目不会在电影页上闪一下。
  *
  * 海报墙里已加载的条目（最常见的点击路径）直接放行，不额外请求；只有直接打开的链接才查一次条目。
@@ -12,11 +13,7 @@ import { type ComputedRef, type Ref, computed, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import { libraryBridge } from '../api/bridge'
-import {
-  type LibrarySection,
-  SECTIONS,
-  sectionOf,
-} from '../state/library-section'
+import { type LibrarySection, SECTIONS, pageOf } from '../state/library-section'
 import { findLibrary } from '../state/use-libraries'
 import { onLibraryEvent } from '../state/library-events'
 
@@ -34,7 +31,7 @@ export async function itemOwner(itemId: number): Promise<ItemOwner> {
     (await bridge.listLibraries().catch(() => [])).find(
       l => l.id === item.libraryId
     )
-  return lib ? sectionOf(lib, item.type) : 'unknown'
+  return lib ? pageOf(lib, item) : 'unknown'
 }
 
 /**

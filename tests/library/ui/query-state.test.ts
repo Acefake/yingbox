@@ -55,6 +55,7 @@ describe('toLibraryQuery', () => {
     expect(toLibraryQuery('movie', defaultWallQuery())).toEqual({
       types: ['movie'],
       source: 'tmdb',
+      category: 'plain',
       sort: 'addedAt',
       order: 'desc',
     })
@@ -102,6 +103,7 @@ describe('toLibraryQuery', () => {
     expect(reviewQuery('tv')).toEqual({
       types: ['series'],
       source: 'tmdb',
+      category: 'plain',
       matchStates: ['review', 'unmatched'],
       sort: 'title',
       order: 'asc',
@@ -216,12 +218,21 @@ describe('浏览胶囊与类型（电影 / 剧集）', () => {
       field: 'tag',
       types: ['movie'],
       source: 'tmdb',
+      category: 'plain',
     })
     expect(genreScopeOf('tv', { libraryId: 2 })).toEqual({
       field: 'tag',
       types: ['series'],
       source: 'tmdb',
+      category: 'plain',
       libraryId: 2,
+    })
+    // 动漫等页面：电影和剧集都要，只算这一类
+    expect(genreScopeOf('anime', { libraryId: null })).toEqual({
+      field: 'tag',
+      types: ['movie', 'series'],
+      source: 'tmdb',
+      category: 'anime',
     })
     expect(genreScopeOf('jav', { libraryId: null })).toBeUndefined()
     // 换类型 / 浏览胶囊算换筛选（清空多选、回到顶部）

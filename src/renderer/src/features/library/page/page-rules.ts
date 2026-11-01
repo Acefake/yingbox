@@ -8,7 +8,7 @@ import type {
   LibraryItemSummary,
 } from '../../../../../shared/library/ipc'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
-import type { LibrarySection } from '../state/library-section'
+import { type LibrarySection, SECTIONS } from '../state/library-section'
 import type { WallQueryState } from '../state/query-state'
 import type { LibraryView } from './LibraryToolbar.vue'
 
@@ -18,10 +18,11 @@ export function parseDetailId(raw: unknown): number | null {
   return Number.isSafeInteger(id) && id > 0 ? id : null
 }
 
-/** 海报墙为空时的标题：有搜索词 > 有筛选 > 还没扫描到。 */
+/** 海报墙为空时的标题：有搜索词 > 有筛选 > 还没扫描到（动漫等按类型分的页面：还没有这类影片）。 */
 export function emptyTitleFor(
   state: Pick<WallQueryState, 'search' | 'filter'> &
-    Partial<Pick<WallQueryState, 'browse' | 'genre'>>
+    Partial<Pick<WallQueryState, 'browse' | 'genre'>>,
+  section?: LibrarySection
 ): string {
   if (state.search) return `没有找到“${state.search}”`
   if (
@@ -30,10 +31,12 @@ export function emptyTitleFor(
     (state.browse ?? 'all') !== 'all'
   )
     return '没有符合筛选条件的条目'
+  if (section && SECTIONS[section].category !== 'plain')
+    return `还没有识别为${SECTIONS[section].label}的影片`
   return '文件夹里还没有扫描到视频'
 }
 
-/** 还没有文件夹时的空状态文案：番号页引导添加番号文件夹。 */
+/** 还没有文件夹时的空状态文案：番号页引导添加番号文件夹，其他页面共用普通片库文件夹。 */
 export function noFolderCopy(section: LibrarySection): {
   title: string
   text: string
@@ -43,10 +46,9 @@ export function noFolderCopy(section: LibrarySection): {
       title: '添加你的番号文件夹',
       text: '影盒按文件名里的番号（如 ABC-123）刮削番号站点，补全封面、演员和简介，不需要 TMDB 令牌。',
     }
-  const label = section === 'movie' ? '电影' : '剧集'
   return {
-    title: `添加你的${label}文件夹`,
-    text: '影盒会扫描文件夹里的视频，自动识别片名并补全海报、简介和演职员。',
+    title: '添加你的影片文件夹',
+    text: '电影、剧集、动漫、综艺放在一起也没关系：影盒会自动识别片名，补全海报、简介和演职员，并分到对应页面。',
   }
 }
 

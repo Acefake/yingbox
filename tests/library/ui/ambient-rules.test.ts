@@ -42,15 +42,23 @@ describe('ambientPosterOf', () => {
 })
 
 describe('ambientVars', () => {
-  it('三个分区各有一套色，变量名固定', () => {
-    for (const section of ['movie', 'tv', 'jav'] as const) {
+  it('每个分区各有一套色，变量名固定', () => {
+    const sections = [
+      'movie',
+      'tv',
+      'anime',
+      'variety',
+      'documentary',
+      'jav',
+    ] as const
+    for (const section of sections) {
       expect(ambientVars(section)).toEqual({
         '--ambient-accent': AMBIENT_TONES[section].accent,
         '--ambient-glow': AMBIENT_TONES[section].glow,
       })
     }
     expect(new Set(Object.values(AMBIENT_TONES).map(t => t.accent)).size).toBe(
-      3
+      sections.length
     )
   })
 })

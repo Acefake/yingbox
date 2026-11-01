@@ -8,6 +8,7 @@ import {
   type FacetListRequest,
   type FacetRpcMap,
 } from './contract-facets'
+import { CATEGORIES } from '../category'
 import { JAV_KINDS, LIBRARY_SOURCES } from './contract-jav'
 import {
   asRecord,
@@ -79,6 +80,9 @@ export function parseFacetListRequest(input: unknown): FacetListRequest {
       ? {}
       : { libraryId: positiveId(r.libraryId, 'libraryId') }),
     ...(types ? { types } : {}),
+    ...(r.category === undefined
+      ? {}
+      : { category: oneOf(r.category, CATEGORIES, 'category') }),
     ...(search ? { search } : {}),
     limit: Math.min(
       optionalInt(r.limit, 'limit', 1) ?? DEFAULT_LIMIT,

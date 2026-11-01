@@ -34,7 +34,7 @@ import { useSetting } from '@/features/settings'
 
 import { libraryBridge } from '../api/bridge'
 import { filterReader } from '../search/route-filter'
-import type { LibrarySection } from '../state/library-section'
+import { type LibrarySection, recordSectionsOf } from '../state/library-section'
 import {
   type NlChip,
   editChip,
@@ -145,9 +145,10 @@ export function useNlSearch(
       keyConfigured: aiKeyConfigured(provider.value),
     })
 
+  const recordSections: readonly string[] = recordSectionsOf(section)
   const watchedIds = computed(() =>
     records.value
-      .filter(r => r.section === section && /^\d+$/.test(r.key))
+      .filter(r => recordSections.includes(r.section) && /^\d+$/.test(r.key))
       .map(r => Number(r.key))
   )
 

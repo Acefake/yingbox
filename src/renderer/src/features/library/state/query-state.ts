@@ -8,11 +8,9 @@
 import type {
   FacetFilter,
   FacetListRequest,
-  LibraryKind,
   LibraryQuery,
   LibrarySortField,
   MatchState,
-  TopLevelItemType,
 } from '../../../../../shared/library/ipc'
 import { readStoredText, writeStoredText } from '@/utils/storage'
 
@@ -96,17 +94,18 @@ const FILTER_STATES: Record<MatchFilter, MatchState[] | undefined> = {
   locked: ['locked'],
 }
 
-/** 媒体库类型 → 海报墙展示的顶层条目类型。 */
-export function topLevelType(kind: LibraryKind): TopLevelItemType {
-  return kind === 'movie' ? 'movie' : 'series'
-}
-
-/** 分区的基础查询：顶层类型 + 来源（电影页不出番号条目，番号页只出番号条目）。 */
+/**
+ * 分区的基础查询：顶层类型 + 来源 + 内容类别（电影页不出番号条目、也不出动漫；番号页只出番号条目）。
+ */
 export function sectionQuery(
   section: LibrarySection
-): Pick<LibraryQuery, 'types' | 'source'> {
+): Pick<LibraryQuery, 'types' | 'source' | 'category'> {
   const spec = SECTIONS[section]
-  return { types: [topLevelType(spec.kind)], source: spec.source }
+  return {
+    types: [...spec.types],
+    source: spec.source,
+    ...(spec.source === 'jav' ? {} : { category: spec.category }),
+  }
 }
 
 /** 筛选条件（不含排序）的比较键：变了就清空多选、回到顶部。 */

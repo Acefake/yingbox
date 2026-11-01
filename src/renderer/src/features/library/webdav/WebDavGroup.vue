@@ -27,7 +27,15 @@
         variant="plain"
         label="添加 WebDAV 文件夹…"
         :disabled="!sources.length"
-        @click="addFolder"
+        @click="addFolder('movie')"
+      />
+      <UiButton
+        v-if="jav"
+        size="sm"
+        variant="plain"
+        label="添加为番号文件夹…"
+        :disabled="!sources.length"
+        @click="addFolder('jav')"
       />
     </SettingsRow>
   </SettingsGroup>
@@ -36,8 +44,8 @@
 <script setup lang="ts">
 /**
  * 媒体库设置里的 WebDAV / Alist 分组：管理远程源（地址、用户名、密码，可测试连接），
- * 以及把某个源里的文件夹添加为当前分区的媒体库（根目录写成 yingbox-dav://<源 id>/<路径>）。
- * 只在桌面端显示（见 LibrarySettings）：源和凭据在主进程，网页端的片库服务没有这个能力。
+ * 以及把某个源里的文件夹添加为媒体库（根目录写成 yingbox-dav://<源 id>/<路径>）：默认是自动识别的
+ * 普通片库，成人模式（jav）下也可添加为番号库。只在桌面端显示（见 LibraryGlobalSettings）：源和凭据在主进程，网页端的片库服务没有这个能力。
  */
 import { confirmDialog, toast } from '@/components/ui'
 import { h, ref } from 'vue'
@@ -48,7 +56,7 @@ import { SettingsGroup, SettingsRow } from '@/features/settings'
 import UiButton from '@/components/ui/UiButton.vue'
 
 import { errorText, libraryBridge } from '../api/bridge'
-import { type LibrarySection, SECTIONS } from '../state/library-section'
+import { type LibrarySection, newLibraryShape } from '../state/library-section'
 import WebDavFolderPicker from './WebDavFolderPicker.vue'
 import WebDavSourceForm from './WebDavSourceForm.vue'
 import { webdavApi } from './webdav-api'
@@ -62,7 +70,7 @@ import {
   sourceInput,
 } from './webdav-rules'
 
-const props = defineProps<{ section: LibrarySection }>()
+defineProps<{ jav?: boolean }>()
 
 const api = webdavApi()!
 const sources = ref<WebDavSourceInfo[]>([])
@@ -129,11 +137,10 @@ function remove(source: WebDavSourceInfo): void {
   void confirmRemove(source)
 }
 
-/** 选一个远程文件夹，添加为当前分区的媒体库。 */
-function addFolder(): void {
+/** 选一个远程文件夹，添加为普通片库（movie）或番号库（jav）。 */
+function addFolder(section: LibrarySection): void {
   const bridge = libraryBridge()
   if (!bridge) return
-  const { kind, source: metadata } = SECTIONS[props.section]
   let picked: { source: WebDavSourceInfo; path: string } | null = null
   void confirmDialog({
     title: '选择 WebDAV 文件夹',
@@ -149,9 +156,8 @@ function addFolder(): void {
       const { root, name } = remoteLibraryTarget(picked.source, picked.path)
       const lib = await bridge.addLibrary({
         root,
-        kind,
-        source: metadata,
         name,
+        ...newLibraryShape(section),
       })
       toast.success(`已添加「${lib.name}」，正在扫描`)
     },

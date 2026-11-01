@@ -48,7 +48,7 @@
 /**
  * 网盘变更通知（主进程本地 HTTP 端点，见 src/main/library/notify）：开关、地址（令牌打码，复制完整地址）、
  * 换令牌、局域网访问、挂载目录。开关等是普通设置 library.notify.*，状态走 window.api.libraryNotify。
- * 只在桌面端显示（见 LibrarySettings）。
+ * 只在桌面端显示（见 LibraryGlobalSettings）。
  */
 import { toast } from '@/components/ui'
 import { computed, onBeforeUnmount, ref, watch } from 'vue'
