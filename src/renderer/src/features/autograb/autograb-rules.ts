@@ -181,29 +181,6 @@ export function pendingBadge(o: AutograbOverview | null): number {
   return o.pendingCount ?? pendingEpisodes(o).length
 }
 
-/** 一部剧的待处理集 */
-export interface PendingGroup {
-  seriesId: number
-  title: string
-  episodes: AutograbEpisode[]
-}
-
-/** 待处理的集按剧分组（组按第一集出现的顺序） */
-export function groupBySeries(episodes: AutograbEpisode[]): PendingGroup[] {
-  const groups = new Map<number, PendingGroup>()
-  for (const ep of episodes) {
-    const group = groups.get(ep.seriesId)
-    if (group) group.episodes.push(ep)
-    else
-      groups.set(ep.seriesId, {
-        seriesId: ep.seriesId,
-        title: ep.seriesTitle,
-        episodes: [ep],
-      })
-  }
-  return [...groups.values()]
-}
-
 /** 实际在追的剧 */
 export function trackedSeries(o: AutograbOverview | null): AutograbSeries[] {
   return (o?.series ?? []).filter(s => s.effectiveMode !== 'off')
@@ -280,4 +257,63 @@ export function prerequisites(o: AutograbOverview): Prerequisite[] {
       action: { label: '恢复', to: 'resume' },
     })
   return list
+}
+
+/**
+ * 待处理卡片上那句「为什么要你处理」：找不到说搜了几次，空间不足说怎么办；
+ * 有资源时按这部剧的方式说——待确认每集都要点，全自动还没过「新剧先确认」就说还差几集，过了就是匹配分不够高。
+ */
+export function pendingReason(
+  ep: AutograbEpisode,
+  series: AutograbSeries | undefined
+): string {
+  if (ep.status === 'notFound')
+    return (
+      ep.error ??
+      `已搜 ${ep.attempts} 次，PanSou 上还没有这一集的分享。点「现在重搜」再找一遍。`
+    )
+  if (ep.status === 'noSpace')
+    return ep.error ?? '115 剩余空间不够存这个资源，清理空间后再转存。'
+  if (!series) return '找到了资源，等你确认。'
+  if (series.effectiveMode === 'off')
+    return '这部剧已经不追了，这一集的资源还留着，要的话可以转存。'
+  if (series.effectiveMode === 'confirm')
+    return '这部剧设为待确认，每一集都由你来点转存。'
+  const left = confirmsLeft(series.confirmed, series.confirmFirst)
+  return left
+    ? `这部剧还要你确认 ${left} 集，之后会自动转存。`
+    : '匹配分不够高，没有替你自动转存，请看一眼文件名。'
+}
+
+/** 单集侧板的进度条一格 */
+export interface EpisodeStep {
+  label: string
+  state: 'done' | 'current' | 'problem' | 'todo'
+}
+
+/** 一集走到哪一步：播出 → 搜资源 → 确认 → 转存 115 → 入库（当前一步的字样随状态说清楚） */
+export function episodeSteps(ep: AutograbEpisode): EpisodeStep[] {
+  const found = ep.candidates.length
+  const at: Record<AutograbStatus, [number, string, EpisodeStep['state']]> = {
+    waiting: [1, '搜索中', 'current'],
+    notFound: [1, '找不到', 'problem'],
+    skipped: [1, '已跳过', 'problem'],
+    found: [2, '等你确认', 'current'],
+    noSpace: [3, '空间不足', 'problem'],
+    saved: ep.error ? [4, '入库失败', 'problem'] : [4, '入库中', 'current'],
+    done: [5, '', 'done'],
+  }
+  const [index, text, state] = at[ep.status]
+  const labels = [
+    '播出',
+    found ? `搜到 ${found} 个` : '搜资源',
+    '确认',
+    '转存 115',
+    '入库',
+  ]
+  return labels.map((label, i) => {
+    if (i < index) return { label, state: 'done' }
+    if (i === index) return { label: text || label, state }
+    return { label, state: 'todo' }
+  })
 }

@@ -3,20 +3,24 @@
     :open="seriesId !== null"
     :title="series?.title ?? ''"
     :subtitle="subtitle"
+    hero
+    :image="image"
     @close="emit('close')"
   >
     <template v-if="series && data">
-      <SettingsGroup>
-        <SettingsRow title="追更方式">
-          <ItemPolicyMenu
-            :title="series.title"
-            :custom="isCustom(series.mode, series.prefs)"
-            :effective="series.effectiveMode"
-            @follow="follow"
-            @custom="editing = true"
-          />
-        </SettingsRow>
-        <SettingsRow v-if="series.effectiveMode !== 'off'" title="转存位置">
+      <section class="sg-block" aria-labelledby="sg-mode-title">
+        <h3 id="sg-mode-title" class="sg-label">追更方式</h3>
+        <UiSegmented
+          class="sg-modes"
+          :model-value="series.effectiveMode"
+          :options="TV_MODE_OPTIONS"
+          :label="`${series.title} 的追更方式`"
+          @update:model-value="setMode"
+        />
+        <p v-if="hints.length" class="sg-hint">{{ hints.join('；') }}</p>
+      </section>
+      <SettingsGroup v-if="series.effectiveMode !== 'off'">
+        <SettingsRow title="转存位置">
           <TargetFolderPill
             v-bind="folderPill(series)"
             size="sm"
@@ -26,7 +30,16 @@
             @pick="pickFolder"
           />
         </SettingsRow>
-        <template v-if="hints.length" #footer>{{ hints.join('；') }}</template>
+        <SettingsRow
+          title="资源偏好"
+          :description="overrideSummary(series.prefs) || '跟随全局'"
+        >
+          <UiButton
+            size="sm"
+            :label="Object.keys(series.prefs).length ? '修改' : '单独设'"
+            @click="editing = true"
+          />
+        </SettingsRow>
       </SettingsGroup>
 
       <AutograbFolderPrompt
@@ -59,19 +72,42 @@
         />
       </SettingsGroup>
     </template>
+
+    <template v-if="series && data" #footer>
+      <UiButton
+        v-if="isCustom(series.mode, series.prefs)"
+        size="sm"
+        variant="plain"
+        label="恢复跟随全局"
+        @click="follow"
+      />
+      <span class="sg-grow" />
+      <UiButton
+        v-if="series.effectiveMode !== 'off'"
+        class="sg-stop"
+        size="sm"
+        variant="plain"
+        label="停止追这部剧"
+        @click="setMode('off')"
+      />
+    </template>
   </GrabSheet>
 </template>
 
 <script setup lang="ts">
 /**
- * 一部剧的追更侧拉面板（设置页同款玻璃分组）：把这部剧「怎么追」的设置收在一起——方式（跟随 / 单独设，单独设展开表单覆盖方式与资源偏好）、
- * 转存位置、还要手动确认几集、下一集播出日，以及这部剧最近各集的状态。
+ * 一部剧的追更侧拉面板：海报头写剧名、方式与下一集播出日；下面把这部剧「怎么追」收在一起——
+ * 方式分段（不追 / 待确认 / 全自动，选了即按这部剧单独设）、转存位置、资源偏好（单独设展开表单覆盖），以及这部剧最近各集的状态；
+ * 底部操作条：单独设过时「恢复跟随全局」，在追时「停止追这部剧」。
  * 切到（或跟随成）全自动而没有可用文件夹时，在侧板里就地选目录（use-full-auto-folder.ts）。
  * seriesId 为 null 时关闭；总览里没有这部剧（还没开播、没设过）时用 title 兜底，设置照样能存。
  */
 import { computed, ref, watch } from 'vue'
 
 import { toast } from '@/components/ui/toast'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiSegmented from '@/components/ui/UiSegmented.vue'
+import { libraryImage } from '@/features/library'
 import {
   type FolderPick,
   type FolderPreset,
@@ -98,11 +134,11 @@ import {
 } from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
 import { useFullAutoFolder } from '../use-full-auto-folder'
+import { useSeriesPosters } from '../use-series-posters'
 import AutograbEpisodes from './AutograbEpisodes.vue'
 import AutograbFolderPrompt from './AutograbFolderPrompt.vue'
 import GrabOverrideForm from './GrabOverrideForm.vue'
 import GrabSheet from './GrabSheet.vue'
-import ItemPolicyMenu from './ItemPolicyMenu.vue'
 
 const props = defineProps<{
   seriesId: number | null
@@ -121,6 +157,12 @@ const fullAuto = useFullAutoFolder({
   setSeries: save,
   warn: text => void toast.warning(text),
 })
+const posters = useSeriesPosters(() => data.value?.series ?? [])
+const image = computed(() =>
+  props.seriesId === null
+    ? null
+    : libraryImage(posters.value.get(props.seriesId) ?? null, 300)
+)
 /** 是否展开了「单独设」表单 */
 const editing = ref(false)
 watch(
@@ -163,10 +205,10 @@ const hints = computed(() => {
   const item = series.value
   if (!item) return []
   if (item.effectiveMode === 'off')
-    return ['现在不追这部剧。追更方式选「单独设…」可切到待确认或全自动。']
+    return ['现在不追这部剧。选「待确认」或「全自动」开始追。']
   const left = confirmsLeft(item.confirmed, item.confirmFirst)
   return [
-    overrideSummary(item.prefs),
+    item.mode === 'inherit' ? '跟随全局' : '单独设的方式',
     item.effectiveMode === 'auto' && left
       ? `还要手动确认 ${left} 集才会自动转存`
       : '',
@@ -175,6 +217,18 @@ const hints = computed(() => {
 const episodes = computed(() =>
   (data.value?.episodes ?? []).filter(ep => ep.seriesId === props.seriesId)
 )
+
+/** 分段里选了一种方式：按这部剧单独设（切全自动而没有文件夹时先选文件夹） */
+async function setMode(mode: GrabMode): Promise<void> {
+  const item = series.value
+  if (!item) return
+  if (mode === item.effectiveMode) {
+    fullAuto.cancel()
+    return
+  }
+  editing.value = false
+  await fullAuto.changeMode(item, mode)
+}
 
 /** 跟随全局：清掉覆盖项，方式设回跟随（全局是全自动且没文件夹时先选文件夹） */
 async function follow(): Promise<void> {
@@ -230,3 +284,38 @@ async function pickFolder(pick: FolderPick): Promise<void> {
   })
 }
 </script>
+
+<style scoped>
+.sg-block {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+}
+
+.sg-label {
+  margin: 0;
+  padding: 0 var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+  font-weight: var(--font-weight-semibold);
+}
+
+.sg-modes {
+  align-self: flex-start;
+}
+
+.sg-hint {
+  margin: 0;
+  padding: 0 var(--space-4);
+  color: var(--text-tertiary);
+  font-size: var(--text-xs);
+}
+
+.sg-grow {
+  flex: 1;
+}
+
+.sg-stop.ui-button {
+  color: var(--danger);
+}
+</style>

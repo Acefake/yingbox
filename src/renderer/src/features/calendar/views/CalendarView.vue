@@ -1,6 +1,15 @@
 <template>
   <div class="calendar-page">
     <PageHeader title="追剧日历" :description="summary || undefined">
+      <template v-if="pendingCount" #status>
+        <UiButton
+          class="cal-pending-link"
+          size="sm"
+          variant="plain"
+          :label="`${pendingCount} 集资源待确认，去处理`"
+          @click="router.push('/autograb')"
+        />
+      </template>
       <template #actions>
         <div class="cal-nav" role="group" aria-label="切换周">
           <UiIconButton icon="back" size="sm" label="上一周" @click="prev" />
@@ -31,16 +40,6 @@
 
     <p v-if="notice" class="cal-notice">{{ notice }}</p>
 
-    <p v-if="pendingCount" class="cal-hint">
-      <span>{{ pendingCount }} 集有资源待确认</span>
-      <UiButton
-        size="sm"
-        variant="plain"
-        label="去处理"
-        @click="router.push('/autograb')"
-      />
-    </p>
-
     <template v-if="cal.mode.value === 'week'">
       <!-- 整周无剧时只出一个整体空状态，不再叠 7 个「无更新」空列 -->
       <StatusState
@@ -49,35 +48,76 @@
         title="还没有在追的剧"
         hint="剧集库里已识别的剧和继续播放里的在线剧会按播出日期排在这里"
       />
-      <section v-else class="cal-week" aria-label="周视图">
-        <div
-          v-for="day in weekRows"
-          :key="day.date"
-          class="cal-day"
-          :class="{ 'is-today': day.isToday }"
-          :aria-current="day.isToday ? 'date' : undefined"
+      <template v-else>
+        <section
+          v-if="todayRows.length"
+          class="cal-section"
+          aria-labelledby="cal-today-title"
         >
-          <h3
-            class="cal-day-head"
-            :aria-label="dayLabel(day.date, cal.today.value)"
-          >
-            <span class="cal-day-name">{{ dayParts(day.date).weekday }}</span>
-            <span class="cal-day-num">{{ dayParts(day.date).day }}</span>
-          </h3>
-          <ul v-if="day.rows.length" class="cal-day-list">
-            <li v-for="group in day.rows" :key="group.id">
-              <CalendarRow
+          <div class="cal-section-head">
+            <h2 id="cal-today-title" class="cal-section-title">今天</h2>
+            <span class="cal-section-meta">{{ todayMeta }}</span>
+          </div>
+          <ul class="cal-today-grid">
+            <li v-for="group in todayRows" :key="group.id">
+              <TodayCard
                 :group="group"
-                compact
                 :mark="markOf(group)"
                 @activate="activate"
                 @mark="openAutograb"
               />
             </li>
           </ul>
-          <span v-else class="cal-day-empty">无更新</span>
-        </div>
-      </section>
+        </section>
+        <section class="cal-section" aria-labelledby="cal-week-title">
+          <div class="cal-section-head">
+            <h2 id="cal-week-title" class="cal-section-title">
+              {{ cal.isThisWeek.value ? '本周' : weekTitle }}
+            </h2>
+            <ul v-if="legend.length" class="cal-legend" aria-label="状态图例">
+              <li
+                v-for="item in legend"
+                :key="item.tone"
+                class="cal-status"
+                :data-tone="item.tone"
+              >
+                {{ item.label }}
+              </li>
+            </ul>
+          </div>
+          <div class="cal-week">
+            <div
+              v-for="day in weekRows"
+              :key="day.date"
+              class="cal-day"
+              :class="{ 'is-today': day.isToday }"
+              :aria-current="day.isToday ? 'date' : undefined"
+            >
+              <h3
+                class="cal-day-head"
+                :aria-label="dayLabel(day.date, cal.today.value)"
+              >
+                <span class="cal-day-name">{{
+                  day.isToday ? '今天' : dayParts(day.date).weekday
+                }}</span>
+                <span class="cal-day-num">{{ dayParts(day.date).day }}</span>
+              </h3>
+              <ul v-if="day.rows.length" class="cal-day-list">
+                <li v-for="group in day.rows" :key="group.id">
+                  <CalendarRow
+                    :group="group"
+                    compact
+                    :mark="markOf(group)"
+                    @activate="activate"
+                    @mark="openAutograb"
+                  />
+                </li>
+              </ul>
+              <span v-else class="cal-day-empty">无更新</span>
+            </div>
+          </div>
+        </section>
+      </template>
     </template>
     <section v-else class="cal-list" aria-label="列表视图">
       <div
@@ -138,7 +178,8 @@
  * 可前后翻周，今天的日期浅灰圆底）与列表视图（按天分组的同样行）；
  * 页头右侧是周切换（不在本周时胶囊里多一个「今天」）、视图切换与刷新，统一用控件高度令牌（md 36）的灰色胶囊。
  * 数据见 use-calendar.ts；点卡片：媒体库里有本地文件就播放这一集，否则打开剧的详情；在线剧打开在线详情。
- * 只看不管：追更在自动追更页（/autograb）。旧深链 ?autograb=1 重定向过去；有资源待确认时页头下有提示条；
+ * 本周时周视图上方是「今天」一排大剧照卡（TodayCard），七列每行下面是同一套状态圆点（rowStatus），标题右侧是本周出现过的状态图例。
+ * 只看不管：追更在自动追更页（/autograb）。旧深链 ?autograb=1 重定向过去；有资源待确认时页头说明下面有去处理的链接；
  * 追更中的集卡片上有追更小标记，点它从右侧滑出这一集的侧板（覆盖在页面上，日历滚动位置不动）。
  */
 import { computed, nextTick, onActivated, onDeactivated, ref, watch } from 'vue'
@@ -166,8 +207,14 @@ import { requestOnlineDetail } from '@/features/online'
 
 import { dayLabel, dayParts, groupByWeek, weekLabel } from '../calendar-dates'
 import { type CalendarEntry, listGroups, weekSummary } from '../calendar-rules'
-import { type ShowDayGroup, groupShowsByDay } from '../calendar-rows'
+import {
+  type ShowDayGroup,
+  groupShowsByDay,
+  legendOf,
+  rowStatus,
+} from '../calendar-rows'
 import CalendarRow from '../components/CalendarRow.vue'
+import TodayCard from '../components/TodayCard.vue'
 import { type CalendarMode, useCalendar } from '../use-calendar'
 
 const MODE_OPTIONS: SegmentedOption<CalendarMode>[] = [
@@ -235,6 +282,26 @@ const listRows = computed(() =>
   groups.value.map(group => ({ ...group, rows: groupShowsByDay(group.items) }))
 )
 const undatedRows = computed(() => groupShowsByDay(undated.value))
+/** 周视图上方「今天」一排大卡（只在本周出现） */
+const todayRows = computed(() =>
+  cal.isThisWeek.value
+    ? (weekRows.value.find(day => day.isToday)?.rows ?? [])
+    : []
+)
+/** 「今天」标题旁的一句：11月1日 周日 · 3 部剧 */
+const todayMeta = computed(() => {
+  const [, month, day] = cal.today.value.split('-').map(Number)
+  const { weekday } = dayParts(cal.today.value)
+  return `${month}月${day}日 ${weekday} · ${todayRows.value.length} 部剧`
+})
+/** 周视图的图例：这一周出现过的状态 */
+const legend = computed(() =>
+  legendOf(
+    weekRows.value.flatMap(day =>
+      day.rows.map(group => rowStatus(group, markOf(group)))
+    )
+  )
+)
 /** 周视图整体为空：这一周没有任何条目，且不在加载中、也没有出错（出错由顶部说明提示） */
 const weekEmpty = computed(
   () => !cal.entries.value.length && !cal.loading.value && !cal.error.value
@@ -293,4 +360,5 @@ async function activate(entry: CalendarEntry): Promise<void> {
 }
 </script>
 
+<style scoped src="../components/row-status.css"></style>
 <style scoped src="./calendar-view.css"></style>

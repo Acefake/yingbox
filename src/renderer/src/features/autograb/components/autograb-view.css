@@ -3,13 +3,55 @@
 .ag-view {
   display: flex;
   flex-direction: column;
-  gap: var(--space-8);
+  gap: var(--space-7);
+}
+
+/* 前置条件紧跟工具栏 */
+.ag-needs {
+  margin-top: calc(var(--space-4) * -1);
+}
+
+/* 追更列表的海报墙比首页小一档：几部剧时不至于一张海报占半屏 */
+.ag-posters {
+  --poster-min-width: 132px; /* style-tokens: layout（追更页海报墙的最小列宽） */
+  --poster-gap-x: var(--space-4);
+  --poster-gap-y: var(--space-5);
 }
 
 .ag-section {
   display: flex;
   flex-direction: column;
-  gap: var(--space-3);
+  gap: var(--space-4);
+}
+
+/* 「需要你处理」的卡片网格：宽窗口三列，窄了自动收 */
+.ag-tasks {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: var(--space-4);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.ag-tasks > li {
+  display: flex;
+}
+
+.ag-tasks > li > * {
+  flex: 1;
+}
+
+/* 分区标题行：标题在左，筛选或批量操作在右 */
+.ag-section-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2) var(--space-3);
+}
+
+.ag-section-action {
+  margin-left: auto;
 }
 
 .ag-section-title {
@@ -17,7 +59,7 @@
   align-items: baseline;
   gap: var(--space-2);
   margin: 0;
-  font-size: var(--text-md);
+  font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
   color: var(--text-primary);
 }
@@ -29,11 +71,41 @@
   font-variant-numeric: tabular-nums;
 }
 
-.ag-state {
-  display: inline-flex;
+/* ── 工具栏：状态句在左，策略 / 立即检查 / 总开关在右 ── */
+.ag-toolbar {
+  display: flex;
   align-items: center;
-  gap: var(--space-1);
+  gap: var(--space-3);
+}
+
+.ag-state {
+  display: flex;
+  flex: 1;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-2);
+  min-width: 0;
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--text-primary);
   font-variant-numeric: tabular-nums;
+}
+
+.ag-state-dot {
+  flex: none;
+  width: 8px;
+  height: 8px;
+  border-radius: var(--radius-full);
+  background: var(--text-quaternary);
+}
+
+.ag-state-dot.is-on {
+  background: var(--success);
+}
+
+.ag-usage {
+  font-size: var(--text-xs);
+  color: var(--text-tertiary);
 }
 
 .ag-need {

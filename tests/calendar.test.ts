@@ -45,7 +45,9 @@ import {
 } from '../src/renderer/src/features/calendar/calendar-rules'
 import {
   groupShowsByDay,
+  legendOf,
   mergedCode,
+  rowStatus,
 } from '../src/renderer/src/features/calendar/calendar-rows'
 
 const TODAY = '2026-10-24' // 周六
@@ -678,5 +680,41 @@ describe('周视图同剧同日合并', () => {
       ep(1, 10, { status: 'upcoming' }),
     ])
     expect(seen.status).toBe('watched')
+  })
+
+  it('行状态：追更标记优先，否则按观看与本地有没有文件', () => {
+    const [g] = groupShowsByDay([ep(1, 9)])
+    expect(rowStatus(g, null)).toEqual({ tone: 'playable', label: '可播放' })
+    const [remote] = groupShowsByDay([
+      ep(1, 9, {
+        library: { seriesId: 1, season: 1, episode: 9, playable: false },
+      }),
+    ])
+    expect(rowStatus(remote, null)).toEqual({
+      tone: 'unwatched',
+      label: '未看',
+    })
+    expect(rowStatus(g, { kind: 'pending', label: '待确认' })).toEqual({
+      tone: 'pending',
+      label: '待确认',
+    })
+    expect(rowStatus(g, { kind: 'saved', label: '已转存' }).tone).toBe(
+      'ingesting'
+    )
+    const [seen] = groupShowsByDay([ep(1, 9, { status: 'watched' })])
+    expect(rowStatus(seen, null)).toEqual({ tone: 'watched', label: '已看' })
+    const [up] = groupShowsByDay([ep(1, 9, { status: 'upcoming' })])
+    expect(rowStatus(up, null)).toEqual({ tone: 'upcoming', label: '待播' })
+  })
+
+  it('图例只列出现过的状态，按固定先后', () => {
+    expect(
+      legendOf([
+        { tone: 'watched', label: '已看' },
+        { tone: 'pending', label: '待确认' },
+        { tone: 'playable', label: '可播放' },
+        { tone: 'pending', label: '待确认' },
+      ]).map(item => item.label)
+    ).toEqual(['可播放', '待确认', '已看'])
   })
 })

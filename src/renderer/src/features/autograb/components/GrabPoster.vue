@@ -27,8 +27,8 @@ const props = withDefaults(
   defineProps<{
     src: string | null
     title: string
-    /** sm：列表行；md：分组头 */
-    size?: 'sm' | 'md'
+    /** sm：列表行；md：分组头；lg：待处理卡片 */
+    size?: 'sm' | 'md' | 'lg'
   }>(),
   { size: 'sm' }
 )
@@ -54,6 +54,10 @@ watch(
 
 .grab-poster.is-md {
   width: 48px;
+}
+
+.grab-poster.is-lg {
+  width: 56px;
 }
 
 .grab-poster-img {
