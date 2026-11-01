@@ -34,6 +34,12 @@
         />
         <DoubanChartRow @open="openDoubanDetail" />
         <HotShelf
+          kind="movie"
+          @open="openDoubanDetail"
+          @more="kind => browse.open({ type: 'hot', kind })"
+        />
+        <HotShelf
+          kind="tv"
           @open="openDoubanDetail"
           @more="kind => browse.open({ type: 'hot', kind })"
         />

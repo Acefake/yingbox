@@ -24,6 +24,12 @@
         <HomeActivity @open="openWatchlist" />
         <DoubanChartRow @open="openDouban" />
         <HotShelf
+          kind="movie"
+          @open="openDouban"
+          @more="kind => browse.open({ type: 'hot', kind })"
+        />
+        <HotShelf
+          kind="tv"
           @open="openDouban"
           @more="kind => browse.open({ type: 'hot', kind })"
         />
