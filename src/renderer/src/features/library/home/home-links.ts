@@ -10,6 +10,7 @@ import type {
   LibraryItemSummary,
   TopLevelItemType,
 } from '../../../../../shared/library/ipc'
+import { type RatingMarks, ratingMarksOf } from '@/components/ui/rating-badge'
 import { formatRating } from '../../../../../shared/library/rating'
 
 import { libraryBridge } from '../api/bridge'
@@ -40,6 +41,8 @@ export interface LibraryHighlight {
   specs: SpecBadge[]
   /** 「豆瓣 8.3」「TMDB 7.9」；没有评分为空串 */
   rating: string
+  /** 按来源拆开的评分（首页大图用来源小标显示）；IMDb / NFO 来源两个都为 null */
+  ratings: RatingMarks
   watchlist: WatchlistMeta
 }
 
@@ -138,6 +141,7 @@ function toHighlight(node: LibraryItemNode): LibraryHighlight | null {
       fileNames: videoNamesOf(node),
     }),
     rating: formatRating(node.rating, node.ratingSource),
+    ratings: ratingMarksOf(node.rating, node.ratingSource),
     watchlist: watchlistMetaOf(node),
   }
 }
