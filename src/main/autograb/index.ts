@@ -52,6 +52,10 @@ export function registerAutograb(
 
   const service = createAutograbService({
     calendar: range => library.call('calendar.episodes', range),
+    seriesExists: async (itemId, title) => {
+      const item = await library.call('getItem', { itemId })
+      return item !== null && item.type === 'series' && item.title === title
+    },
     notify: async changes => {
       const mountRoot = host.setting('library.notify.mountRoot')
       await library.call(

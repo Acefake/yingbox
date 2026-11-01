@@ -38,6 +38,7 @@ import {
 } from './policy'
 import { revertEpisode } from './revert'
 import {
+  MAX_SEARCH_PER_TICK,
   addDays,
   calendarRange,
   episodeKey,
@@ -45,6 +46,7 @@ import {
   localDate,
   nextTry,
 } from './schedule-rules'
+import { adoptRenamed } from './reconcile'
 import { applyCalendar, nextAirDates, seriesPosters } from './records'
 import { createSaver } from './saver'
 import {
@@ -57,8 +59,6 @@ import {
   pruneEpisodes,
 } from './state'
 
-/** 一轮最多搜几集 */
-const MAX_SEARCH_PER_TICK = 6
 export type { AutograbService } from './deps'
 
 /** 创建追更服务 */
@@ -213,6 +213,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       if (state.gate.loginPause && deps.pan.loggedIn()) gateRef.resume()
       const result = await deps.calendar(calendarRange(now))
       lastCalendar = result.episodes
+      if (await adoptRenamed(state, lastCalendar, deps.seriesExists)) dirty()
       syncRecords(result.episodes, now)
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())

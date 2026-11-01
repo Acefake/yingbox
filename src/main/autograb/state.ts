@@ -43,6 +43,8 @@ export interface SeriesSetting {
   confirmFirst?: number
   /** 覆盖全局的偏好项 */
   prefs: AutograbPrefsOverride
+  /** 剧的 TMDB id（在日历里出现过才有）：条目 id 变了时靠它认出同一部剧 */
+  tmdbId?: string
 }
 
 /** 一集的记录 */
@@ -235,6 +237,7 @@ export function parseState(raw: unknown, now: number): AutograbState {
           : LEGACY_CONFIRM_FIRST
         : confirmFirstOf(value.confirmFirst)
       if (confirmFirst !== undefined) setting.confirmFirst = confirmFirst
+      if (/^\d+$/.test(s(value.tmdbId))) setting.tmdbId = s(value.tmdbId)
       state.series[id] = setting
     }
   if (isObj(raw.episodes))

@@ -25,6 +25,8 @@ import type { AutograbState, EpisodeRecord } from './state'
 /** 依赖 */
 export interface AutograbDeps {
   calendar(range: CalendarRequest): Promise<CalendarResult>
+  /** 确认旧条目是否仍是媒体库里这部剧（条目 id 可能被别的条目复用，所以连剧名一起核对）；不可用或查询失败时不自动迁移。 */
+  seriesExists?(seriesId: number, title: string): Promise<boolean>
   notify(changes: FileChangeNotice[]): Promise<void>
   pan: {
     loggedIn(): boolean
