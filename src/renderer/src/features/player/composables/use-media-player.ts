@@ -1,6 +1,7 @@
 import { toast } from '@/components/ui'
 import { getSetting } from '@/features/settings'
 
+import { needsMpv } from '../../../../../shared/disc-media'
 import type { VideoProbe } from '../../../../../shared/video-range'
 import { syncHighQualityScaling } from '../scaling/scaling-sync'
 import type { ContinueMeta } from '../continue/continue-rules'
@@ -154,6 +155,7 @@ export async function openMediaPlayer(
     video: playlist?.[index ?? 0]?.video ?? options.video,
     autoMpvForDv,
     mpvBridge: typeof window !== 'undefined' && Boolean(window.api?.mpv),
+    mpvOnly: needsMpv(playlist?.[index ?? 0]?.filePath ?? filePath ?? url),
   })
   let mpv: 'ok' | 'failed' | 'skipped' = 'skipped'
   let mpvError: string | undefined

@@ -6,6 +6,7 @@
  * 换到不带头的线路时还原成原值（用户 mpv.conf 里的 UA / Referer 不会被影盒覆盖）。
  */
 import { refererFor } from './media-headers'
+import type { DiscSource } from './mpv-disc'
 import { splitStreamHeaders } from '../shared/net/stream-headers'
 import type { MpvOpenOptions } from '../shared/mpv'
 
@@ -22,10 +23,14 @@ const MPV_DEFAULTS: Record<MpvHeaderName, string> = {
 }
 
 /** 打开目标（已去掉请求头后缀）与要带的请求头 */
-export function mpvStream(options: MpvOpenOptions): {
+export function mpvStream(
+  options: MpvOpenOptions,
+  disc?: DiscSource | null
+): {
   target: string
   headers: MpvHeaders
 } {
+  if (disc) return { target: disc.target, headers: {} }
   if (options.filePath || !options.url)
     return { target: options.filePath || options.url || '', headers: {} }
   const { url, headers } = splitStreamHeaders(options.url)

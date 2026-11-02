@@ -2,6 +2,7 @@
  * mpv 状态的初始值、要观察的属性、track-list / playlist 原始数据到共享类型的整理，
  * 以及新进程的命令行参数（{@link spawnArgs}）与换片前要设的属性（{@link replaceProps}）。
  */
+import type { DiscSource } from './mpv-disc'
 import { type MpvHeaders, headerArgs } from './mpv-stream'
 import type { MpvPlaylistEntry, MpvStatus, MpvTrack } from '../shared/mpv'
 
@@ -93,6 +94,8 @@ export interface SpawnArgsInput {
   /** RTX 视频超分：要走 D3D11 */
   vsr: boolean
   highQualityScaling?: boolean
+  /** 光盘镜像：目标是 bd:// / dvd://，镜像路径用设备选项带上 */
+  disc?: DiscSource | null
 }
 
 /** 新开 mpv 进程的命令行参数（目标地址在最后） */
@@ -117,6 +120,7 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
   if (input.title) args.push(`--title=${input.title}`)
   if (input.subFile) args.push(`--sub-file=${input.subFile}`)
   args.push(...headerArgs(input.headers))
+  if (input.disc) args.push(`--${input.disc.option}=${input.disc.device}`)
   args.push(input.target)
   return args
 }
