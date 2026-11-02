@@ -169,3 +169,14 @@ describe('追更服务', () => {
     expect(record.candidates).toEqual([])
   })
 })
+
+it('目标目录不存在文件时不能将已接收过标记为转存成功', async () => {
+  const h = setup([episode(5)])
+  await h.service.setSeries(7, { mode: 'confirm', cid: '55', cidName: '繁花' })
+  await h.service.tick()
+  h.deps.pan.receive = async () => {
+    throw new Pan115Error('已经接收过', 4100024)
+  }
+  expect((await h.service.grab('7:1:5', 0)).ok).toBe(false)
+  expect((await h.service.overview()).episodes[0].status).not.toBe('saved')
+})

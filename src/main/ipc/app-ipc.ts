@@ -1,14 +1,20 @@
-import { BrowserWindow } from 'electron'
+import { BrowserWindow, app as electronApp } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { autoUpdater } from 'electron-updater'
 import { networkInterfaces } from 'node:os'
 import { emit, implement } from '../rpc'
 import { app } from '../../shared/contract/app'
-import { type UpdateStatusEvent, update } from '../../shared/contract/update'
+import {
+  type UpdateInfo,
+  type UpdateStatusEvent,
+  update,
+} from '../../shared/contract/update'
 import { win } from '../../shared/contract/win'
 
 autoUpdater.autoDownload = false
-autoUpdater.autoInstallOnAppQuit = true
+autoUpdater.autoInstallOnAppQuit = false
+let latestStatus: UpdateStatusEvent | null = null
+let latestInfo: UpdateInfo | null = null
 
 /** 启动后检查更新（仅打包环境；失败只告警） */
 export function checkForUpdatesOnStartup(): void {
@@ -72,9 +78,26 @@ export function registerAppIpc(
     install: () => {
       autoUpdater.quitAndInstall(false, true)
     },
+    snapshot: () => ({
+      status: latestStatus,
+      info: latestInfo,
+      currentVersion: electronApp.getVersion(),
+    }),
   })
 
   const sendStatus = (status: UpdateStatusEvent): void => {
+    latestStatus = status
+    if ('info' in status && status.status !== 'not-available') {
+      const info = status.info
+      latestInfo =
+        status.status === 'downloaded' && latestInfo?.version === info.version
+          ? {
+              ...latestInfo,
+              ...info,
+              releaseNotes: info.releaseNotes ?? latestInfo.releaseNotes,
+            }
+          : info
+    }
     const target = getMainWindow()
     if (target) emit(update, 'status', status, target.webContents)
   }

@@ -81,7 +81,7 @@ export function createSaver(ctx: SaverContext): {
     try {
       const gate = ctx.gate()
       const existing = await gate.run('snap', () => ctx.deps.pan.entries(cid))
-      if (!existing.some(e => e.name === candidate.fileName)) {
+      if (!existing.some(e => !e.isDir && e.name === candidate.fileName)) {
         const space = await gate.run('snap', () => ctx.deps.pan.space())
         const need = Math.max(0, candidate.size) + SPACE_MARGIN
         if (space.remain < need) return noSpace(record, space.remain, need)
@@ -93,9 +93,16 @@ export function createSaver(ctx: SaverContext): {
       if (code !== ALREADY_RECEIVED) return failed(record, index, error)
       received = true
     }
-    const savedFile = received
-      ? await locate(cid, candidate.fileName).catch(() => null)
-      : null
+    let savedFile: { id: string; size: number } | null = null
+    if (received) {
+      try {
+        savedFile = await locate(cid, candidate.fileName)
+        if (!savedFile)
+          throw new Error('所选目录中未找到文件，请核对 115 转存位置后重试')
+      } catch (error) {
+        return failed(record, index, error)
+      }
+    }
     if (byUser) ctx.state().spacePause = null
     record.status = 'saved'
     record.savedAt = ctx.deps.now()

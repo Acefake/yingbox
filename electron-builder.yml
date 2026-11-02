@@ -41,7 +41,7 @@ win:
       arch:
         - x64
 nsis:
-  artifactName: 影盒-${version}-setup.${ext}
+  artifactName: yingbox-${version}-setup.${ext}
   shortcutName: 影盒
   uninstallDisplayName: 影盒
   installerIcon: resources/logo.ico

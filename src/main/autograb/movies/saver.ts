@@ -36,7 +36,11 @@ export function createMovieSaver(ctx: MovieSaverContext): {
       if (!candidate) return { ok: false, error: '候选不存在，请重新搜索' }
       const cid = ctx.targetCid()
       try {
-        await transferOne(await deps.gate(), deps.pan, candidate, cid)
+        const gate = await deps.gate()
+        await transferOne(gate, deps.pan, candidate, cid)
+        const names = await gate.run('snap', () => deps.pan.names(cid))
+        if (!names.includes(candidate.fileName))
+          throw new Error('所选目录中未找到文件，请核对 115 转存位置后重试')
       } catch (error) {
         const message = (error as Error).message
         if (isDeadShare(error)) {

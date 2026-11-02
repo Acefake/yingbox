@@ -82,7 +82,10 @@ function setup(info: Partial<MovieInfo> = {}, defaultCid = '555'): Harness {
         ],
       }),
       receive: async (_u, _p, ids, cid) => void received.push({ ids, cid }),
-      names: async () => [],
+      names: async cid =>
+        received.some(r => r.cid === cid)
+          ? ['疯狂动物城2.2026.2160p.WEB-DL.DDP5.1.中字.mkv']
+          : [],
       dirPath: async () => ['电影'],
     },
     notify: async path => void notified.push(path),
@@ -221,4 +224,14 @@ describe('电影上线追踪', () => {
     await h.service.tick()
     expect(vi.mocked(h.deps.tmdb.movie).mock.calls.length).toBe(calls + 1)
   })
+})
+
+it('电影目标目录为空时不能标记成功', async () => {
+  const h = setup()
+  await h.service.track(77)
+  h.clock.t = searchStart(DIGITAL) + 60_000
+  await h.service.tick()
+  h.deps.pan.names = async () => []
+  expect((await h.service.grab(77, 0)).ok).toBe(false)
+  expect((await statusOf(h)).status).not.toBe('saved')
 })

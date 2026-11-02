@@ -56,7 +56,9 @@ export function createPanAdapter(
       ),
     // 115 客户端只给条目列表（#155 去掉了 names），这里取名字
     names: cid =>
-      pan115.use(async client => (await client.entries(cid)).map(e => e.name)),
+      pan115.use(async client =>
+        (await client.entries(cid)).filter(e => !e.isDir).map(e => e.name)
+      ),
     dirs: cid => pan115.use(client => client.dirs(cid)),
     dirPath: cid =>
       pan115.use(async client => {

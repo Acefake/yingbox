@@ -168,16 +168,19 @@ describe('目录浏览列表', () => {
       await vi.importActual<typeof import('node:fs/promises')>(
         'node:fs/promises'
       )
-    vi.mocked(fsp.readdir).mockImplementation(async (path, options) => {
-      if (
-        options &&
-        typeof options === 'object' &&
-        'withFileTypes' in options &&
-        options.withFileTypes
-      )
+    // readdir 是重载函数，mock 的签名会收窄到 withFileTypes: true 那一支；
+    // 这里要模拟「带 withFileTypes 就失败、退回归还名字」的两种返回，所以整体断言回原函数类型。
+    const fallback = async (
+      path: string,
+      options?: { withFileTypes?: boolean }
+    ): Promise<string[]> => {
+      if (options?.withFileTypes)
         throw Object.assign(new Error('ENOTSUP'), { code: 'ENOTSUP' })
-      return actual.readdir(path as string)
-    })
+      return actual.readdir(path)
+    }
+    vi.mocked(fsp.readdir).mockImplementation(
+      fallback as unknown as typeof fsp.readdir
+    )
     const parent = workDir()
     const root = join(parent, 'media')
     mkdirSync(join(root, 'Shows'), { recursive: true })

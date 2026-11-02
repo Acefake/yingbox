@@ -43,7 +43,7 @@ vi.mock('electron', () => ({
 const LEGACY_API: Record<string, string[]> = {
   dialog: ['openDirectory', 'openFile'],
   app: ['networkIps'],
-  update: ['check', 'download', 'install', 'onStatus', 'offStatus'],
+  update: ['check', 'download', 'install', 'snapshot', 'onStatus', 'offStatus'],
   shell: ['openPath'],
   win: ['minimize', 'maximize', 'close', 'isMaximized'],
   subtitle: ['find', 'read', 'searchOnline', 'downloadOnline'],
