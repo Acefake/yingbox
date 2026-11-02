@@ -82,23 +82,7 @@ export interface OnlinePlayRecord {
 }
 
 /** TMDB 影片 / 剧集详情：只声明详情页读的字段 */
-export interface TmdbDetail {
-  id: number
-  title?: string
-  name?: string
-  original_title?: string
-  original_name?: string
-  overview?: string
-  poster_path?: string | null
-  backdrop_path?: string | null
-  vote_average?: number
-  release_date?: string
-  first_air_date?: string
-  runtime?: number
-  imdb_id?: string | null
-  genres?: { id: number; name: string }[]
-  production_countries?: { name: string }[]
-}
+export type { TmdbDetail } from '../../../../shared/tmdb/types'
 
 /** TMDB 演职员里的一位演员 */
 export interface TmdbCastMember {
@@ -126,27 +110,4 @@ export interface CatSpiderSite {
 }
 
 /** 豆瓣卡片（在线首页；也原样存进收藏 media_favorites） */
-export interface DoubanItem {
-  title: string
-  /** 用来搜源的片名：TMDB 找到条目时换成 TMDB 的中文名 */
-  searchTitle: string
-  original_title: string
-  /** 显示用封面：豆瓣封面，可由 TMDB 增强 */
-  cover: string
-  /** 豆瓣封面 */
-  coverSrc: string
-  /** 首页轮播横向剧照（豆瓣或 TMDB）；缺失时使用封面 */
-  backdrop?: string
-  /** 评分文字，无评分为「暂无」 */
-  rate: string
-  /** TMDB 评分（补全得到）；有豆瓣分数时界面仍显示豆瓣 */
-  tmdbRate?: number
-  /** movie.douban.com/subject/<id>/（去重键、取预告片用） */
-  url: string
-  year: string
-  /** 「电影」/「剧集」 */
-  type: string
-  overview: string
-  /** 来自「电影」还是「电视剧」分类（取预告片时用；旧收藏里没有，按电影取） */
-  kind?: 'movie' | 'tv'
-}
+export type { DoubanItem } from '../../../../shared/douban/item'

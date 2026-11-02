@@ -100,7 +100,7 @@ import {
 import { useOnlineSearch } from '../composables/use-online-search'
 import { useDetailSources } from '../composables/use-detail-sources'
 import { useTmdbDetail } from '../composables/use-tmdb-detail'
-import { doubanSubjectId } from '../utils/douban-preview'
+import { doubanSubjectId } from '../../../../../shared/douban/item'
 import DetailCastGallery from './DetailCastGallery.vue'
 import DetailHero from './DetailHero.vue'
 import DetailLightbox from './DetailLightbox.vue'

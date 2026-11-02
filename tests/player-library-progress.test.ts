@@ -12,7 +12,7 @@ const sinkModule =
 const { useProgressSaver } =
   await import('../src/renderer/src/features/player/composables/use-progress-saver')
 const { mergeRecords, addTombstone } =
-  await import('../src/renderer/src/features/player/continue/continue-rules')
+  await import('../src/shared/playback/continue-rules')
 const { atEnd, mpvStep } =
   await import('../src/renderer/src/features/player/mpv-session/mpv-session-rules')
 const { readMediaProgress } =

@@ -6,9 +6,9 @@
  * 4 路并发；直接改传入的条目（传响应式数组里的元素，改动即刷新卡片）。
  * 找不到或出错的卡退回豆瓣封面；引擎没有 TMDB 令牌时整批停下，剩下的卡也退回豆瓣封面。
  */
-import { tmdb as tmdbApi } from '../api/online'
-import type { DoubanItem, TmdbDetail } from '../types'
-import { matchingTmdbCandidates } from './tmdb-match'
+import { matchingTmdbCandidates } from '../tmdb/match'
+import type { TmdbDetail } from '../tmdb/types'
+import type { DoubanItem } from './item'
 
 /** TMDB 搜索结果的一条（/search/multi 多一个 media_type） */
 type TmdbHit = TmdbDetail & { media_type?: string }
@@ -75,12 +75,12 @@ function titleVariants(title: string): string[] {
  * 给一批豆瓣卡补 TMDB 信息。
  * @param items - 要补的卡（原地修改）
  * @param kind - 这批卡来自电影还是电视剧分类
- * @param search - TMDB 请求（默认走引擎）
+ * @param search - TMDB 请求（渲染层传 online.tmdb，服务端传引擎调用）
  */
 export async function enrichFromTmdb(
   items: DoubanItem[],
   kind: 'movie' | 'tv',
-  search: TmdbSearch = tmdbApi
+  search: TmdbSearch
 ): Promise<void> {
   const isTv = kind === 'tv'
   const NO_TOKEN = new Error('TMDB 未配置令牌')

@@ -86,7 +86,7 @@ import { skipKey } from '../skip/skip-rules'
 import { consumeSleepAtEnd } from '../sleep/sleep-timer'
 import { useDolbyVision } from '../dolby-vision/use-dolby-vision'
 import { usePlayerRemote } from '../remote/use-player-remote'
-import { mediaProgressKey } from '../utils/play-progress'
+import { mediaProgressKey } from '../../../../../shared/playback/media-progress'
 import { singleFlight } from '../utils/single-flight'
 import {
   type EndHint,

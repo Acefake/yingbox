@@ -7,13 +7,9 @@
  */
 import { isIncognito } from '@/features/incognito'
 
-/** 播放条目上的媒体库标记（随继续播放记录持久化，须可 JSON 序列化）。 */
-export interface LibraryRef {
-  /** 电影或那一集的条目 id */
-  itemId: number
-  /** 播放的视频文件 id */
-  fileId: number
-}
+import type { LibraryRef } from '../../../../../shared/playback/playlist'
+
+export type { LibraryRef }
 
 /** 媒体库那一侧的实现。 */
 export interface LibraryProgressSink {

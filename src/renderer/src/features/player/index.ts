@@ -60,7 +60,7 @@ export type {
   ContinueMeta,
   ContinueRecord,
   ContinueSection,
-} from './continue/continue-rules'
+} from '../../../../shared/playback/continue-rules'
 /** 自动检测片头片尾（媒体库剧集详情的「检测片头片尾」） */
 export {
   cancelDetect,
@@ -70,8 +70,11 @@ export {
   introDetectSupported,
   skipKeyOf,
 } from './skip/intro-detect'
-export { metaOf, replayOptions } from './continue/continue-rules'
-export { progressRatio } from './continue/continue-rules'
+export {
+  metaOf,
+  replayOptions,
+} from '../../../../shared/playback/continue-rules'
+export { progressRatio } from '../../../../shared/playback/continue-rules'
 /** 遥控当前播放（AI 助手，经上面的 runPlayerCommand / askPlotQuestion）：命令与回执的形状 */
 export type {
   PlayerRemoteCommand,

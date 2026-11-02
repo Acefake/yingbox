@@ -3,7 +3,7 @@ import { getSetting } from '@/features/settings'
 
 import type { VideoProbe } from '../../../../../shared/video-range'
 import { syncHighQualityScaling } from '../scaling/scaling-sync'
-import type { ContinueMeta } from '../continue/continue-rules'
+import type { ContinueMeta } from '../../../../../shared/playback/continue-rules'
 import { startContinue } from '../continue/continue-store'
 import { trackMpvSession } from '../mpv-session/mpv-session'
 import { watchMpvInstall } from '../utils/mpv-handoff'

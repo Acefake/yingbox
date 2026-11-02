@@ -7,78 +7,35 @@ import {
   writeStoredText,
 } from '@/utils/storage'
 
+import {
+  type MediaProgress,
+  type ProgressMap,
+  parseProgressMap,
+  progressOf,
+  putProgress,
+} from '../../../../../shared/playback/media-progress'
 import { readWatched } from '../watched'
 
 const ONLINE_KEY = 'online_play_history'
 const PROGRESS_MAP_KEY = 'media_play_progress'
 
-type ProgressMap = Record<
-  string,
-  { progress: number; duration: number; updatedAt: number }
->
-
 /** 读进度表（键不变：media_play_progress）；没有或坏掉时为空表。 */
 function readProgressMap(): ProgressMap {
   try {
-    const raw: unknown = JSON.parse(readStoredText(PROGRESS_MAP_KEY) || '{}')
-    if (!raw || typeof raw !== 'object' || Array.isArray(raw)) return {}
-    return Object.fromEntries(
-      Object.entries(raw).filter(([, value]) => {
-        if (!value || typeof value !== 'object') return false
-        return ['progress', 'duration', 'updatedAt'].every(
-          key =>
-            typeof value[key] === 'number' &&
-            Number.isFinite(value[key]) &&
-            value[key] >= 0
-        )
-      })
+    return parseProgressMap(
+      JSON.parse(readStoredText(PROGRESS_MAP_KEY) || '{}')
     )
   } catch {
     return {}
   }
 }
 
-/** 写进度表；存储不可用时 writeStoredText 自己告警。 */
-function writeProgressMap(map: ProgressMap): void {
-  writeStoredText(PROGRESS_MAP_KEY, JSON.stringify(map))
-}
-
-/** Prefer URL / filePath as stable key. */
-export function mediaProgressKey(input: {
-  url?: string
-  filePath?: string
-}): string {
-  const url = typeof input.url === 'string' ? input.url.trim() : ''
-  const filePath =
-    typeof input.filePath === 'string' ? input.filePath.trim() : ''
-  return url || filePath
-}
-
 /**
  * 一个进度键的观看情况：位置与总时长（秒），是否看完（「已看完」集合里的独立标记，
  * 不从位置 0 推断），以及最后一次记录的时间。进度表没有记录且没看完返回 null。
  */
-export function readMediaProgress(key: string): {
-  progress: number
-  duration: number
-  finished: boolean
-  updatedAt: number
-} | null {
-  const hit = key ? readProgressMap()[key] : undefined
-  const watched = key
-    ? readWatched().find(e => e.key === key.trim())
-    : undefined
-  const has = !!hit && typeof hit.progress === 'number'
-  if (!has && !watched) return null
-  return {
-    progress: has ? hit.progress : 0,
-    duration: has && typeof hit.duration === 'number' ? hit.duration : 0,
-    finished: !!watched,
-    updatedAt: Math.max(
-      has && typeof hit.updatedAt === 'number' ? hit.updatedAt : 0,
-      watched?.at ?? 0
-    ),
-  }
+export function readMediaProgress(key: string): MediaProgress | null {
+  return progressOf(readProgressMap(), readWatched(), key)
 }
 
 export function getMediaProgress(key: string): number {
@@ -97,19 +54,15 @@ export function saveMediaProgress(
 ): void {
   // 无痕模式不留续播进度
   if (!key || isIncognito()) return
-  if (!Number.isFinite(progress) || progress < 0) return
-
-  const map = readProgressMap()
-  map[key] = {
+  const map = putProgress(
+    readProgressMap(),
+    key,
     progress,
-    duration: Number.isFinite(duration) ? duration : 0,
-    updatedAt: Date.now(),
-  }
-  // keep map bounded
-  const entries = Object.entries(map)
-    .sort((a, b) => b[1].updatedAt - a[1].updatedAt)
-    .slice(0, 80)
-  writeProgressMap(Object.fromEntries(entries))
+    duration,
+    Date.now()
+  )
+  if (!map) return
+  writeStoredText(PROGRESS_MAP_KEY, JSON.stringify(map))
 
   const history = readStoredArray<JsonRecord>(ONLINE_KEY)
   const index = history.findIndex(entry => entry?.url === key)

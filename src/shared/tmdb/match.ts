@@ -1,4 +1,4 @@
-import type { TmdbDetail } from '../types'
+import type { TmdbDetail } from './types'
 
 /** 搜索结果（multi 额外携带媒体类型）。 */
 export type TmdbCandidate = Partial<TmdbDetail> & { media_type?: string }

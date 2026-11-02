@@ -26,8 +26,9 @@ describe('设置项', () => {
 
 describe('豆瓣卡的预览来源', () => {
   it('从条目地址取 ID，按分类取预告；无预告返回 null；不是豆瓣条目不预览', async () => {
-    const { doubanPreviewSource, doubanSubjectId } =
+    const { doubanPreviewSource } =
       await import('../src/renderer/src/features/online/utils/douban-preview')
+    const { doubanSubjectId } = await import('../src/shared/douban/item')
     expect(doubanSubjectId('https://movie.douban.com/subject/35267208/')).toBe(
       '35267208'
     )

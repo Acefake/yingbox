@@ -17,11 +17,8 @@ import {
   libraryResumeAt,
   reportLibraryProgress,
 } from '../progress/library-sink'
-import {
-  getMediaProgress,
-  mediaProgressKey,
-  saveMediaProgress,
-} from '../utils/play-progress'
+import { mediaProgressKey } from '../../../../../shared/playback/media-progress'
+import { getMediaProgress, saveMediaProgress } from '../utils/play-progress'
 import {
   type EndHint,
   type PlaylistEntry,

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { matchingTmdbCandidates } from '@/features/online/utils/tmdb-match'
+import { matchingTmdbCandidates } from '../src/shared/tmdb/match'
 
 describe('在线元数据作品身份匹配', () => {
   it('译名不同时可按原名匹配，保留 NFKC 与标点归一化', () => {

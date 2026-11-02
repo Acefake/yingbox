@@ -1,10 +1,11 @@
 /**
  * 「继续播放」的纯规则：记录的形状、开播 / 进度 / 看完时怎么改记录、每个板块取哪些、卡片上的文案。
  *
- * 不依赖 Vue 和 localStorage，存取在 continue-store.ts，界面在 ContinueRow.vue。
+ * 不依赖 Vue 和 localStorage：桌面与网页存在 localStorage（features/player/continue/continue-store.ts），
+ * 安卓经服务端存在 sqlite（src/server/playback）。
  */
-import { WATCHED_RATIO } from '../../../../../shared/library/watch-progress'
-import type { PlaylistEntry } from '../utils/play-queue'
+import { WATCHED_RATIO } from '../library/watch-progress'
+import type { PlaylistEntry } from './playlist'
 
 /** 板块：媒体库三个分区 + 在线 + AV；每个板块顶部只列自己的记录。 */
 export type ContinueSection = 'movie' | 'tv' | 'jav' | 'online' | 'av'

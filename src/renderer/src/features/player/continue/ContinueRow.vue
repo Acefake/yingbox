@@ -74,7 +74,7 @@
  * - 页面监听 more 时标题带 ›（如首页跳到「最近播放」）；
  * - 点卡片默认按记录里的载荷重新打开播放器并续播；板块有自己的续播方式（地址会过期的源）时传 resume；
  * - 右键或卡片上的 … 弹菜单：继续播放 / 从头播放 / 打开详情（页面监听 detail 才有）/ 标记已看完 / 移除。
- * 记录与规则见 continue-store.ts / continue-rules.ts。
+ * 记录与规则见 continue-store.ts / shared/playback/continue-rules.ts。
  */
 import {
   computed,
@@ -102,7 +102,7 @@ import {
   recordsFor,
   replayOptions,
   subtitleOf,
-} from './continue-rules'
+} from '../../../../../shared/playback/continue-rules'
 import {
   continueRecords,
   finishContinue,

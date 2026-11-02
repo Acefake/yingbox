@@ -6,4 +6,4 @@ export {
   unmarkWatched,
   WATCHED_STORAGE_KEY,
 } from './watched-store'
-export type { WatchedEntry } from './watched-rules'
+export type { WatchedEntry } from '../../../../../shared/playback/watched-rules'

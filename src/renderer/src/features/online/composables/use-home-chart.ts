@@ -1,5 +1,5 @@
 /**
- * 首页榜单行的数据：先取豆瓣一周口碑电影榜，失败或为空时取热门电影第一页的前 10 部（规则见 utils/home-chart.ts），
+ * 首页榜单行的数据：先取豆瓣一周口碑电影榜，失败或为空时取热门电影第一页的前 10 部（规则见 shared/douban/chart.ts），
  * 再用 TMDB 补海报（没有令牌时用豆瓣封面）。结果放在模块级单例里，回到首页不重取；引擎那边另有 10 分钟页缓存。
  */
 import { type Ref, ref } from 'vue'
@@ -8,8 +8,8 @@ import { defaultDoubanQuery } from '../../../../../shared/douban/query'
 import { doubanBrowse, doubanChart, onlineAvailable } from '../api/online'
 import type { DoubanItem } from '../types'
 import { enrichDoubanItems } from '../utils/douban-enrich'
-import { pickChart } from '../utils/home-chart'
-import { doubanItemOf } from './use-douban-feed'
+import { pickChart } from '../../../../../shared/douban/chart'
+import { doubanItemOf } from '../../../../../shared/douban/item'
 
 /** 榜单行状态 */
 export interface HomeChartState {

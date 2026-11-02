@@ -7,6 +7,10 @@ import { type Ref, ref } from 'vue'
 
 import { readStoredArray, removeStored, saveStoredArray } from '@/utils/storage'
 
+import {
+  hasFavorite,
+  toggleFavoriteIn,
+} from '../../../../../shared/playback/favorites'
 import type { DoubanItem } from '../types'
 
 export const FAVORITES_KEY = 'media_favorites'
@@ -21,15 +25,13 @@ export function favoriteItems(): Ref<DoubanItem[]> {
 
 /** 是否已收藏（按豆瓣链接比对）。 */
 export function isFavorite(item: DoubanItem): boolean {
-  return favoriteItems().value.some(entry => entry.url === item.url)
+  return hasFavorite(favoriteItems().value, item.url)
 }
 
 /** 收藏 / 取消收藏。 */
 export function toggleFavorite(item: DoubanItem): void {
   const list = favoriteItems()
-  list.value = isFavorite(item)
-    ? list.value.filter(entry => entry.url !== item.url)
-    : [item, ...list.value]
+  list.value = toggleFavoriteIn(list.value, item)
   saveStoredArray(FAVORITES_KEY, list.value)
 }
 

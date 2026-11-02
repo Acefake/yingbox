@@ -7,10 +7,9 @@ import {
   filterPatch,
   filterPills,
 } from '../../src/renderer/src/features/online/utils/browse-filters'
+import { COLLECTIONS, HOME_GENRES } from '../../src/shared/douban/collections'
 import {
   type BrowseTarget,
-  COLLECTIONS,
-  HOME_GENRES,
   baseQuery,
   browseTitle,
   nextBrowseQuery,

@@ -15,7 +15,7 @@ import {
   sanitizeRecords,
   startRecord,
   subtitleOf,
-} from '../src/renderer/src/features/player/continue/continue-rules'
+} from '../src/shared/playback/continue-rules'
 
 const series: ContinueMeta = {
   section: 'tv',

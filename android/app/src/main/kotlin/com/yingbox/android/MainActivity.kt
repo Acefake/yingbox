@@ -12,12 +12,9 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
-import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
@@ -27,19 +24,15 @@ import com.yingbox.android.server.LocalServer
 import com.yingbox.android.server.ServerClient
 import com.yingbox.android.server.ServerService
 import com.yingbox.android.server.ServerState
-import kotlinx.coroutines.Dispatchers
-import kotlinx.coroutines.withContext
+import com.yingbox.android.ui.HomeScreen
 
-/**
- * 入口：启动内嵌服务，显示设备模式和服务状态，就绪后读一次 /api/info。
- * 首页、播放器按 ADR-0028 的阶段接入。
- */
+/** 入口：启动内嵌服务；就绪后进首页，之前显示服务状态。 */
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         ServerService.acquire(this)
         val isTv = isTelevision()
-        setContent { StatusScreen(isTv) }
+        setContent { App(isTv) }
     }
 
     override fun onDestroy() {
@@ -54,17 +47,18 @@ class MainActivity : ComponentActivity() {
 }
 
 @Composable
-private fun StatusScreen(isTv: Boolean) {
+private fun App(isTv: Boolean) {
     val state by LocalServer.state.collectAsState()
-    var info by remember { mutableStateOf<String?>(null) }
-
-    LaunchedEffect(state) {
-        val ready = state as? ServerState.Ready ?: return@LaunchedEffect
-        info = withContext(Dispatchers.IO) {
-            runCatching { ServerClient(ready).get("/api/info") }.getOrElse { "读取失败：$it" }
-        }
+    val ready = state as? ServerState.Ready
+    if (ready != null) {
+        HomeScreen(remember(ready) { ServerClient(ready) })
+    } else {
+        StatusScreen(state, isTv)
     }
+}
 
+@Composable
+private fun StatusScreen(state: ServerState, isTv: Boolean) {
     Column(
         modifier = Modifier
             .fillMaxSize()
@@ -86,9 +80,6 @@ private fun StatusScreen(isTv: Boolean) {
             fontSize = 16.sp,
             modifier = Modifier.padding(top = 32.dp),
         )
-        if (state is ServerState.Ready) info?.let {
-            Text(it, color = Color.Gray, fontSize = 12.sp, modifier = Modifier.padding(top = 8.dp))
-        }
         (state as? ServerState.Failed)?.logTail?.takeLast(8)?.forEach {
             Text(it, color = Color.Gray, fontSize = 12.sp)
         }
@@ -97,7 +88,7 @@ private fun StatusScreen(isTv: Boolean) {
 
 private fun describe(state: ServerState): String = when (state) {
     is ServerState.Starting -> if (state.attempt == 1) "服务启动中…" else "服务重启中（第 ${state.attempt} 次）…"
-    is ServerState.Ready -> "服务已就绪：${state.baseUrl}"
+    is ServerState.Ready -> "服务已就绪"
     is ServerState.Failed -> "服务启动失败：${state.message}"
     ServerState.Stopped -> "服务未运行"
 }

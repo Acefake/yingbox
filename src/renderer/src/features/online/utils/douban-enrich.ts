@@ -1,38 +1,13 @@
-import { doubanMetadata } from '../api/online'
-import type { DoubanItem } from '../types'
-import { doubanSubjectId } from './douban-preview'
-import { enrichFromTmdb } from './douban-tmdb'
+/** 渲染层的豆瓣卡补全：共享规则（shared/douban/item.ts）接上引擎的豆瓣详情与 TMDB。 */
+import {
+  type DoubanItem,
+  enrichDoubanItems as enrich,
+} from '../../../../../shared/douban/item'
+import { doubanMetadata, tmdb } from '../api/online'
 
-/** 豆瓣列表直接可用；前五项补轮播信息，再按配置用 TMDB 增强。 */
-export async function enrichDoubanItems(
+/** 前五项补豆瓣详情，再用 TMDB 补海报；直接改传入的条目。 */
+export const enrichDoubanItems = (
   items: DoubanItem[],
-  kind: 'movie' | 'tv',
-  deps = { metadata: doubanMetadata, tmdb: enrichFromTmdb }
-): Promise<void> {
-  for (const item of items) {
-    item.cover ||= item.coverSrc
-    item.type ||= kind === 'tv' ? '剧集' : '电影'
-  }
-  // 只补首屏候选，其他条目打开详情时再取，避免一页触发几十次请求。
-  const candidates = items.slice(0, 5)
-  let next = 0
-  await Promise.all(
-    Array.from({ length: 2 }, async () => {
-      while (next < candidates.length) {
-        const item = candidates[next++]
-        const id = doubanSubjectId(item.url)
-        if (!id) continue
-        const detail = await deps
-          .metadata(id, item.kind ?? kind)
-          .catch(() => null)
-        if (!detail) continue
-        item.overview = detail.intro || item.overview
-        item.original_title = detail.originalTitle || item.original_title
-        item.year = detail.year || item.year
-        item.backdrop = detail.backdrop || item.backdrop
-        item.cover = detail.cover || item.cover
-      }
-    })
-  )
-  await deps.tmdb(items, kind)
-}
+  kind: 'movie' | 'tv'
+): Promise<void> =>
+  enrich(items, kind, { metadata: doubanMetadata, search: tmdb })

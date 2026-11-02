@@ -2,9 +2,9 @@
  * 首页 Hero 选片的纯规则：有没看完的片子时第一张放它（标签行写来源与进度，主按钮写剩余时间），
  * 后面接精选来源（片库新入库 / 豆瓣热门），同一部只出现一次，最多 HERO_SLIDES 张。
  *
- * 不依赖 Vue；继续观看记录的形状见 features/player 的 continue-rules。
+ * 不依赖 Vue；继续观看记录的形状见同目录的 continue-rules.ts。
  */
-import type { ContinueRecord, ContinueSection } from '@/features/player'
+import type { ContinueRecord, ContinueSection } from './continue-rules'
 
 /** 轮播最多几页 */
 export const HERO_SLIDES = 5

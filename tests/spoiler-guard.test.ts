@@ -17,7 +17,7 @@ import {
   hasWatched,
   isWatchedEntry,
   removeWatched,
-} from '../src/renderer/src/features/player/watched/watched-rules'
+} from '../src/shared/playback/watched-rules'
 import {
   type ProgressEntry,
   SEEN_MIN_PROGRESS,

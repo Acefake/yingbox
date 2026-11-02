@@ -7,7 +7,7 @@ import {
   pickResumeRecord,
   resumeKicker,
   resumePlayLabel,
-} from '../../src/renderer/src/features/online/utils/hero-rules'
+} from '../../src/shared/playback/hero-rules'
 
 /** 首页 Hero 选片：没看完的片子放第一张，标签行写来源与进度，主按钮写剩余时间，后面接精选并去重 */
 
