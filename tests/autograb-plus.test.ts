@@ -6,7 +6,7 @@ import { describe, expect, it } from 'vitest'
 import { parseState } from '../src/main/autograb/state'
 import { DEFAULT_PREFS } from '../src/shared/contract/autograb-prefs'
 import type { AutograbEpisode } from '../src/shared/contract/autograb'
-import { FILE_05, GB, episode, namesIn, setup } from './autograb-harness'
+import { FILE_05, GB, child, episode, namesIn, setup } from './autograb-harness'
 
 const AUTO_SERIES = {
   version: 1,
@@ -73,7 +73,7 @@ describe('追更 · 撤销', () => {
 
     expect(await h.service.revert('7:1:5')).toEqual({ ok: true })
     expect(h.removed).toEqual(['9101'])
-    expect(namesIn(h, '0')).toEqual([])
+    expect(namesIn(h, child('0'))).toEqual([])
     expect(h.notified).toContain(`delete /剧集/繁花/${FILE_05}`)
     await h.service.tick()
     const record = await recordOf(h)
@@ -104,7 +104,7 @@ describe('追更 · 撤销', () => {
     await h.service.setSeries(7, { mode: 'confirm' })
     await h.service.tick()
     await h.service.grab('7:1:5', 0)
-    h.files.get('0')![0].size = 3 * GB
+    h.files.get(child('0'))![0].size = 3 * GB
     const result = await h.service.revert('7:1:5')
     expect(result.ok).toBe(false)
     expect(h.removed).toEqual([])
@@ -113,7 +113,9 @@ describe('追更 · 撤销', () => {
 
   it('同名文件本来就在（不是追更存的）：不能撤销', async () => {
     const h = setup([episode(5)])
-    h.files.set('0', [{ id: '1', name: FILE_05, size: 2 * GB, isDir: false }])
+    h.files.set(child('0'), [
+      { id: '1', name: FILE_05, size: 2 * GB, isDir: false },
+    ])
     await h.service.setSeries(7, { mode: 'confirm' })
     await h.service.tick()
     await h.service.grab('7:1:5', 0)

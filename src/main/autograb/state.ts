@@ -252,7 +252,7 @@ export function parseState(raw: unknown, now: number): AutograbState {
   if (isObj(raw.categoryFolders))
     for (const [name, folder] of Object.entries(raw.categoryFolders)) {
       const category = categoryOf(name)
-      if (category && isObj(folder) && /^d+$/.test(s(folder.cid)))
+      if (category && isObj(folder) && /^\d+$/.test(s(folder.cid)))
         state.categoryFolders[category] = {
           cid: s(folder.cid),
           name: s(folder.name),

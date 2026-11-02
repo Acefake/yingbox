@@ -12,7 +12,7 @@
  */
 import type { Dirent } from 'node:fs'
 import { readdir, stat } from 'node:fs/promises'
-import { dirname, extname, join, relative, sep } from 'node:path'
+import { basename, dirname, extname, join, relative, sep } from 'node:path'
 import type {
   LibraryItemNode,
   OrganizeEntry,
@@ -22,11 +22,12 @@ import type { LibraryRecord } from '../../libraries/library-store'
 import { VIDEO_EXTENSIONS } from '../../scanner/rules'
 import { ownerFolderDepth } from '../../../../shared/library/parser'
 import { exists } from '../fs/file-ops'
+import type { SeriesHome } from '../../catalog/series-home-rules'
 import {
   type VideoTarget,
   blockWithConflictingVideo,
+  mergeHome,
   movieTargets,
-  seriesBase,
   seriesTargets,
   sidecarOwner,
   stem,
@@ -53,12 +54,24 @@ export interface PlannerDeps {
   library(id: number): LibraryRecord
   /** 目录里属于其他顶层条目的视频。 */
   foreignVideos(dir: string, topItemId: number): string[]
+  /** 这个文件是片库自己写出的（nfo / 图片，能重新写出）；缺省都不是 */
+  isWriterOutput?(path: string): boolean
+  /** 剧在这个媒体库里的家（同 TMDB id 的条目里视频最多的剧文件夹）；缺省不并入（ADR-0029） */
+  seriesHome?(itemId: number, libraryId: number): SeriesHome | null
   /** 目录所在设备号；缺省用 stat(dir).dev（不存在时向上找存在的祖先）。 */
   deviceOf?: (path: string) => Promise<number | undefined>
 }
 
 const isVideo = (name: string): boolean =>
   VIDEO_EXTENSIONS.has(extname(name).toLowerCase())
+
+/** 条目树里全部视频路径。 */
+function treeVideos(node: LibraryItemNode): string[] {
+  return [
+    ...node.files.filter(f => f.kind === 'video').map(f => f.path),
+    ...node.children.flatMap(treeVideos),
+  ]
+}
 
 /** 路径长度上限：Windows（含 UNC / 盘符路径）260，其余 4096。 */
 export function pathLimit(root: string): number {
@@ -98,19 +111,39 @@ class DirCache {
   }
 }
 
-/** 预览一个顶层条目。 */
+/** 一个顶层条目的预览。 */
+interface ItemPlan {
+  moves: PlannedMove[]
+  unchanged: number
+  /** 剧文件夹整体改名：旧剧文件夹 → 新剧文件夹（同批里并入它的散存集要跟过去） */
+  renames: Map<string, string>
+  /** 并入的家文件夹；没并入为 null */
+  mergedInto: string | null
+}
+
+/**
+ * 预览一个顶层条目。
+ * @param renamed 同批里其他条目的剧文件夹改名；并入的家在里面时改并到新位置（季文件夹按模板）
+ */
 async function planItem(
   node: LibraryItemNode,
   library: LibraryRecord,
   settings: WriterSettings,
   deps: PlannerDeps,
-  dirs: DirCache
-): Promise<{ moves: PlannedMove[]; unchanged: number }> {
+  dirs: DirCache,
+  renamed: ReadonlyMap<string, string>
+): Promise<ItemPlan> {
   const root = library.root
+  const found =
+    node.type === 'series'
+      ? mergeHome(treeVideos(node), deps.seriesHome?.(node.id, library.id))
+      : null
+  const moved = found && renamed.get(found.dir)
+  const home = moved ? { dir: moved, seasons: {} } : found
   const targets =
     node.type === 'movie'
       ? movieTargets(node, root, settings)
-      : seriesTargets(node, root, settings)
+      : seriesTargets(node, root, settings, home)
   const moves: PlannedMove[] = []
   const add = (
     kind: PlannedMove['kind'],
@@ -129,6 +162,7 @@ async function planItem(
     })
   }
   let unchanged = 0
+  const renames = new Map<string, string>()
   const itemVideos = targets.map(t => t.from)
   const assigned = new Set(itemVideos)
   const videoPaths = new Set(itemVideos)
@@ -149,6 +183,15 @@ async function planItem(
         return false
     }
     return true
+  }
+
+  // 电影的广告小视频（movieTargets 已排除）：识别了、要整理时直接删，旧文件夹才能清空
+  if (node.type === 'movie' && targets.some(t => t.to)) {
+    for (const file of node.files) {
+      if (file.kind !== 'video' || videoPaths.has(file.path)) continue
+      assigned.add(file.path)
+      add('delete', file.path, '')
+    }
   }
 
   // 视频与旁挂
@@ -198,8 +241,18 @@ async function planItem(
         continue
       if (entry.isFile() && isVideo(entry.name)) continue
       if (!entry.isFile() && !entry.isDirectory()) continue
+      const to = join(newDir, entry.name)
+      // 并入家时家里已有同名的海报、nfo：留家里的。散存这份是片库自己写出的就删掉（能重新写出），
+      // 用户自己放的就不动；都不算冲突（否则同条目的视频也会被拦下）
+      if (home && (await exists(to))) {
+        if (entry.isFile() && deps.isWriterOutput?.(path)) {
+          assigned.add(path)
+          add('delete', path, '')
+        }
+        continue
+      }
       assigned.add(path)
-      add('folder', path, join(newDir, entry.name))
+      add('folder', path, to)
     }
   }
   const resolved = targets.filter(
@@ -212,23 +265,23 @@ async function planItem(
   if (node.type === 'movie') {
     for (const [dir, list] of byDir) {
       const newDir = oneDir(list.filter(t => t.to).map(t => t.to!))
-      if (newDir && !deps.foreignVideos(dir, node.id).length)
+      // 新文件夹建在旧目录里：旧目录是分类文件夹，里面的东西不归这部电影
+      const fromCategory = newDir !== null && dirname(newDir) === dir
+      if (newDir && !fromCategory && !deps.foreignVideos(dir, node.id).length)
         await moveFolder(dir, newDir)
     }
   } else {
     const seriesDirOf = (file: string): string | null => {
       const folders = relative(root, dirname(file)).split(sep).filter(Boolean)
-      const depth = ownerFolderDepth(folders)
+      const depth = ownerFolderDepth(folders, basename(file))
       return depth ? join(root, ...folders.slice(0, depth)) : null
     }
     const groups = new Map<string, Set<string>>()
     for (const target of resolved) {
       const oldDir = seriesDirOf(target.from)
-      const base = seriesBase(root, target.from)
-      const segment = relative(base, target.to).split(sep)[0]
-      if (!oldDir || dirname(target.to) === base) continue
+      if (!oldDir || !target.seriesDir) continue
       const destinations = groups.get(oldDir) ?? new Set<string>()
-      destinations.add(join(base, segment))
+      destinations.add(target.seriesDir)
       groups.set(oldDir, destinations)
     }
     // 季文件夹先处理（它们在剧集文件夹里，要整体挪走的话不能被当成剧集级目录）
@@ -241,42 +294,56 @@ async function planItem(
         await moveFolder(dir, newDir)
     }
     for (const [oldDir, destinations] of groups) {
-      if (destinations.size === 1 && (await ownsFolder(oldDir)))
-        await moveFolder(oldDir, [...destinations][0])
+      const [to] = destinations
+      if (destinations.size !== 1) continue
+      if (!home && to !== oldDir) renames.set(oldDir, to)
+      if (await ownsFolder(oldDir)) await moveFolder(oldDir, to)
     }
   }
-  return { moves, unchanged }
+  return { moves, unchanged, renames, mergedInto: found?.dir ?? null }
 }
 
 /** 整理预览：计划 + 冲突检查。 */
 export async function planOrganize(
   topItemIds: number[],
-  settings: WriterSettings,
+  settings: WriterSettings | ((library: LibraryRecord) => WriterSettings),
   deps: PlannerDeps
 ): Promise<OrganizePreview> {
   const dirs = new DirCache()
-  const moves: PlannedMove[] = []
-  let unchanged = 0
+  const plans: { node: LibraryItemNode; plan: ItemPlan }[] = []
+  const renamed = new Map<string, string>()
+  const plan = (node: LibraryItemNode): Promise<ItemPlan> => {
+    const library = deps.library(node.libraryId)
+    return planItem(
+      node,
+      library,
+      typeof settings === 'function' ? settings(library) : settings,
+      deps,
+      dirs,
+      renamed
+    )
+  }
   for (const id of topItemIds) {
     const node = deps.getItem(id)
     if (!node || (node.type !== 'movie' && node.type !== 'series')) continue
-    const r = await planItem(
-      node,
-      deps.library(node.libraryId),
-      settings,
-      deps,
-      dirs
-    )
-    moves.push(...r.moves)
-    unchanged += r.unchanged
+    const result = await plan(node)
+    for (const [from, to] of result.renames) renamed.set(from, to)
+    plans.push({ node, plan: result })
   }
+  // 第二遍：并入的家在同批里被改名了，散存的集跟到新位置（否则一半在旧名、一半在新名）
+  for (const entry of plans) {
+    const into = entry.plan.mergedInto
+    if (into && renamed.has(into)) entry.plan = await plan(entry.node)
+  }
+  const moves = plans.flatMap(p => p.plan.moves)
+  const unchanged = plans.reduce((n, p) => n + p.plan.unchanged, 0)
 
   // 冲突：计划内撞名、磁盘上已存在、路径过长
   const sources = new Set(moves.map(m => collisionKey(m.from)))
   const taken = new Map<string, PlannedMove>()
   const deviceOf = deps.deviceOf ?? defaultDeviceOf
   for (const m of moves) {
-    if (m.conflict) continue
+    if (m.conflict || m.kind === 'delete') continue
     const key = collisionKey(m.to)
     const limit = pathLimit(deps.library(m.libraryId).root)
     if (taken.has(key)) m.conflict = '与计划里另一项的目标重名'

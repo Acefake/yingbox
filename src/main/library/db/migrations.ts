@@ -7,6 +7,7 @@ import type { DatabaseSync } from 'node:sqlite'
 import { MERGE_SCHEMA } from './schema-merge'
 import { V6_SCHEMA } from './schema-actors'
 import { V9_SCHEMA } from './schema-progress'
+import { V17_SCHEMA, V18_SCHEMA } from './schema-organize'
 import { V12_SCHEMA } from './schema-rating'
 import { V11_SCHEMA, V7_SCHEMA } from './schema-visual'
 
@@ -343,6 +344,12 @@ export const MIGRATIONS: readonly Migration[] = [
     description: '指纹计算失败的时间',
     sql: 'ALTER TABLE files ADD COLUMN fingerprint_failed_at INTEGER;',
   },
+  {
+    version: 17,
+    description: '整理批次持久化媒体库来源',
+    sql: V17_SCHEMA,
+  },
+  { version: 18, description: '整理步骤可以删除文件', sql: V18_SCHEMA },
 ]
 
 /** 读取当前 schema 版本。 */

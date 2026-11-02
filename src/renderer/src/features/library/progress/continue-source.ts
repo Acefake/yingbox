@@ -15,7 +15,9 @@ import type { ContinueSection } from '@/features/player'
 import { reachedWatched } from '../../../../../shared/library/watch-progress'
 import {
   type ContinueRecord,
+  continueRecords,
   mergeContinue,
+  removeContinueWhere,
   replaceLibraryContinue,
 } from '@/features/player'
 
@@ -125,6 +127,33 @@ export function continueRecordFrom(
   }
 }
 
+/** 媒体库三个分区的记录，key 是片库作品 id；在线 / AV 的记录不归片库管。 */
+const LIBRARY_SECTIONS: ReadonlySet<ContinueSection> = new Set([
+  'movie',
+  'tv',
+  'jav',
+])
+
+/**
+ * 清掉片库里已经不存在的作品的记录（移除媒体库、重扫后文件没了）。
+ * 片库明确答「没有这个条目」才清；查询出错（引擎没起来、网络断）时留着。
+ */
+export async function pruneMissingContinue(): Promise<void> {
+  const bridge = libraryBridge()
+  if (!bridge) return
+  const candidates = continueRecords().value.filter(
+    r => LIBRARY_SECTIONS.has(r.section) && /^\d+$/.test(r.key)
+  )
+  const gone = new Set<string>()
+  await Promise.all(
+    candidates.map(async r => {
+      const item = await bridge.getItem(Number(r.key)).catch(() => undefined)
+      if (item === null) gone.add(r.id)
+    })
+  )
+  removeContinueWhere(r => gone.has(r.id))
+}
+
 let running: Promise<void> | null = null
 const revisions = new Map<number, number>()
 let revisionCounter = 0
@@ -135,6 +164,7 @@ export function hydrateContinue(): Promise<void> {
     const bridge = libraryBridge()
     if (!bridge) return
     const snapshotRevision = revisionCounter
+    await pruneMissingContinue()
     const [recent, libraries] = await Promise.all([
       bridge.progress.recent(HYDRATE_LIMIT),
       bridge.listLibraries(),

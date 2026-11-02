@@ -55,6 +55,7 @@ import {
 } from './writer-rules'
 import { WriterSettingsStore } from './writer-settings'
 import { WriterStore } from './writer-store'
+import { SeriesHomeQuery } from '../catalog/series-home'
 
 /** 远程源库只读的提示。 */
 const REMOTE_READ_ONLY =
@@ -86,6 +87,7 @@ export class WriterModule {
   readonly settings: WriterSettingsStore
   private readonly writer: OutputWriter
   private readonly organizer: OrganizeRunner
+  private readonly homes: SeriesHomeQuery
   private readonly plans = new Map<
     string,
     { moves: PlannedMove[]; createdAt: number }
@@ -93,6 +95,7 @@ export class WriterModule {
 
   constructor(private readonly options: WriterModuleOptions) {
     this.store = new WriterStore(options.db)
+    this.homes = new SeriesHomeQuery(options.db)
     this.settings = new WriterSettingsStore(new SettingsStore(options.db))
     this.writer = new OutputWriter({
       store: this.store,
@@ -112,7 +115,7 @@ export class WriterModule {
       organizer: this.organizer,
       catalogQuery: options.catalogQuery,
       libraries: options.libraries,
-      settings: () => this.settings.get(),
+      settings: source => this.settings.get(source),
       imageSizes: () => tmdbImageSizes(scrape.get().imageSize),
       actorProfiles: options.actorProfiles,
       emit: options.emit,
@@ -150,6 +153,12 @@ export class WriterModule {
   getSettings(): WriterSettings {
     return this.settings.get()
   }
+  getJavSettings(): WriterSettings {
+    return this.settings.get('jav')
+  }
+  setJavSettings(value: WriterSettings): WriterSettings {
+    return this.settings.set(value, Date.now(), 'jav')
+  }
 
   setSettings(value: WriterSettings): WriterSettings {
     return this.settings.set(value, Date.now())
@@ -168,6 +177,8 @@ export class WriterModule {
   /** 识别后的后继：按库设置自动写出 / 先整理再写出（都关闭时为空）。 */
   autoFollowups(itemIds: number[]): FollowupSpec[] {
     return autoFollowups(itemIds, this.settings.get(), {
+      settingsOf: id =>
+        this.settings.get(this.options.libraries.get(id).source),
       libraryOf: id => this.store.libraryOf(id),
       // 远程源库只读：不自动写出、不自动整理
       automationOf: id => {
@@ -192,12 +203,18 @@ export class WriterModule {
     if (!top.length) throw new LibraryError('not-found', '条目不存在')
     if (top.some(id => this.inRemoteLibrary(id)))
       throw new LibraryError('conflict', REMOTE_READ_ONLY)
-    const preview = await planOrganize(top, this.settings.get(), {
-      getItem: id => this.options.catalogQuery.getItem(id),
-      library: id => this.options.libraries.get(id),
-      foreignVideos: (dir, id) => this.store.foreignVideosIn(dir, id),
-      deviceOf: this.options.deviceOf,
-    })
+    const preview = await planOrganize(
+      top,
+      lib => this.settings.get(lib.source),
+      {
+        getItem: id => this.options.catalogQuery.getItem(id),
+        library: id => this.options.libraries.get(id),
+        foreignVideos: (dir, id) => this.store.foreignVideosIn(dir, id),
+        seriesHome: (id, libraryId) => this.homes.homeOf(id, libraryId),
+        isWriterOutput: path => this.store.output(path) !== undefined,
+        deviceOf: this.options.deviceOf,
+      }
+    )
     const planId = randomUUID()
     this.plans.set(planId, { moves: preview.moves, createdAt: Date.now() })
     return {
@@ -209,16 +226,21 @@ export class WriterModule {
 
   /** 执行预览过的计划（只执行没有冲突的项）。 */
   applyOrganize(planId: string): OrganizeAccepted {
-    if (!this.settings.get().organize.enabled) {
-      throw new LibraryError(
-        'conflict',
-        '整理（改名移动）未开启，请先在设置里开启'
-      )
-    }
     this.prunePlans()
     const plan = this.plans.get(planId)
     if (!plan)
       throw new LibraryError('not-found', '整理计划不存在或已过期，请重新预览')
+    if (
+      plan.moves.some(
+        move =>
+          !this.settings.get(this.options.libraries.get(move.libraryId).source)
+            .organize.enabled
+      )
+    )
+      throw new LibraryError(
+        'conflict',
+        '所属媒体库的整理未开启，请在对应设置里开启'
+      )
     const { ops, itemIds } = organizeOps(plan.moves)
     if (!ops.length) throw new LibraryError('conflict', '计划里没有可执行的项')
     this.plans.delete(planId)
@@ -255,8 +277,8 @@ export class WriterModule {
   }
 
   /** 最近的整理批次。 */
-  listOrganizeBatches(): OrganizeBatchInfo[] {
-    return this.store.batches()
+  listOrganizeBatches(source?: 'jav'): OrganizeBatchInfo[] {
+    return this.store.batches(undefined, 50, source === 'jav' ? 'jav' : 'tmdb')
   }
 
   // —————————————————————————— 任务 ——————————————————————————

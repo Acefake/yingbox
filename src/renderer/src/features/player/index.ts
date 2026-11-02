@@ -47,6 +47,7 @@ export {
   continueRecords,
   mergeContinue,
   replaceLibraryContinue,
+  removeContinueWhere,
   onContinueFinished,
 } from './continue/continue-store'
 /** 媒体库条目的进度去向（媒体库 feature 启动时接上片库） */

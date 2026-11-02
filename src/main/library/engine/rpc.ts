@@ -17,6 +17,7 @@ import { ScrapePrefsStore } from '../providers/scrape-prefs-store'
 import { createItemPreviews } from '../catalog/item-preview'
 import { ProgressStore } from '../progress/progress-store'
 import { MergeModule } from '../catalog/merge/merge-module'
+import { SeriesHomeQuery } from '../catalog/series-home'
 import type { LibraryService } from './service'
 
 /** 每个服务一份合并展示（详情合并、版本、拆分），事件经服务推送。 */
@@ -77,6 +78,18 @@ function progressFor(s: LibraryService): ProgressStore {
   return found
 }
 
+/** 每个服务一份剧的「家」查询（追更转存定位）。 */
+const homes = new WeakMap<LibraryService, SeriesHomeQuery>()
+
+function homesFor(s: LibraryService): SeriesHomeQuery {
+  let found = homes.get(s)
+  if (!found) {
+    found = new SeriesHomeQuery(s.db)
+    homes.set(s, found)
+  }
+  return found
+}
+
 /** 每个方法如何调用服务。参数已经过 parseRpcParams 解析。 */
 type Handlers = {
   [M in LibraryMethod]: (
@@ -100,6 +113,10 @@ const HANDLERS: Handlers = {
   'visual.search': (s, p) => s.visual.search(p),
   'visual.setFrames': (s, p) => s.visual.setFrames(p),
   'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
+  'calendar.seriesFolder': (s, p) => {
+    const home = homesFor(s).homeOf(p.itemId)
+    return home && { dir: home.dir, seasons: home.seasons }
+  },
   'progress.list': (s, p) => progressFor(s).list(p.itemIds),
   'progress.save': (s, p) => progressFor(s).save(p.reports),
   'progress.summary': (s, p) => progressFor(s).summary(p.itemIds),
@@ -124,6 +141,9 @@ const HANDLERS: Handlers = {
   setScrapePrefs: (s, p) => new ScrapePrefsStore(s.db).set(p),
   notifyChanges: (s, p) => s.notifyChanges(p),
   'writer.getSettings': s => s.writer.getSettings(),
+  'writer.getJavSettings': s => s.writer.getJavSettings(),
+  'writer.listJavOrganizeBatches': s => s.writer.listOrganizeBatches('jav'),
+  'writer.setJavSettings': (s, p) => s.writer.setJavSettings(p),
   'writer.setSettings': (s, p) => s.writer.setSettings(p),
   'writer.write': (s, p) => s.writer.write(p.itemIds),
   'writer.previewOrganize': (s, p) => s.writer.previewOrganize(p.itemIds),

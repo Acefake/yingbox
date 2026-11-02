@@ -64,14 +64,27 @@ export interface CalendarResult {
   failed: number
 }
 
+/** 剧的「家」：视频最多的剧文件夹与它下面的各季文件夹（本地完整路径，见 ADR-0029）。 */
+export interface SeriesFolder {
+  dir: string
+  /** 季号 → 季文件夹；集直接放在剧文件夹里时为空 */
+  seasons: Record<number, string>
+}
+
 /** 追剧日历的方法。 */
 export interface CalendarRpcMap {
   'calendar.episodes': { params: CalendarRequest; result: CalendarResult }
+  /** 追更转存用：这部剧（含同 TMDB id 的合并成员）在片库里的家；没有剧文件夹时为 null */
+  'calendar.seriesFolder': {
+    params: { itemId: number }
+    result: SeriesFolder | null
+  }
 }
 
 /** 方法名白名单（并入 LIBRARY_METHODS）。 */
 export const CALENDAR_METHODS = [
   'calendar.episodes',
+  'calendar.seriesFolder',
 ] as const satisfies readonly (keyof CalendarRpcMap)[]
 
 /** window.api.library 上的追剧日历方法。 */

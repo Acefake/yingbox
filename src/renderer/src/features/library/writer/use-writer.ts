@@ -93,7 +93,7 @@ export interface UseWriter {
 }
 
 /** 写出与整理操作。 */
-export function useWriter(): UseWriter {
+export function useWriter(source?: 'jav'): UseWriter {
   const bridge = writerBridge()
   listenOnce()
   const organize = ref<OrganizeStage>({ stage: 'idle' })
@@ -157,12 +157,17 @@ export function useWriter(): UseWriter {
     resetOrganize: () => {
       organize.value = { stage: 'idle' }
     },
-    listBatches: async () => (bridge ? bridge.listOrganizeBatches() : []),
+    listBatches: async () =>
+      bridge
+        ? source === 'jav'
+          ? bridge.listJavOrganizeBatches()
+          : bridge.listOrganizeBatches()
+        : [],
   }
 }
 
 /** 写出设置（设置页用）：读取、修改后防抖保存。 */
-export function useWriterSettings(): {
+export function useWriterSettings(source?: 'jav'): {
   available: boolean
   settings: Ref<WriterSettings>
   loaded: Ref<boolean>
@@ -178,8 +183,7 @@ export function useWriterSettings(): {
   let timer: ReturnType<typeof setTimeout> | undefined
 
   if (bridge) {
-    bridge
-      .getSettings()
+    bridge[source === 'jav' ? 'getJavSettings' : 'getSettings']()
       .then(value => {
         settings.value = value
       })
@@ -195,8 +199,9 @@ export function useWriterSettings(): {
     timer = undefined
     if (!bridge) return
     pending.value++
-    bridge
-      .setSettings(structuredClone(toRaw(settings.value)))
+    bridge[source === 'jav' ? 'setJavSettings' : 'setSettings'](
+      structuredClone(toRaw(settings.value))
+    )
       .then(value => {
         // 保存期间用户又改了（新的定时器在等），以界面上的为准
         if (!timer) settings.value = value

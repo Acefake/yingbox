@@ -16,8 +16,9 @@ import type { ParsedColumns } from './scan-store'
 /**
  * 解析器版本。解析或分组规则有实质改动时 +1，引擎启动时会排一个解析任务重解析旧版本的文件。
  * 2：剧集按作品文件夹分组，不再按根下第一层（分类文件夹下的多部剧曾被并成一部）。
+ * 3：剧集文件直接放在分类文件夹（「大陆」）里时按剧名分组，分类文件夹不当作品文件夹（ADR-0029）。
  */
-export const PARSER_VERSION = 2
+export const PARSER_VERSION = 3
 
 /** 一个文件的解析产物。 */
 export interface FileParse {

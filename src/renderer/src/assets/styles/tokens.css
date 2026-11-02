@@ -200,6 +200,10 @@
    */
   --glass-bg: rgba(36, 36, 40, 0.38);
   --glass-bg-hover: rgba(58, 58, 62, 0.46);
+  --page-glow-favorites: rgba(190, 95, 150, 0.25);
+  --page-glow-recent: rgba(80, 130, 220, 0.25);
+  --page-glow-autograb: rgba(70, 180, 160, 0.25);
+  --page-glow-calendar: rgba(125, 105, 215, 0.25);
   --glass-solid: #1c1c1e;
   --glass-solid-hover: #2c2c2e;
   --glass-filter: blur(24px) saturate(1.8);

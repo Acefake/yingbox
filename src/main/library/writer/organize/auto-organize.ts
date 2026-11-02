@@ -11,6 +11,7 @@ import type { JobContext } from '../../jobs/queue'
 import { type AutoOrganizePayload, canAutoOrganize } from '../auto-rules'
 import { type WriterJobDeps, runBatch } from '../writer-jobs'
 import { organizeOps } from '../writer-rules'
+import { SeriesHomeQuery } from '../../catalog/series-home'
 import { planOrganize } from './organize-planner'
 
 /** 自动整理需要的额外能力。 */
@@ -26,7 +27,14 @@ export async function runAutoOrganize(
   payload: AutoOrganizePayload,
   ctx: JobContext
 ): Promise<void> {
-  await organizeConfident(deps, payload.itemIds, ctx)
+  const groups = new Map<boolean, number[]>()
+  for (const id of payload.itemIds) {
+    const libraryId = deps.store.libraryOf(id)
+    if (libraryId === undefined) continue
+    const jav = deps.libraries.get(libraryId).source === 'jav'
+    groups.set(jav, [...(groups.get(jav) ?? []), id])
+  }
+  for (const ids of groups.values()) await organizeConfident(deps, ids, ctx)
 }
 
 /** 规划并执行确定匹配条目的整理（全局「允许整理文件」关闭时什么都不做）。 */
@@ -35,17 +43,22 @@ async function organizeConfident(
   itemIds: number[],
   ctx: JobContext
 ): Promise<void> {
-  const settings = deps.settings()
-  if (!settings.organize.enabled) return
   const top = deps.store.topLevelIds(itemIds).filter(id => {
     const node = deps.catalogQuery.getItem(id)
-    return !!node && canAutoOrganize(node.matchState)
+    return (
+      !!node &&
+      canAutoOrganize(node.matchState) &&
+      deps.settings(deps.libraries.get(node.libraryId).source).organize.enabled
+    )
   })
   if (!top.length) return
-  const preview = await planOrganize(top, settings, {
+  const homes = new SeriesHomeQuery(deps.db)
+  const preview = await planOrganize(top, lib => deps.settings(lib.source), {
     getItem: id => deps.catalogQuery.getItem(id),
     library: id => deps.libraries.get(id),
     foreignVideos: (dir, id) => deps.store.foreignVideosIn(dir, id),
+    seriesHome: (id, libraryId) => homes.homeOf(id, libraryId),
+    isWriterOutput: path => deps.store.output(path) !== undefined,
     deviceOf: deps.deviceOf,
   })
   ctx.signal.throwIfAborted()

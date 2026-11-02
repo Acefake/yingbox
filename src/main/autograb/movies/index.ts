@@ -19,6 +19,7 @@ import type { LibraryEngineClient } from '../../library/client'
 import type { ModuleHost } from '../../module-host'
 import type { Gate } from '../gate'
 import type { PanAdapter } from '../upgrade/pan-adapter'
+import { movieFolderName } from '../folder-name'
 import { type MoviesService, createMoviesService } from './service'
 import { type TmdbGet, createMovieTmdb } from './tmdb'
 
@@ -77,6 +78,12 @@ export function registerAutograbMovies(
     },
     gate,
     pan,
+    folderName: async movie =>
+      movieFolderName(
+        (await library.call('writer.getSettings', undefined)).organize
+          .movieTemplate,
+        movie
+      ),
     notify: async path => {
       const mountRoot = host.setting('library.notify.mountRoot')
       const changes = [{ action: 'create' as const, path }]

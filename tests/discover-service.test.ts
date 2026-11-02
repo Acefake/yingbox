@@ -30,6 +30,8 @@ function autograbFor(clock: {
       failed: 0,
     }),
     notify: async () => {},
+    seriesFolder: async () => null,
+    seriesFolderName: async () => null,
     pan: {
       loggedIn: () => true,
       pansouReady: () => true,

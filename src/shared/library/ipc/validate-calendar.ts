@@ -6,7 +6,7 @@ import {
   type CalendarRequest,
   type CalendarRpcMap,
 } from './contract-calendar'
-import { asRecord, invalid } from './validate-base'
+import { asRecord, invalid, positiveId } from './validate-base'
 
 const DATE_RE = /^\d{4}-\d{2}-\d{2}$/
 const DAY_MS = 86_400_000
@@ -40,4 +40,7 @@ export const CALENDAR_PARSERS: {
   [M in keyof CalendarRpcMap]: (input: unknown) => CalendarRpcMap[M]['params']
 } = {
   'calendar.episodes': parseCalendarRequest,
+  'calendar.seriesFolder': input => ({
+    itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
+  }),
 }

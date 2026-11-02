@@ -10,7 +10,7 @@ import {
   policyOf,
   policyPatchOf,
 } from '../src/shared/contract/grab-policy'
-import { FILE_05, episode, namesIn, setup } from './autograb-harness'
+import { FILE_05, child, episode, namesIn, setup } from './autograb-harness'
 
 describe('追更策略 · 契约', () => {
   it('默认：剧集不追、新剧先确认 1 集；电影待确认；电影没有「不追」', () => {
@@ -100,7 +100,7 @@ describe('追更策略 · 服务', () => {
     // 还没确认过：两集都只列候选
     expect(h.received).toEqual([])
     expect(await h.service.grab('7:1:5', 0)).toEqual({ ok: true })
-    expect(namesIn(h, '66')).toEqual([FILE_05])
+    expect(namesIn(h, child('66'))).toEqual([FILE_05])
     // 确认满 1 集后，下一集自动存
     await h.service.retry('7:1:6')
     await h.service.tick()

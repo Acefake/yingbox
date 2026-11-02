@@ -15,7 +15,14 @@ type Metric = 'lines' | 'bytes' | 'longestLine'
 const BUDGETS: Record<string, Record<Metric, Change[]>> = {
   'AGENTS.md': {
     lines: [[180, '2026-10-22', '初始值（加入工程门槛与 ADR 索引后 175 行）']],
-    bytes: [[29 * 1024, '2026-10-22', '初始值（28 600 字节）']],
+    bytes: [
+      [29 * 1024, '2026-10-22', '初始值（28 600 字节）'],
+      [
+        29 * 1024 + 128,
+        '2026-11-02',
+        'ADR-0029 的索引一行：adr.test 要求每篇 ADR 都列在 AGENTS.md 索引里，不能下沉',
+      ],
+    ],
     longestLine: [[2450, '2026-10-22', '初始值（番号库一段 2438 字符）']],
   },
   'CLAUDE.md': {

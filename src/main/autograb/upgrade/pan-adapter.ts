@@ -10,6 +10,7 @@ import type {
 import { Pan115Error } from '../../pan115/errors'
 import type { Pan115Service } from '../../pan115/service'
 import { type ShareRef, parseShareLink } from '../../pan115/share-link'
+import { createPanFolders } from '../pan-folders'
 
 /** 两个服务要的 115 能力（并集） */
 export interface PanAdapter {
@@ -26,6 +27,8 @@ export interface PanAdapter {
   names(cid: string): Promise<string[]>
   dirs(cid: string): Promise<Pan115DirListing>
   dirPath(cid: string): Promise<string[]>
+  /** 文件夹 parent 下名为 name 的子文件夹 cid，没有就建（见 pan-folders.ts） */
+  childFolder(parent: string, name: string): Promise<string>
   /** 刷新登录状态 */
   refresh(): Promise<void>
 }
@@ -39,6 +42,7 @@ export function createPanAdapter(
   pansouUrl: () => string
 ): PanAdapter {
   let loggedIn = false
+  const folders = createPanFolders(pan115, () => '')
   const shareOf = (url: string, password: string): ShareRef => {
     const ref = parseShareLink(url, password)
     if (!ref) throw new Pan115Error('不是 115 分享链接')
@@ -65,6 +69,7 @@ export function createPanAdapter(
         const listing = await client.dirs(cid)
         return listing.path.filter(d => d.cid !== '0').map(d => d.name)
       }),
+    childFolder: folders.childFolder,
     refresh: () =>
       pan115
         .account()

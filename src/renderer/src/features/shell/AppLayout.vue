@@ -7,6 +7,7 @@
       'is-phone': isPhone,
       'is-web': isWeb,
       'is-desktop': isElectron && !isPhone,
+      'has-page-atmosphere': hasPageAtmosphere,
       'sidebar-open': isPhone && sidebarOpen,
       'has-online-detail': onlineDetailOpen,
     }"
@@ -120,6 +121,13 @@ import {
 
 const router = useRouter()
 const route = useRoute()
+const hasPageAtmosphere = computed(
+  () =>
+    route.path === '/calendar' ||
+    route.path === '/autograb' ||
+    (route.path === '/' &&
+      (route.query.tab === 'favorites' || route.query.tab === 'recent'))
+)
 const onlineDetailOpen = computed(
   () =>
     route.path === '/' &&
@@ -258,9 +266,10 @@ onUnmounted(() => {
   background: var(--bg-main);
   transition: padding-left var(--duration-fast) ease;
 }
+.app-layout.is-desktop.has-page-atmosphere .content-surface {
+  padding-top: 0;
+}
 
-.app-layout.is-desktop :deep(.calendar-page > .page-header .cal-nav),
-.app-layout.is-desktop :deep(.calendar-page > .page-header .ui-segmented),
 .app-layout.is-desktop
   :deep(.live-view > .page-header .ui-button:not(.is-pressed)),
 .app-layout.is-desktop

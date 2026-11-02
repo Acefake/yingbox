@@ -247,6 +247,13 @@ export function isExtraWord(word: string): boolean {
 export const EXTRAS_FOLDER_RE =
   /^(?:extras?|featurettes?|behind[\s._-]?the[\s._-]?scenes|deleted[\s._-]?scenes|interviews?|scenes|shorts|trailers?|samples?|others?|bonus|花絮|预告片?|特辑|幕后)$/i
 
+/**
+ * 分类文件夹名（整名匹配）：地区、类型、「剧集」这类归类用的文件夹。剧集文件直接放在里面时不当作品文件夹（ADR-0029）。
+ * 只认明确的分类词：「繁花」里放英文文件名的 Blossoms.Shanghai.S01E01 仍是剧文件夹。
+ */
+export const CATEGORY_FOLDER_RE =
+  /^(?:大陆|内地|国产|国剧|华语|港剧|港台|香港|台湾|台剧|韩剧|韩国|日剧|日本|美剧|美国|英剧|英国|欧美|日韩|泰剧|泰国|海外|其他|其它|未分类|连续剧|电视剧|剧集|追剧|新剧|动漫|动画|番剧|新番|综艺|纪录片|tv|tv[\s._-]?shows?|series|shows|anime|variety|documentar(?:y|ies)|dramas?|[kjc][\s._-]?dramas?)$/i
+
 /** 光盘结构等不承载片名的文件夹。 */
 export const STRUCTURAL_FOLDER_RE =
   /^(?:video_ts|audio_ts|bdmv|stream|playlist|clipinf|backup|certificate|auxdata|meta)$/i

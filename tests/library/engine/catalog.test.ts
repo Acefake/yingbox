@@ -97,6 +97,13 @@ describe('groupFile', () => {
     ).toBe('series:1:d:韩剧/鬼謎東宮(2026)')
   })
 
+  it('剧集：直接散放在分类文件夹里的几部剧按剧名分开，不把分类文件夹当成一部剧', () => {
+    const a = group('tv', '剧集/大陆/Where.the.Mask.Ends.S01E09.2160p.mkv')
+    const b = group('tv', '剧集/大陆/Remnants.of.Gold.S01E01.2160p.mkv')
+    expect(keys(a)[0]).toBe('series:1:t:where the mask ends')
+    expect(keys(b)[0]).not.toBe(keys(a)[0])
+  })
+
   it('剧集：只套了季文件夹、没有作品文件夹的按剧名分组', () => {
     expect(keys(group('tv', 'Season 1/Severance.S01E01.mkv'))[0]).toBe(
       'series:1:t:severance'

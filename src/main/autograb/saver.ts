@@ -1,5 +1,5 @@
 /**
- * 追更 · 转存与入库核对：把选中的候选只存那一个文件到这部剧的 115 文件夹，之后跟进到媒体库里出现这一集。
+ * 追更 · 转存与入库核对：把选中的候选只存那一个文件到这部剧的 115 文件夹（target.ts 现算），之后跟进到媒体库里出现这一集。
  *
  * - 转存前列目标文件夹，同名文件已在就不再转存（重启后不会重复存）；115 说「已经接收过」也算成功；
  * - 真要转存时先查 115 剩余空间：不够「候选体积 + {@link SPACE_MARGIN}」就把这一集标成空间不足、
@@ -52,8 +52,8 @@ export interface SaverContext {
   gate(): Gate
   deps: Pick<AutograbDeps, 'pan' | 'notify' | 'now' | 'log'>
   dirty(): void
-  /** 这一集转存到哪个 cid */
-  targetCid(record: EpisodeRecord): string
+  /** 这一集转存到哪个 cid（每次现算，见 target.ts）；解析不出时抛错 */
+  targetCid(record: EpisodeRecord): Promise<string>
 }
 
 /** 创建转存器 */
@@ -75,7 +75,12 @@ export function createSaver(ctx: SaverContext): {
       return { ok: true }
     const candidate = record.candidates[index]
     if (!candidate) return { ok: false, error: '候选不存在，请重新搜索' }
-    const cid = ctx.targetCid(record)
+    let cid: string
+    try {
+      cid = await ctx.targetCid(record)
+    } catch (error) {
+      return failed(record, index, error)
+    }
     // 真的发了转存（含 115 说已接收过）才记文件 id：同名文件本来就在时不归追更管，不能撤销
     let received = false
     try {

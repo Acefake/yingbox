@@ -1,5 +1,5 @@
 /**
- * 电影追踪 · 转存与入库跟进：只存候选那一个文件到电影文件夹（同名已在就不再存）；分享失效时去掉这个候选、
+ * 电影追踪 · 转存与入库跟进：只存候选那一个文件到电影文件夹下这部片的子文件夹（同名已在就不再存）；分享失效时去掉这个候选、
  * 都没了就回到每天搜；转存 10 分钟后还没入库按 115 路径主动通知媒体库一次，一天后还没有就报错。
  */
 import type { GrabResult } from '../../../shared/contract/autograb-upgrade'
@@ -17,9 +17,26 @@ const STALE_AFTER_MS = 24 * 3_600_000
 /** 转存要的上下文 */
 export interface MovieSaverContext {
   deps: Pick<MoviesDeps, 'gate' | 'pan' | 'notify' | 'now' | 'log'>
-  /** 电影存到哪个 cid */
-  targetCid(): string
+  /** 这部电影存到哪个 cid（见 movieTarget）；解析不出时抛错 */
+  targetCid(record: MovieRecord): Promise<string>
   dirty(): void
+}
+
+/**
+ * 电影的转存目标：电影文件夹（单独选的或电影默认目录）下的「片名 (年份)」子文件夹，没有就建；
+ * 不再平铺进电影文件夹（ADR-0029）。
+ * @param base 电影文件夹 cid
+ */
+export function movieTarget(
+  deps: Pick<MoviesDeps, 'gate' | 'pan' | 'folderName'>,
+  base: () => string
+): (record: MovieRecord) => Promise<string> {
+  return async record => {
+    const name = await deps.folderName(record)
+    if (!name) throw new Error('算不出这部电影的文件夹名')
+    const gate = await deps.gate()
+    return gate.run('snap', () => deps.pan.childFolder(base(), name))
+  }
 }
 
 /** 创建转存器 */
@@ -34,8 +51,9 @@ export function createMovieSaver(ctx: MovieSaverContext): {
         return { ok: true }
       const candidate = record.candidates[index]
       if (!candidate) return { ok: false, error: '候选不存在，请重新搜索' }
-      const cid = ctx.targetCid()
+      let cid = ''
       try {
+        cid = await ctx.targetCid(record)
         const gate = await deps.gate()
         await transferOne(gate, deps.pan, candidate, cid)
         const names = await gate.run('snap', () => deps.pan.names(cid))

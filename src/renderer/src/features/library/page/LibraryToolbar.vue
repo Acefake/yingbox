@@ -14,7 +14,17 @@
           @update:model-value="view = $event"
         />
       </div>
-      <div v-if="actions.length" class="lib-toolbar-tools">
+      <div
+        v-if="actions.length || visualLibrary !== undefined"
+        class="lib-toolbar-tools"
+      >
+        <UiIconButton
+          v-if="visualLibrary !== undefined"
+          variant="glass"
+          icon="settings"
+          label="番号设置"
+          @click="settingsOpen = true"
+        />
         <UiIconButton
           v-for="key in actions"
           :key="key"
@@ -36,6 +46,19 @@
       :library-id="visualLibrary"
       @open-item="id => ((visualOpen = false), emit('open-item', id))"
     />
+    <LibrarySheet
+      :open="settingsOpen"
+      title="番号设置"
+      icon="settings"
+      @close="settingsOpen = false"
+    >
+      <LibraryFolderSettings v-if="settingsOpen" section="jav">
+        <template #remote>
+          <WebDavGroup v-if="webdavAvailable" jav />
+        </template>
+      </LibraryFolderSettings>
+      <WriterSettingsGroups v-if="settingsOpen" jav />
+    </LibrarySheet>
   </header>
 </template>
 
@@ -55,6 +78,11 @@ import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 
 import VisualSearch from '../visual/VisualSearch.vue'
+import LibrarySheet from '../shared/LibrarySheet.vue'
+import LibraryFolderSettings from '../settings/LibraryFolderSettings.vue'
+import WriterSettingsGroups from '../settings/WriterSettingsGroups.vue'
+import WebDavGroup from '../webdav/WebDavGroup.vue'
+import { webdavApi } from '../webdav/webdav-api'
 import { type ToolbarAction, toolbarActions } from './page-rules'
 import ReviewHint from './ReviewHint.vue'
 
@@ -75,6 +103,8 @@ const props = defineProps<{
 
 const view = defineModel<LibraryView>('view', { required: true })
 const visualOpen = ref(false)
+const settingsOpen = ref(false)
+const webdavAvailable = Boolean(webdavApi())
 
 const emit = defineEmits<{
   scan: []

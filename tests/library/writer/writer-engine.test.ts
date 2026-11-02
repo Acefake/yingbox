@@ -55,6 +55,35 @@ interface Env {
   path: (relative: string) => string
 }
 
+it('番号整理使用独立模板和开关，批次不会出现在普通媒体库设置里', async () => {
+  const env = await engine('movie', { 'Heat.1995.mkv': 'video' })
+  try {
+    env.service.db
+      .prepare("UPDATE libraries SET source = 'jav' WHERE id = ?")
+      .run(env.lib.id)
+    const jav = env.service.writer.getJavSettings()
+    jav.organize.enabled = true
+    jav.organize.movieTemplate = 'jav/{title}.{ext}'
+    env.service.writer.setJavSettings(jav)
+    expect(env.service.writer.getSettings().organize.enabled).toBe(false)
+    const plan = await env.service.writer.previewOrganize([
+      env.itemOf('Heat.1995.mkv'),
+    ])
+    expect(plan.entries.find(entry => entry.kind === 'video')?.to).toBe(
+      env.path('jav/盗火线.mkv')
+    )
+    const { batchId } = env.service.writer.applyOrganize(plan.planId)
+    await env.service.queue.idle()
+    expect(existsSync(env.path('jav/盗火线.mkv'))).toBe(true)
+    expect(env.service.writer.listOrganizeBatches()).toEqual([])
+    expect(
+      env.service.writer.listOrganizeBatches('jav').map(batch => batch.batchId)
+    ).toContain(batchId)
+  } finally {
+    await env.service.close()
+  }
+})
+
 async function engine(
   kind: LibraryKind,
   files: Record<string, string>,
@@ -300,6 +329,30 @@ describe('写出 NFO 与图片', () => {
     )
     await env.service.close()
   })
+
+  it('剧在分类文件夹下：tvshow.nfo 和海报写进剧文件夹，不写进分类文件夹', async () => {
+    const env = await engine('tv', {
+      '剧集/大陆/请回答1988 (2015)/Season 01/请回答1988.S01E02.mkv': '',
+    })
+    await env.write([env.itemOf('请回答1988.S01E02.mkv')])
+    const show = env.path('剧集/大陆/请回答1988 (2015)')
+    expect(readdirSync(show)).toEqual(
+      expect.arrayContaining(['tvshow.nfo', 'Season 01'])
+    )
+    expect(existsSync(join(show, 'Season 01', 'season.nfo'))).toBe(true)
+    expect(existsSync(env.path('剧集/tvshow.nfo'))).toBe(false)
+    expect(existsSync(env.path('剧集/大陆/tvshow.nfo'))).toBe(false)
+    await env.service.close()
+  })
+
+  it('集直接散放在分类文件夹里：不写剧集级文件，每集照常写', async () => {
+    const env = await engine('tv', { '剧集/大陆/请回答1988.S01E02.mkv': '' })
+    await env.write([env.itemOf('请回答1988.S01E02.mkv')])
+    expect(existsSync(env.path('剧集/大陆/tvshow.nfo'))).toBe(false)
+    expect(existsSync(env.path('剧集/tvshow.nfo'))).toBe(false)
+    expect(existsSync(env.path('剧集/大陆/请回答1988.S01E02.nfo'))).toBe(true)
+    await env.service.close()
+  })
 })
 
 describe('整理（改名移动）', () => {
@@ -448,6 +501,65 @@ describe('整理（改名移动）', () => {
     await env.service.close()
   })
 
+  it('电影散放在分类文件夹里：新文件夹建在分类里，分类里的其他文件不跟着走；两个版本不当分段', async () => {
+    const env = await engine('movie', {
+      '电影/Heat.1995.2160p.BluRay.REMUX.mkv': 'remux',
+      '电影/Heat.1995.1080p.WEB-DL.mkv': 'web',
+      '电影/folder.jpg': 'category art',
+    })
+    const plan = await env.service.writer.previewOrganize([
+      env.itemOf('Heat.1995.2160p.BluRay.REMUX.mkv'),
+    ])
+    expect(plan.entries.map(e => [e.to, e.conflict]).sort()).toEqual(
+      [
+        [
+          env.path('电影/盗火线 (1995)/盗火线 (1995) - 1080p WEB-DL.mkv'),
+          undefined,
+        ],
+        [
+          env.path('电影/盗火线 (1995)/盗火线 (1995) - 2160p REMUX.mkv'),
+          undefined,
+        ],
+      ].sort()
+    )
+    expect(plan.entries.some(e => e.from === env.path('电影/folder.jpg'))).toBe(
+      false
+    )
+    await env.service.close()
+  })
+
+  it('电影的广告小视频直接删，旧文件夹清空后删掉；撤销时视频回来、广告不恢复', async () => {
+    const env = await engine('movie', {
+      '电影/Heat.1995.1080p/Heat.1995.1080p.mkv': 'x'.repeat(10_000),
+      '电影/Heat.1995.1080p/x u u 6 2 . c o m.mp4': 'ad',
+    })
+    env.settings(s => (s.organize.enabled = true))
+    const heat = env.itemOf('Heat.1995.1080p.mkv')
+    const ad = env.path('电影/Heat.1995.1080p/x u u 6 2 . c o m.mp4')
+    const plan = await env.service.writer.previewOrganize([heat])
+    expect(plan.entries.filter(e => e.conflict)).toEqual([])
+    expect(plan.entries.find(e => e.from === ad)).toMatchObject({
+      kind: 'delete',
+      to: '',
+    })
+    const video = plan.entries.find(e => e.kind === 'video')!
+    expect(video.to).toBe(env.path('电影/盗火线 (1995)/盗火线 (1995).mkv'))
+
+    const { batchId } = env.service.writer.applyOrganize(plan.planId)
+    await env.service.queue.idle()
+    expect(existsSync(ad)).toBe(false)
+    expect(existsSync(env.path('电影/Heat.1995.1080p'))).toBe(false)
+    expect(read(video.to)).toBe('x'.repeat(10_000))
+
+    env.service.writer.undoOrganize(batchId)
+    await env.service.queue.idle()
+    expect(read(env.path('电影/Heat.1995.1080p/Heat.1995.1080p.mkv'))).toBe(
+      'x'.repeat(10_000)
+    )
+    expect(existsSync(ad)).toBe(false)
+    await env.service.close()
+  })
+
   it('跨盘：预览标出 crossDevice，执行走复制 + 校验 + 删除，撤销同样可回滚', async () => {
     const exdev = (): Promise<void> =>
       Promise.reject(
@@ -542,6 +654,123 @@ describe('整理（改名移动）', () => {
     expect(existsSync(env.path('请回答1988'))).toBe(false)
     expect(outputs.output(actorPath)).toBeUndefined()
     expect(outputs.output(join(showDir, '.actors/a.jpg'))).toEqual(actorRecord)
+    await env.service.close()
+  })
+
+  it('散放在根目录的新集并入这部剧已有的剧文件夹，不在根目录另建（ADR-0029）', async () => {
+    const home = '剧集/大陆/请回答1988 (2015)(1)'
+    const env = await engine('tv', {
+      [`${home}/Season 01/请回答1988.S01E01.mkv`]: 'e1',
+      [`${home}/Season 01/请回答1988.S01E02.mkv`]: 'e2',
+      '请回答1988.S01E03.mkv': 'e3',
+    })
+    env.settings(s => (s.organize.enabled = true))
+    const loose = env.itemOf('请回答1988.S01E03.mkv')
+    expect(loose).not.toBe(env.itemOf('请回答1988.S01E01.mkv'))
+
+    const plan = await env.service.writer.previewOrganize([loose])
+    const video = plan.entries.find(e => e.kind === 'video')!
+    expect(video.conflict).toBeUndefined()
+    expect(dirname(video.to)).toBe(env.path(`${home}/Season 01`))
+    env.service.writer.applyOrganize(plan.planId)
+    await env.service.queue.idle()
+    expect(read(video.to)).toBe('e3')
+    expect(existsSync(env.path('请回答1988 (2015)'))).toBe(false)
+    await env.service.close()
+  })
+
+  it('并入时散存文件夹里的 nfo 家里已有：留在原处，不拦下视频', async () => {
+    const home = '剧集/请回答1988'
+    const env = await engine('tv', {
+      [`${home}/Season 1/请回答1988.S01E01.mkv`]: 'e1',
+      [`${home}/Season 1/请回答1988.S01E02.mkv`]: 'e2',
+      [`${home}/tvshow.nfo`]: '<tvshow/>',
+      '新下载/请回答1988 (2015)/请回答1988.S01E03.mkv': 'e3',
+      '新下载/请回答1988 (2015)/tvshow.nfo': '<tvshow/>',
+    })
+    env.settings(s => (s.organize.enabled = true))
+    const loose = env.itemOf('请回答1988.S01E03.mkv')
+    const plan = await env.service.writer.previewOrganize([loose])
+    expect(plan.entries.filter(e => e.conflict)).toEqual([])
+    const video = plan.entries.find(e => e.kind === 'video')!
+    // 家里已有的季文件夹叫 Season 1，进它而不是按模板再建 Season 01
+    expect(dirname(video.to)).toBe(env.path(`${home}/Season 1`))
+    expect(
+      plan.entries.some(e =>
+        e.from.endsWith(join('请回答1988 (2015)', 'tvshow.nfo'))
+      )
+    ).toBe(false)
+    await env.service.close()
+  })
+
+  it('并入家后散存文件夹只剩片库写出的重复文件：删掉，散存文件夹整个消失', async () => {
+    const home = '剧集/请回答1988'
+    const stray = '新下载/请回答1988 (2015)'
+    const env = await engine('tv', {
+      [`${home}/Season 1/请回答1988.S01E01.mkv`]: 'e1',
+      [`${home}/Season 1/请回答1988.S01E02.mkv`]: 'e2',
+      [`${home}/tvshow.nfo`]: '<tvshow>home</tvshow>',
+      [`${stray}/请回答1988.S01E03.mkv`]: 'e3',
+      [`${stray}/tvshow.nfo`]: '<tvshow>stray</tvshow>',
+    })
+    env.settings(s => (s.organize.enabled = true))
+    const loose = env.itemOf('请回答1988.S01E03.mkv')
+    const record = { hash: 'nfo', size: 1, mtime: 0, fields: null }
+    new WriterStore(env.service.db).putOutput(
+      env.path(`${stray}/tvshow.nfo`),
+      loose,
+      'nfo',
+      record,
+      Date.now()
+    )
+
+    const plan = await env.service.writer.previewOrganize([loose])
+    expect(plan.entries.filter(e => e.conflict)).toEqual([])
+    expect(
+      plan.entries.find(e => e.from === env.path(`${stray}/tvshow.nfo`))
+    ).toMatchObject({ kind: 'delete' })
+    env.service.writer.applyOrganize(plan.planId)
+    await env.service.queue.idle()
+    expect(existsSync(env.path(stray))).toBe(false)
+    expect(read(env.path(`${home}/tvshow.nfo`))).toBe('<tvshow>home</tvshow>')
+    await env.service.close()
+  })
+
+  it('同一批里家文件夹自己也改名：散存的集跟到家的新名字，不分在两处', async () => {
+    const env = await engine('tv', {
+      'Reply.1988.S01.1080p-GRP/Reply.1988.S01E01.mkv': 'e1',
+      'Reply.1988.S01.1080p-GRP/Reply.1988.S01E02.mkv': 'e2',
+      '请回答1988.S01E03.mkv': 'e3',
+    })
+    env.settings(s => (s.organize.enabled = true))
+    const home = env.itemOf('Reply.1988.S01E01.mkv')
+    const loose = env.itemOf('请回答1988.S01E03.mkv')
+    for (const order of [
+      [home, loose],
+      [loose, home],
+    ]) {
+      const plan = await env.service.writer.previewOrganize(order)
+      const videos = plan.entries.filter(e => e.kind === 'video')
+      expect(videos.filter(e => e.conflict)).toEqual([])
+      expect(new Set(videos.map(e => dirname(e.to)))).toEqual(
+        new Set([dirname(videos[0].to)])
+      )
+      expect(dirname(videos[0].to)).toMatch(
+        /请回答1988 \(2015\)[\\/]Season 01$/
+      )
+    }
+    await env.service.close()
+  })
+
+  it('视频都在剧文件夹里时照常按模板改名，不因为「家」而停在旧名字', async () => {
+    const env = await engine('tv', {
+      'Reply.1988.S01.1080p-GRP/Reply.1988.S01E01.mkv': 'e1',
+    })
+    env.settings(s => (s.organize.enabled = true))
+    const id = env.itemOf('Reply.1988.S01E01.mkv')
+    const plan = await env.service.writer.previewOrganize([id])
+    const video = plan.entries.find(e => e.kind === 'video')!
+    expect(video.to).toContain('请回答1988 (2015)')
     await env.service.close()
   })
 })

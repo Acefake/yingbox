@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Pan115Error } from '../src/main/pan115/errors'
-import { FILE_05, episode, namesIn, setup } from './autograb-harness'
+import { FILE_05, child, episode, namesIn, setup } from './autograb-harness'
 
 describe('追更服务', () => {
   it('不追的剧不搜', async () => {
@@ -111,7 +111,9 @@ describe('追更服务', () => {
     h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
     await h.service.tick()
     expect((await h.service.overview()).defaultFolder.cid).toBe('66')
-    expect(namesIn(h, '66')).toEqual([FILE_05])
+    // 没单独选文件夹：存到剧集默认目录下这部剧的子文件夹，不平铺
+    expect(namesIn(h, child('66'))).toEqual([FILE_05])
+    expect(namesIn(h, '66')).toEqual([])
 
     const own = setup([episode(5)], {
       ...initial,

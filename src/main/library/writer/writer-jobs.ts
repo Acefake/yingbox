@@ -33,7 +33,7 @@ export interface WriterJobDeps {
   organizer: OrganizeRunner
   catalogQuery: CatalogQuery
   libraries: LibraryStore
-  settings: () => WriterSettings
+  settings: (source?: string) => WriterSettings
   /** 条目演员的资料（名字 → 资料）；缺省不补。 */
   actorProfiles?: (itemId: number) => NfoActorLookup
   /** 写出图片的 TMDB 尺寸（刮削偏好）；缺省高清。 */
@@ -64,14 +64,19 @@ export async function runWrite(
   payload: WritePayload,
   ctx: JobContext
 ): Promise<void> {
-  const settings = deps.settings()
-  const plans: Array<{ itemId: number; outputs: PlannedOutput[] }> = []
+  const plans: Array<{
+    itemId: number
+    outputs: PlannedOutput[]
+    settings: WriterSettings
+  }> = []
   for (const id of deps.store.topLevelIds(payload.itemIds)) {
     const node = deps.catalogQuery.getItem(id)
     if (!node) continue
     const library = deps.libraries.get(node.libraryId)
+    const settings = deps.settings(library.source)
     plans.push({
       itemId: id,
+      settings,
       outputs: planOutputs(node, {
         libraryRoot: library.root,
         settings,
@@ -98,7 +103,7 @@ export async function runWrite(
         ctx.signal.throwIfAborted()
         const result = await deps.writer.write(
           output,
-          settings.nfo.mode,
+          plan.settings.nfo.mode,
           ctx.signal
         )
         if (result.status === 'written') counts.written++

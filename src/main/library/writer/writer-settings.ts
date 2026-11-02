@@ -16,8 +16,14 @@ export class WriterSettingsStore {
   constructor(private readonly settings: SettingsStore) {}
 
   /** 当前设置（未保存过时为默认值）。 */
-  get(): WriterSettings {
-    const raw = this.settings.get(KEY)
+  get(source?: string): WriterSettings {
+    const key = source === 'jav' ? `${KEY}.jav` : KEY
+    const raw = this.settings.get(key)
+    if (!raw && source === 'jav') {
+      const initial = this.get()
+      this.settings.set(key, JSON.stringify(initial), Date.now())
+      return initial
+    }
     if (!raw) return structuredClone(DEFAULT_WRITER_SETTINGS)
     let saved: Partial<WriterSettings>
     try {
@@ -36,8 +42,13 @@ export class WriterSettingsStore {
   }
 
   /** 保存（调用方已校验）。 */
-  set(value: WriterSettings, now: number): WriterSettings {
-    this.settings.set(KEY, JSON.stringify(value), now)
-    return this.get()
+  set(value: WriterSettings, now: number, source?: string): WriterSettings {
+    if (source !== 'jav') this.get('jav')
+    this.settings.set(
+      source === 'jav' ? `${KEY}.jav` : KEY,
+      JSON.stringify(value),
+      now
+    )
+    return this.get(source)
   }
 }

@@ -6,7 +6,7 @@ import type { AutograbSeries } from '../../shared/contract/autograb'
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import { confirmFirstOf, seriesModeOf } from './policy'
 import { episodeKey, searchStart } from './schedule-rules'
-import type { AutograbState } from './state'
+import type { AutograbState, EpisodeRecord } from './state'
 
 /**
  * 日历 → 记录：本地有文件的集记为已入库；追更中的剧（实际方式不是「不追」，没设过的剧按全局方式）
@@ -147,4 +147,26 @@ export function seriesList(
         Number(b.effectiveMode !== 'off') - Number(a.effectiveMode !== 'off') ||
         a.title.localeCompare(b.title, 'zh')
     )
+}
+
+/** 跳过一集（不再搜）；已入库的不动。返回是否改了 */
+export function skipRecord(record: EpisodeRecord | undefined): boolean {
+  if (!record || record.status === 'done') return false
+  record.status = 'skipped'
+  record.nextTry = null
+  return true
+}
+
+/** 重新搜一集（清掉候选与报错，立刻到点）；已转存、已入库的不动。返回是否改了 */
+export function retryRecord(
+  record: EpisodeRecord | undefined,
+  now: number
+): boolean {
+  if (!record || record.status === 'done' || record.status === 'saved')
+    return false
+  record.status = 'waiting'
+  record.candidates = []
+  record.error = null
+  record.nextTry = now
+  return true
 }

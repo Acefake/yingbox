@@ -77,13 +77,13 @@
 
     <div
       v-show="!inlineDetailItem && activeTab === 'favorites'"
-      class="content-area primary-scroll home-content-area"
+      class="content-area primary-scroll home-content-area has-atmosphere"
     >
       <LibraryCollection kind="favorites" @open="openDetailWindow" />
     </div>
     <div
       v-show="!inlineDetailItem && activeTab === 'recent'"
-      class="content-area primary-scroll home-content-area"
+      class="content-area primary-scroll home-content-area has-atmosphere"
     >
       <LibraryCollection
         kind="recent"
@@ -291,6 +291,9 @@ const browseTarget = browse.target
 .home-content-area {
   padding: var(--space-7) var(--space-8) var(--space-8);
   gap: var(--space-7);
+}
+:global(.app-layout.is-desktop.has-page-atmosphere .has-atmosphere) {
+  padding-top: calc(var(--space-7) + var(--shell-top));
 }
 
 /*

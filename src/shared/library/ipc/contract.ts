@@ -69,7 +69,6 @@ export * from './contract-match'
 export * from './contract-provider'
 export * from './contract-library'
 export * from './contract-writer'
-
 /** 媒体库类型：电影库或剧集库，决定本地分组方式和后续用哪类元数据源识别。 */
 export type LibraryKind = 'movie' | 'tv'
 
@@ -276,6 +275,9 @@ export interface LibraryRpcMap
   setProviderToken: { params: SetProviderTokenRequest; result: ProviderStatus }
   getProviderStatus: { params: void; result: ProviderStatus }
   'writer.getSettings': { params: void; result: WriterSettings }
+  'writer.getJavSettings': { params: void; result: WriterSettings }
+  'writer.listJavOrganizeBatches': { params: void; result: OrganizeBatchInfo[] }
+  'writer.setJavSettings': { params: WriterSettings; result: WriterSettings }
   'writer.setSettings': { params: WriterSettings; result: WriterSettings }
   'writer.write': { params: { itemIds: number[] }; result: JobAccepted }
   'writer.previewOrganize': {
@@ -291,7 +293,6 @@ export interface LibraryRpcMap
   'jav.getSettings': { params: void; result: JavSettings }
   'jav.setSettings': { params: JavSettings; result: JavSettings }
 }
-
 /** 方法名。 */
 export type LibraryMethod = keyof LibraryRpcMap
 
@@ -318,6 +319,9 @@ export const LIBRARY_METHODS = [
   'getProviderStatus',
   'notifyChanges',
   'writer.getSettings',
+  'writer.getJavSettings',
+  'writer.listJavOrganizeBatches',
+  'writer.setJavSettings',
   'writer.setSettings',
   'writer.write',
   'writer.previewOrganize',

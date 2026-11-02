@@ -62,8 +62,11 @@ export const DEFAULT_WRITER_SETTINGS: WriterSettings = {
   },
 }
 
-/** 整理计划里一项的类型：视频本体、跟随视频的旁挂文件（字幕 / nfo / 图片）、文件夹级文件或目录。 */
-export type OrganizeEntryKind = 'video' | 'sidecar' | 'folder'
+/**
+ * 整理计划里一项的类型：视频本体、跟随视频的旁挂文件（字幕 / nfo / 图片）、文件夹级文件或目录，
+ * 以及直接删除（电影的广告小视频、并入剧的家时片库自己写出的重复 nfo / 图片；to 为空串，撤销时不恢复）。
+ */
+export type OrganizeEntryKind = 'video' | 'sidecar' | 'folder' | 'delete'
 
 /** 整理计划的一项移动。 */
 export interface OrganizeEntry {
@@ -121,6 +124,9 @@ export interface OrganizeBatchInfo {
 
 /** window.api.library.writer。 */
 export interface LibraryWriterBridge {
+  getJavSettings(): Promise<WriterSettings>
+  listJavOrganizeBatches(): Promise<OrganizeBatchInfo[]>
+  setJavSettings(settings: WriterSettings): Promise<WriterSettings>
   getSettings(): Promise<WriterSettings>
   /** 保存并返回生效的设置；模板不合法时以 invalid-params 拒绝。 */
   setSettings(settings: WriterSettings): Promise<WriterSettings>

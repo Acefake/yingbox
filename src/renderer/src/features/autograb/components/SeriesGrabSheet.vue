@@ -20,7 +20,10 @@
         <p v-if="hints.length" class="sg-hint">{{ hints.join('；') }}</p>
       </section>
       <SettingsGroup v-if="series.effectiveMode !== 'off'">
-        <SettingsRow title="转存位置">
+        <SettingsRow
+          title="转存位置"
+          description="片库里已有这部剧时存进它的文件夹；没有时存到这里的「剧名 (年份)」子文件夹"
+        >
           <TargetFolderPill
             v-bind="folderPill(series)"
             size="sm"

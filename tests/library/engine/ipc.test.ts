@@ -136,6 +136,9 @@ describe('引擎 RPC 与 preload bridge', () => {
       'setScrapePrefs',
       'notifyChanges',
       'writer.getSettings',
+      'writer.getJavSettings',
+      'writer.listJavOrganizeBatches',
+      'writer.setJavSettings',
       'writer.setSettings',
       'writer.write',
       'writer.previewOrganize',
@@ -166,6 +169,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'progress.import',
       'merge.split',
       'merge.join',
+      'calendar.seriesFolder',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })
@@ -318,5 +322,28 @@ describe('引擎 RPC 与 preload bridge', () => {
     expect(types).toContain('job:scan:done')
     const items = events.find(e => e.type === 'items-changed')
     expect(items).toMatchObject({ added: [expect.any(Number)], reset: false })
+  })
+
+  it('移除媒体库：先推 items-changed reset，再推 libraries-changed（海报墙据此丢掉旧条目）', async () => {
+    tree.write('Up (2009)/Up (2009).mkv')
+    const lib = await service.addLibrary({ root: tree.root, kind: 'movie' })
+    await service.queue.idle()
+    const events: LibraryEvent[] = []
+    service.subscribe(e => events.push(e))
+
+    await service.removeLibrary({ libraryId: lib.id })
+
+    const types = events.map(e => e.type)
+    expect(events[0]).toEqual({
+      type: 'items-changed',
+      libraryId: lib.id,
+      added: [],
+      updated: [],
+      removed: [],
+      reset: true,
+    })
+    expect(types.indexOf('items-changed')).toBeLessThan(
+      types.indexOf('libraries-changed')
+    )
   })
 })

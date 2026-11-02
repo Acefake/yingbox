@@ -2,7 +2,7 @@
  * 整理的执行与撤销：按批次日志逐项移动，每移完一项就在同一事务里更新 files 表与日志状态。
  *
  * 幂等：中途崩溃或被取消后重跑，已完成的项跳过；源不在而目标在的项视为已完成（移动做完、
- * 日志没来得及写）。撤销按 seq 倒序把已完成的项移回原处。
+ * 日志没来得及写）。撤销按 seq 倒序把已完成的项移回原处；删除项（广告、重复的写出文件）不恢复。
  * 执行期间持有涉及媒体库的扫描锁，扫描不会拿着旧快照把刚移动的文件当成删除 + 新增。
  */
 import { lstat, readdir, rm, rmdir } from 'node:fs/promises'
@@ -115,8 +115,11 @@ export class OrganizeRunner {
     signal: AbortSignal,
     onProgress: (c: OrganizeCounts) => void
   ): Promise<OrganizeCounts> {
-    const todo = ops.filter(
-      op => op.state === (direction === 'apply' ? 'pending' : 'done')
+    // 删除没法撤销：撤销时跳过，删掉的就是删掉了
+    const todo = ops.filter(op =>
+      direction === 'apply'
+        ? op.state === 'pending'
+        : op.state === 'done' && op.kind !== 'delete'
     )
     const counts: OrganizeCounts = {
       total: todo.length,
@@ -127,6 +130,8 @@ export class OrganizeRunner {
     }
     const libraries = [...new Set(todo.map(op => op.libraryId))]
     const touchedDirs: string[] = []
+    /** 这一轮有移动失败的条目：它的删除不做，视频还留在原处时不动旁边的文件 */
+    const failedItems = new Set<number>()
     await withLocks(
       this.deps.locks,
       libraries,
@@ -136,8 +141,16 @@ export class OrganizeRunner {
           const [from, to] =
             direction === 'apply' ? [op.src, op.dst] : [op.dst, op.src]
           const doneState = direction === 'apply' ? 'done' : 'undone'
+          if (op.kind === 'delete' && failedItems.has(op.itemId)) {
+            this.deps.store.setOpState(batchId, op.seq, 'skipped')
+            counts.skipped++
+            counts.done++
+            onProgress(counts)
+            continue
+          }
           try {
-            await this.moveOne(op, from, to)
+            if (op.kind === 'delete') await this.deleteOne(op)
+            else await this.moveOne(op, from, to)
             transaction(this.deps.db, () =>
               this.deps.store.setOpState(batchId, op.seq, doneState)
             )
@@ -147,6 +160,7 @@ export class OrganizeRunner {
             const message = (error as Error).message
             const state = direction === 'apply' ? 'failed' : 'done'
             this.deps.store.setOpState(batchId, op.seq, state, message)
+            failedItems.add(op.itemId)
             counts.failed++
             counts.lastError = `${from}：${message}`
           }
@@ -162,6 +176,12 @@ export class OrganizeRunner {
     )
     signal.throwIfAborted()
     return counts
+  }
+
+  /** 删除一项（广告视频、重复的写出文件）并去掉它的库记录；已经不在时视为删过。 */
+  private async deleteOne(op: OrganizeOp): Promise<void> {
+    await rm(op.src, { force: true })
+    transaction(this.deps.db, () => this.deps.store.forget(op.src))
   }
 
   /** 移动一项并同步数据库；源不在而目标在时视为已经移过。 */

@@ -24,6 +24,8 @@ export interface PlaybackRouteInput {
   autoMpvForDv: boolean
   /** 有 mpv 桥（桌面端 window.api.mpv） */
   mpvBridge: boolean
+  /** 起始文件内置播放器放不了（光盘镜像、m2ts / vob 等），只能 mpv */
+  mpvOnly?: boolean
 }
 
 /** 路由结果 */
@@ -37,7 +39,10 @@ export interface PlaybackRoute {
 /** 决定先试 mpv 还是内置播放 */
 export function playbackRoute(input: PlaybackRouteInput): PlaybackRoute {
   const dv = needsDvColorFix(input.video)
-  const wantsMpv = input.engine === 'mpv' || (dv && input.autoMpvForDv)
+  const wantsMpv =
+    input.engine === 'mpv' ||
+    input.mpvOnly === true ||
+    (dv && input.autoMpvForDv)
   return { tryMpv: wantsMpv && input.mpvBridge, dv }
 }
 

@@ -56,7 +56,6 @@ import type { PlannedMove } from '../../src/main/library/writer/organize/organiz
 import {
   blockWithConflictingVideo,
   sidecarOwner,
-  withPart,
 } from '../../src/main/library/writer/organize/organize-targets'
 import {
   canUndo,
@@ -659,9 +658,7 @@ describe('写出层规则', () => {
     ])
   })
 
-  it('分段后缀、旁挂归属取最长前缀、视频冲突连带阻止', () => {
-    expect(withPart('/a/M.mkv', 0, 1)).toBe('/a/M.mkv')
-    expect(withPart('/a/M.mkv', 1, 2)).toBe('/a/M - part2.mkv')
+  it('旁挂归属取最长前缀、视频冲突连带阻止', () => {
     const owners = [{ stem: 'Movie' }, { stem: 'Movie.part2' }]
     expect(sidecarOwner('Movie.part2.srt', owners)).toBe(owners[1])
     expect(sidecarOwner('Movie-poster.jpg', owners)).toBe(owners[0])
