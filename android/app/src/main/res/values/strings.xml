@@ -1,4 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">影盒</string>
+    <string name="server_channel">后台服务</string>
+    <string name="server_running">影盒服务运行中</string>
 </resources>

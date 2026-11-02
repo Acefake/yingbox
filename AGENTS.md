@@ -157,7 +157,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0019](docs/adr/0019-nas-online-engine.md) NAS 在线引擎、HTTP RPC / SSE、安全播放代理
 - [0020](docs/adr/0020-server-netdisk-autograb.md) 服务端 115、追更、库外发现
 - [0021](docs/adr/0021-magnet-sources-offline.md) 磁力来源与 115 离线下载
-- [0022](docs/adr/0022-remove-builtin-adult-source.md) 移除 MissAV 内置源（部分取代 0019）; [0023](docs/adr/0023-nas-live-notifications.md) NAS 直播与入库推送; [0024](docs/adr/0024-nas-library-netdisk-edition.md) NAS 片库与完整网盘专用版; [0025](docs/adr/0025-nas-stable-auto-update.md) NAS 稳定版自动更新; [0026](docs/adr/0026-nas-feature-parity.md) NAS 与网页版功能一致，115 目录可入库; [0027](docs/adr/0027-unified-resource-search.md) 统一搜索与资源聚合; [0028](docs/adr/0028-android-native-shell-embedded-node.md) 安卓与电视端：原生界面、内嵌 Node、原生播放
+- [0022](docs/adr/0022-remove-builtin-adult-source.md) 移除 MissAV 内置源（部分取代 0019）; [0023](docs/adr/0023-nas-live-notifications.md) NAS 直播与入库推送; [0024](docs/adr/0024-nas-library-netdisk-edition.md) NAS 片库与完整网盘专用版; [0025](docs/adr/0025-nas-stable-auto-update.md) NAS 稳定版自动更新; [0026](docs/adr/0026-nas-feature-parity.md) NAS 与网页版功能一致，115 目录可入库; [0027](docs/adr/0027-unified-resource-search.md) 统一搜索与资源聚合; [0028](docs/adr/0028-android-native-shell-embedded-node.md) 安卓与电视端：原生界面、内嵌 Node、原生播放; [0029](docs/adr/0029-android-node-as-native-executable.md) 安卓 Node 为可执行文件（部分取代 0028）
 
 ## UI conventions
 

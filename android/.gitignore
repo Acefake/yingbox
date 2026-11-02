@@ -7,3 +7,7 @@ local.properties
 *.iml
 captures/
 .cxx/
+.cache/
+# pnpm build:android 生成：Node 与依赖库、库名清单（ADR-0029）
+app/src/main/jniLibs/
+app/src/main/assets/node/
