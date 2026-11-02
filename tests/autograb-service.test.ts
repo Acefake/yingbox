@@ -180,3 +180,17 @@ it('目标目录不存在文件时不能将已接收过标记为转存成功', a
   expect((await h.service.grab('7:1:5', 0)).ok).toBe(false)
   expect((await h.service.overview()).episodes[0].status).not.toBe('saved')
 })
+
+it('转存后 1 小时仍没入库：再通知一次并报错，写明 115 路径', async () => {
+  const { service, clock, notified } = setup([episode(5)])
+  await service.setSeries(7, { mode: 'confirm' })
+  await service.tick()
+  await service.grab('7:1:5', 0)
+  clock.t += 11 * 60_000
+  await service.tick()
+  clock.t += 60 * 60_000
+  await service.tick()
+  const record = (await service.overview()).episodes[0]
+  expect(record.error).toContain(`/剧集/繁花/${FILE_05}`)
+  expect(notified).toHaveLength(2)
+})

@@ -7,7 +7,7 @@
  * - 存完再列一次目标文件夹，记下新文件在自己 115 里的 id 和体积（撤销只删它，见 revert.ts）；
  * - 分享失效 / 提取码错：拉黑分享、去掉这个候选，没有候选了就回到等待、按计划再搜；
  * - 转存 {@link NOTIFY_AFTER_MS} 后仍没入库，按 115 路径主动通知媒体库扫一次（不靠 CloudDrive2 webhook）；
- *   {@link STALE_AFTER_MS} 后仍没有就在记录上报错，提示检查文件夹与媒体库的对应。
+ *   {@link STALE_AFTER_MS} 后仍没有就再通知一次并在记录上报错（写明 115 路径），提示检查文件夹与媒体库的对应。
  */
 import type {
   AutograbCandidate,
@@ -29,7 +29,7 @@ import {
 /** 转存后多久还没入库就主动通知媒体库 */
 export const NOTIFY_AFTER_MS = 10 * 60_000
 /** 转存后多久还没入库就报错 */
-export const STALE_AFTER_MS = 24 * 3_600_000
+export const STALE_AFTER_MS = 3_600_000
 /** 115 说「已经接收过」 */
 export const ALREADY_RECEIVED = 4100024
 /** 转存后至少还要剩这么多空间 */
@@ -188,27 +188,32 @@ export function createSaver(ctx: SaverContext): {
     return { ok: false, error: message }
   }
 
-  /** 已转存的集：没入库就主动通知一次，太久没入库就报错 */
+  /** 已转存文件的 115 路径（通知媒体库、报错提示都用它） */
+  async function savedPath(record: EpisodeRecord): Promise<string> {
+    const dirs = await ctx
+      .gate()
+      .run('snap', () => ctx.deps.pan.dirPath(record.savedCid!))
+    return `/${[...dirs, record.savedName ?? ''].join('/')}`
+  }
+
+  /** 已转存的集：没入库就主动通知一次，太久没入库就再通知一次并报错（写明路径） */
   async function followSaved(
     record: EpisodeRecord,
     now: number
   ): Promise<void> {
-    if (record.savedAt === null) return
-    if (
-      !record.notified &&
-      now - record.savedAt >= NOTIFY_AFTER_MS &&
-      record.savedCid
-    ) {
+    if (record.savedAt === null || !record.savedCid) return
+    const waited = now - record.savedAt
+    if (!record.notified && waited >= NOTIFY_AFTER_MS) {
       record.notified = true
       ctx.dirty()
-      const dirs = await ctx
-        .gate()
-        .run('snap', () => ctx.deps.pan.dirPath(record.savedCid!))
-      const path = `/${[...dirs, record.savedName ?? ''].join('/')}`
-      await ctx.deps.notify([{ action: 'create', path }])
-    } else if (now - record.savedAt >= STALE_AFTER_MS && !record.error) {
-      record.error = '已转存一天仍没入库：检查这部剧的 115 文件夹是否在媒体库里'
+      await ctx.deps.notify([
+        { action: 'create', path: await savedPath(record) },
+      ])
+    } else if (waited >= STALE_AFTER_MS && !record.error) {
+      const path = await savedPath(record)
+      record.error = `已转存 1 小时仍没入库：${path} 可能不在媒体库监控的文件夹里，请检查后重新扫描`
       ctx.dirty()
+      await ctx.deps.notify([{ action: 'create', path }])
     }
   }
 
