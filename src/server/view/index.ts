@@ -24,6 +24,7 @@ import type { ServerEngine } from '../online/engine'
 import type { Playback } from '../playback'
 import { browsePage } from './browse'
 import { type ProbeDeps, createProber } from './probe'
+import { createSourceHealth } from './source-health'
 import { searchCards } from './search'
 import { composeHome, favoriteCards, recentCards } from './compose'
 import {
@@ -91,6 +92,22 @@ export function engineSourceDeps(engine: ServerEngine): SourceDeps & ProbeDeps {
   }
 }
 
+/** 搜索与选源的站点清单里去掉不用的（用户屏蔽的、体检不通的；每次请求现读，改了立即生效） */
+export function withoutHidden<T extends SourceDeps>(
+  deps: T,
+  hidden: () => ReadonlySet<string>
+): T {
+  return {
+    ...deps,
+    cmsSites: () => deps.cmsSites().filter(site => !hidden().has(site.name)),
+    pluginSites: async () =>
+      (await deps.pluginSites()).filter(site => !hidden().has(site.name)),
+  }
+}
+
+/** 服务起来后多久开始第一轮体检（给引擎留出启动时间） */
+const HEALTH_START_DELAY_MS = 3_000
+
 /** 带缓存的首页豆瓣部分：同一时间只拼一次；完整的结果缓存 HOME_TTL_MS，有缺行的缓存 PARTIAL_TTL_MS */
 export function cachedHome(
   build: () => Promise<HomeFeed>,
@@ -116,7 +133,13 @@ export function cachedHome(
 /** 视图要读写的播放记录（服务端 playback，ADR-0031） */
 export type ViewRecords = Pick<
   Playback,
-  'continueList' | 'favorites' | 'toggleFavorite'
+  | 'continueList'
+  | 'favorites'
+  | 'toggleFavorite'
+  | 'blockedSites'
+  | 'setSiteBlocked'
+  | 'sourceHealth'
+  | 'saveSourceHealth'
 >
 
 /** 登记视图域；播放记录每次请求现读 */
@@ -127,13 +150,25 @@ export function registerView(
 ): void {
   const deps = engineHomeDeps(engine)
   const feed = cachedHome(() => buildHomeFeed(deps))
-  const sourceDeps = engineSourceDeps(engine)
+  const engineSources = engineSourceDeps(engine)
+  // 体检：全部源跑一遍，通的启用、不通的停用（ADR-0036）
+  const health = createSourceHealth(engineSources, {
+    read: () => records.sourceHealth(),
+    write: record => records.saveSourceHealth(record),
+  })
+  // 搜索、选源、自动换源跳过：用户屏蔽的 + 体检不通的
+  const hidden = (): ReadonlySet<string> =>
+    new Set([...records.blockedSites(), ...health.disabled()])
+  const sourceDeps = withoutHidden(engineSources, hidden)
   const sessions = createSourceSessions(
     sourceDeps,
     Date.now,
     randomUUID,
-    createProber(sourceDeps)
+    createProber(sourceDeps),
+    hidden
   )
+  // 服务起来后在后台跑第一轮（与桌面启动轮次一样），失败不影响别的功能
+  setTimeout(() => void health.start(), HEALTH_START_DELAY_MS).unref?.()
   registry.implement(view, {
     home: async () =>
       composeHome(
@@ -173,6 +208,13 @@ export function registerView(
       return records.toggleFavorite(favoriteItemOf(meta))
     },
     search: (_, keyword) => searchCards(keyword, sourceDeps),
+    sourceHealth: () => health.status(),
+    recheckSources: () => {
+      void health.start()
+      return health.status()
+    },
+    blockedSites: () => records.blockedSites(),
+    blockSite: (_, name, on) => records.setSiteBlocked(name, on),
     sourcesStart: (_, title) => sessions.start(title),
     sources: (_, id) => sessions.get(id),
     resume: (_, id) => {

@@ -12,6 +12,10 @@ const NO_RECORDS: ViewRecords = {
   continueList: () => [],
   favorites: () => [],
   toggleFavorite: () => false,
+  blockedSites: () => [],
+  setSiteBlocked: () => [],
+  sourceHealth: () => ({}),
+  saveSourceHealth: () => {},
 }
 
 /** 共享服务组装提供的依赖，元数据语言和令牌保持服务端读取。 */

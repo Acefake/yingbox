@@ -8,6 +8,7 @@ import {
 } from './detail'
 import { HomeViewSchema } from './home'
 import { ViewSearchCardSchema } from './search'
+import { ViewSourceHealthSchema } from './source-health'
 
 export const VIEW_ROOTS = [
   HomeViewSchema,
@@ -17,4 +18,5 @@ export const VIEW_ROOTS = [
   ViewResumeSchema,
   ViewBrowsePageSchema,
   ViewSearchCardSchema,
+  ViewSourceHealthSchema,
 ] as const

@@ -104,6 +104,8 @@ interface Session {
   groups: EpisodeGroup[]
   /** 结果没变就不重算（客户端每 0.8 秒轮询一次） */
   view: ViewSources | null
+  /** 上次算结果时的屏蔽列表；变了就重算 */
+  hiddenKey: string
 }
 
 /** 选源会话：start 在后台开始搜，get 返回当前已找到的站点（整份快照） */
@@ -117,15 +119,22 @@ export function createSourceSessions(
   now: () => number = Date.now,
   newId: () => string = randomUUID,
   /** 测速；缺省不测，站点保持找到的先后、状态都是测速中 */
-  prober?: Prober
+  prober?: Prober,
+  /** 用户屏蔽的站点名；改了之后已有会话的结果立刻去掉它们 */
+  blocked: () => ReadonlySet<string> = () => new Set()
 ): SourceSessions {
   const sessions = new Map<string, Session>()
   const view = (s: Session): ViewSources => {
     s.seenAt = now()
+    const hidden = blocked()
+    const hiddenKey = [...hidden].sort().join('|')
+    if (s.view && s.hiddenKey !== hiddenKey) s.view = null
     if (!s.view) {
+      s.hiddenKey = hiddenKey
+      const groups = s.groups.filter(g => !hidden.has(g._siteName || g.label))
       // 每次重算都过一遍测速：没测过的排队去测，测完让下次取结果时重算
       const probes: Record<string, SourceProbe> = {}
-      for (const site of groupBySite(s.groups))
+      for (const site of groupBySite(groups))
         probes[site.siteName] = prober
           ? prober.ensure(site, () => {
               s.view = null
@@ -136,7 +145,7 @@ export function createSourceSessions(
         done: s.done,
         probing:
           !!prober && Object.values(probes).some(p => p.status === 'pending'),
-        sites: sourceSites(s.groups, prober ? probes : {}),
+        sites: sourceSites(groups, prober ? probes : {}),
       }
     }
     return s.view
@@ -179,6 +188,7 @@ export function createSourceSessions(
         stopped: false,
         groups: [],
         view: null,
+        hiddenKey: '',
       }
       sessions.set(session.id, session)
       const active = (): boolean =>

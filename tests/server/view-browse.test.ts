@@ -76,6 +76,15 @@ describe('浏览页（view.browse）', () => {
         throw new Error('unused')
       },
       recent: () => [],
+      blockedSites: () => [],
+      blockSite: () => [],
+      sourceHealth: () => ({ checking: false, done: 0, total: 0, failed: [] }),
+      recheckSources: () => ({
+        checking: false,
+        done: 0,
+        total: 0,
+        failed: [],
+      }),
       favorites: () => [],
       search: async () => [],
       browse: async () => ({ title: '', items: [], next: null }),

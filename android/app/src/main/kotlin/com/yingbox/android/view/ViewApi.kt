@@ -16,6 +16,22 @@ class ViewApi(private val client: ServerClient) {
     fun favorites(): List<ViewCard> =
         (client.call("view", "favorites") as JSONArray).let { a -> List(a.length()) { ViewCard.fromJson(a.getJSONObject(it)) } }
 
+    /** 在线源体检的进度与结果（服务启动时自动跑一轮：通的启用、不通的停用） */
+    fun sourceHealth(): ViewSourceHealth =
+        ViewSourceHealth.fromJson(client.call("view", "sourceHealth") as JSONObject)
+
+    /** 重新检测全部源（已在检测中就复用），返回当前进度 */
+    fun recheckSources(): ViewSourceHealth =
+        ViewSourceHealth.fromJson(client.call("view", "recheckSources") as JSONObject)
+
+    /** 不再使用的站点名 */
+    fun blockedSites(): List<String> =
+        (client.call("view", "blockedSites") as JSONArray).let { a -> List(a.length()) { a.getString(it) } }
+
+    /** 屏蔽（on 为真）或恢复一个站点，返回最新的屏蔽列表；选源、搜索、自动换源都跳过被屏蔽的站点 */
+    fun blockSite(name: String, on: Boolean): List<String> =
+        (client.call("view", "blockSite", JSONArray().put(name).put(on)) as JSONArray).let { a -> List(a.length()) { a.getString(it) } }
+
     /** 搜索：关键词在各站点里搜，片名相同的合成一张卡（最多等 12 秒） */
     fun search(keyword: String): List<ViewSearchCard> =
         (client.call("view", "search", JSONArray().put(keyword)) as JSONArray).let { a -> List(a.length()) { ViewSearchCard.fromJson(a.getJSONObject(it)) } }
