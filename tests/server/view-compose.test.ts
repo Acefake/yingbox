@@ -45,6 +45,7 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
     const home = composeHome(
       feed([card('1', '/b1'), card('2', null)]),
       [record()],
+      [],
       60_000
     )
     expect(home.hero.map(s => s.kind)).toEqual(['resume', 'douban', 'douban'])
@@ -62,7 +63,7 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
   })
 
   it('继续观看行给出副标题、进度和封面缩略图', () => {
-    const home = composeHome(feed([]), [record()], 60_000)
+    const home = composeHome(feed([]), [record()], [], 60_000)
     expect(home.continueRow).toEqual([
       {
         id: 'online:site:1',
@@ -77,7 +78,7 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
   })
 
   it('没有播放记录时只有热门轮播，继续观看行为空', () => {
-    const home = composeHome(feed([card('1', '/b1')]), [], 0)
+    const home = composeHome(feed([card('1', '/b1')]), [], [], 0)
     expect(home.hero.map(s => s.kind)).toEqual(['douban'])
     expect(home.continueRow).toEqual([])
   })
@@ -86,6 +87,7 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
     const home = composeHome(
       feed([]),
       [record({ section: 'av', id: 'av:x', key: 'x' })],
+      [],
       0
     )
     expect(home.continueRow).toEqual([])
@@ -104,6 +106,7 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
         }),
         record({ id: 'online:old', key: 'old', updatedAt: 1 }),
       ],
+      [],
       0
     )
     expect(home.hero[0]?.continueId).toBe('online:old')
@@ -164,5 +167,34 @@ describe('续播信息（view.resume）', () => {
     )
     expect(r?.episodes[r.index]).toMatchObject({ url: 'u2', name: '第 1 集' })
     expect(r?.episodes[0].url).toBe('')
+  })
+})
+
+describe('首页的收藏行', () => {
+  it('收藏的豆瓣卡换成视图卡，海报走缩略图', () => {
+    const home = composeHome(
+      feed([]),
+      [],
+      [
+        {
+          title: '收藏的片',
+          searchTitle: '收藏的片',
+          original_title: '',
+          cover: 'https://img1.doubanio.com/f.jpg',
+          coverSrc: 'https://img1.doubanio.com/f.jpg',
+          rate: '8.2',
+          url: 'https://movie.douban.com/subject/42/',
+          year: '2025',
+          type: '剧集',
+          overview: '',
+          kind: 'tv',
+        },
+      ],
+      0
+    )
+    expect(home.favorites).toEqual([
+      expect.objectContaining({ id: '42', kind: 'tv', rate: '8.2' }),
+    ])
+    expect(home.favorites[0].poster).toMatch(/^\/media\/thumb\?w=480&src=/)
   })
 })

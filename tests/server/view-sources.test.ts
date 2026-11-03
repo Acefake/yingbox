@@ -2,6 +2,7 @@ import { describe, expect, it, vi } from 'vitest'
 
 import {
   createSourceSessions,
+  favoriteItemOf,
   resolveEpisode,
   viewDetail,
 } from '../../src/server/view/detail'
@@ -18,6 +19,7 @@ import type {
 } from '../../src/shared/contract/online'
 import type { DoubanMetadata } from '../../src/shared/douban/detail'
 import type { EpisodeGroup } from '../../src/shared/online/types'
+import { isDoubanItem } from '../../src/shared/playback/favorites'
 
 const CMS_A = 'https://cms-a.example.com/api.php/provide/vod/'
 const CMS_B = 'https://cms-b.example.com/api.php/provide/vod/'
@@ -301,9 +303,10 @@ describe('详情与入参', () => {
       images: [{ thumb: 'https://img.doubanio.com/s.jpg', full: '' }],
       backdrop: '',
     }
-    const d = viewDetail(meta)
+    const d = viewDetail(meta, true)
     expect(d).toMatchObject({
       rating: '豆瓣 8.0',
+      favorite: true,
       overview: '简介',
       backdrop: null,
       actors: [{ name: '演员', photo: null }],
@@ -320,6 +323,7 @@ describe('详情与入参', () => {
       },
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
+      favorite: async () => false,
       sourcesStart: () => ({ sessionId: 'x', done: true, sites: [] }),
       sources: () => null,
       resume: () => null,
@@ -334,5 +338,36 @@ describe('详情与入参', () => {
       expect(await registry.invoke('view', method, [...args])).toMatchObject({
         ok: false,
       })
+  })
+})
+
+describe('收藏卡', () => {
+  it('按豆瓣详情拼出的收藏卡与桌面收藏同形状', () => {
+    const item = favoriteItemOf({
+      id: '123',
+      kind: 'tv',
+      title: '片',
+      originalTitle: 'Orig',
+      year: '2026',
+      genres: [],
+      countries: [],
+      cardSubtitle: '',
+      rating: { value: 7.95, count: 1 },
+      cover: 'https://img.doubanio.com/p.jpg',
+      intro: '简介',
+      duration: '',
+      directors: [],
+      actors: [],
+      images: [],
+      backdrop: '',
+    })
+    expect(isDoubanItem(item)).toBe(true)
+    expect(item).toMatchObject({
+      url: 'https://movie.douban.com/subject/123/',
+      rate: '8.0',
+      type: '剧集',
+      kind: 'tv',
+    })
+    expect(item).not.toHaveProperty('backdrop')
   })
 })

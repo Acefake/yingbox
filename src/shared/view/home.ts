@@ -1,6 +1,6 @@
 /**
  * 首页视图 view.home 的结果（ADR-0030 决策 6）：轮播、继续观看、热门货架、榜单、按类型浏览、精选片单。
- * 继续观看来自服务端播放记录（ADR-0031），每次请求现读；其余部分缓存。
+ * 继续观看与收藏来自服务端播放记录（ADR-0031），每次请求现读；其余部分缓存。
  *
  * 图片字段是本服务的缩略图路径（/media/thumb?w=&src=），客户端拼上服务地址、带令牌请求。
  */
@@ -95,6 +95,8 @@ export const HomeViewSchema = s.object('HomeView', {
   hero: s.array(ViewHeroSlideSchema),
   /** 继续观看（首页合并的板块，最近的在前）；没有为空 */
   continueRow: s.array(ViewContinueSchema),
+  /** 我的收藏（新收藏在前）；没有为空 */
+  favorites: s.array(ViewCardSchema),
   /** 热门电影；取不到为 null（整行隐藏） */
   hotMovies: s.nullable(ViewShelfSchema),
   hotTv: s.nullable(ViewShelfSchema),
@@ -113,4 +115,4 @@ export type ViewHeroSlide = Infer<typeof ViewHeroSlideSchema>
 export type HomeView = Infer<typeof HomeViewSchema>
 
 /** 首页里不依赖播放记录、可以缓存的部分 */
-export type HomeFeed = Omit<HomeView, 'hero' | 'continueRow'>
+export type HomeFeed = Omit<HomeView, 'hero' | 'continueRow' | 'favorites'>

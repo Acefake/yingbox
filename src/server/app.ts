@@ -221,7 +221,7 @@ export async function createServerApp(
       tmdbLanguage: () => serverSettings.get('scrape.metadataLanguage'),
       log,
       engine: options.engine,
-      continueRecords: () => playback.continueList(),
+      records: playback,
     }
   )
   // 网盘 / 追更 / 库外发现（开关 YINGBOX_NETDISK、YINGBOX_AUTOGRAB，见 netdisk/）

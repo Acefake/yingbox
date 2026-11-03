@@ -82,6 +82,9 @@ private fun HomeRows(home: HomeView, client: ServerClient, scroll: LazyListState
     ) {
         if (home.hero.isNotEmpty()) item { Hero(home.hero, client, openSlide) }
         if (home.continueRow.isNotEmpty()) item { ContinueRow(home.continueRow, client, actions.resume) }
+        if (home.favorites.isNotEmpty()) {
+            item { Shelf(ViewShelf("我的收藏", DoubanKind.MOVIE, home.favorites), client, actions.openCard, null) }
+        }
         items(shelves) { shelf ->
             // 热门两行通向「全部」；榜单行没有更多
             val more = if (shelf === home.chart) null else ({ actions.browse(BrowseTarget.Hot(shelf.kind)) })

@@ -12,6 +12,7 @@ import type {
 import type { HomeView } from '../view/home'
 import {
   ContractError,
+  bool,
   call,
   defineDomain,
   oneOf,
@@ -82,6 +83,14 @@ export const view = defineDomain('view', {
     if (!/^\d{1,12}$/.test(id)) throw new ContractError('豆瓣条目 ID 不合法')
     return [id, oneOf(a[1], 'kind', ['movie', 'tv'] as const)]
   }),
+  /** 收藏 / 取消收藏一部豆瓣条目（服务端按豆瓣详情拼出收藏卡），返回之后是否已收藏 */
+  favorite: call<[subjectId: string, kind: DoubanKind, on: boolean], boolean>(
+    a => {
+      const id = str(a[0], 'subjectId')
+      if (!/^\d{1,12}$/.test(id)) throw new ContractError('豆瓣条目 ID 不合法')
+      return [id, oneOf(a[1], 'kind', KINDS), bool(a[2], 'on')]
+    }
+  ),
   /** 按片名开始选源（后台搜），返回会话的当前结果；同一部片 10 分钟内复用 */
   sourcesStart: call<[title: string], ViewSources>(a => {
     const title = str(a[0], 'title').trim()

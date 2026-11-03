@@ -17,6 +17,10 @@ class ViewApi(private val client: ServerClient) {
         (client.call("view", "detail", JSONArray().put(doubanId).put(kind.json)) as? JSONObject)
             ?.let(ViewDetail::fromJson)
 
+    /** 收藏 / 取消收藏，返回之后是否已收藏 */
+    fun favorite(doubanId: String, kind: DoubanKind, on: Boolean): Boolean =
+        client.call("view", "favorite", JSONArray().put(doubanId).put(kind.json).put(on)) as Boolean
+
     /** 开始按片名选源（同一部片 10 分钟内复用会话） */
     fun sourcesStart(title: String): ViewSources =
         ViewSources.fromJson(client.call("view", "sourcesStart", JSONArray().put(title)) as JSONObject)

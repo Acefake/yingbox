@@ -14,13 +14,19 @@ import type { DoubanMetadata } from '../../shared/douban/detail'
 import type { DoubanPage, DoubanSubject } from '../../shared/douban/query'
 import type { ApiSite, CatSpiderSite } from '../../shared/online/types'
 import type { PlaySourceDeps } from '../../shared/online/play-source'
-import type { ContinueRecord } from '../../shared/playback/continue-rules'
+import { type DoubanItem, doubanSubjectId } from '../../shared/douban/item'
 import type { HomeFeed } from '../../shared/view/home'
 import type { DomainRegistry } from '../domains/registry'
 import type { ServerEngine } from '../online/engine'
+import type { Playback } from '../playback'
 import { browsePage } from './browse'
 import { composeHome } from './compose'
-import { createSourceSessions, resolveEpisode, viewDetail } from './detail'
+import {
+  createSourceSessions,
+  favoriteItemOf,
+  resolveEpisode,
+  viewDetail,
+} from './detail'
 import { resumeView } from './resume'
 import { type HomeDeps, buildHomeFeed, isCompleteHome } from './home'
 import type { SourceDeps } from './sources'
@@ -103,27 +109,58 @@ export function cachedHome(
   }
 }
 
-/** 登记视图域；continueRecords 读服务端播放记录（ADR-0031），每次请求现读 */
+/** 视图要读写的播放记录（服务端 playback，ADR-0031） */
+export type ViewRecords = Pick<
+  Playback,
+  'continueList' | 'favorites' | 'toggleFavorite'
+>
+
+/** 登记视图域；播放记录每次请求现读 */
 export function registerView(
   registry: DomainRegistry,
   engine: ServerEngine,
-  continueRecords: () => ContinueRecord[]
+  records: ViewRecords
 ): void {
   const deps = engineHomeDeps(engine)
   const feed = cachedHome(() => buildHomeFeed(deps))
   const sourceDeps = engineSourceDeps(engine)
   const sessions = createSourceSessions(sourceDeps)
   registry.implement(view, {
-    home: async () => composeHome(await feed(), continueRecords(), Date.now()),
+    home: async () =>
+      composeHome(
+        await feed(),
+        records.continueList(),
+        records.favorites(),
+        Date.now()
+      ),
     browse: (_, target, start) => browsePage(target, start, deps),
     detail: async (_, id, kind) => {
       const meta = await deps.metadata(id, kind).catch(() => null)
-      return meta ? viewDetail(meta) : null
+      const favorite = records
+        .favorites()
+        .some(item => doubanSubjectId(item.url) === id)
+      return meta ? viewDetail(meta, favorite) : null
+    },
+    favorite: async (_, id, kind, on) => {
+      // 比对按豆瓣 ID：旧收藏的地址可能是 m.douban.com、http 或没有末尾斜杠
+      const saved = (): DoubanItem[] =>
+        records.favorites().filter(item => doubanSubjectId(item.url) === id)
+      // 取消：不需要豆瓣详情，同步删掉所有匹配项（豆瓣限流时也能删）
+      if (!on) {
+        for (const item of saved()) records.toggleFavorite(item)
+        return false
+      }
+      if (saved().length) return true
+      const meta = await deps.metadata(id, kind)
+      if (!meta) throw new Error('取不到豆瓣详情，稍后再试')
+      // 等详情期间可能已被另一个请求收藏：再查一次，查与写之间不再有 await
+      if (saved().length) return true
+      return records.toggleFavorite(favoriteItemOf(meta))
     },
     sourcesStart: (_, title) => sessions.start(title),
     sources: (_, id) => sessions.get(id),
     resume: (_, id) => {
-      const record = continueRecords().find(r => r.id === id)
+      const record = records.continueList().find(r => r.id === id)
       return record ? resumeView(record) : null
     },
     resolve: (_, episode) =>

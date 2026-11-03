@@ -77,6 +77,7 @@ describe('浏览页（view.browse）', () => {
       },
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
+      favorite: async () => false,
       sourcesStart: () => ({ sessionId: 'x', done: true, sites: [] }),
       sources: () => null,
       resume: () => null,

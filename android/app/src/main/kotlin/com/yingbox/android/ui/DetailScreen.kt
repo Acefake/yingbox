@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,6 +39,7 @@ import com.yingbox.android.view.ViewSourceSite
 import com.yingbox.android.view.ViewSources
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
+import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
 /** 打开详情需要的身份（来自首页的豆瓣卡） */
@@ -86,12 +88,28 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, play: (PlayRequest)
     }
 
     val d = detail?.getOrNull()
+    // 收藏：用户点过就以点的为准（详情晚到也不覆盖）；请求进行中忽略重复点击，失败退回点之前的状态
+    var picked by remember(target) { mutableStateOf<Boolean?>(null) }
+    var saving by remember(target) { mutableStateOf(false) }
+    val favorite = picked ?: d?.favorite ?: false
+    val scope = rememberCoroutineScope()
+    val toggleFavorite: () -> Unit = toggle@{
+        if (saving) return@toggle
+        val before = favorite
+        picked = !before
+        saving = true
+        scope.launch {
+            picked = runCatching { withContext(Dispatchers.IO) { api.favorite(target.doubanId, target.kind, !before) } }
+                .getOrDefault(before)
+            saving = false
+        }
+    }
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(Color.Black),
         contentPadding = PaddingValues(bottom = 48.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
-        item { Header(d, target, client) }
+        item { Header(d, target, client, favorite, toggleFavorite) }
         item {
             Sources(sources, failed, playable = detail != null) { site, line, index ->
                 play(
@@ -113,7 +131,13 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, play: (PlayRequest)
 }
 
 @Composable
-private fun Header(detail: ViewDetail?, target: DetailTarget, client: ServerClient) {
+private fun Header(
+    detail: ViewDetail?,
+    target: DetailTarget,
+    client: ServerClient,
+    favorite: Boolean,
+    toggleFavorite: () -> Unit,
+) {
     Box(Modifier.fillMaxWidth().height(400.dp)) {
         RemoteImage(detail?.backdrop ?: target.poster, client, Modifier.fillMaxSize())
         Box(Modifier.fillMaxSize().background(Color(0xB3000000)))
@@ -139,6 +163,7 @@ private fun Header(detail: ViewDetail?, target: DetailTarget, client: ServerClie
                     detail.actors.take(4).joinToString(" / ") { it.name }.let { if (it.isEmpty()) "" else "主演 $it" },
                 ).filter { it.isNotEmpty() }.joinToString("　")
                 if (people.isNotEmpty()) Text(people, color = Muted, fontSize = 13.sp, maxLines = 1)
+                Chip(if (favorite) "♥ 已收藏" else "♡ 收藏", selected = favorite, onClick = toggleFavorite)
             }
         }
     }

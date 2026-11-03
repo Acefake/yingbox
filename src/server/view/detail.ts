@@ -4,6 +4,7 @@
 import { randomUUID } from 'node:crypto'
 
 import type { DoubanMetadata } from '../../shared/douban/detail'
+import type { DoubanItem } from '../../shared/douban/item'
 import { streamProxyPath } from '../../shared/engine-http'
 import { formatRating } from '../../shared/library/rating'
 import { isThumbSource } from '../../shared/media-url'
@@ -27,8 +28,33 @@ import { type SourceDeps, searchSources, sourceSites } from './sources'
 const thumbOr = (src: string, width: 300 | 480 | 780): string | null =>
   src && isThumbSource(src) ? thumbPath(src, width) : null
 
+/** 豆瓣条目地址（收藏按它比对，与桌面豆瓣卡一致） */
+const doubanUrlOf = (id: string): string =>
+  `https://movie.douban.com/subject/${id}/`
+
+/** 豆瓣元数据 → 收藏用的豆瓣卡（与桌面收藏 media_favorites 同形状） */
+export function favoriteItemOf(meta: DoubanMetadata): DoubanItem {
+  return {
+    title: meta.title,
+    searchTitle: meta.title,
+    original_title: meta.originalTitle,
+    cover: meta.cover,
+    coverSrc: meta.cover,
+    ...(meta.backdrop ? { backdrop: meta.backdrop } : {}),
+    rate: meta.rating ? meta.rating.value.toFixed(1) : '暂无',
+    url: doubanUrlOf(meta.id),
+    year: meta.year,
+    type: meta.kind === 'tv' ? '剧集' : '电影',
+    overview: meta.intro,
+    kind: meta.kind,
+  }
+}
+
 /** 豆瓣元数据 → 详情视图 */
-export function viewDetail(meta: DoubanMetadata): ViewDetail {
+export function viewDetail(
+  meta: DoubanMetadata,
+  favorite: boolean
+): ViewDetail {
   return {
     id: meta.id,
     kind: meta.kind,
@@ -51,6 +77,7 @@ export function viewDetail(meta: DoubanMetadata): ViewDetail {
       .map(image => thumbOr(image.thumb || image.full, 480))
       .filter((path): path is string => path !== null),
     coverSource: meta.backdrop || meta.cover || null,
+    favorite,
   }
 }
 

@@ -37,6 +37,8 @@ export const ViewDetailSchema = s.object('ViewDetail', {
   images: s.array(s.string),
   /** 封面原地址（横版剧照优先，没有用海报）：登记继续观看时交回服务端；都没有为 null */
   coverSource: s.nullable(s.string),
+  /** 是否已收藏 */
+  favorite: s.boolean,
 })
 
 /** 一集：解析播放地址、登记继续观看时原样交回服务端 */

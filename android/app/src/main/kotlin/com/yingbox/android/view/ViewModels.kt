@@ -7,6 +7,7 @@ import org.json.JSONObject
 data class HomeView(
     val hero: List<ViewHeroSlide>,
     val continueRow: List<ViewContinue>,
+    val favorites: List<ViewCard>,
     val hotMovies: ViewShelf?,
     val hotTv: ViewShelf?,
     val chart: ViewShelf?,
@@ -17,6 +18,7 @@ data class HomeView(
         fun fromJson(json: JSONObject): HomeView = HomeView(
             hero = json.getJSONArray("hero").let { a0 -> List(a0.length()) { i0 -> ViewHeroSlide.fromJson(a0.getJSONObject(i0)) } },
             continueRow = json.getJSONArray("continueRow").let { a0 -> List(a0.length()) { i0 -> ViewContinue.fromJson(a0.getJSONObject(i0)) } },
+            favorites = json.getJSONArray("favorites").let { a0 -> List(a0.length()) { i0 -> ViewCard.fromJson(a0.getJSONObject(i0)) } },
             hotMovies = (if (json.isNull("hotMovies")) null else ViewShelf.fromJson(json.getJSONObject("hotMovies"))),
             hotTv = (if (json.isNull("hotTv")) null else ViewShelf.fromJson(json.getJSONObject("hotTv"))),
             chart = (if (json.isNull("chart")) null else ViewShelf.fromJson(json.getJSONObject("chart"))),
@@ -107,32 +109,6 @@ enum class ContinueSection(val json: String) {
     }
 }
 
-data class ViewShelf(
-    val title: String,
-    val kind: DoubanKind,
-    val items: List<ViewCard>,
-) {
-    companion object {
-        fun fromJson(json: JSONObject): ViewShelf = ViewShelf(
-            title = json.getString("title"),
-            kind = DoubanKind.fromJson(json.getString("kind")),
-            items = json.getJSONArray("items").let { a0 -> List(a0.length()) { i0 -> ViewCard.fromJson(a0.getJSONObject(i0)) } },
-        )
-    }
-}
-
-enum class DoubanKind(val json: String) {
-    MOVIE("movie"),
-    TV("tv"),
-    ;
-
-    companion object {
-        fun fromJson(value: String): DoubanKind =
-            entries.firstOrNull { it.json == value }
-                ?: throw IllegalArgumentException("未知的 DoubanKind：$value")
-    }
-}
-
 data class ViewCard(
     val id: String,
     val title: String,
@@ -157,6 +133,32 @@ data class ViewCard(
             backdrop = (if (json.isNull("backdrop")) null else json.getString("backdrop")),
             overview = json.getString("overview"),
             doubanUrl = json.getString("doubanUrl"),
+        )
+    }
+}
+
+enum class DoubanKind(val json: String) {
+    MOVIE("movie"),
+    TV("tv"),
+    ;
+
+    companion object {
+        fun fromJson(value: String): DoubanKind =
+            entries.firstOrNull { it.json == value }
+                ?: throw IllegalArgumentException("未知的 DoubanKind：$value")
+    }
+}
+
+data class ViewShelf(
+    val title: String,
+    val kind: DoubanKind,
+    val items: List<ViewCard>,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewShelf = ViewShelf(
+            title = json.getString("title"),
+            kind = DoubanKind.fromJson(json.getString("kind")),
+            items = json.getJSONArray("items").let { a0 -> List(a0.length()) { i0 -> ViewCard.fromJson(a0.getJSONObject(i0)) } },
         )
     }
 }
@@ -212,6 +214,7 @@ data class ViewDetail(
     val backdrop: String?,
     val images: List<String>,
     val coverSource: String?,
+    val favorite: Boolean,
 ) {
     companion object {
         fun fromJson(json: JSONObject): ViewDetail = ViewDetail(
@@ -231,6 +234,7 @@ data class ViewDetail(
             backdrop = (if (json.isNull("backdrop")) null else json.getString("backdrop")),
             images = json.getJSONArray("images").let { a0 -> List(a0.length()) { i0 -> a0.getString(i0) } },
             coverSource = (if (json.isNull("coverSource")) null else json.getString("coverSource")),
+            favorite = json.getBoolean("favorite"),
         )
     }
 }
