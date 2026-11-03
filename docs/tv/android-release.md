@@ -6,7 +6,7 @@
 
 ## 保管签名
 
-本机首版签名保存在 `D:\soft\yingbox-keys\yingbox-android-release.jks`，配置备份为同目录的 `keystore.properties.bak`。将这个目录备份到可信的离线位置。仓库内的 `android/keystore.properties` 及密钥文件均不提交。
+发布签名保存在 `C:\Users\10228\yingbox-keys\yingbox-android-release.jks`，配置在同目录的 `keystore.properties`（2026-11-03 重新生成；旧签名已丢失，用它签的 `0.1.0` 需卸载后重装）。将这个目录备份到可信的离线位置。仓库内的 `android/keystore.properties` 及密钥文件均不提交。
 
 发布工作流从 GitHub Secrets 取签名：`ANDROID_KEYSTORE_BASE64`（密钥库文件的 base64）、`ANDROID_STORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。工作流没有这些密钥时安卓任务失败，不会退回调试签名。
 
