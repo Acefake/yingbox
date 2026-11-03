@@ -1,8 +1,5 @@
 {
   "src/renderer/src/features/library/actors/ActorProfile.vue": {
     "font-weight": 1
-  },
-  "src/renderer/src/features/online/components/DetailHero.vue": {
-    "font-weight": 1
   }
 }
