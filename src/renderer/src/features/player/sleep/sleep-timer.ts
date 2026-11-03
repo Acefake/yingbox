@@ -110,6 +110,7 @@ export function installSleepTimer(art: Artplayer): void {
   /** 渐弱开始时的音量；不在渐弱中为 null */
   let baseVolume: number | null = null
   let lastTooltip = ''
+  let timer: number | undefined
 
   const restoreVolume = (): void => {
     if (baseVolume === null) return
@@ -124,6 +125,7 @@ export function installSleepTimer(art: Artplayer): void {
   const pick = (choice: SleepChoice): void => {
     restoreVolume()
     state = startSleep(choice, Date.now())
+    syncTimer()
     if (choice === 'off') art.notice.show = '已关闭睡眠定时'
     else if (choice === 'episode') art.notice.show = '本集播完后暂停'
     else art.notice.show = `${choice} 分钟后暂停播放`
@@ -131,6 +133,7 @@ export function installSleepTimer(art: Artplayer): void {
 
   const stop = (): void => {
     state = null
+    syncTimer()
     const wasPlaying = !art.video.paused
     art.video.pause()
     restoreVolume()
@@ -158,7 +161,13 @@ export function installSleepTimer(art: Artplayer): void {
     }
   }
 
+  const syncTimer = (): void => {
+    window.clearInterval(timer)
+    timer = state ? window.setInterval(tick, TICK_MS) : undefined
+  }
+
   const consumed = (): void => {
+    syncTimer()
     restoreVolume()
     refreshMenu()
   }
@@ -171,7 +180,7 @@ export function installSleepTimer(art: Artplayer): void {
   art.setting.add(settingConfig(art, pick))
   onConsumed = consumed
   pickOnPlayer = pickAndRefresh
-  const timer = window.setInterval(tick, TICK_MS)
+  syncTimer()
   art.on('destroy', () => {
     window.clearInterval(timer)
     if (onConsumed === consumed) onConsumed = null

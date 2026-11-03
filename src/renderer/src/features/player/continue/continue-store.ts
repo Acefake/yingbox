@@ -10,7 +10,7 @@
  *   （continue_removed），更早的进度不会把它补回来。标记看完时媒体库条目同时上报片库。
  * 规则都在 shared/playback/continue-rules.ts。
  */
-import { type Ref, ref } from 'vue'
+import { type Ref, shallowRef } from 'vue'
 
 import { isIncognito } from '@/features/incognito'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
@@ -54,7 +54,8 @@ let records: Ref<ContinueRecord[]> | null = null
 
 function state(): Ref<ContinueRecord[]> {
   if (records) return records
-  records = ref(load())
+  // 写入始终替换整表，播放列表与详情无需递归代理，避免持久化时逐项触发代理读取。
+  records = shallowRef(load())
   if (typeof window !== 'undefined')
     window.addEventListener('storage', event => {
       if (event.key === STORAGE_KEY && records) records.value = load()
