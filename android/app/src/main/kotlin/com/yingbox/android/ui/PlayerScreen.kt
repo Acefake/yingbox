@@ -14,6 +14,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -66,7 +67,9 @@ private data class Loaded(val continueId: String, val index: Int)
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerScreen(client: ServerClient, request: PlayRequest, exit: () -> Unit) {
+fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, exit: () -> Unit) {
+    // 监听器只建一次，设置改了要读到最新值
+    val autoNextNow by rememberUpdatedState(autoNext)
     val context = LocalContext.current
     val lifecycle = LocalLifecycleOwner.current.lifecycle
     val api = remember(client) { ViewApi(client) }
@@ -146,7 +149,7 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, exit: () -> Unit) {
                 if (state != Player.STATE_ENDED) return
                 report(ended = true)
                 loaded = null
-                if (index + 1 < request.episodes.size) index++ else exit()
+                if (autoNextNow && index + 1 < request.episodes.size) index++ else exit()
             }
 
             override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -189,9 +192,9 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, exit: () -> Unit) {
         error?.let {
             Text(
                 it,
-                color = Color.White,
-                fontSize = 16.sp,
-                modifier = Modifier.align(Alignment.Center).background(Color(0xCC000000), CardShape).padding(16.dp),
+                color = YbColor.TextPrimary,
+                fontSize = YbText.Md,
+                modifier = Modifier.align(Alignment.Center).ybGlass(YbRadius.Lg, media = true).padding(YbSpace.S4),
             )
         }
     }

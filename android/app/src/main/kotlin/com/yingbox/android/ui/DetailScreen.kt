@@ -1,15 +1,14 @@
 package com.yingbox.android.ui
 
 import androidx.compose.foundation.background
+import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
-import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.fillMaxWidth
-import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.LazyColumn
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
@@ -23,18 +22,18 @@ import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
-import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import com.yingbox.android.playback.PlayTitle
 import com.yingbox.android.server.ServerClient
 import com.yingbox.android.view.DoubanKind
 import com.yingbox.android.view.SourceKind
 import com.yingbox.android.view.ViewApi
 import com.yingbox.android.view.ViewDetail
+import com.yingbox.android.view.ViewLine
 import com.yingbox.android.view.ViewSourceSite
 import com.yingbox.android.view.ViewSources
 import kotlinx.coroutines.Dispatchers
@@ -64,7 +63,7 @@ private const val POLL_MS = 800L
  * 选站点 → 线路 → 集，点集开播。
  */
 @Composable
-fun DetailScreen(client: ServerClient, target: DetailTarget, play: (PlayRequest) -> Unit) {
+fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListState, play: (PlayRequest) -> Unit) {
     val api = remember(client) { ViewApi(client) }
     // 详情取到（或确定取不到）之前不让点集：登记继续观看要用它的封面
     val detail by produceState<Result<ViewDetail?>?>(null, target) {
@@ -88,6 +87,14 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, play: (PlayRequest)
     }
 
     val d = detail?.getOrNull()
+    val headerFocus = remember(target) { FocusRequester() }
+    var hasContentFocus by remember(target) { mutableStateOf(false) }
+    val isTv = LocalIsTv.current
+    LaunchedEffect(target, detail != null) {
+        if (isTv && detail != null && !hasContentFocus && scroll.firstVisibleItemIndex == 0) {
+            headerFocus.requestFocus()
+        }
+    }
     // 收藏：用户点过就以点的为准（详情晚到也不覆盖）；请求进行中忽略重复点击，失败退回点之前的状态
     var picked by remember(target) { mutableStateOf<Boolean?>(null) }
     var saving by remember(target) { mutableStateOf(false) }
@@ -104,15 +111,14 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, play: (PlayRequest)
             saving = false
         }
     }
-    LazyColumn(
-        modifier = Modifier.fillMaxSize().background(Color.Black),
-        contentPadding = PaddingValues(bottom = 48.dp),
-        verticalArrangement = Arrangement.spacedBy(24.dp),
-    ) {
-        item { Header(d, target, client, favorite, toggleFavorite) }
-        item {
-            Sources(sources, failed, playable = detail != null) { site, line, index ->
-                play(
+    // 按站点记选中：轮询中插件源插到前面时，选中的站点和焦点所在的集不跳
+    var siteKey by remember(target) { mutableStateOf<String?>(null) }
+    var lineIndex by remember(target) { mutableIntStateOf(0) }
+    val sites = sources?.sites.orEmpty()
+    val site = sites.firstOrNull { it.key == siteKey } ?: sites.firstOrNull()
+    val line = site?.lines?.let { it.getOrNull(lineIndex) ?: it.firstOrNull() }
+    val startPlay: (ViewSourceSite, Int, Int) -> Unit = { s, l, i ->
+        play(
                     PlayRequest(
                         // 继续观看的 key 用卡片片名：详情标题先后不同会把同一部片拆成两条记录
                         title = PlayTitle(
@@ -121,50 +127,39 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, play: (PlayRequest)
                             doubanId = target.doubanId,
                             kind = target.kind,
                         ),
-                        episodes = site.lines[line].episodes,
-                        index = index,
+                        episodes = s.lines[l].episodes,
+                        index = i,
                     ),
                 )
+    }
+    // 详情取到（或确定取不到）之前不让点播放：登记继续观看要用它的封面
+    val first = line?.episodes?.firstOrNull()
+    val actions = DetailActions(
+        playLabel = if ((line?.episodes?.size ?: 0) > 1) "播放 ${first?.name.orEmpty()}".trim() else "播放",
+        play = if (site != null && line != null && first != null && detail != null) ({ startPlay(site, site.lines.indexOfFirst { it === line }, 0) }) else null,
+        favorite = favorite,
+        toggleFavorite = toggleFavorite,
+    )
+    LazyColumn(
+        state = scroll,
+        modifier = Modifier.fillMaxSize().background(YbColor.Base)
+            .onFocusChanged { if (it.hasFocus) hasContentFocus = true }.focusGroup(),
+        contentPadding = PaddingValues(bottom = 48.dp),
+        verticalArrangement = Arrangement.spacedBy(YbSpace.S6),
+    ) {
+        item {
+            Column(Modifier.focusRequester(headerFocus).focusGroup()) {
+                DetailHeader(d, target.title, target.poster, client, actions) {
+                    if (isTv) scroll.requestScrollToItem(0)
+                }
             }
         }
-    }
-}
-
-@Composable
-private fun Header(
-    detail: ViewDetail?,
-    target: DetailTarget,
-    client: ServerClient,
-    favorite: Boolean,
-    toggleFavorite: () -> Unit,
-) {
-    Box(Modifier.fillMaxWidth().height(400.dp)) {
-        RemoteImage(detail?.backdrop ?: target.poster, client, Modifier.fillMaxSize())
-        Box(Modifier.fillMaxSize().background(Color(0xB3000000)))
-        Column(
-            Modifier.align(Alignment.BottomStart).padding(horizontal = 48.dp, vertical = 24.dp),
-            verticalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Text(detail?.title ?: target.title, color = Color.White, fontSize = 32.sp)
-            if (detail != null) {
-                val meta = listOf(
-                    detail.year,
-                    detail.genres.joinToString(" / "),
-                    detail.countries.joinToString(" / "),
-                    detail.duration,
-                    detail.rating,
-                ).filter { it.isNotEmpty() }.joinToString(" · ")
-                if (meta.isNotEmpty()) Text(meta, color = Subtle, fontSize = 14.sp)
-                if (detail.overview.isNotEmpty()) {
-                    Text(detail.overview, color = Subtle, fontSize = 14.sp, maxLines = 4, overflow = TextOverflow.Ellipsis)
-                }
-                val people = listOf(
-                    detail.directors.take(2).joinToString(" / ").let { if (it.isEmpty()) "" else "导演 $it" },
-                    detail.actors.take(4).joinToString(" / ") { it.name }.let { if (it.isEmpty()) "" else "主演 $it" },
-                ).filter { it.isNotEmpty() }.joinToString("　")
-                if (people.isNotEmpty()) Text(people, color = Muted, fontSize = 13.sp, maxLines = 1)
-                Chip(if (favorite) "♥ 已收藏" else "♡ 收藏", selected = favorite, onClick = toggleFavorite)
-            }
+        item {
+            Sources(sources, failed, playable = detail != null, site, line, { siteKey = it.key; lineIndex = 0 }, { lineIndex = it }, startPlay)
+        }
+        if (d != null) {
+            item { CastRow(d, client) }
+            item { StillsRow(d, client) }
         }
     }
 }
@@ -174,15 +169,15 @@ private fun Sources(
     sources: ViewSources?,
     failed: Boolean,
     playable: Boolean,
+    site: ViewSourceSite?,
+    line: ViewLine?,
+    pickSite: (ViewSourceSite) -> Unit,
+    pickLine: (Int) -> Unit,
     play: (site: ViewSourceSite, line: Int, index: Int) -> Unit,
 ) {
-    // 按站点记选中：轮询中插件源插到前面时，选中的站点和焦点所在的集不跳
-    var siteKey by remember { mutableStateOf<String?>(null) }
-    var lineIndex by remember { mutableIntStateOf(0) }
     val sites = sources?.sites.orEmpty()
-    val site = sites.firstOrNull { it.key == siteKey } ?: sites.firstOrNull()
-    Column(Modifier.padding(horizontal = 48.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-        RowTitle("选源播放")
+    Column(Modifier.padding(horizontal = gutter()), verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+        RowTitle("播放源")
         val status = when {
             failed -> "选源失败，稍后再试"
             sources == null -> "正在找源…"
@@ -190,41 +185,28 @@ private fun Sources(
             sites.isEmpty() -> "没有找到可播放的源"
             else -> "共 ${sites.size} 个站点"
         }
-        Text(status, color = Muted, fontSize = 13.sp)
-        if (site == null) return@Column
+        Text(status, color = Muted, fontSize = YbText.Sm, modifier = if (site == null || line == null) Modifier.tvReadingFocus() else Modifier)
+        if (site == null || line == null) return@Column
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             items(sites, key = { it.key }) { s ->
-                Chip(
+                Pill(
                     text = s.siteName + if (s.kind == SourceKind.CATSPIDER) " · 插件" else "",
                     selected = s.key == site.key,
-                ) {
-                    siteKey = s.key
-                    lineIndex = 0
-                }
+                ) { pickSite(s) }
             }
         }
-        val line = site.lines.getOrNull(lineIndex) ?: site.lines.first()
         if (site.lines.size > 1) {
+            Text("线路", color = YbColor.TextTertiary, fontSize = YbText.Xs)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                itemsIndexed(site.lines) { i, l -> Chip(l.label, selected = l === line) { lineIndex = i } }
+                itemsIndexed(site.lines) { i, l -> Pill(l.label, selected = l === line) { pickLine(i) } }
             }
         }
-        val lineAt = site.lines.indexOf(line)
+        val lineAt = site.lines.indexOfFirst { it === line }
+        Text("播放列表", color = YbColor.TextTertiary, fontSize = YbText.Xs)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
             itemsIndexed(line.episodes) { i, ep ->
-                Chip(ep.name.ifEmpty { "第 ${i + 1} 集" }) { if (playable) play(site, lineAt, i) }
+                Pill(ep.name.ifEmpty { "第 ${i + 1} 集" }) { if (playable) play(site, lineAt, i) }
             }
         }
-    }
-}
-
-@Composable
-private fun Chip(text: String, selected: Boolean = false, onClick: () -> Unit) {
-    Box(
-        Modifier.focusFrame(selected = selected, onClick = onClick)
-            .background(if (selected) Color.Transparent else Surface, CardShape)
-            .padding(horizontal = 16.dp, vertical = 10.dp),
-    ) {
-        Text(text, color = Color.White, fontSize = 14.sp, maxLines = 1)
     }
 }

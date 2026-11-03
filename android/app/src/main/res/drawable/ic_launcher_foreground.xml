@@ -1,0 +1,14 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- 影盒图标前景：白色圆角方块里一个播放三角（108dp 画布，安全区内） -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <path
+        android:fillColor="#F5F5F7"
+        android:pathData="M32,24h44a8,8 0 0 1 8,8v44a8,8 0 0 1 -8,8H32a8,8 0 0 1 -8,-8V32a8,8 0 0 1 8,-8z" />
+    <path
+        android:fillColor="#111113"
+        android:pathData="M46,38l24,16l-24,16z" />
+</vector>

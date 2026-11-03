@@ -8,6 +8,14 @@ import org.json.JSONObject
 class ViewApi(private val client: ServerClient) {
     fun home(): HomeView = HomeView.fromJson(client.call("view", "home") as JSONObject)
 
+    /** 「最近播放」整页 */
+    fun recent(): List<ViewContinue> =
+        (client.call("view", "recent") as JSONArray).let { a -> List(a.length()) { ViewContinue.fromJson(a.getJSONObject(it)) } }
+
+    /** 「我的收藏」整页 */
+    fun favorites(): List<ViewCard> =
+        (client.call("view", "favorites") as JSONArray).let { a -> List(a.length()) { ViewCard.fromJson(a.getJSONObject(it)) } }
+
     /** 浏览页的一页；start 是豆瓣分页位置，第一页为 0 */
     fun browse(target: BrowseTarget, start: Int): ViewBrowsePage =
         ViewBrowsePage.fromJson(client.call("view", "browse", JSONArray().put(target.toJson()).put(start)) as JSONObject)

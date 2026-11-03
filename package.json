@@ -31,6 +31,7 @@
     "smoke:server": "node scripts/smoke-server.mjs",
     "build:android": "node scripts/build-android.mjs",
     "gen:view-kotlin": "tsx scripts/gen-view-kotlin.ts",
+    "gen:android-icons": "tsx scripts/gen-android-icons.ts",
     "fetch:mpv": "node scripts/fetch-mpv.mjs",
     "dev": "node scripts/dev-app.mjs dev",
     "build:nocheck": "electron-vite build",

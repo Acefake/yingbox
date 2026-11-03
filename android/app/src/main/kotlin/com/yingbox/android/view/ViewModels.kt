@@ -79,6 +79,7 @@ data class ViewContinue(
     val subtitle: String,
     val foot: String,
     val image: String?,
+    val poster: String?,
     val progress: Double,
 ) {
     companion object {
@@ -89,6 +90,7 @@ data class ViewContinue(
             subtitle = json.getString("subtitle"),
             foot = json.getString("foot"),
             image = (if (json.isNull("image")) null else json.getString("image")),
+            poster = (if (json.isNull("poster")) null else json.getString("poster")),
             progress = json.getDouble("progress"),
         )
     }

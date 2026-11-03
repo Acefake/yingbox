@@ -15,6 +15,10 @@ class ServerClient(private val ready: ServerState.Ready) {
 
     fun get(path: String): String = String(bytes(path), Charsets.UTF_8)
 
+    /** POST 一个 JSON 到本服务的路径，返回响应文本 */
+    fun post(path: String, body: JSONObject): String =
+        String(request("POST", path, body.toString().toByteArray()), Charsets.UTF_8)
+
     /** 取原始字节（缩略图等）；path 是本服务的路径，如 /media/thumb?w=342&src=… */
     fun bytes(path: String): ByteArray = request("GET", path, null)
 

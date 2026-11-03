@@ -21,6 +21,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.focus.FocusRequester
 import androidx.compose.ui.focus.focusRequester
@@ -110,17 +111,18 @@ fun BrowseScreen(client: ServerClient, initial: BrowseTarget, open: (ViewCard) -
     LazyVerticalGrid(
         columns = GridCells.Adaptive(132.dp),
         state = grid,
-        modifier = Modifier.fillMaxSize().background(Color.Black),
-        contentPadding = PaddingValues(horizontal = 48.dp, vertical = 32.dp),
+        modifier = Modifier.fillMaxSize().background(YbColor.Base),
+        // 顶部让出状态栏和左上角的返回圆钮
+        contentPadding = PaddingValues(start = gutter(), end = gutter(), top = belowBackButton(), bottom = YbSpace.S7),
         horizontalArrangement = Arrangement.spacedBy(16.dp),
         verticalArrangement = Arrangement.spacedBy(24.dp),
     ) {
         item(span = { GridItemSpan(maxLineSpan) }) {
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                Text(titleOf(target), color = Color.White, fontSize = 28.sp, modifier = Modifier.padding(end = 16.dp))
+            Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2), verticalAlignment = Alignment.CenterVertically) {
+                Box(Modifier.padding(end = YbSpace.S4)) { PageTitle(titleOf(target)) }
                 if (kind != null) {
                     for ((k, label) in listOf(DoubanKind.MOVIE to "电影", DoubanKind.TV to "剧集")) {
-                        KindChip(label, selected = k == kind) {
+                        Pill(label, selected = k == kind) {
                             target = when (val t = target) {
                                 is BrowseTarget.Hot -> t.copy(kind = k)
                                 is BrowseTarget.Genre -> t.copy(kind = k)
@@ -143,9 +145,9 @@ fun BrowseScreen(client: ServerClient, initial: BrowseTarget, open: (ViewCard) -
                 feed.next == null -> "到底了"
                 else -> ""
             }
-            Row(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                if (status.isNotEmpty()) Text(status, color = Muted, fontSize = 13.sp)
-                if (feed.failed) KindChip("重试") { feed.failed = false }
+            Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S3), verticalAlignment = Alignment.CenterVertically) {
+                if (status.isNotEmpty()) Text(status, color = Muted, fontSize = YbText.Sm)
+                if (feed.failed) Pill("重试") { feed.failed = false }
             }
         }
     }
@@ -165,14 +167,3 @@ private val COLLECTION_TITLES = mapOf(
     CollectionId.CHINESE to "华语热门",
     CollectionId.KDRAMA to "韩剧热播",
 )
-
-@Composable
-private fun KindChip(text: String, selected: Boolean = false, onClick: () -> Unit) {
-    Box(
-        Modifier.focusFrame(selected = selected, onClick = onClick)
-            .background(if (selected) Color.Transparent else Surface, CardShape)
-            .padding(horizontal = 16.dp, vertical = 8.dp),
-    ) {
-        Text(text, color = Color.White, fontSize = 14.sp)
-    }
-}

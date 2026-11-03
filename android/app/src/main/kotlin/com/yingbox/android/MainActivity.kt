@@ -7,14 +7,21 @@ import android.widget.Toast
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.BackHandler
 import androidx.activity.compose.setContent
+import androidx.activity.enableEdgeToEdge
 import androidx.compose.foundation.background
+import androidx.compose.foundation.ExperimentalFoundationApi
+import androidx.compose.foundation.focusGroup
+import androidx.compose.foundation.gestures.LocalBringIntoViewSpec
 import androidx.compose.foundation.layout.Arrangement
+import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.lazy.rememberLazyListState
+import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.CompositionLocalProvider
 import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
@@ -23,6 +30,8 @@ import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
@@ -32,7 +41,23 @@ import com.yingbox.android.server.ServerClient
 import com.yingbox.android.server.ServerService
 import com.yingbox.android.server.ServerState
 import com.yingbox.android.playback.PlayTitle
+import com.yingbox.android.ui.BackButton
 import com.yingbox.android.ui.BrowseScreen
+import com.yingbox.android.ui.FavoritesScreen
+import com.yingbox.android.settings.DeviceSettings
+import com.yingbox.android.ui.LocalHaze
+import com.yingbox.android.ui.LocalIsTv
+import com.yingbox.android.ui.LocalTvFocusTopInset
+import com.yingbox.android.ui.belowBackButton
+import com.yingbox.android.ui.TvBringIntoViewSpec
+import com.yingbox.android.ui.LocalReduceTransparency
+import com.yingbox.android.ui.SettingsScreen
+import com.yingbox.android.ui.NavCapsule
+import com.yingbox.android.ui.RecentScreen
+import com.yingbox.android.ui.Tab
+import com.yingbox.android.ui.YbColor
+import com.yingbox.android.ui.chromePadding
+import com.yingbox.android.ui.useTopNav
 import com.yingbox.android.ui.DetailScreen
 import com.yingbox.android.ui.DetailTarget
 import com.yingbox.android.ui.HomeActions
@@ -42,6 +67,8 @@ import com.yingbox.android.ui.PlayerScreen
 import com.yingbox.android.view.BrowseTarget
 import com.yingbox.android.view.ViewApi
 import com.yingbox.android.view.ViewCard
+import dev.chrisbanes.haze.HazeState
+import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -50,6 +77,8 @@ import kotlinx.coroutines.withContext
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
+        // 内容铺到状态栏下面：轮播、剧照从最顶上开始，浮动控件自己让出状态栏
+        enableEdgeToEdge()
         ServerService.acquire(this)
         val isTv = isTelevision()
         setContent { App(isTv) }
@@ -66,9 +95,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-/** 页面栈里的一页 */
+/** 页面栈里的一页：一级页面（导航胶囊切换）+ 二级页面（左上角返回） */
 private sealed interface Screen {
-    data object Home : Screen
+    data class Top(val tab: Tab) : Screen
 
     data class Browse(val target: BrowseTarget) : Screen
 
@@ -78,6 +107,7 @@ private sealed interface Screen {
 }
 
 @Composable
+@OptIn(ExperimentalFoundationApi::class)
 private fun App(isTv: Boolean) {
     val state by LocalServer.state.collectAsState()
     val ready = state as? ServerState.Ready
@@ -86,45 +116,80 @@ private fun App(isTv: Boolean) {
         return
     }
     val client = remember(ready) { ServerClient(ready) }
-    var stack by remember { mutableStateOf(listOf<Screen>(Screen.Home)) }
+    var stack by remember { mutableStateOf(listOf<Screen>(Screen.Top(Tab.Home))) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
     var resuming by remember { mutableStateOf(false) }
     // 从详情、播放返回首页时回到原来的滚动位置
     val homeScroll = rememberLazyListState()
+    val detailScroll = remember(stack.filterIsInstance<Screen.Detail>().lastOrNull()) {
+        LazyListState()
+    }
+    val contentFocus = remember { FocusRequester() }
+    val haze = remember { HazeState() }
+    val device = remember { DeviceSettings(context) }
+    val topNav = useTopNav(isTv)
+    val chrome = chromePadding(topNav)
     val push = { screen: Screen -> stack = stack + screen }
-    BackHandler(enabled = stack.size > 1) { stack = stack.dropLast(1) }
+    val back = { stack = stack.dropLast(1) }
+    // 二级页面退一层；「最近播放」「收藏」先回首页，首页再按才退出应用
+    val atOtherTab = (stack.singleOrNull() as? Screen.Top)?.tab.let { it != null && it != Tab.Home }
+    BackHandler(enabled = stack.size > 1 || atOtherTab) {
+        stack = if (stack.size > 1) stack.dropLast(1) else listOf(Screen.Top(Tab.Home))
+    }
 
     val openCard = { card: ViewCard ->
         push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster)))
     }
-    when (val top = stack.last()) {
-        Screen.Home -> HomeScreen(
-            client,
-            homeScroll,
-            HomeActions(
-                openCard = openCard,
-                browse = { push(Screen.Browse(it)) },
-                resume = resume@{ id ->
-                    // 遥控器连按确定时只开一个播放器
-                    if (resuming) return@resume
-                    resuming = true
-                    scope.launch {
-                        val r = withContext(Dispatchers.IO) { runCatching { ViewApi(client).resume(id) }.getOrNull() }
-                        resuming = false
-                        if (r == null) {
-                            Toast.makeText(context, "这条记录播不了了，从详情重新选源吧", Toast.LENGTH_SHORT).show()
-                            return@launch
-                        }
-                        val title = PlayTitle(r.title, r.key, r.cover, r.doubanId, r.kind)
-                        push(Screen.Play(PlayRequest(title, r.episodes, r.index.toInt())))
+    val resume: (String) -> Unit = resume@{ id ->
+        // 遥控器连按确定时只开一个播放器
+        if (resuming) return@resume
+        resuming = true
+        scope.launch {
+            val r = withContext(Dispatchers.IO) { runCatching { ViewApi(client).resume(id) }.getOrNull() }
+            resuming = false
+            if (r == null) {
+                Toast.makeText(context, "这条记录播不了了，从详情重新选源吧", Toast.LENGTH_SHORT).show()
+                return@launch
+            }
+            val title = PlayTitle(r.title, r.key, r.cover, r.doubanId, r.kind)
+            push(Screen.Play(PlayRequest(title, r.episodes, r.index.toInt())))
+        }
+    }
+
+    CompositionLocalProvider(
+        LocalHaze provides haze,
+        LocalReduceTransparency provides device.reduceTransparency,
+        LocalIsTv provides isTv,
+        LocalTvFocusTopInset provides if (stack.last() is Screen.Top) chrome.calculateTopPadding() else belowBackButton(),
+        LocalBringIntoViewSpec provides if (isTv) TvBringIntoViewSpec else LocalBringIntoViewSpec.current,
+    ) {
+        Box(Modifier.fillMaxSize().background(YbColor.Base)) {
+            // 页面内容是玻璃的模糊来源
+            Box(Modifier.fillMaxSize().hazeSource(haze).focusRequester(contentFocus).focusGroup()) {
+                when (val top = stack.last()) {
+                    is Screen.Top -> when (top.tab) {
+                        Tab.Home -> HomeScreen(client, homeScroll, chrome, HomeActions(openCard, resume) { push(Screen.Browse(it)) })
+                        Tab.Recent -> RecentScreen(client, chrome, resume)
+                        Tab.Favorites -> FavoritesScreen(client, chrome, openCard)
+                        Tab.Settings -> SettingsScreen(client, device, chrome)
                     }
-                },
-            ),
-        )
-        is Screen.Browse -> BrowseScreen(client, top.target, openCard)
-        is Screen.Detail -> DetailScreen(client, top.target) { push(Screen.Play(it)) }
-        is Screen.Play -> PlayerScreen(client, top.request) { stack = stack.dropLast(1) }
+                    is Screen.Browse -> BrowseScreen(client, top.target, openCard)
+                    is Screen.Detail -> DetailScreen(client, top.target, detailScroll) { push(Screen.Play(it)) }
+                    is Screen.Play -> PlayerScreen(client, top.request, device.autoNext) { back() }
+                }
+            }
+            when (val top = stack.last()) {
+                // 一级页面之间切换不进栈
+                is Screen.Top -> NavCapsule(top.tab, topNav, contentFocus, onFocused = {
+                    if (isTv && top.tab == Tab.Home) homeScroll.requestScrollToItem(0)
+                }) { stack = listOf(Screen.Top(it)) }
+                is Screen.Play -> BackButton(contentFocus, media = true) { back() }
+                else -> BackButton(contentFocus, onFocused = {
+                    if (isTv && top is Screen.Detail) detailScroll.requestScrollToItem(0)
+                }) { back() }
+            }
+        }
     }
 }
 
