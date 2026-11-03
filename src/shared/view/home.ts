@@ -83,7 +83,7 @@ export const ViewHeroSlideSchema = s.object('ViewHeroSlide', {
   meta: s.string,
   /** 评分文字；没有为空串 */
   rating: s.string,
-  /** 主按钮：「继续播放 · 剩 48 分钟」「选源播放」 */
+  /** 主按钮：「继续播放 · 剩 48 分钟」「播放」 */
   playLabel: s.string,
   /** resume 那一张对应的继续观看记录 id */
   continueId: s.nullable(s.string),

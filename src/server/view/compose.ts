@@ -82,7 +82,7 @@ function doubanSlide(card: ViewCard): ViewHeroSlide {
       .filter(Boolean)
       .join(' · '),
     rating: formatRating(Number(card.rate), 'douban'),
-    playLabel: '选源播放',
+    playLabel: '播放',
     continueId: null,
     cardId: card.id,
   }
