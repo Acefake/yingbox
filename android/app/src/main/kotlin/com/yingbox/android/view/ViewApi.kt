@@ -6,6 +6,11 @@ import org.json.JSONObject
 
 /** 视图域（ADR-0030）：服务端拼好的页面数据。阻塞调用，不要放主线程。 */
 class ViewApi(private val client: ServerClient) {
+    /** 当前设备可安装的新版；没有更新时返回 null。 */
+    fun appUpdate(current: String, abis: List<String>): ViewAppUpdate? =
+        (client.call("view", "appUpdate", JSONArray().put(current).put(JSONArray(abis))) as? JSONObject)
+            ?.let(ViewAppUpdate::fromJson)
+
     fun home(): HomeView = HomeView.fromJson(client.call("view", "home") as JSONObject)
 
     /** 「最近播放」整页 */

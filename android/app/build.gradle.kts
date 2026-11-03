@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
@@ -5,6 +7,20 @@ plugins {
 
 /** packServer 的输出目录，作为额外的 assets 目录。 */
 val SERVER_ASSETS = "generated/server-assets"
+
+/** 版本号唯一来源：android/version.properties 的 versionName（x.y.z）；versionCode = x*10000 + y*100 + z（ADR-0037） */
+val appVersionName: String = providers.gradleProperty("appVersionName").orNull ?: Properties()
+    .apply { rootProject.file("version.properties").inputStream().use { load(it) } }
+    .getProperty("versionName")
+val appVersionCode: Int = appVersionName.split(".").map { it.toInt() }.let { parts ->
+    require(parts.size == 3 && parts[0] in 0..214747 && parts[1] in 0..99 && parts[2] in 0..99) { "版本号必须是 x.y.z，y/z 在 0..99，x 不超过 214747" }
+    val (major, minor, patch) = parts
+    major * 10_000 + minor * 100 + patch
+}
+
+/** 发布签名：android/keystore.properties（不进仓库）；没有就不能出发布包 */
+val keystoreProps: Properties? = rootProject.file("keystore.properties").takeIf { it.exists() }
+    ?.let { file -> Properties().apply { file.inputStream().use { load(it) } } }
 
 android {
     namespace = "com.yingbox.android"
@@ -15,13 +31,36 @@ android {
         applicationId = "com.yingbox.android"
         minSdk = 24
         targetSdk = 37
-        versionCode = 1
-        versionName = "0.0.1"
+        versionCode = appVersionCode
+        versionName = appVersionName
+    }
+
+    signingConfigs {
+        if (keystoreProps != null) {
+            create("release") {
+                storeFile = file(keystoreProps.getProperty("storeFile"))
+                storePassword = keystoreProps.getProperty("storePassword")
+                keyAlias = keystoreProps.getProperty("keyAlias")
+                keyPassword = keystoreProps.getProperty("keyPassword")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            // 没有 keystore.properties 时不签名，gradle 任务 assertReleaseSigning 会拦住发布
+            if (keystoreProps != null) signingConfig = signingConfigs.getByName("release")
+        }
+    }
+
+    // 发布时按 ABI 拆成各自的包（-PsplitAbi）：手机和电视绝大多数是 arm64，不必让它们下载 x86_64 的那一份
+    splits {
+        abi {
+            isEnable = project.hasProperty("splitAbi")
+            reset()
+            include("arm64-v8a", "x86_64")
+            isUniversalApk = false
         }
     }
 
@@ -80,3 +119,9 @@ dependencies {
     implementation(libs.androidx.media3.ui)
     implementation(libs.haze)
 }
+
+// 发布包必须有发布签名：没有 keystore.properties 时提前报错，免得出一个调试签名的「发布包」
+tasks.register("assertReleaseSigning") {
+    doFirst { check(keystoreProps != null) { "没有 android/keystore.properties：发布签名密钥见 docs/adr/0037" } }
+}
+tasks.matching { it.name == "assembleRelease" || it.name == "packageRelease" }.configureEach { dependsOn("assertReleaseSigning") }

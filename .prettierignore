@@ -4,4 +4,4 @@ tests/fixtures/
 pnpm-lock.yaml
 
 # 安卓端（Gradle / Kotlin）不由 Prettier 管理
-android/
+/android/

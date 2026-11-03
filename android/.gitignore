@@ -11,3 +11,8 @@ captures/
 # pnpm build:android 生成：Node 与依赖库、库名清单（ADR-0034）
 app/src/main/jniLibs/
 app/src/main/assets/node/
+
+# 发布签名：密钥与口令只在本机，绝不进仓库（见 docs/adr/0037）
+keystore.properties
+*.jks
+*.keystore

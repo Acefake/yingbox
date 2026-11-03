@@ -26,6 +26,7 @@ import com.yingbox.android.server.ServerClient
 import com.yingbox.android.settings.DeviceSettings
 import com.yingbox.android.settings.MetadataLanguage
 import com.yingbox.android.settings.ServerSettingsApi
+import com.yingbox.android.update.UpdateController
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -36,7 +37,7 @@ import kotlinx.coroutines.withContext
  * 与桌面、网页端同一个键。TMDB 令牌、片库、网盘等随对应功能搬过来时再加。
  */
 @Composable
-fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: PaddingValues) {
+fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: PaddingValues, updates: UpdateController) {
     val dir = LocalLayoutDirection.current
     val context = LocalContext.current
     val scope = rememberCoroutineScope()
@@ -54,9 +55,6 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
     // 一次只存一个：保存中再点会让回滚和落盘顺序对不上
     var saving by remember { mutableStateOf(false) }
     val language = picked ?: loaded
-    val version = remember {
-        runCatching { context.packageManager.getPackageInfo(context.packageName, 0).versionName }.getOrNull().orEmpty()
-    }
     val gutter = gutter()
     LazyColumn(
         modifier = Modifier.fillMaxSize().background(YbColor.Base),
@@ -114,11 +112,6 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
         item { ImageQualityGroup(api) }
         item { SourcesGroup(client) }
         item { TmdbTokenGroup(api) }
-        item {
-            SettingsGroup("关于") {
-                // 页面最后一项：电视上要能聚焦，列表才会滚到底（否则「保存」下面的说明和「关于」看不到）
-                SettingsRow("版本", modifier = Modifier.tvReadingFocus(YbRadius.Sm)) { Text(version, color = YbColor.TextSecondary, fontSize = YbText.Sm) }
-            }
-        }
+        item { AboutGroup(updates) }
     }
 }
