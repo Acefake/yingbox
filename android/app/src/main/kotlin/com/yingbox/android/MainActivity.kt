@@ -26,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -71,6 +72,7 @@ import com.yingbox.android.view.ViewCard
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -127,6 +129,14 @@ private fun App(isTv: Boolean) {
         LazyListState()
     }
     val contentFocus = remember { FocusRequester() }
+    // 电视刚打开时没有任何焦点，遥控器第一下方向键只会落到导航栏；内容出来后把焦点放进首页（只做这一次）
+    LaunchedEffect(Unit) {
+        if (!isTv) return@LaunchedEffect
+        repeat(20) {
+            delay(400)
+            if (runCatching { contentFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+        }
+    }
     val haze = remember { HazeState() }
     val device = remember { DeviceSettings(context) }
     val topNav = useTopNav(isTv)
