@@ -3,6 +3,14 @@ package com.yingbox.android.ui
 import android.util.Log
 import androidx.annotation.OptIn
 import androidx.compose.foundation.background
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.focusRequester
+import androidx.compose.ui.focus.FocusRequester
+import androidx.compose.foundation.focusable
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -56,6 +64,12 @@ data class PlayRequest(
 
 /** 播放中多久记一次进度（与桌面相近；暂停、退出、播完时另记） */
 private const val REPORT_MS = 5_000L
+
+/** 遥控器：左右键快退 / 快进，确定 / 回车 / 播放暂停键切换暂停 */
+private val REMOTE_KEYS = setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionCenter, Key.Enter, Key.MediaPlayPause)
+
+/** 遥控器左右键每次快退 / 快进多久 */
+private const val SEEK_MS = 10_000L
 private const val TAG = "YingboxPlayer"
 
 /** 已经交给播放器的那一集：进度只按它上报，界面上的 index 换了也不串到下一集 */
@@ -79,6 +93,7 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
     var index by remember { mutableIntStateOf(request.index) }
     var loaded by remember { mutableStateOf<Loaded?>(null) }
     var error by remember { mutableStateOf<String?>(null) }
+    var view by remember { mutableStateOf<PlayerView?>(null) }
     val player = remember {
         val http = DefaultHttpDataSource.Factory()
             .setAllowCrossProtocolRedirects(true)
@@ -88,6 +103,8 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
             .setDefaultRequestProperties(mapOf("Authorization" to client.authorization))
         ExoPlayer.Builder(context)
             .setMediaSourceFactory(DefaultMediaSourceFactory(http))
+            .setSeekBackIncrementMs(SEEK_MS)
+            .setSeekForwardIncrementMs(SEEK_MS)
             .setAudioAttributes(AudioAttributes.DEFAULT, true)
             .setHandleAudioBecomingNoisy(true)
             .build()
@@ -176,15 +193,35 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
         }
     }
 
-    Box(Modifier.fillMaxSize().background(Color.Black)) {
+    val focus = remember { FocusRequester() }
+    LaunchedEffect(Unit) { focus.requestFocus() }
+    Box(
+        Modifier
+            .fillMaxSize()
+            .background(Color.Black)
+            .focusRequester(focus)
+            .onKeyEvent { event ->
+                val ours = event.key in REMOTE_KEYS
+                if (ours && event.type == KeyEventType.KeyDown) {
+                    when (event.key) {
+                        Key.DirectionLeft -> player.seekBack()
+                        Key.DirectionRight -> player.seekForward()
+                        else -> if (player.isPlaying) player.pause() else player.play()
+                    }
+                    view?.showController()
+                }
+                ours
+            }
+            .focusable(),
+    ) {
         AndroidView(
             factory = { ctx ->
                 PlayerView(ctx).apply {
                     this.player = player
                     keepScreenOn = true
-                    isFocusable = true
-                    // 挂到窗口之后再要焦点，遥控器的方向键、确定键才落到播放器上
-                    post { requestFocus() }
+                    // 遥控器的键由外层 Compose 容器接（左右快退快进、确定暂停），播放器视图自己不抢焦点
+                    isFocusable = false
+                    view = this
                 }
             },
             modifier = Modifier.fillMaxSize(),
