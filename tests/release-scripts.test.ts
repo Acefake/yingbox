@@ -1,16 +1,12 @@
 import { createHash } from 'node:crypto'
 import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { basename, join } from 'node:path'
+import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
 import { androidVersionFile } from '../scripts/release/set-android-version.mjs'
 import { assertVersion } from '../scripts/release/check-version.mjs'
 import { checksumLines, writeChecksums } from '../scripts/release/checksums.mjs'
-import {
-  findSources,
-  sourcesTagOf,
-} from '../scripts/release/publish-mpv-sources.mjs'
 import { platformOf, releaseNotes } from '../scripts/release/notes.mjs'
 import { mismatches } from '../scripts/release/publish.mjs'
 
@@ -60,7 +56,6 @@ describe('发布脚本', () => {
     expect(platformOf('sha256sum.txt')).toBeNull()
     const text = releaseNotes({
       version: '1.0.3',
-      sourcesTag: 'mpv-sources-x',
       files: [
         'yingbox-setup-1.0.3.exe',
         'yingbox-android-1.0.3-arm64-v8a.apk',
@@ -71,28 +66,7 @@ describe('发布脚本', () => {
     expect(text).toContain('arm64-v8a')
     expect(text).not.toContain('| sha256sum.txt')
     expect(text).toContain('yingbox-nas:1.0.3-nas.1')
-    expect(text).toContain('releases/tag/mpv-sources-x')
-  })
-
-  it('mpv 源码包：标签由文件名得出，并带上校验与说明文件', async () => {
-    expect(
-      sourcesTagOf('msys2-ucrt64-mpv-0.41.0-10-20261028-sources.tar')
-    ).toBe('mpv-sources-msys2-ucrt64-mpv-0.41.0-10-20261028')
-    expect(() => sourcesTagOf('x.zip')).toThrow('不是 mpv 源码包')
-    for (const name of [
-      'a-sources.tar',
-      'a-sources.tar.sha256',
-      'MPV-SOURCE-DOWNLOAD.md',
-      'yingbox-setup-1.0.3.exe',
-    ])
-      await writeFile(join(dir, name), 'x')
-    const { tag, files } = await findSources(dir)
-    expect(tag).toBe('mpv-sources-a')
-    expect(files.map(f => basename(f)).sort()).toEqual([
-      'MPV-SOURCE-DOWNLOAD.md',
-      'a-sources.tar',
-      'a-sources.tar.sha256',
-    ])
+    expect(text).not.toContain('mpv')
   })
 })
 

@@ -1,7 +1,5 @@
-/** 发布说明：各端对应的文件、校验方法和 mpv 源码链接。 */
+/** 发布说明：各端对应的文件和校验方法。 */
 import { pathToFileURL } from 'node:url'
-
-const REPO = 'https://github.com/Acefake/yingbox'
 
 /** 文件名 → 它是哪一端的安装包；不认识的文件返回 null。 */
 export function platformOf(name) {
@@ -14,8 +12,8 @@ export function platformOf(name) {
   return null
 }
 
-/** 生成发布说明正文。sourcesTag 是 mpv 源码所在的固定发布标签。 */
-export function releaseNotes({ version, files, sourcesTag }) {
+/** 生成发布说明正文。 */
+export function releaseNotes({ version, files }) {
   const rows = files
     .map(name => [platformOf(name), name])
     .filter(([platform]) => platform)
@@ -31,12 +29,10 @@ export function releaseNotes({ version, files, sourcesTag }) {
     '',
     '校验：下载后对照 `sha256sum.txt`，Windows 用 `Get-FileHash <文件> -Algorithm SHA256`，macOS / Linux 用 `shasum -a 256 <文件>`。',
     '',
-    `Windows 版随带的 mpv 播放器，对应完整源码在 [${sourcesTag}](${REPO}/releases/tag/${sourcesTag})。`,
-    '',
   ].join('\n')
 }
 
 if (import.meta.url === pathToFileURL(process.argv[1] ?? '').href) {
-  const [version, sourcesTag, ...files] = process.argv.slice(2)
-  process.stdout.write(releaseNotes({ version, files, sourcesTag }))
+  const [version, ...files] = process.argv.slice(2)
+  process.stdout.write(releaseNotes({ version, files }))
 }

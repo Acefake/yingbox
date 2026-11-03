@@ -51,8 +51,6 @@ jobs:
   windows:
     needs: prepare
     runs-on: windows-latest
-    outputs:
-      sources_tag: ${{ steps.sources.outputs.tag }}
     steps:
       - uses: actions/checkout@v4
         with:
@@ -72,17 +70,6 @@ jobs:
           name: windows
           path: dist/yingbox-setup-${{ needs.prepare.outputs.version }}.exe
           if-no-files-found: error
-      - id: sources
-        shell: bash
-        run: echo "tag=$(node scripts/release/publish-mpv-sources.mjs dist --tag-only)" >> "$GITHUB_OUTPUT"
-      - name: 发布 mpv 对应源码（固定发布，只传一次）
-        if: github.event_name == 'push'
-        shell: bash
-        env:
-          GH_TOKEN: ${{ github.token }}
-        run: node scripts/release/publish-mpv-sources.mjs dist
-    permissions:
-      contents: write
 
   mac:
     needs: prepare
@@ -245,4 +232,4 @@ jobs:
         if: github.event_name == 'push'
         env:
           GH_TOKEN: ${{ github.token }}
-        run: node scripts/release/publish.mjs "${{ needs.prepare.outputs.tag }}" assets "${{ needs.windows.outputs.sources_tag }}"
+        run: node scripts/release/publish.mjs "${{ needs.prepare.outputs.tag }}" assets

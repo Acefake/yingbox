@@ -83,13 +83,9 @@ export async function prepareMpvSources({
     const instructions = [
       '# Windows mpv 对应源码下载',
       '',
-      `源码包：[${filename}](./${filename})。与影盒安装包在同一下载页面或交付目录提供，无需额外付费。`,
+      `源码包 ${filename}（SHA-256：${digest}）。影盒发布页只放安装包；对应源码由 MSYS2 官方源码仓库提供（${lock.sourceRepository}），按 manifest.json 中的文件名与 SHA-256 取得，无需额外付费。`,
       '',
       '完整源码、补丁、PKGBUILD、许可和构建记录在此归档中；播放无需下载或安装源码。',
-      '',
-      `SHA-256：${digest}`,
-      '',
-      '发布者须同时上传安装包、源码包、校验文件及本说明，并在安装包旁提供清晰的源码下载入口；不可仅链接上游项目首页。',
       '',
     ].join('\n')
     await mkdir(releaseDir, { recursive: true })
@@ -107,7 +103,7 @@ export async function prepareMpvSources({
   const notices = [
     '# Windows mpv 原生组件',
     '',
-    '下列许可名称来自上游包元数据。完整版权与许可原文保留在对应源包内；包内独立声明见 resources/mpv/share/licenses，常用许可全文另见本目录 licenses。完整源码、补丁、PKGBUILD 及二进制构建记录另供下载，获取方式见 DOWNLOAD.md。',
+    '下列许可名称来自上游包元数据。完整版权与许可原文保留在对应源包内；包内独立声明见 resources/mpv/share/licenses，常用许可全文另见本目录 licenses。完整源码、补丁、PKGBUILD 及二进制构建记录的获取方式见 DOWNLOAD.md。',
     '',
   ]
   for (const pkg of [...lock.packages, ...lock.buildInputs]) {
