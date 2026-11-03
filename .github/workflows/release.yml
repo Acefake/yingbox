@@ -63,6 +63,7 @@ jobs:
       - run: corepack enable && corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
         shell: bash
       - run: pnpm install --frozen-lockfile
+      - run: node node_modules/electron/install.js
       - run: pnpm fetch:mpv
       - run: pnpm build:nocheck
       - run: pnpm exec electron-builder --win --publish never
@@ -95,6 +96,7 @@ jobs:
           node-version: 22
       - run: corepack enable && corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
       - run: pnpm install --frozen-lockfile
+      - run: node node_modules/electron/install.js
       - run: pnpm build:nocheck
       - run: pnpm exec electron-builder --mac dmg --arm64 --x64 --publish never
       - uses: actions/upload-artifact@v4
