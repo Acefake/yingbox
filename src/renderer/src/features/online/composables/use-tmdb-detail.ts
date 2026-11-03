@@ -21,6 +21,7 @@ interface TmdbSearchResult {
 /** TMDB 的图片列表（/images 或详情的 append_to_response=images）：只用背景图 */
 interface TmdbImages {
   backdrops?: { file_path: string }[]
+  logos?: { file_path: string; iso_639_1?: string | null }[]
 }
 
 /** TMDB /credits 的返回 */
@@ -39,6 +40,7 @@ export interface DoubanRef {
 export interface UseTmdbDetailReturn {
   douban: Ref<DoubanMetadata | null>
   detail: Ref<TmdbDetail | null>
+  logo: Ref<string | null>
   cast: Ref<TmdbCastMember[]>
   directors: Ref<string[]>
   images: Ref<DetailImage[]>
@@ -56,6 +58,7 @@ export interface UseTmdbDetailReturn {
 export function useTmdbDetail(): UseTmdbDetailReturn {
   const doubanDetail = ref<DoubanMetadata | null>(null)
   const detail = ref<TmdbDetail | null>(null)
+  const logo = ref<string | null>(null)
   const cast = ref<TmdbCastMember[]>([])
   const directors = ref<string[]>([])
   const images = ref<DetailImage[]>([])
@@ -67,6 +70,7 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
     generation++
     doubanDetail.value = null
     detail.value = null
+    logo.value = null
     cast.value = []
     directors.value = []
     images.value = []
@@ -126,6 +130,14 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
       ])
       if (stale()) return
       detail.value = dr
+      const logos = dr?.images?.logos ?? []
+      const chosen =
+        logos.find(image => image.iso_639_1 === 'zh') ??
+        logos.find(image => image.iso_639_1 === 'en') ??
+        logos[0]
+      logo.value = chosen?.file_path
+        ? tmdbImage('w500', chosen.file_path)
+        : null
       cast.value = cr?.cast || []
       directors.value = (cr?.crew || [])
         .filter(c => c.job === 'Director')
@@ -156,6 +168,7 @@ export function useTmdbDetail(): UseTmdbDetailReturn {
   return {
     douban: doubanDetail,
     detail,
+    logo,
     cast,
     directors,
     images,

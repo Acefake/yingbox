@@ -15,7 +15,16 @@
     /></span>
     <div class="dw-hero-side" aria-hidden="true" />
     <div class="dw-hero-content">
-      <h1 class="dw-hero-title">{{ title }}</h1>
+      <h1 class="dw-hero-title">
+        <img
+          v-if="logo && !logoBroken"
+          class="dw-hero-logo"
+          :src="logo"
+          :alt="title"
+          @error="logoBroken = true"
+        />
+        <template v-else>{{ title }}</template>
+      </h1>
       <h2 v-if="originalTitle" class="dw-hero-orig">{{ originalTitle }}</h2>
       <!-- 主操作：白色播放胶囊 + 想看等玻璃圆钮 -->
       <div class="dw-hero-actions">
@@ -80,6 +89,7 @@ const { isPhone } = usePlatform()
 const props = defineProps<{
   doubanDetail?: DoubanMetadata | null
   tmdbDetail: TmdbDetail | null
+  logo: string | null
   itemData: OnlineDetailItem | null
   itemName: string
   itemPic: string
@@ -95,6 +105,13 @@ const emit = defineEmits<{
   (e: 'play', url: string, ext?: PluginExt): void
 }>()
 
+const logoBroken = ref(false)
+watch(
+  () => props.logo,
+  () => {
+    logoBroken.value = false
+  }
+)
 const overviewOpen = ref(false)
 watch(
   () => props.itemName,
@@ -242,6 +259,14 @@ function onImgError(event: Event): void {
   overflow-wrap: anywhere;
 }
 
+.dw-hero-logo {
+  display: block;
+  max-width: min(100%, 440px);
+  max-height: 140px;
+  object-fit: contain;
+  object-position: left bottom;
+  filter: var(--media-logo-shadow);
+}
 .dw-hero-title {
   margin: 0 0 var(--space-2);
   color: var(--text-primary);

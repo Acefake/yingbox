@@ -615,6 +615,53 @@ describe('桌面端播放器窗口（PlayerWindowApp）', () => {
     unmount()
   })
 
+  it.each(['关闭', '播完'])(
+    '响应式片库标记可以跨 IPC 保存进度（%s）',
+    async action => {
+      const library = reactive({ itemId: 31, fileId: 41 })
+      const api = fakeWindowApi({
+        url: SRC,
+        title: '片库视频',
+        playlist: [{ url: SRC, library }],
+      })
+      const cloned: unknown[] = []
+      api.progress.mockImplementation(event => {
+        cloned.push(structuredClone(event))
+        return Promise.resolve()
+      })
+      const unmount = await mountWindow(api)
+      try {
+        await until(() => fakes.arts.length === 1)
+        const art = fakes.arts[0]
+        expect(() => tick(art, 30)).not.toThrow()
+        expect(cloned).toContainEqual({
+          kind: 'save',
+          target: { key: SRC, library: { itemId: 31, fileId: 41 } },
+          position: 30,
+          duration: 600,
+        })
+        if (action === '播完') {
+          expect(() =>
+            art.emit('video:ended', { target: art.video })
+          ).not.toThrow()
+          expect(cloned).toContainEqual({
+            kind: 'finish',
+            target: { key: SRC, library: { itemId: 31, fileId: 41 } },
+            duration: 600,
+          })
+        } else {
+          tick(art, 45)
+        }
+      } finally {
+        unmount()
+      }
+      if (action === '关闭')
+        expect(cloned).toContainEqual(
+          expect.objectContaining({ kind: 'save', position: 45 })
+        )
+    }
+  )
+
   it('换片：旧会话保存进度后拆除，新会话开播；遥控请求就地执行并回执；置顶按钮切换设置', async () => {
     const api = fakeWindowApi({ url: SRC, title: '片名' })
     const unmount = await mountWindow(api)

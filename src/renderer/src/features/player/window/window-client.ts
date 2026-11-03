@@ -38,7 +38,20 @@ export function connectPlayerWindow(client: PlayerWindowClient): () => void {
   if (!api) return () => {}
 
   const restoreProgress = relayProgress((event: ProgressEvent) => {
-    void api.progress(event).catch(() => {})
+    // IPC 不能携带播放列表里的响应式片库标记。
+    const payload = { ...event }
+    if ('target' in payload) {
+      const { key, library } = payload.target
+      payload.target = {
+        key,
+        library: library
+          ? { itemId: library.itemId, fileId: library.fileId }
+          : undefined,
+      }
+    } else if (payload.kind === 'continue') {
+      payload.update = { ...payload.update }
+    }
+    void api.progress(payload).catch(() => {})
   })
 
   let last = ''

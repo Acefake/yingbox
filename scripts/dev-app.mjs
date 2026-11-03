@@ -46,10 +46,14 @@ if (!process.env.YINGBOX_SKIP_DEPS_CHECK) {
   }
 }
 
+const childEnv = { ...process.env }
+// Electron 必须按桌面应用运行；终端宿主可能用该变量把自身设为 Node 模式。
+delete childEnv.ELECTRON_RUN_AS_NODE
+
 const child = spawn(process.execPath, [cli, ...process.argv.slice(2)], {
   cwd: root,
   stdio: 'inherit',
-  env: process.env,
+  env: childEnv,
 })
 
 child.on('error', err => {
