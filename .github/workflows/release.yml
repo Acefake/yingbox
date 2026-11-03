@@ -1,0 +1,201 @@
+# 统一发布（ADR-0038）：推 vX.Y.Z 标签，构建所有端，一个 Release 里只放各端安装包和 sha256sum.txt。
+# 手动运行（workflow_dispatch）只演练：不建发布、不推镜像，产物作为本次运行的附件。
+name: release
+
+on:
+  push:
+    tags: ['v*']
+  workflow_dispatch:
+    inputs:
+      version:
+        description: 演练用的版本号（x.y.z，须与 package.json 一致）
+        required: true
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+
+env:
+  PNPM_VERSION: 10.34.7
+
+jobs:
+  prepare:
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+      tag: ${{ steps.version.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - name: 标签须在 main 上
+        if: github.event_name == 'push'
+        run: git merge-base --is-ancestor "$GITHUB_SHA" origin/main || { echo "标签 $GITHUB_REF_NAME 不在 main 上"; exit 1; }
+      - id: version
+        env:
+          PUSHED_TAG: ${{ github.ref_name }}
+          INPUT_VERSION: ${{ inputs.version }}
+        run: |
+          if [ "${{ github.event_name }}" = "push" ]; then tag="$PUSHED_TAG"; else tag="v$INPUT_VERSION"; fi
+          version="$(node scripts/release/check-version.mjs "$tag")"
+          echo "tag=$tag" >> "$GITHUB_OUTPUT"
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+  windows:
+    needs: prepare
+    runs-on: windows-latest
+    outputs:
+      sources_tag: ${{ steps.sources.outputs.tag }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+        shell: bash
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm fetch:mpv
+      - run: pnpm build:nocheck
+      - run: pnpm exec electron-builder --win --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: windows
+          path: dist/yingbox-setup-${{ needs.prepare.outputs.version }}.exe
+          if-no-files-found: error
+      - id: sources
+        shell: bash
+        run: echo "tag=$(node scripts/release/publish-mpv-sources.mjs dist --tag-only)" >> "$GITHUB_OUTPUT"
+      - name: 发布 mpv 对应源码（固定发布，只传一次）
+        if: github.event_name == 'push'
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/publish-mpv-sources.mjs dist
+    permissions:
+      contents: write
+
+  mac:
+    needs: prepare
+    runs-on: macos-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - run: corepack enable && corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: pnpm build:nocheck
+      - run: pnpm exec electron-builder --mac dmg --arm64 --x64 --publish never
+      - uses: actions/upload-artifact@v4
+        with:
+          name: mac
+          path: dist/*.dmg
+          if-no-files-found: error
+
+  android:
+    needs: prepare
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: 21
+      - run: corepack enable && corepack prepare pnpm@${{ env.PNPM_VERSION }} --activate
+      - run: pnpm install --frozen-lockfile
+      - run: yes | "$ANDROID_HOME/cmdline-tools/latest/bin/sdkmanager" --licenses > /dev/null || true
+      - run: node scripts/release/set-android-version.mjs "${{ needs.prepare.outputs.version }}"
+      - name: 写入发布签名
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_STORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        run: |
+          [ -n "$KEYSTORE_BASE64" ] || { echo "缺少 ANDROID_KEYSTORE_BASE64"; exit 1; }
+          echo "$KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          {
+            echo "storeFile=$RUNNER_TEMP/release.jks"
+            echo "storePassword=$STORE_PASSWORD"
+            echo "keyAlias=$KEY_ALIAS"
+            echo "keyPassword=$KEY_PASSWORD"
+          } > android/keystore.properties
+      - run: node scripts/android-release.mjs
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: out/android-release/${{ needs.prepare.outputs.version }}/*.apk
+          if-no-files-found: error
+
+  nas:
+    needs: prepare
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      packages: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: docker/setup-qemu-action@v3
+      - uses: docker/setup-buildx-action@v3
+      - if: github.event_name == 'push'
+        uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ github.token }}
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: Dockerfile.nas
+          platforms: linux/amd64,linux/arm64
+          push: ${{ github.event_name == 'push' }}
+          tags: ghcr.io/acefake/yingbox-nas:${{ needs.prepare.outputs.version }}-nas.1
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+  release:
+    needs: [prepare, windows, mac, android, nas]
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
+      - uses: actions/download-artifact@v4
+        with:
+          path: assets
+          merge-multiple: true
+      - name: 生成 sha256sum.txt
+        run: node scripts/release/checksums.mjs assets
+      - if: github.event_name != 'push'
+        uses: actions/upload-artifact@v4
+        with:
+          name: release-dry-run
+          path: assets/*
+      - name: 发布
+        if: github.event_name == 'push'
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: node scripts/release/publish.mjs "${{ needs.prepare.outputs.tag }}" assets "${{ needs.windows.outputs.sources_tag }}"
