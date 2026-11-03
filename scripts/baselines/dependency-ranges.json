@@ -9,7 +9,6 @@
     "artplayer",
     "cheerio",
     "crypto-js",
-    "electron-updater",
     "hls.js",
     "opencc-js",
     "vue-router"

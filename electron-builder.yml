@@ -41,7 +41,8 @@ win:
       arch:
         - x64
 nsis:
-  artifactName: yingbox-${version}-setup.${ext}
+  artifactName: yingbox-setup-${version}.${ext}
+  differentialPackage: false
   shortcutName: 影盒
   uninstallDisplayName: 影盒
   installerIcon: resources/logo.ico
@@ -69,7 +70,7 @@ mac:
     - NSDownloadsFolderUsageDescription: Application requests access to the user's Downloads folder.
   notarize: false
 dmg:
-  artifactName: ${name}-${version}.${ext}
+  artifactName: ${name}-${version}-${arch}.${ext}
 linux:
   files:
     - out/**
@@ -85,9 +86,5 @@ linux:
 appImage:
   artifactName: ${name}-${version}.${ext}
 npmRebuild: false
-publish:
-  provider: github
-  owner: Acefake
-  repo: yingbox
 electronDownload:
   mirror: https://npmmirror.com/mirrors/electron/

@@ -2,20 +2,27 @@
 
 手机和电视安装同一个包。常见 ARM64 手机、电视盒子使用 `arm64-v8a`，x86_64 设备和模拟器使用 `x86_64`；不提供 ARMv7 包。
 
+安卓包随各端安装包一起发布在同一个 GitHub Release 里，流程见 [ADR-0038](../adr/0038-unified-github-release.md)。
+
 ## 保管签名
 
 本机首版签名保存在 `D:\soft\yingbox-keys\yingbox-android-release.jks`，配置备份为同目录的 `keystore.properties.bak`。将这个目录备份到可信的离线位置。仓库内的 `android/keystore.properties` 及密钥文件均不提交。
 
+发布工作流从 GitHub Secrets 取签名：`ANDROID_KEYSTORE_BASE64`（密钥库文件的 base64）、`ANDROID_STORE_PASSWORD`、`ANDROID_KEY_ALIAS`、`ANDROID_KEY_PASSWORD`。工作流没有这些密钥时安卓任务失败，不会退回调试签名。
+
+## 发布
+
+1. 修改 `package.json` 的 `version`，提交。
+2. 打标签并推送：`git tag vX.Y.Z && git push origin vX.Y.Z`。标签必须与 `package.json` 版本一致。
+3. 工作流构建各端，全部成功后公开 Release。任一端失败时 Release 保持草稿。
+
+安卓的 `versionName` 取自标签，`android/version.properties` 在构建时由工作流写入，`versionCode = x*10000+y*100+z`。
+
+## 本机验证
+
 构建机需要 Android SDK、Android Studio JBR、Node 和已安装的项目依赖。将签名配置放入 `android/keystore.properties`，字段为 `storeFile`、`storePassword`、`keyAlias`、`keyPassword`。`storeFile` 使用密钥的绝对路径。
 
-## 构建并发布
-
-1. 修改 `android/version.properties` 中的 `versionName`。使用递增的 `x.y.z`，y、z 不超过 99。
-2. 提交本次版本源码，使发布标签指向可重建的代码；不要提交密钥或本机 Gradle JVM 配置。
-3. 构建和校验：`node scripts/android-release.mjs`。产物在 `out/android-release/<版本>/`。
-4. 公开发布：`node scripts/android-release.mjs --publish`。需要本机 `gh auth status` 已登录且有本仓库发布权限。脚本先创建草稿、上传两份 APK 和校验清单，完成后公开为 Pre-release。已公开的同名版本不能覆盖。
-
-安装包必须通过 `apksigner`；签名与 `android/release-certificate.sha256` 中的固定公开指纹一致，版本码和版本名与配置一致。该指纹不含密钥。脚本创建标签后会解引用核对远端提交，不覆盖指向其他代码的同名标签。下载后可用 `Get-FileHash <apk> -Algorithm SHA256` 与 `SHA256SUMS.txt` 对照。
+`node scripts/android-release.mjs` 按 `android/version.properties` 构建、校验并把两个 APK 放进 `out/android-release/<版本>/`。它校验 `apksigner` 签名、与 `android/release-certificate.sha256` 中固定公开指纹一致、包名、版本码、版本名和 ABI。该指纹不含密钥。
 
 ## 验证应用内升级
 

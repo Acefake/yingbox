@@ -1,5 +1,5 @@
 /**
- * 检查应用更新（ADR-0037）：读本仓库 GitHub Releases 的发布列表，规则在 shared/android/release。
+ * 检查应用更新（ADR-0038）：读本仓库 GitHub Releases 的发布列表，规则在 shared/android/release。
  * 发布列表缓存 10 分钟（用户反复进设置页不重复请求，也躲开 GitHub 匿名接口的限流）。
  * 地址可用环境变量 YINGBOX_ANDROID_RELEASES_URL 换成镜像或自己的清单（同样的 JSON 形状）。
  */

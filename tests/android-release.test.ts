@@ -4,11 +4,8 @@ import {
   createUpdateChecker,
   githubReleases,
 } from '../src/server/view/app-update'
-import {
-  compareVersions,
-  parseVersion,
-  pickAndroidUpdate,
-} from '../src/shared/android/release'
+import { pickAndroidUpdate } from '../src/shared/android/release'
+import { compareVersions, parseVersion } from '../src/shared/release/pick'
 
 const asset = (
   name: string,
@@ -27,7 +24,7 @@ const release = (
   extra: Record<string, unknown> = {}
 ): Record<string, unknown> => ({
   tag_name: tag,
-  prerelease: true,
+  prerelease: false,
   draft: false,
   body: '更新说明',
   published_at: '2026-11-03T10:00:00Z',
@@ -47,24 +44,23 @@ describe('版本比较', () => {
 
 describe('从发布列表里挑更新（pickAndroidUpdate）', () => {
   const list = [
-    release('v1.0.1', [asset('yingbox-1.0.1-setup.exe')], {
-      prerelease: false,
-    }),
+    release('v1.0.1', [asset('yingbox-setup-1.0.1.exe')]),
+    release('android-v0.9.0', [asset('yingbox-android-0.9.0-arm64-v8a.apk')]),
     release('nas-v1.0.1-nas.1', []),
-    release('android-v0.1.0', [asset('yingbox-android-0.1.0-arm64-v8a.apk')]),
-    release('android-v0.2.0', [
+    release('v0.1.0', [asset('yingbox-android-0.1.0-arm64-v8a.apk')]),
+    release('v0.2.0', [
       asset('yingbox-android-0.2.0-arm64-v8a.apk', {
         digest: `sha256:${'a'.repeat(64)}`,
         size: 5555,
       }),
       asset('yingbox-android-0.2.0-x86_64.apk'),
     ]),
-    release('android-v0.3.0', [asset('yingbox-android-0.3.0-arm64-v8a.apk')], {
+    release('v0.3.0', [asset('yingbox-android-0.3.0-arm64-v8a.apk')], {
       draft: true,
     }),
   ]
 
-  it('只认 android-v 标签，草稿不算；给出比当前新的最新一版和该 ABI 的包', () => {
+  it('只认 vX.Y.Z 标签，草稿和旧的 android-v 标签不算；给出比当前新的最新一版和该 ABI 的包', () => {
     const update = pickAndroidUpdate(list, '0.1.0', ['arm64-v8a'])
     expect(update).toMatchObject({
       version: '0.2.0',
@@ -73,6 +69,15 @@ describe('从发布列表里挑更新（pickAndroidUpdate）', () => {
       sha256: 'a'.repeat(64),
     })
     expect(update?.url).toContain('yingbox-android-0.2.0-arm64-v8a.apk')
+  })
+
+  it('Pre-release 不算', () => {
+    const only = [
+      release('v0.2.0', [asset('yingbox-android-0.2.0-arm64-v8a.apk')], {
+        prerelease: true,
+      }),
+    ]
+    expect(pickAndroidUpdate(only, '0.1.0', ['arm64-v8a'])).toBeNull()
   })
 
   it('按设备 ABI 的优先顺序选包', () => {
@@ -92,7 +97,7 @@ describe('从发布列表里挑更新（pickAndroidUpdate）', () => {
       pickAndroidUpdate([null, 3, { tag_name: 5 }], '0.1.0', ['arm64-v8a'])
     ).toBeNull()
     const insecure = [
-      release('android-v0.2.0', [
+      release('v0.2.0', [
         asset('yingbox-android-0.2.0-arm64-v8a.apk', {
           browser_download_url: 'http://x/a.apk',
         }),
@@ -104,7 +109,7 @@ describe('从发布列表里挑更新（pickAndroidUpdate）', () => {
   it('发布里没给 digest 时不提供无法校验的包', () => {
     const update = pickAndroidUpdate(
       [
-        release('android-v0.2.0', [
+        release('v0.2.0', [
           asset('yingbox-android-0.2.0-arm64-v8a.apk', { digest: '' }),
         ]),
       ],
@@ -122,7 +127,7 @@ describe('从发布列表里挑更新（pickAndroidUpdate）', () => {
       asset('yingbox-android-0.2.0-arm64-v8a.apk', { digest: 'sha256:bad' }),
     ]) {
       expect(
-        pickAndroidUpdate([release('android-v0.2.0', [invalid])], '0.1.0', [
+        pickAndroidUpdate([release('v0.2.0', [invalid])], '0.1.0', [
           'arm64-v8a',
         ])
       ).toBeNull()
@@ -145,9 +150,7 @@ describe('检查更新带缓存', () => {
       .mockResolvedValueOnce(
         new Response(
           JSON.stringify([
-            release('android-v0.2.0', [
-              asset('yingbox-android-0.2.0-arm64-v8a.apk'),
-            ]),
+            release('v0.2.0', [asset('yingbox-android-0.2.0-arm64-v8a.apk')]),
           ])
         )
       )
@@ -197,9 +200,7 @@ describe('检查更新带缓存', () => {
     let now = 0
     const fetchReleases = vi.fn(
       async (): Promise<unknown> => [
-        release('android-v0.2.0', [
-          asset('yingbox-android-0.2.0-arm64-v8a.apk'),
-        ]),
+        release('v0.2.0', [asset('yingbox-android-0.2.0-arm64-v8a.apk')]),
       ]
     )
     const check = createUpdateChecker(fetchReleases, () => now)

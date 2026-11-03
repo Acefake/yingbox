@@ -4,8 +4,7 @@
  *
  * 第一次 will-quit 拦住退出，等写入完成（最多 timeoutMs）后再调一次 app.quit()，让
  * before-quit → will-quit → quit 完整再走一轮：
- * - electron-updater 的「退出时安装」（autoInstallOnAppQuit）挂在 app 的 quit 事件上，exitCode 为 0 才装，
- *   所以收尾必须走 app.quit()，不能用 app.exit()（exit 不发 quit，下载好的更新会静默不装）；
+ * - 收尾必须走 app.quit()，不能用 app.exit()：exit 不发 quit 事件，依赖 quit 事件的收尾（如更新安装包的启动）会被跳过；
  * - 第二轮里本监听直接放行；其他 before-quit / will-quit 监听会再跑一遍，它们都可重复调用
  *   （插件宿主第二轮放行，快捷键注销、引擎 / 片库宿主 stop、推送服务 / WebDAV 代理关闭、115 Cookie 清理重复调用无副作用）。
  *   新增 will-quit 监听也要保证可重复调用。
