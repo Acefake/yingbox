@@ -14,7 +14,7 @@ import {
   isSourcePick,
   mergePick,
   rankSites,
-} from '../utils/auto-source'
+} from '../../../../../shared/online/auto-source'
 import {
   type SiteGroup,
   type SourceType,

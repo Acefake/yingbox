@@ -12,6 +12,7 @@ import androidx.compose.foundation.lazy.LazyListState
 import androidx.compose.foundation.lazy.LazyRow
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
+import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
@@ -78,7 +79,8 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
         var current = runCatching { withContext(io) { api.sourcesStart(target.searchTitle) } }.getOrNull()
         failed = current == null
         sources = current
-        while (current != null && !current.done) {
+        // 搜索结束后还要继续取，直到测速也结束（站点顺序随测速结果变）
+        while (current != null && (!current.done || current.probing)) {
             delay(POLL_MS)
             val id = current.sessionId
             // 会话过期（服务重启等）就重新开始
@@ -192,17 +194,16 @@ private fun Sources(
             sources == null -> "正在找源…"
             !sources.done -> "正在找源… 已找到 ${sites.size} 个站点"
             sites.isEmpty() -> "没有找到可播放的源"
-            else -> "共 ${sites.size} 个站点"
+            sources.probing -> "共 ${sites.size} 个站点 · 测速中…"
+            else -> "共 ${sites.size} 个站点 · 测速完成，按速度排序"
         }
         Text(status, color = Muted, fontSize = YbText.Sm, modifier = if (site == null || line == null) Modifier.tvReadingFocus() else Modifier)
         if (site == null || line == null) return@Column
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            items(sites, key = { it.key }) { s ->
-                Pill(
-                    text = s.siteName + if (s.kind == SourceKind.CATSPIDER) " · 插件" else "",
-                    selected = s.key == site.key,
-                ) { pickSite(s) }
-            }
+        // 测速中站点按速度重排：列表保持在最前面（LazyRow 默认锚在原来第一个可见的站点上，重排后会滑到后面去）
+        val siteList = rememberLazyListState()
+        LaunchedEffect(sites.firstOrNull()?.key, sources?.probing) { siteList.scrollToItem(0) }
+        LazyRow(state = siteList, horizontalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+            items(sites, key = { it.key }) { s -> SourceCard(s, selected = s.key == site.key) { pickSite(s) } }
         }
         if (site.lines.size > 1) {
             Text("线路", color = YbColor.TextTertiary, fontSize = YbText.Xs)

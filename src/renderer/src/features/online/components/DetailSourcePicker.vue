@@ -69,7 +69,7 @@
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import type { Episode, PluginExt } from '../types'
-import type { SourceProbe } from '../utils/auto-source'
+import type { SourceProbe } from '../../../../../shared/online/auto-source'
 import type {
   SiteGroup,
   SourceType,

@@ -10,6 +10,14 @@ import type {
   VodResponse,
 } from '../../shared/contract/online'
 import { asArray, asRecord } from '../../shared/json'
+import {
+  type SourceProbe,
+  fastestSite,
+  formatLatency,
+  formatSpeed,
+  rankSites,
+  resolutionLabel,
+} from '../../shared/online/auto-source'
 import { isAdultCatSpiderSite } from '../../shared/online/site-selection'
 import {
   groupBySite,
@@ -165,25 +173,52 @@ export async function searchSources(
   await Promise.all(pending)
 }
 
-/** 线路 → 视图里的站点列表：插件源在前，同类按找到的先后 */
-export function sourceSites(groups: EpisodeGroup[]): ViewSourceSite[] {
+/** 测速状态 → 一行说明（与桌面源列表同文案） */
+function probeDetail(probe: SourceProbe): string {
+  if (probe.status === 'ok')
+    return [formatLatency(probe.latencyMs), formatSpeed(probe.speedBps)]
+      .filter(Boolean)
+      .join(' · ')
+  return probe.status === 'fail' ? '超时或无法播放' : '测速中…'
+}
+
+/**
+ * 线路 → 视图里的站点列表，按测速结果排序（成功的按速度从快到慢，测速中的其次，失败的最后，
+ * 同档保持插件源在前、再按找到的先后）。probes 按站点名取；没有的算测速中。
+ */
+export function sourceSites(
+  groups: EpisodeGroup[],
+  probes: Readonly<Record<string, SourceProbe | undefined>> = {}
+): ViewSourceSite[] {
   const { catspider, cms } = splitBySourceType(groups)
   const sites = (
     list: EpisodeGroup[],
     kind: ViewSourceSite['kind']
   ): ViewSourceSite[] =>
-    groupBySite(list).map(site => ({
-      siteName: site.siteName,
-      kind,
-      lines: site.lines.map(line => ({
-        label: line.label,
-        episodes: line.episodes.map(ep => ({
-          name: ep.name,
-          url: ep.url,
-          siteName: kind === 'catspider' ? (line._siteName ?? null) : null,
-          ext: ep.ext ? JSON.stringify(ep.ext) : null,
+    groupBySite(list).map(site => {
+      const probe = probes[site.siteName] ?? { status: 'pending' as const }
+      return {
+        siteName: site.siteName,
+        kind,
+        lines: site.lines.map(line => ({
+          label: line.label,
+          episodes: line.episodes.map(ep => ({
+            name: ep.name,
+            url: ep.url,
+            siteName: kind === 'catspider' ? (line._siteName ?? null) : null,
+            ext: ep.ext ? JSON.stringify(ep.ext) : null,
+          })),
         })),
-      })),
-    }))
-  return [...sites(catspider, 'catspider'), ...sites(cms, 'cms')]
+        status: probe.status,
+        resolution: probe.status === 'ok' ? resolutionLabel(probe.height) : '',
+        detail: probeDetail(probe),
+        fastest: false,
+      }
+    })
+  const ranked = rankSites(
+    [...sites(catspider, 'catspider'), ...sites(cms, 'cms')],
+    probes
+  )
+  const fastest = fastestSite(ranked, probes)
+  return ranked.map(site => ({ ...site, fastest: site.siteName === fastest }))
 }

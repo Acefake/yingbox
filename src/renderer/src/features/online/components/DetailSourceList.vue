@@ -57,7 +57,7 @@ import {
   formatLatency,
   formatSpeed,
   resolutionLabel,
-} from '../utils/auto-source'
+} from '../../../../../shared/online/auto-source'
 import type { SiteGroup } from '../../../../../shared/online/sources'
 
 const props = defineProps<{

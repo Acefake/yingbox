@@ -1,7 +1,7 @@
 /**
  * 详情页播放源测速：每个源（站点）取第 1 集，解析成直链后交引擎 online.probeStream 测延迟与速度，
  * 同时最多 CONCURRENCY 个。结果按源域名缓存 PROBE_TTL_MS（持久化在 online_source_probes，
- * 换片、开新窗口都不必重测）。规则在 ../utils/auto-source。
+ * 换片、开新窗口都不必重测）。规则在 shared/online/auto-source。
  */
 import { type ComputedRef, type Ref, computed, ref, toRaw } from 'vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
@@ -15,7 +15,7 @@ import {
   isProbeCacheEntry,
   mergeProbeCache,
   probeKey,
-} from '../utils/auto-source'
+} from '../../../../../shared/online/auto-source'
 import type { SiteGroup } from '../../../../../shared/online/sources'
 import { resolvePlaySource } from '../utils/play-source'
 

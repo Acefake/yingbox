@@ -256,12 +256,14 @@ data class ViewPerson(
 data class ViewSources(
     val sessionId: String,
     val done: Boolean,
+    val probing: Boolean,
     val sites: List<ViewSourceSite>,
 ) {
     companion object {
         fun fromJson(json: JSONObject): ViewSources = ViewSources(
             sessionId = json.getString("sessionId"),
             done = json.getBoolean("done"),
+            probing = json.getBoolean("probing"),
             sites = json.getJSONArray("sites").let { a0 -> List(a0.length()) { i0 -> ViewSourceSite.fromJson(a0.getJSONObject(i0)) } },
         )
     }
@@ -271,12 +273,20 @@ data class ViewSourceSite(
     val siteName: String,
     val kind: SourceKind,
     val lines: List<ViewLine>,
+    val status: ProbeStatus,
+    val resolution: String,
+    val detail: String,
+    val fastest: Boolean,
 ) {
     companion object {
         fun fromJson(json: JSONObject): ViewSourceSite = ViewSourceSite(
             siteName = json.getString("siteName"),
             kind = SourceKind.fromJson(json.getString("kind")),
             lines = json.getJSONArray("lines").let { a0 -> List(a0.length()) { i0 -> ViewLine.fromJson(a0.getJSONObject(i0)) } },
+            status = ProbeStatus.fromJson(json.getString("status")),
+            resolution = json.getString("resolution"),
+            detail = json.getString("detail"),
+            fastest = json.getBoolean("fastest"),
         )
     }
 }
@@ -318,6 +328,19 @@ data class ViewEpisode(
             siteName = (if (json.isNull("siteName")) null else json.getString("siteName")),
             ext = (if (json.isNull("ext")) null else json.getString("ext")),
         )
+    }
+}
+
+enum class ProbeStatus(val json: String) {
+    PENDING("pending"),
+    OK("ok"),
+    FAIL("fail"),
+    ;
+
+    companion object {
+        fun fromJson(value: String): ProbeStatus =
+            entries.firstOrNull { it.json == value }
+                ?: throw IllegalArgumentException("未知的 ProbeStatus：$value")
     }
 }
 

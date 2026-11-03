@@ -2,7 +2,7 @@
  * 在线自动选源的纯规则：测速缓存键与过期、源按速度排序、最快源、手动选择记录、展示文案。
  * 状态与请求在 composables/use-source-probe.ts，这里不碰网络和存储。
  */
-import type { EpisodeGroup } from '../types'
+import type { EpisodeGroup } from './types'
 
 /** 测速结果缓存多久：30 分钟 */
 export const PROBE_TTL_MS = 30 * 60 * 1000
