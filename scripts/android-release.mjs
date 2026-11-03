@@ -69,7 +69,7 @@ const expectedCertificate = readFileSync(
   .toLowerCase()
 if (!/^[a-f0-9]{64}$/.test(expectedCertificate))
   throw new Error('发布证书指纹无效')
-for (const abi of ['arm64-v8a', 'x86_64']) {
+for (const abi of ['arm64-v8a']) {
   const apk = join(
     root,
     'android/app/build/outputs/apk/release',

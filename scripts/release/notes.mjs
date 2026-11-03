@@ -7,8 +7,6 @@ export function platformOf(name) {
   if (/\.dmg$/.test(name)) return 'macOS'
   if (/^yingbox-android-.+-arm64-v8a\.apk$/.test(name))
     return '安卓（手机、电视，arm64-v8a）'
-  if (/^yingbox-android-.+-x86_64\.apk$/.test(name))
-    return '安卓（x86_64 设备与模拟器）'
   return null
 }
 

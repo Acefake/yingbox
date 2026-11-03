@@ -54,12 +54,12 @@ android {
         }
     }
 
-    // 发布时按 ABI 拆成各自的包（-PsplitAbi）：手机和电视绝大多数是 arm64，不必让它们下载 x86_64 的那一份
+    // 发布时按 ABI 拆成各自的包（-PsplitAbi）；-PreleaseAbis=arm64-v8a 只出指定的 ABI，不传则 arm64-v8a 与 x86_64（模拟器）都出
     splits {
         abi {
             isEnable = project.hasProperty("splitAbi")
             reset()
-            include("arm64-v8a", "x86_64")
+            include(*(providers.gradleProperty("releaseAbis").orNull?.split(",")?.toTypedArray() ?: arrayOf("arm64-v8a", "x86_64")))
             isUniversalApk = false
         }
     }

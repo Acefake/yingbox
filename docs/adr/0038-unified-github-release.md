@@ -12,7 +12,7 @@
 
 1. **触发与构建**：推送标签 `vX.Y.Z`，由 `.github/workflows/release.yml` 并行构建 Windows、macOS、安卓和 NAS 镜像。手动运行只演练，不建发布、不推镜像。
 2. **版本统一**：所有端共用标签里的版本号，标签必须与 `package.json` 一致。安卓 `versionName` 取自标签，`versionCode = x*10000+y*100+z` 不变。
-3. **发布页内容**：只放 `yingbox-setup-X.Y.Z.exe`、`yingbox-X.Y.Z-<arch>.dmg`、`yingbox-android-X.Y.Z-<abi>.apk` 和 `sha256sum.txt`。NAS 镜像推到 `ghcr.io/acefake/yingbox-nas:X.Y.Z-nas.1`，`stable` 仍由 `scripts/nas-release.mjs` 在验证后指向（ADR-0025）。
+3. **发布页内容**：只放 `yingbox-setup-X.Y.Z.exe`、`yingbox-X.Y.Z-arm64.dmg`（Apple 芯片）、`yingbox-android-X.Y.Z-arm64-v8a.apk` 和 `sha256sum.txt`。NAS 镜像推到 `ghcr.io/acefake/yingbox-nas:X.Y.Z-nas.1`，`stable` 仍由 `scripts/nas-release.mjs` 在验证后指向（ADR-0025）。
 4. **草稿先行**：先建草稿，上传后逐个核对远端大小与摘要，一致才公开并设为 Latest；失败保留草稿。
 5. **更新器**：桌面更新器 `src/main/updater/desktop-updater.ts` 取代 `electron-updater`，读发布列表，下载时校验资产 `digest`（GitHub 服务端计算的 SHA-256），一致才启动安装包。安卓更新器读同一个发布里的 `yingbox-android-*.apk`，同样校验 `digest`。规则在 `src/shared/release/pick.ts`。发布页不再放 `latest.yml` 和 blockmap。
 6. **mpv 源码**：发布页不放源码包。对应源码由 MSYS2 官方源码仓库提供，按 `src/shared/mpv-distribution.json` 中的文件名与 SHA-256 取得，说明在安装包内的 `DOWNLOAD.md` 和 `docs/release-licenses.md`。项目所有者确认接受这一做法，合规程度弱于随发布并列提供源码。
