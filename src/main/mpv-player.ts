@@ -1,5 +1,6 @@
 import { type ChildProcess, spawn } from 'child_process'
 import { EventEmitter } from 'events'
+import { type DiscSource, discSourceOf } from './mpv-disc'
 import { ensureMpvExecutable } from './mpv-locate'
 import { validateMpvLocalFile } from './mpv-local-file'
 import {
@@ -103,8 +104,10 @@ class MpvPlayer extends EventEmitter {
     this.emit('status', this.getStatus())
     try {
       await validateMpvLocalFile(options.filePath)
+      const disc = await discSourceOf(options.filePath)
       if (this.child && this.sock.connected) {
-        const stream = mpvStream(options)
+        const stream = mpvStream(options, disc)
+        if (disc) await this.setProp(disc.option, disc.device).catch(warnProp)
         // 属性设不上（低版本 mpv 不认某个值等）只记日志，照样换片，不让整次 open 失败
         await this.headers.apply(stream.headers).catch(warnProp)
         for (const [name, value] of replaceProps(options))
@@ -114,7 +117,7 @@ class MpvPlayer extends EventEmitter {
           await this.cmd('sub-add', options.subFile, 'select')
         await this.window.bringToFront()
       } else {
-        await this.spawnProcess(options)
+        await this.spawnProcess(options, disc)
       }
     } catch (error) {
       this._status.loading = false
@@ -123,7 +126,10 @@ class MpvPlayer extends EventEmitter {
     }
   }
 
-  private async spawnProcess(options: MpvOpenOptions): Promise<void> {
+  private async spawnProcess(
+    options: MpvOpenOptions,
+    disc: DiscSource | null
+  ): Promise<void> {
     // 旧进程还在但连接断了：先就地收尾，等它被杀掉再起新进程；它迟到的 exit 不会再清掉新进程
     const old = this.child
     if (old) {
@@ -133,7 +139,7 @@ class MpvPlayer extends EventEmitter {
     const socket = nextSocketPath()
     // Windows 上找不到会先自动下载便携版（期间推 installing 事件给渲染层提示）
     const exe = await ensureMpvExecutable(on => this.emit('installing', on))
-    const { target, headers } = mpvStream(options)
+    const { target, headers } = mpvStream(options, disc)
     const args = spawnArgs({
       socket,
       target,
@@ -143,6 +149,7 @@ class MpvPlayer extends EventEmitter {
       headers,
       vsr: this.isVsrWanted(),
       highQualityScaling: this.highQualityScaling,
+      disc,
     })
     this.headers.reset(headers)
     const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })

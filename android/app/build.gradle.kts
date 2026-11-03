@@ -31,7 +31,7 @@ android {
     }
 
     packaging {
-        // libnode.so 是可执行文件，要解压到 nativeLibraryDir 才能执行（ADR-0029）
+        // libnode.so 是可执行文件，要解压到 nativeLibraryDir 才能执行（ADR-0034）
         jniLibs { useLegacyPackaging = true }
     }
 

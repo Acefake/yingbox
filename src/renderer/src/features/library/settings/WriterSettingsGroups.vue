@@ -109,7 +109,7 @@
  * 媒体库设置里的「写出 NFO 与图片」与「整理」两组：开关、已有 NFO 处理方式、图片项、
  * 路径模板（逐字校验）、最近的整理批次与撤销。不可用（网页版）时整组置灰并在组尾说明。
  */
-import { reactive, shallowRef } from 'vue'
+import { computed, reactive, shallowRef } from 'vue'
 
 import type {
   LibraryKind,
@@ -139,13 +139,18 @@ import {
   templateVariablesFor,
 } from './settings-rules'
 
-const templates: { kind: LibraryKind; label: string }[] = [
-  { kind: 'movie', label: '电影与番号' },
-  { kind: 'tv', label: '剧集' },
-]
+const props = defineProps<{ jav?: boolean }>()
+const templates = computed<{ kind: LibraryKind; label: string }[]>(() =>
+  props.jav
+    ? [{ kind: 'movie', label: '番号' }]
+    : [
+        { kind: 'movie', label: '电影' },
+        { kind: 'tv', label: '剧集' },
+      ]
+)
 
-const writer = useWriterSettings()
-const { listBatches, undoOrganize } = useWriter()
+const writer = useWriterSettings(props.jav ? 'jav' : undefined)
+const { listBatches, undoOrganize } = useWriter(props.jav ? 'jav' : undefined)
 const batches = shallowRef<OrganizeBatchInfo[]>([])
 
 const templateDraft = reactive<Partial<Record<LibraryKind, string>>>({})

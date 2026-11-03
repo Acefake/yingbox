@@ -9,7 +9,8 @@
  * - 剧集库：剧集按“作品文件夹”分组（文件名里的剧名写法常常不统一）——从文件往上跳过
  *   季 / 碟片 / 附加内容文件夹后的第一层，键里带上它之前的整段路径，所以
  *   “韩剧/鬼谜东宫/Season 1/…”与“韩剧/努力克服自卑的我们/Season 1/…”是两部剧，
- *   不会因为同在分类文件夹“韩剧”下被并成一部；没有作品文件夹的按归一化剧名分组；季按季号，集按（季号, 集号）；绝对集数挂在剧集下、无季；
+ *   不会因为同在分类文件夹“韩剧”下被并成一部；没有作品文件夹的（含直接散放在分类文件夹里的集，见 folderLayout）
+ *   按归一化剧名分组；季按季号，集按（季号, 集号）；绝对集数挂在剧集下、无季；
  *   按日期编号的节目以播出日期作集键；没有集号的文件各自成一集；
  * - 附加内容（预告、花絮、样片）不建条目。
  */
@@ -94,10 +95,10 @@ function movieGrouping(
 
 /** 剧集条目键：优先用作品文件夹（连同上层分类文件夹的完整相对路径）。 */
 function seriesKey(ctx: GroupingContext, title: string): string {
-  const folders = ctx.relativeKey.split('/').slice(0, -1)
-  const depth = ownerFolderDepth(folders)
+  const segments = ctx.relativeKey.split('/')
+  const depth = ownerFolderDepth(segments.slice(0, -1), segments.at(-1))
   return depth > 0
-    ? `series:${ctx.libraryId}:d:${folders.slice(0, depth).join('/')}`
+    ? `series:${ctx.libraryId}:d:${segments.slice(0, depth).join('/')}`
     : `series:${ctx.libraryId}:t:${normalize(title)}`
 }
 

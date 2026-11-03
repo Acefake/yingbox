@@ -82,9 +82,14 @@ function setup(info: Partial<MovieInfo> = {}, defaultCid = '555'): Harness {
         ],
       }),
       receive: async (_u, _p, ids, cid) => void received.push({ ids, cid }),
-      names: async () => [],
+      names: async cid =>
+        received.some(r => r.cid === cid)
+          ? ['疯狂动物城2.2026.2160p.WEB-DL.DDP5.1.中字.mkv']
+          : [],
       dirPath: async () => ['电影'],
+      childFolder: async (parent, name) => `${parent}/${name}`,
     },
+    folderName: async m => `${m.title} (${m.year})`,
     notify: async path => void notified.push(path),
     defaultFolder: () => ({ cid: defaultCid, name: '电影' }),
     load: async () => saved,
@@ -102,6 +107,9 @@ function setup(info: Partial<MovieInfo> = {}, defaultCid = '555'): Harness {
     notified,
   }
 }
+
+/** 电影默认目录 555 下这部片的子文件夹 */
+const FOLDER_555 = '555/疯狂动物城2 (2026)'
 
 const statusOf = async (h: Harness): Promise<TrackedMovie> =>
   (await h.service.overview()).movies[0]
@@ -126,7 +134,7 @@ describe('电影上线追踪', () => {
     expect(h.received).toEqual([])
 
     expect(await h.service.grab(77, 0)).toEqual({ ok: true })
-    expect(h.received).toEqual([{ ids: ['z1'], cid: '555' }])
+    expect(h.received).toEqual([{ ids: ['z1'], cid: FOLDER_555 }])
     expect(await h.service.status(77)).toBe('saved')
 
     h.clock.t += 11 * 60_000
@@ -147,7 +155,7 @@ describe('电影上线追踪', () => {
     expect((await h.service.setMode(77, 'auto')).ok).toBe(true)
     await h.service.retry(77)
     await h.service.tick()
-    expect(h.received).toEqual([{ ids: ['z1'], cid: '888' }])
+    expect(h.received).toEqual([{ ids: ['z1'], cid: '888/疯狂动物城2 (2026)' }])
   })
 
   it('设了电影默认目录、没在追踪面板选文件夹：全自动照样转存到默认目录', async () => {
@@ -156,7 +164,7 @@ describe('电影上线追踪', () => {
     expect((await h.service.setMode(77, 'auto')).ok).toBe(true)
     await h.service.retry(77)
     await h.service.tick()
-    expect(h.received).toEqual([{ ids: ['z1'], cid: '555' }])
+    expect(h.received).toEqual([{ ids: ['z1'], cid: FOLDER_555 }])
   })
 
   it('跟随全局：全局切全自动后，跟随的电影直接存；单独设待确认的不存', async () => {
@@ -173,7 +181,7 @@ describe('电影上线追踪', () => {
     await h.service.setMode(77, 'inherit')
     await h.service.retry(77)
     await h.service.tick()
-    expect(h.received).toEqual([{ ids: ['z1'], cid: '555' }])
+    expect(h.received).toEqual([{ ids: ['z1'], cid: FOLDER_555 }])
   })
 
   it('全局全自动而转存目标是根目录：拒绝', async () => {
@@ -221,4 +229,25 @@ describe('电影上线追踪', () => {
     await h.service.tick()
     expect(vi.mocked(h.deps.tmdb.movie).mock.calls.length).toBe(calls + 1)
   })
+})
+
+it('电影目标目录为空时不能标记成功', async () => {
+  const h = setup()
+  await h.service.track(77)
+  h.clock.t = searchStart(DIGITAL) + 60_000
+  await h.service.tick()
+  h.deps.pan.names = async () => []
+  expect((await h.service.grab(77, 0)).ok).toBe(false)
+  expect((await statusOf(h)).status).not.toBe('saved')
+})
+
+it('算不出电影文件夹名：转存失败，不平铺进电影文件夹', async () => {
+  const h = setup({ releaseDates: [{ type: 4, date: '2026-10-01' }] })
+  h.deps.folderName = async () => null
+  await h.service.track(77)
+  await h.service.tick()
+  const result = await h.service.grab(77, 0)
+  expect(result.ok).toBe(false)
+  expect(h.received).toEqual([])
+  expect((await statusOf(h)).status).toBe('found')
 })

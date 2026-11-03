@@ -10,11 +10,11 @@
  *   <视频名>.nfo、<视频名>-poster.jpg、<视频名>-fanart.jpg、<视频名>-clearlogo.png
  *   旧命名：<视频名>-movie.jpg、<视频名>-folder.jpg（旧版刮削的写法）
  *
- * 剧集——剧集文件夹（媒体库根下第一层）：tvshow.nfo、poster.jpg、fanart.jpg、clearlogo.png、
+ * 剧集——剧集文件夹（作品文件夹，跳过季文件夹、不算分类文件夹，见 folderLayout）：tvshow.nfo、poster.jpg、fanart.jpg、clearlogo.png、
  *   season01-poster.jpg（第 0 季 season-specials-poster.jpg）、.actors/；旧命名：folder.jpg
  * 季文件夹（与剧集文件夹不同时）：season.nfo；旧命名：poster.jpg
  * 每集：<视频名>.nfo（一个文件含多集时多个 episodedetails）、<视频名>-thumb.jpg
- * 剧集文件直接放在媒体库根目录时不写剧集级文件（不能把 tvshow.nfo 写进根目录）。
+ * 剧集文件直接放在媒体库根目录或分类文件夹里、或分散在几个剧文件夹时不写剧集级文件（不能把 tvshow.nfo 写进根目录 / 分类文件夹）。
  */
 import { basename, dirname, extname, join, relative, sep } from 'node:path'
 import type {
@@ -31,6 +31,7 @@ import {
   type TmdbImageSizes,
   tmdbImageSizes,
 } from '../../../../shared/library/scrape-prefs'
+import { ownerFolderDepth } from '../../../../shared/library/parser'
 import { safeSegment } from '../../../../shared/library/writer'
 import { TmdbProvider } from '../../providers/tmdb/tmdb-provider'
 import {
@@ -211,14 +212,18 @@ function planSeries(node: LibraryItemNode, ctx: PlanContext): PlannedOutput[] {
   const videoPaths = episodes.flatMap(e =>
     e.files.filter(f => f.kind === 'video').map(f => f.path)
   )
-  const firstLevel = new Set(
-    videoPaths.map(p => relative(ctx.libraryRoot, p).split(sep)[0])
+  // 剧文件夹与分组、整理同一个判定（folderLayout）：跳过季文件夹，分类文件夹（「剧集/大陆」）不算
+  const owners = new Set(
+    videoPaths.map(p => {
+      const folders = relative(ctx.libraryRoot, dirname(p))
+        .split(sep)
+        .filter(Boolean)
+      const depth = ownerFolderDepth(folders, basename(p))
+      return depth ? join(ctx.libraryRoot, ...folders.slice(0, depth)) : ''
+    })
   )
-  const seriesDir =
-    firstLevel.size === 1 &&
-    videoPaths.every(p => dirname(p) !== ctx.libraryRoot)
-      ? join(ctx.libraryRoot, [...firstLevel][0])
-      : null
+  const [onlyOwner] = owners
+  const seriesDir = owners.size === 1 && onlyOwner ? onlyOwner : null
 
   if (seriesDir) {
     if (nfo.enabled)

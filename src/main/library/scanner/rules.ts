@@ -17,6 +17,14 @@ export const VIDEO_EXTENSIONS: ReadonlySet<string> = new Set([
   '.m4v',
   '.ts',
   '.rmvb',
+  // 光盘镜像与原盘 / DVD 的分段文件：识别照常，播放走 mpv（shared/disc-media.ts）
+  '.iso',
+  '.m2ts',
+  '.mts',
+  '.vob',
+  '.mpg',
+  '.mpeg',
+  '.3gp',
 ])
 
 /** 整个跳过的目录 / 文件名（小写）：NAS 缩略图、回收站、系统目录。 */

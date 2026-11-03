@@ -64,7 +64,6 @@
  * 本组件只负责外壳：遮罩、标题栏、左侧分区导航（含搜索）和右侧内容切换。
  * 分区来自注册表（registry.ts），打开时才加载；成人模式关闭时隐藏 adultOnly 分区。
  * 分区可 defineExpose({ canLeave }) 拦截切换与关闭（如未保存的修改）。
- * 软件更新状态需要在窗口关闭时也持续接收，所以这里一创建就启动 useUpdateStatus。
  */
 import { type Component, ref, shallowRef, watch } from 'vue'
 
@@ -76,12 +75,9 @@ import { settingsSections } from './registry'
 import SettingsNav from './ui/SettingsNav.vue'
 import { useSectionNavigation } from './use-section-navigation'
 import { useSetting } from './use-setting'
-import { useUpdateStatus } from './use-update-status'
 
 const props = defineProps<{ visible: boolean; initialSection?: string }>()
 const emit = defineEmits<{ close: [] }>()
-
-useUpdateStatus()
 
 // ── 分区导航 ────────────────────────────────────────────────
 const {

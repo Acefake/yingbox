@@ -1,4 +1,8 @@
 import { type ComputedRef, type Ref, computed, ref } from 'vue'
+import type {
+  UpdateInfo,
+  UpdateStatusEvent,
+} from '../../../../shared/contract/update'
 
 export type UpdateStatus =
   | 'idle'
@@ -9,18 +13,15 @@ export type UpdateStatus =
   | 'downloaded'
   | 'error'
 
-interface UpdateStatusPayload {
-  status?: UpdateStatus
-  info?: { version?: string }
-  progress?: { percent?: number }
-  error?: string
-}
-
 /** useUpdateStatus 的返回值，传给 UpdateSettings 展示 */
 export interface UpdateState {
   status: Ref<UpdateStatus>
   busy: Ref<boolean>
   progress: Ref<number>
+  version: Ref<string>
+  currentVersion: Ref<string>
+  notes: Ref<string>
+  dialogOpen: Ref<boolean>
   title: ComputedRef<string>
   message: ComputedRef<string>
   action: ComputedRef<string>
@@ -32,8 +33,7 @@ let shared: UpdateState | null = null
 /**
  * 软件更新状态（GitHub Releases），全应用共享一份。
  *
- * 第一次调用时订阅主进程的 update.status 并常驻到应用退出：设置面板在创建时就调用一次，
- * 所以设置窗口关着时自动检查的结果也不会丢；更新分区再调用拿到的是同一份状态。
+ * 第一次调用时订阅主进程的 update.status 并恢复当前状态，全应用共用一份。
  */
 export function useUpdateStatus(): UpdateState {
   shared ??= createUpdateState()
@@ -46,6 +46,16 @@ function createUpdateState(): UpdateState {
   const progress = ref(0)
   const error = ref('')
   const version = ref('')
+  const currentVersion = ref('')
+  const notes = ref('')
+  const dialogOpen = ref(false)
+  let statusEvents = 0
+
+  const setInfo = (info: UpdateInfo): void => {
+    if (info.version) version.value = info.version
+    if (info.releaseNotes != null)
+      notes.value = formatReleaseNotes(info.releaseNotes)
+  }
 
   const title = computed(() => {
     if (status.value === 'checking') return '正在检查更新'
@@ -73,21 +83,27 @@ function createUpdateState(): UpdateState {
 
   /** 当前可执行的操作文案；空字符串表示无操作（检查 / 下载进行中） */
   const action = computed(() => {
-    if (status.value === 'available') return '下载更新'
-    if (status.value === 'downloaded') return '重启安装'
+    if (status.value === 'available' || status.value === 'downloaded')
+      return '查看更新'
     if (status.value === 'checking' || status.value === 'downloading') return ''
     return '检查更新'
   })
 
-  const handleStatus = (raw: unknown): void => {
-    const payload = raw as UpdateStatusPayload
-    status.value = payload.status || 'idle'
+  const handleStatus = (payload: UpdateStatusEvent): void => {
+    status.value = payload.status
     busy.value =
       payload.status === 'checking' || payload.status === 'downloading'
-    if (payload.info?.version) version.value = payload.info.version
-    if (payload.progress?.percent != null)
+    if ('info' in payload) {
+      setInfo(payload.info)
+      if (payload.status === 'available') {
+        if (payload.info.releaseNotes == null) notes.value = ''
+        dialogOpen.value = true
+      }
+    }
+    if ('progress' in payload && payload.progress.percent != null)
       progress.value = payload.progress.percent
-    if (payload.error) error.value = payload.error
+    if ('error' in payload) error.value = payload.error
+    if (payload.status === 'not-available') dialogOpen.value = false
   }
 
   const runAction = async (): Promise<void> => {
@@ -95,7 +111,12 @@ function createUpdateState(): UpdateState {
     error.value = ''
     try {
       if (status.value === 'available') {
-        await window.api.update.download()
+        status.value = 'downloading'
+        const result = await window.api.update.download()
+        if (!result.success) {
+          status.value = 'error'
+          error.value = result.error || '下载更新失败'
+        }
         return
       }
       if (status.value === 'downloaded') {
@@ -108,6 +129,9 @@ function createUpdateState(): UpdateState {
         status.value = 'error'
         error.value = result.error || '检查更新失败'
       }
+    } catch (cause) {
+      status.value = 'error'
+      error.value = cause instanceof Error ? cause.message : '更新操作失败'
     } finally {
       if (status.value !== 'checking' && status.value !== 'downloading') {
         busy.value = false
@@ -115,7 +139,55 @@ function createUpdateState(): UpdateState {
     }
   }
 
-  window.api?.update?.onStatus?.(handleStatus)
+  const api = window.api?.update
+  if (api) {
+    api.onStatus(payload => {
+      statusEvents++
+      handleStatus(payload)
+    })
+    void api
+      .snapshot()
+      .then(snapshot => {
+        currentVersion.value = snapshot.currentVersion
+        if (
+          snapshot.info &&
+          (!version.value || snapshot.info.version === version.value)
+        ) {
+          if (!version.value && snapshot.info.version)
+            version.value = snapshot.info.version
+          if (!notes.value && snapshot.info.releaseNotes != null)
+            notes.value = formatReleaseNotes(snapshot.info.releaseNotes)
+        }
+        if (!statusEvents) {
+          if (snapshot.status) handleStatus(snapshot.status)
+        }
+      })
+      .catch(cause => console.warn('[Updater] 无法恢复更新状态', cause))
+  }
 
-  return { status, busy, progress, title, message, action, runAction }
+  return {
+    status,
+    busy,
+    progress,
+    version,
+    currentVersion,
+    notes,
+    dialogOpen,
+    title,
+    message,
+    action,
+    runAction,
+  }
+}
+
+/** 发布说明只作为文本展示，避免执行发行说明里的 HTML。 */
+export function formatReleaseNotes(notes: UpdateInfo['releaseNotes']): string {
+  const text = Array.isArray(notes)
+    ? notes.map(item => item.note ?? '').join('\n\n')
+    : (notes ?? '')
+  const document = new DOMParser().parseFromString(
+    text.replace(/<\/(?:p|li|h[1-6])>|<br\s*\/?\s*>/gi, '\n'),
+    'text/html'
+  )
+  return (document.body.textContent ?? '').trim()
 }

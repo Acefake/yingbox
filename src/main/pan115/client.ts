@@ -73,6 +73,8 @@ export interface Pan115Client {
   space(): Promise<DriveSpace>
   /** 删除文件夹 cid 里的一个文件（进回收站）；只接受一个数字 id */
   deleteFile(cid: string, fileId: string): Promise<void>
+  /** 在文件夹 parent 下建子文件夹 name，返回新文件夹 cid */
+  mkdir(parent: string, name: string): Promise<string>
   /** 把磁力 / 电驴链接加进云下载，存到文件夹 cid（见 offline.ts） */
   addOffline(links: readonly string[], cid: string): Promise<OfflineAddItem[]>
   /** 云下载任务列表的一页（新加的在前） */
@@ -292,6 +294,19 @@ export function create115Client(
     return { total, remain }
   }
 
+  async function mkdir(parent: string, name: string): Promise<string> {
+    if (!/^\d+$/.test(parent) || !name.trim())
+      throw new Pan115Error('要建的文件夹参数不对')
+    const json = await request('/files/add', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({ pid: parent, cname: name }).toString(),
+    })
+    const cid = text(json.cid ?? json.file_id)
+    if (!/^\d+$/.test(cid)) throw new Pan115Error('115 没有返回新文件夹的 id')
+    return cid
+  }
+
   async function deleteFile(cid: string, fileId: string): Promise<void> {
     if (!/^\d+$/.test(fileId) || !/^\d+$/.test(cid))
       throw new Pan115Error('要删除的文件 id 不对')
@@ -323,6 +338,7 @@ export function create115Client(
     },
     space,
     deleteFile,
+    mkdir,
     addOffline: (links, cid) =>
       addOfflineUrls(fetch, session.userId, links, cid),
     offlineTasks: page => listOfflineTasks(fetch, page),

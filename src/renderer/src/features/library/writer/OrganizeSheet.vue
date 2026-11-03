@@ -16,8 +16,11 @@
 
     <template v-else-if="plan">
       <p class="org-summary">
-        将按模板移动 <strong>{{ runnable }}</strong> 个文件<template
-          v-if="crossDevice"
+        将按模板移动 <strong>{{ runnable - deletions }}</strong> 个文件<template
+          v-if="deletions"
+          >，删除 {{ deletions }} 个（广告视频、重复的 nfo /
+          图片，撤销时不恢复）</template
+        ><template v-if="crossDevice"
           >，其中 {{ crossDevice }} 个跨盘（复制后删除，较慢）</template
         ><template v-if="conflicts">；{{ conflicts }} 个有冲突，将跳过</template
         ><template v-if="plan.unchanged"
@@ -25,7 +28,9 @@
         >。
       </p>
       <p v-if="!organizeEnabled" class="org-warning">
-        整理默认关闭。请先在「设置 → 媒体库」中开启「允许整理文件」，才能执行。
+        整理默认关闭。请先在「{{
+          jav ? '番号页 → 番号设置' : '设置 → 媒体库'
+        }}」中开启「允许整理文件」，才能执行。
       </p>
       <div class="org-table-wrap custom-scrollbar">
         <table class="org-table">
@@ -47,7 +52,14 @@
                 <div class="org-dir">{{ dirName(entry.from) }}</div>
               </td>
               <td class="org-arrow" aria-hidden="true">→</td>
-              <td :title="entry.to">
+              <td v-if="entry.kind === 'delete'">
+                <div class="org-name">删除</div>
+                <div class="org-dir">撤销时不恢复</div>
+                <div v-if="entry.conflict" class="org-conflict">
+                  {{ entry.conflict }}
+                </div>
+              </td>
+              <td v-else :title="entry.to">
                 <div class="org-name">{{ baseName(entry.to) }}</div>
                 <div class="org-dir">
                   {{ dirName(entry.to) }}
@@ -119,7 +131,7 @@ import { baseName, dirName } from '../shared/format'
 import LibrarySheet from '../shared/LibrarySheet.vue'
 import { runnableCount, useWriter, useWriterSettings } from './use-writer'
 
-const props = defineProps<{ open: boolean; itemIds: number[] }>()
+const props = defineProps<{ open: boolean; itemIds: number[]; jav?: boolean }>()
 const emit = defineEmits<{ close: [] }>()
 
 /** 表格最多渲染的行数：计划可能上万项，确认时看前面一段就够了。 */
@@ -132,7 +144,7 @@ const {
   undoOrganize,
   resetOrganize,
 } = useWriter()
-const { settings } = useWriterSettings()
+const { settings } = useWriterSettings(props.jav ? 'jav' : undefined)
 
 watch(
   () => props.open,
@@ -150,6 +162,11 @@ const plan = computed(() =>
 const runnable = computed(() => (plan.value ? runnableCount(plan.value) : 0))
 const conflicts = computed(
   () => plan.value?.entries.filter(e => e.conflict).length ?? 0
+)
+const deletions = computed(
+  () =>
+    plan.value?.entries.filter(e => e.kind === 'delete' && !e.conflict)
+      .length ?? 0
 )
 const crossDevice = computed(
   () =>

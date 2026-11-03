@@ -18,6 +18,7 @@ import type {
   CalendarRequest,
   CalendarResult,
   FileChangeNotice,
+  SeriesFolder,
 } from '../../shared/library/ipc'
 import type { DriveEntry, DriveSpace } from '../pan115/client'
 import type { Gate, GateKind } from './gate'
@@ -29,6 +30,10 @@ export interface AutograbDeps {
   /** 确认旧条目是否仍是媒体库里这部剧（条目 id 可能被别的条目复用，所以连剧名一起核对）；不可用或查询失败时不自动迁移。 */
   seriesExists?(seriesId: number, title: string): Promise<boolean>
   notify(changes: FileChangeNotice[]): Promise<void>
+  /** 这部剧在片库里的家（剧文件夹与季文件夹的本地路径）；没有为 null（ADR-0029） */
+  seriesFolder(seriesId: number): Promise<SeriesFolder | null>
+  /** 默认目录下给这部剧建的子文件夹名（整理模板第一段，如「繁花 (2023)」）；算不出为 null */
+  seriesFolderName(seriesId: number, title: string): Promise<string | null>
   pan: {
     loggedIn(): boolean
     pansouReady(): boolean
@@ -52,6 +57,12 @@ export interface AutograbDeps {
     remove(cid: string, fileId: string): Promise<void>
     /** 文件夹 cid 从根开始的各级名字（不含根） */
     dirPath(cid: string): Promise<string[]>
+    /** 本地目录对应的 115 文件夹 cid（按挂载根目录或 115 根目录同名换算）；找不到为 null */
+    folderCid(localDir: string): Promise<string | null>
+    /** 文件夹 cid 在 115 上还在 */
+    folderExists(cid: string): Promise<boolean>
+    /** 文件夹 parent 下名为 name 的子文件夹 cid，没有就建 */
+    childFolder(parent: string, name: string): Promise<string>
   }
   /** 剧没单独选文件夹时的转存目标（剧集默认目录，没设时沿用原转存目标，见 shared/netdisk/target-folder.ts） */
   defaultFolder(): TargetFolder

@@ -1,5 +1,6 @@
 <template>
   <div class="calendar-page">
+    <PageAtmosphere :src="calendarHero" />
     <PageHeader title="追剧日历" :description="summary || undefined">
       <template v-if="pendingCount" #status>
         <UiButton
@@ -11,7 +12,7 @@
         />
       </template>
       <template #actions>
-        <div class="cal-nav" role="group" aria-label="切换周">
+        <div class="cal-nav yb-glass" role="group" aria-label="切换周">
           <UiIconButton icon="back" size="sm" label="上一周" @click="prev" />
           <span class="cal-week-label">{{ weekTitle }}</span>
           <UiButton
@@ -89,7 +90,7 @@
             <div
               v-for="day in weekRows"
               :key="day.date"
-              class="cal-day"
+              class="cal-day yb-glass"
               :class="{ 'is-today': day.isToday }"
               :aria-current="day.isToday ? 'date' : undefined"
             >
@@ -186,6 +187,8 @@ import { computed, nextTick, onActivated, onDeactivated, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import PageHeader from '@/components/PageHeader.vue'
+import PageAtmosphere from '@/components/PageAtmosphere.vue'
+import calendarHero from './calendar-hero.webp'
 import StatusState from '@/components/StatusState.vue'
 import {
   type SegmentedOption,

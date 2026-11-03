@@ -95,7 +95,7 @@ const coverOf = (item: DoubanItem): string =>
 /* 名次：描边空心大字，底边与海报底边对齐，被海报压住右侧一截 */
 .chart-rank {
   position: absolute;
-  bottom: -0.12em;
+  bottom: 0;
   left: 0;
   z-index: 0;
   color: transparent;

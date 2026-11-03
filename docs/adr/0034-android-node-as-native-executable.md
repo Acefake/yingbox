@@ -1,4 +1,4 @@
-# ADR-0029 安卓端的 Node 作为原生可执行文件运行，不用 nodejs-mobile
+# ADR-0034 安卓端的 Node 作为原生可执行文件运行，不用 nodejs-mobile
 
 - 日期：2026-11-02
 - 状态：已采纳

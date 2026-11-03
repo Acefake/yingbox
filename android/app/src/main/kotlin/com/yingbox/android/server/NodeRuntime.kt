@@ -10,7 +10,7 @@ import java.security.SecureRandom
 import java.util.zip.ZipInputStream
 
 /**
- * 准备 node 的运行文件，拼出启动命令（ADR-0029）。
+ * 准备 node 的运行文件，拼出启动命令（ADR-0034）。
  *
  * - node 是 nativeLibraryDir 里的 libnode.so，安卓只允许执行这个目录里的文件；
  * - 服务端从 assets/server.zip 解压到私有目录，按安装时间判断版本，同一次安装只解压一次；

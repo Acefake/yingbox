@@ -1,5 +1,5 @@
 /**
- * 安卓开发构建用的 Node：从 Termux 软件源取 Node 及其动态库，放进 jniLibs（ADR-0029 决策 3）。
+ * 安卓开发构建用的 Node：从 Termux 软件源取 Node 及其动态库，放进 jniLibs（ADR-0034 决策 3）。
  *
  * 自己编译的 Node（静态链接）出来之前顶替用，只用于开发和模拟器验证，不发布。
  * jniLibs 只打包 lib*.so，带版本号的库（libssl.so.3）去掉版本号打包，

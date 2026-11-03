@@ -47,7 +47,16 @@ export interface Harness {
   files: Map<string, DriveEntry[]>
   removed: string[]
   space: { remain: number }
+  /** 115 上已删掉的文件夹（folderExists 为 false） */
+  gone: Set<string>
+  /** 片库里剧的家（seriesFolder 返回它）与本地目录 → cid 的对应 */
+  homes: Map<number, { dir: string; seasons: Record<number, string> }>
+  localCids: Map<string, string>
 }
+
+/** harness 里在 parent 下建的子文件夹 cid */
+export const child = (parent: string, name = '繁花'): string =>
+  `${parent}/${name}`
 
 export const FILE_05 = '繁花.第05集.2160p.WEB-DL.mkv'
 /** 115 里一个文件夹的文件名 */
@@ -64,6 +73,9 @@ export function setup(
   const notified: string[] = []
   const removed: string[] = []
   const space = { remain: 100 * GB }
+  const gone = new Set<string>()
+  const homes: Harness['homes'] = new Map()
+  const localCids = new Map<string, string>()
   let saved: unknown = initial
   const deps: AutograbDeps = {
     calendar: async () => ({
@@ -73,6 +85,8 @@ export function setup(
       failed: 0,
     }),
     seriesExists: async () => false,
+    seriesFolder: async id => homes.get(id) ?? null,
+    seriesFolderName: async (_id, title) => title,
     notify: async changes =>
       void notified.push(...changes.map(c => `${c.action} ${c.path}`)),
     pan: {
@@ -127,6 +141,9 @@ export function setup(
         )
       },
       dirPath: async () => ['剧集', '繁花'],
+      folderCid: async dir => localCids.get(dir) ?? null,
+      folderExists: async cid => !gone.has(cid),
+      childFolder: async (parent, name) => child(parent, name),
     },
     defaultFolder: () => ({ cid: '0', name: '' }),
     load: async () => saved,
@@ -145,5 +162,8 @@ export function setup(
     files,
     removed,
     space,
+    gone,
+    homes,
+    localCids,
   }
 }

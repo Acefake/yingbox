@@ -19,6 +19,8 @@ import type { ModuleHost } from '../module-host'
 import type { Pan115Service } from '../pan115/service'
 import { type ShareRef, parseShareLink } from '../pan115/share-link'
 import { Pan115Error } from '../pan115/errors'
+import { seriesFolderName } from './folder-name'
+import { createPanFolders } from './pan-folders'
 import { type AutograbService, createAutograbService } from './service'
 import type { EpisodeRecord } from './state'
 
@@ -50,17 +52,28 @@ export function registerAutograb(
       .then(a => void (loggedIn = a.loggedIn))
       .catch(() => {})
 
+  const mountRoot = (): string => host.setting('library.notify.mountRoot')
+  const folders = createPanFolders(pan115, mountRoot)
+
   const service = createAutograbService({
     calendar: range => library.call('calendar.episodes', range),
+    seriesFolder: itemId => library.call('calendar.seriesFolder', { itemId }),
+    seriesFolderName: async (itemId, title) => {
+      const [item, writer] = await Promise.all([
+        library.call('getItem', { itemId }).catch(() => null),
+        library.call('writer.getSettings', undefined),
+      ])
+      return seriesFolderName(writer.organize.tvTemplate, item, title)
+    },
     seriesExists: async (itemId, title) => {
       const item = await library.call('getItem', { itemId })
       return item !== null && item.type === 'series' && item.title === title
     },
     notify: async changes => {
-      const mountRoot = host.setting('library.notify.mountRoot')
+      const root = mountRoot()
       await library.call(
         'notifyChanges',
-        mountRoot ? { changes, mountRoot } : { changes }
+        root ? { changes, mountRoot: root } : { changes }
       )
     },
     pan: {
@@ -84,6 +97,7 @@ export function registerAutograb(
           const listing = await client.dirs(cid)
           return listing.path.filter(d => d.cid !== '0').map(d => d.name)
         }),
+      ...folders,
     },
     defaultFolder: () =>
       defaultFolder(

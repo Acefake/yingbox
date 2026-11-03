@@ -37,7 +37,7 @@ import {
   movieNextTry,
 } from './movie-rules'
 import { advance, applyInfo, newRecord } from './records'
-import { createMovieSaver } from './saver'
+import { createMovieSaver, movieTarget } from './saver'
 import {
   type MovieRecord,
   type MoviesState,
@@ -76,7 +76,10 @@ export interface MoviesDeps {
     ): Promise<void>
     names(cid: string): Promise<string[]>
     dirPath(cid: string): Promise<string[]>
+    childFolder(parent: string, name: string): Promise<string>
   }
+  /** 电影在默认目录下的子文件夹名（整理模板第一段，如「希望 (2026)」）；算不出为 null */
+  folderName(movie: MovieRecord): Promise<string | null>
   /** 按 115 路径通知媒体库扫描 */
   notify(path: string): Promise<void>
   /** 没单独选文件夹时的转存目标（电影默认目录，内含原转存目标兜底） */
@@ -155,7 +158,8 @@ export function createMoviesService(deps: MoviesDeps): MoviesService {
     return /^\d+$/.test(cid) ? cid : '0'
   }
 
-  const movieSaver = createMovieSaver({ deps, targetCid, dirty })
+  const saveTo = movieTarget(deps, targetCid)
+  const movieSaver = createMovieSaver({ deps, targetCid: saveTo, dirty })
   /** 同一部电影的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
   const grabs = createSingleFlight()
   const saver = {

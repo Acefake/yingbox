@@ -152,6 +152,7 @@
     />
     <OrganizeSheet
       v-if="organizeIds.length"
+      :jav="section === 'jav'"
       :open="organizeIds.length > 0"
       :item-ids="organizeIds"
       @close="organizeIds = []"
@@ -168,7 +169,6 @@
  */
 import { toast } from '@/components/ui'
 import { computed, reactive, ref, watch } from 'vue'
-
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'

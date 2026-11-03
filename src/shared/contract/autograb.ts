@@ -234,7 +234,8 @@ export const autograb = defineDomain(
       void
     >(a => {
       const cid = str(a[1], 'cid')
-      if (cid && !/^d+$/.test(cid)) throw new ContractError('参数 cid 应为数字')
+      if (cid && !/^\d+$/.test(cid))
+        throw new ContractError('参数 cid 应为数字')
       return [
         oneOf(a[0], 'category', SERIES_CATEGORIES),
         cid,

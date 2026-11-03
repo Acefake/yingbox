@@ -34,7 +34,7 @@
             </intent-filter>
         </activity>
 
-        <!-- 内嵌 node 服务（ADR-0028、ADR-0029） -->
+        <!-- 内嵌 node 服务（ADR-0028、ADR-0034） -->
         <service
             android:name=".server.ServerService"
             android:exported="false"

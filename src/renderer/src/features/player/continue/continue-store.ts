@@ -146,6 +146,15 @@ export function removeContinue(id: string): void {
   commit(state().value.filter(r => r.id !== id))
 }
 
+/** 按条件移除记录。不记墓碑：来源（如媒体库条目）已经没了，不是用户的取舍。 */
+export function removeContinueWhere(
+  shouldRemove: (record: ContinueRecord) => boolean
+): void {
+  const list = state().value
+  const next = list.filter(r => !shouldRemove(r))
+  if (next.length !== list.length) commit(next)
+}
+
 /** 并入别处来的记录（媒体库按片库观看进度生成）：后写胜出，移除过的不补回。 */
 export function mergeContinue(incoming: readonly ContinueRecord[]): void {
   if (!incoming.length) return

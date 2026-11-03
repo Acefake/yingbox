@@ -279,7 +279,12 @@ describe('追更 landed', () => {
         space: async () => ({ total: 0, remain: 0 }),
         remove: async () => {},
         dirPath: async () => [],
+        folderCid: async () => null,
+        folderExists: async () => false,
+        childFolder: async parent => parent,
       },
+      seriesFolder: async () => null,
+      seriesFolderName: async () => null,
       defaultFolder: () => ({ cid: '0', name: '' }),
       load: async () => ({
         version: 1,

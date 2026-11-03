@@ -7,12 +7,18 @@ export interface UpdateResult {
   error?: string
 }
 
+/** 版本发布说明可能是正文，也可能按版本分组。 */
+export interface UpdateInfo {
+  version?: string
+  releaseNotes?: string | Array<{ version: string; note: string | null }> | null
+}
+
 /** electron-updater 推送的状态 */
 export type UpdateStatusEvent =
   | { status: 'checking' }
   | {
       status: 'available' | 'not-available' | 'downloaded'
-      info: { version?: string }
+      info: UpdateInfo
     }
   | { status: 'downloading'; progress: { percent?: number } }
   | { status: 'error'; error: string }
@@ -27,6 +33,12 @@ export const update = defineDomain(
     download: call<UpdateResult>(),
     /** 退出并安装 */
     install: call<void>(),
+    /** 当前进程的更新状态与已安装版本，供窗口加载后恢复。 */
+    snapshot: call<{
+      status: UpdateStatusEvent | null
+      info: UpdateInfo | null
+      currentVersion: string
+    }>(),
   },
   {
     /** 更新状态变化 */

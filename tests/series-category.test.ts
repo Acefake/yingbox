@@ -11,8 +11,9 @@ import {
   categoryOf,
   categoryOfGenres,
 } from '../src/shared/contract/series-category'
-import type { AutograbSeries } from '../src/shared/contract/autograb'
-import { episode, setup } from './autograb-harness'
+import { type AutograbSeries, autograb } from '../src/shared/contract/autograb'
+import { parseState } from '../src/main/autograb/state'
+import { child, episode, setup } from './autograb-harness'
 
 describe('类型 → 分类', () => {
   it('纪录片、综艺（真人秀 / 脱口秀）、动漫（动画）优先，其余是剧集', () => {
@@ -51,7 +52,7 @@ describe('分类默认文件夹', () => {
     await h.service.setPolicy({ mode: 'auto', confirmFirst: 0 })
     await h.service.tick()
     expect(h.received).toEqual([['101']])
-    expect([...h.files.keys()]).toEqual(['77'])
+    expect([...h.files.keys()]).toEqual([child('77')])
 
     const overview = await h.service.overview()
     expect(overview.categoryFolders).toEqual({
@@ -65,5 +66,28 @@ describe('分类默认文件夹', () => {
     await h.service.setCategoryFolder('anime', '77', '动漫')
     await h.service.setCategoryFolder('anime', '', '')
     expect((await h.service.overview()).categoryFolders).toEqual({})
+  })
+
+  it('分类文件夹重启后仍在（读回存档不丢）', () => {
+    const raw = JSON.parse(
+      JSON.stringify({
+        version: 1,
+        policy: {},
+        categoryFolders: { anime: { cid: '77', name: '动漫' } },
+      })
+    )
+    expect(parseState(raw, 0).categoryFolders).toEqual({
+      anime: { cid: '77', name: '动漫' },
+    })
+  })
+
+  it('设分类文件夹的参数校验接受数字 cid、拒绝非数字', () => {
+    const parse = autograb.calls.setCategoryFolder.parse
+    expect(parse(['anime', '3542635136703006276', '动漫'])).toEqual([
+      'anime',
+      '3542635136703006276',
+      '动漫',
+    ])
+    expect(() => parse(['anime', 'abc', '动漫'])).toThrow('cid')
   })
 })

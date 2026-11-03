@@ -1,5 +1,10 @@
 /* 追剧日历页（CalendarView.vue）的样式：周切换胶囊、「今天」大卡、七张日卡的周视图、列表视图 */
 .calendar-page {
+  --page-atmosphere-glow: var(--page-glow-calendar);
+  --atmosphere-inset-top: 0px;
+  --atmosphere-inset-x: 0px;
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: var(--space-6);
@@ -7,8 +12,11 @@
   padding: var(--content-padding-y) var(--content-padding-x) var(--space-8);
   overflow-y: auto;
 }
+:global(.app-layout.is-desktop.has-page-atmosphere .calendar-page) {
+  padding-top: calc(var(--content-padding-y) + var(--shell-top));
+}
 
-/* 周切换：与 UiButton secondary 同高同色同投影的胶囊，里面两枚小圆钮夹着日期区间 */
+/* 周切换：日期和前后按钮共用玻璃胶囊。 */
 .cal-nav {
   display: flex;
   flex: none;
@@ -19,11 +27,25 @@
   height: var(--control-height);
   padding: 0 var(--space-1);
   border-radius: var(--radius-full);
-  background: var(--control-bg);
-  box-shadow: var(--shadow-control);
 }
 .cal-nav :deep(.yb-icon-button) {
   border-radius: var(--radius-full);
+}
+.calendar-page :deep(.ui-segmented-item) {
+  background: var(--glass-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+.calendar-page :deep(.ui-segmented-item:hover:not(.is-active)) {
+  background: var(--glass-bg-hover);
+}
+.calendar-page :deep(.ui-segmented-item.is-active) {
+  background: color-mix(in srgb, var(--glass-bg) 75%, var(--text-primary));
+  color: var(--text-primary);
+}
+.calendar-page :deep(.ui-segmented-item:focus-visible) {
+  box-shadow: var(--focus-ring);
 }
 .cal-week-label {
   min-width: 0;
@@ -106,15 +128,10 @@
   min-height: 240px; /* style-tokens: layout（日卡最小高度，空的几天也排成整齐一行） */
   padding: var(--space-3) var(--space-1) var(--space-2);
   border-radius: var(--radius-lg);
-  background: var(--bg-card);
-  box-shadow: var(--shadow-card);
 }
-/* 今天：亮一档的卡加一圈细边，日期是主按钮色的圆标 */
+/* 今天：玻璃底提亮，日期使用主按钮色的圆标。 */
 .cal-day.is-today {
-  background: var(--bg-fill-secondary);
-  box-shadow:
-    inset 0 0 0 1px var(--border-strong),
-    var(--shadow-card);
+  background: color-mix(in srgb, var(--glass-bg) 85%, var(--text-primary));
 }
 .cal-day-head {
   display: flex;

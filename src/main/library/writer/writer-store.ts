@@ -10,6 +10,7 @@ import type {
 } from '../../../shared/library/ipc'
 import { type LibraryDb, StatementCache } from '../db/database'
 import type { LibraryRecord } from '../libraries/library-store'
+import { batchSourceOf } from './organize/batch-source'
 import { parseLibraryFile } from '../scanner/parse'
 import { pathKey, subtreeRange } from '../scanner/rules'
 import type { FieldSnapshot } from './nfo/nfo-merge'
@@ -141,6 +142,13 @@ export class WriterStore {
 
   // —————————————————————————— 整理后更新路径 ——————————————————————————
 
+  /** 整理删掉的文件：去掉它的 files 记录（连同条目关联）与写出记录。 */
+  forget(path: string): void {
+    const key = pathKey(path)
+    this.sql.get('DELETE FROM writer_outputs WHERE path = ?').run(key)
+    this.sql.get('DELETE FROM files WHERE path = ?').run(key)
+  }
+
   /**
    * 文件（或目录）移动后同步 files 表：保留 id、关联与匹配，只改路径与解析结果
    * （与扫描器识别出的移动同样处理）。目录移动时更新整棵子树，旧目录记录交给下次扫描回收。
@@ -258,13 +266,18 @@ export class WriterStore {
     ops: Array<Omit<OrganizeOp, 'seq' | 'state'>>,
     now: number
   ): number {
-    const batch = this.sql
-      .get(
-        `INSERT INTO organize_batches (state, item_ids, total, created_at)
-         VALUES ('running', ?, ?, ?) RETURNING id`
-      )
-      .get(JSON.stringify(itemIds), ops.length, now)!
-    const batchId = Number(batch.id)
+    const lib = this.sql.get('SELECT source FROM libraries WHERE id = ?')
+    const source = batchSourceOf(
+      ops.map(op => (lib.get(op.libraryId)?.source === 'jav' ? 'jav' : 'tmdb'))
+    )
+    const batchId = Number(
+      this.sql
+        .get(
+          `INSERT INTO organize_batches (state, item_ids, total, created_at, source)
+           VALUES ('running', ?, ?, ?, ?) RETURNING id`
+        )
+        .get(JSON.stringify(itemIds), ops.length, now, source)!.id
+    )
     const insert = this.sql.get(
       `INSERT INTO organize_ops (batch_id, seq, item_id, library_id, kind, src, dst, cross_device)
        VALUES (?, ?, ?, ?, ?, ?, ?, ?)`
@@ -351,9 +364,17 @@ export class WriterStore {
   }
 
   /** 最近的批次（新的在前），或指定的一个。 */
-  batches(batchId?: number, limit = 50): OrganizeBatchInfo[] {
-    const where = batchId === undefined ? '' : 'WHERE b.id = ?'
-    const params = batchId === undefined ? [limit] : [batchId, limit]
+  batches(
+    batchId?: number,
+    limit = 50,
+    source?: 'jav' | 'tmdb'
+  ): OrganizeBatchInfo[] {
+    const filter = batchId ?? source
+    const where =
+      filter === undefined
+        ? ''
+        : `WHERE b.${batchId === undefined ? 'source' : 'id'} = ?`
+    const params = filter === undefined ? [limit] : [filter, limit]
     return this.sql
       .get(
         `SELECT b.*,

@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { Pan115Error } from '../src/main/pan115/errors'
-import { FILE_05, episode, namesIn, setup } from './autograb-harness'
+import { FILE_05, child, episode, namesIn, setup } from './autograb-harness'
 
 describe('追更服务', () => {
   it('不追的剧不搜', async () => {
@@ -111,7 +111,9 @@ describe('追更服务', () => {
     h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
     await h.service.tick()
     expect((await h.service.overview()).defaultFolder.cid).toBe('66')
-    expect(namesIn(h, '66')).toEqual([FILE_05])
+    // 没单独选文件夹：存到剧集默认目录下这部剧的子文件夹，不平铺
+    expect(namesIn(h, child('66'))).toEqual([FILE_05])
+    expect(namesIn(h, '66')).toEqual([])
 
     const own = setup([episode(5)], {
       ...initial,
@@ -168,4 +170,29 @@ describe('追更服务', () => {
     expect(record.status).toBe('waiting')
     expect(record.candidates).toEqual([])
   })
+})
+
+it('目标目录不存在文件时不能将已接收过标记为转存成功', async () => {
+  const h = setup([episode(5)])
+  await h.service.setSeries(7, { mode: 'confirm', cid: '55', cidName: '繁花' })
+  await h.service.tick()
+  h.deps.pan.receive = async () => {
+    throw new Pan115Error('已经接收过', 4100024)
+  }
+  expect((await h.service.grab('7:1:5', 0)).ok).toBe(false)
+  expect((await h.service.overview()).episodes[0].status).not.toBe('saved')
+})
+
+it('转存后 1 小时仍没入库：再通知一次并报错，写明 115 路径', async () => {
+  const { service, clock, notified } = setup([episode(5)])
+  await service.setSeries(7, { mode: 'confirm' })
+  await service.tick()
+  await service.grab('7:1:5', 0)
+  clock.t += 11 * 60_000
+  await service.tick()
+  clock.t += 60 * 60_000
+  await service.tick()
+  const record = (await service.overview()).episodes[0]
+  expect(record.error).toContain(`/剧集/繁花/${FILE_05}`)
+  expect(notified).toHaveLength(2)
 })

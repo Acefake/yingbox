@@ -1,6 +1,6 @@
 # 影盒安卓端（手机 + 电视）
 
-原生界面（Kotlin + Jetpack Compose），内嵌 Node 运行 `src/server`，原生播放内核。决策与范围见 [ADR-0028](../docs/adr/0028-android-native-shell-embedded-node.md)，Node 的运行方式见 [ADR-0029](../docs/adr/0029-android-node-as-native-executable.md)。
+原生界面（Kotlin + Jetpack Compose），内嵌 Node 运行 `src/server`，原生播放内核。决策与范围见 [ADR-0028](../docs/adr/0028-android-native-shell-embedded-node.md)，Node 的运行方式见 [ADR-0034](../docs/adr/0034-android-node-as-native-executable.md)。
 
 ## 现状
 
@@ -13,7 +13,7 @@ P0 进行中。已完成：
 
 2026-11-02 在 Android 16 x86_64 模拟器上验证：首次启动约 1 秒就绪；结束 node 进程后自动重启；`am force-stop` 后没有残留的 node 进程；再次启动不重复解压。
 
-Node 暂时用 Termux 编好的版本顶替（ADR-0029 决策 3），只用于开发；正式包换成自己编译、静态链接的 Node 24 LTS（要 Linux 或 Docker）。未验证：arm64 真机、ffprobe、ExoPlayer 杜比视界。
+Node 暂时用 Termux 编好的版本顶替（ADR-0034 决策 3），只用于开发；正式包换成自己编译、静态链接的 Node 24 LTS（要 Linux 或 Docker）。未验证：arm64 真机、ffprobe、ExoPlayer 杜比视界。
 
 ## 构建
 

@@ -9,6 +9,7 @@
   <MpvLoadingOverlay />
   <PlayerModal />
   <AssistantLauncher />
+  <UpdateDialog />
 </template>
 
 <script setup lang="ts">
@@ -17,6 +18,7 @@ import { defineAsyncComponent, defineComponent } from 'vue'
 import { toast } from '@/components/ui/toast'
 import { AssistantLauncher } from '@/features/assistant'
 import { MpvLoadingOverlay } from '@/features/player'
+import { UpdateDialog } from '@/features/settings'
 import { AppLayout } from '@/features/shell'
 
 /** 播放层取不回来时不占页面；失败原因用 toast 说 */

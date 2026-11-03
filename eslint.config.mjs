@@ -55,6 +55,8 @@ export default tseslint.config(
       '**/dist-renderer',
       // 本地临时目录与 agent 工作树（已在 .gitignore，避免 lint 解析构建产物/仓库副本）
       '.claude/worktrees',
+      // 外部工作流工具的运行产物（自带 .gitignore，不进仓库）
+      '.zcode',
       // 手动跑的截图 / 性能驾驭（Playwright 脚本，不进应用）
       'scripts/ui-harness',
     ],

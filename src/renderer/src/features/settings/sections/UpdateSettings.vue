@@ -10,7 +10,7 @@
         :variant="isInstallStep ? 'primary' : 'secondary'"
         :label="update.action.value"
         :disabled="update.busy.value"
-        @click="update.runAction"
+        @click="onAction"
       />
     </SettingsRow>
     <SettingsRow v-if="update.status.value === 'downloading'">
@@ -45,6 +45,14 @@ import SettingsRow from '../ui/SettingsRow.vue'
 import { useUpdateStatus } from '../use-update-status'
 
 const update = useUpdateStatus()
+const onAction = (): void => {
+  if (
+    update.status.value === 'available' ||
+    update.status.value === 'downloaded'
+  )
+    update.dialogOpen.value = true
+  else void update.runAction()
+}
 
 /** 有新版本可下载 / 可安装时，这是本区唯一的主操作 */
 const isInstallStep = computed(

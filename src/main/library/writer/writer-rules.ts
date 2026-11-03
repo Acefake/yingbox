@@ -51,10 +51,10 @@ export const mergeWritePayload = (a: unknown, b: unknown): WritePayload => ({
 })
 
 /** 整理执行顺序：先视频，再附属文件，最后文件夹。 */
-const KIND_ORDER = { video: 0, sidecar: 1, folder: 2 } as const
+const KIND_ORDER = { video: 0, sidecar: 1, folder: 2, delete: 3 } as const
 
 /**
- * 预览计划 → 执行步骤：去掉有冲突的项，按 视频 → 附属文件 → 文件夹 排序（同类保持原顺序）。
+ * 预览计划 → 执行步骤：去掉有冲突的项，按 视频 → 附属文件 → 文件夹 → 删除 排序（同类保持原顺序；删除放最后，移动都做完才删）。
  * 返回步骤和涉及的条目（去重、按首次出现顺序）。
  */
 export function organizeOps(moves: PlannedMove[]): {

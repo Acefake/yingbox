@@ -24,6 +24,7 @@ export interface AutoOrganizePayload {
 
 /** 分组需要的查询。 */
 export interface AutoFollowupDeps {
+  settingsOf?: (libraryId: number) => WriterSettings
   /** 条目所在媒体库；条目已不存在时 undefined。 */
   libraryOf: (itemId: number) => number | undefined
   /** 媒体库的自动化设置；媒体库已不存在时 undefined。 */
@@ -47,11 +48,12 @@ export function autoFollowups(
       cache.set(libraryId, deps.automationOf(libraryId))
     const automation = cache.get(libraryId)
     if (!automation) continue
+    const effective = deps.settingsOf?.(libraryId) ?? settings
     const shouldWrite =
       automation.write === 'inherit'
-        ? settings.autoWriteAfterIdentify
+        ? effective.autoWriteAfterIdentify
         : automation.write === 'on'
-    const shouldOrganize = automation.organize && settings.organize.enabled
+    const shouldOrganize = automation.organize && effective.organize.enabled
     if (shouldOrganize) {
       organize.push(id)
       if (shouldWrite) writeAfter.push(id)

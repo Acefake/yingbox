@@ -1,5 +1,5 @@
 /**
- * 追更 · 转存与入库核对：把选中的候选只存那一个文件到这部剧的 115 文件夹，之后跟进到媒体库里出现这一集。
+ * 追更 · 转存与入库核对：把选中的候选只存那一个文件到这部剧的 115 文件夹（target.ts 现算），之后跟进到媒体库里出现这一集。
  *
  * - 转存前列目标文件夹，同名文件已在就不再转存（重启后不会重复存）；115 说「已经接收过」也算成功；
  * - 真要转存时先查 115 剩余空间：不够「候选体积 + {@link SPACE_MARGIN}」就把这一集标成空间不足、
@@ -7,7 +7,7 @@
  * - 存完再列一次目标文件夹，记下新文件在自己 115 里的 id 和体积（撤销只删它，见 revert.ts）；
  * - 分享失效 / 提取码错：拉黑分享、去掉这个候选，没有候选了就回到等待、按计划再搜；
  * - 转存 {@link NOTIFY_AFTER_MS} 后仍没入库，按 115 路径主动通知媒体库扫一次（不靠 CloudDrive2 webhook）；
- *   {@link STALE_AFTER_MS} 后仍没有就在记录上报错，提示检查文件夹与媒体库的对应。
+ *   {@link STALE_AFTER_MS} 后仍没有就再通知一次并在记录上报错（写明 115 路径），提示检查文件夹与媒体库的对应。
  */
 import type {
   AutograbCandidate,
@@ -29,7 +29,7 @@ import {
 /** 转存后多久还没入库就主动通知媒体库 */
 export const NOTIFY_AFTER_MS = 10 * 60_000
 /** 转存后多久还没入库就报错 */
-export const STALE_AFTER_MS = 24 * 3_600_000
+export const STALE_AFTER_MS = 3_600_000
 /** 115 说「已经接收过」 */
 export const ALREADY_RECEIVED = 4100024
 /** 转存后至少还要剩这么多空间 */
@@ -52,8 +52,8 @@ export interface SaverContext {
   gate(): Gate
   deps: Pick<AutograbDeps, 'pan' | 'notify' | 'now' | 'log'>
   dirty(): void
-  /** 这一集转存到哪个 cid */
-  targetCid(record: EpisodeRecord): string
+  /** 这一集转存到哪个 cid（每次现算，见 target.ts）；解析不出时抛错 */
+  targetCid(record: EpisodeRecord): Promise<string>
 }
 
 /** 创建转存器 */
@@ -75,13 +75,18 @@ export function createSaver(ctx: SaverContext): {
       return { ok: true }
     const candidate = record.candidates[index]
     if (!candidate) return { ok: false, error: '候选不存在，请重新搜索' }
-    const cid = ctx.targetCid(record)
+    let cid: string
+    try {
+      cid = await ctx.targetCid(record)
+    } catch (error) {
+      return failed(record, index, error)
+    }
     // 真的发了转存（含 115 说已接收过）才记文件 id：同名文件本来就在时不归追更管，不能撤销
     let received = false
     try {
       const gate = ctx.gate()
       const existing = await gate.run('snap', () => ctx.deps.pan.entries(cid))
-      if (!existing.some(e => e.name === candidate.fileName)) {
+      if (!existing.some(e => !e.isDir && e.name === candidate.fileName)) {
         const space = await gate.run('snap', () => ctx.deps.pan.space())
         const need = Math.max(0, candidate.size) + SPACE_MARGIN
         if (space.remain < need) return noSpace(record, space.remain, need)
@@ -93,9 +98,16 @@ export function createSaver(ctx: SaverContext): {
       if (code !== ALREADY_RECEIVED) return failed(record, index, error)
       received = true
     }
-    const savedFile = received
-      ? await locate(cid, candidate.fileName).catch(() => null)
-      : null
+    let savedFile: { id: string; size: number } | null = null
+    if (received) {
+      try {
+        savedFile = await locate(cid, candidate.fileName)
+        if (!savedFile)
+          throw new Error('所选目录中未找到文件，请核对 115 转存位置后重试')
+      } catch (error) {
+        return failed(record, index, error)
+      }
+    }
     if (byUser) ctx.state().spacePause = null
     record.status = 'saved'
     record.savedAt = ctx.deps.now()
@@ -181,27 +193,32 @@ export function createSaver(ctx: SaverContext): {
     return { ok: false, error: message }
   }
 
-  /** 已转存的集：没入库就主动通知一次，太久没入库就报错 */
+  /** 已转存文件的 115 路径（通知媒体库、报错提示都用它） */
+  async function savedPath(record: EpisodeRecord): Promise<string> {
+    const dirs = await ctx
+      .gate()
+      .run('snap', () => ctx.deps.pan.dirPath(record.savedCid!))
+    return `/${[...dirs, record.savedName ?? ''].join('/')}`
+  }
+
+  /** 已转存的集：没入库就主动通知一次，太久没入库就再通知一次并报错（写明路径） */
   async function followSaved(
     record: EpisodeRecord,
     now: number
   ): Promise<void> {
-    if (record.savedAt === null) return
-    if (
-      !record.notified &&
-      now - record.savedAt >= NOTIFY_AFTER_MS &&
-      record.savedCid
-    ) {
+    if (record.savedAt === null || !record.savedCid) return
+    const waited = now - record.savedAt
+    if (!record.notified && waited >= NOTIFY_AFTER_MS) {
       record.notified = true
       ctx.dirty()
-      const dirs = await ctx
-        .gate()
-        .run('snap', () => ctx.deps.pan.dirPath(record.savedCid!))
-      const path = `/${[...dirs, record.savedName ?? ''].join('/')}`
-      await ctx.deps.notify([{ action: 'create', path }])
-    } else if (now - record.savedAt >= STALE_AFTER_MS && !record.error) {
-      record.error = '已转存一天仍没入库：检查这部剧的 115 文件夹是否在媒体库里'
+      await ctx.deps.notify([
+        { action: 'create', path: await savedPath(record) },
+      ])
+    } else if (waited >= STALE_AFTER_MS && !record.error) {
+      const path = await savedPath(record)
+      record.error = `已转存 1 小时仍没入库：${path} 可能不在媒体库监控的文件夹里，请检查后重新扫描`
       ctx.dirty()
+      await ctx.deps.notify([{ action: 'create', path }])
     }
   }
 

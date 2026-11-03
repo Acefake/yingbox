@@ -9,6 +9,7 @@ export {
 } from './use-setting'
 export { type SettingsSection, registerSettingsSection } from './registry'
 export { default as SettingsPanel } from './SettingsPanel.vue'
+export { default as UpdateDialog } from './UpdateDialog.vue'
 export { default as SettingsGroup } from './ui/SettingsGroup.vue'
 export { default as SettingsRow } from './ui/SettingsRow.vue'
 export {

@@ -128,3 +128,15 @@ export function renderTemplate(
   }
   return { ok: true, segments }
 }
+
+/**
+ * 模板的作品文件夹名（第一段，如「繁花 (2023)」）：追更在默认目录下按它建子文件夹，整理时就不会再改名（ADR-0029）。
+ * 模板只有一段（文件直接放根目录）或渲染不出时为 null。
+ */
+export function templateFolder(
+  template: string,
+  values: TemplateValues
+): string | null {
+  const result = renderTemplate(template, values)
+  return result.ok && result.segments.length > 1 ? result.segments[0] : null
+}

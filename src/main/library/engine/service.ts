@@ -309,6 +309,15 @@ export class LibraryService {
   async removeLibrary({ libraryId }: { libraryId: number }): Promise<void> {
     this.watch.remove(libraryId)
     transaction(this.db, () => this.libraries.remove(libraryId))
+    // 条目随库级联删除：先通知订阅方整体重拉（海报墙按媒体库 id 过滤事件，列表事件之后就收不到了）
+    this.emit({
+      type: 'items-changed',
+      libraryId,
+      added: [],
+      updated: [],
+      removed: [],
+      reset: true,
+    })
     this.emitLibraries()
   }
 

@@ -106,6 +106,9 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
     getProviderStatus: () => call('getProviderStatus'),
     writer: {
       getSettings: () => call('writer.getSettings'),
+      getJavSettings: () => call('writer.getJavSettings'),
+      listJavOrganizeBatches: () => call('writer.listJavOrganizeBatches'),
+      setJavSettings: settings => call('writer.setJavSettings', settings),
       setSettings: settings => call('writer.setSettings', settings),
       write: itemIds => call('writer.write', { itemIds }),
       previewOrganize: itemIds => call('writer.previewOrganize', { itemIds }),

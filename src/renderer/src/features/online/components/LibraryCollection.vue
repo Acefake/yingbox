@@ -1,5 +1,11 @@
 <template>
   <div class="library-collection">
+    <PageAtmosphere
+      :src="kind === 'favorites' ? favoritesHero : recentHero"
+      :class="
+        kind === 'favorites' ? 'favorites-atmosphere' : 'recent-atmosphere'
+      "
+    />
     <PageHeader
       :title="title"
       :count="items.length || undefined"
@@ -62,6 +68,7 @@ import { confirmDialog } from '@/components/ui'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import PageHeader from '@/components/PageHeader.vue'
+import PageAtmosphere from '@/components/PageAtmosphere.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiChip from '@/components/ui/UiChip.vue'
 import { asRecord, asText } from '../../../../../shared/json'
@@ -70,6 +77,8 @@ import { computed, onMounted, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 import { FAVORITES_KEY, clearFavorites } from '../composables/favorites'
 import type { OnlineDetailItem, OnlinePlayRecord } from '../types'
+import favoritesHero from './favorites-hero.webp'
+import recentHero from './recent-hero.webp'
 
 /** 在线播放历史（与 DetailWindow / play-progress 同一个键） */
 const HISTORY_KEY = 'online_play_history'
@@ -212,10 +221,23 @@ watch(() => [route.query.tab, props.kind], read)
 
 <style scoped>
 .library-collection {
+  --atmosphere-inset-top: var(--space-7);
+  --atmosphere-inset-x: var(--space-8);
+  position: relative;
+  isolation: isolate;
   display: flex;
   flex-direction: column;
   gap: var(--space-4);
   min-height: 100%;
+}
+:global(.app-layout.is-desktop.has-page-atmosphere .library-collection) {
+  --atmosphere-inset-top: calc(var(--space-7) + var(--shell-top));
+}
+.favorites-atmosphere {
+  --page-atmosphere-glow: var(--page-glow-favorites);
+}
+.recent-atmosphere {
+  --page-atmosphere-glow: var(--page-glow-recent);
 }
 
 .collection-tabs {

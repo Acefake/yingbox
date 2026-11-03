@@ -356,7 +356,10 @@ const PARAM_PARSERS: {
   getProviderStatus: () => undefined,
   notifyChanges: parseNotifyChanges,
   'writer.getSettings': () => undefined,
+  'writer.getJavSettings': () => undefined,
+  'writer.listJavOrganizeBatches': () => undefined,
   'writer.setSettings': parseWriterSettings,
+  'writer.setJavSettings': parseWriterSettings,
   'writer.write': requiredItemIds,
   'writer.previewOrganize': requiredItemIds,
   'writer.applyOrganize': input => {

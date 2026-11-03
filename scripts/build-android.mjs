@@ -1,5 +1,5 @@
 /**
- * 安卓构建（pnpm build:android，ADR-0028 / ADR-0029）：
+ * 安卓构建（pnpm build:android，ADR-0028 / ADR-0034）：
  * 1. 构建并整理服务端（同 package:server），在整理目录里装运行依赖（不含可选的 onnxruntime-node）；
  * 2. jniLibs 里缺哪个 ABI 的 Node，就用 Termux 的 Node 补上（scripts/android/termux-node.mjs，默认 x86_64、arm64-v8a）；
  * 3. gradle 打 debug 包，服务端目录由 gradle 压成 assets/server.zip。

@@ -42,8 +42,9 @@ import {
   nextTry,
 } from './schedule-rules'
 import { adopt } from './reconcile'
-import { applyCalendar } from './records'
+import { applyCalendar, retryRecord, skipRecord } from './records'
 import { createSaver } from './saver'
+import { episodeTarget } from './target'
 import {
   type AutograbState,
   BLOCK_MS,
@@ -193,7 +194,12 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     gate: () => gateRef,
     deps,
     dirty,
-    targetCid: record => targetCid(settingOf(record.seriesId), record.seriesId),
+    targetCid: episodeTarget(
+      deps,
+      () => gateRef,
+      id => settingOf(id)?.cid ?? '',
+      id => targetCid(undefined, id)
+    ),
   })
   /** 同一集的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
   const grabs = createSingleFlight()
@@ -347,21 +353,11 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     },
     async skip(key: string): Promise<void> {
       await ensureLoaded()
-      const record = state.episodes[key]
-      if (!record || record.status === 'done') return
-      record.status = 'skipped'
-      record.nextTry = null
-      dirty()
+      if (skipRecord(state.episodes[key])) dirty()
     },
     async retry(key: string): Promise<void> {
       await ensureLoaded()
-      const record = state.episodes[key]
-      if (!record || record.status === 'done' || record.status === 'saved')
-        return
-      record.status = 'waiting'
-      record.candidates = []
-      record.error = null
-      record.nextTry = deps.now()
+      if (!retryRecord(state.episodes[key], deps.now())) return
       dirty()
       void tick()
     },

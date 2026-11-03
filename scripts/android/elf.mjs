@@ -1,6 +1,6 @@
 /**
  * 读 ELF 动态段里的 SONAME 与 DT_NEEDED（只读，不改文件）。
- * 安卓开发构建用它从 Termux 的 Node 出发找齐要打包的动态库（ADR-0029）。
+ * 安卓开发构建用它从 Termux 的 Node 出发找齐要打包的动态库（ADR-0034）。
  */
 
 const DT_NULL = 0
