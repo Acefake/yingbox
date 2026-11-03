@@ -157,7 +157,7 @@ private fun App(isTv: Boolean) {
     }
 
     val openCard = { card: ViewCard ->
-        push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster)))
+        push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster, card.backdrop)))
     }
     val resume: (String) -> Unit = resume@{ id ->
         // 遥控器连按确定时只开一个播放器

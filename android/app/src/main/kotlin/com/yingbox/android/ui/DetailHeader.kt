@@ -50,25 +50,35 @@ class DetailActions(
  * 没有剧照（搜索结果、豆瓣缺图）时退回海报在左的版式。
  */
 @Composable
-internal fun DetailHeader(detail: ViewDetail?, title: String, poster: String, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
-    if (detail?.backdrop != null) CinemaHeader(detail, client, actions, onActionsFocused)
+internal fun DetailHeader(
+    detail: ViewDetail?,
+    title: String,
+    poster: String,
+    /** 卡片自带的剧照：详情还没取到（或取不到）时就用它，版式不会等详情晚到才变 */
+    cardBackdrop: String?,
+    client: ServerClient,
+    actions: DetailActions,
+    onActionsFocused: () -> Unit,
+) {
+    val backdrop = detail?.backdrop ?: cardBackdrop?.takeIf { it.isNotEmpty() }
+    if (backdrop != null) CinemaHeader(detail, title, backdrop, client, actions, onActionsFocused)
     else PosterHeader(detail, title, poster, client, actions, onActionsFocused)
 }
 
 /** 剧照铺满的头部（本地详情页的版式） */
 @Composable
-private fun CinemaHeader(detail: ViewDetail, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
+private fun CinemaHeader(detail: ViewDetail?, title: String, backdrop: String, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
     val gutter = gutter()
     val wide = LocalConfiguration.current.screenWidthDp >= 600
     Box(Modifier.fillMaxWidth().heightIn(min = heroMinHeight()), contentAlignment = Alignment.BottomStart) {
-        RemoteImage(detail.backdrop.orEmpty(), client, Modifier.matchParentSize())
+        RemoteImage(backdrop, client, Modifier.matchParentSize())
         Box(Modifier.matchParentSize().background(heroScrim()))
         Box(Modifier.matchParentSize().background(heroSideScrim()))
         Column(
             Modifier.fillMaxWidth(if (wide) 0.6f else 1f).padding(start = gutter, end = gutter, top = belowBackButton(), bottom = YbSpace.S6),
             verticalArrangement = Arrangement.spacedBy(YbSpace.S3),
         ) {
-            Text(detail.title, color = YbColor.TextPrimary, fontSize = YbText.Xl3, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Text(detail?.title ?: title, color = YbColor.TextPrimary, fontSize = YbText.Xl3, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
             Row(
                 Modifier.onFocusChanged { if (it.hasFocus) onActionsFocused() }.focusGroup(),
                 horizontalArrangement = Arrangement.spacedBy(YbSpace.S3),
@@ -82,11 +92,11 @@ private fun CinemaHeader(detail: ViewDetail, client: ServerClient, actions: Deta
                     onClick = actions.toggleFavorite,
                 )
             }
-            if (detail.overview.isNotEmpty()) Overview(detail.overview, collapsible = true, lines = 2, tapToExpand = true)
-            MetaRow(detail)
+            if (detail != null && detail.overview.isNotEmpty()) Overview(detail.overview, collapsible = true, lines = 2, tapToExpand = true)
+            if (detail != null) MetaRow(detail)
             val credits = listOf(
-                "导演" to detail.directors.take(2).joinToString(" / "),
-                "主演" to detail.actors.take(4).joinToString(" / ") { it.name },
+                "导演" to (detail?.directors?.take(2)?.joinToString(" / ") ?: ""),
+                "主演" to (detail?.actors?.take(4)?.joinToString(" / ") { it.name } ?: ""),
             ).filter { it.second.isNotEmpty() }
             for ((label, names) in credits) {
                 Row {

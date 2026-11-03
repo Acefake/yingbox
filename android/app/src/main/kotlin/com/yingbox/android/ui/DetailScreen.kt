@@ -51,6 +51,8 @@ data class DetailTarget(
     val searchTitle: String,
     /** 详情还没取到时先显示的海报 */
     val poster: String,
+    /** 卡片自带的剧照（有就让详情头部一开始就用剧照版式） */
+    val backdrop: String? = null,
 )
 
 /** 站点在列表里的身份：插件源和 CMS 源可能重名 */
@@ -160,7 +162,7 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
     ) {
         item {
             Column(Modifier.focusRequester(headerFocus).focusGroup()) {
-                DetailHeader(d, target.title, target.poster, client, actions) {
+                DetailHeader(d, target.title, target.poster, target.backdrop, client, actions) {
                     if (isTv) scroll.requestScrollToItem(0)
                 }
             }
