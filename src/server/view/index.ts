@@ -24,6 +24,7 @@ import type { ServerEngine } from '../online/engine'
 import type { Playback } from '../playback'
 import { browsePage } from './browse'
 import { type ProbeDeps, createProber } from './probe'
+import { createUpdateChecker, githubReleases } from './app-update'
 import { createSourceHealth } from './source-health'
 import { searchCards } from './search'
 import { composeHome, favoriteCards, recentCards } from './compose'
@@ -167,6 +168,7 @@ export function registerView(
     createProber(sourceDeps),
     hidden
   )
+  const checkUpdate = createUpdateChecker(githubReleases())
   // 服务起来后在后台跑第一轮（与桌面启动轮次一样），失败不影响别的功能
   setTimeout(() => void health.start(), HEALTH_START_DELAY_MS).unref?.()
   registry.implement(view, {
@@ -208,6 +210,7 @@ export function registerView(
       return records.toggleFavorite(favoriteItemOf(meta))
     },
     search: (_, keyword) => searchCards(keyword, sourceDeps),
+    appUpdate: (_, current, abis) => checkUpdate(current, abis),
     sourceHealth: () => health.status(),
     recheckSources: () => {
       void health.start()

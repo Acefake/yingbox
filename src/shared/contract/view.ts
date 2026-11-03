@@ -10,6 +10,7 @@ import type {
   ViewSources,
 } from '../view/detail'
 import type { HomeView, ViewCard, ViewContinue } from '../view/home'
+import type { ViewAppUpdate } from '../view/app-update'
 import type { ViewSearchCard } from '../view/search'
 import type { ViewSourceHealth } from '../view/source-health'
 import {
@@ -92,6 +93,15 @@ export const view = defineDomain('view', {
   sourceHealth: call<ViewSourceHealth>(),
   /** 重新检测全部源（已在检测中就复用）；返回当前进度 */
   recheckSources: call<ViewSourceHealth>(),
+  /** 检查应用更新：current 是当前版本（x.y.z），abis 是设备支持的 ABI（优先的在前）；没有更新为 null，查不到抛错 */
+  appUpdate: call<[current: string, abis: string[]], ViewAppUpdate | null>(
+    a => [
+      str(a[0], 'current').slice(0, 20),
+      (Array.isArray(a[1]) ? a[1] : [])
+        .slice(0, 8)
+        .map(v => str(v, 'abi').slice(0, 30)),
+    ]
+  ),
   /** 浏览页的一页（热门、类型、精选片单）；start 是豆瓣分页位置，第一页为 0 */
   browse: call<[target: BrowseTarget, start: number], ViewBrowsePage>(a => {
     const start = parseDoubanStart(a[1])

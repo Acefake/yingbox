@@ -72,6 +72,7 @@ describe('浏览页（view.browse）', () => {
   it('契约拒绝不认识的片单、类型缺名字、超出范围的位置', async () => {
     const registry = new DomainRegistry()
     registry.implement(view, {
+      appUpdate: async () => null,
       home: async () => {
         throw new Error('unused')
       },
@@ -90,7 +91,12 @@ describe('浏览页（view.browse）', () => {
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
       favorite: async () => false,
-      sourcesStart: () => ({ sessionId: 'x', done: true, sites: [] }),
+      sourcesStart: () => ({
+        sessionId: 'x',
+        done: true,
+        probing: false,
+        sites: [],
+      }),
       sources: () => null,
       resume: () => null,
       resolve: async () => ({ url: '', direct: false, hls: false }),

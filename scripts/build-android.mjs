@@ -67,7 +67,12 @@ if (fetchAbis.length)
     ],
     { stdio: 'inherit' }
   )
-run(isWin ? '.\\gradlew.bat' : './gradlew', [':app:assembleDebug'], ANDROID)
+const release = process.argv.includes('--release')
+run(
+  isWin ? '.\\gradlew.bat' : './gradlew',
+  release ? [':app:assembleRelease', '-PsplitAbi'] : [':app:assembleDebug'],
+  ANDROID
+)
 console.log(
-  `APK：${join(ANDROID, 'app/build/outputs/apk/debug/app-debug.apk')}`
+  `APK：${join(ANDROID, release ? 'app/build/outputs/apk/release' : 'app/build/outputs/apk/debug/app-debug.apk')}`
 )

@@ -58,6 +58,8 @@ import com.yingbox.android.ui.TvBringIntoViewSpec
 import com.yingbox.android.ui.LocalReduceTransparency
 import com.yingbox.android.ui.SearchScreen
 import com.yingbox.android.ui.SettingsScreen
+import com.yingbox.android.ui.UpdatePrompt
+import com.yingbox.android.update.UpdateController
 import com.yingbox.android.ui.NavCapsule
 import com.yingbox.android.ui.RecentScreen
 import com.yingbox.android.ui.Tab
@@ -137,6 +139,8 @@ private fun App(isTv: Boolean) {
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Top(Tab.Home))) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
+    val updates = remember(client) { UpdateController(context.applicationContext, client, scope) }
+    LaunchedEffect(updates) { updates.checkOnLaunch() }
     var resuming by remember { mutableStateOf(false) }
     // 从详情、播放返回首页时回到原来的滚动位置
     val homeScroll = rememberLazyListState()
@@ -201,7 +205,7 @@ private fun App(isTv: Boolean) {
                         }
                         Tab.Recent -> RecentScreen(client, chrome, resume)
                         Tab.Favorites -> FavoritesScreen(client, chrome, openCard)
-                        Tab.Settings -> SettingsScreen(client, device, chrome)
+                        Tab.Settings -> SettingsScreen(client, device, chrome, updates)
                     }
                     is Screen.Browse -> BrowseScreen(client, top.target, openCard)
                     is Screen.Detail -> DetailScreen(client, top.target, detailScroll) { push(Screen.Play(it)) }
@@ -218,6 +222,7 @@ private fun App(isTv: Boolean) {
                     if (isTv && top is Screen.Detail) detailScroll.requestScrollToItem(0)
                 }) { back() }
             }
+            UpdatePrompt(updates)
         }
     }
 }

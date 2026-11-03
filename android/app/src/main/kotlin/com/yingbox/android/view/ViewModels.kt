@@ -431,3 +431,23 @@ data class ViewSourceHealth(
         )
     }
 }
+
+data class ViewAppUpdate(
+    val version: String,
+    val notes: String,
+    val url: String,
+    val size: Double,
+    val sha256: String,
+    val publishedAt: String,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewAppUpdate = ViewAppUpdate(
+            version = json.getString("version"),
+            notes = json.getString("notes"),
+            url = json.getString("url"),
+            size = json.getDouble("size"),
+            sha256 = json.getString("sha256"),
+            publishedAt = json.getString("publishedAt"),
+        )
+    }
+}

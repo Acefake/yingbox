@@ -323,6 +323,7 @@ describe('详情与入参', () => {
   it('契约拒绝不合法的豆瓣 ID、空片名、坏掉的插件参数', async () => {
     const registry = new DomainRegistry()
     registry.implement(view, {
+      appUpdate: async () => null,
       home: async () => {
         throw new Error('unused')
       },
@@ -341,7 +342,12 @@ describe('详情与入参', () => {
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
       favorite: async () => false,
-      sourcesStart: () => ({ sessionId: 'x', done: true, sites: [] }),
+      sourcesStart: () => ({
+        sessionId: 'x',
+        done: true,
+        probing: false,
+        sites: [],
+      }),
       sources: () => null,
       resume: () => null,
       resolve: async () => ({ url: '', direct: false, hls: false }),
