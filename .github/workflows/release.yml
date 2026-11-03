@@ -45,6 +45,7 @@ jobs:
         run: |
           if [ "${{ github.event_name }}" = "push" ]; then tag="$PUSHED_TAG"; else tag="v$INPUT_VERSION"; fi
           version="$(node scripts/release/check-version.mjs "$tag")"
+          node scripts/release/notes.mjs "$version" > /dev/null
           echo "tag=$tag" >> "$GITHUB_OUTPUT"
           echo "version=$version" >> "$GITHUB_OUTPUT"
 
