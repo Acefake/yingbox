@@ -1,7 +1,8 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 内嵌服务只监听 127.0.0.1，走明文 HTTP（ADR-0034）；其他地址保持系统默认 -->
+<!--
+  明文 HTTP 放开（ADR-0034、ADR-0040）：内嵌服务在 127.0.0.1 上走明文；NAS 通常是局域网里的
+  http://192.168.x.x:端口，地址由用户在设置里填，无法预先列出。令牌随明文传输，只在可信局域网里使用。
+-->
 <network-security-config>
-    <domain-config cleartextTrafficPermitted="true">
-        <domain includeSubdomains="false">127.0.0.1</domain>
-    </domain-config>
+    <base-config cleartextTrafficPermitted="true" />
 </network-security-config>

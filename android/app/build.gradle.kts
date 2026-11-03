@@ -117,7 +117,10 @@ dependencies {
     implementation(libs.androidx.media3.exoplayer)
     implementation(libs.androidx.media3.exoplayer.hls)
     implementation(libs.androidx.media3.ui)
+    implementation(libs.jellyfin.media3.ffmpeg)
     implementation(libs.haze)
+    testImplementation(libs.junit)
+    testImplementation(libs.org.json)
 }
 
 // 发布包必须有发布签名：没有 keystore.properties 时提前报错，免得出一个调试签名的「发布包」

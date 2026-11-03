@@ -3,19 +3,6 @@ package com.yingbox.android.ui
 import android.util.Log
 import android.widget.Toast
 import androidx.annotation.OptIn
-import androidx.compose.foundation.background
-import androidx.compose.ui.input.key.type
-import androidx.compose.ui.input.key.onKeyEvent
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.Key
-import androidx.compose.ui.focus.focusRequester
-import androidx.compose.ui.focus.FocusRequester
-import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.fillMaxSize
-import androidx.compose.foundation.layout.padding
-import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
@@ -25,28 +12,18 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberUpdatedState
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
-import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
-import androidx.compose.ui.viewinterop.AndroidView
 import androidx.lifecycle.Lifecycle
 import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.compose.LocalLifecycleOwner
-import androidx.media3.common.AudioAttributes
 import androidx.media3.common.MediaItem
 import androidx.media3.common.MimeTypes
 import androidx.media3.common.PlaybackException
 import androidx.media3.common.Player
 import androidx.media3.common.util.UnstableApi
-import androidx.media3.datasource.DefaultHttpDataSource
-import androidx.media3.exoplayer.ExoPlayer
-import androidx.media3.exoplayer.source.DefaultMediaSourceFactory
-import androidx.media3.ui.PlayerView
 import com.yingbox.android.playback.PlayTitle
 import com.yingbox.android.playback.PlaybackApi
+import com.yingbox.android.playback.engine.describeError
 import com.yingbox.android.server.ServerClient
 import com.yingbox.android.view.ViewApi
 import com.yingbox.android.view.ViewEpisode
@@ -69,12 +46,6 @@ data class PlayRequest(
 
 /** 播放中多久记一次进度（与桌面相近；暂停、退出、播完时另记） */
 private const val REPORT_MS = 5_000L
-
-/** 遥控器：左右键快退 / 快进，确定 / 回车 / 播放暂停键切换暂停 */
-private val REMOTE_KEYS = setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionCenter, Key.Enter, Key.MediaPlayPause)
-
-/** 遥控器左右键每次快退 / 快进多久 */
-private const val SEEK_MS = 10_000L
 
 /** 缓冲多久算卡住、该换源（桌面默认 5 秒，手机上代理起播更慢，取 12 秒） */
 private const val STALL_MS = 12_000L
@@ -109,23 +80,8 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
     // 换源到新线路真正载入之前：旧媒体的缓冲和报错都不再触发下一次换源
     var switching by remember { mutableStateOf(false) }
     var loaded by remember { mutableStateOf<Loaded?>(null) }
-    var error by remember { mutableStateOf<String?>(null) }
-    var view by remember { mutableStateOf<PlayerView?>(null) }
-    val player = remember {
-        val http = DefaultHttpDataSource.Factory()
-            .setAllowCrossProtocolRedirects(true)
-            // 代理要先取上游（DNS、SSRF 校验、上游响应），默认 8 秒对慢源太短
-            .setConnectTimeoutMs(15_000)
-            .setReadTimeoutMs(30_000)
-            .setDefaultRequestProperties(mapOf("Authorization" to client.authorization))
-        ExoPlayer.Builder(context)
-            .setMediaSourceFactory(DefaultMediaSourceFactory(http))
-            .setSeekBackIncrementMs(SEEK_MS)
-            .setSeekForwardIncrementMs(SEEK_MS)
-            .setAudioAttributes(AudioAttributes.DEFAULT, true)
-            .setHandleAudioBecomingNoisy(true)
-            .build()
-    }
+    val state = remember { PlayerState(context, client) }
+    val player = state.player
 
     /** 把当前进度记进继续观看；播完那一刻的非结束上报丢掉（位置已是片尾，会被当成看完） */
     fun report(ended: Boolean = false) {
@@ -169,7 +125,7 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
     }
 
     LaunchedEffect(index, sourceNo) {
-        error = null
+        state.reset()
         loaded = null
         val at = index
         val prepared = try {
@@ -183,13 +139,13 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
         } catch (e: Exception) {
             Log.w(TAG, "准备播放失败", e)
             switching = false
-            if (!switchSource("解析失败")) error = "准备播放失败：${e.message}"
+            if (!switchSource("解析失败")) state.error = "准备播放失败：${e.message}"
             return@LaunchedEffect
         }
         val (id, startAt, playable) = prepared
         if (playable.url.isEmpty()) {
             switching = false
-            if (!switchSource("解析不到播放地址")) error = "解析不到播放地址，换个源试试"
+            if (!switchSource("解析不到播放地址")) state.error = "解析不到播放地址，换个源试试"
             return@LaunchedEffect
         }
         switchAt = null
@@ -239,7 +195,7 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
             override fun onPlayerError(e: PlaybackException) {
                 Log.w(TAG, "播放出错", e)
                 if (switching) return
-                if (!switchSource("播放出错")) error = "播放出错：${e.errorCodeName}，换个源试试"
+                if (!switchSource("播放出错")) state.error = "${describeError(e.errorCode, e.errorCodeName)}，换个源试试"
             }
         }
         // 退到后台（按 Home 键）就暂停，暂停时会记一次进度
@@ -257,46 +213,22 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
         }
     }
 
-    val focus = remember { FocusRequester() }
-    LaunchedEffect(Unit) { focus.requestFocus() }
-    Box(
-        Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .focusRequester(focus)
-            .onKeyEvent { event ->
-                val ours = event.key in REMOTE_KEYS
-                if (ours && event.type == KeyEventType.KeyDown) {
-                    when (event.key) {
-                        Key.DirectionLeft -> player.seekBack()
-                        Key.DirectionRight -> player.seekForward()
-                        else -> if (player.isPlaying) player.pause() else player.play()
-                    }
-                    view?.showController()
-                }
-                ours
-            }
-            .focusable(),
-    ) {
-        AndroidView(
-            factory = { ctx ->
-                PlayerView(ctx).apply {
-                    this.player = player
-                    keepScreenOn = true
-                    // 遥控器的键由外层 Compose 容器接（左右快退快进、确定暂停），播放器视图自己不抢焦点
-                    isFocusable = false
-                    view = this
-                }
-            },
-            modifier = Modifier.fillMaxSize(),
-        )
-        error?.let {
-            Text(
-                it,
-                color = YbColor.TextPrimary,
-                fontSize = YbText.Md,
-                modifier = Modifier.align(Alignment.Center).ybGlass(YbRadius.Lg, media = true).padding(YbSpace.S4),
-            )
-        }
+    // 手动换集：先把当前集的进度记下，再换；换集后从该集的续播位置开始
+    fun goTo(next: Int) {
+        report()
+        loaded = null
+        nextFallback = 0
+        // 换源进行中记下的续播位置属于旧的那一集；旧集也不能在解析新集期间继续放（出声、播完会多跳一集、出错会误触发换源）
+        switchAt = null
+        player.stop()
+        player.clearMediaItems()
+        index = next
     }
+    val title = if (lines.size > 1) "${request.title.title} · ${lines[index].name}" else request.title.title
+    PlayerHost(
+        state,
+        title,
+        onPrevious = if (index > 0) ({ goTo(index - 1) }) else null,
+        onNext = if (index + 1 < lines.size) ({ goTo(index + 1) }) else null,
+    )
 }

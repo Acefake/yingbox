@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.LazyListState
@@ -31,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
+import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.yingbox.android.server.ServerClient
@@ -106,7 +108,7 @@ private fun HomeRows(home: HomeView, client: ServerClient, scroll: LazyListState
         verticalArrangement = Arrangement.spacedBy(YbSpace.S4),
     ) {
         // 轮播铺到最顶上（压在状态栏、电视顶部导航下面），其余行左右留白
-        item { if (home.hero.isNotEmpty()) Hero(home.hero, client, scroll, openSlide) else Box(Modifier.padding(chrome)) }
+        item { if (home.hero.isNotEmpty()) Hero(home.hero, cards, client, scroll, openSlide) else Box(Modifier.padding(chrome)) }
         if (home.continueRow.isNotEmpty()) item { Section("继续观看") { ContinueRow(home.continueRow, client, actions.resume) } }
         if (home.favorites.isNotEmpty()) {
             item { Section("我的收藏") { PosterRow(home.favorites, client, actions.openCard, null) } }
@@ -132,44 +134,57 @@ private fun Section(title: String, more: (() -> Unit)? = null, content: @Composa
 
 /** 满幅轮播：剧照铺满，底部渐暗压文字，主按钮白底黑字 */
 @Composable
-private fun Hero(slides: List<ViewHeroSlide>, client: ServerClient, scroll: LazyListState, open: (ViewHeroSlide) -> Unit) {
+private fun Hero(slides: List<ViewHeroSlide>, cards: Map<String, ViewCard>, client: ServerClient, scroll: LazyListState, open: (ViewHeroSlide) -> Unit) {
     val gutter = gutter()
     val config = LocalConfiguration.current
-    val wide = config.screenWidthDp >= 600
     val isTv = LocalIsTv.current
-    val height = if (wide) config.screenHeightDp.dp * 0.76f else heroMinHeight()
+    val wide = config.screenWidthDp >= 600
+    val phone = !isTv && !wide
+    val height = if (phone) config.screenHeightDp.dp * 0.72f else if (wide) config.screenHeightDp.dp * 0.76f else heroMinHeight()
     val pager = rememberPagerState { slides.size }
     Box(Modifier.fillMaxWidth().height(height)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { slides[it].key }) { page ->
             val slide = slides[page]
             Box(Modifier.fillMaxSize()) {
-                RemoteImage(slide.image, client, Modifier.fillMaxSize())
+                val poster = if (phone) slide.cardId?.let(cards::get)?.poster?.takeIf { it.isNotEmpty() } else null
+                RemoteImage(poster ?: slide.image, client, Modifier.fillMaxSize())
                 Box(Modifier.fillMaxSize().background(heroScrim()))
-                Box(Modifier.fillMaxSize().background(heroSideScrim()))
+                if (!phone) Box(Modifier.fillMaxSize().background(heroSideScrim()))
                 Column(
-                    Modifier.align(Alignment.BottomStart)
+                    Modifier.align(if (phone) Alignment.BottomCenter else Alignment.BottomStart)
                         .padding(start = gutter, end = gutter, bottom = if (wide) YbSpace.S9 else YbSpace.S8)
                         .fillMaxWidth(if (wide) 0.42f else 1f),
                     verticalArrangement = Arrangement.spacedBy(YbSpace.S2),
+                    horizontalAlignment = if (phone) Alignment.CenterHorizontally else Alignment.Start,
                 ) {
                     Text(
                         slide.title,
                         color = YbColor.TextPrimary,
                         fontSize = YbText.Xl3,
                         fontWeight = FontWeight.Bold,
-                        maxLines = 1,
+                        maxLines = if (phone) 2 else 1,
                         overflow = TextOverflow.Ellipsis,
+                        textAlign = if (phone) TextAlign.Center else TextAlign.Start,
                     )
                     val meta = listOf(slide.meta, slide.rating).filter { it.isNotEmpty() }.joinToString(" · ")
-                    if (meta.isNotEmpty()) Text(meta, color = YbColor.TextSecondary, fontSize = YbText.Sm)
+                    if (meta.isNotEmpty()) Text(meta, color = YbColor.TextSecondary, fontSize = YbText.Sm, textAlign = if (phone) TextAlign.Center else TextAlign.Start)
                     if (slide.overview.isNotEmpty()) {
-                        Text(slide.overview, color = YbColor.TextSecondary, fontSize = YbText.Sm, maxLines = 2, overflow = TextOverflow.Ellipsis)
+                        Text(slide.overview, color = YbColor.TextSecondary, fontSize = YbText.Sm, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = if (phone) TextAlign.Center else TextAlign.Start)
                     }
                     Box(Modifier.padding(top = YbSpace.S2).onFocusChanged {
                         if (isTv && it.isFocused) scroll.requestScrollToItem(0)
                     }) { PrimaryButton(slide.playLabel, YbIcons.Play) { open(slide) } }
                 }
             }
+        }
+        if (phone) {
+            Text(
+                "影盒",
+                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = gutter, top = YbSpace.S3),
+                color = YbColor.TextPrimary,
+                fontSize = YbText.Xl2,
+                fontWeight = FontWeight.Bold,
+            )
         }
         // 翻页圆点
         Row(

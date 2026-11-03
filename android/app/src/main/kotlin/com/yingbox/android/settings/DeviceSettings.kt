@@ -4,6 +4,7 @@ import android.content.Context
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
+import com.yingbox.android.library.NasConfig
 
 /**
  * 只跟这台设备有关的设置（ADR-0033）：存在应用自己的 SharedPreferences，不进服务端。
@@ -24,6 +25,23 @@ class DeviceSettings(context: Context) {
     var autoSwitchSource by mutableStateOf(prefs.getBoolean(AUTO_SWITCH, true))
         private set
 
+    /** NAS 上的影盒服务（ADR-0040）；没配置为 null。令牌只存在应用私有目录（不备份） */
+    var nas by mutableStateOf(loadNas())
+        private set
+
+    fun updateNas(config: NasConfig) {
+        nas = config
+        prefs.edit().putString(NAS_URL, config.url).putString(NAS_TOKEN, config.token).apply()
+    }
+
+    fun clearNas() {
+        nas = null
+        prefs.edit().remove(NAS_URL).remove(NAS_TOKEN).apply()
+    }
+
+    private fun loadNas(): NasConfig? =
+        prefs.getString(NAS_URL, null)?.let { NasConfig(it, prefs.getString(NAS_TOKEN, "") ?: "") }
+
     fun updateAutoSwitchSource(on: Boolean) {
         autoSwitchSource = on
         prefs.edit().putBoolean(AUTO_SWITCH, on).apply()
@@ -43,5 +61,7 @@ class DeviceSettings(context: Context) {
         const val REDUCE_TRANSPARENCY = "ui.reduceTransparency"
         const val AUTO_NEXT = "player.autoNext"
         const val AUTO_SWITCH = "online.autoSwitchSource"
+        const val NAS_URL = "nas.url"
+        const val NAS_TOKEN = "nas.token"
     }
 }
