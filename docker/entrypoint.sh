@@ -67,4 +67,4 @@ if [ "$media_groups" != "$pgid" ]; then
   echo "[yingbox] 媒体目录所属组加入服务进程：$media_groups" >&2
 fi
 
-exec setpriv --reuid="$puid" --regid="$pgid" --clear-groups --groups="$media_groups" -- "$@"
+exec setpriv --reuid="$puid" --regid="$pgid" --groups="$media_groups" -- "$@"

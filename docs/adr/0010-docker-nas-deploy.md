@@ -15,7 +15,7 @@
 
 - **容器化现有 Node 服务**，不跑 Electron：片库核心与宿主分离早已完成，网页端是同一套界面；在线 / 下载本来就不在片库服务里。
 - **多阶段构建**：`base`（固定版本的 pnpm）→ `deps` → `build`（`build:server` + `build:web`）与 `prod-deps`（`--prod`）→ `runtime`（只有 node_modules、`out/server`、`dist-web`、入口与健康检查脚本）。基础镜像写死完整版本号 + 多架构索引摘要，各阶段同一个。`NPM_REGISTRY` 构建参数给国内换源。
-- **服务进程不以 root 运行，身份可配**：容器以 root 进 `docker/entrypoint.sh`，只把 `/config`、`/cache` 里属主不对的条目改成 `PUID:PGID`（`chown -h`，不跟随链接，属主对的不动），再 `setpriv --reuid --regid --clear-groups` exec 服务；`PUID` / `PGID` 非数字或为 0 拒绝启动。用 `user:` 启动时原样执行。
+- **服务进程不以 root 运行，身份可配**：容器以 root 进 `docker/entrypoint.sh`，只把 `/config`、`/cache` 里属主不对的条目改成 `PUID:PGID`（`chown -h`，不跟随链接，属主对的不动），再用 `setpriv --reuid --regid --groups` 列出附加组（`--groups` 本身就是替换附加组，不再配合 `--clear-groups`：util-linux 把它们当互斥参数，同时出现会让容器一启动就退出）exec 服务；`PUID` / `PGID` 非数字或为 0 拒绝启动。用 `user:` 启动时原样执行。
 - **默认只听 127.0.0.1**（服务默认值，镜像不改）。对外监听（`--host` / `YINGBOX_HOST` 不是回环地址）时，服务启动前检查 `YINGBOX_SERVER_TOKEN`：必须显式设置、至少 24 个字符、不是示例占位串，否则退出码 1（`src/server/exposure.ts`）。compose 示例设 `YINGBOX_HOST=0.0.0.0`（容器里不这样端口映射进不来），令牌用 `${YINGBOX_SERVER_TOKEN:?}` 从 `.env` 必填，端口只映射到宿主 `127.0.0.1`，局域网直连要手改。
 - **三类卷**：`/config`（`library.db`、`secrets.json`，必须备份）、`/cache`（`media/` 海报原图与缩略图等缓存；新增 `--cache-dir` / `YINGBOX_CACHE_DIR`，默认等于数据目录，直接跑 Node 的本机部署布局不变）、片库挂在 `/media/...` 下并默认 `:ro`。
 - **健康检查**：`docker/healthcheck.mjs` 按 `YINGBOX_HOST` / `YINGBOX_PORT` 请求公开的 `/api/health`，200 且 `ok: true` 才算健康。

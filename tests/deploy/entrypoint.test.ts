@@ -41,7 +41,7 @@ function stub(name: string, body: string): void {
 function setprivLine(puid: string, pgid: string): string {
   const groups =
     !me.gid || me.gid === '0' || me.gid === pgid ? pgid : `${pgid},${me.gid}`
-  return `setpriv --reuid=${puid} --regid=${pgid} --clear-groups --groups=${groups} -- serve --flag`
+  return `setpriv --reuid=${puid} --regid=${pgid} --groups=${groups} -- serve --flag`
 }
 
 beforeEach(() => {
@@ -152,7 +152,7 @@ describe('媒体目录所属组', () => {
     const { status, stderr, calls } = run({ PUID: '4242', PGID: '4343' })
     expect(status).toBe(0)
     expect(calls.at(-1)).toBe(
-      'setpriv --reuid=4242 --regid=4343 --clear-groups --groups=4343,2500 -- serve --flag'
+      'setpriv --reuid=4242 --regid=4343 --groups=4343,2500 -- serve --flag'
     )
     expect(stderr).toMatch(/媒体目录所属组加入服务进程：4343,2500/)
   })
@@ -162,7 +162,7 @@ describe('媒体目录所属组', () => {
     const { status, stderr, calls } = run({ PUID: '4242', PGID: '4343' })
     expect(status).toBe(0)
     expect(calls.at(-1)).toBe(
-      'setpriv --reuid=4242 --regid=4343 --clear-groups --groups=4343 -- serve --flag'
+      'setpriv --reuid=4242 --regid=4343 --groups=4343 -- serve --flag'
     )
     expect(stderr).not.toMatch(/媒体目录所属组/)
   })
