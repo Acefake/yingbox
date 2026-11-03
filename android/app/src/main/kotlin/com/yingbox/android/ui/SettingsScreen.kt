@@ -81,6 +81,9 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
                 SettingsRow("自动播放下一集", "关闭后播完一集回到详情页") {
                     YbSwitch(device.autoNext, "自动播放下一集", device::updateAutoNext)
                 }
+                SettingsRow("自动换源", "播放出错或卡住 12 秒时，换到别的站点接着播") {
+                    YbSwitch(device.autoSwitchSource, "自动换源", device::updateAutoSwitchSource)
+                }
             }
         }
         item {

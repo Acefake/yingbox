@@ -180,7 +180,7 @@ private fun App(isTv: Boolean) {
                     }
                     is Screen.Browse -> BrowseScreen(client, top.target, openCard)
                     is Screen.Detail -> DetailScreen(client, top.target, detailScroll) { push(Screen.Play(it)) }
-                    is Screen.Play -> PlayerScreen(client, top.request, device.autoNext) { back() }
+                    is Screen.Play -> PlayerScreen(client, top.request, device.autoNext, device.autoSwitchSource) { back() }
                 }
             }
             when (val top = stack.last()) {

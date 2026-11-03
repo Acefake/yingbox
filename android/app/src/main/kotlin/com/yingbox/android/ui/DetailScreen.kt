@@ -133,6 +133,11 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
                         ),
                         episodes = s.lines[l].episodes,
                         index = i,
+                        // 其余站点各取第一条线路作备用，播放出错或卡住时依次换过去
+                        fallbacks = sites.filter { it.key != s.key }.mapNotNull { other ->
+                            other.lines.firstOrNull()?.takeIf { it.episodes.isNotEmpty() }
+                                ?.let { FallbackLine(other.siteName, it.episodes) }
+                        },
                     ),
                 )
     }
