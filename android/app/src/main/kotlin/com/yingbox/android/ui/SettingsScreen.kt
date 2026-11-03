@@ -112,6 +112,7 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
         item { ImageQualityGroup(api) }
         item { SourcesGroup(client) }
         item { TmdbTokenGroup(api) }
+        item { NasGroup(device) }
         item { AboutGroup(updates) }
     }
 }

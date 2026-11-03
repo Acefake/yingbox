@@ -11,6 +11,11 @@ activityCompose = "1.13.0"
 media3 = "1.11.1"
 # 玻璃材质的背景模糊（Compose 没有原生的背景模糊）；2.x 发布不足两周，先用 1.7 最后一版
 haze = "1.7.3"
+junit = "4.13.2"
+# JVM 单元测试里 android.jar 的 org.json 是空桩，要真实现
+orgJson = "20240303"
+# 社区预编译的 media3 ffmpeg 音频解码扩展（官方不发布到 Maven）；与 media3 小版本不一定二进制兼容，升级 media3 时要在真机上验证（ADR-0039）
+jellyfinFfmpeg = "1.9.0+1"
 
 [libraries]
 androidx-activity-compose = { module = "androidx.activity:activity-compose", version.ref = "activityCompose" }
@@ -23,6 +28,9 @@ androidx-media3-exoplayer = { module = "androidx.media3:media3-exoplayer", versi
 androidx-media3-exoplayer-hls = { module = "androidx.media3:media3-exoplayer-hls", version.ref = "media3" }
 androidx-media3-ui = { module = "androidx.media3:media3-ui", version.ref = "media3" }
 haze = { module = "dev.chrisbanes.haze:haze", version.ref = "haze" }
+junit = { module = "junit:junit", version.ref = "junit" }
+org-json = { module = "org.json:json", version.ref = "orgJson" }
+jellyfin-media3-ffmpeg = { module = "org.jellyfin.media3:media3-ffmpeg-decoder", version.ref = "jellyfinFfmpeg" }
 
 [plugins]
 android-application = { id = "com.android.application", version.ref = "agp" }

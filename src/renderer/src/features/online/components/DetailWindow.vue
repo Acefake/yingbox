@@ -10,6 +10,7 @@
       <!-- 头图：与库内详情同一版式，剧照铺满、文案在左下 -->
       <DetailHero
         :tmdb-detail="tmdbDetail"
+        :logo="tmdb.logo.value"
         :douban-detail="tmdb.douban.value"
         :item-data="itemData"
         :item-name="itemName"

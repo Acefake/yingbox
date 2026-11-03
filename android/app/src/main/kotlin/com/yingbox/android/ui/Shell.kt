@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.WindowInsets
 import androidx.compose.foundation.layout.asPaddingValues
+import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
@@ -33,6 +34,7 @@ import androidx.compose.ui.unit.dp
 enum class Tab(val label: String, val icon: ImageVector) {
     Home("首页", YbIcons.Home),
     Search("搜索", YbIcons.Search),
+    Library("片库", YbIcons.Play),
     Recent("最近播放", YbIcons.History),
     Favorites("收藏", YbIcons.HeartFill),
     Settings("设置", YbIcons.Settings),
@@ -56,7 +58,7 @@ fun chromePadding(topNav: Boolean): PaddingValues {
  * 遥控器左右切换）。选中项用 --bg-active 填底，不加边框。
  */
 @Composable
-fun BoxScope.NavCapsule(current: Tab, top: Boolean, contentFocus: FocusRequester, onFocused: () -> Unit, select: (Tab) -> Unit) {
+fun BoxScope.NavCapsule(current: Tab, tabs: List<Tab>, top: Boolean, contentFocus: FocusRequester, onFocused: () -> Unit, select: (Tab) -> Unit) {
     val place = if (top) {
         Modifier.align(Alignment.TopCenter).statusBarsPadding().padding(top = YbSpace.S3)
     } else {
@@ -66,14 +68,14 @@ fun BoxScope.NavCapsule(current: Tab, top: Boolean, contentFocus: FocusRequester
         place.ybGlass(YbRadius.Full).padding(YbSpace.S1),
         horizontalArrangement = Arrangement.spacedBy(YbSpace.S1),
     ) {
-        for (tab in Tab.entries) {
+        for (tab in tabs) {
             val selected = tab == current
             val item = Modifier.onFocusChanged { if (it.isFocused) onFocused() }.focusProperties {
                 if (top) {
                     down = contentFocus
                     // 导航两端按左右键停住，不要溜进下面的内容
-                    if (tab == Tab.entries.last()) right = FocusRequester.Cancel
-                    if (tab == Tab.entries.first()) left = FocusRequester.Cancel
+                    if (tab == tabs.last()) right = FocusRequester.Cancel
+                    if (tab == tabs.first()) left = FocusRequester.Cancel
                 }
             }.focusFrame(shape = YbRadius.Full, selected = selected) { select(tab) }
             if (top) {
@@ -92,7 +94,7 @@ fun BoxScope.NavCapsule(current: Tab, top: Boolean, contentFocus: FocusRequester
                 }
             } else {
                 Column(
-                    item.width(68.dp).padding(vertical = YbSpace.S2),
+                    item.width(if (tabs.size > 5) 60.dp else 68.dp).padding(vertical = YbSpace.S2),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(
@@ -120,7 +122,7 @@ fun belowBackButton(): Dp = WindowInsets.statusBars.asPaddingValues().calculateT
 /** 二级页面左上角的返回圆钮（系统返回键、遥控器返回键也能退） */
 @Composable
 fun BoxScope.BackButton(contentFocus: FocusRequester, media: Boolean = false, onFocused: () -> Unit = {}, back: () -> Unit) {
-    Box(Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = gutter(), top = YbSpace.S3)
+    Box(Modifier.align(Alignment.TopStart).statusBarsPadding().displayCutoutPadding().padding(start = gutter(), top = YbSpace.S3)
         .onFocusChanged { if (it.isFocused) onFocused() }.focusProperties { down = contentFocus }) {
         GlassIconButton(YbIcons.Back, "返回", media = media, onClick = back)
     }

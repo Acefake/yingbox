@@ -41,6 +41,7 @@ import com.yingbox.android.server.LocalServer
 import com.yingbox.android.server.ServerClient
 import com.yingbox.android.server.ServerService
 import com.yingbox.android.server.ServerState
+import com.yingbox.android.library.LibraryCard
 import com.yingbox.android.playback.PlayTitle
 import com.yingbox.android.ui.BackButton
 import com.yingbox.android.ui.BrowseScreen
@@ -48,8 +49,14 @@ import com.yingbox.android.ui.FavoritesScreen
 import com.yingbox.android.settings.DeviceSettings
 import com.yingbox.android.settings.ImageQualities
 import com.yingbox.android.settings.ServerSettingsApi
+import com.yingbox.android.ui.LibraryBrowse
+import com.yingbox.android.ui.LibraryDetailScreen
+import com.yingbox.android.ui.LibraryPlayRequest
+import com.yingbox.android.ui.LibraryPlayerScreen
+import com.yingbox.android.ui.LibraryScreen
 import com.yingbox.android.ui.LocalHaze
 import com.yingbox.android.ui.LogoSplash
+import com.yingbox.android.ui.Message
 import com.yingbox.android.ui.SPLASH_INTRO_MS
 import com.yingbox.android.ui.LocalIsTv
 import com.yingbox.android.ui.LocalTvFocusTopInset
@@ -113,6 +120,10 @@ private sealed interface Screen {
     data class Detail(val target: DetailTarget) : Screen
 
     data class Play(val request: PlayRequest) : Screen
+
+    data class LibraryDetail(val card: LibraryCard) : Screen
+
+    data class LibraryPlay(val request: LibraryPlayRequest) : Screen
 }
 
 @Composable
@@ -158,6 +169,11 @@ private fun App(isTv: Boolean) {
     }
     val haze = remember { HazeState() }
     val device = remember { DeviceSettings(context) }
+    // NAS 上的影盒服务（设置里配置后才有）；片库、片库播放都走它，在线内容仍走内嵌服务
+    val nas = device.nas
+    val nasClient = remember(nas) { nas?.let { ServerClient(ServerState.Ready(it.url, it.token)) } }
+    val libraryBrowse = remember(nas) { LibraryBrowse() }
+    val tabs = Tab.entries.filter { it != Tab.Library || nasClient != null }
     val topNav = useTopNav(isTv)
     val chrome = chromePadding(topNav)
     val push = { screen: Screen -> stack = stack + screen }
@@ -203,6 +219,9 @@ private fun App(isTv: Boolean) {
                         Tab.Search -> SearchScreen(client, chrome) { card ->
                             push(Screen.Detail(DetailTarget(null, null, card.title, card.title, card.poster)))
                         }
+                        Tab.Library -> nasClient?.let { nasApi ->
+                            LibraryScreen(nasApi, libraryBrowse, chrome, { stack = listOf(Screen.Top(Tab.Settings)) }) { push(Screen.LibraryDetail(it)) }
+                        } ?: Message("先在设置里配置 NAS")
                         Tab.Recent -> RecentScreen(client, chrome, resume)
                         Tab.Favorites -> FavoritesScreen(client, chrome, openCard)
                         Tab.Settings -> SettingsScreen(client, device, chrome, updates)
@@ -210,14 +229,20 @@ private fun App(isTv: Boolean) {
                     is Screen.Browse -> BrowseScreen(client, top.target, openCard)
                     is Screen.Detail -> DetailScreen(client, top.target, detailScroll) { push(Screen.Play(it)) }
                     is Screen.Play -> PlayerScreen(client, top.request, device.autoNext, device.autoSwitchSource) { back() }
+                    is Screen.LibraryDetail -> nasClient?.let { nasApi ->
+                        LibraryDetailScreen(nasApi, top.card) { push(Screen.LibraryPlay(it)) }
+                    } ?: Message("先在设置里配置 NAS")
+                    is Screen.LibraryPlay -> nasClient?.let { nasApi ->
+                        LibraryPlayerScreen(nasApi, top.request, device.autoNext) { back() }
+                    } ?: Message("先在设置里配置 NAS")
                 }
             }
             when (val top = stack.last()) {
                 // 一级页面之间切换不进栈
-                is Screen.Top -> NavCapsule(top.tab, topNav, contentFocus, onFocused = {
+                is Screen.Top -> NavCapsule(top.tab, tabs, topNav, contentFocus, onFocused = {
                     if (isTv && top.tab == Tab.Home) homeScroll.requestScrollToItem(0)
                 }) { stack = listOf(Screen.Top(it)) }
-                is Screen.Play -> BackButton(contentFocus, media = true) { back() }
+                is Screen.Play, is Screen.LibraryPlay -> BackButton(contentFocus, media = true) { back() }
                 else -> BackButton(contentFocus, onFocused = {
                     if (isTv && top is Screen.Detail) detailScroll.requestScrollToItem(0)
                 }) { back() }

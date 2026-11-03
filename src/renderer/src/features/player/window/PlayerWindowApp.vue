@@ -13,7 +13,7 @@
  * 换片就换一个会话（旧会话卸载时保存进度）。窗口与主窗口之间的往来在 window-client.ts。
  * 全屏用 Artplayer 的全屏（页面 HTML 全屏，Electron 让窗口跟着全屏），Esc 退出；置顶跟设置 player.windowOnTop。
  */
-import { onBeforeUnmount, onMounted, ref, shallowRef } from 'vue'
+import { onMounted, onUnmounted, ref, shallowRef } from 'vue'
 
 import { getSetting, setSetting } from '@/features/settings'
 
@@ -49,5 +49,5 @@ onMounted(() => {
     title: () => title.value,
   })
 })
-onBeforeUnmount(() => disconnect())
+onUnmounted(() => disconnect())
 </script>
