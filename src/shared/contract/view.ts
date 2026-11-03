@@ -11,6 +11,7 @@ import type {
 } from '../view/detail'
 import type { HomeView, ViewCard, ViewContinue } from '../view/home'
 import type { ViewSearchCard } from '../view/search'
+import type { ViewSourceHealth } from '../view/source-health'
 import {
   ContractError,
   bool,
@@ -80,6 +81,17 @@ export const view = defineDomain('view', {
   search: call<[keyword: string], ViewSearchCard[]>(a => [
     str(a[0], 'keyword').slice(0, 100),
   ]),
+  /** 不再使用的在线站点名（选源、搜索、自动换源都跳过） */
+  blockedSites: call<string[]>(),
+  /** 屏蔽（on 为真）或恢复一个站点；返回最新的屏蔽列表 */
+  blockSite: call<[name: string, on: boolean], string[]>(a => [
+    str(a[0], 'name').slice(0, 100),
+    bool(a[1], 'on'),
+  ]),
+  /** 在线源的健康检测进度与结果：全部源跑一遍，通的启用、不通的停用（服务启动时自动跑一次） */
+  sourceHealth: call<ViewSourceHealth>(),
+  /** 重新检测全部源（已在检测中就复用）；返回当前进度 */
+  recheckSources: call<ViewSourceHealth>(),
   /** 浏览页的一页（热门、类型、精选片单）；start 是豆瓣分页位置，第一页为 0 */
   browse: call<[target: BrowseTarget, start: number], ViewBrowsePage>(a => {
     const start = parseDoubanStart(a[1])

@@ -415,3 +415,19 @@ data class ViewSearchCard(
         )
     }
 }
+
+data class ViewSourceHealth(
+    val checking: Boolean,
+    val done: Double,
+    val total: Double,
+    val failed: List<String>,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewSourceHealth = ViewSourceHealth(
+            checking = json.getBoolean("checking"),
+            done = json.getDouble("done"),
+            total = json.getDouble("total"),
+            failed = json.getJSONArray("failed").let { a0 -> List(a0.length()) { i0 -> a0.getString(i0) } },
+        )
+    }
+}

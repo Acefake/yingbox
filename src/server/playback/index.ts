@@ -36,6 +36,8 @@ import {
   addWatched,
   isWatchedEntry,
 } from '../../shared/playback/watched-rules'
+import { parseBlocked, setBlocked } from '../../shared/online/blocked-sites'
+import { parseHealth } from '../view/source-health'
 import type { DomainRegistry } from '../domains/registry'
 
 /** user_state 里的键（与桌面 localStorage 的键相同，以后导入时原样搬） */
@@ -45,6 +47,10 @@ export const STATE_KEYS = {
   progress: 'media_play_progress',
   watched: 'media_watched',
   favorites: 'media_favorites',
+  /** 用户不再使用的在线站点（安卓端新增，桌面没有） */
+  blockedSites: 'online_blocked_sites',
+  /** 在线源的健康检测结果：站点名 → 是否通（ADR-0036） */
+  sourceHealth: 'online_source_health',
 } as const
 
 /** 一个键的 JSON 读写 */
@@ -107,6 +113,13 @@ export interface Playback {
   markWatched(key: string): void
   favorites(): DoubanItem[]
   toggleFavorite(item: DoubanItem): boolean
+  /** 不再使用的在线站点名 */
+  blockedSites(): string[]
+  /** 屏蔽 / 恢复一个站点，返回最新列表 */
+  setSiteBlocked(name: string, on: boolean): string[]
+  /** 在线源上次检测的结果（站点名 → 是否通） */
+  sourceHealth(): Record<string, boolean>
+  saveSourceHealth(record: Record<string, boolean>): void
 }
 
 export function createPlayback(
@@ -123,6 +136,8 @@ export function createPlayback(
     state.read(STATE_KEYS.watched, parseWatched)
   const favorites = (): DoubanItem[] =>
     state.read(STATE_KEYS.favorites, parseFavorites)
+  const blockedSites = (): string[] =>
+    state.read(STATE_KEYS.blockedSites, parseBlocked)
 
   const continueProgress = (id: string, update: ProgressUpdate): void => {
     const before = records()
@@ -170,6 +185,14 @@ export function createPlayback(
       const next = toggleFavoriteIn(favorites(), item)
       state.write(STATE_KEYS.favorites, next)
       return hasFavorite(next, item.url)
+    },
+    sourceHealth: () => state.read(STATE_KEYS.sourceHealth, parseHealth),
+    saveSourceHealth: record => state.write(STATE_KEYS.sourceHealth, record),
+    blockedSites,
+    setSiteBlocked(name, on) {
+      const next = setBlocked(blockedSites(), name, on)
+      state.write(STATE_KEYS.blockedSites, next)
+      return next
     },
   }
 }
