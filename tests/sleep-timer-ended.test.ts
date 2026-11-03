@@ -4,7 +4,7 @@ import { readFileSync } from 'node:fs'
 import { resolve } from 'node:path'
 
 import type Artplayer from 'artplayer'
-import { describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 /**
  * 睡眠定时与播放结束：拖到结尾或错过片尾轮询时，ended 先到，
@@ -22,7 +22,13 @@ interface FakeArt {
   art: Artplayer
   pick: (value: unknown) => void
   destroy: () => void
-  video: { paused: boolean; volume: number }
+  video: {
+    paused: boolean
+    volume: number
+    currentTime: number
+    duration: number
+    playbackRate: number
+  }
 }
 
 /** 只实现 installSleepTimer 用到的 Artplayer 接口 */
@@ -104,5 +110,84 @@ describe('睡眠定时：播放结束时同步消费', () => {
     const consume = body.indexOf('consumeSleepAtEnd()')
     expect(consume).toBeGreaterThan(-1)
     expect(consume).toBeLessThan(body.indexOf('playNext()'))
+  })
+})
+
+describe('睡眠定时：后台轮询生命周期', () => {
+  let sleep: typeof timer
+  const players: FakeArt[] = []
+  const install = (): FakeArt => {
+    const player = fakeArt()
+    players.push(player)
+    sleep.installSleepTimer(player.art)
+    return player
+  }
+
+  beforeEach(async () => {
+    vi.useFakeTimers()
+    vi.setSystemTime(1_000_000)
+    vi.resetModules()
+    sleep =
+      await import('../src/renderer/src/features/player/sleep/sleep-timer')
+  })
+  afterEach(() => {
+    players.splice(0).forEach(player => player.destroy())
+    vi.useRealTimers()
+  })
+
+  it('未启用时不安排后台任务，菜单和遥控都能启停定时', () => {
+    const player = install()
+    expect(vi.getTimerCount()).toBe(0)
+    player.pick('episode')
+    expect(vi.getTimerCount()).toBe(1)
+    player.pick('off')
+    expect(vi.getTimerCount()).toBe(0)
+    expect(sleep.setSleepChoice(30)).toBe(true)
+    expect(vi.getTimerCount()).toBe(1)
+    sleep.setSleepChoice(60)
+    expect(vi.getTimerCount()).toBe(1)
+    sleep.setSleepChoice('off')
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('分钟定时按时渐弱并暂停，结束后释放轮询', () => {
+    const player = install()
+    player.pick(30)
+    vi.advanceTimersByTime(1_795_000)
+    expect(player.video.volume).toBeCloseTo(0.5)
+    expect(player.video.paused).toBe(false)
+    vi.advanceTimersByTime(5000)
+    expect(player.video.paused).toBe(true)
+    expect(player.video.volume).toBe(1)
+    expect(sleep.currentSleep()).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('本集结束消费定时后停表，新实例不复活已消费的任务', () => {
+    const first = install()
+    first.pick('episode')
+    expect(sleep.consumeSleepAtEnd()).toBe(true)
+    expect(vi.getTimerCount()).toBe(0)
+    first.destroy()
+    install()
+    expect(sleep.currentSleep()).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
+  })
+
+  it('销毁释放任务，快速换集恢复原截止时间，超时重开则清除', () => {
+    const first = install()
+    first.pick(30)
+    const saved = sleep.currentSleep()
+    first.destroy()
+    expect(vi.getTimerCount()).toBe(0)
+    vi.advanceTimersByTime(1000)
+    const next = install()
+    expect(sleep.currentSleep()).toEqual(saved)
+    expect(vi.getTimerCount()).toBe(1)
+    next.destroy()
+    vi.advanceTimersByTime(10_001)
+    install()
+    expect(sleep.currentSleep()).toBeNull()
+    expect(vi.getTimerCount()).toBe(0)
   })
 })

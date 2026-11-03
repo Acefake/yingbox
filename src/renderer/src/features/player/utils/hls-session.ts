@@ -46,6 +46,8 @@ export function createHlsSession(): HlsSession {
       const line = splitStreamHeaders(url)
       hls = new Hls({
         enableWorker: true,
+        // 保留最近一分钟供回退，避免已播放分片持续占用媒体缓冲。
+        backBufferLength: 60,
         ...(window.api ? { loader: desktopHlsLoader(line.headers) } : {}),
       })
       hls.loadSource(line.url)
