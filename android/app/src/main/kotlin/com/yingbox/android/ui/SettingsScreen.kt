@@ -111,6 +111,7 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
                 }
             }
         }
+        item { TmdbTokenGroup(api) }
         item {
             SettingsGroup("关于") {
                 SettingsRow("版本") { Text(version, color = YbColor.TextSecondary, fontSize = YbText.Sm) }
