@@ -30,6 +30,11 @@ export interface DoubanItem {
   overview: string
   /** 来自「电影」还是「电视剧」分类（取预告片时用；旧收藏里没有，按电影取） */
   kind?: 'movie' | 'tv'
+  /** TMDB 补全找到条目时的 TMDB id 与类型（取标志图等要用） */
+  tmdbId?: number
+  tmdbType?: 'movie' | 'tv'
+  /** TMDB 标志图（透明底片名图）地址；只有首页轮播那几张去取，没有为空 */
+  logo?: string
 }
 
 /** 引擎给的豆瓣卡 → 页面用的豆瓣条目（封面等 TMDB 补全后再填） */

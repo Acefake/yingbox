@@ -27,6 +27,8 @@ export const ViewCardSchema = s.object('ViewCard', {
   overview: s.string,
   /** movie.douban.com/subject/<id>/ */
   doubanUrl: s.string,
+  /** 片名标志图（透明底 PNG，TMDB）；只有首页轮播那几张去取，没有为 null */
+  logo: s.nullable(s.string),
 })
 
 /** 一行卡片：热门货架或榜单 */
@@ -83,6 +85,8 @@ export const ViewHeroSlideSchema = s.object('ViewHeroSlide', {
   meta: s.string,
   /** 评分文字；没有为空串 */
   rating: s.string,
+  /** 片名标志图（透明底 PNG）；有就代替文字标题，没有为 null */
+  logo: s.nullable(s.string),
   /** 主按钮：「继续播放 · 剩 48 分钟」「播放」 */
   playLabel: s.string,
   /** resume 那一张对应的继续观看记录 id */

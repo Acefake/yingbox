@@ -121,6 +121,12 @@ private fun AnimatedLogo(intro: Float, loop: Float, modifier: Modifier) {
     }
 }
 
+/** 静态 logo（首页左上角等）：就是动画结束后的样子 */
+@Composable
+fun LogoMark(modifier: Modifier = Modifier) {
+    AnimatedLogo(intro = 1f, loop = 0f, modifier = modifier)
+}
+
 /** 画一个面：填充 + 同色圆角描边（桌面 logo 就是这么画的，让转角圆润） */
 private fun DrawScope.drawFace(path: Path, color: Color, alpha: Float) {
     drawPath(path, color, alpha = alpha)

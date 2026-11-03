@@ -38,6 +38,7 @@ data class ViewHeroSlide(
     val overview: String,
     val meta: String,
     val rating: String,
+    val logo: String?,
     val playLabel: String,
     val continueId: String?,
     val cardId: String?,
@@ -53,6 +54,7 @@ data class ViewHeroSlide(
             overview = json.getString("overview"),
             meta = json.getString("meta"),
             rating = json.getString("rating"),
+            logo = (if (json.isNull("logo")) null else json.getString("logo")),
             playLabel = json.getString("playLabel"),
             continueId = (if (json.isNull("continueId")) null else json.getString("continueId")),
             cardId = (if (json.isNull("cardId")) null else json.getString("cardId")),
@@ -122,6 +124,7 @@ data class ViewCard(
     val backdrop: String?,
     val overview: String,
     val doubanUrl: String,
+    val logo: String?,
 ) {
     companion object {
         fun fromJson(json: JSONObject): ViewCard = ViewCard(
@@ -135,6 +138,7 @@ data class ViewCard(
             backdrop = (if (json.isNull("backdrop")) null else json.getString("backdrop")),
             overview = json.getString("overview"),
             doubanUrl = json.getString("doubanUrl"),
+            logo = (if (json.isNull("logo")) null else json.getString("logo")),
         )
     }
 }

@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.padding
+import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.lazy.LazyColumn
@@ -39,6 +40,7 @@ import com.yingbox.android.server.ServerClient
 import com.yingbox.android.view.BrowseTarget
 import com.yingbox.android.view.CollectionId
 import com.yingbox.android.view.DoubanKind
+import com.yingbox.android.view.HeroKind
 import com.yingbox.android.view.HomeView
 import com.yingbox.android.view.ViewApi
 import com.yingbox.android.view.ViewCard
@@ -108,7 +110,9 @@ private fun HomeRows(home: HomeView, client: ServerClient, scroll: LazyListState
         verticalArrangement = Arrangement.spacedBy(YbSpace.S4),
     ) {
         // 轮播铺到最顶上（压在状态栏、电视顶部导航下面），其余行左右留白
-        item { if (home.hero.isNotEmpty()) Hero(home.hero, cards, client, scroll, openSlide) else Box(Modifier.padding(chrome)) }
+        // 轮播只放精选：继续观看有自己的一行，不占海报页（服务端拼的轮播里继续观看那一张排在最前，这里去掉）
+        val slides = home.hero.filter { it.kind != HeroKind.RESUME }
+        item { if (slides.isNotEmpty()) Hero(slides, cards, client, scroll, openSlide) else Box(Modifier.padding(chrome)) }
         if (home.continueRow.isNotEmpty()) item { Section("继续观看") { ContinueRow(home.continueRow, client, actions.resume) } }
         if (home.favorites.isNotEmpty()) {
             item { Section("我的收藏") { PosterRow(home.favorites, client, actions.openCard, null) } }
@@ -157,15 +161,31 @@ private fun Hero(slides: List<ViewHeroSlide>, cards: Map<String, ViewCard>, clie
                     verticalArrangement = Arrangement.spacedBy(YbSpace.S2),
                     horizontalAlignment = if (phone) Alignment.CenterHorizontally else Alignment.Start,
                 ) {
-                    Text(
-                        slide.title,
-                        color = YbColor.TextPrimary,
-                        fontSize = YbText.Xl3,
-                        fontWeight = FontWeight.Bold,
-                        maxLines = if (phone) 2 else 1,
-                        overflow = TextOverflow.Ellipsis,
-                        textAlign = if (phone) TextAlign.Center else TextAlign.Start,
-                    )
+                    val title: @Composable () -> Unit = {
+                        Text(
+                            slide.title,
+                            color = YbColor.TextPrimary,
+                            fontSize = YbText.Xl3,
+                            fontWeight = FontWeight.Bold,
+                            maxLines = if (phone) 2 else 1,
+                            overflow = TextOverflow.Ellipsis,
+                            textAlign = if (phone) TextAlign.Center else TextAlign.Start,
+                        )
+                    }
+                    // TMDB 有标志图就用它代替文字标题（与桌面端电影、电视剧详情的头图一样），取不到退回文字
+                    val logo = slide.logo
+                    if (logo != null) {
+                        RemoteLogo(
+                            logo,
+                            client,
+                            Modifier.fillMaxWidth(if (phone) 0.72f else 0.8f).height(if (wide) 112.dp else 88.dp),
+                            alignment = if (phone) Alignment.Center else Alignment.CenterStart,
+                            contentDescription = slide.title,
+                            fallback = title,
+                        )
+                    } else {
+                        title()
+                    }
                     val meta = listOf(slide.meta, slide.rating).filter { it.isNotEmpty() }.joinToString(" · ")
                     if (meta.isNotEmpty()) Text(meta, color = YbColor.TextSecondary, fontSize = YbText.Sm, textAlign = if (phone) TextAlign.Center else TextAlign.Start)
                     if (slide.overview.isNotEmpty()) {
@@ -178,13 +198,7 @@ private fun Hero(slides: List<ViewHeroSlide>, cards: Map<String, ViewCard>, clie
             }
         }
         if (phone) {
-            Text(
-                "影盒",
-                modifier = Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = gutter, top = YbSpace.S3),
-                color = YbColor.TextPrimary,
-                fontSize = YbText.Xl2,
-                fontWeight = FontWeight.Bold,
-            )
+            LogoMark(Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = gutter, top = YbSpace.S3).size(40.dp))
         }
         // 翻页圆点
         Row(

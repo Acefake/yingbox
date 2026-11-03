@@ -11,6 +11,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
+import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.ImageBitmap
@@ -90,6 +91,47 @@ private suspend fun load(path: String, client: ServerClient): ImageBitmap? {
         (deferred as CompletableDeferred).complete(image)
     }
     return image
+}
+
+/** 标志图的加载状态 */
+private sealed interface LogoState {
+    data object Loading : LogoState
+
+    data object Failed : LogoState
+
+    data class Ready(val image: ImageBitmap) : LogoState
+}
+
+/**
+ * 标志图（透明底的片名图，TMDB）：取到才显示，完整地放进 [modifier] 给的框里（不裁剪）；
+ * 还在取时留白，取不到（没有令牌、网络错误、图坏了）显示 [fallback]，一般是文字标题。
+ */
+@Composable
+fun RemoteLogo(
+    requested: String,
+    client: ServerClient,
+    modifier: Modifier = Modifier,
+    alignment: Alignment = Alignment.Center,
+    contentDescription: String? = null,
+    fallback: @Composable () -> Unit,
+) {
+    val path = ImageQualities.rewrite(requested)
+    var state by remember(path) { mutableStateOf<LogoState>(cache.get(path)?.let { LogoState.Ready(it) } ?: LogoState.Loading) }
+    LaunchedEffect(path, client) {
+        if (state is LogoState.Ready) return@LaunchedEffect
+        // 标志图不是每部片都有、也不值得久等：试两次就退回文字
+        var image = load(path, client)
+        if (image == null) {
+            delay(RETRY_DELAYS_MS[0])
+            image = load(path, client)
+        }
+        state = image?.let { LogoState.Ready(it) } ?: LogoState.Failed
+    }
+    when (val current = state) {
+        LogoState.Loading -> Box(modifier)
+        LogoState.Failed -> fallback()
+        is LogoState.Ready -> Image(current.image, contentDescription = contentDescription, modifier = modifier, contentScale = ContentScale.Fit, alignment = alignment)
+    }
 }
 
 /**

@@ -24,7 +24,7 @@ import kotlinx.coroutines.withContext
 
 /**
  * 数据源管理，与桌面一样自动：服务启动时把全部源跑一遍，通的启用、不通的停用，搜索、选源、自动换源只用启用的。
- * 这里显示检测进度和停用的站点，可以重新检测；详情页里手动点「不再使用」的站点也列在这里，可以恢复。
+ * 这里显示检测进度和停用的站点，可以重新检测；以前手动屏蔽过的站点也列在这里，可以恢复。
  */
 @Composable
 internal fun SourcesGroup(client: ServerClient) {
@@ -65,7 +65,7 @@ internal fun SourcesGroup(client: ServerClient) {
         }
         val names = blocked.orEmpty()
         if (names.isEmpty()) {
-            Text("没有手动屏蔽的站点（在详情页的播放源里点「不再使用」可以屏蔽）", color = YbColor.TextTertiary, fontSize = YbText.Xs)
+            Text("没有手动屏蔽的站点", color = YbColor.TextTertiary, fontSize = YbText.Xs)
         } else {
             Column(Modifier.fillMaxWidth(), verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
                 Text("手动屏蔽的站点", color = YbColor.TextSecondary, fontSize = YbText.Sm)

@@ -156,11 +156,11 @@ class PlayerState(context: Context, client: ServerClient) : Player.Listener {
 
 /**
  * 播放画面：播放器视图、自绘控制层（顶栏、播放控制、进度条、设置面板）、触屏手势、遥控器按键、
- * 顶部提示和居中的错误。[onPrevious]、[onNext] 为空时对应按钮置灰。
+ * 顶部提示和居中的错误。[onPrevious]、[onNext] 为空时对应按钮置灰；[onBack] 是控制层顶栏的返回按钮。
  */
 @OptIn(UnstableApi::class)
 @Composable
-fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onNext: (() -> Unit)?) {
+fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onNext: (() -> Unit)?, onBack: () -> Unit) {
     val player = state.player
     // 视频降级与音频软解的提示合成一条，出现后几秒自动消失；
     // 只订阅音频解码器这一项：码率、丢帧每次更新都不该让整个播放页重组
@@ -267,6 +267,7 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
                 onScrubbing = { scrubbing = it },
                 landscape = landscape,
                 onToggleFullscreen = { landscape = !landscape },
+                onBack = onBack,
             )
         }
         // 手势的提示（亮度、音量、快进快退、倍速）盖在控制层上面
@@ -297,7 +298,7 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
                     modifier = Modifier
                         .align(Alignment.TopCenter)
                         .padding(YbSpace.S4)
-                        // 让出右上角的返回圆钮、左上角的标题之外的位置：放在顶栏下面一点
+                        // 放在顶栏（标题和徽标）下面一点
                         .padding(top = 72.dp)
                         .ybGlass(YbRadius.Lg, media = true)
                         .padding(YbSpace.S4),

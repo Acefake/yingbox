@@ -193,5 +193,6 @@ fun LibraryPlayerScreen(nas: ServerClient, request: LibraryPlayRequest, autoNext
         request.entries[index].name,
         onPrevious = if (index > 0) ({ goTo(index - 1) }) else null,
         onNext = if (index + 1 < request.entries.size) ({ goTo(index + 1) }) else null,
+        onBack = exit,
     )
 }

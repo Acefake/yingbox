@@ -64,7 +64,7 @@ private val BOTTOM_SCRIM = Brush.verticalGradient(listOf(Color.Transparent, Colo
 
 /**
  * 播放控制层：顶栏（标题、信息徽标）、中间的上一集 / 快退 / 播放暂停 / 快进 / 下一集、
- * 底部的进度条与时间、设置按钮。返回圆钮由外层画在左上角，顶栏给它让出位置。
+ * 底部的进度条与时间、设置按钮。返回按钮在顶栏左边，跟着控制层一起出现、隐藏。
  */
 @OptIn(UnstableApi::class)
 @Composable
@@ -78,6 +78,7 @@ internal fun PlayerControls(
     onScrubbing: (Boolean) -> Unit,
     landscape: Boolean,
     onToggleFullscreen: () -> Unit,
+    onBack: () -> Unit,
 ) {
     val player = state.player
     var position by remember { mutableLongStateOf(player.currentPosition) }
@@ -98,28 +99,31 @@ internal fun PlayerControls(
         derivedStateOf { playbackBadges(state.stats.snapshot.video, state.stats.snapshot.audioMime) }
     }
     Box(Modifier.fillMaxSize()) {
-        Column(
+        // 顶栏：返回按钮、标题、徽标。返回按钮跟着控制层一起出现、一起隐藏
+        Row(
             Modifier
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
                 .background(TOP_SCRIM)
                 .statusBarsPadding()
                 .displayCutoutPadding()
-                // 左边让出外层的返回圆钮
-                .padding(start = 72.dp, end = YbSpace.S4, top = YbSpace.S3, bottom = YbSpace.S6),
-            verticalArrangement = Arrangement.spacedBy(YbSpace.S2),
+                .padding(start = gutter(), end = YbSpace.S4, top = YbSpace.S3, bottom = YbSpace.S6),
+            horizontalArrangement = Arrangement.spacedBy(YbSpace.S3),
         ) {
-            Text(title, color = YbColor.TextPrimary, fontSize = YbText.Xl, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-            if (badges.isNotEmpty()) {
-                Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
-                    for (badge in badges) {
-                        Text(
-                            badge,
-                            color = YbColor.TextPrimary,
-                            fontSize = YbText.Xs,
-                            fontWeight = FontWeight.Medium,
-                            modifier = Modifier.background(YbColor.FillSecondary, YbRadius.Full).padding(horizontal = YbSpace.S3, vertical = YbSpace.S1),
-                        )
+            GlassIconButton(YbIcons.Back, "返回", media = true, onClick = onBack)
+            Column(Modifier.weight(1f).padding(top = YbSpace.S1), verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                Text(title, color = YbColor.TextPrimary, fontSize = YbText.Xl, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                if (badges.isNotEmpty()) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                        for (badge in badges) {
+                            Text(
+                                badge,
+                                color = YbColor.TextPrimary,
+                                fontSize = YbText.Xs,
+                                fontWeight = FontWeight.Medium,
+                                modifier = Modifier.background(YbColor.FillSecondary, YbRadius.Full).padding(horizontal = YbSpace.S3, vertical = YbSpace.S1),
+                            )
+                        }
                     }
                 }
             }
@@ -131,13 +135,13 @@ internal fun PlayerControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             TransportButton(PlayerIcons.SkipPrevious, "上一集", enabled = onPrevious != null) { onPrevious?.invoke() }
-            TransportButton(PlayerIcons.Replay, "快退 10 秒", label = "10") { player.seekBack(); onActivity() }
+            TransportButton(PlayerIcons.Replay10, "快退 10 秒") { player.seekBack(); onActivity() }
             // 看「想播放」而不是「正在播放」：缓冲时前者是真，按钮应是「暂停」，点了要真的暂停
             TransportButton(if (state.playWhenReady) PlayerIcons.Pause else YbIcons.Play, if (state.playWhenReady) "暂停" else "播放", big = true) {
                 if (state.playWhenReady) player.pause() else player.play()
                 onActivity()
             }
-            TransportButton(PlayerIcons.Forward, "快进 10 秒", label = "10") { player.seekForward(); onActivity() }
+            TransportButton(PlayerIcons.Forward10, "快进 10 秒") { player.seekForward(); onActivity() }
             TransportButton(PlayerIcons.SkipNext, "下一集", enabled = onNext != null) { onNext?.invoke() }
         }
 

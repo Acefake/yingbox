@@ -1,14 +1,14 @@
 import { createHash } from 'node:crypto'
-import { mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
+import { mkdir, mkdtemp, readFile, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 
-import { androidVersionFile } from '../scripts/release/set-android-version.mjs'
 import { assertVersion } from '../scripts/release/check-version.mjs'
 import { checksumLines, writeChecksums } from '../scripts/release/checksums.mjs'
-import { platformOf, releaseNotes } from '../scripts/release/notes.mjs'
+import { readReleaseNotes } from '../scripts/release/notes.mjs'
 import { mismatches } from '../scripts/release/publish.mjs'
+import { androidVersionFile } from '../scripts/release/set-android-version.mjs'
 
 let dir = ''
 beforeEach(async () => {
@@ -50,23 +50,16 @@ describe('发布脚本', () => {
     expect(() => androidVersionFile('0.0.0')).toThrow('范围')
   })
 
-  it('发布说明按文件名列出各端安装包，不认识的文件不列', () => {
-    expect(platformOf('yingbox-setup-1.0.3.exe')).toBe('Windows')
-    expect(platformOf('yingbox-1.0.3.dmg')).toBe('macOS')
-    expect(platformOf('sha256sum.txt')).toBeNull()
-    const text = releaseNotes({
-      version: '1.0.3',
-      files: [
-        'yingbox-setup-1.0.3.exe',
-        'yingbox-android-1.0.3-arm64-v8a.apk',
-        'sha256sum.txt',
-      ],
-    })
-    expect(text).toContain('yingbox-setup-1.0.3.exe')
-    expect(text).toContain('arm64-v8a')
-    expect(text).not.toContain('| sha256sum.txt')
-    expect(text).toContain('yingbox-nas:1.0.3-nas.1')
-    expect(text).not.toContain('mpv')
+  it('发布说明只读 docs/release-notes，缺文件或空文件就报错', async () => {
+    const notesDir = join(dir, 'docs/release-notes')
+    await mkdir(notesDir, { recursive: true })
+    await writeFile(join(notesDir, '1.0.3.md'), '新增\n- 测试说明\n')
+    await expect(readReleaseNotes(dir, '1.0.3')).resolves.toBe(
+      '新增\n- 测试说明\n'
+    )
+    await expect(readReleaseNotes(dir, '9.9.9')).rejects.toThrow('缺少发布说明')
+    await writeFile(join(notesDir, 'empty.md'), '  \n')
+    await expect(readReleaseNotes(dir, 'empty')).rejects.toThrow('是空的')
   })
 })
 

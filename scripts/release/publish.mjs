@@ -11,7 +11,7 @@ import { readFile, readdir, writeFile } from 'node:fs/promises'
 import { basename, join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 import { CHECKSUM_FILE } from './checksums.mjs'
-import { releaseNotes } from './notes.mjs'
+import { readReleaseNotes } from './notes.mjs'
 
 const gh = (...args) => execFileSync('gh', args, { encoding: 'utf8' })
 
@@ -58,7 +58,7 @@ async function main([tag, dir]) {
     if (!/not found|404/i.test(view.stderr || ''))
       throw new Error(view.stderr || '查询发布失败')
     const notes = join(dir, '..', `${basename(dir)}-notes.md`)
-    await writeFile(notes, releaseNotes({ version, files: names }))
+    await writeFile(notes, await readReleaseNotes('.', version))
     gh(
       'release',
       'create',

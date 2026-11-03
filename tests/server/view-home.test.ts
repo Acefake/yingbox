@@ -126,6 +126,78 @@ describe('view.home 拼装（ADR-0030）', () => {
     expect(home.genres).toEqual(HOME_GENRES)
     expect(home.collections.every(c => c.posters.length === 0)).toBe(true)
   })
+
+  describe('轮播的标志图（TMDB logos）', () => {
+    /** TMDB 搜到条目（名称、年份一致），/images 给一张中文标志图 */
+    const withLogo = vi.fn(
+      async (path: string, query: Record<string, string | number>) => {
+        if (path.startsWith('/search/'))
+          return {
+            results: [
+              {
+                id: 603,
+                title: String(query.query),
+                name: String(query.query),
+                release_date: '2024-01-01',
+                first_air_date: '2024-01-01',
+                poster_path: '/p.jpg',
+              },
+            ],
+          }
+        if (path === '/movie/603/images')
+          return {
+            logos: [
+              {
+                file_path: '/zh.png',
+                iso_639_1: 'zh',
+                vote_average: 5,
+                width: 500,
+              },
+              {
+                file_path: '/en.png',
+                iso_639_1: 'en',
+                vote_average: 9,
+                width: 800,
+              },
+            ],
+          }
+        return null
+      }
+    )
+
+    it('热门电影前几张带中文标志图，换成本服务缩略图路径', async () => {
+      const home = await buildHomeFeed(deps({ search: withLogo }))
+      const card = home.hotMovies!.items[0]
+      expect(card.logo).not.toBeNull()
+      expect(thumbSource(card.logo!)).toBe(
+        'https://image.tmdb.org/t/p/w500/zh.png'
+      )
+      expect(withLogo).toHaveBeenCalledWith('/movie/603/images', {
+        include_image_language: 'zh,en,null',
+      })
+    })
+
+    it('剧集货架和榜单不取标志图，没有令牌时也是 null', async () => {
+      const home = await buildHomeFeed(deps({ search: withLogo }))
+      expect(home.hotTv!.items.every(c => c.logo === null)).toBe(true)
+      expect(home.chart!.items.every(c => c.logo === null)).toBe(true)
+
+      const noToken = await buildHomeFeed(deps())
+      expect(noToken.hotMovies!.items.every(c => c.logo === null)).toBe(true)
+    })
+
+    it('取标志图出错只是没有标志图，不影响首页', async () => {
+      const search = vi.fn(
+        async (path: string, query: Record<string, string | number>) => {
+          if (path.endsWith('/images')) throw new Error('网络错误')
+          return withLogo(path, query)
+        }
+      )
+      const home = await buildHomeFeed(deps({ search }))
+      expect(home.hotMovies!.items.length).toBeGreaterThan(0)
+      expect(home.hotMovies!.items.every(c => c.logo === null)).toBe(true)
+    })
+  })
 })
 
 describe('首页缓存', () => {

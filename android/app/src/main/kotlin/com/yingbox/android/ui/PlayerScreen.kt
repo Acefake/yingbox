@@ -230,5 +230,6 @@ fun PlayerScreen(client: ServerClient, request: PlayRequest, autoNext: Boolean, 
         title,
         onPrevious = if (index > 0) ({ goTo(index - 1) }) else null,
         onNext = if (index + 1 < lines.size) ({ goTo(index + 1) }) else null,
+        onBack = exit,
     )
 }
