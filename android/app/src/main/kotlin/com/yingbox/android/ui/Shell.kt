@@ -68,7 +68,12 @@ fun BoxScope.NavCapsule(current: Tab, top: Boolean, contentFocus: FocusRequester
         for (tab in Tab.entries) {
             val selected = tab == current
             val item = Modifier.onFocusChanged { if (it.isFocused) onFocused() }.focusProperties {
-                if (top) down = contentFocus
+                if (top) {
+                    down = contentFocus
+                    // 导航两端按左右键停住，不要溜进下面的内容
+                    if (tab == Tab.entries.last()) right = FocusRequester.Cancel
+                    if (tab == Tab.entries.first()) left = FocusRequester.Cancel
+                }
             }.focusFrame(shape = YbRadius.Full, selected = selected) { select(tab) }
             if (top) {
                 Row(
