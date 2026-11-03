@@ -48,6 +48,14 @@ object YbColor {
     /** 主按钮：深色下白底黑字 */
     /** 评分星（--rating） */
     val Rating = Color(0xFFFFD60A)
+    /** 测速成功的状态点（--success） */
+    val Success = Color(0xFF30D158)
+    /** 测速中的状态点（--warning） */
+    val Warning = Color(0xFFFF9F0A)
+    /** 强调色的浅底（--accent-soft），「最快」标签用 */
+    val AccentSoft = Color(0x330A84FF)
+    /** 规格标签的浅灰实心底（UiSpecBadge solid） */
+    val SpecSolid = Color(0xFFD1D1D6)
     val ActionBg = Color(0xFFF5F5F7)
     val ActionText = Color(0xFF111113)
     /** 玻璃底色（--glass-bg） */

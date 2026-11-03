@@ -14,7 +14,8 @@ import {
   isDirectMediaUrl,
   resolvePlaySource,
 } from '../../shared/online/play-source'
-import { normalizeTitle } from '../../shared/online/sources'
+import type { SourceProbe } from '../../shared/online/auto-source'
+import { groupBySite, normalizeTitle } from '../../shared/online/sources'
 import type { EpisodeGroup } from '../../shared/online/types'
 import type {
   ViewDetail,
@@ -23,6 +24,7 @@ import type {
   ViewSources,
 } from '../../shared/view/detail'
 import { thumbPath } from './home'
+import type { Prober } from './probe'
 import { type SourceDeps, searchSources, sourceSites } from './sources'
 
 const thumbOr = (src: string, width: 300 | 480 | 780): string | null =>
@@ -113,12 +115,30 @@ export interface SourceSessions {
 export function createSourceSessions(
   deps: SourceDeps,
   now: () => number = Date.now,
-  newId: () => string = randomUUID
+  newId: () => string = randomUUID,
+  /** 测速；缺省不测，站点保持找到的先后、状态都是测速中 */
+  prober?: Prober
 ): SourceSessions {
   const sessions = new Map<string, Session>()
   const view = (s: Session): ViewSources => {
     s.seenAt = now()
-    s.view ??= { sessionId: s.id, done: s.done, sites: sourceSites(s.groups) }
+    if (!s.view) {
+      // 每次重算都过一遍测速：没测过的排队去测，测完让下次取结果时重算
+      const probes: Record<string, SourceProbe> = {}
+      for (const site of groupBySite(s.groups))
+        probes[site.siteName] = prober
+          ? prober.ensure(site, () => {
+              s.view = null
+            })
+          : { status: 'pending' }
+      s.view = {
+        sessionId: s.id,
+        done: s.done,
+        probing:
+          !!prober && Object.values(probes).some(p => p.status === 'pending'),
+        sites: sourceSites(s.groups, prober ? probes : {}),
+      }
+    }
     return s.view
   }
   const finish = (s: Session): void => {

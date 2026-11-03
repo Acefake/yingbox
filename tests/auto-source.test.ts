@@ -22,7 +22,7 @@ import {
   probeKey,
   rankSites,
   resolutionLabel,
-} from '../src/renderer/src/features/online/utils/auto-source'
+} from '../src/shared/online/auto-source'
 import {
   formatClock,
   isStalled,

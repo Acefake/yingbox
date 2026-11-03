@@ -20,6 +20,15 @@ class DeviceSettings(context: Context) {
     var autoNext by mutableStateOf(prefs.getBoolean(AUTO_NEXT, true))
         private set
 
+    /** 播放出错或卡住时自动换到别的站点（桌面同名设置 online.autoSwitchSource） */
+    var autoSwitchSource by mutableStateOf(prefs.getBoolean(AUTO_SWITCH, true))
+        private set
+
+    fun updateAutoSwitchSource(on: Boolean) {
+        autoSwitchSource = on
+        prefs.edit().putBoolean(AUTO_SWITCH, on).apply()
+    }
+
     fun updateReduceTransparency(on: Boolean) {
         reduceTransparency = on
         prefs.edit().putBoolean(REDUCE_TRANSPARENCY, on).apply()
@@ -33,5 +42,6 @@ class DeviceSettings(context: Context) {
     private companion object {
         const val REDUCE_TRANSPARENCY = "ui.reduceTransparency"
         const val AUTO_NEXT = "player.autoNext"
+        const val AUTO_SWITCH = "online.autoSwitchSource"
     }
 }

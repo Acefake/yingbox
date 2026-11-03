@@ -1,76 +1,27 @@
 <template>
-  <div class="dw-hero" :class="{ 'is-phone': isPhone }">
-    <!-- 海报 -->
-    <div class="dw-poster-wrap">
-      <img
-        :src="
-          webImageSrc(
-            tmdbDetail?.poster_path
-              ? `https://images.tmdb.org/t/p/w342${tmdbDetail.poster_path}`
-              : doubanDetail?.cover || itemPic
-          )
-        "
-        class="dw-poster"
-        @error="onImgError"
-      />
-    </div>
-    <!-- 信息 -->
-    <div class="dw-info">
-      <div class="dw-summary">
-        <h1 class="dw-title">
-          {{
-            doubanDetail?.title ||
-            tmdbDetail?.title ||
-            tmdbDetail?.name ||
-            itemName
-          }}
-        </h1>
-        <h3
-          v-if="
-            doubanDetail?.originalTitle ||
-            tmdbDetail?.original_title ||
-            tmdbDetail?.original_name
-          "
-          class="dw-orig-title"
-        >
-          {{
-            doubanDetail?.originalTitle ||
-            tmdbDetail?.original_title ||
-            tmdbDetail?.original_name
-          }}
-        </h3>
-        <div class="dw-meta-row">
-          <span v-if="rating" class="dw-rating">
-            <UiIcon name="star" size="sm" filled />
-            {{ rating }}
-          </span>
-          <span v-if="year" class="dw-tag">
-            {{ year }}
-          </span>
-          <span v-if="duration" class="dw-tag">{{ duration }}</span>
-          <span v-for="g in genres.slice(0, 4)" :key="g" class="dw-tag">{{
-            g
-          }}</span>
-          <span
-            v-if="
-              itemData?._source === 'catspider' || itemData?._source === 'cms'
-            "
-            class="dw-tag"
-            :class="{
-              'source-vod': itemData._source === 'catspider',
-              'source-cms': itemData._source === 'cms',
-            }"
-          >
-            {{ itemData._source === 'catspider' ? '插件源' : 'CMS' }}
-            <template v-if="itemData.source_name"
-              >· {{ itemData.source_name }}</template
-            >
-          </span>
-        </div>
-      </div>
-      <div class="dw-actions">
+  <!-- 头图：与本地电影 / 剧集详情页同一版式（Apple TV 式）——剧照铺满，下部渐进模糊并压暗，文案压在左下 -->
+  <header class="dw-hero yb-on-media" :class="{ 'is-phone': isPhone }">
+    <img
+      v-if="image"
+      class="dw-hero-image"
+      :src="webImageSrc(image)"
+      alt=""
+      decoding="async"
+      @load="onFadeIn"
+      @error="onImgError"
+    />
+    <span class="yb-pblur dw-hero-blur" aria-hidden="true"
+      ><i /><i /><i /><i
+    /></span>
+    <div class="dw-hero-side" aria-hidden="true" />
+    <div class="dw-hero-content">
+      <h1 class="dw-hero-title">{{ title }}</h1>
+      <h2 v-if="originalTitle" class="dw-hero-orig">{{ originalTitle }}</h2>
+      <!-- 主操作：白色播放胶囊 + 想看等玻璃圆钮 -->
+      <div class="dw-hero-actions">
         <UiButton
           v-if="currentEpisodes.length"
+          class="dw-hero-play"
           variant="primary"
           size="lg"
           icon="play"
@@ -83,55 +34,48 @@
         />
         <slot name="actions" />
       </div>
-      <div
-        v-if="doubanDetail?.intro || tmdbDetail?.overview || itemOverview"
-        class="dw-overview-section"
+      <p
+        v-if="overview"
+        class="dw-hero-overview"
+        :class="{ 'is-expanded': overviewOpen }"
+        :title="overviewOpen ? '' : '点击展开'"
+        @click="overviewOpen = !overviewOpen"
       >
-        <p
-          class="dw-overview"
-          :class="{ 'is-collapsed': isPhone && !overviewExpanded }"
-        >
-          {{ doubanDetail?.intro || tmdbDetail?.overview || itemOverview }}
-        </p>
-        <UiButton
-          v-if="isPhone"
-          variant="secondary"
-          size="sm"
-          :label="overviewExpanded ? '收起简介' : '展开简介'"
-          :aria-expanded="overviewExpanded"
-          @click="overviewExpanded = !overviewExpanded"
-        />
-      </div>
-      <div class="dw-meta-table">
-        <div v-if="directors.length" class="dw-meta-item">
-          <span class="dw-meta-label">导演</span>
-          <span class="dw-meta-val">{{ directors.join('、') }}</span>
-        </div>
-        <div v-if="countries.length" class="dw-meta-item">
-          <span class="dw-meta-label">地区</span>
-          <span class="dw-meta-val">{{ countries.join('、') }}</span>
-        </div>
-      </div>
-      <slot />
+        {{ overview }}
+      </p>
+      <p class="dw-hero-meta">
+        <span v-if="rating" class="dw-hero-rating">
+          <UiIcon name="star" size="sm" filled />
+          {{ rating }}
+        </span>
+        <span v-for="part in metaParts" :key="part" class="dw-hero-meta-part">
+          {{ part }}
+        </span>
+        <span v-if="sourceTag" class="dw-hero-meta-part">{{ sourceTag }}</span>
+      </p>
+      <p v-for="line in credits" :key="line.label" class="dw-hero-credit">
+        <span class="dw-hero-credit-label">{{ line.label }}</span
+        >{{ line.names }}
+      </p>
     </div>
-  </div>
+  </header>
 </template>
 
 <script setup lang="ts">
 /**
- * 在线详情页的主信息块：海报、标题、评分 / 年份 / 类型 / 来源标签、播放按钮、简介和导演地区。
- * 播放源选择通过默认插槽放在信息列的末尾；actions 插槽接在播放按钮后面（如「想看」）。
+ * 在线详情页的头图：剧照（没有就用海报）铺满、下部渐进模糊 + 压暗，左下是片名、原名、播放胶囊 + 想看等玻璃圆钮
+ * （actions 插槽）、两行简介（点击展开）、评分 · 年份 · 时长 · 类型 · 来源，以及导演 / 主演 / 地区。
+ * 版式与库内详情（features/library/detail/DetailHero.vue）一致；播放源选择与演员剧照在头图下面（DetailWindow）。
  */
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
-import { webImageSrc } from '@/services/thumbnails'
 import { usePlatform } from '@/composables/use-platform'
-import { computed, ref } from 'vue'
+import { webImageSrc } from '@/services/thumbnails'
+import { computed, ref, watch } from 'vue'
 import type { DoubanMetadata } from '../../../../../shared/douban/detail'
 import type { Episode, OnlineDetailItem, PluginExt, TmdbDetail } from '../types'
 
 const { isPhone } = usePlatform()
-const overviewExpanded = ref(false)
 
 const props = defineProps<{
   doubanDetail?: DoubanMetadata | null
@@ -140,9 +84,47 @@ const props = defineProps<{
   itemName: string
   itemPic: string
   itemOverview: string
+  /** 剧照；没有时用海报 */
+  backdrop: string
   directors: string[]
+  actors: string[]
   currentEpisodes: Episode[]
 }>()
+
+const emit = defineEmits<{
+  (e: 'play', url: string, ext?: PluginExt): void
+}>()
+
+const overviewOpen = ref(false)
+watch(
+  () => props.itemName,
+  () => {
+    overviewOpen.value = false
+  }
+)
+
+const image = computed(() => props.backdrop || props.itemPic)
+const title = computed(
+  () =>
+    props.doubanDetail?.title ||
+    props.tmdbDetail?.title ||
+    props.tmdbDetail?.name ||
+    props.itemName
+)
+const originalTitle = computed(() => {
+  const orig =
+    props.doubanDetail?.originalTitle ||
+    props.tmdbDetail?.original_title ||
+    props.tmdbDetail?.original_name ||
+    ''
+  return orig && orig !== title.value ? orig : ''
+})
+const overview = computed(
+  () =>
+    props.doubanDetail?.intro ||
+    props.tmdbDetail?.overview ||
+    props.itemOverview
+)
 const rating = computed(() => {
   const score =
     props.doubanDetail?.rating?.value || Number(props.itemData?.doubanRating)
@@ -177,185 +159,205 @@ const countries = computed(() =>
     ? props.doubanDetail.countries
     : (props.tmdbDetail?.production_countries ?? []).map(c => c.name)
 )
-const emit = defineEmits<{
-  (e: 'play', url: string, ext?: PluginExt): void
-}>()
+/** 年份 · 时长 · 类型（评分单独一段带星标） */
+const metaParts = computed(() =>
+  [year.value, duration.value, ...genres.value.slice(0, 4)].filter(Boolean)
+)
+const sourceTag = computed(() => {
+  const data = props.itemData
+  if (data?._source !== 'catspider' && data?._source !== 'cms') return ''
+  const kind = data._source === 'catspider' ? '插件源' : 'CMS'
+  return data.source_name ? `${kind} · ${data.source_name}` : kind
+})
+const credits = computed(() =>
+  [
+    { label: '导演', names: props.directors.join('、') },
+    { label: '主演', names: props.actors.slice(0, 6).join('、') },
+    { label: '地区', names: countries.value.join('、') },
+  ].filter(line => line.names)
+)
 
-const onImgError = (e: Event): void => {
-  ;(e.target as HTMLImageElement).src =
-    'data:image/svg+xml,<svg xmlns="http://www.w3.org/2000/svg" width="140" height="210"><rect width="140" height="210" fill="%231f2937"/><text x="70" y="110" text-anchor="middle" fill="%236b7280" font-size="13">无封面</text></svg>'
+function onFadeIn(event: Event): void {
+  ;(event.target as HTMLElement).dataset.loaded = ''
+}
+
+/** 图片加载失败：留着渐变底色，不显示破图 */
+function onImgError(event: Event): void {
+  ;(event.target as HTMLElement).style.display = 'none'
 }
 </script>
 
 <style scoped>
-* {
-  box-sizing: border-box;
-  margin: 0;
-  padding: 0;
-}
-
 .dw-hero {
-  display: grid;
-  grid-template-columns: 220px minmax(0, 1fr);
-  gap: var(--space-6_5);
-  align-items: flex-start;
-  margin-bottom: var(--space-7);
+  position: relative;
+  display: flex;
+  align-items: flex-end;
+  min-height: max(480px, 62vh);
+  padding: var(--space-10) var(--detail-gutter)
+    calc(var(--space-7) + var(--hero-detail-lift)) var(--detail-x);
+  overflow: hidden;
+  -webkit-mask-image: var(--hero-detail-mask);
+  mask-image: var(--hero-detail-mask);
+  background: var(--bg-fill-secondary);
+  isolation: isolate;
 }
 
-.dw-poster-wrap {
-  flex-shrink: 0;
-  width: 220px;
-}
-
-.dw-poster {
-  display: block;
+.dw-hero-image {
+  position: absolute;
+  inset: 0;
   width: 100%;
-  border-radius: var(--radius-lg);
-  box-shadow: var(--shadow-lg);
+  height: 100%;
+  object-fit: cover;
+  object-position: center 20%;
+  opacity: 0;
+  transition: opacity var(--duration-slow) var(--ease-out);
 }
 
-.dw-info {
-  min-width: 0;
+.dw-hero-image[data-loaded] {
+  opacity: 1;
+}
+
+/* 下部渐进模糊，最上层压暗（浅色主题在 --hero-detail-mask 里渐隐到页面底色） */
+.dw-hero-blur {
+  --pblur-height: 50%;
+  --pblur-tint: var(--scrim-detail-hero);
+}
+
+.dw-hero-side {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(
+    90deg,
+    color-mix(in srgb, var(--bg-content) 55%, transparent) 0%,
+    color-mix(in srgb, var(--bg-content) 35%, transparent) 30%,
+    transparent 58%
+  );
+  pointer-events: none;
+}
+
+.dw-hero-content {
+  position: relative;
+  z-index: var(--z-raised);
+  width: min(640px, 100%);
   overflow-wrap: anywhere;
 }
 
-.dw-title {
-  margin: 0 0 var(--space-1);
+.dw-hero-title {
+  margin: 0 0 var(--space-2);
   color: var(--text-primary);
   font-family: var(--font-display);
   font-size: var(--text-3xl);
-  font-weight: var(--font-weight-bold);
-  letter-spacing: var(--tracking-tight);
+  font-weight: var(--font-weight-bold); /* style-tokens: visual（片名大标题） */
   line-height: var(--leading-tight);
+  letter-spacing: var(--tracking-tight);
 }
 
-.dw-orig-title {
+.dw-hero-orig {
   margin: 0 0 var(--space-4);
   color: var(--text-tertiary);
   font-size: var(--text-md);
   font-weight: var(--font-weight-regular);
 }
 
-.dw-meta-row {
+/* —— 操作：48px 白色播放胶囊 + 玻璃圆钮（插槽里的想看等按钮） —— */
+.dw-hero-actions {
   display: flex;
   flex-wrap: wrap;
   align-items: center;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-  color: var(--text-secondary);
-  font-size: var(--text-sm);
+  gap: var(--space-3);
+  margin: var(--space-5) 0;
 }
 
-.dw-rating {
+.dw-hero-play {
+  height: var(--space-9);
+  padding: 0 var(--space-6_5) 0 var(--space-5);
+  font-size: var(--text-md);
+}
+
+.dw-hero-actions :slotted(.dw-hero-circle) {
+  --ib-size: var(--space-9);
+  border-radius: var(--radius-full);
+  background: var(--glass-bg);
+  color: var(--text-primary);
+}
+
+.dw-hero-actions :slotted(.dw-hero-circle:hover:not(:disabled)) {
+  background: var(--glass-bg-hover);
+}
+
+.dw-hero-overview {
+  display: -webkit-box;
+  width: min(600px, 100%);
+  margin: 0 0 var(--space-3_5);
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-md);
+  line-height: 1.62;
+  cursor: pointer;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  line-clamp: 2;
+}
+
+.dw-hero-overview.is-expanded {
+  display: block;
+}
+
+/* —— 规格行：★ 评分 · 年份 · 时长 · 类型 · 来源 —— */
+.dw-hero-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: var(--space-1) 0;
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  font-variant-numeric: tabular-nums;
+}
+
+.dw-hero-rating {
   display: inline-flex;
   align-items: center;
   gap: var(--space-1);
   color: var(--text-primary);
   font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
 }
 
-.dw-rating em {
-  display: none;
-}
-
-.dw-tag {
-  color: var(--text-secondary);
-  white-space: nowrap;
-}
-
-.dw-rating .app-icon {
+.dw-hero-rating .app-icon {
   color: var(--rating);
 }
 
-.dw-rating + .dw-tag::before,
-.dw-tag + .dw-tag::before {
+.dw-hero-rating + .dw-hero-meta-part::before,
+.dw-hero-meta-part + .dw-hero-meta-part::before {
+  margin: 0 var(--space-2);
   content: '·';
-  margin-right: var(--space-2);
-  color: var(--text-quaternary);
 }
 
-.dw-actions {
-  display: flex;
-  flex-wrap: wrap;
-  align-items: center;
-  gap: var(--space-3);
-  margin-bottom: var(--space-6);
-}
-
-.dw-overview {
-  max-width: 64ch;
-  margin: 0 0 var(--space-5);
-  color: var(--text-secondary);
-  font-size: var(--text-md);
-  line-height: 1.65;
-}
-
-.dw-meta-table {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-2);
-  margin-bottom: var(--space-5);
-}
-
-.dw-meta-item {
-  display: flex;
-  gap: var(--space-2);
-}
-
-.dw-meta-label {
-  font-size: var(--text-2xs);
-  color: var(--text-tertiary);
-  width: 36px;
-  flex-shrink: 0;
-  margin-top: 1px;
-}
-
-.dw-meta-val {
-  font-size: var(--text-xs);
-  color: var(--text-secondary);
-}
-
-@media (max-width: 860px) {
-  .dw-hero {
-    grid-template-columns: minmax(0, 1fr);
-  }
-
-  .dw-poster-wrap {
-    width: min(220px, 100%);
-  }
-}
-
-.dw-hero.is-phone {
-  grid-template-columns: 96px minmax(0, 1fr);
-  gap: var(--space-4);
-}
-.dw-hero.is-phone .dw-poster-wrap {
-  width: 96px;
-}
-.dw-hero.is-phone .dw-info {
-  display: contents;
-}
-.dw-hero.is-phone .dw-info > * {
-  grid-column: 1 / -1;
-}
-.dw-hero.is-phone .dw-info > .dw-summary {
-  grid-column: 2;
-  grid-row: 1;
-}
-.dw-hero.is-phone .dw-title {
-  font-size: var(--text-xl);
-}
-.dw-hero.is-phone .dw-actions {
-  margin-bottom: 0;
-}
-.dw-hero.is-phone .dw-overview {
-  margin-bottom: var(--space-2);
-}
-.dw-overview.is-collapsed {
-  display: -webkit-box;
+.dw-hero-credit {
+  margin: var(--space-2_5) 0 0;
   overflow: hidden;
-  -webkit-box-orient: vertical;
-  -webkit-line-clamp: 3;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.dw-hero-credit + .dw-hero-credit {
+  margin-top: var(--space-1);
+}
+
+.dw-hero-credit-label {
+  margin-right: var(--space-1_5);
+  color: var(--text-tertiary);
+}
+
+@media (max-width: 720px) {
+  .dw-hero {
+    min-height: max(420px, 60vh);
+  }
+}
+
+.dw-hero.is-phone .dw-hero-title {
+  font-size: var(--text-2xl);
 }
 </style>

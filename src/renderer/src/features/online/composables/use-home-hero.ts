@@ -220,7 +220,7 @@ export function useHomeHero(
         cover: item.backdrop || undefined,
         detail: doubanDetail(item),
       },
-      playLabel: '选源播放',
+      playLabel: '播放',
       play: () => openDouban(item),
       open: () => openDouban(item),
     }

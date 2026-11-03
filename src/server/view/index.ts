@@ -2,10 +2,13 @@
  * 视图域 view（ADR-0030）：服务端拼好页面数据给安卓原生端。取数走在线引擎（online 域），
  * 所以只在在线板块开启时登记（见 features.ts）。
  */
+import { randomUUID } from 'node:crypto'
+
 import cmsSitesFile from '../../../cms-sites.json'
 import { channelOf } from '../../shared/contract/define'
 import type {
   GetJsonResponse,
+  StreamProbe,
   VodRequest,
   VodResponse,
 } from '../../shared/contract/online'
@@ -14,13 +17,13 @@ import type { DoubanMetadata } from '../../shared/douban/detail'
 import type { DoubanPage, DoubanSubject } from '../../shared/douban/query'
 import { isThumbSource } from '../../shared/media-url'
 import type { ApiSite, CatSpiderSite } from '../../shared/online/types'
-import type { PlaySourceDeps } from '../../shared/online/play-source'
 import { type DoubanItem, doubanSubjectId } from '../../shared/douban/item'
 import type { HomeFeed } from '../../shared/view/home'
 import type { DomainRegistry } from '../domains/registry'
 import type { ServerEngine } from '../online/engine'
 import type { Playback } from '../playback'
 import { browsePage } from './browse'
+import { type ProbeDeps, createProber } from './probe'
 import { searchCards } from './search'
 import { composeHome, favoriteCards, recentCards } from './compose'
 import {
@@ -59,9 +62,7 @@ const VOD_TIMEOUT_MS = 45_000
 const CMS_SITES: ApiSite[] = (cmsSitesFile as { sites: ApiSite[] }).sites
 
 /** 引擎调用 → 选源与解析播放地址的 I/O */
-export function engineSourceDeps(
-  engine: ServerEngine
-): SourceDeps & PlaySourceDeps {
+export function engineSourceDeps(engine: ServerEngine): SourceDeps & ProbeDeps {
   const online = (method: string, args: unknown[]): Promise<unknown> =>
     engine.invoke(channelOf('online', method), args)
   // 插件调用没有统一的请求超时：与桌面 use-vod-parser 一样 45 秒没回就当失败
@@ -86,6 +87,7 @@ export function engineSourceDeps(
       return r.success ? r.data : null
     },
     resolvePage: url => online('resolvePage', [url]) as Promise<string>,
+    probeStream: url => online('probeStream', [url]) as Promise<StreamProbe>,
   }
 }
 
@@ -126,7 +128,12 @@ export function registerView(
   const deps = engineHomeDeps(engine)
   const feed = cachedHome(() => buildHomeFeed(deps))
   const sourceDeps = engineSourceDeps(engine)
-  const sessions = createSourceSessions(sourceDeps)
+  const sessions = createSourceSessions(
+    sourceDeps,
+    Date.now,
+    randomUUID,
+    createProber(sourceDeps)
+  )
   registry.implement(view, {
     home: async () =>
       composeHome(

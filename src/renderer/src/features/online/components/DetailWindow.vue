@@ -7,58 +7,56 @@
     </div>
 
     <div v-else class="dw-body">
-      <!-- 背景大图 -->
-      <div class="dw-backdrop">
-        <img
-          v-if="detailBackdrop"
-          :src="webImageSrc(detailBackdrop)"
-          class="dw-backdrop-img"
-        />
-        <div class="dw-backdrop-overlay" />
-      </div>
-
-      <!-- 内容 -->
-      <div class="dw-content min-w-0">
-        <DetailHero
-          :tmdb-detail="tmdbDetail"
-          :douban-detail="tmdb.douban.value"
-          :item-data="itemData"
-          :item-name="itemName"
-          :item-pic="itemPic"
-          :item-overview="itemOverview"
-          :directors="
-            tmdb.douban.value?.directors.length
-              ? tmdb.douban.value.directors
-              : tmdb.directors.value
-          "
-          :current-episodes="sources.currentEpisodes.value"
-          @play="playEp"
-        >
-          <template #actions>
-            <WatchlistButton :meta="watchlistMeta" />
-            <MovieTrackButton
-              :tmdb-id="tmdbDetail?.title ? tmdbDetail.id : null"
-            />
-          </template>
-          <DetailSourcePicker
-            :searching="sources.searching.value"
-            :has-groups="sources.episodeGroups.value.length > 0"
-            :source-type-options="sources.typeOptions.value"
-            :current-source-type="sources.currentSourceType.value"
-            :site-groups="sources.siteGroups.value"
-            :active-site="sources.activeSite.value"
-            :active-line="sources.activeLine.value"
-            :current-episodes="sources.currentEpisodes.value"
-            :current-url="currentUrl"
-            :probes="sources.probes.value"
-            :probing="sources.probing.value"
-            @switch-type="sources.switchSourceType"
-            @switch-site="sources.switchSite"
-            @switch-line="sources.switchLine"
-            @reprobe="sources.reprobe"
-            @play="playEp"
+      <!-- 头图：与库内详情同一版式，剧照铺满、文案在左下 -->
+      <DetailHero
+        :tmdb-detail="tmdbDetail"
+        :douban-detail="tmdb.douban.value"
+        :item-data="itemData"
+        :item-name="itemName"
+        :item-pic="itemPic"
+        :item-overview="itemOverview"
+        :backdrop="detailBackdrop"
+        :directors="
+          tmdb.douban.value?.directors.length
+            ? tmdb.douban.value.directors
+            : tmdb.directors.value
+        "
+        :actors="actorNames"
+        :current-episodes="sources.currentEpisodes.value"
+        @play="playEp"
+      >
+        <template #actions>
+          <WatchlistButton
+            class="dw-hero-circle yb-glass"
+            :meta="watchlistMeta"
           />
-        </DetailHero>
+          <MovieTrackButton
+            class="dw-hero-circle yb-glass"
+            :tmdb-id="tmdbDetail?.title ? tmdbDetail.id : null"
+          />
+        </template>
+      </DetailHero>
+
+      <!-- 头图下面：播放源选择、演员与剧照 -->
+      <div class="dw-content min-w-0">
+        <DetailSourcePicker
+          :searching="sources.searching.value"
+          :has-groups="sources.episodeGroups.value.length > 0"
+          :source-type-options="sources.typeOptions.value"
+          :current-source-type="sources.currentSourceType.value"
+          :site-groups="sources.siteGroups.value"
+          :active-site="sources.activeSite.value"
+          :active-line="sources.activeLine.value"
+          :current-episodes="sources.currentEpisodes.value"
+          :current-url="currentUrl"
+          :probes="sources.probes.value"
+          :probing="sources.probing.value"
+          @switch-type="sources.switchSourceType"
+          @switch-site="sources.switchSite"
+          @switch-line="sources.switchLine"
+          @reprobe="sources.reprobe"
+          @play="playEp"
+        />
         <DetailCastGallery
           :cast="tmdb.cast.value"
           :douban-cast="tmdb.douban.value?.actors"
@@ -79,7 +77,6 @@
  * TMDB 与播放源加载在 useTmdbDetail / useDetailSources，规则在 ../utils/detail-sources。
  */
 import { toast } from '@/components/ui'
-import { webImageSrc } from '@/services/thumbnails'
 import { asText } from '../../../../../shared/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import { asRawVod } from '../../../../../shared/online/vod-data'
@@ -126,6 +123,12 @@ const detailBackdrop = computed(
     tmdb.douban.value?.backdrop ||
     itemData.value?.backdrop ||
     ''
+)
+/** 主演名单：豆瓣的演员优先，没有用 TMDB 的 */
+const actorNames = computed(() =>
+  tmdb.douban.value?.actors.length
+    ? tmdb.douban.value.actors.map(actor => actor.name)
+    : tmdb.cast.value.map(actor => actor.name)
 )
 const itemName = ref('')
 const itemPic = ref('')
@@ -324,37 +327,10 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   border-radius: var(--radius-xs);
 }
 
-.dw-backdrop {
-  position: absolute;
-  inset: 0 0 auto;
-  width: 100%;
-  height: 360px;
-  overflow: hidden;
-}
-
-.dw-backdrop-img {
-  width: 100%;
-  height: 100%;
-  object-fit: cover;
-  object-position: top;
-  filter: brightness(0.5);
-}
-
-.dw-backdrop-overlay {
-  position: absolute;
-  inset: 0;
-  background: linear-gradient(
-    to bottom,
-    transparent 20%,
-    var(--bg-content) 100%
-  );
-}
-
 .dw-content {
   position: relative;
   width: 100%;
   min-width: 0;
-  padding: calc(var(--shell-top) + var(--space-8)) var(--detail-gutter)
-    var(--space-9) var(--detail-x);
+  padding: var(--space-7) var(--detail-gutter) var(--space-9) var(--detail-x);
 }
 </style>

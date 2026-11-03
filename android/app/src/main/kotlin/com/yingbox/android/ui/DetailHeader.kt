@@ -45,11 +45,62 @@ class DetailActions(
 )
 
 /**
- * 详情头部，照桌面详情页：剧照做背景渐暗到页面底色；海报在左，片名、原名、
- * 评分 · 年份 · 时长 · 类型在右；下面是播放 / 收藏、简介（手机折叠成 3 行）、导演和地区。
+ * 详情头部。有剧照时照本地电影 / 剧集详情页（Apple TV 式）：剧照铺满，渐暗到页面底色，
+ * 文案在左下——大号片名、白色播放胶囊 + 玻璃圆形收藏钮、简介、评分 · 年份 · 时长 · 类型、导演和主演。
+ * 没有剧照（搜索结果、豆瓣缺图）时退回海报在左的版式。
  */
 @Composable
 internal fun DetailHeader(detail: ViewDetail?, title: String, poster: String, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
+    if (detail?.backdrop != null) CinemaHeader(detail, client, actions, onActionsFocused)
+    else PosterHeader(detail, title, poster, client, actions, onActionsFocused)
+}
+
+/** 剧照铺满的头部（本地详情页的版式） */
+@Composable
+private fun CinemaHeader(detail: ViewDetail, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
+    val gutter = gutter()
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    Box(Modifier.fillMaxWidth().heightIn(min = heroMinHeight()), contentAlignment = Alignment.BottomStart) {
+        RemoteImage(detail.backdrop.orEmpty(), client, Modifier.matchParentSize())
+        Box(Modifier.matchParentSize().background(heroScrim()))
+        Box(Modifier.matchParentSize().background(heroSideScrim()))
+        Column(
+            Modifier.fillMaxWidth(if (wide) 0.6f else 1f).padding(start = gutter, end = gutter, top = belowBackButton(), bottom = YbSpace.S6),
+            verticalArrangement = Arrangement.spacedBy(YbSpace.S3),
+        ) {
+            Text(detail.title, color = YbColor.TextPrimary, fontSize = YbText.Xl3, fontWeight = FontWeight.Bold, maxLines = 2, overflow = TextOverflow.Ellipsis)
+            Row(
+                Modifier.onFocusChanged { if (it.hasFocus) onActionsFocused() }.focusGroup(),
+                horizontalArrangement = Arrangement.spacedBy(YbSpace.S3),
+                verticalAlignment = Alignment.CenterVertically,
+            ) {
+                if (actions.play != null) PrimaryButton(actions.playLabel, YbIcons.Play, actions.play)
+                GlassIconButton(
+                    if (actions.favorite) YbIcons.HeartFill else YbIcons.Heart,
+                    if (actions.favorite) "取消收藏" else "收藏",
+                    media = true,
+                    onClick = actions.toggleFavorite,
+                )
+            }
+            if (detail.overview.isNotEmpty()) Overview(detail.overview, collapsible = true, lines = 2, tapToExpand = true)
+            MetaRow(detail)
+            val credits = listOf(
+                "导演" to detail.directors.take(2).joinToString(" / "),
+                "主演" to detail.actors.take(4).joinToString(" / ") { it.name },
+            ).filter { it.second.isNotEmpty() }
+            for ((label, names) in credits) {
+                Row {
+                    Text(label, color = YbColor.TextTertiary, fontSize = YbText.Xs, modifier = Modifier.width(40.dp))
+                    Text(names, color = YbColor.TextSecondary, fontSize = YbText.Xs, maxLines = 1, overflow = TextOverflow.Ellipsis)
+                }
+            }
+        }
+    }
+}
+
+/** 海报在左的头部（没有剧照时用）：片名、原名、评分 · 年份 · 时长 · 类型在右；下面是播放 / 收藏、简介、导演和地区 */
+@Composable
+private fun PosterHeader(detail: ViewDetail?, title: String, poster: String, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
     val gutter = gutter()
     val wide = LocalConfiguration.current.screenWidthDp >= 600
     Box(Modifier.fillMaxWidth().heightIn(min = heroMinHeight())) {
@@ -113,18 +164,19 @@ private fun MetaRow(detail: ViewDetail) {
 
 /** 简介：手机折叠成 3 行，点「展开简介」看全文 */
 @Composable
-private fun Overview(text: String, collapsible: Boolean) {
+private fun Overview(text: String, collapsible: Boolean, lines: Int = 3, tapToExpand: Boolean = false) {
     var expanded by remember(text) { mutableStateOf(false) }
     Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
         Text(
             text,
             color = YbColor.TextSecondary,
             fontSize = YbText.Md,
-            maxLines = if (collapsible && !expanded) 3 else Int.MAX_VALUE,
+            maxLines = if (collapsible && !expanded) lines else Int.MAX_VALUE,
             overflow = TextOverflow.Ellipsis,
-            modifier = Modifier.tvReadingFocus(),
+            // 头图版式（与桌面本地详情页一致）：点简介本身展开 / 收起，不另放链接
+            modifier = if (tapToExpand) Modifier.focusFrame(shape = YbRadius.Sm) { expanded = !expanded } else Modifier.tvReadingFocus(),
         )
-        if (collapsible && text.length > 60) {
+        if (collapsible && !tapToExpand && text.length > 60) {
             Text(
                 if (expanded) "收起简介" else "展开简介",
                 color = YbColor.TextPrimary,

@@ -63,13 +63,24 @@ export const ViewSourceSiteSchema = s.object('ViewSourceSite', {
   /** catspider：插件源；cms：苹果 CMS 源 */
   kind: s.enum('SourceKind', ['catspider', 'cms']),
   lines: s.array(ViewLineSchema),
+  /** 测速状态：pending 测速中，ok 成功，fail 超时或无法播放 */
+  status: s.enum('ProbeStatus', ['pending', 'ok', 'fail']),
+  /** 分辨率标签（4K / 1080P …）；没测到为空串 */
+  resolution: s.string,
+  /** 一行说明：「875 ms · 2.4 MB/s」「测速中…」「超时或无法播放」（与桌面源列表同文案） */
+  detail: s.string,
+  /** 测速成功里最快的一个 */
+  fastest: s.boolean,
 })
 
 /** 选源会话的当前结果：done 之前站点会陆续增加 */
 export const ViewSourcesSchema = s.object('ViewSources', {
   sessionId: s.string,
+  /** 搜索是否结束（站点不再增加） */
   done: s.boolean,
-  /** 插件源在前，再接 CMS 源；同类按找到的先后 */
+  /** 还有站点在测速：done 之后客户端仍要继续取，直到测速也结束 */
+  probing: s.boolean,
+  /** 测速成功的按速度从快到慢在前，测速中的其次，失败的最后；同档按找到的先后（与桌面源列表同一规则） */
   sites: s.array(ViewSourceSiteSchema),
 })
 

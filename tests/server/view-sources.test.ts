@@ -158,7 +158,12 @@ describe('选源会话', () => {
     let n = 0
     const sessions = createSourceSessions(deps(), Date.now, () => `s${++n}`)
     const first = sessions.start('小城良方')
-    expect(first).toEqual({ sessionId: 's1', done: false, sites: [] })
+    expect(first).toEqual({
+      sessionId: 's1',
+      done: false,
+      probing: false,
+      sites: [],
+    })
     await vi.waitFor(() => expect(sessions.get('s1')?.done).toBe(true))
     expect(sessions.get('s1')?.sites).toHaveLength(2)
     expect(sessions.start('小城 良方').sessionId).toBe('s1')
