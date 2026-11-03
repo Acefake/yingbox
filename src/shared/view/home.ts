@@ -60,6 +60,8 @@ export const ViewContinueSchema = s.object('ViewContinue', {
   foot: s.string,
   /** 横版封面；没有为 null */
   image: s.nullable(s.string),
+  /** 竖版海报：只有最近播放页会解析（在线记录按豆瓣 ID 取），其余、取不到为 null */
+  poster: s.nullable(s.string),
   /** 已播比例 0–1；下一集或时长未知为 0 */
   progress: s.number,
 })

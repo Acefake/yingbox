@@ -72,6 +72,7 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
         subtitle: '第 14 集',
         foot: '剩余 15 分钟',
         image: `/media/thumb?w=780&src=${encodeURIComponent('https://img.example.com/still.jpg')}`,
+        poster: null,
         progress: 0.4,
       },
     ])

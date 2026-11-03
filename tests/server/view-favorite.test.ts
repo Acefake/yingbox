@@ -111,4 +111,51 @@ describe('收藏（view.favorite）', () => {
     expect(metadata).not.toHaveBeenCalled()
     expect(playback.favorites()).toHaveLength(1)
   })
+
+  it('收藏页与最近播放页返回全部记录', async () => {
+    const { registry, playback } = setup()
+    await favorite(registry, '4', true)
+    await favorite(registry, '5', true)
+    playback.continueStart(
+      { section: 'online', key: '片', title: '片' },
+      { url: 'https://v.example.com/1.m3u8' },
+      0
+    )
+    expect(await registry.invoke('view', 'favorites', [])).toMatchObject({
+      ok: true,
+      value: [{ id: '5' }, { id: '4' }],
+    })
+    expect(await registry.invoke('view', 'recent', [])).toMatchObject({
+      ok: true,
+      value: [{ id: 'online:片', title: '片' }],
+    })
+  })
+
+  it('最近播放的在线记录按豆瓣 ID 补竖版海报，取不到时为 null', async () => {
+    const { registry, playback } = setup()
+    playback.continueStart(
+      {
+        section: 'online',
+        key: '甲',
+        title: '甲',
+        detail: { doubanId: '7', kind: 'movie' },
+      },
+      { url: 'https://v.example.com/1.m3u8' },
+      0
+    )
+    playback.continueStart(
+      { section: 'online', key: '乙', title: '乙' },
+      { url: 'https://v.example.com/2.m3u8' },
+      0
+    )
+    const result = await registry.invoke('view', 'recent', [])
+    expect(result).toMatchObject({ ok: true })
+    const cards = (
+      result as { value: { title: string; poster: string | null }[] }
+    ).value
+    const posterOf = (title: string): string | null | undefined =>
+      cards.find(card => card.title === title)?.poster
+    expect(posterOf('甲')).toMatch(/^\/media\/thumb\?/)
+    expect(posterOf('乙')).toBeNull()
+  })
 })

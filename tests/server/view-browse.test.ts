@@ -75,6 +75,8 @@ describe('浏览页（view.browse）', () => {
       home: async () => {
         throw new Error('unused')
       },
+      recent: () => [],
+      favorites: () => [],
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
       favorite: async () => false,

@@ -9,7 +9,7 @@ import type {
   ViewResume,
   ViewSources,
 } from '../view/detail'
-import type { HomeView } from '../view/home'
+import type { HomeView, ViewCard, ViewContinue } from '../view/home'
 import {
   ContractError,
   bool,
@@ -71,6 +71,10 @@ function parseTarget(value: unknown): BrowseTarget {
 export const view = defineDomain('view', {
   /** 首页：轮播、继续观看、热门货架、榜单、按类型浏览、精选片单。豆瓣部分缓存；某行取不到就省略这一行。 */
   home: call<HomeView>(),
+  /** 「最近播放」整页：全部继续观看（最近的在前） */
+  recent: call<ViewContinue[]>(),
+  /** 「我的收藏」整页：全部收藏（新收藏在前） */
+  favorites: call<ViewCard[]>(),
   /** 浏览页的一页（热门、类型、精选片单）；start 是豆瓣分页位置，第一页为 0 */
   browse: call<[target: BrowseTarget, start: number], ViewBrowsePage>(a => {
     const start = parseDoubanStart(a[1])

@@ -171,6 +171,23 @@ describe('首页缓存', () => {
     expect(build).toHaveBeenCalledTimes(2)
   })
 
+  it('某张片单没取到海报时也只缓存 30 秒', async () => {
+    let now = 0
+    let missing = true
+    const build = vi.fn(async () => {
+      const feed = await buildHomeFeed(deps())
+      if (!missing) return feed
+      const [first, ...rest] = feed.collections
+      return { ...feed, collections: [{ ...first, posters: [] }, ...rest] }
+    })
+    const home = cachedHome(build, () => now)
+    expect((await home()).collections[0].posters).toEqual([])
+    missing = false
+    now = 31 * 1000
+    expect((await home()).collections[0].posters.length).toBeGreaterThan(0)
+    expect(build).toHaveBeenCalledTimes(2)
+  })
+
   it('拼失败不缓存，下次重试', async () => {
     const build = vi
       .fn()
@@ -198,6 +215,15 @@ describe('view.home 失败隔离与去重', () => {
     const home = await buildHomeFeed(deps({ browse }))
     expect(home.hotMovies?.items).toHaveLength(1)
     expect(home.collections.every(c => c.posters.length === 0)).toBe(true)
+  })
+
+  it('片单第一页是空的时往后取，海报不缺', async () => {
+    const browse = vi.fn(async (query: DoubanQuery, start: number) => {
+      if (isCollection(query) && start === 0) return { items: [], next: 20 }
+      return { items: [subject('301', query.kind)], next: null }
+    })
+    const home = await buildHomeFeed(deps({ browse }))
+    expect(home.collections.every(c => c.posters.length > 0)).toBe(true)
   })
 
   it('同一行里重复的条目只留一张（客户端用 id 作列表 key）', async () => {

@@ -12,6 +12,7 @@ import type {
 import { view } from '../../shared/contract/view'
 import type { DoubanMetadata } from '../../shared/douban/detail'
 import type { DoubanPage, DoubanSubject } from '../../shared/douban/query'
+import { isThumbSource } from '../../shared/media-url'
 import type { ApiSite, CatSpiderSite } from '../../shared/online/types'
 import type { PlaySourceDeps } from '../../shared/online/play-source'
 import { type DoubanItem, doubanSubjectId } from '../../shared/douban/item'
@@ -20,7 +21,7 @@ import type { DomainRegistry } from '../domains/registry'
 import type { ServerEngine } from '../online/engine'
 import type { Playback } from '../playback'
 import { browsePage } from './browse'
-import { composeHome } from './compose'
+import { composeHome, favoriteCards, recentCards } from './compose'
 import {
   createSourceSessions,
   favoriteItemOf,
@@ -28,7 +29,7 @@ import {
   viewDetail,
 } from './detail'
 import { resumeView } from './resume'
-import { type HomeDeps, buildHomeFeed, isCompleteHome } from './home'
+import { type HomeDeps, buildHomeFeed, isCompleteHome, thumbPath } from './home'
 import type { SourceDeps } from './sources'
 
 /** 首页结果缓存多久（引擎另有豆瓣页缓存；这里省掉补全的几十次请求） */
@@ -133,6 +134,12 @@ export function registerView(
         records.favorites(),
         Date.now()
       ),
+    recent: () =>
+      recentCards(records.continueList(), Date.now(), async (id, kind) => {
+        const cover = (await deps.metadata(id, kind))?.cover
+        return cover && isThumbSource(cover) ? thumbPath(cover, 480) : null
+      }),
+    favorites: () => favoriteCards(records.favorites()),
     browse: (_, target, start) => browsePage(target, start, deps),
     detail: async (_, id, kind) => {
       const meta = await deps.metadata(id, kind).catch(() => null)

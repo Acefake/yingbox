@@ -121,8 +121,15 @@ async function collectionPosters(
   deps: HomeDeps
 ): Promise<string[]> {
   try {
-    const page = await deps.browse(query, 0)
-    const items = page.items.slice(0, COLLECTION_POSTERS).map(doubanItemOf)
+    // 有的片单第一页是空的（如「豆瓣高分」），与浏览页一样空页最多连取 3 页
+    let next: number | null = 0
+    let found: DoubanSubject[] = []
+    for (let tries = 0; tries < 3 && next !== null && !found.length; tries++) {
+      const page: DoubanPage = await deps.browse(query, next)
+      next = page.next
+      found = page.items
+    }
+    const items = found.slice(0, COLLECTION_POSTERS).map(doubanItemOf)
     await enrichFromTmdb(items, kind, deps.search)
     return items.map(item => viewCardOf(item, kind).poster).filter(Boolean)
   } catch {
@@ -146,9 +153,10 @@ async function collectionCards(deps: HomeDeps): Promise<ViewCollection[]> {
   )
 }
 
-/** 首页三行卡片是否都取到了（有缺行时缓存时间短，好让网络恢复后很快补上） */
+/** 首页三行卡片和每张片单的海报是否都取到了（有缺时缓存时间短，好让网络恢复后很快补上） */
 export const isCompleteHome = (home: HomeFeed): boolean =>
-  Boolean(home.hotMovies && home.hotTv && home.chart)
+  Boolean(home.hotMovies && home.hotTv && home.chart) &&
+  home.collections.every(c => c.posters.length > 0)
 
 /** 拼首页里可缓存的部分（继续观看与轮播见 compose.ts）；某行失败只省略那一行 */
 export async function buildHomeFeed(deps: HomeDeps): Promise<HomeFeed> {
