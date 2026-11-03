@@ -26,6 +26,7 @@ import androidx.compose.runtime.collectAsState
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
+import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
@@ -45,7 +46,11 @@ import com.yingbox.android.ui.BackButton
 import com.yingbox.android.ui.BrowseScreen
 import com.yingbox.android.ui.FavoritesScreen
 import com.yingbox.android.settings.DeviceSettings
+import com.yingbox.android.settings.ImageQualities
+import com.yingbox.android.settings.ServerSettingsApi
 import com.yingbox.android.ui.LocalHaze
+import com.yingbox.android.ui.LogoSplash
+import com.yingbox.android.ui.SPLASH_INTRO_MS
 import com.yingbox.android.ui.LocalIsTv
 import com.yingbox.android.ui.LocalTvFocusTopInset
 import com.yingbox.android.ui.belowBackButton
@@ -71,6 +76,7 @@ import com.yingbox.android.view.ViewCard
 import dev.chrisbanes.haze.HazeState
 import dev.chrisbanes.haze.hazeSource
 import kotlinx.coroutines.Dispatchers
+import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
@@ -112,11 +118,22 @@ private sealed interface Screen {
 private fun App(isTv: Boolean) {
     val state by LocalServer.state.collectAsState()
     val ready = state as? ServerState.Ready
-    if (ready == null) {
-        StatusScreen(state, isTv)
+    // 服务启动很快（约 2 秒），启动页至少显示到入场动画播完（启动失败立即显示原因，不等）
+    var splashDone by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(SPLASH_INTRO_MS + 300L)
+        splashDone = true
+    }
+    if (ready == null || (!splashDone && state !is ServerState.Failed)) {
+        StatusScreen(state)
         return
     }
     val client = remember(ready) { ServerClient(ready) }
+    // 启动时取一次图片清晰度设置（取不到就用高清，不影响显示）
+    LaunchedEffect(client) {
+        withContext(Dispatchers.IO) { runCatching { ServerSettingsApi(client).imageQualities() } }
+            .getOrNull()?.forEach { (kind, quality) -> ImageQualities.set(kind, quality) }
+    }
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Top(Tab.Home))) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
@@ -127,6 +144,14 @@ private fun App(isTv: Boolean) {
         LazyListState()
     }
     val contentFocus = remember { FocusRequester() }
+    // 电视刚打开时没有任何焦点，遥控器第一下方向键只会落到导航栏；内容出来后把焦点放进首页（只做这一次）
+    LaunchedEffect(Unit) {
+        if (!isTv) return@LaunchedEffect
+        repeat(20) {
+            delay(400)
+            if (runCatching { contentFocus.requestFocus() }.getOrDefault(false)) return@LaunchedEffect
+        }
+    }
     val haze = remember { HazeState() }
     val device = remember { DeviceSettings(context) }
     val topNav = useTopNav(isTv)
@@ -140,7 +165,7 @@ private fun App(isTv: Boolean) {
     }
 
     val openCard = { card: ViewCard ->
-        push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster)))
+        push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster, card.backdrop)))
     }
     val resume: (String) -> Unit = resume@{ id ->
         // 遥控器连按确定时只开一个播放器
@@ -198,32 +223,9 @@ private fun App(isTv: Boolean) {
 }
 
 @Composable
-private fun StatusScreen(state: ServerState, isTv: Boolean) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .padding(48.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(text = "影盒", color = Color.White, fontSize = 48.sp)
-        Text(
-            text = if (isTv) "电视模式" else "手机模式",
-            color = Color.White,
-            fontSize = 20.sp,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(
-            text = describe(state),
-            color = Color.Gray,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 32.dp),
-        )
-        (state as? ServerState.Failed)?.logTail?.takeLast(8)?.forEach {
-            Text(it, color = Color.Gray, fontSize = 12.sp)
-        }
-    }
+private fun StatusScreen(state: ServerState) {
+    val failed = state as? ServerState.Failed
+    LogoSplash(describe(state), failed?.logTail?.takeLast(8).orEmpty(), failed = failed != null)
 }
 
 private fun describe(state: ServerState): String = when (state) {

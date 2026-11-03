@@ -30,6 +30,30 @@ class ServerSettingsApi(private val client: ServerClient) {
         client.post(PATH, JSONObject().put("key", LANGUAGE_KEY).put("value", language.value))
     }
 
+    /** 三类图片的清晰度（与桌面同一组设置键）；取不到的按高清 */
+    fun imageQualities(): Map<ImageKind, ImageQuality> {
+        val values = JSONObject(client.get(PATH)).optJSONObject("values")
+        return ImageKind.entries.associateWith { ImageQuality.of(values?.optString(it.key)) }
+    }
+
+    fun setImageQuality(kind: ImageKind, quality: ImageQuality) {
+        client.post(PATH, JSONObject().put("key", kind.key).put("value", quality.value))
+    }
+
+    /** TMDB 令牌是否已配置（环境变量里的也算）；令牌明文只写不读 */
+    fun tmdbConfigured(): Boolean = providerCall("getProviderStatus", null)
+
+    /** 保存 TMDB 令牌，空串清除；返回保存后是否已配置。服务端写进自己的密钥文件，与桌面、网页端同一套 */
+    fun setTmdbToken(token: String): Boolean =
+        providerCall("setProviderToken", JSONObject().put("provider", "tmdb").put("token", token.trim().ifEmpty { JSONObject.NULL }))
+
+    private fun providerCall(method: String, params: JSONObject?): Boolean {
+        val body = JSONObject().put("method", method).put("params", params ?: JSONObject.NULL)
+        val reply = JSONObject(client.post("/api/library/rpc", body))
+        if (!reply.optBoolean("ok")) throw IllegalStateException(reply.optJSONObject("error")?.optString("message") ?: "保存失败")
+        return reply.getJSONObject("result").getJSONObject("tmdb").getBoolean("configured")
+    }
+
     private companion object {
         const val PATH = "/api/server-settings"
         const val LANGUAGE_KEY = "scrape.metadataLanguage"

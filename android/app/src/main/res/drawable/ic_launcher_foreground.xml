@@ -1,14 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 影盒图标前景：白色圆角方块里一个播放三角（108dp 画布，安全区内） -->
+<!-- 影盒图标前景：桌面 logo（resources/icon.svg）里的立体方块 + 播放三角，1024 视框，落在自适应图标的安全区内 -->
 <vector xmlns:android="http://schemas.android.com/apk/res/android"
     android:width="108dp"
     android:height="108dp"
-    android:viewportWidth="108"
-    android:viewportHeight="108">
-    <path
-        android:fillColor="#F5F5F7"
-        android:pathData="M32,24h44a8,8 0 0 1 8,8v44a8,8 0 0 1 -8,8H32a8,8 0 0 1 -8,-8V32a8,8 0 0 1 8,-8z" />
-    <path
-        android:fillColor="#111113"
-        android:pathData="M46,38l24,16l-24,16z" />
+    android:viewportWidth="1024"
+    android:viewportHeight="1024">
+    <group
+        android:pivotX="512"
+        android:pivotY="512"
+        android:scaleX="0.62"
+        android:scaleY="0.62">
+        <path
+            android:fillColor="#E2D9FF"
+            android:strokeColor="#E2D9FF"
+            android:strokeLineJoin="round"
+            android:strokeWidth="48"
+            android:pathData="M262,382L382,262H762L642,382Z" />
+        <path
+            android:fillColor="#B9A6FF"
+            android:strokeColor="#B9A6FF"
+            android:strokeLineJoin="round"
+            android:strokeWidth="48"
+            android:pathData="M642,382L762,262V642L642,762Z" />
+        <path
+            android:fillColor="#FFFFFF"
+            android:strokeColor="#FFFFFF"
+            android:strokeLineJoin="round"
+            android:strokeWidth="48"
+            android:pathData="M262,382H642V762H262Z" />
+        <path
+            android:fillColor="#5A3FE8"
+            android:strokeColor="#5A3FE8"
+            android:strokeLineJoin="round"
+            android:strokeWidth="40"
+            android:pathData="M412,498V646L532,572Z" />
+    </group>
 </vector>

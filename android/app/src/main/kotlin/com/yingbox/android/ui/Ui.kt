@@ -36,6 +36,13 @@ import androidx.compose.ui.geometry.Rect
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.platform.LocalFocusManager
+import androidx.compose.ui.input.key.type
+import androidx.compose.ui.input.key.onPreviewKeyEvent
+import androidx.compose.ui.input.key.key
+import androidx.compose.ui.input.key.KeyEventType
+import androidx.compose.ui.input.key.Key
+import androidx.compose.ui.focus.FocusDirection
 import androidx.compose.ui.draw.scale
 import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
@@ -51,6 +58,28 @@ import com.yingbox.android.server.ServerClient
 import com.yingbox.android.view.ViewCard
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
+
+/**
+ * 单行文本框的遥控器上下键：文本框默认把上下键当成移动光标吃掉，焦点出不来；
+ * 这里让上下键移动焦点（左右键仍留给光标）。
+ */
+@Composable
+internal fun Modifier.dpadVerticalFocus(): Modifier {
+    val focus = LocalFocusManager.current
+    return onPreviewKeyEvent { event ->
+        val direction = when (event.key) {
+            Key.DirectionDown -> FocusDirection.Down
+            Key.DirectionUp -> FocusDirection.Up
+            else -> null
+        }
+        if (direction == null) {
+            false
+        } else {
+            if (event.type == KeyEventType.KeyDown) focus.moveFocus(direction)
+            true
+        }
+    }
+}
 
 /** 次要文字（--text-secondary） */
 internal val Muted = YbColor.TextSecondary

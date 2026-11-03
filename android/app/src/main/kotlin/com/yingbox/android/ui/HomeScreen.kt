@@ -84,7 +84,7 @@ fun HomeScreen(client: ServerClient, scroll: LazyListState, chrome: PaddingValue
     }
     val home = result
     when {
-        home == null -> Message("首页加载中…")
+        home == null -> LogoSplash("首页加载中…", playIntro = false)
         home.isFailure -> Message("首页加载失败：${home.exceptionOrNull()?.message}")
         else -> HomeRows(home.getOrThrow(), client, scroll, chrome, actions)
     }

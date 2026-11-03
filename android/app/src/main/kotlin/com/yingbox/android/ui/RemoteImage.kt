@@ -17,6 +17,7 @@ import androidx.compose.ui.graphics.ImageBitmap
 import androidx.compose.ui.graphics.asImageBitmap
 import androidx.compose.ui.layout.ContentScale
 import com.yingbox.android.server.ServerClient
+import com.yingbox.android.settings.ImageQualities
 import kotlinx.coroutines.CompletableDeferred
 import kotlinx.coroutines.Deferred
 import kotlinx.coroutines.Dispatchers
@@ -96,7 +97,9 @@ private suspend fun load(path: String, client: ServerClient): ImageBitmap? {
  * 加载中和失败时显示占位底色；path 变了就换成新图。
  */
 @Composable
-fun RemoteImage(path: String, client: ServerClient, modifier: Modifier = Modifier) {
+fun RemoteImage(requested: String, client: ServerClient, modifier: Modifier = Modifier) {
+    // 按设置的图片清晰度换缩略图档位
+    val path = ImageQualities.rewrite(requested)
     var image by remember(path) { mutableStateOf(cache.get(path)) }
     LaunchedEffect(path, client) {
         if (image != null || path.isEmpty()) return@LaunchedEffect

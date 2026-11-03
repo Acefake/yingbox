@@ -102,41 +102,18 @@ fun SearchScreen(client: ServerClient, chrome: PaddingValues, open: (ViewSearchC
 /** 搜索框：实色胶囊，左边放大镜；回车（输入法的搜索键）提交 */
 @Composable
 private fun SearchField(value: String, onChange: (String) -> Unit, submit: () -> Unit) {
-    val focus = LocalFocusManager.current
-    val keyboard = LocalSoftwareKeyboardController.current
     Row(
         Modifier.fillMaxWidth().height(48.dp).background(YbColor.Elevated, YbRadius.Full).padding(horizontal = YbSpace.S4),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Icon(YbIcons.Search, contentDescription = null, tint = YbColor.TextSecondary, modifier = Modifier.size(20.dp))
         Box(Modifier.weight(1f).padding(start = YbSpace.S3)) {
-            if (value.isEmpty()) Text("搜索片名", color = YbColor.TextTertiary, fontSize = YbText.Md)
-            BasicTextField(
+            RemoteTextField(
                 value = value,
-                onValueChange = onChange,
-                singleLine = true,
-                textStyle = TextStyle(color = YbColor.TextPrimary, fontSize = YbText.Md),
-                cursorBrush = SolidColor(YbColor.Accent),
+                onChange = onChange,
+                placeholder = "搜索片名",
                 keyboardOptions = KeyboardOptions(imeAction = ImeAction.Search),
-                // 提交后收起键盘：电视上键盘开着，遥控器的方向键都归键盘，走不到结果
-                keyboardActions = KeyboardActions(onSearch = {
-                    keyboard?.hide()
-                    submit()
-                }),
-                // 文本框会吃掉上下键（当成移动光标），遥控器要靠它走到下面的结果
-                modifier = Modifier.fillMaxWidth().onPreviewKeyEvent { event ->
-                    val direction = when (event.key) {
-                        Key.DirectionDown -> FocusDirection.Down
-                        Key.DirectionUp -> FocusDirection.Up
-                        else -> null
-                    }
-                    if (direction == null) {
-                        false
-                    } else {
-                        if (event.type == KeyEventType.KeyDown) focus.moveFocus(direction)
-                        true
-                    }
-                },
+                onAction = submit,
             )
         }
     }
