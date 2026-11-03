@@ -137,7 +137,7 @@ export async function createServerApp(
   const thumbnails = createThumbnailPipeline({
     mediaDir,
     codec,
-    resizer: createWasmResizer(codec),
+    resizer: createWasmResizer(codec, log),
     log,
   })
   const service = createLibraryService(

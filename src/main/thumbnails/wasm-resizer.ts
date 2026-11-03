@@ -8,7 +8,10 @@ import type { Codec, CodecResult } from './codec-client'
 import type { ImageResizer, OriginalImage } from './thumbnailer'
 
 /** 用编解码线程实现 ImageResizer；解不了的图返回 null。 */
-export function createWasmResizer(codec: Codec): ImageResizer {
+export function createWasmResizer(
+  codec: Codec,
+  log: (message: string) => void = () => {}
+): ImageResizer {
   const resize = async (
     original: OriginalImage,
     width: number
@@ -16,14 +19,16 @@ export function createWasmResizer(codec: Codec): ImageResizer {
     const bytes =
       'path' in original
         ? new Uint8Array(await readFile(original.path))
-        : original.bytes.slice()
+        : // 重新拷贝成独立的 ArrayBuffer：Buffer.slice 是同一块内存的视图，来自池或响应体的底层缓冲转移给线程会报 unsupported type
+          new Uint8Array(original.bytes)
     return codec({ op: 'resize', bytes, width }, [bytes.buffer as ArrayBuffer])
   }
   return async (original, width) => {
     let image: CodecResult
     try {
       image = await resize(original, width)
-    } catch {
+    } catch (error) {
+      log(`缩放解码出错：${(error as Error).message}`)
       return null
     }
     const size = { width: image.width!, height: image.height! }
