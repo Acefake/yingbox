@@ -111,6 +111,7 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
                 }
             }
         }
+        item { ImageQualityGroup(api) }
         item { TmdbTokenGroup(api) }
         item {
             SettingsGroup("关于") {

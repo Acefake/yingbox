@@ -30,6 +30,16 @@ class ServerSettingsApi(private val client: ServerClient) {
         client.post(PATH, JSONObject().put("key", LANGUAGE_KEY).put("value", language.value))
     }
 
+    /** 三类图片的清晰度（与桌面同一组设置键）；取不到的按高清 */
+    fun imageQualities(): Map<ImageKind, ImageQuality> {
+        val values = JSONObject(client.get(PATH)).optJSONObject("values")
+        return ImageKind.entries.associateWith { ImageQuality.of(values?.optString(it.key)) }
+    }
+
+    fun setImageQuality(kind: ImageKind, quality: ImageQuality) {
+        client.post(PATH, JSONObject().put("key", kind.key).put("value", quality.value))
+    }
+
     /** TMDB 令牌是否已配置（环境变量里的也算）；令牌明文只写不读 */
     fun tmdbConfigured(): Boolean = providerCall("getProviderStatus", null)
 

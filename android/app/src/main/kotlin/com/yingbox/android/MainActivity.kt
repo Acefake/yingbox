@@ -46,6 +46,8 @@ import com.yingbox.android.ui.BackButton
 import com.yingbox.android.ui.BrowseScreen
 import com.yingbox.android.ui.FavoritesScreen
 import com.yingbox.android.settings.DeviceSettings
+import com.yingbox.android.settings.ImageQualities
+import com.yingbox.android.settings.ServerSettingsApi
 import com.yingbox.android.ui.LocalHaze
 import com.yingbox.android.ui.LocalIsTv
 import com.yingbox.android.ui.LocalTvFocusTopInset
@@ -119,6 +121,11 @@ private fun App(isTv: Boolean) {
         return
     }
     val client = remember(ready) { ServerClient(ready) }
+    // 启动时取一次图片清晰度设置（取不到就用高清，不影响显示）
+    LaunchedEffect(client) {
+        withContext(Dispatchers.IO) { runCatching { ServerSettingsApi(client).imageQualities() } }
+            .getOrNull()?.forEach { (kind, quality) -> ImageQualities.set(kind, quality) }
+    }
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Top(Tab.Home))) }
     val scope = rememberCoroutineScope()
     val context = LocalContext.current
