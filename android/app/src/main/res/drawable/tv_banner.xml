@@ -1,14 +1,17 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 电视桌面的应用横幅（320x180dp）：黑底，居中图标 -->
+<!-- 电视桌面的应用横幅（320x180dp）：桌面 logo 的紫色渐变底，居中 logo -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
-            <solid android:color="#000000" />
+            <gradient
+                android:angle="315"
+                android:startColor="#8B6CFF"
+                android:endColor="#4527D9" />
         </shape>
     </item>
     <item
         android:drawable="@drawable/ic_launcher_foreground"
-        android:width="120dp"
-        android:height="120dp"
+        android:width="150dp"
+        android:height="150dp"
         android:gravity="center" />
 </layer-list>

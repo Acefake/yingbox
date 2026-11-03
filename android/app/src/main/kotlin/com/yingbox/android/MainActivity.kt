@@ -49,6 +49,8 @@ import com.yingbox.android.settings.DeviceSettings
 import com.yingbox.android.settings.ImageQualities
 import com.yingbox.android.settings.ServerSettingsApi
 import com.yingbox.android.ui.LocalHaze
+import com.yingbox.android.ui.LogoSplash
+import com.yingbox.android.ui.SPLASH_INTRO_MS
 import com.yingbox.android.ui.LocalIsTv
 import com.yingbox.android.ui.LocalTvFocusTopInset
 import com.yingbox.android.ui.belowBackButton
@@ -116,8 +118,14 @@ private sealed interface Screen {
 private fun App(isTv: Boolean) {
     val state by LocalServer.state.collectAsState()
     val ready = state as? ServerState.Ready
-    if (ready == null) {
-        StatusScreen(state, isTv)
+    // 服务启动很快（约 2 秒），启动页至少显示到入场动画播完（启动失败立即显示原因，不等）
+    var splashDone by remember { mutableStateOf(false) }
+    LaunchedEffect(Unit) {
+        delay(SPLASH_INTRO_MS + 300L)
+        splashDone = true
+    }
+    if (ready == null || (!splashDone && state !is ServerState.Failed)) {
+        StatusScreen(state)
         return
     }
     val client = remember(ready) { ServerClient(ready) }
@@ -215,32 +223,9 @@ private fun App(isTv: Boolean) {
 }
 
 @Composable
-private fun StatusScreen(state: ServerState, isTv: Boolean) {
-    Column(
-        modifier = Modifier
-            .fillMaxSize()
-            .background(Color.Black)
-            .padding(48.dp),
-        verticalArrangement = Arrangement.Center,
-        horizontalAlignment = Alignment.CenterHorizontally,
-    ) {
-        Text(text = "影盒", color = Color.White, fontSize = 48.sp)
-        Text(
-            text = if (isTv) "电视模式" else "手机模式",
-            color = Color.White,
-            fontSize = 20.sp,
-            modifier = Modifier.padding(top = 16.dp),
-        )
-        Text(
-            text = describe(state),
-            color = Color.Gray,
-            fontSize = 16.sp,
-            modifier = Modifier.padding(top = 32.dp),
-        )
-        (state as? ServerState.Failed)?.logTail?.takeLast(8)?.forEach {
-            Text(it, color = Color.Gray, fontSize = 12.sp)
-        }
-    }
+private fun StatusScreen(state: ServerState) {
+    val failed = state as? ServerState.Failed
+    LogoSplash(describe(state), failed?.logTail?.takeLast(8).orEmpty(), failed = failed != null)
 }
 
 private fun describe(state: ServerState): String = when (state) {
