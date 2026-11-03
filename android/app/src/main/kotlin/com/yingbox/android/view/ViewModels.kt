@@ -374,3 +374,21 @@ data class ViewBrowsePage(
         )
     }
 }
+
+data class ViewSearchCard(
+    val title: String,
+    val year: String,
+    val tag: String,
+    val poster: String,
+    val siteCount: Double,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewSearchCard = ViewSearchCard(
+            title = json.getString("title"),
+            year = json.getString("year"),
+            tag = json.getString("tag"),
+            poster = json.getString("poster"),
+            siteCount = json.getDouble("siteCount"),
+        )
+    }
+}

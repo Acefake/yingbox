@@ -21,6 +21,7 @@ import type { DomainRegistry } from '../domains/registry'
 import type { ServerEngine } from '../online/engine'
 import type { Playback } from '../playback'
 import { browsePage } from './browse'
+import { searchCards } from './search'
 import { composeHome, favoriteCards, recentCards } from './compose'
 import {
   createSourceSessions,
@@ -164,6 +165,7 @@ export function registerView(
       if (saved().length) return true
       return records.toggleFavorite(favoriteItemOf(meta))
     },
+    search: (_, keyword) => searchCards(keyword, sourceDeps),
     sourcesStart: (_, title) => sessions.start(title),
     sources: (_, id) => sessions.get(id),
     resume: (_, id) => {

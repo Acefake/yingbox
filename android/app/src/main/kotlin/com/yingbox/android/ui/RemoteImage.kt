@@ -34,6 +34,39 @@ private val cache = object : LruCache<String, ImageBitmap>((Runtime.getRuntime()
 /** 正在取的图：同一路径同时只发一次请求（片单海报和热门行常是同一张）。 */
 private val inflight = HashMap<String, Deferred<ImageBitmap?>>()
 
+/** 缩略图路径（/media/thumb?w=&src=…）里的原图地址；不是缩略图路径或不是 http(s) 返回 null */
+private fun originalOf(path: String): String? {
+    if (!path.startsWith("/media/thumb?")) return null
+    val src = android.net.Uri.parse("http://x$path").getQueryParameter("src") ?: return null
+    return src.takeIf { it.startsWith("http://") || it.startsWith("https://") }
+}
+
+/** 设备直接取原图；只用于服务端缩略图失败时，限 8MB、15 秒 */
+private fun directBytes(path: String): ByteArray? {
+    val url = originalOf(path) ?: return null
+    val c = java.net.URL(url).openConnection() as java.net.HttpURLConnection
+    c.connectTimeout = 8_000
+    c.readTimeout = 15_000
+    c.setRequestProperty("User-Agent", "Mozilla/5.0")
+    return try {
+        if (c.responseCode !in 200..299 || c.contentLengthLong > MAX_ORIGINAL) null
+        else c.inputStream.use { it.readBytes() }.takeIf { it.size <= MAX_ORIGINAL }
+    } finally {
+        c.disconnect()
+    }
+}
+
+private const val MAX_ORIGINAL = 8L * 1024 * 1024
+
+/** 解码并按宽度 960 以内降采样，原图很大时不占满内存 */
+private fun decodeScaled(bytes: ByteArray): android.graphics.Bitmap? {
+    val bounds = BitmapFactory.Options().apply { inJustDecodeBounds = true }
+    BitmapFactory.decodeByteArray(bytes, 0, bytes.size, bounds)
+    var sample = 1
+    while (bounds.outWidth / (sample * 2) >= 960) sample *= 2
+    return BitmapFactory.decodeByteArray(bytes, 0, bytes.size, BitmapFactory.Options().apply { inSampleSize = sample })
+}
+
 private suspend fun load(path: String, client: ServerClient): ImageBitmap? {
     cache.get(path)?.let { return it }
     val (deferred, owner) = synchronized(inflight) {
@@ -45,8 +78,9 @@ private suspend fun load(path: String, client: ServerClient): ImageBitmap? {
     try {
         image = withContext(Dispatchers.IO) {
             runCatching {
-                val bytes = client.bytes(path)
-                BitmapFactory.decodeByteArray(bytes, 0, bytes.size)?.asImageBitmap()
+                // 服务端缩略图生成偶尔失败（原图解不了、站点图床抽风）：退回设备直接取原图
+                val bytes = runCatching { client.bytes(path) }.getOrNull() ?: directBytes(path) ?: return@runCatching null
+                decodeScaled(bytes)?.asImageBitmap()
             }.getOrNull()
         }
         image?.let { cache.put(path, it) }

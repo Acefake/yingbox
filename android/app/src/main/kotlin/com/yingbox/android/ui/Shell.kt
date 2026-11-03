@@ -32,6 +32,7 @@ import androidx.compose.ui.unit.dp
 /** 主导航的一项（只放已经能用的页面；搜索、片库、设置做好后加进来） */
 enum class Tab(val label: String, val icon: ImageVector) {
     Home("首页", YbIcons.Home),
+    Search("搜索", YbIcons.Search),
     Recent("最近播放", YbIcons.History),
     Favorites("收藏", YbIcons.HeartFill),
     Settings("设置", YbIcons.Settings),
@@ -91,7 +92,7 @@ fun BoxScope.NavCapsule(current: Tab, top: Boolean, contentFocus: FocusRequester
                 }
             } else {
                 Column(
-                    item.width(84.dp).padding(vertical = YbSpace.S2),
+                    item.width(68.dp).padding(vertical = YbSpace.S2),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(

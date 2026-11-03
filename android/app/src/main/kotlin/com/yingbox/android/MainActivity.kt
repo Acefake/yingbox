@@ -51,6 +51,7 @@ import com.yingbox.android.ui.LocalTvFocusTopInset
 import com.yingbox.android.ui.belowBackButton
 import com.yingbox.android.ui.TvBringIntoViewSpec
 import com.yingbox.android.ui.LocalReduceTransparency
+import com.yingbox.android.ui.SearchScreen
 import com.yingbox.android.ui.SettingsScreen
 import com.yingbox.android.ui.NavCapsule
 import com.yingbox.android.ui.RecentScreen
@@ -170,6 +171,9 @@ private fun App(isTv: Boolean) {
                 when (val top = stack.last()) {
                     is Screen.Top -> when (top.tab) {
                         Tab.Home -> HomeScreen(client, homeScroll, chrome, HomeActions(openCard, resume) { push(Screen.Browse(it)) })
+                        Tab.Search -> SearchScreen(client, chrome) { card ->
+                            push(Screen.Detail(DetailTarget(null, null, card.title, card.title, card.poster)))
+                        }
                         Tab.Recent -> RecentScreen(client, chrome, resume)
                         Tab.Favorites -> FavoritesScreen(client, chrome, openCard)
                         Tab.Settings -> SettingsScreen(client, device, chrome)

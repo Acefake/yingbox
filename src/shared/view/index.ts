@@ -7,6 +7,7 @@ import {
   ViewSourcesSchema,
 } from './detail'
 import { HomeViewSchema } from './home'
+import { ViewSearchCardSchema } from './search'
 
 export const VIEW_ROOTS = [
   HomeViewSchema,
@@ -15,4 +16,5 @@ export const VIEW_ROOTS = [
   ViewPlayableSchema,
   ViewResumeSchema,
   ViewBrowsePageSchema,
+  ViewSearchCardSchema,
 ] as const

@@ -77,6 +77,7 @@ describe('浏览页（view.browse）', () => {
       },
       recent: () => [],
       favorites: () => [],
+      search: async () => [],
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
       favorite: async () => false,

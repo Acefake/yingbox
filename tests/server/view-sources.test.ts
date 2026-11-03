@@ -323,6 +323,7 @@ describe('详情与入参', () => {
       },
       recent: () => [],
       favorites: () => [],
+      search: async () => [],
       browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
       favorite: async () => false,

@@ -16,6 +16,10 @@ class ViewApi(private val client: ServerClient) {
     fun favorites(): List<ViewCard> =
         (client.call("view", "favorites") as JSONArray).let { a -> List(a.length()) { ViewCard.fromJson(a.getJSONObject(it)) } }
 
+    /** 搜索：关键词在各站点里搜，片名相同的合成一张卡（最多等 12 秒） */
+    fun search(keyword: String): List<ViewSearchCard> =
+        (client.call("view", "search", JSONArray().put(keyword)) as JSONArray).let { a -> List(a.length()) { ViewSearchCard.fromJson(a.getJSONObject(it)) } }
+
     /** 浏览页的一页；start 是豆瓣分页位置，第一页为 0 */
     fun browse(target: BrowseTarget, start: Int): ViewBrowsePage =
         ViewBrowsePage.fromJson(client.call("view", "browse", JSONArray().put(target.toJson()).put(start)) as JSONObject)

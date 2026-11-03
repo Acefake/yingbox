@@ -50,7 +50,7 @@ const PLUGIN_CONCURRENCY = 4
 const CMS_TIMEOUT_MS = 10_000
 
 /** 苹果 CMS 列表接口（ac=videolist）的 list；响应不对抛错。外部数据只认有片名和 id 的条目 */
-async function cmsList(
+export async function cmsList(
   deps: SourceDeps,
   api: string,
   params: Record<string, string>

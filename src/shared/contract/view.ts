@@ -10,6 +10,7 @@ import type {
   ViewSources,
 } from '../view/detail'
 import type { HomeView, ViewCard, ViewContinue } from '../view/home'
+import type { ViewSearchCard } from '../view/search'
 import {
   ContractError,
   bool,
@@ -75,6 +76,10 @@ export const view = defineDomain('view', {
   recent: call<ViewContinue[]>(),
   /** 「我的收藏」整页：全部收藏（新收藏在前） */
   favorites: call<ViewCard[]>(),
+  /** 搜索：关键词在 CMS 与插件站点里搜，片名相同的合成一张卡（最多等 12 秒，先到的先算）；空关键词返回空 */
+  search: call<[keyword: string], ViewSearchCard[]>(a => [
+    str(a[0], 'keyword').slice(0, 100),
+  ]),
   /** 浏览页的一页（热门、类型、精选片单）；start 是豆瓣分页位置，第一页为 0 */
   browse: call<[target: BrowseTarget, start: number], ViewBrowsePage>(a => {
     const start = parseDoubanStart(a[1])

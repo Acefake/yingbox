@@ -41,10 +41,10 @@ import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 
-/** 打开详情需要的身份（来自首页的豆瓣卡） */
+/** 打开详情需要的身份：豆瓣卡带豆瓣 ID；搜索结果只有片名（豆瓣 ID 与类型为空，不取豆瓣详情、不能收藏） */
 data class DetailTarget(
-    val doubanId: String,
-    val kind: DoubanKind,
+    val doubanId: String?,
+    val kind: DoubanKind?,
     val title: String,
     /** 搜源用的片名（TMDB 找到时是中文名） */
     val searchTitle: String,
@@ -67,7 +67,9 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
     val api = remember(client) { ViewApi(client) }
     // 详情取到（或确定取不到）之前不让点集：登记继续观看要用它的封面
     val detail by produceState<Result<ViewDetail?>?>(null, target) {
-        value = withContext(Dispatchers.IO) { runCatching { api.detail(target.doubanId, target.kind) } }
+        val id = target.doubanId
+        val kind = target.kind
+        value = if (id == null || kind == null) Result.success(null) else withContext(Dispatchers.IO) { runCatching { api.detail(id, kind) } }
     }
     var sources by remember(target) { mutableStateOf<ViewSources?>(null) }
     var failed by remember(target) { mutableStateOf(false) }
@@ -101,12 +103,14 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
     val favorite = picked ?: d?.favorite ?: false
     val scope = rememberCoroutineScope()
     val toggleFavorite: () -> Unit = toggle@{
-        if (saving) return@toggle
+        val id = target.doubanId
+        val kind = target.kind
+        if (saving || id == null || kind == null) return@toggle
         val before = favorite
         picked = !before
         saving = true
         scope.launch {
-            picked = runCatching { withContext(Dispatchers.IO) { api.favorite(target.doubanId, target.kind, !before) } }
+            picked = runCatching { withContext(Dispatchers.IO) { api.favorite(id, kind, !before) } }
                 .getOrDefault(before)
             saving = false
         }
