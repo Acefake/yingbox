@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest'
 
 import { composeHome } from '../../src/server/view/compose'
+import { resumeView } from '../../src/server/view/resume'
 import type { ContinueRecord } from '../../src/shared/playback/continue-rules'
 import type { HomeFeed, ViewCard } from '../../src/shared/view/home'
 
@@ -106,5 +107,62 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
       0
     )
     expect(home.hero[0]?.continueId).toBe('online:old')
+  })
+})
+
+describe('续播信息（view.resume）', () => {
+  it('记录里的播放列表换成剧集，带上下标、起始秒数和豆瓣身份', () => {
+    const r = resumeView(
+      record({
+        replay: {
+          playlist: [
+            { url: 'u1', name: '第 1 集' },
+            { url: 'u2', name: '第 2 集', siteName: '插件甲', ext: { id: 7 } },
+          ],
+          index: 1,
+        },
+        progress: 300,
+        detail: { doubanId: '123', kind: 'tv' },
+      })
+    )
+    expect(r).toMatchObject({
+      continueId: 'online:site:1',
+      index: 1,
+      startAt: 300,
+      doubanId: '123',
+      kind: 'tv',
+    })
+    expect(r?.episodes[1]).toEqual({
+      name: '第 2 集',
+      url: 'u2',
+      siteName: '插件甲',
+      ext: '{"id":7}',
+    })
+  })
+
+  it('「下一集」从头播；只有单个地址的记录也能续播；什么都没有为 null', () => {
+    expect(resumeView(record({ nextUp: true }))?.startAt).toBe(0)
+    expect(resumeView(record())?.episodes).toEqual([
+      {
+        name: '第 14 集',
+        url: 'https://v.example.com/1.m3u8',
+        siteName: null,
+        ext: null,
+      },
+    ])
+    expect(resumeView(record({ replay: {} }))).toBeNull()
+  })
+
+  it('播放列表里没有地址的条目也保留，下标不错位', () => {
+    const r = resumeView(
+      record({
+        replay: {
+          playlist: [{ name: '预告' }, { url: 'u2', name: '第 1 集' }],
+          index: 1,
+        },
+      })
+    )
+    expect(r?.episodes[r.index]).toMatchObject({ url: 'u2', name: '第 1 集' })
+    expect(r?.episodes[0].url).toBe('')
   })
 })

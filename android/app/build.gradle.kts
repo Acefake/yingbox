@@ -76,4 +76,6 @@ dependencies {
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.tv.material)
     implementation(libs.androidx.media3.exoplayer)
+    implementation(libs.androidx.media3.exoplayer.hls)
+    implementation(libs.androidx.media3.ui)
 }

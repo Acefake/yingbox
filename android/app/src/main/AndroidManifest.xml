@@ -20,8 +20,10 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.Yingbox">
 
+        <!-- 旋转屏幕不重建：页面栈和正在播放的播放器都在这个 Activity 里 -->
         <activity
             android:name=".MainActivity"
+            android:configChanges="orientation|screenSize|screenLayout|smallestScreenSize|keyboardHidden|uiMode"
             android:exported="true">
             <intent-filter>
                 <action android:name="android.intent.action.MAIN" />

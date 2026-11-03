@@ -114,6 +114,3 @@ export type HomeView = Infer<typeof HomeViewSchema>
 
 /** 首页里不依赖播放记录、可以缓存的部分 */
 export type HomeFeed = Omit<HomeView, 'hero' | 'continueRow'>
-
-/** 生成 Kotlin 的根（scripts/gen-view-kotlin.ts）；嵌套的对象与枚举自动带上 */
-export const VIEW_ROOTS = [HomeViewSchema] as const

@@ -194,3 +194,163 @@ enum class CollectionId(val json: String) {
                 ?: throw IllegalArgumentException("未知的 CollectionId：$value")
     }
 }
+
+data class ViewDetail(
+    val id: String,
+    val kind: DoubanKind,
+    val title: String,
+    val originalTitle: String,
+    val year: String,
+    val rating: String,
+    val genres: List<String>,
+    val countries: List<String>,
+    val duration: String,
+    val directors: List<String>,
+    val actors: List<ViewPerson>,
+    val overview: String,
+    val poster: String,
+    val backdrop: String?,
+    val images: List<String>,
+    val coverSource: String?,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewDetail = ViewDetail(
+            id = json.getString("id"),
+            kind = DoubanKind.fromJson(json.getString("kind")),
+            title = json.getString("title"),
+            originalTitle = json.getString("originalTitle"),
+            year = json.getString("year"),
+            rating = json.getString("rating"),
+            genres = json.getJSONArray("genres").let { a0 -> List(a0.length()) { i0 -> a0.getString(i0) } },
+            countries = json.getJSONArray("countries").let { a0 -> List(a0.length()) { i0 -> a0.getString(i0) } },
+            duration = json.getString("duration"),
+            directors = json.getJSONArray("directors").let { a0 -> List(a0.length()) { i0 -> a0.getString(i0) } },
+            actors = json.getJSONArray("actors").let { a0 -> List(a0.length()) { i0 -> ViewPerson.fromJson(a0.getJSONObject(i0)) } },
+            overview = json.getString("overview"),
+            poster = json.getString("poster"),
+            backdrop = (if (json.isNull("backdrop")) null else json.getString("backdrop")),
+            images = json.getJSONArray("images").let { a0 -> List(a0.length()) { i0 -> a0.getString(i0) } },
+            coverSource = (if (json.isNull("coverSource")) null else json.getString("coverSource")),
+        )
+    }
+}
+
+data class ViewPerson(
+    val name: String,
+    val photo: String?,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewPerson = ViewPerson(
+            name = json.getString("name"),
+            photo = (if (json.isNull("photo")) null else json.getString("photo")),
+        )
+    }
+}
+
+data class ViewSources(
+    val sessionId: String,
+    val done: Boolean,
+    val sites: List<ViewSourceSite>,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewSources = ViewSources(
+            sessionId = json.getString("sessionId"),
+            done = json.getBoolean("done"),
+            sites = json.getJSONArray("sites").let { a0 -> List(a0.length()) { i0 -> ViewSourceSite.fromJson(a0.getJSONObject(i0)) } },
+        )
+    }
+}
+
+data class ViewSourceSite(
+    val siteName: String,
+    val kind: SourceKind,
+    val lines: List<ViewLine>,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewSourceSite = ViewSourceSite(
+            siteName = json.getString("siteName"),
+            kind = SourceKind.fromJson(json.getString("kind")),
+            lines = json.getJSONArray("lines").let { a0 -> List(a0.length()) { i0 -> ViewLine.fromJson(a0.getJSONObject(i0)) } },
+        )
+    }
+}
+
+enum class SourceKind(val json: String) {
+    CATSPIDER("catspider"),
+    CMS("cms"),
+    ;
+
+    companion object {
+        fun fromJson(value: String): SourceKind =
+            entries.firstOrNull { it.json == value }
+                ?: throw IllegalArgumentException("未知的 SourceKind：$value")
+    }
+}
+
+data class ViewLine(
+    val label: String,
+    val episodes: List<ViewEpisode>,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewLine = ViewLine(
+            label = json.getString("label"),
+            episodes = json.getJSONArray("episodes").let { a0 -> List(a0.length()) { i0 -> ViewEpisode.fromJson(a0.getJSONObject(i0)) } },
+        )
+    }
+}
+
+data class ViewEpisode(
+    val name: String,
+    val url: String,
+    val siteName: String?,
+    val ext: String?,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewEpisode = ViewEpisode(
+            name = json.getString("name"),
+            url = json.getString("url"),
+            siteName = (if (json.isNull("siteName")) null else json.getString("siteName")),
+            ext = (if (json.isNull("ext")) null else json.getString("ext")),
+        )
+    }
+}
+
+data class ViewPlayable(
+    val url: String,
+    val direct: Boolean,
+    val hls: Boolean,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewPlayable = ViewPlayable(
+            url = json.getString("url"),
+            direct = json.getBoolean("direct"),
+            hls = json.getBoolean("hls"),
+        )
+    }
+}
+
+data class ViewResume(
+    val continueId: String,
+    val title: String,
+    val key: String,
+    val cover: String?,
+    val episodes: List<ViewEpisode>,
+    val index: Double,
+    val startAt: Double,
+    val doubanId: String?,
+    val kind: DoubanKind?,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewResume = ViewResume(
+            continueId = json.getString("continueId"),
+            title = json.getString("title"),
+            key = json.getString("key"),
+            cover = (if (json.isNull("cover")) null else json.getString("cover")),
+            episodes = json.getJSONArray("episodes").let { a0 -> List(a0.length()) { i0 -> ViewEpisode.fromJson(a0.getJSONObject(i0)) } },
+            index = json.getDouble("index"),
+            startAt = json.getDouble("startAt"),
+            doubanId = (if (json.isNull("doubanId")) null else json.getString("doubanId")),
+            kind = (if (json.isNull("kind")) null else DoubanKind.fromJson(json.getString("kind"))),
+        )
+    }
+}

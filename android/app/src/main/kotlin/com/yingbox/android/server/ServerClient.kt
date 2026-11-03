@@ -7,6 +7,12 @@ import java.net.URL
 
 /** 访问内嵌服务。只发到 [ServerState.Ready] 给出的回环地址，带令牌。阻塞调用，不要放主线程。 */
 class ServerClient(private val ready: ServerState.Ready) {
+    /** 本服务路径 → 完整地址（给播放器用） */
+    fun url(path: String): String = ready.baseUrl + path
+
+    /** 播放器请求清单和分片时带的鉴权头 */
+    val authorization: String get() = "Bearer ${ready.token}"
+
     fun get(path: String): String = String(bytes(path), Charsets.UTF_8)
 
     /** 取原始字节（缩略图等）；path 是本服务的路径，如 /media/thumb?w=342&src=… */
@@ -29,7 +35,7 @@ class ServerClient(private val ready: ServerState.Ready) {
         c.connectTimeout = 3_000
         // 首页第一次要拼几十个豆瓣、TMDB 请求
         c.readTimeout = 60_000
-        c.setRequestProperty("Authorization", "Bearer ${ready.token}")
+        c.setRequestProperty("Authorization", authorization)
         try {
             if (body != null) {
                 c.doOutput = true

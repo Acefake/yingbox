@@ -9,7 +9,7 @@ import { writeFileSync } from 'node:fs'
 import { join } from 'node:path'
 import { pathToFileURL } from 'node:url'
 
-import { VIEW_ROOTS } from '../src/shared/view/home'
+import { VIEW_ROOTS } from '../src/shared/view'
 import type {
   EnumSchema,
   ObjectSchema,
