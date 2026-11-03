@@ -25,7 +25,7 @@ import {
   sourceTypeOptions,
   splitBySourceType,
   titleMatches,
-} from '../utils/detail-sources'
+} from '../../../../../shared/online/sources'
 import { useOnlineSearch } from './use-online-search'
 import { useSourceProbe } from './use-source-probe'
 

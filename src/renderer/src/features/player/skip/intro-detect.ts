@@ -13,7 +13,10 @@ import type {
   IntroDetectResult,
   IntroDetectStatus,
 } from '../../../../../shared/contract/intro-detect'
-import { type ContinueMeta, recordId } from '../continue/continue-rules'
+import {
+  type ContinueMeta,
+  recordId,
+} from '../../../../../shared/playback/continue-rules'
 import { type MergeOutcome, mergeSummary } from './detect-merge'
 import { skipKey } from './skip-rules'
 import { applyDetected } from './skip-store'

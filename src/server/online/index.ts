@@ -23,15 +23,15 @@ export interface OnlineDeps {
   engine?: ServerEngine
 }
 
-/** 登记在线路由；返回关停函数（引擎收尾、关浏览器）。 */
+/** 登记在线路由；返回关停函数（引擎收尾、关浏览器）与引擎（关闭时为 null，视图域要用）。 */
 export function registerOnline(
   router: Router,
   deps: OnlineDeps
-): { close: () => Promise<void> } {
+): { close: () => Promise<void>; engine: ServerEngine | null } {
   const config = loadOnlineConfig(deps.env, deps.dataDir)
   if (!config.enabled) {
     deps.log('在线板块：已关闭（YINGBOX_ONLINE=off）')
-    return { close: async () => {} }
+    return { close: async () => {}, engine: null }
   }
   const browser = createNodeBrowserFetch({
     spec: config.browser,
@@ -55,5 +55,5 @@ export function registerOnline(
   deps.log(
     `在线板块：下载目录 ${config.downloadDir}；浏览器代抓 ${browser.describe()}${allowed}`
   )
-  return { close: () => engine.shutdown() }
+  return { close: () => engine.shutdown(), engine }
 }

@@ -14,10 +14,10 @@ import { type Ref, ref } from 'vue'
 import {
   type DoubanPage,
   type DoubanQuery,
-  type DoubanSubject,
   defaultDoubanQuery,
   normalizeDoubanQuery,
 } from '../../../../../shared/douban/query'
+import { doubanItemOf } from '../../../../../shared/douban/item'
 import { doubanBrowse } from '../api/online'
 import type { DoubanItem } from '../types'
 import { enrichDoubanItems } from '../utils/douban-enrich'
@@ -64,21 +64,6 @@ export interface DoubanFeedDeps {
 const QUERY_KEY = 'douban_query'
 /** 一次 loadMore 因整页重复最多连取的页数 */
 const MAX_EMPTY_PAGES = 3
-
-/** 引擎给的豆瓣卡 → 页面用的豆瓣条目（封面等 TMDB 补全后再填） */
-export const doubanItemOf = (s: DoubanSubject): DoubanItem => ({
-  title: s.title,
-  searchTitle: s.title,
-  original_title: '',
-  cover: s.cover,
-  coverSrc: s.cover,
-  rate: s.rate || '暂无',
-  url: s.url,
-  year: s.year,
-  type: s.kind === 'tv' ? '剧集' : '电影',
-  overview: '',
-  kind: s.kind,
-})
 
 function readQuery(
   storage: DoubanFeedDeps['storage'],

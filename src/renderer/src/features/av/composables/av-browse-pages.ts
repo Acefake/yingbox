@@ -4,7 +4,10 @@
  */
 import type { Ref } from 'vue'
 import { cmsHealth, getJson, useVODParser } from '@/features/online'
-import { type PluginExt, getVodList } from '@/utils/vod-data'
+import {
+  type PluginExt,
+  getVodList,
+} from '../../../../../shared/online/vod-data'
 import {
   type AvEntry,
   type BrowseCacheEntry,

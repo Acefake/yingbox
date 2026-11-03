@@ -2,7 +2,7 @@
  * 首页榜单行的纯规则：优先豆瓣「一周口碑电影榜」，取不到（失败、为空）时退回热门电影的前 10 部。
  * 标题跟着来源走，不把热门列表叫成口碑榜。
  */
-import type { DoubanSubject } from '../../../../../shared/douban/query'
+import type { DoubanSubject } from './query'
 
 /** 榜单行最多几部 */
 export const CHART_SIZE = 10

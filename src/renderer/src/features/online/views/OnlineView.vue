@@ -149,7 +149,7 @@ import {
 import { useBrowseRoute } from '../composables/use-browse-route'
 import { useOnlineDetailRoute } from '../composables/use-online-detail-route'
 import { useHomeHero } from '../composables/use-home-hero'
-import { HOME_SECTIONS } from '../utils/hero-rules'
+import { HOME_SECTIONS } from '../../../../../shared/playback/hero-rules'
 import { doubanDetail } from '../utils/douban-detail'
 
 const route = useRoute()

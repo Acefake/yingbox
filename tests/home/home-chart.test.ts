@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 
-import { pickChart } from '../../src/renderer/src/features/online/utils/home-chart'
+import { pickChart } from '../../src/shared/douban/chart'
 import type { DoubanSubject } from '../../src/shared/douban/query'
 
 /** 首页榜单行：口碑榜优先，取不到退回热门前 10，标题跟着来源走 */

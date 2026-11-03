@@ -1,12 +1,12 @@
 /**
  * 在线搜索：并发检索已启用的 CMS 与 CatSpider 站点、取详情线路、解析插件播放地址。
- * 站点清单与启用列表在 ./cms-sites、./catspider-sites；返回数据的解析在 ../utils/vod-payload。
+ * 站点清单与启用列表在 ./cms-sites、./catspider-sites；返回数据的解析在 shared/online/vod-payload.ts。
  */
 import type { RemovableRef } from '@vueuse/core'
 import { getSetting } from '@/features/settings'
-import { mapWithConcurrency } from '@/utils/concurrency'
-import { asText } from '@/utils/json'
-import { firstPlayUrl, getVodList } from '@/utils/vod-data'
+import { mapWithConcurrency } from '../../../../../shared/concurrency'
+import { asText } from '../../../../../shared/json'
+import { firstPlayUrl, getVodList } from '../../../../../shared/online/vod-data'
 import { type Ref, getCurrentScope, onScopeDispose, ref } from 'vue'
 import { getJson } from '../api/online'
 import type {
@@ -22,7 +22,7 @@ import {
   parseCmsGroups,
   toCatSpiderSearchItems,
   toCmsSearchItems,
-} from '../utils/vod-payload'
+} from '../../../../../shared/online/vod-payload'
 import {
   CATSPIDER_SITES,
   isAdultCatSpiderSite,

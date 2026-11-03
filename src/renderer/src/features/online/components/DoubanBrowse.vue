@@ -152,8 +152,8 @@ import {
 import {
   type BrowseTarget,
   browseTitle,
-  nextBrowseQuery,
-} from '../utils/browse-target'
+} from '../../../../../shared/douban/browse'
+import { nextBrowseQuery } from '../utils/browse-target'
 import {
   doubanDiscoverReady,
   loadDoubanDiscover,

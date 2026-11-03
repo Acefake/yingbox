@@ -155,10 +155,16 @@ export class Thumbnailer {
     width: ThumbWidth,
     load: OriginalLoader
   ): Promise<ThumbFile | null> {
-    const original = await load()
+    const original = await load().catch(error => {
+      this.log(`取缩略图原图失败 ${key}：${(error as Error).message}`)
+      throw error
+    })
     if (!original) return null
     const resized = await this.resize(original, width)
-    if (!resized) return null
+    if (!resized) {
+      this.log(`缩略图解码失败 ${key}`)
+      return null
+    }
     this.observe?.(key, resized)
     let file: { data: Uint8Array; ext: 'webp' | 'jpg' }
     try {

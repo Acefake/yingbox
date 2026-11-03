@@ -36,7 +36,7 @@ import { useLibraries } from '@/features/library'
 import { continueRecords } from '@/features/player'
 import { watchlistEntries } from '@/features/watchlist'
 
-import { HOME_SECTIONS } from '../utils/hero-rules'
+import { HOME_SECTIONS } from '../../../../../shared/playback/hero-rules'
 
 const router = useRouter()
 const nas = import.meta.env.MODE === 'nas'

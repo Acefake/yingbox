@@ -1,5 +1,5 @@
 /** CMS 的列表、搜索与详情分别记录健康状态，启用选择由源管理模块持有。 */
-import { asRecord } from '@/utils/json'
+import { asRecord } from '../../../../../shared/json'
 
 /** 可独立失败或恢复的接口能力。 */
 export type CmsCapability = 'browse' | 'search' | 'detail'

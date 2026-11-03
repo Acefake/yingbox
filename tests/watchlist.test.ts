@@ -6,7 +6,7 @@ import { type App, createApp, h, nextTick } from 'vue'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 import type { LibraryItemNode } from '../src/shared/library/ipc'
-import { metaOf } from '../src/renderer/src/features/player/continue/continue-rules'
+import { metaOf } from '../src/shared/playback/continue-rules'
 import {
   episodePlayRequest,
   hasLaterSeason,

@@ -11,7 +11,7 @@ import {
   type TmdbCandidate,
   type TmdbIdentity,
   matchingTmdbCandidates,
-} from '../utils/tmdb-match'
+} from '../../../../../shared/tmdb/match'
 
 /** TMDB 搜索结果：按作品身份选择候选。 */
 interface TmdbSearchResult {

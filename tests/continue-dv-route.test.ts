@@ -29,7 +29,7 @@ import { openMediaPlayer } from '../src/renderer/src/features/player/composables
 import {
   type ContinueRecord,
   replayOptions,
-} from '../src/renderer/src/features/player/continue/continue-rules'
+} from '../src/shared/playback/continue-rules'
 
 beforeEach(() => {
   vi.clearAllMocks()

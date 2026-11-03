@@ -6,6 +6,7 @@
 import type { PreviewSource } from '@/components/ui/hover-preview'
 import { webPlayableUrl } from '@/services/library-server/engine'
 
+import { doubanSubjectId } from '../../../../../shared/douban/item'
 import { onlineApi } from '../api/online'
 
 /** 豆瓣条目类型 */
@@ -16,14 +17,6 @@ export type FetchTrailer = (
   subjectId: string,
   kind: DoubanKind
 ) => Promise<string | null>
-
-const SUBJECT_RE =
-  /^https?:\/\/(?:movie|m)\.douban\.com\/(?:movie\/)?subject\/(\d+)\/?/
-
-/** 条目地址里的数字 ID；不是豆瓣条目地址返回 null */
-export function doubanSubjectId(url: string): string | null {
-  return SUBJECT_RE.exec(url)?.[1] ?? null
-}
 
 const defaultFetch: FetchTrailer = async (id, kind) => {
   const url = await onlineApi().doubanTrailer(id, kind)

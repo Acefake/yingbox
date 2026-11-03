@@ -1,7 +1,7 @@
 /**
  * 首页 Hero 轮播的数据：有没看完的片子时第一张放它（「本地片库 · 看到 62%」，主按钮「继续播放 · 剩 48 分钟」），
  * 后面接精选来源：本地片库最近入库、有背景图的片子（「本地片库 · 新入库」），片库为空或没有片库时用豆瓣热门的前几部。
- * 选片与文案规则见 utils/hero-rules.ts。
+ * 选片与文案规则见 shared/playback/hero-rules.ts。
  *
  * 每页是同一个形状（HeroSlide）：背景图、缩略图、标志图或片名、简介、元信息、规格标签、评分，以及播放 / 打开详情 / 想看登记。
  * 片库那一份在首页挂载和每次回到首页时重取（新扫进来的片子随即出现）；继续观看那一张跟着继续观看记录变。
@@ -48,7 +48,7 @@ import {
   pickResumeRecord,
   resumeKicker,
   resumePlayLabel,
-} from '../utils/hero-rules'
+} from '../../../../../shared/playback/hero-rules'
 import { useHotFeed } from './use-home-browse'
 
 /** 没有评分 */

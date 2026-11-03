@@ -1,11 +1,12 @@
 import { describe, expect, it, vi } from 'vitest'
-import { doubanItemOf } from '@/features/online/composables/use-douban-feed'
-import { enrichDoubanItems } from '@/features/online/utils/douban-enrich'
-import { enrichFromTmdb } from '@/features/online/utils/douban-tmdb'
+import {
+  type DoubanItem,
+  doubanItemOf,
+  enrichDoubanItems,
+} from '../src/shared/douban/item'
 import { doubanDetail } from '@/features/online/utils/douban-detail'
 import { parseDoubanMetadata } from '../src/engine/online/douban-metadata'
 import type { DoubanMetadata } from '../src/shared/douban/detail'
-import type { DoubanItem } from '@/features/online/types'
 
 const card = (): DoubanItem =>
   doubanItemOf({
@@ -46,7 +47,7 @@ describe('无 TMDB 的首页', () => {
       const items = [card()]
       await enrichDoubanItems(items, 'tv', {
         metadata: vi.fn(async () => metadata()),
-        tmdb: (values, kind) => enrichFromTmdb(values, kind, tmdb),
+        search: tmdb,
       })
       expect(items[0]).toMatchObject({
         overview: '豆瓣简介',
@@ -69,7 +70,7 @@ describe('无 TMDB 的首页', () => {
     const items = Array.from({ length: 20 }, card)
     await enrichDoubanItems(items, 'tv', {
       metadata: get,
-      tmdb: async () => {},
+      search: async () => null,
     })
     expect(get).toHaveBeenCalledTimes(5)
     expect(items.every(item => item.cover && item.type)).toBe(true)

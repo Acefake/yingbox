@@ -350,6 +350,14 @@ export const MIGRATIONS: readonly Migration[] = [
     sql: V17_SCHEMA,
   },
   { version: 18, description: '整理步骤可以删除文件', sql: V18_SCHEMA },
+  {
+    version: 19,
+    description:
+      '播放记录（安卓端经服务端存：继续观看、在线进度、已看、收藏，ADR-0031）',
+    sql: `CREATE TABLE user_state (
+      key TEXT PRIMARY KEY, value TEXT NOT NULL, updated_at INTEGER NOT NULL
+    ) STRICT, WITHOUT ROWID;`,
+  },
 ]
 
 /** 读取当前 schema 版本。 */

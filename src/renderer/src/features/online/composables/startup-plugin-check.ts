@@ -1,7 +1,7 @@
 /** 启动时实际调用插件搜索接口；空列表也算可用，错误页和无列表响应不可用。 */
 import type { VodResponse } from '../../../../../shared/contract/online'
 import type { CatSpiderSite } from '../types'
-import { normalizeVodPayload } from '@/utils/vod-data'
+import { normalizeVodPayload } from '../../../../../shared/online/vod-data'
 import { onlineApi } from '../api/online'
 import { OnlineTransportError } from '../api/errors'
 import {

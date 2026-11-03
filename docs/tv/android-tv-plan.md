@@ -90,9 +90,9 @@ Flutter 和 React Native 都要重写业务，又多一层框架。播放、存�
 - 内置站点表是仓库根目录的 `cms-sites.json`（`name` + `api.php/provide/vod`）。渲染层在 `src/renderer/src/features/online/composables/cms-sites.ts` 引入。自定义站点在 localStorage。
 - 订阅解析在 `src/renderer/src/features/online/utils/subscription.ts`：接受 LunaTV 的 `api_site` 或通用 `sites`，只保留 URL 匹配 `api.php/provide/vod` 或 `api/json.php` 的条目，丢掉 `is_adult === true`。测试在 `tests/online-subscription.test.ts`。
 - 搜索、详情的 HTTP 经引擎 `online.getJson`（`src/engine/online/index.ts`），渲染层并发 6 路（`src/renderer/src/features/online/composables/use-online-search.ts`）。
-- 播放地址解析在 `src/renderer/src/features/online/utils/vod-payload.ts` 的 `parseCmsGroups`：`vod_play_from` / `vod_play_url`，线路 `$$$`，集 `#`，名称和地址 `$`。测试在 `tests/online-rules.test.ts`。
+- 播放地址解析在 `src/shared/online/vod-payload.ts` 的 `parseCmsGroups`：`vod_play_from` / `vod_play_url`，线路 `$$$`，集 `#`，名称和地址 `$`。测试在 `tests/online-rules.test.ts`。
 - 健康度在 `src/renderer/src/features/online/utils/cms-health.ts`：按 browse / search / detail 记失败，连续失败进入冷却。这是渲染层规则，不是 Go 服务。
-- 非直链页面由引擎 `online.resolvePage` 从 HTML 里抽 m3u8（`src/engine/online/index.ts`）。直链判断在 `src/renderer/src/features/online/utils/play-source.ts`（扩展名 m3u8 / mp4 / flv）。
+- 非直链页面由引擎 `online.resolvePage` 从 HTML 里抽 m3u8（`src/engine/online/index.ts`）。直链判断在 `src/shared/online/play-source.ts`（扩展名 m3u8 / mp4 / flv）。
 
 移植：
 

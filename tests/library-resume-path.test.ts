@@ -1,14 +1,13 @@
 import { describe, expect, it, vi } from 'vitest'
 import type { LibraryItemNode } from '../src/shared/library/ipc'
-import type { ContinueRecord } from '../src/renderer/src/features/player/continue/continue-rules'
+import type { ContinueRecord } from '../src/shared/playback/continue-rules'
 
 vi.mock('../src/renderer/src/features/library/api/bridge', () => ({
   libraryBridge: () => null,
   usesLibraryServer: () => false,
 }))
 vi.mock('../src/renderer/src/features/player', async () => {
-  const rules =
-    await import('../src/renderer/src/features/player/continue/continue-rules')
+  const rules = await import('../src/shared/playback/continue-rules')
   return {
     replayOptions: rules.replayOptions,
     metaOf: rules.metaOf,

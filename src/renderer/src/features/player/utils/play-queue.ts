@@ -2,23 +2,11 @@
  * 应用内播放器的播放队列：调用方发来的载荷在这里校验并整理成队列。
  * 外部数据只在这里解析，之后播放器只处理整理好的 PlayQueue。
  */
+import type { PlaylistEntry } from '../../../../../shared/playback/playlist'
 import type { VideoProbe } from '../../../../../shared/video-range'
-import type { LibraryRef } from '../progress/library-sink'
 
 /** 单个播放条目（集 / 文件 / 备用线路） */
-export type PlaylistEntry = {
-  url?: string
-  filePath?: string
-  name?: string
-  ext?: Record<string, unknown>
-  siteName?: string
-  /** 本地文件的动态范围（媒体库存的探测结果）；有它时杜比视界判断不必开播前再探测 */
-  video?: VideoProbe | null
-  /** 媒体库条目：进度只记进片库（见 progress/library-sink） */
-  library?: LibraryRef
-  /** 片库记的续播位置（秒，看完的为 0）：主窗口把播放交给播放器窗口时填上，那边没有片库缓存 */
-  libraryResume?: number
-}
+export type { PlaylistEntry } from '../../../../../shared/playback/playlist'
 
 /** 片库播完最后一集时的提示（如「没有下一集的文件」+ 去追更） */
 export interface EndHint {

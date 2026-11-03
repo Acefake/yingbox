@@ -1,8 +1,8 @@
 /**
  * CMS / CatSpider 返回数据的纯解析：外部数据只在这里整理成 CmsItem / EpisodeGroup。
  */
-import { asArray, asRecord, asText } from '@/utils/json'
-import { asRawVod } from '@/utils/vod-data'
+import { asArray, asRecord, asText } from '../json'
+import { asRawVod } from './vod-data'
 import type {
   ApiSite,
   CatSpiderSite,
@@ -10,7 +10,7 @@ import type {
   CmsSource,
   Episode,
   EpisodeGroup,
-} from '../types'
+} from './types'
 
 /** CMS 搜索结果补上来源字段。 */
 export const toCmsSearchItems = (list: CmsItem[], site: ApiSite): CmsItem[] =>

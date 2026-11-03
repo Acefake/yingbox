@@ -4,7 +4,7 @@
 import { useStorage } from '@vueuse/core'
 import cmsSitesRaw from '../../../../../../cms-sites.json'
 import type { ApiSite } from '../types'
-import { migrateCmsApis } from '../utils/site-selection'
+import { migrateCmsApis } from '../../../../../shared/online/site-selection'
 
 /** 内置 CMS 站点。 */
 export const DEFAULT_SITES: ApiSite[] = (cmsSitesRaw as { sites: ApiSite[] })

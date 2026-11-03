@@ -11,7 +11,7 @@
  */
 import { isIncognito } from '@/features/incognito'
 
-import type { ProgressUpdate } from '../continue/continue-rules'
+import type { ProgressUpdate } from '../../../../../shared/playback/continue-rules'
 import { updateContinue } from '../continue/continue-store'
 import { saveMediaProgress } from '../utils/play-progress'
 import { markWatched } from '../watched'

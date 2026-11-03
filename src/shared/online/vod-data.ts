@@ -1,8 +1,8 @@
 /**
  * CMS / 插件返回的原始影片数据：形状与收窄。在线和 AV 两个 feature 都读这类数据，
- * 所以放在共享层（只依赖 utils/json，没有副作用，纯规则测试可以直接引入）。
+ * 所以放在共享层（只依赖 shared/json，没有副作用，渲染层与服务端选源都用它）。
  */
-import { type JsonRecord, asArray, asRecord, asText } from './json'
+import { type JsonRecord, asArray, asRecord, asText } from '../json'
 
 /** 插件条目、剧集附带的参数：只原样回传给插件，前端只读其中的 url / name */
 export type PluginExt = Record<string, unknown>

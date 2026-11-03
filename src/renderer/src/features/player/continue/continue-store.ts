@@ -8,7 +8,7 @@
  * - 整部看完（单片或最后一集播到 90%，且播放列表不是作品的一部分）时通知 onContinueFinished 的订阅者（如「想看」清单）。
  * - 媒体库按片库里的观看进度生成记录，经 mergeContinue 并入（后写胜出）；手动移除的记一块墓碑
  *   （continue_removed），更早的进度不会把它补回来。标记看完时媒体库条目同时上报片库。
- * 规则都在 continue-rules.ts。
+ * 规则都在 shared/playback/continue-rules.ts。
  */
 import { type Ref, ref } from 'vue'
 
@@ -27,7 +27,7 @@ import {
   mergeRecords,
   sanitizeRecords,
   startRecord,
-} from './continue-rules'
+} from '../../../../../shared/playback/continue-rules'
 
 const STORAGE_KEY = 'continue_watching'
 const TOMBSTONE_KEY = 'continue_removed'

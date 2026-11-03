@@ -39,7 +39,7 @@
 
 <script setup lang="ts">
 /**
- * 首页「精选片单」：4 张扁宽卡（豆瓣高分 / 冷门佳片 / 华语热门 / 韩剧热播，映射见 utils/browse-target.ts），
+ * 首页「精选片单」：4 张扁宽卡（豆瓣高分 / 冷门佳片 / 华语热门 / 韩剧热播，映射见 shared/douban/collections.ts），
  * 放在首页最底下。左侧英文小标签 + 标题 + 一句描述；右侧该片单前 3 张海报叠在一起（第一张在最上）；
  * 背景是首张海报大幅模糊、压暗后的颜色。文字区宽度给海报让出位置，两者不重叠。
  * 这一排滚进视口才取数据，取到前是渐变底。点卡 emit open，在线页打开该片单的浏览页。
@@ -60,7 +60,7 @@ import {
   COLLECTIONS,
   type CollectionId,
   collectionQuery,
-} from '../utils/browse-target'
+} from '../../../../../shared/douban/collections'
 
 const emit = defineEmits<{ open: [id: CollectionId] }>()
 

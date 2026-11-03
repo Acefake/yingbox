@@ -22,7 +22,7 @@
 import UiChip from '@/components/ui/UiChip.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 
-import { HOME_GENRES } from '../utils/browse-target'
+import { HOME_GENRES } from '../../../../../shared/douban/collections'
 
 const emit = defineEmits<{ open: [genre: string]; collections: [] }>()
 </script>

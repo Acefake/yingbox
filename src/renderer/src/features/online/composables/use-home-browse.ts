@@ -13,14 +13,11 @@ import {
   type DoubanQuery,
   defaultDoubanQuery,
 } from '../../../../../shared/douban/query'
+import { doubanItemOf } from '../../../../../shared/douban/item'
 import { doubanBrowse, onlineAvailable } from '../api/online'
 import type { DoubanItem } from '../types'
 import { enrichDoubanItems } from '../utils/douban-enrich'
-import {
-  type DoubanFeed,
-  createDoubanFeed,
-  doubanItemOf,
-} from './use-douban-feed'
+import { type DoubanFeed, createDoubanFeed } from './use-douban-feed'
 
 const hotFeeds: Partial<Record<DoubanKind, DoubanFeed>> = {}
 

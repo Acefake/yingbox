@@ -1,69 +1,29 @@
-import { firstPlayUrl } from '@/utils/vod-data'
+/**
+ * 渲染层的播放源解析：共享规则（shared/online/play-source.ts）接上引擎的插件解析与页面嗅探。
+ * 同时服务于在线源与本地文件：本地 filePath 由播放器自己转成 local:// 地址，不经这里。
+ */
+import {
+  type PlaySourceDeps,
+  type PlaySourceItem,
+  resolvePlaySource as resolve,
+  resolvePageToMedia as resolvePage,
+} from '../../../../../shared/online/play-source'
 import { onlineApi } from '../api/online'
 import { useVODParser } from '../composables/use-vod-parser'
 
-/**
- * 播放源条目。
- *
- * 同时服务于在线源与本地文件：
- *  - 在线：`url`（可能是页面地址，需解析成 m3u8/mp4）
- *  - 本地：`filePath`（播放器内部转成 local:// 地址）
- */
-interface PlaySourceItem {
-  url?: string
-  filePath?: string
-  /** 展示名（集名 / 文件名） */
-  name?: string
-  /** CatSpider 插件参数（与 siteName 配合用于解析播放地址） */
-  ext?: Record<string, unknown>
-  /** CatSpider 站点名，缺失表示 CMS 直链 */
-  siteName?: string
+const deps: PlaySourceDeps = {
+  playinfo: async fields => {
+    const r = await useVODParser().getPlayinfo(fields)
+    return r?.success ? r.data : null
+  },
+  resolvePage: url => onlineApi().resolvePage(url),
 }
 
-const DIRECT_MEDIA_RE = /\.(m3u8|mp4|flv)(?:\?|$)/i
+/** 把播放源解析为可直接播放的地址；失败原样返回，交由播放器报错。 */
+export const resolvePlaySource = (
+  item: PlaySourceItem & { filePath?: string; name?: string }
+): Promise<string> => resolve(item, deps)
 
-/** 判断是否已是可直接播放的地址 */
-const isDirectMediaUrl = (url: string): boolean => DIRECT_MEDIA_RE.test(url)
-
-/**
- * 把播放源解析为可直接播放的地址。
- *
- * 1. CatSpider 源：先由插件（后端）解析出真实地址
- * 2. 仍非直链时：跟随跳转并从页面中提取 m3u8
- * 解析失败时原样返回，交由播放器报错处理。
- */
-export async function resolvePlaySource(item: PlaySourceItem): Promise<string> {
-  const raw = typeof item.url === 'string' ? item.url.trim() : ''
-  if (!raw) return ''
-  let candidate = raw
-
-  if (item.siteName && item.ext) {
-    try {
-      const { getPlayinfo } = useVODParser()
-      const r = await getPlayinfo({
-        siteName: item.siteName,
-        url: String(item.ext.url || raw),
-        ...item.ext,
-      })
-      const url = r?.success ? firstPlayUrl(r.data) : ''
-      if (url) candidate = url
-    } catch {
-      // 插件解析失败时继续尝试通用解析
-    }
-  }
-
-  if (isDirectMediaUrl(candidate)) return candidate
-  return await resolvePageToMedia(candidate)
-}
-
-/**
- * 页面地址 → 媒体直链：由引擎跟随跳转并从 HTML 中提取 m3u8，失败返回原地址。
- */
-export async function resolvePageToMedia(url: string): Promise<string> {
-  if (!url || isDirectMediaUrl(url)) return url
-  try {
-    return await onlineApi().resolvePage(url)
-  } catch {
-    return url
-  }
-}
+/** 页面地址 → 媒体直链：由引擎跟随跳转并从 HTML 中提取 m3u8，失败返回原地址。 */
+export const resolvePageToMedia = (url: string): Promise<string> =>
+  resolvePage(url, deps.resolvePage)

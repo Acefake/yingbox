@@ -22,6 +22,7 @@ const BUDGETS: Record<string, Record<Metric, Change[]>> = {
         '2026-11-02',
         'ADR-0029 的索引一行：adr.test 要求每篇 ADR 都列在 AGENTS.md 索引里，不能下沉',
       ],
+      [30 * 1024, '2026-11-03', 'ADR 索引加 0030–0034（安卓端）'],
     ],
     longestLine: [[2450, '2026-10-22', '初始值（番号库一段 2438 字符）']],
   },

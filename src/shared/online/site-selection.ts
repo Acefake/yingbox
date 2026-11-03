@@ -2,7 +2,7 @@
  * 站点启用列表的纯规则：CatSpider 首次加载 / 后端清单变化时如何调整选择，
  * 以及旧版内置 CMS 地址的迁移。
  */
-import type { CatSpiderSite } from '../types'
+import type { CatSpiderSite } from './types'
 
 /** 成人插件源（归属 AV 页；普通模式下不发请求）。 */
 export const ADULT_CATSPIDER_APIS = new Set([

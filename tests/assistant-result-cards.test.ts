@@ -26,7 +26,7 @@ vi.mock('@/features/player', async () => {
   }
 })
 
-import type { ContinueRecord } from '../src/renderer/src/features/player/continue/continue-rules'
+import type { ContinueRecord } from '../src/shared/playback/continue-rules'
 import {
   CARD_INFO_WAIT_MS,
   cardInfos,

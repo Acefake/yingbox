@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 
-import { enrichFromTmdb } from '@/features/online/utils/douban-tmdb'
+import { enrichFromTmdb } from '../src/shared/douban/tmdb-enrich'
 import type { DoubanItem } from '@/features/online/types'
 
 /**

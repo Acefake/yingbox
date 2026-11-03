@@ -31,6 +31,7 @@ import {
   inProcessCodec,
   startCodec,
 } from '../main/thumbnails/codec-client'
+import { openLibraryDb } from '../main/library/db/database'
 import { createThumbnailPipeline } from '../main/thumbnails/pipeline'
 import { createWasmResizer } from '../main/thumbnails/wasm-resizer'
 import { tokenCandidates } from '../shared/net/token-query'
@@ -55,6 +56,7 @@ import { registerSubtitleRoutes } from './routes/subtitles'
 import { DomainRegistry } from './domains/registry'
 import { registerDomainRoutes } from './domains/routes'
 import { registerServerNotifications } from './notifications'
+import { registerPlayback } from './playback'
 import {
   FileSecretStore,
   SECRET_KEYS,
@@ -135,7 +137,7 @@ export async function createServerApp(
   const thumbnails = createThumbnailPipeline({
     mediaDir,
     codec,
-    resizer: createWasmResizer(codec),
+    resizer: createWasmResizer(codec, log),
     log,
   })
   const service = createLibraryService(
@@ -199,6 +201,10 @@ export async function createServerApp(
     remoteStream: panLibrary.stream,
   })
   registerSubtitleRoutes(router, service)
+  // 播放记录（ADR-0031）：片库数据库的 user_state 表，单开一个连接（表已由片库服务迁移建好）
+  // 只做单键读写：不要片库连接那样的大页缓存和内存映射（安卓上内存紧）
+  const playbackDb = openLibraryDb(dbPath, { mmapSize: 0, cacheKiB: 2048 })
+  const playback = registerPlayback(registry, playbackDb)
   registerFsRoutes(router, config.mediaRoots, log)
   // 构建入口决定登记完整在线模块或 NAS 元数据服务。
   const features = (options.features ?? registerServerFeatures)(
@@ -215,6 +221,7 @@ export async function createServerApp(
       tmdbLanguage: () => serverSettings.get('scrape.metadataLanguage'),
       log,
       engine: options.engine,
+      records: playback,
     }
   )
   // 网盘 / 追更 / 库外发现（开关 YINGBOX_NETDISK、YINGBOX_AUTOGRAB，见 netdisk/）
@@ -278,6 +285,7 @@ export async function createServerApp(
       await features.close()
       netdisk?.close()
       await service.close()
+      playbackDb.close()
       await notify.flush()
     },
   }
