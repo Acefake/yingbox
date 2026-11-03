@@ -219,16 +219,12 @@ internal fun ContinueCard(card: ViewContinue, client: ServerClient, open: () -> 
 @Composable
 private fun PosterRow(items: List<ViewCard>, client: ServerClient, open: (ViewCard) -> Unit, more: (() -> Unit)?) {
     val gutter = gutter()
-    val wide = LocalConfiguration.current.screenWidthDp >= 600
     LazyRow(contentPadding = PaddingValues(horizontal = gutter), horizontalArrangement = Arrangement.spacedBy(YbSpace.S4)) {
-        items(items, key = { it.id }) { card ->
-            if (wide) HomeLandscapeCard(card, client) { open(card) }
-            else Poster(card, client) { open(card) }
-        }
+        items(items, key = { it.id }) { card -> Poster(card, client) { open(card) } }
         if (more != null) {
             item(key = "more") {
                 Box(
-                    Modifier.width(if (wide) 180.dp else 132.dp).aspectRatio(if (wide) 16f / 9f else 2f / 3f).background(YbColor.Elevated, YbRadius.Card)
+                    Modifier.width(132.dp).aspectRatio(2f / 3f).background(YbColor.Elevated, YbRadius.Card)
                         .tvFocusViewport()
                         .focusFrame(lift = true, onClick = more),
                     contentAlignment = Alignment.Center,
@@ -237,16 +233,6 @@ private fun PosterRow(items: List<ViewCard>, client: ServerClient, open: (ViewCa
                 }
             }
         }
-    }
-}
-
-@Composable
-private fun HomeLandscapeCard(card: ViewCard, client: ServerClient, open: () -> Unit) {
-    Column(Modifier.width(180.dp).tvFocusViewport(), verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
-        Box(Modifier.fillMaxWidth().aspectRatio(16f / 9f).focusFrame(lift = true, onClick = open).clip(YbRadius.Card)) {
-            RemoteImage(card.backdrop?.takeIf { it.isNotEmpty() } ?: card.poster, client, Modifier.fillMaxSize())
-        }
-        Text(card.title, color = YbColor.TextPrimary, fontSize = YbText.Md, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }
 
