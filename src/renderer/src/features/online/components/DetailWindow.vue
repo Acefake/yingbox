@@ -80,9 +80,9 @@
  */
 import { toast } from '@/components/ui'
 import { webImageSrc } from '@/services/thumbnails'
-import { asText } from '@/utils/json'
+import { asText } from '../../../../../shared/json'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
-import { asRawVod } from '@/utils/vod-data'
+import { asRawVod } from '../../../../../shared/online/vod-data'
 import { htmlToText } from '@/utils/html-text'
 import { computed, onMounted, ref, watch } from 'vue'
 import { isIncognito } from '@/features/incognito'

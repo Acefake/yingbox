@@ -89,10 +89,6 @@
   "src/renderer/src/features/library/page/use-section-guard.ts": {
     "history": 1
   },
-  "src/renderer/src/features/online/utils/site-selection.ts": {
-    "changed-to": 1,
-    "old-version": 3
-  },
   "src/renderer/src/features/online/views/OnlineView.vue": {
     "changed-to": 1
   },
@@ -107,6 +103,10 @@
   },
   "src/shared/net/cf-page.ts": {
     "old-version": 1
+  },
+  "src/shared/online/site-selection.ts": {
+    "changed-to": 1,
+    "old-version": 3
   },
   "src/shared/settings/legacy.ts": {
     "old-version": 3

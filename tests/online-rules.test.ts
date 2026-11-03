@@ -4,28 +4,30 @@ import {
   parseCatSpiderGroups,
   parseCmsGroups,
   toCatSpiderSearchItems,
-} from '../src/renderer/src/features/online/utils/vod-payload'
+} from '../src/shared/online/vod-payload'
 import {
   firstPlayUrl,
   getVodList,
   normalizeVodPayload,
-} from '../src/renderer/src/utils/vod-data'
+} from '../src/shared/online/vod-data'
 import {
   migrateCmsApis,
   planCatSpiderSelection,
-} from '../src/renderer/src/features/online/utils/site-selection'
+} from '../src/shared/online/site-selection'
 import {
-  buildFallbacks,
-  buildPlaylist,
   groupBySite,
-  guessMediaType,
-  mergeOnlineHistory,
   normalizeTitle,
   preferredSourceType,
   sourceKey,
   sourceTypeOptions,
   splitBySourceType,
   titleMatches,
+} from '../src/shared/online/sources'
+import {
+  buildFallbacks,
+  buildPlaylist,
+  guessMediaType,
+  mergeOnlineHistory,
   tmdbImage,
 } from '../src/renderer/src/features/online/utils/detail-sources'
 import {

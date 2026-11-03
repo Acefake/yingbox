@@ -44,7 +44,7 @@ interface VODParseResponse {
   url?: string
   site?: string
   videoID?: string
-  /** 插件原样返回的数据（对象或 JSON 字符串），用 utils/vod-payload 解析 */
+  /** 插件原样返回的数据（对象或 JSON 字符串），用 shared/online/vod-payload.ts 解析 */
   data?: unknown
   /** 引擎回报的熔断：该源暂不可用（被拦截 / 连不上 / 插件下载失败） */
   unavailable?: PluginHealth

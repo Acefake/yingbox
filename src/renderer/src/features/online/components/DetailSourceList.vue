@@ -58,7 +58,7 @@ import {
   formatSpeed,
   resolutionLabel,
 } from '../utils/auto-source'
-import type { SiteGroup } from '../utils/detail-sources'
+import type { SiteGroup } from '../../../../../shared/online/sources'
 
 const props = defineProps<{
   siteGroups: SiteGroup[]

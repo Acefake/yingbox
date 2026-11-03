@@ -3,13 +3,13 @@
  * 以及 CMS / 插件两种返回数据到统一条目的整理。
  */
 import type { MediaFilterRow } from '@/components/MediaFilterBar.vue'
-import { asText } from '@/utils/json'
+import { asText } from '../../../../../shared/json'
 import {
   type PluginExt,
   type RawVod,
   asRawVod,
   pluginTabs,
-} from '@/utils/vod-data'
+} from '../../../../../shared/online/vod-data'
 
 /**
  * AV 条目：CMS、插件两种来源整理成同一形状，浏览、搜索、播放、收藏、历史都用它。

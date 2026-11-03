@@ -1,13 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { asArray, asRecord, asText } from '../src/renderer/src/utils/json'
+import { asArray, asRecord, asText } from '../src/shared/json'
 import {
   asRawVod,
   firstPlayUrl,
   getVodList,
   pluginTabs,
-} from '../src/renderer/src/utils/vod-data'
+} from '../src/shared/online/vod-data'
 
-describe('外部数据收窄（utils/json）', () => {
+describe('外部数据收窄（shared/json）', () => {
   it('asRecord：只认普通对象，数组 / null / 基本类型都是 undefined', () => {
     const obj = { a: 1 }
     expect(asRecord(obj)).toBe(obj)
@@ -37,7 +37,7 @@ describe('外部数据收窄（utils/json）', () => {
   })
 })
 
-describe('插件 / CMS 原始数据（utils/vod-data）', () => {
+describe('插件 / CMS 原始数据（shared/online/vod-data）', () => {
   it('asRawVod：对象原样当条目读，不是对象时给空条目', () => {
     const raw = { vod_name: 'A', extra: 1 }
     expect(asRawVod(raw)).toBe(raw)

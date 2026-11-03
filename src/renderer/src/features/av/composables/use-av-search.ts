@@ -16,8 +16,8 @@ import {
   getJson,
   useVODParser,
 } from '@/features/online'
-import { getVodList } from '@/utils/vod-data'
-import { mapWithConcurrency } from '@/utils/concurrency'
+import { getVodList } from '../../../../../shared/online/vod-data'
+import { mapWithConcurrency } from '../../../../../shared/concurrency'
 import type { AvSite } from './use-av-sources'
 import {
   type MergedGroup,

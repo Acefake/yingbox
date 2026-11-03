@@ -1,13 +1,13 @@
 import { type ComputedRef, type Ref, computed, ref } from 'vue'
-import { mapWithConcurrency } from '@/utils/concurrency'
-import { asText } from '@/utils/json'
+import { mapWithConcurrency } from '../../../../../shared/concurrency'
+import { asText } from '../../../../../shared/json'
 import {
   type PluginExt,
   type PluginTab,
   asRawVod,
   getVodList,
   pluginTabs,
-} from '@/utils/vod-data'
+} from '../../../../../shared/online/vod-data'
 import { useVODParser } from './use-vod-parser'
 import type { CatSpiderSite, CmsItem } from './use-online-search'
 

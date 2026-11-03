@@ -16,7 +16,7 @@ import {
   mergeProbeCache,
   probeKey,
 } from '../utils/auto-source'
-import type { SiteGroup } from '../utils/detail-sources'
+import type { SiteGroup } from '../../../../../shared/online/sources'
 import { resolvePlaySource } from '../utils/play-source'
 
 const CACHE_KEY = 'online_source_probes'

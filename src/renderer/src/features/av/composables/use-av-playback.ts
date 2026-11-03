@@ -8,7 +8,7 @@ import { type RemovableRef, useStorage } from '@vueuse/core'
 import { isIncognito } from '@/features/incognito'
 import { useOnlineSearch } from '@/features/online'
 import type { ContinueRecord } from '@/features/player'
-import type { PluginExt } from '@/utils/vod-data'
+import type { PluginExt } from '../../../../../shared/online/vod-data'
 import {
   getMediaProgress,
   openMediaPlayer,

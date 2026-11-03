@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { getVodList } from '../src/renderer/src/utils/vod-data'
+import { getVodList } from '../src/shared/online/vod-data'
 import {
   type AvVideo,
   browseCacheKey,
@@ -22,7 +22,7 @@ import {
   toggleFavorite,
   upsertPlayHistory,
 } from '../src/renderer/src/features/av/utils/av-playback'
-import { mapWithConcurrency } from '../src/renderer/src/utils/concurrency'
+import { mapWithConcurrency } from '../src/shared/concurrency'
 
 /** 用例只给关心的字段（片名、封面），来源与去重键不影响被测规则 */
 const video = (fields: Partial<AvVideo>): AvVideo => ({

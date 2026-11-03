@@ -1,5 +1,5 @@
 import { isIncognito } from '@/features/incognito'
-import type { JsonRecord } from '@/utils/json'
+import type { JsonRecord } from '../../../../../shared/json'
 import {
   readStoredArray,
   readStoredText,

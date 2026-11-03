@@ -10,7 +10,7 @@ import type { CatSpiderSite } from '../types'
 import {
   isAdultCatSpiderSite,
   planCatSpiderSelection,
-} from '../utils/site-selection'
+} from '../../../../../shared/online/site-selection'
 
 // 后端不可用时仍可使用的精选源；完整列表由后端内嵌的 vod.json 提供。
 const FALLBACK_CATSPIDER_SITES: CatSpiderSite[] = [

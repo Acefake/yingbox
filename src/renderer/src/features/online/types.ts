@@ -1,51 +1,9 @@
 /**
  * 在线域共用的数据形状：CMS / CatSpider 搜索条目、播放线路分组、站点配置。
  */
-import type { PluginExt } from '@/utils/vod-data'
+import type { CmsItem } from '../../../../shared/online/types'
 
-export type { PluginExt, RawVod } from '@/utils/vod-data'
-
-/** 聚合后的一个 CMS 来源（同名条目的其它站点）。 */
-export interface CmsSource {
-  source_name: string
-  api_url: string
-  vod_id: number | string
-}
-
-/** 搜索 / 浏览得到的一个影片条目（CMS 与 CatSpider 统一成这一个形状）。 */
-export interface CmsItem {
-  vod_id: number | string
-  vod_name: string
-  type_name: string
-  vod_year: string
-  vod_remarks: string
-  vod_pic: string
-  vod_play_url?: string
-  vod_play_from?: string
-  vod_content?: string
-  source_name?: string
-  api_url?: string
-  sources?: CmsSource[]
-  _source?: 'cms' | 'catspider'
-  _siteName?: string
-  _ext?: PluginExt
-}
-
-/** 一集：名称、地址，插件线路还带插件参数。 */
-export interface Episode {
-  name: string
-  url: string
-  ext?: PluginExt
-}
-
-/** 一条播放线路：同一来源下的一组剧集。 */
-export interface EpisodeGroup {
-  label: string
-  episodes: Episode[]
-  hasDirect: boolean
-  _source?: 'cms' | 'catspider'
-  _siteName?: string
-}
+export type { PluginExt, RawVod } from '../../../../shared/online/vod-data'
 
 /**
  * 详情页打开的条目：来自搜索 / 浏览（CmsItem）、最近播放、或豆瓣卡片（_source 为 douban，
@@ -95,19 +53,15 @@ export interface TmdbCastMember {
 /** 详情页的一张剧照（TMDB 或豆瓣），缩略图与原图都是完整地址 */
 export type { DetailImage } from '../../../../shared/contract/online'
 
-/** 苹果 CMS 站点。 */
-export interface ApiSite {
-  name: string
-  api: string
-}
-
-/** CatSpider 插件站点。 */
-export interface CatSpiderSite {
-  name: string
-  type: number
-  api: string
-  ext: string
-}
+/** CMS / CatSpider 条目、线路、站点（形状在 shared/online/types.ts，服务端选源共用） */
+export type {
+  CmsSource,
+  CmsItem,
+  Episode,
+  EpisodeGroup,
+  ApiSite,
+  CatSpiderSite,
+} from '../../../../shared/online/types'
 
 /** 豆瓣卡片（在线首页；也原样存进收藏 media_favorites） */
 export type { DoubanItem } from '../../../../shared/douban/item'

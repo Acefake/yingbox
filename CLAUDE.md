@@ -132,7 +132,7 @@ Download directory: setting `download.dir` in `settings.json` (Settings → 下�
 - **Prettier:** single quotes, no semicolons, trailing commas (es5), 2-space indent, LF line endings
 - **ESLint:** TypeScript + Vue recommended rules, `prefer-template` enforced, import sorting (`sort-imports`), padding-line-between-statements (blank lines required around functions, consts, types, and after imports)
 - **TypeScript:** `noUnusedLocals`, `noUnusedParameters`, `noImplicitAny` are enabled; no `any` (lint warns, and warnings fail `pnpm lint`); functions declare return types, composables export a `UseXxxReturn` interface
-- **External data** (plugin / CMS / TMDB responses, old localStorage records): type it `unknown` and narrow with `utils/json.ts` (`asRecord` / `asArray` / `asText`); raw plugin/CMS shapes and parsers live in `utils/vod-data.ts`
+- **External data** (plugin / CMS / TMDB responses, old localStorage records): type it `unknown` and narrow with `src/shared/json.ts` (`asRecord` / `asArray` / `asText`); raw plugin/CMS shapes and parsers live in `src/shared/online/vod-data.ts`
 - Vue SFC `<script>` blocks must use `lang="ts"`
 
 ### Tech stack summary
