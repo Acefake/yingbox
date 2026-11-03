@@ -114,7 +114,8 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
         item { TmdbTokenGroup(api) }
         item {
             SettingsGroup("关于") {
-                SettingsRow("版本") { Text(version, color = YbColor.TextSecondary, fontSize = YbText.Sm) }
+                // 页面最后一项：电视上要能聚焦，列表才会滚到底（否则「保存」下面的说明和「关于」看不到）
+                SettingsRow("版本", modifier = Modifier.tvReadingFocus(YbRadius.Sm)) { Text(version, color = YbColor.TextSecondary, fontSize = YbText.Sm) }
             }
         }
     }

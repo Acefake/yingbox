@@ -42,8 +42,8 @@ internal fun SettingsGroup(title: String, footer: String? = null, content: @Comp
 
 /** 一行设置：左边标题和说明，右边是控件（开关等） */
 @Composable
-internal fun SettingsRow(title: String, description: String? = null, trailing: @Composable () -> Unit = {}) {
-    Row(Modifier.fillMaxWidth().tvFocusViewport(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(YbSpace.S4)) {
+internal fun SettingsRow(title: String, description: String? = null, modifier: Modifier = Modifier, trailing: @Composable () -> Unit = {}) {
+    Row(modifier.fillMaxWidth().tvFocusViewport(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(YbSpace.S4)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(YbSpace.S1)) {
             Text(title, color = YbColor.TextPrimary, fontSize = YbText.Md, fontWeight = FontWeight.Medium)
             if (description != null) Text(description, color = YbColor.TextSecondary, fontSize = YbText.Xs)

@@ -82,17 +82,13 @@ internal fun TmdbTokenGroup(api: ServerSettingsApi) {
             Modifier.fillMaxWidth().height(44.dp).background(YbColor.FillSecondary, YbRadius.Full).padding(horizontal = YbSpace.S4),
             contentAlignment = Alignment.CenterStart,
         ) {
-            if (draft.isEmpty()) Text("粘贴 Access Token", color = YbColor.TextTertiary, fontSize = YbText.Md)
-            BasicTextField(
+            RemoteTextField(
                 value = draft,
-                onValueChange = { draft = it.filterNot(Char::isWhitespace) },
-                singleLine = true,
-                visualTransformation = PasswordVisualTransformation(),
-                textStyle = TextStyle(color = YbColor.TextPrimary, fontSize = YbText.Md),
-                cursorBrush = SolidColor(YbColor.Accent),
+                onChange = { draft = it.filterNot(Char::isWhitespace) },
+                placeholder = "粘贴 Access Token",
                 keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password, imeAction = ImeAction.Done),
-                keyboardActions = KeyboardActions(onDone = { if (draft.isNotEmpty()) save(draft) }),
-                modifier = Modifier.fillMaxWidth(),
+                onAction = { if (draft.isNotEmpty()) save(draft) },
+                visualTransformation = PasswordVisualTransformation(),
             )
         }
         Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
