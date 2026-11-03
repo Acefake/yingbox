@@ -14,8 +14,6 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.lazy.itemsIndexed
 import androidx.compose.foundation.lazy.rememberLazyListState
 import androidx.compose.material3.Text
-import androidx.compose.ui.platform.LocalContext
-import android.widget.Toast
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
@@ -95,7 +93,6 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
     }
 
     val d = detail?.getOrNull()
-    val context = LocalContext.current
     val headerFocus = remember(target) { FocusRequester() }
     var hasContentFocus by remember(target) { mutableStateOf(false) }
     val isTv = LocalIsTv.current
@@ -125,9 +122,7 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
     // 按站点记选中：轮询中插件源插到前面时，选中的站点和焦点所在的集不跳
     var siteKey by remember(target) { mutableStateOf<String?>(null) }
     var lineIndex by remember(target) { mutableIntStateOf(0) }
-    // 刚屏蔽的站点：服务端的会话结果要等下一次轮询才更新，这里先立刻去掉
-    var blocked by remember(target) { mutableStateOf(emptySet<String>()) }
-    val sites = sources?.sites.orEmpty().filter { it.siteName !in blocked }
+    val sites = sources?.sites.orEmpty()
     val site = sites.firstOrNull { it.key == siteKey } ?: sites.firstOrNull()
     val line = site?.lines?.let { it.getOrNull(lineIndex) ?: it.firstOrNull() }
     val startPlay: (ViewSourceSite, Int, Int) -> Unit = { s, l, i ->
@@ -173,13 +168,7 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
             }
         }
         item {
-            Sources(sources, sites, failed, playable = detail != null, site, line, { siteKey = it.key; lineIndex = 0 }, { lineIndex = it }, startPlay) { gone ->
-                blocked = blocked + gone.siteName
-                siteKey = null
-                lineIndex = 0
-                scope.launch { withContext(Dispatchers.IO) { runCatching { api.blockSite(gone.siteName, true) } } }
-                Toast.makeText(context, "已不再使用「${gone.siteName}」，可在设置里恢复", Toast.LENGTH_SHORT).show()
-            }
+            Sources(sources, sites, failed, playable = detail != null, site, line, { siteKey = it.key; lineIndex = 0 }, { lineIndex = it }, startPlay)
         }
         if (d != null) {
             item { CastRow(d, client) }
@@ -199,7 +188,6 @@ private fun Sources(
     pickSite: (ViewSourceSite) -> Unit,
     pickLine: (Int) -> Unit,
     play: (site: ViewSourceSite, line: Int, index: Int) -> Unit,
-    block: (ViewSourceSite) -> Unit,
 ) {
     Column(Modifier.padding(horizontal = gutter()), verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
         RowTitle("播放源")
@@ -219,7 +207,6 @@ private fun Sources(
         LazyRow(state = siteList, horizontalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
             items(sites, key = { it.key }) { s -> SourceCard(s, selected = s.key == site.key) { pickSite(s) } }
         }
-        SecondaryButton("不再使用「${site.siteName}」", icon = YbIcons.Close) { block(site) }
         if (site.lines.size > 1) {
             Text("线路", color = YbColor.TextTertiary, fontSize = YbText.Xs)
             LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {

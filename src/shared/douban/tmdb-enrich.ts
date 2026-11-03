@@ -167,6 +167,10 @@ export async function enrichFromTmdb(
     item.year = date ? date.slice(0, 4) : item.year
     const mt = hit.media_type ?? (isTv ? 'tv' : 'movie')
     item.type = mt === 'tv' ? '剧集' : '电影'
+    if (hit.id) {
+      item.tmdbId = hit.id
+      item.tmdbType = mt === 'tv' ? 'tv' : 'movie'
+    }
     item.overview = item.overview || hit.overview || ''
     item.original_title =
       item.original_title || hit.original_title || hit.original_name || ''

@@ -63,6 +63,7 @@ function resumeSlide(record: ContinueRecord): ViewHeroSlide | null {
     overview: '',
     meta: '',
     rating: '',
+    logo: null,
     playLabel: resumePlayLabel(record),
     continueId: record.id,
     cardId: null,
@@ -82,6 +83,7 @@ function doubanSlide(card: ViewCard): ViewHeroSlide {
       .filter(Boolean)
       .join(' · '),
     rating: formatRating(Number(card.rate), 'douban'),
+    logo: card.logo,
     playLabel: '播放',
     continueId: null,
     cardId: card.id,

@@ -242,7 +242,8 @@ private fun App(isTv: Boolean) {
                 is Screen.Top -> NavCapsule(top.tab, tabs, topNav, contentFocus, onFocused = {
                     if (isTv && top.tab == Tab.Home) homeScroll.requestScrollToItem(0)
                 }) { stack = listOf(Screen.Top(it)) }
-                is Screen.Play, is Screen.LibraryPlay -> BackButton(contentFocus, media = true) { back() }
+                // 全屏播放不画返回按钮：用系统返回键、返回手势或遥控器的返回键退出
+                is Screen.Play, is Screen.LibraryPlay -> Unit
                 else -> BackButton(contentFocus, onFocused = {
                     if (isTv && top is Screen.Detail) detailScroll.requestScrollToItem(0)
                 }) { back() }

@@ -2,6 +2,7 @@
  * view.home 里豆瓣那部分的拼装（ADR-0030）：用与桌面首页相同的共享规则取数、补全，再换成视图卡。
  * 每一行独立取数，失败的行省略，不让整个首页失败。
  */
+import { mapWithConcurrency } from '../../shared/concurrency'
 import { pickChart } from '../../shared/douban/chart'
 import {
   COLLECTIONS,
@@ -22,8 +23,12 @@ import {
   type DoubanSubject,
   defaultDoubanQuery,
 } from '../../shared/douban/query'
-import { enrichFromTmdb } from '../../shared/douban/tmdb-enrich'
+import {
+  type TmdbSearch,
+  enrichFromTmdb,
+} from '../../shared/douban/tmdb-enrich'
 import type { ThumbWidth } from '../../shared/media-url'
+import { pickLogo } from '../../shared/tmdb/logo'
 import type {
   HomeFeed,
   ViewCard,
@@ -50,6 +55,25 @@ const BACKDROP_WIDTH: ThumbWidth = 780
 export const thumbPath = (src: string, width: ThumbWidth): string =>
   `/media/thumb?w=${width}&src=${encodeURIComponent(src)}`
 
+/** 轮播最多放几张；只给最前面这几张取标志图（每张多一次 TMDB 请求） */
+const LOGO_CARDS = 6
+
+/** 给前几张已经补过 TMDB 的卡取标志图；取不到、没有令牌都当没有，退回文字标题 */
+async function attachLogos(
+  items: readonly DoubanItem[],
+  search: TmdbSearch
+): Promise<void> {
+  const targets = items
+    .slice(0, LOGO_CARDS)
+    .filter(item => item.tmdbId && item.tmdbType)
+  await mapWithConcurrency(targets, 3, async item => {
+    const images = await search(`/${item.tmdbType}/${item.tmdbId}/images`, {
+      include_image_language: 'zh,en,null',
+    }).catch(() => null)
+    item.logo = pickLogo(images) ?? undefined
+  })
+}
+
 /** 补全后的豆瓣卡 → 视图卡 */
 export function viewCardOf(item: DoubanItem, kind: DoubanKind): ViewCard {
   const poster = item.cover || item.coverSrc
@@ -64,6 +88,7 @@ export function viewCardOf(item: DoubanItem, kind: DoubanKind): ViewCard {
     backdrop: item.backdrop ? thumbPath(item.backdrop, BACKDROP_WIDTH) : null,
     overview: item.overview,
     doubanUrl: item.url,
+    logo: item.logo ? thumbPath(item.logo, BACKDROP_WIDTH) : null,
   }
 }
 
@@ -77,10 +102,12 @@ function uniqueById(cards: ViewCard[]): ViewCard[] {
 export async function cardsOf(
   subjects: readonly DoubanSubject[],
   kind: DoubanKind,
-  deps: HomeDeps
+  deps: HomeDeps,
+  withLogos = false
 ): Promise<ViewCard[]> {
   const items = subjects.map(doubanItemOf)
   await enrichDoubanItems(items, kind, deps)
+  if (withLogos) await attachLogos(items, deps.search)
   return uniqueById(items.map(item => viewCardOf(item, kind)))
 }
 
@@ -93,7 +120,8 @@ async function hotShelf(
   return {
     title: kind === 'tv' ? '热门剧集' : '热门电影',
     kind,
-    items: await cardsOf(page.items, kind, deps),
+    // 首页轮播从热门电影里挑，只有它需要标志图
+    items: await cardsOf(page.items, kind, deps, kind === 'movie'),
   }
 }
 
