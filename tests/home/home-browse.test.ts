@@ -12,6 +12,8 @@ import {
   type BrowseTarget,
   baseQuery,
   browseTitle,
+} from '../../src/shared/douban/browse'
+import {
   nextBrowseQuery,
   routeQueryOf,
   targetFromRoute,

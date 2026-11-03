@@ -1,4 +1,7 @@
-import type { DoubanKind } from '../douban/query'
+import type { BrowseTarget } from '../douban/browse'
+import { COLLECTIONS } from '../douban/collections'
+import { type DoubanKind, parseDoubanStart } from '../douban/query'
+import type { ViewBrowsePage } from '../view/browse'
 import type {
   ViewDetail,
   ViewEpisode,
@@ -38,6 +41,27 @@ function parseEpisode(value: unknown): ViewEpisode {
   }
 }
 
+const KINDS = ['movie', 'tv'] as const
+
+/** 浏览页目标：热门、某个类型（类型名由查询条件白名单收，不认识的退回全部）、某个精选片单 */
+function parseTarget(value: unknown): BrowseTarget {
+  const t = record<Record<string, unknown>>(value, 'target')
+  const type = oneOf(t.type, 'target.type', ['hot', 'genre', 'list'] as const)
+  if (type === 'list')
+    return {
+      type,
+      list: oneOf(
+        t.list,
+        'target.list',
+        COLLECTIONS.map(c => c.id)
+      ),
+    }
+  const kind = oneOf(t.kind, 'target.kind', KINDS)
+  return type === 'hot'
+    ? { type, kind }
+    : { type, kind, genre: str(t.genre, 'target.genre') }
+}
+
 /**
  * 视图域（ADR-0030）：服务端用共享规则拼好页面数据，给安卓原生端用。
  * 只在 src/server 实现，不进桌面 IPC 契约表；桌面与网页直接用同一份共享规则。
@@ -46,6 +70,12 @@ function parseEpisode(value: unknown): ViewEpisode {
 export const view = defineDomain('view', {
   /** 首页：轮播、继续观看、热门货架、榜单、按类型浏览、精选片单。豆瓣部分缓存；某行取不到就省略这一行。 */
   home: call<HomeView>(),
+  /** 浏览页的一页（热门、类型、精选片单）；start 是豆瓣分页位置，第一页为 0 */
+  browse: call<[target: BrowseTarget, start: number], ViewBrowsePage>(a => {
+    const start = parseDoubanStart(a[1])
+    if (start === null) throw new ContractError(`start 不合法：${a[1]}`)
+    return [parseTarget(a[0]), start]
+  }),
   /** 豆瓣条目详情；取不到为 null */
   detail: call<[subjectId: string, kind: DoubanKind], ViewDetail | null>(a => {
     const id = str(a[0], 'subjectId')

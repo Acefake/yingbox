@@ -18,6 +18,7 @@ import type { ContinueRecord } from '../../shared/playback/continue-rules'
 import type { HomeFeed } from '../../shared/view/home'
 import type { DomainRegistry } from '../domains/registry'
 import type { ServerEngine } from '../online/engine'
+import { browsePage } from './browse'
 import { composeHome } from './compose'
 import { createSourceSessions, resolveEpisode, viewDetail } from './detail'
 import { resumeView } from './resume'
@@ -114,6 +115,7 @@ export function registerView(
   const sessions = createSourceSessions(sourceDeps)
   registry.implement(view, {
     home: async () => composeHome(await feed(), continueRecords(), Date.now()),
+    browse: (_, target, start) => browsePage(target, start, deps),
     detail: async (_, id, kind) => {
       const meta = await deps.metadata(id, kind).catch(() => null)
       return meta ? viewDetail(meta) : null

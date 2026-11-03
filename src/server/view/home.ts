@@ -74,7 +74,7 @@ function uniqueById(cards: ViewCard[]): ViewCard[] {
 }
 
 /** 一批豆瓣条目 → 补全后的视图卡（前五项补豆瓣详情，再用 TMDB 补海报，与桌面首页相同） */
-async function cardsOf(
+export async function cardsOf(
   subjects: readonly DoubanSubject[],
   kind: DoubanKind,
   deps: HomeDeps

@@ -8,6 +8,10 @@ import org.json.JSONObject
 class ViewApi(private val client: ServerClient) {
     fun home(): HomeView = HomeView.fromJson(client.call("view", "home") as JSONObject)
 
+    /** 浏览页的一页；start 是豆瓣分页位置，第一页为 0 */
+    fun browse(target: BrowseTarget, start: Int): ViewBrowsePage =
+        ViewBrowsePage.fromJson(client.call("view", "browse", JSONArray().put(target.toJson()).put(start)) as JSONObject)
+
     /** 豆瓣详情；取不到为 null */
     fun detail(doubanId: String, kind: DoubanKind): ViewDetail? =
         (client.call("view", "detail", JSONArray().put(doubanId).put(kind.json)) as? JSONObject)
@@ -28,6 +32,26 @@ class ViewApi(private val client: ServerClient) {
     /** 解析一集的播放地址（本服务的播放代理路径） */
     fun resolve(episode: ViewEpisode): ViewPlayable =
         ViewPlayable.fromJson(client.call("view", "resolve", JSONArray().put(episode.toJson())) as JSONObject)
+}
+
+/** 浏览页显示什么（与 shared/douban/browse.ts 的 BrowseTarget 同形状） */
+sealed interface BrowseTarget {
+    fun toJson(): JSONObject
+
+    /** 热门（全部类型） */
+    data class Hot(val kind: DoubanKind) : BrowseTarget {
+        override fun toJson(): JSONObject = JSONObject().put("type", "hot").put("kind", kind.json)
+    }
+
+    /** 某个类型 */
+    data class Genre(val genre: String, val kind: DoubanKind) : BrowseTarget {
+        override fun toJson(): JSONObject = JSONObject().put("type", "genre").put("genre", genre).put("kind", kind.json)
+    }
+
+    /** 某个精选片单 */
+    data class Collection(val id: CollectionId) : BrowseTarget {
+        override fun toJson(): JSONObject = JSONObject().put("type", "list").put("list", id.json)
+    }
 }
 
 /** 交回服务端的剧集（与 ViewEpisode 同形状） */

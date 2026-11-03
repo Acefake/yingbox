@@ -6,11 +6,8 @@ import { type ComputedRef, type Ref, computed } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 
 import type { DoubanKind } from '../../../../../shared/douban/query'
-import {
-  type BrowseTarget,
-  routeQueryOf,
-  targetFromRoute,
-} from '../utils/browse-target'
+import { type BrowseTarget } from '../../../../../shared/douban/browse'
+import { routeQueryOf, targetFromRoute } from '../utils/browse-target'
 
 /** 浏览页路由的状态与操作 */
 export interface BrowseRoute {

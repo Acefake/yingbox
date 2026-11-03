@@ -32,13 +32,16 @@ import com.yingbox.android.server.ServerClient
 import com.yingbox.android.server.ServerService
 import com.yingbox.android.server.ServerState
 import com.yingbox.android.playback.PlayTitle
+import com.yingbox.android.ui.BrowseScreen
 import com.yingbox.android.ui.DetailScreen
 import com.yingbox.android.ui.DetailTarget
 import com.yingbox.android.ui.HomeActions
 import com.yingbox.android.ui.HomeScreen
 import com.yingbox.android.ui.PlayRequest
 import com.yingbox.android.ui.PlayerScreen
+import com.yingbox.android.view.BrowseTarget
 import com.yingbox.android.view.ViewApi
+import com.yingbox.android.view.ViewCard
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
@@ -67,6 +70,8 @@ class MainActivity : ComponentActivity() {
 private sealed interface Screen {
     data object Home : Screen
 
+    data class Browse(val target: BrowseTarget) : Screen
+
     data class Detail(val target: DetailTarget) : Screen
 
     data class Play(val request: PlayRequest) : Screen
@@ -90,14 +95,16 @@ private fun App(isTv: Boolean) {
     val push = { screen: Screen -> stack = stack + screen }
     BackHandler(enabled = stack.size > 1) { stack = stack.dropLast(1) }
 
+    val openCard = { card: ViewCard ->
+        push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster)))
+    }
     when (val top = stack.last()) {
         Screen.Home -> HomeScreen(
             client,
             homeScroll,
             HomeActions(
-                openCard = { card ->
-                    push(Screen.Detail(DetailTarget(card.id, card.kind, card.title, card.searchTitle, card.poster)))
-                },
+                openCard = openCard,
+                browse = { push(Screen.Browse(it)) },
                 resume = resume@{ id ->
                     // 遥控器连按确定时只开一个播放器
                     if (resuming) return@resume
@@ -115,6 +122,7 @@ private fun App(isTv: Boolean) {
                 },
             ),
         )
+        is Screen.Browse -> BrowseScreen(client, top.target, openCard)
         is Screen.Detail -> DetailScreen(client, top.target) { push(Screen.Play(it)) }
         is Screen.Play -> PlayerScreen(client, top.request) { stack = stack.dropLast(1) }
     }

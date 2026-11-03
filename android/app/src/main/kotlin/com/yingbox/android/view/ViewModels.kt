@@ -354,3 +354,17 @@ data class ViewResume(
         )
     }
 }
+
+data class ViewBrowsePage(
+    val title: String,
+    val items: List<ViewCard>,
+    val next: Double?,
+) {
+    companion object {
+        fun fromJson(json: JSONObject): ViewBrowsePage = ViewBrowsePage(
+            title = json.getString("title"),
+            items = json.getJSONArray("items").let { a0 -> List(a0.length()) { i0 -> ViewCard.fromJson(a0.getJSONObject(i0)) } },
+            next = (if (json.isNull("next")) null else json.getDouble("next")),
+        )
+    }
+}

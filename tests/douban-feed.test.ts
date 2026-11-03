@@ -11,7 +11,7 @@ import {
   defaultDoubanQuery,
 } from '../src/shared/douban/query'
 import { isAtEnd } from '@/components/ui/virtual-range'
-import type { BrowseTarget } from '@/features/online/utils/browse-target'
+import type { BrowseTarget } from '../src/shared/douban/browse'
 
 /**
  * 豆瓣浏览（渲染层）：筛选条件 → 分页加载 / 去重 / 失败重试 / 换条件丢弃过期结果 / 会话级记住条件，

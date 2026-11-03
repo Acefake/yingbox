@@ -26,6 +26,9 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.yingbox.android.server.ServerClient
+import com.yingbox.android.view.BrowseTarget
+import com.yingbox.android.view.CollectionId
+import com.yingbox.android.view.DoubanKind
 import com.yingbox.android.view.HomeView
 import com.yingbox.android.view.ViewApi
 import com.yingbox.android.view.ViewCard
@@ -42,11 +45,13 @@ class HomeActions(
     val openCard: (ViewCard) -> Unit,
     /** 从继续观看记录接着播 */
     val resume: (continueId: String) -> Unit,
+    /** 打开浏览页（热门全部、某个类型、某个精选片单） */
+    val browse: (BrowseTarget) -> Unit,
 )
 
 /**
- * 首页（ADR-0028 v1）：按 view.home 的行渲染，焦点用白框标出。
- * 按类型浏览与精选片单的浏览页还没接入。
+ * 首页（ADR-0028 v1）：按 view.home 的行渲染，焦点用白框标出；
+ * 热门两行末尾、按类型浏览、精选片单都通向浏览页。
  */
 @Composable
 fun HomeScreen(client: ServerClient, scroll: LazyListState, actions: HomeActions) {
@@ -77,9 +82,13 @@ private fun HomeRows(home: HomeView, client: ServerClient, scroll: LazyListState
     ) {
         if (home.hero.isNotEmpty()) item { Hero(home.hero, client, openSlide) }
         if (home.continueRow.isNotEmpty()) item { ContinueRow(home.continueRow, client, actions.resume) }
-        items(shelves) { shelf -> Shelf(shelf, client, actions.openCard) }
-        item { Genres(home.genres) }
-        item { Collections(home.collections, client) }
+        items(shelves) { shelf ->
+            // 热门两行通向「全部」；榜单行没有更多
+            val more = if (shelf === home.chart) null else ({ actions.browse(BrowseTarget.Hot(shelf.kind)) })
+            Shelf(shelf, client, actions.openCard, more)
+        }
+        item { Genres(home.genres) { actions.browse(BrowseTarget.Genre(it, DoubanKind.MOVIE)) } }
+        item { Collections(home.collections, client) { actions.browse(BrowseTarget.Collection(it)) } }
     }
 }
 
@@ -136,36 +145,33 @@ private fun ContinueRow(cards: List<ViewContinue>, client: ServerClient, resume:
 }
 
 @Composable
-private fun Shelf(shelf: ViewShelf, client: ServerClient, open: (ViewCard) -> Unit) {
+private fun Shelf(shelf: ViewShelf, client: ServerClient, open: (ViewCard) -> Unit, more: (() -> Unit)?) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         RowTitle(shelf.title)
         LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(shelf.items, key = { it.id }) { card -> Poster(card, client) { open(card) } }
+            if (more != null) {
+                item(key = "more") {
+                    Box(
+                        Modifier.width(132.dp).aspectRatio(2f / 3f).focusFrame(onClick = more).background(Surface, CardShape),
+                        contentAlignment = Alignment.Center,
+                    ) {
+                        Text("全部 ›", color = Color.White, fontSize = 16.sp)
+                    }
+                }
+            }
         }
     }
 }
 
 @Composable
-private fun Poster(card: ViewCard, client: ServerClient, open: () -> Unit) {
-    Column(Modifier.width(132.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
-        RemoteImage(
-            card.poster,
-            client,
-            Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusFrame(onClick = open),
-        )
-        Text(card.title, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(listOf(card.year, card.rate).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
-    }
-}
-
-@Composable
-private fun Genres(genres: List<String>) {
+private fun Genres(genres: List<String>, open: (String) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         RowTitle("按类型浏览")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(12.dp)) {
             items(genres) { genre ->
                 Box(
-                    Modifier.focusFrame().background(Surface, CardShape)
+                    Modifier.focusFrame { open(genre) }.background(Surface, CardShape)
                         .padding(horizontal = 24.dp, vertical = 12.dp),
                 ) {
                     Text(genre, color = Color.White, fontSize = 16.sp)
@@ -176,12 +182,12 @@ private fun Genres(genres: List<String>) {
 }
 
 @Composable
-private fun Collections(collections: List<ViewCollection>, client: ServerClient) {
+private fun Collections(collections: List<ViewCollection>, client: ServerClient, open: (CollectionId) -> Unit) {
     Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
         RowTitle("精选片单")
         LazyRow(horizontalArrangement = Arrangement.spacedBy(16.dp)) {
             items(collections, key = { it.id.json }) { c ->
-                Box(Modifier.width(280.dp).height(158.dp).focusFrame()) {
+                Box(Modifier.width(280.dp).height(158.dp).focusFrame { open(c.id) }) {
                     RemoteImage(c.posters.firstOrNull().orEmpty(), client, Modifier.fillMaxSize())
                     Box(Modifier.fillMaxSize().background(Color(0x99000000)))
                     Column(Modifier.align(Alignment.BottomStart).padding(16.dp)) {

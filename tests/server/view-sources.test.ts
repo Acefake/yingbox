@@ -318,6 +318,7 @@ describe('详情与入参', () => {
       home: async () => {
         throw new Error('unused')
       },
+      browse: async () => ({ title: '', items: [], next: null }),
       detail: async () => null,
       sourcesStart: () => ({ sessionId: 'x', done: true, sites: [] }),
       sources: () => null,

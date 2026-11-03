@@ -5,7 +5,12 @@ import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.interaction.MutableInteractionSource
 import androidx.compose.foundation.interaction.collectIsFocusedAsState
+import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.aspectRatio
+import androidx.compose.foundation.layout.fillMaxWidth
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material3.Text
@@ -16,8 +21,11 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
+import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
+import com.yingbox.android.server.ServerClient
+import com.yingbox.android.view.ViewCard
 
 /** 页面共用的颜色、形状与焦点样式（电视遥控器焦点是第一优先，ADR-0028） */
 internal val Muted = Color(0xFF8E8E93)
@@ -48,4 +56,18 @@ internal fun Modifier.focusFrame(selected: Boolean = false, onClick: () -> Unit 
         .then(if (selected) Modifier.background(Color(0xFF3A3A3C), CardShape) else Modifier)
         .border(if (focused) 3.dp else 0.dp, if (focused) Color.White else Color.Transparent, CardShape)
         .clickable(interactionSource = interaction, indication = null, onClick = onClick)
+}
+
+/** 一张竖版海报卡：海报、片名、年份 · 评分 */
+@Composable
+internal fun Poster(card: ViewCard, client: ServerClient, modifier: Modifier = Modifier, open: () -> Unit) {
+    Column(modifier.width(132.dp), verticalArrangement = Arrangement.spacedBy(6.dp)) {
+        RemoteImage(
+            card.poster,
+            client,
+            Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusFrame(onClick = open),
+        )
+        Text(card.title, color = Color.White, fontSize = 14.sp, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        Text(listOf(card.year, card.rate).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = 12.sp)
+    }
 }
