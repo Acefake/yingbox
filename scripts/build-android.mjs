@@ -32,10 +32,14 @@ function run(command, args, cwd) {
 }
 
 const abiIndex = process.argv.indexOf('--abi')
+const release = process.argv.includes('--release')
+// 发布只出 arm64-v8a；本机调试默认再带 x86_64（模拟器）
 const abis =
   abiIndex >= 0
     ? process.argv[abiIndex + 1].split(',')
-    : ['x86_64', 'arm64-v8a']
+    : release
+      ? ['arm64-v8a']
+      : ['x86_64', 'arm64-v8a']
 const jniLibs = join(ANDROID, 'app/src/main/jniLibs')
 const missing = abis.filter(
   abi => !existsSync(join(jniLibs, abi, 'libnode.so'))
@@ -67,10 +71,11 @@ if (fetchAbis.length)
     ],
     { stdio: 'inherit' }
   )
-const release = process.argv.includes('--release')
 run(
   isWin ? '.\\gradlew.bat' : './gradlew',
-  release ? [':app:assembleRelease', '-PsplitAbi'] : [':app:assembleDebug'],
+  release
+    ? [':app:assembleRelease', '-PsplitAbi', `-PreleaseAbis=${abis.join(',')}`]
+    : [':app:assembleDebug'],
   ANDROID
 )
 console.log(
