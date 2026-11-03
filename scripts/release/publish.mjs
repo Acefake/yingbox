@@ -3,7 +3,7 @@
  * 先建草稿并上传，逐个核对远端的大小和摘要，全部一致才公开并设为 Latest；
  * 任何一步失败都保留草稿。已公开的同名发布不覆盖。需要 gh 已登录。
  *
- *   node scripts/release/publish.mjs <标签 vX.Y.Z> <目录> <mpv 源码发布标签>
+ *   node scripts/release/publish.mjs <标签 vX.Y.Z> <目录>
  */
 import { execFileSync, spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
@@ -31,12 +31,10 @@ export function mismatches(uploaded, local) {
   return problems
 }
 
-async function main([tag, dir, sourcesTag]) {
+async function main([tag, dir]) {
   const version = /^v(\d+\.\d+\.\d+)$/.exec(tag ?? '')?.[1]
-  if (!version || !dir || !sourcesTag)
-    throw new Error(
-      '用法：node scripts/release/publish.mjs <vX.Y.Z> <目录> <源码标签>'
-    )
+  if (!version || !dir)
+    throw new Error('用法：node scripts/release/publish.mjs <vX.Y.Z> <目录>')
   const names = (await readdir(dir)).sort()
   if (!names.includes(CHECKSUM_FILE))
     throw new Error(`${dir} 里缺少 ${CHECKSUM_FILE}`)
@@ -60,7 +58,7 @@ async function main([tag, dir, sourcesTag]) {
     if (!/not found|404/i.test(view.stderr || ''))
       throw new Error(view.stderr || '查询发布失败')
     const notes = join(dir, '..', `${basename(dir)}-notes.md`)
-    await writeFile(notes, releaseNotes({ version, files: names, sourcesTag }))
+    await writeFile(notes, releaseNotes({ version, files: names }))
     gh(
       'release',
       'create',

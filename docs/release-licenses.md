@@ -10,18 +10,18 @@ mpv 包：`mingw-w64-ucrt-x86_64-mpv-0.41.0-10-any.pkg.tar.zst`，SHA-256 为 `3
 
 ## 独立下载的对应源码
 
-Windows 构建在 `dist/` 生成安装包、独立源码包、SHA-256 校验文件和 `MPV-SOURCE-DOWNLOAD.md`。下载页面须并列提供安装包和对应源码，源码无需额外付费。这采用 [GPLv3 第 6(d) 节](https://www.gnu.org/licenses/gpl-3.0.html#section6)规定的网络下载方式；接收者可自行选择是否下载源码。
+Windows 构建在 `dist/` 生成源码包、SHA-256 校验文件和 `MPV-SOURCE-DOWNLOAD.md`。发布页只放安装包；对应源码由 MSYS2 官方源码仓库提供，按锁文件中的文件名与 SHA-256 取得。这一做法由项目所有者确认，合规程度弱于随发布并列提供源码。
 
 完整源码包 `*-sources.tar` 包含未经修改的 MSYS2 `.src.tar.zst` 源包、上游源码、补丁、`PKGBUILD` 和 `.SRCINFO`，以及二进制 `.BUILDINFO`、`.PKGINFO`、分发清单、许可与构建说明。包括 shaderc / glslang / SPIR-V 等静态构建输入。
 
 Windows 安装后的 `resources/third-party/mpv/` 保留：
 
-- `DOWNLOAD.md`：对应源码文件名、校验值和下载位置说明。
+- `DOWNLOAD.md`：对应源码文件名、校验值和获取位置说明。
 - `manifest.json`：版本、原始下载地址、SHA-256、实际安装文件和源包对应关系。
 - `NOTICES.md`、`licenses/`：组件许可清单及许可原文。包自带的声明另在 `resources/mpv/share/licenses/`。
 - `BUILDING.md`：本说明；`source-bundle.json` 记录源码集合本身的 SHA-256。
 
-发行时必须同时提供安装包、匹配的源码包、校验文件和下载说明，并在安装包下载入口旁放置源码链接，保持同等可访问性；不能只发布安装包或仅指向上游首页。源码包放在本仓库的固定发布 `mpv-sources-<id>`（由发布工作流只上传一次），每个版本发布的说明里给出这个发布的链接。安装器不携带大体积源码归档，但保留运行文件、许可和获取说明。这里不依赖书面源码要约。
+发布页不附带源码包，安装包内保留许可、清单和获取说明。
 
 `pnpm fetch:mpv` 准备播放器与源码材料，并导出独立源码下载文件。`electron-builder` 的 `beforePack` 再次验证；二进制、源包或构建配方不匹配时构建失败。`output/mpv-cache/` 只作为本机缓存，不能代替交付的源码下载文件。更新播放器时须同步更新锁文件、源包及验证记录。
 

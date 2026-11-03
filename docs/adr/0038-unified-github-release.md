@@ -15,7 +15,7 @@
 3. **发布页内容**：只放 `yingbox-setup-X.Y.Z.exe`、`yingbox-X.Y.Z-<arch>.dmg`、`yingbox-android-X.Y.Z-<abi>.apk` 和 `sha256sum.txt`。NAS 镜像推到 `ghcr.io/acefake/yingbox-nas:X.Y.Z-nas.1`，`stable` 仍由 `scripts/nas-release.mjs` 在验证后指向（ADR-0025）。
 4. **草稿先行**：先建草稿，上传后逐个核对远端大小与摘要，一致才公开并设为 Latest；失败保留草稿。
 5. **更新器**：桌面更新器 `src/main/updater/desktop-updater.ts` 取代 `electron-updater`，读发布列表，下载时校验资产 `digest`（GitHub 服务端计算的 SHA-256），一致才启动安装包。安卓更新器读同一个发布里的 `yingbox-android-*.apk`，同样校验 `digest`。规则在 `src/shared/release/pick.ts`。发布页不再放 `latest.yml` 和 blockmap。
-6. **mpv 源码**：对应完整源码放在固定发布 `mpv-sources-<id>`，只上传一次，每个版本的发布说明里给出链接。版本发布页的资产不含它。
+6. **mpv 源码**：发布页不放源码包。对应源码由 MSYS2 官方源码仓库提供，按 `src/shared/mpv-distribution.json` 中的文件名与 SHA-256 取得，说明在安装包内的 `DOWNLOAD.md` 和 `docs/release-licenses.md`。项目所有者确认接受这一做法，合规程度弱于随发布并列提供源码。
 7. **macOS**：无签名公证，不提供应用内更新。
 
 ## 后果
@@ -30,4 +30,4 @@
 
 - 各端分别发布：用户要在多个发布里找安装包。
 - 保留 `latest.yml` 与 blockmap：发布页多出非安装包文件，且差分更新对 197 MB 的安装包收益有限。
-- 把 mpv 源码包放进每个版本发布：每次多传 1.19 GB，发布页不再只有安装包。
+- 把 mpv 源码包放进每个版本发布，或放进单独的固定发布：每次多传 1.19 GB，或发布列表里多出非安装包条目。
