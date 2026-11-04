@@ -13,7 +13,7 @@
     </div>
 
     <WinControls
-      v-if="isElectron"
+      v-if="isElectron && !isMac"
       class="toolbar-window yb-media-swap"
       :class="{ 'yb-on-media': toolbarOverMedia }"
     />
@@ -35,7 +35,7 @@ import { toolbarOverMedia } from '@/composables/use-shell-backdrop'
 const emit = defineEmits<{ 'open-menu': [] }>()
 defineProps<{ detailOpen?: boolean }>()
 
-const { isElectron, isPhone } = usePlatform()
+const { isElectron, isMac, isPhone } = usePlatform()
 </script>
 
 <style scoped>

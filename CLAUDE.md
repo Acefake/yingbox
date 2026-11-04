@@ -51,7 +51,7 @@ pnpm check:fix          # run checks and auto-fix lint issues
 
 Deeper detail (full main-process module notes, engine, library server, ADR index) is in `AGENTS.md` and `docs/`. Code review output, PR titles/descriptions and commit messages are written in Simplified Chinese (identifiers, paths, commands stay as-is).
 
-The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app.
+The app runs as a **frameless Electron window** (1000×640 minimum; macOS keeps native traffic lights via `titleBarStyle: hidden`). IPC is the boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP requests, child processes). The renderer is a single-page Vue 3 app.
 
 ### Three-process layout (electron-vite)
 

@@ -7,6 +7,7 @@
       'is-phone': isPhone,
       'is-web': isWeb,
       'is-desktop': isElectron && !isPhone,
+      'is-mac-electron': isElectron && isMac,
       'has-page-atmosphere': hasPageAtmosphere,
       'sidebar-open': isPhone && sidebarOpen,
       'has-online-detail': onlineDetailOpen,
@@ -135,7 +136,7 @@ const onlineDetailOpen = computed(
     typeof router.options.history.state.onlineDetail === 'string'
 )
 
-const { isElectron, isWeb, isPhone, hasLocalLibrary } = usePlatform()
+const { isElectron, isMac, isWeb, isPhone, hasLocalLibrary } = usePlatform()
 
 /** 用户选择的收起状态（持久化，Cmd/Ctrl+B 切换） */
 const sidebarCollapsed = useSidebarCollapsed()

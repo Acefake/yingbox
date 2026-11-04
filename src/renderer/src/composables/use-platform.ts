@@ -6,6 +6,7 @@ import { libraryServerState } from '@/services/library-server'
 /** 运行环境：Electron / 网页、窄屏判断、是否有本地媒体库（桌面端，或网页端连得上片库服务） */
 export interface UsePlatformReturn {
   isElectron: boolean
+  isMac: boolean
   isWeb: boolean
   isPhone: ComputedRef<boolean>
   isCompact: ComputedRef<boolean>
@@ -15,6 +16,8 @@ export interface UsePlatformReturn {
 /** Shared shell/platform flags for Electron desktop, desktop web, and phone. */
 export function usePlatform(): UsePlatformReturn {
   const isElectron = typeof window !== 'undefined' && Boolean(window.api?.win)
+  const isMac =
+    typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
   const server = libraryServerState()
   const isPhone = useMediaQuery(
     '(max-width: 768px), (max-width: 1024px) and (pointer: coarse) and (max-height: 600px)'
@@ -23,6 +26,7 @@ export function usePlatform(): UsePlatformReturn {
 
   return {
     isElectron,
+    isMac,
     isWeb: !isElectron,
     isPhone,
     isCompact,

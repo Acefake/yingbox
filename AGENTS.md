@@ -41,7 +41,7 @@ pnpm smoke:server   # offline end-to-end smoke of the library server (fixture fe
 
 ## Architecture
 
-The app runs as a **frameless Electron window** (1200×900 minimum). IPC is the only boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP, child processes); the renderer is a Vue 3 SPA.
+The app runs as a **frameless Electron window** (1000×640 minimum; macOS keeps native traffic lights via `titleBarStyle: hidden`). IPC is the only boundary: the main process owns all OS access (filesystem, dialogs, shell, HTTP, child processes); the renderer is a Vue 3 SPA.
 
 ### Three-process layout (electron-vite)
 

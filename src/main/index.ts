@@ -106,6 +106,9 @@ let playerWindow: PlayerWindowControl | null = null
 /** 启动时的固定窗口尺寸（逻辑像素）；屏幕放不下时缩到工作区大小 */
 const START_SIZE = { width: 1440, height: 900 }
 
+/** 最小窗口尺寸（逻辑像素）；笔记本屏也能缩小 */
+const MIN_SIZE = { width: 1000, height: 640 }
+
 function getStartSize(): { width: number; height: number } {
   const { width: sw, height: sh } = screen.getPrimaryDisplay().workAreaSize
   return {
@@ -119,11 +122,17 @@ function createWindow(): void {
   mainWindow = new BrowserWindow({
     width,
     height,
-    minWidth: Math.min(1200, width),
-    minHeight: Math.min(900, height),
+    minWidth: Math.min(MIN_SIZE.width, width),
+    minHeight: Math.min(MIN_SIZE.height, height),
     center: true,
     show: false,
-    frame: false,
+    // macOS 保留系统红绿灯：原生缩放、全屏、最大化；其他平台用自绘按钮
+    ...(process.platform === 'darwin'
+      ? {
+          titleBarStyle: 'hidden' as const,
+          trafficLightPosition: { x: 16, y: 18 },
+        }
+      : { frame: false }),
     autoHideMenuBar: true,
     ...(process.platform === 'linux' ? { icon } : {}),
     webPreferences: {
