@@ -25,6 +25,7 @@ import androidx.media3.common.util.UnstableApi
 import com.yingbox.android.library.LibraryApi
 import com.yingbox.android.library.ProgressWrites
 import com.yingbox.android.playback.engine.EXTERNAL_ID_PREFIX
+import com.yingbox.android.playback.engine.FileVideoProbe
 import com.yingbox.android.playback.engine.describeError
 import com.yingbox.android.server.ServerClient
 import kotlinx.coroutines.CancellationException
@@ -39,7 +40,7 @@ import java.util.concurrent.Executors
  * 播放队列里的一项：电影是一个，剧集是各集（按季、集排好）。
  * 分段版本（CD1 / CD2）目前只播第一段，[fileId] 是播放的那个文件。
  */
-data class LibraryPlayEntry(val itemId: Long, val fileId: Long, val name: String)
+data class LibraryPlayEntry(val itemId: Long, val fileId: Long, val name: String, val videoProbe: FileVideoProbe? = null)
 
 /** 片库开播请求：队列里从第 [index] 个开始 */
 data class LibraryPlayRequest(val entries: List<LibraryPlayEntry>, val index: Int)
@@ -92,9 +93,9 @@ fun LibraryPlayerScreen(nas: ServerClient, request: LibraryPlayRequest, autoNext
     }
 
     LaunchedEffect(index) {
-        state.reset()
-        loaded = null
         val entry = request.entries[index]
+        state.reset(entry.videoProbe?.takeIf { it.fileId == entry.fileId })
+        loaded = null
         val prepared = try {
             withContext(Dispatchers.IO) {
                 coroutineScope {

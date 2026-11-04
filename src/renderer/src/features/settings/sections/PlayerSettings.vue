@@ -1,4 +1,21 @@
 <template>
+  <SettingsGroup
+    title="画质增强"
+    footer="对低于屏幕分辨率的 SDR 片源做高质量放大与自适应锐化，纯算法实现；HDR、杜比视界保持原生路径。档位越高越锐，低端设备建议选「柔和」。"
+  >
+    <SettingsRow
+      title="增强档位"
+      description="桌面 mpv、内置播放器、网页与安卓共用"
+    >
+      <UiSegmented
+        v-model="enhanceLevel"
+        size="sm"
+        label="画质增强"
+        :options="enhanceOptions"
+      />
+    </SettingsRow>
+  </SettingsGroup>
+
   <!-- 网页端只有内置播放器：不显示引擎选择与 mpv 选项 -->
   <SettingsGroup
     v-if="isElectron"
@@ -23,7 +40,7 @@
   >
     <SettingsRow
       title="RTX 视频超分"
-      description="仅 Windows + NVIDIA 显卡有效：片源低于 1080p 时自动调用 NVIDIA 视频超分（需在 NVIDIA app 中打开「视频超级分辨率」）"
+      description="Windows 上对需要放大的 1080p 以下 SDR 片源尝试 NVIDIA 超分，需支持的 RTX GPU 并启用驱动中的视频超级分辨率；HDR、杜比视界保持原生路径，实际效果取决于硬件和驱动"
     >
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
@@ -145,11 +162,14 @@
 import { computed, watch } from 'vue'
 
 import {
+  mpvResolutionText as formatMpvResolution,
   mpvInfoRows,
+  syncEnhance,
   syncHighQualityScaling,
   syncRtxVsr,
   useMpvPlayer,
 } from '@/features/player'
+import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import { usePlatform } from '@/composables/use-platform'
@@ -209,6 +229,16 @@ const highQualityScaling = useSetting('player.highQualityScaling')
 watch(highQualityScaling, () => {
   void syncHighQualityScaling().catch(() => {})
 })
+const enhanceLevel = useSetting('player.enhance')
+const enhanceOptions = [
+  { value: 'off', label: '关闭' },
+  { value: 'soft', label: '柔和' },
+  { value: 'standard', label: '标准' },
+  { value: 'strong', label: '强' },
+]
+watch(enhanceLevel, () => {
+  void syncEnhance().catch(() => {})
+})
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
 
@@ -219,21 +249,6 @@ const mpvInfoText = computed(() =>
     .join(' · ')
 )
 
-/** 当前播放分辨率文案：片源 →（超分后） */
-const mpvResolutionText = computed(() => {
-  const {
-    videoWidth: w,
-    videoHeight: h,
-    vsrWidth: vw,
-    vsrHeight: vh,
-    vsr,
-  } = mpvState.value
-  if (!w || !h) return '读取中…'
-  const source = `${w}×${h}`
-  if (vsr && vw && vh) {
-    const scale = Math.round((vw / w) * 10) / 10
-    return `${source} → ${vw}×${vh}（RTX 超分 ${scale}×）`
-  }
-  return `${source}（未超分：片源 ≥ 1080p 或设备不支持）`
-})
+/** 当前片源、实际滤镜输出与配置状态。 */
+const mpvResolutionText = computed(() => formatMpvResolution(mpvState.value))
 </script>

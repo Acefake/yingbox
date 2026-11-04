@@ -6,6 +6,10 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class VideoInfoTest {
+    @Test fun `缺失色彩信息不能当成 SDR`() {
+        assertEquals(HdrKind.Unknown, videoInfo(1920, 1080, null, -1).hdr)
+    }
+
     @Test fun `解析 P8 编码串`() {
         assertEquals(DvInfo(8, 6), parseDv("dvhe.08.06"))
     }

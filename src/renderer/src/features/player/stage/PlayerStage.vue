@@ -13,7 +13,11 @@
     <!-- 顶栏：关闭圆钮（网页端）+ 标题胶囊；中间留空可拖动窗口，右侧窗口键胶囊（桌面端） -->
     <header
       class="player-stage__bar"
-      :class="{ 'is-visible': !idle || paused, 'is-electron': isElectron }"
+      :class="{
+        'is-visible': !idle || paused,
+        'is-hidden': fullscreen,
+        'is-electron': isElectron,
+      }"
     >
       <UiIconButton
         v-if="!windowed"
@@ -41,7 +45,7 @@
  * 会话按 session.id 重建（换片即重新开始）；会话卸载时保存进度、拆除 Artplayer / hls.js。
  * 桌面端顶栏空白处可拖动窗口；网页端没有窗口键。
  */
-import { useIdle } from '@vueuse/core'
+import { useEventListener, useIdle } from '@vueuse/core'
 import { defineAsyncComponent, ref, shallowRef, watch } from 'vue'
 
 import WinControls from '@/components/WinControls.vue'
@@ -77,6 +81,12 @@ const title = ref('')
 const video = shallowRef<HTMLVideoElement | null>(null)
 /** 当前视频暂停中：顶栏常显 */
 const paused = ref(true)
+
+/** 全屏播放：顶栏、窗口键等其余操作一律隐藏，只留播放器自己的控制栏 */
+const fullscreen = ref(Boolean(document.fullscreenElement))
+useEventListener(document, 'fullscreenchange', () => {
+  fullscreen.value = Boolean(document.fullscreenElement)
+})
 
 const { idle } = useIdle(IDLE_MS, {
   events: ['mousemove', 'mousedown', 'keydown', 'wheel', 'touchstart'],
@@ -162,6 +172,10 @@ watch(
 .player-stage__bar.is-visible,
 .player-stage__bar:focus-within {
   opacity: 1;
+}
+
+.player-stage__bar.is-hidden {
+  visibility: hidden;
 }
 
 .player-stage__bar > * {

@@ -8,6 +8,7 @@
 import type Artplayer from 'artplayer'
 
 import { type ArtOption, artIcon } from './art-options'
+import { transportControls } from './art-transport'
 
 /** Artplayer 自定义控件 */
 type ArtControl = NonNullable<ArtOption['controls']>[number]
@@ -153,7 +154,11 @@ function mountSubtitle(
  * @param onSubtitleRequest 没有字幕时点 CC 的回调
  */
 export function artSkinControls(onSubtitleRequest: () => void): ArtControl[] {
-  return [volumeControl(), subtitleControl(onSubtitleRequest)]
+  return [
+    volumeControl(),
+    subtitleControl(onSubtitleRequest),
+    ...transportControls(),
+  ]
 }
 
 /** 设置按钮上的清晰度角标，元数据就绪后按视频高度更新 */

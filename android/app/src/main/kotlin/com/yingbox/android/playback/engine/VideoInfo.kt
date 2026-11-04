@@ -1,9 +1,12 @@
 package com.yingbox.android.playback.engine
 
 import androidx.media3.common.C
+import androidx.annotation.OptIn
+import androidx.media3.common.util.UnstableApi
 
 /** 画面的动态范围 */
 enum class HdrKind(val label: String) {
+    Unknown("未知"),
     Sdr("SDR"),
     Hdr10("HDR10"),
     Hlg("HLG"),
@@ -20,6 +23,8 @@ data class VideoInfo(
     val hdr: HdrKind,
     val dv: DvInfo?,
     val codecs: String?,
+    val bitDepth: Int? = null,
+    val frameRate: Float? = null,
 )
 
 /** dvhe / dvh1：HEVC；dvav / dva1：AVC；dav1：AV1 */
@@ -36,13 +41,15 @@ fun parseDv(codecs: String?): DvInfo? {
 }
 
 /** 编码串里有杜比视界就算杜比视界，否则按传输特性判断 HDR10 / HLG。 */
+@OptIn(UnstableApi::class)
 fun videoInfo(width: Int, height: Int, codecs: String?, colorTransfer: Int): VideoInfo {
     val dv = parseDv(codecs)
     val hdr = when {
         dv != null -> HdrKind.DolbyVision
         colorTransfer == C.COLOR_TRANSFER_ST2084 -> HdrKind.Hdr10
         colorTransfer == C.COLOR_TRANSFER_HLG -> HdrKind.Hlg
-        else -> HdrKind.Sdr
+        colorTransfer == C.COLOR_TRANSFER_SDR -> HdrKind.Sdr
+        else -> HdrKind.Unknown
     }
     return VideoInfo(width, height, hdr, dv, codecs)
 }

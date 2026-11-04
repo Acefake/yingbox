@@ -66,13 +66,15 @@ interface LocalRequest {
   /** 起播位置（秒），重建从这一段开始编码 */
   startAt: number
   /** 媒体库存的动态范围；没有时开播前识别 */
-  known?: Pick<VideoProbe, 'dvProfile' | 'dvCompat'> | null
+  known?: VideoProbe | null
   /** 这次加载是否仍然有效（等待期间换了集返回 false） */
   isCurrent: () => boolean
 }
 
 /** useDolbyVision 的返回值。 */
 interface DolbyVisionControl {
+  /** 当前 resolve 已确认的原文件规格，由会话在加载完成后绑定画面。 */
+  readonly sourceVideo: VideoProbe | null
   /** 本地文件的播放地址；转给 mpv 后返回空串（本会话不再加载） */
   resolve: (request: LocalRequest) => Promise<string>
   /**
@@ -91,6 +93,8 @@ interface DolbyVisionControl {
 export function useDolbyVision(ui: DolbyVisionUi): DolbyVisionControl {
   /** 代际：每次 resolve / release 自增，过期的异步结果据此丢弃 */
   let generation = 0
+  let sourceVideo: VideoProbe | null = null
+  let sourcePath = ''
   /** 当前重建会话 id（主进程）与它的文件 */
   let sessionId = ''
   let active: Omit<LocalRequest, 'known' | 'isCurrent'> | null = null
@@ -155,6 +159,12 @@ export function useDolbyVision(ui: DolbyVisionUi): DolbyVisionControl {
     release()
     const gen = generation
     const direct = toLocalUrl(request.filePath)
+    sourceVideo =
+      request.known ??
+      (forceDirect === request.filePath && sourcePath === request.filePath
+        ? sourceVideo
+        : null)
+    sourcePath = request.filePath
     const dv = api()
     if (!dv) return direct
     if (forceDirect === request.filePath) {
@@ -171,6 +181,7 @@ export function useDolbyVision(ui: DolbyVisionUi): DolbyVisionControl {
       known = await dv.probe(request.filePath).catch(() => null)
       window.clearTimeout(timer)
     }
+    if (current()) sourceVideo = known ?? null
     if (!needsDvColorFix(known) || !current()) return direct
     status(DV_PREPARING_TEXT)
     const result = await dv
@@ -222,5 +233,12 @@ export function useDolbyVision(ui: DolbyVisionUi): DolbyVisionControl {
 
   onBeforeUnmount(release)
 
-  return { resolve, recover, release }
+  return {
+    resolve,
+    recover,
+    release,
+    get sourceVideo() {
+      return sourceVideo
+    },
+  }
 }

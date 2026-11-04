@@ -11,6 +11,7 @@ import {
   hlsLevelText,
   infoRows,
   mpvInfoRows,
+  mpvResolutionText,
   sourceKind,
 } from '../src/renderer/src/features/player/playback-info/info-rules'
 
@@ -149,9 +150,12 @@ describe('播放信息面板规则', () => {
       path: 'D:/movies/a.mkv',
       videoWidth: 1280,
       videoHeight: 720,
-      vsr: true,
-      vsrWidth: 2560,
-      vsrHeight: 1440,
+      vsr: {
+        state: 'configured' as const,
+        reason: '滤镜已配置，AI 效果未验证',
+      },
+      filteredVideoWidth: 2560,
+      filteredVideoHeight: 1440,
       tracks: [
         { id: 1, type: 'video' as const, selected: true, codec: 'hevc' },
         { id: 1, type: 'audio' as const, selected: true, codec: 'aac' },
@@ -161,9 +165,19 @@ describe('播放信息面板规则', () => {
     expect(mpvInfoRows(status)).toEqual([
       { label: '编码', value: 'hevc / aac' },
       { label: '分辨率', value: '1280×720' },
-      { label: '超分', value: 'RTX VSR → 2560×1440' },
+      { label: '超分', value: '滤镜已配置，AI 效果未验证' },
+      { label: '滤镜输出', value: '2560×1440' },
       { label: '地址类型', value: '本地文件' },
     ])
     expect(mpvInfoRows({ ...status, running: false })).toEqual([])
+    expect(mpvResolutionText(status)).toContain('滤镜输出 2560×1440')
+    const noOutput = mpvResolutionText({
+      ...status,
+      filteredVideoWidth: undefined,
+      filteredVideoHeight: undefined,
+    })
+    expect(noOutput).toContain('片源 1280×720')
+    expect(noOutput).not.toContain('2560')
+    expect(noOutput).not.toContain('已生效')
   })
 })

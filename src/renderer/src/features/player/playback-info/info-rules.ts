@@ -214,13 +214,30 @@ export function mpvInfoRows(status: MpvStatus): InfoRow[] {
           : '—',
     },
   ]
-  if (status.vsr && status.vsrWidth && status.vsrHeight) {
+  if (status.vsr) {
     rows.push({
       label: '超分',
-      value: `RTX VSR → ${status.vsrWidth}×${status.vsrHeight}`,
+      value: status.vsr.reason,
+    })
+  }
+  if (status.filteredVideoWidth && status.filteredVideoHeight) {
+    rows.push({
+      label: '滤镜输出',
+      value: `${status.filteredVideoWidth}×${status.filteredVideoHeight}`,
     })
   }
   if (status.path)
     rows.push({ label: '地址类型', value: sourceKind(status.path) })
   return rows
+}
+
+/** 当前片源与实际滤镜输出分别显示，不根据倍数推测超分效果。 */
+export function mpvResolutionText(status: MpvStatus): string {
+  if (!status.videoWidth || !status.videoHeight) return '读取中…'
+  const source = `片源 ${status.videoWidth}×${status.videoHeight}`
+  const output =
+    status.filteredVideoWidth && status.filteredVideoHeight
+      ? ` · 滤镜输出 ${status.filteredVideoWidth}×${status.filteredVideoHeight}`
+      : ''
+  return `${source}${output}${status.vsr ? ` · ${status.vsr.reason}` : ''}`
 }

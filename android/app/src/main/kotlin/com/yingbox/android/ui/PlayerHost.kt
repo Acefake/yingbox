@@ -10,14 +10,12 @@ import androidx.compose.animation.fadeIn
 import androidx.compose.animation.fadeOut
 import androidx.compose.foundation.background
 import androidx.compose.foundation.focusable
-import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
-import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
-import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.DisposableEffect
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.derivedStateOf
 import androidx.compose.runtime.getValue
@@ -41,8 +39,10 @@ import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.viewinterop.AndroidView
 import androidx.media3.common.PlaybackParameters
+import androidx.media3.common.C
 import androidx.media3.common.Player
 import androidx.media3.common.Tracks
 import androidx.media3.common.util.UnstableApi
@@ -51,8 +51,12 @@ import androidx.media3.exoplayer.ExoPlayer
 import androidx.media3.ui.AspectRatioFrameLayout
 import androidx.media3.ui.PlayerView
 import com.yingbox.android.playback.engine.CapabilitiesProbe
+import com.yingbox.android.playback.engine.FileVideoProbe
 import com.yingbox.android.playback.engine.PlayerFactory
+import com.yingbox.android.playback.engine.VideoEnhancer
+import com.yingbox.android.settings.DeviceSettings
 import com.yingbox.android.playback.engine.StatsCollector
+import com.yingbox.android.playback.engine.VideoPlan
 import com.yingbox.android.playback.engine.notice
 import com.yingbox.android.playback.engine.planVideo
 import com.yingbox.android.playback.engine.selectedVideo
@@ -83,9 +87,25 @@ private const val TAG = "YingboxPlayer"
  * 播放器的释放由各播放屏自己在上报最后一次进度之后做。
  */
 @OptIn(UnstableApi::class)
-class PlayerState(context: Context, client: ServerClient) : Player.Listener {
-    val stats = StatsCollector()
-    private val caps = CapabilitiesProbe.get(context)
+class PlayerState(private val context: Context, client: ServerClient) : Player.Listener {
+    private var capabilityDisplayId = android.view.Display.DEFAULT_DISPLAY
+    val stats = StatsCollector(context.applicationContext)
+    var capabilities by mutableStateOf(CapabilitiesProbe.get(context))
+        private set
+
+    /** 只表示能力判断；不作为 HDR 输出已成功的证明。 */
+    val videoPlan: VideoPlan
+        get() {
+            val snapshot = stats.snapshot
+            val source = snapshot.sourceVideo.takeIf { snapshot.sourceProbeApplicable }
+            return snapshot.video?.let { planVideo(it, capabilities, snapshot.decoderSupport, source) } ?: VideoPlan.Unverified
+        }
+
+    /** 显示或音频路由变化时刷新能力，不重建播放器。 */
+    fun refreshCapabilities(context: Context, displayId: Int = capabilityDisplayId) {
+        capabilityDisplayId = displayId
+        capabilities = CapabilitiesProbe.get(context, displayId)
+    }
     val player: ExoPlayer = DefaultHttpDataSource.Factory()
         .setAllowCrossProtocolRedirects(true)
         // 代理要先取上游（DNS、SSRF 校验、上游响应），默认 8 秒对慢源太短
@@ -98,8 +118,22 @@ class PlayerState(context: Context, client: ServerClient) : Player.Listener {
             it.addListener(this)
         }
 
+    private val enhancer = VideoEnhancer(player, context.resources.displayMetrics.heightPixels)
+    val enhanceStatus: String get() = enhancer.status
+    fun clearEnhanceStatus() { enhancer.dispose() }
+    var enhanceLevel by mutableStateOf(DeviceSettings.readEnhanceLevel(context))
+        private set
+
+    /** 播放中切换与设备设置共用档位，立即重新评估当前轨道。 */
+    fun toggleEnhance() {
+        enhanceLevel = if (enhanceLevel == com.yingbox.android.playback.engine.EnhanceLevel.Off)
+            com.yingbox.android.playback.engine.EnhanceLevel.Standard else com.yingbox.android.playback.engine.EnhanceLevel.Off
+        DeviceSettings(context).updateEnhanceLevel(enhanceLevel)
+        enhancer.update(enhanceLevel, tracks.selectedVideo())
+    }
+
     /** 视频降级提示（杜比视界没有对应解码器等） */
-    var videoNotice by mutableStateOf<String?>(null)
+    val videoNotice by derivedStateOf { videoPlan.notice() }
 
     /** 要显示在屏幕中间的错误 */
     var error by mutableStateOf<String?>(null)
@@ -123,22 +157,24 @@ class PlayerState(context: Context, client: ServerClient) : Player.Listener {
     var tracks by mutableStateOf(Tracks.EMPTY)
         private set
 
-    /** 是否显示统计信息浮层 */
+    /** 是否在设置面板展开播放诊断 */
     var showStats by mutableStateOf(false)
 
     /** 换一集或换源之前清掉上一集的统计、提示和错误 */
-    fun reset() {
+    fun reset(sourceVideo: FileVideoProbe? = null) {
+        enhancer.reset()
         error = null
-        stats.reset()
-        videoNotice = null
+        stats.reset(sourceVideo)
+        tracks = Tracks.EMPTY
     }
 
     override fun onTracksChanged(tracks: Tracks) {
         this.tracks = tracks
-        val video = tracks.selectedVideo() ?: return
-        val plan = planVideo(video, caps)
-        Log.i(TAG, "视频 $video，方案 $plan")
-        videoNotice = plan.notice()
+        val videoTrackCount = tracks.groups.filter { it.type == C.TRACK_TYPE_VIDEO }.sumOf { it.length }
+        stats.clearMissingTracks(tracks.isTypeSelected(C.TRACK_TYPE_VIDEO), tracks.isTypeSelected(C.TRACK_TYPE_AUDIO), videoTrackCount)
+        Log.i(TAG, "轨道视频 ${tracks.selectedVideo()}")
+        enhanceLevel = DeviceSettings.readEnhanceLevel(context)
+        enhancer.update(enhanceLevel, tracks.selectedVideo())
     }
 
     override fun onIsPlayingChanged(isPlaying: Boolean) {
@@ -162,6 +198,10 @@ class PlayerState(context: Context, client: ServerClient) : Player.Listener {
 @Composable
 fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onNext: (() -> Unit)?, onBack: () -> Unit) {
     val player = state.player
+    DisposableEffect(state) { onDispose { state.clearEnhanceStatus() } }
+    var panelHeight by remember { mutableIntStateOf(0) }
+    var viewHeight by remember { mutableIntStateOf(1) }
+    ObservePlaybackCapabilities(state)
     // 视频降级与音频软解的提示合成一条，出现后几秒自动消失；
     // 只订阅音频解码器这一项：码率、丢帧每次更新都不该让整个播放页重组
     val audioNotice by remember {
@@ -251,8 +291,13 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
                     isFocusable = false
                 }
             },
-            update = { it.resizeMode = state.resizeMode },
-            modifier = Modifier.fillMaxSize(),
+            update = {
+                it.resizeMode = state.resizeMode
+                it.subtitleView?.setBottomPaddingFraction(
+                    if (controlsVisible && !sheetOpen) ((panelHeight + 12f) / viewHeight).coerceIn(0.08f, 0.8f) else 0.08f,
+                )
+            },
+            modifier = Modifier.fillMaxSize().onSizeChanged { viewHeight = it.height.coerceAtLeast(1) },
         )
         PlayerGestures(state, onTap = { if (controlsVisible) controlsVisible = false else poke() }, onHud = { hud = it })
         // 设置面板打开时控制层让开，免得遥控器的焦点落到被盖住的按钮上
@@ -268,6 +313,7 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
                 landscape = landscape,
                 onToggleFullscreen = { landscape = !landscape },
                 onBack = onBack,
+                onPanelHeight = { panelHeight = it },
             )
         }
         // 手势的提示（亮度、音量、快进快退、倍速）盖在控制层上面
@@ -280,7 +326,6 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
                 modifier = Modifier.align(Alignment.Center).ybGlass(YbRadius.Full, media = true).padding(horizontal = YbSpace.S5, vertical = YbSpace.S3),
             )
         }
-        if (state.showStats) StatsOverlay(state, Modifier.align(Alignment.TopEnd))
         state.error?.let {
             Text(
                 it,
@@ -306,24 +351,5 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
             }
         }
         if (sheetOpen) PlayerSettingsSheet(state) { sheetOpen = false }
-    }
-}
-
-/** 统计信息：分辨率与编码、解码器名、丢帧、带宽 */
-@Composable
-private fun StatsOverlay(state: PlayerState, modifier: Modifier) {
-    val s = state.stats.snapshot
-    val lines = listOfNotNull(
-        s.video?.let { "视频 ${it.width}×${it.height} ${it.codecs.orEmpty()}" },
-        s.videoDecoder?.let { "视频解码器 $it" },
-        s.audioDecoder?.let { "音频解码器 $it" },
-        "丢帧 ${s.droppedFrames}",
-        "带宽 ${s.bandwidthKbps} kbps",
-    )
-    Column(
-        modifier.statusBarsPadding().padding(YbSpace.S3).ybGlass(YbRadius.Lg, media = true).padding(YbSpace.S3),
-        verticalArrangement = Arrangement.spacedBy(YbSpace.S1),
-    ) {
-        for (line in lines) Text(line, color = YbColor.TextSecondary, fontSize = YbText.Xs)
     }
 }

@@ -31,7 +31,11 @@ export const WATCH_PROPS = [
   'path',
   'playlist',
   'playlist-pos',
-  'video-params',
+  'video-dec-params',
+  'video-out-params',
+  'osd-dimensions',
+  'hwdec-current',
+  'vf',
 ]
 
 /** mpv 窗口里切换「缩小置顶」的快捷键（运行时用 keybind 绑定，发 script-message 给影盒） */
@@ -94,6 +98,8 @@ export interface SpawnArgsInput {
   /** RTX 视频超分：要走 D3D11 */
   vsr: boolean
   highQualityScaling?: boolean
+  /** 同步加载钩子，确保 mpv 原生换片也清理影盒滤镜。 */
+  hookScript?: string | null
   /** 光盘镜像：目标是 bd:// / dvd://，镜像路径用设备选项带上 */
   disc?: DiscSource | null
 }
@@ -116,6 +122,7 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
   ]
   // RTX 视频超分依赖 d3d11vpp 滤镜，必须走 D3D11 的 GPU API；同时固定 D3D11 硬解，让帧停留在 GPU 上。
   if (input.vsr) args.push('--gpu-api=d3d11', '--hwdec=d3d11va')
+  if (input.hookScript) args.push(`--script=${input.hookScript}`)
   if (typeof input.startAt === 'number') args.push(`--start=${input.startAt}`)
   if (input.title) args.push(`--title=${input.title}`)
   if (input.subFile) args.push(`--sub-file=${input.subFile}`)

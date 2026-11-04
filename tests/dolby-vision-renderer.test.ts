@@ -88,7 +88,7 @@ describe('useDolbyVision', () => {
   it('媒体库已知不是 P5：直接播，不探测也不开重建', async () => {
     const { control } = setup()
     const url = await control.resolve(
-      request({ known: { dvProfile: 8, dvCompat: 1 } })
+      request({ known: { range: 'dv', dvProfile: 8, dvCompat: 1 } })
     )
     expect(url).toBe(DIRECT)
     expect(dv.probe).not.toHaveBeenCalled()
@@ -98,7 +98,7 @@ describe('useDolbyVision', () => {
   it('媒体库已知是 P5：跳过探测，直接开重建拿到本机 HLS 地址', async () => {
     const { control } = setup()
     const url = await control.resolve(
-      request({ known: { dvProfile: 5, dvCompat: 0 } })
+      request({ known: { range: 'dv', dvProfile: 5, dvCompat: 0 } })
     )
     expect(url).toBe(STREAM.url)
     expect(dv.probe).not.toHaveBeenCalled()
@@ -162,6 +162,7 @@ describe('useDolbyVision', () => {
       expect.objectContaining({ filePath: FILE, startAt: 30 })
     )
     expect(await control.resolve(request({ startAt: 30 }))).toBe(DIRECT)
+    expect(control.sourceVideo).toEqual(P5_INFO)
     expect(dv.start).toHaveBeenCalledOnce()
     // 不是重建会话的错误照常处理
     expect(await control.recover(31)).toBeNull()

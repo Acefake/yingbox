@@ -67,9 +67,11 @@
  */
 import { computed, nextTick, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import type Artplayer from 'artplayer'
+import type { VideoProbe } from '../../../../../shared/video-range'
 import Hls from 'hls.js'
 
 import UiIconButton from '@/components/ui/UiIconButton.vue'
+import { useSetting } from '@/features/settings'
 
 import AiSubtitleSection from '../ai-subtitle/AiSubtitleSection.vue'
 import { useAiSubtitle } from '../ai-subtitle/use-ai-subtitle'
@@ -85,16 +87,21 @@ import {
   createArtCore,
   destroyArtCore,
 } from '../utils/art-core'
+import { type WebEnhancer, attachWebEnhancer } from '../enhance/web-enhancer'
+import { installEnhanceControl } from '../enhance/enhance-control'
 import { installSeekThumbnails } from '../seek-thumbnails/seek-thumbnails'
 import { installSettingsMenu } from '../settings-menu/install-menu'
 import { isHlsUrl, shouldResume } from '../utils/art-options'
 import PlayerLoadingCover from './PlayerLoadingCover.vue'
 import SubtitleSearchPanel from './SubtitleSearchPanel.vue'
 import '../styles/art-skin.css'
+import '../styles/art-transport.css'
 import '../danmaku/danmaku.css'
 
 const props = withDefaults(
   defineProps<{
+    /** 当前已加载文件的探测；不可使用其他版本或队列条目的数据。 */
+    sourceVideo?: VideoProbe | null
     src?: string
     poster?: string
     title?: string
@@ -161,6 +168,14 @@ const isLoading = ref(false)
 let core: ArtCore | null = null
 let loadToken = 0
 let pendingSeek = 0
+let enhancer: WebEnhancer | null = null
+const enhanceLevel = useSetting('player.enhance')
+
+/** 仅使用片源探测确认 SDR；显示器能力不能替代输入色彩信息。 */
+const sourceIsSdr = (): boolean =>
+  props.sourceVideo ? props.sourceVideo.range === 'sdr' : false
+
+watch(enhanceLevel, level => enhancer?.setLevel(level))
 
 const subtitles = usePlayerSubtitles({
   player: () => core?.art ?? null,
@@ -224,6 +239,8 @@ const sink: ArtSink = {
 
 /** 拆掉实例（连同字幕 blob） */
 const destroyPlayer = (): void => {
+  enhancer?.dispose()
+  enhancer = null
   if (core) {
     subtitles.dispose()
     danmaku.detach()
@@ -264,6 +281,7 @@ const createPlayer = async (source: string): Promise<void> => {
 
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
   core = createArtCore({
+    sourceVideo: () => props.sourceVideo ?? null,
     url: resolved,
     useHls: Hls.isSupported() && (props.hls || isHlsUrl(resolved)),
     autoplay: props.autoplay,
@@ -272,6 +290,11 @@ const createPlayer = async (source: string): Promise<void> => {
   })
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
+  enhancer = attachWebEnhancer(core.art.video, {
+    state: props.controls ? installEnhanceControl(core.art) : undefined,
+    level: enhanceLevel.value,
+    sdr: sourceIsSdr,
+  })
   emit('ready', core.art.video)
   currentSource.value = resolved
   installSettingsMenu(core.art, {

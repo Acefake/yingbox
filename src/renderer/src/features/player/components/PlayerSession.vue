@@ -4,6 +4,7 @@
       v-if="src"
       ref="player"
       :src="src"
+      :source-video="sourceProbe"
       :poster="poster"
       :start-at="startAt"
       :danmaku-target="danmakuTarget"
@@ -58,12 +59,7 @@
 </template>
 
 <script setup lang="ts">
-/**
- * 一次播放会话：收下播放队列（集 / 文件 / 备用线路），负责自动连播、失败 / 卡顿换源（useSourceSwitch）、
- * 续播进度、可操作的错误面板与跳过片头片尾（skip/）。队列解析与进度节流分别在 utils/play-queue、useProgressSaver。
- * 载荷换了（播别的）就重新开始；当前条目名、当前 <video> 通过 title / video 事件交给外层（播放器窗口 / 网页端播放层）。
- * 每集的 Artplayer 上装按钮、快捷键与双击手势（controls/、hotkeys/）和 AI 助手遥控（remote/）；播完有下一集时给倒计时卡片。
- */
+/** 播放队列、连播、换源、进度和错误恢复；异步结果按加载代数丢弃。 */
 import {
   computed,
   onBeforeUnmount,
@@ -73,6 +69,7 @@ import {
   watch,
 } from 'vue'
 import type Artplayer from 'artplayer'
+import type { VideoProbe } from '../../../../../shared/video-range'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import { useSessionShortcuts } from '../controls/use-session-shortcuts'
 import PlayerErrorPanel from './PlayerErrorPanel.vue'
@@ -110,6 +107,7 @@ const emit = defineEmits<{
 }>()
 
 const src = ref('')
+const sourceProbe = shallowRef<VideoProbe | null>(null)
 const poster = ref('')
 const startAt = ref(0)
 const progressKey = ref('')
@@ -248,6 +246,9 @@ const loadEntry = async (
   }
 
   startAt.value = progress.startAt(seededStartAt)
+  sourceProbe.value = entry.filePath
+    ? dolbyVision.sourceVideo
+    : (entry.video ?? null)
   src.value = resolved
   progress.bind()
   emit('title', entryLabel(entry))

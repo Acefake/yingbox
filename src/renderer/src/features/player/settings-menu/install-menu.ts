@@ -7,12 +7,15 @@ import type { default as Artplayer, Setting } from 'artplayer'
 import type Hls from 'hls.js'
 import { type Ref, type WatchStopHandle, watch } from 'vue'
 
+import { getSetting, setSetting } from '@/features/settings'
+
 import type { SubtitleTrack } from '../composables/use-player-subtitles'
 import {
   type MenuChoice,
   audioChoices,
   choiceTooltip,
   danmakuChoices,
+  enhanceChoices,
   orderSettings,
   qualityChoices,
   subtitleChoices,
@@ -139,6 +142,20 @@ export function installSettingsMenu(
     renderDanmaku()
     stops.push(watch(danmaku.enabled, renderDanmaku))
   }
+
+  // 画质增强：放大 + CAS 锐化，仅 SDR；与「设置 → 播放器」同一个设置
+  upsert(
+    art,
+    'ybEnhance',
+    '画质增强',
+    enhanceChoices(getSetting('player.enhance')),
+    value => {
+      void setSetting(
+        'player.enhance',
+        value as 'off' | 'soft' | 'standard' | 'strong'
+      )
+    }
+  )
 
   // 画质 / 音轨：HLS 清单解析后才知道有几档
   const renderStreams = (): void => {

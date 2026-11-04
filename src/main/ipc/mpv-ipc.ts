@@ -59,7 +59,8 @@ export function registerMpvIpc(): void {
     setVsr: (_, enabled) => done(mpvPlayer.setVsrEnabled(enabled)),
     // 高质量缩放：mpv 在运行时立即切换算法
     setHighQualityScaling: (_, enabled) =>
-      done(mpvPlayer.setHighQualityScaling(enabled)),
+      done(mpvPlayer.imageEnhance.setHighQuality(enabled)),
+    setEnhance: (_, level) => done(mpvPlayer.imageEnhance.setLevel(level)),
     setSubTrack: (_, id) => done(mpvPlayer.setSubTrack(id)),
     setAudioTrack: (_, id) => done(mpvPlayer.setAudioTrack(id)),
     addSubFile: (_, filePath) => done(mpvPlayer.addSubFile(filePath)),

@@ -166,6 +166,7 @@ const ADDED_API: Record<string, string[]> = {
   mpv: [
     ...LEGACY_API['mpv']!,
     'setHighQualityScaling',
+    'setEnhance',
     'showText',
     'probe',
     'install',

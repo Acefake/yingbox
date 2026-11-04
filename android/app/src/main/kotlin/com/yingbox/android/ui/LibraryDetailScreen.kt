@@ -56,7 +56,9 @@ private fun LibraryEpisode.code(): String = "S$season" + "E$episode"
 
 /** 一集的播放队列项；没有视频文件的集为 null */
 private fun LibraryEpisode.entry() =
-    versions.firstOrNull()?.fileIds?.firstOrNull()?.let { LibraryPlayEntry(itemId, it, "${code()} $title") }
+    versions.firstOrNull()?.let { version ->
+        version.fileIds.firstOrNull()?.let { LibraryPlayEntry(itemId, it, "${code()} $title", version.videoProbes[it]) }
+    }
 
 /** 这条进度算不算「看到一半」：能接着播 */
 private fun LibraryProgress?.inProgress(): Boolean = this != null && !watched && position > RESUME_MIN_S
@@ -117,8 +119,9 @@ private fun DetailBody(nas: ServerClient, item: LibraryItem, progress: Map<Long,
     }
 
     fun playMovie() {
-        val fileId = item.versions.getOrNull(versionIndex)?.fileIds?.firstOrNull() ?: return
-        play(LibraryPlayRequest(listOf(LibraryPlayEntry(card.id, fileId, card.title)), 0))
+        val version = item.versions.getOrNull(versionIndex) ?: return
+        val fileId = version.fileIds.firstOrNull() ?: return
+        play(LibraryPlayRequest(listOf(LibraryPlayEntry(card.id, fileId, card.title, version.videoProbes[fileId])), 0))
     }
 
     val canPlay = if (isMovie) item.versions.isNotEmpty() else resumeEpisode != null

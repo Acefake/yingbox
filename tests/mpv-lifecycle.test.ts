@@ -20,6 +20,8 @@ const fakes = vi.hoisted(() => ({
   failProps: [] as string[],
   socket: null as null | (EventEmitter & { connected: boolean }),
   userData: '',
+  hookScript: null as string | null,
+  failVfRead: false,
 }))
 
 describe('mpv 播放器进程', () => {
@@ -30,6 +32,8 @@ describe('mpv 播放器进程', () => {
     fakes.killed.length = 0
     fakes.connect = null
     fakes.failProps = []
+    fakes.hookScript = null
+    fakes.failVfRead = false
     vi.doMock('../src/main/mpv-socket', async () => {
       const { EventEmitter: Emitter } = await import('events')
       class MpvSocket extends Emitter {
@@ -49,6 +53,10 @@ describe('mpv 播放器进程', () => {
         async send(payload: { command: unknown[] }): Promise<unknown> {
           fakes.sent.push(payload.command)
           const [cmd, name] = payload.command
+          if (cmd === 'get_property' && name === 'user-data/yingbox-vsr-hook')
+            return 'ready'
+          if (cmd === 'get_property' && name === 'vf' && fakes.failVfRead)
+            throw new Error('vf unavailable')
           if (cmd === 'set_property' && fakes.failProps.includes(String(name)))
             throw new Error('property unavailable')
           return null
@@ -63,6 +71,9 @@ describe('mpv 播放器进程', () => {
     vi.doMock('../src/main/mpv-locate', () => ({
       findMpvExecutable: () => 'mpv',
       ensureMpvExecutable: async () => 'mpv',
+    }))
+    vi.doMock('../src/main/mpv-vsr-hook', () => ({
+      ensureMpvVsrHook: async () => fakes.hookScript,
     }))
     vi.doMock('../src/main/plugins/host', () => ({
       registerPlugin: () => undefined,
@@ -92,14 +103,76 @@ describe('mpv 播放器进程', () => {
     vi.doUnmock('../src/main/mpv-socket')
   })
 
+  it('同步换片保护加载后，等待清理再通知 Lua 继续', async () => {
+    fakes.hookScript = '/tmp/mpv-vsr-hook.lua'
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    await mpvPlayer.open({ url: 'https://a/1.mp4' })
+    expect(fakes.children[0].args).toContain('--script=/tmp/mpv-vsr-hook.lua')
+    expect(fakes.sent).toContainEqual([
+      'set_property',
+      'user-data/yingbox-vsr-controlled',
+      true,
+    ])
+    fakes.sent.length = 0
+    fakes.socket!.emit('event', {
+      event: 'client-message',
+      args: ['yingbox-vsr-load', '1', 'mpv_vsr_hook'],
+    })
+    await vi.waitFor(() =>
+      expect(fakes.sent).toContainEqual([
+        'script-message-to',
+        'mpv_vsr_hook',
+        'yingbox-vsr-continue',
+        '1',
+      ])
+    )
+    expect(fakes.sent[0]).toEqual(['get_property', 'vf'])
+  })
+
+  it('同步保护清理失败时先停播再释放钩子，不挂起新文件', async () => {
+    const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    await mpvPlayer.open({ url: 'https://a/1.mp4' })
+    fakes.sent.length = 0
+    fakes.failVfRead = true
+    fakes.socket!.emit('event', {
+      event: 'client-message',
+      args: ['yingbox-vsr-load', '2', 'mpv_vsr_hook'],
+    })
+    await vi.waitFor(() =>
+      expect(fakes.sent).toContainEqual([
+        'script-message-to',
+        'mpv_vsr_hook',
+        'yingbox-vsr-continue',
+        '2',
+      ])
+    )
+    const stop = fakes.sent.findIndex(c => c[0] === 'stop')
+    const resume = fakes.sent.findIndex(c => c[0] === 'script-message-to')
+    expect(stop).toBeGreaterThanOrEqual(0)
+    expect(stop).toBeLessThan(resume)
+    warn.mockRestore()
+  })
+
+  it('保护握手开关设置失败只旁路增强，不让普通开播失败', async () => {
+    fakes.hookScript = '/tmp/mpv-vsr-hook.lua'
+    fakes.failProps = ['user-data/yingbox-vsr-controlled']
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    await expect(
+      mpvPlayer.open({ url: 'https://a/1.mp4' })
+    ).resolves.toBeUndefined()
+    await mpvPlayer.setVsrEnabled(true)
+    expect(mpvPlayer.getStatus().vsr?.state).toBe('unsupported')
+  })
+
   it('高质量缩放支持启动、即时切换和进程重启', async () => {
     const { mpvPlayer } = await import('../src/main/mpv-player')
-    await mpvPlayer.setHighQualityScaling(true)
+    await mpvPlayer.imageEnhance.setHighQuality(true)
     await mpvPlayer.open({ url: 'https://a/1.mp4' })
     expect(fakes.children[0].args).toContain('--scale=ewa_lanczossharp')
-    await mpvPlayer.setHighQualityScaling(false)
+    await mpvPlayer.imageEnhance.setHighQuality(false)
     expect(fakes.sent).toContainEqual(['set_property', 'scale', 'lanczos'])
-    await mpvPlayer.setHighQualityScaling(true)
+    await mpvPlayer.imageEnhance.setHighQuality(true)
     expect(fakes.sent).toContainEqual([
       'set_property',
       'scale',
@@ -108,7 +181,7 @@ describe('mpv 播放器进程', () => {
     fakes.children[0].emit('exit')
     await mpvPlayer.open({ url: 'https://a/2.mp4' })
     expect(fakes.children[1].args).toContain('--scale=ewa_lanczossharp')
-    await mpvPlayer.setHighQualityScaling(false)
+    await mpvPlayer.imageEnhance.setHighQuality(false)
     fakes.children[1].emit('exit')
     await mpvPlayer.open({ url: 'https://a/3.mp4' })
     expect(fakes.children[2].args).toContain('--scale=lanczos')
@@ -124,7 +197,9 @@ describe('mpv 播放器进程', () => {
       startAt: 42,
     })
     const load = fakes.sent.findIndex(c => c[0] === 'loadfile')
-    expect(fakes.sent.slice(0, load)).toEqual([
+    expect(
+      fakes.sent.slice(0, load).filter(c => c[0] !== 'get_property')
+    ).toEqual([
       ['set_property', 'start', '42'],
       ['set_property', 'title', '第二集'],
     ])
