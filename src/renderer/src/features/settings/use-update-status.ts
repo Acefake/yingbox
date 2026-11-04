@@ -21,7 +21,8 @@ export interface UpdateState {
   version: Ref<string>
   currentVersion: Ref<string>
   notes: Ref<string>
-  dialogOpen: Ref<boolean>
+  /** 已点「更新并重启」，正在交给安装包 */
+  installing: Ref<boolean>
   title: ComputedRef<string>
   message: ComputedRef<string>
   action: ComputedRef<string>
@@ -48,7 +49,7 @@ function createUpdateState(): UpdateState {
   const version = ref('')
   const currentVersion = ref('')
   const notes = ref('')
-  const dialogOpen = ref(false)
+  const installing = ref(false)
   let statusEvents = 0
 
   const setInfo = (info: UpdateInfo): void => {
@@ -83,8 +84,8 @@ function createUpdateState(): UpdateState {
 
   /** 当前可执行的操作文案；空字符串表示无操作（检查 / 下载进行中） */
   const action = computed(() => {
-    if (status.value === 'available' || status.value === 'downloaded')
-      return '查看更新'
+    if (status.value === 'available') return '下载更新'
+    if (status.value === 'downloaded') return '更新并重启'
     if (status.value === 'checking' || status.value === 'downloading') return ''
     return '检查更新'
   })
@@ -95,15 +96,15 @@ function createUpdateState(): UpdateState {
       payload.status === 'checking' || payload.status === 'downloading'
     if ('info' in payload) {
       setInfo(payload.info)
-      if (payload.status === 'available') {
-        if (payload.info.releaseNotes == null) notes.value = ''
-        dialogOpen.value = true
-      }
+      if (payload.status === 'available' && payload.info.releaseNotes == null)
+        notes.value = ''
     }
     if ('progress' in payload && payload.progress.percent != null)
       progress.value = payload.progress.percent
-    if ('error' in payload) error.value = payload.error
-    if (payload.status === 'not-available') dialogOpen.value = false
+    if ('error' in payload) {
+      error.value = payload.error
+      installing.value = false
+    }
   }
 
   const runAction = async (): Promise<void> => {
@@ -120,6 +121,7 @@ function createUpdateState(): UpdateState {
         return
       }
       if (status.value === 'downloaded') {
+        installing.value = true
         await window.api.update.install()
         return
       }
@@ -131,6 +133,7 @@ function createUpdateState(): UpdateState {
       }
     } catch (cause) {
       status.value = 'error'
+      installing.value = false
       error.value = cause instanceof Error ? cause.message : '更新操作失败'
     } finally {
       if (status.value !== 'checking' && status.value !== 'downloading') {
@@ -172,7 +175,7 @@ function createUpdateState(): UpdateState {
     version,
     currentVersion,
     notes,
-    dialogOpen,
+    installing,
     title,
     message,
     action,

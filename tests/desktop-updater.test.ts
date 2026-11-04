@@ -52,6 +52,7 @@ function setup(
     dir,
     now: () => 0,
     emit: status => events.push(status),
+    autoDownload: () => false,
     launch,
     quit,
     ...over,
@@ -97,6 +98,7 @@ describe('桌面更新器', () => {
     expect(await readdir(dir)).toEqual(['yingbox-setup-1.0.3.exe'])
     await updater.install()
     expect(launch).toHaveBeenCalledWith(join(dir, 'yingbox-setup-1.0.3.exe'), [
+      '/S',
       '--updated',
       '--force-run',
     ])
@@ -188,5 +190,55 @@ describe('桌面更新器', () => {
     const result = await updater.check()
     expect(result).toMatchObject({ success: false })
     expect(events.at(-1)?.status).toBe('error')
+  })
+
+  it('开了自动下载：检查到更新后自动下载，下载完成变为已下载', async () => {
+    const updater = setup({ autoDownload: () => true })
+    await updater.check()
+    await vi.waitFor(() => expect(events.at(-1)?.status).toBe('downloaded'))
+    expect(events.map(e => e.status)).toEqual([
+      'checking',
+      'available',
+      'downloading',
+      'downloaded',
+    ])
+  })
+
+  it('没开自动下载：检查到更新后停在可下载，不会自己下载', async () => {
+    const updater = setup()
+    await updater.check()
+    await new Promise(resolve => setTimeout(resolve, 20))
+    expect(events.at(-1)?.status).toBe('available')
+    expect(await readdir(dir)).toEqual([])
+  })
+
+  it('退出时：开了自动更新且已下载，静默装上但不拉起新版', async () => {
+    const updater = setup({ autoDownload: () => true })
+    await updater.check()
+    await vi.waitFor(() => expect(events.at(-1)?.status).toBe('downloaded'))
+    updater.installOnQuit()
+    updater.installOnQuit()
+    expect(launch).toHaveBeenCalledTimes(1)
+    expect(launch).toHaveBeenCalledWith(join(dir, 'yingbox-setup-1.0.3.exe'), [
+      '/S',
+    ])
+  })
+
+  it('退出时：没开自动更新或没有已下载的更新，什么也不装', async () => {
+    const off = setup()
+    await off.check()
+    await off.download()
+    off.installOnQuit()
+    setup({ autoDownload: () => true }).installOnQuit()
+    expect(launch).not.toHaveBeenCalled()
+  })
+
+  it('点了更新并重启后，退出时不会再装一次', async () => {
+    const updater = setup({ autoDownload: () => true })
+    await updater.check()
+    await vi.waitFor(() => expect(events.at(-1)?.status).toBe('downloaded'))
+    await updater.install()
+    updater.installOnQuit()
+    expect(launch).toHaveBeenCalledTimes(1)
   })
 })

@@ -53,7 +53,8 @@ nsis:
   uninstallerSidebar: build/uninstallerSidebar.bmp
   oneClick: false
   allowToChangeInstallationDirectory: true
-  allowElevation: true
+  # 只装给当前用户：静默更新不需要管理员权限，不弹 UAC
+  allowElevation: false
   createDesktopShortcut: always
   createStartMenuShortcut: true
 mac:

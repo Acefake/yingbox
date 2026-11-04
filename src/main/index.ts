@@ -20,7 +20,11 @@ import { installDevToolsShortcut } from './devtools-shortcut'
 import icon from '../../resources/icon.svg?asset'
 import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
-import { checkForUpdatesOnStartup, registerAppIpc } from './ipc/app-ipc'
+import {
+  checkForUpdatesOnStartup,
+  installPendingUpdate,
+  registerAppIpc,
+} from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
 import { registerIptvIpc } from './ipc/iptv-ipc'
 import { registerCaptureIpc } from './capture'
@@ -304,6 +308,7 @@ app.on('window-all-closed', () => {
 })
 
 app.on('will-quit', () => {
+  installPendingUpdate()
   // 注销所有快捷键
   globalShortcut.unregisterAll()
 })
