@@ -70,8 +70,8 @@ private const val TICK_MS = 500L
 /** 底部玻璃面板的最大宽度（平板、电视上不撑满整行） */
 private val PANEL_MAX_WIDTH = 640.dp
 
-/** 右上角 FSR 标的宽度（高 24dp，按图片比例） */
-private val FSR_LOGO_WIDTH = 51.dp
+/** 右上角 FSR 字标的宽度（高 20dp，按图片比例） */
+private val FSR_LOGO_WIDTH = 67.dp
 
 /** 长按时的倍速 */
 private const val BOOST_SPEED = 2f
@@ -112,7 +112,7 @@ internal fun PlayerControls(
         }
     }
     Box(Modifier.fillMaxSize()) {
-        // 顶栏：返回圆钮、标题胶囊（玻璃，跟着控制层一起出现、隐藏）；右上角是没有背景的 AMD FSR 标
+        // 顶栏：返回圆钮、标题胶囊（玻璃，跟着控制层一起出现、隐藏）；右上角是没有背景的 FSR 字标
         val fsrShown = state.enhanceLevel != com.yingbox.android.playback.engine.EnhanceLevel.Off &&
             (state.enhanceComparing || state.enhanceStatus == "FSR")
         Row(
@@ -147,8 +147,8 @@ internal fun PlayerControls(
                     .align(Alignment.TopEnd)
                     .statusBarsPadding()
                     .displayCutoutPadding()
-                    .padding(end = gutter(), top = YbSpace.S3 + 10.dp)
-                    .size(width = FSR_LOGO_WIDTH, height = 24.dp)
+                    .padding(end = gutter(), top = YbSpace.S3 + 12.dp)
+                    .size(width = FSR_LOGO_WIDTH, height = 20.dp)
                     .alpha(if (state.enhanceComparing) 0.4f else 1f),
             )
         }

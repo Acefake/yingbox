@@ -5,7 +5,7 @@ import logo from '@/assets/imgs/fsr-logo.png'
 import './fsr-mark.css'
 
 /**
- * 右上角的 AMD FSR 标：增强生效时显示，没有背景；按住对比原画时变暗。
+ * 右上角的 FSR 字标：增强生效时显示，没有背景；按住对比原画时变暗。
  * 状态由增强处理器经 video.dataset.ybEnhanceState 回报（FSR / 原画），随播放器控制层显隐。
  */
 export function installFsrMark(art: Artplayer): void {
