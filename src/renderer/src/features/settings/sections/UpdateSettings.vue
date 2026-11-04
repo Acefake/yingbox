@@ -13,6 +13,17 @@
         @click="onAction"
       />
     </SettingsRow>
+    <SettingsRow
+      title="自动下载更新"
+      description="发现新版本后在后台下载，下载好后可一键更新并重启；退出应用时也会顺带装上"
+    >
+      <UiSwitch v-model="autoDownload" label="自动下载更新" />
+    </SettingsRow>
+    <SettingsRow
+      v-if="showNotes"
+      title="本次更新"
+      :description="update.notes.value"
+    />
     <SettingsRow v-if="update.status.value === 'downloading'">
       <div
         class="update-progress"
@@ -39,20 +50,24 @@
 import { computed } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
+import UiSwitch from '@/components/ui/UiSwitch.vue'
 
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRow from '../ui/SettingsRow.vue'
+import { useSetting } from '../use-setting'
 import { useUpdateStatus } from '../use-update-status'
 
 const update = useUpdateStatus()
-const onAction = (): void => {
-  if (
-    update.status.value === 'available' ||
-    update.status.value === 'downloaded'
-  )
-    update.dialogOpen.value = true
-  else void update.runAction()
-}
+const autoDownload = useSetting('update.autoDownload')
+const onAction = (): void => void update.runAction()
+
+/** 有新版本时展示发布说明 */
+const showNotes = computed(
+  () =>
+    Boolean(update.notes.value) &&
+    (update.status.value === 'available' ||
+      update.status.value === 'downloaded')
+)
 
 /** 有新版本可下载 / 可安装时，这是本区唯一的主操作 */
 const isInstallStep = computed(

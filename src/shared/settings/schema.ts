@@ -8,6 +8,7 @@
  * 本文件被 sandboxed preload 间接打包，只能依赖纯 TS。
  */
 
+import { ENHANCE_LEVELS } from '../playback/enhance'
 import { IMAGE_QUALITIES, METADATA_LANGUAGES } from '../library/scrape-prefs'
 import { type WindowRect, parseWindowRect } from './window-rect'
 
@@ -148,6 +149,8 @@ export const settingsSchema = {
   'ui.reduceTransparency': bool(false),
   /** 桌面端侧栏收起成 64px 图标列（收起钮或 Cmd/Ctrl+B 切换，重启后保持） */
   'ui.sidebarCollapsed': bool(false),
+  /** 发现新版本后自动下载；退出应用时顺带安装已下载的更新 */
+  'update.autoDownload': bool(true),
   /** 防剧透：剧集详情里没看过的集剧照模糊、简介折叠，悬停才显示 */
   'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
@@ -157,6 +160,8 @@ export const settingsSchema = {
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'built-in'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
+  /** 画质增强档位（CAS 锐化 + 高质量缩放，仅 SDR；各端共用） */
+  'player.enhance': oneOf(ENHANCE_LEVELS, 'off'),
   /** mpv 内置高质量缩放 */
   'player.highQualityScaling': bool(false),
   /** 内置播放器上一次使用的倍速 */

@@ -4,7 +4,32 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 describe('软件更新提示', () => {
   beforeEach(() => vi.resetModules())
 
-  it('恢复启动检查结果并展示发布说明，可以稍后关闭', async () => {
+  it('下载好后点更新并重启进入安装中，安装出错时恢复', async () => {
+    let notify = (_event: unknown): void => {}
+    const install = vi.fn().mockResolvedValue(undefined)
+    vi.stubGlobal('api', {
+      update: {
+        onStatus: (cb: typeof notify) => {
+          notify = cb
+        },
+        snapshot: vi
+          .fn()
+          .mockResolvedValue({ currentVersion: '1.0.0', status: null }),
+        install,
+      },
+    })
+    const { useUpdateStatus } =
+      await import('../src/renderer/src/features/settings/use-update-status')
+    const state = useUpdateStatus()
+    notify({ status: 'downloaded', info: { version: '1.1.0' } })
+    await state.runAction()
+    expect(install).toHaveBeenCalledTimes(1)
+    expect(state.installing.value).toBe(true)
+    notify({ status: 'error', error: '启动安装包失败' })
+    expect(state.installing.value).toBe(false)
+  })
+
+  it('恢复启动检查结果并展示发布说明', async () => {
     const onStatus = vi.fn()
     vi.stubGlobal('api', {
       update: {
@@ -24,12 +49,10 @@ describe('软件更新提示', () => {
     const { useUpdateStatus } =
       await import('../src/renderer/src/features/settings/use-update-status')
     const state = useUpdateStatus()
-    await vi.waitFor(() => expect(state.dialogOpen.value).toBe(true))
+    await vi.waitFor(() => expect(state.status.value).toBe('available'))
     expect(state.version.value).toBe('1.1.0')
     expect(state.currentVersion.value).toBe('1.0.0')
     expect(state.notes.value).toContain('新增搜索\n修复播放')
-    state.dialogOpen.value = false
-    expect(state.dialogOpen.value).toBe(false)
   })
 
   it('下载失败时展示错误', async () => {
@@ -72,7 +95,7 @@ describe('软件更新提示', () => {
     const state = useUpdateStatus()
     await vi.waitFor(() => expect(state.status.value).toBe('downloaded'))
     expect(state.notes.value).toBe('更新说明')
-    expect(state.action.value).toBe('查看更新')
+    expect(state.action.value).toBe('更新并重启')
   })
 
   it('实时下载进度先于快照返回时仍恢复更新说明', async () => {

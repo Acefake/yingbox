@@ -24,6 +24,8 @@ const RELEASES_URL =
   'https://api.github.com/repos/Acefake/yingbox/releases?per_page=30'
 const CACHE_MS = 10 * 60 * 1000
 const TIMEOUT_MS = 15_000
+/** 静默安装；--force-run 让安装包装完后拉起新版 */
+const SILENT_ARGS = ['/S', '--updated', '--force-run']
 /** 下载中这么久没有数据就放弃 */
 const IDLE_MS = 30_000
 
@@ -37,6 +39,8 @@ export interface DesktopUpdaterDeps {
   dir: string
   now(): number
   emit(status: UpdateStatusEvent): void
+  /** 发现新版后是否自动下载，也决定退出时是否顺带安装已下载的更新 */
+  autoDownload(): boolean
   /** 启动安装包（脱离本进程）；进程起不来时 reject */
   launch(file: string, args: string[]): Promise<void>
   quit(): void
@@ -46,7 +50,10 @@ export interface DesktopUpdaterDeps {
 export interface DesktopUpdater {
   check(): Promise<UpdateResult>
   download(): Promise<UpdateResult>
+  /** 静默安装并重启到新版 */
   install(): Promise<void>
+  /** 应用退出时，把已下载的更新静默装上（不拉起新版）；未开自动更新或没有已下载的更新则什么也不做 */
+  installOnQuit(): void
 }
 
 const failure = (error: unknown): UpdateResult => ({
@@ -60,6 +67,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   let found: DesktopUpdate | null = null
   let downloaded: { version: string; file: string } | null = null
   let inflight: Promise<UpdateResult> | null = null
+  let installing = false
 
   async function releases(): Promise<unknown> {
     if (cache && deps.now() - cache.at < CACHE_MS) return cache.releases
@@ -97,6 +105,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
         status: downloaded ? 'downloaded' : 'available',
         info,
       })
+      if (!downloaded && deps.autoDownload()) void download()
       return { success: true, data: info }
     } catch (error) {
       deps.emit({
@@ -181,10 +190,12 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   }
 
   async function install(): Promise<void> {
-    if (!downloaded) return
+    if (!downloaded || installing) return
+    installing = true
     try {
-      await deps.launch(downloaded.file, ['--updated', '--force-run'])
+      await deps.launch(downloaded.file, SILENT_ARGS)
     } catch (error) {
+      installing = false
       deps.emit({
         status: 'error',
         error: failure(error).error ?? '启动安装包失败',
@@ -194,7 +205,15 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
     deps.quit()
   }
 
-  return { check, download, install }
+  function installOnQuit(): void {
+    if (!downloaded || installing || !deps.autoDownload()) return
+    installing = true
+    deps.launch(downloaded.file, ['/S']).catch(() => {
+      installing = false
+    })
+  }
+
+  return { check, download, install, installOnQuit }
 }
 
 /** 清掉下载目录里其他版本的安装包和残留的未完成文件 */
