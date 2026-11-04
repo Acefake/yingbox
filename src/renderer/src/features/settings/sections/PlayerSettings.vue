@@ -2,6 +2,7 @@
   <!-- 网页端只有内置播放器：不显示引擎选择与 mpv 选项 -->
   <SettingsGroup
     v-if="isElectron"
+    joined
     title="播放引擎"
     footer="内置播放器解不了的文件（HEVC 画面、AC3 / EAC3 / DTS 音频等）会自动交给 mpv 播放。"
   >
@@ -17,6 +18,7 @@
 
   <SettingsGroup
     v-if="isElectron && preferredPlayerEngine === 'mpv'"
+    joined
     :footer="mpvState.running ? `当前播放：${mpvResolutionText}` : undefined"
   >
     <SettingsRow
@@ -51,6 +53,7 @@
 
   <SettingsGroup
     v-if="isElectron"
+    joined
     title="HDR 与杜比视界"
     footer="进入内置播放器的 Profile 5 片源由 ffmpeg 的 libplacebo 重建色彩（需要 Vulkan）：HDR 显示器输出 HDR10，其他显示器色调映射到 SDR。重建做不了时，开着上面的开关就改用 mpv，否则直接播放并提示颜色可能不正确。"
   >
@@ -90,6 +93,7 @@
   </SettingsGroup>
 
   <SettingsGroup
+    joined
     title="片头片尾"
     footer="在内置播放器里右键标记片头开始 / 结束、片尾开始，同一部剧每集通用；也可在媒体库剧集详情里「检测片头片尾」。"
   >
@@ -116,7 +120,7 @@
     </SettingsRow>
   </SettingsGroup>
 
-  <SettingsGroup v-if="isElectron" title="系统集成">
+  <SettingsGroup v-if="isElectron" joined title="系统集成">
     <SettingsRow
       title="显示托盘图标"
       description="托盘菜单显示正在播放的内容，可播放 / 暂停、下一集、显示主窗口、退出"

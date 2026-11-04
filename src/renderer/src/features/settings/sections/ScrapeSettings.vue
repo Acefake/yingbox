@@ -1,14 +1,13 @@
 <template>
   <SettingsGroup
-    title="元数据"
-    footer="中文缺片名时用原名；缺简介时先从豆瓣补，豆瓣也没有才用英文。已入库的条目在片库里刷新元数据后按新语言更新。"
+    footer="图片清晰度针对写出到影片文件夹的海报、背景图与演员头像，越清晰下载越慢、占用越多空间。"
   >
     <SettingsRow
-      title="语言"
+      title="元数据语言"
       :description="
         nas
-          ? '片库与网盘影片匹配的标题和简介'
-          : '片库、追剧日历与在线页的标题和简介'
+          ? '片库与网盘影片匹配的标题和简介。中文缺片名时用原名；缺简介时先从豆瓣补，豆瓣也没有才用英文。'
+          : '片库、追剧日历与在线页的标题和简介。中文缺片名时用原名；缺简介时先从豆瓣补，豆瓣也没有才用英文；已入库的条目刷新元数据后按新语言更新。'
       "
     >
       <UiSegmented
@@ -18,10 +17,7 @@
         :options="metadataLanguageOptions"
       />
     </SettingsRow>
-  </SettingsGroup>
-
-  <SettingsGroup title="TMDB">
-    <SettingsRow title="Access Token" stacked>
+    <SettingsRow title="TMDB Access Token" stacked>
       <template #description>
         前往
         <a
@@ -56,17 +52,15 @@
         @click="clearTmdbToken"
       />
     </SettingsRow>
-  </SettingsGroup>
-
-  <SettingsGroup
-    title="图片质量"
-    footer="写出到影片文件夹的海报、背景图与演员头像。越清晰下载越慢、占用越多空间。"
-  >
-    <SettingsRow v-for="row in imageRows" :key="row.key" :title="row.title">
+    <SettingsRow
+      v-for="row in imageRows"
+      :key="row.key"
+      :title="`${row.title}清晰度`"
+    >
       <UiSegmented
         v-model="row.model.value"
         size="sm"
-        :label="row.title"
+        :label="`${row.title}清晰度`"
         :options="imageQualityOptions"
       />
     </SettingsRow>
