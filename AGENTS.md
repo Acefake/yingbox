@@ -7,7 +7,7 @@
 ## Overview
 
 - **本地媒体库** — scans movie/TV folders, scrapes TMDB metadata, writes Kodi-standard NFO + images
-- **在线播放** — aggregates CMS sites (`cms-sites.json`) and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
+- **在线播放** — aggregates CMS sites and CatSpider plugin sites, resolves play URLs in the engine (`src/engine/online`)
 - **内置播放器** — desktop window (ADR-0018), web modal (0015), shared controls / HDR detection (0016), DV rebuild (0017); `local://` HTTP Range, HLS, sidecar srt/ass → WebVTT
 
 Stack: Electron 45 + Vue 3 + engine `utilityProcess` (online/HLS via IPC). Desktop has no HTTP backend or Go/Python runtime. Optional Node **library server** (`src/server/`, `docs/library-server.md`) serves Web/NAS and progress sync.
@@ -157,7 +157,7 @@ Settled decisions live in `docs/adr/` (背景 / 决策 / 后果 / 否决方案).
 - [0021](docs/adr/0021-magnet-sources-offline.md) 磁力来源与 115 离线下载
 - [0022](docs/adr/0022-remove-builtin-adult-source.md) 移除 MissAV 内置源（部分取代 0019）; [0023](docs/adr/0023-nas-live-notifications.md) NAS 直播与入库推送; [0024](docs/adr/0024-nas-library-netdisk-edition.md) NAS 片库与完整网盘专用版; [0025](docs/adr/0025-nas-stable-auto-update.md) NAS 稳定版自动更新; [0026](docs/adr/0026-nas-feature-parity.md) NAS 与网页版功能一致，115 目录可入库; [0027](docs/adr/0027-unified-resource-search.md) 统一搜索与资源聚合; [0028](docs/adr/0028-android-native-shell-embedded-node.md) 安卓与电视端：原生界面、内嵌 Node、原生播放; [0029](docs/adr/0029-autograb-target-and-organize-home.md) 追更按剧定位，整理并入已有剧文件夹; [0030](docs/adr/0030-view-domain-and-kotlin-types.md) 视图域 view 与生成 Kotlin; [0031](docs/adr/0031-server-playback-records.md) 播放记录存服务端; [0032](docs/adr/0032-android-sources-and-playback.md) 安卓选源会话与代理播放; [0033](docs/adr/0033-android-settings.md) 安卓设置：设备存本机、服务端键走 server-settings; [0034](docs/adr/0034-android-node-as-native-executable.md) 安卓 Node 为可执行文件（部分取代 0028）; [0035](docs/adr/0035-android-source-probe.md) 安卓选源测速排序; [0036](docs/adr/0036-android-source-health.md) 安卓源自动启停; [0037](docs/adr/0037-android-release-and-update.md) 安卓发布与更新; [0038](docs/adr/0038-unified-github-release.md) 统一发布; [0039](docs/adr/0039-android-player-core.md) 安卓播放内核：能力探测与解码兜底; [0040](docs/adr/0040-android-nas-library.md) 安卓连接 NAS 片库并直放; [0041](docs/adr/0041-android-player-controls.md) 安卓播放器控制层
 
-[0042](docs/adr/0042-android-playback-diagnostics.md) 安卓播放诊断; [0043](docs/adr/0043-android-format-support-and-file-probe.md) 实际格式解码检查与单文件探测; [0044](docs/adr/0044-mpv-vsr-filter-lifecycle.md) mpv 超分滤镜与状态; [0045](docs/adr/0045-desktop-silent-auto-update.md) 桌面端自动下载与静默更新; [0046](docs/adr/0046-update-mirror-fallback.md) 更新 GitHub 镜像回退
+[0042](docs/adr/0042-android-playback-diagnostics.md) 安卓播放诊断; [0043](docs/adr/0043-android-format-support-and-file-probe.md) 实际格式解码检查与单文件探测; [0044](docs/adr/0044-mpv-vsr-filter-lifecycle.md) mpv 超分滤镜与状态; [0045](docs/adr/0045-desktop-silent-auto-update.md) 桌面端自动下载与静默更新; [0046](docs/adr/0046-update-mirror-fallback.md) 更新 GitHub 镜像回退; [0047](docs/adr/0047-cms-subscription.md) CMS 订阅; [0048](docs/adr/0048-plugin-pinning.md) 插件固定
 
 ## UI conventions
 

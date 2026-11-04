@@ -4,16 +4,41 @@
  */
 import type { ApiSite } from '../types'
 
-/** 默认订阅：hafrey1/LunaTV-config 纯净版，上游每小时测活并剔除失效源。 */
-export const DEFAULT_SUBSCRIPTION_URL =
-  'https://raw.githubusercontent.com/hafrey1/LunaTV-config/main/jin18.json'
+/** 内置订阅：主源（多家合并，约 100 站）与备源（LunaTV 完整版），固定不可改（ADR-0047）。 */
+export const SUBSCRIPTION_URLS: readonly string[] = [
+  'https://raw.githubusercontent.com/DaLongZhuaZi/moontv-config/main/config.json',
+  'https://raw.githubusercontent.com/hafrey1/LunaTV-config/main/LunaTV-config.json',
+]
 
 const CMS_API = /^https?:\/\/.+(?:api\.php\/provide\/vod|api\/json\.php)/i
+
+/** 去重用的站点键：小写主机、去 www.、去路径末尾斜杠。 */
+export const siteKey = (api: string): string => {
+  try {
+    const url = new URL(api)
+    return `${url.hostname.toLowerCase().replace(/^www\./, '')}${url.pathname.replace(/\/+$/, '')}${url.search}`
+  } catch {
+    return api
+  }
+}
+
+/** 按站点键去重合并，靠前的分组优先。 */
+export const mergeSites = (...groups: ApiSite[][]): ApiSite[] => {
+  const seen = new Set<string>()
+  const merged: ApiSite[] = []
+  for (const site of groups.flat()) {
+    const key = siteKey(site.api)
+    if (seen.has(key)) continue
+    seen.add(key)
+    merged.push(site)
+  }
+  return merged
+}
 
 /** 去掉名称首尾的表情、装饰符号与多余空白。 */
 export const cleanSiteName = (name: string): string =>
   name
-    .replace(/[\p{Extended_Pictographic}\uFE0F\u200D]/gu, '')
+    .replace(/[\p{Extended_Pictographic}️‍]/gu, '')
     .replace(/^[\s\-_·|]+|[\s\-_·|]+$/g, '')
     .trim()
 
@@ -22,31 +47,38 @@ const asEntry = (value: unknown): Record<string, unknown> | null =>
     ? (value as Record<string, unknown>)
     : null
 
-const toSite = (value: unknown): ApiSite | null => {
+/** 订阅解析结果：成人站（`is_adult` 或名称带 🔞）单独分出，归 AV 板块。 */
+export interface ParsedSubscription {
+  ordinary: ApiSite[]
+  adult: ApiSite[]
+}
+
+const toSite = (value: unknown): { site: ApiSite; adult: boolean } | null => {
   const entry = asEntry(value)
-  if (!entry || entry.is_adult === true) return null
+  if (!entry) return null
   const api = typeof entry.api === 'string' ? entry.api.trim() : ''
   if (!CMS_API.test(api)) return null
   const raw = typeof entry.name === 'string' ? entry.name : ''
-  return { name: cleanSiteName(raw) || new URL(api).hostname, api }
+  return {
+    site: { name: cleanSiteName(raw) || new URL(api).hostname, api },
+    adult: entry.is_adult === true || raw.includes('🔞'),
+  }
 }
 
-/** 解析订阅内容，返回去重后的 CMS 站点；格式不认识时返回空数组。 */
-export const parseSubscription = (raw: unknown): ApiSite[] => {
+/** 解析订阅内容，分出普通站与成人站并各自去重；格式不认识时两组都为空。 */
+export const parseSubscription = (raw: unknown): ParsedSubscription => {
   const root = asEntry(raw)
-  if (!root) return []
+  if (!root) return { ordinary: [], adult: [] }
   const entries = Array.isArray(root.sites)
     ? root.sites
     : Object.values(asEntry(root.api_site) ?? {})
-  const seen = new Set<string>()
-  const sites: ApiSite[] = []
+  const ordinary: ApiSite[] = []
+  const adult: ApiSite[] = []
   for (const value of entries) {
-    const site = toSite(value)
-    if (!site || seen.has(site.api)) continue
-    seen.add(site.api)
-    sites.push(site)
+    const parsed = toSite(value)
+    if (parsed) (parsed.adult ? adult : ordinary).push(parsed.site)
   }
-  return sites
+  return { ordinary: mergeSites(ordinary), adult: mergeSites(adult) }
 }
 
 /**

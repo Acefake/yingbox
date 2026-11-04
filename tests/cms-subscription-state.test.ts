@@ -1,7 +1,11 @@
 import { beforeEach, describe, expect, it, vi } from 'vitest'
-const { getJson, selected } = vi.hoisted(() => ({
+const { getJson, selected, addAvSources } = vi.hoisted(() => ({
   getJson: vi.fn(),
   selected: new Set<string>(),
+  addAvSources: vi.fn(),
+}))
+vi.mock('@/features/av', () => ({
+  useAvSources: () => ({ addSources: addAvSources }),
 }))
 vi.mock('../src/renderer/src/features/online/api/online', () => ({ getJson }))
 vi.mock('../src/renderer/src/features/online/composables/cms-sites', () => ({
@@ -12,7 +16,6 @@ vi.mock('../src/renderer/src/features/online/composables/cms-sites', () => ({
 import {
   subscribedSites,
   subscriptionSyncedAt,
-  subscriptionUrl,
   syncSubscription,
 } from '../src/renderer/src/features/online/composables/cms-subscription'
 const site = (name: string): { name: string; api: string } => ({
@@ -24,7 +27,6 @@ beforeEach(() => {
   selected.clear()
   subscribedSites.value = []
   subscriptionSyncedAt.value = 0
-  subscriptionUrl.value = 'https://config.test/list.json'
 })
 
 describe('订阅同步的代次与选择保留', () => {
@@ -65,5 +67,43 @@ describe('订阅同步的代次与选择保留', () => {
     await syncSubscription()
     expect(selected.has(site('existing').api)).toBe(false)
     expect(selected.has(site('new').api)).toBe(true)
+  })
+})
+
+describe('成人站并入 AV 板块', () => {
+  it('订阅里的成人站交给 AV，普通源只收普通站', async () => {
+    const adult = {
+      name: '🔞成人',
+      api: 'https://adult.test/api.php/provide/vod',
+    }
+    getJson.mockResolvedValueOnce({
+      api_site: { a: site('plain'), b: adult },
+    })
+    await syncSubscription()
+    expect(subscribedSites.value).toEqual([site('plain')])
+    expect(addAvSources).toHaveBeenCalledWith([
+      { name: '成人', api: adult.api },
+    ])
+  })
+  it('两个订阅只要一个成功就同步', async () => {
+    getJson.mockResolvedValueOnce({ sites: [site('one')] })
+    getJson.mockRejectedValue(new Error('down'))
+    await syncSubscription()
+    expect(subscribedSites.value).toEqual([site('one')])
+  })
+})
+
+describe('单个订阅失败', () => {
+  it('不丢上次缓存里的站，也不停用它们', async () => {
+    subscribedSites.value = [site('kept')]
+    selected.add(site('kept').api)
+    getJson.mockResolvedValueOnce({ sites: [site('new')] })
+    getJson.mockRejectedValue(new Error('down'))
+    await syncSubscription()
+    expect(subscribedSites.value.map(s => s.name).sort()).toEqual([
+      'kept',
+      'new',
+    ])
+    expect(selected.has(site('kept').api)).toBe(true)
   })
 })

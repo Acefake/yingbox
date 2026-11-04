@@ -4,184 +4,227 @@
       "name": "哔滴影视",
       "type": 3,
       "api": "csp_bde4",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/bdys.js"
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/bdys.js",
+      "sha256": "b1b43975fbe6810a032ec35c3e93c3fb224332d5a78062ca463b09dc13b3625f"
     },
     {
       "name": "欧乐🪜",
       "type": 3,
       "api": "csp_Olevod",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ole.js"
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/ole.js",
+      "sha256": "14897fa7835961dad17bc445054e8ebd07c65ac83cc0f31ad9d9f17a607bf90a"
     },
     {
       "name": "在线之家",
       "type": 3,
       "api": "csp_Zxzj",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/zxzj.js"
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/zxzj.js",
+      "sha256": "77a72b956720d9ec75ad4d4b1663c1abce17b01f67b4a8022c8479636a5047e1"
     },
     {
       "name": "LIBVIO",
       "type": 3,
       "api": "csp_libvio",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/libvio.js",
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/libvio.js",
       "patch": {
         "https://www.libvios.com": "https://www.libvio.to"
-      }
+      },
+      "sha256": "1422dce607f66cf683a9728b880169680fb139890be1371a1cd237df96b003cf"
     },
     {
       "name": "ギリギリ动漫",
       "type": 3,
       "api": "csp_ai",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ai.js"
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/ai.js",
+      "sha256": "09356a518b49e0085ba569b06c8c151b383306f731ac9d6acd19cd1ecb514ff7"
     },
     {
       "name": "独播库",
       "type": 3,
       "api": "csp_duboku",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/duboku.js"
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/duboku.js",
+      "sha256": "d6385dc3ea54b5e96340bc87ee55cfa031b8141ea77179c124db745a2d833c7a"
     },
     {
       "name": "AGE动漫",
       "type": 3,
       "api": "csp_age",
-      "ext": "https://gist.githubusercontent.com/occupy-pluto/e3a7bb98d5027d0f6dfa85fc2ac11a78/raw/6deb0475d295ac867ccb9c7cf3b1fb212a77abd7/agedm.js"
+      "ext": "https://gist.githubusercontent.com/occupy-pluto/e3a7bb98d5027d0f6dfa85fc2ac11a78/raw/6deb0475d295ac867ccb9c7cf3b1fb212a77abd7/agedm.js",
+      "sha256": "340098447a27d31df7521657fb1e587cac22f559c4f2d1f6f44432851c17966f"
     },
     {
       "name": "4k-av",
       "type": 3,
       "api": "csp_4kav",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/4kav.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/4kav.js",
+      "sha256": "ffcf83f820184b65c0e83ac2e393f1c58aaaaba8a0926b9bcaec1f7b9cf6c1fa"
     },
     {
       "name": "韓劇看看",
       "type": 3,
       "api": "csp_hjkk",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/hjkk.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/hjkk.js",
+      "sha256": "e9429408cfff59ef177a40b6dc7b441458fc7406143593850bc0e27ee0cd116a"
     },
     {
       "name": "金牌影院",
       "type": 3,
       "api": "csp_jpyy",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/jpyy.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/jpyy.js",
+      "sha256": "13b5f5b6b90139bd9d13eb235cd1fd98328dc8b3fa261e402d5958af15e6d272"
     },
     {
       "name": "NO視頻",
       "type": 3,
       "api": "csp_novipnoad",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/novipnoad.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/novipnoad.js",
+      "sha256": "8ca58127786bf4971f78be6b91b14238f95796ddc500ec126c624583f2dd1829"
     },
     {
       "name": "星芽短劇",
       "type": 3,
       "api": "csp_xingya",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/xingya.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/xingya.js",
+      "sha256": "ce9b63adba04233927abf8d1a907ce925638846391cfcea10b65fc27b9178045"
     },
     {
       "name": "瓜子",
       "type": 3,
       "api": "csp_guazi",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/gzys.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/gzys.js",
+      "sha256": "5f7b99008b680db45345eff8201f0599f6a21342ab240d0abb1162169178f451"
     },
     {
       "name": "愛壹帆",
       "type": 3,
       "api": "csp_iyftv",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/main/js/iyftv.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/iyftv.js",
+      "sha256": "2c4b9668f8d01cc98c97cee329a323947522d78827c017d427f53a84ab263355"
     },
     {
       "name": "荐片",
       "type": 3,
       "api": "csp_jianpian",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/jianpian.js",
+      "sha256": "3db6b0c1459b8c1606669aa4136ab5bc81f241c55234f7239c343ec0e74cdc47"
     },
     {
       "name": "人人",
       "type": 3,
       "api": "csp_rrmj",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/rrmj.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/rrmj.js",
+      "sha256": "6d653caa7a81fdccb082db3b7024c87cbc8b77f40461ae4c25441527651f4e7b"
     },
     {
       "name": "anime1",
       "type": 3,
       "api": "csp_anime1",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/anime1.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/anime1.js",
+      "sha256": "82eeedbbd048de54e17bde291c86ce14d73e6b85b3d3044fab3dc66d107208ff"
     },
     {
       "name": "农民影视",
       "type": 3,
       "api": "csp_wwgz",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/wwgz.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/wwgz.js",
+      "sha256": "01d0eecb94f7a590c3a119b117a73b304b2ec0899687d2047dc7472f2c0f4362"
     },
     {
       "name": "七色番動漫",
       "type": 3,
       "api": "csp_7sefun",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/7sefun.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/7sefun.js",
+      "sha256": "478928ca2b23dd4ada22fbcc209f41c49bee244428db579b6271720f554dde84"
     },
     {
       "name": "茶杯狐",
       "type": 3,
       "api": "csp_cupfox",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/cupfox.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/cupfox.js",
+      "sha256": "9063c5c6e6ec7fcbd9fc4e8b4aca890d2ef7afbec8da6cdc9357a06d09b90a70"
     },
     {
       "name": "路漫漫",
       "type": 3,
       "api": "csp_lmm85",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/lmm85.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/lmm85.js",
+      "sha256": "78d88f637bca47d7b12d2f33cbf582941dcd50b67499c6b06e233b88dfc2fab8"
     },
     {
       "name": "ppnix",
       "type": 3,
       "api": "csp_ppnix",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/ppnix.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/ppnix.js",
+      "sha256": "8c765b765db40369217ef348a2cc1eed97a79025d71032ebb0bc785d63df86a8"
     },
     {
       "name": "河馬短劇",
       "type": 3,
       "api": "csp_kuaikaw",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/kuaikaw.js",
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/kuaikaw.js",
       "patch": {
         "sourceType: 2,": "sourceType: 1,"
-      }
+      },
+      "sha256": "99a64a1a432e0b1652cb2e79e99d1ad18e9994c5c287c2de3b96d947290de731"
     },
     {
       "name": "壹影視",
       "type": 3,
       "api": "csp_yiys",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/yiys.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/yiys.js",
+      "sha256": "6501786b87d12e07e8d5c197ca70e1e5a8c3a666032de7574740b216b4b71a33"
     },
     {
       "name": "avtoday",
       "type": 3,
       "api": "csp_avtoday",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/avtoday.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/avtoday.js",
+      "sha256": "162e1e3c87d78e58429d9ba86f2724e5b4a8a34041e121cac56d723659e6463b"
     },
     {
       "name": "jable",
       "type": 3,
       "api": "csp_jable",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jable.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/jable.js",
+      "sha256": "404b752436508de7ef9328351fb524c023b6023383552a2339e0e59a5c4befc2"
     },
     {
       "name": "hanime",
       "type": 3,
       "api": "csp_hanime",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/hanime.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/hanime.js",
+      "sha256": "72b6f79b8369a70cf0b34854b8995f7530b0ae7aaf9ad7b060840c9a620e5b04"
     },
     {
       "name": "麻豆社",
       "type": 3,
       "api": "csp_madou",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/madou.js"
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/madou.js",
+      "sha256": "ef5846fe3feace3b23afd6438c7afdfaf493950d17ea7210a0fc8481449f9922"
     },
     {
       "name": "hkdoll",
       "type": 3,
       "api": "csp_hkdoll",
-      "ext": "https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/hkdoll.js",
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/hkdoll.js",
       "patch": {
         "hongkongdollvideo.com": "hongkongdollvideo.org"
-      }
+      },
+      "sha256": "64200ebec117399f982a3afce04765d4df37b69ae2943114c64a2a5f438911f4"
+    },
+    {
+      "name": "小蘋果",
+      "type": 3,
+      "api": "csp_apple",
+      "ext": "https://cdn.jsdelivr.net/gh/Yswag/xptv-extensions@16647b61897c0d60744d2b0a363950e1ec5af45f/js/apple.js",
+      "sha256": "ef0cc4bfe27d13be6e3f8ac64d4cb66103f8f99da31d9f8ee59076cc849cb755"
+    },
+    {
+      "name": "Taiav",
+      "type": 3,
+      "api": "csp_taiav",
+      "ext": "https://cdn.jsdelivr.net/gh/fangkuia/XPTV@344fd1c52c4e1fd7fd1d3b78f916edb6d8296cfb/js/taiav.js",
+      "sha256": "8576dcfb1e4fcf5770695e8c4a5e62736249c7222d9b92211d1bf2f31bd77e76"
     }
   ]
 }

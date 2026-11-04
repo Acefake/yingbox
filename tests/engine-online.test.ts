@@ -1,3 +1,4 @@
+import { createHash } from 'node:crypto'
 import { mkdtemp } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
@@ -359,7 +360,7 @@ describe('在线域 handlers', () => {
     const res = await h.vod(ctx, req as never)
     expect(res).toMatchObject({
       success: false,
-      unavailable: { reason: 'plugin', host: 'ghp.xptvhelper.link' },
+      unavailable: { reason: 'plugin', host: new URL(SITES[0].ext).hostname },
     })
     expect(res.error).toContain('插件脚本下载失败')
     await h.vod(ctx, req as never)
@@ -412,5 +413,51 @@ describe('插件源码缓存', () => {
     body = null
     clock += PLUGIN_TTL_MS + 1000
     expect(await load('https://p.test/a.js')).toBe('v2')
+  })
+
+  it('有期望摘要：内容不符拒绝并换镜像，匹配才缓存；缓存永不过期', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'plugin-cache-'))
+    const good = 'console.log(1)'
+    const digest = createHash('sha256').update(good, 'utf8').digest('hex')
+    const sha = 'a'.repeat(40)
+    const url = `https://cdn.jsdelivr.net/gh/o/r@${sha}/js/x.js`
+    const seen: string[] = []
+    const net = createNetClient({
+      lookup,
+      fetch: async input => {
+        const target = String(input)
+        seen.push(target)
+        return new Response(
+          target.startsWith('https://cdn.jsdelivr.net') ? 'evil' : good
+        )
+      },
+    })
+    let clock = Date.now()
+    const load = createPluginLoader(
+      net,
+      dir,
+      () => clock,
+      () => digest
+    )
+    expect(await load(url)).toBe(good)
+    expect(seen[0]).toBe(url)
+    expect(seen[1]).toBe(
+      `https://gh-proxy.com/https://raw.githubusercontent.com/o/r/${sha}/js/x.js`
+    )
+    clock += PLUGIN_TTL_MS * 10
+    expect(await load(url)).toBe(good)
+    expect(seen).toHaveLength(2)
+  })
+
+  it('所有来源都不符摘要时失败', async () => {
+    const dir = await mkdtemp(join(tmpdir(), 'plugin-cache-'))
+    const net = createNetClient({
+      lookup,
+      fetch: async () => new Response('tampered'),
+    })
+    const load = createPluginLoader(net, dir, Date.now, () => 'f'.repeat(64))
+    await expect(
+      load(`https://cdn.jsdelivr.net/gh/o/r@${'b'.repeat(40)}/js/x.js`)
+    ).rejects.toThrow('校验失败')
   })
 })
