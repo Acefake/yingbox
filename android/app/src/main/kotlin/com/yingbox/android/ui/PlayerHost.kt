@@ -118,8 +118,10 @@ class PlayerState(private val context: Context, client: ServerClient) : Player.L
             it.addListener(this)
         }
 
-    private val enhancer = VideoEnhancer(player, context.resources.displayMetrics.heightPixels)
+    private val enhancer = VideoEnhancer(player, context.resources.displayMetrics.let { minOf(it.widthPixels, it.heightPixels) })
     val enhanceStatus: String get() = enhancer.status
+    val enhanceComparing: Boolean get() = enhancer.comparing
+    fun compareEnhance(on: Boolean) = enhancer.setCompare(on)
     fun clearEnhanceStatus() { enhancer.dispose() }
     var enhanceLevel by mutableStateOf(DeviceSettings.readEnhanceLevel(context))
         private set
@@ -182,6 +184,7 @@ class PlayerState(private val context: Context, client: ServerClient) : Player.L
     }
 
     override fun onPlayWhenReadyChanged(playWhenReady: Boolean, reason: Int) {
+        enhancer.onPlayWhenReadyChanged(playWhenReady)
         this.playWhenReady = playWhenReady
     }
 
@@ -201,6 +204,7 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
     DisposableEffect(state) { onDispose { state.clearEnhanceStatus() } }
     var panelHeight by remember { mutableIntStateOf(0) }
     var viewHeight by remember { mutableIntStateOf(1) }
+    val subtitleInsets = remember { IntArray(4) }
     ObservePlaybackCapabilities(state)
     // 视频降级与音频软解的提示合成一条，出现后几秒自动消失；
     // 只订阅音频解码器这一项：码率、丢帧每次更新都不该让整个播放页重组
@@ -289,13 +293,18 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
                     // 控制条由我们自己画；遥控器的键由外层 Compose 容器接，播放器视图自己不抢焦点
                     useController = false
                     isFocusable = false
+                    subtitleView?.let {
+                        subtitleInsets[0] = it.paddingLeft
+                        subtitleInsets[1] = it.paddingTop
+                        subtitleInsets[2] = it.paddingRight
+                        subtitleInsets[3] = it.paddingBottom
+                    }
                 }
             },
             update = {
                 it.resizeMode = state.resizeMode
-                it.subtitleView?.setBottomPaddingFraction(
-                    if (controlsVisible && !sheetOpen) ((panelHeight + 12f) / viewHeight).coerceIn(0.08f, 0.8f) else 0.08f,
-                )
+                val avoid = if (controlsVisible && !sheetOpen) (panelHeight + 12).coerceAtMost(viewHeight * 4 / 5) else 0
+                it.subtitleView?.setPadding(subtitleInsets[0], subtitleInsets[1], subtitleInsets[2], subtitleInsets[3] + avoid)
             },
             modifier = Modifier.fillMaxSize().onSizeChanged { viewHeight = it.height.coerceAtLeast(1) },
         )

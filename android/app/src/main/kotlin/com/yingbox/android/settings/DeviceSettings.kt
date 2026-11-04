@@ -26,7 +26,7 @@ class DeviceSettings(context: Context) {
     var autoSwitchSource by mutableStateOf(prefs.getBoolean(AUTO_SWITCH, true))
         private set
 
-    /** 画质增强档位（放大 + CAS 锐化，仅 SDR）；下一次轨道变化（换集、换源）时生效 */
+    /** 画质增强档位（FSR 放大 + 锐化，仅 SDR）；下一次轨道变化（换集、换源）时生效 */
     var enhanceLevel by mutableStateOf(EnhanceLevel.fromKey(prefs.getString(ENHANCE, null)))
         private set
 

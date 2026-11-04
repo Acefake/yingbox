@@ -86,7 +86,14 @@ app.commandLine.appendSwitch('enable-blink-features', 'FaceDetector')
 protocol.registerSchemesAsPrivileged([
   {
     scheme: 'local',
-    privileges: { secure: true, standard: true, stream: true, bypassCSP: true },
+    privileges: {
+      secure: true,
+      standard: true,
+      stream: true,
+      bypassCSP: true,
+      // 视频要给 WebGL 读帧（画质增强）：需要 CORS 通过
+      corsEnabled: true,
+    },
   },
   // 缓存图片与缩略图（媒体库海报、在线 / AV 封面），见 src/main/thumbnails
   MEDIA_SCHEME_PRIVILEGES,

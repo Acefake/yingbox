@@ -89,6 +89,7 @@ import {
 } from '../utils/art-core'
 import { type WebEnhancer, attachWebEnhancer } from '../enhance/web-enhancer'
 import { installEnhanceControl } from '../enhance/enhance-control'
+import { bindCompare } from '../utils/art-transport'
 import { installSeekThumbnails } from '../seek-thumbnails/seek-thumbnails'
 import { installSettingsMenu } from '../settings-menu/install-menu'
 import { isHlsUrl, shouldResume } from '../utils/art-options'
@@ -171,9 +172,12 @@ let pendingSeek = 0
 let enhancer: WebEnhancer | null = null
 const enhanceLevel = useSetting('player.enhance')
 
-/** 仅使用片源探测确认 SDR；显示器能力不能替代输入色彩信息。 */
+/**
+ * 探测确认是 HDR / 杜比视界就保持原生；没有探测信息（在线片源基本都没有）按 SDR 处理：
+ * 内置播放器里 Chromium 自己把 HDR 映射成 SDR，WebGL 读到的帧本来就是 SDR。
+ */
 const sourceIsSdr = (): boolean =>
-  props.sourceVideo ? props.sourceVideo.range === 'sdr' : false
+  props.sourceVideo ? props.sourceVideo.range === 'sdr' : true
 
 watch(enhanceLevel, level => enhancer?.setLevel(level))
 
@@ -281,7 +285,6 @@ const createPlayer = async (source: string): Promise<void> => {
 
   // 不把 poster 交给 Artplayer 常驻层，避免播放时黑边透出封面
   core = createArtCore({
-    sourceVideo: () => props.sourceVideo ?? null,
     url: resolved,
     useHls: Hls.isSupported() && (props.hls || isHlsUrl(resolved)),
     autoplay: props.autoplay,
@@ -290,11 +293,15 @@ const createPlayer = async (source: string): Promise<void> => {
   })
   containerEl.value.appendChild(core.node)
   video.value = core.art.video
-  enhancer = attachWebEnhancer(core.art.video, {
-    state: props.controls ? installEnhanceControl(core.art) : undefined,
+  const art = core.art
+  enhancer = attachWebEnhancer(art.video, {
+    state: props.controls ? installEnhanceControl(art) : undefined,
     level: enhanceLevel.value,
     sdr: sourceIsSdr,
+    onActive: active =>
+      art.template.$player.classList.toggle('yb-enhanced', active),
   })
+  bindCompare(art, on => enhancer?.setCompare(on))
   emit('ready', core.art.video)
   currentSource.value = resolved
   installSettingsMenu(core.art, {

@@ -43,10 +43,9 @@ vi.mock('../src/renderer/src/features/player/utils/art-skin', () => ({
   artSkinControls: () => [],
   installQualityBadge: () => {},
 }))
-vi.mock(
-  '../src/renderer/src/features/player/source-specs/install-source-specs',
-  () => ({ installSourceSpecs: () => {} })
-)
+vi.mock('../src/renderer/src/features/player/enhance/fsr-mark', () => ({
+  installFsrMark: () => {},
+}))
 vi.mock('../src/renderer/src/features/player/utils/art-options', () => ({
   applyPlaybackRate: () => {},
   artOptions: (input: object) => input,

@@ -90,6 +90,9 @@ export interface ArtOptionsInput {
   hls: ArtOption['customType'] | null
 }
 
+/** 本应用自己的协议（local:// 本地文件、yingbox-stream:// 在线代理）：响应带 CORS 头，可以放心标 crossOrigin */
+const CORS_VIDEO_URL = /^(local|yingbox-stream):/
+
 /** 生成 Artplayer 构造参数（播放器的固定外观与行为都在这里） */
 export function artOptions(input: ArtOptionsInput): ArtOption {
   return {
@@ -128,6 +131,8 @@ export function artOptions(input: ArtOptionsInput): ArtOption {
     moreVideoAttr: {
       playsInline: true,
       preload: 'auto',
+      // 本地文件与本机代理的视频是跨域数据：不带 CORS 标记 WebGL 不能读帧，画质增强会静默失效
+      ...(CORS_VIDEO_URL.test(input.url) ? { crossOrigin: 'anonymous' } : {}),
     },
     // Artplayer 5.x 校验 option.type 必须是字符串：传 undefined 会在构造时抛错，
     // 导致非 HLS（本地文件、直链 mp4/flv）根本无法创建播放器。空串即沿用
