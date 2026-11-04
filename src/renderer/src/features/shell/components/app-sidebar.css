@@ -57,6 +57,11 @@
   color: var(--text-tertiary);
 }
 
+/* macOS 红绿灯占左上角：品牌行下移，给它留出一行 */
+.app-layout:where(.is-mac-electron) .app-sidebar .sidebar-brand {
+  margin-top: var(--space-6);
+}
+
 /* 统一入口（搜索 / 问 AI）一行 */
 .app-sidebar .sidebar-tools {
   display: flex;
