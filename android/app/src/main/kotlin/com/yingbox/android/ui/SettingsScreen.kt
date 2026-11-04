@@ -68,51 +68,65 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
     ) {
         item { PageTitle("设置") }
         item {
-            SettingsGroup("外观", "关闭背景模糊，导航栏和返回按钮改用实色；低配设备、电视上更流畅。") {
-                SettingsRow("降低透明度") {
-                    YbSwitch(device.reduceTransparency, "降低透明度", device::updateReduceTransparency)
+            SettingsCard {
+                SettingsGroup("外观", "关闭背景模糊，导航栏和返回按钮改用实色；低配设备、电视上更流畅。") {
+                    SettingsRow("降低透明度") {
+                        YbSwitch(device.reduceTransparency, "降低透明度", device::updateReduceTransparency)
+                    }
+                }
+                SettingsDivider()
+                SettingsGroup("播放") {
+                    SettingsRow("自动播放下一集", "关闭后播完一集回到详情页") {
+                        YbSwitch(device.autoNext, "自动播放下一集", device::updateAutoNext)
+                    }
+                    SettingsRow("自动换源", "播放出错或卡住 12 秒时，换到别的站点接着播") {
+                        YbSwitch(device.autoSwitchSource, "自动换源", device::updateAutoSwitchSource)
+                    }
                 }
             }
         }
         item {
-            SettingsGroup("播放") {
-                SettingsRow("自动播放下一集", "关闭后播完一集回到详情页") {
-                    YbSwitch(device.autoNext, "自动播放下一集", device::updateAutoNext)
-                }
-                SettingsRow("自动换源", "播放出错或卡住 12 秒时，换到别的站点接着播") {
-                    YbSwitch(device.autoSwitchSource, "自动换源", device::updateAutoSwitchSource)
-                }
-            }
-        }
-        item {
-            SettingsGroup("元数据", "首页和详情的标题、简介用这个语言；与桌面端、网页端共用。") {
-                Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
-                SettingsRow("语言")
-                LazyRow(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
-                    items(MetadataLanguage.entries) { option ->
-                        Pill(option.label, selected = option == language, container = YbColor.FillSecondary) {
-                            val before = language
-                            if (before == null || option == before || saving) return@Pill
-                            picked = option
-                            saving = true
-                            scope.launch {
-                                val saved = withContext(Dispatchers.IO) { runCatching { api.setMetadataLanguage(option) } }
-                                saving = false
-                                if (saved.isFailure) {
-                                    picked = before
-                                    Toast.makeText(context, "保存失败：${saved.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+            SettingsCard {
+                SettingsGroup("元数据", "首页和详情的标题、简介用这个语言；与桌面端、网页端共用。") {
+                    Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+                        SettingsRow("语言")
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                            items(MetadataLanguage.entries) { option ->
+                                Pill(option.label, selected = option == language, container = YbColor.FillSecondary) {
+                                    val before = language
+                                    if (before == null || option == before || saving) return@Pill
+                                    picked = option
+                                    saving = true
+                                    scope.launch {
+                                        val saved = withContext(Dispatchers.IO) { runCatching { api.setMetadataLanguage(option) } }
+                                        saving = false
+                                        if (saved.isFailure) {
+                                            picked = before
+                                            Toast.makeText(context, "保存失败：${saved.exceptionOrNull()?.message}", Toast.LENGTH_SHORT).show()
+                                        }
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                }
+                SettingsDivider()
+                ImageQualityGroup(api)
+                SettingsDivider()
+                TmdbTokenGroup(api)
             }
         }
-        item { ImageQualityGroup(api) }
-        item { SourcesGroup(client) }
-        item { TmdbTokenGroup(api) }
-        item { NasGroup(device) }
-        item { AboutGroup(updates) }
+        item {
+            SettingsCard {
+                SourcesGroup(client)
+                SettingsDivider()
+                NasGroup(device)
+            }
+        }
+        item {
+            SettingsCard {
+                AboutGroup(updates)
+            }
+        }
     }
 }

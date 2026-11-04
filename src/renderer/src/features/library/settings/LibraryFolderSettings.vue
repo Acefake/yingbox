@@ -87,7 +87,7 @@
   <!-- 番号站点、站点凭据、演员资料来源只属于番号库 -->
   <template v-if="isJav">
     <JavSettingsGroup open />
-    <JavCredentialsGroup open />
+    <JavCredentialsGroup open joined />
     <ActorSourcesGroup open />
   </template>
 </template>
