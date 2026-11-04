@@ -1,12 +1,15 @@
 /**
- * 检查应用更新（ADR-0038）：读本仓库 GitHub Releases 的发布列表，规则在 shared/android/release。
- * 发布列表缓存 10 分钟（用户反复进设置页不重复请求，也躲开 GitHub 匿名接口的限流）。
- * 地址可用环境变量 YINGBOX_ANDROID_RELEASES_URL 换成镜像或自己的清单（同样的 JSON 形状）。
+ * 检查应用更新（ADR-0038 / ADR-0046）：读本仓库 GitHub Releases 的发布列表，
+ * 默认官方优先、白名单镜像回退；规则在 shared/android/release。
+ * 发布列表缓存 10 分钟。地址可用 YINGBOX_ANDROID_RELEASES_URL 换成自己的清单
+ * （同样的 JSON 形状）；自定义地址不做镜像回退。
  */
 import {
   type AndroidUpdate,
   pickAndroidUpdate,
 } from '../../shared/android/release'
+import { fetchFirstOk } from '../../shared/release/fetch-first'
+import { mirrorCandidates } from '../../shared/release/mirrors'
 
 const DEFAULT_URL =
   'https://api.github.com/repos/Acefake/yingbox/releases?per_page=100'
@@ -21,18 +24,19 @@ export function githubReleases(
 ): FetchReleases {
   return async () => {
     const endpoint = new URL(url)
-    const signal = AbortSignal.timeout(TIMEOUT_MS)
     const releases: unknown[] = []
     let page = endpoint
+    // 仅默认官方地址启用镜像；YINGBOX_ANDROID_RELEASES_URL 或显式其它 URL 不回退
+    const candidatesFor = (href: string): string[] =>
+      url === DEFAULT_URL ? mirrorCandidates(href) : [href]
     for (let count = 0; count < 20; count++) {
-      const response = await fetch(page, {
+      const response = await fetchFirstOk(candidatesFor(page.href), fetch, {
         headers: {
           Accept: 'application/vnd.github+json',
           'User-Agent': 'yingbox-android',
         },
-        signal,
+        timeoutMs: TIMEOUT_MS,
       })
-      if (!response.ok) throw new Error(`检查更新失败：HTTP ${response.status}`)
       const items: unknown = await response.json()
       if (!Array.isArray(items)) throw new Error('更新发布列表格式错误')
       releases.push(...items)
@@ -67,8 +71,8 @@ export function createUpdateChecker(
         .finally(() => {
           pending = null
         })
-      await pending
     }
+    await pending
     if (!cached) return null
     return pickAndroidUpdate(cached.releases, current, abis)
   }

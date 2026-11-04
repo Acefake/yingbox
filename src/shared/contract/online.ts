@@ -29,6 +29,8 @@ export interface CatSpiderSite {
   ext: string
   /** 上游插件过期时的源码替换表 */
   patch?: Record<string, string>
+  /** 插件脚本内容的 sha256；有值时引擎加载后校验（ADR-0048） */
+  sha256?: string
 }
 
 /** 插件动作。 */

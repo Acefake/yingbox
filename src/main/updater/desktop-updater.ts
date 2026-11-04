@@ -1,6 +1,6 @@
 /**
- * Windows 应用更新（ADR-0038）：读本仓库 GitHub Releases 的发布列表，挑出安装包 yingbox-setup-X.Y.Z.exe，
- * 下载时边写边算 SHA-256，与发布资产的 digest 一致才算下载完成；安装是启动该安装包并退出本应用。
+ * Windows 应用更新（ADR-0038 / ADR-0046）：读本仓库 GitHub Releases 的发布列表，
+ * 官方不可达时经白名单镜像回退；下载时边写边算 SHA-256，与 digest 一致才完成。
  * 全部外部能力（网络、文件、进程）由 deps 注入，规则见 shared/desktop-update。
  */
 import { createHash } from 'node:crypto'
@@ -19,6 +19,12 @@ import type {
   UpdateResult,
   UpdateStatusEvent,
 } from '../../shared/contract/update'
+import { fetchFirstOk } from '../../shared/release/fetch-first'
+import {
+  githubAssetCandidates,
+  mirrorCandidates,
+  shouldTryNextMirror,
+} from '../../shared/release/mirrors'
 
 const RELEASES_URL =
   'https://api.github.com/repos/Acefake/yingbox/releases?per_page=30'
@@ -61,6 +67,19 @@ const failure = (error: unknown): UpdateResult => ({
   error: error instanceof Error ? error.message : String(error),
 })
 
+function httpStatusOf(error: unknown): number | null {
+  if (!(error instanceof Error)) return null
+  const m = /HTTP (\d+)/.exec(error.message)
+  return m ? Number(m[1]) : null
+}
+
+function canRetryDownload(error: unknown): boolean {
+  if (error instanceof Error && error.message.includes('校验失败')) return true
+  const status = httpStatusOf(error)
+  if (status !== null) return shouldTryNextMirror(status, error)
+  return shouldTryNextMirror(null, error)
+}
+
 /** 创建桌面更新器 */
 export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   let cache: { at: number; releases: unknown } | null = null
@@ -71,14 +90,17 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
 
   async function releases(): Promise<unknown> {
     if (cache && deps.now() - cache.at < CACHE_MS) return cache.releases
-    const response = await deps.fetch(RELEASES_URL, {
-      headers: {
-        Accept: 'application/vnd.github+json',
-        'User-Agent': 'yingbox-desktop',
-      },
-      signal: AbortSignal.timeout(TIMEOUT_MS),
-    })
-    if (!response.ok) throw new Error(`检查更新失败：HTTP ${response.status}`)
+    const response = await fetchFirstOk(
+      mirrorCandidates(RELEASES_URL),
+      deps.fetch,
+      {
+        headers: {
+          Accept: 'application/vnd.github+json',
+          'User-Agent': 'yingbox-desktop',
+        },
+        timeoutMs: TIMEOUT_MS,
+      }
+    )
     const list: unknown = await response.json()
     if (!Array.isArray(list)) throw new Error('更新发布列表格式错误')
     cache = { at: deps.now(), releases: list }
@@ -129,56 +151,80 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
     return inflight
   }
 
+  async function writeOne(
+    url: string,
+    update: DesktopUpdate,
+    partial: string
+  ): Promise<void> {
+    const abort = new AbortController()
+    let idle = setTimeout(() => abort.abort(), IDLE_MS)
+    const response = await deps.fetch(url, {
+      headers: { 'User-Agent': 'yingbox-desktop' },
+      signal: abort.signal,
+    })
+    if (!response.ok || !response.body)
+      throw new Error(`下载更新失败：HTTP ${response.status}`)
+    const hash = createHash('sha256')
+    let received = 0
+    const source: Readable = NodeReadable.fromWeb(
+      response.body as Parameters<typeof NodeReadable.fromWeb>[0]
+    )
+    let reported = -1
+    source.on('data', (chunk: Buffer) => {
+      clearTimeout(idle)
+      idle = setTimeout(() => abort.abort(), IDLE_MS)
+      hash.update(chunk)
+      received += chunk.length
+      if (received > update.size) {
+        abort.abort()
+        return
+      }
+      const percent = Math.floor((received / update.size) * 100)
+      if (percent === reported) return
+      reported = percent
+      deps.emit({ status: 'downloading', progress: { percent } })
+    })
+    try {
+      await pipeline(source, createWriteStream(partial), {
+        signal: abort.signal,
+      })
+    } finally {
+      clearTimeout(idle)
+    }
+    if (received !== update.size || hash.digest('hex') !== update.sha256)
+      throw new Error('安装包校验失败，已丢弃，请重试')
+  }
+
   async function fetchInstaller(update: DesktopUpdate): Promise<UpdateResult> {
     const target = join(deps.dir, update.name)
     const partial = `${target}.part`
+    const urls = githubAssetCandidates(update.url)
+    if (urls.length === 0) return failure('没有可用的更新地址')
+    let lastError: unknown = new Error('下载更新失败')
     try {
       await mkdir(deps.dir, { recursive: true })
       await clearOthers(deps.dir)
-      const abort = new AbortController()
-      let idle = setTimeout(() => abort.abort(), IDLE_MS)
-      const response = await deps.fetch(update.url, {
-        headers: { 'User-Agent': 'yingbox-desktop' },
-        signal: abort.signal,
-      })
-      if (!response.ok || !response.body)
-        throw new Error(`下载更新失败：HTTP ${response.status}`)
-      const hash = createHash('sha256')
-      let received = 0
-      const source: Readable = NodeReadable.fromWeb(
-        response.body as Parameters<typeof NodeReadable.fromWeb>[0]
-      )
-      let reported = -1
-      source.on('data', (chunk: Buffer) => {
-        clearTimeout(idle)
-        idle = setTimeout(() => abort.abort(), IDLE_MS)
-        hash.update(chunk)
-        received += chunk.length
-        if (received > update.size) {
-          abort.abort()
-          return
+      for (const url of urls) {
+        try {
+          await writeOne(url, update, partial)
+          await rename(partial, target)
+          downloaded = { version: update.version, file: target }
+          deps.emit({
+            status: 'downloaded',
+            info: { version: update.version, releaseNotes: update.notes },
+          })
+          return { success: true }
+        } catch (error) {
+          await rm(partial, { force: true })
+          lastError = error
+          if (!canRetryDownload(error)) break
         }
-        const percent = Math.floor((received / update.size) * 100)
-        if (percent === reported) return
-        reported = percent
-        deps.emit({ status: 'downloading', progress: { percent } })
-      })
-      try {
-        await pipeline(source, createWriteStream(partial), {
-          signal: abort.signal,
-        })
-      } finally {
-        clearTimeout(idle)
       }
-      if (received !== update.size || hash.digest('hex') !== update.sha256)
-        throw new Error('安装包校验失败，已丢弃，请重试')
-      await rename(partial, target)
-      downloaded = { version: update.version, file: target }
       deps.emit({
-        status: 'downloaded',
-        info: { version: update.version, releaseNotes: update.notes },
+        status: 'error',
+        error: failure(lastError).error ?? '下载更新失败',
       })
-      return { success: true }
+      return failure(lastError)
     } catch (error) {
       await rm(partial, { force: true })
       deps.emit({

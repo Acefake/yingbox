@@ -139,6 +139,44 @@ describe('从发布列表里挑更新（pickAndroidUpdate）', () => {
 })
 
 describe('检查更新带缓存', () => {
+  it('默认地址：官方失败后经 gh-proxy 拉到列表', async () => {
+    const fetchSpy = vi.spyOn(globalThis, 'fetch')
+    fetchSpy.mockImplementation(async input => {
+      const u = String(input)
+      if (u.startsWith('https://api.github.com'))
+        throw new TypeError('fetch failed')
+      if (u.startsWith('https://gh-proxy.com/https://api.github.com'))
+        return new Response(
+          JSON.stringify([
+            release('v0.2.0', [asset('yingbox-android-0.2.0-arm64-v8a.apk')]),
+          ])
+        )
+      throw new Error(u)
+    })
+    try {
+      const list = await githubReleases()()
+      expect(pickAndroidUpdate(list, '0.1.0', ['arm64-v8a'])?.version).toBe(
+        '0.2.0'
+      )
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
+  it('自定义非 GitHub RELEASES_URL 不请求 gh-proxy', async () => {
+    const url = 'https://example.com/releases.json'
+    const fetchSpy = vi
+      .spyOn(globalThis, 'fetch')
+      .mockResolvedValue(new Response('[]'))
+    try {
+      await githubReleases(url)()
+      expect(fetchSpy).toHaveBeenCalledTimes(1)
+      expect(String(fetchSpy.mock.calls[0]![0])).toBe(url)
+    } finally {
+      fetchSpy.mockRestore()
+    }
+  })
+
   it('读取后续分页的安卓发布，并拒绝跳到其他地址的分页', async () => {
     const url =
       'https://api.github.com/repos/Acefake/yingbox/releases?per_page=100'

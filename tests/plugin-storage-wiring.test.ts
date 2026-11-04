@@ -42,6 +42,16 @@ vi.mock('electron', async () => {
     },
   }
 })
+vi.mock('../src/engine/online/vod-sites.json', async importOriginal => {
+  const original = await importOriginal<{
+    default: { sites: Array<Record<string, unknown>> }
+  }>()
+  return {
+    default: {
+      sites: original.default.sites.map(({ sha256: _sha, ...site }) => site),
+    },
+  }
+})
 vi.mock('node:dns/promises', () => ({
   lookup: async () => [{ address: '93.184.216.34', family: 4 }],
 }))

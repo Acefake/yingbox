@@ -34,6 +34,11 @@ export const SITES: CatSpiderSite[] = (
     s.type === 3 && typeof s.name === 'string' && typeof s.ext === 'string'
 )
 
+/** 插件脚本地址 → 期望 sha256（ADR-0048）。 */
+export const PLUGIN_SHA256: ReadonlyMap<string, string> = new Map(
+  SITES.flatMap(site => (site.sha256 ? [[site.ext, site.sha256] as const] : []))
+)
+
 const MEDIA_URL = /\.(m3u8|mp4|flv)(\?|#|$)/i
 const M3U8_IN_HTML = /https?:\/\/[^\s"'<>]+\.m3u8[^\s"'<>]*/i
 

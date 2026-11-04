@@ -11,6 +11,7 @@ export const ADULT_CATSPIDER_APIS = new Set([
   'csp_hanime',
   'csp_madou',
   'csp_hkdoll',
+  'csp_taiav',
 ])
 
 export const isAdultCatSpiderSite = (site: CatSpiderSite): boolean =>

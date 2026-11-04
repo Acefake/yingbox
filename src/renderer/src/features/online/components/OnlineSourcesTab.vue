@@ -1,20 +1,4 @@
 <template>
-  <SourceSection title="内置 CMS 源" :count="DEFAULT_SITES.length">
-    <SourceSiteRow
-      v-for="s in sortedDefaultSites"
-      :key="s.api"
-      :name="s.name"
-      :api="s.api"
-      badge="CMS"
-      :enabled="selectedSites.has(s.api)"
-      :status="statusOf(s.api)"
-      :note="cmsNoteOf(s.api)"
-      :checking="checkingSet.has(s.api)"
-      @toggle="toggleSite(s.api)"
-      @check="checkOnlineSite(s.api)"
-    />
-  </SourceSection>
-
   <SubscriptionSection />
 
   <SourceSection
@@ -100,11 +84,7 @@ import { cmsHealth } from '../composables/cms-health'
 defineProps<{ plugins: CatSpiderSite[] }>()
 const emit = defineEmits<{ (e: 'add'): void }>()
 
-const { selectedSites, customSites, DEFAULT_SITES, selectedCatSpider } =
-  useOnlineSearch()
-const sortedDefaultSites = computed(() =>
-  sortByConnection(DEFAULT_SITES, statusOf)
-)
+const { selectedSites, customSites, selectedCatSpider } = useOnlineSearch()
 const sortedCustomSites = computed(() =>
   sortByConnection(customSites.value, statusOf)
 )

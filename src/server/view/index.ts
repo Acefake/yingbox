@@ -4,8 +4,8 @@
  */
 import { randomUUID } from 'node:crypto'
 
-import cmsSitesFile from '../../../cms-sites.json'
 import { channelOf } from '../../shared/contract/define'
+import cmsSnapshot from '../../shared/online/cms-snapshot.json'
 import type {
   GetJsonResponse,
   StreamProbe,
@@ -60,8 +60,8 @@ export function engineHomeDeps(engine: ServerEngine): HomeDeps {
 /** 插件调用最长等多久 */
 const VOD_TIMEOUT_MS = 45_000
 
-/** 内置 CMS 站点（与桌面默认启用的相同；用户自己的启用列表等设置同步后接入） */
-const CMS_SITES: ApiSite[] = (cmsSitesFile as { sites: ApiSite[] }).sites
+/** 随包订阅快照站点（与桌面默认启用的相同；用户自己的启用列表等设置同步后接入） */
+const CMS_SITES: ApiSite[] = (cmsSnapshot as { sites: ApiSite[] }).sites
 
 /** 引擎调用 → 选源与解析播放地址的 I/O */
 export function engineSourceDeps(engine: ServerEngine): SourceDeps & ProbeDeps {

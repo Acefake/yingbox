@@ -13,7 +13,7 @@ import { type FetchImpl, createNetClient } from '../shared/net/client'
 import { download } from '../shared/contract/download'
 import { online } from '../shared/contract/online'
 import { createDownloadHandlers } from './download'
-import { createOnlineHandlers } from './online'
+import { PLUGIN_SHA256, createOnlineHandlers } from './online'
 import { createPersistentBreaker } from './online/breaker-store'
 import { createPluginLoader } from './online/plugin-cache'
 import { createPluginStorage } from './online/plugin-storage'
@@ -55,7 +55,9 @@ export function bootEngine(options: EngineBootOptions): BootedEngine {
       net: httpClient,
       loadPlugin: createPluginLoader(
         httpClient,
-        join(userData, 'plugin-cache')
+        join(userData, 'plugin-cache'),
+        Date.now,
+        url => PLUGIN_SHA256.get(url)
       ),
       breaker: createPersistentBreaker(
         join(userData, 'online', 'breaker.json')

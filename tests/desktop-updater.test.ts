@@ -37,6 +37,10 @@ const events: UpdateStatusEvent[] = []
 const launch = vi.fn(async () => undefined)
 const quit = vi.fn()
 
+function isReleasesUrl(input: string): boolean {
+  return input.includes('api.github.com') && input.includes('/releases')
+}
+
 function setup(
   over: Partial<DesktopUpdaterDeps> & { list?: unknown; file?: Buffer } = {}
 ): ReturnType<typeof createDesktopUpdater> {
@@ -44,7 +48,7 @@ function setup(
   const file = over.file ?? BODY
   return createDesktopUpdater({
     fetch: (async (input: string | URL | Request) =>
-      String(input).startsWith('https://api.github.com')
+      isReleasesUrl(String(input))
         ? new Response(JSON.stringify(list))
         : new Response(new Uint8Array(file))) as typeof fetch,
     platform: 'win32',
@@ -139,11 +143,44 @@ describe('桌面更新器', () => {
     expect(await readdir(dir)).toEqual(['yingbox-setup-1.0.3.exe'])
   })
 
+  it('检查更新：官方失败后镜像成功', async () => {
+    const calls: string[] = []
+    const updater = setup({
+      fetch: (async (input: string | URL | Request) => {
+        const u = String(input)
+        calls.push(u)
+        if (u.startsWith('https://api.github.com'))
+          throw new TypeError('fetch failed')
+        if (u.includes('gh-proxy.com') && isReleasesUrl(u))
+          return new Response(JSON.stringify(releases()))
+        return new Response(new Uint8Array(BODY))
+      }) as typeof fetch,
+    })
+    expect((await updater.check()).success).toBe(true)
+    expect(calls.some(c => c.includes('gh-proxy.com'))).toBe(true)
+  })
+
+  it('下载：官方失败后镜像成功并校验通过', async () => {
+    const updater = setup({
+      fetch: (async (input: string | URL | Request) => {
+        const u = String(input)
+        if (isReleasesUrl(u)) return new Response(JSON.stringify(releases()))
+        if (u === URL) throw new TypeError('fetch failed')
+        if (u.includes('gh-proxy.com') && u.includes(URL))
+          return new Response(new Uint8Array(BODY))
+        throw new Error(u)
+      }) as typeof fetch,
+    })
+    await updater.check()
+    expect(await updater.download()).toEqual({ success: true })
+    expect(await readdir(dir)).toEqual(['yingbox-setup-1.0.3.exe'])
+  })
+
   it('重复点击下载共用同一次下载，不会互相删文件', async () => {
     let downloads = 0
     const updater = setup({
       fetch: (async (input: string | URL | Request) => {
-        if (String(input).startsWith('https://api.github.com'))
+        if (isReleasesUrl(String(input)))
           return new Response(JSON.stringify(releases()))
         downloads++
         return new Response(new Uint8Array(BODY))

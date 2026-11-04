@@ -18,19 +18,19 @@ const FALLBACK_CATSPIDER_SITES: CatSpiderSite[] = [
     name: '欧乐🪜',
     type: 3,
     api: 'csp_Olevod',
-    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ole.js',
+    ext: 'https://raw.githubusercontent.com/fangkuia/XPTV/refs/heads/main/js/ole.js',
   },
   {
     name: '荐片',
     type: 3,
     api: 'csp_jianpian',
-    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js',
+    ext: 'https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/jianpian.js',
   },
   {
     name: 'NO視頻',
     type: 3,
     api: 'csp_novipnoad',
-    ext: 'https://ghp.xptvhelper.link/https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js',
+    ext: 'https://raw.githubusercontent.com/Yswag/xptv-extensions/refs/heads/main/js/novipnoad.js',
   },
 ]
 

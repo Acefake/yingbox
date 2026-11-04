@@ -1,5 +1,5 @@
 /**
- * 数据源面板（嵌入设置窗口时）的渲染结构：工具栏、内置 CMS / 插件 / 自定义三个分组、
+ * 数据源面板（嵌入设置窗口时）的渲染结构：工具栏、订阅 / 插件 / 自定义三个分组、
  * 插件源不可用时的红点与说明、成人模式下的分类切换。拆分组件前后渲染结果应一致。
  * SM_DUMP=<文件> 时把规整后的 HTML 写出来，用于拆分前后逐字比较。
  */
@@ -90,7 +90,7 @@ describe('数据源面板渲染', () => {
     expect(html).toContain('检测中 3/')
     expect(html).toContain('停用失效源（1）')
     expect(html).toContain('一键更新：同步并检测全部数据源')
-    expect(html).toContain('内置 CMS 源')
+    expect(html).toContain('订阅源')
     expect(html).toContain('插件视频源')
     expect(html).toContain('自定义源')
     expect(html).toContain('添加自定义源')
@@ -113,7 +113,7 @@ describe('数据源面板渲染', () => {
     const html = await render()
     if (process.env.SM_DUMP) writeFileSync(`${process.env.SM_DUMP}.adult`, html)
     expect(html).toContain('数据源分类')
-    expect(html).toContain('内置 CMS 源')
+    expect(html).toContain('订阅源')
   })
 
   it('不可见时不渲染', async () => {
