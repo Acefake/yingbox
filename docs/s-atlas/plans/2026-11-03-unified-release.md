@@ -36,10 +36,10 @@
 
 ## 任务 3：安卓更新器读统一发布
 
-文件：修改 `src/server/view/app-update.ts`（注释与默认地址说明）、`docs/tv/android-release.md`；确认 `tests/android-release.test.ts` 通过。
+文件：修改 `src/server/view/app-update.ts`（注释与默认地址说明）、`docs/android/android-release.md`；确认 `tests/android-release.test.ts` 通过。
 
 - 服务端更新检查已走 `pickAndroidUpdate`，只需确认它按任务 1 的规则取包、注释不再提 `android-v` 标签。
-- `docs/tv/android-release.md` 改写为：由工作流发布，本机只用于本地验证。
+- `docs/android/android-release.md` 改写为：由工作流发布，本机只用于本地验证。
 
 ## 任务 4：发布脚本（纯 Node，可测试）
 
