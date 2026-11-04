@@ -5,6 +5,7 @@ import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Box
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.FlowRow
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.aspectRatio
@@ -47,7 +48,7 @@ class DetailActions(
 /**
  * 详情头部。有剧照时照本地电影 / 剧集详情页（Apple TV 式）：剧照铺满，渐暗到页面底色，
  * 文案在左下——大号片名、白色播放胶囊 + 玻璃圆形收藏钮、简介、评分 · 年份 · 时长 · 类型、导演和主演。
- * 没有剧照（搜索结果、豆瓣缺图）时退回海报在左的版式。
+ * 手机使用竖版海报铺满头部，宽屏使用横版剧照；文案叠在图片下方的渐暗区域。
  */
 @Composable
 internal fun DetailHeader(
@@ -61,7 +62,9 @@ internal fun DetailHeader(
     onActionsFocused: () -> Unit,
 ) {
     val backdrop = detail?.backdrop ?: cardBackdrop?.takeIf { it.isNotEmpty() }
-    if (backdrop != null) CinemaHeader(detail, title, backdrop, client, actions, onActionsFocused)
+    val wide = LocalConfiguration.current.screenWidthDp >= 600
+    val cover = if (wide) backdrop else detail?.poster?.takeIf { it.isNotEmpty() } ?: poster.takeIf { it.isNotEmpty() } ?: backdrop
+    if (cover != null) CinemaHeader(detail, title, cover, client, actions, onActionsFocused)
     else PosterHeader(detail, title, poster, client, actions, onActionsFocused)
 }
 
@@ -70,7 +73,7 @@ internal fun DetailHeader(
 private fun CinemaHeader(detail: ViewDetail?, title: String, backdrop: String, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
     val gutter = gutter()
     val wide = LocalConfiguration.current.screenWidthDp >= 600
-    Box(Modifier.fillMaxWidth().heightIn(min = heroMinHeight()), contentAlignment = Alignment.BottomStart) {
+    Box(Modifier.fillMaxWidth().heightIn(min = detailHeroMinHeight()), contentAlignment = Alignment.BottomStart) {
         RemoteImage(backdrop, client, Modifier.matchParentSize())
         Box(Modifier.matchParentSize().background(heroScrim()))
         Box(Modifier.matchParentSize().background(heroSideScrim()))
@@ -85,7 +88,7 @@ private fun CinemaHeader(detail: ViewDetail?, title: String, backdrop: String, c
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 if (actions.play != null) PrimaryButton(actions.playLabel, YbIcons.Play, actions.play)
-                GlassIconButton(
+                if (detail != null) GlassIconButton(
                     if (actions.favorite) YbIcons.HeartFill else YbIcons.Heart,
                     if (actions.favorite) "取消收藏" else "收藏",
                     media = true,
@@ -108,14 +111,16 @@ private fun CinemaHeader(detail: ViewDetail?, title: String, backdrop: String, c
     }
 }
 
-/** 海报在左的头部（没有剧照时用）：片名、原名、评分 · 年份 · 时长 · 类型在右；下面是播放 / 收藏、简介、导演和地区 */
+/** 竖版海报与片名并排，播放操作和详细资料放在下方。 */
 @Composable
 private fun PosterHeader(detail: ViewDetail?, title: String, poster: String, client: ServerClient, actions: DetailActions, onActionsFocused: () -> Unit) {
     val gutter = gutter()
     val wide = LocalConfiguration.current.screenWidthDp >= 600
-    Box(Modifier.fillMaxWidth().heightIn(min = heroMinHeight())) {
-        RemoteImage(detail?.backdrop ?: poster, client, Modifier.matchParentSize())
-        Box(Modifier.matchParentSize().background(heroScrim()))
+    Box(Modifier.fillMaxWidth().heightIn(min = if (wide) detailHeroMinHeight() else 0.dp), contentAlignment = Alignment.BottomStart) {
+        if (wide) {
+            RemoteImage(detail?.backdrop ?: poster, client, Modifier.matchParentSize())
+            Box(Modifier.matchParentSize().background(heroScrim()))
+        }
         Column(
             Modifier.padding(start = gutter, end = gutter, top = belowBackButton(), bottom = YbSpace.S6),
             verticalArrangement = Arrangement.spacedBy(YbSpace.S4),
@@ -124,7 +129,7 @@ private fun PosterHeader(detail: ViewDetail?, title: String, poster: String, cli
                 RemoteImage(
                     detail?.poster?.ifEmpty { null } ?: poster,
                     client,
-                    Modifier.width(if (wide) 160.dp else 96.dp).aspectRatio(2f / 3f).clip(YbRadius.Lg),
+                    Modifier.width(if (wide) 160.dp else minOf(144.dp, LocalConfiguration.current.screenWidthDp.dp * 0.36f)).aspectRatio(2f / 3f).clip(YbRadius.Lg),
                 )
                 Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(YbSpace.S1)) {
                     Text(detail?.title ?: title, color = YbColor.TextPrimary, fontSize = YbText.Xl2, fontWeight = FontWeight.Bold, maxLines = 3, overflow = TextOverflow.Ellipsis)
@@ -162,15 +167,20 @@ private fun PosterHeader(detail: ViewDetail?, title: String, poster: String, cli
 private fun MetaRow(detail: ViewDetail) {
     val rest = listOf(detail.year, detail.duration, detail.genres.take(3).joinToString(" / "))
         .filter { it.isNotEmpty() }.joinToString(" · ")
-    Row(verticalAlignment = Alignment.CenterVertically) {
+    FlowRow(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2), verticalArrangement = Arrangement.spacedBy(YbSpace.S1)) {
         if (detail.rating.isNotEmpty()) {
-            Icon(YbIcons.StarFill, contentDescription = null, tint = YbColor.Rating, modifier = Modifier.size(14.dp))
-            Text(detail.rating, color = YbColor.TextPrimary, fontSize = YbText.Sm, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = YbSpace.S1))
-            if (rest.isNotEmpty()) Text(" · ", color = YbColor.TextTertiary, fontSize = YbText.Sm)
+            Row(verticalAlignment = Alignment.CenterVertically) {
+                Icon(YbIcons.StarFill, contentDescription = null, tint = YbColor.Rating, modifier = Modifier.size(14.dp))
+                Text(detail.rating, color = YbColor.TextPrimary, fontSize = YbText.Sm, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = YbSpace.S1))
+            }
         }
-        if (rest.isNotEmpty()) Text(rest, color = YbColor.TextSecondary, fontSize = YbText.Sm, maxLines = 1, overflow = TextOverflow.Ellipsis)
+        if (rest.isNotEmpty()) Text(rest, color = YbColor.TextSecondary, fontSize = YbText.Sm)
     }
 }
+
+/** 详情头图以窗口高度留出画面，文字变多时允许内容继续撑高。 */
+@Composable
+private fun detailHeroMinHeight() = LocalConfiguration.current.screenHeightDp.dp * 0.76f
 
 /** 简介：手机折叠成 3 行，点「展开简介」看全文 */
 @Composable

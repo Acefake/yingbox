@@ -69,7 +69,7 @@ class HomeActions(
 )
 
 /**
- * 首页（ADR-0028 v1）：满幅轮播，下面是继续观看、收藏、热门、榜单、按类型浏览、精选片单。
+ * 首页（ADR-0028 v1）：满幅轮播，下面是继续观看、按类型浏览、热门、榜单、精选片单。
  * 内容卡片一律实色，玻璃只给浮动控件（导航胶囊）。
  */
 @Composable
@@ -114,15 +114,12 @@ private fun HomeRows(home: HomeView, client: ServerClient, scroll: LazyListState
         val slides = home.hero.filter { it.kind != HeroKind.RESUME }
         item { if (slides.isNotEmpty()) Hero(slides, cards, client, scroll, openSlide) else Box(Modifier.padding(chrome)) }
         if (home.continueRow.isNotEmpty()) item { Section("继续观看") { ContinueRow(home.continueRow, client, actions.resume) } }
-        if (home.favorites.isNotEmpty()) {
-            item { Section("我的收藏") { PosterRow(home.favorites, client, actions.openCard, null) } }
-        }
+        item { Section("按类型浏览") { Genres(home.genres) { actions.browse(BrowseTarget.Genre(it, DoubanKind.MOVIE)) } } }
         items(shelves) { shelf ->
             // 热门两行通向「全部」；榜单行没有更多
             val more = if (shelf === home.chart) null else ({ actions.browse(BrowseTarget.Hot(shelf.kind)) })
             Section(shelf.title, more) { PosterRow(shelf.items, client, actions.openCard, more) }
         }
-        item { Section("按类型浏览") { Genres(home.genres) { actions.browse(BrowseTarget.Genre(it, DoubanKind.MOVIE)) } } }
         item { Section("精选片单") { Collections(home.collections, client) { actions.browse(BrowseTarget.Collection(it)) } } }
     }
 }

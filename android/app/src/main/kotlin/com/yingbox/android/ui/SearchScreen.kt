@@ -119,7 +119,7 @@ private fun SearchField(value: String, onChange: (String) -> Unit, submit: () ->
     }
 }
 
-/** 一张搜索结果：海报（没有时灰底）、片名、年份 · 类型 · 站点数 */
+/** 一张搜索结果：海报（没有时灰底）、片名、站点数 */
 @Composable
 private fun SearchPoster(card: ViewSearchCard, client: ServerClient, open: () -> Unit) {
     Column(Modifier.width(132.dp).tvFocusViewport(), verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
@@ -129,7 +129,7 @@ private fun SearchPoster(card: ViewSearchCard, client: ServerClient, open: () ->
             Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusFrame(lift = true, onClick = open).clip(YbRadius.Card),
         )
         Text(card.title, color = YbColor.TextPrimary, fontSize = YbText.Md, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        val sub = listOf(card.year, card.tag, "${card.siteCount.toInt()} 个源").filter { it.isNotEmpty() }.joinToString(" · ")
+        val sub = "${card.siteCount.toInt()} 个源"
         Text(sub, color = Muted, fontSize = YbText.Xs, maxLines = 1, overflow = TextOverflow.Ellipsis)
     }
 }

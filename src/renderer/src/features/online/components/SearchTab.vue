@@ -80,11 +80,7 @@
             thumb
             :title="item.vod_name"
             :cover="item.vod_pic"
-            :subtitle="
-              [item.vod_year, item.type_name, item.vod_remarks]
-                .filter(Boolean)
-                .join(' · ')
-            "
+            :subtitle="item.vod_remarks"
             @open="emit('openItem', item)"
           >
             <template #badges
@@ -113,11 +109,7 @@
             thumb
             :title="item.vod_name"
             :cover="item.vod_pic"
-            :subtitle="
-              [item.vod_year, item.type_name, item.vod_remarks]
-                .filter(Boolean)
-                .join(' · ')
-            "
+            :subtitle="item.vod_remarks"
             @open="emit('openItem', item)"
           >
             <template #badges

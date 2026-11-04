@@ -17,7 +17,6 @@
         thumb
         :title="item.title"
         :cover="item.cover"
-        :subtitle="subtitleOf(item)"
         :favorite="isFavorite(item)"
         :preview="doubanPreviewSource(item)"
         @open="emit('open', item)"
@@ -43,7 +42,7 @@
 <script setup lang="ts">
 /**
  * 首页的热门电影或热门剧集货架，各自加载并打开对应浏览页。
- * 海报左下角是评分角标，海报下是片名和「年份 · 类型」。标题的 › 打开对应的浏览页。
+ * 海报左下角是评分角标，海报下只放片名。标题的 › 打开对应的浏览页。
  * 当前类还在取时显示占位；取完且为空时不渲染这一排。
  */
 import { computed } from 'vue'
@@ -75,10 +74,6 @@ const pending = computed(() => {
   return status === 'idle' || status === 'loading'
 })
 const alive = computed(() => shelfItems.value.length > 0 || pending.value)
-
-function subtitleOf(item: DoubanItem): string {
-  return [item.year, item.type].filter(Boolean).join(' · ')
-}
 
 void feed.start()
 </script>

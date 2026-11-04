@@ -209,7 +209,7 @@ function onImgError(event: Event): void {
   position: relative;
   display: flex;
   align-items: flex-end;
-  min-height: max(480px, 62vh);
+  min-height: max(480px, 76svh);
   padding: var(--space-10) var(--detail-gutter)
     calc(var(--space-7) + var(--hero-detail-lift)) var(--detail-x);
   overflow: hidden;
@@ -378,7 +378,7 @@ function onImgError(event: Event): void {
 
 @media (max-width: 720px) {
   .dw-hero {
-    min-height: max(420px, 60vh);
+    min-height: max(420px, 76svh);
   }
 }
 

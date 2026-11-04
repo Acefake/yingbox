@@ -50,12 +50,15 @@ import androidx.compose.ui.graphics.Shape
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.semantics.clearAndSetSemantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.unit.Dp
 import androidx.compose.ui.unit.IntSize
 import androidx.compose.ui.unit.dp
 import com.yingbox.android.server.ServerClient
 import com.yingbox.android.view.ViewCard
+import java.util.Locale
 import kotlinx.coroutines.Job
 import kotlinx.coroutines.launch
 
@@ -260,16 +263,33 @@ internal fun SecondaryButton(text: String, icon: ImageVector? = null, selected: 
     }
 }
 
-/** 一张竖版海报卡：海报（--radius-card）、片名、年份 · 评分 */
+/** 竖版海报卡：图片左下角显示豆瓣评分，图下只放片名，与桌面共用信息层次。 */
 @Composable
 internal fun Poster(card: ViewCard, client: ServerClient, modifier: Modifier = Modifier, open: () -> Unit) {
     Column(modifier.width(132.dp).tvFocusViewport(), verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
-        RemoteImage(
-            card.poster,
-            client,
-            Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusFrame(lift = true, onClick = open).clip(YbRadius.Card),
-        )
+        Box(Modifier.fillMaxWidth().aspectRatio(2f / 3f).focusFrame(lift = true, onClick = open).clip(YbRadius.Card)) {
+            RemoteImage(card.poster, client, Modifier.fillMaxSize())
+            PosterRating(card.rate, Modifier.align(Alignment.BottomStart).padding(YbSpace.S2))
+        }
         Text(card.title, color = YbColor.TextPrimary, fontSize = YbText.Md, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
-        Text(listOf(card.year, card.rate).filter { it.isNotEmpty() }.joinToString(" · "), color = Muted, fontSize = YbText.Xs)
+    }
+}
+
+/** 非交互评分角标；无有效评分时不占位，读屏完整播报来源与分数。 */
+@Composable
+private fun PosterRating(rate: String, modifier: Modifier = Modifier) {
+    val value = rate.trim().toDoubleOrNull()?.takeIf { it.isFinite() && it > 0 } ?: return
+    val score = String.format(Locale.ROOT, "%.1f", value)
+    Row(
+        modifier.clearAndSetSemantics { contentDescription = "豆瓣评分 $score" }
+            .background(YbColor.GlassFallback, YbRadius.Full)
+            .padding(start = YbSpace.S1, end = YbSpace.S2, top = YbSpace.S1, bottom = YbSpace.S1),
+        horizontalArrangement = Arrangement.spacedBy(YbSpace.S1),
+        verticalAlignment = Alignment.CenterVertically,
+    ) {
+        Box(Modifier.size(16.dp).background(YbColor.Douban, YbRadius.Xs), contentAlignment = Alignment.Center) {
+            Text("豆", color = YbColor.TextPrimary, fontSize = YbText.Xs2, lineHeight = YbText.Xs2, fontWeight = FontWeight.SemiBold)
+        }
+        Text(score, color = YbColor.TextPrimary, fontSize = YbText.Xs, fontWeight = FontWeight.SemiBold)
     }
 }

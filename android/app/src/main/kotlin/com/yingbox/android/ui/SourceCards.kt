@@ -13,6 +13,7 @@ import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
@@ -30,7 +31,7 @@ internal fun SourceCard(site: ViewSourceSite, selected: Boolean, onClick: () -> 
     val failed = site.status == ProbeStatus.FAIL
     Row(
         Modifier
-            .width(252.dp)
+            .width(minOf(252.dp, LocalConfiguration.current.screenWidthDp.dp - gutter() * 2))
             .alpha(if (failed) 0.55f else 1f)
             .background(YbColor.Elevated, YbRadius.Lg)
             .tvFocusViewport()

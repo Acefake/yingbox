@@ -43,11 +43,7 @@
           thumb
           :title="entry.item.vod_name ?? ''"
           :cover="entry.item.vod_pic"
-          :subtitle="
-            [entry.typeLabel, entry.epName || entry.item.vod_year]
-              .filter(Boolean)
-              .join(' · ')
-          "
+          :subtitle="entry.epName"
           @open="onOpen(entry)"
         />
       </template>
@@ -88,7 +84,6 @@ type RecentPlayRecord = OnlinePlayRecord
 
 type CollectionEntry = {
   id: string
-  typeLabel: string
   item: OnlineDetailItem
   epName?: string
   url?: string
@@ -150,7 +145,6 @@ const read = (): void => {
     return {
       id: `${item.vod_id || item.vod_name || 'item'}-${url || index}`,
       item,
-      typeLabel: typeOf(item) === 'tv' ? '电视剧' : '电影',
       epName,
       url,
       progress,

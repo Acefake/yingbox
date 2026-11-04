@@ -4,6 +4,10 @@ import androidx.compose.foundation.background
 import androidx.compose.foundation.focusGroup
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Box
+import androidx.compose.foundation.layout.WindowInsets
+import androidx.compose.foundation.layout.navigationBars
+import androidx.compose.foundation.layout.asPaddingValues
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
@@ -157,7 +161,7 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
         state = scroll,
         modifier = Modifier.fillMaxSize().background(YbColor.Base)
             .onFocusChanged { if (it.hasFocus) hasContentFocus = true }.focusGroup(),
-        contentPadding = PaddingValues(bottom = 48.dp),
+        contentPadding = PaddingValues(bottom = WindowInsets.navigationBars.asPaddingValues().calculateBottomPadding() + YbSpace.S7),
         verticalArrangement = Arrangement.spacedBy(YbSpace.S6),
     ) {
         item {
@@ -189,8 +193,10 @@ private fun Sources(
     pickLine: (Int) -> Unit,
     play: (site: ViewSourceSite, line: Int, index: Int) -> Unit,
 ) {
-    Column(Modifier.padding(horizontal = gutter()), verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
-        RowTitle("播放源")
+    val inset = Modifier.padding(horizontal = gutter())
+    val railPadding = PaddingValues(horizontal = gutter(), vertical = YbSpace.S1)
+    Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+        Box(inset) { RowTitle("播放源") }
         val status = when {
             failed -> "选源失败，稍后再试"
             sources == null -> "正在找源…"
@@ -199,23 +205,23 @@ private fun Sources(
             sources.probing -> "共 ${sites.size} 个站点 · 测速中…"
             else -> "共 ${sites.size} 个站点 · 测速完成，按速度排序"
         }
-        Text(status, color = Muted, fontSize = YbText.Sm, modifier = if (site == null || line == null) Modifier.tvReadingFocus() else Modifier)
+        Text(status, color = Muted, fontSize = YbText.Sm, modifier = inset.then(if (site == null || line == null) Modifier.tvReadingFocus() else Modifier))
         if (site == null || line == null) return@Column
         // 测速中站点按速度重排：列表保持在最前面（LazyRow 默认锚在原来第一个可见的站点上，重排后会滑到后面去）
         val siteList = rememberLazyListState()
         LaunchedEffect(sites.firstOrNull()?.key, sources?.probing) { siteList.scrollToItem(0) }
-        LazyRow(state = siteList, horizontalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+        LazyRow(state = siteList, contentPadding = railPadding, horizontalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
             items(sites, key = { it.key }) { s -> SourceCard(s, selected = s.key == site.key) { pickSite(s) } }
         }
         if (site.lines.size > 1) {
-            Text("线路", color = YbColor.TextTertiary, fontSize = YbText.Xs)
-            LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+            Text("线路", color = YbColor.TextTertiary, fontSize = YbText.Xs, modifier = inset)
+            LazyRow(contentPadding = railPadding, horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
                 itemsIndexed(site.lines) { i, l -> Pill(l.label, selected = l === line) { pickLine(i) } }
             }
         }
         val lineAt = site.lines.indexOfFirst { it === line }
-        Text("播放列表", color = YbColor.TextTertiary, fontSize = YbText.Xs)
-        LazyRow(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        Text("播放列表", color = YbColor.TextTertiary, fontSize = YbText.Xs, modifier = inset)
+        LazyRow(contentPadding = railPadding, horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
             itemsIndexed(line.episodes) { i, ep ->
                 Pill(ep.name.ifEmpty { "第 ${i + 1} 集" }) { if (playable) play(site, lineAt, i) }
             }

@@ -48,6 +48,8 @@ object YbColor {
     /** 主按钮：深色下白底黑字 */
     /** 评分星（--rating） */
     val Rating = Color(0xFFFFD60A)
+    /** 豆瓣评分来源标识，与桌面 UiRatingBadge 一致。 */
+    val Douban = Color(0xFF2E963D)
     /** 测速成功的状态点（--success） */
     val Success = Color(0xFF30D158)
     /** 测速中的状态点（--warning） */

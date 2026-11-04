@@ -73,7 +73,6 @@
             :title="item.title"
             :cover="item.cover"
             :rating="item.rate"
-            :subtitle="[item.year, item.type].filter(Boolean).join(' · ')"
             :favorite="isFavorite(item)"
             :preview="doubanPreviewSource(item)"
             @open="emit('open', item)"
