@@ -1,4 +1,5 @@
 import type { MpvOpenOptions, MpvStatus } from '../mpv'
+import { ENHANCE_LEVELS, type EnhanceLevel } from '../playback/enhance'
 import {
   bool,
   call,
@@ -45,6 +46,10 @@ export const mpv = defineDomain(
     /** mpv 内置高质量缩放 */
     setHighQualityScaling: call<[enabled: boolean], Ok>(a => [
       bool(a[0], 'enabled'),
+    ]),
+    /** 画质增强档位（高质量缩放 + 去色带 + CAS 锐化，仅 SDR） */
+    setEnhance: call<[level: EnhanceLevel], Ok>(a => [
+      oneOf(a[0], 'level', ENHANCE_LEVELS),
     ]),
     /** 切换字幕轨；false 关闭字幕 */
     setSubTrack: call<[id: number | false], Ok>(a => [

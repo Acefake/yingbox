@@ -11,11 +11,12 @@ import {
 } from '../src/renderer/src/features/player/settings-menu/menu-rules'
 
 describe('齿轮设置菜单：一级列表顺序', () => {
-  it('按 YouTube 的顺序：字幕、播放速度、画质、音轨、弹幕在前，其余在后', () => {
-    expect(SETTING_ORDER.slice(0, 5)).toEqual([
+  it('按 YouTube 的顺序：字幕、播放速度、画质、画质增强、音轨、弹幕在前，其余在后', () => {
+    expect(SETTING_ORDER.slice(0, 6)).toEqual([
       'ybSubtitles',
       'playback-rate',
       'ybQuality',
+      'ybEnhance',
       'ybAudio',
       'ybDanmaku',
     ])

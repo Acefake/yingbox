@@ -12,6 +12,7 @@ export const SETTING_ORDER: readonly string[] = [
   // Artplayer 内置「播放速度」（art-options 的 playbackRate: true）的名字
   'playback-rate',
   'ybQuality',
+  'ybEnhance',
   'ybAudio',
   'ybDanmaku',
   'ybSleep',
@@ -40,6 +41,21 @@ export function orderSettings<T extends { name?: string }>(items: T[]): T[] {
     .map((item, i) => ({ item, i }))
     .sort((a, b) => rank(a.item.name) - rank(b.item.name) || a.i - b.i)
     .map(({ item }) => item)
+}
+
+/** 画质增强的四档（桌面 mpv、内置播放器、安卓同名同义） */
+export function enhanceChoices(level: string): MenuChoice[] {
+  const labels: Record<string, string> = {
+    off: '关闭',
+    soft: '柔和',
+    standard: '标准',
+    strong: '强',
+  }
+  return Object.entries(labels).map(([value, html]) => ({
+    html,
+    value,
+    default: value === level,
+  }))
 }
 
 /** 一级列表右侧的当前值：当前项的文字 */

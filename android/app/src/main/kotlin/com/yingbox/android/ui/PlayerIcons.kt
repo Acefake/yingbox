@@ -11,6 +11,7 @@ import androidx.compose.ui.unit.dp
  * 播放用 [YbIcons.Play]、设置用 [YbIcons.Settings]（Phosphor，生成文件）；这里只补它们没有的。
  */
 internal object PlayerIcons {
+    val Enhance: ImageVector by lazy { icon("Enhance", "M12,2L15,9L22,12L15,15L12,22L9,15L2,12L9,9Z") }
     val Pause: ImageVector by lazy { icon("Pause", "M6,19h4V5H6v14zm8,-14v14h4V5h-4z") }
     val Fullscreen: ImageVector by lazy {
         icon("Fullscreen", "M7,14H5v5h5v-2H7v-3zM5,10h2V7h3V5H5v5zM17,17h-3v2h5v-5h-2v3zM14,5v2h3v3h2V5h-5z")

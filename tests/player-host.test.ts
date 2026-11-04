@@ -107,11 +107,20 @@ const fakes = vi.hoisted(() => {
     }
   }
   class FakeHls {
-    static Events = { MANIFEST_PARSED: 'manifest', ERROR: 'error' }
+    static Events = {
+      MANIFEST_PARSED: 'manifest',
+      ERROR: 'error',
+      LEVEL_SWITCHED: 'level',
+      AUDIO_TRACK_SWITCHED: 'audio',
+    }
     static isSupported(): boolean {
       return true
     }
     loads: string[] = []
+    levels = []
+    currentLevel = -1
+    audioTracks = []
+    audioTrack = -1
     destroyed = 0
     media: HTMLVideoElement | null = null
     config: Record<string, unknown>
@@ -128,6 +137,7 @@ const fakes = vi.hoisted(() => {
     on(): void {
       // 替身不需要 hls 事件
     }
+    off(): void {}
     destroy(): void {
       this.destroyed++
     }

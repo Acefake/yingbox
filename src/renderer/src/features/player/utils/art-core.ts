@@ -20,6 +20,8 @@ import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
 import { installScreenshot } from '../screenshot/screenshot'
 import { artSkinControls, installQualityBadge } from './art-skin'
+import { installSourceSpecs } from '../source-specs/install-source-specs'
+import type { VideoProbe } from '../../../../../shared/video-range'
 import { type HlsSession, createHlsSession } from './hls-session'
 import {
   WEB_CODEC_UNSUPPORTED,
@@ -63,6 +65,8 @@ export interface ArtCore {
 
 /** createArtCore 的输入 */
 export interface ArtCoreInput {
+  /** 仅对应当前已加载文件的探测信息。 */
+  sourceVideo?: () => VideoProbe | null
   url: string
   useHls: boolean
   autoplay: boolean
@@ -119,6 +123,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
+  installSourceSpecs(art, hls.instance, input.sourceVideo ?? (() => null))
   installPlaybackInfo(art, hls.instance)
   installSleepTimer(art)
   installScreenshot(art, input.controls)

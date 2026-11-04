@@ -1,3 +1,5 @@
+@file:androidx.annotation.OptIn(androidx.media3.common.util.UnstableApi::class)
+
 package com.yingbox.android.ui
 
 import androidx.annotation.OptIn
@@ -30,6 +32,7 @@ import androidx.compose.ui.focus.focusProperties
 import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.C
@@ -40,6 +43,7 @@ import com.yingbox.android.playback.engine.disableTrackType
 import com.yingbox.android.playback.engine.options
 import com.yingbox.android.playback.engine.select
 import com.yingbox.android.playback.engine.speedLabel
+import com.yingbox.android.playback.engine.playbackDiagnosticReport
 
 /** 画面比例：适应（留黑边）、填充（裁掉多出的）、拉伸 */
 private val RESIZE_MODES = listOf(
@@ -56,6 +60,8 @@ private val RESIZE_MODES = listOf(
 @Composable
 internal fun BoxScope.PlayerSettingsSheet(state: PlayerState, close: () -> Unit) {
     val player = state.player
+    val context = LocalContext.current
+    LaunchedEffect(state, context) { state.refreshCapabilities(context) }
     val audio = state.tracks.options(C.TRACK_TYPE_AUDIO)
     val text = state.tracks.options(C.TRACK_TYPE_TEXT)
     val subtitleOff = C.TRACK_TYPE_TEXT in player.trackSelectionParameters.disabledTrackTypes || text.none { it.selected }
@@ -109,8 +115,22 @@ internal fun BoxScope.PlayerSettingsSheet(state: PlayerState, close: () -> Unit)
             }
         }
         Section("信息") {
-            Pill(if (state.showStats) "统计信息：开" else "统计信息：关", selected = state.showStats, container = YbColor.FillSecondary) {
+            Pill(if (state.showStats) "收起播放诊断" else "查看播放诊断", selected = state.showStats, container = YbColor.FillSecondary) {
                 state.showStats = !state.showStats
+            }
+            Pill("复制播放诊断", container = YbColor.FillSecondary) { copyPlaybackDiagnostics(context, state) }
+        }
+        if (state.showStats) {
+            val report = playbackDiagnosticReport(state.stats.snapshot, state.capabilities, state.videoPlan)
+            Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                for (line in report.lineSequence().filter { it.isNotBlank() }) {
+                    Text(
+                        line,
+                        color = YbColor.TextSecondary,
+                        fontSize = YbText.Sm,
+                        modifier = Modifier.fillMaxWidth().tvReadingFocus().padding(YbSpace.S1),
+                    )
+                }
             }
         }
     }

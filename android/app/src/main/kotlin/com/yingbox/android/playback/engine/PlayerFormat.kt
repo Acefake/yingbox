@@ -33,6 +33,7 @@ fun playbackBadges(video: VideoInfo?, audioMime: String?): List<String> = buildL
             HdrKind.Hdr10 -> add("HDR10")
             HdrKind.Hlg -> add("HLG")
             HdrKind.Sdr -> Unit
+            HdrKind.Unknown -> Unit
         }
     }
     audioCodecName(audioMime)?.takeIf { it in BADGE_AUDIO }?.let(::add)

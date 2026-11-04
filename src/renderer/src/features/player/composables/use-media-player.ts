@@ -3,6 +3,7 @@ import { getSetting } from '@/features/settings'
 
 import { needsMpv } from '../../../../../shared/disc-media'
 import type { VideoProbe } from '../../../../../shared/video-range'
+import { syncEnhance } from '../scaling/enhance-sync'
 import { syncHighQualityScaling } from '../scaling/scaling-sync'
 import type { ContinueMeta } from '../../../../../shared/playback/continue-rules'
 import { startContinue } from '../continue/continue-store'
@@ -166,6 +167,7 @@ export async function openMediaPlayer(
       // 先同步超分开关，保证首次启动 mpv 时启动参数正确
       syncRtxVsr()
       await syncHighQualityScaling()
+      await syncEnhance()
       const res = await window.api.mpv.open({
         ...(filePath ? { filePath } : {}),
         ...(url ? { url } : {}),

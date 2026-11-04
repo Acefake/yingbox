@@ -19,6 +19,18 @@ export interface MpvPlaylistEntry {
   name?: string
 }
 
+/** 超分请求与配置状态，不代表驱动侧 AI 效果已验证。 */
+export interface MpvVsrStatus {
+  state:
+    | 'off'
+    | 'waiting'
+    | 'unsupported'
+    | 'bypassed'
+    | 'configured'
+    | 'failed'
+  reason: string
+}
+
 /** 播放器实时状态（由主进程推送到渲染层） */
 export interface MpvStatus {
   running: boolean
@@ -37,14 +49,14 @@ export interface MpvStatus {
   playlistPos: number
   /** 处于「缩小置顶」（右下角小窗、保持在最前） */
   compact?: boolean
-  /** RTX 视频超分滤镜当前是否已挂载（仅 Windows + NVIDIA 且片源低于 1080p 时为 true） */
-  vsr?: boolean
+  /** 请求与滤镜配置状态；不能据此证明 AI 效果已启用。 */
+  vsr?: MpvVsrStatus
   /** 当前片源分辨率（解码后的实际尺寸） */
   videoWidth?: number
   videoHeight?: number
-  /** 超分后的分辨率（VSR 未启用时为空） */
-  vsrWidth?: number
-  vsrHeight?: number
+  /** mpv 实际报告的整条视频滤镜链输出尺寸，不代表原生片源或单个滤镜的贡献。 */
+  filteredVideoWidth?: number
+  filteredVideoHeight?: number
 }
 
 /** 打开播放的选项 */

@@ -15,12 +15,18 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.displayCutoutPadding
 import androidx.compose.foundation.layout.fillMaxSize
+import androidx.compose.foundation.interaction.MutableInteractionSource
+import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.widthIn
+import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
+import androidx.compose.material3.ExperimentalMaterial3Api
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Slider
 import androidx.compose.material3.SliderDefaults
@@ -38,12 +44,14 @@ import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.alpha
-import androidx.compose.ui.graphics.Brush
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.unit.DpSize
 import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import com.yingbox.android.playback.engine.formatClock
@@ -56,17 +64,19 @@ import kotlin.math.roundToInt
 /** 进度、时间每隔多久刷新一次 */
 private const val TICK_MS = 500L
 
+/** 底部玻璃面板的最大宽度（平板、电视上不撑满整行） */
+private val PANEL_MAX_WIDTH = 640.dp
+
 /** 长按时的倍速 */
 private const val BOOST_SPEED = 2f
 
-private val TOP_SCRIM = Brush.verticalGradient(listOf(Color(0xB3000000), Color.Transparent))
-private val BOTTOM_SCRIM = Brush.verticalGradient(listOf(Color.Transparent, Color(0xCC000000)))
 
 /**
  * 播放控制层：顶栏（标题、信息徽标）、中间的上一集 / 快退 / 播放暂停 / 快进 / 下一集、
  * 底部的进度条与时间、设置按钮。返回按钮在顶栏左边，跟着控制层一起出现、隐藏。
  */
 @OptIn(UnstableApi::class)
+@kotlin.OptIn(ExperimentalMaterial3Api::class)
 @Composable
 internal fun PlayerControls(
     state: PlayerState,
@@ -79,8 +89,10 @@ internal fun PlayerControls(
     landscape: Boolean,
     onToggleFullscreen: () -> Unit,
     onBack: () -> Unit,
+    onPanelHeight: (Int) -> Unit = {},
 ) {
     val player = state.player
+    val badgeWidth = (LocalConfiguration.current.screenWidthDp * 0.52f).dp
     var position by remember { mutableLongStateOf(player.currentPosition) }
     // 时长未知（直播等）时是负数，显示成 --:--，进度条不可拖
     var duration by remember { mutableLongStateOf(player.duration) }
@@ -99,109 +111,147 @@ internal fun PlayerControls(
         derivedStateOf { playbackBadges(state.stats.snapshot.video, state.stats.snapshot.audioMime) }
     }
     Box(Modifier.fillMaxSize()) {
-        // 顶栏：返回按钮、标题、徽标。返回按钮跟着控制层一起出现、一起隐藏
+        // 顶栏：返回圆钮、标题胶囊，右边是片源胶囊；全部是浮在画面上的玻璃，跟着控制层一起出现、隐藏
         Row(
             Modifier
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
-                .background(TOP_SCRIM)
                 .statusBarsPadding()
                 .displayCutoutPadding()
-                .padding(start = gutter(), end = YbSpace.S4, top = YbSpace.S3, bottom = YbSpace.S6),
+                .padding(horizontal = gutter(), vertical = YbSpace.S3),
             horizontalArrangement = Arrangement.spacedBy(YbSpace.S3),
-        ) {
-            GlassIconButton(YbIcons.Back, "返回", media = true, onClick = onBack)
-            Column(Modifier.weight(1f).padding(top = YbSpace.S1), verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
-                Text(title, color = YbColor.TextPrimary, fontSize = YbText.Xl, fontWeight = FontWeight.Bold, maxLines = 1, overflow = TextOverflow.Ellipsis)
-                if (badges.isNotEmpty()) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
-                        for (badge in badges) {
-                            Text(
-                                badge,
-                                color = YbColor.TextPrimary,
-                                fontSize = YbText.Xs,
-                                fontWeight = FontWeight.Medium,
-                                modifier = Modifier.background(YbColor.FillSecondary, YbRadius.Full).padding(horizontal = YbSpace.S3, vertical = YbSpace.S1),
-                            )
-                        }
-                    }
-                }
-            }
-        }
-
-        Row(
-            Modifier.align(Alignment.Center),
-            horizontalArrangement = Arrangement.spacedBy(YbSpace.S5),
             verticalAlignment = Alignment.CenterVertically,
         ) {
-            TransportButton(PlayerIcons.SkipPrevious, "上一集", enabled = onPrevious != null) { onPrevious?.invoke() }
-            TransportButton(PlayerIcons.Replay10, "快退 10 秒") { player.seekBack(); onActivity() }
-            // 看「想播放」而不是「正在播放」：缓冲时前者是真，按钮应是「暂停」，点了要真的暂停
-            TransportButton(if (state.playWhenReady) PlayerIcons.Pause else YbIcons.Play, if (state.playWhenReady) "暂停" else "播放", big = true) {
-                if (state.playWhenReady) player.pause() else player.play()
-                onActivity()
+            GlassIconButton(YbIcons.Back, "返回", media = true, onClick = onBack)
+            Text(
+                title,
+                color = YbColor.TextPrimary,
+                fontSize = YbText.Md,
+                fontWeight = FontWeight.Medium,
+                maxLines = 1,
+                overflow = TextOverflow.Ellipsis,
+                modifier = Modifier
+                    .weight(1f, fill = false)
+                    .ybGlass(CircleShape, media = true)
+                    .padding(horizontal = YbSpace.S4, vertical = YbSpace.S3),
+            )
+            Spacer(Modifier.weight(1f))
+            if (state.enhanceLevel != com.yingbox.android.playback.engine.EnhanceLevel.Off) {
+                Row(Modifier.ybGlass(CircleShape, media = true).padding(YbSpace.S2), verticalAlignment = Alignment.CenterVertically) {
+                    Icon(PlayerIcons.Enhance, contentDescription = "画质增强", tint = YbColor.TextPrimary, modifier = Modifier.size(16.dp))
+                    Text(state.enhanceStatus, color = YbColor.TextSecondary, fontSize = YbText.Xs)
+                }
             }
-            TransportButton(PlayerIcons.Forward10, "快进 10 秒") { player.seekForward(); onActivity() }
-            TransportButton(PlayerIcons.SkipNext, "下一集", enabled = onNext != null) { onNext?.invoke() }
+            if (badges.isNotEmpty()) SpecCapsule(badges, Modifier.widthIn(max = badgeWidth))
         }
 
+        // 底部悬浮玻璃面板：进度条与两端时间在上，音量以外的传输键、设置、全屏在下
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
-                .fillMaxWidth()
-                .background(BOTTOM_SCRIM)
+                .onSizeChanged { onPanelHeight(it.height) }
                 .navigationBarsPadding()
                 .displayCutoutPadding()
-                .padding(horizontal = gutter(), vertical = YbSpace.S3),
+                .padding(horizontal = gutter(), vertical = YbSpace.S4)
+                .widthIn(max = PANEL_MAX_WIDTH)
+                .fillMaxWidth()
+                .ybGlass(YbRadius.Xl2, media = true)
+                .padding(horizontal = YbSpace.S5, vertical = YbSpace.S3),
         ) {
-            val shown = scrub ?: if (duration > 0) position.toFloat() / duration else 0f
-            Slider(
-                value = shown.coerceIn(0f, 1f),
-                onValueChange = {
-                    scrub = it
-                    onScrubbing(true)
-                    onActivity()
-                },
-                onValueChangeFinished = {
-                    scrub?.let {
-                        val target = (it * duration).toLong()
-                        player.seekTo(target)
-                        // 先把位置落到松手处，不然滑块会先弹回旧位置，等下一次轮询才跳过去
-                        position = target
-                    }
-                    scrub = null
-                    onScrubbing(false)
-                },
-                enabled = duration > 0,
-                colors = SliderDefaults.colors(
-                    thumbColor = YbColor.TextPrimary,
-                    activeTrackColor = YbColor.TextPrimary,
-                    inactiveTrackColor = Color(0x4DFFFFFF),
-                    disabledThumbColor = YbColor.TextTertiary,
-                    disabledActiveTrackColor = YbColor.TextTertiary,
-                    disabledInactiveTrackColor = Color(0x33FFFFFF),
-                ),
+            val sliderColors = SliderDefaults.colors(
+                thumbColor = YbColor.TextPrimary,
+                activeTrackColor = YbColor.TextPrimary,
+                inactiveTrackColor = Color(0x4DFFFFFF),
+                disabledThumbColor = YbColor.TextTertiary,
+                disabledActiveTrackColor = YbColor.TextTertiary,
+                disabledInactiveTrackColor = Color(0x33FFFFFF),
             )
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                val now = scrub?.let { (it * duration).toLong() } ?: position
-                Text(
-                    "${formatClock(now)} / ${formatClock(duration)}",
-                    color = YbColor.TextPrimary,
-                    fontSize = YbText.Sm,
+            val shown = scrub ?: if (duration > 0) position.toFloat() / duration else 0f
+            val now = scrub?.let { (it * duration).toLong() } ?: position
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                Text(formatClock(now), color = YbColor.TextSecondary, fontSize = YbText.Xs, modifier = Modifier.widthIn(min = 44.dp))
+                Slider(
+                    value = shown.coerceIn(0f, 1f),
+                    onValueChange = {
+                        scrub = it
+                        onScrubbing(true)
+                        onActivity()
+                    },
+                    onValueChangeFinished = {
+                        scrub?.let {
+                            val target = (it * duration).toLong()
+                            player.seekTo(target)
+                            // 先把位置落到松手处，不然滑块会先弹回旧位置，等下一次轮询才跳过去
+                            position = target
+                        }
+                        scrub = null
+                        onScrubbing(false)
+                    },
+                    enabled = duration > 0,
                     modifier = Modifier.weight(1f),
+                    thumb = { SliderDefaults.Thumb(remember { MutableInteractionSource() }, thumbSize = DpSize(14.dp, 14.dp), colors = sliderColors) },
+                    track = { sliderState ->
+                        SliderDefaults.Track(
+                            sliderState,
+                            Modifier.height(4.dp),
+                            colors = sliderColors,
+                            drawStopIndicator = null,
+                            thumbTrackGapSize = 0.dp,
+                            trackInsideCornerSize = 2.dp,
+                        )
+                    },
+                    colors = sliderColors,
                 )
-                if (state.speed != 1f) {
-                    Text(speedLabel(state.speed), color = YbColor.TextSecondary, fontSize = YbText.Sm, modifier = Modifier.padding(end = YbSpace.S3))
+                Text(
+                    if (duration > 0) "-${formatClock((duration - now).coerceAtLeast(0))}" else "--:--",
+                    color = YbColor.TextSecondary,
+                    fontSize = YbText.Xs,
+                    modifier = Modifier.widthIn(min = 44.dp),
+                )
+            }
+            val compact = LocalConfiguration.current.screenWidthDp < 600
+            val options: @Composable () -> Unit = {
+                    TransportButton(PlayerIcons.Enhance, if (state.enhanceLevel == com.yingbox.android.playback.engine.EnhanceLevel.Off) "开启画质增强" else "关闭画质增强", size = 40.dp) { state.toggleEnhance(); onActivity() }
+                    TransportButton(YbIcons.Settings, "播放设置", size = 40.dp) { openSettings() }
+                    TransportButton(
+                        if (landscape) PlayerIcons.FullscreenExit else PlayerIcons.Fullscreen,
+                        if (landscape) "退出全屏" else "全屏",
+                        size = 40.dp,
+                    ) {
+                        onToggleFullscreen()
+                        onActivity()
+                    }
+            }
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                Row(if (compact) Modifier.width(40.dp) else Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
+                    TransportButton(PlayerIcons.SkipPrevious, "上一集", enabled = onPrevious != null, size = 40.dp) { onPrevious?.invoke() }
+                    if (state.speed != 1f) {
+                        Text(speedLabel(state.speed), color = YbColor.TextSecondary, fontSize = YbText.Sm, modifier = Modifier.padding(start = YbSpace.S2))
+                    }
                 }
-                TransportButton(YbIcons.Settings, "播放设置", size = 40.dp) { openSettings() }
-                TransportButton(
-                    if (landscape) PlayerIcons.FullscreenExit else PlayerIcons.Fullscreen,
-                    if (landscape) "退出全屏" else "全屏",
-                    size = 40.dp,
-                ) {
-                    onToggleFullscreen()
-                    onActivity()
+                Row(if (compact) Modifier.weight(1f) else Modifier.width(168.dp), horizontalArrangement = Arrangement.spacedBy(YbSpace.S3, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                    TransportButton(PlayerIcons.Replay10, "快退 10 秒") { player.seekBack(); onActivity() }
+                    // 看「想播放」而不是「正在播放」：缓冲时前者是真，按钮应是「暂停」，点了要真的暂停
+                    TransportButton(
+                        if (state.playWhenReady) PlayerIcons.Pause else YbIcons.Play,
+                        if (state.playWhenReady) "暂停" else "播放",
+                        big = true,
+                    ) {
+                        if (state.playWhenReady) player.pause() else player.play()
+                        onActivity()
+                    }
+                    TransportButton(PlayerIcons.Forward10, "快进 10 秒") { player.seekForward(); onActivity() }
                 }
+                if (!compact) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
+                    TransportButton(PlayerIcons.SkipNext, "下一集", enabled = onNext != null, size = 40.dp) { onNext?.invoke() }
+                    options()
+                }
+                if (compact) Spacer(Modifier.width(40.dp))
+            }
+            if (compact) Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                TransportButton(PlayerIcons.SkipNext, "下一集", enabled = onNext != null, size = 40.dp) { onNext?.invoke() }
+                Spacer(Modifier.weight(1f))
+                options()
             }
         }
     }
@@ -215,18 +265,18 @@ private fun TransportButton(
     enabled: Boolean = true,
     big: Boolean = false,
     label: String? = null,
-    size: androidx.compose.ui.unit.Dp = if (big) 64.dp else 48.dp,
+    size: androidx.compose.ui.unit.Dp = if (big) 56.dp else 44.dp,
     onClick: () -> Unit,
 ) {
     Box(
         Modifier
             .size(size)
             .alpha(if (enabled) 1f else 0.35f)
-            .then(if (big) Modifier.background(Color(0x40FFFFFF), CircleShape) else Modifier)
+            .then(if (big) Modifier.background(Color.White, CircleShape) else Modifier)
             .focusFrame(shape = CircleShape, onClick = { if (enabled) onClick() }),
         contentAlignment = Alignment.Center,
     ) {
-        Icon(icon, contentDescription = description, tint = YbColor.TextPrimary, modifier = Modifier.size(if (big) 32.dp else 26.dp))
+        Icon(icon, contentDescription = description, tint = if (big) Color.Black else YbColor.TextPrimary, modifier = Modifier.size(if (big) 30.dp else 26.dp))
         if (label != null) Text(label, color = YbColor.TextPrimary, fontSize = YbText.Xs2, fontWeight = FontWeight.Bold)
     }
 }

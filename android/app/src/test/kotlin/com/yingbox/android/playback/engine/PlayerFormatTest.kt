@@ -4,6 +4,10 @@ import org.junit.Assert.assertEquals
 import org.junit.Test
 
 class PlayerFormatTest {
+    @Test fun `未知色彩信息只显示已知的分辨率`() {
+        assertEquals(listOf("1080p"), playbackBadges(video(1920, HdrKind.Unknown), null))
+    }
+
     @Test fun `时间显示`() {
         assertEquals("00:00", formatClock(0))
         assertEquals("00:59", formatClock(59_999))

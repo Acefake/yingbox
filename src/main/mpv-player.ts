@@ -15,18 +15,13 @@ import {
 import { MpvSocket, nextSocketPath } from './mpv-socket'
 import { MpvHeaderState, mpvStream } from './mpv-stream'
 import { MpvWindow } from './mpv-window'
+import { MpvEnhancement } from './mpv-enhancement'
+import { MpvImageEnhance } from './mpv-enhance'
+import { probeNvidiaGpu } from './mpv-gpu'
+import { ensureMpvVsrHook } from './mpv-vsr-hook'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
 import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
-
-/** RTX 视频超分：仅对低于该高度（1080p）的片源自动挂载 */
-const VSR_HEIGHT_LIMIT = 1080
-/** 超分倍率（交给 NVIDIA 视频处理器放大的倍数） */
-const VSR_SCALE = 2
-/** NVIDIA RTX 视频超分滤镜（mpv 0.39+ 的 d3d11vpp，scale 必须 >1 才会真正超分） */
-const VSR_FILTER = `d3d11vpp=scale=${VSR_SCALE}:scaling-mode=nvidia`
-/** VSR 生效后在播放窗口显示「片源 → 超分后分辨率」的时长 */
-const VSR_OSD_MS = 4500
 
 /**
  * mpv 播放器进程管理器。
@@ -43,14 +38,12 @@ class MpvPlayer extends EventEmitter {
   private _status: MpvStatus = { ...DEFAULT_STATUS }
   /** RTX 视频超分开关（渲染层设置项，默认关闭） */
   private vsrEnabled = false
-  /** 当前是否已挂上超分滤镜 */
-  private vsrActive = false
-  /** 当前片源高度（来自 mpv 的 video-params） */
-  private videoHeight = 0
-  /** 当前片源宽度（来自 mpv 的 video-params） */
-  private videoWidth = 0
-  /** VSR 正在跟随时给的 OSD 提示定时器 */
-  private vsrOsdTimer: ReturnType<typeof setTimeout> | null = null
+  private readonly enhancement = new MpvEnhancement(
+    (...args) => this.cmd(...args),
+    () => this.emit('status', this.getStatus()),
+    process.platform,
+    probeNvidiaGpu
+  )
   /** 窗口置顶：新播放时顶到最前、缩小置顶 */
   private readonly window = new MpvWindow((name, value) =>
     this.setProp(name, value)
@@ -60,7 +53,10 @@ class MpvPlayer extends EventEmitter {
     name => this.cmd('get_property', name),
     (name, value) => this.setProp(name, value)
   )
-  private highQualityScaling = false
+  readonly imageEnhance = new MpvImageEnhance(
+    (name, value) => this.setProp(name, value),
+    () => Boolean(this.child) && this.sock.connected
+  )
 
   constructor() {
     super()
@@ -106,6 +102,7 @@ class MpvPlayer extends EventEmitter {
       await validateMpvLocalFile(options.filePath)
       const disc = await discSourceOf(options.filePath)
       if (this.child && this.sock.connected) {
+        await this.enhancement.prepareFile()
         const stream = mpvStream(options, disc)
         if (disc) await this.setProp(disc.option, disc.device).catch(warnProp)
         // 属性设不上（低版本 mpv 不认某个值等）只记日志，照样换片，不让整次 open 失败
@@ -140,6 +137,7 @@ class MpvPlayer extends EventEmitter {
     // Windows 上找不到会先自动下载便携版（期间推 installing 事件给渲染层提示）
     const exe = await ensureMpvExecutable(on => this.emit('installing', on))
     const { target, headers } = mpvStream(options, disc)
+    const hookScript = await ensureMpvVsrHook()
     const args = spawnArgs({
       socket,
       target,
@@ -148,8 +146,9 @@ class MpvPlayer extends EventEmitter {
       subFile: options.subFile,
       headers,
       vsr: this.isVsrWanted(),
-      highQualityScaling: this.highQualityScaling,
+      highQualityScaling: this.imageEnhance.highQuality,
       disc,
+      hookScript,
     })
     this.headers.reset(headers)
     const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
@@ -179,6 +178,21 @@ class MpvPlayer extends EventEmitter {
       if (exitDetail) throw new Error(`mpv 启动后退出（${exitDetail}）`)
       throw error
     }
+    const hookReady = hookScript
+      ? await this.cmd('get_property', 'user-data/yingbox-vsr-hook').catch(
+          () => null
+        )
+      : null
+    let protectedReady = hookReady === 'ready'
+    if (protectedReady)
+      protectedReady = await this.setProp(
+        'user-data/yingbox-vsr-controlled',
+        true
+      ).then(
+        () => true,
+        () => false
+      )
+    await this.enhancement.connect(protectedReady)
     this._status = {
       ...DEFAULT_STATUS,
       running: true,
@@ -192,6 +206,7 @@ class MpvPlayer extends EventEmitter {
         command: ['observe_property', i + 1, WATCH_PROPS[i]],
       })
     }
+    await this.imageEnhance.reset().catch(warnProp)
     // mpv 窗口里按快捷键切换缩小置顶（mpv 不支持 keybind 命令时忽略）
     await this.sock
       .send({
@@ -202,6 +217,14 @@ class MpvPlayer extends EventEmitter {
   }
 
   private onEvent(msg: Record<string, unknown>): void {
+    if (
+      msg.event === 'client-message' &&
+      Array.isArray(msg.args) &&
+      msg.args[0] === 'yingbox-enhance-toggle'
+    ) {
+      void this.imageEnhance.toggle().catch(warnProp)
+      return
+    }
     if (msg.event === 'property-change')
       this.applyProp(msg.name as string, msg.data)
     else if (msg.event === 'end-file') {
@@ -209,9 +232,25 @@ class MpvPlayer extends EventEmitter {
       this.emit('status', this.getStatus())
       this.emit('end-file', msg.reason)
     } else if (msg.event === 'start-file') {
+      void this.enhancement.prepareFile().catch(warnEnhancement)
       this._status.loading = true
       this.emit('status', this.getStatus())
       this.emit('start-file')
+    } else if (msg.event === 'file-loaded') {
+      void this.enhancement.startFile().catch(warnEnhancement)
+    } else if (
+      msg.event === 'client-message' &&
+      Array.isArray(msg.args) &&
+      msg.args[0] === 'yingbox-vsr-load'
+    ) {
+      const [, id, script] = msg.args
+      if (
+        typeof id === 'string' &&
+        /^\d+$/.test(id) &&
+        typeof script === 'string' &&
+        /^[\w-]+$/.test(script)
+      )
+        void this.continueVsrLoad(id, script)
     } else if (
       msg.event === 'client-message' &&
       Array.isArray(msg.args) &&
@@ -219,65 +258,43 @@ class MpvPlayer extends EventEmitter {
     ) {
       void this.setCompact(!this.window.compact).catch(() => {})
     } else if (msg.event === 'playback-restart') {
+      void this.enhancement.refresh().catch(warnEnhancement)
       this._status.loading = false
       this.emit('status', this.getStatus())
     }
   }
 
   private applyProp(name: string, data: unknown): void {
-    if (name === 'video-params') {
-      const params = data as { h?: number; w?: number } | null
-      this.videoHeight = typeof params?.h === 'number' ? params.h : 0
-      this.videoWidth = typeof params?.w === 'number' ? params.w : 0
-      void this.syncVsr()
-    } else patchStatus(this._status, name, data)
+    if (!this.enhancement.update(name, data))
+      patchStatus(this._status, name, data)
+    if (name === 'video-dec-params')
+      void this.imageEnhance.onParams(data).catch(warnProp)
     this.emit('status', this.getStatus())
+  }
+
+  private async continueVsrLoad(id: string, script: string): Promise<void> {
+    const child = this.child
+    if (!child) return
+    try {
+      await this.enhancement.prepareFile()
+    } catch (error) {
+      warnEnhancement(error)
+      if (this.child === child && this.sock.connected)
+        await this.cmd('stop').catch(warnEnhancement)
+    } finally {
+      if (this.child === child && this.sock.connected)
+        await this.cmd(
+          'script-message-to',
+          script,
+          'yingbox-vsr-continue',
+          id
+        ).catch(warnEnhancement)
+    }
   }
 
   /** RTX 视频超分开关是否希望生效（功能依赖 D3D11，仅 Windows 平台） */
   private isVsrWanted(): boolean {
     return this.vsrEnabled && process.platform === 'win32'
-  }
-
-  /**
-   * 按当前片源同步超分滤镜：开关打开、mpv 在跑、片源高度低于 1080p 时挂载
-   * `d3d11vpp=scaling-mode=nvidia`，否则保持空滤镜链。
-   * 非 D3D11 路径或非 RTX 显卡时 mpv 会记录“Creating filter failed”并忽略，
-   * 播放本身不受影响。
-   */
-  private async syncVsr(): Promise<void> {
-    const want =
-      this.isVsrWanted() &&
-      Boolean(this.child) &&
-      this.videoHeight > 0 &&
-      this.videoHeight < VSR_HEIGHT_LIMIT
-    if (want === this.vsrActive) return
-    try {
-      await this.cmd('vf', 'set', want ? VSR_FILTER : '')
-      this.vsrActive = want
-      if (want) this.scheduleVsrOsd()
-    } catch {
-      this.vsrActive = false
-    }
-    this.emit('status', this.getStatus())
-  }
-
-  /**
-   * 超分生效后在播放窗口弹一条「片源 → 超分后分辨率」的提示。
-   * 稍作延迟，等滤镜链重建完成后再显示，避免被 video-reconfig 冲掉。
-   */
-  private scheduleVsrOsd(): void {
-    if (this.vsrOsdTimer) clearTimeout(this.vsrOsdTimer)
-    this.vsrOsdTimer = setTimeout(() => {
-      this.vsrOsdTimer = null
-      if (!this.vsrActive) return
-      const { videoWidth: w, videoHeight: h } = this
-      if (w <= 0 || h <= 0) return
-      const text = `${w}×${h} → ${w * VSR_SCALE}×${h * VSR_SCALE} · RTX 超分`
-      void this.cmd('show-text', text, VSR_OSD_MS).catch(() => {
-        // OSD 失败不影响播放
-      })
-    }, 700)
   }
 
   /**
@@ -294,18 +311,12 @@ class MpvPlayer extends EventEmitter {
   async setVsrEnabled(enabled: boolean): Promise<void> {
     if (this.vsrEnabled === enabled) return
     this.vsrEnabled = enabled
-    await this.syncVsr()
-  }
-
-  /** 设置高质量缩放（来自渲染层的「设置 → 播放器」）。 */
-  async setHighQualityScaling(enabled: boolean): Promise<void> {
-    this.highQualityScaling = enabled
-    if (this.child && this.sock.connected)
-      await this.setProp('scale', enabled ? 'ewa_lanczossharp' : 'lanczos')
+    await this.enhancement.setEnabled(enabled)
   }
 
   private onSocketClose(): void {
     if (this.child) {
+      this.enhancement.disconnect()
       this._status = { ...DEFAULT_STATUS }
       this.emit('status', this.getStatus())
     }
@@ -313,32 +324,24 @@ class MpvPlayer extends EventEmitter {
 
   private cleanupProcess(): void {
     this.window.reset()
-    if (this.vsrOsdTimer) {
-      clearTimeout(this.vsrOsdTimer)
-      this.vsrOsdTimer = null
-    }
     this.child = null
     this.sock.destroy()
-    this.vsrActive = false
-    this.videoWidth = 0
-    this.videoHeight = 0
+    this.enhancement.disconnect()
     this._status = { ...DEFAULT_STATUS }
     this.emit('status', this.getStatus())
     this.emit('exit')
   }
 
   getStatus(): MpvStatus {
-    const w = this.videoWidth
-    const h = this.videoHeight
     return {
       ...this._status,
       running: Boolean(this.child),
       compact: this.window.compact,
-      vsr: this.vsrActive,
-      videoWidth: w || undefined,
-      videoHeight: h || undefined,
-      vsrWidth: this.vsrActive && w ? w * VSR_SCALE : undefined,
-      vsrHeight: this.vsrActive && h ? h * VSR_SCALE : undefined,
+      vsr: this.enhancement.status,
+      videoWidth: this.enhancement.source?.w,
+      videoHeight: this.enhancement.source?.h,
+      filteredVideoWidth: this.enhancement.output?.w,
+      filteredVideoHeight: this.enhancement.output?.h,
     }
   }
 
@@ -394,6 +397,9 @@ class MpvPlayer extends EventEmitter {
 
 const warnProp = (error: unknown): void =>
   console.warn('[mpv] 换片前设置属性失败，照样换片：', error)
+
+const warnEnhancement = (error: unknown): void =>
+  console.warn('[mpv] 更新增强状态失败：', error)
 
 /** 全局单例 */
 export const mpvPlayer = new MpvPlayer()

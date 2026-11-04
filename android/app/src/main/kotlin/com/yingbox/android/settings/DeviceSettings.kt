@@ -5,6 +5,7 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.yingbox.android.library.NasConfig
+import com.yingbox.android.playback.engine.EnhanceLevel
 
 /**
  * 只跟这台设备有关的设置（ADR-0033）：存在应用自己的 SharedPreferences，不进服务端。
@@ -24,6 +25,15 @@ class DeviceSettings(context: Context) {
     /** 播放出错或卡住时自动换到别的站点（桌面同名设置 online.autoSwitchSource） */
     var autoSwitchSource by mutableStateOf(prefs.getBoolean(AUTO_SWITCH, true))
         private set
+
+    /** 画质增强档位（放大 + CAS 锐化，仅 SDR）；下一次轨道变化（换集、换源）时生效 */
+    var enhanceLevel by mutableStateOf(EnhanceLevel.fromKey(prefs.getString(ENHANCE, null)))
+        private set
+
+    fun updateEnhanceLevel(level: EnhanceLevel) {
+        enhanceLevel = level
+        prefs.edit().putString(ENHANCE, level.key).apply()
+    }
 
     /** NAS 上的影盒服务（ADR-0040）；没配置为 null。令牌只存在应用私有目录（不备份） */
     var nas by mutableStateOf(loadNas())
@@ -57,8 +67,15 @@ class DeviceSettings(context: Context) {
         prefs.edit().putBoolean(AUTO_NEXT, on).apply()
     }
 
-    private companion object {
-        const val REDUCE_TRANSPARENCY = "ui.reduceTransparency"
+    companion object {
+        /** 播放器在轨道变化时读取，不依赖设置界面的状态对象 */
+        fun readEnhanceLevel(context: Context): EnhanceLevel =
+            EnhanceLevel.fromKey(
+                context.getSharedPreferences("device-settings", Context.MODE_PRIVATE).getString(ENHANCE, null),
+            )
+
+        private const val ENHANCE = "player.enhance"
+        private const val REDUCE_TRANSPARENCY = "ui.reduceTransparency"
         const val AUTO_NEXT = "player.autoNext"
         const val AUTO_SWITCH = "online.autoSwitchSource"
         const val NAS_URL = "nas.url"

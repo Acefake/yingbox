@@ -1,5 +1,7 @@
 package com.yingbox.android.library
 
+import com.yingbox.android.playback.engine.FileVideoProbe
+
 /** 片库顶层条目的类型（电影 / 剧集） */
 enum class LibraryType(val json: String, val label: String) {
     Movie("movie", "电影"),
@@ -24,7 +26,11 @@ data class LibraryPage(val items: List<LibraryCard>, val total: Int)
  * 一个可播放的版本（最好的排在前面）：一个视频文件，或同一文件夹里的一组分段（CD1 / CD2，[fileIds] 按播放顺序）。
  * badge 是「杜比视界 P8」「HDR10」这类动态范围标签，SDR 或没探测过为 null；height 是垂直分辨率，读不出为 null。
  */
-data class LibraryVersion(val fileIds: List<Long>, val height: Int?, val badge: String?, val size: Long)
+data class LibraryVersion(
+    val fileIds: List<Long>, val height: Int?, val badge: String?, val size: Long,
+    /** 按文件区分的探测数据，分段和不同版本之间不能混用。 */
+    val videoProbes: Map<Long, FileVideoProbe> = emptyMap(),
+)
 
 /** 剧集里的一集（已按季、集排好） */
 data class LibraryEpisode(

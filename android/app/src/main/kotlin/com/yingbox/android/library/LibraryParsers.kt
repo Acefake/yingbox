@@ -3,6 +3,8 @@ package com.yingbox.android.library
 import org.json.JSONArray
 import org.json.JSONObject
 import java.net.URLEncoder
+import com.yingbox.android.playback.engine.FileVideoProbe
+import com.yingbox.android.playback.engine.HdrKind
 
 private const val MEDIA_IMAGE_PREFIX = "yingbox-media://image/"
 
@@ -56,6 +58,23 @@ private fun badge(range: String?, dvProfile: Int?): String? = when (range) {
     else -> null
 }
 
+private fun fileProbe(file: JSONObject): FileVideoProbe? {
+    val id = file.optLong("id").takeIf { it > 0 } ?: return null
+    val video = file.optJSONObject("video") ?: return null
+    val hdr = when (video.optString("range")) {
+        "dv" -> HdrKind.DolbyVision
+        "hdr10" -> HdrKind.Hdr10
+        "hlg" -> HdrKind.Hlg
+        "sdr" -> HdrKind.Sdr
+        else -> return null
+    }
+    fun integer(name: String, range: IntRange): Int? {
+        val value = (video.opt(name) as? Number)?.toDouble() ?: return null
+        return value.takeIf { it.isFinite() && it % 1 == 0.0 && it in range.first.toDouble()..range.last.toDouble() }?.toInt()
+    }
+    return FileVideoProbe(id, hdr, integer("dvProfile", 0..10), integer("dvCompat", 0..15))
+}
+
 /**
  * 可播放的版本：服务端给的 `versions`（已按分辨率、动态范围、体积排好，第一个是默认；分段在同一个版本里）。
  * 没有 `versions` 的旧服务退回到每个视频文件一个版本。
@@ -76,12 +95,14 @@ private fun versionsOf(json: JSONObject): List<LibraryVersion> {
             val v = versions.getJSONObject(it)
             val ids = v.getJSONArray("fileIds").let { a -> List(a.length()) { i -> a.getLong(i) } }
             val dvProfile = videos[ids.firstOrNull()]?.optJSONObject("video")?.optInt2("dvProfile")
-            LibraryVersion(ids, v.optInt2("height"), badge(v.optString2("range"), dvProfile), v.optLong("size"))
+            val probes = ids.mapNotNull { id -> videos[id]?.let(::fileProbe)?.let { id to it } }.toMap()
+            LibraryVersion(ids, v.optInt2("height"), badge(v.optString2("range"), dvProfile), v.optLong("size"), probes)
         }
     }
     return videos.map { (id, file) ->
         val video = file.optJSONObject("video")
-        LibraryVersion(listOf(id), null, badge(video?.optString2("range"), video?.optInt2("dvProfile")), file.optLong("size"))
+        val probes = fileProbe(file)?.let { mapOf(id to it) }.orEmpty()
+        LibraryVersion(listOf(id), null, badge(video?.optString2("range"), video?.optInt2("dvProfile")), file.optLong("size"), probes)
     }
 }
 

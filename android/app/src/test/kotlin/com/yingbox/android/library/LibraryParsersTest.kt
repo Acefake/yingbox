@@ -7,6 +7,19 @@ import org.junit.Assert.assertNull
 import org.junit.Test
 
 class LibraryParsersTest {
+    @Test fun `无效探测字段不伪造基础层兼容号`() {
+        val json = JSONObject("""{"id":1,"type":"movie","title":"影片","files":[
+          {"id":10,"kind":"video","size":1,"video":{"range":"dv","dvProfile":"8","dvCompat":1.5}},
+          {"id":11,"kind":"video","size":1,"video":{"range":"dv","dvProfile":8,"dvCompat":0}},
+          {"id":12,"kind":"video","size":1,"video":{"range":"other","dvProfile":8,"dvCompat":1}}
+        ]}""")
+        val versions = parseItem(json).versions
+        assertNull(versions[0].videoProbes[10L]?.dvProfile)
+        assertNull(versions[0].videoProbes[10L]?.dvCompat)
+        assertEquals(0, versions[1].videoProbes[11L]?.dvCompat)
+        assertEquals(emptyMap<Long, Any>(), versions[2].videoProbes)
+    }
+
     @Test fun `海报地址三种形态`() {
         assertEquals("/media/image/abc123?w=300", mediaImageUrl("yingbox-media://image/abc123", 300))
         assertEquals("/media/image/abc123?w=300", mediaImageUrl("yingbox-media://image/abc123?w=780", 300))
@@ -60,6 +73,9 @@ class LibraryParsersTest {
         assertEquals(listOf(listOf(71L), listOf(72L), listOf(73L, 74L)), item.versions.map { it.fileIds })
         assertEquals(listOf("杜比视界 P8", "HDR10", null), item.versions.map { it.badge })
         assertEquals(listOf(2160, 1080, null), item.versions.map { it.height })
+        assertEquals(1, item.versions[0].videoProbes[71L]?.dvCompat)
+        assertNull(item.versions[0].videoProbes[72L])
+        assertEquals(72L, item.versions[1].videoProbes[72L]?.fileId)
         assertEquals(emptyList<LibraryEpisode>(), item.episodes)
     }
 
