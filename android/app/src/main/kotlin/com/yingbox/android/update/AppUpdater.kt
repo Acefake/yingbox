@@ -55,16 +55,14 @@ class AppUpdater(private val context: Context, client: ServerClient) {
         error("更新下载重定向次数过多")
     }
 
-    /** 下载到私有缓存，校验大小与 SHA-256；取消或失败时删除未完成文件。 */
-    suspend fun download(update: ViewAppUpdate, onProgress: suspend (Float) -> Unit): File {
-        check(Regex("[0-9]+[.][0-9]+[.][0-9]+").matches(update.version)) { "更新版本格式错误" }
-        check(update.size > 0 && update.size <= 1024.0 * 1024 * 1024 && update.size % 1 == 0.0) { "更新包大小无效" }
-        check(Regex("[a-fA-F0-9]{64}").matches(update.sha256)) { "更新包缺少 SHA-256 校验信息" }
-        val dir = File(context.cacheDir, "updates").apply { check(isDirectory || mkdirs()) { "无法创建更新缓存" } }
-        dir.listFiles()?.filter { it.extension == "apk" || it.extension == "part" }?.forEach { it.delete() }
-        val target = File(dir, "yingbox-${update.version}.apk")
-        val partial = File(dir, "${target.name}.part")
-        val connection = openDownload(update.url)
+    private suspend fun downloadOne(
+        address: String,
+        update: ViewAppUpdate,
+        target: File,
+        partial: File,
+        onProgress: suspend (Float) -> Unit,
+    ): File {
+        val connection = openDownload(address)
         try {
             val digest = MessageDigest.getInstance("SHA-256")
             var received = 0L
@@ -96,8 +94,32 @@ class AppUpdater(private val context: Context, client: ServerClient) {
             return target
         } finally {
             connection.disconnect()
-            partial.delete()
+            if (partial.exists()) partial.delete()
         }
+    }
+
+    /** 下载到私有缓存，校验大小与 SHA-256；官方失败时经白名单镜像回退。 */
+    suspend fun download(update: ViewAppUpdate, onProgress: suspend (Float) -> Unit): File {
+        check(Regex("[0-9]+[.][0-9]+[.][0-9]+").matches(update.version)) { "更新版本格式错误" }
+        check(update.size > 0 && update.size <= 1024.0 * 1024 * 1024 && update.size % 1 == 0.0) { "更新包大小无效" }
+        check(Regex("[a-fA-F0-9]{64}").matches(update.sha256)) { "更新包缺少 SHA-256 校验信息" }
+        val dir = File(context.cacheDir, "updates").apply { check(isDirectory || mkdirs()) { "无法创建更新缓存" } }
+        dir.listFiles()?.filter { it.extension == "apk" || it.extension == "part" }?.forEach { it.delete() }
+        val target = File(dir, "yingbox-${update.version}.apk")
+        val partial = File(dir, "${target.name}.part")
+        val urls = ReleaseMirrors.githubAssetCandidates(update.url)
+        check(urls.isNotEmpty()) { "没有可用的更新地址" }
+        var lastError: Exception? = null
+        for (address in urls) {
+            try {
+                return downloadOne(address, update, target, partial, onProgress)
+            } catch (e: Exception) {
+                partial.delete()
+                lastError = e
+                if (!ReleaseMirrors.canRetryDownload(e)) break
+            }
+        }
+        throw lastError ?: error("下载更新失败")
     }
 
     /** 主线程调用；拒绝其他应用或不同版本的包，由系统校验签名并确认安装。 */
