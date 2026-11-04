@@ -41,7 +41,6 @@ export { mpvInfoRows, mpvResolutionText } from './playback-info/info-rules'
 /** 「已看完」集合（看完一集时记录，独立于进度表） */
 export { isWatched, markWatched, unmarkWatched } from './watched'
 export { syncHighQualityScaling } from './scaling/scaling-sync'
-export { syncEnhance } from './scaling/enhance-sync'
 /** 「继续播放」：各板块顶部的横排卡片与记录 */
 export { default as ContinueRow } from './continue/ContinueRow.vue'
 export {

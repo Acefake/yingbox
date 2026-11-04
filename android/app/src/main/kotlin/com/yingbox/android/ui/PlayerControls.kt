@@ -6,6 +6,7 @@ import android.content.ContextWrapper
 import android.media.AudioManager
 import android.provider.Settings
 import androidx.annotation.OptIn
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -23,6 +24,7 @@ import androidx.compose.foundation.layout.navigationBarsPadding
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.statusBarsPadding
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.widthIn
 import androidx.compose.foundation.layout.width
 import androidx.compose.foundation.shape.CircleShape
@@ -47,6 +49,8 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import com.yingbox.android.R
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.font.FontWeight
@@ -56,7 +60,6 @@ import androidx.compose.ui.unit.dp
 import androidx.media3.common.util.UnstableApi
 import com.yingbox.android.playback.engine.formatClock
 import com.yingbox.android.playback.engine.gestureDelta
-import com.yingbox.android.playback.engine.playbackBadges
 import com.yingbox.android.playback.engine.speedLabel
 import kotlinx.coroutines.delay
 import kotlin.math.roundToInt
@@ -66,6 +69,9 @@ private const val TICK_MS = 500L
 
 /** 底部玻璃面板的最大宽度（平板、电视上不撑满整行） */
 private val PANEL_MAX_WIDTH = 640.dp
+
+/** 右上角 FSR 标的宽度（高 24dp，按图片比例） */
+private val FSR_LOGO_WIDTH = 51.dp
 
 /** 长按时的倍速 */
 private const val BOOST_SPEED = 2f
@@ -92,7 +98,6 @@ internal fun PlayerControls(
     onPanelHeight: (Int) -> Unit = {},
 ) {
     val player = state.player
-    val badgeWidth = (LocalConfiguration.current.screenWidthDp * 0.52f).dp
     var position by remember { mutableLongStateOf(player.currentPosition) }
     // 时长未知（直播等）时是负数，显示成 --:--，进度条不可拖
     var duration by remember { mutableLongStateOf(player.duration) }
@@ -106,19 +111,17 @@ internal fun PlayerControls(
             delay(TICK_MS)
         }
     }
-    // 只订阅视频规格和音频格式：码率、丢帧每次更新都不该让控制层（含进度条）重组
-    val badges by remember(state) {
-        derivedStateOf { playbackBadges(state.stats.snapshot.video, state.stats.snapshot.audioMime) }
-    }
     Box(Modifier.fillMaxSize()) {
-        // 顶栏：返回圆钮、标题胶囊，右边是片源胶囊；全部是浮在画面上的玻璃，跟着控制层一起出现、隐藏
+        // 顶栏：返回圆钮、标题胶囊（玻璃，跟着控制层一起出现、隐藏）；右上角是没有背景的 AMD FSR 标
+        val fsrShown = state.enhanceLevel != com.yingbox.android.playback.engine.EnhanceLevel.Off &&
+            (state.enhanceComparing || state.enhanceStatus == "FSR")
         Row(
             Modifier
                 .align(Alignment.TopStart)
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .displayCutoutPadding()
-                .padding(horizontal = gutter(), vertical = YbSpace.S3),
+                .padding(start = gutter(), end = gutter() + FSR_LOGO_WIDTH + YbSpace.S4, top = YbSpace.S3, bottom = YbSpace.S3),
             horizontalArrangement = Arrangement.spacedBy(YbSpace.S3),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -135,14 +138,19 @@ internal fun PlayerControls(
                     .ybGlass(CircleShape, media = true)
                     .padding(horizontal = YbSpace.S4, vertical = YbSpace.S3),
             )
-            Spacer(Modifier.weight(1f))
-            if (state.enhanceLevel != com.yingbox.android.playback.engine.EnhanceLevel.Off) {
-                Row(Modifier.ybGlass(CircleShape, media = true).padding(YbSpace.S2), verticalAlignment = Alignment.CenterVertically) {
-                    Icon(PlayerIcons.Enhance, contentDescription = "画质增强", tint = YbColor.TextPrimary, modifier = Modifier.size(16.dp))
-                    Text(state.enhanceStatus, color = YbColor.TextSecondary, fontSize = YbText.Xs)
-                }
-            }
-            if (badges.isNotEmpty()) SpecCapsule(badges, Modifier.widthIn(max = badgeWidth))
+        }
+        if (fsrShown) {
+            Image(
+                painterResource(R.drawable.fsr_logo),
+                contentDescription = "AMD FSR",
+                modifier = Modifier
+                    .align(Alignment.TopEnd)
+                    .statusBarsPadding()
+                    .displayCutoutPadding()
+                    .padding(end = gutter(), top = YbSpace.S3 + 10.dp)
+                    .size(width = FSR_LOGO_WIDTH, height = 24.dp)
+                    .alpha(if (state.enhanceComparing) 0.4f else 1f),
+            )
         }
 
         // 底部悬浮玻璃面板：进度条与两端时间在上，音量以外的传输键、设置、全屏在下
@@ -211,6 +219,7 @@ internal fun PlayerControls(
             }
             val compact = LocalConfiguration.current.screenWidthDp < 600
             val options: @Composable () -> Unit = {
+                    if (state.enhanceStatus == "FSR") CompareButton(state, onActivity, onScrubbing)
                     TransportButton(PlayerIcons.Enhance, if (state.enhanceLevel == com.yingbox.android.playback.engine.EnhanceLevel.Off) "开启画质增强" else "关闭画质增强", size = 40.dp) { state.toggleEnhance(); onActivity() }
                     TransportButton(YbIcons.Settings, "播放设置", size = 40.dp) { openSettings() }
                     TransportButton(
@@ -225,6 +234,7 @@ internal fun PlayerControls(
             Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(if (compact) Modifier.width(40.dp) else Modifier.weight(1f), verticalAlignment = Alignment.CenterVertically) {
                     TransportButton(PlayerIcons.SkipPrevious, "上一集", enabled = onPrevious != null, size = 40.dp) { onPrevious?.invoke() }
+                    if (!compact) TransportButton(PlayerIcons.SkipNext, "下一集", enabled = onNext != null, size = 40.dp) { onNext?.invoke() }
                     if (state.speed != 1f) {
                         Text(speedLabel(state.speed), color = YbColor.TextSecondary, fontSize = YbText.Sm, modifier = Modifier.padding(start = YbSpace.S2))
                     }
@@ -243,7 +253,6 @@ internal fun PlayerControls(
                     TransportButton(PlayerIcons.Forward10, "快进 10 秒") { player.seekForward(); onActivity() }
                 }
                 if (!compact) Row(Modifier.weight(1f), horizontalArrangement = Arrangement.End, verticalAlignment = Alignment.CenterVertically) {
-                    TransportButton(PlayerIcons.SkipNext, "下一集", enabled = onNext != null, size = 40.dp) { onNext?.invoke() }
                     options()
                 }
                 if (compact) Spacer(Modifier.width(40.dp))

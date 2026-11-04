@@ -105,6 +105,8 @@ export async function serveFile(
         'Accept-Ranges': 'bytes',
         'Cache-Control': 'no-cache',
         'Last-Modified': stats.mtime.toUTCString(),
+        // 页面与 local:// 不同源；允许 WebGL 读取视频帧（画质增强）
+        'Access-Control-Allow-Origin': '*',
       })
       const requested = request.headers.get('Range')
       const range = requested ? parseRange(requested, stats.size) : null

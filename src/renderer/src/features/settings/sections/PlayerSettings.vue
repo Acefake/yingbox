@@ -1,25 +1,7 @@
 <template>
-  <SettingsGroup
-    title="画质增强"
-    footer="对低于屏幕分辨率的 SDR 片源做高质量放大与自适应锐化，纯算法实现；HDR、杜比视界保持原生路径。档位越高越锐，低端设备建议选「柔和」。"
-  >
-    <SettingsRow
-      title="增强档位"
-      description="桌面 mpv、内置播放器、网页与安卓共用"
-    >
-      <UiSegmented
-        v-model="enhanceLevel"
-        size="sm"
-        label="画质增强"
-        :options="enhanceOptions"
-      />
-    </SettingsRow>
-  </SettingsGroup>
-
   <!-- 网页端只有内置播放器：不显示引擎选择与 mpv 选项 -->
   <SettingsGroup
     v-if="isElectron"
-    joined
     title="播放引擎"
     footer="内置播放器解不了的文件（HEVC 画面、AC3 / EAC3 / DTS 音频等）会自动交给 mpv 播放。"
   >
@@ -164,12 +146,10 @@ import { computed, watch } from 'vue'
 import {
   mpvResolutionText as formatMpvResolution,
   mpvInfoRows,
-  syncEnhance,
   syncHighQualityScaling,
   syncRtxVsr,
   useMpvPlayer,
 } from '@/features/player'
-import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSelect from '@/components/ui/UiSelect.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import { usePlatform } from '@/composables/use-platform'
@@ -228,16 +208,6 @@ const mediaKeysHint = navigator.userAgent.includes('Mac')
 const highQualityScaling = useSetting('player.highQualityScaling')
 watch(highQualityScaling, () => {
   void syncHighQualityScaling().catch(() => {})
-})
-const enhanceLevel = useSetting('player.enhance')
-const enhanceOptions = [
-  { value: 'off', label: '关闭' },
-  { value: 'soft', label: '柔和' },
-  { value: 'standard', label: '标准' },
-  { value: 'strong', label: '强' },
-]
-watch(enhanceLevel, () => {
-  void syncEnhance().catch(() => {})
 })
 const rtxVsrEnabled = useSetting('player.rtxVsr')
 watch(rtxVsrEnabled, () => syncRtxVsr())
