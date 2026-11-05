@@ -1,5 +1,5 @@
 /**
- * 媒体库的「继续播放」记录从片库观看进度生成，并进播放器的继续播放列表（mergeContinue，后写胜出）。
+ * 媒体库的「继续播放」记录从片库观看进度生成，并进播放器的继续播放列表（replaceLibraryContinue，按作品替换）。
  *
  * 片库是进度的唯一来源：别的设备（经片库服务同步）看到哪儿，这里也接着哪儿；记录里的播放列表按本机路径重建。
  * 每部作品取最近的一条进度：
@@ -16,7 +16,6 @@ import { reachedWatched } from '../../../../../shared/library/watch-progress'
 import {
   type ContinueRecord,
   continueRecords,
-  mergeContinue,
   removeContinueWhere,
   replaceLibraryContinue,
 } from '@/features/player'
@@ -135,8 +134,9 @@ const LIBRARY_SECTIONS: ReadonlySet<ContinueSection> = new Set([
 ])
 
 /**
- * 清掉片库里已经不存在的作品的记录（移除媒体库、重扫后文件没了）。
- * 片库明确答「没有这个条目」才清；查询出错（引擎没起来、网络断）时留着。
+ * 清掉失效的片库记录：
+ * - 作品已经不存在（移除媒体库、重扫后文件没了）：片库明确答「没有这个条目」才清，查询出错（引擎没起来、网络断）时留着；
+ * - 分区记错：番号库的作品只属于 jav 分区（早先把番号记成电影的记录会串到电影页和首页），清掉后近期有进度的由 hydrateContinue 按正确分区补回。
  */
 export async function pruneMissingContinue(): Promise<void> {
   const bridge = libraryBridge()
@@ -144,11 +144,21 @@ export async function pruneMissingContinue(): Promise<void> {
   const candidates = continueRecords().value.filter(
     r => LIBRARY_SECTIONS.has(r.section) && /^\d+$/.test(r.key)
   )
+  if (!candidates.length) return
+  const javLibraries = await bridge
+    .listLibraries()
+    .then(list => new Set(list.filter(l => l.source === 'jav').map(l => l.id)))
+    .catch(() => null)
   const gone = new Set<string>()
   await Promise.all(
     candidates.map(async r => {
       const item = await bridge.getItem(Number(r.key)).catch(() => undefined)
       if (item === null) gone.add(r.id)
+      else if (item && javLibraries) {
+        // 番号库的作品只属于 jav 分区，其他库的作品不属于 jav
+        if (javLibraries.has(item.libraryId) !== (r.section === 'jav'))
+          gone.add(r.id)
+      }
     })
   )
   removeContinueWhere(r => gone.has(r.id))
@@ -187,14 +197,13 @@ export function hydrateContinue(): Promise<void> {
               : undefined
           )
         : null
-      if (node && sections.get(node.libraryId)?.source === 'jav') {
-        if (record) mergeContinue([record])
-      } else if (node)
-        replaceLibraryContinue(
-          p.rootId,
-          node.type === 'movie' ? 'movie' : 'tv',
-          record
-        )
+      if (!node) return
+      const jav = sections.get(node.libraryId)?.source === 'jav'
+      replaceLibraryContinue(
+        p.rootId,
+        jav ? 'jav' : node.type === 'movie' ? 'movie' : 'tv',
+        record
+      )
     })
   })()
     .catch(error => console.warn('[library-progress] 补继续播放失败', error))

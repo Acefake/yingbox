@@ -14,6 +14,7 @@ import type { AutoSubtitleSettings } from '../subtitles/auto-subtitles'
 
 /** 主进程为媒体库引擎实现的代办方法名。 */
 export const LIBRARY_HOST_METHODS = {
+  trashFiles: 'trashFiles',
   aiStatus: 'aiStatus',
   aiChatJson: 'aiChatJson',
   /** ffprobe 路径（主进程实现见 src/main/library/tools-host.ts）；没有时为空串 */

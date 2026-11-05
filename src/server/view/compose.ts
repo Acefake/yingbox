@@ -1,6 +1,6 @@
 /**
- * 首页里依赖播放记录的两块：轮播（Hero）与继续观看行。每次请求用最新的记录现拼，
- * 选片与文案规则与桌面首页相同（shared/playback/hero-rules.ts、continue-rules.ts）。
+ * 首页里依赖播放记录的继续观看行，与轮播（Hero，只放精选，继续观看不进轮播）。每次请求用最新的记录现拼，
+ * 选片规则与桌面首页相同（shared/playback/hero-rules.ts、continue-rules.ts）。
  */
 import type { DoubanItem } from '../../shared/douban/item'
 import type { DoubanKind } from '../../shared/douban/query'
@@ -15,13 +15,7 @@ import {
   recordsFor,
   subtitleOf,
 } from '../../shared/playback/continue-rules'
-import {
-  HOME_SECTIONS,
-  composeSlides,
-  pickResumeRecord,
-  resumeKicker,
-  resumePlayLabel,
-} from '../../shared/playback/hero-rules'
+import { HOME_SECTIONS, composeSlides } from '../../shared/playback/hero-rules'
 import type {
   HomeFeed,
   HomeView,
@@ -47,26 +41,6 @@ function continueCard(record: ContinueRecord, now: number): ViewContinue {
     image: coverOf(record),
     poster: null,
     progress: progressRatio(record),
-  }
-}
-
-function resumeSlide(record: ContinueRecord): ViewHeroSlide | null {
-  const image = coverOf(record)
-  if (!image) return null
-  return {
-    key: `continue:${record.id}`,
-    kind: 'resume',
-    kicker: resumeKicker(record),
-    title: record.title,
-    image,
-    imageIsPoster: false,
-    overview: '',
-    meta: '',
-    rating: '',
-    logo: null,
-    playLabel: resumePlayLabel(record),
-    continueId: record.id,
-    cardId: null,
   }
 }
 
@@ -164,13 +138,11 @@ export function composeHome(
   favorites: readonly DoubanItem[],
   now: number
 ): HomeView {
-  // 只从能做缩略图的记录里挑：选中了却放不出图，会把更早、有图的那条也挤掉
-  const resume = pickResumeRecord(records.filter(record => coverOf(record)))
   const featured = (feed.hotMovies?.items ?? [])
     .filter(card => card.backdrop || card.poster)
     .map(doubanSlide)
   return {
-    hero: composeSlides(resume ? resumeSlide(resume) : null, featured),
+    hero: composeSlides(featured),
     continueRow: recordsFor(records, HOME_SECTIONS).map(record =>
       continueCard(record, now)
     ),

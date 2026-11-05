@@ -6,10 +6,21 @@
  * 主进程不做媒体库计算。事件订阅：窗口发 library:subscribe 登记，主进程建通道，一端给引擎、
  * 一端经 library:port 推给窗口；引擎重启后自动给每个登记的窗口重新推一次端口。
  */
-import { MessageChannelMain, app, ipcMain, utilityProcess } from 'electron'
+import {
+  MessageChannelMain,
+  app,
+  ipcMain,
+  shell,
+  utilityProcess,
+} from 'electron'
 import { join } from 'node:path'
-import { LIBRARY_CHANNELS } from '../../shared/library/ipc'
+import {
+  LIBRARY_CHANNELS,
+  type TrashFileTarget,
+} from '../../shared/library/ipc'
 import type { ThumbnailService } from '../thumbnails'
+import { trashFiles } from './catalog/trash-video'
+import { LIBRARY_HOST_METHODS } from './engine/host-calls'
 import { libraryAiHost } from './ai-host'
 import { libraryToolsHost } from './tools-host'
 import { librarySubtitlesHost } from './subtitles-host'
@@ -68,6 +79,9 @@ export function registerLibraryIpc(
       ...libraryToolsHost(),
       ...librarySubtitlesHost(),
       ...hostMethods,
+      [LIBRARY_HOST_METHODS.trashFiles]: (
+        targets: ReadonlyArray<{ root: string; file: TrashFileTarget }>
+      ) => trashFiles(targets, path => shell.trashItem(path)),
     },
     fork: forkEngine,
     createChannel: () => new MessageChannelMain(),

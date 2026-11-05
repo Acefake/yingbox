@@ -1,7 +1,12 @@
 <template>
   <Teleport to="body">
     <Transition name="lib-sheet">
-      <div v-if="open" class="lib-sheet-backdrop" @click.self="emit('close')">
+      <div
+        v-if="open"
+        class="lib-sheet-backdrop"
+        :class="{ 'is-raised': raised }"
+        @click.self="emit('close')"
+      >
         <section
           ref="panel"
           class="lib-sheet"
@@ -46,6 +51,8 @@ const props = withDefaults(
     icon?: IconName
     size?: 'md' | 'lg'
     glass?: boolean
+    /** 从设置面板等更高层的浮层里打开时，抬到对话框层级之上 */
+    raised?: boolean
   }>(),
   { size: 'md' }
 )
@@ -75,6 +82,9 @@ watch(
   place-items: center;
   padding: var(--space-8);
   background: var(--overlay-scrim-soft);
+}
+.lib-sheet-backdrop.is-raised {
+  z-index: var(--z-dialog);
 }
 .lib-sheet {
   display: flex;

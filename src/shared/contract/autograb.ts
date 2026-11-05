@@ -276,6 +276,8 @@ export const autograb = defineDomain(
     revert: call<[key: string], AutograbResult>(a => [str(a[0], 'key')]),
     /** 跳过某一集（不再搜） */
     skip: call<[key: string], void>(a => [str(a[0], 'key')]),
+    /** 已转存但没入库的一集：再通知媒体库扫一次它的 115 路径（没有库接住时返回原因） */
+    rescan: call<[key: string], AutograbResult>(a => [str(a[0], 'key')]),
     /** 重新搜某一集（清掉拉黑以外的状态） */
     retry: call<[key: string], void>(a => [str(a[0], 'key')]),
     /** 设某个分类的默认文件夹；cid 为空串 = 清掉，回到剧集默认目录 */

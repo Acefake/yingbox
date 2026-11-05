@@ -25,6 +25,7 @@ import type {
   RefreshMetadataRequest,
   ScanAccepted,
   SetProviderTokenRequest,
+  TrashItemRequest,
   UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
 import { LibraryError } from '../../../shared/library/ipc'
@@ -34,6 +35,7 @@ import { type VisualModule, createVisualModule } from '../visual/visual-setup'
 import { KeyedMutex } from '../jobs/keyed-mutex'
 import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
+import { trashLibraryItem } from '../catalog/trash-library-item'
 import { reclassifyItem } from '../catalog/reclassify'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
@@ -307,8 +309,10 @@ export class LibraryService {
 
   /** 删除媒体库及其全部数据。 */
   async removeLibrary({ libraryId }: { libraryId: number }): Promise<void> {
-    this.watch.remove(libraryId)
-    transaction(this.db, () => this.libraries.remove(libraryId))
+    await this.locks.run(libraryId, async () => {
+      this.watch.remove(libraryId)
+      transaction(this.db, () => this.libraries.remove(libraryId))
+    })
     // 条目随库级联删除：先通知订阅方整体重拉（海报墙按媒体库 id 过滤事件，列表事件之后就收不到了）
     this.emit({
       type: 'items-changed',
@@ -319,6 +323,22 @@ export class LibraryService {
       reset: true,
     })
     this.emitLibraries()
+  }
+
+  /** 回收当前媒体及合并版本的本地文件。 */
+  async trashItem(request: TrashItemRequest): Promise<number> {
+    const trash = this.options.trashFiles
+    if (!trash) throw new LibraryError('conflict', '仅桌面端支持删除本地媒体')
+    return trashLibraryItem(request, {
+      db: this.db,
+      catalog: this.catalog,
+      query: this.catalogQuery,
+      locks: this.locks,
+      library: id => this.libraries.get(id),
+      isCloud: lib => this.watch.isCloud(lib),
+      trash,
+      emit: (id, changes) => this.emitItems(id, changes),
+    })
   }
 
   /** 手动扫描。 */

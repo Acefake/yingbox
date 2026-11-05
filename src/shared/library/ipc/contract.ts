@@ -34,7 +34,7 @@ import type {
   MatchCandidatesResult,
 } from './contract-match'
 import type { JavSettings, LibrarySource } from './contract-jav'
-import type { VideoProbe, VideoRange } from '../../video-range'
+import type { VideoRange } from '../../video-range'
 import type {
   JavCredentialProvider,
   ProviderStatus,
@@ -44,7 +44,9 @@ import type {
   AddLibraryRequest,
   ItemPreview,
   LibraryAutomation,
+  LibraryItemFile,
   LibraryNotifyRpcMap,
+  TrashItemRequest,
   UpdateLibraryRequest,
 } from './contract-library'
 import type {
@@ -86,9 +88,6 @@ export type TopLevelItemType = Extract<MediaItemType, 'movie' | 'series'>
  * - locked：用户手动确认 / 指定，之后的扫描和识别都不改动。
  */
 export type MatchState = 'auto' | 'review' | 'unmatched' | 'locked'
-
-/** 媒体库文件分类：视频，或旁挂的 nfo / 图片。 */
-export type LibraryFileKind = 'video' | 'nfo' | 'image'
 
 /** 一个已添加的媒体库。 */
 export interface LibraryInfo {
@@ -146,17 +145,6 @@ export interface LibraryItemSummary {
   updatedAt: number
   /** 视频动态范围（全部文件里最好的一档，见 shared/video-range）；没探测过或没有 ffprobe 时缺省。 */
   videoRange?: VideoRange | null
-}
-
-/** 条目关联的一个文件。 */
-export interface LibraryItemFile {
-  id: number
-  path: string
-  kind: LibraryFileKind
-  size: number
-  mtime: number
-  /** 视频文件的动态范围探测结果；没探测过 / 读不出时缺省。 */
-  video?: VideoProbe | null
 }
 
 /** 条目详情树中的一个节点：剧集 → 季 → 集，电影没有子节点；版本与合并信息见 contract-merge.ts。 */
@@ -257,6 +245,7 @@ export interface LibraryRpcMap
   updateLibrary: { params: UpdateLibraryRequest; result: LibraryInfo }
   scan: { params: ScanRequest; result: ScanAccepted }
   query: { params: LibraryQuery; result: LibraryQueryResult }
+  trashItem: { params: TrashItemRequest; result: number }
   getItem: { params: { itemId: number }; result: LibraryItemNode | null }
   getPreview: { params: { itemId: number }; result: ItemPreview | null }
   identify: { params: IdentifyRequest; result: JobAccepted }
@@ -307,6 +296,7 @@ export const LIBRARY_METHODS = [
   'scan',
   'query',
   'getItem',
+  'trashItem',
   'getPreview',
   'identify',
   'getMatchCandidates',
@@ -359,6 +349,8 @@ export interface LibraryBridge
   updateLibrary(request: UpdateLibraryRequest): Promise<LibraryInfo>
   scan(request: ScanRequest): Promise<ScanAccepted>
   query(query?: LibraryQuery): Promise<LibraryQueryResult>
+  /** 桌面端回收整条媒体的本地文件，返回移走的文件数。 */
+  trashItem?(request: TrashItemRequest): Promise<number>
   getItem(itemId: number): Promise<LibraryItemNode | null>
   /** 海报墙悬停预览：本地视频或已缓存图片；条目不存在为 null。 */
   getPreview(itemId: number): Promise<ItemPreview | null>

@@ -79,7 +79,7 @@ onDeactivated(() => {
   active.value = false
 })
 const browse = useBrowseRoute(computed(() => true))
-const originalHero = useHomeHero(openDouban, openContinue)
+const originalHero = useHomeHero(openDouban)
 const hero = {
   ...originalHero,
   slides: computed(() =>

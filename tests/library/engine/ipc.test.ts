@@ -1,4 +1,5 @@
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
+import { existsSync, renameSync, statSync, writeFileSync } from 'node:fs'
 import {
   DEFAULT_PAGE_SIZE,
   type InvokeResult,
@@ -10,6 +11,8 @@ import {
   libraryErrorCode,
   normalizeLibraryQuery,
 } from '../../../src/shared/library/ipc'
+import { trashFiles } from '../../../src/main/library/catalog/trash-video'
+import { itemTrashFiles } from '../../../src/main/library/catalog/item-trash-files'
 import { handleRpc } from '../../../src/main/library/engine/rpc'
 import { LibraryService } from '../../../src/main/library/engine/service'
 import {
@@ -67,9 +70,19 @@ describe('normalizeLibraryQuery', () => {
 describe('引擎 RPC 与 preload bridge', () => {
   let tree: ReturnType<typeof tempTree>
   let service: LibraryService
+  let failPath: string | undefined
   beforeEach(async () => {
     tree = tempTree()
-    service = new LibraryService({ dbPath: ':memory:', watch: false })
+    failPath = undefined
+    service = new LibraryService({
+      dbPath: ':memory:',
+      watch: false,
+      trashFiles: targets =>
+        trashFiles(targets, async path => {
+          if (path === failPath) throw new Error('系统回收站不可用')
+          renameSync(path, `${path}.trashed`)
+        }),
+    })
     await service.start()
   })
   afterEach(async () => {
@@ -111,6 +124,123 @@ describe('引擎 RPC 与 preload bridge', () => {
     }
   }
 
+  it('回收整条媒体及可归属旁挂，保留同目录的其他媒体和公共图片', async () => {
+    const target = tree.write('First (2020).mkv', 'target')
+    const subtitle = tree.write('First (2020).zh.srt', 'subtitle')
+    const nfo = tree.write('First (2020).nfo', 'nfo')
+    const neighbor = tree.write('Second (2021).mkv', 'neighbor')
+    const poster = tree.write('poster.jpg', 'shared')
+    const api = createLibraryBridge(fakeIpc())
+    await api.addLibrary({ root: tree.root, kind: 'movie' })
+    await service.queue.idle()
+    const first = (await api.query()).items.find(
+      item => item.title === 'First'
+    )!
+    const events: LibraryEvent[] = []
+    service.subscribe(event => events.push(event))
+
+    failPath = target
+    await expect(
+      api.trashItem!({
+        itemId: first.id,
+        addedAt: first.addedAt,
+        memberIds: [first.id],
+      })
+    ).rejects.toThrow('已移到回收站 2 个文件')
+    expect(existsSync(target)).toBe(true)
+    expect(existsSync(subtitle)).toBe(false)
+    expect(existsSync(nfo)).toBe(false)
+    expect(await api.getItem(first.id)).not.toBeNull()
+
+    failPath = undefined
+    expect(
+      await api.trashItem!({
+        itemId: first.id,
+        addedAt: first.addedAt,
+        memberIds: [first.id],
+      })
+    ).toBe(1)
+    expect(existsSync(target)).toBe(false)
+    expect(existsSync(neighbor)).toBe(true)
+    expect(existsSync(poster)).toBe(true)
+    expect(await api.getItem(first.id)).toBeNull()
+    expect(events).toContainEqual(
+      expect.objectContaining({
+        type: 'items-changed',
+        removed: [first.id],
+      })
+    )
+  })
+
+  it('视频在扫描后变化时，整批保持原样', async () => {
+    const path = tree.write('First (2020).mkv', 'original')
+    const subtitle = tree.write('First (2020).srt', 'subtitle')
+    const api = createLibraryBridge(fakeIpc())
+    await api.addLibrary({ root: tree.root, kind: 'movie' })
+    await service.queue.idle()
+    const [{ id, addedAt }] = (await api.query()).items
+
+    writeFileSync(path, 'replacement')
+    await expect(
+      api.trashItem!({ itemId: id, addedAt, memberIds: [id] })
+    ).rejects.toThrow('磁盘上的文件已变化')
+    expect(existsSync(path)).toBe(true)
+    expect(existsSync(subtitle)).toBe(true)
+    expect(await api.getItem(id)).not.toBeNull()
+  })
+
+  it('删除剧集的所有分集、专属剧集海报和季信息', async () => {
+    const paths = [
+      tree.write('Example (2020)/Season 01/Example.S01E01.mkv', 'episode 1'),
+      tree.write('Example (2020)/Season 02/Example.S02E01.mkv', 'episode 2'),
+      tree.write('Example (2020)/Season 01/season.nfo', 'season'),
+      tree.write('Example (2020)/poster.jpg', 'poster'),
+    ]
+    const api = createLibraryBridge(fakeIpc())
+    await api.addLibrary({ root: tree.root, kind: 'tv' })
+    await service.queue.idle()
+    const [{ id, addedAt }] = (await api.query()).items
+    expect(await api.trashItem!({ itemId: id, addedAt, memberIds: [id] })).toBe(
+      paths.length
+    )
+    expect(paths.some(existsSync)).toBe(false)
+    expect(await api.getItem(id)).toBeNull()
+  })
+
+  it('分类目录图片及同名不同扩展名视频的共享旁挂不进入回收范围', async () => {
+    const path = tree.write('SciFi/Example.mkv', 'selected')
+    tree.write('SciFi/Example.mp4', 'other version')
+    tree.write('SciFi/Example.srt', 'shared')
+    tree.write('SciFi/poster.jpg', 'category')
+    const { size, mtimeMs: mtime } = statSync(path)
+    const target = { path, size, mtime }
+    expect(
+      await itemTrashFiles(tree.root, [target], new Set(), ['Example'])
+    ).toEqual([target])
+  })
+
+  it('合并成员与确认范围不一致时保留所有版本', async () => {
+    const first = tree.write('A (2020).mkv', 'version one')
+    const second = tree.write('B (2020).mkv', 'version two')
+    const api = createLibraryBridge(fakeIpc())
+    await api.addLibrary({ root: tree.root, kind: 'movie' })
+    await service.queue.idle()
+    service.db.exec(
+      "UPDATE media_items SET tmdb_id = 101, match_state = 'locked' WHERE type = 'movie'"
+    )
+    const [{ id, addedAt }] = (await api.query()).items
+    const item = (await api.getItem(id))!
+    const memberIds = item.merge!.members.map(member => member.itemId)
+
+    await expect(
+      api.trashItem!({ itemId: id, addedAt, memberIds: [id] })
+    ).rejects.toThrow('条目或合并版本已变化')
+    expect([first, second].every(existsSync)).toBe(true)
+    expect(await api.trashItem!({ itemId: id, addedAt, memberIds })).toBe(2)
+    expect([first, second].some(existsSync)).toBe(false)
+    expect((await api.query()).total).toBe(0)
+  })
+
   it('白名单与契约方法一一对应', () => {
     const methods: Array<keyof LibraryRpcMap> = [
       'listLibraries',
@@ -122,6 +252,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'scan',
       'query',
       'getItem',
+      'trashItem',
       'getPreview',
       'identify',
       'getMatchCandidates',

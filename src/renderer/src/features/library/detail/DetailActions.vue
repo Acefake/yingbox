@@ -18,13 +18,14 @@
         @click="choose(item)"
       />
     </span>
+    <TrashItemButton :item="node" variant="glass" />
   </div>
 </template>
 
 <script setup lang="ts">
 /**
  * 详情的管理操作（放在 DetailHero 操作行下面）：一排 icon + 文字的玻璃次级按钮，
- * 修正匹配 / 锁定匹配（番号库不显示）/ 重新获取 / 写出 NFO / 整理…。可用条件：
+ * 修正匹配 / 锁定匹配（番号库不显示）/ 重新获取 / 写出 NFO / 整理 / 删除。可用条件：
  * 重新获取、锁定、写出 NFO 要已有匹配，写出 NFO 与整理要写出功能可用。
  * 不可用的按钮外面包一层 span 挂悬停说明（禁用的按钮本身收不到指针事件）；进行中的操作转圈。
  */
@@ -35,6 +36,7 @@ import type { IconName } from '@/components/ui/icons'
 import UiButton from '@/components/ui/UiButton.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 
+import TrashItemButton from '../shared/TrashItemButton.vue'
 import { WRITER_UNAVAILABLE } from '../writer/use-writer'
 
 type ActionKey = 'fix-match' | 'toggle-lock' | 'refresh' | 'write' | 'organize'
@@ -108,7 +110,7 @@ const items = computed<ActionItem[]>(() => {
     },
     {
       key: 'organize',
-      label: '整理…',
+      label: '整理',
       icon: 'folder',
       disabled: !props.writerAvailable,
       busy: false,

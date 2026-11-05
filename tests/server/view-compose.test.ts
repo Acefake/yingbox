@@ -41,20 +41,15 @@ const record = (over: Partial<ContinueRecord> = {}): ContinueRecord => ({
 })
 
 describe('首页的轮播与继续观看（ADR-0031）', () => {
-  it('有继续观看时轮播第一张是它，文案与桌面相同，后面接热门', () => {
+  it('继续观看不进轮播，轮播只有热门', () => {
     const home = composeHome(
       feed([card('1', '/b1'), card('2', null)]),
       [record()],
       [],
       60_000
     )
-    expect(home.hero.map(s => s.kind)).toEqual(['resume', 'douban', 'douban'])
-    expect(home.hero[0]).toMatchObject({
-      kicker: '在线 · 第 14 集 · 看到 40%',
-      playLabel: '继续播放 · 剩 15 分钟',
-      continueId: 'online:site:1',
-    })
-    expect(home.hero[2]).toMatchObject({
+    expect(home.hero.map(s => s.kind)).toEqual(['douban', 'douban'])
+    expect(home.hero[1]).toMatchObject({
       image: '/media/thumb?w=480&src=p2',
       imageIsPoster: true,
       meta: '2026 年 · 电影',
@@ -93,24 +88,6 @@ describe('首页的轮播与继续观看（ADR-0031）', () => {
     )
     expect(home.continueRow).toEqual([])
     expect(home.hero).toEqual([])
-  })
-
-  it('最新那条封面做不了缩略图时，轮播用更早、有图的那条', () => {
-    const home = composeHome(
-      feed([]),
-      [
-        record({
-          id: 'online:new',
-          key: 'new',
-          cover: 'data:image/png;base64,AA',
-          updatedAt: 2,
-        }),
-        record({ id: 'online:old', key: 'old', updatedAt: 1 }),
-      ],
-      [],
-      0
-    )
-    expect(home.hero[0]?.continueId).toBe('online:old')
   })
 })
 

@@ -2,7 +2,6 @@
   <LibraryFolderSettings section="movie">
     <template #remote>
       <WebDavGroup v-if="webdavAvailable" />
-      <Pan115LibraryGroup v-if="isWeb" />
     </template>
   </LibraryFolderSettings>
   <SettingsGroup v-if="showAi" title="识别">
@@ -21,7 +20,6 @@
  */
 import { SettingsGroup } from '@/features/settings'
 import { aiAvailable } from '@/features/ai'
-import { isWebRuntime } from '@/services/library-server'
 
 import { usesLibraryServer } from '../api/bridge'
 import AiScrapeSettingRow from '../ai-scrape/AiScrapeSettingRow.vue'
@@ -29,11 +27,9 @@ import WebDavGroup from '../webdav/WebDavGroup.vue'
 import { webdavApi } from '../webdav/webdav-api'
 import LibraryFolderSettings from './LibraryFolderSettings.vue'
 import LibraryNotifyGroup from './LibraryNotifyGroup.vue'
-import Pan115LibraryGroup from './Pan115LibraryGroup.vue'
 import ProgressSyncGroup from './ProgressSyncGroup.vue'
 import WriterSettingsGroups from './WriterSettingsGroups.vue'
 
-const isWeb = isWebRuntime()
 /** WebDAV / Alist 源在桌面端主进程里，网页端没有。 */
 const webdavAvailable = Boolean(webdavApi())
 const desktop = !usesLibraryServer()

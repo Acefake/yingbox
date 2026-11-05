@@ -20,6 +20,7 @@ import {
   type ContinueMeta,
   type ContinueRecord,
   type ContinueReplay,
+  type ContinueSection,
   type ContinueTombstones,
   type ProgressUpdate,
   addTombstone,
@@ -162,10 +163,20 @@ export function mergeContinue(incoming: readonly ContinueRecord[]): void {
   commit(mergeRecords(state().value, incoming, readTombstones()))
 }
 
-/** 按媒体库作品 ID 替换旧分区记录，保留用户手动移除的选择。 */
+/** 媒体库的三个记录分区：同一部作品只属于其中一个。 */
+const LIBRARY_RECORD_SECTIONS: readonly ContinueSection[] = [
+  'movie',
+  'tv',
+  'jav',
+]
+
+/**
+ * 按媒体库作品 ID 替换旧分区记录：这部作品在别的媒体库分区里的记录（改了类型、或早先被记错分区，
+ * 比如番号记成了电影）一并清掉，保留用户手动移除的选择。
+ */
 export function replaceLibraryContinue(
   rootId: number,
-  section: 'movie' | 'tv',
+  section: 'movie' | 'tv' | 'jav',
   record: ContinueRecord | null
 ): void {
   const key = String(rootId)
@@ -173,14 +184,13 @@ export function replaceLibraryContinue(
     r =>
       !(
         r.key === key &&
-        (r.section === 'movie' || r.section === 'tv') &&
+        LIBRARY_RECORD_SECTIONS.includes(r.section) &&
         r.section !== section
       )
   )
   const stones = readTombstones()
   const removedAt = Math.max(
-    stones[`movie:${key}`] ?? 0,
-    stones[`tv:${key}`] ?? 0
+    ...LIBRARY_RECORD_SECTIONS.map(name => stones[`${name}:${key}`] ?? 0)
   )
   const next = record && record.updatedAt > removedAt ? [record] : []
   commit(mergeRecords(retained, next, stones))

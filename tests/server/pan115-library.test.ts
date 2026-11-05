@@ -9,7 +9,7 @@ import {
   allEntries,
   createPan115Library,
   pan115Root,
-} from '../../src/server/netdisk/library'
+} from '../../src/main/pan115/library'
 
 const session = { cookie: 'UID=test', userId: '1', userName: '测试' }
 

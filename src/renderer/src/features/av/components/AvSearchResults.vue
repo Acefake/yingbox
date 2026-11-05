@@ -32,11 +32,14 @@
           shape="landscape"
           :title="group.vod_name"
           :cover="coverSrc(group.items[0])"
-          :subtitle="`${group.items.length} 个可用来源`"
+          :subtitle="`${group.items.length} 个来源`"
           :favorite="isFavorite(group.items[0])"
-          @open="emit('play', group.items[0])"
+          @open="emit('play', group.items)"
           @toggle-favorite="emit('toggle-favorite', group.items[0])"
         >
+          <template #actions>
+            <slot name="actions" :video="group.items[0]" />
+          </template>
           <template v-if="group.items[0].vod_remarks" #badges>
             <span class="ui-poster-badge">{{
               group.items[0].vod_remarks
@@ -73,6 +76,11 @@ import { coverSrc } from '../utils/av-media'
 import type { AvVideo } from '../utils/av-catalog'
 import type { MergedGroup } from '../utils/av-playback'
 
+defineSlots<{
+  /** 搜索结果海报的附加操作。 */
+  actions(props: { video: AvVideo }): unknown
+}>()
+
 defineProps<{
   loading: boolean
   hasSearched: boolean
@@ -87,7 +95,8 @@ defineProps<{
   isFavorite: (video: AvVideo) => boolean
 }>()
 const emit = defineEmits<{
-  (e: 'play' | 'toggle-favorite', video: AvVideo): void
+  (e: 'play', videos: AvVideo[]): void
+  (e: 'toggle-favorite', video: AvVideo): void
   (e: 'retry'): void
 }>()
 </script>

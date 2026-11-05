@@ -25,7 +25,7 @@ import { autograbApi } from './api'
 import { autograbStore } from './autograb-store'
 
 /** 对一集的操作 */
-export type EpisodeAction = 'grab' | 'revert' | 'skip' | 'retry'
+export type EpisodeAction = 'grab' | 'revert' | 'skip' | 'retry' | 'rescan'
 
 /** 追更面板状态与操作 */
 export interface AutograbPanelState {
@@ -47,6 +47,8 @@ export interface AutograbPanelState {
   revert(key: string): Promise<boolean>
   skip(key: string): Promise<void>
   retry(key: string): Promise<void>
+  /** 已转存没入库：重新通知媒体库扫描 */
+  rescan(key: string): Promise<boolean>
   runNow(): Promise<void>
   resume(): Promise<void>
 }
@@ -151,6 +153,10 @@ export function useAutograb(): AutograbPanelState {
         await api().skip(key)
         reloadSoon()
       }),
+    rescan: key =>
+      working(key, 'rescan', async () =>
+        report(await api().rescan(key), '已通知媒体库重新扫描，稍后刷新')
+      ),
     retry: key =>
       working(key, 'retry', async () => {
         await api().retry(key)

@@ -196,3 +196,50 @@ it('转存后 1 小时仍没入库：再通知一次并报错，写明 115 路�
   expect(record.error).toContain(`/剧集/繁花/${FILE_05}`)
   expect(notified).toHaveLength(2)
 })
+
+it('入库失败后手动重新入库：再通知一次、清掉报错、重新计时', async () => {
+  const { service, clock, notified } = setup([episode(5)])
+  await service.setSeries(7, { mode: 'confirm' })
+  await service.tick()
+  await service.grab('7:1:5', 0)
+  clock.t += 11 * 60_000
+  await service.tick()
+  clock.t += 60 * 60_000
+  await service.tick()
+  expect((await service.overview()).episodes[0].error).not.toBeNull()
+  const before = notified.length
+
+  expect(await service.rescan('7:1:5')).toEqual({ ok: true })
+
+  const record = (await service.overview()).episodes[0]
+  expect(record.error).toBeNull()
+  expect(record.status).toBe('saved')
+  expect(notified.length).toBe(before + 1)
+  expect(notified.at(-1)).toContain(`/剧集/繁花/${FILE_05}`)
+})
+
+it('重新入库没有媒体库接住时返回原因，保留原报错', async () => {
+  const h = setup([episode(5)])
+  await h.service.setSeries(7, { mode: 'confirm' })
+  await h.service.tick()
+  await h.service.grab('7:1:5', 0)
+  h.clock.t += 11 * 60_000
+  await h.service.tick()
+  h.clock.t += 60 * 60_000
+  await h.service.tick()
+  h.deps.notify = async () => ({ accepted: 0 })
+
+  const result = await h.service.rescan('7:1:5')
+
+  expect(result.ok).toBe(false)
+  expect(result.ok === false && result.error).toContain('没有媒体库接住')
+  expect((await h.service.overview()).episodes[0].error).not.toBeNull()
+})
+
+it('没转存的集不能重新入库', async () => {
+  const { service } = setup([episode(5)])
+  await service.setSeries(7, { mode: 'confirm' })
+  await service.tick()
+  const result = await service.rescan('7:1:5')
+  expect(result.ok).toBe(false)
+})

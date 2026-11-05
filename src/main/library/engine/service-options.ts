@@ -1,6 +1,10 @@
 /**
  * LibraryService 的构造参数。单独成文件：宿主（platform.ts）与测试只需要类型，不必读服务实现。
  */
+import type {
+  TrashFileTarget,
+  TrashFilesResult,
+} from '../../../shared/library/ipc'
 import type { IntakeOptions } from '../arrivals/intake'
 import type { IdentifyModuleOptions } from '../identify/identify-module'
 import type { RemoteClients } from '../scanner/scan-library'
@@ -35,6 +39,10 @@ export interface LibraryServiceOptions {
   fingerprint?: (path: string) => Promise<string | undefined>
   /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；不给时不探测。 */
   probeVideo?: (path: string) => Promise<VideoProbeOutcome>
+  /** 校验并批量回收本地文件。桌面宿主提供。 */
+  trashFiles?: (
+    targets: ReadonlyArray<{ root: string; file: TrashFileTarget }>
+  ) => Promise<TrashFilesResult>
   /** 写日志（告警、监听失败）。 */
   log?: (message: string) => void
   /** 远程源（WebDAV / Alist）的客户端，宿主提供；没有时远程媒体库扫描报错。 */

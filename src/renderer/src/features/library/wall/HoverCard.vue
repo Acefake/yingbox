@@ -45,6 +45,11 @@
               label="重新识别"
               @click="emit('identify', item.id)"
             />
+            <TrashItemButton
+              v-if="node?.id === item.id"
+              :item="node"
+              @request="emit('played')"
+            />
           </div>
           <template v-if="facts">
             <dl v-if="facts.rows.length" class="lib-hover-facts">
@@ -86,6 +91,7 @@ import UiButton from '@/components/ui/UiButton.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 
+import TrashItemButton from '../shared/TrashItemButton.vue'
 import { itemImage } from '../api/images'
 import { play, primaryPlayRequest } from '../detail/playback'
 import { hoverFactsOf } from './hover-card-rules'

@@ -15,10 +15,14 @@
  */
 import { type MessagePortMain, net } from 'electron'
 import { join } from 'node:path'
-import { LIBRARY_IMAGES_CACHED } from '../../../shared/library/ipc'
+import {
+  LIBRARY_IMAGES_CACHED,
+  type TrashFilesResult,
+} from '../../../shared/library/ipc'
 import { LIBRARY_ARRIVALS } from '../../../shared/library/arrivals'
 import type { FromUtility, ToUtility } from '../../../shared/utility/protocol'
 import {
+  LIBRARY_HOST_METHODS,
   hostAi,
   hostFfmpegPath,
   hostFfprobePath,
@@ -79,6 +83,10 @@ const service = createLibraryService({
   clipPixels: codecClipPixels(lazyCodec),
   env: envSecrets(process.env),
   ai: hostAi(host),
+  trashFiles: targets =>
+    host.call(LIBRARY_HOST_METHODS.trashFiles, [
+      targets,
+    ]) as Promise<TrashFilesResult>,
   // 视频动态范围：ffprobe 路径向主进程要（没有 ffmpeg 时为空串，探测任务直接结束）
   probeVideo: createVideoProber({ binary: hostFfprobePath(host) }),
   // 按画面搜抽视频帧：ffmpeg 路径同样向主进程要

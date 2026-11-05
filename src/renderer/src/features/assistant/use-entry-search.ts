@@ -116,6 +116,14 @@ export function useEntrySearch(options: {
   const online = useEntryOnline({
     text: () => query.value,
     enabled: () => onlineOn.value,
+    locals: () =>
+      localOn.value
+        ? search.best.value.map(hit => ({
+            title: hit.item.title,
+            originalTitle: hit.item.originalTitle,
+            year: hit.item.year,
+          }))
+        : [],
     leave: options.close,
   })
 

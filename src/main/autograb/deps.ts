@@ -29,7 +29,8 @@ export interface AutograbDeps {
   calendar(range: CalendarRequest): Promise<CalendarResult>
   /** 确认旧条目是否仍是媒体库里这部剧（条目 id 可能被别的条目复用，所以连剧名一起核对）；不可用或查询失败时不自动迁移。 */
   seriesExists?(seriesId: number, title: string): Promise<boolean>
-  notify(changes: FileChangeNotice[]): Promise<void>
+  /** 通知媒体库有新文件；返回被媒体库接住的条数（0 = 没有库覆盖这个路径），不关心结果的实现可以不返回 */
+  notify(changes: FileChangeNotice[]): Promise<{ accepted: number } | void>
   /** 这部剧在片库里的家（剧文件夹与季文件夹的本地路径）；没有为 null（ADR-0029） */
   seriesFolder(seriesId: number): Promise<SeriesFolder | null>
   /** 默认目录下给这部剧建的子文件夹名（整理模板第一段，如「繁花 (2023)」）；算不出为 null */
@@ -110,6 +111,8 @@ export interface AutograbService {
   revert(key: string): Promise<AutograbResult>
   skip(key: string): Promise<void>
   retry(key: string): Promise<void>
+  /** 已转存没入库：再通知媒体库扫一次它的 115 路径；没有库接住时返回原因 */
+  rescan(key: string): Promise<AutograbResult>
   resume(): Promise<void>
   /** 状态加载后的闸门：洗版、电影追踪的 115 请求也走它（同一队列、同一份限额与熔断） */
   gate(): Promise<Gate>

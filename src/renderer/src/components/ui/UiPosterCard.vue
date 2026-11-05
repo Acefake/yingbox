@@ -7,8 +7,8 @@
     role="button"
     :aria-label="title"
     @click="emit('open')"
-    @keydown.enter.prevent="emit('open')"
-    @keydown.space.prevent="emit('open')"
+    @keydown.enter.self.prevent="emit('open')"
+    @keydown.space.self.prevent="emit('open')"
   >
     <div class="ui-poster-media">
       <img

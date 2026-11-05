@@ -68,9 +68,12 @@
 }
 .lib-hover-actions {
   display: flex;
-  flex-wrap: wrap;
-  gap: var(--space-2);
+  gap: var(--space-1);
   padding: var(--space-1) 0;
+}
+.lib-hover-actions :deep(.ui-button.is-sm) {
+  gap: var(--space-1);
+  padding-inline: var(--space-2);
 }
 .lib-hover-facts {
   display: flex;

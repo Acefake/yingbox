@@ -36,9 +36,9 @@
       <UiButton
         size="sm"
         icon="plus"
-        label="添加文件夹…"
+        :label="isJav ? '添加文件夹…' : '添加来源…'"
         :disabled="!available"
-        @click="addFolder"
+        @click="isJav ? addFolder() : (sourcesOpen = true)"
       />
       <UiButton
         size="sm"
@@ -60,6 +60,14 @@
   />
 
   <slot name="remote" />
+
+  <LibrarySourceSheet
+    v-if="!isJav"
+    :open="sourcesOpen"
+    :section="section"
+    :add-local="pickFolder"
+    @close="sourcesOpen = false"
+  />
 
   <!-- 元数据源 -->
   <SettingsGroup :title="isJav ? '番号识别' : '元数据'">
@@ -115,6 +123,8 @@ import { useLibraries } from '../state/use-libraries'
 import ActorSourcesGroup from './ActorSourcesGroup.vue'
 import JavCredentialsGroup from './JavCredentialsGroup.vue'
 import JavSettingsGroup from './JavSettingsGroup.vue'
+import LibrarySourceSheet from '../sources/LibrarySourceSheet.vue'
+
 import LibraryAutomationGroup from './LibraryAutomationGroup.vue'
 import { folderDescription } from './settings-rules'
 
@@ -125,6 +135,8 @@ const props = defineProps<{
 const bridge = libraryBridge()
 // 来源在组件生命周期内不变
 const isJav = props.section === 'jav'
+/** 「添加来源」面板（普通片库）；番号库仍直接选文件夹 */
+const sourcesOpen = ref(false)
 const {
   available,
   libraries,

@@ -355,6 +355,18 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       await ensureLoaded()
       if (skipRecord(state.episodes[key])) dirty()
     },
+    async rescan(key: string): Promise<AutograbResult> {
+      await ensureLoaded()
+      const record = state.episodes[key]
+      if (!record) return { ok: false, error: '记录不存在' }
+      if (gateRef.paused())
+        return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
+      try {
+        return await saver.rescan(record)
+      } catch (error) {
+        return { ok: false, error: `重新入库失败：${(error as Error).message}` }
+      }
+    },
     async retry(key: string): Promise<void> {
       await ensureLoaded()
       if (!retryRecord(state.episodes[key], deps.now())) return

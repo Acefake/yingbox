@@ -203,7 +203,7 @@ async function load(resetView: boolean): Promise<void> {
   loading.value = true
   try {
     const item = await bridge.getItem(id)
-    if (id !== props.itemId) return
+    if (seq !== loadSeq) return
     node.value = item
     error.value = null
     // 观看标记与防剧透读片库进度（读失败不影响详情）
@@ -231,17 +231,16 @@ watch(
   { immediate: true }
 )
 
-// 识别 / 刷新元数据完成后，引擎推送 items-changed，详情跟着更新
+// 当前条目被移除时返回片库，其他合并成员变化时刷新详情。
 onLibraryEvent(event => {
+  if (event.type !== 'items-changed') return
+  if (event.removed.includes(props.itemId)) return emit('close')
+  const changed = event.updated.concat(event.removed)
   if (
-    event.type === 'items-changed' &&
-    (event.reset ||
-      event.updated.some(
-        id => id === props.itemId || memberIds.value.includes(id)
-      ))
-  ) {
+    event.reset ||
+    changed.some(id => id === props.itemId || memberIds.value.includes(id))
+  )
     void load(false)
-  }
 })
 
 const titleMeta = computed(() => titleMetaOf(node.value))

@@ -12,10 +12,11 @@ import {
   type LibraryAutomation,
   type LibraryStorage,
   type NotifyChangesRequest,
+  type TrashItemRequest,
   type UpdateLibraryRequest,
 } from './contract-library'
 import { LibraryError } from './wire'
-import { asRecord, oneOf, positiveId } from './validate-base'
+import { asRecord, oneOf, optionalInt, positiveId } from './validate-base'
 
 /** 解析条目分类纠正请求。 */
 export function parseReclassifyItem(input: unknown): {
@@ -139,4 +140,22 @@ export function parseUpdateLibrary(input: unknown): UpdateLibraryRequest {
     automation,
     ...(input.mixed === true ? { mixed: true } : {}),
   }
+}
+
+/** 媒体库管理与文件操作的参数解析表。 */
+export const LIBRARY_PARSERS = {
+  updateLibrary: parseUpdateLibrary,
+  reclassifyItem: parseReclassifyItem,
+  notifyChanges: parseNotifyChanges,
+  trashItem: (input: unknown): TrashItemRequest => {
+    const r = asRecord(input, 'trashItem 参数')
+    const addedAt = optionalInt(r.addedAt, 'addedAt', 0)
+    if (addedAt === undefined) return invalid('缺少条目入库时间')
+    if (!Array.isArray(r.memberIds) || !r.memberIds.length)
+      return invalid('缺少要删除的媒体版本')
+    const memberIds = [
+      ...new Set(r.memberIds.map(id => positiveId(id, 'memberIds'))),
+    ]
+    return { itemId: positiveId(r.itemId, 'itemId'), addedAt, memberIds }
+  },
 }

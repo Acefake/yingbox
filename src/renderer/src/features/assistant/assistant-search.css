@@ -20,6 +20,22 @@
   padding-top: var(--space-2);
   box-shadow: 0 -0.5px 0 var(--separator);
 }
+/* 面板里正在搜索：之前的对话收成一条淡出的摘要，把高度让给结果；清空输入后恢复 */
+.assistant[data-searching='true'][data-mode='panel'] .assistant-thread {
+  flex: none;
+  max-height: var(--space-9);
+  overflow: hidden;
+  opacity: 0.5;
+  pointer-events: none;
+}
+.assistant[data-searching='true'][data-mode='panel'] .assistant-search {
+  max-height: min(560px, 62vh);
+}
+/* 「更多相关」行：弱相关与非正片折叠在这一行后面 */
+.assistant-search .assistant-more {
+  color: var(--text-secondary);
+}
+
 /* 搜索时技能建议让位；空闲列里输入胶囊与结果块之间留同样的间距 */
 .assistant[data-searching='true'][data-mode='hero'] .assistant-composer {
   flex: 0 1 auto;

@@ -6,13 +6,16 @@
  */
 import {
   type ComputedRef,
+  type Ref,
   computed,
   nextTick,
   onScopeDispose,
+  ref,
   watch,
 } from 'vue'
 import { useRouter } from 'vue-router'
 
+import { type LocalTitle, normalizeTitle, rankOnline } from './result-rank'
 import {
   type CmsItem,
   requestOnlineDetail,
@@ -23,6 +26,10 @@ import {
 export const ONLINE_DELAY_MS = 450
 /** 最多显示几行在线结果 */
 export const ONLINE_LIMIT = 12
+/** 排序前先合并的候选行数（相关的结果可能排在各源返回的后面） */
+const ONLINE_POOL = 60
+/** 展开「更多相关」后最多再显示几行 */
+const MORE_LIMIT = 20
 
 /** 一行在线结果（同名同年的多个源合并） */
 export interface OnlineRow {
@@ -39,10 +46,6 @@ export interface OnlineRow {
   /** 打开详情用的那一条（第一个返回的源） */
   item: CmsItem
 }
-
-/** 片名归一：去空白与常见标点、转小写 */
-const normalize = (name: string): string =>
-  name.replace(/[\s·・:：\-—_()（）[\]【】]/g, '').toLowerCase()
 
 /** 备注去空白、去重后追加 */
 function addRemark(list: string[], remark: string | undefined): string[] {
@@ -64,7 +67,7 @@ export function groupOnline(
   for (const item of items) {
     const title = item.vod_name?.trim()
     if (!title) continue
-    const key = `${normalize(title)}|${item.vod_year ?? ''}`
+    const key = `${normalizeTitle(title)}|${item.vod_year ?? ''}`
     const row = rows.get(key)
     const source = item.source_name || item._siteName || ''
     if (row) {
@@ -90,7 +93,14 @@ export function groupOnline(
 }
 
 export interface EntryOnline {
+  /** 显示的行：相关度排序后的正片相关结果，展开「更多相关」后接上折叠的那些 */
   rows: ComputedRef<OnlineRow[]>
+  /** 折叠着的「更多相关」条数（已展开或没有为 0） */
+  hidden: ComputedRef<number>
+  /** 展开「更多相关」 */
+  expand(): void
+  /** 因与本地片库重复而去掉的条数 */
+  merged: ComputedRef<number>
   busy: ComputedRef<boolean>
   /** 当前查询的请求失败或源不可用提示 */
   message: ComputedRef<string>
@@ -100,11 +110,13 @@ export interface EntryOnline {
 /**
  * @param text 输入（去掉首尾空白）
  * @param enabled 范围包含在线且在搜索
+ * @param locals 本地片库已命中的作品（同名同年的在线结果不再重复列出）
  * @param leave 收起浮层
  */
 export function useEntryOnline(options: {
   text: () => string
   enabled: () => boolean
+  locals?: () => LocalTitle[]
   leave: () => void
 }): EntryOnline {
   const router = useRouter()
@@ -134,7 +146,24 @@ export function useEntryOnline(options: {
   /** 只显示与当前输入同一轮的结果 */
   const current = (): boolean =>
     options.enabled() && keyword.value === options.text()
-  const rows = computed(() => (current() ? groupOnline(results.value) : []))
+  /** 展开了「更多相关」（换关键词后收回去） */
+  const expanded: Ref<boolean> = ref(false)
+  watch(options.text, () => (expanded.value = false))
+  const ranked = computed(() =>
+    rankOnline(
+      current() ? groupOnline(results.value, ONLINE_POOL) : [],
+      options.text(),
+      options.locals?.() ?? []
+    )
+  )
+  const rows = computed(() => {
+    const main = ranked.value.main.slice(0, ONLINE_LIMIT)
+    return expanded.value
+      ? [...main, ...ranked.value.more.slice(0, MORE_LIMIT)]
+      : main
+  })
+  const hidden = computed(() => (expanded.value ? 0 : ranked.value.more.length))
+  const merged = computed(() => ranked.value.merged)
   const busy = computed(
     () =>
       options.enabled() && (loading.value || keyword.value !== options.text())
@@ -158,5 +187,13 @@ export function useEntryOnline(options: {
     })
   }
 
-  return { rows, busy, message, open }
+  return {
+    rows,
+    hidden,
+    merged,
+    expand: () => (expanded.value = true),
+    busy,
+    message,
+    open,
+  }
 }

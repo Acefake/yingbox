@@ -1,12 +1,17 @@
 // @vitest-environment jsdom
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
-import type { ContinueRecord } from '../../src/renderer/src/features/player/continue/continue-rules'
+import type { ContinueRecord } from '../../src/shared/playback/continue-rules'
 
 const getItem = vi.fn<(id: number) => Promise<unknown>>()
+/** 库 5 是番号库，库 1 是普通片库 */
+const listLibraries = async (): Promise<{ id: number; source: string }[]> => [
+  { id: 1, source: 'tmdb' },
+  { id: 5, source: 'jav' },
+]
 
 vi.mock('../../src/renderer/src/features/library/api/bridge', () => ({
-  libraryBridge: () => ({ getItem }),
+  libraryBridge: () => ({ getItem, listLibraries }),
   usesLibraryServer: () => false,
 }))
 vi.mock('../../src/renderer/src/features/player', async () => {
@@ -61,7 +66,9 @@ describe('继续播放：清掉片库里已不存在的作品', () => {
       record('online', 'src:9'),
       record('av', '4'),
     ])
-    getItem.mockImplementation(async id => (id === 2 ? { id } : null))
+    getItem.mockImplementation(async id =>
+      id === 2 ? { id, libraryId: 1 } : null
+    )
 
     await pruneMissingContinue()
 
@@ -83,5 +90,45 @@ describe('继续播放：清掉片库里已不存在的作品', () => {
     await pruneMissingContinue()
 
     expect(store.continueRecords().value.map(r => r.id)).toEqual(['movie:1'])
+  })
+
+  it('番号库的作品被记成电影的记录清掉（不再串到电影页和首页），记对的保留', async () => {
+    const store = await import('../../src/renderer/src/features/player')
+    // 「@/features/player」的 mock 在多个用例间共用同一份存储，先清空
+    store.removeContinueWhere(() => true)
+    const { pruneMissingContinue } =
+      await import('../../src/renderer/src/features/library/progress/continue-source')
+    store.mergeContinue([
+      record('movie', '6604'),
+      record('jav', '6604'),
+      record('movie', '7'),
+    ])
+    getItem.mockImplementation(async id => ({
+      id,
+      libraryId: id === 6604 ? 5 : 1,
+    }))
+
+    await pruneMissingContinue()
+
+    expect(
+      store
+        .continueRecords()
+        .value.map(r => r.id)
+        .sort()
+    ).toEqual(['jav:6604', 'movie:7'])
+  })
+
+  it('替换番号作品的记录时，清掉它在电影 / 剧集分区的旧记录', async () => {
+    const store = await import('../../src/renderer/src/features/player')
+    // 「@/features/player」的 mock 在多个用例间共用同一份存储，先清空
+    store.removeContinueWhere(() => true)
+    store.mergeContinue([record('movie', '6604'), record('tv', '6604')])
+
+    store.replaceLibraryContinue(6604, 'jav', {
+      ...record('jav', '6604'),
+      updatedAt: 2,
+    })
+
+    expect(store.continueRecords().value.map(r => r.id)).toEqual(['jav:6604'])
   })
 })

@@ -85,6 +85,16 @@
         @click="ag.retry(episode.key)"
       />
       <UiButton
+        v-if="episode.status === 'saved'"
+        class="ep-quiet"
+        size="sm"
+        variant="plain"
+        label="重新入库"
+        :loading="ag.busy.get(episode.key) === 'rescan'"
+        :disabled="busyGrab !== null"
+        @click="ag.rescan(episode.key)"
+      />
+      <UiButton
         v-if="episode.revertable"
         class="ep-quiet"
         size="sm"

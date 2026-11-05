@@ -95,6 +95,7 @@ export function createLibraryBridge(ipc: LibraryIpc): LibraryBridge {
     scan: request => call('scan', request),
     query: (query = {}) => call('query', query),
     getItem: itemId => call('getItem', { itemId }),
+    trashItem: request => call('trashItem', request),
     getPreview: itemId => call('getPreview', { itemId }),
     identify: request => call('identify', request),
     getMatchCandidates: itemId => call('getMatchCandidates', { itemId }),

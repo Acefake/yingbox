@@ -1,58 +1,34 @@
 /**
- * 首页 Hero 轮播的数据：有没看完的片子时第一张放它（「本地片库 · 看到 62%」，主按钮「继续播放 · 剩 48 分钟」），
- * 后面接精选来源：本地片库最近入库、有背景图的片子（「本地片库 · 新入库」），片库为空或没有片库时用豆瓣热门的前几部。
- * 选片与文案规则见 shared/playback/hero-rules.ts。
+ * 首页 Hero 轮播的数据：只放精选来源——本地片库最近入库、有背景图的片子（「本地片库 · 新入库」），
+ * 片库为空或没有片库时用豆瓣热门的前几部。继续观看不进轮播，它有自己的一排（ContinueRow）。
+ * 选片规则见 shared/playback/hero-rules.ts。
  *
  * 每页是同一个形状（HeroSlide）：背景图、缩略图、标志图或片名、简介、元信息、规格标签、评分，以及播放 / 打开详情 / 想看登记。
- * 片库那一份在首页挂载和每次回到首页时重取（新扫进来的片子随即出现）；继续观看那一张跟着继续观看记录变。
+ * 片库那一份在首页挂载和每次回到首页时重取（新扫进来的片子随即出现）。
  */
 import type { RatingMarks } from '@/components/ui/rating-badge'
-import {
-  type ComputedRef,
-  computed,
-  onActivated,
-  onMounted,
-  ref,
-  watch,
-} from 'vue'
+import { type ComputedRef, computed, onActivated, onMounted, ref } from 'vue'
 import { useRouter } from 'vue-router'
 
 import { toast } from '@/components/ui'
 import type { SpecBadge } from '@/components/ui/spec-badge'
 import {
   type LibraryHighlight,
-  libraryHighlight,
   libraryHighlights,
   libraryItemLocation,
   playLibraryItem,
-  resumeLibrary,
 } from '@/features/library'
-import {
-  type ContinueRecord,
-  continueRecords,
-  metaOf,
-  openMediaPlayer,
-  replayOptions,
-} from '@/features/player'
 import type { WatchlistMeta } from '@/features/watchlist'
-import { htmlToText } from '@/utils/html-text'
 
 import { formatRating } from '../../../../../shared/library/rating'
 
-import type { DoubanItem, OnlineDetailItem } from '../types'
+import type { DoubanItem } from '../types'
 import { doubanDetail } from '../utils/douban-detail'
 import {
   HERO_SLIDES,
   composeSlides,
-  libraryItemIdOf,
-  pickResumeRecord,
-  resumeKicker,
-  resumePlayLabel,
 } from '../../../../../shared/playback/hero-rules'
 import { useHotFeed } from './use-home-browse'
-
-/** 没有评分 */
-const NO_RATINGS: RatingMarks = { douban: null, tmdb: null }
 
 /** Hero 的一页 */
 export interface HeroSlide {
@@ -94,12 +70,8 @@ export interface HomeHero {
 
 /**
  * @param openDouban 打开豆瓣条目的详情（在线页的详情覆盖层）
- * @param openContinue 打开继续观看记录的详情（在线条目本页打开，片库条目去片库页）
  */
-export function useHomeHero(
-  openDouban: (item: DoubanItem) => void,
-  openContinue: (record: ContinueRecord) => void
-): HomeHero {
+export function useHomeHero(openDouban: (item: DoubanItem) => void): HomeHero {
   const router = useRouter()
   const feed = useHotFeed('movie')
   const library = ref<LibraryHighlight[] | null>(null)
@@ -109,64 +81,6 @@ export function useHomeHero(
   }
   onMounted(() => void reload())
   onActivated(() => void reload())
-
-  // —— 继续观看那一张：片库条目另取详情（标志图、简介、规格），取不到就用记录里的封面 ——
-  const records = continueRecords()
-  const resume = computed(() => pickResumeRecord(records.value))
-  const resumeInfo = ref<LibraryHighlight | null>(null)
-  watch(
-    () => (resume.value ? libraryItemIdOf(resume.value) : null),
-    async id => {
-      resumeInfo.value = null
-      if (id === null) return
-      const info = await libraryHighlight(id).catch(() => null)
-      if (resume.value && libraryItemIdOf(resume.value) === id)
-        resumeInfo.value = info
-    },
-    { immediate: true }
-  )
-
-  const fromResume = (record: ContinueRecord): HeroSlide | null => {
-    const info = resumeInfo.value
-    const art = info?.backdrop || record.cover || ''
-    if (!art) return null
-    const itemId = libraryItemIdOf(record)
-    const detail = record.detail as OnlineDetailItem | undefined
-    const online = record.section === 'online' ? detail : undefined
-    return {
-      // 与片库精选同一个键：同一部不在轮播里出现两次
-      key: itemId !== null ? `library:${itemId}` : `continue:${record.id}`,
-      kicker: resumeKicker(record),
-      title: info?.title || record.title,
-      logo: info?.logo ?? null,
-      art,
-      thumb: info?.thumb || record.cover || art,
-      overview:
-        info?.overview ||
-        htmlToText(online?.vod_content || online?.overview || ''),
-      meta:
-        info?.meta ??
-        [online?.vod_year, online?.type_name].filter((v): v is string =>
-          Boolean(v)
-        ),
-      specs: info?.specs ?? [],
-      rating: info?.rating ?? '',
-      ratings: info?.ratings ?? NO_RATINGS,
-      watchlist: info?.watchlist ?? null,
-      playLabel: resumePlayLabel(record),
-      play: async () => {
-        const ok =
-          libraryItemIdOf(record) !== null
-            ? await resumeLibrary(record, false)
-            : await openMediaPlayer({
-                ...replayOptions(record),
-                continueAs: metaOf(record),
-              })
-        if (!ok) toast.error('无法打开播放器')
-      },
-      open: () => openContinue(record),
-    }
-  }
 
   const fromLibrary = (item: LibraryHighlight): HeroSlide => {
     const open = (): void =>
@@ -233,12 +147,7 @@ export function useHomeHero(
       .slice(0, HERO_SLIDES)
       .map(fromDouban)
   })
-  const slides = computed<HeroSlide[]>(() =>
-    composeSlides(
-      resume.value ? fromResume(resume.value) : null,
-      featured.value
-    )
-  )
+  const slides = computed<HeroSlide[]>(() => composeSlides(featured.value))
   const loading = computed(
     () =>
       !slides.value.length &&

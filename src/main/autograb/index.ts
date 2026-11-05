@@ -12,6 +12,7 @@ import {
   type TrackOnlineResult,
   autograb,
 } from '../../shared/contract/autograb'
+import { isRemotePath } from '../../shared/webdav/remote-path'
 import {
   defaultFolder,
   readTargetSettings,
@@ -74,10 +75,21 @@ export function registerAutograb(
     },
     notify: async changes => {
       const root = mountRoot()
-      await library.call(
+      const result = await library.call(
         'notifyChanges',
         root ? { changes, mountRoot: root } : { changes }
       )
+      if (result.accepted > 0) return result
+      // 没有本地库覆盖这个路径：115 片库（yingbox-dav://pan115/…）靠增量扫描接住新文件
+      const remote = (await library.call('listLibraries', undefined)).filter(
+        lib => isRemotePath(lib.root)
+      )
+      await Promise.all(
+        remote.map(lib =>
+          library.call('scan', { libraryId: lib.id, full: false })
+        )
+      )
+      return { accepted: remote.length }
     },
     pan: {
       loggedIn: () => loggedIn,
@@ -163,6 +175,7 @@ export function registerAutograb(
     revert: (_, key) => service.revert(key),
     skip: (_, key) => service.skip(key),
     retry: (_, key) => service.retry(key),
+    rescan: (_, key) => service.rescan(key),
     runNow: async () => run(),
     resume: async () => {
       await service.resume()

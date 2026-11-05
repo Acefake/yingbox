@@ -41,6 +41,8 @@ export interface LibraryPlatform {
   clipPixels?: (bytes: Uint8Array) => Promise<Uint8Array>
   /** 大模型调用口（AI 识别兜底）：桌面端经主进程 aiService 代办；独立服务没有。 */
   ai?: IdentifyModuleOptions['ai']
+  /** 系统回收站操作，桌面端经主进程代办。 */
+  trashFiles?: LibraryServiceOptions['trashFiles']
   /** 远程源（WebDAV / Alist）客户端；桌面端向主进程要凭据后建，独立服务不提供。 */
   remote?: RemoteClients
   /** 视频动态范围探测（ffprobe，见 scanner/video-probe.ts）；桌面端向主进程要路径，独立服务读环境变量 / PATH。 */
@@ -88,6 +90,7 @@ export function createLibraryService(
     ...extra,
     dbPath: platform.dbPath,
     log: platform.log,
+    trashFiles: platform.trashFiles ?? extra.trashFiles,
     remote: platform.remote ?? extra.remote,
     probeVideo: platform.probeVideo ?? extra.probeVideo,
     intake: platform.intake ?? extra.intake,

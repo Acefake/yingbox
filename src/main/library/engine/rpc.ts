@@ -23,6 +23,12 @@ import type { LibraryService } from './service'
 
 /** 每个服务一份合并展示（详情合并、版本、拆分），事件经服务推送。 */
 const merges = new WeakMap<LibraryService, MergeModule>()
+const trashing = new WeakSet<LibraryService>()
+
+function requireStableMerge(service: LibraryService): void {
+  if (trashing.has(service))
+    throw new LibraryError('conflict', '正在删除媒体，请稍后再试')
+}
 
 /** 服务的合并模块（第一次用时创建）。 */
 export function mergeFor(s: LibraryService): MergeModule {
@@ -141,8 +147,23 @@ const HANDLERS: Handlers = {
   'progress.export': (s, p) => progressFor(s).export(p.since),
   'progress.import': (s, p) =>
     progressFor(s).import(p.entries, p.preferIncoming),
-  'merge.split': (s, p) => mergeFor(s).split(p),
-  'merge.join': (s, p) => mergeFor(s).join(p),
+  'merge.split': (s, p) => {
+    requireStableMerge(s)
+    return mergeFor(s).split(p)
+  },
+  'merge.join': (s, p) => {
+    requireStableMerge(s)
+    return mergeFor(s).join(p)
+  },
+  trashItem: async (s, p) => {
+    requireStableMerge(s)
+    trashing.add(s)
+    try {
+      return await s.trashItem(p)
+    } finally {
+      trashing.delete(s)
+    }
+  },
   getItem: (s, p) => mergeFor(s).getItem(p.itemId),
   getPreview: (s, p) => previewsFor(s).get(p.itemId),
   identify: (s, p) => (p.ai ? s.identifier.aiIdentify(p) : s.identify(p)),

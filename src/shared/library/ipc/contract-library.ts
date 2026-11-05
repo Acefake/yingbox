@@ -4,6 +4,7 @@
  * 库级自动化使用四个独立开关，形状与默认值是这里唯一的定义。添加 / 修改媒体库的请求也在这里。
  * 只有类型和常量，由 contract.ts 统一再导出。
  */
+import type { VideoProbe } from '../../video-range'
 import type { LibraryKind } from './contract'
 import type { LibrarySource } from './contract-jav'
 
@@ -151,4 +152,34 @@ export interface ItemPreview {
   video: { fileId: number; path: string } | null
   /** 已缓存的图片（yingbox-media://image/<key>，背景图与季 / 集图），不含海报，最多 8 张 */
   images: string[]
+}
+
+/** 媒体库文件分类：视频，或旁挂的 nfo / 图片。 */
+export type LibraryFileKind = 'video' | 'nfo' | 'image'
+
+/** 条目关联的一个文件。 */
+export interface LibraryItemFile {
+  id: number
+  path: string
+  kind: LibraryFileKind
+  size: number
+  mtime: number
+  /** 视频文件的动态范围探测结果；没探测过 / 读不出时缺省。 */
+  video?: VideoProbe | null
+}
+
+/** 用入库时间核对确认框指向的条目，避免过期 ID 指向另一条媒体。 */
+export interface TrashItemRequest {
+  itemId: number
+  addedAt: number
+  memberIds: number[]
+}
+
+/** 系统回收前核对的本地文件快照。 */
+export type TrashFileTarget = Pick<LibraryItemFile, 'path' | 'size' | 'mtime'>
+
+/** 系统批量回收结果。失败时 moved 是已成功移走的前缀长度。 */
+export interface TrashFilesResult {
+  moved: number
+  error?: string
 }

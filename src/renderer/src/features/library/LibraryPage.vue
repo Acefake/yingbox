@@ -55,12 +55,10 @@
         :title="noFolder.title"
         :text="noFolder.text"
       >
-        <UiButton
-          variant="primary"
-          size="lg"
-          icon="plus"
-          label="添加文件夹…"
-          @click="addFolder"
+        <AddSourceButton
+          :section="section"
+          :add-folder="addFolder"
+          :add-local="pickFolder"
         />
       </LibraryEmpty>
 
@@ -182,7 +180,6 @@
 import { toast } from '@/components/ui'
 import { computed, reactive, ref, watch } from 'vue'
 import type { LibraryItemSummary } from '../../../../shared/library/ipc'
-import UiButton from '@/components/ui/UiButton.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import { libraryServerState } from '@/services/library-server'
 import { watchlistEntries } from '@/features/watchlist'
@@ -193,6 +190,7 @@ import { ambientPosterOf, ambientVars } from './ambient/ambient-rules'
 import ActorsView from './actors/ActorsView.vue'
 import ItemDetail from './detail/ItemDetail.vue'
 import ActivityBar from './page/ActivityBar.vue'
+import AddSourceButton from './sources/AddSourceButton.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
 import LibraryTopRows from './page/LibraryTopRows.vue'
 import LibraryToolbar from './page/LibraryToolbar.vue'

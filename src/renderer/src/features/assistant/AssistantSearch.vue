@@ -62,8 +62,8 @@
             </template>
           </UiListRow>
         </template>
-        <template v-if="online.rows.value.length" #after>
-          <h3>在线影视源</h3>
+        <template v-if="online.rows.value.length || online.hidden.value" #after>
+          <h3>在线影视源 · {{ online.rows.value.length }}</h3>
           <UiMediaRow
             v-for="(row, index) in online.rows.value"
             :id="`search-hit-${localCount + index}`"
@@ -79,6 +79,17 @@
             v-bind="onlineRowView(row)"
             @open="online.open(row)"
           />
+          <UiListRow
+            v-if="online.hidden.value"
+            class="assistant-more"
+            @click="online.expand"
+          >
+            <template #leading
+              ><UiIcon name="chevronDown" size="sm"
+            /></template>
+            更多相关 {{ online.hidden.value }} 条
+            <template #description>弱相关、解说与混剪等</template>
+          </UiListRow>
         </template>
       </SearchMatches>
     </div>
@@ -169,6 +180,8 @@ const note = computed(() => {
   if (onlineMessage) parts.push(onlineMessage)
   if (local.value && search.value.thinking.value) parts.push('AI 正在理解…')
   if (online.value.busy.value) parts.push('在线源搜索中…')
+  if (online.value.merged.value)
+    parts.push(`已合并 ${online.value.merged.value} 个与片库重复的在线结果`)
   const visual = local.value ? search.value.visualNotice.value : ''
   if (visual) parts.push(visual)
   const pending =

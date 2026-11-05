@@ -11,10 +11,15 @@ import {
   type DavFetch,
   createDavClient,
 } from '../../../shared/webdav/client'
+import type { DavEntry } from '../../../shared/webdav/propfind'
 import type { RemoteClients } from '../scanner/scan-library'
 
 /** 主进程上的代办方法名。 */
 export const WEBDAV_ACCESS_METHOD = 'webdavAccess'
+/** 115 目录列表的代办方法名（115 登录态只在主进程）。 */
+export const PAN115_PROPFIND_METHOD = 'pan115Propfind'
+/** 115 片库的专用源 id（同 src/main/pan115/library.ts 的 PAN115_SOURCE；引擎不能引入那边的模块）。 */
+const PAN115_SOURCE_ID = 'pan115'
 
 /** 子进程这一侧的代办调用：发 host 消息，等对应 id 的 reply。 */
 export interface HostCaller {
@@ -58,6 +63,16 @@ export function hostRemoteClients(
   fetch: DavFetch
 ): RemoteClients {
   return async sourceId => {
+    if (sourceId === PAN115_SOURCE_ID)
+      return {
+        propfind: async (path, depth, signal) => {
+          signal?.throwIfAborted()
+          return (await host.call(PAN115_PROPFIND_METHOD, [
+            path,
+            depth,
+          ])) as DavEntry[]
+        },
+      }
     const access = (await host.call(WEBDAV_ACCESS_METHOD, [
       sourceId,
     ])) as DavAccess | null

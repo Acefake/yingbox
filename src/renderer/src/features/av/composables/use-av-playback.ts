@@ -6,9 +6,9 @@ import { toast } from '@/components/ui'
 import { type Ref, ref } from 'vue'
 import { type RemovableRef, useStorage } from '@vueuse/core'
 import { isIncognito } from '@/features/incognito'
-import { useOnlineSearch } from '@/features/online'
+import { type Episode, useOnlineSearch } from '@/features/online'
 import type { ContinueRecord } from '@/features/player'
-import type { PluginExt } from '../../../../../shared/online/vod-data'
+import { parseCatSpiderGroups } from '../../../../../shared/online/vod-payload'
 import {
   getMediaProgress,
   openMediaPlayer,
@@ -39,6 +39,8 @@ export interface UseAvPlaybackReturn {
   playingVideo: Ref<PlayingVideo | null>
   playingUrl: Ref<string>
   playVideo: (video: AvVideo) => Promise<void>
+  /** 按搜索结果中的来源顺序尝试解析线路。 */
+  playSources: (videos: readonly AvVideo[]) => Promise<void>
   resumeHistory: (record: AvPlayRecord, resumeAt?: number) => Promise<void>
   /** 「继续播放」卡片：按记录里的条目重新解析再播 */
   resumeContinue: (
@@ -54,20 +56,14 @@ export function useAvPlayback(): UseAvPlaybackReturn {
   const playHistory = useStorage<AvPlayRecord[]>('av_play_history', [])
   const playingVideo = ref<PlayingVideo | null>(null)
   const playingUrl = ref('')
+  let playRequest = 0
 
-  /** 开播：插件线路先解析成真实地址，记历史，然后打开播放弹窗（或 mpv）。 */
+  /** 用已解析的地址开播，并记录播放历史。 */
   const startPlay = async (
-    url: string,
+    playUrl: string,
     epName = '',
-    ext?: PluginExt,
-    siteName?: string,
     resumeAt?: number
   ): Promise<void> => {
-    let playUrl = url
-    if (needsPluginResolve(url, siteName)) {
-      const resolved = await resolvePlayUrl(siteName!, { ...(ext || {}), url })
-      if (resolved) playUrl = resolved
-    }
     playingUrl.value = playUrl
     // 无痕模式不记播放历史
     if (playingVideo.value && !isIncognito())
@@ -101,8 +97,7 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     if (!ok) toast.error('无法打开播放器，请完全重启应用后再试')
   }
 
-  /** 插件源：先用 getTracks 取回线路，再由 startPlay 解析成可播放地址。 */
-  const playPluginVideo = async (video: AvVideo): Promise<void> => {
+  const loadPluginEpisodes = async (video: AvVideo): Promise<Episode[]> => {
     const groups = await fetchDetail({
       vod_id: video.vod_id,
       vod_name: video.vod_name || '',
@@ -114,37 +109,64 @@ export function useAvPlayback(): UseAvPlaybackReturn {
       _siteName: video._siteName,
       _ext: video._ext,
     }).catch(() => [])
-    const episodes = (groups || [])
+    return groups
       .flatMap(group => group.episodes || [])
       .filter(episode => episode?.url)
-    if (!episodes.length) {
-      toast.error('没有可用的播放线路')
-      return
-    }
-    playingVideo.value = { ...video, episodes }
-    const [first] = episodes
-    await startPlay(first.url, first.name, first.ext, video._siteName)
   }
 
-  const playVideo = async (video: AvVideo): Promise<void> => {
-    if (video._isPlugin) return playPluginVideo(video)
-    if (!video.vod_play_url) return
-    const episodes = parseCmsEpisodes(video)
-    if (episodes.length === 0) return
-    playingVideo.value = { ...video, episodes }
-    await startPlay(episodes[0].url, episodes[0].name)
+  const tryEpisodes = async (
+    video: AvVideo,
+    episodes: Episode[],
+    request: number
+  ): Promise<boolean> => {
+    for (const episode of episodes) {
+      if (request !== playRequest) return false
+      const siteName = video._siteName
+      const url =
+        siteName && needsPluginResolve(episode.url, siteName)
+          ? await resolvePlayUrl(siteName, { ...episode.ext, url: episode.url })
+          : episode.url
+      if (request !== playRequest) return false
+      if (!/^https?:\/\//i.test(url)) continue
+      playingVideo.value = { ...video, episodes }
+      await startPlay(url, episode.name)
+      return true
+    }
+    return false
   }
+
+  const playSources = async (videos: readonly AvVideo[]): Promise<void> => {
+    const request = ++playRequest
+    for (const video of videos) {
+      if (request !== playRequest) return
+      if (!video._isPlugin) {
+        if (await tryEpisodes(video, parseCmsEpisodes(video), request)) return
+        continue
+      }
+      const inline = parseCatSpiderGroups([video], video._source).flatMap(
+        group => group.episodes
+      )
+      if (await tryEpisodes(video, inline, request)) return
+      if (request !== playRequest) return
+      if (await tryEpisodes(video, await loadPluginEpisodes(video), request))
+        return
+    }
+    if (request === playRequest) toast.error('没有可用的播放线路')
+  }
+
+  const playVideo = (video: AvVideo): Promise<void> => playSources([video])
 
   const resumeHistory = async (
     record: AvPlayRecord,
     resumeAt?: number
   ): Promise<void> => {
+    ++playRequest
     const video = record.video
     const episodes = video.episodes?.length
       ? video.episodes
       : parseCmsEpisodes(video)
     playingVideo.value = { ...video, episodes }
-    await startPlay(record.url, record.epName, undefined, undefined, resumeAt)
+    await startPlay(record.url, record.epName, resumeAt)
   }
 
   const resumeContinue = async (
@@ -171,6 +193,7 @@ export function useAvPlayback(): UseAvPlaybackReturn {
   }
 
   const closePlayer = (): void => {
+    ++playRequest
     playingVideo.value = null
     playingUrl.value = ''
     stopPlayer()
@@ -188,6 +211,7 @@ export function useAvPlayback(): UseAvPlaybackReturn {
     playingVideo,
     playingUrl,
     playVideo,
+    playSources,
     resumeHistory,
     resumeContinue,
     closePlayer,

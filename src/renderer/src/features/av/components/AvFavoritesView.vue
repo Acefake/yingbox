@@ -33,7 +33,11 @@
           :favorite="true"
           @open="emit('play', fav)"
           @toggle-favorite="emit('toggle-favorite', fav)"
-        />
+        >
+          <template #actions>
+            <slot name="actions" :video="fav" />
+          </template>
+        </UiPosterCard>
       </template>
     </UiVirtualGrid>
     <StatusState
@@ -59,6 +63,10 @@ import { coverSrc } from '../utils/av-media'
 import StatusState from '@/components/StatusState.vue'
 
 defineProps<{ favorites: AvVideo[] }>()
+defineSlots<{
+  /** 收藏卡片的其他列表操作。 */
+  actions(props: { video: AvVideo }): unknown
+}>()
 
 const emit = defineEmits<{
   play: [video: AvVideo]

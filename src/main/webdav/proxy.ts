@@ -38,6 +38,7 @@ import {
   encodeRemotePath,
   parseRemoteMediaUrl,
   parseRemotePath,
+  remotePath,
 } from '../../shared/webdav/remote-path'
 
 /** 按扩展名猜的视频类型（上游给 application/octet-stream 时用）。 */
@@ -61,15 +62,42 @@ interface ProxyRequest {
   signal?: AbortSignal
 }
 
+/** 专用源（如 115）：不走 WebDAV，由它自己换直链并转发；path 是库里登记的完整远程路径。 */
+export interface SpecialSource {
+  id: string
+  stream(path: string, request: Request): Promise<Response>
+}
+
+/** 专用源的播放请求：只带方法、Range 和取消信号。 */
+function specialRequest(request: ProxyRequest): Request {
+  const range = request.header('range')
+  return new Request('http://127.0.0.1/', {
+    method: request.method,
+    headers: range ? { range } : {},
+    signal: request.signal,
+  })
+}
+
 /** 把一次播放请求转发到远程源，返回给播放器的响应。 */
 export async function forwardRemote(
   request: ProxyRequest,
   target: { sourceId: string; path: string },
   lookup: AccessLookup,
-  fetch: DavFetch
+  fetch: DavFetch,
+  special?: SpecialSource
 ): Promise<Response> {
   if (!PROXY_METHODS.has(request.method))
     return new Response(null, { status: 405 })
+  if (special && target.sourceId === special.id) {
+    try {
+      return await special.stream(
+        remotePath(special.id, target.path),
+        specialRequest(request)
+      )
+    } catch {
+      return new Response(null, { status: 502 })
+    }
+  }
   const access = await lookup(target.sourceId)
   if (!access) return new Response(null, { status: 404 })
   let upstream: Response
@@ -103,7 +131,8 @@ export async function forwardRemote(
 /** yingbox-dav 协议处理器（内置播放器）。 */
 export function createRemoteMediaHandler(
   lookup: AccessLookup,
-  fetch: DavFetch
+  fetch: DavFetch,
+  special?: SpecialSource
 ): (request: Request) => Promise<Response> {
   return async request => {
     const target = parseRemoteMediaUrl(request.url)
@@ -116,7 +145,8 @@ export function createRemoteMediaHandler(
       },
       target,
       lookup,
-      fetch
+      fetch,
+      special
     )
   }
 }
@@ -147,7 +177,8 @@ export function parseProxyPath(
 /** 建 mpv 代理（按需监听 127.0.0.1 的随机端口）。 */
 export function createMpvProxy(
   lookup: AccessLookup,
-  fetch: DavFetch
+  fetch: DavFetch,
+  special?: SpecialSource
 ): MpvProxy {
   const token = randomBytes(16).toString('hex')
   let server: Server | null = null
@@ -176,7 +207,8 @@ export function createMpvProxy(
       },
       target,
       lookup,
-      fetch
+      fetch,
+      special
     )
     res.writeHead(response.status, Object.fromEntries(response.headers))
     if (!response.body) {

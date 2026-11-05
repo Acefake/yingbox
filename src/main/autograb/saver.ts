@@ -64,6 +64,7 @@ export function createSaver(ctx: SaverContext): {
     byUser: boolean
   ): Promise<AutograbResult>
   followSaved(record: EpisodeRecord, now: number): Promise<void>
+  rescan(record: EpisodeRecord): Promise<AutograbResult>
 } {
   /** 转存一个候选；byUser 时算一次确认 */
   async function grab(
@@ -222,5 +223,23 @@ export function createSaver(ctx: SaverContext): {
     }
   }
 
-  return { grab, followSaved }
+  /** 手动重新入库：再通知一次媒体库扫这个 115 路径；没有媒体库接住就把路径告诉用户 */
+  async function rescan(record: EpisodeRecord): Promise<AutograbResult> {
+    if (record.status !== 'saved' || !record.savedCid)
+      return { ok: false, error: '这一集还没有转存，没有可入库的文件' }
+    const path = await savedPath(record)
+    const result = await ctx.deps.notify([{ action: 'create', path }])
+    if (result && result.accepted === 0)
+      return {
+        ok: false,
+        error: `没有媒体库接住 ${path}：请把对应的 115 文件夹添加为媒体库，或在「设置 · 媒体库」里检查网盘挂载目录`,
+      }
+    record.error = null
+    record.notified = true
+    record.savedAt = ctx.deps.now()
+    ctx.dirty()
+    return { ok: true }
+  }
+
+  return { grab, followSaved, rescan }
 }

@@ -252,7 +252,7 @@ const openContinueDetail = (record: ContinueRecord): void => {
       libraryItemLocation(record.section === 'tv' ? 'series' : 'movie', itemId)
     )
 }
-const hero = useHomeHero(openDoubanDetail, openContinueDetail)
+const hero = useHomeHero(openDoubanDetail)
 
 function scrollCollections(): void {
   document.getElementById('home-collections')?.scrollIntoView({

@@ -42,12 +42,7 @@ import { MERGE_PARSERS } from './validate-merge'
 import { parseQueryFilters } from './validate-filters'
 import { VISUAL_PARSERS } from './validate-visual'
 import { parseJavSettings } from './validate-jav'
-import {
-  parseAutomationPatch,
-  parseNotifyChanges,
-  parseReclassifyItem,
-  parseUpdateLibrary,
-} from './validate-library'
+import { LIBRARY_PARSERS, parseAutomationPatch } from './validate-library'
 import { validateTemplate } from '../writer/template'
 
 /** 默认每页条数。 */
@@ -337,7 +332,7 @@ const PARAM_PARSERS: {
   removeLibrary: input => ({
     libraryId: positiveId(asRecord(input, '参数').libraryId, 'libraryId'),
   }),
-  updateLibrary: parseUpdateLibrary,
+  ...LIBRARY_PARSERS,
   scan: parseScan,
   query: normalizeLibraryQuery,
   getItem: itemIdParam,
@@ -345,7 +340,6 @@ const PARAM_PARSERS: {
   identify: input => parseTargets(input, 'identify'),
   getMatchCandidates: itemIdParam,
   applyMatch: parseApplyMatch,
-  reclassifyItem: parseReclassifyItem,
   lockMatch: itemIdParam,
   unlockMatch: itemIdParam,
   refreshMetadata: (input): RefreshMetadataRequest => {
@@ -354,7 +348,6 @@ const PARAM_PARSERS: {
   },
   setProviderToken: parseSetToken,
   getProviderStatus: () => undefined,
-  notifyChanges: parseNotifyChanges,
   'writer.getSettings': () => undefined,
   'writer.getJavSettings': () => undefined,
   'writer.listJavOrganizeBatches': () => undefined,

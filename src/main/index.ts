@@ -48,6 +48,7 @@ import { blockPlaceholderImages, installMediaHeaders } from './media-headers'
 import { initSettings, onSecretSaved, settingsStore } from './settings'
 import { registerAi } from './ai'
 import { registerPan115 } from './pan115'
+import { bindPan115Library, pan115HostMethods } from './pan115/library-host'
 import { desktopModuleHost } from './module-host/desktop'
 import { registerAutograb } from './autograb'
 import { registerNotify } from './notify'
@@ -230,7 +231,10 @@ const startup = app.whenReady().then(async () => {
   await registerLadaIpc()
   // WebDAV / Alist 源：设置、yingbox-dav 播放协议、媒体库引擎扫描时取凭据
   registerWebDav()
-  const libraryClient = registerLibraryIpc(thumbnails, webdavHostMethods)
+  const libraryClient = registerLibraryIpc(thumbnails, {
+    ...webdavHostMethods,
+    ...pan115HostMethods,
+  })
   registerIntroDetectIpc()
   registerDolbyVisionIpc()
   const library = libraryTokenTarget(libraryClient)
@@ -261,6 +265,8 @@ const startup = app.whenReady().then(async () => {
   // 网盘搜索（PanSou）+ 115 扫码登录与转存（见 src/main/pan115）
   const moduleHost = desktopModuleHost()
   const pan115Service = registerPan115(moduleHost)
+  // 115 片库（引擎扫描、播放协议）要用 115 登录态，服务创建后再绑定
+  bindPan115Library(pan115Service)
   // 追更：剧集新集播出后搜 115 分享、验过文件只转存那一集（见 src/main/autograb）
   const autograb = registerAutograb(moduleHost, libraryClient, pan115Service, {
     landed: records => notify.landed(records),

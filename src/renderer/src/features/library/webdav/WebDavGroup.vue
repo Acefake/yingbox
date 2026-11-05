@@ -1,5 +1,5 @@
 <template>
-  <SettingsGroup title="WebDAV / Alist" :footer="REMOTE_FOOTER">
+  <SettingsGroup title="网络共享（WebDAV / Alist）" :footer="REMOTE_FOOTER">
     <SettingsRow
       v-for="source in sources"
       :key="source.id"
@@ -18,17 +18,10 @@
     <SettingsRow
       v-if="!sources.length"
       title="还没有远程源"
-      description="添加 NAS 或 Alist 的 WebDAV 地址后，可以把上面的片子加进媒体库"
+      description="添加 NAS 或 Alist 的 WebDAV 地址后，在上方「添加来源…」里选它的文件夹加进媒体库"
     />
     <SettingsRow>
-      <UiButton size="sm" icon="plus" label="添加源…" @click="edit()" />
-      <UiButton
-        size="sm"
-        variant="plain"
-        label="添加 WebDAV 文件夹…"
-        :disabled="!sources.length"
-        @click="addFolder('movie')"
-      />
+      <UiButton size="sm" icon="plus" label="添加服务器…" @click="edit()" />
       <UiButton
         v-if="jav"
         size="sm"

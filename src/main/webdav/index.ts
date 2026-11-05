@@ -19,6 +19,7 @@ import {
   normalizeRemotePath,
 } from '../../shared/webdav/remote-path'
 import { atomicWrite } from '../file-operations'
+import { pan115Source } from '../pan115/library-host'
 import { implement } from '../rpc'
 import { safeStorageCodec } from '../settings/secrets'
 import {
@@ -107,7 +108,11 @@ export async function withMpvTargets(
 ): Promise<MpvOpenOptions> {
   const proxied = async (path: string | undefined): Promise<string | null> => {
     if (!path || !isRemotePath(path)) return null
-    mpvProxy ??= createMpvProxy(id => sources().access(id), nodeFetch)
+    mpvProxy ??= createMpvProxy(
+      id => sources().access(id),
+      nodeFetch,
+      pan115Source
+    )
     return mpvProxy.urlFor(path)
   }
   const swap = async <T extends { filePath?: string; url?: string }>(
@@ -128,7 +133,11 @@ export async function withMpvTargets(
 export function registerWebDav(): void {
   protocol.handle(
     REMOTE_SCHEME,
-    createRemoteMediaHandler(id => sources().access(id), nodeFetch)
+    createRemoteMediaHandler(
+      id => sources().access(id),
+      nodeFetch,
+      pan115Source
+    )
   )
   implement(webdav, {
     list: () => sources().list(),

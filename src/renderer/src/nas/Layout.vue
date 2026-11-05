@@ -11,15 +11,27 @@
         />
       </div>
       <LibrarySearch class="nas-search" />
-      <nav aria-label="片库与网盘">
-        <UiNavItem
-          v-for="item in items"
-          :key="item.path"
-          :label="item.label"
-          :icon="item.icon"
-          :active="route.path === item.path"
-          @click="router.push(item.path)"
-        />
+      <nav aria-label="媒体中心导航分组">
+        <template v-for="group in navGroups" :key="group.key">
+          <span v-if="group.heading" class="nas-sidebar-heading">{{
+            group.heading
+          }}</span>
+          <UiNavItem
+            v-for="item in group.items"
+            :key="item.path"
+            :label="navLabel(item)"
+            :icon="item.icon"
+            :active="item.active"
+            @click="router.push(item.path)"
+          >
+            {{ item.label }}
+            <template v-if="item.badge" #trailing>
+              <span class="nas-sidebar-badge" aria-hidden="true">{{
+                badgeText(item.badge)
+              }}</span>
+            </template>
+          </UiNavItem>
+        </template>
       </nav>
       <div class="nas-sidebar-footer">
         <UiNavItem
@@ -62,12 +74,12 @@
     </main>
     <nav v-if="isPhone" class="nas-bottom-nav" aria-label="主导航">
       <UiNavItem
-        v-for="item in items"
+        v-for="item in flatItems"
         :key="item.path"
         layout="stack"
         :label="item.label"
         :icon="item.icon"
-        :active="route.path === item.path"
+        :active="item.active"
         @click="router.push(item.path)"
       />
     </nav>
@@ -87,40 +99,57 @@ import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
 import UiBrandWordmark from '@/components/ui/UiBrandWordmark.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
-import type { IconName } from '@/components/ui/icons'
 import { usePlatform } from '@/composables/use-platform'
+import { autograbAvailable, useAutograbBadge } from '@/features/autograb'
+import { useCalendarBadge } from '@/features/calendar'
 import { useLocalNavPages } from '@/features/library'
+import { netdiskAvailable } from '@/features/netdisk'
 import { SettingsPanel, useSetting } from '@/features/settings'
+import {
+  type NavGroup,
+  type NavItem,
+  type NavState,
+  buildNavGroups,
+} from '@/features/shell/composables/nav-items'
 import { libraryServerState } from '@/services/library-server'
 import ServerConnect from '@/features/shell/components/ServerConnect.vue'
 import LibrarySearch from './LibrarySearch.vue'
 import './layout.css'
 
-const { isPhone } = usePlatform()
+const { isPhone, hasLocalLibrary } = usePlatform()
 const route = useRoute()
 const router = useRouter()
 const serverState = libraryServerState()
-const adult = useSetting('app.adultMode')
 const brandColor = useSetting('ui.brandColor')
 const settingsVisible = ref(false)
 const settingsSection = ref('library')
 const localPages = useLocalNavPages()
-const items = computed(
-  (): Array<{ path: string; label: string; icon: IconName }> => [
-    { path: '/', label: '首页', icon: 'home' },
-    // 有条目的电影 / 剧集 / 动漫 / 综艺 / 纪录片；都没有时是「添加媒体库」
-    ...localPages.value.map(({ path, label, icon }) => ({
-      path,
-      label,
-      icon,
-    })),
-    ...(adult.value
-      ? [{ path: '/jav', label: '番号', icon: 'tag' as const }]
-      : []),
-    { path: '/netdisk', label: '网盘', icon: 'cloud' },
-    { path: '/autograb', label: '自动追更', icon: 'refresh' },
-  ]
+const calendarBadge = useCalendarBadge()
+const autograbBadge = useAutograbBadge()
+// 与桌面侧栏同一份导航（features/shell/composables/nav-items.ts）；NAS 构建始终关闭成人模式
+const navState = computed<NavState>(() => ({
+  routeName: route.name?.toString(),
+  onlineTab: typeof route.query.tab === 'string' ? route.query.tab : undefined,
+  hasLocalLibrary: hasLocalLibrary.value,
+  hasNetdisk: netdiskAvailable,
+  adultMode: false,
+  calendarBadge: calendarBadge.value,
+  hasAutograb: autograbAvailable,
+  autograbBadge: autograbBadge.value,
+  localPages: localPages.value,
+}))
+const navGroups = computed((): NavGroup[] => buildNavGroups(navState.value))
+const flatItems = computed((): NavItem[] =>
+  navGroups.value.flatMap(group => group.items)
 )
+
+function navLabel(item: NavItem): string {
+  return item.badge ? `${item.label}（${item.badge} 集未看）` : item.label
+}
+
+function badgeText(count: number): string {
+  return count > 99 ? '99+' : String(count)
+}
 
 function openSettings(section = 'library'): void {
   settingsSection.value = section
