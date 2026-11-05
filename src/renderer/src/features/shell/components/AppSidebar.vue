@@ -8,8 +8,8 @@
     aria-label="媒体中心导航"
   >
     <div class="sidebar-brand">
-      <img class="brand-mark" :src="logoUrl" alt="" aria-hidden="true" />
-      <span class="brand-name">{{ appName }}</span>
+      <UiBrandLogo class="brand-mark" :color="brandColor" />
+      <UiBrandWordmark class="brand-name" :color="brandColor" />
       <span v-if="incognito" class="sidebar-incognito" role="status">
         <UiIcon name="eyeOff" size="sm" />无痕
       </span>
@@ -127,7 +127,9 @@
  */
 import { computed } from 'vue'
 
-import logoUrl from '@/assets/imgs/logo.svg'
+import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
+import UiBrandWordmark from '@/components/ui/UiBrandWordmark.vue'
+import { useSetting } from '@/features/settings'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
@@ -161,7 +163,7 @@ const emit = defineEmits<{
 /** 用户是否选择收起侧栏（v-model:minimized） */
 const minimized = defineModel<boolean>('minimized', { required: true })
 
-const appName = '影盒'
+const brandColor = useSetting('ui.brandColor')
 const { isPhone } = usePlatform()
 const incognito = incognitoState()
 

@@ -6,6 +6,8 @@
  * 轻提示用 toast，确认用 confirmDialog（都是命令式，不用在模板里放组件）。
  * 等待反馈的分工（转圈 / 三点 / 骨架 / 进度条）见 feedback.ts。
  */
+export { default as UiBrandLogo } from './UiBrandLogo.vue'
+export { default as UiBrandWordmark } from './UiBrandWordmark.vue'
 export { default as UiButton } from './UiButton.vue'
 export { confirmDialog, type ConfirmOptions } from './confirm'
 export { default as UiCheckbox } from './UiCheckbox.vue'

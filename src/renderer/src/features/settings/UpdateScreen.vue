@@ -1,12 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="update.installing.value" class="update-screen" role="status">
-      <img
-        class="update-screen-logo"
-        :src="logoUrl"
-        alt=""
-        aria-hidden="true"
-      />
+      <UiBrandLogo class="update-screen-logo" :color="brandColor" />
       <h2 class="update-screen-title">正在安装更新</h2>
       <p class="update-screen-sub">马上回来，请不要关机</p>
       <div class="update-screen-bar" role="progressbar" aria-label="安装中">
@@ -21,11 +16,13 @@
  * 点「更新并重启」后的全窗口画面：安装包在后台静默安装，装完会自己拉起新版。
  * 出错时 installing 复位，画面自动消失。
  */
-import logoUrl from '@/assets/imgs/logo.svg'
+import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
+import { useSetting } from './use-setting'
 
 import { useUpdateStatus } from './use-update-status'
 
 const update = useUpdateStatus()
+const brandColor = useSetting('ui.brandColor')
 </script>
 
 <style scoped>
@@ -45,7 +42,6 @@ const update = useUpdateStatus()
   width: 64px;
   height: 64px;
   margin-bottom: var(--space-2);
-  animation: update-breathe var(--duration-pulse) ease-in-out infinite;
 }
 .update-screen-title {
   font-size: var(--text-lg);
@@ -68,11 +64,6 @@ const update = useUpdateStatus()
   border-radius: var(--radius-full);
   background: var(--accent);
   animation: update-pulse var(--duration-pulse) ease-in-out infinite;
-}
-@keyframes update-breathe {
-  50% {
-    transform: scale(1.08);
-  }
 }
 @keyframes update-pulse {
   50% {

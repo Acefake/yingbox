@@ -1,5 +1,18 @@
 <template>
   <SettingsGroup>
+    <SettingsRow
+      title="品牌配色"
+      description="图标与影盒字标跟随当前设备，默认紫水晶"
+    >
+      <div class="brand-picker">
+        <UiBrandLogo :color="brandColor" />
+        <UiSelect
+          v-model="brandColor"
+          :options="[...BRAND_OPTIONS]"
+          aria-label="品牌配色"
+        />
+      </div>
+    </SettingsRow>
     <SettingsRow title="主题" description="深色 / 浅色界面，可随时切换">
       <UiSegmented
         size="sm"
@@ -64,6 +77,9 @@ import { computed } from 'vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
+import UiSelect from '@/components/ui/UiSelect.vue'
+import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
+import { BRAND_OPTIONS } from '@/components/ui/brand'
 import { type AppTheme, useTheme } from '@/utils/theme'
 
 import SettingsGroup from '../ui/SettingsGroup.vue'
@@ -81,6 +97,7 @@ const previewEnabled = useSetting('ui.hoverPreview')
 const delaySetting = useSetting('ui.hoverPreviewDelay')
 const spoilerGuard = useSetting('ui.spoilerGuard')
 const reduceTransparency = useSetting('ui.reduceTransparency')
+const brandColor = useSetting('ui.brandColor')
 /** 分段控件只认字符串：毫秒数 ↔ 字符串 */
 const previewDelay = computed({
   get: () => String(delaySetting.value),
@@ -93,3 +110,11 @@ const delayOptions: SegmentedOption[] = [
   { value: '1000', label: '长' },
 ]
 </script>
+
+<style scoped>
+.brand-picker {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
+}
+</style>

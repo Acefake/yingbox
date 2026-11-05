@@ -1,16 +1,16 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 电视桌面的应用横幅（320x180dp）：桌面 logo 的紫色渐变底，居中 logo -->
+<!-- 电视桌面的应用横幅（320x180dp）：紫水晶玻璃品牌标志 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:angle="315"
-                android:startColor="#8B6CFF"
-                android:endColor="#4527D9" />
+                android:startColor="#503478"
+                android:endColor="#21113D" />
         </shape>
     </item>
     <item
-        android:drawable="@drawable/ic_launcher_foreground"
+        android:drawable="@drawable/brand_logo"
         android:width="150dp"
         android:height="150dp"
         android:gravity="center" />

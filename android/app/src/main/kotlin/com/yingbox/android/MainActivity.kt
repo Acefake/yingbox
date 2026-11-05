@@ -47,6 +47,7 @@ import com.yingbox.android.playback.PlayTitle
 import com.yingbox.android.ui.BackButton
 import com.yingbox.android.ui.BrowseScreen
 import com.yingbox.android.ui.FavoritesScreen
+import com.yingbox.android.ui.LocalBrandColor
 import com.yingbox.android.settings.DeviceSettings
 import com.yingbox.android.settings.ImageQualities
 import com.yingbox.android.settings.ServerSettingsApi
@@ -133,6 +134,8 @@ private sealed interface Screen {
 @Composable
 @OptIn(ExperimentalFoundationApi::class)
 private fun App(isTv: Boolean) {
+    val brandContext = LocalContext.current
+    val device = remember { DeviceSettings(brandContext) }
     val state by LocalServer.state.collectAsState()
     val ready = state as? ServerState.Ready
     // 服务启动很快（约 2 秒），启动页至少显示到入场动画播完（启动失败立即显示原因，不等）
@@ -142,7 +145,7 @@ private fun App(isTv: Boolean) {
         splashDone = true
     }
     if (ready == null || (!splashDone && state !is ServerState.Failed)) {
-        StatusScreen(state)
+        CompositionLocalProvider(LocalBrandColor provides device.brandColor) { StatusScreen(state) }
         return
     }
     val client = remember(ready) { ServerClient(ready) }
@@ -172,7 +175,6 @@ private fun App(isTv: Boolean) {
         }
     }
     val haze = remember { HazeState() }
-    val device = remember { DeviceSettings(context) }
     // NAS 上的影盒服务（设置里配置后才有）；片库、片库播放都走它，在线内容仍走内嵌服务
     val nas = device.nas
     val nasClient = remember(nas) { nas?.let { ServerClient(ServerState.Ready(it.url, it.token)) } }
@@ -208,6 +210,7 @@ private fun App(isTv: Boolean) {
     }
 
     CompositionLocalProvider(
+        LocalBrandColor provides device.brandColor,
         LocalHaze provides haze,
         LocalReduceTransparency provides device.reduceTransparency,
         LocalIsTv provides isTv,

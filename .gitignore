@@ -66,3 +66,6 @@ docs/superpowers/
 /resources/third-party/
 /resources/mpv-sources/
 dist-nas/
+
+# 本地交付包由品牌源图和导出脚本生成，不进入代码历史。
+/design/exports/
