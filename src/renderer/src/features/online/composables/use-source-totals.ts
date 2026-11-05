@@ -22,6 +22,8 @@ import {
 /** 工具栏需要的统计与操作。 */
 export interface SourceTotals {
   totalSources: ComputedRef<number>
+  /** 检测确认可用的源数量 */
+  totalOk: ComputedRef<number>
   totalFail: ComputedRef<number>
   updatingSources: ComputedRef<boolean>
   updateSources: () => Promise<void>
@@ -36,6 +38,13 @@ export function useSourceTotals(): SourceTotals {
   const totalSources = computed(
     () =>
       onlineApis.value.length + (adultMode.value ? avSources.value.length : 0)
+  )
+  const totalOk = computed(
+    () =>
+      onlineApis.value.filter(api => statusOf(api) === 'ok').length +
+      (adultMode.value
+        ? avSources.value.filter(site => avStatusOf(site.api) === 'ok').length
+        : 0)
   )
   const totalFail = computed(
     () =>
@@ -83,6 +92,7 @@ export function useSourceTotals(): SourceTotals {
 
   return {
     totalSources,
+    totalOk,
     totalFail,
     updatingSources,
     updateSources,

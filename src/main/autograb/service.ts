@@ -33,6 +33,7 @@ import {
 } from './policy'
 import { revertEpisode } from './revert'
 import {
+  MAX_AUTO_GRABS_PER_TICK,
   MAX_SEARCH_PER_TICK,
   addDays,
   calendarRange,
@@ -155,7 +156,6 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   }
 
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
-    const setting = settingOf(record.seriesId)
     const prefs = seriesPrefsOf(state, record.seriesId)
     const result = await finder.find(
       {
@@ -179,16 +179,26 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       record.status = record.nextTry === null ? 'notFound' : 'waiting'
     }
     dirty()
+    if (autoGrabbable(record)) await grab(record, 0, false)
+  }
+
+  /**
+   * 这一集现在能不能全自动转存：有候选且匹配分过线、这部剧是全自动、转存目录不是根目录、
+   * 115 空间没暂停、「新剧先确认」的集数已确认够。搜到时和之后每一轮都判一次，
+   * 所以确认够数之前搜到的集，不用再点，下一轮自动转存。
+   */
+  function autoGrabbable(record: EpisodeRecord): boolean {
     const best = record.candidates[0]
-    if (
+    const setting = settingOf(record.seriesId)
+    return (
       record.status === 'found' &&
+      !!best &&
       state.spacePause === null &&
       seriesModeOf(state, record.seriesId) === 'auto' &&
       targetCid(setting) !== '0' &&
       (setting?.confirmed ?? 0) >= confirmFirstOf(state, setting) &&
       best.score >= AUTO_SCORE
     )
-      await grab(record, 0, false)
   }
 
   const saver = createSaver({
@@ -274,6 +284,16 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
           if (record.nextTry === null) record.status = 'notFound'
           dirty()
         }
+      }
+      // 之前搜到、当时还不满足全自动条件的集（新剧先确认没够数等），条件满足后补转存；
+      // 带着报错的（转存失败过）不自动重试，免得每一轮都白耗 115 的转存次数
+      const waiting = records
+        .filter(r => r.error === null && autoGrabbable(r))
+        .sort((a, b) => a.airDate.localeCompare(b.airDate))
+        .slice(0, MAX_AUTO_GRABS_PER_TICK)
+      for (const record of waiting) {
+        if (gateRef.paused()) break
+        await grab(record, 0, false).catch(e => deps.log((e as Error).message))
       }
     } catch (error) {
       deps.log(`追更一轮失败：${(error as Error).message}`)

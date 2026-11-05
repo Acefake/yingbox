@@ -7,6 +7,7 @@ import type {
   AutograbSeries,
   AutograbStatus,
 } from '../../../../shared/contract/autograb'
+import { AUTO_SCORE } from '../../../../shared/contract/autograb'
 import {
   SERIES_CATEGORIES,
   type SeriesCategory,
@@ -284,9 +285,11 @@ export function pendingReason(
   if (series.effectiveMode === 'confirm')
     return '这部剧设为待确认，每一集都由你来点转存。'
   const left = confirmsLeft(series.confirmed, series.confirmFirst)
-  return left
-    ? `这部剧还要你确认 ${left} 集，之后会自动转存。`
-    : '匹配分不够高，没有替你自动转存，请看一眼文件名。'
+  if (left) return `这部剧还要你确认 ${left} 集，之后会自动转存。`
+  const score = ep.candidates[0]?.score ?? 0
+  return score >= AUTO_SCORE
+    ? '匹配分够高，下一轮检查会自动转存；想马上存就点转存。'
+    : `匹配分 ${score} 低于自动转存要求的 ${AUTO_SCORE}，没有替你自动转存，请看一眼文件名。`
 }
 
 /** 单集侧板的进度条一格 */

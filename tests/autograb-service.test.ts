@@ -268,3 +268,31 @@ it('没转存的集不能重新入库', async () => {
   const result = await service.rescan('7:1:5')
   expect(result.ok).toBe(false)
 })
+
+it('新剧先确认期间搜到的集：条件满足后不用再点，下一轮自动转存', async () => {
+  const h = setup([episode(5)])
+  h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
+  await h.service.setPolicy({ mode: 'auto' })
+  await h.service.tick()
+  // 默认新剧先确认 1 集：搜到了，但没有自动转存
+  expect((await h.service.overview()).episodes[0].status).toBe('found')
+  expect(h.received).toHaveLength(0)
+
+  // 把「新剧先确认」改成 0 集：这一集不用再点，下一轮自动转存
+  await h.service.setPolicy({ confirmFirst: 0 })
+  await h.service.tick()
+  expect((await h.service.overview()).episodes[0].status).toBe('saved')
+  expect(h.received).toEqual([['101']])
+})
+
+it('补转存失败过的集不会每一轮重试', async () => {
+  const h = setup([episode(5), episode(6)])
+  h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
+  await h.service.setPolicy({ mode: 'auto', confirmFirst: 0 })
+  await h.service.tick()
+  // 第 6 集的文件在目录里对不上，转存校验失败；再跑几轮也不重复转存
+  const after = h.received.length
+  await h.service.tick()
+  await h.service.tick()
+  expect(h.received).toHaveLength(after)
+})

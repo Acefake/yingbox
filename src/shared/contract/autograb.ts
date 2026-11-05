@@ -103,6 +103,9 @@ export interface AutograbSeries {
   category?: SeriesCategory
 }
 
+/** 全自动转存要的最低匹配分（0–100）：低于它只给候选，不替你转存 */
+export const AUTO_SCORE = 70
+
 /** 一集的追更记录 */
 export interface AutograbEpisode {
   /** 剧 id:季:集 */

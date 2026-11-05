@@ -13,6 +13,7 @@ import {
 } from '../utils/cms-health'
 import type { SiteStatus } from '../utils/source-rules'
 import { OnlineTransportError } from '../api/errors'
+import { deadNote } from './cms-dead-days'
 
 const records = useStorage<CmsHealthCache>(
   'online_cms_health_v1',
@@ -106,7 +107,7 @@ export const cmsHealth = {
     return values.length ? 'ok' : 'unknown'
   },
   note(api: string): string {
-    return (['browse', 'search', 'detail'] as const)
+    const text = (['browse', 'search', 'detail'] as const)
       .flatMap(key => {
         const value = records.value[api]?.[key]
         if (!value) return []
@@ -119,5 +120,6 @@ export const cmsHealth = {
         return [`${label}：${value.error}${retry}`]
       })
       .join('；')
+    return [text, deadNote(api)].filter(Boolean).join('；')
   },
 }

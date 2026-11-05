@@ -273,7 +273,14 @@ describe('自动追更页规则', () => {
     expect(
       pendingReason(found, { ...auto, confirmFirst: 2, confirmed: 1 })
     ).toBe('这部剧还要你确认 1 集，之后会自动转存。')
-    expect(pendingReason(found, auto)).toContain('匹配分不够高')
+    expect(pendingReason(found, auto)).toContain(
+      '匹配分 0 低于自动转存要求的 70'
+    )
+    const strong = {
+      ...found,
+      candidates: [{ score: 95 }] as unknown as typeof found.candidates,
+    }
+    expect(pendingReason(strong, auto)).toContain('下一轮检查会自动转存')
     const off = { ...auto, effectiveMode: 'off' as const }
     expect(pendingReason(found, off)).toContain('已经不追了')
     const missing = { ...episode('1:1:2', 1, 'notFound'), attempts: 6 }

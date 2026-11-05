@@ -86,6 +86,11 @@ import {
 } from '../src/renderer/src/features/online/composables/use-source-refresh'
 import { cmsHealth } from '../src/renderer/src/features/online/composables/cms-health'
 
+/** 测活接受的列表：有影片且有可播放地址 */
+const PLAYABLE_LIST = {
+  list: [{ vod_play_url: '第1集$https://cdn.example/1.m3u8' }],
+}
+
 beforeEach(() => {
   vi.resetAllMocks()
   fake.adult = false
@@ -101,7 +106,7 @@ beforeEach(() => {
   cmsHealth.clear()
   fake.getJson.mockImplementation(async (url: string) => {
     if (url.startsWith(fake.builtins[1].api)) throw new Error('超时')
-    return { list: [] }
+    return PLAYABLE_LIST
   })
 })
 
@@ -192,7 +197,7 @@ describe('内置 CMS 自动启停', () => {
     ]
     fake.getJson.mockImplementation(async (url: string) => {
       if (url.startsWith('https://avbad')) throw new Error('超时')
-      return { list: [] }
+      return PLAYABLE_LIST
     })
     await refreshSources(true)
     expect(fake.avSelected.has(fake.av.value[0].api)).toBe(true)
@@ -207,7 +212,7 @@ describe('内置 CMS 自动启停', () => {
     })
     fake.getJson.mockImplementation(async () => {
       await gate
-      return { list: [] }
+      return PLAYABLE_LIST
     })
     const run = checkAll(true, true)
     await vi.waitFor(() => expect(fake.getJson).toHaveBeenCalled())
@@ -232,7 +237,7 @@ describe('内置 CMS 自动启停', () => {
     fake.getJson.mockImplementationOnce(() =>
       new Promise<void>(ok => {
         release = ok
-      }).then(() => ({ list: [] }))
+      }).then(() => PLAYABLE_LIST)
     )
     const background = checkAll(false)
     try {
@@ -310,7 +315,7 @@ describe('内置 CMS 自动启停', () => {
     fake.getJson.mockImplementationOnce(() =>
       new Promise<void>(ok => {
         release = () => ok()
-      }).then(() => ({ list: [] }))
+      }).then(() => PLAYABLE_LIST)
     )
     const background = checkAll(false)
     await vi.waitFor(() => expect(fake.getJson).toHaveBeenCalledOnce())
@@ -347,7 +352,7 @@ describe('内置 CMS 自动启停', () => {
         peak = Math.max(peak, ++active)
         await gate
         active--
-        return { list: [] }
+        return PLAYABLE_LIST
       })
       const online = ref(true)
       const stop = startSourceMonitoring(() => online.value)
@@ -472,7 +477,7 @@ describe('内置 CMS 自动启停', () => {
         peak = Math.max(peak, ++active)
         await gate
         active--
-        return { list: [] }
+        return PLAYABLE_LIST
       })
       const run = checkAll()
       try {
@@ -505,7 +510,7 @@ describe('内置 CMS 自动启停', () => {
     for (let i = 0; i < 3; i++)
       cmsHealth.failure(api, 'search', new Error('超时'))
     expect(cmsHealth.usable(api, 'search')).toBe(false)
-    fake.getJson.mockResolvedValue({ list: [] })
+    fake.getJson.mockResolvedValue(PLAYABLE_LIST)
     await checkOnlineSite(api)
     expect(cmsHealth.usable(api, 'search')).toBe(true)
     expect(fake.selected.has(api)).toBe(false)

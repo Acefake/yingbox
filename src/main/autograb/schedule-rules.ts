@@ -11,7 +11,9 @@ const DAY = 24 * HOUR
 /** 播出后多少天放弃 */
 export const GIVE_UP_DAYS = 14
 /** 一轮最多搜几集 */
-export const MAX_SEARCH_PER_TICK = 6
+export const MAX_SEARCH_PER_TICK = 15
+/** 一轮最多补转存几集（之前搜到、后来才满足全自动条件的） */
+export const MAX_AUTO_GRABS_PER_TICK = 3
 /** 往回看多少天的播出 */
 export const LOOKBACK_DAYS = 14
 /** 播出当天几点开始搜 */

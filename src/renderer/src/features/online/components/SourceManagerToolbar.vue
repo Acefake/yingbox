@@ -10,6 +10,9 @@
     <span v-if="checkingAll" class="smp-status" role="status">
       检测中 {{ checkedCount }}/{{ checkingTotal }}
     </span>
+    <span v-else-if="totalSources" class="smp-status" role="status">
+      可用 {{ totalOk }} / 共 {{ totalSources }}
+    </span>
     <div class="smp-toolbar-actions">
       <UiButton
         v-if="totalFail"
@@ -47,8 +50,14 @@ import type { SourceTab } from '../utils/source-rules'
 defineProps<{ tabs: { value: SourceTab; label: string }[] }>()
 const activeTab = defineModel<SourceTab>({ required: true })
 
-const { totalFail, updatingSources, updateSources, disableAllFailed } =
-  useSourceTotals()
+const {
+  totalSources,
+  totalOk,
+  totalFail,
+  updatingSources,
+  updateSources,
+  disableAllFailed,
+} = useSourceTotals()
 </script>
 
 <style scoped>

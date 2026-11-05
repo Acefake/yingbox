@@ -8,6 +8,8 @@ import { cmsHealth } from './cms-health'
 import { CMS_HEALTH_TTL } from '../utils/cms-health'
 import { OnlineTransportError } from '../api/errors'
 import { checkStartupPlugin } from './startup-plugin-check'
+import { fullCheckDue, markCheck } from './cms-dead-days'
+import { assertVideoList } from '../utils/cms-probe-rules'
 import {
   CATSPIDER_SITES,
   isAdultCatSpiderSite,
@@ -88,13 +90,17 @@ export const checkOnlineSite = async (
       { timeoutMs: 8000 }
     )
     if (!isCurrent()) return
-    if (!Array.isArray(data?.list)) throw new Error('接口响应缺少列表')
+    assertVideoList(data)
     health.success()
+    markCheck(api, true)
     return true
   } catch (error) {
     if (isCurrent()) {
       health.failure(error)
-      if (!(error instanceof OnlineTransportError)) return false
+      if (!(error instanceof OnlineTransportError)) {
+        markCheck(api, false)
+        return false
+      }
     }
   } finally {
     checkingSet.delete(api)
@@ -381,7 +387,7 @@ export function startSourceMonitoring(
   const timer = setInterval(() => {
     cmsHealth.tick()
     if (available() && (typeof document === 'undefined' || !document.hidden))
-      void checkAll(false)
+      void (fullCheckDue() ? refreshSources(true) : checkAll(false))
   }, 60_000)
   return () => {
     stopAvailability()

@@ -23,8 +23,8 @@ import {
   versionScore,
 } from '../../shared/release/score'
 
-/** 全自动转存要的最低匹配分 */
-export const AUTO_SCORE = 70
+/** 全自动转存要的最低匹配分（定义在契约里，界面提示也用它） */
+export { AUTO_SCORE } from '../../shared/contract/autograb'
 
 const VIDEO_EXT_RE = /\.(?:mkv|mp4|avi|ts|m2ts|mov|wmv|flv|rmvb|webm)$/i
 /** 默认排除的字眼 */
