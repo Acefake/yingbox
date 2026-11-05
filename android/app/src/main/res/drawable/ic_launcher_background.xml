@@ -1,8 +1,2 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 与桌面 logo 同一个紫色渐变底 -->
-<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle">
-    <gradient
-        android:angle="315"
-        android:startColor="#8B6CFF"
-        android:endColor="#4527D9" />
-</shape>
+<shape xmlns:android="http://schemas.android.com/apk/res/android" android:shape="rectangle"><solid android:color="#08192D" /></shape>

@@ -25,7 +25,7 @@
   font-size: var(--text-lg);
   font-weight: var(--font-weight-semibold);
 }
-.nas-brand img {
+.nas-brand .ui-brand-logo {
   width: 28px;
   height: 28px;
 }
