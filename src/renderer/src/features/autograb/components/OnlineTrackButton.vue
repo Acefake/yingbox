@@ -2,7 +2,11 @@
   <template v-if="autograbAvailable">
     <UiIconButton
       v-bind="$attrs"
-      :icon="tracked ? 'check' : 'download'"
+      icon="bookmark"
+      variant="secondary"
+      size="lg"
+      :active="tracked"
+      :filled="tracked"
       :label="
         tracked
           ? '追更中：打开追更设置'
@@ -18,7 +22,7 @@
 <script setup lang="ts">
 /**
  * 在线剧详情页操作区的「追更」入口（ADR-0049）：与日历在线剧行、追更页搜索框共用 useOnlineTracking，
- * 点开在片库里建（或找到）这部剧并打开追更侧板；已在追的显示对勾，点开设置。网页端没有追更时不显示。
+ * 点开在片库里建（或找到）这部剧并打开追更侧板；已在追的书签实心（同「想看」按钮的样式），点开设置。网页端没有追更时不显示。
  */
 import { computed } from 'vue'
 

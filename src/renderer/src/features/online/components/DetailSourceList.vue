@@ -98,6 +98,8 @@ const hiddenCount = computed(() => props.siteGroups.length - rows.value.length)
 
 const statusText = computed(() => {
   if (props.probing) return '测速中…'
+  if (rows.value.length && rows.value.every(row => row.status === 'fail'))
+    return '这一类源测速都失败了，可换另一类源，或点集数手动试试'
   const base = '测速完成 · 按速度排序'
   return hiddenCount.value
     ? `${base} · 已隐藏 ${hiddenCount.value} 个不可用源`

@@ -8,6 +8,7 @@ import {
   PROBE_TTL_MS,
   type ProbeCacheEntry,
   type SourceProbe,
+  fallbackSourceType,
   fastestSite,
   findPick,
   firstEpisode,
@@ -371,5 +372,45 @@ describe('引擎测速', () => {
     })
     // 没带扩展名、text/plain 的直链按首字节认出 m3u8
     expect((await probe('https://a.test/hls')).ok).toBe(true)
+  })
+})
+
+describe('fallbackSourceType', () => {
+  const byType = {
+    catspider: [{ siteName: '荐片' }, { siteName: '欧乐' }],
+    cms: [{ siteName: 'A' }, { siteName: 'B' }],
+  }
+  const ok: SourceProbe = { status: 'ok', speedBps: 1 }
+  const fail: SourceProbe = { status: 'fail' }
+
+  it('当前类型全部失败、另一类有成功的：换过去', () => {
+    expect(
+      fallbackSourceType('catspider', byType, {
+        荐片: fail,
+        欧乐: fail,
+        A: ok,
+        B: fail,
+      })
+    ).toBe('cms')
+  })
+
+  it('当前类型还有成功的或还在测速：不动', () => {
+    expect(
+      fallbackSourceType('catspider', byType, { 荐片: ok, 欧乐: fail, A: ok })
+    ).toBeNull()
+    expect(
+      fallbackSourceType('catspider', byType, { 荐片: fail, A: ok })
+    ).toBeNull()
+  })
+
+  it('另一类也没有成功的：不动', () => {
+    expect(
+      fallbackSourceType('catspider', byType, {
+        荐片: fail,
+        欧乐: fail,
+        A: fail,
+        B: fail,
+      })
+    ).toBeNull()
   })
 })

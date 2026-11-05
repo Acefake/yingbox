@@ -5,11 +5,12 @@
  * 自动选源：站点出现即测速（useSourceProbe），列表按速度排序；没手动选过时默认排第一（最快）的源，
  * 用户手动选过的源对该片优先（持久化在 online_source_picks）。站点按名字记选中，排序变化不跳。
  */
-import { type ComputedRef, type Ref, computed, ref } from 'vue'
+import { type ComputedRef, type Ref, computed, ref, watch } from 'vue'
 import { readStoredArray, saveStoredArray } from '@/utils/storage'
 import type { CmsItem, Episode, EpisodeGroup } from '../types'
 import {
   type SourceProbe,
+  fallbackSourceType,
   findPick,
   isSourcePick,
   mergePick,
@@ -66,6 +67,8 @@ export function useDetailSources(): UseDetailSourcesReturn {
   /** 当前影片（归一化片名）与它手动选过的源 */
   let film = ''
   let pickedSite = ''
+  /** 用户手动点过来源类型：之后不再自动换类型 */
+  let typeChosen = false
   let loadGeneration = 0
   const probe = useSourceProbe()
 
@@ -112,6 +115,7 @@ export function useDetailSources(): UseDetailSourcesReturn {
     activeGroup.value = 0
     probe.reset()
     film = normalizeTitle(searchTitle)
+    typeChosen = false
     pickedSite = findPick(readStoredArray(PICKS_KEY, isSourcePick), film)
     activeSiteName.value = pickedSite
     activeLine.value = 0
@@ -164,6 +168,7 @@ export function useDetailSources(): UseDetailSourcesReturn {
   }
 
   const switchSourceType = (type: SourceType): void => {
+    typeChosen = true
     currentSourceType.value = type
     activeGroup.value = 0
     activeSiteName.value = pickedSite
@@ -191,6 +196,27 @@ export function useDetailSources(): UseDetailSourcesReturn {
     activeSiteName.value = siteGroups.value[activeSite.value]?.siteName || ''
     activeLine.value = index
   }
+  // 当前类型的源测速全部失败、另一类有能用的：自动换过去（用户手动选过类型就不动）
+  watch(
+    () =>
+      searching.value || probe.probing.value
+        ? null
+        : fallbackSourceType(
+            currentSourceType.value,
+            {
+              catspider: groupBySite(split.value.catspider),
+              cms: groupBySite(split.value.cms),
+            },
+            probe.probes.value
+          ),
+    type => {
+      if (!type || typeChosen) return
+      currentSourceType.value = type
+      activeGroup.value = 0
+      activeSiteName.value = pickedSite
+      activeLine.value = 0
+    }
+  )
   const reprobe = (): void => {
     probe.probeSites(groupBySite(episodeGroups.value), true)
   }

@@ -184,6 +184,30 @@ export function isSourcePick(value: unknown): value is SourcePick {
   )
 }
 
+/**
+ * 当前来源类型的源全部测速失败、另一类里有成功的源时，换到那一类（否则返回 null，不动）。
+ * 只在每一类都至少有一个源时才比较；还在测速的源不算失败。
+ */
+export function fallbackSourceType<T extends string>(
+  current: T,
+  byType: Readonly<Record<T, readonly { siteName: string }[]>>,
+  probes: Readonly<Record<string, SourceProbe | undefined>>
+): T | null {
+  const usable = (type: T): boolean =>
+    byType[type].some(site => probes[site.siteName]?.status === 'ok')
+  const waiting = (type: T): boolean =>
+    byType[type].some(
+      site =>
+        !probes[site.siteName] || probes[site.siteName]?.status === 'pending'
+    )
+  if (!byType[current].length || usable(current) || waiting(current))
+    return null
+  const other = (Object.keys(byType) as T[]).find(
+    type => type !== current && usable(type)
+  )
+  return other ?? null
+}
+
 /** 速度文案：≥1 MB/s 一位小数 MB/s，否则整数 KB/s。 */
 export function formatSpeed(bps: number | undefined): string {
   if (!bps || bps <= 0) return '—'
