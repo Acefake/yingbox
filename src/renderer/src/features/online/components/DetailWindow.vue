@@ -27,9 +27,11 @@
         @play="playEp"
       >
         <template #actions>
-          <WatchlistButton
+          <OnlineTrackButton
+            v-if="isSeries"
             class="dw-hero-circle yb-glass"
-            :meta="watchlistMeta"
+            :title="itemName"
+            :year="itemData?.vod_year"
           />
           <MovieTrackButton
             class="dw-hero-circle yb-glass"
@@ -85,7 +87,7 @@ import { htmlToText } from '@/utils/html-text'
 import { computed, onMounted, ref, watch } from 'vue'
 import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
-import { WatchlistButton, type WatchlistMeta } from '@/features/watchlist'
+import { OnlineTrackButton } from '@/features/autograb'
 import { MovieTrackButton } from '@/features/autograb-upgrade'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
@@ -181,21 +183,10 @@ watch(
   }
 )
 
-/** 「想看」登记：键与继续播放相同（片名），整部看完时据此移出清单；海报优先 TMDB 竖版。 */
-const watchlistMeta = computed<WatchlistMeta | null>(() => {
-  if (!itemData.value || !itemName.value) return null
-  return {
-    section: 'online',
-    key: itemName.value,
-    title: itemName.value,
-    poster:
-      tmdbImage('w342', tmdbDetail.value?.poster_path) ||
-      itemPic.value ||
-      undefined,
-    cover: detailBackdrop.value || undefined,
-    detail: itemData.value,
-  }
-})
+/** 是剧集（不是电影）：追更按钮只给剧集 */
+const isSeries = computed(
+  () => !tmdbDetail.value?.title && sources.currentEpisodes.value.length > 1
+)
 
 /** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）；无痕模式不记。 */
 const recordHistory = (playUrl: string, ext?: PluginExt): void => {

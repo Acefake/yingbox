@@ -393,10 +393,10 @@ describe('接线（源码）', () => {
   const src = (path: string): string =>
     readFileSync(join(__dirname, '../src/renderer/src', path), 'utf8')
 
-  it('在线 / 媒体库详情有想看按钮，键与继续播放一致', () => {
+  it('媒体库详情有想看按钮，键与继续播放一致；在线详情的位置给了追更', () => {
     const online = src('features/online/components/DetailWindow.vue')
-    expect(online).toContain('<WatchlistButton :meta="watchlistMeta" />')
-    expect(online).toMatch(/section: 'online',\s+key: itemName\.value,/)
+    expect(online).not.toContain('WatchlistButton')
+    expect(online).toContain('<OnlineTrackButton')
     expect(src('features/library/detail/DetailHero.vue')).toMatch(
       /<WatchlistButton[^>]*:meta="watchlistMeta"/
     )
