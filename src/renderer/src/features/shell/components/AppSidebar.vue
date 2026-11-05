@@ -8,7 +8,7 @@
     aria-label="媒体中心导航"
   >
     <div class="sidebar-brand">
-      <img class="brand-mark" :src="logoUrl" alt="" aria-hidden="true" />
+      <UiBrandLogo class="brand-mark" />
       <span class="brand-name">{{ appName }}</span>
       <span v-if="incognito" class="sidebar-incognito" role="status">
         <UiIcon name="eyeOff" size="sm" />无痕
@@ -127,7 +127,7 @@
  */
 import { computed } from 'vue'
 
-import logoUrl from '@/assets/imgs/logo.svg'
+import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'

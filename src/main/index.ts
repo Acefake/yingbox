@@ -17,7 +17,7 @@ import { installWindowSecurity } from './window-security'
 import { installPermissionPolicy } from './permissions'
 import { installSingleInstance } from './single-instance'
 import { installDevToolsShortcut } from './devtools-shortcut'
-import icon from '../../resources/icon.svg?asset'
+import icon from '../../resources/icon.png?asset'
 import { serveLocalMedia } from './local-media'
 import { installPluginHost } from './plugins/host'
 import {

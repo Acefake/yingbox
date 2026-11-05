@@ -1,0 +1,25 @@
+<!doctype html><html lang="zh-CN"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><style>
+:root{color-scheme:dark;--background:transparent;--foreground:#eee9ff;--muted:#a69db8;--radius:20px;--font-sans:system-ui,sans-serif}
+body{margin:0;font-family:var(--font-sans);color:var(--foreground)}
+#logo-motion{display:grid;justify-items:center;gap:16px;padding:24px 0}
+.stage{width:min(100%,420px);aspect-ratio:1;display:grid;place-items:center;perspective:1000px}
+.mark{width:92%;aspect-ratio:1;position:relative;animation:float 6s ease-in-out infinite;transform-style:preserve-3d}
+.mark img{display:block;width:100%;height:100%;object-fit:contain;clip-path:inset(9.4% round 22%);filter:drop-shadow(0 14px 20px #3c167640)}
+.sheen{position:absolute;inset:0;clip-path:polygon(28.6% 37.3%,39.3% 27.2%,67.8% 27.2%,68.6% 28.7%,68.6% 58%,58.3% 67.2%,29% 67.2%);overflow:hidden;pointer-events:none}
+.sheen:after{content:"";position:absolute;inset:-50%;background:linear-gradient(110deg,transparent 40%,#e6d8ff00 44%,#eee4ff65 49%,#fff9 50%,#d6baff30 53%,transparent 58%);transform:translateX(-60%);animation:sweep 6s ease-in-out infinite}
+.play{position:absolute;left:39.9%;top:45.3%;width:11.4%;height:13.2%;clip-path:polygon(0 0,100% 50%,0 100%);background:#fff;filter:blur(5px);opacity:0;animation:breathe 3s ease-in-out infinite;pointer-events:none}
+.controls{display:flex;gap:10px;align-items:center;flex-wrap:wrap;justify-content:center}
+button{font:inherit;color:var(--foreground);background:#ffffff0d;border:1px solid #ffffff20;border-radius:999px;padding:10px 18px;min-height:44px}
+button:focus-visible{outline:2px solid #c7a7ff;outline-offset:3px}
+button[aria-pressed=true]{background:#a87cf82b}
+.paused .mark,.paused .sheen:after,.paused .play{animation-play-state:paused}
+.caption{font-size:13px;color:var(--muted);margin:0}
+@keyframes float{0%,100%{transform:translateY(5px) rotateX(2deg) rotateY(-5deg)}50%{transform:translateY(-7px) rotateX(-2deg) rotateY(5deg)}}
+@keyframes sweep{0%,15%{transform:translateX(-60%);opacity:0}25%{opacity:.65}60%{transform:translateX(60%);opacity:0}100%{transform:translateX(60%);opacity:0}}
+@keyframes breathe{0%,100%{opacity:0}50%{opacity:.16}}
+@media(prefers-reduced-motion:reduce){.mark,.sheen:after,.play{animation:none}.sheen{display:none}}
+</style></head><body><div id="logo-motion"><div class="stage" role="img" aria-label="冰川蓝影盒标志，轻微悬浮并带有玻璃扫光"><div class="mark"><img src="yingbox-glacier-blue.png" alt=""><div class="sheen"></div><div class="play"></div></div></div><div class="controls"><button id="toggle" type="button" aria-pressed="false">暂停动画</button><button id="replay" type="button">重播</button></div><p class="caption">冰川蓝 · 悬浮 / 扫光 / 呼吸</p></div><script>
+const root=document.getElementById('logo-motion');const toggle=document.getElementById('toggle');
+toggle.onclick=()=>{const paused=root.classList.toggle('paused');toggle.textContent=paused?'播放动画':'暂停动画';toggle.setAttribute('aria-pressed',String(paused))};
+document.getElementById('replay').onclick=()=>{root.classList.remove('paused');toggle.textContent='暂停动画';toggle.setAttribute('aria-pressed','false');root.querySelectorAll('*').forEach(el=>el.getAnimations().forEach(a=>{a.currentTime=0;a.play()}))};
+</script></body></html>

@@ -5,7 +5,7 @@
       class="nas-sidebar yb-glass"
       aria-label="媒体中心导航"
     >
-      <div class="nas-brand"><img :src="logo" alt="" /><span>影盒</span></div>
+      <div class="nas-brand"><UiBrandLogo /><span>影盒</span></div>
       <LibrarySearch class="nas-search" />
       <nav aria-label="片库与网盘">
         <UiNavItem
@@ -79,7 +79,7 @@
 /** 复用影盒的浮动侧栏、导航控件与设置面板，手机上使用底部导航。 */
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
-import logo from '@/assets/imgs/logo.svg'
+import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { IconName } from '@/components/ui/icons'
