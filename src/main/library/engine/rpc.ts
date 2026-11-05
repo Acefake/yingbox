@@ -140,6 +140,8 @@ const HANDLERS: Handlers = {
     return home && { dir: home.dir, seasons: home.seasons }
   },
   'calendar.ensureSeries': (s, p) => placeholdersFor(s).ensure(p),
+  'calendar.seriesEpisodes': (s, p) =>
+    calendarFor(s).seriesEpisodes(p.itemId, p.to),
   'progress.list': (s, p) => progressFor(s).list(p.itemIds),
   'progress.save': (s, p) => progressFor(s).save(p.reports),
   'progress.summary': (s, p) => progressFor(s).summary(p.itemIds),

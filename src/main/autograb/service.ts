@@ -152,6 +152,24 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     if (landed.length) deps.landed?.(landed)
   }
 
+  /** 登记了「存整部剧」且已开始追更的剧：把已播出的全部缺集建成记录（一次性；查不到就留着下一轮再试） */
+  async function runBackfill(now: number): Promise<void> {
+    const pending = state.backfill ?? []
+    if (!pending.length || !deps.seriesEpisodes) return
+    const today = localDate(now)
+    for (const id of [...pending]) {
+      if (seriesModeOf(state, id) === 'off') continue
+      try {
+        const episodes = await deps.seriesEpisodes(id, today)
+        if (applyCalendar(state, episodes, today)) dirty()
+        state.backfill = (state.backfill ?? []).filter(x => x !== id)
+        dirty()
+      } catch (error) {
+        deps.log(`存整部剧失败：${(error as Error).message}`)
+      }
+    }
+  }
+
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
     const setting = settingOf(record.seriesId)
     const prefs = seriesPrefsOf(state, record.seriesId)
@@ -227,6 +245,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       const result = await deps.calendar(calendarRange(now))
       lastCalendar = result.episodes
       await syncRecords(result.episodes, now)
+      await runBackfill(now)
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())
         return
@@ -291,6 +310,14 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         running,
         defaultFolder: deps.defaultFolder(),
       })
+    },
+    async backfill(seriesId: number): Promise<void> {
+      await ensureLoaded()
+      const list = state.backfill ?? []
+      if (list.includes(seriesId)) return
+      state.backfill = [...list, seriesId]
+      dirty()
+      if (seriesModeOf(state, seriesId) !== 'off') void tick()
     },
     setEnabled: enabled => change(() => void (state.enabled = enabled)),
     async setSeries(

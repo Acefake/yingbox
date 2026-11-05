@@ -90,6 +90,8 @@ export interface AutograbState {
   policy: GrabPolicy
   /** 115 空间不足时暂停自动转存的原因；null = 没暂停 */
   spacePause: string | null
+  /** 还没「存整部剧」的剧 id：开始追更后第一轮把它已播出的全部缺集建成记录（在线剧追更用，ADR-0049） */
+  backfill?: number[]
 }
 
 /** 迁移前单独设了待确认 / 全自动的剧沿用的确认门槛 */
@@ -229,6 +231,10 @@ export function parseState(raw: unknown, now: number): AutograbState {
     ? { ...DEFAULT_TV_POLICY, prefs: prefsOf(raw.prefs) }
     : policyOf(raw.policy, 'tv')
   state.spacePause = sOrNull(raw.spacePause)
+  if (Array.isArray(raw.backfill))
+    state.backfill = raw.backfill.filter(
+      (id): id is number => Number.isSafeInteger(id) && id > 0
+    )
   if (isObj(raw.series))
     for (const [id, value] of Object.entries(raw.series)) {
       if (!/^\d+$/.test(id) || !isObj(value)) continue

@@ -302,6 +302,7 @@ describe('引擎 RPC 与 preload bridge', () => {
       'merge.join',
       'calendar.seriesFolder',
       'calendar.ensureSeries',
+      'calendar.seriesEpisodes',
     ]
     expect([...LIBRARY_METHODS].sort()).toEqual(methods.sort())
   })

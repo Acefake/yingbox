@@ -4,6 +4,31 @@ import { Pan115Error } from '../src/main/pan115/errors'
 import { FILE_05, child, episode, namesIn, setup } from './autograb-harness'
 
 describe('追更服务', () => {
+  it('存整部剧：登记后开始追更的第一轮把已播出的缺集全建成记录，只做一次', async () => {
+    const { service, deps } = setup([episode(5)])
+    const all = [1, 2, 3].map(n => ({
+      ...episode(n),
+      airDate: n === 1 ? '2026-09-01' : '2026-10-20',
+    }))
+    const asked: number[] = []
+    deps.seriesEpisodes = async id => {
+      asked.push(id)
+      return all
+    }
+    await service.backfill(7)
+    await service.tick()
+    expect(asked).toEqual([])
+    await service.setSeries(7, { mode: 'confirm' })
+    await service.tick()
+    const eps = (await service.overview()).episodes
+      .filter(e => e.seriesId === 7)
+      .map(e => e.episode)
+      .sort()
+    expect(eps).toEqual([1, 2, 3, 5])
+    await service.tick()
+    expect(asked).toEqual([7])
+  })
+
   it('不追的剧不搜', async () => {
     const { service, deps } = setup([episode(5)])
     await service.tick()

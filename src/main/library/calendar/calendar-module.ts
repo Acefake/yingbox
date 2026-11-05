@@ -144,6 +144,15 @@ export class CalendarModule {
     return { episodes, configured: true, series: series.length, failed }
   }
 
+  /** 一部剧到 to（含）为止播出过的全部集；剧不存在、没匹配或没配 TMDB 为空。 */
+  async seriesEpisodes(itemId: number, to: string): Promise<CalendarEpisode[]> {
+    const provider = this.options.provider()
+    if (!provider.configured) return []
+    const row = this.listSeries().find(s => s.id === itemId)
+    if (!row) return []
+    return this.forSeries(provider, row, { from: '1900-01-01', to })
+  }
+
   private listSeries(): SeriesRow[] {
     return this.sql
       .get(SERIES_SQL)

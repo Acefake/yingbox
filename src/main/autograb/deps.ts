@@ -15,6 +15,7 @@ import type {
 import type { NetdiskItem, ShareSnap } from '../../shared/contract/pan115'
 import type { TargetFolder } from '../../shared/netdisk/target-folder'
 import type {
+  CalendarEpisode,
   CalendarRequest,
   CalendarResult,
   FileChangeNotice,
@@ -27,6 +28,8 @@ import type { AutograbState, EpisodeRecord } from './state'
 /** 依赖 */
 export interface AutograbDeps {
   calendar(range: CalendarRequest): Promise<CalendarResult>
+  /** 一部剧到 to（含）为止播出过的全部集（存整部剧用）；不可用时不补 */
+  seriesEpisodes?(seriesId: number, to: string): Promise<CalendarEpisode[]>
   /** 确认旧条目是否仍是媒体库里这部剧（条目 id 可能被别的条目复用，所以连剧名一起核对）；不可用或查询失败时不自动迁移。 */
   seriesExists?(seriesId: number, title: string): Promise<boolean>
   /** 通知媒体库有新文件；返回被媒体库接住的条数（0 = 没有库覆盖这个路径），不关心结果的实现可以不返回 */
@@ -105,6 +108,8 @@ export interface AutograbService {
     cid: string,
     name: string
   ): Promise<void>
+  /** 登记「存整部剧」：这部剧开始追更后，第一轮把已播出的全部缺集建成记录 */
+  backfill(seriesId: number): Promise<void>
   policy(): Promise<GrabPolicy>
   setPolicy(patch: GrabPolicyPatch): Promise<AutograbResult>
   grab(key: string, index: number): Promise<AutograbResult>

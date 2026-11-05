@@ -61,6 +61,8 @@ export function registerAutograb(
 
   const service = createAutograbService({
     calendar: range => library.call('calendar.episodes', range),
+    seriesEpisodes: (itemId, to) =>
+      library.call('calendar.seriesEpisodes', { itemId, to }),
     seriesFolder: itemId => library.call('calendar.seriesFolder', { itemId }),
     seriesFolderName: async (itemId, title) => {
       const [item, writer] = await Promise.all([
@@ -152,8 +154,10 @@ export function registerAutograb(
     setSeries: (_, seriesId, patch) => service.setSeries(seriesId, patch),
     trackOnline: async (_, request): Promise<TrackOnlineResult> => {
       const found = await library.call('calendar.ensureSeries', request)
-      if (found.status === 'ready')
+      if (found.status === 'ready') {
+        await service.backfill(found.itemId)
         return { status: 'ready', seriesId: found.itemId }
+      }
       if (found.status === 'none') return found
       return {
         status: 'choose',

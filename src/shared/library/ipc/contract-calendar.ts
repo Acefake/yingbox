@@ -99,6 +99,11 @@ export interface CalendarRpcMap {
     params: { itemId: number }
     result: SeriesFolder | null
   }
+  /** 一部剧到 to（含）为止播出过的全部集（追更首次「存整部剧」用，不受一次最多 62 天限制） */
+  'calendar.seriesEpisodes': {
+    params: { itemId: number; to: string }
+    result: CalendarEpisode[]
+  }
   'calendar.ensureSeries': {
     params: EnsureSeriesRequest
     result: EnsureSeriesResult
@@ -110,6 +115,7 @@ export const CALENDAR_METHODS = [
   'calendar.episodes',
   'calendar.seriesFolder',
   'calendar.ensureSeries',
+  'calendar.seriesEpisodes',
 ] as const satisfies readonly (keyof CalendarRpcMap)[]
 
 /** window.api.library 上的追剧日历方法。 */

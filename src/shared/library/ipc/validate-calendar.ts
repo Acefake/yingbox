@@ -44,6 +44,14 @@ export const CALENDAR_PARSERS: {
   'calendar.seriesFolder': input => ({
     itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
   }),
+  'calendar.seriesEpisodes': input => {
+    const r = asRecord(input, '参数')
+    parseDate(r.to, 'to')
+    return {
+      itemId: positiveId(r.itemId, 'itemId'),
+      to: r.to as string,
+    }
+  },
   'calendar.ensureSeries': input => {
     const r = asRecord(input, '参数')
     const title = typeof r.title === 'string' ? r.title.trim() : ''
