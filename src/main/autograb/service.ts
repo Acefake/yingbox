@@ -41,6 +41,8 @@ import {
   localDate,
   nextTry,
 } from './schedule-rules'
+import { runBackfill } from './backfill'
+import { createPackRound } from './pack-round'
 import { adopt } from './reconcile'
 import { applyCalendar, retryRecord, skipRecord } from './records'
 import { createSaver } from './saver'
@@ -152,24 +154,6 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     if (landed.length) deps.landed?.(landed)
   }
 
-  /** 登记了「存整部剧」且已开始追更的剧：把已播出的全部缺集建成记录（一次性；查不到就留着下一轮再试） */
-  async function runBackfill(now: number): Promise<void> {
-    const pending = state.backfill ?? []
-    if (!pending.length || !deps.seriesEpisodes) return
-    const today = localDate(now)
-    for (const id of [...pending]) {
-      if (seriesModeOf(state, id) === 'off') continue
-      try {
-        const episodes = await deps.seriesEpisodes(id, today)
-        if (applyCalendar(state, episodes, today)) dirty()
-        state.backfill = (state.backfill ?? []).filter(x => x !== id)
-        dirty()
-      } catch (error) {
-        deps.log(`存整部剧失败：${(error as Error).message}`)
-      }
-    }
-  }
-
   async function searchOne(record: EpisodeRecord, now: number): Promise<void> {
     const setting = settingOf(record.seriesId)
     const prefs = seriesPrefsOf(state, record.seriesId)
@@ -219,6 +203,22 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       id => targetCid(undefined, id)
     ),
   })
+  const backfillCtx = {
+    state: () => state,
+    deps: () => deps,
+    dirty,
+  }
+  const packRound = createPackRound({
+    state: () => state,
+    finder,
+    paused: () => gateRef.paused(),
+    tracked: id => seriesModeOf(state, id) !== 'off',
+    prefs: id => seriesPrefsOf(state, id),
+    originalTitle: id =>
+      lastCalendar.find(e => e.seriesId === id)?.originalTitle ?? undefined,
+    dirty,
+    log: message => deps.log(message),
+  })
   /** 同一集的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
   const grabs = createSingleFlight()
   const grab = (
@@ -245,11 +245,12 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       const result = await deps.calendar(calendarRange(now))
       lastCalendar = result.episodes
       await syncRecords(result.episodes, now)
-      await runBackfill(now)
+      await runBackfill(backfillCtx, now)
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())
         return
       lastRunAt = deps.now()
+      await packRound.run(now)
       const records = Object.values(state.episodes)
       for (const record of records.filter(r => r.status === 'saved'))
         await followSaved(record, now).catch(e =>

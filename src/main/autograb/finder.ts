@@ -30,6 +30,11 @@ import {
   matchFile,
   seriesTitleMatches,
 } from './match-rules'
+import {
+  type PackOptions,
+  type PackTarget,
+  findPackCandidates,
+} from './pack-finder'
 import { folderVerdict, looksLikePack } from './pack-rules'
 import type { EpisodeHint } from '../../shared/netdisk/episode-hint'
 import { shareHint } from './share-title-rules'
@@ -125,6 +130,12 @@ export function rankShares(
 /** 创建查找器（带关键词缓存） */
 export function createFinder(deps: FinderDeps): {
   find(target: EpisodeTarget, options?: FindOptions): Promise<FindResult>
+  /** 缺多集时找合集，认出缺集（ADR-0050）；键见 pack-finder 的 packKey */
+  findPack(
+    series: Pick<EpisodeTarget, 'seriesTitle' | 'originalTitle'>,
+    targets: readonly PackTarget[],
+    options?: PackOptions
+  ): Promise<Map<string, AutograbCandidate[]>>
 } {
   const cache = new Map<string, { at: number; items: NetdiskItem[] }>()
   /** 这一次 find 用了几次快照（service 里 find 不并发） */
@@ -301,6 +312,19 @@ export function createFinder(deps: FinderDeps): {
   }
 
   return {
+    findPack: (series, targets, options) =>
+      findPackCandidates(
+        {
+          search,
+          snap: deps.snap,
+          blocked: deps.blocked,
+          block: deps.block,
+          isDead: isDeadShare,
+        },
+        series,
+        targets,
+        options
+      ),
     async find(
       target: EpisodeTarget,
       options: FindOptions = {}
