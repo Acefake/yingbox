@@ -5,6 +5,7 @@ import {
   CALENDAR_MAX_DAYS,
   type CalendarRequest,
   type CalendarRpcMap,
+  type EnsureSeriesRequest,
 } from './contract-calendar'
 import { asRecord, invalid, positiveId } from './validate-base'
 
@@ -43,4 +44,21 @@ export const CALENDAR_PARSERS: {
   'calendar.seriesFolder': input => ({
     itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
   }),
+  'calendar.ensureSeries': input => {
+    const r = asRecord(input, '参数')
+    const title = typeof r.title === 'string' ? r.title.trim() : ''
+    if (!title || title.length > 200) invalid('title 不能为空，且不超过 200 字')
+    const out: EnsureSeriesRequest = { title }
+    if (r.year !== undefined) {
+      if (!Number.isInteger(r.year) || (r.year as number) < 1800)
+        invalid('year 不是有效年份')
+      out.year = r.year as number
+    }
+    if (r.tmdbId !== undefined) {
+      if (typeof r.tmdbId !== 'string' || !/^\d{1,10}$/.test(r.tmdbId))
+        invalid('tmdbId 必须是数字')
+      out.tmdbId = r.tmdbId as string
+    }
+    return out
+  },
 }

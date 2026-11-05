@@ -8,6 +8,7 @@
 
 /** 请求：闭区间 [from, to]，日期都是 YYYY-MM-DD。 */
 import type { SeriesCategory } from '../../contract/series-category'
+import type { MatchCandidateInfo } from './contract-match'
 
 export interface CalendarRequest {
   from: string
@@ -71,6 +72,25 @@ export interface SeriesFolder {
   seasons: Record<number, string>
 }
 
+/** 保证片库里有这部剧（在线剧追更用，ADR-0049）。 */
+export interface EnsureSeriesRequest {
+  /** 剧名（匹配 TMDB 用；指定 tmdbId 时只作临时名） */
+  title: string
+  year?: number
+  /** 用户从候选里选定的 TMDB id */
+  tmdbId?: string
+}
+
+/**
+ * - ready：片库里有这部剧了（已有真实条目 / 占位，或刚建了占位）；itemId 是日历与追更用的那个
+ * - choose：剧名匹配不够确定，让用户从候选里选
+ * - none：TMDB 上找不到
+ */
+export type EnsureSeriesResult =
+  | { status: 'ready'; itemId: number; created: boolean }
+  | { status: 'choose'; candidates: MatchCandidateInfo[] }
+  | { status: 'none' }
+
 /** 追剧日历的方法。 */
 export interface CalendarRpcMap {
   'calendar.episodes': { params: CalendarRequest; result: CalendarResult }
@@ -79,12 +99,17 @@ export interface CalendarRpcMap {
     params: { itemId: number }
     result: SeriesFolder | null
   }
+  'calendar.ensureSeries': {
+    params: EnsureSeriesRequest
+    result: EnsureSeriesResult
+  }
 }
 
 /** 方法名白名单（并入 LIBRARY_METHODS）。 */
 export const CALENDAR_METHODS = [
   'calendar.episodes',
   'calendar.seriesFolder',
+  'calendar.ensureSeries',
 ] as const satisfies readonly (keyof CalendarRpcMap)[]
 
 /** window.api.library 上的追剧日历方法。 */

@@ -21,6 +21,7 @@ import {
   loadLibraryProgress,
 } from '@/features/library'
 import { continueRecords, readMediaProgress } from '@/features/player'
+import { onlineLinks } from '@/services/online-series-links'
 
 import { addDays, dateKey, weekStart } from './calendar-dates'
 import {
@@ -29,6 +30,7 @@ import {
   badgeCount,
   badgeRange,
   compareEntries,
+  dropLinkedOnline,
   libraryEntries,
   onlineEntries,
 } from './calendar-rules'
@@ -125,9 +127,10 @@ function entriesFor(state: RangeState | undefined): CalendarEntry[] {
     records,
     progressOf
   )
-  return [...library, ...onlineEntries(records, today.value)].sort(
-    compareEntries
-  )
+  return dropLinkedOnline(
+    [...library, ...onlineEntries(records, today.value)],
+    onlineLinks.value
+  ).sort(compareEntries)
 }
 
 let badgeStarted = false

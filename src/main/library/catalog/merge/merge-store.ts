@@ -7,13 +7,14 @@ import { LibraryError } from '../../../../shared/library/ipc'
 import { type LibraryDb, StatementCache } from '../../db/database'
 import type { VersionFileMeta } from './version-rules'
 
-/** 与 id 同键、同来源的全部顶层条目（含自身），id 升序；没合并时只有自己。 */
+/** 与 id 同键、同来源的全部顶层条目（含自身），id 升序；没合并时只有自己。占位条目（ADR-0049）只在查它自己时算成员。 */
 const MEMBERS_SQL = `
 SELECT m.id FROM media_items i
 JOIN libraries li ON li.id = i.library_id
 JOIN media_items m ON m.merge_key = i.merge_key
 JOIN libraries lm ON lm.id = m.library_id AND lm.source = li.source
 WHERE i.id = ?
+  AND (m.id = i.id OR m.local_key NOT LIKE 'placeholder:%')
 ORDER BY m.id`
 
 /** 被拆出的条目：同一作品（同类型、同 id、已确认匹配、同来源）的其它顶层条目数。 */
@@ -21,7 +22,7 @@ const SPLIT_PEERS_SQL = `
 SELECT COUNT(*) AS n FROM media_items i
 JOIN libraries li ON li.id = i.library_id
 JOIN media_items m ON m.type = i.type AND m.tmdb_id = i.tmdb_id AND m.id <> i.id
-  AND m.parent_id IS NULL AND m.match_state IN ('auto', 'locked')
+  AND m.local_key NOT LIKE 'placeholder:%' AND m.parent_id IS NULL AND m.match_state IN ('auto', 'locked')
 JOIN libraries lm ON lm.id = m.library_id AND lm.source = li.source
 WHERE i.id = ?`
 

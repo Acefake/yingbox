@@ -13,6 +13,7 @@ import {
   parseRpcParams,
 } from '../../../shared/library/ipc'
 import { CalendarModule } from '../calendar/calendar-module'
+import { PlaceholderSeries } from '../calendar/placeholder-series'
 import { ScrapePrefsStore } from '../providers/scrape-prefs-store'
 import { createItemPreviews } from '../catalog/item-preview'
 import { ProgressStore } from '../progress/progress-store'
@@ -62,6 +63,21 @@ function calendarFor(s: LibraryService): CalendarModule {
       provider: () => s.identifier.provider,
     })
     calendars.set(s, found)
+  }
+  return found
+}
+
+/** 每个服务一份占位剧条目（在线剧追更，ADR-0049）。 */
+const placeholders = new WeakMap<LibraryService, PlaceholderSeries>()
+
+function placeholdersFor(s: LibraryService): PlaceholderSeries {
+  let found = placeholders.get(s)
+  if (!found) {
+    found = new PlaceholderSeries({
+      db: s.db,
+      match: request => s.applyMatch(request),
+    })
+    placeholders.set(s, found)
   }
   return found
 }
@@ -117,6 +133,7 @@ const HANDLERS: Handlers = {
     const home = homesFor(s).homeOf(p.itemId)
     return home && { dir: home.dir, seasons: home.seasons }
   },
+  'calendar.ensureSeries': (s, p) => placeholdersFor(s).ensure(p),
   'progress.list': (s, p) => progressFor(s).list(p.itemIds),
   'progress.save': (s, p) => progressFor(s).save(p.reports),
   'progress.summary': (s, p) => progressFor(s).summary(p.itemIds),

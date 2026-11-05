@@ -10,6 +10,7 @@ export { type AutograbMark, markKey } from './autograb-rules'
 export { default as AutograbFolderPrompt } from './components/AutograbFolderPrompt.vue'
 export { default as AutograbView } from './components/AutograbView.vue'
 export { default as EpisodeGrabSheet } from './components/EpisodeGrabSheet.vue'
+export { default as OnlineTrackSheets } from './components/OnlineTrackSheets.vue'
 export { default as SeriesTrackButton } from './components/SeriesTrackButton.vue'
 export { default as GrabOverrideForm } from './components/GrabOverrideForm.vue'
 export { default as GrabPoster } from './components/GrabPoster.vue'
@@ -36,4 +37,9 @@ export {
 } from './prefs-rules'
 export { useAutograbBadge } from './use-autograb-badge'
 export { useAutograbMarks } from './use-autograb-marks'
+export {
+  type OnlineShow,
+  type UseOnlineTrackingReturn,
+  useOnlineTracking,
+} from './use-online-tracking'
 export { usePolicyFolder } from './use-policy-folder'

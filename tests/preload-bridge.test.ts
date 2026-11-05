@@ -199,6 +199,7 @@ const ADDED_API: Record<string, string[]> = {
     'overview',
     'setEnabled',
     'setSeries',
+    'trackOnline',
     'setPrefs',
     'grab',
     'revert',

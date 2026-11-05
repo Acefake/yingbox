@@ -177,6 +177,49 @@ export interface AutograbSeriesPatch {
 /** 结果：成功或人话 */
 export type AutograbResult = { ok: true } | { ok: false; error: string }
 
+/** 在线剧要追更：先在片库里有这部剧（ADR-0049） */
+export interface TrackOnlineRequest {
+  /** 剧名（匹配 TMDB 用） */
+  title: string
+  year?: number
+  /** 用户从候选里选定的 TMDB id */
+  tmdbId?: string
+}
+
+/** 匹配不确定时让用户选的候选 */
+export interface TrackCandidate {
+  id: string
+  title: string
+  originalTitle: string | null
+  year: number | null
+  poster: string | null
+}
+
+/**
+ * - ready：片库里有了，seriesId 就是追更用的剧 id
+ * - choose：剧名对不准，从候选里选一个再来一次（带 tmdbId）
+ * - none：TMDB 上找不到
+ */
+export type TrackOnlineResult =
+  | { status: 'ready'; seriesId: number }
+  | { status: 'choose'; candidates: TrackCandidate[] }
+  | { status: 'none' }
+
+const trackRequestOf = (value: unknown): TrackOnlineRequest => {
+  const raw = record<Record<string, unknown>>(value, 'request')
+  const title = str(raw.title, 'title').trim().slice(0, 200)
+  if (!title) throw new ContractError('参数 title 不能为空')
+  const out: TrackOnlineRequest = { title }
+  if (raw.year !== undefined) out.year = int(raw.year, 'year')
+  if (raw.tmdbId !== undefined) {
+    const tmdbId = str(raw.tmdbId, 'tmdbId')
+    if (!/^\d{1,10}$/.test(tmdbId))
+      throw new ContractError('参数 tmdbId 应为数字')
+    out.tmdbId = tmdbId
+  }
+  return out
+}
+
 const patchOf = (value: unknown): AutograbSeriesPatch => {
   const raw = record<Record<string, unknown>>(value, 'patch')
   const patch: AutograbSeriesPatch = {}
@@ -205,6 +248,13 @@ export const autograb = defineDomain(
       [seriesId: number, patch: AutograbSeriesPatch],
       AutograbResult
     >(a => [int(a[0], 'seriesId'), patchOf(a[1])]),
+    /**
+     * 在线剧要追更：在片库里建（或找到）这部剧的条目，返回追更用的剧 id。
+     * 剧名对不准时返回候选，选定后带 tmdbId 再调一次。
+     */
+    trackOnline: call<[request: TrackOnlineRequest], TrackOnlineResult>(a => [
+      trackRequestOf(a[0]),
+    ]),
     /** 转存某一集的第 index 个候选 */
     grab: call<[key: string, index: number], AutograbResult>(a => [
       str(a[0], 'key'),

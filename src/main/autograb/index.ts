@@ -8,7 +8,10 @@
 import { promises as fs } from 'node:fs'
 import { join } from 'node:path'
 
-import { autograb } from '../../shared/contract/autograb'
+import {
+  type TrackOnlineResult,
+  autograb,
+} from '../../shared/contract/autograb'
 import {
   defaultFolder,
   readTargetSettings,
@@ -135,6 +138,22 @@ export function registerAutograb(
     },
     setEnabled: (_, enabled) => service.setEnabled(enabled),
     setSeries: (_, seriesId, patch) => service.setSeries(seriesId, patch),
+    trackOnline: async (_, request): Promise<TrackOnlineResult> => {
+      const found = await library.call('calendar.ensureSeries', request)
+      if (found.status === 'ready')
+        return { status: 'ready', seriesId: found.itemId }
+      if (found.status === 'none') return found
+      return {
+        status: 'choose',
+        candidates: found.candidates.map(c => ({
+          id: c.id,
+          title: c.title,
+          originalTitle: c.originalTitle,
+          year: c.year,
+          poster: c.poster,
+        })),
+      }
+    },
     setPrefs: (_, prefs) => service.setPrefs(prefs),
     setCategoryFolder: (_, category, cid, name) =>
       service.setCategoryFolder(category, cid, name),

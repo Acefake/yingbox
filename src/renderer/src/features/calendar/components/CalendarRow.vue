@@ -44,6 +44,20 @@
     <span v-else class="cal-status cal-row-status" :data-tone="status.tone">{{
       status.label
     }}</span>
+    <UiPressable
+      v-if="trackable"
+      v-tooltip="
+        tracked
+          ? '打开这部剧的追更设置'
+          : '在片库里建这部剧，新集播出后自动搜 115 资源'
+      "
+      class="cal-row-track"
+      :class="{ 'is-tracked': tracked }"
+      :aria-busy="busy || undefined"
+      :aria-label="`${group.title}：${tracked ? '追更中，打开追更设置' : '开始追更'}`"
+      @click="emit('track', group.primary)"
+      >{{ tracked ? '追更中' : '追更' }}</UiPressable
+    >
   </div>
 </template>
 
@@ -54,6 +68,7 @@
  * 下面一行是状态圆点（rowStatus：追更中的集说追更，其余说已看 / 可播放 / 未看 / 待播），已看与待播的行淡一档。
  * 点行交给页面（本地有文件就播放第一集未看的，否则打开详情）；本地能播时剧照上悬停出播放图标。
  * 追更中的集，状态本身是另一个按钮（与行并列，不嵌套），点它交给页面打开这一集的追更侧板。
+ * 在线剧（不在片库里）行尾多一个「追更」小按钮：点它交给页面在片库里建这部剧并打开追更侧板（ADR-0049），已在追时写「追更中」。
  */
 import { computed, ref, watch } from 'vue'
 
@@ -71,10 +86,17 @@ const props = defineProps<{
   compact?: boolean
   /** 追更状态小标记 */
   mark?: AutograbMark | null
+  /** 在线剧行显示追更入口（桌面端 / 连着片库服务时由页面传入） */
+  trackable?: boolean
+  /** 这部在线剧已在追更 */
+  tracked?: boolean
+  /** 正在建片库条目 */
+  busy?: boolean
 }>()
 const emit = defineEmits<{
   activate: [entry: CalendarEntry]
   mark: [key: string]
+  track: [entry: CalendarEntry]
 }>()
 
 const broken = ref(false)
@@ -207,6 +229,24 @@ const watchLabel = computed(() => rowStatus(props.group, null).label)
 }
 .cal-row-status.is-action:hover {
   background: var(--bg-glass-hover);
+}
+
+.cal-row-track {
+  align-self: flex-start;
+  margin: 0 0 var(--space-1)
+    calc(var(--space-1_5) + var(--cal-thumb-w) + var(--space-2));
+  padding: var(--space-0_5) var(--space-2);
+  border-radius: var(--radius-full);
+  background: var(--bg-fill-secondary);
+  color: var(--text-secondary);
+  font-size: var(--text-2xs);
+  transition: background var(--duration-fast) var(--ease-out);
+}
+.cal-row-track:hover {
+  background: var(--bg-glass-hover);
+}
+.cal-row-track.is-tracked {
+  color: var(--accent-text);
 }
 
 .cal-row-sr {

@@ -126,6 +126,7 @@ export function listFacetValues(
     `i.type IN (${marks(types.length)})`,
     `${src.value} IS NOT NULL`,
     `${src.value} <> ''`,
+    `i.local_key NOT LIKE 'placeholder:%'`,
   ]
   const params: Params = [...types]
   if (src.where) where.push(src.where)

@@ -57,6 +57,8 @@
       </SettingsRow>
     </SettingsGroup>
 
+    <SeriesSearchBox v-if="data" />
+
     <PendingList
       v-if="pending.length"
       :episodes="pending"
@@ -154,6 +156,7 @@ import AutograbEpisodes from './AutograbEpisodes.vue'
 import EpisodeGrabSheet from './EpisodeGrabSheet.vue'
 import PendingList from './PendingList.vue'
 import SeriesGrabSheet from './SeriesGrabSheet.vue'
+import SeriesSearchBox from './SeriesSearchBox.vue'
 import TrackedSeriesList from './TrackedSeriesList.vue'
 
 const ag = useAutograb()

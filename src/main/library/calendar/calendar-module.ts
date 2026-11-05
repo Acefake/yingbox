@@ -60,7 +60,7 @@ interface LocalEpisode {
 }
 
 /**
- * 参与日历的剧：已确认匹配的剧；同一部剧在几个文件夹里（同 merge_key）只取 id 最小的一个，
+ * 参与日历的剧：已确认匹配的剧；同一部剧在几个文件夹里（同 merge_key）只取一个：占位条目（ADR-0049，追更记在它的 id 上）优先，其次 id 最小，
  * 它的本地集由 MEMBERS_SQL 找全。
  */
 const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.original_title, i.tmdb_id,
@@ -70,8 +70,11 @@ const SERIES_SQL = `SELECT i.id, i.library_id, i.title, i.original_title, i.tmdb
     AND i.match_state IN ('auto', 'locked')
     AND (i.merge_key IS NULL OR NOT EXISTS (
       SELECT 1 FROM media_items o JOIN libraries lo ON lo.id = o.library_id
-      WHERE o.merge_key = i.merge_key AND o.id < i.id AND lo.source = l.source
-        AND (lo.kind = 'tv' OR lo.mixed = 1)))`
+      WHERE o.merge_key = i.merge_key AND lo.source = l.source
+        AND (lo.kind = 'tv' OR lo.mixed = 1)
+        AND ((o.local_key LIKE 'placeholder:%') > (i.local_key LIKE 'placeholder:%')
+          OR ((o.local_key LIKE 'placeholder:%') = (i.local_key LIKE 'placeholder:%')
+            AND o.id < i.id))))`
 
 /** 与这部剧合并展示的本地条目（含自身）。 */
 const MEMBERS_SQL = `SELECT ?1 AS id UNION

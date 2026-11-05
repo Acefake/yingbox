@@ -252,6 +252,42 @@ export function onlineEntries(
   return out
 }
 
+/** 在线剧开播时存下的年份（CMS 的 vod_year）；没有或不像年份为 undefined。 */
+export function onlineYear(detail: unknown): number | undefined {
+  const raw =
+    detail && typeof detail === 'object'
+      ? (detail as Record<string, unknown>).vod_year
+      : undefined
+  const m = /^(?:18|19|20)\d{2}$/.exec(String(raw ?? '').trim())
+  return m ? Number(m[0]) : undefined
+}
+
+/**
+ * 在线剧追更后（ADR-0049）它在片库里有了剧条目：片库已经给出这部剧的播出集时，丢掉对应的在线卡（片库卡更准，不重复）。
+ * 对应关系：本次运行里点过追更的按记录 id → 片库剧 id；重启后按剧名相同。
+ * 片库这段日期里没有这部剧的集时在线卡保留（还要显示「追更中」）。
+ * @param links 在线记录 id → 片库剧 id
+ */
+export function dropLinkedOnline(
+  entries: readonly CalendarEntry[],
+  links: ReadonlyMap<string, number>
+): CalendarEntry[] {
+  const library = entries.filter(e => e.library)
+  if (!library.length) return [...entries]
+  const present = new Set(library.map(e => e.library!.seriesId))
+  const titles = new Set(library.map(e => normalizeShowTitle(e.title)))
+  return entries.filter(e => {
+    if (!e.online) return true
+    const seriesId = links.get(e.online.recordId)
+    if (seriesId !== undefined) return !present.has(seriesId)
+    const title = normalizeShowTitle(e.title)
+    return title === '' || !titles.has(title)
+  })
+}
+
+const normalizeShowTitle = (title: string): string =>
+  title.replace(/\s+/g, '').toLowerCase()
+
 /** 卡片排序：日期（没有日期的排最后）→ 剧名 → 集号。 */
 export function compareEntries(a: CalendarEntry, b: CalendarEntry): number {
   if (a.airDate !== b.airDate) {

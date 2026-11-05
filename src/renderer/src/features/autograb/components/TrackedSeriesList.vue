@@ -66,7 +66,7 @@
       </UiPressable>
     </div>
     <p v-else class="ag-empty">
-      还没有在追的剧。在剧集详情页点「追更」，或等库里的连载剧开播后出现在这里。
+      还没有在追的剧。在上面搜索剧名，或在剧集详情页点「追更」，或等库里的连载剧开播后出现在这里。
     </p>
 
     <template v-if="untracked.length && untrackedOpen && active === 'all'">

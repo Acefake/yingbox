@@ -212,7 +212,8 @@ export class ActorStore {
 
   /** 分页列出有作品的演员。 */
   list(q: NormalizedActorQuery): ActorListResult {
-    const clauses: string[] = []
+    // 占位剧条目（ADR-0049）不上墙，演员页也不数它
+    const clauses: string[] = ["i.local_key NOT LIKE 'placeholder:%'"]
     const params: Array<string | number> = []
     if (q.libraryId !== undefined) {
       clauses.push('i.library_id = ?')

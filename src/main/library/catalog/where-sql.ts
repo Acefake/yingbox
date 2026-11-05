@@ -47,6 +47,8 @@ export function compileWhere(
   ftsFrom?: string
 ): { where: string; params: Params } {
   const clauses: string[] = [`${a}.type IN (${marks(q.types.length)})`]
+  // 占位剧条目（追更用的空条目，ADR-0049）不上墙
+  clauses.push(`${a}.local_key NOT LIKE 'placeholder:%'`)
   const params: Params = [...q.types]
   if (q.libraryId !== undefined) {
     clauses.push(`${a}.library_id = ?`)

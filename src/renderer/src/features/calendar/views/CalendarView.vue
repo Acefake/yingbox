@@ -109,8 +109,10 @@
                     :group="group"
                     compact
                     :mark="markOf(group)"
+                    v-bind="trackProps(group)"
                     @activate="activate"
                     @mark="openAutograb"
+                    @track="trackOnline"
                   />
                 </li>
               </ul>
@@ -133,8 +135,10 @@
             <CalendarRow
               :group="row"
               :mark="markOf(row)"
+              v-bind="trackProps(row)"
               @activate="activate"
               @mark="openAutograb"
+              @track="trackOnline"
             />
           </li>
         </ul>
@@ -158,8 +162,10 @@
           <CalendarRow
             :group="row"
             :mark="markOf(row)"
+            v-bind="trackProps(row)"
             @activate="activate"
             @mark="openAutograb"
+            @track="trackOnline"
           />
         </li>
       </ul>
@@ -170,6 +176,7 @@
       :episode-key="sheetKey"
       @close="sheetKey = null"
     />
+    <OnlineTrackSheets v-if="autograbAvailable" :tracking="tracking" />
   </div>
 </template>
 
@@ -181,7 +188,8 @@
  * 数据见 use-calendar.ts；点卡片：媒体库里有本地文件就播放这一集，否则打开剧的详情；在线剧打开在线详情。
  * 本周时周视图上方是「今天」一排大剧照卡（TodayCard），七列每行下面是同一套状态圆点（rowStatus），标题右侧是本周出现过的状态图例。
  * 只看不管：追更在自动追更页（/autograb）。旧深链 ?autograb=1 重定向过去；有资源待确认时页头说明下面有去处理的链接；
- * 追更中的集卡片上有追更小标记，点它从右侧滑出这一集的侧板（覆盖在页面上，日历滚动位置不动）。
+ * 追更中的集卡片上有追更小标记，点它从右侧滑出这一集的侧板（覆盖在页面上，日历滚动位置不动）；
+ * 在线剧的行有「追更」入口，点它在片库里建这部剧再开这部剧的追更侧板（剧名对不准时先选候选，ADR-0049）。
  */
 import { computed, nextTick, onActivated, onDeactivated, ref, watch } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
@@ -200,6 +208,7 @@ import {
 import {
   type AutograbMark,
   EpisodeGrabSheet,
+  OnlineTrackSheets,
   autograbAvailable,
   markKey,
   useAutograbBadge,
@@ -220,6 +229,7 @@ import {
 import CalendarRow from '../components/CalendarRow.vue'
 import TodayCard from '../components/TodayCard.vue'
 import { type CalendarMode, useCalendar } from '../use-calendar'
+import { useOnlineTrackRows } from '../use-online-track-rows'
 
 const MODE_OPTIONS: SegmentedOption<CalendarMode>[] = [
   { value: 'week', label: '周' },
@@ -253,6 +263,8 @@ function markOf(group: ShowDayGroup): AutograbMark | null {
   }
   return null
 }
+
+const { tracking, trackProps, trackOnline } = useOnlineTrackRows()
 
 /** 点小标记：从右侧滑出这一集的追更侧板 */
 function openAutograb(key: string): void {
