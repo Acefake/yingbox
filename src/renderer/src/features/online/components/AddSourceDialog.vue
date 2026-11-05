@@ -1,6 +1,6 @@
 <template>
   <div class="add-dialog" @click.self="emit('close')">
-    <div class="add-panel">
+    <div class="add-panel yb-menu">
       <DialogTitlebar title="添加自定义源" icon="plus" @close="emit('close')" />
       <div class="add-body">
         <p class="hint">
@@ -92,9 +92,7 @@ const addCustom = async (): Promise<void> => {
   overflow: hidden;
   border: 1px solid var(--border-subtle);
   border-radius: var(--radius-xl);
-  background: var(--bg-elevated);
   color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
 }
 .add-body {
   padding: var(--space-5);

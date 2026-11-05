@@ -22,7 +22,7 @@
     />
     <div
       v-if="open"
-      class="ui-menu-button-panel"
+      class="ui-menu-button-panel yb-menu"
       role="menu"
       :aria-label="label"
     >
@@ -164,10 +164,6 @@ onBeforeUnmount(close)
   overflow-y: auto;
   padding: var(--space-1_5);
   border-radius: var(--radius-lg);
-  background: var(--menu-bg);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
 }
 .ui-menu-button-item {
   white-space: nowrap;

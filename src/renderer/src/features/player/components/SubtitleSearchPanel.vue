@@ -1,5 +1,5 @@
 <template>
-  <div class="unified-player-subtitle-panel">
+  <div class="unified-player-subtitle-panel yb-glass is-media">
     <DialogTitlebar title="字幕" icon="subtitle" @close="emit('close')" />
     <!-- 面板顶部的附加区（AI 生成字幕） -->
     <slot />
@@ -91,13 +91,9 @@ const query = defineModel<string>('query', { required: true })
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-lg);
   color: var(--text-primary);
   overflow: hidden;
-
-  backdrop-filter: none;
 }
 
 .usp-search-row {

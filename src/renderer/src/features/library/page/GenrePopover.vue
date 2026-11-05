@@ -1,7 +1,7 @@
 <template>
   <div
     ref="root"
-    class="lib-genre-popover"
+    class="lib-genre-popover yb-menu"
     role="menu"
     aria-label="全部类型"
     :style="{ left: `${left}px` }"
@@ -91,10 +91,6 @@ onBeforeUnmount(() => {
   overflow-y: auto;
   padding: var(--space-2);
   border-radius: var(--radius-xl);
-  background: var(--menu-bg);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
 }
 .lib-genre-popover-title {
   padding: var(--space-2) var(--space-3);

@@ -6,10 +6,11 @@
     >
       <div class="brand-picker">
         <UiBrandLogo :color="brandColor" />
-        <UiSelect
+        <UiGlassSelect
           v-model="brandColor"
           :options="[...BRAND_OPTIONS]"
-          aria-label="品牌配色"
+          label="品牌配色"
+          align="right"
         />
       </div>
     </SettingsRow>
@@ -77,7 +78,7 @@ import { computed } from 'vue'
 import type { SegmentedOption } from '@/components/ui/UiSegmented.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
-import UiSelect from '@/components/ui/UiSelect.vue'
+import UiGlassSelect from '@/components/ui/UiGlassSelect.vue'
 import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
 import { BRAND_OPTIONS } from '@/components/ui/brand'
 import { type AppTheme, useTheme } from '@/utils/theme'

@@ -21,7 +21,7 @@
         v-if="open"
         :id="panelId"
         ref="panel"
-        class="target-pill-panel"
+        class="target-pill-panel yb-menu"
         :style="place"
         role="dialog"
         :aria-label="`${prefix}哪个 115 文件夹`"
@@ -267,11 +267,7 @@ onBeforeUnmount(close)
   overflow-y: auto;
   padding: var(--space-3);
   border-radius: var(--radius-xl);
-  background: var(--menu-bg);
-  box-shadow: var(--glass-shadow);
   color: var(--text-primary);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
 }
 .target-pill-heading {
   padding: var(--space-2) var(--space-3) var(--space-1);

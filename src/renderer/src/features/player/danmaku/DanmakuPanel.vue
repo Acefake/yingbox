@@ -1,5 +1,5 @@
 <template>
-  <div class="danmaku-panel" @click.stop @contextmenu.stop>
+  <div class="danmaku-panel yb-glass is-media" @click.stop @contextmenu.stop>
     <DialogTitlebar title="弹幕" icon="subtitle" @close="emit('close')" />
     <div class="danmaku-panel-tabs">
       <UiSegmented v-model="tab" size="sm" label="弹幕面板" :options="tabs" />
@@ -180,10 +180,7 @@ const onPick = (
   display: flex;
   flex-direction: column;
   border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
   border: 1px solid var(--border-strong);
-  box-shadow: var(--shadow-lg);
-  color: var(--text-primary);
   overflow: hidden;
 }
 

@@ -6,7 +6,7 @@
         :class="embedded ? 'smp-embedded' : 'smp-backdrop'"
         @click.self="!embedded && emit('close')"
       >
-        <div :class="embedded ? 'smp-embedded-panel' : 'smp-panel'">
+        <div :class="embedded ? 'smp-embedded-panel' : 'smp-panel yb-menu'">
           <!-- Header（仅独立面板） -->
           <DialogTitlebar
             v-if="!embedded"
@@ -121,9 +121,7 @@ const showAdd = ref(false)
   height: 100vh;
   overflow: hidden;
   border-left: 1px solid var(--separator);
-  background: var(--bg-main);
   color: var(--text-primary);
-  box-shadow: var(--shadow-lg);
   transition: var(--transition-panel);
 }
 

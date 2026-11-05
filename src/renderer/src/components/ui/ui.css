@@ -181,6 +181,18 @@ textarea:where(.ui-textarea) {
 }
 
 /*
+ * 弹层材质（.yb-menu）：下拉、右键菜单、胶囊面板、弹出浮层共用。底色比玻璃控件更实（--menu-bg），
+ * 压在海报上也读得清；同样走 --glass-filter / --glass-shadow，降低透明度时由 tokens.css 统一换实色。
+ * 使用方不要再写 background / backdrop-filter / box-shadow。
+ */
+.yb-menu {
+  background: var(--menu-bg);
+  box-shadow: var(--glass-shadow);
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+}
+
+/*
  * 规格标签（UiSpecBadge 渲染；海报墙格子不建组件实例，直接用这组类）：
  * - is-solid：浅灰实心小方块（4K、HDR10、HDR、HLG）
  * - is-dolby：DOLBY VISION 单行文字标 / DOLBY ATMOS 双行文字标

@@ -21,7 +21,7 @@
         v-if="open"
         :id="panelId"
         ref="panel"
-        class="ui-glass-select-panel"
+        class="ui-glass-select-panel yb-menu"
         :style="place"
         role="dialog"
         :aria-label="label"
@@ -216,11 +216,7 @@ onBeforeUnmount(close)
   max-width: min(440px, 80vw);
   padding: var(--space-4);
   border-radius: var(--radius-xl);
-  background: var(--menu-bg);
-  box-shadow: var(--glass-shadow);
   color: var(--text-primary);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
 }
 .ui-glass-select-heading {
   color: var(--text-tertiary);

@@ -1,7 +1,7 @@
 <template>
   <dialog
     ref="dialogEl"
-    class="discover-dialog"
+    class="discover-dialog yb-menu"
     :aria-labelledby="titleId"
     @cancel.prevent="emit('close')"
     @keydown="guardDialogEscape"
@@ -51,10 +51,8 @@ onBeforeUnmount(() => dialogEl.value?.close())
   padding: var(--space-5);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-xl);
-  background: var(--bg-elevated);
   color: var(--text-primary);
   font-family: var(--font-sans);
-  box-shadow: var(--shadow-lg);
 }
 
 .discover-dialog::backdrop {

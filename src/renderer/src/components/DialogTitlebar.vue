@@ -53,7 +53,7 @@ defineEmits<{ close: [event: MouseEvent] }>()
   margin: 0;
   padding: 0 var(--space-2) 0 0;
   border-bottom: 1px solid var(--separator);
-  background: var(--bg-elevated);
+  background: transparent;
   color: var(--text-primary);
   user-select: none;
   -webkit-app-region: no-drag;

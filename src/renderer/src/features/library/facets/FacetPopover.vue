@@ -1,5 +1,10 @@
 <template>
-  <div ref="root" class="lib-facet-popover" role="dialog" aria-label="筛选">
+  <div
+    ref="root"
+    class="lib-facet-popover yb-menu"
+    role="dialog"
+    aria-label="筛选"
+  >
     <FacetPanel
       v-model="facets"
       :scope="scope"
@@ -69,10 +74,6 @@ onBeforeUnmount(() => {
   max-height: 70vh;
   overflow-y: auto;
   border-radius: var(--radius-xl);
-  background: var(--menu-bg);
-  box-shadow: var(--glass-shadow);
-  -webkit-backdrop-filter: var(--glass-filter);
-  backdrop-filter: var(--glass-filter);
 }
 /* 面板自带的实色卡片底去掉，用弹层的玻璃底 */
 .lib-facet-popover :deep(.facet-panel) {

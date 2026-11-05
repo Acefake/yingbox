@@ -1,7 +1,7 @@
 <template>
   <dialog
     ref="dialogEl"
-    class="ui-confirm"
+    class="ui-confirm yb-menu"
     :class="{ 'is-closing': flow.state.settled }"
     :style="{ width: `${options.width ?? 360}px` }"
     :aria-labelledby="titleId"
@@ -77,11 +77,9 @@ onBeforeUnmount(() => dialogEl.value?.close())
   padding: var(--space-6) var(--space-5) var(--space-5);
   border: 1px solid var(--border-glass);
   border-radius: var(--radius-xl);
-  background: var(--bg-elevated);
   color: var(--text-primary);
   font-family: var(--font-sans);
   text-align: center;
-  box-shadow: var(--shadow-lg);
   animation: ui-confirm-in var(--duration-normal) var(--ease-out);
 }
 .ui-confirm::backdrop {
