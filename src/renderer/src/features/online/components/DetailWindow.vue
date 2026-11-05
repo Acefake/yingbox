@@ -28,10 +28,11 @@
       >
         <template #actions>
           <OnlineTrackButton
-            v-if="isSeries"
+            v-if="isSeries && autograbAvailable"
             class="dw-hero-circle yb-glass"
-            :title="itemName"
-            :year="itemData?.vod_year"
+            :tracked="tracking.isTracked(trackShow)"
+            :busy="tracking.busy.value !== null"
+            @click="tracking.track(trackShow)"
           />
           <MovieTrackButton
             class="dw-hero-circle yb-glass"
@@ -39,6 +40,7 @@
           />
         </template>
       </DetailHero>
+      <OnlineTrackSheets v-if="autograbAvailable" :tracking="tracking" />
 
       <!-- 头图下面：播放源选择、演员与剧照 -->
       <div class="dw-content min-w-0">
@@ -87,7 +89,12 @@ import { htmlToText } from '@/utils/html-text'
 import { computed, onMounted, ref, watch } from 'vue'
 import { isIncognito } from '@/features/incognito'
 import { getMediaProgress, openMediaPlayer } from '@/features/player'
-import { OnlineTrackButton } from '@/features/autograb'
+import {
+  OnlineTrackButton,
+  OnlineTrackSheets,
+  autograbAvailable,
+  useOnlineTracking,
+} from '@/features/autograb'
 import { MovieTrackButton } from '@/features/autograb-upgrade'
 import { resolvePageToMedia } from '../utils/play-source'
 import {
@@ -187,6 +194,17 @@ watch(
 const isSeries = computed(
   () => !tmdbDetail.value?.title && sources.currentEpisodes.value.length > 1
 )
+
+/** 追更（ADR-0049）：在片库建这部剧再打开追更侧板 */
+const tracking = useOnlineTracking()
+const trackShow = computed(() => {
+  const year = Number(itemData.value?.vod_year)
+  return {
+    recordId: `detail:${itemName.value}`,
+    title: itemName.value,
+    ...(Number.isInteger(year) && year >= 1800 ? { year } : {}),
+  }
+})
 
 /** 记一条播放历史：同一部片只保留最近一条（记住上次资源 / 集数）；无痕模式不记。 */
 const recordHistory = (playUrl: string, ext?: PluginExt): void => {
