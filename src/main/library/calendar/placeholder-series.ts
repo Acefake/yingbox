@@ -94,7 +94,7 @@ export class PlaceholderSeries {
   private tvLibrary(): number {
     const row = this.sql
       .get(
-        `SELECT id FROM libraries WHERE kind = 'tv' AND source = 'tmdb'
+        `SELECT id FROM libraries WHERE (kind = 'tv' OR mixed = 1) AND source = 'tmdb'
          ORDER BY mixed, id LIMIT 1`
       )
       .get()

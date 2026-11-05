@@ -250,4 +250,19 @@ describe('占位剧条目', () => {
     await probe.ensure({ title: '甲' })
     expect(during).toEqual({ match_state: 'locked' })
   })
+
+  it('只有混合库（kind 为 movie、mixed）时也能建：混合库里放剧', async () => {
+    env = setup({ 小城良方: '1001' }, [], false)
+    const tree = tempTree()
+    const mixed = new LibraryStore(env.db).add(
+      { root: tree.root, kind: 'movie', mixed: true },
+      1
+    ).id
+    const result = await env.placeholder.ensure({ title: '小城良方' })
+    expect(result).toMatchObject({ status: 'ready', created: true })
+    expect(env.db.prepare('SELECT library_id FROM media_items').get()).toEqual({
+      library_id: mixed,
+    })
+    tree.cleanup()
+  })
 })
