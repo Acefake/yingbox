@@ -14,6 +14,8 @@ export interface SessionShortcutsInput {
   art: ShallowRef<Artplayer | null>
   /** 切到下一集的动作；没有下一集为 null（装按钮时读一次） */
   next: () => (() => void) | null
+  /** 打开选集面板；只有一集为 null（装按钮时读一次） */
+  episodes: () => (() => void) | null
   /** 切换窗口置顶；不能置顶时为 null（装按钮时读一次） */
   pin: () => (() => void) | null
   /** 字幕开关（快捷键 C） */
@@ -33,7 +35,7 @@ export function useSessionShortcuts(input: SessionShortcutsInput): void {
     if (!instance) return
     const next = input.next()
     const pin = input.pin()
-    installSessionControls(instance, { next, pin })
+    installSessionControls(instance, { next, pin, episodes: input.episodes() })
     installPlayerHotkeys(instance, {
       enabled: event => !inOtherDialog(event),
       next,

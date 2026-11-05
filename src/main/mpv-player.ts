@@ -40,10 +40,15 @@ class MpvPlayer extends EventEmitter {
   private vsrEnabled = false
   private readonly enhancement = new MpvEnhancement(
     (...args) => this.cmd(...args),
-    () => this.emit('status', this.getStatus()),
+    () => {
+      this.publishVsrLabel()
+      this.emit('status', this.getStatus())
+    },
     process.platform,
     probeNvidiaGpu
   )
+  /** 已写给 mpv 的角标文字：没变就不再发命令 */
+  private vsrLabel = ''
   /** 窗口置顶：新播放时顶到最前、缩小置顶 */
   private readonly window = new MpvWindow((name, value) =>
     this.setProp(name, value)
@@ -317,6 +322,7 @@ class MpvPlayer extends EventEmitter {
   private onSocketClose(): void {
     if (this.child) {
       this.enhancement.disconnect()
+    this.vsrLabel = ''
       this._status = { ...DEFAULT_STATUS }
       this.emit('status', this.getStatus())
     }
@@ -330,6 +336,15 @@ class MpvPlayer extends EventEmitter {
     this._status = { ...DEFAULT_STATUS }
     this.emit('status', this.getStatus())
     this.emit('exit')
+  }
+
+  /** 超分配置成功时，右上角角标（mpv-vsr-hook.ts）显示「RTX 超分」 */
+  private publishVsrLabel(): void {
+    const label =
+      this.enhancement.status.state === 'configured' ? 'RTX 超分' : ''
+    if (label === this.vsrLabel) return
+    this.vsrLabel = label
+    void this.setProp('user-data/yingbox-vsr', label).catch(() => {})
   }
 
   getStatus(): MpvStatus {

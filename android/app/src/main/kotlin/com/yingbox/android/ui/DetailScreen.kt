@@ -35,6 +35,7 @@ import androidx.compose.ui.unit.dp
 import com.yingbox.android.playback.PlayTitle
 import com.yingbox.android.server.ServerClient
 import com.yingbox.android.view.DoubanKind
+import com.yingbox.android.view.ProbeStatus
 import com.yingbox.android.view.SourceKind
 import com.yingbox.android.view.ViewApi
 import com.yingbox.android.view.ViewDetail
@@ -126,7 +127,9 @@ fun DetailScreen(client: ServerClient, target: DetailTarget, scroll: LazyListSta
     // 按站点记选中：轮询中插件源插到前面时，选中的站点和焦点所在的集不跳
     var siteKey by remember(target) { mutableStateOf<String?>(null) }
     var lineIndex by remember(target) { mutableIntStateOf(0) }
-    val sites = sources?.sites.orEmpty()
+    val found = sources?.sites.orEmpty()
+    // 测速失败的站点不显示；正选着的失败站点留着，免得选中项凭空消失
+    val sites = found.filter { it.status != ProbeStatus.FAIL || it.key == siteKey }
     val site = sites.firstOrNull { it.key == siteKey } ?: sites.firstOrNull()
     val line = site?.lines?.let { it.getOrNull(lineIndex) ?: it.firstOrNull() }
     val startPlay: (ViewSourceSite, Int, Int) -> Unit = { s, l, i ->

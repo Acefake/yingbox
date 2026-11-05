@@ -1,5 +1,5 @@
 <template>
-  <!-- 页头：大标题（番号页带视图切换）、右侧操作按钮；下面是待确认提示。筛选与排序在海报墙上方的「全部」一段 -->
+  <!-- 页头：大标题（番号页带视图切换）、右侧筛选 / 排序与操作按钮；下面是待确认提示 -->
   <header class="lib-toolbar">
     <div class="lib-toolbar-head">
       <div class="lib-toolbar-title">
@@ -15,9 +15,10 @@
         />
       </div>
       <div
-        v-if="actions.length || visualLibrary !== undefined"
+        v-if="actions.length || visualLibrary !== undefined || $slots.tools"
         class="lib-toolbar-tools"
       >
+        <slot name="tools" />
         <UiIconButton
           v-if="visualLibrary !== undefined"
           variant="glass"
@@ -67,8 +68,8 @@
  * 媒体库页头（Apple TV 式）：大标题，右侧是扫描、识别、按画面搜（番号页）、视频墙几个玻璃圆钮（悬停显示名称），
  * 摆放规则见 page-rules.ts toolbarActions。视图切换（资料库 / 演员，番号页才有）在标题旁，标题下方是待确认提示。
  *
- * 页头不放筛选：排序、匹配状态、文件夹与类型胶囊在海报墙上方的「全部」一段（WallHeader），
- * 排在继续观看、想看之后；媒体库设置在「设置 → 媒体库」。搜索用顶栏全局搜索（按 ?q= 在本页过滤）。
+ * 筛选与排序（WallControls，排序菜单含匹配状态与文件夹）经 tools 插槽放在操作按钮左边；
+ * 筛选点开是浮层；类型胶囊与已选分面在海报墙上方的「全部」一段（WallHeader）；媒体库设置在「设置 → 媒体库」。搜索用顶栏全局搜索（按 ?q= 在本页过滤）。
  */
 import { computed, ref } from 'vue'
 

@@ -389,8 +389,12 @@ describe('接线', () => {
     expect(session).toMatch(
       /onEnded = \(event: Event\)[^]*?if \(!media\.accepts\(event\)\) return/
     )
-    expect(session).toMatch(
-      /onError = async[^]*?if \(!media\.accepts\(event\)\) return/
+    expect(session).toMatch(/accepts: event => media\.accepts\(event\)/)
+    const failure = read(
+      'src/renderer/src/features/player/composables/use-play-failure.ts'
+    )
+    expect(failure).toMatch(
+      /onError = async[^]*?if \(!input\.accepts\(event\)\) return/
     )
   })
 

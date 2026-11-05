@@ -1,6 +1,7 @@
 /**
  * 播放会话加到控制栏上的两个按钮（照 YouTube 的位置）：
  *   - 左侧「下一集」：紧跟播放 / 暂停，有下一集时才有；
+ *   - 右侧「选集」：多集时才有，打开选集面板；
  *   - 右侧「置顶」：设置（齿轮）与画中画之间，只在独立播放器窗口里有。
  * 控制栏其余部分：左侧音量（悬停展开）、时间；右侧字幕 CC、设置、画中画、全屏（见 utils/art-skin、art-options）。
  */
@@ -13,6 +14,7 @@ type ArtControl = NonNullable<ArtOption['controls']>[number]
 /** installSessionControls 的输入；不给就不加对应按钮 */
 export interface SessionControls {
   next?: (() => void) | null
+  episodes?: (() => void) | null
   pin?: (() => void) | null
 }
 
@@ -51,6 +53,17 @@ export function installSessionControls(
         '下一集（Shift+N）',
         artIcon('skipForward'),
         controls.next
+      )
+    )
+  if (controls.episodes)
+    art.controls.add(
+      control(
+        'ybEpisodes',
+        'right',
+        28,
+        '选集',
+        artIcon('list'),
+        controls.episodes
       )
     )
   if (controls.pin)

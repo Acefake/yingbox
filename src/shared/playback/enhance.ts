@@ -74,9 +74,9 @@ vec4 hook() {${casBody(SHARPNESS[level])}
 /** FSR RCAS 锐化强度（stops，0 最锐，越大越柔）；各档位对应 off 之外的三档。 */
 const RCAS_STOPS: Record<EnhanceLevel, number> = {
   off: 2,
-  soft: 1.2,
-  standard: 0.6,
-  strong: 0.25,
+  soft: 0.8,
+  standard: 0.3,
+  strong: 0,
 }
 
 /** RCAS 的 con 常数：exp2(-stops)。 */
@@ -195,7 +195,7 @@ void main() {
   vec3 hitMin = min(mn4, e) / max(4.0 * mx4, 1e-4);
   vec3 hitMax = (1.0 - max(mx4, e)) / min(4.0 * mn4 - 4.0, -1e-4);
   vec3 lobeV = max(-hitMin, hitMax);
-  float lobe = max(-(0.25 - 1.0 / 16.0), min(max(max(lobeV.r, lobeV.g), lobeV.b), 0.0)) * uStrength;
+  float lobe = max(-0.22, min(max(max(lobeV.r, lobeV.g), lobeV.b), 0.0)) * uStrength;
   float rcpL = 1.0 / (4.0 * lobe + 1.0);
   gl_FragColor = vec4((lobe * b + lobe * d + lobe * h + lobe * f + e) * rcpL, 1.0);
 }

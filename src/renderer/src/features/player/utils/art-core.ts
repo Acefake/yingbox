@@ -20,7 +20,7 @@ import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
 import { installScreenshot } from '../screenshot/screenshot'
 import { artSkinControls, installQualityBadge } from './art-skin'
-import { installFsrMark } from '../enhance/fsr-mark'
+import { restoreVolume } from './volume-memory'
 import { type HlsSession, createHlsSession } from './hls-session'
 import {
   WEB_CODEC_UNSUPPORTED,
@@ -76,6 +76,8 @@ export interface ArtCoreInput {
  * 播放会话认领后按位置后退 / 快进 / 全屏（hotkeys/install-hotkeys.ts）。
  */
 Artplayer.DBCLICK_FULLSCREEN = false
+/** 控制栏多久没有操作就隐去（毫秒，与播放台顶栏的 IDLE_MS 一致） */
+Artplayer.CONTROL_HIDE_TIME = 2000
 /** 内置「播放速度」菜单与 < / > 快捷键同一组档位（全局静态，只此一处设） */
 Artplayer.PLAYBACK_RATE = [...RATE_STEPS]
 /** 齿轮菜单：44 高的行、300 宽（与 styles/art-skin.css 的玻璃菜单一起定；Artplayer 按它们算面板尺寸） */
@@ -86,6 +88,28 @@ const dblclickClaimed = new WeakSet<Artplayer>()
 /** 由调用方接管这个实例的双击（不再默认切全屏） */
 export function claimDblclick(art: Artplayer): void {
   dblclickClaimed.add(art)
+}
+
+/**
+ * 点视频空白处只显示 / 收起控件，不再暂停（手机上 Artplayer 本来就是这样）。
+ * Artplayer 的 toggle 是不可改写的属性，换不掉：改在播放器根节点的捕获阶段截下点在 <video> 上的点击，
+ * 自己转发 click / dblclick 事件（双击全屏等沿用）。空格键调 art.toggle()，不经过点击，照常暂停 / 播放。
+ */
+function clickTogglesControls(art: Artplayer): void {
+  if (Artplayer.utils.isMobile) return
+  const { $player, $video } = art.template
+
+  $player.addEventListener(
+    'click',
+    event => {
+      if (event.target !== $video) return
+      event.stopPropagation()
+      art.emit('click', event)
+      art.controls.show = !art.controls.show
+    },
+    true
+  )
+  $video.addEventListener('dblclick', event => art.emit('dblclick', event))
 }
 
 /** 创建实例。节点还没挂到文档上，调用方把 core.node 放进自己的容器。 */
@@ -120,10 +144,11 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
     controls: input.controls ? artSkinControls(() => sink.subtitles()) : [],
   })
   installQualityBadge(art)
-  installFsrMark(art)
   installPlaybackInfo(art, hls.instance)
   installSleepTimer(art)
   installScreenshot(art, input.controls)
+
+  restoreVolume(art.video)
 
   // 恢复上次使用的倍速，并记住本次改动（跨集 / 跨会话）
   applyPlaybackRate(art.video, getSetting('player.playbackRate'))
@@ -165,6 +190,8 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   )
   art.on('video:ended', (event: Event) => sink.event('ended', event))
   art.on('video:pause', (event: Event) => sink.event('pause', event))
+
+  clickTogglesControls(art)
 
   art.on('dblclick', () => {
     if (!dblclickClaimed.has(art)) art.fullscreen = !art.fullscreen

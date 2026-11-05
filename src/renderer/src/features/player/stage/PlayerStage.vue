@@ -28,11 +28,8 @@
         size="lg"
         @click="emit('close')"
       />
-      <span class="player-stage__title yb-glass is-media">{{ title }}</span>
-      <WinControls
-        v-if="isElectron"
-        class="player-stage__window yb-glass is-media"
-      />
+      <span class="player-stage__title">{{ title }}</span>
+      <WinControls v-if="isElectron" class="player-stage__window" />
     </header>
   </section>
 </template>
@@ -74,7 +71,7 @@ const emit = defineEmits<{
 }>()
 
 /** 指针多久不动后隐藏顶栏（与控制栏的自动隐藏一致，暂停时常显） */
-const IDLE_MS = 3000
+const IDLE_MS = 2000
 
 const isElectron = Boolean(window.api?.win)
 const title = ref('')
@@ -166,6 +163,7 @@ watch(
 
 /* 桌面端：顶栏空白处可拖动窗口，控件本身不可拖 */
 .player-stage__bar.is-electron {
+  align-items: flex-start;
   -webkit-app-region: drag;
 }
 
@@ -188,39 +186,52 @@ watch(
 }
 
 .player-stage__title {
-  flex: 0 1 auto;
+  position: absolute;
+  left: 50%;
+  top: 0;
   min-width: 0;
   max-width: min(560px, 50%);
-  height: var(--shell-pill-height);
-  padding: 0 var(--space-5);
+  text-align: center;
+  transform: translateX(-50%);
+  height: 32px; /* style-tokens: layout（与右侧窗口键同高，文字和它对齐） */
+  padding: 0;
   overflow: hidden;
-  border-radius: var(--radius-full);
+  text-shadow: 0 1px 4px var(--overlay-scrim);
   font-size: var(--text-md);
   font-weight: var(--font-weight-semibold);
-  line-height: var(--shell-pill-height);
+  line-height: 32px; /* style-tokens: layout（同上） */
   text-overflow: ellipsis;
   white-space: nowrap;
 }
 
-.player-stage__window {
-  display: flex;
-  align-items: center;
-  gap: var(--space-0_5);
-  height: var(--shell-pill-height);
-  margin-left: auto;
-  padding: 0 var(--space-1_5);
-  border-radius: var(--radius-full);
+/* 窗口键与主窗口一致：贴右上角的 46×32 方块，关闭悬停红 */
+.player-stage__window.win-controls {
+  position: absolute;
+  top: 0;
+  right: 0;
+  gap: 0;
 }
 
 .player-stage__window :deep(.yb-icon-button) {
-  --ib-size: 36px;
-  border-radius: var(--radius-full);
+  flex: 0 0 46px;
+  width: 46px;
+  height: 32px; /* style-tokens: layout（与主窗口窗口键同尺寸） */
+  border-radius: 0;
   color: var(--media-text);
+  filter: drop-shadow(0 1px 2px var(--overlay-scrim));
 }
 
 .player-stage__window :deep(.yb-icon-button:hover:not(:disabled)) {
   background: var(--media-hover);
-  color: var(--media-text);
+}
+
+.player-stage__window :deep(.yb-icon-button:active:not(:disabled)) {
+  transform: none;
+}
+
+.player-stage__window :deep(.win-close:hover:not(:disabled)) {
+  background: #e81123; /* style-tokens: visual（Windows 关闭按钮悬停色） */
+  color: var(--text-on-accent);
 }
 
 /* 手机宽度：顶栏贴边更紧 */

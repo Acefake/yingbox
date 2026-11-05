@@ -17,9 +17,23 @@
       @identify="identifyAll"
       @video-wall="videoWall.open"
       @open-item="openDetail"
-    />
+    >
+      <template #tools>
+        <WallControls
+          v-if="view === 'wall' && hasLibraries"
+          v-model:filter="state.filter"
+          v-model:facets="state.facets"
+          v-model:library="libraryChoice"
+          :facet-scope="facetScopeOf(section, state)"
+          :library-options="libraryOptions"
+          :sort="state.sort"
+          :order="state.order"
+          @sort="setSort"
+          @toggle-order="toggleOrder"
+        />
+      </template>
+    </LibraryToolbar>
     <NlSearchBar v-if="view === 'wall' && hasLibraries" :nl="nl" />
-
     <ActivityBar :activity="activity" />
 
     <main class="lib-main">
@@ -74,12 +88,10 @@
               v-model:facets="state.facets"
               v-model:browse="state.browse"
               v-model:genre="state.genre"
-              v-model:library="libraryChoice"
               :facet-scope="facetScopeOf(section, state)"
               :genre-scope="genreScopeOf(section, state)"
               :kind-label="kindLabel"
               :count="ready ? total : null"
-              :library-options="libraryOptions"
               :sort="state.sort"
               :order="state.order"
               @sort="setSort"
@@ -184,13 +196,14 @@ import ActivityBar from './page/ActivityBar.vue'
 import LibraryEmpty from './page/LibraryEmpty.vue'
 import LibraryTopRows from './page/LibraryTopRows.vue'
 import LibraryToolbar from './page/LibraryToolbar.vue'
+import WallControls from './page/WallControls.vue'
 import WallHeader from './page/WallHeader.vue'
+import { useWallControls } from './page/use-wall-controls'
 import SelectionBar from './page/SelectionBar.vue'
 import { usesLibraryServer } from './api/bridge'
 import {
   type ActivateModifiers,
   emptyTitleFor,
-  libraryOptionsFor,
   noFolderCopy,
 } from './page/page-rules'
 import { useOverlayRoute } from './page/use-overlay-route'
@@ -205,14 +218,11 @@ import ReviewQueue from './review/ReviewQueue.vue'
 import LibrarySheet from './shared/LibrarySheet.vue'
 import {
   type WallQueryState,
-  type WallSort,
-  defaultOrder,
   defaultWallQuery,
   facetScopeOf,
   filterKeyOf,
   genreScopeOf,
   loadSavedSort,
-  saveSort,
   toLibraryQuery,
 } from './state/query-state'
 import { type LibrarySection, SECTIONS } from './state/library-section'
@@ -264,24 +274,11 @@ const nl = useNlSearch(section, () =>
   toLibraryQuery(section, state, Date.now(), watchlistEntries().value)
 )
 watch(nl.search, q => (state.search = q), { immediate: true })
-const libraryOptions = computed(() => libraryOptionsFor(libraries.value))
-const libraryChoice = computed({
-  get: () => state.libraryId ?? 0,
-  set: value => {
-    state.libraryId = value ? Number(value) : null
-  },
-})
-
-function setSort(value: WallSort): void {
-  state.sort = value
-  state.order = defaultOrder(value)
-  saveSort(section, state)
-}
-
-function toggleOrder(): void {
-  state.order = state.order === 'asc' ? 'desc' : 'asc'
-  saveSort(section, state)
-}
+const { libraryOptions, libraryChoice, setSort, toggleOrder } = useWallControls(
+  section,
+  state,
+  () => libraries.value
+)
 
 const wall = ref<InstanceType<typeof PosterWall> | null>(null)
 const {

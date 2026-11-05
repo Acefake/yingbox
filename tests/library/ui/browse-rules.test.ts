@@ -151,14 +151,15 @@ describe('工具栏模板', () => {
       'utf8'
     )
 
-  it('页头没有筛选和「⋯」；排序、浏览胶囊在「全部」一段，待确认提示留在页头', () => {
+  it('页头右侧放筛选和排序（WallControls），浏览胶囊在「全部」一段，待确认提示留在页头', () => {
     const toolbar = read('LibraryToolbar.vue')
     expect(toolbar).not.toContain('<BrowseRow')
-    expect(toolbar).not.toContain('UiMenuButton')
+    expect(toolbar).toContain('<slot name="tools"')
     expect(toolbar).toContain('<ReviewHint')
+    expect(read('WallControls.vue')).toContain('<UiMenuButton')
     const wall = read('WallHeader.vue')
     expect(wall).toContain('<BrowseRow')
-    expect(wall).toContain('<UiMenuButton')
+    expect(wall).not.toContain('<UiMenuButton')
   })
 
   it('海报墙只在筛选非全部时显示状态角标', () => {

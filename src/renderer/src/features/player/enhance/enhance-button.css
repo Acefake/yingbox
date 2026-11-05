@@ -1,0 +1,7 @@
+/* 控制栏里的画质增强按钮：增强画面真正显示时图标变金色（播放器根节点带 yb-enhanced） */
+.unified-player-core .art-control-ybEnhance svg {
+  fill: none;
+}
+.unified-player-core .art-video-player.yb-enhanced .art-control-ybEnhance {
+  color: var(--rating);
+}

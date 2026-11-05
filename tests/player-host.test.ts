@@ -67,6 +67,7 @@ const fakes = vi.hoisted(() => {
     }
   }
   class FakeArt {
+    static utils = { isMobile: true }
     option: Record<string, unknown>
     video: HTMLVideoElement
     template: { $player: HTMLElement; $container: HTMLElement }

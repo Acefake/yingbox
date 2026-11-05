@@ -249,7 +249,8 @@ const playEp = async (url: string, ext?: PluginExt): Promise<void> => {
   const ok = await openMediaPlayer({
     url: playUrl,
     title,
-    poster: itemPic.value || undefined,
+    // 加载封面优先横版背景图
+    poster: detailBackdrop.value || itemPic.value || undefined,
     startAt: getMediaProgress(playUrl),
     ...(playlist.length ? { playlist, index: epIndex >= 0 ? epIndex : 0 } : {}),
     ...(fallbacks.length ? { fallbacks } : {}),

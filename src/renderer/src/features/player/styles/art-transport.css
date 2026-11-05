@@ -12,15 +12,15 @@
 
 @container yb-player (min-width: 720px) {
   .unified-player-core .art-video-player {
-    --yb-bar-side: max(var(--space-6), calc(50% - 480px));
+    --yb-bar-side: max(var(--space-6), calc(50% - 440px));
     --yb-bar-top: calc(
-      var(--yb-bar-bottom) + 124px
+      var(--yb-bar-bottom) + 92px
     ); /* style-tokens: layout（胶囊高度） */
-    --yb-play-size: 52px; /* style-tokens: layout（居中播放键） */
+    --yb-play-size: 40px; /* style-tokens: layout（居中播放键） */
   }
 
   .unified-player-core .art-video-player .art-bottom {
-    padding: var(--space-4) var(--space-6) var(--space-3);
+    padding: var(--space-3) var(--space-5) var(--space-2);
     border-radius: var(--radius-2xl);
   }
 
@@ -49,8 +49,8 @@
     display: none;
   }
 
-  /* 进度条两端让出时间的位置 */
-  .unified-player-core .art-control-progress {
+  /* 进度条两端让出时间的位置：边距放在 .art-progress 上，Artplayer 按它的矩形换算鼠标位置，放内层会让鼠标和进度错位 */
+  .unified-player-core .art-video-player .art-bottom .art-progress {
     margin: 0 var(--space-10);
   }
 

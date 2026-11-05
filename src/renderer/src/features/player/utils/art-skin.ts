@@ -9,6 +9,7 @@ import type Artplayer from 'artplayer'
 
 import { type ArtOption, artIcon } from './art-options'
 import { transportControls } from './art-transport'
+import { rememberVolume } from './volume-memory'
 
 /** Artplayer 自定义控件 */
 type ArtControl = NonNullable<ArtOption['controls']>[number]
@@ -76,6 +77,7 @@ function mountVolume(art: Artplayer, $el: HTMLElement): void {
     const value = volumeAt(event.clientX, rect.left, rect.width)
     art.video.volume = value
     art.video.muted = value === 0
+    rememberVolume(art.video)
   }
 
   $el.addEventListener('click', event => {
@@ -83,6 +85,7 @@ function mountVolume(art: Artplayer, $el: HTMLElement): void {
     art.video.muted = !art.video.muted
     // 取消静音时音量为 0：回到一半，避免「点了没声」
     if (!art.video.muted && art.video.volume === 0) art.video.volume = 0.5
+    rememberVolume(art.video)
   })
   track.addEventListener('pointerdown', event => {
     event.stopPropagation()

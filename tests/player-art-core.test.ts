@@ -12,6 +12,7 @@ let web = false
 vi.mock('artplayer', () => {
   class FakeArt {
     static PLAYBACK_RATE: number[] = []
+    static utils = { isMobile: true }
     video = video
     on(name: string, fn: (event?: unknown) => void): void {
       handlers.set(name, fn)
@@ -42,9 +43,6 @@ vi.mock('../src/renderer/src/features/player/screenshot/screenshot', () => ({
 vi.mock('../src/renderer/src/features/player/utils/art-skin', () => ({
   artSkinControls: () => [],
   installQualityBadge: () => {},
-}))
-vi.mock('../src/renderer/src/features/player/enhance/fsr-mark', () => ({
-  installFsrMark: () => {},
 }))
 vi.mock('../src/renderer/src/features/player/utils/art-options', () => ({
   applyPlaybackRate: () => {},
