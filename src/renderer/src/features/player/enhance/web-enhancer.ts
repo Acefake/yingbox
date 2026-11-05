@@ -109,7 +109,7 @@ export function attachWebEnhancer(
   let revealed = false
 
   canvas.style.cssText =
-    'display:none;position:absolute;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none'
+    'display:none;position:absolute;z-index:11;inset:0;width:100%;height:100%;object-fit:contain;pointer-events:none'
   video.insertAdjacentElement('afterend', canvas)
 
   const buffer = gl.createBuffer()
@@ -173,10 +173,14 @@ export function attachWebEnhancer(
     return ok
   }
 
+  /** 擦除线左边是增强画面，右边透出下面的原画（video 一直显示） */
+  const applyWipe = (): void => {
+    canvas.style.clipPath = `inset(0 ${(1 - wipe) * 100}% 0 0)`
+  }
+
   const setShown = (on: boolean): void => {
     if (on === showing) return
     showing = on
-    video.style.visibility = on ? 'hidden' : ''
     canvas.style.display = on ? '' : 'none'
     options.onActive?.(on)
     if (!on) {
@@ -261,6 +265,7 @@ export function attachWebEnhancer(
       )
     }
     setShown(true)
+    applyWipe()
     options.state?.(comparing ? '原画' : 'FSR')
   }
 
@@ -310,7 +315,6 @@ export function attachWebEnhancer(
       video.cancelVideoFrameCallback(timer)
     for (const name of events) video.removeEventListener(name, redraw)
     observer.disconnect()
-    video.style.visibility = ''
     canvas.remove()
   }
 

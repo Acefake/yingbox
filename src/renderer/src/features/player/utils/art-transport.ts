@@ -101,8 +101,8 @@ const COMPARE_ICON = `<svg viewBox="0 0 24 24" width="24" height="24" fill="curr
 function compareControl(): ArtControl {
   return {
     name: 'ybCompare',
-    position: 'right',
-    index: 24,
+    position: 'left',
+    index: 31,
     tooltip: '按住对比原画',
     html: COMPARE_ICON,
     mounted(this: Artplayer, $el: HTMLElement) {

@@ -12,6 +12,7 @@ import type { IconName } from '@/components/ui/icons'
 import { claimDblclick } from '../utils/art-core'
 import { artIcon } from '../utils/art-options'
 import { volumePercent } from '../utils/art-skin'
+import { rememberVolume } from '../utils/volume-memory'
 import {
   type HotkeyAction,
   dblclickZone,
@@ -99,6 +100,7 @@ function run(
         0,
         1
       )
+      rememberVolume(video)
       osd(
         video.volume ? 'volume' : 'volumeOff',
         `音量 ${volumePercent(video.volume, false)}%`
@@ -107,6 +109,7 @@ function run(
     case 'mute':
       video.muted = !video.muted
       if (!video.muted && video.volume === 0) video.volume = 0.5
+      rememberVolume(video)
       osd(
         video.muted ? 'volumeOff' : 'volume',
         video.muted ? '静音' : `音量 ${volumePercent(video.volume, false)}%`

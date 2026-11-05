@@ -228,7 +228,10 @@ export function useVideoWall(options: VideoWallOptions): VideoWallState {
     paused.value = true
     const node = await libraryBridge()?.getItem(itemId)
     const request = node ? primaryPlayRequest(node) : null
-    const poster = itemImage(byId.get(itemId)?.poster ?? null, 780)
+    const poster = itemImage(
+      node?.backdrop ?? byId.get(itemId)?.poster ?? null,
+      780
+    )
     if (!request || !(await play(request, poster ?? undefined)))
       toast.warning('当前环境无法播放本地文件')
   }

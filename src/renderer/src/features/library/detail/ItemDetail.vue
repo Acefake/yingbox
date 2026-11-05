@@ -284,10 +284,9 @@ const playLabel = computed(() => {
 })
 
 async function startPlayback(request: PlayRequest): Promise<void> {
-  const ok = await play(
-    request,
-    itemImage(node.value?.poster ?? null, 780) ?? undefined
-  )
+  // 加载封面优先横版背景图
+  const cover = node.value?.backdrop ?? node.value?.poster ?? null
+  const ok = await play(request, itemImage(cover, 780) ?? undefined)
   if (!ok) toast.warning('当前环境无法播放本地文件')
 }
 

@@ -169,6 +169,10 @@ export const settingsSchema = {
   'player.highQualityScaling': bool(false),
   /** 内置播放器上一次使用的倍速 */
   'player.playbackRate': num(0.25, 4, 1),
+  /** 内置播放器上一次的音量（0–1），换集、重开都沿用 */
+  'player.volume': num(0, 1, 1),
+  /** 内置播放器上一次是否静音 */
+  'player.muted': bool(false),
   /** 内置播放器进入已标记的片头时自动跳过 */
   'player.autoSkipIntro': bool(false),
   /** 播放本地剧集时在后台自动检测本季片头片尾 */

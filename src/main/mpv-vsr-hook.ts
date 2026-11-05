@@ -50,6 +50,8 @@ local function source_badge()
     local labels = {}
     local enhance = mp.get_property('user-data/yingbox-enhance', '')
     if enhance ~= '' then labels[#labels + 1] = '✧ ' .. enhance end
+    local vsr = mp.get_property('user-data/yingbox-vsr', '')
+    if vsr ~= '' then labels[#labels + 1] = '✧ ' .. vsr end
     local params = mp.get_property_native('video-dec-params', {})
     local width, height = params.w, params.h
     if type(width) == 'number' and type(height) == 'number' and width > 0 and height > 0 then
@@ -86,9 +88,9 @@ local function source_badge()
     badge:update()
 end
 local function reveal_badge()
-    badge_until = mp.get_time() + 4
+    badge_until = mp.get_time() + 2.5
     if badge_timer then badge_timer:kill() end
-    badge_timer = mp.add_timeout(4, source_badge)
+    badge_timer = mp.add_timeout(2.5, source_badge)
     source_badge()
 end
 mp.register_event('file-loaded', function() badge_loaded = true; reveal_badge() end)
@@ -103,6 +105,7 @@ mp.observe_property('track-list', 'native', source_badge)
 mp.observe_property('osd-dimensions', 'native', source_badge)
 mp.observe_property('pause', 'bool', reveal_badge)
 mp.observe_property('user-data/yingbox-enhance', 'string', source_badge)
+mp.observe_property('user-data/yingbox-vsr', 'string', source_badge)
 local enhance_button = mp.create_osd_overlay('ass-events')
 local enhance_hover = false
 mp.register_event('end-file', function()

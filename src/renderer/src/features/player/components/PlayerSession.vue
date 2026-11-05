@@ -43,6 +43,13 @@
       @cancel-ended="endedPrompt = false"
       @close-hint="endHint = null"
     />
+    <EpisodePanel
+      v-if="episodePicker.open.value"
+      :entries="episodePicker.labels.value"
+      :current="position"
+      @pick="episodePicker.jumpTo"
+      @close="episodePicker.open.value = false"
+    />
     <p v-if="notice" class="player-session-notice">{{ notice }}</p>
     <!-- 播放失败：给出可操作的重试 / 交给 mpv，而不是一闪而过的提示 -->
     <PlayerErrorPanel
@@ -72,8 +79,11 @@ import type Artplayer from 'artplayer'
 import type { VideoProbe } from '../../../../../shared/video-range'
 import UnifiedVideoPlayer from './UnifiedVideoPlayer.vue'
 import { useSessionShortcuts } from '../controls/use-session-shortcuts'
+import EpisodePanel from './EpisodePanel.vue'
 import PlayerErrorPanel from './PlayerErrorPanel.vue'
 import { usePlayerMediaControls } from '../composables/use-media-controls'
+import { useEpisodePicker } from '../composables/use-episode-picker'
+import { usePlayFailure } from '../composables/use-play-failure'
 import { useSessionProgress } from '../composables/use-session-progress'
 import { useSourceSwitch } from '../composables/use-source-switch'
 import { useTimedNotice } from '../composables/use-timed-notice'
@@ -130,11 +140,6 @@ const endedPrompt = ref(false)
 let queueEndHint: EndHint | null = null
 const endHint = ref<EndHint | null>(null)
 
-/** 播放失败且已无备用线路时展示的可操作错误信息 */
-const failure = ref('')
-const failedSource = ref('')
-const retrying = ref(false)
-
 /** 「继续播放」记录 id（载荷带了才记） */
 const continueId = ref('')
 
@@ -179,13 +184,6 @@ const danmakuTarget = computed(() =>
     label: entryLabel,
   })
 )
-
-/** 恢复播放后清掉错误面板 */
-const clearFailure = (): void => {
-  failure.value = ''
-  failedSource.value = ''
-  mpvHandoff.reset()
-}
 
 const entryLabel = (entry: PlaylistEntry | null | undefined): string =>
   playlistEntryLabel(entry, defaultTitle.value)
@@ -304,39 +302,6 @@ const onVideo = (video: HTMLVideoElement): void => {
   emit('video', video)
 }
 
-/** 播放失败（含 hls 致命错误）：自动切换到同集的下一条备用源 */
-const onError = async (event?: Event): Promise<void> => {
-  if (!media.accepts(event)) return
-  // 杜比视界重建会话出错：退到 mpv，或重新加载同一文件、直接播
-  const at = art.value?.currentTime || progress.startAt()
-  const dv = await dolbyVision.recover(at)
-  if (dv === 'reload') return loadEntry(undefined, at)
-  if (dv) return
-  if (await switcher.switchSource('error')) return
-  // 备用线路也失败：给出可操作的错误界面；播放器给了原因（如网页端解不了 HEVC）就直接说
-  const reason = event instanceof CustomEvent ? String(event.detail ?? '') : ''
-  failure.value = fallbacks.value.length
-    ? '当前线路与备用线路均无法播放。'
-    : reason && reason !== '播放出错'
-      ? reason
-      : '无法播放该地址（可能是资源已失效或格式不受支持）。'
-  failedSource.value = entryLabel(currentEntry.value)
-  // 内置解不了（HEVC / AC3 / EAC3 / DTS 等）：桌面端直接交给 mpv；接力失败才留在错误面板
-  await mpvHandoff.onFailure(reason)
-}
-
-/** 手动重试：重置备用线路，从当前集重新解析播放 */
-const retry = async (): Promise<void> => {
-  if (retrying.value) return
-  retrying.value = true
-  try {
-    activeFallback.value = -1
-    await loadEntry()
-  } finally {
-    retrying.value = false
-  }
-}
-
 /** 托盘 / 媒体键 / 系统媒体控件 → 本会话 */
 const media = usePlayerMediaControls({
   playlist,
@@ -346,6 +311,30 @@ const media = usePlayerMediaControls({
   load: loadEntry,
   title: () => entryLabel(currentEntry.value),
   onVideo,
+})
+
+const { failure, failedSource, retrying, clearFailure, onError, retry } =
+  usePlayFailure({
+    art,
+    accepts: event => media.accepts(event),
+    startAt: () => progress.startAt(),
+    dolbyVision,
+    switchSource: switcher.switchSource,
+    mpvHandoff,
+    hasFallbacks: () => fallbacks.value.length > 0,
+    activeFallback,
+    current: () => currentEntry.value,
+    label: entry => entryLabel(entry),
+    load: loadEntry,
+  })
+
+const episodePicker = useEpisodePicker({
+  playlist,
+  position,
+  activeFallback,
+  label: entryLabel,
+  flush: progress.saver.flush,
+  load: loadEntry,
 })
 
 const applyPayload = (payload: PlayerPayload): void => {
@@ -376,6 +365,7 @@ useSessionShortcuts({
   art,
   next: () =>
     playlist.value[position.value + 1] ? () => void playNext() : null,
+  episodes: episodePicker.toggle,
   pin: () => (props.togglePin ? togglePin : null),
   toggleSubtitle: () => player.value?.toggleSubtitle(),
 })

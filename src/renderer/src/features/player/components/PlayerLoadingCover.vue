@@ -3,20 +3,39 @@
     <img
       v-if="poster"
       class="unified-player-loading-poster"
+      :class="{ 'is-landscape': landscape }"
       :src="poster"
       alt=""
       draggable="false"
+      @load="onLoad"
     />
     <div class="unified-player-loading-spin" />
   </div>
 </template>
 
 <script setup lang="ts">
-/** 播放器加载中的遮罩：模糊海报（有则显示）+ 转圈。开播后由父组件移除，不留背景。 */
-defineProps<{
+/**
+ * 播放器加载中的遮罩：海报（有则显示）+ 转圈。开播后由父组件移除，不留背景。
+ * 横版图（背景图 / 剧照）铺满整个播放器；竖版海报居中显示。
+ */
+import { ref, watch } from 'vue'
+
+const props = defineProps<{
   /** 海报地址；空串表示没有海报 */
   poster: string
 }>()
+
+const landscape = ref(false)
+
+watch(
+  () => props.poster,
+  () => (landscape.value = false)
+)
+
+const onLoad = (event: Event): void => {
+  const img = event.target as HTMLImageElement
+  landscape.value = img.naturalWidth > img.naturalHeight
+}
 </script>
 
 <style scoped>
@@ -41,7 +60,20 @@ defineProps<{
   box-shadow: var(--shadow-lg);
 }
 
+.unified-player-loading-poster.is-landscape {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  max-width: none;
+  max-height: none;
+  object-fit: cover;
+  border-radius: 0;
+  box-shadow: none;
+}
+
 .unified-player-loading-spin {
+  z-index: var(--z-raised);
   position: absolute;
   bottom: var(--space-6_5);
   width: 22px;

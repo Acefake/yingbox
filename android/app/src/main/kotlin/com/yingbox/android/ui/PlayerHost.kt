@@ -74,7 +74,7 @@ internal const val SEEK_MS = 10_000L
 private const val NOTICE_MS = 6_000L
 
 /** 控制层多久没有操作就自动隐藏（暂停、设置面板打开时不隐藏） */
-private const val HIDE_MS = 4_000L
+private const val HIDE_MS = 2_500L
 
 /** 手势的提示显示多久 */
 private const val HUD_MS = 900L

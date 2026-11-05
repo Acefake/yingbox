@@ -13,13 +13,13 @@
   </div>
   <div class="dsl-list">
     <UiListRow
-      v-for="(row, index) in rows"
+      v-for="row in rows"
       :key="row.siteName"
       class="dsl-row"
       :class="{ 'is-failed': row.status === 'fail' }"
-      :selected="activeSite === index"
-      :aria-pressed="activeSite === index"
-      @click="emit('switch-site', index)"
+      :selected="activeSite === row.index"
+      :aria-pressed="activeSite === row.index"
+      @click="emit('switch-site', row.index)"
     >
       <template #leading>
         <span class="dsl-dot" :class="`is-${row.status}`" />
@@ -71,15 +71,12 @@ const emit = defineEmits<{
   (e: 'reprobe'): void
 }>()
 
-const statusText = computed(() =>
-  props.probing ? '测速中…' : '测速完成 · 按速度排序'
-)
-
 const rows = computed(() => {
   const fastest = fastestSite(props.siteGroups, props.probes)
-  return props.siteGroups.map(sg => {
+  return props.siteGroups.flatMap((sg, index) => {
     const probe = props.probes[sg.siteName]
     const status = probe?.status ?? 'pending'
+    if (status === 'fail' && index !== props.activeSite) return []
     let detail = '测速中…'
     if (status === 'ok')
       detail = [formatLatency(probe?.latencyMs), formatSpeed(probe?.speedBps)]
@@ -87,6 +84,7 @@ const rows = computed(() => {
         .join(' · ')
     else if (status === 'fail') detail = '超时或无法播放'
     return {
+      index,
       siteName: sg.siteName,
       status,
       resolution: status === 'ok' ? resolutionLabel(probe?.height) : '',
@@ -94,6 +92,16 @@ const rows = computed(() => {
       fastest: !!fastest && sg.siteName === fastest,
     }
   })
+})
+
+const hiddenCount = computed(() => props.siteGroups.length - rows.value.length)
+
+const statusText = computed(() => {
+  if (props.probing) return '测速中…'
+  const base = '测速完成 · 按速度排序'
+  return hiddenCount.value
+    ? `${base} · 已隐藏 ${hiddenCount.value} 个不可用源`
+    : base
 })
 </script>
 
@@ -115,6 +123,7 @@ const rows = computed(() => {
 .dsl-list {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(min(220px, 100%), 1fr));
+  align-items: stretch;
   gap: var(--space-1);
   max-height: 264px;
   overflow-y: auto;
@@ -123,6 +132,7 @@ const rows = computed(() => {
 
 .dsl-detail {
   display: inline-flex;
+  white-space: nowrap;
   align-items: center;
   gap: var(--space-1);
 }

@@ -40,15 +40,18 @@
   );
 }
 
-/* ── 进度条：4px 圆角细条，悬停加粗并露出圆点 ── */
+/* ── 进度条：4px 圆角细条，悬停也不变粗（Artplayer 自带的悬停规则把它拉成 100% 高，下面用更高优先级压回去） ── */
 .unified-player-core .art-control-progress .art-control-progress-inner {
   height: 4px;
   border-radius: var(--radius-full);
-  transition: height var(--duration-fast) var(--ease-out);
 }
 
-.unified-player-core .art-control-progress:hover .art-control-progress-inner {
-  height: 6px;
+.unified-player-core
+  .art-bottom
+  .art-progress:hover
+  .art-control-progress
+  .art-control-progress-inner {
+  height: 4px;
 }
 
 .unified-player-core .art-progress-hover,
@@ -123,16 +126,26 @@
   padding: 0 var(--space-2);
 }
 
-.unified-player-core .art-control-ybVolume:hover {
+.unified-player-core .art-controls .art-control-ybVolume:hover {
   background: transparent;
+}
+
+/* 音量：只有图标和一条细轨，悬停时轨展开；图标自己有圆形悬停底，不再整块变灰 */
+.unified-player-core .art-control-ybVolume .yb-volume__icon {
+  border-radius: var(--radius-full);
+  transition: background-color var(--duration-fast) ease;
+}
+
+.unified-player-core .art-control-ybVolume:hover .yb-volume__icon {
+  background: var(--media-hover);
 }
 
 .unified-player-core .yb-volume__icon {
   display: flex;
   align-items: center;
   justify-content: center;
-  width: 22px;
-  height: 22px;
+  width: var(--art-control-height);
+  height: var(--art-control-height);
 }
 
 .unified-player-core .yb-volume__icon--off,
@@ -161,15 +174,15 @@
 
 .unified-player-core .art-control-ybVolume:hover .yb-volume__track,
 .unified-player-core .art-control-ybVolume.is-dragging .yb-volume__track {
-  width: 72px;
-  margin-left: var(--space-2);
+  width: 88px; /* style-tokens: layout（音量轨展开宽度） */
+  margin-left: var(--space-1);
   opacity: 1;
 }
 
 .unified-player-core .yb-volume__rail {
   position: relative;
   width: 100%;
-  height: 4px;
+  height: 3px; /* style-tokens: layout（细音量轨） */
   overflow: hidden;
   border-radius: var(--radius-full);
   background: var(--media-track);
@@ -186,12 +199,18 @@
   position: absolute;
   left: var(--yb-volume);
   top: 50%;
-  width: 12px;
-  height: 12px;
+  width: 10px; /* style-tokens: layout（音量圆点） */
+  height: 10px; /* style-tokens: layout */
   border-radius: var(--radius-full);
   background: var(--media-text);
   box-shadow: var(--shadow-sm);
-  transform: translate(-50%, -50%);
+  transform: translate(-50%, -50%) scale(0.8);
+  transition: transform var(--duration-fast) var(--ease-out);
+}
+
+.unified-player-core .art-control-ybVolume:hover .yb-volume__thumb,
+.unified-player-core .art-control-ybVolume.is-dragging .yb-volume__thumb {
+  transform: translate(-50%, -50%) scale(1.2);
 }
 
 .unified-player-core .yb-volume__tip {
@@ -246,12 +265,12 @@
  */
 @container yb-player (min-width: 720px) {
   .unified-player-core .art-video-player {
-    --art-control-height: 44px;
+    --art-control-height: 36px;
     --art-progress-height: 18px;
-    --yb-bar-side: max(var(--space-6), calc(50% - 490px));
-    --yb-bar-bottom: 28px; /* style-tokens: layout（胶囊离底） */
+    --yb-bar-side: max(var(--space-6), calc(50% - 440px));
+    --yb-bar-bottom: 20px; /* style-tokens: layout（胶囊离底） */
     /* 胶囊顶边到画面底边的距离：字幕、齿轮菜单都让到它上面 */
-    --yb-bar-top: calc(var(--yb-bar-bottom) + 100px);
+    --yb-bar-top: calc(var(--yb-bar-bottom) + 92px);
   }
 
   .unified-player-core .art-video-player .art-bottom {
@@ -272,8 +291,12 @@
     height: 6px;
   }
 
-  .unified-player-core .art-control-progress:hover .art-control-progress-inner {
-    height: 8px;
+  .unified-player-core
+    .art-bottom
+    .art-progress:hover
+    .art-control-progress
+    .art-control-progress-inner {
+    height: 6px;
   }
 
   .unified-player-core .art-progress-indicator {

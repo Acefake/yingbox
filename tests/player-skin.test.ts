@@ -1,10 +1,15 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   qualityBadge,
   volumeAt,
   volumePercent,
 } from '../src/renderer/src/features/player/utils/art-skin'
+
+vi.mock('@/features/settings', () => ({
+  getSetting: () => 1,
+  setSetting: async () => {},
+}))
 
 describe('播放器控制栏皮肤', () => {
   it('清晰度角标按视频高度判断', () => {

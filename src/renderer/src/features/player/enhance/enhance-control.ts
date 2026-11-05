@@ -2,6 +2,8 @@ import type Artplayer from 'artplayer'
 import { watch } from 'vue'
 import { getSetting, setSetting } from '@/features/settings'
 
+import './enhance-button.css'
+
 /** 同一增强图标用于播放中开关与右上角状态，文案通过可访问名称提供。 */
 export const ENHANCE_ICON =
   '<svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="1.7" aria-hidden="true"><path d="m12 3 2.3 6.7L21 12l-6.7 2.3L12 21l-2.3-6.7L3 12l6.7-2.3Z"/></svg>'
@@ -10,8 +12,8 @@ export const ENHANCE_ICON =
 export function installEnhanceControl(art: Artplayer): (state: string) => void {
   art.controls.add({
     name: 'ybEnhance',
-    position: 'right',
-    index: 5,
+    position: 'left',
+    index: 30,
     html: ENHANCE_ICON,
     tooltip: '画质增强',
     click: async () => {
