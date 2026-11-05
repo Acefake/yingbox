@@ -30,7 +30,7 @@ withDefaults(
   height: 100%;
   object-fit: contain;
 }
-:global(:root[data-theme='light']) .ui-brand-wordmark img {
+:root[data-theme='light'] .ui-brand-wordmark img {
   filter: brightness(0.4);
 }
 </style>
