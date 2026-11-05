@@ -92,6 +92,8 @@ export interface AutograbState {
   spacePause: string | null
   /** 还没「存整部剧」的剧 id：开始追更后第一轮把它已播出的全部缺集建成记录（在线剧追更用，ADR-0049） */
   backfill?: number[]
+  /** 「新剧先确认」门槛已一次性清零（全自动不再先确认，之后用户再设的值照常生效） */
+  confirmGateCleared?: boolean
 }
 
 /** 迁移前单独设了待确认 / 全自动的剧沿用的确认门槛 */
@@ -127,6 +129,7 @@ export function emptyState(now: number): AutograbState {
     gate: emptyGate(now),
     policy: policyOf(undefined, 'tv'),
     spacePause: null,
+    confirmGateCleared: true,
   }
 }
 
@@ -285,6 +288,13 @@ export function parseState(raw: unknown, now: number): AutograbState {
       loginPause: g.loginPause === true,
     }
   }
+  // 全自动不再先确认：老文件里存的全局 / 单独的确认门槛一次性清零；清过之后用户再设的值不再被动
+  if (raw.confirmGateCleared !== true) {
+    state.policy = { ...state.policy, confirmFirst: 0 }
+    for (const setting of Object.values(state.series))
+      if (setting.confirmFirst !== undefined) setting.confirmFirst = 0
+  }
+  state.confirmGateCleared = true
   return state
 }
 

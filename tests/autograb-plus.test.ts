@@ -166,9 +166,9 @@ describe('追更 · 偏好', () => {
       ...DEFAULT_PREFS,
       excludeWords: ['枪版'],
     })
-    // 老文件迁移：待确认的剧保持，并沿用原来的确认门槛
+    // 老文件迁移：待确认的剧保持；原来的确认门槛清零（全自动不再先确认）
     expect(state.series['7'].mode).toBe('confirm')
-    expect(state.series['7'].confirmFirst).toBe(3)
+    expect(state.series['7'].confirmFirst).toBe(0)
     expect(state.policy.mode).toBe('off')
     expect(state.spacePause).toBeNull()
     expect(state.series['7'].prefs).toEqual({})

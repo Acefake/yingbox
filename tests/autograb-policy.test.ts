@@ -47,17 +47,19 @@ describe('追更策略 · 老文件迁移', () => {
     expect(state.policy.prefs.resolution).toBe('1080p')
     expect(state.series['1'].mode).toBe('inherit')
     expect(state.series['1'].confirmFirst).toBeUndefined()
+    // 原来沿用的 3 集确认门槛一次性清零
     expect(state.series['2']).toMatchObject({
       mode: 'confirm',
-      confirmFirst: 3,
+      confirmFirst: 0,
     })
-    expect(state.series['3']).toMatchObject({ mode: 'auto', confirmFirst: 3 })
+    expect(state.series['3']).toMatchObject({ mode: 'auto', confirmFirst: 0 })
   })
 
-  it('新格式原样读回（含单剧门槛）', () => {
+  it('新格式原样读回（含单剧门槛）；清零过之后用户再设的门槛不再被动', () => {
     const state = parseState(
       {
         version: 1,
+        confirmGateCleared: true,
         policy: {
           mode: 'auto',
           confirmFirst: 0,
@@ -74,6 +76,20 @@ describe('追更策略 · 老文件迁移', () => {
     expect(state.policy.prefs.strategy).toBe('quality')
     expect(state.series['1'].mode).toBe('inherit')
     expect(state.series['2'].confirmFirst).toBe(3)
+  })
+
+  it('还没清零过的老文件：全局和单独的确认门槛都清零，并记下清过了', () => {
+    const state = parseState(
+      {
+        version: 1,
+        policy: { mode: 'auto', confirmFirst: 3, prefs: {} },
+        series: { '2': { title: 'B', mode: 'auto', cid: '', confirmFirst: 3 } },
+      },
+      0
+    )
+    expect(state.policy.confirmFirst).toBe(0)
+    expect(state.series['2'].confirmFirst).toBe(0)
+    expect(state.confirmGateCleared).toBe(true)
   })
 })
 
