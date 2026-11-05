@@ -110,9 +110,10 @@ export function useOnlineTracking(): UseOnlineTrackingReturn {
 
   async function track(show: OnlineShow): Promise<void> {
     if (busy.value) return
-    const seriesId = followedId(show)
-    if (seriesId !== undefined) {
-      sheet.value = { seriesId, title: show.title }
+    // 本次运行里建过的直接开侧板；重启后只靠剧名认出的，再走一遍后端（幂等，顺带登记「存整部剧」）
+    const linked = onlineLinks.value.get(show.recordId)
+    if (linked !== undefined && followedId(show) === linked) {
+      sheet.value = { seriesId: linked, title: show.title }
       return
     }
     await run(show)
