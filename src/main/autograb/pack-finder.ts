@@ -23,7 +23,7 @@ import {
   seasonIn,
   seriesTitleMatches,
 } from './match-rules'
-import { looksLikePack } from './pack-rules'
+import { episodeRange, looksLikePack } from './pack-rules'
 import { candidateKey } from './state'
 
 /** 最多看几个合集分享 */
@@ -67,22 +67,49 @@ export interface PackOptions {
   banned?(target: PackTarget): readonly string[]
 }
 
-/** 要看的合集分享：剧名对得上、像合集、季号对得上，新的在前 */
+/** 标题写明了就是某一集（「S01E22」），不是合集 */
+const SINGLE_EPISODE_RE = /(?:^|[^a-z0-9])s\d{1,2}\s*e\d{1,4}(?![\d\-~e])/i
+
+/**
+ * 要看的合集分享：剧名对得上、季号对得上，而且是合集——标题像合集（「全 30 集」「合集」），
+ * 或写了集数区间（「1-18」，PanSou 常这样标），或没写集号（整部剧的分享）；单集分享（「S01E22」）不要。
+ * 写了集数区间的要覆盖至少一个缺集，覆盖得多的在前，其余新的在前。
+ * @param missing 缺的集号（用来看区间覆盖多少）；不传不按覆盖排
+ */
 export function packShares(
   items: readonly NetdiskItem[],
   series: Series,
   seasons: ReadonlySet<number>,
-  blocked: (shareCode: string) => boolean = () => false
+  blocked: (shareCode: string) => boolean = () => false,
+  missing: readonly number[] = []
 ): NetdiskItem[] {
+  const covers = (title: string): number => {
+    const range = episodeRange(title)
+    return range
+      ? missing.filter(n => n >= range[0] && n <= range[1]).length
+      : 0
+  }
   return items
     .filter(item => {
       if (blocked(item.shareCode)) return false
       if (!seriesTitleMatches(item.title, series)) return false
-      if (excludedWord(item.title) || !looksLikePack(item.title)) return false
+      if (excludedWord(item.title)) return false
+      const range = episodeRange(item.title)
+      if (range && missing.length && !covers(item.title)) return false
+      if (
+        !range &&
+        !looksLikePack(item.title) &&
+        SINGLE_EPISODE_RE.test(item.title)
+      )
+        return false
       const season = seasonIn(item.title)
       return season === undefined || seasons.has(season)
     })
-    .sort((a, b) => (b.datetime ?? '').localeCompare(a.datetime ?? ''))
+    .sort(
+      (a, b) =>
+        covers(b.title) - covers(a.title) ||
+        (b.datetime ?? '').localeCompare(a.datetime ?? '')
+    )
     .slice(0, MAX_PACK_SHARES)
 }
 
@@ -165,7 +192,13 @@ export async function findPackCandidates(
   for (const keyword of keywords) {
     for (const item of await deps.search(keyword))
       if (!seen.has(item.shareCode)) seen.set(item.shareCode, item)
-    shares = packShares([...seen.values()], series, seasons, deps.blocked)
+    shares = packShares(
+      [...seen.values()],
+      series,
+      seasons,
+      deps.blocked,
+      targets.map(t => t.episode)
+    )
     if (shares.length >= MAX_PACK_SHARES) break
   }
   const prefs = options.prefs ?? DEFAULT_GRAB_PREFS

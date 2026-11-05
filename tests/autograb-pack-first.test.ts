@@ -75,6 +75,25 @@ describe('合集优先', () => {
     expect(picked.length).toBeLessThanOrEqual(MAX_PACK_SHARES)
   })
 
+  it('PanSou 常见标题：集数区间（1-18）和没写集号的整部剧也是合集，单集分享不是', () => {
+    const items = [
+      share('s1', '📺 小城良方 (2026) S01E22 ✨4K WEB-DL', '2026-10-30'),
+      share('r1', '🎬 小城良方 (2026) 19-20', '2026-10-29'),
+      share('r2', '🎬 小城良方 (2026) 1-18', '2026-10-29'),
+      share('r3', '🎬 小城良方 (2026) 1-14', '2026-10-27'),
+      share('w', '小城良方', '2026-01-01'),
+    ]
+    const picked = packShares(
+      items,
+      { seriesTitle: '小城良方' },
+      new Set([1]),
+      () => false,
+      [1, 2, 3, 4]
+    )
+    // 1-18 与 1-14 都覆盖 4 个缺集，19-20 一个也不覆盖，被丢掉；整部剧的分享留在后面
+    expect(picked.map(i => i.shareCode)).toEqual(['r2', 'r3', 'w'])
+  })
+
   it('点开合集：只给缺的集带候选，花絮和已有的集不认', async () => {
     const found = await findPackCandidates(
       deps([share('a', '繁花 全5集 合集')]),
