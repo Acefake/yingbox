@@ -87,8 +87,9 @@ describe('追更服务', () => {
     expect(bare?.title).toBe('#98')
   })
 
-  it('全自动：没设文件夹不让开；确认不满门槛（全局新剧先确认 1 集）不自动存', async () => {
+  it('全自动：没设文件夹不让开；确认不满门槛（设了新剧先确认 1 集）不自动存', async () => {
     const { service, received } = setup([episode(5)])
+    await service.setPolicy({ confirmFirst: 1 })
     expect((await service.setSeries(7, { mode: 'auto' })).ok).toBe(false)
     await service.setSeries(7, { mode: 'auto', cid: '55', cidName: '繁花' })
     await service.tick()
@@ -272,14 +273,23 @@ it('没转存的集不能重新入库', async () => {
 it('新剧先确认期间搜到的集：条件满足后不用再点，下一轮自动转存', async () => {
   const h = setup([episode(5)])
   h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
-  await h.service.setPolicy({ mode: 'auto' })
+  await h.service.setPolicy({ mode: 'auto', confirmFirst: 1 })
   await h.service.tick()
-  // 默认新剧先确认 1 集：搜到了，但没有自动转存
+  // 新剧先确认 1 集：搜到了，但没有自动转存
   expect((await h.service.overview()).episodes[0].status).toBe('found')
   expect(h.received).toHaveLength(0)
 
   // 把「新剧先确认」改成 0 集：这一集不用再点，下一轮自动转存
   await h.service.setPolicy({ confirmFirst: 0 })
+  await h.service.tick()
+  expect((await h.service.overview()).episodes[0].status).toBe('saved')
+  expect(h.received).toEqual([['101']])
+})
+
+it('默认不先确认：全局全自动后搜到的集直接自动转存', async () => {
+  const h = setup([episode(5)])
+  h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
+  await h.service.setPolicy({ mode: 'auto' })
   await h.service.tick()
   expect((await h.service.overview()).episodes[0].status).toBe('saved')
   expect(h.received).toEqual([['101']])

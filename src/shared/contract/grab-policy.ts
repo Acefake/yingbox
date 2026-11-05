@@ -36,10 +36,10 @@ export interface GrabPolicyPatch {
   prefs?: GrabPrefs
 }
 
-/** 剧集的默认策略：不追、新剧先确认 1 集、默认偏好 */
+/** 剧集的默认策略：不追、全自动时不先确认（0 集）、默认偏好 */
 export const DEFAULT_TV_POLICY: GrabPolicy = {
   mode: 'off',
-  confirmFirst: 1,
+  confirmFirst: 0,
   prefs: DEFAULT_GRAB_PREFS,
 }
 

@@ -13,10 +13,10 @@ import {
 import { FILE_05, child, episode, namesIn, setup } from './autograb-harness'
 
 describe('追更策略 · 契约', () => {
-  it('默认：剧集不追、新剧先确认 1 集；电影待确认；电影没有「不追」', () => {
+  it('默认：剧集不追、全自动不先确认；电影待确认；电影没有「不追」', () => {
     expect(policyOf(undefined, 'tv')).toMatchObject({
       mode: 'off',
-      confirmFirst: 1,
+      confirmFirst: 0,
     })
     expect(policyOf(undefined, 'movie').mode).toBe('confirm')
     expect(policyPatchOf({ mode: 'off' }, 'movie')).toEqual({})
@@ -89,13 +89,15 @@ describe('追更策略 · 服务', () => {
     expect(h.received).toEqual([])
   })
 
-  it('全局全自动：剧集默认目录是根目录时拒绝；设了默认目录后，新剧先确认 1 集再自动存', async () => {
+  it('全局全自动：剧集默认目录是根目录时拒绝；设了默认目录后，设了新剧先确认 1 集再自动存', async () => {
     const h = setup([episode(5), episode(6)])
     expect((await h.service.setPolicy({ mode: 'auto' })).ok).toBe(false)
     expect((await h.service.policy()).mode).toBe('off')
 
     h.deps.defaultFolder = () => ({ cid: '66', name: '剧集' })
-    expect((await h.service.setPolicy({ mode: 'auto' })).ok).toBe(true)
+    expect(
+      (await h.service.setPolicy({ mode: 'auto', confirmFirst: 1 })).ok
+    ).toBe(true)
     await h.service.tick()
     // 还没确认过：两集都只列候选
     expect(h.received).toEqual([])
