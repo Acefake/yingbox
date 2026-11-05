@@ -195,7 +195,14 @@ private fun Hero(slides: List<ViewHeroSlide>, cards: Map<String, ViewCard>, clie
             }
         }
         if (phone) {
-            LogoMark(Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = gutter, top = YbSpace.S3).size(40.dp))
+            Row(
+                Modifier.align(Alignment.TopStart).statusBarsPadding().padding(start = gutter, top = YbSpace.S3),
+                verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(YbSpace.S2),
+            ) {
+                LogoMark(Modifier.size(40.dp))
+                BrandWordmark(Modifier.width(72.dp).height(34.dp))
+            }
         }
         // 翻页圆点
         Row(

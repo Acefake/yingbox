@@ -1,12 +1,12 @@
 <?xml version="1.0" encoding="utf-8"?>
-<!-- 电视桌面的应用横幅（320x180dp）：蓝色玻璃品牌标志 -->
+<!-- 电视桌面的应用横幅（320x180dp）：紫水晶玻璃品牌标志 -->
 <layer-list xmlns:android="http://schemas.android.com/apk/res/android">
     <item>
         <shape android:shape="rectangle">
             <gradient
                 android:angle="315"
-                android:startColor="#163B5F"
-                android:endColor="#08192D" />
+                android:startColor="#503478"
+                android:endColor="#21113D" />
         </shape>
     </item>
     <item

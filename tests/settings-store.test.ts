@@ -15,7 +15,7 @@ import {
   type SettingsStoreOptions,
   openSettingsStore,
 } from '../src/main/settings/store'
-import type { SettingChange } from '../src/shared/settings/schema'
+import { type SettingChange, parseSetting } from '../src/shared/settings/schema'
 
 /** 可逆的假编解码器：密文里不会出现明文 */
 const codec: SecretCodec = {
@@ -42,6 +42,34 @@ const open = (
 
 const onDisk = (): Record<string, unknown> =>
   JSON.parse(readFileSync(file, 'utf8'))
+
+describe('品牌配色', () => {
+  it('未配置时使用紫色', async () => {
+    expect((await open()).snapshot().values['ui.brandColor']).toBe('purple')
+  })
+
+  it('六种配色均能持久化并重新读取', async () => {
+    const store = await open()
+    for (const color of [
+      'purple',
+      'blue',
+      'green',
+      'gold',
+      'white',
+      'graphite',
+    ] as const) {
+      store.set('ui.brandColor', color)
+      await store.flush()
+      expect((await open()).snapshot().values['ui.brandColor']).toBe(color)
+    }
+  })
+
+  it('拒绝非法配色并在读取非法配置时回退紫色', async () => {
+    expect(parseSetting('ui.brandColor', 'red')).toBeUndefined()
+    writeFileSync(file, JSON.stringify({ values: { 'ui.brandColor': 'red' } }))
+    expect((await open()).snapshot().values['ui.brandColor']).toBe('purple')
+  })
+})
 
 describe('默认值', () => {
   it('没有 settings.json 时全部取 schema 默认值，且不急着建文件', async () => {

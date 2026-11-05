@@ -15,6 +15,8 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
@@ -29,19 +31,17 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.graphicsLayer
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.platform.LocalConfiguration
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
-import com.yingbox.android.R
 
 /** 区间内的入场进度，限制在 0..1。 */
 private fun segment(total: Float, from: Float, to: Float): Float =
     FastOutSlowInEasing.transform(((total - from) / (to - from)).coerceIn(0f, 1f))
 
-/** 与桌面同源的蓝色玻璃标志，启动时轻微悬浮并扫过高光。 */
+/** 与桌面同源的六色玻璃标志，启动时轻微悬浮并扫过高光。 */
 @Composable
 private fun AnimatedLogo(intro: Float, loop: Float, modifier: Modifier) {
     Image(
-        painter = painterResource(R.drawable.brand_logo),
+        painter = painterResource(LocalBrandColor.current.icon),
         contentDescription = null,
         modifier = modifier.graphicsLayer {
             alpha = intro
@@ -94,13 +94,7 @@ fun LogoSplash(status: String, details: List<String> = emptyList(), failed: Bool
         horizontalAlignment = Alignment.CenterHorizontally,
     ) {
         AnimatedLogo(intro.value, loop.value, Modifier.size(logoSize))
-        Text(
-            "影盒",
-            color = YbColor.TextPrimary,
-            fontSize = YbText.Xl3,
-            fontWeight = FontWeight.Bold,
-            modifier = Modifier.padding(top = YbSpace.S6).alpha(textAlpha),
-        )
+        BrandWordmark(Modifier.padding(top = YbSpace.S6).width(112.dp).height(52.dp).alpha(textAlpha))
         Text(
             status,
             color = if (failed) YbColor.TextPrimary else YbColor.TextSecondary,
@@ -109,4 +103,10 @@ fun LogoSplash(status: String, details: List<String> = emptyList(), failed: Bool
         )
         for (line in details) Text(line, color = YbColor.TextTertiary, fontSize = YbText.Xs2)
     }
+}
+
+/** 与图标同色的专用中文品牌字标。 */
+@Composable
+fun BrandWordmark(modifier: Modifier = Modifier) {
+    Image(painterResource(LocalBrandColor.current.wordmark), contentDescription = "影盒", modifier = modifier)
 }

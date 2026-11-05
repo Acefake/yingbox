@@ -1,7 +1,7 @@
 <template>
   <Teleport to="body">
     <div v-if="update.installing.value" class="update-screen" role="status">
-      <UiBrandLogo class="update-screen-logo" />
+      <UiBrandLogo class="update-screen-logo" :color="brandColor" />
       <h2 class="update-screen-title">正在安装更新</h2>
       <p class="update-screen-sub">马上回来，请不要关机</p>
       <div class="update-screen-bar" role="progressbar" aria-label="安装中">
@@ -17,10 +17,12 @@
  * 出错时 installing 复位，画面自动消失。
  */
 import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
+import { useSetting } from './use-setting'
 
 import { useUpdateStatus } from './use-update-status'
 
 const update = useUpdateStatus()
+const brandColor = useSetting('ui.brandColor')
 </script>
 
 <style scoped>

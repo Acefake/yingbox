@@ -1,10 +1,26 @@
 <script setup lang="ts">
-/** 蓝色玻璃品牌标志；入场时高光扫过一次，减少动态效果时保持静止。 */
-import logo from '@/assets/imgs/logo.png'
+/** 玻璃品牌标志；配色由设备设置传入，入场扫光一次。 */
+import { computed } from 'vue'
+import type { BrandColor } from '../../../../shared/brand'
+import { brandIcon } from './brand'
+
+const props = withDefaults(
+  defineProps<{
+    /** 当前配色，默认紫水晶。 */
+    color?: BrandColor
+  }>(),
+  { color: 'purple' }
+)
+const logo = computed(() => brandIcon(props.color))
 </script>
 
 <template>
-  <span class="ui-brand-logo" aria-hidden="true">
+  <span
+    :key="color"
+    class="ui-brand-logo"
+    :style="{ maskImage: `url(${logo})` }"
+    aria-hidden="true"
+  >
     <img :src="logo" alt="" />
     <span class="brand-sheen" />
   </span>
@@ -18,7 +34,6 @@ import logo from '@/assets/imgs/logo.png'
   width: 28px;
   height: 28px;
   overflow: hidden;
-  mask-image: url('@/assets/imgs/logo.png');
   mask-size: 100% 100%;
   animation: brand-float calc(var(--duration-pulse) * 2) ease-in-out;
 }

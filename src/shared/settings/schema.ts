@@ -9,6 +9,7 @@
  */
 
 import { ENHANCE_LEVELS } from '../playback/enhance'
+import { BRAND_COLORS } from '../brand'
 import { IMAGE_QUALITIES, METADATA_LANGUAGES } from '../library/scrape-prefs'
 import { type WindowRect, parseWindowRect } from './window-rect'
 
@@ -147,6 +148,8 @@ export const settingsSchema = {
   'ui.hoverPreviewDelay': num(200, 2000, 600),
   /** 降低透明度：浮动控件的玻璃材质用实色、不做背景模糊（系统「降低透明度」打开时也是实色） */
   'ui.reduceTransparency': bool(false),
+  /** 当前设备的品牌标志配色 */
+  'ui.brandColor': oneOf(BRAND_COLORS, 'purple'),
   /** 桌面端侧栏收起成 64px 图标列（收起钮或 Cmd/Ctrl+B 切换，重启后保持） */
   'ui.sidebarCollapsed': bool(false),
   /** 发现新版本后自动下载；退出应用时顺带安装已下载的更新 */

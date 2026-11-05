@@ -6,6 +6,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import com.yingbox.android.library.NasConfig
 import com.yingbox.android.playback.engine.EnhanceLevel
+import com.yingbox.android.ui.BrandColor
 
 /**
  * 只跟这台设备有关的设置（ADR-0033）：存在应用自己的 SharedPreferences，不进服务端。
@@ -13,6 +14,15 @@ import com.yingbox.android.playback.engine.EnhanceLevel
  */
 class DeviceSettings(context: Context) {
     private val prefs = context.getSharedPreferences("device-settings", Context.MODE_PRIVATE)
+
+    /** 只影响本设备应用内品牌标志和字标。 */
+    var brandColor by mutableStateOf(BrandColor.fromKey(prefs.getString(BRAND_COLOR, null)))
+        private set
+
+    fun updateBrandColor(color: BrandColor) {
+        brandColor = color
+        prefs.edit().putString(BRAND_COLOR, color.key).apply()
+    }
 
     /** 降低透明度：浮动控件的玻璃用实色，不做背景模糊（低配设备、电视更流畅） */
     var reduceTransparency by mutableStateOf(prefs.getBoolean(REDUCE_TRANSPARENCY, false))
@@ -68,6 +78,7 @@ class DeviceSettings(context: Context) {
     }
 
     companion object {
+        private const val BRAND_COLOR = "ui.brandColor"
         /** 播放器在轨道变化时读取，不依赖设置界面的状态对象 */
         fun readEnhanceLevel(context: Context): EnhanceLevel =
             EnhanceLevel.fromKey(

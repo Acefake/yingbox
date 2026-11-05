@@ -5,7 +5,11 @@
       class="nas-sidebar yb-glass"
       aria-label="媒体中心导航"
     >
-      <div class="nas-brand"><UiBrandLogo /><span>影盒</span></div>
+      <div class="nas-brand">
+        <UiBrandLogo :color="brandColor" /><UiBrandWordmark
+          :color="brandColor"
+        />
+      </div>
       <LibrarySearch class="nas-search" />
       <nav aria-label="片库与网盘">
         <UiNavItem
@@ -80,6 +84,7 @@
 import { computed, onMounted, onUnmounted, ref } from 'vue'
 import { useRoute, useRouter } from 'vue-router'
 import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
+import UiBrandWordmark from '@/components/ui/UiBrandWordmark.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import type { IconName } from '@/components/ui/icons'
@@ -96,6 +101,7 @@ const route = useRoute()
 const router = useRouter()
 const serverState = libraryServerState()
 const adult = useSetting('app.adultMode')
+const brandColor = useSetting('ui.brandColor')
 const settingsVisible = ref(false)
 const settingsSection = ref('library')
 const localPages = useLocalNavPages()

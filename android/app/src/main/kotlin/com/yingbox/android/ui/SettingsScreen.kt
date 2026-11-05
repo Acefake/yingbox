@@ -2,8 +2,13 @@ package com.yingbox.android.ui
 
 import android.widget.Toast
 import androidx.compose.foundation.background
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
+import androidx.compose.foundation.layout.Row
+import androidx.compose.foundation.layout.size
+import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.height
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.calculateEndPadding
 import androidx.compose.foundation.layout.calculateStartPadding
@@ -20,6 +25,9 @@ import androidx.compose.runtime.remember
 import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.Alignment
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.unit.dp
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLayoutDirection
 import com.yingbox.android.server.ServerClient
@@ -70,6 +78,23 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
         item {
             SettingsCard {
                 SettingsGroup("外观", "关闭背景模糊，导航栏和返回按钮改用实色；低配设备、电视上更流畅。") {
+                    Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+                        SettingsRow("品牌配色", "图标和影盒字标跟随当前设备，默认紫水晶")
+                        Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(YbSpace.S3)) {
+                            Image(painterResource(device.brandColor.icon), contentDescription = device.brandColor.label, modifier = Modifier.size(48.dp))
+                            Image(painterResource(device.brandColor.wordmark), contentDescription = "影盒", modifier = Modifier.width(96.dp).height(44.dp))
+                        }
+                        LazyRow(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                            items(BrandColor.entries) { color ->
+                                Column(horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {
+                                    Image(painterResource(color.icon), contentDescription = null, modifier = Modifier.size(32.dp))
+                                    Pill(color.label, selected = color == device.brandColor, container = YbColor.FillSecondary) {
+                                        device.updateBrandColor(color)
+                                    }
+                                }
+                            }
+                        }
+                    }
                     SettingsRow("降低透明度") {
                         YbSwitch(device.reduceTransparency, "降低透明度", device::updateReduceTransparency)
                     }
