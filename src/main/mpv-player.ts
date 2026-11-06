@@ -18,6 +18,7 @@ import { MpvWindow } from './mpv-window'
 import { MpvEnhancement } from './mpv-enhancement'
 import { MpvImageEnhance } from './mpv-enhance'
 import { probeNvidiaGpu } from './mpv-gpu'
+import { mpvUiDir } from './mpv-ui'
 import { ensureMpvVsrHook } from './mpv-vsr-hook'
 import { registerPlugin } from './plugins/host'
 import { killTree, stopProcess } from './plugins/process'
@@ -154,6 +155,7 @@ class MpvPlayer extends MpvControls {
       highQualityScaling: this.imageEnhance.highQuality,
       disc,
       hookScript,
+      uiDir: mpvUiDir(),
     })
     this.headers.reset(headers)
     const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })

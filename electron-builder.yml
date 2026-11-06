@@ -16,6 +16,8 @@ extraResources:
     to: LICENSE
   - from: licenses
     to: licenses
+  - from: resources/mpv-ui
+    to: mpv-ui
   - from: resources/third-party
     to: third-party
 win:
