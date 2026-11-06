@@ -24,7 +24,7 @@
         @error="logoBroken = true"
       />
       <h1 v-else class="lib-hero-title">{{ node.title }}</h1>
-      <!-- 主操作：白色播放胶囊 + 想看；番号库再加去码组。管理操作（tools 插槽）在下一排 -->
+      <!-- 主操作：白色播放胶囊；番号库再加去码组。管理操作（tools 插槽）在下一排 -->
       <div class="lib-hero-actions">
         <UiButton
           class="lib-hero-play"
@@ -34,10 +34,6 @@
           :label="playLabel"
           :disabled="!canPlay"
           @click="emit('play')"
-        />
-        <WatchlistButton
-          class="lib-hero-circle yb-glass"
-          :meta="watchlistMeta"
         />
         <SeriesTrackButton
           v-if="node.type === 'series'"
@@ -116,13 +112,13 @@
 <script setup lang="ts">
 /**
  * 详情头图（Apple TV 式，效果图 D-1）：背景图铺满窗口，下部三层渐进模糊 + 压暗到页面底色，左侧再压一层暗，
- * 文案在左下：标志（加载失败退回片名）、白色播放胶囊 + 想看玻璃圆钮（番号库再加去码 / 去码一段 / 边跑边看）、
+ * 文案在左下：标志（加载失败退回片名）、白色播放胶囊 + 追更玻璃圆钮（番号库再加去码 / 去码一段 / 边跑边看）、
  * 标语与两行简介（点击展开）、规格行（年份 · 时长或季数 · 评分 · 类型 + 分级圆标与动态范围标签 + 待确认角标）、
  * 主演 / 导演行。操作行下面的 tools 插槽放管理操作（DetailActions：修正匹配、锁定、重新获取、写出 NFO、整理），
  * 返回圆钮在 ItemDetail 的浮动控件里。
  * 换条目时重置标志失败与简介展开状态。
  */
-import { computed, ref, watch } from 'vue'
+import { ref, watch } from 'vue'
 
 import { SeriesTrackButton } from '@/features/autograb'
 
@@ -133,11 +129,9 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
 import { formatRating } from '../../../../../shared/library/rating'
-import { WatchlistButton } from '@/features/watchlist'
 
 import { MATCH_STATE_LABEL } from '../shared/format'
 import type { CreditLine } from './detail-view'
-import { watchlistMetaOf } from './playback'
 import type { RestoreAction } from './use-restore'
 
 const props = defineProps<{
@@ -164,7 +158,6 @@ const emit = defineEmits<{
   restore: [action: RestoreAction]
 }>()
 
-const watchlistMeta = computed(() => watchlistMetaOf(props.node))
 const logoBroken = ref(false)
 const overviewOpen = ref(false)
 
