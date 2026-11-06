@@ -171,7 +171,7 @@ const LIBRARY_RECORD_SECTIONS: readonly ContinueSection[] = [
 ]
 
 /**
- * 按媒体库作品 ID 替换旧分区记录：这部作品在别的媒体库分区里的记录（改了类型、或早先被记错分区，
+ * 按媒体库作品 ID 替换旧分区记录：这部作品在别的媒体库分区里的记录（改了类型、或记录中被记错分区，
  * 比如番号记成了电影）一并清掉，保留用户手动移除的选择。
  */
 export function replaceLibraryContinue(

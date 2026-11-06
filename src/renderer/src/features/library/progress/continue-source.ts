@@ -136,7 +136,7 @@ const LIBRARY_SECTIONS: ReadonlySet<ContinueSection> = new Set([
 /**
  * 清掉失效的片库记录：
  * - 作品已经不存在（移除媒体库、重扫后文件没了）：片库明确答「没有这个条目」才清，查询出错（引擎没起来、网络断）时留着；
- * - 分区记错：番号库的作品只属于 jav 分区（早先把番号记成电影的记录会串到电影页和首页），清掉后近期有进度的由 hydrateContinue 按正确分区补回。
+ * - 分区记错：番号库的作品只属于 jav 分区（记录中把番号记成电影的记录会串到电影页和首页），清掉后近期有进度的由 hydrateContinue 按正确分区补回。
  */
 export async function pruneMissingContinue(): Promise<void> {
   const bridge = libraryBridge()

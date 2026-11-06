@@ -106,7 +106,7 @@ export interface AutograbSeries {
   nextAirDate?: string | null
   /** 剧的海报（片库条目的 poster 原样，界面按片库图片规则换地址）；近期日历里没有这部剧时为 null */
   poster?: string | null
-  /** 分类（按 TMDB 类型）；近期日历里没有这部剧、或旧版片库服务不给时没有 */
+  /** 分类（按 TMDB 类型）；近期日历里没有这部剧、或未提供完整字段的片库服务不给时没有 */
   category?: SeriesCategory
 }
 

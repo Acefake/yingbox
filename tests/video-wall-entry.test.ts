@@ -1,3 +1,4 @@
+// @vitest-environment jsdom
 import { createSSRApp, h } from 'vue'
 import { renderToString } from 'vue/server-renderer'
 import { describe, expect, it, vi } from 'vitest'

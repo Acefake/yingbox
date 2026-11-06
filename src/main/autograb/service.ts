@@ -17,13 +17,12 @@ import { createControls } from './controls'
 import { createFinder } from './finder'
 import { createRoundRunner, createSingleFlight } from './flight'
 import { createGate } from './gate'
-import { AUTO_SCORE } from './match-rules'
 import { buildOverview } from './overview'
 import {
   anyTracked,
   applyCategoryFolder,
   applyPolicyPatch,
-  confirmFirstOf,
+  eligibleForAutomatic,
   seriesModeOf,
   seriesPrefsOf,
   targetResolver,
@@ -188,28 +187,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     if (autoGrabbable(record)) await grab(record, 0, false)
   }
 
-  /**
-   * 这一集现在能不能全自动转存：有候选且匹配分过线、这部剧是全自动、转存目录不是根目录、
-   * 115 空间没暂停、「新剧先确认」的集数已确认够。搜到时和之后每一轮都判一次，
-   * 所以确认够数之前搜到的集，不用再点，下一轮自动转存。
-   */
-  function autoGrabbable(record: EpisodeRecord): boolean {
-    const best = record.candidates[0]
-    const setting = settingOf(record.seriesId)
-    return (
-      state.enabled &&
-      deps.pan.loggedIn() &&
-      deps.pan.pansouReady() &&
-      record.status === 'found' &&
-      state.episodes[record.key] === record &&
-      !!best &&
-      state.spacePause === null &&
-      seriesModeOf(state, record.seriesId) === 'auto' &&
-      targetCid(setting) !== '0' &&
-      (setting?.confirmed ?? 0) >= confirmFirstOf(state, setting) &&
-      best.score >= AUTO_SCORE
-    )
-  }
+  const autoGrabbable = (record: EpisodeRecord): boolean =>
+    deps.pan.loggedIn() &&
+    deps.pan.pansouReady() &&
+    eligibleForAutomatic(state, record, targetCid(settingOf(record.seriesId)))
 
   const saver = createSaver({
     automaticAllowed: autoGrabbable,

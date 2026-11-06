@@ -1,7 +1,7 @@
 import { mkdir, mkdtemp, rm, writeFile } from 'node:fs/promises'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
-import { afterEach, describe, expect, it, vi } from 'vitest'
+import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { listDirectory } from '../../src/server/routes/fs'
 import { type Harness, startServer } from './server-harness'
 
@@ -12,6 +12,13 @@ vi.mock('node:fs/promises', async importOriginal => ({
 }))
 let work: string | undefined
 let server: Harness | undefined
+beforeEach(async () => {
+  const actual =
+    await vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
+  readdir.mockImplementation((...args: Parameters<typeof actual.readdir>) =>
+    actual.readdir(...args)
+  )
+})
 afterEach(async () => {
   await server?.close()
   server = undefined
@@ -41,7 +48,7 @@ describe('添加文件夹的错误边界', () => {
     )
     await expect(listDirectory(work, [work])).rejects.toMatchObject({
       status: 403,
-      message: expect.stringContaining('Docker 挂载'),
+      message: expect.stringContaining('PUID'),
     })
   })
   it('入库 RPC 拒绝普通文件和不存在的目录', async () => {

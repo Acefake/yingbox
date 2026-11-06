@@ -1,0 +1,152 @@
+.online-view {
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  background: transparent;
+  color: var(--text-main);
+  overflow: hidden;
+  -webkit-app-region: no-drag;
+  position: relative;
+  z-index: var(--z-float);
+}
+
+.content-area {
+  flex: 1;
+  overflow-y: auto;
+  padding: var(--space-6) var(--space-7);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-6);
+}
+
+.home-content-area {
+  padding: var(--space-7) var(--space-8) var(--space-8);
+  gap: var(--space-7);
+}
+:global(.app-layout.is-desktop.has-page-atmosphere .has-atmosphere) {
+  padding-top: calc(var(--space-7) + var(--shell-top));
+}
+
+/*
+ * 首页铺满窗口：整页往左上让回外壳留出的 --shell-left / --shell-top，Hero 从窗口左上角开始，
+ * 浮动侧栏和顶栏胶囊压在它上面（这里不建层叠上下文，侧栏、胶囊的 z-index 才比得过）。
+ * Hero 文案和下面几排的左边距 --home-x = 侧栏让出的宽度 + 28px。
+ */
+.online-view.is-bleed {
+  --home-x: calc(var(--shell-left) + var(--space-6_5));
+  z-index: auto;
+  height: calc(100% + var(--shell-top));
+  margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
+}
+/* 第一排（快速浏览）压进 Hero 底部 --home-hero-overlap，Hero 加高同样多（home-hero.css） */
+.home-page:where(.has-hero) {
+  --home-hero-overlap: var(--space-10);
+  padding: 0 0 var(--space-11);
+  gap: 0;
+}
+.home-page:where(.has-hero) .home-rows {
+  position: relative;
+  margin-top: calc(var(--home-hero-overlap) * -1);
+  padding: 0 var(--space-8) 0 var(--home-x);
+}
+.home-page:where(:not(.has-hero)) {
+  padding: var(--shell-top) var(--space-8) var(--space-8) var(--home-x);
+}
+.home-rows {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  min-width: 0;
+}
+
+.inline-detail-page {
+  --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));
+  --detail-gutter: var(--space-8);
+  display: flex;
+  flex-direction: column;
+  position: fixed;
+  inset: 0;
+  z-index: var(--z-float);
+  width: 100%;
+  background: var(--bg-content);
+}
+
+.inline-detail-toolbar {
+  position: absolute;
+  top: var(--shell-pill-top);
+  left: var(--detail-x);
+  z-index: var(--z-float);
+  -webkit-app-region: no-drag;
+}
+
+.inline-detail-edge {
+  position: absolute;
+  inset: 0 0 auto;
+  height: 104px;
+  z-index: var(--z-float);
+  background: linear-gradient(
+    color-mix(in srgb, var(--bg-content) 62%, transparent),
+    transparent
+  );
+  backdrop-filter: blur(10px);
+  -webkit-backdrop-filter: blur(10px);
+  mask: var(--mask-fade-end-30);
+  -webkit-mask: var(--mask-fade-end-30);
+  pointer-events: none;
+}
+
+.inline-detail-back {
+  height: var(--shell-pill-height);
+  border-radius: var(--radius-full);
+}
+
+.inline-detail-page :deep(.detail-win) {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  height: auto;
+}
+
+.detail-page-enter-active,
+.detail-page-leave-active {
+  transition: opacity var(--duration-normal) ease;
+}
+.detail-page-enter-from,
+.detail-page-leave-to {
+  opacity: 0;
+}
+
+@media (max-width: 860px) {
+  .online-view.is-bleed {
+    --home-x: calc(var(--shell-left) + var(--space-5));
+  }
+  .home-page:where(.has-hero) .home-rows {
+    padding: 0 var(--space-5) 0 var(--home-x);
+  }
+}
+
+@media (max-width: 768px),
+  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
+  .inline-detail-page {
+    --detail-x: var(--space-4);
+    --detail-gutter: var(--space-4);
+  }
+  .inline-detail-toolbar {
+    top: calc(var(--safe-top) + var(--space-2));
+  }
+  .inline-detail-page :deep(.dw-content) {
+    padding-top: calc(
+      var(--safe-top) + var(--shell-pill-height) + var(--space-6)
+    );
+    padding-bottom: calc(var(--space-6) + var(--safe-bottom));
+  }
+}
+
+.content-area::-webkit-scrollbar {
+  width: 4px;
+}
+
+.content-area::-webkit-scrollbar-thumb {
+  background: var(--scrollbar-thumb);
+  border-radius: var(--radius-xs);
+}

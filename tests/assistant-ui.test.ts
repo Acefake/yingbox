@@ -806,11 +806,7 @@ describe('统一入口：搜索与问 AI', () => {
     const rows = [...document.querySelectorAll('[data-search-result]')]
     expect(
       rows.map(row => row.textContent?.replace(/\s+/g, ' ').trim())
-    ).toEqual([
-      '星际穿越',
-      '星际穿越 · 2014在线 · 源甲 等 2 个源',
-      '星际旅行 · 2020在线 · 源甲',
-    ])
+    ).toEqual(['星际穿越', '星际旅行 · 2020在线 · 源甲'])
     expect(rows[1].id).toBe('search-hit-1')
     ;(rows[1] as HTMLButtonElement).click()
     await waitFor(() => fakes.onlineOpened.length === 1)

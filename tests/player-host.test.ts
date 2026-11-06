@@ -138,7 +138,9 @@ const fakes = vi.hoisted(() => {
     on(): void {
       // 替身不需要 hls 事件
     }
-    off(): void {}
+    off(): void {
+      return undefined
+    }
     destroy(): void {
       this.destroyed++
     }

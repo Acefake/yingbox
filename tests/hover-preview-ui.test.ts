@@ -134,6 +134,8 @@ describe('外观设置', () => {
     vi.resetModules()
     values = defaultValues()
     vi.stubGlobal('window', {
+      addEventListener: () => {},
+      removeEventListener: () => {},
       api: {
         settings: {
           snapshot: () => ({

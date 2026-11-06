@@ -220,15 +220,11 @@ import PageHeader from '@/components/PageHeader.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiInput from '@/components/ui/UiInput.vue'
-import UiMenuButton, {
-  type MenuButtonItem,
-} from '@/components/ui/UiMenuButton.vue'
+import UiMenuButton from '@/components/ui/UiMenuButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
-import UiSegmented, {
-  type SegmentedOption,
-} from '@/components/ui/UiSegmented.vue'
+import UiSegmented from '@/components/ui/UiSegmented.vue'
 import AvBrowseFilters from '../components/AvBrowseFilters.vue'
 import StatusState from '@/components/StatusState.vue'
 import { isIncognito } from '@/features/incognito'
@@ -237,6 +233,8 @@ import {
   loadCatSpiderSites,
   useOnlineSearch,
 } from '@/features/online'
+import { type AvTab, tabs } from './av-tabs'
+import { useAvSearchHistory } from '../composables/use-av-search-history'
 import { computed, onBeforeUnmount, onMounted, ref, watch } from 'vue'
 import { useStorage } from '@vueuse/core'
 import { useRoute, useRouter } from 'vue-router'
@@ -256,21 +254,6 @@ import { type AvVideo, buildAvEntries } from '../utils/av-catalog'
 import { coverSrc } from '../utils/av-media'
 import { toggleFavorite } from '../utils/av-playback'
 
-type AvTab =
-  | 'browse'
-  | 'search'
-  | 'favorites'
-  | 'watch-later'
-  | 'playlists'
-  | 'history'
-/** 「搜索」视图没有 Tab，由路由 ?q= 进入。 */
-const tabs: SegmentedOption<AvTab>[] = [
-  { value: 'browse', label: '浏览' },
-  { value: 'favorites', label: '收藏' },
-  { value: 'watch-later', label: '待看' },
-  { value: 'playlists', label: '片单' },
-  { value: 'history', label: '播放历史' },
-]
 const activeTab = useStorage<AvTab | 'downloads'>('av_active_tab', 'browse')
 if (activeTab.value === 'downloads') activeTab.value = 'browse'
 const route = useRoute()
@@ -312,36 +295,9 @@ const search = useAvSearch({
 })
 const playback = useAvPlayback()
 let lastSearchQuery = ''
-const searchHistory = useStorage<string[]>('av_search_history', [])
-const searchHistoryItems = computed<MenuButtonItem[]>(() => {
-  if (!searchHistory.value.length) {
-    return [
-      {
-        key: 'empty',
-        label: '暂无搜索历史',
-        disabled: true,
-        onSelect: () => {},
-      },
-    ]
-  }
-  return [
-    ...searchHistory.value.map(keyword => ({
-      key: `query:${keyword}`,
-      label: keyword.length > 32 ? `${keyword.slice(0, 32)}…` : keyword,
-      onSelect: () => {
-        search.keyword.value = keyword
-        submitSearch()
-      },
-    })),
-    {
-      key: 'clear',
-      label: '清空搜索历史',
-      icon: 'trash',
-      onSelect: () => {
-        searchHistory.value = []
-      },
-    },
-  ]
+const { searchHistory, searchHistoryItems } = useAvSearchHistory(keyword => {
+  search.keyword.value = keyword
+  submitSearch()
 })
 
 const submitSearch = (): void => {
@@ -440,78 +396,4 @@ onBeforeUnmount(() => {
 })
 </script>
 
-<style scoped>
-.av-page {
-  display: flex;
-  height: 100%;
-  min-height: 0;
-  flex-direction: column;
-  overflow: hidden;
-  background: var(--bg-content);
-  color: var(--text-primary);
-}
-.av-toolbar {
-  display: flex;
-  flex-shrink: 0;
-  flex-direction: column;
-  align-items: stretch;
-  gap: var(--space-4);
-  padding: var(--space-5) var(--space-6) var(--space-3);
-}
-.av-tabs {
-  align-self: flex-start;
-  max-width: 100%;
-  gap: 0;
-  padding: var(--space-0_5);
-  border-radius: var(--radius-full);
-  overflow-x: auto;
-}
-.av-tabs :deep(.ui-segmented-item) {
-  flex-shrink: 0;
-  background: transparent;
-  box-shadow: none;
-  color: var(--text-secondary);
-}
-.av-tabs :deep(.ui-segmented-item:hover:not(.is-active)) {
-  background: var(--control-bg-hover);
-  color: var(--text-primary);
-}
-.av-tabs :deep(.ui-segmented-item.is-active) {
-  background: var(--bg-active);
-  color: var(--text-primary);
-}
-.av-tabs :deep(.ui-segmented-item:focus-visible) {
-  outline: 1px solid var(--accent);
-  outline-offset: -1px;
-}
-.av-search-input {
-  width: min(100%, 480px);
-  border-color: transparent;
-  border-radius: var(--radius-full);
-}
-.av-search-input:focus-within {
-  border-color: var(--accent);
-  box-shadow: var(--glass-shadow);
-}
-.av-search-input:has([aria-expanded='true']) {
-  z-index: var(--z-dropdown);
-}
-.av-scroll {
-  display: flex;
-  min-height: 0;
-  flex: 1;
-  flex-direction: column;
-  gap: var(--space-6);
-  overflow-y: auto;
-  padding: var(--space-3) var(--space-6) var(--space-8);
-}
-.av-load-more {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-3);
-  min-height: var(--control-height);
-  color: var(--text-tertiary);
-  font-size: var(--text-sm);
-}
-</style>
+<style scoped src="./av-view.css"></style>

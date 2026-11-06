@@ -2,6 +2,11 @@ import { chmodSync, mkdtempSync, rmSync, writeFileSync } from 'node:fs'
 import { tmpdir } from 'node:os'
 import { join } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import * as fsp from 'node:fs/promises'
+vi.mock('node:fs/promises', async importOriginal => {
+  const actual = await importOriginal<typeof import('node:fs/promises')>()
+  return { ...actual, open: vi.fn(actual.open) }
+})
 import {
   localUrlToFilePath,
   parseRange,
@@ -81,6 +86,9 @@ describe('serveFile', () => {
     const file = join(dir, 'clip.mkv')
     writeFileSync(file, Buffer.alloc(16, 1))
     chmodSync(file, 0)
+    vi.mocked(fsp.open).mockRejectedValueOnce(
+      Object.assign(new Error('denied'), { code: 'EACCES' })
+    )
     const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
     try {
       const res = await serveFile(file, new Request('http://nas/clip.mkv'))

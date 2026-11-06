@@ -1,5 +1,5 @@
 import { type ChildProcess, spawn } from 'child_process'
-import { EventEmitter } from 'events'
+import { MpvControls } from './mpv-controls'
 import { type DiscSource, discSourceOf } from './mpv-disc'
 import { ensureMpvExecutable } from './mpv-locate'
 import { validateMpvLocalFile } from './mpv-local-file'
@@ -28,7 +28,7 @@ import type { MpvOpenOptions, MpvStatus } from '../shared/mpv'
  * 封装进程生命周期与 IPC 控制，以 EventEmitter 形式暴露状态变化。
  * 外部通过 `mpvPlayer` 单例访问。
  */
-class MpvPlayer extends EventEmitter {
+class MpvPlayer extends MpvControls {
   private child: ChildProcess | null = null
   private readonly sock = new MpvSocket()
   /** open 串行执行：连点 / 双击时第二次等第一次起完进程再换片，不会两个进程抢连接 */
@@ -360,43 +360,10 @@ class MpvPlayer extends EventEmitter {
     }
   }
 
-  private async cmd(...args: unknown[]): Promise<unknown> {
+  protected async cmd(...args: unknown[]): Promise<unknown> {
     return this.sock.send({ command: args })
   }
-  private async setProp(name: string, value: unknown): Promise<void> {
-    await this.sock.send({ command: ['set_property', name, value] })
-  }
 
-  // ——— 播放控制 ———
-  async pause(paused: boolean): Promise<void> {
-    await this.setProp('pause', paused)
-  }
-  async seek(
-    seconds: number,
-    mode: 'absolute' | 'relative' = 'absolute'
-  ): Promise<void> {
-    await this.cmd('seek', seconds, mode)
-  }
-  async setVolume(vol: number): Promise<void> {
-    await this.setProp('volume', Math.max(0, Math.min(200, vol)))
-  }
-  async setMute(muted: boolean): Promise<void> {
-    await this.setProp('mute', muted)
-  }
-  async setSpeed(speed: number): Promise<void> {
-    await this.setProp('speed', speed)
-  }
-
-  // ——— 轨道控制 ———
-  async setSubTrack(id: number | false): Promise<void> {
-    await this.setProp('sid', id === false ? 'no' : id)
-  }
-  async setAudioTrack(id: number): Promise<void> {
-    await this.setProp('aid', id)
-  }
-  async addSubFile(filePath: string): Promise<void> {
-    await this.cmd('sub-add', filePath, 'select')
-  }
   /** 画面上显示一行提示（OSD）；mpv 没在跑时不做 */
   async showText(text: string, ms: number): Promise<void> {
     if (this.child) await this.cmd('show-text', text, ms)

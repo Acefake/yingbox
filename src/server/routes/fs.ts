@@ -2,7 +2,7 @@
  * 目录浏览：网页端没有系统文件对话框，添加媒体库时用它在媒体根目录里逐级选文件夹。
  * 只列子目录（不列文件），跳过隐藏目录；不带 path 时列出全部根目录。
  *
- * 读失败必须打日志并回 JSON 错误。以前 readdir 的异常会冒泡成纯文本 500，
+ * 读失败必须打日志并回 JSON 错误。readdir 的异常统一转换为 JSON 错误，
  * 网页端只能显示「读取目录失败（HTTP 500）」。
  */
 import { constants } from 'node:fs'
@@ -183,7 +183,13 @@ export async function listDirectory(
   }
   if (!resolved) return null
 
-  const entries = await readEntries(resolved)
+  let entries: ListedEntry[]
+  try {
+    entries = await readEntries(resolved)
+  } catch (error) {
+    if (error instanceof DirectoryReadError && error.status === 404) return null
+    throw error
+  }
   const dirs: DirectoryListing['dirs'] = []
   for (const entry of entries) {
     if (!entry.name || entry.name.startsWith('.') || entry.kind === 'file')

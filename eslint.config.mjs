@@ -50,6 +50,7 @@ export default tseslint.config(
       '**/node_modules',
       '**/dist',
       '**/out',
+      '**/output',
       '**/dist-web',
       '**/dist-nas',
       '**/dist-renderer',

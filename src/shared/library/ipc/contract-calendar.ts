@@ -28,10 +28,10 @@ export interface CalendarEpisode {
   originalTitle: string | null
   /**
    * 剧的 TMDB id。片库重建后条目 id 会变，追更靠它认出是同一部剧；
-   * 旧版片库服务不给，所以可选。
+   * 未提供完整字段的片库服务不给，所以可选。
    */
   tmdbId?: string
-  /** 剧的分类（按 TMDB 类型：剧集 / 动漫 / 综艺 / 纪录片）；旧版片库服务不给 */
+  /** 剧的分类（按 TMDB 类型：剧集 / 动漫 / 综艺 / 纪录片）；未提供完整字段的片库服务不给 */
   category?: SeriesCategory
   season: number
   episode: number

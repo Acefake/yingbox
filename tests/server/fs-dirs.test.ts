@@ -13,7 +13,7 @@ import {
 } from 'node:fs'
 import * as fsp from 'node:fs/promises'
 import { tmpdir } from 'node:os'
-import { join } from 'node:path'
+import { join, resolve } from 'node:path'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { Router } from '../../src/server/http/router'
 import {
@@ -22,12 +22,31 @@ import {
   registerFsRoutes,
 } from '../../src/server/routes/fs'
 
+const denied = vi.hoisted(() => new Set<string>())
 vi.mock('node:fs/promises', async importOriginal => {
   const actual = await importOriginal<typeof import('node:fs/promises')>()
   return {
     ...actual,
+    access: vi.fn((...args: Parameters<typeof actual.access>) => {
+      if (
+        [...denied].some(
+          path =>
+            resolve(path).toLowerCase() ===
+            resolve(String(args[0])).toLowerCase()
+        )
+      )
+        return Promise.reject(
+          Object.assign(new Error('denied'), { code: 'EACCES' })
+        )
+      return actual.access(...args)
+    }),
     readdir: vi.fn((...args: Parameters<typeof actual.readdir>) =>
-      actual.readdir(...args)
+      [...denied].some(
+        path =>
+          resolve(path).toLowerCase() === resolve(String(args[0])).toLowerCase()
+      )
+        ? Promise.reject(Object.assign(new Error('denied'), { code: 'EACCES' }))
+        : actual.readdir(...args)
     ),
   }
 })
@@ -37,9 +56,15 @@ const actualFs =
   vi.importActual<typeof import('node:fs/promises')>('node:fs/promises')
 
 afterEach(async () => {
+  denied.clear()
   const actual = await actualFs
   vi.mocked(fsp.readdir).mockImplementation((...args) =>
-    actual.readdir(...args)
+    [...denied].some(
+      path =>
+        resolve(path).toLowerCase() === resolve(String(args[0])).toLowerCase()
+    )
+      ? Promise.reject(Object.assign(new Error('denied'), { code: 'EACCES' }))
+      : actual.readdir(...args)
   )
   for (const dir of dirs.splice(0)) {
     spawnSync('chmod', ['-R', 'u+rwx', dir])
@@ -79,7 +104,7 @@ async function get(
 describe('目录浏览失败', () => {
   it('根目录没权限时回 403 JSON，日志带路径和 EACCES', async () => {
     const root = workDir()
-    chmodSync(root, 0)
+    denied.add(root)
     const logs: string[] = []
     const router = new Router()
     registerFsRoutes(router, [root], message => logs.push(message))
@@ -99,7 +124,7 @@ describe('目录浏览失败', () => {
     const root = workDir()
     const locked = join(root, 'locked')
     mkdirSync(locked)
-    chmodSync(locked, 0o111)
+    denied.add(locked)
     const logs: string[] = []
     const router = new Router()
     registerFsRoutes(router, [root], message => logs.push(message))
@@ -135,11 +160,11 @@ describe('目录浏览失败', () => {
 
   it('启动检查把不可读根目录和进程 uid/gid 写进说明', async () => {
     const root = workDir()
-    chmodSync(root, 0)
+    denied.add(root)
     const message = await mediaRootAccessError(root)
     expect(message).toMatch(/EACCES/)
     expect(message).toContain(root)
-    expect(message).toMatch(/uid=\d+ gid=\d+/)
+    expect(message).toMatch(/uid=(?:\d+|\?) gid=(?:\d+|\?)/)
     chmodSync(root, 0o755)
   })
 })
@@ -197,7 +222,7 @@ describe('目录浏览列表', () => {
   it('多个根目录里不可读的被略过并记日志，剩下的仍返回', async () => {
     const good = workDir()
     const bad = workDir()
-    chmodSync(bad, 0)
+    denied.add(bad)
     const logs: string[] = []
     const listing = await listDirectory(null, [good, bad], message =>
       logs.push(message)

@@ -2,6 +2,7 @@
 import { afterEach, expect, it, vi } from 'vitest'
 import { type App, createApp, nextTick } from 'vue'
 import AppearanceSettings from '../src/renderer/src/features/settings/sections/AppearanceSettings.vue'
+import { BRAND_OPTIONS } from '../src/renderer/src/components/ui/brand'
 import {
   getSetting,
   setSetting,
@@ -25,11 +26,10 @@ it('外观设置能切换六种实际图标并保存选择', async () => {
   document.body.append(host)
   app = createApp(AppearanceSettings)
   app.mount(host)
-  const select = host.querySelector<HTMLSelectElement>(
-    'select[aria-label="品牌配色"]'
+  const select = host.querySelector<HTMLButtonElement>(
+    'button[aria-label^="品牌配色"]'
   )!
-  expect(select.value).toBe('purple')
-  expect(select.options).toHaveLength(6)
+  expect(select.textContent).toContain('紫水晶')
   for (const color of [
     'purple',
     'blue',
@@ -38,8 +38,16 @@ it('外观设置能切换六种实际图标并保存选择', async () => {
     'white',
     'graphite',
   ]) {
-    select.value = color
-    select.dispatchEvent(new Event('change', { bubbles: true }))
+    select.click()
+    await nextTick()
+    const options = [
+      ...document.querySelectorAll<HTMLButtonElement>(
+        '.ui-glass-select-option'
+      ),
+    ]
+    expect(options).toHaveLength(6)
+    const label = BRAND_OPTIONS.find(option => option.value === color)!.label
+    options.find(option => option.textContent?.trim() === label)!.click()
     await nextTick()
     expect(getSetting('ui.brandColor')).toBe(color)
     expect(

@@ -407,6 +407,6 @@ describe('接线', () => {
     )
     expect(page).toMatch(/useSetting\('app\.tray'\)/)
     expect(page).toMatch(/useSetting\('player\.mediaKeys'\)/)
-    expect(page).toMatch(/v-if="isElectron" title="系统集成"/)
+    expect(page).toMatch(/v-if="isElectron"\s+(?:joined\s+)?title="系统集成"/)
   })
 })

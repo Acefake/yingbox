@@ -24,7 +24,10 @@ const me = {
   uid: spawnSync('sh', ['-c', 'id -u'], { encoding: 'utf8' }).stdout.trim(),
   gid: spawnSync('sh', ['-c', 'id -g'], { encoding: 'utf8' }).stdout.trim(),
 }
-const shellPath = (path: string): string => path.replace(/\\/g, '/')
+const shellPath = (path: string): string =>
+  path
+    .replace(/\\/g, '/')
+    .replace(/^([A-Za-z]):\//, (_, drive: string) => `/${drive.toLowerCase()}/`)
 
 let work: string
 let bin: string

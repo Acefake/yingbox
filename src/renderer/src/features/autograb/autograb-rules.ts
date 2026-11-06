@@ -342,7 +342,7 @@ export function episodeSteps(ep: AutograbEpisode): EpisodeStep[] {
   })
 }
 
-/** 一部剧的分类；日历没给分类（旧版片库服务、近期日历里没有）的当剧集 */
+/** 一部剧的分类；日历没给分类（未提供完整字段的片库服务、近期日历里没有）的当剧集 */
 export function categoryOfSeries(series: AutograbSeries): SeriesCategory {
   return series.category ?? 'tv'
 }

@@ -95,6 +95,7 @@ const EXTERNAL_API: Record<string, string[]> = {
     'listLibraries',
     'listActiveJobs',
     'cancelJob',
+    'trashItem',
     'addLibrary',
     'removeLibrary',
     'updateLibrary',

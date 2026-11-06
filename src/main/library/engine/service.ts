@@ -4,27 +4,15 @@
  * 不依赖 Electron：引擎进程入口（entry.ts）只负责消息收发，测试可以直接构造本类。扫描 / 解析 / 指纹 / 动态范围探测任务在 library-jobs，纯规则在 service-rules，变化入口在 library-watch。
  * 网盘模式的库不读视频内容：后台指纹 / 动态范围探测跳过，识别时的时长探测 / 哈希限速（见 cloud-reads）。
  */
+import { CatalogCommands } from './catalog-commands'
 import type {
-  ApplyMatchRequest,
-  ApplyMatchResult,
-  FacetListRequest,
-  FacetValue,
-  IdentifyRequest,
-  JobAccepted,
   LibraryEvent,
   LibraryInfo,
-  LibraryItemNode,
   LibraryItemSummary,
-  LibraryQueryResult,
   LibraryRpcMap,
-  MatchCandidatesResult,
-  NormalizedLibraryQuery,
   NotifyChangesRequest,
   NotifyChangesResult,
-  ProviderStatus,
-  RefreshMetadataRequest,
   ScanAccepted,
-  SetProviderTokenRequest,
   TrashItemRequest,
   UpdateLibraryRequest,
 } from '../../../shared/library/ipc'
@@ -36,7 +24,7 @@ import { KeyedMutex } from '../jobs/keyed-mutex'
 import { WriterModule } from '../writer/writer-module'
 import { CatalogStore, type ItemChanges } from '../catalog/catalog-store'
 import { trashLibraryItem } from '../catalog/trash-library-item'
-import { reclassifyItem } from '../catalog/reclassify'
+import { reclassifyCommand } from '../catalog/reclassify-command'
 import { CatalogQuery } from '../catalog/query'
 import { type LibraryDb, openLibraryDb, transaction } from '../db/database'
 import { IdentifyModule } from '../identify/identify-module'
@@ -68,12 +56,12 @@ export { mergeScanPayload } from './service-rules'
 export type { LibraryServiceOptions } from './service-options'
 
 /** 媒体库服务。 */
-export class LibraryService {
+export class LibraryService extends CatalogCommands {
   readonly db: LibraryDb
-  private readonly libraries: LibraryStore
+  protected readonly libraries: LibraryStore
   private readonly scanStore: ScanStore
   private readonly catalog: CatalogStore
-  private readonly catalogQuery: CatalogQuery
+  protected readonly catalogQuery: CatalogQuery
   readonly queue: JobQueue
 
   /** 取消任务；排队的整理批次同步结束，已完成的移动仍可撤销。 */
@@ -101,13 +89,13 @@ export class LibraryService {
   readonly intake: Intake
   /** 同一媒体库的扫描与整理互斥。 */
   private readonly locks = new KeyedMutex<number>()
-  private readonly matching = new Set<number>()
   private readonly watch: LibraryWatch
   private readonly listeners = new Set<(event: LibraryEvent) => void>()
   private readonly fingerprint: (path: string) => Promise<string | undefined>
   private readonly log: (message: string) => void
 
   constructor(private readonly options: LibraryServiceOptions) {
+    super()
     this.db = openLibraryDb(options.dbPath)
     this.libraries = new LibraryStore(this.db)
     this.scanStore = new ScanStore(this.db)
@@ -272,38 +260,20 @@ export class LibraryService {
     return toLibraryInfo(lib, this.watch.storage.known(lib))
   }
 
-  /** 纠正混合库条目的电影 / 剧集类型。 */
-  async reclassifyItem(
+  /** 纠正混合库条目的类型。 */
+  reclassifyItem(
     request: LibraryRpcMap['reclassifyItem']['params']
   ): Promise<LibraryItemSummary> {
-    const item = this.catalogQuery.summary(request.itemId)
-    if (!item) throw new Error('条目不存在')
-    return this.locks.run(item.libraryId, async () => {
-      if (
-        this.matching.has(item.id) ||
-        this.queue.activeJobs().some(job => job.jobType === 'identify')
-      ) {
-        throw new LibraryError(
-          'conflict',
-          '识别任务正在进行，请完成后再纠正类型'
-        )
-      }
-      reclassifyItem(
-        this.db,
-        this.catalog,
-        this.libraries.get(item.libraryId),
-        item.id,
-        request.kind
-      )
-      this.emit({
-        type: 'items-changed',
-        libraryId: item.libraryId,
-        added: [],
-        updated: [],
-        removed: [],
-        reset: true,
-      })
-      return this.catalogQuery.summary(item.id)!
+    return reclassifyCommand(request, {
+      db: this.db,
+      catalog: this.catalog,
+      query: this.catalogQuery,
+      locks: this.locks,
+      matching: this.matching,
+      identifying: () =>
+        this.queue.activeJobs().some(job => job.jobType === 'identify'),
+      library: id => this.libraries.get(id),
+      emit: event => this.emit(event),
     })
   }
 
@@ -349,70 +319,6 @@ export class LibraryService {
       PRIORITY.scan
     )
     return { jobId: job.id }
-  }
-
-  /** 分页查询顶层条目。 */
-  query(query: NormalizedLibraryQuery): LibraryQueryResult {
-    return this.catalogQuery.list(query)
-  }
-
-  /** 分面取值与条目数（海报墙筛选面板）。 */
-  facetValues(request: FacetListRequest): FacetValue[] {
-    return this.catalogQuery.facetValues(request)
-  }
-
-  /** 条目详情。 */
-  getItem({ itemId }: { itemId: number }): LibraryItemNode | null {
-    return this.catalogQuery.getItem(itemId)
-  }
-
-  /** 识别条目。 */
-  identify(request: IdentifyRequest): JobAccepted {
-    if (request.libraryId !== undefined) this.libraries.get(request.libraryId)
-    return this.identifier.identify(request)
-  }
-
-  /** 条目的匹配候选。 */
-  getMatchCandidates({ itemId }: { itemId: number }): MatchCandidatesResult {
-    return this.identifier.getMatchCandidates(itemId)
-  }
-
-  /** 手动匹配。 */
-  async applyMatch(request: ApplyMatchRequest): Promise<ApplyMatchResult> {
-    if (this.matching.has(request.itemId))
-      throw new LibraryError('conflict', '此条目正在匹配')
-    this.matching.add(request.itemId)
-    try {
-      return await this.identifier.applyMatch(request)
-    } finally {
-      this.matching.delete(request.itemId)
-    }
-  }
-
-  /** 锁定匹配。 */
-  lockMatch({ itemId }: { itemId: number }): LibraryItemSummary {
-    return this.identifier.lockMatch(itemId)
-  }
-
-  /** 解除锁定。 */
-  unlockMatch({ itemId }: { itemId: number }): LibraryItemSummary {
-    return this.identifier.unlockMatch(itemId)
-  }
-
-  /** 刷新元数据。 */
-  refreshMetadata(request: RefreshMetadataRequest): JobAccepted {
-    if (request.libraryId !== undefined) this.libraries.get(request.libraryId)
-    return this.identifier.refreshMetadata(request)
-  }
-
-  /** 设置元数据源令牌。 */
-  setProviderToken(request: SetProviderTokenRequest): ProviderStatus {
-    return this.identifier.setProviderToken(request)
-  }
-
-  /** 元数据源配置状态。 */
-  getProviderStatus(): ProviderStatus {
-    return this.identifier.getProviderStatus()
   }
 
   /** 外部文件变更通知：对应到库目录、去抖合并后按目录增量扫描。 */

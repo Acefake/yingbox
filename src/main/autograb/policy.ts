@@ -4,6 +4,8 @@
  *
  * 没单独设过的在播剧也按全局方式追（{@link seriesModeOf} 对没有设置的剧返回全局方式）。
  */
+import { AUTO_SCORE } from '../../shared/contract/autograb'
+import type { EpisodeRecord } from './state'
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import { normalizeCid } from '../../shared/netdisk/target-folder'
 import type { SeriesCategory } from '../../shared/contract/series-category'
@@ -162,4 +164,25 @@ export function applyCategoryFolder(
 ): void {
   if (cid) state.categoryFolders[category] = { cid, name: name || '根目录' }
   else delete state.categoryFolders[category]
+}
+
+/** 自动转存的记录、策略、目录和确认门槛。 */
+export function eligibleForAutomatic(
+  state: AutograbState,
+  record: EpisodeRecord,
+  cid: string
+): boolean {
+  const best = record.candidates[0]
+  const setting = state.series[String(record.seriesId)]
+  return (
+    state.enabled &&
+    record.status === 'found' &&
+    state.episodes[record.key] === record &&
+    !!best &&
+    state.spacePause === null &&
+    seriesModeOf(state, record.seriesId) === 'auto' &&
+    cid !== '0' &&
+    (setting?.confirmed ?? 0) >= confirmFirstOf(state, setting) &&
+    best.score >= AUTO_SCORE
+  )
 }
