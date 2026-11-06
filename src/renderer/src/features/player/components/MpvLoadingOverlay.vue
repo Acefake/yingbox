@@ -6,16 +6,13 @@
       popover="manual"
       aria-label="正在打开播放器"
     >
-      <div class="mpv-loading-card" role="status" aria-live="polite">
-        <DialogTitlebar title="正在打开播放器" icon="play" :closable="false" />
-        <div class="mpv-loading-content">
-          <span class="mpv-loading-spinner" aria-hidden="true" />
-          <div class="mpv-loading-copy">
-            <p class="mpv-loading-label">正在准备播放…</p>
-            <p v-if="status.title" class="mpv-loading-title">
-              {{ status.title }}
-            </p>
-          </div>
+      <div class="mpv-loading-card yb-glass" role="status" aria-live="polite">
+        <UiBrandLogo class="mpv-loading-logo" :color="brandColor" />
+        <div class="mpv-loading-copy">
+          <p class="mpv-loading-label">正在启动…</p>
+          <p v-if="status.title" class="mpv-loading-title">
+            {{ status.title }}
+          </p>
         </div>
       </div>
     </div>
@@ -23,11 +20,13 @@
 </template>
 
 <script setup lang="ts">
-import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
+import { useSetting } from '@/features/settings'
 import { onBeforeUnmount, ref, watchPostEffect } from 'vue'
 import { useMpvPlayer } from '../composables/use-mpv-player'
 
 const { status } = useMpvPlayer()
+const brandColor = useSetting('ui.brandColor')
 const overlay = ref<HTMLElement | null>(null)
 
 // 加载提示不需要模态焦点，popover 保持顶层显示而不让整页进入 inert 状态。
@@ -65,39 +64,29 @@ onBeforeUnmount(() => {
 }
 .mpv-loading-card {
   display: flex;
-  flex-direction: column;
-  width: min(420px, calc(100vw - 48px));
-  overflow: hidden;
-  border: 1px solid var(--border-default);
-  border-radius: var(--radius-lg);
-  background: var(--bg-elevated);
-  box-shadow: var(--shadow-lg);
-}
-.mpv-loading-content {
-  display: flex;
   align-items: center;
-  gap: var(--space-4);
-
-  padding: var(--space-6) var(--space-6_5);
-
-  background: var(--bg-elevated);
+  gap: var(--space-5);
+  width: min(420px, calc(100vw - 48px));
+  padding: var(--space-6) var(--space-7);
+  border-radius: var(--radius-xl);
   color: var(--text-primary);
 }
-.mpv-loading-spinner {
-  flex: 0 0 26px;
-  width: 26px;
-  height: 26px;
-  border: 3px solid var(--text-tertiary);
-  border-top-color: var(--text-primary);
-  border-radius: 50%;
-  animation: mpv-loading-spin var(--duration-spin) linear infinite;
+/* 品牌标志放大并一直循环（UiBrandLogo 默认只播一次） */
+.mpv-loading-card .mpv-loading-logo {
+  width: 48px;
+  height: 48px;
+}
+.mpv-loading-card .mpv-loading-logo,
+.mpv-loading-card .mpv-loading-logo :deep(.brand-sheen) {
+  animation-iteration-count: infinite;
 }
 .mpv-loading-copy {
   min-width: 0;
 }
 .mpv-loading-label {
   margin: 0;
-  font-size: var(--text-sm);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
 }
 .mpv-loading-title {
   margin: var(--space-2) 0 0;

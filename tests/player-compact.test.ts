@@ -40,6 +40,10 @@ vi.mock('../src/main/mpv-locate', () => ({
   findMpvExecutable: () => 'mpv',
   ensureMpvExecutable: async () => 'mpv',
 }))
+vi.mock('../src/main/settings', () => ({
+  settingsStore: () => ({ get: () => 'default' }),
+}))
+
 vi.mock('../src/main/plugins/host', () => ({
   registerPlugin: () => undefined,
 }))
