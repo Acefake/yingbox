@@ -13,6 +13,7 @@ import {
   type SeriesCategory,
 } from '../../../../shared/contract/series-category'
 import { normalizeCid } from '../../../../shared/netdisk/target-folder'
+import { sameTitle } from '@/services/online-series-links'
 
 /** 状态文案 */
 export const STATUS_LABEL: Record<AutograbStatus, string> = {
@@ -197,6 +198,26 @@ export function pendingBadge(o: AutograbOverview | null): number {
 /** 实际在追的剧 */
 export function trackedSeries(o: AutograbOverview | null): AutograbSeries[] {
   return (o?.series ?? []).filter(s => !s.pending && s.effectiveMode !== 'off')
+}
+
+/**
+ * 在追的剧按最近播放排：播放过的（继续播放记录里剧名对得上，库内与在线都算）按最近一次播放时间由近到远排前面，
+ * 没播放过的保持原来的先后排在后面。
+ */
+export function recentPlayOrder(
+  series: readonly AutograbSeries[],
+  records: readonly { title: string; updatedAt: number }[]
+): AutograbSeries[] {
+  const playedAt = (s: AutograbSeries): number =>
+    records.reduce(
+      (latest, r) =>
+        sameTitle(r.title, s.title) ? Math.max(latest, r.updatedAt) : latest,
+      0
+    )
+  return series
+    .map((s, index) => ({ s, index, at: playedAt(s) }))
+    .sort((a, b) => b.at - a.at || a.index - b.index)
+    .map(item => item.s)
 }
 
 /**

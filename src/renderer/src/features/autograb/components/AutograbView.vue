@@ -143,9 +143,11 @@ import {
   historyEpisodes,
   pendingEpisodes,
   prerequisites,
+  recentPlayOrder,
   statusLine,
   trackedSeries,
 } from '../autograb-rules'
+import { continueRecords } from '@/features/player'
 import { openAutograbSettings } from '../open-settings'
 import { TV_MODE_OPTIONS, optionLabel, prefsSummary } from '../prefs-rules'
 import { useAutograb } from '../use-autograb'
@@ -179,7 +181,11 @@ const posters = useSeriesPosters(() => data.value?.series ?? [])
 const seriesById = computed(
   () => new Map((data.value?.series ?? []).map(s => [s.seriesId, s]))
 )
-const tracked = computed(() => trackedSeries(data.value))
+const records = continueRecords()
+/** 在追的剧：最近播放过的排前面 */
+const tracked = computed(() =>
+  recentPlayOrder(trackedSeries(data.value), records.value)
+)
 /** 已存完的剧 id（在追列表里收起） */
 const finished = computed(() => finishedSeriesIds(data.value))
 const history = computed(() => historyEpisodes(data.value))
