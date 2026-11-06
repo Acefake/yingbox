@@ -184,14 +184,14 @@ type PlayerEngine = SettingValue<'player.engine'>
 
 const playerEngineOptions: SettingsRadioOption<PlayerEngine>[] = [
   {
-    value: 'built-in',
-    label: '内置网页播放器 (Artplayer)',
-    desc: '轻量快速，支持 HLS 流与常规 mp4/webm 格式',
-  },
-  {
     value: 'mpv',
     label: 'mpv 高级播放器 (推荐)',
     desc: '全格式硬解，支持 ASS 特效字幕、多音轨与 HDR/4K 高码率',
+  },
+  {
+    value: 'built-in',
+    label: '内置网页播放器 (Artplayer)',
+    desc: '轻量快速，支持 HLS 流与常规 mp4/webm 格式',
   },
 ]
 
