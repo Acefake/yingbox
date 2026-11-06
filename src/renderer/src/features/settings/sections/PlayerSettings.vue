@@ -27,6 +27,17 @@
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
     <SettingsRow
+      title="播放控制条"
+      description="mpv 窗口里的进度条与按钮风格，下次打开 mpv 窗口时生效；「mpv 自带」最轻量、启动最快"
+    >
+      <UiSelect
+        v-model="mpvUi"
+        size="sm"
+        aria-label="mpv 播放控制条"
+        :options="mpvUiOptions"
+      />
+    </SettingsRow>
+    <SettingsRow
       title="高质量缩放"
       description="使用 mpv 内置高质量算法放大画面，可能增加显卡负载"
     >
@@ -179,6 +190,13 @@ const playerEngineOptions: SettingsRadioOption<PlayerEngine>[] = [
 ]
 
 const preferredPlayerEngine = useSetting('player.engine')
+
+const mpvUi = useSetting('player.mpvUi')
+const mpvUiOptions = [
+  { value: 'uosc', label: 'uosc（功能全）' },
+  { value: 'modernz', label: 'ModernZ（简洁）' },
+  { value: 'default', label: 'mpv 自带' },
+]
 
 // ── RTX 视频超分（NVIDIA） ─────────────────────────────────
 const { status: mpvState, setCompact } = useMpvPlayer()

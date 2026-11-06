@@ -73,7 +73,11 @@ describe('mpv 播放器进程', () => {
       ensureMpvExecutable: async () => 'mpv',
     }))
     vi.doMock('../src/main/mpv-ui', () => ({
-      mpvUiDir: () => null,
+      locateMpvUi: () => null,
+      mpvUiArgs: () => ['--osc=yes'],
+    }))
+    vi.doMock('../src/main/settings', () => ({
+      settingsStore: () => ({ get: () => 'uosc' }),
     }))
     vi.doMock('../src/main/mpv-vsr-hook', () => ({
       ensureMpvVsrHook: async () => fakes.hookScript,

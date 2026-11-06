@@ -2,8 +2,8 @@
  * mpv 状态的初始值、要观察的属性、track-list / playlist 原始数据到共享类型的整理，
  * 以及新进程的命令行参数（{@link spawnArgs}）与换片前要设的属性（{@link replaceProps}）。
  */
-import { join } from 'node:path'
 import type { DiscSource } from './mpv-disc'
+import { type MpvUi, mpvUiArgs } from './mpv-ui'
 import { type MpvHeaders, headerArgs } from './mpv-stream'
 import type { MpvPlaylistEntry, MpvStatus, MpvTrack } from '../shared/mpv'
 
@@ -101,8 +101,8 @@ export interface SpawnArgsInput {
   highQualityScaling?: boolean
   /** 同步加载钩子，确保 mpv 原生换片也清理影盒滤镜。 */
   hookScript?: string | null
-  /** uosc 控制条目录（scripts/uosc + fonts）；没有就用 mpv 自带的 osc */
-  uiDir?: string | null
+  /** 控制条（uosc / ModernZ）；没有就用 mpv 自带的 osc */
+  ui?: MpvUi | null
   /** 光盘镜像：目标是 bd:// / dvd://，镜像路径用设备选项带上 */
   disc?: DiscSource | null
 }
@@ -126,16 +126,7 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
   // 其余情况用 auto-safe：能硬解的格式走硬解，首帧更快、CPU 更低；不支持的自动回退软解。
   if (input.vsr) args.push('--gpu-api=d3d11', '--hwdec=d3d11va')
   else args.push('--hwdec=auto-safe')
-  if (input.uiDir)
-    args.push(
-      '--osc=no',
-      '--osd-bar=no',
-      // 界面语言写死简体中文（默认跟字幕语言走）；值里不能带逗号，缺词条时 uosc 自动用英文
-      '--script-opts=uosc-languages=zh-hans',
-      `--script=${join(input.uiDir, 'scripts', 'uosc')}`,
-      `--osd-fonts-dir=${join(input.uiDir, 'fonts')}`
-    )
-  else args.push('--osc=yes')
+  args.push(...mpvUiArgs(input.ui ?? null))
   if (input.hookScript) args.push(`--script=${input.hookScript}`)
   if (typeof input.startAt === 'number') args.push(`--start=${input.startAt}`)
   if (input.title) args.push(`--title=${input.title}`)

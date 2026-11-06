@@ -167,6 +167,8 @@ export const settingsSchema = {
 
   /** 播放引擎：桌面端默认 mpv；网页端没有 mpv 桥，路由时自动落回内置播放器 */
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'mpv'),
+  /** mpv 播放窗口的控制条：uosc / ModernZ / mpv 自带（下次打开 mpv 窗口生效） */
+  'player.mpvUi': oneOf(['uosc', 'modernz', 'default'] as const, 'uosc'),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
   /** 画质增强档位（CAS 锐化 + 高质量缩放，仅 SDR；各端共用） */
