@@ -47,7 +47,14 @@ it('外观设置能切换六种实际图标并保存选择', async () => {
     ]
     expect(options).toHaveLength(6)
     const label = BRAND_OPTIONS.find(option => option.value === color)!.label
-    options.find(option => option.textContent?.trim() === label)!.click()
+    const option = options.find(
+      option => option.getAttribute('aria-label') === label
+    )!
+    expect(option.textContent?.trim()).toBe('')
+    expect(option.querySelector('img')?.getAttribute('src')).toContain(
+      `icon-${color}.png`
+    )
+    option.click()
     await nextTick()
     expect(getSetting('ui.brandColor')).toBe(color)
     expect(

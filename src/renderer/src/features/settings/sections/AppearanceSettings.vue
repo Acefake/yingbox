@@ -11,7 +11,16 @@
           :options="[...BRAND_OPTIONS]"
           label="品牌配色"
           align="right"
-        />
+        >
+          <template #option="{ option }">
+            <img
+              v-tooltip="option.label"
+              class="brand-option-icon"
+              :src="brandIcon(option.value)"
+              alt=""
+            />
+          </template>
+        </UiGlassSelect>
       </div>
     </SettingsRow>
     <SettingsRow title="主题" description="深色 / 浅色界面，可随时切换">
@@ -80,7 +89,8 @@ import UiSegmented from '@/components/ui/UiSegmented.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
 import UiGlassSelect from '@/components/ui/UiGlassSelect.vue'
 import UiBrandLogo from '@/components/ui/UiBrandLogo.vue'
-import { BRAND_OPTIONS } from '@/components/ui/brand'
+import { BRAND_OPTIONS, brandIcon } from '@/components/ui/brand'
+import { vTooltip } from '@/components/ui/tooltip'
 import { type AppTheme, useTheme } from '@/utils/theme'
 
 import SettingsGroup from '../ui/SettingsGroup.vue'
@@ -117,5 +127,11 @@ const delayOptions: SegmentedOption[] = [
   display: flex;
   align-items: center;
   gap: var(--space-3);
+}
+.brand-option-icon {
+  display: block;
+  width: var(--control-height);
+  height: var(--control-height);
+  object-fit: contain;
 }
 </style>

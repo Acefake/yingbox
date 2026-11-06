@@ -35,8 +35,11 @@
             class="ui-glass-select-option"
             :pressed="option.value === modelValue"
             :label="option.label"
+            :aria-label="option.label"
             @click="pick(option.value)"
-          />
+          >
+            <slot name="option" :option="option">{{ option.label }}</slot>
+          </UiButton>
         </div>
       </div>
     </Teleport>
