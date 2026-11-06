@@ -10,6 +10,7 @@ import {
   episodeMark,
   episodeNote,
   episodeSteps,
+  finishedSeriesIds,
   historyEpisodes,
   marksOf,
   nextAirText,
@@ -256,6 +257,30 @@ describe('自动追更页规则', () => {
     ])
     expect(historyEpisodes(o).map(ep => ep.key)).toEqual(['1:1:1', '3:1:1'])
     expect(pendingEpisodes(null)).toEqual([])
+  })
+
+  it('存完的剧：没有未播出的集、记录都已转存 / 入库 / 跳过且至少存过一集', () => {
+    const doc: AutograbOverview = {
+      ...base,
+      series: [
+        series(1, 'confirm'),
+        { ...series(2, 'confirm'), nextAirDate: '2026-11-07' },
+        series(3, 'confirm'),
+        series(4, 'confirm'),
+        series(5, 'off'),
+      ],
+      episodes: [
+        episode('1:1:1', 1, 'done'),
+        episode('1:1:2', 1, 'skipped'),
+        episode('2:1:1', 2, 'done'),
+        episode('3:1:1', 3, 'done'),
+        episode('3:1:2', 3, 'waiting'),
+        episode('5:1:1', 5, 'done'),
+      ],
+    }
+
+    expect([...finishedSeriesIds(doc)]).toEqual([1])
+    expect(finishedSeriesIds(null).size).toBe(0)
   })
 
   it('角标：优先用后端的全量计数，不带计数的片库服务退回数列出的集', () => {

@@ -2,7 +2,7 @@
   <section class="ag-section" aria-labelledby="ag-tracked-title">
     <div class="ag-section-head">
       <h3 id="ag-tracked-title" class="ag-section-title">
-        在追的剧<span class="ag-section-count">{{ tracked.length }} 部</span>
+        在追的剧<span class="ag-section-count">{{ activeCount }} 部</span>
       </h3>
       <UiSegmented
         v-if="categories.length > 1"
@@ -28,7 +28,11 @@
         :key="series.seriesId"
         :title="series.title"
         :cover="posterOf(series)"
-        :subtitle="nextAirText(series) || modeText(series)"
+        :subtitle="
+          finished.has(series.seriesId)
+            ? '已存完'
+            : nextAirText(series) || modeText(series)
+        "
         @open="emit('open', series.seriesId)"
       >
         <template #badges>
@@ -50,9 +54,19 @@
         </template>
       </UiPosterCard>
     </div>
-    <p v-else class="ag-empty">
+    <p v-else-if="!finished.size" class="ag-empty">
       还没有在追的剧。在上面搜索剧名，或在剧集详情页点「追更」。
     </p>
+    <UiButton
+      v-if="finishedCount"
+      class="ag-finished-toggle"
+      size="sm"
+      variant="plain"
+      :icon="showFinished ? 'chevronUp' : 'chevronDown'"
+      :label="`${showFinished ? '收起' : '展开'}已存完 ${finishedCount} 部`"
+      :aria-expanded="showFinished"
+      @click="showFinished = !showFinished"
+    />
   </section>
 </template>
 
@@ -60,10 +74,11 @@
 /**
  * 自动追更页「在追的剧」：首页同款海报墙（UiPosterCard + .ui-poster-grid）。海报左上角玻璃胶囊是实际方式
  * （全自动带星标；单独设的标「单独」），右上角蓝色数字是待处理集数，副标题是下一集播出日；点海报打开这部剧的侧拉面板。
- * 方式不止一种时标题右侧可按方式筛选；只展示正在追更的剧。
+ * 方式不止一种时标题右侧可按方式筛选；只展示正在追更的剧。已存完的剧（finishedSeriesIds）默认收起，点底部按钮展开。
  */
 import { computed, ref } from 'vue'
 
+import UiButton from '@/components/ui/UiButton.vue'
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
@@ -87,6 +102,8 @@ const props = defineProps<{
   posters: ReadonlyMap<number, string | null>
   /** 剧 id → 待处理集数 */
   pending: ReadonlyMap<number, number>
+  /** 已存完的剧 id：默认收起 */
+  finished: ReadonlySet<number>
 }>()
 const emit = defineEmits<{
   open: [seriesId: number]
@@ -128,13 +145,22 @@ const activeCategory = computed<CategoryFilter>(() =>
     ? category.value
     : 'all'
 )
+const showFinished = ref(false)
+const activeCount = computed(
+  () => props.tracked.filter(s => !props.finished.has(s.seriesId)).length
+)
+const finishedCount = computed(() => props.tracked.length - activeCount.value)
 const shown = computed(() =>
-  props.tracked.filter(
-    series =>
-      (active.value === 'all' || series.effectiveMode === active.value) &&
-      (activeCategory.value === 'all' ||
-        categoryOfSeries(series) === activeCategory.value)
-  )
+  props.tracked
+    .filter(
+      series => showFinished.value || !props.finished.has(series.seriesId)
+    )
+    .filter(
+      series =>
+        (active.value === 'all' || series.effectiveMode === active.value) &&
+        (activeCategory.value === 'all' ||
+          categoryOfSeries(series) === activeCategory.value)
+    )
 )
 
 /** 剧的海报（片库图片，取小图）；没有时卡片显示片名渐变 */

@@ -126,6 +126,11 @@
   margin-top: var(--space-5);
 }
 
+.ag-finished-toggle {
+  align-self: flex-start;
+  margin-top: var(--space-2);
+}
+
 .ag-empty {
   margin: 0;
   padding: 0 var(--space-4);

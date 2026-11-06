@@ -199,6 +199,26 @@ export function trackedSeries(o: AutograbOverview | null): AutograbSeries[] {
   return (o?.series ?? []).filter(s => !s.pending && s.effectiveMode !== 'off')
 }
 
+/**
+ * 存完的在追剧：日历里没有未播出的集，列出的记录都已转存、入库或跳过（没有等搜索、待确认、空间不足、找不到的集），
+ * 且至少存过一集。在追列表把它们收到「已存完」里，免得一直占着海报墙。
+ */
+export function finishedSeriesIds(o: AutograbOverview | null): Set<number> {
+  const stored = new Set<number>()
+  const open = new Set<number>()
+  for (const ep of o?.episodes ?? []) {
+    if (ep.status === 'saved' || ep.status === 'done') stored.add(ep.seriesId)
+    else if (ep.status !== 'skipped') open.add(ep.seriesId)
+  }
+  return new Set(
+    trackedSeries(o)
+      .filter(
+        s => !s.nextAirDate && stored.has(s.seriesId) && !open.has(s.seriesId)
+      )
+      .map(s => s.seriesId)
+  )
+}
+
 /** 没在追的剧（在播或即将开播，实际方式是「不追」） */
 export function untrackedSeries(o: AutograbOverview | null): AutograbSeries[] {
   return (o?.series ?? []).filter(s => s.effectiveMode === 'off')

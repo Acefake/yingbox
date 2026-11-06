@@ -81,6 +81,7 @@
       :tracked="tracked"
       :posters="posters"
       :pending="pendingBySeries"
+      :finished="finished"
       @open="openSheet"
     />
 
@@ -138,6 +139,7 @@ import { openNetdiskSettings } from '@/features/netdisk'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 
 import {
+  finishedSeriesIds,
   historyEpisodes,
   pendingEpisodes,
   prerequisites,
@@ -178,6 +180,8 @@ const seriesById = computed(
   () => new Map((data.value?.series ?? []).map(s => [s.seriesId, s]))
 )
 const tracked = computed(() => trackedSeries(data.value))
+/** 已存完的剧 id（在追列表里收起） */
+const finished = computed(() => finishedSeriesIds(data.value))
 const history = computed(() => historyEpisodes(data.value))
 const historyOpen = ref(false)
 /** 全局策略按钮上的字：全局策略 · 全自动 · 均衡 */
