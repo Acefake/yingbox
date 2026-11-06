@@ -116,10 +116,28 @@
                   />
                 </li>
               </ul>
-              <span v-else class="cal-day-empty">无更新</span>
+              <span v-else class="cal-day-empty">{{
+                day.items.length ? '已入库' : '无更新'
+              }}</span>
             </div>
           </div>
         </section>
+        <SettledShows
+          v-if="settledRows.length"
+          :rows="settledRows"
+          :count="settledCount"
+        >
+          <template #row="{ group }">
+            <CalendarRow
+              :group="group"
+              :mark="markOf(group)"
+              v-bind="trackProps(group)"
+              @activate="activate"
+              @mark="openAutograb"
+              @track="trackOnline"
+            />
+          </template>
+        </SettledShows>
       </template>
     </template>
     <section v-else class="cal-list" aria-label="列表视图">
@@ -149,26 +167,6 @@
         title="这一周没有剧集更新"
         hint="剧集库里已识别的剧和继续播放里的在线剧会出现在这里"
       />
-    </section>
-
-    <section
-      v-if="cal.mode.value === 'week' && undated.length"
-      class="cal-group"
-      aria-label="在线追剧"
-    >
-      <h3 class="cal-group-label">在线追剧 · 更新日期未知</h3>
-      <ul class="cal-grid">
-        <li v-for="row in undatedRows" :key="row.id">
-          <CalendarRow
-            :group="row"
-            :mark="markOf(row)"
-            v-bind="trackProps(row)"
-            @activate="activate"
-            @mark="openAutograb"
-            @track="trackOnline"
-          />
-        </li>
-      </ul>
     </section>
 
     <EpisodeGrabSheet
@@ -227,8 +225,10 @@ import {
   rowStatus,
 } from '../calendar-rows'
 import CalendarRow from '../components/CalendarRow.vue'
+import SettledShows from '../components/SettledShows.vue'
 import TodayCard from '../components/TodayCard.vue'
 import { type CalendarMode, useCalendar } from '../use-calendar'
+import { useSettledRows } from '../use-settled-rows'
 import { useOnlineTrackRows } from '../use-online-track-rows'
 
 const MODE_OPTIONS: SegmentedOption<CalendarMode>[] = [
@@ -293,22 +293,22 @@ const summary = computed(() =>
     cal.today.value
   )
 )
-const undated = computed(() =>
-  cal.entries.value.filter(entry => entry.airDate === null)
-)
-/** 周视图每天的行（同剧同日合并） */
-const weekRows = computed(() =>
+/** 周视图每天的行（同剧同日合并），未收起 */
+const dayRows = computed(() =>
   weekBuckets.value.map(day => ({ ...day, rows: groupShowsByDay(day.items) }))
+)
+const { weekRows, settledRows, settledCount } = useSettledRows(
+  () => dayRows.value,
+  markOf
 )
 /** 列表视图每组的行 */
 const listRows = computed(() =>
   groups.value.map(group => ({ ...group, rows: groupShowsByDay(group.items) }))
 )
-const undatedRows = computed(() => groupShowsByDay(undated.value))
 /** 周视图上方「今天」一排大卡（只在本周出现） */
 const todayRows = computed(() =>
   cal.isThisWeek.value
-    ? (weekRows.value.find(day => day.isToday)?.rows ?? [])
+    ? (dayRows.value.find(day => day.isToday)?.rows ?? [])
     : []
 )
 /** 「今天」标题旁的一句：11月1日 周日 · 3 部剧 */

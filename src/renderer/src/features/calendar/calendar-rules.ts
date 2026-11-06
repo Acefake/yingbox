@@ -305,7 +305,7 @@ export function compareEntries(a: CalendarEntry, b: CalendarEntry): number {
 
 /**
  * 侧栏徽标：最近 BADGE_DAYS 天（含今天）播出、还没看的新集数之和；
- * 没有更新日期的在线剧（连载中）也算。
+ * 没有更新日期的在线剧不进日历，也不计入。
  */
 export function badgeCount(
   entries: readonly CalendarEntry[],
@@ -314,10 +314,7 @@ export function badgeCount(
   let total = 0
   for (const e of entries) {
     if (e.status !== 'unwatched' || !e.newCount) continue
-    if (e.airDate === null) {
-      total += e.newCount
-      continue
-    }
+    if (e.airDate === null) continue
     const age = daysBetween(e.airDate, today)
     if (age >= 0 && age < BADGE_DAYS) total += e.newCount
   }
@@ -337,7 +334,7 @@ export interface ListGroup {
   items: CalendarEntry[]
 }
 
-/** 列表视图：这一周有条目的日子按日期排，没有日期的在线剧另成一组放最后。 */
+/** 列表视图：这一周有条目的日子按日期排。 */
 export function listGroups(
   entries: readonly CalendarEntry[],
   start: string,
@@ -347,15 +344,13 @@ export function listGroups(
   const sorted = [...entries].sort(compareEntries)
   const groups = new Map<string, ListGroup>()
   for (const e of sorted) {
-    if (e.airDate !== null && !days.has(e.airDate)) continue
-    const key = e.airDate ?? 'undated'
+    if (e.airDate === null || !days.has(e.airDate)) continue
+    const key = e.airDate
     let group = groups.get(key)
     if (!group) {
       group = {
         key,
-        label: e.airDate
-          ? dayLabel(e.airDate, today)
-          : '在线追剧 · 更新日期未知',
+        label: dayLabel(e.airDate, today),
         isToday: e.airDate === today,
         items: [],
       }

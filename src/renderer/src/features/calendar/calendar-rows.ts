@@ -37,12 +37,11 @@ export interface ShowDayGroup {
 export function mergedCode(entries: readonly CalendarEntry[]): string {
   if (entries.length === 1) return entries[0].code
   const first = entries[0]
-  const last = entries[entries.length - 1]
   const eps = entries.map(e => e.library ?? e.tracking)
   const contiguous =
     eps.every(ep => ep && ep.season === eps[0]!.season) &&
     eps.every((ep, i) => i === 0 || ep!.episode === eps[i - 1]!.episode + 1)
-  if (contiguous) return `${first.code}–E${pad2(last.library!.episode)}`
+  if (contiguous) return `${first.code}–E${pad2(eps[eps.length - 1]!.episode)}`
   return `${first.code} 等 ${entries.length} 集`
 }
 
@@ -80,6 +79,27 @@ export function groupShowsByDay(
       primary: sorted.find(e => e.status === 'unwatched') ?? first,
     }
   })
+}
+
+/**
+ * 本周已入库完的剧（showKey 集合）：这部剧本周出现的每一行，每集都已有本地文件（或已看完），
+ * 且没有追更标记（搜索中、待确认、入库中、失败都不算）。有一集待播或还没下载，整部剧都不收。
+ */
+export function settledShowKeys(
+  rows: readonly ShowDayGroup[],
+  markOf: (group: ShowDayGroup) => unknown
+): Set<string> {
+  const open = new Set<string>()
+  const keys = new Set<string>()
+  for (const group of rows) {
+    const key = showKey(group.entries[0])
+    keys.add(key)
+    const settled =
+      !markOf(group) &&
+      group.entries.every(e => e.status === 'watched' || e.library?.playable)
+    if (!settled) open.add(key)
+  }
+  return new Set([...keys].filter(key => !open.has(key)))
 }
 
 /** 行上状态的色调：观看状态三种，加上追更的四种（同一套圆点颜色，日历行与今天大卡共用） */

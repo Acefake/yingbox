@@ -49,6 +49,7 @@ import {
   legendOf,
   mergedCode,
   rowStatus,
+  settledShowKeys,
 } from '../src/renderer/src/features/calendar/calendar-rows'
 
 const TODAY = '2026-10-24' // 周六
@@ -304,7 +305,7 @@ describe('徽标与列表分组', () => {
     ...patch,
   })
 
-  it('只数最近 7 天播出且未看的新集；没日期的连载在线剧也算', () => {
+  it('只数最近 7 天播出且未看的新集；没日期的在线剧不算', () => {
     const entries = [
       entry({}),
       entry({ airDate: '2026-10-18' }), // 第 7 天前一天：6 天前
@@ -313,7 +314,7 @@ describe('徽标与列表分组', () => {
       entry({ status: 'upcoming', airDate: '2026-10-25', newCount: 0 }),
       entry({ source: 'online', airDate: null, newCount: 3 }),
     ]
-    expect(badgeCount(entries, TODAY)).toBe(5)
+    expect(badgeCount(entries, TODAY)).toBe(2)
     expect(badgeRange(TODAY)).toEqual({ from: '2026-10-18', to: TODAY })
   })
 
@@ -348,7 +349,7 @@ describe('徽标与列表分组', () => {
     expect(weekSummary([], '2026-10-19', TODAY)).toBe('')
   })
 
-  it('列表视图按日期分组，今天标记，没日期的在线剧在最后', () => {
+  it('列表视图按日期分组，今天标记，没日期的在线剧不出现', () => {
     const groups = listGroups(
       [
         entry({ id: 'u', airDate: null, source: 'online', title: '庆余年 3' }),
@@ -360,10 +361,9 @@ describe('徽标与列表分组', () => {
       '2026-10-19',
       TODAY
     )
-    expect(groups.map(g => g.key)).toEqual(['2026-10-19', TODAY, 'undated'])
+    expect(groups.map(g => g.key)).toEqual(['2026-10-19', TODAY])
     expect(groups[1]).toMatchObject({ isToday: true, label: '今天 · 周六 24' })
     expect(groups[1].items.map(i => i.id)).toEqual(['s', 't'])
-    expect(groups[2].label).toBe('在线追剧 · 更新日期未知')
   })
 })
 
@@ -674,6 +674,36 @@ describe('周视图同剧同日合并', () => {
       library: { seriesId: 1, season: 2, episode: 1, playable: true },
     })
     expect(mergedCode([ep(1, 9), s2])).toBe('S01E09 等 2 集')
+  })
+
+  it('追更条目（没有 library）连续几集也能合并，不报错', () => {
+    const track = (episode: number): CalendarEntry => {
+      const { library: _library, ...rest } = ep(1, episode)
+
+      return {
+        ...rest,
+        source: 'tracking',
+        id: `trk:${episode}`,
+        tracking: { seriesId: 1, season: 1, episode },
+      }
+    }
+
+    expect(mergedCode([track(9), track(10)])).toBe('S01E09–E10')
+  })
+
+  it('已入库完的剧才收起：每集有本地文件或已看、没有追更标记；有待播或标记的整部剧都不收', () => {
+    const rows = groupShowsByDay([
+      ep(1, 9),
+      ep(2, 3, { library: undefined, status: 'upcoming' }),
+      ep(3, 1),
+      ep(4, 1, { status: 'watched', library: undefined }),
+    ])
+    const marked = (g: { title: string }): boolean => g.title === '剧3'
+
+    expect([...settledShowKeys(rows, marked)]).toEqual([
+      'library:1',
+      'title:剧4',
+    ])
   })
 
   it('状态与点开的那一集：有未看就未看并打开第一集未看；全待播才待播', () => {

@@ -146,6 +146,7 @@ function entriesFor(state: RangeState | undefined): CalendarEntry[] {
   const datedTasks = new Set(schedule.map(ep => ep.seriesId))
   const online = onlineEntries(followed, today.value).filter(
     e =>
+      e.airDate !== null &&
       !datedTitles.has(e.title.replace(/\s+/g, '').toLowerCase()) &&
       !datedTasks.has(onlineLinks.value.get(e.id) ?? -1)
   )
