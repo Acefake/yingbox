@@ -75,17 +75,7 @@ local function source_badge()
     local codecs = { ac3 = 'AC3', eac3 = 'EAC3', dts = 'DTS', truehd = 'TrueHD' }
     if codecs[audio.codec] then labels[#labels + 1] = codecs[audio.codec] end
     mp.set_property_native('user-data/yingbox-source-specs', labels)
-    local width_osd, height_osd = mp.get_osd_size()
-    if #labels == 0 or width_osd <= 0 or height_osd <= 0
-        or (mp.get_time() >= badge_until and not mp.get_property_native('pause', false)) then
-        badge:remove()
-        return
-    end
-    badge.res_x, badge.res_y = width_osd, height_osd
-    local font_size = math.max(14, math.floor(height_osd / 48))
-    badge.data = string.format('{\\an9\\pos(%d,%d)\\fs%d\\bord1\\shad0}%s',
-        width_osd - font_size, font_size, font_size, table.concat(labels, '   '))
-    badge:update()
+    badge:remove()
 end
 local function reveal_badge()
     badge_until = mp.get_time() + 2.5
