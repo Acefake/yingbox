@@ -37,6 +37,8 @@ export const WATCH_PROPS = [
   'osd-dimensions',
   'hwdec-current',
   'vf',
+  /** 没有文件在放：窗口关了（CLOSE_WIN 被绑成 stop）或放完停止，常驻进程据此回到待命 */
+  'idle-active',
 ]
 
 /** mpv 窗口里切换「缩小置顶」的快捷键（运行时用 keybind 绑定，发 script-message 给影盒） */
@@ -90,7 +92,8 @@ export function parsePlaylist(
 /** 新开 mpv 进程的参数来源 */
 export interface SpawnArgsInput {
   socket: string
-  target: string
+  /** 要播的目标；不给就是预热：只起进程待命，不开窗口 */
+  target?: string
   startAt?: number
   title?: string
   subFile?: string
@@ -111,7 +114,9 @@ export interface SpawnArgsInput {
 export function spawnArgs(input: SpawnArgsInput): string[] {
   const args = [
     `--input-ipc-server=${input.socket}`,
-    '--force-window=yes',
+    // 进程常驻：放完 / 关窗只回到待命，不退出（由 mpv-player 决定要不要真的退出）
+    '--idle=yes',
+    `--force-window=${input.target ? 'yes' : 'no'}`,
     '--keep-open=yes',
     '--no-terminal',
     '--ytdl=no',
@@ -133,7 +138,7 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
   if (input.subFile) args.push(`--sub-file=${input.subFile}`)
   args.push(...headerArgs(input.headers))
   if (input.disc) args.push(`--${input.disc.option}=${input.disc.device}`)
-  args.push(input.target)
+  if (input.target) args.push(input.target)
   return args
 }
 

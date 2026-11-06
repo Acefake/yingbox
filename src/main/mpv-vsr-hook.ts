@@ -90,6 +90,8 @@ mp.register_event('end-file', function()
     badge:remove()
     mp.set_property_native('user-data/yingbox-source-specs', {})
 end)
+-- 点窗口关闭键只停播：进程常驻待命，下次打开不用重新启动 mpv（是否真的退出由影盒决定）
+mp.add_forced_key_binding('CLOSE_WIN', 'yingbox-close-win', function() mp.commandv('stop') end)
 mp.observe_property('video-dec-params', 'native', source_badge)
 mp.observe_property('track-list', 'native', source_badge)
 mp.observe_property('osd-dimensions', 'native', source_badge)

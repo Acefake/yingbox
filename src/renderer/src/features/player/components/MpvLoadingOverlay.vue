@@ -9,7 +9,7 @@
       <div class="mpv-loading-card yb-glass" role="status" aria-live="polite">
         <UiBrandLogo class="mpv-loading-logo" :color="brandColor" />
         <div class="mpv-loading-copy">
-          <p class="mpv-loading-label">正在启动…</p>
+          <p class="mpv-loading-label">正在启动播放器…</p>
           <p v-if="status.title" class="mpv-loading-title">
             {{ status.title }}
           </p>

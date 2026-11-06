@@ -22,6 +22,7 @@ const fakes = vi.hoisted(() => ({
   userData: '',
   hookScript: null as string | null,
   failVfRead: false,
+  settings: {} as Record<string, unknown>,
 }))
 
 describe('mpv 播放器进程', () => {
@@ -34,6 +35,7 @@ describe('mpv 播放器进程', () => {
     fakes.failProps = []
     fakes.hookScript = null
     fakes.failVfRead = false
+    fakes.settings = {}
     vi.doMock('../src/main/mpv-socket', async () => {
       const { EventEmitter: Emitter } = await import('events')
       class MpvSocket extends Emitter {
@@ -70,6 +72,7 @@ describe('mpv 播放器进程', () => {
     })
     vi.doMock('../src/main/mpv-locate', () => ({
       findMpvExecutable: () => 'mpv',
+      locateMpv: () => 'mpv',
       ensureMpvExecutable: async () => 'mpv',
     }))
     vi.doMock('../src/main/mpv-ui', () => ({
@@ -77,7 +80,9 @@ describe('mpv 播放器进程', () => {
       mpvUiArgs: () => ['--osc=yes'],
     }))
     vi.doMock('../src/main/settings', () => ({
-      settingsStore: () => ({ get: () => 'uosc' }),
+      settingsStore: () => ({
+        get: (key: string) => fakes.settings[key] ?? 'uosc',
+      }),
     }))
     vi.doMock('../src/main/mpv-vsr-hook', () => ({
       ensureMpvVsrHook: async () => fakes.hookScript,
@@ -108,6 +113,44 @@ describe('mpv 播放器进程', () => {
   })
   afterEach(() => {
     vi.doUnmock('../src/main/mpv-socket')
+  })
+
+  it('常驻预热：先起不带窗口的待命进程，点播放只换片；关窗回到待命、不退出进程', async () => {
+    fakes.settings = { 'player.mpvPrewarm': true, 'player.engine': 'mpv' }
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    await mpvPlayer.prewarm()
+    expect(fakes.children).toHaveLength(1)
+    const args = fakes.children[0].args
+    expect(args).toContain('--idle=yes')
+    expect(args).toContain('--force-window=no')
+    expect(args.some(a => !a.startsWith('--'))).toBe(false)
+    expect(mpvPlayer.getStatus().running).toBe(false)
+
+    await mpvPlayer.open({ url: 'https://a/1.mp4' })
+    expect(fakes.children).toHaveLength(1)
+    expect(fakes.sent).toContainEqual(['set_property', 'force-window', 'yes'])
+    expect(fakes.sent.some(c => c[0] === 'loadfile')).toBe(true)
+    expect(mpvPlayer.getStatus().running).toBe(true)
+
+    fakes.sent.length = 0
+    fakes.socket!.emit('event', {
+      event: 'property-change',
+      name: 'idle-active',
+      data: true,
+    })
+    expect(mpvPlayer.getStatus().running).toBe(false)
+    expect(fakes.sent).toContainEqual(['set_property', 'force-window', 'no'])
+    expect(fakes.killed).toHaveLength(0)
+
+    await mpvPlayer.open({ url: 'https://a/2.mp4' })
+    expect(fakes.children).toHaveLength(1)
+    expect(mpvPlayer.getStatus().running).toBe(true)
+  })
+
+  it('没开预热：关窗后待命进程直接退出；没装 mpv 时不预热', async () => {
+    const { mpvPlayer } = await import('../src/main/mpv-player')
+    await mpvPlayer.prewarm()
+    expect(fakes.children).toHaveLength(0)
   })
 
   it('同步换片保护加载后，等待清理再通知 Lua 继续', async () => {

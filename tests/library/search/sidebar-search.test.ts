@@ -8,6 +8,7 @@ import { createMemoryHistory, createRouter } from 'vue-router'
 const { open } = vi.hoisted(() => ({ open: vi.fn() }))
 vi.mock('@/features/assistant', () => ({
   ENTRY_HOTKEY_LABEL: 'Ctrl K',
+  assistantAiReady: () => true,
   assistantOpen: ref(false),
   openAssistant: open,
 }))

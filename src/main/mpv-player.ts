@@ -1,17 +1,21 @@
-import { type ChildProcess, spawn } from 'child_process'
+import type { ChildProcess } from 'child_process'
 import { MpvControls } from './mpv-controls'
 import { type DiscSource, discSourceOf } from './mpv-disc'
-import { ensureMpvExecutable } from './mpv-locate'
+import { ensureMpvExecutable, locateMpv } from './mpv-locate'
 import { validateMpvLocalFile } from './mpv-local-file'
 import {
-  COMPACT_KEY,
-  COMPACT_MESSAGE,
-  DEFAULT_STATUS,
-  WATCH_PROPS,
-  patchStatus,
-  replaceProps,
-  spawnArgs,
-} from './mpv-props'
+  type EventHost,
+  routeMpvEvent,
+  warnEnhancement,
+  warnProp,
+} from './mpv-events'
+import { DEFAULT_STATUS, replaceProps, spawnArgs } from './mpv-props'
+import {
+  handshakeMpv,
+  launchMpv,
+  launchSignature,
+  prewarmEnabled,
+} from './mpv-launch'
 import { MpvSocket, nextSocketPath } from './mpv-socket'
 import { MpvHeaderState, mpvStream } from './mpv-stream'
 import { MpvWindow } from './mpv-window'
@@ -38,6 +42,14 @@ class MpvPlayer extends MpvControls {
   /** 每次 open 加一：一次 open 失败时若已有更新的 open 排在后面，它就算被取代，不向上报错 */
   private openSeq = 0
   private _status: MpvStatus = { ...DEFAULT_STATUS }
+  /** 有文件在放（窗口开着）。进程常驻待命时为 false，此时对外 running = false */
+  private active = false
+  /** 应用正在退出：进程退出后不再预热 */
+  private quitting = false
+  /** 已排队的预热：避免重复排队 */
+  private warmPending = false
+  /** 当前进程的启动签名：这些设置只能靠启动参数生效，变了就要重启待命进程 */
+  private spawnSig = ''
   /** RTX 视频超分开关（渲染层设置项，默认关闭） */
   private vsrEnabled = false
   private readonly enhancement = new MpvEnhancement(
@@ -65,9 +77,27 @@ class MpvPlayer extends MpvControls {
     () => Boolean(this.child) && this.sock.connected
   )
 
+  /** 事件处理读写本类状态的入口（见 mpv-events.ts） */
+  private readonly events: EventHost = {
+    status: () => this._status,
+    publish: () => this.emit('status', this.getStatus()),
+    emit: (event, ...args) => this.emit(event, ...args),
+    enhancement: this.enhancement,
+    imageEnhance: this.imageEnhance,
+    active: () => this.active,
+    goIdle: () => this.goIdle(),
+    compact: () => this.window.compact,
+    setCompact: on => this.setCompact(on),
+    child: () => this.child,
+    connected: () => this.sock.connected,
+    cmd: (...args) => this.cmd(...args),
+  }
+
   constructor() {
     super()
-    this.sock.on('event', (msg: Record<string, unknown>) => this.onEvent(msg))
+    this.sock.on('event', (msg: Record<string, unknown>) =>
+      routeMpvEvent(this.events, msg)
+    )
     this.sock.on('close', () => this.onSocketClose())
     registerPlugin({
       id: 'mpv',
@@ -87,6 +117,7 @@ class MpvPlayer extends MpvControls {
     if (!options.filePath && !options.url)
       return Promise.reject(new Error('mpv: 必须指定 filePath 或 url'))
     const seq = ++this.openSeq
+    this.quitting = false
     const run = this.opening.then(() =>
       this.openNow(options).catch((error: unknown) => {
         if (seq !== this.openSeq) return
@@ -105,10 +136,16 @@ class MpvPlayer extends MpvControls {
       position: undefined,
     }
     this.emit('status', this.getStatus())
+    const wasActive = this.active
     try {
       await validateMpvLocalFile(options.filePath)
       const disc = await discSourceOf(options.filePath)
-      if (this.child && this.sock.connected) {
+      // 待命进程的启动参数（超分、控制条）和现在的设置对不上，就丢掉重开
+      const reusable =
+        this.child &&
+        this.sock.connected &&
+        (this.active || this.spawnSig === launchSignature(this.isVsrWanted()))
+      if (reusable) {
         await this.enhancement.prepareFile()
         const stream = mpvStream(options, disc)
         if (disc) await this.setProp(disc.option, disc.device).catch(warnProp)
@@ -116,6 +153,11 @@ class MpvPlayer extends MpvControls {
         await this.headers.apply(stream.headers).catch(warnProp)
         for (const [name, value] of replaceProps(options))
           await this.setProp(name, value).catch(warnProp)
+        if (!this.active) {
+          // 从待命回来：先让它在放完 / 关窗后能再开窗口
+          await this.setProp('force-window', 'yes').catch(warnProp)
+          this.active = true
+        }
         await this.cmd('loadfile', stream.target, 'replace')
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
@@ -125,13 +167,62 @@ class MpvPlayer extends MpvControls {
       }
     } catch (error) {
       this._status.loading = false
+      if (!wasActive && this.active && this.child) this.goIdle()
       this.emit('status', this.getStatus())
       throw error
     }
   }
 
+  /**
+   * 后台起一个不带窗口的 mpv 待命：之后点播放只发 loadfile，省掉进程启动、脚本加载和 IPC 握手。
+   * 没装 mpv 时什么都不做（不为预热去下载）；已有待命进程且启动参数还对得上就保持。
+   */
+  prewarm(): Promise<void> {
+    if (this.warmPending || !prewarmEnabled(this.quitting) || !locateMpv())
+      return Promise.resolve()
+    this.warmPending = true
+    this.opening = this.opening
+      .then(async () => {
+        this.warmPending = false
+        if (!prewarmEnabled(this.quitting)) return
+        const parked = this.child && this.sock.connected
+        if (
+          parked &&
+          (this.active || this.spawnSig === launchSignature(this.isVsrWanted()))
+        )
+          return
+        await this.spawnProcess(null, null)
+      })
+      .catch((error: unknown) => {
+        this.warmPending = false
+        console.warn('[mpv] 预热失败：', error)
+      })
+    return this.opening
+  }
+
+  /**
+   * 按设置让待命进程与现状一致：该有就预热（或因启动参数过期重开），不该有就退出；
+   * 应用启动、相关设置变化、超分开关变化时调用。
+   */
+  async syncPrewarm(): Promise<void> {
+    if (prewarmEnabled(this.quitting)) await this.prewarm()
+    else if (this.child && !this.active) await this.terminate()
+  }
+
+  /** 播放结束 / 窗口关了：回到待命（窗口随 force-window=no 消失），没开预热就直接退出进程 */
+  private goIdle(): void {
+    this.active = false
+    if (this.window.compact) void this.window.setCompact(false).catch(() => {})
+    this.window.reset()
+    this._status = { ...DEFAULT_STATUS }
+    this.emit('status', this.getStatus())
+    this.emit('exit')
+    if (!prewarmEnabled(this.quitting)) void this.terminate()
+    else void this.setProp('force-window', 'no').catch(() => {})
+  }
+
   private async spawnProcess(
-    options: MpvOpenOptions,
+    options: MpvOpenOptions | null,
     disc: DiscSource | null
   ): Promise<void> {
     // 旧进程还在但连接断了：先就地收尾，等它被杀掉再起新进程；它迟到的 exit 不会再清掉新进程
@@ -143,14 +234,16 @@ class MpvPlayer extends MpvControls {
     const socket = nextSocketPath()
     // Windows 上找不到会先自动下载便携版（期间推 installing 事件给渲染层提示）
     const exe = await ensureMpvExecutable(on => this.emit('installing', on))
-    const { target, headers } = mpvStream(options, disc)
+    const { target, headers } = options
+      ? mpvStream(options, disc)
+      : { target: undefined, headers: {} }
     const hookScript = await ensureMpvVsrHook()
     const args = spawnArgs({
       socket,
       target,
-      startAt: options.startAt,
-      title: options.title,
-      subFile: options.subFile,
+      startAt: options?.startAt,
+      title: options?.title,
+      subFile: options?.subFile,
       headers,
       vsr: this.isVsrWanted(),
       highQualityScaling: this.imageEnhance.highQuality,
@@ -159,145 +252,50 @@ class MpvPlayer extends MpvControls {
       ui: locateMpvUi(settingsStore().get('player.mpvUi')),
     })
     this.headers.reset(headers)
-    const child = spawn(exe, args, { stdio: 'ignore', windowsHide: false })
-    this.child = child
-    let spawnError: Error | null = null
-    let exitDetail: string | null = null
-    child.once('error', e => {
-      spawnError = e
-      if (this.child !== child) return
-      this.emit('error', `mpv 启动失败: ${e.message}`)
-      this.cleanupProcess()
+    this.active = Boolean(options)
+    this._status = options
+      ? {
+          ...DEFAULT_STATUS,
+          running: true,
+          loading: true,
+          path: target,
+          title: options.title,
+          paused: false,
+        }
+      : { ...DEFAULT_STATUS }
+    await launchMpv(
+      {
+        sock: this.sock,
+        current: () => this.child,
+        adopt: child => {
+          this.child = child
+          this.spawnSig = launchSignature(this.isVsrWanted())
+        },
+        onError: message => {
+          this.emit('error', message)
+          this.cleanupProcess()
+        },
+        onExit: livedMs => {
+          this.cleanupProcess()
+          // 意外退出后补一个待命进程；刚起就退出说明起不来，不循环重试
+          if (livedMs > 3000) setTimeout(() => void this.prewarm(), 500)
+        },
+        cleanup: () => this.cleanupProcess(),
+      },
+      exe,
+      args,
+      socket
+    )
+    await handshakeMpv({
+      sock: this.sock,
+      hookScript,
+      cmd: (...a) => this.cmd(...a),
+      setProp: (name, value) => this.setProp(name, value),
+      enhancement: this.enhancement,
+      imageEnhance: this.imageEnhance,
+      onWarn: warnProp,
     })
-    child.once('exit', (code, signal) => {
-      exitDetail = signal ? `信号 ${signal}` : `退出码 ${code ?? '未知'}`
-      if (this.child === child) this.cleanupProcess()
-    })
-    try {
-      await this.sock.connect(socket, undefined, () => this.child !== child)
-    } catch (error) {
-      // 连不上：不留没人管的 mpv 进程
-      if (this.child === child) {
-        this.cleanupProcess()
-        void killTree(child)
-      }
-      const failed = spawnError as Error | null
-      if (failed) throw new Error(`mpv 启动失败: ${failed.message}`)
-      if (exitDetail) throw new Error(`mpv 启动后退出（${exitDetail}）`)
-      throw error
-    }
-    const hookReady = hookScript
-      ? await this.cmd('get_property', 'user-data/yingbox-vsr-hook').catch(
-          () => null
-        )
-      : null
-    let protectedReady = hookReady === 'ready'
-    if (protectedReady)
-      protectedReady = await this.setProp(
-        'user-data/yingbox-vsr-controlled',
-        true
-      ).then(
-        () => true,
-        () => false
-      )
-    await this.enhancement.connect(protectedReady)
-    this._status = {
-      ...DEFAULT_STATUS,
-      running: true,
-      loading: true,
-      path: target,
-      title: options.title,
-      paused: false,
-    }
-    for (let i = 0; i < WATCH_PROPS.length; i++) {
-      await this.sock.send({
-        command: ['observe_property', i + 1, WATCH_PROPS[i]],
-      })
-    }
-    await this.imageEnhance.reset().catch(warnProp)
-    // mpv 窗口里按快捷键切换缩小置顶（mpv 不支持 keybind 命令时忽略）
-    await this.sock
-      .send({
-        command: ['keybind', COMPACT_KEY, `script-message ${COMPACT_MESSAGE}`],
-      })
-      .catch(() => {})
     this.emit('status', this.getStatus())
-  }
-
-  private onEvent(msg: Record<string, unknown>): void {
-    if (
-      msg.event === 'client-message' &&
-      Array.isArray(msg.args) &&
-      msg.args[0] === 'yingbox-enhance-toggle'
-    ) {
-      void this.imageEnhance.toggle().catch(warnProp)
-      return
-    }
-    if (msg.event === 'property-change')
-      this.applyProp(msg.name as string, msg.data)
-    else if (msg.event === 'end-file') {
-      this._status.loading = false
-      this.emit('status', this.getStatus())
-      this.emit('end-file', msg.reason)
-    } else if (msg.event === 'start-file') {
-      void this.enhancement.prepareFile().catch(warnEnhancement)
-      this._status.loading = true
-      this.emit('status', this.getStatus())
-      this.emit('start-file')
-    } else if (msg.event === 'file-loaded') {
-      void this.enhancement.startFile().catch(warnEnhancement)
-    } else if (
-      msg.event === 'client-message' &&
-      Array.isArray(msg.args) &&
-      msg.args[0] === 'yingbox-vsr-load'
-    ) {
-      const [, id, script] = msg.args
-      if (
-        typeof id === 'string' &&
-        /^\d+$/.test(id) &&
-        typeof script === 'string' &&
-        /^[\w-]+$/.test(script)
-      )
-        void this.continueVsrLoad(id, script)
-    } else if (
-      msg.event === 'client-message' &&
-      Array.isArray(msg.args) &&
-      msg.args[0] === COMPACT_MESSAGE
-    ) {
-      void this.setCompact(!this.window.compact).catch(() => {})
-    } else if (msg.event === 'playback-restart') {
-      void this.enhancement.refresh().catch(warnEnhancement)
-      this._status.loading = false
-      this.emit('status', this.getStatus())
-    }
-  }
-
-  private applyProp(name: string, data: unknown): void {
-    if (!this.enhancement.update(name, data))
-      patchStatus(this._status, name, data)
-    if (name === 'video-dec-params')
-      void this.imageEnhance.onParams(data).catch(warnProp)
-    this.emit('status', this.getStatus())
-  }
-
-  private async continueVsrLoad(id: string, script: string): Promise<void> {
-    const child = this.child
-    if (!child) return
-    try {
-      await this.enhancement.prepareFile()
-    } catch (error) {
-      warnEnhancement(error)
-      if (this.child === child && this.sock.connected)
-        await this.cmd('stop').catch(warnEnhancement)
-    } finally {
-      if (this.child === child && this.sock.connected)
-        await this.cmd(
-          'script-message-to',
-          script,
-          'yingbox-vsr-continue',
-          id
-        ).catch(warnEnhancement)
-    }
   }
 
   /** RTX 视频超分开关是否希望生效（功能依赖 D3D11，仅 Windows 平台） */
@@ -310,7 +308,7 @@ class MpvPlayer extends MpvControls {
    * mpv 没在运行时什么都不做。
    */
   async setCompact(on: boolean): Promise<void> {
-    if (!this.child) return
+    if (!this.child || !this.active) return
     await this.window.setCompact(on)
     this.emit('status', this.getStatus())
   }
@@ -320,6 +318,7 @@ class MpvPlayer extends MpvControls {
     if (this.vsrEnabled === enabled) return
     this.vsrEnabled = enabled
     await this.enhancement.setEnabled(enabled)
+    void this.syncPrewarm().catch(warnEnhancement)
   }
 
   private onSocketClose(): void {
@@ -333,6 +332,7 @@ class MpvPlayer extends MpvControls {
 
   private cleanupProcess(): void {
     this.window.reset()
+    this.active = false
     this.child = null
     this.sock.destroy()
     this.enhancement.disconnect()
@@ -353,7 +353,7 @@ class MpvPlayer extends MpvControls {
   getStatus(): MpvStatus {
     return {
       ...this._status,
-      running: Boolean(this.child),
+      running: Boolean(this.child) && this.active,
       compact: this.window.compact,
       vsr: this.enhancement.status,
       videoWidth: this.enhancement.source?.w,
@@ -369,22 +369,29 @@ class MpvPlayer extends MpvControls {
 
   /** 画面上显示一行提示（OSD）；mpv 没在跑时不做 */
   async showText(text: string, ms: number): Promise<void> {
-    if (this.child) await this.cmd('show-text', text, ms)
+    if (this.child && this.active) await this.cmd('show-text', text, ms)
   }
 
-  /** 退出 mpv：先发 quit 命令，1.5 秒内没退出就强杀进程树；返回时进程已退出或已放弃等待。 */
+  /** 停止播放：进程留着待命（没有连接才真的退出）。窗口会随之消失。 */
+  async stop(): Promise<void> {
+    if (!this.child || !this.active) return
+    if (this.sock.connected) await this.cmd('stop').catch(() => {})
+    else await this.terminate()
+  }
+
+  /** 退出 mpv（应用退出时由插件宿主调用）：之后不再预热。 */
   async quit(): Promise<void> {
+    this.quitting = true
+    await this.terminate()
+  }
+
+  /** 先发 quit 命令，1.5 秒内没退出就强杀进程树；返回时进程已退出或已放弃等待。 */
+  private async terminate(): Promise<void> {
     const child = this.child
     if (!child) return
     await stopProcess(child, { graceful: () => this.cmd('quit') })
   }
 }
-
-const warnProp = (error: unknown): void =>
-  console.warn('[mpv] 换片前设置属性失败，照样换片：', error)
-
-const warnEnhancement = (error: unknown): void =>
-  console.warn('[mpv] 更新增强状态失败：', error)
 
 /** 全局单例 */
 export const mpvPlayer = new MpvPlayer()

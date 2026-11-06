@@ -27,6 +27,12 @@
       <UiSwitch v-model="rtxVsrEnabled" label="RTX 视频超分" />
     </SettingsRow>
     <SettingsRow
+      title="后台预热 mpv"
+      description="影盒启动后在后台放一个待命的 mpv，点播放几乎秒开；空闲时占用几十 MB 内存，没有窗口"
+    >
+      <UiSwitch v-model="mpvPrewarm" label="后台预热 mpv" />
+    </SettingsRow>
+    <SettingsRow
       title="播放控制条"
       description="mpv 窗口里的进度条与按钮风格，下次打开 mpv 窗口时生效；「mpv 自带」最轻量、启动最快"
     >
@@ -192,6 +198,7 @@ const playerEngineOptions: SettingsRadioOption<PlayerEngine>[] = [
 const preferredPlayerEngine = useSetting('player.engine')
 
 const mpvUi = useSetting('player.mpvUi')
+const mpvPrewarm = useSetting('player.mpvPrewarm')
 const mpvUiOptions = [
   { value: 'uosc', label: 'uosc（功能全）' },
   { value: 'modernz', label: 'ModernZ（简洁）' },

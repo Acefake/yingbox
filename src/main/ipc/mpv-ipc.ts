@@ -2,11 +2,21 @@ import { canInstallMpv, installMpv } from '../mpv-install'
 import { locateMpv } from '../mpv-locate'
 import { mpvPlayer } from '../mpv-player'
 import { emit, implement } from '../rpc'
+import { onSettingChanged, settingsStore } from '../settings'
 import { mpv } from '../../shared/contract/mpv'
 import type { MpvStatus } from '../../shared/mpv'
 import { withMpvTargets } from '../webdav'
 
 const ok = { success: true }
+
+/** 应用启动后多久开始预热 mpv */
+const PREWARM_DELAY_MS = 3000
+/** 这些设置变了，待命的 mpv 要重开或退出 */
+const PREWARM_KEYS = new Set<string>([
+  'player.mpvPrewarm',
+  'player.engine',
+  'player.mpvUi',
+])
 
 /** 等控制指令完成后统一返回成功（失败照常抛给渲染层） */
 async function done(task: Promise<unknown>): Promise<{ success: boolean }> {
@@ -67,9 +77,19 @@ export function registerMpvIpc(): void {
     setCompact: (_, on) => done(mpvPlayer.setCompact(on)),
     showText: (_, text, ms) => done(mpvPlayer.showText(text, ms)),
     quit: () => {
-      void mpvPlayer.quit()
+      void mpvPlayer.stop()
       return ok
     },
+  })
+
+  // 后台常驻 mpv：启动后稍等一会儿（不和应用启动抢资源），设置变化时跟着调整
+  setTimeout(() => {
+    // 超分只能靠启动参数生效：先把开关读进来，再预热
+    const vsr = settingsStore().get('player.rtxVsr')
+    void mpvPlayer.setVsrEnabled(vsr).then(() => mpvPlayer.syncPrewarm())
+  }, PREWARM_DELAY_MS).unref()
+  onSettingChanged(change => {
+    if (PREWARM_KEYS.has(change.key)) void mpvPlayer.syncPrewarm()
   })
 
   mpvPlayer.on('status', (status: MpvStatus) => emit(mpv, 'status', status))

@@ -164,11 +164,12 @@ export const settingsSchema = {
   'ui.spoilerGuard': bool(false),
   /** 媒体库视频墙同时播放几格（其余格轮播图片；渲染层只用 1 / 2 / 4 / 6 / 9） */
   'ui.videoWallMaxLive': num(1, 9, 4),
-
   /** 播放引擎：桌面端默认 mpv；网页端没有 mpv 桥，路由时自动落回内置播放器 */
   'player.engine': oneOf(['built-in', 'mpv'] as const, 'mpv'),
   /** mpv 播放窗口的控制条：uosc / ModernZ / mpv 自带（下次打开 mpv 窗口生效） */
   'player.mpvUi': oneOf(['uosc', 'modernz', 'default'] as const, 'uosc'),
+  /** 后台常驻一个 mpv 待命，点播放秒开；占几十 MB 内存 */
+  'player.mpvPrewarm': bool(true),
   /** mpv 下的 RTX 视频超分（NVIDIA） */
   'player.rtxVsr': bool(false),
   /** 画质增强档位（CAS 锐化 + 高质量缩放，仅 SDR；各端共用） */
