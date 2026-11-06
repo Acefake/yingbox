@@ -75,6 +75,19 @@ afterEach(async () => {
 })
 
 describe('桌面更新器', () => {
+  it('手动检查绕过缓存，能发现刚发布的版本', async () => {
+    let list: unknown = []
+    const updater = setup({
+      fetch: (async () => new Response(JSON.stringify(list))) as typeof fetch,
+    })
+    expect(await updater.check()).toMatchObject({ data: null })
+    list = releases()
+    expect(await updater.check(true)).toMatchObject({
+      success: true,
+      data: { version: '1.0.3' },
+    })
+  })
+
   it('没有更新时报告已是最新', async () => {
     const updater = setup({ version: '1.0.3' })
     expect(await updater.check()).toEqual({ success: true, data: null })

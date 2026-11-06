@@ -56,7 +56,8 @@ export interface DesktopUpdaterDeps {
 
 /** 桌面更新器 */
 export interface DesktopUpdater {
-  check(): Promise<UpdateResult>
+  /** 手动检查传 true，绕过后台检查的发布列表缓存。 */
+  check(force?: boolean): Promise<UpdateResult>
   download(): Promise<UpdateResult>
   /** 静默安装并重启到新版 */
   install(): Promise<void>
@@ -90,8 +91,9 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   let inflight: Promise<UpdateResult> | null = null
   let installing = false
 
-  async function releases(): Promise<unknown> {
-    if (cache && deps.now() - cache.at < CACHE_MS) return cache.releases
+  async function releases(force: boolean): Promise<unknown> {
+    if (!force && cache && deps.now() - cache.at < CACHE_MS)
+      return cache.releases
     const response = await fetchFirstOk(
       mirrorCandidates(RELEASES_URL, deps.networkPreferences?.()),
       deps.fetch,
@@ -109,13 +111,13 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
     return list
   }
 
-  async function check(): Promise<UpdateResult> {
+  async function check(force = false): Promise<UpdateResult> {
     if (deps.platform !== 'win32')
       return failure('当前系统不支持应用内更新，请到发布页下载')
     if (inflight) return failure('正在下载更新，请稍候')
     deps.emit({ status: 'checking' })
     try {
-      found = pickDesktopUpdate(await releases(), deps.version)
+      found = pickDesktopUpdate(await releases(force), deps.version)
       if (downloaded && downloaded.version !== found?.version) downloaded = null
       if (!found) {
         deps.emit({

@@ -15,5 +15,39 @@
 !macro customWelcomePage
   !define MUI_WELCOMEPAGE_TITLE "欢迎使用影盒"
   !define MUI_WELCOMEPAGE_TEXT "这将指导您完成影盒的安装。$\r$\n$\r$\n单击 [下一步] 继续。"
+  !insertmacro skipPageIfUpdated
   !insertmacro MUI_PAGE_WELCOME
+!macroend
+
+!macro customInit
+  ${if} ${isUpdated}
+  ${andIf} ${isForceRun}
+    Push $0
+    ReadEnvStr $0 YINGBOX_UPDATE_UI
+    ${if} $0 != "1"
+      SetSilent normal
+    ${endif}
+    Pop $0
+  ${endif}
+!macroend
+
+!macro customInstallMode
+  ${if} ${isUpdated}
+  ${andIf} ${isForceRun}
+    ${if} $hasPerMachineInstallation == "1"
+    ${andIf} $hasPerUserInstallation == "0"
+      StrCpy $isForceMachineInstall "1"
+    ${else}
+      StrCpy $isForceCurrentInstall "1"
+    ${endif}
+  ${endif}
+!macroend
+
+!macro customInstall
+  ${if} ${isUpdated}
+  ${andIf} ${isForceRun}
+  ${andIfNot} ${Silent}
+    Call StartApp
+    !insertmacro quitSuccess
+  ${endif}
 !macroend

@@ -14,6 +14,7 @@ import {
 import { win } from '../../shared/contract/win'
 import { settingsStore } from '../settings'
 import { createDesktopUpdater } from '../updater/desktop-updater'
+import { launchUpdateCompanion } from '../updater/companion'
 
 let latestStatus: UpdateStatusEvent | null = null
 let latestInfo: UpdateInfo | null = null
@@ -47,15 +48,22 @@ function updater(): ReturnType<typeof createDesktopUpdater> {
     now: () => Date.now(),
     emit: status => sendUpdateStatus(status),
     autoDownload: () => settingsStore().get('update.autoDownload'),
-    launch: (file, args) =>
-      new Promise<void>((resolve, reject) => {
+    launch: (file, args) => {
+      if (args.includes('--force-run'))
+        return launchUpdateCompanion(
+          file,
+          args,
+          settingsStore().get('ui.brandColor')
+        )
+      return new Promise<void>((resolve, reject) => {
         const child = spawn(file, args, { detached: true, stdio: 'ignore' })
         child.once('error', reject)
         child.once('spawn', () => {
           child.unref()
           resolve()
         })
-      }),
+      })
+    },
     quit: () => electronApp.quit(),
   })
   return desktopUpdater
@@ -97,7 +105,7 @@ export function registerAppIpc(
   implement(update, {
     check: async () => {
       if (is.dev) return { success: false, error: '开发环境不检查更新' }
-      return updater().check()
+      return updater().check(true)
     },
     download: () => updater().download(),
     install: () => updater().install(),

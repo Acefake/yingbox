@@ -39,6 +39,7 @@ export default defineConfig({
         input: {
           index: resolve('src/renderer/index.html'),
           player: resolve('src/renderer/player.html'),
+          update: resolve('src/renderer/update.html'),
         },
         output: {
           // Artplayer / hls.js / 弹幕插件不进两个页面共用的 theme chunk

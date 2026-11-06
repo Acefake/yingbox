@@ -1,6 +1,14 @@
 <template>
   <SettingsGroup>
     <SettingsRow
+      title="当前版本"
+      :description="
+        update.currentVersion.value
+          ? `影盒 ${update.currentVersion.value}`
+          : '正在读取版本信息'
+      "
+    />
+    <SettingsRow
       :title="update.title.value"
       :description="update.message.value"
     >
@@ -9,7 +17,7 @@
         size="sm"
         :variant="isInstallStep ? 'primary' : 'secondary'"
         :label="update.action.value"
-        :disabled="update.busy.value"
+        :loading="update.busy.value || update.installing.value"
         @click="onAction"
       />
     </SettingsRow>

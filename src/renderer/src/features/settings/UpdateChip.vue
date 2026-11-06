@@ -5,7 +5,10 @@
     :class="{ 'is-row': found || ready }"
     role="status"
   >
-    <template v-if="found">
+    <template v-if="update.installing.value">
+      <span class="update-chip-text">正在重启，安装完成后会自动打开影盒</span>
+    </template>
+    <template v-else-if="found">
       <span class="update-chip-text"
         >发现新版本 {{ update.version.value }}</span
       >
@@ -25,6 +28,7 @@
         size="sm"
         variant="primary"
         label="更新并重启"
+        :loading="update.busy.value"
         @click="update.runAction"
       />
     </template>
@@ -52,7 +56,7 @@
 <script setup lang="ts">
 /**
  * 右下角更新条（唯一的更新提示）：关了自动下载时提示「下载更新」，后台下载时显示进度，下载好后给「更新并重启」。
- * 不挡操作；点「更新并重启」后由 UpdateScreen 接管。只在桌面端出现。
+ * 不挡操作；重启时在更新条内提示，直到旧进程退出。只在桌面端出现。
  */
 import { computed } from 'vue'
 
@@ -71,7 +75,6 @@ const found = computed(
 const visible = computed(
   () =>
     Boolean(window.api?.update) &&
-    !update.installing.value &&
     (found.value || ready.value || update.status.value === 'downloading')
 )
 </script>
