@@ -32,6 +32,15 @@
         @click="update.runAction"
       />
     </template>
+    <template v-else-if="failed">
+      <span class="update-chip-text">{{ update.title.value }}</span>
+      <UiButton
+        size="sm"
+        variant="secondary"
+        label="打开发布页"
+        @click="openReleasePage"
+      />
+    </template>
     <template v-else>
       <span class="update-chip-text">
         正在下载更新 {{ Math.round(update.progress.value) }}%
@@ -55,12 +64,15 @@
 
 <script setup lang="ts">
 /**
- * 右下角更新条（唯一的更新提示）：关了自动下载时提示「下载更新」，后台下载时显示进度，下载好后给「更新并重启」。
- * 不挡操作；重启时在更新条内提示，直到旧进程退出。只在桌面端出现。
+ * 右下角更新条（唯一的更新提示）：关了自动下载时提示「下载更新」，后台下载时显示进度，
+ * 下载好后给「更新并重启」，失败时给「打开发布页」手动下载。不挡操作；重启时在更新条内提示，
+ * 直到旧进程退出。只在桌面端出现。
  */
 import { computed } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
+import { toast } from '@/components/ui'
+import { RELEASE_PAGE_URL } from '../../../../shared/desktop-update'
 
 import { useSetting } from './use-setting'
 import { useUpdateStatus } from './use-update-status'
@@ -72,11 +84,22 @@ const ready = computed(() => update.status.value === 'downloaded')
 const found = computed(
   () => update.status.value === 'available' && !autoDownload.value
 )
+/** 检查 / 下载 / 安装失败：给手动下载入口，不让提示无声消失 */
+const failed = computed(() => update.status.value === 'error')
 const visible = computed(
   () =>
     Boolean(window.api?.update) &&
-    (found.value || ready.value || update.status.value === 'downloading')
+    (found.value ||
+      ready.value ||
+      failed.value ||
+      update.status.value === 'downloading')
 )
+
+async function openReleasePage(): Promise<void> {
+  const result = await window.api.shell.openExternal(RELEASE_PAGE_URL)
+  if (!result.success)
+    toast.error(`打开发布页失败：${result.error ?? '未知错误'}`)
+}
 </script>
 
 <style scoped>

@@ -1,5 +1,6 @@
 import { describe, expect, it, vi } from 'vitest'
 import {
+  BUILTIN_MIRRORS,
   DEFAULT_NETWORK,
   parseNetwork,
   tmdbCandidates,
@@ -129,6 +130,27 @@ describe('网络优化', () => {
         githubMode: 'direct',
       })
     ).toEqual(['https://github.com/o/r/a'])
+  })
+
+  it('保存过早期内置镜像列表的配置跟随当前内置列表', () => {
+    const legacy = {
+      githubMode: 'auto' as const,
+      tmdbMode: 'auto' as const,
+      mirrors: [
+        'https://gh-proxy.com/',
+        'https://ghfast.top/',
+        'https://ghproxy.net/',
+      ],
+    }
+    expect(parseNetwork(legacy)?.mirrors).toEqual(BUILTIN_MIRRORS)
+    // 用户自己增删过的列表保持原样
+    const customized = { ...legacy, mirrors: ['https://ghfast.top/'] }
+    expect(parseNetwork(customized)?.mirrors).toEqual(['https://ghfast.top/'])
+    const extra = {
+      ...legacy,
+      mirrors: [...legacy.mirrors, 'https://mirror.test/'],
+    }
+    expect(parseNetwork(extra)?.mirrors).toEqual(extra.mirrors)
   })
 
   it('外部取消后不请求备用 TMDB', async () => {

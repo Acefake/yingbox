@@ -6,4 +6,8 @@ export const shell = defineDomain('shell', {
   openPath: call<[filePath: string], { success: boolean; error?: string }>(
     a => [str(a[0], 'filePath')]
   ),
+  /** 用系统浏览器打开 http / https 链接 */
+  openExternal: call<[url: string], { success: boolean; error?: string }>(a => [
+    str(a[0], 'url'),
+  ]),
 })

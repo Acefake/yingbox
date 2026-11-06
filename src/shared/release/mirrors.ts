@@ -65,14 +65,19 @@ export function githubAssetCandidates(
 }
 
 /**
- * 是否应尝试下一镜像。status 为 null 表示网络层失败；
- * ≥500 可换源；鉴权、权限和限流状态不换源。
+ * 是否应尝试下一候选。status 为 null 表示网络层失败。
+ *
+ * 官方候选（`viaMirror` 为 false）：≥500 与网络层失败换源，鉴权、权限和限流状态不换源（ADR-0051）。
+ * 镜像候选（`viaMirror` 为 true）：镜像自身返回的任何非 2xx（配额耗尽、路径不支持）都说明
+ * 这个反代不可用，与本应用的鉴权无关，换下一个候选（ADR-0055）。
  */
 export function shouldTryNextMirror(
   status: number | null,
-  _error: unknown
+  _error: unknown,
+  viaMirror = false
 ): boolean {
   if (status === null) return true
+  if (viaMirror) return true
   if (status === 429) return false
   if (status >= 500) return true
   return false

@@ -1,6 +1,7 @@
 import { type ComputedRef, type Ref, computed, ref } from 'vue'
 import type {
   UpdateInfo,
+  UpdatePhase,
   UpdateStatusEvent,
 } from '../../../../shared/contract/update'
 
@@ -23,10 +24,21 @@ export interface UpdateState {
   notes: Ref<string>
   /** 已点「更新并重启」，正在交给安装包 */
   installing: Ref<boolean>
+  /** 失败发生在哪个环节；非 error 状态无意义 */
+  phase: Ref<UpdatePhase>
   title: ComputedRef<string>
   message: ComputedRef<string>
   action: ComputedRef<string>
   runAction: () => Promise<void>
+}
+
+/** 各环节失败时的处理建议 */
+const PHASE_HINT: Record<UpdatePhase, string> = {
+  check:
+    '请检查网络连接；也可以在「设置 → 网络」里换一个 GitHub 镜像，或打开发布页手动下载。',
+  download:
+    '安装包没有下载完，可以重试；多次失败时请打开发布页手动下载安装包。',
+  install: '安装包已下载但没能启动，可以重试，或手动运行下载目录里的安装包。',
 }
 
 let shared: UpdateState | null = null
@@ -50,6 +62,7 @@ function createUpdateState(): UpdateState {
   const currentVersion = ref('')
   const notes = ref('')
   const installing = ref(false)
+  const phase = ref<UpdatePhase>('check')
   let statusEvents = 0
 
   const setInfo = (info: UpdateInfo): void => {
@@ -65,7 +78,11 @@ function createUpdateState(): UpdateState {
     if (status.value === 'not-available') return '当前已是最新版本'
     if (status.value === 'downloading') return '正在下载更新'
     if (status.value === 'downloaded') return '更新已下载'
-    if (status.value === 'error') return '更新检查失败'
+    if (status.value === 'error') {
+      if (phase.value === 'download') return '更新下载失败'
+      if (phase.value === 'install') return '更新安装失败'
+      return '更新检查失败'
+    }
     return '检查软件更新'
   })
 
@@ -78,7 +95,10 @@ function createUpdateState(): UpdateState {
       return `下载进度 ${progress.value.toFixed(1)}%`
     if (status.value === 'downloaded')
       return '点击重启安装，应用会自动关闭并完成更新'
-    if (status.value === 'error') return error.value || '请稍后重试'
+    if (status.value === 'error') {
+      const detail = error.value || '请稍后重试'
+      return `${detail} ${PHASE_HINT[phase.value]}`
+    }
     return '从 GitHub Release 检查是否有新版本'
   })
 
@@ -103,6 +123,7 @@ function createUpdateState(): UpdateState {
       progress.value = payload.progress.percent
     if ('error' in payload) {
       error.value = payload.error
+      phase.value = payload.phase ?? 'check'
       installing.value = false
     }
   }
@@ -116,6 +137,7 @@ function createUpdateState(): UpdateState {
         const result = await window.api.update.download()
         if (!result.success) {
           status.value = 'error'
+          phase.value = 'download'
           error.value = result.error || '下载更新失败'
         }
         return
@@ -129,6 +151,7 @@ function createUpdateState(): UpdateState {
       const result = await window.api.update.check()
       if (!result.success) {
         status.value = 'error'
+        phase.value = 'check'
         error.value = result.error || '检查更新失败'
       }
     } catch (cause) {
@@ -176,6 +199,7 @@ function createUpdateState(): UpdateState {
     currentVersion,
     notes,
     installing,
+    phase,
     title,
     message,
     action,

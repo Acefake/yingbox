@@ -166,6 +166,15 @@ jobs:
           outputs: type=image,name=ghcr.io/acefake/yingbox-nas,push-by-digest=true,name-canonical=true,push=${{ github.event_name == 'push' }}
           cache-from: type=gha,scope=nas-${{ matrix.runner }}
           cache-to: type=gha,mode=max,scope=nas-${{ matrix.runner }}
+      - name: 验证镜像（原生架构）
+        if: github.event_name == 'push'
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          node --input-type=module -e '
+            import { verifyNasImage } from "./scripts/nas-release.mjs"
+            await verifyNasImage(`ghcr.io/acefake/yingbox-nas@${process.env.DIGEST}`)
+          '
       - name: 记录镜像摘要
         if: github.event_name == 'push'
         run: |
@@ -187,6 +196,12 @@ jobs:
       contents: read
       packages: write
     steps:
+      - uses: actions/checkout@v4
+        with:
+          persist-credentials: false
+      - uses: actions/setup-node@v4
+        with:
+          node-version: 22
       - uses: actions/download-artifact@v4
         with:
           pattern: nas-digest-*
@@ -203,6 +218,13 @@ jobs:
         run: |
           docker buildx imagetools create             -t "ghcr.io/acefake/yingbox-nas:${{ needs.prepare.outputs.version }}-nas.1"             $(printf 'ghcr.io/acefake/yingbox-nas@sha256:%s ' *)
           docker buildx imagetools inspect "ghcr.io/acefake/yingbox-nas:${{ needs.prepare.outputs.version }}-nas.1"
+      - name: 推进稳定版标签
+        run: |
+          node --input-type=module -e '
+            import { promoteNasStable } from "./scripts/nas-release.mjs"
+            await promoteNasStable("${{ needs.prepare.outputs.version }}-nas.1")
+          '
+          docker buildx imagetools inspect "ghcr.io/acefake/yingbox-nas:stable"
 
   release:
     needs: [prepare, windows, mac, android, nas, nas-manifest]

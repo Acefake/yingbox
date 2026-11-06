@@ -32,6 +32,12 @@
       title="本次更新"
       :description="update.notes.value"
     />
+    <SettingsRow
+      title="手动下载"
+      description="应用内更新失败时，可以到发布页手动下载安装包"
+    >
+      <UiButton size="sm" label="打开发布页" @click="openReleasePage" />
+    </SettingsRow>
     <SettingsRow v-if="update.status.value === 'downloading'">
       <div
         class="update-progress"
@@ -59,6 +65,8 @@ import { computed } from 'vue'
 
 import UiButton from '@/components/ui/UiButton.vue'
 import UiSwitch from '@/components/ui/UiSwitch.vue'
+import { toast } from '@/components/ui'
+import { RELEASE_PAGE_URL } from '../../../../../shared/desktop-update'
 
 import SettingsGroup from '../ui/SettingsGroup.vue'
 import SettingsRow from '../ui/SettingsRow.vue'
@@ -68,6 +76,13 @@ import { useUpdateStatus } from '../use-update-status'
 const update = useUpdateStatus()
 const autoDownload = useSetting('update.autoDownload')
 const onAction = (): void => void update.runAction()
+
+/** 应用内更新走不通时的手动下载入口 */
+async function openReleasePage(): Promise<void> {
+  const result = await window.api.shell.openExternal(RELEASE_PAGE_URL)
+  if (!result.success)
+    toast.error(`打开发布页失败：${result.error ?? '未知错误'}`)
+}
 
 /** 有新版本时展示发布说明 */
 const showNotes = computed(

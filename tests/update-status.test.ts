@@ -75,8 +75,59 @@ describe('软件更新提示', () => {
     const state = useUpdateStatus()
     notify({ status: 'available', info: { version: '1.1.0' } })
     await state.runAction()
-    expect(state.message.value).toBe('下载失败')
+    expect(state.message.value).toContain('下载失败')
     expect(state.busy.value).toBe(false)
+  })
+
+  it('按失败环节给出不同标题和处理建议', async () => {
+    let notify = (_event: unknown): void => {}
+    vi.stubGlobal('api', {
+      update: {
+        onStatus: (cb: typeof notify) => {
+          notify = cb
+        },
+        snapshot: vi
+          .fn()
+          .mockResolvedValue({ currentVersion: '1.0.0', status: null }),
+      },
+    })
+    const { useUpdateStatus } =
+      await import('../src/renderer/src/features/settings/use-update-status')
+    const state = useUpdateStatus()
+
+    notify({ status: 'error', error: '连不上 GitHub', phase: 'check' })
+    expect(state.title.value).toBe('更新检查失败')
+    expect(state.message.value).toContain('连不上 GitHub')
+    expect(state.message.value).toContain('发布页')
+
+    notify({ status: 'error', error: '安装包没下完', phase: 'download' })
+    expect(state.title.value).toBe('更新下载失败')
+    expect(state.message.value).toContain('安装包没下完')
+    expect(state.message.value).toContain('重试')
+
+    notify({ status: 'error', error: '启动失败', phase: 'install' })
+    expect(state.title.value).toBe('更新安装失败')
+    expect(state.message.value).toContain('启动失败')
+  })
+
+  it('错误事件不带环节时按检查失败处理', async () => {
+    let notify = (_event: unknown): void => {}
+    vi.stubGlobal('api', {
+      update: {
+        onStatus: (cb: typeof notify) => {
+          notify = cb
+        },
+        snapshot: vi
+          .fn()
+          .mockResolvedValue({ currentVersion: '1.0.0', status: null }),
+      },
+    })
+    const { useUpdateStatus } =
+      await import('../src/renderer/src/features/settings/use-update-status')
+    const state = useUpdateStatus()
+    notify({ status: 'error', error: '网络错误' })
+    expect(state.phase.value).toBe('check')
+    expect(state.title.value).toBe('更新检查失败')
   })
 
   it('重新加载时恢复已下载版本的更新说明', async () => {

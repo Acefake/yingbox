@@ -189,6 +189,89 @@ describe('桌面更新器', () => {
     expect(await readdir(dir)).toEqual(['yingbox-setup-1.0.3.exe'])
   })
 
+  it('下载：镜像自身 403 也换下一个候选（ADR-0055）', async () => {
+    const calls: string[] = []
+    const updater = setup({
+      fetch: (async (input: string | URL | Request) => {
+        const u = String(input)
+        calls.push(u)
+        if (isReleasesUrl(u)) return new Response(JSON.stringify(releases()))
+        if (u === URL) throw new TypeError('fetch failed')
+        // 第一个镜像配额耗尽，第二个镜像可用
+        if (u.includes('ghfast.top')) return new Response('', { status: 403 })
+        return new Response(new Uint8Array(BODY))
+      }) as typeof fetch,
+    })
+    await updater.check()
+    expect(await updater.download()).toEqual({ success: true })
+    expect(calls.some(u => u.includes('ghfast.top'))).toBe(true)
+    expect(await readdir(dir)).toEqual(['yingbox-setup-1.0.3.exe'])
+  })
+
+  it('下载：还有下一个候选时，长时间低速就换源', async () => {
+    let clock = 0
+    let slowUrl = ''
+    const updater = setup({
+      now: () => clock,
+      // 声明大小远大于慢速候选实际写入的字节，避免先触发大小上限
+      list: releases(SHA, BODY.length),
+      fetch: (async (input: string | URL | Request) => {
+        const u = String(input)
+        if (isReleasesUrl(u)) return new Response(JSON.stringify(releases()))
+        if (!slowUrl) {
+          slowUrl = u
+          // 每个数据块很小、但模拟时间推进 20 秒，三次后超过低速窗口
+          let sent = 0
+          return new Response(
+            new ReadableStream({
+              pull(controller) {
+                if (sent++ >= 6) return controller.close()
+                clock += 20_000
+                controller.enqueue(new Uint8Array(16))
+              },
+            })
+          )
+        }
+        return new Response(new Uint8Array(BODY))
+      }) as typeof fetch,
+    })
+    await updater.check()
+    expect(await updater.download()).toEqual({ success: true })
+    // 慢速候选被放弃，换到了下一个地址
+    expect(slowUrl).toBe(URL)
+    expect(events.some(e => e.status === 'error')).toBe(false)
+  })
+
+  it('下载：最后一个候选不因低速被中断', async () => {
+    let clock = 0
+    let served = 0
+    const updater = setup({
+      now: () => clock,
+      fetch: (async (input: string | URL | Request) => {
+        const u = String(input)
+        if (isReleasesUrl(u)) return new Response(JSON.stringify(releases()))
+        served++
+        // 每个块 10 字节、模拟时间推进 1 秒，全程平均 10 B/s：前两个候选会被低速放弃
+        let offset = 0
+        return new Response(
+          new ReadableStream({
+            pull(controller) {
+              if (offset >= BODY.length) return controller.close()
+              clock += 1_000
+              controller.enqueue(BODY.subarray(offset, offset + 10))
+              offset += 10
+            },
+          })
+        )
+      }) as typeof fetch,
+    })
+    await updater.check()
+    expect(await updater.download()).toEqual({ success: true })
+    // 官方与第一个镜像被低速放弃，最后一个候选跑完
+    expect(served).toBe(3)
+    expect(events.some(e => e.status === 'error')).toBe(false)
+  })
+
   it('重复点击下载共用同一次下载，不会互相删文件', async () => {
     let downloads = 0
     const updater = setup({
@@ -239,7 +322,28 @@ describe('桌面更新器', () => {
     })
     const result = await updater.check()
     expect(result).toMatchObject({ success: false })
-    expect(events.at(-1)?.status).toBe('error')
+    expect(events.at(-1)).toMatchObject({ status: 'error', phase: 'check' })
+  })
+
+  it('下载失败的错误事件标记为下载环节', async () => {
+    const updater = setup({
+      fetch: (async (input: string | URL | Request) =>
+        isReleasesUrl(String(input))
+          ? new Response(JSON.stringify(releases()))
+          : new Response('', { status: 403 })) as typeof fetch,
+    })
+    await updater.check()
+    expect((await updater.download()).success).toBe(false)
+    expect(events.at(-1)).toMatchObject({ status: 'error', phase: 'download' })
+  })
+
+  it('安装包启动失败的错误事件标记为安装环节', async () => {
+    launch.mockRejectedValueOnce(new Error('ENOENT'))
+    const updater = setup()
+    await updater.check()
+    await updater.download()
+    await updater.install()
+    expect(events.at(-1)).toMatchObject({ status: 'error', phase: 'install' })
   })
 
   it('开了自动下载：检查到更新后自动下载，下载完成变为已下载', async () => {

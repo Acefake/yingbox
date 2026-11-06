@@ -13,7 +13,10 @@ export interface UpdateInfo {
   releaseNotes?: string | Array<{ version: string; note: string | null }> | null
 }
 
-/** electron-updater 推送的状态 */
+/** 更新失败的环节：检查发布列表 / 下载安装包 / 启动安装包 */
+export type UpdatePhase = 'check' | 'download' | 'install'
+
+/** 主进程推送的更新状态（由自建更新器产生，ADR-0038 / 0045） */
 export type UpdateStatusEvent =
   | { status: 'checking' }
   | {
@@ -21,7 +24,12 @@ export type UpdateStatusEvent =
       info: UpdateInfo
     }
   | { status: 'downloading'; progress: { percent?: number } }
-  | { status: 'error'; error: string }
+  | {
+      status: 'error'
+      error: string
+      /** 失败环节，供界面区分「检查失败」和「下载失败」；缺省按检查处理 */
+      phase?: UpdatePhase
+    }
 
 /** 自动更新（GitHub Releases）。 */
 export const update = defineDomain(

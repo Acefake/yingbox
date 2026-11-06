@@ -300,6 +300,8 @@ const ADDED_API: Record<string, string[]> = {
     'onRoute',
     'offRoute',
   ],
+  /** 已有 shell 域新增的方法：更新失败时「打开发布页」 */
+  shell: ['openPath', 'openExternal'],
 }
 
 beforeAll(async () => {

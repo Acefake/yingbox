@@ -5,8 +5,14 @@ export interface NetworkPreferences {
   tmdbMode: 'auto' | 'direct' | 'alternate'
 }
 
-/** 经过公开资源探测的候选；实际能力需在请求设备上检测。 */
-export const BUILTIN_MIRRORS = [
+/**
+ * 经过公开资源探测的候选；实际能力需在请求设备上检测。
+ * 顺序按实测下载吞吐排列（ADR-0055）；GitHub API 只使用已验证支持该能力的 gh-proxy.com。
+ */
+export const BUILTIN_MIRRORS = ['https://ghfast.top/', 'https://gh-proxy.com/']
+
+/** 内置镜像的早期列表：保存过它的配置（用户未改动）按当前内置列表处理。 */
+const LEGACY_BUILTIN_MIRRORS = [
   'https://gh-proxy.com/',
   'https://ghfast.top/',
   'https://ghproxy.net/',
@@ -61,11 +67,20 @@ export function parseNetwork(raw: unknown): NetworkPreferences | undefined {
     return undefined
   const mirrors = value.mirrors.map(parseMirror)
   if (mirrors.some(x => !x)) return undefined
+  const list = [...new Set(mirrors.filter((x): x is string => !!x))]
   return {
     githubMode: value.githubMode,
     tmdbMode: value.tmdbMode,
-    mirrors: [...new Set(mirrors.filter((x): x is string => !!x))],
+    // 原样保存过早期内置列表、用户没增删过时，跟随当前内置列表（ADR-0055）。
+    mirrors: sameList(list, LEGACY_BUILTIN_MIRRORS)
+      ? [...BUILTIN_MIRRORS]
+      : list,
   }
+}
+
+/** 两个镜像列表是否完全相同（顺序敏感）。 */
+function sameList(a: readonly string[], b: readonly string[]): boolean {
+  return a.length === b.length && a.every((item, index) => item === b[index])
 }
 
 /** 官方 TMDB 请求的候选，其他地址保持原样，不改变路径、参数或凭据。 */

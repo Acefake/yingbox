@@ -35,6 +35,10 @@ const TIMEOUT_MS = 15_000
 const SILENT_ARGS = ['/S', '--updated', '--force-run']
 /** 下载中这么久没有数据就放弃 */
 const IDLE_MS = 30_000
+/** 低速判定的统计窗口 */
+const SLOW_WINDOW_MS = 60_000
+/** 窗口内平均速率低于这个值、且还有下一个候选时，判定该候选不可用（ADR-0055） */
+const SLOW_MIN_BYTES_PER_SEC = 80 * 1024
 
 /** 更新器依赖 */
 export interface DesktopUpdaterDeps {
@@ -76,12 +80,15 @@ function httpStatusOf(error: unknown): number | null {
   return m ? Number(m[1]) : null
 }
 
-function canRetryDownload(error: unknown): boolean {
+function canRetryDownload(error: unknown, viaMirror: boolean): boolean {
   if (error instanceof Error && error.message.includes('校验失败')) return true
   const status = httpStatusOf(error)
-  if (status !== null) return shouldTryNextMirror(status, error)
-  return shouldTryNextMirror(null, error)
+  if (status !== null) return shouldTryNextMirror(status, error, viaMirror)
+  return shouldTryNextMirror(null, error, viaMirror)
 }
+
+/** 下载速度长时间低于阈值时放弃当前候选的错误文案 */
+const SLOW_ABORT = '下载速度过慢，已换下一个下载源'
 
 /** 创建桌面更新器 */
 export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
@@ -136,6 +143,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
     } catch (error) {
       deps.emit({
         status: 'error',
+        phase: 'check',
         error: failure(error).error ?? '检查更新失败',
       })
       return failure(error)
@@ -158,10 +166,15 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   async function writeOne(
     url: string,
     update: DesktopUpdate,
-    partial: string
+    partial: string,
+    canFallBack: boolean
   ): Promise<void> {
     const abort = new AbortController()
     let idle = setTimeout(() => abort.abort(), IDLE_MS)
+    let slow = false
+    // 低速窗口只对「还有下一个候选」的地址启用；最后一个候选不因慢被放弃。
+    let windowAt = deps.now()
+    let windowBytes = 0
     const response = await deps.fetch(url, {
       headers: { 'User-Agent': 'yingbox-desktop' },
       signal: abort.signal,
@@ -179,6 +192,19 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
       idle = setTimeout(() => abort.abort(), IDLE_MS)
       hash.update(chunk)
       received += chunk.length
+      if (canFallBack) {
+        windowBytes += chunk.length
+        const elapsed = deps.now() - windowAt
+        if (elapsed >= SLOW_WINDOW_MS) {
+          if (windowBytes / (elapsed / 1000) < SLOW_MIN_BYTES_PER_SEC) {
+            slow = true
+            abort.abort()
+            return
+          }
+          windowAt = deps.now()
+          windowBytes = 0
+        }
+      }
       if (received > update.size) {
         abort.abort()
         return
@@ -192,6 +218,8 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
       await pipeline(source, createWriteStream(partial), {
         signal: abort.signal,
       })
+    } catch (error) {
+      throw slow ? new Error(SLOW_ABORT) : error
     } finally {
       clearTimeout(idle)
     }
@@ -208,9 +236,11 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
     try {
       await mkdir(deps.dir, { recursive: true })
       await clearOthers(deps.dir)
-      for (const url of urls) {
+      for (let index = 0; index < urls.length; index++) {
+        const viaMirror = index > 0
         try {
-          await writeOne(url, update, partial)
+          // 还有下一个候选时才启用低速放弃，最后一个地址不因慢被中断
+          await writeOne(urls[index], update, partial, index < urls.length - 1)
           await rename(partial, target)
           downloaded = { version: update.version, file: target }
           deps.emit({
@@ -221,11 +251,12 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
         } catch (error) {
           await rm(partial, { force: true })
           lastError = error
-          if (!canRetryDownload(error)) break
+          if (!canRetryDownload(error, viaMirror)) break
         }
       }
       deps.emit({
         status: 'error',
+        phase: 'download',
         error: failure(lastError).error ?? '下载更新失败',
       })
       return failure(lastError)
@@ -233,6 +264,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
       await rm(partial, { force: true })
       deps.emit({
         status: 'error',
+        phase: 'download',
         error: failure(error).error ?? '下载更新失败',
       })
       return failure(error)
@@ -248,6 +280,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
       installing = false
       deps.emit({
         status: 'error',
+        phase: 'install',
         error: failure(error).error ?? '启动安装包失败',
       })
       return

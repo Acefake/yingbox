@@ -4,6 +4,10 @@
  */
 import { findAsset, newestRelease } from './release/pick'
 
+/** 发布页：应用内更新失败时手动下载安装包的入口 */
+export const RELEASE_PAGE_URL =
+  'https://github.com/Acefake/yingbox/releases/latest'
+
 /** 桌面更新信息 */
 export interface DesktopUpdate {
   version: string

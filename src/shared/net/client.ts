@@ -5,7 +5,7 @@
  * 底层 fetch 与 DNS 解析由宿主注入：引擎注入 Electron `net.fetch`（Chromium 网络栈），
  * 主进程的 http 域（影视在用）注入 Node fetch。本文件不 import 任何 node / electron 模块。
  */
-import { mirrorCandidates } from '../release/mirrors'
+import { mirrorCandidates, shouldTryNextMirror } from '../release/mirrors'
 import { fetchTmdb } from '../network/tmdb-fetch'
 import type { NetworkPreferences } from '../network/preferences'
 import { type LookupAll, assertPublicTarget } from './guard'
@@ -220,13 +220,18 @@ export function createNetClient(deps: NetDeps): NetClient {
       const signal = req.signal ? AbortSignal.any([total, req.signal]) : total
       for (let index = 0; index < candidates.length; index++) {
         signal.throwIfAborted()
+        const viaMirror = index > 0
         try {
           const response = await openOne(candidates[index], {
             ...req,
             signal,
             timeoutMs: 6000,
           })
-          if (response.response.status < 500 || index === candidates.length - 1)
+          // 镜像候选的 4xx 说明这个反代自身不可用，继续下一个（ADR-0055）
+          if (
+            !shouldTryNextMirror(response.response.status, null, viaMirror) ||
+            index === candidates.length - 1
+          )
             return response
           await response.response.body?.cancel().catch(() => {})
         } catch (error) {
