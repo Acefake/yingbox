@@ -32,13 +32,15 @@
  * 点它（或 Cmd/Ctrl+K）打开搜索与 AI 助手共用的居中浮层（features/assistant）。侧栏收起成图标列时只剩放大镜圆钮。
  * 网页版不能问 AI，文字只写「搜索片库」。
  */
+import { computed } from 'vue'
+
 import UiIcon from '@/components/ui/UiIcon.vue'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import { vTooltip } from '@/components/ui/tooltip'
 import { usePlatform } from '@/composables/use-platform'
-import { aiAvailable } from '@/features/ai'
 import {
   ENTRY_HOTKEY_LABEL,
+  assistantAiReady,
   assistantOpen,
   openAssistant,
 } from '@/features/assistant'
@@ -49,7 +51,9 @@ defineProps<{
 }>()
 
 const { isPhone } = usePlatform()
-const label = aiAvailable() ? '搜索或问 AI' : '搜索片库'
+const label = computed(() =>
+  assistantAiReady() ? '搜索或问 AI' : '搜索片库'
+)
 </script>
 
 <style scoped>

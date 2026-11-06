@@ -7,16 +7,11 @@
  */
 import type { RouteLocationNormalizedLoaded, Router } from 'vue-router'
 
-import {
-  aiAvailable,
-  aiConfigured,
-  aiKeyConfigured,
-  chatJson,
-  chatStream,
-} from '@/features/ai'
+import { chatJson, chatStream } from '@/features/ai'
 import { playerNowPlaying, playerRemoteState } from '@/features/player'
 import { getSetting } from '@/features/settings'
 
+import { assistantAiReady } from './ai-ready'
 import { assistantHistory, recordAssistantTurn } from './assistant-session'
 import { startVoice, transcribeVoice, voiceSupported } from './assistant-voice'
 import { isPrivateRoute } from './skills/navigation-skill'
@@ -36,18 +31,6 @@ export function openSettingsSection(section: string): void {
   window.dispatchEvent(
     new CustomEvent('app:open-settings', { detail: section })
   )
-}
-
-/** AI 是否已配置到能发请求（读设置，响应式） */
-export function assistantAiReady(): boolean {
-  const provider = getSetting('ai.provider')
-  return aiConfigured({
-    available: aiAvailable(),
-    provider,
-    baseUrl: getSetting('ai.baseUrl'),
-    model: getSetting('ai.model'),
-    keyConfigured: aiKeyConfigured(provider),
-  })
 }
 
 /**

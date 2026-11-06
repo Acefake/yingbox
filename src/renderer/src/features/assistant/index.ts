@@ -5,6 +5,7 @@
  */
 export { default as AssistantLauncher } from './AssistantLauncher.vue'
 export { default as AssistantSettings } from './AssistantSettings.vue'
+export { assistantAiReady } from './ai-ready'
 export { ENTRY_HOTKEY_LABEL } from './assistant-hotkey'
 export { assistantOpen, openAssistant } from './assistant-open'
 export { clearAssistantSession } from './assistant-session'

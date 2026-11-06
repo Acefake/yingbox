@@ -70,7 +70,7 @@ export interface EntrySearch {
 export function useEntrySearch(options: {
   draft: Ref<string>
   isPrivate: () => boolean
-  askable: boolean
+  askable: () => boolean
   close: () => void
 }): EntrySearch {
   const route = useRoute()
@@ -137,7 +137,7 @@ export function useEntrySearch(options: {
   ])
   const { selected, move } = useEntrySelection(
     () => entries.value,
-    () => options.askable,
+    () => options.askable(),
     () => `${query.value}\n${scope.value}`
   )
   return {

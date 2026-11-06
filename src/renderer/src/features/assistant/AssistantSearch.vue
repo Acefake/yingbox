@@ -111,6 +111,14 @@
         label="在线搜索页"
         @click="search.online"
       />
+      <UiButton
+        v-if="setupable"
+        size="sm"
+        variant="plain"
+        icon="sparkle"
+        label="配置 AI，用对话提问"
+        @click="emit('setup')"
+      />
     </footer>
   </div>
 </template>
@@ -145,14 +153,14 @@ const props = defineProps<{
   selected: number
   /** 有没有「问 AI」行（网页版没有） */
   askable: boolean
-  /** AI 已配置到能发请求 */
-  aiReady: boolean
+  /** 没配置 AI 但能去配置（桌面端）：底部给一个入口 */
+  setupable: boolean
   /** 私密模式（问 AI 只用本地模型） */
   private: boolean
   /** 独立的玻璃块（空闲时） */
   floating?: boolean
 }>()
-const emit = defineEmits<{ ask: []; complete: [] }>()
+const emit = defineEmits<{ ask: []; complete: []; setup: [] }>()
 
 const { SearchMatches, VisualSourceSelect } = librarySearchModule()
 
@@ -166,10 +174,9 @@ const localCount = computed(() =>
   local.value ? search.value.entries.value.length : 0
 )
 
-const askNote = computed(() => {
-  if (!props.aiReady) return '还没有配置 AI，回车后可去设置；搜索不受影响'
-  return props.private ? '仅本地模型 · 无痕' : '和 AI 对话'
-})
+const askNote = computed(() =>
+  props.private ? '仅本地模型 · 无痕' : '和 AI 对话'
+)
 
 const note = computed(() => {
   const count = props.entry.entries.value.length

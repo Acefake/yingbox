@@ -70,6 +70,7 @@
           v-bind="searchProps"
           @ask="send(query)"
           @complete="completeSearch"
+          @setup="openAiSettings"
         />
         <AssistantComposer
           v-model:draft="draft"
@@ -95,6 +96,7 @@
             floating
             @ask="send(query)"
             @complete="completeSearch"
+            @setup="openAiSettings"
           />
         </AssistantComposer>
         <footer v-if="mode === 'hero'" class="assistant-keys">
@@ -164,9 +166,9 @@ import { getSetting, useSetting } from '@/features/settings'
 import { resourceSearchLocation } from '@/features/search'
 import { isSearchCommand } from '@/utils/search-command'
 
+import { assistantAiReady } from './ai-ready'
 import { assistantExample, assistantPlaceholder } from './assistant-copy'
 import {
-  assistantAiReady,
   assistantContext,
   assistantVoiceReady,
   createAssistantDeps,
@@ -248,12 +250,14 @@ const skills = computed(() => assistantSkills.active(context.value))
 const suggestions = computed(() =>
   skillSuggestions(skills.value, context.value)
 )
-/** 能问 AI（桌面端）；网页版只有片库搜索 */
-const askable = aiAvailable()
+/** 桌面端（有 AI 设置可去） */
+const desktop = aiAvailable()
+/** 能问 AI：桌面端且已配置；否则（网页版、没配置 AI）只有普通搜索 */
+const askable = computed(() => desktop && assistantAiReady())
 const placeholder = computed(() =>
   skillPlaceholder(
-    askable ? skills.value : [],
-    assistantPlaceholder(context.value, askable)
+    askable.value ? skills.value : [],
+    assistantPlaceholder(context.value, askable.value)
   )
 )
 const voiceReady = computed(() => assistantVoiceReady(context.value.private))
@@ -295,15 +299,15 @@ const draft = ref('')
 const entry = useEntrySearch({
   draft,
   isPrivate: () => context.value.private,
-  askable,
+  askable: () => askable.value,
   close,
 })
 const { searching, query, selected, move } = entry
 const searchProps = computed(() => ({
   entry,
   selected: selected.value,
-  askable,
-  aiReady: assistantAiReady(),
+  askable: askable.value,
+  setupable: desktop && !askable.value,
   private: context.value.private,
 }))
 
@@ -338,13 +342,13 @@ function onEnter(): void {
   }
   const row = entry.entries.value[selected.value]
   if (row) row.open()
-  else if (selected.value === ASK_ROW && askable && query.value)
+  else if (selected.value === ASK_ROW && askable.value && query.value)
     send(query.value)
 }
 
 /** 提问：清空输入，先把上一轮归档进对话流 */
 function send(text: string): void {
-  if (runCommand() || !askable) return
+  if (runCommand() || !askable.value) return
   draft.value = ''
   archive()
   stickToBottom()
