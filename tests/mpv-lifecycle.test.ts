@@ -128,7 +128,12 @@ describe('mpv 播放器进程', () => {
 
     await mpvPlayer.open({ url: 'https://a/1.mp4' })
     expect(fakes.children).toHaveLength(1)
-    expect(fakes.sent).toContainEqual(['set_property', 'force-window', 'yes'])
+    // 窗口等第一帧再出现，不提前强制开窗
+    expect(fakes.sent).not.toContainEqual([
+      'set_property',
+      'force-window',
+      'yes',
+    ])
     expect(fakes.sent.some(c => c[0] === 'loadfile')).toBe(true)
     expect(mpvPlayer.getStatus().running).toBe(true)
 
@@ -139,7 +144,6 @@ describe('mpv 播放器进程', () => {
       data: true,
     })
     expect(mpvPlayer.getStatus().running).toBe(false)
-    expect(fakes.sent).toContainEqual(['set_property', 'force-window', 'no'])
     expect(fakes.killed).toHaveLength(0)
 
     await mpvPlayer.open({ url: 'https://a/2.mp4' })

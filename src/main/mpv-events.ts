@@ -25,6 +25,8 @@ export interface EventHost {
   active(): boolean
   /** 没文件在放了：回到待命 */
   goIdle(): void
+  /** 窗口出现了：顶到最前 */
+  bringToFront(): Promise<void>
   compact(): boolean
   setCompact(on: boolean): Promise<void>
   child(): ChildProcess | null
@@ -73,6 +75,10 @@ export function routeMpvEvent(
 }
 
 function applyProp(h: EventHost, name: string, data: unknown): void {
+  if (name === 'vo-configured') {
+    if (data === true && h.active()) void h.bringToFront()
+    return
+  }
   if (name === 'idle-active') {
     if (data === true && h.active()) h.goIdle()
     return

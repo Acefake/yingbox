@@ -39,6 +39,8 @@ export const WATCH_PROPS = [
   'vf',
   /** 没有文件在放：窗口关了（CLOSE_WIN 被绑成 stop）或放完停止，常驻进程据此回到待命 */
   'idle-active',
+  /** 视频输出就绪（窗口真正出现）：此时才把窗口顶到最前 */
+  'vo-configured',
 ]
 
 /** mpv 窗口里切换「缩小置顶」的快捷键（运行时用 keybind 绑定，发 script-message 给影盒） */
@@ -116,7 +118,8 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
     `--input-ipc-server=${input.socket}`,
     // 进程常驻：放完 / 关窗只回到待命，不退出（由 mpv-player 决定要不要真的退出）
     '--idle=yes',
-    `--force-window=${input.target ? 'yes' : 'no'}`,
+    // 窗口等第一帧就绪再出现：探测、解码器初始化期间不留黑窗（等待提示由应用内浮层负责）
+    '--force-window=no',
     '--keep-open=yes',
     '--no-terminal',
     '--ytdl=no',

@@ -86,6 +86,7 @@ class MpvPlayer extends MpvControls {
     imageEnhance: this.imageEnhance,
     active: () => this.active,
     goIdle: () => this.goIdle(),
+    bringToFront: () => this.window.bringToFront(),
     compact: () => this.window.compact,
     setCompact: on => this.setCompact(on),
     child: () => this.child,
@@ -153,11 +154,7 @@ class MpvPlayer extends MpvControls {
         await this.headers.apply(stream.headers).catch(warnProp)
         for (const [name, value] of replaceProps(options))
           await this.setProp(name, value).catch(warnProp)
-        if (!this.active) {
-          // 从待命回来：先让它在放完 / 关窗后能再开窗口
-          await this.setProp('force-window', 'yes').catch(warnProp)
-          this.active = true
-        }
+        this.active = true
         await this.cmd('loadfile', stream.target, 'replace')
         if (options.subFile)
           await this.cmd('sub-add', options.subFile, 'select')
@@ -218,7 +215,6 @@ class MpvPlayer extends MpvControls {
     this.emit('status', this.getStatus())
     this.emit('exit')
     if (!prewarmEnabled(this.quitting)) void this.terminate()
-    else void this.setProp('force-window', 'no').catch(() => {})
   }
 
   private async spawnProcess(
