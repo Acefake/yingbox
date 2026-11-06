@@ -1,8 +1,7 @@
 /*
- * 播放器控制栏皮肤（照 YouTube 的布局，苹果式的克制）：细圆角进度条（悬停加粗、已缓冲段可见）、
+ * 播放器控制栏皮肤（照 YouTube 的布局，苹果式的克制）：细圆角进度条（已缓冲段可见）、
  * 圆形悬停底、横向音量条、清晰度角标。
- * 播放区够宽（≥ 720px，即播放器窗口、播放层与全屏；窗口拉得很小、手机除外）时控制栏收进底部居中的玻璃胶囊，
- * 齿轮菜单是胶囊上方的玻璃浮层（文件末尾）；窄时仍是贴底渐变。
+ * 玻璃控制栏贴住左右与底边，齿轮菜单在控制栏上方。
  * 只作用于 UnifiedVideoPlayer 创建的实例（.unified-player-core），控件逻辑见 utils/art-skin.ts。
  */
 
@@ -258,79 +257,77 @@
   display: none;
 }
 
-/*
- * ── 宽播放区：玻璃胶囊控制栏 + 玻璃齿轮菜单 ──
- * .unified-player-core 是尺寸容器（unified-video-player.css）。胶囊宽 980、离底 28，
- * 进度条在上、按钮在下；Artplayer 自己的显隐（opacity）和按钮布局不变。
- */
-@container yb-player (min-width: 720px) {
-  .unified-player-core .art-video-player {
-    --art-control-height: 36px;
-    --art-progress-height: 18px;
-    --yb-bar-side: max(var(--space-6), calc(50% - 440px));
-    --yb-bar-bottom: 20px; /* style-tokens: layout（胶囊离底） */
-    /* 胶囊顶边到画面底边的距离：字幕、齿轮菜单都让到它上面 */
-    --yb-bar-top: calc(var(--yb-bar-bottom) + 92px);
-  }
-
-  .unified-player-core .art-video-player .art-bottom {
-    inset: auto var(--yb-bar-side) var(--yb-bar-bottom);
-    width: auto;
-    height: auto;
-    padding: var(--space-3) var(--space-5) var(--space-1_5);
-    overflow: visible;
-    border-radius: var(--radius-2xl);
-    background-color: var(--glass-media-bg);
-    background-image: none;
-    -webkit-backdrop-filter: var(--glass-filter);
-    backdrop-filter: var(--glass-filter);
-    box-shadow: var(--glass-media-shadow);
-  }
-
-  .unified-player-core .art-control-progress .art-control-progress-inner {
-    height: 6px;
-  }
-
-  .unified-player-core
-    .art-bottom
-    .art-progress:hover
-    .art-control-progress
-    .art-control-progress-inner {
-    height: 6px;
-  }
-
-  .unified-player-core .art-progress-indicator {
-    width: 16px !important;
-    height: 16px !important;
-  }
-
-  .unified-player-core .art-controls .art-control {
-    min-width: var(--art-control-height);
-  }
-
-  /* 齿轮菜单打开时，齿轮按钮留一块亮底 */
-  .unified-player-core .art-video-player.art-setting-show .art-control-setting {
-    background: var(--media-hover);
-  }
-
-  .unified-player-core .art-video-player.art-control-show .art-subtitle,
-  .unified-player-core .art-video-player.art-hover .art-subtitle {
-    bottom: calc(var(--yb-bar-top) + var(--space-4));
-  }
-
-  /* Artplayer 按行数写死面板高度：内边距放在外面（content-box），水平位置仍由它对准齿轮 */
-  .unified-player-core .art-video-player .art-settings {
-    box-sizing: content-box;
-    bottom: calc(var(--yb-bar-top) + var(--space-3));
-    padding: var(--space-2);
-    border-radius: var(--radius-xl);
-    background-color: var(--glass-media-bg) !important;
-    -webkit-backdrop-filter: var(--glass-filter);
-    backdrop-filter: var(--glass-filter);
-    box-shadow: var(--glass-media-shadow);
-  }
+/* 玻璃长条贴住播放区边缘，进度轨道覆盖顶边；菜单和字幕避开控制行。 */
+.unified-player-core .art-video-player {
+  --art-control-height: var(--control-height);
+  --art-progress-height: var(--space-2);
+  --art-bottom-gap: 0px;
+  --yb-bar-top: var(--control-height-lg);
 }
-
+.unified-player-core .art-video-player .art-bottom {
+  inset: auto 0 0;
+  width: auto;
+  height: var(--yb-bar-top);
+  padding: 0 var(--space-3);
+  overflow: visible;
+  border-radius: 0;
+  background-color: var(--glass-media-bg);
+  background-image: none;
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: none;
+}
+.unified-player-core .art-video-player .art-bottom .art-progress {
+  margin: 0 calc(var(--space-3) * -1);
+}
+.unified-player-core .art-video-player .art-controls {
+  align-items: center;
+}
+.unified-player-core .art-video-player .art-controls-left,
+.unified-player-core .art-video-player .art-controls-right {
+  align-items: center;
+}
+.unified-player-core .art-video-player.art-control-show .art-subtitle {
+  bottom: calc(var(--yb-bar-top) + var(--space-4));
+}
+.unified-player-core .art-video-player .art-settings {
+  box-sizing: content-box;
+  bottom: calc(var(--yb-bar-top) + var(--space-3));
+  padding: var(--space-2);
+  border-radius: var(--radius-xl);
+  background-color: var(--glass-media-bg) !important;
+  -webkit-backdrop-filter: var(--glass-filter);
+  backdrop-filter: var(--glass-filter);
+  box-shadow: var(--glass-media-shadow);
+}
+.unified-player-core .art-video-player.art-setting-show .art-control-setting {
+  background: var(--media-hover);
+}
+.unified-player-core .art-video-player.yb-controls-hidden .art-bottom {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+}
+.unified-player-core .art-video-player.yb-controls-hidden .art-state {
+  visibility: hidden;
+  pointer-events: none;
+}
+.unified-player-core .art-video-player.yb-controls-hidden .art-bottom * {
+  pointer-events: none;
+}
+.unified-player-core
+  .art-video-player.yb-pointer-controls:not(.yb-controls-hidden)
+  .art-bottom {
+  opacity: 1;
+}
+.unified-player-core
+  .art-video-player.yb-pointer-controls:not(.yb-controls-hidden)
+  .art-controls,
+.unified-player-core
+  .art-video-player.yb-pointer-controls:not(.yb-controls-hidden)
+  .art-progress {
+  transform: translateY(0);
+}
 /* 齿轮菜单的行：圆角行（行高 44 在 utils/art-core.ts 的 SETTING_ITEM_HEIGHT），悬停提亮（窄播放区同样适用） */
 .unified-player-core .art-settings .art-setting-panel .art-setting-item {
   padding: 0 var(--space-2_5);
@@ -359,4 +356,25 @@
   margin-bottom: var(--space-1);
   border-bottom: 0.5px solid var(--media-track);
   border-radius: var(--radius-lg) var(--radius-lg) 0 0;
+}
+
+/* 窄播放区分两行保留所有入口，避免按钮溢出画面。 */
+@container yb-player (max-width: 719px) {
+  .unified-player-core .art-video-player {
+    --art-control-height: var(--control-height-sm);
+    --yb-bar-top: calc(var(--control-height-sm) * 2 + var(--space-2));
+  }
+  .unified-player-core .art-video-player .art-controls {
+    flex-wrap: wrap;
+    height: calc(var(--art-control-height) * 2);
+  }
+  .unified-player-core .art-video-player .art-controls .art-controls-left,
+  .unified-player-core .art-video-player .art-controls .art-controls-right {
+    width: 100%;
+    height: var(--art-control-height);
+    justify-content: space-between;
+  }
+  .unified-player-core .art-controls .art-control-time {
+    font-size: var(--text-xs);
+  }
 }

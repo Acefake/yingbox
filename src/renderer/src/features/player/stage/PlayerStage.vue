@@ -172,7 +172,21 @@ watch(
   opacity: 1;
 }
 
+.player-stage:has(.yb-pointer-controls) .player-stage__bar {
+  opacity: 0;
+  visibility: hidden;
+}
+
+.player-stage:has(.yb-header-visible) .player-stage__bar,
+.player-stage:has(.yb-pointer-controls) .player-stage__bar:focus-within {
+  opacity: 1;
+  visibility: visible;
+}
+
 .player-stage__bar.is-hidden {
+  visibility: hidden;
+}
+.player-stage:has(.yb-pointer-controls) .player-stage__bar.is-hidden {
   visibility: hidden;
 }
 

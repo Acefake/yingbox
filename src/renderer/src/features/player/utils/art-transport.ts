@@ -1,6 +1,6 @@
 /**
- * 控制栏的传输键与时间：进度条两端的「已播 / 剩余」，播放键两侧的「后退 / 快进 10 秒」。
- * 位置由 styles/art-transport.css 在宽播放区里排到进度条两端和胶囊正中，窄播放区仍是原来的一行。
+ * 控制栏传输键与时间：快退 / 快进 10 秒与增强对比。
+ * 时间由 Artplayer 合并显示，自定义的已播 / 剩余控件保留兼容。
  */
 import type Artplayer from 'artplayer'
 
@@ -101,8 +101,8 @@ const COMPARE_ICON = `<svg viewBox="0 0 24 24" width="24" height="24" fill="curr
 function compareControl(): ArtControl {
   return {
     name: 'ybCompare',
-    position: 'left',
-    index: 31,
+    position: 'right',
+    index: 23,
     tooltip: '按住对比原画',
     html: COMPARE_ICON,
     mounted(this: Artplayer, $el: HTMLElement) {

@@ -15,6 +15,7 @@ import {
   artOptions,
   isValidPlaybackRate,
 } from './art-options'
+import { installPointerControls } from '../controls/pointer-controls'
 import { RATE_STEPS } from '../hotkeys/hotkey-map'
 import { installPlaybackInfo } from '../playback-info/playback-info'
 import { installSleepTimer } from '../sleep/sleep-timer'
@@ -88,28 +89,6 @@ const dblclickClaimed = new WeakSet<Artplayer>()
 /** 由调用方接管这个实例的双击（不再默认切全屏） */
 export function claimDblclick(art: Artplayer): void {
   dblclickClaimed.add(art)
-}
-
-/**
- * 点视频空白处只显示 / 收起控件，不再暂停（手机上 Artplayer 本来就是这样）。
- * Artplayer 的 toggle 是不可改写的属性，换不掉：改在播放器根节点的捕获阶段截下点在 <video> 上的点击，
- * 自己转发 click / dblclick 事件（双击全屏等沿用）。空格键调 art.toggle()，不经过点击，照常暂停 / 播放。
- */
-function clickTogglesControls(art: Artplayer): void {
-  if (Artplayer.utils.isMobile) return
-  const { $player, $video } = art.template
-
-  $player.addEventListener(
-    'click',
-    event => {
-      if (event.target !== $video) return
-      event.stopPropagation()
-      art.emit('click', event)
-      art.controls.show = !art.controls.show
-    },
-    true
-  )
-  $video.addEventListener('dblclick', event => art.emit('dblclick', event))
 }
 
 /** 创建实例。节点还没挂到文档上，调用方把 core.node 放进自己的容器。 */
@@ -191,7 +170,7 @@ export function createArtCore(input: ArtCoreInput): ArtCore {
   art.on('video:ended', (event: Event) => sink.event('ended', event))
   art.on('video:pause', (event: Event) => sink.event('pause', event))
 
-  clickTogglesControls(art)
+  installPointerControls(art)
 
   art.on('dblclick', () => {
     if (!dblclickClaimed.has(art)) art.fullscreen = !art.fullscreen

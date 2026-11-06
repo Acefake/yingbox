@@ -3,14 +3,14 @@
  * （图标 + 文字，如「快进 10 秒」「音量 45%」，见 hotkey-osd.css）。
  *
  * 键盘监听挂在 window 上：焦点在播放台任何位置都生效（enabled 由播放会话给：焦点在别的对话框里时不生效）。Artplayer 自带的快捷键关着（art-options 的 hotkey: false）。
- * 双击：Artplayer 第一下单击已经切了播放 / 暂停，这里先切回来，再按位置后退 / 快进 10 秒或切全屏。
+ * 桌面双击只执行分区动作；触屏保留 Artplayer 的首击补偿。
  */
-import type Artplayer from 'artplayer'
+import Artplayer from 'artplayer'
 
 import type { IconName } from '@/components/ui/icons'
 
 import { claimDblclick } from '../utils/art-core'
-import { artIcon } from '../utils/art-options'
+import { createOsd } from './player-osd'
 import { volumePercent } from '../utils/art-skin'
 import { rememberVolume } from '../utils/volume-memory'
 import {
@@ -19,7 +19,6 @@ import {
   resolveHotkey,
   stepRate,
 } from './hotkey-map'
-import './hotkey-osd.css'
 
 /** 快捷键里交给播放会话做的事 */
 export interface HotkeyHandlers {
@@ -31,32 +30,6 @@ export interface HotkeyHandlers {
   pin: (() => void) | null
   /** 字幕开关（没有字幕时打开在线字幕面板） */
   subtitle: () => void
-}
-
-/** 反馈停留时长（毫秒） */
-const OSD_MS = 650
-
-/** 中央反馈层 */
-function createOsd(art: Artplayer): (icon: IconName, text: string) => void {
-  const el = art.layers?.add?.({
-    name: 'ybOsd',
-    html: '<div class="yb-osd__icon"></div><div class="yb-osd__text"></div>',
-    style: { pointerEvents: 'none' },
-  }) as HTMLElement | undefined
-  if (!el) return () => {}
-  el.classList.add('yb-osd')
-  const icon = el.querySelector<HTMLElement>('.yb-osd__icon')
-  const text = el.querySelector<HTMLElement>('.yb-osd__text')
-  let timer: number | undefined
-  return (name, label) => {
-    if (icon) icon.innerHTML = artIcon(name)
-    if (text) text.textContent = label
-    el.classList.remove('is-visible')
-    void el.offsetWidth // 重新触发淡入
-    el.classList.add('is-visible')
-    window.clearTimeout(timer)
-    timer = window.setTimeout(() => el.classList.remove('is-visible'), OSD_MS)
-  }
 }
 
 const clamp = (n: number, min: number, max: number): number =>
@@ -154,8 +127,8 @@ export function installPlayerHotkeys(
 
   claimDblclick(art)
   art.on('dblclick', (event: Event) => {
-    // 第一下单击已切换播放 / 暂停：切回来
-    art.toggle()
+    // 触屏仍由 Artplayer 在首击时切换播放。
+    if (Artplayer.utils.isMobile) art.toggle()
     const rect = art.template.$player.getBoundingClientRect()
     const x = (event as MouseEvent).clientX - rect.left
     const zone = dblclickZone(x, rect.width)

@@ -53,6 +53,8 @@ import androidx.compose.ui.res.painterResource
 import com.yingbox.android.R
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onSizeChanged
+import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.graphics.RectangleShape
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.DpSize
@@ -66,9 +68,6 @@ import kotlin.math.roundToInt
 
 /** 进度、时间每隔多久刷新一次 */
 private const val TICK_MS = 500L
-
-/** 底部玻璃面板的最大宽度（平板、电视上不撑满整行） */
-private val PANEL_MAX_WIDTH = 640.dp
 
 /** 右上角 FSR 字标的宽度（高 20dp，按图片比例） */
 private val FSR_LOGO_WIDTH = 67.dp
@@ -126,19 +125,19 @@ internal fun PlayerControls(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             GlassIconButton(YbIcons.Back, "返回", media = true, onClick = onBack)
-            Text(
-                title,
-                color = YbColor.TextPrimary,
-                fontSize = YbText.Md,
-                fontWeight = FontWeight.Medium,
-                maxLines = 1,
-                overflow = TextOverflow.Ellipsis,
-                modifier = Modifier
-                    .weight(1f, fill = false)
-                    .ybGlass(CircleShape, media = true)
-                    .padding(horizontal = YbSpace.S4, vertical = YbSpace.S3),
-            )
         }
+        Text(
+            title,
+            color = YbColor.TextPrimary,
+            fontSize = YbText.Md,
+            fontWeight = FontWeight.Medium,
+            maxLines = 1,
+            overflow = TextOverflow.Ellipsis,
+            textAlign = TextAlign.Center,
+            modifier = Modifier.align(Alignment.TopCenter)
+                .statusBarsPadding().displayCutoutPadding()
+                .fillMaxWidth(0.6f).padding(top = YbSpace.S5),
+        )
         if (fsrShown) {
             Image(
                 painterResource(R.drawable.fsr_logo),
@@ -153,18 +152,16 @@ internal fun PlayerControls(
             )
         }
 
-        // 底部悬浮玻璃面板：进度条与两端时间在上，音量以外的传输键、设置、全屏在下
+        // 贴边玻璃控制条：保留触屏进度条和遥控器焦点所需的操作高度
         Column(
             Modifier
                 .align(Alignment.BottomCenter)
                 .onSizeChanged { onPanelHeight(it.height) }
+                .fillMaxWidth()
+                .ybGlass(RectangleShape, media = true)
                 .navigationBarsPadding()
                 .displayCutoutPadding()
-                .padding(horizontal = gutter(), vertical = YbSpace.S4)
-                .widthIn(max = PANEL_MAX_WIDTH)
-                .fillMaxWidth()
-                .ybGlass(YbRadius.Xl2, media = true)
-                .padding(horizontal = YbSpace.S5, vertical = YbSpace.S3),
+                .padding(horizontal = YbSpace.S3),
         ) {
             val sliderColors = SliderDefaults.colors(
                 thumbColor = YbColor.TextPrimary,
@@ -219,7 +216,7 @@ internal fun PlayerControls(
             }
             val compact = LocalConfiguration.current.screenWidthDp < 600
             val options: @Composable () -> Unit = {
-                    if (state.enhanceStatus == "FSR") CompareButton(state, onActivity, onScrubbing)
+                    if (fsrShown) CompareButton(state, onActivity, onScrubbing)
                     TransportButton(PlayerIcons.Enhance, if (state.enhanceLevel == com.yingbox.android.playback.engine.EnhanceLevel.Off) "开启画质增强" else "关闭画质增强", size = 40.dp) { state.toggleEnhance(); onActivity() }
                     TransportButton(YbIcons.Settings, "播放设置", size = 40.dp) { openSettings() }
                     TransportButton(
@@ -239,13 +236,13 @@ internal fun PlayerControls(
                         Text(speedLabel(state.speed), color = YbColor.TextSecondary, fontSize = YbText.Sm, modifier = Modifier.padding(start = YbSpace.S2))
                     }
                 }
-                Row(if (compact) Modifier.weight(1f) else Modifier.width(168.dp), horizontalArrangement = Arrangement.spacedBy(YbSpace.S3, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
+                Row(if (compact) Modifier.weight(1f) else Modifier.width(168.dp), horizontalArrangement = Arrangement.spacedBy(YbSpace.S1, Alignment.CenterHorizontally), verticalAlignment = Alignment.CenterVertically) {
                     TransportButton(PlayerIcons.Replay10, "快退 10 秒") { player.seekBack(); onActivity() }
                     // 看「想播放」而不是「正在播放」：缓冲时前者是真，按钮应是「暂停」，点了要真的暂停
                     TransportButton(
                         if (state.playWhenReady) PlayerIcons.Pause else YbIcons.Play,
                         if (state.playWhenReady) "暂停" else "播放",
-                        big = true,
+                        size = 44.dp,
                     ) {
                         if (state.playWhenReady) player.pause() else player.play()
                         onActivity()
