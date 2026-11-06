@@ -6,7 +6,6 @@ import android.content.ContextWrapper
 import android.media.AudioManager
 import android.provider.Settings
 import androidx.annotation.OptIn
-import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
 import androidx.compose.foundation.gestures.detectTapGestures
 import androidx.compose.foundation.gestures.detectVerticalDragGestures
@@ -49,8 +48,6 @@ import androidx.compose.ui.draw.alpha
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.input.pointer.pointerInput
 import androidx.compose.ui.platform.LocalContext
-import androidx.compose.ui.res.painterResource
-import com.yingbox.android.R
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.layout.onSizeChanged
 import androidx.compose.ui.text.style.TextAlign
@@ -68,9 +65,6 @@ import kotlin.math.roundToInt
 
 /** 进度、时间每隔多久刷新一次 */
 private const val TICK_MS = 500L
-
-/** 右上角 FSR 字标的宽度（高 20dp，按图片比例） */
-private val FSR_LOGO_WIDTH = 67.dp
 
 /** 长按时的倍速 */
 private const val BOOST_SPEED = 2f
@@ -111,7 +105,7 @@ internal fun PlayerControls(
         }
     }
     Box(Modifier.fillMaxSize()) {
-        // 顶栏：返回圆钮、标题胶囊（玻璃，跟着控制层一起出现、隐藏）；右上角是没有背景的 FSR 字标
+        // 顶栏：返回圆钮、标题胶囊（玻璃，跟着控制层一起出现、隐藏）
         val fsrShown = state.enhanceLevel != com.yingbox.android.playback.engine.EnhanceLevel.Off &&
             (state.enhanceComparing || state.enhanceStatus == "FSR")
         Row(
@@ -120,7 +114,7 @@ internal fun PlayerControls(
                 .fillMaxWidth()
                 .statusBarsPadding()
                 .displayCutoutPadding()
-                .padding(start = gutter(), end = gutter() + FSR_LOGO_WIDTH + YbSpace.S4, top = YbSpace.S3, bottom = YbSpace.S3),
+                .padding(start = gutter(), end = gutter(), top = YbSpace.S3, bottom = YbSpace.S3),
             horizontalArrangement = Arrangement.spacedBy(YbSpace.S3),
             verticalAlignment = Alignment.CenterVertically,
         ) {
@@ -138,19 +132,6 @@ internal fun PlayerControls(
                 .statusBarsPadding().displayCutoutPadding()
                 .fillMaxWidth(0.6f).padding(top = YbSpace.S5),
         )
-        if (fsrShown) {
-            Image(
-                painterResource(R.drawable.fsr_logo),
-                contentDescription = "AMD FSR",
-                modifier = Modifier
-                    .align(Alignment.TopEnd)
-                    .statusBarsPadding()
-                    .displayCutoutPadding()
-                    .padding(end = gutter(), top = YbSpace.S3 + 12.dp)
-                    .size(width = FSR_LOGO_WIDTH, height = 20.dp)
-                    .alpha(if (state.enhanceComparing) 0.4f else 1f),
-            )
-        }
 
         // 贴边玻璃控制条：保留触屏进度条和遥控器焦点所需的操作高度
         Column(

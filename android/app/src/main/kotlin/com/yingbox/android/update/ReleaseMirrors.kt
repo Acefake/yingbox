@@ -1,6 +1,7 @@
 package com.yingbox.android.update
 
 import java.io.IOException
+import com.yingbox.android.settings.NetworkOptions
 import java.net.URI
 
 /**
@@ -13,26 +14,30 @@ object ReleaseMirrors {
         "api.github.com",
         "github.com",
         "objects.githubusercontent.com",
+        "raw.githubusercontent.com",
     )
 
     fun isGithubMirrorHost(host: String): Boolean = host.lowercase() in hosts
 
     /** 官方 URL → 候选列表；非 https / 非法 → 空；非白名单 → 仅自身。 */
-    fun candidates(url: String): List<String> {
+    fun candidates(url: String, options: NetworkOptions = NetworkOptions()): List<String> {
         val parsed = runCatching { URI(url) }.getOrNull() ?: return emptyList()
         if (parsed.scheme != "https") return emptyList()
         val host = parsed.host ?: return emptyList()
         if (!isGithubMirrorHost(host)) return listOf(url)
-        return listOf(url, PREFIX + url)
+        if (parsed.userInfo != null || parsed.port != -1) return emptyList()
+        if (options.githubMode == "direct") return listOf(url)
+        val prefixes = options.mirrors.filter { host != "api.github.com" || it == PREFIX }
+        return listOf(url) + prefixes.map { it + url }
     }
 
     /** 安装包下载：只接受白名单 GitHub 主机。 */
-    fun githubAssetCandidates(url: String): List<String> {
+    fun githubAssetCandidates(url: String, options: NetworkOptions = NetworkOptions()): List<String> {
         val parsed = runCatching { URI(url) }.getOrNull() ?: return emptyList()
         if (parsed.scheme != "https") return emptyList()
         val host = parsed.host ?: return emptyList()
         if (!isGithubMirrorHost(host)) return emptyList()
-        return candidates(url)
+        return candidates(url, options)
     }
 
     /** 网络 / 429 / 5xx / 校验失败可换源；其它 4xx 不换。 */
@@ -46,7 +51,7 @@ object ReleaseMirrors {
             return true
         }
         val status = Regex("""HTTP (\d+)""").find(message)?.groupValues?.get(1)?.toIntOrNull()
-        if (status != null) return status == 429 || status >= 500
+        if (status != null) return status >= 500
         return error is IOException
     }
 }

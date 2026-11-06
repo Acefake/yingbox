@@ -85,7 +85,7 @@
         @click="ag.retry(episode.key)"
       />
       <UiButton
-        v-if="episode.status === 'saved'"
+        v-if="episode.status === 'saved' && episode.libraryLinked !== false"
         class="ep-quiet"
         size="sm"
         variant="plain"

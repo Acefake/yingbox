@@ -38,6 +38,7 @@ export interface AutograbPanelState {
   reload(): Promise<void>
   setEnabled(enabled: boolean): Promise<void>
   setSeries(seriesId: number, patch: AutograbSeriesPatch): Promise<boolean>
+  startSeries(seriesId: number): Promise<boolean>
   setPrefs(prefs: AutograbPrefs): Promise<void>
   /** 改剧集的全局策略；成功为 true */
   setPolicy(patch: GrabPolicyPatch): Promise<boolean>
@@ -109,6 +110,7 @@ export function useAutograb(): AutograbPanelState {
     setEnabled: then((enabled: boolean) => api().setEnabled(enabled)),
     setSeries: async (seriesId, patch) =>
       report(await api().setSeries(seriesId, patch)),
+    startSeries: async seriesId => report(await api().startSeries(seriesId)),
     setPrefs: then((prefs: AutograbPrefs) => api().setPrefs(prefs)),
     setPolicy: async patch => report(await api().setPolicy(patch)),
     grabBest: async keys => {
@@ -136,13 +138,13 @@ export function useAutograb(): AutograbPanelState {
       }
       if (failed.length)
         toast.error(`有 ${failed.length} 集没存成：${failed[0]}`)
-      if (saved) toast.success(`已转存 ${saved} 集，等待入库`)
+      if (saved) toast.success(`已转存 ${saved} 集到 115 网盘`)
       reloadSoon()
       return saved
     },
     grab: (key, index) =>
       working(key, 'grab', async () =>
-        report(await api().grab(key, index), '已转存，等待入库')
+        report(await api().grab(key, index), '已转存到 115 网盘')
       ),
     revert: key =>
       working(key, 'revert', async () =>

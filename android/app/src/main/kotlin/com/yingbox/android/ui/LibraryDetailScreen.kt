@@ -145,11 +145,11 @@ private fun DetailBody(nas: ServerClient, item: LibraryItem, progress: Map<Long,
                 PageTitle(card.title)
                 val meta = listOfNotNull(
                     card.year?.toString(),
-                    card.rating?.let { "评分 %.1f".format(it) },
                     item.runtimeMin?.let { "$it 分钟" },
                     item.genres.takeIf { it.isNotEmpty() }?.joinToString(" / "),
                 ).joinToString(" · ")
                 if (meta.isNotEmpty()) Text(meta, color = Muted, fontSize = YbText.Sm)
+                RatingBadge(card.rating?.toString().orEmpty(), source = card.ratingSource)
             }
         }
         item {

@@ -7,7 +7,7 @@
       variant="filled"
       icon="search"
       clearable
-      placeholder="搜索剧名，加入追更（不需要先在片库里）"
+      placeholder="搜索剧名，加入网盘追剧"
       aria-label="按剧名搜索并追更"
     />
     <UiButton
@@ -22,8 +22,8 @@
 
 <script setup lang="ts">
 /**
- * 自动追更页的「搜索剧名并追更」：不要求剧在片库或继续播放里（ADR-0049）。
- * 与日历里在线剧行的追更共用同一个动作（autograb.trackOnline）：剧名够确定就直接建片库条目并打开追更侧板，
+ * 自动追更页的「搜索剧名并追更」：直接建立网盘追剧任务（ADR-0052）。
+ * 与日历里在线剧行共用 autograb.trackOnline：匹配剧集后创建任务并打开追更侧板，
  * 对不准时弹候选让用户选，TMDB 找不到时提示。
  */
 import { ref } from 'vue'

@@ -81,7 +81,14 @@
       >
         {{ node.overview }}
       </p>
-      <p v-if="metaParts.length || specs.length" class="lib-hero-meta">
+      <p
+        v-if="metaParts.length || specs.length || node.rating"
+        class="lib-hero-meta"
+      >
+        <UiRatingBadge
+          inline
+          :rating="formatRating(node.rating, node.ratingSource)"
+        />
         <span v-for="part in metaParts" :key="part" class="lib-hero-meta-part">
           {{ part }}
         </span>
@@ -124,6 +131,8 @@ import type { SpecBadge } from '@/components/ui/spec-badge'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
+import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
+import { formatRating } from '../../../../../shared/library/rating'
 import { WatchlistButton } from '@/features/watchlist'
 
 import { MATCH_STATE_LABEL } from '../shared/format'
@@ -309,6 +318,7 @@ function onFadeIn(event: Event): void {
   font-size: var(--text-sm);
   font-variant-numeric: tabular-nums;
 }
+.ui-rating-badge + .lib-hero-meta-part::before,
 .lib-hero-meta-part + .lib-hero-meta-part::before {
   margin: 0 var(--space-2);
   content: '·';

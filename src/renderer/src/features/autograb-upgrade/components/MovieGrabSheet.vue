@@ -116,7 +116,7 @@ import {
   overrideSummary,
 } from '@/features/autograb'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
-import { thumbSrc } from '@/services/thumbnails'
+import { libraryImage } from '@/features/library'
 import type {
   MovieTrackStatus,
   MoviesOverview,
@@ -152,9 +152,7 @@ watch(
   }
 )
 
-const poster = computed(() =>
-  props.movie?.poster ? thumbSrc(props.movie.poster, 300) : null
-)
+const poster = computed(() => libraryImage(props.movie?.poster ?? null, 300))
 const subtitle = computed(() => {
   const m = props.movie
   if (!m) return ''

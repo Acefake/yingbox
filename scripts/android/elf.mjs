@@ -19,7 +19,8 @@ export function readDynamic(buf) {
   if (buf.length < 64 || buf.readUInt32BE(0) !== 0x7f454c46) return null
   const is64 = buf[4] === 2
   if (buf[5] !== 1) throw new Error('只支持小端 ELF')
-  const word = off => (is64 ? Number(buf.readBigUInt64LE(off)) : buf.readUInt32LE(off))
+  const word = off =>
+    is64 ? Number(buf.readBigUInt64LE(off)) : buf.readUInt32LE(off)
   const phoff = word(is64 ? 0x20 : 0x1c)
   const phentsize = buf.readUInt16LE(is64 ? 0x36 : 0x2a)
   const phnum = buf.readUInt16LE(is64 ? 0x38 : 0x2c)
@@ -40,14 +41,19 @@ export function readDynamic(buf) {
 
   const toOffset = addr => {
     const seg = loads.find(s => addr >= s.vaddr && addr < s.vaddr + s.filesz)
-    if (!seg) throw new Error(`地址 0x${addr.toString(16)} 不在任何 PT_LOAD 段内`)
+    if (!seg)
+      throw new Error(`地址 0x${addr.toString(16)} 不在任何 PT_LOAD 段内`)
     return addr - seg.vaddr + seg.offset
   }
   const entrySize = is64 ? 16 : 8
   const entries = []
   let strtab = 0
 
-  for (let at = dynamic.offset; at < dynamic.offset + dynamic.filesz; at += entrySize) {
+  for (
+    let at = dynamic.offset;
+    at < dynamic.offset + dynamic.filesz;
+    at += entrySize
+  ) {
     const tag = word(at)
     const value = word(at + entrySize / 2)
 
@@ -62,7 +68,9 @@ export function readDynamic(buf) {
   }
 
   return {
-    soname: entries.filter(e => e.tag === DT_SONAME).map(e => str(e.value))[0] ?? null,
+    soname:
+      entries.filter(e => e.tag === DT_SONAME).map(e => str(e.value))[0] ??
+      null,
     needed: entries.filter(e => e.tag === DT_NEEDED).map(e => str(e.value)),
   }
 }

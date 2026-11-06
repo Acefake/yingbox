@@ -8,6 +8,7 @@ import type { ValueKey } from './schema'
 
 /** 服务端保存的设置键 */
 export const SERVER_SETTING_KEYS = [
+  'network.optimization',
   'pan115.pansouUrl',
   'pan115.targetCid',
   'pan115.targetName',

@@ -2,6 +2,7 @@
  * 视图域 view（ADR-0030）：服务端拼好页面数据给安卓原生端。取数走在线引擎（online 域），
  * 所以只在在线板块开启时登记（见 features.ts）。
  */
+import type { NetworkPreferences } from '../../shared/network/preferences'
 import { randomUUID } from 'node:crypto'
 
 import { channelOf } from '../../shared/contract/define'
@@ -147,7 +148,8 @@ export type ViewRecords = Pick<
 export function registerView(
   registry: DomainRegistry,
   engine: ServerEngine,
-  records: ViewRecords
+  records: ViewRecords,
+  networkPreferences?: () => NetworkPreferences
 ): void {
   const deps = engineHomeDeps(engine)
   const feed = cachedHome(() => buildHomeFeed(deps))
@@ -168,7 +170,9 @@ export function registerView(
     createProber(sourceDeps),
     hidden
   )
-  const checkUpdate = createUpdateChecker(githubReleases())
+  const checkUpdate = createUpdateChecker(
+    githubReleases(undefined, networkPreferences)
+  )
   // 服务起来后在后台跑第一轮（与桌面启动轮次一样），失败不影响别的功能
   setTimeout(() => void health.start(), HEALTH_START_DELAY_MS).unref?.()
   registry.implement(view, {

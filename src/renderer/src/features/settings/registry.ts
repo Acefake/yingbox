@@ -51,6 +51,14 @@ const coreSections: SettingsSection[] = [
     order: 30,
   },
   {
+    id: 'network',
+    title: '网络优化',
+    icon: 'globe',
+    keywords: '网络 代理 镜像 GitHub TMDB 连接',
+    load: () => import('./sections/NetworkSettings.vue'),
+    order: 35,
+  },
+  {
     id: 'player',
     title: '播放器',
     icon: 'play',

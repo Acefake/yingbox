@@ -53,9 +53,7 @@
           :variant="spec.variant"
           :text="spec.text"
         />
-        <span v-if="rating" class="yb-media-row-rating"
-          ><UiIcon name="star" size="sm" filled />{{ rating }}</span
-        >
+        <UiRatingBadge inline :rating="rating" />
         <span v-if="noteText" class="yb-media-row-note">{{ noteText }}</span>
       </span>
     </span>
@@ -70,7 +68,7 @@
  * 影片结果行（Apple TV 式）：AI 助手的结果卡与统一入口的搜索结果行共用这一个组件，视觉语言一致。
  *
  * 左边竖版海报（懒加载、固定尺寸不跳动，加载前是占位底色，失败换成图标；有进度时底部一条进度条），
- * 右边三行：片名；一行说明（年份 · 类型 · 时长或季集）；规格标签（UiSpecBadge）+ 金星评分 + 弱化的备注
+ * 右边三行：片名；一行说明（年份 · 类型 · 时长或季集）；规格标签（UiSpecBadge）+ 来源评分角标 + 弱化的备注
  * （AI 理由、来源、剩余时间）。
  *
  * - dense：搜索结果的紧凑行（小海报，片名后接年份，不显示说明行，说明并进备注）；默认是结果卡（大海报、三行）。
@@ -85,6 +83,7 @@ import type { SpecBadge } from './spec-badge'
 import { webImageSrc } from '@/services/thumbnails'
 
 import UiIcon from './UiIcon.vue'
+import UiRatingBadge from './UiRatingBadge.vue'
 import UiPressable from './UiPressable.vue'
 import UiSpecBadge from './UiSpecBadge.vue'
 
@@ -97,7 +96,7 @@ const props = defineProps<{
   /** 说明行的几段（用 · 连接，空的跳过） */
   meta?: readonly string[]
   specs?: readonly SpecBadge[]
-  /** 评分文字（金星之后），如「8.1」「豆瓣 8.2」 */
+  /** 评分来源与数字，如「豆瓣 8.2」；未知来源仅显示文字。 */
   rating?: string
   /** 备注的几段（用 · 连接，空的跳过） */
   note?: readonly string[]
@@ -283,17 +282,6 @@ const clamp = (value: number): number => Math.min(1, Math.max(0, value))
 }
 .yb-media-row:where(.is-dense) .yb-media-row-specs {
   margin-top: 0;
-}
-.yb-media-row-rating {
-  display: inline-flex;
-  flex: none;
-  align-items: center;
-  gap: var(--space-0_5);
-  color: var(--text-secondary);
-  font-variant-numeric: tabular-nums;
-}
-.yb-media-row-rating .app-icon {
-  color: var(--rating);
 }
 .yb-media-row-note {
   min-width: 0;

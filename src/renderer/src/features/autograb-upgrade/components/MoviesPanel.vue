@@ -133,7 +133,8 @@
             v-for="hit in hits"
             :key="hit.tmdbId"
             :title="hit.title"
-            :cover="posterOf(hit.poster) ?? undefined"
+            :cover="hit.poster ?? undefined"
+            thumb
             :subtitle="
               tracked.has(hit.tmdbId)
                 ? '已在追踪'
@@ -165,7 +166,8 @@
           v-for="movie in data.movies"
           :key="movie.tmdbId"
           :title="movie.title"
-          :cover="posterOf(movie.poster) ?? undefined"
+          :cover="movie.poster ?? undefined"
+          thumb
           :subtitle="movieNote(movie) || (movie.year ? String(movie.year) : '')"
           @open="sheetId = movie.tmdbId"
         >
@@ -228,7 +230,7 @@ import {
 } from '@/features/netdisk'
 import { SettingsGroup, SettingsRow } from '@/features/settings'
 import { watchlistEntries } from '@/features/watchlist'
-import { thumbSrc } from '@/services/thumbnails'
+import { libraryImage } from '@/features/library'
 import type {
   MovieSearchHit,
   MovieTrackStatus,
@@ -316,9 +318,9 @@ function chipTone(status: MovieTrackStatus): string | undefined {
   return status === 'notFound' ? 'problem' : undefined
 }
 
-/** TMDB 海报 → 缩略图地址（列表里只要小图） */
+/** 小海报使用媒体库统一图片规则，保留可直接加载的原图地址。 */
 function posterOf(url: string | null): string | null {
-  return url ? thumbSrc(url, 300) : null
+  return libraryImage(url, 300)
 }
 
 async function search(text: string): Promise<void> {

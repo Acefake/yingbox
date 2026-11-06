@@ -14,45 +14,17 @@ import {
   readTargetSettings,
 } from '../../../shared/netdisk/target-folder'
 import { atomicWrite } from '../../file-operations'
-import { fetchHttp, readLimited } from '../../http-client'
 import type { LibraryEngineClient } from '../../library/client'
 import type { ModuleHost } from '../../module-host'
 import type { Gate } from '../gate'
 import type { PanAdapter } from '../upgrade/pan-adapter'
 import { movieFolderName } from '../folder-name'
 import { type MoviesService, createMoviesService } from './service'
-import { type TmdbGet, createMovieTmdb } from './tmdb'
+import { createMovieTmdb } from './tmdb'
+import { createTmdbGet } from '../tmdb-http'
 
 const FIRST_DELAY_MS = 3 * 60_000
 const INTERVAL_MS = 60 * 60_000
-const TMDB_API = 'https://api.themoviedb.org/3'
-
-/**
- * GET TMDB v3：v4 读访问令牌（eyJ 开头）走 Bearer，v3 API Key 放 api_key；错误信息里的令牌打码。
- */
-const tmdbGetter =
-  (tmdbToken: () => string): TmdbGet =>
-  async (path, query) => {
-    const token = tmdbToken()
-    if (!token) return null
-    const bearer = token.startsWith('eyJ')
-    const params = new URLSearchParams(query)
-    if (!bearer) params.set('api_key', token)
-    try {
-      const response = await fetchHttp(
-        `${TMDB_API}${path}?${params}`,
-        { headers: bearer ? { Authorization: `Bearer ${token}` } : {} },
-        15_000
-      )
-      return JSON.parse(
-        (await readLimited(response, 2 * 1024 * 1024)).toString('utf8')
-      )
-    } catch (error) {
-      const message = error instanceof Error ? error.message : String(error)
-      throw new Error(message.split(token).join('***'))
-    }
-  }
-
 /** 注册电影上线追踪（registerAutograb 之后调用一次） */
 export function registerAutograbMovies(
   host: ModuleHost,
@@ -63,8 +35,9 @@ export function registerAutograbMovies(
   const tmdbToken = (): string => host.tmdbToken()
   const file = join(host.dataDir, 'autograb-movies.json')
   const service = createMoviesService({
-    tmdb: createMovieTmdb(tmdbGetter(tmdbToken), () =>
-      host.setting('scrape.metadataLanguage')
+    tmdb: createMovieTmdb(
+      createTmdbGet(tmdbToken, () => host.setting('network.optimization')),
+      () => host.setting('scrape.metadataLanguage')
     ),
     tmdbReady: () => Boolean(tmdbToken()),
     inLibrary: async (tmdbId, title) => {

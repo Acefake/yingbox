@@ -3,6 +3,7 @@
  */
 import type { SeriesCategory } from '../../shared/contract/series-category'
 import type { AutograbSeries } from '../../shared/contract/autograb'
+import { effectiveMode } from '../../shared/contract/grab-policy'
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import { confirmFirstOf, seriesModeOf } from './policy'
 import { episodeKey, searchStart } from './schedule-rules'
@@ -121,7 +122,7 @@ export function seriesList(
   categories: Map<number, SeriesCategory> = new Map()
 ): AutograbSeries[] {
   const ids = new Set<number>([
-    ...airing.keys(),
+    ...(state.version === 2 ? [] : airing.keys()),
     ...Object.keys(state.series).map(Number),
   ])
   return [...ids]
@@ -129,17 +130,26 @@ export function seriesList(
       const setting = state.series[String(id)]
       return {
         seriesId: id,
+        tmdbId: setting?.tmdbId,
+        libraryItemId: setting?.libraryItemId,
+        syncLibrary: setting?.syncLibrary,
+        pending: setting?.pending,
+        year: setting?.year,
         title: airing.get(id) || setting?.title || `#${id}`,
         mode: setting?.mode ?? 'inherit',
-        effectiveMode: seriesModeOf(state, id),
+        effectiveMode: setting?.pending
+          ? effectiveMode(setting.mode, state.policy)
+          : seriesModeOf(state, id),
         confirmFirst: confirmFirstOf(state, setting),
         cid: setting?.cid ?? '',
         cidName: setting?.cidName ?? '',
         confirmed: setting?.confirmed ?? 0,
         prefs: setting?.prefs ?? {},
         nextAirDate: nextAir.get(id) ?? null,
-        poster: posters.get(id) ?? null,
-        ...(categories.has(id) ? { category: categories.get(id) } : {}),
+        poster: posters.get(id) ?? setting?.poster ?? null,
+        ...(categories.has(id) || setting?.category
+          ? { category: categories.get(id) ?? setting?.category }
+          : {}),
       }
     })
     .sort(

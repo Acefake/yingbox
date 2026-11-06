@@ -87,7 +87,13 @@ function installEdgeReveal(art: Artplayer, hide: () => void): void {
   }
   const move = (event: MouseEvent): void => {
     const next = pointerZone(art, event)
-    if (next === zone) return
+    if (event.target instanceof Node && $player.contains(event.target)) {
+      $player.classList.remove('art-hide-cursor')
+    }
+    if (next === zone) {
+      if (!zone) scheduleHide()
+      return
+    }
     zone = next
     clear()
     if (zone) reveal = setTimeout(() => show(zone), REVEAL_MS)

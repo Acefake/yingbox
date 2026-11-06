@@ -2,9 +2,12 @@
  * 在线引擎的主进程能力表：引擎经线协议的 host / reply（shared/utility/protocol.ts）请主进程代办。
  * 纯类型，两端共用。
  */
+import type { NetworkPreferences } from '../shared/network/preferences'
 
 /** 引擎能请主进程代办的事。 */
 export interface HostMethods {
+  /** 当前网络优化配置。 */
+  networkPreferences(): NetworkPreferences
   /**
    * 代抓 Cloudflare 后面的页面，返回原始 HTML：刚过过挑战的主机用同一会话直接取，否则开 Chromium
    * 窗口等挑战结束。失败返回空串。

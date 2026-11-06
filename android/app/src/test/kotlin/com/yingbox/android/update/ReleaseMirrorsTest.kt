@@ -1,6 +1,7 @@
 package com.yingbox.android.update
 
 import java.io.IOException
+import com.yingbox.android.settings.NetworkOptions
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
@@ -17,7 +18,7 @@ class ReleaseMirrorsTest {
         val asset = "https://github.com/Acefake/yingbox/releases/download/v1.0.4/x.exe"
         assertEquals(ReleaseMirrors.PREFIX + asset, ReleaseMirrors.candidates(asset)[1])
         assertEquals(
-            2,
+            4,
             ReleaseMirrors.candidates(
                 "https://objects.githubusercontent.com/github-production-release-asset-2e65be/x",
             ).size,
@@ -39,7 +40,7 @@ class ReleaseMirrorsTest {
         assertEquals(emptyList<String>(), ReleaseMirrors.githubAssetCandidates("https://example.com/a.apk"))
         val asset = "https://github.com/Acefake/yingbox/releases/download/v1.0.4/x.exe"
         assertEquals(
-            listOf(asset, ReleaseMirrors.PREFIX + asset),
+            listOf(asset) + NetworkOptions.BUILTINS.map { it + asset },
             ReleaseMirrors.githubAssetCandidates(asset),
         )
     }
@@ -48,7 +49,7 @@ class ReleaseMirrorsTest {
     fun `可重试判定`() {
         assertTrue(ReleaseMirrors.canRetryDownload(IOException("fail")))
         assertTrue(ReleaseMirrors.canRetryDownload(IllegalStateException("下载失败：HTTP 503")))
-        assertTrue(ReleaseMirrors.canRetryDownload(IllegalStateException("下载失败：HTTP 429")))
+        assertFalse(ReleaseMirrors.canRetryDownload(IllegalStateException("下载失败：HTTP 429")))
         assertFalse(ReleaseMirrors.canRetryDownload(IllegalStateException("下载失败：HTTP 404")))
         assertFalse(ReleaseMirrors.canRetryDownload(IllegalStateException("下载失败：HTTP 403")))
         assertTrue(ReleaseMirrors.canRetryDownload(IllegalStateException("安装包校验失败，请重试")))

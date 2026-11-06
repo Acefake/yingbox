@@ -8,6 +8,8 @@
  *   缩略图由服务进程里的 wasm 管线生成。
  * 两种宿主都经 createLibraryService 构造同一个 LibraryService，行为一致。
  */
+import { fetchTmdb } from '../../../shared/network/tmdb-fetch'
+import type { NetworkPreferences } from '../../../shared/network/preferences'
 import type {
   HttpFetch,
   IdentifyModuleOptions,
@@ -23,6 +25,7 @@ export { libraryPaths } from './paths'
 
 /** 宿主注入的能力。 */
 export interface LibraryPlatform {
+  networkPreferences?: () => NetworkPreferences | Promise<NetworkPreferences>
   /** 数据库文件路径（library.db）。 */
   dbPath: string
   /** 图片缓存根目录（orig/ 原图与 thumb/ 缩略图）。 */
@@ -95,7 +98,20 @@ export function createLibraryService(
     probeVideo: platform.probeVideo ?? extra.probeVideo,
     intake: platform.intake ?? extra.intake,
     identify: {
-      fetch: platform.fetch,
+      fetch: async (url, init) => {
+        if (
+          (init.method ?? 'GET') !== 'GET' ||
+          new URL(url).origin !== 'https://api.themoviedb.org'
+        )
+          return platform.fetch(url, init)
+        const preferences = await platform.networkPreferences?.()
+        return fetchTmdb(
+          url,
+          (candidate, signal) => platform.fetch(candidate, { ...init, signal }),
+          preferences?.tmdbMode,
+          init.signal
+        )
+      },
       mediaDir: platform.mediaDir,
       onImagesCached: platform.onImagesCached,
       deriveImage: platform.deriveImage,

@@ -95,7 +95,9 @@ const {
 
 // ── 分区组件懒加载 ───────────────────────────────────────────
 const loaded = shallowRef<Component | null>(null)
-const sectionRef = ref<{ canLeave?: () => boolean } | null>(null)
+const sectionRef = ref<{ canLeave?: () => boolean | Promise<boolean> } | null>(
+  null
+)
 
 watch(
   () => (props.visible ? current.value : undefined),
@@ -109,12 +111,12 @@ watch(
 )
 
 /** 当前分区有未保存修改时由它自己确认，返回 false 表示留在原处 */
-function canLeave(): boolean {
-  return sectionRef.value?.canLeave?.() !== false
+function canLeave(): boolean | Promise<boolean> {
+  return sectionRef.value?.canLeave?.() ?? true
 }
 
-function requestClose(): void {
-  if (canLeave()) emit('close')
+async function requestClose(): Promise<void> {
+  if (await canLeave()) emit('close')
 }
 
 watch(

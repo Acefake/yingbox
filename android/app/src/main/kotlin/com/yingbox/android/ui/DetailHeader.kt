@@ -162,17 +162,14 @@ private fun PosterHeader(detail: ViewDetail?, title: String, poster: String, cli
     }
 }
 
-/** ★ 评分 · 年份 · 时长 · 类型 */
+/** 来源评分角标、年份、时长与类型。 */
 @Composable
 private fun MetaRow(detail: ViewDetail) {
     val rest = listOf(detail.year, detail.duration, detail.genres.take(3).joinToString(" / "))
         .filter { it.isNotEmpty() }.joinToString(" · ")
     FlowRow(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2), verticalArrangement = Arrangement.spacedBy(YbSpace.S1)) {
         if (detail.rating.isNotEmpty()) {
-            Row(verticalAlignment = Alignment.CenterVertically) {
-                Icon(YbIcons.StarFill, contentDescription = null, tint = YbColor.Rating, modifier = Modifier.size(14.dp))
-                Text(detail.rating, color = YbColor.TextPrimary, fontSize = YbText.Sm, fontWeight = FontWeight.SemiBold, modifier = Modifier.padding(start = YbSpace.S1))
-            }
+            RatingBadge(detail.rating)
         }
         if (rest.isNotEmpty()) Text(rest, color = YbColor.TextSecondary, fontSize = YbText.Sm)
     }

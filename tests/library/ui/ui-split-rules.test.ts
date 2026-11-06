@@ -395,7 +395,7 @@ describe('条目详情规则', () => {
     expect(seasonEpisodes(null)).toEqual([])
   })
 
-  it('信息行：电影带时长，剧集数季（不含特别篇），分级、评分、前三个类型', () => {
+  it('信息行：电影时长、剧集季数、分级和类型，评分单独渲染', () => {
     const movie = node(1, {
       year: 2020,
       runtime: 125,
@@ -407,7 +407,6 @@ describe('条目详情规则', () => {
       '2020',
       '2 小时 5 分钟',
       'PG-13',
-      '★ 8.1',
       'a / b / c',
     ])
     const series = node(2, { type: 'series', runtime: 40 })
@@ -416,7 +415,7 @@ describe('条目详情规则', () => {
     ).toEqual(['2 季'])
     expect(
       metaLineOf(node(3, { rating: 7.94, ratingSource: 'tmdb' }), [])
-    ).toEqual(['★ TMDB 7.9'])
+    ).toEqual([])
     expect(metaLineOf(null, [])).toEqual([])
   })
 

@@ -1,43 +1,38 @@
 /**
  * 追更服务：定时一轮「看日历 → 建缺集记录 → 搜候选 → （全自动时）转存 → 核对入库」。
  * 不依赖 Electron：日历、通知、115 / PanSou、状态读写、时钟都由 index.ts 注入，测试可全部替换。
- * 安全边界：只追实际方式不是「不追」的剧，本地已有这一集就不搜；全自动要匹配分过 {@link AUTO_SCORE}、
- * 手动确认够门槛集数、转存目标不是根目录（目标 = 这部剧的文件夹 > 所属分类的文件夹 > 剧集默认目录，见 policy.ts）；
- * 转存前列目标文件夹（同名已在不存）、查剩余空间（不够暂停自动转存）；撤销只删记录里的文件；115 请求全过闸门。
+ * 只处理已确认开启的任务；策略、目录、限额和文件归属由 policy、target、saver 校验。
  */
 import type {
   AutograbOverview,
   AutograbResult,
-  AutograbSeriesPatch,
 } from '../../shared/contract/autograb'
 import type {
   GrabPolicy,
   GrabPolicyPatch,
 } from '../../shared/contract/grab-policy'
 import type { CalendarEpisode } from '../../shared/library/ipc'
-import type { AutograbDeps, AutograbService, Pan115Guard } from './deps'
+import type { AutograbDeps, AutograbService } from './deps'
+import { createControls } from './controls'
 import { createFinder } from './finder'
 import { createRoundRunner, createSingleFlight } from './flight'
-import { type Gate, createGate } from './gate'
+import { createGate } from './gate'
 import { AUTO_SCORE } from './match-rules'
 import { buildOverview } from './overview'
 import {
   anyTracked,
   applyCategoryFolder,
   applyPolicyPatch,
-  applySeriesPatch,
   confirmFirstOf,
   seriesModeOf,
   seriesPrefsOf,
   targetResolver,
+  trackedTasks,
 } from './policy'
-import { revertEpisode } from './revert'
 import {
-  MAX_AUTO_GRABS_PER_TICK,
   MAX_SEARCH_PER_TICK,
   addDays,
   calendarRange,
-  episodeKey,
   isDue,
   localDate,
   nextTry,
@@ -45,8 +40,9 @@ import {
 import { runBackfill } from './backfill'
 import { createPackRound } from './pack-round'
 import { adopt } from './reconcile'
-import { applyCalendar, retryRecord, skipRecord } from './records'
+import { applyCalendar } from './records'
 import { createSaver } from './saver'
+import { createTaskControls } from './tasks'
 import { episodeTarget } from './target'
 import {
   type AutograbState,
@@ -73,6 +69,9 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   let lastRunAt: number | null = null
   /** 第一次打开界面时的日历兜底只试一次（库里没有匹配的剧时日历一直是空的，不能每次刷新都重拉） */
   let calendarTried = false
+  let lastError: string | null = null
+  const loadCalendar = (): ReturnType<AutograbDeps['calendar']> =>
+    deps.calendar(calendarRange(deps.now()), trackedTasks(state))
 
   // 闸门持有 state.gate 的引用：load 之后要重建
   let gateRef = createGate(
@@ -105,8 +104,9 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       .then(raw => {
         state = parseState(raw, deps.now())
       })
-      .catch(() => {
-        state = emptyState(deps.now())
+      .catch(error => {
+        loaded = null
+        throw error
       })
       .then(() => {
         gateRef = createGate(
@@ -146,7 +146,11 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     now: number
   ): Promise<void> {
     airing = new Map(episodes.map(e => [e.seriesId, e.seriesTitle]))
-    if (await adopt(state, episodes, deps.seriesExists)) dirty()
+    if (
+      state.version === 1 &&
+      (await adopt(state, episodes, deps.seriesExists))
+    )
+      dirty()
     const saved = Object.values(state.episodes).filter(
       r => r.status === 'saved'
     )
@@ -168,6 +172,8 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       },
       { prefs, banned: record.banned }
     )
+    if (state.episodes[record.key] !== record || record.status !== 'waiting')
+      return
     record.attempts++
     record.candidates = result.candidates
     record.error = result.note
@@ -191,7 +197,11 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     const best = record.candidates[0]
     const setting = settingOf(record.seriesId)
     return (
+      state.enabled &&
+      deps.pan.loggedIn() &&
+      deps.pan.pansouReady() &&
       record.status === 'found' &&
+      state.episodes[record.key] === record &&
       !!best &&
       state.spacePause === null &&
       seriesModeOf(state, record.seriesId) === 'auto' &&
@@ -202,6 +212,7 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   }
 
   const saver = createSaver({
+    automaticAllowed: autoGrabbable,
     state: () => state,
     gate: () => gateRef,
     deps,
@@ -222,11 +233,14 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     state: () => state,
     finder,
     paused: () => gateRef.paused(),
-    tracked: id => seriesModeOf(state, id) !== 'off',
+    tracked: id =>
+      (state.version === 1 || !!settingOf(id)) &&
+      seriesModeOf(state, id) !== 'off',
     prefs: id => seriesPrefsOf(state, id),
     originalTitle: id =>
       lastCalendar.find(e => e.seriesId === id)?.originalTitle ?? undefined,
     dirty,
+    changed: () => deps.emit(),
     log: message => deps.log(message),
   })
   /** 同一集的转存单飞：全自动与手动点、连点撞在一起时只发一次 */
@@ -237,7 +251,6 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     byUser: boolean
   ): Promise<AutograbResult> =>
     grabs.run(record.key, () => saver.grab(record, index, byUser))
-  const followSaved = saver.followSaved
 
   /** 跑一轮；已在跑时这一轮完了再补跑一轮（不并发两轮，见 flight.ts） */
   const rounds = createRoundRunner(() => runOnce())
@@ -252,9 +265,15 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
     try {
       const now = deps.now()
       if (state.gate.loginPause && deps.pan.loggedIn()) gateRef.resume()
-      const result = await deps.calendar(calendarRange(now))
-      lastCalendar = result.episodes
-      await syncRecords(result.episodes, now)
+      const result = await loadCalendar()
+      lastError = result.failed
+        ? `${result.failed} 部剧获取分集失败，请检查 TMDB 设置后重试`
+        : null
+      lastCalendar = result.episodes.filter(
+        ep => state.version === 1 || !!settingOf(ep.seriesId)
+      )
+      await syncRecords(lastCalendar, now)
+      dirty()
       await runBackfill(backfillCtx, now)
       pruneEpisodes(state, addDays(localDate(now), -60))
       if (gateRef.paused() || !deps.pan.loggedIn() || !deps.pan.pansouReady())
@@ -263,9 +282,21 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       await packRound.run(now)
       const records = Object.values(state.episodes)
       for (const record of records.filter(r => r.status === 'saved'))
-        await followSaved(record, now).catch(e =>
+        await saver
+          .followSaved(record, now)
+          .catch(e => deps.log((e as Error).message))
+      // 合集候选先转存再补搜；失败候选不自动重试，避免耗尽 115 限额。
+      const waiting = records
+        .filter(r => r.error === null && autoGrabbable(r))
+        .sort((a, b) => a.airDate.localeCompare(b.airDate))
+      for (const record of waiting) {
+        if (gateRef.paused()) break
+        if (!autoGrabbable(record)) continue
+        const result = await grab(record, 0, false).catch(e =>
           deps.log((e as Error).message)
         )
+        if (result && !result.ok && result.retryLater) return
+      }
       const due = records
         .filter(
           r =>
@@ -275,7 +306,10 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
         .sort((a, b) => a.airDate.localeCompare(b.airDate))
         .slice(0, MAX_SEARCH_PER_TICK)
       for (const record of due) {
+        if (!state.enabled || !deps.pan.loggedIn() || !deps.pan.pansouReady())
+          return
         if (gateRef.paused()) break
+        if (state.episodes[record.key] !== record) continue
         try {
           await searchOne(record, deps.now())
         } catch (error) {
@@ -285,17 +319,8 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
           dirty()
         }
       }
-      // 之前搜到、当时还不满足全自动条件的集（新剧先确认没够数等），条件满足后补转存；
-      // 带着报错的（转存失败过）不自动重试，免得每一轮都白耗 115 的转存次数
-      const waiting = records
-        .filter(r => r.error === null && autoGrabbable(r))
-        .sort((a, b) => a.airDate.localeCompare(b.airDate))
-        .slice(0, MAX_AUTO_GRABS_PER_TICK)
-      for (const record of waiting) {
-        if (gateRef.paused()) break
-        await grab(record, 0, false).catch(e => deps.log((e as Error).message))
-      }
     } catch (error) {
+      lastError = (error as Error).message
       deps.log(`追更一轮失败：${(error as Error).message}`)
     } finally {
       running = false
@@ -304,68 +329,56 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
   }
 
   return {
+    ...createTaskControls({
+      state: () => state,
+      load: ensureLoaded,
+      dirty,
+      tick,
+      deps,
+      targetCid,
+      titleOf: id => airing.get(id),
+      removed: id => {
+        lastCalendar = lastCalendar.filter(ep => ep.seriesId !== id)
+        airing.delete(id)
+        packRound.forget(id)
+      },
+    }),
     tick,
     async overview(): Promise<AutograbOverview> {
       await ensureLoaded()
       if (!lastCalendar.length && !running && !calendarTried) {
         calendarTried = true
-        const result = await deps
-          .calendar(calendarRange(deps.now()))
-          .catch(() => null)
+        const result = await loadCalendar().catch(() => null)
         if (result) {
-          lastCalendar = result.episodes
-          await syncRecords(result.episodes, deps.now())
+          lastCalendar = result.episodes.filter(
+            ep => state.version === 1 || !!settingOf(ep.seriesId)
+          )
+          await syncRecords(lastCalendar, deps.now())
         }
       }
       gateRef.paused()
-      return buildOverview(state, {
-        ready: {
-          loggedIn: deps.pan.loggedIn(),
-          pansou: deps.pan.pansouReady(),
-        },
-        airing,
-        calendar: lastCalendar,
-        today: localDate(deps.now()),
-        lastRunAt,
-        intervalMs: deps.intervalMs ?? null,
-        running,
-        defaultFolder: deps.defaultFolder(),
-      })
-    },
-    async backfill(seriesId: number): Promise<void> {
-      await ensureLoaded()
-      const list = state.backfill ?? []
-      if (list.includes(seriesId)) return
-      state.backfill = [...list, seriesId]
-      dirty()
-      if (seriesModeOf(state, seriesId) !== 'off') void tick()
+      return {
+        ...buildOverview(state, {
+          ready: {
+            loggedIn: deps.pan.loggedIn(),
+            pansou: deps.pan.pansouReady(),
+          },
+          airing,
+          calendar: lastCalendar,
+          today: localDate(deps.now()),
+          lastRunAt,
+          intervalMs: deps.intervalMs ?? null,
+          running,
+          packSearch: packRound.progress(),
+          automatic: record =>
+            !record.error && !gateRef.paused() && autoGrabbable(record),
+          defaultFolder: deps.defaultFolder(),
+        }),
+        calendarEpisodes: lastCalendar,
+        error: lastError,
+      }
     },
     setEnabled: enabled => change(() => void (state.enabled = enabled)),
-    async setSeries(
-      seriesId: number,
-      patch: AutograbSeriesPatch
-    ): Promise<AutograbResult> {
-      await ensureLoaded()
-      const result = applySeriesPatch(
-        state,
-        seriesId,
-        airing.get(seriesId) || patch.title || '',
-        patch,
-        targetCid
-      )
-      if (!result.ok) return result
-      dirty()
-      if (patch.mode && seriesModeOf(state, seriesId) !== 'off') void tick()
-      return { ok: true }
-    },
-    async grab(key: string, index: number): Promise<AutograbResult> {
-      await ensureLoaded()
-      const record = state.episodes[key]
-      if (!record) return { ok: false, error: '记录不存在' }
-      if (gateRef.paused())
-        return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
-      return grab(record, index, true)
-    },
     setPrefs: prefs =>
       change(() => void (state.policy = { ...state.policy, prefs })),
     setCategoryFolder: (category, cid, name) =>
@@ -382,74 +395,15 @@ export function createAutograbService(deps: AutograbDeps): AutograbService {
       if (patch.mode && patch.mode !== 'off') void tick()
       return result
     },
-    async revert(key: string): Promise<AutograbResult> {
-      await ensureLoaded()
-      const record = state.episodes[key]
-      if (!record) return { ok: false, error: '记录不存在' }
-      if (gateRef.paused())
-        return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
-      try {
-        const result = await revertEpisode(
-          { gate: () => gateRef, deps, dirty },
-          record
-        )
-        if (result.ok) void tick()
-        return result
-      } catch (error) {
-        return { ok: false, error: `撤销失败：${(error as Error).message}` }
-      }
-    },
-    async skip(key: string): Promise<void> {
-      await ensureLoaded()
-      if (skipRecord(state.episodes[key])) dirty()
-    },
-    async rescan(key: string): Promise<AutograbResult> {
-      await ensureLoaded()
-      const record = state.episodes[key]
-      if (!record) return { ok: false, error: '记录不存在' }
-      if (gateRef.paused())
-        return { ok: false, error: state.gate.pauseReason ?? '追更已暂停' }
-      try {
-        return await saver.rescan(record)
-      } catch (error) {
-        return { ok: false, error: `重新入库失败：${(error as Error).message}` }
-      }
-    },
-    async retry(key: string): Promise<void> {
-      await ensureLoaded()
-      if (!retryRecord(state.episodes[key], deps.now())) return
-      dirty()
-      void tick()
-    },
-    async resume(): Promise<void> {
-      await ensureLoaded()
-      gateRef.resume()
-      state.spacePause = null
-      dirty()
-    },
-    async gate(): Promise<Gate> {
-      await ensureLoaded()
-      return gateRef
-    },
-    isSaved(seriesId: number, season: number, episode: number): boolean {
-      const key = episodeKey(seriesId, season, episode)
-      return state.episodes[key]?.status === 'saved'
-    },
-    async guard(): Promise<Pan115Guard> {
-      await ensureLoaded()
-      return {
-        // 闸门在加载后会重建：每次调用都取当前的那一个
-        run: (kind, task) => gateRef.run(kind, task),
-        pauseReason: () =>
-          gateRef.paused()
-            ? (state.gate.pauseReason ?? '115 闸门已暂停')
-            : null,
-        blocked: code => (state.blacklist[code] ?? 0) > deps.now(),
-        block: code => {
-          state.blacklist[code] = deps.now() + BLOCK_MS
-          dirty()
-        },
-      }
-    },
+    ...createControls({
+      state: () => state,
+      load: ensureLoaded,
+      gate: () => gateRef,
+      deps,
+      dirty,
+      tick,
+      grab,
+      saver,
+    }),
   }
 }

@@ -16,6 +16,13 @@ import { readMediaProgress } from '../src/renderer/src/features/player/utils/pla
 
 const fetchCalendarEpisodes = vi.fn()
 
+vi.mock('@/features/autograb', () => ({
+  useOnlineTracking: () => ({
+    schedule: { value: [] },
+    isTracked: () => false,
+  }),
+}))
+
 vi.mock('@/features/library', () => ({
   fetchCalendarEpisodes: (range: unknown) => fetchCalendarEpisodes(range),
   libraryProgressKey: (_id: unknown, path?: string) => path ?? '',

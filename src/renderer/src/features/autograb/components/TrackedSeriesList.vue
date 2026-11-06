@@ -22,10 +22,7 @@
         @update:model-value="value => (filter = value)"
       />
     </div>
-    <div
-      v-if="shown.length || untracked.length"
-      class="ui-poster-grid ag-posters"
-    >
+    <div v-if="shown.length" class="ui-poster-grid ag-posters">
       <UiPosterCard
         v-for="series in shown"
         :key="series.seriesId"
@@ -52,51 +49,10 @@
           >
         </template>
       </UiPosterCard>
-      <UiPressable
-        v-if="untracked.length && active === 'all' && activeCategory === 'all'"
-        class="ag-more-tile"
-        :aria-expanded="untrackedOpen"
-        @click="untrackedOpen = !untrackedOpen"
-      >
-        <span class="ag-more-icon"
-          ><UiIcon :name="untrackedOpen ? 'chevronUp' : 'plus'"
-        /></span>
-        <span class="ag-more-title">还有 {{ untracked.length }} 部没追</span>
-        <span class="ag-more-names">{{ untrackedNames }}</span>
-      </UiPressable>
     </div>
     <p v-else class="ag-empty">
-      还没有在追的剧。在上面搜索剧名，或在剧集详情页点「追更」，或等库里的连载剧开播后出现在这里。
+      还没有在追的剧。在上面搜索剧名，或在剧集详情页点「追更」。
     </p>
-
-    <template v-if="untracked.length && untrackedOpen && active === 'all'">
-      <h3 class="ag-section-title ag-subsection">
-        没在追的连载剧<span class="ag-section-count"
-          >点「+」先按待确认追，点海报细调</span
-        >
-      </h3>
-      <div class="ui-poster-grid ag-posters">
-        <UiPosterCard
-          v-for="series in untracked"
-          :key="series.seriesId"
-          :title="series.title"
-          :cover="posterOf(series)"
-          :subtitle="nextAirText(series) || '没在追'"
-          @open="emit('open', series.seriesId)"
-        >
-          <template #actions>
-            <UiIconButton
-              icon="plus"
-              variant="overlay"
-              size="sm"
-              :label="`追更 ${series.title}`"
-              :loading="busy.has(series.seriesId)"
-              @click.stop="emit('track', series)"
-            />
-          </template>
-        </UiPosterCard>
-      </div>
-    </template>
   </section>
 </template>
 
@@ -104,15 +60,12 @@
 /**
  * 自动追更页「在追的剧」：首页同款海报墙（UiPosterCard + .ui-poster-grid）。海报左上角玻璃胶囊是实际方式
  * （全自动带星标；单独设的标「单独」），右上角蓝色数字是待处理集数，副标题是下一集播出日；点海报打开这部剧的侧拉面板。
- * 方式不止一种时标题右侧可按方式筛选。墙的最后一格是「还有 N 部没追」，点开在下面列出在播或即将开播但没在追的连载剧：
- * 悬停右上角「+」一键追更（先按待确认追），点海报进面板细调。
+ * 方式不止一种时标题右侧可按方式筛选；只展示正在追更的剧。
  */
 import { computed, ref } from 'vue'
 
 import UiIcon from '@/components/ui/UiIcon.vue'
-import UiIconButton from '@/components/ui/UiIconButton.vue'
 import UiPosterCard from '@/components/ui/UiPosterCard.vue'
-import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSegmented from '@/components/ui/UiSegmented.vue'
 import { libraryImage } from '@/features/library'
 import type {
@@ -130,24 +83,19 @@ import { TV_MODE_OPTIONS, isCustom, optionLabel } from '../prefs-rules'
 
 const props = defineProps<{
   tracked: AutograbSeries[]
-  untracked: AutograbSeries[]
   /** 剧 id → 海报（片库条目的 poster 原样） */
   posters: ReadonlyMap<number, string | null>
   /** 剧 id → 待处理集数 */
   pending: ReadonlyMap<number, number>
-  /** 正在设置的剧 id */
-  busy: ReadonlySet<number>
 }>()
 const emit = defineEmits<{
   open: [seriesId: number]
-  track: [series: AutograbSeries]
 }>()
 
 type Filter = 'all' | AutograbMode
 type CategoryFilter = 'all' | SeriesCategory
 const filter = ref<Filter>('all')
 const category = ref<CategoryFilter>('all')
-const untrackedOpen = ref(false)
 
 /** 在追的剧里出现过的方式（只有一种时不出筛选） */
 const modes = computed(
@@ -187,12 +135,6 @@ const shown = computed(() =>
       (activeCategory.value === 'all' ||
         categoryOfSeries(series) === activeCategory.value)
   )
-)
-const untrackedNames = computed(() =>
-  props.untracked
-    .slice(0, 2)
-    .map(series => series.title)
-    .join('、')
 )
 
 /** 剧的海报（片库图片，取小图）；没有时卡片显示片名渐变 */
@@ -253,41 +195,5 @@ function modeText(series: AutograbSeries): string {
   overflow: hidden;
   clip-path: inset(50%);
   white-space: nowrap;
-}
-
-/* 墙的最后一格：与海报同宽同比例的虚线框 */
-.ag-more-tile {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  justify-content: center;
-  gap: var(--space-2);
-  aspect-ratio: 2 / 3;
-  padding: var(--space-3);
-  border-radius: var(--radius-card);
-  box-shadow: inset 0 0 0 1px var(--border-default);
-  color: var(--text-secondary);
-  font-size: var(--text-xs);
-  text-align: center;
-  transition: background var(--duration-fast) var(--ease-out);
-}
-
-.ag-more-tile:hover {
-  background: var(--bg-glass-hover);
-}
-
-.ag-more-icon {
-  display: grid;
-  place-items: center;
-  width: var(--control-height);
-  height: var(--control-height);
-  border-radius: var(--radius-full);
-  background: var(--control-bg);
-  color: var(--text-primary);
-}
-
-.ag-more-title {
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
 }
 </style>

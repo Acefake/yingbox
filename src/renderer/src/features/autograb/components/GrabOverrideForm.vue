@@ -179,8 +179,15 @@ function sizeHint(global: number | null, fallback: string): string {
 }
 
 function save(): void {
-  emit('save', { mode: mode.value, prefs: overrideOfDraft(draft) })
+  emit('save', readDraft())
 }
+
+/** 最终确认可读取当前输入，无须先提交内层表单。 */
+function readDraft(): { mode: GrabMode; prefs: GrabPrefsOverride } {
+  return { mode: mode.value, prefs: overrideOfDraft(draft) }
+}
+
+defineExpose({ readDraft })
 </script>
 
 <style scoped>

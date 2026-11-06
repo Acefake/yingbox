@@ -56,6 +56,29 @@ const hidden = (art: Artplayer): boolean =>
   art.template.$player.classList.contains('yb-controls-hidden')
 
 describe('桌面播放与边缘控件', () => {
+  it('清屏后移动鼠标立即恢复指针，同一区域持续移动不会隐藏指针', () => {
+    const art = player()
+    vi.advanceTimersByTime(2000)
+    expect(art.template.$player.classList.contains('art-hide-cursor')).toBe(
+      true
+    )
+    move(art, 320)
+    expect(art.template.$player.classList.contains('art-hide-cursor')).toBe(
+      false
+    )
+    expect(hidden(art)).toBe(true)
+    vi.advanceTimersByTime(1500)
+    move(art, 321)
+    vi.advanceTimersByTime(1500)
+    expect(art.template.$player.classList.contains('art-hide-cursor')).toBe(
+      false
+    )
+    vi.advanceTimersByTime(500)
+    expect(art.template.$player.classList.contains('art-hide-cursor')).toBe(
+      true
+    )
+  })
+
   it('单击暂停并清屏，再单击继续播放并保持清屏', () => {
     const art = player()
     click(art)

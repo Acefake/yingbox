@@ -41,9 +41,17 @@ export const CALENDAR_PARSERS: {
   [M in keyof CalendarRpcMap]: (input: unknown) => CalendarRpcMap[M]['params']
 } = {
   'calendar.episodes': parseCalendarRequest,
-  'calendar.seriesFolder': input => ({
-    itemId: positiveId(asRecord(input, '参数').itemId, 'itemId'),
-  }),
+  'calendar.seriesFolder': input => {
+    const raw = asRecord(input, '参数')
+    const itemId = positiveId(raw.itemId, 'itemId')
+    if (raw.expectedTmdbId === undefined) return { itemId }
+    if (
+      typeof raw.expectedTmdbId !== 'string' ||
+      !/^\d{1,10}$/.test(raw.expectedTmdbId)
+    )
+      invalid('expectedTmdbId 必须是数字')
+    return { itemId, expectedTmdbId: String(raw.expectedTmdbId) }
+  },
   'calendar.seriesEpisodes': input => {
     const r = asRecord(input, '参数')
     parseDate(r.to, 'to')

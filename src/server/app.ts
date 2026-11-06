@@ -146,6 +146,7 @@ export async function createServerApp(
       remote: panLibrary.remote,
       mediaDir,
       fetch: options.fetch ?? (await createFetch(config.fetch)),
+      networkPreferences: () => serverSettings.get('network.optimization'),
       log: message => log(`[library] ${message}`),
       deriveImage: codecDeriver(codec),
       clipPixels: codecClipPixels(codec),
@@ -213,6 +214,7 @@ export async function createServerApp(
     {
       dataDir: config.dataDir,
       env,
+      networkPreferences: () => serverSettings.get('network.optimization'),
       tmdbToken: () =>
         secrets.get(SECRET_KEYS.tmdbToken)?.trim() ||
         env.YINGBOX_TMDB_TOKEN ||

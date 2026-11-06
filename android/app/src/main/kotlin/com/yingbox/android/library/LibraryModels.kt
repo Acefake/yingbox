@@ -17,6 +17,7 @@ data class LibraryCard(
     val rating: Double?,
     val poster: String?,
     val backdrop: String?,
+    val ratingSource: String? = null,
 )
 
 /** 一页查询结果；total 是满足条件的总数，不受分页影响 */

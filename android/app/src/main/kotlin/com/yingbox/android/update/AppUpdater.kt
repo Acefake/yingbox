@@ -32,6 +32,11 @@ class AppUpdater(private val context: Context, client: ServerClient) {
         var url = URL(address)
         repeat(6) {
             check(url.protocol == "https") { "更新地址必须使用 HTTPS" }
+            check(url.userInfo == null && (url.port == -1 || url.port == 443)) { "更新地址不能携带凭据或自定义端口" }
+            val addresses = java.net.InetAddress.getAllByName(url.host)
+            check(addresses.isNotEmpty() && addresses.none {
+                it.isAnyLocalAddress || it.isLoopbackAddress || it.isLinkLocalAddress || it.isSiteLocalAddress || it.isMulticastAddress
+            }) { "更新地址必须指向公网" }
             val connection = (url.openConnection() as HttpURLConnection).apply {
                 connectTimeout = 15_000
                 readTimeout = 30_000
@@ -107,7 +112,7 @@ class AppUpdater(private val context: Context, client: ServerClient) {
         dir.listFiles()?.filter { it.extension == "apk" || it.extension == "part" }?.forEach { it.delete() }
         val target = File(dir, "yingbox-${update.version}.apk")
         val partial = File(dir, "${target.name}.part")
-        val urls = ReleaseMirrors.githubAssetCandidates(update.url)
+        val urls = ReleaseMirrors.githubAssetCandidates(update.url, com.yingbox.android.settings.DeviceSettings.readNetworkOptions(context))
         check(urls.isNotEmpty()) { "没有可用的更新地址" }
         var lastError: Exception? = null
         for (address in urls) {

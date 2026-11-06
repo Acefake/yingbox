@@ -5,6 +5,9 @@
  * 底层 fetch 与 DNS 解析由宿主注入：引擎注入 Electron `net.fetch`（Chromium 网络栈），
  * 主进程的 http 域（影视在用）注入 Node fetch。本文件不 import 任何 node / electron 模块。
  */
+import { mirrorCandidates } from '../release/mirrors'
+import { fetchTmdb } from '../network/tmdb-fetch'
+import type { NetworkPreferences } from '../network/preferences'
 import { type LookupAll, assertPublicTarget } from './guard'
 import { withExplicitReferrer } from './referrer'
 
@@ -16,7 +19,7 @@ export interface NetRequest {
   method?: 'GET' | 'POST' | 'HEAD'
   headers?: Record<string, string>
   body?: string
-  /** 单次请求超时（含所有重定向），默认 30 秒 */
+  /** 单次请求超时（含所有重定向），默认 30 秒；0 表示仅由外部 signal 控制。 */
   timeoutMs?: number
   /** 响应体上限，默认 16MB */
   maxBytes?: number
@@ -61,6 +64,7 @@ export interface NetClient {
 
 /** 创建客户端时的依赖。 */
 export interface NetDeps {
+  network?: () => NetworkPreferences | Promise<NetworkPreferences>
   fetch: FetchImpl
   lookup: LookupAll
   /** 当前时间（测试注入） */
@@ -135,12 +139,18 @@ export function createNetClient(deps: NetDeps): NetClient {
     { at: number; value: { text: string; url: string; status: number } }
   >()
 
-  async function open(
+  async function openOne(
     url: string,
     req: NetRequest = {}
   ): Promise<OpenResponse> {
-    const timeout = AbortSignal.timeout(req.timeoutMs ?? 30000)
-    const signal = req.signal ? AbortSignal.any([timeout, req.signal]) : timeout
+    const timeout =
+      req.timeoutMs === 0
+        ? undefined
+        : AbortSignal.timeout(req.timeoutMs ?? 30000)
+    const signal =
+      req.signal && timeout
+        ? AbortSignal.any([timeout, req.signal])
+        : (req.signal ?? timeout)
     let current = url
     let method = req.method ?? 'GET'
     let body = req.body
@@ -163,7 +173,13 @@ export function createNetClient(deps: NetDeps): NetClient {
       const location = response.headers.get('location')
       await response.body?.cancel().catch(() => {})
       if (!location) throw new Error('重定向缺少 Location')
-      current = new URL(location, current).toString()
+      const next = new URL(location, current)
+      if (next.origin !== new URL(current).origin) {
+        for (const key of Object.keys(headers))
+          if (['authorization', 'cookie'].includes(key.toLowerCase()))
+            delete headers[key]
+      }
+      current = next.toString()
       if (
         response.status === 303 ||
         ((response.status === 301 || response.status === 302) &&
@@ -174,6 +190,73 @@ export function createNetClient(deps: NetDeps): NetClient {
       }
     }
     throw new Error('重定向次数过多')
+  }
+
+  async function open(
+    url: string,
+    req: NetRequest = {}
+  ): Promise<OpenResponse> {
+    if ((req.method ?? 'GET') !== 'GET') return openOne(url, req)
+    const target = new URL(url)
+    const headers = new Headers(req.headers)
+    if (
+      deps.network &&
+      [
+        'github.com',
+        'api.github.com',
+        'raw.githubusercontent.com',
+        'objects.githubusercontent.com',
+      ].includes(target.hostname) &&
+      !headers.has('authorization') &&
+      !headers.has('cookie') &&
+      !target.username &&
+      !target.password &&
+      !target.searchParams.has('token') &&
+      !target.searchParams.has('access_token')
+    ) {
+      const preferences = await deps.network()
+      const candidates = mirrorCandidates(url, preferences)
+      const total = AbortSignal.timeout(req.timeoutMs ?? 20000)
+      const signal = req.signal ? AbortSignal.any([total, req.signal]) : total
+      for (let index = 0; index < candidates.length; index++) {
+        signal.throwIfAborted()
+        try {
+          const response = await openOne(candidates[index], {
+            ...req,
+            signal,
+            timeoutMs: 6000,
+          })
+          if (response.response.status < 500 || index === candidates.length - 1)
+            return response
+          await response.response.body?.cancel().catch(() => {})
+        } catch (error) {
+          if (signal.aborted || index === candidates.length - 1) throw error
+        }
+      }
+    }
+    if (target.origin !== 'https://api.themoviedb.org') return openOne(url, req)
+    const preferences = await deps.network?.()
+    const signal = req.signal
+      ? AbortSignal.any([
+          req.signal,
+          AbortSignal.timeout(req.timeoutMs ?? 30000),
+        ])
+      : AbortSignal.timeout(req.timeoutMs ?? 30000)
+    let finalUrl = url
+    const response = await fetchTmdb(
+      url,
+      async (candidate, attemptSignal) => {
+        const opened = await openOne(candidate, {
+          ...req,
+          signal: attemptSignal,
+        })
+        finalUrl = opened.url
+        return opened.response
+      },
+      preferences?.tmdbMode,
+      signal
+    )
+    return { response, url: finalUrl }
   }
 
   async function request(

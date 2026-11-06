@@ -50,6 +50,10 @@ object YbColor {
     val Rating = Color(0xFFFFD60A)
     /** 豆瓣评分来源标识，与桌面 UiRatingBadge 一致。 */
     val Douban = Color(0xFF2E963D)
+    /** TMDB 品牌小标，与网页评分组件共用品牌色。 */
+    val TmdbStart = Color(0xFF90CEA1)
+    val TmdbEnd = Color(0xFF01B4E4)
+    val TmdbText = Color(0xFF032541)
     /** 测速成功的状态点（--success） */
     val Success = Color(0xFF30D158)
     /** 测速中的状态点（--warning） */

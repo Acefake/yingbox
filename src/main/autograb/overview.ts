@@ -34,6 +34,7 @@ export function episodeView(record: EpisodeRecord): AutograbEpisode {
     candidates: record.candidates,
     error: record.error,
     notified: record.notified,
+    libraryError: record.libraryError,
     revertable: canRevert(record),
   }
 }
@@ -46,10 +47,14 @@ const PENDING_STATUSES: ReadonlySet<EpisodeRecord['status']> = new Set([
 ])
 
 /** 要用户处理的集数：只数实际在追的剧（侧栏角标与待处理列表同口径） */
-export function pendingCount(state: AutograbState): number {
+export function pendingCount(
+  state: AutograbState,
+  automatic?: (record: EpisodeRecord) => boolean
+): number {
   return Object.values(state.episodes).filter(
     r =>
       PENDING_STATUSES.has(r.status) &&
+      !automatic?.(r) &&
       seriesModeOf(state, r.seriesId) !== 'off'
   ).length
 }
@@ -76,6 +81,8 @@ export interface OverviewContext {
   /** 定时一轮的间隔；不知道为 null */
   intervalMs: number | null
   running: boolean
+  automatic?(record: EpisodeRecord): boolean
+  packSearch?: AutograbOverview['packSearch']
   defaultFolder: AutograbOverview['defaultFolder']
 }
 
@@ -100,14 +107,21 @@ export function buildOverview(
       seriesPosters(ctx.calendar),
       seriesCategories(ctx.calendar)
     ),
-    episodes: listedEpisodes(state).map(episodeView),
-    pendingCount: pendingCount(state),
+    episodes: listedEpisodes(state).map(record => ({
+      ...episodeView(record),
+      automatic: ctx.automatic?.(record) ?? false,
+      libraryLinked:
+        state.version === 1 ||
+        state.series[String(record.seriesId)]?.syncLibrary === true,
+    })),
+    pendingCount: pendingCount(state, ctx.automatic),
     lastRunAt: ctx.lastRunAt,
     nextRunAt:
       state.enabled && ctx.lastRunAt !== null && ctx.intervalMs
         ? ctx.lastRunAt + ctx.intervalMs
         : null,
     running: ctx.running,
+    packSearch: ctx.packSearch,
     defaultFolder: ctx.defaultFolder,
     categoryFolders: state.categoryFolders,
   }

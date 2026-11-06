@@ -183,8 +183,10 @@ private fun Hero(slides: List<ViewHeroSlide>, cards: Map<String, ViewCard>, clie
                     } else {
                         title()
                     }
-                    val meta = listOf(slide.meta, slide.rating).filter { it.isNotEmpty() }.joinToString(" · ")
-                    if (meta.isNotEmpty()) Text(meta, color = YbColor.TextSecondary, fontSize = YbText.Sm, textAlign = if (phone) TextAlign.Center else TextAlign.Start)
+                    Row(horizontalArrangement = Arrangement.spacedBy(YbSpace.S2), verticalAlignment = Alignment.CenterVertically) {
+                        RatingBadge(slide.rating)
+                        if (slide.meta.isNotEmpty()) Text(slide.meta, color = YbColor.TextSecondary, fontSize = YbText.Sm, textAlign = if (phone) TextAlign.Center else TextAlign.Start)
+                    }
                     if (slide.overview.isNotEmpty()) {
                         Text(slide.overview, color = YbColor.TextSecondary, fontSize = YbText.Sm, maxLines = 2, overflow = TextOverflow.Ellipsis, textAlign = if (phone) TextAlign.Center else TextAlign.Start)
                     }

@@ -24,6 +24,7 @@ describe('设置分区注册表', () => {
     expect(ids()).toEqual([
       'appearance',
       'scrape',
+      'network',
       'sources',
       'player',
       'danmaku',

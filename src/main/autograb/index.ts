@@ -27,6 +27,12 @@ import { seriesFolderName } from './folder-name'
 import { createPanFolders } from './pan-folders'
 import { type AutograbService, createAutograbService } from './service'
 import type { EpisodeRecord } from './state'
+import type { SeriesSetting } from './state'
+import { type SeriesInfo, createSeriesCatalog } from './catalog'
+import { createTmdbGet } from './tmdb-http'
+import { migrateAutograb } from './migration'
+import { templateFolder } from '../../shared/library/writer'
+import { createLibraryLinks, libraryLandedRecords } from './library-links'
 
 const FIRST_DELAY_MS = 90_000
 const INTERVAL_MS = 30 * 60_000
@@ -40,7 +46,7 @@ const INTERVAL_MS = 30 * 60_000
 export function registerAutograb(
   host: ModuleHost,
   library: LibraryEngineClient,
-  pan115: Pan115Service,
+  pan115: Pick<Pan115Service, 'account' | 'use' | 'searchRaw'>,
   hooks: { landed?(records: EpisodeRecord[]): void } = {}
 ): AutograbService {
   const file = join(host.dataDir, 'autograb.json')
@@ -58,13 +64,115 @@ export function registerAutograb(
 
   const mountRoot = (): string => host.setting('library.notify.mountRoot')
   const folders = createPanFolders(pan115, mountRoot)
+  const tasks = new Map<number, SeriesSetting>()
+  const links = createLibraryLinks(
+    itemId => library.call('getItem', { itemId }),
+    tasks
+  )
+  const catalog = createSeriesCatalog(
+    createTmdbGet(
+      () => host.tmdbToken(),
+      () => host.setting('network.optimization')
+    ),
+    () => host.setting('scrape.metadataLanguage')
+  )
 
   const service = createAutograbService({
-    calendar: range => library.call('calendar.episodes', range),
-    seriesEpisodes: (itemId, to) =>
-      library.call('calendar.seriesEpisodes', { itemId, to }),
-    seriesFolder: itemId => library.call('calendar.seriesFolder', { itemId }),
+    calendar: async (range, tracked) => {
+      for (const [id, setting] of Object.entries(tracked))
+        tasks.set(Number(id), setting)
+      const result = await catalog.calendar(range, tracked)
+      if (!Object.values(tracked).some(s => s.libraryItemId)) return result
+      const local = await library
+        .call('calendar.episodes', range)
+        .catch(() => null)
+      const verified = new Map(
+        await Promise.all(
+          Object.keys(tracked).map(
+            async id => [Number(id), await links.verify(Number(id))] as const
+          )
+        )
+      )
+      for (const ep of result.episodes) {
+        const linked = verified.get(ep.seriesId)
+        const found = local?.episodes.find(
+          e =>
+            e.seriesId === linked &&
+            e.tmdbId === ep.tmdbId &&
+            e.season === ep.season &&
+            e.episode === ep.episode
+        )
+        if (found)
+          Object.assign(ep, {
+            fileId: found.fileId,
+            filePath: found.filePath,
+            itemId: found.itemId,
+            libraryId: found.libraryId,
+          })
+      }
+      return result
+    },
+    seriesEpisodes: async (id, to, setting) => {
+      if (!setting) return []
+      const rows = await catalog.episodes(id, setting, {
+        from: '1900-01-01',
+        to,
+      })
+      if (!setting.libraryItemId) return rows
+      if (!(await links.verify(id))) return rows
+      const local = await library
+        .call('calendar.seriesEpisodes', { itemId: setting.libraryItemId, to })
+        .catch(() => [])
+      if (!(await links.verify(id))) return rows
+      for (const ep of rows) {
+        const found = local.find(
+          e =>
+            e.tmdbId === setting.tmdbId &&
+            e.season === ep.season &&
+            e.episode === ep.episode
+        )
+        if (found)
+          Object.assign(ep, {
+            fileId: found.fileId,
+            filePath: found.filePath,
+            itemId: found.itemId,
+          })
+      }
+      return rows
+    },
+    followsLibrary: id => tasks.get(id)?.syncLibrary === true,
+    seriesFolder: async id => {
+      const itemId = await links.verify(id)
+      return itemId
+        ? library.call('calendar.seriesFolder', {
+            itemId,
+            expectedTmdbId: tasks.get(id)?.tmdbId,
+          })
+        : Promise.resolve(null)
+    },
     seriesFolderName: async (itemId, title) => {
+      const setting = tasks.get(itemId)
+      if (setting?.tmdbId) {
+        const writer = setting.libraryItemId
+          ? await library
+              .call('writer.getSettings', undefined)
+              .catch(() => null)
+          : null
+        return templateFolder(
+          writer?.organize.tvTemplate ??
+            '{title} ({year})/{title} S{season:02}E{episode:02}',
+          {
+            title: setting.title,
+            series: setting.title,
+            originalTitle: setting.originalTitle ?? setting.title,
+            year: setting.year,
+            tmdbId: setting.tmdbId,
+            season: 1,
+            episode: 1,
+            ext: 'mkv',
+          }
+        )
+      }
       const [item, writer] = await Promise.all([
         library.call('getItem', { itemId }).catch(() => null),
         library.call('writer.getSettings', undefined),
@@ -122,11 +230,40 @@ export function registerAutograb(
         readTargetSettings(key => host.setting(key))
       ),
     load: async () => {
-      try {
-        return JSON.parse(await fs.readFile(file, 'utf8'))
-      } catch {
-        return null
+      const raw: unknown = await fs
+        .readFile(file, 'utf8')
+        .then(s => JSON.parse(s))
+        .catch((e: NodeJS.ErrnoException) => {
+          if (e.code === 'ENOENT') return null
+          throw e
+        })
+      const state = await migrateAutograb(raw, Date.now(), async itemId => {
+        const item = await library.call('getItem', { itemId })
+        return item
+          ? {
+              title: item.title,
+              tmdbId: item.providerIds.tmdb,
+              originalTitle: item.originalTitle ?? '',
+              year: item.year,
+              poster: item.poster,
+            }
+          : null
+      })
+      for (const [id, setting] of Object.entries(state.series))
+        tasks.set(Number(id), setting)
+      if (
+        !raw ||
+        (typeof raw === 'object' && 'version' in raw && raw.version !== 2)
+      ) {
+        if (raw)
+          await fs
+            .writeFile(`${file}.v1.bak`, JSON.stringify(raw), { flag: 'wx' })
+            .catch((e: NodeJS.ErrnoException) => {
+              if (e.code !== 'EEXIST') throw e
+            })
+        await atomicWrite(file, JSON.stringify(state))
       }
+      return state
     },
     save: state => atomicWrite(file, JSON.stringify(state)),
     now: () => Date.now(),
@@ -134,10 +271,29 @@ export function registerAutograb(
     sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
     emit: () => host.emit(autograb, 'changed', undefined),
     log: message => console.info(`[autograb] ${message}`),
-    landed: records => hooks.landed?.(records),
+    landed: records => hooks.landed?.(libraryLandedRecords(records, tasks)),
   })
 
   const run = (): void => void refreshAccount().then(() => service.tick())
+  const track = async (
+    info: SeriesInfo,
+    libraryItemId?: number
+  ): Promise<TrackOnlineResult> => {
+    await refreshAccount()
+    const id = await service.track(info, libraryItemId)
+    tasks.set(id, {
+      ...info,
+      ...(libraryItemId ? { libraryItemId } : {}),
+      title: info.title,
+      mode: 'inherit',
+      cid: '',
+      cidName: '',
+      confirmed: 0,
+      prefs: {},
+    })
+    await service.backfill(id)
+    return { status: 'ready', seriesId: id }
+  }
   host.schedule({
     name: 'autograb',
     firstDelayMs: FIRST_DELAY_MS,
@@ -151,24 +307,24 @@ export function registerAutograb(
       return service.overview()
     },
     setEnabled: (_, enabled) => service.setEnabled(enabled),
-    setSeries: (_, seriesId, patch) => service.setSeries(seriesId, patch),
+    startSeries: async (_, seriesId) => {
+      await refreshAccount()
+      return service.startSeries(seriesId)
+    },
+    setSeries: async (_, seriesId, patch) => {
+      const result = await service.setSeries(seriesId, patch)
+      if (result.ok && patch.mode === 'off') tasks.delete(seriesId)
+      return result
+    },
     trackOnline: async (_, request): Promise<TrackOnlineResult> => {
-      const found = await library.call('calendar.ensureSeries', request)
-      if (found.status === 'ready') {
-        await service.backfill(found.itemId)
-        return { status: 'ready', seriesId: found.itemId }
-      }
-      if (found.status === 'none') return found
-      return {
-        status: 'choose',
-        candidates: found.candidates.map(c => ({
-          id: c.id,
-          title: c.title,
-          originalTitle: c.originalTitle,
-          year: c.year,
-          poster: c.poster,
-        })),
-      }
+      const found = await catalog.resolve(request)
+      return found.status === 'ready' ? track(found.info) : found
+    },
+    trackLibrary: async (_, itemId) => {
+      const item = await library.call('getItem', { itemId })
+      if (!item || item.type !== 'series' || !item.providerIds.tmdb)
+        throw new Error('请先匹配这部剧的 TMDB 信息')
+      return track(await catalog.info(item.providerIds.tmdb), itemId)
     },
     setPrefs: (_, prefs) => service.setPrefs(prefs),
     setCategoryFolder: (_, category, cid, name) =>

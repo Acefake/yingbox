@@ -1,3 +1,4 @@
+import { DEFAULT_NETWORK } from '../src/shared/network/preferences'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { EngineHost } from '../src/main/engine/host'
 import { type EngineContext, serveEngine } from '../src/engine/rpc'
@@ -37,6 +38,7 @@ function wire(
     idleMs: opts.idleMs,
     broadcast: () => {},
     hostMethods: {
+      networkPreferences: async () => DEFAULT_NETWORK,
       browserFetch: async () => '',
       resetBrowserFetch: async () => {},
       downloadDir: async () => '/tmp',

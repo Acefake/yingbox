@@ -4,6 +4,7 @@
  * 没认到的集保持等待，由后面的逐集搜接着找。同一部剧 {@link PACK_RETRY_MS} 内不重复找（内存里记，重启后重找）。
  */
 import type { GrabPrefs } from '../../shared/contract/grab-prefs'
+import type { AutograbPackSearch } from '../../shared/contract/autograb'
 import type { createFinder } from './finder'
 import { packKey } from './pack-finder'
 import { isDue } from './schedule-rules'
@@ -26,15 +27,24 @@ export interface PackRoundContext {
   prefs(seriesId: number): GrabPrefs
   originalTitle(seriesId: number): string | undefined
   dirty(): void
+  changed?(): void
   log(message: string): void
 }
 
 /** 创建合集优先的一轮 */
 export function createPackRound(ctx: PackRoundContext): {
   run(now: number): Promise<void>
+  progress(): AutograbPackSearch[]
+  forget(seriesId: number): void
 } {
   const tried = new Map<number, number>()
+  const progress = new Map<number, AutograbPackSearch>()
   return {
+    progress: () => [...progress.values()].map(item => ({ ...item })),
+    forget: id => {
+      progress.delete(id)
+      tried.delete(id)
+    },
     async run(now: number): Promise<void> {
       const bySeries = new Map<number, EpisodeRecord[]>()
       for (const r of Object.values(ctx.state().episodes))
@@ -53,6 +63,13 @@ export function createPackRound(ctx: PackRoundContext): {
           .sort((a, b) => a.airDate.localeCompare(b.airDate))
           .slice(0, PACK_MAX_TARGETS)
         const byKey = new Map(records.map(r => [packKey(r), r]))
+        progress.set(seriesId, {
+          seriesId,
+          status: 'searching',
+          matched: 0,
+          total: records.length,
+        })
+        ctx.changed?.()
         try {
           const found = await ctx.finder.findPack(
             {
@@ -65,10 +82,17 @@ export function createPackRound(ctx: PackRoundContext): {
               banned: target => byKey.get(packKey(target))?.banned ?? [],
             }
           )
+          if (!ctx.tracked(seriesId)) continue
           let hit = 0
           for (const [key, candidates] of found) {
             const record = byKey.get(key)
-            if (!record || !candidates.length) continue
+            if (
+              !record ||
+              !candidates.length ||
+              ctx.state().episodes[record.key] !== record ||
+              record.status !== 'waiting'
+            )
+              continue
             record.attempts++
             record.candidates = candidates
             record.status = 'found'
@@ -82,8 +106,23 @@ export function createPackRound(ctx: PackRoundContext): {
             )
             ctx.dirty()
           }
+          progress.set(seriesId, {
+            seriesId,
+            status: 'complete',
+            matched: hit,
+            total: records.length,
+          })
         } catch (error) {
+          if (!ctx.tracked(seriesId)) continue
+          progress.set(seriesId, {
+            seriesId,
+            status: 'failed',
+            matched: 0,
+            total: records.length,
+          })
           ctx.log(`找合集失败：${(error as Error).message}`)
+        } finally {
+          ctx.changed?.()
         }
       }
     },

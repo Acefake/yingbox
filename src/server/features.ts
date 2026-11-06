@@ -39,6 +39,11 @@ export function registerServerFeatures(
     registerStreamRoute(router, { allowPrivate: config.streamAllowPrivate })
   const online = registerOnline(router, deps)
   if (online.engine)
-    registerView(registry, online.engine, deps.records ?? NO_RECORDS)
+    registerView(
+      registry,
+      online.engine,
+      deps.records ?? NO_RECORDS,
+      deps.networkPreferences
+    )
   return { close: online.close }
 }

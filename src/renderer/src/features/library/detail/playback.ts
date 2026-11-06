@@ -154,7 +154,7 @@ export function seasonEndHint(
         text,
         action: {
           label: '去追更',
-          to: `/autograb?series=${seriesId}&title=${encodeURIComponent(title)}`,
+          to: `/autograb?library=${seriesId}&title=${encodeURIComponent(title)}`,
         },
       }
     : { text }

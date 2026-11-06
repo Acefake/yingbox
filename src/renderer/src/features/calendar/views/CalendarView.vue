@@ -256,9 +256,16 @@ const pendingCount = useAutograbBadge()
 /** 一行的追更小标记：行里第一集有标记的媒体库条目 */
 function markOf(group: ShowDayGroup): AutograbMark | null {
   for (const entry of group.entries) {
-    const lib = entry.library
+    const lib = entry.library ?? entry.tracking
     if (!lib) continue
-    const mark = marks.value.get(markKey(lib.seriesId, lib.season, lib.episode))
+    const mark = marks.value.get(
+      markKey(
+        lib.seriesId,
+        lib.season,
+        lib.episode,
+        entry.tracking ? 'tracking' : 'library'
+      )
+    )
     if (mark) return mark
   }
   return null
@@ -360,6 +367,13 @@ function openLibraryDetail(seriesId: number, category?: SeriesCategory): void {
 
 /** 点卡片：本地有文件就播放，否则打开详情 */
 async function activate(entry: CalendarEntry): Promise<void> {
+  if (entry.tracking) {
+    tracking.sheet.value = {
+      seriesId: entry.tracking.seriesId,
+      title: entry.title,
+    }
+    return
+  }
   if (entry.library) {
     const { seriesId, season, episode, playable, category } = entry.library
     if (playable && (await playLibraryEpisode(seriesId, season, episode)))

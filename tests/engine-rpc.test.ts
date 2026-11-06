@@ -1,3 +1,4 @@
+import { DEFAULT_NETWORK } from '../src/shared/network/preferences'
 import { describe, expect, it } from 'vitest'
 import { forwardTo } from '../src/main/engine/forward'
 import { EngineHost } from '../src/main/engine/host'
@@ -28,6 +29,7 @@ function wire(): {
   const host = new EngineHost({
     broadcast: (channel, payload) => broadcasts.push([channel, payload]),
     hostMethods: {
+      networkPreferences: async () => DEFAULT_NETWORK,
       browserFetch: async url => `<html>${url}</html>`,
       resetBrowserFetch: async () => {},
       downloadDir: async () => '/tmp',

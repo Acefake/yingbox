@@ -53,7 +53,8 @@ async function tmdbOverview(
       const response = await fetchHttp(
         `${TMDB_API}/tv/${tvId}/season/${season}/episode/${episode}?${query}`,
         { headers: bearer ? { Authorization: `Bearer ${token}` } : {} },
-        15_000
+        15_000,
+        settingsStore().get('network.optimization')
       )
       const body = JSON.parse(
         (await readLimited(response, 1024 * 1024)).toString('utf8')

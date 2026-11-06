@@ -195,9 +195,10 @@ internal fun LibraryPoster(card: LibraryCard, nas: ServerClient, open: () -> Uni
         }
         Text(card.title, color = YbColor.TextPrimary, fontSize = YbText.Md, fontWeight = androidx.compose.ui.text.font.FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis)
         Text(
-            listOfNotNull(card.year?.toString(), card.rating?.let { "%.1f".format(it) }).joinToString(" · "),
+            card.year?.toString().orEmpty(),
             color = Muted,
             fontSize = YbText.Xs,
         )
+        RatingBadge(card.rating?.toString().orEmpty(), source = card.ratingSource)
     }
 }

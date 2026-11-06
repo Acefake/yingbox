@@ -69,7 +69,7 @@ export type HttpFetch = (
     body?: string
     redirect?: 'follow' | 'manual'
   }
-) => ReturnType<FetchLike> & ReturnType<BinaryFetch>
+) => Promise<Awaited<ReturnType<FetchLike>> & Awaited<ReturnType<BinaryFetch>>>
 
 /** 模块参数。 */
 export interface IdentifyModuleOptions {

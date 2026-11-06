@@ -96,7 +96,7 @@ export interface CalendarRpcMap {
   'calendar.episodes': { params: CalendarRequest; result: CalendarResult }
   /** 追更转存用：这部剧（含同 TMDB id 的合并成员）在片库里的家；没有剧文件夹时为 null */
   'calendar.seriesFolder': {
-    params: { itemId: number }
+    params: { itemId: number; expectedTmdbId?: string }
     result: SeriesFolder | null
   }
   /** 一部剧到 to（含）为止播出过的全部集（追更首次「存整部剧」用，不受一次最多 62 天限制） */

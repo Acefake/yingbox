@@ -33,6 +33,8 @@ export function registerEngine(): EngineHost {
     onReady: ms => console.info(`[engine] 引擎就绪（${ms} ms）`),
     onBlocked: reason => console.error(`[engine] ${reason}`),
     hostMethods: {
+      networkPreferences: async () =>
+        settingsStore().get('network.optimization'),
       browserFetch: url => browserFetch(url),
       resetBrowserFetch: async host => resetBrowserFetch(host),
       downloadDir: async () =>

@@ -23,13 +23,23 @@ import type {
 } from '../../shared/library/ipc'
 import type { DriveEntry, DriveSpace } from '../pan115/client'
 import type { Gate, GateKind } from './gate'
-import type { AutograbState, EpisodeRecord } from './state'
+import type { AutograbState, EpisodeRecord, SeriesSetting } from './state'
+import type { SeriesInfo } from './catalog'
 
 /** 依赖 */
 export interface AutograbDeps {
-  calendar(range: CalendarRequest): Promise<CalendarResult>
+  calendar(
+    range: CalendarRequest,
+    tasks: Readonly<Record<string, SeriesSetting>>
+  ): Promise<CalendarResult>
   /** 一部剧到 to（含）为止播出过的全部集（存整部剧用）；不可用时不补 */
-  seriesEpisodes?(seriesId: number, to: string): Promise<CalendarEpisode[]>
+  seriesEpisodes?(
+    seriesId: number,
+    to: string,
+    setting?: SeriesSetting
+  ): Promise<CalendarEpisode[]>
+  /** 只有明确关联媒体库的任务跟进入库。 */
+  followsLibrary?(seriesId: number): boolean
   /** 确认旧条目是否仍是媒体库里这部剧（条目 id 可能被别的条目复用，所以连剧名一起核对）；不可用或查询失败时不自动迁移。 */
   seriesExists?(seriesId: number, title: string): Promise<boolean>
   /** 通知媒体库有新文件；返回被媒体库接住的条数（0 = 没有库覆盖这个路径），不关心结果的实现可以不返回 */
@@ -93,6 +103,9 @@ export interface Pan115Guard {
 
 /** 追更服务 */
 export interface AutograbService {
+  /** 按 TMDB 身份创建或复用独立追剧任务。 */
+  track(info: SeriesInfo, libraryItemId?: number): Promise<number>
+  startSeries(seriesId: number): Promise<AutograbResult>
   /** 跑一轮（已在跑时直接返回） */
   tick(): Promise<void>
   overview(): Promise<AutograbOverview>

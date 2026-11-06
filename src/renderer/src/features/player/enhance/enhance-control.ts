@@ -35,17 +35,10 @@ export function installEnhanceControl(art: Artplayer): (state: string) => void {
   element.setAttribute('role', 'button')
   element.setAttribute('tabindex', '0')
   element.setAttribute('aria-label', '画质增强')
-  const badge = document.createElement('span')
-  badge.className = 'yb-enhance-status'
-  badge.setAttribute('role', 'status')
-  badge.hidden = true
-  art.template.$player.append(badge)
   let unavailable = ''
   const report = (state: string): void => {
     if (state === '不支持' || state === '处理失败') unavailable = state
     if (art.video.dataset.ybEnhanceState === state) return
-    badge.hidden = state !== 'FSR' && state !== '原画'
-    badge.textContent = state === '原画' ? '原画对比' : 'FSR 增强'
     art.video.dataset.ybEnhanceState = state
     art.emit('yb:enhance-update')
   }

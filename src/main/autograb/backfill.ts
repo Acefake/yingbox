@@ -29,7 +29,7 @@ export async function runBackfill(
   for (const id of [...pending]) {
     if (seriesModeOf(state, id) === 'off') continue
     try {
-      const episodes = await seriesEpisodes(id, today)
+      const episodes = await seriesEpisodes(id, today, state.series[String(id)])
       if (applyCalendar(state, episodes, today)) ctx.dirty()
       state.backfill = (state.backfill ?? []).filter(x => x !== id)
       ctx.dirty()

@@ -1,3 +1,7 @@
+import {
+  DEFAULT_NETWORK,
+  parseNetwork,
+} from '../../../shared/network/preferences'
 /**
  * 引擎进程入口（Electron utilityProcess）——片库核心的桌面宿主。
  *
@@ -76,6 +80,8 @@ const service = createLibraryService({
   dbPath,
   mediaDir,
   fetch: fetchImpl,
+  networkPreferences: async () =>
+    parseNetwork(await host.call('networkPreferences', [])) ?? DEFAULT_NETWORK,
   log: message => console.warn(`[library] ${message}`),
   onImagesCached: keys =>
     post({ kind: 'event', channel: LIBRARY_IMAGES_CACHED, payload: keys }),

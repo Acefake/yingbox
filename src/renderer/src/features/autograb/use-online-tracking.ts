@@ -1,8 +1,9 @@
 /**
- * 日历里在线剧的「追更」流程（ADR-0049）：点追更 → 主进程在片库建（或找到）这部剧 → 打开追更侧板。
- * 剧名对不准时先弹候选让用户选；TMDB 找不到、没有剧集库等用 toast 说明。已经建过的直接开侧板。
+ * 在线剧的追更流程（ADR-0052）：匹配 TMDB → 创建或复用独立网盘任务 → 打开追更侧板。
+ * 剧名不确定时先选候选；身份和目录不依赖媒体库。
  */
-import { type Ref, computed, ref } from 'vue'
+import { type ComputedRef, type Ref, computed, ref } from 'vue'
+import type { CalendarEpisode } from '../../../../shared/library/ipc'
 
 import { toast } from '@/components/ui/toast'
 import type {
@@ -18,6 +19,7 @@ import {
 
 import { autograbApi } from './api'
 import { autograbStore } from './autograb-store'
+import { showTrackingError } from './tracking-error'
 
 /** 要追的在线剧 */
 export interface OnlineShow {
@@ -39,6 +41,8 @@ export interface TrackedSheet {
 }
 
 export interface UseOnlineTrackingReturn {
+  /** 独立追剧任务的播出表，不要求媒体库或播放历史。 */
+  schedule: ComputedRef<CalendarEpisode[]>
   /** 正在建的记录 id */
   busy: Ref<string | null>
   choice: Ref<TrackChoice | null>
@@ -60,7 +64,7 @@ export function useOnlineTracking(): UseOnlineTrackingReturn {
   /** 在追的剧（方式不是「不追」） */
   const following = computed(() =>
     (autograbStore.overview.value?.series ?? []).filter(
-      s => s.effectiveMode !== 'off'
+      s => !s.pending && s.effectiveMode !== 'off'
     )
   )
 
@@ -89,6 +93,7 @@ export function useOnlineTracking(): UseOnlineTrackingReturn {
       const result = await autograbApi().trackOnline(request)
       if (result.status === 'ready') {
         linkOnline(show.recordId, result.seriesId)
+        await autograbStore.reload()
         choice.value = null
         sheet.value = { seriesId: result.seriesId, title: show.title }
       } else if (result.status === 'choose') {
@@ -97,12 +102,7 @@ export function useOnlineTracking(): UseOnlineTrackingReturn {
         void toast.warning(`在 TMDB 上没找到「${show.title}」，暂时不能追更`)
       }
     } catch (error) {
-      void toast.error(
-        (error instanceof Error ? error.message : String(error)).replace(
-          /^\[library:[a-z-]+\]\s*/,
-          ''
-        )
-      )
+      await showTrackingError(error)
     } finally {
       busy.value = null
     }
@@ -120,6 +120,9 @@ export function useOnlineTracking(): UseOnlineTrackingReturn {
   }
 
   return {
+    schedule: computed(
+      () => autograbStore.overview.value?.calendarEpisodes ?? []
+    ),
     busy,
     choice,
     sheet,

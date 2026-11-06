@@ -30,7 +30,8 @@ async function ask(series: AutograbSeries): Promise<void> {
   asked.add(series.seriesId)
   let poster: string | null = null
   try {
-    poster = await fetchItemPoster(series.seriesId)
+    if (series.libraryItemId)
+      poster = await fetchItemPoster(series.libraryItemId)
   } catch {
     // 片库查不到就按剧名找
   }

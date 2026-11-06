@@ -12,7 +12,7 @@ import { HttpError, type Router, json, readJson } from '../http/router'
 /** 元数据服务的依赖；net 允许测试注入受控网络响应。 */
 export type MetadataDeps = Pick<
   ServerFeatureDeps,
-  'tmdbToken' | 'tmdbLanguage' | 'log'
+  'tmdbToken' | 'tmdbLanguage' | 'log' | 'networkPreferences'
 > & { net?: NetClient }
 
 const METHODS = [
@@ -41,6 +41,7 @@ export function registerNasMetadata(router: Router, deps: MetadataDeps): void {
     deps.net ??
     createNetClient({
       fetch,
+      network: deps.networkPreferences,
       lookup: hostname => lookup(hostname, { all: true }),
     })
   const douban = createDoubanBrowse({ net, log: deps.log })

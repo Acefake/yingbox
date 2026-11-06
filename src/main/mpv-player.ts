@@ -322,7 +322,7 @@ class MpvPlayer extends EventEmitter {
   private onSocketClose(): void {
     if (this.child) {
       this.enhancement.disconnect()
-    this.vsrLabel = ''
+      this.vsrLabel = ''
       this._status = { ...DEFAULT_STATUS }
       this.emit('status', this.getStatus())
     }

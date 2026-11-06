@@ -4,6 +4,7 @@
  */
 import { lookup } from 'node:dns/promises'
 import { createNetClient, readBody } from '../shared/net/client'
+import type { NetworkPreferences } from '../shared/network/preferences'
 
 const net = createNetClient({
   fetch: (url, init) => fetch(url, init),
@@ -17,9 +18,17 @@ const net = createNetClient({
 export async function fetchHttp(
   url: string,
   options: RequestInit = {},
-  timeoutMs = 30000
+  timeoutMs = 30000,
+  preferences?: NetworkPreferences
 ): Promise<Response> {
-  const { response } = await net.open(url, {
+  const client = preferences
+    ? createNetClient({
+        fetch: (url, init) => fetch(url, init),
+        lookup: host => lookup(host, { all: true }),
+        network: () => preferences,
+      })
+    : net
+  const { response } = await client.open(url, {
     method: (options.method?.toUpperCase() ?? 'GET') as 'GET',
     headers: options.headers as Record<string, string> | undefined,
     body: options.body as string | undefined,

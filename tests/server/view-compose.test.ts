@@ -14,6 +14,7 @@ const card = (id: string, backdrop: string | null): ViewCard => ({
   kind: 'movie',
   poster: `/media/thumb?w=480&src=p${id}`,
   backdrop,
+  logo: null,
   overview: '简介',
   doubanUrl: `https://movie.douban.com/subject/${id}/`,
 })

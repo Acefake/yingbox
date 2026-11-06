@@ -441,9 +441,7 @@ describe('插件源码缓存', () => {
     )
     expect(await load(url)).toBe(good)
     expect(seen[0]).toBe(url)
-    expect(seen[1]).toBe(
-      `https://gh-proxy.com/https://raw.githubusercontent.com/o/r/${sha}/js/x.js`
-    )
+    expect(seen[1]).toBe(`https://raw.githubusercontent.com/o/r/${sha}/js/x.js`)
     clock += PLUGIN_TTL_MS * 10
     expect(await load(url)).toBe(good)
     expect(seen).toHaveLength(2)

@@ -6,6 +6,7 @@
  * 主进程不做媒体库计算。事件订阅：窗口发 library:subscribe 登记，主进程建通道，一端给引擎、
  * 一端经 library:port 推给窗口；引擎重启后自动给每个登记的窗口重新推一次端口。
  */
+import { settingsStore } from '../settings'
 import {
   MessageChannelMain,
   app,
@@ -75,6 +76,8 @@ export function registerLibraryIpc(
   const host = new LibraryEngineHost({
     // 代办：调用方给的（远程源凭据）+ 引擎里的 AI 识别兜底经主进程的 aiService 调大模型
     host: {
+      networkPreferences: async () =>
+        settingsStore().get('network.optimization'),
       ...libraryAiHost(),
       ...libraryToolsHost(),
       ...librarySubtitlesHost(),

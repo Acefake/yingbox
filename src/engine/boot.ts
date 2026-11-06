@@ -46,6 +46,7 @@ export function bootEngine(options: EngineBootOptions): BootedEngine {
   const log = (line: string): void => console.warn(`[engine] ${line}`)
   const httpClient = createNetClient({
     fetch: options.fetch,
+    network: () => server.context.host('networkPreferences'),
     lookup: options.lookup,
   })
 

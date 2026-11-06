@@ -43,6 +43,39 @@ const setup = (
 }
 
 describe('设置分区导航', () => {
+  it('等待异步确认，取消后保留当前分区', async () => {
+    let finish: (allowed: boolean) => void = () => {}
+    const nav = useSectionNavigation({
+      sections: () => SECTIONS,
+      adultMode: ref(false),
+      canLeave: () =>
+        new Promise<boolean>(resolve => {
+          finish = resolve
+        }),
+    })
+    const selected = nav.selectSection('player')
+    expect(nav.current.value?.id).toBe('appearance')
+    finish(false)
+    expect(await selected).toBe(false)
+    expect(nav.current.value?.id).toBe('appearance')
+  })
+
+  it('等待中的离开确认不能覆盖更新的导航意图', async () => {
+    let finish: (allowed: boolean) => void = () => {}
+    const nav = useSectionNavigation({
+      sections: () => SECTIONS,
+      adultMode: ref(false),
+      canLeave: () =>
+        new Promise<boolean>(resolve => {
+          finish = resolve
+        }),
+    })
+    const selected = nav.selectSection('player')
+    nav.selectSection('appearance')
+    finish(true)
+    expect(await selected).toBe(false)
+    expect(nav.current.value?.id).toBe('appearance')
+  })
   it('成人模式关闭时隐藏 adultOnly 分区，打开后出现', () => {
     const { nav, adultMode } = setup()
     expect(nav.visibleSections.value.map(s => s.id)).toEqual([

@@ -53,10 +53,11 @@
         {{ overview }}
       </p>
       <p class="dw-hero-meta">
-        <span v-if="rating" class="dw-hero-rating">
-          <UiIcon name="star" size="sm" filled />
-          {{ rating }}
-        </span>
+        <UiRatingBadge
+          inline
+          :douban="doubanRating"
+          :tmdb="tmdbDetail?.vote_average"
+        />
         <span v-for="part in metaParts" :key="part" class="dw-hero-meta-part">
           {{ part }}
         </span>
@@ -77,7 +78,7 @@
  * 版式与库内详情（features/library/detail/DetailHero.vue）一致；播放源选择与演员剧照在头图下面（DetailWindow）。
  */
 import UiButton from '@/components/ui/UiButton.vue'
-import UiIcon from '@/components/ui/UiIcon.vue'
+import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
 import { usePlatform } from '@/composables/use-platform'
 import { webImageSrc } from '@/services/thumbnails'
 import { computed, ref, watch } from 'vue'
@@ -142,15 +143,10 @@ const overview = computed(
     props.tmdbDetail?.overview ||
     props.itemOverview
 )
-const rating = computed(() => {
-  const score =
+const doubanRating = computed(
+  () =>
     props.doubanDetail?.rating?.value || Number(props.itemData?.doubanRating)
-  return score > 0
-    ? `豆瓣 ${score.toFixed(1)}`
-    : props.tmdbDetail?.vote_average
-      ? `TMDB ${props.tmdbDetail.vote_average.toFixed(1)}`
-      : ''
-})
+)
 const year = computed(
   () =>
     props.doubanDetail?.year ||
@@ -176,7 +172,7 @@ const countries = computed(() =>
     ? props.doubanDetail.countries
     : (props.tmdbDetail?.production_countries ?? []).map(c => c.name)
 )
-/** 年份 · 时长 · 类型（评分单独一段带星标） */
+/** 年份 · 时长 · 类型；评分由来源角标显示。 */
 const metaParts = computed(() =>
   [year.value, duration.value, ...genres.value.slice(0, 4)].filter(Boolean)
 )
@@ -328,7 +324,7 @@ function onImgError(event: Event): void {
   display: block;
 }
 
-/* —— 规格行：★ 评分 · 年份 · 时长 · 类型 · 来源 —— */
+/* 规格行：来源评分角标、年份、时长、类型与片源 */
 .dw-hero-meta {
   display: flex;
   flex-wrap: wrap;
@@ -340,19 +336,7 @@ function onImgError(event: Event): void {
   font-variant-numeric: tabular-nums;
 }
 
-.dw-hero-rating {
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  color: var(--text-primary);
-  font-weight: var(--font-weight-semibold);
-}
-
-.dw-hero-rating .app-icon {
-  color: var(--rating);
-}
-
-.dw-hero-rating + .dw-hero-meta-part::before,
+.ui-rating-badge + .dw-hero-meta-part::before,
 .dw-hero-meta-part + .dw-hero-meta-part::before {
   margin: 0 var(--space-2);
   content: '·';

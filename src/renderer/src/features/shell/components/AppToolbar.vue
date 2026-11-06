@@ -12,11 +12,14 @@
       <div v-if="!isPhone" class="toolbar-hole" aria-hidden="true" />
     </div>
 
-    <WinControls
-      v-if="isElectron && !isMac"
-      class="toolbar-window yb-media-swap"
-      :class="{ 'yb-on-media': toolbarOverMedia }"
-    />
+    <Teleport v-if="isElectron && !isMac" to="body">
+      <div ref="windowLayer" class="toolbar-window-layer" popover="manual">
+        <WinControls
+          class="toolbar-window yb-media-swap"
+          :class="{ 'yb-on-media': toolbarOverMedia }"
+        />
+      </div>
+    </Teleport>
   </header>
 </template>
 
@@ -31,11 +34,20 @@ import UiIconButton from '@/components/ui/UiIconButton.vue'
 import WinControls from '@/components/WinControls.vue'
 import { usePlatform } from '@/composables/use-platform'
 import { toolbarOverMedia } from '@/composables/use-shell-backdrop'
+import { onBeforeUnmount, onMounted, ref } from 'vue'
+import { installWindowControlsLayer } from './window-controls-layer'
 
 const emit = defineEmits<{ 'open-menu': [] }>()
 defineProps<{ detailOpen?: boolean }>()
 
 const { isElectron, isMac, isPhone } = usePlatform()
+const windowLayer = ref<HTMLElement>()
+let disposeLayer: (() => void) | undefined
+onMounted(() => {
+  if (windowLayer.value)
+    disposeLayer = installWindowControlsLayer(windowLayer.value)
+})
+onBeforeUnmount(() => disposeLayer?.())
 </script>
 
 <style scoped>
@@ -73,10 +85,22 @@ const { isElectron, isMac, isPhone } = usePlatform()
   pointer-events: auto;
   -webkit-app-region: no-drag;
 }
-.toolbar-window.win-controls {
-  position: absolute;
+.toolbar-window-layer {
+  position: fixed;
+  inset: auto;
   top: 0;
   right: 0;
+  width: max-content;
+  height: max-content;
+  margin: 0;
+  padding: 0;
+  border: 0;
+  background: var(--bg-base);
+  color: var(--text-primary);
+  overflow: visible;
+  -webkit-app-region: no-drag;
+}
+.toolbar-window.win-controls {
   gap: 0;
   pointer-events: auto;
   -webkit-app-region: no-drag;

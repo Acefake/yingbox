@@ -79,7 +79,14 @@ export interface AutograbCandidate {
 
 /** 一部剧的追更设置 */
 export interface AutograbSeries {
+  /** 追剧任务句柄，与媒体库条目 id 独立。 */
   seriesId: number
+  tmdbId?: string
+  libraryItemId?: number
+  syncLibrary?: boolean
+  /** 设置草稿，最终确认前不搜索或转存。 */
+  pending?: boolean
+  year?: number | null
   title: string
   /** 方式设置：inherit = 跟随全局 */
   mode: AutograbSeriesMode
@@ -108,6 +115,12 @@ export const AUTO_SCORE = 70
 
 /** 一集的追更记录 */
 export interface AutograbEpisode {
+  /** 已满足自动转存条件，进入限速队列，无需用户确认。 */
+  automatic?: boolean
+  /** 是否启用了可选媒体库关联。 */
+  libraryLinked?: boolean
+  /** 可选入库失败不改变网盘转存结果。 */
+  libraryError?: string | null
   /** 剧 id:季:集 */
   key: string
   seriesId: number
@@ -127,6 +140,14 @@ export interface AutograbEpisode {
   notified: boolean
   /** 能撤销：是追更存进 115 的，并记下了那个文件的 id */
   revertable: boolean
+}
+
+/** 本次运行中一部剧的合集查找进度；重启后重新查找。 */
+export interface AutograbPackSearch {
+  seriesId: number
+  status: 'searching' | 'complete' | 'failed'
+  matched: number
+  total: number
 }
 
 /** 追更总览 */
@@ -152,6 +173,11 @@ export interface AutograbOverview {
   episodes: AutograbEpisode[]
   /** 正在跑一轮 */
   running: boolean
+  /** 合集搜索的实际阶段；旧服务未提供时不推测正在搜索。 */
+  packSearch?: AutograbPackSearch[]
+  /** 已开启任务的播出表；不依赖媒体库。 */
+  calendarEpisodes?: import('../library/ipc').CalendarEpisode[]
+  error?: string | null
   /** 要用户处理的集数：有候选待确认、空间不足、找不到（全部记录，不止 episodes 里列的；片库服务没给时为 undefined） */
   pendingCount?: number
   /** 上一轮结束的时间（毫秒时间戳）；还没跑过为 null */
@@ -178,9 +204,11 @@ export interface AutograbSeriesPatch {
 }
 
 /** 结果：成功或人话 */
-export type AutograbResult = { ok: true } | { ok: false; error: string }
+export type AutograbResult =
+  | { ok: true }
+  | { ok: false; error: string; retryLater?: boolean }
 
-/** 在线剧要追更：先在片库里有这部剧（ADR-0049） */
+/** 按剧名或 TMDB 身份创建独立网盘追剧任务（ADR-0052）。 */
 export interface TrackOnlineRequest {
   /** 剧名（匹配 TMDB 用） */
   title: string
@@ -199,7 +227,7 @@ export interface TrackCandidate {
 }
 
 /**
- * - ready：片库里有了，seriesId 就是追更用的剧 id
+ * - ready：独立任务已创建，seriesId 是追剧任务句柄
  * - choose：剧名对不准，从候选里选一个再来一次（带 tmdbId）
  * - none：TMDB 上找不到
  */
@@ -246,13 +274,21 @@ export const autograb = defineDomain(
   'autograb',
   {
     overview: call<AutograbOverview>(),
+    /** 确认设置后才开启独立追剧任务。 */
+    startSeries: call<[seriesId: number], AutograbResult>(a => [
+      int(a[0], 'seriesId'),
+    ]),
+    /** 从媒体库条目创建或复用独立追剧任务。 */
+    trackLibrary: call<[itemId: number], TrackOnlineResult>(a => [
+      int(a[0], 'itemId'),
+    ]),
     setEnabled: call<[enabled: boolean], void>(a => [bool(a[0], 'enabled')]),
     setSeries: call<
       [seriesId: number, patch: AutograbSeriesPatch],
       AutograbResult
     >(a => [int(a[0], 'seriesId'), patchOf(a[1])]),
     /**
-     * 在线剧要追更：在片库里建（或找到）这部剧的条目，返回追更用的剧 id。
+     * 在线剧要追更：按 TMDB 身份创建或复用网盘任务，返回任务句柄。
      * 剧名对不准时返回候选，选定后带 tmdbId 再调一次。
      */
     trackOnline: call<[request: TrackOnlineRequest], TrackOnlineResult>(a => [

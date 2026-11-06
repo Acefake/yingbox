@@ -49,6 +49,7 @@ export function timeText(time: number): string {
 
 /** 一集的次要说明：下次搜索时间 / 失败原因 */
 export function episodeNote(ep: AutograbEpisode): string {
+  if (ep.libraryError) return `已转存到 115 网盘；${ep.libraryError}`
   if (ep.error) return ep.error
   if (ep.status === 'waiting' && ep.nextTry !== null)
     return ep.attempts
@@ -135,7 +136,13 @@ export function marksOf(o: AutograbOverview | null): Map<string, AutograbMark> {
   const marks = new Map<string, AutograbMark>()
   for (const ep of o?.episodes ?? []) {
     const mark = episodeMark(ep)
-    if (mark) marks.set(ep.key, mark)
+    if (mark)
+      marks.set(markKey(ep.seriesId, ep.season, ep.episode, 'tracking'), mark)
+    const libraryId = o?.series.find(
+      s => s.seriesId === ep.seriesId
+    )?.libraryItemId
+    if (mark && libraryId)
+      marks.set(markKey(libraryId, ep.season, ep.episode), mark)
   }
   return marks
 }
@@ -144,9 +151,10 @@ export function marksOf(o: AutograbOverview | null): Map<string, AutograbMark> {
 export function markKey(
   seriesId: number,
   season: number,
-  episode: number
+  episode: number,
+  source: 'library' | 'tracking' = 'library'
 ): string {
-  return `${seriesId}:${season}:${episode}`
+  return `${source}:${seriesId}:${season}:${episode}`
 }
 
 /** 要用户处理的状态：有候选待确认、空间不足、找不到 */
@@ -166,7 +174,7 @@ const HISTORY_STATUSES: ReadonlySet<AutograbStatus> = new Set([
 /** 待处理的集（有候选的在前，再按播出日倒序） */
 export function pendingEpisodes(o: AutograbOverview | null): AutograbEpisode[] {
   return (o?.episodes ?? [])
-    .filter(ep => PENDING_STATUSES.has(ep.status))
+    .filter(ep => PENDING_STATUSES.has(ep.status) && !ep.automatic)
     .sort(
       (a, b) =>
         Number(b.status === 'found') - Number(a.status === 'found') ||
@@ -188,7 +196,7 @@ export function pendingBadge(o: AutograbOverview | null): number {
 
 /** 实际在追的剧 */
 export function trackedSeries(o: AutograbOverview | null): AutograbSeries[] {
-  return (o?.series ?? []).filter(s => s.effectiveMode !== 'off')
+  return (o?.series ?? []).filter(s => !s.pending && s.effectiveMode !== 'off')
 }
 
 /** 没在追的剧（在播或即将开播，实际方式是「不追」） */
@@ -300,6 +308,12 @@ export interface EpisodeStep {
 
 /** 一集走到哪一步：播出 → 搜资源 → 确认 → 转存 115 → 入库（当前一步的字样随状态说清楚） */
 export function episodeSteps(ep: AutograbEpisode): EpisodeStep[] {
+  if (ep.libraryLinked === false) {
+    const steps = episodeSteps({ ...ep, libraryLinked: true }).slice(0, 4)
+    if (ep.status === 'saved' || ep.status === 'done')
+      return steps.map(step => ({ ...step, state: 'done' }))
+    return steps
+  }
   const found = ep.candidates.length
   const at: Record<AutograbStatus, [number, string, EpisodeStep['state']]> = {
     waiting: [1, '搜索中', 'current'],
@@ -307,7 +321,10 @@ export function episodeSteps(ep: AutograbEpisode): EpisodeStep[] {
     skipped: [1, '已跳过', 'problem'],
     found: [2, '等你确认', 'current'],
     noSpace: [3, '空间不足', 'problem'],
-    saved: ep.error ? [4, '入库失败', 'problem'] : [4, '入库中', 'current'],
+    saved:
+      ep.libraryError || ep.error
+        ? [4, '入库失败', 'problem']
+        : [4, '入库中', 'current'],
     done: [5, '', 'done'],
   }
   const [index, text, state] = at[ep.status]

@@ -49,6 +49,12 @@ class LibraryParsersTest {
         assertEquals("/media/thumb?w=780&src=https%3A%2F%2Fx%2Fb.jpg", page.items[1].backdrop)
     }
 
+    @Test fun `保留评分来源`() {
+        val page = parseQuery(JSONObject("""{"items":[{"id":1,"type":"movie","title":"影片","rating":7.8,"ratingSource":"tmdb"}],"total":1}"""))
+        assertEquals("tmdb", page.items[0].ratingSource)
+        assertEquals(7.8, page.items[0].rating)
+    }
+
     @Test fun `电影详情用服务端排好的版本并标出杜比视界`() {
         val json = JSONObject(
             """{"id":7,"type":"movie","title":"沙丘","year":2021,"rating":8.0,"poster":null,"backdrop":null,

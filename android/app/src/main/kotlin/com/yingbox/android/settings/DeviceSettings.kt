@@ -15,6 +15,14 @@ import com.yingbox.android.ui.BrandColor
 class DeviceSettings(context: Context) {
     private val prefs = context.getSharedPreferences("device-settings", Context.MODE_PRIVATE)
 
+    var networkOptions by mutableStateOf(readNetworkOptions(context))
+        private set
+
+    fun updateNetworkOptions(value: NetworkOptions) {
+        networkOptions = value
+        prefs.edit().putString("network.optimization", value.json().toString()).apply()
+    }
+
     /** 只影响本设备应用内品牌标志和字标。 */
     var brandColor by mutableStateOf(BrandColor.fromKey(prefs.getString(BRAND_COLOR, null)))
         private set
@@ -78,6 +86,11 @@ class DeviceSettings(context: Context) {
     }
 
     companion object {
+        fun readNetworkOptions(context: Context): NetworkOptions = runCatching {
+            val raw = context.getSharedPreferences("device-settings", Context.MODE_PRIVATE).getString("network.optimization", null)
+            NetworkOptions.parse(raw?.let { org.json.JSONObject(it) })
+        }.getOrDefault(NetworkOptions())
+
         private const val BRAND_COLOR = "ui.brandColor"
         /** 播放器在轨道变化时读取，不依赖设置界面的状态对象 */
         fun readEnhanceLevel(context: Context): EnhanceLevel =

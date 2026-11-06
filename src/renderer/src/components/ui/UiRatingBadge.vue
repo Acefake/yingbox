@@ -1,13 +1,13 @@
 <template>
   <span
-    v-if="badge || other"
+    v-if="badge || fallback"
     class="ui-rating-badge yb-glass is-media"
     :class="{ 'is-inline': inline }"
     role="img"
     :aria-label="
       badge
         ? `${badge.source === 'douban' ? '豆瓣' : 'TMDB'} ${badge.score}`
-        : other
+        : fallback
     "
   >
     <svg
@@ -65,7 +65,7 @@
         TMDB
       </text>
     </svg>
-    <span aria-hidden="true">{{ badge?.score ?? other }}</span>
+    <span aria-hidden="true">{{ badge?.score ?? fallback }}</span>
   </span>
 </template>
 
@@ -77,9 +77,11 @@
  */
 import { computed, useId } from 'vue'
 
-import { pickRatingBadge } from './rating-badge'
+import { pickRatingBadge, ratingLabelProps } from './rating-badge'
 
 const props = defineProps<{
+  /** 带来源的评分文字，如「豆瓣 8.2」「TMDB 7.4」；未知来源保留文字。 */
+  rating?: string | number | null
   /** 豆瓣分数（「8.8」或数字）；「暂无」视为没有 */
   douban?: string | number | null
   /** TMDB 分数；豆瓣没有时才用 */
@@ -90,7 +92,14 @@ const props = defineProps<{
   inline?: boolean
 }>()
 
-const badge = computed(() => pickRatingBadge(props.douban, props.tmdb))
+const labelled = computed(() => ratingLabelProps(props.rating))
+const badge = computed(() =>
+  pickRatingBadge(
+    props.douban ?? labelled.value.douban,
+    props.tmdb ?? labelled.value.tmdb
+  )
+)
+const fallback = computed(() => props.other || labelled.value.other)
 const gradientId = `yb-tmdb-${useId().replace(/[^a-zA-Z0-9_-]/g, '')}`
 </script>
 

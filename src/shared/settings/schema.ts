@@ -1,3 +1,4 @@
+import { DEFAULT_NETWORK, parseNetwork } from '../network/preferences'
 /**
  * 唯一设置定义：加一个设置项只改这里。
  *
@@ -135,6 +136,11 @@ function secret(): SecretSpec {
 
 /** 全部设置项 */
 export const settingsSchema = {
+  'network.optimization': {
+    kind: 'value',
+    default: DEFAULT_NETWORK,
+    parse: parseNetwork,
+  },
   /** 界面主题 */
   'app.theme': oneOf(['dark', 'light'] as const, 'dark'),
   /** 成人模式：显示 AV / 去马赛克入口与成人源 */

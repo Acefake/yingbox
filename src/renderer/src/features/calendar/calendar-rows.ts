@@ -38,7 +38,7 @@ export function mergedCode(entries: readonly CalendarEntry[]): string {
   if (entries.length === 1) return entries[0].code
   const first = entries[0]
   const last = entries[entries.length - 1]
-  const eps = entries.map(e => e.library)
+  const eps = entries.map(e => e.library ?? e.tracking)
   const contiguous =
     eps.every(ep => ep && ep.season === eps[0]!.season) &&
     eps.every((ep, i) => i === 0 || ep!.episode === eps[i - 1]!.episode + 1)

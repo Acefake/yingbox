@@ -3,6 +3,7 @@
  * app.ts 只调 registerOnline 一次；YINGBOX_ONLINE=off 时什么都不登记，网页端在线板块显示不可用。
  * 配置见 config.ts，部署见 docs/library-server.md「在线播放」与 docs/deploy/nas.md。
  */
+import type { NetworkPreferences } from '../../shared/network/preferences'
 import type { Router } from '../http/router'
 import { createNodeBrowserFetch } from './browser-fetch'
 import { loadOnlineConfig } from './config'
@@ -15,6 +16,7 @@ export interface OnlineDeps {
   dataDir: string
   env: NodeJS.ProcessEnv
   /** 当前 TMDB 令牌（服务密钥文件 → 环境变量），未配置为空串 */
+  networkPreferences?: () => NetworkPreferences
   tmdbToken: () => string
   /** 当前元数据语言（服务端设置） */
   tmdbLanguage?: () => string
@@ -44,6 +46,7 @@ export function registerOnline(
       config,
       browser,
       tmdbToken: deps.tmdbToken,
+      networkPreferences: deps.networkPreferences,
       tmdbLanguage: deps.tmdbLanguage,
       log: deps.log,
     })

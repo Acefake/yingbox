@@ -30,6 +30,11 @@ export function seriesModeOf(
   state: AutograbState,
   seriesId: number
 ): AutograbMode {
+  if (
+    state.version === 2 &&
+    (!settingOf(state, seriesId) || settingOf(state, seriesId)?.pending)
+  )
+    return 'off'
   return effectiveMode(settingOf(state, seriesId)?.mode, state.policy)
 }
 
@@ -50,7 +55,22 @@ export function seriesPrefsOf(
 }
 
 /** 有没有任何剧在追：全局不是「不追」，或有剧单独设了待确认 / 全自动 */
+export function trackedTasks(
+  state: AutograbState
+): Record<string, SeriesSetting> {
+  return Object.fromEntries(
+    Object.entries(state.series).filter(
+      ([id]) => seriesModeOf(state, Number(id)) !== 'off'
+    )
+  )
+}
+
+/** 是否存在已确认开启的追剧任务。 */
 export function anyTracked(state: AutograbState): boolean {
+  if (state.version === 2)
+    return Object.keys(state.series).some(
+      id => seriesModeOf(state, Number(id)) !== 'off'
+    )
   return (
     state.policy.mode !== 'off' ||
     Object.values(state.series).some(

@@ -356,7 +356,7 @@ describe('剧集播完本地最后一集', () => {
       text: '本地还没有 S01E03 的文件',
       action: {
         label: '去追更',
-        to: `/autograb?series=${s.id}&title=${encodeURIComponent(s.title)}`,
+        to: `/autograb?library=${s.id}&title=${encodeURIComponent(s.title)}`,
       },
     })
     expect(seasonEndHint(s.id, s.title, season, season.children).text).toBe(

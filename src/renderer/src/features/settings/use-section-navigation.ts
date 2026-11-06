@@ -13,7 +13,7 @@ export interface SectionNavigationOptions {
   /** 成人模式开关；关闭时隐藏 adultOnly 分区 */
   adultMode: Ref<boolean>
   /** 当前分区是否允许离开（有未保存修改时由分区自己确认） */
-  canLeave: () => boolean
+  canLeave: () => boolean | Promise<boolean>
 }
 
 /** useSectionNavigation 的返回值 */
@@ -27,7 +27,7 @@ export interface SectionNavigation {
   /** 传给当前分区组件的属性（分区固定属性 + 子页 sub） */
   sectionProps: ComputedRef<Record<string, unknown>>
   /** 切到某分区；当前分区拒绝离开时返回 false */
-  selectSection: (id: string, sub?: string) => boolean
+  selectSection: (id: string, sub?: string) => boolean | Promise<boolean>
   /** 按 "<分区>:<子页>" 打开分区（分区不可用时忽略），成功后清空搜索词 */
   openTarget: (target: string) => void
 }
@@ -66,24 +66,42 @@ export function useSectionNavigation(
     ...(target.value.sub ? { sub: target.value.sub } : {}),
   }))
 
-  function selectSection(id: string, sub?: string): boolean {
-    if (id !== current.value?.id && !options.canLeave()) return false
-    target.value = { id, sub }
-    return true
+  let navigationVersion = 0
+
+  function selectSection(id: string, sub?: string): boolean | Promise<boolean> {
+    const version = ++navigationVersion
+    const apply = (allowed: boolean): boolean => {
+      if (!allowed || version !== navigationVersion) return false
+      target.value = { id, sub }
+      return true
+    }
+    const allowed = id === current.value?.id ? true : options.canLeave()
+    return typeof allowed === 'boolean' ? apply(allowed) : allowed.then(apply)
   }
 
   function openTarget(value: string): void {
     const [id, sub] = value.split(':')
     if (!available.value.some(s => s.id === id)) return
-    if (selectSection(id, sub)) navQuery.value = ''
+    const selected = selectSection(id, sub)
+    if (typeof selected === 'boolean') {
+      if (selected) navQuery.value = ''
+    } else
+      void selected.then(ok => {
+        if (ok) navQuery.value = ''
+      })
   }
 
   // 搜索结果里没有当前分区时跳到第一个结果；当前分区拒绝离开则清空搜索词留在原处
   watch(navQuery, () => {
     const vis = visibleSections.value
     if (vis.length && !vis.some(s => s.id === current.value?.id)) {
-      if (selectSection(vis[0].id)) return
-      navQuery.value = ''
+      const selected = selectSection(vis[0].id)
+      if (typeof selected === 'boolean') {
+        if (!selected) navQuery.value = ''
+      } else
+        void selected.then(ok => {
+          if (!ok) navQuery.value = ''
+        })
     }
   })
 

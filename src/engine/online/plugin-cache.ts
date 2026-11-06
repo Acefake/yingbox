@@ -5,7 +5,6 @@
 import { createHash } from 'node:crypto'
 import { mkdir, readFile, rename, stat, writeFile } from 'node:fs/promises'
 import { join } from 'node:path'
-import { GITHUB_MIRROR_PREFIX } from '../../shared/release/mirrors'
 import type { NetClient } from '../../shared/net/client'
 
 /** 缓存有效期：6 小时 */
@@ -14,14 +13,14 @@ export const PLUGIN_TTL_MS = 6 * 60 * 60 * 1000
 const PINNED_JSDELIVR =
   /^https:\/\/cdn\.jsdelivr\.net\/gh\/([^/]+)\/([^@/]+)@([0-9a-f]{40})\/(.+)$/
 
-/** 固定到提交的 jsDelivr 地址 → [官方 CDN, GitHub 镜像]；其他地址只有自己。内容靠 sha256 校验，镜像不可信也安全。 */
+/** 固定到提交的 jsDelivr 地址 → [CDN, GitHub Raw]；Raw 由网络策略选镜像，内容仍需通过摘要校验。 */
 export function pluginCandidates(url: string): string[] {
   const m = PINNED_JSDELIVR.exec(url)
   if (!m) return [url]
   const [, owner, repo, sha, path] = m
   return [
     url,
-    `${GITHUB_MIRROR_PREFIX}https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${path}`,
+    `https://raw.githubusercontent.com/${owner}/${repo}/${sha}/${path}`,
   ]
 }
 

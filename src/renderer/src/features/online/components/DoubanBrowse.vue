@@ -1,10 +1,11 @@
 <template>
   <div ref="root" class="db-browse">
     <header class="db-head">
-      <UiIconButton
+      <UiButton
+        class="db-back"
         icon="back"
-        label="返回首页"
-        variant="secondary"
+        label="返回"
+        variant="glass"
         @click="emit('back')"
       />
       <h1 class="db-title">{{ title }}</h1>
@@ -72,7 +73,7 @@
             thumb
             :title="item.title"
             :cover="item.cover"
-            :rating="item.rate"
+            :rating="item.rate ? `豆瓣 ${item.rate}` : ''"
             :favorite="isFavorite(item)"
             :preview="doubanPreviewSource(item)"
             @open="emit('open', item)"
@@ -246,6 +247,22 @@ onActivated(restoreScroll)
   align-items: center;
   gap: var(--space-4);
   min-width: 0;
+}
+.db-back {
+  position: fixed;
+  top: var(--shell-pill-top);
+  left: calc(var(--shell-left, 0px) + var(--space-6_5));
+  z-index: var(--z-float);
+  height: var(--shell-pill-height);
+  border-radius: var(--radius-full);
+  -webkit-app-region: no-drag;
+}
+@media (max-width: 768px),
+  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
+  .db-back {
+    top: calc(var(--safe-top) + var(--space-2));
+    left: calc(var(--space-2) + var(--control-height) + var(--space-3));
+  }
 }
 .db-title {
   margin: 0 var(--space-1) 0 0;

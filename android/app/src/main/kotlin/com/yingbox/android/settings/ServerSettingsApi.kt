@@ -54,6 +54,22 @@ class ServerSettingsApi(private val client: ServerClient) {
         return reply.getJSONObject("result").getJSONObject("tmdb").getBoolean("configured")
     }
 
+    fun networkOptions(): NetworkOptions = NetworkOptions.parse(
+        JSONObject(client.get(PATH)).optJSONObject("values")?.optJSONObject("network.optimization"),
+    )
+
+    fun setNetworkOptions(value: NetworkOptions) {
+        client.post(PATH, JSONObject().put("key", "network.optimization").put("value", value.json()))
+    }
+
+    fun probeNetwork(value: NetworkOptions): String {
+        val rows = org.json.JSONArray(client.post("/api/network/probe", value.json()))
+        return (0 until rows.length()).joinToString("\n\n") { i ->
+            val row = rows.getJSONObject(i)
+            "${row.getString("purpose")} · ${if (row.getBoolean("ok")) "通过" else "未通过"}\n${row.getString("endpoint")}\n${row.getString("detail")}"
+        }
+    }
+
     private companion object {
         const val PATH = "/api/server-settings"
         const val LANGUAGE_KEY = "scrape.metadataLanguage"

@@ -10,6 +10,7 @@ const group = (siteName: string, host: string): EpisodeGroup => ({
   label: siteName,
   _siteName: siteName,
   _source: 'cms',
+  hasDirect: true,
   episodes: [{ name: '第1集', url: `https://${host}/a/index.m3u8` }],
 })
 

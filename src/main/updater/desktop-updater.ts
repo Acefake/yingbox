@@ -3,6 +3,7 @@
  * 官方不可达时经白名单镜像回退；下载时边写边算 SHA-256，与 digest 一致才完成。
  * 全部外部能力（网络、文件、进程）由 deps 注入，规则见 shared/desktop-update。
  */
+import type { NetworkPreferences } from '../../shared/network/preferences'
 import { createHash } from 'node:crypto'
 import { createWriteStream } from 'node:fs'
 import { mkdir, readdir, rename, rm } from 'node:fs/promises'
@@ -37,6 +38,7 @@ const IDLE_MS = 30_000
 
 /** 更新器依赖 */
 export interface DesktopUpdaterDeps {
+  networkPreferences?: () => NetworkPreferences
   fetch: typeof fetch
   platform: NodeJS.Platform
   /** 已安装版本 */
@@ -91,7 +93,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   async function releases(): Promise<unknown> {
     if (cache && deps.now() - cache.at < CACHE_MS) return cache.releases
     const response = await fetchFirstOk(
-      mirrorCandidates(RELEASES_URL),
+      mirrorCandidates(RELEASES_URL, deps.networkPreferences?.()),
       deps.fetch,
       {
         headers: {
@@ -198,7 +200,7 @@ export function createDesktopUpdater(deps: DesktopUpdaterDeps): DesktopUpdater {
   async function fetchInstaller(update: DesktopUpdate): Promise<UpdateResult> {
     const target = join(deps.dir, update.name)
     const partial = `${target}.part`
-    const urls = githubAssetCandidates(update.url)
+    const urls = githubAssetCandidates(update.url, deps.networkPreferences?.())
     if (urls.length === 0) return failure('没有可用的更新地址')
     let lastError: unknown = new Error('下载更新失败')
     try {

@@ -20,7 +20,7 @@ export interface PanFolders {
  * @param mountRoot 设置里的挂载根目录（library.notify.mountRoot，空串 = 没填）
  */
 export function createPanFolders(
-  pan115: Pan115Service,
+  pan115: Pick<Pan115Service, 'use'>,
   mountRoot: () => string
 ): PanFolders {
   return {

@@ -28,6 +28,21 @@ export interface RatingBadgeValue {
   score: string
 }
 
+/** 将带来源的评分文字接入统一角标；未知来源只保留文字，不推断品牌。 */
+export function ratingLabelProps(value?: string | number | null): {
+  douban?: number
+  tmdb?: number
+  other?: string
+} {
+  const text = String(value ?? '').trim()
+  const match = /^(?:(\S+)\s+)?(\d+(?:\.\d+)?)$/.exec(text)
+  if (!match || !Number.isFinite(Number(match[2])) || Number(match[2]) <= 0)
+    return {}
+  if (match[1] === '豆瓣') return { douban: Number(match[2]) }
+  if (match[1]?.toLowerCase() === 'tmdb') return { tmdb: Number(match[2]) }
+  return { other: text }
+}
+
 function scoreOf(value: unknown): string | null {
   const n =
     typeof value === 'number'

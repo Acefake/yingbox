@@ -40,6 +40,7 @@ private fun card(json: JSONObject): LibraryCard = LibraryCard(
     title = json.optString("title"),
     year = json.optInt2("year"),
     rating = json.optDouble2("rating"),
+    ratingSource = json.optString2("ratingSource"),
     poster = mediaImageUrl(json.optString2("poster"), POSTER_WIDTH),
     backdrop = mediaImageUrl(json.optString2("backdrop"), BACKDROP_WIDTH),
 )

@@ -219,7 +219,7 @@ it('转存后 1 小时仍没入库：再通知一次并报错，写明 115 路�
   clock.t += 60 * 60_000
   await service.tick()
   const record = (await service.overview()).episodes[0]
-  expect(record.error).toContain(`/剧集/繁花/${FILE_05}`)
+  expect(record.libraryError).toContain(`/剧集/繁花/${FILE_05}`)
   expect(notified).toHaveLength(2)
 })
 
@@ -232,13 +232,13 @@ it('入库失败后手动重新入库：再通知一次、清掉报错、重新�
   await service.tick()
   clock.t += 60 * 60_000
   await service.tick()
-  expect((await service.overview()).episodes[0].error).not.toBeNull()
+  expect((await service.overview()).episodes[0].libraryError).not.toBeNull()
   const before = notified.length
 
   expect(await service.rescan('7:1:5')).toEqual({ ok: true })
 
   const record = (await service.overview()).episodes[0]
-  expect(record.error).toBeNull()
+  expect(record.libraryError).toBeNull()
   expect(record.status).toBe('saved')
   expect(notified.length).toBe(before + 1)
   expect(notified.at(-1)).toContain(`/剧集/繁花/${FILE_05}`)
@@ -259,7 +259,7 @@ it('重新入库没有媒体库接住时返回原因，保留原报错', async (
 
   expect(result.ok).toBe(false)
   expect(result.ok === false && result.error).toContain('没有媒体库接住')
-  expect((await h.service.overview()).episodes[0].error).not.toBeNull()
+  expect((await h.service.overview()).episodes[0].libraryError).not.toBeNull()
 })
 
 it('没转存的集不能重新入库', async () => {

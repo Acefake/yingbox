@@ -15,7 +15,7 @@ import type {
 } from '../../shared/contract/autograb'
 import { parseShareLink } from '../pan115/share-link'
 import { isDeadShare } from './finder'
-import type { Gate } from './gate'
+import { type Gate, GateClosed } from './gate'
 import { nextTry } from './schedule-rules'
 import type { AutograbDeps } from './deps'
 import {
@@ -48,9 +48,10 @@ function keyOf(candidate: AutograbCandidate): string {
 
 /** 转存需要的上下文 */
 export interface SaverContext {
+  automaticAllowed?(record: EpisodeRecord): boolean
   state(): AutograbState
   gate(): Gate
-  deps: Pick<AutograbDeps, 'pan' | 'notify' | 'now' | 'log'>
+  deps: Pick<AutograbDeps, 'pan' | 'notify' | 'now' | 'log' | 'followsLibrary'>
   dirty(): void
   /** 这一集转存到哪个 cid（每次现算，见 target.ts）；解析不出时抛错 */
   targetCid(record: EpisodeRecord): Promise<string>
@@ -72,6 +73,8 @@ export function createSaver(ctx: SaverContext): {
     index: number,
     byUser: boolean
   ): Promise<AutograbResult> {
+    const current = (): boolean => ctx.state().episodes[record.key] === record
+    if (!current()) return { ok: false, error: '追剧任务已取消' }
     if (record.status === 'saved' || record.status === 'done')
       return { ok: true }
     const candidate = record.candidates[index]
@@ -90,8 +93,9 @@ export function createSaver(ctx: SaverContext): {
       if (!existing.some(e => !e.isDir && e.name === candidate.fileName)) {
         const space = await gate.run('snap', () => ctx.deps.pan.space())
         const need = Math.max(0, candidate.size) + SPACE_MARGIN
+        if (!current()) return { ok: false, error: '追剧任务已取消' }
         if (space.remain < need) return noSpace(record, space.remain, need)
-        await receive(candidate, cid)
+        await receive(record, candidate, cid, byUser)
         received = true
       }
     } catch (error) {
@@ -109,6 +113,7 @@ export function createSaver(ctx: SaverContext): {
         return failed(record, index, error)
       }
     }
+    if (!current()) return { ok: true }
     if (byUser) ctx.state().spacePause = null
     record.status = 'saved'
     record.savedAt = ctx.deps.now()
@@ -120,6 +125,7 @@ export function createSaver(ctx: SaverContext): {
     record.savedFrom = keyOf(candidate)
     record.revertedName = null
     record.error = null
+    record.libraryError = null
     record.nextTry = null
     // 跟随全局、没设过的剧也要记确认次数（全自动的前几集门槛）
     if (byUser)
@@ -133,17 +139,24 @@ export function createSaver(ctx: SaverContext): {
   }
 
   /** 只把那一个文件存到 cid */
-  function receive(candidate: AutograbCandidate, cid: string): Promise<void> {
-    return ctx
-      .gate()
-      .run('receive', () =>
-        ctx.deps.pan.receive(
-          candidate.shareUrl,
-          candidate.password,
-          [candidate.fileId],
-          cid
-        )
+  function receive(
+    record: EpisodeRecord,
+    candidate: AutograbCandidate,
+    cid: string,
+    byUser: boolean
+  ): Promise<void> {
+    return ctx.gate().run('receive', () => {
+      if (!byUser && ctx.automaticAllowed?.(record) === false)
+        throw new GateClosed('自动转存已暂停，稍后继续')
+      if (ctx.state().episodes[record.key] !== record)
+        throw new Error('追剧任务已取消')
+      return ctx.deps.pan.receive(
+        candidate.shareUrl,
+        candidate.password,
+        [candidate.fileId],
+        cid
       )
+    })
   }
 
   /** 转存后在目标文件夹里找到那个文件（新上传的排在前面） */
@@ -179,6 +192,8 @@ export function createSaver(ctx: SaverContext): {
     error: unknown
   ): AutograbResult {
     const message = (error as Error).message
+    if (error instanceof GateClosed)
+      return { ok: false, error: message, retryLater: true }
     if (isDeadShare(error)) {
       const candidate = record.candidates[index]
       const ref = parseShareLink(candidate.shareUrl, candidate.password)
@@ -207,6 +222,7 @@ export function createSaver(ctx: SaverContext): {
     record: EpisodeRecord,
     now: number
   ): Promise<void> {
+    if (ctx.deps.followsLibrary?.(record.seriesId) === false) return
     if (record.savedAt === null || !record.savedCid) return
     const waited = now - record.savedAt
     if (!record.notified && waited >= NOTIFY_AFTER_MS) {
@@ -215,9 +231,9 @@ export function createSaver(ctx: SaverContext): {
       await ctx.deps.notify([
         { action: 'create', path: await savedPath(record) },
       ])
-    } else if (waited >= STALE_AFTER_MS && !record.error) {
+    } else if (waited >= STALE_AFTER_MS && !record.libraryError) {
       const path = await savedPath(record)
-      record.error = `已转存 1 小时仍没入库：${path} 可能不在媒体库监控的文件夹里，请检查后重新扫描`
+      record.libraryError = `已转存 1 小时仍没入库：${path} 可能不在媒体库监控的文件夹里，请检查后重新扫描`
       ctx.dirty()
       await ctx.deps.notify([{ action: 'create', path }])
     }
@@ -225,6 +241,8 @@ export function createSaver(ctx: SaverContext): {
 
   /** 手动重新入库：再通知一次媒体库扫这个 115 路径；没有媒体库接住就把路径告诉用户 */
   async function rescan(record: EpisodeRecord): Promise<AutograbResult> {
+    if (ctx.deps.followsLibrary?.(record.seriesId) === false)
+      return { ok: false, error: '此任务仅转存到 115 网盘，未关联媒体库' }
     if (record.status !== 'saved' || !record.savedCid)
       return { ok: false, error: '这一集还没有转存，没有可入库的文件' }
     const path = await savedPath(record)
@@ -234,7 +252,7 @@ export function createSaver(ctx: SaverContext): {
         ok: false,
         error: `没有媒体库接住 ${path}：请把对应的 115 文件夹添加为媒体库，或在「设置 · 媒体库」里检查网盘挂载目录`,
       }
-    record.error = null
+    record.libraryError = null
     record.notified = true
     record.savedAt = ctx.deps.now()
     ctx.dirty()

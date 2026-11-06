@@ -7,6 +7,7 @@ import {
   mirrorCandidates,
   shouldTryNextMirror,
 } from '../src/shared/release/mirrors'
+import { BUILTIN_MIRRORS } from '../src/shared/network/preferences'
 
 describe('release mirrors', () => {
   it('白名单主机：官方在前，随后 gh-proxy 完整 URL 改写', () => {
@@ -23,7 +24,7 @@ describe('release mirrors', () => {
       mirrorCandidates(
         'https://objects.githubusercontent.com/github-production-release-asset-2e65be/x'
       )
-    ).toHaveLength(2)
+    ).toHaveLength(4)
   })
 
   it('非白名单或不合法地址不套镜像', () => {
@@ -40,13 +41,13 @@ describe('release mirrors', () => {
       'https://github.com/Acefake/yingbox/releases/download/v1.0.4/x.exe'
     expect(githubAssetCandidates(asset)).toEqual([
       asset,
-      `${GITHUB_MIRROR_PREFIX}${asset}`,
+      ...BUILTIN_MIRRORS.map(prefix => `${prefix}${asset}`),
     ])
   })
 
   it('可重试判定', () => {
     expect(shouldTryNextMirror(null, new TypeError('fetch failed'))).toBe(true)
-    expect(shouldTryNextMirror(429, null)).toBe(true)
+    expect(shouldTryNextMirror(429, null)).toBe(false)
     expect(shouldTryNextMirror(503, null)).toBe(true)
     expect(shouldTryNextMirror(404, null)).toBe(false)
     expect(shouldTryNextMirror(403, null)).toBe(false)

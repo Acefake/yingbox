@@ -7,6 +7,8 @@
  * - browserFetch：可选的系统 Chromium（browser-fetch.ts），没配置时返回空串让引擎降级。
  * 引擎事件按通道广播给订阅方（SSE）。
  */
+import { DEFAULT_NETWORK } from '../../shared/network/preferences'
+import type { NetworkPreferences } from '../../shared/network/preferences'
 import { type ChildProcess, fork } from 'node:child_process'
 import { existsSync, mkdirSync } from 'node:fs'
 import { join, resolve } from 'node:path'
@@ -34,6 +36,7 @@ export interface ServerEngineDeps {
   config: OnlineConfig
   browser: NodeBrowserFetch
   /** 当前 TMDB 令牌（未配置为空串） */
+  networkPreferences?: () => NetworkPreferences
   tmdbToken: () => string
   /** 当前元数据语言（服务端设置 scrape.metadataLanguage）；缺省 zh-CN */
   tmdbLanguage?: () => string
@@ -118,6 +121,8 @@ export function createServerEngine(deps: ServerEngineDeps): ServerEngine {
     onReady: ms => log(`在线引擎就绪（${ms} ms）`),
     onBlocked: reason => log(`在线引擎停止重启：${reason}`),
     hostMethods: {
+      networkPreferences: async () =>
+        deps.networkPreferences?.() ?? DEFAULT_NETWORK,
       browserFetch: url => browser.browserFetch(url),
       resetBrowserFetch: async target => browser.resetBrowserFetch(target),
       downloadDir: async () => {

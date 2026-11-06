@@ -1,3 +1,5 @@
+import { type NetworkPreferences, parseNetwork } from '../network/preferences'
+import type { NetworkProbeResult } from '../network/probe'
 import type { LegacySettings } from '../settings/legacy'
 import {
   type SecretKey,
@@ -46,6 +48,14 @@ export const settings = defineDomain(
     ]),
     /** 弹出系统选择文件夹对话框；选中的目录通过可写校验后存为 download.dir 并返回。取消返回 null，不可写时抛错 */
     chooseDownloadDir: call<string | null>(),
+    /** 固定公开样本检测，不发送用户令牌。 */
+    probeNetwork: call<[preferences: NetworkPreferences], NetworkProbeResult[]>(
+      a => {
+        const value = parseNetwork(a[0])
+        if (!value) throw new ContractError('网络配置不合法')
+        return [value]
+      }
+    ),
   },
   {
     /** 任一窗口改了设置后广播给所有窗口 */

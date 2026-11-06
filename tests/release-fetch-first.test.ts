@@ -47,9 +47,7 @@ describe('fetchFirstOk', () => {
   })
 
   it('空候选列表报错', async () => {
-    await expect(fetchFirstOk([], fetch)).rejects.toThrow(
-      '没有可用的更新地址'
-    )
+    await expect(fetchFirstOk([], fetch)).rejects.toThrow('没有可用的更新地址')
   })
 
   it('每次候选使用独立超时，官方超时后仍可请求镜像', async () => {

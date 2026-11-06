@@ -1,5 +1,6 @@
 <template>
   <GrabTaskCard
+    class="ag-pending-card"
     :data-key="episode.key"
     :title="episode.seriesTitle"
     :subtitle="`${episodeCode(episode)} · ${monthDayText(episode.airDate)}播出`"
@@ -18,13 +19,21 @@
         @click="emit('open', episode.key)"
       />
       <UiButton
-        v-if="episode.status !== 'notFound'"
         class="ag-quiet"
         size="sm"
         variant="plain"
-        label="跳过"
+        label="跳过本集"
         :loading="busy === 'skip'"
+        :disabled="Boolean(busy && busy !== 'skip') || stopping"
         @click="emit('skip', episode.key)"
+      />
+      <UiButton
+        class="ag-quiet"
+        size="sm"
+        variant="plain"
+        label="取消追剧"
+        :loading="stopping"
+        @click="emit('stop', episode.seriesId)"
       />
       <span class="ag-grow" />
       <UiButton
@@ -34,6 +43,7 @@
         icon="download"
         label="转存"
         :loading="busy === 'grab'"
+        :disabled="stopping || Boolean(busy && busy !== 'grab')"
         @click="emit('grab', episode.key, 0)"
       />
       <UiButton
@@ -42,6 +52,7 @@
         icon="download"
         label="再试转存"
         :loading="busy === 'grab'"
+        :disabled="stopping || Boolean(busy && busy !== 'grab')"
         @click="emit('grab', episode.key, 0)"
       />
       <UiButton
@@ -50,6 +61,7 @@
         icon="refresh"
         label="现在重搜"
         :loading="busy === 'retry'"
+        :disabled="stopping || Boolean(busy && busy !== 'retry')"
         @click="emit('retry', episode.key)"
       />
     </template>
@@ -82,12 +94,15 @@ const props = defineProps<{
   poster: string | null
   /** 这一集正在进行的操作 */
   busy?: EpisodeAction
+  /** 整部剧正在确认或取消追更。 */
+  stopping?: boolean
 }>()
 const emit = defineEmits<{
   grab: [key: string, index: number]
   skip: [key: string]
   retry: [key: string]
   open: [key: string]
+  stop: [seriesId: number]
 }>()
 
 const best = computed(() => props.episode.candidates[0] ?? null)
@@ -98,3 +113,9 @@ const stateText = computed(() => {
   return props.episode.status === 'noSpace' ? '空间不足' : '找不到'
 })
 </script>
+
+<style scoped>
+.ag-pending-card :deep(.ag-task-act) {
+  flex-wrap: wrap;
+}
+</style>

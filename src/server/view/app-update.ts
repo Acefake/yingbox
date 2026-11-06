@@ -4,6 +4,8 @@
  * 发布列表缓存 10 分钟。地址可用 YINGBOX_ANDROID_RELEASES_URL 换成自己的清单
  * （同样的 JSON 形状）；自定义地址不做镜像回退。
  */
+import type { NetworkPreferences } from '../../shared/network/preferences'
+import { publicFetch } from '../../main/network'
 import {
   type AndroidUpdate,
   pickAndroidUpdate,
@@ -20,7 +22,8 @@ export type FetchReleases = () => Promise<unknown>
 
 /** 默认的发布列表请求 */
 export function githubReleases(
-  url: string = process.env.YINGBOX_ANDROID_RELEASES_URL || DEFAULT_URL
+  url: string = process.env.YINGBOX_ANDROID_RELEASES_URL || DEFAULT_URL,
+  networkPreferences?: () => NetworkPreferences
 ): FetchReleases {
   return async () => {
     const endpoint = new URL(url)
@@ -28,15 +31,21 @@ export function githubReleases(
     let page = endpoint
     // 仅默认官方地址启用镜像；YINGBOX_ANDROID_RELEASES_URL 或显式其它 URL 不回退
     const candidatesFor = (href: string): string[] =>
-      url === DEFAULT_URL ? mirrorCandidates(href) : [href]
+      url === DEFAULT_URL
+        ? mirrorCandidates(href, networkPreferences?.())
+        : [href]
     for (let count = 0; count < 20; count++) {
-      const response = await fetchFirstOk(candidatesFor(page.href), fetch, {
-        headers: {
-          Accept: 'application/vnd.github+json',
-          'User-Agent': 'yingbox-android',
-        },
-        timeoutMs: TIMEOUT_MS,
-      })
+      const response = await fetchFirstOk(
+        candidatesFor(page.href),
+        url === DEFAULT_URL ? publicFetch : fetch,
+        {
+          headers: {
+            Accept: 'application/vnd.github+json',
+            'User-Agent': 'yingbox-android',
+          },
+          timeoutMs: TIMEOUT_MS,
+        }
+      )
       const items: unknown = await response.json()
       if (!Array.isArray(items)) throw new Error('更新发布列表格式错误')
       releases.push(...items)

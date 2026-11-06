@@ -2,7 +2,14 @@
  * 主进程设置模块：打开 settings.json（首启并入旧 config.json 的下载目录），实现 settings 域，并把变更广播给所有窗口。
  * 其他主进程模块经 {@link settingsStore} 读写（例如 TMDB 令牌）。
  */
-import { BrowserWindow, type OpenDialogOptions, app, dialog } from 'electron'
+import { testNetwork } from '../network'
+import {
+  BrowserWindow,
+  type OpenDialogOptions,
+  app,
+  dialog,
+  net,
+} from 'electron'
 import { join } from 'node:path'
 import { chooseDownloadDir, migrateLegacyConfig } from '../download-dir'
 import { emit, implement } from '../rpc'
@@ -61,6 +68,14 @@ export async function initSettings(): Promise<void> {
   )
   implement(settings, {
     snapshot: () => opened.snapshot(),
+    probeNetwork: (_, preferences) =>
+      testNetwork(preferences, (url, init) =>
+        ['api.themoviedb.org', 'api.tmdb.org', 'image.tmdb.org'].includes(
+          new URL(url).hostname
+        )
+          ? net.fetch(url, init)
+          : fetch(url, init)
+      ),
     migrateLegacy: (_, legacy) => opened.migrateLegacy(legacy),
     set: (_, key, value) => {
       opened.set(key, value)

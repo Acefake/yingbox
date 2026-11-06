@@ -9,6 +9,8 @@
  */
 import type { CalendarEpisode } from '../../shared/library/ipc'
 import { episodeKey } from './schedule-rules'
+import { parseShareLink } from '../pan115/share-link'
+import { candidateKey } from './state'
 import {
   type AutograbState,
   type EpisodeRecord,
@@ -27,7 +29,7 @@ const PROGRESS: Record<EpisodeRecord['status'], number> = {
 }
 
 /** 两份设置并成一份，按字段取：方式新 id 设过的优先，偏好逐项合并（新的覆盖旧的），文件夹缺了互补，确认数取大的 */
-function mergeSetting(
+export function mergeSetting(
   current: SeriesSetting | undefined,
   old: SeriesSetting
 ): SeriesSetting {
@@ -43,6 +45,33 @@ function mergeSetting(
     confirmed: Math.max(current.confirmed, old.confirmed),
     confirmFirst: current.confirmFirst ?? old.confirmFirst,
   }
+}
+
+/** 迁移重复分集时保留更高进度，合并禁止候选并排除已撤销的资源。 */
+export function mergeEpisodeRecords(
+  current: EpisodeRecord | undefined,
+  incoming: EpisodeRecord
+): EpisodeRecord {
+  if (!current) return incoming
+  const chosen =
+    PROGRESS[current.status] >= PROGRESS[incoming.status] ? current : incoming
+  chosen.banned = [...new Set([...current.banned, ...incoming.banned])]
+  chosen.attempts = Math.max(current.attempts, incoming.attempts)
+  chosen.candidates = chosen.candidates.filter(candidate => {
+    const share = parseShareLink(candidate.shareUrl, candidate.password)
+    return !chosen.banned.includes(
+      candidateKey(share?.shareCode ?? candidate.shareUrl, candidate.fileId)
+    )
+  })
+  if (
+    (chosen.status === 'found' || chosen.status === 'noSpace') &&
+    !chosen.candidates.length
+  ) {
+    chosen.status = 'waiting'
+    chosen.nextTry = 0
+    chosen.error = null
+  }
+  return chosen
 }
 
 /**

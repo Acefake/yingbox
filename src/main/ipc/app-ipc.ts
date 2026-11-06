@@ -1,3 +1,4 @@
+import { publicFetch } from '../network'
 import { BrowserWindow, app as electronApp } from 'electron'
 import { is } from '@electron-toolkit/utils'
 import { spawn } from 'node:child_process'
@@ -38,7 +39,8 @@ let sendUpdateStatus: (status: UpdateStatusEvent) => void = () => undefined
 /** 懒创建桌面更新器（状态经 sendUpdateStatus 推给主窗口） */
 function updater(): ReturnType<typeof createDesktopUpdater> {
   desktopUpdater ??= createDesktopUpdater({
-    fetch: (input, init) => globalThis.fetch(input, init),
+    networkPreferences: () => settingsStore().get('network.optimization'),
+    fetch: publicFetch,
     platform: process.platform,
     version: electronApp.getVersion(),
     dir: join(electronApp.getPath('userData'), 'updater'),

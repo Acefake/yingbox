@@ -34,7 +34,9 @@ export { WATCHED_RATIO }
 export interface CalendarEntry {
   /** 列表里唯一 */
   id: string
-  source: 'library' | 'online'
+  source: 'library' | 'online' | 'tracking'
+  /** 独立追剧任务句柄。 */
+  tracking?: { seriesId: number; season: number; episode: number }
   /** 剧名 */
   title: string
   /** 集号：S01E03 / E05 / E05–06 */
@@ -369,6 +371,7 @@ export function listGroups(
  * 同名的不同剧（翻拍、同名综艺）因此不会被合并成一部。
  */
 export function showKey(entry: CalendarEntry): string {
+  if (entry.tracking) return `tracking:${entry.tracking.seriesId}`
   if (entry.library) return `library:${entry.library.seriesId}`
   if (entry.online) return `online:${entry.online.recordId}`
   return `title:${entry.title}`

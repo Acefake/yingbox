@@ -21,19 +21,14 @@ function setup(): (state: string) => void {
 }
 
 describe('增强状态和控件位置', () => {
-  it('只有增强生效才显示标识，对比时显示原画，失败或关闭隐藏', () => {
+  it('增强状态继续回报，播放画面不显示增强或原画提示', () => {
     const report = setup()
-    const badge =
-      art.template.$player.querySelector<HTMLElement>('[role="status"]')!
-    expect(badge.hidden).toBe(true)
-    report('FSR')
-    expect(badge.hidden).toBe(false)
-    expect(badge.textContent).toBe('FSR 增强')
-    report('原画')
-    expect(badge.textContent).toBe('原画对比')
-    for (const state of ['处理失败', '不支持', '等待处理', '']) {
+    for (const state of ['FSR', '原画', '处理失败', '不支持', '等待处理', '']) {
       report(state)
-      expect(badge.hidden).toBe(true)
+      expect(art.video.dataset.ybEnhanceState).toBe(state)
+      expect(
+        art.template.$player.querySelector('.yb-enhance-status')
+      ).toBeNull()
     }
   })
 

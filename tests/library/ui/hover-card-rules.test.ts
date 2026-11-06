@@ -73,7 +73,7 @@ describe('悬停卡信息', () => {
       },
     } as unknown as LibraryItemNode
     const facts = hoverFactsOf(node)
-    expect(facts.meta).toEqual(['2024-05-10', '120 分钟', '★ 7.8', '2 个文件'])
+    expect(facts.meta).toEqual(['2024-05-10', '120 分钟', '2 个文件'])
     expect(facts.rows.map(r => `${r.label}:${r.value}`)).toEqual([
       '制作商:IDEA POCKET',
       '发行商:ティッシュ',

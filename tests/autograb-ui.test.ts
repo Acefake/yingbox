@@ -60,6 +60,14 @@ const base: AutograbOverview = {
 }
 
 describe('追更面板规则', () => {
+  it('自动队列中的候选无需人工确认', () => {
+    expect(
+      pendingEpisodes({
+        ...base,
+        episodes: [ep({ status: 'found', automatic: true })],
+      })
+    ).toEqual([])
+  })
   it('前置条件：登录 > PanSou > 暂停，各带就地操作', () => {
     expect(prerequisites(base)).toEqual([])
     expect(
@@ -156,8 +164,24 @@ describe('日历卡片的追更小标记', () => {
         ep({ key: '7:1:6', episode: 6, status: 'done' }),
       ],
     })
-    expect([...marks.keys()]).toEqual(['7:1:5'])
-    expect(marks.get('7:1:5')!.title).toContain('空间不足')
+    expect([...marks.keys()]).toEqual(['tracking:7:1:5'])
+    expect(marks.get('tracking:7:1:5')!.title).toContain('空间不足')
+  })
+
+  it('任务句柄与媒体库条目数字相同时，标记不会串剧', () => {
+    const a = series(1, 'confirm')
+    const b = { ...series(2, 'confirm'), libraryItemId: 1 }
+    const marks = marksOf({
+      ...base,
+      series: [a, b],
+      episodes: [
+        ep({ key: '1:1:5', seriesId: 1 }),
+        ep({ key: '2:1:5', seriesId: 2 }),
+      ],
+    })
+    expect(marks.get('tracking:1:1:5')?.key).toBe('1:1:5')
+    expect(marks.get('tracking:2:1:5')?.key).toBe('2:1:5')
+    expect(marks.get('library:1:1:5')?.key).toBe('2:1:5')
   })
 
   it('空间暂停：提示并可恢复', () => {

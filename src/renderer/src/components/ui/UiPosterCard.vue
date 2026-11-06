@@ -24,9 +24,7 @@
       <UiCoverFallback v-else :title="title" />
       <div v-if="preview" ref="previewHost" class="ui-preview-layer" />
 
-      <span v-if="rating" class="ui-poster-rating">
-        <UiIcon name="star" size="sm" filled />{{ rating }}
-      </span>
+      <UiRatingBadge :rating="rating" />
       <div v-if="$slots.badges" class="ui-poster-badges">
         <slot name="badges" />
       </div>
@@ -81,7 +79,7 @@ import {
 } from '@/services/thumbnails'
 import { type PreviewSource, useCardPreview } from './hover-preview'
 import UiCoverFallback from './UiCoverFallback.vue'
-import UiIcon from './UiIcon.vue'
+import UiRatingBadge from './UiRatingBadge.vue'
 import UiIconButton from './UiIconButton.vue'
 
 const props = withDefaults(
@@ -186,28 +184,6 @@ watch(
 }
 .ui-poster:focus-visible .ui-poster-media {
   box-shadow: var(--focus-ring-offset);
-}
-.ui-poster-rating {
-  position: absolute;
-  bottom: var(--space-2);
-  left: var(--space-2);
-  display: inline-flex;
-  align-items: center;
-  gap: var(--space-1);
-  padding: var(--space-0_5) var(--space-2);
-  border-radius: var(--radius-xs);
-  background: color-mix(in srgb, var(--media-bg) 56%, transparent);
-  color: var(--media-text);
-  font-size: var(--text-2xs);
-  font-weight: var(--font-weight-semibold);
-  font-variant-numeric: tabular-nums;
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-}
-.ui-poster-rating .app-icon {
-  width: 11px;
-  height: 11px;
-  color: var(--rating);
 }
 .ui-poster-badges {
   position: absolute;

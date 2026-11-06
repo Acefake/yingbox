@@ -1,7 +1,7 @@
 # ADR-0049 在线剧追更：片库里的占位剧条目
 
 - 日期：2026-11-05
-- 状态：已采纳
+- 状态：已被 ADR-0052 取代
 - 补充：[ADR-0029](0029-autograb-target-and-organize-home.md) 追更按片库剧条目 id 工作；设计见 `docs/s-atlas/specs/2026-11-05-online-series-autograb-design.md`
 
 ## 背景

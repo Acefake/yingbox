@@ -49,6 +49,14 @@ export interface SeriesSetting {
   prefs: AutograbPrefsOverride
   /** 剧的 TMDB id（在日历里出现过才有）：条目 id 变了时靠它认出同一部剧 */
   tmdbId?: string
+  /** 可选媒体库关联，不参与任务身份。 */
+  libraryItemId?: number
+  syncLibrary?: boolean
+  pending?: boolean
+  originalTitle?: string
+  year?: number | null
+  poster?: string | null
+  category?: SeriesCategory
 }
 
 /** 一集的记录 */
@@ -75,7 +83,8 @@ export interface EpisodeRecord extends Omit<AutograbEpisode, 'revertable'> {
 
 /** 整份状态 */
 export interface AutograbState {
-  version: 1
+  version: 1 | 2
+  nextSeriesId?: number
   /** 各分类默认存到哪（没设的分类用剧集默认目录） */
   categoryFolders: Partial<
     Record<SeriesCategory, { cid: string; name: string }>
@@ -183,6 +192,7 @@ function parseEpisode(key: string, raw: unknown): EpisodeRecord | null {
     savedName: sOrNull(raw.savedName),
     savedCid: sOrNull(raw.savedCid),
     notified: raw.notified === true,
+    libraryError: sOrNull(raw.libraryError),
     savedFileId: /^\d+$/.test(s(raw.savedFileId)) ? s(raw.savedFileId) : null,
     savedSize: nOrNull(raw.savedSize),
     savedFrom: sOrNull(raw.savedFrom),
@@ -227,7 +237,10 @@ export function ensureSetting(
 /** 文件内容 → 状态；认不出的部分丢掉 */
 export function parseState(raw: unknown, now: number): AutograbState {
   const state = emptyState(now)
-  if (!isObj(raw) || raw.version !== 1) return state
+  if (!isObj(raw) || (raw.version !== 1 && raw.version !== 2)) return state
+  state.version = raw.version
+  if (Number.isSafeInteger(raw.nextSeriesId) && n(raw.nextSeriesId) > 0)
+    state.nextSeriesId = n(raw.nextSeriesId)
   state.enabled = raw.enabled !== false
   const legacy = !isObj(raw.policy)
   state.policy = legacy
@@ -256,6 +269,21 @@ export function parseState(raw: unknown, now: number): AutograbState {
         : confirmFirstOf(value.confirmFirst)
       if (confirmFirst !== undefined) setting.confirmFirst = confirmFirst
       if (/^\d+$/.test(s(value.tmdbId))) setting.tmdbId = s(value.tmdbId)
+      if (
+        Number.isSafeInteger(value.libraryItemId) &&
+        n(value.libraryItemId) > 0
+      )
+        setting.libraryItemId = n(value.libraryItemId)
+      if (value.syncLibrary === true) setting.syncLibrary = true
+      if (value.pending === true) setting.pending = true
+      if (typeof value.originalTitle === 'string')
+        setting.originalTitle = value.originalTitle
+      if (typeof value.poster === 'string' || value.poster === null)
+        setting.poster = sOrNull(value.poster)
+      if (typeof value.year === 'number' || value.year === null)
+        setting.year = nOrNull(value.year)
+      const category = categoryOf(value.category)
+      if (category) setting.category = category
       state.series[id] = setting
     }
   if (isObj(raw.categoryFolders))

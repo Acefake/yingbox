@@ -21,7 +21,15 @@
         </UiPressable>
         <div class="lib-hover-body">
           <strong class="lib-hover-title">{{ item.title }}</strong>
-          <p v-if="facts?.meta.length" class="lib-hover-meta">
+          <p
+            v-if="facts && (facts.meta.length || node?.rating)"
+            class="lib-hover-meta"
+          >
+            <UiRatingBadge
+              v-if="node"
+              inline
+              :rating="formatRating(node.rating, node.ratingSource)"
+            />
             <span v-for="part in facts.meta" :key="part">{{ part }}</span>
           </p>
           <div class="lib-hover-actions">
@@ -88,6 +96,8 @@ import type {
   LibraryItemSummary,
 } from '../../../../../shared/library/ipc'
 import UiButton from '@/components/ui/UiButton.vue'
+import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
+import { formatRating } from '../../../../../shared/library/rating'
 import UiPressable from '@/components/ui/UiPressable.vue'
 import UiSkeleton from '@/components/ui/UiSkeleton.vue'
 

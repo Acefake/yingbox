@@ -33,6 +33,7 @@ export async function fetchFirstOk(
       continue
     }
     if (response.ok) return response
+    await response.body?.cancel().catch(() => {})
     lastError = new Error(`检查更新失败：HTTP ${response.status}`)
     if (!shouldTryNextMirror(response.status, null)) throw lastError
   }

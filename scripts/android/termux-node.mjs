@@ -9,7 +9,16 @@
  */
 import { spawnSync } from 'node:child_process'
 import { createHash } from 'node:crypto'
-import { copyFileSync, existsSync, mkdirSync, readFileSync, readdirSync, rmSync, statSync, writeFileSync } from 'node:fs'
+import {
+  copyFileSync,
+  existsSync,
+  mkdirSync,
+  readFileSync,
+  readdirSync,
+  rmSync,
+  statSync,
+  writeFileSync,
+} from 'node:fs'
 import { basename, dirname, join } from 'node:path'
 import { fileURLToPath } from 'node:url'
 import { readDynamic } from './elf.mjs'
@@ -32,7 +41,10 @@ function parseIndex(text) {
       block
         .split('\n')
         .filter(line => /^[\w-]+:/.test(line))
-        .map(line => [line.slice(0, line.indexOf(':')), line.slice(line.indexOf(':') + 1).trim()])
+        .map(line => [
+          line.slice(0, line.indexOf(':')),
+          line.slice(line.indexOf(':') + 1).trim(),
+        ])
     )
 
     if (fields.Package) packages.set(fields.Package, fields)
@@ -57,9 +69,13 @@ function closure(index) {
 
 /** 从 .deb（ar 归档）里取出 data.tar.*。 */
 function debData(buf) {
-  if (buf.toString('latin1', 0, 8) !== '!<arch>\n') throw new Error('不是 deb 文件')
+  if (buf.toString('latin1', 0, 8) !== '!<arch>\n')
+    throw new Error('不是 deb 文件')
   for (let at = 8; at < buf.length; ) {
-    const name = buf.toString('latin1', at, at + 16).trim().replace(/\/$/, '')
+    const name = buf
+      .toString('latin1', at, at + 16)
+      .trim()
+      .replace(/\/$/, '')
     const size = Number(buf.toString('latin1', at + 48, at + 58).trim())
     const body = buf.subarray(at + 60, at + 60 + size)
 
@@ -88,13 +104,21 @@ async function download(url, file, expected) {
 /** 解开 data.tar.*。包里的符号链接在 Windows 上可能建不出来，只容忍这一类失败：后面只认真实文件，靠 SONAME 找库。 */
 function untar(dir, name) {
   // 用相对路径：GNU tar 会把 D:\ 这类盘符当成远程主机
-  const result = spawnSync('tar', ['-xf', name, '-C', 'root'], { cwd: dir, encoding: 'utf8' })
+  const result = spawnSync('tar', ['-xf', name, '-C', 'root'], {
+    cwd: dir,
+    encoding: 'utf8',
+  })
   if (result.error) throw new Error(`运行 tar 失败：${result.error.message}`)
   if (result.status === 0) return
   const errors = result.stderr
     .split('\n')
-    .filter(line => line.trim() && !/symlink|symbolic link|Exiting with failure status/i.test(line))
-  if (errors.length) throw new Error(`tar 解包 ${name} 失败：\n${errors.join('\n')}`)
+    .filter(
+      line =>
+        line.trim() &&
+        !/symlink|symbolic link|Exiting with failure status/i.test(line)
+    )
+  if (errors.length)
+    throw new Error(`tar 解包 ${name} 失败：\n${errors.join('\n')}`)
 }
 
 /** 下载并解开一个 ABI 的全部包，返回解开后的 usr 目录。 */
@@ -120,7 +144,8 @@ async function fetchArch(arch) {
     console.log(`  ${pkg.Package} ${pkg.Version}`)
   }
   const usr = join(root, PREFIX)
-  if (!existsSync(join(usr, 'bin/node'))) throw new Error(`解包后没有 ${PREFIX}/bin/node`)
+  if (!existsSync(join(usr, 'bin/node')))
+    throw new Error(`解包后没有 ${PREFIX}/bin/node`)
   return usr
 }
 
@@ -130,7 +155,9 @@ const packagedName = needed => needed.replace(/\.so(\.\d+)+$/, '.so')
 /** 从 node 出发找齐动态库，拷进 jniLibs/<abi>，返回「原名 → 打包名」。 */
 function collect(usr, out) {
   const libDir = join(usr, 'lib')
-  const files = readdirSync(libDir).filter(name => /\.so(\.|$)/.test(name) && statSync(join(libDir, name)).isFile())
+  const files = readdirSync(libDir).filter(
+    name => /\.so(\.|$)/.test(name) && statSync(join(libDir, name)).isFile()
+  )
   const bySoname = new Map()
 
   for (const name of files) {
@@ -138,7 +165,9 @@ function collect(usr, out) {
     if (soname && !bySoname.has(soname)) bySoname.set(soname, name)
   }
   const resolve = needed =>
-    bySoname.get(needed) ?? files.find(name => name === needed) ?? files.find(name => name.startsWith(`${needed}.`))
+    bySoname.get(needed) ??
+    files.find(name => name === needed) ??
+    files.find(name => name.startsWith(`${needed}.`))
   const links = new Map()
   const packaged = new Map()
   const queue = [...readDynamic(readFileSync(join(usr, 'bin/node'))).needed]
@@ -152,7 +181,8 @@ function collect(usr, out) {
     const file = resolve(needed)
     if (!file) throw new Error(`找不到依赖库 ${needed}`)
     const name = packagedName(needed)
-    if (packaged.has(name) && packaged.get(name) !== file) throw new Error(`打包名冲突：${name}`)
+    if (packaged.has(name) && packaged.get(name) !== file)
+      throw new Error(`打包名冲突：${name}`)
     packaged.set(name, file)
     links.set(needed, name)
     copyFileSync(join(libDir, file), join(out, name))
@@ -163,17 +193,28 @@ function collect(usr, out) {
 
 async function main() {
   const abiArg = process.argv.indexOf('--abi')
-  const abis = abiArg >= 0 ? process.argv[abiArg + 1].split(',') : ['x86_64', 'arm64-v8a']
+  const abis =
+    abiArg >= 0 ? process.argv[abiArg + 1].split(',') : ['x86_64', 'arm64-v8a']
   let manifest = null
 
   for (const abi of abis) {
-    if (!ARCH[abi]) throw new Error(`不支持的 ABI：${abi}（可选 ${Object.keys(ARCH).join('、')}）`)
+    if (!ARCH[abi])
+      throw new Error(
+        `不支持的 ABI：${abi}（可选 ${Object.keys(ARCH).join('、')}）`
+      )
     console.log(`[${abi}] Termux ${ARCH[abi]}`)
     const links = collect(await fetchArch(ARCH[abi]), join(APP, 'jniLibs', abi))
-    const text = [...links].filter(([from, to]) => from !== to).map(([from, to]) => `${from} ${to}`).sort().join('\n')
-    if (manifest !== null && manifest !== text) throw new Error('各 ABI 的库名清单不一致')
+    const text = [...links]
+      .filter(([from, to]) => from !== to)
+      .map(([from, to]) => `${from} ${to}`)
+      .sort()
+      .join('\n')
+    if (manifest !== null && manifest !== text)
+      throw new Error('各 ABI 的库名清单不一致')
     manifest = text
-    console.log(`[${abi}] ${links.size + 1} 个文件 → android/app/src/main/jniLibs/${abi}`)
+    console.log(
+      `[${abi}] ${links.size + 1} 个文件 → android/app/src/main/jniLibs/${abi}`
+    )
   }
   mkdirSync(join(APP, 'assets/node'), { recursive: true })
   writeFileSync(join(APP, 'assets/node/libs.txt'), `${manifest}\n`)

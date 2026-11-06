@@ -139,6 +139,8 @@ fun SettingsScreen(client: ServerClient, device: DeviceSettings, chrome: Padding
                 ImageQualityGroup(api)
                 SettingsDivider()
                 TmdbTokenGroup(api)
+                SettingsDivider()
+                NetworkSettingsGroup(api, device)
             }
         }
         item {

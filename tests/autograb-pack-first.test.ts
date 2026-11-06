@@ -1,7 +1,7 @@
 /**
  * 追更 · 合集优先（ADR-0050）：缺多集时先找合集，点开后把全部视频认成缺集，只给缺的集带候选。
  */
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 
 import {
   MAX_PACK_SHARES,
@@ -15,7 +15,8 @@ import type {
   ShareFile,
   ShareSnap,
 } from '../src/shared/contract/pan115'
-import { setup } from './autograb-harness'
+import { episode, setup } from './autograb-harness'
+import { emptyState } from '../src/main/autograb/state'
 
 const GB = 1024 ** 3
 const file = (id: string, name: string, isDir = false): ShareFile => ({
@@ -62,6 +63,59 @@ const deps = (items: NetdiskItem[], snaps = tree()): PackDeps => ({
 })
 
 describe('合集优先', () => {
+  it('全自动连续处理超过三集的合集缺集，不等待下一轮或人工确认', async () => {
+    const h = setup([1, 2, 3, 4, 5].map(n => episode(n)))
+    h.deps.defaultFolder = () => ({ cid: '88', name: '剧集' })
+    h.deps.pan.receive = async (_url, _password, ids, cid) => {
+      h.received.push(ids)
+      h.files.set(cid, [
+        ...(h.files.get(cid) ?? []),
+        ...ids.map(id => ({
+          id: `9${id}`,
+          name: `繁花.S01E0${Number(id) - 100}.2160p.WEB-DL.mkv`,
+          isDir: false,
+          size: GB,
+        })),
+      ])
+      if (h.received.length === 1) await h.service.setEnabled(false)
+    }
+    h.deps.pan.search = async () => [share('abc', '繁花 全5集 合集')]
+    h.deps.pan.snap = async () => ({
+      title: '繁花',
+      count: 5,
+      files: [1, 2, 3, 4, 5].map(n =>
+        file(String(100 + n), `繁花.S01E0${n}.2160p.WEB-DL.mkv`)
+      ),
+    })
+    await h.service.setSeries(7, { mode: 'auto', title: '繁花' })
+    await h.service.tick()
+    expect(h.received).toHaveLength(1)
+    await h.service.setEnabled(true)
+    await h.service.tick()
+    expect(h.received).toHaveLength(5)
+    expect(
+      (await h.service.overview()).episodes.every(ep => ep.status === 'saved')
+    ).toBe(true)
+  })
+
+  it('当天限额耗尽保留候选，次日恢复自动转存', async () => {
+    const h = setup([episode(5)])
+    const state = emptyState(h.clock.t)
+    state.gate.receives = 30
+    h.deps.load = async () => state
+    h.deps.defaultFolder = () => ({ cid: '88', name: '剧集' })
+    await h.service.setSeries(7, { mode: 'auto', title: '繁花' })
+    await h.service.tick()
+    expect(h.received).toHaveLength(0)
+    expect((await h.service.overview()).episodes[0]).toMatchObject({
+      status: 'found',
+      error: null,
+    })
+    h.clock.t += 24 * 3_600_000
+    await h.service.tick()
+    expect(h.received).toHaveLength(1)
+    expect((await h.service.overview()).episodes[0].status).toBe('saved')
+  })
   it('分享挑选：剧名对得上、像合集、不是别的季，新的在前，最多 3 个', () => {
     const items = [
       share('a', '繁花 全30集 合集', '2026-10-01'),
@@ -136,6 +190,69 @@ describe('合集优先', () => {
 })
 
 describe('追更服务：缺多集时先找合集', () => {
+  it('合集快照等待期间可读取真实搜索阶段，完成后返回匹配数量', async () => {
+    const h = setup([episode(1), episode(2)])
+    let release = (): void => {}
+    const pending = new Promise<void>(resolve => {
+      release = resolve
+    })
+    const started = vi.fn()
+    h.deps.pan.search = async () => [share('abc', '繁花 全2集 合集')]
+    h.deps.pan.snap = async () => {
+      started()
+      await pending
+      return { title: '繁花', count: 0, files: [] }
+    }
+    await h.service.setSeries(7, { mode: 'confirm', title: '繁花' })
+    try {
+      await vi.waitFor(() => expect(started).toHaveBeenCalled())
+      expect((await h.service.overview()).packSearch).toEqual([
+        { seriesId: 7, status: 'searching', matched: 0, total: 2 },
+      ])
+    } finally {
+      release()
+    }
+    await h.service.tick()
+    expect((await h.service.overview()).packSearch?.[0]).toMatchObject({
+      status: 'complete',
+      matched: 0,
+    })
+  })
+
+  it('合集覆盖部分缺集时，先转存已匹配的集，再补搜其余单集', async () => {
+    const h = setup([episode(1), episode(2), episode(3)])
+    h.deps.defaultFolder = () => ({ cid: '88', name: '剧集' })
+    const order: string[] = []
+    h.deps.pan.search = async () => [share('abc', '繁花 全3集 合集')]
+    h.deps.pan.snap = async () => {
+      order.push('snapshot')
+      return {
+        title: '繁花',
+        count: 2,
+        files: [
+          file('101', '繁花.S01E01.2160p.WEB-DL.mkv'),
+          file('102', '繁花.S01E02.2160p.WEB-DL.mkv'),
+        ],
+      }
+    }
+    const receive = h.deps.pan.receive
+    h.deps.pan.receive = async (...args) => {
+      order.push(`save-${args[2][0]}`)
+      await receive(...args)
+    }
+    await h.service.setSeries(7, { mode: 'auto', title: '繁花' })
+    await h.service.tick()
+    expect(order.filter(x => x === 'snapshot')).toHaveLength(2)
+    expect(order.indexOf('save-101')).toBeGreaterThanOrEqual(0)
+    expect(order.indexOf('save-102')).toBeGreaterThanOrEqual(0)
+    expect(order.indexOf('save-102')).toBeLessThan(
+      order.lastIndexOf('snapshot')
+    )
+    expect((await h.service.overview()).packSearch).toEqual([
+      { seriesId: 7, status: 'complete', matched: 2, total: 3 },
+    ])
+  })
+
   it('缺 2 集以上：一次点开合集，两集都带上候选；缺 1 集仍逐集搜', async () => {
     const h = setup([])
     const eps = [1, 2].map(n => ({

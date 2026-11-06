@@ -3,7 +3,7 @@
  *
  * - 媒体库部分：按日期区间向片库要播出数据（calendar.episodes）。引擎侧每部剧每天最多刷新一次 TMDB；
  *   这里再按「今天 + 区间」记住结果，同一天来回切页不重复调用。
- * - 在线部分：直接读「继续播放」记录（响应式），不联网。
+ * - 在线部分：只展示已开启追更的在线剧，观看进度读取「继续播放」记录（响应式），不联网。
  * - 已看 / 未看：片库里这一集的观看进度（读到区间数据后按剧读进来）+ 「继续播放」记录；
  *   片库还没有的（还在本地进度表里、没搬进片库的）看本地进度表与「已看完」标记（规则见 calendar-rules.ts）。
  * - 「今天」每分钟和窗口获得焦点时校正一次，过了零点角标与高亮自动跟上。
@@ -21,8 +21,10 @@ import {
   loadLibraryProgress,
 } from '@/features/library'
 import { continueRecords, readMediaProgress } from '@/features/player'
+import { useOnlineTracking } from '@/features/autograb'
 import { onlineLinks } from '@/services/online-series-links'
 
+import { trackingEntries } from './tracking-entries'
 import { addDays, dateKey, weekStart } from './calendar-dates'
 import {
   type CalendarEntry,
@@ -30,7 +32,6 @@ import {
   badgeCount,
   badgeRange,
   compareEntries,
-  dropLinkedOnline,
   libraryEntries,
   onlineEntries,
 } from './calendar-rules'
@@ -43,6 +44,7 @@ interface RangeState {
 }
 
 const today = ref(dateKey(new Date()))
+const onlineTracking = useOnlineTracking()
 /** 键：今天|from|to */
 const ranges = shallowRef(new Map<string, RangeState>())
 const inflight = new Map<string, Promise<void>>()
@@ -121,16 +123,33 @@ function progressOf(ep: CalendarEpisode): ProgressLike | null {
 /** 某段日期的全部卡片（媒体库 + 在线），已排序。 */
 function entriesFor(state: RangeState | undefined): CalendarEntry[] {
   const records = continueRecords().value
+  const followed = records.filter(record =>
+    onlineTracking.isTracked({ recordId: record.id, title: record.title })
+  )
   const library = libraryEntries(
     state?.result?.episodes ?? [],
     today.value,
     records,
     progressOf
   )
-  return dropLinkedOnline(
-    [...library, ...onlineEntries(records, today.value)],
-    onlineLinks.value
-  ).sort(compareEntries)
+  const schedule = onlineTracking.schedule.value
+  const tracked = trackingEntries(
+    schedule,
+    state?.result?.episodes ?? [],
+    today.value,
+    records,
+    progressOf
+  )
+  const datedTitles = new Set(
+    [...library, ...tracked].map(e => e.title.replace(/\s+/g, '').toLowerCase())
+  )
+  const datedTasks = new Set(schedule.map(ep => ep.seriesId))
+  const online = onlineEntries(followed, today.value).filter(
+    e =>
+      !datedTitles.has(e.title.replace(/\s+/g, '').toLowerCase()) &&
+      !datedTasks.has(onlineLinks.value.get(e.id) ?? -1)
+  )
+  return [...library, ...tracked, ...online].sort(compareEntries)
 }
 
 let badgeStarted = false

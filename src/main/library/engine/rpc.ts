@@ -136,6 +136,11 @@ const HANDLERS: Handlers = {
   'visual.setFrames': (s, p) => s.visual.setFrames(p),
   'calendar.episodes': (s, p) => calendarFor(s).episodes(p),
   'calendar.seriesFolder': (s, p) => {
+    if (
+      p.expectedTmdbId &&
+      s.getItem({ itemId: p.itemId })?.providerIds.tmdb !== p.expectedTmdbId
+    )
+      return null
     const home = homesFor(s).homeOf(p.itemId)
     return home && { dir: home.dir, seasons: home.seasons }
   },
