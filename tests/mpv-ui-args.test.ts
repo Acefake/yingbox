@@ -10,6 +10,7 @@ describe('mpv 启动参数：控制条', () => {
 
     expect(args).toContain('--osc=no')
     expect(args).toContain('--osd-bar=no')
+    expect(args).toContain('--script-opts=uosc-languages=zh-hans')
     expect(args.some(a => /^--script=.*uosc$/.test(a))).toBe(true)
     expect(args.some(a => a.startsWith('--osd-fonts-dir='))).toBe(true)
   })

@@ -130,6 +130,8 @@ export function spawnArgs(input: SpawnArgsInput): string[] {
     args.push(
       '--osc=no',
       '--osd-bar=no',
+      // 界面语言写死简体中文（默认跟字幕语言走）；值里不能带逗号，缺词条时 uosc 自动用英文
+      '--script-opts=uosc-languages=zh-hans',
       `--script=${join(input.uiDir, 'scripts', 'uosc')}`,
       `--osd-fonts-dir=${join(input.uiDir, 'fonts')}`
     )
