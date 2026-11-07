@@ -1,8 +1,9 @@
 /**
  * 侧栏与手机底部标签栏的导航项（纯函数，按当前路由与平台能力算出）。
- * 本地媒体（由片库给出：有条目的电影 / 剧集 / 动漫 / 综艺 / 纪录片，都没有时一个「添加媒体库」入口）与直播
- * 在有片库服务的平台显示，网盘按调用接口是否可用显示，两者互不依赖；
- * 其中「番号」（本地番号库）与 AV 一样只在成人模式下出现。
+ * 「在线资源」：首页、直播（有片库时，紧挨首页）、最近播放、我的收藏。
+ * 「追剧」包含存储入口；115 登录后显示网盘搜剧、追剧日历与自动追更。
+ * 本地媒体由片库给出（有条目的电影 / 剧集 / 动漫 / 综艺 / 纪录片，都没有时一个「添加媒体库」入口）；
+ * 「成人资源」只在成人模式出现：有片库时含番号，另有 AV。
  */
 import type { IconName } from '@/components/ui/icons'
 
@@ -38,8 +39,14 @@ export interface NavState {
   onlineTab: string | undefined
   /** 平台是否有本地片库（桌面端，或网页端连着片库服务） */
   hasLocalLibrary: boolean
-  /** 能否用网盘（桌面端：登录与转存都在主进程） */
+  /** 平台能否登录 115（桌面端，或网页端连着片库服务） */
   hasNetdisk: boolean
+  /** 115 账号是否已经确认。还在读时不显示追剧组，避免先闪出登录入口 */
+  netdiskReady: boolean
+  /** 还没确认，且最近一次读取失败。这时留下存储入口，用来打开重试页 */
+  netdiskFailed: boolean
+  /** 115 已登录。网盘搜剧、追剧日历、自动追更只在登录后出现 */
+  netdiskLoggedIn: boolean
   /** 成人模式 */
   adultMode: boolean
   /** 追剧日历的未看新集数（侧栏角标） */
@@ -81,84 +88,118 @@ const JAV_ITEM = (state: NavState): NavItem => ({
   active: state.routeName === 'Jav',
 })
 
+/** 未登录时，追剧日历和自动追更进不去，回到登录页。 */
+export function zhuijuLoginRedirect(
+  routeName: unknown,
+  loggedIn: boolean
+): '/netdisk' | null {
+  if (loggedIn || (routeName !== 'Calendar' && routeName !== 'Autograb'))
+    return null
+  return '/netdisk'
+}
+
+/** 追剧分组：存储管理始终可达；需要 115 登录的功能按账号状态显示。 */
+function zhuijuItems(state: NavState): NavItem[] {
+  if (!state.netdiskReady && !state.netdiskFailed) return []
+  if (state.netdiskLoggedIn) {
+    const items: NavItem[] = [
+      {
+        label: '网盘搜剧',
+        icon: 'cloud',
+        path: '/netdisk',
+        active: state.routeName === 'Netdisk',
+      },
+      {
+        label: '追剧日历',
+        icon: 'calendar',
+        path: '/calendar',
+        active: state.routeName === 'Calendar',
+        badge: state.calendarBadge ?? 0,
+      },
+    ]
+    if (state.hasAutograb)
+      items.push({
+        label: '自动追更',
+        icon: 'refresh',
+        path: '/autograb',
+        active: state.routeName === 'Autograb',
+        badge: state.autograbBadge ?? 0,
+      })
+    items.push({
+      label: '添加存储',
+      icon: 'database',
+      path: '/storage',
+      active: state.routeName === 'Storage',
+    })
+    return items
+  }
+  if (!state.hasNetdisk) return []
+  return [
+    {
+      label: '添加存储',
+      icon: 'database',
+      path: '/storage',
+      active: state.routeName === 'Storage',
+    },
+  ]
+}
+
 /** 侧栏导航分组 */
 export function buildNavGroups(state: NavState): NavGroup[] {
+  const libraryItems: NavItem[] = [
+    { label: '首页', icon: 'home', path: '/', active: isOnlineTab(state) },
+  ]
+  if (state.hasLocalLibrary)
+    libraryItems.push({
+      label: '直播',
+      icon: 'broadcast',
+      path: '/live',
+      active: state.routeName === 'Live',
+    })
+  libraryItems.push(
+    {
+      label: '最近播放',
+      icon: 'history',
+      path: '/?tab=recent',
+      active: isOnlineTab(state, 'recent'),
+    },
+    {
+      label: '我的收藏',
+      icon: 'heart',
+      path: '/?tab=favorites',
+      active: isOnlineTab(state, 'favorites'),
+    }
+  )
   const groups: NavGroup[] = [
     {
       key: 'library',
-      heading: '资料库',
-      items: [
-        { label: '首页', icon: 'home', path: '/', active: isOnlineTab(state) },
-        {
-          label: '最近播放',
-          icon: 'history',
-          path: '/?tab=recent',
-          active: isOnlineTab(state, 'recent'),
-        },
-        {
-          label: '我的收藏',
-          icon: 'heart',
-          path: '/?tab=favorites',
-          active: isOnlineTab(state, 'favorites'),
-        },
-        {
-          label: '追剧日历',
-          icon: 'calendar',
-          path: '/calendar',
-          active: state.routeName === 'Calendar',
-          badge: state.calendarBadge ?? 0,
-        },
-      ],
+      heading: '在线资源',
+      items: libraryItems,
     },
   ]
-  if (state.hasAutograb)
-    groups[0].items.push({
-      label: '自动追更',
-      icon: 'refresh',
-      path: '/autograb',
-      active: state.routeName === 'Autograb',
-      badge: state.autograbBadge ?? 0,
-    })
+  const zhuiju = zhuijuItems(state)
+  if (zhuiju.length)
+    groups.push({ key: 'zhuiju', heading: '追剧', items: zhuiju })
   const local: NavItem[] = []
-  if (state.hasLocalLibrary) {
+  if (state.hasLocalLibrary)
     local.push(...state.localPages.map(page => localItem(state, page)))
-    if (state.adultMode) local.push(JAV_ITEM(state))
-  }
   if (local.length)
     groups.push({
       key: 'local',
       heading: '本地媒体',
       items: local,
     })
-  const live: NavItem[] = []
-  if (state.hasLocalLibrary)
-    live.push({
-      label: '直播',
-      icon: 'broadcast',
-      path: '/live',
-      active: state.routeName === 'Live',
+  if (state.adultMode) {
+    const adult: NavItem[] = []
+    if (state.hasLocalLibrary) adult.push(JAV_ITEM(state))
+    adult.push({
+      label: 'AV资源',
+      icon: 'av',
+      path: '/av',
+      active: state.routeName === 'AV',
     })
-  if (state.hasNetdisk)
-    live.push({
-      label: '网盘',
-      icon: 'cloud',
-      path: '/netdisk',
-      active: state.routeName === 'Netdisk',
-    })
-  if (live.length) groups.push({ key: 'live', heading: '在线', items: live })
-  if (state.adultMode)
-    groups.push({
-      key: 'adult',
-      divider: true,
-      items: [
-        {
-          label: 'AV资源',
-          icon: 'av',
-          path: '/av',
-          active: state.routeName === 'AV',
-        },
-      ],
-    })
+    groups.push({ key: 'adult', heading: '成人资源', items: adult })
+  }
   return groups
 }
 

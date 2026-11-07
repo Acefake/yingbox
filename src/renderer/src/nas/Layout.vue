@@ -111,6 +111,7 @@ import {
   type NavState,
   buildNavGroups,
 } from '@/features/shell/composables/nav-items'
+import { useZhuijuNav } from '@/features/shell/composables/use-zhuiju-nav'
 import { libraryServerState } from '@/services/library-server'
 import ServerConnect from '@/features/shell/components/ServerConnect.vue'
 import LibrarySearch from './LibrarySearch.vue'
@@ -126,12 +127,16 @@ const settingsSection = ref('library')
 const localPages = useLocalNavPages()
 const calendarBadge = useCalendarBadge()
 const autograbBadge = useAutograbBadge()
+const zhuijuNav = useZhuijuNav()
 // 与桌面侧栏同一份导航（features/shell/composables/nav-items.ts）；NAS 构建始终关闭成人模式
 const navState = computed<NavState>(() => ({
   routeName: route.name?.toString(),
   onlineTab: typeof route.query.tab === 'string' ? route.query.tab : undefined,
   hasLocalLibrary: hasLocalLibrary.value,
   hasNetdisk: netdiskAvailable,
+  netdiskReady: zhuijuNav.ready.value,
+  netdiskFailed: zhuijuNav.failed.value,
+  netdiskLoggedIn: zhuijuNav.loggedIn.value,
   adultMode: false,
   calendarBadge: calendarBadge.value,
   hasAutograb: autograbAvailable,

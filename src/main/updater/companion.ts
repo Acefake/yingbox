@@ -68,33 +68,60 @@ export async function pruneUpdateCompanions(
   }
 }
 
-async function prepare(root: string): Promise<string> {
-  const executable = join(root, 'yingbox-update-ui.exe')
-  const marker = join(root, 'prepared')
-  try {
-    await access(marker)
-    return executable
-  } catch {
-    /* 首次更新准备独立运行时。 */
-  }
-  await mkdir(root, { recursive: true })
-  const installed = dirname(process.execPath)
-  for (const entry of await readdir(installed, { withFileTypes: true })) {
-    if (entry.isFile() && /\.(dll|pak|dat|bin)$/i.test(entry.name))
-      await copyFile(join(installed, entry.name), join(root, entry.name))
-  }
-  await copyFile(process.execPath, executable)
-  await copyTree(join(installed, 'locales'), join(root, 'locales'))
-  const helper = join(root, 'resources', 'app')
-  await copyTree(join(process.resourcesPath, 'update-companion'), helper)
-  await copyTree(
-    join(app.getAppPath(), 'out', 'renderer'),
-    join(helper, 'renderer')
-  )
+/** 更新窗口已接管安装后，退出旧进程；清理卡住时强制结束，避免 companion 一直等。 */
+export const UPDATE_QUIT_FORCE_EXIT_MS = 15_000
+
+export function quitForCompanionInstall(
+  host: { quit(): void; exit(code?: number): void },
+  forceExitMs: number = UPDATE_QUIT_FORCE_EXIT_MS
+): void {
+  host.quit()
+  const timer = setTimeout(() => host.exit(0), forceExitMs)
+  timer.unref()
+}
+
+/** 刷新更新窗口脚本；可选同步渲染层。已缓存的运行时每次只更新脚本，避免整包重拷。 */
+export async function syncUpdateCompanionApp(
+  helper: string,
+  sources: { companion: string; renderer?: string }
+): Promise<void> {
+  await copyTree(sources.companion, helper)
+  if (sources.renderer)
+    await copyTree(sources.renderer, join(helper, 'renderer'))
   await writeFile(
     join(helper, 'package.json'),
     JSON.stringify({ name: 'yingbox-update-companion', main: 'main.cjs' })
   )
+}
+
+async function prepare(root: string): Promise<string> {
+  const executable = join(root, 'yingbox-update-ui.exe')
+  const marker = join(root, 'prepared')
+  const helper = join(root, 'resources', 'app')
+  const companion = join(process.resourcesPath, 'update-companion')
+  let prepared = false
+  try {
+    await access(marker)
+    prepared = true
+  } catch {
+    /* 首次更新准备独立运行时。 */
+  }
+  if (!prepared) {
+    await mkdir(root, { recursive: true })
+    const installed = dirname(process.execPath)
+    for (const entry of await readdir(installed, { withFileTypes: true })) {
+      if (entry.isFile() && /\.(dll|pak|dat|bin)$/i.test(entry.name))
+        await copyFile(join(installed, entry.name), join(root, entry.name))
+    }
+    await copyFile(process.execPath, executable)
+    await copyTree(join(installed, 'locales'), join(root, 'locales'))
+    await syncUpdateCompanionApp(helper, {
+      companion,
+      renderer: join(app.getAppPath(), 'out', 'renderer'),
+    })
+  } else {
+    await syncUpdateCompanionApp(helper, { companion })
+  }
   await writeFile(marker, 'ready')
   return executable
 }

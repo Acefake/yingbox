@@ -196,9 +196,13 @@ internal fun Pill(
     }
 }
 
-/** 内容左右留白：手机 20dp，平板和电视 48dp */
+/** 内容左右留白：手机 20dp、平板 32dp、电视 48dp。 */
 @Composable
-internal fun gutter(): Dp = if (LocalConfiguration.current.screenWidthDp < 600) YbSpace.S5 else YbSpace.S9
+internal fun gutter(): Dp = when (currentLayout()) {
+    AdaptiveLayout.Phone -> YbSpace.S5
+    AdaptiveLayout.Tablet -> YbSpace.S7
+    AdaptiveLayout.Tv -> YbSpace.S9
+}
 
 /** 轮播、详情头部的高度：宽度的 16:10（剧照是横版，竖屏也不裁成竖条）；不超过屏幕高度的 85%（留出下一行的露头） */
 @Composable
@@ -226,9 +230,10 @@ internal fun heroSideScrim(): Brush = Brush.horizontalGradient(
 /** 主按钮：深色下白底黑字，一个区域最多一个（比如「播放」） */
 @Composable
 internal fun PrimaryButton(text: String, icon: ImageVector? = null, onClick: () -> Unit) {
+    val tv = LocalIsTv.current
     Row(
         Modifier
-            .height(44.dp)
+            .height(if (tv) 52.dp else 44.dp)
             .background(YbColor.ActionBg, YbRadius.Full)
             .tvFocusViewport()
             .focusFrame(shape = YbRadius.Full, onClick = onClick)
@@ -238,7 +243,7 @@ internal fun PrimaryButton(text: String, icon: ImageVector? = null, onClick: () 
         if (icon != null) {
             Icon(icon, contentDescription = null, tint = YbColor.ActionText, modifier = Modifier.padding(end = YbSpace.S2).size(18.dp))
         }
-        Text(text, color = YbColor.ActionText, fontSize = YbText.Md, fontWeight = FontWeight.SemiBold)
+        Text(text, color = YbColor.ActionText, fontSize = if (tv) YbText.Lg else YbText.Md, fontWeight = FontWeight.SemiBold)
     }
 }
 

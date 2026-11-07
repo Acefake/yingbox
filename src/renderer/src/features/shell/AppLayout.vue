@@ -5,6 +5,8 @@
     :class="{
       'sidebar-collapsed': collapsed,
       'is-phone': isPhone,
+      'is-tablet': isTablet,
+      'is-touch': isTouch,
       'is-web': isWeb,
       'is-desktop': isElectron && !isPhone,
       'is-mac-electron': isElectron && isMac,
@@ -21,7 +23,7 @@
     />
     <!-- 媒体中心侧栏 -->
     <AppSidebar
-      v-model:minimized="sidebarCollapsed"
+      v-model:minimized="sidebarMinimized"
       :nav-groups="navGroups"
       :collapsed="collapsed"
       :queue-open="queuePanelVisible"
@@ -64,7 +66,7 @@
     <!-- 手机底部标签栏 -->
     <nav
       v-if="isPhone && !onlineDetailOpen"
-      class="bottom-nav"
+      class="bottom-nav yb-glass"
       aria-label="主导航"
     >
       <UiNavItem
@@ -119,6 +121,7 @@ import {
   isSidebarShortcut,
   useSidebarCollapsed,
 } from './composables/sidebar-state'
+import { useZhuijuNav } from './composables/use-zhuiju-nav'
 
 const router = useRouter()
 const route = useRoute()
@@ -136,14 +139,30 @@ const onlineDetailOpen = computed(
     typeof router.options.history.state.onlineDetail === 'string'
 )
 
-const { isElectron, isMac, isWeb, isPhone, hasLocalLibrary } = usePlatform()
+const {
+  isElectron,
+  isMac,
+  isWeb,
+  isPhone,
+  isTablet,
+  isTouch,
+  hasLocalLibrary,
+} = usePlatform()
 
 /** 用户选择的收起状态（持久化，Cmd/Ctrl+B 切换） */
 const sidebarCollapsed = useSidebarCollapsed()
 const sidebarOpen = ref(false)
+const tabletExpanded = ref(false)
+const sidebarMinimized = computed({
+  get: () => (isTablet.value ? !tabletExpanded.value : sidebarCollapsed.value),
+  set: (value: boolean) => {
+    if (isTablet.value) tabletExpanded.value = !value
+    else sidebarCollapsed.value = value
+  },
+})
 
 /** 桌面端收起侧栏时只显示图标，导航项改用悬停提示 */
-const collapsed = computed(() => sidebarCollapsed.value && !isPhone.value)
+const collapsed = computed(() => sidebarMinimized.value && !isPhone.value)
 
 // 网页端：片库服务连不上或需要登录时，内容区换成连接界面（桌面端不探测，始终是 unknown）
 const serverState = libraryServerState()
@@ -154,7 +173,7 @@ const serverGate = computed(
 )
 
 const settingsVisible = ref(false)
-const settingsInitialSection = ref('appearance')
+const settingsInitialSection = ref('')
 const queuePanelVisible = ref(false)
 
 // 成人模式（设置 app.adultMode，任一窗口切换后所有窗口同步）
@@ -170,11 +189,15 @@ const calendarBadge = useCalendarBadge()
 const autograbBadge = useAutograbBadge()
 // 本地媒体里有条目的页面（都没有时是「添加媒体库」入口）
 const localPages = useLocalNavPages()
+const zhuijuNav = useZhuijuNav()
 const navState = computed<NavState>(() => ({
   routeName: route.name?.toString(),
   onlineTab: typeof route.query.tab === 'string' ? route.query.tab : undefined,
   hasLocalLibrary: hasLocalLibrary.value,
   hasNetdisk: netdiskAvailable,
+  netdiskReady: zhuijuNav.ready.value,
+  netdiskFailed: zhuijuNav.failed.value,
+  netdiskLoggedIn: zhuijuNav.loggedIn.value,
   adultMode: adultMode.value,
   calendarBadge: calendarBadge.value,
   hasAutograb: autograbAvailable,
@@ -205,16 +228,17 @@ const onSettingsShortcut = (event: KeyboardEvent): void => {
     openGlobalSettings()
   } else if (!isPhone.value && isSidebarShortcut(event)) {
     event.preventDefault()
-    sidebarCollapsed.value = !sidebarCollapsed.value
+    sidebarMinimized.value = !sidebarMinimized.value
   }
 }
-const openGlobalSettings = (section = 'appearance'): void => {
+const openGlobalSettings = (section = ''): void => {
+  sidebarOpen.value = false
   settingsInitialSection.value = section
   settingsVisible.value = true
 }
 const onOpenSettings = (event: Event): void => {
   const section = (event as CustomEvent<string>).detail
-  openGlobalSettings(section || 'appearance')
+  openGlobalSettings(section || '')
 }
 if (typeof window !== 'undefined') {
   window.addEventListener('app:open-settings', onOpenSettings)
@@ -308,7 +332,9 @@ onUnmounted(() => {
 }
 .app-layout.is-phone .content-surface {
   padding-top: calc(var(--shell-top) + var(--safe-top));
-  padding-bottom: calc(var(--bottom-nav-height) + var(--safe-bottom));
+  padding-bottom: calc(
+    var(--bottom-nav-height) + var(--space-6) + var(--safe-bottom)
+  );
 }
 .app-layout.is-phone.has-online-detail .content-surface {
   padding-bottom: var(--safe-bottom);
@@ -324,21 +350,30 @@ onUnmounted(() => {
 
 .bottom-nav {
   position: fixed;
-  right: 0;
-  bottom: 0;
-  left: 0;
+  right: max(var(--space-3), var(--safe-right));
+  bottom: calc(var(--space-3) + var(--safe-bottom));
+  left: max(var(--space-3), var(--safe-left));
   z-index: var(--z-bottom-nav);
   display: flex;
   align-items: stretch;
-  height: calc(var(--bottom-nav-height) + var(--safe-bottom));
-  padding: 0 var(--space-2) var(--safe-bottom);
-  border-top: 1px solid var(--separator);
-  background: var(--bg-titlebar);
+  min-height: var(--bottom-nav-height);
+  padding: var(--space-1);
+  border-radius: var(--radius-full);
 }
 /* 底部标签项（UiNavItem layout="stack"）：等分宽度、撑满栏高 */
 .bottom-nav-item {
   flex: 1;
   width: auto;
-  min-height: var(--bottom-nav-height);
+  min-height: var(--control-height-lg);
+  border-radius: var(--radius-full);
+}
+.app-layout.is-tablet {
+  --content-padding-x: var(--space-6);
+  --poster-min-width: 128px;
+  --poster-gap-x: var(--space-4);
+}
+.app-layout.is-touch :deep(.ui-nav-item),
+.app-layout.is-touch :deep(.ui-glass-select) {
+  min-height: var(--control-height-lg);
 }
 </style>

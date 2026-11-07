@@ -10,6 +10,8 @@
 import { LOGIN_EXPIRED_CODES, Pan115Error } from '../pan115/errors'
 import { dayKey } from './schedule-rules'
 
+/** 每天的查询上限（列目录、查空间、查路径）；本地日期跨天清零 */
+export const MAX_SNAPS_PER_DAY = 500
 /** 熔断后暂停多久 */
 export const TRIP_PAUSE_MS = 6 * 3_600_000
 /** 多久内第二次熔断就停到手动恢复 */
@@ -100,7 +102,7 @@ export function createGate(
 ): Gate {
   const gap = options.gapMs ?? 3000
   const jitter = options.jitterMs ?? 2000
-  const maxSnaps = options.maxSnaps ?? 200
+  const maxSnaps = options.maxSnaps ?? MAX_SNAPS_PER_DAY
   const maxReceives = options.maxReceives ?? 30
   const random = options.random ?? Math.random
   let chain: Promise<unknown> = Promise.resolve()

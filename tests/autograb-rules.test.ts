@@ -4,6 +4,7 @@ import {
   FOREVER,
   type Gate,
   type GateState,
+  MAX_SNAPS_PER_DAY,
   TRIP_PAUSE_MS,
   createGate,
   emptyGate,
@@ -131,6 +132,15 @@ describe('追更 · 115 闸门', () => {
     )
     return { state, gate, now }
   }
+
+  it('每天查询到 500 次就停止', async () => {
+    const { gate } = make()
+    for (let i = 0; i < MAX_SNAPS_PER_DAY; i++)
+      await gate.run('snap', async () => i)
+    await expect(gate.run('snap', async () => 0)).rejects.toThrow(
+      '查询次数已用完'
+    )
+  })
 
   it('串行且有间隔、按天限额', async () => {
     const { gate, now, state } = make()

@@ -9,7 +9,7 @@ import { dayKey } from '../schedule-rules'
 const DAY = 24 * 3_600_000
 /** 洗版每个文件多久搜一次 */
 export const UPGRADE_INTERVAL_MS = 7 * DAY
-/** 每天最多花在洗版上的 115 查询次数（闸门总限额 200，给剧集追更留够） */
+/** 每天最多花在洗版上的 115 查询次数（闸门总限额见 MAX_SNAPS_PER_DAY，给剧集追更留够） */
 export const UPGRADE_SNAPS_PER_DAY = 60
 /** 每天最多花在电影上线追踪上的 115 查询次数 */
 export const MOVIE_SNAPS_PER_DAY = 40

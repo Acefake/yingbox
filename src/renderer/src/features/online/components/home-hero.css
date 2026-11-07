@@ -276,3 +276,88 @@
     transition: none;
   }
 }
+
+.home-hero.is-phone {
+  --home-hero-overlap: 0px;
+  --pblur-height: 65%;
+  height: clamp(420px, 72svh, 720px);
+}
+.is-phone .home-hero-art,
+.is-phone .home-hero-art.is-poster {
+  object-fit: cover;
+  object-position: center 25%;
+}
+.is-phone .home-hero-side {
+  background: transparent;
+}
+.is-phone .home-hero-copy {
+  right: var(--space-5);
+  bottom: var(--space-11);
+  left: var(--space-5);
+  width: auto;
+  min-width: 0;
+  text-align: center;
+}
+.is-phone .home-hero-logo {
+  max-width: 72%;
+  max-height: 88px;
+  margin: 0 auto var(--space-4);
+  object-position: center;
+}
+.is-phone .home-hero-title {
+  font-size: var(--text-3xl);
+}
+.is-phone .home-hero-meta {
+  justify-content: center;
+  flex-wrap: wrap;
+  font-size: var(--text-xs);
+  white-space: normal;
+}
+.is-phone .home-hero-overview {
+  display: -webkit-box;
+  white-space: normal;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+}
+.is-phone .home-hero-actions {
+  justify-content: center;
+  gap: var(--space-2);
+}
+.is-phone .home-hero-play,
+.is-phone .home-hero-watch,
+.is-phone .home-hero-info {
+  height: var(--control-height-lg);
+  font-size: var(--text-sm);
+}
+.is-phone .home-hero-watch {
+  min-width: 0;
+  padding: 0 var(--space-4);
+}
+.is-phone .home-hero-info {
+  width: var(--control-height-lg);
+}
+.is-phone .home-hero-thumbs {
+  right: var(--space-5);
+  bottom: var(--space-6);
+  left: var(--space-5);
+  justify-content: center;
+  max-width: none;
+  gap: var(--space-2);
+}
+.is-phone .home-hero-thumb {
+  flex: 0 0 var(--control-height-lg);
+  width: var(--control-height-lg);
+  height: var(--control-height-lg);
+  aspect-ratio: auto;
+  border-radius: var(--radius-full);
+}
+.is-tablet .home-hero-copy {
+  width: min(520px, calc(100% - var(--home-x) - var(--space-6)));
+  min-width: 0;
+  bottom: var(--space-11);
+}
+.is-tablet .home-hero-thumbs {
+  right: var(--space-6);
+  bottom: var(--space-4);
+  left: var(--home-x);
+}

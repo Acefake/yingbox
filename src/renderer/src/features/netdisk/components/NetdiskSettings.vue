@@ -95,7 +95,7 @@ import {
   type Pan115Account,
 } from '../../../../../shared/contract/pan115'
 
-import { netdisk } from '../api'
+import { netdisk, setNetdiskAccount } from '../api'
 import { useQrLogin } from '../composables/use-qr-login'
 import { errorText } from '../utils/netdisk-rules'
 import TargetFolderSettings from './TargetFolderSettings.vue'
@@ -114,6 +114,7 @@ const qr = useQrLogin({
   api: netdisk,
   onDone: next => {
     account.value = next
+    setNetdiskAccount(next)
     toast.success('115 登录成功')
   },
   notifyError: message => toast.error(message),
@@ -146,6 +147,7 @@ function usePublic(): void {
 async function refreshAccount(): Promise<void> {
   try {
     account.value = await netdisk().account()
+    setNetdiskAccount(account.value)
   } catch (e) {
     toast.error(`读取 115 账号失败：${errorText(e)}`)
   }
@@ -156,8 +158,17 @@ async function logout(): Promise<void> {
     await netdisk().logout()
   } catch (e) {
     toast.error(`退出失败：${errorText(e)}`)
+    return
   }
-  await refreshAccount()
+  const signedOut: Pan115Account = { loggedIn: false }
+  account.value = signedOut
+  setNetdiskAccount(signedOut)
+  try {
+    account.value = await netdisk().account()
+    setNetdiskAccount(account.value)
+  } catch {
+    account.value = signedOut
+  }
 }
 
 onMounted(refreshAccount)

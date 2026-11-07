@@ -1,6 +1,12 @@
 import { useStorage } from '@vueuse/core'
 import { type ComputedRef, computed } from 'vue'
 
+import cmsSnapshot from '../../../../../shared/online/cms-snapshot.json'
+import {
+  cmsApiKey,
+  isOrdinaryCmsSource,
+} from '../../../../../shared/online/ordinary-cms'
+
 export interface AvSite {
   name: string
   api: string
@@ -34,27 +40,17 @@ const AV_SOURCES: AvSite[] = [
 
 const remoteAvSources = useStorage<AvSite[]>('av_remote_sources', [])
 
-// 这些 API 是普通影视采集源，不应继续出现在 AV 标签下。
-const ORDINARY_CMS_APIS = new Set([
-  'https://haohuazy.com/api.php/provide/vod/',
-  'https://jszyapi.com/api.php/provide/vod/',
-  'http://hongniuzy2.com/api.php/provide/vod/',
-  'https://huyazy.net/api.php/provide/vod/',
-  'https://subocj.com/api.php/provide/vod/',
-  'https://m3u8.apiyhzy.com/api.php/provide/vod',
-  'https://api.guangsuapi.com/api.php/provide/vod/',
-  'https://api.wujinapi.me/api.php/provide/vod/',
-  'https://hhzyapi.com/api.php/provide/vod',
-  'https://www.hongniuzy2.com/api.php/provide/vod',
-  'https://www.huyaapi.com/api.php/provide/vod',
-  'https://api.wujinzy.com/api.php/provide/vod',
-])
+/** 随包普通影视源快照：误入 AV 远程列表的同名 / 同 API 源要从 AV 清掉。 */
+const ORDINARY_CMS = (cmsSnapshot as { sites: AvSite[] }).sites
 const ordinaryRemote = remoteAvSources.value.filter(source =>
-  ORDINARY_CMS_APIS.has(source.api)
+  isOrdinaryCmsSource(source, ORDINARY_CMS)
+)
+const ordinaryRemoteApis = new Set(
+  ordinaryRemote.map(source => cmsApiKey(source.api))
 )
 if (ordinaryRemote.length) {
   remoteAvSources.value = remoteAvSources.value.filter(
-    source => !ORDINARY_CMS_APIS.has(source.api)
+    source => !ordinaryRemoteApis.has(cmsApiKey(source.api))
   )
 }
 
@@ -63,9 +59,9 @@ const enabledApiList = useStorage<string[]>(
   'av_enabled_sites',
   AV_SOURCES.map(s => s.api)
 )
-if (ordinaryRemote.length) {
+if (ordinaryRemoteApis.size) {
   enabledApiList.value = enabledApiList.value.filter(
-    api => !ORDINARY_CMS_APIS.has(api)
+    api => !ordinaryRemoteApis.has(cmsApiKey(api))
   )
 }
 
@@ -105,9 +101,12 @@ export function useAvSources(): UseAvSourcesReturn {
 
   const allSources = computed(() => [...AV_SOURCES, ...remoteAvSources.value])
   const addSources = (sources: AvSite[]): number => {
-    const known = new Set(allSources.value.map(source => source.api))
+    const known = new Set(allSources.value.map(source => cmsApiKey(source.api)))
     const additions = sources.filter(
-      source => source.api && !known.has(source.api)
+      source =>
+        source.api &&
+        !known.has(cmsApiKey(source.api)) &&
+        !isOrdinaryCmsSource(source, ORDINARY_CMS)
     )
     if (additions.length) {
       remoteAvSources.value = [...remoteAvSources.value, ...additions]

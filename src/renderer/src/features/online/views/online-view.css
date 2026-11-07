@@ -58,6 +58,9 @@
   gap: var(--space-8);
   min-width: 0;
 }
+:global(.app-layout.is-phone) .home-page {
+  --home-hero-overlap: 0px;
+}
 
 .inline-detail-page {
   --detail-x: calc(var(--shell-left, 0px) + var(--space-6_5));

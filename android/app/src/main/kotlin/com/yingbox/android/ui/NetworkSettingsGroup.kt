@@ -13,7 +13,6 @@ import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
@@ -28,7 +27,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun NetworkSettingsGroup(api: ServerSettingsApi, device: DeviceSettings) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberSettingsScope()
     var draft by remember { mutableStateOf(device.networkOptions) }
     var loaded by remember { mutableStateOf(false) }
     var busy by remember { mutableStateOf(false) }

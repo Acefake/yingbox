@@ -1,5 +1,11 @@
 <template>
-  <div ref="scroller" class="netdisk-view primary-scroll" @scroll="onScroll">
+  <div
+    ref="scroller"
+    class="netdisk-view primary-scroll"
+    :class="{ 'is-default': !match }"
+    @scroll="onScroll"
+  >
+    <PageAtmosphere v-if="!match" class="netdisk-atmosphere" :src="searchArt" />
     <NetdiskHero
       ref="heroEl"
       v-model:keyword="keyword"
@@ -79,6 +85,12 @@
           <UiButton size="sm" label="网盘设置" @click="openNetdiskSettings" />
         </StatusState>
         <StatusState
+          v-else-if="!searched && !loading"
+          icon="search"
+          title="搜索 115 分享和磁力"
+          hint="输入片名或剧名，查找可转存的资源。"
+        />
+        <StatusState
           v-else-if="searched && !loading && !shown.length && !hiddenCount"
           icon="search"
           :title="tab === 'share' ? '没有找到 115 分享' : '没有找到磁力'"
@@ -141,22 +153,14 @@
 
 <script setup lang="ts">
 /**
- * 网盘搜索页：顶部海报 Hero（NetdiskHero：搜索框、真实状态行；搜到能对上 TMDB 的片时换成剧照、
- * 「转存最佳版本」与「磁力离线」），下面是 PanSou（115 分享 + 磁力 / 电驴）与 Torznab（磁力）两组结果，
- * 用分段控件切换，右侧可按画质 / 时间 / 体积排序（虚拟列表，行等高，左侧画质角标）。
- * 115 分享：查看文件是一个玻璃浮层（NetdiskPreview），转存在结果卡片与浮层上；磁力行可一键加进 115 离线下载；
- * 第三段「离线任务」看经影盒添加的云下载进度（打开页面带 ?tab=offline 直接显示）。
- * 一个来源失败时另一个照常出结果，失败说明显示在分段控件旁。两个来源都没填时引导去设置。
- * 转存目标：Hero 主按钮旁与结果工具条上各有一个目标胶囊（TargetFolderPill），共用一份选择（useTransferTarget）：
- * 默认按命中的类型预选电影 / 剧集默认目录，另选后到下一次搜索前一直用它；转存与磁力离线都存到这里，不另弹窗。
- * 搜索词带集号（「嫁金钗 S01E20」）：只用剧名搜，结果按正好这一集 → 包含这一集 → 没写集号排，
- * 别的集折叠在列表下面；工具条上一枚集号胶囊（× 搜整部剧），预览高亮那一集，「存到」直接预选剧集。
- * 页面铺到窗口左上角（Hero 压在浮动侧栏与窗口键胶囊下面）；Hero 在胶囊身后时经 useShellBackdrop 让胶囊换深色玻璃。
+ * 网盘搜索：默认玻璃插画页头，命中影片时展示剧照与转存操作；PanSou / Torznab 独立检索，支持预览、排序、按集筛选及离线任务。
+ * 转存与离线共用媒体类型预选的目录，手动选择保持到下次搜索；?tab=offline 打开离线任务，命中剧照时窗口胶囊随滚动切换媒体玻璃。
  */
 import { computed, onActivated, onDeactivated, ref, watch } from 'vue'
 import { useRoute } from 'vue-router'
 
 import StatusState from '@/components/StatusState.vue'
+import PageAtmosphere from '@/components/PageAtmosphere.vue'
 import UiButton from '@/components/ui/UiButton.vue'
 import UiVirtualGrid from '@/components/ui/UiVirtualGrid.vue'
 import { toast } from '@/components/ui/toast'
@@ -180,6 +184,7 @@ import NetdiskToolbar, {
 import OfflineTasks from '../components/OfflineTasks.vue'
 import TargetFolderPill from '../components/TargetFolderPill.vue'
 import { episodeLabel } from '../../../../../shared/netdisk/search-intent'
+import searchArt from '../search-hero.webp'
 
 import { useBestRelease } from '../composables/use-best-release'
 import { useEpisodeRows } from '../composables/use-episode-rows'
@@ -337,58 +342,28 @@ function togglePreview(item: NetdiskItem): void {
 const scroller = ref<HTMLElement | null>(null)
 const heroEl = ref<{ $el: HTMLElement } | null>(null)
 const setShell = useShellBackdrop()
+const pageActive = ref(true)
 
 function onScroll(): void {
+  if (!pageActive.value) return
   const hero = heroEl.value?.$el
   const top = scroller.value?.scrollTop ?? 0
-  setShell(Boolean(hero) && top < (hero?.offsetHeight ?? 0) - 80)
+  setShell(Boolean(match.value && hero) && top < (hero?.offsetHeight ?? 0) - 80)
 }
 
+watch(match, onScroll, { flush: 'post' })
+
 onActivated(() => {
+  pageActive.value = true
   onScroll()
   if (available) void status.refresh()
 })
-onDeactivated(() => setShell(false))
+onDeactivated(() => {
+  pageActive.value = false
+  setShell(false)
+})
 
 useIncomingSearch(keyword, configured, runSearch)
 </script>
 
-<style scoped>
-/*
- * 整页往左上让回外壳留出的 --shell-left / --shell-top，Hero 从窗口左上角开始，浮动侧栏和胶囊压在它上面
- * （这里不建层叠上下文）。Hero 文案与结果区左边距 --netdisk-x = 侧栏让出的宽度 + 28px。
- */
-.netdisk-view {
-  --netdisk-x: calc(var(--shell-left) + var(--space-6_5));
-  display: flex;
-  flex-direction: column;
-  height: calc(100% + var(--shell-top));
-  margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
-  overflow-y: auto;
-}
-.netdisk-body {
-  display: flex;
-  flex-direction: column;
-  gap: var(--space-5);
-  box-sizing: border-box;
-  width: 100%;
-  max-width: calc(1136px + var(--netdisk-x) + var(--space-8));
-  padding: var(--space-2) var(--space-8) var(--space-11) var(--netdisk-x);
-}
-.netdisk-others {
-  align-self: flex-start;
-}
-.netdisk-results {
-  margin: 0;
-  list-style: none;
-  padding-inline: 0;
-}
-@media (max-width: 860px) {
-  .netdisk-view {
-    --netdisk-x: calc(var(--shell-left) + var(--space-5));
-  }
-  .netdisk-body {
-    padding-right: var(--space-5);
-  }
-}
-</style>
+<style scoped src="./netdisk-view.css"></style>

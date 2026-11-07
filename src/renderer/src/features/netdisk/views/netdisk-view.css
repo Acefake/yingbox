@@ -1,0 +1,43 @@
+/*
+ * 整页铺到外壳左上角。默认页头与结果区使用内容边距，命中剧照时采用 Hero 边距。
+ */
+.netdisk-view {
+  --netdisk-x: calc(var(--shell-left) + var(--space-6_5));
+  display: flex;
+  flex-direction: column;
+  height: calc(100% + var(--shell-top));
+  margin: calc(var(--shell-top) * -1) 0 0 calc(var(--shell-left) * -1);
+  overflow-y: auto;
+}
+.netdisk-body {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-5);
+  box-sizing: border-box;
+  width: 100%;
+  max-width: calc(1136px + var(--netdisk-x) + var(--space-8));
+  padding: var(--space-2) var(--space-8) var(--space-11) var(--netdisk-x);
+}
+.netdisk-view.is-default {
+  --netdisk-x: calc(var(--shell-left) + var(--content-padding-x));
+  isolation: isolate;
+}
+.netdisk-atmosphere {
+  --page-atmosphere-glow: var(--page-glow-recent);
+}
+.netdisk-others {
+  align-self: flex-start;
+}
+.netdisk-results {
+  margin: 0;
+  list-style: none;
+  padding-inline: 0;
+}
+@media (max-width: 860px) {
+  .netdisk-view {
+    --netdisk-x: calc(var(--shell-left) + var(--space-5));
+  }
+  .netdisk-body {
+    padding-right: var(--space-5);
+  }
+}

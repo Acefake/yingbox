@@ -165,6 +165,7 @@ const ADDED_API: Record<string, string[]> = {
   ],
   capture: ['savePng', 'frame', 'gifAvailable', 'gif', 'reveal'],
   webdav: ['list', 'save', 'remove', 'test', 'listDirs'],
+  storage: ['list', 'save', 'remove', 'check'],
   mpv: [
     ...LEGACY_API['mpv']!,
     'setHighQualityScaling',

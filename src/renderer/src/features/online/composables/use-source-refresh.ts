@@ -28,8 +28,18 @@ import {
   syncSubscription,
 } from './cms-subscription'
 
+import cmsSnapshot from '../../../../../shared/online/cms-snapshot.json'
+import {
+  cmsApiKey,
+  partitionCmsAvSources,
+} from '../../../../../shared/online/ordinary-cms'
 import type { SiteStatus } from '../utils/source-rules'
 export type { SiteStatus }
+
+/** 随包普通影视源快照：远程 AV 清单分流时始终对照，不依赖当前启用列表。 */
+const ORDINARY_CMS_SNAPSHOT = (
+  cmsSnapshot as { sites: { name: string; api: string }[] }
+).sites
 
 const { selectedSites, customSites } = useOnlineSearch()
 const {
@@ -239,10 +249,7 @@ export const checkAll = (force = true, autoSelect = false): Promise<void> => {
   return run.promise
 }
 
-const ORDINARY_CMS_NAMES =
-  /^(?:无尽|豪华|红牛|极速|虎牙|速播|樱花|光速)资源站?$/
-
-/** 拉取远程清单并合并新源；远程清单混合普通 CMS 与 AV 源，按名称分流。 */
+/** 拉取远程清单并合并新源；远程清单混合普通 CMS 与 AV 源，按已知普通源分流。 */
 export const syncAvSources = async (
   showMessage = true,
   isCurrent: () => boolean = () => true
@@ -278,38 +285,38 @@ export const syncAvSources = async (
           /^https?:\/\//i.test(source.api) &&
           /(?:api\.php\/provide\/vod|api\/json\.php)/i.test(source.api)
       )
-    // 远程清单混合了普通 CMS 与 AV 源；先按站点名称分流，避免普通源落入 AV 标签。
-    const ordinaryCmsSources = sources.filter(source =>
-      ORDINARY_CMS_NAMES.test(source.name)
-    )
-    const avOnlySources = sources.filter(
-      source => !ORDINARY_CMS_NAMES.test(source.name)
-    )
-    const knownCmsApis = new Set([
-      ...DEFAULT_SITES.map(site => site.api),
-      ...subscribedSites.value.map(site => site.api),
-    ])
+    const knownOrdinary = [
+      ...ORDINARY_CMS_SNAPSHOT,
+      ...DEFAULT_SITES,
+      ...subscribedSites.value,
+      ...customSites.value,
+    ]
+    // 远程清单混合了普通 CMS 与 AV 源；按已知普通源的 API / 名称主干分流。
+    const { ordinary: ordinaryCmsSources, adult: avOnlySources } =
+      partitionCmsAvSources(sources, knownOrdinary)
+    const knownCmsApis = new Set(knownOrdinary.map(site => cmsApiKey(site.api)))
     let addedCms = 0
     for (const source of ordinaryCmsSources) {
       if (
-        knownCmsApis.has(source.api) ||
-        customSites.value.some(site => site.api === source.api)
+        knownCmsApis.has(cmsApiKey(source.api)) ||
+        customSites.value.some(site => cmsApiKey(site.api) === cmsApiKey(source.api))
       )
         continue
       customSites.value = [...customSites.value, source]
       selectedSites.add(source.api)
+      knownCmsApis.add(cmsApiKey(source.api))
       addedCms++
     }
     const added = addAvSources(avOnlySources)
     if (sources.length) avSyncedAt.value = Date.now()
-    const sourceApis = new Set(avOnlySources.map(source => source.api))
+    const sourceApis = new Set(avOnlySources.map(source => cmsApiKey(source.api)))
     const movedOnlineSources = customSites.value.filter(source =>
-      sourceApis.has(source.api)
+      sourceApis.has(cmsApiKey(source.api))
     )
     movedOnlineSources.forEach(source => selectedSites.delete(source.api))
     if (movedOnlineSources.length) {
       customSites.value = customSites.value.filter(
-        source => !sourceApis.has(source.api)
+        source => !sourceApis.has(cmsApiKey(source.api))
       )
     }
     if (showMessage && current())

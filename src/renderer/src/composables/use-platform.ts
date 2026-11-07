@@ -1,4 +1,4 @@
-import { type ComputedRef, computed } from 'vue'
+import { type ComputedRef, type Ref, computed } from 'vue'
 import { useMediaQuery } from '@vueuse/core'
 
 import { libraryServerState } from '@/services/library-server'
@@ -9,6 +9,9 @@ export interface UsePlatformReturn {
   isMac: boolean
   isWeb: boolean
   isPhone: ComputedRef<boolean>
+  /** 网页中等宽度窗口；窄分屏使用手机布局。 */
+  isTablet: ComputedRef<boolean>
+  isTouch: Ref<boolean>
   isCompact: ComputedRef<boolean>
   hasLocalLibrary: ComputedRef<boolean>
 }
@@ -19,8 +22,15 @@ export function usePlatform(): UsePlatformReturn {
   const isMac =
     typeof navigator !== 'undefined' && /Mac/.test(navigator.platform)
   const server = libraryServerState()
-  const isPhone = useMediaQuery(
-    '(max-width: 768px), (max-width: 1024px) and (pointer: coarse) and (max-height: 600px)'
+  const isTouch = useMediaQuery('(any-pointer: coarse)')
+  const narrow = useMediaQuery('(max-width: 599px)')
+  const short = useMediaQuery('(max-width: 959px) and (max-height: 480px)')
+  const tabletWidth = useMediaQuery(
+    '(min-width: 600px) and (max-width: 1366px)'
+  )
+  const isPhone = computed(() => narrow.value || (isTouch.value && short.value))
+  const isTablet = computed(
+    () => !isElectron && tabletWidth.value && !isPhone.value
   )
   const isCompact = useMediaQuery('(max-width: 1100px)')
 
@@ -29,6 +39,8 @@ export function usePlatform(): UsePlatformReturn {
     isMac,
     isWeb: !isElectron,
     isPhone,
+    isTablet,
+    isTouch,
     isCompact,
     hasLocalLibrary: computed(
       () =>

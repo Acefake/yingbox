@@ -34,6 +34,7 @@ import { recap } from './recap'
 import { settings } from './settings'
 import { shell } from './shell'
 import { subtitle } from './subtitle'
+import { storage } from './storage'
 import { update } from './update'
 import { webdav } from './webdav'
 import { win } from './win'
@@ -70,6 +71,7 @@ export const contract = {
   settings,
   shell,
   subtitle,
+  storage,
   update,
   webdav,
   win,

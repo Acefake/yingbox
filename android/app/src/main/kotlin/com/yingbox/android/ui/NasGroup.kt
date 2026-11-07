@@ -14,7 +14,6 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -40,7 +39,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun NasGroup(device: DeviceSettings) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberSettingsScope()
     val keyboard = LocalSoftwareKeyboardController.current
     var url by remember { mutableStateOf(device.nas?.url.orEmpty()) }
     var token by remember { mutableStateOf(device.nas?.token.orEmpty()) }

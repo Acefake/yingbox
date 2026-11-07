@@ -10,7 +10,12 @@ import {
   installLibraryProgress,
   librarySettingsSection,
 } from '@/features/library'
-import { netdiskSettingsSection } from '@/features/netdisk'
+import {
+  ensureNetdiskAccount,
+  netdiskAccount,
+  netdiskSettingsSection,
+} from '@/features/netdisk'
+import { zhuijuLoginRedirect } from '@/features/shell/composables/nav-items'
 import { autograbSettingsSection } from '@/features/autograb-upgrade'
 import { notifySettingsSection } from '@/features/notify'
 import { installWatchlist } from '@/features/watchlist'
@@ -35,8 +40,14 @@ const router = createRouter({
   history: createWebHashHistory(),
   routes: nasRoutes,
 })
-router.beforeEach(to => {
+router.beforeEach(async to => {
   if (to.meta.adultOnly && !getSetting('app.adultMode')) return '/movie'
+  if (zhuijuLoginRedirect(to.name, false)) await ensureNetdiskAccount()
+  const login = zhuijuLoginRedirect(
+    to.name,
+    netdiskAccount.value?.loggedIn === true
+  )
+  if (login) return login
   document.title = `影盒 NAS - ${String(to.meta.title ?? '片库')}`
   return true
 })

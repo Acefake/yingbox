@@ -26,6 +26,7 @@ import {
   registerAppIpc,
 } from './ipc/app-ipc'
 import { registerDialogIpc } from './ipc/dialog-ipc'
+import { registerStorage } from './storage'
 import { registerIptvIpc } from './ipc/iptv-ipc'
 import { registerCaptureIpc } from './capture'
 import { registerSubtitleIpc } from './ipc/subtitle-ipc'
@@ -222,6 +223,7 @@ const startup = app.whenReady().then(async () => {
 
   // IPC 按域注册；窗口生命周期由本文件负责
   registerDialogIpc()
+  registerStorage()
   registerAppIpc(() => mainWindow)
   registerSubtitleIpc()
   registerIptvIpc()

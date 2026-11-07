@@ -139,9 +139,14 @@ private fun Hero(slides: List<ViewHeroSlide>, cards: Map<String, ViewCard>, clie
     val gutter = gutter()
     val config = LocalConfiguration.current
     val isTv = LocalIsTv.current
-    val wide = config.screenWidthDp >= 600
-    val phone = !isTv && !wide
-    val height = if (phone) config.screenHeightDp.dp * 0.72f else if (wide) config.screenHeightDp.dp * 0.76f else heroMinHeight()
+    val layout = currentLayout()
+    val wide = layout != AdaptiveLayout.Phone
+    val phone = layout == AdaptiveLayout.Phone
+    val height = when (layout) {
+        AdaptiveLayout.Phone -> maxOf(380.dp, config.screenHeightDp.dp * 0.72f)
+        AdaptiveLayout.Tablet -> minOf(config.screenHeightDp.dp * 0.6f, config.screenWidthDp.dp * 0.65f)
+        AdaptiveLayout.Tv -> config.screenHeightDp.dp * 0.76f
+    }
     val pager = rememberPagerState { slides.size }
     Box(Modifier.fillMaxWidth().height(height)) {
         HorizontalPager(pager, Modifier.fillMaxSize(), key = { slides[it].key }) { page ->

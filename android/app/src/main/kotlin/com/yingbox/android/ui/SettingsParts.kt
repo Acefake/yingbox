@@ -58,8 +58,8 @@ internal fun SettingsGroup(title: String, footer: String? = null, content: @Comp
 internal fun SettingsRow(title: String, description: String? = null, modifier: Modifier = Modifier, trailing: @Composable () -> Unit = {}) {
     Row(modifier.fillMaxWidth().tvFocusViewport(), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.spacedBy(YbSpace.S4)) {
         Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(YbSpace.S1)) {
-            Text(title, color = YbColor.TextPrimary, fontSize = YbText.Md, fontWeight = FontWeight.Medium)
-            if (description != null) Text(description, color = YbColor.TextSecondary, fontSize = YbText.Xs)
+            Text(title, color = YbColor.TextPrimary, fontSize = if (LocalIsTv.current) YbText.Lg else YbText.Md, fontWeight = FontWeight.Medium)
+            if (description != null) Text(description, color = YbColor.TextSecondary, fontSize = if (LocalIsTv.current) YbText.Md else YbText.Xs)
         }
         trailing()
     }
@@ -71,16 +71,17 @@ internal fun YbSwitch(checked: Boolean, label: String, onChange: (Boolean) -> Un
     val knob by animateDpAsState(if (checked) 22.dp else 2.dp, tween(150), label = "switch-knob")
     Box(
         Modifier
-            .size(width = 51.dp, height = 31.dp)
-            .background(if (checked) YbColor.Accent else YbColor.FillSecondary, CircleShape)
+            .size(width = 64.dp, height = 48.dp)
             .focusFrame(shape = CircleShape) { onChange(!checked) }
             .semantics {
                 role = Role.Switch
                 contentDescription = label
                 stateDescription = if (checked) "开" else "关"
             },
-        contentAlignment = Alignment.CenterStart,
+        contentAlignment = Alignment.Center,
     ) {
-        Box(Modifier.offset(x = knob).size(27.dp).background(YbColor.TextPrimary, CircleShape))
+        Box(Modifier.size(width = 51.dp, height = 31.dp).background(if (checked) YbColor.Accent else YbColor.FillSecondary, CircleShape)) {
+            Box(Modifier.offset(x = knob, y = 2.dp).size(27.dp).background(YbColor.TextPrimary, CircleShape))
+        }
     }
 }

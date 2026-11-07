@@ -40,6 +40,8 @@ export interface HeroSlide {
   logo: string | null
   /** 背景图（横向剧照优先） */
   art: string
+  /** 手机竖屏优先使用的海报。 */
+  poster?: string
   /** 没有横图时按原比例展示竖版封面。 */
   artIsPoster?: boolean
   /** 右下缩略图条用的小图 */
@@ -91,6 +93,7 @@ export function useHomeHero(openDouban: (item: DoubanItem) => void): HomeHero {
       title: item.title,
       logo: item.logo,
       art: item.backdrop,
+      poster: item.watchlist?.poster,
       thumb: item.thumb,
       overview: item.overview,
       meta: item.meta,
@@ -116,6 +119,7 @@ export function useHomeHero(openDouban: (item: DoubanItem) => void): HomeHero {
       title: item.title,
       logo: null,
       art,
+      poster: item.cover || item.coverSrc,
       artIsPoster: !item.backdrop,
       thumb: art,
       overview: item.overview,

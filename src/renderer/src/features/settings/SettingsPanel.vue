@@ -17,25 +17,52 @@
       <div
         ref="frameRef"
         class="settings-frame yb-glass"
+        :class="{ 'is-phone': isPhone, 'is-tablet': isTablet }"
         tabindex="-1"
         @keydown="trapTab"
       >
-        <DialogTitlebar title="设置" icon="settings" @close="requestClose" />
+        <header v-if="isPhone" class="settings-mobile-header">
+          <UiButton
+            v-if="!showCategories"
+            icon="back"
+            variant="glass"
+            label="设置"
+            @click="back"
+          />
+          <h2 v-else>设置</h2>
+          <UiIconButton
+            icon="close"
+            variant="glass"
+            label="关闭设置"
+            @click="requestClose"
+          />
+        </header>
+        <DialogTitlebar
+          v-else
+          title="设置"
+          icon="settings"
+          @close="requestClose"
+        />
         <div class="settings-body">
           <SettingsNav
+            v-show="!isPhone || showCategories"
             v-model:query="navQuery"
             :sections="visibleSections"
-            :active-id="current?.id"
-            @select="selectSection"
+            :active-id="showCategories ? undefined : current?.id"
+            :categories="isPhone"
+            @select="enter"
           />
 
           <!-- 右侧：内容区。fill 分区自管滚动，其余由面板统一滚动 -->
           <section
-            v-if="current"
+            v-if="current && !showCategories"
             class="settings-main"
             :aria-label="current.title"
           >
-            <h2 class="settings-main-title">{{ current.title }}</h2>
+            <h2 class="settings-main-title">
+              {{ current.title
+              }}<UiLoadingDots v-if="!loaded" label="正在打开" />
+            </h2>
             <div
               :class="
                 current.fill
@@ -68,16 +95,22 @@
 import { type Component, ref, shallowRef, watch } from 'vue'
 
 import DialogTitlebar from '@/components/DialogTitlebar.vue'
+import UiButton from '@/components/ui/UiButton.vue'
+import UiIconButton from '@/components/ui/UiIconButton.vue'
+import UiLoadingDots from '@/components/ui/UiLoadingDots.vue'
 import { useEscapeLayer } from '@/composables/use-escape-layer'
 import { useModalFocus } from '@/composables/use-focus-trap'
+import { usePlatform } from '@/composables/use-platform'
 
 import { settingsSections } from './registry'
 import SettingsNav from './ui/SettingsNav.vue'
 import { useSectionNavigation } from './use-section-navigation'
 import { useSetting } from './use-setting'
+import { useSettingsPages } from './use-settings-pages'
 
 const props = defineProps<{ visible: boolean; initialSection?: string }>()
 const emit = defineEmits<{ close: [] }>()
+const { isPhone, isTablet } = usePlatform()
 
 // ── 分区导航 ────────────────────────────────────────────────
 const {
@@ -92,6 +125,11 @@ const {
   adultMode: useSetting('app.adultMode'),
   canLeave,
 })
+const { showCategories, reset, enter, back } = useSettingsPages({
+  phone: isPhone,
+  select: selectSection,
+  canLeave,
+})
 
 // ── 分区组件懒加载 ───────────────────────────────────────────
 const loaded = shallowRef<Component | null>(null)
@@ -99,13 +137,15 @@ const sectionRef = ref<{ canLeave?: () => boolean | Promise<boolean> } | null>(
   null
 )
 
+let loadVersion = 0
 watch(
-  () => (props.visible ? current.value : undefined),
+  () => (props.visible && !showCategories.value ? current.value : undefined),
   async section => {
+    const version = ++loadVersion
     loaded.value = null
     if (!section) return
     const module = await section.load()
-    if (current.value === section) loaded.value = module.default
+    if (version === loadVersion) loaded.value = module.default
   },
   { immediate: true }
 )
@@ -122,12 +162,17 @@ async function requestClose(): Promise<void> {
 watch(
   () => [props.visible, props.initialSection] as const,
   ([visible, initial]) => {
+    reset(visible && Boolean(initial))
     if (visible && initial) openTarget(initial)
-  }
+  },
+  { immediate: true }
 )
 
 // ── 打开/关闭行为 ───────────────────────────────────────────
-useEscapeLayer(() => props.visible, requestClose)
+useEscapeLayer(
+  () => props.visible,
+  () => (isPhone.value && !showCategories.value ? back() : requestClose())
+)
 // 模态：焦点移进窗口、Tab 不跑到背后的页面、关闭后还回去
 const frameRef = ref<HTMLElement | null>(null)
 const trapTab = useModalFocus(frameRef, () => props.visible)
@@ -190,6 +235,9 @@ watch(
 }
 
 .settings-main-title {
+  display: flex;
+  align-items: center;
+  gap: var(--space-3);
   flex: 0 0 auto;
   margin: 0;
   padding: var(--space-6) var(--space-7) var(--space-4);
@@ -260,30 +308,42 @@ watch(
   transform: scale(0.985) translateY(6px);
 }
 
-/* ── 窄屏：整窗 + 顶部横向分区 ── */
-@media (max-width: 768px),
-  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
-  .settings-frame {
-    box-sizing: border-box;
-    width: 100vw;
-    height: 100dvh;
-    border: 0;
-    border-radius: 0;
-    padding-top: var(--safe-top);
-    padding-bottom: var(--safe-bottom);
-  }
-  .settings-body {
-    flex-direction: column;
-  }
-  .settings-main-title {
-    padding: var(--space-4) var(--space-4) var(--space-3);
-  }
-  .settings-scroll {
-    padding: 0 var(--space-4) var(--space-6);
-  }
-  .settings-fill {
-    padding: 0 var(--space-3) var(--space-3);
-  }
+/* 手机逐级导航；平板保留分类与内容双栏。 */
+.settings-frame.is-phone {
+  box-sizing: border-box;
+  width: calc(100vw - var(--space-4));
+  height: calc(100dvh - var(--space-6) - var(--safe-top) - var(--safe-bottom));
+  border-radius: var(--radius-2xl);
+}
+.is-phone .settings-body {
+  flex-direction: column;
+}
+.is-phone .settings-main-title {
+  padding: var(--space-4) var(--space-4) var(--space-3);
+}
+.is-phone .settings-scroll {
+  padding: 0 var(--space-4) var(--space-6);
+}
+.is-phone .settings-fill {
+  padding: 0 var(--space-3) var(--space-3);
+}
+.settings-frame.is-tablet {
+  width: calc(100vw - var(--space-6));
+  height: calc(100dvh - var(--space-8) - var(--safe-top) - var(--safe-bottom));
+  max-width: 980px;
+}
+.settings-mobile-header {
+  display: flex;
+  flex: none;
+  align-items: center;
+  justify-content: space-between;
+  min-height: var(--control-height-lg);
+  padding: var(--space-4);
+}
+.settings-mobile-header h2 {
+  margin: 0;
+  font-size: var(--text-2xl);
+  font-weight: var(--font-weight-semibold);
 }
 
 @media (prefers-reduced-motion: reduce) {

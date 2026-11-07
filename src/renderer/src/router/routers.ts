@@ -92,12 +92,18 @@ export const routes = [
     },
   },
   {
+    path: '/storage',
+    name: 'Storage',
+    component: () => import('@/features/netdisk/storage/StoragePage.vue'),
+    meta: { title: '添加存储', description: '管理网盘与网络共享' },
+  },
+  {
     path: '/netdisk',
     name: 'Netdisk',
-    component: () => import('@/features/netdisk/views/NetdiskView.vue'),
+    component: () => import('@/features/netdisk/views/NetdiskPage.vue'),
     meta: {
-      title: '网盘',
-      description: '网盘搜索与 115 转存',
+      title: '网盘搜剧',
+      description: '登录 115 后搜索网盘并转存',
     },
   },
   {

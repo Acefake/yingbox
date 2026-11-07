@@ -1,14 +1,15 @@
 /* eslint-disable @typescript-eslint/no-require-imports -- 独立运行时直接加载的 CommonJS 入口，不依赖应用模块。 */
 /** 在安装目录外运行，旧版退出与文件替换均不会销毁进度窗口。 */
 const { app, BrowserWindow, ipcMain } = require('electron')
-const { readFile, writeFile } = require('node:fs/promises')
+const { appendFile, readFile, writeFile } = require('node:fs/promises')
 const { join } = require('node:path')
 const { spawn } = require('node:child_process')
 const { mkdirSync } = require('node:fs')
+const { runInstallation } = require('./install.cjs')
 
 const root = __dirname
 let window
-let state = { color: 'purple' }
+let state = { color: 'purple', stage: 'exiting' }
 let complete = false
 
 function publish() {
@@ -27,21 +28,39 @@ function parentAlive(pid) {
 }
 
 async function install(config) {
-  while (parentAlive(config.parentPid))
-    await new Promise(resolve => setTimeout(resolve, 100))
-  await new Promise((resolve, reject) => {
-    const child = spawn(config.installer, config.args, {
-      env: { ...process.env, YINGBOX_UPDATE_UI: '1' },
-      windowsHide: true,
-      stdio: 'ignore',
-    })
-    child.once('error', reject)
-    child.once('exit', code =>
-      code === 0 ? resolve() : reject(new Error(`安装程序退出，错误码 ${code}`))
-    )
+  await runInstallation(config, {
+    parentAlive,
+    now: () => performance.now(),
+    sleep: ms => new Promise(resolve => setTimeout(resolve, ms)),
+    stage: stage => {
+      state.stage = stage
+      publish()
+    },
+    log,
+    install: (installer, args) =>
+      new Promise((resolve, reject) => {
+        const child = spawn(installer, args, {
+          env: { ...process.env, YINGBOX_UPDATE_UI: '1' },
+          windowsHide: true,
+          stdio: 'ignore',
+        })
+        child.once('error', reject)
+        child.once('exit', code =>
+          code === 0
+            ? resolve()
+            : reject(new Error(`安装程序退出，错误码 ${code}`))
+        )
+      }),
   })
   complete = true
   app.quit()
+}
+
+function log(message) {
+  return appendFile(
+    join(root, 'install.log'),
+    `${new Date().toISOString()} ${message}\n`
+  ).catch(error => console.error('[update-log]', error))
 }
 
 mkdirSync(join(root, 'profile'), { recursive: true })
@@ -103,6 +122,7 @@ app
   })
   .catch(error => {
     state.error = error.message
+    log(`更新失败 stage=${state.stage}: ${error.message}`)
     publish()
     console.error(error)
   })

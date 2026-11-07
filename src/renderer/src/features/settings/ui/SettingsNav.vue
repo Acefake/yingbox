@@ -1,6 +1,6 @@
 <template>
   <!-- 左侧：搜索 + 分区导航 -->
-  <aside class="settings-nav">
+  <aside class="settings-nav" :class="{ 'is-categories': categories }">
     <UiInput
       v-model="query"
       class="settings-search"
@@ -19,7 +19,11 @@
         :icon="sec.icon"
         :active="activeId === sec.id"
         @click="emit('select', sec.id)"
-      />
+      >
+        <template v-if="categories" #trailing
+          ><UiIcon name="forward" size="sm"
+        /></template>
+      </UiNavItem>
       <p v-if="sections.length === 0" class="settings-nav-empty">
         没有匹配的设置
       </p>
@@ -32,6 +36,7 @@
  * 设置窗口左侧栏：搜索框 + 分区导航。只负责展示，筛选与切换逻辑在 useSectionNavigation。
  */
 import UiInput from '@/components/ui/UiInput.vue'
+import UiIcon from '@/components/ui/UiIcon.vue'
 import UiNavItem from '@/components/ui/UiNavItem.vue'
 
 import type { SettingsSection } from '../registry'
@@ -41,6 +46,8 @@ defineProps<{
   sections: SettingsSection[]
   /** 当前选中的分区 id */
   activeId?: string
+  /** 手机一级分类页。 */
+  categories?: boolean
 }>()
 const emit = defineEmits<{ select: [id: string] }>()
 
@@ -80,32 +87,27 @@ const query = defineModel<string>('query', { required: true })
   font-size: var(--text-xs);
 }
 
-/* ── 窄屏：顶部横向分区 ── */
-@media (max-width: 768px),
-  (max-width: 1024px) and (pointer: coarse) and (max-height: 600px) {
-  .settings-nav {
-    flex: 0 0 auto;
-    flex-direction: row;
-    align-items: center;
-    gap: var(--space-2);
-    width: 100%;
-    padding: var(--space-2) var(--space-3);
-  }
-  .settings-search {
-    flex: 0 0 132px;
-    margin-bottom: 0;
-  }
-  .settings-nav-list {
-    flex-direction: row;
-    overflow-x: auto;
-    overflow-y: hidden;
-  }
-  .settings-nav-item {
-    flex: 0 0 auto;
-    width: auto;
-  }
-  .settings-nav-empty {
-    display: none;
-  }
+.settings-nav.is-categories {
+  flex: 1;
+  width: 100%;
+  padding: 0 var(--space-4) var(--space-4);
+  background: transparent;
+}
+.is-categories .settings-search {
+  min-height: var(--control-height-lg);
+  margin-bottom: var(--space-5);
+}
+.is-categories .settings-nav-item {
+  flex: none;
+  min-height: var(--control-height-lg);
+  height: auto;
+  padding: var(--space-3) var(--space-2);
+  gap: var(--space-3);
+}
+.is-categories .settings-nav-item :deep(.ui-nav-item-label) {
+  flex: 1;
+}
+.is-categories .settings-nav-item > .app-icon:last-child {
+  color: var(--text-tertiary);
 }
 </style>

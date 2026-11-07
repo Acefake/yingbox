@@ -3,9 +3,11 @@
  * 定义应用的路由规则和导航逻辑
  */
 import { createRouter, createWebHashHistory } from 'vue-router'
+import { ensureNetdiskAccount, netdiskAccount } from '@/features/netdisk'
 import { routes } from '@/router/routers'
 import { getSetting } from '@/features/settings'
 import { adultRedirect } from '@/router/adult-guard'
+import { zhuijuLoginRedirect } from '@/features/shell/composables/nav-items'
 
 /**
  * 创建路由实例
@@ -29,11 +31,20 @@ const router = createRouter({
  * 全局前置守卫
  * 在每次路由跳转前执行
  */
-router.beforeEach((to, _from, next) => {
+router.beforeEach(async (to, _from, next) => {
   // 成人页面（番号库、AV）在成人模式关闭时挡回首页：直接打开的旧链接也不会露出内容
   const redirect = adultRedirect(to, getSetting('app.adultMode'))
   if (redirect) {
     next(redirect)
+    return
+  }
+  if (zhuijuLoginRedirect(to.name, false)) await ensureNetdiskAccount()
+  const login = zhuijuLoginRedirect(
+    to.name,
+    netdiskAccount.value?.loggedIn === true
+  )
+  if (login) {
+    next(login)
     return
   }
   // 设置页面标题

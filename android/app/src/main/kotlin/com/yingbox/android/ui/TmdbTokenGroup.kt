@@ -17,7 +17,6 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.produceState
 import androidx.compose.runtime.remember
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -41,7 +40,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun TmdbTokenGroup(api: ServerSettingsApi) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberSettingsScope()
     val keyboard = LocalSoftwareKeyboardController.current
     val loaded by produceState<Boolean?>(null, api) {
         value = withContext(Dispatchers.IO) { runCatching { api.tmdbConfigured() }.getOrNull() }

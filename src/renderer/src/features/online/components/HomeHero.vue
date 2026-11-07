@@ -2,6 +2,7 @@
   <section
     v-if="current"
     class="home-hero"
+    :class="{ 'is-phone': isPhone, 'is-tablet': isTablet }"
     role="region"
     aria-roledescription="轮播图"
     aria-label="精选影片"
@@ -12,14 +13,14 @@
   >
     <TransitionGroup name="home-hero-fade" tag="div" class="home-hero-stage">
       <img
-        v-if="current.art && !broken.has(current.art)"
+        v-if="art && !broken.has(art)"
         :key="current.art"
         class="home-hero-art"
         :class="{ 'is-poster': current.artIsPoster }"
-        :src="webImageSrc(current.art)"
+        :src="webImageSrc(art)"
         alt=""
         referrerpolicy="no-referrer"
-        @error="broken.add(current.art)"
+        @error="broken.add(art)"
       />
     </TransitionGroup>
     <span class="yb-pblur home-hero-blur" aria-hidden="true"
@@ -152,6 +153,7 @@ import UiRatingBadge from '@/components/ui/UiRatingBadge.vue'
 import UiSpecBadge from '@/components/ui/UiSpecBadge.vue'
 import { inWatchlist, toggleWatchlist } from '@/features/watchlist'
 import { webImageSrc } from '@/services/thumbnails'
+import { usePlatform } from '@/composables/use-platform'
 
 import type { HeroSlide } from '../composables/use-home-hero'
 
@@ -163,9 +165,16 @@ const props = defineProps<{
 }>()
 
 const selected = ref(0)
+const { isPhone, isTablet } = usePlatform()
 const current = computed<HeroSlide | undefined>(
   () => props.slides[selected.value] ?? props.slides[0]
 )
+const art = computed(() => {
+  const slide = current.value
+  if (isPhone.value && slide?.poster && !broken.has(slide.poster))
+    return slide.poster
+  return slide?.art || ''
+})
 /** 这一页有评分（来源小标或文字兜底） */
 const hasRating = computed(() => Boolean(current.value?.rating))
 watch(

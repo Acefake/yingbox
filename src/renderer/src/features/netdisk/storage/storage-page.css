@@ -1,0 +1,183 @@
+.storage-page {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-8);
+  height: 100%;
+  padding: var(--content-padding-y) var(--content-padding-x) var(--space-8);
+  overflow-y: auto;
+  isolation: isolate;
+}
+.storage-atmosphere {
+  --page-atmosphere-glow: var(--page-glow-recent);
+}
+.storage-heading {
+  margin: 0 0 var(--space-4);
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+  color: var(--text-primary);
+}
+.storage-types {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: var(--space-4);
+}
+.storage-type {
+  position: relative;
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  gap: var(--space-2);
+  min-height: 168px;
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+  text-align: left;
+  color: var(--text-primary);
+}
+.storage-type:where(:hover:not(:disabled)) {
+  --glass-bg: var(--glass-bg-hover);
+}
+.storage-type.yb-glass {
+  background: var(--glass-bg);
+}
+.storage-type:where(:focus-visible),
+.storage-entry:where(:focus-visible) {
+  outline: 2px solid var(--accent);
+  outline-offset: var(--space-1);
+}
+.storage-type:where(:disabled) {
+  color: var(--text-secondary);
+}
+.storage-type .storage-type-icon {
+  width: 28px;
+  height: 28px;
+  margin-bottom: var(--space-2);
+}
+.storage-type-name {
+  font-size: var(--text-lg);
+  font-weight: var(--font-weight-semibold);
+}
+.storage-type-description {
+  padding-right: var(--space-4);
+  font-size: var(--text-sm);
+  color: var(--text-secondary);
+  line-height: var(--leading-normal);
+}
+.storage-type .storage-type-arrow {
+  position: absolute;
+  right: var(--space-5);
+  bottom: var(--space-5);
+  color: var(--text-tertiary);
+}
+.storage-list {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-3);
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+.storage-row {
+  display: flex;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-3) var(--space-5);
+  border-radius: var(--radius-lg);
+}
+.storage-entry {
+  display: flex;
+  flex: 1;
+  align-items: center;
+  gap: var(--space-4);
+  min-width: 0;
+  padding: var(--space-2) 0;
+  border-radius: var(--radius-md);
+  text-align: left;
+}
+.storage-entry .storage-entry-icon {
+  flex: none;
+  width: 24px;
+  height: 24px;
+  color: var(--text-secondary);
+}
+.storage-entry-copy {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-1);
+  min-width: 0;
+}
+.storage-entry-name {
+  color: var(--text-primary);
+  font-size: var(--text-md);
+  font-weight: var(--font-weight-semibold);
+  overflow-wrap: anywhere;
+}
+.storage-entry-description {
+  overflow: hidden;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+.storage-status {
+  flex: none;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+}
+.storage-count {
+  margin-left: var(--space-2);
+  color: var(--text-tertiary);
+  font-size: var(--text-sm);
+  font-weight: var(--font-weight-regular);
+}
+.storage-section-bar {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: var(--space-4);
+  margin-bottom: var(--space-4);
+}
+.storage-section-bar .storage-heading {
+  margin: 0;
+}
+.storage-login {
+  padding: var(--space-6);
+  border-radius: var(--radius-lg);
+}
+.storage-empty,
+.storage-error {
+  margin: 0;
+  color: var(--text-secondary);
+  font-size: var(--text-sm);
+  line-height: var(--leading-normal);
+}
+.storage-error,
+.storage-status.is-error {
+  color: var(--danger);
+}
+.storage-error {
+  margin-bottom: var(--space-4);
+}
+@media (max-width: 760px) {
+  .storage-types {
+    grid-template-columns: 1fr;
+    gap: var(--space-3);
+  }
+  .storage-type {
+    min-height: 120px;
+    padding: var(--space-4);
+  }
+  .storage-row {
+    flex-wrap: wrap;
+    gap: var(--space-2);
+    padding: var(--space-3);
+  }
+  .storage-entry {
+    flex-basis: calc(100% - 48px);
+  }
+  .storage-status {
+    order: 1;
+    flex-basis: 100%;
+    padding-left: var(--space-10);
+  }
+}

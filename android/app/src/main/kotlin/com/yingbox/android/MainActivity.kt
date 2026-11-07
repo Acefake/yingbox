@@ -57,6 +57,7 @@ import com.yingbox.android.ui.LibraryPlayRequest
 import com.yingbox.android.ui.LibraryPlayerScreen
 import com.yingbox.android.ui.LibraryScreen
 import com.yingbox.android.ui.LocalHaze
+import com.yingbox.android.ui.LocalSettingsScope
 import com.yingbox.android.ui.LogoSplash
 import com.yingbox.android.ui.Message
 import com.yingbox.android.ui.SPLASH_INTRO_MS
@@ -156,6 +157,7 @@ private fun App(isTv: Boolean) {
     }
     var stack by remember { mutableStateOf(listOf<Screen>(Screen.Top(Tab.Home))) }
     val scope = rememberCoroutineScope()
+    val settingsScope = rememberCoroutineScope()
     val context = LocalContext.current
     val updates = remember(client) { UpdateController(context.applicationContext, client, scope) }
     LaunchedEffect(updates) { updates.checkOnLaunch() }
@@ -212,6 +214,7 @@ private fun App(isTv: Boolean) {
     CompositionLocalProvider(
         LocalBrandColor provides device.brandColor,
         LocalHaze provides haze,
+        LocalSettingsScope provides settingsScope,
         LocalReduceTransparency provides device.reduceTransparency,
         LocalIsTv provides isTv,
         LocalTvFocusTopInset provides if (stack.last() is Screen.Top) chrome.calculateTopPadding() else belowBackButton(),

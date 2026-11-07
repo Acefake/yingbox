@@ -14,7 +14,10 @@ import {
 import { win } from '../../shared/contract/win'
 import { settingsStore } from '../settings'
 import { createDesktopUpdater } from '../updater/desktop-updater'
-import { launchUpdateCompanion } from '../updater/companion'
+import {
+  launchUpdateCompanion,
+  quitForCompanionInstall,
+} from '../updater/companion'
 
 let latestStatus: UpdateStatusEvent | null = null
 let latestInfo: UpdateInfo | null = null
@@ -64,7 +67,7 @@ function updater(): ReturnType<typeof createDesktopUpdater> {
         })
       })
     },
-    quit: () => electronApp.quit(),
+    quit: () => quitForCompanionInstall(electronApp),
   })
   return desktopUpdater
 }

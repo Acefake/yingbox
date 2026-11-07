@@ -5,7 +5,6 @@ import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
 import androidx.compose.runtime.Composable
-import androidx.compose.runtime.rememberCoroutineScope
 import androidx.compose.ui.platform.LocalContext
 import com.yingbox.android.settings.ImageKind
 import com.yingbox.android.settings.ImageQualities
@@ -22,7 +21,7 @@ import kotlinx.coroutines.withContext
 @Composable
 internal fun ImageQualityGroup(api: ServerSettingsApi) {
     val context = LocalContext.current
-    val scope = rememberCoroutineScope()
+    val scope = rememberSettingsScope()
     SettingsGroup("图片清晰度", "高清是默认；标准加载更快、更省流量，原图最清晰。改了之后重新打开页面生效。") {
         for (kind in ImageKind.entries) {
             Column(verticalArrangement = Arrangement.spacedBy(YbSpace.S2)) {

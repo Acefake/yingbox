@@ -23,10 +23,19 @@
   ${if} ${isUpdated}
   ${andIf} ${isForceRun}
     Push $0
-    ReadEnvStr $0 YINGBOX_UPDATE_UI
-    ${if} $0 != "1"
-      SetSilent normal
+    Push $1
+    ${GetParameters} $0
+    ClearErrors
+    ${GetOptions} $0 "--yingbox-update-ui" $1
+    ${ifNot} ${Errors}
+      SetSilent silent
+    ${else}
+      ReadEnvStr $0 YINGBOX_UPDATE_UI
+      ${if} $0 != "1"
+        SetSilent normal
+      ${endif}
     ${endif}
+    Pop $1
     Pop $0
   ${endif}
 !macroend

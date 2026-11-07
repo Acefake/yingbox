@@ -33,6 +33,12 @@ export const ANDROID_ICONS = [
   'play',
   'star',
   'close',
+  'sun',
+  'download',
+  'globe',
+  'database',
+  'cloud',
+  'info',
 ] as const satisfies readonly (keyof typeof ICONS)[]
 
 const pascal = (name: string): string =>

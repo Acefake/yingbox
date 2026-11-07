@@ -35,6 +35,13 @@ export { installLibraryProgress } from './progress/install'
 export { resumeLibrary } from './progress/resume-library'
 export { librarySettingsSection } from './settings/section'
 export {
+  storageWebDav,
+  editStorageWebDav,
+  removeStorageWebDav,
+  addStorageWebDavLibrary,
+  addStorageMountLibrary,
+} from './webdav/storage-management'
+export {
   loadProgress as loadLibraryProgress,
   progressOf as libraryItemProgress,
 } from './progress/progress-cache'

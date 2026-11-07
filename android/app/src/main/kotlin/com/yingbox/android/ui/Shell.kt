@@ -16,6 +16,7 @@ import androidx.compose.foundation.layout.statusBars
 import androidx.compose.foundation.layout.statusBarsPadding
 import androidx.compose.foundation.layout.systemBars
 import androidx.compose.foundation.layout.width
+import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.material3.Icon
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
@@ -40,9 +41,12 @@ enum class Tab(val label: String, val icon: ImageVector) {
     Settings("设置", YbIcons.Settings),
 }
 
-/** 导航放顶部：电视，以及宽屏（平板、手机横屏，宽度 600dp 起）；竖屏手机放底部 */
+/** 电视与平板使用顶部导航，手机横竖屏使用底部导航。 */
 @Composable
-fun useTopNav(isTv: Boolean): Boolean = isTv || LocalConfiguration.current.screenWidthDp >= 600
+fun useTopNav(isTv: Boolean): Boolean {
+    val config = LocalConfiguration.current
+    return adaptiveLayout(config.screenWidthDp, config.screenHeightDp, isTv) != AdaptiveLayout.Phone
+}
 
 /** 页面要给浮动导航和系统栏让出的空间：导航在顶部时让出顶部，在底部时让出底部 */
 @Composable
@@ -65,7 +69,8 @@ fun BoxScope.NavCapsule(current: Tab, tabs: List<Tab>, top: Boolean, contentFocu
         Modifier.align(Alignment.BottomCenter).navigationBarsPadding().padding(bottom = YbSpace.S3)
     }
     Row(
-        place.ybGlass(YbRadius.Full).padding(YbSpace.S1),
+        place.then(if (!top) Modifier.padding(horizontal = YbSpace.S3).fillMaxWidth() else Modifier)
+            .ybGlass(YbRadius.Full).padding(YbSpace.S1),
         horizontalArrangement = Arrangement.spacedBy(YbSpace.S1),
     ) {
         for (tab in tabs) {
@@ -94,7 +99,7 @@ fun BoxScope.NavCapsule(current: Tab, tabs: List<Tab>, top: Boolean, contentFocu
                 }
             } else {
                 Column(
-                    item.width(if (tabs.size > 5) 60.dp else 68.dp).padding(vertical = YbSpace.S2),
+                    item.weight(1f).padding(vertical = YbSpace.S2),
                     horizontalAlignment = Alignment.CenterHorizontally,
                 ) {
                     Icon(
