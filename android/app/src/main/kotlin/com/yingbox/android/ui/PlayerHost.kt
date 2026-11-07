@@ -32,10 +32,7 @@ import androidx.compose.ui.focus.focusRequester
 import androidx.compose.ui.focus.onFocusChanged
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.input.key.Key
 import androidx.compose.ui.input.key.KeyEventType
-import androidx.compose.ui.input.key.key
-import androidx.compose.ui.input.key.onKeyEvent
 import androidx.compose.ui.input.key.onPreviewKeyEvent
 import androidx.compose.ui.input.key.type
 import androidx.compose.ui.unit.dp
@@ -56,6 +53,8 @@ import com.yingbox.android.playback.engine.PlayerFactory
 import com.yingbox.android.playback.engine.VideoEnhancer
 import com.yingbox.android.settings.DeviceSettings
 import com.yingbox.android.playback.engine.StatsCollector
+import com.yingbox.android.playback.engine.RemoteAction
+import com.yingbox.android.playback.engine.RemoteMode
 import com.yingbox.android.playback.engine.VideoPlan
 import com.yingbox.android.playback.engine.notice
 import com.yingbox.android.playback.engine.planVideo
@@ -64,9 +63,6 @@ import com.yingbox.android.playback.engine.softwareAudioNotice
 import com.yingbox.android.server.ServerClient
 import kotlinx.coroutines.delay
 
-/** 遥控器：左右键快退 / 快进，确定 / 回车 / 播放暂停键切换暂停 */
-private val REMOTE_KEYS = setOf(Key.DirectionLeft, Key.DirectionRight, Key.DirectionCenter, Key.Enter, Key.MediaPlayPause)
-
 /** 遥控器左右键每次快退 / 快进多久 */
 internal const val SEEK_MS = 10_000L
 
@@ -74,7 +70,7 @@ internal const val SEEK_MS = 10_000L
 private const val NOTICE_MS = 6_000L
 
 /** 控制层多久没有操作就自动隐藏（暂停、设置面板打开时不隐藏） */
-private const val HIDE_MS = 2_500L
+private const val HIDE_MS = 4_000L
 
 /** 手势的提示显示多久 */
 private const val HUD_MS = 900L
@@ -194,13 +190,21 @@ class PlayerState(private val context: Context, client: ServerClient) : Player.L
 }
 
 /**
- * 播放画面：播放器视图、自绘控制层（顶栏、播放控制、进度条、设置面板）、触屏手势、遥控器按键、
- * 顶部提示和居中的错误。[onPrevious]、[onNext] 为空时对应按钮置灰；[onBack] 是控制层顶栏的返回按钮。
+ * 播放画面：播放器视图、手机 / 电视两套控制层、触屏手势、遥控器按键、提示和居中的错误。
+ * 这里只负责画面、分流和系统行为；手机见 [PhoneOverlay]，电视见 [TvOverlay] 与 [TvOptionsPanel]。
+ * [onPrevious]、[onNext] 为空时对应按钮不出现；[onBack] 是控制层顶栏的返回按钮。
  */
 @OptIn(UnstableApi::class)
 @Composable
 fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onNext: (() -> Unit)?, onBack: () -> Unit) {
     val player = state.player
+    // 「剧名 · 第3集」拆成两行标题；拆不出集名时副标题为空，界面不占第二行
+    val (mainTitle, subtitle) = remember(title) {
+        title.split(" · ", limit = 2).let { it[0] to it.getOrNull(1)?.takeIf { s -> s.isNotBlank() } }
+    }
+    val isTv = LocalIsTv.current
+    // 横滑、拖进度条共用：松手才 seek
+    val scrubber = remember(player) { Scrubber({ player.duration }, { player.seekTo(it) }) }
     DisposableEffect(state) { onDispose { state.clearEnhanceStatus() } }
     var panelHeight by remember { mutableIntStateOf(0) }
     var viewHeight by remember { mutableIntStateOf(1) }
@@ -235,25 +239,40 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
     PlayerFullscreen(landscape)
     // 正在拖进度条：这期间不自动隐藏（否则手指按住不动 4 秒，控制层消失，松手的跳转就丢了）
     var scrubbing by remember { mutableStateOf(false) }
+    // 遥控器 / 手势拖出来的目标还没提交，同样不自动隐藏
+    val dragging = scrubber.target != null
+    if (isTv) ScrubIdleCommit(scrubber)
+    // 手机选项浮层开着：同样不自动隐藏（浮层随控制层销毁）
+    var popupOpen by remember { mutableStateOf(false) }
     // 每次操作都刷新一下，重新计时自动隐藏
     var touched by remember { mutableLongStateOf(SystemClock.elapsedRealtime()) }
     fun poke() {
         controlsVisible = true
         touched = SystemClock.elapsedRealtime()
     }
-    LaunchedEffect(controlsVisible, touched, state.isPlaying, sheetOpen, scrubbing) {
-        if (controlsVisible && state.isPlaying && !sheetOpen && !scrubbing) {
+    fun openPanel() {
+        controlsVisible = false
+        sheetOpen = true
+    }
+    LaunchedEffect(controlsVisible, touched, state.isPlaying, sheetOpen, scrubbing, dragging, popupOpen, state.enhanceComparing) {
+        if (controlsVisible && state.isPlaying && !sheetOpen && !scrubbing && !dragging && !popupOpen && !state.enhanceComparing) {
             delay(HIDE_MS)
             controlsVisible = false
         }
     }
-    // 设置面板盖在上面时，返回键先关面板（比外层的返回上一页先收到）
-    BackHandler(enabled = sheetOpen) { sheetOpen = false }
+    // 电视的三级返回：选项面板 → 控制层 → 退出播放（隐藏态不拦截，交给外层的返回）
+    BackHandler(enabled = sheetOpen || (isTv && controlsVisible)) {
+        if (sheetOpen) sheetOpen = false else controlsVisible = false
+    }
 
     val focus = remember { FocusRequester() }
-    // 焦点在根容器自己身上时，遥控器的键是「快退 / 快进 / 暂停 / 开设置」；
-    // 按下键会把焦点送进控制层的按钮，这时方向键只用来换按钮、确定键按按钮
+    // 焦点在根容器自己身上时按隐藏态的键位；控制层显示后焦点在它的按钮上，方向键只用来换按钮、确定键按按钮
     var rootFocused by remember { mutableStateOf(false) }
+    val mode = when {
+        sheetOpen -> RemoteMode.Panel
+        controlsVisible && !rootFocused -> RemoteMode.Controls
+        else -> RemoteMode.Hidden
+    }
     LaunchedEffect(Unit) { focus.requestFocus() }
     // 控制层隐藏、设置面板关闭后，焦点所在的组件已不在了，把焦点还给根容器
     LaunchedEffect(controlsVisible, sheetOpen) {
@@ -266,22 +285,21 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
             .focusRequester(focus)
             .onFocusChanged { rootFocused = it.isFocused }
             .onPreviewKeyEvent { event ->
-                if (event.type == KeyEventType.KeyDown && !sheetOpen) poke()
+                // 电视隐藏态的按键不唤出控制层（左右键拖进度要保持画面干净），控制层显示时才续时
+                if (event.type == KeyEventType.KeyDown && !sheetOpen && (!isTv || controlsVisible)) poke()
                 false
             }
-            .onKeyEvent { event ->
-                // 设置面板打开、焦点在控制层的按钮上时，按键交给焦点所在的组件
-                if (sheetOpen || !rootFocused) return@onKeyEvent false
-                val ours = event.key in REMOTE_KEYS || event.key == Key.DirectionUp
-                if (ours && event.type == KeyEventType.KeyDown) {
-                    when (event.key) {
-                        Key.DirectionLeft -> player.seekBack()
-                        Key.DirectionRight -> player.seekForward()
-                        Key.DirectionUp -> sheetOpen = true
-                        else -> if (player.playWhenReady) player.pause() else player.play()
+            .remoteKeys(mode, scrubber, { player.currentPosition }) { action ->
+                when (action) {
+                    RemoteAction.TogglePlay -> {
+                        if (player.playWhenReady) player.pause() else player.play()
+                        poke()
                     }
+                    RemoteAction.ShowControls -> poke()
+                    // 面板只有电视有；打开时收起控制层，关闭后焦点才能回到根容器
+                    RemoteAction.OpenPanel -> if (isTv) openPanel()
+                    else -> Unit
                 }
-                ours
             }
             .focusable(),
     ) {
@@ -308,57 +326,53 @@ fun PlayerHost(state: PlayerState, title: String, onPrevious: (() -> Unit)?, onN
             },
             modifier = Modifier.fillMaxSize().onSizeChanged { viewHeight = it.height.coerceAtLeast(1) },
         )
-        PlayerGestures(state, onTap = { if (controlsVisible) controlsVisible = false else poke() }, onHud = { hud = it })
+        PlayerGestures(
+            state,
+            scrubber,
+            onTap = { if (controlsVisible) controlsVisible = false else poke() },
+            onHud = { hud = it },
+            onScrubbing = { scrubbing = it },
+        )
         // 设置面板打开时控制层让开，免得遥控器的焦点落到被盖住的按钮上
         AnimatedVisibility(controlsVisible && !sheetOpen, enter = fadeIn(), exit = fadeOut()) {
-            PlayerControls(
-                state,
-                title,
-                onPrevious,
-                onNext,
-                openSettings = { sheetOpen = true },
-                onActivity = ::poke,
-                onScrubbing = { scrubbing = it },
-                landscape = landscape,
-                onToggleFullscreen = { landscape = !landscape },
-                onBack = onBack,
-                onPanelHeight = { panelHeight = it },
-            )
-        }
-        // 手势的提示（亮度、音量、快进快退、倍速）盖在控制层上面
-        hud?.let {
-            Text(
-                it,
-                color = YbColor.TextPrimary,
-                fontSize = YbText.Md,
-                fontWeight = FontWeight.Medium,
-                modifier = Modifier.align(Alignment.Center).ybGlass(YbRadius.Full, media = true).padding(horizontal = YbSpace.S5, vertical = YbSpace.S3),
-            )
-        }
-        state.error?.let {
-            Text(
-                it,
-                color = YbColor.TextPrimary,
-                fontSize = YbText.Md,
-                modifier = Modifier.align(Alignment.Center).ybGlass(YbRadius.Lg, media = true).padding(YbSpace.S4),
-            )
-        }
-        if (noticeShown) {
-            noticeText?.let {
-                Text(
-                    it,
-                    color = YbColor.TextPrimary,
-                    fontSize = YbText.Md,
-                    modifier = Modifier
-                        .align(Alignment.TopCenter)
-                        .padding(YbSpace.S4)
-                        // 放在顶栏（标题和徽标）下面一点
-                        .padding(top = 72.dp)
-                        .ybGlass(YbRadius.Lg, media = true)
-                        .padding(YbSpace.S4),
+            if (isTv) {
+                TvOverlay(
+                    state,
+                    mainTitle,
+                    subtitle = subtitle,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    scrubber = scrubber,
+                    onActivity = ::poke,
+                    onOpenPanel = ::openPanel,
+                    onPanelHeight = { panelHeight = it },
+                )
+            } else {
+                PhoneOverlay(
+                    state,
+                    mainTitle,
+                    subtitle = subtitle,
+                    onPrevious = onPrevious,
+                    onNext = onNext,
+                    scrubber = scrubber,
+                    landscape = landscape,
+                    onToggleFullscreen = { landscape = !landscape },
+                    onActivity = ::poke,
+                    onScrubbing = { scrubbing = it },
+                    onPopupOpen = { popupOpen = it },
+                    onPanelHeight = { panelHeight = it },
+                    onBack = onBack,
                 )
             }
         }
-        if (sheetOpen) PlayerSettingsSheet(state) { sheetOpen = false }
+        PlayerNotices(
+            hud = hud,
+            // 电视隐藏态拖进度：控制层不出现，目标时间显示在屏幕中央
+            scrubTime = scrubber.target.takeIf { isTv && !controlsVisible },
+            error = state.error,
+            notice = noticeText,
+            noticeShown = noticeShown,
+        )
+        if (sheetOpen && isTv) TvOptionsPanel(state, rememberOptionGroups(state)) { sheetOpen = false }
     }
 }
